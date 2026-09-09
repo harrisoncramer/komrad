@@ -339,10 +339,10 @@ type ReviewKeys struct {
 	Back []string `mapstructure:"back" default:"esc"`
 	// Walk back a round through the review, from the whole change to the newest round and
 	// on into the older ones, stopping on the oldest.
-	Base []string `mapstructure:"base" default:"d"`
+	Base []string `mapstructure:"base" default:"<"`
 	// Walk the other way through the rounds, towards the newest work and on to the whole
 	// change.
-	BaseForward []string `mapstructure:"base_forward" default:"D"`
+	BaseForward []string `mapstructure:"base_forward" default:">"`
 	// Send the review and stop the agent where it stands, so it reads now rather than at
 	// the end of whatever it is doing. Only in the release panel, beside the ordinary
 	// submit key, which sends without interrupting.

@@ -186,10 +186,10 @@ up     = ["k"]
 back          = ["esc"]
 # Walk back a round through the review, from the whole change to the newest round and
 # on into the older ones, stopping on the oldest.
-base          = ["d"]
+base          = ["<"]
 # Walk the other way through the rounds, towards the newest work and on to the whole
 # change.
-base_forward  = ["D"]
+base_forward  = [">"]
 # Send the review and stop the agent where it stands, so it reads now rather than at
 # the end of whatever it is doing. Only in the release panel, beside the ordinary
 # submit key, which sends without interrupting.

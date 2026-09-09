@@ -906,7 +906,7 @@ func TestReviewSurvivesAFailedLoad(t *testing.T) {
 		{Type: tea.KeyRunes, Runes: []rune("j")},
 		{Type: tea.KeyRunes, Runes: []rune("c")},
 		{Type: tea.KeyRunes, Runes: []rune("c")},
-		{Type: tea.KeyRunes, Runes: []rune("D")},
+		{Type: tea.KeyRunes, Runes: []rune(">")},
 		{Type: tea.KeyPgDown},
 	} {
 		next, _ := m.updateReview(key)
@@ -1621,7 +1621,7 @@ func TestReviewBaseNarrowsToTheLastReview(t *testing.T) {
 	require.Equal(t, first.GetBaseSha(), agents.rounds[1].GetBaseSha(), "the base has not moved")
 	require.Equal(t, 2, m.review.view.Stat().Files, "the whole change is both files")
 
-	next, cmd := m.updateReview(keyMsg("d"))
+	next, cmd := m.updateReview(keyMsg("<"))
 	m = next.(model)
 	require.NotNil(t, cmd, "narrowing the base reloads the diff")
 
@@ -1639,7 +1639,7 @@ func TestReviewBaseNarrowsToTheLastReview(t *testing.T) {
 
 	// The walk stops at the oldest round rather than cycling, so the way back to the whole
 	// change is the other key.
-	next, cmd = m.updateReview(keyMsg("D"))
+	next, cmd = m.updateReview(keyMsg(">"))
 	m = next.(model)
 	require.NotNil(t, cmd, "stepping forward past the newest round widens the diff back out")
 
@@ -1684,7 +1684,7 @@ func reviewWithAnEarlierReview(t *testing.T, dir string, agents *fakeReviewAgent
 func pressReviewBase(t *testing.T, m model) model {
 	t.Helper()
 
-	next, cmd := m.updateReview(keyMsg("d"))
+	next, cmd := m.updateReview(keyMsg("<"))
 	m = next.(model)
 	require.NotNil(t, cmd, "the base key reloads the diff")
 
@@ -1821,7 +1821,7 @@ func TestReviewBaseIsRefusedWhenTheBaseMoved(t *testing.T) {
 
 	// The round is still a stop on the walk, since skipping it would make the key jump an
 	// unpredictable distance, and the band says why it cannot be compared.
-	next, cmd := m.updateReview(keyMsg("d"))
+	next, cmd := m.updateReview(keyMsg("<"))
 	m = next.(model)
 	require.NotNil(t, cmd, "the walk still moves")
 
