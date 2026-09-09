@@ -311,8 +311,8 @@ func (m model) sendReview(interrupt bool) (tea.Model, tea.Cmd) {
 
 	m = m.closeReviewRelease()
 
-	// The mode existed for the batch that has just gone, so it goes too. Leaving it on parks the
-	// reader in a mode whose own keys have withdrawn along with the review.
+	// The mode existed for the batch that has just gone, so it goes too rather than parking the
+	// reader in a mode whose own keys have withdrawn with the review.
 	m.review.writing = false
 
 	agents, agentID := m.api.agents, m.review.agentID

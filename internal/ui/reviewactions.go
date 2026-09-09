@@ -150,9 +150,8 @@ func orEnterWriting(fn func(model) (tea.Model, tea.Cmd)) func(model) (tea.Model,
 			return next, cmd
 		}
 
-		// Only a write that took opens the mode, and what says so is the editor being on screen
-		// or on its way. A press that opened nothing would otherwise take the round keys away and
-		// say nothing about why.
+		// Only a write that took opens the mode, and the editor being on screen or on its way is
+		// what says so.
 		if opened.info.kind != infoEditFile && opened.review.materialising == m.review.materialising {
 			return next, cmd
 		}
@@ -356,10 +355,10 @@ func (m model) stepReviewMatch(pressed string) (tea.Model, tea.Cmd) {
 
 func (m model) panReviewBy(pressed string) (tea.Model, tea.Cmd) {
 	if isBound(pressed, m.keys.Review.PanLeft) {
-		return m.panReview(-m.reviewPanStep())
+		return m.panReview(-m.getReviewPanStep())
 	}
 
-	return m.panReview(m.reviewPanStep())
+	return m.panReview(m.getReviewPanStep())
 }
 
 func (m model) openReviewFilter(string) (tea.Model, tea.Cmd) {

@@ -3,19 +3,11 @@
 package review
 
 import (
-	"cmp"
 	"slices"
 
 	"weave/internal/diff"
 	agentv1 "weave/proto/gen/agent/v1"
 )
-
-// changedNotice heads the comments whose code the agent has rewritten or removed.
-const changedNotice = "── the code these were about has changed ──"
-
-// outsideNotice heads the comments that are still in the change but not in the narrower diff on
-// screen, which is a different fact from their code having gone.
-const outsideNotice = "── still in the change, outside what is on screen ──"
 
 type rowKind uint8
 
@@ -58,6 +50,7 @@ type Anchor struct {
 
 type View struct {
 	patch   *diff.Patch
+	traced  map[string]Traced
 	rows    []row
 	sources []fileSource
 
@@ -215,108 +208,6 @@ func (v *View) Len() int { return len(v.rows) }
 
 // Stat is the size of the patch behind the view.
 func (v *View) Stat() diff.Stat { return v.patch.Stat() }
-
-// PinThreads works out where each thread is drawn now that the agent has been editing under
-// it, and never drops one for having moved.
-func (v *View) PinThreads(threads []*agentv1.ReviewThread) {
-	v.threads = threads
-	v.rows = v.rows[:v.patchRows]
-	v.pinned = map[int]*agentv1.ReviewThread{}
-	v.placed = map[string]placement{}
-
-	index := v.indexLines()
-
-	var unplaced []*agentv1.ReviewThread
-	for _, thread := range threads {
-		// A thread in a collapsed file has a line to stand on the moment the file is opened
-		// again, so it is not adrift and does not go to the foot of the diff.
-		if v.viewed[thread.GetFilePath()] {
-			v.placed[thread.GetId()] = collapsed
-
-			continue
-		}
-
-		y, where := v.rowFor(index, thread)
-		if where == adrift || v.pinned[y] != nil {
-			unplaced = append(unplaced, thread)
-
-			continue
-		}
-
-		v.pinned[y] = thread
-		v.placed[thread.GetId()] = where
-	}
-
-	v.appendAdrift(unplaced)
-
-	// The foot section is rebuilt here, so any search holding row numbers from the old one is
-	// run again rather than left pointing at rows that have moved.
-	if v.search != nil {
-		v.SetPattern(v.search.pattern)
-	}
-}
-
-// appendAdrift gives every thread with nowhere to stand a row at the foot of the diff, sorted
-// by where it was written so the section holds still while the cursor is in it.
-func (v *View) appendAdrift(threads []*agentv1.ReviewThread) {
-	if len(threads) == 0 {
-		return
-	}
-
-	slices.SortFunc(threads, func(a, b *agentv1.ReviewThread) int {
-		return cmp.Or(
-			cmp.Compare(a.GetFilePath(), b.GetFilePath()),
-			cmp.Compare(lineOf(a), lineOf(b)),
-			cmp.Compare(a.GetId(), b.GetId()),
-		)
-	})
-
-	// Explainer: a comment loses its line for two unrelated reasons, and reading them in one
-	// list is what makes a narrowed diff look like it has thrown every comment away. Code that
-	// has gone is the agent answering you. A file the diff on screen does not draw is you having
-	// narrowed the window, and the comment is still on a line of the whole change.
-	var changed, outside []*agentv1.ReviewThread
-	for _, thread := range threads {
-		if _, drawn := v.findFile(thread.GetFilePath()); drawn {
-			changed = append(changed, thread)
-
-			continue
-		}
-
-		outside = append(outside, thread)
-	}
-
-	v.appendFootSection(changedNotice, changed)
-	v.appendFootSection(outsideNotice, outside)
-}
-
-// appendFootSection draws one heading and the threads under it, and nothing at all for a section
-// with no threads in it.
-func (v *View) appendFootSection(notice string, threads []*agentv1.ReviewThread) {
-	if len(threads) == 0 {
-		return
-	}
-
-	v.rows = append(v.rows, row{
-		kind: metadataRow,
-		file: -1,
-		hunk: -1,
-		line: -1,
-		text: notice,
-	})
-
-	for _, thread := range threads {
-		v.rows = append(v.rows, row{
-			kind:   threadRow,
-			file:   -1,
-			hunk:   -1,
-			line:   -1,
-			thread: thread,
-		})
-		v.pinned[len(v.rows)-1] = thread
-		v.placed[thread.GetId()] = adrift
-	}
-}
 
 // GetFile reports whether the patch on screen draws a file at all, which is what tells a comment
 // on it apart from a comment on something outside the diff.
