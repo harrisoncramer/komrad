@@ -114,14 +114,68 @@ func TestReloadWithNoChaptersLetsTheReaderOut(t *testing.T) {
 // fresh snapshot would move the code out from under comments already written, so the load fails
 // rather than guessing that nothing is open.
 func TestThePinHoldsWhenTheReviewsCannotBeRead(t *testing.T) {
+	dir := reviewRepo(t)
 	agents := &fakeReviewAgents{reviewsErr: errors.New("the server went away")}
+	m, _ := reviewModel(t, agents, dir)
 
-	reviews, err := listReviews(t.Context(), agents, "a1")
-	require.Error(t, err, "an unreadable answer is not the same as nothing open")
+	loaded := loadReviewMsg(t, m)
 
-	round, pinned := findPendingRound(nil, openBatchRoundID(reviews))
-	assert.Nil(t, round)
-	assert.False(t, pinned)
+	require.Error(t, loaded.err, "an unreadable answer is not the same as nothing open")
+	assert.Nil(t, loaded.patch, "so no fresh snapshot is drawn over comments already written")
+	assert.Nil(t, loaded.round)
+	assert.False(t, loaded.pinned)
+}
+
+// TestTheRoundsGiveUpOnlyWhereThePinNeedsThem covers the load's own asymmetry: the rounds are
+// what a held pin is found in, so failing to read them is fatal only while a batch is open, and
+// every other answer they feed is a courtesy that goes quiet instead.
+func TestTheRoundsGiveUpOnlyWhereThePinNeedsThem(t *testing.T) {
+	openBatch := []*agentv1.Review{{
+		Id:         "v1",
+		AuthorKind: agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_HUMAN,
+		RoundId:    "r1",
+	}}
+
+	tests := []struct {
+		name      string
+		reviews   []*agentv1.Review
+		wantError bool
+	}{
+		{
+			name:      "a batch is open, so the pin cannot be placed",
+			reviews:   openBatch,
+			wantError: true,
+		},
+		{
+			name:      "nothing is open, so there is no pin to place",
+			reviews:   nil,
+			wantError: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dir := reviewRepo(t)
+			agents := &fakeReviewAgents{
+				reviews:   tt.reviews,
+				roundsErr: errors.New("the server went away"),
+			}
+			m, _ := reviewModel(t, agents, dir)
+
+			loaded := loadReviewMsg(t, m)
+
+			if tt.wantError {
+				require.Error(t, loaded.err)
+				assert.Nil(t, loaded.patch, "and nothing is drawn")
+
+				return
+			}
+
+			require.NoError(t, loaded.err)
+			assert.NotNil(t, loaded.patch, "the diff is drawn from the round opened for it")
+			assert.Empty(t, loaded.chapters, "with the walk the rounds would have cut left empty")
+		})
+	}
 }
 
 // TestSendingAReviewLeavesWritingBehind covers the mode outliving the batch it existed for: with

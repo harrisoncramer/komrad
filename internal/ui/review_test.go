@@ -42,6 +42,7 @@ type fakeReviewAgents struct {
 	harvests   int
 	harvestErr error
 	reviewsErr error
+	roundsErr  error
 	// reviewReads and roundReads count what one load asked the server for.
 	reviewReads int
 	roundReads  int
@@ -144,6 +145,10 @@ func (f *fakeReviewAgents) ListReviewRounds(
 	*connect.Request[agentv1.ListReviewRoundsRequest],
 ) (*connect.Response[agentv1.ListReviewRoundsResponse], error) {
 	f.roundReads++
+
+	if f.roundsErr != nil {
+		return nil, f.roundsErr
+	}
 
 	return connect.NewResponse(&agentv1.ListReviewRoundsResponse{Rounds: f.rounds}), nil
 }
@@ -287,6 +292,20 @@ func reviewAgent(dir string) agentstore.Agent {
 		WorkflowID: "w1",
 		Pane:       "%9",
 	}
+}
+
+// loadReviewMsg runs the load off the UI thread and hands back what it answered, for a test
+// about the answer itself rather than about the screen drawn from it.
+func loadReviewMsg(t *testing.T, m model) reviewLoadedMsg {
+	t.Helper()
+
+	_, cmd := m.enterReview(reviewAgent(m.listing.agents[0].agent.Cwd))
+	require.NotNil(t, cmd)
+
+	loaded, ok := cmd().(reviewLoadedMsg)
+	require.True(t, ok)
+
+	return loaded
 }
 
 // openReview walks the whole path a keypress takes: the screen opens, the load command runs

@@ -266,16 +266,16 @@ func (s *ReviewService) openReviewFor(
 	})
 }
 
-// requirePreviousReviewAnswered holds an author to one review at a time, refusing a second batch until
-// the agent has written something in answer to the last one.
+// requirePreviousReviewAnswered holds an author to one review at a time, refusing a second batch
+// until the agent has written something in answer to the last one.
 func (s *ReviewService) requirePreviousReviewAnswered(
 	ctx context.Context,
 	agentID string,
 	params reviewstore.AuthorParams,
 	round reviewstore.Round,
 ) error {
-	// An agent reviewing is held to one review per round by requireNotReviewedAlready, which says so in
-	// its own words, so this is the person's rule alone.
+	// An agent reviewing is held to one review per round elsewhere, in its own words, so this is
+	// the person's rule alone.
 	if params.AuthorKind != reviewstore.AuthorHuman {
 		return nil
 	}
@@ -332,9 +332,13 @@ func (s *ReviewService) requireNotReviewedAlready(
 	return nil
 }
 
-// requireEntitled refuses an author giving a review it may not, which the person never is and an
-// agent is of anything but the agent it is a child of, its own work included.
-func (s *ReviewService) requireEntitled(ctx context.Context, agentID string, author ReviewAuthor) error {
+// requireEntitled refuses an author that may not give a review on an agent: the person may
+// always, an agent may only on the agent it is a child of, and never on its own work.
+func (s *ReviewService) requireEntitled(
+	ctx context.Context,
+	agentID string,
+	author ReviewAuthor,
+) error {
 	if !author.IsHuman() && author.AgentID != nil && *author.AgentID == agentID {
 		return ErrReviewOwnWork
 	}
@@ -342,9 +346,13 @@ func (s *ReviewService) requireEntitled(ctx context.Context, agentID string, aut
 	return s.requireMayRead(ctx, agentID, author)
 }
 
-// requireMayRead refuses an author looking at an agent's rounds and reviews at all, which the
-// agent under review is not of its own work.
-func (s *ReviewService) requireMayRead(ctx context.Context, agentID string, author ReviewAuthor) error {
+// requireMayRead refuses an author that may not look at an agent's rounds and reviews at all,
+// which the agent under review always may of its own work.
+func (s *ReviewService) requireMayRead(
+	ctx context.Context,
+	agentID string,
+	author ReviewAuthor,
+) error {
 	if author.IsHuman() {
 		return nil
 	}
