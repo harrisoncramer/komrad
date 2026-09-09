@@ -15,8 +15,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-// reviewVerdicts is what the release panel offers, in the order a reader most often wants them,
-// so the first is the one the submit key used to send on its own.
+// reviewVerdicts is what the release panel offers, in the order a reader most often wants them.
 var reviewVerdicts = []agentv1.ReviewVerdict{
 	agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED,
 	agentv1.ReviewVerdict_REVIEW_VERDICT_APPROVED,
@@ -24,8 +23,7 @@ var reviewVerdicts = []agentv1.ReviewVerdict{
 }
 
 // composeReview opens the editor on the line under the cursor, replying in the thread already
-// there or opening a new one, which is prose alone: an edit of the round becomes a comment when
-// the editor closes rather than when this key is pressed.
+// there or opening a new one, writing prose alone rather than editing the round.
 func (m model) composeReview() (tea.Model, tea.Cmd) {
 	// Explainer: reading walks the rounds and writes nothing, so the compose key is also the way
 	// into the mode that can. The switch reloads the whole change and puts the cursor back on the
@@ -75,8 +73,7 @@ func (m model) enterReviewWriting() (tea.Model, tea.Cmd) {
 	return m.composeReview()
 }
 
-// refuseReviewLine says why nothing opened on a row that is not a line of code, since silence
-// there reads as the key being broken.
+// refuseReviewLine says why nothing opened on a row that is not a line of code.
 func (m model) refuseReviewLine() (tea.Model, tea.Cmd) {
 	m.review.notice = "put the cursor on a line of the diff to comment on it"
 
@@ -365,8 +362,8 @@ func (m model) updateReviewRelease(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m, cmd
 }
 
-// sendReview lets the batch go with the verdict chosen and whatever was written about the work as
-// a whole, which reaches the agent as one file and one piece of mail.
+// sendReview releases the batch with the verdict chosen and whatever was written about the work
+// as a whole, reaching the agent as one file and one piece of mail.
 func (m model) sendReview(interrupt bool) (tea.Model, tea.Cmd) {
 	verdict := reviewVerdicts[m.review.verdict]
 	body := strings.TrimSpace(m.review.editor.Value())

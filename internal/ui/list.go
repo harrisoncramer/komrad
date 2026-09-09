@@ -15,8 +15,8 @@ func (m model) listLines(chrome ...string) int {
 	return max(m.spareLines(chrome...), 1)
 }
 
-// spareLines is what the pane has left once the chrome has taken its share, unclamped, which is
-// how a section that would not fit is dropped rather than drawn past the bottom of the pane.
+// spareLines is what the pane has left once the chrome has taken its share, unclamped, so a
+// section that would not fit is dropped rather than drawn past the bottom of the pane.
 func (m model) spareLines(chrome ...string) int {
 	if m.height <= 0 {
 		return 0
@@ -45,7 +45,7 @@ func renderList(rows []string, cursor, lines int) string {
 }
 
 // windowRows is the screenful of a block taller than its pane, placed by place and carrying the
-// counts of what is above and below it, which is the one copy of that arithmetic.
+// counts of what is above and below it.
 func windowRows(rows []string, lines int, place func(visible int) int, style lipgloss.Style) string {
 	// A marker costs a row, so the widest window is tried first and gives one up at a time until
 	// the counts it needs have the room to be drawn beside it.
@@ -97,8 +97,7 @@ func drawWindow(rows []string, start, visible int, style lipgloss.Style) string 
 	return b.String()
 }
 
-// countLines is how many rows a rendered block takes, not counting the newline it ends with,
-// which closes the last row rather than opening another.
+// countLines is how many rows a rendered block takes, not counting the newline it ends with.
 func countLines(block string) int {
 	if block == "" {
 		return 0

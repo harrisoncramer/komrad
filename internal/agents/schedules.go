@@ -70,7 +70,7 @@ func (s *ScheduleService) NewSchedule(ctx context.Context, cfg schedulestore.Con
 }
 
 // UpdateSchedule replaces a schedule's editable fields, keeping the name it already has when a
-// blank one is given so the list never renders an unlabelled row.
+// blank one is given.
 func (s *ScheduleService) UpdateSchedule(ctx context.Context, id string, cfg schedulestore.Config) error {
 	existing, err := s.GetSchedule(ctx, id)
 	if errors.Is(err, store.ErrNotFound) {
@@ -116,7 +116,7 @@ func (s *ScheduleService) SetScheduleEnabled(ctx context.Context, id string, ena
 }
 
 // ArchiveSchedule stops a schedule from firing again, leaving the agents it already launched
-// alone with their record of the schedule that made them.
+// alone.
 func (s *ScheduleService) ArchiveSchedule(ctx context.Context, id string) error {
 	_, err := s.GetSchedule(ctx, id)
 	if errors.Is(err, store.ErrNotFound) {
@@ -185,7 +185,7 @@ func ParseCron(expression, timezone string) (cron.Schedule, error) {
 }
 
 // CalculateNextRun returns when a schedule next fires after from, or the zero time when it is
-// paused or its expression cannot be read, which the panel renders as a dash.
+// paused or its expression cannot be read.
 func CalculateNextRun(s schedulestore.Schedule, from time.Time) time.Time {
 	if !s.Enabled {
 		return time.Time{}

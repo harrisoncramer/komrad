@@ -135,8 +135,8 @@ func agentFields(agent agentstore.Agent, schedule, parent string) []recordField 
 	return fields
 }
 
-// attachmentFieldKey labels the agent a child hangs off, which for a reviewer is the work it
-// was launched to read rather than only where it happens to be running.
+// attachmentFieldKey labels the agent a child hangs off, which for a reviewer is the work it was
+// launched to read rather than only where it happens to be running.
 func attachmentFieldKey(role agentstore.Role) string {
 	if role == agentstore.RoleReviewer {
 		return reviewingFieldKey
@@ -145,12 +145,10 @@ func attachmentFieldKey(role agentstore.Role) string {
 	return "attached to"
 }
 
-// reviewingFieldKey labels whose work a reviewer is reading, and is the key the agents briefed
-// before the role existed recorded that under for themselves.
+// reviewingFieldKey labels whose work a reviewer is reading.
 const reviewingFieldKey = "reviewing"
 
-// branchFieldKey labels the branch an agent's checkout is on, and is the key an agent that
-// recorded its own branch used.
+// branchFieldKey labels the branch an agent's checkout is on.
 const branchFieldKey = "branch"
 
 const noSchedulesMarkdown = `# Schedules

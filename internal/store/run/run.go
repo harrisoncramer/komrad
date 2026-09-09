@@ -1,6 +1,6 @@
 // Package run records one row for every script weave fires against an agent, so a hook that
 // failed is a fact on the agent rather than a line in a log file nobody knows to open. The
-// output itself stays on disk; the row is the index that points at it.
+// output stays on disk and the row says where to find it.
 package run
 
 import (
@@ -28,7 +28,7 @@ type BeginParams struct {
 	LogNumber *int32
 }
 
-// Begin opens a row for a run about to start and returns its id, which Finish is called with.
+// Begin opens a row for a run about to start and returns its id.
 func (s *Store) Begin(ctx context.Context, params BeginParams) (string, error) {
 	if !store.IsID(params.AgentID) {
 		return "", fmt.Errorf("failed to record a run of %q: %q is not an agent id", params.Script, params.AgentID)
@@ -70,8 +70,7 @@ func (s *Store) Finish(ctx context.Context, params FinishParams) error {
 	return nil
 }
 
-// Abandon drops the row of a run that never started, matching the log file weave removes for
-// the same reason: a refusal is not a run and should not count against what an agent keeps.
+// Abandon drops the row of a run that never started.
 func (s *Store) Abandon(ctx context.Context, id string) error {
 	if !store.IsID(id) {
 		return nil
@@ -84,8 +83,7 @@ func (s *Store) Abandon(ctx context.Context, id string) error {
 	return nil
 }
 
-// Prune drops an agent's runs past the newest keep, held to the same bound as the log files so
-// that a row is never left pointing at output that has already been swept.
+// Prune drops an agent's runs past the newest keep, held to the same bound as the log files.
 func (s *Store) Prune(ctx context.Context, agentID string, keep int) error {
 	if !store.IsID(agentID) || keep <= 0 {
 		return nil
@@ -102,7 +100,7 @@ func (s *Store) Prune(ctx context.Context, agentID string, keep int) error {
 }
 
 // Failure is one agent's most recent failed run nobody has looked at, and the log its output
-// went to, which is what opens the pane on the run that failed rather than on the last one.
+// went to.
 type Failure struct {
 	AgentID   string
 	LogNumber *int32
@@ -120,8 +118,7 @@ func (s *Store) ListUnreadFailures(ctx context.Context) ([]Failure, error) {
 	}), nil
 }
 
-// MarkRead claims every failed run an agent is holding, which is what looking at its run log
-// does: the mark is about there being something to read rather than about a particular run.
+// MarkRead claims every failed run an agent is holding.
 func (s *Store) MarkRead(ctx context.Context, agentID string) error {
 	if !store.IsID(agentID) {
 		return nil

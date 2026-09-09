@@ -6,7 +6,7 @@ import (
 )
 
 // WriteTempText writes text to a file under dir so it reaches the pane as a path rather than as
-// keystrokes, which a shell's line editor makes expensive.
+// keystrokes.
 func WriteTempText(dir, pattern, text string) (string, error) {
 	if dir != "" {
 		if err := os.MkdirAll(dir, 0o755); err != nil {

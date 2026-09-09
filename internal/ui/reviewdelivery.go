@@ -70,8 +70,8 @@ func reviewDeliveryBadge(message *agentv1.ReviewMessage) string {
 	return drawn.style.Render("  "+badge) + "\n"
 }
 
-// reviewDeliveryStamp is the moment a badge names, which is the last thing that happened to the
-// comment rather than when it was written.
+// reviewDeliveryStamp is the moment a badge names: the last thing that happened to the comment,
+// not when it was written.
 func reviewDeliveryStamp(message *agentv1.ReviewMessage) string {
 	if delivered := message.GetDeliveredAt(); delivered != "" {
 		return delivered

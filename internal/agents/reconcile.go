@@ -23,8 +23,7 @@ const stateSeenBound = 2 * time.Minute
 
 const prLookupTimeout = 15 * time.Second
 
-// prMetadataKey is the metadata key a found pull request is recorded under, the same key
-// weave's own agents have been asked to record it under by hand.
+// prMetadataKey is the metadata key a found pull request is recorded under.
 const prMetadataKey = "pr"
 
 // prFinder looks up the URL of an open pull request for a branch, an empty string with no
@@ -53,8 +52,8 @@ type agentStateReadWriter interface {
 	SetMetadata(ctx context.Context, params agentstore.SetMetadataParams) (bool, error)
 }
 
-// Reconciler treats the pane as the only authority on an agent's state; any other signal may
-// only accelerate a transition the pane would also reach.
+// Reconciler treats the pane as the only authority on an agent's state, letting any other
+// signal only hurry along a transition the pane would reach anyway.
 type Reconciler struct {
 	tmux      paneObserver
 	harnesses harnessGetter
@@ -68,8 +67,8 @@ type Reconciler struct {
 	tally             *tally
 }
 
-// NewReconcilerParams is what a Reconciler is built over: a tmux probe, the harnesses that read
-// its captures, and the state store.
+// NewReconcilerParams is what a Reconciler is built over: a tmux probe, the harnesses that
+// read its captures, and the state store.
 type NewReconcilerParams struct {
 	Panes     paneObserver
 	Harnesses harnessGetter
@@ -97,8 +96,8 @@ func (r *Reconciler) RecordReportedReason(agentID, reason string) {
 	r.tally.recordReportedReason(agentID, reason)
 }
 
-// WithFrameRecorder attaches somewhere for the frame behind each reading to be kept, and
-// nothing is written while it is unset.
+// WithFrameRecorder attaches somewhere to keep the frame behind each reading, nothing being
+// written while it is unset.
 func (r *Reconciler) WithFrameRecorder(recorder frameRecorder) *Reconciler {
 	r.frames = recorder
 
@@ -106,15 +105,15 @@ func (r *Reconciler) WithFrameRecorder(recorder frameRecorder) *Reconciler {
 }
 
 // WithPRFinder attaches a way to check GitHub for a pull request an agent opened on its own,
-// and an agent going idle is never checked while it is unset.
+// no agent being checked while it is unset.
 func (r *Reconciler) WithPRFinder(finder prFinder) *Reconciler {
 	r.prFinder = finder
 
 	return r
 }
 
-// Reconcile observes every tracked agent once and corrects any stored state reality has
-// moved past, leaving an agent that already matches untouched.
+// Reconcile observes every tracked agent once and corrects any stored state reality has moved
+// past, leaving an agent that already matches untouched.
 func (r *Reconciler) Reconcile(ctx context.Context) error {
 	agents, err := r.store.List(ctx)
 	if err != nil {
@@ -242,8 +241,8 @@ func doesReadingDispute(activity harness.Activity, state agentstore.State) bool 
 	return false
 }
 
-// settle moves an agent to where a frame that has stopped moving lands, taking either the agent's
-// own CLI reporting its turn ended or enough passes in a row reading the same thing.
+// settle moves an agent to where a frame that has stopped moving lands, taking either the
+// agent's own CLI reporting its turn ended or enough passes in a row reading the same thing.
 func (r *Reconciler) settle(ctx context.Context, agent agentstore.Agent, state agentstore.State) {
 	if agent.State == state {
 		r.tally.clearMisses(agent.ID)
@@ -271,7 +270,7 @@ func (r *Reconciler) settle(ctx context.Context, agent agentstore.Agent, state a
 }
 
 // stampTurnEnd raises the unread mark for a turn the pane watched stop while nothing reported
-// it, so a harness with no end-of-turn hook still marks its agents unread.
+// it.
 func (r *Reconciler) stampTurnEnd(ctx context.Context, agent agentstore.Agent) {
 	if err := r.store.SetTurnEnded(ctx, agent.ID); err != nil {
 		logging.From(ctx).LogAttrs(ctx, slog.LevelError, "failed to stamp a turn the pane settled",
@@ -341,8 +340,7 @@ func (r *Reconciler) forget(ctx context.Context, agent agentstore.Agent, mine bo
 	return forgotten
 }
 
-// apply writes the state a pass settled on and reports whether the store took it, which the
-// caller needs before it hangs anything else off the transition.
+// apply writes the state a pass settled on and reports whether the store took it.
 func (r *Reconciler) apply(ctx context.Context, agent agentstore.Agent, state agentstore.State) bool {
 	r.tally.clearDebounce(agent.ID)
 	justWentIdle := state == agentstore.StateIdle && agent.State != agentstore.StateIdle
@@ -368,7 +366,7 @@ func (r *Reconciler) apply(ctx context.Context, agent agentstore.Agent, state ag
 }
 
 // checkPR looks for a pull request an agent opened, once as the agent goes idle, and records
-// the first one it finds without ever checking whether it later merges or closes.
+// the first one it finds.
 func (r *Reconciler) checkPR(ctx context.Context, agent agentstore.Agent) {
 	if r.prFinder == nil || agent.Branch == nil || *agent.Branch == "" {
 		return

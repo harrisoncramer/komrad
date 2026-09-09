@@ -23,15 +23,13 @@ func (s *Store) List(ctx context.Context) ([]Agent, error) {
 // Cursor pages this listing, which resumes from one row's id.
 type Cursor = store.IDCursor
 
-// AgentDir is the directory one agent holds, which is all a check on the worktrees weave
-// made needs to know about it.
+// AgentDir is the directory one agent holds.
 type AgentDir struct {
 	ID  string
 	Cwd string
 }
 
-// ListDirs returns the directory every agent holds, archived ones included since a dormant
-// agent is restored into the tree it still owns.
+// ListDirs returns the directory every agent holds, archived ones included.
 func (s *Store) ListDirs(ctx context.Context) ([]AgentDir, error) {
 	rows, err := s.queries.ListAgentDirs(ctx)
 	if err != nil {
@@ -144,7 +142,7 @@ func (s *Store) ActiveNameExists(ctx context.Context, workflowID, name string) (
 }
 
 // ListNamesHoldingSchedule returns the names of the agents outside a workflow that still point
-// at a schedule, which is only the ones a schedule moved between workflows left behind.
+// at a schedule.
 func (s *Store) ListNamesHoldingSchedule(ctx context.Context, scheduleID, workflowID string) ([]string, error) {
 	if !store.IsID(scheduleID) || !store.IsID(workflowID) {
 		return nil, nil
@@ -181,8 +179,7 @@ func (s *Store) ListArchivedInWorkflow(ctx context.Context, workflowID string) (
 	return s.hydrateMetadataForAgents(ctx, rows)
 }
 
-// ListChildren returns the agents attached to the given parents, archived ones included, so a
-// caller that has to include a family decides for itself which of them it wants.
+// ListChildren returns the agents attached to the given parents, archived ones included.
 func (s *Store) ListChildren(ctx context.Context, parentIDs []string) ([]Agent, error) {
 	storable := keepStorableIDs(parentIDs)
 	if len(storable) == 0 {

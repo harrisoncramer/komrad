@@ -124,8 +124,7 @@ func inspectDir(path string) (DirState, error) {
 }
 
 // readWorktreeOwners reads who could own a worktree directory: every agent, archived ones
-// included since a dormant agent is restored into the tree it still holds, and the
-// directories the workflows cut their worktrees in.
+// included, and the directories the workflows cut their worktrees in.
 func readWorktreeOwners(ctx context.Context, url string) (WorktreeOwners, error) {
 	pool, err := openReadOnlyPool(ctx, url)
 	if err != nil {

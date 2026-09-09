@@ -276,7 +276,7 @@ func (s *Service) ListReviews(
 	return connect.NewResponse(&agentv1.ListReviewsResponse{Reviews: answered}), nil
 }
 
-// ReleaseReview lets go of the caller's open batch, writing it out and mailing the path.
+// ReleaseReview releases the caller's open review, writing it out and mailing the path.
 func (s *Service) ReleaseReview(
 	ctx context.Context,
 	req *connect.Request[agentv1.ReleaseReviewRequest],
@@ -343,8 +343,8 @@ func (s *Service) ListReviewViewedFiles(
 	return connect.NewResponse(&agentv1.ListReviewViewedFilesResponse{Viewed: answered}), nil
 }
 
-// reviewAuthorFrom reads who a call belongs to from the identity on it, so an agent cannot
-// post as the reviewer by asking to.
+// reviewAuthorFrom reads who a call belongs to from the identity on it, so an agent cannot post
+// as the reviewer by asking to.
 func reviewAuthorFrom(ctx context.Context) agents.ReviewAuthor {
 	from := caller.From(ctx)
 	if from.AgentID == "" {

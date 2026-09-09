@@ -11,8 +11,7 @@ type TransformParams struct {
 	// Positions are the places in the earlier commit, answered for by index.
 	Positions []Position
 	// Mappings are what became of the files, with a second entry for a path only when a file was
-	// copied, which is the one case a position is answered for twice and which MapRanges does
-	// not produce today.
+	// copied.
 	Mappings []Mapping
 	// Policy is what a position whose lines were rewritten becomes.
 	Policy Policy
@@ -148,8 +147,7 @@ func shiftRange(mappings []RangeMapping, lines Range) (Range, bool) {
 	return validRange(start, end)
 }
 
-// validRange refuses a range the walk cannot vouch for, so no arithmetic slip is ever reported as
-// a placement.
+// validRange refuses a range the walk cannot vouch for.
 func validRange(start, end int) (Range, bool) {
 	moved := Range{Start: start, End: end}
 	if !moved.IsValid() {

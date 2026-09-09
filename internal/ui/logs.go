@@ -81,7 +81,7 @@ func (m model) cycleLogs() model {
 	}
 
 	// A mark says there is a failed run to read, so the pane opens on that run rather than on
-	// whatever ran last, which on an agent resumed since is a run that went fine.
+	// whatever ran last.
 	if m.info.kind == infoRunLog {
 		m.info.run = m.runAt(agent.ID, m.failedRunLog(agent.ID))
 	}
@@ -114,7 +114,7 @@ func (m model) olderLog() model {
 }
 
 // runPosition labels the older-run key with where through an agent's runs the pane has got,
-// counting from the newest, in a description short enough not to blank the legend.
+// counting from the newest.
 func (m model) runPosition() string {
 	agent, ok := m.logTarget()
 	if !ok {
@@ -174,8 +174,8 @@ func (m model) runAt(agentID string, number *int32) int {
 	return 0
 }
 
-// failedRunLog is the run log an agent's unread failure was written to, which is nothing at all
-// for a row carrying no mark.
+// failedRunLog is the run log an agent's unread failure was written to, and nothing for a row
+// carrying no mark.
 func (m model) failedRunLog(agentID string) *int32 {
 	for _, item := range m.listing.agents {
 		if item.agent.ID == agentID {

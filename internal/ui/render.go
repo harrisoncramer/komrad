@@ -127,8 +127,7 @@ func markedLine(rendered string) int {
 	return 0
 }
 
-// estimatedLine places an offset in the source at the same fraction of the rendered lines,
-// which is as much as can be said about a match the rendering dropped.
+// estimatedLine places an offset in the source at the same fraction of the rendered lines.
 func estimatedLine(rendered string, at, size int) int {
 	if size <= 0 || at < 0 {
 		return 0

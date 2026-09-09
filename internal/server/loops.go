@@ -16,13 +16,13 @@ const ScheduleReconcileInterval = 10 * time.Second
 const MailDeliveryInterval = 2 * time.Second
 
 // TranscriptSyncInterval is how often an agent's log is read for new turns, which decides how
-// soon a conversation is searchable and nothing else.
+// soon a conversation is searchable.
 const TranscriptSyncInterval = 15 * time.Second
 
 const CwdSyncInterval = 15 * time.Second
 
-// PRArchiveInterval is how often recorded pull requests are asked about, in minutes rather
-// than seconds because every pass spends somebody's GitHub quota.
+// PRArchiveInterval is how often recorded pull requests are asked about, in minutes rather than
+// seconds because every pass spends somebody's GitHub quota.
 const PRArchiveInterval = 2 * time.Minute
 
 const (

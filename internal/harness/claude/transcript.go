@@ -8,8 +8,8 @@ import (
 	"weave/internal/harness"
 )
 
-// LogPath finds the JSONL log for a session id by globbing the id, which avoids reproducing
-// Claude's version-specific directory-name encoding.
+// LogPath finds the JSONL log for a session id by globbing the id, so nothing here has to
+// reproduce Claude's directory-name encoding.
 func (h *Harness) LogPath(sessionID string) string {
 	if sessionID == "" {
 		return ""

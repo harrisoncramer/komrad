@@ -1,6 +1,6 @@
 table "schedules" {
   schema  = schema.public
-  comment = "A cron-driven agent launch: when to fire and what to ask for."
+  comment = "A recurring agent launch, holding when to fire and the prompt to launch with."
   column "id" {
     null    = false
     type    = uuid

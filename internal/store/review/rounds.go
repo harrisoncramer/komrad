@@ -11,20 +11,20 @@ import (
 	"weave/lib/xslice"
 )
 
-// Verdict is what an author concluded about a round.
+// Verdict is what a reviewer concluded about a round.
 type Verdict string
 
 const (
-	// VerdictApproved is the author saying this round is good as it stands.
+	// VerdictApproved is the reviewer saying this round is good as it stands.
 	VerdictApproved Verdict = Verdict(models.ReviewVerdictApproved)
-	// VerdictChangesRequested is the author saying the agent should keep working.
+	// VerdictChangesRequested is the reviewer saying the agent should keep working.
 	VerdictChangesRequested Verdict = Verdict(models.ReviewVerdictChangesRequested)
 	// VerdictCommented is notes without a conclusion either way.
 	VerdictCommented Verdict = Verdict(models.ReviewVerdictCommented)
 )
 
-// Round is one immutable snapshot of what an agent has written, which is what a review is
-// given against and what a comment is anchored to.
+// Round is one frozen snapshot of what an agent has written, which every review and comment
+// is anchored to.
 type Round struct {
 	ID          string
 	AgentID     string
@@ -34,8 +34,7 @@ type Round struct {
 	CreatedAt   time.Time
 }
 
-// Review is one author's batch of comments against one round, open while it is being written
-// and released as a whole.
+// Review is one reviewer's batch of comments on one round, released all at once.
 type Review struct {
 	ID            string
 	AgentID       string
@@ -44,11 +43,11 @@ type Review struct {
 	AuthorKind    AuthorKind
 	AuthorAgentID *string
 
-	// Verdict is what the author concluded, nil while the review is still open.
+	// Verdict is what the reviewer concluded, nil while the review is still open.
 	Verdict *Verdict
-	// ReleasedAt is when the review was let go of, nil while nothing in it has reached the agent.
+	// ReleasedAt is when the review was released, nil while nothing in it has reached the agent.
 	ReleasedAt *time.Time
-	// Body is what the author said about the work as a whole rather than about any one line,
+	// Body is what the reviewer said about the change as a whole rather than about any one line,
 	// empty when they said nothing.
 	Body string
 	// Path is the absolute path the released review was written to, empty while it is still open.
@@ -69,8 +68,8 @@ type CreateRoundParams struct {
 	SnapshotSHA string
 }
 
-// CreateRound records a snapshot as the next round of an agent, numbered after the rounds already
-// taken.
+// CreateRound records a snapshot as the next round of an agent, numbered after the rounds
+// already taken.
 func (s *Store) CreateRound(ctx context.Context, params CreateRoundParams) (*Round, error) {
 	row, err := s.queries.InsertReviewRound(ctx, models.InsertReviewRoundParams{
 		AgentID:     params.AgentID,
@@ -150,8 +149,8 @@ type OpenReviewParams struct {
 	AuthorAgentID *string
 }
 
-// OpenReview starts an author's batch against a round, which the one-open-review indexes refuse a
-// second of, and that is what keeps an author reviewing one round at a time.
+// OpenReview starts a reviewer's batch against a round, which a unique index allows only one
+// of at a time.
 func (s *Store) OpenReview(ctx context.Context, params OpenReviewParams) (*Review, error) {
 	row, err := s.queries.InsertReview(ctx, models.InsertReviewParams{
 		AgentID:       params.AgentID,
@@ -193,8 +192,8 @@ type AuthorParams struct {
 	AuthorAgentID *string
 }
 
-// OpenReviewOf is the batch an author is still writing against an agent, ErrNotFound when they
-// have none open.
+// OpenReviewOf is the review a reviewer is still writing against an agent, ErrNotFound when
+// they have none open.
 func (s *Store) OpenReviewOf(ctx context.Context, params AuthorParams) (*Review, error) {
 	if !store.IsID(params.AgentID) {
 		return nil, reviewNotFound(params.AgentID)
@@ -217,8 +216,8 @@ func (s *Store) OpenReviewOf(ctx context.Context, params AuthorParams) (*Review,
 	return &review, nil
 }
 
-// GetLastReleasedReview is the newest batch an author has let go of against an agent, which is what
-// says where they last looked, ErrNotFound when they have released none.
+// GetLastReleasedReview is the newest review a reviewer has released against an agent,
+// ErrNotFound when they have released none.
 func (s *Store) GetLastReleasedReview(ctx context.Context, params AuthorParams) (*Review, error) {
 	if !store.IsID(params.AgentID) {
 		return nil, reviewNotFound(params.AgentID)
@@ -277,8 +276,7 @@ func (s *Store) ListReviews(ctx context.Context, agentID string) ([]Review, erro
 	return reviews, nil
 }
 
-// CountOpenComments is how many comments an open review is holding, which the caller reads before
-// releasing so that a review with nothing in it rings nobody.
+// CountOpenComments is how many comments an open review is holding.
 func (s *Store) CountOpenComments(ctx context.Context, reviewID string) (int, error) {
 	if !store.IsID(reviewID) {
 		return 0, nil
@@ -295,14 +293,14 @@ func (s *Store) CountOpenComments(ctx context.Context, reviewID string) (int, er
 type ReleaseReviewParams struct {
 	ID      string
 	Verdict Verdict
-	// Body is what the author said about the work as a whole, empty when they said nothing.
+	// Body is what the reviewer said about the change as a whole, empty when they said nothing.
 	Body           string
 	Path           string
 	DoorbellMailID *string
 }
 
-// ReleaseReview lets a batch go, stamping the verdict it went out with, where it was written for
-// the agent, and the mail that told the agent it was there.
+// ReleaseReview releases a review, stamping its verdict, the file it was written to and the
+// mail that told the agent it was there.
 func (s *Store) ReleaseReview(ctx context.Context, params ReleaseReviewParams) (*Review, error) {
 	if !store.IsID(params.ID) {
 		return nil, reviewNotFound(params.ID)
@@ -327,9 +325,7 @@ func (s *Store) ReleaseReview(ctx context.Context, params ReleaseReviewParams) (
 	return &review, nil
 }
 
-// DeleteOpenReviewsBy removes the batches these authors were still writing, which is what an
-// agent being deleted leaves behind: a draft nobody has ever seen, with no history in it, whose
-// author is about to stop existing.
+// DeleteOpenReviewsBy removes the unreleased reviews these reviewers were still writing.
 func (s *Store) DeleteOpenReviewsBy(ctx context.Context, authorAgentIDs []string) error {
 	storable := xslice.Filter(authorAgentIDs, store.IsID)
 	if len(storable) == 0 {
@@ -343,8 +339,7 @@ func (s *Store) DeleteOpenReviewsBy(ctx context.Context, authorAgentIDs []string
 	return nil
 }
 
-// DeleteReview removes a batch and everything pinned under it, which is what abandoning an open
-// review does.
+// DeleteReview removes a review and everything pinned under it.
 func (s *Store) DeleteReview(ctx context.Context, id string) error {
 	if !store.IsID(id) {
 		return nil
@@ -400,13 +395,12 @@ func reviewNotFound(id string) error {
 }
 
 // Tally is where one agent's work stands with the reviews released of it, counted against the
-// agent holding the diff since that is the one going round again rather than whoever read it.
+// agent holding the diff rather than whoever read it.
 type Tally struct {
 	AgentID string
 	Rounds  int32
-	// Verdict is what was concluded about the agent's newest round, nil when the newest round
-	// carries no released review, which is what keeps an approval from outliving the work it
-	// was given.
+	// Verdict is what was concluded about the agent's newest round, nil when that round carries
+	// no released review.
 	Verdict *Verdict
 }
 
@@ -435,8 +429,7 @@ type LiveReviewer struct {
 	ReviewerID string
 }
 
-// ListLiveReviewers is every reviewer still owed an answer, which is the one definition of a
-// review being under way: an unarchived reviewer child whose last released verdict on its
+// ListLiveReviewers is every unarchived reviewer child whose last released verdict on its
 // parent's work was not an approval.
 func (s *Store) ListLiveReviewers(ctx context.Context) ([]LiveReviewer, error) {
 	rows, err := s.queries.ListLiveReviewers(ctx)

@@ -10,8 +10,8 @@ import (
 
 var workingLine = regexp.MustCompile(`(?m)^\s*[^\s\p{L}]?\s*Working\s*\(\s*\d+`)
 
-// interruptTimer leaves open both the verb, for a release that renames it, and whatever a step
-// names between the verb and the timer.
+// interruptTimer leaves open both the verb and whatever a step names between the verb and the
+// timer.
 var interruptTimer = regexp.MustCompile(`^\s*[^\s\p{L}]?\s*\p{L}.*\(\s*\d+[^)\n]*esc to interrupt`)
 
 var waitingFooter = regexp.MustCompile(`(?i)press enter to (confirm|continue)|enter to submit answer`)
@@ -22,8 +22,8 @@ const liveRegionLines = 30
 
 const waitingRegionLines = 8
 
-// composerSearchLines is how far up the composer marker is looked for, which is past the menus
-// Codex draws under the composer rather than over it.
+// composerSearchLines is how far up the composer marker is looked for, which reaches past the
+// menus Codex draws under the composer.
 const composerSearchLines = 30
 
 var ansiSeq = regexp.MustCompile(`\x1b\[[0-9;?]*[ -/]*[@-~]`)
@@ -74,7 +74,7 @@ func doesFrameShowWork(frame string) bool {
 }
 
 // doesFrameOfferInterrupt reads the live line offering to interrupt the turn, whose timer has to
-// be in the line drawn and gone from the same line less the dim.
+// be in the line as drawn and gone from the same line less the dim.
 func doesFrameOfferInterrupt(frame string) bool {
 	// Codex draws that timer dim and a message quoting the words does not, which is what carries
 	// the pattern being loose enough to take a label as well as a verb.
@@ -110,8 +110,8 @@ func doesFrameShowWaiting(frame string) bool {
 	return waitingFooter.MatchString(tailLines(frame, waitingRegionLines))
 }
 
-// composerText is the lines the composer holds, which is looked for at the bottom of the region
-// because the transcript echoes a message somebody sent with the same glyph the composer wears.
+// composerText is the lines the composer holds, looked for at the bottom of the region because
+// the transcript echoes a sent message with the same glyph the composer wears.
 func composerText(frame string) ([]string, bool) {
 	drawn := strings.Split(strings.TrimRight(frame, "\n"), "\n")
 	if len(drawn) > composerSearchLines {

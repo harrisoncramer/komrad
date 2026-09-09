@@ -6,9 +6,7 @@ import (
 	agentv1 "weave/proto/gen/agent/v1"
 )
 
-// reviewModeView says whether the reader is looking or writing, since a review is something you
-// start rather than something that starts itself, and nothing on the screen said which you were
-// doing.
+// reviewModeView says whether the reader is looking or writing.
 func (m model) reviewModeView() string {
 	if _, dead := m.reviewIsReadOnly(); dead {
 		return m.reviewBandRow(reviewHeldStyle, "reading", "this agent is gone, nothing can be sent")
@@ -37,8 +35,8 @@ func (m model) reviewModeView() string {
 		"press "+keyLabel(m.keys.Review.Compose)+" to comment")
 }
 
-// reviewWritingSaid is what the writing mode offers, which is the way out until something has
-// been written and the way to send it once something has.
+// reviewWritingSaid is what the writing mode offers: the way out until something has been
+// written, and the way to send it once something has.
 func (m model) reviewWritingSaid() string {
 	if !m.doesReviewHoldUnsent() {
 		return "nothing written yet · " + keyLabel(m.keys.Review.Back) + " to go back to reading"
@@ -103,7 +101,7 @@ func (m model) reviewIsHistory() (string, bool) {
 }
 
 // doesReviewWalk says whether the round keys have anywhere to go, which reading has and writing
-// does not, since a review is written against the whole change.
+// does not.
 func (m model) doesReviewWalk() bool {
 	return !m.review.writing && len(m.review.chapters) > 0
 }

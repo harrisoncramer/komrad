@@ -21,15 +21,13 @@ var optionCursor = regexp.MustCompile(`^\s*│?\s*❯\s+\d+\.\s`)
 var boxRule = regexp.MustCompile(`^─{3,}\s*$`)
 
 // panelRule is the rule Claude draws across the top of a panel it opens over the whole pane,
-// which eats every key typed at the pane until somebody dismisses it and shows no footer of its
-// own once its content is longer than the pane is tall.
+// which eats every key typed at the pane until somebody dismisses it.
 var panelRule = regexp.MustCompile(`^\s*▔{20,}`)
 
 // transcriptMarker opens a line of the conversation above the box.
 var transcriptMarker = regexp.MustCompile(`^\s*[⏺❯※]`)
 
-// dialogBorder is the frame Claude draws a question inside, which ends a status region for the
-// same reason the conversation above it does.
+// dialogBorder is the frame Claude draws a question inside, which ends a status region.
 var dialogBorder = regexp.MustCompile(`^[╭╮╰╯│]`)
 
 // hintLine is the note Claude draws under a status line.
@@ -51,8 +49,8 @@ type inputBox struct {
 	Held []string
 }
 
-// ReadInput reads what a captured frame says Claude is doing and what its box holds, relative to
-// the input box rather than to a count of lines off the bottom.
+// ReadInput reads what a captured frame says Claude is doing and what its box holds, measured
+// from the input box rather than from the bottom of the frame.
 func (h *Harness) ReadInput(frame string) harness.Input {
 	if frame == "" {
 		return harness.Input{Activity: harness.ActivityUnknown}
@@ -94,8 +92,8 @@ func frameLines(frame string) (lines, held, colours []string) {
 	return lines, held, colours
 }
 
-// findInputBox is the box nearest the bottom of the frame, which is the rule carrying the
-// prompt marker on the line under it.
+// findInputBox is the box nearest the bottom of the frame, being the rule carrying the prompt
+// marker on the line under it.
 func findInputBox(lines, held []string) (inputBox, bool) {
 	for i := len(lines) - 2; i >= 0 && i >= len(lines)-boxSearchLines; i-- {
 		if !boxRule.MatchString(lines[i]) {
@@ -132,9 +130,8 @@ func doesFrameShowWork(lines []string, box inputBox, boxed bool) bool {
 	return false
 }
 
-// isPromptGreyed reports whether the box draws its prompt marker in the colour of the rule above
-// it rather than in the terminal's own, which is Claude greying the box out for the length of a
-// turn.
+// isPromptGreyed reports whether the box draws its prompt marker in the colour of the rule
+// above it rather than in the terminal's own, which is Claude greying the box out for a turn.
 func isPromptGreyed(colours []string, box inputBox, boxed bool) bool {
 	if !boxed {
 		return false
@@ -147,8 +144,8 @@ func isPromptGreyed(colours []string, box inputBox, boxed bool) bool {
 	return rule != "" && rule == colours[box.Rule+1]
 }
 
-// statusRegion is the lines between the box and the conversation above it, taking only the
-// first column, which Claude keeps for its own status lines.
+// statusRegion is the lines between the box and the conversation above it, taking only the first
+// column, which Claude keeps for its own status lines.
 func statusRegion(lines []string, box inputBox, boxed bool) []string {
 	start := len(lines) - 1
 	if boxed {
@@ -180,8 +177,8 @@ func statusRegion(lines []string, box inputBox, boxed bool) []string {
 	return region
 }
 
-// doesFrameShowWaiting reads the footer under a question, or the cursor beside its options
-// when the footer has been pushed off the pane.
+// doesFrameShowWaiting reads the footer under a question, or the cursor beside its options when
+// the footer has been pushed off the pane.
 func doesFrameShowWaiting(lines []string, boxed bool) bool {
 	if boxed {
 		return false

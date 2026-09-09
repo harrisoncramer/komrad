@@ -27,7 +27,7 @@ import (
 )
 
 // reportRecorder is where what an agent's own CLI reports about itself reaches the reconcile
-// loop, which keeps the report beside what it read off the pane.
+// loop.
 type reportRecorder interface {
 	RecordTurnBoundary(agentID string)
 	RecordReportedReason(agentID, reason string)
@@ -70,8 +70,8 @@ type agentReadWriter interface {
 	Rename(ctx context.Context, id, name string) (bool, error)
 }
 
-// markReadWriter owns the letters a person addresses rows by, which span agents and workflows and
-// so are written through a transaction rather than through one store.
+// markReadWriter owns the letters a person types to jump to a row, which span agents and
+// workflows and so are written through a transaction rather than through one store.
 type markReadWriter interface {
 	ListMarks(ctx context.Context) ([]markstore.Mark, error)
 	SetMark(ctx context.Context, mark string, target markstore.Target) (bool, error)
@@ -163,8 +163,8 @@ func (s *Service) CreateAgent(ctx context.Context, req *connect.Request[agentv1.
 	return connect.NewResponse(&agentv1.CreateAgentResponse{Agent: renderAgent(*created, agentFlags{alive: s.liveness.IsAgentRunning(*created)}).Agent}), nil
 }
 
-// RequestReview spawns the reviewer for the calling agent's own work and answers with the rest
-// of the loop that agent is in.
+// RequestReview spawns the reviewer for the calling agent's own work and answers with the half
+// of the review briefing it was not launched with.
 func (s *Service) RequestReview(ctx context.Context, req *connect.Request[agentv1.RequestReviewRequest]) (*connect.Response[agentv1.RequestReviewResponse], error) {
 	id, err := scopedAgentID(ctx, req.Msg.GetAgentId())
 	if err != nil {
@@ -210,8 +210,8 @@ func (s *Service) Adopt(ctx context.Context, req *connect.Request[agentv1.AdoptR
 	return connect.NewResponse(&agentv1.AdoptResponse{Agent: renderAgent(*created, agentFlags{alive: s.liveness.IsAgentRunning(*created)}).Agent}), nil
 }
 
-// agentFlagsFor gathers the facts about a set of agents that are not on their own rows, so a
-// listing asks for each of them once rather than once per agent.
+// agentFlagsFor gathers the facts about a set of agents that are not on their own rows, asking
+// for each once rather than once per agent.
 func (s *Service) agentFlagsFor(ctx context.Context, listed []agentstore.Agent) (func(agentstore.Agent) agentFlags, error) {
 	running := s.liveness.GetRunningAgents(ctx, listed)
 
@@ -275,8 +275,8 @@ func (s *Service) agentFlagsFor(ctx context.Context, listed []agentstore.Agent) 
 	}, nil
 }
 
-// localVerdictOf is the tally's verdict as the wire carries it, which is the empty string for the
-// agent whose work no review has concluded on.
+// localVerdictOf is the tally's verdict as the wire carries it, empty for an agent whose work no
+// review has concluded on.
 func localVerdictOf(tally reviewstore.Tally) string {
 	if tally.Verdict == nil {
 		return ""
@@ -316,8 +316,7 @@ func (s *Service) ListAgents(ctx context.Context, req *connect.Request[agentv1.L
 	return connect.NewResponse(response), nil
 }
 
-// renderOneAgent gathers the facts an agent's row does not hold and renders it, which is what a
-// call answering with a single agent wants.
+// renderOneAgent gathers the facts an agent's row does not hold and renders it.
 func (s *Service) renderOneAgent(ctx context.Context, stored agentstore.Agent) (*agentv1.Agent, error) {
 	flags, err := s.agentFlagsFor(ctx, []agentstore.Agent{stored})
 	if err != nil {
@@ -344,8 +343,7 @@ func (s *Service) GetAgent(ctx context.Context, req *connect.Request[agentv1.Get
 }
 
 // SetMark puts a letter on an agent or a workflow, taking it off whichever row held it, and
-// carries no tool annotation because a mark is the person's own address for a row rather than
-// anything an agent should move.
+// carries no tool annotation because a mark is the person's own.
 func (s *Service) SetMark(ctx context.Context, req *connect.Request[agentv1.SetMarkRequest]) (*connect.Response[emptypb.Empty], error) {
 	target := markstore.Target{}
 	switch {
@@ -388,8 +386,7 @@ func (s *Service) SetHidden(ctx context.Context, req *connect.Request[agentv1.Se
 }
 
 // SetAgentViewed claims whatever the agent has finished up to now, or puts the mark back, and
-// carries no tool annotation because an agent moving the marks on the user's screen is the one
-// caller it must not have.
+// carries no tool annotation because an agent must not move the marks on the user's screen.
 func (s *Service) SetAgentViewed(ctx context.Context, req *connect.Request[agentv1.SetAgentViewedRequest]) (*connect.Response[emptypb.Empty], error) {
 	if err := s.agents.SetViewed(ctx, req.Msg.GetId(), req.Msg.GetViewed()); err != nil {
 		return nil, rpcerr.Wrap(err, "failed to set whether the agent was viewed")
@@ -398,8 +395,8 @@ func (s *Service) SetAgentViewed(ctx context.Context, req *connect.Request[agent
 	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
-// MarkRunsRead claims the failed runs an agent is holding, which is what looking at its run log
-// does, and carries no tool annotation for the same reason SetAgentViewed does not.
+// MarkRunsRead claims the failed runs an agent is holding, and carries no tool annotation
+// because an agent must not move the marks on the user's screen.
 func (s *Service) MarkRunsRead(ctx context.Context, req *connect.Request[agentv1.MarkRunsReadRequest]) (*connect.Response[emptypb.Empty], error) {
 	if err := s.runs.MarkRead(ctx, req.Msg.GetId()); err != nil {
 		return nil, rpcerr.Wrap(err, "failed to claim the agent's failed runs")
@@ -456,10 +453,8 @@ func (s *Service) Log(ctx context.Context, req *connect.Request[agentv1.LogReque
 	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
-// RecordReport takes what the calling agent's own CLI read out of one of its hook payloads: the
-// reason goes on the row beside the state the pane decided, and a turn it reports ending lets
-// the reconciler reach an idle verdict sooner and stamps the row the unread mark is measured
-// against, ahead of the reconciler doing the same off the pane.
+// RecordReport takes what the calling agent's own CLI read out of one of its hook payloads,
+// putting the reason beside the state the pane decided and stamping a reported turn end.
 func (s *Service) RecordReport(ctx context.Context, req *connect.Request[agentv1.RecordReportRequest]) (*connect.Response[emptypb.Empty], error) {
 	id := caller.From(ctx).AgentID
 	if id == "" {
@@ -490,8 +485,8 @@ func (s *Service) RecordReport(ctx context.Context, req *connect.Request[agentv1
 	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
-// scopedAgentID is the agent a request is about: the one it names, or the calling agent when it
-// names none.
+// scopedAgentID is the agent a request is about, being the one it names or the calling agent
+// when it names none.
 func scopedAgentID(ctx context.Context, requested string) (string, error) {
 	if requested != "" {
 		return requested, nil
@@ -582,8 +577,8 @@ func (s *Service) ResumeAgent(ctx context.Context, req *connect.Request[agentv1.
 	return connect.NewResponse(&agentv1.ResumeAgentResponse{Agent: rendered}), nil
 }
 
-// UpdateAgent renames the agent with the given id, reporting a name another agent holds as
-// a conflict rather than leaking the database's own refusal.
+// UpdateAgent renames the agent with the given id, reporting a name another agent holds as a
+// conflict rather than leaking the database's own refusal.
 func (s *Service) UpdateAgent(ctx context.Context, req *connect.Request[agentv1.UpdateAgentRequest]) (*connect.Response[emptypb.Empty], error) {
 	renamed, err := s.agents.Rename(ctx, req.Msg.GetId(), req.Msg.GetName())
 	if err != nil {

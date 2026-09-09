@@ -18,12 +18,12 @@ type treeState struct {
 type agentRow struct {
 	header bool
 	item   agentItem
-	// hiddenCount is the rows this one stands in for: a workflow header counts the hidden
-	// agents under it, and a parent counts its own hidden children.
+	// hiddenCount is the rows this one stands in for: a workflow header counts the hidden agents
+	// under it, and a parent counts its own hidden children.
 	hiddenCount int
 	workflow    workflowstore.Workflow
-	// child says the row is drawn under the one above it rather than under the workflow, which
-	// is an indent and nothing else: it is an agent row like any other.
+	// child says the row is drawn under the one above it rather than under the workflow, which is
+	// an indent and nothing else.
 	child bool
 }
 
@@ -292,8 +292,8 @@ func (m *model) applyMarks(onAgents, onWorkflows map[string]string) {
 	m.listing.marks = marks
 }
 
-// agentFilterRows is every row of the tree with the name a search reads it by, which is the
-// workflow's own name on a header and the agent's on a row.
+// agentFilterRows is every row of the tree with the name a search reads it by: the workflow's
+// own name on a header, the agent's on a row.
 func (m model) agentFilterRows() []filterRow {
 	return filterRows(m.agentRows())
 }
@@ -346,7 +346,7 @@ func (m *model) placeTreeCursor(selected string) {
 type listing struct {
 	agents    []agentItem
 	workflows []workflowstore.Workflow
-	// marks are the letters a person addresses rows by, keyed by the row key each names.
+	// marks are the letters a person types to jump to rows, keyed by the row key each names.
 	marks map[string]string
 }
 

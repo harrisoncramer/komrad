@@ -66,8 +66,7 @@ func (h *Harness) BuildCommand(launch harness.Launch) (string, error) {
 	return command + fmt.Sprintf(" -- \"$(cat '%s'; rm '%s')\"", path, path), nil
 }
 
-// notifyProgram is codex's only report of a turn ending, which it calls with one JSON argument on
-// turn completion.
+// notifyProgram is codex's only report of a turn ending, which it calls with one JSON argument.
 func notifyProgram(hookCommand string) string {
 	return fmt.Sprintf("notify=[%s,%s,%s]", tomlString(hookCommand), tomlString("hook"), tomlString("turn-end"))
 }

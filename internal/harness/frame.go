@@ -6,21 +6,20 @@ import (
 )
 
 // escSeq is a control sequence tmux writes into a capture, of which only the one setting colour
-// and attributes carries any meaning here.
+// and attributes matters here.
 var escSeq = regexp.MustCompile(`^\x1b\[[0-9;?]*[ -/]*[@-~]`)
 
 var sgrSeq = regexp.MustCompile(`^\x1b\[([0-9;]*)m`)
 
 // pen is the colour and attributes a cell is drawn with, carried from one line of a capture into
-// the next because tmux writes an attribute at the cell it changes on, which is also why the
-// reset ending a run arrives before the first character drawn bright.
+// the next because tmux writes an attribute at the cell it changes on.
 type pen struct {
 	Dim        bool
 	Foreground string
 }
 
 // apply reads one SGR parameter list onto the pen, walking the parameters in order because a
-// colour takes the ones after it as its own rather than standing alone.
+// colour takes the ones after it as its own.
 func (p *pen) apply(params string) {
 	fields := strings.Split(params, ";")
 
@@ -49,7 +48,7 @@ func (p *pen) apply(params string) {
 	}
 }
 
-// colourRun is the parameters an extended colour spans, which is the selector and however many
+// colourRun is the parameters an extended colour spans: the selector, and however many
 // components it names.
 func colourRun(fields []string) []string {
 	span := 1
@@ -165,7 +164,7 @@ func StripDim(lines []string) []string {
 	return stripped
 }
 
-// Foregrounds is the colour each line of a region draws its first run that is not blank in, empty
+// Foregrounds is the colour each line of a region draws its first non-blank run in, and empty
 // where that run carries the terminal's own.
 func Foregrounds(lines []string) []string {
 	colours := make([]string, len(lines))

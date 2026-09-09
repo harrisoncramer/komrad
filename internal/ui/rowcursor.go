@@ -12,7 +12,7 @@ const (
 	blankCursor    = "  "
 )
 
-// newRowCursor is the blink the lists share, focused from the start since a cursor nothing has
+// newRowCursor is the blink the lists share, focused from the start, since a cursor nothing has
 // ticked yet would sit there dark.
 func newRowCursor() cursor.Model {
 	c := cursor.New()
@@ -21,9 +21,8 @@ func newRowCursor() cursor.Model {
 	return c
 }
 
-// updateRowCursor carries the bubble's own blink timer, and puts the arrow back on for a keypress
-// so a row being moved to is drawn solid rather than under whichever half of the blink the press
-// landed in.
+// updateRowCursor carries the bubble's own blink timer, and puts the arrow back on for a
+// keypress so a row being moved to is drawn solid.
 func (m model) updateRowCursor(msg tea.Msg) (model, tea.Cmd) {
 	next, cmd := m.rowCursor.Update(msg)
 	m.rowCursor = next
@@ -40,8 +39,7 @@ func (m model) updateRowCursor(msg tea.Msg) (model, tea.Cmd) {
 }
 
 // cursorPrefix is the arrow a list draws on its hovered row, blinking while that list has the
-// keyboard, steady while something is being typed into, and gone for the half of the phase the
-// bubble sets Blink over.
+// keyboard and steady while something is being typed into.
 func (m model) cursorPrefix(focused bool) string {
 	if focused && !m.blurred && !m.isTyping() && m.rowCursor.Blink {
 		return blankCursor
@@ -55,8 +53,7 @@ func (m model) rowCursorPrefix() string {
 }
 
 // isListFocused reports whether the keys are the list's rather than another pane's, the record
-// beside it or a form standing over it, which is what decides how the row under the cursor is
-// drawn, arrow and name alike.
+// beside it or a form standing over it.
 func (m model) isListFocused() bool {
 	return !m.keysElsewhere && !m.isDetailsFocused() && !m.isMessagesFocused() && !m.form.isActive()
 }

@@ -41,13 +41,12 @@ type Params struct {
 	ContextPath        string
 	HookCommand        string
 	FallbackResumeRoot string
-	// Opener is where a URL bound for the person at the panel goes, which a test supplies
-	// itself so a run does not open windows on whoever is watching.
+	// Opener is where a URL bound for the person at the panel goes.
 	Opener browser.Opener
 }
 
-// mailConfig reads the mail settings fresh on every send, and fails rather than falling back
-// to defaults so a deadline somebody wrote is never quietly ignored.
+// mailConfig reads the mail settings fresh on every send, and fails rather than falling back to
+// defaults.
 type mailConfig func() (*config.Config, error)
 
 func (load mailConfig) GetDeliveryDeadline() (time.Duration, error) {
@@ -81,8 +80,7 @@ type Server struct {
 	closers       []func()
 }
 
-// New builds the service, with nothing listening and no loop running until the caller says
-// so.
+// New builds the service, with nothing listening and no loop running until the caller says so.
 func New(ctx context.Context, p Params) (*Server, error) {
 	if err := harness.RequirePOSIXShell(p.Tmux.GetDefaultShell()); err != nil {
 		return nil, err

@@ -363,8 +363,8 @@ func (h searchHit) spans(content string) []span {
 	return matchSpans(content, h.offset, h.length, markedTerms(h.snippet))
 }
 
-// hitHeader names the agent a run of hits came from, wearing the same marks its row wears on
-// the screen it lives on.
+// hitHeader names the agent a run of hits came from, wearing the same marks its row wears on the
+// screen it lives on.
 func (m model) hitHeader(hit searchHit) string {
 	name := clipName(hit.name)
 
@@ -421,7 +421,7 @@ func (m model) searchRows() ([]string, int) {
 }
 
 // searchView draws the hits and, beside them, the transcript of the one the cursor is standing
-// on, as one frame rather than pushing a screenful of it into a pane of its own.
+// on, as one frame.
 func (m model) searchView() string {
 	sidebar := m.searchSidebarView()
 

@@ -30,11 +30,10 @@ type agentFlags struct {
 	unreadMail bool
 	unviewed   bool
 	failedRun  bool
-	// mark is the letter a person addresses this row by, which lives beside the agent rather than
-	// on it.
+	// mark is the letter a person types to jump to this row, which lives beside the agent rather
+	// than on it.
 	mark *string
-	// failedRunLog is the log the failure went to, which is what opens the pane on the run
-	// that failed rather than on whatever ran last.
+	// failedRunLog is the log the failure went to.
 	failedRunLog *int32
 	// localRounds is how many rounds of local review this agent's own work has been through.
 	localRounds int32

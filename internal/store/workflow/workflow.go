@@ -1,5 +1,5 @@
-// Package workflow stores the workflows agents are filed under, which carry the working
-// directory, flags, shared context and the provisioner their agents start from.
+// Package workflow stores the workflows agents are filed under, each carrying the working
+// directory, flags, shared context and provisioning its agents start from.
 package workflow
 
 import (
@@ -34,7 +34,7 @@ type Config struct {
 	ArchiveOnPRClosed bool
 }
 
-// Config is what an update writes, which is every field of a workflow but its id.
+// Config is what an update writes, being every field of a workflow but its id.
 func (w Workflow) Config() Config {
 	return Config{
 		Name:              w.Name,
@@ -76,8 +76,7 @@ type Store struct {
 	queries *models.Queries
 }
 
-// New builds a workflow store over db, which is either the pool or a
-// transaction.
+// New builds a workflow store over db, which is either the pool or a transaction.
 func New(db store.DBTX) *Store {
 	return &Store{queries: models.New(db)}
 }

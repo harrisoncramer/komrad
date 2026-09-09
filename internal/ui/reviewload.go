@@ -39,7 +39,7 @@ type reviewLoadedMsg struct {
 	awaiting bool
 	// chapters are the rounds of the review as the reader can step through them, oldest first.
 	chapters []reviewChapter
-	// traced is where git says each thread's lines went, keyed by thread id, empty for a
+	// traced is where git says each thread's lines went, keyed by thread id, and empty for a
 	// repository that could not answer.
 	traced map[string]review.Traced
 	err    error
@@ -86,8 +86,7 @@ func (m model) enterReview(agent agentstore.Agent) (tea.Model, tea.Cmd) {
 	})
 }
 
-// refuseReview backs out to the listing, for a worktree that turned out to hold nothing once it
-// was read.
+// refuseReview backs out to the listing, for a worktree that turned out to hold nothing.
 func (m *model) refuseReview(err error) {
 	name := m.review.agentName
 	m.dropReview()
@@ -132,9 +131,8 @@ type loadReviewCmdParams struct {
 	Head string
 }
 
-// loadReviewCmd opens a round of the agent and reads that rather than the worktree, and a tree
-// that has not moved gives back the round already taken of it, so reopening the diff does not
-// walk the ordinal on.
+// loadReviewCmd opens a round of the agent and reads that rather than the worktree, a tree that
+// has not moved giving back the round already taken of it.
 func (m model) loadReviewCmd(params loadReviewCmdParams) tea.Cmd {
 	agents := m.api.agents
 	agentID, dir, exclude := params.AgentID, params.Dir, params.Exclude
@@ -250,9 +248,8 @@ type changedSinceLastReviewParams struct {
 	SnapshotSHA string
 }
 
-// changedSinceLastReview says how much of this round is new since the person last let a review go,
-// which is a courtesy rather than a fact the screen depends on, so anything that fails to answer
-// says nothing.
+// changedSinceLastReview says how much of this round is new since the person last released a
+// review, saying nothing at all when it cannot answer.
 func changedSinceLastReview(ctx context.Context, params changedSinceLastReviewParams) string {
 	if params.Earlier == nil {
 		return ""
@@ -381,7 +378,7 @@ func (m *model) applyReviewLoaded(msg reviewLoadedMsg) tea.Cmd {
 	return m.findRoundLeftoverCmd()
 }
 
-// indexViewedFiles indexes the files read in this round; a later round starts with none.
+// indexViewedFiles indexes the files read in this round, a later round starting with none.
 func indexViewedFiles(viewed []*agentv1.ReviewViewedFile) map[string]bool {
 	held := map[string]bool{}
 	for _, mark := range viewed {
@@ -429,8 +426,8 @@ func (m *model) applyReviewThreads(threads []*agentv1.ReviewThread) {
 	m.scrollReviewToCursor()
 }
 
-// keepReviewCursor puts the cursor back on what it was standing on, and failing that, back
-// inside the diff.
+// keepReviewCursor puts the cursor back on what it was standing on, and failing that back inside
+// the diff.
 func (m *model) keepReviewCursor(place review.Place, ok bool) {
 	was := m.review.cursor
 
@@ -485,8 +482,7 @@ func (m model) worktreeFor(agent agentstore.Agent) workflowstore.WorktreeConfig 
 	return workflowstore.WorktreeConfig{}
 }
 
-// withRound adds a round just opened to the list read before it was, since the round on screen is
-// one of the rounds everything below reads.
+// withRound adds a round just opened to the list read before it was.
 func withRound(rounds []*agentv1.ReviewRound, opened *agentv1.ReviewRound) []*agentv1.ReviewRound {
 	for _, held := range rounds {
 		if held.GetId() == opened.GetId() {

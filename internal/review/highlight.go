@@ -22,8 +22,8 @@ type token struct {
 // styledLine is one line of a file, already lexed.
 type styledLine []token
 
-// highlighter lexes whole files, which is what keeps a multi-line string or block comment
-// coloured correctly where per-line lexing cannot.
+// highlighter lexes whole files, which keeps a multi-line string or block comment coloured
+// correctly where per-line lexing cannot.
 type highlighter struct {
 	style  *chroma.Style
 	lexers map[string]chroma.Lexer
@@ -43,8 +43,8 @@ func newHighlighter(isDark bool) *highlighter {
 	return &highlighter{style: style, lexers: map[string]chroma.Lexer{}}
 }
 
-// splitLines lexes a file into one entry per line, so a diff line's number indexes straight
-// into the result.
+// splitLines lexes a file into one entry per line, so a diff line's number indexes straight into
+// the result.
 func (h *highlighter) splitLines(path, source string) []styledLine {
 	if source == "" {
 		return nil
@@ -99,7 +99,7 @@ func (h *highlighter) getLexer(path string) chroma.Lexer {
 }
 
 // lineAt is the lexed line at a one-based file line number, or nil when the number is outside
-// the file, which happens for a source that could not be read.
+// the file.
 func lineAt(lines []styledLine, number int) styledLine {
 	if number < 1 || number > len(lines) {
 		return nil

@@ -12,8 +12,7 @@ import (
 	"github.com/google/uuid"
 )
 
-// HarnessID is the id an agent running Claude Code is recorded under, which is also the CLI a
-// pane has to resolve and what names the harness a hook subcommand reads its payload with.
+// HarnessID is the id an agent running Claude Code is recorded under.
 const HarnessID = "claude"
 
 type Harness struct {
@@ -26,8 +25,8 @@ type NewHarnessParams struct {
 	ProjectsDir string
 }
 
-// NewHarness builds a harness reading conversation logs from projectsDir, which is
-// Claude's own location when it is left empty.
+// NewHarness builds a harness reading conversation logs from projectsDir, which is Claude's own
+// location when it is left empty.
 func NewHarness(params NewHarnessParams) *Harness {
 	return &Harness{
 		projectsDir: params.ProjectsDir,
@@ -40,8 +39,8 @@ func (h *Harness) ID() string { return HarnessID }
 // Binary is the CLI a pane's shell has to resolve to start an agent.
 func (h *Harness) Binary() string { return HarnessID }
 
-// InterruptKeys stops Claude where it stands, the second Escape dismissing the prompt the
-// first can leave behind so a later message lands in the composer.
+// InterruptKeys stops Claude where it stands, the second Escape dismissing the prompt the first
+// can leave behind.
 func (h *Harness) InterruptKeys() []string { return []string{"Escape", "Escape"} }
 
 // MintSessionID names the conversation a fresh launch will hold, which Claude takes on the

@@ -10,23 +10,22 @@ import (
 	"time"
 )
 
-// commandTimeout is how long any one git command is given, which is generous for the operations
-// weave runs and short enough that a hung git does not hold a pane open forever.
+// commandTimeout is how long any one git command is given.
 const commandTimeout = 30 * time.Second
 
-// Run is git's output with the trailing newline off, which is what almost every caller wants.
+// Run is git's output with the trailing newline off.
 func Run(ctx context.Context, dir string, args ...string) (string, error) {
 	out, err := RunBytes(ctx, dir, args...)
 
 	return strings.TrimSpace(string(out)), err
 }
 
-// RunBytes is git's output whole, for the callers that read a patch or a file rather than a line.
+// RunBytes is git's output whole, for the callers reading a patch or a file rather than a line.
 func RunBytes(ctx context.Context, dir string, args ...string) ([]byte, error) {
 	return runWithEnv(ctx, dir, nil, args...)
 }
 
-// runWithEnv is git run with an environment of its own, which is what writing an index or a commit
+// runWithEnv is git run with an environment of its own, which writing an index or a commit
 // outside the agent's own repository state needs.
 func runWithEnv(ctx context.Context, dir string, env []string, args ...string) ([]byte, error) {
 	ctx, cancel := context.WithTimeout(ctx, commandTimeout)

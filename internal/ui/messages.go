@@ -14,8 +14,8 @@ import (
 	"github.com/charmbracelet/x/ansi"
 )
 
-// messagesRows is the most rows the region takes, which the pane keeps back for it whether or
-// not the message on screen fills them, so a longer message moves no row of the list above it.
+// messagesRows is the most rows the region takes, which the pane keeps back whether or not the
+// message on screen fills them.
 const messagesRows = 3
 
 // messagesRegionRows is what the region costs the pane: its rows and the rule under them.
@@ -27,18 +27,18 @@ const messagesHeaderRows = 3
 // messagesListFloor is how many rows the list keeps once the region has taken its own.
 const messagesListFloor = 2
 
-// messagesIndent is the gutter every row of a message is drawn behind, which is the cursor's own.
+// messagesIndent is the gutter every row of a message is drawn behind, which is the cursor's.
 const messagesIndent = 2
 
 // messagesTallyWidth is the room held on the right of the summary for the count beside it.
 const messagesTallyWidth = 8
 
 // messagesFocusKey takes the region and hands it back, and is not tab, which huh binds as the
-// key that moves between a form's fields.
+// key moving between a form's fields.
 const messagesFocusKey = "ctrl+g"
 
 // messagesMockKey pushes a fixture into the stack, which is how the region is looked at without
-// having to make the panel refuse something first.
+// making the panel refuse something first.
 const messagesMockKey = "M"
 
 // messagesCap is how far back the stack goes.
@@ -66,8 +66,8 @@ type messagesState struct {
 	items   []message
 	cursor  int
 	focused bool
-	// field is the piece of the message the cursor stands on, and flashed the one a copy has
-	// just taken, held the way the record beside it holds its own.
+	// field is the piece of the message the cursor stands on, and flashed the one a copy has just
+	// taken.
 	field   int
 	flashed int
 }
@@ -79,13 +79,12 @@ type messagePiece struct {
 	text  string
 	value string
 	style lipgloss.Style
-	// head marks the summary, which is the one piece drawn as a row of its own since it carries
-	// the icon and the tally.
+	// head marks the summary, which is the one piece drawn as a row of its own.
 	head bool
 }
 
 // messagesRegion is the region as it is drawn under the record, given the record and the legend
-// it sits between so it can tell whether the pane has the rows to spare for it.
+// it sits between so it can tell whether the pane has rows to spare for it.
 func (m model) messagesRegion(record, help string) string {
 	rows, ok := m.messagesFit(record, help)
 	if !ok {
@@ -108,8 +107,8 @@ func (m model) messagesRegion(record, help string) string {
 	return block + m.detailsRule()
 }
 
-// messagesFit is how many rows the region takes, refused when its rows would not come out of the
-// list without taking it below a list worth reading.
+// messagesFit is how many rows the region takes, refused when they would leave the list too
+// short to be worth reading.
 func (m model) messagesFit(record, help string) (int, bool) {
 	if m.height <= 0 || !m.isMessagesRegion() {
 		return 0, false
@@ -128,14 +127,14 @@ func (m model) messagesFit(record, help string) (int, bool) {
 }
 
 // messagesRender is the expanded message as its rows, carrying the row the cursor stands on so
-// the window follows it the way the record's does.
+// the window follows it.
 type messagesRender struct {
 	rows      []string
 	cursorRow int
 }
 
-// messagesRender draws the whole message at the width of the pane, which is what the region holds
-// once it has the keys.
+// messagesRender draws the whole message at the width of the pane, which is what the region
+// holds once it has the keys.
 func (m model) messagesRender() messagesRender {
 	pieces := m.messagePieces()
 	if len(pieces) == 0 {
@@ -183,8 +182,8 @@ func (m model) messagePieces() []messagePiece {
 	return slices.DeleteFunc(pieces, func(piece messagePiece) bool { return piece.text == "" })
 }
 
-// messagePieceRows is one piece wrapped to the pane, the cursor and the label on the first of its
-// rows and the rest under the indent the cursor leaves.
+// messagePieceRows is one piece wrapped to the pane, the cursor and the label on the first of
+// its rows and the rest under the indent the cursor leaves.
 func (m model) messagePieceRows(piece messagePiece, hovered, flashed bool) []string {
 	if piece.head {
 		return []string{m.messagesCursorPrefix(hovered) + m.messagesSummaryStyle(m.messages.items[m.messagesCursor()], messagesIndent, flashed) + m.messagesTally(messagesIndent)}
@@ -214,7 +213,7 @@ func (m model) messagePieceRows(piece messagePiece, hovered, flashed bool) []str
 	return rows
 }
 
-// messagesCursorPrefix is the gutter the cursor stands in, which is the record's own.
+// messagesCursorPrefix is the gutter the cursor stands in, which is the record's.
 func (m model) messagesCursorPrefix(hovered bool) string {
 	if !hovered {
 		return strings.Repeat(" ", messagesIndent)
@@ -243,7 +242,7 @@ func (m model) copyMessagePiece() (tea.Model, tea.Cmd) {
 }
 
 // messagesSlot is the message the cursor is on said in the rows the region always holds: what
-// happened, as much of the reason as one line carries, and the way into the rest of it.
+// happened, as much of the reason as one line carries, and the way into the rest.
 func (m model) messagesSlot() []string {
 	if len(m.messages.items) == 0 {
 		return []string{
@@ -262,7 +261,7 @@ func (m model) messagesSlot() []string {
 }
 
 // messagesSummaryLine is the summary row's text, clipped short of the tally so the count sits at
-// the far side rather than next to a name whose length nobody knows.
+// the far side.
 func (m model) messagesSummaryLine(taken int) string {
 	if len(m.messages.items) == 0 {
 		return kindIcon(messageSuccess) + " No messages"
@@ -294,7 +293,7 @@ func (m model) messagesHint() string {
 }
 
 // messagesTally is the count on the right of the summary, which says how much is behind this
-// message while the list has the keys and where in the stack the reader is once it does not.
+// message while the list has the keys, and where in the stack the reader is once it does not.
 func (m model) messagesTally(taken int) string {
 	count := len(m.messages.items)
 	if count == 0 {
@@ -357,7 +356,7 @@ func (m *model) setNewestHint(hint string) {
 }
 
 // messagesDoc is the whole of the message the cursor is on, drawn in the block beside the list so
-// the reason is read at the width of the window rather than folded into three rows.
+// the reason is read at the width of the window.
 func (m model) messagesDoc() string {
 	if len(m.messages.items) == 0 {
 		return "_No messages_\n\nWeave is running normally."
@@ -420,8 +419,8 @@ func (m model) isMessagesFocused() bool {
 	return m.messages.focused && m.isMessagesRegion()
 }
 
-// toggleMessagesFocus moves the keys between the list and the region, which is also what puts the
-// message in the block beside the list.
+// toggleMessagesFocus moves the keys between the list and the region, which is also what puts
+// the message in the block beside the list.
 func (m model) toggleMessagesFocus() model {
 	if !m.messages.focused && len(m.messages.items) == 0 {
 		return m
@@ -484,8 +483,8 @@ func (m model) landedOnMessage() model {
 	return m
 }
 
-// dismissMessage drops the message on screen and lands on the one behind it, handing the keys back
-// to the list once the stack is empty.
+// dismissMessage drops the message on screen and lands on the one behind it, handing the keys
+// back to the list once the stack is empty.
 func (m model) dismissMessage() model {
 	if len(m.messages.items) == 0 {
 		return m.toggleMessagesFocus()
@@ -505,8 +504,7 @@ func (m model) dismissMessage() model {
 	return m
 }
 
-// pushMockMessage fills the region from the fixtures, which is how the states are looked at
-// without waiting for the panel to be refused something.
+// pushMockMessage fills the region from the fixtures.
 func (m model) pushMockMessage() model {
 	m.pushMessage(mockMessages[len(m.messages.items)%len(mockMessages)])
 	m = m.landedOnMessage()
@@ -527,8 +525,8 @@ func (m model) messagesHelp() keyMap {
 	}
 }
 
-// messagesBinding is the region's own key as the legend names it, which says what pressing it does
-// from where the reader is rather than what the region is called.
+// messagesBinding is the region's own key as the legend names it, which says what pressing it
+// does from where the reader is rather than what the region is called.
 func (m model) messagesBinding() key.Binding {
 	desc := "messages"
 	if m.isMessagesFocused() {

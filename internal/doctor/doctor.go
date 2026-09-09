@@ -35,12 +35,11 @@ type ProblemError struct {
 	Message string
 }
 
-// Error returns the message the check wrote, which is the sentence a person reads.
+// Error returns the message the check wrote.
 func (p *ProblemError) Error() string { return p.Message }
 
-// codeOf returns the stable code of the problem err carries, or empty when it carries none;
-// a check wraps its sentinel to add detail, so the code is found through the chain rather
-// than off the error itself.
+// codeOf returns the stable code of the problem err carries, or empty when it carries none,
+// looking through the chain because a check wraps its sentinel to add detail.
 func codeOf(err error) string {
 	var problem *ProblemError
 	if errors.As(err, &problem) {
@@ -113,8 +112,7 @@ type Summary struct {
 	Healthy bool `json:"healthy"`
 }
 
-// Run makes every check in order and collects the findings; one failing does not stop the
-// rest, so a machine missing three things says so once rather than over three runs.
+// Run makes every check in order and collects the findings, one failing not stopping the rest.
 func Run(ctx context.Context, env Env, checks []Check) Report {
 	report := Report{Findings: make([]Finding, 0, len(checks))}
 

@@ -9,21 +9,19 @@ import (
 	reviewstore "weave/internal/store/review"
 )
 
-// contextLines is how much of the file either side of a comment goes into the review, which is
-// enough to see what the comment is about without opening the file.
+// contextLines is how much of the file either side of a comment goes into the review.
 const contextLines = 6
 
-// renderReviewParams is everything one review file has to say for itself, a released review
-// outliving the rows that name it.
+// renderReviewParams is everything one review file has to say for itself.
 type renderReviewParams struct {
 	// Agent is the agent whose work was reviewed.
 	Agent agentstore.Agent
 	Round reviewstore.Round
-	// Author names who gave the review, which is a person when it is empty.
+	// Author names who gave the review, and is empty when a person gave it.
 	Author  string
 	Verdict reviewstore.Verdict
-	// Said is what the author wrote about the work as a whole rather than about any one line,
-	// empty when they wrote nothing, and it goes above the comments since it frames them.
+	// Said is what the reviewer wrote about the change as a whole rather than about any one line,
+	// empty when they wrote nothing.
 	Said    string
 	Threads []ReviewThreadWithMessages
 	// Source holds each file as the round froze it, and a path it has nothing for falls back to
@@ -31,9 +29,8 @@ type renderReviewParams struct {
 	Source map[string][]string
 }
 
-// renderReview writes a whole review out as the markdown the agent reads, carrying everything it
-// needs since the mail says only where this is, and drawing the code around each comment out of
-// the round's own source.
+// renderReview writes a whole review out as the markdown the agent reads, drawing the code
+// around each comment out of the round's own source.
 func renderReview(params renderReviewParams) string {
 	round, verdict, threads, source := params.Round, params.Verdict, params.Threads, params.Source
 
@@ -106,7 +103,7 @@ func suggestionLead(byHuman bool) string {
 }
 
 // writeContext draws the file around the lines a comment was written about as the round froze
-// them, marking those lines, and reports whether it drew anything at all.
+// them, marking those lines, and reports whether it drew anything.
 func writeContext(out *strings.Builder, thread reviewstore.Thread, lines []string) bool {
 	start, end := int(thread.NewStart), int(thread.NewEnd)
 	if start <= 0 || start > len(lines) {
@@ -133,8 +130,7 @@ func writeContext(out *strings.Builder, thread reviewstore.Thread, lines []strin
 	return true
 }
 
-// anchorOf names where a thread is pinned in the terms the diff uses, preferring the new side
-// since that is where the code the comment is about ended up.
+// anchorOf names where a thread is pinned in the terms the diff uses, preferring the new side.
 func anchorOf(thread reviewstore.Thread) string {
 	start, end := thread.NewStart, thread.NewEnd
 	if start == 0 {
@@ -149,7 +145,7 @@ func anchorOf(thread reviewstore.Thread) string {
 }
 
 // reviewerName is who gave the review, spelled for somebody reading the file long afterwards,
-// where an empty author is the person running weave rather than an agent.
+// an empty author meaning the person running weave.
 func reviewerName(author string) string {
 	if author == "" {
 		return "the person running weave"

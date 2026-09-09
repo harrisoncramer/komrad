@@ -8,17 +8,15 @@ import (
 )
 
 // columnSplit is how the window is divided while the panel is drawing a block beside its own
-// list: the block on one side and the list, its record and its legend on the other.
+// list: the block on one side, and the list, its record and its legend on the other.
 type columnSplit struct {
 	column  int
 	sidebar int
 	rows    int
 }
 
-// splitOf divides a window between a block and the sidebar at the width it is handed, which is
-// left where it was asked for since a boundary drawn anywhere but the divider under the panel is
-// the misalignment the measuring is for, and refuses a window that cannot hold both halves, where
-// the sidebar takes the whole of it and the block waits for the room.
+// splitOf divides a window between a block and the sidebar at the width it is handed, and refuses
+// a window that cannot hold both halves.
 func splitOf(width, rows, sidebar, floor int) (columnSplit, bool) {
 	if rows <= 0 || width < nameWidth+floor {
 		return columnSplit{}, false
@@ -33,19 +31,17 @@ func splitOf(width, rows, sidebar, floor int) (columnSplit, bool) {
 	}, true
 }
 
-// columnFloor is the narrowest a document is worth drawing beside a list at, which is about as
-// short as a line of prose stays readable.
+// columnFloor is the narrowest a document is worth drawing beside a list at.
 const columnFloor = 40
 
-// columnState is where in the block beside the list the reader has scrolled to, held by the panel
-// rather than by each screen.
+// columnState is where in the block beside the list the reader has scrolled to, held by the
+// panel rather than by each screen.
 type columnState struct {
-	// top is the first row of the block on screen, worked out from nothing but what the reader has
-	// scrolled.
+	// top is the first row of the block on screen.
 	top int
 
-	// row is the row that offset was scrolled on, kept against the cursor's own index sliding under
-	// a reader who has not moved.
+	// row is the row that offset was scrolled on, kept against the cursor's own index sliding
+	// under a reader who has not moved.
 	row string
 }
 
@@ -69,27 +65,26 @@ func (m *model) placeColumn(owner screen, row string) {
 }
 
 // columnSpec is the block a screen draws beside its own list, left nil by a screen that draws
-// none, which is what says the panel keeps the window to the share the frame gave it.
+// none.
 type columnSpec struct {
-	// floor is the narrowest the block is worth drawing at, below which the sidebar keeps the
-	// whole window and the block waits for the room.
+	// floor is the narrowest the block is worth drawing at, below which the sidebar keeps the whole
+	// window.
 	floor int
 
-	// doc is the markdown the block is drawn from, for a screen whose block is a document read
-	// from the top, and is nil on a screen that draws and scrolls its block itself.
+	// doc is the markdown the block is drawn from, and is nil on a screen that draws and scrolls
+	// its block itself.
 	doc func(model) string
 
-	// holds reports whether the screen is drawing its own block at all, and is nil on a screen
-	// that always is: the agents list says no while the cursor is on a running agent, whose own
-	// pane is what stands there instead.
+	// holds reports whether the screen is drawing its own block at all, and is nil on a screen that
+	// always is.
 	holds func(model) bool
 
 	// rows is the row budget the block is actually drawn in, and is nil on a screen with nothing
-	// standing over it taking rows of its own.
+	// standing over it.
 	rows func(model, columnSplit) int
 
-	// fits refuses the split when the sidebar cannot hold its own chrome in the narrower column
-	// it is left with, and is nil on a screen that would rather have the block either way.
+	// fits refuses the split when the sidebar cannot hold its own chrome in the narrower column it
+	// is left with, and is nil on a screen that would rather have the block either way.
 	fits func(model, columnSplit) bool
 }
 
@@ -151,7 +146,7 @@ func (m model) columnGeometry() (columnSplit, bool) {
 	return split, true
 }
 
-// columnSplit is the window the block is actually drawn in, which is the geometry with whatever
+// columnSplit is the window the block is actually drawn in, being the geometry with whatever
 // stands over the block taken off its rows.
 func (m model) columnSplit() (columnSplit, bool) {
 	split, ok := m.columnGeometry()
@@ -192,8 +187,8 @@ func (m model) columnOf() (columnSpec, bool) {
 	return column(), true
 }
 
-// holdsWindow reports whether the panel is drawing a block beside its own list, which is what
-// says it takes the window from the panes beside it rather than keeping its share of the frame.
+// holdsWindow reports whether the panel is drawing a block beside its own list, and so takes the
+// window from the panes beside it.
 func (m model) holdsWindow() bool {
 	spec, ok := m.columnOf()
 	if !ok {
@@ -203,9 +198,8 @@ func (m model) holdsWindow() bool {
 	return spec.holds == nil || spec.holds(m)
 }
 
-// reconcileSolo settles whether the panel has the whole window, which is every way onto a screen
-// and every way into a form, and hands it back while the info pane is up since a sidebar holding
-// the window covers the pane the logs and the editor are drawn in.
+// reconcileSolo settles whether the panel has the whole window, and hands it back while the info
+// pane is up, which a sidebar holding the window would cover.
 func (m *model) reconcileSolo() {
 	// Compared here rather than inside Frame.Solo, which Attach calls with the field already
 	// false on purpose to clear a zoom a dead panel left behind: the frame answers from what it
@@ -220,10 +214,9 @@ func (m *model) reconcileSolo() {
 	m.awaitingSize = true
 }
 
-// syncKeys puts the frame right about whether it still holds the window, which a focus report
-// cannot say on its own: the same message arrives when the keys move off the panel's pane, which
-// drops the sidebar's zoom, and when the terminal the whole session is in loses focus, which does
-// not.
+// syncKeys puts the frame right about whether it still holds the window, which one focus report
+// cannot say on its own since the keys leaving the pane and the terminal losing focus arrive as
+// the same message.
 func (m *model) syncKeys() {
 	m.frame.SyncKeys()
 }
@@ -243,7 +236,7 @@ func (m model) joinColumns(split columnSplit, sidebar, column string) string {
 }
 
 // paneWidth is the column the panel draws its own list, record and legend in, which is the whole
-// pane except while it is drawing a block of its own beside them.
+// pane except while it is drawing a block beside them.
 func (m model) paneWidth() int {
 	// A screen working out whether its own split leaves room for its chrome has already chosen
 	// the column, so it is told the answer rather than asked for the split it is still deciding.
@@ -279,8 +272,8 @@ func (m model) docColumnView(split columnSplit) string {
 	return m.columnDoc(split).view(split.rows)
 }
 
-// columnDoc is the document the block is drawn from, empty on a screen whose block is not one,
-// which docWindow draws as the blank half of a window rather than refusing to draw at all.
+// columnDoc is the document the block is drawn from, and empty on a screen whose block is not
+// one.
 func (m model) columnDoc(split columnSplit) docWindow {
 	// The region draws the message in its own rows, except under a form, which covers them.
 	if m.isMessagesFocused() && m.form.isOpening() {
@@ -299,8 +292,8 @@ func (m model) columnDoc(split columnSplit) docWindow {
 	}
 }
 
-// scrollColumn moves the block beside the list, clamped to what is left of it so the reader cannot
-// scroll a short document off the top of its own column.
+// scrollColumn moves the block beside the list, clamped so the reader cannot scroll a short
+// document off the top of its own column.
 func (m model) scrollColumn(direction int) model {
 	split, ok := m.screenColumnSplit()
 
@@ -320,8 +313,8 @@ func (m model) scrollColumn(direction int) model {
 	return m
 }
 
-// isColumnScroll reports whether a key moves the block beside the list, which it does only on a
-// screen whose block is a document the panel scrolls rather than one the screen scrolls itself.
+// isColumnScroll reports whether a key moves the block beside the list, which holds only on a
+// screen whose block the panel scrolls rather than the screen itself.
 func (m model) isColumnScroll(k string) (int, bool) {
 	if spec, ok := m.columnOf(); !m.isMessagesFocused() && (!ok || spec.doc == nil) {
 		return 0, false

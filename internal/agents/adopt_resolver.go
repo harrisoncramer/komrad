@@ -82,7 +82,7 @@ func (GHPullRequests) Repository(ctx context.Context, dir string) (string, error
 }
 
 // isPullRequestRef reports whether a reference names a pull request rather than a branch,
-// which means a GitHub URL, a bare number, or a number behind a hash.
+// meaning a GitHub URL, a bare number, or a number behind a hash.
 func isPullRequestRef(ref string) bool {
 	if strings.Contains(ref, "/pull/") {
 		return true
@@ -116,8 +116,8 @@ func repositoryFromURL(url string) string {
 	return ""
 }
 
-// repositoryFromRemote pulls owner/name out of a git remote, which may be SSH or HTTPS, with or
-// without a .git suffix.
+// repositoryFromRemote pulls owner/name out of a git remote, in either the SSH or the HTTPS
+// form and with or without a .git suffix.
 func repositoryFromRemote(remote string) string {
 	trimmed := strings.TrimSuffix(remote, ".git")
 	// A remote naming a path is not a forge, so it has no owner and name to read.

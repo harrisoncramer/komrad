@@ -70,8 +70,7 @@ type WorktreeOwners struct {
 	WorkflowDirs []string
 }
 
-// newHooksCheck reports the directory a workflow's hooks are read from, which is asked about here
-// because a directory that is not there reads as a machine with no hooks.
+// newHooksCheck reports the directory a workflow's hooks are read from.
 func newHooksCheck() Check {
 	return Check{
 		Name:        "hooks",
@@ -151,8 +150,7 @@ func newWorktreesCheck() Check {
 	}
 }
 
-// newOrphanedWorktreesCheck reports worktree directories no agent answers for, which nothing else
-// notices because a worktree is only removed when the agent holding it is deleted.
+// newOrphanedWorktreesCheck reports worktree directories no agent answers for.
 func newOrphanedWorktreesCheck() Check {
 	return Check{
 		Name:        "orphaned worktrees",

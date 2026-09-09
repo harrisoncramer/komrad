@@ -33,8 +33,8 @@ type childSlotLocker interface {
 	LockSlots(ctx context.Context) error
 }
 
-// restoredChildSlotLocker is what a restore holds a parent to its ceiling with: the count it already
-// runs, plus the rows its children's parent ids stand for, so a refusal can name the parent.
+// restoredChildSlotLocker is what a restore holds a parent to its ceiling with: the children it
+// already runs, plus the rows a restoring batch would hang under it.
 type restoredChildSlotLocker interface {
 	childSlotLocker
 	ListByID(ctx context.Context, ids []string) ([]agentstore.Agent, error)
@@ -45,8 +45,7 @@ type agentSlotLocker interface {
 	LockSlots(ctx context.Context) error
 }
 
-// launchAgentReadWriter is the slice of the agent store a launch writes to, from the key it spends
-// through to the row it reads back.
+// launchAgentReadWriter is the slice of the agent store a launch writes to.
 type launchAgentReadWriter interface {
 	agentGetter
 	agentCounter
@@ -124,7 +123,7 @@ type NewAgentParams struct {
 }
 
 // NewAgent creates and launches a background agent, answering a key already spent on a launch
-// with that agent and ErrAlreadyLaunched rather than a bare nil.
+// with that agent and ErrAlreadyLaunched.
 func (s *LaunchService) NewAgent(ctx context.Context, params NewAgentParams) (*agentstore.Agent, error) {
 	if params.IdempotencyKey != "" {
 		existing, err := s.agents.GetByIdempotencyKey(ctx, params.IdempotencyKey)
@@ -171,7 +170,7 @@ func (s *LaunchService) NewAgent(ctx context.Context, params NewAgentParams) (*a
 }
 
 // releaseFailedLaunch frees an idempotency key held by a create that failed, so the next
-// attempt launches instead of being answered with the corpse.
+// attempt launches.
 func (s *LaunchService) releaseFailedLaunch(ctx context.Context, existing agentstore.Agent, key string) (bool, error) {
 	// A failed cleanup belongs to an agent that ran, so only a failed create launched nothing.
 	if existing.State != agentstore.StateFailedToCreate {
@@ -195,10 +194,8 @@ func (s *LaunchService) findSpawner(ctx context.Context, id string) (*agentstore
 	return spawner, nil
 }
 
-// findParent resolves the agent a child is being attached to, and refuses a request that asks
-// for anything the parent decides instead: the checkout, the provisioner, and the workflow are
-// its parent's rather than the caller's to choose, so a request naming one of them is answered
-// rather than quietly overridden.
+// findParent resolves the agent a child is being attached to, and refuses a request naming the
+// checkout, the provisioner or the workflow, all of which the parent decides.
 func (s *LaunchService) findParent(ctx context.Context, params NewAgentParams) (*agentstore.Agent, error) {
 	parent, err := s.agents.GetByID(ctx, params.ParentAgentID)
 	if errors.Is(err, store.ErrNotFound) {
@@ -235,7 +232,7 @@ func (s *LaunchService) findParent(ctx context.Context, params NewAgentParams) (
 }
 
 // childParams holds a child to what its parent gives it, writing the disabled provisioner onto
-// the row rather than leaving it unset.
+// the row.
 func childParams(params NewAgentParams, parent agentstore.Agent) NewAgentParams {
 	params.Dir = parent.Cwd
 	params.ProvisionEnabled = xptr.Ptr(false)
@@ -474,16 +471,15 @@ func (s *LaunchService) launchAgent(ctx context.Context, params NewAgentParams, 
 	return created, nil
 }
 
-// teardownTimeout stands in for the caller's own deadline once that no longer applies, so a
-// wedged database cannot hold a failed create open indefinitely.
+// teardownTimeout stands in for the caller's own deadline once that no longer applies.
 const teardownTimeout = 30 * time.Second
 
 func (s *LaunchService) failCreate(ctx context.Context, agent agentstore.Agent, cause error) {
 	failAs(ctx, s.agents, agent, agentstore.StateFailedToCreate, "create", cause)
 }
 
-// awaitDeprovision runs a deprovisioner and waits for it, so a create that failed has given
-// back the directory it provisioned before the row is closed out against it.
+// awaitDeprovision runs a deprovisioner and waits for it, so a create that failed gives back
+// the directory it provisioned before the row is closed out.
 func awaitDeprovision(ctx context.Context, deprovision agentScriptRunner, agent agentstore.Agent, name string) {
 	finished := make(chan error, 1)
 	runDeprovision(ctx, deprovision, agent, name, func(deprovisionErr error) {
@@ -577,8 +573,8 @@ func claimRoomForAgents(ctx context.Context, agents agentSlotLocker, maxAgents, 
 	return requireRoomForAgents(ctx, agents, maxAgents, want)
 }
 
-// claimRoomForChildren holds one parent to the children it may run at once, which is a lower
-// ceiling than the panel's.
+// claimRoomForChildren holds one parent to the children it may run at once, a lower ceiling
+// than the panel's own.
 func claimRoomForChildren(ctx context.Context, agents childSlotLocker, maxChildren int, parent *agentstore.Agent) error {
 	if parent == nil || maxChildren <= 0 {
 		return nil
@@ -595,7 +591,7 @@ func claimRoomForChildren(ctx context.Context, agents childSlotLocker, maxChildr
 }
 
 // claimRoomForRestoredChildren holds every parent a restoring batch hangs a child under to the
-// same ceiling a create is held to.
+// ceiling a create is held to.
 func claimRoomForRestoredChildren(ctx context.Context, agents restoredChildSlotLocker, maxChildren int, restoring []agentstore.Agent) error {
 	if maxChildren <= 0 {
 		return nil

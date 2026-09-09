@@ -11,7 +11,7 @@ import (
 )
 
 // reviewDeliveryStates is how many slots the delivery counts get, one per state the proto
-// defines with room over, so a state added there is counted without being named here.
+// defines with room over.
 const reviewDeliveryStates = 8
 
 // reviewDiffPollInterval is how often the worktree behind the diff is read again while the
@@ -25,23 +25,21 @@ type reviewActivity struct {
 	// newest is the newest thing said or changed, and the counts beside it are what a stamp cannot
 	// see.
 	newest string
-	// delivery is how many comments stand in each state, which is the half of the answer no
-	// stamp reaches: claiming a doorbell writes to mail alone, and a doorbell running out of
-	// time writes nowhere at all, so both are read off what the server answered rather than
-	// off when a row was last written.
+	// delivery is how many comments stand in each state, read off what the server answered rather
+	// than off when a row was last written.
 	delivery [reviewDeliveryStates]int
 }
 
-// reviewRefreshedMsg is the conversation as a tick found it, which is only drawn when the
-// probe says something has been said since the sidebar was written.
+// reviewRefreshedMsg is the conversation as a tick found it, drawn only when the probe says
+// something has been said since the sidebar was written.
 type reviewRefreshedMsg struct {
 	agentID string
 	threads []*agentv1.ReviewThread
 	err     error
 }
 
-// reviewDiffPolledMsg is the worktree as a background read found it, which is compared with
-// what is on screen rather than drawn over it.
+// reviewDiffPolledMsg is the worktree as a background read found it, compared with what is on
+// screen rather than drawn over it.
 type reviewDiffPolledMsg struct {
 	agentID string
 	// moved says the agent has written since the round on screen was taken.
@@ -95,8 +93,7 @@ func (m model) refreshReviewThreadsCmd() tea.Cmd {
 }
 
 // pollReviewDiffCmd asks whether the agent has written anything since the round on screen was
-// taken, hashing the worktree rather than reading a second patch and leaving the round alone
-// either way.
+// taken, hashing the worktree rather than reading a second patch.
 func (m model) pollReviewDiffCmd() tea.Cmd {
 	agentID, dir := m.review.agentID, m.review.dir
 	snapshot := m.review.round.GetSnapshotSha()

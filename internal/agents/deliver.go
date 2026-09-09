@@ -22,8 +22,8 @@ const (
 	DeliveryLater
 )
 
-// deliveryPlan is what a pane's frame will take, which is nothing at all unless the input box is
-// empty or holds a draft weave can put back.
+// deliveryPlan is what a pane's frame will take, which is nothing at all unless the input box
+// is empty or holds a draft weave can put back.
 type deliveryPlan int
 
 const (
@@ -32,8 +32,8 @@ const (
 	// planPaste is an empty box, which takes the nudge on its own.
 	planPaste
 
-	// planCutAndRestore is a box holding a draft nobody is moving, which is cut, nudged, and
-	// handed what it held back.
+	// planCutAndRestore is a box holding a draft nobody is moving, which is cut, nudged, then
+	// handed back what it held.
 	planCutAndRestore
 )
 
@@ -135,7 +135,7 @@ func (s *DeliveryService) DeliverAll(ctx context.Context) error {
 }
 
 // Deliver makes one attempt at getting an agent to read what is waiting for it, and reports
-// what it managed, which is what the tests assert on.
+// what it managed.
 func (s *DeliveryService) Deliver(ctx context.Context, agentID string) (Delivery, error) {
 	agent, err := s.nudgeClaimer.GetByID(ctx, agentID)
 	if errors.Is(err, store.ErrNotFound) {
@@ -221,8 +221,8 @@ func (s *DeliveryService) planFor(ctx context.Context, agent agentstore.Agent) d
 	return planRefuse
 }
 
-// planForDraft is what weave may do to a box already holding text, which is nothing at all until
-// the text has stopped moving and nobody is at the pane.
+// planForDraft is what weave may do to a box already holding text, which is nothing at all
+// until the text has stopped moving and nobody is at the pane.
 func (s *DeliveryService) planForDraft(ctx context.Context, agent agentstore.Agent, input harness.Input) deliveryPlan {
 	since := s.drafts.since(agent.ID, input.Text(), s.now())
 
@@ -323,8 +323,7 @@ func (s *DeliveryService) cutDraft(ctx context.Context, agent agentstore.Agent) 
 	return false, nil
 }
 
-// waitForAnEmptyBox reads the frame until it shows the cut, which tmux writes to the pane ahead
-// of the CLI repainting it.
+// waitForAnEmptyBox reads the frame until it shows the cut.
 func (s *DeliveryService) waitForAnEmptyBox(agent agentstore.Agent) (bool, error) {
 	for read := range cutSettleReads {
 		if read > 0 {
@@ -347,7 +346,7 @@ func (s *DeliveryService) waitForAnEmptyBox(agent agentstore.Agent) (bool, error
 }
 
 // didLastNudgeGoNowhere reports whether the agent was told about mail before and has ended no
-// turn since, which is the only reading under which the keys are known to have been swallowed.
+// turn since.
 func didLastNudgeGoNowhere(agent agentstore.Agent) bool {
 	if agent.NudgedAt == nil {
 		return false

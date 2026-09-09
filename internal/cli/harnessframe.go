@@ -9,16 +9,14 @@ type paneCapturer interface {
 	CapturePane(pane string) string
 }
 
-// paneFrameReader answers what a captured pane frame says about the harness typed into it, which
-// is the panel's half of the harness registry and reaches it as a dependency.
+// paneFrameReader answers what a captured pane frame says about the harness typed into it.
 type paneFrameReader struct {
 	panes     paneCapturer
 	harnesses *harness.Registry
 }
 
 // DoesFrameShowHarness reports whether a pane holds a frame its harness reads as one of its own,
-// which is what a harness that has started has yet to draw while the shell it was typed into is
-// still on screen.
+// which a harness still starting up has yet to draw.
 func (r paneFrameReader) DoesFrameShowHarness(pane, harnessID string) bool {
 	// A harness weave cannot look up is taken at its word.
 	found, err := r.harnesses.GetByID(harnessID)

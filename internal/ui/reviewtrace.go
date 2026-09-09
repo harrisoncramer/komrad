@@ -104,8 +104,8 @@ type traceOneParams struct {
 	Threads  []*agentv1.ReviewThread
 }
 
-// traceOne moves every thread of one snapshot pair, keeping the file when the lines are gone so a
-// thread whose code was rewritten still says which file it was about.
+// traceOne moves every thread of one snapshot pair, keeping the file when the lines are gone so
+// a thread whose code was rewritten still says which file it was about.
 func traceOne(params traceOneParams) map[string]review.Traced {
 	positions := make([]position.Position, 0, len(params.Threads))
 	for _, thread := range params.Threads {

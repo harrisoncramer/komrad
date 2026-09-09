@@ -95,8 +95,7 @@ func (s *Service) ListMail(ctx context.Context, req *connect.Request[agentv1.Lis
 	return connect.NewResponse(response), nil
 }
 
-// DeleteMail permanently removes mail by id, so the recipient never sees it rather than
-// having it marked as read.
+// DeleteMail permanently removes mail by id, so the recipient never sees it.
 func (s *Service) DeleteMail(ctx context.Context, req *connect.Request[agentv1.DeleteMailRequest]) (*connect.Response[emptypb.Empty], error) {
 	if err := s.mail.DeleteMail(ctx, req.Msg.GetIds()); err != nil {
 		return nil, rpcerr.Wrap(err, "failed to delete mail")

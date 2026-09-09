@@ -7,8 +7,8 @@ import (
 	"weave/internal/store"
 )
 
-// Archive hides a workflow from the panel without dropping the row, leaving the caller to
-// unassign or archive the agents inside it in the same transaction.
+// Archive hides a workflow from the panel without dropping the row, leaving the agents inside
+// it to the caller.
 func (s *Store) Archive(ctx context.Context, id string) error {
 	if !store.IsID(id) {
 		return nil
@@ -21,8 +21,7 @@ func (s *Store) Archive(ctx context.Context, id string) error {
 	return nil
 }
 
-// Restore puts an archived workflow back in the panel, leaving the caller to bring its agents
-// back in the same transaction so it does not read as empty.
+// Restore puts an archived workflow back in the panel, leaving its agents to the caller.
 func (s *Store) Restore(ctx context.Context, id string) error {
 	if !store.IsID(id) {
 		return nil

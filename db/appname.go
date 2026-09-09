@@ -5,13 +5,12 @@ import (
 	"os"
 )
 
-// appNamePrefix marks a connection as weave's own in pg_stat_activity, where the
-// migration pass reads it to tell a connection of its own from one belonging to
-// another weave against the same database.
+// appNamePrefix marks a connection as weave's own in pg_stat_activity, which the migration pass
+// reads to tell its own connections from another weave's.
 const appNamePrefix = "weave"
 
-// maxAppName is what Postgres truncates application_name at, applied here so two
-// processes on a long hostname do not end up under the same truncated name.
+// maxAppName is what Postgres truncates application_name at, applied here so two processes on a
+// long hostname do not end up under one truncated name.
 const maxAppName = 63
 
 // AppName is the application_name every weave pool connects under, naming the process rather

@@ -17,8 +17,8 @@ const (
 type infoState struct {
 	kind    infoKind
 	subject string
-	// run is how far back through an agent's runs the run-log pane has stepped, zero being
-	// the most recent, so the pane follows the newest run rather than a path that went stale.
+	// run is how far back through an agent's runs the run-log pane has stepped, zero being the
+	// most recent.
 	run int
 }
 
@@ -71,8 +71,7 @@ func (m *model) stageInfo() {
 }
 
 // reconcileInfo catches the pane going away on its own, which is what an editor quitting does,
-// and reports whether what went was the editor: the file may have been changed or committed
-// while it was up, so the diff behind it is stale.
+// and reports whether what went was the editor.
 func (m *model) reconcileInfo() bool {
 	if m.info.kind == infoNothing || m.frame.IsOpen(layout.RegionInfo) {
 		return false

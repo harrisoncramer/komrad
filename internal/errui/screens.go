@@ -22,8 +22,7 @@ func RenderConfigError(width int, err error) string {
 	}.Render()
 }
 
-// RenderStartupError is shown instead of the panel when the server could not be started, as a takeover
-// rather than the unreachable screen since nothing retries a failed first attempt.
+// RenderStartupError is shown instead of the panel when the server could not be started.
 func RenderStartupError(width int, err error, findings []Finding) string {
 	screen := Screen{
 		Width: width,

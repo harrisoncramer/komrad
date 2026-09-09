@@ -24,14 +24,13 @@ type Caller struct {
 	SessionID string
 }
 
-// IsKnown reports whether the request named an agent at all; a call from the panel or curl
-// is unattributed rather than wrong, and is logged without the fields rather than empty ones.
+// IsKnown reports whether the request named an agent at all.
 func (c Caller) IsKnown() bool {
 	return c.AgentID != "" || c.SessionID != ""
 }
 
-// FromHeader reads the identity a request arrived with, dropping any value that is still a shell
-// variable, which means the CLI's environment never set it.
+// FromHeader reads the identity a request arrived with, dropping any value that is still an
+// unexpanded shell variable.
 func FromHeader(header http.Header) Caller {
 	return Caller{
 		AgentID:   expanded(header.Get(AgentHeader)),
@@ -47,8 +46,8 @@ func expanded(value string) string {
 	return value
 }
 
-// SetHeader writes the identity onto a request going out, and nothing at all for a caller that is
-// not known.
+// SetHeader writes the identity onto a request going out, and nothing for a caller that is not
+// known.
 func (c Caller) SetHeader(header http.Header) {
 	if c.AgentID != "" {
 		header.Set(AgentHeader, c.AgentID)
@@ -58,9 +57,8 @@ func (c Caller) SetHeader(header http.Header) {
 	}
 }
 
-// Transport stamps every request a client sends with the identity and trace of the request
-// being served, so a call made on somebody's behalf stays attributed to them; next is the
-// transport underneath, or the default one when nil.
+// Transport stamps every request a client sends with the identity and trace of the request being
+// served, taking next as the transport underneath or the default one when nil.
 func Transport(next http.RoundTripper) http.RoundTripper {
 	if next == nil {
 		next = http.DefaultTransport
@@ -71,8 +69,7 @@ func Transport(next http.RoundTripper) http.RoundTripper {
 
 type forwarding struct{ next http.RoundTripper }
 
-// RoundTrip copies what the context carries onto a clone of the request, which belongs to
-// whoever built it.
+// RoundTrip copies what the context carries onto a clone of the request.
 func (f forwarding) RoundTrip(req *http.Request) (*http.Response, error) {
 	ctx := req.Context()
 
@@ -93,8 +90,7 @@ func (f forwarding) RoundTrip(req *http.Request) (*http.Response, error) {
 
 type callerKey struct{}
 
-// With carries the identity on a context, which is how a handler and anything it calls can
-// say who asked.
+// With carries the identity on a context, so a handler and anything it calls can say who asked.
 func With(ctx context.Context, from Caller) context.Context {
 	return context.WithValue(ctx, callerKey{}, from)
 }

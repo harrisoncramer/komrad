@@ -9,8 +9,8 @@ import (
 	"github.com/bluekeyes/go-gitdiff/gitdiff"
 )
 
-// Edit is one run of adjacent lines a working tree has written over the commit it is checked out
-// at, held in that commit's own line numbers so each run can be proposed on its own.
+// Edit is one run of adjacent lines a working tree has written over the commit it is checked
+// out at, held in that commit's own line numbers.
 type Edit struct {
 	Path string
 	// Start and End name the run in the checked-out commit's copy, and End is one below Start for
@@ -20,8 +20,8 @@ type Edit struct {
 	Lines []string
 }
 
-// Edits is what a working tree has written since it was checked out, one entry per run of adjacent
-// lines, which is what lets two changes to one file be proposed separately.
+// Edits is what a working tree has written since it was checked out, one entry per run of
+// adjacent lines, so two changes to one file can be proposed separately.
 func Edits(ctx context.Context, dir string) ([]Edit, error) {
 	raw, err := RunBytes(ctx, dir, "-c", "core.quotepath=false", "--no-pager", "diff",
 		"--no-ext-diff", "--unified=0", "HEAD", "--", ".")
@@ -49,7 +49,7 @@ func Edits(ctx context.Context, dir string) ([]Edit, error) {
 }
 
 // editOf reads one fragment as a run, spelling an insertion as an empty range starting after the
-// line git hung it off, which is the same shape a replacement has with nothing to replace.
+// line git hung it off.
 func editOf(path string, fragment *gitdiff.TextFragment) Edit {
 	start := int(fragment.OldPosition)
 	if fragment.OldLines > 0 {

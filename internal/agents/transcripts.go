@@ -35,8 +35,8 @@ type NewTranscriptSyncerParams struct {
 	Harnesses   harnessGetter
 }
 
-// NewTranscriptSyncer builds a syncer over the store, reading each agent's log
-// through the harness that wrote it.
+// NewTranscriptSyncer builds a syncer over the store, reading each agent's log through the
+// harness that wrote it.
 func NewTranscriptSyncer(params NewTranscriptSyncerParams) *TranscriptSyncer {
 	return &TranscriptSyncer{
 		agents:    params.Agents,

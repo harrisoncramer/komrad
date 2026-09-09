@@ -10,7 +10,7 @@ import (
 )
 
 // RiverSchema is the Postgres schema River keeps its own tables in, separate from the
-// application's so that Atlas and River each manage their own migration ledger.
+// application's so Atlas and River each manage their own ledger.
 const RiverSchema = "river"
 
 // MigrateRiver creates River's own tables without anyone installing the River CLI.

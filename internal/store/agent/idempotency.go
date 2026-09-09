@@ -26,8 +26,7 @@ func (s *Store) GetByIdempotencyKey(ctx context.Context, key string) (*Agent, er
 }
 
 // ReleaseIdempotencyKey takes a key back off the failed create holding it and reports whether
-// it did, checking the state in the statement that clears the key so a caller which read the
-// row a moment ago cannot free one off an agent that has since launched.
+// it did, checking the agent's state in the same statement.
 func (s *Store) ReleaseIdempotencyKey(ctx context.Context, key string) (bool, error) {
 	if key == "" {
 		return false, nil

@@ -27,7 +27,8 @@ type warmupState struct {
 	since   map[string]time.Time
 	polling bool
 	pending string
-	// pendingHarness is read off the write rather than a listing, which the new row is not in yet.
+	// pendingHarness is read off the write rather than a listing, since the new row is not in one
+	// yet.
 	pendingHarness string
 	// closesForm says the create's own form is still up behind the wait, so the reveal takes it
 	// down in the same change.
@@ -38,8 +39,8 @@ func newWarmupState() warmupState {
 	return warmupState{ready: map[string]bool{}, since: map[string]time.Time{}}
 }
 
-// isPaneWarm reports whether a pane may be swapped into the stage, which is once its harness has
-// drawn itself there.
+// isPaneWarm reports whether a pane may be swapped into the stage, which holds once its harness
+// has drawn itself there.
 func (m *model) isPaneWarm(pane, harnessID string) bool {
 	if pane == "" {
 		return false
@@ -91,8 +92,8 @@ func (m *model) hasHarnessDrawn(pane, harnessID string) bool {
 	return m.harnessFrames.DoesFrameShowHarness(pane, harnessID)
 }
 
-// isPaneStageable reports whether a pane may be shown as the cursor lands on it, which holds back
-// only a launch still in flight: a harness that has started and has yet to draw.
+// isPaneStageable reports whether a pane may be shown as the cursor lands on it, holding back
+// only a launch still in flight.
 func (m *model) isPaneStageable(pane, harnessID string) bool {
 	if pane == "" {
 		return false
@@ -113,7 +114,8 @@ func (m *model) markWarm(pane string) {
 }
 
 // sizeWarmingWindow puts a pane's own window at the size of the slot it is about to be shown in,
-// which the periodic sizing pass does not reach until the agent turns up in a listing.
+// ahead of the periodic sizing pass, which does not reach it until the agent turns up in a
+// listing.
 func (m *model) sizeWarmingWindow(pane string) {
 	// A guest is standing in the panel's own window, so resizing its window would resize the
 	// terminal weave is drawn in and take the whole layout down with it.

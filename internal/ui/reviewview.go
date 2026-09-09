@@ -20,8 +20,8 @@ var (
 	reviewNoticeStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("10"))
 	reviewAddedStyle   = lipgloss.NewStyle().Foreground(colorSuccess)
 	reviewRemovedStyle = lipgloss.NewStyle().Foreground(colorDanger)
-	// reviewMovedStyle draws the catch-up notice as coloured text rather than as a filled bar,
-	// since the agent writing while you read is the ordinary case and not an alarm.
+	// reviewMovedStyle draws the catch-up notice as coloured text rather than as a filled bar, the
+	// agent writing while you read being ordinary rather than an alarm.
 	reviewMovedStyle = lipgloss.NewStyle().Foreground(colorWarning)
 
 	// Reversed rather than merely coloured: a reader who keeps writing against a patch that has
@@ -52,7 +52,7 @@ func (m model) reviewView() string {
 	return m.joinColumns(split, sidebar, diff)
 }
 
-// reviewSidebarView is the panel's own column: where the cursor is standing and the thread
+// reviewSidebarView is the panel's own column: where the cursor is standing, and the thread
 // hanging off it.
 func (m model) reviewSidebarView(above ...string) string {
 	help := m.renderHelp(m.reviewHelp())
@@ -89,8 +89,8 @@ func (m model) reviewThreadWindow(rendered string, lines int) string {
 	return windowRows(rows, lines, place, m.reviewMarkerStyle())
 }
 
-// doesReviewFitDetails reports whether the sidebar has a line left over once the record has
-// taken its share.
+// doesReviewFitDetails reports whether the sidebar has a line left over once the record has taken
+// its share.
 func (m model) doesReviewFitDetails() bool {
 	// Measured with the keys on the diff, which keeps this out of its own answer.
 	m.details.focused = false
@@ -100,8 +100,8 @@ func (m model) doesReviewFitDetails() bool {
 	return spare > m.detailsLines()+detailsChromeLines
 }
 
-// reviewHeadView is the fixed top of the sidebar: whatever is standing in the way of a review,
-// or the place the cursor is standing when nothing is.
+// reviewHeadView is the fixed top of the sidebar: whatever is standing in the way of a review, or
+// the place the cursor is standing when nothing is.
 func (m model) reviewHeadView() string {
 	switch {
 	case m.review.loading:
@@ -154,7 +154,7 @@ func (m model) reviewRestView() string {
 }
 
 // reviewAnchorView names the place the cursor is standing, so the sidebar says what a new thread
-// would be pinned to without repeating the line the diff is already drawing beside it.
+// would be pinned to without repeating the line the diff already draws beside it.
 func (m model) reviewAnchorView() string {
 	anchor, ok := m.review.view.GetAnchor(m.review.cursor)
 	if !ok {
@@ -174,8 +174,7 @@ func (m model) reviewAnchorView() string {
 	return head + "\n"
 }
 
-// reviewCommentWhereView is which comment of how many the cursor is standing on, since cycling
-// them with one key says nothing about how far through them you are.
+// reviewCommentWhereView is which comment of how many the cursor is standing on.
 func (m model) reviewCommentWhereView(thread *agentv1.ReviewThread) string {
 	at, total := m.review.view.CommentPosition(thread)
 	if at == 0 || total < 2 {
@@ -185,8 +184,8 @@ func (m model) reviewCommentWhereView(thread *agentv1.ReviewThread) string {
 	return dimStyle.Render(fmt.Sprintf("  %d of %d", at, total))
 }
 
-// reviewReleaseView asks what to send: a word about the work as a whole, which is optional, and
-// the verdict, which is the part worth choosing deliberately since it is what the agent acts on.
+// reviewReleaseView asks what to send: an optional word about the work as a whole, and the
+// verdict the agent acts on.
 func (m model) reviewReleaseView() string {
 	out := "\n" + dimStyle.Render("  anything to say about the work as a whole? (optional)") + "\n"
 	out += m.review.editor.View() + "\n\n"
@@ -206,8 +205,7 @@ func (m model) reviewReleaseView() string {
 		keyLabel(m.keys.Form.Editor)+" editor · "+keyLabel(m.keys.Form.Back)+" cancel") + "\n"
 }
 
-// describeVerdict is how a verdict reads in the panel, spelled the way a person would say it
-// rather than the way the wire does.
+// describeVerdict is how a verdict reads in the panel, spelled the way a person would say it.
 func describeVerdict(verdict agentv1.ReviewVerdict) string {
 	switch verdict {
 	case agentv1.ReviewVerdict_REVIEW_VERDICT_APPROVED:
@@ -248,8 +246,8 @@ func (m model) reviewThreadView() string {
 	return out
 }
 
-// reviewOriginView is where a thread was written and the line it was written against, drawn
-// only once that code has moved.
+// reviewOriginView is where a thread was written and the line it was written against, drawn only
+// once that code has moved.
 func (m model) reviewOriginView(thread *agentv1.ReviewThread) string {
 	if !m.review.view.HasMoved(thread) {
 		return ""

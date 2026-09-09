@@ -58,7 +58,8 @@ func (m model) selectedSchedule() (scheduleItem, bool) {
 	return rowAt(m.scheduleRows(), m.schedules.cursor)
 }
 
-// hoveredScheduleKey is the row the cursor is on, read before a filter narrows the list under it.
+// hoveredScheduleKey is the row the cursor is on, read before a filter narrows the list under
+// it.
 func (m model) hoveredScheduleKey() string {
 	item, ok := m.selectedSchedule()
 	if !ok {
@@ -229,7 +230,7 @@ func (m model) archiveScheduleConfirm() (tea.Model, tea.Cmd) {
 }
 
 // landScheduleCursor puts the cursor on a row, naming the row rather than only its place in the
-// list so the record's own offset is kept for as long as the reader is still on it.
+// list so the record's own offset is kept.
 func (m *model) landScheduleCursor(rows []scheduleItem, idx int) {
 	m.schedules.cursor = idx
 

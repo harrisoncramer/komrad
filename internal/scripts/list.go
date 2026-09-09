@@ -11,8 +11,8 @@ import (
 
 var ErrScriptNotFound = errors.New("script not found")
 
-// List returns every script across dirs in name order, where an earlier dir's file wins over
-// a later one offering the same name.
+// List returns every script across dirs in name order, an earlier dir's file winning over a
+// later one offering the same name.
 func List(dirs ...string) ([]Script, error) {
 	var all []Script
 

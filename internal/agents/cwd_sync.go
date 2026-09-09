@@ -11,8 +11,8 @@ import (
 	agentstore "weave/internal/store/agent"
 )
 
-// cwdLookTimeout bounds each look at a directory, which against a dead network mount hangs
-// rather than failing.
+// cwdLookTimeout bounds each look at a directory, since a dead network mount hangs rather than
+// failing.
 const cwdLookTimeout = 5 * time.Second
 
 type cwdSetter interface {
@@ -33,9 +33,8 @@ func NewCwdSyncer(agents cwdSetter) *CwdSyncer {
 	return &CwdSyncer{agents: agents, branch: readBranch}
 }
 
-// Sync looks at every live agent's cwd once and writes what changed, clearing the branch
-// when the cwd names no git checkout and leaving an agent with no cwd alone rather than
-// reporting it removed.
+// Sync looks at every live agent's cwd once and writes what changed, clearing the branch when
+// the cwd names no git checkout and leaving an agent with no cwd alone.
 func (cs *CwdSyncer) Sync(ctx context.Context) error {
 	agents, err := cs.agents.List(ctx)
 	if err != nil {

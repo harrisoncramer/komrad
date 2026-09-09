@@ -30,7 +30,7 @@ func refreshTick() tea.Cmd {
 }
 
 // viewedDwell is how long the cursor has to stay on one agent before the panel counts the pane
-// it stages as read, which is what keeps the rows a person travels over from being cleared.
+// it stages as read, which keeps the rows a person travels over from being cleared.
 const viewedDwell = time.Second
 
 // hoverState is the agent the cursor is sitting on, when it arrived, and whether the person has
@@ -56,9 +56,9 @@ func (m model) dwellViewed(now time.Time) (model, tea.Cmd) {
 		m.hover = hoverState{agentID: item.agent.ID, since: now}
 	}
 
-	// A row with nothing to read keeps restarting the dwell, so the turn that lands next has to
-	// be looked at for a second of its own rather than being claimed on arrival by a cursor
-	// that was parked there through the turn before it.
+	// A row with nothing to read keeps restarting the dwell, so the turn that lands next has to be
+	// looked at for a second of its own rather than claimed on arrival by a cursor already parked
+	// there.
 	if !item.unviewed {
 		m.hover.since = now
 
@@ -157,7 +157,7 @@ func (m model) refreshCmd() tea.Cmd {
 	}
 }
 
-// reportUnreachable says the server has stopped answering on the pass that finds it gone rather
+// reportUnreachable says the server has stopped answering on the pass that finds it gone, rather
 // than on every refresh while it is down.
 func (m *model) reportUnreachable(err error) {
 	was := m.unreachable
@@ -260,8 +260,8 @@ func (m model) markViewedCmd(id string) tea.Cmd {
 	}
 }
 
-// dwellRunsRead claims an agent's failed runs once its run log has been on screen long enough
-// to have been read, on the same terms the transcript's own mark is claimed under.
+// dwellRunsRead claims an agent's failed runs once its run log has been on screen long enough to
+// have been read, on the same terms the transcript's own mark is claimed under.
 func (m model) dwellRunsRead(now time.Time) (model, tea.Cmd) {
 	agent, ok := m.runLogTarget()
 	if !ok {
@@ -304,8 +304,8 @@ func (m model) dwellRunsRead(now time.Time) (model, tea.Cmd) {
 	return m, m.markRunsReadCmd(agent.ID)
 }
 
-// runLogTarget is the agent whose runs the info pane is showing, which is none at all while
-// that pane is showing anything else.
+// runLogTarget is the agent whose runs the info pane is showing, and none while that pane is
+// showing anything else.
 func (m model) runLogTarget() (agentstore.Agent, bool) {
 	if m.info.kind != infoRunLog {
 		return agentstore.Agent{}, false
@@ -314,8 +314,7 @@ func (m model) runLogTarget() (agentstore.Agent, bool) {
 	return m.logTarget()
 }
 
-// isFailedRunShowing reports whether the agent the run-log pane is on is still carrying a mark,
-// so a settled panel makes no calls at all.
+// isFailedRunShowing reports whether the agent the run-log pane is on is still carrying a mark.
 func (m model) isFailedRunShowing(agentID string) bool {
 	for _, item := range m.listing.agents {
 		if item.agent.ID == agentID {
@@ -425,8 +424,8 @@ func (m *model) createWorkflowCmd(cfg workflowstore.Config) tea.Cmd {
 	})
 }
 
-// beginWrite counts a write out and answers with the epoch it belongs to, which is what tells
-// a landing result apart from one an earlier submit is still waiting on.
+// beginWrite counts a write out and answers with the epoch it belongs to, which tells a landing
+// result apart from one an earlier submit is still waiting on.
 func (m *model) beginWrite() int {
 	m.epoch++
 	m.pending++

@@ -90,8 +90,8 @@ func (r *Recorder) Record(params RecordParams) error {
 	return prune(dir, settings.Keep)
 }
 
-// numberFrame numbers a frame within the millisecond it was written in, keeping two readings that
-// land together off the same name.
+// numberFrame numbers a frame within the millisecond it was written in, keeping two readings
+// that land together off the same name.
 func (r *Recorder) numberFrame() int {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -101,8 +101,8 @@ func (r *Recorder) numberFrame() int {
 	return r.written
 }
 
-// shouldRecord reports whether a reading is worth keeping: a frame differing from the last one kept
-// for that agent, or a verdict disputing the state on record.
+// shouldRecord reports whether a reading is worth keeping, which a frame differing from the last
+// one kept and a verdict disputing the state on record both are.
 func (r *Recorder) shouldRecord(params RecordParams, hash uint64) bool {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -113,7 +113,7 @@ func (r *Recorder) shouldRecord(params RecordParams, hash uint64) bool {
 }
 
 // remember notes the frame an agent was last kept from, once it is on disk, so a write that
-// failed is taken again rather than skipped.
+// failed is taken again.
 func (r *Recorder) remember(agentID string, hash uint64) {
 	r.mu.Lock()
 	defer r.mu.Unlock()

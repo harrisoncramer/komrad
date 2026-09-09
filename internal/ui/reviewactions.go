@@ -6,8 +6,8 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-// reviewActions is the review screen as one table, walked in precedence order by the dispatch and
-// named in reading order by a legend of the same ids.
+// reviewActions is the review screen as one table, walked in precedence order by the dispatch
+// and named in reading order by a legend of the same ids.
 func reviewActions() actionSpec {
 	return actionSpec{
 		table:  reviewTable(),
@@ -135,8 +135,8 @@ func reviewTable() []action {
 	}
 }
 
-// orEnterWriting turns a write into one that opens the mode that can write first, for a reader who
-// pressed it while reading rather than switching modes and then pressing it.
+// orEnterWriting turns a write into one that opens the mode that can write first, for a reader
+// who pressed it while reading.
 func orEnterWriting(fn func(model) (tea.Model, tea.Cmd, bool)) func(model) (tea.Model, tea.Cmd) {
 	return func(m model) (tea.Model, tea.Cmd) {
 		next, cmd, took := fn(m)

@@ -9,13 +9,11 @@ import (
 	"path/filepath"
 )
 
-// snapshotMessage is what the round's commit says, which nobody reads but git insists on.
+// snapshotMessage is what the round's commit says.
 const snapshotMessage = "weave review round"
 
-// snapshotIdentity is who the round's commit is by and when, the identity pinned because a
-// repository with no user configured would refuse to write the commit at all, and the dates
-// pinned because a commit carrying the clock would hash differently every time, so the same
-// worktree taken twice would read as two rounds and lose every mark made against the first.
+// snapshotIdentity is who the round's commit is by and when, both pinned so that the same
+// worktree taken twice hashes to the same commit and reads as one round.
 var snapshotIdentity = []string{
 	"GIT_AUTHOR_NAME=weave",
 	"GIT_AUTHOR_EMAIL=weave@localhost",
@@ -45,8 +43,8 @@ type Snapshot struct {
 	SHA     string
 }
 
-// ProbeTree writes an agent's worktree out as a tree and nothing else, which is the cheap way to
-// ask whether it has moved since a round was taken.
+// ProbeTree writes an agent's worktree out as a tree and nothing else, which is the cheap way
+// to ask whether it has moved since a round was taken.
 func ProbeTree(ctx context.Context, dir string) (string, error) {
 	root, err := GetRoot(ctx, dir)
 	if err != nil {
@@ -97,9 +95,9 @@ func writeTreeSeeded(ctx context.Context, root string, fill seed) (string, error
 	return tree, nil
 }
 
-// TakeSnapshot writes an agent's whole worktree, tracked and untracked alike, as a commit off the point
-// its branch left the base, building the tree in an index of its own so that the agent's index,
-// worktree and branch are all left exactly as they were.
+// TakeSnapshot writes an agent's whole worktree, tracked and untracked alike, as a commit off
+// the point its branch left the base, building the tree in an index of its own so the agent's
+// own index, worktree and branch are left exactly as they were.
 func TakeSnapshot(ctx context.Context, params TakeSnapshotParams) (*Snapshot, error) {
 	root, err := GetRoot(ctx, params.Dir)
 	if err != nil {
@@ -139,8 +137,7 @@ func TakeSnapshot(ctx context.Context, params TakeSnapshotParams) (*Snapshot, er
 	}, nil
 }
 
-// HoldRef points a ref at a snapshot already written, which is how a caller naming the ref after the
-// commit takes hold of it without writing that commit twice.
+// HoldRef points a ref at a snapshot already written.
 func HoldRef(ctx context.Context, dir, ref, sha string) error {
 	if ref == "" {
 		return nil
@@ -167,8 +164,8 @@ func ReleaseRef(ctx context.Context, dir, ref string) error {
 	return nil
 }
 
-// tempIndexPath names a file git may write an index to, leaving nothing there, git reading an
-// existing empty file as a corrupt index.
+// tempIndexPath names a file git may write an index to, leaving nothing there, since git reads
+// an existing empty file as a corrupt index.
 func tempIndexPath() (string, error) {
 	file, err := os.CreateTemp("", "weave-round-*.index")
 	if err != nil {
@@ -250,7 +247,7 @@ func copyIndex(ctx context.Context, root, index string, _ []string) error {
 }
 
 // hasAssumeUnchanged says whether the agent's index promises git that some file will not be
-// edited, and says so of an index it cannot read at all.
+// edited, and says so of an index it cannot read.
 func hasAssumeUnchanged(ctx context.Context, root string) bool {
 	out, err := RunBytes(ctx, root, "ls-files", "-v")
 	if err != nil {
@@ -267,7 +264,7 @@ func hasAssumeUnchanged(ctx context.Context, root string) bool {
 }
 
 // removeIndex drops the temporary index and the lock git leaves beside it when a write is cut
-// short, neither of which the caller can act on a failure to remove.
+// short.
 func removeIndex(path string) {
 	for _, leftover := range []string{path, path + ".lock"} {
 		if err := os.Remove(leftover); err != nil {
@@ -276,8 +273,8 @@ func removeIndex(path string) {
 	}
 }
 
-// GetTree is the tree one snapshot commit holds, which a probe of the worktree is compared against
-// to say whether the agent has written anything since.
+// GetTree is the tree one snapshot commit holds, which a probe of the worktree is compared
+// against to say whether the agent has written anything since.
 func GetTree(ctx context.Context, dir, sha string) (string, error) {
 	tree, err := Run(ctx, dir, "rev-parse", sha+"^{tree}")
 	if err != nil {

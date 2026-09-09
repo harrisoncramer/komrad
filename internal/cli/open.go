@@ -128,7 +128,7 @@ func buildManagerSessionArgs(state *app, self string) []string {
 }
 
 // buildPanelWindowArgs opens the panel in a session that is already there, detached when the
-// caller is not about to attach and so has no business moving whoever is watching.
+// caller is not about to attach.
 func buildPanelWindowArgs(state *app, self string, detached bool) []string {
 	args := []string{"new-window"}
 	if detached {
@@ -182,7 +182,7 @@ func userPanelKey(state *app, socket string) string {
 }
 
 // hostPath asks the user's own server where its client is sitting, which only a command running
-// there can do, so the panel reads what these commands wrote down rather than asking for itself.
+// there can do.
 func hostPath(socket string) string {
 	if socket == "" {
 		return ""

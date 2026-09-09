@@ -7,13 +7,13 @@ import (
 )
 
 // transcriptPreviewBefore is how many rows of lead-in the preview opens with, so the match the
-// hit was found on is read in what was being said around it rather than at the top of the column.
+// hit was found on is read in what was being said around it.
 const transcriptPreviewBefore = 12
 
 // searchPreview is the transcript standing beside the hits: what it was drawn from, the rows it
 // drew to, and where in them the words the hit matched on landed.
 type searchPreview struct {
-	// conversation is the markdown the rows are drawn from, held rather than only the rows since
+	// conversation is the markdown the rows are drawn from, held rather than only the rows, since
 	// the column is wrapped again whenever the window changes width.
 	conversation string
 	spans        []span
@@ -27,7 +27,7 @@ func searchColumn() columnSpec {
 }
 
 // holdPreview takes the transcript a hit was fetched for and draws it at the width it will be
-// read in, opening it on the match the way the pager it replaced was positioned on one.
+// read in, opening it on the match.
 func (m *model) holdPreview(conversation string, spans []span) {
 	if strings.TrimSpace(conversation) == "" {
 		conversation, spans = noTranscriptMarkdown, nil
@@ -38,7 +38,7 @@ func (m *model) holdPreview(conversation string, spans []span) {
 }
 
 // drawPreview wraps the transcript into the column it is drawn in and puts the window back on
-// the match, which is where the reader was last told to look and where a rewrap has moved.
+// the match, where a rewrap has moved it.
 func (m *model) drawPreview() {
 	preview := &m.search.preview
 	if preview.conversation == "" {
@@ -63,8 +63,8 @@ func (m *model) drawPreview() {
 	preview.doc.top = preview.doc.clamp(preview.doc.top, split.rows)
 }
 
-// searchPreviewView is the screenful of the transcript beside the hits, drawn without the markers
-// the archive's document carries.
+// searchPreviewView is the screenful of the transcript beside the hits, drawn without the
+// markers the archive's document carries.
 func (m model) searchPreviewView(split columnSplit) string {
 	doc := m.search.preview.doc
 	if len(doc.rows) == 0 {
@@ -86,8 +86,7 @@ func (m model) searchPreviewNotice() string {
 	}
 }
 
-// scrollPreview moves the transcript under the hits, which is the whole of what the pager it
-// replaced was doing once it had opened on the match.
+// scrollPreview moves the transcript under the hits.
 func (m model) scrollPreview(delta int) (tea.Model, tea.Cmd) {
 	split, ok := m.screenColumnSplit()
 	if !ok {

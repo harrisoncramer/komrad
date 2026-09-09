@@ -134,8 +134,8 @@ func styleMarks(s string, style lipgloss.Style) string {
 	return b.String()
 }
 
-// activeSGR reports the styling still in force at the end of a chunk, where a reset clears it
-// and so does a line ending.
+// activeSGR reports the styling still in force at the end of a chunk, cleared by a reset or a
+// line ending.
 func activeSGR(active, chunk string) string {
 	for chunk != "" {
 		i := strings.IndexAny(chunk, "\x1b\n")
@@ -178,8 +178,8 @@ func trimLastRune(s string) string {
 	return string(r[:len(r)-1])
 }
 
-// markedTerms pulls the words the search marked in a snippet, which are the forms the turn
-// actually spells and not the words the query asked for.
+// markedTerms pulls the words the search marked in a snippet: the forms the turn actually
+// spells, not the words the query asked for.
 func markedTerms(snippet string) []string {
 	var terms []string
 	seen := make(map[string]bool)
@@ -215,9 +215,8 @@ type span struct {
 	end   int
 }
 
-// matchSpans locates the marked words within the one turn a hit came from, which is as much as
-// a hit says about where it matched: the search index gives a turn and the words, never a
-// position for the words themselves.
+// matchSpans locates the marked words within the one turn a hit came from, which is as much as a
+// hit says about where it matched.
 func matchSpans(content string, offset, length int64, terms []string) []span {
 	if len(terms) == 0 || offset < 0 || offset > int64(len(content)) || length <= 0 {
 		return nil

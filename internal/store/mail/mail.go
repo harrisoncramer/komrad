@@ -1,5 +1,5 @@
-// Package mail stores the messages agents send each other, and which of them the recipient has
-// claimed, so the delivery loop can find what is still waiting and hand it over.
+// Package mail stores the messages agents send each other and which of them the recipient has
+// claimed.
 package mail
 
 import (
@@ -18,16 +18,16 @@ import (
 // Cursor pages this listing, which resumes from one row's id.
 type Cursor = store.IDCursor
 
-// Kind tells an agent's own mail, always KindPlain, from a notice weave raises itself.
+// Kind separates mail an agent sent, always KindPlain, from a notice weave raised itself.
 type Kind string
 
 const (
 	// KindPlain is ordinary mail.
 	KindPlain Kind = Kind(models.MailKindPlain)
-	// KindReviewActivity is a doorbell for review waiting on the agent's diff.
+	// KindReviewActivity tells an agent that a review of its diff is waiting.
 	KindReviewActivity Kind = Kind(models.MailKindReviewActivity)
-	// KindExchangeCapped tells an agent that mail written to it was refused because the pair
-	// had reached the cap on how much they may exchange.
+	// KindExchangeCapped tells an agent that mail written to it was refused because the pair had
+	// reached the cap on how much they may exchange.
 	KindExchangeCapped Kind = Kind(models.MailKindExchangeCapped)
 )
 
@@ -95,8 +95,7 @@ func (s *Store) Send(ctx context.Context, params SendParams) (*Mail, error) {
 }
 
 // GetPendingOfKind is the notice of a kind, about the same agent, that its recipient is already
-// holding unread, ErrNotFound when it holds none, which is what a caller joins rather than
-// queueing an identical one behind it.
+// holding unread, ErrNotFound when it holds none.
 func (s *Store) GetPendingOfKind(ctx context.Context, toAgentID string, kind Kind, about *string) (*Mail, error) {
 	if !store.IsID(toAgentID) {
 		return nil, noPendingOfKind(toAgentID, kind)
@@ -210,8 +209,7 @@ func (s *Store) ListSentPage(ctx context.Context, fromAgentID string, limit int3
 	}), nil
 }
 
-// ListByID returns whichever of the given ids hold mail, so a caller checking a batch for
-// completeness compares the length against what it asked for.
+// ListByID returns whichever of the given ids hold mail.
 func (s *Store) ListByID(ctx context.Context, ids []string) ([]Mail, error) {
 	storable := keepStorableIDs(ids)
 	if len(storable) == 0 {
@@ -228,8 +226,7 @@ func (s *Store) ListByID(ctx context.Context, ids []string) ([]Mail, error) {
 	}), nil
 }
 
-// Delete permanently removes mail by id without checking that every id holds any, so a
-// caller needing the batch to go whole checks with ListByID first.
+// Delete permanently removes mail by id without checking that every id holds any.
 func (s *Store) Delete(ctx context.Context, ids []string) error {
 	storable := keepStorableIDs(ids)
 	if len(storable) == 0 {
@@ -244,8 +241,7 @@ func (s *Store) Delete(ctx context.Context, ids []string) error {
 }
 
 // CountExchanged is how much plain mail two agents have written to each other, in either
-// direction and however many threads it was spread over, leaving out the notices weave raised
-// itself since neither agent sent those.
+// direction, leaving out the notices weave raised itself.
 func (s *Store) CountExchanged(ctx context.Context, one, other string) (int64, error) {
 	if !store.IsID(one) || !store.IsID(other) {
 		return 0, nil
@@ -276,9 +272,8 @@ func (s *Store) CountPending(ctx context.Context, toAgentID string) (int64, erro
 	return count, nil
 }
 
-// ListPendingMailboxes is every agent holding unclaimed mail, live or not yet reported as
-// expired, so the sweep finds a mailbox whose delivery job is gone as well as one whose mail
-// timed out unseen.
+// ListPendingMailboxes is every agent holding unclaimed mail, whether that mail is still live
+// or has expired without being reported.
 func (s *Store) ListPendingMailboxes(ctx context.Context) ([]string, error) {
 	rows, err := s.queries.ListMailboxesWithPendingMail(ctx)
 	if err != nil {
@@ -288,8 +283,7 @@ func (s *Store) ListPendingMailboxes(ctx context.Context) ([]string, error) {
 	return rows, nil
 }
 
-// ListUnreadMailboxes is every agent holding mail it could claim right now, so a mailbox
-// whose only mail has timed out drops off it.
+// ListUnreadMailboxes is every agent holding mail it could claim right now.
 func (s *Store) ListUnreadMailboxes(ctx context.Context) ([]string, error) {
 	rows, err := s.queries.ListMailboxesWithUnreadMail(ctx)
 	if err != nil {
@@ -300,7 +294,7 @@ func (s *Store) ListUnreadMailboxes(ctx context.Context) ([]string, error) {
 }
 
 // ListExpired reports the mail that ran out of time before the recipient claimed it, and marks
-// it reported so the next call does not hand back the same mail again.
+// it reported so the next call does not hand back the same mail.
 func (s *Store) ListExpired(ctx context.Context, toAgentID string) ([]Mail, error) {
 	if !store.IsID(toAgentID) {
 		return nil, nil

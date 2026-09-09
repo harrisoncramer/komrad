@@ -1,5 +1,5 @@
-// Package review stores the conversations a person pins to the lines of an agent's diff, and
-// the messages in them, whether the person or the agent wrote them.
+// Package review stores the conversations pinned to the lines of an agent's diff and the
+// messages in them.
 package review
 
 import (
@@ -22,26 +22,22 @@ const (
 	AuthorAgent AuthorKind = AuthorKind(models.ReviewAuthorKindAgent)
 )
 
-// Thread is one conversation pinned to a place in an agent's diff, with the person's read
-// stamp taken from the activity of the row that was shown rather than from the clock, so a
-// reply written in between stays unread.
+// Thread is one conversation pinned to a place in an agent's diff.
 type Thread struct {
 	ID      string
 	AgentID string
 
-	// ReviewID is the batch the thread was opened as part of, and through it the round the
-	// thread is anchored to, neither of which ever moves.
+	// ReviewID is the review the thread was opened as part of.
 	ReviewID string
-	// RoundID is the round the thread's line numbers were measured in.
+	// RoundID is the round the thread's line numbers were measured against.
 	RoundID string
-	// Harvested says weave wrote this thread from an edit of the round's checkout, which is
-	// what makes it weave's to rewrite or delete on a later harvest.
+	// Harvested says weave wrote this thread itself, from an edit of the round's checkout.
 	Harvested bool
 	// BaseSHA is the commit the old side of the line numbers was read against.
 	BaseSHA string
 	// RoundOrdinal names that round the way the panel does, zero when it was not read.
 	RoundOrdinal int32
-	// ReviewReleasedAt is when the batch this thread came out with was let go of, nil while the
+	// ReviewReleasedAt is when the review this thread came out with was released, nil while the
 	// thread is still private to its author.
 	ReviewReleasedAt *time.Time
 	// ReviewAuthorAgentID is the agent that gave the review this thread was opened in, nil when
@@ -57,22 +53,20 @@ type Thread struct {
 	HumanReadAt         *time.Time
 
 	// ResolvedAt is when the person reviewing settled the thread, nil while it is still owed an
-	// answer and untouched by the code moving underneath.
+	// answer.
 	ResolvedAt    *time.Time
 	UnreadByHuman bool
 	CreatedAt     time.Time
 	UpdatedAt     time.Time
 }
 
-// DeliveryState is how far one of the author's comments has got towards the agent reading it,
-// read off the batch it went out with rather than off the comment.
+// DeliveryState is how far one of the reviewer's comments has got towards the agent reading it.
 type DeliveryState string
 
 const (
-	// DeliveryNone is what delivery says about a message the agent wrote itself, which is
-	// nothing.
+	// DeliveryNone is the empty state carried by a message the agent wrote itself.
 	DeliveryNone DeliveryState = ""
-	// DeliveryUnsent is a comment in a review nobody has let go of yet.
+	// DeliveryUnsent is a comment in a review nobody has released yet.
 	DeliveryUnsent DeliveryState = "unsent"
 	// DeliverySent is a comment in a released review whose mail is still waiting to be claimed.
 	DeliverySent DeliveryState = "sent"
@@ -88,16 +82,14 @@ type Message struct {
 	AuthorAgentID *string
 	Body          string
 
-	// ReviewID is the batch this message went out with, nil for an answer, which belongs to no
-	// batch and reaches the reviewer as soon as it is written.
+	// ReviewID is the review this message went out with, nil for an answer from the agent.
 	ReviewID *string
-	// Suggestion is the replacement lines the author is proposing for the thread's range,
-	// empty for an ordinary comment.
+	// Suggestion is the replacement lines the reviewer is proposing for the thread's range,
+	// empty on an ordinary comment.
 	Suggestion []string
-	// SentAt is when the batch carrying this comment was released, nil while it is only
-	// written down.
+	// SentAt is when the review carrying this comment was released, nil until then.
 	SentAt *time.Time
-	// DeliveredAt is when the agent claimed the mail raised for that batch, nil until it has.
+	// DeliveredAt is when the agent claimed the mail raised for that review, nil until it has.
 	DeliveredAt *time.Time
 	Delivery    DeliveryState
 	CreatedAt   time.Time
@@ -132,7 +124,7 @@ type CreateThreadParams struct {
 }
 
 // CreateThread pins a conversation to a place in a diff and writes its first message in one
-// statement, stamping activity at the same NOW() so no thread exists with nothing said in it.
+// statement.
 func (s *Store) CreateThread(ctx context.Context, params CreateThreadParams) (*Thread, error) {
 	row, err := s.queries.InsertReviewThreadWithMessage(ctx, models.InsertReviewThreadWithMessageParams{
 		AgentID:       params.AgentID,
@@ -261,8 +253,7 @@ func (s *Store) GetThread(ctx context.Context, id string) (*Thread, error) {
 	return &thread, nil
 }
 
-// MarkThreadRead stamps the person's read column from the agent's activity column, which is
-// how opening a single conversation catches up on it without claiming the rest.
+// MarkThreadRead stamps the person's read column from the agent's activity column.
 func (s *Store) MarkThreadRead(ctx context.Context, id string) (*Thread, error) {
 	if !store.IsID(id) {
 		return nil, threadNotFound(id)
@@ -309,14 +300,13 @@ type CreateMessageParams struct {
 	ReviewID   *string
 	Suggestion []string
 	AuthorKind AuthorKind
-	// AuthorAgentID links to the agent that wrote it, which deleting that agent clears, so it
-	// is not a record of who wrote it.
+	// AuthorAgentID links to the agent that wrote it, and is cleared when that agent is deleted.
 	AuthorAgentID *string
 	Body          string
 }
 
-// CreateMessage writes a message into a thread and moves the writer's activity stamp, both in
-// one statement.
+// CreateMessage writes a message into a thread and moves the writer's activity stamp in one
+// statement.
 func (s *Store) CreateMessage(ctx context.Context, params CreateMessageParams) (*Message, error) {
 	row, err := s.queries.InsertReviewMessage(ctx, models.InsertReviewMessageParams{
 		ThreadID:      params.ThreadID,
@@ -346,8 +336,7 @@ func (s *Store) CreateMessage(ctx context.Context, params CreateMessageParams) (
 	return &message, nil
 }
 
-// UpdateMessage rewrites a message and moves its author's activity stamp with it, so the other
-// side sees a rewrite as something new rather than as the text it was already shown.
+// UpdateMessage rewrites a message and moves its author's activity stamp with it.
 func (s *Store) UpdateMessage(ctx context.Context, id, body string, suggestion []string) (*Message, error) {
 	if !store.IsID(id) {
 		return nil, messageNotFound(id)
@@ -400,8 +389,7 @@ func (s *Store) GetMessage(ctx context.Context, id string) (*Message, error) {
 	return &message, nil
 }
 
-// ListMessages is every message in the given threads, oldest first within each, each carrying
-// how far it has got towards being read.
+// ListMessages is every message in the given threads, oldest first within each.
 func (s *Store) ListMessages(ctx context.Context, threadIDs []string) ([]Message, error) {
 	if len(threadIDs) == 0 {
 		return nil, nil
@@ -435,8 +423,7 @@ func (s *Store) ListMessages(ctx context.Context, threadIDs []string) ([]Message
 	return messages, nil
 }
 
-// ViewedFile is one file of a round the person reviewing has read, and a later round is a row of
-// its own, which is what makes an agent rewriting the file undo the mark.
+// ViewedFile is one file of one round that the person reviewing has read.
 type ViewedFile struct {
 	RoundID  string
 	FilePath string
@@ -463,7 +450,7 @@ func (s *Store) MarkFileViewed(ctx context.Context, params MarkFileViewedParams)
 	return &viewed, nil
 }
 
-// UnmarkFileViewed drops the mark on one file, which is what the toggle does on its way back.
+// UnmarkFileViewed drops the mark on one file.
 func (s *Store) UnmarkFileViewed(ctx context.Context, roundID, filePath string) error {
 	if !store.IsID(roundID) {
 		return nil
@@ -546,8 +533,7 @@ func messageFromRow(row models.ReviewMessage) Message {
 	return message
 }
 
-// deliveryOf reads a comment's state off the batch it belongs to, a review being released,
-// delivered and answered whole.
+// deliveryOf reads a comment's state off the review it belongs to.
 func deliveryOf(message Message) DeliveryState {
 	switch {
 	case message.ReviewID == nil:
@@ -561,8 +547,7 @@ func deliveryOf(message Message) DeliveryState {
 	}
 }
 
-// lines is what a text[] column is written with, a nil slice writing SQL NULL rather than the
-// empty array the column is declared with.
+// lines turns a nil slice into the empty array a text[] column expects.
 func lines(values []string) []string {
 	if values == nil {
 		return []string{}
@@ -580,14 +565,13 @@ func messageNotFound(id string) error {
 }
 
 // HarvestedThread is a thread weave wrote from an edit of the round's checkout, carrying how
-// many messages it holds so a caller can tell one nobody has answered from one somebody has.
+// many messages it holds.
 type HarvestedThread struct {
 	Thread
 	MessageCount int64
 }
 
-// ListHarvested is every unreleased harvested thread on one round, which is the set a later
-// harvest of that round reconciles against.
+// ListHarvested is every unreleased harvested thread on one round.
 func (s *Store) ListHarvested(ctx context.Context, agentID, roundID string) ([]HarvestedThread, error) {
 	if !store.IsID(agentID) || !store.IsID(roundID) {
 		return nil, nil
@@ -640,8 +624,7 @@ type MoveThreadParams struct {
 	QuotedLines []string
 }
 
-// MoveThread repins a thread to a new range of the same round, which is what a harvested thread
-// needs when the reviewer widens or narrows the run it was written from.
+// MoveThread repins a thread to a new range of the same round.
 func (s *Store) MoveThread(ctx context.Context, params MoveThreadParams) (*Thread, error) {
 	if !store.IsID(params.ID) {
 		return nil, threadNotFound(params.ID)
@@ -668,8 +651,7 @@ func (s *Store) MoveThread(ctx context.Context, params MoveThreadParams) (*Threa
 	return &thread, nil
 }
 
-// DeleteThread removes a thread and the messages under it, which only ever happens to one weave
-// harvested and nobody has answered.
+// DeleteThread removes a thread and the messages under it.
 func (s *Store) DeleteThread(ctx context.Context, id string) error {
 	if !store.IsID(id) {
 		return threadNotFound(id)

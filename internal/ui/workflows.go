@@ -67,9 +67,8 @@ func (m model) editWorkflowForm(workflow workflowstore.Workflow) (tea.Model, tea
 	return m.openWorkflowConfigForm(&values, &workflow)
 }
 
-// openWorkflowConfigForm puts up the form for a workflow's whole configuration, creating one when
-// target is nil and saving over the workflow it names otherwise, and is the one form that redraws
-// itself as the provisioner is switched under it.
+// openWorkflowConfigForm puts up the form for a workflow's whole configuration, creating one
+// when target is nil and saving over the workflow it names otherwise.
 func (m model) openWorkflowConfigForm(values *workflowFormValues, target *workflowstore.Workflow) (tea.Model, tea.Cmd) {
 	title := "New workflow name"
 	if target != nil {
@@ -128,8 +127,8 @@ func (m model) swapProvisioner(build func(model) (*huh.Form, int)) (model, tea.C
 	return m, tea.Batch(cmds...)
 }
 
-// getAvailableHooks is the hooks directory as the form offers it, and a directory that is not
-// there reads as an empty list rather than an error.
+// getAvailableHooks is the hooks directory as the form offers it, a directory that is not there
+// reading as an empty list rather than an error.
 func (m model) getAvailableHooks() []hookChoice {
 	listed, err := m.api.listHooks()
 	if err != nil {

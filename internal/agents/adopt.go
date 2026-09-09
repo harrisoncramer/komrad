@@ -33,15 +33,13 @@ const adoptLookupTimeout = 30 * time.Second
 
 const worktreeListTimeout = 10 * time.Second
 
-// pullRequestResolver reads a pull request and reports which repository a directory belongs
-// to, so adoption and the archive sweep can check the two against each other.
+// pullRequestResolver reads a pull request and reports which repository a directory belongs to.
 type pullRequestResolver interface {
 	Resolve(ctx context.Context, dir, ref string) (*PullRequest, error)
 	Repository(ctx context.Context, dir string) (string, error)
 }
 
-// adoptAgentReadWriter is the slice of the agent store adoption reads, which is every agent the
-// panel holds.
+// adoptAgentReadWriter is the slice of the agent store adoption reads.
 type adoptAgentReadWriter interface {
 	List(ctx context.Context) ([]agentstore.Agent, error)
 	ListAll(ctx context.Context) ([]agentstore.Agent, error)
@@ -49,7 +47,7 @@ type adoptAgentReadWriter interface {
 }
 
 // AdoptService puts an agent on a branch somebody else made, working out which checkout is to
-// hold that branch before handing the launch itself over.
+// hold that branch before handing the launch over.
 type AdoptService struct {
 	agents       adoptAgentReadWriter
 	workflows    workflowReader
@@ -61,8 +59,8 @@ type NewAdoptServiceParams struct {
 	Agents    adoptAgentReadWriter
 	Workflows workflowReader
 	Launch    *LaunchService
-	// PullRequests arms adoption's ability to take a pull request rather than a branch, and a
-	// branch name still adopts without it.
+	// PullRequests lets adoption take a pull request rather than a branch, a branch name still
+	// adopting without it.
 	PullRequests pullRequestResolver
 }
 
@@ -192,7 +190,7 @@ func (s *AdoptService) Adopt(ctx context.Context, params AdoptParams) (*agentsto
 }
 
 // resolveAdoption turns what was typed into the branch to adopt, reading the pull request
-// behind it when that is what it names.
+// behind it when that is what was named.
 func (s *AdoptService) resolveAdoption(ctx context.Context, repo, ref string) (*PullRequest, string, error) {
 	if !isPullRequestRef(ref) {
 		return nil, ref, nil
@@ -223,9 +221,7 @@ func (s *AdoptService) resolveAdoption(ctx context.Context, repo, ref string) (*
 	return pr, pr.Branch, nil
 }
 
-// agentOnBranch returns the live agent already adopted onto a branch in this workflow, so
-// asking twice hands back the agent doing the work rather than fighting git over a branch
-// that can only be checked out once.
+// agentOnBranch returns the live agent already adopted onto a branch in this workflow.
 func (s *AdoptService) agentOnBranch(ctx context.Context, workflowID, branch string) (*agentstore.Agent, error) {
 	agents, err := s.agents.List(ctx)
 	if err != nil {
@@ -251,9 +247,8 @@ func isKeyedReplay(key string, agent agentstore.Agent) bool {
 	return key != "" && agent.IdempotencyKey != nil && *agent.IdempotencyKey == key
 }
 
-// isAdopted reports whether an agent is the one working on a branch right now, which rules out a
-// create that never launched, an agent whose worktree is gone, and an archived one whose worktree
-// is still its own to remove.
+// isAdopted reports whether an agent is the one working on a branch right now, which rules out
+// a create that never launched, an agent whose worktree is gone, and an archived one.
 func isAdopted(agent agentstore.Agent, branch string) bool {
 	return agent.AdoptedBranch == branch &&
 		agent.State != agentstore.StateFailedToCreate &&
@@ -278,7 +273,7 @@ func (s *AdoptService) agentIn(ctx context.Context, dir string) (*agentstore.Age
 }
 
 // worktrees is what one listing of a repository's checkouts says about a branch: the main
-// worktree, which is the checkout a human works in, and whichever checkout holds the branch.
+// worktree a human works in, and whichever checkout holds the branch.
 type worktrees struct {
 	main   string
 	holder string

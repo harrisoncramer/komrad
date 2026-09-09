@@ -61,12 +61,11 @@ func (s *Service) SearchTranscripts(ctx context.Context, req *connect.Request[ag
 	}), nil
 }
 
-// maxTranscriptWindow is the most content one GetTranscript call returns, with the rest of a
-// transcript reached by following the page token.
+// maxTranscriptWindow is the most content one GetTranscript call returns, the rest of a
+// transcript being reached by following the page token.
 const maxTranscriptWindow = 32 * 1024
 
-// GetTranscript returns one window of an agent's stored transcript by id, so the search preview
-// can show a match in its surrounding conversation.
+// GetTranscript returns one window of an agent's stored transcript by id.
 func (s *Service) GetTranscript(ctx context.Context, req *connect.Request[agentv1.GetTranscriptRequest]) (*connect.Response[agentv1.GetTranscriptResponse], error) {
 	logCrossAgentRead(ctx, req.Msg.GetAgentId(), "agent read another agent's transcript")
 
@@ -102,8 +101,7 @@ func (s *Service) GetTranscript(ctx context.Context, req *connect.Request[agentv
 }
 
 // transcriptWindow cuts the window the request asked for out of content and mints the token for
-// the one after it, cutting between runes so that the offset a token carries always names the
-// start of a character and a window is always text the caller can decode.
+// the one after it, cutting between runes so every window is text the caller can decode.
 func transcriptWindow(content string, cursor *transcriptstore.ContentCursor, requested int32) (string, *string, error) {
 	limit := maxTranscriptWindow
 	if requested > 0 && int(requested) < limit {
