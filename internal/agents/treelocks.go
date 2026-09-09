@@ -21,8 +21,10 @@ func NewTreeLocks() *TreeLocks {
 
 // TryLock takes the lock on a directory and hands back what releases it.
 func (l *TreeLocks) TryLock(dir string) (func(), bool) {
+	// Refused rather than granted, since this is the one place that says no and a caller
+	// handing over a blank path would otherwise hold a lock nobody else can see.
 	if dir == "" {
-		return func() {}, true
+		return nil, false
 	}
 
 	l.mu.Lock()

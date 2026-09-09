@@ -33,14 +33,14 @@ var (
 	ErrRebaseBusy = errors.New("the agent is working, so its files must not move under it")
 )
 
-// rebaseAgentReader is the slice of the agent store a rebase reads.
-type rebaseAgentReader interface {
+// rebaseAgentReadWriter is the slice of the agent store a rebase reads and writes.
+type rebaseAgentReadWriter interface {
 	agentGetter
-	childLister
+	metadataSetter
 }
 
 type NewRebaseServiceParams struct {
-	Agents      rebaseAgentReader
+	Agents      rebaseAgentReadWriter
 	Workflows   workflowReader
 	Interrupter agentInterrupter
 	Notifier    systemMailSender
@@ -49,7 +49,7 @@ type NewRebaseServiceParams struct {
 
 // RebaseService moves an agent's existing worktree onto the latest base without replacing it.
 type RebaseService struct {
-	agents      rebaseAgentReader
+	agents      rebaseAgentReadWriter
 	workflows   workflowReader
 	interrupter agentInterrupter
 	notifier    systemMailSender
@@ -87,6 +87,9 @@ type RebaseResult struct {
 	RebasePlan
 	// Conflicted says the rebase stopped part-way and is waiting for the agent.
 	Conflicted bool
+	// ClearedPullRequest says a recorded pull request was dropped, since the rebase rewrote the
+	// branch it was opened from.
+	ClearedPullRequest bool
 }
 
 // PlanRebase reads what a rebase would do without touching anything.
@@ -141,11 +144,11 @@ func (s *RebaseService) Rebase(ctx context.Context, agentID string) (*RebaseResu
 		return nil, err
 	}
 
-	// Observing that the agent is idle does not hold it there, so it is stopped rather than
-	// only checked.
-	if s.interrupter != nil {
+	// The interrupt keys are sent before the files move, without waiting for the CLI to read
+	// them, and an agent with no pane is skipped rather than refused.
+	if s.interrupter != nil && agent.Pane != "" {
 		if err := s.interrupter.Interrupt(ctx, agentID); err != nil {
-			return nil, fmt.Errorf("failed to hold agent %q still for a rebase: %w", agent.Name, err)
+			return nil, fmt.Errorf("failed to interrupt agent %q before rebasing it: %w", agent.Name, err)
 		}
 	}
 
@@ -159,9 +162,31 @@ func (s *RebaseService) Rebase(ctx context.Context, agentID string) (*RebaseResu
 		return nil, rebaseErr
 	}
 
+	// A rebase rewrites the branch, so a pull request already open on it no longer tracks.
+	result.ClearedPullRequest = s.clearPullRequest(ctx, *agent)
+
 	s.tell(ctx, *agent, *result)
 
 	return result, nil
+}
+
+// clearPullRequest drops the recorded pull request and reports whether there was one.
+func (s *RebaseService) clearPullRequest(ctx context.Context, agent agentstore.Agent) bool {
+	if metadataFor(agent, prMetadataKey) == "" {
+		return false
+	}
+
+	if _, err := s.agents.SetMetadata(ctx, agentstore.SetMetadataParams{
+		ID:  agent.ID,
+		Key: prMetadataKey,
+	}); err != nil {
+		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to clear the pull request of a rebased agent",
+			append([]slog.Attr{slog.String(logging.AgentID, agent.ID)}, logging.Err(err)...)...)
+
+		return false
+	}
+
+	return true
 }
 
 // tell says what happened in the agent's mailbox.
@@ -172,15 +197,20 @@ func (s *RebaseService) tell(ctx context.Context, agent agentstore.Agent, result
 
 	var body strings.Builder
 	if result.Conflicted {
-		fmt.Fprintf(&body, "Your worktree was rebased onto %s (%s) and the rebase stopped on conflicts, so it is still in progress and waiting for you.\n\n",
+		fmt.Fprintf(&body, "Your worktree was rebased onto %s (%s) and the rebase stopped on conflicts, so it is still in progress.\n\n",
 			result.BaseRef, short(result.BaseSHA))
-		body.WriteString("Resolve the conflicted paths and continue the rebase, or abort it if you would rather not. " +
-			"Nothing else is going to touch that directory until you do, and your commits are all still there.")
+		body.WriteString("Your commits are all still there. Do not resolve it or abort it on your own initiative: " +
+			"say what state you are in and wait to be told which way to go, since whoever pressed the key is the one " +
+			"deciding whether this work is worth carrying forward.")
 	} else {
 		fmt.Fprintf(&body, "Your worktree was rebased onto %s (%s), replaying %d of your own commits.\n\n",
 			result.BaseRef, short(result.BaseSHA), result.Commits)
 		body.WriteString("Your files may have changed under you, so read them again rather than trusting what you remember. " +
 			"Nothing was lost and your branch is the same branch.")
+		if result.ClearedPullRequest {
+			body.WriteString(" The pull request recorded against you has been cleared, because the rebase rewrote the " +
+				"branch it was opened from: open a new one rather than assuming the old one still tracks your work.")
+		}
 	}
 
 	if _, err := s.notifier.SendSystemMail(ctx, agent.ID, body.String()); err != nil {

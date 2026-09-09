@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"weave/internal/git"
 
@@ -130,18 +131,93 @@ func TestRebaseLeavesAConflictStopped(t *testing.T) {
 	assert.Empty(t, state.Branch, "a stopped rebase detaches the head, which blanks the branch")
 }
 
-// TestFetchBaseNamesTheCommitItUsed covers the caller being able to say which commit a rebase
-// actually moved onto, since a fetch that fails can leave a stale remote-tracking ref behind.
-func TestFetchBaseNamesTheCommitItUsed(t *testing.T) {
+// TestFetchBaseRefusesARepositoryWithNoOrigin pins the fetch failing before the base resolves.
+func TestFetchBaseRefusesARepositoryWithNoOrigin(t *testing.T) {
 	t.Parallel()
 
 	repo := newRepo(t)
 
-	ref, sha, err := git.FetchBase(t.Context(), repo, "")
+	_, _, err := git.FetchBase(t.Context(), repo, "")
+	require.Error(t, err)
+}
+
+// TestFetchBaseRefusesABaseThatResolvesToHead covers a blank base resolving to the literal
+// HEAD, which a rebase would succeed against trivially and report as a success.
+func TestFetchBaseRefusesABaseThatResolvesToHead(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	bare := filepath.Join(root, "origin.git")
+	run(t, root, "init", "--quiet", "--bare", "-b", "main", bare)
+
+	clone := filepath.Join(root, "clone")
+	run(t, root, "clone", "--quiet", bare, clone)
+
+	_, _, err := git.FetchBase(t.Context(), clone, "")
+	require.ErrorIs(t, err, git.ErrBaseUnresolved)
+}
+
+// TestFetchBaseRepairsAMissingOriginHead pins why the guard above needs an empty remote to reach.
+func TestFetchBaseRepairsAMissingOriginHead(t *testing.T) {
+	t.Parallel()
+
+	_, clone := newClonePair(t)
+	run(t, clone, "symbolic-ref", "-d", "refs/remotes/origin/HEAD")
+
+	ref, _, err := git.FetchBase(t.Context(), clone, "")
 	require.NoError(t, err)
 
-	assert.NotEmpty(t, ref)
-	assert.Equal(t, out(t, repo, "rev-parse", "HEAD"), sha)
+	assert.Equal(t, "origin/main", ref, "the unqualified fetch put origin/HEAD back")
+}
+
+// TestFetchBaseFetchesWhenNoBaseIsNamed pins the default configuration working, since the
+// workflow form leaves the base branch blank for most workflows.
+func TestFetchBaseFetchesWhenNoBaseIsNamed(t *testing.T) {
+	t.Parallel()
+
+	origin, clone := newClonePair(t)
+
+	// The origin moves on after the clone, so a stale remote-tracking ref and a fetched one
+	// name different commits.
+	run(t, origin, "commit", "--quiet", "--allow-empty", "-m", "origin moved on")
+	moved := out(t, origin, "rev-parse", "HEAD")
+
+	ref, sha, err := git.FetchBase(t.Context(), clone, "")
+	require.NoError(t, err)
+
+	assert.Equal(t, "origin/main", ref, "the base resolves to a remote-tracking ref, never to HEAD")
+	assert.Equal(t, moved, sha, "the base was fetched rather than read from the clone's cache")
+}
+
+// TestReadTreeStateRefreshesTheIndex covers a file rewritten with identical content, whose
+// stale stat data makes diff-index read a clean tree as changed.
+func TestReadTreeStateRefreshesTheIndex(t *testing.T) {
+	t.Parallel()
+
+	repo := newRepo(t)
+
+	body, err := os.ReadFile(filepath.Join(repo, "tracked.txt"))
+	require.NoError(t, err)
+	writeFile(t, repo, "tracked.txt", string(body))
+	require.NoError(t, os.Chtimes(filepath.Join(repo, "tracked.txt"), time.Time{}, time.Unix(1, 0)))
+
+	state, err := git.ReadTreeState(t.Context(), repo)
+	require.NoError(t, err)
+
+	assert.False(t, state.TrackedChanges, "identical content with a stale mtime is not a change")
+}
+
+// newClonePair is an origin and a clone of it, so a fetch has somewhere to fetch from.
+func newClonePair(t *testing.T) (origin, clone string) {
+	t.Helper()
+
+	origin = newRepo(t)
+	clone = filepath.Join(t.TempDir(), "clone")
+	run(t, filepath.Dir(clone), "clone", "--quiet", origin, clone)
+	run(t, clone, "config", "user.email", "t@example.com")
+	run(t, clone, "config", "user.name", "t")
+
+	return origin, clone
 }
 
 func newRepo(t *testing.T) string {

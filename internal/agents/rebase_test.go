@@ -162,6 +162,16 @@ func TestTreeLocksHoldOnePathAtATime(t *testing.T) {
 	assert.True(t, afterRelease, "releasing hands the path back")
 }
 
+// TestTreeLocksRefuseAnEmptyPath covers the fail-open a blank path would otherwise be.
+func TestTreeLocksRefuseAnEmptyPath(t *testing.T) {
+	t.Parallel()
+
+	release, taken := NewTreeLocks().TryLock("")
+
+	assert.False(t, taken, "an empty path is refused")
+	assert.Nil(t, release)
+}
+
 func worktreeFlow() workflowstore.Workflow {
 	flow := workflowstore.Workflow{ID: "w1"}
 	flow.Worktree.Enabled = true
@@ -179,8 +189,8 @@ func (s fakeRebaseAgents) GetByID(_ context.Context, _ string) (*agentstore.Agen
 	return &agent, nil
 }
 
-func (s fakeRebaseAgents) ListChildren(context.Context, []string) ([]agentstore.Agent, error) {
-	return nil, nil
+func (s fakeRebaseAgents) SetMetadata(context.Context, agentstore.SetMetadataParams) (bool, error) {
+	return true, nil
 }
 
 type fakeRebaseWorkflows struct {
