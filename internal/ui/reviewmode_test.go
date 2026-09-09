@@ -434,19 +434,65 @@ func TestTheForwardRoundKeyIsOfferedOnlyWhereItAnswers(t *testing.T) {
 	t.Fatal("the forward round key has no legend row")
 }
 
-// reviewAnchorInTheDiff is a line of the diff a comment can hang on.
-func reviewAnchorInTheDiff(t *testing.T, m model) review.Anchor {
+// reviewRowWithAnAnchor is a row of the diff a comment can hang on.
+func reviewRowWithAnAnchor(t *testing.T, m model) int {
 	t.Helper()
 
 	for row := range m.review.view.Len() {
-		if anchor, ok := m.review.view.GetAnchor(row); ok {
-			return *anchor
+		if _, ok := m.review.view.GetAnchor(row); ok {
+			return row
 		}
 	}
 
 	t.Fatal("the diff draws no line a comment can hang on")
 
-	return review.Anchor{}
+	return -1
+}
+
+// reviewAnchorInTheDiff is a line of the diff a comment can hang on.
+func reviewAnchorInTheDiff(t *testing.T, m model) review.Anchor {
+	t.Helper()
+
+	anchor, ok := m.review.view.GetAnchor(reviewRowWithAnAnchor(t, m))
+	require.True(t, ok)
+
+	return *anchor
+}
+
+// TestAComposerDoesNotOutliveTheDiffItWasWrittenOn covers a comment being typed while the load
+// that answers with a short walk lands: the diff it was anchored to is taken away, and the submit
+// key read it anyway.
+func TestAComposerDoesNotOutliveTheDiffItWasWrittenOn(t *testing.T) {
+	dir := reviewRepo(t)
+	agents := &fakeReviewAgents{}
+	m := reviewWithAnEarlierReview(t, dir, agents)
+	m = pressReviewBase(t, m)
+	require.GreaterOrEqual(t, m.review.chapter, 0)
+
+	m.review.cursor = reviewRowWithAnAnchor(t, m)
+
+	next, _ := m.updateReview(keyMsg("c"))
+	m = next.(model)
+	require.True(t, m.review.composing, "the composer is open on a line of the round")
+
+	m.review.editor.SetValue("this should say hello")
+
+	_, reload := m.reloadReview()
+	require.NotNil(t, reload)
+
+	loaded, ok := reload().(reviewLoadedMsg)
+	require.True(t, ok)
+	loaded.chapters = nil
+
+	m.applyReviewLoaded(loaded)
+	require.Nil(t, m.review.view)
+
+	assert.False(t, m.review.composing, "the composer goes with the diff it was anchored to")
+
+	next, _ = m.updateReview(tea.KeyMsg{Type: tea.KeyCtrlS})
+	m = next.(model)
+
+	assert.Nil(t, agents.created, "and nothing is filed against a diff that is gone")
 }
 
 // TestACommentRecordsTheDiffItWasWrittenOn covers the two SHAs a thread is filed with: the

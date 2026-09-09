@@ -296,6 +296,7 @@ func (m *model) applyReviewLoaded(msg reviewLoadedMsg) tea.Cmd {
 	if m.review.chapter >= len(msg.chapters) {
 		m.review.chapters = msg.chapters
 		m.widenReviewBase()
+		*m = m.cancelReviewMessage()
 		m.review.view = nil
 		m.review.loading = true
 
