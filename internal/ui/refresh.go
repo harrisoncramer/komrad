@@ -2,10 +2,12 @@ package ui
 
 import (
 	"context"
+	"strings"
 	"sync"
 	"time"
 
 	"weave/internal/client"
+	"weave/internal/errui"
 
 	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
@@ -155,12 +157,31 @@ func (m model) refreshCmd() tea.Cmd {
 	}
 }
 
+// reportUnreachable says the server has stopped answering on the pass that finds it gone rather
+// than on every refresh while it is down.
+func (m *model) reportUnreachable(err error) {
+	was := m.unreachable
+	m.unreachable = err
+
+	if err == nil || was != nil {
+		return
+	}
+
+	reason := errui.GetReason(err)
+	if m.addr != "" && !strings.Contains(reason, m.addr) {
+		reason = m.addr + ": " + reason
+	}
+
+	m.reportBrief("Cannot reach the server", reason, err)
+	m.setNewestHint("Start it with: weave serve")
+}
+
 func (m *model) applyRefresh(result refreshResult) {
 	if result.epoch < m.epoch {
 		return
 	}
 
-	m.unreachable = result.err()
+	m.reportUnreachable(result.err())
 
 	treeRow := rowKeyAt(m.agentRows(), m.tree.cursor)
 	archiveRow := rowKeyAt(m.archiveRows(), m.archive.cursor)

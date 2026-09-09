@@ -98,7 +98,7 @@ func (m model) route(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if isKey && m.isMessagesRegion() {
 		switch {
 		case m.isMessagesFocused():
-			return m.updateMessages(key), nil
+			return m.updateMessages(key)
 		case key.String() == messagesFocusKey:
 			return m.toggleMessagesFocus(), nil
 		}
@@ -312,6 +312,7 @@ func (m model) routeAsyncMessage(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
 		return m, nil, true
 	case flashRevertMsg:
 		m.details.flashed = 0
+		m.messages.flashed = 0
 		m.restageScreen()
 
 		return m, nil, true

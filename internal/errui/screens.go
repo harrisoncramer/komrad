@@ -50,27 +50,3 @@ func RenderStartupError(width int, err error, findings []Finding) string {
 
 	return screen.Render()
 }
-
-// RenderUnreachableError takes over every other screen while the service is not answering.
-func RenderUnreachableError(width int, addr string, err error) string {
-	screen := Screen{
-		Width: width,
-		Title: "Cannot reach the server",
-		Body: []string{
-			"The panel could not list your agents.",
-		},
-		Hints: []string{
-			"Start it with: weave serve",
-			"This screen clears itself once the server answers.",
-		},
-	}
-
-	if addr != "" {
-		screen.Details = append(screen.Details, Detail{Label: "address", Value: addr})
-	}
-	if err != nil {
-		screen.Details = append(screen.Details, Detail{Label: "error", Value: err.Error()})
-	}
-
-	return screen.Render()
-}

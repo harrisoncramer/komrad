@@ -140,10 +140,6 @@ func TestScreensFitTheirPane(t *testing.T) {
 					"default_harnes is not a setting; the top level takes default_harness, max_agents\n"+
 					"layout.splitt is not a setting; [layout] takes sidebar_side, sidebar_width, info_side, info_height")),
 		},
-		{
-			name:     "the unreachable screen",
-			rendered: RenderUnreachableError(narrowPane, "127.0.0.1:8787", err),
-		},
 	}
 
 	for _, tt := range tests {
@@ -198,35 +194,6 @@ func TestStartupCarriesTheFindings(t *testing.T) {
 	assert.Contains(t, rendered, "weave readonly-role", "the command that repairs it is on screen")
 	assert.NotContains(t, rendered, "weave doctor",
 		"nothing points at the doctor once the doctor has already answered")
-}
-
-// TestUnreachable covers that the address is shown when there is one and left out when there is
-// not.
-func TestUnreachable(t *testing.T) {
-	tests := []struct {
-		name       string
-		addr       string
-		wantAbsent string
-	}{
-		{name: "with an address, it is on screen", addr: "127.0.0.1:8787"},
-		{name: "without one, no address row is rendered", wantAbsent: "address"},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			rendered := RenderUnreachableError(narrowPane, tt.addr, errors.New("connection refused"))
-
-			assert.Contains(t, rendered, "Cannot reach the server")
-			assert.Contains(t, rendered, "connection refused")
-
-			if tt.addr != "" {
-				assert.Contains(t, rendered, tt.addr)
-			}
-			if tt.wantAbsent != "" {
-				assert.NotContains(t, rendered, tt.wantAbsent)
-			}
-		})
-	}
 }
 
 // TestReason covers reducing a service error to the part worth reading.

@@ -19,10 +19,6 @@ func (m model) View() string {
 		return errui.RenderStartupError(m.width, m.startupErr, m.startupFindings)
 	}
 
-	if m.unreachable != nil {
-		return errui.RenderUnreachableError(m.width, m.addr, m.unreachable)
-	}
-
 	//nolint:sloglint // temporary trace, no context here to carry a logger on
 	slog.Default().Info("panel trace: drawing", "width", m.width, "height", m.height, "solo", m.frame.IsSolo(), "awaiting", m.awaitingSize, "screen", int(m.screen))
 

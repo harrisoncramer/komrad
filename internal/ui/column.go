@@ -184,12 +184,6 @@ func (m model) columnOf() (columnSpec, bool) {
 		return formColumn(m.form.kind)
 	}
 
-	// The region takes the block while it holds the keys, except under a form, which keeps the
-	// column it was laid out against.
-	if m.isMessagesFocused() && !m.form.isOpening() {
-		return messagesColumn(), true
-	}
-
 	column := m.screen.spec().column
 	if column == nil {
 		return columnSpec{}, false
@@ -288,7 +282,8 @@ func (m model) docColumnView(split columnSplit) string {
 // columnDoc is the document the block is drawn from, empty on a screen whose block is not one,
 // which docWindow draws as the blank half of a window rather than refusing to draw at all.
 func (m model) columnDoc(split columnSplit) docWindow {
-	if m.isMessagesFocused() {
+	// The region draws the message in its own rows, except under a form, which covers them.
+	if m.isMessagesFocused() && m.form.isOpening() {
 		return m.messagesBlock(split)
 	}
 

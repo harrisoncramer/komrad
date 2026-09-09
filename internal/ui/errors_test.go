@@ -211,9 +211,9 @@ func TestMessagesYieldToTakeoverScreens(t *testing.T) {
 		want string
 	}{
 		{
-			name: "an unreachable service takes the screen from the region",
-			m:    model{messages: oneMessage("Could not delete", "nope"), unreachable: errors.New("refused")},
-			want: "Cannot reach the server",
+			name: "a startup failure takes the screen from the region",
+			m:    model{messages: oneMessage("Could not delete", "nope"), startupErr: errors.New("refused")},
+			want: "The agent server could not be started",
 		},
 		{
 			name: "and so does a config error",
@@ -230,6 +230,24 @@ func TestMessagesYieldToTakeoverScreens(t *testing.T) {
 			assert.NotContains(t, view, "Could not delete")
 		})
 	}
+}
+
+// TestUnreachableReportsOnce covers the server going away being said in the region, on the pass
+// that finds it gone and not on every refresh after it.
+func TestUnreachableReportsOnce(t *testing.T) {
+	m := detailsModel(&recordingTmux{})
+	m.height, m.width = 40, 60
+	m.addr = "127.0.0.1:8787"
+
+	m.applyRefresh(refreshResult{agentsErr: errors.New("connection refused")})
+	require.Len(t, m.messages.items, 1)
+	assert.Contains(t, m.messages.items[0].summary, "Cannot reach the server")
+	assert.Contains(t, m.messages.items[0].detail, "127.0.0.1:8787")
+
+	m.applyRefresh(refreshResult{agentsErr: errors.New("connection refused")})
+	assert.Len(t, m.messages.items, 1, "a server still down says nothing more")
+
+	assert.Contains(t, ansi.Strip(m.View()), "Cannot reach the server")
 }
 
 // TestMessagesKeepEscOffTheList covers esc staying the list's own key until the region holds
@@ -369,55 +387,30 @@ func TestStartupErrorScreenIsTerminal(t *testing.T) {
 	assert.Equal(t, tea.Quit(), cmd(), "and dismissing quits")
 }
 
-// TestUnreachableView covers the service no longer answering, where a swallowed poll would
-// leave the last good list up and read as a panel whose agents were all archived.
+// TestUnreachableView covers the service no longer answering, which is reported like any other
+// failure and leaves the last good list on screen rather than taking it away.
 func TestUnreachableView(t *testing.T) {
-	tests := []struct {
-		name         string
-		start        error
-		msg          refreshResult
-		wantTakeover bool
-	}{
-		{
-			name: "while the service answers, the list renders as usual",
-			msg:  refreshResult{agents: []agentItem{{agent: agentstore.Agent{Name: "still-here", State: agentstore.StateIdle}}}},
-		},
-		{
-			name:         "a failed poll takes the screen over",
-			msg:          refreshResult{agentsErr: errors.New("dial tcp 127.0.0.1:8787: connect: connection refused")},
-			wantTakeover: true,
-		},
-		{
-			name:  "and it clears itself once the service answers again",
-			start: errors.New("connection refused"),
-			msg:   refreshResult{agents: []agentItem{{agent: agentstore.Agent{Name: "back", State: agentstore.StateIdle}}}},
-		},
-	}
+	m := detailsModel(&recordingTmux{})
+	m.height, m.width = 40, 80
+	m.addr = "127.0.0.1:8787"
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			m := model{
-				addr:        "127.0.0.1:8787",
-				unreachable: tt.start,
-				listing:     listing{agents: []agentItem{{agent: agentstore.Agent{Name: "still-here", State: agentstore.StateIdle}}}},
-				frame:       layout.New(&recordingTmux{}, config.DefaultLayout()),
-			}
+	down, _ := m.Update(refreshResult{agentsErr: errors.New("dial tcp 127.0.0.1:8787: connect: connection refused")})
+	m, ok := down.(model)
+	require.True(t, ok)
 
-			updated, _ := m.Update(tt.msg)
-			m, ok := updated.(model)
-			require.True(t, ok)
+	assert.Contains(t, ansi.Strip(m.View()), "Cannot reach", "the failure is reported in the region")
+	assert.NotContains(t, ansi.Strip(m.View()), "The panel could not list your agents", "and no screen is taken over")
 
-			view := m.View()
-			if !tt.wantTakeover {
-				require.NoError(t, m.unreachable)
-				assert.NotContains(t, view, "Cannot reach the server")
+	back, _ := m.Update(refreshResult{agents: []agentItem{{agent: agentstore.Agent{Name: "back", State: agentstore.StateIdle}}}})
+	m, ok = back.(model)
+	require.True(t, ok)
 
-				return
-			}
+	require.NoError(t, m.unreachable)
+	assert.Len(t, m.messages.items, 1, "the message stays until it is dismissed")
 
-			assert.Contains(t, view, "Cannot reach the server")
-			assert.Contains(t, view, "127.0.0.1:8787", "the address to go looking at is on screen")
-			assert.NotContains(t, view, "still-here", "the stale list is not shown as if it were current")
-		})
-	}
+	again, _ := m.Update(refreshResult{agentsErr: errors.New("connection refused")})
+	m, ok = again.(model)
+	require.True(t, ok)
+
+	assert.Len(t, m.messages.items, 2, "the server going away a second time is said again")
 }

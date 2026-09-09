@@ -4,6 +4,8 @@ import (
 	"strings"
 	"testing"
 
+	"weave/lib/dates"
+
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
 	"github.com/muesli/termenv"
@@ -161,18 +163,185 @@ func TestMessagesTallySaysWhereTheKeysAre(t *testing.T) {
 		detail:  "no change",
 	})
 
-	blurred := m.messagesTally()
+	blurred := m.messagesTally(0)
 	assert.Empty(t, ansi.Strip(blurred), "one message on its own counts nothing while it is unread")
 
-	focused := m.toggleMessagesFocus().messagesTally()
+	focused := m.toggleMessagesFocus().messagesTally(0)
 
 	assert.Contains(t, ansi.Strip(focused), "1 of 1")
 	assert.Contains(t, focused, "\x1b[1;34m", "the accent says the region holds the keys")
 }
 
-// TestMessagesDocIsColouredByKind covers the block beside the list drawing a message in the
-// colour its row carries.
-func TestMessagesDocIsColouredByKind(t *testing.T) {
+// TestMessagesTallyCountsFromTheOldest covers which way the stack is read: the newest message is
+// the one on screen and the last of them, so < walks back through time and counts down.
+func TestMessagesTallyCountsFromTheOldest(t *testing.T) {
+	m := detailsModel(&recordingTmux{})
+	m.height, m.width = 30, 66
+	m.pushMessage(message{kind: messageInfo, summary: "First", detail: "one"})
+	m.pushMessage(message{kind: messageInfo, summary: "Second", detail: "two"})
+	m.pushMessage(message{kind: messageInfo, summary: "Newest", detail: "three"})
+
+	focused := m.toggleMessagesFocus()
+
+	assert.Equal(t, "Newest", focused.messages.items[focused.messagesCursor()].summary, "the newest message is the one on screen")
+	assert.Contains(t, ansi.Strip(focused.messagesTally(0)), "3 of 3", "and it is the last of them")
+
+	back := send(t, focused, "<")
+	assert.Equal(t, "Second", back.messages.items[back.messagesCursor()].summary, "< walks back through time")
+	assert.Contains(t, ansi.Strip(back.messagesTally(0)), "2 of 3")
+
+	oldest := send(t, back, "<")
+	assert.Equal(t, "First", oldest.messages.items[oldest.messagesCursor()].summary)
+	assert.Contains(t, ansi.Strip(oldest.messagesTally(0)), "1 of 3")
+
+	forward := send(t, oldest, ">")
+	assert.Equal(t, "Second", forward.messages.items[forward.messagesCursor()].summary, "and > comes back towards the newest")
+}
+
+// TestMessagesRegionExpandsWhenFocused covers the region growing to hold the whole message
+// rather than sending the reader to a block beside the list for the rest of it.
+func TestMessagesRegionExpandsWhenFocused(t *testing.T) {
+	m := detailsModel(&recordingTmux{})
+	m.height, m.width = 30, 66
+	m.pushMessage(message{
+		kind:    messageError,
+		summary: "Cannot reach the server",
+		detail:  "dial tcp 127.0.0.1:8787: connect: connection refused",
+		hint:    "Start it with: weave serve",
+		trace:   "7c1f2a94",
+	})
+
+	record, help := m.detailsView(), m.renderHelp(m.agentHelp())
+	blurred, ok := m.messagesFit(record, help)
+	require.True(t, ok)
+	assert.Equal(t, messagesRows, blurred, "the region keeps its three rows while the list has the keys")
+
+	focused := m.toggleMessagesFocus()
+	rows, ok := focused.messagesFit(record, help)
+	require.True(t, ok)
+	assert.Greater(t, rows, messagesRows, "and takes the rows the message needs once it has them")
+
+	region := ansi.Strip(focused.messagesRegion(record, help))
+	assert.Contains(t, region, "1 of 1", "the tally is on the summary row")
+	assert.Contains(t, region, "connect: connection refused")
+	assert.Contains(t, region, "Start it with: weave serve")
+	assert.Contains(t, region, "weave trace 7c1f2a94")
+	assert.Contains(t, region, "error ·", "the footer says what kind of message this is")
+
+	assert.Contains(t, ansi.Strip(focused.View()), "Agents and Workflows", "the list is still above it")
+}
+
+// TestMessagesRegionLeavesTheReasonPlain covers the reason being the one part of an expanded
+// message drawn in the plain foreground, which is what makes it the part read first.
+func TestMessagesRegionLeavesTheReasonPlain(t *testing.T) {
+	restore := lipgloss.ColorProfile()
+	t.Cleanup(func() { lipgloss.SetColorProfile(restore) })
+	lipgloss.SetColorProfile(termenv.TrueColor)
+
+	m := detailsModel(&recordingTmux{})
+	m.height, m.width = 30, 66
+	m.pushMessage(message{
+		kind:    messageError,
+		summary: "Could not open a review round",
+		detail:  "git rev-parse --show-toplevel: exit status 128",
+		hint:    "The worktree is gone.",
+	})
+
+	for _, row := range m.messagesSlot() {
+		if strings.Contains(ansi.Strip(row), "exit status 128") {
+			assert.NotEqual(t, ansi.Strip(row), row, "the collapsed row stays dim")
+		}
+	}
+
+	reason, hint := "", ""
+	for _, row := range m.toggleMessagesFocus().messagesRender().rows {
+		switch {
+		case strings.Contains(ansi.Strip(row), "exit status 128"):
+			reason = row
+		case strings.Contains(ansi.Strip(row), "The worktree is gone."):
+			hint = row
+		}
+	}
+
+	require.NotEmpty(t, reason)
+	require.NotEmpty(t, hint)
+
+	assert.Equal(t, ansi.Strip(reason), reason, "the reason carries no colour of its own")
+	assert.NotEqual(t, ansi.Strip(hint), hint, "what is said around it stays dim")
+}
+
+// TestMessagesRegionPinsTheSummaryWhileMoving covers a message longer than the rows the region
+// can take, where the cursor moves the window the way the record's does and the summary keeps
+// its row throughout.
+func TestMessagesRegionPinsTheSummaryWhileMoving(t *testing.T) {
+	m := detailsModel(&recordingTmux{})
+	m.height, m.width = 20, 66
+	m.pushMessage(message{
+		kind:    messageError,
+		summary: "Cannot reach the server",
+		detail:  strings.Repeat("the reason it gave ran on and on. ", 12),
+		trace:   "7c1f2a94",
+	})
+
+	focused := m.toggleMessagesFocus()
+	record, help := focused.detailsView(), focused.renderHelp(focused.agentHelp())
+
+	top := ansi.Strip(focused.messagesRegion(record, help))
+	assert.Contains(t, top, "Cannot reach the server")
+	assert.Contains(t, top, "more", "what is past the bottom is counted")
+
+	moved := send(t, focused, "G")
+	assert.Equal(t, len(moved.messagePieces())-1, moved.messagesPiece(), "the cursor is on the last piece")
+
+	window := ansi.Strip(moved.messagesRegion(record, help))
+	assert.Contains(t, window, "Cannot reach the server", "the summary keeps its row")
+	assert.Contains(t, window, "↑", "and what is above the window is counted")
+	assert.Contains(t, window, "error ·", "the piece the cursor moved to is on screen")
+}
+
+// TestMessagesPiecesAreCopied covers y putting the piece under the cursor on the clipboard, which
+// is the record's own key doing the record's own thing.
+func TestMessagesPiecesAreCopied(t *testing.T) {
+	clip := &fakeClipboard{}
+
+	m := detailsModel(&recordingTmux{})
+	m.height, m.width = 30, 66
+	m.clip = clip
+	m.pushMessage(message{
+		kind:    messageError,
+		summary: "Could not open a review round",
+		detail:  "git rev-parse --show-toplevel: exit status 128",
+		hint:    "The worktree is gone.",
+		trace:   "7c1f2a94",
+	})
+
+	focused := m.toggleMessagesFocus()
+
+	want := []string{
+		"Could not open a review round",
+		"git rev-parse --show-toplevel: exit status 128",
+		"The worktree is gone.",
+		"7c1f2a94",
+		dates.Friendly(m.messages.items[0].at),
+	}
+
+	for i, value := range want {
+		copied, cmd := focused.updateMessages(keyMsg("y"))
+		panel, ok := copied.(model)
+		require.True(t, ok)
+		require.NotNil(t, cmd)
+		require.NoError(t, copyResultFrom(t, cmd).err)
+
+		assert.Equal(t, value, clip.written[len(clip.written)-1], "the piece under the cursor is what y copies")
+		assert.Equal(t, i+1, panel.messages.flashed, "and it flashes while the copy lands")
+
+		focused = send(t, focused, "j")
+	}
+}
+
+// TestMessagesRegionIsColouredByKind covers the expanded region drawing a message in the colour
+// its row carries.
+func TestMessagesRegionIsColouredByKind(t *testing.T) {
 	tests := []struct {
 		name string
 		kind messageKind
@@ -200,6 +369,10 @@ func TestMessagesDocIsColouredByKind(t *testing.T) {
 		},
 	}
 
+	restore := lipgloss.ColorProfile()
+	t.Cleanup(func() { lipgloss.SetColorProfile(restore) })
+	lipgloss.SetColorProfile(termenv.TrueColor)
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			m := detailsModel(&recordingTmux{})
@@ -210,18 +383,14 @@ func TestMessagesDocIsColouredByKind(t *testing.T) {
 				detail:  "no change against the base",
 			})
 
-			focused := m.toggleMessagesFocus()
-			split, ok := focused.columnSplit()
-			require.True(t, ok)
-
 			head := ""
-			for _, row := range focused.messagesBlock(split).rows {
+			for _, row := range m.toggleMessagesFocus().messagesRender().rows {
 				if strings.Contains(ansi.Strip(row), "Nothing to review in fix-ci") {
 					head = row
 				}
 			}
 
-			require.NotEmpty(t, head, "the block draws what happened")
+			require.NotEmpty(t, head, "the region draws what happened")
 			assert.Contains(t, head, tt.want)
 		})
 	}
