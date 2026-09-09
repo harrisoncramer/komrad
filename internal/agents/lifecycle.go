@@ -19,14 +19,13 @@ import (
 	workflowstore "weave/internal/store/workflow"
 )
 
-// childLister reads the agents attached to a set of parents, which is what an archive, a
-// delete, or a restore has to add to the ids it was given.
+// childLister reads the agents attached to a set of parents.
 type childLister interface {
 	ListChildren(ctx context.Context, parentIDs []string) ([]agentstore.Agent, error)
 }
 
-// lifecycleAgentReadWriter is the slice of the agent store archiving, restoring and deleting write
-// to outside a transaction; the writes that have to be atomic go through the tx-scoped store.
+// lifecycleAgentReadWriter is the slice of the agent store archiving, restoring and deleting
+// write to outside a transaction.
 type lifecycleAgentReadWriter interface {
 	agentFailWriter
 	childLister
@@ -158,7 +157,7 @@ func (s *LifecycleService) failCleanup(ctx context.Context, agent agentstore.Age
 }
 
 // cleanupEmptyWorkflows deletes each workflow among removed's that now holds nothing archived
-// inside it, logging a failure rather than returning it since the agents are already gone.
+// inside it, logging a failure rather than returning it.
 func (s *LifecycleService) cleanupEmptyWorkflows(ctx context.Context, removed []agentstore.Agent) {
 	touched := xslice.UniqueBy(removed, func(agent agentstore.Agent) string { return agent.WorkflowID })
 	for _, agent := range touched {
@@ -198,7 +197,7 @@ func (s *LifecycleService) ArchiveAgents(ctx context.Context, ids []string) erro
 }
 
 // ArchiveUnchangedAgents archives the agents whose rows still read as the caller observed them
-// and returns the ones it archived, so an agent resumed since the snapshot is skipped.
+// and returns the ones it archived.
 func (s *LifecycleService) ArchiveUnchangedAgents(ctx context.Context, observed []agentstore.Agent) ([]agentstore.Agent, error) {
 	var failures []error
 	var archived []agentstore.Agent
@@ -227,8 +226,8 @@ func (s *LifecycleService) ArchiveUnchangedAgents(ctx context.Context, observed 
 	return archived, errors.Join(failures...)
 }
 
-// archiveChildrenOf takes the children of the agents a sweep archived, unconditionally where the
-// parents were not.
+// archiveChildrenOf takes the children of the agents a sweep archived, unconditionally where
+// the parents were not.
 func (s *LifecycleService) archiveChildrenOf(ctx context.Context, parents []agentstore.Agent) ([]agentstore.Agent, error) {
 	if len(parents) == 0 {
 		return nil, nil
@@ -369,7 +368,7 @@ func (s *LifecycleService) requireParentsPresent(ctx context.Context, agents []a
 }
 
 // describeParent names the agent a child hangs under, falling back to a phrase for a parent no
-// longer in the listing at all.
+// longer in the listing.
 func describeParent(name string) string {
 	if name == "" {
 		return "the agent it is attached to"
@@ -379,7 +378,7 @@ func describeParent(name string) string {
 }
 
 // withChildren adds the children of the agents a call named to the list it acts on, leaving a
-// child named on its own to be acted on alone.
+// child named on its own alone.
 func (s *LifecycleService) withChildren(ctx context.Context, named []agentstore.Agent) ([]agentstore.Agent, error) {
 	held := make(map[string]bool, len(named))
 	for _, agent := range named {
@@ -462,8 +461,7 @@ func (s *LifecycleService) removeAgents(ctx context.Context, ids []string) error
 }
 
 // releaseRounds drops the refs holding an agent's snapshots, which would otherwise pin a commit
-// covering its whole worktree in the person's own repository long after the agent is gone, and a
-// failure here leaks a ref rather than losing anything.
+// covering its whole worktree long after the agent is gone.
 func (s *LifecycleService) releaseRounds(ctx context.Context, ids []string) {
 	if s.reviews == nil {
 		return
@@ -499,8 +497,8 @@ func (s *LifecycleService) releaseRounds(ctx context.Context, ids []string) {
 	}
 }
 
-// dropOpenReviews removes the batches these agents were still writing on other agents' work,
-// which is everything of theirs worth removing.
+// dropOpenReviews removes the unreleased reviews these agents were writing on other agents'
+// work.
 func (s *LifecycleService) dropOpenReviews(ctx context.Context, ids []string) {
 	if s.reviews == nil {
 		return
@@ -530,8 +528,8 @@ func (s *LifecycleService) removeFrames(ctx context.Context, ids []string) {
 	}
 }
 
-// removeRunLogs drops the runs an agent leaves on disk once its row is gone, logging a
-// failure rather than returning it since a leftover file costs nothing.
+// removeRunLogs drops the runs an agent leaves on disk once its row is gone, logging a failure
+// rather than returning it.
 func (s *LifecycleService) removeRunLogs(ctx context.Context, ids []string) {
 	if s.logsDir == "" {
 		return

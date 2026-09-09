@@ -29,9 +29,7 @@ type workflowScheduleListDeleter interface {
 }
 
 // EmptyWorkflowDeleter removes an archived workflow once nothing is left inside it, taking the
-// archived schedules pointing at it along with the row, and deleting no agents itself, which is
-// what lets it sit underneath both the agent delete that empties a workflow out and the workflow
-// delete that asks the same question of itself.
+// archived schedules pointing at it with the row and deleting no agents itself.
 type EmptyWorkflowDeleter struct {
 	workflows emptyWorkflowGetDeleter
 	agents    workflowResidentLister
@@ -53,8 +51,7 @@ func NewEmptyWorkflowDeleter(params NewEmptyWorkflowDeleterParams) *EmptyWorkflo
 	}
 }
 
-// DeleteIfEmpty permanently removes a workflow once it is archived and holds no agents at all,
-// which is what clears a workflow left empty by a batch delete of the agents inside it.
+// DeleteIfEmpty permanently removes a workflow once it is archived and holds no agents at all.
 func (d *EmptyWorkflowDeleter) DeleteIfEmpty(ctx context.Context, id string) error {
 	existing, err := d.workflows.GetIncludingArchived(ctx, id)
 	if errors.Is(err, store.ErrNotFound) {
@@ -87,8 +84,8 @@ func (d *EmptyWorkflowDeleter) deleteIfEmpty(ctx context.Context, existing *work
 	return d.deleteWithSchedules(ctx, existing, schedules)
 }
 
-// heldSchedules returns the archived schedules pointing at a workflow, which have to go when it
-// does, refusing if any is still held by an agent outside it.
+// heldSchedules returns the archived schedules pointing at a workflow, refusing if any is still
+// held by an agent outside it.
 func (d *EmptyWorkflowDeleter) heldSchedules(ctx context.Context, existing *workflowstore.Workflow) ([]schedulestore.Schedule, error) {
 	schedules, err := d.schedules.ListInWorkflow(ctx, existing.ID)
 	if err != nil {

@@ -102,8 +102,7 @@ func (s *MailService) SendMail(ctx context.Context, params SendMailParams) (*mai
 	})
 }
 
-// SendSystemMail sends mail as weave itself, still running every check an ordinary send does
-// for an archived recipient, a full mailbox, and the hop cap.
+// SendSystemMail sends mail as weave itself, still running every check an ordinary send does.
 func (s *MailService) SendSystemMail(ctx context.Context, toAgentID, body string) (*mailstore.Mail, error) {
 	return s.send(ctx, sendParams{
 		ToAgentID: toAgentID,
@@ -116,11 +115,10 @@ func (s *MailService) SendSystemMail(ctx context.Context, toAgentID, body string
 type SendNoticeParams struct {
 	ToAgentID string
 	Body      string
-	// Kind is what the notice is about, which is how the panel tells it from mail an agent
-	// wrote and half of what holds an agent to one unread copy of it.
+	// Kind is what the notice is about, which is how the panel tells it from mail an agent wrote.
 	Kind mailstore.Kind
-	// About is the other agent the notice concerns, which is the other half: a notice about
-	// one exchange must not stand in for a notice about a different one.
+	// About is the other agent the notice concerns, so a notice about one exchange never stands
+	// in for a notice about another.
 	About *string
 }
 
@@ -148,8 +146,8 @@ func (s *MailService) SendNotice(ctx context.Context, params SendNoticeParams) (
 	})
 }
 
-// familyID is what a family is named by, which is a parent's own id and for a child the parent
-// it is attached to.
+// familyID names a family, being a parent's own id and for a child the parent it is attached
+// to.
 func familyID(agent agentstore.Agent) string {
 	if agent.ParentAgentID != nil {
 		return *agent.ParentAgentID
@@ -265,7 +263,7 @@ func (s *MailService) send(ctx context.Context, params sendParams) (*mailstore.M
 }
 
 // holdToTheExchangeCap refuses a send once two agents have written each other as much mail as
-// the limit allows, counting the pair and not a thread of it.
+// the limit allows, counting the pair rather than one thread of it.
 func (s *MailService) holdToTheExchangeCap(ctx context.Context, sender, recipient agentstore.Agent) error {
 	maxExchange, err := s.config.GetMaxExchange()
 	if err != nil {
@@ -313,8 +311,7 @@ func (s *MailService) tellTheCapWasReached(ctx context.Context, sender, recipien
 	}
 }
 
-// ClaimMail takes the mail waiting for an agent, which empties its mailbox rather than
-// showing it.
+// ClaimMail takes the mail waiting for an agent, emptying its mailbox rather than showing it.
 func (s *MailService) ClaimMail(ctx context.Context, agentID string) ([]mailstore.Mail, error) {
 	agent, err := s.agents.GetByID(ctx, agentID)
 	if errors.Is(err, store.ErrNotFound) {

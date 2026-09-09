@@ -15,8 +15,7 @@ import (
 )
 
 // interruptSettleFor is how long the agent is given to act on the interrupt keys before the
-// mail lands behind them, so the notification is typed into a composer rather than into
-// whatever was still on screen.
+// mail lands behind them.
 const interruptSettleFor = 200 * time.Millisecond
 
 // ErrReviewThreadNotFound is answered when a thread id names nothing.
@@ -55,17 +54,15 @@ type reviewMessageReadWriter interface {
 	ListMessages(ctx context.Context, threadIDs []string) ([]reviewstore.Message, error)
 }
 
-// reviewViewedFileReadWriter is the record of which files the person reviewing has read, kept
-// apart from the conversations since it is about their own progress rather than about anything
-// said to the agent.
+// reviewViewedFileReadWriter is the record of which files the person reviewing has read.
 type reviewViewedFileReadWriter interface {
 	MarkFileViewed(ctx context.Context, params reviewstore.MarkFileViewedParams) (*reviewstore.ViewedFile, error)
 	UnmarkFileViewed(ctx context.Context, roundID, filePath string) error
 	ListViewedFiles(ctx context.Context, roundID string) ([]reviewstore.ViewedFile, error)
 }
 
-// reviewerResumer puts a reviewer back in a pane, which answers a dormant one for whom mail
-// would otherwise wait forever.
+// reviewerResumer puts a reviewer back in a pane, so a dormant one is not left with mail
+// waiting forever.
 type reviewerResumer interface {
 	ResumeAgent(ctx context.Context, id string) (*agentstore.Agent, error)
 }
@@ -78,9 +75,8 @@ type agentInterrupter interface {
 	Interrupt(ctx context.Context, agentID string) error
 }
 
-// ReviewAuthor is who a call is, decided from the calling identity rather than from anything
-// the caller asks for: the panel names no agent and acts as the person, an agent names itself
-// and acts as itself.
+// ReviewAuthor is who a call is, taken from the calling identity: the panel names no agent and
+// acts as the person, and an agent names itself.
 type ReviewAuthor struct {
 	Kind    reviewstore.AuthorKind
 	AgentID *string
@@ -112,8 +108,8 @@ type NewReviewServiceParams struct {
 	StateDir string
 }
 
-// ReviewService owns the conversations pinned to the lines of an agent's diff and holds the only
-// copy.
+// ReviewService owns the conversations pinned to the lines of an agent's diff, and holds the
+// only copy.
 type ReviewService struct {
 	threads     reviewThreadReadWriter
 	messages    reviewMessageReadWriter
@@ -154,7 +150,7 @@ type ListReviewThreadsParams struct {
 }
 
 // ListReviewThreads is every thread on an agent's diff with its messages, all of it for the
-// person reviewing and only what they have let go of for an agent.
+// person reviewing and only the released part for an agent.
 func (s *ReviewService) ListReviewThreads(
 	ctx context.Context,
 	params ListReviewThreadsParams,
@@ -199,18 +195,16 @@ func (s *ReviewService) ListReviewThreads(
 	return answered, nil
 }
 
-// doesOwnReview reports whether an author is reading back a thread it opened itself, which it may
-// see whole, unreleased comments included.
+// doesOwnReview reports whether an author is reading back a thread it opened itself, which it
+// may see whole.
 func doesOwnReview(author ReviewAuthor, thread reviewstore.Thread) bool {
 	return author.AgentID != nil &&
 		thread.ReviewAuthorAgentID != nil &&
 		*thread.ReviewAuthorAgentID == *author.AgentID
 }
 
-// releasedMessages is what an agent may be shown of a conversation, which is decided by the batch
-// a message belongs to rather than by who wrote it: an answer belongs to none and is always
-// shown, a comment in a released batch is shown, and one still being written is shown only to
-// the author writing it.
+// releasedMessages is what an agent may be shown of a conversation, decided by the review a
+// message belongs to rather than by who wrote it.
 func releasedMessages(messages []reviewstore.Message, author ReviewAuthor) []reviewstore.Message {
 	released := make([]reviewstore.Message, 0, len(messages))
 	for _, message := range messages {
@@ -228,8 +222,7 @@ func releasedMessages(messages []reviewstore.Message, author ReviewAuthor) []rev
 	return released
 }
 
-// isReadableBy reports whether one message has been let go of, or is the reader's own, which is
-// the whole of what decides that a review is read once it is a review.
+// isReadableBy reports whether one message has been released, or is the reader's own.
 func isReadableBy(message reviewstore.Message, author ReviewAuthor) bool {
 	switch {
 	case message.ReviewID == nil:
@@ -252,7 +245,7 @@ type CreateReviewThreadParams struct {
 	// Harvested says weave read this thread off an edit of the round's checkout rather than
 	// somebody typing it.
 	Harvested bool
-	// Suggestion is replacement lines the author proposes for the range, empty for an ordinary
+	// Suggestion is replacement lines the reviewer proposes for the range, empty on an ordinary
 	// comment.
 	Suggestion []string
 	// BaseSHA is the commit the old side of these line numbers was read against, empty for the
@@ -272,7 +265,7 @@ type CreateReviewThreadParams struct {
 }
 
 // CreateReviewThread pins a conversation to a place in a round and writes its first message
-// under the author's open batch, opening one when they have none.
+// under the author's open review, opening one when they have none.
 func (s *ReviewService) CreateReviewThread(
 	ctx context.Context,
 	params CreateReviewThreadParams,
@@ -359,9 +352,8 @@ type AddReviewMessageParams struct {
 	Author     ReviewAuthor
 }
 
-// AddReviewMessage says something in an existing thread, filed under the batch a reviewer still
-// has open and under none at all for the agent answering, whose answer reaches the reviewer as
-// soon as it is written.
+// AddReviewMessage says something in an existing thread, filed under the review a reviewer
+// still has open and under none at all for the agent answering.
 func (s *ReviewService) AddReviewMessage(
 	ctx context.Context,
 	params AddReviewMessageParams,
@@ -401,8 +393,7 @@ func (s *ReviewService) AddReviewMessage(
 }
 
 // resumeWakeTimeout bounds a wake nobody is waiting on, so a post-resume hook that hangs cannot
-// leave one running for the life of the panel, and a resume cut off here puts the row back as it
-// found it, which leaves the reviewer resumable by hand.
+// leave one running for the life of the panel.
 const resumeWakeTimeout = hookTimeout + 5*time.Minute
 
 // wakeTheReviewer puts a reviewer back in a pane, on its own so the workflow's post-resume hook
@@ -459,8 +450,8 @@ func (s *ReviewService) ringTheReviewer(ctx context.Context, agentID string) {
 	go s.wakeTheReviewer(ctx, *reviewer)
 }
 
-// answerNotice is the doorbell a reviewer gets, which says where to look rather than what was
-// said, the same way the review it released says nothing of itself.
+// answerNotice is the notice a reviewer gets, which says where to look rather than what was
+// said.
 func answerNotice(authorName string) string {
 	return fmt.Sprintf("weave: %s answered your review. Read the threads with list_review_threads, "+
 		"open a round over its work as it now stands, and release a verdict on that round.", authorName)
@@ -474,8 +465,8 @@ type EditReviewMessageParams struct {
 	Author     ReviewAuthor
 }
 
-// EditReviewMessage rewrites what was said, which only its author may do and which counts as new
-// activity since the other side was shown the old text.
+// EditReviewMessage rewrites what was said, which only its author may do and which counts as
+// new activity.
 func (s *ReviewService) EditReviewMessage(
 	ctx context.Context,
 	params EditReviewMessageParams,
@@ -567,8 +558,8 @@ type ListReviewViewedFilesParams struct {
 	Author  ReviewAuthor
 }
 
-// ListReviewViewedFiles is every file of a round the person reviewing has marked read,
-// which is theirs alone, so an agent is never told which parts of its work have been looked at.
+// ListReviewViewedFiles is every file of a round the person reviewing has marked read, which is
+// theirs alone.
 func (s *ReviewService) ListReviewViewedFiles(
 	ctx context.Context,
 	params ListReviewViewedFilesParams,
@@ -581,7 +572,7 @@ func (s *ReviewService) ListReviewViewedFiles(
 }
 
 // interrupt stops the agent where it stands, and failing to is no reason to withhold the
-// notification since the mail still reaches the agent later.
+// notification.
 func (s *ReviewService) interrupt(ctx context.Context, agentID string) {
 	if s.interrupter == nil {
 		return
@@ -601,8 +592,8 @@ func (s *ReviewService) requireOwnThread(ctx context.Context, id string, author 
 	return err
 }
 
-// getOwnThread reads a thread and says whether the caller has any business in it: the person always
-// has, and so do the agent under review and the reviewing agent that wrote it.
+// getOwnThread reads a thread and says whether the caller has any business in it, which the
+// person, the agent under review and the reviewing agent that wrote it all do.
 func (s *ReviewService) getOwnThread(ctx context.Context, id string, author ReviewAuthor) (*reviewstore.Thread, error) {
 	thread, err := s.threads.GetThread(ctx, id)
 	if errors.Is(err, store.ErrNotFound) {

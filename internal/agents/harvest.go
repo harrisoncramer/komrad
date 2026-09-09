@@ -9,21 +9,17 @@ import (
 	reviewstore "weave/internal/store/review"
 )
 
-// HarvestedBody is what a thread weave read off the round's checkout says, which is attribution
-// rather than prose.
+// HarvestedBody is what a thread weave read off the round's checkout says.
 const HarvestedBody = "The person reviewing wrote this edit themselves. Apply it as written; " +
 	"if it no longer applies because the code moved, say so in this thread rather than half-applying it."
 
-// harvestRunCeiling is how many runs one harvest may write before weave stops and asks, which is
-// the number a formatter or a generator run in the checkout goes far past and a person does not.
+// harvestRunCeiling is how many runs one harvest may write before weave stops and asks.
 const harvestRunCeiling = 25
 
-// harvestFileCeiling is the same for files, which a generator rewrites very many of while
-// slipping under the run ceiling.
+// harvestFileCeiling is how many files one harvest may touch before weave stops and asks.
 const harvestFileCeiling = 8
 
-// ErrHarvestTooLarge is a harvest that would open more comments than a person plausibly wrote,
-// which is what a format-on-save or a generator run in the round's checkout looks like.
+// ErrHarvestTooLarge is a harvest that would open more comments than a person plausibly wrote.
 var ErrHarvestTooLarge = errors.New("that edit is too large to read as review comments")
 
 type HarvestRoundEditsParams struct {
@@ -35,17 +31,17 @@ type HarvestRoundEditsParams struct {
 	// BaseSHA is the commit the old side of those runs was measured from, empty for the round's
 	// own base.
 	BaseSHA string
-	// Force writes a harvest that went past the ceiling, which is the reviewer answering for it.
+	// Force writes a harvest that went past the ceiling.
 	Force bool
 }
 
-// HarvestResult is what one harvest did, which is what the panel says back to the reviewer.
+// HarvestResult is what one harvest did.
 type HarvestResult struct {
 	Opened  int
 	Moved   int
 	Deleted int
 	// Skipped are runs written over a comment that has already gone out, which weave leaves
-	// where they are rather than rewriting somebody's released words.
+	// where they are.
 	Skipped []review.Run
 }
 
@@ -114,8 +110,8 @@ func (s *ReviewService) HarvestRoundEdits(
 	return &result, nil
 }
 
-// harvestGround is the two sets a harvest reconciles against: the threads it may move or delete,
-// and the threads it must leave alone and protect what touches them.
+// harvestGround is the two sets a harvest reconciles against: the threads it may move or
+// delete, and the threads it must leave alone.
 func (s *ReviewService) harvestGround(
 	ctx context.Context,
 	agentID, roundID string,
@@ -183,15 +179,15 @@ func (s *ReviewService) harvestGround(
 	return pinned, frozen, nil
 }
 
-// moveHarvestedParams is the run a thread is being repinned onto and the commit its numbers were
-// measured from.
+// moveHarvestedParams is the run a thread is being repinned onto and the commit its numbers
+// were measured from.
 type moveHarvestedParams struct {
 	Move    review.Move
 	BaseSHA string
 }
 
 // moveHarvested repins a thread onto the run it now stands for and rewrites the suggestion it
-// carries, which are two writes.
+// carries.
 func (s *ReviewService) moveHarvested(ctx context.Context, params moveHarvestedParams) error {
 	move := params.Move
 
@@ -241,8 +237,8 @@ func createFromRun(params HarvestRoundEditsParams, run review.Run) CreateReviewT
 	}
 }
 
-// withinHarvestCeiling refuses a harvest big enough to be a formatter or a generator rather than
-// a person, unless the reviewer has said to write it anyway.
+// withinHarvestCeiling refuses a harvest big enough to be a formatter or a generator rather
+// than a person, unless the reviewer has said to write it anyway.
 func withinHarvestCeiling(params HarvestRoundEditsParams) error {
 	if params.Force {
 		return nil

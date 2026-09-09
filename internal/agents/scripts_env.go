@@ -48,8 +48,8 @@ type scriptEnvParams struct {
 	script  string
 }
 
-// ListHooks returns the available hooks in name order, which is what the workflow form offers
-// and the order they run in on a moment that holds several.
+// ListHooks returns the available hooks in name order, which is the order they run in on a
+// moment that holds several.
 func (s *ScriptService) ListHooks() ([]scripts.Script, error) {
 	dirs, err := s.hookDirs()
 	if err != nil {
@@ -87,7 +87,7 @@ func (s *ScriptService) hookDirs() ([]string, error) {
 }
 
 // builtinDirs is where the scripts weave ships live, which is the only place a script that is
-// not a hook comes from now that nothing else can be named in a field.
+// not a hook comes from.
 func (s *ScriptService) builtinDirs() []string {
 	return []string{s.builtinDir}
 }

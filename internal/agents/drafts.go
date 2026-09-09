@@ -18,7 +18,7 @@ type drafts struct {
 	boxes map[string]draft
 }
 
-// since is when the box was first seen holding this text, which is now for text that has moved.
+// since is when the box was first seen holding this text, and now for text that has moved.
 func (d *drafts) since(agentID, text string, now time.Time) time.Time {
 	d.mu.Lock()
 	defer d.mu.Unlock()

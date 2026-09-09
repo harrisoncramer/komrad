@@ -17,11 +17,11 @@ const reconcileShellGrace = 10 * time.Second
 const listingsBeforePaneGone = 3
 
 // prRateLimitBackoff is how long a rate-limited agent is left alone before its pull request is
-// checked again, which is one infrequent check per agent and not a poll loop.
+// checked again.
 const prRateLimitBackoff = 15 * time.Minute
 
 // tally is what the reconcile passes have accrued about each agent, all of it counters and
-// timestamps the panes drove rather than anything the store holds.
+// timestamps the panes drove.
 type tally struct {
 	// mu guards tracked and every field of the entries inside it, which the reconcile pass, the RPC
 	// handler and a pull request check all reach.
@@ -50,8 +50,8 @@ func newTally() *tally {
 	return &tally{tracked: map[string]trackedAgent{}, now: time.Now}
 }
 
-// read is what earlier passes have accrued about an agent, the zero value standing for an
-// agent nothing has been recorded about yet.
+// read is what earlier passes have accrued about an agent, the zero value standing for an agent
+// nothing has been recorded about yet.
 func (t *tally) read(agentID string) trackedAgent {
 	t.mu.Lock()
 	defer t.mu.Unlock()
@@ -70,8 +70,8 @@ func (t *tally) update(agentID string, fn func(*trackedAgent)) {
 	t.tracked[agentID] = entry
 }
 
-// updateExisting is update for the clears, which have nothing to drop for an agent no pass has
-// recorded anything about and must not put one in the map by writing.
+// updateExisting is update for the clears, which write nothing for an agent no pass has recorded
+// anything about.
 func (t *tally) updateExisting(agentID string, fn func(*trackedAgent)) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
@@ -129,8 +129,8 @@ func (t *tally) clearMisses(agentID string) {
 	})
 }
 
-// clearDebounce drops what an agent had accrued towards a transition once one has been
-// decided, leaving the frame hash and any rate limit, which both outlive a change of state.
+// clearDebounce drops what an agent had accrued towards a transition once one has been decided,
+// leaving the frame hash and any rate limit.
 func (t *tally) clearDebounce(agentID string) {
 	t.updateExisting(agentID, func(entry *trackedAgent) {
 		entry.misses = 0
@@ -143,7 +143,7 @@ func (t *tally) clearDebounce(agentID string) {
 }
 
 // isAbsenceDoubted reports whether a pane the listing left out is to be waited on rather than
-// forgotten, which it is until enough listings in a row have agreed the pane is gone.
+// forgotten, which holds until enough listings in a row have agreed the pane is gone.
 func (t *tally) isAbsenceDoubted(agentID string, inListing bool) bool {
 	if inListing {
 		t.updateExisting(agentID, func(entry *trackedAgent) { entry.listingsMissing = 0 })
@@ -181,9 +181,8 @@ func (t *tally) clearShell(agentID string) {
 	t.updateExisting(agentID, func(entry *trackedAgent) { entry.shellSince = time.Time{} })
 }
 
-// isUnrecognizedHeld records the frame an agent is sitting on and reports whether its differing
-// from the one before it is still reason to wait rather than demote, up to the limit on how long
-// a frame that never settles may hold.
+// isUnrecognizedHeld records the frame an agent is sitting on and reports whether it differing
+// from the one before is still reason to wait rather than demote.
 func (t *tally) isUnrecognizedHeld(agentID string, hash uint64) bool {
 	held := false
 	t.update(agentID, func(entry *trackedAgent) {
@@ -210,8 +209,7 @@ func (t *tally) backOff(agentID string) {
 	})
 }
 
-// prune forgets the agents the store no longer holds, so an archived or deleted one leaves
-// nothing behind to accrue against its id if it ever comes back.
+// prune forgets the agents the store no longer holds.
 func (t *tally) prune(known map[string]struct{}) {
 	t.mu.Lock()
 	defer t.mu.Unlock()

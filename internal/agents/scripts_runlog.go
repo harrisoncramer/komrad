@@ -31,8 +31,8 @@ type runRecord struct {
 	id      string
 }
 
-// claimRunLog names the file one run writes to and creates it empty, taking the number under the
-// lock and by an exclusive create.
+// claimRunLog names the file one run writes to and creates it empty, taking the number under
+// the lock and by an exclusive create.
 func (s *ScriptService) claimRunLog(ctx context.Context, agentID, trigger, name string) (string, int) {
 	if s.logsDir == "" || agentID == "" {
 		return "", 0
@@ -86,7 +86,7 @@ func (s *ScriptService) claimRunLog(ctx context.Context, agentID, trigger, name 
 	return "", 0
 }
 
-// beginRun claims a run's log file and opens the row that indexes it, so a script that fails/succeeds later has somewhere to be recorded.
+// beginRun claims a run's log file and opens the row that indexes it.
 func (s *ScriptService) beginRun(ctx context.Context, agentID, trigger, name string) runRecord {
 	path, number := s.claimRunLog(ctx, agentID, trigger, name)
 	record := runRecord{logPath: path}
@@ -150,8 +150,7 @@ func (s *ScriptService) finishRun(ctx context.Context, record runRecord, result 
 	}
 }
 
-// abandonRun drops the row of a run that never started, alongside the empty log removed for the
-// same reason: a refusal is not a run and should not count against what an agent keeps.
+// abandonRun drops the row of a run that never started, alongside the empty log it claimed.
 func (s *ScriptService) abandonRun(ctx context.Context, record runRecord) {
 	if s.runs == nil || record.id == "" {
 		return
@@ -173,8 +172,7 @@ func runExitCode(result scripts.Result) *int32 {
 	return &code
 }
 
-// pruneRunLogs drops the runs past the last MaxRunLogs, so an agent resumed daily keeps a
-// readable handful rather than a file for every day of it.
+// pruneRunLogs drops the runs past the last MaxRunLogs.
 func pruneRunLogs(ctx context.Context, logsDir, agentID string) {
 	runs := config.ListRunLogs(logsDir, agentID)
 	if len(runs) <= config.MaxRunLogs {

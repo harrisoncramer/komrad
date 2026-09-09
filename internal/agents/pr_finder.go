@@ -9,8 +9,8 @@ import (
 	"strings"
 )
 
-// GHPRFinder answers prFinder using the gh CLI, which infers the repository from the
-// remote of the directory it runs in.
+// GHPRFinder answers prFinder using the gh CLI, which reads the repository off the remote of
+// the directory it runs in.
 type GHPRFinder struct{}
 
 // NewGHPRFinder returns a prFinder backed by gh.
@@ -58,7 +58,7 @@ func ghStderrDetail(err error) string {
 }
 
 // isGHRateLimitError reports whether a failed gh call was GitHub turning it away for rate
-// limiting rather than some other failure.
+// limiting.
 func isGHRateLimitError(err error) bool {
 	if err == nil {
 		return false
