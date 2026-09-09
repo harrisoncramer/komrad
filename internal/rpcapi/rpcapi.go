@@ -102,13 +102,8 @@ func GetRules(field protoreflect.FieldDescriptor) *validate.FieldRules {
 	return rules
 }
 
-// IsReadOnly reports whether calling the method changes nothing, taking the annotation's
-// override when it carries one and the method's idempotency level otherwise.
-func IsReadOnly(method protoreflect.MethodDescriptor, annotation *annotationv1.ToolAnnotation) bool {
-	if annotation != nil && annotation.ReadOnly != nil {
-		return annotation.GetReadOnly()
-	}
-
+// IsReadOnly reports whether calling the method changes nothing, which its idempotency level says.
+func IsReadOnly(method protoreflect.MethodDescriptor) bool {
 	return getIdempotencyLevel(method) == descriptorpb.MethodOptions_NO_SIDE_EFFECTS
 }
 

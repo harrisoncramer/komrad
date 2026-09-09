@@ -15,7 +15,6 @@ message ToolAnnotation {
 
   string description = 2;
 
-  optional bool read_only = 3;
   optional bool destructive = 4;
   optional bool idempotent = 5;
 }
