@@ -732,14 +732,20 @@ func TestReviewViewNeverOutgrowsThePane(t *testing.T) {
 
 	m.applyReviewWrote(reviewWroteMsg{agentID: "a1", threads: threads})
 
-	for _, pane := range []int{10, 12, 24, 50} {
-		for _, composing := range []bool{false, true} {
-			m.height, m.review.composing = pane, composing
+	// Width is swept alongside height because the band stands over the sidebar rather than over
+	// the diff once the window is too narrow to split, and that layout is the one the pane tests
+	// left unmeasured.
+	for _, width := range paneWidths {
+		for pane := reviewChromeFloor; pane <= 50; pane++ {
+			for _, composing := range []bool{false, true} {
+				m.width, m.height, m.review.composing = width, pane, composing
 
-			// Measured the way bubbletea receives it: View trims the trailing newline off the screen.
-			height := strings.Count(strings.TrimRight(m.reviewView(), "\n"), "\n") + 1
-			assert.LessOrEqual(t, height, pane,
-				"the sidebar drew %d lines into a %d line pane, composing=%v", height, pane, composing)
+				// Measured the way bubbletea receives it: View trims the trailing newline off the screen.
+				height := frameHeight(m.reviewView())
+				assert.LessOrEqual(t, height, pane,
+					"the sidebar drew %d lines into a %d line pane at width %d, composing=%v",
+					height, pane, width, composing)
+			}
 		}
 	}
 }

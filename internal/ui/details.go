@@ -161,6 +161,18 @@ func (m model) detailsLines() int {
 
 const detailsChromeLines = 2
 
+// doesFitDetails is whether the pane has a row left for the list once the chrome around it and
+// the record have taken their share, which is the one place a record with no room stands down
+// rather than being drawn past the bottom of the pane.
+func (m model) doesFitDetails(chrome func(model) []string) bool {
+	// The chrome is drawn here rather than handed over because it has to be drawn with the keys
+	// off the record: a record holding them draws a title and a legend of its own, so asking for
+	// those first is what would put this in its own answer.
+	m.details.focused = false
+
+	return m.spareLines(chrome(m)...) > m.detailsLines()+detailsChromeLines
+}
+
 func (m model) detailsView() string {
 	held := m.hoveredDetails()
 	if !m.isDetailsDrawn(held) {

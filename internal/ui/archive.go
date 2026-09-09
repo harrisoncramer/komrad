@@ -332,17 +332,30 @@ func archiveColumn() columnSpec {
 	}
 }
 
+// archiveTitle is the list's own title, read by the view that draws it and by the measurement of
+// what it leaves the record.
+const archiveTitle = "Archive"
+
+// doesArchiveFitDetails is the archive screen's own room for the record, measured against the
+// header and the legend it is drawn between.
+func (m model) doesArchiveFitDetails() bool {
+	return m.doesFitDetails(func(blurred model) []string {
+		return []string{blurred.listHeader(archiveTitle), blurred.renderHelp(blurred.archiveHelp())}
+	})
+}
+
 func (m model) archiveView() string {
 	return m.columnView(model.archiveListView)
 }
 
 func (m model) archiveListView() string {
+	header := m.listHeader(archiveTitle)
 	record, help := m.detailsView(), m.renderHelp(m.archiveHelp())
-	below := record + m.messagesRegion(record, help) + help
+	below := record + m.messagesRegion([]string{header}, record, help) + help
 
 	all := m.archiveRows()
 	if len(all) == 0 {
-		return m.listView("Archive", []string{dimStyle.Render("nothing archived")}, 0, below)
+		return m.headedListView(header, []string{dimStyle.Render("nothing archived")}, 0, below)
 	}
 
 	rows := make([]string, 0, len(all))
@@ -370,5 +383,5 @@ func (m model) archiveListView() string {
 		rows = append(rows, row)
 	}
 
-	return m.listView("Archive", rows, m.archive.cursor, below)
+	return m.headedListView(header, rows, m.archive.cursor, below)
 }

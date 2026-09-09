@@ -21,9 +21,6 @@ const messagesRows = 3
 // messagesRegionRows is what the region costs the pane: its rows and the rule under them.
 const messagesRegionRows = messagesRows + 1
 
-// messagesHeaderRows is what the title, the blank under it, and the filter take above the list.
-const messagesHeaderRows = 3
-
 // messagesListFloor is how many rows the list keeps once the region has taken its own.
 const messagesListFloor = 2
 
@@ -84,10 +81,11 @@ type messagePiece struct {
 	head bool
 }
 
-// messagesRegion is the region as it is drawn under the record, given the record and the legend
-// it sits between so it can tell whether the pane has the rows to spare for it.
-func (m model) messagesRegion(record, help string) string {
-	rows, ok := m.messagesFit(record, help)
+// messagesRegion is the region as it is drawn under the record, given whatever stands above the
+// list as well as the record and the legend it sits between, so it can tell whether the pane has
+// the rows to spare for it.
+func (m model) messagesRegion(above []string, record, help string) string {
+	rows, ok := m.messagesFit(above, record, help)
 	if !ok {
 		return ""
 	}
@@ -110,12 +108,15 @@ func (m model) messagesRegion(record, help string) string {
 
 // messagesFit is how many rows the region takes, refused when its rows would not come out of the
 // list without taking it below a list worth reading.
-func (m model) messagesFit(record, help string) (int, bool) {
+func (m model) messagesFit(above []string, record, help string) (int, bool) {
 	if m.height <= 0 || !m.isMessagesRegion() {
 		return 0, false
 	}
 
-	spare := m.spareLines(record, help) - messagesHeaderRows - messagesRegionRows
+	// Measured against what the screen actually draws above its list rather than a count of its
+	// own: the mailbox carries a line the other lists have not got, and the review screen a band
+	// and an anchor, and a header taller than the count went on being charged for three rows.
+	spare := m.spareLines(slices.Concat(above, []string{record, help})...) - messagesRegionRows
 	if spare < messagesListFloor {
 		return 0, false
 	}

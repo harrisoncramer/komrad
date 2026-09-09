@@ -205,12 +205,26 @@ func (m model) mailView() string {
 	return m.columnView(model.mailListView)
 }
 
-func (m model) mailListView() string {
-	header := titleOf(m.isListFocused(), "Mail · "+m.mail.agentName) + "\n" +
+// mailHeader is what the mailbox draws above its rows, which carries the count the other lists
+// have not got.
+func (m model) mailHeader() string {
+	return titleOf(m.isListFocused(), "Mail · "+m.mail.agentName) + "\n" +
 		dimStyle.Render(m.mailCountView()) + "\n\n" +
 		m.filterView()
+}
+
+// doesMailFitDetails is the mailbox's own room for the record, measured against the header and
+// the legend it is drawn between.
+func (m model) doesMailFitDetails() bool {
+	return m.doesFitDetails(func(blurred model) []string {
+		return []string{blurred.mailHeader(), blurred.renderHelp(blurred.mailHelp())}
+	})
+}
+
+func (m model) mailListView() string {
+	header := m.mailHeader()
 	record, help := m.detailsView(), m.renderHelp(m.mailHelp())
-	below := record + m.messagesRegion(record, help) + help
+	below := record + m.messagesRegion([]string{header}, record, help) + help
 
 	rows := m.mailRowsView()
 	if len(rows) == 0 {

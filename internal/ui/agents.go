@@ -459,13 +459,26 @@ func (m model) failedPlaceholder(agent agentstore.Agent) string {
 	return fmt.Sprintf("_%s failed_\n\n%s", label, reason)
 }
 
+// agentsTitle is the list's own title, read by the view that draws it and by the measurement of
+// what it leaves the record.
+const agentsTitle = "Agents and Workflows"
+
+// doesAgentsFitDetails is the agents screen's own room for the record, measured against the
+// header and the legend it is drawn between.
+func (m model) doesAgentsFitDetails() bool {
+	return m.doesFitDetails(func(blurred model) []string {
+		return []string{blurred.listHeader(agentsTitle), blurred.renderHelp(blurred.agentHelp())}
+	})
+}
+
 func (m model) agentsView() string {
 	return m.columnView(model.agentsListView)
 }
 
 func (m model) agentsListView() string {
+	header := m.listHeader(agentsTitle)
 	record, help := m.detailsView(), m.renderHelp(m.agentHelp())
-	below := record + m.messagesRegion(record, help) + help
+	below := record + m.messagesRegion([]string{header}, record, help) + help
 
 	all := m.agentRows()
 	rows := make([]string, 0, len(all))
@@ -494,7 +507,7 @@ func (m model) agentsListView() string {
 		rows = append(rows, row)
 	}
 
-	return m.listView("Agents and Workflows", rows, m.tree.cursor, below)
+	return m.headedListView(header, rows, m.tree.cursor, below)
 }
 
 func (m model) openNewAgent(workflow *workflowstore.Workflow) (tea.Model, tea.Cmd) {

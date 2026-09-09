@@ -296,16 +296,21 @@ func TestDetailsPadsToItsShare(t *testing.T) {
 	assert.Equal(t, m.detailsLines(), fieldLines)
 }
 
-// TestDetailsNeedsRoomForChromeAndAField covers the guard that closes the section entirely
-// when the pane cannot fit the chrome and even one field inside the half it is allowed.
+// TestDetailsNeedsRoomForChromeAndAField covers the guard that closes the section entirely when
+// the pane cannot fit the chrome and even one field inside the half it is allowed, and the
+// screen's own guard on top of it, which keeps the record off a pane whose header and legend
+// have left the list no row of its own.
 func TestDetailsNeedsRoomForChromeAndAField(t *testing.T) {
 	m := detailsModel(&recordingTmux{})
 
 	m.height = 4
 	assert.Empty(t, m.detailsView(), "half the pane cannot fit the chrome, let alone a field beside it")
 
-	m.height = 6
-	assert.NotEmpty(t, m.detailsView(), "half the pane now fits the chrome and one field")
+	m.height = 10
+	assert.Empty(t, m.detailsView(), "the header and the legend leave the list nothing beside it")
+
+	m.height = 12
+	assert.NotEmpty(t, m.detailsView(), "a pane that holds the list as well as the record draws it")
 }
 
 // TestDetailsOnTheOtherLists covers the same section drawn under the two lists that are not

@@ -37,9 +37,7 @@ var (
 func (m model) reviewView() string {
 	split, ok := m.screenColumnSplit()
 	if !ok {
-		band := m.reviewBandView(m.paneWidth())
-
-		return band + strings.TrimRight(m.reviewSidebarView(band), "\n")
+		return m.reviewBandView(m.paneWidth()) + strings.TrimRight(m.reviewSidebarView(), "\n")
 	}
 
 	// Trimmed so the two halves are the same height.
@@ -54,18 +52,40 @@ func (m model) reviewView() string {
 
 // reviewSidebarView is the panel's own column: where the cursor is standing and the thread
 // hanging off it.
-func (m model) reviewSidebarView(above ...string) string {
+func (m model) reviewSidebarView() string {
 	help := m.renderHelp(m.reviewHelp())
 
 	// The head is pinned and the conversation gives up the room: where the cursor is standing is
 	// what makes the rest of the pane mean anything.
 	head := m.reviewHeadView()
 	record := m.detailsView()
-	messages := m.messagesRegion(record, help)
+	above := m.reviewAbove()
+	messages := m.messagesRegion(slices.Concat(above, []string{head}), record, help)
 	chrome := slices.Concat(above, []string{help, record, messages})
-	rest := m.reviewThreadWindow(m.reviewRestView(), m.listLines(slices.Concat(chrome, []string{head})...))
 
-	return padRows(head+rest, m.listLines(chrome...)) + record + messages + help
+	// The head is pinned only while there is a row to pin it to: a pane the chrome has already
+	// filled gives up the anchor as well as the conversation rather than drawing either past the
+	// bottom of it.
+	spare := m.spareLines(chrome...)
+	if spare <= 0 {
+		return record + messages + help
+	}
+
+	rest := m.reviewThreadWindow(m.reviewRestView(), m.spareLines(slices.Concat(chrome, []string{head})...))
+
+	return padRows(head+rest, spare) + record + messages + help
+}
+
+// reviewAbove is whatever stands over the sidebar and so comes out of its budget, which is the
+// band in the layout where it spans the window and nothing in the one where it stands over the
+// diff instead, read from here by every measurement of the sidebar so the three of them cannot
+// disagree about which layout is up.
+func (m model) reviewAbove() []string {
+	if _, split := m.screenColumnSplit(); split {
+		return nil
+	}
+
+	return []string{m.reviewBandView(m.paneWidth())}
 }
 
 // reviewThreadWindow cuts the conversation down to the rows the sidebar has, keeping its end
@@ -75,7 +95,10 @@ func (m model) reviewThreadWindow(rendered string, lines int) string {
 		return ""
 	}
 
-	rows := strings.Split(strings.TrimRight(rendered, "\n"), "\n")
+	// Only the newline closing the last row comes off, the way countLines reads a block: a
+	// conversation ending in a blank row has rows there that a TrimRight would drop, and the
+	// window would then hand back more rows than it was given.
+	rows := strings.Split(strings.TrimSuffix(rendered, "\n"), "\n")
 	if len(rows) <= lines {
 		return rendered
 	}
@@ -92,12 +115,10 @@ func (m model) reviewThreadWindow(rendered string, lines int) string {
 // doesReviewFitDetails reports whether the sidebar has a line left over once the record has
 // taken its share.
 func (m model) doesReviewFitDetails() bool {
-	// Measured with the keys on the diff, which keeps this out of its own answer.
-	m.details.focused = false
-
-	spare := m.spareLines(m.renderHelp(m.reviewHelp()), m.reviewHeadView())
-
-	return spare > m.detailsLines()+detailsChromeLines
+	return m.doesFitDetails(func(blurred model) []string {
+		return slices.Concat(blurred.reviewAbove(),
+			[]string{blurred.renderHelp(blurred.reviewHelp()), blurred.reviewHeadView()})
+	})
 }
 
 // reviewHeadView is the fixed top of the sidebar: whatever is standing in the way of a review,

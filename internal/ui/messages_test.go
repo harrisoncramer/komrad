@@ -23,6 +23,12 @@ func newestMessage(m model) message {
 	return m.messages.items[0]
 }
 
+// agentsAbove is what the agents screen draws above its list, which the region is measured
+// against the way that screen measures it.
+func agentsAbove(m model) []string {
+	return []string{m.listHeader("Agents and Workflows")}
+}
+
 func oneMessage(summary, detail string) messagesState {
 	return messagesState{items: []message{{
 		kind:    messageError,
@@ -39,7 +45,7 @@ func TestMessagesRegionFitsTheMessage(t *testing.T) {
 
 	record, help := m.detailsView(), m.renderHelp(m.agentHelp())
 
-	idle := m.messagesRegion(record, help)
+	idle := m.messagesRegion(agentsAbove(m), record, help)
 	require.NotEmpty(t, idle)
 	assert.Contains(t, ansi.Strip(idle), "No messages")
 
@@ -48,7 +54,7 @@ func TestMessagesRegionFitsTheMessage(t *testing.T) {
 		summary: "Nothing to review in fix-ci",
 		detail:  "the worktree holds no change against the base",
 	})
-	filled := m.messagesRegion(record, help)
+	filled := m.messagesRegion(agentsAbove(m), record, help)
 
 	assert.Equal(t, strings.Count(idle, "\n")+1, strings.Count(filled, "\n"), "the idle region gives a row back")
 	assert.LessOrEqual(t, strings.Count(filled, "\n"), messagesRegionRows)
@@ -61,7 +67,7 @@ func TestMessagesRegionGivesUpAShortPane(t *testing.T) {
 	m := detailsModel(&recordingTmux{})
 	m.height, m.width = 12, 60
 
-	assert.Empty(t, m.messagesRegion(m.detailsView(), m.renderHelp(m.agentHelp())))
+	assert.Empty(t, m.messagesRegion(agentsAbove(m), m.detailsView(), m.renderHelp(m.agentHelp())))
 }
 
 // TestMessagesStackKeepsWhatCameBefore covers the stack: a second failure does not erase the
@@ -75,7 +81,7 @@ func TestMessagesStackKeepsWhatCameBefore(t *testing.T) {
 
 	require.Len(t, m.messages.items, 2)
 	assert.Equal(t, "Could not review agent", newestMessage(m).summary)
-	assert.Contains(t, ansi.Strip(m.messagesRegion(m.detailsView(), m.renderHelp(m.agentHelp()))), "+1")
+	assert.Contains(t, ansi.Strip(m.messagesRegion(agentsAbove(m), m.detailsView(), m.renderHelp(m.agentHelp()))), "+1")
 }
 
 // TestMessagesFocusTakesTheBlock covers focus moving the keys off the list, which is what draws
@@ -212,16 +218,16 @@ func TestMessagesRegionExpandsWhenFocused(t *testing.T) {
 	})
 
 	record, help := m.detailsView(), m.renderHelp(m.agentHelp())
-	blurred, ok := m.messagesFit(record, help)
+	blurred, ok := m.messagesFit(agentsAbove(m), record, help)
 	require.True(t, ok)
 	assert.Equal(t, messagesRows, blurred, "the region keeps its three rows while the list has the keys")
 
 	focused := m.toggleMessagesFocus()
-	rows, ok := focused.messagesFit(record, help)
+	rows, ok := focused.messagesFit(agentsAbove(focused), record, help)
 	require.True(t, ok)
 	assert.Greater(t, rows, messagesRows, "and takes the rows the message needs once it has them")
 
-	region := ansi.Strip(focused.messagesRegion(record, help))
+	region := ansi.Strip(focused.messagesRegion(agentsAbove(focused), record, help))
 	assert.Contains(t, region, "1 of 1", "the tally is on the summary row")
 	assert.Contains(t, region, "connect: connection refused")
 	assert.Contains(t, region, "Start it with: weave serve")
@@ -275,7 +281,7 @@ func TestMessagesRegionLeavesTheReasonPlain(t *testing.T) {
 // its row throughout.
 func TestMessagesRegionPinsTheSummaryWhileMoving(t *testing.T) {
 	m := detailsModel(&recordingTmux{})
-	m.height, m.width = 20, 66
+	m.height, m.width = 22, 66
 	m.pushMessage(message{
 		kind:    messageError,
 		summary: "Cannot reach the server",
@@ -286,14 +292,14 @@ func TestMessagesRegionPinsTheSummaryWhileMoving(t *testing.T) {
 	focused := m.toggleMessagesFocus()
 	record, help := focused.detailsView(), focused.renderHelp(focused.agentHelp())
 
-	top := ansi.Strip(focused.messagesRegion(record, help))
+	top := ansi.Strip(focused.messagesRegion(agentsAbove(focused), record, help))
 	assert.Contains(t, top, "Cannot reach the server")
 	assert.Contains(t, top, "more", "what is past the bottom is counted")
 
 	moved := send(t, focused, "G")
 	assert.Equal(t, len(moved.messagePieces())-1, moved.messagesPiece(), "the cursor is on the last piece")
 
-	window := ansi.Strip(moved.messagesRegion(record, help))
+	window := ansi.Strip(moved.messagesRegion(agentsAbove(moved), record, help))
 	assert.Contains(t, window, "Cannot reach the server", "the summary keeps its row")
 	assert.Contains(t, window, "↑", "and what is above the window is counted")
 	assert.Contains(t, window, "error ·", "the piece the cursor moved to is on screen")

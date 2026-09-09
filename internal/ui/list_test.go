@@ -34,33 +34,37 @@ func lines(rendered string) []string {
 }
 
 // TestRenderListFits pins that a list short enough to draw whole is not cut and draws no
-// counts.
+// counts, and that a budget with nothing left in it draws no rows at all.
 func TestRenderListFits(t *testing.T) {
 	tests := []struct {
 		name  string
 		rows  []string
 		lines int
+		want  []string
 	}{
 		{
 			name:  "shorter than the pane",
 			rows:  numbered(3),
 			lines: 10,
+			want:  numbered(3),
 		},
 		{
 			name:  "exactly as tall as the pane",
 			rows:  numbered(10),
 			lines: 10,
+			want:  numbered(10),
 		},
 		{
-			name:  "a height nothing has measured yet",
+			name:  "a pane with no room left draws nothing",
 			rows:  numbered(100),
 			lines: 0,
+			want:  nil,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.rows, lines(renderList(tt.rows, 0, tt.lines)))
+			assert.Equal(t, tt.want, lines(renderList(tt.rows, 0, tt.lines)))
 		})
 	}
 }
@@ -194,9 +198,9 @@ func TestScreensFitThePane(t *testing.T) {
 	}
 }
 
-// TestListLines pins that the chrome comes off the pane, and that a pane too short to hold even
-// that keeps one line for the hovered row.
-func TestListLines(t *testing.T) {
+// TestListBudget pins that the chrome comes off the pane, and that a pane too short to hold even
+// that leaves the list nothing rather than a row drawn past the bottom.
+func TestListBudget(t *testing.T) {
 	header := "Archive\n\n"
 	help := "\nrestore\ndelete\nback\n"
 
@@ -208,12 +212,12 @@ func TestListLines(t *testing.T) {
 		{
 			name:   "an unmeasured pane is unbounded",
 			height: 0,
-			want:   0,
+			want:   9,
 		},
 		{
-			name:   "a pane shorter than its chrome keeps one row",
+			name:   "a pane shorter than its chrome has no rows to give",
 			height: 3,
-			want:   1,
+			want:   -3,
 		},
 		{
 			name:   "the pane less the chrome around the list",
@@ -226,7 +230,7 @@ func TestListLines(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			m := model{height: tt.height}
 
-			assert.Equal(t, tt.want, m.listLines(header, help))
+			assert.Equal(t, tt.want, m.listBudget(9, header, help))
 		})
 	}
 }

@@ -124,6 +124,7 @@ func (s screen) spec() screenSpec {
 			details: &detailsSpec{
 				hovered: model.agentsDetails,
 				quit:    func(keys config.Keybindings) []string { return keys.Agents.Quit },
+				fits:    model.doesAgentsFitDetails,
 			},
 			filter: &filterSpec{
 				hovered: model.hoveredAgentKey,
@@ -141,6 +142,7 @@ func (s screen) spec() screenSpec {
 			details: &detailsSpec{
 				hovered: model.schedulesDetails,
 				quit:    func(keys config.Keybindings) []string { return keys.Schedules.Quit },
+				fits:    model.doesSchedulesFitDetails,
 			},
 			filter: &filterSpec{
 				hovered: model.hoveredScheduleKey,
@@ -159,6 +161,7 @@ func (s screen) spec() screenSpec {
 			details: &detailsSpec{
 				hovered: model.archiveDetails,
 				quit:    func(keys config.Keybindings) []string { return keys.Archive.Quit },
+				fits:    model.doesArchiveFitDetails,
 			},
 			filter: &filterSpec{
 				hovered: model.hoveredArchiveKey,
@@ -184,6 +187,7 @@ func (s screen) spec() screenSpec {
 			details: &detailsSpec{
 				hovered: model.mailDetails,
 				quit:    func(keys config.Keybindings) []string { return keys.Mail.Quit },
+				fits:    model.doesMailFitDetails,
 			},
 			filter: &filterSpec{
 				hovered: model.hoveredMailKey,
