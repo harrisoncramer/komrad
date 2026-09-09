@@ -9,7 +9,7 @@ import (
 )
 
 // Suggestion is the replacement a reviewer proposes for a run of lines, held in the round's own
-// line numbers since that is what the comment carrying it is pinned to.
+// line numbers.
 type Suggestion struct {
 	FilePath string
 	NewStart int
@@ -17,8 +17,7 @@ type Suggestion struct {
 	Lines    []string
 }
 
-// Key identifies one proposal, which is how one already sent or turned down is not offered
-// again.
+// Key identifies one proposal, so one already sent or turned down is not offered again.
 func (s Suggestion) Key() string {
 	return strings.Join(append([]string{
 		s.FilePath,
@@ -28,14 +27,13 @@ func (s Suggestion) Key() string {
 }
 
 // SplitSource cuts a file into the lines a suggestion is measured in, dropping the newline the
-// last line ends on, which is deliberate: an editor that adds a final newline the round did not
-// have has not proposed anything and must not read as though it had.
+// last line ends on.
 func SplitSource(source string) []string {
 	return strings.Split(strings.TrimSuffix(source, "\n"), "\n")
 }
 
 // Suggest is what one run of edited lines proposes, widened onto the neighbouring line when the
-// run puts lines in without replacing any, and refused when it proposes what the round already has.
+// run puts lines in without replacing any, and refused when it proposes what the round has.
 func Suggest(edit git.Edit, round []string) (Suggestion, bool) {
 	if len(round) == 0 || edit.Start < 1 && edit.End < 1 {
 		return Suggestion{}, false
@@ -63,9 +61,8 @@ func Suggest(edit git.Edit, round []string) (Suggestion, bool) {
 	return suggestion, true
 }
 
-// WithoutSuggestion is the file as it stands with one proposal put back the way the round holds it,
-// rebuilt from the round's own lines so that the runs left standing keep the numbering they were
-// measured in.
+// WithoutSuggestion is the file as it stands with one proposal put back the way the round holds
+// it, rebuilt from the round's own lines so the runs left standing keep their numbering.
 func WithoutSuggestion(round []string, edits []git.Edit, sent Suggestion) []string {
 	kept := make([]git.Edit, 0, len(edits))
 
@@ -93,7 +90,7 @@ func WithoutSuggestion(round []string, edits []git.Edit, sent Suggestion) []stri
 	return out
 }
 
-// widen gives an insertion the neighbouring line to replace, a range holding nothing being a
+// widen gives an insertion the neighbouring line to replace, since a range holding nothing is a
 // place in the file rather than something a comment can stand on.
 func widen(suggestion Suggestion, round []string) Suggestion {
 	if suggestion.NewStart > 1 {

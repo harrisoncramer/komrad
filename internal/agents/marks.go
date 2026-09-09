@@ -14,8 +14,8 @@ type NewMarkServiceParams struct {
 	Tx    txRunner
 }
 
-// MarkService owns the letters a person addresses rows by, which span agents and workflows and
-// so are written through a transaction rather than a single store.
+// MarkService owns the letters a person types to jump to a row, which span agents and workflows
+// and so are written through a transaction rather than a single store.
 type MarkService struct {
 	marks *markstore.Store
 	tx    txRunner

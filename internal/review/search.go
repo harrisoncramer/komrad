@@ -5,24 +5,23 @@ import (
 	"slices"
 )
 
-// span is where a match sits inside a row's text, as byte offsets into the text that was
-// searched, which is the drawn line including the marker the diff put in front of it.
+// span is where a match sits inside a row's text, as byte offsets into the drawn line including
+// the marker the diff put in front of it.
 type span struct {
 	start int
 	end   int
 }
 
-// search is a pattern and the rows it matches, which is every row the cursor can rest on.
+// search is a pattern and the rows it matches.
 type search struct {
 	pattern *regexp.Regexp
 	matches map[int][]span
-	// rows is every matching row in order, which is what stepping through matches walks and
-	// what counts them for the prompt.
+	// rows is every matching row in order.
 	rows []int
 }
 
 // SetPattern finds the rows a pattern matches and returns how many there are, compiling it
-// through the panel's own filter so the case rules stay in one place.
+// through the panel's own filter.
 func (v *View) SetPattern(pattern *regexp.Regexp) int {
 	if pattern == nil {
 		v.ClearSearch()
@@ -55,7 +54,7 @@ func (v *View) SetPattern(pattern *regexp.Regexp) int {
 func (v *View) ClearSearch() { v.search = nil }
 
 // MatchCount is how many lines the pattern was found on, counting several matches on one line
-// once since the cursor moves a line at a time.
+// once.
 func (v *View) MatchCount() int {
 	if v.search == nil {
 		return 0
@@ -65,8 +64,7 @@ func (v *View) MatchCount() int {
 }
 
 // HiddenMatches is how many lines the pattern was found on inside files that have been read and
-// folded away, which are on no row for the search to step through, and which are counted apart
-// rather than left to read as though the pattern were not there.
+// folded away, which are on no row for the search to step through.
 func (v *View) HiddenMatches() int {
 	if v.search == nil {
 		return 0
@@ -105,8 +103,7 @@ func (v *View) MatchNumber(y int) (int, bool) {
 	return index + 1, true
 }
 
-// JumpMatch is the next or previous line the pattern was found on, wrapping at the ends the
-// way a search does rather than stopping at them.
+// JumpMatch is the next or previous line the pattern was found on, wrapping at the ends.
 func (v *View) JumpMatch(y, direction int) (int, bool) {
 	if v.search == nil || len(v.search.rows) == 0 {
 		return y, false
@@ -133,8 +130,7 @@ func (v *View) JumpMatch(y, direction int) (int, bool) {
 }
 
 // matchText is what a row offers to a search, which for a line is the text as drawn with its
-// marker, so a pattern like `^\+` finds additions, and for a file header its path, so a search
-// reaches a file by name.
+// marker and for a file header its path.
 func (v *View) matchText(y int) (string, bool) {
 	current, ok := v.getRow(y)
 	if !ok {
@@ -152,8 +148,7 @@ func (v *View) matchText(y int) (string, bool) {
 	return v.quoteAt(y)
 }
 
-// quoteAt is a line as the diff draws it, which is both what a thread quotes when it is opened
-// and what says whether that line still reads the way it did.
+// quoteAt is a line as the diff draws it, which is what a thread quotes when it is opened.
 func (v *View) quoteAt(y int) (string, bool) {
 	current, ok := v.getRow(y)
 	if !ok || current.kind != lineRow {

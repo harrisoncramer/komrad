@@ -20,7 +20,7 @@ type Transcript struct {
 	Content      string
 	SyncedOffset int64
 	// SyncedAt moves only when the log had new bytes, so it is when the agent last wrote
-	// something rather than when weave last looked.
+	// something.
 	SyncedAt time.Time
 }
 
@@ -59,8 +59,8 @@ func New(db store.DBTX) *Store {
 	return &Store{queries: models.New(db)}
 }
 
-// Get returns an agent's stored transcript, or a zero Transcript when none has been
-// synced yet, so a first sync sees an offset of 0 and indexes the whole file.
+// Get returns an agent's stored transcript, or a zero Transcript when none has been synced
+// yet.
 func (s *Store) Get(ctx context.Context, agentID string) (Transcript, error) {
 	if !store.IsID(agentID) {
 		return Transcript{}, nil
@@ -87,8 +87,7 @@ type UpsertParams struct {
 	Offset  int64
 }
 
-// Upsert writes an agent's transcript, the whole copy the panel previews, while the turns
-// search matches are written by AppendTurns.
+// Upsert writes the whole copy of an agent's transcript that the panel previews.
 func (s *Store) Upsert(ctx context.Context, params UpsertParams) error {
 	if err := s.queries.UpsertTranscript(ctx, models.UpsertTranscriptParams{
 		AgentID:      params.AgentID,
@@ -108,7 +107,7 @@ type Turn struct {
 }
 
 // AppendTurns indexes newly-synced turns for an agent, numbering them after those already
-// stored, with Postgres building the search index as part of the write.
+// stored.
 func (s *Store) AppendTurns(ctx context.Context, agentID string, turns []Turn) error {
 	if len(turns) == 0 {
 		return nil
@@ -137,8 +136,7 @@ func (s *Store) AppendTurns(ctx context.Context, agentID string, turns []Turn) e
 	return nil
 }
 
-// DeleteTurns drops every indexed turn for an agent, which the syncer calls once a log has
-// been rewritten shorter than what was already read.
+// DeleteTurns drops every indexed turn for an agent.
 func (s *Store) DeleteTurns(ctx context.Context, agentID string) error {
 	if err := s.queries.DeleteAgentTranscriptChunks(ctx, agentID); err != nil {
 		return fmt.Errorf("failed to delete transcript chunks for %q: %w", agentID, err)
@@ -148,7 +146,7 @@ func (s *Store) DeleteTurns(ctx context.Context, agentID string) error {
 }
 
 // Delete removes the transcripts belonging to agents, both the whole copies and the indexed
-// turns, in the same transaction as the agents' own delete.
+// turns.
 func (s *Store) Delete(ctx context.Context, agentIDs []string) error {
 	if len(agentIDs) == 0 {
 		return nil
@@ -228,19 +226,18 @@ type SearchParams struct {
 }
 
 // Results is one page of each section, the turns that say the words and the turns that only
-// carry the letters, kept apart because the two are scored by measures that do not compare.
+// carry the letters.
 type Results struct {
 	Matches []SearchHit
 	Near    []SearchHit
 
 	// Next locates the page after this one, holding a position only for a section that filled
-	// this page, and nil once neither has more to give.
+	// this page, and nil once neither has any more.
 	Next *Cursor
 }
 
-// Search returns one page of each section, most relevant first within each, where a word
-// match arrives already marked by the database, a near match is marked here, and a query with
-// no word to look for is answered with nothing.
+// Search returns one page of each section, most relevant first within each, answering a query
+// with no word to look for with nothing.
 func (s *Store) Search(ctx context.Context, params SearchParams) (Results, error) {
 	query := strings.ReplaceAll(params.Query, "\x00", "")
 
@@ -335,8 +332,7 @@ func (s *Store) Search(ctx context.Context, params SearchParams) (Results, error
 	return results, nil
 }
 
-// nextCursor keeps a position for each section that filled its page, so a section that has
-// run out is not asked for again while the other one is still going.
+// nextCursor keeps a position for each section that filled its page.
 func nextCursor(limit int64, results Results) *Cursor {
 	cursor := Cursor{
 		Matches: lastOf(limit, results.Matches),
@@ -392,9 +388,7 @@ type queryTerms struct {
 	negative []string
 }
 
-// splitTerms reads a query as the words it is looking for and the words it wants left out,
-// which the database turns into a tsquery and this side turns into substring patterns, so the
-// two agree by construction rather than by both parsing the same syntax the same way.
+// splitTerms reads a query as the words it is looking for and the words it wants left out.
 func splitTerms(query string) queryTerms {
 	var (
 		terms   queryTerms
@@ -471,7 +465,7 @@ func markMatches(snippet string, terms []string) string {
 }
 
 // firstMatch returns the earliest occurrence of any term, preferring the longest where two
-// start at the same place, so overlapping terms are marked once rather than nested.
+// start at the same place.
 func firstMatch(hay string, terms []string) (int, int, bool) {
 	found := false
 

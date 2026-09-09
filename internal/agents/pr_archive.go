@@ -21,8 +21,8 @@ const prStateTimeout = 15 * time.Second
 // kept long and flat.
 const prStateQuiet = 15 * time.Minute
 
-// prArchivedMetadataKey records the pull request an agent was archived for, which is what stops
-// an agent somebody brought back from being archived again by the next pass.
+// prArchivedMetadataKey records the pull request an agent was archived for, so the next pass
+// leaves an agent somebody brought back alone.
 const prArchivedMetadataKey = "pr_archived"
 
 const (
@@ -35,8 +35,7 @@ type prArchiveAgentReadWriter interface {
 	SetMetadata(ctx context.Context, params agentstore.SetMetadataParams) (bool, error)
 }
 
-// workflowGetter reads the workflow an agent belongs to, which is where its base branch and its
-// diff excludes live.
+// workflowGetter reads the workflow an agent belongs to.
 type workflowGetter interface {
 	Get(ctx context.Context, id string) (*workflowstore.Workflow, error)
 }
@@ -79,14 +78,14 @@ func NewPRArchiver(params NewPRArchiverParams) *PRArchiver {
 }
 
 // prArchiveWorkflow is what a pass needs to know about a workflow its agents belong to, read
-// once each rather than once per agent inside it.
+// once per workflow rather than once per agent.
 type prArchiveWorkflow struct {
 	archives bool
 	repo     string
 }
 
 // Sync archives every agent whose recorded pull request has since merged or closed, leaving one
-// that is still working for a later pass rather than killing its pane mid-turn.
+// that is still working for a later pass.
 func (a *PRArchiver) Sync(ctx context.Context) error {
 	agents, err := a.agents.List(ctx)
 	if err != nil {
@@ -169,8 +168,8 @@ func (a *PRArchiver) stamp(ctx context.Context, archived []agentstore.Agent) {
 	}
 }
 
-// isPullRequestClosed reports whether the pull request an agent recorded has merged or closed and is still
-// the one weave thinks it is, leaving the agent alone when the lookup fails.
+// isPullRequestClosed reports whether the pull request an agent recorded has merged or closed
+// and is still the one weave thinks it is, leaving the agent alone when the lookup fails.
 func (a *PRArchiver) isPullRequestClosed(ctx context.Context, agent agentstore.Agent, url, repo string) bool {
 	lookupCtx, cancel := context.WithTimeout(ctx, prStateTimeout)
 	defer cancel()
@@ -254,7 +253,7 @@ func (a *PRArchiver) workflow(ctx context.Context, seen map[string]prArchiveWork
 }
 
 // repositoryOf names the repository a workflow's own checkout points at, blank when that cannot
-// be read, which leaves the branch to do the checking on its own.
+// be read.
 func (a *PRArchiver) repositoryOf(ctx context.Context, cwd string) string {
 	if cwd == "" {
 		return ""
@@ -292,8 +291,8 @@ func (a *PRArchiver) forgetExpiredQuiet() {
 	}
 }
 
-// isReadyToArchive reports whether an agent can lose its pane without losing work, which means one
-// sitting idle or one already dormant with no pane to lose.
+// isReadyToArchive reports whether an agent can lose its pane without losing work, which means
+// one sitting idle or one already dormant.
 func isReadyToArchive(agent agentstore.Agent) bool {
 	if !agent.State.DoesPaneDecide() {
 		return false
@@ -336,7 +335,7 @@ func metadataFor(agent agentstore.Agent, key string) string {
 	return agent.Metadata[i].Value
 }
 
-// prLookupDir is where gh runs, which is the agent's own directory while it still exists.
+// prLookupDir is where gh runs, being the agent's own directory while it still exists.
 func prLookupDir(agent agentstore.Agent) string {
 	// The pull request URL names its own repository, so gh can run wherever weave itself is.
 	if agent.WorktreeRemoved {
@@ -351,7 +350,7 @@ type metadataSetter interface {
 }
 
 // stampRestoredPRs records the pull request each restored agent carries as one already dealt
-// with, so the next pass does not archive an agent somebody just brought back by hand.
+// with, so the next pass leaves an agent somebody just brought back alone.
 func stampRestoredPRs(ctx context.Context, agents metadataSetter, restored []agentstore.Agent) error {
 	var failures []error
 	for _, agent := range restored {

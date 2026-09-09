@@ -50,7 +50,7 @@ func registerRPCTools(server *mcpsdk.Server, baseURL string) error {
 }
 
 func toolHints(method protoreflect.MethodDescriptor, annotation *annotationv1.ToolAnnotation) *mcpsdk.ToolAnnotations {
-	readOnly := rpcapi.IsReadOnly(method, annotation)
+	readOnly := rpcapi.IsReadOnly(method)
 
 	hints := &mcpsdk.ToolAnnotations{ReadOnlyHint: readOnly, IdempotentHint: rpcapi.IsIdempotent(method, annotation)}
 	if !readOnly {

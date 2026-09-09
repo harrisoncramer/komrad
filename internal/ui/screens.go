@@ -17,9 +17,8 @@ const (
 	screenMail
 )
 
-// opensInfoPane reports whether the keys that draw a pane beside the panel act on a screen, which
-// the screens drawing the whole window themselves say no to rather than hand it back to a pane
-// drawn over what they came to show.
+// opensInfoPane reports whether the keys that draw a pane beside the panel act on a screen,
+// which a screen drawing the whole window itself says no to.
 func (s screen) opensInfoPane() bool {
 	switch s {
 	case screenAgents, screenSchedules, screenMail:
@@ -42,35 +41,35 @@ type screenSpec struct {
 	// view draws the screen into the panel's own pane.
 	view func(model) string
 
-	// stage puts the row the cursor is on into the stage pane, and is nil on a screen whose
-	// stage is filled by something arriving later rather than drawn from what is already held.
+	// stage puts the row the cursor is on into the stage pane, and is nil on a screen whose stage
+	// is filled by something arriving later.
 	stage func(*model)
 
-	// fromListing is whether the refresh's own results are what this screen draws, which is what
-	// says a pass that lands should restage it.
+	// fromListing is whether the refresh's own results are what this screen draws, so a pass that
+	// lands should restage it.
 	fromListing bool
 
-	// needsArchive is whether the refresh has to list the archived agents too, which costs a
-	// call the screens that never name an archived agent do not pay.
+	// needsArchive is whether the refresh has to list the archived agents too, a call the screens
+	// that never name an archived agent do not pay.
 	needsArchive bool
 
-	// reenter comes back to the screen with its cursor and stage put right, and is nil on a
-	// screen nothing is ever drawn over.
+	// reenter comes back to the screen with its cursor and stage put right, and is nil on a screen
+	// nothing is ever drawn over.
 	reenter func(model) (tea.Model, tea.Cmd)
 
-	// typing reports whether something on the screen is taking every key and so standing the
-	// panel's own bindings down, and is nil on a screen that never takes typing.
+	// typing reports whether something on the screen is taking every key and standing the panel's
+	// own bindings down, and is nil on a screen that never takes typing.
 	typing  func(model) bool
 	details *detailsSpec
 	filter  *filterSpec
 
 	// column is the block the screen draws beside its own list, left nil by a screen that draws
-	// none, which is what says the panel keeps the share of the window the frame gave it.
+	// none, in which case the panel keeps the share of the window the frame gave it.
 	column func() columnSpec
 }
 
-// detailsSpec is the record a screen draws under its list, left nil by a screen that draws
-// none, which is what says the details keys do nothing there.
+// detailsSpec is the record a screen draws under its list, left nil by a screen that draws none,
+// in which case the details keys do nothing there.
 type detailsSpec struct {
 	// hovered is the record the cursor is standing on.
 	hovered func(model) details
@@ -80,8 +79,7 @@ type detailsSpec struct {
 	quit func(config.Keybindings) []string
 
 	// refocus is called when the record takes the keys or gives them back, and is nil on a screen
-	// that draws nothing saying where the keys are, which the review does: the row the reader is
-	// on is drawn in a pane of its own and has to be repainted to dim.
+	// that draws nothing saying where the keys are.
 	refocus func(*model)
 
 	// fits is whether the screen has the room to draw the record at all, nil on a screen that
@@ -99,8 +97,8 @@ type filterSpec struct {
 	// allows.
 	place func(*model, string)
 
-	// rows is every row on screen with the text a search reads, in the order they are drawn, and
-	// is left unset by a screen whose search narrows instead, where there is nothing to walk.
+	// rows is every row on screen with the text a search reads, in the order they are drawn, and is
+	// left unset by a screen whose search narrows instead.
 	rows func(model) []filterRow
 }
 

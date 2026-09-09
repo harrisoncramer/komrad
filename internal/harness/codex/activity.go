@@ -10,8 +10,8 @@ import (
 
 var workingLine = regexp.MustCompile(`(?m)^\s*[^\s\p{L}]?\s*Working\s*\(\s*\d+`)
 
-// interruptTimer leaves open both the verb, for a release that renames it, and whatever a step
-// names between the verb and the timer.
+// interruptTimer leaves open both the verb and whatever a step names between the verb and the
+// timer.
 var interruptTimer = regexp.MustCompile(`^\s*[^\s\p{L}]?\s*\p{L}.*\(\s*\d+[^)\n]*esc to interrupt`)
 
 var waitingFooter = regexp.MustCompile(`(?i)press enter to (confirm|continue)|enter to submit answer`)
@@ -22,34 +22,38 @@ const liveRegionLines = 30
 
 const waitingRegionLines = 8
 
-// composerSearchLines is how far up the composer marker is looked for, which is past the menus
-// Codex draws under the composer rather than over it.
+// composerSearchLines is how far up the composer marker is looked for, which reaches past the
+// menus Codex draws under the composer.
 const composerSearchLines = 30
 
 var ansiSeq = regexp.MustCompile(`\x1b\[[0-9;?]*[ -/]*[@-~]`)
 
-// ReadActivity reads what a captured frame says Codex is doing, counting only a frame showing
-// the composer as idle.
-func (h *Harness) ReadActivity(frame string) harness.Activity {
+// ReadInput reads what a captured frame says Codex is doing and what its composer holds,
+// counting only a frame showing the composer as idle.
+func (h *Harness) ReadInput(frame string) harness.Input {
 	switch {
 	case frame == "":
-		return harness.ActivityUnknown
+		return harness.Input{Activity: harness.ActivityUnknown}
 	// The bottom line is read first because the question Codex asks with its own tool offers to
 	// interrupt the turn on the same line as the key that answers it.
 	case doesFrameShowPromptFooter(frame):
-		return harness.ActivityWaiting
+		return harness.Input{Activity: harness.ActivityWaiting}
 	case doesFrameShowWork(frame):
-		return harness.ActivityWorking
+		return harness.Input{Activity: harness.ActivityWorking}
 	case doesFrameShowWaiting(frame):
-		return harness.ActivityWaiting
-	case doesFrameShowComposer(frame):
-		if doesComposerHoldText(frame) {
-			return harness.ActivityComposing
+		return harness.Input{Activity: harness.ActivityWaiting}
+	default:
+		held, composing := composerText(frame)
+		if !composing {
+			return harness.Input{Activity: harness.ActivityUnrecognized}
 		}
 
-		return harness.ActivityIdle
-	default:
-		return harness.ActivityUnrecognized
+		input := harness.Input{Activity: harness.ActivityIdle, Held: held}
+		if strings.TrimSpace(input.Text()) != "" {
+			input.Activity = harness.ActivityComposing
+		}
+
+		return input
 	}
 }
 
@@ -70,7 +74,7 @@ func doesFrameShowWork(frame string) bool {
 }
 
 // doesFrameOfferInterrupt reads the live line offering to interrupt the turn, whose timer has to
-// be in the line drawn and gone from the same line less the dim.
+// be in the line as drawn and gone from the same line less the dim.
 func doesFrameOfferInterrupt(frame string) bool {
 	// Codex draws that timer dim and a message quoting the words does not, which is what carries
 	// the pattern being loose enough to take a label as well as a verb.
@@ -106,21 +110,9 @@ func doesFrameShowWaiting(frame string) bool {
 	return waitingFooter.MatchString(tailLines(frame, waitingRegionLines))
 }
 
-func doesFrameShowComposer(frame string) bool {
-	_, ok := composerText(frame)
-
-	return ok
-}
-
-func doesComposerHoldText(frame string) bool {
-	held, _ := composerText(frame)
-
-	return strings.TrimSpace(held) != ""
-}
-
-// composerText is what the composer holds, which is looked for at the bottom of the region
-// because the transcript echoes a message somebody sent with the same glyph the composer wears.
-func composerText(frame string) (string, bool) {
+// composerText is the lines the composer holds, looked for at the bottom of the region because
+// the transcript echoes a sent message with the same glyph the composer wears.
+func composerText(frame string) ([]string, bool) {
 	drawn := strings.Split(strings.TrimRight(frame, "\n"), "\n")
 	if len(drawn) > composerSearchLines {
 		drawn = drawn[len(drawn)-composerSearchLines:]
@@ -154,7 +146,7 @@ func composerText(frame string) (string, bool) {
 	}
 
 	if marker < 0 {
-		return "", false
+		return nil, false
 	}
 
 	// The composer has no rule under it, so what it holds runs down to the lowest line Codex draws
@@ -175,7 +167,7 @@ func composerText(frame string) (string, bool) {
 		held = append(held, lines[marker+1:footer]...)
 	}
 
-	return strings.Join(held, "\n"), true
+	return held, true
 }
 
 func doesFrameShowPromptFooter(frame string) bool {

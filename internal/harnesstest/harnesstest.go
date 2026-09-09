@@ -145,9 +145,9 @@ func (h *Harness) BuildCommand(launch harness.Launch) (string, error) {
 // InterruptKeys is what the panel would send to stop this harness where it stands.
 func (h *Harness) InterruptKeys() []string { return []string{"Escape"} }
 
-// ReadActivity reads the bottom of a captured frame, where only the last line the agent
+// ReadInput reads the bottom of a captured frame, where only the last line the agent
 // printed is its current state.
-func (h *Harness) ReadActivity(frame string) harness.Activity {
+func (h *Harness) ReadInput(frame string) harness.Input {
 	lines := strings.Split(strings.TrimRight(frame, "\n"), "\n")
 	if len(lines) > tailLines {
 		lines = lines[len(lines)-tailLines:]
@@ -156,15 +156,15 @@ func (h *Harness) ReadActivity(frame string) harness.Activity {
 	for i := len(lines) - 1; i >= 0; i-- {
 		switch strings.TrimSpace(lines[i]) {
 		case workingLine:
-			return harness.ActivityWorking
+			return harness.Input{Activity: harness.ActivityWorking}
 		case waitingLine:
-			return harness.ActivityWaiting
+			return harness.Input{Activity: harness.ActivityWaiting}
 		case idleLine:
-			return harness.ActivityIdle
+			return harness.Input{Activity: harness.ActivityIdle, Held: []string{""}}
 		}
 	}
 
-	return harness.ActivityUnknown
+	return harness.Input{Activity: harness.ActivityUnknown}
 }
 
 // LogPath is where the conversation for a session id is written, empty until the agent

@@ -6,8 +6,8 @@ import (
 	"weave/internal/review"
 )
 
-// reviewDiffFloor is the narrowest the diff is worth drawing at, which is the gutter and enough
-// of a line beside it to read.
+// reviewDiffFloor is the narrowest the diff is worth drawing at: the gutter and enough of a line
+// beside it to read.
 const reviewDiffFloor = review.GutterWidth + 20
 
 // reviewColumn is the diff drawn beside the review's own threads, whose row budget is what the
@@ -29,8 +29,7 @@ const (
 	reviewEmptyWord   = "nothing changed in this worktree"
 )
 
-// reviewDiffNotice is what stands in the diff's own column before a patch does, which the sidebar
-// says as well but in a fraction of the room and away from where the reader is looking.
+// reviewDiffNotice is what stands in the diff's own column before a patch does.
 func (m model) reviewDiffNotice() string {
 	if m.review.loading {
 		return "_" + reviewLoadingWord + "_"

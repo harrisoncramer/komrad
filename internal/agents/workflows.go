@@ -101,8 +101,7 @@ func (w *WorkflowService) GetWorkflow(ctx context.Context, id string) (*workflow
 	return found, nil
 }
 
-// NewWorkflow creates a workflow, defaulting a blank name so the list always has a label to
-// render.
+// NewWorkflow creates a workflow, defaulting a blank name so the list always has a label.
 func (w *WorkflowService) NewWorkflow(ctx context.Context, cfg workflowstore.Config) (*workflowstore.Workflow, error) {
 	cfg.Name = strings.TrimSpace(cfg.Name)
 	if cfg.Name == "" {
@@ -146,7 +145,7 @@ func (w *WorkflowService) NewWorkflow(ctx context.Context, cfg workflowstore.Con
 }
 
 // UpdateWorkflow replaces a workflow's editable fields, keeping the name it already has when a
-// blank one is given so the list never renders an unlabelled bucket.
+// blank one is given.
 func (w *WorkflowService) UpdateWorkflow(ctx context.Context, id string, cfg workflowstore.Config) error {
 	existing, err := w.GetWorkflow(ctx, id)
 	if errors.Is(err, store.ErrNotFound) {
@@ -191,8 +190,8 @@ func (w *WorkflowService) UpdateWorkflow(ctx context.Context, id string, cfg wor
 	return nil
 }
 
-// normalizeHooks trims what a caller sent, drops the blanks a select with None on it sends, and
-// refuses a moment weave does not fire.
+// normalizeHooks trims what a caller sent, drops the blank entries, and refuses a moment weave
+// does not fire.
 func normalizeHooks(hooks []workflowstore.Hook) ([]workflowstore.Hook, error) {
 	kept := make([]workflowstore.Hook, 0, len(hooks))
 	for _, hook := range hooks {
@@ -219,8 +218,7 @@ func normalizeWorktree(cfg *workflowstore.Config) {
 	cfg.Worktree.DiffExclude = cleanPaths(cfg.Worktree.DiffExclude)
 }
 
-// cleanPaths drops the blank entries and stores the shortest spelling of the rest, which the
-// setup script needs of a path written ./.env.
+// cleanPaths drops the blank entries and stores the shortest spelling of the rest.
 func cleanPaths(paths []string) []string {
 	if paths == nil {
 		return nil

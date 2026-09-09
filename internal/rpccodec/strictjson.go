@@ -17,10 +17,9 @@ const (
 	nameJSONCharsetUTF8 = nameJSON + "; charset=utf-8"
 )
 
-// NewStrictJSON replaces connect's JSON codec with one that refuses a request naming a field or an
-// enum value the schema does not have, which connect discards so a client and a server on different
-// versions of a schema still talk, at the cost of answering a misspelled request as if it were
-// another one weave does understand.
+// NewStrictJSON replaces connect's JSON codec with one that refuses a request naming a field or
+// an enum value the schema does not have, which connect would otherwise discard and answer as
+// though a different request had been made.
 func NewStrictJSON() connect.HandlerOption {
 	return connect.WithHandlerOptions(
 		connect.WithCodec(strictJSON{name: nameJSON}),

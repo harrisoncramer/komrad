@@ -10,7 +10,7 @@ enum "review_verdict" {
 
 table "review_rounds" {
   schema  = schema.public
-  comment = "One immutable snapshot of what an agent has written, which is what a review is given against."
+  comment = "One frozen snapshot of what an agent has written. A review is always given against a round rather than against the working files."
   column "id" {
     null    = false
     type    = uuid
@@ -23,17 +23,17 @@ table "review_rounds" {
   column "ordinal" {
     null    = false
     type    = int
-    comment = "Which round this is for its agent, counting from one, which is what the panel names it by."
+    comment = "Which round this is for its agent, counting from one. The panel names the round by this number."
   }
   column "base_sha" {
     null    = false
     type    = text
-    comment = "The commit the agent's branch left its base at, resolved when the round was taken so that a base moving afterwards cannot change what this round says."
+    comment = "The commit the agent's branch started from. It is resolved once, when the round is taken, so later movement on the base branch cannot change what the round says."
   }
   column "snapshot_sha" {
     null    = false
     type    = text
-    comment = "A commit written out of band over the agent's whole worktree, tracked and untracked alike, held by a ref under refs/weave/rounds so it survives collection. The agent's own index, worktree and branch are untouched by it."
+    comment = "A commit covering the agent's whole checkout, tracked and untracked files alike. A ref under refs/weave/rounds keeps it alive so git will not collect it. Writing it leaves the agent's own branch, index and files alone."
   }
   column "created_at" {
     null    = false
@@ -57,7 +57,7 @@ table "review_rounds" {
 
 table "reviews" {
   schema  = schema.public
-  comment = "One author's batch of comments against one round, private while it is being written and released as a whole."
+  comment = "One reviewer's batch of comments on one round. Nobody else sees it while it is being written, and it is released all at once."
   column "id" {
     null    = false
     type    = uuid
@@ -66,7 +66,7 @@ table "reviews" {
   column "agent_id" {
     null    = false
     type    = uuid
-    comment = "The agent being reviewed, carried here as well as on the round so that one open review per author can be enforced without a join."
+    comment = "The agent being reviewed. The round already says this, and it is repeated here so that one open review per reviewer can be a plain unique index with no join."
   }
   column "round_id" {
     null = false
@@ -75,39 +75,39 @@ table "reviews" {
   column "author_kind" {
     null    = false
     type    = enum.review_author_kind
-    comment = "The type of the author giving the review."
+    comment = "Whether a person or an agent is giving the review."
   }
   column "author_agent_id" {
     null    = true
     type    = uuid
-    comment = "The agent giving the review, null when the person reviewing is. Null does not itself mean the person, author_kind says that. Deleting that agent nulls this rather than taking the review with it, since a reviewer child is deleted as a matter of course and the review it gave is what the agent it reviewed was working from."
+    comment = "The agent giving the review, null when a person is giving it. Do not read null as meaning a person, because author_kind is what says that. Deleting the reviewing agent clears this column rather than deleting the review. Reviewer agents are deleted as a matter of course, and the agent they reviewed is still working from what they said."
   }
   column "body" {
     null    = false
     type    = text
     default = ""
-    comment = "What the author said about the work as a whole rather than about any one line, empty when they said nothing. It is written at the head of the released file, above the comments, since it is the thing the agent should read first."
+    comment = "What the reviewer said about the change as a whole rather than about any one line, empty when they said nothing. It goes at the top of the released review file, above the line comments, because it is what the agent should read first."
   }
   column "verdict" {
     null    = true
     type    = enum.review_verdict
-    comment = "What the author concluded, null while the review is still open. It is what tells the agent whether it is done, and what gates opening a pull request."
+    comment = "What the reviewer concluded, null while the review is still open. It is how the agent learns whether the work is done, and only an approval lets it open a pull request."
   }
   column "released_at" {
     null    = true
     type    = timestamptz
-    comment = "When the review was let go of, null while it is still being written. Nothing in it reaches the agent before this is stamped."
+    comment = "When the review was released, null while it is still being written. None of it reaches the agent until this is set."
   }
   column "path" {
     null    = false
     type    = text
     default = ""
-    comment = "The absolute path the released review was written to, under weave's own state directory rather than in the agent's worktree, empty while the review is still open."
+    comment = "The absolute path of the file the released review was written to, empty while the review is still open. The file lives in weave's own state directory rather than in the agent's checkout."
   }
   column "doorbell_mail_id" {
     null    = true
     type    = uuid
-    comment = "The mail that told the agent the review was waiting. It is set null rather than cascaded when that mail is deleted, which is what makes a review the agent threw the notice away for read as undelivered."
+    comment = "The mail that told the agent a review was waiting. Deleting that mail clears this column rather than deleting the review, so a review whose notice was thrown away reads as undelivered."
   }
   column "created_at" {
     null    = false
@@ -150,26 +150,26 @@ table "reviews" {
     columns = [column.agent_id]
     unique  = true
     where   = "released_at IS NULL AND author_kind = 'human'"
-    comment = "One open review at a time for the person, the way a forge holds one pending review per reviewer."
+    comment = "Holds the person to one unreleased review at a time, the way GitHub holds one pending review per reviewer."
   }
   index "reviews_open_agent" {
     columns = [column.agent_id, column.author_agent_id]
     unique  = true
     where   = "released_at IS NULL AND author_kind = 'agent'"
-    comment = "One open review at a time for each agent reviewing, so a reviewer cannot draft two at once. Nulls stay distinct here deliberately: counting them equal would make the second reviewer child deleted on one agent fail its own delete, since the foreign key nulls this column and would collide with the first null."
+    comment = "Holds each reviewing agent to one unreleased review at a time. Postgres counts two nulls in this column as different values, and the index relies on that. If nulls collided, deleting a second reviewer agent would fail, because the foreign key clears this column and would land on the null the first delete left behind."
   }
   index "reviews_round_id" {
     columns = [column.round_id, column.id]
   }
   index "reviews_doorbell_mail_id" {
     columns = [column.doorbell_mail_id]
-    comment = "Finds the review a piece of mail is the doorbell for, which is what the foreign key walks when that mail is deleted."
+    comment = "Finds the review a piece of mail was the notice for. Deleting that mail walks this index."
   }
 }
 
 table "review_threads" {
   schema  = schema.public
-  comment = "One conversation pinned to a place in the round its review was given against."
+  comment = "One conversation pinned to a file and a line range in the round its review was given against."
   column "id" {
     null    = false
     type    = uuid
@@ -178,7 +178,7 @@ table "review_threads" {
   column "agent_id" {
     null    = false
     type    = uuid
-    comment = "The agent being reviewed, carried here as well as on the review since neither ever moves and almost every read is by agent."
+    comment = "The agent being reviewed. The review already says this and neither value ever changes. It is repeated here because almost every read of threads is by agent."
   }
   column "review_id" {
     null = false
@@ -187,69 +187,69 @@ table "review_threads" {
   column "round_id" {
     null    = false
     type    = uuid
-    comment = "The round the thread's line numbers were measured in, held here rather than read through the review because a batch stays open across rounds and would report the wrong one."
+    comment = "The round this thread's line numbers were measured against. It is not read through the review, because a review stays open across several rounds and would name the wrong one."
   }
   column "base_sha" {
     null    = false
     type    = text
     default = ""
-    comment = "The commit the old side of the thread's line numbers was read against, which is the round's own base for a thread written on the whole change and an earlier round's snapshot for one written while the diff was narrowed."
+    comment = "The commit the old side of this thread's line numbers was read against. For a thread written on the whole change that is the round's own base. For a thread written while the diff was narrowed to one round it is the earlier round's snapshot."
   }
   column "file_path" {
     null    = false
     type    = text
-    comment = "The file the thread is pinned to, named the way the diff names it: relative to the repository root, where the change left it if it moved it."
+    comment = "The file the thread is pinned to, named the way the diff names it. That is a path relative to the repository root, and where the change left the file if it moved it."
   }
   column "old_start" {
     null    = false
     type    = int
     default = 0
-    comment = "First line of the range on the old side of the diff, or zero for a thread pinned to lines that exist only on the new side."
+    comment = "First line of the range on the old side of the diff. Zero means the thread is pinned to lines that exist only on the new side."
   }
   column "old_end" {
     null    = false
     type    = int
     default = 0
-    comment = "Last line of the range on the old side, equal to old_start for a thread on a single line."
+    comment = "Last line of the range on the old side. It equals old_start for a thread on a single line."
   }
   column "new_start" {
     null    = false
     type    = int
     default = 0
-    comment = "First line of the range on the new side of the diff, or zero for a thread pinned to lines the change deleted."
+    comment = "First line of the range on the new side of the diff. Zero means the thread is pinned to lines the change deleted."
   }
   column "new_end" {
     null    = false
     type    = int
     default = 0
-    comment = "Last line of the range on the new side, equal to new_start for a thread on a single line."
+    comment = "Last line of the range on the new side. It equals new_start for a thread on a single line."
   }
   column "quoted_lines" {
     null    = false
     type    = sql("text[]")
     default = sql("'{}'::text[]")
-    comment = "The diff lines the thread was written against. They say what the thread was about once the agent has rewritten that code, and are what a later round is searched for to decide whether the thread has gone outdated."
+    comment = "The diff lines the thread was written against. They still say what the thread was about after the agent has rewritten that code. A later round is searched for these lines to decide whether the thread has gone outdated."
   }
   column "last_agent_activity_at" {
     null    = true
     type    = timestamptz
-    comment = "When the agent last wrote or rewrote a message here, null until it has written one. Kept as a column rather than read off the messages, so that an agent rewriting its own reply is activity the person reviewing has not seen, which a comparison against created_at cannot see."
+    comment = "When the agent last wrote or rewrote a message here, null until it has written one. It is a column rather than something read off the messages. An agent that rewrites its own reply is activity the person reviewing has not seen, and comparing against the message's created_at would miss that."
   }
   column "human_read_at" {
     null    = true
     type    = timestamptz
-    comment = "When the person reviewing last read this thread, stamped from last_agent_activity_at rather than from the clock, so a reply written mid-read is not marked read without being shown."
+    comment = "When the person reviewing last read this thread. It is copied from last_agent_activity_at rather than taken from the clock, so a reply written while they were reading is not marked read without having been shown."
   }
   column "resolved_at" {
     null    = true
     type    = timestamptz
-    comment = "When the person reviewing settled this thread, null while it is still owed an answer. Settling stays theirs even for a thread an agent opened, since deciding the work is done is not the reviewer's call."
+    comment = "When the person reviewing settled this thread, null while it is still owed an answer. Settling is theirs to do even on a thread an agent opened."
   }
   column "harvested" {
     null    = false
     type    = boolean
     default = false
-    comment = "Whether weave wrote this thread from an edit of the round's checkout rather than a person or an agent typing it, which is what makes it weave's to rewrite or delete on a later harvest."
+    comment = "Whether weave wrote this thread itself, from an edit made in the round's checkout, rather than a person or an agent typing it. Such a thread is weave's to rewrite or delete on a later harvest."
   }
   column "created_at" {
     null    = false
@@ -292,7 +292,7 @@ table "review_threads" {
 
 table "review_messages" {
   schema  = schema.public
-  comment = "One message in a review thread, written either by the author giving the review or by the agent answering it."
+  comment = "One message in a review thread, written either by the reviewer or by the agent answering them."
   column "id" {
     null    = false
     type    = uuid
@@ -305,17 +305,17 @@ table "review_messages" {
   column "review_id" {
     null    = true
     type    = uuid
-    comment = "The review this message went out with, null for an answer, which belongs to no batch and reaches the reviewer as soon as it is written."
+    comment = "The review this message was released with, null for an answer from the agent. An answer belongs to no batch and reaches the reviewer as soon as it is written."
   }
   column "author_kind" {
     null    = false
     type    = enum.review_author_kind
-    comment = "The type of the author who wrote the message."
+    comment = "Whether a person or an agent wrote the message."
   }
   column "author_agent_id" {
     null    = true
     type    = uuid
-    comment = "The agent that wrote this message, if relevant, kept as a link to who it was."
+    comment = "The agent that wrote this message, null when a person wrote it or when that agent has since been deleted."
   }
   column "body" {
     null    = false
@@ -326,7 +326,7 @@ table "review_messages" {
     null    = false
     type    = sql("text[]")
     default = sql("'{}'::text[]")
-    comment = "Replacement lines the author is proposing for the range the thread is pinned to, empty for an ordinary comment. The agent applies them rather than reasoning about them."
+    comment = "Replacement lines the reviewer is proposing for the range the thread is pinned to, empty on an ordinary comment. The agent applies them as written rather than treating them as a description of what to do."
   }
   column "created_at" {
     null    = false
@@ -369,7 +369,7 @@ table "review_messages" {
 
 table "review_viewed_files" {
   schema  = schema.public
-  comment = "One file of a round the person reviewing has read. A later round is a different row, which is what makes an agent rewriting the file undo the mark."
+  comment = "One file of one round that the person reviewing has read. Rows are per round, so an agent that rewrites the file makes a new round and the file reads as unread again."
   column "round_id" {
     null = false
     type = uuid
@@ -377,7 +377,7 @@ table "review_viewed_files" {
   column "file_path" {
     null    = false
     type    = text
-    comment = "The file that was read, named the way the diff names it: relative to the repository root, where the change left it if it moved it."
+    comment = "The file that was read, named the way the diff names it. That is a path relative to the repository root, and where the change left the file if it moved it."
   }
   column "viewed_at" {
     null    = false

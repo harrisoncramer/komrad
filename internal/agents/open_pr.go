@@ -16,9 +16,7 @@ type NewPullRequestOpenerParams struct {
 	Opener browser.Opener
 }
 
-// PullRequestOpener opens the pull request an agent recorded for itself, which is the panel's
-// own key and the one thing weave does to an agent on demand rather than at a moment of its
-// own choosing.
+// PullRequestOpener opens the pull request an agent recorded for itself.
 type PullRequestOpener struct {
 	agents agentGetter
 	opener browser.Opener

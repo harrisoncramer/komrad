@@ -6,8 +6,8 @@ import (
 	agentv1 "weave/proto/gen/agent/v1"
 )
 
-// anchorKey is the file and line a thread is pinned to, with the side included since a thread
-// on a deleted line has no new-side number.
+// anchorKey is the file and line a thread is pinned to, with the side included since a thread on
+// a deleted line has no new-side number.
 type anchorKey struct {
 	filePath string
 	newLine  int32
@@ -22,8 +22,8 @@ func keyForThread(thread *agentv1.ReviewThread) anchorKey {
 	}
 }
 
-// lineIndex is the diff's lines looked at from the three directions a thread can be placed
-// from: the coordinates it was written against, its line on the old side, and its text.
+// lineIndex is the diff's lines looked at from the three directions a thread can be placed from:
+// the coordinates it was written against, its line on the old side, and its text.
 type lineIndex struct {
 	byKey       map[anchorKey]int
 	byNew       map[newKey]int
@@ -162,7 +162,7 @@ func FormatLocation(filePath string, oldStart, newStart int) string {
 	return fmt.Sprintf("%s:%d (removed)", filePath, oldStart)
 }
 
-// FormatThreadLocation formats a thread's location for callers outside a new anchor.
+// FormatThreadLocation formats a thread's location for a caller holding no anchor.
 func FormatThreadLocation(thread *agentv1.ReviewThread) string {
 	return FormatLocation(thread.GetFilePath(), int(thread.GetOldStart()), int(thread.GetNewStart()))
 }

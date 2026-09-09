@@ -76,8 +76,7 @@ func (l *loggingInterceptor) WrapStreamingHandler(next connect.StreamingHandlerF
 	return next
 }
 
-// callerAttrs name the agent a call came from, and nothing at all for the panel or a person,
-// so one agent's calls are one filter however they arrived.
+// callerAttrs name the agent a call came from, and nothing at all for the panel or a person.
 func callerAttrs(from caller.Caller) []slog.Attr {
 	attrs := make([]slog.Attr, 0, 2)
 	if from.AgentID != "" {

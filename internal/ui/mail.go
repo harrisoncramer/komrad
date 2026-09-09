@@ -20,8 +20,8 @@ import (
 
 const mailTimeout = 10 * time.Second
 
-// mailPageSize is how far back either half reads, which is a screenful many times over rather
-// than the whole mailbox.
+// mailPageSize is how far back either half reads, a screenful many times over rather than the
+// whole mailbox.
 const mailPageSize = 200
 
 // mailState is the mailbox of one agent, while that screen is up.
@@ -37,8 +37,7 @@ type mailState struct {
 
 // mailRow is either the line naming a thread or one message under it.
 type mailRow struct {
-	// header is the line that names a thread, drawn as furniture: the cursor steps over it, so
-	// nothing has to answer for what a record or a stage would show while standing on one.
+	// header is the line that names a thread, drawn as furniture the cursor steps over.
 	header bool
 	// label is who the thread is with, drawn on its header.
 	label string
@@ -47,8 +46,7 @@ type mailRow struct {
 }
 
 // key is the row the cursor is put back on as the mailbox changes underneath it, empty for a
-// thread line, which holds no message and reads its id off a nil pointer that the generated
-// getter answers for.
+// thread line, which holds no message.
 func (r mailRow) key() string {
 	return r.item.GetId()
 }
@@ -60,8 +58,8 @@ type mailLoadedMsg struct {
 	err     error
 }
 
-// enterMail opens an agent's mail, with the threads in the sidebar and the message the cursor
-// is standing on in the stage.
+// enterMail opens an agent's mail, with the threads in the sidebar and the message the cursor is
+// standing on in the stage.
 func (m model) enterMail(agent agentstore.Agent) (tea.Model, tea.Cmd) {
 	m.enterScreen(screenMail)
 	m.mail = mailState{
@@ -141,8 +139,8 @@ func (m *model) applyMailLoaded(msg mailLoadedMsg) {
 	m.placeMailCursor(hovered)
 }
 
-// refreshMailCmd is what the panel's own tick asks for while the mailbox is up, so mail
-// arriving while it is open lands on screen rather than waiting on the key that reopens it.
+// refreshMailCmd is what the panel's own tick asks for while the mailbox is up, so mail arriving
+// while it is open lands on screen.
 func (m *model) refreshMailCmd() tea.Cmd {
 	if m.screen != screenMail || m.mail.loading || m.mail.polling {
 		return nil
@@ -176,8 +174,7 @@ func (m model) mailRows() []mailRow {
 }
 
 // threadedMailRows groups the messages into their threads, newest thread first and the newest
-// message first inside each, which is how a mailbox is read: the conversation something just
-// happened in, and what just happened in it.
+// message first inside each.
 func (m model) threadedMailRows(items []mailRow) []mailRow {
 	// The filter has already run, so a thread narrowed away has nothing to build a header from
 	// and no header is ever left standing over nothing.
@@ -213,7 +210,7 @@ func (m model) threadedMailRows(items []mailRow) []mailRow {
 	return rows
 }
 
-// newestMailID is the id a thread stands by, which is its last message.
+// newestMailID is the id a thread stands by, being its last message.
 func newestMailID(thread []mailRow) string {
 	return thread[len(thread)-1].item.GetId()
 }
@@ -237,7 +234,7 @@ func (m model) filteredMailRows(rows []mailRow) []mailRow {
 
 // mailThreadRoots resolves every message to the one that opened its thread, following reply_to
 // as far as the rows on screen reach, so a reply whose parent is off the page opens a thread of
-// its own rather than hanging off nothing.
+// its own.
 func mailThreadRoots(rows []mailRow) map[string]string {
 	parent := make(map[string]string, len(rows))
 	held := make(map[string]bool, len(rows))
@@ -272,8 +269,7 @@ func mailThreadRoots(rows []mailRow) map[string]string {
 	return roots
 }
 
-// mailThreadOf is every message in the thread the given one belongs to, in order, which is what
-// the stage draws and what the record counts.
+// mailThreadOf is every message in the thread the given one belongs to, in order.
 func (m model) mailThreadOf(id string) []mailRow {
 	rows := m.mailItems()
 	roots := mailThreadRoots(rows)
@@ -288,8 +284,8 @@ func (m model) mailThreadOf(id string) []mailRow {
 	return held
 }
 
-// mailCounterparty is the agent at the other end of a message: who wrote it when it came in,
-// who it went to when it went out.
+// mailCounterparty is the agent at the other end of a message: who wrote it when it came in, who
+// it went to when it went out.
 func (m model) mailCounterparty(r mailRow) string {
 	if !r.sent {
 		return orDash(r.item.GetFromName())
@@ -298,8 +294,8 @@ func (m model) mailCounterparty(r mailRow) string {
 	return m.agentName(r.item.GetToAgentId())
 }
 
-// agentName is what an id is called in the listing, falling back to the id itself for an
-// agent this panel has never listed, which a deleted one is.
+// agentName is what an id is called in the listing, falling back to the id itself for an agent
+// this panel has never listed.
 func (m model) agentName(id string) string {
 	for _, item := range m.listing.agents {
 		if item.agent.ID == id {
@@ -380,7 +376,7 @@ func (m model) mailDoc() string {
 }
 
 // landMailCursor puts the cursor on a row, naming the row rather than only its place in the list
-// so the message's own offset is kept for as long as the reader is still on it.
+// so the message's own offset is kept.
 func (m *model) landMailCursor(rows []mailRow, idx int) {
 	m.mail.cursor = idx
 	m.placeColumn(screenMail, mailRowKeyAt(rows, idx))
@@ -391,8 +387,8 @@ func (m *model) stageMail() {
 }
 
 // nextMailRow is the nearest message to the given row, looked for the way the cursor was
-// travelling and then back the other way, which is what it lands on when a move or a listing
-// would otherwise leave it standing on a thread line.
+// travelling and then back the other way, so a move or a listing never leaves it standing on a
+// thread line.
 func nextMailRow(rows []mailRow, from, direction int) int {
 	for i := from; i >= 0 && i < len(rows); i += direction {
 		if !rows[i].header {

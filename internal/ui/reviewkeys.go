@@ -10,11 +10,11 @@ import (
 const reviewPanStep = 8
 
 // reviewScrollStep is how far a scroll key moves, kept small so the code under the cursor stays
-// in view rather than a whole screen going by at once.
+// in view.
 const reviewScrollStep = 15
 
 // reviewScrollMargin is how close to the edge of the pane the cursor gets before the diff
-// scrolls under it, so there is always some of what is coming into view.
+// scrolls under it.
 const reviewScrollMargin = 4
 
 func (m model) updateReview(key tea.KeyMsg) (tea.Model, tea.Cmd) {
@@ -124,8 +124,7 @@ func (m model) scrollReviewThread(delta int) model {
 	return m
 }
 
-// reviewThreadMax is how far up the conversation the sidebar can be scrolled, which is whatever
-// it holds beyond the rows the sidebar has for it.
+// reviewThreadMax is how far up the conversation the sidebar can be scrolled.
 func (m model) reviewThreadMax() int {
 	lines := m.listLines(m.renderHelp(m.reviewHelp()), m.detailsView(), m.reviewHeadView())
 
@@ -155,7 +154,7 @@ func (m model) refuseReviewHistory(said string) (tea.Model, tea.Cmd) {
 }
 
 // refuseReviewAwaiting says why a write did not happen while the review already sent is still
-// unanswered, which is the state the service refuses a second review in.
+// unanswered.
 func (m model) refuseReviewAwaiting() (tea.Model, tea.Cmd) {
 	summary := "your review has not been answered yet"
 	detail := "The agent has written nothing since the review you sent, so a second one would be " +
@@ -184,8 +183,7 @@ func (m model) updateReviewFilter(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// searchReview runs the pattern over the diff and moves to the first thing it finds, which is
-// what makes typing one worth watching.
+// searchReview runs the pattern over the diff and moves to the first thing it finds.
 func (m *model) searchReview() {
 	if m.review.view == nil {
 		return

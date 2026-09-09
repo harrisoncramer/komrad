@@ -12,8 +12,8 @@ import (
 // search prompt, and enough of the diff to be worth drawing.
 const reviewBandFloor = 5
 
-// reviewBandView is what stands over the diff: what is being read, how big it is, what the reader
-// has sent, and the pattern they are searching it for.
+// reviewBandView is what stands over the diff: what is being read, how big it is, what the
+// reader has sent, and the pattern they are searching it for.
 func (m model) reviewBandView(width int) string {
 	// Explainer: the band is built as rows rather than one string so a short pane can drop the
 	// ones it has no room for. What the reader is doing and what they are looking at are worth
@@ -67,7 +67,7 @@ func (m model) reviewDeadView(width int) string {
 }
 
 // reviewStaleView says the agent has written since the photograph on screen was taken, and holds
-// its row when it has not, so the diff under it does not jump by one every time the agent saves.
+// its row when it has not, so the diff under it does not jump every time the agent saves.
 func (m model) reviewStaleView() string {
 	if !m.review.moved || m.review.pinned {
 		return "\n"
@@ -89,8 +89,8 @@ func reviewFill(line string, pane int) string {
 	return line
 }
 
-// reviewStatView is how big the change is, with the counts coloured the way the lines
-// themselves are so which number is which can be read at a glance.
+// reviewStatView is how big the change is, with the counts coloured the way the lines themselves
+// are.
 func (m model) reviewStatView() string {
 	if m.review.view == nil {
 		return ""
@@ -113,8 +113,7 @@ func (m model) reviewStatView() string {
 }
 
 // reviewScopeView says what the diff on screen is measured between, in the reader's own terms
-// rather than as rounds, and draws the other thing the base key could show beside it so the key
-// has a destination visible before it is pressed.
+// rather than as rounds, and draws the other thing the base key could show beside it.
 func (m model) reviewScopeView() string {
 	if m.review.view == nil {
 		return ""
@@ -135,7 +134,7 @@ func (m model) reviewScopeView() string {
 }
 
 // reviewStepSaid is the way through the rounds, naming only the direction that has somewhere to
-// go when the reader is standing at one end of the walk.
+// go.
 func (m model) reviewStepSaid() string {
 	back := keyLabel(m.keys.Review.Base)
 	forward := keyLabel(m.keys.Review.BaseForward)
@@ -172,7 +171,7 @@ func (m model) reviewMatchCount() string {
 }
 
 // reviewBandRow draws one row of the band as a coloured state and a hint after it, cutting the
-// hint rather than letting the row run past the pane it was given.
+// hint rather than letting the row run past the pane.
 func (m model) reviewBandRow(style lipgloss.Style, state, hint string) string {
 	style = m.reviewBandStyle(style)
 
@@ -184,8 +183,8 @@ func (m model) reviewBandRow(style lipgloss.Style, state, hint string) string {
 	return style.Render(state) + dimStyle.Render(" · "+clip(hint, room)) + "\n"
 }
 
-// reviewBandStyle is what the band over the diff wears, which is its own colour while the diff
-// holds the keys and the muted one while the sidebar does.
+// reviewBandStyle is what the band over the diff wears: its own colour while the diff holds the
+// keys, the muted one while the sidebar does.
 func (m model) reviewBandStyle(style lipgloss.Style) lipgloss.Style {
 	if m.isReviewDiffFocused() {
 		return style

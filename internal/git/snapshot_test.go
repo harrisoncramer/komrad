@@ -1,7 +1,9 @@
 package git
 
 import (
+	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -106,4 +108,96 @@ func TestFileAtReadsTheRoundRatherThanTheWorktree(t *testing.T) {
 
 	_, err = ReadFileLines(t.Context(), root, snapshot.SHA, "never-existed.go")
 	require.Error(t, err, "a path the round does not hold is an error the caller falls back from")
+}
+
+// controlTree is the tree an index seeded from HEAD gives, which is how the snapshot was built
+// before it read the agent's own index.
+func controlTree(t *testing.T, root string) string {
+	t.Helper()
+
+	index := filepath.Join(t.TempDir(), "control.index")
+	env := append(append(os.Environ(), snapshotIdentity...), "GIT_INDEX_FILE="+index)
+
+	for _, args := range [][]string{{"read-tree", "HEAD"}, {"add", "-A"}} {
+		cmd := exec.Command("git", append([]string{"-C", root}, args...)...)
+		cmd.Env = env
+		out, err := cmd.CombinedOutput()
+		require.NoError(t, err, string(out))
+	}
+
+	cmd := exec.Command("git", "-C", root, "write-tree")
+	cmd.Env = env
+	out, err := cmd.CombinedOutput()
+	require.NoError(t, err, string(out))
+
+	return strings.TrimSpace(string(out))
+}
+
+// TestTheTreeIsTheSameHoweverTheIndexWasSeeded is the whole claim of reading the agent's index
+// rather than HEAD, so the two are made to agree over a worktree holding one of everything.
+func TestTheTreeIsTheSameHoweverTheIndexWasSeeded(t *testing.T) {
+	root := repo(t)
+
+	write(t, root, "staged.go", "package main\n")
+	run(t, root, "add", "staged.go")
+	write(t, root, "staged.go", "package main\n\nfunc Later() {}\n")
+	write(t, root, "loose.go", "package main\n")
+	write(t, root, "deep/nested/new.go", "package nested\n")
+	write(t, root, "intent.go", "package main\n")
+	run(t, root, "add", "-N", "intent.go")
+	require.NoError(t, os.Remove(filepath.Join(root, "kept.go")))
+	require.NoError(t, os.Chmod(filepath.Join(root, "proto/gen/api.pb.go"), 0o755))
+	require.NoError(t, os.Symlink("loose.go", filepath.Join(root, "link.go")))
+
+	tree, err := ProbeTree(t.Context(), root)
+	require.NoError(t, err)
+	assert.Equal(t, controlTree(t, root), tree)
+}
+
+// TestAnAssumeUnchangedFileIsStillHashed is why the agent's index is read only after asking about
+// its flags: it tells git to trust a recorded time over the file, and a round that did so would
+// leave the agent's edit out of the diff it is reviewed by.
+func TestAnAssumeUnchangedFileIsStillHashed(t *testing.T) {
+	root := repo(t)
+	run(t, root, "update-index", "--assume-unchanged", "kept.go")
+	write(t, root, "kept.go", "package main\n\nfunc Edited() {}\n")
+
+	snapshot, err := TakeSnapshot(t.Context(), TakeSnapshotParams{Dir: root, Base: "main"})
+	require.NoError(t, err)
+
+	lines, err := ReadFileLines(t.Context(), root, snapshot.SHA, "kept.go")
+	require.NoError(t, err)
+	assert.Equal(t, []string{"package main", "", "func Edited() {}"}, lines)
+}
+
+// TestASkipWorktreeFileIsKept covers a sparse checkout, where a file the agent never had on disk
+// is one it has not deleted either.
+func TestASkipWorktreeFileIsKept(t *testing.T) {
+	root := repo(t)
+	run(t, root, "update-index", "--skip-worktree", "kept.go")
+	require.NoError(t, os.Remove(filepath.Join(root, "kept.go")))
+
+	snapshot, err := TakeSnapshot(t.Context(), TakeSnapshotParams{Dir: root, Base: "main"})
+	require.NoError(t, err)
+
+	lines, err := ReadFileLines(t.Context(), root, snapshot.SHA, "kept.go")
+	require.NoError(t, err)
+	assert.Equal(t, []string{"package main"}, lines)
+}
+
+// TestASnapshotSurvivesAnUnreadableIndex is the fallback: an index the agent's own git would
+// refuse is no reason for the panel to refuse a diff.
+func TestASnapshotSurvivesAnUnreadableIndex(t *testing.T) {
+	root := repo(t)
+	write(t, root, "loose.go", "package main\n")
+
+	path := filepath.Join(root, capture(t, root, "rev-parse", "--git-path", "index"))
+	require.NoError(t, os.WriteFile(path, []byte("not an index at all"), 0o644))
+
+	snapshot, err := TakeSnapshot(t.Context(), TakeSnapshotParams{Dir: root, Base: "main"})
+	require.NoError(t, err)
+
+	lines, err := ReadFileLines(t.Context(), root, snapshot.SHA, "loose.go")
+	require.NoError(t, err)
+	assert.Equal(t, []string{"package main"}, lines)
 }

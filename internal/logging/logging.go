@@ -74,7 +74,7 @@ const ServiceName = "service.name"
 
 const Service = "weave"
 
-// ProcessName tells the service's records apart from the panel's, which write to the same file.
+// ProcessName tells the service's records apart from the panel's, both writing to one file.
 const ProcessName = "process.name"
 
 const (
@@ -89,9 +89,7 @@ var severityNumbers = map[slog.Level]int{
 	slog.LevelError: 17,
 }
 
-// New builds the service's logger over w at the given level, writing JSON one record per
-// line since a key=value line can't be split apart reliably once a wrapped error carries a
-// colon and a quote.
+// New builds the service's logger over w at the given level, writing JSON one record per line.
 func New(w io.Writer, level slog.Level) *slog.Logger {
 	handler := slog.NewJSONHandler(w, &slog.HandlerOptions{Level: level, ReplaceAttr: otelFields})
 
@@ -120,9 +118,8 @@ func otelFields(groups []string, attr slog.Attr) slog.Attr {
 	}
 }
 
-// ParseLevel turns a configured level into slog's; an unknown word is an error rather than
-// a fallback, so a misspelled level is reported instead of leaving the log at a verbosity
-// nobody chose.
+// ParseLevel turns a configured level into slog's, taking an unknown word as an error rather
+// than a fallback.
 func ParseLevel(level string) (slog.Level, error) {
 	switch strings.ToLower(strings.TrimSpace(level)) {
 	case "debug":
@@ -138,8 +135,8 @@ func ParseLevel(level string) (slog.Level, error) {
 	}
 }
 
-// Err renders an error as its two attributes; every failure logged in the service goes
-// through this, so a search for one field finds all of them.
+// Err renders an error as its two attributes, which every failure logged in the service goes
+// through.
 func Err(err error) []slog.Attr {
 	if err == nil {
 		return nil
@@ -148,22 +145,20 @@ func Err(err error) []slog.Attr {
 	return []slog.Attr{slog.String(ErrorType, fmt.Sprintf("%T", err)), slog.String(ErrorMessage, err.Error())}
 }
 
-// Attrs is a list of attributes as With takes them, which is where slog's typed
-// attributes and its loose fluent values meet.
+// Attrs is a list of attributes as With takes them.
 func Attrs(attrs []slog.Attr) []any {
 	return xslice.Map(attrs, func(attr slog.Attr) any { return attr })
 }
 
 type loggerKey struct{}
 
-// WithLogger carries a logger on the context, which is how the attributes an
-// interceptor worked out once reach everything the handler under it logs.
+// WithLogger carries a logger on the context, so the attributes an interceptor worked out once
+// reach everything the handler under it logs.
 func WithLogger(ctx context.Context, logger *slog.Logger) context.Context {
 	return context.WithValue(ctx, loggerKey{}, logger)
 }
 
-// From is the logger carried on the context, or the default one; code below the
-// interceptor logs through this, so its lines carry the trace id of the call.
+// From is the logger carried on the context, or the default one.
 func From(ctx context.Context) *slog.Logger {
 	if logger, ok := ctx.Value(loggerKey{}).(*slog.Logger); ok && logger != nil {
 		return logger

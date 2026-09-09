@@ -14,6 +14,7 @@ import (
 
 	"connectrpc.com/connect"
 	"github.com/charmbracelet/bubbles/key"
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/stretchr/testify/assert"
@@ -626,6 +627,7 @@ func TestPanelIsTheSizeOfThePaneItWasGiven(t *testing.T) {
 		frame:  layout.New(client, config.DefaultLayout()),
 		keys:   config.DefaultKeybindings(),
 		screen: screenAgents,
+		drawn:  &lastFrame{},
 	}
 	panel.frame.Attach(sidebar)
 	panel = settle(t, panel, panel.refreshCmd())
@@ -636,23 +638,55 @@ func TestPanelIsTheSizeOfThePaneItWasGiven(t *testing.T) {
 	share := panel.width
 	require.Less(t, share, 341, "the panel starts on its share of the frame")
 
+	// The panel moves its own pane, so the size that leaves it comes back as the resize it is,
+	// which is what the renderer is told and so what the frame may be drawn at.
+	sizes := make(chan tea.WindowSizeMsg, 4)
+	panel.frame.OnResize(func(width, height int) {
+		sizes <- tea.WindowSizeMsg{Width: width, Height: height}
+	})
+
 	paneWidth := func() int {
 		width, _ := panel.frame.SidebarSize()
 
 		return width
 	}
 
+	held := panel.View()
+
 	panel.tree.cursor = 0
 	panel.stageSelection()
 
 	require.Equal(t, 341, paneWidth(), "the folder row takes the window")
-	assert.Equal(t, paneWidth(), panel.width, "and the panel is the size of the pane it now has")
+	assert.True(t, panel.awaitingSize, "which the panel has not been told the size of yet")
+	assert.Equal(t, held, panel.View(), "so it draws the frame it has rather than one at a width nobody has been given")
+
+	panel = panel.resizeTo(reportedSize(t, sizes))
+
+	assert.Equal(t, paneWidth(), panel.width, "and once the report lands it is the size of the pane it now has")
 	assert.Equal(t, 341, lipgloss.Width(panel.View()), "so the frame covers it")
 
 	panel.tree.cursor = 1
 	panel.stageSelection()
 
 	require.Equal(t, share, paneWidth(), "the agent's own pane takes it back")
+
+	panel = panel.resizeTo(reportedSize(t, sizes))
+
 	assert.Equal(t, paneWidth(), panel.width, "and the panel is the size of the pane it is left with")
 	assert.LessOrEqual(t, lipgloss.Width(panel.View()), share, "so nothing it draws runs past the pane and wraps")
+}
+
+// reportedSize is the size the frame read back off its own pane, which the panel is handed as a
+// resize rather than reading for itself.
+func reportedSize(t *testing.T, sizes <-chan tea.WindowSizeMsg) tea.WindowSizeMsg {
+	t.Helper()
+
+	select {
+	case size := <-sizes:
+		return size
+	case <-time.After(2 * time.Second):
+		t.Fatal("the frame never reported the size its own pane landed at")
+
+		return tea.WindowSizeMsg{}
+	}
 }

@@ -72,8 +72,8 @@ type SetMetadataParams struct {
 	Value *string
 }
 
-// SetMetadata sets or clears one metadata value and reports whether a row changed, taking
-// an archived agent the same as a live one since the archive itself is recorded as metadata.
+// SetMetadata sets or clears one metadata value and reports whether a row changed, taking an
+// archived agent the same as a live one.
 func (s *Store) SetMetadata(ctx context.Context, params SetMetadataParams) (bool, error) {
 	if !store.IsID(params.ID) {
 		return false, nil

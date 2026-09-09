@@ -15,31 +15,29 @@ import (
 	reviewstore "weave/internal/store/review"
 )
 
-// reviewDirName is where released reviews are kept under weave's own state directory, and not in
-// the worktree where the file would show up in the diff being reviewed.
+// reviewDirName is where released reviews are kept under weave's own state directory, rather
+// than in the worktree where they would show up in the diff being reviewed.
 const reviewDirName = "reviews"
 
 // ErrReviewNoRound is answered when a review is asked for on an agent no round has been taken
-// of, which is what happens before the diff has been opened once.
+// of.
 var ErrReviewNoRound = errors.New("no round has been taken of that agent yet")
 
 // ErrReviewNotEntitled is answered when an agent asks to review one it is not attached to.
 var ErrReviewNotEntitled = errors.New("an agent may only review the agent it is a child of")
 
-// ErrReviewOwnWork is answered when an agent asks to review its own work, which is not what
-// answering the review it was given is.
+// ErrReviewOwnWork is answered when an agent asks to review its own work.
 var ErrReviewOwnWork = errors.New("an agent cannot review its own work")
 
-// ErrReviewAlreadyGiven is answered when an agent asks to review a round it has reviewed once,
-// which is what keeps a reviewer and the agent it reviews from answering each other forever.
+// ErrReviewAlreadyGiven is answered when an agent asks to review a round it has reviewed once.
 var ErrReviewAlreadyGiven = errors.New("that round has already been reviewed; wait for the agent to write something")
 
 // ErrReviewInFlight is answered when somebody writes a comment on one snapshot while holding
 // unsent comments on another.
 var ErrReviewInFlight = errors.New("you have unsent comments on an earlier snapshot")
 
-// ErrReviewNotAnswered is answered when somebody starts a second review while the agent has yet to
-// act on the one they already sent.
+// ErrReviewNotAnswered is answered when somebody starts a second review while the agent has yet
+// to act on the one they already sent.
 var ErrReviewNotAnswered = errors.New("the agent has not answered your last review yet")
 
 // ErrReviewNotCurrent is answered when a comment's line numbers were read from a snapshot other
@@ -49,8 +47,8 @@ var ErrReviewNotCurrent = errors.New("those lines were read from an older snapsh
 // ErrReviewEmpty is answered when a review is released with nothing written in it.
 var ErrReviewEmpty = errors.New("that review has nothing in it")
 
-// reviewReaper is the half of the review store the lifecycle needs, which is enough to find the
-// refs an agent's snapshots are held by and to drop the drafts it was writing about others.
+// reviewReaper is the half of the review store the lifecycle needs, being the refs an agent's
+// snapshots are held by and the drafts it was writing about others.
 type reviewReaper interface {
 	ListRounds(ctx context.Context, agentID string) ([]reviewstore.Round, error)
 	DeleteOpenReviewsBy(ctx context.Context, authorAgentIDs []string) error
@@ -82,8 +80,7 @@ type reviewSnapshotter interface {
 	FileAt(ctx context.Context, dir, sha, path string) ([]string, error)
 }
 
-// GitSnapshotter takes a round's snapshot with git, which is the only implementation outside
-// the tests.
+// GitSnapshotter takes a round's snapshot with git.
 type GitSnapshotter struct{}
 
 // Take freezes the worktree as a commit nothing else can reach.
@@ -107,8 +104,7 @@ func roundRef(agentID, snapshotSHA string) string {
 	return "refs/weave/rounds/" + agentID + "/" + snapshotSHA
 }
 
-// OpenRound freezes what an agent has written now and records it as its next round, which is
-// what every review is given against.
+// OpenRound freezes what an agent has written now and records it as its next round.
 func (s *ReviewService) OpenRound(ctx context.Context, agentID string, author ReviewAuthor) (*reviewstore.Round, error) {
 	if err := s.requireMayRead(ctx, agentID, author); err != nil {
 		return nil, err
@@ -179,14 +175,13 @@ func (s *ReviewService) ListRounds(
 	return s.rounds.ListRounds(ctx, agentID)
 }
 
-// ListTallies is how many rounds of review each agent has taken part in, which the listing reads
-// once for every row rather than asking per agent.
+// ListTallies is how many rounds of review each agent has taken part in, read once for the
+// whole listing.
 func (s *ReviewService) ListTallies(ctx context.Context) ([]reviewstore.Tally, error) {
 	return s.reviews.ListTallies(ctx)
 }
 
-// ListLiveReviewers is every reviewer still owed an answer, read once for the whole listing the
-// way the tallies are.
+// ListLiveReviewers is every reviewer still owed an answer, read once for the whole listing.
 func (s *ReviewService) ListLiveReviewers(ctx context.Context) ([]reviewstore.LiveReviewer, error) {
 	return s.reviews.ListLiveReviewers(ctx)
 }
@@ -219,9 +214,8 @@ func (s *ReviewService) ListReviews(
 	return reviews, nil
 }
 
-// openReviewFor is the batch an author is writing against an agent, opened against the newest
-// round when they have none open, which is what makes writing a comment start a review rather
-// than a gesture of its own.
+// openReviewFor is the review an author is writing against an agent, opened against the newest
+// round when they have none open.
 func (s *ReviewService) openReviewFor(
 	ctx context.Context,
 	agentID string,
@@ -266,8 +260,8 @@ func (s *ReviewService) openReviewFor(
 	})
 }
 
-// requirePreviousReviewAnswered holds an author to one review at a time, refusing a second batch
-// until the agent has written something in answer to the last one.
+// requirePreviousReviewAnswered holds a reviewer to one review at a time, refusing a second
+// until the agent has written something in answer to the last.
 func (s *ReviewService) requirePreviousReviewAnswered(
 	ctx context.Context,
 	agentID string,
@@ -306,9 +300,8 @@ func (s *ReviewService) requirePreviousReviewAnswered(
 	return fmt.Errorf("%w: it has written nothing since", ErrReviewNotAnswered)
 }
 
-// requireNotReviewedAlready holds a reviewing agent to one review per round, which is what bounds a
-// reviewer and its parent ping-ponging: a new round appears only when the parent does work, so
-// the loop is limited by real progress rather than by a number somebody has to tune.
+// requireNotReviewedAlready holds a reviewing agent to one review per round, so a reviewer and
+// its parent can only go round again once the parent has done more work.
 func (s *ReviewService) requireNotReviewedAlready(
 	ctx context.Context,
 	params reviewstore.AuthorParams,
@@ -332,8 +325,8 @@ func (s *ReviewService) requireNotReviewedAlready(
 	return nil
 }
 
-// requireEntitled refuses an author that may not give a review on an agent: the person may
-// always, an agent may only on the agent it is a child of, and never on its own work.
+// requireEntitled refuses an author that may not give a review on an agent, which the person
+// always may, an agent only on the agent it is a child of, and nobody on their own work.
 func (s *ReviewService) requireEntitled(
 	ctx context.Context,
 	agentID string,
@@ -346,8 +339,7 @@ func (s *ReviewService) requireEntitled(
 	return s.requireMayRead(ctx, agentID, author)
 }
 
-// requireMayRead refuses an author that may not look at an agent's rounds and reviews at all,
-// which the agent under review always may of its own work.
+// requireMayRead refuses an author that may not look at an agent's rounds and reviews at all.
 func (s *ReviewService) requireMayRead(
 	ctx context.Context,
 	agentID string,
@@ -381,8 +373,8 @@ func (s *ReviewService) requireMayRead(
 type ReleaseReviewParams struct {
 	AgentID string
 	Verdict reviewstore.Verdict
-	// Body is what the author says about the work as a whole rather than about any one line,
-	// which is empty when they said nothing and is the first thing in the file when they did.
+	// Body is what the reviewer says about the change as a whole rather than about any one line,
+	// empty when they said nothing.
 	Body string
 	// Interrupt stops the agent where it stands before the mail is sent, so it reads the review
 	// now rather than at the end of whatever it is doing.
@@ -393,15 +385,14 @@ type ReleaseReviewParams struct {
 // ReleaseReviewResult reports what letting go of a review did.
 type ReleaseReviewResult struct {
 	Review reviewstore.Review
-	// Comments is how many the released batch carried.
+	// Comments is how many the released review carried.
 	Comments int
 	// Path is where the review was written for the agent to read.
 	Path string
 }
 
-// ReleaseReview lets go of the author's open batch by writing the whole review out as one file and
-// sending one piece of ordinary mail saying where it is, leaving when the agent is interrupted or
-// typed at to mail, whose affair that is.
+// ReleaseReview releases the author's open review, writing it out as one file and sending one
+// piece of ordinary mail saying where that file is.
 func (s *ReviewService) ReleaseReview(
 	ctx context.Context,
 	params ReleaseReviewParams,
@@ -491,15 +482,15 @@ func (s *ReviewService) ReleaseReview(
 	}, nil
 }
 
-// reviewNotice is the whole of what mail carries, which is the round, the verdict, how much
-// there is and where to read it.
+// reviewNotice is the whole of what the mail carries: the round, the verdict, how much there is
+// and where to read it.
 func reviewNotice(ordinal int32, verdict reviewstore.Verdict, comments int, path string) string {
 	return fmt.Sprintf("weave: review of round %d, %s, %d comment(s), read %s",
 		ordinal, strings.ReplaceAll(string(verdict), "_", " "), comments, path)
 }
 
-// listBatchThreads is what one batch actually says, gathered by the messages written under it and
-// not by the threads opened under it.
+// listBatchThreads is what one review actually says, gathered by the messages written under it
+// rather than by the threads opened under it.
 func (s *ReviewService) listBatchThreads(ctx context.Context, reviewID string) ([]ReviewThreadWithMessages, error) {
 	review, err := s.reviews.GetReview(ctx, reviewID)
 	if err != nil {
@@ -533,8 +524,8 @@ func (s *ReviewService) listBatchThreads(ctx context.Context, reviewID string) (
 	return mine, nil
 }
 
-// writeReview puts the whole review under weave's own state directory rather than in the agent's
-// worktree, and leaves it there for good.
+// writeReview puts the whole review under weave's own state directory rather than in the
+// agent's worktree, and leaves it there for good.
 func (s *ReviewService) writeReview(
 	ctx context.Context,
 	agent agentstore.Agent,
@@ -570,9 +561,8 @@ func (s *ReviewService) writeReview(
 	return full, nil
 }
 
-// getAuthorName is what to call whoever gave a review in the file it is written to, which is empty
-// for the person and the agent's name for an agent, falling back to its id when that agent has
-// since been deleted.
+// getAuthorName is what to call whoever gave a review in the file it is written to, empty for
+// the person and the agent's name for an agent.
 func (s *ReviewService) getAuthorName(ctx context.Context, review reviewstore.Review) string {
 	if review.AuthorAgentID == nil {
 		return ""
@@ -595,9 +585,8 @@ type getSnapshotLinesParams struct {
 	Threads []ReviewThreadWithMessages
 }
 
-// getSnapshotLines reads every file a review touches as the round froze it so each comment can
-// carry the code around it, leaving out a file that cannot be read rather than failing the
-// release.
+// getSnapshotLines reads every file a review touches as the round froze it, leaving out a file
+// that cannot be read rather than failing the release.
 func (s *ReviewService) getSnapshotLines(ctx context.Context, params getSnapshotLinesParams) map[string][]string {
 	if params.Dir == "" {
 		return nil

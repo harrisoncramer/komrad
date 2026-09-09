@@ -229,7 +229,7 @@ func TestDeliver(t *testing.T) {
 				MailboxReader: &fakeMailboxReader{pending: tt.pending},
 				NudgeClaimer:  agents,
 				PaneReader:    panes,
-				PaneTyper:     panes,
+				PaneWriter:    panes,
 				Harnesses:     fakeHarnesses{harness: &fakeHarness{}},
 			})
 
@@ -238,17 +238,17 @@ func TestDeliver(t *testing.T) {
 			assert.Equal(t, tt.want, got)
 
 			if !tt.wantNudge {
-				assert.Empty(t, panes.text, "nothing is typed at the agent")
-				assert.Empty(t, panes.keys, "no key is sent to the agent")
+				assert.Empty(t, panes.actions, "nothing is sent to the agent")
 				assert.Equal(t, tt.wantClaim, agents.taken,
 					"the right to type is only spent on an agent that could have taken the keys")
 
 				return
 			}
 
-			require.Len(t, panes.text, 1, "the line goes as text, so tmux does not read it as keys")
-			assert.Contains(t, panes.text[0], "read_mail")
-			assert.Equal(t, []string{"Enter"}, panes.keys, "only the newline that submits it goes as a key")
+			require.Len(t, panes.pasted, 1, "the line goes as one paste rather than as typed keys")
+			assert.Contains(t, panes.pasted[0], "read_mail")
+			assert.Equal(t, []string{"paste"}, panes.actions,
+				"an empty box is pasted into and nothing else, the newline riding with the paste")
 			assert.True(t, agents.taken, "the right to type is claimed before anything is typed")
 		})
 	}
@@ -304,7 +304,7 @@ func TestDeliverSaysWhenANudgeWentNowhere(t *testing.T) {
 				MailboxReader: &fakeMailboxReader{pending: 1},
 				NudgeClaimer:  agents,
 				PaneReader:    panes,
-				PaneTyper:     panes,
+				PaneWriter:    panes,
 				Harnesses:     fakeHarnesses{harness: &fakeHarness{}},
 			})
 
@@ -336,7 +336,7 @@ func TestDeliverReportsExpiredMail(t *testing.T) {
 		MailboxReader: mailbox,
 		NudgeClaimer:  agents,
 		PaneReader:    panes,
-		PaneTyper:     panes,
+		PaneWriter:    panes,
 		Harnesses:     fakeHarnesses{harness: &fakeHarness{}},
 	})
 
@@ -344,7 +344,7 @@ func TestDeliverReportsExpiredMail(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, DeliveryDone, got)
 	assert.True(t, mailbox.readExpired, "an empty mailbox is checked for mail that ran out of time")
-	assert.Empty(t, panes.text)
+	assert.Empty(t, panes.pasted)
 }
 
 type fakeMailboxReader struct {
@@ -388,28 +388,67 @@ func (f *fakeAgents) ClaimNudge(context.Context, string, time.Duration) (bool, e
 	return f.claimed, nil
 }
 
+// fakePanes stands in for tmux, showing one frame until a cut of its input box has landed and
+// the frame after it once it has.
 type fakePanes struct {
-	alive  bool
-	inMode bool
-	frame  string
-	text   []string
-	keys   []string
+	alive    bool
+	inMode   bool
+	clientAt bool
+	frame    string
+
+	// afterCut is the frame the pane shows once its line has been cut, an empty box unless a
+	// test says otherwise.
+	afterCut string
+
+	// staleReads is how many reads after the cut still show the frame from before it, which is
+	// a CLI that has yet to repaint.
+	staleReads int
+
+	// actions is what was done to the pane, in the order it was done.
+	actions  []string
+	pasted   []string
+	captures int
+	cutAt    int
+	cut      bool
 }
 
 func (f *fakePanes) IsAgentRunning(agentstore.Agent) bool { return f.alive }
 
 func (f *fakePanes) IsPaneInMode(string) bool { return f.inMode }
 
-func (f *fakePanes) CapturePane(string) string { return f.frame }
+func (f *fakePanes) CapturePane(string) string {
+	f.captures++
 
-func (f *fakePanes) SendText(_, text string) error {
-	f.text = append(f.text, text)
+	if f.cut && f.captures > f.cutAt+f.staleReads {
+		if f.afterCut != "" {
+			return f.afterCut
+		}
+
+		return idleFrame
+	}
+
+	return f.frame
+}
+
+func (f *fakePanes) IsClientAtPane(string, time.Duration) bool { return f.clientAt }
+
+func (f *fakePanes) PasteAndSubmit(_, text string) error {
+	f.actions = append(f.actions, "paste")
+	f.pasted = append(f.pasted, text)
 
 	return nil
 }
 
-func (f *fakePanes) SendKeys(_ string, keys ...string) error {
-	f.keys = append(f.keys, keys...)
+func (f *fakePanes) CutLine(string) error {
+	f.actions = append(f.actions, "cut")
+	f.cut = true
+	f.cutAt = f.captures
+
+	return nil
+}
+
+func (f *fakePanes) YankLine(string) error {
+	f.actions = append(f.actions, "yank")
 
 	return nil
 }
@@ -425,12 +464,12 @@ func TestDeliverAllVisitsEveryMailboxHoldingMail(t *testing.T) {
 		MailboxReader: mailbox,
 		NudgeClaimer:  agents,
 		PaneReader:    panes,
-		PaneTyper:     panes,
+		PaneWriter:    panes,
 		Harnesses:     fakeHarnesses{harness: &fakeHarness{}},
 	})
 
 	require.NoError(t, svc.DeliverAll(t.Context()))
-	assert.Empty(t, panes.text, "mailboxes belonging to no agent are left alone")
+	assert.Empty(t, panes.pasted, "mailboxes belonging to no agent are left alone")
 }
 
 // TestDeliverAllDoesNothingWhenNoMailIsWaiting pins that an empty sweep touches no pane.
@@ -442,7 +481,7 @@ func TestDeliverAllDoesNothingWhenNoMailIsWaiting(t *testing.T) {
 		MailboxReader: &fakeMailboxReader{},
 		NudgeClaimer:  agents,
 		PaneReader:    panes,
-		PaneTyper:     panes,
+		PaneWriter:    panes,
 		Harnesses:     fakeHarnesses{harness: &fakeHarness{}},
 	})
 
@@ -495,27 +534,27 @@ func TestDeliverToAnAgentNoPassCanRead(t *testing.T) {
 		MailboxReader: st.Mail,
 		NudgeClaimer:  st.Agents,
 		PaneReader:    panes,
-		PaneTyper:     panes,
+		PaneWriter:    panes,
 		Harnesses:     fakeHarnesses{harness: &fakeHarness{}, only: []string{testHarnessID}},
 	})
 
 	got, err := svc.Deliver(ctx, agent.ID)
 	require.NoError(t, err)
 	assert.Equal(t, DeliverySoon, got, "a state confirmed a moment ago is still worth waiting on")
-	assert.Empty(t, panes.text)
+	assert.Empty(t, panes.pasted)
 
 	backdateStateSeen(t, st, agent.ID, stateSeenBound+time.Minute)
 
 	got, err = svc.Deliver(ctx, agent.ID)
 	require.NoError(t, err)
 	assert.Equal(t, DeliverySoon, got)
-	require.Len(t, panes.text, 1, "an unconfirmed state is not live work, so the agent is told")
-	assert.Contains(t, panes.text[0], "read_mail")
+	require.Len(t, panes.pasted, 1, "an unconfirmed state is not live work, so the agent is told")
+	assert.Contains(t, panes.pasted[0], "read_mail")
 
 	got, err = svc.Deliver(ctx, agent.ID)
 	require.NoError(t, err)
 	assert.Equal(t, DeliveryLater, got)
-	assert.Len(t, panes.text, 1, "and told once, not once a pass")
+	assert.Len(t, panes.pasted, 1, "and told once, not once a pass")
 }
 
 // TestDeliverRetriesANudgeTheAgentNeverActedOn pins that unread mail puts the nudge back.
@@ -545,28 +584,28 @@ func TestDeliverRetriesANudgeTheAgentNeverActedOn(t *testing.T) {
 		MailboxReader: st.Mail,
 		NudgeClaimer:  st.Agents,
 		PaneReader:    panes,
-		PaneTyper:     panes,
+		PaneWriter:    panes,
 		Harnesses:     fakeHarnesses{harness: &fakeHarness{}},
 	})
 
 	got, err := svc.Deliver(ctx, agent.ID)
 	require.NoError(t, err)
 	assert.Equal(t, DeliverySoon, got)
-	require.Len(t, panes.text, 1, "an idle agent holding mail is told about it")
+	require.Len(t, panes.pasted, 1, "an idle agent holding mail is told about it")
 
 	for range 30 {
 		got, err = svc.Deliver(ctx, agent.ID)
 		require.NoError(t, err)
 		assert.Equal(t, DeliveryLater, got)
 	}
-	assert.Len(t, panes.text, 1, "and not told again once a pass")
+	assert.Len(t, panes.pasted, 1, "and not told again once a pass")
 
 	backdateNudge(t, st, agent.ID, nudgeRetryAfter+time.Minute)
 
 	got, err = svc.Deliver(ctx, agent.ID)
 	require.NoError(t, err)
 	assert.Equal(t, DeliverySoon, got)
-	assert.Len(t, panes.text, 2, "a nudge that did not get the mail read is sent again")
+	assert.Len(t, panes.pasted, 2, "a nudge that did not get the mail read is sent again")
 
 	stranded := agentByID(t, st, agent.ID)
 	assert.Equal(t, agentstore.StateIdle, stranded.State, "nothing about the agent moved to earn the retry")
@@ -607,14 +646,14 @@ func TestDeliverRetriesANudgeAcrossAnArchive(t *testing.T) {
 		MailboxReader: st.Mail,
 		NudgeClaimer:  st.Agents,
 		PaneReader:    panes,
-		PaneTyper:     panes,
+		PaneWriter:    panes,
 		Harnesses:     fakeHarnesses{harness: &fakeHarness{}},
 	})
 
 	got, err := svc.Deliver(ctx, agent.ID)
 	require.NoError(t, err)
 	assert.Equal(t, DeliverySoon, got)
-	require.Len(t, panes.text, 1)
+	require.Len(t, panes.pasted, 1)
 
 	_, archiveErr := st.Agents.Archive(ctx, []string{agent.ID})
 
@@ -623,7 +662,7 @@ func TestDeliverRetriesANudgeAcrossAnArchive(t *testing.T) {
 	got, err = svc.Deliver(ctx, agent.ID)
 	require.NoError(t, err)
 	assert.Equal(t, DeliveryDone, got, "an archived agent is not typed at")
-	assert.Len(t, panes.text, 1)
+	assert.Len(t, panes.pasted, 1)
 
 	require.NoError(t, st.Agents.Restore(ctx, []string{agent.ID}))
 	backdateNudge(t, st, agent.ID, nudgeRetryAfter+time.Minute)
@@ -631,7 +670,7 @@ func TestDeliverRetriesANudgeAcrossAnArchive(t *testing.T) {
 	got, err = svc.Deliver(ctx, agent.ID)
 	require.NoError(t, err)
 	assert.Equal(t, DeliverySoon, got)
-	assert.Len(t, panes.text, 2, "an agent back from the archive is told about the mail it never read")
+	assert.Len(t, panes.pasted, 2, "an agent back from the archive is told about the mail it never read")
 }
 
 type fixedHarnesses struct{ harness harness.Harness }
@@ -666,15 +705,266 @@ func TestDeliverDefersToARealHarnessStillComingUp(t *testing.T) {
 				MailboxReader: &fakeMailboxReader{pending: 1},
 				NudgeClaimer:  agents,
 				PaneReader:    panes,
-				PaneTyper:     panes,
+				PaneWriter:    panes,
 				Harnesses:     fixedHarnesses{harness: tt.harness},
 			})
 
 			got, err := svc.Deliver(t.Context(), "agent-a")
 			require.NoError(t, err)
 			assert.Equal(t, DeliveryLater, got)
-			assert.Empty(t, panes.text, "nothing is typed at a pane that is not listening")
-			assert.Empty(t, panes.keys)
+			assert.Empty(t, panes.actions, "nothing is sent to a pane that is not listening")
+		})
+	}
+}
+
+// composingService is a delivery service over one composing agent, whose clock a test moves by
+// writing to the time it returns.
+func composingService(t *testing.T, panes *fakePanes, now *time.Time) *DeliveryService {
+	t.Helper()
+
+	return NewDeliveryService(NewDeliveryServiceParams{
+		MailboxReader: &fakeMailboxReader{pending: 1},
+		NudgeClaimer: &fakeAgents{claimed: true, agent: &agentstore.Agent{
+			ID:    "agent-a",
+			Pane:  "%1",
+			State: agentstore.StateIdle,
+		}},
+		PaneReader: panes,
+		PaneWriter: panes,
+		Harnesses:  fakeHarnesses{harness: &fakeHarness{}},
+		Now:        func() time.Time { return *now },
+	})
+}
+
+// TestDeliverToAComposingPane pins which draft weave cuts to get a nudge past and which it
+// leaves where it is.
+func TestDeliverToAComposingPane(t *testing.T) {
+	tests := []struct {
+		name        string
+		frame       string
+		afterCut    string
+		clientAt    bool
+		staleReads  int
+		held        time.Duration
+		want        Delivery
+		wantActions []string
+	}{
+		{
+			name: "a draft somebody may still be in the middle of typing",
+			held: draftStaleAfter - time.Second,
+			want: DeliveryLater,
+		},
+		{
+			name:        "a draft nobody has moved for long enough, at a pane nobody is at",
+			held:        draftStaleAfter,
+			want:        DeliverySoon,
+			wantActions: []string{"cut", "paste", "yank"},
+		},
+		{
+			name:     "a still draft at a pane somebody is sitting at",
+			held:     draftStaleAfter,
+			clientAt: true,
+			want:     DeliveryLater,
+		},
+		{
+			name:  "a still draft spread over more than one line",
+			frame: composingFrame + ": first|second",
+			held:  draftStaleAfter,
+			want:  DeliveryLater,
+		},
+		{
+			name:        "a cut whose frame the CLI has yet to repaint",
+			held:        draftStaleAfter,
+			staleReads:  5,
+			want:        DeliverySoon,
+			wantActions: []string{"cut", "paste", "yank"},
+		},
+		{
+			name:        "a cut the frame never shows, which is a box that held more than the cut took",
+			held:        draftStaleAfter,
+			staleReads:  cutSettleReads,
+			want:        DeliveryLater,
+			wantActions: []string{"cut", "yank"},
+		},
+		{
+			name:        "a cut that left text in the box",
+			held:        draftStaleAfter,
+			afterCut:    composingFrame,
+			want:        DeliveryLater,
+			wantActions: []string{"cut", "yank"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			frame := tt.frame
+			if frame == "" {
+				frame = composingFrame
+			}
+
+			now := time.Date(2026, time.September, 9, 12, 0, 0, 0, time.UTC)
+			panes := &fakePanes{
+				alive:      true,
+				frame:      frame,
+				afterCut:   tt.afterCut,
+				clientAt:   tt.clientAt,
+				staleReads: tt.staleReads,
+			}
+			svc := composingService(t, panes, &now)
+
+			got, err := svc.Deliver(t.Context(), "agent-a")
+			require.NoError(t, err)
+			require.Equal(t, DeliveryLater, got, "the first look at a draft only starts its clock")
+			require.Empty(t, panes.actions)
+
+			now = now.Add(tt.held)
+
+			got, err = svc.Deliver(t.Context(), "agent-a")
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, got)
+			assert.Equal(t, tt.wantActions, panes.actions)
+
+			if tt.want == DeliverySoon {
+				require.Len(t, panes.pasted, 1)
+				assert.Contains(t, panes.pasted[0], "read_mail")
+			} else {
+				assert.Empty(t, panes.pasted, "a draft weave will not cut is never pasted over")
+			}
+		})
+	}
+}
+
+// TestDeliverTimesADraftFromWhenItLastMoved pins that a box somebody is editing is never still,
+// however long weave has been watching it.
+func TestDeliverTimesADraftFromWhenItLastMoved(t *testing.T) {
+	now := time.Date(2026, time.September, 9, 12, 0, 0, 0, time.UTC)
+	panes := &fakePanes{alive: true, frame: composingFrame + ": one"}
+	svc := composingService(t, panes, &now)
+
+	got, err := svc.Deliver(t.Context(), "agent-a")
+	require.NoError(t, err)
+	require.Equal(t, DeliveryLater, got)
+
+	now = now.Add(draftStaleAfter)
+	panes.frame = composingFrame + ": one and a bit"
+
+	got, err = svc.Deliver(t.Context(), "agent-a")
+	require.NoError(t, err)
+	assert.Equal(t, DeliveryLater, got, "the text moved, so the clock starts again")
+	assert.Empty(t, panes.actions)
+
+	now = now.Add(draftStaleAfter)
+
+	got, err = svc.Deliver(t.Context(), "agent-a")
+	require.NoError(t, err)
+	assert.Equal(t, DeliverySoon, got)
+	assert.Equal(t, []string{"cut", "paste", "yank"}, panes.actions)
+}
+
+// TestDeliverForgetsADraftOnceTheBoxIsEmpty pins that text typed after the box was emptied is
+// timed from when it appeared rather than from the draft before it.
+func TestDeliverForgetsADraftOnceTheBoxIsEmpty(t *testing.T) {
+	now := time.Date(2026, time.September, 9, 12, 0, 0, 0, time.UTC)
+	panes := &fakePanes{alive: true, frame: composingFrame}
+	svc := composingService(t, panes, &now)
+
+	got, err := svc.Deliver(t.Context(), "agent-a")
+	require.NoError(t, err)
+	require.Equal(t, DeliveryLater, got)
+
+	now = now.Add(draftStaleAfter)
+	panes.frame = idleFrame
+
+	got, err = svc.Deliver(t.Context(), "agent-a")
+	require.NoError(t, err)
+	require.Equal(t, DeliverySoon, got)
+	require.Equal(t, []string{"paste"}, panes.actions, "an empty box needs no cut")
+
+	panes.frame = composingFrame
+	panes.actions = nil
+
+	got, err = svc.Deliver(t.Context(), "agent-a")
+	require.NoError(t, err)
+	assert.Equal(t, DeliveryLater, got, "the box was empty since, so this draft is new")
+	assert.Empty(t, panes.actions)
+}
+
+// TestDeliverSaysOnceThatAMultiLineDraftIsInTheWay pins the one thing weave does about a box it
+// will not touch.
+func TestDeliverSaysOnceThatAMultiLineDraftIsInTheWay(t *testing.T) {
+	now := time.Date(2026, time.September, 9, 12, 0, 0, 0, time.UTC)
+	panes := &fakePanes{alive: true, frame: composingFrame + ": first|second"}
+	svc := composingService(t, panes, &now)
+
+	ctx, records := loggedContext(t)
+
+	got, err := svc.Deliver(ctx, "agent-a")
+	require.NoError(t, err)
+	require.Equal(t, DeliveryLater, got)
+	require.Empty(t, records(), "a draft that has not stood long enough is nobody's business yet")
+
+	now = now.Add(draftStaleAfter)
+
+	for range 3 {
+		got, err = svc.Deliver(ctx, "agent-a")
+		require.NoError(t, err)
+		require.Equal(t, DeliveryLater, got)
+	}
+
+	written := records()
+	require.Len(t, written, 1, "three passes over the same draft say it once")
+	assert.Equal(t, "WARN", written[0]["severity_text"])
+	assert.Empty(t, panes.actions)
+}
+
+// TestDeliverForgetsAnAgentNothingWillLookAtAgain pins that the draft clock does not keep an
+// entry for an agent no pass will reach.
+func TestDeliverForgetsAnAgentNothingWillLookAtAgain(t *testing.T) {
+	archivedAt := time.Date(2026, time.September, 9, 12, 0, 0, 0, time.UTC)
+
+	tests := []struct {
+		name string
+		gone func(agents *fakeAgents)
+	}{
+		{
+			name: "an agent no row holds any more",
+			gone: func(agents *fakeAgents) { agents.agent = nil },
+		},
+		{
+			name: "an agent archived while its draft stood",
+			gone: func(agents *fakeAgents) { agents.agent.ArchivedAt = &archivedAt },
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			now := archivedAt
+			panes := &fakePanes{alive: true, frame: composingFrame}
+			agents := &fakeAgents{claimed: true, agent: &agentstore.Agent{
+				ID:    "agent-a",
+				Pane:  "%1",
+				State: agentstore.StateIdle,
+			}}
+			svc := NewDeliveryService(NewDeliveryServiceParams{
+				MailboxReader: &fakeMailboxReader{pending: 1},
+				NudgeClaimer:  agents,
+				PaneReader:    panes,
+				PaneWriter:    panes,
+				Harnesses:     fakeHarnesses{harness: &fakeHarness{}},
+				Now:           func() time.Time { return now },
+			})
+
+			got, err := svc.Deliver(t.Context(), "agent-a")
+			require.NoError(t, err)
+			require.Equal(t, DeliveryLater, got)
+			require.Len(t, svc.drafts.boxes, 1, "the draft was seen, so it is being timed")
+
+			tt.gone(agents)
+
+			got, err = svc.Deliver(t.Context(), "agent-a")
+			require.NoError(t, err)
+			assert.Equal(t, DeliveryDone, got)
+			assert.Empty(t, svc.drafts.boxes, "nothing will read this box again")
 		})
 	}
 }

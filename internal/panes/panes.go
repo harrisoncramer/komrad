@@ -5,7 +5,7 @@
 // tmux adapter, and the adapter has no business importing the panel.
 package panes
 
-// Kind is which command a move stands for.
+// Kind is which tmux command a move stands for.
 type Kind int
 
 const (

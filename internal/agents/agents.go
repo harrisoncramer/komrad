@@ -34,27 +34,24 @@ var (
 	ErrTooManyChildren  = errors.New("too many children")
 
 	// ErrChildNeedsParentDirectory says the agent a child was to be attached to has no directory
-	// recorded, which is the one thing a child cannot be given a substitute for.
+	// recorded.
 	ErrChildNeedsParentDirectory = errors.New("a child agent needs its parent's directory to run in")
 
-	// ErrParentStillArchived says a restore named a child whose parent stays archived, leaving the
-	// child a row with nothing to be drawn under.
+	// ErrParentStillArchived says a restore named a child whose parent stays archived.
 	ErrParentStillArchived = errors.New("a child agent cannot come back before its parent")
 
-	// ErrResumeInFlight says another resume of the same agent is already under way, which is one
-	// window being opened rather than a failure to open one.
+	// ErrResumeInFlight says another resume of the same agent is already under way.
 	ErrResumeInFlight = errors.New("this agent is already being resumed")
 
 	// ErrReviewerAlreadyRunning says the agent asking already has a reviewer of its own reading
-	// its work, which stays with the change across every round rather than one per round.
+	// its work.
 	ErrReviewerAlreadyRunning = errors.New("this agent already has a reviewer")
 
-	// ErrNoLiveReviewer says the agent has no reviewer still owed an answer, which is the state a
-	// change starts in and the state an approval leaves it in.
+	// ErrNoLiveReviewer says the agent has no reviewer still owed an answer.
 	ErrNoLiveReviewer = errors.New("this agent has no reviewer still reading its work")
 
-	// ErrOutsideFamily says a child tried to reach an agent outside its own family, which is its
-	// parent and that parent's other children.
+	// ErrOutsideFamily says a child tried to reach an agent other than its parent or one of that
+	// parent's other children.
 	ErrOutsideFamily = errors.New("a child agent may only mail its parent and its parent's other children")
 
 	// ErrAlreadyLaunched says an idempotency key was already spent on an agent that launched, and
@@ -80,8 +77,7 @@ type nameChecker interface {
 	ActiveNameExists(ctx context.Context, workflowID, name string) (bool, error)
 }
 
-// agentFailWriter records that an agent's create or cleanup gave up, which is a write to the
-// row and a write to the metadata beside it.
+// agentFailWriter records that an agent's create or cleanup gave up.
 type agentFailWriter interface {
 	Update(ctx context.Context, agent agentstore.Agent) error
 	SetMetadata(ctx context.Context, params agentstore.SetMetadataParams) (bool, error)
@@ -96,8 +92,7 @@ type paneKiller interface {
 	KillPane(pane string)
 }
 
-// paneOwnerReader is what tmux is asked to settle whether an agent is still running, one pane at a
-// time or in a listing.
+// paneOwnerReader asks tmux who owns a pane, one at a time or in a listing.
 type paneOwnerReader interface {
 	paneLister
 	GetPaneOwner(pane string) string
@@ -128,8 +123,7 @@ type harnessGetter interface {
 	GetByID(id string) (harness.Harness, error)
 }
 
-// agentScriptRunner is the seam onto the executables a user hangs off an agent's life, which are
-// fired on the way in, on the way back in, and on the way out.
+// agentScriptRunner is the seam onto the executables a user hangs off an agent's life.
 type agentScriptRunner interface {
 	RunProvision(ctx context.Context, agent agentstore.Agent, name string) (string, error)
 	RunResume(ctx context.Context, agent agentstore.Agent, name string) (string, error)
@@ -184,7 +178,7 @@ func killPanes(ctx context.Context, tmux paneKiller, owned []agentstore.AgentPan
 }
 
 // hookRunParams is one moment's worth of work: the hooks a workflow lists, the agent they run
-// against, and the moment itself, which is what the script reads out of WEAVE_TRIGGER.
+// against, and the moment itself.
 type hookRunParams struct {
 	scripts agentScriptRunner
 	agent   agentstore.Agent
@@ -192,8 +186,8 @@ type hookRunParams struct {
 	event   string
 }
 
-// runHooks runs the hooks on one moment in order, waiting for each, and stops at the first that
-// fails so the ones after it are not handed a directory half prepared.
+// runHooks runs the hooks on one moment in order, waiting for each and stopping at the first
+// that fails.
 func runHooks(ctx context.Context, params hookRunParams) error {
 	if params.scripts == nil {
 		return nil
@@ -212,8 +206,7 @@ func runHooks(ctx context.Context, params hookRunParams) error {
 	return nil
 }
 
-// startHooks runs a moment's hooks in the background, with nothing for the call that set the
-// moment off to wait on.
+// startHooks runs a moment's hooks in the background.
 func startHooks(ctx context.Context, params hookRunParams) {
 	if params.scripts == nil || !slices.ContainsFunc(params.hooks, func(hook workflowstore.Hook) bool { return hook.Event == params.event }) {
 		return
@@ -238,8 +231,7 @@ func startHooks(ctx context.Context, params hookRunParams) {
 }
 
 // startRestoreHooks tells every agent a restore took out of the archive that its row is back
-// but dormant, so a hook here is looking at the record rather than at a running agent: the pane
-// comes back later, when somebody opens it, and fires post-resume of its own.
+// but dormant.
 func startRestoreHooks(ctx context.Context, scripts agentScriptRunner, workflows workflowReader, restored []agentstore.Agent) {
 	for _, agent := range restored {
 		startHooks(ctx, hookRunParams{
@@ -252,8 +244,7 @@ func startRestoreHooks(ctx context.Context, scripts agentScriptRunner, workflows
 }
 
 // agentHooks are the hooks a workflow lists for one of its agents, which is none for an agent
-// working in a directory somebody else prepared: a child in its parent's checkout, or one told
-// to keep what it was given, where a hook would be writing into a tree nobody asked it to touch.
+// working in a directory somebody else prepared.
 func agentHooks(ctx context.Context, workflows workflowReader, agent agentstore.Agent) []workflowstore.Hook {
 	if agent.ParentAgentID != nil || isProvisionerDisabled(agent.ProvisionEnabled) {
 		return nil
@@ -293,8 +284,7 @@ func runDeprovision(ctx context.Context, deprovision agentScriptRunner, agent ag
 }
 
 // isProvisionerDisabled reports whether an agent has been told to keep the directory it was
-// given rather than be provisioned one, which is what adopting a branch a human has open, a
-// child in its parent's checkout, and a reviewer reading somebody else's tree each mean.
+// given rather than be provisioned one.
 func isProvisionerDisabled(override *bool) bool {
 	return override != nil && !*override
 }
@@ -348,8 +338,7 @@ func workflowFor(ctx context.Context, workflows workflowReader, agent agentstore
 
 const maxFailureReasonLen = 480
 
-// failAs marks an agent as having failed create or cleanup and leaves the row where it was, so
-// a delete that cannot finish leaves an archived row in the archive the user was clearing.
+// failAs marks an agent as having failed create or cleanup and leaves the row where it was.
 func failAs(ctx context.Context, agents agentFailWriter, agent agentstore.Agent, state agentstore.State, verb string, cause error) {
 	agent.State = state
 	if err := agents.Update(ctx, agent); err != nil {
@@ -392,8 +381,7 @@ func failureReason(cause error) string {
 	return text
 }
 
-// notifyParents tells the spawner of each agent in told that it is gone, where going is every
-// agent the call is taking rather than only the ones being told about.
+// notifyParents tells the spawner of each agent in told that it is gone.
 func notifyParents(ctx context.Context, notifier systemMailSender, told, going []agentstore.Agent, reason string) {
 	actor := caller.From(ctx).AgentID
 

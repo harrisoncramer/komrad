@@ -37,9 +37,8 @@ func Materialise(ctx context.Context, dir, sha, at string) error {
 	return nil
 }
 
-// WorktreeHead is the commit a materialised checkout stands on, and false for anything that is not
-// the top of one, which is what says whether a directory left behind is a copy of the round being
-// read or the remains of an earlier one.
+// WorktreeHead is the commit a materialised checkout stands on, and false for anything that is
+// not the top of one.
 func WorktreeHead(ctx context.Context, at string) (string, bool) {
 	if !isWorktreeAt(ctx, at) {
 		return "", false
@@ -54,7 +53,7 @@ func WorktreeHead(ctx context.Context, at string) (string, bool) {
 }
 
 // IsDirty reports whether a checkout holds anything the commit it stands on does not, counting
-// untracked files but not ignored ones, which are the editor's leavings rather than the reviewer's.
+// untracked files but not ignored ones.
 func IsDirty(ctx context.Context, at string) (bool, error) {
 	out, err := Run(ctx, at, "status", "--porcelain", "--untracked-files=all")
 	if err != nil {
@@ -64,8 +63,7 @@ func IsDirty(ctx context.Context, at string) (bool, error) {
 	return out != "", nil
 }
 
-// isWorktreeAt reports whether a path is the top of a checkout rather than somewhere inside one,
-// git otherwise answering about the repository it finds walking up.
+// isWorktreeAt reports whether a path is the top of a checkout rather than somewhere inside one.
 func isWorktreeAt(ctx context.Context, at string) bool {
 	top, err := Run(ctx, at, "rev-parse", "--show-toplevel")
 	if err != nil {
@@ -80,8 +78,8 @@ func isWorktreeAt(ctx context.Context, at string) bool {
 	return top == here
 }
 
-// Reap takes a materialised worktree away along with the record git keeps of it, and says nothing
-// about a directory that was never there.
+// Reap takes a materialised worktree away along with the record git keeps of it, and says
+// nothing about a directory that was never there.
 func Reap(ctx context.Context, dir, at string) error {
 	if _, err := os.Stat(at); err != nil {
 		return nil

@@ -13,8 +13,7 @@ type Registry struct {
 	harnesses map[string]Harness
 }
 
-// NewRegistry indexes harnesses by their own id, refusing two that claim one id since which an
-// agent got would depend on argument order.
+// NewRegistry indexes harnesses by their own id, refusing two that claim one id.
 func NewRegistry(harnesses ...Harness) (*Registry, error) {
 	indexed := make(map[string]Harness, len(harnesses))
 	for _, candidate := range harnesses {
@@ -42,8 +41,8 @@ func (r *Registry) GetByID(id string) (Harness, error) {
 	return found, nil
 }
 
-// IDs are the registered harness ids, sorted so a message listing the choices reads the
-// same every time.
+// IDs are the registered harness ids, sorted so a message listing the choices reads the same
+// every time.
 func (r *Registry) IDs() []string {
 	ids := make([]string, 0, len(r.harnesses))
 	for id := range r.harnesses {

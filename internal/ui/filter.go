@@ -15,8 +15,7 @@ type filterState struct {
 	query   string
 	pattern *regexp.Regexp
 	broken  bool
-	// origin is the row the cursor sat on when the search opened, which abandoning it returns
-	// to.
+	// origin is the row the cursor sat on when the search opened, which abandoning it returns to.
 	origin string
 }
 
@@ -138,15 +137,14 @@ func (f *filterState) takeKey(key tea.KeyMsg) bool {
 	return true
 }
 
-// abandon drops the search and the row it was going to leave you on, which is what makes escape
-// the way back out rather than a way of keeping what you typed.
+// abandon drops the search and the row it was going to leave you on, which makes escape the way
+// back out rather than a way of keeping what you typed.
 func (f *filterState) abandon() {
 	f.typing = false
 	f.setQuery("")
 }
 
-// clearSearch drops a search that is standing and puts the cursor back where it opened, which is
-// the way out of one you are done with.
+// clearSearch drops a search that is standing and puts the cursor back where it opened.
 func (m model) clearSearch() (tea.Model, tea.Cmd) {
 	origin := m.filter.origin
 	m.filter.abandon()
@@ -287,8 +285,8 @@ func (m model) matchAt(from string, delta int) (string, bool) {
 	return "", false
 }
 
-// jumpMatch walks the cursor to the next row the search matches, which answers only while a
-// search stands.
+// jumpMatch walks the cursor to the next row the search matches, and answers only while a search
+// stands.
 func (m model) jumpMatch(delta int) (tea.Model, tea.Cmd) {
 	next, ok := m.matchAt(m.hoveredFilterKey(), delta)
 	if !ok {

@@ -267,8 +267,7 @@ func readStopHookPayload(body []byte) (*stopHookPayload, error) {
 	return &payload, nil
 }
 
-// reportHookEvent hands one hook payload to the harness that fired it and records what it read,
-// which is the path every event weave installs takes.
+// reportHookEvent hands one hook payload to the harness that fired it and records what it read.
 func reportHookEvent(cmd *cobra.Command, state *app, harnessID string, event harness.Event, payload []byte) {
 	hn, err := state.harnesses.GetByID(harnessID)
 	if err != nil {
@@ -302,12 +301,12 @@ func recordReport(ctx context.Context, state *app, report harness.Report) {
 	})
 }
 
-// reasonLimit is the longest reason the reason field of RecordReportRequest takes, which the
-// hook clamps to rather than have a turn end refused over a label.
+// reasonLimit is the longest reason RecordReportRequest takes, which the hook clamps to rather
+// than have a turn end refused over a label.
 const reasonLimit = 200
 
 // clampReason drops the control characters the endpoint refuses and cuts what is left to the
-// length it takes, on a rune boundary since half a rune is refused as well.
+// length it takes, on a rune boundary since half a rune is refused too.
 func clampReason(reason string) string {
 	cleaned := strings.Map(func(r rune) rune {
 		if r < 0x20 || r == 0x7f {

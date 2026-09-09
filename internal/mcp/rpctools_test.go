@@ -118,6 +118,16 @@ func TestToolHints(t *testing.T) {
 			idempotent:      true,
 			wantDestructive: xptr.Ptr(true),
 		},
+		{
+			method:     "ListReviewThreads",
+			readOnly:   true,
+			idempotent: true,
+		},
+		{
+			method:     "ListReviewRounds",
+			readOnly:   true,
+			idempotent: true,
+		},
 	}
 
 	service := agentv1.File_agent_v1_agent_proto.Services().Get(0)

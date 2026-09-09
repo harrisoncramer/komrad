@@ -13,7 +13,7 @@ enum "agent_role" {
 
 table "workflow_configs" {
   schema  = schema.public
-  comment = "Default config (harness, cwd, flags) seeded into new agents of a workflow."
+  comment = "The harness, working directory and flags a workflow gives each new agent it creates."
   column "id" {
     null    = false
     type    = uuid
@@ -51,7 +51,7 @@ table "workflow_configs" {
 
 table "workflow_provisioner_configs" {
   schema  = schema.public
-  comment = "The worktree config a workflow provisions its agents with, and whether it provisions them at all."
+  comment = "Whether a workflow gives each of its agents a git worktree of its own, and how that worktree is set up."
   column "id" {
     null    = false
     type    = uuid
@@ -109,7 +109,7 @@ table "workflow_provisioner_configs" {
 
 table "workflow_hooks" {
   schema  = schema.public
-  comment = "The scripts a workflow hangs on one moment in its agents' lives, run in position order."
+  comment = "Scripts a workflow runs at one point in an agent's life, in position order."
   column "id" {
     null    = false
     type    = uuid
@@ -152,7 +152,7 @@ table "workflow_hooks" {
 
 table "workflows" {
   schema  = schema.public
-  comment = "A named bucket of related agents. Pure organization; runs nothing."
+  comment = "A named group of related agents. It is grouping only. Nothing here runs."
   column "id" {
     null    = false
     type    = uuid
@@ -214,7 +214,7 @@ table "workflows" {
 
 table "agent_transcripts" {
   schema  = schema.public
-  comment = "Flattened transcript for an agent, synced from Claude's on-disk JSONL and indexed for search. Strict 1:1 with an agent."
+  comment = "One agent's whole conversation as plain text, copied from the log its CLI writes on disk. Every agent has exactly one row."
   column "agent_id" {
     null = false
     type = uuid
@@ -247,7 +247,7 @@ table "agent_transcripts" {
 
 table "agent_transcript_chunks" {
   schema  = schema.public
-  comment = "One turn of an agent's transcript, word-indexed for search."
+  comment = "One turn of an agent's conversation, indexed so it can be searched by word."
   column "agent_id" {
     null = false
     type = uuid
@@ -300,7 +300,7 @@ table "agent_transcript_chunks" {
 
 table "agent_metadata" {
   schema  = schema.public
-  comment = "Key/value facts an agent recorded about its own work."
+  comment = "Facts an agent recorded about its own work, such as the pull request it opened."
   column "agent_id" {
     null = false
     type = uuid
@@ -336,7 +336,7 @@ table "agent_metadata" {
 
 table "agent_runs" {
   schema  = schema.public
-  comment = "One run of a script weave fired for an agent, indexing the output it left on disk."
+  comment = "One run of a script weave fired for an agent. The output stays on disk and this row says where to find it."
   column "id" {
     null    = false
     type    = uuid
@@ -406,7 +406,7 @@ table "agent_runs" {
 
 table "agents" {
   schema  = schema.public
-  comment = "One background Claude agent, everything needed to restore it."
+  comment = "One background agent, holding everything needed to start it again."
   column "id" {
     null    = false
     type    = uuid
@@ -444,13 +444,13 @@ table "agents" {
     null    = false
     type    = enum.agent_role
     default = "implementer"
-    comment = "What the agent was launched to do, which decides the half of the review briefing it is sent. A reviewer reads the work of the agent it is a child of and never writes any of its own."
+    comment = "What the agent was launched to do. It decides which review briefing the agent is given. A reviewer reads the work of the agent it is a child of and never writes any code of its own."
   }
   column "state" {
     null    = false
     type    = enum.agent_state
     default = "idle"
-    comment = "What the agent is doing, which the reconcile loop writes from what it read off the pane. Uncertain is a pane weave captured but could not read. The three failure and setup values are the ones no frame read ever decides."
+    comment = "What the agent is doing. Weave captures the agent's terminal every couple of seconds and writes here what it read there. Uncertain means the terminal was captured but could not be understood. The setup and failure values never come from reading a terminal, so something else sets those."
   }
   column "state_changed_at" {
     null    = false
@@ -474,7 +474,7 @@ table "agents" {
     null    = false
     type    = text
     default = ""
-    comment = "What the agent's own CLI last reported it was doing, which annotates the state the pane decided rather than deciding one of its own. Cleared with the state it annotates whenever that changes, and by a turn ending, so empty means there is nothing to say."
+    comment = "What the agent's own CLI last said it was doing. It only decorates the state read off the terminal and never sets that state. It is cleared whenever the state changes and when a turn ends, so an empty value means there is nothing to say."
   }
   column "harness" {
     null    = false
@@ -597,7 +597,7 @@ table "agents" {
 
 table "marks" {
   schema  = schema.public
-  comment = "A letter a person addresses one row by. Held by an agent or a workflow and by nothing else, so a letter names one place."
+  comment = "A letter a person types to jump to one row. Each letter belongs to a single agent or a single workflow, so it always names one place."
   column "mark" {
     null = false
     type = text

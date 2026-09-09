@@ -100,14 +100,15 @@ type legendRow struct {
 	strip bool
 }
 
-// actionSpec is a screen's keys, ordered twice: the table in the order the dispatch tries it,
-// which is precedence, and the legend in the order a person reads it.
+// actionSpec is a screen's keys, ordered twice: the table in precedence order, the dispatch
+// order, and the legend in reading order.
 type actionSpec struct {
 	table  []action
 	legend []legendRow
 }
 
-// dispatch hands the press to the first arm that answers it, and gives the model back untouched when none does.
+// dispatch hands the press to the first arm that answers it, and gives the model back untouched
+// when none does.
 func (s actionSpec) dispatch(m model, pressed string) (tea.Model, tea.Cmd) {
 	for _, a := range s.table {
 		if a.when != nil && !a.when(m) {
@@ -156,7 +157,8 @@ func (s actionSpec) isRowShown(m model, row legendRow) bool {
 	})
 }
 
-// rowBinding converts the row into the format bubbleTea wants it: every key of every action it names, under one label.
+// rowBinding converts the row into the format bubbleTea wants it: every key of every action it
+// names, under one label.
 func (s actionSpec) rowBinding(m model, row legendRow) key.Binding {
 	var keys, heads []string
 

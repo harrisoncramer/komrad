@@ -44,9 +44,8 @@ type Launch struct {
 	MCPEndpoint string
 	CacheDir    string
 	Dir         string
-	// HookCommand is the weave binary a harness points its own hooks at, and a harness that
-	// wires none, or whose CLI cannot report the end of a turn, leaves the unread mark to the
-	// reconciler to raise later off a pane that has stopped moving.
+	// HookCommand is the weave binary a harness points its own hooks at, a harness that wires none
+	// leaving the unread mark to the reconciler.
 	HookCommand string
 	Resume      bool
 }
@@ -61,12 +60,12 @@ const (
 	// ActivityIdle is a frame the harness positively recognises as the input box.
 	ActivityIdle
 
-	// ActivityComposing is the input box holding text somebody typed and has not sent, so
-	// anything weave types there would be fused with it.
+	// ActivityComposing is the input box holding text somebody typed and has not sent, which
+	// anything weave typed there would be fused with.
 	ActivityComposing
 
-	// ActivityUnrecognized is a frame that matched none of a harness's patterns, which is
-	// not the same claim as ActivityIdle even though both leave an agent idle today.
+	// ActivityUnrecognized is a frame that matched none of a harness's patterns, which is not the
+	// same claim as ActivityIdle.
 	ActivityUnrecognized
 )
 
@@ -90,18 +89,42 @@ func (a Activity) String() string {
 	return "unknown"
 }
 
+// Input is what a harness read out of one captured frame: what the frame shows the agent doing,
+// and the text its input box holds.
+type Input struct {
+	Activity Activity
+
+	// Held is the text the input box holds, one entry per line the box draws it on, and empty for
+	// a frame showing no box.
+	Held []string
+}
+
+// Text is the whole of what the input box holds.
+func (i Input) Text() string { return strings.Join(i.Held, "\n") }
+
+// IsOneLine reports whether every line the input box holds but one is blank.
+func (i Input) IsOneLine() bool {
+	filled := 0
+	for _, line := range i.Held {
+		if strings.TrimSpace(line) != "" {
+			filled++
+		}
+	}
+
+	return filled == 1
+}
+
 // Event is one hook event a harness answers, spelled the way the CLI firing it spells the event.
 type Event string
 
 // Report is what a harness read out of one of its own hook payloads, which annotates the state
 // the pane decided rather than deciding one of its own.
 type Report struct {
-	// Reason is what to say the agent is doing, an empty one meaning there is nothing to say
-	// and clearing whatever was reported before it.
+	// Reason is what to say the agent is doing, an empty one clearing whatever was reported
+	// before it.
 	Reason string
 
-	// TurnEnded says the payload reported a turn of the agent's ending, which is the one thing
-	// weave acts on rather than only draws.
+	// TurnEnded says the payload reported a turn of the agent's ending.
 	TurnEnded bool
 }
 
@@ -127,7 +150,7 @@ type Harness interface {
 
 	FindSession(agentID string) (string, error)
 
-	ReadActivity(frame string) Activity
+	ReadInput(frame string) Input
 
 	ReadReport(event Event, payload []byte) (Report, error)
 

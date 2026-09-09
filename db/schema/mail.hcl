@@ -32,7 +32,7 @@ table "mail" {
     null    = false
     type    = enum.mail_kind
     default = "plain"
-    comment = "What the mail is, which is what lets the panel tell a doorbell weave raised itself from something an agent wrote. Ordinary mail is plain. It is also what a doorbell is counted by, since an agent needs only one unread doorbell of a kind however many comments are waiting behind it."
+    comment = "Who wrote the mail and why. Plain is mail an agent sent. The other values are notices weave raised itself, which the panel draws differently. Weave also counts unread notices by this value. One unread notice of a kind is enough however much is waiting behind it."
   }
   column "reply_to" {
     null = true
@@ -41,7 +41,7 @@ table "mail" {
   column "about_agent_id" {
     null    = true
     type    = uuid
-    comment = "The other agent a notice weave raised is about, null on ordinary mail. It is what holds a recipient to one unread notice per subject rather than one per kind, so an agent capped with a second partner is told about that one too. It carries no foreign key, since the notice has to keep saying which exchange was cut off after the agent it names is gone."
+    comment = "The other agent a weave notice is about, null on ordinary mail. Counting unread notices by this column gives the recipient one notice per subject rather than one per kind, so an agent that hits the exchange cap with a second partner is told about that partner too. There is no foreign key here on purpose. The notice has to keep naming the agent whose exchange was cut off after that agent is gone."
   }
   column "claimed_at" {
     null = true
@@ -89,11 +89,11 @@ table "mail" {
   index "mail_pending" {
     columns = [column.to_agent_id, column.id]
     where   = "claimed_at IS NULL"
-    comment = "Reads what an agent is holding unread, which is both what a send is refused by the size of and where the doorbell a further release joins is found."
+    comment = "Reads the mail an agent has not claimed yet. A send is refused when that is already full, and a further review notice joins the unread one found here."
   }
   index "mail_from_agent_id" {
     columns = [column.from_agent_id, column.to_agent_id]
-    comment = "Counts the mail one pair of agents has exchanged, which is what a send is refused by the size of."
+    comment = "Counts the mail two agents have exchanged. A send is refused once that count reaches the cap."
   }
   index "mail_reply_to" {
     columns = [column.reply_to]

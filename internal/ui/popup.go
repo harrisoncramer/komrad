@@ -18,13 +18,13 @@ type popupTmux interface {
 type PopupWindow struct {
 	tmux    popupTmux
 	session string
-	// focus is the pane the key is bound to jump to, empty where it is unbound, and nil until
-	// the panel has settled it once.
+	// focus is the pane the key is bound to jump to, empty where it is unbound, and nil until the
+	// panel has settled it once.
 	focus *string
 }
 
-// NewPopupWindow builds the popup's window over a tmux client, for the panel running
-// in the named tmux session.
+// NewPopupWindow builds the popup's window over a tmux client, for the panel running in the
+// named tmux session.
 func NewPopupWindow(tmux popupTmux, session string) *PopupWindow {
 	return &PopupWindow{tmux: tmux, session: session}
 }
@@ -125,8 +125,8 @@ func panelCommand(params BindPanelKeyParams, subcommand string) string {
 	return strings.Join(words, " ")
 }
 
-// IsShown reports whether anything is attached to the panel's session, which is what the panel
-// cannot see for itself: hiding detaches the client and leaves this program running.
+// IsShown reports whether anything is attached to the panel's session, which the panel cannot
+// see for itself since hiding only detaches the client and leaves this program running.
 func (p *PopupWindow) IsShown() bool {
 	return p.tmux.GetSessionClient(p.session) != ""
 }
@@ -134,8 +134,8 @@ func (p *PopupWindow) IsShown() bool {
 // Hide closes the popup by detaching its client, leaving the session alive for the next open.
 func (p *PopupWindow) Hide() { p.tmux.DetachSession(p.session) }
 
-// SilenceStatus turns off a session's tmux status bar, so the manager panel and
-// the agents it opens fill the popup without a tmux footer under them.
+// SilenceStatus turns off a session's tmux status bar, so the manager panel and the agents it
+// opens fill the popup without a tmux footer under them.
 func (p *PopupWindow) SilenceStatus(session string) {
 	p.tmux.SetSessionOption(session, "status", "off")
 }

@@ -65,8 +65,8 @@ func (s *Store) Update(ctx context.Context, agent Agent) error {
 	return nil
 }
 
-// UpdateIfLive rewrites an agent's row and reports whether it did, refusing one that an
-// archive or a delete took while a resume was mid-flight.
+// UpdateIfLive rewrites an agent's row and reports whether it did, refusing an archived or
+// deleted one.
 func (s *Store) UpdateIfLive(ctx context.Context, agent Agent) (bool, error) {
 	if !store.IsID(agent.ID) {
 		return false, nil

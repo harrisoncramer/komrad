@@ -17,15 +17,15 @@ import (
 	workflowstore "weave/internal/store/workflow"
 )
 
-// interruptedPrompt is what a resumed agent is asked on the way back in, no CLI carrying an
-// unfinished turn across a relaunch.
+// interruptedPrompt is what a resumed agent is asked on the way back in, since no CLI carries
+// an unfinished turn across a relaunch.
 const interruptedPrompt = "Your last turn was cut off part-way through when your pane was stopped, " +
 	"so nothing you had in flight was carried over. Read back over the conversation, work out what you " +
 	"had actually finished and what you had not, and carry on from there. If the work was already done, " +
 	"say so rather than doing it again."
 
-// resumeAgentReadWriter is the slice of the agent store a resume writes to, which is the row's state
-// and the pane it comes back in.
+// resumeAgentReadWriter is the slice of the agent store a resume writes to, being the row's
+// state and the pane it comes back in.
 type resumeAgentReadWriter interface {
 	agentGetter
 	MarkSettingUpIfLive(ctx context.Context, id string) (bool, error)
@@ -110,7 +110,7 @@ func (s *ResumeService) getByID(ctx context.Context, id string) (*agentstore.Age
 }
 
 // takeInFlight takes the right to resume one agent, reporting false when this panel is already
-// part-way through resuming it, and hands back what gives that right up.
+// part-way through resuming it, and hands back the call that gives the right up.
 func (s *ResumeService) takeInFlight(id string) (func(), bool) {
 	s.inFlightMu.Lock()
 	defer s.inFlightMu.Unlock()

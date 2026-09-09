@@ -31,8 +31,8 @@ var migrationsFS embed.FS
 //go:embed readonly_role.sql
 var readOnlyRoleSQL string
 
-// migrateLock is the advisory lock key that stops two processes starting at once from
-// applying the same migration twice, and it must never change.
+// migrateLock is the advisory lock key that stops two processes applying the same migration
+// twice, and it must never change.
 const migrateLock int64 = 7_240_115
 
 // Migrate applies any migrations not yet recorded, in filename order, each in its own
@@ -64,8 +64,8 @@ func migrate(ctx context.Context, pool *pgxpool.Pool, files fs.FS) error {
 	return apply(ctx, pool, migrationSet{files: files, versions: versions})
 }
 
-// openMigrationFiles opens the embedded migrations rooted at the directory holding
-// them, so a version is the bare file name both here and under test.
+// openMigrationFiles opens the embedded migrations rooted at the directory holding them, so a
+// version is the bare file name.
 func openMigrationFiles() (fs.FS, error) {
 	files, err := fs.Sub(migrationsFS, "migrations")
 	if err != nil {
@@ -75,8 +75,8 @@ func openMigrationFiles() (fs.FS, error) {
 	return files, nil
 }
 
-// Pending lists the embedded migrations that have not run, in the order they would run in,
-// and writes nothing so it is safe against a database opened read-only.
+// Pending lists the embedded migrations that have not run, in the order they would run in, and
+// writes nothing.
 func Pending(ctx context.Context, pool *pgxpool.Pool) ([]string, error) {
 	files, err := openMigrationFiles()
 	if err != nil {
@@ -101,9 +101,8 @@ func isPending(ctx context.Context, pool *pgxpool.Pool, versions []string) (bool
 	return len(pending) > 0, nil
 }
 
-// queryer is what pendingVersions reads through, so the same walk of the ledger serves
-// the pass deciding whether to reach for the lock and the pass reading it again inside one,
-// where the reader is the locked connection rather than the pool.
+// queryer is what pendingVersions reads through, so the same walk of the ledger serves both the
+// pool and the locked connection.
 type queryer interface {
 	Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
 }
@@ -151,8 +150,8 @@ type migrationSet struct {
 	versions []string
 }
 
-// apply runs the pending migrations under the advisory lock, re-reading the applied set
-// inside it since another process may have finished the work while this one waited.
+// apply runs the pending migrations under the advisory lock, re-reading the applied set inside
+// it since another process may have finished the work while this one waited.
 func apply(ctx context.Context, pool *pgxpool.Pool, set migrationSet) error {
 	conn, err := pool.Acquire(ctx)
 	if err != nil {
@@ -253,8 +252,8 @@ func refuseSharedDatabase(ctx context.Context, conn *pgxpool.Conn, pending []str
 // unlockTimeout bounds the unlock so it cannot hang on a connection whose peer is gone.
 const unlockTimeout = 5 * time.Second
 
-// releaseMigrateLock unlocks on a context of its own, a cancelled caller context failing before
-// it reaches the server and leaving the pooled connection holding the lock.
+// releaseMigrateLock unlocks on a context of its own, since a cancelled caller context would
+// fail before reaching the server and leave the pooled connection holding the lock.
 func releaseMigrateLock(ctx context.Context, conn *pgxpool.Conn) {
 	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), unlockTimeout)
 	defer cancel()
@@ -264,9 +263,8 @@ func releaseMigrateLock(ctx context.Context, conn *pgxpool.Conn) {
 	}
 }
 
-// listMigrationVersions lists the embedded migration file names in the order they
-// must run, which is filename order because Atlas prefixes each with the
-// timestamp it was authored at.
+// listMigrationVersions lists the embedded migration file names in the order they must run,
+// which is filename order because Atlas prefixes each with a timestamp.
 func listMigrationVersions(files fs.FS) ([]string, error) {
 	entries, err := fs.ReadDir(files, ".")
 	if err != nil {

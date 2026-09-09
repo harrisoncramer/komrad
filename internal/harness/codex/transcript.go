@@ -8,8 +8,8 @@ import (
 	"weave/internal/harness"
 )
 
-// LogPath finds the rollout for a session id by globbing the id, which avoids reproducing
-// Codex's year, month, and day layout or consulting the SQLite index beside it.
+// LogPath finds the rollout for a session id by globbing the id, so nothing here has to
+// reproduce Codex's dated directory layout or read the SQLite index beside it.
 func (h *Harness) LogPath(sessionID string) string {
 	if sessionID == "" {
 		return ""
@@ -24,7 +24,7 @@ func (h *Harness) LogPath(sessionID string) string {
 }
 
 // ReadLog reads whatever the rollout at path holds past offset and flattens it into turns,
-// where a file shorter than the stored offset is a different conversation under the same path.
+// treating a file shorter than the stored offset as a different conversation.
 func (h *Harness) ReadLog(path string, offset int64) (harness.LogRead, error) {
 	return harness.ReadAppendOnlyLog(path, offset, flattenRollout)
 }

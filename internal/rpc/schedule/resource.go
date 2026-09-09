@@ -36,7 +36,7 @@ func withPromptHead(limit int) scheduleOption {
 }
 
 // scheduleViewOptions turns the view a request asked for into the options renderSchedule takes,
-// so the enum stops at the handler rather than reaching the renderer.
+// so the enum stops at the handler.
 func scheduleViewOptions(view viewv1.View) []scheduleOption {
 	if view == viewv1.View_VIEW_FULL {
 		return nil

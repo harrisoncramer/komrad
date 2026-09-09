@@ -522,6 +522,7 @@ service AgentService {
     option idempotency_level = IDEMPOTENT;
   }
   rpc ListReviewThreads(ListReviewThreadsRequest) returns (ListReviewThreadsResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
     option (annotation.v1.tool) = {
       tool_name: "list_review_threads"
       description: "Read the review conversations pinned to the lines of a diff. Each thread names a round, a file and a line range, quotes the diff lines it was written against, and holds the messages said in it so far, oldest first. The review you were sent is already in the file the mail named, so read that first; this is for looking a thread up again, and for answering one. Every thread belongs to a round, which is a frozen snapshot, so its line numbers are true of that round even after you have edited the file: run git diff against the round's shas to see what was reviewed, or search the file for quotedLines to find where that code sits now. Answer with add_review_message, saying what you did. You are shown only reviews that have been released, so a comment somebody is still writing is not here yet. agentId defaults to your own agent; give another agent's id to read the review of its work instead."
@@ -543,7 +544,9 @@ service AgentService {
       idempotent: false
     };
   }
-  rpc EditReviewMessage(EditReviewMessageRequest) returns (EditReviewMessageResponse) {}
+  rpc EditReviewMessage(EditReviewMessageRequest) returns (EditReviewMessageResponse) {
+    option idempotency_level = IDEMPOTENT;
+  }
   rpc HarvestRoundEdits(HarvestRoundEditsRequest) returns (HarvestRoundEditsResponse) {}
   // Panel only, deliberately carrying no tool annotation: an agent must not rebase or reset
   // itself or anybody else.
@@ -565,13 +568,15 @@ service AgentService {
     };
   }
   rpc ListReviewRounds(ListReviewRoundsRequest) returns (ListReviewRoundsResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
     option (annotation.v1.tool) = {
       tool_name: "list_review_rounds"
       description: "Read the rounds taken of an agent, oldest first. A round is a frozen snapshot of everything it had written at that moment, so this is how you find what a review was given against, and how you see what changed between two of them: git diff one round's snapshotSha against the next. Your own rounds are yours to read, which is how you see the code a comment on your work was written about even after you have edited it. Use open_review_round to take one of the work as it stands now."
-      read_only: true
     };
   }
-  rpc ListReviews(ListReviewsRequest) returns (ListReviewsResponse) {}
+  rpc ListReviews(ListReviewsRequest) returns (ListReviewsResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
   rpc ReleaseReview(ReleaseReviewRequest) returns (ReleaseReviewResponse) {
     option (annotation.v1.tool) = {
       tool_name: "release_review"
@@ -583,5 +588,7 @@ service AgentService {
   rpc SetReviewFileViewed(SetReviewFileViewedRequest) returns (SetReviewFileViewedResponse) {
     option idempotency_level = IDEMPOTENT;
   }
-  rpc ListReviewViewedFiles(ListReviewViewedFilesRequest) returns (ListReviewViewedFilesResponse) {}
+  rpc ListReviewViewedFiles(ListReviewViewedFilesRequest) returns (ListReviewViewedFilesResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
 }

@@ -11,18 +11,17 @@ import (
 	reviewstore "weave/internal/store/review"
 )
 
-// ErrReviewNeedsOwnWork says the agent asked for is one with no work of its own to be read,
-// which a reviewer and a child both are.
+// ErrReviewNeedsOwnWork says the agent asked for has no work of its own to be read, which is
+// true of a reviewer and of any child.
 var ErrReviewNeedsOwnWork = errors.New("this agent has no work of its own to have read")
 
-// liveReviewerLister reads which reviewers are still owed an answer, which is the one definition
-// of a review being under way and is shared with the tally the panel draws.
+// liveReviewerLister reads which reviewers are still owed an answer.
 type liveReviewerLister interface {
 	ListLiveReviewers(ctx context.Context) ([]reviewstore.LiveReviewer, error)
 }
 
-// reviewerNameSuffix is what a reviewer is called after the agent it reads, so the panel's
-// sidebar says whose work a row is for without anything having to be looked up.
+// reviewerNameSuffix is what a reviewer is called after the agent it reads, so the sidebar says
+// whose work a row is for.
 const reviewerNameSuffix = "-reviewer"
 
 type RequestReviewParams struct {
@@ -32,8 +31,8 @@ type RequestReviewParams struct {
 	IdempotencyKey string
 }
 
-// RequestReview spawns the reviewer for an agent's own work and hands back the rest of the loop
-// that agent is in, which is the half of the review briefing it was not launched with.
+// RequestReview spawns the reviewer for an agent's own work and hands back the half of the
+// review briefing that agent was not launched with.
 func (s *LaunchService) RequestReview(ctx context.Context, params RequestReviewParams) (*agentstore.Agent, string, error) {
 	author, err := s.agents.GetByID(ctx, params.AgentID)
 	if errors.Is(err, store.ErrNotFound) {
@@ -87,8 +86,8 @@ func (s *LaunchService) RequestReview(ctx context.Context, params RequestReviewP
 	return reviewer, implementerDoc, nil
 }
 
-// liveReviewerFor is the reviewer an agent still has to answer to, which keeps one reviewer on a
-// change for all of its rounds and skips one that has approved.
+// liveReviewerFor is the reviewer an agent still has to answer to, skipping one that has
+// approved.
 func liveReviewerFor(
 	ctx context.Context,
 	agents agentGetter,

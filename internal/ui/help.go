@@ -7,6 +7,7 @@ import (
 	"github.com/charmbracelet/bubbles/help"
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/x/ansi"
 )
 
 // maxHelpColumns is the widest the expanded legend goes.
@@ -41,7 +42,7 @@ func (m model) renderHelp(k keyMap) string {
 	view := helpView(width)
 
 	if !m.helpExpanded {
-		return trimLines(view.ShortHelpView(byLabel(k.short))) + "\n"
+		return fitLegend(view.ShortHelpView(byLabel(k.short)), width) + "\n"
 	}
 
 	// bubbles truncates a column wider than it was given to a single ellipsis rather than wrapping
@@ -50,10 +51,10 @@ func (m model) renderHelp(k keyMap) string {
 	// told how wide it is and which bubbles reads as no limit.
 	columns := helpColumns(byLabel(k.full), width)
 	if width > 0 && helpWidth(columns) > width {
-		return trimLines(view.ShortHelpView(m.refusedExpansion(byLabel(k.short)))) + "\n"
+		return fitLegend(view.ShortHelpView(m.refusedExpansion(byLabel(k.short))), width) + "\n"
 	}
 
-	return trimLines(view.FullHelpView(columns)) + "\n"
+	return fitLegend(view.FullHelpView(columns), width) + "\n"
 }
 
 // refusedExpansion re-labels the legend's own key for the short form drawn in place of an
@@ -107,10 +108,16 @@ func splitColumns(bindings []key.Binding, columns int) [][]key.Binding {
 	return split
 }
 
-func trimLines(rendered string) string {
+// fitLegend cuts each row of the legend to the column it is drawn in, since bubbles keeps adding
+// items once the ellipsis it would put in their place no longer fits.
+func fitLegend(rendered string, width int) string {
 	lines := strings.Split(rendered, "\n")
 	for i, line := range lines {
-		lines[i] = strings.TrimRight(line, " ")
+		line = strings.TrimRight(line, " ")
+		if width > 0 {
+			line = ansi.Truncate(line, width, "…")
+		}
+		lines[i] = line
 	}
 
 	return strings.Join(lines, "\n")
@@ -164,7 +171,7 @@ func filterHelp() keyMap {
 }
 
 // infoPaneHelp is the keys that fill the pane beside the panel, drawn off the same question the
-// dispatch asks before answering them, so a screen cannot take them and leave them unnamed.
+// dispatch asks before answering them.
 func (m model) infoPaneHelp() []key.Binding {
 	if !m.screen.opensInfoPane() {
 		return nil
@@ -299,7 +306,7 @@ func (m model) archiveHelp() keyMap {
 }
 
 // columnScrollBinding is the pair that moves the block beside the list, drawn as one row since
-// they are the same key going either way, and named by what the screen has put in that block.
+// they are the same key going either way.
 func (m model) columnScrollBinding(what string) key.Binding {
 	return key.NewBinding(
 		key.WithKeys(slices.Concat(m.keys.Column.ScrollDown, m.keys.Column.ScrollUp)...),

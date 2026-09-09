@@ -227,7 +227,7 @@ func (ns NullReviewVerdict) Value() (driver.Value, error) {
 	return string(ns.ReviewVerdict), nil
 }
 
-// One background Claude agent, everything needed to restore it.
+// One background agent, holding everything needed to start it again.
 type Agent struct {
 	ID     string
 	Name   string
@@ -235,7 +235,7 @@ type Agent struct {
 	Flags  string
 	Prompt string
 	PaneID string
-	// What the agent is doing, which the reconcile loop writes from what it read off the pane. Uncertain is a pane weave captured but could not read. The three failure and setup values are the ones no frame read ever decides.
+	// What the agent is doing. Weave captures the agent's terminal every couple of seconds and writes here what it read there. Uncertain means the terminal was captured but could not be understood. The setup and failure values never come from reading a terminal, so something else sets those.
 	State            AgentState
 	StateChangedAt   time.Time
 	Harness          string
@@ -258,13 +258,13 @@ type Agent struct {
 	ParentAgentID    *string
 	TurnEndedAt      *time.Time
 	ProvisionEnabled *bool
-	// What the agent's own CLI last reported it was doing, which annotates the state the pane decided rather than deciding one of its own. Cleared with the state it annotates whenever that changes, and by a turn ending, so empty means there is nothing to say.
+	// What the agent's own CLI last said it was doing. It only decorates the state read off the terminal and never sets that state. It is cleared whenever the state changes and when a turn ends, so an empty value means there is nothing to say.
 	ReportedReason string
-	// What the agent was launched to do, which decides the half of the review briefing it is sent. A reviewer reads the work of the agent it is a child of and never writes any of its own.
+	// What the agent was launched to do. It decides which review briefing the agent is given. A reviewer reads the work of the agent it is a child of and never writes any code of its own.
 	Role AgentRole
 }
 
-// Key/value facts an agent recorded about its own work.
+// Facts an agent recorded about its own work, such as the pull request it opened.
 type AgentMetadatum struct {
 	AgentID   string
 	Key       string
@@ -273,7 +273,7 @@ type AgentMetadatum struct {
 	UpdatedAt time.Time
 }
 
-// One run of a script weave fired for an agent, indexing the output it left on disk.
+// One run of a script weave fired for an agent. The output stays on disk and this row says where to find it.
 type AgentRun struct {
 	ID         string
 	AgentID    string
@@ -287,7 +287,7 @@ type AgentRun struct {
 	ViewedAt   *time.Time
 }
 
-// Flattened transcript for an agent, synced from Claude's on-disk JSONL and indexed for search. Strict 1:1 with an agent.
+// One agent's whole conversation as plain text, copied from the log its CLI writes on disk. Every agent has exactly one row.
 type AgentTranscript struct {
 	AgentID      string
 	Content      string
@@ -295,7 +295,7 @@ type AgentTranscript struct {
 	SyncedAt     time.Time
 }
 
-// One turn of an agent's transcript, word-indexed for search.
+// One turn of an agent's conversation, indexed so it can be searched by word.
 type AgentTranscriptChunk struct {
 	AgentID       string
 	Seq           int32
@@ -318,13 +318,13 @@ type Mail struct {
 	ExpiresAt   time.Time
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
-	// What the mail is, which is what lets the panel tell a doorbell weave raised itself from something an agent wrote. Ordinary mail is plain. It is also what a doorbell is counted by, since an agent needs only one unread doorbell of a kind however many comments are waiting behind it.
+	// Who wrote the mail and why. Plain is mail an agent sent. The other values are notices weave raised itself, which the panel draws differently. Weave also counts unread notices by this value. One unread notice of a kind is enough however much is waiting behind it.
 	Kind MailKind
-	// The other agent a notice weave raised is about, null on ordinary mail. It is what holds a recipient to one unread notice per subject rather than one per kind, so an agent capped with a second partner is told about that one too. It carries no foreign key, since the notice has to keep saying which exchange was cut off after the agent it names is gone.
+	// The other agent a weave notice is about, null on ordinary mail. Counting unread notices by this column gives the recipient one notice per subject rather than one per kind, so an agent that hits the exchange cap with a second partner is told about that partner too. There is no foreign key here on purpose. The notice has to keep naming the agent whose exchange was cut off after that agent is gone.
 	AboutAgentID *string
 }
 
-// A letter a person addresses one row by. Held by an agent or a workflow and by nothing else, so a letter names one place.
+// A letter a person types to jump to one row. Each letter belongs to a single agent or a single workflow, so it always names one place.
 type Mark struct {
 	Mark       string
 	AgentID    *string
@@ -332,104 +332,104 @@ type Mark struct {
 	CreatedAt  time.Time
 }
 
-// One author's batch of comments against one round, private while it is being written and released as a whole.
+// One reviewer's batch of comments on one round. Nobody else sees it while it is being written, and it is released all at once.
 type Review struct {
 	ID string
-	// The agent being reviewed, carried here as well as on the round so that one open review per author can be enforced without a join.
+	// The agent being reviewed. The round already says this, and it is repeated here so that one open review per reviewer can be a plain unique index with no join.
 	AgentID string
 	RoundID string
-	// The type of the author giving the review.
+	// Whether a person or an agent is giving the review.
 	AuthorKind ReviewAuthorKind
-	// The agent giving the review, null when the person reviewing is. Null does not itself mean the person, author_kind says that. Deleting that agent nulls this rather than taking the review with it, since a reviewer child is deleted as a matter of course and the review it gave is what the agent it reviewed was working from.
+	// The agent giving the review, null when a person is giving it. Do not read null as meaning a person, because author_kind is what says that. Deleting the reviewing agent clears this column rather than deleting the review. Reviewer agents are deleted as a matter of course, and the agent they reviewed is still working from what they said.
 	AuthorAgentID *string
-	// What the author concluded, null while the review is still open. It is what tells the agent whether it is done, and what gates opening a pull request.
+	// What the reviewer concluded, null while the review is still open. It is how the agent learns whether the work is done, and only an approval lets it open a pull request.
 	Verdict NullReviewVerdict
-	// When the review was let go of, null while it is still being written. Nothing in it reaches the agent before this is stamped.
+	// When the review was released, null while it is still being written. None of it reaches the agent until this is set.
 	ReleasedAt *time.Time
-	// The absolute path the released review was written to, under weave's own state directory rather than in the agent's worktree, empty while the review is still open.
+	// The absolute path of the file the released review was written to, empty while the review is still open. The file lives in weave's own state directory rather than in the agent's checkout.
 	Path string
-	// The mail that told the agent the review was waiting. It is set null rather than cascaded when that mail is deleted, which is what makes a review the agent threw the notice away for read as undelivered.
+	// The mail that told the agent a review was waiting. Deleting that mail clears this column rather than deleting the review, so a review whose notice was thrown away reads as undelivered.
 	DoorbellMailID *string
 	CreatedAt      time.Time
 	UpdatedAt      time.Time
-	// What the author said about the work as a whole rather than about any one line, empty when they said nothing. It is written at the head of the released file, above the comments, since it is the thing the agent should read first.
+	// What the reviewer said about the change as a whole rather than about any one line, empty when they said nothing. It goes at the top of the released review file, above the line comments, because it is what the agent should read first.
 	Body string
 }
 
-// One message in a review thread, written either by the author giving the review or by the agent answering it.
+// One message in a review thread, written either by the reviewer or by the agent answering them.
 type ReviewMessage struct {
 	ID       string
 	ThreadID string
-	// The type of the author who wrote the message.
+	// Whether a person or an agent wrote the message.
 	AuthorKind ReviewAuthorKind
-	// The agent that wrote this message, if relevant, kept as a link to who it was.
+	// The agent that wrote this message, null when a person wrote it or when that agent has since been deleted.
 	AuthorAgentID *string
 	// What was written, as markdown.
 	Body      string
 	CreatedAt time.Time
 	UpdatedAt time.Time
-	// The review this message went out with, null for an answer, which belongs to no batch and reaches the reviewer as soon as it is written.
+	// The review this message was released with, null for an answer from the agent. An answer belongs to no batch and reaches the reviewer as soon as it is written.
 	ReviewID *string
-	// Replacement lines the author is proposing for the range the thread is pinned to, empty for an ordinary comment. The agent applies them rather than reasoning about them.
+	// Replacement lines the reviewer is proposing for the range the thread is pinned to, empty on an ordinary comment. The agent applies them as written rather than treating them as a description of what to do.
 	Suggestion []string
 }
 
-// One immutable snapshot of what an agent has written, which is what a review is given against.
+// One frozen snapshot of what an agent has written. A review is always given against a round rather than against the working files.
 type ReviewRound struct {
 	ID      string
 	AgentID string
-	// Which round this is for its agent, counting from one, which is what the panel names it by.
+	// Which round this is for its agent, counting from one. The panel names the round by this number.
 	Ordinal int32
-	// The commit the agent's branch left its base at, resolved when the round was taken so that a base moving afterwards cannot change what this round says.
+	// The commit the agent's branch started from. It is resolved once, when the round is taken, so later movement on the base branch cannot change what the round says.
 	BaseSha string
-	// A commit written out of band over the agent's whole worktree, tracked and untracked alike, held by a ref under refs/weave/rounds so it survives collection. The agent's own index, worktree and branch are untouched by it.
+	// A commit covering the agent's whole checkout, tracked and untracked files alike. A ref under refs/weave/rounds keeps it alive so git will not collect it. Writing it leaves the agent's own branch, index and files alone.
 	SnapshotSha string
 	CreatedAt   time.Time
 }
 
-// One conversation pinned to a place in the round its review was given against.
+// One conversation pinned to a file and a line range in the round its review was given against.
 type ReviewThread struct {
 	ID string
-	// The agent being reviewed, carried here as well as on the review since neither ever moves and almost every read is by agent.
+	// The agent being reviewed. The review already says this and neither value ever changes. It is repeated here because almost every read of threads is by agent.
 	AgentID string
-	// The file the thread is pinned to, named the way the diff names it: relative to the repository root, where the change left it if it moved it.
+	// The file the thread is pinned to, named the way the diff names it. That is a path relative to the repository root, and where the change left the file if it moved it.
 	FilePath string
-	// First line of the range on the old side of the diff, or zero for a thread pinned to lines that exist only on the new side.
+	// First line of the range on the old side of the diff. Zero means the thread is pinned to lines that exist only on the new side.
 	OldStart int32
-	// Last line of the range on the old side, equal to old_start for a thread on a single line.
+	// Last line of the range on the old side. It equals old_start for a thread on a single line.
 	OldEnd int32
-	// First line of the range on the new side of the diff, or zero for a thread pinned to lines the change deleted.
+	// First line of the range on the new side of the diff. Zero means the thread is pinned to lines the change deleted.
 	NewStart int32
-	// Last line of the range on the new side, equal to new_start for a thread on a single line.
+	// Last line of the range on the new side. It equals new_start for a thread on a single line.
 	NewEnd int32
-	// The diff lines the thread was written against. They say what the thread was about once the agent has rewritten that code, and are what a later round is searched for to decide whether the thread has gone outdated.
+	// The diff lines the thread was written against. They still say what the thread was about after the agent has rewritten that code. A later round is searched for these lines to decide whether the thread has gone outdated.
 	QuotedLines []string
-	// When the person reviewing last read this thread, stamped from last_agent_activity_at rather than from the clock, so a reply written mid-read is not marked read without being shown.
+	// When the person reviewing last read this thread. It is copied from last_agent_activity_at rather than taken from the clock, so a reply written while they were reading is not marked read without having been shown.
 	HumanReadAt *time.Time
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
-	// When the agent last wrote or rewrote a message here, null until it has written one. Kept as a column rather than read off the messages, so that an agent rewriting its own reply is activity the person reviewing has not seen, which a comparison against created_at cannot see.
+	// When the agent last wrote or rewrote a message here, null until it has written one. It is a column rather than something read off the messages. An agent that rewrites its own reply is activity the person reviewing has not seen, and comparing against the message's created_at would miss that.
 	LastAgentActivityAt *time.Time
-	// When the person reviewing settled this thread, null while it is still owed an answer. Settling stays theirs even for a thread an agent opened, since deciding the work is done is not the reviewer's call.
+	// When the person reviewing settled this thread, null while it is still owed an answer. Settling is theirs to do even on a thread an agent opened.
 	ResolvedAt *time.Time
 	ReviewID   string
-	// The round the thread's line numbers were measured in, held here rather than read through the review because a batch stays open across rounds and would report the wrong one.
+	// The round this thread's line numbers were measured against. It is not read through the review, because a review stays open across several rounds and would name the wrong one.
 	RoundID string
-	// Whether weave wrote this thread from an edit of the round's checkout rather than a person or an agent typing it, which is what makes it weave's to rewrite or delete on a later harvest.
+	// Whether weave wrote this thread itself, from an edit made in the round's checkout, rather than a person or an agent typing it. Such a thread is weave's to rewrite or delete on a later harvest.
 	Harvested bool
-	// The commit the old side of the thread's line numbers was read against, which is the round's own base for a thread written on the whole change and an earlier round's snapshot for one written while the diff was narrowed.
+	// The commit the old side of this thread's line numbers was read against. For a thread written on the whole change that is the round's own base. For a thread written while the diff was narrowed to one round it is the earlier round's snapshot.
 	BaseSha string
 }
 
-// One file of a round the person reviewing has read. A later round is a different row, which is what makes an agent rewriting the file undo the mark.
+// One file of one round that the person reviewing has read. Rows are per round, so an agent that rewrites the file makes a new round and the file reads as unread again.
 type ReviewViewedFile struct {
-	// The file that was read, named the way the diff names it: relative to the repository root, where the change left it if it moved it.
+	// The file that was read, named the way the diff names it. That is a path relative to the repository root, and where the change left the file if it moved it.
 	FilePath string
 	ViewedAt time.Time
 	RoundID  string
 }
 
-// A cron-driven agent launch: when to fire and what to ask for.
+// A recurring agent launch, holding when to fire and the prompt to launch with.
 type Schedule struct {
 	ID                string
 	Name              string
@@ -447,7 +447,7 @@ type Schedule struct {
 	LastResultAt      *time.Time
 }
 
-// A named bucket of related agents. Pure organization; runs nothing.
+// A named group of related agents. It is grouping only. Nothing here runs.
 type Workflow struct {
 	ID                  string
 	Name                string
@@ -459,7 +459,7 @@ type Workflow struct {
 	UpdatedAt           time.Time
 }
 
-// Default config (harness, cwd, flags) seeded into new agents of a workflow.
+// The harness, working directory and flags a workflow gives each new agent it creates.
 type WorkflowConfig struct {
 	ID        string
 	Harness   string
@@ -469,7 +469,7 @@ type WorkflowConfig struct {
 	UpdatedAt time.Time
 }
 
-// The scripts a workflow hangs on one moment in its agents' lives, run in position order.
+// Scripts a workflow runs at one point in an agent's life, in position order.
 type WorkflowHook struct {
 	ID         string
 	WorkflowID string
@@ -479,7 +479,7 @@ type WorkflowHook struct {
 	CreatedAt  time.Time
 }
 
-// The worktree config a workflow provisions its agents with, and whether it provisions them at all.
+// Whether a workflow gives each of its agents a git worktree of its own, and how that worktree is set up.
 type WorkflowProvisionerConfig struct {
 	ID                   string
 	WorktreeEnabled      bool

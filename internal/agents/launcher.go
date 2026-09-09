@@ -86,8 +86,8 @@ func reviewBriefing(params launchParams) string {
 	return ""
 }
 
-// relationBriefing is what an agent is told about whoever it answers to, which for a child is
-// the rules it runs under as well.
+// relationBriefing is what an agent is told about whoever it answers to, and for a child the
+// rules it runs under as well.
 func relationBriefing(params launchParams) string {
 	if params.ParentAgentID != "" {
 		return childBriefing(params.ParentName, params.ParentAgentID)
@@ -142,8 +142,8 @@ type launchParams struct {
 	ParentName       string
 	Role             agentstore.Role
 
-	// OwnsCheckout is whether weave provisioned this agent a tree of its own, which is what
-	// separates an agent writing a change from one reading somebody else's.
+	// OwnsCheckout is whether weave provisioned this agent a tree of its own, which separates an
+	// agent writing a change from one reading somebody else's.
 	OwnsCheckout bool
 	Resume       bool
 }

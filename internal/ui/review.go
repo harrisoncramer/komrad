@@ -55,8 +55,8 @@ type reviewState struct {
 	editing string
 	loading bool
 	notice  string
-	// since says how much of the diff is new to the reader, which is a standing fact about what
-	// is on screen rather than an answer to a keypress, so it outlives the notice slot.
+	// since says how much of the diff is new to the reader, which is a standing fact about what is
+	// on screen rather than an answer to a keypress.
 	since string
 
 	// base is the commit the diff on screen is measured from, empty for the point the branch
@@ -77,8 +77,8 @@ type reviewState struct {
 	// awaiting says the last released review has produced no work yet, so a second one would be
 	// refused.
 	awaiting bool
-	// writing says the review is in the mode that can reach the agent, which is the whole change
-	// and every key that writes, rather than the mode that walks the rounds and writes nothing.
+	// writing says the review is in the mode that can reach the agent, rather than the mode that
+	// walks the rounds and writes nothing.
 	writing bool
 	// chapters are the rounds of the review the two step keys walk, oldest first.
 	chapters []reviewChapter
@@ -88,36 +88,35 @@ type reviewState struct {
 	// roundDir is where the round has been checked out for the editor to read, named after the
 	// agent rather than the round.
 	roundDir string
-	// roundSha is the snapshot that checkout is standing on, which is what says whether it is
-	// still the round being read.
+	// roundSha is the snapshot that checkout is standing on, which says whether it is still the
+	// round being read.
 	roundSha string
 	// materialising is set while that checkout is being made, so a second press does not start a
 	// second one against the same directory.
 	materialising bool
 	// replacing is the checkout of an earlier round weave has already said it would take, so the
-	// press after that warning goes through rather than being asked about again.
+	// press after that warning goes through.
 	replacing string
-	// harvesting is set while what the reviewer wrote is being read back and written as threads,
-	// so a second editor closing does not start a harvest beside the one in flight.
+	// harvesting is set while what the reviewer wrote is being read back and written as threads, so
+	// a second editor closing does not start a harvest beside the one in flight.
 	harvesting bool
-	// oversized is the harvest weave refused for being large enough to be a formatter rather than
-	// a person, and held for the next press to write.
+	// oversized is the harvest weave refused for its size, held for the next press to write.
 	oversized bool
 
-	// restore is where the cursor was standing when the patch was read again, so a reload lands
-	// the reader back where they left rather than at the top of the diff.
+	// restore is where the cursor was standing when the patch was read again, so a reload lands the
+	// reader back where they left.
 	restore *review.Place
 
 	// activity is the conversation as it stood when the sidebar was last drawn, which a tick
-	// compares against so a refresh that would find nothing new never rebuilds anything.
+	// compares against so a refresh finding nothing new rebuilds nothing.
 	activity reviewActivity
 
-	// polling is set while a conversation read is in flight, so a slow one is not asked for
-	// again by every tick that passes underneath it.
+	// polling is set while a conversation read is in flight, so a slow one is not asked for again
+	// by every tick that passes underneath it.
 	polling bool
 
 	// moved is set once the agent has written something since the round on screen was taken, which
-	// is a prompt to open the next one rather than anything the panel does on its own.
+	// prompts the reader to open the next one.
 	moved bool
 
 	// diffPolling is set while a background probe of the worktree is in flight, and diffPolled is
@@ -126,8 +125,8 @@ type reviewState struct {
 	diffPolled  time.Time
 }
 
-// doesTakeEveryKey reports whether the review is mid-input, which means a key bound elsewhere in
-// the panel belongs here instead.
+// doesTakeEveryKey reports whether the review is mid-input, in which case a key bound elsewhere
+// in the panel belongs here instead.
 func (r reviewState) doesTakeEveryKey() bool {
 	return r.composing || r.releasing || r.filter.typing
 }

@@ -24,12 +24,12 @@ type formState struct {
 	kind formKind
 	form *huh.Form
 
-	// update is the form's own message handler, which is what saves the panel from asking
-	// which form is up before it can hand it a message.
+	// update is the form's own message handler, so the panel need not ask which form is up before
+	// handing it a message.
 	update func(model, tea.Msg) (tea.Model, tea.Cmd)
 
-	// submit is what the answered form does, closed over the values huh writes through and
-	// whatever the form is about, so neither has to be rediscovered from the model.
+	// submit is what the answered form does, closed over the values huh writes through and whatever
+	// the form is about.
 	submit func(model) (tea.Model, tea.Cmd)
 
 	// rebuild draws the form again around those same values.
@@ -60,9 +60,8 @@ func (f formState) isActive() bool {
 	return f.form != nil
 }
 
-// isOpening reports whether a form is on screen or is about to be, which the kind answers and the
-// built form cannot: a form is built at the width its own column gives it, so the column has to
-// be settled before there is a form to ask.
+// isOpening reports whether a form is on screen or is about to be, which the kind answers and
+// the built form cannot, a form being built only once its column is settled.
 func (f formState) isOpening() bool {
 	return f.kind != formNone
 }
@@ -91,12 +90,12 @@ func (m model) openRedrawnForm(kind formKind, build func(model) *huh.Form, submi
 	})
 }
 
-// formColumnFloor is the narrowest a form is worth drawing beside a list at, which is a field's
+// formColumnFloor is the narrowest a form is worth drawing beside a list at, being a field's
 // title and the prose under it without either folding.
 const formColumnFloor = 50
 
 // formColumn is the form drawn beside the list it was opened over, so the row it is about is
-// still on screen while it is answered, at the narrower floor for a confirmation.
+// still on screen while it is answered.
 func formColumn(kind formKind) (columnSpec, bool) {
 	switch kind {
 	case formAgent, formChild, formAdopt, formRename, formWorkflow, formSchedule:
@@ -114,7 +113,7 @@ func formColumn(kind formKind) (columnSpec, bool) {
 }
 
 // formResizedMsg tells the form on screen how much room it has, which is the column it is drawn
-// in and not the terminal huh would otherwise size itself from.
+// in rather than the terminal huh would otherwise size itself from.
 type formResizedMsg struct{}
 
 func formResized() tea.Cmd {
@@ -271,8 +270,8 @@ func (v workflowFormValues) toConfig() workflowstore.Config {
 	return cfg
 }
 
-// hookNamed is the hook a workflow hangs on one moment, which is what that moment's select is
-// sitting on, and the empty string for a moment nothing hangs on.
+// hookNamed is the hook a workflow hangs on one moment, and the empty string for a moment
+// nothing hangs on.
 func hookNamed(hooks []workflowstore.Hook, event string) string {
 	for _, hook := range hooks {
 		if hook.Event == event {
@@ -439,8 +438,7 @@ func (m *model) rebuildForm() tea.Cmd {
 }
 
 // detachForm gives the keyboard back while the write the form was held for runs on, and
-// remembers which write that was: a person who walked away from a create is not asking to be
-// taken to it when it lands.
+// remembers which write that was.
 func (m model) detachForm() (tea.Model, tea.Cmd) {
 	if m.held.epoch != 0 {
 		if m.detached == nil {
@@ -458,7 +456,7 @@ func (m model) answerForm() (tea.Model, tea.Cmd) {
 }
 
 // updateForm hands a message to the form on screen, and answers it either when huh says it is
-// finished or on the submit key, which the text fields would otherwise take as a character.
+// finished or on the submit key.
 func (m model) updateForm(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if key, ok := msg.(tea.KeyMsg); ok && isBound(key.String(), m.keys.Form.Submit) {
 		return m.answerForm()
@@ -650,7 +648,7 @@ func provisionerOptions() []huh.Option[string] {
 	}
 }
 
-// workflowConfigParams is what the workflow form is drawn from: the values it edits and the
+// workflowConfigParams is what the workflow form is drawn from: the values it edits, and the
 // hooks it offers.
 type workflowConfigParams struct {
 	NameTitle string
@@ -719,15 +717,15 @@ func worktreeDetailFields(values *workflowFormValues) []huh.Field {
 // chosen one.
 
 // hookOptionsShown bounds one moment's list, so four moments and everything above them still
-// leave the form scrollable rather than one long list pushing the rest off the screen.
+// leave the form scrollable.
 const hookOptionsShown = 4
 
 // hookFieldChrome is the title and description above a moment's options, which huh takes out of
-// the height it is given before it sizes the list itself.
+// the height it is given before sizing the list.
 const hookFieldChrome = 2
 
 // hookFields are the scripts hung on a moment rather than on the directory, one select each
-// since a moment holds one hook, and asked for whatever the provisioner is.
+// since a moment holds one hook.
 func hookFields(values *workflowFormValues, available []hookChoice) []huh.Field {
 	moments := []struct {
 		key         string

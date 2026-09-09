@@ -19,8 +19,8 @@ const (
 	threadRow
 )
 
-// row is one drawable line of the diff, flattened from the patch once so that moving the
-// cursor walks a slice rather than the patch.
+// row is one drawable line of the diff, flattened from the patch once so that moving the cursor
+// walks a slice rather than the patch.
 type row struct {
 	kind   rowKind
 	file   int
@@ -37,8 +37,8 @@ type fileSource struct {
 	new []styledLine
 }
 
-// Anchor is the place a thread is pinned to, holding the file, both sides' line numbers, and
-// the lines themselves, so it still says what it was about once the code is rewritten.
+// Anchor is the place a thread is pinned to, holding the file, both sides' line numbers and the
+// lines themselves, so it still says what it was about once the code is rewritten.
 type Anchor struct {
 	FilePath    string
 	OldStart    int
@@ -54,20 +54,20 @@ type View struct {
 	rows    []row
 	sources []fileSource
 
-	// patchRows is how many rows the patch produced, and keeping the adrift threads past that
-	// point stops one arriving or drifting from moving every other row.
+	// patchRows is how many rows the patch produced, the adrift threads being kept past that point
+	// so one arriving does not move every other row.
 	patchRows int
 
-	// pinned is the thread drawn at each row, one apiece, and a second thread on the same line
-	// goes to the foot instead so the cursor can still reach it.
+	// pinned is the thread drawn at each row, one apiece, a second thread on the same line going
+	// to the foot instead.
 	pinned map[int]*agentv1.ReviewThread
 
 	// placed is how each thread reached its row, by thread id.
 	placed map[string]placement
 	// viewed is the files the person reviewing has read, by path, which are drawn collapsed.
 	viewed map[string]bool
-	// threads is what was last pinned, kept so that collapsing a file can pin them again over
-	// the rows that rebuilding left.
+	// threads is what was last pinned, kept so collapsing a file can pin them again over the rows
+	// that rebuilding left.
 	threads []*agentv1.ReviewThread
 	search  *search
 }
@@ -183,8 +183,7 @@ func (v *View) SetFileViewed(path string, viewed bool) {
 	v.SetViewed(v.viewed)
 }
 
-// IsViewed reports whether a file is drawn collapsed, which is what the toggle reads to know
-// which way it is going.
+// IsViewed reports whether a file is drawn collapsed.
 func (v *View) IsViewed(path string) bool { return v.viewed[path] }
 
 // CountViewedFiles returns how many of the patch's files have been read, and how many there are.
@@ -214,14 +213,12 @@ func (v *View) Len() int { return len(v.rows) }
 // Stat is the size of the patch behind the view.
 func (v *View) Stat() diff.Stat { return v.patch.Stat() }
 
-// GetFile reports whether the patch on screen draws a file at all, which is what tells a comment
-// on it apart from a comment on something outside the diff.
+// GetFile reports whether the patch on screen draws a file at all.
 func (v *View) GetFile(filePath string) (*diff.File, bool) {
 	return v.findFile(filePath)
 }
 
-// CommentPosition is where one comment stands among the comments drawn, counting down the diff,
-// so a reader cycling them knows how many are left.
+// CommentPosition is where one comment stands among the comments drawn, counting down the diff.
 func (v *View) CommentPosition(thread *agentv1.ReviewThread) (int, int) {
 	rows := make([]int, 0, len(v.pinned))
 	for y := range v.pinned {
@@ -239,7 +236,7 @@ func (v *View) CommentPosition(thread *agentv1.ReviewThread) (int, int) {
 	return 0, len(rows)
 }
 
-// GetThreadAt returns the thread a row carries, which is what the gutter marks.
+// GetThreadAt returns the thread a row carries.
 func (v *View) GetThreadAt(y int) (*agentv1.ReviewThread, bool) {
 	thread, ok := v.pinned[y]
 
@@ -247,7 +244,7 @@ func (v *View) GetThreadAt(y int) (*agentv1.ReviewThread, bool) {
 }
 
 // HasMoved reports whether a thread is drawn anywhere other than the line it was written
-// against, which is what decides whether the sidebar repeats the line it quoted.
+// against.
 func (v *View) HasMoved(thread *agentv1.ReviewThread) bool {
 	where, ok := v.placed[thread.GetId()]
 
@@ -326,8 +323,8 @@ func (v *View) GetPlace(y int) (Place, bool) {
 	}, true
 }
 
-// Locate is the row standing where place was in a patch that has since been read again,
-// falling back to the nearest row of the same file when the exact line has moved.
+// Locate is the row standing where place was in a patch that has since been read again, falling
+// back to the nearest row of the same file when the exact line has moved.
 func (v *View) Locate(place Place) (int, bool) {
 	exact, nearest, distance := -1, -1, 0
 
@@ -377,7 +374,7 @@ func (v *View) Locate(place Place) (int, bool) {
 }
 
 // collapsedHeader is the header row of a file drawn collapsed, and false for a file drawn
-// whole, which has lines of its own to stand on.
+// whole.
 func (v *View) collapsedHeader(path string) (int, bool) {
 	if !v.viewed[path] {
 		return 0, false
@@ -457,8 +454,8 @@ func (v *View) JumpFile(y, direction int) int {
 	return y
 }
 
-// GetFileTopRow returns the row the file at y starts on, so a jump into it can put its header at the top
-// of the pane rather than leaving the scroll margin to decide.
+// GetFileTopRow returns the row the file at y starts on, so a jump into it can put its header at
+// the top of the pane.
 func (v *View) GetFileTopRow(y int) int {
 	current, ok := v.getRow(y)
 	if !ok {
@@ -509,8 +506,7 @@ func (v *View) getKey(y int) (anchorKey, bool) {
 	}, true
 }
 
-// GetFileAt is the file the cursor is inside, header rows included, which is what a mark of
-// having read one is put on.
+// GetFileAt is the file the cursor is inside, header rows included.
 func (v *View) GetFileAt(y int) (diff.File, bool) {
 	current, ok := v.getRow(y)
 	if !ok || current.file < 0 {
@@ -560,8 +556,8 @@ func markerFor(kind diff.LineKind) string {
 	return " "
 }
 
-// getStyledLine is the lexed source behind a diff line, which comes off whichever side of the
-// file the line belongs to.
+// getStyledLine is the lexed source behind a diff line, taken from whichever side of the file
+// the line belongs to.
 func (v *View) getStyledLine(current row, line diff.Line) styledLine {
 	source := v.sources[current.file]
 	if line.Kind == diff.Deletion {

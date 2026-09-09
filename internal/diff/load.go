@@ -12,13 +12,12 @@ import (
 	"github.com/bluekeyes/go-gitdiff/gitdiff"
 )
 
-// ErrNoChanges is a worktree that has not moved off its base, which is refused rather than
-// answered with an empty patch.
+// ErrNoChanges is a worktree that has not moved off its base, refused rather than answered with
+// an empty patch.
 var ErrNoChanges = errors.New("the worktree holds no change against the base branch")
 
-// ErrAllExcluded is a worktree that has moved, every part of it inside a path the workflow keeps
-// out of the diff, which draws nothing for the same reason but is not the same thing and must not
-// be reported as one.
+// ErrAllExcluded is a worktree that has moved, with every part of it inside a path the workflow
+// keeps out of the diff.
 var ErrAllExcluded = errors.New("every change in the worktree is in a path this workflow excludes from the diff")
 
 // maxFileBytes is the point past which a file's source is not read, giving up the syntax
@@ -38,8 +37,7 @@ type LoadParams struct {
 }
 
 // Load reads everything one round holds, measured against the point its branch left the base,
-// with both sides coming out of commits so the patch is the same bytes however long afterwards it
-// is read.
+// with both sides coming out of commits so the patch is the same bytes however long afterwards.
 func Load(ctx context.Context, params LoadParams) (*Patch, error) {
 	root, err := git.GetRoot(ctx, params.Dir)
 	if err != nil {
@@ -167,8 +165,8 @@ func parseFiles(ctx context.Context, params parseFilesParams) ([]File, error) {
 	return files, nil
 }
 
-// countDrawnBytes is how much text a file's hunks would put on screen, which is what decides
-// whether it is drawn at all.
+// countDrawnBytes is how much text a file's hunks would put on screen, which decides whether it
+// is drawn at all.
 func countDrawnBytes(fragments []*gitdiff.TextFragment) int {
 	total := 0
 	for _, fragment := range fragments {
@@ -180,8 +178,8 @@ func countDrawnBytes(fragments []*gitdiff.TextFragment) int {
 	return total
 }
 
-// modeChange is the line to show for a file whose permissions moved, which git puts in the patch
-// with no hunk to hang it off, and is nothing for a file arriving or leaving.
+// modeChange is the line to show for a file whose permissions moved, and nothing for a file
+// arriving or leaving.
 func modeChange(file *gitdiff.File) string {
 	if file.OldMode == 0 || file.NewMode == 0 || file.OldMode == file.NewMode {
 		return ""
@@ -255,8 +253,7 @@ func readRevision(ctx context.Context, root, revision, path string) string {
 	return string(out)
 }
 
-// filePath reads /dev/null as no file at all, the name arriving with the diff prefix already
-// off.
+// filePath reads /dev/null as no file at all.
 func filePath(path string) string {
 	if path == "/dev/null" {
 		return ""

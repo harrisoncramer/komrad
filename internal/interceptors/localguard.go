@@ -10,8 +10,8 @@ import (
 	"weave/internal/logging"
 )
 
-// NewLocalGuard refuses a request that was aimed somewhere else before a handler sees it,
-// which is what stops a DNS rebinding attack reaching the ConnectRPC endpoint.
+// NewLocalGuard refuses a request that was aimed somewhere else before a handler sees it, which
+// is what stops a DNS rebinding attack reaching the ConnectRPC endpoint.
 func NewLocalGuard(logger *slog.Logger, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		reason := refusal(r)

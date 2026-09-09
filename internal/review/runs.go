@@ -5,8 +5,7 @@ import (
 )
 
 // RunsFrom turns what a reviewer wrote in the round's checkout into the runs a harvest sends,
-// anchoring each against the diff because the numbers and quoted lines a thread is pinned by
-// come from the patch rather than from the file.
+// anchoring each against the diff rather than against the file.
 func RunsFrom(view *View, edits []git.Edit, fallback func(path string) ([]string, bool)) []Run {
 	var runs []Run
 

@@ -98,8 +98,8 @@ func (m model) screenView() string {
 	return m.joinColumns(split, held.screen.spec().view(held), block)
 }
 
-// heldFormView is the form with the submitting notice under it, which is a row the form gives
-// up rather than one taken off the top of the panel.
+// heldFormView is the form with the submitting notice under it, a row the form gives up rather
+// than one taken off the top of the panel.
 func (m model) heldFormView() string {
 	view := m.form.form.View()
 	if !m.held.active {

@@ -21,8 +21,7 @@ import (
 
 var ErrNameTaken = errors.New("name already taken")
 
-// ErrNotFound is what a single-row lookup returns instead of a nil row and a nil error, so a
-// caller is told the row is absent rather than left to infer it.
+// ErrNotFound is what a single-row lookup returns when the row is absent.
 var ErrNotFound = errors.New("not found")
 
 var ErrNoReadOnlyURL = errors.New(
@@ -34,13 +33,12 @@ type Pool struct {
 	pool *pgxpool.Pool
 }
 
-// IDCursor pages a listing that resumes from one row's id, which is every listing ordered by
-// id alone.
+// IDCursor pages a listing that resumes from one row's id.
 type IDCursor struct {
 	ID string `json:"i"`
 }
 
-// Validate refuses a cursor holding anything but an id, which is what the listing pages by.
+// Validate refuses a cursor holding anything but an id.
 func (c IDCursor) Validate() error {
 	if !IsID(c.ID) {
 		return fmt.Errorf("cursor id %q is not an id", c.ID)
@@ -111,8 +109,7 @@ func OpenReadOnly(ctx context.Context, url string) (*pgxpool.Pool, error) {
 	return pool, nil
 }
 
-// parseConfig reads url and names this process on every connection made from it, which is how
-// a migration pass tells its own connections from another weave's on the same database.
+// parseConfig reads url and names this process on every connection made from it.
 func parseConfig(url string) (*pgxpool.Config, error) {
 	cfg, err := pgxpool.ParseConfig(url)
 	if err != nil {
@@ -145,8 +142,7 @@ func (p *Pool) GetDB() DBTX {
 	return p.pool
 }
 
-// GetRawPool returns the underlying pgx pool for River, whose driver takes the concrete
-// pool rather than an interface, and nothing else should reach for it.
+// GetRawPool returns the underlying pgx pool, which only River's driver should reach for.
 func (p *Pool) GetRawPool() *pgxpool.Pool {
 	return p.pool
 }
@@ -157,8 +153,7 @@ func (p *Pool) Close() error {
 	return nil
 }
 
-// InTx runs fn inside a transaction, handing it the handle to build the domain stores over
-// so an operation spanning two domains stays atomic.
+// InTx runs fn inside a transaction, handing it the handle to build the domain stores over.
 func (p *Pool) InTx(ctx context.Context, fn func(DBTX) error) error {
 	tx, err := p.pool.Begin(ctx)
 	if err != nil {
@@ -177,15 +172,13 @@ func (p *Pool) InTx(ctx context.Context, fn func(DBTX) error) error {
 	return nil
 }
 
-// IsID reports whether a string could be one of the ids these stores hand out, which Postgres
-// fails a query on anything but.
+// IsID reports whether a string could be one of the ids these stores hand out.
 func IsID(id string) bool {
 	_, err := uuid.Parse(id)
 	return err == nil
 }
 
-// NewID mints a row id the same way the columns' own uuidv7() default does, where v7
-// matters because its leading bits carry the creation time that ordering by id relies on.
+// NewID mints a row id the same way the columns' own uuidv7() default does.
 func NewID() (string, error) {
 	id, err := uuid.NewV7()
 	if err != nil {

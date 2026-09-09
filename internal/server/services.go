@@ -209,7 +209,7 @@ func buildServices(p Params, st *stores) (*services, error) {
 			MailboxReader: st.mail,
 			NudgeClaimer:  st.agents,
 			PaneReader:    paneLiveness,
-			PaneTyper:     p.Tmux,
+			PaneWriter:    p.Tmux,
 			Harnesses:     p.Harnesses,
 		}),
 		reconciler: agents.NewReconciler(agents.NewReconcilerParams{

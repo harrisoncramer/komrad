@@ -22,7 +22,35 @@ const (
 	DeliveryLater
 )
 
-const nudgeEnterDelay = 300 * time.Millisecond
+// deliveryPlan is what a pane's frame will take, which is nothing at all unless the input box
+// is empty or holds a draft weave can put back.
+type deliveryPlan int
+
+const (
+	planRefuse deliveryPlan = iota
+
+	// planPaste is an empty box, which takes the nudge on its own.
+	planPaste
+
+	// planCutAndRestore is a box holding a draft nobody is moving, which is cut, nudged, then
+	// handed back what it held.
+	planCutAndRestore
+)
+
+// draftStaleAfter is how long an input box has to hold the same text before what it holds is
+// taken for abandoned.
+const draftStaleAfter = 30 * time.Second
+
+// cutSettleReads is how many times the frame is read for a cut tmux has already written to the
+// pane.
+const cutSettleReads = 15
+
+// cutSettleInterval is how long is left between those reads.
+const cutSettleInterval = 20 * time.Millisecond
+
+// clientPresenceWindow is how recently somebody has to have pressed a key at an agent's window
+// to count as being there.
+const clientPresenceWindow = time.Minute
 
 // nudgeRetryAfter is how long a nudge stands before unread mail is taken as evidence it went
 // nowhere.
@@ -35,8 +63,10 @@ type paneReader interface {
 type paneReadWriter interface {
 	IsPaneInMode(pane string) bool
 	CapturePane(pane string) string
-	SendText(target, text string) error
-	SendKeys(target string, keys ...string) error
+	IsClientAtPane(pane string, within time.Duration) bool
+	PasteAndSubmit(target, text string) error
+	CutLine(target string) error
+	YankLine(target string) error
 }
 
 type nudgeClaimer interface {
@@ -56,24 +86,35 @@ type DeliveryService struct {
 	paneReader     paneReader
 	paneReadWriter paneReadWriter
 	harnesses      harnessGetter
+	now            func() time.Time
+	drafts         drafts
 }
 
 type NewDeliveryServiceParams struct {
 	MailboxReader mailboxReader
 	NudgeClaimer  nudgeClaimer
 	PaneReader    paneReader
-	PaneTyper     paneReadWriter
+	PaneWriter    paneReadWriter
 	Harnesses     harnessGetter
+
+	// Now is the clock a draft's stillness is measured on, defaulting to time.Now.
+	Now func() time.Time
 }
 
 // NewDeliveryService builds the service from its dependencies.
 func NewDeliveryService(params NewDeliveryServiceParams) *DeliveryService {
+	now := params.Now
+	if now == nil {
+		now = time.Now
+	}
+
 	return &DeliveryService{
 		mailboxReader:  params.MailboxReader,
 		nudgeClaimer:   params.NudgeClaimer,
 		paneReader:     params.PaneReader,
-		paneReadWriter: params.PaneTyper,
+		paneReadWriter: params.PaneWriter,
 		harnesses:      params.Harnesses,
+		now:            now,
 	}
 }
 
@@ -94,16 +135,20 @@ func (s *DeliveryService) DeliverAll(ctx context.Context) error {
 }
 
 // Deliver makes one attempt at getting an agent to read what is waiting for it, and reports
-// what it managed, which is what the tests assert on.
+// what it managed.
 func (s *DeliveryService) Deliver(ctx context.Context, agentID string) (Delivery, error) {
 	agent, err := s.nudgeClaimer.GetByID(ctx, agentID)
 	if errors.Is(err, store.ErrNotFound) {
+		s.drafts.forget(agentID)
+
 		return DeliveryDone, nil
 	}
 	if err != nil {
 		return DeliveryDone, err
 	}
 	if agent.ArchivedAt != nil {
+		s.drafts.forget(agentID)
+
 		return DeliveryDone, nil
 	}
 
@@ -125,9 +170,11 @@ func (s *DeliveryService) Deliver(ctx context.Context, agentID string) (Delivery
 	case !s.paneReader.IsAgentRunning(*agent):
 		return DeliveryLater, nil
 	case s.paneReadWriter.IsPaneInMode(agent.Pane):
-
 		return DeliveryLater, nil
-	case !s.canPaneTakeKeys(*agent):
+	}
+
+	plan := s.planFor(ctx, *agent)
+	if plan == planRefuse {
 		return DeliveryLater, nil
 	}
 
@@ -139,39 +186,102 @@ func (s *DeliveryService) Deliver(ctx context.Context, agentID string) (Delivery
 		return DeliveryLater, nil
 	}
 
-	if err := s.nudge(ctx, *agent, pending); err != nil {
+	delivered, err := s.nudge(ctx, *agent, pending, plan)
+	if err != nil {
 		return DeliveryLater, err
+	}
+	if !delivered {
+		return DeliveryLater, nil
 	}
 
 	return DeliverySoon, nil
 }
 
-// canPaneTakeKeys reports whether the pane is showing the harness's own empty idle prompt,
-// which is the only frame seen to take both the line and the newline that submits it.
-func (s *DeliveryService) canPaneTakeKeys(agent agentstore.Agent) bool {
-	hn, err := s.harnesses.GetByID(agent.Harness)
+// planFor reads the pane for what weave may do to the input box it is showing.
+func (s *DeliveryService) planFor(ctx context.Context, agent agentstore.Agent) deliveryPlan {
+	input, err := s.readInput(agent)
 	if err != nil {
 		// No frame of an unknown harness can be recognised, so its mail would otherwise never go
 		// anywhere.
-		return true
+		return planPaste
 	}
 
-	// A CLI still starting up takes the line into the terminal buffer and loses the newline, and a
-	// prompt already holding typed text is not idle either.
-	return hn.ReadActivity(s.paneReadWriter.CapturePane(agent.Pane)) == harness.ActivityIdle
+	switch input.Activity {
+	case harness.ActivityIdle:
+		s.drafts.forget(agent.ID)
+
+		return planPaste
+	case harness.ActivityComposing:
+		return s.planForDraft(ctx, agent, input)
+	case harness.ActivityWorking, harness.ActivityWaiting, harness.ActivityUnknown, harness.ActivityUnrecognized:
+		// A CLI still starting up takes the line into the terminal buffer and loses the newline.
+		return planRefuse
+	}
+
+	return planRefuse
 }
 
-func (s *DeliveryService) nudge(ctx context.Context, agent agentstore.Agent, pending int64) error {
-	line := fmt.Sprintf("weave: %d piece(s) of unread mail, call read_mail", pending)
+// planForDraft is what weave may do to a box already holding text, which is nothing at all
+// until the text has stopped moving and nobody is at the pane.
+func (s *DeliveryService) planForDraft(ctx context.Context, agent agentstore.Agent, input harness.Input) deliveryPlan {
+	since := s.drafts.since(agent.ID, input.Text(), s.now())
 
-	if err := s.paneReadWriter.SendText(agent.Pane, line); err != nil {
-		return fmt.Errorf("failed to type at agent %q: %w", agent.ID, err)
+	switch {
+	case s.now().Sub(since) < draftStaleAfter:
+		return planRefuse
+	case s.paneReadWriter.IsClientAtPane(agent.Pane, clientPresenceWindow):
+		return planRefuse
+	case !input.IsOneLine():
+		s.warnAboutDraft(ctx, agent)
+
+		return planRefuse
 	}
 
-	time.Sleep(nudgeEnterDelay)
+	return planCutAndRestore
+}
 
-	if err := s.paneReadWriter.SendKeys(agent.Pane, "Enter"); err != nil {
-		return fmt.Errorf("failed to submit the nudge to agent %q: %w", agent.ID, err)
+// warnAboutDraft says once that a box weave will not touch is holding an agent's mail up.
+func (s *DeliveryService) warnAboutDraft(ctx context.Context, agent agentstore.Agent) {
+	if !s.drafts.claimWarning(agent.ID) {
+		return
+	}
+
+	// The kill ring holds one entry, so a box of more than one line has no cut weave could put back.
+	logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "an agent's mail is waiting on a draft of more than one line that nobody is moving",
+		slog.String(logging.TargetAgentID, agent.ID))
+}
+
+// readInput is what the harness of an agent's pane reads out of the frame it is showing.
+func (s *DeliveryService) readInput(agent agentstore.Agent) (harness.Input, error) {
+	hn, err := s.harnesses.GetByID(agent.Harness)
+	if err != nil {
+		return harness.Input{}, err
+	}
+
+	return hn.ReadInput(s.paneReadWriter.CapturePane(agent.Pane)), nil
+}
+
+// nudge tells an agent about its mail, reporting whether the line was submitted.
+func (s *DeliveryService) nudge(ctx context.Context, agent agentstore.Agent, pending int64, plan deliveryPlan) (bool, error) {
+	line := fmt.Sprintf("weave: %d piece(s) of unread mail, call read_mail", pending)
+
+	if plan == planCutAndRestore {
+		cut, err := s.cutDraft(ctx, agent)
+		if err != nil || !cut {
+			return false, err
+		}
+	}
+
+	// Typed characters run as commands in a CLI sitting in a vi keymap, and a newline of its own
+	// invocation can be separated from the line it submits.
+	if err := s.paneReadWriter.PasteAndSubmit(agent.Pane, line); err != nil {
+		return false, fmt.Errorf("failed to paste at agent %q: %w", agent.ID, err)
+	}
+
+	if plan == planCutAndRestore {
+		if err := s.paneReadWriter.YankLine(agent.Pane); err != nil {
+			return false, fmt.Errorf("failed to hand the draft back to agent %q: %w", agent.ID, err)
+		}
 	}
 
 	attrs := []slog.Attr{
@@ -185,11 +295,58 @@ func (s *DeliveryService) nudge(ctx context.Context, agent agentstore.Agent, pen
 		logging.From(ctx).LogAttrs(ctx, slog.LevelInfo, "told an agent to read its mail", attrs...)
 	}
 
-	return nil
+	return true, nil
+}
+
+// cutDraft takes the draft out of an agent's input box, reporting whether the box came back
+// empty.
+func (s *DeliveryService) cutDraft(ctx context.Context, agent agentstore.Agent) (bool, error) {
+	if err := s.paneReadWriter.CutLine(agent.Pane); err != nil {
+		return false, fmt.Errorf("failed to cut the draft of agent %q: %w", agent.ID, err)
+	}
+
+	empty, err := s.waitForAnEmptyBox(agent)
+	if err != nil {
+		return false, err
+	}
+	if empty {
+		return true, nil
+	}
+
+	if err := s.paneReadWriter.YankLine(agent.Pane); err != nil {
+		return false, fmt.Errorf("failed to hand the draft back to agent %q: %w", agent.ID, err)
+	}
+
+	logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "cutting an agent's input box left text behind, so its mail was not delivered",
+		slog.String(logging.TargetAgentID, agent.ID))
+
+	return false, nil
+}
+
+// waitForAnEmptyBox reads the frame until it shows the cut.
+func (s *DeliveryService) waitForAnEmptyBox(agent agentstore.Agent) (bool, error) {
+	for read := range cutSettleReads {
+		if read > 0 {
+			time.Sleep(cutSettleInterval)
+		}
+
+		// Codex draws a placeholder in an empty composer, so the box is read through the harness
+		// rather than off the capture.
+		input, err := s.readInput(agent)
+		if err != nil {
+			return false, fmt.Errorf("failed to read the input box of agent %q: %w", agent.ID, err)
+		}
+
+		if input.Activity == harness.ActivityIdle {
+			return true, nil
+		}
+	}
+
+	return false, nil
 }
 
 // didLastNudgeGoNowhere reports whether the agent was told about mail before and has ended no
-// turn since, which is the only reading under which the keys are known to have been swallowed.
+// turn since.
 func didLastNudgeGoNowhere(agent agentstore.Agent) bool {
 	if agent.NudgedAt == nil {
 		return false

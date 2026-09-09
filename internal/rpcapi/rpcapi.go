@@ -37,7 +37,7 @@ type Method struct {
 	Annotation *annotationv1.ToolAnnotation
 }
 
-// GetPath returns where the method is served, which is the Connect route for a unary call.
+// GetPath returns where the method is served, which for a unary call is its Connect route.
 func (m Method) GetPath() string {
 	return "/" + string(m.Service.FullName()) + "/" + string(m.Method.Name())
 }
@@ -71,8 +71,8 @@ func GetMethods() iter.Seq[Method] {
 	}
 }
 
-// GetToolAnnotation returns the method's tool annotation, nil when it has none and so is
-// not exposed.
+// GetToolAnnotation returns the method's tool annotation, nil when it has none and so is not
+// exposed.
 func GetToolAnnotation(method protoreflect.MethodDescriptor) *annotationv1.ToolAnnotation {
 	opts, ok := method.Options().(*descriptorpb.MethodOptions)
 	if !ok || !proto.HasExtension(opts, annotationv1.E_Tool) {
@@ -102,13 +102,8 @@ func GetRules(field protoreflect.FieldDescriptor) *validate.FieldRules {
 	return rules
 }
 
-// IsReadOnly reports whether calling the method changes nothing, taking the annotation's
-// override when it carries one and the method's idempotency level otherwise.
-func IsReadOnly(method protoreflect.MethodDescriptor, annotation *annotationv1.ToolAnnotation) bool {
-	if annotation != nil && annotation.ReadOnly != nil {
-		return annotation.GetReadOnly()
-	}
-
+// IsReadOnly reports whether calling the method changes nothing, which its idempotency level says.
+func IsReadOnly(method protoreflect.MethodDescriptor) bool {
 	return getIdempotencyLevel(method) == descriptorpb.MethodOptions_NO_SIDE_EFFECTS
 }
 
@@ -124,8 +119,8 @@ func IsIdempotent(method protoreflect.MethodDescriptor, annotation *annotationv1
 	return level == descriptorpb.MethodOptions_IDEMPOTENT || level == descriptorpb.MethodOptions_NO_SIDE_EFFECTS
 }
 
-// EnumNames is what an enum's values are spelled with where a caller has to name one, leaving out
-// the zero value the field already holds when nobody passes anything.
+// EnumNames is what an enum's values are spelled with where a caller has to name one, leaving
+// out the zero value the field already holds.
 func EnumNames(values protoreflect.EnumDescriptor) []string {
 	names := make([]string, 0, values.Values().Len())
 	for i := range values.Values().Len() {
@@ -140,8 +135,8 @@ func EnumNames(values protoreflect.EnumDescriptor) []string {
 	return names
 }
 
-// IsRequired reports whether the service would refuse the field left empty, which is what
-// the validation rules say rather than what proto3 field presence says.
+// IsRequired reports whether the service would refuse the field left empty, which the validation
+// rules decide rather than proto3 field presence.
 func IsRequired(field protoreflect.FieldDescriptor) bool {
 	rules := GetRules(field)
 	if rules == nil || field.HasOptionalKeyword() {

@@ -55,8 +55,7 @@ func Run(deps Deps) error {
 type postbox struct {
 	program *tea.Program
 	mu      sync.Mutex
-	// pending is the size waiting to be handed over, which is only ever the newest one: a size
-	// overtaken while the panel was busy would arrive as a resize back to a layout it has left.
+	// pending is the size waiting to be handed over, which is only ever the newest one.
 	pending *tea.WindowSizeMsg
 	wake    chan struct{}
 }
@@ -122,7 +121,7 @@ type uiTmux interface {
 }
 
 // harnessFrameReader tells a harness that has drawn itself in a pane from one that has only
-// started, which the panel asks rather than decides.
+// started.
 type harnessFrameReader interface {
 	DoesFrameShowHarness(pane, harnessID string) bool
 }
@@ -190,11 +189,10 @@ type model struct {
 	marks         markState
 	form          formState
 	held          heldWrite
-	// detached holds the writes a person escaped out of, which land without taking the screen
-	// to what they made since whoever walked away is somewhere else by then.
+	// detached holds the writes a person escaped out of, which land without taking the screen to
+	// what they made.
 	detached map[int]struct{}
-	// blurred is whether another pane holds the keyboard, which stops the row cursor blinking
-	// since a panel nobody is typing at has nothing to blink for.
+	// blurred is whether another pane holds the keyboard, which stops the row cursor blinking.
 	blurred bool
 
 	// keysElsewhere is whether the keyboard sits on a pane beside the panel, which the terminal
@@ -212,15 +210,14 @@ type model struct {
 	pane          string
 	focusKey      string
 	// paneMeasure is the column a screen is measuring its own chrome in while it works out whether
-	// its split leaves room for it, which paneWidth reads.
+	// its split leaves room for it.
 	paneMeasure int
-	// shell is what tmux starts a pane's process with, read once since the terminal has to name
-	// it rather than leave the pane to rerun whatever was in it last.
+	// shell is what tmux starts a pane's process with, read once.
 	shell string
 	clip  clipboardWriter
 
-	// isDark is the terminal's background, settled before the program started and never asked of
-	// lipgloss again while the panel runs.
+	// isDark is the terminal's background, settled before the program started and never asked
+	// again.
 	isDark bool
 	post   *postbox
 
@@ -229,27 +226,26 @@ type model struct {
 	staging int
 
 	// awaitingSize says the panel has moved its own pane and has not been told the size that
-	// leaves it, which is the one moment its own width is not the width it is drawn into.
+	// leaves it.
 	awaitingSize bool
 
 	// drawn is the last frame the panel put on screen, held through a pointer so a view can keep
 	// what it drew.
 	drawn *lastFrame
 
-	// warm is the panes whose harness the panel has seen start, which is what it waits for before
-	// giving one the stage.
+	// warm is the panes whose harness the panel has seen start, which it waits for before giving
+	// one the stage.
 	warm warmupState
 }
 
-// lastFrame is the frame on screen, which is what the panel draws again rather than drawing a new
-// one at a width it is about to be told is wrong.
+// lastFrame is the frame on screen, which the panel draws again rather than drawing a new one at
+// a width it is about to be told is wrong.
 type lastFrame struct {
 	text string
 }
 
 // at is the only writer of paneMeasure, handing back a model that measures its own chrome in a
-// column named outright rather than asking which column it has, which is the question a screen
-// deciding its own split is still in the middle of.
+// column named outright rather than asking which column it has.
 func (m model) at(width int) model {
 	m.paneMeasure = width
 

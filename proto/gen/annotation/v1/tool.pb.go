@@ -26,7 +26,6 @@ type ToolAnnotation struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	ToolName      string                 `protobuf:"bytes,1,opt,name=tool_name,json=toolName,proto3" json:"tool_name,omitempty"`
 	Description   string                 `protobuf:"bytes,2,opt,name=description,proto3" json:"description,omitempty"`
-	ReadOnly      *bool                  `protobuf:"varint,3,opt,name=read_only,json=readOnly,proto3,oneof" json:"read_only,omitempty"`
 	Destructive   *bool                  `protobuf:"varint,4,opt,name=destructive,proto3,oneof" json:"destructive,omitempty"`
 	Idempotent    *bool                  `protobuf:"varint,5,opt,name=idempotent,proto3,oneof" json:"idempotent,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -77,13 +76,6 @@ func (x *ToolAnnotation) GetDescription() string {
 	return ""
 }
 
-func (x *ToolAnnotation) GetReadOnly() bool {
-	if x != nil && x.ReadOnly != nil {
-		return *x.ReadOnly
-	}
-	return false
-}
-
 func (x *ToolAnnotation) GetDestructive() bool {
 	if x != nil && x.Destructive != nil {
 		return *x.Destructive
@@ -119,17 +111,14 @@ var File_annotation_v1_tool_proto protoreflect.FileDescriptor
 
 const file_annotation_v1_tool_proto_rawDesc = "" +
 	"\n" +
-	"\x18annotation/v1/tool.proto\x12\rannotation.v1\x1a google/protobuf/descriptor.proto\"\xea\x01\n" +
+	"\x18annotation/v1/tool.proto\x12\rannotation.v1\x1a google/protobuf/descriptor.proto\"\xba\x01\n" +
 	"\x0eToolAnnotation\x12\x1b\n" +
 	"\ttool_name\x18\x01 \x01(\tR\btoolName\x12 \n" +
-	"\vdescription\x18\x02 \x01(\tR\vdescription\x12 \n" +
-	"\tread_only\x18\x03 \x01(\bH\x00R\breadOnly\x88\x01\x01\x12%\n" +
-	"\vdestructive\x18\x04 \x01(\bH\x01R\vdestructive\x88\x01\x01\x12#\n" +
+	"\vdescription\x18\x02 \x01(\tR\vdescription\x12%\n" +
+	"\vdestructive\x18\x04 \x01(\bH\x00R\vdestructive\x88\x01\x01\x12#\n" +
 	"\n" +
-	"idempotent\x18\x05 \x01(\bH\x02R\n" +
-	"idempotent\x88\x01\x01B\f\n" +
-	"\n" +
-	"_read_onlyB\x0e\n" +
+	"idempotent\x18\x05 \x01(\bH\x01R\n" +
+	"idempotent\x88\x01\x01B\x0e\n" +
 	"\f_destructiveB\r\n" +
 	"\v_idempotent:S\n" +
 	"\x04tool\x12\x1e.google.protobuf.MethodOptions\x18ӆ\x03 \x01(\v2\x1d.annotation.v1.ToolAnnotationR\x04toolB,Z*weave/proto/gen/annotation/v1;annotationv1b\x06proto3"

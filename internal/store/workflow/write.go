@@ -9,9 +9,9 @@ import (
 	"weave/internal/store"
 )
 
-// Create inserts a workflow together with the config rows holding what new agents inherit
-// and the provisioning of their directories, all of which must land together so a caller
-// outside a transaction gets one through InTx.
+// Create inserts a workflow together with the config rows holding what new agents inherit and
+// the provisioning of their directories, taking a transaction through InTx when the caller is
+// outside one.
 func (s *Store) Create(ctx context.Context, cfg Config) (*Workflow, error) {
 	config, err := s.queries.InsertWorkflowConfig(ctx, models.InsertWorkflowConfigParams{
 		Harness: cfg.Harness,
@@ -54,8 +54,7 @@ func (s *Store) Create(ctx context.Context, cfg Config) (*Workflow, error) {
 	return &workflow, nil
 }
 
-// Rename changes a workflow's display name, keyed by id, and cannot collide since nothing
-// keys on the name.
+// Rename changes a workflow's display name, keyed by id.
 func (s *Store) Rename(ctx context.Context, id, name string) error {
 	if !store.IsID(id) {
 		return nil
@@ -68,8 +67,8 @@ func (s *Store) Rename(ctx context.Context, id, name string) error {
 	return nil
 }
 
-// Update rewrites a workflow's name, context, hooks, and linked config, keyed by id, and
-// the writes must land together so a caller outside a transaction gets one through InTx.
+// Update rewrites a workflow's name, context, hooks and linked config, keyed by id, taking a
+// transaction through InTx when the caller is outside one.
 func (s *Store) Update(ctx context.Context, id string, cfg Config) error {
 	if !store.IsID(id) {
 		return nil
@@ -108,8 +107,8 @@ func (s *Store) Update(ctx context.Context, id string, cfg Config) error {
 	return s.setHooks(ctx, id, cfg.Hooks)
 }
 
-// Delete permanently removes a workflow row along with the config rows it alone owns, which
-// an agent or a schedule still pointing at it blocks at the database level.
+// Delete permanently removes a workflow row along with the config rows it alone owns, and is
+// refused by the database while an agent or a schedule still points at it.
 func (s *Store) Delete(ctx context.Context, id string) error {
 	if !store.IsID(id) {
 		return nil

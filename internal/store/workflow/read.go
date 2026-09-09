@@ -12,8 +12,7 @@ import (
 	"weave/lib/xslice"
 )
 
-// ListWorktreeDirs returns the directories the workflows cut their worktrees in, which is
-// where a check for a worktree nothing accounts for has to look.
+// ListWorktreeDirs returns the directories the workflows cut their worktrees in.
 func (s *Store) ListWorktreeDirs(ctx context.Context) ([]string, error) {
 	dirs, err := s.queries.ListWorkflowWorktreeDirs(ctx)
 	if err != nil {

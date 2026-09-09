@@ -133,8 +133,8 @@ func agentsModeActions() []action {
 	}
 }
 
-// agentsRowActions are the keys that act on the row the cursor is on, which is a workflow or an
-// agent and never both, so the two halves gate on that rather than on being ordered apart.
+// agentsRowActions are the keys that act on the row the cursor is on, a workflow or an agent and
+// never both.
 func agentsRowActions() []action {
 	return []action{
 		{
@@ -267,8 +267,7 @@ func onHoveredWorkflow(fn func(model, workflowstore.Workflow) (tea.Model, tea.Cm
 	}
 }
 
-// onHoveredAgent hands an arm the agent under the cursor, and does nothing on a row holding none,
-// which is a header the gate could not tell apart from an agent.
+// onHoveredAgent hands an arm the agent under the cursor, and does nothing on a row holding none.
 func onHoveredAgent(fn func(model, agentItem) (tea.Model, tea.Cmd)) func(model, string) (tea.Model, tea.Cmd) {
 	return func(m model, _ string) (tea.Model, tea.Cmd) {
 		return m.withSelectedAgent(func(item agentItem) (tea.Model, tea.Cmd) { return fn(m, item) })
@@ -341,8 +340,8 @@ func agentsLegend() []legendRow {
 	return append(agentsSelectionLegend(), agentsBrowsingLegend()...)
 }
 
-// agentsSelectionLegend is what the screen names while a selection stands, when the keys that act
-// on one agent have stood down.
+// agentsSelectionLegend is what the screen names while a selection stands, when the keys that
+// act on one agent have stood down.
 func agentsSelectionLegend() []legendRow {
 	selecting := func(m model) bool { return m.tree.selected.isActive() }
 

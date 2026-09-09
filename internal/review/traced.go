@@ -3,7 +3,7 @@ package review
 import agentv1 "weave/proto/gen/agent/v1"
 
 // Traced is where a thread's lines went between the snapshot it was written against and the one
-// on screen, as git reports it rather than as a string match guesses it.
+// on screen, as git reports it.
 type Traced struct {
 	// FilePath is the thread's file in the snapshot on screen, which a rename moves.
 	FilePath string
@@ -15,13 +15,13 @@ type Traced struct {
 }
 
 // SetTraced holds where each thread's lines went, keyed by thread id, and is read by the next
-// PinThreads rather than at once.
+// pinning pass rather than at once.
 func (v *View) SetTraced(traced map[string]Traced) {
 	v.traced = traced
 }
 
-// pathOf is the file a thread is about in the snapshot on screen, which a rename moves and which
-// tracing is the only thing that knows about.
+// pathOf is the file a thread is about in the snapshot on screen, which only tracing knows
+// about once a rename has moved it.
 func (v *View) pathOf(thread *agentv1.ReviewThread) string {
 	found, ok := v.traced[thread.GetId()]
 	if !ok || found.FilePath == "" {
@@ -31,7 +31,7 @@ func (v *View) pathOf(thread *agentv1.ReviewThread) string {
 	return found.FilePath
 }
 
-// tracedRowFor is the row git says a thread's lines became, and whether it said anything at all.
+// tracedRowFor is the row git says a thread's lines became, and whether it said anything.
 func (v *View) tracedRowFor(index lineIndex, thread *agentv1.ReviewThread) (int, bool) {
 	found, ok := v.traced[thread.GetId()]
 	if !ok || found.FileOnly || found.NewStart <= 0 {
