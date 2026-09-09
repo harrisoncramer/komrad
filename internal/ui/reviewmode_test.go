@@ -2,8 +2,12 @@ package ui
 
 import (
 	"errors"
+	"os"
+	"path/filepath"
 	"testing"
 
+	"weave/internal/diff"
+	"weave/internal/review"
 	agentv1 "weave/proto/gen/agent/v1"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -92,9 +96,9 @@ func TestReviewIsHistoryReadsTheDiffOnScreen(t *testing.T) {
 	assert.NotEmpty(t, said, "and the refusal has something to name")
 }
 
-// TestReloadWithNoChaptersLetsTheReaderOut covers the two round-listing calls failing: the walk
-// goes with them, so an index left pointing into the old list strands the reader on a narrowed
-// diff with no key back.
+// TestReloadWithNoChaptersLetsTheReaderOut covers the round listing failing under a reader
+// standing on a round: the walk goes with it, and the diff that arrived was measured for the
+// round they were on, so drawing it under the whole change's label reads as current work.
 func TestReloadWithNoChaptersLetsTheReaderOut(t *testing.T) {
 	dir := reviewRepo(t)
 	agents := &fakeReviewAgents{}
@@ -103,11 +107,41 @@ func TestReloadWithNoChaptersLetsTheReaderOut(t *testing.T) {
 	require.NotEmpty(t, m.review.base)
 	require.GreaterOrEqual(t, m.review.chapter, 0)
 
-	m.applyReviewChapters(nil)
+	narrowed := m.review.view
+
+	_, reload := m.reloadReview()
+	require.NotNil(t, reload)
+
+	loaded, ok := reload().(reviewLoadedMsg)
+	require.True(t, ok)
+	loaded.chapters = nil
+
+	again := m.applyReviewLoaded(loaded)
 
 	assert.Negative(t, m.review.chapter, "the index does not outlive the list")
 	assert.Empty(t, m.review.base, "and the diff is back to the whole change")
 	assert.Empty(t, m.review.head)
+	assert.Same(t, narrowed, m.review.view, "the diff measured for the old round is not drawn")
+
+	require.NotNil(t, again, "the whole change is asked for rather than assumed")
+
+	answer, ok := again().(reviewLoadedMsg)
+	require.True(t, ok)
+	assert.Equal(t, m.review.round.GetSnapshotSha(), answer.patch.SnapshotSHA,
+		"and what comes back is the work as it stands")
+}
+
+// TestReviewIsHistoryReadsTheSnapshotDrawn covers the base and head being cleared under a diff
+// that is still an older round: what a comment would anchor to is the code on screen, so the
+// refusal follows the patch rather than what was asked for.
+func TestReviewIsHistoryReadsTheSnapshotDrawn(t *testing.T) {
+	m := model{}
+	m.review.round = &agentv1.ReviewRound{Id: "r3", SnapshotSha: "s3"}
+	m.review.view = review.NewView(&diff.Patch{BaseSHA: "s1", SnapshotSHA: "s2"}, false)
+
+	said, history := m.reviewIsHistory()
+	assert.True(t, history, "the diff on screen was drawn to an older snapshot")
+	assert.NotEmpty(t, said, "and the refusal has something to name")
 }
 
 // TestThePinHoldsWhenTheReviewsCannotBeRead covers the call the pin rests on failing: taking a
@@ -218,12 +252,7 @@ func TestTheVerdictIsRefusedOnAFinishedRound(t *testing.T) {
 	m, _ := reviewModel(t, agents, dir)
 	m = openReview(t, m)
 
-	m.review.chapters = []reviewChapter{
-		{ToSHA: "an-older-snapshot", Ordinal: 1},
-		{ToSHA: m.review.round.GetSnapshotSha(), Ordinal: 2},
-	}
-	m.review.chapter = 0
-	m.review.head = "an-older-snapshot"
+	m = standOnAFinishedRound(m)
 
 	next, _ := m.updateReview(tea.KeyMsg{Type: tea.KeyCtrlS})
 	m = next.(model)
@@ -274,6 +303,90 @@ func TestAFailedEditLeavesTheModeAlone(t *testing.T) {
 	assert.False(t, m.review.writing, "so it did not change the mode either")
 }
 
+// reviewRepoWithADeletion is a worktree whose round both changes a file and removes one, since a
+// removed file is the row the editor key has nothing to open.
+func reviewRepoWithADeletion(t *testing.T) string {
+	t.Helper()
+
+	dir := t.TempDir()
+
+	gitIn(t, dir, "init", "-b", "main")
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "greet.go"),
+		[]byte("package greet\n\nfunc Hello() string {\n\treturn \"hello\"\n}\n"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "gone.go"),
+		[]byte("package greet\n\nfunc Gone() {}\n"), 0o644))
+	gitIn(t, dir, "add", ".")
+	gitIn(t, dir, "commit", "-m", "first")
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "greet.go"),
+		[]byte("package greet\n\nfunc Hello() string {\n\treturn \"goodbye\"\n}\n"), 0o644))
+	require.NoError(t, os.Remove(filepath.Join(dir, "gone.go")))
+
+	return dir
+}
+
+// reviewRowInDeletedFile is a row of the file the round removed.
+func reviewRowInDeletedFile(t *testing.T, m model) int {
+	t.Helper()
+
+	for row := range m.review.view.Len() {
+		if _, _, ok := m.review.view.GetEditTarget(row); ok {
+			continue
+		}
+
+		if file, ok := m.review.view.GetFileAt(row); ok && file.OldPath == "gone.go" {
+			return row
+		}
+	}
+
+	t.Fatal("the diff draws no row of the removed file")
+
+	return -1
+}
+
+// reviewRowWithAnEditTarget is a row the editor key has something to open.
+func reviewRowWithAnEditTarget(t *testing.T, m model) int {
+	t.Helper()
+
+	for row := range m.review.view.Len() {
+		if _, _, ok := m.review.view.GetEditTarget(row); ok {
+			return row
+		}
+	}
+
+	t.Fatal("the diff draws no row the editor can open")
+
+	return -1
+}
+
+// TestAnEditRefusedOnADeletedFileLeavesTheModeAlone covers the editor pane outliving the mode it
+// was opened from: a press that refuses on a removed file used to read the pane the last press
+// left up and switch to writing on the strength of it.
+func TestAnEditRefusedOnADeletedFileLeavesTheModeAlone(t *testing.T) {
+	dir := reviewRepoWithADeletion(t)
+	agents := &fakeReviewAgents{}
+	m, _ := reviewModel(t, agents, dir)
+	m = openReview(t, m)
+
+	m.review.cursor = reviewRowWithAnEditTarget(t, m)
+
+	m = pressEdit(t, m)
+	require.True(t, m.review.writing, "the first press opened the editor and the mode with it")
+	require.Equal(t, infoEditFile, m.info.kind)
+
+	next, _ := m.leaveReviewWriting()
+	m = next.(model)
+	require.False(t, m.review.writing)
+	require.Equal(t, infoEditFile, m.info.kind, "leaving the mode leaves the editor up")
+
+	m.review.cursor = reviewRowInDeletedFile(t, m)
+
+	next, _ = m.updateReview(editorKey())
+	m = next.(model)
+
+	assert.False(t, m.review.writing, "a press that opened nothing does not open the mode")
+	assert.Contains(t, m.review.notice, "deleted")
+}
+
 // TestAnEditThatTakesOpensTheMode is the other side of it, since a write that reaches the editor
 // is a review being started.
 func TestAnEditThatTakesOpensTheMode(t *testing.T) {
@@ -317,6 +430,34 @@ func TestTheForwardRoundKeyIsOfferedOnlyWhereItAnswers(t *testing.T) {
 	}
 
 	t.Fatal("the forward round key has no legend row")
+}
+
+// reviewLegendReaches says whether the agent on screen is one a comment could reach, which is the
+// other half of what the write keys are offered on.
+func reviewLegendReaches(m model) bool {
+	_, dead := m.reviewIsReadOnly()
+
+	return !dead
+}
+
+// TestTheSendKeyIsOfferedOnlyWhereItAnswers covers the legend and the key disagreeing: the key
+// refuses on a finished round and while a review is out, and the row offered a verdict in both.
+func TestTheSendKeyIsOfferedOnlyWhereItAnswers(t *testing.T) {
+	dir := reviewRepo(t)
+	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
+	m = openReview(t, m)
+	m.review.awaiting = true
+
+	for _, row := range reviewLegend() {
+		if len(row.of) == 1 && row.of[0] == actionReviewSend {
+			require.True(t, reviewLegendReaches(m), "the agent is there to be written to")
+			assert.False(t, row.show(m), "a review already out is answered rather than added to")
+
+			return
+		}
+	}
+
+	t.Fatal("the send key has no legend row")
 }
 
 // TestTheBackKeySaysWhichThingItLeaves covers the key having two jobs since the mode split: in

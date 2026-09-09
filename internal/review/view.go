@@ -155,6 +155,11 @@ func (v *View) GetBaseSHA() string {
 	return v.patch.BaseSHA
 }
 
+// GetSnapshotSHA is the commit the new side of this patch was measured to.
+func (v *View) GetSnapshotSHA() string {
+	return v.patch.SnapshotSHA
+}
+
 // SetViewed says which files have been read, collapsing each of those to its header and pinning
 // the threads again over the rows that survive it.
 func (v *View) SetViewed(paths map[string]bool) {

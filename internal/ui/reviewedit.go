@@ -80,18 +80,20 @@ func editorContent(editor, dir, path string, line int) layout.Content {
 }
 
 // editReviewFile opens the round's own copy of the file under the cursor in a split under the
-// diff, on the line the cursor is standing on.
-func (m model) editReviewFile() (tea.Model, tea.Cmd) {
+// diff, on the line the cursor is standing on, and reports whether anything was opened.
+func (m model) editReviewFile() (tea.Model, tea.Cmd, bool) {
 	path, line, ok := m.review.view.GetEditTarget(m.review.cursor)
 	if !ok {
 		m.review.notice = "that file was deleted, so there is nothing to open"
 
-		return m, nil
+		return m, nil, false
 	}
 
 	target := fmt.Sprintf("%s:%d", path, line)
 	if m.info.kind == infoEditFile && m.info.subject == target {
-		return m.closeReviewEdit()
+		next, cmd := m.closeReviewEdit()
+
+		return next, cmd, false
 	}
 
 	// The checkout is asked for again whenever it stands on a snapshot other than the one being
@@ -100,22 +102,22 @@ func (m model) editReviewFile() (tea.Model, tea.Cmd) {
 		// A second press while the first checkout is still being made would run two of them at
 		// the same path, where one reaps the directory the other is writing into.
 		if m.review.materialising {
-			return m, nil
+			return m, nil, false
 		}
 
 		m.review.materialising = true
 
-		return m, m.materialiseRoundCmd(m.review.replacing != "")
+		return m, m.materialiseRoundCmd(m.review.replacing != ""), true
 	}
 
 	if !m.claimInfo(infoEditFile, target) {
-		return m, nil
+		return m, nil, false
 	}
 
 	m.frame.Show(layout.RegionInfo, editorContent(m.editor, m.review.roundDir, path, line))
 	m.tmux.SelectPane(m.frame.Pane(layout.RegionInfo))
 
-	return m, nil
+	return m, nil, true
 }
 
 // materialiseRoundCmd checks the round out beside the agent's worktree rather than in it, one
@@ -185,7 +187,9 @@ func (m model) applyRoundReady(msg roundReadyMsg) (tea.Model, tea.Cmd) {
 	m.review.roundDir = msg.dir
 	m.review.roundSha = msg.sha
 
-	return m.editReviewFile()
+	next, cmd, _ := m.editReviewFile()
+
+	return next, cmd
 }
 
 // reapRoundCmd takes the checkout away when the screen it was cut for closes, unless the
