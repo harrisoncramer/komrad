@@ -84,7 +84,6 @@ type reviewState struct {
 	chapters []reviewChapter
 	// chapter is which of those is on screen, negative for the whole change.
 	chapter int
-	err     error
 
 	// roundDir is where the round has been checked out for the editor to read, named after the
 	// agent rather than the round.

@@ -23,25 +23,20 @@ func reviewColumn() columnSpec {
 	}
 }
 
-// What the review says while there is no patch to draw, of which Loading and Empty are said by
-// the sidebar's head as well, while Broken is the column's own short form.
+// What the review says while there is no patch to draw, which the sidebar's head says as well.
 const (
 	reviewLoadingWord = "loading the diff…"
 	reviewEmptyWord   = "nothing changed in this worktree"
-	reviewBrokenWord  = "the diff could not be read"
 )
 
 // reviewDiffNotice is what stands in the diff's own column before a patch does, which the sidebar
 // says as well but in a fraction of the room and away from where the reader is looking.
 func (m model) reviewDiffNotice() string {
-	switch {
-	case m.review.err != nil:
-		return "_" + reviewBrokenWord + "_"
-	case m.review.loading:
+	if m.review.loading {
 		return "_" + reviewLoadingWord + "_"
-	default:
-		return "_" + reviewEmptyWord + "_"
 	}
+
+	return "_" + reviewEmptyWord + "_"
 }
 
 // reviewDiffView is the screenful of the patch beside the sidebar, starting at top, with the

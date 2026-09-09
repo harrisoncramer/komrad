@@ -446,6 +446,21 @@ func TestMailStage(t *testing.T) {
 	assert.NotContains(t, drawn, "›", "nothing to mark, since there is only one message")
 }
 
+// TestMailLoadedReportsAFailedRead covers a mailbox that could not be read: the reason goes to
+// the messages region rather than standing where the list draws.
+func TestMailLoadedReportsAFailedRead(t *testing.T) {
+	m := mailModel(config.DefaultKeybindings())
+	m.mail.loading = true
+
+	m.applyMailLoaded(mailLoadedMsg{agentID: m.mail.agentID, err: assert.AnError})
+
+	require.Len(t, m.messages.items, 1)
+	assert.Equal(t, messageError, m.messages.items[0].kind)
+	assert.Equal(t, "Could not read the mailbox", m.messages.items[0].summary)
+	assert.False(t, m.mail.loading)
+	assert.NotContains(t, ansi.Strip(m.mailNotice()), assert.AnError.Error())
+}
+
 // TestMailLoadedKeepsTheCursorOnItsMail covers a poll landing under the reader, where mail
 // arriving above the cursor would otherwise slide the message being read out from under it.
 func TestMailLoadedKeepsTheCursorOnItsMail(t *testing.T) {

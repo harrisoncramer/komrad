@@ -183,7 +183,7 @@ func (m model) applyRoundReady(msg roundReadyMsg) (tea.Model, tea.Cmd) {
 	}
 
 	if msg.err != nil {
-		m.review.notice = "that round could not be checked out to edit"
+		m.report("That round could not be checked out to edit", msg.err)
 
 		return m, nil
 	}
@@ -327,7 +327,7 @@ func (m *model) applyRoundEdited(msg roundEditedMsg) tea.Cmd {
 	m.review.harvesting = false
 
 	if msg.err != nil {
-		m.review.notice = "what you wrote in the round could not be read back"
+		m.report("What you wrote in the round could not be read back", msg.err)
 
 		return nil
 	}
@@ -435,7 +435,7 @@ func (m *model) applyRoundHarvested(msg roundHarvestedMsg) {
 			return
 		}
 
-		m.review.notice = "what you wrote could not be written as comments"
+		m.report("What you wrote could not be written as comments", msg.err)
 
 		return
 	}

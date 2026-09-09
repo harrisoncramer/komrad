@@ -90,12 +90,24 @@ func (m model) enterReview(agent agentstore.Agent) (tea.Model, tea.Cmd) {
 // was read.
 func (m *model) refuseReview(err error) {
 	name := m.review.agentName
+	m.dropReview()
+	m.reportBrief(describeRefusedReview(name, err), err.Error(), nil)
+}
+
+// abandonReview backs out to the listing for a diff that could not be read at all.
+func (m *model) abandonReview(err error) {
+	name := m.review.agentName
+	m.dropReview()
+	m.report("Could not read the diff of "+name, err)
+}
+
+// dropReview puts the reader back on the row they opened the review from.
+func (m *model) dropReview() {
 	m.review = reviewState{}
 
 	m.enterScreen(screenAgents)
 	m.tree.cursor = clampCursor(m.tree.cursor, len(m.agentRows()))
 	m.stageSelection()
-	m.reportBrief(describeRefusedReview(name, err), err.Error(), nil)
 }
 
 // describeRefusedReview says which of the two empty diffs this is: an agent that has written
@@ -287,10 +299,15 @@ func (m *model) applyReviewLoaded(msg reviewLoadedMsg) tea.Cmd {
 		return nil
 	}
 
-	m.review.loading = false
-	m.review.err = msg.err
 	if msg.patch == nil {
+		m.abandonReview(msg.err)
+
 		return nil
+	}
+
+	m.review.loading = false
+	if msg.err != nil {
+		m.report("Could not read the whole review of "+m.review.agentName, msg.err)
 	}
 
 	if m.review.chapter >= len(msg.chapters) {
@@ -379,7 +396,6 @@ func (m *model) applyReviewWrote(msg reviewWroteMsg) {
 		return
 	}
 
-	m.review.err = msg.err
 	if msg.err != nil {
 		m.report("Could not write on "+m.review.agentName, msg.err)
 

@@ -104,8 +104,6 @@ func (m model) doesReviewFitDetails() bool {
 // or the place the cursor is standing when nothing is.
 func (m model) reviewHeadView() string {
 	switch {
-	case m.review.err != nil:
-		return brokenStyle.Render(m.review.err.Error()) + "\n"
 	case m.review.loading:
 		return dimStyle.Render(reviewLoadingWord) + "\n"
 	case m.review.view == nil || m.review.view.Len() == 0:
@@ -128,7 +126,7 @@ func (m model) reviewNote(style lipgloss.Style, text string) string {
 }
 
 func (m model) reviewRestView() string {
-	if m.review.err != nil || m.review.loading || m.review.view == nil || m.review.view.Len() == 0 {
+	if m.review.loading || m.review.view == nil || m.review.view.Len() == 0 {
 		return ""
 	}
 
