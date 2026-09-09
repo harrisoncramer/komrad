@@ -2,8 +2,12 @@ package agents
 
 import (
 	"context"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
+
+	"weave/internal/git"
 
 	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
@@ -205,4 +209,125 @@ func (s fakeRebaseWorkflows) Get(_ context.Context, _ string) (*workflowstore.Wo
 
 func (s fakeRebaseWorkflows) GetIncludingArchived(ctx context.Context, id string) (*workflowstore.Workflow, error) {
 	return s.Get(ctx, id)
+}
+
+// TestRebaseAndThePullRequest runs the real service against a real worktree, because the
+// decision it pins is which path clears the recorded pull request and a helper mirroring that
+// decision in the test would assert nothing.
+func TestRebaseAndThePullRequest(t *testing.T) {
+	t.Parallel()
+
+	for _, tt := range []struct {
+		name        string
+		conflict    bool
+		wantCleared bool
+	}{
+		{
+			name:        "a stopped rebase keeps it, since the branch has not moved",
+			conflict:    true,
+			wantCleared: false,
+		},
+		{
+			name:        "a completed rebase clears it, since the branch was rewritten",
+			conflict:    false,
+			wantCleared: true,
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			tree := buildAgentWorktree(t, tt.conflict)
+			agents := &recordingRebaseAgents{agent: agentstore.Agent{
+				ID: "a1", Name: "auth", WorkflowID: "w1", Cwd: tree, State: agentstore.StateIdle,
+				Metadata: []agentstore.Metadata{{Key: prMetadataKey, Value: "https://example.test/pr/1"}},
+			}}
+
+			service := NewRebaseService(NewRebaseServiceParams{
+				Agents:    agents,
+				Workflows: fakeRebaseWorkflows{flow: worktreeFlow()},
+			})
+
+			result, err := service.Rebase(t.Context(), "a1")
+			require.NoError(t, err)
+			require.Equal(t, tt.conflict, result.Conflicted, "the fixture did not produce the state it was built for")
+
+			assert.Equal(t, tt.wantCleared, result.ClearedPullRequest)
+			assert.Equal(t, tt.wantCleared, agents.clearedPR, "the row is written only when the branch moved")
+		})
+	}
+}
+
+// buildAgentWorktree is an origin, a clone and a worktree on an agent branch that is behind it,
+// optionally with a change that makes the rebase stop on a conflict.
+func buildAgentWorktree(t *testing.T, conflict bool) string {
+	t.Helper()
+
+	root := t.TempDir()
+	origin := filepath.Join(root, "origin")
+	gitRun(t, root, "init", "--quiet", "-b", "main", origin)
+	gitRun(t, origin, "config", "user.email", "t@example.com")
+	gitRun(t, origin, "config", "user.name", "t")
+	writeTree(t, origin, "clash.txt", "base\n")
+	gitRun(t, origin, "add", "clash.txt")
+	gitRun(t, origin, "commit", "--quiet", "-m", "base")
+
+	clone := filepath.Join(root, "clone")
+	gitRun(t, root, "clone", "--quiet", origin, clone)
+	gitRun(t, clone, "config", "user.email", "t@example.com")
+	gitRun(t, clone, "config", "user.name", "t")
+
+	tree := filepath.Join(root, "tree")
+	gitRun(t, clone, "worktree", "add", "--quiet", "--no-track", "-b", "agent/a1", tree, "origin/main")
+	writeTree(t, tree, "own.txt", "the agent's work\n")
+	gitRun(t, tree, "add", "own.txt")
+	gitRun(t, tree, "commit", "--quiet", "-m", "the agent's work")
+
+	// Origin moves on, so there is something to rebase onto.
+	body := "moved on\n"
+	if conflict {
+		// The same path the agent is about to touch, so the replay cannot settle it.
+		writeTree(t, tree, "clash.txt", "ours\n")
+		gitRun(t, tree, "add", "clash.txt")
+		gitRun(t, tree, "commit", "--quiet", "-m", "ours")
+		body = "theirs\n"
+	}
+	writeTree(t, origin, "clash.txt", body)
+	gitRun(t, origin, "add", "clash.txt")
+	gitRun(t, origin, "commit", "--quiet", "-m", "origin moved on")
+
+	return tree
+}
+
+func writeTree(t *testing.T, dir, name, body string) {
+	t.Helper()
+
+	require.NoError(t, os.WriteFile(filepath.Join(dir, name), []byte(body), 0o644))
+}
+
+func gitRun(t *testing.T, dir string, args ...string) {
+	t.Helper()
+
+	_, err := git.Run(t.Context(), dir, args...)
+	require.NoError(t, err, "git %v in %s", args, dir)
+}
+
+// recordingRebaseAgents notes whether the pull request key was cleared, which is the write the
+// decision under test produces.
+type recordingRebaseAgents struct {
+	agent     agentstore.Agent
+	clearedPR bool
+}
+
+func (r *recordingRebaseAgents) GetByID(context.Context, string) (*agentstore.Agent, error) {
+	agent := r.agent
+
+	return &agent, nil
+}
+
+func (r *recordingRebaseAgents) SetMetadata(_ context.Context, params agentstore.SetMetadataParams) (bool, error) {
+	if params.Key == prMetadataKey && params.Value == nil {
+		r.clearedPR = true
+	}
+
+	return true, nil
 }

@@ -162,8 +162,10 @@ func (s *RebaseService) Rebase(ctx context.Context, agentID string) (*RebaseResu
 		return nil, rebaseErr
 	}
 
-	// A rebase rewrites the branch, so a pull request already open on it no longer tracks.
-	result.ClearedPullRequest = s.clearPullRequest(ctx, *agent)
+	// A completed rebase rewrites the branch, where a stopped one has not moved it yet.
+	if !result.Conflicted {
+		result.ClearedPullRequest = s.clearPullRequest(ctx, *agent)
+	}
 
 	s.tell(ctx, *agent, *result)
 
@@ -199,9 +201,14 @@ func (s *RebaseService) tell(ctx context.Context, agent agentstore.Agent, result
 	if result.Conflicted {
 		fmt.Fprintf(&body, "Your worktree was rebased onto %s (%s) and the rebase stopped on conflicts, so it is still in progress.\n\n",
 			result.BaseRef, short(result.BaseSHA))
-		body.WriteString("Your commits are all still there. Do not resolve it or abort it on your own initiative: " +
-			"say what state you are in and wait to be told which way to go, since whoever pressed the key is the one " +
-			"deciding whether this work is worth carrying forward.")
+		body.WriteString("Your commits are all still there, and your branch has not moved yet. " +
+			"Do not resolve it or abort it on your own initiative: say what state you are in and wait to be told " +
+			"which way to go, since whoever pressed the key is the one deciding whether this work is worth " +
+			"carrying forward.")
+		if metadataFor(agent, prMetadataKey) != "" {
+			body.WriteString(" Say too that finishing the rebase will invalidate the pull request recorded against " +
+				"you, since it was opened from the commits the rebase is replaying, and that aborting leaves it valid.")
+		}
 	} else {
 		fmt.Fprintf(&body, "Your worktree was rebased onto %s (%s), replaying %d of your own commits.\n\n",
 			result.BaseRef, short(result.BaseSHA), result.Commits)
