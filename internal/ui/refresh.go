@@ -430,7 +430,6 @@ func (m model) applyWrite(result writeResult) (tea.Model, tea.Cmd) {
 			// strength of the pane itself rather than left zoomed over the thing being shown.
 			if m.isPaneWarm(result.written.pane, result.written.harness) {
 				m.frame.Solo(false)
-				m.resize()
 				m.frame.ShowGuest(result.written.pane)
 			} else {
 				m.holdForWarmup(result.written.pane, result.written.harness)

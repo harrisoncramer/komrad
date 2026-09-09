@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"sync"
 
 	"weave/config"
 	"weave/internal/errui"
@@ -32,11 +33,80 @@ func Run(deps Deps) error {
 	isDark := lipgloss.HasDarkBackground()
 	lipgloss.SetHasDarkBackground(isDark)
 
-	if _, err := tea.NewProgram(newModel(deps, isDark), tea.WithAltScreen(), tea.WithReportFocus()).Run(); err != nil {
+	// The panel resizes its own pane by zooming it, and the renderer is told about that the same
+	// way the terminal tells it about any other resize, so a program has to exist before the model
+	// it runs can reach it.
+	post := newPostbox()
+
+	program := tea.NewProgram(newModel(deps, isDark, post), tea.WithAltScreen(), tea.WithReportFocus())
+	post.attach(program)
+
+	defer post.close()
+
+	if _, err := program.Run(); err != nil {
 		return fmt.Errorf("failed to run panel: %w", err)
 	}
 
 	return nil
+}
+
+// postbox is how the panel sends itself the size its own pane landed at, held as a pointer so the
+// model can be built before the program that carries it.
+type postbox struct {
+	program *tea.Program
+	mu      sync.Mutex
+	// pending is the size waiting to be handed over, which is only ever the newest one: a size
+	// overtaken while the panel was busy would arrive as a resize back to a layout it has left.
+	pending *tea.WindowSizeMsg
+	wake    chan struct{}
+}
+
+func newPostbox() *postbox {
+	return &postbox{wake: make(chan struct{}, 1)}
+}
+
+// attach gives the postbox the program it posts to and starts the one goroutine that does it, so
+// the sizes arrive in the order they were read.
+func (p *postbox) attach(program *tea.Program) {
+	p.program = program
+
+	go p.deliver()
+}
+
+func (p *postbox) close() { close(p.wake) }
+
+// resize reports the size the panel's own pane landed at as the resize it is, so a frame is never
+// drawn at a width the renderer has not been told about.
+func (p *postbox) resize(width, height int) {
+	if p == nil {
+		return
+	}
+
+	p.mu.Lock()
+	p.pending = &tea.WindowSizeMsg{Width: width, Height: height}
+	p.mu.Unlock()
+
+	// The delivery is already owed when the wake is full, and it will read whatever is pending by
+	// the time it runs.
+	select {
+	case p.wake <- struct{}{}:
+	default:
+	}
+}
+
+// deliver hands the newest size to the program, off the update the size was read in, which would
+// otherwise block waiting for itself to take the message.
+func (p *postbox) deliver() {
+	for range p.wake {
+		p.mu.Lock()
+		size := p.pending
+		p.pending = nil
+		p.mu.Unlock()
+
+		if size != nil {
+			p.program.Send(*size)
+		}
+	}
 }
 
 type uiTmux interface {
@@ -148,9 +218,11 @@ type model struct {
 	// isDark is the terminal's background, settled before the program started and never asked of
 	// lipgloss again while the panel runs.
 	isDark bool
-	// resizeOwed says the zoom moved inside a change that was still being collected, so the
-	// panel's own size is read back once the change has landed rather than before it.
-	resizeOwed bool
+	post   *postbox
+
+	// staging counts the cursor moves waiting to be staged, so the panes are moved for the row the
+	// cursor came to rest on rather than for every row it passed.
+	staging int
 
 	// warm is the panes whose harness the panel has seen start, which is what it waits for before
 	// giving one the stage.
@@ -166,9 +238,10 @@ func (m model) at(width int) model {
 	return m
 }
 
-func newModel(deps Deps, isDark bool) model {
+func newModel(deps Deps, isDark bool, post *postbox) model {
 	m := model{
 		isDark: isDark,
+		post:   post,
 		api: api{
 			agents:    deps.Agents,
 			workflows: deps.Workflows,
@@ -203,6 +276,7 @@ func newModel(deps Deps, isDark bool) model {
 		return m
 	}
 
+	m.frame.OnResize(post.resize)
 	m.frame.Attach(deps.Pane)
 	m.shell = deps.Tmux.GetDefaultShell()
 

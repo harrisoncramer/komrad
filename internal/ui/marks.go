@@ -110,14 +110,14 @@ func (m model) jumpMark(letter string) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	next, ok := m.jumpToRow(target)
+	next, cmd, ok := m.jumpToRow(target)
 	if !ok {
 		m.report("Could not jump to the mark", errNoMarkedRow)
 
 		return m, nil
 	}
 
-	return next, nil
+	return next, cmd
 }
 
 // jumpMarkBack returns to the row the last jump left, so a look at a marked agent and the way
@@ -127,7 +127,7 @@ func (m model) jumpMarkBack() (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	next, ok := m.jumpToRow(m.marks.origin)
+	next, cmd, ok := m.jumpToRow(m.marks.origin)
 	if !ok {
 		// The row has been archived or deleted since the jump, and keeping the id would leave
 		// the key failing the same way for the rest of the session.
@@ -137,7 +137,7 @@ func (m model) jumpMarkBack() (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	return next, nil
+	return next, cmd
 }
 
 // markedRow is the row a letter names, read down the listing rather than out of the map, so a
@@ -161,7 +161,7 @@ func (m model) markedRow(letter string) (string, bool) {
 
 // jumpToRow puts the cursor on a row named by its key, recording the row it left so the jump
 // can be undone, and reports whether the row was reachable at all.
-func (m model) jumpToRow(key string) (model, bool) {
+func (m model) jumpToRow(key string) (model, tea.Cmd, bool) {
 	origin := rowKeyAt(m.agentRows(), m.tree.cursor)
 
 	revealed := m
@@ -174,10 +174,12 @@ func (m model) jumpToRow(key string) (model, bool) {
 
 	idx := rowIndexOfKey(revealed.agentRows(), key)
 	if idx < 0 {
-		return m, false
+		return m, nil, false
 	}
 
 	revealed.marks.origin = origin
 
-	return revealed.jumpCursor(idx), true
+	next, cmd := revealed.jumpCursor(idx)
+
+	return next, cmd, true
 }

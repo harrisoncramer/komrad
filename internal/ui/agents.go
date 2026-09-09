@@ -27,7 +27,9 @@ func (m model) updateAgents(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	// The doubled top key is a gesture rather than a binding, so it is settled before the table,
 	// which would otherwise let a single press jump.
 	if m.takeTopPress(k) {
-		return m.jumpCursor(0), nil
+		next, cmd := m.jumpCursor(0)
+
+		return next, cmd
 	}
 	if m.topHeld {
 		return m, nil
@@ -121,28 +123,55 @@ func (m *model) releasePanes(agents []agentstore.Agent) {
 	}
 }
 
-func (m model) moveCursor(delta int) model {
+func (m model) moveCursor(delta int) (model, tea.Cmd) {
 	next, ok := m.tree.move(delta, len(m.agentRows()))
 	if !ok {
-		return m
+		return m, nil
 	}
 
 	m.tree.rowCursor = next
-	m.stageSelection()
 
-	return m
+	return m.deferStaging()
 }
 
-func (m model) jumpCursor(idx int) model {
+func (m model) jumpCursor(idx int) (model, tea.Cmd) {
 	next, ok := m.tree.jump(idx, len(m.agentRows()))
 	if !ok {
-		return m
+		return m, nil
 	}
 
 	m.tree.rowCursor = next
-	m.stageSelection()
 
-	return m
+	return m.deferStaging()
+}
+
+// stageDelay is how long a cursor has to rest before the panes are moved to what it is standing
+// on, which is under what a scroll between two rows takes.
+const stageDelay = 90 * time.Millisecond
+
+// stageTickMsg is the rest a cursor move waited for, carrying the move it was owed to so a later
+// one takes precedence.
+type stageTickMsg struct {
+	move int
+}
+
+// deferStaging waits for the cursor to come to rest before the panes are moved, so scrolling a
+// list is one change of layout rather than one for every row passed over.
+func (m model) deferStaging() (model, tea.Cmd) {
+	m.staging++
+	move := m.staging
+
+	return m, tea.Tick(stageDelay, func(time.Time) tea.Msg { return stageTickMsg{move: move} })
+}
+
+// applyStageTick stages what the cursor came to rest on, ignoring a rest the cursor has already
+// moved on from.
+func (m *model) applyStageTick(msg stageTickMsg) {
+	if msg.move != m.staging {
+		return
+	}
+
+	m.stageSelection()
 }
 
 // toggleAgentViewed puts an agent's unread mark back by hand, or takes it off, for the times
@@ -313,6 +342,7 @@ func (m *model) stageSelection() {
 
 	switch r, ok := rowAt(rows, m.tree.cursor); {
 	case ok && !m.hasNoAgentPane() && m.isPaneStageable(r.item.agent.Pane, r.item.agent.Harness):
+		m.sizeGuestWindow(r.item.agent.Pane)
 		m.frame.ShowGuest(r.item.agent.Pane)
 	case m.frame.IsSolo() && m.isGuestLive():
 	default:
@@ -322,16 +352,30 @@ func (m *model) stageSelection() {
 	m.stageInfo()
 }
 
-// afterStaging sends the pane moves staging collected and reads the panel's own size back off
-// the layout they left, which is the one moment it is worth asking tmux for.
+// afterStaging sends the pane moves staging collected.
 func (m *model) afterStaging() {
 	m.frame.Flush()
+}
 
-	if m.resizeOwed {
-		m.resizeOwed = false
-
-		m.resize()
+// sizeGuestWindow puts an agent's own window at the size of the stage before it is swapped in,
+// which sizeAgentWindows cannot do for the pane already standing there.
+func (m *model) sizeGuestWindow(pane string) {
+	width, height := m.frame.StageCols(), m.height
+	if pane == "" || pane == m.frame.GuestPane() || width <= 0 || height <= 0 {
+		return
 	}
+
+	if m.sized == nil {
+		m.sized = map[string]string{}
+	}
+
+	want := fmt.Sprintf("%dx%d", width, height)
+	if m.sized[pane] == want {
+		return
+	}
+
+	m.tmux.ResizeWindow(pane, width, height)
+	m.sized[pane] = want
 }
 
 // isGuestLive reports whether the pane parked in the stage still belongs to an agent the last

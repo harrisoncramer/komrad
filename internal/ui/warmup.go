@@ -196,7 +196,6 @@ func (m model) revealCreated(pane string) (model, tea.Cmd) {
 	}
 
 	m.frame.Solo(false)
-	m.resize()
 	m.frame.ShowGuest(pane)
 	m.frame.Flush()
 

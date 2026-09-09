@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"log/slog"
 	"strings"
 	"time"
 
@@ -21,6 +22,9 @@ func (m model) View() string {
 	if m.unreachable != nil {
 		return errui.RenderUnreachableError(m.width, m.addr, m.unreachable)
 	}
+
+	//nolint:sloglint // temporary trace, no context here to carry a logger on
+	slog.Default().Info("panel trace: drawing", "width", m.width, "height", m.height, "solo", m.frame.IsSolo(), "screen", int(m.screen))
 
 	return m.fitFrame(strings.TrimRight(m.screenView(), "\n"))
 }

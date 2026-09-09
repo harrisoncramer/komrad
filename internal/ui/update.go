@@ -1,6 +1,8 @@
 package ui
 
 import (
+	"log/slog"
+
 	"github.com/charmbracelet/bubbles/cursor"
 	tea "github.com/charmbracelet/bubbletea"
 )
@@ -142,6 +144,9 @@ func (m model) route(msg tea.Msg) (tea.Model, tea.Cmd) {
 // resizeTo takes the panel to the size a window message reports, which is also how a divider
 // being dragged arrives.
 func (m model) resizeTo(size tea.WindowSizeMsg) model {
+	//nolint:sloglint // temporary trace, no context here to carry a logger on
+	slog.Default().Info("panel trace: a resize arrived", "width", size.Width, "height", size.Height, "was", m.width, "solo", m.frame.IsSolo())
+
 	// The transcript is wrapped into the column it is read in rather than into a pane that would
 	// fold it, so only a window that changed width has to wrap it again, and a preview that has
 	// never drawn is one the rows are still owed to.
@@ -240,6 +245,10 @@ func (m model) routeAsyncMessage(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
 		next, cmd := m.applyWarmupTick()
 
 		return next, cmd, true
+	case stageTickMsg:
+		m.applyStageTick(msg)
+
+		return m, nil, true
 	case refreshResult:
 		m.applyRefresh(msg)
 

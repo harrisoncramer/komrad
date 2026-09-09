@@ -1,6 +1,7 @@
 package layout
 
 import (
+	"log/slog"
 	"os"
 
 	"weave/config"
@@ -26,6 +27,14 @@ type Frame struct {
 	pending    []panes.Move
 	collecting bool
 	shown      map[Region]shown
+
+	// zoomed says the change being collected moves the sidebar's zoom, which is what changes the
+	// size of the pane the panel is drawn in.
+	zoomed bool
+
+	// onSize is told the size the sidebar landed at, once the moves that changed it have been
+	// sent.
+	onSize func(width, height int)
 }
 
 type shown struct {
@@ -42,6 +51,9 @@ func New(tmux Tmux, layout config.Layout) *Frame {
 		shown: map[Region]shown{},
 	}
 }
+
+// OnResize says where the sidebar's new size is reported once a change has moved it.
+func (f *Frame) OnResize(report func(width, height int)) { f.onSize = report }
 
 // Attach anchors the frame to the pane the panel was told it runs in, never one read back from
 // tmux, which answers for whatever window the session is looking at.
@@ -80,12 +92,37 @@ func (f *Frame) Begin() { f.collecting = true }
 
 // Flush sends the pane moves collected since Begin, and does nothing when there were none.
 func (f *Frame) Flush() {
-	moves := f.pending
-	f.pending, f.collecting = nil, false
+	moves, zoomed := f.pending, f.zoomed
+	f.pending, f.collecting, f.zoomed = nil, false, false
 
-	if len(moves) > 0 {
-		f.tmux.MovePanes(moves)
+	if len(moves) == 0 {
+		return
 	}
+
+	f.tmux.MovePanes(moves)
+
+	if zoomed {
+		f.reportSize()
+	}
+}
+
+// reportSize reads the sidebar back off the layout the moves left and hands the size on, which is
+// the one moment it is worth asking tmux.
+func (f *Frame) reportSize() {
+	if f.onSize == nil {
+		return
+	}
+
+	width, height := f.SidebarSize()
+
+	//nolint:sloglint // temporary trace, no context here to carry a logger on
+	slog.Default().Info("panel trace: frame read its own size back", "width", width, "height", height, "solo", f.solo)
+
+	if width <= 0 || height <= 0 {
+		return
+	}
+
+	f.onSize(width, height)
 }
 
 // IsCollecting reports whether a change is still being collected, which is what says the panes
@@ -95,6 +132,10 @@ func (f *Frame) IsCollecting() bool { return f.collecting }
 // move records a pane move, sending it at once unless a change is being collected around it.
 func (f *Frame) move(m panes.Move) {
 	f.pending = append(f.pending, m)
+
+	if m.Kind == panes.KindZoom {
+		f.zoomed = true
+	}
 
 	if !f.collecting {
 		f.Flush()
@@ -199,6 +240,10 @@ func (f *Frame) Solo(on bool) {
 	}
 
 	f.solo = on
+
+	// The pane beside the sidebar is covered or uncovered by this, and whatever painted it has
+	// long since exited, so what stands there is drawn again rather than left as it was.
+	f.forget(RegionStage)
 	f.move(panes.Zoom(f.sidebar, on))
 }
 

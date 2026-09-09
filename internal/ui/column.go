@@ -223,27 +223,6 @@ func (m *model) reconcileSolo() {
 	}
 
 	m.frame.Solo(want)
-
-	// A collected change has not moved the panes yet, so the size is read back once it has
-	// landed rather than here, where tmux would answer for the layout as it stood.
-	if m.frame.IsCollecting() {
-		m.resizeOwed = true
-
-		return
-	}
-
-	m.resize()
-}
-
-// resize reads the panel's size back from its own pane, which a zoom changes before the terminal
-// reports it.
-func (m *model) resize() {
-	width, height := m.frame.SidebarSize()
-	if width <= 0 || height <= 0 {
-		return
-	}
-
-	m.width, m.height = width, height
 }
 
 // syncKeys puts the frame right about whether it still holds the window, which a focus report

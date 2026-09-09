@@ -273,7 +273,9 @@ func onHoveredAgent(fn func(model, agentItem) (tea.Model, tea.Cmd)) func(model, 
 // taken before the table is reached.
 func (m model) jumpAgents(pressed string) (tea.Model, tea.Cmd) {
 	if isBound(pressed, m.keys.Nav.Bottom) {
-		return m.jumpCursor(len(m.agentRows()) - 1), nil
+		next, cmd := m.jumpCursor(len(m.agentRows()) - 1)
+
+		return next, cmd
 	}
 
 	return m, nil
@@ -281,10 +283,14 @@ func (m model) jumpAgents(pressed string) (tea.Model, tea.Cmd) {
 
 func (m model) moveAgentCursor(pressed string) (tea.Model, tea.Cmd) {
 	if isBound(pressed, m.keys.Nav.Down) {
-		return m.moveCursor(1), nil
+		next, cmd := m.moveCursor(1)
+
+		return next, cmd
 	}
 
-	return m.moveCursor(-1), nil
+	next, cmd := m.moveCursor(-1)
+
+	return next, cmd
 }
 
 func (m model) jumpAgentMatch(pressed string) (tea.Model, tea.Cmd) {
