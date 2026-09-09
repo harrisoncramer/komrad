@@ -776,6 +776,67 @@ func reviewLongThread(t *testing.T, m model) []*agentv1.ReviewThread {
 	return []*agentv1.ReviewThread{long}
 }
 
+// TestReviewThreadScrollsToItsTopWhateverElseIsDrawn covers the ceiling the keys scroll to: at
+// every height it has to clear whatever the sidebar draws under the conversation, or the reader
+// walks up to a window that still says there is more above it and stops there.
+func TestReviewThreadScrollsToItsTopWhateverElseIsDrawn(t *testing.T) {
+	dir := reviewRepo(t)
+	base, _ := reviewModel(t, &fakeReviewAgents{}, dir)
+	base = openReview(t, base)
+	base.applyReviewWrote(reviewWroteMsg{agentID: "a1", threads: reviewLongThread(t, base)})
+	base.pushMessage(message{
+		kind:    messageError,
+		summary: "Cannot reach the server",
+		detail:  "dial tcp 127.0.0.1:8787: connect: connection refused",
+	})
+
+	drawn := 0
+	for pane := reviewChromeFloor; pane <= 40; pane++ {
+		m := base
+		m.width, m.height = 60, pane
+		if m.reviewSidebar().messages != "" {
+			drawn++
+		}
+
+		next, _ := m.updateReview(tea.KeyMsg{Type: tea.KeyCtrlF})
+		m, ok := next.(model)
+		require.True(t, ok)
+
+		for range 60 {
+			next, _ = m.updateReview(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("k")})
+			m, ok = next.(model)
+			require.True(t, ok)
+		}
+
+		assert.NotContains(t, ansi.Strip(m.reviewView()), "↑",
+			"the reader ran out of scroll with the conversation still going up in a %d line pane", pane)
+	}
+
+	require.Positive(t, drawn, "the messages region has to be drawn at some height for this to prove anything")
+}
+
+// TestReviewThreadHasNoCeilingWithoutTheRoom covers a pane the chrome has filled, where there is
+// no conversation on screen to walk back through rather than the whole of it.
+func TestReviewThreadHasNoCeilingWithoutTheRoom(t *testing.T) {
+	dir := reviewRepo(t)
+	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
+	m = openReview(t, m)
+	m.applyReviewWrote(reviewWroteMsg{agentID: "a1", threads: reviewLongThread(t, m)})
+	m.width, m.height = 60, 7
+
+	require.LessOrEqual(t, m.reviewSidebar().conversation, 0,
+		"the chrome has to have taken the pane for this to prove anything")
+	assert.Zero(t, m.reviewThreadMax())
+}
+
+// TestReviewThreadWindowCountsABlankLastRow covers a conversation ending in a blank row, which
+// is a row the pane draws and so a row the window has to count.
+func TestReviewThreadWindowCountsABlankLastRow(t *testing.T) {
+	m := model{}
+
+	assert.LessOrEqual(t, countLines(m.reviewThreadWindow("note 0\nnote 1\nnote 2\n\n", 3)), 3)
+}
+
 // TestReviewThreadScrollsToItsStart covers reading a conversation taller than the sidebar, which
 // is drawn from its end and was reachable no further back than that.
 func TestReviewThreadScrollsToItsStart(t *testing.T) {

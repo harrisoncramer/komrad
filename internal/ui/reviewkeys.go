@@ -1,8 +1,6 @@
 package ui
 
 import (
-	"slices"
-
 	agentv1 "weave/proto/gen/agent/v1"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -129,8 +127,7 @@ func (m model) scrollReviewThread(delta int) model {
 // reviewThreadMax is how far up the conversation the sidebar can be scrolled, which is whatever
 // it holds beyond the rows the sidebar has for it.
 func (m model) reviewThreadMax() int {
-	lines := m.spareLines(slices.Concat(m.reviewAbove(),
-		[]string{m.renderHelp(m.reviewHelp()), m.detailsView(), m.reviewHeadView()})...)
+	lines := m.reviewSidebar().conversation
 
 	// A sidebar with no room draws no conversation at all, so there is nothing to scroll through
 	// rather than the whole of it.
@@ -138,6 +135,8 @@ func (m model) reviewThreadMax() int {
 		return 0
 	}
 
+	// A row goes to the count of what is still above the window, which is what the reader is
+	// walking towards: the ceiling has to clear that row as well as the conversation.
 	return max(countLines(m.reviewRestView())-max(lines-1, 1), 0)
 }
 

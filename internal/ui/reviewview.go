@@ -53,6 +53,36 @@ func (m model) reviewView() string {
 // reviewSidebarView is the panel's own column: where the cursor is standing and the thread
 // hanging off it.
 func (m model) reviewSidebarView() string {
+	sidebar := m.reviewSidebar()
+
+	// The head is pinned only while there is a row to pin it to: a pane the chrome has already
+	// filled gives up the anchor as well as the conversation rather than drawing either past the
+	// bottom of it.
+	if sidebar.spare <= 0 {
+		return sidebar.record + sidebar.messages + sidebar.help
+	}
+
+	rest := m.reviewThreadWindow(m.reviewRestView(), sidebar.conversation)
+
+	return padRows(sidebar.head+rest, sidebar.spare) + sidebar.record + sidebar.messages + sidebar.help
+}
+
+// reviewSidebar is the sidebar's own blocks and the rows they leave, worked out in one place so
+// the view that draws the conversation and the keys that scroll it cannot disagree about what it
+// has room for.
+type reviewSidebar struct {
+	head     string
+	record   string
+	messages string
+	help     string
+
+	// spare is the rows the anchor and the conversation have between them, and conversation what
+	// is left of those once the anchor has taken its own.
+	spare        int
+	conversation int
+}
+
+func (m model) reviewSidebar() reviewSidebar {
 	help := m.renderHelp(m.reviewHelp())
 
 	// The head is pinned and the conversation gives up the room: where the cursor is standing is
@@ -63,17 +93,14 @@ func (m model) reviewSidebarView() string {
 	messages := m.messagesRegion(slices.Concat(above, []string{head}), record, help)
 	chrome := slices.Concat(above, []string{help, record, messages})
 
-	// The head is pinned only while there is a row to pin it to: a pane the chrome has already
-	// filled gives up the anchor as well as the conversation rather than drawing either past the
-	// bottom of it.
-	spare := m.spareLines(chrome...)
-	if spare <= 0 {
-		return record + messages + help
+	return reviewSidebar{
+		head:         head,
+		record:       record,
+		messages:     messages,
+		help:         help,
+		spare:        m.spareLines(chrome...),
+		conversation: m.spareLines(slices.Concat(chrome, []string{head})...),
 	}
-
-	rest := m.reviewThreadWindow(m.reviewRestView(), m.spareLines(slices.Concat(chrome, []string{head})...))
-
-	return padRows(head+rest, spare) + record + messages + help
 }
 
 // reviewAbove is whatever stands over the sidebar and so comes out of its budget, which is the
