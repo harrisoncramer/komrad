@@ -209,6 +209,34 @@ func (a api) resumeAgent(id string) (*agentv1.Agent, error) {
 	})
 }
 
+func (a api) planRefresh(id string) (*agentv1.PlanRefreshResponse, error) {
+	return call(requestTimeout, func(ctx context.Context) (*agentv1.PlanRefreshResponse, error) {
+		resp, err := a.agents.PlanRefresh(ctx, connect.NewRequest(&agentv1.PlanRefreshRequest{AgentId: id}))
+		if err != nil {
+			return nil, fmt.Errorf("failed to work out what a rebase of agent %q would do: %w", id, err)
+		}
+
+		return resp.Msg, nil
+	})
+}
+
+func (a api) rebaseWorktree(id string) (*agentv1.RebaseWorktreeResponse, error) {
+	return call(requestTimeout, func(ctx context.Context) (*agentv1.RebaseWorktreeResponse, error) {
+		resp, err := a.agents.RebaseWorktree(ctx, connect.NewRequest(&agentv1.RebaseWorktreeRequest{AgentId: id}))
+		if err != nil {
+			return nil, fmt.Errorf("failed to rebase the worktree of agent %q: %w", id, err)
+		}
+
+		return resp.Msg, nil
+	})
+}
+
+func (a api) resetWorktree(id string) error {
+	return mutate(func(ctx context.Context) (any, error) {
+		return a.agents.ResetWorktree(ctx, connect.NewRequest(&agentv1.ResetWorktreeRequest{AgentId: id}))
+	})
+}
+
 func (a api) deleteAgents(ids []string) error {
 	return mutate(func(ctx context.Context) (any, error) {
 		return a.agents.DeleteAgents(ctx, connect.NewRequest(&agentv1.DeleteAgentsRequest{Ids: ids}))

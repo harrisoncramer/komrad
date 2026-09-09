@@ -204,6 +204,12 @@ func agentsRowActions() []action {
 			run:  onHoveredAgent(func(m model, item agentItem) (tea.Model, tea.Cmd) { return m.enterReview(item.agent) }),
 		},
 		{
+			id:   actionAgentRefresh,
+			keys: func(k config.Keybindings) []string { return k.Agents.Refresh },
+			when: isHoveringAgent,
+			run:  onHoveredAgent(func(m model, item agentItem) (tea.Model, tea.Cmd) { return m.refreshAgent(item.agent) }),
+		},
+		{
 			id:   actionAgentMail,
 			keys: func(k config.Keybindings) []string { return k.Agents.Mail },
 			when: isHoveringAgent,

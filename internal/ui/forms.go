@@ -46,6 +46,7 @@ const (
 	formAdopt
 	formRename
 	formAgentArchive
+	formAgentRefresh
 	formWorkflow
 	formWorkflowArchive
 	formSchedule
@@ -100,7 +101,7 @@ func formColumn(kind formKind) (columnSpec, bool) {
 	switch kind {
 	case formAgent, formChild, formAdopt, formRename, formWorkflow, formSchedule:
 		return columnSpec{floor: formColumnFloor}, true
-	case formAgentArchive, formWorkflowArchive, formScheduleArchive,
+	case formAgentArchive, formAgentRefresh, formWorkflowArchive, formScheduleArchive,
 		formArchiveDelete, formArchiveEmpty:
 		return columnSpec{floor: columnFloor}, true
 	case formNone:
@@ -590,6 +591,46 @@ func archiveAgentsForm(agents []agentstore.Agent, children int, keys config.Form
 		WithShowHelp(true).WithKeyMap(multiFieldKeyMap(keys)).WithTheme(formTheme())
 
 	return form, &choice
+}
+
+// refreshChoice is which half of a refresh was picked.
+type refreshChoice int
+
+const (
+	refreshChoiceCancel refreshChoice = iota
+	refreshChoiceRebase
+	refreshChoiceReset
+)
+
+// refreshForm asks which half, naming the base and the commits a rebase would replay.
+func refreshForm(name, baseRef, baseSHA string, commits int, keys config.FormKeys) (*huh.Form, *refreshChoice) {
+	choice := refreshChoiceRebase
+
+	rebase := fmt.Sprintf("Rebase onto %s (%s), replaying %s", baseRef, shortSHA(baseSHA), countWord(commits, "commit", "commits"))
+
+	field := huh.NewSelect[refreshChoice]().
+		Key("refresh").
+		Title("Refresh the worktree of "+name+"?").
+		Value(&choice).
+		Options(
+			huh.NewOption(rebase, refreshChoiceRebase),
+			huh.NewOption("Replace the worktree, discarding its files", refreshChoiceReset),
+			huh.NewOption("Cancel", refreshChoiceCancel),
+		)
+
+	form := huh.NewForm(huh.NewGroup(field)).
+		WithShowHelp(true).WithKeyMap(multiFieldKeyMap(keys)).WithTheme(formTheme())
+
+	return form, &choice
+}
+
+// countWord is a number with its noun, so a confirmation reads as a sentence.
+func countWord(n int, singular, plural string) string {
+	if n == 1 {
+		return fmt.Sprintf("%d %s", n, singular)
+	}
+
+	return fmt.Sprintf("%d %s", n, plural)
 }
 
 func workflowForm(title string, values *workflowFormValues, keys config.FormKeys) *huh.Form {
