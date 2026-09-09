@@ -139,7 +139,7 @@ func (v *View) fileSummary(fileIndex int) string {
 func (v *View) countOpenThreadsIn(path string) int {
 	open := 0
 	for _, thread := range v.threads {
-		if thread.GetFilePath() == path && thread.GetResolvedAt() == "" {
+		if v.PathOf(thread) == path && thread.GetResolvedAt() == "" {
 			open++
 		}
 	}

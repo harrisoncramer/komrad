@@ -266,7 +266,7 @@ func (m model) reviewOriginView(thread *agentv1.ReviewThread) string {
 // reviewOriginSaid says why a comment is not on the line it was written against, in terms of what
 // happened rather than of the placement weave settled on.
 func (m model) reviewOriginSaid(thread *agentv1.ReviewThread) string {
-	if _, drawn := m.review.view.GetFile(thread.GetFilePath()); !drawn {
+	if _, drawn := m.review.view.GetFile(m.review.view.PathOf(thread)); !drawn {
 		if m.review.base != "" {
 			return "still in the change, outside what is on screen · written against"
 		}

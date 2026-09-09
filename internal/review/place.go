@@ -53,7 +53,7 @@ func (v *View) PinThreads(threads []*agentv1.ReviewThread) {
 	for _, thread := range threads {
 		// A thread in a collapsed file has a line to stand on the moment the file is opened
 		// again, so it is not adrift and does not go to the foot of the diff.
-		if v.viewed[v.pathOf(thread)] {
+		if v.viewed[v.PathOf(thread)] {
 			v.placed[thread.GetId()] = collapsed
 
 			continue
@@ -145,7 +145,7 @@ func (v *View) rowByOld(index lineIndex, thread *agentv1.ReviewThread) (int, pla
 	// makes the drawn path the right one to ask under. A shared base numbers the same lines of
 	// the same blob whatever the agent has since called the file, so a rename costs the thread
 	// nothing here.
-	y, ok := index.byOld[oldKey{filePath: v.pathOf(thread), oldLine: old}]
+	y, ok := index.byOld[oldKey{filePath: v.PathOf(thread), oldLine: old}]
 	if !ok {
 		return 0, adrift, false
 	}
@@ -162,7 +162,7 @@ func (v *View) rowByQuote(index lineIndex, thread *agentv1.ReviewThread) (int, p
 		return 0, adrift, false
 	}
 
-	found := index.quoted(v.pathOf(thread), quote)
+	found := index.quoted(v.PathOf(thread), quote)
 	if len(found) != 1 {
 		return 0, adrift, false
 	}
@@ -205,7 +205,7 @@ func (v *View) appendAdrift(threads []*agentv1.ReviewThread) {
 	// makes a narrowed diff look like it has thrown every comment away.
 	var changed, outside []*agentv1.ReviewThread
 	for _, thread := range threads {
-		if _, drawn := v.findFile(v.pathOf(thread)); drawn {
+		if _, drawn := v.findFile(v.PathOf(thread)); drawn {
 			changed = append(changed, thread)
 
 			continue

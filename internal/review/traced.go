@@ -20,8 +20,8 @@ func (v *View) SetTraced(traced map[string]Traced) {
 	v.traced = traced
 }
 
-// pathOf is the file a thread is about in the snapshot on screen, which a rename moves.
-func (v *View) pathOf(thread *agentv1.ReviewThread) string {
+// PathOf is the file a thread is about in the snapshot on screen, which a rename moves.
+func (v *View) PathOf(thread *agentv1.ReviewThread) string {
 	found, ok := v.traced[thread.GetId()]
 	if ok && found.FilePath != "" {
 		return found.FilePath
