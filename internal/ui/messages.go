@@ -92,7 +92,7 @@ func (m model) isMessagesDrawn(record, help string) bool {
 func (m model) messagesSlot() []string {
 	if len(m.messages.items) == 0 {
 		return []string{
-			kindStyle(messageSuccess).Render(m.messagesSummaryLine()) + m.messagesTally(),
+			m.messagesSummaryStyle(message{kind: messageSuccess}) + m.messagesTally(),
 			dimStyle.Render("  Weave is running normally"),
 		}
 	}
@@ -100,7 +100,7 @@ func (m model) messagesSlot() []string {
 	held := m.messages.items[m.messagesCursor()]
 
 	return []string{
-		m.messagesSummaryStyle(held).Render(m.messagesSummaryLine()) + m.messagesTally(),
+		m.messagesSummaryStyle(held) + m.messagesTally(),
 		dimStyle.Render("  " + clip(held.detail, max(m.lineWidth()-2, 1))),
 		dimStyle.Render("  " + m.messagesHint()),
 	}
@@ -118,12 +118,17 @@ func (m model) messagesSummaryLine() string {
 	return clip(kindIcon(held.kind)+" "+held.summary, max(m.lineWidth()-messagesTallyWidth, 1))
 }
 
-func (m model) messagesSummaryStyle(held message) lipgloss.Style {
+// messagesSummaryStyle is the summary row drawn with the kind on the icon alone.
+func (m model) messagesSummaryStyle(held message) string {
+	line := m.messagesSummaryLine()
+	icon, words, _ := strings.Cut(line, " ")
+
+	style := lipgloss.NewStyle()
 	if m.messages.focused {
-		return kindStyle(held.kind).Bold(true)
+		style = style.Bold(true)
 	}
 
-	return kindStyle(held.kind)
+	return kindStyle(held.kind).Render(icon) + style.Render(" "+words)
 }
 
 func (m model) messagesHint() string {
@@ -205,15 +210,16 @@ func (m model) messagesDoc() string {
 	held := m.messages.items[m.messagesCursor()]
 
 	var b strings.Builder
-	fmt.Fprintf(&b, "**%s %s**\n\n", kindIcon(held.kind), held.summary)
-	fmt.Fprintf(&b, "_%s · %s · message %d of %d_\n\n%s\n", kindLabel(held.kind), held.at.Format("3:04pm"), m.messagesCursor()+1, len(m.messages.items), held.detail)
+	fmt.Fprintf(&b, "`%s` **%s**\n\n%s\n", kindIcon(held.kind), held.summary, held.detail)
 
 	if held.hint != "" {
 		fmt.Fprintf(&b, "\n%s\n", held.hint)
 	}
 
+	fmt.Fprintf(&b, "\n_%s · %s · message %d of %d_\n", kindLabel(held.kind), held.at.Format("3:04pm"), m.messagesCursor()+1, len(m.messages.items))
+
 	if held.trace != "" {
-		fmt.Fprintf(&b, "\n`weave trace %s`\n", held.trace)
+		fmt.Fprintf(&b, "\n```\nweave trace %s\n```\n", held.trace)
 	}
 
 	return b.String()
