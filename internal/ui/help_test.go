@@ -293,10 +293,9 @@ func TestNoLegendIsWiderThanThePane(t *testing.T) {
 	}
 }
 
-// TestTheLegendRowFitsTheWholePanel covers the consequence a row wider than the pane has: it wraps,
-// the frame comes out a row taller than the pane, and the bottom row scrolls away. The width is
-// what is asserted because the height cannot be: the wrap happens in the terminal, and fitFrame
-// counts newlines, so the frame measures its pane's height either way.
+// TestTheLegendRowFitsTheWholePanel asserts the width rather than the height a wrapped row costs
+// the frame, since the wrap happens in the terminal and fitFrame counts newlines, so the frame
+// measures its pane's height either way.
 func TestTheLegendRowFitsTheWholePanel(t *testing.T) {
 	m := detailsModel(&recordingTmux{})
 	m.height, m.width = 30, 40
