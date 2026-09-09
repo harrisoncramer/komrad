@@ -293,11 +293,25 @@ func (m *model) applyReviewLoaded(msg reviewLoadedMsg) tea.Cmd {
 		return nil
 	}
 
+	if m.review.chapter >= len(msg.chapters) {
+		m.review.chapters = msg.chapters
+		m.widenReviewBase()
+		*m = m.cancelReviewMessage()
+		m.review.view = nil
+		m.review.loading = true
+
+		return m.loadReviewCmd(loadReviewCmdParams{
+			AgentID: m.review.agentID,
+			Dir:     m.review.dir,
+			Exclude: m.review.exclude,
+		})
+	}
+
 	m.review.baseRound = msg.earlier
 	m.review.baseAt = msg.earlierAt
 	m.review.pinned = msg.pinned
 	m.review.awaiting = msg.awaiting
-	m.applyReviewChapters(msg.chapters)
+	m.review.chapters = msg.chapters
 	m.review.root = msg.patch.Root
 	m.review.view = review.NewView(msg.patch, m.isDark)
 	m.review.view.SetTraced(msg.traced)

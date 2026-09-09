@@ -85,7 +85,12 @@ func (m model) reviewIsHistory() (string, bool) {
 	// Explainer: what decides this is the snapshot the diff was drawn to, not what the chapter at
 	// the reader's index happens to say now. The list is recut on every load, so an index and a
 	// list can disagree, and the refusal has to follow the code on screen rather than the label.
-	if m.review.head == "" || m.review.head == m.review.round.GetSnapshotSha() {
+	drawn := m.review.head
+	if m.review.view != nil {
+		drawn = m.review.view.GetSnapshotSHA()
+	}
+
+	if drawn == "" || drawn == m.review.round.GetSnapshotSha() {
 		return "", false
 	}
 

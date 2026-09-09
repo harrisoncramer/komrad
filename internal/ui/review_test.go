@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"strconv"
+	"weave/internal/diff"
 	"weave/internal/git"
 	"weave/internal/review"
 	agentstore "weave/internal/store/agent"
@@ -1679,6 +1680,20 @@ func reviewWithAnEarlierReview(t *testing.T, dir string, agents *fakeReviewAgent
 	return m
 }
 
+// standOnAFinishedRound puts the reader on the older of two rounds, drawn to the snapshot that
+// round ended at rather than to the work the agent has since written.
+func standOnAFinishedRound(m model) model {
+	m.review.chapters = []reviewChapter{
+		{ToSHA: "an-older-snapshot", Ordinal: 1},
+		{ToSHA: m.review.round.GetSnapshotSha(), Ordinal: 2},
+	}
+	m.review.chapter = 0
+	m.review.head = "an-older-snapshot"
+	m.review.view = review.NewView(&diff.Patch{SnapshotSHA: m.review.head}, false)
+
+	return m
+}
+
 // pressReviewBase walks the base key the way the panel does, since narrowing answers off the UI
 // thread and the reply has to be applied for the screen to change.
 func pressReviewBase(t *testing.T, m model) model {
@@ -1773,12 +1788,7 @@ func TestWritingIsRefusedOnAFinishedRound(t *testing.T) {
 	// An older round is a different matter, and the same key refuses rather than moving anybody.
 	m.review.composing = false
 	m.review.writing = false
-	m.review.chapters = []reviewChapter{
-		{ToSHA: "an-older-snapshot", Ordinal: 1},
-		{ToSHA: m.review.round.GetSnapshotSha(), Ordinal: 2},
-	}
-	m.review.chapter = 0
-	m.review.head = "an-older-snapshot"
+	m = standOnAFinishedRound(m)
 
 	said, history := m.reviewIsHistory()
 	require.True(t, history)

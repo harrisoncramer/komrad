@@ -331,14 +331,3 @@ func roundAfter(params roundAfterParams) string {
 
 	return after
 }
-
-// applyReviewChapters holds the walk the arriving diff came with, and puts the reader back on the
-// whole change when their place in it is gone, so a list that came back short or empty cannot
-// strand them on a narrowed diff with no key out of it.
-func (m *model) applyReviewChapters(chapters []reviewChapter) {
-	m.review.chapters = chapters
-
-	if m.review.chapter >= len(chapters) {
-		m.widenReviewBase()
-	}
-}

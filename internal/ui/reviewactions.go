@@ -102,7 +102,7 @@ func reviewTable() []action {
 			keys: func(k config.Keybindings) []string { return k.Review.EditFile },
 			// An edit of the round's checkout becomes a suggestion the next comment carries, so
 			// it is a write, and pressing it while reading is the same way in as the compose key.
-			run: orRefuseWrite(orEnterWriting(func(m model) (tea.Model, tea.Cmd) { return m.editReviewFile() })),
+			run: orRefuseWrite(orEnterWriting(model.editReviewFile)),
 		},
 		{
 			id:   actionReviewResolve,
@@ -137,28 +137,21 @@ func reviewTable() []action {
 
 // orEnterWriting turns a write into one that opens the mode that can write first, for a reader who
 // pressed it while reading rather than switching modes and then pressing it.
-func orEnterWriting(fn func(model) (tea.Model, tea.Cmd)) func(model) (tea.Model, tea.Cmd) {
+func orEnterWriting(fn func(model) (tea.Model, tea.Cmd, bool)) func(model) (tea.Model, tea.Cmd) {
 	return func(m model) (tea.Model, tea.Cmd) {
-		if m.review.writing {
-			return fn(m)
+		next, cmd, took := fn(m)
+		if !took {
+			return next, cmd
 		}
 
-		next, cmd := fn(m)
-
-		opened, ok := next.(model)
+		writer, ok := next.(model)
 		if !ok {
 			return next, cmd
 		}
 
-		// Only a write that took opens the mode, and the editor being on screen or on its way is
-		// what says so.
-		if opened.info.kind != infoEditFile && opened.review.materialising == m.review.materialising {
-			return next, cmd
-		}
+		writer.review.writing = true
 
-		opened.review.writing = true
-
-		return opened, cmd
+		return writer, cmd
 	}
 }
 
@@ -296,7 +289,7 @@ func reviewLegend() []legendRow {
 		{
 			of:   []actionID{actionReviewSend},
 			desc: model.reviewSendDesc,
-			show: reachable,
+			show: offered,
 		},
 		{
 			of:   []actionID{actionReviewBack},
