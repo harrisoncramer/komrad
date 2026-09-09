@@ -3,10 +3,16 @@ package tmux
 import (
 	"errors"
 	"fmt"
+	"os"
+	"sync/atomic"
 )
 
-// pasteBuffer is the buffer a paste is loaded through.
-const pasteBuffer = "weave-paste"
+// pasteBufferPrefix opens the name of every buffer a paste is loaded through.
+const pasteBufferPrefix = "weave-paste"
+
+// pastes counts the pastes this process has sent, which a buffer name carries so that two
+// pastes at once cannot overwrite or drop each other's text.
+var pastes atomic.Int64
 
 // Paste inserts text into a pane as a bracketed paste.
 func (c *Client) Paste(target, text string) error {
@@ -32,7 +38,7 @@ func (c *Client) CutLine(target string) error {
 	return nil
 }
 
-// YankLine puts back what CutLine took.
+// YankLine puts back the newest line in the kill ring of the program reading the pane.
 func (c *Client) YankLine(target string) error {
 	if target == "" {
 		return errors.New("refusing to yank at an empty target")
@@ -55,20 +61,25 @@ func (c *Client) paste(target, text string, then ...string) error {
 		return errors.New("refusing to paste nothing")
 	}
 
-	if _, err := c.query(pasteArgs(target, text, then...)...); err != nil {
+	if _, err := c.query(pasteArgs(pasteBufferName(), target, text, then...)...); err != nil {
 		return fmt.Errorf("failed to paste into %q: %w", target, err)
 	}
 
 	return nil
 }
 
+// pasteBufferName is a buffer name no other paste on this server holds.
+func pasteBufferName() string {
+	return fmt.Sprintf("%s-%d-%d", pasteBufferPrefix, os.Getpid(), pastes.Add(1))
+}
+
 // pasteArgs is the one invocation a paste is sent as.
-func pasteArgs(target, text string, then ...string) []string {
+func pasteArgs(buffer, target, text string, then ...string) []string {
 	// -d drops the buffer once it has been pasted, and -p wraps it in the markers that say the
 	// text was pasted rather than typed.
 	args := []string{
-		"set-buffer", "-b", pasteBuffer, "--", text,
-		";", "paste-buffer", "-p", "-d", "-b", pasteBuffer, "-t", target,
+		"set-buffer", "-b", buffer, "--", text,
+		";", "paste-buffer", "-p", "-d", "-b", buffer, "-t", target,
 	}
 
 	return append(args, then...)

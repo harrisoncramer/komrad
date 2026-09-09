@@ -1,12 +1,19 @@
 package tmux
 
 import (
+	"os"
 	"path/filepath"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+// readlineShell is a shell whose line editing is the same emacs binding family both harnesses
+// implement, which is the closest a test gets to a real input box.
+const readlineShell = "/bin/bash"
 
 // TestPasteArrivesWrappedInTheMarkers covers the reason a paste is used at all, a program in a
 // vi keymap running typed characters as commands rather than taking them as text.
@@ -33,11 +40,11 @@ func TestPasteAndSubmitSendsTheNewlineBehindTheText(t *testing.T) {
 // TestPasteAndSubmitIsOneInvocation covers the reason the newline rides along with the paste,
 // a second invocation leaving a gap for whatever is typed at the pane meanwhile.
 func TestPasteAndSubmitIsOneInvocation(t *testing.T) {
-	args := pasteArgs("%9", "read your mail", ";", "send-keys", "-t", "%9", "Enter")
+	args := pasteArgs("buffer", "%9", "read your mail", ";", "send-keys", "-t", "%9", "Enter")
 
 	assert.Equal(t, []string{
-		"set-buffer", "-b", pasteBuffer, "--", "read your mail",
-		";", "paste-buffer", "-p", "-d", "-b", pasteBuffer, "-t", "%9",
+		"set-buffer", "-b", "buffer", "--", "read your mail",
+		";", "paste-buffer", "-p", "-d", "-b", "buffer", "-t", "%9",
 		";", "send-keys", "-t", "%9", "Enter",
 	}, args)
 }
@@ -65,7 +72,16 @@ func TestPasteLeavesNoBufferBehind(t *testing.T) {
 
 	out, err := client.query("list-buffers")
 	require.NoError(t, err)
-	assert.NotContains(t, out, pasteBuffer, "the buffer the paste was loaded through was dropped")
+	assert.NotContains(t, out, pasteBufferPrefix, "the buffer the paste was loaded through was dropped")
+}
+
+// TestPastesAtOnceHoldTheirOwnBuffers covers two pastes overlapping, a name they shared meaning
+// one text overwrites the other and the loser's paste finds its buffer already dropped.
+func TestPastesAtOnceHoldTheirOwnBuffers(t *testing.T) {
+	first := pasteArgs(pasteBufferName(), "%1", "for the first pane")
+	second := pasteArgs(pasteBufferName(), "%2", "for the second pane")
+
+	assert.NotEqual(t, first[2], second[2], "each paste names a buffer of its own")
 }
 
 // TestCutLineCarriesTheCursorFirst covers a kill taking only what is behind the cursor, which is
@@ -127,4 +143,57 @@ func rawPane(t *testing.T, client *Client, session string, bracketed bool) (pane
 	waitForLine(t, received, "started")
 
 	return pane, received
+}
+
+// TestCutAndYankRoundTripsThroughReadline covers what the byte tests cannot, a line editor
+// clearing its own box and handing the text back, which is the whole reason the pair exists.
+func TestCutAndYankRoundTripsThroughReadline(t *testing.T) {
+	if _, err := os.Stat(readlineShell); err != nil {
+		t.Skipf("%s is not installed", readlineShell)
+	}
+
+	client := testServer(t, "readline")
+
+	pane, err := client.query("new-window", "-d", "-P", "-F", "#{pane_id}", "-t", "readline:",
+		"--", readlineShell, "--norc", "--noprofile", "-i")
+	require.NoError(t, err)
+
+	waitForFrame(t, client, pane, "$")
+
+	require.NoError(t, client.SendText(pane, "echo hello world"))
+	waitForFrame(t, client, pane, "echo hello world")
+
+	require.NoError(t, client.CutLine(pane))
+	waitForFrameWithout(t, client, pane, "echo hello world")
+
+	require.NoError(t, client.YankLine(pane))
+	waitForFrame(t, client, pane, "echo hello world")
+}
+
+func waitForFrame(t *testing.T, client *Client, pane, want string) {
+	t.Helper()
+
+	for range 100 {
+		if strings.Contains(client.CapturePane(pane), want) {
+			return
+		}
+
+		time.Sleep(50 * time.Millisecond)
+	}
+
+	t.Fatalf("the pane never showed %q; it holds:\n%s", want, client.CapturePane(pane))
+}
+
+func waitForFrameWithout(t *testing.T, client *Client, pane, unwanted string) {
+	t.Helper()
+
+	for range 100 {
+		if !strings.Contains(client.CapturePane(pane), unwanted) {
+			return
+		}
+
+		time.Sleep(50 * time.Millisecond)
+	}
+
+	t.Fatalf("the pane still shows %q; it holds:\n%s", unwanted, client.CapturePane(pane))
 }
