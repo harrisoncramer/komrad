@@ -9,6 +9,8 @@ import (
 	"buf.build/go/bufplugin/check/checktest"
 )
 
+const testFile = "check/v1/check.proto"
+
 // TestSpec checks the spec buf loads, which refuses a rule missing an ID, a purpose or a type.
 func TestSpec(t *testing.T) {
 	t.Parallel()
@@ -30,16 +32,56 @@ func TestRules(t *testing.T) {
 			name:   "a read declares no side effects",
 			ruleID: bufcheck.ReadRuleID,
 			want: []checktest.ExpectedAnnotation{
-				annotation(bufcheck.ReadRuleID, readMessage("GetBare"), 30, 30, 44),
-				annotation(bufcheck.ReadRuleID, readMessage("GetWrong"), 35, 37, 3),
+				{
+					RuleID:  bufcheck.ReadRuleID,
+					Message: readMessage("GetBare"),
+					FileLocation: &checktest.ExpectedFileLocation{
+						FileName:    testFile,
+						StartLine:   30,
+						StartColumn: 2,
+						EndLine:     30,
+						EndColumn:   44,
+					},
+				},
+				{
+					RuleID:  bufcheck.ReadRuleID,
+					Message: readMessage("GetWrong"),
+					FileLocation: &checktest.ExpectedFileLocation{
+						FileName:    testFile,
+						StartLine:   35,
+						StartColumn: 2,
+						EndLine:     37,
+						EndColumn:   3,
+					},
+				},
 			},
 		},
 		{
 			name:   "a repeatable write declares idempotent",
 			ruleID: bufcheck.MutationRuleID,
 			want: []checktest.ExpectedAnnotation{
-				annotation(bufcheck.MutationRuleID, mutationMessage("SetBare"), 31, 31, 44),
-				annotation(bufcheck.MutationRuleID, mutationMessage("SetWrong"), 38, 40, 3),
+				{
+					RuleID:  bufcheck.MutationRuleID,
+					Message: mutationMessage("SetBare"),
+					FileLocation: &checktest.ExpectedFileLocation{
+						FileName:    testFile,
+						StartLine:   31,
+						StartColumn: 2,
+						EndLine:     31,
+						EndColumn:   44,
+					},
+				},
+				{
+					RuleID:  bufcheck.MutationRuleID,
+					Message: mutationMessage("SetWrong"),
+					FileLocation: &checktest.ExpectedFileLocation{
+						FileName:    testFile,
+						StartLine:   38,
+						StartColumn: 2,
+						EndLine:     40,
+						EndColumn:   3,
+					},
+				},
 			},
 		},
 	}
@@ -52,7 +94,7 @@ func TestRules(t *testing.T) {
 				Request: &checktest.RequestSpec{
 					Files: &checktest.ProtoFileSpec{
 						DirPaths:  []string{"testdata"},
-						FilePaths: []string{"check/v1/check.proto"},
+						FilePaths: []string{testFile},
 					},
 					RuleIDs: []string{tt.ruleID},
 				},
@@ -60,20 +102,6 @@ func TestRules(t *testing.T) {
 				ExpectedAnnotations: tt.want,
 			}.Run(t)
 		})
-	}
-}
-
-func annotation(ruleID string, message string, startLine int, endLine int, endColumn int) checktest.ExpectedAnnotation {
-	return checktest.ExpectedAnnotation{
-		RuleID:  ruleID,
-		Message: message,
-		FileLocation: &checktest.ExpectedFileLocation{
-			FileName:    "check/v1/check.proto",
-			StartLine:   startLine,
-			StartColumn: 2,
-			EndLine:     endLine,
-			EndColumn:   endColumn,
-		},
 	}
 }
 

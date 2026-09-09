@@ -1,9 +1,4 @@
 // Package bufcheck holds the lint rules buf enforces on weave's own protobufs.
-//
-// The MCP hints a tool ships with are derived from its method's idempotency_level rather than
-// declared alongside the tool annotation, so a method that leaves the option off reaches every
-// client as a call that mutates the panel and cannot be retried. These rules read the verb the
-// method is named for and require the level that verb implies.
 package bufcheck
 
 import (
@@ -16,35 +11,37 @@ import (
 	"google.golang.org/protobuf/types/descriptorpb"
 )
 
-// ReadRuleID is the rule requiring a method that only reads to say so.
-const ReadRuleID = "RPC_READ_NO_SIDE_EFFECTS"
+const (
+	// ReadRuleID is the rule requiring a method that only reads to say so.
+	ReadRuleID = "RPC_READ_NO_SIDE_EFFECTS"
+	// MutationRuleID is the rule requiring a method that can be called twice to say so.
+	MutationRuleID = "RPC_MUTATION_IDEMPOTENT"
+)
 
-// MutationRuleID is the rule requiring a method that can be called twice to say so.
-const MutationRuleID = "RPC_MUTATION_IDEMPOTENT"
+var (
+	readPrefixes     = []string{"Get", "List", "Search"}
+	mutationPrefixes = []string{"Archive", "Delete", "Edit", "Mark", "Restore", "Resume", "Set", "Update"}
 
-var readPrefixes = []string{"Get", "List", "Search"}
-
-var mutationPrefixes = []string{"Archive", "Delete", "Edit", "Mark", "Restore", "Resume", "Set", "Update"}
-
-// Spec is the plugin buf loads these rules from.
-var Spec = &check.Spec{
-	Rules: []*check.RuleSpec{
-		{
-			ID:      ReadRuleID,
-			Default: true,
-			Purpose: "Checks that a method named for a read declares option idempotency_level = NO_SIDE_EFFECTS.",
-			Type:    check.RuleTypeLint,
-			Handler: checkutil.NewMethodRuleHandler(checkRead, checkutil.WithoutImports()),
+	// Spec is the plugin buf loads these rules from.
+	Spec = &check.Spec{
+		Rules: []*check.RuleSpec{
+			{
+				ID:      ReadRuleID,
+				Default: true,
+				Purpose: "Checks that a method named for a read declares option idempotency_level = NO_SIDE_EFFECTS.",
+				Type:    check.RuleTypeLint,
+				Handler: checkutil.NewMethodRuleHandler(checkRead, checkutil.WithoutImports()),
+			},
+			{
+				ID:      MutationRuleID,
+				Default: true,
+				Purpose: "Checks that a method named for a repeatable write declares option idempotency_level = IDEMPOTENT.",
+				Type:    check.RuleTypeLint,
+				Handler: checkutil.NewMethodRuleHandler(checkMutation, checkutil.WithoutImports()),
+			},
 		},
-		{
-			ID:      MutationRuleID,
-			Default: true,
-			Purpose: "Checks that a method named for a repeatable write declares option idempotency_level = IDEMPOTENT.",
-			Type:    check.RuleTypeLint,
-			Handler: checkutil.NewMethodRuleHandler(checkMutation, checkutil.WithoutImports()),
-		},
-	},
-}
+	}
+)
 
 func checkRead(
 	_ context.Context,
