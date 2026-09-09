@@ -141,7 +141,11 @@ func (v *View) rowByOld(index lineIndex, thread *agentv1.ReviewThread) (int, pla
 		return 0, adrift, false
 	}
 
-	y, ok := index.byOld[oldKey{filePath: thread.GetFilePath(), oldLine: old}]
+	// Explainer: the index is keyed by the path the diff draws, and the base check above is what
+	// makes the drawn path the right one to ask under. A shared base numbers the same lines of
+	// the same blob whatever the agent has since called the file, so a rename costs the thread
+	// nothing here.
+	y, ok := index.byOld[oldKey{filePath: v.pathOf(thread), oldLine: old}]
 	if !ok {
 		return 0, adrift, false
 	}
@@ -149,15 +153,16 @@ func (v *View) rowByOld(index lineIndex, thread *agentv1.ReviewThread) (int, pla
 	return y, v.placementFor(y, quoteOf(thread)), true
 }
 
-// rowByQuote is the row drawing the text the thread quoted, which catches a line that moved
-// rather than changed, and which refuses two matches rather than guessing between them.
+// rowByQuote is the row drawing the text the thread quoted under the path the diff draws it as,
+// which catches a line that moved rather than changed, and which refuses two matches rather than
+// guessing between them.
 func (v *View) rowByQuote(index lineIndex, thread *agentv1.ReviewThread) (int, placement, bool) {
 	quote := quoteOf(thread)
 	if quote == "" {
 		return 0, adrift, false
 	}
 
-	found := index.quoted(thread.GetFilePath(), quote)
+	found := index.quoted(v.pathOf(thread), quote)
 	if len(found) != 1 {
 		return 0, adrift, false
 	}

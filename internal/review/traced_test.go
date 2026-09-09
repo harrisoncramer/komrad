@@ -173,3 +173,93 @@ func TestAFollowedRenameFoldsWithItsFile(t *testing.T) {
 
 	assert.Equal(t, collapsed, view.placed["t1"], "the thread folds away with the file it is in")
 }
+
+// renamedPatch is a file the agent moved, with a line both sides hold, one it deleted and one it
+// added, so every arm below tracing has something to reach for.
+func renamedPatch() *diff.Patch {
+	return patchWith(diff.File{
+		OldPath: "greet.go",
+		NewPath: "hello.go",
+		Hunks: []diff.Hunk{hunkOf(
+			diff.Line{
+				Kind:      diff.Context,
+				Text:      "package greet",
+				OldNumber: 1,
+				NewNumber: 1,
+			},
+			diff.Line{
+				Kind:      diff.Deletion,
+				Text:      "old",
+				OldNumber: 2,
+			},
+			diff.Line{
+				Kind:      diff.Addition,
+				Text:      "new",
+				NewNumber: 2,
+			},
+		)},
+	})
+}
+
+// TestTheOldSideArmFollowsARename covers a renamed file whose lines tracing could not move,
+// written against a line the agent has since rewritten so that nothing but the old side can
+// reach it: the old side of a shared base numbers the same lines whatever the file is called
+// now, so the arm has a row to give and the thread does not go to the foot.
+func TestTheOldSideArmFollowsARename(t *testing.T) {
+	view := NewView(renamedPatch(), false)
+
+	thread := threadAt("t1", "greet.go", 2, 0, " what line two used to say")
+
+	view.SetTraced(map[string]Traced{"t1": {FilePath: "hello.go", FileOnly: true}})
+	view.PinThreads([]*agentv1.ReviewThread{thread})
+
+	found, ok := view.GetThreadAt(3)
+	require.True(t, ok, "the old-side line is drawn under the new path")
+	assert.Equal(t, "t1", found.GetId())
+	assert.Equal(t, ghosted, view.placed["t1"], "the place is right and the code there is not")
+}
+
+// TestTheQuoteArmFollowsARename covers the same file for a thread with no old side, where the
+// text it quoted is still drawn and only the path it was stored under has moved.
+func TestTheQuoteArmFollowsARename(t *testing.T) {
+	view := NewView(renamedPatch(), false)
+
+	thread := threadAt("t1", "greet.go", 0, 9, "+new")
+
+	view.SetTraced(map[string]Traced{"t1": {FilePath: "hello.go", FileOnly: true}})
+	view.PinThreads([]*agentv1.ReviewThread{thread})
+
+	found, ok := view.GetThreadAt(4)
+	require.True(t, ok, "the quoted text is drawn under the new path")
+	assert.Equal(t, "t1", found.GetId())
+	assert.Equal(t, pinned, view.placed["t1"])
+}
+
+// TestARenameIsFollowedWithoutTracing covers tracing answering for nothing at all, which is what
+// a failed or timed out mapping leaves behind: the patch names the rename itself, so the arms
+// below tracing still read the file under the path it is drawn as.
+func TestARenameIsFollowedWithoutTracing(t *testing.T) {
+	view := NewView(renamedPatch(), false)
+
+	thread := threadAt("t1", "greet.go", 1, 1, " package greet")
+
+	view.PinThreads([]*agentv1.ReviewThread{thread})
+
+	found, ok := view.GetThreadAt(2)
+	require.True(t, ok, "the rename in the patch is enough to place it")
+	assert.Equal(t, "t1", found.GetId())
+}
+
+// TestARenamedThreadWithNoLineReadsAsChanged covers a thread in a renamed file that no arm can
+// place, which belongs under the code-has-changed heading rather than being called outside a
+// window nobody narrowed.
+func TestARenamedThreadWithNoLineReadsAsChanged(t *testing.T) {
+	view := NewView(renamedPatch(), false)
+
+	thread := threadAt("t1", "greet.go", 40, 40, " something the agent deleted")
+
+	view.PinThreads([]*agentv1.ReviewThread{thread})
+
+	require.Equal(t, adrift, view.placed["t1"])
+	assert.Equal(t, changedNotice, view.rows[view.GetLastRow()-1].text)
+}

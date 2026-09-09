@@ -20,15 +20,31 @@ func (v *View) SetTraced(traced map[string]Traced) {
 	v.traced = traced
 }
 
-// pathOf is the file a thread is about in the snapshot on screen, which a rename moves and which
-// tracing is the only thing that knows about.
+// pathOf is the file a thread is about in the snapshot on screen, which a rename moves.
 func (v *View) pathOf(thread *agentv1.ReviewThread) string {
 	found, ok := v.traced[thread.GetId()]
-	if !ok || found.FilePath == "" {
-		return thread.GetFilePath()
+	if ok && found.FilePath != "" {
+		return found.FilePath
 	}
 
-	return found.FilePath
+	return v.renamedTo(thread.GetFilePath())
+}
+
+// renamedTo is the path the diff draws a file under, which reads the rename out of the patch
+// itself so a thread is still placeable in the cases tracing answers for nothing.
+func (v *View) renamedTo(filePath string) string {
+	if _, drawn := v.findFile(filePath); drawn {
+		return filePath
+	}
+
+	for fileIndex := range v.patch.Files {
+		file := &v.patch.Files[fileIndex]
+		if file.OldPath == filePath && file.NewPath != "" {
+			return file.NewPath
+		}
+	}
+
+	return filePath
 }
 
 // tracedRowFor is the row git says a thread's lines became, and whether it said anything at all.
