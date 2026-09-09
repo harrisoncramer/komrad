@@ -7,8 +7,8 @@ import "weave/internal/errui"
 // A screen's own notice line is for a refusal that carries no error, such as a search with no
 // matches or a press that has to be made twice.
 
-// reportBrief stands in for report where the reason is long and already on screen, so the message
-// says what failed without repeating it.
+// reportBrief stands in for report where the reason is long and already on screen, so the
+// message says what failed without repeating it.
 func (m *model) reportBrief(summary, detail string, err error) {
 	m.pushMessage(message{
 		kind:    messageError,

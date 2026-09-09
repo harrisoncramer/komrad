@@ -220,7 +220,7 @@ func (m model) detailsNotices(held details, budget int) []string {
 }
 
 // noticeLines is one notice as it is drawn: the glyph the row carries, then the sentence wrapped
-// under it in the column the glyph left, cut off at a number of lines when it is given one.
+// under it in the column the glyph left, cut off at a number of lines when given one.
 func (m model) noticeLines(n notice, most int) []string {
 	const indent = "    "
 

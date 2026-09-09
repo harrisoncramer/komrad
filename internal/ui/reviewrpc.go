@@ -10,8 +10,8 @@ import (
 	"connectrpc.com/connect"
 )
 
-// listReviews is every review given on an agent, which one load reads once and hands to
-// everything that answers a question about it.
+// listReviews is every review given on an agent, read once by the load and handed to everything
+// that answers a question about it.
 func listReviews(
 	ctx context.Context,
 	agents agentv1connect.AgentServiceClient,

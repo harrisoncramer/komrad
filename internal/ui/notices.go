@@ -28,8 +28,8 @@ const (
 
 const inLocalReviewNotice = "in review, reviewer owed an answer"
 
-// localVerdictNotice says where the last released local review of an agent's newest round left it,
-// and says nothing for a verdict that draws nothing, one released without a conclusion included.
+// localVerdictNotice says where the last released local review of an agent's newest round left
+// it, and says nothing for a verdict that draws nothing.
 func localVerdictNotice(verdict string) string {
 	switch reviewstore.Verdict(verdict) {
 	case reviewstore.VerdictApproved:

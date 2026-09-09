@@ -31,8 +31,8 @@ func newTextContent(markdown string) layout.Content {
 	}
 }
 
-// newLogContent keys on the command rather than the file it reads, which is one log every agent
-// shares.
+// newLogContent keys on the command rather than the file it reads, since it is one log every
+// agent shares.
 func newLogContent(argv []string) layout.Content {
 	return layout.Content{
 		Key: "log:" + strings.Join(argv, "\x00"),

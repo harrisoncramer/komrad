@@ -78,7 +78,7 @@ func (m *model) placeArchiveCursor(hovered string) {
 }
 
 // landArchiveCursor puts the cursor on a row, naming the row rather than only its place in the
-// list so the document's own offset is kept for as long as the reader is still on it.
+// list so the document's own offset is kept.
 func (m *model) landArchiveCursor(rows []agentRow, idx int) {
 	m.archive.cursor = idx
 	m.placeColumn(screenArchive, rowKeyAt(rows, idx))
@@ -284,14 +284,13 @@ func (m model) archiveDetails() details {
 	}
 }
 
-// stageArchive keeps the info pane on the row the cursor is standing on, which is all there is
-// left to stage now the document beside the list is drawn from that row rather than paged.
+// stageArchive keeps the info pane on the row the cursor is standing on.
 func (m *model) stageArchive() {
 	m.stageInfo()
 }
 
-// archiveDoc is the markdown drawn beside the list: the notice for an empty archive, a workflow's
-// shared context, or the archived agent the cursor is on.
+// archiveDoc is the markdown drawn beside the list: the notice for an empty archive, a
+// workflow's shared context, or the archived agent the cursor is on.
 func (m model) archiveDoc() string {
 	r, ok := rowAt(m.archiveRows(), m.archive.cursor)
 	switch {

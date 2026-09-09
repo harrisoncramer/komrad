@@ -126,8 +126,8 @@ func ansiColor(color lipgloss.Color) *string {
 	return xptr.Ptr(string(color))
 }
 
-// blurredStageStyle is the markdown of a block beside the list while the keys are somewhere else,
-// which reads as one grey column rather than competing with the half that holds them.
+// blurredStageStyle is the markdown of a block beside the list while the keys are somewhere
+// else, drawn as one grey column rather than competing with the half that holds them.
 var blurredStageStyle = func() ansi.StyleConfig {
 	style := stageStyle
 	muted := ansiColor(colorMuted)
