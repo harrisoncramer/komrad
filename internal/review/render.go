@@ -128,15 +128,15 @@ func (v *View) fileSummary(fileIndex int) string {
 	stat := v.patch.Files[fileIndex].Stat()
 
 	summary := fmt.Sprintf("+%d −%d", stat.Added, stat.Removed)
-	if open := v.openThreadsIn(v.patch.Files[fileIndex].Path()); open > 0 {
+	if open := v.countOpenThreadsIn(v.patch.Files[fileIndex].Path()); open > 0 {
 		summary += fmt.Sprintf("  %s %d", threadMark, open)
 	}
 
 	return summary
 }
 
-// openThreadsIn is how many conversations in a file are still owed an answer.
-func (v *View) openThreadsIn(path string) int {
+// countOpenThreadsIn is how many conversations in a file are still owed an answer.
+func (v *View) countOpenThreadsIn(path string) int {
 	open := 0
 	for _, thread := range v.threads {
 		if thread.GetFilePath() == path && thread.GetResolvedAt() == "" {

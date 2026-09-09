@@ -286,7 +286,11 @@ func TestReviewOfADeadAgentIsReadOnly(t *testing.T) {
 			alive: false,
 			want:  "this agent is dormant",
 		},
-		{name: "archived", want: "this agent is archived"},
+		{
+			name:  "archived",
+			alive: false,
+			want:  "this agent is archived",
+		},
 	}
 
 	for _, tt := range tests {

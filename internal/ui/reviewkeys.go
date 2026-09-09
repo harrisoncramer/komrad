@@ -264,8 +264,8 @@ func (m model) scrollReview(direction int) (tea.Model, tea.Cmd) {
 	return m.moveReviewCursor(cursor)
 }
 
-// reviewPanStep is how far sideways a press goes, which is a third of the pane.
-func (m model) reviewPanStep() int {
+// getReviewPanStep is a third of the pane, or the smallest jump until the pane is measured.
+func (m model) getReviewPanStep() int {
 	split, ok := m.screenColumnSplit()
 	if !ok {
 		return reviewPanStep

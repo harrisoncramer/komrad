@@ -643,8 +643,14 @@ func TestAnUnreleasedCommentIsHiddenFromTheAgentWhoeverWroteIt(t *testing.T) {
 		name   string
 		author ReviewAuthor
 	}{
-		{name: "written by the person", author: humanAuthor()},
-		{name: "written by a reviewing agent", author: agentAuthor(reviewerAgentID)},
+		{
+			name:   "written by the person",
+			author: humanAuthor(),
+		},
+		{
+			name:   "written by a reviewing agent",
+			author: agentAuthor(reviewerAgentID),
+		},
 	}
 
 	for _, tt := range tests {
@@ -916,7 +922,11 @@ func TestAnsweringAReviewRingsTheReviewer(t *testing.T) {
 			author: agentAuthor(reviewedAgentID),
 			want:   true,
 		},
-		{name: "the person reviewing comments", author: humanAuthor()},
+		{
+			name:   "the person reviewing comments",
+			author: humanAuthor(),
+			want:   false,
+		},
 	}
 
 	for _, tt := range tests {

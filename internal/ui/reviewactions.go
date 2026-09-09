@@ -355,10 +355,10 @@ func (m model) stepReviewMatch(pressed string) (tea.Model, tea.Cmd) {
 
 func (m model) panReviewBy(pressed string) (tea.Model, tea.Cmd) {
 	if isBound(pressed, m.keys.Review.PanLeft) {
-		return m.panReview(-m.reviewPanStep())
+		return m.panReview(-m.getReviewPanStep())
 	}
 
-	return m.panReview(m.reviewPanStep())
+	return m.panReview(m.getReviewPanStep())
 }
 
 func (m model) openReviewFilter(string) (tea.Model, tea.Cmd) {

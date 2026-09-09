@@ -88,7 +88,10 @@ func TestReviewRefreshSeesDeliveryMoveWithoutAStamp(t *testing.T) {
 		name string
 		then agentv1.ReviewDeliveryState
 	}{
-		{name: "the agent claims the notice", then: agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_DELIVERED},
+		{
+			name: "the agent claims the notice",
+			then: agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_DELIVERED,
+		},
 	}
 
 	for _, tt := range tests {

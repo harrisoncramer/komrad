@@ -22,27 +22,6 @@ func keyForThread(thread *agentv1.ReviewThread) anchorKey {
 	}
 }
 
-// placement is how a thread reached the row it is drawn on, which is the difference between a
-// thread the diff still agrees with and one the agent has written out from under.
-type placement uint8
-
-const (
-	// pinned is a thread whose line still reads the way it did when it was written.
-	pinned placement = iota
-
-	// ghosted is a thread placed by its old-side line onto code that has changed since, so the
-	// place is right and the content is not.
-	ghosted
-
-	// adrift is a thread with nothing left to stand on, which keeps a row of its own at the
-	// foot of the diff.
-	adrift
-
-	// collapsed is a thread in a file that has been read and folded away, which has its line back
-	// the moment that file is opened again and so is neither adrift nor given a row at the foot.
-	collapsed
-)
-
 // lineIndex is the diff's lines looked at from the three directions a thread can be placed
 // from: the coordinates it was written against, its line on the old side, and its text.
 type lineIndex struct {
@@ -115,73 +94,6 @@ func (v *View) indexLines() lineIndex {
 	return index
 }
 
-// placeArm is one way of finding a thread's row, and the ladder of them is walked arm by arm
-// across every thread rather than thread by thread across every arm.
-type placeArm func(*View, lineIndex, *agentv1.ReviewThread) (int, placement, bool)
-
-// placeArms is the ladder in order of how much the row is worth: the coordinates the thread was
-// written against, then where git says those lines went, then its old-side line, then its text.
-func placeArms() []placeArm {
-	return []placeArm{
-		(*View).rowByKey,
-		(*View).rowByTrace,
-		(*View).rowByOld,
-		(*View).rowByQuote,
-	}
-}
-
-// rowByKey is the row whose coordinates are the ones the thread was written against.
-func (v *View) rowByKey(index lineIndex, thread *agentv1.ReviewThread) (int, placement, bool) {
-	y, ok := index.byKey[keyForThread(thread)]
-	if !ok {
-		return 0, adrift, false
-	}
-
-	return y, v.placementFor(y, quoteOf(thread)), true
-}
-
-// rowByTrace is the row git says the thread's lines became.
-func (v *View) rowByTrace(index lineIndex, thread *agentv1.ReviewThread) (int, placement, bool) {
-	y, ok := v.tracedRowFor(index, thread)
-	if !ok {
-		return 0, adrift, false
-	}
-
-	return y, v.placementFor(y, quoteOf(thread)), true
-}
-
-// rowByOld is the thread's line on the old side, which the base commit holds however much the
-// agent rewrites the new one, and which says nothing once the thread counted it from elsewhere.
-func (v *View) rowByOld(index lineIndex, thread *agentv1.ReviewThread) (int, placement, bool) {
-	old := int(thread.GetOldStart())
-	if old <= 0 || !v.doesShareBase(thread) {
-		return 0, adrift, false
-	}
-
-	y, ok := index.byOld[oldKey{filePath: thread.GetFilePath(), oldLine: old}]
-	if !ok {
-		return 0, adrift, false
-	}
-
-	return y, v.placementFor(y, quoteOf(thread)), true
-}
-
-// rowByQuote is the row drawing the text the thread quoted, which catches a line that moved
-// rather than changed, and which refuses two matches rather than guessing between them.
-func (v *View) rowByQuote(index lineIndex, thread *agentv1.ReviewThread) (int, placement, bool) {
-	quote := quoteOf(thread)
-	if quote == "" {
-		return 0, adrift, false
-	}
-
-	found := index.quoted(thread.GetFilePath(), quote)
-	if len(found) != 1 {
-		return 0, adrift, false
-	}
-
-	return found[0], pinned, true
-}
-
 // quoteOf is the first line a thread quoted, which is the one its row is judged against.
 func quoteOf(thread *agentv1.ReviewThread) string {
 	lines := thread.GetQuotedLines()
@@ -215,12 +127,6 @@ func doesCarryMarker(quote string) bool {
 	return false
 }
 
-// doesShareBase reports whether a thread's old-side numbers were counted from the same commit
-// this patch measures against.
-func (v *View) doesShareBase(thread *agentv1.ReviewThread) bool {
-	return thread.GetBaseSha() == v.patch.BaseSHA
-}
-
 // strippedQuote is a quoted line with its diff marker taken off the front.
 func strippedQuote(quote string) string {
 	if quote == "" {
@@ -245,16 +151,6 @@ func (index lineIndex) quoted(filePath, quote string) []int {
 	}
 
 	return index.byBareQuote[key]
-}
-
-// placementFor is whether the line a thread landed on still reads the way the thread was
-// written against it.
-func (v *View) placementFor(y int, quote string) placement {
-	if text, _ := v.quoteAt(y); doesQuoteMatch(text, quote) {
-		return pinned
-	}
-
-	return ghosted
 }
 
 // FormatLocation names a place in the diff, on whichever side the line actually lives.

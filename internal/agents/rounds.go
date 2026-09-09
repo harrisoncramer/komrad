@@ -110,7 +110,7 @@ func roundRef(agentID, snapshotSHA string) string {
 // OpenRound freezes what an agent has written now and records it as its next round, which is
 // what every review is given against.
 func (s *ReviewService) OpenRound(ctx context.Context, agentID string, author ReviewAuthor) (*reviewstore.Round, error) {
-	if err := s.mayRead(ctx, agentID, author); err != nil {
+	if err := s.requireMayRead(ctx, agentID, author); err != nil {
 		return nil, err
 	}
 
@@ -172,7 +172,7 @@ func (s *ReviewService) ListRounds(
 	agentID string,
 	author ReviewAuthor,
 ) ([]reviewstore.Round, error) {
-	if err := s.mayRead(ctx, agentID, author); err != nil {
+	if err := s.requireMayRead(ctx, agentID, author); err != nil {
 		return nil, err
 	}
 
@@ -198,7 +198,7 @@ func (s *ReviewService) ListReviews(
 	agentID string,
 	author ReviewAuthor,
 ) ([]reviewstore.Review, error) {
-	if err := s.mayRead(ctx, agentID, author); err != nil {
+	if err := s.requireMayRead(ctx, agentID, author); err != nil {
 		return nil, err
 	}
 
@@ -227,7 +227,7 @@ func (s *ReviewService) openReviewFor(
 	agentID string,
 	author ReviewAuthor,
 ) (*reviewstore.Review, error) {
-	if err := s.entitled(ctx, agentID, author); err != nil {
+	if err := s.requireEntitled(ctx, agentID, author); err != nil {
 		return nil, err
 	}
 
@@ -250,11 +250,11 @@ func (s *ReviewService) openReviewFor(
 		return nil, err
 	}
 
-	if err := s.notReviewedAlready(ctx, params, *round); err != nil {
+	if err := s.requireNotReviewedAlready(ctx, params, *round); err != nil {
 		return nil, err
 	}
 
-	if err := s.previousReviewAnswered(ctx, agentID, params, *round); err != nil {
+	if err := s.requirePreviousReviewAnswered(ctx, agentID, params, *round); err != nil {
 		return nil, err
 	}
 
@@ -266,16 +266,16 @@ func (s *ReviewService) openReviewFor(
 	})
 }
 
-// previousReviewAnswered holds an author to one review at a time, refusing a second batch until
-// the agent has written something in answer to the last one.
-func (s *ReviewService) previousReviewAnswered(
+// requirePreviousReviewAnswered holds an author to one review at a time, refusing a second batch
+// until the agent has written something in answer to the last one.
+func (s *ReviewService) requirePreviousReviewAnswered(
 	ctx context.Context,
 	agentID string,
 	params reviewstore.AuthorParams,
 	round reviewstore.Round,
 ) error {
-	// An agent reviewing is held to one review per round by notReviewedAlready, which says so in
-	// its own words, so this is the person's rule alone.
+	// An agent reviewing is held to one review per round elsewhere, in its own words, so this is
+	// the person's rule alone.
 	if params.AuthorKind != reviewstore.AuthorHuman {
 		return nil
 	}
@@ -306,10 +306,10 @@ func (s *ReviewService) previousReviewAnswered(
 	return fmt.Errorf("%w: it has written nothing since", ErrReviewNotAnswered)
 }
 
-// notReviewedAlready holds a reviewing agent to one review per round, which is what bounds a
+// requireNotReviewedAlready holds a reviewing agent to one review per round, which is what bounds a
 // reviewer and its parent ping-ponging: a new round appears only when the parent does work, so
 // the loop is limited by real progress rather than by a number somebody has to tune.
-func (s *ReviewService) notReviewedAlready(
+func (s *ReviewService) requireNotReviewedAlready(
 	ctx context.Context,
 	params reviewstore.AuthorParams,
 	round reviewstore.Round,
@@ -332,19 +332,27 @@ func (s *ReviewService) notReviewedAlready(
 	return nil
 }
 
-// entitled says whether an author may give a review on an agent, which the person always may and
-// an agent may only of the agent it is a child of, its own work excluded.
-func (s *ReviewService) entitled(ctx context.Context, agentID string, author ReviewAuthor) error {
+// requireEntitled refuses an author that may not give a review on an agent: the person may
+// always, an agent may only on the agent it is a child of, and never on its own work.
+func (s *ReviewService) requireEntitled(
+	ctx context.Context,
+	agentID string,
+	author ReviewAuthor,
+) error {
 	if !author.IsHuman() && author.AgentID != nil && *author.AgentID == agentID {
 		return ErrReviewOwnWork
 	}
 
-	return s.mayRead(ctx, agentID, author)
+	return s.requireMayRead(ctx, agentID, author)
 }
 
-// mayRead says whether an author may look at an agent's rounds and reviews at all, which the
-// agent under review may do of its own work.
-func (s *ReviewService) mayRead(ctx context.Context, agentID string, author ReviewAuthor) error {
+// requireMayRead refuses an author that may not look at an agent's rounds and reviews at all,
+// which the agent under review always may of its own work.
+func (s *ReviewService) requireMayRead(
+	ctx context.Context,
+	agentID string,
+	author ReviewAuthor,
+) error {
 	if author.IsHuman() {
 		return nil
 	}
@@ -398,7 +406,7 @@ func (s *ReviewService) ReleaseReview(
 	ctx context.Context,
 	params ReleaseReviewParams,
 ) (*ReleaseReviewResult, error) {
-	if err := s.entitled(ctx, params.AgentID, params.Author); err != nil {
+	if err := s.requireEntitled(ctx, params.AgentID, params.Author); err != nil {
 		return nil, err
 	}
 
@@ -441,7 +449,7 @@ func (s *ReviewService) ReleaseReview(
 		return nil, err
 	}
 
-	threads, err := s.reviewThreads(ctx, open.ID)
+	threads, err := s.listBatchThreads(ctx, open.ID)
 	if err != nil {
 		return nil, err
 	}
@@ -490,9 +498,9 @@ func reviewNotice(ordinal int32, verdict reviewstore.Verdict, comments int, path
 		ordinal, strings.ReplaceAll(string(verdict), "_", " "), comments, path)
 }
 
-// reviewThreads is what one batch actually says, gathered by the messages written under it and
+// listBatchThreads is what one batch actually says, gathered by the messages written under it and
 // not by the threads opened under it.
-func (s *ReviewService) reviewThreads(ctx context.Context, reviewID string) ([]ReviewThreadWithMessages, error) {
+func (s *ReviewService) listBatchThreads(ctx context.Context, reviewID string) ([]ReviewThreadWithMessages, error) {
 	review, err := s.reviews.GetReview(ctx, reviewID)
 	if err != nil {
 		return nil, err
@@ -543,7 +551,7 @@ func (s *ReviewService) writeReview(
 	body := renderReview(renderReviewParams{
 		Agent:   agent,
 		Round:   round,
-		Author:  s.authorName(ctx, review),
+		Author:  s.getAuthorName(ctx, review),
 		Verdict: params.Verdict,
 		Said:    params.Body,
 		Threads: threads,
@@ -562,10 +570,10 @@ func (s *ReviewService) writeReview(
 	return full, nil
 }
 
-// authorName is what to call whoever gave a review in the file it is written to, which is empty
+// getAuthorName is what to call whoever gave a review in the file it is written to, which is empty
 // for the person and the agent's name for an agent, falling back to its id when that agent has
 // since been deleted.
-func (s *ReviewService) authorName(ctx context.Context, review reviewstore.Review) string {
+func (s *ReviewService) getAuthorName(ctx context.Context, review reviewstore.Review) string {
 	if review.AuthorAgentID == nil {
 		return ""
 	}

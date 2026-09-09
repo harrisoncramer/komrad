@@ -33,51 +33,6 @@ var (
 	reviewDeliveredStyle = lipgloss.NewStyle().Foreground(colorSuccess)
 )
 
-// reviewDeliveryOrder is the three states a comment can stand in, ordered by how much they are
-// owed: what never went, what is waiting, what landed.
-var reviewDeliveryOrder = []agentv1.ReviewDeliveryState{
-	agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_UNSENT,
-	agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_SENT,
-	agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_DELIVERED,
-}
-
-// reviewDelivery is how one delivery state is drawn: what it is called, the glyph a badge opens
-// with, and the colour both of those carry.
-type reviewDelivery struct {
-	word  string
-	mark  string
-	style lipgloss.Style
-}
-
-// reviewDeliveryOf is how a state is drawn wherever it appears, so the count at the top of the
-// sidebar, the badge under a comment and the gutter's own mark read as one thing.
-func reviewDeliveryOf(state agentv1.ReviewDeliveryState) reviewDelivery {
-	switch state {
-	case agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_UNSENT:
-		return reviewDelivery{
-			word:  "unsent",
-			mark:  "◇",
-			style: reviewUnsentStyle,
-		}
-	case agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_SENT:
-		return reviewDelivery{
-			word:  "waiting",
-			mark:  "→",
-			style: reviewSentStyle,
-		}
-	case agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_DELIVERED:
-		return reviewDelivery{
-			word:  "delivered",
-			mark:  "✓",
-			style: reviewDeliveredStyle,
-		}
-	case agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_UNSPECIFIED:
-		return reviewDelivery{style: dimStyle}
-	}
-
-	return reviewDelivery{style: dimStyle}
-}
-
 // reviewView draws the diff and, beside it, the thread the cursor is standing on, as one frame.
 func (m model) reviewView() string {
 	split, ok := m.screenColumnSplit()
@@ -95,54 +50,6 @@ func (m model) reviewView() string {
 	diff := m.reviewBandView(split.column) + m.reviewDiffView(split)
 
 	return m.joinColumns(split, sidebar, diff)
-}
-
-// reviewBandView is what stands over the diff: what is being read, how big it is, what the reader
-// has sent, and the pattern they are searching it for.
-func (m model) reviewBandView(width int) string {
-	// Explainer: the band is built as rows rather than one string so a short pane can drop the
-	// ones it has no room for. What the reader is doing and what they are looking at are worth
-	// more than the counts, so the counts go first and the mode line never goes at all.
-	kept := m.reviewBandRows()
-
-	out := strings.Join(kept, "") + "\n\n" + m.review.filter.view() + m.reviewMatchCount()
-
-	if m.review.view != nil && m.review.view.Len() > 0 {
-		out += m.reviewDeadView(width)
-	}
-
-	return out
-}
-
-// reviewBandFloor is how many rows the band leaves the rest of the frame: the blank row, the
-// search prompt, and enough of the diff to be worth drawing.
-const reviewBandFloor = 5
-
-// reviewBandRows is the band's rows in the order they give way, least valuable last.
-func (m model) reviewBandRows() []string {
-	rows := []string{
-		m.titleStyle().Render("Review · "+m.review.agentName) + "\n",
-		m.reviewModeView(),
-		m.reviewScopeView(),
-		m.reviewStatView(),
-		m.reviewStaleView(),
-		m.reviewDeliveryCountView(),
-	}
-
-	// The title and the mode line are what the screen is, so they are never dropped however
-	// short the pane.
-	const pinned = 2
-
-	room := len(rows)
-	if m.height > 0 {
-		room = max(pinned, m.height-reviewBandFloor)
-	}
-
-	if room >= len(rows) {
-		return rows
-	}
-
-	return rows[:room]
 }
 
 // reviewSidebarView is the panel's own column: where the cursor is standing and the thread
@@ -206,39 +113,6 @@ func (m model) reviewHeadView() string {
 	}
 
 	return m.reviewAnchorView()
-}
-
-// reviewDeadView says there is nobody on the other end.
-func (m model) reviewDeadView(width int) string {
-	reason, dead := m.reviewIsReadOnly()
-	if !dead {
-		return ""
-	}
-
-	return reviewDeadStyle.Render(reviewFill(" "+reason+" ", width)) + "\n"
-}
-
-// reviewStaleView says the agent has written since the photograph on screen was taken, and holds
-// its row when it has not, so the diff under it does not jump by one every time the agent saves.
-func (m model) reviewStaleView() string {
-	if !m.review.moved || m.review.pinned {
-		return "\n"
-	}
-
-	said := "the agent has written since · " + keyLabel(m.keys.Review.Reload) + " to catch up"
-
-	return reviewMovedStyle.Render(said) + "\n"
-}
-
-// reviewFill pads a line out to the band's width, so a background colour reads as a bar rather
-// than as a highlighted phrase.
-func reviewFill(line string, pane int) string {
-	width := max(20, pane-2)
-	if run := lipgloss.Width(line); run < width {
-		line += strings.Repeat(" ", width-run)
-	}
-
-	return line
 }
 
 // reviewNote is a line of prose under the conversation, wrapped into the sidebar's own column.
@@ -360,88 +234,6 @@ func pickVerdictStyle(verdict agentv1.ReviewVerdict) lipgloss.Style {
 	return reviewUnsentStyle
 }
 
-// reviewStatView is how big the change is, with the counts coloured the way the lines
-// themselves are so which number is which can be read at a glance.
-func (m model) reviewStatView() string {
-	if m.review.view == nil {
-		return ""
-	}
-
-	stat := m.review.view.Stat()
-	if stat.Files == 0 {
-		return ""
-	}
-
-	out := dimStyle.Render(counted(stat.Files, "file")+", ") +
-		reviewAddedStyle.Render(fmt.Sprintf("+%d", stat.Added)) + " " +
-		reviewRemovedStyle.Render(fmt.Sprintf("-%d", stat.Removed))
-
-	if read, total := m.review.view.CountViewedFiles(); read > 0 {
-		out += dimStyle.Render(fmt.Sprintf("  %d/%d viewed", read, total))
-	}
-
-	return out + "\n"
-}
-
-// reviewScopeView says what the diff on screen is measured between, in the reader's own terms
-// rather than as rounds, and draws the other thing the base key could show beside it so the key
-// has a destination visible before it is pressed.
-func (m model) reviewScopeView() string {
-	if m.review.view == nil {
-		return ""
-	}
-
-	from := "all changes"
-	if m.review.baseLabel != "" {
-		from = m.review.baseLabel
-	}
-
-	out := reviewScopeOnStyle.Render(from)
-
-	if m.doesReviewFitBaseLegend() {
-		out += dimStyle.Render(" · " + m.reviewStepSaid())
-	}
-
-	return out + "\n"
-}
-
-// reviewStepSaid is the way through the rounds, naming only the direction that has somewhere to
-// go when the reader is standing at one end of the walk.
-func (m model) reviewStepSaid() string {
-	back := keyLabel(m.keys.Review.Base)
-	forward := keyLabel(m.keys.Review.BaseForward)
-
-	switch {
-	case m.review.chapter < 0:
-		return back + " for the latest round"
-	case m.review.chapter == 0:
-		return forward + " for a later round"
-	default:
-		return back + " back · " + forward + " forward"
-	}
-}
-
-// reviewMatchCount is where in the search the cursor is standing, drawn under the pattern the
-// panel's own filter is already showing.
-func (m model) reviewMatchCount() string {
-	if m.review.view == nil || !m.review.filter.isStanding() {
-		return ""
-	}
-
-	where := counted(m.review.view.MatchCount(), "match")
-	if at, ok := m.review.view.MatchNumber(m.review.cursor); ok {
-		where = fmt.Sprintf("%d of %d", at, m.review.view.MatchCount())
-	}
-
-	// A match inside a file folded away is on no row, so stepping through the matches never
-	// reaches it, and it is counted apart rather than left to look like nothing was found.
-	if hidden := m.review.view.HiddenMatches(); hidden > 0 {
-		where += fmt.Sprintf(" · %d in viewed files", hidden)
-	}
-
-	return dimStyle.Render("  "+where) + "\n\n"
-}
-
 func (m model) reviewThreadView() string {
 	thread, ok := m.reviewThreadAtCursor()
 	if !ok {
@@ -503,132 +295,6 @@ func (m model) reviewMessageView(message *agentv1.ReviewMessage) string {
 	return head + "\n" + m.reviewWrap(message.GetBody()) + "\n" + reviewDeliveryBadge(message) + "\n"
 }
 
-// reviewDeliveryBadge is how far one comment has got towards being read, drawn under the comment
-// itself and not at all for what the agent wrote.
-func reviewDeliveryBadge(message *agentv1.ReviewMessage) string {
-	drawn := reviewDeliveryOf(message.GetDelivery())
-	if drawn.word == "" {
-		return ""
-	}
-
-	badge := drawn.mark + " " + drawn.word
-	if when := reviewTimeOf(reviewDeliveryStamp(message)); when != "" {
-		badge += " " + when
-	}
-
-	return drawn.style.Render("  "+badge) + "\n"
-}
-
-// reviewDeliveryStamp is the moment a badge names, which is the last thing that happened to the
-// comment rather than when it was written.
-func reviewDeliveryStamp(message *agentv1.ReviewMessage) string {
-	if delivered := message.GetDeliveredAt(); delivered != "" {
-		return delivered
-	}
-
-	return message.GetSentAt()
-}
-
-// reviewModeView says whether the reader is looking or writing, since a review is something you
-// start rather than something that starts itself, and nothing on the screen said which you were
-// doing.
-func (m model) reviewModeView() string {
-	if _, dead := m.reviewIsReadOnly(); dead {
-		return m.reviewBandRow(reviewHeldStyle, "reading", "this agent is gone, nothing can be sent")
-	}
-
-	if said, history := m.reviewIsHistory(); history {
-		return m.reviewBandRow(reviewHistoryStyle, "reading history",
-			said+" is finished · "+keyLabel(m.keys.Review.BaseForward)+" for the current work")
-	}
-
-	if m.review.writing {
-		return m.reviewBandRow(reviewWritingStyle, "writing a review", m.reviewWritingSaid())
-	}
-
-	if m.doesReviewHoldUnsent() {
-		return m.reviewBandRow(reviewHeldStyle, "reading",
-			counted(m.reviewUnsentCount(), "comment")+" not sent · "+
-				keyLabel(m.keys.Review.Compose)+" to carry on")
-	}
-
-	if m.review.awaiting {
-		return m.reviewBandRow(reviewHeldStyle, "reading", "your review is with the agent")
-	}
-
-	return m.reviewBandRow(reviewReadingStyle, "reading",
-		"press "+keyLabel(m.keys.Review.Compose)+" to comment")
-}
-
-// reviewBandRow draws one row of the band as a coloured state and a hint after it, cutting the
-// hint rather than letting the row run past the pane it was given.
-func (m model) reviewBandRow(style lipgloss.Style, state, hint string) string {
-	room := m.lineWidth() - lipgloss.Width(state) - len(" · ")
-	if room <= 0 {
-		return style.Render(clip(state, m.lineWidth())) + "\n"
-	}
-
-	return style.Render(state) + dimStyle.Render(" · "+clip(hint, room)) + "\n"
-}
-
-// reviewWritingSaid is what the writing mode offers, which is the way out until something has
-// been written and the way to send it once something has.
-func (m model) reviewWritingSaid() string {
-	if !m.doesReviewHoldUnsent() {
-		return "nothing written yet · " + keyLabel(m.keys.Review.Back) + " to go back to reading"
-	}
-
-	if m.review.pinned {
-		return "the code as it was when you started · " + keyLabel(m.keys.Form.Submit) + " sends it"
-	}
-
-	return keyLabel(m.keys.Form.Submit) + " sends it to the agent"
-}
-
-// reviewUnsentCount is how many comments the reader is holding.
-func (m model) reviewUnsentCount() int {
-	return m.review.activity.delivery[deliverySlot(agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_UNSENT)]
-}
-
-// reviewDeliveryCountView is how the person's own comments stand, counted rather than summarised.
-func (m model) reviewDeliveryCountView() string {
-	parts := make([]string, 0, len(reviewDeliveryOrder))
-	for _, state := range reviewDeliveryOrder {
-		count := m.review.activity.delivery[deliverySlot(state)]
-		if count == 0 {
-			continue
-		}
-
-		drawn := reviewDeliveryOf(state)
-		parts = append(parts, drawn.style.Render(fmt.Sprintf("%d %s", count, drawn.word)))
-	}
-
-	return strings.Join(parts, dimStyle.Render(" · "))
-}
-
-// reviewIsReadOnly is whether there is nobody there to receive a comment, and what to say about
-// it.
-func (m model) reviewIsReadOnly() (string, bool) {
-	for _, item := range m.listing.agents {
-		if item.agent.ID != m.review.agentID {
-			continue
-		}
-
-		if item.alive {
-			return "", false
-		}
-
-		return "this agent is dormant · resume it before writing to it", true
-	}
-
-	return "this agent is archived · restore it before writing to it", true
-}
-
-// doesReviewHoldUnsent says whether the reader has comments nobody has seen.
-func (m model) doesReviewHoldUnsent() bool {
-	return m.review.activity.delivery[deliverySlot(agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_UNSENT)] > 0
-}
-
 // reviewSendDesc says what the send key opens, since a verdict with nothing written is an
 // approval rather than a delivery.
 func (m model) reviewSendDesc() string {
@@ -637,30 +303,6 @@ func (m model) reviewSendDesc() string {
 	}
 
 	return "give a verdict"
-}
-
-// reviewIsHistory says whether the round on screen ends before the agent's current work, and
-// names it for the refusal to quote.
-func (m model) reviewIsHistory() (string, bool) {
-	// Explainer: what decides this is the snapshot the diff was drawn to, not what the chapter at
-	// the reader's index happens to say now. The list is recut on every load, so an index and a
-	// list can disagree, and the refusal has to follow the code on screen rather than the label.
-	if m.review.head == "" || m.review.head == m.review.round.GetSnapshotSha() {
-		return "", false
-	}
-
-	at := m.review.chapter
-	if at < 0 || at >= len(m.review.chapters) {
-		return "an earlier round", true
-	}
-
-	return fmt.Sprintf("round %d of %d", at+1, len(m.review.chapters)), true
-}
-
-// doesReviewWalk says whether the round keys have anywhere to go, which reading has and writing
-// does not, since a review is written against the whole change.
-func (m model) doesReviewWalk() bool {
-	return !m.review.writing && len(m.review.chapters) > 0
 }
 
 // reviewDetails is the record drawn under the review sidebar, which is the agent whose diff is
