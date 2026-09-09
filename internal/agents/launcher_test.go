@@ -67,11 +67,11 @@ func TestLaunchStartsTheHarnessCommand(t *testing.T) {
 
 			run := tmux.lastRespawn("pane")
 			assert.Equal(t, "/work", run.dir)
-			require.Len(t, run.argv, 4)
-			assert.Equal(t, []string{"/bin/zsh", "-i", "-c"}, run.argv[:3])
+			require.Len(t, run.argv, 5)
+			assert.Equal(t, []string{"/bin/zsh", "-l", "-i", "-c"}, run.argv[:4], "the agent's shell is a login shell, as it was when tmux started it")
 
-			script := run.argv[3]
-			rest, ok := strings.CutSuffix(script, "; exec '/bin/zsh' -i")
+			script := run.argv[4]
+			rest, ok := strings.CutSuffix(script, "; exec '/bin/zsh' -l -i")
 			require.True(t, ok, "the pane is left holding a shell once the agent exits")
 
 			path, ok := strings.CutPrefix(rest, ". ")

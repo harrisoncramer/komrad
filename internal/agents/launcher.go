@@ -178,8 +178,8 @@ func (l *Launcher) launch(h harness.Harness, params launchParams) error {
 		shell = fallbackShell
 	}
 
-	script := ". " + harness.QuoteArg(path) + "; exec " + harness.QuoteArg(shell) + " -i"
-	if err := l.tmux.RespawnPane(params.Pane, params.Dir, shell, "-i", "-c", script); err != nil {
+	script := ". " + harness.QuoteArg(path) + "; exec " + harness.QuoteArg(shell) + " -l -i"
+	if err := l.tmux.RespawnPane(params.Pane, params.Dir, shell, "-l", "-i", "-c", script); err != nil {
 		return fmt.Errorf("failed to start the agent in its pane: %w", err)
 	}
 
