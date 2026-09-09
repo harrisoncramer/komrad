@@ -12,6 +12,7 @@ import (
 
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -255,5 +256,55 @@ func TestNoScreenBindsOneKeyTwice(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+// TestNoLegendIsWiderThanThePane sweeps every pane width a window or a configured sidebar could
+// leave, because bubbles adds an item that does not fit whenever the ellipsis it would put there
+// does not fit either, and the widths that lands on are a band per item rather than one number.
+func TestNoLegendIsWiderThanThePane(t *testing.T) {
+	legends := map[string]func(model) keyMap{
+		"the agents tree": model.agentHelp,
+		"the schedules":   model.scheduleHelp,
+		"the archive":     model.archiveHelp,
+		"the search":      model.searchHelp,
+		"the mailbox":     model.mailHelp,
+		"the review":      model.reviewHelp,
+		"the details":     model.detailsHelp,
+		"the messages":    model.messagesHelp,
+	}
+
+	for name, legend := range legends {
+		t.Run(name, func(t *testing.T) {
+			for width := 5; width <= 90; width++ {
+				for _, expanded := range []bool{false, true} {
+					m := helpModel()
+					m.helpExpanded = expanded
+					m = m.at(width)
+
+					drawn := ansi.Strip(m.renderHelp(legend(m)))
+					for i, row := range strings.Split(drawn, "\n") {
+						assert.LessOrEqual(t, lipgloss.Width(row), width,
+							"row %d of the legend is wider than a %d column pane: %q", i, width, row)
+					}
+				}
+			}
+		})
+	}
+}
+
+// TestTheLegendRowFitsTheWholePanel covers the consequence a row wider than the pane has: it wraps,
+// the frame comes out a row taller than the pane, and the bottom row scrolls away. The width is
+// what is asserted because the height cannot be: the wrap happens in the terminal, and fitFrame
+// counts newlines, so the frame measures its pane's height either way.
+func TestTheLegendRowFitsTheWholePanel(t *testing.T) {
+	m := detailsModel(&recordingTmux{})
+	m.height, m.width = 30, 40
+	m.report("Could not copy to your clipboard", errNoWorkflow)
+	focused := m.toggleMessagesFocus()
+
+	for i, row := range strings.Split(ansi.Strip(focused.View()), "\n") {
+		assert.LessOrEqual(t, lipgloss.Width(row), focused.width,
+			"row %d of the panel is wider than its %d column pane: %q", i, focused.width, row)
 	}
 }
