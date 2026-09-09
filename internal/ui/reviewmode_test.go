@@ -121,7 +121,9 @@ func TestReloadWithNoChaptersLetsTheReaderOut(t *testing.T) {
 	assert.Negative(t, m.review.chapter, "the index does not outlive the list")
 	assert.Empty(t, m.review.base, "and the diff is back to the whole change")
 	assert.Empty(t, m.review.head)
-	assert.Same(t, narrowed, m.review.view, "the diff measured for the old round is not drawn")
+	assert.Nil(t, m.review.view, "the diff measured for the old round is not drawn")
+	assert.NotSame(t, narrowed, m.review.view)
+	assert.True(t, m.review.loading, "and the screen says so until the whole change lands")
 
 	require.NotNil(t, again, "the whole change is asked for rather than assumed")
 
@@ -432,12 +434,50 @@ func TestTheForwardRoundKeyIsOfferedOnlyWhereItAnswers(t *testing.T) {
 	t.Fatal("the forward round key has no legend row")
 }
 
-// reviewLegendReaches says whether the agent on screen is one a comment could reach, which is the
-// other half of what the write keys are offered on.
-func reviewLegendReaches(m model) bool {
-	_, dead := m.reviewIsReadOnly()
+// reviewAnchorInTheDiff is a line of the diff a comment can hang on.
+func reviewAnchorInTheDiff(t *testing.T, m model) review.Anchor {
+	t.Helper()
 
-	return !dead
+	for row := range m.review.view.Len() {
+		if anchor, ok := m.review.view.GetAnchor(row); ok {
+			return *anchor
+		}
+	}
+
+	t.Fatal("the diff draws no line a comment can hang on")
+
+	return review.Anchor{}
+}
+
+// TestACommentRecordsTheDiffItWasWrittenOn covers the two SHAs a thread is filed with: the
+// numbers come off the patch on screen, so they are read from it rather than from what the last
+// load happened to ask for.
+func TestACommentRecordsTheDiffItWasWrittenOn(t *testing.T) {
+	dir := reviewRepo(t)
+	agents := &fakeReviewAgents{}
+	m, _ := reviewModel(t, agents, dir)
+	m = openReview(t, m)
+
+	drawnBase := m.review.view.GetBaseSHA()
+	drawnSnapshot := m.review.view.GetSnapshotSHA()
+	require.NotEmpty(t, drawnBase)
+	require.NotEmpty(t, drawnSnapshot)
+
+	m.review.base = "some-other-commit"
+	m.review.head = ""
+
+	anchor := reviewAnchorInTheDiff(t, m)
+
+	cmd := m.createReviewThreadCmd(anchor, "this should say hello")
+	require.NotNil(t, cmd)
+
+	wrote, ok := cmd().(reviewWroteMsg)
+	require.True(t, ok)
+	require.NoError(t, wrote.err)
+
+	require.NotNil(t, agents.created)
+	assert.Equal(t, drawnBase, agents.created.GetBaseSha())
+	assert.Equal(t, drawnSnapshot, agents.created.GetSnapshotSha())
 }
 
 // TestTheSendKeyIsOfferedOnlyWhereItAnswers covers the legend and the key disagreeing: the key
@@ -446,18 +486,31 @@ func TestTheSendKeyIsOfferedOnlyWhereItAnswers(t *testing.T) {
 	dir := reviewRepo(t)
 	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
 	m = openReview(t, m)
-	m.review.awaiting = true
+
+	row := reviewLegendRowFor(t, actionReviewSend)
+
+	assert.True(t, row.show(m), "reading the current work is where a verdict answers")
+
+	out := m
+	out.review.awaiting = true
+	assert.False(t, row.show(out), "a review already out is answered rather than added to")
+
+	assert.False(t, row.show(standOnAFinishedRound(m)), "and a finished round holds nothing to send")
+}
+
+// reviewLegendRowFor is the legend row one key is drawn on.
+func reviewLegendRowFor(t *testing.T, id actionID) legendRow {
+	t.Helper()
 
 	for _, row := range reviewLegend() {
-		if len(row.of) == 1 && row.of[0] == actionReviewSend {
-			require.True(t, reviewLegendReaches(m), "the agent is there to be written to")
-			assert.False(t, row.show(m), "a review already out is answered rather than added to")
-
-			return
+		if len(row.of) == 1 && row.of[0] == id {
+			return row
 		}
 	}
 
-	t.Fatal("the send key has no legend row")
+	t.Fatal("that key has no legend row")
+
+	return legendRow{}
 }
 
 // TestTheBackKeySaysWhichThingItLeaves covers the key having two jobs since the mode split: in

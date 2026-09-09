@@ -156,11 +156,11 @@ func (m model) createReviewThreadCmd(anchor review.Anchor, body string) tea.Cmd 
 
 	// The old side of these numbers came from whatever the diff was measured from, so the thread
 	// records that rather than leaving a later reader to assume the round's own base.
-	base := m.review.base
+	base := m.review.view.GetBaseSHA()
 
 	// The new side names the snapshot it was read from, which the service compares against the
 	// round it would file the thread under rather than trusting the numbers.
-	snapshot := m.review.head
+	snapshot := m.review.view.GetSnapshotSHA()
 	if snapshot == "" {
 		snapshot = m.review.round.GetSnapshotSha()
 	}

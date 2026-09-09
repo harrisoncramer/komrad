@@ -296,6 +296,8 @@ func (m *model) applyReviewLoaded(msg reviewLoadedMsg) tea.Cmd {
 	if m.review.chapter >= len(msg.chapters) {
 		m.review.chapters = msg.chapters
 		m.widenReviewBase()
+		m.review.view = nil
+		m.review.loading = true
 
 		return m.loadReviewCmd(loadReviewCmdParams{
 			AgentID: m.review.agentID,
