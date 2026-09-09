@@ -52,13 +52,13 @@ func (m model) reviewDiffView(split columnSplit) string {
 		// This is the larger half of the window, so it says what is being waited on rather than
 		// standing empty under a band, and stands rather than collapsing so the frame does not
 		// shift under the reader when the patch lands.
-		return docWindow{rows: docRows(m.reviewDiffNotice(), split.column)}.view(split.rows)
+		return docWindow{rows: docStyledRows(m.reviewDiffNotice(), split.column, m.reviewColumnStyle())}.view(split.rows)
 	}
 
 	start := max(min(m.review.top, view.Len()-split.rows), 0)
 
 	held := review.LiveCursor
-	if m.isDetailsFocused() || m.isReviewThreadFocused() {
+	if !m.isReviewDiffFocused() {
 		held = review.DimCursor
 	}
 

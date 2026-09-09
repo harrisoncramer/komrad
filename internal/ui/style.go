@@ -63,6 +63,10 @@ func (m model) rowCursorStyle() lipgloss.Style {
 	return cursorStyleFor(m.isListFocused())
 }
 
+func titleOf(focused bool, text string) string {
+	return titleStyleFor(focused).Render(text)
+}
+
 func titleStyleFor(focused bool) lipgloss.Style {
 	if focused {
 		return headerStyle

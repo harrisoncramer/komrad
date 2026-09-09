@@ -212,8 +212,7 @@ func TestSetMarkEscapesPastABanner(t *testing.T) {
 	require.True(t, ok)
 	require.Equal(t, markPendingNone, after.marks.pending, "the mark is what escape backed out of")
 
-	moved, cmd := after.Update(keyMsg(after.keys.Nav.Down[0]))
-	assert.Nil(t, cmd)
+	moved, _ := after.Update(keyMsg(after.keys.Nav.Down[0]))
 	assert.Empty(t, agents.id, "the next key is not read as a letter")
 
 	_, ok = moved.(model)

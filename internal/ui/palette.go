@@ -122,3 +122,31 @@ func kindStyleConfig(kind messageKind) ansi.StyleConfig {
 func ansiColor(color lipgloss.Color) *string {
 	return xptr.Ptr(string(color))
 }
+
+// blurredStageStyle is the markdown of a block beside the list while the keys are somewhere else,
+// which reads as one grey column rather than competing with the half that holds them.
+var blurredStageStyle = func() ansi.StyleConfig {
+	style := stageStyle
+	muted := ansiColor(colorMuted)
+
+	style.Heading.Color = muted
+	style.H1.Color = muted
+	style.H2.Color = muted
+	style.H3.Color = muted
+	style.H4.Color = muted
+	style.H5.Color = muted
+	style.H6.Color = muted
+	style.Item.Color = muted
+	style.Enumeration.Color = muted
+	style.Task.Color = muted
+	style.Emph.Color = muted
+	style.Strong.Color = muted
+	style.Link.Color = muted
+	style.LinkText.Color = muted
+	style.Image.Color = muted
+	style.ImageText.Color = muted
+	style.Code.Color = muted
+	style.DefinitionTerm.Color = muted
+
+	return style
+}()

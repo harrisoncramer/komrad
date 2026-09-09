@@ -206,7 +206,7 @@ func (m model) mailView() string {
 }
 
 func (m model) mailListView() string {
-	header := m.titleStyle().Render("Mail · "+m.mail.agentName) + "\n" +
+	header := titleOf(m.isListFocused(), "Mail · "+m.mail.agentName) + "\n" +
 		dimStyle.Render(m.mailCountView()) + "\n\n" +
 		m.filterView()
 	record, help := m.detailsView(), m.renderHelp(m.mailHelp())

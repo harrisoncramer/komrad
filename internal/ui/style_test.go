@@ -223,3 +223,28 @@ func TestPaintRowWithoutColour(t *testing.T) {
 
 	assert.Equal(t, "  api", paintRow("  api", selectionBackground, 20))
 }
+
+// TestTheBlockBesideTheListGreysWithTheKeys covers the document drawn beside the list, which was
+// in the panel's own colours whichever half of the sidebar was being read.
+func TestTheBlockBesideTheListGreysWithTheKeys(t *testing.T) {
+	m := detailsModel(&recordingTmux{})
+
+	require.Equal(t, string(colorAccent), *m.columnStyle().H1.Color, "the list has the keys to begin with")
+
+	m.details.focused = true
+
+	assert.Equal(t, string(colorMuted), *m.columnStyle().H1.Color, "and the block greys when the record takes them")
+}
+
+// TestKeysOnAnotherPaneGreyThePanel covers the keyboard moving off the panel onto an agent, which
+// leaves nothing on the panel being read.
+func TestKeysOnAnotherPaneGreyThePanel(t *testing.T) {
+	m := detailsModel(&recordingTmux{})
+
+	require.Equal(t, colorAccent, m.titleStyle().GetForeground())
+
+	m.keysElsewhere = true
+
+	assert.Equal(t, colorMuted, m.titleStyle().GetForeground(), "the title greys with the keys")
+	assert.Equal(t, string(colorMuted), *m.columnStyle().H1.Color, "and so does the block beside the list")
+}

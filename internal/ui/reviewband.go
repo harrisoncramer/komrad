@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/charmbracelet/glamour/ansi"
 	"github.com/charmbracelet/lipgloss"
 )
 
@@ -31,7 +32,7 @@ func (m model) reviewBandView(width int) string {
 // reviewBandRows is the band's rows in the order they give way, least valuable last.
 func (m model) reviewBandRows() []string {
 	rows := []string{
-		m.titleStyle().Render("Review · "+m.review.agentName) + "\n",
+		titleOf(m.isReviewDiffFocused(), "Review · "+m.review.agentName) + "\n",
 		m.reviewModeView(),
 		m.reviewScopeView(),
 		m.reviewStatView(),
@@ -101,8 +102,8 @@ func (m model) reviewStatView() string {
 	}
 
 	out := dimStyle.Render(counted(stat.Files, "file")+", ") +
-		reviewAddedStyle.Render(fmt.Sprintf("+%d", stat.Added)) + " " +
-		reviewRemovedStyle.Render(fmt.Sprintf("-%d", stat.Removed))
+		m.reviewBandStyle(reviewAddedStyle).Render(fmt.Sprintf("+%d", stat.Added)) + " " +
+		m.reviewBandStyle(reviewRemovedStyle).Render(fmt.Sprintf("-%d", stat.Removed))
 
 	if read, total := m.review.view.CountViewedFiles(); read > 0 {
 		out += dimStyle.Render(fmt.Sprintf("  %d/%d viewed", read, total))
@@ -124,7 +125,7 @@ func (m model) reviewScopeView() string {
 		from = m.review.baseLabel
 	}
 
-	out := reviewScopeOnStyle.Render(from)
+	out := m.reviewBandStyle(reviewScopeOnStyle).Render(from)
 
 	if m.doesReviewFitBaseLegend() {
 		out += dimStyle.Render(" · " + m.reviewStepSaid())
@@ -173,10 +174,31 @@ func (m model) reviewMatchCount() string {
 // reviewBandRow draws one row of the band as a coloured state and a hint after it, cutting the
 // hint rather than letting the row run past the pane it was given.
 func (m model) reviewBandRow(style lipgloss.Style, state, hint string) string {
+	style = m.reviewBandStyle(style)
+
 	room := m.lineWidth() - lipgloss.Width(state) - len(" · ")
 	if room <= 0 {
 		return style.Render(clip(state, m.lineWidth())) + "\n"
 	}
 
 	return style.Render(state) + dimStyle.Render(" · "+clip(hint, room)) + "\n"
+}
+
+// reviewBandStyle is what the band over the diff wears, which is its own colour while the diff
+// holds the keys and the muted one while the sidebar does.
+func (m model) reviewBandStyle(style lipgloss.Style) lipgloss.Style {
+	if m.isReviewDiffFocused() {
+		return style
+	}
+
+	return style.Foreground(colorMuted)
+}
+
+// reviewColumnStyle is the markdown a notice standing in for the patch is drawn in.
+func (m model) reviewColumnStyle() ansi.StyleConfig {
+	if m.isReviewDiffFocused() {
+		return stageStyle
+	}
+
+	return blurredStageStyle
 }

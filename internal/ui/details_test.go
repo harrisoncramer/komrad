@@ -94,7 +94,7 @@ func TestDetailsFollowTheCursor(t *testing.T) {
 	m := detailsModel(&recordingTmux{})
 	m.details.row, m.details.cursor = m.hoveredDetails().id, 3
 
-	moved := m.moveCursor(-1)
+	moved, _ := m.moveCursor(-1)
 
 	assert.Equal(t, 0, moved.detailsCursor(moved.hoveredDetails()))
 }

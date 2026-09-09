@@ -439,7 +439,7 @@ func (m model) searchSidebarView() string {
 	if m.search.typing {
 		query += cursorStyle.Render("▏")
 	}
-	header := m.titleStyle().Render("Search") + "\n\n" + query + "\n\n"
+	header := titleOf(m.isListFocused(), "Search") + "\n\n" + query + "\n\n"
 	help := m.renderHelp(m.searchHelp())
 
 	switch {

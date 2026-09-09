@@ -54,9 +54,9 @@ func (m model) rowCursorPrefix() string {
 	return m.cursorPrefix(m.isListFocused())
 }
 
-// isListFocused reports whether the keys are the list's rather than the record beside it or a
-// form standing over it, which is what decides how the row under the cursor is drawn, arrow and
-// name alike.
+// isListFocused reports whether the keys are the list's rather than another pane's, the record
+// beside it or a form standing over it, which is what decides how the row under the cursor is
+// drawn, arrow and name alike.
 func (m model) isListFocused() bool {
-	return !m.isDetailsFocused() && !m.isMessagesFocused() && !m.form.isActive()
+	return !m.keysElsewhere && !m.isDetailsFocused() && !m.isMessagesFocused() && !m.form.isActive()
 }

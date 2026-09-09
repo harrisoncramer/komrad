@@ -1829,3 +1829,24 @@ func TestReviewBaseIsRefusedWhenTheBaseMoved(t *testing.T) {
 	assert.Contains(t, shown, "not comparable",
 		"and says the branch was rebased rather than drawing somebody else's work")
 }
+
+// TestTheDiffGreysWhileTheThreadHasTheKeys covers the band over the patch, which was in the
+// panel's own colours whichever side of the review was being read.
+func TestTheDiffGreysWhileTheThreadHasTheKeys(t *testing.T) {
+	dir := reviewRepo(t)
+	agents := &fakeReviewAgents{}
+	m, _ := reviewModel(t, agents, dir)
+	m = openReview(t, m)
+
+	m.applyReviewWrote(reviewWroteMsg{agentID: "a1", threads: reviewLongThread(t, m)})
+
+	require.True(t, m.isReviewDiffFocused(), "the patch has the keys to begin with")
+	require.Equal(t, colorAccent, m.reviewBandStyle(reviewScopeOnStyle).GetForeground())
+
+	next, _ := m.updateReview(tea.KeyMsg{Type: tea.KeyCtrlF})
+	m = next.(model)
+	require.True(t, m.isReviewThreadFocused())
+
+	assert.False(t, m.isReviewDiffFocused(), "the diff has given the keys up")
+	assert.Equal(t, colorMuted, m.reviewBandStyle(reviewScopeOnStyle).GetForeground(), "so the band over it greys")
+}

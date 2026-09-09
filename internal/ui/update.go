@@ -234,10 +234,12 @@ func (m model) routeAsyncMessage(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
 	case tea.BlurMsg:
 		m.blurred = true
 		m.syncKeys()
+		m.keysElsewhere = !m.frame.HasKeys()
 
 		return m, nil, true
 	case tea.FocusMsg:
 		m.blurred = false
+		m.keysElsewhere = false
 		m.syncKeys()
 
 		next, cmd := m.reconcileEditor()

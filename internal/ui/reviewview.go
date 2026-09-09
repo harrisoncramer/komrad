@@ -160,14 +160,14 @@ func (m model) reviewAnchorView() string {
 	anchor, ok := m.review.view.GetAnchor(m.review.cursor)
 	if !ok {
 		if thread, ok := m.reviewThreadAtCursor(); ok {
-			return m.nameStyle(true, true).Render(clipName(review.FormatThreadLocation(thread))) +
+			return titleOf(m.isReviewThreadFocused(), clipName(review.FormatThreadLocation(thread))) +
 				m.reviewCommentWhereView(thread) + "\n"
 		}
 
 		return dimStyle.Render("  move onto a line to start a thread on it") + "\n"
 	}
 
-	head := m.nameStyle(true, true).Render(clipName(review.FormatLocation(anchor.FilePath, anchor.OldStart, anchor.NewStart)))
+	head := titleOf(m.isReviewThreadFocused(), clipName(review.FormatLocation(anchor.FilePath, anchor.OldStart, anchor.NewStart)))
 	if thread, ok := m.reviewThreadAtCursor(); ok {
 		head += m.reviewCommentWhereView(thread)
 	}

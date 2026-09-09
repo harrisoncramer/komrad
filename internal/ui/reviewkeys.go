@@ -88,6 +88,12 @@ func (m model) isReviewThreadFocused() bool {
 	return ok
 }
 
+// isReviewDiffFocused is whether the patch holds the keys, which it does whenever the record and
+// the conversation beside it do not.
+func (m model) isReviewDiffFocused() bool {
+	return m.isListFocused() && !m.isReviewThreadFocused()
+}
+
 // focusReviewThread moves the keys onto the conversation, refused while there is none to read.
 func (m model) focusReviewThread() model {
 	if _, ok := m.reviewThreadAtCursor(); !ok {

@@ -195,7 +195,11 @@ type model struct {
 	detached map[int]struct{}
 	// blurred is whether another pane holds the keyboard, which stops the row cursor blinking
 	// since a panel nobody is typing at has nothing to blink for.
-	blurred       bool
+	blurred bool
+
+	// keysElsewhere is whether the keyboard sits on a pane beside the panel, which the terminal
+	// itself losing focus is not.
+	keysElsewhere bool
 	helpExpanded  bool
 	topHeld       bool
 	keys          config.Keybindings

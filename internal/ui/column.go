@@ -298,7 +298,7 @@ func (m model) columnDoc(split columnSplit) docWindow {
 	}
 
 	return docWindow{
-		rows:    docRows(spec.doc(m), split.column),
+		rows:    docStyledRows(spec.doc(m), split.column, m.columnStyle()),
 		top:     m.column.top,
 		markers: true,
 	}

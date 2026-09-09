@@ -79,6 +79,16 @@ func docRows(markdown string, width int) []string {
 	return docStyledRows(markdown, width, stageStyle)
 }
 
+// columnStyle is the markdown the block beside the list is drawn in, which is the panel's own
+// colours while the list holds the keys and a grey column while it does not.
+func (m model) columnStyle() ansi.StyleConfig {
+	if m.isListFocused() {
+		return stageStyle
+	}
+
+	return blurredStageStyle
+}
+
 func docStyledRows(markdown string, width int, style ansi.StyleConfig) []string {
 	return strings.Split(strings.TrimRight(renderWith(markdown, width, style), "\n"), "\n")
 }

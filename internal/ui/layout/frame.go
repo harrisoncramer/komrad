@@ -17,6 +17,9 @@ type Frame struct {
 	guest   string
 	solo    bool
 
+	// keys is whether the keyboard was on the panel's own pane at the last sync.
+	keys bool
+
 	// stageCols is how wide the pane beside the sidebar was when the divider was last measured,
 	// which is where the sidebar's own width comes from: zooming the sidebar reports it as the
 	// whole window while leaving the width of the pane beside it alone.
@@ -261,9 +264,14 @@ func (f *Frame) SyncKeys() {
 		return
 	}
 
-	_, zoomed := f.tmux.GetPaneFocus(f.sidebar)
+	active, zoomed := f.tmux.GetPaneFocus(f.sidebar)
 	f.solo = zoomed
+	f.keys = active
 }
+
+// HasKeys reports whether the keyboard is on the panel's own pane rather than on a pane beside
+// it, as of the last sync.
+func (f *Frame) HasKeys() bool { return f.keys }
 
 // SidebarSize is how big tmux has the panel's own pane right now.
 func (f *Frame) SidebarSize() (width, height int) {

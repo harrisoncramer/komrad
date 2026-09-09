@@ -180,7 +180,7 @@ func (c rowCursor) jump(idx, length int) (rowCursor, bool) {
 }
 
 func (m model) listView(title string, rows []string, cursor int, help string) string {
-	return m.headedListView(m.titleStyle().Render(title)+"\n\n"+m.filterView(), rows, cursor, help)
+	return m.headedListView(titleOf(m.isListFocused(), title)+"\n\n"+m.filterView(), rows, cursor, help)
 }
 
 // headedListView draws a list under a header it is handed rather than one built from a title,
