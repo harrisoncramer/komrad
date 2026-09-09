@@ -248,10 +248,7 @@ func (m model) mailCountView() string {
 }
 
 func (m model) mailNotice() string {
-	switch {
-	case m.mail.err != nil:
-		return m.mail.err.Error()
-	case m.mail.loading:
+	if m.mail.loading {
 		return "reading the mailbox…"
 	}
 
@@ -259,7 +256,7 @@ func (m model) mailNotice() string {
 }
 
 func (m model) mailRowsView() []string {
-	if m.mail.loading || m.mail.err != nil {
+	if m.mail.loading {
 		return nil
 	}
 

@@ -1056,5 +1056,6 @@ func TestReviewComposerKeepsWhatItHasWhenTheEditorFails(t *testing.T) {
 	m.applyMessageEdited(messageEditedMsg{agentID: m.review.agentID, err: assert.AnError})
 
 	assert.Equal(t, "a start", m.review.editor.Value())
-	assert.Contains(t, m.review.notice, "could not be read back")
+	require.Len(t, m.messages.items, 1)
+	assert.Contains(t, m.messages.items[0].summary, "could not be read back")
 }

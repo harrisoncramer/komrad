@@ -131,7 +131,7 @@ func (m model) openMessageEditor() (tea.Model, tea.Cmd) {
 	path := messageDraftPath(agentID)
 
 	if err := os.WriteFile(path, []byte(m.review.editor.Value()), 0o600); err != nil {
-		m.review.notice = "your editor could not be opened on that message"
+		m.report("Your editor could not be opened on that message", err)
 
 		return m, nil
 	}
@@ -163,7 +163,7 @@ func (m *model) applyMessageEdited(msg messageEditedMsg) {
 	}
 
 	if msg.err != nil {
-		m.review.notice = "what you wrote in your editor could not be read back"
+		m.report("What you wrote in your editor could not be read back", msg.err)
 
 		return
 	}

@@ -315,7 +315,7 @@ func openReview(t *testing.T, m model) model {
 	t.Helper()
 
 	m = enterReview(t, m)
-	require.NoError(t, m.review.err)
+	require.Equal(t, screenReview, m.screen)
 
 	return m
 }
@@ -890,29 +890,19 @@ func TestReviewRendersWhileLoading(t *testing.T) {
 	assert.Contains(t, shown, "start a review here")
 }
 
-// TestReviewSurvivesAFailedLoad is the other frame with no view: a worktree the diff loader
-// could not read at all.
-func TestReviewSurvivesAFailedLoad(t *testing.T) {
+// TestReviewReportsAFailedLoad covers a worktree the diff loader could not read at all: the
+// reader is put back on the listing and told through the messages region rather than left in a
+// viewer with the raw error drawn in the sidebar.
+func TestReviewReportsAFailedLoad(t *testing.T) {
 	m, _ := reviewModel(t, &fakeReviewAgents{}, t.TempDir())
 
 	m = enterReview(t, m)
-	require.Error(t, m.review.err, "a directory that is not a repository has no diff")
-	require.Equal(t, screenReview, m.screen, "a failure to read is the review's to show, not the listing's")
 
-	shown := ansi.Strip(m.reviewView())
-	assert.Contains(t, shown, "failed to find the repository")
-
-	// Every key has to be answerable with no view behind it.
-	for _, key := range []tea.KeyMsg{
-		{Type: tea.KeyRunes, Runes: []rune("j")},
-		{Type: tea.KeyRunes, Runes: []rune("c")},
-		{Type: tea.KeyRunes, Runes: []rune("c")},
-		{Type: tea.KeyRunes, Runes: []rune(">")},
-		{Type: tea.KeyPgDown},
-	} {
-		next, _ := m.updateReview(key)
-		_ = next.(model).reviewView()
-	}
+	require.Equal(t, screenAgents, m.screen, "a diff that cannot be read is not a screen to sit in")
+	require.Len(t, m.messages.items, 1)
+	assert.Equal(t, messageError, m.messages.items[0].kind)
+	assert.Contains(t, m.messages.items[0].summary, "Could not read the diff of")
+	assert.Contains(t, m.messages.items[0].detail, "failed to find the repository")
 }
 
 // TestReviewKeepsDrawingAfterAWrite covers the stage still repainting after a save.

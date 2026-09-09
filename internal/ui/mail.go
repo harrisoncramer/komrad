@@ -33,7 +33,6 @@ type mailState struct {
 	cursor    int
 	loading   bool
 	polling   bool
-	err       error
 }
 
 // mailRow is either the line naming a thread or one message under it.
@@ -132,8 +131,9 @@ func (m *model) applyMailLoaded(msg mailLoadedMsg) {
 	hovered := mailRowKeyAt(m.mailRows(), m.mail.cursor)
 
 	m.mail.loading, m.mail.polling = false, false
-	m.mail.err = msg.err
 	if msg.err != nil {
+		m.report("Could not read the mailbox", msg.err)
+
 		return
 	}
 

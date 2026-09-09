@@ -330,7 +330,7 @@ func TestReviewRefreshSaysNothingWhenTheReadFails(t *testing.T) {
 
 	m.applyReviewRefreshed(reviewRefreshedMsg{agentID: "a1", err: assert.AnError})
 
-	require.NoError(t, m.review.err)
+	assert.Empty(t, m.messages.items)
 	assert.False(t, m.review.polling)
 }
 
