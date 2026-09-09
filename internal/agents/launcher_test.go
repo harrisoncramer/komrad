@@ -13,17 +13,17 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestLaunchTypesTheHarnessCommand covers the launcher's whole job, which is putting the
-// command the harness built in a file and sourcing that file in the agent's pane.
-func TestLaunchTypesTheHarnessCommand(t *testing.T) {
+// TestLaunchStartsTheHarnessCommand covers the launcher's whole job, which is putting the
+// command the harness built in a file and running that file as the pane's own process.
+func TestLaunchStartsTheHarnessCommand(t *testing.T) {
 	tests := []struct {
-		name        string
-		commandErr  error
-		sendKeysErr error
-		wantErr     string
+		name       string
+		commandErr error
+		respawnErr error
+		wantErr    string
 	}{
 		{
-			name: "the command reaches the pane, followed by Enter",
+			name: "the command becomes the pane's process",
 		},
 		{
 			name:       "a harness that cannot build a command line launches nothing",
@@ -31,9 +31,9 @@ func TestLaunchTypesTheHarnessCommand(t *testing.T) {
 			wantErr:    "failed to build the launch command",
 		},
 		{
-			name:        "a pane that refuses the keys fails the launch",
-			sendKeysErr: errors.New("no such pane"),
-			wantErr:     "failed to type the launch command",
+			name:       "a pane that refuses the command fails the launch",
+			respawnErr: errors.New("no such pane"),
+			wantErr:    "failed to start the agent in its pane",
 		},
 	}
 
@@ -41,7 +41,8 @@ func TestLaunchTypesTheHarnessCommand(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			cache := t.TempDir()
 			tmux := newFakeTmux()
-			tmux.sendKeysErr = tt.sendKeysErr
+			tmux.respawnErr = tt.respawnErr
+			tmux.shell = "/bin/zsh"
 			h := &fakeHarness{commandErr: tt.commandErr}
 			launcher := NewLauncher(NewLauncherParams{
 				Tmux:     tmux,
@@ -49,12 +50,12 @@ func TestLaunchTypesTheHarnessCommand(t *testing.T) {
 				CacheDir: cache,
 			})
 
-			err := launcher.launch(h, launchParams{Pane: "pane", SessionID: "sess"})
+			err := launcher.launch(h, launchParams{Pane: "pane", Dir: "/work", SessionID: "sess"})
 
 			if tt.wantErr != "" {
 				require.ErrorContains(t, err, tt.wantErr)
 				if tt.commandErr != nil {
-					assert.Empty(t, tmux.sent, "a command that was never built is never typed")
+					assert.Empty(t, tmux.lastRespawn("pane").argv, "a command that was never built is never run")
 				}
 
 				return
@@ -62,13 +63,19 @@ func TestLaunchTypesTheHarnessCommand(t *testing.T) {
 
 			require.NoError(t, err)
 			require.Len(t, h.launches, 1)
+			assert.Empty(t, tmux.sent, "nothing is typed at the pane's shell, so nothing reaches its history")
 
-			keys := tmux.lastKeys("pane")
-			require.Len(t, keys, 2)
-			assert.Equal(t, "Enter", keys[1])
+			run := tmux.lastRespawn("pane")
+			assert.Equal(t, "/work", run.dir)
+			require.Len(t, run.argv, 4)
+			assert.Equal(t, []string{"/bin/zsh", "-i", "-c"}, run.argv[:3])
 
-			path, ok := strings.CutPrefix(keys[0], ". ")
-			require.True(t, ok, "the pane is told to source a file, not typed the command")
+			script := run.argv[3]
+			rest, ok := strings.CutSuffix(script, "; exec '/bin/zsh' -i")
+			require.True(t, ok, "the pane is left holding a shell once the agent exits")
+
+			path, ok := strings.CutPrefix(rest, ". ")
+			require.True(t, ok, "the pane sources a file, rather than being handed the command")
 			path = strings.Trim(path, "'")
 			assert.Equal(t, cache, filepath.Dir(path), "the script sits in the cache dir")
 
@@ -77,6 +84,17 @@ func TestLaunchTypesTheHarnessCommand(t *testing.T) {
 			assert.Equal(t, "agent-cli --session sess\n", string(body))
 		})
 	}
+}
+
+// TestLaunchFallsBackToAPOSIXShell covers a tmux server naming no default shell.
+func TestLaunchFallsBackToAPOSIXShell(t *testing.T) {
+	tmux := newFakeTmux()
+	tmux.shell = ""
+	launcher := NewLauncher(NewLauncherParams{Tmux: tmux, Addr: "127.0.0.1:9999", CacheDir: t.TempDir()})
+
+	require.NoError(t, launcher.launch(&fakeHarness{}, launchParams{Pane: "pane"}))
+
+	assert.Equal(t, fallbackShell, tmux.lastRespawn("pane").argv[0])
 }
 
 // TestLaunchPassesWhatThePanelKnows covers what the launcher hands the harness, which is

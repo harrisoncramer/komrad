@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestBuildCommand covers the command typed into the pane, stating the distinguishing part
+// TestBuildCommand covers the command the pane is started with, stating the distinguishing part
 // rather than the whole line since every launch carries the panel's MCP server.
 func TestBuildCommand(t *testing.T) {
 	tests := []struct {

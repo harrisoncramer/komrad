@@ -762,15 +762,15 @@ func TestResumeGivesBackThePaneItOpened(t *testing.T) {
 	tests := []struct {
 		name        string
 		setOwnerErr error
-		sendKeysErr error
+		respawnErr  error
 	}{
 		{
 			name:        "a pane tmux refuses to stamp",
 			setOwnerErr: errors.New("tmux refused the option"),
 		},
 		{
-			name:        "a relaunch that never reaches the pane's shell",
-			sendKeysErr: errors.New("tmux dropped the keys"),
+			name:       "a relaunch that never starts in the pane",
+			respawnErr: errors.New("tmux refused the command"),
 		},
 	}
 
@@ -778,7 +778,7 @@ func TestResumeGivesBackThePaneItOpened(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			tmux := newFakeTmux()
 			tmux.setOwnerErr = tt.setOwnerErr
-			tmux.sendKeysErr = tt.sendKeysErr
+			tmux.respawnErr = tt.respawnErr
 			st := newStore(t)
 			manager := newManager(tmux, st, "")
 			ctx := t.Context()
@@ -799,7 +799,7 @@ func TestResumeGivesBackThePaneItOpened(t *testing.T) {
 // with the agent's id.
 func TestResumeAfterARefusedRelaunchGetsThrough(t *testing.T) {
 	tmux := newFakeTmux()
-	tmux.sendKeysErr = errors.New("tmux dropped the keys")
+	tmux.respawnErr = errors.New("tmux refused the command")
 	st := newStore(t)
 	harness := &fakeHarness{}
 	manager := st.agentService(agentServiceOptions{
@@ -814,7 +814,7 @@ func TestResumeAfterARefusedRelaunchGetsThrough(t *testing.T) {
 	_, err := manager.resume.ResumeAgent(ctx, agent.ID)
 	require.Error(t, err)
 
-	tmux.sendKeysErr = nil
+	tmux.respawnErr = nil
 
 	resumed, err := manager.resume.ResumeAgent(ctx, agent.ID)
 

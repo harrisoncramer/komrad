@@ -26,7 +26,7 @@ func TestNewAgent(t *testing.T) {
 		dir            func(t *testing.T) string
 		title          string
 		windowErr      error
-		sendKeysErr    error
+		respawnErr     error
 		setOwnerErr    error
 		badWorkflow    bool
 		wantErrIs      error
@@ -76,10 +76,10 @@ func TestNewAgent(t *testing.T) {
 			wantsFailedRow: true,
 		},
 		{
-			name:           "a launch that never reaches the pane's shell",
+			name:           "a launch that never starts in the pane",
 			dir:            func(t *testing.T) string { return t.TempDir() },
 			title:          "stillborn",
-			sendKeysErr:    errors.New("tmux dropped the keys"),
+			respawnErr:     errors.New("tmux refused the command"),
 			wantErr:        "failed to launch the agent",
 			wantPaneKilled: true,
 			wantsFailedRow: true,
@@ -95,7 +95,7 @@ func TestNewAgent(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			tmux := newFakeTmux()
 			tmux.newWindowErr = tt.windowErr
-			tmux.sendKeysErr = tt.sendKeysErr
+			tmux.respawnErr = tt.respawnErr
 			tmux.setOwnerErr = tt.setOwnerErr
 			st := newStore(t)
 			manager := newManager(tmux, st, "--default-flag")
@@ -122,7 +122,7 @@ func TestNewAgent(t *testing.T) {
 					require.ErrorContains(t, err, tt.wantErr)
 				}
 
-				assert.Empty(t, tmux.sent, "nothing is typed when the launch was refused")
+				assert.Empty(t, tmux.respawned, "nothing is started when the launch was refused")
 
 				agents, listErr := st.List(t.Context())
 				require.NoError(t, listErr)
@@ -156,7 +156,7 @@ func TestNewAgent(t *testing.T) {
 			assert.Equal(t, "do the thing", stored.Prompt)
 			assert.Equal(t, agentstore.StateIdle, stored.State)
 			assert.NotEmpty(t, stored.SessionID, "a conversation id is pinned at launch")
-			assert.NotEmpty(t, tmux.lastKeys("%My-Agent"), "the agent is launched into the new pane")
+			assert.NotEmpty(t, tmux.lastRespawn("%My-Agent").argv, "the agent is launched into the new pane")
 			assert.Equal(t, stored.ID, tmux.owners["%My-Agent"], "the pane is stamped with the agent it is running")
 			assert.True(t, manager.panes.IsAgentRunning(*stored), "and the agent reads as running in it")
 		})
@@ -230,7 +230,7 @@ func TestNewAgentIdempotency(t *testing.T) {
 			if tt.wantSame {
 				assert.Equal(t, first.ID, second.ID, "the retry finds the agent it already created")
 				assert.Len(t, agents, 1, "and no second agent is recorded")
-				assert.Len(t, tmux.sent, 1, "nor is a second agent started")
+				assert.Len(t, tmux.respawned, 1, "nor is a second agent started")
 
 				return
 			}
@@ -295,7 +295,7 @@ func TestNewAgentRetriesUnderTheSameKey(t *testing.T) {
 				require.ErrorIs(t, err, ErrAlreadyLaunched)
 				assert.Equal(t, first.ID, second.ID, "the retry is answered with the agent already under the key")
 				assert.Len(t, all, 1, "and records no second agent")
-				assert.Len(t, tmux.sent, 1, "nor starts one")
+				assert.Len(t, tmux.respawned, 1, "nor starts one")
 
 				return
 			}
@@ -303,7 +303,7 @@ func TestNewAgentRetriesUnderTheSameKey(t *testing.T) {
 			require.NoError(t, err, "a failed create never launched, so the retry is free to")
 			assert.NotEqual(t, first.ID, second.ID)
 			assert.Len(t, all, 2, "the agent that failed is kept, since it says why it failed")
-			assert.Len(t, tmux.sent, 2, "and the retry actually starts something")
+			assert.Len(t, tmux.respawned, 2, "and the retry actually starts something")
 
 			held, err := st.Agents.GetByIdempotencyKey(t.Context(), key)
 			require.NoError(t, err)
@@ -360,7 +360,7 @@ func TestNewAgentRecordsWhoSpawnedIt(t *testing.T) {
 
 			if tt.wantErrIs != nil {
 				require.ErrorIs(t, err, tt.wantErrIs)
-				assert.Empty(t, tmux.sent, "nothing is typed when the caller cannot be attributed")
+				assert.Empty(t, tmux.respawned, "nothing is started when the caller cannot be attributed")
 
 				agents, listErr := st.List(t.Context())
 				require.NoError(t, listErr)
@@ -763,7 +763,7 @@ func TestNewAgentCleansUpAfterASetupThatRan(t *testing.T) {
 		answered    string
 		windowErr   error
 		setOwnerErr error
-		sendKeysErr error
+		respawnErr  error
 	}{
 		{
 			name:     "a directory setup named that is not there",
@@ -780,9 +780,9 @@ func TestNewAgentCleansUpAfterASetupThatRan(t *testing.T) {
 			setOwnerErr: errors.New("tmux refused the option"),
 		},
 		{
-			name:        "a launch that never reaches the pane's shell",
-			answered:    t.TempDir(),
-			sendKeysErr: errors.New("tmux dropped the keys"),
+			name:       "a launch that never starts in the pane",
+			answered:   t.TempDir(),
+			respawnErr: errors.New("tmux refused the command"),
 		},
 	}
 
@@ -791,7 +791,7 @@ func TestNewAgentCleansUpAfterASetupThatRan(t *testing.T) {
 			tmux := newFakeTmux()
 			tmux.newWindowErr = tt.windowErr
 			tmux.setOwnerErr = tt.setOwnerErr
-			tmux.sendKeysErr = tt.sendKeysErr
+			tmux.respawnErr = tt.respawnErr
 			st := newStore(t)
 			lifecycle := &fakeLifecycle{dir: tt.answered}
 			manager := st.agentServiceWithLifecycle(tmux, fakeHarnesses{harness: &fakeHarness{}}, lifecycle)
@@ -813,7 +813,7 @@ func TestNewAgentCleansUpAfterASetupThatRan(t *testing.T) {
 			assert.Equal(t, []string{worktreeProvisioner}, lifecycle.provision)
 			assert.Equal(t, []string{worktreeDeprovisioner}, lifecycle.deprovision, "what setup built is taken back")
 
-			if tt.windowErr != nil || tt.setOwnerErr != nil || tt.sendKeysErr != nil {
+			if tt.windowErr != nil || tt.setOwnerErr != nil || tt.respawnErr != nil {
 				require.Len(t, lifecycle.deprovisionCwd, 1)
 				assert.Equal(t, tt.answered, lifecycle.deprovisionCwd[0], "cleanup runs against what setup actually built, not the workflow's planned dir")
 			}

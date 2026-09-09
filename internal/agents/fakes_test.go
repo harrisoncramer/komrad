@@ -46,6 +46,9 @@ type fakeTmux struct {
 	sendKeysErr     error
 	paneOwnersErr   error
 	clearOwnerErr   error
+	respawnErr      error
+	shell           string
+	respawned       map[string][]respawn
 }
 
 func newFakeTmux() *fakeTmux {
@@ -57,7 +60,14 @@ func newFakeTmux() *fakeTmux {
 		globals:        map[string]string{},
 		newWindows:     map[string]string{},
 		sessionOptions: map[string]string{},
+		respawned:      map[string][]respawn{},
+		shell:          "/bin/zsh",
 	}
+}
+
+type respawn struct {
+	dir  string
+	argv []string
 }
 
 func (f *fakeTmux) SetGlobal(name, value string) {
@@ -149,6 +159,40 @@ func (f *fakeTmux) SendKeys(target string, keys ...string) error {
 	return nil
 }
 
+func (f *fakeTmux) GetDefaultShell() string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	return f.shell
+}
+
+func (f *fakeTmux) RespawnPane(pane, dir string, argv ...string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	if f.respawnErr != nil {
+		return f.respawnErr
+	}
+	if pane == "" {
+		return errors.New("refusing to respawn an empty pane")
+	}
+	f.respawned[pane] = append(f.respawned[pane], respawn{dir: dir, argv: argv})
+
+	return nil
+}
+
+func (f *fakeTmux) lastRespawn(pane string) respawn {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	runs := f.respawned[pane]
+	if len(runs) == 0 {
+		return respawn{}
+	}
+
+	return runs[len(runs)-1]
+}
+
 func (f *fakeTmux) SplitRight(anchorPane, dir string) string { return "%stage" }
 
 func (f *fakeTmux) NewWindow(session, name, dir string) (string, error) {
@@ -197,18 +241,6 @@ func (f *fakeTmux) KillPane(pane string) {
 	defer f.mu.Unlock()
 	f.killedPanes = append(f.killedPanes, pane)
 	delete(f.owners, pane)
-}
-
-func (f *fakeTmux) lastKeys(target string) []string {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-
-	sends := f.sent[target]
-	if len(sends) == 0 {
-		return nil
-	}
-
-	return sends[len(sends)-1]
 }
 
 const (
@@ -524,6 +556,7 @@ func (a *testAgents) withPullRequests(resolver pullRequestResolver) *testAgents 
 type fakeTmuxController interface {
 	paneController
 	paneWriter
+	paneStarter
 }
 
 func (s *testStore) agentServiceWithLifecycle(tmux fakeTmuxController, harnesses fakeHarnesses, lifecycle agentScriptRunner) *testAgents {
