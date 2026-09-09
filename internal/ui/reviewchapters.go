@@ -28,7 +28,7 @@ type reviewChapter struct {
 	// while it was the work in hand.
 	Ordinal int32
 	// Until is when the agent moved past this chapter, in RFC 3339, empty for the chapter nothing
-	// follows, since anything said after it was said about later code.
+	// follows.
 	Until string
 	// Comparable is false for a chapter whose two ends hang off different base commits, which a
 	// rebase between two reviews leaves behind.
@@ -55,7 +55,7 @@ func (m model) stepReviewBaseForward() (tea.Model, tea.Cmd) {
 }
 
 // showReviewChapter puts one round of the review on screen, or the whole change past the newest
-// round, and stops at either end so a held key walks to the end and stays there.
+// round, stopping at either end so a held key walks to the end and stays there.
 func (m model) showReviewChapter(at int) (tea.Model, tea.Cmd) {
 	held := len(m.review.chapters)
 	if held == 0 {
@@ -106,7 +106,7 @@ type reviewChapterLabelParams struct {
 }
 
 // reviewChapterLabel names a chapter for the band, counting from the oldest so a number keeps
-// meaning the same round however many rounds follow it.
+// meaning the same round however many follow it.
 func reviewChapterLabel(params reviewChapterLabelParams) string {
 	said := fmt.Sprintf("round %d of %d", params.At+1, params.Held)
 
@@ -151,7 +151,7 @@ func (m model) reviewBaseForwardDesc() string {
 }
 
 // cutChaptersParams is everything the chapters are cut from, kept apart from the calls that read
-// it so the cutting can be exercised on its own.
+// it so the cutting can be tested on its own.
 type cutChaptersParams struct {
 	Rounds   []*agentv1.ReviewRound
 	Reviews  []*agentv1.Review
@@ -242,8 +242,8 @@ func threadsByChapter(params threadsByChapterParams) []*agentv1.ReviewThread {
 	return kept
 }
 
-// messagesByChapter is one thread with the replies written after the chapter closed left out, so a
-// conversation that carried on about later code is read as it stood then.
+// messagesByChapter is one thread with the replies written after the chapter closed left out, so
+// a conversation that carried on about later code is read as it stood then.
 func messagesByChapter(thread *agentv1.ReviewThread, until string) *agentv1.ReviewThread {
 	if until == "" {
 		return thread
@@ -273,8 +273,7 @@ func messagesByChapter(thread *agentv1.ReviewThread, until string) *agentv1.Revi
 	return trimmed
 }
 
-// isBefore reports whether one stamp came before another, parsed rather than compared as text,
-// since two stamps written at different offsets sort by their offset instead of their moment.
+// isBefore reports whether one stamp came before another, parsed rather than compared as text.
 func isBefore(stamp, mark string) bool {
 	at, err := time.Parse(time.RFC3339, stamp)
 	if err != nil {
@@ -290,8 +289,7 @@ func isBefore(stamp, mark string) bool {
 }
 
 // doesPredate reports whether something was said before a mark, and says yes for a stamp it
-// cannot read, since hiding a comment over an unreadable date leaves a thread drawn with no text
-// and nothing on screen to explain it.
+// cannot read.
 func doesPredate(stamp, mark string) bool {
 	at, err := time.Parse(time.RFC3339, stamp)
 	if err != nil {
@@ -311,13 +309,12 @@ type roundAfterParams struct {
 	Rounds []*agentv1.ReviewRound
 	// After is the round the chapter ends at.
 	After int32
-	// Ceiling is the round on screen, past which a round is not something the reader is reading
-	// and so cannot be what closed their chapter.
+	// Ceiling is the round on screen, past which a round is not something the reader is reading.
 	Ceiling int32
 }
 
-// roundAfter is when the round following an ordinal was taken, which is the moment the agent left
-// that round behind, and nothing when the reader is standing on the last of them.
+// roundAfter is when the round following an ordinal was taken, and nothing when the reader is
+// standing on the last of them.
 func roundAfter(params roundAfterParams) string {
 	after := ""
 	for _, round := range params.Rounds {
