@@ -16,8 +16,8 @@ const docScrollStep = 10
 type docWindow struct {
 	rows []string
 	top  int
-	// markers is whether the window counts the rows above and below it, which a document read
-	// from the top wants and a transcript opened on a match does not.
+	// markers is whether the window counts the rows above and below it, which a document read from
+	// the top wants and a transcript opened on a match does not.
 	markers bool
 }
 
@@ -37,15 +37,14 @@ func (d docWindow) clamp(top, rows int) int {
 	return max(min(top, end), 0)
 }
 
-// scroll moves the document under the list, which is the whole of what the pager these columns
-// replaced was doing once it had opened where it was told to.
+// scroll moves the document under the list.
 func (d *docWindow) scroll(delta, rows int) {
 	d.top = d.clamp(d.top+delta, rows)
 }
 
 // view is the screenful of the document from the row the reader has scrolled to, padded out
-// rather than left short so a document smaller than the window keeps its half of it instead of
-// the list sliding under.
+// rather than left short so a document smaller than the window keeps its half instead of the
+// list sliding under.
 func (d docWindow) view(rows int) string {
 	top := d.clamp(d.top, rows)
 
@@ -73,14 +72,13 @@ func (d docWindow) view(rows int) string {
 	return strings.Join(out, "\n")
 }
 
-// docRows renders markdown into a column of its own, a row at a time, which is what a document
-// drawn in the panel's own frame is scrolled and measured against.
+// docRows renders markdown into a column of its own, a row at a time.
 func docRows(markdown string, width int) []string {
 	return docStyledRows(markdown, width, stageStyle)
 }
 
-// columnStyle is the markdown the block beside the list is drawn in, which is the panel's own
-// colours while the list holds the keys and a grey column while it does not.
+// columnStyle is the markdown the block beside the list is drawn in: the panel's own colours
+// while the list holds the keys, a grey column while it does not.
 func (m model) columnStyle() ansi.StyleConfig {
 	if m.isListFocused() {
 		return stageStyle

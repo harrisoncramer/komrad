@@ -321,8 +321,8 @@ func (m model) routeAsyncMessage(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
 	}
 }
 
-// isTyping reports whether the panel's own bindings are off, which is the list's filter, a text
-// input the screen put up, or a key prefix waiting on the key that completes it.
+// isTyping reports whether the panel's own bindings are off: the list's filter, a text input the
+// screen put up, or a key prefix waiting on the key that completes it.
 func (m model) isTyping() bool {
 	if m.filter.typing {
 		return true

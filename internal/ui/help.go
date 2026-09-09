@@ -109,8 +109,7 @@ func splitColumns(bindings []key.Binding, columns int) [][]key.Binding {
 }
 
 // fitLegend cuts each row of the legend to the column it is drawn in, since bubbles keeps adding
-// items once the ellipsis it would put in their place no longer fits, and a row wider than the
-// pane wraps and costs the frame the row at the bottom.
+// items once the ellipsis it would put in their place no longer fits.
 func fitLegend(rendered string, width int) string {
 	lines := strings.Split(rendered, "\n")
 	for i, line := range lines {
@@ -172,7 +171,7 @@ func filterHelp() keyMap {
 }
 
 // infoPaneHelp is the keys that fill the pane beside the panel, drawn off the same question the
-// dispatch asks before answering them, so a screen cannot take them and leave them unnamed.
+// dispatch asks before answering them.
 func (m model) infoPaneHelp() []key.Binding {
 	if !m.screen.opensInfoPane() {
 		return nil
@@ -307,7 +306,7 @@ func (m model) archiveHelp() keyMap {
 }
 
 // columnScrollBinding is the pair that moves the block beside the list, drawn as one row since
-// they are the same key going either way, and named by what the screen has put in that block.
+// they are the same key going either way.
 func (m model) columnScrollBinding(what string) key.Binding {
 	return key.NewBinding(
 		key.WithKeys(slices.Concat(m.keys.Column.ScrollDown, m.keys.Column.ScrollUp)...),

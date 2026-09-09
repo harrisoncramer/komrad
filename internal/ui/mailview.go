@@ -50,8 +50,8 @@ func (m model) mailFields(r mailRow) []recordField {
 	)
 }
 
-// mailThreadWord is how far a conversation has run and who it is standing on, which is the
-// answer a stalled handoff is looked for in: the last word went out and nobody has taken it.
+// mailThreadWord is how far a conversation has run and who it is standing on, which says
+// whether a handoff has stalled: the last word went out and nobody has taken it.
 func (m model) mailThreadWord(thread []mailRow) string {
 	if len(thread) == 0 {
 		return "—"
@@ -91,8 +91,8 @@ func counted(count int, word string) string {
 	return fmt.Sprintf("%d %s%s", count, word, suffix)
 }
 
-// mailSender is who wrote a piece of mail, which is a name with no id behind it when weave
-// raised it itself rather than an agent sending one.
+// mailSender is who wrote a piece of mail, a name with no id behind it when weave raised it
+// itself rather than an agent sending one.
 func mailSender(item *agentv1.Mail) string {
 	name := orDash(item.GetFromName())
 	if from := item.GetFromAgentId(); from != "" {
@@ -110,8 +110,8 @@ func mailDirectionWord(sent bool) string {
 	return "from"
 }
 
-// mailDirectionMark is the arrow a row opens with, which is what carries the direction now that
-// the list is one conversation rather than two halves.
+// mailDirectionMark is the arrow a row opens with, which carries the direction now that the list
+// is one conversation rather than two halves.
 func mailDirectionMark(sent bool) string {
 	if sent {
 		return "→"
@@ -135,8 +135,8 @@ func mailKindWord(kind agentv1.MailKind) string {
 	return "—"
 }
 
-// mailStateWord is what became of a piece of mail: read, still waiting, or never read and
-// past its deadline, which is the fact a mailbox is usually opened to settle.
+// mailStateWord is what became of a piece of mail: read, still waiting, or never read and past
+// its deadline.
 func mailStateWord(item *agentv1.Mail) string {
 	switch {
 	case item.GetClaimedAt() != "":
@@ -160,7 +160,7 @@ func isMailExpired(item *agentv1.Mail) bool {
 }
 
 // mailStamp reads a wire timestamp back as the panel's own friendly one, leaving anything it
-// cannot parse as it came so a bad stamp is visible rather than blank.
+// cannot parse as it came.
 func mailStamp(stamp string) string {
 	parsed, err := time.Parse(time.RFC3339, stamp)
 	if err != nil {
@@ -170,8 +170,8 @@ func mailStamp(stamp string) string {
 	return dates.Friendly(parsed)
 }
 
-// mailClock is the stamp a row carries, which is the panel's own short label rather than a
-// clock of its own, so a row here and a record anywhere else read the same way.
+// mailClock is the stamp a row carries, the panel's own short label rather than a clock of its
+// own, so a row here and a record anywhere else read the same way.
 func mailClock(stamp string) string {
 	parsed, err := time.Parse(time.RFC3339, stamp)
 	if err != nil {
@@ -184,7 +184,7 @@ func mailClock(stamp string) string {
 const mailEmptyMarkdown = "# Mail\n\n_nothing here_\n"
 
 // mailLoadingMarkdown stands in the column while the mailbox is being read, so the column is
-// there from the moment the screen is rather than arriving under the reader.
+// there from the moment the screen is.
 const mailLoadingMarkdown = "_reading the mailbox…_"
 
 // mailMarkdown is the one message the cursor is on.
@@ -283,8 +283,7 @@ func (m model) mailRowsView() []string {
 }
 
 // mailClockWidth is the room the clocks need, measured over the mail on screen rather than over
-// the widest label dates.Clock could draw, so a mailbox that is all from today spends seven
-// columns on the time rather than fourteen on a date none of it carries.
+// the widest label dates.Clock could draw.
 func mailClockWidth(rows []mailRow) int {
 	width := 0
 	for _, r := range rows {
@@ -299,14 +298,13 @@ func mailClockWidth(rows []mailRow) int {
 }
 
 const (
-	// mailCursorWidth is the cursor drawn before every row, which belongs to the list rather
-	// than to the row.
+	// mailCursorWidth is the cursor drawn before every row, which belongs to the list rather than
+	// to the row.
 	mailCursorWidth = 2
-	// mailRowIndent is that cursor, the arrow, the mark, and the four single spaces around them,
-	// which is what the snippet does not get.
+	// mailRowIndent is that cursor, the arrow, the mark, and the four single spaces around them.
 	mailRowIndent = mailCursorWidth + 6
-	// mailLeastSnippet is the least of a message worth drawing, under which the row is when it
-	// was written, which way it went, and what became of it.
+	// mailLeastSnippet is the least of a message worth drawing, under which the row is when it was
+	// written, which way it went, and what became of it.
 	mailLeastSnippet = 8
 )
 
@@ -339,8 +337,8 @@ func (m model) mailRowView(r mailRow, clocks int, hovered bool) string {
 	return head + " " + m.filter.highlight(clip(body, spare), m.nameStyle(hovered, false))
 }
 
-// mailSnippet is the opening of a message on one line, which is what makes a row worth
-// reading before the stage has drawn the thread itself.
+// mailSnippet is the opening of a message on one line, which makes a row worth reading before
+// the stage has drawn the thread itself.
 func mailSnippet(body string) string {
 	return strings.Join(strings.Fields(body), " ")
 }

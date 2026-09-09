@@ -6,7 +6,7 @@ import (
 	agentv1 "weave/proto/gen/agent/v1"
 )
 
-// findPendingRound is the round a reader's own open batch was opened against, and nothing when
+// findPendingRound is the round a reader's own open review was opened against, and nothing when
 // they have none, so a reader part way through a review keeps reading the snapshot they started
 // on rather than being moved onto whatever the agent has written since.
 func findPendingRound(rounds []*agentv1.ReviewRound, openBatchID string) (*agentv1.ReviewRound, bool) {
@@ -72,7 +72,7 @@ func findPreviousReviewedRound(
 	return nil
 }
 
-// findLastHumanReview is the newest review the person let go of against a round earlier than this
+// findLastHumanReview is the newest review the person released against a round earlier than this
 // one, which is where they last looked.
 func findLastHumanReview(reviews []*agentv1.Review, ordinal int32) *agentv1.Review {
 	var last *agentv1.Review
@@ -91,7 +91,7 @@ func findLastHumanReview(reviews []*agentv1.Review, ordinal int32) *agentv1.Revi
 }
 
 // isAwaitingReviewAnswer reports whether the person has released a review against the round on
-// screen, which is the state the service refuses a second review in.
+// screen, the state the service refuses a second review in.
 func isAwaitingReviewAnswer(reviews []*agentv1.Review, round *agentv1.ReviewRound) bool {
 	for _, review := range reviews {
 		if review.GetAuthorKind() != agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_HUMAN {
@@ -105,7 +105,7 @@ func isAwaitingReviewAnswer(reviews []*agentv1.Review, round *agentv1.ReviewRoun
 	return false
 }
 
-// releasedAtOf is the clock time the person last let a review go, which is what the screen says
+// releasedAtOf is the clock time the person last released a review, which the screen says
 // instead of a round number.
 func releasedAtOf(reviews []*agentv1.Review, round *agentv1.ReviewRound) string {
 	last := findLastHumanReview(reviews, round.GetOrdinal())
@@ -116,7 +116,7 @@ func releasedAtOf(reviews []*agentv1.Review, round *agentv1.ReviewRound) string 
 	return releasedClock(last.GetReleasedAt())
 }
 
-// releasedClock is when a review was let go of, in the terms a reader names it by.
+// releasedClock is when a review was released, in the terms a reader names it by.
 func releasedClock(released string) string {
 	stamp, err := time.Parse(time.RFC3339, released)
 	if err != nil {

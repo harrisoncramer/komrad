@@ -31,8 +31,8 @@ const (
 	// report, keeping the indent every other row has.
 	noStateIcon = "▫"
 
-	// reasonWidth is how much of a reported reason a row draws, which is room for a tool name and
-	// not so much that a row stops being a column of names.
+	// reasonWidth is how much of a reported reason a row draws: room for a tool name, and not so
+	// much that a row stops being a column of names.
 	reasonWidth = 24
 	nameWidth   = 30
 	ansiReset   = "\x1b[0m"
@@ -45,8 +45,8 @@ var (
 	// reviewScopeOnStyle is the half of the scope switch that is in force.
 	reviewScopeOnStyle = lipgloss.NewStyle().Foreground(colorAccent).Bold(true)
 
-	// The mode is the one thing on the screen that changes what every key does, so each state
-	// gets its own colour rather than sharing the accent the scope line uses.
+	// The mode is the one thing on the screen that changes what every key does, so each state gets
+	// its own colour.
 	reviewReadingStyle = lipgloss.NewStyle().Foreground(colorAccent).Bold(true)
 	reviewWritingStyle = lipgloss.NewStyle().Foreground(colorSuccess).Bold(true)
 	reviewHistoryStyle = lipgloss.NewStyle().Foreground(colorWarning).Bold(true)
@@ -121,8 +121,8 @@ func stateMark(state agentstore.State) string {
 	return lipgloss.NewStyle().Foreground(stateColor(state)).Render(stateIcon(state))
 }
 
-// iconMark is the shape every optional mark on a row takes: nothing at all when the fact it
-// stands for is not true, and otherwise a space and the mark in its own colour.
+// iconMark is the shape every optional mark on a row takes: nothing when the fact it stands for
+// is not true, otherwise a space and the mark in its own colour.
 func iconMark(show bool, icon string, color lipgloss.Color) string {
 	if !show {
 		return ""
@@ -156,7 +156,7 @@ func reasonMark(agent agentstore.Agent) string {
 }
 
 // childMark draws in the column its parent's own state mark sits in, pushing the rest of the
-// child's row across so every parent stays aligned with every other one.
+// child's row across so every parent stays aligned.
 func childMark(child bool) string {
 	if !child {
 		return ""
@@ -195,8 +195,8 @@ func localReviewRoundsMark(rounds int32) string {
 	return iconMark(rounds > 0, fmt.Sprintf("%s%d", localReviewRoundsIcon, rounds), colorMuted)
 }
 
-// localReviewMark is the single glyph a row draws about local review, which is the last released
-// verdict when there is one and otherwise the pencil that says a reviewer is still reading.
+// localReviewMark is the single glyph a row draws about local review: the last released verdict
+// when there is one, otherwise the pencil that says a reviewer is still reading.
 func localReviewMark(inLocalReview bool, verdict string) string {
 	icon, color := localVerdictIcon(verdict)
 	if icon == "" {
@@ -220,22 +220,21 @@ func localVerdictIcon(verdict string) (string, lipgloss.Color) {
 	return "", colorMuted
 }
 
-// failedRunMark says a script weave fired for the agent failed and nobody has read it, which the
-// state icon cannot carry.
+// failedRunMark says a script weave fired for the agent failed and nobody has read it.
 func failedRunMark(failed bool) string {
 	return iconMark(failed, failedRunIcon, colorDanger)
 }
 
 // worktreeRemovedMark says the directory an agent was given is gone, and stays quiet for a
-// failed create, whose state icon already stands for a worktree that was never finished.
+// failed create.
 func worktreeRemovedMark(item agentItem) string {
 	gone := item.agent.WorktreeRemoved && displayState(item) != agentstore.StateFailedToCreate
 
 	return iconMark(gone, worktreeRemovedIcon, colorDanger)
 }
 
-// markGutter is the column a mark is drawn in, left of every row, so the letters a person
-// addresses rows by read down one edge rather than being hunted for along a row.
+// markGutter is the column a mark is drawn in, left of every row, so the letters a person types
+// to jump to rows read down one edge rather than being hunted for along a row.
 func markGutter(mark string) string {
 	if mark == "" {
 		return "  "
@@ -263,7 +262,7 @@ func scheduleColor(enabled bool) lipgloss.Color {
 var matchStyle = lipgloss.NewStyle().Foreground(colorWarning).Bold(true)
 
 // stageMatchStyle marks a match in rendered markdown, where the warning colour the listing marks
-// with is already spoken for by inline code, so the word takes a block behind it instead.
+// with is already spoken for by inline code, so the word gets a block behind it instead.
 var stageMatchStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("0")).Background(colorMuted)
 
 var brokenStyle = lipgloss.NewStyle().Foreground(colorDanger)
@@ -293,8 +292,7 @@ func clip(text string, width int) string {
 }
 
 // selectionBackground is the bar a row taken into a selection is drawn under, dark enough that
-// the colours the row is already carrying still read through it, so a selected row keeps its
-// state icon and its cursor rather than trading them for the fact that it is in.
+// the colours the row is already carrying still read through it.
 var selectionBackground = lipgloss.AdaptiveColor{Light: "#dbeafe", Dark: "#1e3a5f"}
 
 // Explainer: the fill is measured across the whole string paintRow is handed, so it holds only

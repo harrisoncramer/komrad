@@ -16,8 +16,8 @@ const (
 	markPendingJump
 )
 
-// markState is what the panel keeps between the two keys: the press waiting on a letter, and
-// the row the last jump left, which the jump key pressed twice goes back to.
+// markState is what the panel keeps between the two keys: the press waiting on a letter, and the
+// row the last jump left, which the jump key pressed twice goes back to.
 type markState struct {
 	pending markPending
 	origin  string
@@ -35,7 +35,7 @@ func (m model) beginMark(pending markPending) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// readMark takes the key pressed after a mark binding, which is the letter the mark answers to.
+// readMark takes the key pressed after a mark binding, being the letter the mark answers to.
 func (m model) readMark(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	pending := m.marks.pending
 	m.marks.pending = markPendingNone
@@ -61,7 +61,7 @@ func isMarkLetter(key string) bool {
 }
 
 // setMark puts a letter on the row under the cursor, or takes it off when that row already
-// answers to the letter, which is the way a mark is cleared without a key of its own.
+// answers to the letter.
 func (m model) setMark(letter string) (tea.Model, tea.Cmd) {
 	row, ok := m.hoveredRow()
 	if !ok {
@@ -79,8 +79,8 @@ func (m model) setMark(letter string) (tea.Model, tea.Cmd) {
 	return m, m.writeCmd(failure, func(a api) error { return a.setMark(target, letter) })
 }
 
-// markTarget is the row a mark would go on, which the panel names by kind since a letter sits
-// on an agent or on a workflow.
+// markTarget is the row a mark would go on, named by kind since a letter sits on an agent or on
+// a workflow.
 func markTarget(row agentRow) markTargetRef {
 	if row.header {
 		return markTargetRef{workflowID: row.workflow.ID}
@@ -141,8 +141,7 @@ func (m model) jumpMarkBack() (tea.Model, tea.Cmd) {
 }
 
 // markedRow is the row a letter names, read down the listing rather than out of the map, so a
-// letter briefly on two rows between passes picks the same one every time, and so a row the tree
-// is not drawing is still somewhere a jump can reach.
+// letter briefly on two rows between passes picks the same one every time.
 func (m model) markedRow(letter string) (string, bool) {
 	for _, item := range m.listing.agents {
 		if key := agentRowKey(item.agent.ID); m.listing.marks[key] == letter {
@@ -159,8 +158,8 @@ func (m model) markedRow(letter string) (string, bool) {
 	return "", false
 }
 
-// jumpToRow puts the cursor on a row named by its key, recording the row it left so the jump
-// can be undone, and reports whether the row was reachable at all.
+// jumpToRow puts the cursor on a row named by its key, recording the row it left so the jump can
+// be undone, and reports whether the row was reachable at all.
 func (m model) jumpToRow(key string) (model, tea.Cmd, bool) {
 	origin := rowKeyAt(m.agentRows(), m.tree.cursor)
 
