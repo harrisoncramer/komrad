@@ -99,8 +99,8 @@ func (m model) leaveReviewWriting() (tea.Model, tea.Cmd) {
 func (m model) updateReviewComposer(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	k := key.String()
 
-	// Every other key is a character being typed into the message, so the two that put the
-	// editor away are fixed rather than configured.
+	// Every other key is a character being typed into the message, so the few that do something
+	// else read the form's own bindings.
 	switch {
 	case isBound(k, m.keys.Form.Back):
 		return m.cancelReviewMessage(), nil
@@ -136,14 +136,9 @@ func (m model) openMessageEditor() (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	command := strings.TrimSpace(m.editor)
-	if command == "" {
-		command = defaultEditor
-	}
-
-	// The editor is left unquoted so an EDITOR of several words stays several words.
+	// The message is one file with nothing above it, so the editor opens on its first line.
 	//nolint:noctx // the editor runs until the reviewer closes it, so it takes no deadline
-	open := exec.Command("sh", "-c", fmt.Sprintf("exec %s %s", command, shellQuote(path)))
+	open := exec.Command("sh", "-c", editorShell(m.editor, path, 1))
 
 	return m, tea.ExecProcess(open, func(err error) tea.Msg {
 		if err != nil {
@@ -158,7 +153,7 @@ func (m model) openMessageEditor() (tea.Model, tea.Cmd) {
 
 // messageDraftPath is where the message is put for the editor to open.
 func messageDraftPath(agentID string) string {
-	return filepath.Join(os.TempDir(), "weave-comment-"+agentID+".md")
+	return filepath.Join(os.TempDir(), fmt.Sprintf("weave-comment-%s-%d.md", agentID, os.Getpid()))
 }
 
 // applyMessageEdited puts what the editor wrote back into the composer.
@@ -356,10 +351,10 @@ func (m model) updateReviewRelease(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.review.verdict = (m.review.verdict + len(reviewVerdicts) - 1) % len(reviewVerdicts)
 
 		return m, nil
-	case isBound(k, m.keys.Form.Submit):
-		return m.sendReview(false)
 	case isBound(k, m.keys.Form.Editor):
 		return m.openMessageEditor()
+	case isBound(k, m.keys.Form.Submit):
+		return m.sendReview(false)
 	case isBound(k, m.keys.Review.SendNow):
 		return m.sendReview(true)
 	}

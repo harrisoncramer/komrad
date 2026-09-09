@@ -62,15 +62,20 @@ type roundLeftoverMsg struct {
 	edits   []git.Edit
 }
 
-// editorContent opens a file in the user's editor, on one line of it.
-func editorContent(editor, dir, path string, line int) layout.Content {
+// editorShell is the shell line that runs the user's editor on a file, on one line of it.
+func editorShell(editor, path string, line int) string {
 	command := strings.TrimSpace(editor)
 	if command == "" {
 		command = defaultEditor
 	}
 
 	// The editor is left unquoted so an EDITOR of several words stays several words.
-	open := fmt.Sprintf("exec %s +%d %s", command, line, shellQuote(path))
+	return fmt.Sprintf("exec %s +%d %s", command, line, shellQuote(path))
+}
+
+// editorContent opens a file in the user's editor, on one line of it.
+func editorContent(editor, dir, path string, line int) layout.Content {
+	open := editorShell(editor, path, line)
 
 	return layout.Content{
 		Key:    fmt.Sprintf("edit:%s:%d", path, line),

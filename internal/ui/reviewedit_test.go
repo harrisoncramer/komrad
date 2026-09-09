@@ -981,6 +981,45 @@ func TestReviewComposerOpensTheEditorOnWhatWasTyped(t *testing.T) {
 	assert.False(t, asModel(t, next).review.composing, "and the submit key still sends it")
 }
 
+// TestReviewReleaseOpensTheEditorOnWhatWasTyped covers the release box taking the same key as the
+// composer: the word about the work as a whole reaches the editor and comes back to be sent.
+func TestReviewReleaseOpensTheEditorOnWhatWasTyped(t *testing.T) {
+	dir := reviewRepo(t)
+	agents := &fakeReviewAgents{}
+	m, _ := reviewModel(t, agents, dir)
+	m = openReview(t, m)
+
+	next, _ := m.openReviewRelease()
+	m = next.(model)
+	require.True(t, m.review.releasing)
+
+	m.review.editor.SetValue("a start")
+
+	next, cmd := m.updateReview(tea.KeyMsg{Type: tea.KeyCtrlE})
+	m = next.(model)
+	require.NotNil(t, cmd, "the editor is run")
+	require.True(t, m.review.releasing, "and the release box is still what the keys go to")
+
+	draft, err := os.ReadFile(messageDraftPath(m.review.agentID))
+	require.NoError(t, err)
+	assert.Equal(t, "a start", string(draft), "the editor opens on what was typed")
+
+	verdict := m.review.verdict
+	m.applyMessageEdited(messageEditedMsg{agentID: m.review.agentID, body: "the work as a whole\n"})
+
+	require.Equal(t, "the work as a whole", m.review.editor.Value())
+	assert.Equal(t, verdict, m.review.verdict, "and the verdict is the one that was chosen")
+
+	next, cmd = m.updateReview(tea.KeyMsg{Type: tea.KeyCtrlS})
+	require.NotNil(t, cmd)
+	require.False(t, asModel(t, next).review.releasing, "the submit key sends it")
+
+	_, ok := cmd().(reviewWroteMsg)
+	require.True(t, ok)
+	require.NotNil(t, agents.released, "and what was sent is what the editor wrote")
+	assert.Equal(t, "the work as a whole", agents.released.GetBody())
+}
+
 // TestReviewComposerEditorFollowsTheKeymap covers the editor key being config rather than a
 // literal, so the box that takes prose in the review opens on whatever the forms open on.
 func TestReviewComposerEditorFollowsTheKeymap(t *testing.T) {
