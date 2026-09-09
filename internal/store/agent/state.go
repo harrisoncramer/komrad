@@ -10,7 +10,7 @@ import (
 )
 
 // ClaimNudge takes the right to tell an agent about waiting mail, checking and stamping in
-// one statement so two passes racing cannot both go on to type.
+// one statement.
 func (s *Store) ClaimNudge(ctx context.Context, id string, retryAfter time.Duration) (bool, error) {
 	if !store.IsID(id) {
 		return false, nil
@@ -27,8 +27,8 @@ func (s *Store) ClaimNudge(ctx context.Context, id string, retryAfter time.Durat
 	return len(claimed) > 0, nil
 }
 
-// SetStateByID records the state a reconcile pass observed, stamping when it was seen whether or
-// not the value moved, and dropping what the agent's CLI reported it was doing when it did.
+// SetStateByID records the state a reconcile pass observed, stamping when it was seen whether
+// or not the value moved, and clearing the reported reason when it did.
 func (s *Store) SetStateByID(ctx context.Context, id string, state State) error {
 	if !store.IsID(id) {
 		return fmt.Errorf("%w: agent %q", store.ErrNotFound, id)
@@ -42,9 +42,8 @@ func (s *Store) SetStateByID(ctx context.Context, id string, state State) error 
 	return nil
 }
 
-// SetViewed claims an agent's conversation as read up to the last turn weave watched end,
-// stamping that rather than the clock so a turn landing mid-look is not read with it, or puts
-// the mark back when viewed is unset.
+// SetViewed claims an agent's conversation as read up to the last turn weave watched end, or
+// puts the mark back when viewed is unset.
 func (s *Store) SetViewed(ctx context.Context, id string, viewed bool) error {
 	if !store.IsID(id) {
 		return fmt.Errorf("%w: agent %q", store.ErrNotFound, id)
@@ -98,7 +97,7 @@ func (s *Store) ListUnseenTurns(ctx context.Context) ([]string, error) {
 }
 
 // MarkSettingUpIfLive says a resume is in flight on one agent and reports whether it did,
-// refusing an archived row so the resume notices rather than writing a pane onto a hidden one.
+// refusing an archived row.
 func (s *Store) MarkSettingUpIfLive(ctx context.Context, id string) (bool, error) {
 	if !store.IsID(id) {
 		return false, nil
@@ -141,7 +140,7 @@ func (s *Store) SetWorktreeRemovedByID(ctx context.Context, id string, removed b
 }
 
 // SetInterruptedAtByID records when an agent's conversation was cut off part-way through a
-// turn, which a resume reads to decide whether to say anything on the way back in.
+// turn.
 func (s *Store) SetInterruptedAtByID(ctx context.Context, id string, at *time.Time) error {
 	if !store.IsID(id) {
 		return fmt.Errorf("%w: agent %q", store.ErrNotFound, id)

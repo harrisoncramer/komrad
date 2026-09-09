@@ -28,8 +28,7 @@ const (
 	StateUncertain       State = State(models.AgentStateUncertain)
 )
 
-// DoesPaneDecide reports whether a frame read owns this state, which a launch still in flight and
-// an agent that failed both refuse.
+// DoesPaneDecide reports whether reading the agent's terminal is what decides this state.
 func (s State) DoesPaneDecide() bool {
 	// Written without a default so an eighth state has to be answered for here rather than
 	// falling in with whichever answer the existing seven happen to share.
@@ -48,8 +47,7 @@ func (s State) IsFailed() bool {
 	return s == StateFailedToCreate || s == StateFailedToCleanup
 }
 
-// IsTurnUnfinished reports whether a state leaves a turn part-way through, which covers both the
-// model still working and a tool call whose question nobody answered.
+// IsTurnUnfinished reports whether a state leaves a turn part-way through.
 func (s State) IsTurnUnfinished() bool {
 	return s == StateThinking || s == StateWaiting
 }
@@ -62,8 +60,7 @@ const (
 	RoleReviewer    Role = Role(models.AgentRoleReviewer)
 )
 
-// orDefault answers the role an agent that names none is given, which is writing work of its
-// own.
+// orDefault is the role an agent that names none is given.
 func (r Role) orDefault() Role {
 	if r == "" {
 		return RoleImplementer
@@ -83,21 +80,20 @@ type Agent struct {
 	ProvisionEnabled *bool
 	Prompt           string
 
-	// Role is what the agent was launched to do, which decides the half of the review
-	// briefing it is sent.
+	// Role is what the agent was launched to do, and decides which review briefing it is sent.
 	Role           Role
 	State          State
 	StateChangedAt time.Time
 	StateSeenAt    time.Time
-	// ViewedAt is how much of an agent's conversation the person has read, measured against
-	// the last turn weave watched end rather than against the clock.
+	// ViewedAt is how much of an agent's conversation the person has read, measured by the last
+	// turn weave watched end.
 	ViewedAt *time.Time
 	// TurnEndedAt is when a turn of the agent's last ended, reported by its own CLI or, when
 	// nothing reported one, settled off the pane by the reconciler.
 	TurnEndedAt *time.Time
 
-	// ReportedReason is what the agent's own CLI last reported it was doing, which annotates
-	// the state the pane decided and is cleared with it when the pane reads a different one.
+	// ReportedReason is what the agent's own CLI last said it was doing, cleared whenever the
+	// state changes.
 	ReportedReason   string
 	Harness          string
 	SessionID        string
@@ -110,16 +106,14 @@ type Agent struct {
 	Metadata         []Metadata
 	SpawnedByAgentID *string
 
-	// ParentAgentID is the agent this one is attached to, where SpawnedByAgentID is only who
-	// called create, so a child has no worktree of its own and is archived, deleted, and
-	// restored with that parent rather than by itself.
+	// ParentAgentID is the agent this one is attached to, whose archive, delete and restore it
+	// follows.
 	ParentAgentID *string
 	CreatedAt     time.Time
 	UpdatedAt     time.Time
 	Branch        *string
 
-	// AdoptedBranch is the branch an agent was put on rather than one weave made for it,
-	// so it is what was asked for where Branch is what the cwd is on now.
+	// AdoptedBranch is the branch an agent was put on rather than one weave made for it.
 	AdoptedBranch   string
 	WorktreeRemoved bool
 	InterruptedAt   *time.Time
@@ -151,8 +145,7 @@ type txBeginner interface {
 	Begin(ctx context.Context) (pgx.Tx, error)
 }
 
-// AgentPane names a pane and the agent whose it is, kept together so a pane is never killed
-// without its owner having been checked first.
+// AgentPane names a pane and the agent that owns it.
 type AgentPane struct {
 	AgentID string
 	Pane    string

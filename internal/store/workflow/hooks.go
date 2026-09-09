@@ -29,8 +29,8 @@ type Hook struct {
 	Script string
 }
 
-// setHooks rewrites a workflow's hooks, a caller sending back the whole list and the position
-// they land in being the order they were sent.
+// setHooks rewrites a workflow's hooks from the whole list, keeping the order they were sent
+// in.
 func (s *Store) setHooks(ctx context.Context, workflowID string, hooks []Hook) error {
 	if err := s.queries.DeleteWorkflowHooks(ctx, workflowID); err != nil {
 		return fmt.Errorf("failed to clear hooks for workflow %q: %w", workflowID, err)
@@ -61,8 +61,7 @@ func (s *Store) hooksFor(ctx context.Context, workflowID string) ([]Hook, error)
 	}), nil
 }
 
-// hooksByWorkflow reads every workflow's hooks at once, so a listing costs one query for the
-// lot rather than one apiece.
+// hooksByWorkflow reads every workflow's hooks in one query.
 func (s *Store) hooksByWorkflow(ctx context.Context) (map[string][]Hook, error) {
 	rows, err := s.queries.ListWorkflowHooks(ctx)
 	if err != nil {
@@ -77,8 +76,7 @@ func (s *Store) hooksByWorkflow(ctx context.Context) (map[string][]Hook, error) 
 	return hooks, nil
 }
 
-// hooksForWorkflows reads the hooks of the workflows named, which is what a page of them wants
-// rather than the whole table.
+// hooksForWorkflows reads the hooks of the workflows named.
 func (s *Store) hooksForWorkflows(ctx context.Context, ids []string) (map[string][]Hook, error) {
 	if len(ids) == 0 {
 		return nil, nil

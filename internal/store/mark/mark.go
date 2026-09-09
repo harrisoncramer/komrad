@@ -1,5 +1,5 @@
-// Package mark stores the letters a person addresses rows by, which are held by an agent or a
-// workflow and are the panel's own rather than anything an agent writes.
+// Package mark stores the letters a person types to jump to a row, each held by one agent or
+// one workflow.
 package mark
 
 import (
@@ -26,7 +26,7 @@ func New(db store.DBTX) *Store {
 	return &Store{queries: models.New(db)}
 }
 
-// List reads every mark, which is a whole table small enough that the panel takes all of it.
+// List reads every mark.
 func (s *Store) List(ctx context.Context) ([]Mark, error) {
 	rows, err := s.queries.ListMarks(ctx)
 	if err != nil {
@@ -45,8 +45,7 @@ func (s *Store) List(ctx context.Context) ([]Mark, error) {
 	return marks, nil
 }
 
-// ClearConflicts frees the letter and whatever the row already answered to, which is what
-// claiming either has to do first.
+// ClearConflicts frees the letter and whatever the row already answered to.
 func (s *Store) ClearConflicts(ctx context.Context, mark string, target Target) error {
 	err := s.queries.ClearMarkConflicts(ctx, models.ClearMarkConflictsParams{
 		Mark:       mark,
@@ -73,8 +72,7 @@ func (s *Store) Clear(ctx context.Context, target Target) (bool, error) {
 	return cleared > 0, nil
 }
 
-// Set puts a letter on a live row and reports whether the row was there to take it, with the
-// caller having freed what stood in the way first.
+// Set puts a letter on a live row and reports whether the row was there to take it.
 func (s *Store) Set(ctx context.Context, mark string, target Target) (bool, error) {
 	var marked int64
 	var err error
@@ -92,7 +90,7 @@ func (s *Store) Set(ctx context.Context, mark string, target Target) (bool, erro
 	return marked > 0, nil
 }
 
-// Target is the row a mark names, which is an agent or a workflow and never both.
+// Target is the row a mark names, either an agent or a workflow and never both.
 type Target struct {
 	AgentID    *string
 	WorkflowID *string
@@ -120,7 +118,7 @@ func (t Target) IsID() bool {
 	return false
 }
 
-// String names the row a target points at, for the errors that have to say which one.
+// String names the row a target points at.
 func (t Target) String() string {
 	switch {
 	case t.AgentID != nil:

@@ -15,8 +15,7 @@ type ArchiveIfUnchangedParams struct {
 	UpdatedAt time.Time
 }
 
-// ArchiveIfUnchanged archives one agent only while its row still reads as it was observed,
-// so an archive decided from an older read cannot hide an agent a resume has brought back.
+// ArchiveIfUnchanged archives one agent only while its row still reads as it was observed.
 func (s *Store) ArchiveIfUnchanged(ctx context.Context, params ArchiveIfUnchangedParams) (bool, error) {
 	if !store.IsID(params.ID) {
 		return false, nil
@@ -68,7 +67,7 @@ func (s *Store) Restore(ctx context.Context, ids []string) error {
 }
 
 // ArchiveWorkflowAgents archives every live agent in a workflow, returning the pane each row
-// held as it was archived, for the same reason Archive does.
+// held as it was archived.
 func (s *Store) ArchiveWorkflowAgents(ctx context.Context, workflowID string) ([]AgentPane, error) {
 	archived, err := s.queries.MarkWorkflowAgentsArchived(ctx, workflowID)
 	if err != nil {

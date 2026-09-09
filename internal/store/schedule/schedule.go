@@ -62,8 +62,7 @@ type Store struct {
 	queries *models.Queries
 }
 
-// New builds a schedule store over db, which is either the pool or a
-// transaction.
+// New builds a schedule store over db, which is either the pool or a transaction.
 func New(db store.DBTX) *Store {
 	return &Store{queries: models.New(db)}
 }
@@ -83,11 +82,11 @@ func (s *Store) List(ctx context.Context) ([]Schedule, error) {
 	return schedules, nil
 }
 
-// Cursor pages this listing, which resumes from one row's id.
+// Cursor pages this listing, resuming from one row's id.
 type Cursor = store.IDCursor
 
-// ListPage returns one page of live schedules, newest first, resuming after
-// cursor when one is given.
+// ListPage returns one page of live schedules, newest first, resuming after cursor when one
+// is given.
 func (s *Store) ListPage(ctx context.Context, limit int64, cursor *Cursor) ([]Schedule, error) {
 	params := models.ListSchedulesPageParams{Lim: int32(limit)}
 	if cursor != nil {
@@ -175,8 +174,7 @@ func (s *Store) Update(ctx context.Context, id string, cfg Config) error {
 	return nil
 }
 
-// SetEnabled pauses or resumes a schedule without touching anything else, which
-// is the one edit the panel makes with a single keystroke.
+// SetEnabled pauses or resumes a schedule without touching anything else.
 func (s *Store) SetEnabled(ctx context.Context, id string, enabled bool) error {
 	if !store.IsID(id) {
 		return nil
@@ -189,8 +187,7 @@ func (s *Store) SetEnabled(ctx context.Context, id string, enabled bool) error {
 	return nil
 }
 
-// maxLaunchResultMessage caps what a launch failure can push into the schedules screen, cut
-// on the way in since the text is an arbitrary error's.
+// maxLaunchResultMessage caps how much of a launch failure's text is kept.
 const maxLaunchResultMessage = 500
 
 // RecordLaunchResult writes what happened the last time this schedule fired, overwriting
@@ -227,8 +224,8 @@ func truncateResultMessage(message string) string {
 	return cut + "…"
 }
 
-// Archive hides a schedule from the panel without dropping the row, so the
-// agents it launched still point at the schedule that made them.
+// Archive hides a schedule from the panel without dropping the row, so the agents it launched
+// still point at the schedule that made them.
 func (s *Store) Archive(ctx context.Context, id string) error {
 	if !store.IsID(id) {
 		return nil
@@ -241,8 +238,7 @@ func (s *Store) Archive(ctx context.Context, id string) error {
 	return nil
 }
 
-// ListInWorkflow returns every schedule pointing at a workflow, archived ones included, each
-// still pinning the workflow row through its foreign key.
+// ListInWorkflow returns every schedule pointing at a workflow, archived ones included.
 func (s *Store) ListInWorkflow(ctx context.Context, workflowID string) ([]Schedule, error) {
 	if !store.IsID(workflowID) {
 		return nil, nil
@@ -261,8 +257,8 @@ func (s *Store) ListInWorkflow(ctx context.Context, workflowID string) ([]Schedu
 	return schedules, nil
 }
 
-// Delete permanently removes a schedule, whose launched agents hold a foreign key to it so
-// the caller clears them first.
+// Delete permanently removes a schedule, which the caller clears off its launched agents
+// first.
 func (s *Store) Delete(ctx context.Context, id string) error {
 	if !store.IsID(id) {
 		return nil
@@ -275,8 +271,7 @@ func (s *Store) Delete(ctx context.Context, id string) error {
 	return nil
 }
 
-// CountLive reports how many live schedules launch into a workflow, so a caller deleting one
-// finds out before the schedules are left with nowhere to run.
+// CountLive reports how many live schedules launch into a workflow.
 func (s *Store) CountLive(ctx context.Context, workflowID string) (int64, error) {
 	if !store.IsID(workflowID) {
 		return 0, nil
