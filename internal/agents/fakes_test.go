@@ -275,21 +275,31 @@ func (f *fakeHarness) ReadReport(harness.Event, []byte) (harness.Report, error) 
 	return harness.Report{}, nil
 }
 
-func (f *fakeHarness) ReadActivity(frame string) harness.Activity {
+func (f *fakeHarness) ReadInput(frame string) harness.Input {
 	switch {
 	case frame == busyFrame:
-		return harness.ActivityWorking
+		return harness.Input{Activity: harness.ActivityWorking}
 	case frame == waitFrame:
-		return harness.ActivityWaiting
-	case frame == composingFrame:
-		return harness.ActivityComposing
+		return harness.Input{Activity: harness.ActivityWaiting}
+	case strings.HasPrefix(frame, composingFrame):
+		return harness.Input{Activity: harness.ActivityComposing, Held: composingLines(strings.TrimPrefix(frame, composingFrame))}
 	case frame == "":
-		return harness.ActivityUnknown
+		return harness.Input{Activity: harness.ActivityUnknown}
 	case strings.HasPrefix(frame, unrecognizedFrame):
-		return harness.ActivityUnrecognized
+		return harness.Input{Activity: harness.ActivityUnrecognized}
 	default:
-		return harness.ActivityIdle
+		return harness.Input{Activity: harness.ActivityIdle, Held: []string{""}}
 	}
+}
+
+// composingLines is the box's lines out of the frame a test wrote, which is one line of its own
+// unless the test spelled some.
+func composingLines(held string) []string {
+	if held == "" {
+		return []string{"half a question about"}
+	}
+
+	return strings.Split(strings.TrimPrefix(held, ": "), "|")
 }
 
 func (f *fakeHarness) LogPath(string) string { return "" }

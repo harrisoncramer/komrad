@@ -106,14 +106,13 @@ func TestExitedCLIStopsBeingANudgeTarget(t *testing.T) {
 		MailboxReader: &fakeMailboxReader{pending: 1},
 		NudgeClaimer:  &fakeAgents{agent: &after, claimed: true},
 		PaneReader:    NewPaneLiveness(cli),
-		PaneTyper:     panes,
+		PaneWriter:    panes,
 	})
 
 	got, err := svc.Deliver(ctx, agent.ID)
 	require.NoError(t, err)
 	assert.Equal(t, DeliveryLater, got, "delivery to an agent whose CLI exited")
-	assert.Empty(t, panes.text, "nothing is typed at an agent whose CLI exited")
-	assert.Empty(t, panes.keys, "and no keys are sent to it either")
+	assert.Empty(t, panes.actions, "nothing is sent to an agent whose CLI exited")
 }
 
 func mustRegistry(t *testing.T, harnesses ...harness.Harness) *harness.Registry {

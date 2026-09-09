@@ -90,6 +90,31 @@ func (a Activity) String() string {
 	return "unknown"
 }
 
+// Input is what a harness read out of one captured frame, which is what the frame shows the
+// agent doing and the text its input box holds.
+type Input struct {
+	Activity Activity
+
+	// Held is the text the input box holds, one entry per line the box draws it on, empty for
+	// a frame showing no box at all.
+	Held []string
+}
+
+// Text is the whole of what the input box holds.
+func (i Input) Text() string { return strings.Join(i.Held, "\n") }
+
+// IsOneLine reports whether every line the input box holds but one is blank.
+func (i Input) IsOneLine() bool {
+	filled := 0
+	for _, line := range i.Held {
+		if strings.TrimSpace(line) != "" {
+			filled++
+		}
+	}
+
+	return filled == 1
+}
+
 // Event is one hook event a harness answers, spelled the way the CLI firing it spells the event.
 type Event string
 
@@ -127,7 +152,7 @@ type Harness interface {
 
 	FindSession(agentID string) (string, error)
 
-	ReadActivity(frame string) Activity
+	ReadInput(frame string) Input
 
 	ReadReport(event Event, payload []byte) (Report, error)
 

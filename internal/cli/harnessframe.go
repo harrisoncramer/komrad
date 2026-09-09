@@ -26,7 +26,7 @@ func (r paneFrameReader) DoesFrameShowHarness(pane, harnessID string) bool {
 		return true
 	}
 
-	switch found.ReadActivity(r.panes.CapturePane(pane)) {
+	switch found.ReadInput(r.panes.CapturePane(pane)).Activity {
 	case harness.ActivityWorking, harness.ActivityWaiting, harness.ActivityIdle, harness.ActivityComposing:
 		return true
 	case harness.ActivityUnknown, harness.ActivityUnrecognized:
