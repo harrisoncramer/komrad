@@ -39,7 +39,7 @@ const (
 
 // draftStaleAfter is how long an input box has to hold the same text before what it holds is
 // taken for abandoned.
-const draftStaleAfter = 3 * time.Minute
+const draftStaleAfter = 30 * time.Second
 
 // cutSettleReads is how many times the frame is read for a cut tmux has already written to the
 // pane.
