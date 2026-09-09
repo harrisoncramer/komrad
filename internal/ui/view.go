@@ -24,9 +24,19 @@ func (m model) View() string {
 	}
 
 	//nolint:sloglint // temporary trace, no context here to carry a logger on
-	slog.Default().Info("panel trace: drawing", "width", m.width, "height", m.height, "solo", m.frame.IsSolo(), "screen", int(m.screen))
+	slog.Default().Info("panel trace: drawing", "width", m.width, "height", m.height, "solo", m.frame.IsSolo(), "awaiting", m.awaitingSize, "screen", int(m.screen))
 
-	return m.fitFrame(strings.TrimRight(m.screenView(), "\n"))
+	if m.awaitingSize && m.drawn != nil && m.drawn.text != "" {
+		return m.drawn.text
+	}
+
+	drawn := m.fitFrame(strings.TrimRight(m.screenView(), "\n"))
+
+	if m.drawn != nil {
+		m.drawn.text = drawn
+	}
+
+	return drawn
 }
 
 // submittingNotice is the line drawn under a held form, counting up once the write has taken

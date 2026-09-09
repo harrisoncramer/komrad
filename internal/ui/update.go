@@ -154,6 +154,7 @@ func (m model) resizeTo(size tea.WindowSizeMsg) model {
 
 	m.height = size.Height
 	m.width = size.Width
+	m.awaitingSize = false
 
 	m.frame.SyncSplit()
 	m.sizeAgentWindows()
@@ -221,6 +222,8 @@ func (m model) routeScreenKey(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 func (m model) routeAsyncMessage(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
 	switch msg := msg.(type) {
 	case refreshTickMsg:
+
+		m.awaitingSize = false
 		next, viewed := m.dwellViewed(msg.at)
 		next, readRuns := next.dwellRunsRead(msg.at)
 		reviewing := next.refreshReviewCmd(msg.at)

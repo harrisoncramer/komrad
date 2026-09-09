@@ -224,9 +224,23 @@ type model struct {
 	// cursor came to rest on rather than for every row it passed.
 	staging int
 
+	// awaitingSize says the panel has moved its own pane and has not been told the size that
+	// leaves it, which is the one moment its own width is not the width it is drawn into.
+	awaitingSize bool
+
+	// drawn is the last frame the panel put on screen, held through a pointer so a view can keep
+	// what it drew.
+	drawn *lastFrame
+
 	// warm is the panes whose harness the panel has seen start, which is what it waits for before
 	// giving one the stage.
 	warm warmupState
+}
+
+// lastFrame is the frame on screen, which is what the panel draws again rather than drawing a new
+// one at a width it is about to be told is wrong.
+type lastFrame struct {
+	text string
 }
 
 // at is the only writer of paneMeasure, handing back a model that measures its own chrome in a
@@ -242,6 +256,7 @@ func newModel(deps Deps, isDark bool, post *postbox) model {
 	m := model{
 		isDark: isDark,
 		post:   post,
+		drawn:  &lastFrame{},
 		api: api{
 			agents:    deps.Agents,
 			workflows: deps.Workflows,

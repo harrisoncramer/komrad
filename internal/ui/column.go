@@ -223,6 +223,7 @@ func (m *model) reconcileSolo() {
 	}
 
 	m.frame.Solo(want)
+	m.awaitingSize = true
 }
 
 // syncKeys puts the frame right about whether it still holds the window, which a focus report
