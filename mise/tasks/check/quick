@@ -21,6 +21,9 @@ usage() {
 	echo "The custom linter is only run when local/custom-gcl already exists, since"
 	echo "building it is the slow half of go:lint. Run 'mise run go:build-linter'"
 	echo "once and every later check:quick lints for free."
+	echo
+	echo "buf lint runs only when your branch changed a .proto, since it builds the"
+	echo "check plugin weave's own proto rules live in."
 }
 
 for arg in "$@"; do
@@ -82,6 +85,7 @@ untested_dependents() {
 		'
 }
 
+PROTO_LINTED=false
 PACKAGES=()
 DIRS=()
 while IFS= read -r pkg; do
@@ -110,6 +114,11 @@ run_step "bash:check" mise run bash:check
 run_step "bash:fmt --check" mise run bash:fmt --check
 run_step "go:fmt --check" mise run go:fmt --check
 run_step "go build" go build ./...
+
+if [ -n "$(changed_files | grep '\.proto$' || true)" ]; then
+	PROTO_LINTED=true
+	run_step "proto:lint" mise run proto:lint
+fi
 
 LINTED=false
 if ((${#PACKAGES[@]} > 0)); then
@@ -150,6 +159,10 @@ else
 	if [ "$dependents" != "0" ]; then
 		echo "  untested  $dependents package(s) import what you changed"
 	fi
+fi
+
+if [ "$PROTO_LINTED" = true ]; then
+	echo "  linted    the protobufs too, since your branch changed one"
 fi
 
 echo "  formatted shell and Go, in reporting mode"

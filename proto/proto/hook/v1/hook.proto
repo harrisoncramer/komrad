@@ -6,7 +6,6 @@ import "annotation/v1/tool.proto";
 import "buf/validate/validate.proto";
 import "google/protobuf/duration.proto";
 import "google/protobuf/empty.proto";
-import "rules/v1/rules.proto";
 
 option go_package = "weave/proto/gen/hook/v1;hookv1";
 

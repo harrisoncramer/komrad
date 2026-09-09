@@ -1,0 +1,42 @@
+syntax = "proto3";
+
+package check.v1;
+
+message Request {}
+
+message Response {}
+
+service DeclaredService {
+  rpc GetThing(Request) returns (Response) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+  rpc ListThings(Request) returns (Response) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+  rpc SearchThings(Request) returns (Response) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+  rpc SetThing(Request) returns (Response) {
+    option idempotency_level = IDEMPOTENT;
+  }
+  rpc DeleteThing(Request) returns (Response) {
+    option idempotency_level = IDEMPOTENT;
+  }
+  rpc CreateThing(Request) returns (Response) {}
+  rpc Getaway(Request) returns (Response) {}
+  rpc Settle(Request) returns (Response) {}
+}
+
+service BareService {
+  rpc GetBare(Request) returns (Response) {}
+  rpc SetBare(Request) returns (Response) {}
+}
+
+service WrongLevelService {
+  rpc GetWrong(Request) returns (Response) {
+    option idempotency_level = IDEMPOTENT;
+  }
+  rpc SetWrong(Request) returns (Response) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+}

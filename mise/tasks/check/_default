@@ -38,6 +38,7 @@ STEPS=(
 	"db:fmt --check"
 	"db:validate"
 	"go:lint"
+	"proto:lint"
 	"go:test"
 	"gen:check"
 )

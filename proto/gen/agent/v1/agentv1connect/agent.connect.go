@@ -355,6 +355,7 @@ func NewAgentServiceClient(httpClient connect.HTTPClient, baseURL string, opts .
 			httpClient,
 			baseURL+AgentServiceListReviewThreadsProcedure,
 			connect.WithSchema(agentServiceMethods.ByName("ListReviewThreads")),
+			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 			connect.WithClientOptions(opts...),
 		),
 		createReviewThread: connect.NewClient[v1.CreateReviewThreadRequest, v1.CreateReviewThreadResponse](
@@ -373,6 +374,7 @@ func NewAgentServiceClient(httpClient connect.HTTPClient, baseURL string, opts .
 			httpClient,
 			baseURL+AgentServiceEditReviewMessageProcedure,
 			connect.WithSchema(agentServiceMethods.ByName("EditReviewMessage")),
+			connect.WithIdempotency(connect.IdempotencyIdempotent),
 			connect.WithClientOptions(opts...),
 		),
 		harvestRoundEdits: connect.NewClient[v1.HarvestRoundEditsRequest, v1.HarvestRoundEditsResponse](
@@ -405,12 +407,14 @@ func NewAgentServiceClient(httpClient connect.HTTPClient, baseURL string, opts .
 			httpClient,
 			baseURL+AgentServiceListReviewRoundsProcedure,
 			connect.WithSchema(agentServiceMethods.ByName("ListReviewRounds")),
+			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 			connect.WithClientOptions(opts...),
 		),
 		listReviews: connect.NewClient[v1.ListReviewsRequest, v1.ListReviewsResponse](
 			httpClient,
 			baseURL+AgentServiceListReviewsProcedure,
 			connect.WithSchema(agentServiceMethods.ByName("ListReviews")),
+			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 			connect.WithClientOptions(opts...),
 		),
 		releaseReview: connect.NewClient[v1.ReleaseReviewRequest, v1.ReleaseReviewResponse](
@@ -430,6 +434,7 @@ func NewAgentServiceClient(httpClient connect.HTTPClient, baseURL string, opts .
 			httpClient,
 			baseURL+AgentServiceListReviewViewedFilesProcedure,
 			connect.WithSchema(agentServiceMethods.ByName("ListReviewViewedFiles")),
+			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 			connect.WithClientOptions(opts...),
 		),
 	}
@@ -875,6 +880,7 @@ func NewAgentServiceHandler(svc AgentServiceHandler, opts ...connect.HandlerOpti
 		AgentServiceListReviewThreadsProcedure,
 		svc.ListReviewThreads,
 		connect.WithSchema(agentServiceMethods.ByName("ListReviewThreads")),
+		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 		connect.WithHandlerOptions(opts...),
 	)
 	agentServiceCreateReviewThreadHandler := connect.NewUnaryHandler(
@@ -893,6 +899,7 @@ func NewAgentServiceHandler(svc AgentServiceHandler, opts ...connect.HandlerOpti
 		AgentServiceEditReviewMessageProcedure,
 		svc.EditReviewMessage,
 		connect.WithSchema(agentServiceMethods.ByName("EditReviewMessage")),
+		connect.WithIdempotency(connect.IdempotencyIdempotent),
 		connect.WithHandlerOptions(opts...),
 	)
 	agentServiceHarvestRoundEditsHandler := connect.NewUnaryHandler(
@@ -925,12 +932,14 @@ func NewAgentServiceHandler(svc AgentServiceHandler, opts ...connect.HandlerOpti
 		AgentServiceListReviewRoundsProcedure,
 		svc.ListReviewRounds,
 		connect.WithSchema(agentServiceMethods.ByName("ListReviewRounds")),
+		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 		connect.WithHandlerOptions(opts...),
 	)
 	agentServiceListReviewsHandler := connect.NewUnaryHandler(
 		AgentServiceListReviewsProcedure,
 		svc.ListReviews,
 		connect.WithSchema(agentServiceMethods.ByName("ListReviews")),
+		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 		connect.WithHandlerOptions(opts...),
 	)
 	agentServiceReleaseReviewHandler := connect.NewUnaryHandler(
@@ -950,6 +959,7 @@ func NewAgentServiceHandler(svc AgentServiceHandler, opts ...connect.HandlerOpti
 		AgentServiceListReviewViewedFilesProcedure,
 		svc.ListReviewViewedFiles,
 		connect.WithSchema(agentServiceMethods.ByName("ListReviewViewedFiles")),
+		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 		connect.WithHandlerOptions(opts...),
 	)
 	return "/agent.v1.AgentService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
