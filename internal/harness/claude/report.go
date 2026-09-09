@@ -22,15 +22,14 @@ const (
 	EventPermissionRequest harness.Event = "PermissionRequest"
 )
 
-// toolPayload is a tool event, of which only the name of the tool is read: an input can carry a
-// secret, such as a token on a Bash command line, and whether weave may keep one is undecided.
+// toolPayload is a tool event, of which only the name of the tool is read, since an input can
+// carry a secret such as a token on a Bash command line.
 type toolPayload struct {
 	ToolName string `json:"tool_name"`
 }
 
 // ReadReport reads out of one of Claude's hook payloads only what weave records about the agent,
-// leaving what the hook has to answer Claude with, such as the Stop event's re-entry flag, to the
-// subcommand that answers it.
+// leaving what the hook has to answer Claude with to the subcommand that answers it.
 func (h *Harness) ReadReport(event harness.Event, payload []byte) (harness.Report, error) {
 	// The event is the caller's rather than the payload's, the subcommand answering an event
 	// knowing which one it is.

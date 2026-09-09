@@ -91,8 +91,8 @@ func (h *Harness) writeSettings(hookCommand string) (string, error) {
 	return path, nil
 }
 
-// HookInstall is how weave answers one Claude event, kept a struct so that an event needing a
-// matcher of its own is a field here rather than a new shape for every event already installed.
+// HookInstall is how weave answers one Claude event, kept a struct so an event needing a matcher
+// of its own is a field here.
 type HookInstall struct {
 	Subcommand string
 }
@@ -105,8 +105,8 @@ var InstalledHooks = map[harness.Event]HookInstall{
 	EventPermissionRequest: {Subcommand: "permission-request"},
 }
 
-// hookSettings is the hooks block Claude loads at session start, which is empty when weave has
-// no binary to point the events at.
+// hookSettings is the hooks block Claude loads at session start, empty when weave has no binary
+// to point the events at.
 func hookSettings(hookCommand string) map[string]any {
 	if hookCommand == "" {
 		return nil

@@ -66,16 +66,16 @@ func (h *Harness) ID() string { return binary }
 // Binary is the CLI a pane's shell has to resolve to start an agent.
 func (h *Harness) Binary() string { return binary }
 
-// InterruptKeys stops Codex where it stands, which is one Escape since it has no second
-// prompt to dismiss the way Claude does.
+// InterruptKeys stops Codex where it stands, which is one Escape since it puts up no second
+// prompt to dismiss.
 func (h *Harness) InterruptKeys() []string { return []string{"Escape"} }
 
 // MintSessionID returns empty, Codex taking no session id on the command line and naming the
 // conversation itself.
 func (h *Harness) MintSessionID() string { return "" }
 
-// defaultSessionsDir is where Codex records its rollouts, returning a relative path that
-// matches no rollouts when the home directory cannot be read.
+// defaultSessionsDir is where Codex records its rollouts, returning a relative path that matches
+// no rollouts when the home directory cannot be read.
 func defaultSessionsDir() string {
 	home, err := os.UserHomeDir()
 	if err != nil {

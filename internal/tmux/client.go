@@ -42,7 +42,7 @@ type Client struct {
 
 const DefaultSocket = "default"
 
-// NewClient returns a Client bound to a tmux server by socket name, which is how the manager's own server is reached.
+// NewClient returns a Client bound to a tmux server by socket name.
 func NewClient(socket string) *Client {
 	return &Client{server: []string{"-L", socket}}
 }
@@ -81,8 +81,7 @@ func (c *Client) GetPaneWidth(pane string) int {
 	return width
 }
 
-// GetPaneHeight is how many rows a pane has, which is what a pager needs to place a line on a
-// particular row of it.
+// GetPaneHeight is how many rows a pane has.
 func (c *Client) GetPaneHeight(pane string) int {
 	if pane == "" {
 		return 0
@@ -123,8 +122,8 @@ func (c *Client) GetPaneOwner(pane string) string {
 	return c.value("show-options", "-p", "-qv", "-t", pane, paneOwnerOption)
 }
 
-// IsPaneInMode reports whether a pane is in one of tmux's own modes, such as the one scrolling
-// back puts it in, where keys reach the mode instead of the program running there.
+// IsPaneInMode reports whether a pane is in one of tmux's own modes, where keys reach the mode
+// instead of the program running there.
 func (c *Client) IsPaneInMode(pane string) bool {
 	if pane == "" {
 		return false
@@ -133,8 +132,7 @@ func (c *Client) IsPaneInMode(pane string) bool {
 	return c.value("display-message", "-p", "-t", pane, "#{pane_in_mode}") == "1"
 }
 
-// ClearPaneOwner takes weave's stamp off a pane, which is what a pane weave no longer
-// tracks should look like to anything reading the server.
+// ClearPaneOwner takes weave's stamp off a pane.
 func (c *Client) ClearPaneOwner(pane string) error {
 	if pane == "" {
 		return errors.New("refusing to unstamp an empty pane")
@@ -187,8 +185,8 @@ func (c *Client) GetPanes() (map[string]PaneStatus, error) {
 	return panes, nil
 }
 
-// GetClientPath returns the working directory of the active pane of whichever client this
-// server saw most recently, which only a command running on that server can ask.
+// GetClientPath returns the working directory of the active pane of whichever client this server
+// saw most recently, which only a command running on that server can ask.
 func (c *Client) GetClientPath() string {
 	return c.value("display-message", "-p", "#{pane_current_path}")
 }
@@ -262,14 +260,12 @@ func (c *Client) split(anchorPane, dir, size string, flags ...string) string {
 	return c.value(argv...)
 }
 
-// SelectPane moves focus to a pane, which is how something the user has to type into gets the
-// keyboard once it is up.
+// SelectPane moves focus to a pane.
 func (c *Client) SelectPane(pane string) {
 	c.run("select-pane", "-t", pane)
 }
 
-// SelectWindow makes the window holding a pane the session's current one, which is what an
-// attach lands on.
+// SelectWindow makes the window holding a pane the session's current one.
 func (c *Client) SelectWindow(pane string) {
 	if pane == "" {
 		return
@@ -284,8 +280,7 @@ func (c *Client) ResizePane(pane, width string) {
 }
 
 // GetPaneFocus reports whether a pane is the one its window is sending keys to and whether it is
-// filling that window, asked together because a key bound on the server moves both at once and
-// one query answers for both.
+// filling that window, asked together because one query answers for both.
 func (c *Client) GetPaneFocus(pane string) (focused, zoomed bool) {
 	if pane == "" {
 		return false, false
@@ -315,8 +310,8 @@ func (c *Client) NewWindow(session, name, dir string) (string, error) {
 	return pane, nil
 }
 
-// ResizeWindow sets the size of the window a pane sits in, which is how a window nobody is
-// watching is kept at the size of the slot its pane will be shown in.
+// ResizeWindow sets the size of the window a pane sits in, so a window nobody is watching is
+// kept at the size of the slot its pane will be shown in.
 func (c *Client) ResizeWindow(pane string, width, height int) {
 	if pane == "" || width <= 0 || height <= 0 {
 		return
@@ -355,8 +350,7 @@ func (c *Client) BreakPane(pane string) {
 	c.run("break-pane", "-d", "-s", pane)
 }
 
-// KillPane tears down a single pane, treating one already gone as the outcome asked for since
-// a delete and an archive can race the same pane.
+// KillPane tears down a single pane, treating one already gone as the outcome asked for.
 func (c *Client) KillPane(pane string) {
 	if pane == "" {
 		return
@@ -373,8 +367,8 @@ func (c *Client) BindKey(key string, command ...string) {
 	c.run(append([]string{"bind-key", key}, command...)...)
 }
 
-// BindRootKey binds a key outside the prefix table, where it fires whatever pane holds the
-// keyboard, taking that key away from whatever is running in those panes.
+// BindRootKey binds a key outside the prefix table, taking that key away from whatever is
+// running in the panes.
 func (c *Client) BindRootKey(key string, command ...string) {
 	c.run(append([]string{"bind-key", "-n", key}, command...)...)
 }
@@ -384,8 +378,7 @@ func (c *Client) UnbindRootKey(key string) {
 	c.run("unbind-key", "-n", key)
 }
 
-// BindKeyChecked binds a key like BindKey but reports why tmux refused, for the person who
-// typed a command to bind one and is reading its output.
+// BindKeyChecked binds a key and reports why tmux refused.
 func (c *Client) BindKeyChecked(key string, command ...string) error {
 	if _, err := c.query(append([]string{"bind-key", key}, command...)...); err != nil {
 		return fmt.Errorf("failed to bind %q: %w", key, err)
@@ -399,8 +392,7 @@ func (c *Client) SetGlobal(name, value string) {
 	c.run("set-option", "-g", name, value)
 }
 
-// SetGlobalChecked sets a global tmux option and says why tmux refused, for the same reason
-// BindKeyChecked does.
+// SetGlobalChecked sets a global tmux option and says why tmux refused.
 func (c *Client) SetGlobalChecked(name, value string) error {
 	if _, err := c.query("set-option", "-g", name, value); err != nil {
 		return fmt.Errorf("failed to set %s: %w", name, err)
@@ -409,8 +401,7 @@ func (c *Client) SetGlobalChecked(name, value string) error {
 	return nil
 }
 
-// GetSocketPath returns the path of the socket this client's server listens on, which is how a server
-// named through TMUX is told apart from the one weave runs the panel on.
+// GetSocketPath returns the path of the socket this client's server listens on.
 func (c *Client) GetSocketPath() (string, error) {
 	path, err := c.query("display-message", "-p", "#{socket_path}")
 	if err != nil {
@@ -425,8 +416,8 @@ func (c *Client) ShowGlobal(name string) string {
 	return c.value("show-option", "-gqv", name)
 }
 
-// SetInfoPane records which pane the panel opened its info region in, on the server the
-// panel's panes live on rather than the user's, and clears it when given nothing.
+// SetInfoPane records which pane the panel opened its info region in, and clears it when given
+// nothing.
 func (c *Client) SetInfoPane(pane string) {
 	c.SetGlobal(InfoPaneOption, pane)
 }
@@ -436,8 +427,8 @@ func (c *Client) GetInfoPane() string {
 	return c.ShowGlobal(InfoPaneOption)
 }
 
-// RecordPanelPane stores the pane the panel itself draws in, which is how a later open tells a
-// panel that is still up from a session that only holds agent windows.
+// RecordPanelPane stores the pane the panel itself draws in, so a later open can tell a panel
+// that is still up from a session holding only agent windows.
 func (c *Client) RecordPanelPane(pane string) {
 	if pane == "" {
 		return
@@ -451,8 +442,8 @@ func (c *Client) GetPanelPane() string {
 	return c.ShowGlobal(panelPaneOption)
 }
 
-// RecordHostSocket stores the socket path of the user's server, written by the commands that
-// run there, so the panel and everything reading it agree on one answer.
+// RecordHostSocket stores the socket path of the user's server, so the panel and everything
+// reading it agree on one answer.
 func (c *Client) RecordHostSocket(path string) {
 	if path == "" {
 		return
@@ -466,20 +457,20 @@ func (c *Client) GetHostSocket() string {
 	return c.ShowGlobal(hostSocketOption)
 }
 
-// RecordHostPath stores where the client that opened the panel was sitting, writing an empty
-// value just as deliberately.
+// RecordHostPath stores where the client that opened the panel was sitting, an empty value being
+// written just as deliberately.
 func (c *Client) RecordHostPath(path string) {
 	c.SetGlobal(hostPathOption, path)
 }
 
-// GetHostPath returns the working directory of the pane the panel was opened over, which is where an
-// agent given no directory of its own goes.
+// GetHostPath returns the working directory of the pane the panel was opened over, which is where
+// an agent given no directory of its own goes.
 func (c *Client) GetHostPath() string {
 	return c.ShowGlobal(hostPathOption)
 }
 
-// EnableFocusEvents has tmux tell a pane when it gains or loses the keys, which is how the panel
-// hears an editor pane quitting rather than waiting to notice the pane gone.
+// EnableFocusEvents has tmux tell a pane when it gains or loses the keys, so the panel hears an
+// editor pane quitting rather than waiting to notice the pane gone.
 func (c *Client) EnableFocusEvents() {
 	c.run("set-option", "-s", "focus-events", "on")
 }
@@ -489,20 +480,18 @@ func (c *Client) SetSessionOption(target, name, value string) {
 	c.run("set-option", "-t", target, name, value)
 }
 
-// GetDefaultShell returns the shell tmux starts a pane's process with, which a non-empty
-// default-command is run through too.
+// GetDefaultShell returns the shell tmux starts a pane's process with.
 func (c *Client) GetDefaultShell() string {
 	return c.ShowGlobal("default-shell")
 }
 
 // DetachSession detaches every client from the named session, leaving its pane processes
-// running, which is how the manager popup is hidden and restored.
+// running.
 func (c *Client) DetachSession(name string) {
 	c.run("detach-client", "-s", name)
 }
 
-// CapturePane returns the visible content of a pane with colors preserved, which for an agent
-// CLI drawing a TUI on the alternate screen is all there is.
+// CapturePane returns the visible content of a pane with colors preserved.
 func (c *Client) CapturePane(pane string) string {
 	return c.value("capture-pane", "-p", "-e", "-t", pane)
 }

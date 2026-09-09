@@ -31,14 +31,12 @@ const (
 const (
 	threadMark = "●"
 	unreadMark = "◆"
-	// ghostMark is a thread whose line has changed under it, hollow so the reader does not take
-	// the line beside it for the line the thread is about.
+	// ghostMark is a thread whose line has changed under it, drawn hollow.
 	ghostMark = "○"
-	// settledMark is a thread the person reviewing has finished with, which is the only thing
-	// that quiets one down.
+	// settledMark is a thread the person reviewing has finished with.
 	settledMark = "✓"
-	// unsentMark is a thread holding a comment still only written down, hollow against the filled
-	// mark of a reply waiting to be read.
+	// unsentMark is a thread holding a comment nobody has released yet, drawn hollow against the
+	// filled mark of a reply waiting to be read.
 	unsentMark = "◇"
 	// viewedMark heads the header of a file that has been read and folded away.
 	viewedMark = "✓"
@@ -93,8 +91,8 @@ func (v *View) RenderRow(y int, cursor Cursor, width, offset int) string {
 		width, "…")
 }
 
-// renderFileRow draws a file's header, which once the file is collapsed is the only row that
-// file has and says what is folded under it.
+// renderFileRow draws a file's header, which for a collapsed file is its only row and says what
+// is folded under it.
 func (v *View) renderFileRow(y int, current row, cursor Cursor, width int) string {
 	background := getBackground(diff.Context, cursor)
 	style := fileStyle.Background(background)
@@ -123,7 +121,7 @@ func (v *View) renderFileRow(y int, current row, cursor Cursor, width int) strin
 }
 
 // fileSummary is how much a collapsed file is hiding: the lines it changed, and how many
-// conversations are still open in it, which is the one thing folding it away could bury.
+// conversations in it are still open.
 func (v *View) fileSummary(fileIndex int) string {
 	stat := v.patch.Files[fileIndex].Stat()
 
@@ -163,9 +161,8 @@ func (v *View) renderGutter(y int, line diff.Line, background lipgloss.TerminalC
 		gutterStyle.Background(background).Render(" ")
 }
 
-// markFor is the glyph a thread gets in the gutter, ranking an unread reply first, then whether
-// the thread is settled, then a comment still waiting to be released, and last whether the line
-// under it has changed.
+// markFor is the glyph a thread gets in the gutter, ranking an unread reply first, then a
+// settled thread, then an unreleased comment, and last a line that has changed under it.
 func (v *View) markFor(thread *agentv1.ReviewThread) (string, lipgloss.Style) {
 	switch {
 	case thread.GetUnreadByHuman():
@@ -181,16 +178,15 @@ func (v *View) markFor(thread *agentv1.ReviewThread) (string, lipgloss.Style) {
 	return threadMark, threadMarkStyle
 }
 
-// doesHoldDelivery reports whether any comment in a thread stands in one delivery state, which is
-// what the gutter marks and what the sidebar counts.
+// doesHoldDelivery reports whether any comment in a thread stands in one delivery state.
 func doesHoldDelivery(thread *agentv1.ReviewThread, state agentv1.ReviewDeliveryState) bool {
 	return slices.ContainsFunc(thread.GetMessages(), func(message *agentv1.ReviewMessage) bool {
 		return message.GetDelivery() == state
 	})
 }
 
-// renderThreadRow draws a thread with no line left to stand on, saying where it was written
-// and what it opened with.
+// renderThreadRow draws a thread with no line left to stand on, saying where it was written and
+// what it opened with.
 func (v *View) renderThreadRow(current row, cursor Cursor, width int) string {
 	background := getBackground(diff.Context, cursor)
 	style := lipgloss.NewStyle().Background(background)
@@ -232,7 +228,7 @@ func threadSummary(thread *agentv1.ReviewThread) string {
 	return "your edit: " + said
 }
 
-// firstLine is the opening line of a thread, which is often enough what it is about.
+// firstLine is the opening line of a thread.
 func firstLine(thread *agentv1.ReviewThread) string {
 	messages := thread.GetMessages()
 	if len(messages) == 0 {
@@ -270,8 +266,8 @@ func getBackground(kind diff.LineKind, cursor Cursor) lipgloss.TerminalColor {
 	return plainBackground
 }
 
-// renderTokens draws one lexed line on a background, one token at a time rather than through
-// a chroma formatter, which resets after every token and drops the background behind it.
+// renderTokens draws one lexed line on a background, one token at a time rather than through a
+// chroma formatter, which resets after every token and loses the background.
 func renderTokens(line styledLine, fallback string, background lipgloss.TerminalColor, found []span) string {
 	if len(line) == 0 {
 		line = styledLine{{text: fallback}}
@@ -342,9 +338,8 @@ func isInSpan(offset int, found []span) bool {
 	return false
 }
 
-// fitWindow slides an already-coloured line under the horizontal offset and pads it out to
-// the full width, so the background reaches the edge of the pane rather than stopping at the
-// end of the text.
+// fitWindow slides an already-coloured line under the horizontal offset and pads it out to the
+// full width, so the background reaches the edge of the pane.
 func fitWindow(value string, offset, width int, background lipgloss.TerminalColor) string {
 	if width <= 0 {
 		return ""

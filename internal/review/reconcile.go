@@ -6,7 +6,7 @@ import (
 )
 
 // Run is one run of edited lines the reviewer wrote into the round's checkout, already anchored
-// against the diff so that the numbers here are the ones a thread is pinned by.
+// against the diff.
 type Run struct {
 	FilePath    string
 	OldStart    int
@@ -17,8 +17,7 @@ type Run struct {
 	Lines       []string
 }
 
-// Pinned is a harvested thread of the round being reconciled, which weave may move or delete
-// because it wrote the thread itself and nobody has answered in it.
+// Pinned is a harvested thread of the round being reconciled, which weave may move or delete.
 type Pinned struct {
 	ID       string
 	FilePath string
@@ -27,8 +26,8 @@ type Pinned struct {
 	Lines    []string
 }
 
-// Frozen is a thread the reconciliation must leave alone, which is every thread released,
-// answered, or written by somebody rather than harvested.
+// Frozen is a thread the reconciliation must leave alone, being every thread released, answered,
+// or written by somebody rather than harvested.
 type Frozen struct {
 	FilePath string
 	NewStart int
@@ -42,7 +41,7 @@ type Move struct {
 }
 
 // Plan is what one harvest does to the round's harvested threads, worked out before anything is
-// written so that the whole of it can go in one transaction.
+// written.
 type Plan struct {
 	Open    []Run
 	Move    []Move
@@ -50,14 +49,13 @@ type Plan struct {
 	Skipped []Run
 }
 
-// IsEmpty reports whether the harvest changes nothing, which is the ordinary answer when the
-// reviewer opened the editor and wrote nothing.
+// IsEmpty reports whether the harvest changes nothing.
 func (p Plan) IsEmpty() bool {
 	return len(p.Open) == 0 && len(p.Move) == 0 && len(p.Delete) == 0
 }
 
 // pair is one run that could stand for one harvested thread, ranked by how much of the two
-// overlaps so that the closest reading of what the reviewer did is taken first.
+// overlaps.
 type pair struct {
 	run     int
 	pinned  int
@@ -65,8 +63,7 @@ type pair struct {
 }
 
 // Reconcile works out what a harvest does to the threads already standing on the round, matching
-// each run to the harvested thread it overlaps most and leaving frozen threads and what touches
-// them alone.
+// each run to the harvested thread it overlaps most and leaving the frozen threads alone.
 func Reconcile(runs []Run, pinned []Pinned, frozen []Frozen) Plan {
 	var plan Plan
 
@@ -124,7 +121,7 @@ func Reconcile(runs []Run, pinned []Pinned, frozen []Frozen) Plan {
 }
 
 // rankPairs is every run and harvested thread that could stand for one another, most overlapping
-// first, with the rest of the order fixed so that a tie is settled the same way twice.
+// first, with the rest of the order fixed so a tie is settled the same way twice.
 func rankPairs(runs []Run, pinned []Pinned, takenRun, takenPinned []bool) []pair {
 	var pairs []pair
 
@@ -185,7 +182,7 @@ func isFrozenOver(run Run, frozen []Frozen) bool {
 	return false
 }
 
-// overlapOf is how many lines two ranges share, which is what decides the thread a run stands for.
+// overlapOf is how many lines two ranges share, which decides the thread a run stands for.
 func overlapOf(aStart, aEnd, bStart, bEnd int) int {
 	return max(0, min(aEnd, bEnd)-max(aStart, bStart)+1)
 }

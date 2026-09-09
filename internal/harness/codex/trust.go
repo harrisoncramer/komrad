@@ -8,8 +8,8 @@ import (
 	"github.com/pelletier/go-toml/v2"
 )
 
-// defaultConfigPath is the config file Codex reads, which is also the only place it
-// records which directories are trusted.
+// defaultConfigPath is the config file Codex reads, which is also the only place it records
+// which directories are trusted.
 func defaultConfigPath() string {
 	home, err := os.UserHomeDir()
 	if err != nil {

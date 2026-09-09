@@ -62,7 +62,7 @@ func readCompleteLines(path string, offset int64) ([]byte, int64, error) {
 }
 
 // CleanText trims a turn's prose and drops the NUL the transcript columns cannot hold, doing it
-// as the prose is read since turns carry offsets that a later removal would shift.
+// as the prose is read since turns carry offsets a later removal would shift.
 func CleanText(text string) string {
 	return strings.TrimSpace(strings.ReplaceAll(text, "\x00", ""))
 }

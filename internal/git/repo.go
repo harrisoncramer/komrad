@@ -17,7 +17,7 @@ func GetRoot(ctx context.Context, dir string) (string, error) {
 }
 
 // resolveBase turns a configured base branch into something git can name, preferring a
-// remote-tracking ref since a worktree is cut from one.
+// remote-tracking ref.
 func resolveBase(ctx context.Context, root, base string) string {
 	base = strings.TrimSpace(base)
 	if base == "" {
@@ -35,8 +35,8 @@ func resolveBase(ctx context.Context, root, base string) string {
 	return base
 }
 
-// GetCurrentBranch is the branch a worktree is on, and nothing for a detached head or a directory
-// git will not answer about.
+// GetCurrentBranch is the branch a worktree is on, and nothing for a detached head or a
+// directory git will not answer about.
 func GetCurrentBranch(ctx context.Context, dir string) *string {
 	branch, err := Run(ctx, dir, "rev-parse", "--abbrev-ref", "HEAD")
 	if err != nil || branch == "" || branch == "HEAD" {
@@ -46,7 +46,7 @@ func GetCurrentBranch(ctx context.Context, dir string) *string {
 	return &branch
 }
 
-// GetOriginURL is where a checkout pushes to, which is what says which repository it belongs to.
+// GetOriginURL is where a checkout pushes to.
 func GetOriginURL(ctx context.Context, dir string) (string, error) {
 	url, err := Run(ctx, dir, "remote", "get-url", "origin")
 	if err != nil {
@@ -76,8 +76,8 @@ func ReadFileLines(ctx context.Context, dir, sha, path string) ([]string, error)
 	return strings.Split(strings.TrimSuffix(string(out), "\n"), "\n"), nil
 }
 
-// ExcludePathspecs turns paths into pathspecs git will subtract, adding the exclusion magic so a
-// caller writes only a path or a glob such as proto/gen.
+// ExcludePathspecs turns paths into pathspecs git will subtract, so a caller writes only a path
+// or a glob such as proto/gen.
 func ExcludePathspecs(paths []string) []string {
 	specs := make([]string, 0, len(paths))
 	for _, path := range paths {
@@ -101,8 +101,7 @@ type CountChangedFilesParams struct {
 	Exclude []string
 }
 
-// CountChangedFiles is how many files differ between two commits, which is what says how much of a
-// snapshot is new since somebody last looked at one.
+// CountChangedFiles is how many files differ between two commits.
 func CountChangedFiles(ctx context.Context, params CountChangedFilesParams) (int, error) {
 	if params.FromSHA == "" || params.ToSHA == "" || params.FromSHA == params.ToSHA {
 		return 0, nil

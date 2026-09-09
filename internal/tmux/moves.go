@@ -8,13 +8,12 @@ import (
 	"weave/internal/panes"
 )
 
-// zoomedFormat asks whether a pane is the one filling its window, put as a format so that tmux
-// can answer it for itself inside a conditional.
+// zoomedFormat asks whether a pane is the one filling its window, put as a format so tmux can
+// answer it inside a conditional.
 const zoomedFormat = "#{&&:#{window_zoomed_flag},#{pane_active}}"
 
 // MovePanes runs a change's pane moves in one invocation, which tmux processes in a single pass
-// and paints once, so a change that moves several panes reaches the terminal as one frame rather
-// than one frame per command.
+// and paints once, so a change moving several panes reaches the terminal as one frame.
 func (c *Client) MovePanes(moves []panes.Move) {
 	var args []string
 
@@ -64,8 +63,8 @@ func argsForMove(move panes.Move) [][]string {
 }
 
 // zoomArgs is the conditional tmux runs to put a pane's zoom where it is wanted, asked as a
-// condition rather than a toggle so that it lands whatever an earlier command in the same
-// invocation did to the zoom, and costs nothing when the pane is already there.
+// condition rather than a toggle so it lands whatever an earlier command in the same invocation
+// did to the zoom.
 func zoomArgs(pane string, zoomed bool) []string {
 	resize := "resize-pane -Z -t " + pane
 
