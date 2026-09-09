@@ -775,7 +775,7 @@ func TestDeliverToAComposingPane(t *testing.T) {
 		{
 			name:        "a cut whose frame the CLI has yet to repaint",
 			held:        draftStaleAfter,
-			staleReads:  cutSettleReads - 1,
+			staleReads:  5,
 			want:        DeliverySoon,
 			wantActions: []string{"cut", "paste", "yank"},
 		},
