@@ -79,7 +79,7 @@ func requireLevel(
 	responseWriter.AddAnnotation(
 		check.WithDescriptor(method),
 		check.WithMessagef(
-			"%q is named for %s, so it must declare \"option idempotency_level = %s;\". The MCP hints and the CLI both read that option, and without it the method reaches every client as one that mutates the panel and cannot be retried.",
+			"%q is named for %s, so it must declare \"option idempotency_level = %s;\". The MCP tool hints derive from that option, so without it the method reaches every client as one that changes the panel and cannot be retried.",
 			method.Name(),
 			kind,
 			want,
