@@ -16,7 +16,7 @@ import (
 )
 
 // roundHarvestedMsg is what writing the reviewer's edits as threads did, carrying the review as
-// it stands afterwards since the panel keeps no copy of what it has just changed.
+// it stands afterwards.
 type roundHarvestedMsg struct {
 	agentID string
 	opened  int
@@ -27,24 +27,23 @@ type roundHarvestedMsg struct {
 	err     error
 }
 
-// defaultEditor is what the file is opened in when nothing said otherwise, which is what the
-// environment falls back to as well.
+// defaultEditor is what the file is opened in when nothing said otherwise.
 const defaultEditor = "vi"
 
 // roundReadyMsg says the round has been checked out somewhere the editor can open it, naming the
-// snapshot it was put on rather than the one on screen, which may have moved while it was made.
+// snapshot it was put on rather than the one on screen.
 type roundReadyMsg struct {
 	agentID string
 	dir     string
 	sha     string
-	// leftover is the checkout of an earlier round that was found holding work nobody carried,
-	// set instead of a directory since the round was not checked out over the top of it.
+	// leftover is the checkout of an earlier round that was found holding work nobody carried, set
+	// instead of a directory since nothing was checked out over the top of it.
 	leftover string
 	err      error
 }
 
 // roundEditedMsg is what the reviewer has written into the checkout, read back once the editor
-// that was writing it has gone, against the snapshot that checkout is standing on.
+// has gone and measured against the snapshot that checkout is standing on.
 type roundEditedMsg struct {
 	agentID string
 	sha     string
@@ -53,8 +52,7 @@ type roundEditedMsg struct {
 }
 
 // roundLeftoverMsg is a checkout found already standing beside the agent's worktree, holding work
-// an earlier sitting wrote and nobody carried, named by the snapshot it stands on since that is
-// what says whether it belongs to the round on screen.
+// an earlier sitting wrote and nobody carried, named by the snapshot it stands on.
 type roundLeftoverMsg struct {
 	agentID string
 	dir     string
@@ -152,8 +150,8 @@ func (m model) materialiseRoundCmd(force bool) tea.Cmd {
 	}
 }
 
-// doesHoldLeftover reports whether the checkout is an earlier round's with work still in it, which is
-// the one thing checking this round out over the top of it destroys.
+// doesHoldLeftover reports whether the checkout is an earlier round's with work still in it,
+// which checking this round out over the top of it would destroy.
 func doesHoldLeftover(ctx context.Context, at, sha string) bool {
 	head, ok := git.WorktreeHead(ctx, at)
 	if !ok || head == sha {
@@ -197,8 +195,8 @@ func (m model) applyRoundReady(msg roundReadyMsg) (tea.Model, tea.Cmd) {
 	return next, cmd
 }
 
-// reapRoundCmd takes the checkout away when the screen it was cut for closes, unless the
-// reviewer wrote something into it that no comment has carried yet.
+// reapRoundCmd takes the checkout away when the screen it was cut for closes, unless the reviewer
+// wrote something into it that no comment has carried yet.
 func (m model) reapRoundCmd(root, at string) tea.Cmd {
 	if at == "" {
 		return nil
@@ -279,8 +277,8 @@ func (m *model) applyRoundLeftover(msg roundLeftoverMsg) {
 	m.review.roundSha = msg.sha
 }
 
-// readRoundEditsCmd asks the checkout what the reviewer wrote, which is the whole of it and not
-// just the file the editor was opened on.
+// readRoundEditsCmd asks the checkout what the reviewer wrote, which is the whole of it rather
+// than only the file the editor was opened on.
 func (m model) readRoundEditsCmd() tea.Cmd {
 	agentID, at, sha := m.review.agentID, m.review.roundDir, m.review.roundSha
 	if at == "" {
@@ -301,8 +299,8 @@ func (m model) readRoundEditsCmd() tea.Cmd {
 	}
 }
 
-// reconcileEditor catches the editor pane going away on its own and takes the window back for
-// the diff it was covering.
+// reconcileEditor catches the editor pane going away on its own and takes the window back for the
+// diff it was covering.
 func (m model) reconcileEditor() (model, tea.Cmd) {
 	if !m.reconcileInfo() || m.screen != screenReview {
 		return m, nil
@@ -344,7 +342,7 @@ func (m *model) applyRoundEdited(msg roundEditedMsg) tea.Cmd {
 }
 
 // harvestCmd writes the runs the reviewer left in the checkout as threads on the round, anchored
-// here to the patch the line numbers and quoted lines come from.
+// to the patch the line numbers and quoted lines come from.
 func (m model) harvestCmd(edits []git.Edit) tea.Cmd {
 	// An empty harvest is sent rather than skipped: a reviewer who has undone every edit is
 	// retracting the comments those edits wrote, and only the server can see that.
@@ -386,8 +384,8 @@ func (m model) harvestCmd(edits []git.Edit) tea.Cmd {
 	}
 }
 
-// roundFallback reads the round's own copy of a file the patch does not draw, which is how an edit
-// made away from the diff still becomes a comment.
+// roundFallback reads the round's own copy of a file the patch does not draw, which is how an
+// edit made away from the diff still becomes a comment.
 func (m model) roundFallback() func(string) ([]string, bool) {
 	dir := m.review.roundDir
 	if dir == "" {
@@ -445,7 +443,7 @@ func (m *model) applyRoundHarvested(msg roundHarvestedMsg) {
 	m.applyReviewThreads(msg.threads)
 }
 
-// describeHarvest names what changed, and says nothing at all when nothing did.
+// describeHarvest names what changed, and says nothing when nothing did.
 func describeHarvest(msg roundHarvestedMsg) string {
 	var parts []string
 
