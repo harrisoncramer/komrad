@@ -41,6 +41,13 @@ const (
 // taken for abandoned.
 const draftStaleAfter = 3 * time.Minute
 
+// cutSettleReads is how many times the frame is read for a cut tmux has already written to the
+// pane.
+const cutSettleReads = 15
+
+// cutSettleInterval is how long is left between those reads.
+const cutSettleInterval = 20 * time.Millisecond
+
 // clientPresenceWindow is how recently somebody has to have pressed a key at an agent's window
 // to count as being there.
 const clientPresenceWindow = time.Minute
@@ -132,12 +139,16 @@ func (s *DeliveryService) DeliverAll(ctx context.Context) error {
 func (s *DeliveryService) Deliver(ctx context.Context, agentID string) (Delivery, error) {
 	agent, err := s.nudgeClaimer.GetByID(ctx, agentID)
 	if errors.Is(err, store.ErrNotFound) {
+		s.drafts.forget(agentID)
+
 		return DeliveryDone, nil
 	}
 	if err != nil {
 		return DeliveryDone, err
 	}
 	if agent.ArchivedAt != nil {
+		s.drafts.forget(agentID)
+
 		return DeliveryDone, nil
 	}
 
@@ -294,14 +305,11 @@ func (s *DeliveryService) cutDraft(ctx context.Context, agent agentstore.Agent) 
 		return false, fmt.Errorf("failed to cut the draft of agent %q: %w", agent.ID, err)
 	}
 
-	// Codex draws a placeholder in an empty composer, so the box is read through the harness
-	// rather than off the capture.
-	input, err := s.readInput(agent)
+	empty, err := s.waitForAnEmptyBox(agent)
 	if err != nil {
-		return false, fmt.Errorf("failed to read the input box of agent %q: %w", agent.ID, err)
+		return false, err
 	}
-
-	if input.Activity == harness.ActivityIdle {
+	if empty {
 		return true, nil
 	}
 
@@ -311,6 +319,29 @@ func (s *DeliveryService) cutDraft(ctx context.Context, agent agentstore.Agent) 
 
 	logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "cutting an agent's input box left text behind, so its mail was not delivered",
 		slog.String(logging.TargetAgentID, agent.ID))
+
+	return false, nil
+}
+
+// waitForAnEmptyBox reads the frame until it shows the cut, which tmux writes to the pane ahead
+// of the CLI repainting it.
+func (s *DeliveryService) waitForAnEmptyBox(agent agentstore.Agent) (bool, error) {
+	for read := range cutSettleReads {
+		if read > 0 {
+			time.Sleep(cutSettleInterval)
+		}
+
+		// Codex draws a placeholder in an empty composer, so the box is read through the harness
+		// rather than off the capture.
+		input, err := s.readInput(agent)
+		if err != nil {
+			return false, fmt.Errorf("failed to read the input box of agent %q: %w", agent.ID, err)
+		}
+
+		if input.Activity == harness.ActivityIdle {
+			return true, nil
+		}
+	}
 
 	return false, nil
 }

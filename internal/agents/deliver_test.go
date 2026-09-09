@@ -388,8 +388,8 @@ func (f *fakeAgents) ClaimNudge(context.Context, string, time.Duration) (bool, e
 	return f.claimed, nil
 }
 
-// fakePanes stands in for tmux, showing one frame and swapping it for the frame a cut of its
-// input box would leave.
+// fakePanes stands in for tmux, showing one frame until a cut of its input box has landed and
+// the frame after it once it has.
 type fakePanes struct {
 	alive    bool
 	inMode   bool
@@ -400,16 +400,35 @@ type fakePanes struct {
 	// test says otherwise.
 	afterCut string
 
+	// staleReads is how many reads after the cut still show the frame from before it, which is
+	// a CLI that has yet to repaint.
+	staleReads int
+
 	// actions is what was done to the pane, in the order it was done.
-	actions []string
-	pasted  []string
+	actions  []string
+	pasted   []string
+	captures int
+	cutAt    int
+	cut      bool
 }
 
 func (f *fakePanes) IsAgentRunning(agentstore.Agent) bool { return f.alive }
 
 func (f *fakePanes) IsPaneInMode(string) bool { return f.inMode }
 
-func (f *fakePanes) CapturePane(string) string { return f.frame }
+func (f *fakePanes) CapturePane(string) string {
+	f.captures++
+
+	if f.cut && f.captures > f.cutAt+f.staleReads {
+		if f.afterCut != "" {
+			return f.afterCut
+		}
+
+		return idleFrame
+	}
+
+	return f.frame
+}
 
 func (f *fakePanes) IsClientAtPane(string, time.Duration) bool { return f.clientAt }
 
@@ -422,11 +441,8 @@ func (f *fakePanes) PasteAndSubmit(_, text string) error {
 
 func (f *fakePanes) CutLine(string) error {
 	f.actions = append(f.actions, "cut")
-
-	f.frame = f.afterCut
-	if f.frame == "" {
-		f.frame = idleFrame
-	}
+	f.cut = true
+	f.cutAt = f.captures
 
 	return nil
 }
@@ -728,6 +744,7 @@ func TestDeliverToAComposingPane(t *testing.T) {
 		frame       string
 		afterCut    string
 		clientAt    bool
+		staleReads  int
 		held        time.Duration
 		want        Delivery
 		wantActions []string
@@ -756,6 +773,20 @@ func TestDeliverToAComposingPane(t *testing.T) {
 			want:  DeliveryLater,
 		},
 		{
+			name:        "a cut whose frame the CLI has yet to repaint",
+			held:        draftStaleAfter,
+			staleReads:  cutSettleReads - 1,
+			want:        DeliverySoon,
+			wantActions: []string{"cut", "paste", "yank"},
+		},
+		{
+			name:        "a cut the frame never shows, which is a box that held more than the cut took",
+			held:        draftStaleAfter,
+			staleReads:  cutSettleReads,
+			want:        DeliveryLater,
+			wantActions: []string{"cut", "yank"},
+		},
+		{
 			name:        "a cut that left text in the box",
 			held:        draftStaleAfter,
 			afterCut:    composingFrame,
@@ -772,7 +803,13 @@ func TestDeliverToAComposingPane(t *testing.T) {
 			}
 
 			now := time.Date(2026, time.September, 9, 12, 0, 0, 0, time.UTC)
-			panes := &fakePanes{alive: true, frame: frame, afterCut: tt.afterCut, clientAt: tt.clientAt}
+			panes := &fakePanes{
+				alive:      true,
+				frame:      frame,
+				afterCut:   tt.afterCut,
+				clientAt:   tt.clientAt,
+				staleReads: tt.staleReads,
+			}
 			svc := composingService(t, panes, &now)
 
 			got, err := svc.Deliver(t.Context(), "agent-a")
@@ -878,4 +915,56 @@ func TestDeliverSaysOnceThatAMultiLineDraftIsInTheWay(t *testing.T) {
 	require.Len(t, written, 1, "three passes over the same draft say it once")
 	assert.Equal(t, "WARN", written[0]["severity_text"])
 	assert.Empty(t, panes.actions)
+}
+
+// TestDeliverForgetsAnAgentNothingWillLookAtAgain pins that the draft clock does not keep an
+// entry for an agent no pass will reach.
+func TestDeliverForgetsAnAgentNothingWillLookAtAgain(t *testing.T) {
+	archivedAt := time.Date(2026, time.September, 9, 12, 0, 0, 0, time.UTC)
+
+	tests := []struct {
+		name string
+		gone func(agents *fakeAgents)
+	}{
+		{
+			name: "an agent no row holds any more",
+			gone: func(agents *fakeAgents) { agents.agent = nil },
+		},
+		{
+			name: "an agent archived while its draft stood",
+			gone: func(agents *fakeAgents) { agents.agent.ArchivedAt = &archivedAt },
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			now := archivedAt
+			panes := &fakePanes{alive: true, frame: composingFrame}
+			agents := &fakeAgents{claimed: true, agent: &agentstore.Agent{
+				ID:    "agent-a",
+				Pane:  "%1",
+				State: agentstore.StateIdle,
+			}}
+			svc := NewDeliveryService(NewDeliveryServiceParams{
+				MailboxReader: &fakeMailboxReader{pending: 1},
+				NudgeClaimer:  agents,
+				PaneReader:    panes,
+				PaneWriter:    panes,
+				Harnesses:     fakeHarnesses{harness: &fakeHarness{}},
+				Now:           func() time.Time { return now },
+			})
+
+			got, err := svc.Deliver(t.Context(), "agent-a")
+			require.NoError(t, err)
+			require.Equal(t, DeliveryLater, got)
+			require.Len(t, svc.drafts.boxes, 1, "the draft was seen, so it is being timed")
+
+			tt.gone(agents)
+
+			got, err = svc.Deliver(t.Context(), "agent-a")
+			require.NoError(t, err)
+			assert.Equal(t, DeliveryDone, got)
+			assert.Empty(t, svc.drafts.boxes, "nothing will read this box again")
+		})
+	}
 }
