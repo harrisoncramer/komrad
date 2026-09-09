@@ -282,6 +282,10 @@ func (m model) routeAsyncMessage(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
 		return next, cmd, true
 	case roundEditedMsg:
 		return m, m.applyRoundEdited(msg), true
+	case messageEditedMsg:
+		m.applyMessageEdited(msg)
+
+		return m, nil, true
 	case roundHarvestedMsg:
 		m.applyRoundHarvested(msg)
 

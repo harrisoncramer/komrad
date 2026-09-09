@@ -2,6 +2,10 @@ package ui
 
 import (
 	"context"
+	"fmt"
+	"os"
+	"os/exec"
+	"path/filepath"
 	"strings"
 
 	"weave/internal/review"
@@ -102,6 +106,8 @@ func (m model) updateReviewComposer(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.cancelReviewMessage(), nil
 	case k == "ctrl+c":
 		return m, m.hide()
+	case k == "ctrl+e":
+		return m.openMessageEditor()
 	case isBound(k, m.keys.Form.Submit):
 		return m.saveReviewMessage()
 	}
@@ -110,6 +116,65 @@ func (m model) updateReviewComposer(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	m.review.editor = editor
 
 	return m, cmd
+}
+
+// messageEditedMsg is what the reviewer wrote in their own editor.
+type messageEditedMsg struct {
+	agentID string
+	body    string
+	err     error
+}
+
+// openMessageEditor hands what has been typed so far to the reviewer's editor.
+func (m model) openMessageEditor() (tea.Model, tea.Cmd) {
+	agentID := m.review.agentID
+	path := messageDraftPath(agentID)
+
+	if err := os.WriteFile(path, []byte(m.review.editor.Value()), 0o600); err != nil {
+		m.review.notice = "your editor could not be opened on that message"
+
+		return m, nil
+	}
+
+	command := strings.TrimSpace(m.editor)
+	if command == "" {
+		command = defaultEditor
+	}
+
+	// The editor is left unquoted so an EDITOR of several words stays several words.
+	//nolint:noctx // the editor runs until the reviewer closes it, so it takes no deadline
+	open := exec.Command("sh", "-c", fmt.Sprintf("exec %s %s", command, shellQuote(path)))
+
+	return m, tea.ExecProcess(open, func(err error) tea.Msg {
+		if err != nil {
+			return messageEditedMsg{agentID: agentID, err: err}
+		}
+
+		body, err := os.ReadFile(path)
+
+		return messageEditedMsg{agentID: agentID, body: string(body), err: err}
+	})
+}
+
+// messageDraftPath is where the message is put for the editor to open.
+func messageDraftPath(agentID string) string {
+	return filepath.Join(os.TempDir(), "weave-comment-"+agentID+".md")
+}
+
+// applyMessageEdited puts what the editor wrote back into the composer.
+func (m *model) applyMessageEdited(msg messageEditedMsg) {
+	if msg.agentID != m.review.agentID || (!m.review.composing && !m.review.releasing) {
+		return
+	}
+
+	if msg.err != nil {
+		m.review.notice = "what you wrote in your editor could not be read back"
+
+		return
+	}
+
+	m.review.editor.SetValue(strings.TrimRight(msg.body, "\n"))
+	m.review.editor.CursorEnd()
 }
 
 func (m model) saveReviewMessage() (tea.Model, tea.Cmd) {
@@ -293,6 +358,8 @@ func (m model) updateReviewRelease(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case isBound(k, m.keys.Form.Submit):
 		return m.sendReview(false)
+	case k == "ctrl+e":
+		return m.openMessageEditor()
 	case isBound(k, m.keys.Review.SendNow):
 		return m.sendReview(true)
 	}

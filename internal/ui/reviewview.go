@@ -134,7 +134,7 @@ func (m model) reviewRestView() string {
 
 	if m.review.composing {
 		return "\n" + m.review.editor.View() + "\n" +
-			dimStyle.Render("  "+keyLabel(m.keys.Form.Submit)+" save · esc cancel") + "\n"
+			dimStyle.Render("  "+keyLabel(m.keys.Form.Submit)+" save · ctrl+e editor · esc cancel") + "\n"
 	}
 
 	if m.review.releasing {
@@ -203,7 +203,7 @@ func (m model) reviewReleaseView() string {
 
 	return out + "\n" + dimStyle.Render("  tab to change · "+
 		keyLabel(m.keys.Form.Submit)+" send · "+
-		keyLabel(m.keys.Review.SendNow)+" send and interrupt · esc cancel") + "\n"
+		keyLabel(m.keys.Review.SendNow)+" send and interrupt · ctrl+e editor · esc cancel") + "\n"
 }
 
 // describeVerdict is how a verdict reads in the panel, spelled the way a person would say it

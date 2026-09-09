@@ -948,3 +948,52 @@ func TestReviewDrawsTheSidebarAloneWhileTheEditorIsUp(t *testing.T) {
 	assert.NotContains(t, ansi.Strip(m.View()), "package greet", "so the diff waits")
 	assert.Contains(t, ansi.Strip(m.View()), "Review · auth", "and the sidebar keeps the column")
 }
+
+// TestReviewComposerOpensTheEditorOnWhatWasTyped covers ctrl+e in the comment composer: the
+// message being written reaches the editor as a file, and what comes back is what the composer
+// holds afterwards.
+func TestReviewComposerOpensTheEditorOnWhatWasTyped(t *testing.T) {
+	dir := reviewRepo(t)
+	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
+	m = openReview(t, m)
+
+	next, _ := m.updateReview(keyMsg("c"))
+	m = next.(model)
+	require.True(t, m.review.composing)
+
+	m.review.editor.SetValue("a start")
+
+	next, cmd := m.updateReview(tea.KeyMsg{Type: tea.KeyCtrlE})
+	m = next.(model)
+	require.NotNil(t, cmd, "the editor is run")
+	require.True(t, m.review.composing, "and the composer is still what the keys go to")
+
+	draft, err := os.ReadFile(messageDraftPath(m.review.agentID))
+	require.NoError(t, err)
+	assert.Equal(t, "a start", string(draft), "the editor opens on what was typed")
+
+	m.applyMessageEdited(messageEditedMsg{agentID: m.review.agentID, body: "what the editor wrote\n"})
+
+	assert.Equal(t, "what the editor wrote", m.review.editor.Value())
+
+	next, cmd = m.updateReview(tea.KeyMsg{Type: tea.KeyCtrlS})
+	require.NotNil(t, cmd)
+	assert.False(t, asModel(t, next).review.composing, "and the submit key still sends it")
+}
+
+// TestReviewComposerKeepsWhatItHasWhenTheEditorFails covers an editor that would not run: the
+// message being written is left alone and the reader is told.
+func TestReviewComposerKeepsWhatItHasWhenTheEditorFails(t *testing.T) {
+	dir := reviewRepo(t)
+	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
+	m = openReview(t, m)
+
+	next, _ := m.updateReview(keyMsg("c"))
+	m = next.(model)
+	m.review.editor.SetValue("a start")
+
+	m.applyMessageEdited(messageEditedMsg{agentID: m.review.agentID, err: assert.AnError})
+
+	assert.Equal(t, "a start", m.review.editor.Value())
+	assert.Contains(t, m.review.notice, "could not be read back")
+}
