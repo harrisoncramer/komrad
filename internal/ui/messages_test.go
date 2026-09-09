@@ -458,3 +458,33 @@ func TestMessagesPulseHoldsStillOnAnOlderMessage(t *testing.T) {
 	m.messages.cursor = 1
 	assert.False(t, m.messagesPulseOn())
 }
+
+// TestChromeKeepsEveryRowInsideThePane covers the invariant every block of chrome the panel draws
+// is held to: a reason holding a path is one word to a word wrap, and a row wider than the pane
+// wraps in the terminal and costs the frame the row at the bottom.
+func TestChromeKeepsEveryRowInsideThePane(t *testing.T) {
+	const path = "/Users/harrisoncramer/.local/state/weave/worktrees/01a086ae-d59b-769b-a8a0-202d4014bddd/bin/editor"
+
+	for _, width := range []int{20, 30, 45, 80} {
+		m := detailsModel(&recordingTmux{})
+		m.height, m.width = 40, width
+		m.messages = oneMessage("Your editor could not be opened on that message", "fork/exec "+path+": no such file or directory")
+		m.messages.focused = true
+
+		view := m.View()
+		for i, row := range strings.Split(view, "\n") {
+			assert.LessOrEqual(t, ansi.StringWidth(row), width, "message row %d at width %d: %q", i, width, ansi.Strip(row))
+		}
+
+		assert.Equal(t, m.height, strings.Count(view, "\n")+1, "frame rows at width %d", width)
+
+		note := m.reviewNote(dimStyle, "editing this round replaces the edit of an earlier one in "+path+", so press again to go on")
+		for i, row := range strings.Split(strings.TrimRight(note, "\n"), "\n") {
+			assert.LessOrEqual(t, ansi.StringWidth(row), m.paneWidth(), "review note row %d at width %d: %q", i, width, ansi.Strip(row))
+		}
+
+		for i, row := range m.noticeLines(notice{icon: "✗", text: "nothing was written to " + path}, 0) {
+			assert.LessOrEqual(t, ansi.StringWidth(row), m.paneWidth(), "notice row %d at width %d: %q", i, width, ansi.Strip(row))
+		}
+	}
+}

@@ -11,7 +11,6 @@ import (
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/charmbracelet/x/ansi"
 )
 
 // messagesRows is the most rows the region takes, which the pane keeps back whether or not the
@@ -215,7 +214,7 @@ func (m model) messagePieceRows(piece messagePiece, hovered, flashed bool) []str
 	}
 
 	rows := []string{}
-	for line := range strings.SplitSeq(ansi.Wordwrap(piece.text, max(m.lineWidth()-messagesIndent-2-lipgloss.Width(piece.label), 1), ""), "\n") {
+	for _, line := range wrapRows(piece.text, m.lineWidth()-messagesIndent-2-lipgloss.Width(piece.label)) {
 		if len(rows) == 0 {
 			label := ""
 			if piece.label != "" {

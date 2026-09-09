@@ -11,6 +11,7 @@ import (
 	workflowstore "weave/internal/store/workflow"
 
 	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/x/ansi"
 )
 
 const (
@@ -280,6 +281,20 @@ func (m model) nameStyle(hovered, inactive bool) lipgloss.Style {
 
 func clipName(name string) string {
 	return clip(name, nameWidth)
+}
+
+// wrapRows is prose wrapped into the column it is drawn in, breaking a token longer than the
+// column rather than handing back a row the pane would wrap and cost the frame its bottom row.
+func wrapRows(text string, width int) []string {
+	width = max(width, 1)
+
+	rows := strings.Split(ansi.Wrap(text, width, ""), "\n")
+	for i, row := range rows {
+		// A grapheme wider than the whole column is the one thing Wrap cannot place.
+		rows[i] = ansi.Truncate(row, width, "")
+	}
+
+	return rows
 }
 
 func clip(text string, width int) string {
