@@ -245,6 +245,8 @@ type TerminalKeys struct {
 type FormKeys struct {
 	// Abort the form without quitting the panel.
 	Back []string `mapstructure:"back" default:"esc"`
+	// Open the message being written in $EDITOR, in every box that takes prose.
+	Editor []string `mapstructure:"editor" default:"ctrl+e"`
 	// Abort the form and quit the panel.
 	Quit []string `mapstructure:"quit" default:"ctrl+c"`
 	// Submit the form. Plain enter belongs to the text inputs, so this is

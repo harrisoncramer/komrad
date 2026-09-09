@@ -981,6 +981,28 @@ func TestReviewComposerOpensTheEditorOnWhatWasTyped(t *testing.T) {
 	assert.False(t, asModel(t, next).review.composing, "and the submit key still sends it")
 }
 
+// TestReviewComposerEditorFollowsTheKeymap covers the editor key being config rather than a
+// literal, so the box that takes prose in the review opens on whatever the forms open on.
+func TestReviewComposerEditorFollowsTheKeymap(t *testing.T) {
+	dir := reviewRepo(t)
+	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
+	m.keys.Form.Editor = []string{"ctrl+o"}
+	m = openReview(t, m)
+
+	next, _ := m.updateReview(keyMsg("c"))
+	m = next.(model)
+	require.True(t, m.review.composing)
+
+	_, cmd := m.updateReview(tea.KeyMsg{Type: tea.KeyCtrlO})
+	assert.NotNil(t, cmd, "the rebound key runs the editor")
+
+	_, cmd = m.updateReview(tea.KeyMsg{Type: tea.KeyCtrlE})
+	assert.Nil(t, cmd, "and the key it replaced is a character in the message")
+
+	assert.Contains(t, ansi.Strip(m.reviewView()), "C-o editor",
+		"the legend names the key that is bound rather than the one that shipped")
+}
+
 // TestReviewComposerKeepsWhatItHasWhenTheEditorFails covers an editor that would not run: the
 // message being written is left alone and the reader is told.
 func TestReviewComposerKeepsWhatItHasWhenTheEditorFails(t *testing.T) {

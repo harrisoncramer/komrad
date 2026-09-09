@@ -102,11 +102,11 @@ func (m model) updateReviewComposer(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	// Every other key is a character being typed into the message, so the two that put the
 	// editor away are fixed rather than configured.
 	switch {
-	case k == "esc":
+	case isBound(k, m.keys.Form.Back):
 		return m.cancelReviewMessage(), nil
-	case k == "ctrl+c":
+	case isBound(k, m.keys.Form.Quit):
 		return m, m.hide()
-	case k == "ctrl+e":
+	case isBound(k, m.keys.Form.Editor):
 		return m.openMessageEditor()
 	case isBound(k, m.keys.Form.Submit):
 		return m.saveReviewMessage()
@@ -344,9 +344,9 @@ func (m model) updateReviewRelease(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	k := key.String()
 
 	switch {
-	case k == "esc":
+	case isBound(k, m.keys.Form.Back):
 		return m.closeReviewRelease(), nil
-	case k == "ctrl+c":
+	case isBound(k, m.keys.Form.Quit):
 		return m, m.hide()
 	case k == "tab":
 		m.review.verdict = (m.review.verdict + 1) % len(reviewVerdicts)
@@ -358,7 +358,7 @@ func (m model) updateReviewRelease(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case isBound(k, m.keys.Form.Submit):
 		return m.sendReview(false)
-	case k == "ctrl+e":
+	case isBound(k, m.keys.Form.Editor):
 		return m.openMessageEditor()
 	case isBound(k, m.keys.Review.SendNow):
 		return m.sendReview(true)

@@ -132,6 +132,8 @@ prev_match = ["N"]
 [keybindings.form]
 # Abort the form without quitting the panel.
 back   = ["esc"]
+# Open the message being written in $EDITOR, in every box that takes prose.
+editor = ["ctrl+e"]
 # Abort the form and quit the panel.
 quit   = ["ctrl+c"]
 # Submit the form. Plain enter belongs to the text inputs, so this is
