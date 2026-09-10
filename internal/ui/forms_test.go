@@ -1099,6 +1099,7 @@ func TestWorkflowFormRoundTripsEveryHookMoment(t *testing.T) {
 		{Event: workflowstore.HookPostLaunch, Script: "announce"},
 		{Event: workflowstore.HookPostResume, Script: "announce-back"},
 		{Event: workflowstore.HookPostRestore, Script: "unlock"},
+		{Event: workflowstore.HookPreTeardown, Script: "take-the-stack-down"},
 	}
 
 	values := workflowFormValuesFrom(workflowstore.Config{Name: "backend", Hooks: hooks})
@@ -1157,6 +1158,7 @@ func TestHookFieldsDrawEveryOptionThatFits(t *testing.T) {
 			{Event: workflowstore.HookPostLaunch, Script: "copy-env"},
 			{Event: workflowstore.HookPostResume, Script: "copy-env"},
 			{Event: workflowstore.HookPostRestore, Script: "copy-env"},
+			{Event: workflowstore.HookPreTeardown, Script: "copy-env"},
 		},
 	})
 
@@ -1169,7 +1171,8 @@ func TestHookFieldsDrawEveryOptionThatFits(t *testing.T) {
 	sizeForm(form, 60)
 
 	view := form.View()
-	assert.Equal(t, 4, strings.Count(view, "install-deps"), "every moment offers the hook above the one it names")
+	assert.Equal(t, len(workflowstore.HookEvents()), strings.Count(view, "install-deps"),
+		"every moment offers the hook above the one it names")
 	assert.NotContains(t, view, "↑/↓ for more", "and says nothing about scrolling for a list it draws whole")
 }
 

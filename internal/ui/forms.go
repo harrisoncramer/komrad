@@ -209,6 +209,7 @@ type workflowFormValues struct {
 	PostLaunchHook       string
 	PostResumeHook       string
 	PostRestoreHook      string
+	PreTeardownHook      string
 	WorktreeBaseBranch   string
 	WorktreeCopyPaths    string
 	WorktreeSymlinkPaths string
@@ -234,6 +235,7 @@ func workflowFormValuesFrom(cfg workflowstore.Config) workflowFormValues {
 		PostLaunchHook:       hookNamed(cfg.Hooks, workflowstore.HookPostLaunch),
 		PostResumeHook:       hookNamed(cfg.Hooks, workflowstore.HookPostResume),
 		PostRestoreHook:      hookNamed(cfg.Hooks, workflowstore.HookPostRestore),
+		PreTeardownHook:      hookNamed(cfg.Hooks, workflowstore.HookPreTeardown),
 		WorktreeBaseBranch:   cfg.Worktree.BaseBranch,
 		WorktreeCopyPaths:    strings.Join(cfg.Worktree.CopyPaths, "\n"),
 		WorktreeSymlinkPaths: strings.Join(cfg.Worktree.SymlinkPaths, "\n"),
@@ -263,6 +265,7 @@ func (v workflowFormValues) toConfig() workflowstore.Config {
 			hookOn(v.PostLaunchHook, workflowstore.HookPostLaunch),
 			hookOn(v.PostResumeHook, workflowstore.HookPostResume),
 			hookOn(v.PostRestoreHook, workflowstore.HookPostRestore),
+			hookOn(v.PreTeardownHook, workflowstore.HookPreTeardown),
 		),
 		ArchiveOnPRClosed: v.ArchiveOnPRClosed,
 	}
@@ -764,7 +767,7 @@ func worktreeDetailFields(values *workflowFormValues) []huh.Field {
 // given a height for even when every option would have fit, which hides the options above the
 // chosen one.
 
-// hookOptionsShown bounds one moment's list, so four moments and everything above them still
+// hookOptionsShown bounds one moment's list, so five moments and everything above them still
 // leave the form scrollable.
 const hookOptionsShown = 4
 
@@ -804,6 +807,12 @@ func hookFields(values *workflowFormValues, available []hookChoice) []huh.Field 
 			title:       "Post-restore hook",
 			description: "runs when an archived agent's row comes back",
 			chosen:      &values.PostRestoreHook,
+		},
+		{
+			key:         "pre_teardown_hook",
+			title:       "Pre-teardown hook",
+			description: "runs in the agent's directory as it is deleted, before the worktree is given back",
+			chosen:      &values.PreTeardownHook,
 		},
 	}
 
