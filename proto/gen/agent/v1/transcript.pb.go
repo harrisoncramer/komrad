@@ -24,10 +24,15 @@ const (
 )
 
 type SearchTranscriptsRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Query         string                 `protobuf:"bytes,1,opt,name=query,proto3" json:"query,omitempty"`
-	Pagination    *v1.Pagination         `protobuf:"bytes,2,opt,name=pagination,proto3,oneof" json:"pagination,omitempty"`
-	AgentId       *string                `protobuf:"bytes,3,opt,name=agent_id,json=agentId,proto3,oneof" json:"agent_id,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The words to look for, matched whole and stemmed, with a quoted phrase required verbatim and
+	// a leading minus excluding a word.
+	Query string `protobuf:"bytes,1,opt,name=query,proto3" json:"query,omitempty"`
+	// Where to carry on from, since one page of matches and one page of near misses advance
+	// together.
+	Pagination *v1.Pagination `protobuf:"bytes,2,opt,name=pagination,proto3,oneof" json:"pagination,omitempty"`
+	// Which agent's conversation to search, or unset to search the caller's own.
+	AgentId       *string `protobuf:"bytes,3,opt,name=agent_id,json=agentId,proto3,oneof" json:"agent_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -84,16 +89,25 @@ func (x *SearchTranscriptsRequest) GetAgentId() string {
 }
 
 type SearchHit struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	AgentId       string                 `protobuf:"bytes,1,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`
-	Snippet       string                 `protobuf:"bytes,2,opt,name=snippet,proto3" json:"snippet,omitempty"`
-	Name          string                 `protobuf:"bytes,4,opt,name=name,proto3" json:"name,omitempty"`
-	Archived      bool                   `protobuf:"varint,5,opt,name=archived,proto3" json:"archived,omitempty"`
-	Score         float64                `protobuf:"fixed64,6,opt,name=score,proto3" json:"score,omitempty"`
-	Seq           int32                  `protobuf:"varint,7,opt,name=seq,proto3" json:"seq,omitempty"`
-	Role          string                 `protobuf:"bytes,8,opt,name=role,proto3" json:"role,omitempty"`
-	ContentOffset int64                  `protobuf:"varint,9,opt,name=content_offset,json=contentOffset,proto3" json:"content_offset,omitempty"`
-	ContentLength int64                  `protobuf:"varint,10,opt,name=content_length,json=contentLength,proto3" json:"content_length,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The agent whose conversation this turn belongs to.
+	AgentId string `protobuf:"bytes,1,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`
+	// The turn's text with the match marked, cut to a readable window around it.
+	Snippet string `protobuf:"bytes,2,opt,name=snippet,proto3" json:"snippet,omitempty"`
+	// What that agent is called, so a caller need not look it up to draw the hit.
+	Name string `protobuf:"bytes,4,opt,name=name,proto3" json:"name,omitempty"`
+	// Whether that agent has been archived, since search spans those too.
+	Archived bool `protobuf:"varint,5,opt,name=archived,proto3" json:"archived,omitempty"`
+	// How well the turn matched, which is what orders the matches.
+	Score float64 `protobuf:"fixed64,6,opt,name=score,proto3" json:"score,omitempty"`
+	// Where the turn sits in the conversation, counting from the first.
+	Seq int32 `protobuf:"varint,7,opt,name=seq,proto3" json:"seq,omitempty"`
+	// Who was speaking, the agent or whoever prompted it.
+	Role string `protobuf:"bytes,8,opt,name=role,proto3" json:"role,omitempty"`
+	// Where the turn begins in the whole transcript, for fetching the text around it.
+	ContentOffset int64 `protobuf:"varint,9,opt,name=content_offset,json=contentOffset,proto3" json:"content_offset,omitempty"`
+	// How many bytes the turn runs to from that offset.
+	ContentLength int64 `protobuf:"varint,10,opt,name=content_length,json=contentLength,proto3" json:"content_length,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -192,10 +206,14 @@ func (x *SearchHit) GetContentLength() int64 {
 }
 
 type SearchTranscriptsResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Matches       []*SearchHit           `protobuf:"bytes,1,rep,name=matches,proto3" json:"matches,omitempty"`
-	Near          []*SearchHit           `protobuf:"bytes,3,rep,name=near,proto3" json:"near,omitempty"`
-	NextPageToken *string                `protobuf:"bytes,2,opt,name=next_page_token,json=nextPageToken,proto3,oneof" json:"next_page_token,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The turns that say the words, best first.
+	Matches []*SearchHit `protobuf:"bytes,1,rep,name=matches,proto3" json:"matches,omitempty"`
+	// The turns that only carry the letters somewhere, such as a word glued into a path, scored on
+	// how cleanly the letters sit rather than against the matches.
+	Near []*SearchHit `protobuf:"bytes,3,rep,name=near,proto3" json:"near,omitempty"`
+	// Pass this back as the pagination cursor to advance both lists.
+	NextPageToken *string `protobuf:"bytes,2,opt,name=next_page_token,json=nextPageToken,proto3,oneof" json:"next_page_token,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -252,11 +270,13 @@ func (x *SearchTranscriptsResponse) GetNextPageToken() string {
 }
 
 type GetTranscriptRequest struct {
-	state   protoimpl.MessageState `protogen:"open.v1"`
-	AgentId string                 `protobuf:"bytes,1,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Whose conversation to read.
+	AgentId string `protobuf:"bytes,1,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`
 	// How much content to return. A transcript is one run of text rather than a list of records,
 	// so its window is measured in bytes and carries no pagination.Pagination.
-	MaxBytes      *int32  `protobuf:"varint,2,opt,name=max_bytes,json=maxBytes,proto3,oneof" json:"max_bytes,omitempty"`
+	MaxBytes *int32 `protobuf:"varint,2,opt,name=max_bytes,json=maxBytes,proto3,oneof" json:"max_bytes,omitempty"`
+	// Where the last window ended, or unset to start at the beginning.
 	Cursor        *string `protobuf:"bytes,3,opt,name=cursor,proto3,oneof" json:"cursor,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -314,9 +334,11 @@ func (x *GetTranscriptRequest) GetCursor() string {
 }
 
 type GetTranscriptResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Content       string                 `protobuf:"bytes,1,opt,name=content,proto3" json:"content,omitempty"`
-	NextPageToken *string                `protobuf:"bytes,2,opt,name=next_page_token,json=nextPageToken,proto3,oneof" json:"next_page_token,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// One window of the conversation as plain text.
+	Content string `protobuf:"bytes,1,opt,name=content,proto3" json:"content,omitempty"`
+	// Pass this back as the cursor for the next window, absent once there is no more to read.
+	NextPageToken *string `protobuf:"bytes,2,opt,name=next_page_token,json=nextPageToken,proto3,oneof" json:"next_page_token,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }

@@ -13,41 +13,61 @@ import "view/v1/view.proto";
 option go_package = "weave/proto/gen/schedule/v1;schedulev1";
 
 message Schedule {
+  // The handle every other call names this schedule by.
   string id = 1;
+  // What the panel lists it as.
   string name = 2;
+  // Five fields saying when it fires, in the timezone below.
   string cron = 3;
+  // Which clock the expression is read against, blank for the machine's own.
   string timezone = 4;
+  // Whether it is armed, since a paused schedule keeps its record and stops firing.
   bool enabled = 5;
+  // Whether its launches stay out of the panel's sidebar while still running.
   bool hide_agents = 8;
+  // The opening prompt every agent it launches is given.
   string prompt = 6;
+  // Which workflow its agents are filed under, deciding their directory and flags.
   string workflow_id = 7;
+  // When the expression next matches, unset while the schedule is paused.
   optional google.protobuf.Timestamp next_run_at = 10;
+  // How the last firing went, which is blank until it has fired once.
   string last_result_status = 11;
+  // What went wrong on that firing, when something did.
   string last_result_message = 12;
+  // When it last fired, unset until it has.
   optional google.protobuf.Timestamp last_result_at = 13;
   // Whether prompt holds only its opening, which a summary listing returns.
   bool prompt_truncated = 14;
 }
 
 message ListSchedulesRequest {
+  // Where to carry on from.
   optional pagination.v1.Pagination pagination = 1;
+  // How much of each record to return, since the panel draws every field and a model reading
+  // the same endpoint has a context window to spend.
   view.v1.View view = 2 [(buf.validate.field).enum.defined_only = true];
 }
 
 message ListSchedulesResponse {
+  // One page of schedules, most recently updated first.
   repeated Schedule schedules = 1;
+  // Pass this back as the pagination cursor for the next page.
   optional string next_page_token = 2;
 }
 
 message GetScheduleRequest {
+  // Which schedule to read.
   string id = 1 [(buf.validate.field).string.min_len = 1];
 }
 
 message GetScheduleResponse {
+  // The schedule, with its prompt whole rather than cut to its opening.
   Schedule schedule = 1;
 }
 
 message CreateScheduleRequest {
+  // What to list it as, which also becomes the title of each agent it launches.
   string name = 1 [
     (buf.validate.field).string = {
       min_len: 1
@@ -59,26 +79,35 @@ message CreateScheduleRequest {
       expression: "!this.matches('[\\x00-\\x1f\\x7f]')"
     }
   ];
+  // When to fire, as five whitespace-separated fields.
   string cron = 2 [(buf.validate.field).string = {
     min_len: 1
     [rules.v1.cron_expression]: true
   }];
+  // Which clock to read that against, blank for the machine's own.
   string timezone = 3 [(buf.validate.field).string.max_len = 100];
+  // False to write the schedule down without arming it.
   bool enabled = 4;
+  // True to keep its launches out of the panel's sidebar.
   bool hide_agents = 7;
+  // The opening prompt each launch is given.
   string prompt = 5 [(buf.validate.field).string = {
     min_len: 1
     max_len: 50000
   }];
+  // Which workflow to launch into, whose cwd and flags each agent inherits.
   string workflow_id = 6 [(buf.validate.field).string.min_len = 1];
 }
 
 message CreateScheduleResponse {
+  // The schedule as recorded, which has fired nothing yet.
   Schedule schedule = 1;
 }
 
 message UpdateScheduleRequest {
+  // Which schedule to rewrite.
   string id = 1 [(buf.validate.field).string.min_len = 1];
+  // Every field here is written, so send back the ones you are not changing.
   string name = 2 [
     (buf.validate.field).string = {
       min_len: 1
@@ -90,26 +119,35 @@ message UpdateScheduleRequest {
       expression: "!this.matches('[\\x00-\\x1f\\x7f]')"
     }
   ];
+  // When it fires from now on.
   string cron = 3 [(buf.validate.field).string = {
     min_len: 1
     [rules.v1.cron_expression]: true
   }];
+  // Which clock that is read against.
   string timezone = 4 [(buf.validate.field).string.max_len = 100];
+  // Whether it stays armed.
   bool enabled = 5;
+  // The prompt later launches are given, leaving agents already launched alone.
   string prompt = 6 [(buf.validate.field).string = {
     min_len: 1
     max_len: 50000
   }];
+  // Which workflow later launches go into.
   string workflow_id = 7 [(buf.validate.field).string.min_len = 1];
+  // Whether later launches stay out of the sidebar, leaving existing agents alone.
   bool hide_agents = 8;
 }
 
 message SetScheduleEnabledRequest {
+  // Which schedule to arm or pause.
   string id = 1 [(buf.validate.field).string.min_len = 1];
+  // False to stop it firing while keeping its record and its history.
   bool enabled = 2;
 }
 
 message ArchiveScheduleRequest {
+  // Which schedule to hide, leaving the agents it already launched running.
   string id = 1 [(buf.validate.field).string.min_len = 1];
 }
 

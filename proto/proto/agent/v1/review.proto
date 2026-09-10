@@ -49,7 +49,9 @@ enum ReviewVerdict {
 // given against. Nothing a comment is pinned to can move underneath the person reading it,
 // because the snapshot is a commit rather than the worktree.
 message ReviewRound {
+  // The handle a review or a viewed-file record names this round by.
   string id = 1;
+  // Whose work the snapshot was taken of.
   string agent_id = 2;
   // Which round this is for its agent, counting from one.
   int32 ordinal = 3;
@@ -57,16 +59,22 @@ message ReviewRound {
   string base_sha = 4;
   // The commit the whole worktree was written out as, tracked and untracked alike.
   string snapshot_sha = 5;
+  // When the snapshot was taken, in RFC 3339.
   string created_at = 6;
 }
 
 // Review is one author's batch of comments against one round, private while it is written and
 // released as a whole, the way a pending review on a forge is.
 message Review {
+  // The handle the threads in this batch name it by.
   string id = 1;
+  // Whose work is being read.
   string agent_id = 2;
+  // The snapshot the batch was written against.
   string round_id = 3;
+  // Which round that is, counting from one, so a caller need not fetch the round to say.
   int32 round_ordinal = 4;
+  // Whether a person or an agent wrote it.
   ReviewAuthorKind author_kind = 5;
   // The agent giving the review, absent when the person reviewing is.
   optional string author_agent_id = 6;
@@ -78,7 +86,9 @@ message Review {
   string path = 9;
   // When the agent claimed the mail that told it the review was waiting.
   string delivered_at = 10;
+  // When the batch was opened, which is the first comment written into it.
   string created_at = 11;
+  // When anything in it last moved.
   string updated_at = 12;
   // What the author said about the work as a whole rather than about any one line, empty when
   // they said nothing.
@@ -87,7 +97,9 @@ message Review {
 
 // ReviewThread is one conversation pinned to a place in a round of an agent's diff.
 message ReviewThread {
+  // The handle a reply or a resolve names this thread by.
   string id = 1;
+  // Whose diff the thread is pinned to.
   string agent_id = 2;
   // The batch this thread was opened as part of.
   string review_id = 15;
@@ -98,10 +110,15 @@ message ReviewThread {
   // The commit the old side of these line numbers was read against, which is the round's own
   // base unless the diff was narrowed to an earlier round when the thread was written.
   string base_sha = 19;
+  // Which file, relative to the checkout.
   string file_path = 3;
+  // Where the range begins on the old side of the diff, counting from one.
   int32 old_start = 4;
+  // Where it ends on the old side, inclusive.
   int32 old_end = 5;
+  // Where the range begins on the new side.
   int32 new_start = 6;
+  // Where it ends on the new side, inclusive.
   int32 new_end = 7;
   // The diff lines the thread was written against, each keeping its leading marker.
   repeated string quoted_lines = 8;
@@ -114,24 +131,33 @@ message ReviewThread {
   // Whether weave wrote this thread from an edit of the round's checkout rather than somebody
   // typing it, which is what makes its body the same sentence every time.
   bool harvested = 18;
+  // Everything said in the thread, oldest first.
   repeated ReviewMessage messages = 12;
+  // When the thread was opened.
   string created_at = 13;
+  // When anything in it last moved.
   string updated_at = 14;
 }
 
 // ReviewMessage is one thing said in a review thread.
 message ReviewMessage {
+  // The handle an edit of this message names it by.
   string id = 1;
+  // Which conversation it belongs to.
   string thread_id = 2;
+  // Whether a person or an agent wrote it.
   ReviewAuthorKind author_kind = 3;
   // The agent that wrote it, absent for the person reviewing and cleared if that agent is
   // deleted. author_kind, not this, is what says who wrote it.
   optional string author_agent_id = 4;
+  // What the author wrote.
   string body = 5;
   // Replacement lines the author proposes for the thread's range, empty for an ordinary
   // comment. An agent applies these rather than reasoning about them.
   repeated string suggestion = 11;
+  // When it was written.
   string created_at = 6;
+  // When it was last edited.
   string updated_at = 7;
   // How far this comment has got towards the agent reading it.
   ReviewDeliveryState delivery = 8;
@@ -155,7 +181,9 @@ message ListReviewThreadsResponse {
 }
 
 message CreateReviewThreadRequest {
+  // Whose diff to pin the comment to.
   string agent_id = 1 [(buf.validate.field).string.min_len = 1];
+  // Which file, relative to the checkout.
   string file_path = 2 [(buf.validate.field).string.min_len = 1];
   // The commit the old side of these line numbers was read against, empty for the round's own
   // base.
@@ -163,10 +191,16 @@ message CreateReviewThreadRequest {
   // The commit the new side of these line numbers was read against, empty for a caller that read
   // the round's own snapshot.
   string snapshot_sha = 11;
+  // Where the range begins on the old side of the diff, counting from one.
   int32 old_start = 3;
+  // Where it ends on the old side, inclusive.
   int32 old_end = 4;
+  // Where the range begins on the new side.
   int32 new_start = 5;
+  // Where it ends on the new side, inclusive.
   int32 new_end = 6;
+  // The diff lines being written about, each keeping its leading marker, so the anchor still
+  // says something once the code moves.
   repeated string quoted_lines = 7;
   // The first thing said, which is the thread's reason for existing.
   string body = 8 [(buf.validate.field).string = {
@@ -178,11 +212,14 @@ message CreateReviewThreadRequest {
 }
 
 message CreateReviewThreadResponse {
+  // The thread as opened, private until the batch is released.
   ReviewThread thread = 1;
 }
 
 message AddReviewMessageRequest {
+  // Which conversation to say it in.
   string thread_id = 1 [(buf.validate.field).string.min_len = 1];
+  // What to say, which for an agent answering is what it did.
   string body = 2 [(buf.validate.field).string = {
     min_len: 1
     max_len: 10000
@@ -192,11 +229,14 @@ message AddReviewMessageRequest {
 }
 
 message AddReviewMessageResponse {
+  // The message as recorded.
   ReviewMessage message = 1;
 }
 
 message EditReviewMessageRequest {
+  // Which message to rewrite.
   string id = 1 [(buf.validate.field).string.min_len = 1];
+  // What it should say instead.
   string body = 2 [(buf.validate.field).string = {
     min_len: 1
     max_len: 10000
@@ -206,18 +246,22 @@ message EditReviewMessageRequest {
 }
 
 message EditReviewMessageResponse {
+  // The message as it now reads.
   ReviewMessage message = 1;
 }
 
 message MarkReviewThreadReadRequest {
+  // Which thread the caller has caught up on.
   string id = 1 [(buf.validate.field).string.min_len = 1];
 }
 
 message MarkReviewThreadReadResponse {
+  // The thread as it now stands, no longer unread by the caller.
   ReviewThread thread = 1;
 }
 
 message SetReviewThreadResolvedRequest {
+  // Which thread to settle or reopen.
   string id = 1 [(buf.validate.field).string.min_len = 1];
   // Whether the thread is settled. Unsetting it reopens the thread, which is what a person
   // does when the answer was not the end of it.
@@ -225,6 +269,7 @@ message SetReviewThreadResolvedRequest {
 }
 
 message SetReviewThreadResolvedResponse {
+  // The thread as it now stands.
   ReviewThread thread = 1;
 }
 
@@ -232,14 +277,17 @@ message SetReviewThreadResolvedResponse {
 // round. A tree that has not moved since the last round is that round again rather than a new
 // one, so opening the diff twice does not walk the ordinal on.
 message OpenReviewRoundRequest {
+  // Whose worktree to freeze.
   string agent_id = 1 [(buf.validate.field).string.min_len = 1];
 }
 
 message OpenReviewRoundResponse {
+  // The round to review against, which is the last one again if nothing has moved.
   ReviewRound round = 1;
 }
 
 message ListReviewRoundsRequest {
+  // Whose rounds to read.
   string agent_id = 1 [(buf.validate.field).string.min_len = 1];
 }
 
@@ -249,6 +297,7 @@ message ListReviewRoundsResponse {
 }
 
 message ListReviewsRequest {
+  // Whose reviews to read.
   string agent_id = 1 [(buf.validate.field).string.min_len = 1];
 }
 
@@ -261,6 +310,7 @@ message ListReviewsResponse {
 // one file beside the agent's work and sends one piece of ordinary mail saying where it is, so
 // nothing here decides when the agent is interrupted or typed at: that is mail's own affair.
 message ReleaseReviewRequest {
+  // Whose work the batch was written against.
   string agent_id = 1 [(buf.validate.field).string.min_len = 1];
   // What the review concludes, which is what tells the agent whether it is done.
   ReviewVerdict verdict = 2 [(buf.validate.field).enum = {
@@ -276,6 +326,7 @@ message ReleaseReviewRequest {
 }
 
 message ReleaseReviewResponse {
+  // The review as released, carrying its verdict.
   Review review = 1;
   // How many comments the released batch carried.
   int32 comments = 2;
@@ -287,13 +338,18 @@ message ReleaseReviewResponse {
 // round is a mark of its own, which is how an agent rewriting the file undoes this one without
 // anything having to be compared.
 message ReviewViewedFile {
+  // Which round the file was read in.
   string round_id = 1;
+  // Which file, relative to the checkout.
   string file_path = 2;
+  // When it was marked, in RFC 3339.
   string viewed_at = 3;
 }
 
 message SetReviewFileViewedRequest {
+  // Which round the mark belongs to.
   string round_id = 1 [(buf.validate.field).string.min_len = 1];
+  // Which file, relative to the checkout.
   string file_path = 2 [(buf.validate.field).string.min_len = 1];
   // Whether the file has been read. Unsetting it drops the mark, which is what the toggle does
   // on its way back.
@@ -306,20 +362,27 @@ message SetReviewFileViewedResponse {
 }
 
 message ListReviewViewedFilesRequest {
+  // Which round's marks to read.
   string round_id = 1 [(buf.validate.field).string.min_len = 1];
 }
 
 message ListReviewViewedFilesResponse {
+  // Every file marked read in that round.
   repeated ReviewViewedFile viewed = 1;
 }
 
 // HarvestedRun is one run of adjacent lines the person reviewing wrote into the round's own
 // checkout, anchored by the panel because the numbers a thread is pinned by come from the patch.
 message HarvestedRun {
+  // Which file the reviewer edited, relative to the checkout.
   string file_path = 1 [(buf.validate.field).string.min_len = 1];
+  // Where the run begins on the old side of the diff, counting from one.
   int32 old_start = 2;
+  // Where it ends on the old side, inclusive.
   int32 old_end = 3;
+  // Where the run begins on the new side.
   int32 new_start = 4;
+  // Where it ends on the new side, inclusive.
   int32 new_end = 5;
   // The diff lines the run was written against, empty for a run in a file the patch does not
   // draw, which is what leaves its thread adrift rather than pinned.
@@ -329,8 +392,11 @@ message HarvestedRun {
 }
 
 message HarvestRoundEditsRequest {
+  // Whose checkout was edited.
   string agent_id = 1 [(buf.validate.field).string.min_len = 1];
+  // Which round the edits are measured against.
   string round_id = 2 [(buf.validate.field).string.min_len = 1];
+  // The runs to turn into threads, already anchored by the panel.
   repeated HarvestedRun runs = 3;
   // The commit the old side of these runs was measured from, empty for the round's own base.
   string base_sha = 5;
@@ -340,8 +406,11 @@ message HarvestRoundEditsRequest {
 }
 
 message HarvestRoundEditsResponse {
+  // How many threads were written for the first time.
   int32 opened = 1;
+  // How many already-open threads had their suggestion rewritten.
   int32 moved = 2;
+  // How many threads went because the reviewer took their edit back out.
   int32 deleted = 3;
   // Runs written over a comment that has already gone out, which weave leaves in the checkout
   // rather than rewriting words the agent has been sent.

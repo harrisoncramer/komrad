@@ -15,29 +15,51 @@ import "view/v1/view.proto";
 option go_package = "weave/proto/gen/agent/v1;agentv1";
 
 message Agent {
+  // The handle every other call names this agent by, and what mail is addressed to.
   string id = 1;
+  // What the panel lists it as, which is also its tmux window name at launch.
   string name = 2;
+  // The directory it is running in, its own worktree when the workflow provisions one.
   string cwd = 3;
+  // The command-line flags its CLI was started with.
   string flags = 4;
+  // The whole briefing it was launched with.
   string prompt = 5;
+  // The tmux pane its CLI is running in, which is what capture-pane reads.
   string pane_id = 6;
+  // What the panel last decided it was doing, read off the tail of its pane.
   string state = 7;
+  // The CLI's own conversation id, which is the handle a resume needs.
   string session_id = 8;
+  // Which CLI it runs, such as claude or codex.
   string harness = 18;
+  // Which workflow it is filed under, whose context it took at launch.
   string workflow_id = 9;
+  // When it was launched, in RFC 3339.
   string created_at = 10;
+  // When it was hidden from the panel, unset while it is live.
   optional string archived_at = 19;
+  // The schedule that launched it, unset for an agent a person or another agent spawned.
   optional string schedule_id = 12;
+  // Whether its pane is still there, which a dormant agent's is not.
   bool alive = 11;
+  // Whether mail is waiting that it has not taken.
   bool unread_mail = 21;
+  // The letter a person jumps to it by in the panel, if it holds one.
   optional string mark = 14;
+  // Whether the panel draws a row for it, which changes nothing about the agent itself.
   bool hidden = 15;
+  // Facts it has recorded about its own work, such as the pull request it opened.
   repeated AgentMetadata metadata = 16;
+  // The key a retry of its create carried, which is what answers a repeat with this agent.
   optional string idempotency_key = 17;
+  // Which agent called create, unset for one a person spawned.
   optional string spawned_by_agent_id = 20;
   // The agent this one is attached to, where spawned_by_agent_id is only who called create.
   optional string parent_agent_id = 26;
+  // The git branch its worktree is on, unset for an agent that provisions none.
   optional string branch = 22;
+  // Whether its checkout has been taken away, which leaves the record and the transcript.
   bool worktree_removed = 23;
   // Whether the agent has finished a turn the person has not looked at since.
   bool unviewed = 24;
@@ -45,6 +67,7 @@ message Agent {
   bool failed_run = 27;
   // The run log that failure was written to, which is the run the panel opens on.
   optional int32 failed_run_log = 28;
+  // When the state above last moved, in RFC 3339.
   string state_changed_at = 25;
   // What the agent's own CLI last reported it was doing, which annotates the state the pane
   // decided rather than replacing it.
@@ -64,26 +87,36 @@ message Agent {
 }
 
 message AgentMetadata {
+  // What the fact is filed under, such as pr or branch.
   string key = 1;
+  // The fact as the panel shows it, which is why a URL belongs here whole.
   string value = 2;
 }
 
 message ListAgentsRequest {
+  // Where to carry on from.
   optional pagination.v1.Pagination pagination = 1;
+  // True to list the archived agents and only those.
   bool archived = 2;
+  // How much of each record to return, since the panel draws every field and a model reading
+  // the same endpoint has a context window to spend.
   view.v1.View view = 3 [(buf.validate.field).enum.defined_only = true];
 }
 
 message ListAgentsResponse {
+  // One page of agents, most recently updated first.
   repeated Agent agents = 1;
+  // Pass this back as the pagination cursor for the next page.
   optional string next_page_token = 2;
 }
 
 message CreateAgentRequest {
+  // The opening briefing, which is everything the agent has to go on.
   string prompt = 1 [(buf.validate.field).string = {
     min_len: 1
     max_len: 50000
   }];
+  // What to call it in the panel, blank to have weave name it.
   string title = 2 [
     (buf.validate.field).string.max_len = 200,
     (buf.validate.field).cel = {
@@ -92,38 +125,53 @@ message CreateAgentRequest {
       expression: "!this.matches('[\\x00-\\x1f\\x7f]')"
     }
   ];
+  // Where to start it, absolute or ~-prefixed, blank to take the workflow's own.
   string dir = 3 [(buf.validate.field).string = {
     max_len: 4096
     [rules.v1.absolute_path_or_blank]: true
   }];
+  // Flags for its CLI, blank to take the workflow's own.
   string flags = 4 [(buf.validate.field).string = {
     max_len: 500
     [rules.v1.shell_safe]: true
   }];
+  // Which workflow to launch it into, whose cwd, flags and context it inherits.
   string workflow_id = 5 [(buf.validate.field).string.min_len = 1];
+  // Which CLI to run, blank to take the workflow's own.
   string harness = 7 [(buf.validate.field).string = {
     max_len: 40
     pattern: "^[a-z0-9-]*$"
   }];
+  // A key that makes a retry safe, since a repeat carrying it is answered with the agent it
+  // already launched.
   optional string idempotency_key = 6 [(buf.validate.field).string = {
     min_len: 1
     max_len: 200
   }];
+  // False to keep the directory named above rather than be given a worktree, which is how an
+  // agent reads a checkout somebody else has open.
   optional bool provision_enabled = 8;
   reserved 9;
+  // Which agent to attach this one to as its child, which then runs in that agent's directory
+  // and goes when it goes.
   optional string parent_agent_id = 11 [(buf.validate.field).string.min_len = 1];
 }
 
 message CreateAgentResponse {
+  // The agent as launched, whose id is what mail is addressed to.
   Agent agent = 1;
 }
 
 message RequestReviewRequest {
+  // The whole briefing the reviewer is given, so it has to say what the change is meant to do
+  // and where the author is unsure of it.
   string prompt = 1 [(buf.validate.field).string = {
     min_len: 1
     max_len: 50000
   }];
+  // Whose work to have read, or unset for the caller's own.
   optional string agent_id = 2 [(buf.validate.field).string.min_len = 1];
+  // What to call the reviewer, blank to name it after the agent it is reading.
   string title = 3 [
     (buf.validate.field).string.max_len = 200,
     (buf.validate.field).cel = {
@@ -132,6 +180,8 @@ message RequestReviewRequest {
       expression: "!this.matches('[\\x00-\\x1f\\x7f]')"
     }
   ];
+  // A key that makes a retry safe, answering a repeat with the reviewer it already spawned
+  // rather than refusing it.
   optional string idempotency_key = 4 [(buf.validate.field).string = {
     min_len: 1
     max_len: 200
@@ -139,19 +189,24 @@ message RequestReviewRequest {
 }
 
 message RequestReviewResponse {
+  // The reviewer as spawned, which is a child of the agent being read.
   Agent reviewer = 1;
   // What the agent that asked for the review does next, which is the rest of the loop it is in.
   string guidance = 2;
 }
 
 message AdoptRequest {
+  // The work to put an agent on, as a pull request URL or number, or a branch name.
   string ref = 1 [(buf.validate.field).string = {
     min_len: 1
     max_len: 400
     [rules.v1.shell_safe]: true
   }];
+  // Which workflow to launch into, which is what decides the repository.
   string workflow_id = 2 [(buf.validate.field).string.min_len = 1];
+  // The opening briefing, blank to launch the CLI with nothing to read.
   string prompt = 3 [(buf.validate.field).string.max_len = 50000];
+  // What to call it in the panel, blank to have weave name it.
   string title = 4 [
     (buf.validate.field).string.max_len = 200,
     (buf.validate.field).cel = {
@@ -160,14 +215,17 @@ message AdoptRequest {
       expression: "!this.matches('[\\x00-\\x1f\\x7f]')"
     }
   ];
+  // Flags for its CLI, blank to take the workflow's own.
   string flags = 5 [(buf.validate.field).string = {
     max_len: 500
     [rules.v1.shell_safe]: true
   }];
+  // Which CLI to run, blank to take the workflow's own.
   string harness = 6 [(buf.validate.field).string = {
     max_len: 40
     pattern: "^[a-z0-9-]*$"
   }];
+  // A key that makes a retry safe, answering a repeat with the agent it already launched.
   optional string idempotency_key = 7 [(buf.validate.field).string = {
     min_len: 1
     max_len: 200
@@ -175,20 +233,24 @@ message AdoptRequest {
 }
 
 message AdoptResponse {
+  // The agent as launched, with the pull request already recorded on it.
   Agent agent = 1;
 }
 
 message GetAgentRequest {
+  // Which agent to read, archived or not.
   string id = 1 [(buf.validate.field).string.min_len = 1];
 }
 
 message GetAgentResponse {
+  // The agent, with its prompt whole rather than cut to its opening.
   Agent agent = 1;
 }
 
 // PlanRefreshRequest asks what a rebase would do without doing it, which is what the
 // confirmation names.
 message PlanRefreshRequest {
+  // Whose branch the rebase would move.
   string agent_id = 1 [(buf.validate.field).string.min_len = 1];
 }
 
@@ -196,13 +258,16 @@ message PlanRefreshResponse {
   // The ref the branch would move onto, and the commit that ref named when it was read, so a
   // person is told which commit was used rather than only which branch.
   string base_ref = 1;
+  // The commit that ref named when it was read.
   string base_sha = 2;
   // How many of the agent's own commits would be replayed.
   int32 commits = 3;
+  // Which branch would move.
   string branch = 4;
   // How many of the agent's own commits the base already holds whole, which is what a merge of
   // its work into the base leaves behind, and how many are left to replay.
   int32 landed_commits = 5;
+  // How many are left to replay onto the new base.
   int32 replay_commits = 8;
   // How many merge commits a rebase would discard, since it flattens history.
   int32 merges = 6;
@@ -212,13 +277,18 @@ message PlanRefreshResponse {
 }
 
 message RebaseWorktreeRequest {
+  // Whose branch to move onto its base.
   string agent_id = 1 [(buf.validate.field).string.min_len = 1];
 }
 
 message RebaseWorktreeResponse {
+  // The ref the branch was moved onto.
   string base_ref = 1;
+  // The commit that ref named when it was read.
   string base_sha = 2;
+  // How many of the agent's own commits the rebase carried.
   int32 commits = 3;
+  // Which branch moved.
   string branch = 4;
   // Whether the rebase stopped on conflicts and is still stopped, waiting for the agent.
   bool conflicted = 5;
@@ -227,10 +297,12 @@ message RebaseWorktreeResponse {
   bool moved = 6;
   // How many of the agent's own commits the base already held, and how many were replayed.
   int32 landed_commits = 7;
+  // How many were replayed onto the new base.
   int32 replay_commits = 8;
 }
 
 message ResetWorktreeRequest {
+  // Whose checkout to throw away and take again from its base.
   string agent_id = 1 [(buf.validate.field).string.min_len = 1];
 }
 
@@ -241,7 +313,9 @@ message SetMarkRequest {
   oneof target {
     option (buf.validate.oneof).required = true;
 
+    // The agent to mark.
     string agent_id = 1 [(buf.validate.field).string.min_len = 1];
+    // The workflow to mark.
     string workflow_id = 2 [(buf.validate.field).string.min_len = 1];
   }
   // The letter to put on it, left out to take off whichever letter the row answers to.
@@ -253,11 +327,14 @@ message SetMarkRequest {
 }
 
 message SetHiddenRequest {
+  // Which agent to hide or unhide.
   string id = 1 [(buf.validate.field).string.min_len = 1];
+  // False to draw a row for it again, which is the person's decision rather than the agent's.
   bool hidden = 2;
 }
 
 message RecordReportRequest {
+  // What the CLI says it is doing, which annotates the state the pane decided.
   string reason = 1 [
     (buf.validate.field).string.max_len = 200,
     (buf.validate.field).cel = {
@@ -266,10 +343,12 @@ message RecordReportRequest {
       expression: "!this.matches('[\\x00-\\x1f\\x7f]')"
     }
   ];
+  // Whether the CLI has finished a turn, which is what leaves the agent unviewed.
   bool turn_ended = 2;
 }
 
 message SetAgentViewedRequest {
+  // Which agent the person has caught up on.
   string id = 1 [(buf.validate.field).string.min_len = 1];
   // Whether the person has read what the agent finished. Unsetting it puts the mark back, which
   // is what the toggle does on its way out.
@@ -277,11 +356,15 @@ message SetAgentViewedRequest {
 }
 
 message MarkRunsReadRequest {
+  // Whose failed script runs the person has looked at.
   string id = 1 [(buf.validate.field).string.min_len = 1];
 }
 
 message SetMetadataRequest {
+  // Which agent the fact is about, which an agent recording its own work reads from
+  // WEAVE_AGENT_ID.
   string id = 1 [(buf.validate.field).string.min_len = 1];
+  // What to file it under, leaving every other key on the agent untouched.
   string key = 2 [
     (buf.validate.field).string.max_len = 64,
     (buf.validate.field).cel = {
@@ -290,6 +373,7 @@ message SetMetadataRequest {
       expression: "this.matches('^[a-z0-9_-]+$')"
     }
   ];
+  // The fact as the panel will show it, left out to clear the key.
   optional string value = 3 [(buf.validate.field).cel = {
     id: "value.printable"
     message: "a metadata value must be a single line of at most 2048 characters carrying no control characters"
@@ -298,7 +382,9 @@ message SetMetadataRequest {
 }
 
 message LogRequest {
+  // Which agent the line is about, or unset for the caller's own.
   optional string id = 1 [(buf.validate.field).string.min_len = 1];
+  // One line for weave's log, which is how a script says what it is doing.
   string message = 2 [
     (buf.validate.field).string = {
       min_len: 1
@@ -310,6 +396,7 @@ message LogRequest {
       expression: "!this.matches('[[:cntrl:]]')"
     }
   ];
+  // Which script's run the line belongs to, which a running script reads from WEAVE_SCRIPT.
   optional string script = 3 [(buf.validate.field).string = {
     max_len: 255
     [rules.v1.script_name]: true
@@ -317,6 +404,8 @@ message LogRequest {
 }
 
 message ArchiveAgentsRequest {
+  // The agents to stop and hide, keeping their records and transcripts, children along with
+  // them. The batch goes whole or not at all.
   repeated string ids = 1 [(buf.validate.field).repeated = {
     min_items: 1
     max_items: 100
@@ -328,6 +417,7 @@ message ArchiveAgentsRequest {
 }
 
 message RestoreAgentsRequest {
+  // The archived agents to bring back as dormant rows, along with their workflows.
   repeated string ids = 1 [(buf.validate.field).repeated = {
     min_items: 1
     max_items: 100
@@ -339,18 +429,22 @@ message RestoreAgentsRequest {
 }
 
 message RestoreAgentsResponse {
+  // The agents as restored, dormant until each is resumed.
   repeated Agent agents = 1;
 }
 
 message ResumeAgentRequest {
+  // Which dormant agent to put back in a pane on its own conversation.
   string id = 1 [(buf.validate.field).string.min_len = 1];
 }
 
 message ResumeAgentResponse {
+  // The agent as it now stands, running.
   Agent agent = 1;
 }
 
 message DeleteAgentsRequest {
+  // The agents to remove for good, transcripts and worktrees with them.
   repeated string ids = 1 [(buf.validate.field).repeated = {
     min_items: 1
     max_items: 25
@@ -362,7 +456,9 @@ message DeleteAgentsRequest {
 }
 
 message UpdateAgentRequest {
+  // Which agent to rename.
   string id = 1 [(buf.validate.field).string.min_len = 1];
+  // What to list it as, which the running tmux window keeps its old name through.
   string name = 2 [
     (buf.validate.field).string = {
       min_len: 1

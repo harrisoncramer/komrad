@@ -8,41 +8,63 @@ import "pagination/v1/pagination.proto";
 option go_package = "weave/proto/gen/agent/v1;agentv1";
 
 message SearchTranscriptsRequest {
+  // The words to look for, matched whole and stemmed, with a quoted phrase required verbatim and
+  // a leading minus excluding a word.
   string query = 1 [(buf.validate.field).string = {
     min_len: 1
     max_len: 500
   }];
+  // Where to carry on from, since one page of matches and one page of near misses advance
+  // together.
   optional pagination.v1.Pagination pagination = 2;
+  // Which agent's conversation to search, or unset to search the caller's own.
   optional string agent_id = 3 [(buf.validate.field).string.min_len = 1];
 }
 
 message SearchHit {
+  // The agent whose conversation this turn belongs to.
   string agent_id = 1;
+  // The turn's text with the match marked, cut to a readable window around it.
   string snippet = 2;
+  // What that agent is called, so a caller need not look it up to draw the hit.
   string name = 4;
+  // Whether that agent has been archived, since search spans those too.
   bool archived = 5;
+  // How well the turn matched, which is what orders the matches.
   double score = 6;
+  // Where the turn sits in the conversation, counting from the first.
   int32 seq = 7;
+  // Who was speaking, the agent or whoever prompted it.
   string role = 8;
+  // Where the turn begins in the whole transcript, for fetching the text around it.
   int64 content_offset = 9;
+  // How many bytes the turn runs to from that offset.
   int64 content_length = 10;
 }
 
 message SearchTranscriptsResponse {
+  // The turns that say the words, best first.
   repeated SearchHit matches = 1;
+  // The turns that only carry the letters somewhere, such as a word glued into a path, scored on
+  // how cleanly the letters sit rather than against the matches.
   repeated SearchHit near = 3;
+  // Pass this back as the pagination cursor to advance both lists.
   optional string next_page_token = 2;
 }
 
 message GetTranscriptRequest {
+  // Whose conversation to read.
   string agent_id = 1 [(buf.validate.field).string.min_len = 1];
   // How much content to return. A transcript is one run of text rather than a list of records,
   // so its window is measured in bytes and carries no pagination.Pagination.
   optional int32 max_bytes = 2 [(buf.validate.field).int32.gte = 0];
+  // Where the last window ended, or unset to start at the beginning.
   optional string cursor = 3 [(buf.validate.field).string.max_len = 2048];
 }
 
 message GetTranscriptResponse {
+  // One window of the conversation as plain text.
   string content = 1;
+  // Pass this back as the cursor for the next window, absent once there is no more to read.
   optional string next_page_token = 2;
 }

@@ -12,16 +12,27 @@ import "view/v1/view.proto";
 option go_package = "weave/proto/gen/workflow/v1;workflowv1";
 
 message Workflow {
+  // The handle every other call names this workflow by.
   string id = 1;
+  // What the panel groups its agents under.
   string name = 2;
+  // Text appended to the system prompt of every agent launched into it, taken as a snapshot at
+  // launch rather than read again.
   string context = 3;
+  // The directory its agents start in, and the checkout new worktrees are cut from.
   string cwd = 4;
+  // Command-line flags prefilled for each new agent.
   string flags = 5;
+  // Which CLI its agents run, blank for weave's default.
   string harness = 6;
+  // When it was hidden from the panel, unset while it is live.
   optional string archived_at = 9;
+  // Whether its agents each get a worktree of their own, and how those are built.
   WorktreeConfig worktree = 10;
   reserved 7, 8;
+  // Whether an agent is archived once weave sees its recorded pull request merge or close.
   bool archive_on_pr_closed = 11;
+  // Scripts hung on moments in its agents' lives, one per moment.
   repeated WorkflowHook hooks = 12;
   // The letter a person addresses this workflow by in the panel, if it holds one.
   optional string mark = 13;
@@ -30,10 +41,12 @@ message Workflow {
 }
 
 message WorkflowHook {
+  // Which moment fires it, such as pre-launch or post-resume.
   string event = 1 [(buf.validate.field).string = {
     min_len: 1
     max_len: 40
   }];
+  // The file in the hooks directory to run, blank to fire nothing at that moment.
   string script = 2 [(buf.validate.field).string = {
     min_len: 1
     max_len: 255
@@ -42,11 +55,14 @@ message WorkflowHook {
 }
 
 message WorktreeConfig {
+  // Whether weave cuts a worktree for each agent, or leaves it in the directory it was given.
   bool enabled = 1;
+  // Which branch a new worktree starts from, blank for the checkout's current head.
   string base_branch = 2 [(buf.validate.field).string = {
     max_len: 255
     [rules.v1.shell_safe]: true
   }];
+  // Files copied into each new worktree, for the untracked ones a build needs.
   repeated string copy_paths = 3 [(buf.validate.field).repeated = {
     max_items: 50
     items: {
@@ -56,6 +72,7 @@ message WorktreeConfig {
       }
     }
   }];
+  // Files linked into each new worktree rather than copied, for the large shared ones.
   repeated string symlink_paths = 4 [(buf.validate.field).repeated = {
     max_items: 50
     items: {
@@ -65,6 +82,7 @@ message WorktreeConfig {
       }
     }
   }];
+  // Paths or globs the panel leaves out of the diff it draws, such as generated output.
   repeated string diff_exclude = 5 [(buf.validate.field).repeated = {
     max_items: 50
     items: {
@@ -75,6 +93,7 @@ message WorktreeConfig {
       }
     }
   }];
+  // Where new worktrees are made, blank for the parent every workflow shares.
   string dir = 6 [(buf.validate.field).string = {
     max_len: 4096
     [rules.v1.absolute_path_or_blank]: true
@@ -82,90 +101,121 @@ message WorktreeConfig {
 }
 
 message ListWorkflowsRequest {
+  // Where to carry on from.
   optional pagination.v1.Pagination pagination = 1;
+  // True to list the archived workflows and only those.
   bool archived = 2;
+  // How much of each record to return, since the panel draws every field and a model reading
+  // the same endpoint has a context window to spend.
   view.v1.View view = 3 [(buf.validate.field).enum.defined_only = true];
 }
 
 message ListWorkflowsResponse {
+  // One page of workflows, in alphabetical order.
   repeated Workflow workflows = 1;
+  // Pass this back as the pagination cursor for the next page.
   optional string next_page_token = 2;
 }
 
 message GetWorkflowRequest {
+  // Which workflow to read.
   string id = 1 [(buf.validate.field).string.min_len = 1];
 }
 
 message GetWorkflowResponse {
+  // The workflow, with its context whole rather than cut to its opening.
   Workflow workflow = 1;
 }
 
 message CreateWorkflowRequest {
+  // What to group its agents under in the panel.
   string name = 1 [(buf.validate.field).string = {
     min_len: 1
     max_len: 200
   }];
+  // Text to append to the system prompt of every agent launched into it.
   string context = 2 [(buf.validate.field).string.max_len = 50000];
+  // The directory its agents start in, and the checkout worktrees are cut from.
   string cwd = 3 [(buf.validate.field).string = {
     max_len: 4096
     [rules.v1.absolute_path_or_blank]: true
   }];
+  // Flags to prefill for each new agent.
   string flags = 4 [(buf.validate.field).string = {
     max_len: 500
     [rules.v1.shell_safe]: true
   }];
+  // Which CLI its agents run, blank for weave's default.
   string harness = 5 [(buf.validate.field).string = {
     max_len: 40
     pattern: "^[a-z0-9-]*$"
   }];
+  // Whether its agents each get a worktree, and how those are built.
   WorktreeConfig worktree = 8;
+  // True to archive an agent once its recorded pull request merges or closes.
   bool archive_on_pr_closed = 9;
+  // Scripts to hang on moments in its agents' lives.
   repeated WorkflowHook hooks = 10 [(buf.validate.field).repeated.max_items = 50];
   reserved 6, 7;
 }
 
 message CreateWorkflowResponse {
+  // The workflow as recorded, holding no agents yet.
   Workflow workflow = 1;
 }
 
 message UpdateWorkflowRequest {
+  // Which workflow to rewrite.
   string id = 1 [(buf.validate.field).string.min_len = 1];
+  // Every field here is written, so send back the ones you are not changing.
   string name = 2 [(buf.validate.field).string = {
     min_len: 1
     max_len: 200
   }];
+  // Reaches only agents launched afterwards, since existing ones took a snapshot.
   string context = 3 [(buf.validate.field).string.max_len = 50000];
+  // Where agents launched afterwards start.
   string cwd = 4 [(buf.validate.field).string = {
     max_len: 4096
     [rules.v1.absolute_path_or_blank]: true
   }];
+  // Flags prefilled for agents launched afterwards.
   string flags = 5 [(buf.validate.field).string = {
     max_len: 500
     [rules.v1.shell_safe]: true
   }];
+  // Which CLI agents launched afterwards run.
   string harness = 6 [(buf.validate.field).string = {
     max_len: 40
     pattern: "^[a-z0-9-]*$"
   }];
+  // Turning worktrees off reaches agents already running, since whether weave removes a
+  // directory is read when the agent is deleted.
   WorktreeConfig worktree = 9;
+  // Whether an agent is archived once its pull request merges or closes.
   bool archive_on_pr_closed = 10;
+  // The whole hook list, so send back the ones you are keeping.
   repeated WorkflowHook hooks = 11 [(buf.validate.field).repeated.max_items = 50];
   reserved 7, 8;
 }
 
 message ArchiveWorkflowRequest {
+  // Which workflow to hide, archiving the agents inside it.
   string id = 1 [(buf.validate.field).string.min_len = 1];
 }
 
 message RestoreWorkflowRequest {
+  // Which archived workflow to bring back, along with the agents archived inside it.
   string id = 1 [(buf.validate.field).string.min_len = 1];
 }
 
 message RestoreWorkflowResponse {
+  // The workflow as restored, its agents dormant until each is resumed.
   Workflow workflow = 1;
 }
 
 message DeleteWorkflowRequest {
+  // Which archived workflow to remove for good, with whatever is still inside it.
   string id = 1 [(buf.validate.field).string.min_len = 1];
 }
 
