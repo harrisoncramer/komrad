@@ -1495,3 +1495,54 @@ func TestRefreshWarning(t *testing.T) {
 		})
 	}
 }
+
+// TestRefreshResetLabel covers the option that destroys, which has to say what goes and what
+// stays at the moment somebody is choosing rather than in the mail afterwards.
+func TestRefreshResetLabel(t *testing.T) {
+	t.Parallel()
+
+	for _, tt := range []struct {
+		name     string
+		plan     refreshPlan
+		want     []string
+		wantNone []string
+	}{
+		{
+			name: "a branch with nothing of its own still loses the files it created",
+			plan: refreshPlan{
+				baseRef: "origin/main",
+			},
+			want:     []string{"any files it created", "ignored files stay"},
+			wantNone: []string{"Nothing of yours"},
+		},
+		{
+			name: "commits and created files",
+			plan: refreshPlan{
+				baseRef:    "origin/main",
+				ownCommits: 3,
+			},
+			want: []string{"3 commits", "any files it created"},
+		},
+		{
+			name: "and uncommitted changes when the tree holds them",
+			plan: refreshPlan{
+				baseRef:        "origin/main",
+				ownCommits:     3,
+				trackedChanges: true,
+			},
+			want: []string{"3 commits", "uncommitted changes", "any files it created"},
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			label := refreshResetLabel(tt.plan)
+			for _, want := range tt.want {
+				assert.Contains(t, label, want)
+			}
+			for _, none := range tt.wantNone {
+				assert.NotContains(t, label, none)
+			}
+		})
+	}
+}

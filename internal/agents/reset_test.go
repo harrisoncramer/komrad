@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"weave/internal/git"
 	agentstore "weave/internal/store/agent"
@@ -45,6 +46,12 @@ func buildResetWorktree(t *testing.T) string {
 	writeTree(t, tree, "scratch.txt", "untracked\n")
 	writeTree(t, tree, "secrets.env", "SECRET=hunter2\n")
 
+	// The base moves on after the worktree was cut, so a reset that landed on the fork point
+	// rather than on the fetched base would be caught rather than passing either way.
+	writeTree(t, origin, "moved.txt", "the base moved on\n")
+	gitRun(t, origin, "add", "moved.txt")
+	gitRun(t, origin, "commit", "--quiet", "-m", "the base moved on")
+
 	return tree
 }
 
@@ -75,11 +82,43 @@ func TestResetKeepsWhatNothingCouldRecover(t *testing.T) {
 	require.NotEmpty(t, result.ParkedRef)
 
 	assert.Equal(t, "SECRET=hunter2\n", readTree(t, tree, "secrets.env"), "the ignored file is still there")
-	assert.Equal(t, "untracked\n", readTree(t, tree, "scratch.txt"), "and so is the untracked one")
 
 	inPark, err := git.Run(t.Context(), tree, "cat-file", "-e", result.ParkedRef+":secrets.env")
 	require.Error(t, err, "the park cannot hold an ignored file, which is why it must not be removed")
 	assert.Empty(t, inPark)
+}
+
+// TestResetClearsTheUntrackedAttempt covers the files an abandoned attempt is mostly made of,
+// which the park does hold and which would otherwise still compile into the package.
+func TestResetClearsTheUntrackedAttempt(t *testing.T) {
+	t.Parallel()
+
+	tree := buildResetWorktree(t)
+	service := resetService(t, tree, nil)
+
+	result, err := service.Reset(t.Context(), "a1")
+	require.NoError(t, err)
+
+	assert.NoFileExists(t, filepath.Join(tree, "scratch.txt"), "the untracked file is gone from disk")
+
+	kept, err := git.Run(t.Context(), tree, "show", result.ParkedRef+":scratch.txt")
+	require.NoError(t, err, "and is recoverable from the park, which is what makes removing it safe")
+	assert.Equal(t, "untracked", kept)
+}
+
+// TestResetLandsOnTheFetchedBase covers the base having moved since the worktree was cut, which
+// is the half of the operation a fixture with a still origin cannot see.
+func TestResetLandsOnTheFetchedBase(t *testing.T) {
+	t.Parallel()
+
+	tree := buildResetWorktree(t)
+	service := resetService(t, tree, nil)
+
+	_, err := service.Reset(t.Context(), "a1")
+	require.NoError(t, err)
+
+	assert.Equal(t, "the base moved on\n", readTree(t, tree, "moved.txt"),
+		"the reset landed on the fetched base rather than on the fork point")
 }
 
 // TestResetDiscardsTheWorkAndParksIt covers the tracked half, where everything that goes has to
@@ -118,9 +157,9 @@ func TestResetDoesNotRunWhenTheParkFails(t *testing.T) {
 	before, err := git.Run(t.Context(), tree, "rev-parse", "HEAD")
 	require.NoError(t, err)
 
-	// A ref already standing where the park wants to go, with a directory in the way of the
-	// name, is a park that cannot be written.
-	gitRun(t, tree, "update-ref", "refs/weave/prerefresh/a1", before)
+	// A ref standing at the parent of the name the park wants makes every name under it
+	// uncreatable, since refs are paths.
+	gitRun(t, tree, "update-ref", "refs/weave/discarded/a1", before)
 
 	service := resetService(t, tree, nil)
 
@@ -167,12 +206,17 @@ func readTree(t *testing.T, dir, name string) string {
 
 type fakeRounds struct {
 	rounds    []reviewstore.Round
+	reviews   []reviewstore.Review
 	deleted   bool
 	deleteErr error
 }
 
 func (f *fakeRounds) ListRounds(context.Context, string) ([]reviewstore.Round, error) {
 	return f.rounds, nil
+}
+
+func (f *fakeRounds) ListReviews(context.Context, string) ([]reviewstore.Review, error) {
+	return f.reviews, nil
 }
 
 func (f *fakeRounds) DeleteRounds(context.Context, string) error {
@@ -214,7 +258,7 @@ func TestResetRefusesWhatItCannotPark(t *testing.T) {
 	service := resetService(t, tree, nil)
 
 	_, err := service.Reset(t.Context(), "a1")
-	require.ErrorIs(t, err, ErrRebaseHiddenPaths)
+	require.ErrorIs(t, err, ErrRefreshHiddenPaths)
 }
 
 // TestResetRefusesAnIgnoredFileTheBaseTracks covers the one loss a park cannot undo, since the
@@ -263,4 +307,107 @@ func TestResetDropsTheRowsBeforeTheRefs(t *testing.T) {
 
 	_, err = git.Run(t.Context(), tree, "rev-parse", "--verify", roundRef("a1", snapshot))
 	require.NoError(t, err, "the snapshot is still held, since its row survived to name it")
+}
+
+// TestResetRefusesAnOpenHumanReview covers a draft nothing holds a copy of, since the round
+// teardown cascades through the reviews and the threads written under them.
+func TestResetRefusesAnOpenHumanReview(t *testing.T) {
+	t.Parallel()
+
+	tree := buildResetWorktree(t)
+	service := resetService(t, tree, &fakeRounds{
+		reviews: []reviewstore.Review{{AgentID: "a1", AuthorKind: reviewstore.AuthorHuman}},
+	})
+
+	_, err := service.Reset(t.Context(), "a1")
+	require.ErrorIs(t, err, ErrResetOpenReview)
+
+	assert.Equal(t, "edited and not committed\n", readTree(t, tree, "tracked.txt"), "and nothing was discarded")
+}
+
+// TestResetAllowsAReleasedReview is the other side of that refusal, since a released review is
+// not a draft anybody is holding.
+func TestResetAllowsAReleasedReview(t *testing.T) {
+	t.Parallel()
+
+	released := time.Now()
+	tree := buildResetWorktree(t)
+	service := resetService(t, tree, &fakeRounds{
+		reviews: []reviewstore.Review{{
+			AgentID:    "a1",
+			AuthorKind: reviewstore.AuthorHuman,
+			ReleasedAt: &released,
+		}},
+	})
+
+	_, err := service.Reset(t.Context(), "a1")
+	require.NoError(t, err)
+}
+
+// TestResetParksWhereNothingCollectsIt covers the park being the only copy of destroyed work,
+// which a later refresh of the same agent must not take away.
+func TestResetParksWhereNothingCollectsIt(t *testing.T) {
+	t.Parallel()
+
+	tree := buildResetWorktree(t)
+	service := resetService(t, tree, nil)
+
+	result, err := service.Reset(t.Context(), "a1")
+	require.NoError(t, err)
+	require.Contains(t, result.ParkedRef, "refs/weave/discarded/",
+		"a reset park lives apart from a rebase undo, which is collected")
+
+	// A later refresh collects its own parks, and must leave this one standing.
+	require.NoError(t, git.ReleaseRefsUnder(t.Context(), tree, "refs/weave/prerefresh/a1/", ""))
+
+	_, err = git.Run(t.Context(), tree, "rev-parse", "--verify", result.ParkedRef)
+	require.NoError(t, err, "the only copy of the discarded work is still there")
+}
+
+// TestResetSaysWhenTheReviewHistorySurvived covers the failure that would otherwise report as
+// plain success, since a count of zero means both no rounds and a teardown that broke.
+func TestResetSaysWhenTheReviewHistorySurvived(t *testing.T) {
+	t.Parallel()
+
+	tree := buildResetWorktree(t)
+	snapshot, err := git.Run(t.Context(), tree, "rev-parse", "HEAD")
+	require.NoError(t, err)
+	gitRun(t, tree, "update-ref", roundRef("a1", snapshot), snapshot)
+
+	service := resetService(t, tree, &fakeRounds{
+		rounds:    []reviewstore.Round{{AgentID: "a1", SnapshotSHA: snapshot}},
+		deleteErr: errors.New("the rows could not be deleted"),
+	})
+
+	result, err := service.Reset(t.Context(), "a1")
+	require.NoError(t, err, "the git half is done, so unwinding it would be worse")
+
+	assert.True(t, result.StaleReviewHistory, "and the failure is reported rather than read as no rounds")
+	assert.Zero(t, result.Rounds)
+	assert.Contains(t, resetMail(*result), "could not be cleared", "the agent is told not to answer it")
+
+	_, err = git.Run(t.Context(), tree, "rev-parse", "--verify", roundRef("a1", snapshot))
+	require.NoError(t, err, "the snapshot is still held, since its row survived to name it")
+}
+
+// TestResetMailSaysWhatWentAndWhatStayed covers the wording an agent acts on, which an earlier
+// version of the rebase mail got wrong by asserting something the code had not measured.
+func TestResetMailSaysWhatWentAndWhatStayed(t *testing.T) {
+	t.Parallel()
+
+	body := resetMail(ResetResult{
+		ResetPlan: ResetPlan{
+			BaseRef: "origin/main",
+			BaseSHA: "19802cfc353a",
+			Commits: 2,
+		},
+		ParkedRef: "refs/weave/discarded/a1/1",
+	})
+
+	assert.Contains(t, body, "2 commits", "it says what left the branch")
+	assert.Contains(t, body, "never committed have been removed", "and that its own new files went too")
+	assert.Contains(t, body, "ignoring", "while naming what was left alone")
+	assert.Contains(t, body, "refs/weave/discarded/a1/1", "and where the only copy is")
+	assert.NotContains(t, body, "Untracked and ignored files were left where they are",
+		"which is what it used to claim, and it was false")
 }

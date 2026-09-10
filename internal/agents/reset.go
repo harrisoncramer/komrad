@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"strings"
+	"time"
 
 	"weave/internal/git"
 	"weave/internal/logging"
@@ -22,12 +23,16 @@ import (
 // ErrResetPark says the copy that makes a reset survivable could not be written.
 var ErrResetPark = errors.New("the worktree could not be parked, so nothing was reset")
 
+// ErrResetOpenReview says somebody is part-way through writing a review the teardown would take.
+var ErrResetOpenReview = errors.New("somebody is part-way through writing a review of this agent, and a reset would delete it along with its comments, so release or discard that review first")
+
 // ErrResetShadowed says the base tracks a path this worktree holds as an ignored file.
 var ErrResetShadowed = errors.New("the base tracks these paths, which this worktree holds as ignored files that a reset would overwrite and no copy could give back")
 
 // roundReadDeleter is the slice of the review store a reset reads and clears.
 type roundReadDeleter interface {
 	ListRounds(ctx context.Context, agentID string) ([]reviewstore.Round, error)
+	ListReviews(ctx context.Context, agentID string) ([]reviewstore.Review, error)
 	DeleteRounds(ctx context.Context, agentID string) error
 }
 
@@ -50,6 +55,9 @@ type ResetResult struct {
 	ParkedRef string
 	// Rounds is how many review rounds were torn down with the work they described.
 	Rounds int
+	// StaleReviewHistory says the reset stands but the review history could not be cleared, so
+	// what the review screen shows describes work that is gone.
+	StaleReviewHistory bool
 	// ClearedPullRequest says a recorded pull request was dropped.
 	ClearedPullRequest bool
 }
@@ -84,6 +92,12 @@ func (s *RefreshService) PlanReset(ctx context.Context, agentID string) (*ResetP
 		return nil, err
 	}
 
+	// The rounds go with the reset, and the cascade takes an unreleased review and every thread
+	// under it, none of which the park holds.
+	if err := s.refuseOpenReview(ctx, agentID); err != nil {
+		return nil, err
+	}
+
 	// A park is built with git add -A and so holds no ignored file, and a reset writes every
 	// path the base tracks, so a path that is both is the one thing here with no way back.
 	shadowed, err := git.FindShadowedPaths(ctx, agent.Cwd, ref)
@@ -103,6 +117,33 @@ func (s *RefreshService) PlanReset(ctx context.Context, agentID string) (*ResetP
 	}, nil
 }
 
+// buildDiscardRef names where a reset keeps what it destroyed, in a namespace of its own so
+// that a later refresh does not collect the only copy of work nothing else holds.
+func buildDiscardRef(agentID string) string {
+	return fmt.Sprintf("refs/weave/discarded/%s/%d", agentID, time.Now().UnixNano())
+}
+
+// refuseOpenReview refuses while a human has an unreleased review of this agent, whose rows the
+// round teardown would delete with nothing holding a copy.
+func (s *RefreshService) refuseOpenReview(ctx context.Context, agentID string) error {
+	if s.rounds == nil {
+		return nil
+	}
+
+	reviews, err := s.rounds.ListReviews(ctx, agentID)
+	if err != nil {
+		return fmt.Errorf("failed to read the reviews of agent %q: %w", agentID, err)
+	}
+
+	for _, review := range reviews {
+		if review.AuthorKind == reviewstore.AuthorHuman && review.ReleasedAt == nil {
+			return ErrResetOpenReview
+		}
+	}
+
+	return nil
+}
+
 // Reset puts the agent's branch and tracked files back to the base, discarding its work.
 func (s *RefreshService) Reset(ctx context.Context, agentID string) (*ResetResult, error) {
 	agent, err := s.eligible(ctx, agentID)
@@ -112,7 +153,7 @@ func (s *RefreshService) Reset(ctx context.Context, agentID string) (*ResetResul
 
 	unlock, taken := s.locks.TryLock(agent.Cwd)
 	if !taken {
-		return nil, fmt.Errorf("%w: something else is working in %s", ErrRebaseBusy, agent.Cwd)
+		return nil, fmt.Errorf("%w: something else is working in %s", ErrRefreshBusy, agent.Cwd)
 	}
 	defer unlock()
 
@@ -131,7 +172,7 @@ func (s *RefreshService) Reset(ctx context.Context, agentID string) (*ResetResul
 
 	// Parked before anything is destroyed, and a park that fails stops the reset rather than
 	// being logged past, since it is the only way back to what is about to go.
-	result.ParkedRef = buildParkRef(agentID)
+	result.ParkedRef = buildDiscardRef(agentID)
 	if _, err := git.Park(ctx, agent.Cwd, result.ParkedRef); err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrResetPark, err)
 	}
@@ -140,7 +181,11 @@ func (s *RefreshService) Reset(ctx context.Context, agentID string) (*ResetResul
 		return nil, err
 	}
 
-	result.Rounds = s.tearDownRounds(ctx, *agent)
+	rounds, roundsErr := s.tearDownRounds(ctx, *agent)
+	result.Rounds = rounds
+	if roundsErr != nil {
+		result.StaleReviewHistory = true
+	}
 	result.ClearedPullRequest = s.clearPullRequest(ctx, *agent)
 
 	s.releaseOlderParks(ctx, *agent, result.ParkedRef)
@@ -151,26 +196,23 @@ func (s *RefreshService) Reset(ctx context.Context, agentID string) (*ResetResul
 
 // tearDownRounds drops the review history, which describes work the reset has just discarded,
 // and answers with how many rounds went.
-func (s *RefreshService) tearDownRounds(ctx context.Context, agent agentstore.Agent) int {
+func (s *RefreshService) tearDownRounds(ctx context.Context, agent agentstore.Agent) (int, error) {
 	if s.rounds == nil {
-		return 0
+		return 0, nil
 	}
 
 	rounds, err := s.rounds.ListRounds(ctx, agent.ID)
 	if err != nil {
-		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to read the rounds of a reset agent",
-			append([]slog.Attr{slog.String(logging.AgentID, agent.ID)}, logging.Err(err)...)...)
-
-		return 0
+		return 0, fmt.Errorf("failed to read the rounds of agent %q: %w", agent.ID, err)
+	}
+	if len(rounds) == 0 {
+		return 0, nil
 	}
 
-	// The rows go first, since a released ref under a surviving row names a snapshot git may
-	// collect and the review screen answers that with a bad object rather than an empty diff.
+	// The rows go first, so a delete that fails leaves both the rows and the refs they name,
+	// which is a state somebody can read and try again from.
 	if err := s.rounds.DeleteRounds(ctx, agent.ID); err != nil {
-		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to delete the rounds of a reset agent",
-			append([]slog.Attr{slog.String(logging.AgentID, agent.ID)}, logging.Err(err)...)...)
-
-		return 0
+		return 0, fmt.Errorf("failed to delete the rounds of agent %q: %w", agent.ID, err)
 	}
 
 	for _, round := range rounds {
@@ -180,7 +222,7 @@ func (s *RefreshService) tearDownRounds(ctx context.Context, agent agentstore.Ag
 		}
 	}
 
-	return len(rounds)
+	return len(rounds), nil
 }
 
 // tellReset says what happened in the agent's mailbox.
@@ -212,13 +254,19 @@ func resetMail(result ResetResult) string {
 		fmt.Fprintf(&body, "\n\nThe %d review rounds taken of you have been torn down, along with their comments. "+
 			"They described work that no longer exists.", result.Rounds)
 	}
+	if result.StaleReviewHistory {
+		body.WriteString("\n\nThe review rounds taken of you could not be cleared, so whatever the review screen " +
+			"shows of you describes work that is gone. Say so rather than answering it.")
+	}
 	if result.ClearedPullRequest {
 		body.WriteString("\n\nYour recorded pull request has been cleared. It no longer tracks anything this branch carries.")
 	}
 
-	body.WriteString("\n\nNothing you had was deleted outright. A copy of the worktree from before this ran is kept at " +
-		result.ParkedRef + ". It holds your commits and anything you had not committed. " +
-		"Untracked and ignored files were left where they are.")
+	body.WriteString("\n\nThe files you had created but never committed have been removed too, so what is on disk " +
+		"is the base and nothing else. Files git was ignoring, such as configuration and build output, were left alone.")
+	body.WriteString("\n\nNothing was deleted outright. A copy of the worktree from before this ran is kept at " +
+		result.ParkedRef + ". It holds your commits, anything you had not committed, and the files you had created. " +
+		"Nothing collects it, so it will be there when you look.")
 
 	return body.String()
 }

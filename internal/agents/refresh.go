@@ -15,29 +15,29 @@ import (
 )
 
 var (
-	// ErrRebaseNoWorktree says the agent sits in a directory weave did not cut.
-	ErrRebaseNoWorktree = errors.New("this agent has no worktree of its own to rebase")
+	// ErrRefreshNoWorktree says the agent sits in a directory weave did not cut.
+	ErrRefreshNoWorktree = errors.New("this agent has no worktree of its own, so there is nothing here to bring up to date")
 
-	// ErrRebaseAdopted says the branch belongs to whoever made it.
-	ErrRebaseAdopted = errors.New("this agent is on a branch weave did not cut, so its history is not weave's to rewrite")
+	// ErrRefreshAdopted says the branch belongs to whoever made it.
+	ErrRefreshAdopted = errors.New("this agent is on a branch weave did not cut, so its history and its files are not weave's to change")
 
 	// ErrRebaseDirty says the checkout holds tracked changes.
 	ErrRebaseDirty = errors.New("the worktree holds tracked changes, so commit or discard them first")
 
-	// ErrRebaseInProgress says something already owns the index.
-	ErrRebaseInProgress = errors.New("the worktree is already part-way through a merge or a rebase, so finish or abort that first")
+	// ErrRefreshInProgress says something already owns the index.
+	ErrRefreshInProgress = errors.New("the worktree is already part-way through a merge or a rebase, so finish or abort that first")
 
-	// ErrRebaseDetached says the checkout is on no branch, so a rebase would move nothing.
-	ErrRebaseDetached = errors.New("the worktree is on no branch, so a rebase would move nothing")
+	// ErrRefreshDetached says the checkout stands on no branch there is anything to move.
+	ErrRefreshDetached = errors.New("the worktree is on no branch, so there is no ref to bring up to date")
 
-	// ErrRebaseBusy says the agent is part-way through a turn.
-	ErrRebaseBusy = errors.New("the agent is working, so its files must not move under it")
+	// ErrRefreshBusy says the agent is part-way through a turn.
+	ErrRefreshBusy = errors.New("the agent is working, so its files must not change under it")
 
-	// ErrRebaseShallow says the clone cannot answer what the branch and the base share.
-	ErrRebaseShallow = errors.New("the clone is shallow, so what this branch shares with the base cannot be read")
+	// ErrRefreshShallow says the clone cannot answer what the branch and the base share.
+	ErrRefreshShallow = errors.New("the clone is shallow, so what this branch shares with the base cannot be read")
 
-	// ErrRebaseHiddenPaths says the index is holding a path's content back on purpose.
-	ErrRebaseHiddenPaths = errors.New("these paths are marked assume-unchanged or skip-worktree, so their contents cannot be read back if the move goes wrong")
+	// ErrRefreshHiddenPaths says the index is holding a path's content back on purpose.
+	ErrRefreshHiddenPaths = errors.New("these paths are marked assume-unchanged or skip-worktree, so nothing can read their contents into the copy that would otherwise give them back")
 )
 
 // refreshAgentReadWriter is the slice of the agent store a refresh reads and writes.
@@ -182,7 +182,7 @@ func (s *RefreshService) Rebase(ctx context.Context, agentID string) (*RebaseRes
 	// Keyed on the directory, which is what two operations actually collide over.
 	unlock, taken := s.locks.TryLock(agent.Cwd)
 	if !taken {
-		return nil, fmt.Errorf("%w: something else is working in %s", ErrRebaseBusy, agent.Cwd)
+		return nil, fmt.Errorf("%w: something else is working in %s", ErrRefreshBusy, agent.Cwd)
 	}
 	defer unlock()
 
@@ -403,21 +403,21 @@ func (s *RefreshService) eligible(ctx context.Context, agentID string) (*agentst
 		return nil, fmt.Errorf("%w: %q", ErrAgentArchived, agent.Name)
 	}
 	if agent.State.IsTurnUnfinished() {
-		return nil, fmt.Errorf("%w: %q", ErrRebaseBusy, agent.Name)
+		return nil, fmt.Errorf("%w: %q", ErrRefreshBusy, agent.Name)
 	}
 	if agent.AdoptedBranch != "" {
-		return nil, fmt.Errorf("%w: %s", ErrRebaseAdopted, agent.AdoptedBranch)
+		return nil, fmt.Errorf("%w: %s", ErrRefreshAdopted, agent.AdoptedBranch)
 	}
 
 	// A child runs in its parent's checkout, so this would rewrite the parent's branch.
 	if agent.ParentAgentID != nil {
-		return nil, fmt.Errorf("%w: it runs in its parent's checkout", ErrRebaseNoWorktree)
+		return nil, fmt.Errorf("%w: it runs in its parent's checkout", ErrRefreshNoWorktree)
 	}
 	if isProvisionerDisabled(agent.ProvisionEnabled) {
-		return nil, fmt.Errorf("%w: it was told to keep the directory it was given", ErrRebaseNoWorktree)
+		return nil, fmt.Errorf("%w: it was told to keep the directory it was given", ErrRefreshNoWorktree)
 	}
 	if agent.Cwd == "" || agent.WorktreeRemoved {
-		return nil, fmt.Errorf("%w: it has no directory on disk", ErrRebaseNoWorktree)
+		return nil, fmt.Errorf("%w: it has no directory on disk", ErrRefreshNoWorktree)
 	}
 
 	flow, err := s.workflows.Get(ctx, agent.WorkflowID)
@@ -425,7 +425,7 @@ func (s *RefreshService) eligible(ctx context.Context, agentID string) (*agentst
 		return nil, fmt.Errorf("failed to read the workflow of agent %q: %w", agent.Name, err)
 	}
 	if !flow.Worktree.Enabled {
-		return nil, fmt.Errorf("%w: its workflow does not make worktrees", ErrRebaseNoWorktree)
+		return nil, fmt.Errorf("%w: its workflow does not make worktrees", ErrRefreshNoWorktree)
 	}
 
 	return agent, nil
@@ -436,15 +436,15 @@ func (s *RefreshService) eligible(ctx context.Context, agentID string) (*agentst
 func refuseEitherWay(state git.TreeState) error {
 	switch {
 	case state.InProgress:
-		return ErrRebaseInProgress
+		return ErrRefreshInProgress
 	case state.Branch == "":
-		return ErrRebaseDetached
+		return ErrRefreshDetached
 	case state.Shallow:
-		return ErrRebaseShallow
+		return ErrRefreshShallow
 	case len(state.HiddenPaths) > 0:
 		// A park is built with git add -A, so it cannot hold these, and a reset would have no
 		// way back for exactly the paths the index is hiding.
-		return fmt.Errorf("%w: %s", ErrRebaseHiddenPaths, strings.Join(state.HiddenPaths, ", "))
+		return fmt.Errorf("%w: %s", ErrRefreshHiddenPaths, strings.Join(state.HiddenPaths, ", "))
 	}
 
 	return nil

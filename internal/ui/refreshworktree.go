@@ -35,13 +35,15 @@ type refreshPlannedMsg struct {
 
 // resetMsg is a finished reset, or the reason there is none.
 type resetMsg struct {
-	name      string
-	baseRef   string
-	baseSHA   string
-	commits   int
-	rounds    int
-	parkedRef string
-	err       error
+	name    string
+	baseRef string
+	baseSHA string
+	commits int
+	rounds  int
+	// staleReviewHistory says the reset stands but the review history outlived the work.
+	staleReviewHistory bool
+	parkedRef          string
+	err                error
 }
 
 // rebasedMsg is a finished rebase, conflicted when it stopped and is waiting for the agent.
@@ -117,12 +119,13 @@ func (m *model) resetCmd(agentID, name string) tea.Cmd {
 		}
 
 		return resetMsg{
-			name:      name,
-			baseRef:   result.GetBaseRef(),
-			baseSHA:   result.GetBaseSha(),
-			commits:   int(result.GetCommits()),
-			rounds:    int(result.GetRounds()),
-			parkedRef: result.GetParkedRef(),
+			name:               name,
+			baseRef:            result.GetBaseRef(),
+			baseSHA:            result.GetBaseSha(),
+			commits:            int(result.GetCommits()),
+			rounds:             int(result.GetRounds()),
+			staleReviewHistory: result.GetStaleReviewHistory(),
+			parkedRef:          result.GetParkedRef(),
 		}
 	}
 }
@@ -135,10 +138,13 @@ func (m *model) applyReset(msg resetMsg) tea.Model {
 		return m
 	}
 
-	detail := fmt.Sprintf("%s. %s and any uncommitted changes were thrown away.",
+	detail := fmt.Sprintf("%s. %s, any uncommitted changes and any files it created were thrown away, and ignored files were left alone.",
 		shortSHA(msg.baseSHA), countWord(msg.commits, "commit", "commits"))
 	if msg.rounds > 0 {
 		detail += fmt.Sprintf(" %s torn down.", countWord(msg.rounds, "review round", "review rounds"))
+	}
+	if msg.staleReviewHistory {
+		detail += " Its review history could not be cleared and now describes work that is gone."
 	}
 	detail += " A copy is kept at " + msg.parkedRef + "."
 

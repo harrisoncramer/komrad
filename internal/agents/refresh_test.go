@@ -28,7 +28,7 @@ func TestRebaseRefusals(t *testing.T) {
 		// case names only what it is about.
 		agent agentstore.Agent
 		// noWorktreeWorkflow turns the workflow's worktree toggle off, which is one of several
-		// distinct routes to ErrRebaseNoWorktree and has to be asked for rather than inferred
+		// distinct routes to ErrRefreshNoWorktree and has to be asked for rather than inferred
 		// from the wanted error: the child and provisioner cases want that error with the
 		// toggle on, and inferring it would pass them for the wrong reason.
 		noWorktreeWorkflow bool
@@ -37,17 +37,17 @@ func TestRebaseRefusals(t *testing.T) {
 		{
 			name:    "an agent part-way through a turn, since the files would move under it",
 			agent:   agentstore.Agent{State: agentstore.StateThinking},
-			wantErr: ErrRebaseBusy,
+			wantErr: ErrRefreshBusy,
 		},
 		{
 			name:    "an agent waiting on a question, which is also an unfinished turn",
 			agent:   agentstore.Agent{State: agentstore.StateWaiting},
-			wantErr: ErrRebaseBusy,
+			wantErr: ErrRefreshBusy,
 		},
 		{
 			name:    "a branch a human made, whose history is not weave's to rewrite",
 			agent:   agentstore.Agent{State: agentstore.StateIdle, AdoptedBranch: "harry/spike"},
-			wantErr: ErrRebaseAdopted,
+			wantErr: ErrRefreshAdopted,
 		},
 		{
 			name: "a child, since rebasing one rewrites its parent's branch",
@@ -55,7 +55,7 @@ func TestRebaseRefusals(t *testing.T) {
 				State:         agentstore.StateIdle,
 				ParentAgentID: xptr.Ptr("parent"),
 			},
-			wantErr: ErrRebaseNoWorktree,
+			wantErr: ErrRefreshNoWorktree,
 		},
 		{
 			name: "an agent told to keep the directory it was given",
@@ -63,18 +63,18 @@ func TestRebaseRefusals(t *testing.T) {
 				State:            agentstore.StateIdle,
 				ProvisionEnabled: xptr.Ptr(false),
 			},
-			wantErr: ErrRebaseNoWorktree,
+			wantErr: ErrRefreshNoWorktree,
 		},
 		{
 			name:    "an agent whose directory is gone",
 			agent:   agentstore.Agent{State: agentstore.StateIdle, WorktreeRemoved: true},
-			wantErr: ErrRebaseNoWorktree,
+			wantErr: ErrRefreshNoWorktree,
 		},
 		{
 			name:               "an agent in a workflow that makes no worktrees",
 			agent:              agentstore.Agent{State: agentstore.StateIdle},
 			noWorktreeWorkflow: true,
-			wantErr:            ErrRebaseNoWorktree,
+			wantErr:            ErrRefreshNoWorktree,
 		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
@@ -140,7 +140,7 @@ func TestRebaseTakesTheTreeLock(t *testing.T) {
 	})
 
 	_, err := service.Rebase(t.Context(), "a1")
-	require.ErrorIs(t, err, ErrRebaseBusy)
+	require.ErrorIs(t, err, ErrRefreshBusy)
 }
 
 // TestTreeLocksHoldOnePathAtATime covers the lock itself, since two agents in different trees
@@ -485,7 +485,7 @@ func TestRebaseRefusesAPathTheIndexIsHolding(t *testing.T) {
 	})
 
 	_, err := service.Rebase(t.Context(), "a1")
-	require.ErrorIs(t, err, ErrRebaseHiddenPaths)
+	require.ErrorIs(t, err, ErrRefreshHiddenPaths)
 }
 
 // TestRebaseParksBeforeItMoves pins the undo being written before anything is rewritten, since

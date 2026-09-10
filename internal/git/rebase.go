@@ -16,10 +16,12 @@ import (
 // reasoning is why an untracked file does not block a rebase here: git completes one with
 // untracked files in place, and an agent's worktree nearly always holds some.
 //
-// Explainer: a reset removes nothing untracked and nothing ignored, which is deliberate rather
-// than an omission. A park is built with git add -A, so it cannot hold an ignored file, and
-// removing one would be the only step here with no way back. What a reset is for lives in the
-// files git tracks, and scratch files and build output are not what anybody is trying to discard.
+// Explainer: a reset removes tracked and untracked files and keeps ignored ones, which is a
+// three-way choice rather than an oversight. A park is built with git add -A, so it holds
+// untracked files and removing them is recoverable, while it cannot hold an ignored file and
+// removing one would be the only step here with no way back. An abandoned attempt is mostly
+// untracked files, so leaving them would hand the agent a tree that is neither what it had nor
+// what a fresh checkout would give it, still compiling into the package it was told to abandon.
 
 // Explainer: the two counts a plan carries are read from different places on purpose. Landed is
 // counted off the graph, because it says how many commits leave the branch, and that has to
@@ -268,10 +270,16 @@ func FindShadowedPaths(ctx context.Context, dir, ref string) ([]string, error) {
 	return strings.Split(out, "\n"), nil
 }
 
-// ResetToBase moves the branch onto ref and makes the tracked files match it.
+// ResetToBase moves the branch onto ref and makes the checkout match it, keeping ignored files.
 func ResetToBase(ctx context.Context, dir, ref string) error {
 	if _, err := Run(ctx, dir, "reset", "--hard", ref); err != nil {
 		return fmt.Errorf("failed to reset %q onto %s: %w", dir, ref, err)
+	}
+
+	// -fd without -x: the park holds untracked files, so removing them is recoverable, and an
+	// abandoned attempt is mostly untracked files that would otherwise still compile.
+	if _, err := Run(ctx, dir, "clean", "-fd"); err != nil {
+		return fmt.Errorf("failed to clear the untracked files of %q: %w", dir, err)
 	}
 
 	return nil

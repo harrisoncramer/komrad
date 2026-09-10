@@ -247,6 +247,9 @@ message ResetWorktreeResponse {
   int32 rounds = 5;
   // Where the worktree as it stood beforehand is kept, which is the only way back.
   string parked_ref = 6;
+  // Whether the reset stands but the review history could not be cleared, so what the review
+  // screen shows describes work that is gone.
+  bool stale_review_history = 7;
 }
 
 message SetMarkRequest {

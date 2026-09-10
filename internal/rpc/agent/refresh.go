@@ -73,11 +73,12 @@ func (s *Service) ResetWorktree(
 	}
 
 	return connect.NewResponse(&agentv1.ResetWorktreeResponse{
-		BaseRef:   result.BaseRef,
-		BaseSha:   result.BaseSHA,
-		Branch:    result.Branch,
-		Commits:   int32(result.Commits),
-		Rounds:    int32(result.Rounds),
-		ParkedRef: result.ParkedRef,
+		BaseRef:            result.BaseRef,
+		BaseSha:            result.BaseSHA,
+		Branch:             result.Branch,
+		Commits:            int32(result.Commits),
+		Rounds:             int32(result.Rounds),
+		ParkedRef:          result.ParkedRef,
+		StaleReviewHistory: result.StaleReviewHistory,
 	}), nil
 }

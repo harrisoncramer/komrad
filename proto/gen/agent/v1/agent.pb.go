@@ -1367,9 +1367,12 @@ type ResetWorktreeResponse struct {
 	// How many review rounds were torn down, since they described work that is now gone.
 	Rounds int32 `protobuf:"varint,5,opt,name=rounds,proto3" json:"rounds,omitempty"`
 	// Where the worktree as it stood beforehand is kept, which is the only way back.
-	ParkedRef     string `protobuf:"bytes,6,opt,name=parked_ref,json=parkedRef,proto3" json:"parked_ref,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	ParkedRef string `protobuf:"bytes,6,opt,name=parked_ref,json=parkedRef,proto3" json:"parked_ref,omitempty"`
+	// Whether the reset stands but the review history could not be cleared, so what the review
+	// screen shows describes work that is gone.
+	StaleReviewHistory bool `protobuf:"varint,7,opt,name=stale_review_history,json=staleReviewHistory,proto3" json:"stale_review_history,omitempty"`
+	unknownFields      protoimpl.UnknownFields
+	sizeCache          protoimpl.SizeCache
 }
 
 func (x *ResetWorktreeResponse) Reset() {
@@ -1442,6 +1445,13 @@ func (x *ResetWorktreeResponse) GetParkedRef() string {
 		return x.ParkedRef
 	}
 	return ""
+}
+
+func (x *ResetWorktreeResponse) GetStaleReviewHistory() bool {
+	if x != nil {
+		return x.StaleReviewHistory
+	}
+	return false
 }
 
 type SetMarkRequest struct {
@@ -2319,7 +2329,7 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\x0elanded_commits\x18\a \x01(\x05R\rlandedCommits\x12%\n" +
 	"\x0ereplay_commits\x18\b \x01(\x05R\rreplayCommits\":\n" +
 	"\x14ResetWorktreeRequest\x12\"\n" +
-	"\bagent_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\aagentId\"\xb6\x01\n" +
+	"\bagent_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\aagentId\"\xe8\x01\n" +
 	"\x15ResetWorktreeResponse\x12\x19\n" +
 	"\bbase_ref\x18\x01 \x01(\tR\abaseRef\x12\x19\n" +
 	"\bbase_sha\x18\x02 \x01(\tR\abaseSha\x12\x16\n" +
@@ -2327,7 +2337,8 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\acommits\x18\x04 \x01(\x05R\acommits\x12\x16\n" +
 	"\x06rounds\x18\x05 \x01(\x05R\x06rounds\x12\x1d\n" +
 	"\n" +
-	"parked_ref\x18\x06 \x01(\tR\tparkedRef\"\xe3\x01\n" +
+	"parked_ref\x18\x06 \x01(\tR\tparkedRef\x120\n" +
+	"\x14stale_review_history\x18\a \x01(\bR\x12staleReviewHistory\"\xe3\x01\n" +
 	"\x0eSetMarkRequest\x12$\n" +
 	"\bagent_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01H\x00R\aagentId\x12*\n" +
 	"\vworkflow_id\x18\x02 \x01(\tB\a\xbaH\x04r\x02\x10\x01H\x00R\n" +

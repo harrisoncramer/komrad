@@ -652,12 +652,13 @@ func refreshResetLabel(plan refreshPlan) string {
 	if plan.trackedChanges {
 		parts = append(parts, "uncommitted changes")
 	}
-	if len(parts) == 0 {
-		return fmt.Sprintf("Reset to %s. Nothing of yours is on the branch to lose.", plan.baseRef)
+	parts = append(parts, "any files it created")
+	if len(parts) == 1 {
+		return fmt.Sprintf("Reset to %s, throwing away any files it created. A copy is kept, ignored files stay.", plan.baseRef)
 	}
 
-	return fmt.Sprintf("Reset to %s, throwing away %s. A copy is kept, and untracked files stay.",
-		plan.baseRef, strings.Join(parts, " and "))
+	return fmt.Sprintf("Reset to %s, throwing away %s. A copy is kept, ignored files stay.",
+		plan.baseRef, strings.Join(parts, ", "))
 }
 
 // refreshWarning is what a person is owed before the worktree is touched rather than after,
