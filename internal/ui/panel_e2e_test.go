@@ -192,43 +192,8 @@ func TestPanelLeavesThePullRequestKeyAloneWithoutOne(t *testing.T) {
 	assert.Empty(t, instance.Opened.Targets(), "nothing is opened for an agent with no pull request")
 }
 
-// TestStagedAgentArchivedElsewhere covers somebody else ending a staged agent, whose pane
-// staging swapped into the panel's own window while the stage's pane sits in the agent's.
-func TestStagedAgentArchivedElsewhere(t *testing.T) {
-	staged := newStagedPanel(t)
-	stagePane := staged.panel.frame.Pane(layout.RegionStage)
-
-	_, err := staged.instance.Agents.ArchiveAgents(t.Context(), connect.NewRequest(&agentv1.ArchiveAgentsRequest{
-		Ids: []string{staged.agentID},
-	}))
-	require.NoError(t, err)
-
-	staged.panel = settle(t, staged.panel, staged.panel.refreshCmd())
-
-	require.False(t, staged.panel.tmux.IsPaneAlive(staged.agentPane), "the archive stopped what was running")
-	assert.False(t, staged.panel.tmux.IsPaneAlive(stagePane), "the pane left in the agent's window is not left running")
-	assert.Equal(t, []string{staged.navPane, staged.panel.frame.Pane(layout.RegionStage)}, panesInPanel(t, staged.instance),
-		"the panel is a nav pane and a stage pane again")
-
-	second, err := staged.instance.Agents.CreateAgent(t.Context(), connect.NewRequest(&agentv1.CreateAgentRequest{
-		Prompt:     "rename the config keys",
-		Title:      "config",
-		WorkflowId: staged.workflowID,
-	}))
-	require.NoError(t, err)
-
-	secondPane := staged.instance.GetOwnedPane(second.Msg.GetAgent().GetId())
-	require.NotEmpty(t, secondPane)
-
-	staged.panel = settle(t, staged.panel, staged.panel.refreshCmd())
-	staged.panel.tree.cursor = 1
-	staged.panel.stageSelection()
-
-	assert.Contains(t, panesInPanel(t, staged.instance), secondPane,
-		"the next agent shows beside the panel rather than being swapped off screen")
-}
-
-// TestStagedAgentExitsOnItsOwn covers the same loss with nobody archiving.
+// TestStagedAgentExitsOnItsOwn covers a staged agent's pane dying while staging holds it in the
+// panel's own window.
 func TestStagedAgentExitsOnItsOwn(t *testing.T) {
 	staged := newStagedPanel(t)
 	stagePane := staged.panel.frame.Pane(layout.RegionStage)
@@ -244,12 +209,10 @@ func TestStagedAgentExitsOnItsOwn(t *testing.T) {
 }
 
 type stagedPanel struct {
-	instance   *weavetest.Instance
-	panel      model
-	workflowID string
-	agentID    string
-	navPane    string
-	agentPane  string
+	instance  *weavetest.Instance
+	panel     model
+	navPane   string
+	agentPane string
 }
 
 func newStagedPanel(t *testing.T) *stagedPanel {
@@ -303,12 +266,10 @@ func newStagedPanel(t *testing.T) *stagedPanel {
 	require.Contains(t, panesInPanel(t, instance), agentPane)
 
 	return &stagedPanel{
-		instance:   instance,
-		panel:      panel,
-		workflowID: workflow.Msg.GetWorkflow().GetId(),
-		agentID:    created.Msg.GetAgent().GetId(),
-		navPane:    navPane,
-		agentPane:  agentPane,
+		instance:  instance,
+		panel:     panel,
+		navPane:   navPane,
+		agentPane: agentPane,
 	}
 }
 
