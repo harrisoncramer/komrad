@@ -43,8 +43,7 @@ func (p pulse) lit() bool {
 	return p.left%2 == 1
 }
 
-// pulsing reports whether any of the panel's blinks is still running, which is what one tick
-// stream serves.
+// pulsing reports whether any of the panel's blinks is still running.
 func (m model) pulsing() bool {
 	return m.messages.pulse.running()
 }

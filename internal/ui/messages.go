@@ -87,8 +87,7 @@ func (m model) pulseMessages(before int) (model, tea.Cmd) {
 	return m, m.startPulse(&m.messages.pulse, messagesPulseBlinks)
 }
 
-// messagesPulseOn reports whether the newest message is in the lit half of a blink, which is not
-// drawn on an older message the reader has walked back to.
+// messagesPulseOn reports whether the newest message is in the lit half of a blink.
 func (m model) messagesPulseOn() bool {
 	return m.messages.pulse.lit() && m.messagesCursor() == 0
 }
