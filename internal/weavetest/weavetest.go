@@ -5,6 +5,13 @@
 // spawned CLI, and that is exactly what a unit test with fakes on both sides cannot reach. An
 // instance lets a test launch an agent for real, make its harness look busy, run one pass of
 // the reconciler, and then ask what was written and what was typed into the pane.
+//
+// One ordering in here is load-bearing. A test's temporary directories are removed by a cleanup
+// registered on the first t.TempDir call, and cleanups run in reverse, so claiming them before
+// the tmux server is what leaves every pane dead by the time those directories go.
+// The other way about, tmux is still hosting the panes while the tree beneath them is removed,
+// and a CLI coming up in one of them recreates a directory mid-walk; that surfaces as "TempDir
+// RemoveAll cleanup: directory not empty" against a test whose own assertions all passed.
 package weavetest
 
 import (
@@ -107,6 +114,9 @@ func Start(t *testing.T, p Params) *Instance {
 		p.MaxAgents = 50
 	}
 
+	// Claimed before the tmux server, which is what orders the two teardowns.
+	root := t.TempDir()
+
 	tmuxServer := tmuxtest.New(t)
 	tmuxServer.NewSession(agents.ManagerSession)
 
@@ -118,7 +128,6 @@ func Start(t *testing.T, p Params) *Instance {
 
 	stores := storetest.Open(t)
 
-	root := t.TempDir()
 	cacheDir := filepath.Join(root, "cache")
 	hooksDir := filepath.Join(root, "hooks")
 	require.NoError(t, os.MkdirAll(hooksDir, 0o755))
