@@ -2,6 +2,8 @@ package ui
 
 import (
 	"context"
+	"fmt"
+	"slices"
 	"strings"
 	"time"
 
@@ -40,7 +42,7 @@ type searchHit struct {
 	section  searchSection
 }
 
-// searchSection is which run of hits one hit belongs to, drawn in this order.
+// searchSection is which run of hits one hit belongs to.
 type searchSection int
 
 const (
@@ -158,6 +160,43 @@ func renderHit(h *agentv1.SearchHit, section searchSection) searchHit {
 		snippet:  h.GetSnippet(),
 		section:  section,
 	}
+}
+
+// searchHitKey names one hit across a refresh, which is the turn it came from within its own
+// section.
+func searchHitKey(hit searchHit) string {
+	return fmt.Sprintf("%d:%s:%d", hit.section, hit.agentID, hit.offset)
+}
+
+// hoveredHitKey names the hit the cursor is standing on, read before a refresh moves the rows
+// under it.
+func (m model) hoveredHitKey() string {
+	hit, ok := m.hoveredHit()
+	if !ok {
+		return ""
+	}
+
+	return searchHitKey(hit)
+}
+
+// placeSearchHit puts the cursor back on the hit it was standing on, the names among the hits
+// being read off listings a refresh changes, and fetches a preview where that hit has gone.
+func (m *model) placeSearchHit(was string) tea.Cmd {
+	hits := m.searchHits()
+	if len(hits) == 0 {
+		m.search.cursor = 0
+		m.search.preview = searchPreview{}
+
+		return nil
+	}
+
+	at := slices.IndexFunc(hits, func(hit searchHit) bool { return searchHitKey(hit) == was })
+	m.search.cursor = placeCursor(at, m.search.cursor, len(hits))
+	if at >= 0 {
+		return nil
+	}
+
+	return m.previewCmd(hits[m.search.cursor])
 }
 
 // searchHits is every hit the screen stands on, the agents whose name says the query first.
@@ -440,15 +479,15 @@ func (h searchHit) spans(content string) []span {
 }
 
 // hitHeader names the agent a run of hits came from, wearing the same marks its row wears on the
-// screen it lives on.
-func (m model) hitHeader(hit searchHit) string {
+// screen it lives on, in the gutter given.
+func (m model) hitHeader(hit searchHit, gutter string) string {
 	name := clipName(hit.name)
 	if hit.section == nameSection {
 		name = markName(name, m.search.query)
 	}
 
 	if hit.archived {
-		row := "  " + noStateMark() + " " + name + dimStyle.Render(" (archived)")
+		row := gutter + noStateMark() + " " + name + dimStyle.Render(" (archived)")
 
 		agent, ok := m.archivedAgent(hit.agentID)
 		if !ok {
@@ -460,10 +499,10 @@ func (m model) hitHeader(hit searchHit) string {
 
 	item, ok := m.liveAgent(hit.agentID)
 	if !ok {
-		return "  " + noStateMark() + " " + name
+		return gutter + noStateMark() + " " + name
 	}
 
-	return markGutter(m.listing.marks[agentRowKey(item.agent.ID)]) + stateMark(displayState(item)) + " " + name +
+	return gutter + stateMark(displayState(item)) + " " + name +
 		worktreeRemovedMark(item) + scheduledMark(item.agent) + hiddenMark(item.agent.Hidden) +
 		unreadMailMark(item.unreadMail) + unviewedMark(item.unviewed) +
 		failedRunMark(item.failedRun) + localReviewRoundsMark(item.localRounds) +
@@ -490,12 +529,19 @@ func (m model) searchRows() ([]string, int) {
 
 		hovered := i == m.search.cursor
 
+		gutter := markGutter(m.listing.marks[agentRowKey(hit.agentID)])
+
 		var row string
 		if hit.section == nameSection {
-			row = m.cursorGap(hovered) + m.hitHeader(hit)
+			// A name is its own row, so the cursor stands where the header wears its mark.
+			if hovered {
+				gutter = m.rowCursorPrefix()
+			}
+
+			row = m.hitHeader(hit, gutter)
 		} else {
 			if hit.agentID != labelled {
-				rows = append(rows, m.hitHeader(hit))
+				rows = append(rows, m.hitHeader(hit, gutter))
 				labelled = hit.agentID
 			}
 

@@ -257,9 +257,9 @@ func (m model) routeAsyncMessage(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
 
 		return m, nil, true
 	case refreshResult:
-		m.applyRefresh(msg)
+		cmd := m.applyRefresh(msg)
 
-		return m, nil, true
+		return m, cmd, true
 	case writeResult:
 		next, cmd := m.applyWrite(msg)
 

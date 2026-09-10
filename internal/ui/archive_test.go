@@ -1190,7 +1190,7 @@ func TestArchiveOpensOnTheSearch(t *testing.T) {
 
 	jumping := archiveModel(&fakeArchiveAgents{}, &fakeArchiveWorkflows{}, keys)
 	jumping.screen = screenSearch
-	jumping.search = searchState{query: "api", hits: []searchHit{{agentID: "a1", name: "api-refactor", archived: true}}}
+	jumping.search = searchState{query: "api", turns: []searchHit{{agentID: "a1", name: "api-refactor", archived: true}}}
 
 	jumped, _ := jumping.jumpToSearchHit()
 	landed, ok := jumped.(model)

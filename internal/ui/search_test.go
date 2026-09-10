@@ -1154,3 +1154,52 @@ func TestMarkName(t *testing.T) {
 	assert.Equal(t, "billing", markName("billing", "  "))
 	assert.Equal(t, "billing", markName("billing", "payouts"))
 }
+
+// TestSearchCursorSurvivesARefresh covers the names among the hits being read off the listings:
+// a refresh that changes them moves the rows the cursor is counting, and used to leave it
+// standing on another agent's hit or off the end of the list.
+func TestSearchCursorSurvivesARefresh(t *testing.T) {
+	sectioned := func() model {
+		m := filterModel()
+		m.api = api{agents: &fakeSearchAgents{}, workflows: emptyLists{}, schedules: emptyLists{}}
+		m.screen = screenSearch
+		m.width = 80
+		m.search = searchState{query: "bill"}
+		m.applySearch(searchResult{
+			query: "bill",
+			hits: []searchHit{{
+				agentID: "a2",
+				name:    "payouts",
+				snippet: "bill",
+			}},
+		})
+		m.search.cursor = 1
+
+		return m
+	}
+
+	t.Run("an agent whose name says the query joining the listing", func(t *testing.T) {
+		m := sectioned()
+
+		cmd := m.applyRefresh(refreshResult{agents: append([]agentItem{
+			{agent: agentstore.Agent{ID: "a4", Name: "billing-two", WorkflowID: "w1"}},
+		}, m.listing.agents...)})
+
+		hit, ok := m.hoveredHit()
+		require.True(t, ok)
+		assert.Equal(t, "a2", hit.agentID, "the cursor stays on the hit it was standing on")
+		assert.Nil(t, cmd, "the preview beside it is the one already fetched")
+	})
+
+	t.Run("the hit under the cursor going", func(t *testing.T) {
+		m := sectioned()
+		m.search.cursor = 0
+
+		cmd := m.applyRefresh(refreshResult{})
+
+		hit, ok := m.hoveredHit()
+		require.True(t, ok, "a row still wears the cursor")
+		assert.Equal(t, "a2", hit.agentID, "the cursor lands on what is left")
+		assert.NotNil(t, cmd, "the preview is fetched for the hit it landed on")
+	})
+}
