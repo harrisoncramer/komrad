@@ -18,8 +18,7 @@ func TestSpec(t *testing.T) {
 	checktest.SpecTest(t, bufcheck.Spec)
 }
 
-// TestRules pins which method names each rule reaches, since a prefix that matched a word
-// beginning with it would fail an RPC named for something else entirely.
+// TestRules pins which method names each rule reaches.
 func TestRules(t *testing.T) {
 	t.Parallel()
 
@@ -96,6 +95,34 @@ func TestRules(t *testing.T) {
 			},
 		},
 		{
+			name:   "a request's enum fields refuse an undefined value",
+			ruleID: bufcheck.RequestEnumRuleID,
+			want: []checktest.ExpectedAnnotation{
+				{
+					RuleID:  bufcheck.RequestEnumRuleID,
+					Message: enumMessage("colour", "(buf.validate.field).enum.defined_only = true"),
+					FileLocation: &checktest.ExpectedFileLocation{
+						FileName:    testFile,
+						StartLine:   63,
+						StartColumn: 2,
+						EndLine:     63,
+						EndColumn:   20,
+					},
+				},
+				{
+					RuleID:  bufcheck.RequestEnumRuleID,
+					Message: enumMessage("colours", "(buf.validate.field).repeated.items.enum.defined_only = true"),
+					FileLocation: &checktest.ExpectedFileLocation{
+						FileName:    testFile,
+						StartLine:   65,
+						StartColumn: 2,
+						EndLine:     65,
+						EndColumn:   30,
+					},
+				},
+			},
+		},
+		{
 			name:   "a repeatable write declares idempotent",
 			ruleID: bufcheck.MutationRuleID,
 			want: []checktest.ExpectedAnnotation{
@@ -156,6 +183,14 @@ func idMessage(field string) string {
 	return fmt.Sprintf(
 		"%q names an id on IDRequest, so it must carry a validation rule refusing it empty, such as (buf.validate.field).string.min_len = 1. The CLI marks a flag required and the MCP schema marks a field required from that rule, so without it both surfaces call the field optional while GetThing still needs it.",
 		field,
+	)
+}
+
+func enumMessage(field string, spelling string) string {
+	return fmt.Sprintf(
+		"%q on EnumRequest must carry %s. Without it a number the enum does not define reaches GetEnum as a value no switch over it expects.",
+		field,
+		spelling,
 	)
 }
 

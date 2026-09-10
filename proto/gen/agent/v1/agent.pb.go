@@ -2171,13 +2171,13 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\x0f_failed_run_log\"7\n" +
 	"\rAgentMetadata\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value\"\xa1\x01\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value\"\xab\x01\n" +
 	"\x11ListAgentsRequest\x12>\n" +
 	"\n" +
 	"pagination\x18\x01 \x01(\v2\x19.pagination.v1.PaginationH\x00R\n" +
 	"pagination\x88\x01\x01\x12\x1a\n" +
-	"\barchived\x18\x02 \x01(\bR\barchived\x12!\n" +
-	"\x04view\x18\x03 \x01(\x0e2\r.view.v1.ViewR\x04viewB\r\n" +
+	"\barchived\x18\x02 \x01(\bR\barchived\x12+\n" +
+	"\x04view\x18\x03 \x01(\x0e2\r.view.v1.ViewB\b\xbaH\x05\x82\x01\x02\x10\x01R\x04viewB\r\n" +
 	"\v_pagination\"~\n" +
 	"\x12ListAgentsResponse\x12'\n" +
 	"\x06agents\x18\x01 \x03(\v2\x0f.agent.v1.AgentR\x06agents\x12+\n" +

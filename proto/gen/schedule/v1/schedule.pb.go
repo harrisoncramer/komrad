@@ -716,12 +716,12 @@ const file_schedule_v1_schedule_proto_rawDesc = "" +
 	"\x0elast_result_at\x18\r \x01(\v2\x1a.google.protobuf.TimestampH\x01R\flastResultAt\x88\x01\x01\x12)\n" +
 	"\x10prompt_truncated\x18\x0e \x01(\bR\x0fpromptTruncatedB\x0e\n" +
 	"\f_next_run_atB\x11\n" +
-	"\x0f_last_result_at\"\x88\x01\n" +
+	"\x0f_last_result_at\"\x92\x01\n" +
 	"\x14ListSchedulesRequest\x12>\n" +
 	"\n" +
 	"pagination\x18\x01 \x01(\v2\x19.pagination.v1.PaginationH\x00R\n" +
-	"pagination\x88\x01\x01\x12!\n" +
-	"\x04view\x18\x02 \x01(\x0e2\r.view.v1.ViewR\x04viewB\r\n" +
+	"pagination\x88\x01\x01\x12+\n" +
+	"\x04view\x18\x02 \x01(\x0e2\r.view.v1.ViewB\b\xbaH\x05\x82\x01\x02\x10\x01R\x04viewB\r\n" +
 	"\v_pagination\"\x8d\x01\n" +
 	"\x15ListSchedulesResponse\x123\n" +
 	"\tschedules\x18\x01 \x03(\v2\x15.schedule.v1.ScheduleR\tschedules\x12+\n" +

@@ -20,6 +20,12 @@ const (
 	MutationRuleID = "RPC_MUTATION_IDEMPOTENT"
 	// RequestIDRuleID is the rule requiring a request's id fields to refuse the empty string.
 	RequestIDRuleID = "RPC_REQUEST_ID_REFUSES_EMPTY"
+	// TypesUniqueRuleID is the rule holding a named request or response type to one method.
+	TypesUniqueRuleID = "RPC_NAMED_TYPES_UNIQUE"
+	// RequestEnumRuleID is the rule requiring a request's enum fields to refuse an undefined value.
+	RequestEnumRuleID = "RPC_REQUEST_ENUM_DEFINED_ONLY"
+	// OneServiceRuleID is the rule giving each service a file of its own.
+	OneServiceRuleID = "SERVICE_ONE_PER_FILE"
 )
 
 var (
@@ -49,6 +55,27 @@ var (
 				Purpose: "Checks that a field naming an id on a request carries a validation rule refusing it empty.",
 				Type:    check.RuleTypeLint,
 				Handler: checkutil.NewMethodRuleHandler(checkRequestIDs, checkutil.WithoutImports()),
+			},
+			{
+				ID:      RequestEnumRuleID,
+				Default: true,
+				Purpose: "Checks that an enum field named directly on a request carries a validation rule refusing a value the enum does not define.",
+				Type:    check.RuleTypeLint,
+				Handler: checkutil.NewMethodRuleHandler(checkRequestEnums, checkutil.WithoutImports()),
+			},
+			{
+				ID:      OneServiceRuleID,
+				Default: true,
+				Purpose: "Checks that a file declares at most one service.",
+				Type:    check.RuleTypeLint,
+				Handler: checkutil.NewServiceRuleHandler(checkOneService, checkutil.WithoutImports()),
+			},
+			{
+				ID:      TypesUniqueRuleID,
+				Default: true,
+				Purpose: "Checks that a named request or response type belongs to exactly one method, google.protobuf.Empty aside.",
+				Type:    check.RuleTypeLint,
+				Handler: check.RuleHandlerFunc(checkTypesUnique),
 			},
 		},
 	}
@@ -99,6 +126,55 @@ func checkRequestIDs(
 	return nil
 }
 
+func checkRequestEnums(
+	_ context.Context,
+	responseWriter check.ResponseWriter,
+	_ check.Request,
+	method protoreflect.MethodDescriptor,
+) error {
+	fields := method.Input().Fields()
+	for i := range fields.Len() {
+		field := fields.Get(i)
+		if field.Kind() != protoreflect.EnumKind || definedOnly(field) {
+			continue
+		}
+
+		responseWriter.AddAnnotation(
+			check.WithDescriptor(field),
+			check.WithMessagef(
+				"%q on %s must carry %s. Without it a number the enum does not define reaches %s as a value no switch over it expects.",
+				field.Name(),
+				method.Input().Name(),
+				definedOnlySpelling(field),
+				method.Name(),
+			),
+		)
+	}
+
+	return nil
+}
+
+func definedOnlySpelling(field protoreflect.FieldDescriptor) string {
+	if field.IsList() {
+		return "(buf.validate.field).repeated.items.enum.defined_only = true"
+	}
+
+	return "(buf.validate.field).enum.defined_only = true"
+}
+
+func definedOnly(field protoreflect.FieldDescriptor) bool {
+	rules := fieldRules(field)
+	if rules == nil {
+		return false
+	}
+
+	if field.IsList() {
+		return rules.GetRepeated().GetItems().GetEnum().GetDefinedOnly()
+	}
+
+	return rules.GetEnum().GetDefinedOnly()
+}
+
 func namesAnID(field protoreflect.FieldDescriptor) bool {
 	name := string(field.Name())
 
@@ -106,17 +182,24 @@ func namesAnID(field protoreflect.FieldDescriptor) bool {
 }
 
 func refusesEmpty(field protoreflect.FieldDescriptor) bool {
+	rules := fieldRules(field)
+
+	return rules != nil &&
+		(rules.GetRequired() || rules.GetString().GetMinLen() > 0 || rules.GetRepeated().GetMinItems() > 0)
+}
+
+func fieldRules(field protoreflect.FieldDescriptor) *validate.FieldRules {
 	opts, ok := field.Options().(*descriptorpb.FieldOptions)
 	if !ok || !proto.HasExtension(opts, validate.E_Field) {
-		return false
+		return nil
 	}
 
 	rules, ok := proto.GetExtension(opts, validate.E_Field).(*validate.FieldRules)
 	if !ok {
-		return false
+		return nil
 	}
 
-	return rules.GetRequired() || rules.GetString().GetMinLen() > 0 || rules.GetRepeated().GetMinItems() > 0
+	return rules
 }
 
 func requireLevel(

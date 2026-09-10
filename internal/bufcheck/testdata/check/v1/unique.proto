@@ -1,0 +1,33 @@
+syntax = "proto3";
+
+package check.v1;
+
+import "google/protobuf/empty.proto";
+
+message OwnRequest {}
+
+message OwnResponse {}
+
+message SharedRequest {}
+
+message Roundtrip {}
+
+message AlsoResponse {}
+
+service UniqueService {
+  rpc GetOwn(OwnRequest) returns (OwnResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+  rpc SetOne(SharedRequest) returns (google.protobuf.Empty) {
+    option idempotency_level = IDEMPOTENT;
+  }
+  rpc SetTwo(SharedRequest) returns (google.protobuf.Empty) {
+    option idempotency_level = IDEMPOTENT;
+  }
+  rpc GetRoundtrip(Roundtrip) returns (Roundtrip) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+  rpc GetAlso(Roundtrip) returns (AlsoResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+}

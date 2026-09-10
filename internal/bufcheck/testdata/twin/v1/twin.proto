@@ -1,0 +1,19 @@
+syntax = "proto3";
+
+package twin.v1;
+
+message PingRequest {}
+
+message PingResponse {}
+
+message PongRequest {}
+
+message PongResponse {}
+
+service FirstService {
+  rpc Ping(PingRequest) returns (PingResponse);
+}
+
+service SecondService {
+  rpc Pong(PongRequest) returns (PongResponse);
+}

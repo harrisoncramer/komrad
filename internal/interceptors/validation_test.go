@@ -6,6 +6,7 @@ import (
 
 	agentv1 "weave/proto/gen/agent/v1"
 	schedulev1 "weave/proto/gen/schedule/v1"
+	viewv1 "weave/proto/gen/view/v1"
 
 	"connectrpc.com/connect"
 	"github.com/stretchr/testify/assert"
@@ -77,6 +78,54 @@ func TestValidationRefusesControlCharacters(t *testing.T) {
 			_, err := interceptor.WrapUnary(next)(t.Context(), tt.req)
 			if tt.wantErr {
 				assert.Equal(t, connect.CodeInvalidArgument, connect.CodeOf(err))
+				return
+			}
+
+			require.NoError(t, err)
+		})
+	}
+}
+
+// TestValidationRefusesAnUndeclaredEnumNumber covers a number no enum value declares.
+func TestValidationRefusesAnUndeclaredEnumNumber(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		req     connect.AnyRequest
+		wantErr bool
+	}{
+		{
+			name:    "a view nothing declares is refused",
+			req:     connect.NewRequest(&agentv1.ListAgentsRequest{View: 99}),
+			wantErr: true,
+		},
+		{
+			name:    "a mail direction nothing declares is refused",
+			req:     connect.NewRequest(&agentv1.ListMailRequest{Direction: 99}),
+			wantErr: true,
+		},
+		{
+			name: "a view the schema declares is accepted",
+			req:  connect.NewRequest(&agentv1.ListAgentsRequest{View: viewv1.View_VIEW_FULL}),
+		},
+	}
+
+	interceptor, err := NewValidation()
+	require.NoError(t, err)
+
+	next := func(context.Context, connect.AnyRequest) (connect.AnyResponse, error) {
+		return connect.NewResponse(&agentv1.ListAgentsResponse{}), nil
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			_, err := interceptor.WrapUnary(next)(t.Context(), tt.req)
+			if tt.wantErr {
+				assert.Equal(t, connect.CodeInvalidArgument, connect.CodeOf(err))
+
 				return
 			}
 
