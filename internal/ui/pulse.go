@@ -21,11 +21,38 @@ func pulseTick() tea.Cmd {
 	return tea.Tick(pulseInterval, func(time.Time) tea.Msg { return pulseMsg{} })
 }
 
-// start blinks the given number of times, lit from the frame it is asked for and asking for a
-// tick unless one is already running.
-func (p *pulse) start(blinks int) tea.Cmd {
-	running := p.left > 0
+// start blinks the given number of times, lit from the frame it is asked for.
+func (p *pulse) start(blinks int) {
 	p.left = blinks*2 - 1
+}
+
+// advance takes the blink to its next half.
+func (p *pulse) advance() {
+	if p.left > 0 {
+		p.left--
+	}
+}
+
+// running reports whether the blink has halves left to draw.
+func (p pulse) running() bool {
+	return p.left > 0
+}
+
+// lit reports whether the blink is in its bright half.
+func (p pulse) lit() bool {
+	return p.left%2 == 1
+}
+
+// pulsing reports whether any of the panel's blinks is still running, which is what one tick
+// stream serves.
+func (m model) pulsing() bool {
+	return m.messages.pulse.running()
+}
+
+// startPulse sets a blink running, asking for a tick where nothing else is already driving one.
+func (m *model) startPulse(blinking *pulse, blinks int) tea.Cmd {
+	running := m.pulsing()
+	blinking.start(blinks)
 
 	if running {
 		return nil
@@ -34,27 +61,13 @@ func (p *pulse) start(blinks int) tea.Cmd {
 	return pulseTick()
 }
 
-// advance takes the blink to its next half and asks for the one after it.
-func (p *pulse) advance() tea.Cmd {
-	if p.left == 0 {
-		return nil
-	}
+// advancePulses takes every blink the panel is drawing to its next half.
+func (m *model) advancePulses() tea.Cmd {
+	m.messages.pulse.advance()
 
-	p.left--
-
-	if p.left == 0 {
+	if !m.pulsing() {
 		return nil
 	}
 
 	return pulseTick()
-}
-
-// lit reports whether the blink is in its bright half.
-func (p pulse) lit() bool {
-	return p.left%2 == 1
-}
-
-// advancePulses takes every blink the panel is drawing to its next half.
-func (m *model) advancePulses() tea.Cmd {
-	return m.messages.pulse.advance()
 }

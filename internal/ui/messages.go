@@ -84,7 +84,7 @@ func (m model) pulseMessages(before int) (model, tea.Cmd) {
 		return m, nil
 	}
 
-	return m, m.messages.pulse.start(messagesPulseBlinks)
+	return m, m.startPulse(&m.messages.pulse, messagesPulseBlinks)
 }
 
 // messagesPulseOn reports whether the newest message is in the lit half of a blink, which is not
