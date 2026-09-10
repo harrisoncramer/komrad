@@ -687,3 +687,34 @@ func TestPredictRebaseCountsMergesAsLanded(t *testing.T) {
 	require.Zero(t, prediction.Replay, "the whole branch landed")
 	assert.Equal(t, 3, prediction.Landed, "the merge counts among the commits leaving the branch")
 }
+
+// TestPredictRebaseCountsOnlyWhatWouldReplay covers a commit past the cutoff whose patch the
+// base already holds, which git skips, so counting the commits after the cutoff overstates it.
+func TestPredictRebaseCountsOnlyWhatWouldReplay(t *testing.T) {
+	t.Parallel()
+
+	repo := newRepo(t)
+	run(t, repo, "checkout", "--quiet", "-b", "agent/abc")
+	commitFile(t, repo, "a.txt", "a\n", "A")
+	commitFile(t, repo, "b.txt", "b\n", "B")
+	picked := commitFile(t, repo, "c.txt", "c\n", "C")
+
+	// A reaches the base as a squash and C as a cherry-pick, leaving B behind between them.
+	run(t, repo, "checkout", "--quiet", "main")
+	writeFile(t, repo, "a.txt", "a\n")
+	run(t, repo, "add", "a.txt")
+	run(t, repo, "commit", "--quiet", "-m", "A squashed")
+	run(t, repo, "cherry-pick", picked)
+	run(t, repo, "checkout", "--quiet", "agent/abc")
+
+	prediction, err := git.PredictRebase(t.Context(), repo, "main")
+	require.NoError(t, err)
+	require.Equal(t, "2", out(t, repo, "rev-list", "--count", prediction.Cutoff+"..HEAD"),
+		"two commits sit past the cutoff, which is what makes the naive count wrong")
+
+	assert.Equal(t, 1, prediction.Replay, "only one of them still owes the base anything")
+
+	require.NoError(t, git.RebaseOnto(t.Context(), repo, "main", prediction.Cutoff))
+	assert.Equal(t, "1", out(t, repo, "rev-list", "--count", "main..HEAD"),
+		"and that is what git actually replayed")
+}

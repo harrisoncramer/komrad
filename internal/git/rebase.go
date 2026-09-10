@@ -16,11 +16,11 @@ import (
 // reasoning is why an untracked file does not block a rebase here: git completes one with
 // untracked files in place, and an agent's worktree nearly always holds some.
 //
-// Explainer: the two counts a plan carries are counted differently on purpose. Landed counts
-// merge commits and Replay does not, because Landed is how many commits leave the branch while
-// Replay is how many a rebase would actually move, and a rebase flattens merges rather than
-// replaying them. Counting Landed without them would report a branch whose landed run is all
-// merges as having landed nothing.
+// Explainer: the two counts a plan carries are read from different places on purpose. Landed is
+// counted off the graph, because it says how many commits leave the branch, and that has to
+// include merges or a branch whose landed run is all merges reads as having landed nothing.
+// Replay is read from git cherry, because it says how many commits a rebase would actually
+// move, and git skips both merges and commits whose patch the base already holds.
 
 // Explainer: two orderings in here are load-bearing rather than incidental. The index is
 // refreshed before it is compared against HEAD, because diff-index reads cached stat data and a
@@ -164,7 +164,7 @@ func PredictRebase(ctx context.Context, dir, ref string) (Prediction, error) {
 		return Prediction{}, err
 	}
 
-	prediction.Replay, err = countRevList(ctx, dir, ref, "--count", "--no-merges", ref+"..HEAD")
+	prediction.Replay, err = countUnlanded(ctx, dir, ref, "")
 	if err != nil {
 		return Prediction{}, err
 	}
@@ -204,8 +204,7 @@ func PredictRebase(ctx context.Context, dir, ref string) (Prediction, error) {
 		return Prediction{}, err
 	}
 
-	// Counted without merges, since a rebase flattens them rather than replaying them.
-	prediction.Replay, err = countRevList(ctx, dir, ref, "--count", "--no-merges", prediction.Cutoff+"..HEAD")
+	prediction.Replay, err = countUnlanded(ctx, dir, ref, prediction.Cutoff)
 	if err != nil {
 		return Prediction{}, err
 	}
@@ -348,6 +347,31 @@ func isAncestor(ctx context.Context, dir, maybeAncestor, of string) (bool, error
 	}
 
 	return false, fmt.Errorf("failed to test whether %s is contained in %s: %w", maybeAncestor, of, err)
+}
+
+// countUnlanded counts the commits after cutoff that a rebase would actually move, which is
+// those whose patch the base does not already hold.
+func countUnlanded(ctx context.Context, dir, ref, cutoff string) (int, error) {
+	// git cherry marks a commit + when its patch is not upstream and - when it is, and skips
+	// merge commits, which is exactly what a rebase replays.
+	args := []string{"cherry", ref, "HEAD"}
+	if cutoff != "" {
+		args = append(args, cutoff)
+	}
+
+	out, err := Run(ctx, dir, args...)
+	if err != nil {
+		return 0, fmt.Errorf("failed to read what %q still owes %s: %w", dir, ref, err)
+	}
+
+	count := 0
+	for _, line := range strings.Split(out, "\n") {
+		if strings.HasPrefix(line, "+") {
+			count++
+		}
+	}
+
+	return count, nil
 }
 
 // countRevList reads a rev-list count, naming ref in whatever it could not do.
