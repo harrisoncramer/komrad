@@ -31,10 +31,13 @@ func (s *Service) PlanRefresh(
 	}
 
 	return connect.NewResponse(&agentv1.PlanRefreshResponse{
-		BaseRef: plan.BaseRef,
-		BaseSha: plan.BaseSHA,
-		Commits: int32(plan.Commits),
-		Branch:  plan.Branch,
+		BaseRef:       plan.BaseRef,
+		BaseSha:       plan.BaseSHA,
+		Commits:       int32(plan.Commits),
+		Branch:        plan.Branch,
+		SameTree:      plan.SameTree,
+		Merges:        int32(plan.Merges),
+		ConflictPaths: plan.ConflictPaths,
 	}), nil
 }
 
@@ -49,11 +52,12 @@ func (s *Service) RebaseWorktree(
 	}
 
 	return connect.NewResponse(&agentv1.RebaseWorktreeResponse{
-		BaseRef:    result.BaseRef,
-		BaseSha:    result.BaseSHA,
-		Commits:    int32(result.Commits),
-		Branch:     result.Branch,
-		Conflicted: result.Conflicted,
+		BaseRef:       result.BaseRef,
+		BaseSha:       result.BaseSHA,
+		Commits:       int32(result.Commits),
+		Branch:        result.Branch,
+		Conflicted:    result.Conflicted,
+		FastForwarded: result.FastForwarded,
 	}), nil
 }
 

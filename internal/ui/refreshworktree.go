@@ -13,6 +13,13 @@ type refreshPlan struct {
 	baseRef string
 	baseSHA string
 	commits int
+	// sameTree says the base already holds the branch's own content, so a rebase would replay
+	// commits onto files the base already has and collide with them.
+	sameTree bool
+	// merges is how many merge commits a rebase would discard, and conflictPaths what a merge
+	// of the base into the branch could not settle.
+	merges        int
+	conflictPaths []string
 }
 
 // refreshPlannedMsg is a plan come back, or the reason there is none.
@@ -28,7 +35,9 @@ type rebasedMsg struct {
 	baseSHA    string
 	commits    int
 	conflicted bool
-	err        error
+	// fastForwarded says the branch was moved onto the base outright rather than replayed.
+	fastForwarded bool
+	err           error
 }
 
 // planRefreshCmd asks what a rebase would do.
@@ -42,11 +51,14 @@ func (m *model) planRefreshCmd(agentID, name string) tea.Cmd {
 		}
 
 		return refreshPlannedMsg{plan: refreshPlan{
-			agentID: agentID,
-			name:    name,
-			baseRef: plan.GetBaseRef(),
-			baseSHA: plan.GetBaseSha(),
-			commits: int(plan.GetCommits()),
+			agentID:       agentID,
+			name:          name,
+			baseRef:       plan.GetBaseRef(),
+			baseSHA:       plan.GetBaseSha(),
+			commits:       int(plan.GetCommits()),
+			sameTree:      plan.GetSameTree(),
+			merges:        int(plan.GetMerges()),
+			conflictPaths: plan.GetConflictPaths(),
 		}}
 	}
 }
@@ -62,11 +74,12 @@ func (m *model) rebaseCmd(agentID, name string) tea.Cmd {
 		}
 
 		return rebasedMsg{
-			name:       name,
-			baseRef:    result.GetBaseRef(),
-			baseSHA:    result.GetBaseSha(),
-			commits:    int(result.GetCommits()),
-			conflicted: result.GetConflicted(),
+			name:          name,
+			baseRef:       result.GetBaseRef(),
+			baseSHA:       result.GetBaseSha(),
+			commits:       int(result.GetCommits()),
+			conflicted:    result.GetConflicted(),
+			fastForwarded: result.GetFastForwarded(),
 		}
 	}
 }
@@ -97,6 +110,17 @@ func (m *model) applyRebased(msg rebasedMsg) tea.Model {
 			summary: msg.name + ": the rebase stopped on conflicts",
 			detail: fmt.Sprintf("onto %s (%s). The rebase is still in progress in that worktree and %s has been told to settle it.",
 				msg.baseRef, shortSHA(msg.baseSHA), msg.name),
+		})
+
+		return m
+	}
+
+	if msg.fastForwarded {
+		m.pushMessage(message{
+			kind:    messageInfo,
+			summary: msg.name + ": moved onto " + msg.baseRef,
+			detail: fmt.Sprintf("%s. The base already held its work, so %s were dropped rather than replayed onto themselves.",
+				shortSHA(msg.baseSHA), countWord(msg.commits, "commit", "commits")),
 		})
 
 		return m

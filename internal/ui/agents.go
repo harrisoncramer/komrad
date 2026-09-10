@@ -672,7 +672,7 @@ func (m model) refreshAgent(agent agentstore.Agent) (tea.Model, tea.Cmd) {
 
 // openRefreshPicker asks which half of a refresh to run, naming what a rebase would cost.
 func (m model) openRefreshPicker(plan refreshPlan) (tea.Model, tea.Cmd) {
-	form, answer := refreshForm(plan.name, plan.baseRef, plan.baseSHA, plan.commits, m.keys.Form)
+	form, answer := refreshForm(plan, m.keys.Form)
 
 	return m, m.openForm(formState{
 		kind:   formAgentRefresh,

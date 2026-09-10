@@ -102,7 +102,121 @@ func FetchBase(ctx context.Context, dir, base string) (ref, sha string, err erro
 
 // CountCommitsToReplay is how many of the checkout's own commits a rebase onto ref would move.
 func CountCommitsToReplay(ctx context.Context, dir, ref string) (int, error) {
-	out, err := Run(ctx, dir, "rev-list", "--count", ref+"..HEAD")
+	return countRevList(ctx, dir, ref, "--count", ref+"..HEAD")
+}
+
+// Prediction is what a rebase onto a base would run into, read without touching the checkout.
+type Prediction struct {
+	// SameTree is whether the base and the branch name one tree, so every commit a rebase
+	// replayed would land on content the base already holds.
+	SameTree bool
+	// Merges is how many merge commits a rebase would discard, since it flattens history.
+	Merges int
+	// ConflictPaths are the paths a three-way merge of the base into the branch cannot settle.
+	ConflictPaths []string
+}
+
+// PredictRebase reads what a rebase onto ref would run into, without touching the checkout.
+func PredictRebase(ctx context.Context, dir, ref string) (Prediction, error) {
+	sameTree, err := namesOneTree(ctx, dir, ref)
+	if err != nil {
+		return Prediction{}, err
+	}
+
+	merges, err := countRevList(ctx, dir, ref, "--count", "--merges", ref+"..HEAD")
+	if err != nil {
+		return Prediction{}, err
+	}
+
+	paths, err := conflictPaths(ctx, dir, ref)
+	if err != nil {
+		return Prediction{}, err
+	}
+
+	return Prediction{SameTree: sameTree, Merges: merges, ConflictPaths: paths}, nil
+}
+
+// FastForward moves the branch onto ref outright, which is a rebase's answer when replaying
+// would only collide with content the base already holds.
+func FastForward(ctx context.Context, dir, ref string) error {
+	// --keep rather than --hard, which would revert a tracked file the agent wrote between the
+	// state being read and this running, since the two name one tree and nothing differs.
+	if _, err := Run(ctx, dir, "reset", "--keep", ref); err != nil {
+		return fmt.Errorf("failed to move %q onto %s: %w", dir, ref, err)
+	}
+
+	return nil
+}
+
+// namesOneTree reports whether ref names the checkout's own tree from outside its history,
+// which is what a branch whose work has landed on the base looks like.
+func namesOneTree(ctx context.Context, dir, ref string) (bool, error) {
+	// A base the branch already contains is not one to move onto, whatever the trees say: a
+	// branch that committed something and then reverted it also names the base's tree, and
+	// moving it would destroy both of those commits over a rebase git calls a no-op.
+	contained, err := isAncestor(ctx, dir, ref, "HEAD")
+	if err != nil || contained {
+		return false, err
+	}
+
+	base, err := Run(ctx, dir, "rev-parse", "--verify", ref+"^{tree}")
+	if err != nil {
+		return false, fmt.Errorf("failed to read the tree of %q: %w", ref, err)
+	}
+
+	head, err := Run(ctx, dir, "rev-parse", "--verify", "HEAD^{tree}")
+	if err != nil {
+		return false, fmt.Errorf("failed to read the tree of the head of %q: %w", dir, err)
+	}
+
+	return base == head, nil
+}
+
+// isAncestor reports whether one commit is reachable from another.
+func isAncestor(ctx context.Context, dir, maybeAncestor, of string) (bool, error) {
+	_, err := Run(ctx, dir, "merge-base", "--is-ancestor", maybeAncestor, of)
+	if err == nil {
+		return true, nil
+	}
+
+	// Unreachable is reported by exiting 1, which is an answer rather than a failure.
+	var exit *exec.ExitError
+	if errors.As(err, &exit) && exit.ExitCode() == 1 {
+		return false, nil
+	}
+
+	return false, fmt.Errorf("failed to test whether %s is contained in %s: %w", maybeAncestor, of, err)
+}
+
+// conflictPaths test-merges ref into the checkout's head and answers with what would not settle.
+func conflictPaths(ctx context.Context, dir, ref string) ([]string, error) {
+	// A conflict is reported by exiting 1 with the paths on stdout, so that code is an answer.
+	out, err := runAllowing(ctx, dir, 1, "merge-tree", "--write-tree", "--name-only", ref, "HEAD")
+	if err != nil {
+		return nil, fmt.Errorf("failed to test-merge %s into %q: %w", ref, dir, err)
+	}
+
+	// The first line is the tree the merge wrote, the paths follow it, and a blank line ends
+	// them before the messages git wrote about each one.
+	lines := strings.Split(out, "\n")
+	if len(lines) < 2 {
+		return nil, nil
+	}
+
+	paths := []string{}
+	for _, line := range lines[1:] {
+		if strings.TrimSpace(line) == "" {
+			break
+		}
+		paths = append(paths, line)
+	}
+
+	return paths, nil
+}
+
+// countRevList reads a rev-list count, naming ref in whatever it could not do.
+func countRevList(ctx context.Context, dir, ref string, args ...string) (int, error) {
+	out, err := Run(ctx, dir, append([]string{"rev-list"}, args...)...)
 	if err != nil {
 		return 0, fmt.Errorf("failed to count the commits ahead of %q: %w", ref, err)
 	}

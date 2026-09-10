@@ -600,18 +600,17 @@ const (
 	refreshChoiceReset
 )
 
-// refreshForm asks which half, naming the base and the commits a rebase would replay.
-func refreshForm(name, baseRef, baseSHA string, commits int, keys config.FormKeys) (*huh.Form, *refreshChoice) {
+// refreshForm asks which half, naming what the first option would actually do to the branch.
+func refreshForm(plan refreshPlan, keys config.FormKeys) (*huh.Form, *refreshChoice) {
 	choice := refreshChoiceRebase
-
-	rebase := fmt.Sprintf("Rebase onto %s (%s), replaying %s", baseRef, shortSHA(baseSHA), countWord(commits, "commit", "commits"))
 
 	field := huh.NewSelect[refreshChoice]().
 		Key("refresh").
-		Title("Refresh the worktree of "+name+"?").
+		Title("Refresh the worktree of "+plan.name+"?").
+		Description(refreshWarning(plan)).
 		Value(&choice).
 		Options(
-			huh.NewOption(rebase, refreshChoiceRebase),
+			huh.NewOption(refreshRebaseLabel(plan), refreshChoiceRebase),
 			huh.NewOption("Replace the worktree, discarding its files", refreshChoiceReset),
 			huh.NewOption("Cancel", refreshChoiceCancel),
 		)
@@ -620,6 +619,47 @@ func refreshForm(name, baseRef, baseSHA string, commits int, keys config.FormKey
 		WithShowHelp(true).WithKeyMap(multiFieldKeyMap(keys)).WithTheme(formTheme())
 
 	return form, &choice
+}
+
+// refreshRebaseLabel names the operation that will actually run, which is a move rather than a
+// replay once the base already holds the branch's own content.
+func refreshRebaseLabel(plan refreshPlan) string {
+	base := fmt.Sprintf("%s (%s)", plan.baseRef, shortSHA(plan.baseSHA))
+	if plan.sameTree {
+		return fmt.Sprintf("Move onto %s, dropping %s it already holds", base, countWord(plan.commits, "commit", "commits"))
+	}
+
+	return fmt.Sprintf("Rebase onto %s, replaying %s", base, countWord(plan.commits, "commit", "commits"))
+}
+
+// refreshWarning is what a person is owed before the worktree is touched rather than after,
+// which is the shape of the trouble a rebase would run into.
+func refreshWarning(plan refreshPlan) string {
+	warnings := []string{}
+
+	if plan.sameTree {
+		warnings = append(warnings, "The base already holds this branch's work, which is what a merge of it into the base "+
+			"leaves behind, so replaying its commits would collide with its own files.")
+	}
+	if plan.merges > 0 {
+		warnings = append(warnings, fmt.Sprintf("A rebase discards %s and replays what they reconciled.",
+			countWord(plan.merges, "merge commit", "merge commits")))
+	}
+	if len(plan.conflictPaths) > 0 {
+		warnings = append(warnings, "Both sides changed "+namedPaths(plan.conflictPaths, 3)+".")
+	}
+
+	return strings.Join(warnings, " ")
+}
+
+// namedPaths is a few paths read out, since a person wants the shape of the collision rather
+// than every path in it.
+func namedPaths(paths []string, most int) string {
+	if len(paths) <= most {
+		return strings.Join(paths, ", ")
+	}
+
+	return fmt.Sprintf("%s and %d more", strings.Join(paths[:most], ", "), len(paths)-most)
 }
 
 // countWord is a number with its noun, so a confirmation reads as a sentence.
