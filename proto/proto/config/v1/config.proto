@@ -14,6 +14,8 @@ message GetConfigResponse {
   string version = 3;
 }
 
+// ConfigService reads the configuration the panel is running on, with the connection strings
+// redacted.
 service ConfigService {
   rpc GetConfig(google.protobuf.Empty) returns (GetConfigResponse) {
     option idempotency_level = NO_SIDE_EFFECTS;

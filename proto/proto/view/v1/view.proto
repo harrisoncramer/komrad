@@ -11,6 +11,8 @@ enum View {
   // Unspecified is summary, since a caller that has not thought about it is the one that
   // should not be handed a megabyte.
   VIEW_UNSPECIFIED = 0;
+  // Long text is cut to its opening, and the record says which fields were cut.
   VIEW_SUMMARY = 1;
+  // Every field whole, however long.
   VIEW_FULL = 2;
 }

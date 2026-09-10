@@ -376,6 +376,8 @@ message UpdateAgentRequest {
   ];
 }
 
+// AgentService is the agents themselves: spawning one, addressing it, reading what it wrote,
+// and the review conversation held about its work.
 service AgentService {
   rpc ListAgents(ListAgentsRequest) returns (ListAgentsResponse) {
     option idempotency_level = NO_SIDE_EFFECTS;
