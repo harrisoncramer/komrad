@@ -1027,6 +1027,43 @@ func TestAnsweringAReviewSeveralTimesRingsOnce(t *testing.T) {
 		"a reply once the window has passed rings again")
 }
 
+// TestCloseFlushesAPendingReviewerNotice pins that a shutdown mid-debounce still tells the
+// reviewer, without waking it, rather than losing the notice to the window it never got to
+// finish waiting out.
+func TestCloseFlushesAPendingReviewerNotice(t *testing.T) {
+	reviews := newFakeReviewStore()
+	notices := &fakeNoticeSender{answer: &mailstore.Mail{ID: "mail-1"}}
+	resumer := &fakeResumer{}
+	service := NewReviewService(NewReviewServiceParams{
+		Threads:        reviews,
+		Messages:       reviews,
+		Viewed:         reviews,
+		Rounds:         reviews,
+		Reviews:        reviews,
+		Snapshots:      &fakeSnapshotter{sha: "snapshot-sha", base: "base-sha"},
+		Workflows:      fakeWorkflowGetter{},
+		Agents:         fakeAgentReaderFunc(findLiveAgent),
+		Mailer:         notices,
+		Resumer:        resumer,
+		StateDir:       t.TempDir(),
+		NoticeDebounce: time.Hour,
+	})
+
+	_, err := service.AddReviewMessage(t.Context(), AddReviewMessageParams{
+		ThreadID: reviewThreadID,
+		Body:     "still working through it",
+		Author:   agentAuthor(reviewedAgentID),
+	})
+	require.NoError(t, err)
+
+	service.Close()
+
+	sent := notices.took()
+	require.Len(t, sent, 1, "the notice the hour-long window never got to send on its own goes out on shutdown")
+	assert.Equal(t, reviewerAgentID, sent[0].ToAgentID)
+	assert.Empty(t, resumer.took(), "a resumed pane picks the mail up on its own; shutdown does not wake one")
+}
+
 func findLiveAgent(_ context.Context, id string) (*agentstore.Agent, error) {
 	if id == reviewerAgentID {
 		parent := reviewedAgentID
