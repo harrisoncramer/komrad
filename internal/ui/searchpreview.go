@@ -79,7 +79,7 @@ func (m model) searchPreviewNotice() string {
 	switch {
 	case strings.TrimSpace(m.search.query) == "":
 		return searchWaitingMarkdown
-	case len(m.search.hits) == 0:
+	case len(m.searchHits()) == 0:
 		return noSearchHitsMarkdown
 	default:
 		return searchLoadingMarkdown

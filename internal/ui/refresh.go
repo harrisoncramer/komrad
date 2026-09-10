@@ -176,15 +176,16 @@ func (m *model) reportUnreachable(err error) {
 	m.setNewestHint("Start it with: weave serve")
 }
 
-func (m *model) applyRefresh(result refreshResult) {
+func (m *model) applyRefresh(result refreshResult) tea.Cmd {
 	if result.epoch < m.epoch {
-		return
+		return nil
 	}
 
 	m.reportUnreachable(result.err())
 
 	treeRow := rowKeyAt(m.agentRows(), m.tree.cursor)
 	archiveRow := rowKeyAt(m.archiveRows(), m.archive.cursor)
+	searchRow := m.hoveredHitKey()
 
 	if result.workflowsErr == nil {
 		m.applyWorkflows(result.workflows)
@@ -209,6 +210,8 @@ func (m *model) applyRefresh(result refreshResult) {
 		m.applyArchive(result.archived, result.archivedWorkflows, archiveRow)
 	}
 
+	preview := m.placeSearchHit(searchRow)
+
 	// Explainer: a form drawn over the list holds the stage as it was when it went up, and the
 	// review draws a diff this pass knows nothing about.
 	//
@@ -217,6 +220,8 @@ func (m *model) applyRefresh(result refreshResult) {
 	if spec := m.screen.spec(); spec.fromListing && spec.stage != nil && !m.form.isActive() {
 		spec.stage(m)
 	}
+
+	return preview
 }
 
 func (r refreshResult) err() error {

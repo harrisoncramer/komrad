@@ -157,7 +157,7 @@ func crowdedModel(t *testing.T) model {
 			Id:   fmt.Sprintf("m%d", i),
 			Body: strings.Repeat("a message long enough to want wrapping ", 3),
 		})
-		m.search.hits = append(m.search.hits, searchHit{
+		m.search.turns = append(m.search.turns, searchHit{
 			agentID: fmt.Sprintf("a%d", i),
 			name:    name,
 			snippet: strings.Repeat("a snippet long enough to want clipping ", 2),
