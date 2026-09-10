@@ -211,9 +211,14 @@ func runHooks(ctx context.Context, params hookRunParams) error {
 	return nil
 }
 
+// hasHookOn reports whether a workflow hangs anything on one moment.
+func hasHookOn(hooks []workflowstore.Hook, event string) bool {
+	return slices.ContainsFunc(hooks, func(hook workflowstore.Hook) bool { return hook.Event == event })
+}
+
 // startHooks runs a moment's hooks in the background.
 func startHooks(ctx context.Context, params hookRunParams) {
-	if params.scripts == nil || !slices.ContainsFunc(params.hooks, func(hook workflowstore.Hook) bool { return hook.Event == params.event }) {
+	if params.scripts == nil || !hasHookOn(params.hooks, params.event) {
 		return
 	}
 

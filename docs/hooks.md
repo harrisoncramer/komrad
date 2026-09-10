@@ -19,10 +19,11 @@ Hooks runs in their agent's directory, which is the worktree when its workflow p
 
 Every workflow can add one hook on each of these lifecycle event, picked in the workflow:
 
-- `pre-launch` runs after the agent's directory exists but before the pane is opened. Good for dependency installs (that aren't covered by the workflows copy/symlinks), for instance. This is the only hook weave waits for, because it's failure is blocking: no agent is spawned, and any worktree created is given back.
+- `pre-launch` runs after the agent's directory exists but before the pane is opened. Good for dependency installs (that aren't covered by the workflows copy/symlinks), for instance. A failure here is blocking: no agent is spawned, and any worktree created is given back.
 - `post-launch` runs once the CLI has been launched into the pane. It runs in the background.
 - `post-resume` runs once a dormant agent is back in a pane, after its worktree has been put back. Runs in the background.
 - `post-restore` runs when an archived row comes back. Runs in the background.
+- `pre-teardown` runs as an agent is deleted, before its worktree is given back. This is where anything an agent brought up outside its own directory gets taken down, such as a docker stack it started from its pane. Weave waits for it, and a failure holds the delete back: the row goes to `failed_to_cleanup` and the directory is left where it was, so the next attempt still has the files it needs. It does not run on archive, since archiving keeps the workspace and a restore puts the agent back in it.
 
 Child agents do not run hooks, and neither do non-worktree agents. The reason for this is that both may be working in a directory they do not own.
 
@@ -36,7 +37,7 @@ The `WEAVE_AGENT` environment variable is a JSON blob that carries `id`, `name`,
 - `WEAVE_ADDR`, this server's address, for calling back into the API or the [CLI](commands.md).
 - `WEAVE_TMUX_SOCKET`, the tmux server every agent's pane lives on
 - `WEAVE_SCRIPT_DIR`, the directory the script came out of, which is how one that cds elsewhere finds its siblings again.
-- `WEAVE_TRIGGER`, the moment that set it off. One of `pre-launch`, `post-launch`, `post-resume`, `post-restore`, or, for the scripts weave ships, `provision`, `resume`, or `deprovision`.
+- `WEAVE_TRIGGER`, the moment that set it off. One of `pre-launch`, `post-launch`, `post-resume`, `post-restore`, `pre-teardown`, or, for the scripts weave ships, `provision`, `resume`, or `deprovision`.
 - `WEAVE_SCRIPT`, its own name, for tagging its own log lines.
 - `WEAVE_INFO_PANE`, the panel's info pane, for a script that wants to draw something where the panel's own scripts do.
 - `WEAVE_HOST_TMUX_SOCKET`, your own tmux server, as the last open recorded it.

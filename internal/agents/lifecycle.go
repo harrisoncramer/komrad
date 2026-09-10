@@ -109,29 +109,23 @@ func (s *LifecycleService) DeleteAgents(ctx context.Context, ids []string) error
 	var immediate []agentstore.Agent
 	for _, agent := range agents {
 		name := deprovisionerFor(ctx, s.workflows, agent)
-		if s.scripts == nil || name == "" {
+		hooks := agentHooks(ctx, s.workflows, agent)
+		teardown := s.scripts != nil && hasHookOn(hooks, workflowstore.HookPreTeardown)
+		if s.scripts == nil || (name == "" && !teardown) {
 			immediate = append(immediate, agent)
 
 			continue
 		}
 
 		// The row is never dropped before the script says whether it worked.
-		runDeprovision(ctx, s.scripts, agent, name, func(deprovisionErr error) {
-			if deprovisionErr != nil {
-				s.failCleanup(bg, agent, deprovisionErr)
+		done := s.finishDelete(bg, agent)
+		if !teardown {
+			runDeprovision(ctx, s.scripts, agent, name, done)
 
-				return
-			}
+			continue
+		}
 
-			if err := s.removeAgents(bg, []string{agent.ID}); err != nil {
-				logging.From(bg).LogAttrs(bg, slog.LevelError, "failed to remove an agent whose cleanup finished",
-					append([]slog.Attr{slog.String(logging.AgentID, agent.ID)}, logging.Err(err)...)...)
-
-				return
-			}
-
-			s.cleanupEmptyWorkflows(bg, []agentstore.Agent{agent})
-		})
+		go s.tearDown(bg, agent, hooks, name, done)
 	}
 
 	if len(immediate) == 0 {
@@ -145,6 +139,45 @@ func (s *LifecycleService) DeleteAgents(ctx context.Context, ids []string) error
 	s.cleanupEmptyWorkflows(ctx, immediate)
 
 	return nil
+}
+
+// tearDown runs a workflow's teardown hooks against an agent's directory before the
+// deprovisioner takes that directory away.
+func (s *LifecycleService) tearDown(ctx context.Context, agent agentstore.Agent, hooks []workflowstore.Hook, deprovisioner string, done func(error)) {
+	// A teardown that did not work holds the deprovisioner back.
+	if err := runHooks(ctx, hookRunParams{
+		scripts: s.scripts,
+		agent:   agent,
+		hooks:   hooks,
+		event:   workflowstore.HookPreTeardown,
+	}); err != nil {
+		s.failCleanup(ctx, agent, err)
+
+		return
+	}
+
+	runDeprovision(ctx, s.scripts, agent, deprovisioner, done)
+}
+
+// finishDelete drops the row of an agent whose teardown worked, and records the reason on one
+// whose teardown did not.
+func (s *LifecycleService) finishDelete(ctx context.Context, agent agentstore.Agent) func(error) {
+	return func(deprovisionErr error) {
+		if deprovisionErr != nil {
+			s.failCleanup(ctx, agent, deprovisionErr)
+
+			return
+		}
+
+		if err := s.removeAgents(ctx, []string{agent.ID}); err != nil {
+			logging.From(ctx).LogAttrs(ctx, slog.LevelError, "failed to remove an agent whose cleanup finished",
+				append([]slog.Attr{slog.String(logging.AgentID, agent.ID)}, logging.Err(err)...)...)
+
+			return
+		}
+
+		s.cleanupEmptyWorkflows(ctx, []agentstore.Agent{agent})
+	}
 }
 
 func (s *LifecycleService) failCleanup(ctx context.Context, agent agentstore.Agent, cause error) {

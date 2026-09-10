@@ -80,7 +80,7 @@ func TestEmptyArchiveLeavesAFailedTeardownInTheArchive(t *testing.T) {
 
 	replaceWorktreeTeardown(t, instance, "#!/bin/sh\necho boom >&2\nexit 1\n")
 
-	workflow, err := instance.Workflows.CreateWorkflow(ctx, connect.NewRequest(worktreeWorkflow(t, "backend")))
+	workflow, err := instance.Workflows.CreateWorkflow(ctx, connect.NewRequest(worktreeWorkflow(t)))
 	require.NoError(t, err)
 
 	created, err := instance.Agents.CreateAgent(ctx, connect.NewRequest(&agentv1.CreateAgentRequest{

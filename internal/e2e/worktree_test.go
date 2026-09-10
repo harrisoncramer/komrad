@@ -9,6 +9,7 @@ import (
 	"sync"
 	"testing"
 
+	"weave/config"
 	"weave/internal/weavetest"
 	agentv1 "weave/proto/gen/agent/v1"
 	workflowv1 "weave/proto/gen/workflow/v1"
@@ -76,6 +77,32 @@ func TestWorktreeAgentsAreCreatedConcurrently(t *testing.T) {
 		assert.Equal(t, worktreesDir, filepath.Dir(result.cwd), "the agent runs in its own generated worktree")
 		assert.DirExists(t, result.cwd)
 	}
+}
+
+// TestWorktreeAgentsStayOutOfTheRealStateDirectory covers an instance started without a
+// worktrees directory of its own, which the shipped default puts under the home directory the
+// live panel provisions into.
+func TestWorktreeAgentsStayOutOfTheRealStateDirectory(t *testing.T) {
+	hermeticGit(t)
+
+	instance := weavetest.Start(t, weavetest.Params{})
+	ctx := t.Context()
+
+	shipped, err := config.Config{}.GetWorktreesDir()
+	require.NoError(t, err)
+	require.NotEqual(t, shipped, instance.WorktreesDir, "an instance names a worktrees directory of its own")
+
+	workflow, err := instance.Workflows.CreateWorkflow(ctx, connect.NewRequest(worktreeWorkflow(t)))
+	require.NoError(t, err)
+
+	agent, err := instance.Agents.CreateAgent(ctx, connect.NewRequest(&agentv1.CreateAgentRequest{
+		Prompt:     "do the work",
+		Title:      "login",
+		WorkflowId: workflow.Msg.GetWorkflow().GetId(),
+	}))
+	require.NoError(t, err)
+
+	assert.Equal(t, instance.WorktreesDir, filepath.Dir(agent.Msg.GetAgent().GetCwd()))
 }
 
 // TestWorktreeAgentCanPublishItsBranch covers the agent reaching for git push, which a branch
@@ -189,11 +216,11 @@ func replaceWorktreeTeardown(t *testing.T, instance *weavetest.Instance, script 
 }
 
 // worktreeWorkflow is the request for a workflow whose agents each get a worktree of their own.
-func worktreeWorkflow(t *testing.T, name string) *workflowv1.CreateWorkflowRequest {
+func worktreeWorkflow(t *testing.T) *workflowv1.CreateWorkflowRequest {
 	t.Helper()
 
 	return &workflowv1.CreateWorkflowRequest{
-		Name:     name,
+		Name:     "backend",
 		Cwd:      initGitRepo(t),
 		Worktree: &workflowv1.WorktreeConfig{Enabled: true},
 	}
