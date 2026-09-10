@@ -483,7 +483,7 @@ func TestResetTellsAnAgentReviewerItsDraftWent(t *testing.T) {
 	assert.Contains(t, mail.sent[reviewer], "Do not carry on writing")
 	assert.Contains(t, mail.sent, "a1", "and the agent whose work went is told too")
 	assert.NotContains(t, mail.sent, finished,
-		"a reviewer that had already released is not told, since nothing of its was taken")
+		"a reviewer that had already released is not told, since it had already delivered and has nothing left to write into")
 }
 
 // TestResetSweepsTheRoundNamespace covers a snapshot ref left behind by an earlier interrupted

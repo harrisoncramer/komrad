@@ -300,7 +300,8 @@ func splitNUL(out string) []string {
 
 // ResetToBaseParams says which checkout to reset, onto what, and what the clean must spare.
 type ResetToBaseParams struct {
-	// Dir is anywhere inside the checkout, and Ref what its tracked files are made to match.
+	// Dir is anywhere inside the checkout, since the root is resolved from it, and Ref what
+	// the tracked files are made to match.
 	Dir string
 	Ref string
 	// Keep are paths the clean leaves alone whether or not they are ignored, for the files a
@@ -310,8 +311,16 @@ type ResetToBaseParams struct {
 
 // ResetToBase moves the branch onto ref and makes the checkout match it, keeping ignored files.
 func ResetToBase(ctx context.Context, params ResetToBaseParams) error {
-	if _, err := Run(ctx, params.Dir, "reset", "--hard", params.Ref); err != nil {
-		return fmt.Errorf("failed to reset %q onto %s: %w", params.Dir, params.Ref, err)
+	// Resolved rather than trusted, the way Park does, because git clean is measured from the
+	// directory it runs in while reset --hard rewrites the whole worktree, so a path one level
+	// down would leave the root's untracked files standing and half the tree reset.
+	root, err := GetRoot(ctx, params.Dir)
+	if err != nil {
+		return err
+	}
+
+	if _, err := Run(ctx, root, "reset", "--hard", params.Ref); err != nil {
+		return fmt.Errorf("failed to reset %q onto %s: %w", root, params.Ref, err)
 	}
 
 	// -fd without -x: the park holds untracked files, so removing them is recoverable, and an
@@ -320,8 +329,8 @@ func ResetToBase(ctx context.Context, params ResetToBaseParams) error {
 	for _, keep := range params.Keep {
 		args = append(args, "-e", keep)
 	}
-	if _, err := Run(ctx, params.Dir, args...); err != nil {
-		return fmt.Errorf("failed to clear the untracked files of %q: %w", params.Dir, err)
+	if _, err := Run(ctx, root, args...); err != nil {
+		return fmt.Errorf("failed to clear the untracked files of %q: %w", root, err)
 	}
 
 	return nil

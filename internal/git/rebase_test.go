@@ -795,3 +795,27 @@ func TestResetToBaseSparesWhatItIsToldTo(t *testing.T) {
 	assert.NoFileExists(t, filepath.Join(repo, "scratch.txt"), "while the agent's own scratch still goes")
 	assert.NoFileExists(t, filepath.Join(repo, "own.txt"), "and so does its committed work")
 }
+
+// TestResetToBaseClearsTheWholeTreeFromASubdirectory covers the disagreement between the two
+// commands, since a clean is measured from where it runs and a reset is not.
+func TestResetToBaseClearsTheWholeTreeFromASubdirectory(t *testing.T) {
+	t.Parallel()
+
+	repo := newRepo(t)
+	require.NoError(t, os.MkdirAll(filepath.Join(repo, "sub"), 0o755))
+	writeFile(t, repo, "sub/kept.txt", "tracked\n")
+	run(t, repo, "add", "-A")
+	run(t, repo, "commit", "--quiet", "-m", "a subdirectory")
+
+	writeFile(t, repo, "junk.txt", "untracked at the root\n")
+	writeFile(t, repo, "sub/junk.txt", "untracked below\n")
+
+	require.NoError(t, git.ResetToBase(t.Context(), git.ResetToBaseParams{
+		Dir: filepath.Join(repo, "sub"),
+		Ref: "HEAD",
+	}))
+
+	assert.NoFileExists(t, filepath.Join(repo, "junk.txt"),
+		"the root's untracked file goes, which it would not if the clean ran where it was pointed")
+	assert.NoFileExists(t, filepath.Join(repo, "sub", "junk.txt"))
+}
