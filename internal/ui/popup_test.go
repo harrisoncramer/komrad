@@ -214,7 +214,7 @@ func TestBindFocusKey(t *testing.T) {
 
 			NewPopupWindow(tmux, "weave").HoldFocusKey(tt.sidebar, tt.agent)
 
-			command, bound := tmux.bound["root:"+focusKey]
+			command, bound := tmux.bound["root:"+FocusKey]
 			if tt.want == nil {
 				assert.False(t, bound)
 
@@ -249,7 +249,7 @@ func TestHoldFocusKeyGivesItBack(t *testing.T) {
 // stage and given back on a screen that stages none.
 func TestFocusKeyHeldOnlyOverAStagedAgent(t *testing.T) {
 	binds := &bindingTmux{}
-	m := focusKeyModel(binds)
+	m := FocusKeyModel(binds)
 
 	m.holdFocusKey()
 
@@ -272,7 +272,7 @@ func TestFocusKeyHeldOnlyOverAStagedAgent(t *testing.T) {
 // which would otherwise jump to a pane nobody can see.
 func TestFocusKeyGivenBackByAnEmptyStage(t *testing.T) {
 	binds := &bindingTmux{}
-	m := focusKeyModel(binds)
+	m := FocusKeyModel(binds)
 
 	m.holdFocusKey()
 	m.frame.ReleaseGuest("%9")
@@ -286,7 +286,7 @@ func TestFocusKeyGivenBackByAnEmptyStage(t *testing.T) {
 // TestFocusKeyReachesTmuxOnce checks a key that is already right is left alone.
 func TestFocusKeyReachesTmuxOnce(t *testing.T) {
 	binds := &bindingTmux{}
-	m := focusKeyModel(binds)
+	m := FocusKeyModel(binds)
 
 	m.holdFocusKey()
 	m.holdFocusKey()
@@ -298,7 +298,7 @@ func TestFocusKeyReachesTmuxOnce(t *testing.T) {
 // stage, rather than being left pointed at the one before it.
 func TestFocusKeyFollowsTheStagedPane(t *testing.T) {
 	binds := &bindingTmux{}
-	m := focusKeyModel(binds)
+	m := FocusKeyModel(binds)
 
 	m.holdFocusKey()
 	m.frame.ShowGuest("%12")
@@ -313,7 +313,7 @@ func TestFocusKeyFollowsTheStagedPane(t *testing.T) {
 	assert.Equal(t, 2, binds.rootBinds)
 }
 
-func focusKeyModel(binds *bindingTmux) model {
+func FocusKeyModel(binds *bindingTmux) model {
 	m := filterModel()
 	m.popup = NewPopupWindow(binds, "weave")
 	m.pane = "%3"
@@ -332,7 +332,7 @@ func focusKeyModel(binds *bindingTmux) model {
 // list, the form taking the whole window and leaving the staged pane nowhere to be seen.
 func TestFocusKeyGivenBackByAForm(t *testing.T) {
 	binds := &bindingTmux{}
-	m := focusKeyModel(binds)
+	m := FocusKeyModel(binds)
 
 	m.holdFocusKey()
 
@@ -356,7 +356,7 @@ func TestFocusKeyGivenBackByAForm(t *testing.T) {
 // where the panel takes the window while the pane it covers stays parked in the stage.
 func TestFocusKeyGivenBackByAHeaderRow(t *testing.T) {
 	binds := &bindingTmux{}
-	m := focusKeyModel(binds)
+	m := FocusKeyModel(binds)
 
 	m.holdFocusKey()
 

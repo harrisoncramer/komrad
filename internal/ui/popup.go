@@ -29,8 +29,9 @@ func NewPopupWindow(tmux popupTmux, session string) *PopupWindow {
 	return &PopupWindow{tmux: tmux, session: session}
 }
 
-// focusKey moves the cursor between the panel's sidebar and the agent's pane on the stage.
-const focusKey = "C-a"
+// FocusKey moves the cursor between the panel's sidebar and the agent's pane on the stage, named
+// the way tmux names a key because that is where it is bound.
+const FocusKey = "C-a"
 
 const managerKeyOption = "@weave_key"
 
@@ -64,11 +65,11 @@ func (p *PopupWindow) HoldFocusKey(sidebar, agent string) {
 	case sidebar == "":
 	case p.focus != nil && *p.focus == agent:
 	case agent != "":
-		p.tmux.BindRootKey(focusKey, "if-shell", "-F", "#{==:#{pane_id},"+sidebar+"}",
+		p.tmux.BindRootKey(FocusKey, "if-shell", "-F", "#{==:#{pane_id},"+sidebar+"}",
 			"select-pane -t "+agent, "select-pane -t "+sidebar)
 		p.focus = &agent
 	default:
-		p.tmux.UnbindRootKey(focusKey)
+		p.tmux.UnbindRootKey(FocusKey)
 		p.focus = &agent
 	}
 }
@@ -80,7 +81,7 @@ func (p *PopupWindow) ReleaseFocusKey() {
 		return
 	}
 
-	p.tmux.UnbindRootKey(focusKey)
+	p.tmux.UnbindRootKey(FocusKey)
 	p.focus = nil
 }
 

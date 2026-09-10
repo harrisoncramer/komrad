@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"weave/config"
+	"weave/internal/ui"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -29,7 +30,7 @@ func rootKeysEnvWithPrefix(cfg *config.Config, prefix string, rootKeys ...string
 
 			return strings.Join(lines, "\n"), nil
 		case slices.Contains(args, "prefix"):
-			return "prefix " + prefix, nil
+			return prefix + "\n", nil
 		}
 
 		return "", nil
@@ -70,7 +71,7 @@ func TestKeybindingsCheckIgnoresThePanelsOwnFocusBinding(t *testing.T) {
 			return `bind-key  -T root C-a    if-shell -F #{==:#{pane_id},%3} "select-pane -t %9" "select-pane -t %3"`, nil
 		}
 
-		return "prefix C-b", nil
+		return "C-b\n", nil
 	}
 
 	result := newKeybindingsCheck().Run(t.Context(), env)
@@ -81,7 +82,7 @@ func TestKeybindingsCheckIgnoresThePanelsOwnFocusBinding(t *testing.T) {
 // TestKeybindingsCheckFindsAPrefixOnTheFocusKey covers a prefix set to the focus key, which tmux
 // reads before the root table, so the focus key installs and never fires.
 func TestKeybindingsCheckFindsAPrefixOnTheFocusKey(t *testing.T) {
-	result := newKeybindingsCheck().Run(t.Context(), rootKeysEnvWithPrefix(config.Defaults(), FocusKey))
+	result := newKeybindingsCheck().Run(t.Context(), rootKeysEnvWithPrefix(config.Defaults(), ui.FocusKey))
 
 	assert.Equal(t, StatusFail, result.Status, "the prefix is read first, so the focus key is dead")
 	assert.Contains(t, result.Fix, "prefix")
@@ -90,10 +91,10 @@ func TestKeybindingsCheckFindsAPrefixOnTheFocusKey(t *testing.T) {
 // TestKeybindingsCheckFindsTheFocusKeyTakenByTmux covers the focus key already bound in the root
 // table by the user's own tmux config, which the panel would overwrite and then give back.
 func TestKeybindingsCheckFindsTheFocusKeyTakenByTmux(t *testing.T) {
-	result := newKeybindingsCheck().Run(t.Context(), rootKeysEnv(config.Defaults(), FocusKey))
+	result := newKeybindingsCheck().Run(t.Context(), rootKeysEnv(config.Defaults(), ui.FocusKey))
 
 	assert.Equal(t, StatusFail, result.Status)
-	assert.Contains(t, result.Fix, "unbind -n "+FocusKey)
+	assert.Contains(t, result.Fix, "unbind -n "+ui.FocusKey)
 }
 
 // TestTheKeybindingsCheckIsRun pins the check being one doctor makes, since a check nothing runs

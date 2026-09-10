@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"testing"
 
+	tea "github.com/charmbracelet/bubbletea"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -116,40 +118,6 @@ func TestLoadRejectsOneKeyOnTwoSettingsOfAGroup(t *testing.T) {
 	}
 }
 
-// TestLoadRejectsAKeyTheHardCodedArmsHold covers binding an action to a key the panel answers
-// itself, where the hard-coded arm wins wherever it is read.
-func TestLoadRejectsAKeyTheHardCodedArmsHold(t *testing.T) {
-	tests := []struct {
-		name string
-		file string
-	}{
-		{
-			name: "esc, which closes the filter, the details, the marks and the mail",
-			file: "[keybindings.nav]\ndown = [\"esc\"]\n",
-		},
-		{
-			name: "backspace, which the filter reads as a rubout",
-			file: "[keybindings.nav]\ndown = [\"backspace\"]\n",
-		},
-		{
-			name: "ctrl+g, which the message region takes to hand the cursor back",
-			file: "[keybindings.details]\ncopy = [\"ctrl+g\"]\n",
-		},
-		{
-			name: "tab, which the compose form reads as the next field",
-			file: "[keybindings.review]\nresolve = [\"tab\"]\n",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			_, err := loadKeys(t, tt.file)
-
-			require.Error(t, err, "the panel answers this key itself, so the binding is unreachable where that arm is read")
-		})
-	}
-}
-
 // TestLoadRejectsAnEmptyBinding covers a binding written as an empty list, which draws an action
 // in the legend that no press can reach.
 func TestLoadRejectsAnEmptyBinding(t *testing.T) {
@@ -164,4 +132,36 @@ func TestLoadRejectsTheTopKeyOnTheBottomKey(t *testing.T) {
 	_, err := loadKeys(t, "[keybindings.nav]\ntop = [\"G\"]\nbottom = [\"G\"]\n")
 
 	require.Error(t, err)
+}
+
+// TestTheKeyTypeRangeCoversAllOfThem pins the span pressableNames reads, since a key type added
+// outside it would go missing without a word.
+func TestTheKeyTypeRangeCoversAllOfThem(t *testing.T) {
+	assert.Empty(t, tea.KeyType(firstKeyType-1).String(), "a key type below the range has a name, so the range is too narrow")
+	assert.Empty(t, tea.KeyType(lastKeyType+1).String(), "a key type above the range has a name, so the range is too narrow")
+	assert.NotEmpty(t, pressableNames)
+}
+
+// TestIsPressableTakesEveryNameAPressProduces covers the accepting half of the name check, since
+// a rule that refused every multi-character name would pass a suite that only asserts refusals.
+func TestIsPressableTakesEveryNameAPressProduces(t *testing.T) {
+	for _, key := range []string{
+		"enter", "esc", "tab", "shift+tab", "backspace", "delete", "insert",
+		"up", "down", "left", "right", "home", "end", "pgup", "pgdown",
+		"f1", "f20", "ctrl+a", "ctrl+\\", "alt+j", "alt+ctrl+j", "shift+left", "ctrl+shift+home",
+		" ", "a", "Z", "?", "/", "'", "<", "]", "\u00e9", "\u6f22",
+	} {
+		assert.True(t, isPressable(key), "bubbletea prints %q for a real press, so a config may name it", key)
+	}
+}
+
+// TestIsPressableRefusesWhatNoPressProduces is the other half, including the modifier order
+// bubbletea prints rather than the one a person would guess.
+func TestIsPressableRefusesWhatNoPressProduces(t *testing.T) {
+	for _, key := range []string{
+		"", " j ", "aa", "escape", "return", "space", "PgUp", "Ctrl+A", "C-d", "<C-d>",
+		"ctrl+m", "ctrl+i", "ctrl+shift+q", "f21", "ctrl+alt+j", "meta+j",
+	} {
+		assert.False(t, isPressable(key), "no press produces %q, so a binding on it is unreachable", key)
+	}
 }

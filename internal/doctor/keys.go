@@ -26,10 +26,6 @@ var (
 	}
 )
 
-// FocusKey is the key the panel binds to move focus between its sidebar and the agent's pane, as
-// tmux names it.
-const FocusKey = "C-a"
-
 // newKeybindingsCheck asserts tmux is not holding a key the panel reads, which it cannot see from
 // the config file because the root table is whatever the user's own tmux config put there.
 func newKeybindingsCheck() Check {
@@ -53,21 +49,21 @@ func newKeybindingsCheck() Check {
 
 			rootKeys := readRootKeys(ctx, env)
 
-			if prefix := readTmuxPrefix(ctx, env); prefix == FocusKey {
+			if prefix := readTmuxPrefix(ctx, env); prefix == ui.FocusKey {
 				return fail(
 					fmt.Errorf("%w: %s is your tmux prefix, which tmux reads before the root table",
-						ErrFocusKeyUnavailable, FocusKey),
+						ErrFocusKeyUnavailable, ui.FocusKey),
 					"prefix "+prefix,
-					"set-option -g prefix to something other than "+FocusKey,
+					"set-option -g prefix to something other than "+ui.FocusKey,
 				)
 			}
 
-			if held, ok := heldByAnythingElse(rootKeys, FocusKey); ok {
+			if held, ok := heldByAnythingElse(rootKeys, ui.FocusKey); ok {
 				return fail(
 					fmt.Errorf("%w: %s is bound in your tmux root table to %s",
-						ErrFocusKeyUnavailable, FocusKey, held),
-					FocusKey,
-					"unbind -n "+FocusKey+" in your tmux config",
+						ErrFocusKeyUnavailable, ui.FocusKey, held),
+					ui.FocusKey,
+					"unbind -n "+ui.FocusKey+" in your tmux config",
 				)
 			}
 
@@ -133,11 +129,17 @@ func parseRootBinding(line string) (key, command string, ok bool) {
 // focus binding, which is weave holding the key on purpose rather than something taking it away.
 func heldByAnythingElse(rootKeys map[string]string, key string) (string, bool) {
 	command, held := rootKeys[key]
-	if !held || strings.Contains(command, "select-pane -t") {
+	if !held || isPanelFocusBinding(command) {
 		return "", false
 	}
 
 	return command, true
+}
+
+// isPanelFocusBinding reports whether a root binding is the one the panel holds, which is an
+// if-shell over the pane the sidebar is in and not a command a person writes by hand.
+func isPanelFocusBinding(command string) bool {
+	return strings.HasPrefix(command, "if-shell") && strings.Contains(command, "#{==:#{pane_id},")
 }
 
 func readTmuxPrefix(ctx context.Context, env Env) string {
@@ -150,7 +152,7 @@ func readTmuxPrefix(ctx context.Context, env Env) string {
 		return ""
 	}
 
-	return strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(out), "prefix"))
+	return strings.TrimSpace(out)
 }
 
 // boundKeys is every key the panel's bindings name, in a settled order.

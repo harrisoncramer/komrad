@@ -15,7 +15,7 @@ func TestTheFocusKeyIsGivenBackOnTheWayOut(t *testing.T) {
 	popup.HoldFocusKey("%3", "%9")
 	popup.ReleaseFocusKey()
 
-	assert.Equal(t, []string{focusKey}, tmux.unbound,
+	assert.Equal(t, []string{FocusKey}, tmux.unbound,
 		"the panel is going, and tmux keeps a root binding until the server dies")
 }
 

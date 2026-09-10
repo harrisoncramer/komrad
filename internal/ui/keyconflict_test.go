@@ -49,3 +49,84 @@ func TestValidateKeybindingsAllowsAGuardedArmInFront(t *testing.T) {
 	assert.NoError(t, ValidateKeybindings(keys),
 		"both of these read the row under the cursor before they answer, so only one is ever live")
 }
+
+// TestValidateKeybindingsReadsTheGlobalKeys covers the keys routeGlobalKey answers before any
+// screen's own table, where the shadowed action is the screen's rather than the global one.
+func TestValidateKeybindingsReadsTheGlobalKeys(t *testing.T) {
+	tests := []struct {
+		name   string
+		rebind func(*config.Keybindings)
+		names  string
+	}{
+		{
+			name:   "the help toggle taking the quit key, which leaves the screen with no quit",
+			rebind: func(k *config.Keybindings) { k.Help.Toggle = []string{"ctrl+c"} },
+			names:  "the help toggle",
+		},
+		{
+			name:   "the log taking the rename key",
+			rebind: func(k *config.Keybindings) { k.Logs.Open = []string{"r"} },
+			names:  "the log",
+		},
+		{
+			name:   "the terminal taking a movement key",
+			rebind: func(k *config.Keybindings) { k.Terminal.Open = []string{"k"} },
+			names:  "the terminal",
+		},
+		{
+			name:   "the details focus taking the filter key",
+			rebind: func(k *config.Keybindings) { k.Filter.Open = []string{"ctrl+t"} },
+			names:  "the details focus",
+		},
+		{
+			name:   "the key that reads the messages, which is not configurable at all",
+			rebind: func(k *config.Keybindings) { k.Details.Copy = []string{messagesFocusKey} },
+			names:  "the key that reads the messages",
+		},
+		{
+			name:   "the key that pushes a fixture into the messages",
+			rebind: func(k *config.Keybindings) { k.Agents.Mail = []string{messagesMockKey} },
+			names:  "the key that pushes a fixture into the messages",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			keys := config.DefaultKeybindings()
+			tt.rebind(&keys)
+
+			err := ValidateKeybindings(keys)
+
+			require.Error(t, err, "this key is answered before the screen's own table is reached")
+			assert.Contains(t, err.Error(), tt.names)
+		})
+	}
+}
+
+// TestValidateKeybindingsAllowsAKeyOnlyATypingModeReads covers the keys whose only literal arms
+// sit inside a mode that takes the whole keyboard, where no binding runs whatever key it is on.
+func TestValidateKeybindingsAllowsAKeyOnlyATypingModeReads(t *testing.T) {
+	tests := []struct {
+		name   string
+		rebind func(*config.Keybindings)
+	}{
+		{
+			name:   "tab, which only the compose box reads",
+			rebind: func(k *config.Keybindings) { k.Review.Resolve = []string{"tab"} },
+		},
+		{
+			name:   "backspace, which only the filter and the search box read",
+			rebind: func(k *config.Keybindings) { k.Agents.Refresh = []string{"backspace"} },
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			keys := config.DefaultKeybindings()
+			tt.rebind(&keys)
+
+			assert.NoError(t, ValidateKeybindings(keys),
+				"the arm that reads this key runs in a mode where no binding runs at all")
+		})
+	}
+}
