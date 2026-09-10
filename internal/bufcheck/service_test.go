@@ -8,13 +8,12 @@ import (
 	"buf.build/go/bufplugin/check/checktest"
 )
 
-// TestOneService runs the file holding one service alongside the file holding two, since a rule
-// counting them is as easy to write too strict as too loose.
+// TestOneService runs the file holding one service alongside the file holding two.
 func TestOneService(t *testing.T) {
 	t.Parallel()
 
 	twinFile := "twin/v1/twin.proto"
-	shared := "twin/v1/twin.proto declares 2 services, and weave's tooling reads the first one it finds. Give each service a file of its own."
+	shared := "twin/v1/twin.proto declares 2 services. One service to a file, so give each of these its own."
 
 	checktest.CheckTest{
 		Request: &checktest.RequestSpec{

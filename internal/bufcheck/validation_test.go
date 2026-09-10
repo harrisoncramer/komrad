@@ -5,13 +5,19 @@ import (
 
 	agentv1 "weave/proto/gen/agent/v1"
 
+	"weave/lib/xptr"
+
+	"buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go/buf/validate"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/reflect/protodesc"
 	"google.golang.org/protobuf/reflect/protoreflect"
+	"google.golang.org/protobuf/reflect/protoregistry"
+	"google.golang.org/protobuf/types/descriptorpb"
 )
 
-// TestRefusesEmpty reads the rules off weave's own descriptors, which is the shape the fixture
-// cannot cover without a copy of validate.proto beside it.
+// TestRefusesEmpty reads the rules off weave's own descriptors.
 func TestRefusesEmpty(t *testing.T) {
 	t.Parallel()
 
@@ -67,8 +73,7 @@ func TestRefusesEmpty(t *testing.T) {
 	}
 }
 
-// TestDefinedOnly reads the enum rules off weave's own descriptors, the shape the fixture cannot
-// cover without a copy of validate.proto beside it.
+// TestDefinedOnly reads the enum rules off weave's own descriptors.
 func TestDefinedOnly(t *testing.T) {
 	t.Parallel()
 
@@ -115,4 +120,96 @@ func TestDefinedOnly(t *testing.T) {
 			assert.Equal(t, tt.want, definedOnly(field))
 		})
 	}
+}
+
+// TestDefinedOnlyOnAList builds the descriptor rather than compiling one, since no proto here
+// declares a repeated enum.
+func TestDefinedOnlyOnAList(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name  string
+		rules *validate.FieldRules
+		want  bool
+	}{
+		{
+			name: "the list spelling",
+			rules: &validate.FieldRules{
+				Type: &validate.FieldRules_Repeated{
+					Repeated: &validate.RepeatedRules{
+						Items: &validate.FieldRules{
+							Type: &validate.FieldRules_Enum{
+								Enum: &validate.EnumRules{DefinedOnly: xptr.Ptr(true)},
+							},
+						},
+					},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "the scalar spelling, which protovalidate refuses on a list",
+			rules: &validate.FieldRules{
+				Type: &validate.FieldRules_Enum{
+					Enum: &validate.EnumRules{DefinedOnly: xptr.Ptr(true)},
+				},
+			},
+			want: false,
+		},
+		{
+			name:  "no rules at all",
+			rules: nil,
+			want:  false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			field := repeatedEnumField(t, tt.rules)
+			assert.Equal(t, tt.want, definedOnly(field))
+		})
+	}
+}
+
+func repeatedEnumField(t *testing.T, rules *validate.FieldRules) protoreflect.FieldDescriptor {
+	t.Helper()
+
+	options := &descriptorpb.FieldOptions{}
+	if rules != nil {
+		proto.SetExtension(options, validate.E_Field, rules)
+	}
+
+	file := &descriptorpb.FileDescriptorProto{
+		Name:    xptr.Ptr("list/v1/list.proto"),
+		Package: xptr.Ptr("list.v1"),
+		Syntax:  xptr.Ptr("proto3"),
+		EnumType: []*descriptorpb.EnumDescriptorProto{{
+			Name: xptr.Ptr("Colour"),
+			Value: []*descriptorpb.EnumValueDescriptorProto{
+				{Name: xptr.Ptr("COLOUR_UNSPECIFIED"), Number: xptr.Ptr(int32(0))},
+			},
+		}},
+		MessageType: []*descriptorpb.DescriptorProto{{
+			Name: xptr.Ptr("ListRequest"),
+			Field: []*descriptorpb.FieldDescriptorProto{{
+				Name:     xptr.Ptr("colours"),
+				Number:   xptr.Ptr(int32(1)),
+				Label:    descriptorpb.FieldDescriptorProto_LABEL_REPEATED.Enum(),
+				Type:     descriptorpb.FieldDescriptorProto_TYPE_ENUM.Enum(),
+				TypeName: xptr.Ptr(".list.v1.Colour"),
+				JsonName: xptr.Ptr("colours"),
+				Options:  options,
+			}},
+		}},
+	}
+
+	built, err := protodesc.NewFile(file, protoregistry.GlobalFiles)
+	require.NoError(t, err)
+
+	field := built.Messages().Get(0).Fields().Get(0)
+	require.True(t, field.IsList())
+
+	return field
 }

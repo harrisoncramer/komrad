@@ -59,7 +59,7 @@ var (
 			{
 				ID:      RequestEnumRuleID,
 				Default: true,
-				Purpose: "Checks that an enum field on a request carries a validation rule refusing a value the enum does not define.",
+				Purpose: "Checks that an enum field named directly on a request carries a validation rule refusing a value the enum does not define.",
 				Type:    check.RuleTypeLint,
 				Handler: checkutil.NewMethodRuleHandler(checkRequestEnums, checkutil.WithoutImports()),
 			},
@@ -142,9 +142,10 @@ func checkRequestEnums(
 		responseWriter.AddAnnotation(
 			check.WithDescriptor(field),
 			check.WithMessagef(
-				"%q on %s must carry (buf.validate.field).enum.defined_only = true. Without it a number the enum does not define reaches %s as a value no switch over it expects.",
+				"%q on %s must carry %s. Without it a number the enum does not define reaches %s as a value no switch over it expects.",
 				field.Name(),
 				method.Input().Name(),
+				definedOnlySpelling(field),
 				method.Name(),
 			),
 		)
@@ -153,10 +154,25 @@ func checkRequestEnums(
 	return nil
 }
 
+func definedOnlySpelling(field protoreflect.FieldDescriptor) string {
+	if field.IsList() {
+		return "(buf.validate.field).repeated.items.enum.defined_only = true"
+	}
+
+	return "(buf.validate.field).enum.defined_only = true"
+}
+
 func definedOnly(field protoreflect.FieldDescriptor) bool {
 	rules := fieldRules(field)
+	if rules == nil {
+		return false
+	}
 
-	return rules != nil && rules.GetEnum().GetDefinedOnly()
+	if field.IsList() {
+		return rules.GetRepeated().GetItems().GetEnum().GetDefinedOnly()
+	}
+
+	return rules.GetEnum().GetDefinedOnly()
 }
 
 func namesAnID(field protoreflect.FieldDescriptor) bool {

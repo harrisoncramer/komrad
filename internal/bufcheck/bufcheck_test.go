@@ -18,8 +18,7 @@ func TestSpec(t *testing.T) {
 	checktest.SpecTest(t, bufcheck.Spec)
 }
 
-// TestRules pins which method names each rule reaches, since a prefix that matched a word
-// beginning with it would fail an RPC named for something else entirely.
+// TestRules pins which method names each rule reaches.
 func TestRules(t *testing.T) {
 	t.Parallel()
 
@@ -101,13 +100,24 @@ func TestRules(t *testing.T) {
 			want: []checktest.ExpectedAnnotation{
 				{
 					RuleID:  bufcheck.RequestEnumRuleID,
-					Message: enumMessage("colour"),
+					Message: enumMessage("colour", "(buf.validate.field).enum.defined_only = true"),
 					FileLocation: &checktest.ExpectedFileLocation{
 						FileName:    testFile,
 						StartLine:   63,
 						StartColumn: 2,
 						EndLine:     63,
 						EndColumn:   20,
+					},
+				},
+				{
+					RuleID:  bufcheck.RequestEnumRuleID,
+					Message: enumMessage("colours", "(buf.validate.field).repeated.items.enum.defined_only = true"),
+					FileLocation: &checktest.ExpectedFileLocation{
+						FileName:    testFile,
+						StartLine:   65,
+						StartColumn: 2,
+						EndLine:     65,
+						EndColumn:   30,
 					},
 				},
 			},
@@ -176,10 +186,11 @@ func idMessage(field string) string {
 	)
 }
 
-func enumMessage(field string) string {
+func enumMessage(field string, spelling string) string {
 	return fmt.Sprintf(
-		"%q on EnumRequest must carry (buf.validate.field).enum.defined_only = true. Without it a number the enum does not define reaches GetEnum as a value no switch over it expects.",
+		"%q on EnumRequest must carry %s. Without it a number the enum does not define reaches GetEnum as a value no switch over it expects.",
 		field,
+		spelling,
 	)
 }
 

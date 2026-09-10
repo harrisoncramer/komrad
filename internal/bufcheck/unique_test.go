@@ -10,8 +10,7 @@ import (
 
 const uniqueFile = "check/v1/unique.proto"
 
-// TestTypesUnique pins that google.protobuf.Empty is the one type two methods may share, since
-// the rule exists to allow it where buf's own cannot.
+// TestTypesUnique pins that google.protobuf.Empty is the one type two methods may share.
 func TestTypesUnique(t *testing.T) {
 	t.Parallel()
 

@@ -86,9 +86,7 @@ func TestValidationRefusesControlCharacters(t *testing.T) {
 	}
 }
 
-// TestValidationRefusesAnUndeclaredEnumNumber covers the half of this that the strict codec
-// cannot reach: a proto3 enum is open, so a number nothing declares decodes without complaint
-// and only the field's own rule refuses it.
+// TestValidationRefusesAnUndeclaredEnumNumber covers a number no enum value declares.
 func TestValidationRefusesAnUndeclaredEnumNumber(t *testing.T) {
 	t.Parallel()
 

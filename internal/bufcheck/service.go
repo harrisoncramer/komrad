@@ -21,7 +21,7 @@ func checkOneService(
 	responseWriter.AddAnnotation(
 		check.WithDescriptor(service),
 		check.WithMessagef(
-			"%s declares %d services, and weave's tooling reads the first one it finds. Give each service a file of its own.",
+			"%s declares %d services. One service to a file, so give each of these its own.",
 			file.Path(),
 			file.Services().Len(),
 		),
