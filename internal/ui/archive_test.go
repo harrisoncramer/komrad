@@ -1164,3 +1164,25 @@ func TestArchiveDocViewFillsItsColumn(t *testing.T) {
 		}
 	}
 }
+
+// TestArchiveOpensOnTheSearch covers arriving from another screen landing in the search rather
+// than on the rows, and coming back from a form leaving a standing search alone.
+func TestArchiveOpensOnTheSearch(t *testing.T) {
+	m := archiveModel(&fakeArchiveAgents{}, &fakeArchiveWorkflows{}, config.DefaultKeybindings())
+	m.screen = screenAgents
+
+	entered, _ := m.enterArchive()
+	opened, ok := entered.(model)
+	require.True(t, ok)
+	assert.True(t, opened.filter.typing, "the search takes the keyboard as the archive opens")
+	assert.Empty(t, opened.filter.query)
+
+	opened.filter.typing = false
+	opened.filter.setQuery("api")
+
+	again, _ := opened.enterArchive()
+	back, ok := again.(model)
+	require.True(t, ok)
+	assert.False(t, back.filter.typing, "coming back to the screen does not reopen the search")
+	assert.Equal(t, "api", back.filter.query, "and what was typed is still standing")
+}
