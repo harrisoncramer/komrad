@@ -113,7 +113,7 @@ func (m *model) applyRebased(msg rebasedMsg) tea.Model {
 		m.pushMessage(message{
 			kind:    messageError,
 			summary: msg.name + ": the rebase stopped on conflicts",
-			detail: fmt.Sprintf("onto %s (%s). The rebase is still in progress in that worktree and %s has been told to settle it.",
+			detail: fmt.Sprintf("onto %s (%s). The rebase is still in progress in that worktree. %s has been told to settle it.",
 				msg.baseRef, shortSHA(msg.baseSHA), msg.name),
 		})
 
@@ -124,7 +124,7 @@ func (m *model) applyRebased(msg rebasedMsg) tea.Model {
 		m.pushMessage(message{
 			kind:    messageInfo,
 			summary: msg.name + ": moved onto " + msg.baseRef,
-			detail: fmt.Sprintf("%s. The base already held its work, so %s were dropped rather than replayed onto themselves.",
+			detail: fmt.Sprintf("%s. The base already had its work, so %s were dropped instead of replayed.",
 				shortSHA(msg.baseSHA), countWord(msg.landed, "commit", "commits")),
 		})
 
@@ -134,7 +134,7 @@ func (m *model) applyRebased(msg rebasedMsg) tea.Model {
 	m.pushMessage(message{
 		kind:    messageInfo,
 		summary: msg.name + ": rebased onto " + msg.baseRef,
-		detail: fmt.Sprintf("%s, %s replayed.",
+		detail: fmt.Sprintf("%s. %s replayed.",
 			shortSHA(msg.baseSHA), countWord(msg.replay, "commit", "commits")),
 	})
 
