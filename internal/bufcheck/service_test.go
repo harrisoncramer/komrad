@@ -8,51 +8,39 @@ import (
 	"buf.build/go/bufplugin/check/checktest"
 )
 
-// TestServiceName runs the clean files alongside the broken ones, since a rule reading the
-// package name is as easy to write too strict as too loose.
-func TestServiceName(t *testing.T) {
+// TestOneService runs the file holding one service alongside the file holding two, since a rule
+// counting them is as easy to write too strict as too loose.
+func TestOneService(t *testing.T) {
 	t.Parallel()
+
+	twinFile := "twin/v1/twin.proto"
+	shared := "twin/v1/twin.proto declares 2 services, and weave's tooling reads the first one it finds. Give each service a file of its own."
 
 	checktest.CheckTest{
 		Request: &checktest.RequestSpec{
 			Files: &checktest.ProtoFileSpec{
-				DirPaths: []string{"testdata"},
-				FilePaths: []string{
-					"okay/v1/okay.proto",
-					"two_words/v1/two_words.proto",
-					"misnamed/v1/misnamed.proto",
-					"twin/v1/twin.proto",
-				},
+				DirPaths:  []string{"testdata"},
+				FilePaths: []string{"check/v1/unique.proto", twinFile},
 			},
-			RuleIDs: []string{bufcheck.ServiceNameRuleID},
+			RuleIDs: []string{bufcheck.OneServiceRuleID},
 		},
 		Spec: bufcheck.Spec,
 		ExpectedAnnotations: []checktest.ExpectedAnnotation{
 			{
-				RuleID:  bufcheck.ServiceNameRuleID,
-				Message: `the service in package misnamed.v1 should be named "MisnamedService" rather than "WrongService", so its name says which package answers a call.`,
+				RuleID:  bufcheck.OneServiceRuleID,
+				Message: shared,
 				FileLocation: &checktest.ExpectedFileLocation{
-					FileName:  "misnamed/v1/misnamed.proto",
-					StartLine: 8,
-					EndLine:   10,
-					EndColumn: 1,
-				},
-			},
-			{
-				RuleID:  bufcheck.ServiceNameRuleID,
-				Message: "twin/v1/twin.proto declares 2 services, and weave's tooling reads the first one it finds. Give each service a file of its own.",
-				FileLocation: &checktest.ExpectedFileLocation{
-					FileName:  "twin/v1/twin.proto",
+					FileName:  twinFile,
 					StartLine: 12,
 					EndLine:   14,
 					EndColumn: 1,
 				},
 			},
 			{
-				RuleID:  bufcheck.ServiceNameRuleID,
-				Message: "twin/v1/twin.proto declares 2 services, and weave's tooling reads the first one it finds. Give each service a file of its own.",
+				RuleID:  bufcheck.OneServiceRuleID,
+				Message: shared,
 				FileLocation: &checktest.ExpectedFileLocation{
-					FileName:  "twin/v1/twin.proto",
+					FileName:  twinFile,
 					StartLine: 16,
 					EndLine:   18,
 					EndColumn: 1,

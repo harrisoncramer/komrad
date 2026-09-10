@@ -24,8 +24,8 @@ const (
 	TypesUniqueRuleID = "RPC_NAMED_TYPES_UNIQUE"
 	// RequestEnumRuleID is the rule requiring a request's enum fields to refuse an undefined value.
 	RequestEnumRuleID = "RPC_REQUEST_ENUM_DEFINED_ONLY"
-	// ServiceNameRuleID is the rule giving each package one service, named after it.
-	ServiceNameRuleID = "SERVICE_ONE_PER_FILE_NAMED_FOR_PACKAGE"
+	// OneServiceRuleID is the rule giving each service a file of its own.
+	OneServiceRuleID = "SERVICE_ONE_PER_FILE"
 )
 
 var (
@@ -64,11 +64,11 @@ var (
 				Handler: checkutil.NewMethodRuleHandler(checkRequestEnums, checkutil.WithoutImports()),
 			},
 			{
-				ID:      ServiceNameRuleID,
+				ID:      OneServiceRuleID,
 				Default: true,
-				Purpose: "Checks that a file declares at most one service, named for the package it sits in.",
+				Purpose: "Checks that a file declares at most one service.",
 				Type:    check.RuleTypeLint,
-				Handler: checkutil.NewServiceRuleHandler(checkServiceName, checkutil.WithoutImports()),
+				Handler: checkutil.NewServiceRuleHandler(checkOneService, checkutil.WithoutImports()),
 			},
 			{
 				ID:      TypesUniqueRuleID,
