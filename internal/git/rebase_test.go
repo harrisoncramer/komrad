@@ -2,6 +2,7 @@ package git_test
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
 	"testing"
 	"time"
@@ -309,6 +310,21 @@ func commitFile(t *testing.T, repo, name, body, message string) string {
 	writeFile(t, repo, name, body)
 	run(t, repo, "add", name)
 	run(t, repo, "commit", "--quiet", "-m", message)
+
+	return out(t, repo, "rev-parse", "HEAD")
+}
+
+// commitFileAt is commitFile with the commit's date pinned.
+func commitFileAt(t *testing.T, repo, name, body, message, when string) string {
+	t.Helper()
+
+	writeFile(t, repo, name, body)
+	run(t, repo, "add", name)
+
+	cmd := exec.Command("git", "-C", repo, "commit", "--quiet", "-m", message)
+	cmd.Env = append(os.Environ(), "GIT_AUTHOR_DATE="+when, "GIT_COMMITTER_DATE="+when)
+	combined, err := cmd.CombinedOutput()
+	require.NoError(t, err, string(combined))
 
 	return out(t, repo, "rev-parse", "HEAD")
 }
@@ -633,9 +649,9 @@ func TestPredictRebaseCountsLandedOffTheGraph(t *testing.T) {
 	repo := newRepo(t)
 	base := out(t, repo, "rev-parse", "HEAD")
 	run(t, repo, "checkout", "--quiet", "-b", "agent/abc")
-	commitFile(t, repo, "a.txt", "a\n", "A")
+	landed := commitFileAt(t, repo, "a.txt", "a\n", "A", "2020-01-01T00:00:09+00:00")
 	run(t, repo, "checkout", "--quiet", "-b", "side", base)
-	commitFile(t, repo, "s.txt", "s\n", "S")
+	commitFileAt(t, repo, "s.txt", "s\n", "S", "2020-01-01T00:00:01+00:00")
 	run(t, repo, "checkout", "--quiet", "agent/abc")
 	run(t, repo, "merge", "--quiet", "--no-ff", "-m", "M", "side")
 
@@ -646,12 +662,12 @@ func TestPredictRebaseCountsLandedOffTheGraph(t *testing.T) {
 	run(t, repo, "commit", "--quiet", "-m", "A, landed independently")
 	run(t, repo, "checkout", "--quiet", "agent/abc")
 
-	require.Equal(t, "S", out(t, repo, "log", "--format=%s", "-1", out(t, repo, "rev-list", "--reverse", "main..HEAD")[:40]),
-		"the fixture needs the side commit ordered before the cutoff, or it is not about anything")
-
 	prediction, err := git.PredictRebase(t.Context(), repo, "main")
 	require.NoError(t, err)
 
+	require.Equal(t, landed, prediction.Cutoff, "the cutoff is the commit the base holds")
+	require.NotEqual(t, prediction.Cutoff, out(t, repo, "rev-list", "--reverse", "main..HEAD")[:40],
+		"the fixture needs the side commit listed before the cutoff, or it is not about anything")
 	assert.Equal(t, 1, prediction.Landed, "only the commit the base actually holds leaves the branch")
 	assert.Equal(t, 1, prediction.Replay, "the side commit is still the agent's own work")
 }
