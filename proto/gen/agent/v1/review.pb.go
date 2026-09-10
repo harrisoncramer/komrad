@@ -26,9 +26,12 @@ const (
 type ReviewAuthorKind int32
 
 const (
+	// No author was recorded.
 	ReviewAuthorKind_REVIEW_AUTHOR_KIND_UNSPECIFIED ReviewAuthorKind = 0
-	ReviewAuthorKind_REVIEW_AUTHOR_KIND_HUMAN       ReviewAuthorKind = 1
-	ReviewAuthorKind_REVIEW_AUTHOR_KIND_AGENT       ReviewAuthorKind = 2
+	// The person running weave.
+	ReviewAuthorKind_REVIEW_AUTHOR_KIND_HUMAN ReviewAuthorKind = 1
+	// The agent whose work is being read, or the reviewer reading it.
+	ReviewAuthorKind_REVIEW_AUTHOR_KIND_AGENT ReviewAuthorKind = 2
 )
 
 // Enum value maps for ReviewAuthorKind.
@@ -138,6 +141,7 @@ func (ReviewDeliveryState) EnumDescriptor() ([]byte, []int) {
 type ReviewVerdict int32
 
 const (
+	// Nothing has been concluded, which is what an unreleased review carries.
 	ReviewVerdict_REVIEW_VERDICT_UNSPECIFIED ReviewVerdict = 0
 	// This round is good as it stands.
 	ReviewVerdict_REVIEW_VERDICT_APPROVED ReviewVerdict = 1

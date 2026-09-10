@@ -30,8 +30,10 @@ const (
 	// Unspecified is summary, since a caller that has not thought about it is the one that
 	// should not be handed a megabyte.
 	View_VIEW_UNSPECIFIED View = 0
-	View_VIEW_SUMMARY     View = 1
-	View_VIEW_FULL        View = 2
+	// Long text is cut to its opening, and the record says which fields were cut.
+	View_VIEW_SUMMARY View = 1
+	// Every field whole, however long.
+	View_VIEW_FULL View = 2
 )
 
 // Enum value maps for View.

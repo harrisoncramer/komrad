@@ -113,6 +113,8 @@ message ArchiveScheduleRequest {
   string id = 1 [(buf.validate.field).string.min_len = 1];
 }
 
+// ScheduleService is the recurring launches, which spawn an agent into a workflow whenever
+// their cron expression next matches.
 service ScheduleService {
   rpc ListSchedules(ListSchedulesRequest) returns (ListSchedulesResponse) {
     option idempotency_level = NO_SIDE_EFFECTS;
