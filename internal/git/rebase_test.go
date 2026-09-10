@@ -633,9 +633,9 @@ func TestPredictRebaseCountsLandedOffTheGraph(t *testing.T) {
 	repo := newRepo(t)
 	base := out(t, repo, "rev-parse", "HEAD")
 	run(t, repo, "checkout", "--quiet", "-b", "agent/abc")
-	commitFile(t, repo, "a.txt", "a\n", "A")
+	mainline := commitFile(t, repo, "a.txt", "a\n", "A")
 	run(t, repo, "checkout", "--quiet", "-b", "side", base)
-	commitFile(t, repo, "s.txt", "s\n", "S")
+	sideline := commitFile(t, repo, "s.txt", "s\n", "S")
 	run(t, repo, "checkout", "--quiet", "agent/abc")
 	run(t, repo, "merge", "--quiet", "--no-ff", "-m", "M", "side")
 
@@ -646,11 +646,17 @@ func TestPredictRebaseCountsLandedOffTheGraph(t *testing.T) {
 	run(t, repo, "commit", "--quiet", "-m", "A, landed independently")
 	run(t, repo, "checkout", "--quiet", "agent/abc")
 
-	require.Equal(t, "S", out(t, repo, "log", "--format=%s", "-1", out(t, repo, "rev-list", "--reverse", "main..HEAD")[:40]),
-		"the fixture needs the side commit ordered before the cutoff, or it is not about anything")
+	require.Equal(t, "3", out(t, repo, "rev-list", "--count", "main..HEAD"),
+		"the fixture needs the mainline commit, the side commit and the merge")
 
 	prediction, err := git.PredictRebase(t.Context(), repo, "main")
 	require.NoError(t, err)
+	require.Equal(t, mainline, prediction.Cutoff, "the cutoff is the commit the base holds")
+
+	// The side commit is what a count off a list position gets wrong: it sits before the cutoff
+	// in topological order while not being reachable from it.
+	_, err = git.Run(t.Context(), repo, "merge-base", "--is-ancestor", sideline, prediction.Cutoff)
+	require.Error(t, err, "the side commit must not be reachable from the cutoff")
 
 	assert.Equal(t, 1, prediction.Landed, "only the commit the base actually holds leaves the branch")
 	assert.Equal(t, 1, prediction.Replay, "the side commit is still the agent's own work")
