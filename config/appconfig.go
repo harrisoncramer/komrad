@@ -880,12 +880,7 @@ func ValidateAddr(addr string) error {
 
 // validateDatabaseURL rejects a url Postgres would not answer.
 func validateDatabaseURL(databaseURL string) error {
-	trimmed := strings.TrimSpace(databaseURL)
-	if trimmed == "" {
-		return errors.New("connection.database_url: names no database")
-	}
-
-	parsed, err := url.Parse(trimmed)
+	parsed, err := url.Parse(strings.TrimSpace(databaseURL))
 	if err != nil {
 		return fmt.Errorf("connection.database_url: %q is not a url: %w", databaseURL, err)
 	}

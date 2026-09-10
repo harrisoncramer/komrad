@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/fs"
 	"strings"
+	"syscall"
 )
 
 var (
@@ -71,8 +72,7 @@ func newContextCheck() Check {
 	}
 }
 
-// isDirectoryError reports whether a read failed because the path is a directory, which every
-// platform words differently and none of them wraps in a sentinel.
+// isDirectoryError reports whether a read failed because the path is a directory.
 func isDirectoryError(err error) bool {
-	return err != nil && strings.Contains(err.Error(), "is a directory")
+	return errors.Is(err, syscall.EISDIR)
 }

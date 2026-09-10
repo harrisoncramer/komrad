@@ -1,8 +1,8 @@
 package doctor
 
 import (
-	"errors"
 	"io/fs"
+	"syscall"
 	"testing"
 
 	"weave/config"
@@ -42,7 +42,7 @@ func TestContextCheck(t *testing.T) {
 		{
 			name:    "a named path that is a directory",
 			file:    "/home/u/notes",
-			readErr: errors.New("read /home/u/notes: is a directory"),
+			readErr: &fs.PathError{Op: "read", Path: "/home/u/notes", Err: syscall.EISDIR},
 			want:    StatusFail,
 			code:    ErrContextFileNotAFile.Code,
 		},
