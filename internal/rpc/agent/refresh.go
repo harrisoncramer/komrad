@@ -53,12 +53,14 @@ func (s *Service) RebaseWorktree(
 	}
 
 	return connect.NewResponse(&agentv1.RebaseWorktreeResponse{
-		BaseRef:    result.BaseRef,
-		BaseSha:    result.BaseSHA,
-		Commits:    int32(result.Commits),
-		Branch:     result.Branch,
-		Conflicted: result.Conflicted,
-		Moved:      result.Moved,
+		BaseRef:       result.BaseRef,
+		BaseSha:       result.BaseSHA,
+		Commits:       int32(result.Commits),
+		Branch:        result.Branch,
+		Conflicted:    result.Conflicted,
+		Moved:         result.Moved,
+		LandedCommits: int32(result.Landed),
+		ReplayCommits: int32(result.Replay),
 	}), nil
 }
 

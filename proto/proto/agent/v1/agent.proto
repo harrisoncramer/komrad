@@ -225,6 +225,9 @@ message RebaseWorktreeResponse {
   // Whether the branch reached the base without replaying anything, which is what a branch
   // whose work has entirely landed gets.
   bool moved = 6;
+  // How many of the agent's own commits the base already held, and how many were replayed.
+  int32 landed_commits = 7;
+  int32 replay_commits = 8;
 }
 
 message ResetWorktreeRequest {

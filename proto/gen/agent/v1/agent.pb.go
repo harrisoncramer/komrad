@@ -1209,7 +1209,10 @@ type RebaseWorktreeResponse struct {
 	Conflicted bool `protobuf:"varint,5,opt,name=conflicted,proto3" json:"conflicted,omitempty"`
 	// Whether the branch reached the base without replaying anything, which is what a branch
 	// whose work has entirely landed gets.
-	Moved         bool `protobuf:"varint,6,opt,name=moved,proto3" json:"moved,omitempty"`
+	Moved bool `protobuf:"varint,6,opt,name=moved,proto3" json:"moved,omitempty"`
+	// How many of the agent's own commits the base already held, and how many were replayed.
+	LandedCommits int32 `protobuf:"varint,7,opt,name=landed_commits,json=landedCommits,proto3" json:"landed_commits,omitempty"`
+	ReplayCommits int32 `protobuf:"varint,8,opt,name=replay_commits,json=replayCommits,proto3" json:"replay_commits,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1284,6 +1287,20 @@ func (x *RebaseWorktreeResponse) GetMoved() bool {
 		return x.Moved
 	}
 	return false
+}
+
+func (x *RebaseWorktreeResponse) GetLandedCommits() int32 {
+	if x != nil {
+		return x.LandedCommits
+	}
+	return 0
+}
+
+func (x *RebaseWorktreeResponse) GetReplayCommits() int32 {
+	if x != nil {
+		return x.ReplayCommits
+	}
+	return 0
 }
 
 type ResetWorktreeRequest struct {
@@ -2227,7 +2244,7 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\x06merges\x18\x06 \x01(\x05R\x06merges\x12%\n" +
 	"\x0econflict_paths\x18\a \x03(\tR\rconflictPaths\";\n" +
 	"\x15RebaseWorktreeRequest\x12\"\n" +
-	"\bagent_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\aagentId\"\xb6\x01\n" +
+	"\bagent_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\aagentId\"\x84\x02\n" +
 	"\x16RebaseWorktreeResponse\x12\x19\n" +
 	"\bbase_ref\x18\x01 \x01(\tR\abaseRef\x12\x19\n" +
 	"\bbase_sha\x18\x02 \x01(\tR\abaseSha\x12\x18\n" +
@@ -2236,7 +2253,9 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\n" +
 	"conflicted\x18\x05 \x01(\bR\n" +
 	"conflicted\x12\x14\n" +
-	"\x05moved\x18\x06 \x01(\bR\x05moved\":\n" +
+	"\x05moved\x18\x06 \x01(\bR\x05moved\x12%\n" +
+	"\x0elanded_commits\x18\a \x01(\x05R\rlandedCommits\x12%\n" +
+	"\x0ereplay_commits\x18\b \x01(\x05R\rreplayCommits\":\n" +
 	"\x14ResetWorktreeRequest\x12\"\n" +
 	"\bagent_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\aagentId\"\x17\n" +
 	"\x15ResetWorktreeResponse\"\xe3\x01\n" +

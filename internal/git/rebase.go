@@ -157,7 +157,11 @@ func PredictRebase(ctx context.Context, dir, ref string) (Prediction, error) {
 	if err != nil {
 		return Prediction{}, err
 	}
-	prediction.Replay = len(own)
+
+	prediction.Replay, err = countRevList(ctx, dir, ref, "--count", "--no-merges", ref+"..HEAD")
+	if err != nil {
+		return Prediction{}, err
+	}
 
 	prediction.Merges, err = countRevList(ctx, dir, ref, "--count", "--merges", ref+"..HEAD")
 	if err != nil {
@@ -187,7 +191,12 @@ func PredictRebase(ctx context.Context, dir, ref string) (Prediction, error) {
 
 	prediction.Cutoff = own[at]
 	prediction.Landed = at + 1
-	prediction.Replay = len(own) - prediction.Landed
+
+	// Counted without merges, since a rebase flattens them rather than replaying them.
+	prediction.Replay, err = countRevList(ctx, dir, ref, "--count", "--no-merges", prediction.Cutoff+"..HEAD")
+	if err != nil {
+		return Prediction{}, err
+	}
 
 	return prediction, nil
 }
@@ -195,6 +204,26 @@ func PredictRebase(ctx context.Context, dir, ref string) (Prediction, error) {
 // RebaseOnto replays the checkout's commits after cutoff onto ref, leaving a stopped rebase.
 func RebaseOnto(ctx context.Context, dir, ref, cutoff string) error {
 	return runRebase(ctx, dir, ref, "rebase", "--onto", ref, cutoff)
+}
+
+// ReleaseRefsUnder deletes every ref beneath prefix except keep, which is how a park that has
+// been superseded stops pinning a whole worktree in the shared clone.
+func ReleaseRefsUnder(ctx context.Context, dir, prefix, keep string) error {
+	out, err := Run(ctx, dir, "for-each-ref", "--format=%(refname)", prefix)
+	if err != nil {
+		return fmt.Errorf("failed to list the refs under %q: %w", prefix, err)
+	}
+
+	for _, ref := range strings.Split(out, "\n") {
+		if ref == "" || ref == keep {
+			continue
+		}
+		if err := ReleaseRef(ctx, dir, ref); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // Rebase moves a checkout's branch onto ref, leaving a stopped rebase where it is.
@@ -344,16 +373,14 @@ func runRebase(ctx context.Context, dir, ref string, args ...string) error {
 
 // isShallow reports whether the clone has been cut off from its own history.
 func isShallow(ctx context.Context, dir string) (bool, error) {
-	gitDir, err := Run(ctx, dir, "rev-parse", "--absolute-git-dir")
+	// Asked of git rather than read off disk: the marker lives in the common directory, not in
+	// the one a linked worktree reports, and every agent runs in a linked worktree.
+	out, err := Run(ctx, dir, "rev-parse", "--is-shallow-repository")
 	if err != nil {
-		return false, fmt.Errorf("failed to read the git directory of %q: %w", dir, err)
+		return false, fmt.Errorf("failed to read whether %q is shallow: %w", dir, err)
 	}
 
-	if _, err := os.Stat(filepath.Join(gitDir, "shallow")); err == nil {
-		return true, nil
-	}
-
-	return false, nil
+	return out == "true", nil
 }
 
 // readHiddenPaths reads the tracked paths marked assume-unchanged or skip-worktree, whose
@@ -366,8 +393,9 @@ func readHiddenPaths(ctx context.Context, dir string) ([]string, error) {
 
 	paths := []string{}
 	for _, line := range strings.Split(out, "\n") {
-		// Lowercase tags are the assume-unchanged ones, S is skip-worktree.
-		if len(line) < 3 || (line[0] != 'h' && line[0] != 'S' && line[0] != 's' && line[0] != 'm') {
+		// Any lowercase tag is assume-unchanged and S is skip-worktree, which is the same rule
+		// hasAssumeUnchanged applies, since a path that is both marked and modified reads as c.
+		if len(line) < 3 || (line[0] != 'S' && (line[0] < 'a' || line[0] > 'z')) {
 			continue
 		}
 		paths = append(paths, line[2:])

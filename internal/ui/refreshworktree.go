@@ -31,10 +31,12 @@ type refreshPlannedMsg struct {
 
 // rebasedMsg is a finished rebase, conflicted when it stopped and is waiting for the agent.
 type rebasedMsg struct {
-	name       string
-	baseRef    string
-	baseSHA    string
-	commits    int
+	name    string
+	baseRef string
+	baseSHA string
+	// landed is how many of its commits the base already held, and replay how many moved.
+	landed     int
+	replay     int
 	conflicted bool
 	// moved says the branch reached the base without replaying anything.
 	moved bool
@@ -79,7 +81,8 @@ func (m *model) rebaseCmd(agentID, name string) tea.Cmd {
 			name:       name,
 			baseRef:    result.GetBaseRef(),
 			baseSHA:    result.GetBaseSha(),
-			commits:    int(result.GetCommits()),
+			landed:     int(result.GetLandedCommits()),
+			replay:     int(result.GetReplayCommits()),
 			conflicted: result.GetConflicted(),
 			moved:      result.GetMoved(),
 		}
@@ -122,7 +125,7 @@ func (m *model) applyRebased(msg rebasedMsg) tea.Model {
 			kind:    messageInfo,
 			summary: msg.name + ": moved onto " + msg.baseRef,
 			detail: fmt.Sprintf("%s. The base already held its work, so %s were dropped rather than replayed onto themselves.",
-				shortSHA(msg.baseSHA), countWord(msg.commits, "commit", "commits")),
+				shortSHA(msg.baseSHA), countWord(msg.landed, "commit", "commits")),
 		})
 
 		return m
@@ -132,7 +135,7 @@ func (m *model) applyRebased(msg rebasedMsg) tea.Model {
 		kind:    messageInfo,
 		summary: msg.name + ": rebased onto " + msg.baseRef,
 		detail: fmt.Sprintf("%s, %s replayed.",
-			shortSHA(msg.baseSHA), countWord(msg.commits, "commit", "commits")),
+			shortSHA(msg.baseSHA), countWord(msg.replay, "commit", "commits")),
 	})
 
 	return m

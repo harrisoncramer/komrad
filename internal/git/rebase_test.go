@@ -440,8 +440,8 @@ func TestPredictRebaseRefusesAnUnrelatedBase(t *testing.T) {
 	require.ErrorIs(t, err, git.ErrBaseUnrelated)
 }
 
-// TestReadTreeStateReportsAShallowClone covers a clone cut off from its own history, where the
-// ancestry questions this all rests on answer wrongly rather than failing.
+// TestReadTreeStateReportsAShallowClone covers a clone cut off from its own history, read
+// through a linked worktree because that is the only shape an agent ever runs in.
 func TestReadTreeStateReportsAShallowClone(t *testing.T) {
 	t.Parallel()
 
@@ -449,10 +449,17 @@ func TestReadTreeStateReportsAShallowClone(t *testing.T) {
 	run(t, origin, "commit", "--quiet", "--allow-empty", "-m", "second")
 	run(t, origin, "commit", "--quiet", "--allow-empty", "-m", "third")
 
-	clone := filepath.Join(t.TempDir(), "shallow")
-	run(t, filepath.Dir(clone), "clone", "--quiet", "--depth", "1", "file://"+origin, clone)
+	root := t.TempDir()
+	clone := filepath.Join(root, "clone")
+	run(t, root, "clone", "--quiet", "--depth", "1", "file://"+origin, clone)
 
-	state, err := git.ReadTreeState(t.Context(), clone)
+	tree := filepath.Join(root, "tree")
+	run(t, clone, "worktree", "add", "--quiet", "-b", "agent/abc", tree)
+
+	require.NoFileExists(t, filepath.Join(clone, ".git", "worktrees", "tree", "shallow"),
+		"the marker is not in the worktree's own git directory, which is what makes this test worth having")
+
+	state, err := git.ReadTreeState(t.Context(), tree)
 	require.NoError(t, err)
 
 	assert.True(t, state.Shallow)
@@ -577,4 +584,43 @@ func TestParkLeavesTheCheckoutAlone(t *testing.T) {
 
 	assert.Equal(t, before, out(t, repo, "status", "--porcelain"), "the working tree reads the same")
 	assert.Equal(t, head, out(t, repo, "rev-parse", "HEAD"), "and the branch has not moved")
+}
+
+// TestReleaseRefsUnderKeepsOnlyTheCurrent covers the parks being collected, since each one pins
+// a whole worktree in the shared clone and nothing else ever drops them.
+func TestReleaseRefsUnderKeepsOnlyTheCurrent(t *testing.T) {
+	t.Parallel()
+
+	repo := newRepo(t)
+	head := out(t, repo, "rev-parse", "HEAD")
+	for _, ref := range []string{"refs/weave/prerefresh/a1/1", "refs/weave/prerefresh/a1/2", "refs/weave/prerefresh/a2/1"} {
+		run(t, repo, "update-ref", ref, head)
+	}
+
+	require.NoError(t, git.ReleaseRefsUnder(t.Context(), repo, "refs/weave/prerefresh/a1/", "refs/weave/prerefresh/a1/2"))
+
+	left := out(t, repo, "for-each-ref", "--format=%(refname)", "refs/weave/prerefresh/")
+	assert.Equal(t, "refs/weave/prerefresh/a1/2\nrefs/weave/prerefresh/a2/1", left,
+		"the current park stays and another agent's is untouched")
+}
+
+// TestPredictRebaseCountsWhatARebaseWouldReplay covers merge commits, which a rebase discards
+// rather than replays, so counting positions in the commit list overstates the work.
+func TestPredictRebaseCountsWhatARebaseWouldReplay(t *testing.T) {
+	t.Parallel()
+
+	repo := newRepo(t)
+	run(t, repo, "checkout", "--quiet", "-b", "agent/abc")
+	commitFile(t, repo, "mine.txt", "mine\n", "mine")
+	moveMain(t, repo, "theirs.txt", "theirs\n")
+	run(t, repo, "merge", "--quiet", "--no-ff", "-m", "merge main", "main")
+
+	require.Equal(t, "2", out(t, repo, "rev-list", "--count", "main..HEAD"),
+		"two commits of its own, one of them the merge")
+
+	prediction, err := git.PredictRebase(t.Context(), repo, "main")
+	require.NoError(t, err)
+
+	assert.Equal(t, 1, prediction.Merges)
+	assert.Equal(t, 1, prediction.Replay, "the merge is discarded rather than replayed")
 }

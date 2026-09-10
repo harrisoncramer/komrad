@@ -518,3 +518,97 @@ func TestRebaseParksBeforeItMoves(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "never committed", kept, "and so is the work that was never committed")
 }
+
+// TestRebaseMailsForAnAgentWithNoWorkOfItsOwn is the commonest press of all, where the agent is
+// simply behind, and must not be told its commits are gone when it never had any.
+func TestRebaseMailsForAnAgentWithNoWorkOfItsOwn(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	origin := filepath.Join(root, "origin")
+	gitRun(t, root, "init", "--quiet", "-b", "main", origin)
+	gitRun(t, origin, "config", "user.email", "t@example.com")
+	gitRun(t, origin, "config", "user.name", "t")
+	writeTree(t, origin, "base.txt", "base\n")
+	gitRun(t, origin, "add", "base.txt")
+	gitRun(t, origin, "commit", "--quiet", "-m", "base")
+
+	clone := filepath.Join(root, "clone")
+	gitRun(t, root, "clone", "--quiet", origin, clone)
+	gitRun(t, clone, "config", "user.email", "t@example.com")
+	gitRun(t, clone, "config", "user.name", "t")
+
+	tree := filepath.Join(root, "tree")
+	gitRun(t, clone, "worktree", "add", "--quiet", "--no-track", "-b", "agent/a1", tree, "origin/main")
+
+	writeTree(t, origin, "moved.txt", "main moved on\n")
+	gitRun(t, origin, "add", "moved.txt")
+	gitRun(t, origin, "commit", "--quiet", "-m", "main moved on")
+
+	service := NewRebaseService(NewRebaseServiceParams{
+		Agents: &recordingRebaseAgents{agent: agentstore.Agent{
+			ID: "a1", Name: "auth", WorkflowID: "w1", Cwd: tree, State: agentstore.StateIdle,
+		}},
+		Workflows: fakeRebaseWorkflows{flow: worktreeFlow()},
+	})
+
+	result, err := service.Rebase(t.Context(), "a1")
+	require.NoError(t, err)
+	require.Zero(t, result.Landed, "the fixture must be a branch that never had work of its own")
+
+	assert.False(t, result.Moved, "nothing landed, so nothing was moved off the branch")
+	body := rebaseMail(agentstore.Agent{}, *result)
+	assert.NotContains(t, body, "of your commits are no longer on the branch",
+		"an agent with no commits must not be told its commits are gone")
+	assert.Contains(t, body, "no commits of your own to replay")
+}
+
+// TestRebaseMailNamesThePark covers the undo being findable from every outcome, not only the one
+// where the whole branch landed.
+func TestRebaseMailNamesThePark(t *testing.T) {
+	t.Parallel()
+
+	for _, tt := range []struct {
+		name   string
+		result RebaseResult
+	}{
+		{
+			name:   "a rebase stopped on conflicts",
+			result: RebaseResult{Conflicted: true, ParkedRef: "refs/weave/prerefresh/a1/1"},
+		},
+		{
+			name: "a replay that dropped commits the base already held",
+			result: RebaseResult{
+				RebasePlan: RebasePlan{Landed: 2, Replay: 1},
+				ParkedRef:  "refs/weave/prerefresh/a1/1",
+			},
+		},
+		{
+			name: "a branch that reached the base without replaying anything",
+			result: RebaseResult{
+				RebasePlan: RebasePlan{Landed: 2},
+				Moved:      true,
+				ParkedRef:  "refs/weave/prerefresh/a1/1",
+			},
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			assert.Contains(t, rebaseMail(agentstore.Agent{}, tt.result), "refs/weave/prerefresh/a1/1")
+		})
+	}
+}
+
+// TestReplayedMailSaysWhatLeftTheBranch covers the case this whole change exists for, where
+// commits are dropped on purpose and the old wording said nothing was lost.
+func TestReplayedMailSaysWhatLeftTheBranch(t *testing.T) {
+	t.Parallel()
+
+	body := rebaseMail(agentstore.Agent{}, RebaseResult{
+		RebasePlan: RebasePlan{Landed: 2, Replay: 1},
+	})
+
+	assert.Contains(t, body, "2 of your commits are no longer on the branch")
+	assert.NotContains(t, body, "Nothing was lost")
+}
