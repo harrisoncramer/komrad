@@ -387,7 +387,8 @@ func failureReason(cause error) string {
 	return text
 }
 
-// notifyParents tells the spawner of each agent in told that it is gone.
+// notifyParents tells the spawner of each agent in told that it is gone, saying nothing about a
+// child.
 func notifyParents(ctx context.Context, notifier systemMailSender, told, going []agentstore.Agent, reason string) {
 	actor := caller.From(ctx).AgentID
 
@@ -397,11 +398,13 @@ func notifyParents(ctx context.Context, notifier systemMailSender, told, going [
 	}
 
 	for _, agent := range told {
+		if agent.ParentAgentID != nil {
+			continue
+		}
 		if agent.SpawnedByAgentID == nil || *agent.SpawnedByAgentID == actor {
 			continue
 		}
-		// A spawner going in the same call has nobody left to read the mail, which is what
-		// happens to a parent that takes its own children with it.
+		// A spawner going in the same call has nobody left to read the mail.
 		if leaving[*agent.SpawnedByAgentID] {
 			continue
 		}

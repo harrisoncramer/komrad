@@ -779,17 +779,9 @@ func seedRunning(t *testing.T, st *testStore, tmux paneStamper, name, pane strin
 	return agent
 }
 
-// seedChild records an agent attached to a parent that spawned it, which is the ordinary case:
-// an agent asks for a child of its own.
+// seedChild records an agent attached to a parent that spawned it, in that parent's workflow and
+// directory.
 func seedChild(t *testing.T, st *testStore, tmux paneStamper, parent agentstore.Agent) agentstore.Agent {
-	t.Helper()
-
-	return seedChildSpawnedBy(t, st, tmux, parent, parent.ID)
-}
-
-// seedChildSpawnedBy records an agent attached to a parent, in that parent's workflow and
-// directory, under whichever agent asked for it.
-func seedChildSpawnedBy(t *testing.T, st *testStore, tmux paneStamper, parent agentstore.Agent, spawnerID string) agentstore.Agent {
 	t.Helper()
 	ctx := t.Context()
 
@@ -802,7 +794,7 @@ func seedChildSpawnedBy(t *testing.T, st *testStore, tmux paneStamper, parent ag
 		Cwd:              parent.Cwd,
 		WorkflowID:       parent.WorkflowID,
 		ParentAgentID:    &parent.ID,
-		SpawnedByAgentID: &spawnerID,
+		SpawnedByAgentID: &parent.ID,
 		ProvisionEnabled: xptr.Ptr(false),
 	}))
 
