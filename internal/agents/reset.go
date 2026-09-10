@@ -14,6 +14,11 @@ import (
 	reviewstore "weave/internal/store/review"
 )
 
+// Explainer: the unreleased reviews are read once, in the plan, and carried to the teardown
+// rather than read again beside it. A second read could fail where the first succeeded, and the
+// reset would then delete drafts it had already decided were safe to delete, with nobody left
+// to tell that they had gone.
+
 // Explainer: a reset discards the agent's work rather than replaying it, so the ordering is the
 // whole safety argument. The park is written before anything is touched and a park that fails
 // stops the reset, because the park is the only way back to a tracked change or a commit the
@@ -46,6 +51,9 @@ type ResetPlan struct {
 	Commits int
 	// TrackedChanges says the worktree holds edits a reset would discard.
 	TrackedChanges bool
+	// Drafts are the unreleased reviews the round teardown would take, read here so that the
+	// reset acts on the same reading it was refused against.
+	Drafts []reviewstore.Review
 }
 
 // ResetResult is what a reset did.
@@ -94,7 +102,8 @@ func (s *RefreshService) PlanReset(ctx context.Context, agentID string) (*ResetP
 
 	// The rounds go with the reset, and the cascade takes an unreleased review and every thread
 	// under it, none of which the park holds.
-	if err := s.refuseOpenReview(ctx, agentID); err != nil {
+	drafts, err := s.readDrafts(ctx, agentID)
+	if err != nil {
 		return nil, err
 	}
 
@@ -114,6 +123,7 @@ func (s *RefreshService) PlanReset(ctx context.Context, agentID string) (*ResetP
 		Branch:         state.Branch,
 		Commits:        commits,
 		TrackedChanges: state.TrackedChanges,
+		Drafts:         drafts,
 	}, nil
 }
 
@@ -131,31 +141,6 @@ func (s *RefreshService) furnishings(ctx context.Context, agent agentstore.Agent
 	return append(append([]string{}, flow.Worktree.CopyPaths...), flow.Worktree.SymlinkPaths...)
 }
 
-// draftingReviews are the unreleased reviews of this agent, read before the teardown deletes
-// them so that whoever was writing one can be told.
-func (s *RefreshService) draftingReviews(ctx context.Context, agentID string) []reviewstore.Review {
-	if s.rounds == nil {
-		return nil
-	}
-
-	reviews, err := s.rounds.ListReviews(ctx, agentID)
-	if err != nil {
-		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to read who was reviewing a reset agent",
-			append([]slog.Attr{slog.String(logging.AgentID, agentID)}, logging.Err(err)...)...)
-
-		return nil
-	}
-
-	drafts := []reviewstore.Review{}
-	for _, review := range reviews {
-		if review.ReleasedAt == nil {
-			drafts = append(drafts, review)
-		}
-	}
-
-	return drafts
-}
-
 // buildDiscardRef names where a reset keeps what it destroyed, in a namespace of its own so
 // that a later refresh does not collect the only copy of work nothing else holds.
 func buildDiscardRef(agentID string) string {
@@ -168,25 +153,29 @@ func discardRefPrefix(agentID string) string {
 	return "refs/weave/discarded/" + agentID + "/"
 }
 
-// refuseOpenReview refuses while a human has an unreleased review of this agent, whose rows the
-// round teardown would delete with nothing holding a copy.
-func (s *RefreshService) refuseOpenReview(ctx context.Context, agentID string) error {
+// readDrafts are the unreleased reviews the teardown would take, refusing when one is a person's.
+func (s *RefreshService) readDrafts(ctx context.Context, agentID string) ([]reviewstore.Review, error) {
 	if s.rounds == nil {
-		return nil
+		return nil, nil
 	}
 
 	reviews, err := s.rounds.ListReviews(ctx, agentID)
 	if err != nil {
-		return fmt.Errorf("failed to read the reviews of agent %q: %w", agentID, err)
+		return nil, fmt.Errorf("failed to read the reviews of agent %q: %w", agentID, err)
 	}
 
+	drafts := []reviewstore.Review{}
 	for _, review := range reviews {
-		if review.AuthorKind == reviewstore.AuthorHuman && review.ReleasedAt == nil {
-			return ErrResetOpenReview
+		if review.ReleasedAt != nil {
+			continue
 		}
+		if review.AuthorKind == reviewstore.AuthorHuman {
+			return nil, ErrResetOpenReview
+		}
+		drafts = append(drafts, review)
 	}
 
-	return nil
+	return drafts, nil
 }
 
 // tellDraftingReviewers says so to the agents whose drafts the teardown took, since an agent
@@ -254,8 +243,6 @@ func (s *RefreshService) Reset(ctx context.Context, agentID string) (*ResetResul
 		return nil, err
 	}
 
-	drafts := s.draftingReviews(ctx, agentID)
-
 	rounds, roundsErr := s.tearDownRounds(ctx, *agent)
 	result.Rounds = rounds
 	if roundsErr != nil {
@@ -264,7 +251,7 @@ func (s *RefreshService) Reset(ctx context.Context, agentID string) (*ResetResul
 	result.ClearedPullRequest = s.clearPullRequest(ctx, *agent)
 
 	if roundsErr == nil {
-		s.tellDraftingReviewers(ctx, *agent, drafts)
+		s.tellDraftingReviewers(ctx, *agent, plan.Drafts)
 	}
 
 	// releaseOlderParks is deliberately not called, since sweeping the replay namespace here

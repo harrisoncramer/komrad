@@ -208,6 +208,7 @@ func readTree(t *testing.T, dir, name string) string {
 type fakeRounds struct {
 	rounds    []reviewstore.Round
 	reviews   []reviewstore.Review
+	listErr   error
 	deleted   bool
 	deleteErr error
 }
@@ -217,6 +218,10 @@ func (f *fakeRounds) ListRounds(context.Context, string) ([]reviewstore.Round, e
 }
 
 func (f *fakeRounds) ListReviews(context.Context, string) ([]reviewstore.Review, error) {
+	if f.listErr != nil {
+		return nil, f.listErr
+	}
+
 	return f.reviews, nil
 }
 
@@ -526,4 +531,18 @@ func TestResetLeavesTheReplayParksAlone(t *testing.T) {
 
 	_, err = git.Run(t.Context(), tree, "rev-parse", "--verify", replayPark)
 	require.NoError(t, err, "a rebase said this was kept, and a reset is not the key that takes it")
+}
+
+// TestResetRefusesWhenItCannotReadTheReviews covers the read that decides whether anybody has a
+// draft, since proceeding on a failure would delete drafts with nobody to tell.
+func TestResetRefusesWhenItCannotReadTheReviews(t *testing.T) {
+	t.Parallel()
+
+	tree := buildResetWorktree(t)
+	service := resetService(t, tree, &fakeRounds{listErr: errors.New("the reviews could not be read")})
+
+	_, err := service.Reset(t.Context(), "a1")
+	require.ErrorContains(t, err, "could not be read")
+
+	assert.Equal(t, "edited and not committed\n", readTree(t, tree, "tracked.txt"), "and nothing was discarded")
 }
