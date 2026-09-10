@@ -460,8 +460,8 @@ func TestMessagesPulseHoldsStillOnAnOlderMessage(t *testing.T) {
 }
 
 // TestChromeKeepsEveryRowInsideThePane covers the invariant every block of chrome the panel draws
-// is held to: a reason holding a path is one word to a word wrap, and a row wider than the pane
-// wraps in the terminal and costs the frame the row at the bottom.
+// is held to: a reason holding a path is one word to a word wrap, and the renderer cuts a row
+// wider than the pane, so the middle of the path is missing from the screen.
 func TestChromeKeepsEveryRowInsideThePane(t *testing.T) {
 	const path = "/Users/harrisoncramer/.local/state/weave/worktrees/01a086ae-d59b-769b-a8a0-202d4014bddd/bin/editor"
 

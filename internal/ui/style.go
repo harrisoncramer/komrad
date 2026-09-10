@@ -284,7 +284,7 @@ func clipName(name string) string {
 }
 
 // wrapRows is prose wrapped into the column it is drawn in, breaking a token longer than the
-// column rather than handing back a row the pane would wrap and cost the frame its bottom row.
+// column rather than handing back a row the renderer cuts, which drops the tail of a path.
 func wrapRows(text string, width int) []string {
 	width = max(width, 1)
 
