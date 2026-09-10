@@ -45,7 +45,7 @@ func TestCopyResultReportsOnFailure(t *testing.T) {
 	updated, cmd := m.Update(copyResult{err: errors.New("no clipboard utility found")})
 	next, ok := updated.(model)
 	require.True(t, ok)
-	require.Nil(t, cmd)
+	require.NotNil(t, cmd, "the message that just landed blinks")
 	require.NotEmpty(t, next.messages.items)
 	assert.Contains(t, newestMessage(next).summary, "clipboard")
 

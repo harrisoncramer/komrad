@@ -404,3 +404,57 @@ func TestMessagesRefuseFocusWithNothingToRead(t *testing.T) {
 
 	assert.False(t, m.toggleMessagesFocus().isMessagesFocused())
 }
+
+// TestMessagesPulseBlinksWhatJustLanded covers a message blinking five times as it lands and
+// leaving the row as it found it.
+func TestMessagesPulseBlinksWhatJustLanded(t *testing.T) {
+	restore := lipgloss.ColorProfile()
+	t.Cleanup(func() { lipgloss.SetColorProfile(restore) })
+	lipgloss.SetColorProfile(termenv.TrueColor)
+
+	lit, _, _ := strings.Cut(flashFieldStyle.Render("x"), "x")
+	require.NotEmpty(t, lit)
+
+	m := detailsModel(&recordingTmux{})
+	m.height, m.width = 40, 120
+	m.pushMessage(message{
+		kind:    messageError,
+		summary: "Nothing to review in fix-ci",
+		detail:  "no change against the base",
+	})
+
+	settled := m.messagesSlot()[0]
+	assert.NotContains(t, settled, lit)
+
+	m, cmd := m.pulseMessages(m.messages.landed - 1)
+	require.NotNil(t, cmd)
+
+	blinks := 0
+	for {
+		if strings.Contains(m.messagesSlot()[0], lit) {
+			blinks++
+		}
+
+		if m.advancePulses() == nil {
+			break
+		}
+	}
+
+	assert.Equal(t, messagesPulseBlinks, blinks)
+	assert.Equal(t, settled, m.messagesSlot()[0])
+}
+
+// TestMessagesPulseHoldsStillOnAnOlderMessage covers a message landing while the reader is back
+// in the stack, where the blink would draw the eye to the wrong summary.
+func TestMessagesPulseHoldsStillOnAnOlderMessage(t *testing.T) {
+	m := detailsModel(&recordingTmux{})
+	m.height, m.width = 40, 120
+	m.pushMessage(message{summary: "first", detail: "one"})
+	m.pushMessage(message{summary: "second", detail: "two"})
+
+	m, _ = m.pulseMessages(m.messages.landed - 1)
+	require.True(t, m.messagesPulseOn())
+
+	m.messages.cursor = 1
+	assert.False(t, m.messagesPulseOn())
+}

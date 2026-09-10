@@ -45,9 +45,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	routed, blink := routed.updateRowCursor(msg)
 	routed, warming := routed.pollWarmup()
+	routed, pulse := routed.pulseMessages(m.messages.landed)
 	routed.holdFocusKey()
 
-	return routed, tea.Batch(cmd, blink, warming)
+	return routed, tea.Batch(cmd, blink, warming, pulse)
 }
 
 // holdFocusKey binds the focus key while an agent's pane is on the stage, and gives it back when
@@ -317,6 +318,10 @@ func (m model) routeAsyncMessage(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
 		m.applyCopy(msg)
 
 		return m, nil, true
+	case pulseMsg:
+		cmd := m.advancePulses()
+
+		return m, cmd, true
 	case flashRevertMsg:
 		m.details.flashed = 0
 		m.messages.flashed = 0

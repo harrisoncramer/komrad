@@ -44,6 +44,9 @@ const messagesMockKey = "M"
 // messagesCap is how far back the stack goes.
 const messagesCap = 50
 
+// messagesPulseBlinks is how many times the summary of a message blinks as it lands.
+const messagesPulseBlinks = 5
+
 type messageKind int
 
 const (
@@ -70,6 +73,23 @@ type messagesState struct {
 	// taken.
 	field   int
 	flashed int
+	// landed counts the messages pushed, and pulse blinks the newest of them as it arrives.
+	landed int
+	pulse  pulse
+}
+
+// pulseMessages blinks the summary when the stack has grown since the count it is given.
+func (m model) pulseMessages(before int) (model, tea.Cmd) {
+	if m.messages.landed == before {
+		return m, nil
+	}
+
+	return m, m.startPulse(&m.messages.pulse, messagesPulseBlinks)
+}
+
+// messagesPulseOn reports whether the newest message is in the lit half of a blink.
+func (m model) messagesPulseOn() bool {
+	return m.messages.pulse.lit() && m.messagesCursor() == 0
 }
 
 // messagePiece is one part of a message the cursor stands on: the label it is drawn behind, the
@@ -281,7 +301,7 @@ func (m model) messagesSummaryStyle(held message, taken int, flashed bool) strin
 	if m.messages.focused {
 		style = style.Bold(true)
 	}
-	if flashed {
+	if flashed || m.messagesPulseOn() {
 		style = flashFieldStyle
 	}
 
@@ -331,6 +351,7 @@ func (m *model) pushMessage(next message) {
 		next.at = time.Now()
 	}
 
+	m.messages.landed++
 	m.messages.items = append([]message{next}, m.messages.items...)
 	if len(m.messages.items) > messagesCap {
 		m.messages.items = m.messages.items[:messagesCap]
