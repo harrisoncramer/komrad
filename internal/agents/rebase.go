@@ -193,7 +193,7 @@ func (s *RebaseService) Rebase(ctx context.Context, agentID string) (*RebaseResu
 
 	// Parked before anything moves, since a replay from a cutoff drops commits on purpose and
 	// the reflog holds refs rather than the files that were never committed.
-	result.ParkedRef = parkRef(agentID)
+	result.ParkedRef = buildParkRef(agentID)
 	if _, err := git.Park(ctx, agent.Cwd, result.ParkedRef); err != nil {
 		return nil, err
 	}
@@ -212,9 +212,9 @@ func (s *RebaseService) Rebase(ctx context.Context, agentID string) (*RebaseResu
 	return result, nil
 }
 
-// parkRef is where a checkout is held before it is moved, named so that one agent's parks sort
+// buildParkRef names where a checkout is held before it is moved, so that one agent's parks sort
 // together and nothing collides with another's.
-func parkRef(agentID string) string {
+func buildParkRef(agentID string) string {
 	return fmt.Sprintf("refs/weave/prerefresh/%s/%d", agentID, time.Now().UnixNano())
 }
 

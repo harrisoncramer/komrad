@@ -1389,20 +1389,33 @@ func TestRefreshRebaseLabelNamesWhatWillRun(t *testing.T) {
 		wantNone []string
 	}{
 		{
-			name:     "an ordinary rebase says what it replays",
-			plan:     refreshPlan{baseRef: "origin/main", baseSHA: "a6e5d5cd1234", replay: 3},
+			name: "an ordinary rebase says what it replays",
+			plan: refreshPlan{
+				baseRef: "origin/main",
+				baseSHA: "a6e5d5cd1234",
+				replay:  3,
+			},
 			want:     []string{"Rebase onto origin/main", "replaying 3 commits"},
 			wantNone: []string{"already holds"},
 		},
 		{
-			name:     "a branch whose work all landed is moved, not rebased",
-			plan:     refreshPlan{baseRef: "origin/main", baseSHA: "a6e5d5cd1234", landed: 3},
+			name: "a branch whose work all landed is moved, not rebased",
+			plan: refreshPlan{
+				baseRef: "origin/main",
+				baseSHA: "a6e5d5cd1234",
+				landed:  3,
+			},
 			want:     []string{"Move onto origin/main", "dropping 3 commits"},
 			wantNone: []string{"Rebase"},
 		},
 		{
 			name: "a branch partly landed says both halves",
-			plan: refreshPlan{baseRef: "origin/main", baseSHA: "a6e5d5cd1234", landed: 2, replay: 1},
+			plan: refreshPlan{
+				baseRef: "origin/main",
+				baseSHA: "a6e5d5cd1234",
+				landed:  2,
+				replay:  1,
+			},
 			want: []string{"Rebase onto origin/main", "replaying 1 commit", "dropping 2"},
 		},
 	} {

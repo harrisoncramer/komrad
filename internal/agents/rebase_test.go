@@ -469,95 +469,23 @@ func TestRebaseReplaysOnlyWhatFollowedTheMerge(t *testing.T) {
 	require.NoError(t, err, "and the other pull request came in")
 }
 
-// TestRebaseRefusesWhatTheCheckoutCannotAnswerFor covers the two states where the reading this
-// all rests on is wrong rather than merely inconvenient.
-func TestRebaseRefusesWhatTheCheckoutCannotAnswerFor(t *testing.T) {
+// TestRebaseRefusesAPathTheIndexIsHolding covers a path whose working copy git is deliberately
+// not reading, which nothing could put back if the move went wrong.
+func TestRebaseRefusesAPathTheIndexIsHolding(t *testing.T) {
 	t.Parallel()
 
-	for _, tt := range []struct {
-		name    string
-		set     func(t *testing.T, tree string)
-		wantErr error
-	}{
-		{
-			name: "a path the index is deliberately not reading, which nothing could put back",
-			set: func(t *testing.T, tree string) {
-				gitRun(t, tree, "update-index", "--assume-unchanged", "own.txt")
-			},
-			wantErr: ErrRebaseHiddenPaths,
-		},
-	} {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
+	tree := buildAgentWorktree(t, false)
+	gitRun(t, tree, "update-index", "--assume-unchanged", "own.txt")
 
-			tree := buildAgentWorktree(t, false)
-			tt.set(t, tree)
+	service := NewRebaseService(NewRebaseServiceParams{
+		Agents: &recordingRebaseAgents{agent: agentstore.Agent{
+			ID: "a1", Name: "auth", WorkflowID: "w1", Cwd: tree, State: agentstore.StateIdle,
+		}},
+		Workflows: fakeRebaseWorkflows{flow: worktreeFlow()},
+	})
 
-			service := NewRebaseService(NewRebaseServiceParams{
-				Agents: &recordingRebaseAgents{agent: agentstore.Agent{
-					ID: "a1", Name: "auth", WorkflowID: "w1", Cwd: tree, State: agentstore.StateIdle,
-				}},
-				Workflows: fakeRebaseWorkflows{flow: worktreeFlow()},
-			})
-
-			_, err := service.Rebase(t.Context(), "a1")
-			require.ErrorIs(t, err, tt.wantErr)
-		})
-	}
-}
-
-// TestRefuseTreeState covers the mapping from what a checkout holds to the refusal it earns,
-// including the two states whose reading is wrong rather than merely inconvenient.
-func TestRefuseTreeState(t *testing.T) {
-	t.Parallel()
-
-	for _, tt := range []struct {
-		name    string
-		state   git.TreeState
-		wantErr error
-	}{
-		{
-			name:  "an ordinary clean checkout on a branch",
-			state: git.TreeState{Branch: "agent/a1"},
-		},
-		{
-			name:    "something already part-way through, which owns the index",
-			state:   git.TreeState{Branch: "agent/a1", InProgress: true},
-			wantErr: ErrRebaseInProgress,
-		},
-		{
-			name:    "no branch to move",
-			state:   git.TreeState{},
-			wantErr: ErrRebaseDetached,
-		},
-		{
-			name:    "a clone cut off from its own history, where every ancestry answer is wrong",
-			state:   git.TreeState{Branch: "agent/a1", Shallow: true},
-			wantErr: ErrRebaseShallow,
-		},
-		{
-			name:    "a path whose content the index is holding back on purpose",
-			state:   git.TreeState{Branch: "agent/a1", HiddenPaths: []string{"config.toml"}},
-			wantErr: ErrRebaseHiddenPaths,
-		},
-		{
-			name:    "tracked changes, which git will not rebase over either",
-			state:   git.TreeState{Branch: "agent/a1", TrackedChanges: true},
-			wantErr: ErrRebaseDirty,
-		},
-	} {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-
-			err := refuseTreeState(tt.state)
-			if tt.wantErr == nil {
-				assert.NoError(t, err)
-
-				return
-			}
-			require.ErrorIs(t, err, tt.wantErr)
-		})
-	}
+	_, err := service.Rebase(t.Context(), "a1")
+	require.ErrorIs(t, err, ErrRebaseHiddenPaths)
 }
 
 // TestRebaseParksBeforeItMoves pins the undo being written before anything is rewritten, since

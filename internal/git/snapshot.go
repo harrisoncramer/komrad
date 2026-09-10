@@ -18,6 +18,9 @@ import (
 // snapshotMessage is what the round's commit says.
 const snapshotMessage = "weave review round"
 
+// parkMessage is what the commit standing behind an undo says.
+const parkMessage = "weave parked worktree"
+
 // snapshotIdentity is who the round's commit is by and when, both pinned so that the same
 // worktree taken twice hashes to the same commit and reads as one round.
 var snapshotIdentity = []string{
@@ -289,9 +292,6 @@ func GetTree(ctx context.Context, dir, sha string) (string, error) {
 
 	return tree, nil
 }
-
-// parkMessage is what the commit standing behind an undo says.
-const parkMessage = "weave parked worktree"
 
 // Park records a checkout as it stands, tracked and untracked alike, so a move can be undone.
 func Park(ctx context.Context, dir, ref string) (string, error) {
