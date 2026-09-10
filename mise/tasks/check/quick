@@ -22,8 +22,8 @@ usage() {
 	echo "building it is the slow half of go:lint. Run 'mise run go:build-linter'"
 	echo "once and every later check:quick lints for free."
 	echo
-	echo "buf lint runs only when your branch changed a .proto, since it builds the"
-	echo "check plugin weave's own proto rules live in."
+	echo "buf format and buf lint run only when your branch changed a .proto, since"
+	echo "linting builds the check plugin weave's own proto rules live in."
 }
 
 for arg in "$@"; do
@@ -117,6 +117,7 @@ run_step "go build" go build ./...
 
 if [ -n "$(changed_files | grep '\.proto$' || true)" ]; then
 	PROTO_LINTED=true
+	run_step "proto:fmt --check" mise run proto:fmt --check
 	run_step "proto:lint" mise run proto:lint
 fi
 
@@ -162,7 +163,8 @@ else
 fi
 
 if [ "$PROTO_LINTED" = true ]; then
-	echo "  linted    the protobufs too, since your branch changed one"
+	echo "  linted    the protobufs too, and checked their formatting, since your"
+	echo "            branch changed one"
 fi
 
 echo "  formatted shell and Go, in reporting mode"

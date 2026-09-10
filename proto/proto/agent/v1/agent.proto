@@ -9,8 +9,8 @@ import "annotation/v1/tool.proto";
 import "buf/validate/validate.proto";
 import "google/protobuf/empty.proto";
 import "pagination/v1/pagination.proto";
-import "view/v1/view.proto";
 import "rules/v1/rules.proto";
+import "view/v1/view.proto";
 
 option go_package = "weave/proto/gen/agent/v1;agentv1";
 

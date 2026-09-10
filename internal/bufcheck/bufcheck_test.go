@@ -57,6 +57,45 @@ func TestRules(t *testing.T) {
 			},
 		},
 		{
+			name:   "a request's id fields refuse the empty string",
+			ruleID: bufcheck.RequestIDRuleID,
+			want: []checktest.ExpectedAnnotation{
+				{
+					RuleID:  bufcheck.RequestIDRuleID,
+					Message: idMessage("id"),
+					FileLocation: &checktest.ExpectedFileLocation{
+						FileName:    testFile,
+						StartLine:   44,
+						StartColumn: 2,
+						EndLine:     44,
+						EndColumn:   16,
+					},
+				},
+				{
+					RuleID:  bufcheck.RequestIDRuleID,
+					Message: idMessage("agent_id"),
+					FileLocation: &checktest.ExpectedFileLocation{
+						FileName:    testFile,
+						StartLine:   45,
+						StartColumn: 2,
+						EndLine:     45,
+						EndColumn:   22,
+					},
+				},
+				{
+					RuleID:  bufcheck.RequestIDRuleID,
+					Message: idMessage("ids"),
+					FileLocation: &checktest.ExpectedFileLocation{
+						FileName:    testFile,
+						StartLine:   46,
+						StartColumn: 2,
+						EndLine:     46,
+						EndColumn:   26,
+					},
+				},
+			},
+		},
+		{
 			name:   "a repeatable write declares idempotent",
 			ruleID: bufcheck.MutationRuleID,
 			want: []checktest.ExpectedAnnotation{
@@ -111,6 +150,13 @@ func readMessage(method string) string {
 
 func mutationMessage(method string) string {
 	return message(method, "a write that can be repeated", "IDEMPOTENT")
+}
+
+func idMessage(field string) string {
+	return fmt.Sprintf(
+		"%q names an id on IDRequest, so it must carry a validation rule refusing it empty, such as (buf.validate.field).string.min_len = 1. The CLI marks a flag required and the MCP schema marks a field required from that rule, so without it both surfaces call the field optional while GetThing still needs it.",
+		field,
+	)
 }
 
 func message(method string, kind string, level string) string {
