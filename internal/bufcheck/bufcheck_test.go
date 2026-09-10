@@ -61,7 +61,7 @@ func TestRules(t *testing.T) {
 			want: []checktest.ExpectedAnnotation{
 				{
 					RuleID:  bufcheck.RequestIDRuleID,
-					Message: idMessage("id"),
+					Message: idMessage("id", "IDRequest", "GetThing"),
 					FileLocation: &checktest.ExpectedFileLocation{
 						FileName:    testFile,
 						StartLine:   44,
@@ -72,7 +72,7 @@ func TestRules(t *testing.T) {
 				},
 				{
 					RuleID:  bufcheck.RequestIDRuleID,
-					Message: idMessage("agent_id"),
+					Message: idMessage("agent_id", "IDRequest", "GetThing"),
 					FileLocation: &checktest.ExpectedFileLocation{
 						FileName:    testFile,
 						StartLine:   45,
@@ -83,13 +83,35 @@ func TestRules(t *testing.T) {
 				},
 				{
 					RuleID:  bufcheck.RequestIDRuleID,
-					Message: idMessage("ids"),
+					Message: idMessage("ids", "IDRequest", "GetThing"),
 					FileLocation: &checktest.ExpectedFileLocation{
 						FileName:    testFile,
 						StartLine:   46,
 						StartColumn: 2,
 						EndLine:     46,
 						EndColumn:   26,
+					},
+				},
+				{
+					RuleID:  bufcheck.RequestIDRuleID,
+					Message: idMessage("agent_id", "Inner", "GetNested"),
+					FileLocation: &checktest.ExpectedFileLocation{
+						FileName:    testFile,
+						StartLine:   75,
+						StartColumn: 2,
+						EndLine:     75,
+						EndColumn:   22,
+					},
+				},
+				{
+					RuleID:  bufcheck.RequestIDRuleID,
+					Message: idMessage("round_id", "Loop", "GetNested"),
+					FileLocation: &checktest.ExpectedFileLocation{
+						FileName:    testFile,
+						StartLine:   82,
+						StartColumn: 2,
+						EndLine:     82,
+						EndColumn:   22,
 					},
 				},
 			},
@@ -100,7 +122,7 @@ func TestRules(t *testing.T) {
 			want: []checktest.ExpectedAnnotation{
 				{
 					RuleID:  bufcheck.RequestEnumRuleID,
-					Message: enumMessage("colour", "(buf.validate.field).enum.defined_only = true"),
+					Message: enumMessage("colour", "EnumRequest", "(buf.validate.field).enum.defined_only = true", "GetEnum"),
 					FileLocation: &checktest.ExpectedFileLocation{
 						FileName:    testFile,
 						StartLine:   63,
@@ -111,13 +133,35 @@ func TestRules(t *testing.T) {
 				},
 				{
 					RuleID:  bufcheck.RequestEnumRuleID,
-					Message: enumMessage("colours", "(buf.validate.field).repeated.items.enum.defined_only = true"),
+					Message: enumMessage("colours", "EnumRequest", "(buf.validate.field).repeated.items.enum.defined_only = true", "GetEnum"),
 					FileLocation: &checktest.ExpectedFileLocation{
 						FileName:    testFile,
 						StartLine:   65,
 						StartColumn: 2,
 						EndLine:     65,
 						EndColumn:   30,
+					},
+				},
+				{
+					RuleID:  bufcheck.RequestEnumRuleID,
+					Message: enumMessage("tint", "Inner", "(buf.validate.field).enum.defined_only = true", "GetNested"),
+					FileLocation: &checktest.ExpectedFileLocation{
+						FileName:    testFile,
+						StartLine:   76,
+						StartColumn: 2,
+						EndLine:     76,
+						EndColumn:   18,
+					},
+				},
+				{
+					RuleID:  bufcheck.RequestEnumRuleID,
+					Message: enumMessage("palette", "NestedRequest", "(buf.validate.field).map.values.enum.defined_only = true", "GetNested"),
+					FileLocation: &checktest.ExpectedFileLocation{
+						FileName:    testFile,
+						StartLine:   87,
+						StartColumn: 2,
+						EndLine:     87,
+						EndColumn:   34,
 					},
 				},
 			},
@@ -179,18 +223,22 @@ func mutationMessage(method string) string {
 	return message(method, "a write that can be repeated", "IDEMPOTENT")
 }
 
-func idMessage(field string) string {
+func idMessage(field string, message string, method string) string {
 	return fmt.Sprintf(
-		"%q names an id on IDRequest, so it must carry a validation rule refusing it empty, such as (buf.validate.field).string.min_len = 1. The CLI marks a flag required and the MCP schema marks a field required from that rule, so without it both surfaces call the field optional while GetThing still needs it.",
+		"%q names an id on %s, so it must carry a validation rule refusing it empty, such as (buf.validate.field).string.min_len = 1. The CLI marks a flag required and the MCP schema marks a field required from that rule, so without it both surfaces call the field optional while %s still needs it.",
 		field,
+		message,
+		method,
 	)
 }
 
-func enumMessage(field string, spelling string) string {
+func enumMessage(field string, message string, spelling string, method string) string {
 	return fmt.Sprintf(
-		"%q on EnumRequest must carry %s. Without it a number the enum does not define reaches GetEnum as a value no switch over it expects.",
+		"%q on %s must carry %s. Without it a number the enum does not define reaches %s as a value no switch over it expects.",
 		field,
+		message,
 		spelling,
+		method,
 	)
 }
 

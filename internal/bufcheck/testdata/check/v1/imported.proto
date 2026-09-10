@@ -1,0 +1,17 @@
+syntax = "proto3";
+
+package check.v1;
+
+import "google/protobuf/type.proto";
+
+message ImportedRequest {
+  google.protobuf.Field field = 1;
+}
+
+message ImportedResponse {}
+
+service ImportedService {
+  rpc GetImported(ImportedRequest) returns (ImportedResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+}

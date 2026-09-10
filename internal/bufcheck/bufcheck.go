@@ -52,14 +52,14 @@ var (
 			{
 				ID:      RequestIDRuleID,
 				Default: true,
-				Purpose: "Checks that a field naming an id on a request carries a validation rule refusing it empty.",
+				Purpose: "Checks that a field naming an id that a request reaches carries a validation rule refusing it empty.",
 				Type:    check.RuleTypeLint,
 				Handler: checkutil.NewMethodRuleHandler(checkRequestIDs, checkutil.WithoutImports()),
 			},
 			{
 				ID:      RequestEnumRuleID,
 				Default: true,
-				Purpose: "Checks that an enum field named directly on a request carries a validation rule refusing a value the enum does not define.",
+				Purpose: "Checks that an enum field a request reaches carries a validation rule refusing a value the enum does not define.",
 				Type:    check.RuleTypeLint,
 				Handler: checkutil.NewMethodRuleHandler(checkRequestEnums, checkutil.WithoutImports()),
 			},
@@ -102,12 +102,10 @@ func checkMutation(
 func checkRequestIDs(
 	_ context.Context,
 	responseWriter check.ResponseWriter,
-	_ check.Request,
+	request check.Request,
 	method protoreflect.MethodDescriptor,
 ) error {
-	fields := method.Input().Fields()
-	for i := range fields.Len() {
-		field := fields.Get(i)
+	for message, field := range requestFields(request, method) {
 		if !namesAnID(field) || refusesEmpty(field) {
 			continue
 		}
@@ -117,7 +115,7 @@ func checkRequestIDs(
 			check.WithMessagef(
 				"%q names an id on %s, so it must carry a validation rule refusing it empty, such as (buf.validate.field).string.min_len = 1. The CLI marks a flag required and the MCP schema marks a field required from that rule, so without it both surfaces call the field optional while %s still needs it.",
 				field.Name(),
-				method.Input().Name(),
+				message.Name(),
 				method.Name(),
 			),
 		)
@@ -129,13 +127,11 @@ func checkRequestIDs(
 func checkRequestEnums(
 	_ context.Context,
 	responseWriter check.ResponseWriter,
-	_ check.Request,
+	request check.Request,
 	method protoreflect.MethodDescriptor,
 ) error {
-	fields := method.Input().Fields()
-	for i := range fields.Len() {
-		field := fields.Get(i)
-		if field.Kind() != protoreflect.EnumKind || definedOnly(field) {
+	for message, field := range requestFields(request, method) {
+		if !holdsEnum(field) || definedOnly(field) {
 			continue
 		}
 
@@ -144,7 +140,7 @@ func checkRequestEnums(
 			check.WithMessagef(
 				"%q on %s must carry %s. Without it a number the enum does not define reaches %s as a value no switch over it expects.",
 				field.Name(),
-				method.Input().Name(),
+				message.Name(),
 				definedOnlySpelling(field),
 				method.Name(),
 			),
@@ -154,12 +150,23 @@ func checkRequestEnums(
 	return nil
 }
 
-func definedOnlySpelling(field protoreflect.FieldDescriptor) string {
-	if field.IsList() {
-		return "(buf.validate.field).repeated.items.enum.defined_only = true"
+func holdsEnum(field protoreflect.FieldDescriptor) bool {
+	if field.IsMap() {
+		return field.MapValue().Kind() == protoreflect.EnumKind
 	}
 
-	return "(buf.validate.field).enum.defined_only = true"
+	return field.Kind() == protoreflect.EnumKind
+}
+
+func definedOnlySpelling(field protoreflect.FieldDescriptor) string {
+	switch {
+	case field.IsMap():
+		return "(buf.validate.field).map.values.enum.defined_only = true"
+	case field.IsList():
+		return "(buf.validate.field).repeated.items.enum.defined_only = true"
+	default:
+		return "(buf.validate.field).enum.defined_only = true"
+	}
 }
 
 func definedOnly(field protoreflect.FieldDescriptor) bool {
@@ -168,11 +175,14 @@ func definedOnly(field protoreflect.FieldDescriptor) bool {
 		return false
 	}
 
-	if field.IsList() {
+	switch {
+	case field.IsMap():
+		return rules.GetMap().GetValues().GetEnum().GetDefinedOnly()
+	case field.IsList():
 		return rules.GetRepeated().GetItems().GetEnum().GetDefinedOnly()
+	default:
+		return rules.GetEnum().GetDefinedOnly()
 	}
-
-	return rules.GetEnum().GetDefinedOnly()
 }
 
 func namesAnID(field protoreflect.FieldDescriptor) bool {
