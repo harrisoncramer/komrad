@@ -62,6 +62,7 @@ const (
 	actionScheduleBack
 	actionMailBack
 	actionArchiveRestore
+	actionArchiveRestoreOpen
 	actionArchiveDelete
 	actionArchiveEmpty
 	actionArchiveBack

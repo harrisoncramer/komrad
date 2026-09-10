@@ -34,11 +34,13 @@ func TestArchiveKeys(t *testing.T) {
 		name                 string
 		empty                bool
 		archivedFolder       bool
+		state                agentstore.State
 		cursor               int
 		key                  string
 		wantScreen           screen
 		wantForm             formKind
 		wantRestored         []string
+		wantResumed          []string
 		wantRestoredWorkflow []string
 		wantDeleted          []string
 	}{
@@ -49,11 +51,32 @@ func TestArchiveKeys(t *testing.T) {
 			wantScreen: screenAgents,
 		},
 		{
-			name:         "restore puts the hovered agent back",
+			name:         "restore puts the hovered agent back and leaves it dormant",
 			key:          "r",
 			cursor:       1,
 			wantScreen:   screenArchive,
 			wantRestored: []string{"a1"},
+		},
+		{
+			name:         "restore and open puts the agent back and opens it",
+			key:          "R",
+			cursor:       1,
+			wantScreen:   screenAgents,
+			wantRestored: []string{"a1"},
+			wantResumed:  []string{"a1"},
+		},
+		{
+			name:       "restore and open passes over an agent that never started",
+			state:      agentstore.StateFailedToCreate,
+			key:        "R",
+			cursor:     1,
+			wantScreen: screenArchive,
+		},
+		{
+			name:       "restore and open passes over a folder",
+			cursor:     0,
+			key:        "R",
+			wantScreen: screenArchive,
 		},
 		{
 			name:       "delete opens the confirm prompt rather than destroying",
@@ -125,6 +148,9 @@ func TestArchiveKeys(t *testing.T) {
 			workflows := &fakeArchiveWorkflows{}
 			m := archiveModel(agents, workflows, keys)
 			m.archive.cursor = tt.cursor
+			if tt.state != "" {
+				m.archive.agents[0].State = tt.state
+			}
 			if tt.archivedFolder {
 				m.listing.workflows = nil
 				m.archive.workflows = []workflowstore.Workflow{archivedWorkflow("w1", "backend")}
@@ -142,6 +168,7 @@ func TestArchiveKeys(t *testing.T) {
 			assert.Equal(t, tt.wantScreen, got.screen)
 			assert.Equal(t, tt.wantForm, got.form.kind, "the prompt that opened, if any")
 			assert.Equal(t, tt.wantRestored, agents.restored)
+			assert.Equal(t, tt.wantResumed, agents.resumed)
 			assert.Equal(t, tt.wantRestoredWorkflow, workflows.restored)
 			assert.Equal(t, tt.wantDeleted, agents.deleted)
 		})
@@ -243,6 +270,7 @@ func TestArchiveHelpSplitsOnTheRow(t *testing.T) {
 	tests := []struct {
 		name        string
 		archived    bool
+		neverViable bool
 		cursor      int
 		wants       []string
 		wantsAbsent []string
@@ -261,7 +289,14 @@ func TestArchiveHelpSplitsOnTheRow(t *testing.T) {
 		{
 			name:   "on an agent",
 			cursor: 1,
-			wants:  []string{"restore", "delete for good"},
+			wants:  []string{"restore", "restore and open", "delete for good"},
+		},
+		{
+			name:        "on an agent that never started",
+			cursor:      1,
+			neverViable: true,
+			wants:       []string{"restore", "delete for good"},
+			wantsAbsent: []string{"restore and open"},
 		},
 	}
 
@@ -270,6 +305,9 @@ func TestArchiveHelpSplitsOnTheRow(t *testing.T) {
 			m := archiveModel(&fakeArchiveAgents{}, &fakeArchiveWorkflows{}, config.DefaultKeybindings())
 			m.archive.cursor = tt.cursor
 			m.helpExpanded = true
+			if tt.neverViable {
+				m.archive.agents[0].State = agentstore.StateFailedToCreate
+			}
 			if tt.archived {
 				m.listing.workflows = nil
 				m.archive.workflows = []workflowstore.Workflow{archivedWorkflow("w1", "backend")}
@@ -505,6 +543,11 @@ func TestRefusedArchiveWritesAreReported(t *testing.T) {
 			wantSummary: `Could not restore workflow "backend"`,
 		},
 		{
+			name:        "a refused restore and open",
+			act:         pressRestoreOpen,
+			wantSummary: `Could not restore and open agent "api-refactor"`,
+		},
+		{
 			name: "a refused delete",
 			act: func(t *testing.T, m model) model {
 				t.Helper()
@@ -545,6 +588,16 @@ func pressRestore(t *testing.T, m model) model {
 	t.Helper()
 
 	updated, cmd := m.restoreFromArchive()
+	pressed, ok := updated.(model)
+	require.True(t, ok)
+
+	return settle(t, pressed, cmd)
+}
+
+func pressRestoreOpen(t *testing.T, m model) model {
+	t.Helper()
+
+	updated, cmd := m.restoreAndOpen()
 	pressed, ok := updated.(model)
 	require.True(t, ok)
 
@@ -761,6 +814,7 @@ func archiveModel(agents agentv1connect.AgentServiceClient, workflows workflowv1
 				ID:         "a1",
 				Name:       "api-refactor",
 				WorkflowID: "w1",
+				State:      agentstore.StateIdle,
 			}},
 			rowCursor: rowCursor{cursor: 1},
 		},
@@ -822,6 +876,7 @@ type fakeArchiveAgents struct {
 	mu             sync.Mutex
 	err            error
 	restored       []string
+	resumed        []string
 	deleted        []string
 	emptied        int
 	listedArchived []bool
@@ -853,6 +908,17 @@ func (f *fakeArchiveAgents) RestoreAgents(_ context.Context, req *connect.Reques
 	}
 
 	return connect.NewResponse(response), nil
+}
+
+func (f *fakeArchiveAgents) ResumeAgent(_ context.Context, req *connect.Request[agentv1.ResumeAgentRequest]) (*connect.Response[agentv1.ResumeAgentResponse], error) {
+	if f.err != nil {
+		return nil, f.err
+	}
+	f.resumed = append(f.resumed, req.Msg.GetId())
+
+	return connect.NewResponse(&agentv1.ResumeAgentResponse{
+		Agent: &agentv1.Agent{Id: req.Msg.GetId(), Name: "api-refactor"},
+	}), nil
 }
 
 func (f *fakeArchiveAgents) EmptyArchive(context.Context, *connect.Request[emptypb.Empty]) (*connect.Response[emptypb.Empty], error) {

@@ -98,6 +98,12 @@ func archiveTable() []action {
 			run:  func(m model, _ string) (tea.Model, tea.Cmd) { return m.restoreFromArchive() },
 		},
 		{
+			id:   actionArchiveRestoreOpen,
+			keys: func(k config.Keybindings) []string { return k.Archive.RestoreOpen },
+			when: model.canArchiveRowOpen,
+			run:  func(m model, _ string) (tea.Model, tea.Cmd) { return m.restoreAndOpen() },
+		},
+		{
 			id:   actionArchiveDelete,
 			keys: func(k config.Keybindings) []string { return k.Archive.Delete },
 			when: browsing,
@@ -148,6 +154,11 @@ func archiveLegend() []legendRow {
 			desc:  model.archiveRestoreDesc,
 			show:  model.doesArchiveHoldARow,
 			strip: true,
+		},
+		{
+			of:   []actionID{actionArchiveRestoreOpen},
+			desc: func(model) string { return "restore and open" },
+			show: model.canArchiveRowOpen,
 		},
 		{
 			of:   []actionID{actionSelectToggle},
@@ -309,4 +320,12 @@ func (m model) archiveRestoreDesc() string {
 	}
 
 	return "restore"
+}
+
+// canArchiveRowOpen reports whether the row under the cursor holds a conversation the panel can
+// put back in a pane.
+func (m model) canArchiveRowOpen() bool {
+	agent, ok := m.selectedArchived()
+
+	return ok && agent.State.DoesPaneDecide()
 }

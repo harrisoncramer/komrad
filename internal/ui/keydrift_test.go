@@ -190,6 +190,7 @@ func driftModel(t *testing.T, s screen) model {
 			ID:         "a2",
 			Name:       "old",
 			WorkflowID: "w1",
+			State:      agentstore.StateIdle,
 		}}
 		m.archive.cursor = 1
 	}
