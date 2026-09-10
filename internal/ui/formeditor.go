@@ -10,13 +10,13 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-// editableText is one of a form's text fields as the panel's editor key sees it.
+// editableText is a form's text field and the string it is drawn from.
 type editableText struct {
 	key   string
 	value *string
 }
 
-// formFieldEditedMsg carries what the editor wrote for one field of the form on screen.
+// formFieldEditedMsg is what the editor wrote for one field of the form on screen.
 type formFieldEditedMsg struct {
 	kind formKind
 	key  string
@@ -24,12 +24,15 @@ type formFieldEditedMsg struct {
 	err  error
 }
 
-// Explainer: huh's own editor hands what it wrote to the whole group as one message, and every
-// text field in that group takes it, so a form with several of them loses the rest to whichever
-// one was edited. The panel opens the editor itself instead, on the field with the cursor.
+// Explainer: huh has an editor key of its own, and it does the wrong thing on a form with more
+// than one text field. When the editor closes, huh hands what was written to the whole group of
+// fields as a single message. Every text field in that group takes it, so editing one field
+// overwrites all of them. The panel opens the editor itself instead. It looks up which field has
+// the cursor, opens the editor on that field alone, and writes the result back to that one
+// string.
 
-// openFormFieldEditor hands the field under the cursor to the editor, and reports whether the
-// key was the panel's to answer.
+// openFormFieldEditor opens the editor on the field with the cursor, and reports whether the
+// key belonged to the panel.
 func (m model) openFormFieldEditor() (tea.Model, tea.Cmd, bool) {
 	focused := m.form.form.GetFocusedField()
 	if focused == nil {
@@ -52,7 +55,7 @@ func (m model) openFormFieldEditor() (tea.Model, tea.Cmd, bool) {
 
 	kind := m.form.kind
 
-	// The field is one file with nothing above it, so the editor opens on its first line.
+	// The field is a file with nothing above it, so the editor opens on line one.
 	//nolint:noctx // the editor runs until the field is closed, so it takes no deadline
 	open := exec.Command("sh", "-c", editorShell(m.editor, path, 1))
 
@@ -67,12 +70,12 @@ func (m model) openFormFieldEditor() (tea.Model, tea.Cmd, bool) {
 	}), true
 }
 
-// formFieldDraftPath is where a field is put for the editor to open.
+// formFieldDraftPath is the file a field is written to for the editor to open.
 func formFieldDraftPath(key string) string {
 	return filepath.Join(os.TempDir(), fmt.Sprintf("weave-field-%s-%d.md", key, os.Getpid()))
 }
 
-// applyFormFieldEdited puts what the editor wrote back into the field it was opened on.
+// applyFormFieldEdited writes what the editor wrote back into the field it was opened on.
 func (m model) applyFormFieldEdited(msg formFieldEditedMsg) (tea.Model, tea.Cmd) {
 	if !m.form.isActive() || m.form.kind != msg.kind {
 		return m, nil
@@ -93,8 +96,10 @@ func (m model) applyFormFieldEdited(msg formFieldEditedMsg) (tea.Model, tea.Cmd)
 	return m, m.redrawFormOn(msg.key)
 }
 
-// redrawFormOn draws the form again around the values it edits, since a field shows the text it
-// was built with, and leaves the cursor on the field named.
+// Explainer: a huh text field shows the string it was built from and has no setter, so a field
+// only shows an edit once the form around it has been built again.
+
+// redrawFormOn draws the form again and leaves the cursor on the field named.
 func (m *model) redrawFormOn(key string) tea.Cmd {
 	cmd := m.rebuildForm()
 	if cmd == nil {

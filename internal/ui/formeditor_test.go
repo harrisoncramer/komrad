@@ -11,8 +11,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestEditorKeyOpensTheFieldUnderTheCursor covers the panel taking the editor key itself, since
-// huh hands what its own editor wrote to every text field of the group.
+// TestEditorKeyOpensTheFieldUnderTheCursor checks that an edit reaches the field with the cursor
+// and no other field.
 func TestEditorKeyOpensTheFieldUnderTheCursor(t *testing.T) {
 	m := formModel(&formRecorder{})
 	m.editor = "true"
@@ -51,8 +51,8 @@ func TestEditorKeyOpensTheFieldUnderTheCursor(t *testing.T) {
 	assert.Equal(t, "context", m.form.form.GetFocusedField().GetKey(), "the cursor is left where the editor was opened")
 }
 
-// TestEditorKeyIsHandedOnByAFieldWithNoText covers a form the panel has no editor for, which is
-// every form asking only for a line or an answer.
+// TestEditorKeyIsHandedOnByAFieldWithNoText checks that a form with nothing to edit leaves the
+// key to huh.
 func TestEditorKeyIsHandedOnByAFieldWithNoText(t *testing.T) {
 	m := formModel(&formRecorder{})
 	m.editor = "true"
@@ -68,9 +68,9 @@ func TestEditorKeyIsHandedOnByAFieldWithNoText(t *testing.T) {
 	assert.True(t, os.IsNotExist(err), "nothing is written out for a field the panel does not edit")
 }
 
-// TestEditorKeyOnAListFieldWithoutAWorktree covers the fields the provisioner adds and takes
-// away, since the cursor is put back by where a field is drawn.
-func TestEditorKeyOnAListFieldWithoutAWorktree(t *testing.T) {
+// TestEditorKeyOnEitherProvisioner checks the cursor lands on the edited field under either
+// provisioner.
+func TestEditorKeyOnEitherProvisioner(t *testing.T) {
 	tests := []struct {
 		name        string
 		provisioner string
@@ -91,21 +91,21 @@ func TestEditorKeyOnAListFieldWithoutAWorktree(t *testing.T) {
 		},
 	}
 
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
 			m := formModel(&formRecorder{})
 			m.editor = "true"
 
-			values := workflowFormValues{Provisioner: test.provisioner, Context: "the notes"}
+			values := workflowFormValues{Provisioner: tt.provisioner, Context: "the notes"}
 
 			opened, _ := m.openWorkflowConfigForm(&values, nil)
 			m = asModel(t, opened)
 
-			written, _ := m.Update(formFieldEditedMsg{kind: formWorkflow, key: test.field, text: "what the editor wrote"})
+			written, _ := m.Update(formFieldEditedMsg{kind: formWorkflow, key: tt.field, text: "what the editor wrote"})
 			m = asModel(t, written)
 
-			assert.Equal(t, "what the editor wrote", test.want(&values))
-			assert.Equal(t, test.field, m.form.form.GetFocusedField().GetKey(), "the cursor is left where the editor was opened")
+			assert.Equal(t, "what the editor wrote", tt.want(&values))
+			assert.Equal(t, tt.field, m.form.form.GetFocusedField().GetKey(), "the cursor is left where the editor was opened")
 		})
 	}
 }

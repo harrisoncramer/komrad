@@ -33,15 +33,14 @@ type formState struct {
 	// the form is about.
 	submit func(model) (tea.Model, tea.Cmd)
 
-	// rebuild draws the form again around those same values, and names its fields in the order
+	// rebuild draws the form again around those same values, and lists its fields in the order
 	// they are drawn.
 	rebuild func(model) (*huh.Form, []string)
 
-	// editable are the text fields the panel's editor key opens, by the key of the field each one
-	// is drawn in.
+	// editable are the text fields the panel's editor key can open.
 	editable []editableText
 
-	// order names the fields of the form on screen, in the order they are drawn.
+	// order lists the keys of the fields on screen, in the order they are drawn.
 	order []string
 }
 
@@ -100,8 +99,7 @@ func (m model) openRedrawnForm(params openRedrawnFormParams) (tea.Model, tea.Cmd
 	})
 }
 
-// openRedrawnFormParams is what a redrawn form is opened from: what it is, how to draw it, what it
-// hands to $EDITOR, and what answering it does.
+// openRedrawnFormParams is what a redrawn form is opened from.
 type openRedrawnFormParams struct {
 	Kind     formKind
 	Build    func(model) (*huh.Form, []string)
@@ -321,8 +319,7 @@ func splitLines(text string) []string {
 	return lines
 }
 
-// formOf is a group of fields drawn as one form, with its fields named in the order they are
-// drawn.
+// formOf draws a group of fields as one form, and lists their keys in the order they are drawn.
 func formOf(keys config.FormKeys, fields ...huh.Field) (*huh.Form, []string) {
 	form := huh.NewForm(huh.NewGroup(fields...)).
 		WithShowHelp(true).
@@ -332,7 +329,7 @@ func formOf(keys config.FormKeys, fields ...huh.Field) (*huh.Form, []string) {
 	return form, xslice.Map(fields, func(field huh.Field) string { return field.GetKey() })
 }
 
-// textField is a text field the panel opens its own editor on.
+// textField is a text field whose editor the panel opens rather than huh.
 func textField(key string) *huh.Text {
 	return huh.NewText().Key(key).ExternalEditor(false)
 }
