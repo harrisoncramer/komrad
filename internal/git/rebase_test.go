@@ -861,3 +861,64 @@ func TestResetToBaseLeavesANestedRepository(t *testing.T) {
 	assert.Equal(t, "uncommitted inside the clone\n", readFile(t, vendored, "wip.txt"),
 		"a park holds none of this, so the clean must not take it")
 }
+
+// TestFindNestedRepositoriesSeesOneUnderATrackedParent covers the case a directory listing
+// cannot: git only collapses a directory into its own name while nothing in it is tracked.
+func TestFindNestedRepositoriesSeesOneUnderATrackedParent(t *testing.T) {
+	t.Parallel()
+
+	repo := newRepo(t)
+	vendor := filepath.Join(repo, "vendor")
+	require.NoError(t, os.MkdirAll(vendor, 0o755))
+	writeFile(t, repo, "vendor/README", "tracked by the outer repository\n")
+	run(t, repo, "add", "-A")
+	run(t, repo, "commit", "--quiet", "-m", "a tracked file inside vendor")
+
+	run(t, vendor, "init", "--quiet", "-b", "main", ".")
+	run(t, vendor, "config", "user.email", "t@example.com")
+	run(t, vendor, "config", "user.name", "t")
+	writeFile(t, vendor, "lib.txt", "committed inside the clone\n")
+	run(t, vendor, "add", "lib.txt")
+	run(t, vendor, "commit", "--quiet", "-m", "nested")
+
+	require.NotContains(t, out(t, repo, "ls-files", "--others", "--directory", "--exclude-standard"), "vendor/\n",
+		"the directory never appears in its own right, which is what made this invisible")
+
+	nested, err := git.FindNestedRepositories(t.Context(), repo)
+	require.NoError(t, err)
+
+	assert.Equal(t, []string{"vendor"}, nested)
+}
+
+// TestResetToBaseSparesANestedRepositoryUnderATrackedParent pins the clean leaving a file the
+// nested repository has committed, which the outer repository sees only as untracked.
+func TestResetToBaseSparesANestedRepositoryUnderATrackedParent(t *testing.T) {
+	t.Parallel()
+
+	repo := newRepo(t)
+	vendor := filepath.Join(repo, "vendor")
+	require.NoError(t, os.MkdirAll(vendor, 0o755))
+	writeFile(t, repo, "vendor/README", "tracked by the outer repository\n")
+	run(t, repo, "add", "-A")
+	run(t, repo, "commit", "--quiet", "-m", "a tracked file inside vendor")
+
+	run(t, vendor, "init", "--quiet", "-b", "main", ".")
+	run(t, vendor, "config", "user.email", "t@example.com")
+	run(t, vendor, "config", "user.name", "t")
+	writeFile(t, vendor, "lib.txt", "committed inside the clone\n")
+	run(t, vendor, "add", "lib.txt")
+	run(t, vendor, "commit", "--quiet", "-m", "nested")
+	writeFile(t, repo, "scratch.txt", "the agent's own\n")
+
+	nested, err := git.FindNestedRepositories(t.Context(), repo)
+	require.NoError(t, err)
+	require.NoError(t, git.ResetToBase(t.Context(), git.ResetToBaseParams{
+		Dir:  repo,
+		Ref:  "HEAD",
+		Keep: nested,
+	}))
+
+	assert.Equal(t, "committed inside the clone\n", readFile(t, vendor, "lib.txt"),
+		"the clone's own committed file survives, since the outer park holds no history of it")
+	assert.NoFileExists(t, filepath.Join(repo, "scratch.txt"), "while the agent's own scratch still goes")
+}

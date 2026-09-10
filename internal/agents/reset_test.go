@@ -30,6 +30,8 @@ func buildResetWorktree(t *testing.T) string {
 	gitRun(t, origin, "config", "user.name", "t")
 	writeTree(t, origin, "tracked.txt", "base\n")
 	writeTree(t, origin, ".gitignore", "secrets.env\n")
+	require.NoError(t, os.MkdirAll(filepath.Join(origin, "vendor"), 0o755))
+	writeTree(t, origin, "vendor/README", "tracked, so git cannot collapse this directory\n")
 	gitRun(t, origin, "add", "-A")
 	gitRun(t, origin, "commit", "--quiet", "-m", "base")
 
@@ -688,4 +690,33 @@ func TestReleaseAgentRefsLeavesAWorktreeSomethingIsWorkingIn(t *testing.T) {
 
 	_, err = git.Run(t.Context(), tree, "rev-parse", "--verify", discard)
 	require.Error(t, err, "so the leak is closed rather than merely deferred")
+}
+
+// TestResetSparesARepositoryCheckedOutInside covers the service passing what it found to the
+// clean, since detecting a nested repository and then removing it would be worse than neither.
+func TestResetSparesARepositoryCheckedOutInside(t *testing.T) {
+	t.Parallel()
+
+	tree := buildResetWorktree(t)
+
+	// Inside a directory the base tracks, so git lists its files individually rather than
+	// collapsing the directory, which is the shape a clean would gut.
+	vendor := filepath.Join(tree, "vendor")
+	require.FileExists(t, filepath.Join(vendor, "README"), "the fixture must give the clone a tracked parent")
+	gitRun(t, vendor, "init", "--quiet", "-b", "main", ".")
+	gitRun(t, vendor, "config", "user.email", "t@example.com")
+	gitRun(t, vendor, "config", "user.name", "t")
+	writeTree(t, vendor, "lib.txt", "committed inside the clone\n")
+	gitRun(t, vendor, "add", "lib.txt")
+	gitRun(t, vendor, "commit", "--quiet", "-m", "nested")
+
+	service := resetService(t, tree, nil)
+
+	result, err := service.Reset(t.Context(), "a1")
+	require.NoError(t, err)
+	require.Equal(t, []string{"vendor"}, result.Nested, "the plan found it")
+
+	assert.Equal(t, "committed inside the clone\n", readTree(t, vendor, "lib.txt"),
+		"and the clean spared it, since the park holds no history of the clone")
+	assert.NoFileExists(t, filepath.Join(tree, "scratch.txt"), "while the agent's own untracked file still goes")
 }

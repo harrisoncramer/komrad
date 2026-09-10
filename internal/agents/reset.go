@@ -249,9 +249,11 @@ func (s *RefreshService) Reset(ctx context.Context, agentID string) (*ResetResul
 	}
 
 	if err := git.ResetToBase(ctx, git.ResetToBaseParams{
-		Dir:  agent.Cwd,
-		Ref:  plan.BaseRef,
-		Keep: plan.Keep,
+		Dir: agent.Cwd,
+		Ref: plan.BaseRef,
+		// The nested repositories go in with the furnishings, since sparing them is what makes
+		// the promise in the mail true rather than only reported.
+		Keep: append(append([]string{}, plan.Keep...), plan.Nested...),
 	}); err != nil {
 		return nil, err
 	}

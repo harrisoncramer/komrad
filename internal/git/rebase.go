@@ -298,25 +298,36 @@ func splitNUL(out string) []string {
 	return fields
 }
 
-// FindNestedRepositories are the untracked directories holding a repository of their own, whose
-// files a park cannot capture because git records them as one gitlink.
+// FindNestedRepositories are the repositories checked out inside dir whose files a clean would
+// otherwise remove, since a park records such a repository as one gitlink and holds no file of it.
 func FindNestedRepositories(ctx context.Context, dir string) ([]string, error) {
 	root, err := GetRoot(ctx, dir)
 	if err != nil {
 		return nil, err
 	}
 
-	// Directories rather than files, since git collapses an untracked tree into its top and a
-	// nested repository is exactly such a tree.
-	out, err := Run(ctx, root, "ls-files", "--others", "--directory", "--exclude-standard", "-z")
+	// Read as the files a clean would take rather than as untracked directories, because git
+	// only collapses a directory into its own name while nothing in it is tracked: a nested
+	// repository under a tracked parent is listed file by file and its own name never appears.
+	out, err := Run(ctx, root, "ls-files", "--others", "--exclude-standard", "-z")
 	if err != nil {
-		return nil, fmt.Errorf("failed to read the untracked directories of %q: %w", root, err)
+		return nil, fmt.Errorf("failed to read the untracked files of %q: %w", root, err)
 	}
 
+	seen := map[string]bool{}
 	nested := []string{}
-	for _, entry := range splitNUL(out) {
-		if _, err := os.Stat(filepath.Join(root, entry, ".git")); err == nil {
-			nested = append(nested, strings.TrimSuffix(entry, "/"))
+	for _, path := range splitNUL(out) {
+		for parent := filepath.Dir(path); parent != "." && parent != string(filepath.Separator); parent = filepath.Dir(parent) {
+			if seen[parent] {
+				break
+			}
+			seen[parent] = true
+
+			if _, err := os.Stat(filepath.Join(root, parent, ".git")); err == nil {
+				nested = append(nested, parent)
+
+				break
+			}
 		}
 	}
 
