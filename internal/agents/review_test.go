@@ -957,7 +957,8 @@ func TestAnsweringAReviewRingsTheReviewer(t *testing.T) {
 			require.NoError(t, err)
 
 			if !tt.want {
-				assert.Empty(t, notices.took(), "the person is looking at the thread already")
+				assert.Never(t, func() bool { return len(notices.took()) > 0 }, 50*time.Millisecond, 5*time.Millisecond,
+					"the person is looking at the thread already")
 				assert.Empty(t, resumer.took())
 
 				return
@@ -998,7 +999,7 @@ func TestAnsweringAReviewSeveralTimesRingsOnce(t *testing.T) {
 		Mailer:         notices,
 		Resumer:        resumer,
 		StateDir:       t.TempDir(),
-		NoticeDebounce: 30 * time.Millisecond,
+		NoticeDebounce: 200 * time.Millisecond,
 	})
 
 	author := agentAuthor(reviewedAgentID)
@@ -1011,9 +1012,9 @@ func TestAnsweringAReviewSeveralTimesRingsOnce(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	require.Eventually(t, func() bool { return len(notices.took()) == 1 }, time.Second, 5*time.Millisecond,
-		"three replies inside the window collapse into one notice")
-	assert.Len(t, resumer.took(), 1, "and one wake, not three")
+	require.Eventually(t, func() bool { return len(resumer.took()) == 1 }, time.Second, 5*time.Millisecond,
+		"three replies inside the window collapse into one wake")
+	assert.Len(t, notices.took(), 1, "and one notice, not three")
 
 	_, err := service.AddReviewMessage(t.Context(), AddReviewMessageParams{
 		ThreadID: reviewThreadID,

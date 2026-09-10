@@ -112,6 +112,7 @@ func New(ctx context.Context, p Params) (*Server, error) {
 		return nil, err
 	}
 	srv.Delivery = svc.delivery
+	srv.closers = append(srv.closers, svc.review.Close)
 
 	if err := db.MigrateRiver(ctx, st.pool.GetRawPool()); err != nil {
 		return nil, err
