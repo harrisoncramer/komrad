@@ -65,17 +65,17 @@ func traceThreads(ctx context.Context, params traceThreadsParams) map[string]rev
 
 // traceOnScreen places the threads whose numbers were counted in the snapshot on screen.
 func traceOnScreen(params traceThreadsParams) map[string]review.Traced {
-	onScreen := ""
+	onScreen := map[string]bool{}
 
 	for _, round := range params.Rounds {
 		if round.GetSnapshotSha() == params.ToSHA {
-			onScreen = round.GetId()
+			onScreen[round.GetId()] = true
 		}
 	}
 
 	traced := map[string]review.Traced{}
 	for _, thread := range params.Threads {
-		if onScreen == "" || thread.GetRoundId() != onScreen || thread.GetNewStart() <= 0 {
+		if !onScreen[thread.GetRoundId()] || thread.GetNewStart() <= 0 {
 			continue
 		}
 

@@ -254,3 +254,44 @@ func TestTraceThreadsGivesUpWholeRatherThanInPart(t *testing.T) {
 	require.True(t, ok, "the round on screen needs no git and so cannot be lost with it")
 	assert.True(t, found.Exact)
 }
+
+// TestTraceThreadsMarksEveryRoundHoldingTheSnapshotOnScreen covers an agent that edited a file
+// and then put it back, which takes a second round carrying a snapshot an earlier round already
+// held.
+func TestTraceThreadsMarksEveryRoundHoldingTheSnapshotOnScreen(t *testing.T) {
+	dir, first, second := traceRepo(t)
+
+	traced := traceThreads(t.Context(), traceThreadsParams{
+		Dir:   dir,
+		ToSHA: second,
+		Threads: []*agentv1.ReviewThread{{
+			Id:       "t1",
+			RoundId:  "r1",
+			FilePath: "greet.go",
+			NewStart: 8,
+			NewEnd:   8,
+		}},
+		Rounds: []*agentv1.ReviewRound{
+			{
+				Id:          "r1",
+				Ordinal:     1,
+				SnapshotSha: second,
+			},
+			{
+				Id:          "r2",
+				Ordinal:     2,
+				SnapshotSha: first,
+			},
+			{
+				Id:          "r3",
+				Ordinal:     3,
+				SnapshotSha: second,
+			},
+		},
+	})
+
+	found, ok := traced["t1"]
+	require.True(t, ok, "the earlier round holding this snapshot is on screen too")
+	assert.True(t, found.Exact)
+	assert.Equal(t, int32(8), found.NewStart)
+}
