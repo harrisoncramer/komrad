@@ -48,7 +48,6 @@ type LifecycleService struct {
 	emptyWorkflows emptyWorkflowDeleter
 	tx             txRunner
 	scripts        agentScriptRunner
-	notifier       systemMailSender
 	reviews        reviewReaper
 	logsDir        string
 	framesDir      string
@@ -63,7 +62,6 @@ type NewLifecycleServiceParams struct {
 	EmptyWorkflows emptyWorkflowDeleter
 	Tx             txRunner
 	Scripts        agentScriptRunner
-	Notifier       systemMailSender
 	Reviews        reviewReaper
 	LogsDir        string
 	FramesDir      string
@@ -80,7 +78,6 @@ func NewLifecycleService(params NewLifecycleServiceParams) *LifecycleService {
 		emptyWorkflows: params.EmptyWorkflows,
 		tx:             params.Tx,
 		scripts:        params.Scripts,
-		notifier:       params.Notifier,
 		reviews:        params.Reviews,
 		logsDir:        params.LogsDir,
 		framesDir:      params.FramesDir,
@@ -134,7 +131,6 @@ func (s *LifecycleService) DeleteAgents(ctx context.Context, ids []string) error
 			}
 
 			s.cleanupEmptyWorkflows(bg, []agentstore.Agent{agent})
-			notifyParents(bg, s.notifier, []agentstore.Agent{agent}, agents, "deleted")
 		})
 	}
 
@@ -147,7 +143,6 @@ func (s *LifecycleService) DeleteAgents(ctx context.Context, ids []string) error
 	}
 
 	s.cleanupEmptyWorkflows(ctx, immediate)
-	notifyParents(ctx, s.notifier, immediate, agents, "deleted")
 
 	return nil
 }
@@ -191,8 +186,6 @@ func (s *LifecycleService) ArchiveAgents(ctx context.Context, ids []string) erro
 	// A pane recorded in between only reaches here through what the write took off the rows.
 	killPanes(ctx, s.tmux, taken)
 
-	notifyParents(ctx, s.notifier, agents, agents, "archived")
-
 	return nil
 }
 
@@ -221,7 +214,6 @@ func (s *LifecycleService) ArchiveUnchangedAgents(ctx context.Context, observed 
 	archived = append(archived, children...)
 
 	killOwnedPanes(ctx, s.tmux, archived)
-	notifyParents(ctx, s.notifier, archived, archived, "archived")
 
 	return archived, errors.Join(failures...)
 }

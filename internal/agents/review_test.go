@@ -935,17 +935,18 @@ func TestAnsweringAReviewRingsTheReviewer(t *testing.T) {
 			notices := &fakeNoticeSender{answer: &mailstore.Mail{ID: "mail-1"}}
 			resumer := &fakeResumer{}
 			service := NewReviewService(NewReviewServiceParams{
-				Threads:   reviews,
-				Messages:  reviews,
-				Viewed:    reviews,
-				Rounds:    reviews,
-				Reviews:   reviews,
-				Snapshots: &fakeSnapshotter{sha: "snapshot-sha", base: "base-sha"},
-				Workflows: fakeWorkflowGetter{},
-				Agents:    fakeAgentReaderFunc(findLiveAgent),
-				Mailer:    notices,
-				Resumer:   resumer,
-				StateDir:  t.TempDir(),
+				Threads:        reviews,
+				Messages:       reviews,
+				Viewed:         reviews,
+				Rounds:         reviews,
+				Reviews:        reviews,
+				Snapshots:      &fakeSnapshotter{sha: "snapshot-sha", base: "base-sha"},
+				Workflows:      fakeWorkflowGetter{},
+				Agents:         fakeAgentReaderFunc(findLiveAgent),
+				Mailer:         notices,
+				Resumer:        resumer,
+				StateDir:       t.TempDir(),
+				NoticeDebounce: time.Millisecond,
 			})
 
 			_, err := service.AddReviewMessage(t.Context(), AddReviewMessageParams{
@@ -956,7 +957,8 @@ func TestAnsweringAReviewRingsTheReviewer(t *testing.T) {
 			require.NoError(t, err)
 
 			if !tt.want {
-				assert.Empty(t, notices.sent, "the person is looking at the thread already")
+				assert.Never(t, func() bool { return len(notices.took()) > 0 }, 50*time.Millisecond, 5*time.Millisecond,
+					"the person is looking at the thread already")
 				assert.Empty(t, resumer.took())
 
 				return
@@ -966,15 +968,100 @@ func TestAnsweringAReviewRingsTheReviewer(t *testing.T) {
 				"mail waits for a pane rather than making one, so a dormant reviewer would never be handed this")
 			assert.Equal(t, []string{reviewerAgentID}, resumer.took())
 
-			require.Len(t, notices.sent, 1)
-			assert.Equal(t, reviewerAgentID, notices.sent[0].ToAgentID)
-			assert.Equal(t, mailstore.KindReviewActivity, notices.sent[0].Kind)
-			require.NotNil(t, notices.sent[0].About)
-			assert.Equal(t, reviewedAgentID, *notices.sent[0].About)
-			assert.Contains(t, notices.sent[0].Body, "list_review_threads",
+			sent := notices.took()
+			require.Len(t, sent, 1)
+			assert.Equal(t, reviewerAgentID, sent[0].ToAgentID)
+			assert.Equal(t, mailstore.KindReviewActivity, sent[0].Kind)
+			require.NotNil(t, sent[0].About)
+			assert.Equal(t, reviewedAgentID, *sent[0].About)
+			assert.Contains(t, sent[0].Body, "list_review_threads",
 				"the doorbell says where to look rather than what was said")
 		})
 	}
+}
+
+// TestAnsweringAReviewSeveralTimesRingsOnce pins the debounce: a run of replies from the same
+// author inside the debounce window collapses into the one notice and wake the last of them
+// leaves behind, and a reply once that window has passed rings again.
+func TestAnsweringAReviewSeveralTimesRingsOnce(t *testing.T) {
+	reviews := newFakeReviewStore()
+	notices := &fakeNoticeSender{answer: &mailstore.Mail{ID: "mail-1"}}
+	resumer := &fakeResumer{}
+	service := NewReviewService(NewReviewServiceParams{
+		Threads:        reviews,
+		Messages:       reviews,
+		Viewed:         reviews,
+		Rounds:         reviews,
+		Reviews:        reviews,
+		Snapshots:      &fakeSnapshotter{sha: "snapshot-sha", base: "base-sha"},
+		Workflows:      fakeWorkflowGetter{},
+		Agents:         fakeAgentReaderFunc(findLiveAgent),
+		Mailer:         notices,
+		Resumer:        resumer,
+		StateDir:       t.TempDir(),
+		NoticeDebounce: 200 * time.Millisecond,
+	})
+
+	author := agentAuthor(reviewedAgentID)
+	for range 3 {
+		_, err := service.AddReviewMessage(t.Context(), AddReviewMessageParams{
+			ThreadID: reviewThreadID,
+			Body:     "still working through it",
+			Author:   author,
+		})
+		require.NoError(t, err)
+	}
+
+	require.Eventually(t, func() bool { return len(resumer.took()) == 1 }, time.Second, 5*time.Millisecond,
+		"three replies inside the window collapse into one wake")
+	assert.Len(t, notices.took(), 1, "and one notice, not three")
+
+	_, err := service.AddReviewMessage(t.Context(), AddReviewMessageParams{
+		ThreadID: reviewThreadID,
+		Body:     "done, ready for another look",
+		Author:   author,
+	})
+	require.NoError(t, err)
+
+	require.Eventually(t, func() bool { return len(notices.took()) == 2 }, time.Second, 5*time.Millisecond,
+		"a reply once the window has passed rings again")
+}
+
+// TestCloseFlushesAPendingReviewerNotice pins that a shutdown mid-debounce still tells the
+// reviewer, without waking it, rather than losing the notice to the window it never got to
+// finish waiting out.
+func TestCloseFlushesAPendingReviewerNotice(t *testing.T) {
+	reviews := newFakeReviewStore()
+	notices := &fakeNoticeSender{answer: &mailstore.Mail{ID: "mail-1"}}
+	resumer := &fakeResumer{}
+	service := NewReviewService(NewReviewServiceParams{
+		Threads:        reviews,
+		Messages:       reviews,
+		Viewed:         reviews,
+		Rounds:         reviews,
+		Reviews:        reviews,
+		Snapshots:      &fakeSnapshotter{sha: "snapshot-sha", base: "base-sha"},
+		Workflows:      fakeWorkflowGetter{},
+		Agents:         fakeAgentReaderFunc(findLiveAgent),
+		Mailer:         notices,
+		Resumer:        resumer,
+		StateDir:       t.TempDir(),
+		NoticeDebounce: time.Hour,
+	})
+
+	_, err := service.AddReviewMessage(t.Context(), AddReviewMessageParams{
+		ThreadID: reviewThreadID,
+		Body:     "still working through it",
+		Author:   agentAuthor(reviewedAgentID),
+	})
+	require.NoError(t, err)
+
+	service.Close()
+
+	sent := notices.took()
+	require.Len(t, sent, 1, "the notice the hour-long window never got to send on its own goes out on shutdown")
+	assert.Equal(t, reviewerAgentID, sent[0].ToAgentID)
+	assert.Empty(t, resumer.took(), "a resumed pane picks the mail up on its own; shutdown does not wake one")
 }
 
 func findLiveAgent(_ context.Context, id string) (*agentstore.Agent, error) {
@@ -1574,12 +1661,15 @@ func (f *fakeReviewStore) ListMessages(_ context.Context, threadIDs []string) ([
 }
 
 type fakeNoticeSender struct {
+	mu     sync.Mutex
 	sent   []SendNoticeParams
 	answer *mailstore.Mail
 	err    error
 }
 
 func (f *fakeNoticeSender) SendNotice(_ context.Context, params SendNoticeParams) (*mailstore.Mail, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
 	f.sent = append(f.sent, params)
 
 	if f.err != nil {
@@ -1587,6 +1677,14 @@ func (f *fakeNoticeSender) SendNotice(_ context.Context, params SendNoticeParams
 	}
 
 	return f.answer, nil
+}
+
+// took is what a debounced notice, sent on its own goroutine, needs to be read back safely.
+func (f *fakeNoticeSender) took() []SendNoticeParams {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	return slices.Clone(f.sent)
 }
 
 // TestReviewThreadMustExist pins the lookup settling and deleting do first.

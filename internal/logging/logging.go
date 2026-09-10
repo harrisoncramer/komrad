@@ -28,8 +28,6 @@ const (
 	AgentID                = "weave.agent.id"
 	SessionID              = "weave.session.id"
 	TargetAgentID          = "weave.target_agent.id"
-	DelegateAgentID        = "weave.delegate_agent.id"
-	LifecycleReason        = "weave.lifecycle.reason"
 	LifecycleAction        = "weave.lifecycle.action"
 	AgentState             = "weave.agent.state"
 	UnrecognizedFrameCount = "weave.agent.unrecognized_frame_count"

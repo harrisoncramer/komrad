@@ -324,11 +324,11 @@ func TestArchiveTakesTheChildren(t *testing.T) {
 }
 
 // TestArchiveOfAChildLeavesTheParent pins that finishing with one child leaves the agent it was
-// reading for where it was, told nothing.
+// reading for where it was.
 func TestArchiveOfAChildLeavesTheParent(t *testing.T) {
 	tmux := newFakeTmux()
 	st := newStore(t)
-	manager := newManagerWithNotifier(tmux, st, newNotifier(st))
+	manager := newManager(tmux, st, "")
 	ctx := t.Context()
 
 	parent := seedRunning(t, st, tmux, "author", "%author", agentstore.StateIdle)
@@ -341,28 +341,6 @@ func TestArchiveOfAChildLeavesTheParent(t *testing.T) {
 	require.Len(t, live, 1, "only the child goes")
 	assert.Equal(t, parent.ID, live[0].ID)
 	assert.Contains(t, tmux.killedPanes, child.Pane)
-
-	claimed, err := st.Mail.Claim(ctx, parent.ID, 10)
-	require.NoError(t, err)
-	assert.Empty(t, claimed, "a child raises no lifecycle mail")
-}
-
-// TestArchiveOfAParentTellsTheChildNothing pins that a child archived alongside its parent
-// raises no lifecycle mail.
-func TestArchiveOfAParentTellsTheChildNothing(t *testing.T) {
-	tmux := newFakeTmux()
-	st := newStore(t)
-	manager := newManagerWithNotifier(tmux, st, newNotifier(st))
-	ctx := t.Context()
-
-	parent := seedRunning(t, st, tmux, "author", "%author", agentstore.StateIdle)
-	seedChild(t, st, tmux, parent)
-
-	require.NoError(t, manager.lifecycle.ArchiveAgents(ctx, []string{parent.ID}))
-
-	claimed, err := st.Mail.Claim(ctx, parent.ID, 10)
-	require.NoError(t, err)
-	assert.Empty(t, claimed)
 }
 
 // TestDeleteTakesTheChildren pins that deleting a parent removes the children too, and that
@@ -389,7 +367,7 @@ func TestDeleteTakesTheChildren(t *testing.T) {
 func TestDeleteTakesAChildAlone(t *testing.T) {
 	tmux := newFakeTmux()
 	st := newStore(t)
-	manager := newManagerWithNotifier(tmux, st, newNotifier(st))
+	manager := newManager(tmux, st, "")
 	ctx := t.Context()
 
 	parent := seedRunning(t, st, tmux, "author", "%author", agentstore.StateIdle)
@@ -451,7 +429,7 @@ func TestRestoreOfAChildNeedsItsParentBack(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			tmux := newFakeTmux()
 			st := newStore(t)
-			manager := newManagerWithNotifier(tmux, st, newNotifier(st))
+			manager := newManager(tmux, st, "")
 			ctx := t.Context()
 
 			parent := seedRunning(t, st, tmux, "author", "%author", agentstore.StateIdle)

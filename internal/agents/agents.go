@@ -8,7 +8,6 @@ import (
 	"slices"
 	"strings"
 
-	"weave/internal/caller"
 	"weave/internal/logging"
 	"weave/internal/store"
 	"weave/internal/tmux"
@@ -385,40 +384,6 @@ func failureReason(cause error) string {
 	}
 
 	return text
-}
-
-// notifyParents tells the spawner of each agent in told that it is gone, saying nothing about a
-// child.
-func notifyParents(ctx context.Context, notifier systemMailSender, told, going []agentstore.Agent, reason string) {
-	actor := caller.From(ctx).AgentID
-
-	leaving := make(map[string]bool, len(going))
-	for _, agent := range going {
-		leaving[agent.ID] = true
-	}
-
-	for _, agent := range told {
-		if agent.ParentAgentID != nil {
-			continue
-		}
-		if agent.SpawnedByAgentID == nil || *agent.SpawnedByAgentID == actor {
-			continue
-		}
-		// A spawner going in the same call has nobody left to read the mail.
-		if leaving[*agent.SpawnedByAgentID] {
-			continue
-		}
-
-		body := fmt.Sprintf("Your delegate %q (%s) was %s.", agent.Name, agent.ID, reason)
-		if _, err := notifier.SendSystemMail(ctx, *agent.SpawnedByAgentID, body); err != nil {
-			logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "could not tell an agent's spawner it was gone",
-				append([]slog.Attr{
-					slog.String(logging.DelegateAgentID, agent.ID),
-					slog.String(logging.TargetAgentID, *agent.SpawnedByAgentID),
-					slog.String(logging.LifecycleReason, reason),
-				}, logging.Err(err)...)...)
-		}
-	}
 }
 
 const namedMissing = 5

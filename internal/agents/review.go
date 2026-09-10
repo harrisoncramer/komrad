@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"sync"
 	"time"
 
 	"weave/internal/logging"
@@ -106,6 +107,9 @@ type NewReviewServiceParams struct {
 	Interrupter agentInterrupter
 	// StateDir is where weave keeps its own files, which is where a released review is written.
 	StateDir string
+	// NoticeDebounce overrides how long armReviewerNotice waits before telling a reviewer, which
+	// defaults to reviewerWakeDebounce when left at zero.
+	NoticeDebounce time.Duration
 }
 
 // ReviewService owns the conversations pinned to the lines of an agent's diff, and holds the
@@ -123,23 +127,34 @@ type ReviewService struct {
 	resumer     reviewerResumer
 	interrupter agentInterrupter
 	stateDir    string
+
+	noticeDebounce time.Duration
+	noticesMu      sync.Mutex
+	notices        map[string]*pendingReviewerNotice
 }
 
 // NewReviewService builds the service over the review store and the things it tells.
 func NewReviewService(params NewReviewServiceParams) *ReviewService {
+	debounce := params.NoticeDebounce
+	if debounce == 0 {
+		debounce = reviewerWakeDebounce
+	}
+
 	return &ReviewService{
-		threads:     params.Threads,
-		messages:    params.Messages,
-		viewed:      params.Viewed,
-		rounds:      params.Rounds,
-		reviews:     params.Reviews,
-		snapshots:   params.Snapshots,
-		workflows:   params.Workflows,
-		agents:      params.Agents,
-		mailer:      params.Mailer,
-		resumer:     params.Resumer,
-		interrupter: params.Interrupter,
-		stateDir:    params.StateDir,
+		threads:        params.Threads,
+		messages:       params.Messages,
+		viewed:         params.Viewed,
+		rounds:         params.Rounds,
+		reviews:        params.Reviews,
+		snapshots:      params.Snapshots,
+		workflows:      params.Workflows,
+		agents:         params.Agents,
+		mailer:         params.Mailer,
+		resumer:        params.Resumer,
+		interrupter:    params.Interrupter,
+		stateDir:       params.StateDir,
+		noticeDebounce: debounce,
+		notices:        map[string]*pendingReviewerNotice{},
 	}
 }
 
@@ -414,7 +429,20 @@ func (s *ReviewService) wakeTheReviewer(ctx context.Context, reviewer agentstore
 	}
 }
 
-// ringTheReviewer tells the reviewer of an agent that the agent has answered it.
+// reviewerWakeDebounce is how long armReviewerNotice waits for another answer from the same
+// author before it tells the reviewer, so a run of replies made one thread at a time collapses
+// into the one notice and wake the last of them leaves behind.
+const reviewerWakeDebounce = 5 * time.Second
+
+// pendingReviewerNotice is the debounce armed for one author's pending answer, tracked by a
+// generation a stale callback checks itself against.
+type pendingReviewerNotice struct {
+	timer      *time.Timer
+	generation uint64
+}
+
+// ringTheReviewer arms the debounced notice for the author that just answered, on a context
+// detached from the request so the notice can still be sent once that request has returned.
 func (s *ReviewService) ringTheReviewer(ctx context.Context, agentID string) {
 	author, err := s.agents.GetByID(ctx, agentID)
 	if err != nil {
@@ -424,15 +452,74 @@ func (s *ReviewService) ringTheReviewer(ctx context.Context, agentID string) {
 		return
 	}
 
-	reviewer, err := liveReviewerFor(ctx, s.agents, s.reviews, *author)
-	if errors.Is(err, ErrNoLiveReviewer) {
+	s.armReviewerNotice(context.WithoutCancel(ctx), *author)
+}
+
+// armReviewerNotice (re)starts the debounce for this author's pending answer, resolved fresh by
+// fireReviewerNotice once the window elapses.
+func (s *ReviewService) armReviewerNotice(ctx context.Context, author agentstore.Agent) {
+	s.noticesMu.Lock()
+	defer s.noticesMu.Unlock()
+
+	pending, ok := s.notices[author.ID]
+	if !ok {
+		pending = &pendingReviewerNotice{}
+		s.notices[author.ID] = pending
+	} else {
+		pending.timer.Stop()
+		pending.generation++
+	}
+
+	generation := pending.generation
+	pending.timer = time.AfterFunc(s.noticeDebounce, func() {
+		s.fireReviewerNotice(ctx, author, generation)
+	})
+}
+
+// fireReviewerNotice sends the notice and wakes the author's current reviewer, unless a later
+// answer already moved this author's debounce past the generation this callback was scheduled
+// under.
+func (s *ReviewService) fireReviewerNotice(ctx context.Context, author agentstore.Agent, generation uint64) {
+	if !s.takeReviewerNotice(author.ID, generation) {
 		return
+	}
+
+	reviewer, err := s.sendReviewerNotice(ctx, author)
+	if err != nil {
+		return
+	}
+
+	s.wakeTheReviewer(ctx, *reviewer)
+}
+
+// takeReviewerNotice reports whether the pending notice under this generation is still armed,
+// removing it either way so a later answer starts clean.
+func (s *ReviewService) takeReviewerNotice(authorID string, generation uint64) bool {
+	s.noticesMu.Lock()
+	defer s.noticesMu.Unlock()
+
+	pending, ok := s.notices[authorID]
+	if !ok || pending.generation != generation {
+		return false
+	}
+	delete(s.notices, authorID)
+
+	return true
+}
+
+// sendReviewerNotice looks up the author's live reviewer and tells it the author answered,
+// logging and returning an error for anything other than the ordinary case of no reviewer left
+// to tell.
+func (s *ReviewService) sendReviewerNotice(ctx context.Context, author agentstore.Agent) (*agentstore.Agent, error) {
+	reviewer, err := liveReviewerFor(ctx, s.agents, s.reviews, author)
+	if errors.Is(err, ErrNoLiveReviewer) {
+		return nil, err
 	}
 	if err != nil {
 		logging.From(ctx).LogAttrs(ctx, slog.LevelError, "failed to find the reviewer to tell about a review answer",
-			append([]slog.Attr{slog.String(logging.AgentID, agentID)}, logging.Err(err)...)...)
+			append([]slog.Attr{slog.String(logging.AgentID, author.ID)}, logging.Err(err)...)...)
 
-		return
+		return nil, err
 	}
 
 	if _, err := s.mailer.SendNotice(ctx, SendNoticeParams{
@@ -444,10 +531,10 @@ func (s *ReviewService) ringTheReviewer(ctx context.Context, agentID string) {
 		logging.From(ctx).LogAttrs(ctx, slog.LevelError, "failed to tell a reviewer that its review was answered",
 			append([]slog.Attr{slog.String(logging.AgentID, reviewer.ID)}, logging.Err(err)...)...)
 
-		return
+		return nil, err
 	}
 
-	go s.wakeTheReviewer(ctx, *reviewer)
+	return reviewer, nil
 }
 
 // answerNotice is the notice a reviewer gets, which says where to look rather than what was
@@ -455,6 +542,30 @@ func (s *ReviewService) ringTheReviewer(ctx context.Context, agentID string) {
 func answerNotice(authorName string) string {
 	return fmt.Sprintf("weave: %s answered your review. Read the threads with list_review_threads, "+
 		"open a round over its work as it now stands, and release a verdict on that round.", authorName)
+}
+
+// Close sends whatever notice each still-debounced answer was waiting to tell, without waking
+// the reviewer, so a panel restart mid-window does not strand a reviewer with no word its
+// answer landed; the mail is durable, and a resumed pane is handed it whenever it next shows up.
+func (s *ReviewService) Close() {
+	s.noticesMu.Lock()
+	pending := s.notices
+	s.notices = map[string]*pendingReviewerNotice{}
+	s.noticesMu.Unlock()
+
+	ctx := context.Background()
+	for authorID, notice := range pending {
+		notice.timer.Stop()
+
+		author, err := s.agents.GetByID(ctx, authorID)
+		if err != nil {
+			continue
+		}
+
+		if _, err := s.sendReviewerNotice(ctx, *author); err != nil {
+			continue
+		}
+	}
 }
 
 // EditReviewMessageParams is the message to rewrite and what it should say instead.
