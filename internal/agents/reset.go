@@ -117,6 +117,20 @@ func (s *RefreshService) PlanReset(ctx context.Context, agentID string) (*ResetP
 	}, nil
 }
 
+// furnishings are the paths a workflow puts into a worktree it creates, which nothing puts back
+// afterwards, so a clean has to spare them however git happens to classify them.
+func (s *RefreshService) furnishings(ctx context.Context, agent agentstore.Agent) []string {
+	flow, err := s.workflows.Get(ctx, agent.WorkflowID)
+	if err != nil {
+		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to read what furnishes a reset agent's worktree",
+			append([]slog.Attr{slog.String(logging.AgentID, agent.ID)}, logging.Err(err)...)...)
+
+		return nil
+	}
+
+	return append(append([]string{}, flow.Worktree.CopyPaths...), flow.Worktree.SymlinkPaths...)
+}
+
 // draftingReviews are the unreleased reviews of this agent, read before the teardown deletes
 // them so that whoever was writing one can be told.
 func (s *RefreshService) draftingReviews(ctx context.Context, agentID string) []reviewstore.Review {
@@ -145,7 +159,13 @@ func (s *RefreshService) draftingReviews(ctx context.Context, agentID string) []
 // buildDiscardRef names where a reset keeps what it destroyed, in a namespace of its own so
 // that a later refresh does not collect the only copy of work nothing else holds.
 func buildDiscardRef(agentID string) string {
-	return fmt.Sprintf("refs/weave/discarded/%s/%d", agentID, time.Now().UnixNano())
+	return fmt.Sprintf("%s%d", discardRefPrefix(agentID), time.Now().UnixNano())
+}
+
+// discardRefPrefix is the namespace a reset's copies are held under, swept only when the agent
+// itself is destroyed.
+func discardRefPrefix(agentID string) string {
+	return "refs/weave/discarded/" + agentID + "/"
 }
 
 // refuseOpenReview refuses while a human has an unreleased review of this agent, whose rows the
@@ -226,7 +246,11 @@ func (s *RefreshService) Reset(ctx context.Context, agentID string) (*ResetResul
 		return nil, fmt.Errorf("%w: %w", ErrResetPark, err)
 	}
 
-	if err := git.ResetToBase(ctx, agent.Cwd, plan.BaseRef); err != nil {
+	if err := git.ResetToBase(ctx, git.ResetToBaseParams{
+		Dir:  agent.Cwd,
+		Ref:  plan.BaseRef,
+		Keep: s.furnishings(ctx, *agent),
+	}); err != nil {
 		return nil, err
 	}
 
@@ -243,7 +267,8 @@ func (s *RefreshService) Reset(ctx context.Context, agentID string) (*ResetResul
 		s.tellDraftingReviewers(ctx, *agent, drafts)
 	}
 
-	s.releaseOlderParks(ctx, *agent, result.ParkedRef)
+	// releaseOlderParks is deliberately not called, since sweeping the replay namespace here
+	// would delete undo copies a rebase had told the agent were kept.
 	s.tellReset(ctx, *agent, *result)
 
 	return result, nil
@@ -270,11 +295,11 @@ func (s *RefreshService) tearDownRounds(ctx context.Context, agent agentstore.Ag
 		return 0, fmt.Errorf("failed to delete the rounds of agent %q: %w", agent.ID, err)
 	}
 
-	for _, round := range rounds {
-		if err := git.ReleaseRef(ctx, agent.Cwd, roundRef(agent.ID, round.SnapshotSHA)); err != nil {
-			logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to release the snapshot of a round",
-				append([]slog.Attr{slog.String(logging.AgentID, agent.ID)}, logging.Err(err)...)...)
-		}
+	// Swept by prefix rather than by row, so a release that fails cannot leave a ref no row
+	// names and nothing can ever collect, and so an earlier interrupted reset is cleared too.
+	if err := git.ReleaseRefsUnder(ctx, agent.Cwd, roundRefPrefix(agent.ID), ""); err != nil {
+		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to release the snapshots of a reset agent",
+			append([]slog.Attr{slog.String(logging.AgentID, agent.ID)}, logging.Err(err)...)...)
 	}
 
 	return len(rounds), nil

@@ -16,6 +16,11 @@ import (
 // reasoning is why an untracked file does not block a rebase here: git completes one with
 // untracked files in place, and an agent's worktree nearly always holds some.
 //
+// Explainer: the shadow guard reads git with -z everywhere. core.quotePath is on by default, so
+// a non-ASCII path comes back C-quoted, and that spelling matches nothing when it goes back as a
+// pathspec: the refusal would be silently absent for exactly the paths whose loss cannot be
+// undone. It also settles a filename holding a newline, which a line split would tear in two.
+
 // Explainer: a reset removes tracked and untracked files and keeps ignored ones, which is a
 // three-way choice rather than an oversight. A park is built with git add -A, so it holds
 // untracked files and removing them is recoverable, while it cannot hold an ignored file and
@@ -244,42 +249,79 @@ func ReleaseRefsUnder(ctx context.Context, dir, prefix, keep string) error {
 	return nil
 }
 
+// shadowChunk is how many pathspecs one ls-files is given, so a branch far behind its base
+// cannot build an argument list the kernel refuses.
+const shadowChunk = 500
+
 // FindShadowedPaths are the paths a reset onto ref would write that currently hold ignored
 // content, which is content a park cannot hold and so cannot give back.
 func FindShadowedPaths(ctx context.Context, dir, ref string) ([]string, error) {
-	changed, err := Run(ctx, dir, "diff", "--name-only", "HEAD", ref)
+	// -z throughout, since core.quotePath is on by default and a C-quoted name goes back to git
+	// as a pathspec that matches nothing.
+	changed, err := Run(ctx, dir, "diff", "--name-only", "-z", "HEAD", ref)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read what a reset onto %s would write in %q: %w", ref, dir, err)
 	}
-	if strings.TrimSpace(changed) == "" {
+
+	paths := splitNUL(changed)
+	if len(paths) == 0 {
 		return nil, nil
 	}
 
 	// Asked only of the paths the reset would actually write, since a worktree's ignored files
 	// run to whole dependency trees and every one of them would otherwise be a question.
-	args := append([]string{"ls-files", "--others", "--ignored", "--exclude-standard", "--"},
-		strings.Split(changed, "\n")...)
-	out, err := Run(ctx, dir, args...)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read the ignored files of %q: %w", dir, err)
-	}
-	if strings.TrimSpace(out) == "" {
-		return nil, nil
+	shadowed := []string{}
+	for start := 0; start < len(paths); start += shadowChunk {
+		end := min(start+shadowChunk, len(paths))
+
+		args := append([]string{"ls-files", "--others", "--ignored", "--exclude-standard", "-z", "--"}, paths[start:end]...)
+		out, err := Run(ctx, dir, args...)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read the ignored files of %q: %w", dir, err)
+		}
+
+		shadowed = append(shadowed, splitNUL(out)...)
 	}
 
-	return strings.Split(out, "\n"), nil
+	return shadowed, nil
+}
+
+// splitNUL reads a NUL-separated list from git, dropping the trailing empty element.
+func splitNUL(out string) []string {
+	fields := []string{}
+	for _, field := range strings.Split(out, "\x00") {
+		if field != "" {
+			fields = append(fields, field)
+		}
+	}
+
+	return fields
+}
+
+// ResetToBaseParams says which checkout to reset, onto what, and what the clean must spare.
+type ResetToBaseParams struct {
+	// Dir is anywhere inside the checkout, and Ref what its tracked files are made to match.
+	Dir string
+	Ref string
+	// Keep are paths the clean leaves alone whether or not they are ignored, for the files a
+	// workflow furnishes and only ever furnishes when it creates the tree.
+	Keep []string
 }
 
 // ResetToBase moves the branch onto ref and makes the checkout match it, keeping ignored files.
-func ResetToBase(ctx context.Context, dir, ref string) error {
-	if _, err := Run(ctx, dir, "reset", "--hard", ref); err != nil {
-		return fmt.Errorf("failed to reset %q onto %s: %w", dir, ref, err)
+func ResetToBase(ctx context.Context, params ResetToBaseParams) error {
+	if _, err := Run(ctx, params.Dir, "reset", "--hard", params.Ref); err != nil {
+		return fmt.Errorf("failed to reset %q onto %s: %w", params.Dir, params.Ref, err)
 	}
 
 	// -fd without -x: the park holds untracked files, so removing them is recoverable, and an
 	// abandoned attempt is mostly untracked files that would otherwise still compile.
-	if _, err := Run(ctx, dir, "clean", "-fd"); err != nil {
-		return fmt.Errorf("failed to clear the untracked files of %q: %w", dir, err)
+	args := []string{"clean", "-fd"}
+	for _, keep := range params.Keep {
+		args = append(args, "-e", keep)
+	}
+	if _, err := Run(ctx, params.Dir, args...); err != nil {
+		return fmt.Errorf("failed to clear the untracked files of %q: %w", params.Dir, err)
 	}
 
 	return nil

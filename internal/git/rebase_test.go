@@ -724,3 +724,74 @@ func TestPredictRebaseCountsOnlyWhatWouldReplay(t *testing.T) {
 	assert.Equal(t, "1", out(t, repo, "rev-list", "--count", "main..HEAD"),
 		"and that is what git actually replayed")
 }
+
+// TestFindShadowedPathsReadsANonAsciiName covers the name git C-quotes by default, whose quoted
+// spelling matches nothing as a pathspec, so the guard would be absent where it matters most.
+func TestFindShadowedPathsReadsANonAsciiName(t *testing.T) {
+	t.Parallel()
+
+	repo := newRepo(t)
+	writeFile(t, repo, ".gitignore", "café.txt\n")
+	run(t, repo, "add", ".gitignore")
+	run(t, repo, "commit", "--quiet", "-m", "ignore it")
+
+	// The base starts tracking the very path this checkout holds as an ignored file.
+	run(t, repo, "checkout", "--quiet", "-b", "base")
+	writeFile(t, repo, ".gitignore", "")
+	writeFile(t, repo, "café.txt", "from the base\n")
+	run(t, repo, "add", "-A")
+	run(t, repo, "commit", "--quiet", "-m", "the base tracks it")
+	run(t, repo, "checkout", "--quiet", "main")
+	writeFile(t, repo, "café.txt", "local\n")
+
+	require.Contains(t, out(t, repo, "diff", "--name-only", "HEAD", "base"), `\303\251`,
+		"git quotes the name by default, which is what the guard has to read past")
+
+	shadowed, err := git.FindShadowedPaths(t.Context(), repo, "base")
+	require.NoError(t, err)
+
+	assert.Equal(t, []string{"café.txt"}, shadowed, "read unquoted, so it matches and can be shown to a person")
+}
+
+// TestFindShadowedPathsIsQuietWhenNothingCollides pins the ordinary case finding nothing, since
+// a guard that always fired would refuse every reset.
+func TestFindShadowedPathsIsQuietWhenNothingCollides(t *testing.T) {
+	t.Parallel()
+
+	repo := newRepo(t)
+	writeFile(t, repo, ".gitignore", "local.env\n")
+	run(t, repo, "add", ".gitignore")
+	run(t, repo, "commit", "--quiet", "-m", "ignore it")
+	run(t, repo, "checkout", "--quiet", "-b", "base")
+	commitFile(t, repo, "elsewhere.txt", "elsewhere\n", "the base moved on")
+	run(t, repo, "checkout", "--quiet", "main")
+	writeFile(t, repo, "local.env", "SECRET=1\n")
+
+	shadowed, err := git.FindShadowedPaths(t.Context(), repo, "base")
+	require.NoError(t, err)
+
+	assert.Empty(t, shadowed, "the ignored file is not a path the reset would write")
+}
+
+// TestResetToBaseSparesWhatItIsToldTo covers a furnishing that is untracked without being
+// ignored, which the provisioner only ever applies when it creates the tree.
+func TestResetToBaseSparesWhatItIsToldTo(t *testing.T) {
+	t.Parallel()
+
+	repo := newRepo(t)
+	run(t, repo, "checkout", "--quiet", "-b", "agent/abc")
+	commitFile(t, repo, "own.txt", "own\n", "the agent's work")
+	writeFile(t, repo, "go.work.sum", "furnished by the workflow\n")
+	writeFile(t, repo, "scratch.txt", "the agent's own scratch\n")
+
+	require.NoError(t, git.ResetToBase(t.Context(), git.ResetToBaseParams{
+		Dir:  repo,
+		Ref:  "main",
+		Keep: []string{"go.work.sum"},
+	}))
+
+	assert.Equal(t, "furnished by the workflow\n", readFile(t, repo, "go.work.sum"),
+		"nothing puts a furnishing back, so the clean has to spare it")
+	assert.NoFileExists(t, filepath.Join(repo, "scratch.txt"), "while the agent's own scratch still goes")
+	assert.NoFileExists(t, filepath.Join(repo, "own.txt"), "and so does its committed work")
+}

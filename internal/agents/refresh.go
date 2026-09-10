@@ -230,14 +230,18 @@ func (s *RefreshService) Rebase(ctx context.Context, agentID string) (*RebaseRes
 // buildParkRef names where a checkout is held before it is moved, so that one agent's parks sort
 // together and nothing collides with another's.
 func buildParkRef(agentID string) string {
-	return fmt.Sprintf("refs/weave/prerefresh/%s/%d", agentID, time.Now().UnixNano())
+	return fmt.Sprintf("%s%d", parkRefPrefix(agentID), time.Now().UnixNano())
+}
+
+// parkRefPrefix is the namespace a replay's undo copies are held under.
+func parkRefPrefix(agentID string) string {
+	return "refs/weave/prerefresh/" + agentID + "/"
 }
 
 // releaseOlderParks drops the parks this agent left behind before this one, since each pins a
 // whole worktree in the shared clone and nothing else ever collects them.
 func (s *RefreshService) releaseOlderParks(ctx context.Context, agent agentstore.Agent, keep string) {
-	prefix := fmt.Sprintf("refs/weave/prerefresh/%s/", agent.ID)
-	if err := git.ReleaseRefsUnder(ctx, agent.Cwd, prefix, keep); err != nil {
+	if err := git.ReleaseRefsUnder(ctx, agent.Cwd, parkRefPrefix(agent.ID), keep); err != nil {
 		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to release the older parks of a rebased agent",
 			append([]slog.Attr{slog.String(logging.AgentID, agent.ID)}, logging.Err(err)...)...)
 	}

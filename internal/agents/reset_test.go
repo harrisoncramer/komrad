@@ -480,3 +480,50 @@ func TestResetTellsAnAgentReviewerItsDraftWent(t *testing.T) {
 	assert.NotContains(t, mail.sent, finished,
 		"a reviewer that had already released is not told, since nothing of its was taken")
 }
+
+// TestResetSweepsTheRoundNamespace covers a snapshot ref left behind by an earlier interrupted
+// reset, which no row names any more and which nothing driven by rows could ever collect.
+func TestResetSweepsTheRoundNamespace(t *testing.T) {
+	t.Parallel()
+
+	tree := buildResetWorktree(t)
+	head, err := git.Run(t.Context(), tree, "rev-parse", "HEAD")
+	require.NoError(t, err)
+
+	// One ref an earlier run left with no row behind it, and one the rows do name.
+	orphan := roundRef("a1", "0000000000000000000000000000000000000001")
+	gitRun(t, tree, "update-ref", orphan, head)
+	named := roundRef("a1", head)
+	gitRun(t, tree, "update-ref", named, head)
+
+	service := resetService(t, tree, &fakeRounds{rounds: []reviewstore.Round{{AgentID: "a1", SnapshotSHA: head}}})
+
+	_, err = service.Reset(t.Context(), "a1")
+	require.NoError(t, err)
+
+	for _, ref := range []string{orphan, named} {
+		_, err := git.Run(t.Context(), tree, "rev-parse", "--verify", ref)
+		require.Error(t, err, "swept by prefix, so %s went whether or not a row named it", ref)
+	}
+}
+
+// TestResetLeavesTheReplayParksAlone covers the undo copies a rebase promised the agent were
+// kept, which a reset must not collect as a side effect of an unrelated key.
+func TestResetLeavesTheReplayParksAlone(t *testing.T) {
+	t.Parallel()
+
+	tree := buildResetWorktree(t)
+	head, err := git.Run(t.Context(), tree, "rev-parse", "HEAD")
+	require.NoError(t, err)
+
+	replayPark := "refs/weave/prerefresh/a1/1"
+	gitRun(t, tree, "update-ref", replayPark, head)
+
+	service := resetService(t, tree, nil)
+
+	_, err = service.Reset(t.Context(), "a1")
+	require.NoError(t, err)
+
+	_, err = git.Run(t.Context(), tree, "rev-parse", "--verify", replayPark)
+	require.NoError(t, err, "a rebase said this was kept, and a reset is not the key that takes it")
+}

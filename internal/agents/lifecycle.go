@@ -480,17 +480,12 @@ func (s *LifecycleService) releaseRounds(ctx context.Context, ids []string) {
 			continue
 		}
 
-		rounds, err := s.reviews.ListRounds(ctx, agent.ID)
-		if err != nil {
-			logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to read the rounds of an agent being deleted",
-				append([]slog.Attr{slog.String(logging.AgentID, agent.ID)}, logging.Err(err)...)...)
-
-			continue
-		}
-
-		for _, round := range rounds {
-			if err := git.ReleaseRef(ctx, agent.Cwd, roundRef(agent.ID, round.SnapshotSHA)); err != nil {
-				logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to release the snapshot of a round",
+		// Swept by prefix rather than by row, so a ref an interrupted release left behind goes
+		// too, and this is the one moment when collecting a park is unambiguously right: the
+		// agent and its worktree are being destroyed on purpose, so nobody is left to look.
+		for _, prefix := range []string{roundRefPrefix(agent.ID), parkRefPrefix(agent.ID), discardRefPrefix(agent.ID)} {
+			if err := git.ReleaseRefsUnder(ctx, agent.Cwd, prefix, ""); err != nil {
+				logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to release the refs of an agent being deleted",
 					append([]slog.Attr{slog.String(logging.AgentID, agent.ID)}, logging.Err(err)...)...)
 			}
 		}

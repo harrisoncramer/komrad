@@ -101,7 +101,13 @@ func (GitSnapshotter) FileAt(ctx context.Context, dir, sha, path string) ([]stri
 // roundRef is the ref a snapshot is held by so nothing collects it, named after the agent and
 // the commit.
 func roundRef(agentID, snapshotSHA string) string {
-	return "refs/weave/rounds/" + agentID + "/" + snapshotSHA
+	return roundRefPrefix(agentID) + snapshotSHA
+}
+
+// roundRefPrefix is the namespace an agent's round snapshots are held under, which is exact and
+// per agent, so it can be swept without a row to name each ref.
+func roundRefPrefix(agentID string) string {
+	return "refs/weave/rounds/" + agentID + "/"
 }
 
 // OpenRound freezes what an agent has written now and records it as its next round.
