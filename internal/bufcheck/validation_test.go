@@ -122,8 +122,7 @@ func TestDefinedOnly(t *testing.T) {
 	}
 }
 
-// TestDefinedOnlyOnAList builds the descriptor rather than compiling one, since no proto here
-// declares a repeated enum.
+// TestDefinedOnlyOnAList builds the descriptor rather than compiling one.
 func TestDefinedOnlyOnAList(t *testing.T) {
 	t.Parallel()
 
