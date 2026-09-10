@@ -220,3 +220,71 @@ func TestLoadRejectsAPrintableFocusKey(t *testing.T) {
 		})
 	}
 }
+
+// TestLoadRejectsAPrintableKeyInAFormBinding covers the form bindings, which are read before the
+// key reaches the field, so a printable one is typed into nothing and submits half a form.
+func TestLoadRejectsAPrintableKeyInAFormBinding(t *testing.T) {
+	tests := []struct {
+		name string
+		file string
+	}{
+		{
+			name: "submit on a letter, which no prompt can then contain",
+			file: "[keybindings.form]\nsubmit = [\"s\"]\n",
+		},
+		{
+			name: "the editor key on a letter",
+			file: "[keybindings.form]\neditor = [\"e\"]\n",
+		},
+		{
+			name: "submit on the space, which every prompt contains",
+			file: "[keybindings.form]\nsubmit = [\" \"]\n",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := loadKeys(t, tt.file)
+
+			require.Error(t, err, "a printable form key hijacks typing rather than being typed")
+		})
+	}
+}
+
+// TestLoadRejectsAFocusKeyTheAgentsNeed covers focus_key on a key the agent CLIs read, which the
+// root binding takes from every pane on weave's tmux server.
+func TestLoadRejectsAFocusKeyTheAgentsNeed(t *testing.T) {
+	_, err := loadKeys(t, "[panel]\nfocus_key = \"C-c\"\n")
+
+	require.Error(t, err, "an agent that cannot be interrupted is worse than a focus key that is not bound")
+}
+
+// TestLoadRejectsOneKeyOnBothHalvesOfAPair covers the actions that take two keys and read the
+// second to decide direction, where a shared key always resolves to the same half.
+func TestLoadRejectsOneKeyOnBothHalvesOfAPair(t *testing.T) {
+	tests := []struct {
+		name string
+		file string
+	}{
+		{
+			name: "up and down, which leaves no way back up the list",
+			file: "[keybindings.nav]\nup = [\"j\"]\ndown = [\"j\"]\n",
+		},
+		{
+			name: "the two filter matches",
+			file: "[keybindings.filter]\nnext_match = [\"n\"]\nprev_match = [\"n\"]\n",
+		},
+		{
+			name: "the top key and the bottom key, the top being a doubled press",
+			file: "[keybindings.nav]\ntop = [\"G\"]\nbottom = [\"G\"]\n",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := loadKeys(t, tt.file)
+
+			require.Error(t, err, "the handler reads one half and falls through to the other, so the pair needs two keys")
+		})
+	}
+}

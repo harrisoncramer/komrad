@@ -1,132 +1,175 @@
-# What a bad keybinding config does today
+# Keybindings: what a config can break, and what we can hold it to
 
 Weave validates nothing about a keybinding. `Config.validate` checks the log level, the two
-ceilings and the layout, and stops there. Nothing checks that a key string is one bubbletea can
-ever deliver, that two actions on a screen do not take the same key, that a key the panel
-answers itself has not been handed to an action, or that `focus_key` is a key tmux will bind.
-Every case below loaded without a word and left the panel quietly doing the wrong thing.
+ceilings and the layout, and stops. Nothing checks that a key string is one bubbletea can
+deliver, that two live actions do not take the same key, that a key the panel answers itself has
+not been given to an action, or that `focus_key` is a key tmux will bind. Every case here loaded
+without a word.
 
-Everything here was measured against a throwaway instance on tmux socket `weave-test`, Postgres
-on 5461 and the server on 8790, with two haiku agents in it. Presses that had to go through
-tmux's key tables were typed into a real client attached to that session from a third tmux
-server, because `send-keys` skips the key tables and would have proved nothing.
+Measured against a throwaway instance on tmux socket `weave-test`, Postgres 5461 and the server
+on 8790, with haiku agents in it. Anything that had to pass through tmux's key tables was typed
+into a real client attached to that session from a third tmux server, because `send-keys` skips
+the key tables and would have proved nothing.
 
-## The two key languages
+## Three key spaces, not one
 
-The panel's own bindings are bubbletea key strings, matched by exact string equality against
-`tea.KeyMsg.String()`. `focus_key` is a tmux key name, handed to `bind-key -n`. They look alike
-and are not: `ctrl+a` is only the first, `C-a` only the second. Nothing in the config file or
-its documentation says which is which, and neither field is checked against its own language.
+The config looks like one setting with many rows. It is three unrelated languages, and knowing
+which is which is most of the reason these bugs exist.
 
-## Keys no press can ever match
+The panel's own bindings, `keybindings.*`, are bubbletea key strings. They are matched by exact
+string equality against `tea.KeyMsg.String()`, so the only valid values are the names bubbletea
+prints and single runes. There is no parser and no normalisation.
 
-A binding whose string bubbletea never produces is accepted, and the action is simply gone.
-There is no press that reaches it and nothing anywhere reports it.
+`panel.focus_key` is a tmux key name, handed to `bind-key -n` on weave's own tmux server. It is
+not a panel binding at all, and it is not scoped to the panel: a root binding applies to every
+pane on that server, which is the panel and every agent.
 
-Measured with `review = ["PgUp"]` and `rename = ["escape"]`: pressing PageUp did nothing,
-pressing Escape went to the back action, and the review screen was unreachable by any key for
-the rest of the session.
+The key that opens the panel is a tmux option on the user's own server rather than a config key.
+That one is bound with `BindKeyChecked` and the refusal is surfaced. It is the pattern the other
+two should follow.
 
-The whole class: a name in the wrong case (`PgUp`), a name spelled out (`escape`, `space`,
-`return`), a tmux spelling in a panel field (`C-d`, `<C-d>`), a modifier combination no terminal
-sends (`ctrl+shift+q`), a function key past f20, the empty string, and a name padded with
-spaces, which is not trimmed.
+## Four readers of one binding
 
-Two of these are worse than the rest because they look correct. bubbletea reports the carriage
-return as `enter` and the tab as `tab`, so `ctrl+m` and `ctrl+i` can never match. Bound to
-rename, a real `C-m` press ran the open action instead, which is what `enter` is bound to.
+Within the panel, a configured key is read in four places with different precedence, and a
+person reading the config file cannot see any of it.
 
-## A two-character binding
+`routeGlobalKey` answers the help, logs, terminal and column keys before the screen's own table
+is reached. A screen's `actionSpec` table answers in table order, with each arm optionally
+guarded by a `when`. Some modes compare keys as literals and never consult the config at all:
+the filter, the search box, the marks, the details focus, the message region, the compose
+window. And the form path reads `Form.Submit` before handing the key to huh, which is why a
+printable form key is destructive.
 
-`top = ["aa"]` is accepted. Typing it delivers two separate presses of `a`, neither of which is
-`aa`, so the binding is dead. It is worse than dead when the first character is bound to
-something else: with `archive = ["a"]` in the same file, the first `a` opened the archive
-confirmation. So the file reads as though jumping to the top costs two presses, and pressing it
-archives the hovered agent.
+## The bugs
 
-## One key on two actions
+Keys no press can produce are accepted, and the action is silently gone. There is no press that
+reaches it. Measured with `review = ["PgUp"]` and `rename = ["escape"]`: PageUp did nothing,
+Escape went to the back action, and the review screen was unreachable by any key for the rest of
+the session. The class is names in the wrong case, names spelled out (`escape`, `space`,
+`return`), tmux spellings in a panel field (`C-d`), combinations no terminal sends
+(`ctrl+shift+q`), function keys past f20, the empty string, and names padded with spaces, which
+are not trimmed. Two of them look right and are not: bubbletea reports those keys as `enter` and
+`tab`, so `ctrl+m` and `ctrl+i` never match, and a real `C-m` press bound to rename ran open
+instead.
 
-The dispatch hands a press to the first arm in the screen's table that answers it, so a key
-taken twice runs whichever action the table happens to reach first, and the other is
-unreachable. Nothing warns, and the legend draws both.
+A two-character binding is accepted and is only reachable by paste. Typing `aa` delivers two
+presses of `a`, neither of which equals `aa`, while a paste of `aa` arrives as one message and
+does match. So the binding works by pasting and never by typing. It is worse when the first
+character is bound elsewhere: with `archive = ["a"]` in the same file, the first press archived
+the hovered agent.
 
-Measured on the agents screen:
+One key on two live actions runs whichever the table reaches first, and the other is
+unreachable. `new = ["j"]` lost to movement and the new-agent form could not be opened at all.
+`help.toggle = ["ctrl+c"]` beat quit, because the global arm is read before the screen's table,
+so the legend read `C-c show help` and the panel could not be quit by its own quit key. The
+default config already shares `z`, `r`, `esc` and `d` between guarded actions on one screen, so
+a rule that rejects any repeated key would make the shipped defaults illegal.
 
-`new = ["j"]` against the movement key. Pressing `j` moved the cursor. The new-agent form could
-not be opened at all.
+A printable key in the form group hijacks typing. `updateForm` reads `Form.Submit` before the
+key reaches the field, so with `submit = ["s"]` the letter cannot be typed into any prompt, and
+typing it submits whatever is in the form. Measured on the new-agent form: typing `test`, then
+`a`, then `s` created a live agent whose prompt was `testa`.
 
-`archive = ["a"]` against `workflows.adopt`, which is `a` by default. On a workflow row the
-adopt form opened; on an agent row the archive prompt opened. Both actions were guarded, so
-which one you get depends on the row under the cursor. That is the least bad version of this
-bug, and it is still not something a person can predict from the file.
+The paired actions decide which half ran by reading one of their two keys, with the other as the
+fallthrough. So a key in both `nav.up` and `nav.down` always moves down and up becomes
+unreachable, and the same holds for the two filter matches. A shared `top` and `bottom` latches
+the doubled top press instead.
 
-`help.toggle = ["ctrl+c"]` against `agents.quit`, which is `ctrl+c` by default. The global help
-arm is read before the screen's table, so the legend read `C-c show help`, pressing it toggled
-the legend, and the panel could no longer be quit by its own quit key.
+Marks own the press after them, by design. Any key given to `marks.set` or `marks.jump`
+therefore swallows the next key as a mark letter, and mark letters are restricted to a to z, so
+anything else reports an error. Bound to a movement key this eats the keyboard a press at a
+time.
 
-The default config already has keys taken twice on one screen: `z` by three actions on the
-agents list, `r` by two, `esc` by three, `d` and `r` on the archive. Those all work because
-their guards are disjoint, so a validation rule cannot simply reject a repeated key. It has to
-ask whether the two actions can be live at the same time, or restrict itself to the pairs where
-at least one arm is unguarded, which is the case every measurement above.
+Keys the panel compares as literals cannot be rebound onto: `esc`, `enter`, `backspace`,
+`ctrl+c`, the space, `tab`, `shift+tab`, `ctrl+g` in the message region, and `<`, `[`, `>`, `]`
+in the mail. An action bound to one of those is shadowed wherever that arm is read, which is
+per-mode and invisible from the file.
 
-## Keys the panel answers itself
+Keys the user's own tmux holds are eaten before the panel sees them. The panel's tmux server
+loads the user's `tmux.conf`, and this machine root-binds `C-d` and `C-u`. With
+`search = ["ctrl+d"]`, a real press put the panel's pane into copy-mode and the search never
+opened. `tmux list-keys -T root` names every key the server holds, and nothing reads it.
 
-Some keys are compared as literals rather than read from the config: `esc`, `enter`,
-`backspace`, `ctrl+c`, the space, `tab`, `shift+tab`, `ctrl+g` in the message region, and `<`,
-`[`, `>`, `]` in the mail. An action bound to one of those is shadowed wherever that arm is
-read, which is per-mode and so not visible from the config at all.
+`focus_key` is the worst of the three spaces. `ctrl+a` is accepted and tmux refuses the bind
+with `unknown key: ctrl+a`; `Client.BindRootKey` swallows that into a log warning, so the focus
+key silently does not exist. A printable focus key is destructive: with `focus_key = "j"`, a
+real `j` in the panel jumped focus instead of moving the cursor, and a real `j` in the agent's
+pane bounced focus back instead of reaching the agent's CLI. `focus_key` set to the user's tmux
+prefix installs and never fires, because tmux reads the prefix before the root table, measured
+with the prefix at `C-]`.
 
-## Keys tmux eats before the panel sees them
+The focus key also leaks. It is bound on a tmux server that outlives the panel, and nothing
+unbinds the key the previous config named or the key the panel held when it died. Four stale
+bindings accumulated on the test server in one afternoon of config edits, `C-a` among them,
+which is the default. Each one keeps taking its key from every pane forever: with a stale `C-y`
+bound and no panel alive, a real `C-y` typed into a pane running `cat` never arrived, while a
+`C-g` in the same pane echoed as `^G`.
 
-The panel's tmux server loads the user's own `tmux.conf`, so any root-table binding in it takes
-that key from every pane, the panel's included. On this machine the user binds `C-d` and `C-u`
-in the root table. With `search = ["ctrl+d"]`, a real `C-d` press put the panel's pane into
-copy-mode and the search never opened.
+A focus key that collides with a panel binding is state-dependent. With `focus_key = "C-t"` and
+the default `details.focus = ctrl+t`, the key moved the details cursor while no agent was staged
+and jumped panes while one was, because the root binding is only held over a staged pane.
 
-Weave can see this: `tmux list-keys -T root` names every key the server holds. Nothing reads it.
+An empty list unbinds silently. `down = []` yields an empty binding and movement is gone, while
+the doc comment on `Keybindings` says an unset binding falls back to its default, and an empty
+list is how TOML writes unset. `quit = []` removes the quit the same way.
 
-## focus_key
-
-`focus_key = "ctrl+a"` was accepted, and tmux refused the bind with `unknown key: ctrl+a`. The
-refusal is swallowed by `Client.BindRootKey`, which logs a warning and returns nothing, so the
-focus key silently did not exist. Nothing in the panel or in doctor says so.
-
-`focus_key = "j"` was accepted, and this one is destructive. The key is bound in the root table
-while an agent's pane is staged, so it is taken from every pane on weave's server. A real `j`
-press in the panel jumped focus to the agent instead of moving the cursor, and a real `j` press
-in the agent's pane bounced focus back to the panel instead of reaching the agent's CLI. A
-letter, a digit or any printable key does this.
-
-`focus_key` set to the user's tmux prefix is accepted and does nothing, because tmux reads the
-prefix before it reads the root table. Measured with the prefix at `C-]` and `focus_key = "C-]"`:
-the root binding was installed, and pressing the key still entered prefix mode.
-
-## An empty list
-
-`down = []` is accepted and yields an empty binding, so movement is gone. The doc comment on
-`Keybindings` says a binding left unset falls back to its built-in default, and an empty list is
-how TOML writes "unset". Either it should take the default or it should be refused; today it
-silently removes the action, and `agents.quit = []` removes the quit the same way.
+Two existing tests already assert the invariants that matter, `TestNoScreenBindsOneKeyTwice` and
+`TestNoLegendIsWiderThanThePane`, and both run only against the defaults. The first goes red the
+moment a user config is passed through it. The second holds up: long key names and wide runes
+draw fine, so legend width is not part of this problem.
 
 ## What is not a bug
 
-`ctrl+z` is delivered to the panel rather than suspending it, so an action bound to it works.
-`pgup` and `pgdown` are real bubbletea names and are fine; it is only the casing that is not.
-A non-string element in the list, such as `down = [1]`, is coerced to `"1"`, which is a
-pressable key.
+`ctrl+z` is delivered to the panel rather than suspending it. `pgup` and `pgdown` are real
+bubbletea names; only the casing is wrong. A non-string element such as `down = [1]` is coerced
+to `"1"`, which is a pressable key. Sharing a key between two guarded actions works and is how
+the defaults put three actions on `z`.
+
+## What we can and cannot support
+
+Three tiers, by what can actually be decided and where.
+
+Decidable in the loader, with no environment. That a key string is one bubbletea can produce.
+That a list does not repeat a key. That a key is not in the reserved literal set. That a
+printable key is not given to a binding read inside a text field, which is the form group and
+the compose keys. That two unguarded actions on one screen do not share a key, and that the two
+halves of a pair do not. That an empty list means the default rather than nothing. That
+`focus_key` is a tmux key name and is not printable. All of these are cheap, and all of them
+fail early with a message naming the setting, which is what the unknown-key check already does.
+
+Decidable only with tmux in front of us, which means the panel at startup and a doctor check.
+Whether tmux will actually bind `focus_key`, by binding it with the checked call rather than the
+silent one. Whether `focus_key` is the prefix. Whether any panel binding is a key the user's own
+root table holds. This is the half that cannot live in the config file, and the right home is a
+`keybindings` doctor check plus a startup failure for the focus key.
+
+Not decidable statically, and not worth trying. Whether two guarded actions can be live at the
+same time. The drift test already models this by pressing keys against a built model, and that
+is the shape any collision rule for guarded arms should take.
+
+Not supportable at all, and my recommendation is to stop offering it. A chord, meaning any
+binding longer than one key: the dispatch is string equality on a single message, so `"aa"`
+cannot work by typing, and making it work needs a pending-key state machine like the one the
+marks already have. Reject strings that are not a single key until someone wants to build that.
+The form and compose bindings: they are read inside a text field, where every printable key is
+someone's typing and the destructive case creates agents, so either fix them to control keys or
+restrict them to non-printable keys. And `focus_key` as free text: it is a tmux root binding
+that reaches every agent, so it should be an allowlist of a few control keys, or a setting that
+only turns the feature on and off, with the key itself fixed at `C-a`.
+
+The rest of `keybindings` is worth keeping. Rebinding a key on a list screen is the ordinary
+case, it is what the file is for, and every measurement above is caught by the loader-level
+checks in the first tier.
 
 ## The suite
 
-Every case above is a failing test, and the suite is red on purpose.
+Every finding is a failing test, and the suite is red on purpose. One test in it is a control
+that should pass once the check exists: the doctor case for a machine whose root table holds
+nothing.
 
 `config/keys_test.go` asserts `Load` refuses each bad file, which is where a fail-early check
-belongs: unreachable names, a key listed twice, one key on two live actions, a key the panel
-answers itself, the empty list taking the default, and the two `focus_key` classes.
-
-`internal/ui/keyshadow_test.go` proves the two consequences a config check would prevent: a
-rebind shadowed by movement, and quit lost to a help rebind.
-
-`internal/doctor/keys_test.go` asserts doctor makes a `keybindings` check at all, and that it
-reads the tmux root table and the prefix, which is the half of this that cannot be judged from
-the file alone.
+belongs. `internal/ui/keyshadow_test.go` proves the consequences the loader would prevent: the
+rebind shadowed by movement, quit lost to a help rebind, the invariant the defaults are held to
+and a user config is not, the direction pair, the form key eating a typed letter, and the stale
+focus key. `internal/doctor/keys_test.go` asserts doctor makes a `keybindings` check at all, and
+that it reads the root table and the prefix.
