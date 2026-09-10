@@ -199,7 +199,7 @@ func (m model) restoreAndOpen() (tea.Model, tea.Cmd) {
 // restoreAndResumeCmd takes one agent out of the archive and puts its conversation back in a
 // pane, landing the panel on the row it made.
 func (m *model) restoreAndResumeCmd(agent agentstore.Agent) tea.Cmd {
-	return m.agentWriteCmd(fmt.Sprintf("Could not restore and open agent %q", agent.Name), func(a api) (*agentv1.Agent, error) {
+	return m.openingWriteCmd(fmt.Sprintf("Could not restore and open agent %q", agent.Name), func(a api) (*agentv1.Agent, error) {
 		if err := a.restoreAgents([]string{agent.ID}); err != nil {
 			return nil, err
 		}
