@@ -1,0 +1,11 @@
+syntax = "proto3";
+
+package okay.v1;
+
+message PingRequest {}
+
+message PingResponse {}
+
+service OkayService {
+  rpc Ping(PingRequest) returns (PingResponse);
+}
