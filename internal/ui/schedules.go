@@ -154,10 +154,13 @@ func (m model) newScheduleForm() (tea.Model, tea.Cmd) {
 // openScheduleForm puts up the schedule form, creating a schedule when target is nil and saving
 // over the one it names otherwise.
 func (m model) openScheduleForm(values *schedulestore.Config, target *schedulestore.Schedule) (tea.Model, tea.Cmd) {
-	return m.openRedrawnForm(
-		formSchedule,
-		func(m model) *huh.Form { return scheduleForm(values, m.listing.workflows, formKeys()) },
-		func(m model) (tea.Model, tea.Cmd) {
+	return m.openRedrawnForm(openRedrawnFormParams{
+		Kind: formSchedule,
+		Build: func(m model) (*huh.Form, []string) {
+			return scheduleForm(values, m.listing.workflows, formKeys())
+		},
+		Editable: []editableText{{key: "prompt", value: &values.Prompt}},
+		Submit: func(m model) (tea.Model, tea.Cmd) {
 			var cmd tea.Cmd
 			if target == nil {
 				cmd = m.writeCmd("Could not create the schedule", func(a api) error { return a.createSchedule(*values) })
@@ -170,7 +173,7 @@ func (m model) openScheduleForm(values *schedulestore.Config, target *schedulest
 
 			return m, tea.Batch(cmd, m.holdForm())
 		},
-	)
+	})
 }
 
 func (m model) editScheduleForm() (tea.Model, tea.Cmd) {

@@ -3,6 +3,7 @@ package ui
 import (
 	"context"
 	"errors"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -388,7 +389,7 @@ func TestNewAgentFormWorktreeOverride(t *testing.T) {
 
 // TestWorktreeSelectShowsTheCurrentChoiceOnOpen covers the field opening on a visible option.
 func TestWorktreeSelectShowsTheCurrentChoiceOnOpen(t *testing.T) {
-	agentForm := newAgentForm(config.FixedFormKeys(),
+	agentForm, _ := newAgentForm(config.FixedFormKeys(),
 		&agentFormValues{Worktree: inheritWorktree},
 		true,
 	)
@@ -571,12 +572,12 @@ func TestProvisionerRebuildsTheForm(t *testing.T) {
 	opened, _ := m.openWorkflowConfigForm(&values, nil)
 	m = asModel(t, opened)
 
-	_, toggleIndex := workflowConfigForm(workflowConfigParams{
+	_, order := workflowConfigForm(workflowConfigParams{
 		NameTitle: "New workflow name",
 		Values:    &values,
 		Keys:      formKeys(),
 	})
-	for range toggleIndex {
+	for range slices.Index(order, provisionerKey) {
 		m.form.form.NextField()
 	}
 
@@ -607,13 +608,13 @@ func TestProvisionerRebuildsTheForm(t *testing.T) {
 // TestProvisionerSelectShowsEveryOptionOnOpen covers a select opening on the non-default
 // answer.
 func TestProvisionerSelectShowsEveryOptionOnOpen(t *testing.T) {
-	form, toggleIndex := workflowConfigForm(workflowConfigParams{
+	form, order := workflowConfigForm(workflowConfigParams{
 		NameTitle: "Workflow name",
 		Values:    &workflowFormValues{Provisioner: provisionerNone},
 		Keys:      config.FixedFormKeys(),
 	})
 	form.Init()
-	for range toggleIndex {
+	for range slices.Index(order, provisionerKey) {
 		form.NextField()
 	}
 
@@ -765,7 +766,7 @@ func TestFormResultsAreNotWhatIsSubmitted(t *testing.T) {
 		Enabled: true, HideAgents: true,
 	}
 
-	form := scheduleForm(&values, nil, config.FixedFormKeys())
+	form, _ := scheduleForm(&values, nil, config.FixedFormKeys())
 	form.Init()
 
 	assert.Empty(t, form.GetString("name"), "huh has recorded nothing the cursor has not left")
@@ -978,7 +979,7 @@ func (f *formRecorder) ArchiveSchedule(_ context.Context, req *connect.Request[s
 func TestOnlyTheSubmitKeySubmitsAForm(t *testing.T) {
 	keys := config.FixedFormKeys()
 
-	agent := newAgentForm(keys, &agentFormValues{}, true)
+	agent, _ := newAgentForm(keys, &agentFormValues{}, true)
 	agent.Init()
 	for range 6 {
 		agent.Update(huh.NextField())
@@ -987,7 +988,7 @@ func TestOnlyTheSubmitKeySubmitsAForm(t *testing.T) {
 	pump(t, agent, keyMsg("enter"))
 	assert.NotEqual(t, huh.StateCompleted, agent.State, "enter on the last field leaves the form alone")
 
-	rename := renameForm("api-refactor", new(string), keys)
+	rename, _ := renameForm("api-refactor", new(string), keys)
 	rename.Init()
 
 	pump(t, rename, keyMsg("enter"))

@@ -11,6 +11,7 @@ import (
 	agentstore "weave/internal/store/agent"
 	schedulestore "weave/internal/store/schedule"
 	workflowstore "weave/internal/store/workflow"
+	"weave/lib/xslice"
 
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
@@ -32,8 +33,16 @@ type formState struct {
 	// the form is about.
 	submit func(model) (tea.Model, tea.Cmd)
 
-	// rebuild draws the form again around those same values.
-	rebuild func(model) *huh.Form
+	// rebuild draws the form again around those same values, and names its fields in the order
+	// they are drawn.
+	rebuild func(model) (*huh.Form, []string)
+
+	// editable are the text fields the panel's editor key opens, by the key of the field each one
+	// is drawn in.
+	editable []editableText
+
+	// order names the fields of the form on screen, in the order they are drawn.
+	order []string
 }
 
 // formKind names the form on screen, for the legend and for what closing it means.
@@ -73,7 +82,7 @@ func (m *model) openForm(f formState) tea.Cmd {
 	m.reconcileSolo()
 
 	if m.form.form == nil {
-		m.form.form = m.form.rebuild(*m)
+		m.form.form, m.form.order = m.form.rebuild(*m)
 	}
 
 	return tea.Batch(m.form.form.Init(), formResized())
@@ -81,13 +90,23 @@ func (m *model) openForm(f formState) tea.Cmd {
 
 // openRedrawnForm puts up a form the panel can draw again from one builder, which is every form
 // whose values outlive the form itself.
-func (m model) openRedrawnForm(kind formKind, build func(model) *huh.Form, submit func(model) (tea.Model, tea.Cmd)) (tea.Model, tea.Cmd) {
+func (m model) openRedrawnForm(params openRedrawnFormParams) (tea.Model, tea.Cmd) {
 	return m, m.openForm(formState{
-		kind:    kind,
-		update:  model.updateForm,
-		submit:  submit,
-		rebuild: build,
+		kind:     params.Kind,
+		update:   model.updateForm,
+		submit:   params.Submit,
+		rebuild:  params.Build,
+		editable: params.Editable,
 	})
+}
+
+// openRedrawnFormParams is what a redrawn form is opened from: what it is, how to draw it, what it
+// hands to $EDITOR, and what answering it does.
+type openRedrawnFormParams struct {
+	Kind     formKind
+	Build    func(model) (*huh.Form, []string)
+	Editable []editableText
+	Submit   func(model) (tea.Model, tea.Cmd)
 }
 
 // formColumnFloor is the narrowest a form is worth drawing beside a list at, being a field's
@@ -302,6 +321,22 @@ func splitLines(text string) []string {
 	return lines
 }
 
+// formOf is a group of fields drawn as one form, with its fields named in the order they are
+// drawn.
+func formOf(keys config.FormKeys, fields ...huh.Field) (*huh.Form, []string) {
+	form := huh.NewForm(huh.NewGroup(fields...)).
+		WithShowHelp(true).
+		WithKeyMap(multiFieldKeyMap(keys)).
+		WithTheme(formTheme())
+
+	return form, xslice.Map(fields, func(field huh.Field) string { return field.GetKey() })
+}
+
+// textField is a text field the panel opens its own editor on.
+func textField(key string) *huh.Text {
+	return huh.NewText().Key(key).ExternalEditor(false)
+}
+
 func blueprintFields(titlePrefix string, harness, dir, flags *string) []huh.Field {
 	return []huh.Field{
 		huh.NewInput().Key("harness").Title(titlePrefix + "Agent").Placeholder("claude").Value(harness),
@@ -312,9 +347,9 @@ func blueprintFields(titlePrefix string, harness, dir, flags *string) []huh.Fiel
 
 // newAgentForm asks for the work, and asks about the worktree only in a workflow that makes
 // them.
-func newAgentForm(keys config.FormKeys, values *agentFormValues, worktree bool) *huh.Form {
+func newAgentForm(keys config.FormKeys, values *agentFormValues, worktree bool) (*huh.Form, []string) {
 	fields := append([]huh.Field{
-		huh.NewText().Key("prompt").Title("Initial prompt").Description(fmt.Sprintf("%s opens $EDITOR; %s submits", keyLabel(keys.Editor), keyLabel(keys.Submit))).Value(&values.Prompt),
+		textField("prompt").Title("Initial prompt").Description(fmt.Sprintf("%s opens $EDITOR; %s submits", keyLabel(keys.Editor), keyLabel(keys.Submit))).Value(&values.Prompt),
 		huh.NewInput().Key("title").Title("Title").Value(&values.Title),
 	}, blueprintFields("", &values.Harness, &values.Dir, &values.Flags)...)
 
@@ -326,13 +361,13 @@ func newAgentForm(keys config.FormKeys, values *agentFormValues, worktree bool) 
 			).Value(&values.Worktree))
 	}
 
-	return huh.NewForm(huh.NewGroup(fields...)).WithShowHelp(true).WithKeyMap(multiFieldKeyMap(keys)).WithTheme(formTheme())
+	return formOf(keys, fields...)
 }
 
 // childAgentForm asks for the work and little else.
-func childAgentForm(keys config.FormKeys, values *agentFormValues, parent agentstore.Agent) *huh.Form {
+func childAgentForm(keys config.FormKeys, values *agentFormValues, parent agentstore.Agent) (*huh.Form, []string) {
 	fields := []huh.Field{
-		huh.NewText().Key("prompt").Title(fmt.Sprintf("Child of %q", parent.Name)).
+		textField("prompt").Title(fmt.Sprintf("Child of %q", parent.Name)).
 			Description(fmt.Sprintf("%s opens $EDITOR; %s submits", keyLabel(keys.Editor), keyLabel(keys.Submit))).Value(&values.Prompt),
 		huh.NewInput().Key("title").Title("Title").Value(&values.Title),
 		huh.NewInput().Key("harness").Title("Agent").Placeholder(orDash(parent.Harness)).Value(&values.Harness),
@@ -341,15 +376,15 @@ func childAgentForm(keys config.FormKeys, values *agentFormValues, parent agents
 			"Runs in %s, the parent's own checkout. No worktree, nothing provisioned, archived when the parent is.", parent.Cwd)),
 	}
 
-	return huh.NewForm(huh.NewGroup(fields...)).WithShowHelp(true).WithKeyMap(multiFieldKeyMap(keys)).WithTheme(formTheme())
+	return formOf(keys, fields...)
 }
 
 // adoptAgentForm asks for the work to pick up and little else.
-func adoptAgentForm(keys config.FormKeys, values *adoptFormValues) *huh.Form {
+func adoptAgentForm(keys config.FormKeys, values *adoptFormValues) (*huh.Form, []string) {
 	fields := []huh.Field{
 		huh.NewInput().Key("ref").Title("Adopt").
 			Description("a pull request url or number, or a branch already pushed or on disk").Value(&values.Ref),
-		huh.NewText().Key("prompt").Title("Prompt").
+		textField("prompt").Title("Prompt").
 			Description(fmt.Sprintf("what to do with it; blank asks it to report in and wait. %s opens $EDITOR; %s submits",
 				keyLabel(keys.Editor), keyLabel(keys.Submit))).Value(&values.Prompt),
 		huh.NewInput().Key("title").Title("Title").Description("blank names it after the pull request or branch").Value(&values.Title),
@@ -357,15 +392,11 @@ func adoptAgentForm(keys config.FormKeys, values *adoptFormValues) *huh.Form {
 		huh.NewInput().Key("flags").Title("Flags").Placeholder("--model opus").Value(&values.Flags),
 	}
 
-	return huh.NewForm(huh.NewGroup(fields...)).WithShowHelp(true).WithKeyMap(multiFieldKeyMap(keys)).WithTheme(formTheme())
+	return formOf(keys, fields...)
 }
 
-func renameForm(current string, name *string, keys config.FormKeys) *huh.Form {
-	return huh.NewForm(
-		huh.NewGroup(
-			huh.NewInput().Key("name").Title(fmt.Sprintf("Rename %q to", current)).Value(name),
-		),
-	).WithShowHelp(true).WithKeyMap(multiFieldKeyMap(keys)).WithTheme(formTheme())
+func renameForm(current string, name *string, keys config.FormKeys) (*huh.Form, []string) {
+	return formOf(keys, huh.NewInput().Key("name").Title(fmt.Sprintf("Rename %q to", current)).Value(name))
 }
 
 func formKeyMap(keys config.FormKeys) *huh.KeyMap {
@@ -380,7 +411,6 @@ func multiFieldKeyMap(keys config.FormKeys) *huh.KeyMap {
 	submit := key.NewBinding(key.WithKeys(keys.Submit...), key.WithHelp(keyLabel(keys.Submit), "submit"))
 
 	km := formKeyMap(keys)
-	km.Text.Editor = key.NewBinding(key.WithKeys(keys.Editor...), key.WithHelp(keyLabel(keys.Editor), "open editor"))
 	km.Input.Submit = submit
 	km.Text.Submit = submit
 	km.Select.Submit = submit
@@ -431,8 +461,9 @@ func (m *model) rebuildForm() tea.Cmd {
 		return nil
 	}
 
-	form := m.form.rebuild(*m)
+	form, order := m.form.rebuild(*m)
 	m.form.form = form
+	m.form.order = order
 
 	return tea.Batch(form.Init(), formResized())
 }
@@ -675,12 +706,8 @@ func countWord(n int, singular, plural string) string {
 	return fmt.Sprintf("%d %s", n, plural)
 }
 
-func workflowForm(title string, values *workflowFormValues, keys config.FormKeys) *huh.Form {
-	return huh.NewForm(
-		huh.NewGroup(
-			huh.NewInput().Key("name").Title(title).Value(&values.Name),
-		),
-	).WithShowHelp(true).WithKeyMap(multiFieldKeyMap(keys)).WithTheme(formTheme())
+func workflowForm(title string, values *workflowFormValues, keys config.FormKeys) (*huh.Form, []string) {
+	return formOf(keys, huh.NewInput().Key("name").Title(title).Value(&values.Name))
 }
 
 const provisionerKey = "provisioner"
@@ -701,7 +728,7 @@ type workflowConfigParams struct {
 	Keys      config.FormKeys
 }
 
-func workflowConfigForm(params workflowConfigParams) (form *huh.Form, focusFieldIndex int) {
+func workflowConfigForm(params workflowConfigParams) (form *huh.Form, order []string) {
 	values, keys := params.Values, params.Keys
 	if values.Provisioner == "" {
 		values.Provisioner = provisionerWorktree
@@ -709,12 +736,11 @@ func workflowConfigForm(params workflowConfigParams) (form *huh.Form, focusField
 
 	fields := append([]huh.Field{
 		huh.NewInput().Key("name").Title(params.NameTitle).Value(&values.Name),
-		huh.NewText().Key("context").Title("Context").
+		textField("context").Title("Context").
 			Description(fmt.Sprintf("shared notes for this workflow; %s opens $EDITOR", keyLabel(keys.Editor))).
 			Lines(2).Value(&values.Context),
 	}, blueprintFields("Default ", &values.Harness, &values.Cwd, &values.Flags)...)
 
-	toggleIndex := len(fields)
 	fields = append(fields,
 		huh.NewSelect[string]().Key(provisionerKey).Title("Provisioner").
 			Options(provisionerOptions()...).Value(&values.Provisioner),
@@ -729,12 +755,7 @@ func workflowConfigForm(params workflowConfigParams) (form *huh.Form, focusField
 
 	// The form is taller than most terminals now, so it takes its height from the resize the panel
 	// sends it and huh scrolls it around whichever field has the cursor.
-	built := huh.NewForm(huh.NewGroup(fields...)).
-		WithShowHelp(true).
-		WithKeyMap(multiFieldKeyMap(keys)).
-		WithTheme(formTheme())
-
-	return built, toggleIndex
+	return formOf(keys, fields...)
 }
 
 func worktreeDetailFields(values *workflowFormValues) []huh.Field {
@@ -744,13 +765,13 @@ func worktreeDetailFields(values *workflowFormValues) []huh.Field {
 		huh.NewInput().Key("worktree_dir").Title("Worktree parent directory").
 			Description("where this workflow's worktrees are made, for a repo that expects them somewhere of its own").
 			Placeholder("the configured worktrees directory").Value(&values.WorktreeDir),
-		huh.NewText().Key("worktree_copy_paths").Title("Worktree copy paths").
+		textField("worktree_copy_paths").Title("Worktree copy paths").
 			Description("one repo-relative path per line, copied fresh into every worktree, such as .env").
 			Lines(2).Value(&values.WorktreeCopyPaths),
-		huh.NewText().Key("worktree_symlink_paths").Title("Worktree symlink paths").
+		textField("worktree_symlink_paths").Title("Worktree symlink paths").
 			Description("one repo-relative path per line, symlinked back instead of duplicated, such as node_modules").
 			Lines(2).Value(&values.WorktreeSymlinkPaths),
-		huh.NewText().Key("worktree_diff_exclude").Title("Diff excludes").
+		textField("worktree_diff_exclude").Title("Diff excludes").
 			Description("one path or glob per line, left out of the diff the review screen draws, such as proto/gen or *.pb.go").
 			Lines(2).Value(&values.WorktreeDiffExclude),
 	}
@@ -879,26 +900,22 @@ func archiveWorkflowForm(name string, keys config.FormKeys) (*huh.Form, *bool) {
 	)
 }
 
-func scheduleForm(values *schedulestore.Config, workflows []workflowstore.Workflow, keys config.FormKeys) *huh.Form {
+func scheduleForm(values *schedulestore.Config, workflows []workflowstore.Workflow, keys config.FormKeys) (*huh.Form, []string) {
 	options := make([]huh.Option[string], 0, len(workflows))
 	for _, w := range workflows {
 		options = append(options, huh.NewOption(w.Name+"  "+orDash(w.Cwd), w.ID))
 	}
 
-	form := huh.NewForm(
-		huh.NewGroup(
-			huh.NewInput().Key("name").Title("Name").Description("also names the agents it launches").Value(&values.Name),
-			huh.NewInput().Key("cron").Title("Cron").Placeholder("0 9 * * 1-5").Description("minute hour day month weekday").Value(&values.Cron),
-			huh.NewInput().Key("timezone").Title("Timezone").Placeholder("America/New_York").Description("blank = this machine's zone").Value(&values.Timezone),
-			huh.NewText().Key("prompt").Title("Prompt").Description("what each launched agent is asked to do").Value(&values.Prompt),
-			huh.NewSelect[string]().Key("workflow").Title("Workflow").Description("supplies the directory, flags, and context").Value(&values.WorkflowID).Options(options...),
+	return formOf(keys,
+		huh.NewInput().Key("name").Title("Name").Description("also names the agents it launches").Value(&values.Name),
+		huh.NewInput().Key("cron").Title("Cron").Placeholder("0 9 * * 1-5").Description("minute hour day month weekday").Value(&values.Cron),
+		huh.NewInput().Key("timezone").Title("Timezone").Placeholder("America/New_York").Description("blank = this machine's zone").Value(&values.Timezone),
+		textField("prompt").Title("Prompt").Description("what each launched agent is asked to do").Value(&values.Prompt),
+		huh.NewSelect[string]().Key("workflow").Title("Workflow").Description("supplies the directory, flags, and context").Value(&values.WorkflowID).Options(options...),
 
-			huh.NewConfirm().Key("enabled").Title("Armed?").Affirmative("Armed").Negative("Paused").Value(&values.Enabled).WithButtonAlignment(lipgloss.Left),
-			huh.NewConfirm().Key("hide_agents").Title("Hide its runs?").Description("they still run, they just take no row").Affirmative("Hidden").Negative("Listed").Value(&values.HideAgents).WithButtonAlignment(lipgloss.Left),
-		),
-	).WithShowHelp(true).WithKeyMap(multiFieldKeyMap(keys)).WithTheme(formTheme())
-
-	return form
+		huh.NewConfirm().Key("enabled").Title("Armed?").Affirmative("Armed").Negative("Paused").Value(&values.Enabled).WithButtonAlignment(lipgloss.Left),
+		huh.NewConfirm().Key("hide_agents").Title("Hide its runs?").Description("they still run, they just take no row").Affirmative("Hidden").Negative("Listed").Value(&values.HideAgents).WithButtonAlignment(lipgloss.Left),
+	)
 }
 
 func archiveScheduleForm(name string, keys config.FormKeys) (*huh.Form, *bool) {

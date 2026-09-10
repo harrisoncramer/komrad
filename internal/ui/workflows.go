@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 
 	workflowstore "weave/internal/store/workflow"
@@ -35,10 +36,10 @@ func (m model) renameWorkflowForm(workflow workflowstore.Workflow) (tea.Model, t
 func (m model) openWorkflowRename(workflow workflowstore.Workflow, values *workflowFormValues) (tea.Model, tea.Cmd) {
 	title := fmt.Sprintf("Rename %q to", workflow.Name)
 
-	return m.openRedrawnForm(
-		formWorkflow,
-		func(m model) *huh.Form { return workflowForm(title, values, formKeys()) },
-		func(m model) (tea.Model, tea.Cmd) {
+	return m.openRedrawnForm(openRedrawnFormParams{
+		Kind:  formWorkflow,
+		Build: func(m model) (*huh.Form, []string) { return workflowForm(title, values, formKeys()) },
+		Submit: func(m model) (tea.Model, tea.Cmd) {
 			renamed := workflow
 
 			trimmed := strings.TrimSpace(values.Name)
@@ -54,7 +55,7 @@ func (m model) openWorkflowRename(workflow workflowstore.Workflow, values *workf
 
 			return m, tea.Batch(cmd, m.holdForm())
 		},
-	)
+	})
 }
 
 func (m model) editWorkflowForm(workflow workflowstore.Workflow) (tea.Model, tea.Cmd) {
@@ -75,7 +76,7 @@ func (m model) openWorkflowConfigForm(values *workflowFormValues, target *workfl
 		title = "Workflow name"
 	}
 
-	build := func(m model) (*huh.Form, int) {
+	build := func(m model) (*huh.Form, []string) {
 		return workflowConfigForm(workflowConfigParams{
 			NameTitle: title,
 			Values:    values,
@@ -88,6 +89,12 @@ func (m model) openWorkflowConfigForm(values *workflowFormValues, target *workfl
 		kind: formWorkflow,
 		update: func(m model, msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m.updateWorkflowForm(msg, values, build)
+		},
+		editable: []editableText{
+			{key: "context", value: &values.Context},
+			{key: "worktree_copy_paths", value: &values.WorktreeCopyPaths},
+			{key: "worktree_symlink_paths", value: &values.WorktreeSymlinkPaths},
+			{key: "worktree_diff_exclude", value: &values.WorktreeDiffExclude},
 		},
 		submit: func(m model) (tea.Model, tea.Cmd) {
 			var cmd tea.Cmd
@@ -103,26 +110,23 @@ func (m model) openWorkflowConfigForm(values *workflowFormValues, target *workfl
 
 			return m, tea.Batch(cmd, m.holdForm())
 		},
-		rebuild: func(m model) *huh.Form {
-			form, _ := build(m)
-
-			return form
-		},
+		rebuild: build,
 	})
 }
 
 // swapProvisioner redraws the form around the provisioner just chosen and puts the cursor back
 // on the field that chose it.
-func (m model) swapProvisioner(build func(model) (*huh.Form, int)) (model, tea.Cmd) {
-	form, toggleIndex := build(m)
+func (m model) swapProvisioner(build func(model) (*huh.Form, []string)) (model, tea.Cmd) {
+	form, order := build(m)
 
 	// Redrawn from nothing, so it is told its own column again along with everything else.
 	cmds := []tea.Cmd{form.Init(), formResized()}
-	for range toggleIndex {
+	for range max(slices.Index(order, provisionerKey), 0) {
 		cmds = append(cmds, form.NextField())
 	}
 
 	m.form.form = form
+	m.form.order = order
 
 	return m, tea.Batch(cmds...)
 }
@@ -162,7 +166,7 @@ func (m model) archiveWorkflowConfirm(workflow workflowstore.Workflow) (tea.Mode
 
 // updateWorkflowForm is the one form whose fields change as it is answered, so it watches the
 // provisioner across the message that may have switched it.
-func (m model) updateWorkflowForm(msg tea.Msg, values *workflowFormValues, build func(model) (*huh.Form, int)) (tea.Model, tea.Cmd) {
+func (m model) updateWorkflowForm(msg tea.Msg, values *workflowFormValues, build func(model) (*huh.Form, []string)) (tea.Model, tea.Cmd) {
 	if key, ok := msg.(tea.KeyMsg); ok && isBound(key.String(), formKeys().Submit) {
 		return m.answerForm()
 	}

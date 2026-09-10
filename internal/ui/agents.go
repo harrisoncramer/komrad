@@ -520,11 +520,14 @@ func agentPrefill(workflow workflowstore.Workflow) agentFormValues {
 }
 
 func (m model) openAgentForm(workflow workflowstore.Workflow, values *agentFormValues) (tea.Model, tea.Cmd) {
-	return m.openRedrawnForm(
-		formAgent,
-		func(m model) *huh.Form { return newAgentForm(formKeys(), values, workflow.Worktree.Enabled) },
-		func(m model) (tea.Model, tea.Cmd) { return m.submitAgent(workflow, *values) },
-	)
+	return m.openRedrawnForm(openRedrawnFormParams{
+		Kind: formAgent,
+		Build: func(m model) (*huh.Form, []string) {
+			return newAgentForm(formKeys(), values, workflow.Worktree.Enabled)
+		},
+		Editable: []editableText{{key: "prompt", value: &values.Prompt}},
+		Submit:   func(m model) (tea.Model, tea.Cmd) { return m.submitAgent(workflow, *values) },
+	})
 }
 
 // openNewChild attaches a child to the hovered agent, saying why on a child rather than opening
@@ -542,11 +545,12 @@ func (m model) openNewChild(parent agentstore.Agent) (tea.Model, tea.Cmd) {
 }
 
 func (m model) openChildForm(parent agentstore.Agent, values *agentFormValues) (tea.Model, tea.Cmd) {
-	return m.openRedrawnForm(
-		formChild,
-		func(m model) *huh.Form { return childAgentForm(formKeys(), values, parent) },
-		func(m model) (tea.Model, tea.Cmd) { return m.submitChild(parent, *values) },
-	)
+	return m.openRedrawnForm(openRedrawnFormParams{
+		Kind:     formChild,
+		Build:    func(m model) (*huh.Form, []string) { return childAgentForm(formKeys(), values, parent) },
+		Editable: []editableText{{key: "prompt", value: &values.Prompt}},
+		Submit:   func(m model) (tea.Model, tea.Cmd) { return m.submitChild(parent, *values) },
+	})
 }
 
 // submitChild launches the child without a directory or a provisioner.
@@ -568,11 +572,11 @@ func (m model) openRename(agent agentstore.Agent) (tea.Model, tea.Cmd) {
 }
 
 func (m model) openRenameForm(agent agentstore.Agent, name *string) (tea.Model, tea.Cmd) {
-	return m.openRedrawnForm(
-		formRename,
-		func(m model) *huh.Form { return renameForm(agent.Name, name, formKeys()) },
-		func(m model) (tea.Model, tea.Cmd) { return m.submitRename(agent, *name) },
-	)
+	return m.openRedrawnForm(openRedrawnFormParams{
+		Kind:   formRename,
+		Build:  func(m model) (*huh.Form, []string) { return renameForm(agent.Name, name, formKeys()) },
+		Submit: func(m model) (tea.Model, tea.Cmd) { return m.submitRename(agent, *name) },
+	})
 }
 
 func (m model) openAdopt(workflow *workflowstore.Workflow) (tea.Model, tea.Cmd) {
@@ -593,11 +597,12 @@ func adoptPrefill(workflow workflowstore.Workflow) adoptFormValues {
 }
 
 func (m model) openAdoptForm(workflow workflowstore.Workflow, values *adoptFormValues) (tea.Model, tea.Cmd) {
-	return m.openRedrawnForm(
-		formAdopt,
-		func(m model) *huh.Form { return adoptAgentForm(formKeys(), values) },
-		func(m model) (tea.Model, tea.Cmd) { return m.submitAdopt(workflow, *values) },
-	)
+	return m.openRedrawnForm(openRedrawnFormParams{
+		Kind:     formAdopt,
+		Build:    func(m model) (*huh.Form, []string) { return adoptAgentForm(formKeys(), values) },
+		Editable: []editableText{{key: "prompt", value: &values.Prompt}},
+		Submit:   func(m model) (tea.Model, tea.Cmd) { return m.submitAdopt(workflow, *values) },
+	})
 }
 
 func (m model) submitAdopt(workflow workflowstore.Workflow, values adoptFormValues) (tea.Model, tea.Cmd) {

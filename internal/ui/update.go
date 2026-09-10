@@ -117,6 +117,12 @@ func (m model) route(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	if m.form.isActive() {
+		if isKey && isBound(key.String(), formKeys().Editor) {
+			if next, cmd, opened := m.openFormFieldEditor(); opened {
+				return next, cmd
+			}
+		}
+
 		// A resize says how big the panel's window is, and the form is drawn in a column of it, so
 		// the size is rewritten here rather than in each form's own handler.
 		return m.form.update(m, m.formSizeOf(msg))
@@ -290,6 +296,10 @@ func (m model) routeAsyncMessage(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
 		return next, cmd, true
 	case roundEditedMsg:
 		return m, m.applyRoundEdited(msg), true
+	case formFieldEditedMsg:
+		next, cmd := m.applyFormFieldEdited(msg)
+
+		return next, cmd, true
 	case messageEditedMsg:
 		m.applyMessageEdited(msg)
 
