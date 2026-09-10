@@ -116,7 +116,7 @@ func agentsModeActions() []action {
 			id:   actionArchiveOpen,
 			keys: func(k config.Keybindings) []string { return k.Archive.Open },
 			when: func(m model) bool { return !m.tree.selected.isActive() },
-			run:  func(m model, _ string) (tea.Model, tea.Cmd) { return m.enterArchive() },
+			run:  func(m model, _ string) (tea.Model, tea.Cmd) { return m.openArchive() },
 		},
 		{
 			id:   actionMarkJump,

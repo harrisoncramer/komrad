@@ -20,12 +20,16 @@ type archiveState struct {
 }
 
 func (m model) enterArchive() (tea.Model, tea.Cmd) {
-	opening := m.screen != screenArchive
-
 	m.enterScreen(screenArchive)
-	if opening {
-		m.beginFilter()
-	}
+	m.stageArchive()
+
+	return m, m.refreshCmd()
+}
+
+// openArchive is the key's own way onto the screen, which lands with the search up.
+func (m model) openArchive() (tea.Model, tea.Cmd) {
+	m.enterScreen(screenArchive)
+	m.beginFilter()
 	m.stageArchive()
 
 	return m, m.refreshCmd()
