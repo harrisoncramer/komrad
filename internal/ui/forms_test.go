@@ -1377,9 +1377,9 @@ func TestSubmittingNoticeCountsUp(t *testing.T) {
 	assert.Equal(t, "  submitting… 6m40s · esc to keep working", submittingNotice(since, since.Add(400*time.Second)))
 }
 
-// TestRefreshRebaseLabelNamesWhatWillRun covers the picker promising a replay when a move is
-// what would actually happen, which is the difference between the two the person is choosing on.
-func TestRefreshRebaseLabelNamesWhatWillRun(t *testing.T) {
+// TestRefreshDescriptionSaysWhatWillHappen covers the sentence somebody reads before pressing,
+// which has to name what becomes of the branch rather than only what the operation is called.
+func TestRefreshDescriptionSaysWhatWillHappen(t *testing.T) {
 	t.Parallel()
 
 	for _, tt := range []struct {
@@ -1389,48 +1389,79 @@ func TestRefreshRebaseLabelNamesWhatWillRun(t *testing.T) {
 		wantNone []string
 	}{
 		{
+			name: "a branch with nothing of its own is just moved",
+			plan: refreshPlan{
+				baseRef: "origin/main",
+			},
+			want:     []string{"no commits of its own", "moved to origin/main"},
+			wantNone: []string{"replayed"},
+		},
+		{
+			name: "a branch the base already holds loses those commits",
+			plan: refreshPlan{
+				baseRef: "origin/main",
+				landed:  3,
+			},
+			want: []string{"already holds every commit", "3 commits will leave the branch"},
+		},
+		{
 			name: "an ordinary rebase says what it replays",
 			plan: refreshPlan{
 				baseRef: "origin/main",
-				baseSHA: "a6e5d5cd1234",
-				replay:  3,
+				replay:  2,
 			},
-			want:     []string{"Rebase onto origin/main", "Replay 3 commits"},
-			wantNone: []string{"already holds"},
+			want:     []string{"2 commits of its own will be replayed onto origin/main"},
+			wantNone: []string{"leave the branch"},
 		},
 		{
-			name: "a branch whose work all landed is moved, not rebased",
+			name: "a partly landed branch says both halves",
 			plan: refreshPlan{
 				baseRef: "origin/main",
-				baseSHA: "a6e5d5cd1234",
-				landed:  3,
-			},
-			want:     []string{"Move onto origin/main", "already has 3 commits"},
-			wantNone: []string{"Rebase"},
-		},
-		{
-			name: "a branch partly landed says both halves",
-			plan: refreshPlan{
-				baseRef: "origin/main",
-				baseSHA: "a6e5d5cd1234",
 				landed:  2,
 				replay:  1,
 			},
-			want: []string{"Rebase onto origin/main", "Replay 1 commit", "drop 2 it already has"},
+			want: []string{"1 commit of its own will be replayed", "Another 2 the base already holds"},
 		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			label := refreshRebaseLabel(tt.plan)
+			description := refreshDescription(tt.plan)
 			for _, want := range tt.want {
-				assert.Contains(t, label, want)
+				assert.Contains(t, description, want)
 			}
 			for _, none := range tt.wantNone {
-				assert.NotContains(t, label, none)
+				assert.NotContains(t, description, none)
 			}
 		})
 	}
+}
+
+// TestRefreshDescriptionAlwaysSaysWhatItDoesToTheFiles pins the half a person is most likely to
+// be wrong about, since the branch moving is expected and the files changing under it is not.
+func TestRefreshDescriptionAlwaysSaysWhatItDoesToTheFiles(t *testing.T) {
+	t.Parallel()
+
+	for _, plan := range []refreshPlan{
+		{baseRef: "origin/main"},
+		{baseRef: "origin/main", landed: 3},
+		{baseRef: "origin/main", replay: 2},
+	} {
+		description := refreshDescription(plan)
+		assert.Contains(t, description, "files will change under it")
+		assert.Contains(t, description, "nothing untracked is removed")
+		assert.Contains(t, description, "copy of the worktree is kept")
+	}
+}
+
+// TestRefreshAffirmativeNamesWhatRuns covers the button, since a branch the base already holds
+// is moved rather than replayed and the word should not claim otherwise.
+func TestRefreshAffirmativeNamesWhatRuns(t *testing.T) {
+	t.Parallel()
+
+	assert.Equal(t, "Rebase", refreshAffirmative(refreshPlan{replay: 2}))
+	assert.Equal(t, "Move", refreshAffirmative(refreshPlan{landed: 3}))
+	assert.Equal(t, "Move", refreshAffirmative(refreshPlan{}))
 }
 
 // TestRefreshWarning covers each thing the confirmation is there to say, and the ordinary case
@@ -1450,9 +1481,9 @@ func TestRefreshWarning(t *testing.T) {
 			wantNone: true,
 		},
 		{
-			name: "commits the base already holds, whose replay would collide with themselves",
-			plan: refreshPlan{landed: 2},
-			want: []string{"already has 2 commits", "collide"},
+			name:     "the landed commits are left to the description, which says what becomes of them",
+			plan:     refreshPlan{landed: 2},
+			wantNone: true,
 		},
 		{
 			name: "merge commits, which a rebase throws away before replaying what they settled",

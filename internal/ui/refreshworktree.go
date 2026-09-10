@@ -89,7 +89,7 @@ func (m *model) rebaseCmd(agentID, name string) tea.Cmd {
 	}
 }
 
-// applyRefreshPlanned opens the picker, or says why there is nothing to pick between.
+// applyRefreshPlanned opens the confirmation, or says why there is nothing to confirm.
 func (m *model) applyRefreshPlanned(msg refreshPlannedMsg) (tea.Model, tea.Cmd) {
 	if msg.err != nil {
 		m.report("Could not work out what a rebase would do", msg.err)
@@ -97,7 +97,7 @@ func (m *model) applyRefreshPlanned(msg refreshPlannedMsg) (tea.Model, tea.Cmd) 
 		return m, nil
 	}
 
-	return m.openRefreshPicker(msg.plan)
+	return m.openRefreshConfirm(msg.plan)
 }
 
 // applyRebased reports the outcome.
