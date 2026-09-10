@@ -198,7 +198,7 @@ func TestPromptSubjectCountsTheChildren(t *testing.T) {
 
 // TestDeletePromptSaysWhatGoesWithIt pins the hard delete asking about the children too.
 func TestDeletePromptSaysWhatGoesWithIt(t *testing.T) {
-	form, _ := deleteAgentsForm([]agentstore.Agent{{ID: "a1", Name: "author"}}, 2, config.DefaultKeybindings().Form)
+	form, _ := deleteAgentsForm([]agentstore.Agent{{ID: "a1", Name: "author"}}, 2, config.FixedFormKeys())
 	form.Init()
 	form.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
 

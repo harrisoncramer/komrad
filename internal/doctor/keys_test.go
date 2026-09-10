@@ -9,101 +9,97 @@ import (
 	"weave/config"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
-// rootKeysEnv answers list-keys with a root table holding the given bindings.
+// rootKeysEnv answers tmux with a root table holding the given bindings and a prefix of C-b.
 func rootKeysEnv(cfg *config.Config, rootKeys ...string) Env {
+	return rootKeysEnvWithPrefix(cfg, "C-b", rootKeys...)
+}
+
+func rootKeysEnvWithPrefix(cfg *config.Config, prefix string, rootKeys ...string) Env {
 	env := configEnv(cfg, nil, true)
+	env.Settings.TmuxSocket = "weave"
 	env.Output = func(_ context.Context, _ string, args ...string) (string, error) {
-		if !slices.Contains(args, "list-keys") {
-			return "", nil
-		}
+		switch {
+		case slices.Contains(args, "list-keys"):
+			lines := make([]string, 0, len(rootKeys))
+			for _, key := range rootKeys {
+				lines = append(lines, "bind-key  -T root "+key+"    copy-mode -u")
+			}
 
-		var lines []string
-		for _, key := range rootKeys {
-			lines = append(lines, "bind-key  -T root "+key+"    copy-mode -u")
-		}
-
-		return strings.Join(lines, "\n"), nil
-	}
-
-	return env
-}
-
-// keybindingsCheck is the check that reads the panel's bindings back against tmux, found by
-// name so this test says what is missing rather than failing to compile.
-func keybindingsCheck(t *testing.T) Check {
-	t.Helper()
-
-	checks := Checks(Settings{Harnesses: claudeAndCodex, TmuxSocket: "weave"})
-	i := slices.IndexFunc(checks, func(c Check) bool { return c.Name == "keybindings" })
-	require.GreaterOrEqual(t, i, 0, "doctor makes no assertion about the panel's keybindings")
-
-	return checks[i]
-}
-
-// TestKeybindingsCheckFindsAKeyTmuxHolds covers a panel binding on a key the user's own tmux
-// takes in its root table, where the press never reaches the panel at all.
-func TestKeybindingsCheckFindsAKeyTmuxHolds(t *testing.T) {
-	cfg := config.Defaults()
-	cfg.Keybindings.Agents.Search = []string{"ctrl+d"}
-
-	result := keybindingsCheck(t).Run(t.Context(), rootKeysEnv(cfg, "C-d"))
-
-	assert.Equal(t, StatusFail, result.Status,
-		"tmux answers C-d before the panel does, so search is unreachable")
-	assert.Contains(t, result.Detail, "ctrl+d")
-}
-
-// TestKeybindingsCheckPassesWhenTmuxHoldsNothing covers the ordinary machine, where the root
-// table holds only mouse bindings.
-func TestKeybindingsCheckPassesWhenTmuxHoldsNothing(t *testing.T) {
-	result := keybindingsCheck(t).Run(t.Context(), rootKeysEnv(config.Defaults(), "MouseDown1Pane"))
-
-	assert.Equal(t, StatusOK, result.Status)
-}
-
-// TestKeybindingsCheckFindsAFocusKeyTmuxRefuses covers focus_key spelled the way the panel's
-// own bindings are, which tmux calls an unknown key and the panel only logs.
-func TestKeybindingsCheckFindsAFocusKeyTmuxRefuses(t *testing.T) {
-	cfg := config.Defaults()
-	cfg.Panel.FocusKey = "ctrl+a"
-
-	result := keybindingsCheck(t).Run(t.Context(), rootKeysEnv(cfg))
-
-	assert.Equal(t, StatusFail, result.Status, "tmux would refuse this key, and the focus key would do nothing")
-	assert.Contains(t, result.Fix, "C-a")
-}
-
-// TestKeybindingsCheckFindsAFocusKeyOnThePrefix covers focus_key set to the tmux prefix, which
-// tmux reads as the prefix before it reads the root table, so the binding never fires.
-func TestKeybindingsCheckFindsAFocusKeyOnThePrefix(t *testing.T) {
-	cfg := config.Defaults()
-	cfg.Panel.FocusKey = "C-]"
-
-	env := rootKeysEnv(cfg)
-	env.Output = func(_ context.Context, _ string, args ...string) (string, error) {
-		if slices.Contains(args, "show-options") {
-			return "prefix C-]", nil
+			return strings.Join(lines, "\n"), nil
+		case slices.Contains(args, "prefix"):
+			return "prefix " + prefix, nil
 		}
 
 		return "", nil
 	}
 
-	result := keybindingsCheck(t).Run(t.Context(), env)
-
-	assert.Equal(t, StatusFail, result.Status, "the prefix is read first, so the focus key is dead")
+	return env
 }
 
-// TestKeybindingsCheckFindsAPrintableFocusKey covers focus_key on a key an agent types, bound in
-// the root table and so taken from every pane on weave's own server.
-func TestKeybindingsCheckFindsAPrintableFocusKey(t *testing.T) {
+// TestKeybindingsCheckFindsAKeyTmuxHolds covers a panel binding on a key the user's own tmux takes
+// in its root table, where the press never reaches the panel at all.
+func TestKeybindingsCheckFindsAKeyTmuxHolds(t *testing.T) {
 	cfg := config.Defaults()
-	cfg.Panel.FocusKey = "j"
+	cfg.Keybindings.Agents.Search = []string{"ctrl+d"}
 
-	result := keybindingsCheck(t).Run(t.Context(), rootKeysEnv(cfg))
+	result := newKeybindingsCheck().Run(t.Context(), rootKeysEnv(cfg, "C-d"))
 
 	assert.Equal(t, StatusFail, result.Status,
-		"a root binding on j takes it from the panel's own movement and from every agent's CLI")
+		"tmux answers C-d before the panel does, so search is unreachable")
+	assert.Equal(t, "ctrl+d", result.Detail)
+	assert.Contains(t, result.Fix, "unbind -n C-d")
+}
+
+// TestKeybindingsCheckPassesWhenTmuxHoldsNothing covers the ordinary machine, where the root table
+// holds only mouse bindings.
+func TestKeybindingsCheckPassesWhenTmuxHoldsNothing(t *testing.T) {
+	result := newKeybindingsCheck().Run(t.Context(), rootKeysEnv(config.Defaults(), "MouseDown1Pane"))
+
+	assert.Equal(t, StatusOK, result.Status)
+}
+
+// TestKeybindingsCheckIgnoresThePanelsOwnFocusBinding covers the focus key the panel binds itself,
+// which is weave holding a key on purpose rather than tmux taking one away.
+func TestKeybindingsCheckIgnoresThePanelsOwnFocusBinding(t *testing.T) {
+	env := configEnv(config.Defaults(), nil, true)
+	env.Settings.TmuxSocket = "weave"
+	env.Output = func(_ context.Context, _ string, args ...string) (string, error) {
+		if slices.Contains(args, "list-keys") {
+			return `bind-key  -T root C-a    if-shell -F #{==:#{pane_id},%3} "select-pane -t %9" "select-pane -t %3"`, nil
+		}
+
+		return "prefix C-b", nil
+	}
+
+	result := newKeybindingsCheck().Run(t.Context(), env)
+
+	assert.Equal(t, StatusOK, result.Status)
+}
+
+// TestKeybindingsCheckFindsAPrefixOnTheFocusKey covers a prefix set to the focus key, which tmux
+// reads before the root table, so the focus key installs and never fires.
+func TestKeybindingsCheckFindsAPrefixOnTheFocusKey(t *testing.T) {
+	result := newKeybindingsCheck().Run(t.Context(), rootKeysEnvWithPrefix(config.Defaults(), FocusKey))
+
+	assert.Equal(t, StatusFail, result.Status, "the prefix is read first, so the focus key is dead")
+	assert.Contains(t, result.Fix, "prefix")
+}
+
+// TestKeybindingsCheckFindsTheFocusKeyTakenByTmux covers the focus key already bound in the root
+// table by the user's own tmux config, which the panel would overwrite and then give back.
+func TestKeybindingsCheckFindsTheFocusKeyTakenByTmux(t *testing.T) {
+	result := newKeybindingsCheck().Run(t.Context(), rootKeysEnv(config.Defaults(), FocusKey))
+
+	assert.Equal(t, StatusFail, result.Status)
+	assert.Contains(t, result.Fix, "unbind -n "+FocusKey)
+}
+
+// TestTheKeybindingsCheckIsRun pins the check being one doctor makes, since a check nothing runs
+// is worth nothing.
+func TestTheKeybindingsCheckIsRun(t *testing.T) {
+	checks := Checks(Settings{Harnesses: claudeAndCodex, TmuxSocket: "weave"})
+
+	assert.True(t, slices.ContainsFunc(checks, func(c Check) bool { return c.Name == "keybindings" }))
 }

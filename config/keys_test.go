@@ -5,7 +5,6 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -91,28 +90,20 @@ func TestLoadRejectsAKeyListedTwice(t *testing.T) {
 	require.Error(t, err)
 }
 
-// TestLoadRejectsOneKeyOnTwoActions covers a key taken by two bindings that are both live on
-// the same screen, where precedence silently decides which one is reachable.
-func TestLoadRejectsOneKeyOnTwoActions(t *testing.T) {
+// TestLoadRejectsOneKeyOnTwoSettingsOfAGroup covers a key taken twice inside one group, which is
+// where the loader can see the whole of it.
+func TestLoadRejectsOneKeyOnTwoSettingsOfAGroup(t *testing.T) {
 	tests := []struct {
 		name string
 		file string
 	}{
 		{
-			name: "movement and a screen action, movement winning and the action never running",
-			file: "[keybindings.agents]\nnew = [\"j\"]\n",
-		},
-		{
-			name: "two bindings inside one group",
+			name: "movement up and down, which leaves no way back up the list",
 			file: "[keybindings.nav]\ndown = [\"j\"]\nup = [\"j\"]\n",
 		},
 		{
-			name: "the help toggle taking the quit key, which leaves the screen with no quit",
-			file: "[keybindings.help]\ntoggle = [\"ctrl+c\"]\n",
-		},
-		{
-			name: "the filter and the details focus on one key",
-			file: "[keybindings.filter]\nopen = [\"ctrl+t\"]\n",
+			name: "the two filter matches",
+			file: "[keybindings.filter]\nnext_match = [\"n\"]\nprev_match = [\"n\"]\n",
 		},
 	}
 
@@ -159,132 +150,18 @@ func TestLoadRejectsAKeyTheHardCodedArmsHold(t *testing.T) {
 	}
 }
 
-// TestLoadKeepsTheDefaultForAnEmptyList covers a binding written as an empty list, which today
-// unbinds the action silently while the documented behaviour is a fallback to the default.
-func TestLoadKeepsTheDefaultForAnEmptyList(t *testing.T) {
-	cfg, err := loadKeys(t, "[keybindings.nav]\ndown = []\n")
+// TestLoadRejectsAnEmptyBinding covers a binding written as an empty list, which draws an action
+// in the legend that no press can reach.
+func TestLoadRejectsAnEmptyBinding(t *testing.T) {
+	_, err := loadKeys(t, "[keybindings.nav]\ndown = []\n")
 
-	require.NoError(t, err)
-	assert.Equal(t, DefaultKeybindings().Nav.Down, cfg.Keybindings.Nav.Down,
-		"an empty list reads as the key being absent, which the doc comment says takes the default")
+	require.Error(t, err, "a binding has to name a key, an action nothing reaches being worse than no action")
 }
 
-// TestLoadRejectsAFocusKeyTmuxCannotBind covers focus_key, which is a tmux key name rather than
-// a bubbletea one and is bound with the error swallowed.
-func TestLoadRejectsAFocusKeyTmuxCannotBind(t *testing.T) {
-	tests := []struct {
-		name string
-		file string
-	}{
-		{
-			name: "the bubbletea spelling of a control key, which tmux calls an unknown key",
-			file: "[panel]\nfocus_key = \"ctrl+a\"\n",
-		},
-		{
-			name: "a name tmux does not know at all",
-			file: "[panel]\nfocus_key = \"nope\"\n",
-		},
-	}
+// TestLoadRejectsTheTopKeyOnTheBottomKey covers the doubled top press taking the key the bottom
+// jump is on, where the first press latches and the jump it names never runs.
+func TestLoadRejectsTheTopKeyOnTheBottomKey(t *testing.T) {
+	_, err := loadKeys(t, "[keybindings.nav]\ntop = [\"G\"]\nbottom = [\"G\"]\n")
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			_, err := loadKeys(t, tt.file)
-
-			require.Error(t, err, "tmux refuses to bind this, and the refusal is only a warning in the log")
-		})
-	}
-}
-
-// TestLoadRejectsAPrintableFocusKey covers focus_key set to a key an agent types, which is bound
-// outside the prefix table and so is taken from every pane on weave's tmux server.
-func TestLoadRejectsAPrintableFocusKey(t *testing.T) {
-	tests := []struct {
-		name string
-		file string
-	}{
-		{
-			name: "a letter, which the agent's own CLI never receives again",
-			file: "[panel]\nfocus_key = \"j\"\n",
-		},
-		{
-			name: "a digit",
-			file: "[panel]\nfocus_key = \"1\"\n",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			_, err := loadKeys(t, tt.file)
-
-			require.Error(t, err, "a root binding on a printable key takes it from the panel and from every agent")
-		})
-	}
-}
-
-// TestLoadRejectsAPrintableKeyInAFormBinding covers the form bindings, which are read before the
-// key reaches the field, so a printable one is typed into nothing and submits half a form.
-func TestLoadRejectsAPrintableKeyInAFormBinding(t *testing.T) {
-	tests := []struct {
-		name string
-		file string
-	}{
-		{
-			name: "submit on a letter, which no prompt can then contain",
-			file: "[keybindings.form]\nsubmit = [\"s\"]\n",
-		},
-		{
-			name: "the editor key on a letter",
-			file: "[keybindings.form]\neditor = [\"e\"]\n",
-		},
-		{
-			name: "submit on the space, which every prompt contains",
-			file: "[keybindings.form]\nsubmit = [\" \"]\n",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			_, err := loadKeys(t, tt.file)
-
-			require.Error(t, err, "a printable form key hijacks typing rather than being typed")
-		})
-	}
-}
-
-// TestLoadRejectsAFocusKeyTheAgentsNeed covers focus_key on a key the agent CLIs read, which the
-// root binding takes from every pane on weave's tmux server.
-func TestLoadRejectsAFocusKeyTheAgentsNeed(t *testing.T) {
-	_, err := loadKeys(t, "[panel]\nfocus_key = \"C-c\"\n")
-
-	require.Error(t, err, "an agent that cannot be interrupted is worse than a focus key that is not bound")
-}
-
-// TestLoadRejectsOneKeyOnBothHalvesOfAPair covers the actions that take two keys and read the
-// second to decide direction, where a shared key always resolves to the same half.
-func TestLoadRejectsOneKeyOnBothHalvesOfAPair(t *testing.T) {
-	tests := []struct {
-		name string
-		file string
-	}{
-		{
-			name: "up and down, which leaves no way back up the list",
-			file: "[keybindings.nav]\nup = [\"j\"]\ndown = [\"j\"]\n",
-		},
-		{
-			name: "the two filter matches",
-			file: "[keybindings.filter]\nnext_match = [\"n\"]\nprev_match = [\"n\"]\n",
-		},
-		{
-			name: "the top key and the bottom key, the top being a doubled press",
-			file: "[keybindings.nav]\ntop = [\"G\"]\nbottom = [\"G\"]\n",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			_, err := loadKeys(t, tt.file)
-
-			require.Error(t, err, "the handler reads one half and falls through to the other, so the pair needs two keys")
-		})
-	}
+	require.Error(t, err)
 }

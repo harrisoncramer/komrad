@@ -388,7 +388,7 @@ func TestNewAgentFormWorktreeOverride(t *testing.T) {
 
 // TestWorktreeSelectShowsTheCurrentChoiceOnOpen covers the field opening on a visible option.
 func TestWorktreeSelectShowsTheCurrentChoiceOnOpen(t *testing.T) {
-	agentForm := newAgentForm(config.DefaultKeybindings().Form,
+	agentForm := newAgentForm(config.FixedFormKeys(),
 		&agentFormValues{Worktree: inheritWorktree},
 		true,
 	)
@@ -574,7 +574,7 @@ func TestProvisionerRebuildsTheForm(t *testing.T) {
 	_, toggleIndex := workflowConfigForm(workflowConfigParams{
 		NameTitle: "New workflow name",
 		Values:    &values,
-		Keys:      m.keys.Form,
+		Keys:      formKeys(),
 	})
 	for range toggleIndex {
 		m.form.form.NextField()
@@ -610,7 +610,7 @@ func TestProvisionerSelectShowsEveryOptionOnOpen(t *testing.T) {
 	form, toggleIndex := workflowConfigForm(workflowConfigParams{
 		NameTitle: "Workflow name",
 		Values:    &workflowFormValues{Provisioner: provisionerNone},
-		Keys:      config.DefaultKeybindings().Form,
+		Keys:      config.FixedFormKeys(),
 	})
 	form.Init()
 	for range toggleIndex {
@@ -675,7 +675,7 @@ func TestArchivePromptChoices(t *testing.T) {
 
 // TestArchivePromptOpensOnArchive covers the prompt as first drawn.
 func TestArchivePromptOpensOnArchive(t *testing.T) {
-	form, choice := archiveAgentsForm([]agentstore.Agent{{ID: "a1", Name: "api-refactor"}}, 0, config.DefaultKeybindings().Form)
+	form, choice := archiveAgentsForm([]agentstore.Agent{{ID: "a1", Name: "api-refactor"}}, 0, config.FixedFormKeys())
 	form.Init()
 	form.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
 
@@ -765,7 +765,7 @@ func TestFormResultsAreNotWhatIsSubmitted(t *testing.T) {
 		Enabled: true, HideAgents: true,
 	}
 
-	form := scheduleForm(&values, nil, config.DefaultKeybindings().Form)
+	form := scheduleForm(&values, nil, config.FixedFormKeys())
 	form.Init()
 
 	assert.Empty(t, form.GetString("name"), "huh has recorded nothing the cursor has not left")
@@ -976,7 +976,7 @@ func (f *formRecorder) ArchiveSchedule(_ context.Context, req *connect.Request[s
 
 // TestOnlyTheSubmitKeySubmitsAForm covers enter never submitting.
 func TestOnlyTheSubmitKeySubmitsAForm(t *testing.T) {
-	keys := config.DefaultKeybindings().Form
+	keys := config.FixedFormKeys()
 
 	agent := newAgentForm(keys, &agentFormValues{}, true)
 	agent.Init()
@@ -1136,7 +1136,7 @@ func TestHookFieldsOfferTheHooksDirectory(t *testing.T) {
 		NameTitle: "Workflow name",
 		Values:    &values,
 		Hooks:     []hookChoice{{name: "install-deps"}, {name: "copy-env"}},
-		Keys:      config.DefaultKeybindings().Form,
+		Keys:      config.FixedFormKeys(),
 	})
 	sizeForm(form, 40)
 
@@ -1164,7 +1164,7 @@ func TestHookFieldsDrawEveryOptionThatFits(t *testing.T) {
 		NameTitle: "Workflow name",
 		Values:    &values,
 		Hooks:     []hookChoice{{name: "install-deps"}, {name: "copy-env"}},
-		Keys:      config.DefaultKeybindings().Form,
+		Keys:      config.FixedFormKeys(),
 	})
 	sizeForm(form, 60)
 
@@ -1190,7 +1190,7 @@ func TestHookFieldsSayWhenTheListScrolls(t *testing.T) {
 		NameTitle: "Workflow name",
 		Values:    &values,
 		Hooks:     available,
-		Keys:      config.DefaultKeybindings().Form,
+		Keys:      config.FixedFormKeys(),
 	})
 	sizeForm(form, 60)
 
@@ -1218,7 +1218,7 @@ func TestHookFieldsSayWhereHooksGoWhenThereAreNone(t *testing.T) {
 	form, _ := workflowConfigForm(workflowConfigParams{
 		NameTitle: "Workflow name",
 		Values:    &values,
-		Keys:      config.DefaultKeybindings().Form,
+		Keys:      config.FixedFormKeys(),
 	})
 	sizeForm(form, 40)
 
@@ -1236,7 +1236,7 @@ func TestWorkflowFormScrollsToFitTheTerminal(t *testing.T) {
 		NameTitle: "Workflow name",
 		Values:    &values,
 		Hooks:     []hookChoice{{name: "install-deps"}},
-		Keys:      config.DefaultKeybindings().Form,
+		Keys:      config.FixedFormKeys(),
 	})
 	sizeForm(form, terminal)
 
@@ -1274,7 +1274,7 @@ func TestHookFieldsSurviveBeingWalkedThrough(t *testing.T) {
 		NameTitle: "Workflow name",
 		Values:    &values,
 		Hooks:     []hookChoice{{name: "announce"}, {name: "copy-env"}, {name: "install-deps"}},
-		Keys:      config.DefaultKeybindings().Form,
+		Keys:      config.FixedFormKeys(),
 	})
 	sizeForm(form, 40)
 

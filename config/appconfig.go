@@ -91,11 +91,6 @@ const (
 // rather than taken from the registry since this is a default a user overrides.
 const DefaultHarness = "claude"
 
-// DefaultFocusKey is the key that jumps between the panel and the pane last worked in when the
-// config names none, bound on weave's own tmux server while the agents list is up so it is only
-// ever taken from a pane inside the panel, and only for as long as that list is showing.
-const DefaultFocusKey = "C-a"
-
 // The layout the panel lays itself out at when the config names none. The info pane opens
 // tall enough to read a log in without pushing the agent above it off the screen.
 const (
@@ -131,8 +126,6 @@ type Keybindings struct {
 	// The filter over whichever list is on screen, shared by every screen that
 	// draws one.
 	Filter FilterKeys `mapstructure:"filter"`
-	// The new-agent, rename, and workflow forms.
-	Form FormKeys `mapstructure:"form"`
 	// The key that draws the legend under a list, shared by every screen for the
 	// same reason navigation is.
 	Help HelpKeys `mapstructure:"help"`
@@ -240,18 +233,31 @@ type TerminalKeys struct {
 	Open []string `mapstructure:"open" default:"T"`
 }
 
-// FormKeys are the bindings for the new-agent and rename forms. Back and Quit both
-// abort the form, split apart so they can be rebound separately.
+// FormKeys are the keys a form answers, read before the key reaches the box being typed into and
+// so not something a config sets.
 type FormKeys struct {
 	// Abort the form without quitting the panel.
-	Back []string `mapstructure:"back" default:"esc"`
+	Back []string
 	// Open the message being written in $EDITOR, in every box that takes prose.
-	Editor []string `mapstructure:"editor" default:"ctrl+e"`
+	Editor []string
 	// Abort the form and quit the panel.
-	Quit []string `mapstructure:"quit" default:"ctrl+c"`
-	// Submit the form. Plain enter belongs to the text inputs, so this is
-	// deliberately something else.
-	Submit []string `mapstructure:"submit" default:"ctrl+s"`
+	Quit []string
+	// Submit the form, plain enter belonging to the text inputs.
+	Submit []string
+	// Send a review as it stands and stop the agent where it is, beside the submit key that
+	// sends without interrupting.
+	SendNow []string
+}
+
+// FixedFormKeys is the set every form answers to.
+func FixedFormKeys() FormKeys {
+	return FormKeys{
+		Back:    []string{"esc"},
+		Editor:  []string{"ctrl+e"},
+		Quit:    []string{"ctrl+c"},
+		Submit:  []string{"ctrl+s"},
+		SendNow: []string{"ctrl+n"},
+	}
 }
 
 // AgentsKeys are the bindings for the agents list.
@@ -348,10 +354,6 @@ type ReviewKeys struct {
 	// Walk the other way through the rounds, towards the newest work and on to the whole
 	// change.
 	BaseForward []string `mapstructure:"base_forward" default:">"`
-	// Send the review and stop the agent where it stands, so it reads now rather than at
-	// the end of whatever it is doing. Only in the release panel, beside the ordinary
-	// submit key, which sends without interrupting.
-	SendNow []string `mapstructure:"send_now" default:"ctrl+n"`
 	// Write a message on the line under the cursor, replying in the thread already there
 	// or opening a new one.
 	Compose []string `mapstructure:"compose" default:"c"`
@@ -492,12 +494,6 @@ type Layout struct {
 	InfoHeight float64 `mapstructure:"info_height"`
 	// How many lines the details under the list draw, either a share of the sidebar's height below one or a whole number of lines. The marks the hovered row is carrying are spelled out in that same room, ahead of the fields. The chrome around them is added on top, and the two together never take more than half the sidebar's height.
 	DetailsHeight float64 `mapstructure:"details_height"`
-}
-
-// Panel is how the panel itself behaves, apart from where it draws its regions.
-type Panel struct {
-	// The tmux key, named the way tmux names one, that moves focus to the panel from the pane on the stage beside the agents list and back to that pane on the next press, bound only while that list is showing. Empty binds nothing.
-	FocusKey string `mapstructure:"focus_key"`
 }
 
 // Harness is how one agent CLI is configured.
@@ -646,8 +642,6 @@ type Config struct {
 	Harness     Harnesses `mapstructure:"harness"`
 	// Where the panel's sidebar, the stage beside it, and the info pane under the stage sit, and how much of the popup each takes.
 	Layout Layout `mapstructure:"layout"`
-	// How the panel itself behaves.
-	Panel Panel `mapstructure:"panel"`
 	// Panel keybindings, scoped to the screen each binding acts in.
 	Keybindings Keybindings `mapstructure:"keybindings"`
 	// Where weave finds the scripts a workflow hangs on a moment in its agents' lives.
@@ -674,7 +668,6 @@ func Defaults() *Config {
 		MaxAgents:      DefaultMaxAgents,
 		MaxChildren:    DefaultMaxChildren,
 		Layout:         DefaultLayout(),
-		Panel:          Panel{FocusKey: DefaultFocusKey},
 		Keybindings:    DefaultKeybindings(),
 		Mail:           Mail{DeliveryDeadline: DefaultDeliveryDeadline, MaxExchange: DefaultMaxExchange},
 		Log: Log{
@@ -791,6 +784,9 @@ func (c Config) validate() error {
 	}
 	if c.MaxChildren < 0 {
 		return fmt.Errorf("max_children: %d is not a number of agents", c.MaxChildren)
+	}
+	if err := validateKeybindings(c.Keybindings); err != nil {
+		return err
 	}
 
 	return validateLayout(c.Layout)

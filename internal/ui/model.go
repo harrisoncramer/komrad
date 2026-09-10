@@ -42,6 +42,7 @@ func Run(deps Deps) error {
 	post.attach(program)
 
 	defer post.close()
+	defer deps.PopupWindow.ReleaseFocusKey()
 
 	if _, err := program.Run(); err != nil {
 		return fmt.Errorf("failed to run panel: %w", err)
@@ -147,7 +148,6 @@ type Deps struct {
 	StartupErr      error
 	StartupFindings []errui.Finding
 	Pane            string
-	FocusKey        string
 }
 
 type model struct {
@@ -208,7 +208,6 @@ type model struct {
 	runLogsDir    string
 	roundsDir     string
 	pane          string
-	focusKey      string
 	// paneMeasure is the column a screen is measuring its own chrome in while it works out whether
 	// its split leaves room for it.
 	paneMeasure int
@@ -277,7 +276,6 @@ func newModel(deps Deps, isDark bool, post *postbox) model {
 		runLogsDir:      deps.RunLogsDir,
 		roundsDir:       deps.RoundsDir,
 		pane:            deps.Pane,
-		focusKey:        deps.FocusKey,
 		keys:            deps.Keys,
 		configErr:       deps.ConfigErr,
 		startupErr:      deps.StartupErr,

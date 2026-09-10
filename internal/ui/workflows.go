@@ -37,7 +37,7 @@ func (m model) openWorkflowRename(workflow workflowstore.Workflow, values *workf
 
 	return m.openRedrawnForm(
 		formWorkflow,
-		func(m model) *huh.Form { return workflowForm(title, values, m.keys.Form) },
+		func(m model) *huh.Form { return workflowForm(title, values, formKeys()) },
 		func(m model) (tea.Model, tea.Cmd) {
 			renamed := workflow
 
@@ -80,7 +80,7 @@ func (m model) openWorkflowConfigForm(values *workflowFormValues, target *workfl
 			NameTitle: title,
 			Values:    values,
 			Hooks:     m.getAvailableHooks(),
-			Keys:      m.keys.Form,
+			Keys:      formKeys(),
 		})
 	}
 
@@ -141,7 +141,7 @@ func (m model) getAvailableHooks() []hookChoice {
 }
 
 func (m model) archiveWorkflowConfirm(workflow workflowstore.Workflow) (tea.Model, tea.Cmd) {
-	form, confirmed := archiveWorkflowForm(workflow.Name, m.keys.Form)
+	form, confirmed := archiveWorkflowForm(workflow.Name, formKeys())
 
 	return m, m.openForm(formState{
 		kind:   formWorkflowArchive,
@@ -163,7 +163,7 @@ func (m model) archiveWorkflowConfirm(workflow workflowstore.Workflow) (tea.Mode
 // updateWorkflowForm is the one form whose fields change as it is answered, so it watches the
 // provisioner across the message that may have switched it.
 func (m model) updateWorkflowForm(msg tea.Msg, values *workflowFormValues, build func(model) (*huh.Form, int)) (tea.Model, tea.Cmd) {
-	if key, ok := msg.(tea.KeyMsg); ok && isBound(key.String(), m.keys.Form.Submit) {
+	if key, ok := msg.(tea.KeyMsg); ok && isBound(key.String(), formKeys().Submit) {
 		return m.answerForm()
 	}
 

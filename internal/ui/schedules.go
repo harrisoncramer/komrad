@@ -156,7 +156,7 @@ func (m model) newScheduleForm() (tea.Model, tea.Cmd) {
 func (m model) openScheduleForm(values *schedulestore.Config, target *schedulestore.Schedule) (tea.Model, tea.Cmd) {
 	return m.openRedrawnForm(
 		formSchedule,
-		func(m model) *huh.Form { return scheduleForm(values, m.listing.workflows, m.keys.Form) },
+		func(m model) *huh.Form { return scheduleForm(values, m.listing.workflows, formKeys()) },
 		func(m model) (tea.Model, tea.Cmd) {
 			var cmd tea.Cmd
 			if target == nil {
@@ -210,7 +210,7 @@ func (m model) archiveScheduleConfirm() (tea.Model, tea.Cmd) {
 
 	target := item.schedule
 
-	form, confirmed := archiveScheduleForm(target.Name, m.keys.Form)
+	form, confirmed := archiveScheduleForm(target.Name, formKeys())
 
 	return m, m.openForm(formState{
 		kind:   formScheduleArchive,

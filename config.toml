@@ -46,11 +46,6 @@ info_height    = 0.4
 # How many lines the details under the list draw, either a share of the sidebar's height below one or a whole number of lines. The marks the hovered row is carrying are spelled out in that same room, ahead of the fields. The chrome around them is added on top, and the two together never take more than half the sidebar's height.
 details_height = 9
 
-# How the panel itself behaves.
-[panel]
-# The tmux key, named the way tmux names one, that moves focus to the panel from the pane on the stage beside the agents list and back to that pane on the next press, bound only while that list is showing. Empty binds nothing.
-focus_key = "C-a"
-
 # Panel keybindings, scoped to the screen each binding acts in.
 
 # The agents list, the panel's main screen.
@@ -131,18 +126,6 @@ next_match = ["n"]
 # Move the cursor to the previous row matching the search.
 prev_match = ["N"]
 
-# The new-agent, rename, and workflow forms.
-[keybindings.form]
-# Abort the form without quitting the panel.
-back   = ["esc"]
-# Open the message being written in $EDITOR, in every box that takes prose.
-editor = ["ctrl+e"]
-# Abort the form and quit the panel.
-quit   = ["ctrl+c"]
-# Submit the form. Plain enter belongs to the text inputs, so this is
-# deliberately something else.
-submit = ["ctrl+s"]
-
 # The key that draws the legend under a list, shared by every screen for the
 # same reason navigation is.
 [keybindings.help]
@@ -195,10 +178,6 @@ base          = ["<"]
 # Walk the other way through the rounds, towards the newest work and on to the whole
 # change.
 base_forward  = [">"]
-# Send the review and stop the agent where it stands, so it reads now rather than at
-# the end of whatever it is doing. Only in the release panel, beside the ordinary
-# submit key, which sends without interrupting.
-send_now      = ["ctrl+n"]
 # Write a message on the line under the cursor, replying in the thread already there
 # or opening a new one.
 compose       = ["c"]

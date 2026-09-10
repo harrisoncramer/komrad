@@ -161,15 +161,57 @@ The rest of `keybindings` is worth keeping. Rebinding a key on a list screen is 
 case, it is what the file is for, and every measurement above is caught by the loader-level
 checks in the first tier.
 
+## What was built
+
+The findings above are the state of the tree before this branch. What follows is what it does
+now, which is the plan agreed after them.
+
+The focus key is no longer a setting. It is fixed at `C-a` in the panel, `panel.focus_key` is
+gone from the config, and the whole class of bugs around it went with it: nothing to spell in
+the wrong language, nothing printable to bind, no stale key when the config changes. The panel
+also gives the key back on its way out, which it never did, so a panel that has gone no longer
+leaves that key swallowed in every pane on the server.
+
+The form keys are no longer settings either. `keybindings.form` is gone and the four keys are
+fixed at esc, ctrl+e, ctrl+c and ctrl+s. `review.send_now` went with them, because it is read
+inside the compose box for the same reason. That is the class where a printable key hijacks
+typing, and it is now unreachable from a config file.
+
+The loader refuses the rest. A key no press produces, which covers chords, wrong casing, tmux
+spellings, `ctrl+m` and `ctrl+i`, the empty string and a padded name. A key listed twice. A key
+on two settings of one group, which is how the halves of a pair collide. A key the panel answers
+itself, which may stay where the defaults put it and may not be moved elsewhere. And a binding
+that names no key at all, which used to unbind an action and leave it drawn in the legend.
+
+The collisions that depend on the dispatch tables are refused at panel startup by
+`ui.ValidateKeybindings`, and `weave doctor` runs the same check so it reports what the panel
+would refuse. The rule is about order rather than guards: an arm with no guard answers every
+press, so nothing bound to that key after it can run. That leaves the layering the defaults rely
+on alone, where esc clears a standing filter before it steps back and three actions share the
+archive key behind guards that read the row.
+
+The half that needs tmux is a new `keybindings` doctor check. It reads `list-keys -T root` on
+weave's own server and fails when a key the panel is bound to is held there, since the press
+never arrives. It fails when the tmux prefix is `C-a`, because the prefix is read before the
+root table and the focus key would be dead. And it fails when something else in the root table
+already holds `C-a`, while ignoring weave's own focus binding.
+
+Two of the measured bugs are not fixed and are not refused, because both are the marks working
+as designed: a key given to `marks.set` or `marks.jump` still swallows the press after it as a
+mark letter, and a mark letter is still a to z only.
+
 ## The suite
 
-Every finding is a failing test, and the suite is red on purpose. One test in it is a control
-that should pass once the check exists: the doctor case for a machine whose root table holds
-nothing.
+`config/keys_test.go` covers the loader: each unpressable spelling, the key listed twice, the
+key on two settings of a group, the key the panel answers itself, and the empty binding.
+`internal/ui/keyconflict_test.go` covers the collision check, including that the shipped
+bindings pass it and that a guarded arm in front of an unguarded one still stands.
+`internal/ui/focuskey_test.go` covers the key being given back on the way out.
+`internal/doctor/keys_test.go` covers the tmux half.
 
-`config/keys_test.go` asserts `Load` refuses each bad file, which is where a fail-early check
-belongs. `internal/ui/keyshadow_test.go` proves the consequences the loader would prevent: the
-rebind shadowed by movement, quit lost to a help rebind, the invariant the defaults are held to
-and a user config is not, the direction pair, the form key eating a typed letter, and the stale
-focus key. `internal/doctor/keys_test.go` asserts doctor makes a `keybindings` check at all, and
-that it reads the root table and the prefix.
+The tests written for the findings are gone where the fix made the failure impossible: the
+focus-key spellings, the printable focus key, the form key hijacking a typed letter, the stale
+key on a config change, and the reachability tests for configs the loader now refuses. Each rule
+was checked by breaking it and watching the suite go red rather than by reading it: 11 cases for
+the unpressable names, 4 for the keys the panel answers itself, 2 for the empty binding, and 2
+for the collision check.
