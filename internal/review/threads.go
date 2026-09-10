@@ -6,30 +6,21 @@ import (
 	agentv1 "weave/proto/gen/agent/v1"
 )
 
-// anchorKey is the file and line a thread is pinned to, with the side included since a thread on
-// a deleted line has no new-side number.
-type anchorKey struct {
-	filePath string
-	newLine  int32
-	oldLine  int32
-}
-
-func keyForThread(thread *agentv1.ReviewThread) anchorKey {
-	return anchorKey{
-		filePath: thread.GetFilePath(),
-		newLine:  thread.GetNewStart(),
-		oldLine:  thread.GetOldStart(),
-	}
-}
-
 // lineIndex is the diff's lines looked at from the three directions a thread can be placed from:
-// the coordinates it was written against, its line on the old side, and its text.
+// the line a traced position names, its line on the old side, and its text.
 type lineIndex struct {
-	byKey       map[anchorKey]int
 	byNew       map[newKey]int
 	byOld       map[oldKey]int
 	byQuote     map[quoteKey][]int
 	byBareQuote map[quoteKey][]int
+}
+
+// anchorKey is one row's file and both sides' line numbers, which is what the cursor's place is
+// remembered as.
+type anchorKey struct {
+	filePath string
+	newLine  int32
+	oldLine  int32
 }
 
 // newKey is a line of the snapshot on screen, which is what a traced position names.
@@ -50,7 +41,6 @@ type quoteKey struct {
 
 func (v *View) indexLines() lineIndex {
 	index := lineIndex{
-		byKey:       map[anchorKey]int{},
 		byNew:       map[newKey]int{},
 		byOld:       map[oldKey]int{},
 		byQuote:     map[quoteKey][]int{},
@@ -65,12 +55,6 @@ func (v *View) indexLines() lineIndex {
 
 		file := v.patch.Files[current.file].Path()
 		line := v.patch.Files[current.file].Hunks[current.hunk].Lines[current.line]
-
-		index.byKey[anchorKey{
-			filePath: file,
-			newLine:  int32(line.NewNumber),
-			oldLine:  int32(line.OldNumber),
-		}] = y
 
 		if line.NewNumber > 0 {
 			index.byNew[newKey{filePath: file, newLine: int32(line.NewNumber)}] = y

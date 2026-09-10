@@ -48,7 +48,10 @@ func (v *View) PinThreads(threads []*agentv1.ReviewThread) {
 
 	index := v.indexLines()
 
-	pending := make([]*agentv1.ReviewThread, 0, len(threads))
+	// A thread written against the snapshot on screen is offered its row ahead of one traced
+	// onto the same row.
+	var pending, moved []*agentv1.ReviewThread
+
 	for _, thread := range threads {
 		// A thread in a collapsed file has a line to stand on the moment the file is opened
 		// again, so it is not adrift and does not go to the foot of the diff.
@@ -58,13 +61,21 @@ func (v *View) PinThreads(threads []*agentv1.ReviewThread) {
 			continue
 		}
 
-		pending = append(pending, thread)
+		if v.isExact(thread) {
+			pending = append(pending, thread)
+
+			continue
+		}
+
+		moved = append(moved, thread)
 	}
+
+	pending = append(pending, moved...)
 
 	// Explainer: the arms are walked outside the threads rather than inside them. A row goes to
 	// the first thread that reaches it, so walking thread by thread hands the row to whichever
-	// thread the query happened to return first, and a guess from a low arm can take a row an
-	// exact coordinate from a high one wanted.
+	// thread the query happened to return first, and a guess from a low arm can take a row a
+	// higher one wanted.
 	for _, arm := range placeArms() {
 		pending = v.placeByArm(index, arm, pending)
 	}
@@ -78,11 +89,10 @@ func (v *View) PinThreads(threads []*agentv1.ReviewThread) {
 	}
 }
 
-// placeArms is the ladder in order of how much the row is worth: the coordinates the thread was
-// written against, then where git says those lines went, then its old-side line, then its text.
+// placeArms is the ladder in order of how much the row is worth: where git says the thread's
+// lines went, then its old-side line, then its text.
 func placeArms() []placeArm {
 	return []placeArm{
-		(*View).rowByKey,
 		(*View).rowByTrace,
 		(*View).rowByOld,
 		(*View).rowByQuote,
@@ -109,16 +119,6 @@ func (v *View) placeByArm(
 	}
 
 	return left
-}
-
-// rowByKey is the row whose coordinates are the ones the thread was written against.
-func (v *View) rowByKey(index lineIndex, thread *agentv1.ReviewThread) (int, placement, bool) {
-	y, ok := index.byKey[keyForThread(thread)]
-	if !ok {
-		return 0, adrift, false
-	}
-
-	return y, v.placementFor(y, quoteOf(thread)), true
 }
 
 // rowByTrace is the row git says the thread's lines became.
