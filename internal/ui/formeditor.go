@@ -31,6 +31,10 @@ type formFieldEditedMsg struct {
 // overwrites all of them. The panel opens the editor itself instead. It looks up which field has
 // the cursor, opens the editor on that field alone, and writes the result back to that one
 // string.
+//
+// Explainer: the bug is charmbracelet/huh#686 and the fix for it is charmbracelet/huh#687, which
+// was approved in August 2025 and is still unmerged. Nothing here is needed once that ships, so
+// this file and every ExternalEditor(false) can go then.
 
 // openFormFieldEditor opens the editor on the field with the cursor, and reports whether the
 // key belonged to the panel.
