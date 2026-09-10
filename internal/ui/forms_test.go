@@ -1389,6 +1389,15 @@ func TestRefreshRebaseLabelNamesWhatWillRun(t *testing.T) {
 		wantNone []string
 	}{
 		{
+			name: "a branch that is simply behind is brought up to date",
+			plan: refreshPlan{
+				baseRef: "origin/main",
+				baseSHA: "a6e5d5cd1234",
+			},
+			want:     []string{"Bring up to date with origin/main"},
+			wantNone: []string{"0 commits"},
+		},
+		{
 			name: "an ordinary rebase says what it replays",
 			plan: refreshPlan{
 				baseRef: "origin/main",

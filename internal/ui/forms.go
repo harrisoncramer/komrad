@@ -611,7 +611,7 @@ func refreshForm(plan refreshPlan, keys config.FormKeys) (*huh.Form, *refreshCho
 		Value(&choice).
 		Options(
 			huh.NewOption(refreshRebaseLabel(plan), refreshChoiceRebase),
-			huh.NewOption("Replace the worktree, discarding its files", refreshChoiceReset),
+			huh.NewOption(refreshResetLabel(plan), refreshChoiceReset),
 			huh.NewOption("Cancel", refreshChoiceCancel),
 		)
 
@@ -625,6 +625,12 @@ func refreshForm(plan refreshPlan, keys config.FormKeys) (*huh.Form, *refreshCho
 // replay once the base already holds the branch's own content.
 func refreshRebaseLabel(plan refreshPlan) string {
 	base := fmt.Sprintf("%s (%s)", plan.baseRef, shortSHA(plan.baseSHA))
+	if plan.trackedChanges {
+		return "Rebase onto " + base + ". Not while the worktree holds uncommitted changes."
+	}
+	if plan.replay == 0 && plan.landed == 0 {
+		return fmt.Sprintf("Bring up to date with %s.", base)
+	}
 	if plan.replay == 0 {
 		return fmt.Sprintf("Move onto %s. It already has %s of yours.", base, countWord(plan.landed, "commit", "commits"))
 	}
@@ -634,6 +640,24 @@ func refreshRebaseLabel(plan refreshPlan) string {
 	}
 
 	return fmt.Sprintf("Rebase onto %s. Replay %s.", base, countWord(plan.replay, "commit", "commits"))
+}
+
+// refreshResetLabel says what a reset throws away and what it keeps, since it is the option
+// that destroys and the person is choosing at this moment rather than reading about it after.
+func refreshResetLabel(plan refreshPlan) string {
+	parts := []string{}
+	if plan.ownCommits > 0 {
+		parts = append(parts, countWord(plan.ownCommits, "commit", "commits"))
+	}
+	if plan.trackedChanges {
+		parts = append(parts, "uncommitted changes")
+	}
+	if len(parts) == 0 {
+		return fmt.Sprintf("Reset to %s. Nothing of yours is on the branch to lose.", plan.baseRef)
+	}
+
+	return fmt.Sprintf("Reset to %s, throwing away %s. A copy is kept, and untracked files stay.",
+		plan.baseRef, strings.Join(parts, " and "))
 }
 
 // refreshWarning is what a person is owed before the worktree is touched rather than after,

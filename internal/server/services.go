@@ -28,7 +28,7 @@ type services struct {
 	delivery     *agents.DeliveryService
 	reconciler   *agents.Reconciler
 	marks        *agents.MarkService
-	rebase       *agents.RebaseService
+	rebase       *agents.RefreshService
 }
 
 // BuiltinScriptsDir is where the scripts weave ships are installed under a cache directory,
@@ -139,10 +139,11 @@ func buildServices(p Params, st *stores) (*services, error) {
 			Panes:     p.Tmux,
 		}),
 	})
-	rebaseService := agents.NewRebaseService(agents.NewRebaseServiceParams{
+	refreshService := agents.NewRefreshService(agents.NewRefreshServiceParams{
 		Agents:    st.agents,
 		Workflows: st.workflows,
 		Notifier:  mailService,
+		Rounds:    st.review,
 		Interrupter: agents.NewPaneInterrupter(agents.NewPaneInterrupterParams{
 			Agents:    st.agents,
 			Harnesses: p.Harnesses,
@@ -193,7 +194,7 @@ func buildServices(p Params, st *stores) (*services, error) {
 	return &services{
 		loadConfig:   loadConfig,
 		marks:        markService,
-		rebase:       rebaseService,
+		rebase:       refreshService,
 		script:       scriptService,
 		pullRequests: pullRequestOpener,
 		mail:         mailService,

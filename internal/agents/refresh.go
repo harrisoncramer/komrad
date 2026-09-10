@@ -40,41 +40,45 @@ var (
 	ErrRebaseHiddenPaths = errors.New("these paths are marked assume-unchanged or skip-worktree, so their contents cannot be read back if the move goes wrong")
 )
 
-// rebaseAgentReadWriter is the slice of the agent store a rebase reads and writes.
-type rebaseAgentReadWriter interface {
+// refreshAgentReadWriter is the slice of the agent store a refresh reads and writes.
+type refreshAgentReadWriter interface {
 	agentGetter
 	metadataSetter
 }
 
-type NewRebaseServiceParams struct {
-	Agents      rebaseAgentReadWriter
+type NewRefreshServiceParams struct {
+	Agents      refreshAgentReadWriter
 	Workflows   workflowReader
 	Interrupter agentInterrupter
 	Notifier    systemMailSender
+	Rounds      roundReadDeleter
 	Locks       *TreeLocks
 }
 
-// RebaseService moves an agent's existing worktree onto the latest base without replacing it.
-type RebaseService struct {
-	agents      rebaseAgentReadWriter
+// RefreshService brings an agent's existing worktree up to date with the base, either by
+// replaying its commits or by discarding them.
+type RefreshService struct {
+	agents      refreshAgentReadWriter
 	workflows   workflowReader
 	interrupter agentInterrupter
 	notifier    systemMailSender
+	rounds      roundReadDeleter
 	locks       *TreeLocks
 }
 
-// NewRebaseService builds the service from its dependencies.
-func NewRebaseService(params NewRebaseServiceParams) *RebaseService {
+// NewRefreshService builds the service from its dependencies.
+func NewRefreshService(params NewRefreshServiceParams) *RefreshService {
 	locks := params.Locks
 	if locks == nil {
 		locks = NewTreeLocks()
 	}
 
-	return &RebaseService{
+	return &RefreshService{
 		agents:      params.Agents,
 		workflows:   params.Workflows,
 		interrupter: params.Interrupter,
 		notifier:    params.Notifier,
+		rounds:      params.Rounds,
 		locks:       locks,
 	}
 }
@@ -87,6 +91,9 @@ type RebasePlan struct {
 	// Commits is how many of the agent's own commits would be replayed.
 	Commits int
 	Branch  string
+	// TrackedChanges says the worktree holds edits, which stops a replay and is exactly what a
+	// discard is for, so it is reported rather than refused when the plan is read.
+	TrackedChanges bool
 	// Cutoff is the newest of the agent's own commits the base already holds whole, which is
 	// where the replay starts, empty when the base holds none of them.
 	Cutoff string
@@ -115,7 +122,7 @@ type RebaseResult struct {
 }
 
 // PlanRebase reads what a rebase would do without touching anything.
-func (s *RebaseService) PlanRebase(ctx context.Context, agentID string) (*RebasePlan, error) {
+func (s *RefreshService) PlanRebase(ctx context.Context, agentID string) (*RebasePlan, error) {
 	agent, err := s.eligible(ctx, agentID)
 	if err != nil {
 		return nil, err
@@ -125,7 +132,9 @@ func (s *RebaseService) PlanRebase(ctx context.Context, agentID string) (*Rebase
 	if err != nil {
 		return nil, err
 	}
-	if err := refuseTreeState(state); err != nil {
+	// Only what neither half can act on is refused here, since refusing a dirty tree would put
+	// the discard out of reach exactly when it is wanted.
+	if err := refuseEitherWay(state); err != nil {
 		return nil, err
 	}
 
@@ -150,20 +159,21 @@ func (s *RebaseService) PlanRebase(ctx context.Context, agentID string) (*Rebase
 	}
 
 	return &RebasePlan{
-		BaseRef:       ref,
-		BaseSHA:       sha,
-		Commits:       commits,
-		Branch:        state.Branch,
-		Cutoff:        prediction.Cutoff,
-		Landed:        prediction.Landed,
-		Replay:        prediction.Replay,
-		Merges:        prediction.Merges,
-		ConflictPaths: prediction.ConflictPaths,
+		BaseRef:        ref,
+		BaseSHA:        sha,
+		Commits:        commits,
+		Branch:         state.Branch,
+		TrackedChanges: state.TrackedChanges,
+		Cutoff:         prediction.Cutoff,
+		Landed:         prediction.Landed,
+		Replay:         prediction.Replay,
+		Merges:         prediction.Merges,
+		ConflictPaths:  prediction.ConflictPaths,
 	}, nil
 }
 
 // Rebase moves the agent's branch onto the latest base in place.
-func (s *RebaseService) Rebase(ctx context.Context, agentID string) (*RebaseResult, error) {
+func (s *RefreshService) Rebase(ctx context.Context, agentID string) (*RebaseResult, error) {
 	agent, err := s.eligible(ctx, agentID)
 	if err != nil {
 		return nil, err
@@ -179,6 +189,9 @@ func (s *RebaseService) Rebase(ctx context.Context, agentID string) (*RebaseResu
 	plan, err := s.PlanRebase(ctx, agentID)
 	if err != nil {
 		return nil, err
+	}
+	if plan.TrackedChanges {
+		return nil, ErrRebaseDirty
 	}
 
 	// The interrupt keys are sent before the files move, without waiting for the CLI to read
@@ -222,7 +235,7 @@ func buildParkRef(agentID string) string {
 
 // releaseOlderParks drops the parks this agent left behind before this one, since each pins a
 // whole worktree in the shared clone and nothing else ever collects them.
-func (s *RebaseService) releaseOlderParks(ctx context.Context, agent agentstore.Agent, keep string) {
+func (s *RefreshService) releaseOlderParks(ctx context.Context, agent agentstore.Agent, keep string) {
 	prefix := fmt.Sprintf("refs/weave/prerefresh/%s/", agent.ID)
 	if err := git.ReleaseRefsUnder(ctx, agent.Cwd, prefix, keep); err != nil {
 		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to release the older parks of a rebased agent",
@@ -232,7 +245,7 @@ func (s *RebaseService) releaseOlderParks(ctx context.Context, agent agentstore.
 
 // move brings the branch onto the base, replaying its commits or, when the base already holds
 // their content, moving the branch outright rather than colliding with itself.
-func (s *RebaseService) move(ctx context.Context, dir string, result *RebaseResult) error {
+func (s *RefreshService) move(ctx context.Context, dir string, result *RebaseResult) error {
 	// Replayed from the cutoff when the base already holds part of this branch, which is what a
 	// squash merge leaves behind: replaying those commits would collide with their own content.
 	replay := func() error { return git.Rebase(ctx, dir, result.BaseRef) }
@@ -256,7 +269,7 @@ func (s *RebaseService) move(ctx context.Context, dir string, result *RebaseResu
 }
 
 // clearPullRequest drops the recorded pull request and reports whether there was one.
-func (s *RebaseService) clearPullRequest(ctx context.Context, agent agentstore.Agent) bool {
+func (s *RefreshService) clearPullRequest(ctx context.Context, agent agentstore.Agent) bool {
 	if metadataFor(agent, prMetadataKey) == "" {
 		return false
 	}
@@ -275,7 +288,7 @@ func (s *RebaseService) clearPullRequest(ctx context.Context, agent agentstore.A
 }
 
 // tell says what happened in the agent's mailbox.
-func (s *RebaseService) tell(ctx context.Context, agent agentstore.Agent, result RebaseResult) {
+func (s *RefreshService) tell(ctx context.Context, agent agentstore.Agent, result RebaseResult) {
 	if s.notifier == nil {
 		return
 	}
@@ -377,7 +390,7 @@ func replayedMail(result RebaseResult) string {
 }
 
 // eligible answers the agent when a rebase is its to have, or the reason it is not.
-func (s *RebaseService) eligible(ctx context.Context, agentID string) (*agentstore.Agent, error) {
+func (s *RefreshService) eligible(ctx context.Context, agentID string) (*agentstore.Agent, error) {
 	agent, err := s.agents.GetByID(ctx, agentID)
 	if errors.Is(err, store.ErrNotFound) {
 		return nil, ErrAgentNotFound
@@ -418,8 +431,9 @@ func (s *RebaseService) eligible(ctx context.Context, agentID string) (*agentsto
 	return agent, nil
 }
 
-// refuseTreeState is what the checkout itself has to say before a rebase may start.
-func refuseTreeState(state git.TreeState) error {
+// refuseEitherWay is what neither half of a refresh can act on, whether it replays the agent's
+// commits or discards them.
+func refuseEitherWay(state git.TreeState) error {
 	switch {
 	case state.InProgress:
 		return ErrRebaseInProgress
@@ -428,9 +442,9 @@ func refuseTreeState(state git.TreeState) error {
 	case state.Shallow:
 		return ErrRebaseShallow
 	case len(state.HiddenPaths) > 0:
+		// A park is built with git add -A, so it cannot hold these, and a reset would have no
+		// way back for exactly the paths the index is hiding.
 		return fmt.Errorf("%w: %s", ErrRebaseHiddenPaths, strings.Join(state.HiddenPaths, ", "))
-	case state.TrackedChanges:
-		return ErrRebaseDirty
 	}
 
 	return nil

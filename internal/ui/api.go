@@ -230,9 +230,14 @@ func (a api) rebaseWorktree(id string) (*agentv1.RebaseWorktreeResponse, error) 
 	})
 }
 
-func (a api) resetWorktree(id string) error {
-	return mutate(func(ctx context.Context) (any, error) {
-		return a.agents.ResetWorktree(ctx, connect.NewRequest(&agentv1.ResetWorktreeRequest{AgentId: id}))
+func (a api) resetWorktree(id string) (*agentv1.ResetWorktreeResponse, error) {
+	return call(requestTimeout, func(ctx context.Context) (*agentv1.ResetWorktreeResponse, error) {
+		resp, err := a.agents.ResetWorktree(ctx, connect.NewRequest(&agentv1.ResetWorktreeRequest{AgentId: id}))
+		if err != nil {
+			return nil, fmt.Errorf("failed to reset the worktree of agent %q: %w", id, err)
+		}
+
+		return resp.Msg, nil
 	})
 }
 

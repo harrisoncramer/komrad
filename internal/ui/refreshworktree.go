@@ -21,12 +21,27 @@ type refreshPlan struct {
 	// of the base into the branch could not settle.
 	merges        int
 	conflictPaths []string
+	// ownCommits is everything the branch has of its own, and trackedChanges whether the
+	// worktree holds edits, which is what a reset throws away rather than replays.
+	ownCommits     int
+	trackedChanges bool
 }
 
 // refreshPlannedMsg is a plan come back, or the reason there is none.
 type refreshPlannedMsg struct {
 	plan refreshPlan
 	err  error
+}
+
+// resetMsg is a finished reset, or the reason there is none.
+type resetMsg struct {
+	name      string
+	baseRef   string
+	baseSHA   string
+	commits   int
+	rounds    int
+	parkedRef string
+	err       error
 }
 
 // rebasedMsg is a finished rebase, conflicted when it stopped and is waiting for the agent.
@@ -54,15 +69,17 @@ func (m *model) planRefreshCmd(agentID, name string) tea.Cmd {
 		}
 
 		return refreshPlannedMsg{plan: refreshPlan{
-			agentID:       agentID,
-			name:          name,
-			baseRef:       plan.GetBaseRef(),
-			baseSHA:       plan.GetBaseSha(),
-			commits:       int(plan.GetCommits()),
-			landed:        int(plan.GetLandedCommits()),
-			replay:        int(plan.GetReplayCommits()),
-			merges:        int(plan.GetMerges()),
-			conflictPaths: plan.GetConflictPaths(),
+			agentID:        agentID,
+			name:           name,
+			baseRef:        plan.GetBaseRef(),
+			baseSHA:        plan.GetBaseSha(),
+			commits:        int(plan.GetCommits()),
+			ownCommits:     int(plan.GetCommits()),
+			trackedChanges: plan.GetTrackedChanges(),
+			landed:         int(plan.GetLandedCommits()),
+			replay:         int(plan.GetReplayCommits()),
+			merges:         int(plan.GetMerges()),
+			conflictPaths:  plan.GetConflictPaths(),
 		}}
 	}
 }
@@ -87,6 +104,51 @@ func (m *model) rebaseCmd(agentID, name string) tea.Cmd {
 			moved:      result.GetMoved(),
 		}
 	}
+}
+
+// resetCmd throws the agent's work away and reports what went.
+func (m *model) resetCmd(agentID, name string) tea.Cmd {
+	clients := m.api
+
+	return func() tea.Msg {
+		result, err := clients.resetWorktree(agentID)
+		if err != nil {
+			return resetMsg{name: name, err: err}
+		}
+
+		return resetMsg{
+			name:      name,
+			baseRef:   result.GetBaseRef(),
+			baseSHA:   result.GetBaseSha(),
+			commits:   int(result.GetCommits()),
+			rounds:    int(result.GetRounds()),
+			parkedRef: result.GetParkedRef(),
+		}
+	}
+}
+
+// applyReset reports what the reset threw away and where the copy of it is.
+func (m *model) applyReset(msg resetMsg) tea.Model {
+	if msg.err != nil {
+		m.report("Could not reset the worktree of "+msg.name, msg.err)
+
+		return m
+	}
+
+	detail := fmt.Sprintf("%s. %s and any uncommitted changes were thrown away.",
+		shortSHA(msg.baseSHA), countWord(msg.commits, "commit", "commits"))
+	if msg.rounds > 0 {
+		detail += fmt.Sprintf(" %s torn down.", countWord(msg.rounds, "review round", "review rounds"))
+	}
+	detail += " A copy is kept at " + msg.parkedRef + "."
+
+	m.pushMessage(message{
+		kind:    messageInfo,
+		summary: msg.name + ": reset to " + msg.baseRef,
+		detail:  detail,
+	})
+
+	return m
 }
 
 // applyRefreshPlanned opens the picker, or says why there is nothing to pick between.

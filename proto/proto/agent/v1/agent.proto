@@ -204,6 +204,8 @@ message PlanRefreshResponse {
   // its work into the base leaves behind, and how many are left to replay.
   int32 landed_commits = 5;
   int32 replay_commits = 8;
+  // Whether the worktree holds tracked edits, which stops a replay but is what a reset is for.
+  bool tracked_changes = 9;
   // How many merge commits a rebase would discard, since it flattens history.
   int32 merges = 6;
   // The paths a merge of the base into the branch could not settle, which is a warning rather
@@ -234,7 +236,18 @@ message ResetWorktreeRequest {
   string agent_id = 1 [(buf.validate.field).string.min_len = 1];
 }
 
-message ResetWorktreeResponse {}
+message ResetWorktreeResponse {
+  // The ref the branch was put back to, and the commit that ref named when it was read.
+  string base_ref = 1;
+  string base_sha = 2;
+  string branch = 3;
+  // How many of the agent's own commits left the branch.
+  int32 commits = 4;
+  // How many review rounds were torn down, since they described work that is now gone.
+  int32 rounds = 5;
+  // Where the worktree as it stood beforehand is kept, which is the only way back.
+  string parked_ref = 6;
+}
 
 message SetMarkRequest {
   // The row the letter goes on, which is an agent or a workflow and never both.

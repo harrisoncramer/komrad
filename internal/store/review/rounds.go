@@ -142,6 +142,20 @@ func (s *Store) ListRounds(ctx context.Context, agentID string) ([]Round, error)
 	return rounds, nil
 }
 
+// DeleteRounds removes every round an agent has, taking its reviews, threads, messages and
+// viewed files with it through the cascades.
+func (s *Store) DeleteRounds(ctx context.Context, agentID string) error {
+	if !store.IsID(agentID) {
+		return nil
+	}
+
+	if err := s.queries.DeleteRoundsForAgent(ctx, agentID); err != nil {
+		return fmt.Errorf("failed to delete the review rounds of agent %q: %w", agentID, err)
+	}
+
+	return nil
+}
+
 type OpenReviewParams struct {
 	AgentID       string
 	RoundID       string

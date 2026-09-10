@@ -91,7 +91,7 @@ func TestRebaseRefusals(t *testing.T) {
 			flow := worktreeFlow()
 			flow.Worktree.Enabled = !tt.noWorktreeWorkflow
 
-			service := NewRebaseService(NewRebaseServiceParams{
+			service := NewRefreshService(NewRefreshServiceParams{
 				Agents:    fakeRebaseAgents{agent: agent},
 				Workflows: fakeRebaseWorkflows{flow: flow},
 			})
@@ -108,7 +108,7 @@ func TestRebaseRefusesAnArchivedAgent(t *testing.T) {
 	t.Parallel()
 
 	at := time.Now()
-	service := NewRebaseService(NewRebaseServiceParams{
+	service := NewRefreshService(NewRefreshServiceParams{
 		Agents: fakeRebaseAgents{agent: agentstore.Agent{
 			ID: "a1", Name: "auth", WorkflowID: "w1", Cwd: "/tree",
 			State: agentstore.StateIdle, ArchivedAt: &at,
@@ -131,7 +131,7 @@ func TestRebaseTakesTheTreeLock(t *testing.T) {
 	require.True(t, taken)
 	defer release()
 
-	service := NewRebaseService(NewRebaseServiceParams{
+	service := NewRefreshService(NewRefreshServiceParams{
 		Agents: fakeRebaseAgents{agent: agentstore.Agent{
 			ID: "a1", Name: "auth", WorkflowID: "w1", Cwd: "/tree", State: agentstore.StateIdle,
 		}},
@@ -242,7 +242,7 @@ func TestRebaseAndThePullRequest(t *testing.T) {
 				Metadata: []agentstore.Metadata{{Key: prMetadataKey, Value: "https://example.test/pr/1"}},
 			}}
 
-			service := NewRebaseService(NewRebaseServiceParams{
+			service := NewRefreshService(NewRefreshServiceParams{
 				Agents:    agents,
 				Workflows: fakeRebaseWorkflows{flow: worktreeFlow()},
 			})
@@ -344,7 +344,7 @@ func TestRebaseFastForwardsASquashedBranch(t *testing.T) {
 		Metadata: []agentstore.Metadata{{Key: prMetadataKey, Value: "https://example.test/pr/1"}},
 	}}
 
-	service := NewRebaseService(NewRebaseServiceParams{
+	service := NewRefreshService(NewRefreshServiceParams{
 		Agents:    agents,
 		Workflows: fakeRebaseWorkflows{flow: worktreeFlow()},
 	})
@@ -373,7 +373,7 @@ func TestRebaseReplaysWhenTheTreesDiffer(t *testing.T) {
 	t.Parallel()
 
 	tree := buildAgentWorktree(t, false)
-	service := NewRebaseService(NewRebaseServiceParams{
+	service := NewRefreshService(NewRefreshServiceParams{
 		Agents: &recordingRebaseAgents{agent: agentstore.Agent{
 			ID: "a1", Name: "auth", WorkflowID: "w1", Cwd: tree, State: agentstore.StateIdle,
 		}},
@@ -446,7 +446,7 @@ func TestRebaseReplaysOnlyWhatFollowedTheMerge(t *testing.T) {
 	gitRun(t, tree, "add", "after.txt")
 	gitRun(t, tree, "commit", "--quiet", "-m", "kept going")
 
-	service := NewRebaseService(NewRebaseServiceParams{
+	service := NewRefreshService(NewRefreshServiceParams{
 		Agents: &recordingRebaseAgents{agent: agentstore.Agent{
 			ID: "a1", Name: "auth", WorkflowID: "w1", Cwd: tree, State: agentstore.StateIdle,
 		}},
@@ -477,7 +477,7 @@ func TestRebaseRefusesAPathTheIndexIsHolding(t *testing.T) {
 	tree := buildAgentWorktree(t, false)
 	gitRun(t, tree, "update-index", "--assume-unchanged", "own.txt")
 
-	service := NewRebaseService(NewRebaseServiceParams{
+	service := NewRefreshService(NewRefreshServiceParams{
 		Agents: &recordingRebaseAgents{agent: agentstore.Agent{
 			ID: "a1", Name: "auth", WorkflowID: "w1", Cwd: tree, State: agentstore.StateIdle,
 		}},
@@ -498,7 +498,7 @@ func TestRebaseParksBeforeItMoves(t *testing.T) {
 	before, err := git.Run(t.Context(), tree, "rev-parse", "HEAD")
 	require.NoError(t, err)
 
-	service := NewRebaseService(NewRebaseServiceParams{
+	service := NewRefreshService(NewRefreshServiceParams{
 		Agents: &recordingRebaseAgents{agent: agentstore.Agent{
 			ID: "a1", Name: "auth", WorkflowID: "w1", Cwd: tree, State: agentstore.StateIdle,
 		}},
@@ -545,7 +545,7 @@ func TestRebaseMailsForAnAgentWithNoWorkOfItsOwn(t *testing.T) {
 	gitRun(t, origin, "add", "moved.txt")
 	gitRun(t, origin, "commit", "--quiet", "-m", "main moved on")
 
-	service := NewRebaseService(NewRebaseServiceParams{
+	service := NewRefreshService(NewRefreshServiceParams{
 		Agents: &recordingRebaseAgents{agent: agentstore.Agent{
 			ID: "a1", Name: "auth", WorkflowID: "w1", Cwd: tree, State: agentstore.StateIdle,
 		}},

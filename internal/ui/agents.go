@@ -683,10 +683,7 @@ func (m model) openRefreshPicker(plan refreshPlan) (tea.Model, tea.Cmd) {
 			case refreshChoiceRebase:
 				return m, m.rebaseCmd(plan.agentID, plan.name)
 			case refreshChoiceReset:
-				return m, m.writeCmd(
-					"Could not replace the worktree",
-					func(a api) error { return a.resetWorktree(plan.agentID) },
-				)
+				return m, m.resetCmd(plan.agentID, plan.name)
 			case refreshChoiceCancel:
 				return m, nil
 			}

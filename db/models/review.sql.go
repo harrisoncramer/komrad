@@ -60,6 +60,16 @@ func (q *Queries) DeleteReviewThread(ctx context.Context, id string) (string, er
 	return id, err
 }
 
+const deleteRoundsForAgent = `-- name: DeleteRoundsForAgent :exec
+DELETE FROM review_rounds
+WHERE agent_id = $1
+`
+
+func (q *Queries) DeleteRoundsForAgent(ctx context.Context, agentID string) error {
+	_, err := q.db.Exec(ctx, deleteRoundsForAgent, agentID)
+	return err
+}
+
 const getLastReleasedReview = `-- name: GetLastReleasedReview :one
 SELECT
     id, agent_id, round_id, author_kind, author_agent_id, verdict, released_at, path, doorbell_mail_id, created_at, updated_at, body

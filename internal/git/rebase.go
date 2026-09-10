@@ -16,6 +16,11 @@ import (
 // reasoning is why an untracked file does not block a rebase here: git completes one with
 // untracked files in place, and an agent's worktree nearly always holds some.
 //
+// Explainer: a reset removes nothing untracked and nothing ignored, which is deliberate rather
+// than an omission. A park is built with git add -A, so it cannot hold an ignored file, and
+// removing one would be the only step here with no way back. What a reset is for lives in the
+// files git tracks, and scratch files and build output are not what anybody is trying to discard.
+
 // Explainer: the two counts a plan carries are read from different places on purpose. Landed is
 // counted off the graph, because it says how many commits leave the branch, and that has to
 // include merges or a branch whose landed run is all merges reads as having landed nothing.
@@ -232,6 +237,15 @@ func ReleaseRefsUnder(ctx context.Context, dir, prefix, keep string) error {
 		if err := ReleaseRef(ctx, dir, ref); err != nil {
 			return err
 		}
+	}
+
+	return nil
+}
+
+// ResetToBase moves the branch onto ref and makes the tracked files match it.
+func ResetToBase(ctx context.Context, dir, ref string) error {
+	if _, err := Run(ctx, dir, "reset", "--hard", ref); err != nil {
+		return fmt.Errorf("failed to reset %q onto %s: %w", dir, ref, err)
 	}
 
 	return nil

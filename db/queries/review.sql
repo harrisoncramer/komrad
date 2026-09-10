@@ -138,6 +138,10 @@ WHERE author_agent_id = ANY (@author_agent_ids::uuid[])
 DELETE FROM reviews
 WHERE id = @id;
 
+-- name: DeleteRoundsForAgent :exec
+DELETE FROM review_rounds
+WHERE agent_id = @agent_id;
+
 -- name: InsertReviewThreadWithMessage :one
 WITH opened AS (
     INSERT INTO review_threads(

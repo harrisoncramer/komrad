@@ -2,7 +2,6 @@ package agent
 
 import (
 	"context"
-	"errors"
 
 	"weave/internal/agents"
 	"weave/internal/rpcerr"
@@ -11,13 +10,11 @@ import (
 	"connectrpc.com/connect"
 )
 
-// ErrResetUnimplemented stands in for the destructive half of a refresh, which is not built.
-var ErrResetUnimplemented = errors.New("resetting a worktree is not implemented yet, only rebasing is")
-
 // worktreeRefresher brings an agent's existing worktree up to date in place.
 type worktreeRefresher interface {
 	PlanRebase(ctx context.Context, agentID string) (*agents.RebasePlan, error)
 	Rebase(ctx context.Context, agentID string) (*agents.RebaseResult, error)
+	Reset(ctx context.Context, agentID string) (*agents.ResetResult, error)
 }
 
 // PlanRefresh reads what a rebase would do without doing it.
@@ -31,14 +28,15 @@ func (s *Service) PlanRefresh(
 	}
 
 	return connect.NewResponse(&agentv1.PlanRefreshResponse{
-		BaseRef:       plan.BaseRef,
-		BaseSha:       plan.BaseSHA,
-		Commits:       int32(plan.Commits),
-		Branch:        plan.Branch,
-		LandedCommits: int32(plan.Landed),
-		ReplayCommits: int32(plan.Replay),
-		Merges:        int32(plan.Merges),
-		ConflictPaths: plan.ConflictPaths,
+		BaseRef:        plan.BaseRef,
+		BaseSha:        plan.BaseSHA,
+		Commits:        int32(plan.Commits),
+		Branch:         plan.Branch,
+		TrackedChanges: plan.TrackedChanges,
+		LandedCommits:  int32(plan.Landed),
+		ReplayCommits:  int32(plan.Replay),
+		Merges:         int32(plan.Merges),
+		ConflictPaths:  plan.ConflictPaths,
 	}), nil
 }
 
@@ -64,10 +62,22 @@ func (s *Service) RebaseWorktree(
 	}), nil
 }
 
-// ResetWorktree is the destructive half, which is designed in rfcs/0042 and not yet built.
+// ResetWorktree puts the agent's branch and tracked files back to the base, discarding its work.
 func (s *Service) ResetWorktree(
-	_ context.Context,
-	_ *connect.Request[agentv1.ResetWorktreeRequest],
+	ctx context.Context,
+	req *connect.Request[agentv1.ResetWorktreeRequest],
 ) (*connect.Response[agentv1.ResetWorktreeResponse], error) {
-	return nil, rpcerr.Wrap(ErrResetUnimplemented, "failed to reset the worktree")
+	result, err := s.refresher.Reset(ctx, req.Msg.GetAgentId())
+	if err != nil {
+		return nil, rpcerr.Wrap(err, "failed to reset the worktree")
+	}
+
+	return connect.NewResponse(&agentv1.ResetWorktreeResponse{
+		BaseRef:   result.BaseRef,
+		BaseSha:   result.BaseSHA,
+		Branch:    result.Branch,
+		Commits:   int32(result.Commits),
+		Rounds:    int32(result.Rounds),
+		ParkedRef: result.ParkedRef,
+	}), nil
 }

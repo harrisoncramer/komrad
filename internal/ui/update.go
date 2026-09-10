@@ -267,6 +267,8 @@ func (m model) routeAsyncMessage(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
 		next, cmd := m.applyRefreshPlanned(msg)
 
 		return next, cmd, true
+	case resetMsg:
+		return m.applyReset(msg), nil, true
 	case rebasedMsg:
 		return m.applyRebased(msg), nil, true
 	case mailLoadedMsg:

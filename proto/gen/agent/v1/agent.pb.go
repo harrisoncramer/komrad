@@ -1060,6 +1060,8 @@ type PlanRefreshResponse struct {
 	// its work into the base leaves behind, and how many are left to replay.
 	LandedCommits int32 `protobuf:"varint,5,opt,name=landed_commits,json=landedCommits,proto3" json:"landed_commits,omitempty"`
 	ReplayCommits int32 `protobuf:"varint,8,opt,name=replay_commits,json=replayCommits,proto3" json:"replay_commits,omitempty"`
+	// Whether the worktree holds tracked edits, which stops a replay but is what a reset is for.
+	TrackedChanges bool `protobuf:"varint,9,opt,name=tracked_changes,json=trackedChanges,proto3" json:"tracked_changes,omitempty"`
 	// How many merge commits a rebase would discard, since it flattens history.
 	Merges int32 `protobuf:"varint,6,opt,name=merges,proto3" json:"merges,omitempty"`
 	// The paths a merge of the base into the branch could not settle, which is a warning rather
@@ -1139,6 +1141,13 @@ func (x *PlanRefreshResponse) GetReplayCommits() int32 {
 		return x.ReplayCommits
 	}
 	return 0
+}
+
+func (x *PlanRefreshResponse) GetTrackedChanges() bool {
+	if x != nil {
+		return x.TrackedChanges
+	}
+	return false
 }
 
 func (x *PlanRefreshResponse) GetMerges() int32 {
@@ -1348,7 +1357,17 @@ func (x *ResetWorktreeRequest) GetAgentId() string {
 }
 
 type ResetWorktreeResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The ref the branch was put back to, and the commit that ref named when it was read.
+	BaseRef string `protobuf:"bytes,1,opt,name=base_ref,json=baseRef,proto3" json:"base_ref,omitempty"`
+	BaseSha string `protobuf:"bytes,2,opt,name=base_sha,json=baseSha,proto3" json:"base_sha,omitempty"`
+	Branch  string `protobuf:"bytes,3,opt,name=branch,proto3" json:"branch,omitempty"`
+	// How many of the agent's own commits left the branch.
+	Commits int32 `protobuf:"varint,4,opt,name=commits,proto3" json:"commits,omitempty"`
+	// How many review rounds were torn down, since they described work that is now gone.
+	Rounds int32 `protobuf:"varint,5,opt,name=rounds,proto3" json:"rounds,omitempty"`
+	// Where the worktree as it stood beforehand is kept, which is the only way back.
+	ParkedRef     string `protobuf:"bytes,6,opt,name=parked_ref,json=parkedRef,proto3" json:"parked_ref,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1381,6 +1400,48 @@ func (x *ResetWorktreeResponse) ProtoReflect() protoreflect.Message {
 // Deprecated: Use ResetWorktreeResponse.ProtoReflect.Descriptor instead.
 func (*ResetWorktreeResponse) Descriptor() ([]byte, []int) {
 	return file_agent_v1_agent_proto_rawDescGZIP(), []int{17}
+}
+
+func (x *ResetWorktreeResponse) GetBaseRef() string {
+	if x != nil {
+		return x.BaseRef
+	}
+	return ""
+}
+
+func (x *ResetWorktreeResponse) GetBaseSha() string {
+	if x != nil {
+		return x.BaseSha
+	}
+	return ""
+}
+
+func (x *ResetWorktreeResponse) GetBranch() string {
+	if x != nil {
+		return x.Branch
+	}
+	return ""
+}
+
+func (x *ResetWorktreeResponse) GetCommits() int32 {
+	if x != nil {
+		return x.Commits
+	}
+	return 0
+}
+
+func (x *ResetWorktreeResponse) GetRounds() int32 {
+	if x != nil {
+		return x.Rounds
+	}
+	return 0
+}
+
+func (x *ResetWorktreeResponse) GetParkedRef() string {
+	if x != nil {
+		return x.ParkedRef
+	}
+	return ""
 }
 
 type SetMarkRequest struct {
@@ -2233,14 +2294,15 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\x10GetAgentResponse\x12%\n" +
 	"\x05agent\x18\x01 \x01(\v2\x0f.agent.v1.AgentR\x05agent\"8\n" +
 	"\x12PlanRefreshRequest\x12\"\n" +
-	"\bagent_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\aagentId\"\x8a\x02\n" +
+	"\bagent_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\aagentId\"\xb3\x02\n" +
 	"\x13PlanRefreshResponse\x12\x19\n" +
 	"\bbase_ref\x18\x01 \x01(\tR\abaseRef\x12\x19\n" +
 	"\bbase_sha\x18\x02 \x01(\tR\abaseSha\x12\x18\n" +
 	"\acommits\x18\x03 \x01(\x05R\acommits\x12\x16\n" +
 	"\x06branch\x18\x04 \x01(\tR\x06branch\x12%\n" +
 	"\x0elanded_commits\x18\x05 \x01(\x05R\rlandedCommits\x12%\n" +
-	"\x0ereplay_commits\x18\b \x01(\x05R\rreplayCommits\x12\x16\n" +
+	"\x0ereplay_commits\x18\b \x01(\x05R\rreplayCommits\x12'\n" +
+	"\x0ftracked_changes\x18\t \x01(\bR\x0etrackedChanges\x12\x16\n" +
 	"\x06merges\x18\x06 \x01(\x05R\x06merges\x12%\n" +
 	"\x0econflict_paths\x18\a \x03(\tR\rconflictPaths\";\n" +
 	"\x15RebaseWorktreeRequest\x12\"\n" +
@@ -2257,8 +2319,15 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\x0elanded_commits\x18\a \x01(\x05R\rlandedCommits\x12%\n" +
 	"\x0ereplay_commits\x18\b \x01(\x05R\rreplayCommits\":\n" +
 	"\x14ResetWorktreeRequest\x12\"\n" +
-	"\bagent_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\aagentId\"\x17\n" +
-	"\x15ResetWorktreeResponse\"\xe3\x01\n" +
+	"\bagent_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\aagentId\"\xb6\x01\n" +
+	"\x15ResetWorktreeResponse\x12\x19\n" +
+	"\bbase_ref\x18\x01 \x01(\tR\abaseRef\x12\x19\n" +
+	"\bbase_sha\x18\x02 \x01(\tR\abaseSha\x12\x16\n" +
+	"\x06branch\x18\x03 \x01(\tR\x06branch\x12\x18\n" +
+	"\acommits\x18\x04 \x01(\x05R\acommits\x12\x16\n" +
+	"\x06rounds\x18\x05 \x01(\x05R\x06rounds\x12\x1d\n" +
+	"\n" +
+	"parked_ref\x18\x06 \x01(\tR\tparkedRef\"\xe3\x01\n" +
 	"\x0eSetMarkRequest\x12$\n" +
 	"\bagent_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01H\x00R\aagentId\x12*\n" +
 	"\vworkflow_id\x18\x02 \x01(\tB\a\xbaH\x04r\x02\x10\x01H\x00R\n" +
