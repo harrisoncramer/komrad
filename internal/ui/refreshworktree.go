@@ -13,9 +13,10 @@ type refreshPlan struct {
 	baseRef string
 	baseSHA string
 	commits int
-	// sameTree says the base already holds the branch's own content, so a rebase would replay
-	// commits onto files the base already has and collide with them.
-	sameTree bool
+	// landed is how many of the branch's own commits the base already holds, and replay how
+	// many are left to move onto it.
+	landed int
+	replay int
 	// merges is how many merge commits a rebase would discard, and conflictPaths what a merge
 	// of the base into the branch could not settle.
 	merges        int
@@ -35,9 +36,9 @@ type rebasedMsg struct {
 	baseSHA    string
 	commits    int
 	conflicted bool
-	// fastForwarded says the branch was moved onto the base outright rather than replayed.
-	fastForwarded bool
-	err           error
+	// moved says the branch reached the base without replaying anything.
+	moved bool
+	err   error
 }
 
 // planRefreshCmd asks what a rebase would do.
@@ -56,7 +57,8 @@ func (m *model) planRefreshCmd(agentID, name string) tea.Cmd {
 			baseRef:       plan.GetBaseRef(),
 			baseSHA:       plan.GetBaseSha(),
 			commits:       int(plan.GetCommits()),
-			sameTree:      plan.GetSameTree(),
+			landed:        int(plan.GetLandedCommits()),
+			replay:        int(plan.GetReplayCommits()),
 			merges:        int(plan.GetMerges()),
 			conflictPaths: plan.GetConflictPaths(),
 		}}
@@ -74,12 +76,12 @@ func (m *model) rebaseCmd(agentID, name string) tea.Cmd {
 		}
 
 		return rebasedMsg{
-			name:          name,
-			baseRef:       result.GetBaseRef(),
-			baseSHA:       result.GetBaseSha(),
-			commits:       int(result.GetCommits()),
-			conflicted:    result.GetConflicted(),
-			fastForwarded: result.GetFastForwarded(),
+			name:       name,
+			baseRef:    result.GetBaseRef(),
+			baseSHA:    result.GetBaseSha(),
+			commits:    int(result.GetCommits()),
+			conflicted: result.GetConflicted(),
+			moved:      result.GetMoved(),
 		}
 	}
 }
@@ -115,7 +117,7 @@ func (m *model) applyRebased(msg rebasedMsg) tea.Model {
 		return m
 	}
 
-	if msg.fastForwarded {
+	if msg.moved {
 		m.pushMessage(message{
 			kind:    messageInfo,
 			summary: msg.name + ": moved onto " + msg.baseRef,

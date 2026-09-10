@@ -35,7 +35,8 @@ func (s *Service) PlanRefresh(
 		BaseSha:       plan.BaseSHA,
 		Commits:       int32(plan.Commits),
 		Branch:        plan.Branch,
-		SameTree:      plan.SameTree,
+		LandedCommits: int32(plan.Landed),
+		ReplayCommits: int32(plan.Replay),
 		Merges:        int32(plan.Merges),
 		ConflictPaths: plan.ConflictPaths,
 	}), nil
@@ -52,12 +53,12 @@ func (s *Service) RebaseWorktree(
 	}
 
 	return connect.NewResponse(&agentv1.RebaseWorktreeResponse{
-		BaseRef:       result.BaseRef,
-		BaseSha:       result.BaseSHA,
-		Commits:       int32(result.Commits),
-		Branch:        result.Branch,
-		Conflicted:    result.Conflicted,
-		FastForwarded: result.FastForwarded,
+		BaseRef:    result.BaseRef,
+		BaseSha:    result.BaseSHA,
+		Commits:    int32(result.Commits),
+		Branch:     result.Branch,
+		Conflicted: result.Conflicted,
+		Moved:      result.Moved,
 	}), nil
 }
 

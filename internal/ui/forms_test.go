@@ -1382,16 +1382,42 @@ func TestSubmittingNoticeCountsUp(t *testing.T) {
 func TestRefreshRebaseLabelNamesWhatWillRun(t *testing.T) {
 	t.Parallel()
 
-	plan := refreshPlan{baseRef: "origin/main", baseSHA: "a6e5d5cd1234", commits: 3}
+	for _, tt := range []struct {
+		name     string
+		plan     refreshPlan
+		want     []string
+		wantNone []string
+	}{
+		{
+			name:     "an ordinary rebase says what it replays",
+			plan:     refreshPlan{baseRef: "origin/main", baseSHA: "a6e5d5cd1234", replay: 3},
+			want:     []string{"Rebase onto origin/main", "replaying 3 commits"},
+			wantNone: []string{"already holds"},
+		},
+		{
+			name:     "a branch whose work all landed is moved, not rebased",
+			plan:     refreshPlan{baseRef: "origin/main", baseSHA: "a6e5d5cd1234", landed: 3},
+			want:     []string{"Move onto origin/main", "dropping 3 commits"},
+			wantNone: []string{"Rebase"},
+		},
+		{
+			name: "a branch partly landed says both halves",
+			plan: refreshPlan{baseRef: "origin/main", baseSHA: "a6e5d5cd1234", landed: 2, replay: 1},
+			want: []string{"Rebase onto origin/main", "replaying 1 commit", "dropping 2"},
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 
-	assert.Contains(t, refreshRebaseLabel(plan), "Rebase onto origin/main")
-	assert.Contains(t, refreshRebaseLabel(plan), "replaying 3 commits")
-
-	plan.sameTree = true
-
-	assert.Contains(t, refreshRebaseLabel(plan), "Move onto origin/main")
-	assert.Contains(t, refreshRebaseLabel(plan), "dropping 3 commits")
-	assert.NotContains(t, refreshRebaseLabel(plan), "Rebase")
+			label := refreshRebaseLabel(tt.plan)
+			for _, want := range tt.want {
+				assert.Contains(t, label, want)
+			}
+			for _, none := range tt.wantNone {
+				assert.NotContains(t, label, none)
+			}
+		})
+	}
 }
 
 // TestRefreshWarning covers each thing the confirmation is there to say, and the ordinary case
@@ -1407,13 +1433,13 @@ func TestRefreshWarning(t *testing.T) {
 	}{
 		{
 			name:     "a rebase that would run cleanly warns about nothing",
-			plan:     refreshPlan{commits: 2},
+			plan:     refreshPlan{replay: 2},
 			wantNone: true,
 		},
 		{
-			name: "a squashed branch, whose replay would collide with its own files",
-			plan: refreshPlan{sameTree: true},
-			want: []string{"already holds this branch's work", "collide"},
+			name: "commits the base already holds, whose replay would collide with themselves",
+			plan: refreshPlan{landed: 2},
+			want: []string{"already holds 2 commits", "collide"},
 		},
 		{
 			name: "merge commits, which a rebase throws away before replaying what they settled",

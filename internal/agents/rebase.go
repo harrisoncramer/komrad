@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"strings"
+	"time"
 
 	"weave/internal/git"
 	"weave/internal/logging"
@@ -31,6 +32,12 @@ var (
 
 	// ErrRebaseBusy says the agent is part-way through a turn.
 	ErrRebaseBusy = errors.New("the agent is working, so its files must not move under it")
+
+	// ErrRebaseShallow says the clone cannot answer what the branch and the base share.
+	ErrRebaseShallow = errors.New("the clone is shallow, so what this branch shares with the base cannot be read")
+
+	// ErrRebaseHiddenPaths says the index is holding a path's content back on purpose.
+	ErrRebaseHiddenPaths = errors.New("these paths are marked assume-unchanged or skip-worktree, so their contents cannot be read back if the move goes wrong")
 )
 
 // rebaseAgentReadWriter is the slice of the agent store a rebase reads and writes.
@@ -80,8 +87,12 @@ type RebasePlan struct {
 	// Commits is how many of the agent's own commits would be replayed.
 	Commits int
 	Branch  string
-	// SameTree says the branch and the base name one tree, so replaying would only collide.
-	SameTree bool
+	// Cutoff is the newest of the agent's own commits the base already holds whole, which is
+	// where the replay starts, empty when the base holds none of them.
+	Cutoff string
+	// Landed is how many of its commits the base already holds, and Replay how many would move.
+	Landed int
+	Replay int
 	// Merges is how many merge commits a rebase would discard.
 	Merges int
 	// ConflictPaths are the paths a merge of the base into the branch could not settle.
@@ -93,9 +104,11 @@ type RebaseResult struct {
 	RebasePlan
 	// Conflicted says the rebase stopped part-way and is waiting for the agent.
 	Conflicted bool
-	// FastForwarded says the branch was moved onto the base outright rather than replayed,
-	// which is what a branch whose content the base already holds gets instead.
-	FastForwarded bool
+	// Moved says the branch reached the base without replaying anything, which is what a branch
+	// whose work has entirely landed gets.
+	Moved bool
+	// ParkedRef holds the checkout as it stood before any of this, which is what an undo reads.
+	ParkedRef string
 	// ClearedPullRequest says a recorded pull request was dropped, since the rebase rewrote the
 	// branch it was opened from.
 	ClearedPullRequest bool
@@ -141,7 +154,9 @@ func (s *RebaseService) PlanRebase(ctx context.Context, agentID string) (*Rebase
 		BaseSHA:       sha,
 		Commits:       commits,
 		Branch:        state.Branch,
-		SameTree:      prediction.SameTree,
+		Cutoff:        prediction.Cutoff,
+		Landed:        prediction.Landed,
+		Replay:        prediction.Replay,
 		Merges:        prediction.Merges,
 		ConflictPaths: prediction.ConflictPaths,
 	}, nil
@@ -176,6 +191,13 @@ func (s *RebaseService) Rebase(ctx context.Context, agentID string) (*RebaseResu
 
 	result := &RebaseResult{RebasePlan: *plan}
 
+	// Parked before anything moves, since a replay from a cutoff drops commits on purpose and
+	// the reflog holds refs rather than the files that were never committed.
+	result.ParkedRef = parkRef(agentID)
+	if _, err := git.Park(ctx, agent.Cwd, result.ParkedRef); err != nil {
+		return nil, err
+	}
+
 	if err := s.move(ctx, agent.Cwd, result); err != nil {
 		return nil, err
 	}
@@ -190,25 +212,31 @@ func (s *RebaseService) Rebase(ctx context.Context, agentID string) (*RebaseResu
 	return result, nil
 }
 
+// parkRef is where a checkout is held before it is moved, named so that one agent's parks sort
+// together and nothing collides with another's.
+func parkRef(agentID string) string {
+	return fmt.Sprintf("refs/weave/prerefresh/%s/%d", agentID, time.Now().UnixNano())
+}
+
 // move brings the branch onto the base, replaying its commits or, when the base already holds
 // their content, moving the branch outright rather than colliding with itself.
 func (s *RebaseService) move(ctx context.Context, dir string, result *RebaseResult) error {
-	if result.SameTree {
-		if err := git.FastForward(ctx, dir, result.BaseRef); err != nil {
-			return err
-		}
-		result.FastForwarded = true
-
-		return nil
+	// Replayed from the cutoff when the base already holds part of this branch, which is what a
+	// squash merge leaves behind: replaying those commits would collide with their own content.
+	replay := func() error { return git.Rebase(ctx, dir, result.BaseRef) }
+	if result.Cutoff != "" {
+		replay = func() error { return git.RebaseOnto(ctx, dir, result.BaseRef, result.Cutoff) }
 	}
 
-	err := git.Rebase(ctx, dir, result.BaseRef)
+	err := replay()
 	switch {
 	case errors.Is(err, git.ErrRebaseConflicted):
 		result.Conflicted = true
 	case err != nil:
 		return err
 	}
+
+	result.Moved = result.Replay == 0 && !result.Conflicted
 
 	return nil
 }
@@ -250,8 +278,8 @@ func rebaseMail(agent agentstore.Agent, result RebaseResult) string {
 	switch {
 	case result.Conflicted:
 		return conflictedMail(agent, result)
-	case result.FastForwarded:
-		return fastForwardedMail(result)
+	case result.Moved:
+		return movedMail(result)
 	default:
 		return replayedMail(result)
 	}
@@ -277,16 +305,20 @@ func conflictedMail(agent agentstore.Agent, result RebaseResult) string {
 	return body.String()
 }
 
-// fastForwardedMail is a branch moved onto the base outright, which is what a branch whose work
-// the base already holds gets instead of a replay that would collide with itself.
-func fastForwardedMail(result RebaseResult) string {
+// movedMail is a branch that reached the base without replaying anything, which is what a
+// branch whose work has entirely landed gets.
+func movedMail(result RebaseResult) string {
 	var body strings.Builder
 
-	fmt.Fprintf(&body, "Your branch was moved onto %s (%s) outright rather than rebased.\n\n", result.BaseRef, short(result.BaseSHA))
+	fmt.Fprintf(&body, "Your branch now stands on %s (%s) without replaying anything.\n\n", result.BaseRef, short(result.BaseSHA))
 	body.WriteString("The base already held every change your own commits made, which is what a merge of your work " +
-		"into it leaves behind, so replaying them would only have collided with your own files. ")
-	body.WriteString("No file on disk changed and nothing was lost. Your own commits are no longer on the branch, " +
-		"and the base's history stands in their place, so start your next piece of work from here.")
+		"into it leaves behind, so there was nothing left to move. ")
+	body.WriteString("Nothing was lost. Your own commits are no longer on the branch, and the base's history stands " +
+		"in their place, so start your next piece of work from here.")
+	if result.ParkedRef != "" {
+		body.WriteString(" What the worktree held beforehand, including anything uncommitted, is kept at " +
+			result.ParkedRef + " if you need to read it back.")
+	}
 
 	if result.ClearedPullRequest {
 		body.WriteString(" The pull request recorded against you has been cleared, since it no longer tracks anything " +
@@ -301,7 +333,7 @@ func replayedMail(result RebaseResult) string {
 	var body strings.Builder
 
 	fmt.Fprintf(&body, "Your worktree was rebased onto %s (%s), replaying %d of your own commits.\n\n",
-		result.BaseRef, short(result.BaseSHA), result.Commits)
+		result.BaseRef, short(result.BaseSHA), result.Replay)
 	body.WriteString("Your files may have changed under you, so read them again rather than trusting what you remember. " +
 		"Nothing was lost and your branch is the same branch.")
 
@@ -362,6 +394,10 @@ func refuseTreeState(state git.TreeState) error {
 		return ErrRebaseInProgress
 	case state.Branch == "":
 		return ErrRebaseDetached
+	case state.Shallow:
+		return ErrRebaseShallow
+	case len(state.HiddenPaths) > 0:
+		return fmt.Errorf("%w: %s", ErrRebaseHiddenPaths, strings.Join(state.HiddenPaths, ", "))
 	case state.TrackedChanges:
 		return ErrRebaseDirty
 	}

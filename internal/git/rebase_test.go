@@ -277,129 +277,142 @@ func out(t *testing.T, dir string, args ...string) string {
 	return text
 }
 
-// TestPredictRebaseSeesASquashedBranch is the case the prediction exists for: the branch's work
-// reached the base as one squashed commit, so its own commits match nothing there by patch id
-// and replaying them collides with the files the squash already added.
-func TestPredictRebaseSeesASquashedBranch(t *testing.T) {
-	t.Parallel()
+// squashLanded lands everything the branch has on main as one squashed commit, which is what a
+// pull request merge does here and what leaves no trace on the branch that it happened.
+func squashLanded(t *testing.T, repo, message string) {
+	t.Helper()
 
-	repo := squashedBranch(t)
-
-	prediction, err := git.PredictRebase(t.Context(), repo, "main")
-	require.NoError(t, err)
-
-	assert.True(t, prediction.SameTree, "the squash put the branch's own content on the base")
-
-	count, err := git.CountCommitsToReplay(t.Context(), repo, "main")
-	require.NoError(t, err)
-	assert.Positive(t, count, "and a rebase would still replay them, which is the trap")
+	branch := out(t, repo, "rev-parse", "--abbrev-ref", "HEAD")
+	run(t, repo, "checkout", "--quiet", "main")
+	run(t, repo, "merge", "--quiet", "--squash", branch)
+	run(t, repo, "commit", "--quiet", "-m", message)
+	run(t, repo, "checkout", "--quiet", branch)
 }
 
-// TestPredictRebaseCountsTheMergesItWouldDiscard covers a branch that has merged the base rather
-// than rebased onto it, whose merge a rebase throws away before replaying what it reconciled.
-func TestPredictRebaseCountsTheMergesItWouldDiscard(t *testing.T) {
+// moveMain lands an unrelated commit on main, standing for another pull request merging while
+// this branch was busy.
+func moveMain(t *testing.T, repo, name, body string) {
+	t.Helper()
+
+	branch := out(t, repo, "rev-parse", "--abbrev-ref", "HEAD")
+	run(t, repo, "checkout", "--quiet", "main")
+	writeFile(t, repo, name, body)
+	run(t, repo, "add", name)
+	run(t, repo, "commit", "--quiet", "-m", "another pull request")
+	run(t, repo, "checkout", "--quiet", branch)
+}
+
+// commitFile is one commit touching one path, since every fixture here is built out of them.
+func commitFile(t *testing.T, repo, name, body, message string) string {
+	t.Helper()
+
+	writeFile(t, repo, name, body)
+	run(t, repo, "add", name)
+	run(t, repo, "commit", "--quiet", "-m", message)
+
+	return out(t, repo, "rev-parse", "HEAD")
+}
+
+// TestPredictRebaseFindsTheCutoffOfASquashedBranch is the case this exists for, with the base
+// moved on by other work so the trees differ and only the content walk can see it.
+func TestPredictRebaseFindsTheCutoffOfASquashedBranch(t *testing.T) {
 	t.Parallel()
 
 	repo := newRepo(t)
 	run(t, repo, "checkout", "--quiet", "-b", "agent/abc")
-	run(t, repo, "commit", "--quiet", "--allow-empty", "-m", "the agent's work")
-	run(t, repo, "checkout", "--quiet", "main")
-	writeFile(t, repo, "theirs.txt", "main moved on")
-	run(t, repo, "add", "theirs.txt")
-	run(t, repo, "commit", "--quiet", "-m", "main moved on")
-	run(t, repo, "checkout", "--quiet", "agent/abc")
-	run(t, repo, "merge", "--quiet", "--no-ff", "-m", "merge main", "main")
+	commitFile(t, repo, "f.txt", "first draft\n", "A")
+	landed := commitFile(t, repo, "f.txt", "second draft\n", "B")
+	squashLanded(t, repo, "A and B squashed (#1)")
+	moveMain(t, repo, "elsewhere.txt", "elsewhere\n")
+	commitFile(t, repo, "g.txt", "new work\n", "C")
+
+	require.NotEqual(t, out(t, repo, "rev-parse", "main^{tree}"), out(t, repo, "rev-parse", "HEAD^{tree}"),
+		"the fixture must have differing trees, or it is not the case this is about")
 
 	prediction, err := git.PredictRebase(t.Context(), repo, "main")
 	require.NoError(t, err)
 
-	assert.Equal(t, 1, prediction.Merges)
+	assert.Equal(t, landed, prediction.Cutoff, "the cutoff is the tip that landed")
+	assert.Equal(t, 2, prediction.Landed)
+	assert.Equal(t, 1, prediction.Replay, "only the commit written after the merge is replayed")
 }
 
-// TestPredictRebaseNamesTheConflictingPaths covers both sides changing one file, which is the
-// divergence a person wants named before the worktree is touched rather than after.
-func TestPredictRebaseNamesTheConflictingPaths(t *testing.T) {
+// TestPredictRebaseCutoffIsTheTipWhenEverythingLanded covers the branch that wrote nothing after
+// its merge, where replaying nothing leaves it standing on the base.
+func TestPredictRebaseCutoffIsTheTipWhenEverythingLanded(t *testing.T) {
 	t.Parallel()
 
 	repo := newRepo(t)
 	run(t, repo, "checkout", "--quiet", "-b", "agent/abc")
-	writeFile(t, repo, "clash.txt", "ours\n")
-	run(t, repo, "add", "clash.txt")
-	run(t, repo, "commit", "--quiet", "-m", "ours")
-	run(t, repo, "checkout", "--quiet", "main")
-	writeFile(t, repo, "clash.txt", "theirs\n")
-	run(t, repo, "add", "clash.txt")
-	run(t, repo, "commit", "--quiet", "-m", "theirs")
-	run(t, repo, "checkout", "--quiet", "agent/abc")
+	commitFile(t, repo, "f.txt", "first\n", "A")
+
+	// B is landed too, and reads as landed on its own, so a walk that answered with the oldest
+	// landed commit rather than the newest would stop here and replay C for nothing.
+	middle := commitFile(t, repo, "f.txt", "second\n", "B")
+	tip := commitFile(t, repo, "g.txt", "more\n", "C")
+	squashLanded(t, repo, "squashed (#1)")
+	moveMain(t, repo, "elsewhere.txt", "elsewhere\n")
+
+	base := out(t, repo, "rev-parse", "main^{tree}")
+	middleMerged, err := git.Run(t.Context(), repo, "merge-tree", "--write-tree", "main", middle)
+	require.NoError(t, err)
+	require.Equal(t, base, middleMerged, "the fixture needs a landed commit behind the tip to be about anything")
 
 	prediction, err := git.PredictRebase(t.Context(), repo, "main")
 	require.NoError(t, err)
 
-	assert.Equal(t, []string{"clash.txt"}, prediction.ConflictPaths)
-	assert.False(t, prediction.SameTree)
+	assert.Equal(t, tip, prediction.Cutoff, "the newest landed commit, not the oldest")
+	assert.Equal(t, 3, prediction.Landed)
+	assert.Zero(t, prediction.Replay)
 }
 
-// TestPredictRebaseIsQuietOnACleanRebase pins the ordinary case reporting nothing, since a
-// prediction that always found something would be worth as little as one that never did.
-func TestPredictRebaseIsQuietOnACleanRebase(t *testing.T) {
+// TestPredictRebaseFindsNoCutoffOnAnOrdinaryBranch pins the ordinary case finding nothing, since
+// a walk that always found a cutoff would be worth as little as one that never did.
+func TestPredictRebaseFindsNoCutoffOnAnOrdinaryBranch(t *testing.T) {
 	t.Parallel()
 
 	repo := newRepo(t)
 	run(t, repo, "checkout", "--quiet", "-b", "agent/abc")
-	writeFile(t, repo, "ours.txt", "ours\n")
-	run(t, repo, "add", "ours.txt")
-	run(t, repo, "commit", "--quiet", "-m", "ours")
-	run(t, repo, "checkout", "--quiet", "main")
-	writeFile(t, repo, "theirs.txt", "theirs\n")
-	run(t, repo, "add", "theirs.txt")
-	run(t, repo, "commit", "--quiet", "-m", "theirs")
-	run(t, repo, "checkout", "--quiet", "agent/abc")
+	commitFile(t, repo, "mine.txt", "mine\n", "mine")
+	moveMain(t, repo, "theirs.txt", "theirs\n")
 
 	prediction, err := git.PredictRebase(t.Context(), repo, "main")
 	require.NoError(t, err)
 
-	assert.Empty(t, prediction.ConflictPaths)
-	assert.Zero(t, prediction.Merges)
-	assert.False(t, prediction.SameTree)
+	assert.Empty(t, prediction.Cutoff)
+	assert.Zero(t, prediction.Landed)
+	assert.Equal(t, 1, prediction.Replay)
 }
 
-// TestFastForwardMovesTheBranchWithoutTouchingTheFiles is the branch ref moving to the base with
-// nothing on disk written.
-func TestFastForwardMovesTheBranchWithoutTouchingTheFiles(t *testing.T) {
+// TestPredictRebaseWalksRatherThanHalves pins the property that decides the implementation: a
+// commit inside a landed run reads as not landed, so the predicate cannot be binary searched.
+func TestPredictRebaseWalksRatherThanHalves(t *testing.T) {
 	t.Parallel()
 
-	repo := squashedBranch(t)
-	writeFile(t, repo, "scratch.txt", "untracked")
+	repo := newRepo(t)
+	run(t, repo, "checkout", "--quiet", "-b", "agent/abc")
+	first := commitFile(t, repo, "f.txt", "first draft\n", "A")
+	second := commitFile(t, repo, "f.txt", "second draft\n", "B")
+	squashLanded(t, repo, "squashed (#1)")
 
-	// Nothing holds the agent's own CLI still, so a tracked file it writes between the state
-	// being read and the move landing has to survive, which a --hard reset would revert.
-	writeFile(t, repo, "tracked.txt", "written after the check")
+	base := out(t, repo, "rev-parse", "main^{tree}")
 
-	require.NoError(t, git.FastForward(t.Context(), repo, "main"))
+	_, firstErr := git.Run(t.Context(), repo, "merge-tree", "--write-tree", "main", first)
+	require.Error(t, firstErr, "the intermediate commit holds content the base never took")
 
-	assert.Equal(t, out(t, repo, "rev-parse", "main"), out(t, repo, "rev-parse", "HEAD"),
-		"the branch stands on the base")
-
-	tracked, err := os.ReadFile(filepath.Join(repo, "tracked.txt"))
-	require.NoError(t, err)
-	assert.Equal(t, "written after the check", string(tracked), "the tracked file the agent wrote survived")
-
-	untracked, err := os.ReadFile(filepath.Join(repo, "scratch.txt"))
-	require.NoError(t, err)
-	assert.Equal(t, "untracked", string(untracked), "the untracked file is still there")
+	secondMerged, secondErr := git.Run(t.Context(), repo, "merge-tree", "--write-tree", "main", second)
+	require.NoError(t, secondErr)
+	assert.Equal(t, base, secondMerged, "while the tip of the landed run reads as landed")
 }
 
 // TestPredictRebaseRefusesABaseTheBranchAlreadyContains covers a branch that committed something
-// and then reverted it, which names the base's tree with no merge having happened.
+// and then reverted it, which holds the base's own tree with no merge having happened.
 func TestPredictRebaseRefusesABaseTheBranchAlreadyContains(t *testing.T) {
 	t.Parallel()
 
-	// Moving this branch would destroy both of its commits, over a rebase git calls a no-op.
 	repo := newRepo(t)
 	run(t, repo, "checkout", "--quiet", "-b", "agent/abc")
-	writeFile(t, repo, "spike.txt", "an experiment\n")
-	run(t, repo, "add", "spike.txt")
-	run(t, repo, "commit", "--quiet", "-m", "try it")
+	commitFile(t, repo, "spike.txt", "an experiment\n", "try it")
 	run(t, repo, "rm", "--quiet", "spike.txt")
 	run(t, repo, "commit", "--quiet", "-m", "back it out")
 
@@ -409,27 +422,159 @@ func TestPredictRebaseRefusesABaseTheBranchAlreadyContains(t *testing.T) {
 	prediction, err := git.PredictRebase(t.Context(), repo, "main")
 	require.NoError(t, err)
 
-	assert.False(t, prediction.SameTree, "the base is already contained in this branch, so it is not one to move onto")
+	assert.Empty(t, prediction.Cutoff, "the base is already contained, so nothing is dropped")
+	assert.Equal(t, 2, prediction.Replay)
 }
 
-// squashedBranch is a branch of two commits whose work reached main as one squashed commit,
-// which leaves the two naming the same tree while sharing no commit.
-func squashedBranch(t *testing.T) string {
-	t.Helper()
+// TestPredictRebaseRefusesAnUnrelatedBase covers a base sharing no history, where every question
+// about what the two have in common answers wrongly rather than failing.
+func TestPredictRebaseRefusesAnUnrelatedBase(t *testing.T) {
+	t.Parallel()
+
+	repo := newRepo(t)
+	run(t, repo, "checkout", "--quiet", "--orphan", "agent/abc")
+	run(t, repo, "rm", "-rf", "--quiet", ".")
+	commitFile(t, repo, "alone.txt", "alone\n", "unrelated root")
+
+	_, err := git.PredictRebase(t.Context(), repo, "main")
+	require.ErrorIs(t, err, git.ErrBaseUnrelated)
+}
+
+// TestReadTreeStateReportsAShallowClone covers a clone cut off from its own history, where the
+// ancestry questions this all rests on answer wrongly rather than failing.
+func TestReadTreeStateReportsAShallowClone(t *testing.T) {
+	t.Parallel()
+
+	origin := newRepo(t)
+	run(t, origin, "commit", "--quiet", "--allow-empty", "-m", "second")
+	run(t, origin, "commit", "--quiet", "--allow-empty", "-m", "third")
+
+	clone := filepath.Join(t.TempDir(), "shallow")
+	run(t, filepath.Dir(clone), "clone", "--quiet", "--depth", "1", "file://"+origin, clone)
+
+	state, err := git.ReadTreeState(t.Context(), clone)
+	require.NoError(t, err)
+
+	assert.True(t, state.Shallow)
+}
+
+// TestReadTreeStateNamesPathsTheIndexIsHolding covers a path marked assume-unchanged, whose
+// working copy nothing can read out and so nothing can put back.
+func TestReadTreeStateNamesPathsTheIndexIsHolding(t *testing.T) {
+	t.Parallel()
+
+	repo := newRepo(t)
+	run(t, repo, "update-index", "--assume-unchanged", "tracked.txt")
+
+	state, err := git.ReadTreeState(t.Context(), repo)
+	require.NoError(t, err)
+
+	assert.Equal(t, []string{"tracked.txt"}, state.HiddenPaths)
+}
+
+// TestRebaseOntoReplaysOnlyWhatFollowsTheCutoff is the operation the cutoff exists to feed,
+// against the branch a plain rebase cannot settle.
+func TestRebaseOntoReplaysOnlyWhatFollowsTheCutoff(t *testing.T) {
+	t.Parallel()
 
 	repo := newRepo(t)
 	run(t, repo, "checkout", "--quiet", "-b", "agent/abc")
-	writeFile(t, repo, "first.txt", "first\n")
-	run(t, repo, "add", "first.txt")
-	run(t, repo, "commit", "--quiet", "-m", "first")
-	writeFile(t, repo, "second.txt", "second\n")
-	run(t, repo, "add", "second.txt")
-	run(t, repo, "commit", "--quiet", "-m", "second")
+	commitFile(t, repo, "f.txt", "first draft\n", "A")
+	commitFile(t, repo, "f.txt", "second draft\n", "B")
+	squashLanded(t, repo, "squashed (#1)")
+	moveMain(t, repo, "elsewhere.txt", "elsewhere\n")
+	commitFile(t, repo, "g.txt", "new work\n", "C")
 
-	run(t, repo, "checkout", "--quiet", "main")
-	run(t, repo, "merge", "--quiet", "--squash", "agent/abc")
-	run(t, repo, "commit", "--quiet", "-m", "the branch, squashed (#1)")
-	run(t, repo, "checkout", "--quiet", "agent/abc")
+	prediction, err := git.PredictRebase(t.Context(), repo, "main")
+	require.NoError(t, err)
+	require.NotEmpty(t, prediction.Cutoff, "the fixture did not produce the cutoff it is about")
 
-	return repo
+	require.Error(t, git.Rebase(t.Context(), repo, "main"), "a plain rebase cannot settle this branch")
+	run(t, repo, "rebase", "--abort")
+
+	require.NoError(t, git.RebaseOnto(t.Context(), repo, "main", prediction.Cutoff))
+
+	assert.Equal(t, "new work\n", readFile(t, repo, "g.txt"), "the work written after the merge survived")
+	assert.Equal(t, "elsewhere\n", readFile(t, repo, "elsewhere.txt"), "and the other pull request came in")
+	assert.Equal(t, "1", out(t, repo, "rev-list", "--count", "main..HEAD"), "one commit of its own remains")
+}
+
+// TestRebaseOntoRefusesWhatARebaseRefuses pins the guard a plain rebase has and reset does not,
+// which is what makes replaying safe against an agent still writing.
+func TestRebaseOntoRefusesWhatARebaseRefuses(t *testing.T) {
+	t.Parallel()
+
+	repo := newRepo(t)
+	run(t, repo, "checkout", "--quiet", "-b", "agent/abc")
+	commitFile(t, repo, "f.txt", "first\n", "A")
+	squashLanded(t, repo, "squashed (#1)")
+	moveMain(t, repo, "elsewhere.txt", "elsewhere\n")
+
+	prediction, err := git.PredictRebase(t.Context(), repo, "main")
+	require.NoError(t, err)
+	require.NotEmpty(t, prediction.Cutoff)
+
+	writeFile(t, repo, "tracked.txt", "written while the operation was deciding")
+
+	require.Error(t, git.RebaseOnto(t.Context(), repo, "main", prediction.Cutoff))
+	assert.Equal(t, "written while the operation was deciding", readFile(t, repo, "tracked.txt"),
+		"the edit is still there rather than reverted")
+}
+
+func readFile(t *testing.T, dir, name string) string {
+	t.Helper()
+
+	body, err := os.ReadFile(filepath.Join(dir, name))
+	require.NoError(t, err)
+
+	return string(body)
+}
+
+// TestParkRecoversWhatAMoveDrops covers the two things nothing else recovers: the commits a
+// replay from a cutoff drops on purpose, and the files that were never committed at all.
+func TestParkRecoversWhatAMoveDrops(t *testing.T) {
+	t.Parallel()
+
+	repo := newRepo(t)
+	run(t, repo, "checkout", "--quiet", "-b", "agent/abc")
+	commitFile(t, repo, "f.txt", "first draft\n", "A")
+	commitFile(t, repo, "f.txt", "second draft\n", "B")
+	squashLanded(t, repo, "squashed (#1)")
+	moveMain(t, repo, "elsewhere.txt", "elsewhere\n")
+	writeFile(t, repo, "scratch.txt", "never committed")
+
+	dropped := out(t, repo, "rev-parse", "HEAD")
+	parked, err := git.Park(t.Context(), repo, "refs/weave/prerefresh/a1/1")
+	require.NoError(t, err)
+
+	prediction, err := git.PredictRebase(t.Context(), repo, "main")
+	require.NoError(t, err)
+	require.NotEmpty(t, prediction.Cutoff)
+	require.NoError(t, git.RebaseOnto(t.Context(), repo, "main", prediction.Cutoff))
+
+	require.Equal(t, "0", out(t, repo, "rev-list", "--count", "main..HEAD"),
+		"the fixture did not drop the commits this is about")
+
+	assert.Equal(t, dropped, out(t, repo, "rev-parse", parked+"^"),
+		"the commits the move dropped are still reachable from the park")
+	assert.Equal(t, "never committed", out(t, repo, "show", parked+":scratch.txt"),
+		"and so is a file that was never committed")
+}
+
+// TestParkLeavesTheCheckoutAlone pins the park being free of the agent's own state, since it
+// runs while the agent may still be writing.
+func TestParkLeavesTheCheckoutAlone(t *testing.T) {
+	t.Parallel()
+
+	repo := newRepo(t)
+	writeFile(t, repo, "scratch.txt", "untracked")
+	writeFile(t, repo, "tracked.txt", "edited")
+	before := out(t, repo, "status", "--porcelain")
+	head := out(t, repo, "rev-parse", "HEAD")
+
+	_, err := git.Park(t.Context(), repo, "refs/weave/prerefresh/a1/1")
+	require.NoError(t, err)
+
+	assert.Equal(t, before, out(t, repo, "status", "--porcelain"), "the working tree reads the same")
+	assert.Equal(t, head, out(t, repo, "rev-parse", "HEAD"), "and the branch has not moved")
 }
