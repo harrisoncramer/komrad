@@ -44,6 +44,16 @@ const messagesMockKey = "M"
 // messagesCap is how far back the stack goes.
 const messagesCap = 50
 
+// messagesPulseBlinks is how many times the summary of a message blinks as it lands.
+const messagesPulseBlinks = 5
+
+// messagesPulseInterval is how long each half of a blink stays on screen.
+const messagesPulseInterval = 150 * time.Millisecond
+
+// messagesPulsePhases is the blink counted in halves, behind the unlit phase the message lands
+// in before the first tick redraws it.
+const messagesPulsePhases = messagesPulseBlinks*2 + 1
+
 type messageKind int
 
 const (
@@ -70,6 +80,53 @@ type messagesState struct {
 	// taken.
 	field   int
 	flashed int
+	// landed counts the messages pushed, and pulse the half-blinks the newest one has left.
+	landed int
+	pulse  int
+}
+
+type messagePulseMsg struct{}
+
+func messagePulseTick() tea.Cmd {
+	return tea.Tick(messagesPulseInterval, func(time.Time) tea.Msg { return messagePulseMsg{} })
+}
+
+// pulseMessages blinks the summary when the stack has grown since the count it is given, starting
+// the tick only where one is not already running.
+func (m model) pulseMessages(before int) (model, tea.Cmd) {
+	if m.messages.landed == before {
+		return m, nil
+	}
+
+	running := m.messages.pulse > 0
+	m.messages.pulse = messagesPulsePhases
+
+	if running {
+		return m, nil
+	}
+
+	return m, messagePulseTick()
+}
+
+// advanceMessagePulse takes the blink to its next half and asks for the one after it.
+func (m *model) advanceMessagePulse() tea.Cmd {
+	if m.messages.pulse == 0 {
+		return nil
+	}
+
+	m.messages.pulse--
+	m.restageScreen()
+
+	if m.messages.pulse == 0 {
+		return nil
+	}
+
+	return messagePulseTick()
+}
+
+// messagesPulseOn reports whether the newest message is in the lit half of a blink.
+func (m model) messagesPulseOn() bool {
+	return m.messages.pulse > 0 && m.messages.pulse%2 == 0 && m.messagesCursor() == 0
 }
 
 // messagePiece is one part of a message the cursor stands on: the label it is drawn behind, the
@@ -281,7 +338,7 @@ func (m model) messagesSummaryStyle(held message, taken int, flashed bool) strin
 	if m.messages.focused {
 		style = style.Bold(true)
 	}
-	if flashed {
+	if flashed || m.messagesPulseOn() {
 		style = flashFieldStyle
 	}
 
@@ -331,6 +388,7 @@ func (m *model) pushMessage(next message) {
 		next.at = time.Now()
 	}
 
+	m.messages.landed++
 	m.messages.items = append([]message{next}, m.messages.items...)
 	if len(m.messages.items) > messagesCap {
 		m.messages.items = m.messages.items[:messagesCap]

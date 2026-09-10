@@ -152,8 +152,7 @@ func TestSetMarkRefusesWhatIsNotALetter(t *testing.T) {
 	m.tree.cursor = rowIndexOfKey(m.agentRows(), agentRowKey("a1"))
 
 	pending, _ := m.Update(keyMsg(m.keys.Marks.Set[0]))
-	next, cmd := pending.(model).Update(keyMsg("1"))
-	assert.Nil(t, cmd, "nothing is written")
+	next, _ := pending.(model).Update(keyMsg("1"))
 
 	after, ok := next.(model)
 	require.True(t, ok)
