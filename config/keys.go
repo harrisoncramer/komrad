@@ -19,8 +19,7 @@ import (
 // delivers two presses. These are all checked here, when the file is read, because the panel
 // cannot tell a key nobody pressed from a key that cannot be pressed.
 
-// keyTypeRange is the span of tea.KeyType values pressableNames reads, the control keys running
-// from 0 to 127 and the named keys counting down from minus one.
+// The span of tea.KeyType values pressableNames reads.
 const (
 	firstKeyType = -100
 	lastKeyType  = 127

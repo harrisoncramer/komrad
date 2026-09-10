@@ -130,3 +130,32 @@ func TestValidateKeybindingsAllowsAKeyOnlyATypingModeReads(t *testing.T) {
 		})
 	}
 }
+
+// TestGlobalArmsAnswerForEveryKeyTheRouterTakes presses every configured key against every screen
+// and fails on one routeGlobalKey answers that globalArms does not name, since the two are written
+// in different places and an arm added to the router alone would shadow silently.
+func TestGlobalArmsAnswerForEveryKeyTheRouterTakes(t *testing.T) {
+	keys := config.DefaultKeybindings()
+	pressable := configuredKeys(t, keys)
+
+	for _, s := range []screen{screenAgents, screenSchedules, screenArchive, screenMail, screenReview} {
+		t.Run(screenNames[s], func(t *testing.T) {
+			var modelled []string
+			for _, arm := range globalArms(s, keys) {
+				modelled = append(modelled, arm.keys...)
+			}
+
+			for _, pressed := range pressable {
+				// A fresh model every press, since an arm that answered will have moved the panel on.
+				_, _, taken := driftModel(t, s).routeGlobalKey(keyMsgOf(t, pressed))
+				if !taken {
+					continue
+				}
+
+				assert.Contains(t, modelled, pressed,
+					"routeGlobalKey answers %q on %s ahead of the screen's own keys, and globalArms does not name it",
+					pressed, screenNames[s])
+			}
+		})
+	}
+}
