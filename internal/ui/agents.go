@@ -438,8 +438,8 @@ func (m model) failedPlaceholder(agent agentstore.Agent) string {
 	// A create dies at the provisioner or at one of the pre-launch hooks after it, so the run
 	// that failed is the newest of either rather than the newest provision run.
 	label, moments := "setup", []string{config.TriggerProvision, config.HookPreLaunch}
-	// A delete dies at one of the pre-teardown hooks or at the deprovisioner after them, so the
-	// run that failed is the newest of either.
+	// A delete dies either at a pre-teardown hook or at the deprovisioner after it, so the run
+	// that failed is the newest of the two.
 	if agent.State == agentstore.StateFailedToCleanup {
 		label, moments = "teardown", []string{config.HookPreTeardown, config.TriggerDeprovision}
 	}

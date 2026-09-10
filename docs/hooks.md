@@ -2,7 +2,7 @@
 
 A hook is a script or a binary weave runs at a moment in an agent's life spawned by a workflow.
 
-Hooks can be used to install worktree packages or other tooling, or run basic setup that cannot be handled by the workflow copy or linking commands. They can also be used to clean up afterwards, or fire when a workflow is restored from the archive.
+Use a hook to install packages or tooling in a worktree, or to do setup the workflow's copy and symlink settings cannot cover. A hook can also clean up after an agent is deleted, or run when one comes back out of the archive.
 
 ## Where they live
 
@@ -23,9 +23,9 @@ Every workflow can add one hook on each of these lifecycle event, picked in the 
 - `post-launch` runs once the CLI has been launched into the pane. It runs in the background.
 - `post-resume` runs once a dormant agent is back in a pane, after its worktree has been put back. Runs in the background.
 - `post-restore` runs when an archived row comes back. Runs in the background.
-- `pre-teardown` runs as an agent is deleted, before its worktree is given back. This is where anything an agent brought up outside its own directory gets taken down, such as a docker stack it started from its pane. Weave waits for it, and a failure holds the delete back: the row goes to `failed_to_cleanup` and the directory is left where it was, so the next attempt still has the files it needs. It does not run on archive, since archiving keeps the workspace and a restore puts the agent back in it.
+- `pre-teardown` runs when an agent is deleted, before its worktree is handed back. This is where you take down anything the agent started outside its own directory, such as a docker stack it brought up from its pane. Weave waits for this one. If it fails the delete stops, the row goes to `failed_to_cleanup`, and the worktree is left alone so the next attempt still has the files it needs. A delete can therefore ask this hook to run more than once, so write one that is safe to run again. Weave skips it if the worktree has already gone, because there is nothing left for it to work on. It does not run when you archive an agent. Archiving keeps the worktree, and restoring the agent puts it back to work in the same one.
 
-Child agents do not run hooks, and neither do non-worktree agents. The reason for this is that both may be working in a directory they do not own.
+Child agents do not run hooks. Neither do agents told to keep the directory they were given instead of being made one. Both may be working in a directory that belongs to somebody else.
 
 ## The environment
 

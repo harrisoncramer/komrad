@@ -79,9 +79,8 @@ func TestWorktreeAgentsAreCreatedConcurrently(t *testing.T) {
 	}
 }
 
-// TestWorktreeAgentsStayOutOfTheRealStateDirectory covers an instance started without a
-// worktrees directory of its own, which the shipped default puts under the home directory the
-// live panel provisions into.
+// TestWorktreeAgentsStayOutOfTheRealStateDirectory covers an instance given no worktrees
+// directory making its own rather than reaching for the running panel's.
 func TestWorktreeAgentsStayOutOfTheRealStateDirectory(t *testing.T) {
 	hermeticGit(t)
 

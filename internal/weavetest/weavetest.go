@@ -69,7 +69,7 @@ type Instance struct {
 	// BuiltinDir is where the server installed the scripts weave ships, which a test overwrites
 	// when it needs one of them to behave differently.
 	BuiltinDir string
-	// WorktreesDir is the parent the instance provisions its agents' worktrees under.
+	// WorktreesDir is the directory the instance makes its agents' worktrees in.
 	WorktreesDir string
 	// Opened holds what the instance was asked to open in a browser, which a test may not put in
 	// front of whoever is running it.
@@ -106,8 +106,8 @@ func (o *OpenedURLs) Targets() []string {
 type Params struct {
 	MaxAgents        int
 	DeliveryDeadline string
-	// WorktreesDir overrides the temporary directory the instance would otherwise provision
-	// worktrees under.
+	// WorktreesDir replaces the temporary directory the instance would otherwise make its
+	// worktrees in.
 	WorktreesDir string
 }
 

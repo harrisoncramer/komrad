@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"sync"
 
 	"weave/config"
 	"weave/internal/frames"
@@ -53,6 +54,8 @@ type LifecycleService struct {
 	framesDir      string
 	maxAgents      int
 	maxChildren    int
+	tearingDownMu  sync.Mutex
+	tearingDown    map[string]struct{}
 }
 
 type NewLifecycleServiceParams struct {
@@ -83,6 +86,7 @@ func NewLifecycleService(params NewLifecycleServiceParams) *LifecycleService {
 		framesDir:      params.FramesDir,
 		maxAgents:      params.MaxAgents,
 		maxChildren:    params.MaxChildren,
+		tearingDown:    make(map[string]struct{}),
 	}
 }
 
@@ -125,6 +129,11 @@ func (s *LifecycleService) DeleteAgents(ctx context.Context, ids []string) error
 			continue
 		}
 
+		// The deprovisioner claims the agent so it cannot run twice at once, and a hook does not.
+		if !s.claimTeardown(agent.ID) {
+			continue
+		}
+
 		go s.tearDown(bg, agent, hooks, name, done)
 	}
 
@@ -141,26 +150,55 @@ func (s *LifecycleService) DeleteAgents(ctx context.Context, ids []string) error
 	return nil
 }
 
-// tearDown runs a workflow's teardown hooks against an agent's directory before the
-// deprovisioner takes that directory away.
+// tearDown runs a workflow's teardown hooks while the agent's directory is still there, then
+// lets the deprovisioner take it away.
 func (s *LifecycleService) tearDown(ctx context.Context, agent agentstore.Agent, hooks []workflowstore.Hook, deprovisioner string, done func(error)) {
-	// A teardown that did not work holds the deprovisioner back.
-	if err := runHooks(ctx, hookRunParams{
-		scripts: s.scripts,
-		agent:   agent,
-		hooks:   hooks,
-		event:   workflowstore.HookPreTeardown,
-	}); err != nil {
-		s.failCleanup(ctx, agent, err)
+	// A hook has nothing to run against once the directory has gone.
+	if requireUsableDir(agent.Cwd) == nil {
+		// The deprovisioner waits until the teardown has worked.
+		if err := runHooks(ctx, hookRunParams{
+			scripts: s.scripts,
+			agent:   agent,
+			hooks:   hooks,
+			event:   workflowstore.HookPreTeardown,
+		}); err != nil {
+			s.releaseTeardown(agent.ID)
+			s.failCleanup(ctx, agent, err)
 
-		return
+			return
+		}
 	}
 
-	runDeprovision(ctx, s.scripts, agent, deprovisioner, done)
+	runDeprovision(ctx, s.scripts, agent, deprovisioner, func(deprovisionErr error) {
+		s.releaseTeardown(agent.ID)
+		done(deprovisionErr)
+	})
 }
 
-// finishDelete drops the row of an agent whose teardown worked, and records the reason on one
-// whose teardown did not.
+// claimTeardown reports whether this caller is the one tearing an agent down, so a second
+// delete does nothing instead of running the hooks again.
+func (s *LifecycleService) claimTeardown(id string) bool {
+	s.tearingDownMu.Lock()
+	defer s.tearingDownMu.Unlock()
+
+	if _, running := s.tearingDown[id]; running {
+		return false
+	}
+
+	s.tearingDown[id] = struct{}{}
+
+	return true
+}
+
+func (s *LifecycleService) releaseTeardown(id string) {
+	s.tearingDownMu.Lock()
+	defer s.tearingDownMu.Unlock()
+
+	delete(s.tearingDown, id)
+}
+
+// finishDelete drops the row of an agent whose teardown worked, and writes down the reason on
+// one whose teardown did not.
 func (s *LifecycleService) finishDelete(ctx context.Context, agent agentstore.Agent) func(error) {
 	return func(deprovisionErr error) {
 		if deprovisionErr != nil {

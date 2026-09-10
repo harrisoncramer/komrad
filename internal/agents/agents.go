@@ -211,7 +211,7 @@ func runHooks(ctx context.Context, params hookRunParams) error {
 	return nil
 }
 
-// hasHookOn reports whether a workflow hangs anything on one moment.
+// hasHookOn reports whether a workflow hangs any script on one moment.
 func hasHookOn(hooks []workflowstore.Hook, event string) bool {
 	return slices.ContainsFunc(hooks, func(hook workflowstore.Hook) bool { return hook.Event == event })
 }
