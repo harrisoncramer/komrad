@@ -21,10 +21,11 @@ func pulseTick() tea.Cmd {
 	return tea.Tick(pulseInterval, func(time.Time) tea.Msg { return pulseMsg{} })
 }
 
-// start blinks the given number of times, asking for a tick unless one is already running.
+// start blinks the given number of times, lit from the frame it is asked for and asking for a
+// tick unless one is already running.
 func (p *pulse) start(blinks int) tea.Cmd {
 	running := p.left > 0
-	p.left = blinks * 2
+	p.left = blinks*2 - 1
 
 	if running {
 		return nil
@@ -55,8 +56,5 @@ func (p pulse) lit() bool {
 
 // advancePulses takes every blink the panel is drawing to its next half.
 func (m *model) advancePulses() tea.Cmd {
-	cmd := m.messages.pulse.advance()
-	m.restageScreen()
-
-	return cmd
+	return m.messages.pulse.advance()
 }

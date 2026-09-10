@@ -453,7 +453,6 @@ func TestMessagesPulseHoldsStillOnAnOlderMessage(t *testing.T) {
 	m.pushMessage(message{summary: "second", detail: "two"})
 
 	m, _ = m.pulseMessages(m.messages.landed - 1)
-	m.advancePulses()
 	require.True(t, m.messagesPulseOn())
 
 	m.messages.cursor = 1

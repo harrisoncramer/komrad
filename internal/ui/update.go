@@ -319,7 +319,9 @@ func (m model) routeAsyncMessage(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
 
 		return m, nil, true
 	case pulseMsg:
-		return m, m.advancePulses(), true
+		cmd := m.advancePulses()
+
+		return m, cmd, true
 	case flashRevertMsg:
 		m.details.flashed = 0
 		m.messages.flashed = 0

@@ -152,7 +152,8 @@ func TestSetMarkRefusesWhatIsNotALetter(t *testing.T) {
 	m.tree.cursor = rowIndexOfKey(m.agentRows(), agentRowKey("a1"))
 
 	pending, _ := m.Update(keyMsg(m.keys.Marks.Set[0]))
-	next, _ := pending.(model).Update(keyMsg("1"))
+	next, cmd := pending.(model).readMark(keyMsg("1"))
+	assert.Nil(t, cmd, "nothing is written")
 
 	after, ok := next.(model)
 	require.True(t, ok)
@@ -169,7 +170,7 @@ func TestSetMarkEscapes(t *testing.T) {
 	m.tree.cursor = rowIndexOfKey(m.agentRows(), agentRowKey("a1"))
 
 	pending, _ := m.Update(keyMsg(m.keys.Marks.Set[0]))
-	next, cmd := pending.(model).Update(keyMsg("esc"))
+	next, cmd := pending.(model).readMark(keyMsg("esc"))
 	assert.Nil(t, cmd)
 
 	after, ok := next.(model)
