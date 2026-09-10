@@ -4,9 +4,11 @@ import (
 	"os"
 	"testing"
 
+	"weave/config"
 	agentstore "weave/internal/store/agent"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/huh"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -39,10 +41,10 @@ func TestEditorKeyOpensTheFieldUnderTheCursor(t *testing.T) {
 	t.Cleanup(func() { _ = os.Remove(formFieldDraftPath("context")) })
 	assert.Equal(t, "the notes as they stand", string(draft))
 
-	written, _ := m.Update(formFieldEditedMsg{kind: formWorkflow, key: "context", text: "the notes as the editor left them"})
+	written, _ := m.Update(formFieldEditedMsg{kind: formWorkflow, key: "context", text: "the notes as the editor left them\n"})
 	m = asModel(t, written)
 
-	assert.Equal(t, "the notes as the editor left them", values.Context)
+	assert.Equal(t, "the notes as the editor left them", values.Context, "the newline every editor writes at the end of a file is not part of the field")
 	assert.Equal(t, ".env", values.WorktreeCopyPaths, "a field the editor was not opened on keeps what it held")
 	assert.Equal(t, "node_modules", values.WorktreeSymlinkPaths)
 	assert.Equal(t, "proto/gen", values.WorktreeDiffExclude)
@@ -108,4 +110,23 @@ func TestEditorKeyOnEitherProvisioner(t *testing.T) {
 			assert.Equal(t, tt.field, m.form.form.GetFocusedField().GetKey(), "the cursor is left where the editor was opened")
 		})
 	}
+}
+
+// TestFormOrderLeavesOutANote checks the cursor steps the same way huh does, huh passing a note
+// by rather than focusing it.
+func TestFormOrderLeavesOutANote(t *testing.T) {
+	prompt, title := "", ""
+
+	form, order := formOf(config.FixedFormKeys(),
+		huh.NewNote().Description("nothing to answer here"),
+		textField("prompt").Value(&prompt),
+		huh.NewInput().Key("title").Value(&title),
+	)
+	form.Init()
+
+	assert.Equal(t, []string{"prompt", "title"}, order, "a note takes no cursor stop, so it takes no place in the order")
+	assert.Equal(t, "prompt", form.GetFocusedField().GetKey(), "the form opens on the first field the cursor can reach")
+
+	form.NextField()
+	assert.Equal(t, "title", form.GetFocusedField().GetKey(), "one step is one field the cursor can reach")
 }

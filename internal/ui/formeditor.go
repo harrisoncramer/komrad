@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"slices"
+	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
 )
@@ -91,7 +92,7 @@ func (m model) applyFormFieldEdited(msg formFieldEditedMsg) (tea.Model, tea.Cmd)
 		return m, nil
 	}
 
-	*m.form.editable[index].value = msg.text
+	*m.form.editable[index].value = strings.TrimRight(msg.text, "\n")
 
 	return m, m.redrawFormOn(msg.key)
 }

@@ -11,7 +11,6 @@ import (
 	agentstore "weave/internal/store/agent"
 	schedulestore "weave/internal/store/schedule"
 	workflowstore "weave/internal/store/workflow"
-	"weave/lib/xslice"
 
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
@@ -33,14 +32,14 @@ type formState struct {
 	// the form is about.
 	submit func(model) (tea.Model, tea.Cmd)
 
-	// rebuild draws the form again around those same values, and lists its fields in the order
-	// they are drawn.
+	// rebuild draws the form again around those same values, and lists the fields the cursor can
+	// reach in the order they are drawn.
 	rebuild func(model) (*huh.Form, []string)
 
 	// editable are the text fields the panel's editor key can open.
 	editable []editableText
 
-	// order lists the keys of the fields on screen, in the order they are drawn.
+	// order lists the keys of the fields the cursor can reach, in the order they are drawn.
 	order []string
 }
 
@@ -319,14 +318,27 @@ func splitLines(text string) []string {
 	return lines
 }
 
-// formOf draws a group of fields as one form, and lists their keys in the order they are drawn.
+// Explainer: huh steps the cursor over the fields it can focus and passes the rest by, a note
+// being the one it passes by, so a count of every field drawn would step the cursor too far.
+
+// formOf draws a group of fields as one form, and lists the keys of the fields the cursor can
+// reach, in the order they are drawn.
 func formOf(keys config.FormKeys, fields ...huh.Field) (*huh.Form, []string) {
 	form := huh.NewForm(huh.NewGroup(fields...)).
 		WithShowHelp(true).
 		WithKeyMap(multiFieldKeyMap(keys)).
 		WithTheme(formTheme())
 
-	return form, xslice.Map(fields, func(field huh.Field) string { return field.GetKey() })
+	reached := make([]string, 0, len(fields))
+	for _, field := range fields {
+		if field.Skip() {
+			continue
+		}
+
+		reached = append(reached, field.GetKey())
+	}
+
+	return form, reached
 }
 
 // textField is a text field whose editor the panel opens rather than huh.
