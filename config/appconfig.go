@@ -785,7 +785,7 @@ func (c Config) validate() error {
 	if c.MaxChildren < 0 {
 		return fmt.Errorf("max_children: %d is not a number of agents", c.MaxChildren)
 	}
-	if err := validateKeybindings(c.Keybindings); err != nil {
+	if err := newKeyChecker().checkKeybindings(c.Keybindings); err != nil {
 		return err
 	}
 

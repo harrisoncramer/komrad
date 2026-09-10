@@ -151,7 +151,7 @@ func TestIsPressableTakesEveryNameAPressProduces(t *testing.T) {
 		"f1", "f20", "ctrl+a", "ctrl+\\", "alt+j", "alt+ctrl+j", "shift+left", "ctrl+shift+home",
 		" ", "a", "Z", "?", "/", "'", "<", "]", "\u00e9", "\u6f22",
 	} {
-		assert.True(t, isPressable(key), "bubbletea prints %q for a real press, so a config may name it", key)
+		assert.True(t, newKeyChecker().isPressable(key), "bubbletea prints %q for a real press, so a config may name it", key)
 	}
 }
 
@@ -162,6 +162,6 @@ func TestIsPressableRefusesWhatNoPressProduces(t *testing.T) {
 		"", " j ", "aa", "escape", "return", "space", "PgUp", "Ctrl+A", "C-d", "<C-d>",
 		"ctrl+m", "ctrl+i", "ctrl+shift+q", "f21", "ctrl+alt+j", "meta+j",
 	} {
-		assert.False(t, isPressable(key), "no press produces %q, so a binding on it is unreachable", key)
+		assert.False(t, newKeyChecker().isPressable(key), "no press produces %q, so a binding on it is unreachable", key)
 	}
 }

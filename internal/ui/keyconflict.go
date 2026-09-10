@@ -14,6 +14,16 @@ import (
 // than the file, which is why it is here rather than in the loader. The keys routeGlobalKey owns
 // are read before any screen's table, so each screen is walked as those arms followed by its own.
 
+// screenNames are the screens as an error names them.
+var screenNames = map[screen]string{
+	screenAgents:    "the agents list",
+	screenSchedules: "the schedules",
+	screenArchive:   "the archive",
+	screenMail:      "the mailbox",
+	screenReview:    "the review",
+	screenSearch:    "the search",
+}
+
 // dispatchArm is one arm of the order a press is offered to, described for the error it would be
 // named in and guarded where it answers only some of the presses that reach it.
 type dispatchArm struct {
@@ -41,16 +51,6 @@ func screenActions(s screen) (actionSpec, bool) {
 	}
 
 	return actionSpec{}, false
-}
-
-// screenNames are the screens as an error names them.
-var screenNames = map[screen]string{
-	screenAgents:    "the agents list",
-	screenSchedules: "the schedules",
-	screenArchive:   "the archive",
-	screenMail:      "the mailbox",
-	screenReview:    "the review",
-	screenSearch:    "the search",
 }
 
 // ValidateKeybindings rejects the bindings a screen could not dispatch, which is a key an

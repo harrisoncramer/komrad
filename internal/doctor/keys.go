@@ -26,6 +26,26 @@ var (
 	}
 )
 
+// tmuxNames are the keys tmux and bubbletea call different things.
+var tmuxNames = map[string]string{
+	" ":         "Space",
+	"enter":     "Enter",
+	"esc":       "Escape",
+	"tab":       "Tab",
+	"shift+tab": "BTab",
+	"backspace": "BSpace",
+	"pgup":      "PageUp",
+	"pgdown":    "PageDown",
+	"up":        "Up",
+	"down":      "Down",
+	"left":      "Left",
+	"right":     "Right",
+	"home":      "Home",
+	"end":       "End",
+	"delete":    "Delete",
+	"insert":    "IC",
+}
+
 // newKeybindingsCheck asserts tmux is not holding a key the panel reads, which it cannot see from
 // the config file because the root table is whatever the user's own tmux config put there.
 func newKeybindingsCheck() Check {
@@ -179,26 +199,6 @@ func boundKeys(keys config.Keybindings) []string {
 	slices.Sort(bound)
 
 	return bound
-}
-
-// tmuxNames are the keys tmux and bubbletea call different things.
-var tmuxNames = map[string]string{
-	" ":         "Space",
-	"enter":     "Enter",
-	"esc":       "Escape",
-	"tab":       "Tab",
-	"shift+tab": "BTab",
-	"backspace": "BSpace",
-	"pgup":      "PageUp",
-	"pgdown":    "PageDown",
-	"up":        "Up",
-	"down":      "Down",
-	"left":      "Left",
-	"right":     "Right",
-	"home":      "Home",
-	"end":       "End",
-	"delete":    "Delete",
-	"insert":    "IC",
 }
 
 // tmuxSpelling is how tmux names the key a panel binding names, so the two can be compared.
