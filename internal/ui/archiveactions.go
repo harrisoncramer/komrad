@@ -308,5 +308,9 @@ func (m model) archiveRestoreDesc() string {
 		return "restore workflow"
 	}
 
+	if agent, ok := m.selectedArchived(); ok && agent.State.DoesPaneDecide() {
+		return "restore and open"
+	}
+
 	return "restore"
 }

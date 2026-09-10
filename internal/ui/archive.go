@@ -7,6 +7,7 @@ import (
 	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
 	"weave/lib/xslice"
+	agentv1 "weave/proto/gen/agent/v1"
 
 	tea "github.com/charmbracelet/bubbletea"
 )
@@ -182,7 +183,23 @@ func (m model) restoreFromArchive() (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	return m.restoreAgents([]agentstore.Agent{agent})
+	if !agent.State.DoesPaneDecide() {
+		return m.restoreAgents([]agentstore.Agent{agent})
+	}
+
+	return m, m.restoreAndResumeCmd(agent)
+}
+
+// restoreAndResumeCmd takes one agent out of the archive and puts its conversation back in a
+// pane, landing the panel on the row it made.
+func (m *model) restoreAndResumeCmd(agent agentstore.Agent) tea.Cmd {
+	return m.agentWriteCmd(fmt.Sprintf("Could not restore and open agent %q", agent.Name), func(a api) (*agentv1.Agent, error) {
+		if err := a.restoreAgents([]string{agent.ID}); err != nil {
+			return nil, err
+		}
+
+		return a.resumeAgent(agent.ID)
+	})
 }
 
 func (m model) restoreAgents(agents []agentstore.Agent) (tea.Model, tea.Cmd) {
