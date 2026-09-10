@@ -100,6 +100,38 @@ func TestLoadRejectsAnAddressTheApiShouldNotAnswerOn(t *testing.T) {
 	}
 }
 
+// TestLoadRejectsAPortOutsideTheRange covers the numbers Atoi takes and a listener does not,
+// which is the class the port check exists for.
+func TestLoadRejectsAPortOutsideTheRange(t *testing.T) {
+	for _, addr := range []string{"127.0.0.1:99999", "127.0.0.1:-1", "127.0.0.1:0"} {
+		t.Run(addr, func(t *testing.T) {
+			_, err := loadStrict(t, "[connection]\naddr = \""+addr+"\"\n")
+
+			require.Error(t, err, "a listener refuses this, so the file should too")
+			assert.Contains(t, err.Error(), "connection.addr")
+		})
+	}
+}
+
+// TestLoadTakesTheDefaultForAnEmptyConnection covers the settings an empty value used to survive
+// as, where an empty address listens on every interface on a port nothing else can predict.
+func TestLoadTakesTheDefaultForAnEmptyConnection(t *testing.T) {
+	cfg, err := loadStrict(t, "[connection]\naddr = \"\"\ndatabase_url = \"\"\ntmux_socket = \"\"\n")
+
+	require.NoError(t, err, "an empty value is how an unset setting reads, so it takes the default")
+	assert.Equal(t, DefaultAddr, cfg.Connection.Addr)
+	assert.Equal(t, DefaultDatabaseURL, cfg.Connection.DatabaseURL)
+	assert.Equal(t, DefaultTmuxSocket, cfg.Connection.TmuxSocket)
+}
+
+// TestValidateAddrRefusesNothing covers the address arriving as a flag rather than a setting,
+// where there is no default underneath it.
+func TestValidateAddrRefusesNothing(t *testing.T) {
+	require.Error(t, ValidateAddr(""), "an empty listen address answers on every interface")
+	require.Error(t, ValidateAddr("0.0.0.0:8787"))
+	require.NoError(t, ValidateAddr("127.0.0.1:8787"))
+}
+
 // TestLoadTakesEveryLoopbackAddress covers the spellings that reach only this machine, since a
 // rule that refused one of them would take the panel off the air.
 func TestLoadTakesEveryLoopbackAddress(t *testing.T) {
@@ -131,6 +163,18 @@ func TestLoadRejectsADatabaseUrlPostgresWouldNotAnswer(t *testing.T) {
 		{
 			name: "a path with no scheme",
 			file: "[connection]\ndatabase_url = \"/var/run/postgres\"\n",
+		},
+		{
+			name: "a postgres url naming no server",
+			file: "[connection]\ndatabase_url = \"postgres://\"\n",
+		},
+		{
+			name: "a postgres url that is only a scheme",
+			file: "[connection]\ndatabase_url = \"postgres:\"\n",
+		},
+		{
+			name: "a postgres url carrying only a query",
+			file: "[connection]\ndatabase_url = \"postgres://?sslmode=disable\"\n",
 		},
 	}
 

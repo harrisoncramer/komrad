@@ -5,6 +5,7 @@
 package config
 
 import (
+	"cmp"
 	"errors"
 	"fmt"
 	"math"
@@ -536,13 +537,14 @@ type Harnesses struct {
 type Mail struct {
 	// How long mail stays deliverable, as a Go duration such as "3h" or "45m". Mail past
 	// it is neither delivered nor readable, and the row is kept as a record that it never
-	// arrived.
+	// arrived. A duration weave cannot read, or one that is not positive, is refused.
 	DeliveryDeadline string `mapstructure:"delivery_deadline"`
 	// How much mail two agents may write each other before a send between them is
 	// refused. It counts the pair in both directions over every thread, so opening a new
 	// subject is not a way around it. When a send is refused weave marks a row for
 	// attention and tells the recipient its mail was stopped, so an exchange that is cut
-	// off does not leave the other side waiting on a reply that will never arrive.
+	// off does not leave the other side waiting on a reply that will never arrive. A
+	// negative limit is refused.
 	MaxExchange int `mapstructure:"max_exchange"`
 }
 
@@ -621,7 +623,8 @@ type Connection struct {
 	// Set it when that login needs its own password or reaches the database another way.
 	ReadOnlyDatabaseURL string `mapstructure:"readonly_database_url"`
 	// Where the background service listens, and where the panel, the CLI and the MCP
-	// endpoint all reach it. Change it to run two weaves on one machine.
+	// endpoint all reach it. Change it to run two weaves on one machine. It has to be a
+	// loopback host, since the api has no auth and its writes spawn agents.
 	Addr string `mapstructure:"addr"`
 	// The tmux socket weave runs its own server on. Nothing in your normal tmux sees
 	// that server, which is why `tmux -L weave ls` is how you look at it directly.
@@ -808,8 +811,7 @@ func (c Config) validate() error {
 // so an unchecked typo turns the log up instead of saying the word was wrong.
 var logLevels = []string{"debug", "info", "warn", "error"}
 
-// validateMail rejects the two mail settings the service reads at send time, so a deadline that
-// will not parse stops the file being read rather than every send that follows it.
+// validateMail rejects the two mail settings the service reads at send time.
 func validateMail(mail Mail) error {
 	if _, err := mail.GetDeliveryDeadline(); err != nil {
 		return fmt.Errorf("mail.delivery_deadline: %w", err)
@@ -821,39 +823,44 @@ func validateMail(mail Mail) error {
 	return nil
 }
 
-// Explainer: the API has no auth and its writes spawn agents, so the address it answers on is
-// the one setting in this file with a consequence outside the machine. Anything but a loopback
-// host hands that to whoever can reach the port, which is why it is refused here rather than
-// left to a person to notice.
+// Explainer: these three are read long after the file is, which is what makes them worth
+// refusing here. A mail setting is parsed on the next send, so a deadline nobody can read stops
+// every send rather than the load. A database url is parsed on the next connection, and the
+// read-only login is derived from it, so a url Postgres would not answer fails a check that
+// names the login rather than the url. The address is the one with a consequence outside the
+// machine: the API has no auth and its writes spawn agents, so anything but a loopback host
+// hands that to whoever can reach the port.
 
 // validateConnection rejects an address the service could not listen on or should not, and a
 // database url that is not one Postgres would answer.
 func validateConnection(connection Connection) error {
-	if err := validateAddr(connection.Addr); err != nil {
-		return err
+	if err := ValidateAddr(connection.Addr); err != nil {
+		return fmt.Errorf("connection.addr: %w", err)
 	}
 
-	return validateDatabaseURL(connection.DatabaseURL, connection.ReadOnlyDatabaseURL)
+	return validateDatabaseURL(connection.DatabaseURL)
 }
 
 // loopbackHosts are the hosts that reach only this machine, spelled the ways a person writes them.
 var loopbackHosts = []string{"localhost", "::1"}
 
-func validateAddr(addr string) error {
+// ValidateAddr rejects an address the service could not listen on, or should not. The caller
+// names where the address came from, since it is a flag as often as it is a setting.
+func ValidateAddr(addr string) error {
 	trimmed := strings.TrimSpace(addr)
 	if trimmed == "" {
-		return nil
+		return errors.New("names nothing, which listens on every interface, and the api has no auth")
 	}
 
 	host, port, err := net.SplitHostPort(trimmed)
 	if err != nil {
-		return fmt.Errorf("connection.addr: %q is not a host and port: %w", addr, err)
+		return fmt.Errorf("%q is not a host and port: %w", addr, err)
 	}
-	if _, err := strconv.Atoi(port); err != nil {
-		return fmt.Errorf("connection.addr: %q is not a port", port)
+	if number, err := strconv.Atoi(port); err != nil || number < 1 || number > 65535 {
+		return fmt.Errorf("%q is not a port", port)
 	}
 	if host == "" {
-		return fmt.Errorf("connection.addr: %q names no host, which answers on every interface, and the api has no auth", addr)
+		return fmt.Errorf("%q names no host, which answers on every interface, and the api has no auth", addr)
 	}
 
 	if slices.Contains(loopbackHosts, host) {
@@ -862,21 +869,20 @@ func validateAddr(addr string) error {
 
 	parsed := net.ParseIP(host)
 	if parsed == nil {
-		return fmt.Errorf("connection.addr: %q is not an address this machine can answer on", host)
+		return fmt.Errorf("%q is not an address this machine can answer on", host)
 	}
 	if !parsed.IsLoopback() {
-		return fmt.Errorf("connection.addr: %q reaches this machine from the network, and the api has no auth and its writes spawn agents", host)
+		return fmt.Errorf("%q reaches this machine from the network, and the api has no auth and its writes spawn agents", host)
 	}
 
 	return nil
 }
 
-// validateDatabaseURL rejects a url Postgres would not answer, since the read-only url is derived
-// from it and comes out empty for anything else.
-func validateDatabaseURL(databaseURL, readOnlyURL string) error {
+// validateDatabaseURL rejects a url Postgres would not answer.
+func validateDatabaseURL(databaseURL string) error {
 	trimmed := strings.TrimSpace(databaseURL)
 	if trimmed == "" {
-		return nil
+		return errors.New("connection.database_url: names no database")
 	}
 
 	parsed, err := url.Parse(trimmed)
@@ -885,22 +891,13 @@ func validateDatabaseURL(databaseURL, readOnlyURL string) error {
 	}
 	if parsed.Scheme != "postgres" && parsed.Scheme != "postgresql" {
 		return fmt.Errorf("connection.database_url: %q is a %s url, and weave stores its records in Postgres",
-			databaseURL, describeScheme(parsed.Scheme))
+			databaseURL, cmp.Or(parsed.Scheme, "schemeless"))
 	}
-	if readOnlyURL == "" {
-		return fmt.Errorf("connection.database_url: %q is a postgres url a read-only login cannot be derived from", databaseURL)
+	if parsed.Host == "" {
+		return fmt.Errorf("connection.database_url: %q names no server to connect to", databaseURL)
 	}
 
 	return nil
-}
-
-// describeScheme names the scheme a url carries, for a url that carries none.
-func describeScheme(scheme string) string {
-	if scheme == "" {
-		return "schemeless"
-	}
-
-	return scheme
 }
 
 // validateLog rejects a level the service could not act on.
@@ -1158,6 +1155,15 @@ func (c *Config) normalizeZeroValues() {
 	}
 	if strings.TrimSpace(c.Layout.InfoSide) == "" {
 		c.Layout.InfoSide = DefaultInfoSide
+	}
+	if strings.TrimSpace(c.Connection.Addr) == "" {
+		c.Connection.Addr = DefaultAddr
+	}
+	if strings.TrimSpace(c.Connection.DatabaseURL) == "" {
+		c.Connection.DatabaseURL = DefaultDatabaseURL
+	}
+	if strings.TrimSpace(c.Connection.TmuxSocket) == "" {
+		c.Connection.TmuxSocket = DefaultTmuxSocket
 	}
 	if strings.TrimSpace(c.Log.Level) == "" {
 		c.Log.Level = DefaultLogLevel

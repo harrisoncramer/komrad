@@ -95,3 +95,42 @@ func TestServeAddrFlagCarriesNoDefault(t *testing.T) {
 	require.NotNil(t, flag)
 	assert.Empty(t, flag.DefValue, "a default here shadows WEAVE_ADDR")
 }
+
+// TestServeRefusesAnAddressTheFileWouldRefuse covers the flag, which is read ahead of the
+// configured address and reaches the same rule.
+func TestServeRefusesAnAddressTheFileWouldRefuse(t *testing.T) {
+	tests := []struct {
+		name    string
+		addr    string
+		wantErr bool
+	}{
+		{
+			name:    "a host on the network, which the api has no auth for",
+			addr:    "0.0.0.0:8787",
+			wantErr: true,
+		},
+		{
+			name:    "a port no listener would take",
+			addr:    "127.0.0.1:99999",
+			wantErr: true,
+		},
+		{
+			name: "a loopback host",
+			addr: "127.0.0.1:8787",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := config.ValidateAddr(resolveServeAddr(tt.addr, "127.0.0.1:8787"))
+
+			if tt.wantErr {
+				require.Error(t, err, "the flag reaches the same rule the file does")
+
+				return
+			}
+
+			require.NoError(t, err)
+		})
+	}
+}

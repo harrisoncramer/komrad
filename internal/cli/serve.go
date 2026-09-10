@@ -12,6 +12,7 @@ import (
 	"syscall"
 	"time"
 
+	"weave/config"
 	"weave/internal/logging"
 	serverPkg "weave/internal/server"
 	"weave/lib/xsync"
@@ -53,13 +54,18 @@ interrupt, or when ` + "`weave stop`" + ` asks it to.`,
 					logging.Err(state.configErr)...)
 			}
 
+			listenAddr := resolveServeAddr(addr, state.env.Addr)
+			if err := config.ValidateAddr(listenAddr); err != nil {
+				return fmt.Errorf("--addr: %w", err)
+			}
+
 			ctx, stopSignals := shutdownSignal(cmd.Context())
 			defer stopSignals()
 
 			err = serve(ctx, serveParams{
 				App:    state,
 				Logger: logger,
-				Addr:   resolveServeAddr(addr, state.env.Addr),
+				Addr:   listenAddr,
 			})
 
 			if err != nil && ctx.Err() != nil {

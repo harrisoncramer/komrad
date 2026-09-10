@@ -2,7 +2,10 @@ package doctor
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"io/fs"
+	"strings"
 )
 
 var (
@@ -20,8 +23,12 @@ var (
 	}
 )
 
-// newContextCheck asserts the standing text every agent is started with is there to read, a
-// missing one being resolved at startup and logged at debug rather than said out loud.
+// Explainer: this reads the file rather than asking whether it is there, because the launcher
+// reads it too and drops the error, so a file weave cannot read leaves every agent without its
+// standing text. Presence would pass a file at mode 000, which is the same silence this row was
+// added to break.
+
+// newContextCheck asserts the standing text every agent is started with is there to read.
 func newContextCheck() Check {
 	return Check{
 		Name:        "context",
@@ -38,28 +45,34 @@ func newContextCheck() Check {
 				return fail(fmt.Errorf("%w: %w", ErrHomeUnknown, err), "", "")
 			}
 
-			named := cfg.Context.File != ""
+			named := strings.TrimSpace(cfg.Context.File) != ""
 			shown := describePath(cfg.Context.File, resolved)
 
-			state, err := env.InspectDir(resolved)
+			text, err := env.ReadFile(resolved)
 			switch {
-			case err != nil:
-				return fail(fmt.Errorf("%w: %w", ErrContextFileUnreadable, err), shown,
-					"chmod u+r "+shown+", or point context.file at a file you can read")
-
-			case !state.Present && named:
+			case errors.Is(err, fs.ErrNotExist) && named:
 				return fail(fmt.Errorf("%w: %s", ErrContextFileAbsent, shown), shown,
 					"write "+shown+", or drop context.file to start agents without a standing text")
 
-			case !state.Present:
+			case errors.Is(err, fs.ErrNotExist):
 				return pass("no standing context, which is the default")
 
-			case state.Directory:
+			case isDirectoryError(err):
 				return fail(fmt.Errorf("%w: %s", ErrContextFileNotAFile, shown), shown,
 					"point context.file at a file rather than a directory")
+
+			case err != nil:
+				return fail(fmt.Errorf("%w: %w", ErrContextFileUnreadable, err), shown,
+					"chmod u+r "+shown+", or point context.file at a file you can read")
 			}
 
-			return pass(shown)
+			return pass(shown + ", " + describeCount(len(strings.Fields(string(text))), "word", "words"))
 		},
 	}
+}
+
+// isDirectoryError reports whether a read failed because the path is a directory, which every
+// platform words differently and none of them wraps in a sentinel.
+func isDirectoryError(err error) bool {
+	return err != nil && strings.Contains(err.Error(), "is a directory")
 }

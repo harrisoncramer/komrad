@@ -2,6 +2,7 @@ package doctor
 
 import (
 	"errors"
+	"io/fs"
 	"testing"
 
 	"weave/config"
@@ -9,63 +10,71 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// contextEnv answers the config and whatever the file at the configured path turns out to be.
-func contextEnv(file string, state DirState, inspectErr error) Env {
+// contextEnv answers the config and whatever reading the file at the configured path gives back.
+func contextEnv(file string, text string, readErr error) Env {
 	cfg := config.Defaults()
 	cfg.Context.File = file
 
 	env := configEnv(cfg, nil, true)
-	env.InspectDir = func(string) (DirState, error) { return state, inspectErr }
+	env.ReadFile = func(string) ([]byte, error) { return []byte(text), readErr }
 
 	return env
 }
 
-// TestContextCheck covers the standing text agents are started with, which the panel resolves at
-// startup and logs at debug when it cannot, so a named file that is not there says nothing.
+// TestContextCheck covers the standing text agents are started with, which the launcher reads and
+// drops the error from, so a file weave cannot read leaves every agent without it.
 func TestContextCheck(t *testing.T) {
 	tests := []struct {
-		name       string
-		file       string
-		state      DirState
-		inspectErr error
-		want       Status
-		code       string
+		name    string
+		file    string
+		text    string
+		readErr error
+		want    Status
+		code    string
 	}{
 		{
-			name: "a named file that is not there",
+			name:    "a named file that is not there",
+			file:    "/home/u/notes/context.md",
+			readErr: fs.ErrNotExist,
+			want:    StatusFail,
+			code:    ErrContextFileAbsent.Code,
+		},
+		{
+			name:    "a named path that is a directory",
+			file:    "/home/u/notes",
+			readErr: errors.New("read /home/u/notes: is a directory"),
+			want:    StatusFail,
+			code:    ErrContextFileNotAFile.Code,
+		},
+		{
+			name:    "a file that is there and cannot be read, which presence alone would pass",
+			file:    "/home/u/notes/context.md",
+			readErr: fs.ErrPermission,
+			want:    StatusFail,
+			code:    ErrContextFileUnreadable.Code,
+		},
+		{
+			name:    "no file named and none at the default path",
+			readErr: fs.ErrNotExist,
+			want:    StatusOK,
+		},
+		{
+			name: "a named file that reads",
 			file: "/home/u/notes/context.md",
-			want: StatusFail,
-			code: ErrContextFileAbsent.Code,
-		},
-		{
-			name:  "a named path that is a directory",
-			file:  "/home/u/notes",
-			state: DirState{Present: true, Directory: true},
-			want:  StatusFail,
-			code:  ErrContextFileNotAFile.Code,
-		},
-		{
-			name:       "a file that cannot be read",
-			file:       "/home/u/notes/context.md",
-			inspectErr: errors.New("permission denied"),
-			want:       StatusFail,
-			code:       ErrContextFileUnreadable.Code,
-		},
-		{
-			name: "no file named and none at the default path",
+			text: "answer mail briefly",
 			want: StatusOK,
 		},
 		{
-			name:  "a named file that is there",
-			file:  "/home/u/notes/context.md",
-			state: DirState{Present: true},
-			want:  StatusOK,
+			name: "a file named as spaces, which resolves to the default path",
+			file: "   ",
+			text: "",
+			want: StatusOK,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := newContextCheck().Run(t.Context(), contextEnv(tt.file, tt.state, tt.inspectErr))
+			result := newContextCheck().Run(t.Context(), contextEnv(tt.file, tt.text, tt.readErr))
 
 			assert.Equal(t, tt.want, result.Status)
 			if tt.code != "" {
@@ -80,12 +89,15 @@ func TestContextCheck(t *testing.T) {
 func TestTheContextCheckIsRun(t *testing.T) {
 	checks := Checks(Settings{Harnesses: claudeAndCodex, TmuxSocket: "weave"})
 
-	found := false
+	assert.True(t, containsCheck(checks, "context"))
+}
+
+func containsCheck(checks []Check, name string) bool {
 	for _, check := range checks {
-		if check.Name == "context" {
-			found = true
+		if check.Name == name {
+			return true
 		}
 	}
 
-	assert.True(t, found)
+	return false
 }
