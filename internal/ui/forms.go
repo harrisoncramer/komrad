@@ -591,60 +591,64 @@ func archiveAgentsForm(agents []agentstore.Agent, children int, keys config.Form
 	return form, &choice
 }
 
-// refreshChoice is which half of a refresh was picked.
-type refreshChoice int
-
-const (
-	refreshChoiceCancel refreshChoice = iota
-	refreshChoiceRebase
-	refreshChoiceReset
-)
-
-// refreshForm asks which half, naming what the first option would actually do to the branch.
-func refreshForm(plan refreshPlan, keys config.FormKeys) (*huh.Form, *refreshChoice) {
-	choice := refreshChoiceRebase
-
-	field := huh.NewSelect[refreshChoice]().
-		Key("refresh").
-		Title("Refresh the worktree of "+plan.name+"?").
-		Description(refreshWarning(plan)).
-		Value(&choice).
-		Options(
-			huh.NewOption(refreshRebaseLabel(plan), refreshChoiceRebase),
-			huh.NewOption("Replace the worktree, discarding its files", refreshChoiceReset),
-			huh.NewOption("Cancel", refreshChoiceCancel),
-		)
-
-	form := huh.NewForm(huh.NewGroup(field)).
-		WithShowHelp(true).WithKeyMap(multiFieldKeyMap(keys)).WithTheme(formTheme())
-
-	return form, &choice
+// refreshForm asks before a worktree is brought up to date, saying what will happen to the
+// branch and to the files.
+func refreshForm(plan refreshPlan, keys config.FormKeys) (*huh.Form, *bool) {
+	return confirmForm(
+		"Bring the worktree of "+plan.name+" up to date?",
+		refreshDescription(plan),
+		refreshAffirmative(plan),
+		keys,
+	)
 }
 
-// refreshRebaseLabel names the operation that will actually run, which is a move rather than a
-// replay once the base already holds the branch's own content.
-func refreshRebaseLabel(plan refreshPlan) string {
-	base := fmt.Sprintf("%s (%s)", plan.baseRef, shortSHA(plan.baseSHA))
+// refreshDescription says what the operation will do, in the order somebody deciding needs it:
+// what happens to the branch, then what happens to the files, then what might go wrong.
+func refreshDescription(plan refreshPlan) string {
+	lines := []string{}
+
+	// A dirty worktree never reaches here, since the plan refuses one before the form is built.
+	switch {
+	case plan.replay == 0 && plan.landed == 0:
+		lines = append(lines, fmt.Sprintf("This branch has no commits of its own. It will be moved to %s.", plan.baseRef))
+	case plan.replay == 0:
+		lines = append(lines, fmt.Sprintf("The base already holds every commit on this branch. It will be moved to %s, "+
+			"and %s will leave the branch.", plan.baseRef, countWord(plan.landed, "commit", "commits")))
+	default:
+		lines = append(lines, fmt.Sprintf("%s of its own will be replayed onto %s.",
+			countWord(plan.replay, "commit", "commits"), plan.baseRef))
+		if plan.landed > 0 {
+			lines = append(lines, fmt.Sprintf("Another %d the base already holds will leave the branch.", plan.landed))
+		}
+	}
+
+	lines = append(lines, "Its files will change under it, and nothing untracked is removed. A copy of the "+
+		"worktree is kept first, so this can be read back.")
+
+	if warning := refreshWarning(plan); warning != "" {
+		lines = append(lines, warning)
+	}
+
+	return strings.Join(lines, " ")
+}
+
+// refreshAffirmative names the button for what will actually run, since a branch the base
+// already holds is moved rather than replayed.
+func refreshAffirmative(plan refreshPlan) string {
 	if plan.replay == 0 {
-		return fmt.Sprintf("Move onto %s. It already has %s of yours.", base, countWord(plan.landed, "commit", "commits"))
-	}
-	if plan.landed > 0 {
-		return fmt.Sprintf("Rebase onto %s. Replay %s, drop %d it already has.",
-			base, countWord(plan.replay, "commit", "commits"), plan.landed)
+		return "Move"
 	}
 
-	return fmt.Sprintf("Rebase onto %s. Replay %s.", base, countWord(plan.replay, "commit", "commits"))
+	return "Rebase"
 }
 
-// refreshWarning is what a person is owed before the worktree is touched rather than after,
-// which is the shape of the trouble a rebase would run into.
+// refreshWarning is the trouble a rebase would run into that the description cannot say from
+// the commit counts alone.
 func refreshWarning(plan refreshPlan) string {
 	warnings := []string{}
 
-	if plan.landed > 0 {
-		warnings = append(warnings, fmt.Sprintf("The base already has %s from this branch. "+
-			"Replaying them would collide with their own files.", countWord(plan.landed, "commit", "commits")))
-	}
+	// The landed commits are not warned about here, since the description above already says
+	// what becomes of them, which is more use than saying they would collide.
 	if plan.merges > 0 {
 		warnings = append(warnings, fmt.Sprintf("A rebase throws away %s and replays what they settled.",
 			countWord(plan.merges, "merge commit", "merge commits")))

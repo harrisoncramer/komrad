@@ -301,13 +301,6 @@ message RebaseWorktreeResponse {
   int32 replay_commits = 8;
 }
 
-message ResetWorktreeRequest {
-  // Whose checkout to throw away and take again from its base.
-  string agent_id = 1 [(buf.validate.field).string.min_len = 1];
-}
-
-message ResetWorktreeResponse {}
-
 message SetMarkRequest {
   // The row the letter goes on, which is an agent or a workflow and never both.
   oneof target {
@@ -665,7 +658,6 @@ service AgentService {
   // itself or anybody else.
   rpc PlanRefresh(PlanRefreshRequest) returns (PlanRefreshResponse) {}
   rpc RebaseWorktree(RebaseWorktreeRequest) returns (RebaseWorktreeResponse) {}
-  rpc ResetWorktree(ResetWorktreeRequest) returns (ResetWorktreeResponse) {}
   rpc MarkReviewThreadRead(MarkReviewThreadReadRequest) returns (MarkReviewThreadReadResponse) {
     option idempotency_level = IDEMPOTENT;
   }

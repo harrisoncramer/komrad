@@ -670,28 +670,21 @@ func (m model) refreshAgent(agent agentstore.Agent) (tea.Model, tea.Cmd) {
 	return m, m.planRefreshCmd(agentID, name)
 }
 
-// openRefreshPicker asks which half of a refresh to run, naming what a rebase would cost.
-func (m model) openRefreshPicker(plan refreshPlan) (tea.Model, tea.Cmd) {
-	form, answer := refreshForm(plan, formKeys())
+// openRefreshConfirm asks before bringing a worktree up to date, saying what it will do to the
+// branch and to the files.
+func (m model) openRefreshConfirm(plan refreshPlan) (tea.Model, tea.Cmd) {
+	form, confirmed := refreshForm(plan, formKeys())
 
 	return m, m.openForm(formState{
 		kind:   formAgentRefresh,
 		form:   form,
 		update: model.updateForm,
 		submit: confirmSubmit(func(m model) (model, tea.Cmd) {
-			switch *answer {
-			case refreshChoiceRebase:
-				return m, m.rebaseCmd(plan.agentID, plan.name)
-			case refreshChoiceReset:
-				return m, m.writeCmd(
-					"Could not replace the worktree",
-					func(a api) error { return a.resetWorktree(plan.agentID) },
-				)
-			case refreshChoiceCancel:
+			if !*confirmed {
 				return m, nil
 			}
 
-			return m, nil
+			return m, m.rebaseCmd(plan.agentID, plan.name)
 		}),
 	})
 }
