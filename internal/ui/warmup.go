@@ -33,6 +33,8 @@ type warmupState struct {
 	// closesForm says the create's own form is still up behind the wait, so the reveal takes it
 	// down in the same change.
 	closesForm bool
+	// pendingFocus says the reveal hands the pane the keyboard.
+	pendingFocus bool
 }
 
 func newWarmupState() warmupState {
@@ -129,13 +131,14 @@ func (m *model) sizeWarmingWindow(pane string) {
 	}
 }
 
-// holdForWarmup remembers the pane a create wants shown once its harness is up.
-func (m *model) holdForWarmup(pane, harnessID string) {
+// holdForWarmup remembers the pane a write wants shown once its harness is up.
+func (m *model) holdForWarmup(pane, harnessID string, focus bool) {
 	m.warm.pending = pane
 	m.warm.pendingHarness = harnessID
+	m.warm.pendingFocus = focus
 }
 
-// applyWarmupTick shows the pane a create is holding the stage for once it is warm, and otherwise
+// applyWarmupTick shows the pane a write is holding the stage for once it is warm, and otherwise
 // stages the selection again so a cursor sitting on a pane that has just come up catches it.
 func (m model) applyWarmupTick() (model, tea.Cmd) {
 	m.warm.polling = false
@@ -145,9 +148,10 @@ func (m model) applyWarmupTick() (model, tea.Cmd) {
 			return m, nil
 		}
 
-		m.warm.pending, m.warm.pendingHarness = "", ""
+		focus := m.warm.pendingFocus
+		m.warm.pending, m.warm.pendingHarness, m.warm.pendingFocus = "", "", false
 
-		return m.revealCreated(pane)
+		return m.revealCreated(pane, focus)
 	}
 
 	selected, _ := m.selectedAgentPane()
@@ -179,9 +183,9 @@ func (m model) selectedAgentPane() (pane, harnessID string) {
 	return r.item.agent.Pane, r.item.agent.Harness
 }
 
-// revealCreated gives a created agent its pane and takes down the form that made it in one
+// revealCreated gives an agent its pane and takes down the form that made it in one
 // change, so the panel is never drawn across the whole window between the two.
-func (m model) revealCreated(pane string) (model, tea.Cmd) {
+func (m model) revealCreated(pane string, focus bool) (model, tea.Cmd) {
 	m.frame.Begin()
 
 	var cmd tea.Cmd
@@ -200,6 +204,10 @@ func (m model) revealCreated(pane string) (model, tea.Cmd) {
 	m.frame.Solo(false)
 	m.frame.ShowGuest(pane)
 	m.frame.Flush()
+
+	if focus && m.frame.GuestPane() == pane {
+		m.tmux.SelectPane(pane)
+	}
 
 	return m, cmd
 }

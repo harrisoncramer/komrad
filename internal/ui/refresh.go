@@ -247,6 +247,8 @@ type written struct {
 	row     string
 	pane    string
 	harness string
+	// focus says the pane the write made is to be handed the keyboard once it is shown.
+	focus bool
 }
 
 // markViewedCmd claims what an agent has finished without going through the write path.
@@ -381,6 +383,16 @@ func (m *model) rowWriteCmd(summary string, write func(api) (written, error)) te
 // agentWriteCmd is rowWriteCmd for a write answering with an agent, whose row is shown in the
 // pane the agent is running in.
 func (m *model) agentWriteCmd(summary string, write func(api) (*agentv1.Agent, error)) tea.Cmd {
+	return m.paneWriteCmd(summary, false, write)
+}
+
+// openingWriteCmd is agentWriteCmd for a write that puts a conversation back in a pane, which
+// ends with the keyboard in that pane the way the open key over a live agent does.
+func (m *model) openingWriteCmd(summary string, write func(api) (*agentv1.Agent, error)) tea.Cmd {
+	return m.paneWriteCmd(summary, true, write)
+}
+
+func (m *model) paneWriteCmd(summary string, focus bool, write func(api) (*agentv1.Agent, error)) tea.Cmd {
 	return m.rowWriteCmd(summary, func(clients api) (written, error) {
 		agent, err := write(clients)
 		if err != nil {
@@ -391,12 +403,13 @@ func (m *model) agentWriteCmd(summary string, write func(api) (*agentv1.Agent, e
 			row:     agentRowKey(agent.GetId()),
 			pane:    agent.GetPaneId(),
 			harness: agent.GetHarness(),
+			focus:   focus,
 		}, nil
 	})
 }
 
 func (m *model) resumeCmd(params resumeParams) tea.Cmd {
-	return m.agentWriteCmd(params.summary, func(clients api) (*agentv1.Agent, error) {
+	return m.openingWriteCmd(params.summary, func(clients api) (*agentv1.Agent, error) {
 		return clients.resumeAgent(params.id)
 	})
 }
@@ -451,8 +464,12 @@ func (m model) applyWrite(result writeResult) (tea.Model, tea.Cmd) {
 			if m.isPaneWarm(result.written.pane, result.written.harness) {
 				m.frame.Solo(false)
 				m.frame.ShowGuest(result.written.pane)
+
+				if result.written.focus && m.frame.GuestPane() == result.written.pane {
+					m.tmux.SelectPane(result.written.pane)
+				}
 			} else {
-				m.holdForWarmup(result.written.pane, result.written.harness)
+				m.holdForWarmup(result.written.pane, result.written.harness, result.written.focus)
 			}
 		}
 	}
