@@ -10,7 +10,7 @@ import (
 
 	"weave/config"
 	"weave/db"
-	"weave/internal/pgtest"
+	"weave/internal/dbtest"
 	"weave/internal/store"
 	agentstore "weave/internal/store/agent"
 	mailstore "weave/internal/store/mail"
@@ -42,7 +42,7 @@ type Stores struct {
 func Open(t *testing.T) *Stores {
 	t.Helper()
 
-	dbURL := pgtest.URL(t)
+	dbURL := dbtest.URL(t)
 
 	pool, err := store.Open(t.Context(), dbURL)
 	require.NoError(t, err)

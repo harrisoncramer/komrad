@@ -1,0 +1,35 @@
+// Package dbtest hands a test a database with weave's schema already in it, copied from a
+// template rather than migrated from empty.
+package dbtest
+
+import (
+	"context"
+	"testing"
+
+	"weave/db"
+	"weave/internal/pgtest"
+
+	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/stretchr/testify/require"
+)
+
+// URL is a migrated database of this test's own, dropped when the test ends.
+func URL(t *testing.T) string {
+	t.Helper()
+
+	version, err := db.SchemaVersion()
+	require.NoError(t, err)
+
+	return pgtest.Migrated(t, pgtest.Schema{Version: version, Apply: migrate})
+}
+
+// migrate applies the embedded migrations to the database url names.
+func migrate(ctx context.Context, url string) error {
+	pool, err := pgxpool.New(ctx, url)
+	if err != nil {
+		return err
+	}
+	defer pool.Close()
+
+	return db.Migrate(ctx, pool)
+}

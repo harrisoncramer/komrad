@@ -9,7 +9,9 @@ package db
 
 import (
 	"context"
+	"crypto/sha256"
 	"embed"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -261,6 +263,44 @@ func releaseMigrateLock(ctx context.Context, conn *pgxpool.Conn) {
 	if _, err := conn.Exec(ctx, "SELECT pg_advisory_unlock($1)", migrateLock); err != nil {
 		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to release the migration lock", logging.Err(err)...)
 	}
+}
+
+// versionLength is how much of the fingerprint is kept.
+const versionLength = 12
+
+// SchemaVersion fingerprints the embedded migrations, and changes whenever one is added or edited.
+func SchemaVersion() (string, error) {
+	files, err := openMigrationFiles()
+	if err != nil {
+		return "", err
+	}
+
+	return schemaVersion(files)
+}
+
+// schemaVersion hashes each migration's name alongside its contents.
+func schemaVersion(files fs.FS) (string, error) {
+	versions, err := listMigrationVersions(files)
+	if err != nil {
+		return "", err
+	}
+
+	var content []byte
+	for _, version := range versions {
+		sqlText, err := fs.ReadFile(files, version)
+		if err != nil {
+			return "", fmt.Errorf("failed to read migration %q: %w", version, err)
+		}
+
+		content = append(content, version...)
+		content = append(content, 0)
+		content = append(content, sqlText...)
+		content = append(content, 0)
+	}
+
+	sum := sha256.Sum256(content)
+
+	return hex.EncodeToString(sum[:])[:versionLength], nil
 }
 
 // listMigrationVersions lists the embedded migration file names in the order they must run,
