@@ -84,17 +84,21 @@ func writeStyled(b *strings.Builder, style lipgloss.Style, segment string) {
 	b.WriteString(style.Render(segment))
 }
 
-// openFilter starts a search from nothing, keeping the cursor on the row it was on as the rows
-// the last query hid come back.
 func (m model) openFilter() (tea.Model, tea.Cmd) {
+	m.beginFilter()
+
+	return m, nil
+}
+
+// beginFilter starts a search from nothing, keeping the cursor on the row it was on as the rows
+// the last query hid come back.
+func (m *model) beginFilter() {
 	origin := m.hoveredFilterKey()
 
 	m.filter.typing = true
 	m.filter.setQuery("")
 	m.filter.origin = origin
 	m.placeFilteredCursor(origin)
-
-	return m, nil
 }
 
 func (m *model) enterScreen(next screen) {

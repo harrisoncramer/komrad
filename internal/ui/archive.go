@@ -26,6 +26,15 @@ func (m model) enterArchive() (tea.Model, tea.Cmd) {
 	return m, m.refreshCmd()
 }
 
+// openArchive is the key's own way onto the screen, which lands with the search up.
+func (m model) openArchive() (tea.Model, tea.Cmd) {
+	m.enterScreen(screenArchive)
+	m.beginFilter()
+	m.stageArchive()
+
+	return m, m.refreshCmd()
+}
+
 // archiveFilterRows is the archive's own rows with the name a search reads each by.
 func (m model) archiveFilterRows() []filterRow {
 	return filterRows(m.archiveRows())

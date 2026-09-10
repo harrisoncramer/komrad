@@ -1164,3 +1164,37 @@ func TestArchiveDocViewFillsItsColumn(t *testing.T) {
 		}
 	}
 }
+
+// TestArchiveOpensOnTheSearch covers the key that opens the archive landing in the search, and
+// the two other ways onto the screen leaving the search alone.
+func TestArchiveOpensOnTheSearch(t *testing.T) {
+	keys := config.DefaultKeybindings()
+	m := archiveModel(&fakeArchiveAgents{}, &fakeArchiveWorkflows{}, keys)
+	m.screen = screenAgents
+
+	entered, _ := m.updateAgents(keyMsg(keys.Archive.Open[0]))
+	opened, ok := entered.(model)
+	require.True(t, ok)
+	assert.Equal(t, screenArchive, opened.screen)
+	assert.True(t, opened.filter.typing, "the search takes the keyboard as the archive opens")
+	assert.Empty(t, opened.filter.query)
+
+	opened.filter.typing = false
+	opened.filter.setQuery("api")
+
+	closed, _ := opened.closeForm()
+	back, ok := closed.(model)
+	require.True(t, ok)
+	assert.False(t, back.filter.typing, "a form closing over the archive does not reopen the search")
+	assert.Equal(t, "api", back.filter.query, "and what was typed is still standing")
+
+	jumping := archiveModel(&fakeArchiveAgents{}, &fakeArchiveWorkflows{}, keys)
+	jumping.screen = screenSearch
+	jumping.search = searchState{query: "api", hits: []searchHit{{agentID: "a1", name: "api-refactor", archived: true}}}
+
+	jumped, _ := jumping.jumpToSearchHit()
+	landed, ok := jumped.(model)
+	require.True(t, ok)
+	assert.Equal(t, screenArchive, landed.screen)
+	assert.False(t, landed.filter.typing, "a jump to a hit lands on the row it named, not in the search")
+}
