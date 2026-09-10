@@ -5,6 +5,14 @@
 // spawned CLI, and that is exactly what a unit test with fakes on both sides cannot reach. An
 // instance lets a test launch an agent for real, make its harness look busy, run one pass of
 // the reconciler, and then ask what was written and what was typed into the pane.
+//
+// Two things in here are about a pane outliving the test that opened it. A CLI coming up in one
+// writes into its harness root for the first time whenever it gets there, which can be after the
+// test has ended, so that root is a directory of weavetest's own rather than a t.TempDir, removed
+// with tolerance for a write that lands mid-walk. And the temp directories are claimed before the
+// tmux server, since cleanups run in reverse and that is what leaves the panes dead before the
+// tree beneath them goes. Neither is cosmetic: both surface as "TempDir RemoveAll cleanup:
+// directory not empty" against a test whose own assertions all passed.
 package weavetest
 
 import (
@@ -107,10 +115,13 @@ func Start(t *testing.T, p Params) *Instance {
 		p.MaxAgents = 50
 	}
 
+	// Claimed before the tmux server, which is what orders the two teardowns.
+	root := t.TempDir()
+
 	tmuxServer := tmuxtest.New(t)
 	tmuxServer.NewSession(agents.ManagerSession)
 
-	fake, err := harnesstest.New(t.TempDir())
+	fake, err := harnesstest.New(harnessRoot(t))
 	require.NoError(t, err)
 
 	harnesses, err := harness.NewRegistry(fake)
@@ -118,7 +129,6 @@ func Start(t *testing.T, p Params) *Instance {
 
 	stores := storetest.Open(t)
 
-	root := t.TempDir()
 	cacheDir := filepath.Join(root, "cache")
 	hooksDir := filepath.Join(root, "hooks")
 	require.NoError(t, os.MkdirAll(hooksDir, 0o755))
@@ -186,6 +196,33 @@ func Start(t *testing.T, p Params) *Instance {
 		URL:        url,
 		server:     built,
 	}
+}
+
+// removalAttempts and removalPause are how long a stray write is waited out.
+const (
+	removalAttempts = 20
+	removalPause    = 50 * time.Millisecond
+)
+
+// harnessRoot is a directory for the fake harness, removed with tolerance rather than by the
+// test framework.
+func harnessRoot(t *testing.T) string {
+	t.Helper()
+
+	//nolint:usetesting // a t.TempDir here is removed strictly, which is what turns a straggling pane's write into a failure
+	dir, err := os.MkdirTemp("", "weavetest-harness-")
+	require.NoError(t, err)
+
+	t.Cleanup(func() {
+		for range removalAttempts {
+			if os.RemoveAll(dir) == nil {
+				return
+			}
+			time.Sleep(removalPause)
+		}
+	})
+
+	return dir
 }
 
 // WorkQueue starts the job runner and waits for the queue to drain, then leaves it running
