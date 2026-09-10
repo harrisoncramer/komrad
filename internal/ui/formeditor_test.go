@@ -67,3 +67,45 @@ func TestEditorKeyIsHandedOnByAFieldWithNoText(t *testing.T) {
 	_, err := os.Stat(formFieldDraftPath("name"))
 	assert.True(t, os.IsNotExist(err), "nothing is written out for a field the panel does not edit")
 }
+
+// TestEditorKeyOnAListFieldWithoutAWorktree covers the fields the provisioner adds and takes
+// away, since the cursor is put back by where a field is drawn.
+func TestEditorKeyOnAListFieldWithoutAWorktree(t *testing.T) {
+	tests := []struct {
+		name        string
+		provisioner string
+		field       string
+		want        func(*workflowFormValues) string
+	}{
+		{
+			name:        "a list field of a workflow that makes worktrees",
+			provisioner: provisionerWorktree,
+			field:       "worktree_copy_paths",
+			want:        func(values *workflowFormValues) string { return values.WorktreeCopyPaths },
+		},
+		{
+			name:        "the context of a workflow that provisions nothing",
+			provisioner: provisionerNone,
+			field:       "context",
+			want:        func(values *workflowFormValues) string { return values.Context },
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			m := formModel(&formRecorder{})
+			m.editor = "true"
+
+			values := workflowFormValues{Provisioner: test.provisioner, Context: "the notes"}
+
+			opened, _ := m.openWorkflowConfigForm(&values, nil)
+			m = asModel(t, opened)
+
+			written, _ := m.Update(formFieldEditedMsg{kind: formWorkflow, key: test.field, text: "what the editor wrote"})
+			m = asModel(t, written)
+
+			assert.Equal(t, "what the editor wrote", test.want(&values))
+			assert.Equal(t, test.field, m.form.form.GetFocusedField().GetKey(), "the cursor is left where the editor was opened")
+		})
+	}
+}
