@@ -57,7 +57,7 @@ func searchPreviewModel(t *testing.T) (model, *recordingTmux) {
 	content, offset, length := searchTranscript()
 	m.search.typing = false
 	m.search.query = "reconcile"
-	m.search.hits = []searchHit{{
+	m.search.turns = []searchHit{{
 		agentID: "a1",
 		name:    "billing",
 		offset:  offset,
@@ -140,7 +140,7 @@ func TestSearchPreviewFollowsTheCursor(t *testing.T) {
 	moved := m.search.preview.doc.top
 
 	content, offset, length := searchTranscript()
-	m.search.hits = append(m.search.hits, searchHit{
+	m.search.turns = append(m.search.turns, searchHit{
 		agentID: "a2",
 		name:    "payouts",
 		offset:  offset,

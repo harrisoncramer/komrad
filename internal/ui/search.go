@@ -18,7 +18,9 @@ import (
 type searchState struct {
 	typing bool
 	query  string
-	hits   []searchHit
+	// turns are the hits the server found in the conversations, held apart from the agents whose
+	// name says the query, which are read off the listings the panel already holds.
+	turns  []searchHit
 	cursor int
 	// preview is the transcript of the hit the cursor is standing on, drawn beside the list.
 	preview searchPreview
@@ -35,7 +37,29 @@ type searchHit struct {
 	offset   int64
 	length   int64
 	snippet  string
-	near     bool
+	section  searchSection
+}
+
+// searchSection is which run of hits one hit belongs to, drawn in this order.
+type searchSection int
+
+const (
+	turnSection searchSection = iota
+	nearSection
+	nameSection
+)
+
+func (s searchSection) label() string {
+	switch s {
+	case nameSection:
+		return "agents"
+	case turnSection:
+		return "conversations"
+	case nearSection:
+		return "near matches"
+	default:
+		return ""
+	}
 }
 
 type searchSettledMsg struct {
@@ -108,10 +132,10 @@ func (m model) searchCmd(query string) tea.Cmd {
 
 			hits := make([]searchHit, 0, len(found)+len(near))
 			for _, h := range found {
-				hits = append(hits, renderHit(h, false))
+				hits = append(hits, renderHit(h, turnSection))
 			}
 			for _, h := range near {
-				hits = append(hits, renderHit(h, true))
+				hits = append(hits, renderHit(h, nearSection))
 			}
 
 			return hits, nil
@@ -124,7 +148,7 @@ func (m model) searchCmd(query string) tea.Cmd {
 	}
 }
 
-func renderHit(h *agentv1.SearchHit, near bool) searchHit {
+func renderHit(h *agentv1.SearchHit, section searchSection) searchHit {
 	return searchHit{
 		agentID:  h.GetAgentId(),
 		name:     h.GetName(),
@@ -132,8 +156,55 @@ func renderHit(h *agentv1.SearchHit, near bool) searchHit {
 		offset:   h.GetContentOffset(),
 		length:   h.GetContentLength(),
 		snippet:  h.GetSnippet(),
-		near:     near,
+		section:  section,
 	}
+}
+
+// searchHits is every hit the screen stands on, the agents whose name says the query first.
+func (m model) searchHits() []searchHit {
+	return append(m.nameHits(), m.search.turns...)
+}
+
+// nameHits are the agents whose own name says the query, found in the listings rather than
+// asked of the server.
+func (m model) nameHits() []searchHit {
+	query := strings.TrimSpace(m.search.query)
+	if query == "" {
+		return nil
+	}
+
+	var hits []searchHit
+	for _, item := range m.listing.agents {
+		if nameSays(item.agent.Name, query) {
+			hits = append(hits, searchHit{agentID: item.agent.ID, name: item.agent.Name, section: nameSection})
+		}
+	}
+	for _, agent := range m.archive.agents {
+		if nameSays(agent.Name, query) {
+			hits = append(hits, searchHit{agentID: agent.ID, name: agent.Name, archived: true, section: nameSection})
+		}
+	}
+
+	return hits
+}
+
+func nameSays(name, query string) bool {
+	return strings.Contains(foldASCII(name), foldASCII(query))
+}
+
+// markName marks where in a name the query was found.
+func markName(name, query string) string {
+	folded := foldASCII(strings.TrimSpace(query))
+	if folded == "" {
+		return name
+	}
+
+	at := strings.Index(foldASCII(name), folded)
+	if at < 0 {
+		return name
+	}
+
+	return name[:at] + matchStyle.Render(name[at:at+len(folded)]) + name[at+len(folded):]
 }
 
 func (m *model) applySearch(result searchResult) tea.Cmd {
@@ -141,15 +212,17 @@ func (m *model) applySearch(result searchResult) tea.Cmd {
 		return nil
 	}
 
-	m.search.hits = groupSections(result.hits)
-	m.search.cursor = clampCursor(m.search.cursor, len(m.search.hits))
-	if len(m.search.hits) == 0 {
+	m.search.turns = groupSections(result.hits)
+
+	hits := m.searchHits()
+	m.search.cursor = clampCursor(m.search.cursor, len(hits))
+	if len(hits) == 0 {
 		m.search.preview = searchPreview{}
 
 		return nil
 	}
 
-	return m.previewCmd(m.search.hits[m.search.cursor])
+	return m.previewCmd(hits[m.search.cursor])
 }
 
 func (m model) previewCmd(hit searchHit) tea.Cmd {
@@ -196,7 +269,7 @@ func groupSections(hits []searchHit) []searchHit {
 	var matches, near []searchHit
 
 	for _, hit := range hits {
-		if hit.near {
+		if hit.section == nearSection {
 			near = append(near, hit)
 			continue
 		}
@@ -294,7 +367,7 @@ func (m model) updateSearchHits(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case isBound(k, m.keys.Nav.Down):
 		return m.moveSearchCursor(1)
 	case isBound(k, m.keys.Nav.Bottom):
-		return m.placeSearchCursor(len(m.search.hits) - 1)
+		return m.placeSearchCursor(len(m.searchHits()) - 1)
 	case isBound(k, m.keys.Column.ScrollDown):
 		return m.scrollPreview(docScrollStep)
 	case isBound(k, m.keys.Column.ScrollUp):
@@ -307,28 +380,31 @@ func (m model) updateSearchHits(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 }
 
 func (m model) moveSearchCursor(delta int) (tea.Model, tea.Cmd) {
-	next, ok := stepCursor(m.search.cursor, delta, len(m.search.hits))
+	hits := m.searchHits()
+
+	next, ok := stepCursor(m.search.cursor, delta, len(hits))
 	if !ok {
 		return m, nil
 	}
 
 	m.search.cursor = next
 
-	return m, m.previewCmd(m.search.hits[next])
+	return m, m.previewCmd(hits[next])
 }
 
 func (m model) placeSearchCursor(index int) (tea.Model, tea.Cmd) {
-	if len(m.search.hits) == 0 {
+	hits := m.searchHits()
+	if len(hits) == 0 {
 		return m, nil
 	}
 
-	m.search.cursor = clampCursor(index, len(m.search.hits))
+	m.search.cursor = clampCursor(index, len(hits))
 
-	return m, m.previewCmd(m.search.hits[m.search.cursor])
+	return m, m.previewCmd(hits[m.search.cursor])
 }
 
 func (m model) hoveredHit() (searchHit, bool) {
-	return rowAt(m.search.hits, m.search.cursor)
+	return rowAt(m.searchHits(), m.search.cursor)
 }
 
 func (m model) jumpToSearchHit() (tea.Model, tea.Cmd) {
@@ -367,6 +443,9 @@ func (h searchHit) spans(content string) []span {
 // screen it lives on.
 func (m model) hitHeader(hit searchHit) string {
 	name := clipName(hit.name)
+	if hit.section == nameSection {
+		name = markName(name, m.search.query)
+	}
 
 	if hit.archived {
 		row := "  " + noStateMark() + " " + name + dimStyle.Render(" (archived)")
@@ -394,30 +473,52 @@ func (m model) hitHeader(hit searchHit) string {
 // searchRows lays the hits out as the lines the screen draws, reporting where the cursor's own
 // line landed so the window can be placed on it.
 func (m model) searchRows() ([]string, int) {
-	rows := make([]string, 0, len(m.search.hits)*2)
+	hits := m.searchHits()
+	rows := make([]string, 0, len(hits)*2)
 	cursor := 0
 
-	labelled, sectioned := "", false
-	for i, hit := range m.search.hits {
-		if hit.near && !sectioned {
-			rows = append(rows, "", dimStyle.Render("near matches"))
-			sectioned, labelled = true, ""
-		}
-		if hit.agentID != labelled {
-			rows = append(rows, m.hitHeader(hit))
-			labelled = hit.agentID
+	labelled, section := "", searchSection(-1)
+	for i, hit := range hits {
+		if hit.section != section {
+			if len(rows) > 0 {
+				rows = append(rows, "")
+			}
+
+			rows = append(rows, dimStyle.Render(hit.section.label()))
+			section, labelled = hit.section, ""
 		}
 
-		prefix := "    "
-		if i == m.search.cursor {
-			prefix = "  " + m.rowCursorPrefix()
+		hovered := i == m.search.cursor
+
+		var row string
+		if hit.section == nameSection {
+			row = m.cursorGap(hovered) + m.hitHeader(hit)
+		} else {
+			if hit.agentID != labelled {
+				rows = append(rows, m.hitHeader(hit))
+				labelled = hit.agentID
+			}
+
+			row = "  " + m.cursorGap(hovered) + dimStyle.Render(renderSnippet(hit.snippet, m.paneWidth()-snippetIndent))
+		}
+
+		if hovered {
 			cursor = len(rows)
 		}
 
-		rows = append(rows, prefix+dimStyle.Render(renderSnippet(hit.snippet, m.paneWidth()-snippetIndent)))
+		rows = append(rows, row)
 	}
 
 	return rows, cursor
+}
+
+// cursorGap is the room a row leaves the cursor, whether or not the cursor is standing on it.
+func (m model) cursorGap(hovered bool) string {
+	if !hovered {
+		return blankCursor
+	}
+
+	return m.rowCursorPrefix()
 }
 
 // searchView draws the hits and, beside them, the transcript of the one the cursor is standing
@@ -445,7 +546,7 @@ func (m model) searchSidebarView() string {
 	switch {
 	case strings.TrimSpace(m.search.query) == "":
 		return header + dimStyle.Render("type to search transcripts") + "\n" + help
-	case len(m.search.hits) == 0:
+	case len(m.searchHits()) == 0:
 		return header + dimStyle.Render("no matches") + "\n" + help
 	}
 

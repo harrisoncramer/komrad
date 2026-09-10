@@ -72,7 +72,7 @@ func TestApplySearchResults(t *testing.T) {
 
 			m.applySearch(tt.msg)
 
-			assert.Len(t, m.search.hits, tt.wantHits)
+			assert.Len(t, m.search.turns, tt.wantHits)
 		})
 	}
 }
@@ -565,7 +565,7 @@ func TestJumpToSearchHit(t *testing.T) {
 				schedules: emptyLists{},
 			}
 			m.screen = screenSearch
-			m.search = searchState{query: "ledger", hits: []searchHit{tt.hit}}
+			m.search = searchState{query: "ledger", turns: []searchHit{tt.hit}}
 			m.listing.agents[1].agent.Hidden = tt.hidden
 			m.archive.agents = []agentstore.Agent{{
 				ID:         "a3",
@@ -634,7 +634,7 @@ func TestSearchEscape(t *testing.T) {
 			m.search = searchState{
 				typing: tt.typing,
 				query:  "ledger",
-				hits:   tt.hits,
+				turns:  tt.hits,
 			}
 
 			updated, _ := m.route(keyMsg("esc"))
@@ -655,7 +655,7 @@ func TestSearchQueryOwnsTheKeys(t *testing.T) {
 	m.search = searchState{
 		typing: true,
 		query:  "ledger",
-		hits:   hits("a"),
+		turns:  hits("a"),
 	}
 
 	updated, _ := m.route(keyMsg("?"))
@@ -722,7 +722,7 @@ func TestSearchHitsTakeTheKeys(t *testing.T) {
 			m.search = searchState{
 				typing: true,
 				query:  "ledger",
-				hits:   hits("a", "b", "c"),
+				turns:  hits("a", "b", "c"),
 			}
 
 			for _, k := range tt.keys {
@@ -800,7 +800,7 @@ func TestSearchGroupsByAgent(t *testing.T) {
 	})
 
 	var snippets []string
-	for _, hit := range m.search.hits {
+	for _, hit := range m.search.turns {
 		snippets = append(snippets, hit.snippet)
 	}
 	assert.Equal(t, []string{"first", "third", "second"}, snippets, "an agent's hits sit together")
@@ -971,7 +971,7 @@ func TestJumpLeavesTheSearchBehind(t *testing.T) {
 				Name:       "old-work",
 				WorkflowID: "w1",
 			}}
-			m.search = searchState{query: "ledger", hits: []searchHit{tt.hit}}
+			m.search = searchState{query: "ledger", turns: []searchHit{tt.hit}}
 
 			updated, _ := m.route(keyMsg("enter"))
 			landed, ok := updated.(model)
@@ -984,7 +984,7 @@ func TestJumpLeavesTheSearchBehind(t *testing.T) {
 				assert.Contains(t, landed.View(), tt.wantDrawn, "the row's own record is what is drawn beside the list")
 			}
 			assert.Empty(t, landed.search.query, "the search is let go of")
-			assert.Empty(t, landed.search.hits, "the search is let go of")
+			assert.Empty(t, landed.search.turns, "the search is let go of")
 		})
 	}
 }
@@ -1007,7 +1007,7 @@ func TestJumpDropsALatePreview(t *testing.T) {
 	m.listing.agents[1].agent.Pane = "%9"
 	m.search = searchState{
 		query: "ledger",
-		hits: []searchHit{{
+		turns: []searchHit{{
 			agentID: "a2",
 			name:    "payouts",
 			offset:  4,
@@ -1054,7 +1054,7 @@ func TestSearchViewFitsThePane(t *testing.T) {
 	assert.LessOrEqual(t, len(view), m.height, "the view is no taller than the pane")
 	assert.Contains(t, strings.Join(view, "\n"), "more", "the rows it could not draw are counted")
 
-	m.search.cursor = len(m.search.hits) - 1
+	m.search.cursor = len(m.search.turns) - 1
 	bottom := drawnLines(m.searchView())
 	assert.LessOrEqual(t, len(bottom), m.height, "the view stays inside the pane at the end of the list")
 	assert.Contains(t, strings.Join(bottom, "\n"), "hit 19", "the hit under the cursor is drawn")
@@ -1064,4 +1064,93 @@ func TestSearchViewFitsThePane(t *testing.T) {
 // carries before the pane is asked to hold it.
 func drawnLines(view string) []string {
 	return strings.Split(strings.TrimRight(ansi.Strip(view), "\n"), "\n")
+}
+
+// TestSearchNameSectionStandsFirst covers the agents whose own name says the query, which are
+// read off the listings and drawn above the turns that said it.
+func TestSearchNameSectionStandsFirst(t *testing.T) {
+	m := filterModel()
+	m.screen = screenSearch
+	m.width = 80
+	m.archive.agents = []agentstore.Agent{{ID: "a3", Name: "billing-old", WorkflowID: "w1"}}
+	m.search = searchState{query: "BILL"}
+
+	m.applySearch(searchResult{
+		query: "BILL",
+		hits: []searchHit{{
+			agentID: "a2",
+			name:    "payouts",
+			snippet: "bill",
+		}},
+	})
+
+	hits := m.searchHits()
+	require.Len(t, hits, 3)
+	assert.Equal(t, []string{"a1", "a3", "a2"}, []string{hits[0].agentID, hits[1].agentID, hits[2].agentID},
+		"the live name, then the archived one, then the turn")
+	assert.Equal(t, nameSection, hits[0].section)
+	assert.True(t, hits[1].archived, "an archived agent is named as archived")
+
+	rows, cursor := m.searchRows()
+	require.NotEmpty(t, rows)
+	assert.Equal(t, "agents", ansi.Strip(rows[0]), "the names are headed as their own section")
+	assert.Contains(t, ansi.Strip(rows[cursor]), "billing", "the cursor opens on the first name")
+	assert.Contains(t, ansi.Strip(strings.Join(rows, "\n")), "conversations",
+		"the turns are headed apart from the names")
+}
+
+// TestSearchNameHitsTakeTheCursor covers the cursor running from the name section into the
+// turns, the two being one list to walk.
+func TestSearchNameHitsTakeTheCursor(t *testing.T) {
+	m := filterModel()
+	m.api = api{agents: &fakeSearchAgents{}, workflows: emptyLists{}, schedules: emptyLists{}}
+	m.screen = screenSearch
+	m.width = 80
+	m.search = searchState{query: "bill"}
+
+	m.applySearch(searchResult{
+		query: "bill",
+		hits: []searchHit{{
+			agentID: "a2",
+			name:    "payouts",
+			snippet: "bill",
+		}},
+	})
+
+	opened, ok := m.hoveredHit()
+	require.True(t, ok)
+	assert.Equal(t, "a1", opened.agentID, "the cursor opens on the name")
+
+	updated, _ := m.moveSearchCursor(1)
+	next, ok := updated.(model)
+	require.True(t, ok)
+
+	hit, ok := next.hoveredHit()
+	require.True(t, ok)
+	assert.Equal(t, "a2", hit.agentID, "the step off the name lands on the turn")
+}
+
+// TestSearchNameHitJumps covers enter on a name hit, which goes to the agent the same way a
+// hit on its conversation does.
+func TestSearchNameHitJumps(t *testing.T) {
+	m := filterModel()
+	m.api = api{agents: &fakeSearchAgents{}, workflows: emptyLists{}, schedules: emptyLists{}}
+	m.screen = screenSearch
+	m.search = searchState{query: "payout"}
+
+	updated, _ := m.jumpToSearchHit()
+	landed, ok := updated.(model)
+	require.True(t, ok)
+
+	assert.Equal(t, screenAgents, landed.screen)
+	require.Less(t, landed.tree.cursor, len(rowNames(landed.agentRows())))
+	assert.Equal(t, "payouts", rowNames(landed.agentRows())[landed.tree.cursor])
+}
+
+// TestMarkName covers where a name is marked, which is the query as the name spells it rather
+// than as it was typed.
+func TestMarkName(t *testing.T) {
+	assert.Equal(t, "bi"+matchStyle.Render("LL")+"ing", markName("biLLing", " bill "))
+	assert.Equal(t, "billing", markName("billing", "  "))
+	assert.Equal(t, "billing", markName("billing", "payouts"))
 }
