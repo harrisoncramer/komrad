@@ -318,8 +318,8 @@ func (m model) routeAsyncMessage(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
 		m.applyCopy(msg)
 
 		return m, nil, true
-	case messagePulseMsg:
-		return m, m.advanceMessagePulse(), true
+	case pulseMsg:
+		return m, m.advancePulses(), true
 	case flashRevertMsg:
 		m.details.flashed = 0
 		m.messages.flashed = 0

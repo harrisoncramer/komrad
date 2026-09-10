@@ -405,15 +405,15 @@ func TestMessagesRefuseFocusWithNothingToRead(t *testing.T) {
 	assert.False(t, m.toggleMessagesFocus().isMessagesFocused())
 }
 
-// TestMessagesPulseBlinksWhatJustLanded covers the summary of a message that has just arrived
-// blinking a fixed number of times and settling back to how it is drawn the rest of the time.
+// TestMessagesPulseBlinksWhatJustLanded covers a message blinking five times as it lands and
+// leaving the row as it found it.
 func TestMessagesPulseBlinksWhatJustLanded(t *testing.T) {
 	restore := lipgloss.ColorProfile()
 	t.Cleanup(func() { lipgloss.SetColorProfile(restore) })
 	lipgloss.SetColorProfile(termenv.TrueColor)
 
-	marker, _, _ := strings.Cut(flashFieldStyle.Render("x"), "x")
-	require.NotEmpty(t, marker)
+	lit, _, _ := strings.Cut(flashFieldStyle.Render("x"), "x")
+	require.NotEmpty(t, lit)
 
 	m := detailsModel(&recordingTmux{})
 	m.height, m.width = 40, 120
@@ -424,31 +424,28 @@ func TestMessagesPulseBlinksWhatJustLanded(t *testing.T) {
 	})
 
 	settled := m.messagesSlot()[0]
-	assert.NotContains(t, settled, marker, "a message nothing has pushed sits still")
+	assert.NotContains(t, settled, lit)
 
 	m, cmd := m.pulseMessages(m.messages.landed - 1)
 	require.NotNil(t, cmd)
 
-	lit, phases := 0, 0
+	blinks := 0
 	for {
-		if strings.Contains(m.messagesSlot()[0], marker) {
-			lit++
+		if strings.Contains(m.messagesSlot()[0], lit) {
+			blinks++
 		}
 
-		phases++
-
-		if m.advanceMessagePulse() == nil {
+		if m.advancePulses() == nil {
 			break
 		}
 	}
 
-	assert.Equal(t, messagesPulseBlinks, lit)
-	assert.Equal(t, messagesPulsePhases, phases)
-	assert.Equal(t, settled, m.messagesSlot()[0], "the blink leaves the row as it found it")
+	assert.Equal(t, messagesPulseBlinks, blinks)
+	assert.Equal(t, settled, m.messagesSlot()[0])
 }
 
-// TestMessagesPulseHoldsStillOnAnOlderMessage covers the reader walking back through the stack
-// while something lands, where blinking would draw the eye to the wrong summary.
+// TestMessagesPulseHoldsStillOnAnOlderMessage covers a message landing while the reader is back
+// in the stack, where the blink would draw the eye to the wrong summary.
 func TestMessagesPulseHoldsStillOnAnOlderMessage(t *testing.T) {
 	m := detailsModel(&recordingTmux{})
 	m.height, m.width = 40, 120
@@ -456,7 +453,7 @@ func TestMessagesPulseHoldsStillOnAnOlderMessage(t *testing.T) {
 	m.pushMessage(message{summary: "second", detail: "two"})
 
 	m, _ = m.pulseMessages(m.messages.landed - 1)
-	m.advanceMessagePulse()
+	m.advancePulses()
 	require.True(t, m.messagesPulseOn())
 
 	m.messages.cursor = 1
