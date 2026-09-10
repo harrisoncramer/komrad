@@ -16,6 +16,12 @@ import (
 // reasoning is why an untracked file does not block a rebase here: git completes one with
 // untracked files in place, and an agent's worktree nearly always holds some.
 //
+// Explainer: the two counts a plan carries are counted differently on purpose. Landed counts
+// merge commits and Replay does not, because Landed is how many commits leave the branch while
+// Replay is how many a rebase would actually move, and a rebase flattens merges rather than
+// replaying them. Counting Landed without them would report a branch whose landed run is all
+// merges as having landed nothing.
+
 // Explainer: two orderings in here are load-bearing rather than incidental. The index is
 // refreshed before it is compared against HEAD, because diff-index reads cached stat data and a
 // file rewritten with identical content otherwise reads as changed. And the base is fetched
@@ -190,7 +196,13 @@ func PredictRebase(ctx context.Context, dir, ref string) (Prediction, error) {
 	}
 
 	prediction.Cutoff = own[at]
-	prediction.Landed = at + 1
+
+	// Counted off the graph rather than off a list position, since a side branch merged in sits
+	// before the cutoff in topological order while not being reachable from it.
+	prediction.Landed, err = countRevList(ctx, dir, ref, "--count", ref+".."+prediction.Cutoff)
+	if err != nil {
+		return Prediction{}, err
+	}
 
 	// Counted without merges, since a rebase flattens them rather than replaying them.
 	prediction.Replay, err = countRevList(ctx, dir, ref, "--count", "--no-merges", prediction.Cutoff+"..HEAD")

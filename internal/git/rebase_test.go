@@ -624,3 +624,66 @@ func TestPredictRebaseCountsWhatARebaseWouldReplay(t *testing.T) {
 	assert.Equal(t, 1, prediction.Merges)
 	assert.Equal(t, 1, prediction.Replay, "the merge is discarded rather than replayed")
 }
+
+// TestPredictRebaseCountsLandedOffTheGraph covers a side branch merged in, which sits before the
+// cutoff in topological order while not being reachable from it.
+func TestPredictRebaseCountsLandedOffTheGraph(t *testing.T) {
+	t.Parallel()
+
+	repo := newRepo(t)
+	base := out(t, repo, "rev-parse", "HEAD")
+	run(t, repo, "checkout", "--quiet", "-b", "agent/abc")
+	commitFile(t, repo, "a.txt", "a\n", "A")
+	run(t, repo, "checkout", "--quiet", "-b", "side", base)
+	commitFile(t, repo, "s.txt", "s\n", "S")
+	run(t, repo, "checkout", "--quiet", "agent/abc")
+	run(t, repo, "merge", "--quiet", "--no-ff", "-m", "M", "side")
+
+	// The base gains A's content on its own, the way a squash merge puts it there.
+	run(t, repo, "checkout", "--quiet", "main")
+	writeFile(t, repo, "a.txt", "a\n")
+	run(t, repo, "add", "a.txt")
+	run(t, repo, "commit", "--quiet", "-m", "A, landed independently")
+	run(t, repo, "checkout", "--quiet", "agent/abc")
+
+	require.Equal(t, "S", out(t, repo, "log", "--format=%s", "-1", out(t, repo, "rev-list", "--reverse", "main..HEAD")[:40]),
+		"the fixture needs the side commit ordered before the cutoff, or it is not about anything")
+
+	prediction, err := git.PredictRebase(t.Context(), repo, "main")
+	require.NoError(t, err)
+
+	assert.Equal(t, 1, prediction.Landed, "only the commit the base actually holds leaves the branch")
+	assert.Equal(t, 1, prediction.Replay, "the side commit is still the agent's own work")
+}
+
+// TestPredictRebaseCountsMergesAsLanded pins the landed count including merge commits, unlike
+// the replay count, since these are commits leaving the branch rather than commits to replay.
+func TestPredictRebaseCountsMergesAsLanded(t *testing.T) {
+	t.Parallel()
+
+	repo := newRepo(t)
+	base := out(t, repo, "rev-parse", "HEAD")
+	run(t, repo, "checkout", "--quiet", "-b", "agent/abc")
+	commitFile(t, repo, "s.txt", "s\n", "S")
+	run(t, repo, "checkout", "--quiet", "-b", "side", base)
+	commitFile(t, repo, "t.txt", "t\n", "T")
+	run(t, repo, "checkout", "--quiet", "agent/abc")
+	run(t, repo, "merge", "--quiet", "--no-ff", "-m", "M", "side")
+
+	// The base gains both files on its own, so the whole branch including its merge has landed.
+	run(t, repo, "checkout", "--quiet", "main")
+	writeFile(t, repo, "s.txt", "s\n")
+	writeFile(t, repo, "t.txt", "t\n")
+	run(t, repo, "add", "s.txt", "t.txt")
+	run(t, repo, "commit", "--quiet", "-m", "both, landed independently")
+	run(t, repo, "checkout", "--quiet", "agent/abc")
+
+	require.Equal(t, "1", out(t, repo, "rev-list", "--count", "--merges", "main..HEAD"),
+		"the fixture needs a merge inside the landed run, or it is not about anything")
+
+	prediction, err := git.PredictRebase(t.Context(), repo, "main")
+	require.NoError(t, err)
+
+	require.Zero(t, prediction.Replay, "the whole branch landed")
+	assert.Equal(t, 3, prediction.Landed, "the merge counts among the commits leaving the branch")
+}
