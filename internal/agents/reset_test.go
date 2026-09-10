@@ -10,6 +10,7 @@ import (
 
 	"weave/internal/git"
 	agentstore "weave/internal/store/agent"
+	mailstore "weave/internal/store/mail"
 	reviewstore "weave/internal/store/review"
 
 	"github.com/stretchr/testify/assert"
@@ -225,6 +226,11 @@ func (f *fakeRounds) DeleteRounds(context.Context, string) error {
 	}
 	f.deleted = true
 
+	// The rows cascade, taking the reviews with them, without which no test could tell whether
+	// the drafts were read before the teardown or after it.
+	f.rounds = nil
+	f.reviews = nil
+
 	return nil
 }
 
@@ -410,4 +416,67 @@ func TestResetMailSaysWhatWentAndWhatStayed(t *testing.T) {
 	assert.Contains(t, body, "refs/weave/discarded/a1/1", "and where the only copy is")
 	assert.NotContains(t, body, "Untracked and ignored files were left where they are",
 		"which is what it used to claim, and it was false")
+}
+
+// recordingMail notes who was told what, since a reset has to reach the reviewer whose draft it
+// took as well as the agent whose work it discarded.
+type recordingMail struct {
+	sent map[string]string
+}
+
+func (r *recordingMail) SendSystemMail(_ context.Context, toAgentID, body string) (*mailstore.Mail, error) {
+	if r.sent == nil {
+		r.sent = map[string]string{}
+	}
+	r.sent[toAgentID] = body
+
+	return &mailstore.Mail{}, nil
+}
+
+// TestResetTellsAnAgentReviewerItsDraftWent covers a child reviewer part-way through writing
+// feedback, whose batch the round teardown deletes without refusing.
+func TestResetTellsAnAgentReviewerItsDraftWent(t *testing.T) {
+	t.Parallel()
+
+	tree := buildResetWorktree(t)
+	snapshot, err := git.Run(t.Context(), tree, "rev-parse", "HEAD")
+	require.NoError(t, err)
+
+	reviewer := "reviewer-1"
+	finished := "reviewer-0"
+	released := time.Now()
+	mail := &recordingMail{}
+	service := NewRefreshService(NewRefreshServiceParams{
+		Agents: &recordingRebaseAgents{agent: agentstore.Agent{
+			ID: "a1", Name: "auth", WorkflowID: "w1", Cwd: tree, State: agentstore.StateIdle,
+		}},
+		Workflows: fakeRebaseWorkflows{flow: worktreeFlow()},
+		Notifier:  mail,
+		Rounds: &fakeRounds{
+			rounds: []reviewstore.Round{{AgentID: "a1", SnapshotSHA: snapshot}},
+			reviews: []reviewstore.Review{
+				{
+					AgentID:       "a1",
+					AuthorKind:    reviewstore.AuthorAgent,
+					AuthorAgentID: &finished,
+					ReleasedAt:    &released,
+				},
+				{
+					AgentID:       "a1",
+					AuthorKind:    reviewstore.AuthorAgent,
+					AuthorAgentID: &reviewer,
+				},
+			},
+		},
+	})
+
+	_, err = service.Reset(t.Context(), "a1")
+	require.NoError(t, err, "an agent's draft does not block a reset, since it reviews work being discarded on purpose")
+
+	require.Contains(t, mail.sent, reviewer, "but the reviewer is told rather than left writing into a batch that is gone")
+	assert.Contains(t, mail.sent[reviewer], "was reset")
+	assert.Contains(t, mail.sent[reviewer], "Do not carry on writing")
+	assert.Contains(t, mail.sent, "a1", "and the agent whose work went is told too")
+	assert.NotContains(t, mail.sent, finished,
+		"a reviewer that had already released is not told, since nothing of its was taken")
 }

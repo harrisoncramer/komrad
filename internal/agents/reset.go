@@ -117,6 +117,31 @@ func (s *RefreshService) PlanReset(ctx context.Context, agentID string) (*ResetP
 	}, nil
 }
 
+// draftingReviews are the unreleased reviews of this agent, read before the teardown deletes
+// them so that whoever was writing one can be told.
+func (s *RefreshService) draftingReviews(ctx context.Context, agentID string) []reviewstore.Review {
+	if s.rounds == nil {
+		return nil
+	}
+
+	reviews, err := s.rounds.ListReviews(ctx, agentID)
+	if err != nil {
+		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to read who was reviewing a reset agent",
+			append([]slog.Attr{slog.String(logging.AgentID, agentID)}, logging.Err(err)...)...)
+
+		return nil
+	}
+
+	drafts := []reviewstore.Review{}
+	for _, review := range reviews {
+		if review.ReleasedAt == nil {
+			drafts = append(drafts, review)
+		}
+	}
+
+	return drafts
+}
+
 // buildDiscardRef names where a reset keeps what it destroyed, in a namespace of its own so
 // that a later refresh does not collect the only copy of work nothing else holds.
 func buildDiscardRef(agentID string) string {
@@ -142,6 +167,30 @@ func (s *RefreshService) refuseOpenReview(ctx context.Context, agentID string) e
 	}
 
 	return nil
+}
+
+// tellDraftingReviewers says so to the agents whose drafts the teardown took, since an agent
+// that is not told keeps writing into a batch that no longer exists.
+func (s *RefreshService) tellDraftingReviewers(ctx context.Context, agent agentstore.Agent, reviews []reviewstore.Review) {
+	if s.notifier == nil {
+		return
+	}
+
+	for _, review := range reviews {
+		// Guards the dereference rather than filtering anything reachable: an unreleased
+		// human review refuses the reset before this runs.
+		if review.AuthorAgentID == nil {
+			continue
+		}
+
+		body := fmt.Sprintf("The worktree of %s was reset, so the work you were reviewing has been discarded and "+
+			"the review you had not released went with it.\n\nNothing you wrote reached %s. Do not carry on writing "+
+			"into it. Wait to be told whether the next attempt wants reviewing.", agent.Name, agent.Name)
+		if _, err := s.notifier.SendSystemMail(ctx, *review.AuthorAgentID, body); err != nil {
+			logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to tell a reviewer its draft went with a reset",
+				append([]slog.Attr{slog.String(logging.AgentID, *review.AuthorAgentID)}, logging.Err(err)...)...)
+		}
+	}
 }
 
 // Reset puts the agent's branch and tracked files back to the base, discarding its work.
@@ -181,12 +230,18 @@ func (s *RefreshService) Reset(ctx context.Context, agentID string) (*ResetResul
 		return nil, err
 	}
 
+	drafts := s.draftingReviews(ctx, agentID)
+
 	rounds, roundsErr := s.tearDownRounds(ctx, *agent)
 	result.Rounds = rounds
 	if roundsErr != nil {
 		result.StaleReviewHistory = true
 	}
 	result.ClearedPullRequest = s.clearPullRequest(ctx, *agent)
+
+	if roundsErr == nil {
+		s.tellDraftingReviewers(ctx, *agent, drafts)
+	}
 
 	s.releaseOlderParks(ctx, *agent, result.ParkedRef)
 	s.tellReset(ctx, *agent, *result)
