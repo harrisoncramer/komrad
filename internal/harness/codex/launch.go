@@ -9,7 +9,7 @@ import (
 )
 
 // BuildCommand renders the command line that puts Codex up, quoting everything interpolated
-// since it is typed into a pane and parsed by the shell running there.
+// since it is written to a script and parsed by the shell weave starts the pane with.
 func (h *Harness) BuildCommand(launch harness.Launch) (string, error) {
 	if err := h.trustDir(launch.Dir); err != nil {
 		return "", err

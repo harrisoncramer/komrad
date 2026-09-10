@@ -94,7 +94,7 @@ func TestNewAgentRefusesUnknownHarness(t *testing.T) {
 	require.NoError(t, listErr)
 	assert.Empty(t, agents, "a refused harness records nothing")
 	assert.Empty(t, tmux.newWindows, "and opens no window")
-	assert.Empty(t, tmux.sent, "and types nothing")
+	assert.Empty(t, tmux.respawned, "and starts nothing")
 }
 
 // TestResumeRefusesUnknownHarness pins that a resume fails rather than putting the wrong CLI

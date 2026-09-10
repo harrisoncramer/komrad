@@ -17,7 +17,7 @@ const mcpConfigJSON = `{"mcpServers":{"weave":{"type":"http","url":"http://%s/mc
 var deniedAgents = []string{"Agent(general-purpose)", "Agent(claude)"}
 
 // BuildCommand renders the command line that puts Claude up, quoting everything interpolated
-// since it is typed into a pane and parsed by the shell running there.
+// since it is written to a script and parsed by the shell weave starts the pane with.
 func (h *Harness) BuildCommand(launch harness.Launch) (string, error) {
 	command := harness.EnvPrefix(launch) + h.Binary()
 

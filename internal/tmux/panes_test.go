@@ -1,6 +1,7 @@
 package tmux
 
 import (
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -283,4 +284,27 @@ func TestClientPathFollowsTheCurrentWindow(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, want, got)
+}
+
+// TestRespawnPaneRunsTheCommandInPlace covers how an agent's CLI is started, which is as the
+// pane's own process rather than as a line typed at a shell.
+func TestRespawnPaneRunsTheCommandInPlace(t *testing.T) {
+	client := testServer(t, "respawn")
+	pane := paneAt(t, client, "respawn", 0)
+	dir := t.TempDir()
+	marker := filepath.Join(dir, "ran")
+
+	require.NoError(t, client.RespawnPane(pane, dir, "sh", "-c", "pwd > "+marker+"; exec sh"))
+
+	require.Eventually(t, func() bool {
+		_, err := os.Stat(marker)
+		return err == nil
+	}, 5*time.Second, 20*time.Millisecond, "the command runs as the pane's process")
+
+	where, err := os.ReadFile(marker)
+	require.NoError(t, err)
+	assert.Equal(t, dir, strings.TrimSpace(string(where)), "and runs in the directory it was given")
+
+	require.Error(t, client.RespawnPane("", dir, "sh"), "a pane nobody named is not one to respawn")
+	require.Error(t, client.RespawnPane(pane, dir), "a respawn with no command is refused")
 }

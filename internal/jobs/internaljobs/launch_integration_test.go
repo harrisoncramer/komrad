@@ -155,3 +155,7 @@ func (s *fakeTmux) GetPanes() (map[string]tmux.PaneStatus, error) {
 func (s *fakeTmux) GetHostPath() string { return "" }
 
 func (s *fakeTmux) SendKeys(string, ...string) error { return nil }
+
+func (s *fakeTmux) RespawnPane(string, string, ...string) error { return nil }
+
+func (s *fakeTmux) GetDefaultShell() string { return "/bin/sh" }

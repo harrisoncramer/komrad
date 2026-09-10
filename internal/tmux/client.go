@@ -350,6 +350,29 @@ func (c *Client) BreakPane(pane string) {
 	c.run("break-pane", "-d", "-s", pane)
 }
 
+// RespawnPane replaces whatever is running in a pane with a command, rooted at dir.
+func (c *Client) RespawnPane(pane, dir string, argv ...string) error {
+	if pane == "" {
+		return errors.New("refusing to respawn an empty pane")
+	}
+	if len(argv) == 0 {
+		return errors.New("refusing to respawn a pane with no command")
+	}
+
+	args := []string{"respawn-pane", "-k", "-t", pane}
+	if dir != "" {
+		args = append(args, "-c", dir)
+	}
+	args = append(args, "--")
+	args = append(args, argv...)
+
+	if _, err := c.query(args...); err != nil {
+		return fmt.Errorf("failed to respawn pane %q: %w", pane, err)
+	}
+
+	return nil
+}
+
 // KillPane tears down a single pane, treating one already gone as the outcome asked for.
 func (c *Client) KillPane(pane string) {
 	if pane == "" {

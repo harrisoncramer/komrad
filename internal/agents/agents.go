@@ -110,6 +110,12 @@ type paneWriter interface {
 	SendKeys(target string, keys ...string) error
 }
 
+// paneStarter runs an agent's CLI as the pane's own process.
+type paneStarter interface {
+	RespawnPane(pane, dir string, argv ...string) error
+	GetDefaultShell() string
+}
+
 type workflowReader interface {
 	Get(ctx context.Context, id string) (*workflowstore.Workflow, error)
 	GetIncludingArchived(ctx context.Context, id string) (*workflowstore.Workflow, error)

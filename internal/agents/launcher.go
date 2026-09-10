@@ -24,8 +24,11 @@ const mcpURLPlaceholder = "{{MCP_URL}}"
 
 const logPathPlaceholder = "{{LOG_PATH}}"
 
+// fallbackShell is what an agent is started under when tmux names no default shell.
+const fallbackShell = "/bin/sh"
+
 type Launcher struct {
-	tmux        paneWriter
+	tmux        paneStarter
 	serverAddr  string
 	cacheDir    string
 	logPath     string
@@ -34,7 +37,7 @@ type Launcher struct {
 }
 
 type NewLauncherParams struct {
-	Tmux        paneWriter
+	Tmux        paneStarter
 	Addr        string
 	CacheDir    string
 	LogPath     string
@@ -170,8 +173,14 @@ func (l *Launcher) launch(h harness.Harness, params launchParams) error {
 		return fmt.Errorf("failed to write the launch script: %w", err)
 	}
 
-	if err := l.tmux.SendKeys(params.Pane, ". "+harness.QuoteArg(path), "Enter"); err != nil {
-		return fmt.Errorf("failed to type the launch command: %w", err)
+	shell := l.tmux.GetDefaultShell()
+	if shell == "" {
+		shell = fallbackShell
+	}
+
+	script := ". " + harness.QuoteArg(path) + "; exec " + harness.QuoteArg(shell) + " -l -i"
+	if err := l.tmux.RespawnPane(params.Pane, params.Dir, shell, "-l", "-i", "-c", script); err != nil {
+		return fmt.Errorf("failed to start the agent in its pane: %w", err)
 	}
 
 	return nil
