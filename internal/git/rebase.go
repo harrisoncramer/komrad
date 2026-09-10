@@ -298,6 +298,31 @@ func splitNUL(out string) []string {
 	return fields
 }
 
+// FindNestedRepositories are the untracked directories holding a repository of their own, whose
+// files a park cannot capture because git records them as one gitlink.
+func FindNestedRepositories(ctx context.Context, dir string) ([]string, error) {
+	root, err := GetRoot(ctx, dir)
+	if err != nil {
+		return nil, err
+	}
+
+	// Directories rather than files, since git collapses an untracked tree into its top and a
+	// nested repository is exactly such a tree.
+	out, err := Run(ctx, root, "ls-files", "--others", "--directory", "--exclude-standard", "-z")
+	if err != nil {
+		return nil, fmt.Errorf("failed to read the untracked directories of %q: %w", root, err)
+	}
+
+	nested := []string{}
+	for _, entry := range splitNUL(out) {
+		if _, err := os.Stat(filepath.Join(root, entry, ".git")); err == nil {
+			nested = append(nested, strings.TrimSuffix(entry, "/"))
+		}
+	}
+
+	return nested, nil
+}
+
 // ResetToBaseParams says which checkout to reset, onto what, and what the clean must spare.
 type ResetToBaseParams struct {
 	// Dir is anywhere inside the checkout, since the root is resolved from it, and Ref what

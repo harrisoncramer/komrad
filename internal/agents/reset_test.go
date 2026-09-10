@@ -633,3 +633,59 @@ func TestResetSweepsTheRoundNamespaceWithNoRowsLeft(t *testing.T) {
 	_, err = git.Run(t.Context(), tree, "rev-parse", "--verify", orphan)
 	require.Error(t, err, "the sweep runs whether or not a row is left to name anything")
 }
+
+// TestResetMailNamesANestedRepository covers the directory the clean spares, which an agent told
+// only that the base is on disk would not know was still there.
+func TestResetMailNamesANestedRepository(t *testing.T) {
+	t.Parallel()
+
+	body := resetMail(ResetResult{
+		ResetPlan: ResetPlan{
+			BaseRef: "origin/main",
+			BaseSHA: "19802cfc353a",
+			Nested:  []string{"vendored"},
+		},
+		ParkedRef: "refs/weave/discarded/a1/1",
+	})
+
+	assert.Contains(t, body, "repositories checked out inside your worktree: vendored")
+}
+
+// TestReleaseAgentRefsLeavesAWorktreeSomethingIsWorkingIn covers the race that would collect a
+// reset's only copy between the park being written and the work being destroyed.
+func TestReleaseAgentRefsLeavesAWorktreeSomethingIsWorkingIn(t *testing.T) {
+	t.Parallel()
+
+	tree := buildResetWorktree(t)
+	head, err := git.Run(t.Context(), tree, "rev-parse", "HEAD")
+	require.NoError(t, err)
+
+	discard := buildDiscardRef("a1")
+	gitRun(t, tree, "update-ref", discard, head)
+
+	// The refresh holds the tree, which is the state a reset is in between its two steps.
+	locks := NewTreeLocks()
+	release, taken := locks.TryLock(tree)
+	require.True(t, taken)
+
+	service := NewLifecycleService(NewLifecycleServiceParams{Locks: locks})
+	service.releaseAgentRefs(t.Context(), agentstore.Agent{
+		ID:   "a1",
+		Name: "auth",
+		Cwd:  tree,
+	})
+
+	_, err = git.Run(t.Context(), tree, "rev-parse", "--verify", discard)
+	require.NoError(t, err, "the only copy of the work a reset is about to destroy is still there")
+
+	// And once the refresh is done with the tree, the same call collects it.
+	release()
+	service.releaseAgentRefs(t.Context(), agentstore.Agent{
+		ID:   "a1",
+		Name: "auth",
+		Cwd:  tree,
+	})
+
+	_, err = git.Run(t.Context(), tree, "rev-parse", "--verify", discard)
+	require.Error(t, err, "so the leak is closed rather than merely deferred")
+}

@@ -63,6 +63,9 @@ type ResetPlan struct {
 	// Keep are the paths the workflow furnishes, which the clean has to spare because nothing
 	// puts them back, read here for the same reason the drafts are.
 	Keep []string
+	// Nested are the untracked directories holding a repository of their own, which the clean
+	// leaves standing because a park records them as a gitlink and holds none of their files.
+	Nested []string
 }
 
 // ResetResult is what a reset did.
@@ -134,6 +137,11 @@ func (s *RefreshService) PlanReset(ctx context.Context, agentID string) (*ResetP
 		return nil, fmt.Errorf("%w: %s", ErrResetShadowed, strings.Join(shadowed, ", "))
 	}
 
+	nested, err := git.FindNestedRepositories(ctx, agent.Cwd)
+	if err != nil {
+		return nil, err
+	}
+
 	return &ResetPlan{
 		BaseRef:        ref,
 		BaseSHA:        sha,
@@ -142,6 +150,7 @@ func (s *RefreshService) PlanReset(ctx context.Context, agentID string) (*ResetP
 		TrackedChanges: state.TrackedChanges,
 		Drafts:         drafts,
 		Keep:           keep,
+		Nested:         nested,
 	}, nil
 }
 
@@ -335,6 +344,10 @@ func resetMail(result ResetResult) string {
 		"Files git was ignoring, such as configuration and build output, were left alone")
 	if len(result.Kept) > 0 {
 		fmt.Fprintf(&body, ", and so were the paths your workflow furnishes: %s", strings.Join(result.Kept, ", "))
+	}
+	if len(result.Nested) > 0 {
+		fmt.Fprintf(&body, ", and so were the repositories checked out inside your worktree: %s",
+			strings.Join(result.Nested, ", "))
 	}
 	body.WriteString(". Everything else on disk is the base.")
 	body.WriteString("\n\nNothing was deleted outright. A copy of the worktree from before this ran is kept at " +

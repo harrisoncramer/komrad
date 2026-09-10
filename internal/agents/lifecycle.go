@@ -54,6 +54,7 @@ type LifecycleService struct {
 	framesDir      string
 	maxAgents      int
 	maxChildren    int
+	locks          *TreeLocks
 }
 
 type NewLifecycleServiceParams struct {
@@ -69,10 +70,18 @@ type NewLifecycleServiceParams struct {
 	FramesDir      string
 	MaxAgents      int
 	MaxChildren    int
+	// Locks is the same tree lock a refresh takes, so a delete cannot collect the copy a reset
+	// has just written and is about to need.
+	Locks *TreeLocks
 }
 
 // NewLifecycleService builds the service from its dependencies.
 func NewLifecycleService(params NewLifecycleServiceParams) *LifecycleService {
+	locks := params.Locks
+	if locks == nil {
+		locks = NewTreeLocks()
+	}
+
 	return &LifecycleService{
 		tmux:           params.Tmux,
 		agents:         params.Agents,
@@ -86,6 +95,7 @@ func NewLifecycleService(params NewLifecycleServiceParams) *LifecycleService {
 		framesDir:      params.FramesDir,
 		maxAgents:      params.MaxAgents,
 		maxChildren:    params.MaxChildren,
+		locks:          locks,
 	}
 }
 
@@ -480,14 +490,28 @@ func (s *LifecycleService) releaseRounds(ctx context.Context, ids []string) {
 			continue
 		}
 
-		// Swept by prefix rather than by row, so a ref an interrupted release left behind goes
-		// too, and this is the one moment when collecting a park is unambiguously right: the
-		// agent and its worktree are being destroyed on purpose, so nobody is left to look.
-		for _, prefix := range []string{roundRefPrefix(agent.ID), parkRefPrefix(agent.ID), discardRefPrefix(agent.ID)} {
-			if err := git.ReleaseRefsUnder(ctx, agent.Cwd, prefix, ""); err != nil {
-				logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to release the refs of an agent being deleted",
-					append([]slog.Attr{slog.String(logging.AgentID, agent.ID)}, logging.Err(err)...)...)
-			}
+		s.releaseAgentRefs(ctx, agent)
+	}
+}
+
+// releaseAgentRefs collects every ref held for one agent being deleted, under the tree lock.
+func (s *LifecycleService) releaseAgentRefs(ctx context.Context, agent agentstore.Agent) {
+	// A reset writes the only copy of the work it is about to destroy and then destroys it, so
+	// collecting that copy in between would lose it outright.
+	unlock, taken := s.locks.TryLock(agent.Cwd)
+	if !taken {
+		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "left the refs of an agent being deleted, since something is working in its worktree",
+			slog.String(logging.AgentID, agent.ID))
+
+		return
+	}
+	defer unlock()
+
+	// Swept by prefix rather than by row, so a ref an interrupted release left behind goes too.
+	for _, prefix := range []string{roundRefPrefix(agent.ID), parkRefPrefix(agent.ID), discardRefPrefix(agent.ID)} {
+		if err := git.ReleaseRefsUnder(ctx, agent.Cwd, prefix, ""); err != nil {
+			logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to release the refs of an agent being deleted",
+				append([]slog.Attr{slog.String(logging.AgentID, agent.ID)}, logging.Err(err)...)...)
 		}
 	}
 }

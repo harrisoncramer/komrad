@@ -139,7 +139,9 @@ func buildServices(p Params, st *stores) (*services, error) {
 			Panes:     p.Tmux,
 		}),
 	})
+	treeLocks := agents.NewTreeLocks()
 	refreshService := agents.NewRefreshService(agents.NewRefreshServiceParams{
+		Locks:     treeLocks,
 		Agents:    st.agents,
 		Workflows: st.workflows,
 		Notifier:  mailService,
@@ -162,6 +164,7 @@ func buildServices(p Params, st *stores) (*services, error) {
 		Schedules: st.schedules,
 	})
 	lifecycleService := agents.NewLifecycleService(agents.NewLifecycleServiceParams{
+		Locks:          treeLocks,
 		Tmux:           p.Tmux,
 		Agents:         st.agents,
 		Workflows:      st.workflows,

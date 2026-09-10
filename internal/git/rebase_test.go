@@ -819,3 +819,45 @@ func TestResetToBaseClearsTheWholeTreeFromASubdirectory(t *testing.T) {
 		"the root's untracked file goes, which it would not if the clean ran where it was pointed")
 	assert.NoFileExists(t, filepath.Join(repo, "sub", "junk.txt"))
 }
+
+// TestFindNestedRepositoriesSeesACheckedOutClone covers a repository the agent cloned into its
+// worktree, whose files a park records as one gitlink and cannot give back.
+func TestFindNestedRepositoriesSeesACheckedOutClone(t *testing.T) {
+	t.Parallel()
+
+	repo := newRepo(t)
+	vendored := filepath.Join(repo, "vendored")
+	run(t, filepath.Dir(vendored), "init", "--quiet", "-b", "main", vendored)
+	run(t, vendored, "config", "user.email", "t@example.com")
+	run(t, vendored, "config", "user.name", "t")
+	writeFile(t, vendored, "lib.txt", "vendored\n")
+	run(t, vendored, "add", "-A")
+	run(t, vendored, "commit", "--quiet", "-m", "vendored")
+	writeFile(t, repo, "scratch", "an ordinary untracked file\n")
+
+	nested, err := git.FindNestedRepositories(t.Context(), repo)
+	require.NoError(t, err)
+
+	assert.Equal(t, []string{"vendored"}, nested, "the clone is named and the ordinary file is not")
+}
+
+// TestResetToBaseLeavesANestedRepository pins the clean sparing it, since -ffd would remove work
+// no park holds and the reflog of the outer repository does not cover.
+func TestResetToBaseLeavesANestedRepository(t *testing.T) {
+	t.Parallel()
+
+	repo := newRepo(t)
+	vendored := filepath.Join(repo, "vendored")
+	run(t, filepath.Dir(vendored), "init", "--quiet", "-b", "main", vendored)
+	run(t, vendored, "config", "user.email", "t@example.com")
+	run(t, vendored, "config", "user.name", "t")
+	writeFile(t, vendored, "lib.txt", "vendored\n")
+	run(t, vendored, "add", "-A")
+	run(t, vendored, "commit", "--quiet", "-m", "vendored")
+	writeFile(t, vendored, "wip.txt", "uncommitted inside the clone\n")
+
+	require.NoError(t, git.ResetToBase(t.Context(), git.ResetToBaseParams{Dir: repo, Ref: "HEAD"}))
+
+	assert.Equal(t, "uncommitted inside the clone\n", readFile(t, vendored, "wip.txt"),
+		"a park holds none of this, so the clean must not take it")
+}
