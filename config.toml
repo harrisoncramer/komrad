@@ -308,13 +308,14 @@ file = ""
 [mail]
 # How long mail stays deliverable, as a Go duration such as "3h" or "45m". Mail past
 # it is neither delivered nor readable, and the row is kept as a record that it never
-# arrived.
+# arrived. A duration weave cannot read, or one that is not positive, is refused.
 delivery_deadline = "3h"
 # How much mail two agents may write each other before a send between them is
 # refused. It counts the pair in both directions over every thread, so opening a new
 # subject is not a way around it. When a send is refused weave marks a row for
 # attention and tells the recipient its mail was stopped, so an exchange that is cut
-# off does not leave the other side waiting on a reply that will never arrive.
+# off does not leave the other side waiting on a reply that will never arrive. A
+# negative limit is refused.
 max_exchange      = 40
 
 # The log the background service writes, which the panel's log key pages.
@@ -347,7 +348,8 @@ database_url          = "postgres://weave:weave@localhost:5460/weave?sslmode=dis
 # Set it when that login needs its own password or reaches the database another way.
 readonly_database_url = ""
 # Where the background service listens, and where the panel, the CLI and the MCP
-# endpoint all reach it. Change it to run two weaves on one machine.
+# endpoint all reach it. Change it to run two weaves on one machine. It has to be a
+# loopback host, since the api has no auth and its writes spawn agents.
 addr                  = "127.0.0.1:8787"
 # The tmux socket weave runs its own server on. Nothing in your normal tmux sees
 # that server, which is why `tmux -L weave ls` is how you look at it directly.

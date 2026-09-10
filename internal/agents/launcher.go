@@ -3,10 +3,12 @@ package agents
 import (
 	_ "embed"
 	"fmt"
+	"log/slog"
 	"os"
 	"strings"
 
 	"weave/internal/harness"
+	"weave/internal/logging"
 	agentstore "weave/internal/store/agent"
 	"weave/lib/xslice"
 )
@@ -125,6 +127,10 @@ func (l *Launcher) globalContext() string {
 
 	text, err := os.ReadFile(l.contextPath)
 	if err != nil {
+		//nolint:sloglint // as in the tmux client, there is no context here to carry a logger on
+		slog.Default().Warn("the standing context could not be read, so this agent starts without it",
+			logging.Attrs(append(logging.Err(err), slog.String("path", l.contextPath)))...)
+
 		return ""
 	}
 

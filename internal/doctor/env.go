@@ -22,6 +22,7 @@ type Env struct {
 	LoadConfig            func() (*config.Config, error)
 	DoesLayerExist        func(path string) bool
 	InspectDir            func(path string) (DirState, error)
+	ReadFile              func(path string) ([]byte, error)
 	PingDatabase          func(ctx context.Context, url string) error
 	ReadPendingMigrations func(ctx context.Context, url string) ([]string, error)
 	ConnectReadOnly       func(ctx context.Context, url string) error
@@ -66,6 +67,7 @@ func NewEnv(settings Settings) Env {
 			return err == nil
 		},
 		InspectDir:            inspectDir,
+		ReadFile:              os.ReadFile,
 		PingDatabase:          pingDatabase,
 		ReadPendingMigrations: readPendingMigrations,
 		ConnectReadOnly:       connectReadOnly,
