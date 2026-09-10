@@ -183,8 +183,14 @@ func (m model) restoreFromArchive() (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	if !agent.State.DoesPaneDecide() {
-		return m.restoreAgents([]agentstore.Agent{agent})
+	return m.restoreAgents([]agentstore.Agent{agent})
+}
+
+// restoreAndOpen puts the hovered agent back and relaunches its conversation.
+func (m model) restoreAndOpen() (tea.Model, tea.Cmd) {
+	agent, ok := m.selectedArchived()
+	if !ok {
+		return m, nil
 	}
 
 	return m, m.restoreAndResumeCmd(agent)

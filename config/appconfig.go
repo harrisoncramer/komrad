@@ -451,6 +451,10 @@ type ArchiveKeys struct {
 	Quit []string `mapstructure:"quit" default:"ctrl+c"`
 	// Put the agent under the cursor back in the panel.
 	Restore []string `mapstructure:"restore" default:"r"`
+	// Put the agent under the cursor back in the panel and open it, which relaunches its
+	// conversation in a pane and takes you to it. An agent that never got as far as
+	// starting is only restored.
+	RestoreOpen []string `mapstructure:"restore_open" default:"R"`
 }
 
 // Hooks is where weave finds the scripts a workflow hangs on a moment in its agents' lives.
