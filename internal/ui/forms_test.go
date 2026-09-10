@@ -1512,7 +1512,7 @@ func TestRefreshResetLabel(t *testing.T) {
 			plan: refreshPlan{
 				baseRef: "origin/main",
 			},
-			want:     []string{"any files it created", "ignored files stay"},
+			want:     []string{"any files it created", "ignored and furnished files stay"},
 			wantNone: []string{"Nothing of yours"},
 		},
 		{

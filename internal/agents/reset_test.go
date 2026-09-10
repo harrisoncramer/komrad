@@ -12,6 +12,7 @@ import (
 	agentstore "weave/internal/store/agent"
 	mailstore "weave/internal/store/mail"
 	reviewstore "weave/internal/store/review"
+	workflowstore "weave/internal/store/workflow"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -545,4 +546,90 @@ func TestResetRefusesWhenItCannotReadTheReviews(t *testing.T) {
 	require.ErrorContains(t, err, "could not be read")
 
 	assert.Equal(t, "edited and not committed\n", readTree(t, tree, "tracked.txt"), "and nothing was discarded")
+}
+
+// TestResetMailNamesWhatTheWorkflowFurnishes covers the paths the clean spares on purpose, which
+// an agent told only that the base is on disk would recreate over.
+func TestResetMailNamesWhatTheWorkflowFurnishes(t *testing.T) {
+	t.Parallel()
+
+	body := resetMail(ResetResult{
+		ResetPlan: ResetPlan{
+			BaseRef: "origin/main",
+			BaseSHA: "19802cfc353a",
+			Keep:    []string{".env", "go.work.sum"},
+		},
+		ParkedRef: "refs/weave/discarded/a1/1",
+		Kept:      []string{".env", "go.work.sum"},
+	})
+
+	assert.Contains(t, body, ".env, go.work.sum", "the furnishings are named rather than implied")
+	assert.NotContains(t, body, "is the base and nothing else", "which is what it used to claim, and it was false")
+}
+
+// TestResetRefusesWhenItCannotReadTheWorkflow covers the read that decides which files survive
+// the clean, since answering nothing would delete every furnishing and report success.
+func TestResetRefusesWhenItCannotReadTheWorkflow(t *testing.T) {
+	t.Parallel()
+
+	tree := buildResetWorktree(t)
+	writeTree(t, tree, "furnished.txt", "put here by the workflow\n")
+
+	// Reset calls eligible, PlanReset calls it again, and only then does the plan read the
+	// workflow for its keep list, so failing any earlier tests the eligibility refusal instead.
+	service := NewRefreshService(NewRefreshServiceParams{
+		Agents: &recordingRebaseAgents{agent: agentstore.Agent{
+			ID: "a1", Name: "auth", WorkflowID: "w1", Cwd: tree, State: agentstore.StateIdle,
+		}},
+		Workflows: &failingPlanWorkflows{flow: worktreeFlow(), failAfter: 2},
+	})
+
+	_, err := service.Reset(t.Context(), "a1")
+	require.ErrorContains(t, err, "could not be read")
+
+	assert.Equal(t, "put here by the workflow\n", readTree(t, tree, "furnished.txt"),
+		"nothing was cleaned, so no furnishing was lost to a read that failed")
+}
+
+// failingPlanWorkflows answers the first failAfter reads and fails the rest.
+type failingPlanWorkflows struct {
+	flow      workflowstore.Workflow
+	reads     int
+	failAfter int
+}
+
+func (s *failingPlanWorkflows) Get(_ context.Context, _ string) (*workflowstore.Workflow, error) {
+	s.reads++
+	if s.reads > s.failAfter {
+		return nil, errors.New("the workflow could not be read")
+	}
+	flow := s.flow
+
+	return &flow, nil
+}
+
+func (s *failingPlanWorkflows) GetIncludingArchived(ctx context.Context, id string) (*workflowstore.Workflow, error) {
+	return s.Get(ctx, id)
+}
+
+// TestResetSweepsTheRoundNamespaceWithNoRowsLeft covers the state a previous reset leaves when
+// it deleted the rows and then failed to release the refs, where nothing names them any more.
+func TestResetSweepsTheRoundNamespaceWithNoRowsLeft(t *testing.T) {
+	t.Parallel()
+
+	tree := buildResetWorktree(t)
+	head, err := git.Run(t.Context(), tree, "rev-parse", "HEAD")
+	require.NoError(t, err)
+
+	orphan := roundRef("a1", head)
+	gitRun(t, tree, "update-ref", orphan, head)
+
+	// No rows at all, which is what a failed release from an earlier reset leaves behind.
+	service := resetService(t, tree, &fakeRounds{})
+
+	_, err = service.Reset(t.Context(), "a1")
+	require.NoError(t, err)
+
+	_, err = git.Run(t.Context(), tree, "rev-parse", "--verify", orphan)
+	require.Error(t, err, "the sweep runs whether or not a row is left to name anything")
 }

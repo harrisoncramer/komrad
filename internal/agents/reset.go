@@ -14,6 +14,12 @@ import (
 	reviewstore "weave/internal/store/review"
 )
 
+// Explainer: everything the reset acts on is read in the plan and carried, rather than read
+// again beside the step that uses it. A second read can fail where the first succeeded, and both
+// of these decide what is destroyed: the drafts decide whether a person's review blocks the
+// reset, and the keep list decides which files survive the clean. Answering nothing on a failed
+// read means deleting exactly what the read was there to protect.
+
 // Explainer: the unreleased reviews are read once, in the plan, and carried to the teardown
 // rather than read again beside it. A second read could fail where the first succeeded, and the
 // reset would then delete drafts it had already decided were safe to delete, with nobody left
@@ -54,6 +60,9 @@ type ResetPlan struct {
 	// Drafts are the unreleased reviews the round teardown would take, read here so that the
 	// reset acts on the same reading it was refused against.
 	Drafts []reviewstore.Review
+	// Keep are the paths the workflow furnishes, which the clean has to spare because nothing
+	// puts them back, read here for the same reason the drafts are.
+	Keep []string
 }
 
 // ResetResult is what a reset did.
@@ -63,6 +72,9 @@ type ResetResult struct {
 	ParkedRef string
 	// Rounds is how many review rounds were torn down with the work they described.
 	Rounds int
+	// Kept are the furnishings the clean spared, which the agent has to be told about or it
+	// will read "nothing but the base is on disk" and recreate a file that is already there.
+	Kept []string
 	// StaleReviewHistory says the reset stands but the review history could not be cleared, so
 	// what the review screen shows describes work that is gone.
 	StaleReviewHistory bool
@@ -85,10 +97,15 @@ func (s *RefreshService) PlanReset(ctx context.Context, agentID string) (*ResetP
 		return nil, err
 	}
 
-	base := ""
-	if flow, err := s.workflows.Get(ctx, agent.WorkflowID); err == nil {
-		base = flow.Worktree.BaseBranch
+	// Read once and refused when it fails, since a read that quietly answered nothing would
+	// delete every furnishing the workflow puts there and nothing puts back.
+	flow, err := s.workflows.Get(ctx, agent.WorkflowID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read the workflow of agent %q: %w", agent.Name, err)
 	}
+
+	base := flow.Worktree.BaseBranch
+	keep := append(append([]string{}, flow.Worktree.CopyPaths...), flow.Worktree.SymlinkPaths...)
 
 	ref, sha, err := git.FetchBase(ctx, agent.Cwd, base)
 	if err != nil {
@@ -124,21 +141,8 @@ func (s *RefreshService) PlanReset(ctx context.Context, agentID string) (*ResetP
 		Commits:        commits,
 		TrackedChanges: state.TrackedChanges,
 		Drafts:         drafts,
+		Keep:           keep,
 	}, nil
-}
-
-// furnishings are the paths a workflow puts into a worktree it creates, which nothing puts back
-// afterwards, so a clean has to spare them however git happens to classify them.
-func (s *RefreshService) furnishings(ctx context.Context, agent agentstore.Agent) []string {
-	flow, err := s.workflows.Get(ctx, agent.WorkflowID)
-	if err != nil {
-		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to read what furnishes a reset agent's worktree",
-			append([]slog.Attr{slog.String(logging.AgentID, agent.ID)}, logging.Err(err)...)...)
-
-		return nil
-	}
-
-	return append(append([]string{}, flow.Worktree.CopyPaths...), flow.Worktree.SymlinkPaths...)
 }
 
 // buildDiscardRef names where a reset keeps what it destroyed, in a namespace of its own so
@@ -226,7 +230,7 @@ func (s *RefreshService) Reset(ctx context.Context, agentID string) (*ResetResul
 		}
 	}
 
-	result := &ResetResult{ResetPlan: *plan}
+	result := &ResetResult{ResetPlan: *plan, Kept: plan.Keep}
 
 	// Parked before anything is destroyed, and a park that fails stops the reset rather than
 	// being logged past, since it is the only way back to what is about to go.
@@ -238,7 +242,7 @@ func (s *RefreshService) Reset(ctx context.Context, agentID string) (*ResetResul
 	if err := git.ResetToBase(ctx, git.ResetToBaseParams{
 		Dir:  agent.Cwd,
 		Ref:  plan.BaseRef,
-		Keep: s.furnishings(ctx, *agent),
+		Keep: plan.Keep,
 	}); err != nil {
 		return nil, err
 	}
@@ -272,14 +276,12 @@ func (s *RefreshService) tearDownRounds(ctx context.Context, agent agentstore.Ag
 	if err != nil {
 		return 0, fmt.Errorf("failed to read the rounds of agent %q: %w", agent.ID, err)
 	}
-	if len(rounds) == 0 {
-		return 0, nil
-	}
-
 	// The rows go first, so a delete that fails leaves both the rows and the refs they name,
 	// which is a state somebody can read and try again from.
-	if err := s.rounds.DeleteRounds(ctx, agent.ID); err != nil {
-		return 0, fmt.Errorf("failed to delete the rounds of agent %q: %w", agent.ID, err)
+	if len(rounds) > 0 {
+		if err := s.rounds.DeleteRounds(ctx, agent.ID); err != nil {
+			return 0, fmt.Errorf("failed to delete the rounds of agent %q: %w", agent.ID, err)
+		}
 	}
 
 	// Swept by prefix rather than by row, so a release that fails cannot leave a ref no row
@@ -329,8 +331,12 @@ func resetMail(result ResetResult) string {
 		body.WriteString("\n\nYour recorded pull request has been cleared. It no longer tracks anything this branch carries.")
 	}
 
-	body.WriteString("\n\nThe files you had created but never committed have been removed too, so what is on disk " +
-		"is the base and nothing else. Files git was ignoring, such as configuration and build output, were left alone.")
+	body.WriteString("\n\nThe files you had created but never committed have been removed too. " +
+		"Files git was ignoring, such as configuration and build output, were left alone")
+	if len(result.Kept) > 0 {
+		fmt.Fprintf(&body, ", and so were the paths your workflow furnishes: %s", strings.Join(result.Kept, ", "))
+	}
+	body.WriteString(". Everything else on disk is the base.")
 	body.WriteString("\n\nNothing was deleted outright. A copy of the worktree from before this ran is kept at " +
 		result.ParkedRef + ". It holds your commits, anything you had not committed, and the files you had created. " +
 		"Nothing collects it, so it will be there when you look.")

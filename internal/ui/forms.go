@@ -654,10 +654,10 @@ func refreshResetLabel(plan refreshPlan) string {
 	}
 	parts = append(parts, "any files it created")
 	if len(parts) == 1 {
-		return fmt.Sprintf("Reset to %s, throwing away any files it created. A copy is kept, ignored files stay.", plan.baseRef)
+		return fmt.Sprintf("Reset to %s, throwing away any files it created. A copy is kept, ignored and furnished files stay.", plan.baseRef)
 	}
 
-	return fmt.Sprintf("Reset to %s, throwing away %s. A copy is kept, ignored files stay.",
+	return fmt.Sprintf("Reset to %s, throwing away %s. A copy is kept, ignored and furnished files stay.",
 		plan.baseRef, strings.Join(parts, ", "))
 }
 

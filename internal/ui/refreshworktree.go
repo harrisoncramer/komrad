@@ -138,7 +138,7 @@ func (m *model) applyReset(msg resetMsg) tea.Model {
 		return m
 	}
 
-	detail := fmt.Sprintf("%s. %s, any uncommitted changes and any files it created were thrown away, and ignored files were left alone.",
+	detail := fmt.Sprintf("%s. %s, any uncommitted changes and any files it created were thrown away. Ignored files and the workflow's own were left alone.",
 		shortSHA(msg.baseSHA), countWord(msg.commits, "commit", "commits"))
 	if msg.rounds > 0 {
 		detail += fmt.Sprintf(" %s torn down.", countWord(msg.rounds, "review round", "review rounds"))
