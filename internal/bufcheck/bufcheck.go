@@ -20,6 +20,8 @@ const (
 	MutationRuleID = "RPC_MUTATION_IDEMPOTENT"
 	// RequestIDRuleID is the rule requiring a request's id fields to refuse the empty string.
 	RequestIDRuleID = "RPC_REQUEST_ID_REFUSES_EMPTY"
+	// TypesUniqueRuleID is the rule holding a named request or response type to one method.
+	TypesUniqueRuleID = "RPC_NAMED_TYPES_UNIQUE"
 )
 
 var (
@@ -49,6 +51,13 @@ var (
 				Purpose: "Checks that a field naming an id on a request carries a validation rule refusing it empty.",
 				Type:    check.RuleTypeLint,
 				Handler: checkutil.NewMethodRuleHandler(checkRequestIDs, checkutil.WithoutImports()),
+			},
+			{
+				ID:      TypesUniqueRuleID,
+				Default: true,
+				Purpose: "Checks that a named request or response type belongs to exactly one method, google.protobuf.Empty aside.",
+				Type:    check.RuleTypeLint,
+				Handler: check.RuleHandlerFunc(checkTypesUnique),
 			},
 		},
 	}
