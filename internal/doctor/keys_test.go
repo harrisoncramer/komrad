@@ -19,7 +19,7 @@ func rootKeysEnv(cfg *config.Config, rootKeys ...string) Env {
 
 func rootKeysEnvWithPrefix(cfg *config.Config, prefix string, rootKeys ...string) Env {
 	env := configEnv(cfg, nil, true)
-	env.Settings.TmuxSocket = "weave"
+	env.TmuxSocket = "weave"
 	env.Output = func(_ context.Context, _ string, args ...string) (string, error) {
 		switch {
 		case slices.Contains(args, "list-keys"):
@@ -65,7 +65,7 @@ func TestKeybindingsCheckPassesWhenTmuxHoldsNothing(t *testing.T) {
 // which is weave holding a key on purpose rather than tmux taking one away.
 func TestKeybindingsCheckIgnoresThePanelsOwnFocusBinding(t *testing.T) {
 	env := configEnv(config.Defaults(), nil, true)
-	env.Settings.TmuxSocket = "weave"
+	env.TmuxSocket = "weave"
 	env.Output = func(_ context.Context, _ string, args ...string) (string, error) {
 		if slices.Contains(args, "list-keys") {
 			return `bind-key  -T root C-a    if-shell -F #{==:#{pane_id},%3} "select-pane -t %9" "select-pane -t %3"`, nil

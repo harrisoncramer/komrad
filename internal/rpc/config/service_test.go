@@ -121,8 +121,8 @@ func TestGetConfigKeysMatchTheFile(t *testing.T) {
 			path: []string{"keybindings", "agents"},
 		},
 		{
-			name: "the forms",
-			path: []string{"keybindings", "form"},
+			name: "the marks",
+			path: []string{"keybindings", "marks"},
 		},
 		{
 			name: "workflows",
