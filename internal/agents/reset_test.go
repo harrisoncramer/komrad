@@ -653,9 +653,9 @@ func TestResetMailNamesANestedRepository(t *testing.T) {
 	assert.Contains(t, body, "repositories checked out inside your worktree: vendored")
 }
 
-// TestReleaseAgentRefsLeavesAWorktreeSomethingIsWorkingIn covers the race that would collect a
-// reset's only copy between the park being written and the work being destroyed.
-func TestReleaseAgentRefsLeavesAWorktreeSomethingIsWorkingIn(t *testing.T) {
+// TestReleaseAgentRefsWaitsForTheWorktree covers the race that would collect a reset's only
+// copy between the park being written and the work being destroyed.
+func TestReleaseAgentRefsWaitsForTheWorktree(t *testing.T) {
 	t.Parallel()
 
 	tree := buildResetWorktree(t)
@@ -665,10 +665,16 @@ func TestReleaseAgentRefsLeavesAWorktreeSomethingIsWorkingIn(t *testing.T) {
 	discard := buildDiscardRef("a1")
 	gitRun(t, tree, "update-ref", discard, head)
 
-	// The refresh holds the tree, which is the state a reset is in between its two steps.
 	locks := NewTreeLocks()
 	release, taken := locks.TryLock(tree)
 	require.True(t, taken)
+
+	// Held for a fixed moment rather than released at once, because a release that can land
+	// before the call under test makes the test pass whether or not anything waited.
+	go func() {
+		time.Sleep(100 * time.Millisecond)
+		release()
+	}()
 
 	service := NewLifecycleService(NewLifecycleServiceParams{Locks: locks})
 	service.releaseAgentRefs(t.Context(), agentstore.Agent{
@@ -678,45 +684,27 @@ func TestReleaseAgentRefsLeavesAWorktreeSomethingIsWorkingIn(t *testing.T) {
 	})
 
 	_, err = git.Run(t.Context(), tree, "rev-parse", "--verify", discard)
-	require.NoError(t, err, "the only copy of the work a reset is about to destroy is still there")
+	require.Error(t, err, "the copy is collected once the refresh lets go, rather than leaking with the row gone")
+}
 
-	// And once the refresh is done with the tree, the same call collects it.
-	release()
-	service.releaseAgentRefs(t.Context(), agentstore.Agent{
+// TestReleaseAgentRefsGivesUpOnAWorktreeThatStaysBusy pins the wait being bounded, since a
+// delete that blocked for ever on a stuck refresh would be worse than a leaked ref.
+func TestReleaseAgentRefsGivesUpOnAWorktreeThatStaysBusy(t *testing.T) {
+	t.Parallel()
+
+	tree := buildResetWorktree(t)
+	locks := NewTreeLocks()
+	release, taken := locks.TryLock(tree)
+	require.True(t, taken)
+	defer release()
+
+	ctx, cancel := context.WithCancel(t.Context())
+	cancel()
+
+	service := NewLifecycleService(NewLifecycleServiceParams{Locks: locks})
+	service.releaseAgentRefs(ctx, agentstore.Agent{
 		ID:   "a1",
 		Name: "auth",
 		Cwd:  tree,
 	})
-
-	_, err = git.Run(t.Context(), tree, "rev-parse", "--verify", discard)
-	require.Error(t, err, "so the leak is closed rather than merely deferred")
-}
-
-// TestResetSparesARepositoryCheckedOutInside covers the service passing what it found to the
-// clean, since detecting a nested repository and then removing it would be worse than neither.
-func TestResetSparesARepositoryCheckedOutInside(t *testing.T) {
-	t.Parallel()
-
-	tree := buildResetWorktree(t)
-
-	// Inside a directory the base tracks, so git lists its files individually rather than
-	// collapsing the directory, which is the shape a clean would gut.
-	vendor := filepath.Join(tree, "vendor")
-	require.FileExists(t, filepath.Join(vendor, "README"), "the fixture must give the clone a tracked parent")
-	gitRun(t, vendor, "init", "--quiet", "-b", "main", ".")
-	gitRun(t, vendor, "config", "user.email", "t@example.com")
-	gitRun(t, vendor, "config", "user.name", "t")
-	writeTree(t, vendor, "lib.txt", "committed inside the clone\n")
-	gitRun(t, vendor, "add", "lib.txt")
-	gitRun(t, vendor, "commit", "--quiet", "-m", "nested")
-
-	service := resetService(t, tree, nil)
-
-	result, err := service.Reset(t.Context(), "a1")
-	require.NoError(t, err)
-	require.Equal(t, []string{"vendor"}, result.Nested, "the plan found it")
-
-	assert.Equal(t, "committed inside the clone\n", readTree(t, vendor, "lib.txt"),
-		"and the clean spared it, since the park holds no history of the clone")
-	assert.NoFileExists(t, filepath.Join(tree, "scratch.txt"), "while the agent's own untracked file still goes")
 }

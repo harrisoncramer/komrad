@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"time"
 
 	"weave/config"
 	"weave/internal/frames"
@@ -494,13 +495,20 @@ func (s *LifecycleService) releaseRounds(ctx context.Context, ids []string) {
 	}
 }
 
+// refsLockWait is how long a delete waits for a refresh to finish with a worktree before it
+// gives up on collecting that agent's refs.
+const refsLockWait = 2 * time.Minute
+
 // releaseAgentRefs collects every ref held for one agent being deleted, under the tree lock.
 func (s *LifecycleService) releaseAgentRefs(ctx context.Context, agent agentstore.Agent) {
-	// A reset writes the only copy of the work it is about to destroy and then destroys it, so
-	// collecting that copy in between would lose it outright.
-	unlock, taken := s.locks.TryLock(agent.Cwd)
+	// Waited for rather than skipped, since collecting a reset's only copy mid-reset would lose
+	// it outright while skipping leaks these refs for good once the row is gone.
+	waiting, cancel := context.WithTimeout(ctx, refsLockWait)
+	defer cancel()
+
+	unlock, taken := s.locks.Lock(waiting, agent.Cwd)
 	if !taken {
-		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "left the refs of an agent being deleted, since something is working in its worktree",
+		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "left the refs of an agent being deleted, since its worktree stayed busy",
 			slog.String(logging.AgentID, agent.ID))
 
 		return
