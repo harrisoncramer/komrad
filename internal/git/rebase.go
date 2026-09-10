@@ -242,6 +242,32 @@ func ReleaseRefsUnder(ctx context.Context, dir, prefix, keep string) error {
 	return nil
 }
 
+// FindShadowedPaths are the paths a reset onto ref would write that currently hold ignored
+// content, which is content a park cannot hold and so cannot give back.
+func FindShadowedPaths(ctx context.Context, dir, ref string) ([]string, error) {
+	changed, err := Run(ctx, dir, "diff", "--name-only", "HEAD", ref)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read what a reset onto %s would write in %q: %w", ref, dir, err)
+	}
+	if strings.TrimSpace(changed) == "" {
+		return nil, nil
+	}
+
+	// Asked only of the paths the reset would actually write, since a worktree's ignored files
+	// run to whole dependency trees and every one of them would otherwise be a question.
+	args := append([]string{"ls-files", "--others", "--ignored", "--exclude-standard", "--"},
+		strings.Split(changed, "\n")...)
+	out, err := Run(ctx, dir, args...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read the ignored files of %q: %w", dir, err)
+	}
+	if strings.TrimSpace(out) == "" {
+		return nil, nil
+	}
+
+	return strings.Split(out, "\n"), nil
+}
+
 // ResetToBase moves the branch onto ref and makes the tracked files match it.
 func ResetToBase(ctx context.Context, dir, ref string) error {
 	if _, err := Run(ctx, dir, "reset", "--hard", ref); err != nil {

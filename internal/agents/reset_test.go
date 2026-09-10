@@ -2,6 +2,7 @@ package agents
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -165,8 +166,9 @@ func readTree(t *testing.T, dir, name string) string {
 }
 
 type fakeRounds struct {
-	rounds  []reviewstore.Round
-	deleted bool
+	rounds    []reviewstore.Round
+	deleted   bool
+	deleteErr error
 }
 
 func (f *fakeRounds) ListRounds(context.Context, string) ([]reviewstore.Round, error) {
@@ -174,6 +176,9 @@ func (f *fakeRounds) ListRounds(context.Context, string) ([]reviewstore.Round, e
 }
 
 func (f *fakeRounds) DeleteRounds(context.Context, string) error {
+	if f.deleteErr != nil {
+		return f.deleteErr
+	}
 	f.deleted = true
 
 	return nil
@@ -210,4 +215,52 @@ func TestResetRefusesWhatItCannotPark(t *testing.T) {
 
 	_, err := service.Reset(t.Context(), "a1")
 	require.ErrorIs(t, err, ErrRebaseHiddenPaths)
+}
+
+// TestResetRefusesAnIgnoredFileTheBaseTracks covers the one loss a park cannot undo, since the
+// park is built with git add -A and a reset writes every path the base tracks.
+func TestResetRefusesAnIgnoredFileTheBaseTracks(t *testing.T) {
+	t.Parallel()
+
+	tree := buildResetWorktree(t)
+	origin := filepath.Join(filepath.Dir(tree), "origin")
+
+	// The base starts tracking the very path this worktree holds as an ignored file.
+	writeTree(t, origin, ".gitignore", "")
+	writeTree(t, origin, "secrets.env", "SHARED=from-the-base\n")
+	gitRun(t, origin, "add", "-A")
+	gitRun(t, origin, "commit", "--quiet", "-m", "the base now tracks it")
+
+	service := resetService(t, tree, nil)
+
+	_, err := service.Reset(t.Context(), "a1")
+	require.ErrorIs(t, err, ErrResetShadowed)
+	require.ErrorContains(t, err, "secrets.env", "the refusal names the path it is about")
+
+	assert.Equal(t, "SECRET=hunter2\n", readTree(t, tree, "secrets.env"),
+		"and the local file is untouched, since a reset would have overwritten it with no way back")
+}
+
+// TestResetDropsTheRowsBeforeTheRefs covers the order the review screen depends on, since a
+// released snapshot under a surviving row reads as a bad object rather than an empty diff.
+func TestResetDropsTheRowsBeforeTheRefs(t *testing.T) {
+	t.Parallel()
+
+	tree := buildResetWorktree(t)
+	snapshot, err := git.Run(t.Context(), tree, "rev-parse", "HEAD")
+	require.NoError(t, err)
+	gitRun(t, tree, "update-ref", roundRef("a1", snapshot), snapshot)
+
+	rounds := &fakeRounds{
+		rounds:    []reviewstore.Round{{AgentID: "a1", SnapshotSHA: snapshot}},
+		deleteErr: errors.New("the rows could not be deleted"),
+	}
+	service := resetService(t, tree, rounds)
+
+	result, err := service.Reset(t.Context(), "a1")
+	require.NoError(t, err, "the reset itself still stands")
+	assert.Zero(t, result.Rounds, "and reports that no rounds went")
+
+	_, err = git.Run(t.Context(), tree, "rev-parse", "--verify", roundRef("a1", snapshot))
+	require.NoError(t, err, "the snapshot is still held, since its row survived to name it")
 }

@@ -22,6 +22,9 @@ import (
 // ErrResetPark says the copy that makes a reset survivable could not be written.
 var ErrResetPark = errors.New("the worktree could not be parked, so nothing was reset")
 
+// ErrResetShadowed says the base tracks a path this worktree holds as an ignored file.
+var ErrResetShadowed = errors.New("the base tracks these paths, which this worktree holds as ignored files that a reset would overwrite and no copy could give back")
+
 // roundReadDeleter is the slice of the review store a reset reads and clears.
 type roundReadDeleter interface {
 	ListRounds(ctx context.Context, agentID string) ([]reviewstore.Round, error)
@@ -79,6 +82,16 @@ func (s *RefreshService) PlanReset(ctx context.Context, agentID string) (*ResetP
 	commits, err := git.CountCommitsToReplay(ctx, agent.Cwd, ref)
 	if err != nil {
 		return nil, err
+	}
+
+	// A park is built with git add -A and so holds no ignored file, and a reset writes every
+	// path the base tracks, so a path that is both is the one thing here with no way back.
+	shadowed, err := git.FindShadowedPaths(ctx, agent.Cwd, ref)
+	if err != nil {
+		return nil, err
+	}
+	if len(shadowed) > 0 {
+		return nil, fmt.Errorf("%w: %s", ErrResetShadowed, strings.Join(shadowed, ", "))
 	}
 
 	return &ResetPlan{
@@ -151,19 +164,20 @@ func (s *RefreshService) tearDownRounds(ctx context.Context, agent agentstore.Ag
 		return 0
 	}
 
-	// Released before the rows go, since the row is what names the ref to release.
-	for _, round := range rounds {
-		if err := git.ReleaseRef(ctx, agent.Cwd, roundRef(agent.ID, round.SnapshotSHA)); err != nil {
-			logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to release the snapshot of a round",
-				append([]slog.Attr{slog.String(logging.AgentID, agent.ID)}, logging.Err(err)...)...)
-		}
-	}
-
+	// The rows go first, since a released ref under a surviving row names a snapshot git may
+	// collect and the review screen answers that with a bad object rather than an empty diff.
 	if err := s.rounds.DeleteRounds(ctx, agent.ID); err != nil {
 		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to delete the rounds of a reset agent",
 			append([]slog.Attr{slog.String(logging.AgentID, agent.ID)}, logging.Err(err)...)...)
 
 		return 0
+	}
+
+	for _, round := range rounds {
+		if err := git.ReleaseRef(ctx, agent.Cwd, roundRef(agent.ID, round.SnapshotSHA)); err != nil {
+			logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to release the snapshot of a round",
+				append([]slog.Attr{slog.String(logging.AgentID, agent.ID)}, logging.Err(err)...)...)
+		}
 	}
 
 	return len(rounds)
