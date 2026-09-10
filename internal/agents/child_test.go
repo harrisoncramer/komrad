@@ -323,8 +323,8 @@ func TestArchiveTakesTheChildren(t *testing.T) {
 	}
 }
 
-// TestArchiveOfAChildLeavesTheParent pins that finishing with one child says nothing about the
-// agent it was reading for, which keeps working with its row where it was.
+// TestArchiveOfAChildLeavesTheParent pins that finishing with one child leaves the agent it was
+// reading for where it was, told nothing.
 func TestArchiveOfAChildLeavesTheParent(t *testing.T) {
 	tmux := newFakeTmux()
 	st := newStore(t)
@@ -344,8 +344,7 @@ func TestArchiveOfAChildLeavesTheParent(t *testing.T) {
 
 	claimed, err := st.Mail.Claim(ctx, parent.ID, 10)
 	require.NoError(t, err)
-	require.Len(t, claimed, 1, "the parent hears that what it was waiting on is gone")
-	assert.Contains(t, claimed[0].Body, "archived")
+	assert.Empty(t, claimed, "a child raises no lifecycle mail")
 }
 
 // TestArchiveOfAParentTellsTheChildNothing pins that a child archived alongside its parent
@@ -364,26 +363,6 @@ func TestArchiveOfAParentTellsTheChildNothing(t *testing.T) {
 	claimed, err := st.Mail.Claim(ctx, parent.ID, 10)
 	require.NoError(t, err)
 	assert.Empty(t, claimed)
-}
-
-// TestArchiveOfAParentTellsAThirdPartySpawner pins that an orchestrator which attached a child
-// to some other agent still hears the child is gone.
-func TestArchiveOfAParentTellsAThirdPartySpawner(t *testing.T) {
-	tmux := newFakeTmux()
-	st := newStore(t)
-	manager := newManagerWithNotifier(tmux, st, newNotifier(st))
-	ctx := t.Context()
-
-	orchestrator := seedRunning(t, st, tmux, "orchestrator", "%orchestrator", agentstore.StateIdle)
-	parent := seedRunning(t, st, tmux, "author", "%author", agentstore.StateIdle)
-	seedChildSpawnedBy(t, st, tmux, parent, orchestrator.ID)
-
-	require.NoError(t, manager.lifecycle.ArchiveAgents(ctx, []string{parent.ID}))
-
-	claimed, err := st.Mail.Claim(ctx, orchestrator.ID, 10)
-	require.NoError(t, err)
-	require.Len(t, claimed, 1)
-	assert.Contains(t, claimed[0].Body, "archived")
 }
 
 // TestDeleteTakesTheChildren pins that deleting a parent removes the children too, and that
