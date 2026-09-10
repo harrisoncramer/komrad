@@ -352,9 +352,10 @@ func TestRebaseFastForwardsASquashedBranch(t *testing.T) {
 	result, err := service.Rebase(t.Context(), "a1")
 	require.NoError(t, err)
 
-	assert.True(t, result.FastForwarded, "the branch was moved rather than replayed")
-	assert.False(t, result.Conflicted, "which is the collision the fast-forward exists to avoid")
-	assert.True(t, result.SameTree)
+	assert.True(t, result.Moved, "the branch reached the base without replaying anything")
+	assert.False(t, result.Conflicted, "which is the collision the cutoff exists to avoid")
+	assert.NotEmpty(t, result.Cutoff)
+	assert.Zero(t, result.Replay, "nothing was written after the merge, so nothing is replayed")
 	assert.Positive(t, result.Commits, "commits a plain rebase would have replayed into that collision")
 
 	head, err := git.Run(t.Context(), tree, "rev-parse", "HEAD")
@@ -382,8 +383,8 @@ func TestRebaseReplaysWhenTheTreesDiffer(t *testing.T) {
 	result, err := service.Rebase(t.Context(), "a1")
 	require.NoError(t, err)
 
-	assert.False(t, result.FastForwarded)
-	assert.False(t, result.SameTree)
+	assert.False(t, result.Moved)
+	assert.Empty(t, result.Cutoff)
 
 	own, err := git.Run(t.Context(), tree, "log", "--format=%s", "-1")
 	require.NoError(t, err)
@@ -411,17 +412,203 @@ func buildSquashedWorktree(t *testing.T) (tree, origin string) {
 
 	tree = filepath.Join(root, "tree")
 	gitRun(t, clone, "worktree", "add", "--quiet", "--no-track", "-b", "agent/a1", tree, "origin/main")
-	writeTree(t, tree, "first.txt", "first\n")
-	gitRun(t, tree, "add", "first.txt")
-	gitRun(t, tree, "commit", "--quiet", "-m", "first")
-	writeTree(t, tree, "second.txt", "second\n")
-	gitRun(t, tree, "add", "second.txt")
-	gitRun(t, tree, "commit", "--quiet", "-m", "second")
+
+	// Two commits refining one file, so the squash holds the finished content while the first
+	// commit holds a draft that exists nowhere else and whose replay is the collision.
+	writeTree(t, tree, "own.txt", "first draft\n")
+	gitRun(t, tree, "add", "own.txt")
+	gitRun(t, tree, "commit", "--quiet", "-m", "a first go")
+	writeTree(t, tree, "own.txt", "second draft\n")
+	gitRun(t, tree, "add", "own.txt")
+	gitRun(t, tree, "commit", "--quiet", "-m", "and a second")
 
 	// The branch reaches origin the way a squash merge puts it there, as one commit of its own.
 	gitRun(t, tree, "push", "--quiet", "origin", "agent/a1")
 	gitRun(t, origin, "merge", "--quiet", "--squash", "agent/a1")
 	gitRun(t, origin, "commit", "--quiet", "-m", "the branch, squashed (#1)")
 
+	// And something else lands alongside it, which is what makes the trees differ and is the
+	// shape that got past the first version of this check.
+	writeTree(t, origin, "elsewhere.txt", "another pull request\n")
+	gitRun(t, origin, "add", "elsewhere.txt")
+	gitRun(t, origin, "commit", "--quiet", "-m", "another pull request (#2)")
+
 	return tree, origin
+}
+
+// TestRebaseReplaysOnlyWhatFollowedTheMerge is the partly landed branch, where a plain rebase
+// replays the landed commits into their own content and stops.
+func TestRebaseReplaysOnlyWhatFollowedTheMerge(t *testing.T) {
+	t.Parallel()
+
+	tree, _ := buildSquashedWorktree(t)
+	writeTree(t, tree, "after.txt", "written after the merge\n")
+	gitRun(t, tree, "add", "after.txt")
+	gitRun(t, tree, "commit", "--quiet", "-m", "kept going")
+
+	service := NewRebaseService(NewRebaseServiceParams{
+		Agents: &recordingRebaseAgents{agent: agentstore.Agent{
+			ID: "a1", Name: "auth", WorkflowID: "w1", Cwd: tree, State: agentstore.StateIdle,
+		}},
+		Workflows: fakeRebaseWorkflows{flow: worktreeFlow()},
+	})
+
+	result, err := service.Rebase(t.Context(), "a1")
+	require.NoError(t, err)
+
+	require.False(t, result.Conflicted, "the cutoff is what keeps this off the conflict path")
+	assert.Equal(t, 1, result.Replay, "only the commit written after the merge")
+	assert.Positive(t, result.Landed, "and the ones the base already holds are not replayed")
+	assert.False(t, result.Moved, "there was real work to move, so this is not a bare move")
+
+	body, err := os.ReadFile(filepath.Join(tree, "after.txt"))
+	require.NoError(t, err)
+	assert.Equal(t, "written after the merge\n", string(body), "the work written after the merge survived")
+
+	_, err = os.Stat(filepath.Join(tree, "elsewhere.txt"))
+	require.NoError(t, err, "and the other pull request came in")
+}
+
+// TestRebaseRefusesAPathTheIndexIsHolding covers a path whose working copy git is deliberately
+// not reading, which nothing could put back if the move went wrong.
+func TestRebaseRefusesAPathTheIndexIsHolding(t *testing.T) {
+	t.Parallel()
+
+	tree := buildAgentWorktree(t, false)
+	gitRun(t, tree, "update-index", "--assume-unchanged", "own.txt")
+
+	service := NewRebaseService(NewRebaseServiceParams{
+		Agents: &recordingRebaseAgents{agent: agentstore.Agent{
+			ID: "a1", Name: "auth", WorkflowID: "w1", Cwd: tree, State: agentstore.StateIdle,
+		}},
+		Workflows: fakeRebaseWorkflows{flow: worktreeFlow()},
+	})
+
+	_, err := service.Rebase(t.Context(), "a1")
+	require.ErrorIs(t, err, ErrRebaseHiddenPaths)
+}
+
+// TestRebaseParksBeforeItMoves pins the undo being written before anything is rewritten, since
+// the commits a replay from a cutoff drops are dropped on purpose.
+func TestRebaseParksBeforeItMoves(t *testing.T) {
+	t.Parallel()
+
+	tree, _ := buildSquashedWorktree(t)
+	writeTree(t, tree, "uncommitted.txt", "never committed\n")
+	before, err := git.Run(t.Context(), tree, "rev-parse", "HEAD")
+	require.NoError(t, err)
+
+	service := NewRebaseService(NewRebaseServiceParams{
+		Agents: &recordingRebaseAgents{agent: agentstore.Agent{
+			ID: "a1", Name: "auth", WorkflowID: "w1", Cwd: tree, State: agentstore.StateIdle,
+		}},
+		Workflows: fakeRebaseWorkflows{flow: worktreeFlow()},
+	})
+
+	result, err := service.Rebase(t.Context(), "a1")
+	require.NoError(t, err)
+	require.NotEmpty(t, result.ParkedRef)
+	require.Zero(t, result.Replay, "the fixture did not drop the commits this is about")
+
+	parent, err := git.Run(t.Context(), tree, "rev-parse", result.ParkedRef+"^")
+	require.NoError(t, err)
+	assert.Equal(t, before, parent, "the dropped commits are still reachable from the park")
+
+	kept, err := git.Run(t.Context(), tree, "show", result.ParkedRef+":uncommitted.txt")
+	require.NoError(t, err)
+	assert.Equal(t, "never committed", kept, "and so is the work that was never committed")
+}
+
+// TestRebaseMailsForAnAgentWithNoWorkOfItsOwn is the commonest press of all, where the agent is
+// simply behind, and must not be told its commits are gone when it never had any.
+func TestRebaseMailsForAnAgentWithNoWorkOfItsOwn(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	origin := filepath.Join(root, "origin")
+	gitRun(t, root, "init", "--quiet", "-b", "main", origin)
+	gitRun(t, origin, "config", "user.email", "t@example.com")
+	gitRun(t, origin, "config", "user.name", "t")
+	writeTree(t, origin, "base.txt", "base\n")
+	gitRun(t, origin, "add", "base.txt")
+	gitRun(t, origin, "commit", "--quiet", "-m", "base")
+
+	clone := filepath.Join(root, "clone")
+	gitRun(t, root, "clone", "--quiet", origin, clone)
+	gitRun(t, clone, "config", "user.email", "t@example.com")
+	gitRun(t, clone, "config", "user.name", "t")
+
+	tree := filepath.Join(root, "tree")
+	gitRun(t, clone, "worktree", "add", "--quiet", "--no-track", "-b", "agent/a1", tree, "origin/main")
+
+	writeTree(t, origin, "moved.txt", "main moved on\n")
+	gitRun(t, origin, "add", "moved.txt")
+	gitRun(t, origin, "commit", "--quiet", "-m", "main moved on")
+
+	service := NewRebaseService(NewRebaseServiceParams{
+		Agents: &recordingRebaseAgents{agent: agentstore.Agent{
+			ID: "a1", Name: "auth", WorkflowID: "w1", Cwd: tree, State: agentstore.StateIdle,
+		}},
+		Workflows: fakeRebaseWorkflows{flow: worktreeFlow()},
+	})
+
+	result, err := service.Rebase(t.Context(), "a1")
+	require.NoError(t, err)
+	require.Zero(t, result.Landed, "the fixture must be a branch that never had work of its own")
+
+	assert.False(t, result.Moved, "nothing landed, so nothing was moved off the branch")
+	body := rebaseMail(agentstore.Agent{}, *result)
+	assert.NotContains(t, body, "of your commits are no longer on the branch",
+		"an agent with no commits must not be told its commits are gone")
+	assert.Contains(t, body, "no commits of your own to replay")
+}
+
+// TestRebaseMailNamesThePark covers the undo being findable from every outcome, not only the one
+// where the whole branch landed.
+func TestRebaseMailNamesThePark(t *testing.T) {
+	t.Parallel()
+
+	for _, tt := range []struct {
+		name   string
+		result RebaseResult
+	}{
+		{
+			name:   "a rebase stopped on conflicts",
+			result: RebaseResult{Conflicted: true, ParkedRef: "refs/weave/prerefresh/a1/1"},
+		},
+		{
+			name: "a replay that dropped commits the base already held",
+			result: RebaseResult{
+				RebasePlan: RebasePlan{Landed: 2, Replay: 1},
+				ParkedRef:  "refs/weave/prerefresh/a1/1",
+			},
+		},
+		{
+			name: "a branch that reached the base without replaying anything",
+			result: RebaseResult{
+				RebasePlan: RebasePlan{Landed: 2},
+				Moved:      true,
+				ParkedRef:  "refs/weave/prerefresh/a1/1",
+			},
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			assert.Contains(t, rebaseMail(agentstore.Agent{}, tt.result), "refs/weave/prerefresh/a1/1")
+		})
+	}
+}
+
+// TestReplayedMailSaysWhatLeftTheBranch covers the case this whole change exists for, where
+// commits are dropped on purpose and the old wording said nothing was lost.
+func TestReplayedMailSaysWhatLeftTheBranch(t *testing.T) {
+	t.Parallel()
+
+	body := rebaseMail(agentstore.Agent{}, RebaseResult{
+		RebasePlan: RebasePlan{Landed: 2, Replay: 1},
+	})
+
+	assert.Contains(t, body, "2 of your commits are no longer on the branch")
+	assert.NotContains(t, body, "Nothing was lost")
 }

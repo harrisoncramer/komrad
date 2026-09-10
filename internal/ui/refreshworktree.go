@@ -13,9 +13,10 @@ type refreshPlan struct {
 	baseRef string
 	baseSHA string
 	commits int
-	// sameTree says the base already holds the branch's own content, so a rebase would replay
-	// commits onto files the base already has and collide with them.
-	sameTree bool
+	// landed is how many of the branch's own commits the base already holds, and replay how
+	// many are left to move onto it.
+	landed int
+	replay int
 	// merges is how many merge commits a rebase would discard, and conflictPaths what a merge
 	// of the base into the branch could not settle.
 	merges        int
@@ -30,14 +31,16 @@ type refreshPlannedMsg struct {
 
 // rebasedMsg is a finished rebase, conflicted when it stopped and is waiting for the agent.
 type rebasedMsg struct {
-	name       string
-	baseRef    string
-	baseSHA    string
-	commits    int
+	name    string
+	baseRef string
+	baseSHA string
+	// landed is how many of its commits the base already held, and replay how many moved.
+	landed     int
+	replay     int
 	conflicted bool
-	// fastForwarded says the branch was moved onto the base outright rather than replayed.
-	fastForwarded bool
-	err           error
+	// moved says the branch reached the base without replaying anything.
+	moved bool
+	err   error
 }
 
 // planRefreshCmd asks what a rebase would do.
@@ -56,7 +59,8 @@ func (m *model) planRefreshCmd(agentID, name string) tea.Cmd {
 			baseRef:       plan.GetBaseRef(),
 			baseSHA:       plan.GetBaseSha(),
 			commits:       int(plan.GetCommits()),
-			sameTree:      plan.GetSameTree(),
+			landed:        int(plan.GetLandedCommits()),
+			replay:        int(plan.GetReplayCommits()),
 			merges:        int(plan.GetMerges()),
 			conflictPaths: plan.GetConflictPaths(),
 		}}
@@ -74,12 +78,13 @@ func (m *model) rebaseCmd(agentID, name string) tea.Cmd {
 		}
 
 		return rebasedMsg{
-			name:          name,
-			baseRef:       result.GetBaseRef(),
-			baseSHA:       result.GetBaseSha(),
-			commits:       int(result.GetCommits()),
-			conflicted:    result.GetConflicted(),
-			fastForwarded: result.GetFastForwarded(),
+			name:       name,
+			baseRef:    result.GetBaseRef(),
+			baseSHA:    result.GetBaseSha(),
+			landed:     int(result.GetLandedCommits()),
+			replay:     int(result.GetReplayCommits()),
+			conflicted: result.GetConflicted(),
+			moved:      result.GetMoved(),
 		}
 	}
 }
@@ -115,12 +120,12 @@ func (m *model) applyRebased(msg rebasedMsg) tea.Model {
 		return m
 	}
 
-	if msg.fastForwarded {
+	if msg.moved {
 		m.pushMessage(message{
 			kind:    messageInfo,
 			summary: msg.name + ": moved onto " + msg.baseRef,
 			detail: fmt.Sprintf("%s. The base already held its work, so %s were dropped rather than replayed onto themselves.",
-				shortSHA(msg.baseSHA), countWord(msg.commits, "commit", "commits")),
+				shortSHA(msg.baseSHA), countWord(msg.landed, "commit", "commits")),
 		})
 
 		return m
@@ -130,7 +135,7 @@ func (m *model) applyRebased(msg rebasedMsg) tea.Model {
 		kind:    messageInfo,
 		summary: msg.name + ": rebased onto " + msg.baseRef,
 		detail: fmt.Sprintf("%s, %s replayed.",
-			shortSHA(msg.baseSHA), countWord(msg.commits, "commit", "commits")),
+			shortSHA(msg.baseSHA), countWord(msg.replay, "commit", "commits")),
 	})
 
 	return m

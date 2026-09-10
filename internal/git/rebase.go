@@ -16,6 +16,12 @@ import (
 // reasoning is why an untracked file does not block a rebase here: git completes one with
 // untracked files in place, and an agent's worktree nearly always holds some.
 //
+// Explainer: the two counts a plan carries are read from different places on purpose. Landed is
+// counted off the graph, because it says how many commits leave the branch, and that has to
+// include merges or a branch whose landed run is all merges reads as having landed nothing.
+// Replay is read from git cherry, because it says how many commits a rebase would actually
+// move, and git skips both merges and commits whose patch the base already holds.
+
 // Explainer: two orderings in here are load-bearing rather than incidental. The index is
 // refreshed before it is compared against HEAD, because diff-index reads cached stat data and a
 // file rewritten with identical content otherwise reads as changed. And the base is fetched
@@ -29,6 +35,9 @@ var ErrRebaseConflicted = errors.New("the rebase stopped on conflicts")
 // ErrBaseUnresolved says the base to rebase onto is not a ref this repository can reach.
 var ErrBaseUnresolved = errors.New("the base branch does not resolve to a remote-tracking ref")
 
+// ErrBaseUnrelated says the base shares no history with the branch, so nothing relates them.
+var ErrBaseUnrelated = errors.New("the base shares no history with this branch")
+
 // sequenceMarkers are the paths git keeps while something else owns the index.
 var sequenceMarkers = []string{"MERGE_HEAD", "CHERRY_PICK_HEAD", "REVERT_HEAD", "rebase-merge", "rebase-apply"}
 
@@ -40,6 +49,27 @@ type TreeState struct {
 	TrackedChanges bool
 	// InProgress is whether a merge, a rebase or a cherry-pick is already part-way through.
 	InProgress bool
+	// Shallow is whether the clone is cut off from its own history, which makes every question
+	// about what the branch and the base share answer wrongly rather than fail.
+	Shallow bool
+	// HiddenPaths are the paths whose content the index is holding back on purpose, which
+	// nothing can read out of the checkout and so nothing can put back.
+	HiddenPaths []string
+}
+
+// Prediction is what a rebase onto a base would run into, read without touching the checkout.
+type Prediction struct {
+	// Cutoff is the newest of the branch's own commits whose content the base already holds
+	// whole, which is where a replay of the rest starts, empty when the base holds none of it.
+	Cutoff string
+	// Landed is how many of the branch's own commits the cutoff covers, and Replay how many
+	// would actually be moved.
+	Landed int
+	Replay int
+	// Merges is how many merge commits a rebase would discard, since it flattens history.
+	Merges int
+	// ConflictPaths are the paths a three-way merge of the base into the branch cannot settle.
+	ConflictPaths []string
 }
 
 // ReadTreeState reads the three things about a checkout a rebase has to decide on.
@@ -65,6 +95,18 @@ func ReadTreeState(ctx context.Context, dir string) (TreeState, error) {
 		return TreeState{}, err
 	}
 	state.TrackedChanges = dirty
+
+	shallow, err := isShallow(ctx, dir)
+	if err != nil {
+		return TreeState{}, err
+	}
+	state.Shallow = shallow
+
+	hidden, err := readHiddenPaths(ctx, dir)
+	if err != nil {
+		return TreeState{}, err
+	}
+	state.HiddenPaths = hidden
 
 	return state, nil
 }
@@ -105,71 +147,190 @@ func CountCommitsToReplay(ctx context.Context, dir, ref string) (int, error) {
 	return countRevList(ctx, dir, ref, "--count", ref+"..HEAD")
 }
 
-// Prediction is what a rebase onto a base would run into, read without touching the checkout.
-type Prediction struct {
-	// SameTree is whether the base and the branch name one tree, so every commit a rebase
-	// replayed would land on content the base already holds.
-	SameTree bool
-	// Merges is how many merge commits a rebase would discard, since it flattens history.
-	Merges int
-	// ConflictPaths are the paths a three-way merge of the base into the branch cannot settle.
-	ConflictPaths []string
-}
-
 // PredictRebase reads what a rebase onto ref would run into, without touching the checkout.
 func PredictRebase(ctx context.Context, dir, ref string) (Prediction, error) {
-	sameTree, err := namesOneTree(ctx, dir, ref)
+	prediction := Prediction{}
+
+	related, err := doesShareHistory(ctx, dir, ref, "HEAD")
+	if err != nil {
+		return Prediction{}, err
+	}
+	if !related {
+		return Prediction{}, fmt.Errorf("%w: %s", ErrBaseUnrelated, ref)
+	}
+
+	own, err := listOwnCommits(ctx, dir, ref)
 	if err != nil {
 		return Prediction{}, err
 	}
 
-	merges, err := countRevList(ctx, dir, ref, "--count", "--merges", ref+"..HEAD")
+	prediction.Replay, err = countUnlanded(ctx, dir, ref, "")
 	if err != nil {
 		return Prediction{}, err
 	}
 
-	paths, err := conflictPaths(ctx, dir, ref)
+	prediction.Merges, err = countRevList(ctx, dir, ref, "--count", "--merges", ref+"..HEAD")
 	if err != nil {
 		return Prediction{}, err
 	}
 
-	return Prediction{SameTree: sameTree, Merges: merges, ConflictPaths: paths}, nil
+	prediction.ConflictPaths, err = readConflictPaths(ctx, dir, ref)
+	if err != nil {
+		return Prediction{}, err
+	}
+
+	// A base the branch already contains is not one to catch up to, whatever its content says:
+	// a branch that committed something and then reverted it holds the base's own tree, and
+	// replaying from its tip would drop both commits over a rebase git calls a no-op.
+	contained, err := isAncestor(ctx, dir, ref, "HEAD")
+	if err != nil || contained {
+		return prediction, err
+	}
+
+	at, err := findLandedCutoff(ctx, dir, ref, own)
+	if err != nil {
+		return Prediction{}, err
+	}
+	if at < 0 {
+		return prediction, nil
+	}
+
+	prediction.Cutoff = own[at]
+
+	// Counted off the graph rather than off a list position, since a side branch merged in sits
+	// before the cutoff in topological order while not being reachable from it.
+	prediction.Landed, err = countRevList(ctx, dir, ref, "--count", ref+".."+prediction.Cutoff)
+	if err != nil {
+		return Prediction{}, err
+	}
+
+	prediction.Replay, err = countUnlanded(ctx, dir, ref, prediction.Cutoff)
+	if err != nil {
+		return Prediction{}, err
+	}
+
+	return prediction, nil
 }
 
-// FastForward moves the branch onto ref outright, which is a rebase's answer when replaying
-// would only collide with content the base already holds.
-func FastForward(ctx context.Context, dir, ref string) error {
-	// --keep rather than --hard, which would revert a tracked file the agent wrote between the
-	// state being read and this running, since the two name one tree and nothing differs.
-	if _, err := Run(ctx, dir, "reset", "--keep", ref); err != nil {
-		return fmt.Errorf("failed to move %q onto %s: %w", dir, ref, err)
+// RebaseOnto replays the checkout's commits after cutoff onto ref, leaving a stopped rebase.
+func RebaseOnto(ctx context.Context, dir, ref, cutoff string) error {
+	return runRebase(ctx, dir, ref, "rebase", "--onto", ref, cutoff)
+}
+
+// ReleaseRefsUnder deletes every ref beneath prefix except keep, which is how a park that has
+// been superseded stops pinning a whole worktree in the shared clone.
+func ReleaseRefsUnder(ctx context.Context, dir, prefix, keep string) error {
+	out, err := Run(ctx, dir, "for-each-ref", "--format=%(refname)", prefix)
+	if err != nil {
+		return fmt.Errorf("failed to list the refs under %q: %w", prefix, err)
+	}
+
+	for _, ref := range strings.Split(out, "\n") {
+		if ref == "" || ref == keep {
+			continue
+		}
+		if err := ReleaseRef(ctx, dir, ref); err != nil {
+			return err
+		}
 	}
 
 	return nil
 }
 
-// namesOneTree reports whether ref names the checkout's own tree from outside its history,
-// which is what a branch whose work has landed on the base looks like.
-func namesOneTree(ctx context.Context, dir, ref string) (bool, error) {
-	// A base the branch already contains is not one to move onto, whatever the trees say: a
-	// branch that committed something and then reverted it also names the base's tree, and
-	// moving it would destroy both of those commits over a rebase git calls a no-op.
-	contained, err := isAncestor(ctx, dir, ref, "HEAD")
-	if err != nil || contained {
-		return false, err
+// Rebase moves a checkout's branch onto ref, leaving a stopped rebase where it is.
+func Rebase(ctx context.Context, dir, ref string) error {
+	return runRebase(ctx, dir, ref, "rebase", ref)
+}
+
+// listOwnCommits lists the branch's own commits against ref, oldest first.
+func listOwnCommits(ctx context.Context, dir, ref string) ([]string, error) {
+	out, err := Run(ctx, dir, "rev-list", "--reverse", ref+"..HEAD")
+	if err != nil {
+		return nil, fmt.Errorf("failed to list what %q has of its own against %s: %w", dir, ref, err)
+	}
+
+	if strings.TrimSpace(out) == "" {
+		return nil, nil
+	}
+
+	return strings.Split(out, "\n"), nil
+}
+
+// findLandedCutoff finds the index in own of the newest commit whose content the base already
+// holds whole, or -1 when the base holds none of them.
+func findLandedCutoff(ctx context.Context, dir, ref string, own []string) (int, error) {
+	if len(own) == 0 {
+		return -1, nil
 	}
 
 	base, err := Run(ctx, dir, "rev-parse", "--verify", ref+"^{tree}")
 	if err != nil {
-		return false, fmt.Errorf("failed to read the tree of %q: %w", ref, err)
+		return -1, fmt.Errorf("failed to read the tree of %q: %w", ref, err)
 	}
 
-	head, err := Run(ctx, dir, "rev-parse", "--verify", "HEAD^{tree}")
+	// Walked newest first rather than halved, since a squash leaves the intermediate states
+	// holding content the base never took and so reading as unlanded inside a landed run.
+	for i := len(own) - 1; i >= 0; i-- {
+		merged, _, err := readMergedTree(ctx, dir, ref, own[i])
+		if err != nil {
+			return -1, err
+		}
+		if merged == base {
+			return i, nil
+		}
+	}
+
+	return -1, nil
+}
+
+// readConflictPaths test-merges ref into the head and answers with what would not settle.
+func readConflictPaths(ctx context.Context, dir, ref string) ([]string, error) {
+	_, paths, err := readMergedTree(ctx, dir, ref, "HEAD")
+
+	return paths, err
+}
+
+// readMergedTree merges two commits in memory and answers with the tree that would result and
+// the paths that would not settle, without touching the checkout.
+func readMergedTree(ctx context.Context, dir, left, right string) (tree string, conflicts []string, err error) {
+	// A conflict is reported by exiting 1 with the paths on stdout, so that code is an answer.
+	out, err := runAllowing(ctx, dir, 1, "merge-tree", "--write-tree", "--name-only", left, right)
 	if err != nil {
-		return false, fmt.Errorf("failed to read the tree of the head of %q: %w", dir, err)
+		return "", nil, fmt.Errorf("failed to test-merge %s into %s in %q: %w", left, right, dir, err)
 	}
 
-	return base == head, nil
+	// The first line is the tree the merge wrote, the paths follow it, and a blank line ends
+	// them before the messages git wrote about each one.
+	lines := strings.Split(out, "\n")
+	if len(lines) == 0 {
+		return "", nil, fmt.Errorf("failed to read what merging %s into %s would do in %q", left, right, dir)
+	}
+	tree = lines[0]
+
+	for _, line := range lines[1:] {
+		if strings.TrimSpace(line) == "" {
+			break
+		}
+		conflicts = append(conflicts, line)
+	}
+
+	return tree, conflicts, nil
+}
+
+// doesShareHistory reports whether two commits have any commit in common.
+func doesShareHistory(ctx context.Context, dir, left, right string) (bool, error) {
+	_, err := Run(ctx, dir, "merge-base", left, right)
+	if err == nil {
+		return true, nil
+	}
+
+	// No common commit is reported by exiting 1, which is an answer rather than a failure.
+	var exit *exec.ExitError
+	if errors.As(err, &exit) && exit.ExitCode() == 1 {
+		return false, nil
+	}
+
+	return false, fmt.Errorf("failed to test what %s and %s share in %q: %w", left, right, dir, err)
 }
 
 // isAncestor reports whether one commit is reachable from another.
@@ -188,30 +349,29 @@ func isAncestor(ctx context.Context, dir, maybeAncestor, of string) (bool, error
 	return false, fmt.Errorf("failed to test whether %s is contained in %s: %w", maybeAncestor, of, err)
 }
 
-// conflictPaths test-merges ref into the checkout's head and answers with what would not settle.
-func conflictPaths(ctx context.Context, dir, ref string) ([]string, error) {
-	// A conflict is reported by exiting 1 with the paths on stdout, so that code is an answer.
-	out, err := runAllowing(ctx, dir, 1, "merge-tree", "--write-tree", "--name-only", ref, "HEAD")
+// countUnlanded counts the commits after cutoff that a rebase would actually move, which is
+// those whose patch the base does not already hold.
+func countUnlanded(ctx context.Context, dir, ref, cutoff string) (int, error) {
+	// git cherry marks a commit + when its patch is not upstream and - when it is, and skips
+	// merge commits, which is exactly what a rebase replays.
+	args := []string{"cherry", ref, "HEAD"}
+	if cutoff != "" {
+		args = append(args, cutoff)
+	}
+
+	out, err := Run(ctx, dir, args...)
 	if err != nil {
-		return nil, fmt.Errorf("failed to test-merge %s into %q: %w", ref, dir, err)
+		return 0, fmt.Errorf("failed to read what %q still owes %s: %w", dir, ref, err)
 	}
 
-	// The first line is the tree the merge wrote, the paths follow it, and a blank line ends
-	// them before the messages git wrote about each one.
-	lines := strings.Split(out, "\n")
-	if len(lines) < 2 {
-		return nil, nil
-	}
-
-	paths := []string{}
-	for _, line := range lines[1:] {
-		if strings.TrimSpace(line) == "" {
-			break
+	count := 0
+	for _, line := range strings.Split(out, "\n") {
+		if strings.HasPrefix(line, "+") {
+			count++
 		}
-		paths = append(paths, line)
 	}
 
-	return paths, nil
+	return count, nil
 }
 
 // countRevList reads a rev-list count, naming ref in whatever it could not do.
@@ -229,9 +389,9 @@ func countRevList(ctx context.Context, dir, ref string, args ...string) (int, er
 	return count, nil
 }
 
-// Rebase moves a checkout's branch onto ref, leaving a stopped rebase where it is.
-func Rebase(ctx context.Context, dir, ref string) error {
-	_, err := Run(ctx, dir, "rebase", ref)
+// runRebase runs one spelling of rebase and tells a stopped one from a failed one.
+func runRebase(ctx context.Context, dir, ref string, args ...string) error {
+	_, err := Run(ctx, dir, args...)
 	if err == nil {
 		return nil
 	}
@@ -245,6 +405,39 @@ func Rebase(ctx context.Context, dir, ref string) error {
 	}
 
 	return fmt.Errorf("failed to rebase onto %s in %q: %w", ref, dir, err)
+}
+
+// isShallow reports whether the clone has been cut off from its own history.
+func isShallow(ctx context.Context, dir string) (bool, error) {
+	// Asked of git rather than read off disk: the marker lives in the common directory, not in
+	// the one a linked worktree reports, and every agent runs in a linked worktree.
+	out, err := Run(ctx, dir, "rev-parse", "--is-shallow-repository")
+	if err != nil {
+		return false, fmt.Errorf("failed to read whether %q is shallow: %w", dir, err)
+	}
+
+	return out == "true", nil
+}
+
+// readHiddenPaths reads the tracked paths marked assume-unchanged or skip-worktree, whose
+// working copy git is deliberately not reading.
+func readHiddenPaths(ctx context.Context, dir string) ([]string, error) {
+	out, err := Run(ctx, dir, "ls-files", "-v")
+	if err != nil {
+		return nil, fmt.Errorf("failed to read the index flags of %q: %w", dir, err)
+	}
+
+	paths := []string{}
+	for _, line := range strings.Split(out, "\n") {
+		// Any lowercase tag is assume-unchanged and S is skip-worktree, which is the same rule
+		// hasAssumeUnchanged applies, since a path that is both marked and modified reads as c.
+		if len(line) < 3 || (line[0] != 'S' && (line[0] < 'a' || line[0] > 'z')) {
+			continue
+		}
+		paths = append(paths, line[2:])
+	}
+
+	return paths, nil
 }
 
 // isTrackedDirty reports whether anything git tracks differs from HEAD.

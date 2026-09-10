@@ -9,8 +9,17 @@ import (
 	"path/filepath"
 )
 
+// Explainer: a park is a commit parented on the head it was taken at, holding the whole
+// worktree as its tree. The parent keeps the commits an operation drops reachable and the tree
+// keeps the files it never committed, neither of which the reflog covers: that holds refs
+// rather than content, and expires. It is built through writeTree, so the agent's own index,
+// worktree and branch are left as they were and nothing is rehashed.
+
 // snapshotMessage is what the round's commit says.
 const snapshotMessage = "weave review round"
+
+// parkMessage is what the commit standing behind an undo says.
+const parkMessage = "weave parked worktree"
 
 // snapshotIdentity is who the round's commit is by and when, both pinned so that the same
 // worktree taken twice hashes to the same commit and reads as one round.
@@ -282,4 +291,34 @@ func GetTree(ctx context.Context, dir, sha string) (string, error) {
 	}
 
 	return tree, nil
+}
+
+// Park records a checkout as it stands, tracked and untracked alike, so a move can be undone.
+func Park(ctx context.Context, dir, ref string) (string, error) {
+	root, err := GetRoot(ctx, dir)
+	if err != nil {
+		return "", err
+	}
+
+	head, err := Run(ctx, root, "rev-parse", "--verify", "HEAD")
+	if err != nil {
+		return "", fmt.Errorf("failed to read the head of %q to park it: %w", root, err)
+	}
+
+	tree, err := writeTree(ctx, root)
+	if err != nil {
+		return "", err
+	}
+
+	env := append(os.Environ(), snapshotIdentity...)
+	sha, err := runEnv(ctx, root, env, "commit-tree", tree, "-p", head, "-m", parkMessage)
+	if err != nil {
+		return "", fmt.Errorf("failed to park %q: %w", root, err)
+	}
+
+	if err := HoldRef(ctx, root, ref, sha); err != nil {
+		return "", err
+	}
+
+	return sha, nil
 }
