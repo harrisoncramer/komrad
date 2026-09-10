@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"weave/internal/pgtest"
+	"weave/internal/dbtest"
 	"weave/internal/store"
 	agentstore "weave/internal/store/agent"
 	mailstore "weave/internal/store/mail"
@@ -365,7 +365,7 @@ type fixture struct {
 
 func open(t *testing.T) *fixture {
 	t.Helper()
-	p, err := store.Open(t.Context(), pgtest.URL(t))
+	p, err := store.Open(t.Context(), dbtest.URL(t))
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = p.Close() })
 
