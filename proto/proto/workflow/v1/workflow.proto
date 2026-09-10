@@ -84,7 +84,7 @@ message WorktreeConfig {
 message ListWorkflowsRequest {
   optional pagination.v1.Pagination pagination = 1;
   bool archived = 2;
-  view.v1.View view = 3;
+  view.v1.View view = 3 [(buf.validate.field).enum.defined_only = true];
 }
 
 message ListWorkflowsResponse {

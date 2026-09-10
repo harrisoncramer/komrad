@@ -22,6 +22,8 @@ const (
 	RequestIDRuleID = "RPC_REQUEST_ID_REFUSES_EMPTY"
 	// TypesUniqueRuleID is the rule holding a named request or response type to one method.
 	TypesUniqueRuleID = "RPC_NAMED_TYPES_UNIQUE"
+	// RequestEnumRuleID is the rule requiring a request's enum fields to refuse an undefined value.
+	RequestEnumRuleID = "RPC_REQUEST_ENUM_DEFINED_ONLY"
 )
 
 var (
@@ -51,6 +53,13 @@ var (
 				Purpose: "Checks that a field naming an id on a request carries a validation rule refusing it empty.",
 				Type:    check.RuleTypeLint,
 				Handler: checkutil.NewMethodRuleHandler(checkRequestIDs, checkutil.WithoutImports()),
+			},
+			{
+				ID:      RequestEnumRuleID,
+				Default: true,
+				Purpose: "Checks that an enum field on a request carries a validation rule refusing a value the enum does not define.",
+				Type:    check.RuleTypeLint,
+				Handler: checkutil.NewMethodRuleHandler(checkRequestEnums, checkutil.WithoutImports()),
 			},
 			{
 				ID:      TypesUniqueRuleID,
@@ -108,6 +117,39 @@ func checkRequestIDs(
 	return nil
 }
 
+func checkRequestEnums(
+	_ context.Context,
+	responseWriter check.ResponseWriter,
+	_ check.Request,
+	method protoreflect.MethodDescriptor,
+) error {
+	fields := method.Input().Fields()
+	for i := range fields.Len() {
+		field := fields.Get(i)
+		if field.Kind() != protoreflect.EnumKind || definedOnly(field) {
+			continue
+		}
+
+		responseWriter.AddAnnotation(
+			check.WithDescriptor(field),
+			check.WithMessagef(
+				"%q on %s must carry (buf.validate.field).enum.defined_only = true. Without it a number the enum does not define reaches %s as a value no switch over it expects.",
+				field.Name(),
+				method.Input().Name(),
+				method.Name(),
+			),
+		)
+	}
+
+	return nil
+}
+
+func definedOnly(field protoreflect.FieldDescriptor) bool {
+	rules := fieldRules(field)
+
+	return rules != nil && rules.GetEnum().GetDefinedOnly()
+}
+
 func namesAnID(field protoreflect.FieldDescriptor) bool {
 	name := string(field.Name())
 
@@ -115,17 +157,24 @@ func namesAnID(field protoreflect.FieldDescriptor) bool {
 }
 
 func refusesEmpty(field protoreflect.FieldDescriptor) bool {
+	rules := fieldRules(field)
+
+	return rules != nil &&
+		(rules.GetRequired() || rules.GetString().GetMinLen() > 0 || rules.GetRepeated().GetMinItems() > 0)
+}
+
+func fieldRules(field protoreflect.FieldDescriptor) *validate.FieldRules {
 	opts, ok := field.Options().(*descriptorpb.FieldOptions)
 	if !ok || !proto.HasExtension(opts, validate.E_Field) {
-		return false
+		return nil
 	}
 
 	rules, ok := proto.GetExtension(opts, validate.E_Field).(*validate.FieldRules)
 	if !ok {
-		return false
+		return nil
 	}
 
-	return rules.GetRequired() || rules.GetString().GetMinLen() > 0 || rules.GetRepeated().GetMinItems() > 0
+	return rules
 }
 
 func requireLevel(

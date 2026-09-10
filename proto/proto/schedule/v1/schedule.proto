@@ -31,7 +31,7 @@ message Schedule {
 
 message ListSchedulesRequest {
   optional pagination.v1.Pagination pagination = 1;
-  view.v1.View view = 2;
+  view.v1.View view = 2 [(buf.validate.field).enum.defined_only = true];
 }
 
 message ListSchedulesResponse {

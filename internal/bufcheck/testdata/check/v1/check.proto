@@ -54,3 +54,19 @@ service IDService {
     option idempotency_level = NO_SIDE_EFFECTS;
   }
 }
+
+enum Colour {
+  COLOUR_UNSPECIFIED = 0;
+  COLOUR_RED = 1;
+}
+
+message EnumRequest {
+  Colour colour = 1;
+  string name = 2;
+}
+
+service EnumService {
+  rpc GetEnum(EnumRequest) returns (Response) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+}
