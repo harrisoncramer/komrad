@@ -186,6 +186,9 @@ func (s *DeliveryService) Deliver(ctx context.Context, agentID string) (Delivery
 		return DeliveryLater, nil
 	}
 
+	// The claim is spent whether or not the nudge landed, since every way it can fail has
+	// already touched the pane, and a minute of quiet is what keeps a refused cut from becoming
+	// a two-second loop of cutting and yanking at a box a person owns.
 	delivered, err := s.nudge(ctx, *agent, pending, plan)
 	if err != nil {
 		return DeliveryLater, err
@@ -270,18 +273,17 @@ func (s *DeliveryService) nudge(ctx context.Context, agent agentstore.Agent, pen
 		if err != nil || !cut {
 			return false, err
 		}
+
+		// A cut that came back empty hands the line on to here, and deferring the yank puts it
+		// after the paste, where it was measured to belong, on every way out rather than only
+		// the one that reaches the end.
+		defer s.restoreDraft(ctx, agent)
 	}
 
 	// Typed characters run as commands in a CLI sitting in a vi keymap, and a newline of its own
 	// invocation can be separated from the line it submits.
 	if err := s.paneReadWriter.PasteAndSubmit(agent.Pane, line); err != nil {
 		return false, fmt.Errorf("failed to paste at agent %q: %w", agent.ID, err)
-	}
-
-	if plan == planCutAndRestore {
-		if err := s.paneReadWriter.YankLine(agent.Pane); err != nil {
-			return false, fmt.Errorf("failed to hand the draft back to agent %q: %w", agent.ID, err)
-		}
 	}
 
 	attrs := []slog.Attr{
@@ -298,29 +300,43 @@ func (s *DeliveryService) nudge(ctx context.Context, agent agentstore.Agent, pen
 	return true, nil
 }
 
+// restoreDraft hands an agent back the line weave cut out of its input box, which is only ever
+// reported rather than failed over, since the line is by then in the CLI's own kill ring where
+// nobody but the person at the pane can reach it.
+func (s *DeliveryService) restoreDraft(ctx context.Context, agent agentstore.Agent) {
+	if err := s.paneReadWriter.YankLine(agent.Pane); err != nil {
+		logging.From(ctx).LogAttrs(ctx, slog.LevelError, "failed to hand back the draft weave cut out of an agent's input box, which is now only in its CLI's kill ring",
+			append(logging.Err(err), slog.String(logging.TargetAgentID, agent.ID))...)
+	}
+}
+
 // cutDraft takes the draft out of an agent's input box, reporting whether the box came back
-// empty.
-func (s *DeliveryService) cutDraft(ctx context.Context, agent agentstore.Agent) (bool, error) {
+// empty, which is what hands the line on to the caller.
+func (s *DeliveryService) cutDraft(ctx context.Context, agent agentstore.Agent) (cut bool, err error) {
 	if err := s.paneReadWriter.CutLine(agent.Pane); err != nil {
 		return false, fmt.Errorf("failed to cut the draft of agent %q: %w", agent.ID, err)
 	}
+
+	// The line is out of the box from here on, so every way out that does not hand it to the
+	// caller puts it back.
+	defer func() {
+		if !cut {
+			s.restoreDraft(ctx, agent)
+		}
+	}()
 
 	empty, err := s.waitForAnEmptyBox(agent)
 	if err != nil {
 		return false, err
 	}
-	if empty {
-		return true, nil
+	if !empty {
+		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "cutting an agent's input box left text behind, so its mail was not delivered",
+			slog.String(logging.TargetAgentID, agent.ID))
+
+		return false, nil
 	}
 
-	if err := s.paneReadWriter.YankLine(agent.Pane); err != nil {
-		return false, fmt.Errorf("failed to hand the draft back to agent %q: %w", agent.ID, err)
-	}
-
-	logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "cutting an agent's input box left text behind, so its mail was not delivered",
-		slog.String(logging.TargetAgentID, agent.ID))
-
-	return false, nil
+	return true, nil
 }
 
 // waitForAnEmptyBox reads the frame until it shows the cut.

@@ -2,6 +2,7 @@ package agents
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"testing"
 	"time"
@@ -404,6 +405,11 @@ type fakePanes struct {
 	// a CLI that has yet to repaint.
 	staleReads int
 
+	// pasteErr and yankErr are what tmux refuses with, which is a query timing out under load
+	// or a pane that has just gone.
+	pasteErr error
+	yankErr  error
+
 	// actions is what was done to the pane, in the order it was done.
 	actions  []string
 	pasted   []string
@@ -433,6 +439,12 @@ func (f *fakePanes) CapturePane(string) string {
 func (f *fakePanes) IsClientAtPane(string, time.Duration) bool { return f.clientAt }
 
 func (f *fakePanes) PasteAndSubmit(_, text string) error {
+	if f.pasteErr != nil {
+		f.actions = append(f.actions, "paste-failed")
+
+		return f.pasteErr
+	}
+
 	f.actions = append(f.actions, "paste")
 	f.pasted = append(f.pasted, text)
 
@@ -448,6 +460,12 @@ func (f *fakePanes) CutLine(string) error {
 }
 
 func (f *fakePanes) YankLine(string) error {
+	if f.yankErr != nil {
+		f.actions = append(f.actions, "yank-failed")
+
+		return f.yankErr
+	}
+
 	f.actions = append(f.actions, "yank")
 
 	return nil
@@ -967,4 +985,101 @@ func TestDeliverForgetsAnAgentNothingWillLookAtAgain(t *testing.T) {
 			assert.Empty(t, svc.drafts.boxes, "nothing will read this box again")
 		})
 	}
+}
+
+// TestDeliverHandsBackADraftWhenThePasteFails pins that a cut weave made is put back however the
+// nudge after it turns out, since the line is a human's and nothing else will ever restore it.
+func TestDeliverHandsBackADraftWhenThePasteFails(t *testing.T) {
+	now := time.Date(2026, time.September, 9, 12, 0, 0, 0, time.UTC)
+	panes := &fakePanes{alive: true, frame: composingFrame, pasteErr: errors.New("tmux said no")}
+	svc := composingService(t, panes, &now)
+
+	got, err := svc.Deliver(t.Context(), "agent-a")
+	require.NoError(t, err)
+	require.Equal(t, DeliveryLater, got)
+
+	now = now.Add(draftStaleAfter)
+
+	got, err = svc.Deliver(t.Context(), "agent-a")
+	require.Error(t, err)
+	assert.Equal(t, DeliveryLater, got)
+	assert.Equal(t, []string{"cut", "paste-failed", "yank"}, panes.actions)
+}
+
+// TestDeliverReportsAYankItCouldNotMake pins that a hand-back tmux refuses is said out loud
+// rather than failing the delivery that already landed, since only the person at the pane can
+// reach the kill ring holding the line.
+func TestDeliverReportsAYankItCouldNotMake(t *testing.T) {
+	now := time.Date(2026, time.September, 9, 12, 0, 0, 0, time.UTC)
+	panes := &fakePanes{alive: true, frame: composingFrame, yankErr: errors.New("tmux said no")}
+	svc := composingService(t, panes, &now)
+
+	ctx, records := loggedContext(t)
+
+	got, err := svc.Deliver(ctx, "agent-a")
+	require.NoError(t, err)
+	require.Equal(t, DeliveryLater, got)
+
+	now = now.Add(draftStaleAfter)
+
+	got, err = svc.Deliver(ctx, "agent-a")
+	require.NoError(t, err, "the nudge landed, so the sweep is not failed over the hand-back")
+	assert.Equal(t, DeliverySoon, got)
+	assert.Equal(t, []string{"cut", "paste", "yank-failed"}, panes.actions)
+
+	written := records()
+	require.Len(t, written, 2)
+	assert.Equal(t, "ERROR", written[1]["severity_text"])
+	assert.Contains(t, written[1]["body"], "kill ring")
+}
+
+// TestDeliverHandsBackADraftWhenTheFrameGoesUnreadable pins the hand-back on the one way out of
+// a cut that never learns whether the box came back empty.
+func TestDeliverHandsBackADraftWhenTheFrameGoesUnreadable(t *testing.T) {
+	now := time.Date(2026, time.September, 9, 12, 0, 0, 0, time.UTC)
+	panes := &fakePanes{alive: true, frame: composingFrame}
+
+	reads := 0
+	svc := NewDeliveryService(NewDeliveryServiceParams{
+		MailboxReader: &fakeMailboxReader{pending: 1},
+		NudgeClaimer: &fakeAgents{claimed: true, agent: &agentstore.Agent{
+			ID:    "agent-a",
+			Pane:  "%1",
+			State: agentstore.StateIdle,
+		}},
+		PaneReader: panes,
+		PaneWriter: panes,
+		Harnesses:  &harnessesFailingAfter{harness: &fakeHarness{}, reads: &reads, answer: 2},
+		Now:        func() time.Time { return now },
+	})
+
+	got, err := svc.Deliver(t.Context(), "agent-a")
+	require.NoError(t, err)
+	require.Equal(t, DeliveryLater, got)
+
+	now = now.Add(draftStaleAfter)
+
+	got, err = svc.Deliver(t.Context(), "agent-a")
+	require.Error(t, err, "the frame the cut is read out of went unreadable")
+	assert.Equal(t, DeliveryLater, got)
+	assert.Equal(t, []string{"cut", "yank"}, panes.actions)
+	assert.Empty(t, panes.pasted)
+}
+
+// harnessesFailingAfter answers a given number of pane reads and refuses every one after that,
+// which is a frame that goes unreadable part-way through a cut.
+type harnessesFailingAfter struct {
+	harness *fakeHarness
+	reads   *int
+	answer  int
+}
+
+func (f *harnessesFailingAfter) GetByID(string) (harness.Harness, error) {
+	*f.reads++
+
+	if *f.reads > f.answer {
+		return nil, errors.New("no harness answers for that pane")
+	}
+
+	return f.harness, nil
 }
