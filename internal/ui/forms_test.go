@@ -1413,7 +1413,7 @@ func TestRefreshWarning(t *testing.T) {
 		{
 			name: "a squashed branch, whose replay would collide with its own files",
 			plan: refreshPlan{sameTree: true},
-			want: []string{"squash merge", "collide"},
+			want: []string{"already holds this branch's work", "collide"},
 		},
 		{
 			name: "merge commits, which a rebase throws away before replaying what they settled",

@@ -638,8 +638,8 @@ func refreshWarning(plan refreshPlan) string {
 	warnings := []string{}
 
 	if plan.sameTree {
-		warnings = append(warnings, "The base already holds this branch's work, which is what a squash merge leaves behind, "+
-			"so replaying its commits would collide with its own files.")
+		warnings = append(warnings, "The base already holds this branch's work, which is what a merge of it into the base "+
+			"leaves behind, so replaying its commits would collide with its own files.")
 	}
 	if plan.merges > 0 {
 		warnings = append(warnings, fmt.Sprintf("A rebase discards %s and replays what they reconciled.",

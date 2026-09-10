@@ -139,15 +139,26 @@ func PredictRebase(ctx context.Context, dir, ref string) (Prediction, error) {
 // FastForward moves the branch onto ref outright, which is a rebase's answer when replaying
 // would only collide with content the base already holds.
 func FastForward(ctx context.Context, dir, ref string) error {
-	if _, err := Run(ctx, dir, "reset", "--hard", ref); err != nil {
+	// --keep rather than --hard, which would revert a tracked file the agent wrote between the
+	// state being read and this running, since the two name one tree and nothing differs.
+	if _, err := Run(ctx, dir, "reset", "--keep", ref); err != nil {
 		return fmt.Errorf("failed to move %q onto %s: %w", dir, ref, err)
 	}
 
 	return nil
 }
 
-// namesOneTree reports whether ref and the checkout's head name the same tree.
+// namesOneTree reports whether ref names the checkout's own tree from outside its history,
+// which is what a branch whose work has landed on the base looks like.
 func namesOneTree(ctx context.Context, dir, ref string) (bool, error) {
+	// A base the branch already contains is not one to move onto, whatever the trees say: a
+	// branch that committed something and then reverted it also names the base's tree, and
+	// moving it would destroy both of those commits over a rebase git calls a no-op.
+	contained, err := isAncestor(ctx, dir, ref, "HEAD")
+	if err != nil || contained {
+		return false, err
+	}
+
 	base, err := Run(ctx, dir, "rev-parse", "--verify", ref+"^{tree}")
 	if err != nil {
 		return false, fmt.Errorf("failed to read the tree of %q: %w", ref, err)
@@ -159,6 +170,22 @@ func namesOneTree(ctx context.Context, dir, ref string) (bool, error) {
 	}
 
 	return base == head, nil
+}
+
+// isAncestor reports whether one commit is reachable from another.
+func isAncestor(ctx context.Context, dir, maybeAncestor, of string) (bool, error) {
+	_, err := Run(ctx, dir, "merge-base", "--is-ancestor", maybeAncestor, of)
+	if err == nil {
+		return true, nil
+	}
+
+	// Unreachable is reported by exiting 1, which is an answer rather than a failure.
+	var exit *exec.ExitError
+	if errors.As(err, &exit) && exit.ExitCode() == 1 {
+		return false, nil
+	}
+
+	return false, fmt.Errorf("failed to test whether %s is contained in %s: %w", maybeAncestor, of, err)
 }
 
 // conflictPaths test-merges ref into the checkout's head and answers with what would not settle.

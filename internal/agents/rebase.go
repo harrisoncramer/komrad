@@ -283,8 +283,8 @@ func fastForwardedMail(result RebaseResult) string {
 	var body strings.Builder
 
 	fmt.Fprintf(&body, "Your branch was moved onto %s (%s) outright rather than rebased.\n\n", result.BaseRef, short(result.BaseSHA))
-	body.WriteString("The base already held every change your own commits made, which is what happens once your work " +
-		"lands there as one squashed commit, so replaying them would only have collided with your own files. ")
+	body.WriteString("The base already held every change your own commits made, which is what a merge of your work " +
+		"into it leaves behind, so replaying them would only have collided with your own files. ")
 	body.WriteString("No file on disk changed and nothing was lost. Your own commits are no longer on the branch, " +
 		"and the base's history stands in their place, so start your next piece of work from here.")
 

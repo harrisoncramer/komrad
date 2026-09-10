@@ -363,23 +363,53 @@ func TestPredictRebaseIsQuietOnACleanRebase(t *testing.T) {
 	assert.False(t, prediction.SameTree)
 }
 
-// TestFastForwardMovesTheBranchWithoutTouchingTheFiles covers the answer to a squashed branch:
-// the branch ref moves to the base, and because the two name one tree nothing on disk changes.
+// TestFastForwardMovesTheBranchWithoutTouchingTheFiles is the branch ref moving to the base with
+// nothing on disk written.
 func TestFastForwardMovesTheBranchWithoutTouchingTheFiles(t *testing.T) {
 	t.Parallel()
 
 	repo := squashedBranch(t)
 	writeFile(t, repo, "scratch.txt", "untracked")
-	before := out(t, repo, "rev-parse", "HEAD^{tree}")
+
+	// Nothing holds the agent's own CLI still, so a tracked file it writes between the state
+	// being read and the move landing has to survive, which a --hard reset would revert.
+	writeFile(t, repo, "tracked.txt", "written after the check")
 
 	require.NoError(t, git.FastForward(t.Context(), repo, "main"))
 
 	assert.Equal(t, out(t, repo, "rev-parse", "main"), out(t, repo, "rev-parse", "HEAD"),
 		"the branch stands on the base")
-	assert.Equal(t, before, out(t, repo, "rev-parse", "HEAD^{tree}"), "no tracked file moved")
-	body, err := os.ReadFile(filepath.Join(repo, "scratch.txt"))
+
+	tracked, err := os.ReadFile(filepath.Join(repo, "tracked.txt"))
 	require.NoError(t, err)
-	assert.Equal(t, "untracked", string(body), "the untracked file is still there")
+	assert.Equal(t, "written after the check", string(tracked), "the tracked file the agent wrote survived")
+
+	untracked, err := os.ReadFile(filepath.Join(repo, "scratch.txt"))
+	require.NoError(t, err)
+	assert.Equal(t, "untracked", string(untracked), "the untracked file is still there")
+}
+
+// TestPredictRebaseRefusesABaseTheBranchAlreadyContains covers a branch that committed something
+// and then reverted it, which names the base's tree with no merge having happened.
+func TestPredictRebaseRefusesABaseTheBranchAlreadyContains(t *testing.T) {
+	t.Parallel()
+
+	// Moving this branch would destroy both of its commits, over a rebase git calls a no-op.
+	repo := newRepo(t)
+	run(t, repo, "checkout", "--quiet", "-b", "agent/abc")
+	writeFile(t, repo, "spike.txt", "an experiment\n")
+	run(t, repo, "add", "spike.txt")
+	run(t, repo, "commit", "--quiet", "-m", "try it")
+	run(t, repo, "rm", "--quiet", "spike.txt")
+	run(t, repo, "commit", "--quiet", "-m", "back it out")
+
+	require.Equal(t, out(t, repo, "rev-parse", "main^{tree}"), out(t, repo, "rev-parse", "HEAD^{tree}"),
+		"the fixture did not produce the equal trees it is about")
+
+	prediction, err := git.PredictRebase(t.Context(), repo, "main")
+	require.NoError(t, err)
+
+	assert.False(t, prediction.SameTree, "the base is already contained in this branch, so it is not one to move onto")
 }
 
 // squashedBranch is a branch of two commits whose work reached main as one squashed commit,
