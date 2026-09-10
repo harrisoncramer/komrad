@@ -23,11 +23,17 @@ const (
 )
 
 type ToolAnnotation struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	ToolName      string                 `protobuf:"bytes,1,opt,name=tool_name,json=toolName,proto3" json:"tool_name,omitempty"`
-	Description   string                 `protobuf:"bytes,2,opt,name=description,proto3" json:"description,omitempty"`
-	Destructive   *bool                  `protobuf:"varint,4,opt,name=destructive,proto3,oneof" json:"destructive,omitempty"`
-	Idempotent    *bool                  `protobuf:"varint,5,opt,name=idempotent,proto3,oneof" json:"idempotent,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// What the MCP tool is called, which is what a model types rather than the method name.
+	ToolName string `protobuf:"bytes,1,opt,name=tool_name,json=toolName,proto3" json:"tool_name,omitempty"`
+	// Everything a model is told about the call, since it has nothing else to go on.
+	Description string `protobuf:"bytes,2,opt,name=description,proto3" json:"description,omitempty"`
+	// Whether the call can take something away, which decides whether a client asks before making
+	// it. True unless the method only reads.
+	Destructive *bool `protobuf:"varint,4,opt,name=destructive,proto3,oneof" json:"destructive,omitempty"`
+	// Whether calling twice lands where calling once does, overriding what the method's
+	// idempotency_level says.
+	Idempotent    *bool `protobuf:"varint,5,opt,name=idempotent,proto3,oneof" json:"idempotent,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -103,6 +109,9 @@ var file_annotation_v1_tool_proto_extTypes = []protoimpl.ExtensionInfo{
 
 // Extension fields to descriptorpb.MethodOptions.
 var (
+	// What a method says about itself as an MCP tool, absent on the methods kept out of a
+	// model's reach.
+	//
 	// optional annotation.v1.ToolAnnotation tool = 50003;
 	E_Tool = &file_annotation_v1_tool_proto_extTypes[0]
 )

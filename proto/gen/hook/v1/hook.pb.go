@@ -26,12 +26,17 @@ const (
 )
 
 type Hook struct {
-	state          protoimpl.MessageState `protogen:"open.v1"`
-	Name           string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	Executable     bool                   `protobuf:"varint,2,opt,name=executable,proto3" json:"executable,omitempty"`
-	Description    string                 `protobuf:"bytes,3,opt,name=description,proto3" json:"description,omitempty"`
-	Timeout        *durationpb.Duration   `protobuf:"bytes,4,opt,name=timeout,proto3,oneof" json:"timeout,omitempty"`
-	HeaderProblems []string               `protobuf:"bytes,5,rep,name=header_problems,json=headerProblems,proto3" json:"header_problems,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The file name in the hooks directory, which is what a workflow names to fire it.
+	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	// Whether the file can be run, which it cannot until the user chmods it.
+	Executable bool `protobuf:"varint,2,opt,name=executable,proto3" json:"executable,omitempty"`
+	// What the script says about itself in its own header comments.
+	Description string `protobuf:"bytes,3,opt,name=description,proto3" json:"description,omitempty"`
+	// How long weave waits for it, taken from its header, or unset to wait the default.
+	Timeout *durationpb.Duration `protobuf:"bytes,4,opt,name=timeout,proto3,oneof" json:"timeout,omitempty"`
+	// What weave could not read in the header, which leaves the rest of it at the defaults.
+	HeaderProblems []string `protobuf:"bytes,5,rep,name=header_problems,json=headerProblems,proto3" json:"header_problems,omitempty"`
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache
 }
@@ -102,8 +107,9 @@ func (x *Hook) GetHeaderProblems() []string {
 }
 
 type ListHooksResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Hooks         []*Hook                `protobuf:"bytes,1,rep,name=hooks,proto3" json:"hooks,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Every file in the hooks directory, runnable or not.
+	Hooks         []*Hook `protobuf:"bytes,1,rep,name=hooks,proto3" json:"hooks,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -146,8 +152,9 @@ func (x *ListHooksResponse) GetHooks() []*Hook {
 }
 
 type OpenPullRequestRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	AgentId       string                 `protobuf:"bytes,1,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The agent whose recorded pull request to open.
+	AgentId       string `protobuf:"bytes,1,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }

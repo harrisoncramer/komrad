@@ -82,18 +82,32 @@ var file_rules_v1_rules_proto_extTypes = []protoimpl.ExtensionInfo{
 
 // Extension fields to validate.StringRules.
 var (
+	// Refuses the characters a shell would act on, for anything weave passes to one.
+	//
 	// optional bool shell_safe = 50100;
 	E_ShellSafe = &file_rules_v1_rules_proto_extTypes[0]
+	// Requires a path that means the same wherever it is read from.
+	//
 	// optional bool absolute_path = 50101;
 	E_AbsolutePath = &file_rules_v1_rules_proto_extTypes[1]
+	// The same, for a path a caller may leave empty to take the default.
+	//
 	// optional bool absolute_path_or_blank = 50102;
 	E_AbsolutePathOrBlank = &file_rules_v1_rules_proto_extTypes[2]
+	// Requires a bare file name, so a caller cannot reach outside the hooks directory.
+	//
 	// optional bool script_name = 50104;
 	E_ScriptName = &file_rules_v1_rules_proto_extTypes[3]
+	// The same, for a hook a caller may leave empty to fire nothing.
+	//
 	// optional bool script_name_or_blank = 50105;
 	E_ScriptNameOrBlank = &file_rules_v1_rules_proto_extTypes[4]
+	// Requires five fields, which is the shape the scheduler parses.
+	//
 	// optional bool cron_expression = 50103;
 	E_CronExpression = &file_rules_v1_rules_proto_extTypes[5]
+	// Requires a path inside the checkout, with no way up out of it.
+	//
 	// optional bool relative_path = 50106;
 	E_RelativePath = &file_rules_v1_rules_proto_extTypes[6]
 )

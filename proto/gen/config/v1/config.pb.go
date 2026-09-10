@@ -25,10 +25,15 @@ const (
 )
 
 type GetConfigResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Config        *structpb.Struct       `protobuf:"bytes,1,opt,name=config,proto3" json:"config,omitempty"`
-	ConfigError   *string                `protobuf:"bytes,2,opt,name=config_error,json=configError,proto3,oneof" json:"config_error,omitempty"`
-	Version       string                 `protobuf:"bytes,3,opt,name=version,proto3" json:"version,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The configuration as it stands, keyed the way the user's own file is, with the connection
+	// strings redacted.
+	Config *structpb.Struct `protobuf:"bytes,1,opt,name=config,proto3" json:"config,omitempty"`
+	// Why the user's file would not parse, in which case the configuration above is the defaults
+	// the panel fell back to.
+	ConfigError *string `protobuf:"bytes,2,opt,name=config_error,json=configError,proto3,oneof" json:"config_error,omitempty"`
+	// The build the server answering is running, which is what to quote in a bug report.
+	Version       string `protobuf:"bytes,3,opt,name=version,proto3" json:"version,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }

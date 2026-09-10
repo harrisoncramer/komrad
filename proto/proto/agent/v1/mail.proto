@@ -30,50 +30,72 @@ enum MailDirection {
 }
 
 message Mail {
+  // Set this as reply_to on an answer so the two read as a thread.
   string id = 1;
+  // Which agent sent it, unset when weave sent it itself.
   optional string from_agent_id = 2;
+  // What to show as the sender, which is weave's own name for a notice it raised.
   string from_name = 3;
+  // The agent it is waiting for.
   string to_agent_id = 4;
+  // What the sender wrote.
   string body = 5;
+  // The mail this one answers, unset when it opens a subject.
   optional string reply_to = 6;
+  // When it was sent, in RFC 3339.
   string created_at = 7;
+  // When the recipient took it, unset while it is still waiting.
   optional string claimed_at = 8;
+  // When it stops being offered, whether or not it was ever taken.
   string expires_at = 9;
+  // Whether an agent wrote it or weave raised it.
   MailKind kind = 10;
 }
 
 message SendMailRequest {
+  // Who to send to, addressed by id since two workflows may hold agents of one name.
   string to_agent_id = 1 [(buf.validate.field).string.min_len = 1];
+  // What to say, which has to carry who is asking and what is wanted.
   string body = 2 [(buf.validate.field).string = {
     min_len: 1
     max_len: 10000
   }];
+  // The mail being answered, so the exchange reads as a thread.
   optional string reply_to = 3 [(buf.validate.field).string.min_len = 1];
 }
 
 message SendMailResponse {
+  // The mail as recorded, whose id an answer can reply to.
   Mail mail = 1;
 }
 
 message ReadMailRequest {
+  // Whose mailbox to empty, or unset for the caller's own.
   optional string id = 1 [(buf.validate.field).string.min_len = 1];
 }
 
 message ReadMailResponse {
+  // Everything that was waiting, oldest first, now marked read.
   repeated Mail mail = 1;
 }
 
 message ListMailRequest {
+  // Whose mail to list, or unset for the caller's own.
   optional string id = 1 [(buf.validate.field).string.min_len = 1];
+  // Where to carry on from.
   optional pagination.v1.Pagination pagination = 2;
+  // Which half of the correspondence to return.
   MailDirection direction = 3 [(buf.validate.field).enum.defined_only = true];
 }
 
 message ListMailResponse {
+  // One page of mail, most recent first, none of it claimed by listing it.
   repeated Mail mail = 1;
+  // Pass this back as the pagination cursor for the next page.
   optional string next_page_token = 2;
 }
 
 message DeleteMailRequest {
+  // The mail to erase, read or not, which the recipient will then never see.
   repeated string ids = 1 [(buf.validate.field).repeated.min_items = 1];
 }

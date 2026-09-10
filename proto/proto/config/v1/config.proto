@@ -9,8 +9,13 @@ import "google/protobuf/struct.proto";
 option go_package = "weave/proto/gen/config/v1;configv1";
 
 message GetConfigResponse {
+  // The configuration as it stands, keyed the way the user's own file is, with the connection
+  // strings redacted.
   google.protobuf.Struct config = 1;
+  // Why the user's file would not parse, in which case the configuration above is the defaults
+  // the panel fell back to.
   optional string config_error = 2;
+  // The build the server answering is running, which is what to quote in a bug report.
   string version = 3;
 }
 

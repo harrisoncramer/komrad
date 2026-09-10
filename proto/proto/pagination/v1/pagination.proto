@@ -7,6 +7,8 @@ import "buf/validate/validate.proto";
 option go_package = "weave/proto/gen/pagination/v1;paginationv1";
 
 message Pagination {
+  // How many rows to return, capped by the server, and left to the server entirely when unset.
   optional int32 limit = 1 [(buf.validate.field).int32.gte = 0];
+  // The next_page_token a previous reply carried, or unset to start from the beginning.
   optional string cursor = 2 [(buf.validate.field).string.max_len = 2048];
 }

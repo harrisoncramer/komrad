@@ -134,17 +134,27 @@ func (MailDirection) EnumDescriptor() ([]byte, []int) {
 }
 
 type Mail struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	FromAgentId   *string                `protobuf:"bytes,2,opt,name=from_agent_id,json=fromAgentId,proto3,oneof" json:"from_agent_id,omitempty"`
-	FromName      string                 `protobuf:"bytes,3,opt,name=from_name,json=fromName,proto3" json:"from_name,omitempty"`
-	ToAgentId     string                 `protobuf:"bytes,4,opt,name=to_agent_id,json=toAgentId,proto3" json:"to_agent_id,omitempty"`
-	Body          string                 `protobuf:"bytes,5,opt,name=body,proto3" json:"body,omitempty"`
-	ReplyTo       *string                `protobuf:"bytes,6,opt,name=reply_to,json=replyTo,proto3,oneof" json:"reply_to,omitempty"`
-	CreatedAt     string                 `protobuf:"bytes,7,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
-	ClaimedAt     *string                `protobuf:"bytes,8,opt,name=claimed_at,json=claimedAt,proto3,oneof" json:"claimed_at,omitempty"`
-	ExpiresAt     string                 `protobuf:"bytes,9,opt,name=expires_at,json=expiresAt,proto3" json:"expires_at,omitempty"`
-	Kind          MailKind               `protobuf:"varint,10,opt,name=kind,proto3,enum=agent.v1.MailKind" json:"kind,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Set this as reply_to on an answer so the two read as a thread.
+	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	// Which agent sent it, unset when weave sent it itself.
+	FromAgentId *string `protobuf:"bytes,2,opt,name=from_agent_id,json=fromAgentId,proto3,oneof" json:"from_agent_id,omitempty"`
+	// What to show as the sender, which is weave's own name for a notice it raised.
+	FromName string `protobuf:"bytes,3,opt,name=from_name,json=fromName,proto3" json:"from_name,omitempty"`
+	// The agent it is waiting for.
+	ToAgentId string `protobuf:"bytes,4,opt,name=to_agent_id,json=toAgentId,proto3" json:"to_agent_id,omitempty"`
+	// What the sender wrote.
+	Body string `protobuf:"bytes,5,opt,name=body,proto3" json:"body,omitempty"`
+	// The mail this one answers, unset when it opens a subject.
+	ReplyTo *string `protobuf:"bytes,6,opt,name=reply_to,json=replyTo,proto3,oneof" json:"reply_to,omitempty"`
+	// When it was sent, in RFC 3339.
+	CreatedAt string `protobuf:"bytes,7,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	// When the recipient took it, unset while it is still waiting.
+	ClaimedAt *string `protobuf:"bytes,8,opt,name=claimed_at,json=claimedAt,proto3,oneof" json:"claimed_at,omitempty"`
+	// When it stops being offered, whether or not it was ever taken.
+	ExpiresAt string `protobuf:"bytes,9,opt,name=expires_at,json=expiresAt,proto3" json:"expires_at,omitempty"`
+	// Whether an agent wrote it or weave raised it.
+	Kind          MailKind `protobuf:"varint,10,opt,name=kind,proto3,enum=agent.v1.MailKind" json:"kind,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -250,10 +260,13 @@ func (x *Mail) GetKind() MailKind {
 }
 
 type SendMailRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	ToAgentId     string                 `protobuf:"bytes,1,opt,name=to_agent_id,json=toAgentId,proto3" json:"to_agent_id,omitempty"`
-	Body          string                 `protobuf:"bytes,2,opt,name=body,proto3" json:"body,omitempty"`
-	ReplyTo       *string                `protobuf:"bytes,3,opt,name=reply_to,json=replyTo,proto3,oneof" json:"reply_to,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Who to send to, addressed by id since two workflows may hold agents of one name.
+	ToAgentId string `protobuf:"bytes,1,opt,name=to_agent_id,json=toAgentId,proto3" json:"to_agent_id,omitempty"`
+	// What to say, which has to carry who is asking and what is wanted.
+	Body string `protobuf:"bytes,2,opt,name=body,proto3" json:"body,omitempty"`
+	// The mail being answered, so the exchange reads as a thread.
+	ReplyTo       *string `protobuf:"bytes,3,opt,name=reply_to,json=replyTo,proto3,oneof" json:"reply_to,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -310,8 +323,9 @@ func (x *SendMailRequest) GetReplyTo() string {
 }
 
 type SendMailResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Mail          *Mail                  `protobuf:"bytes,1,opt,name=mail,proto3" json:"mail,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The mail as recorded, whose id an answer can reply to.
+	Mail          *Mail `protobuf:"bytes,1,opt,name=mail,proto3" json:"mail,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -354,8 +368,9 @@ func (x *SendMailResponse) GetMail() *Mail {
 }
 
 type ReadMailRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            *string                `protobuf:"bytes,1,opt,name=id,proto3,oneof" json:"id,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Whose mailbox to empty, or unset for the caller's own.
+	Id            *string `protobuf:"bytes,1,opt,name=id,proto3,oneof" json:"id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -398,8 +413,9 @@ func (x *ReadMailRequest) GetId() string {
 }
 
 type ReadMailResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Mail          []*Mail                `protobuf:"bytes,1,rep,name=mail,proto3" json:"mail,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Everything that was waiting, oldest first, now marked read.
+	Mail          []*Mail `protobuf:"bytes,1,rep,name=mail,proto3" json:"mail,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -442,10 +458,13 @@ func (x *ReadMailResponse) GetMail() []*Mail {
 }
 
 type ListMailRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            *string                `protobuf:"bytes,1,opt,name=id,proto3,oneof" json:"id,omitempty"`
-	Pagination    *v1.Pagination         `protobuf:"bytes,2,opt,name=pagination,proto3,oneof" json:"pagination,omitempty"`
-	Direction     MailDirection          `protobuf:"varint,3,opt,name=direction,proto3,enum=agent.v1.MailDirection" json:"direction,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Whose mail to list, or unset for the caller's own.
+	Id *string `protobuf:"bytes,1,opt,name=id,proto3,oneof" json:"id,omitempty"`
+	// Where to carry on from.
+	Pagination *v1.Pagination `protobuf:"bytes,2,opt,name=pagination,proto3,oneof" json:"pagination,omitempty"`
+	// Which half of the correspondence to return.
+	Direction     MailDirection `protobuf:"varint,3,opt,name=direction,proto3,enum=agent.v1.MailDirection" json:"direction,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -502,9 +521,11 @@ func (x *ListMailRequest) GetDirection() MailDirection {
 }
 
 type ListMailResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Mail          []*Mail                `protobuf:"bytes,1,rep,name=mail,proto3" json:"mail,omitempty"`
-	NextPageToken *string                `protobuf:"bytes,2,opt,name=next_page_token,json=nextPageToken,proto3,oneof" json:"next_page_token,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// One page of mail, most recent first, none of it claimed by listing it.
+	Mail []*Mail `protobuf:"bytes,1,rep,name=mail,proto3" json:"mail,omitempty"`
+	// Pass this back as the pagination cursor for the next page.
+	NextPageToken *string `protobuf:"bytes,2,opt,name=next_page_token,json=nextPageToken,proto3,oneof" json:"next_page_token,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -554,8 +575,9 @@ func (x *ListMailResponse) GetNextPageToken() string {
 }
 
 type DeleteMailRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Ids           []string               `protobuf:"bytes,1,rep,name=ids,proto3" json:"ids,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The mail to erase, read or not, which the recipient will then never see.
+	Ids           []string `protobuf:"bytes,1,rep,name=ids,proto3" json:"ids,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }

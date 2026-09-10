@@ -28,37 +28,60 @@ const (
 )
 
 type Agent struct {
-	state            protoimpl.MessageState `protogen:"open.v1"`
-	Id               string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	Name             string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	Cwd              string                 `protobuf:"bytes,3,opt,name=cwd,proto3" json:"cwd,omitempty"`
-	Flags            string                 `protobuf:"bytes,4,opt,name=flags,proto3" json:"flags,omitempty"`
-	Prompt           string                 `protobuf:"bytes,5,opt,name=prompt,proto3" json:"prompt,omitempty"`
-	PaneId           string                 `protobuf:"bytes,6,opt,name=pane_id,json=paneId,proto3" json:"pane_id,omitempty"`
-	State            string                 `protobuf:"bytes,7,opt,name=state,proto3" json:"state,omitempty"`
-	SessionId        string                 `protobuf:"bytes,8,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
-	Harness          string                 `protobuf:"bytes,18,opt,name=harness,proto3" json:"harness,omitempty"`
-	WorkflowId       string                 `protobuf:"bytes,9,opt,name=workflow_id,json=workflowId,proto3" json:"workflow_id,omitempty"`
-	CreatedAt        string                 `protobuf:"bytes,10,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
-	ArchivedAt       *string                `protobuf:"bytes,19,opt,name=archived_at,json=archivedAt,proto3,oneof" json:"archived_at,omitempty"`
-	ScheduleId       *string                `protobuf:"bytes,12,opt,name=schedule_id,json=scheduleId,proto3,oneof" json:"schedule_id,omitempty"`
-	Alive            bool                   `protobuf:"varint,11,opt,name=alive,proto3" json:"alive,omitempty"`
-	UnreadMail       bool                   `protobuf:"varint,21,opt,name=unread_mail,json=unreadMail,proto3" json:"unread_mail,omitempty"`
-	Mark             *string                `protobuf:"bytes,14,opt,name=mark,proto3,oneof" json:"mark,omitempty"`
-	Hidden           bool                   `protobuf:"varint,15,opt,name=hidden,proto3" json:"hidden,omitempty"`
-	Metadata         []*AgentMetadata       `protobuf:"bytes,16,rep,name=metadata,proto3" json:"metadata,omitempty"`
-	IdempotencyKey   *string                `protobuf:"bytes,17,opt,name=idempotency_key,json=idempotencyKey,proto3,oneof" json:"idempotency_key,omitempty"`
-	SpawnedByAgentId *string                `protobuf:"bytes,20,opt,name=spawned_by_agent_id,json=spawnedByAgentId,proto3,oneof" json:"spawned_by_agent_id,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The handle every other call names this agent by, and what mail is addressed to.
+	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	// What the panel lists it as, which is also its tmux window name at launch.
+	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	// The directory it is running in, its own worktree when the workflow provisions one.
+	Cwd string `protobuf:"bytes,3,opt,name=cwd,proto3" json:"cwd,omitempty"`
+	// The command-line flags its CLI was started with.
+	Flags string `protobuf:"bytes,4,opt,name=flags,proto3" json:"flags,omitempty"`
+	// The whole briefing it was launched with.
+	Prompt string `protobuf:"bytes,5,opt,name=prompt,proto3" json:"prompt,omitempty"`
+	// The tmux pane its CLI is running in, which is what capture-pane reads.
+	PaneId string `protobuf:"bytes,6,opt,name=pane_id,json=paneId,proto3" json:"pane_id,omitempty"`
+	// What the panel last decided it was doing, read off the tail of its pane.
+	State string `protobuf:"bytes,7,opt,name=state,proto3" json:"state,omitempty"`
+	// The CLI's own conversation id, which is the handle a resume needs.
+	SessionId string `protobuf:"bytes,8,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
+	// Which CLI it runs, such as claude or codex.
+	Harness string `protobuf:"bytes,18,opt,name=harness,proto3" json:"harness,omitempty"`
+	// Which workflow it is filed under, whose context it took at launch.
+	WorkflowId string `protobuf:"bytes,9,opt,name=workflow_id,json=workflowId,proto3" json:"workflow_id,omitempty"`
+	// When it was launched, in RFC 3339.
+	CreatedAt string `protobuf:"bytes,10,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	// When it was hidden from the panel, unset while it is live.
+	ArchivedAt *string `protobuf:"bytes,19,opt,name=archived_at,json=archivedAt,proto3,oneof" json:"archived_at,omitempty"`
+	// The schedule that launched it, unset for an agent a person or another agent spawned.
+	ScheduleId *string `protobuf:"bytes,12,opt,name=schedule_id,json=scheduleId,proto3,oneof" json:"schedule_id,omitempty"`
+	// Whether its pane is still there, which a dormant agent's is not.
+	Alive bool `protobuf:"varint,11,opt,name=alive,proto3" json:"alive,omitempty"`
+	// Whether mail is waiting that it has not taken.
+	UnreadMail bool `protobuf:"varint,21,opt,name=unread_mail,json=unreadMail,proto3" json:"unread_mail,omitempty"`
+	// The letter a person jumps to it by in the panel, if it holds one.
+	Mark *string `protobuf:"bytes,14,opt,name=mark,proto3,oneof" json:"mark,omitempty"`
+	// Whether the panel draws a row for it, which changes nothing about the agent itself.
+	Hidden bool `protobuf:"varint,15,opt,name=hidden,proto3" json:"hidden,omitempty"`
+	// Facts it has recorded about its own work, such as the pull request it opened.
+	Metadata []*AgentMetadata `protobuf:"bytes,16,rep,name=metadata,proto3" json:"metadata,omitempty"`
+	// The key a retry of its create carried, which is what answers a repeat with this agent.
+	IdempotencyKey *string `protobuf:"bytes,17,opt,name=idempotency_key,json=idempotencyKey,proto3,oneof" json:"idempotency_key,omitempty"`
+	// Which agent called create, unset for one a person spawned.
+	SpawnedByAgentId *string `protobuf:"bytes,20,opt,name=spawned_by_agent_id,json=spawnedByAgentId,proto3,oneof" json:"spawned_by_agent_id,omitempty"`
 	// The agent this one is attached to, where spawned_by_agent_id is only who called create.
-	ParentAgentId   *string `protobuf:"bytes,26,opt,name=parent_agent_id,json=parentAgentId,proto3,oneof" json:"parent_agent_id,omitempty"`
-	Branch          *string `protobuf:"bytes,22,opt,name=branch,proto3,oneof" json:"branch,omitempty"`
-	WorktreeRemoved bool    `protobuf:"varint,23,opt,name=worktree_removed,json=worktreeRemoved,proto3" json:"worktree_removed,omitempty"`
+	ParentAgentId *string `protobuf:"bytes,26,opt,name=parent_agent_id,json=parentAgentId,proto3,oneof" json:"parent_agent_id,omitempty"`
+	// The git branch its worktree is on, unset for an agent that provisions none.
+	Branch *string `protobuf:"bytes,22,opt,name=branch,proto3,oneof" json:"branch,omitempty"`
+	// Whether its checkout has been taken away, which leaves the record and the transcript.
+	WorktreeRemoved bool `protobuf:"varint,23,opt,name=worktree_removed,json=worktreeRemoved,proto3" json:"worktree_removed,omitempty"`
 	// Whether the agent has finished a turn the person has not looked at since.
 	Unviewed bool `protobuf:"varint,24,opt,name=unviewed,proto3" json:"unviewed,omitempty"`
 	// Whether a script weave fired for the agent failed and nobody has looked at it since.
 	FailedRun bool `protobuf:"varint,27,opt,name=failed_run,json=failedRun,proto3" json:"failed_run,omitempty"`
 	// The run log that failure was written to, which is the run the panel opens on.
-	FailedRunLog   *int32 `protobuf:"varint,28,opt,name=failed_run_log,json=failedRunLog,proto3,oneof" json:"failed_run_log,omitempty"`
+	FailedRunLog *int32 `protobuf:"varint,28,opt,name=failed_run_log,json=failedRunLog,proto3,oneof" json:"failed_run_log,omitempty"`
+	// When the state above last moved, in RFC 3339.
 	StateChangedAt string `protobuf:"bytes,25,opt,name=state_changed_at,json=stateChangedAt,proto3" json:"state_changed_at,omitempty"`
 	// What the agent's own CLI last reported it was doing, which annotates the state the pane
 	// decided rather than replacing it.
@@ -341,9 +364,11 @@ func (x *Agent) GetInLocalReview() bool {
 }
 
 type AgentMetadata struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Key           string                 `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
-	Value         string                 `protobuf:"bytes,2,opt,name=value,proto3" json:"value,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// What the fact is filed under, such as pr or branch.
+	Key string `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
+	// The fact as the panel shows it, which is why a URL belongs here whole.
+	Value         string `protobuf:"bytes,2,opt,name=value,proto3" json:"value,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -393,10 +418,14 @@ func (x *AgentMetadata) GetValue() string {
 }
 
 type ListAgentsRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Pagination    *v1.Pagination         `protobuf:"bytes,1,opt,name=pagination,proto3,oneof" json:"pagination,omitempty"`
-	Archived      bool                   `protobuf:"varint,2,opt,name=archived,proto3" json:"archived,omitempty"`
-	View          v11.View               `protobuf:"varint,3,opt,name=view,proto3,enum=view.v1.View" json:"view,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Where to carry on from.
+	Pagination *v1.Pagination `protobuf:"bytes,1,opt,name=pagination,proto3,oneof" json:"pagination,omitempty"`
+	// True to list the archived agents and only those.
+	Archived bool `protobuf:"varint,2,opt,name=archived,proto3" json:"archived,omitempty"`
+	// How much of each record to return, since the panel draws every field and a model reading
+	// the same endpoint has a context window to spend.
+	View          v11.View `protobuf:"varint,3,opt,name=view,proto3,enum=view.v1.View" json:"view,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -453,9 +482,11 @@ func (x *ListAgentsRequest) GetView() v11.View {
 }
 
 type ListAgentsResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Agents        []*Agent               `protobuf:"bytes,1,rep,name=agents,proto3" json:"agents,omitempty"`
-	NextPageToken *string                `protobuf:"bytes,2,opt,name=next_page_token,json=nextPageToken,proto3,oneof" json:"next_page_token,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// One page of agents, most recently updated first.
+	Agents []*Agent `protobuf:"bytes,1,rep,name=agents,proto3" json:"agents,omitempty"`
+	// Pass this back as the pagination cursor for the next page.
+	NextPageToken *string `protobuf:"bytes,2,opt,name=next_page_token,json=nextPageToken,proto3,oneof" json:"next_page_token,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -505,18 +536,30 @@ func (x *ListAgentsResponse) GetNextPageToken() string {
 }
 
 type CreateAgentRequest struct {
-	state            protoimpl.MessageState `protogen:"open.v1"`
-	Prompt           string                 `protobuf:"bytes,1,opt,name=prompt,proto3" json:"prompt,omitempty"`
-	Title            string                 `protobuf:"bytes,2,opt,name=title,proto3" json:"title,omitempty"`
-	Dir              string                 `protobuf:"bytes,3,opt,name=dir,proto3" json:"dir,omitempty"`
-	Flags            string                 `protobuf:"bytes,4,opt,name=flags,proto3" json:"flags,omitempty"`
-	WorkflowId       string                 `protobuf:"bytes,5,opt,name=workflow_id,json=workflowId,proto3" json:"workflow_id,omitempty"`
-	Harness          string                 `protobuf:"bytes,7,opt,name=harness,proto3" json:"harness,omitempty"`
-	IdempotencyKey   *string                `protobuf:"bytes,6,opt,name=idempotency_key,json=idempotencyKey,proto3,oneof" json:"idempotency_key,omitempty"`
-	ProvisionEnabled *bool                  `protobuf:"varint,8,opt,name=provision_enabled,json=provisionEnabled,proto3,oneof" json:"provision_enabled,omitempty"`
-	ParentAgentId    *string                `protobuf:"bytes,11,opt,name=parent_agent_id,json=parentAgentId,proto3,oneof" json:"parent_agent_id,omitempty"`
-	unknownFields    protoimpl.UnknownFields
-	sizeCache        protoimpl.SizeCache
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The opening briefing, which is everything the agent has to go on.
+	Prompt string `protobuf:"bytes,1,opt,name=prompt,proto3" json:"prompt,omitempty"`
+	// What to call it in the panel, blank to have weave name it.
+	Title string `protobuf:"bytes,2,opt,name=title,proto3" json:"title,omitempty"`
+	// Where to start it, absolute or ~-prefixed, blank to take the workflow's own.
+	Dir string `protobuf:"bytes,3,opt,name=dir,proto3" json:"dir,omitempty"`
+	// Flags for its CLI, blank to take the workflow's own.
+	Flags string `protobuf:"bytes,4,opt,name=flags,proto3" json:"flags,omitempty"`
+	// Which workflow to launch it into, whose cwd, flags and context it inherits.
+	WorkflowId string `protobuf:"bytes,5,opt,name=workflow_id,json=workflowId,proto3" json:"workflow_id,omitempty"`
+	// Which CLI to run, blank to take the workflow's own.
+	Harness string `protobuf:"bytes,7,opt,name=harness,proto3" json:"harness,omitempty"`
+	// A key that makes a retry safe, since a repeat carrying it is answered with the agent it
+	// already launched.
+	IdempotencyKey *string `protobuf:"bytes,6,opt,name=idempotency_key,json=idempotencyKey,proto3,oneof" json:"idempotency_key,omitempty"`
+	// False to keep the directory named above rather than be given a worktree, which is how an
+	// agent reads a checkout somebody else has open.
+	ProvisionEnabled *bool `protobuf:"varint,8,opt,name=provision_enabled,json=provisionEnabled,proto3,oneof" json:"provision_enabled,omitempty"`
+	// Which agent to attach this one to as its child, which then runs in that agent's directory
+	// and goes when it goes.
+	ParentAgentId *string `protobuf:"bytes,11,opt,name=parent_agent_id,json=parentAgentId,proto3,oneof" json:"parent_agent_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *CreateAgentRequest) Reset() {
@@ -613,8 +656,9 @@ func (x *CreateAgentRequest) GetParentAgentId() string {
 }
 
 type CreateAgentResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Agent         *Agent                 `protobuf:"bytes,1,opt,name=agent,proto3" json:"agent,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The agent as launched, whose id is what mail is addressed to.
+	Agent         *Agent `protobuf:"bytes,1,opt,name=agent,proto3" json:"agent,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -657,11 +701,17 @@ func (x *CreateAgentResponse) GetAgent() *Agent {
 }
 
 type RequestReviewRequest struct {
-	state          protoimpl.MessageState `protogen:"open.v1"`
-	Prompt         string                 `protobuf:"bytes,1,opt,name=prompt,proto3" json:"prompt,omitempty"`
-	AgentId        *string                `protobuf:"bytes,2,opt,name=agent_id,json=agentId,proto3,oneof" json:"agent_id,omitempty"`
-	Title          string                 `protobuf:"bytes,3,opt,name=title,proto3" json:"title,omitempty"`
-	IdempotencyKey *string                `protobuf:"bytes,4,opt,name=idempotency_key,json=idempotencyKey,proto3,oneof" json:"idempotency_key,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The whole briefing the reviewer is given, so it has to say what the change is meant to do
+	// and where the author is unsure of it.
+	Prompt string `protobuf:"bytes,1,opt,name=prompt,proto3" json:"prompt,omitempty"`
+	// Whose work to have read, or unset for the caller's own.
+	AgentId *string `protobuf:"bytes,2,opt,name=agent_id,json=agentId,proto3,oneof" json:"agent_id,omitempty"`
+	// What to call the reviewer, blank to name it after the agent it is reading.
+	Title string `protobuf:"bytes,3,opt,name=title,proto3" json:"title,omitempty"`
+	// A key that makes a retry safe, answering a repeat with the reviewer it already spawned
+	// rather than refusing it.
+	IdempotencyKey *string `protobuf:"bytes,4,opt,name=idempotency_key,json=idempotencyKey,proto3,oneof" json:"idempotency_key,omitempty"`
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache
 }
@@ -725,8 +775,9 @@ func (x *RequestReviewRequest) GetIdempotencyKey() string {
 }
 
 type RequestReviewResponse struct {
-	state    protoimpl.MessageState `protogen:"open.v1"`
-	Reviewer *Agent                 `protobuf:"bytes,1,opt,name=reviewer,proto3" json:"reviewer,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The reviewer as spawned, which is a child of the agent being read.
+	Reviewer *Agent `protobuf:"bytes,1,opt,name=reviewer,proto3" json:"reviewer,omitempty"`
 	// What the agent that asked for the review does next, which is the rest of the loop it is in.
 	Guidance      string `protobuf:"bytes,2,opt,name=guidance,proto3" json:"guidance,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -778,14 +829,21 @@ func (x *RequestReviewResponse) GetGuidance() string {
 }
 
 type AdoptRequest struct {
-	state          protoimpl.MessageState `protogen:"open.v1"`
-	Ref            string                 `protobuf:"bytes,1,opt,name=ref,proto3" json:"ref,omitempty"`
-	WorkflowId     string                 `protobuf:"bytes,2,opt,name=workflow_id,json=workflowId,proto3" json:"workflow_id,omitempty"`
-	Prompt         string                 `protobuf:"bytes,3,opt,name=prompt,proto3" json:"prompt,omitempty"`
-	Title          string                 `protobuf:"bytes,4,opt,name=title,proto3" json:"title,omitempty"`
-	Flags          string                 `protobuf:"bytes,5,opt,name=flags,proto3" json:"flags,omitempty"`
-	Harness        string                 `protobuf:"bytes,6,opt,name=harness,proto3" json:"harness,omitempty"`
-	IdempotencyKey *string                `protobuf:"bytes,7,opt,name=idempotency_key,json=idempotencyKey,proto3,oneof" json:"idempotency_key,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The work to put an agent on, as a pull request URL or number, or a branch name.
+	Ref string `protobuf:"bytes,1,opt,name=ref,proto3" json:"ref,omitempty"`
+	// Which workflow to launch into, which is what decides the repository.
+	WorkflowId string `protobuf:"bytes,2,opt,name=workflow_id,json=workflowId,proto3" json:"workflow_id,omitempty"`
+	// The opening briefing, blank to launch the CLI with nothing to read.
+	Prompt string `protobuf:"bytes,3,opt,name=prompt,proto3" json:"prompt,omitempty"`
+	// What to call it in the panel, blank to have weave name it.
+	Title string `protobuf:"bytes,4,opt,name=title,proto3" json:"title,omitempty"`
+	// Flags for its CLI, blank to take the workflow's own.
+	Flags string `protobuf:"bytes,5,opt,name=flags,proto3" json:"flags,omitempty"`
+	// Which CLI to run, blank to take the workflow's own.
+	Harness string `protobuf:"bytes,6,opt,name=harness,proto3" json:"harness,omitempty"`
+	// A key that makes a retry safe, answering a repeat with the agent it already launched.
+	IdempotencyKey *string `protobuf:"bytes,7,opt,name=idempotency_key,json=idempotencyKey,proto3,oneof" json:"idempotency_key,omitempty"`
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache
 }
@@ -870,8 +928,9 @@ func (x *AdoptRequest) GetIdempotencyKey() string {
 }
 
 type AdoptResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Agent         *Agent                 `protobuf:"bytes,1,opt,name=agent,proto3" json:"agent,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The agent as launched, with the pull request already recorded on it.
+	Agent         *Agent `protobuf:"bytes,1,opt,name=agent,proto3" json:"agent,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -914,8 +973,9 @@ func (x *AdoptResponse) GetAgent() *Agent {
 }
 
 type GetAgentRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Which agent to read, archived or not.
+	Id            string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -958,8 +1018,9 @@ func (x *GetAgentRequest) GetId() string {
 }
 
 type GetAgentResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Agent         *Agent                 `protobuf:"bytes,1,opt,name=agent,proto3" json:"agent,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The agent, with its prompt whole rather than cut to its opening.
+	Agent         *Agent `protobuf:"bytes,1,opt,name=agent,proto3" json:"agent,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1004,8 +1065,9 @@ func (x *GetAgentResponse) GetAgent() *Agent {
 // PlanRefreshRequest asks what a rebase would do without doing it, which is what the
 // confirmation names.
 type PlanRefreshRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	AgentId       string                 `protobuf:"bytes,1,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Whose branch the rebase would move.
+	AgentId       string `protobuf:"bytes,1,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1052,13 +1114,16 @@ type PlanRefreshResponse struct {
 	// The ref the branch would move onto, and the commit that ref named when it was read, so a
 	// person is told which commit was used rather than only which branch.
 	BaseRef string `protobuf:"bytes,1,opt,name=base_ref,json=baseRef,proto3" json:"base_ref,omitempty"`
+	// The commit that ref named when it was read.
 	BaseSha string `protobuf:"bytes,2,opt,name=base_sha,json=baseSha,proto3" json:"base_sha,omitempty"`
 	// How many of the agent's own commits would be replayed.
-	Commits int32  `protobuf:"varint,3,opt,name=commits,proto3" json:"commits,omitempty"`
-	Branch  string `protobuf:"bytes,4,opt,name=branch,proto3" json:"branch,omitempty"`
+	Commits int32 `protobuf:"varint,3,opt,name=commits,proto3" json:"commits,omitempty"`
+	// Which branch would move.
+	Branch string `protobuf:"bytes,4,opt,name=branch,proto3" json:"branch,omitempty"`
 	// How many of the agent's own commits the base already holds whole, which is what a merge of
 	// its work into the base leaves behind, and how many are left to replay.
 	LandedCommits int32 `protobuf:"varint,5,opt,name=landed_commits,json=landedCommits,proto3" json:"landed_commits,omitempty"`
+	// How many are left to replay onto the new base.
 	ReplayCommits int32 `protobuf:"varint,8,opt,name=replay_commits,json=replayCommits,proto3" json:"replay_commits,omitempty"`
 	// How many merge commits a rebase would discard, since it flattens history.
 	Merges int32 `protobuf:"varint,6,opt,name=merges,proto3" json:"merges,omitempty"`
@@ -1156,8 +1221,9 @@ func (x *PlanRefreshResponse) GetConflictPaths() []string {
 }
 
 type RebaseWorktreeRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	AgentId       string                 `protobuf:"bytes,1,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Whose branch to move onto its base.
+	AgentId       string `protobuf:"bytes,1,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1200,11 +1266,15 @@ func (x *RebaseWorktreeRequest) GetAgentId() string {
 }
 
 type RebaseWorktreeResponse struct {
-	state   protoimpl.MessageState `protogen:"open.v1"`
-	BaseRef string                 `protobuf:"bytes,1,opt,name=base_ref,json=baseRef,proto3" json:"base_ref,omitempty"`
-	BaseSha string                 `protobuf:"bytes,2,opt,name=base_sha,json=baseSha,proto3" json:"base_sha,omitempty"`
-	Commits int32                  `protobuf:"varint,3,opt,name=commits,proto3" json:"commits,omitempty"`
-	Branch  string                 `protobuf:"bytes,4,opt,name=branch,proto3" json:"branch,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The ref the branch was moved onto.
+	BaseRef string `protobuf:"bytes,1,opt,name=base_ref,json=baseRef,proto3" json:"base_ref,omitempty"`
+	// The commit that ref named when it was read.
+	BaseSha string `protobuf:"bytes,2,opt,name=base_sha,json=baseSha,proto3" json:"base_sha,omitempty"`
+	// How many of the agent's own commits the rebase carried.
+	Commits int32 `protobuf:"varint,3,opt,name=commits,proto3" json:"commits,omitempty"`
+	// Which branch moved.
+	Branch string `protobuf:"bytes,4,opt,name=branch,proto3" json:"branch,omitempty"`
 	// Whether the rebase stopped on conflicts and is still stopped, waiting for the agent.
 	Conflicted bool `protobuf:"varint,5,opt,name=conflicted,proto3" json:"conflicted,omitempty"`
 	// Whether the branch reached the base without replaying anything, which is what a branch
@@ -1212,6 +1282,7 @@ type RebaseWorktreeResponse struct {
 	Moved bool `protobuf:"varint,6,opt,name=moved,proto3" json:"moved,omitempty"`
 	// How many of the agent's own commits the base already held, and how many were replayed.
 	LandedCommits int32 `protobuf:"varint,7,opt,name=landed_commits,json=landedCommits,proto3" json:"landed_commits,omitempty"`
+	// How many were replayed onto the new base.
 	ReplayCommits int32 `protobuf:"varint,8,opt,name=replay_commits,json=replayCommits,proto3" json:"replay_commits,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -1304,8 +1375,9 @@ func (x *RebaseWorktreeResponse) GetReplayCommits() int32 {
 }
 
 type ResetWorktreeRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	AgentId       string                 `protobuf:"bytes,1,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Whose checkout to throw away and take again from its base.
+	AgentId       string `protobuf:"bytes,1,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1465,10 +1537,12 @@ type isSetMarkRequest_Target interface {
 }
 
 type SetMarkRequest_AgentId struct {
+	// The agent to mark.
 	AgentId string `protobuf:"bytes,1,opt,name=agent_id,json=agentId,proto3,oneof"`
 }
 
 type SetMarkRequest_WorkflowId struct {
+	// The workflow to mark.
 	WorkflowId string `protobuf:"bytes,2,opt,name=workflow_id,json=workflowId,proto3,oneof"`
 }
 
@@ -1477,9 +1551,11 @@ func (*SetMarkRequest_AgentId) isSetMarkRequest_Target() {}
 func (*SetMarkRequest_WorkflowId) isSetMarkRequest_Target() {}
 
 type SetHiddenRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	Hidden        bool                   `protobuf:"varint,2,opt,name=hidden,proto3" json:"hidden,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Which agent to hide or unhide.
+	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	// False to draw a row for it again, which is the person's decision rather than the agent's.
+	Hidden        bool `protobuf:"varint,2,opt,name=hidden,proto3" json:"hidden,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1529,9 +1605,11 @@ func (x *SetHiddenRequest) GetHidden() bool {
 }
 
 type RecordReportRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Reason        string                 `protobuf:"bytes,1,opt,name=reason,proto3" json:"reason,omitempty"`
-	TurnEnded     bool                   `protobuf:"varint,2,opt,name=turn_ended,json=turnEnded,proto3" json:"turn_ended,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// What the CLI says it is doing, which annotates the state the pane decided.
+	Reason string `protobuf:"bytes,1,opt,name=reason,proto3" json:"reason,omitempty"`
+	// Whether the CLI has finished a turn, which is what leaves the agent unviewed.
+	TurnEnded     bool `protobuf:"varint,2,opt,name=turn_ended,json=turnEnded,proto3" json:"turn_ended,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1582,7 +1660,8 @@ func (x *RecordReportRequest) GetTurnEnded() bool {
 
 type SetAgentViewedRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	Id    string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	// Which agent the person has caught up on.
+	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	// Whether the person has read what the agent finished. Unsetting it puts the mark back, which
 	// is what the toggle does on its way out.
 	Viewed        bool `protobuf:"varint,2,opt,name=viewed,proto3" json:"viewed,omitempty"`
@@ -1635,8 +1714,9 @@ func (x *SetAgentViewedRequest) GetViewed() bool {
 }
 
 type MarkRunsReadRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Whose failed script runs the person has looked at.
+	Id            string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1679,10 +1759,14 @@ func (x *MarkRunsReadRequest) GetId() string {
 }
 
 type SetMetadataRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	Key           string                 `protobuf:"bytes,2,opt,name=key,proto3" json:"key,omitempty"`
-	Value         *string                `protobuf:"bytes,3,opt,name=value,proto3,oneof" json:"value,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Which agent the fact is about, which an agent recording its own work reads from
+	// WEAVE_AGENT_ID.
+	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	// What to file it under, leaving every other key on the agent untouched.
+	Key string `protobuf:"bytes,2,opt,name=key,proto3" json:"key,omitempty"`
+	// The fact as the panel will show it, left out to clear the key.
+	Value         *string `protobuf:"bytes,3,opt,name=value,proto3,oneof" json:"value,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1739,10 +1823,13 @@ func (x *SetMetadataRequest) GetValue() string {
 }
 
 type LogRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            *string                `protobuf:"bytes,1,opt,name=id,proto3,oneof" json:"id,omitempty"`
-	Message       string                 `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
-	Script        *string                `protobuf:"bytes,3,opt,name=script,proto3,oneof" json:"script,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Which agent the line is about, or unset for the caller's own.
+	Id *string `protobuf:"bytes,1,opt,name=id,proto3,oneof" json:"id,omitempty"`
+	// One line for weave's log, which is how a script says what it is doing.
+	Message string `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
+	// Which script's run the line belongs to, which a running script reads from WEAVE_SCRIPT.
+	Script        *string `protobuf:"bytes,3,opt,name=script,proto3,oneof" json:"script,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1799,8 +1886,10 @@ func (x *LogRequest) GetScript() string {
 }
 
 type ArchiveAgentsRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Ids           []string               `protobuf:"bytes,1,rep,name=ids,proto3" json:"ids,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The agents to stop and hide, keeping their records and transcripts, children along with
+	// them. The batch goes whole or not at all.
+	Ids           []string `protobuf:"bytes,1,rep,name=ids,proto3" json:"ids,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1843,8 +1932,9 @@ func (x *ArchiveAgentsRequest) GetIds() []string {
 }
 
 type RestoreAgentsRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Ids           []string               `protobuf:"bytes,1,rep,name=ids,proto3" json:"ids,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The archived agents to bring back as dormant rows, along with their workflows.
+	Ids           []string `protobuf:"bytes,1,rep,name=ids,proto3" json:"ids,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1887,8 +1977,9 @@ func (x *RestoreAgentsRequest) GetIds() []string {
 }
 
 type RestoreAgentsResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Agents        []*Agent               `protobuf:"bytes,1,rep,name=agents,proto3" json:"agents,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The agents as restored, dormant until each is resumed.
+	Agents        []*Agent `protobuf:"bytes,1,rep,name=agents,proto3" json:"agents,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1931,8 +2022,9 @@ func (x *RestoreAgentsResponse) GetAgents() []*Agent {
 }
 
 type ResumeAgentRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Which dormant agent to put back in a pane on its own conversation.
+	Id            string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1975,8 +2067,9 @@ func (x *ResumeAgentRequest) GetId() string {
 }
 
 type ResumeAgentResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Agent         *Agent                 `protobuf:"bytes,1,opt,name=agent,proto3" json:"agent,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The agent as it now stands, running.
+	Agent         *Agent `protobuf:"bytes,1,opt,name=agent,proto3" json:"agent,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2019,8 +2112,9 @@ func (x *ResumeAgentResponse) GetAgent() *Agent {
 }
 
 type DeleteAgentsRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Ids           []string               `protobuf:"bytes,1,rep,name=ids,proto3" json:"ids,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The agents to remove for good, transcripts and worktrees with them.
+	Ids           []string `protobuf:"bytes,1,rep,name=ids,proto3" json:"ids,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2063,9 +2157,11 @@ func (x *DeleteAgentsRequest) GetIds() []string {
 }
 
 type UpdateAgentRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Which agent to rename.
+	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	// What to list it as, which the running tmux window keeps its old name through.
+	Name          string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }

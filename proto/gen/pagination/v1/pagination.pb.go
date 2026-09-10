@@ -23,9 +23,11 @@ const (
 )
 
 type Pagination struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Limit         *int32                 `protobuf:"varint,1,opt,name=limit,proto3,oneof" json:"limit,omitempty"`
-	Cursor        *string                `protobuf:"bytes,2,opt,name=cursor,proto3,oneof" json:"cursor,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// How many rows to return, capped by the server, and left to the server entirely when unset.
+	Limit *int32 `protobuf:"varint,1,opt,name=limit,proto3,oneof" json:"limit,omitempty"`
+	// The next_page_token a previous reply carried, or unset to start from the beginning.
+	Cursor        *string `protobuf:"bytes,2,opt,name=cursor,proto3,oneof" json:"cursor,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }

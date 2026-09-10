@@ -28,17 +28,28 @@ const (
 )
 
 type Workflow struct {
-	state             protoimpl.MessageState `protogen:"open.v1"`
-	Id                string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	Name              string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	Context           string                 `protobuf:"bytes,3,opt,name=context,proto3" json:"context,omitempty"`
-	Cwd               string                 `protobuf:"bytes,4,opt,name=cwd,proto3" json:"cwd,omitempty"`
-	Flags             string                 `protobuf:"bytes,5,opt,name=flags,proto3" json:"flags,omitempty"`
-	Harness           string                 `protobuf:"bytes,6,opt,name=harness,proto3" json:"harness,omitempty"`
-	ArchivedAt        *string                `protobuf:"bytes,9,opt,name=archived_at,json=archivedAt,proto3,oneof" json:"archived_at,omitempty"`
-	Worktree          *WorktreeConfig        `protobuf:"bytes,10,opt,name=worktree,proto3" json:"worktree,omitempty"`
-	ArchiveOnPrClosed bool                   `protobuf:"varint,11,opt,name=archive_on_pr_closed,json=archiveOnPrClosed,proto3" json:"archive_on_pr_closed,omitempty"`
-	Hooks             []*WorkflowHook        `protobuf:"bytes,12,rep,name=hooks,proto3" json:"hooks,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The handle every other call names this workflow by.
+	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	// What the panel groups its agents under.
+	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	// Text appended to the system prompt of every agent launched into it, taken as a snapshot at
+	// launch rather than read again.
+	Context string `protobuf:"bytes,3,opt,name=context,proto3" json:"context,omitempty"`
+	// The directory its agents start in, and the checkout new worktrees are cut from.
+	Cwd string `protobuf:"bytes,4,opt,name=cwd,proto3" json:"cwd,omitempty"`
+	// Command-line flags prefilled for each new agent.
+	Flags string `protobuf:"bytes,5,opt,name=flags,proto3" json:"flags,omitempty"`
+	// Which CLI its agents run, blank for weave's default.
+	Harness string `protobuf:"bytes,6,opt,name=harness,proto3" json:"harness,omitempty"`
+	// When it was hidden from the panel, unset while it is live.
+	ArchivedAt *string `protobuf:"bytes,9,opt,name=archived_at,json=archivedAt,proto3,oneof" json:"archived_at,omitempty"`
+	// Whether its agents each get a worktree of their own, and how those are built.
+	Worktree *WorktreeConfig `protobuf:"bytes,10,opt,name=worktree,proto3" json:"worktree,omitempty"`
+	// Whether an agent is archived once weave sees its recorded pull request merge or close.
+	ArchiveOnPrClosed bool `protobuf:"varint,11,opt,name=archive_on_pr_closed,json=archiveOnPrClosed,proto3" json:"archive_on_pr_closed,omitempty"`
+	// Scripts hung on moments in its agents' lives, one per moment.
+	Hooks []*WorkflowHook `protobuf:"bytes,12,rep,name=hooks,proto3" json:"hooks,omitempty"`
 	// The letter a person addresses this workflow by in the panel, if it holds one.
 	Mark *string `protobuf:"bytes,13,opt,name=mark,proto3,oneof" json:"mark,omitempty"`
 	// Whether context holds only its opening, which a summary listing returns.
@@ -162,9 +173,11 @@ func (x *Workflow) GetContextTruncated() bool {
 }
 
 type WorkflowHook struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Event         string                 `protobuf:"bytes,1,opt,name=event,proto3" json:"event,omitempty"`
-	Script        string                 `protobuf:"bytes,2,opt,name=script,proto3" json:"script,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Which moment fires it, such as pre-launch or post-resume.
+	Event string `protobuf:"bytes,1,opt,name=event,proto3" json:"event,omitempty"`
+	// The file in the hooks directory to run, blank to fire nothing at that moment.
+	Script        string `protobuf:"bytes,2,opt,name=script,proto3" json:"script,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -214,13 +227,19 @@ func (x *WorkflowHook) GetScript() string {
 }
 
 type WorktreeConfig struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Enabled       bool                   `protobuf:"varint,1,opt,name=enabled,proto3" json:"enabled,omitempty"`
-	BaseBranch    string                 `protobuf:"bytes,2,opt,name=base_branch,json=baseBranch,proto3" json:"base_branch,omitempty"`
-	CopyPaths     []string               `protobuf:"bytes,3,rep,name=copy_paths,json=copyPaths,proto3" json:"copy_paths,omitempty"`
-	SymlinkPaths  []string               `protobuf:"bytes,4,rep,name=symlink_paths,json=symlinkPaths,proto3" json:"symlink_paths,omitempty"`
-	DiffExclude   []string               `protobuf:"bytes,5,rep,name=diff_exclude,json=diffExclude,proto3" json:"diff_exclude,omitempty"`
-	Dir           string                 `protobuf:"bytes,6,opt,name=dir,proto3" json:"dir,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Whether weave cuts a worktree for each agent, or leaves it in the directory it was given.
+	Enabled bool `protobuf:"varint,1,opt,name=enabled,proto3" json:"enabled,omitempty"`
+	// Which branch a new worktree starts from, blank for the checkout's current head.
+	BaseBranch string `protobuf:"bytes,2,opt,name=base_branch,json=baseBranch,proto3" json:"base_branch,omitempty"`
+	// Files copied into each new worktree, for the untracked ones a build needs.
+	CopyPaths []string `protobuf:"bytes,3,rep,name=copy_paths,json=copyPaths,proto3" json:"copy_paths,omitempty"`
+	// Files linked into each new worktree rather than copied, for the large shared ones.
+	SymlinkPaths []string `protobuf:"bytes,4,rep,name=symlink_paths,json=symlinkPaths,proto3" json:"symlink_paths,omitempty"`
+	// Paths or globs the panel leaves out of the diff it draws, such as generated output.
+	DiffExclude []string `protobuf:"bytes,5,rep,name=diff_exclude,json=diffExclude,proto3" json:"diff_exclude,omitempty"`
+	// Where new worktrees are made, blank for the parent every workflow shares.
+	Dir           string `protobuf:"bytes,6,opt,name=dir,proto3" json:"dir,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -298,10 +317,14 @@ func (x *WorktreeConfig) GetDir() string {
 }
 
 type ListWorkflowsRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Pagination    *v1.Pagination         `protobuf:"bytes,1,opt,name=pagination,proto3,oneof" json:"pagination,omitempty"`
-	Archived      bool                   `protobuf:"varint,2,opt,name=archived,proto3" json:"archived,omitempty"`
-	View          v11.View               `protobuf:"varint,3,opt,name=view,proto3,enum=view.v1.View" json:"view,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Where to carry on from.
+	Pagination *v1.Pagination `protobuf:"bytes,1,opt,name=pagination,proto3,oneof" json:"pagination,omitempty"`
+	// True to list the archived workflows and only those.
+	Archived bool `protobuf:"varint,2,opt,name=archived,proto3" json:"archived,omitempty"`
+	// How much of each record to return, since the panel draws every field and a model reading
+	// the same endpoint has a context window to spend.
+	View          v11.View `protobuf:"varint,3,opt,name=view,proto3,enum=view.v1.View" json:"view,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -358,9 +381,11 @@ func (x *ListWorkflowsRequest) GetView() v11.View {
 }
 
 type ListWorkflowsResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Workflows     []*Workflow            `protobuf:"bytes,1,rep,name=workflows,proto3" json:"workflows,omitempty"`
-	NextPageToken *string                `protobuf:"bytes,2,opt,name=next_page_token,json=nextPageToken,proto3,oneof" json:"next_page_token,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// One page of workflows, in alphabetical order.
+	Workflows []*Workflow `protobuf:"bytes,1,rep,name=workflows,proto3" json:"workflows,omitempty"`
+	// Pass this back as the pagination cursor for the next page.
+	NextPageToken *string `protobuf:"bytes,2,opt,name=next_page_token,json=nextPageToken,proto3,oneof" json:"next_page_token,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -410,8 +435,9 @@ func (x *ListWorkflowsResponse) GetNextPageToken() string {
 }
 
 type GetWorkflowRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Which workflow to read.
+	Id            string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -454,8 +480,9 @@ func (x *GetWorkflowRequest) GetId() string {
 }
 
 type GetWorkflowResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Workflow      *Workflow              `protobuf:"bytes,1,opt,name=workflow,proto3" json:"workflow,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The workflow, with its context whole rather than cut to its opening.
+	Workflow      *Workflow `protobuf:"bytes,1,opt,name=workflow,proto3" json:"workflow,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -498,17 +525,25 @@ func (x *GetWorkflowResponse) GetWorkflow() *Workflow {
 }
 
 type CreateWorkflowRequest struct {
-	state             protoimpl.MessageState `protogen:"open.v1"`
-	Name              string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	Context           string                 `protobuf:"bytes,2,opt,name=context,proto3" json:"context,omitempty"`
-	Cwd               string                 `protobuf:"bytes,3,opt,name=cwd,proto3" json:"cwd,omitempty"`
-	Flags             string                 `protobuf:"bytes,4,opt,name=flags,proto3" json:"flags,omitempty"`
-	Harness           string                 `protobuf:"bytes,5,opt,name=harness,proto3" json:"harness,omitempty"`
-	Worktree          *WorktreeConfig        `protobuf:"bytes,8,opt,name=worktree,proto3" json:"worktree,omitempty"`
-	ArchiveOnPrClosed bool                   `protobuf:"varint,9,opt,name=archive_on_pr_closed,json=archiveOnPrClosed,proto3" json:"archive_on_pr_closed,omitempty"`
-	Hooks             []*WorkflowHook        `protobuf:"bytes,10,rep,name=hooks,proto3" json:"hooks,omitempty"`
-	unknownFields     protoimpl.UnknownFields
-	sizeCache         protoimpl.SizeCache
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// What to group its agents under in the panel.
+	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	// Text to append to the system prompt of every agent launched into it.
+	Context string `protobuf:"bytes,2,opt,name=context,proto3" json:"context,omitempty"`
+	// The directory its agents start in, and the checkout worktrees are cut from.
+	Cwd string `protobuf:"bytes,3,opt,name=cwd,proto3" json:"cwd,omitempty"`
+	// Flags to prefill for each new agent.
+	Flags string `protobuf:"bytes,4,opt,name=flags,proto3" json:"flags,omitempty"`
+	// Which CLI its agents run, blank for weave's default.
+	Harness string `protobuf:"bytes,5,opt,name=harness,proto3" json:"harness,omitempty"`
+	// Whether its agents each get a worktree, and how those are built.
+	Worktree *WorktreeConfig `protobuf:"bytes,8,opt,name=worktree,proto3" json:"worktree,omitempty"`
+	// True to archive an agent once its recorded pull request merges or closes.
+	ArchiveOnPrClosed bool `protobuf:"varint,9,opt,name=archive_on_pr_closed,json=archiveOnPrClosed,proto3" json:"archive_on_pr_closed,omitempty"`
+	// Scripts to hang on moments in its agents' lives.
+	Hooks         []*WorkflowHook `protobuf:"bytes,10,rep,name=hooks,proto3" json:"hooks,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *CreateWorkflowRequest) Reset() {
@@ -598,8 +633,9 @@ func (x *CreateWorkflowRequest) GetHooks() []*WorkflowHook {
 }
 
 type CreateWorkflowResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Workflow      *Workflow              `protobuf:"bytes,1,opt,name=workflow,proto3" json:"workflow,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The workflow as recorded, holding no agents yet.
+	Workflow      *Workflow `protobuf:"bytes,1,opt,name=workflow,proto3" json:"workflow,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -642,18 +678,28 @@ func (x *CreateWorkflowResponse) GetWorkflow() *Workflow {
 }
 
 type UpdateWorkflowRequest struct {
-	state             protoimpl.MessageState `protogen:"open.v1"`
-	Id                string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	Name              string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	Context           string                 `protobuf:"bytes,3,opt,name=context,proto3" json:"context,omitempty"`
-	Cwd               string                 `protobuf:"bytes,4,opt,name=cwd,proto3" json:"cwd,omitempty"`
-	Flags             string                 `protobuf:"bytes,5,opt,name=flags,proto3" json:"flags,omitempty"`
-	Harness           string                 `protobuf:"bytes,6,opt,name=harness,proto3" json:"harness,omitempty"`
-	Worktree          *WorktreeConfig        `protobuf:"bytes,9,opt,name=worktree,proto3" json:"worktree,omitempty"`
-	ArchiveOnPrClosed bool                   `protobuf:"varint,10,opt,name=archive_on_pr_closed,json=archiveOnPrClosed,proto3" json:"archive_on_pr_closed,omitempty"`
-	Hooks             []*WorkflowHook        `protobuf:"bytes,11,rep,name=hooks,proto3" json:"hooks,omitempty"`
-	unknownFields     protoimpl.UnknownFields
-	sizeCache         protoimpl.SizeCache
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Which workflow to rewrite.
+	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	// Every field here is written, so send back the ones you are not changing.
+	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	// Reaches only agents launched afterwards, since existing ones took a snapshot.
+	Context string `protobuf:"bytes,3,opt,name=context,proto3" json:"context,omitempty"`
+	// Where agents launched afterwards start.
+	Cwd string `protobuf:"bytes,4,opt,name=cwd,proto3" json:"cwd,omitempty"`
+	// Flags prefilled for agents launched afterwards.
+	Flags string `protobuf:"bytes,5,opt,name=flags,proto3" json:"flags,omitempty"`
+	// Which CLI agents launched afterwards run.
+	Harness string `protobuf:"bytes,6,opt,name=harness,proto3" json:"harness,omitempty"`
+	// Turning worktrees off reaches agents already running, since whether weave removes a
+	// directory is read when the agent is deleted.
+	Worktree *WorktreeConfig `protobuf:"bytes,9,opt,name=worktree,proto3" json:"worktree,omitempty"`
+	// Whether an agent is archived once its pull request merges or closes.
+	ArchiveOnPrClosed bool `protobuf:"varint,10,opt,name=archive_on_pr_closed,json=archiveOnPrClosed,proto3" json:"archive_on_pr_closed,omitempty"`
+	// The whole hook list, so send back the ones you are keeping.
+	Hooks         []*WorkflowHook `protobuf:"bytes,11,rep,name=hooks,proto3" json:"hooks,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *UpdateWorkflowRequest) Reset() {
@@ -750,8 +796,9 @@ func (x *UpdateWorkflowRequest) GetHooks() []*WorkflowHook {
 }
 
 type ArchiveWorkflowRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Which workflow to hide, archiving the agents inside it.
+	Id            string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -794,8 +841,9 @@ func (x *ArchiveWorkflowRequest) GetId() string {
 }
 
 type RestoreWorkflowRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Which archived workflow to bring back, along with the agents archived inside it.
+	Id            string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -838,8 +886,9 @@ func (x *RestoreWorkflowRequest) GetId() string {
 }
 
 type RestoreWorkflowResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Workflow      *Workflow              `protobuf:"bytes,1,opt,name=workflow,proto3" json:"workflow,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The workflow as restored, its agents dormant until each is resumed.
+	Workflow      *Workflow `protobuf:"bytes,1,opt,name=workflow,proto3" json:"workflow,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -882,8 +931,9 @@ func (x *RestoreWorkflowResponse) GetWorkflow() *Workflow {
 }
 
 type DeleteWorkflowRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Which archived workflow to remove for good, with whatever is still inside it.
+	Id            string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }

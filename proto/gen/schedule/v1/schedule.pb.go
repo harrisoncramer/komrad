@@ -29,19 +29,31 @@ const (
 )
 
 type Schedule struct {
-	state             protoimpl.MessageState `protogen:"open.v1"`
-	Id                string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	Name              string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	Cron              string                 `protobuf:"bytes,3,opt,name=cron,proto3" json:"cron,omitempty"`
-	Timezone          string                 `protobuf:"bytes,4,opt,name=timezone,proto3" json:"timezone,omitempty"`
-	Enabled           bool                   `protobuf:"varint,5,opt,name=enabled,proto3" json:"enabled,omitempty"`
-	HideAgents        bool                   `protobuf:"varint,8,opt,name=hide_agents,json=hideAgents,proto3" json:"hide_agents,omitempty"`
-	Prompt            string                 `protobuf:"bytes,6,opt,name=prompt,proto3" json:"prompt,omitempty"`
-	WorkflowId        string                 `protobuf:"bytes,7,opt,name=workflow_id,json=workflowId,proto3" json:"workflow_id,omitempty"`
-	NextRunAt         *timestamppb.Timestamp `protobuf:"bytes,10,opt,name=next_run_at,json=nextRunAt,proto3,oneof" json:"next_run_at,omitempty"`
-	LastResultStatus  string                 `protobuf:"bytes,11,opt,name=last_result_status,json=lastResultStatus,proto3" json:"last_result_status,omitempty"`
-	LastResultMessage string                 `protobuf:"bytes,12,opt,name=last_result_message,json=lastResultMessage,proto3" json:"last_result_message,omitempty"`
-	LastResultAt      *timestamppb.Timestamp `protobuf:"bytes,13,opt,name=last_result_at,json=lastResultAt,proto3,oneof" json:"last_result_at,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The handle every other call names this schedule by.
+	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	// What the panel lists it as.
+	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	// Five fields saying when it fires, in the timezone below.
+	Cron string `protobuf:"bytes,3,opt,name=cron,proto3" json:"cron,omitempty"`
+	// Which clock the expression is read against, blank for the machine's own.
+	Timezone string `protobuf:"bytes,4,opt,name=timezone,proto3" json:"timezone,omitempty"`
+	// Whether it is armed, since a paused schedule keeps its record and stops firing.
+	Enabled bool `protobuf:"varint,5,opt,name=enabled,proto3" json:"enabled,omitempty"`
+	// Whether its launches stay out of the panel's sidebar while still running.
+	HideAgents bool `protobuf:"varint,8,opt,name=hide_agents,json=hideAgents,proto3" json:"hide_agents,omitempty"`
+	// The opening prompt every agent it launches is given.
+	Prompt string `protobuf:"bytes,6,opt,name=prompt,proto3" json:"prompt,omitempty"`
+	// Which workflow its agents are filed under, deciding their directory and flags.
+	WorkflowId string `protobuf:"bytes,7,opt,name=workflow_id,json=workflowId,proto3" json:"workflow_id,omitempty"`
+	// When the expression next matches, unset while the schedule is paused.
+	NextRunAt *timestamppb.Timestamp `protobuf:"bytes,10,opt,name=next_run_at,json=nextRunAt,proto3,oneof" json:"next_run_at,omitempty"`
+	// How the last firing went, which is blank until it has fired once.
+	LastResultStatus string `protobuf:"bytes,11,opt,name=last_result_status,json=lastResultStatus,proto3" json:"last_result_status,omitempty"`
+	// What went wrong on that firing, when something did.
+	LastResultMessage string `protobuf:"bytes,12,opt,name=last_result_message,json=lastResultMessage,proto3" json:"last_result_message,omitempty"`
+	// When it last fired, unset until it has.
+	LastResultAt *timestamppb.Timestamp `protobuf:"bytes,13,opt,name=last_result_at,json=lastResultAt,proto3,oneof" json:"last_result_at,omitempty"`
 	// Whether prompt holds only its opening, which a summary listing returns.
 	PromptTruncated bool `protobuf:"varint,14,opt,name=prompt_truncated,json=promptTruncated,proto3" json:"prompt_truncated,omitempty"`
 	unknownFields   protoimpl.UnknownFields
@@ -170,9 +182,12 @@ func (x *Schedule) GetPromptTruncated() bool {
 }
 
 type ListSchedulesRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Pagination    *v1.Pagination         `protobuf:"bytes,1,opt,name=pagination,proto3,oneof" json:"pagination,omitempty"`
-	View          v11.View               `protobuf:"varint,2,opt,name=view,proto3,enum=view.v1.View" json:"view,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Where to carry on from.
+	Pagination *v1.Pagination `protobuf:"bytes,1,opt,name=pagination,proto3,oneof" json:"pagination,omitempty"`
+	// How much of each record to return, since the panel draws every field and a model reading
+	// the same endpoint has a context window to spend.
+	View          v11.View `protobuf:"varint,2,opt,name=view,proto3,enum=view.v1.View" json:"view,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -222,9 +237,11 @@ func (x *ListSchedulesRequest) GetView() v11.View {
 }
 
 type ListSchedulesResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Schedules     []*Schedule            `protobuf:"bytes,1,rep,name=schedules,proto3" json:"schedules,omitempty"`
-	NextPageToken *string                `protobuf:"bytes,2,opt,name=next_page_token,json=nextPageToken,proto3,oneof" json:"next_page_token,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// One page of schedules, most recently updated first.
+	Schedules []*Schedule `protobuf:"bytes,1,rep,name=schedules,proto3" json:"schedules,omitempty"`
+	// Pass this back as the pagination cursor for the next page.
+	NextPageToken *string `protobuf:"bytes,2,opt,name=next_page_token,json=nextPageToken,proto3,oneof" json:"next_page_token,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -274,8 +291,9 @@ func (x *ListSchedulesResponse) GetNextPageToken() string {
 }
 
 type GetScheduleRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Which schedule to read.
+	Id            string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -318,8 +336,9 @@ func (x *GetScheduleRequest) GetId() string {
 }
 
 type GetScheduleResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Schedule      *Schedule              `protobuf:"bytes,1,opt,name=schedule,proto3" json:"schedule,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The schedule, with its prompt whole rather than cut to its opening.
+	Schedule      *Schedule `protobuf:"bytes,1,opt,name=schedule,proto3" json:"schedule,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -362,14 +381,21 @@ func (x *GetScheduleResponse) GetSchedule() *Schedule {
 }
 
 type CreateScheduleRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	Cron          string                 `protobuf:"bytes,2,opt,name=cron,proto3" json:"cron,omitempty"`
-	Timezone      string                 `protobuf:"bytes,3,opt,name=timezone,proto3" json:"timezone,omitempty"`
-	Enabled       bool                   `protobuf:"varint,4,opt,name=enabled,proto3" json:"enabled,omitempty"`
-	HideAgents    bool                   `protobuf:"varint,7,opt,name=hide_agents,json=hideAgents,proto3" json:"hide_agents,omitempty"`
-	Prompt        string                 `protobuf:"bytes,5,opt,name=prompt,proto3" json:"prompt,omitempty"`
-	WorkflowId    string                 `protobuf:"bytes,6,opt,name=workflow_id,json=workflowId,proto3" json:"workflow_id,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// What to list it as, which also becomes the title of each agent it launches.
+	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	// When to fire, as five whitespace-separated fields.
+	Cron string `protobuf:"bytes,2,opt,name=cron,proto3" json:"cron,omitempty"`
+	// Which clock to read that against, blank for the machine's own.
+	Timezone string `protobuf:"bytes,3,opt,name=timezone,proto3" json:"timezone,omitempty"`
+	// False to write the schedule down without arming it.
+	Enabled bool `protobuf:"varint,4,opt,name=enabled,proto3" json:"enabled,omitempty"`
+	// True to keep its launches out of the panel's sidebar.
+	HideAgents bool `protobuf:"varint,7,opt,name=hide_agents,json=hideAgents,proto3" json:"hide_agents,omitempty"`
+	// The opening prompt each launch is given.
+	Prompt string `protobuf:"bytes,5,opt,name=prompt,proto3" json:"prompt,omitempty"`
+	// Which workflow to launch into, whose cwd and flags each agent inherits.
+	WorkflowId    string `protobuf:"bytes,6,opt,name=workflow_id,json=workflowId,proto3" json:"workflow_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -454,8 +480,9 @@ func (x *CreateScheduleRequest) GetWorkflowId() string {
 }
 
 type CreateScheduleResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Schedule      *Schedule              `protobuf:"bytes,1,opt,name=schedule,proto3" json:"schedule,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The schedule as recorded, which has fired nothing yet.
+	Schedule      *Schedule `protobuf:"bytes,1,opt,name=schedule,proto3" json:"schedule,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -498,15 +525,23 @@ func (x *CreateScheduleResponse) GetSchedule() *Schedule {
 }
 
 type UpdateScheduleRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	Cron          string                 `protobuf:"bytes,3,opt,name=cron,proto3" json:"cron,omitempty"`
-	Timezone      string                 `protobuf:"bytes,4,opt,name=timezone,proto3" json:"timezone,omitempty"`
-	Enabled       bool                   `protobuf:"varint,5,opt,name=enabled,proto3" json:"enabled,omitempty"`
-	Prompt        string                 `protobuf:"bytes,6,opt,name=prompt,proto3" json:"prompt,omitempty"`
-	WorkflowId    string                 `protobuf:"bytes,7,opt,name=workflow_id,json=workflowId,proto3" json:"workflow_id,omitempty"`
-	HideAgents    bool                   `protobuf:"varint,8,opt,name=hide_agents,json=hideAgents,proto3" json:"hide_agents,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Which schedule to rewrite.
+	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	// Every field here is written, so send back the ones you are not changing.
+	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	// When it fires from now on.
+	Cron string `protobuf:"bytes,3,opt,name=cron,proto3" json:"cron,omitempty"`
+	// Which clock that is read against.
+	Timezone string `protobuf:"bytes,4,opt,name=timezone,proto3" json:"timezone,omitempty"`
+	// Whether it stays armed.
+	Enabled bool `protobuf:"varint,5,opt,name=enabled,proto3" json:"enabled,omitempty"`
+	// The prompt later launches are given, leaving agents already launched alone.
+	Prompt string `protobuf:"bytes,6,opt,name=prompt,proto3" json:"prompt,omitempty"`
+	// Which workflow later launches go into.
+	WorkflowId string `protobuf:"bytes,7,opt,name=workflow_id,json=workflowId,proto3" json:"workflow_id,omitempty"`
+	// Whether later launches stay out of the sidebar, leaving existing agents alone.
+	HideAgents    bool `protobuf:"varint,8,opt,name=hide_agents,json=hideAgents,proto3" json:"hide_agents,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -598,9 +633,11 @@ func (x *UpdateScheduleRequest) GetHideAgents() bool {
 }
 
 type SetScheduleEnabledRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	Enabled       bool                   `protobuf:"varint,2,opt,name=enabled,proto3" json:"enabled,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Which schedule to arm or pause.
+	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	// False to stop it firing while keeping its record and its history.
+	Enabled       bool `protobuf:"varint,2,opt,name=enabled,proto3" json:"enabled,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -650,8 +687,9 @@ func (x *SetScheduleEnabledRequest) GetEnabled() bool {
 }
 
 type ArchiveScheduleRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Which schedule to hide, leaving the agents it already launched running.
+	Id            string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }

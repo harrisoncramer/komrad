@@ -198,15 +198,18 @@ func (ReviewVerdict) EnumDescriptor() ([]byte, []int) {
 // given against. Nothing a comment is pinned to can move underneath the person reading it,
 // because the snapshot is a commit rather than the worktree.
 type ReviewRound struct {
-	state   protoimpl.MessageState `protogen:"open.v1"`
-	Id      string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	AgentId string                 `protobuf:"bytes,2,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The handle a review or a viewed-file record names this round by.
+	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	// Whose work the snapshot was taken of.
+	AgentId string `protobuf:"bytes,2,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`
 	// Which round this is for its agent, counting from one.
 	Ordinal int32 `protobuf:"varint,3,opt,name=ordinal,proto3" json:"ordinal,omitempty"`
 	// The commit the agent's branch left its base at when the round was taken.
 	BaseSha string `protobuf:"bytes,4,opt,name=base_sha,json=baseSha,proto3" json:"base_sha,omitempty"`
 	// The commit the whole worktree was written out as, tracked and untracked alike.
-	SnapshotSha   string `protobuf:"bytes,5,opt,name=snapshot_sha,json=snapshotSha,proto3" json:"snapshot_sha,omitempty"`
+	SnapshotSha string `protobuf:"bytes,5,opt,name=snapshot_sha,json=snapshotSha,proto3" json:"snapshot_sha,omitempty"`
+	// When the snapshot was taken, in RFC 3339.
 	CreatedAt     string `protobuf:"bytes,6,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -287,12 +290,17 @@ func (x *ReviewRound) GetCreatedAt() string {
 // Review is one author's batch of comments against one round, private while it is written and
 // released as a whole, the way a pending review on a forge is.
 type Review struct {
-	state        protoimpl.MessageState `protogen:"open.v1"`
-	Id           string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	AgentId      string                 `protobuf:"bytes,2,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`
-	RoundId      string                 `protobuf:"bytes,3,opt,name=round_id,json=roundId,proto3" json:"round_id,omitempty"`
-	RoundOrdinal int32                  `protobuf:"varint,4,opt,name=round_ordinal,json=roundOrdinal,proto3" json:"round_ordinal,omitempty"`
-	AuthorKind   ReviewAuthorKind       `protobuf:"varint,5,opt,name=author_kind,json=authorKind,proto3,enum=agent.v1.ReviewAuthorKind" json:"author_kind,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The handle the threads in this batch name it by.
+	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	// Whose work is being read.
+	AgentId string `protobuf:"bytes,2,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`
+	// The snapshot the batch was written against.
+	RoundId string `protobuf:"bytes,3,opt,name=round_id,json=roundId,proto3" json:"round_id,omitempty"`
+	// Which round that is, counting from one, so a caller need not fetch the round to say.
+	RoundOrdinal int32 `protobuf:"varint,4,opt,name=round_ordinal,json=roundOrdinal,proto3" json:"round_ordinal,omitempty"`
+	// Whether a person or an agent wrote it.
+	AuthorKind ReviewAuthorKind `protobuf:"varint,5,opt,name=author_kind,json=authorKind,proto3,enum=agent.v1.ReviewAuthorKind" json:"author_kind,omitempty"`
 	// The agent giving the review, absent when the person reviewing is.
 	AuthorAgentId *string `protobuf:"bytes,6,opt,name=author_agent_id,json=authorAgentId,proto3,oneof" json:"author_agent_id,omitempty"`
 	// What the author concluded, unspecified while the review is still open.
@@ -303,8 +311,10 @@ type Review struct {
 	Path string `protobuf:"bytes,9,opt,name=path,proto3" json:"path,omitempty"`
 	// When the agent claimed the mail that told it the review was waiting.
 	DeliveredAt string `protobuf:"bytes,10,opt,name=delivered_at,json=deliveredAt,proto3" json:"delivered_at,omitempty"`
-	CreatedAt   string `protobuf:"bytes,11,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
-	UpdatedAt   string `protobuf:"bytes,12,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	// When the batch was opened, which is the first comment written into it.
+	CreatedAt string `protobuf:"bytes,11,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	// When anything in it last moved.
+	UpdatedAt string `protobuf:"bytes,12,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
 	// What the author said about the work as a whole rather than about any one line, empty when
 	// they said nothing.
 	Body          string `protobuf:"bytes,13,opt,name=body,proto3" json:"body,omitempty"`
@@ -435,9 +445,11 @@ func (x *Review) GetBody() string {
 
 // ReviewThread is one conversation pinned to a place in a round of an agent's diff.
 type ReviewThread struct {
-	state   protoimpl.MessageState `protogen:"open.v1"`
-	Id      string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	AgentId string                 `protobuf:"bytes,2,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The handle a reply or a resolve names this thread by.
+	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	// Whose diff the thread is pinned to.
+	AgentId string `protobuf:"bytes,2,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`
 	// The batch this thread was opened as part of.
 	ReviewId string `protobuf:"bytes,15,opt,name=review_id,json=reviewId,proto3" json:"review_id,omitempty"`
 	// The round the thread is anchored to, which never moves.
@@ -446,12 +458,17 @@ type ReviewThread struct {
 	RoundOrdinal int32 `protobuf:"varint,17,opt,name=round_ordinal,json=roundOrdinal,proto3" json:"round_ordinal,omitempty"`
 	// The commit the old side of these line numbers was read against, which is the round's own
 	// base unless the diff was narrowed to an earlier round when the thread was written.
-	BaseSha  string `protobuf:"bytes,19,opt,name=base_sha,json=baseSha,proto3" json:"base_sha,omitempty"`
+	BaseSha string `protobuf:"bytes,19,opt,name=base_sha,json=baseSha,proto3" json:"base_sha,omitempty"`
+	// Which file, relative to the checkout.
 	FilePath string `protobuf:"bytes,3,opt,name=file_path,json=filePath,proto3" json:"file_path,omitempty"`
-	OldStart int32  `protobuf:"varint,4,opt,name=old_start,json=oldStart,proto3" json:"old_start,omitempty"`
-	OldEnd   int32  `protobuf:"varint,5,opt,name=old_end,json=oldEnd,proto3" json:"old_end,omitempty"`
-	NewStart int32  `protobuf:"varint,6,opt,name=new_start,json=newStart,proto3" json:"new_start,omitempty"`
-	NewEnd   int32  `protobuf:"varint,7,opt,name=new_end,json=newEnd,proto3" json:"new_end,omitempty"`
+	// Where the range begins on the old side of the diff, counting from one.
+	OldStart int32 `protobuf:"varint,4,opt,name=old_start,json=oldStart,proto3" json:"old_start,omitempty"`
+	// Where it ends on the old side, inclusive.
+	OldEnd int32 `protobuf:"varint,5,opt,name=old_end,json=oldEnd,proto3" json:"old_end,omitempty"`
+	// Where the range begins on the new side.
+	NewStart int32 `protobuf:"varint,6,opt,name=new_start,json=newStart,proto3" json:"new_start,omitempty"`
+	// Where it ends on the new side, inclusive.
+	NewEnd int32 `protobuf:"varint,7,opt,name=new_end,json=newEnd,proto3" json:"new_end,omitempty"`
 	// The diff lines the thread was written against, each keeping its leading marker.
 	QuotedLines []string `protobuf:"bytes,8,rep,name=quoted_lines,json=quotedLines,proto3" json:"quoted_lines,omitempty"`
 	// When the person reviewing settled this thread, empty while it is still owed an answer.
@@ -462,10 +479,13 @@ type ReviewThread struct {
 	UnreadByHuman bool `protobuf:"varint,11,opt,name=unread_by_human,json=unreadByHuman,proto3" json:"unread_by_human,omitempty"`
 	// Whether weave wrote this thread from an edit of the round's checkout rather than somebody
 	// typing it, which is what makes its body the same sentence every time.
-	Harvested     bool             `protobuf:"varint,18,opt,name=harvested,proto3" json:"harvested,omitempty"`
-	Messages      []*ReviewMessage `protobuf:"bytes,12,rep,name=messages,proto3" json:"messages,omitempty"`
-	CreatedAt     string           `protobuf:"bytes,13,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
-	UpdatedAt     string           `protobuf:"bytes,14,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	Harvested bool `protobuf:"varint,18,opt,name=harvested,proto3" json:"harvested,omitempty"`
+	// Everything said in the thread, oldest first.
+	Messages []*ReviewMessage `protobuf:"bytes,12,rep,name=messages,proto3" json:"messages,omitempty"`
+	// When the thread was opened.
+	CreatedAt string `protobuf:"bytes,13,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	// When anything in it last moved.
+	UpdatedAt     string `protobuf:"bytes,14,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -628,19 +648,25 @@ func (x *ReviewThread) GetUpdatedAt() string {
 
 // ReviewMessage is one thing said in a review thread.
 type ReviewMessage struct {
-	state      protoimpl.MessageState `protogen:"open.v1"`
-	Id         string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	ThreadId   string                 `protobuf:"bytes,2,opt,name=thread_id,json=threadId,proto3" json:"thread_id,omitempty"`
-	AuthorKind ReviewAuthorKind       `protobuf:"varint,3,opt,name=author_kind,json=authorKind,proto3,enum=agent.v1.ReviewAuthorKind" json:"author_kind,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The handle an edit of this message names it by.
+	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	// Which conversation it belongs to.
+	ThreadId string `protobuf:"bytes,2,opt,name=thread_id,json=threadId,proto3" json:"thread_id,omitempty"`
+	// Whether a person or an agent wrote it.
+	AuthorKind ReviewAuthorKind `protobuf:"varint,3,opt,name=author_kind,json=authorKind,proto3,enum=agent.v1.ReviewAuthorKind" json:"author_kind,omitempty"`
 	// The agent that wrote it, absent for the person reviewing and cleared if that agent is
 	// deleted. author_kind, not this, is what says who wrote it.
 	AuthorAgentId *string `protobuf:"bytes,4,opt,name=author_agent_id,json=authorAgentId,proto3,oneof" json:"author_agent_id,omitempty"`
-	Body          string  `protobuf:"bytes,5,opt,name=body,proto3" json:"body,omitempty"`
+	// What the author wrote.
+	Body string `protobuf:"bytes,5,opt,name=body,proto3" json:"body,omitempty"`
 	// Replacement lines the author proposes for the thread's range, empty for an ordinary
 	// comment. An agent applies these rather than reasoning about them.
 	Suggestion []string `protobuf:"bytes,11,rep,name=suggestion,proto3" json:"suggestion,omitempty"`
-	CreatedAt  string   `protobuf:"bytes,6,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
-	UpdatedAt  string   `protobuf:"bytes,7,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	// When it was written.
+	CreatedAt string `protobuf:"bytes,6,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	// When it was last edited.
+	UpdatedAt string `protobuf:"bytes,7,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
 	// How far this comment has got towards the agent reading it.
 	Delivery ReviewDeliveryState `protobuf:"varint,8,opt,name=delivery,proto3,enum=agent.v1.ReviewDeliveryState" json:"delivery,omitempty"`
 	// When the person reviewing released this comment, empty while it is only written down.
@@ -852,19 +878,27 @@ func (x *ListReviewThreadsResponse) GetThreads() []*ReviewThread {
 }
 
 type CreateReviewThreadRequest struct {
-	state    protoimpl.MessageState `protogen:"open.v1"`
-	AgentId  string                 `protobuf:"bytes,1,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`
-	FilePath string                 `protobuf:"bytes,2,opt,name=file_path,json=filePath,proto3" json:"file_path,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Whose diff to pin the comment to.
+	AgentId string `protobuf:"bytes,1,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`
+	// Which file, relative to the checkout.
+	FilePath string `protobuf:"bytes,2,opt,name=file_path,json=filePath,proto3" json:"file_path,omitempty"`
 	// The commit the old side of these line numbers was read against, empty for the round's own
 	// base.
 	BaseSha string `protobuf:"bytes,10,opt,name=base_sha,json=baseSha,proto3" json:"base_sha,omitempty"`
 	// The commit the new side of these line numbers was read against, empty for a caller that read
 	// the round's own snapshot.
-	SnapshotSha string   `protobuf:"bytes,11,opt,name=snapshot_sha,json=snapshotSha,proto3" json:"snapshot_sha,omitempty"`
-	OldStart    int32    `protobuf:"varint,3,opt,name=old_start,json=oldStart,proto3" json:"old_start,omitempty"`
-	OldEnd      int32    `protobuf:"varint,4,opt,name=old_end,json=oldEnd,proto3" json:"old_end,omitempty"`
-	NewStart    int32    `protobuf:"varint,5,opt,name=new_start,json=newStart,proto3" json:"new_start,omitempty"`
-	NewEnd      int32    `protobuf:"varint,6,opt,name=new_end,json=newEnd,proto3" json:"new_end,omitempty"`
+	SnapshotSha string `protobuf:"bytes,11,opt,name=snapshot_sha,json=snapshotSha,proto3" json:"snapshot_sha,omitempty"`
+	// Where the range begins on the old side of the diff, counting from one.
+	OldStart int32 `protobuf:"varint,3,opt,name=old_start,json=oldStart,proto3" json:"old_start,omitempty"`
+	// Where it ends on the old side, inclusive.
+	OldEnd int32 `protobuf:"varint,4,opt,name=old_end,json=oldEnd,proto3" json:"old_end,omitempty"`
+	// Where the range begins on the new side.
+	NewStart int32 `protobuf:"varint,5,opt,name=new_start,json=newStart,proto3" json:"new_start,omitempty"`
+	// Where it ends on the new side, inclusive.
+	NewEnd int32 `protobuf:"varint,6,opt,name=new_end,json=newEnd,proto3" json:"new_end,omitempty"`
+	// The diff lines being written about, each keeping its leading marker, so the anchor still
+	// says something once the code moves.
 	QuotedLines []string `protobuf:"bytes,7,rep,name=quoted_lines,json=quotedLines,proto3" json:"quoted_lines,omitempty"`
 	// The first thing said, which is the thread's reason for existing.
 	Body string `protobuf:"bytes,8,opt,name=body,proto3" json:"body,omitempty"`
@@ -982,8 +1016,9 @@ func (x *CreateReviewThreadRequest) GetSuggestion() []string {
 }
 
 type CreateReviewThreadResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Thread        *ReviewThread          `protobuf:"bytes,1,opt,name=thread,proto3" json:"thread,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The thread as opened, private until the batch is released.
+	Thread        *ReviewThread `protobuf:"bytes,1,opt,name=thread,proto3" json:"thread,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1026,9 +1061,11 @@ func (x *CreateReviewThreadResponse) GetThread() *ReviewThread {
 }
 
 type AddReviewMessageRequest struct {
-	state    protoimpl.MessageState `protogen:"open.v1"`
-	ThreadId string                 `protobuf:"bytes,1,opt,name=thread_id,json=threadId,proto3" json:"thread_id,omitempty"`
-	Body     string                 `protobuf:"bytes,2,opt,name=body,proto3" json:"body,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Which conversation to say it in.
+	ThreadId string `protobuf:"bytes,1,opt,name=thread_id,json=threadId,proto3" json:"thread_id,omitempty"`
+	// What to say, which for an agent answering is what it did.
+	Body string `protobuf:"bytes,2,opt,name=body,proto3" json:"body,omitempty"`
 	// Replacement lines proposed for the thread's range, empty for an ordinary message.
 	Suggestion    []string `protobuf:"bytes,3,rep,name=suggestion,proto3" json:"suggestion,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -1087,8 +1124,9 @@ func (x *AddReviewMessageRequest) GetSuggestion() []string {
 }
 
 type AddReviewMessageResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Message       *ReviewMessage         `protobuf:"bytes,1,opt,name=message,proto3" json:"message,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The message as recorded.
+	Message       *ReviewMessage `protobuf:"bytes,1,opt,name=message,proto3" json:"message,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1132,8 +1170,10 @@ func (x *AddReviewMessageResponse) GetMessage() *ReviewMessage {
 
 type EditReviewMessageRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	Id    string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	Body  string                 `protobuf:"bytes,2,opt,name=body,proto3" json:"body,omitempty"`
+	// Which message to rewrite.
+	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	// What it should say instead.
+	Body string `protobuf:"bytes,2,opt,name=body,proto3" json:"body,omitempty"`
 	// Replacement lines proposed for the thread's range, empty for an ordinary message.
 	Suggestion    []string `protobuf:"bytes,3,rep,name=suggestion,proto3" json:"suggestion,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -1192,8 +1232,9 @@ func (x *EditReviewMessageRequest) GetSuggestion() []string {
 }
 
 type EditReviewMessageResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Message       *ReviewMessage         `protobuf:"bytes,1,opt,name=message,proto3" json:"message,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The message as it now reads.
+	Message       *ReviewMessage `protobuf:"bytes,1,opt,name=message,proto3" json:"message,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1236,8 +1277,9 @@ func (x *EditReviewMessageResponse) GetMessage() *ReviewMessage {
 }
 
 type MarkReviewThreadReadRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Which thread the caller has caught up on.
+	Id            string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1280,8 +1322,9 @@ func (x *MarkReviewThreadReadRequest) GetId() string {
 }
 
 type MarkReviewThreadReadResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Thread        *ReviewThread          `protobuf:"bytes,1,opt,name=thread,proto3" json:"thread,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The thread as it now stands, no longer unread by the caller.
+	Thread        *ReviewThread `protobuf:"bytes,1,opt,name=thread,proto3" json:"thread,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1325,7 +1368,8 @@ func (x *MarkReviewThreadReadResponse) GetThread() *ReviewThread {
 
 type SetReviewThreadResolvedRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	Id    string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	// Which thread to settle or reopen.
+	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	// Whether the thread is settled. Unsetting it reopens the thread, which is what a person
 	// does when the answer was not the end of it.
 	Resolved      bool `protobuf:"varint,2,opt,name=resolved,proto3" json:"resolved,omitempty"`
@@ -1378,8 +1422,9 @@ func (x *SetReviewThreadResolvedRequest) GetResolved() bool {
 }
 
 type SetReviewThreadResolvedResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Thread        *ReviewThread          `protobuf:"bytes,1,opt,name=thread,proto3" json:"thread,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The thread as it now stands.
+	Thread        *ReviewThread `protobuf:"bytes,1,opt,name=thread,proto3" json:"thread,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1425,8 +1470,9 @@ func (x *SetReviewThreadResolvedResponse) GetThread() *ReviewThread {
 // round. A tree that has not moved since the last round is that round again rather than a new
 // one, so opening the diff twice does not walk the ordinal on.
 type OpenReviewRoundRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	AgentId       string                 `protobuf:"bytes,1,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Whose worktree to freeze.
+	AgentId       string `protobuf:"bytes,1,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1469,8 +1515,9 @@ func (x *OpenReviewRoundRequest) GetAgentId() string {
 }
 
 type OpenReviewRoundResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Round         *ReviewRound           `protobuf:"bytes,1,opt,name=round,proto3" json:"round,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The round to review against, which is the last one again if nothing has moved.
+	Round         *ReviewRound `protobuf:"bytes,1,opt,name=round,proto3" json:"round,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1513,8 +1560,9 @@ func (x *OpenReviewRoundResponse) GetRound() *ReviewRound {
 }
 
 type ListReviewRoundsRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	AgentId       string                 `protobuf:"bytes,1,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Whose rounds to read.
+	AgentId       string `protobuf:"bytes,1,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1602,8 +1650,9 @@ func (x *ListReviewRoundsResponse) GetRounds() []*ReviewRound {
 }
 
 type ListReviewsRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	AgentId       string                 `protobuf:"bytes,1,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Whose reviews to read.
+	AgentId       string `protobuf:"bytes,1,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1694,8 +1743,9 @@ func (x *ListReviewsResponse) GetReviews() []*Review {
 // one file beside the agent's work and sends one piece of ordinary mail saying where it is, so
 // nothing here decides when the agent is interrupted or typed at: that is mail's own affair.
 type ReleaseReviewRequest struct {
-	state   protoimpl.MessageState `protogen:"open.v1"`
-	AgentId string                 `protobuf:"bytes,1,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Whose work the batch was written against.
+	AgentId string `protobuf:"bytes,1,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`
 	// What the review concludes, which is what tells the agent whether it is done.
 	Verdict ReviewVerdict `protobuf:"varint,2,opt,name=verdict,proto3,enum=agent.v1.ReviewVerdict" json:"verdict,omitempty"`
 	// Stop the agent where it stands before telling it, so it reads now rather than at the end
@@ -1767,8 +1817,9 @@ func (x *ReleaseReviewRequest) GetBody() string {
 }
 
 type ReleaseReviewResponse struct {
-	state  protoimpl.MessageState `protogen:"open.v1"`
-	Review *Review                `protobuf:"bytes,1,opt,name=review,proto3" json:"review,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The review as released, carrying its verdict.
+	Review *Review `protobuf:"bytes,1,opt,name=review,proto3" json:"review,omitempty"`
 	// How many comments the released batch carried.
 	Comments int32 `protobuf:"varint,2,opt,name=comments,proto3" json:"comments,omitempty"`
 	// The absolute path the review was written to.
@@ -1832,10 +1883,13 @@ func (x *ReleaseReviewResponse) GetPath() string {
 // round is a mark of its own, which is how an agent rewriting the file undoes this one without
 // anything having to be compared.
 type ReviewViewedFile struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	RoundId       string                 `protobuf:"bytes,1,opt,name=round_id,json=roundId,proto3" json:"round_id,omitempty"`
-	FilePath      string                 `protobuf:"bytes,2,opt,name=file_path,json=filePath,proto3" json:"file_path,omitempty"`
-	ViewedAt      string                 `protobuf:"bytes,3,opt,name=viewed_at,json=viewedAt,proto3" json:"viewed_at,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Which round the file was read in.
+	RoundId string `protobuf:"bytes,1,opt,name=round_id,json=roundId,proto3" json:"round_id,omitempty"`
+	// Which file, relative to the checkout.
+	FilePath string `protobuf:"bytes,2,opt,name=file_path,json=filePath,proto3" json:"file_path,omitempty"`
+	// When it was marked, in RFC 3339.
+	ViewedAt      string `protobuf:"bytes,3,opt,name=viewed_at,json=viewedAt,proto3" json:"viewed_at,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1892,9 +1946,11 @@ func (x *ReviewViewedFile) GetViewedAt() string {
 }
 
 type SetReviewFileViewedRequest struct {
-	state    protoimpl.MessageState `protogen:"open.v1"`
-	RoundId  string                 `protobuf:"bytes,1,opt,name=round_id,json=roundId,proto3" json:"round_id,omitempty"`
-	FilePath string                 `protobuf:"bytes,2,opt,name=file_path,json=filePath,proto3" json:"file_path,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Which round the mark belongs to.
+	RoundId string `protobuf:"bytes,1,opt,name=round_id,json=roundId,proto3" json:"round_id,omitempty"`
+	// Which file, relative to the checkout.
+	FilePath string `protobuf:"bytes,2,opt,name=file_path,json=filePath,proto3" json:"file_path,omitempty"`
 	// Whether the file has been read. Unsetting it drops the mark, which is what the toggle does
 	// on its way back.
 	Viewed        bool `protobuf:"varint,3,opt,name=viewed,proto3" json:"viewed,omitempty"`
@@ -1999,8 +2055,9 @@ func (x *SetReviewFileViewedResponse) GetViewed() *ReviewViewedFile {
 }
 
 type ListReviewViewedFilesRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	RoundId       string                 `protobuf:"bytes,1,opt,name=round_id,json=roundId,proto3" json:"round_id,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Which round's marks to read.
+	RoundId       string `protobuf:"bytes,1,opt,name=round_id,json=roundId,proto3" json:"round_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2043,8 +2100,9 @@ func (x *ListReviewViewedFilesRequest) GetRoundId() string {
 }
 
 type ListReviewViewedFilesResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Viewed        []*ReviewViewedFile    `protobuf:"bytes,1,rep,name=viewed,proto3" json:"viewed,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Every file marked read in that round.
+	Viewed        []*ReviewViewedFile `protobuf:"bytes,1,rep,name=viewed,proto3" json:"viewed,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2089,12 +2147,17 @@ func (x *ListReviewViewedFilesResponse) GetViewed() []*ReviewViewedFile {
 // HarvestedRun is one run of adjacent lines the person reviewing wrote into the round's own
 // checkout, anchored by the panel because the numbers a thread is pinned by come from the patch.
 type HarvestedRun struct {
-	state    protoimpl.MessageState `protogen:"open.v1"`
-	FilePath string                 `protobuf:"bytes,1,opt,name=file_path,json=filePath,proto3" json:"file_path,omitempty"`
-	OldStart int32                  `protobuf:"varint,2,opt,name=old_start,json=oldStart,proto3" json:"old_start,omitempty"`
-	OldEnd   int32                  `protobuf:"varint,3,opt,name=old_end,json=oldEnd,proto3" json:"old_end,omitempty"`
-	NewStart int32                  `protobuf:"varint,4,opt,name=new_start,json=newStart,proto3" json:"new_start,omitempty"`
-	NewEnd   int32                  `protobuf:"varint,5,opt,name=new_end,json=newEnd,proto3" json:"new_end,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Which file the reviewer edited, relative to the checkout.
+	FilePath string `protobuf:"bytes,1,opt,name=file_path,json=filePath,proto3" json:"file_path,omitempty"`
+	// Where the run begins on the old side of the diff, counting from one.
+	OldStart int32 `protobuf:"varint,2,opt,name=old_start,json=oldStart,proto3" json:"old_start,omitempty"`
+	// Where it ends on the old side, inclusive.
+	OldEnd int32 `protobuf:"varint,3,opt,name=old_end,json=oldEnd,proto3" json:"old_end,omitempty"`
+	// Where the run begins on the new side.
+	NewStart int32 `protobuf:"varint,4,opt,name=new_start,json=newStart,proto3" json:"new_start,omitempty"`
+	// Where it ends on the new side, inclusive.
+	NewEnd int32 `protobuf:"varint,5,opt,name=new_end,json=newEnd,proto3" json:"new_end,omitempty"`
 	// The diff lines the run was written against, empty for a run in a file the patch does not
 	// draw, which is what leaves its thread adrift rather than pinned.
 	QuotedLines []string `protobuf:"bytes,6,rep,name=quoted_lines,json=quotedLines,proto3" json:"quoted_lines,omitempty"`
@@ -2184,10 +2247,13 @@ func (x *HarvestedRun) GetLines() []string {
 }
 
 type HarvestRoundEditsRequest struct {
-	state   protoimpl.MessageState `protogen:"open.v1"`
-	AgentId string                 `protobuf:"bytes,1,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`
-	RoundId string                 `protobuf:"bytes,2,opt,name=round_id,json=roundId,proto3" json:"round_id,omitempty"`
-	Runs    []*HarvestedRun        `protobuf:"bytes,3,rep,name=runs,proto3" json:"runs,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Whose checkout was edited.
+	AgentId string `protobuf:"bytes,1,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`
+	// Which round the edits are measured against.
+	RoundId string `protobuf:"bytes,2,opt,name=round_id,json=roundId,proto3" json:"round_id,omitempty"`
+	// The runs to turn into threads, already anchored by the panel.
+	Runs []*HarvestedRun `protobuf:"bytes,3,rep,name=runs,proto3" json:"runs,omitempty"`
 	// The commit the old side of these runs was measured from, empty for the round's own base.
 	BaseSha string `protobuf:"bytes,5,opt,name=base_sha,json=baseSha,proto3" json:"base_sha,omitempty"`
 	// Write a harvest that went past the ceiling anyway, which is the reviewer answering for an
@@ -2263,10 +2329,13 @@ func (x *HarvestRoundEditsRequest) GetForce() bool {
 }
 
 type HarvestRoundEditsResponse struct {
-	state   protoimpl.MessageState `protogen:"open.v1"`
-	Opened  int32                  `protobuf:"varint,1,opt,name=opened,proto3" json:"opened,omitempty"`
-	Moved   int32                  `protobuf:"varint,2,opt,name=moved,proto3" json:"moved,omitempty"`
-	Deleted int32                  `protobuf:"varint,3,opt,name=deleted,proto3" json:"deleted,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// How many threads were written for the first time.
+	Opened int32 `protobuf:"varint,1,opt,name=opened,proto3" json:"opened,omitempty"`
+	// How many already-open threads had their suggestion rewritten.
+	Moved int32 `protobuf:"varint,2,opt,name=moved,proto3" json:"moved,omitempty"`
+	// How many threads went because the reviewer took their edit back out.
+	Deleted int32 `protobuf:"varint,3,opt,name=deleted,proto3" json:"deleted,omitempty"`
 	// Runs written over a comment that has already gone out, which weave leaves in the checkout
 	// rather than rewriting words the agent has been sent.
 	Skipped       []*HarvestedRun `protobuf:"bytes,4,rep,name=skipped,proto3" json:"skipped,omitempty"`
