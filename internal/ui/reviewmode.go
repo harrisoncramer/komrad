@@ -43,10 +43,10 @@ func (m model) reviewWritingSaid() string {
 	}
 
 	if m.review.pinned {
-		return "the code as it was when you started · " + keyLabel(m.keys.Form.Submit) + " sends it"
+		return "the code as it was when you started · " + keyLabel(formKeys().Submit) + " sends it"
 	}
 
-	return keyLabel(m.keys.Form.Submit) + " sends it to the agent"
+	return keyLabel(formKeys().Submit) + " sends it to the agent"
 }
 
 // reviewUnsentCount is how many comments the reader is holding.

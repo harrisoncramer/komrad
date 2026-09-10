@@ -184,14 +184,12 @@ func TestUserPanelKey(t *testing.T) {
 func TestBindFocusKey(t *testing.T) {
 	tests := []struct {
 		name    string
-		key     string
 		sidebar string
 		agent   string
 		want    []string
 	}{
 		{
 			name:    "the key toggles between the sidebar and the agent's own pane",
-			key:     "C-a",
 			sidebar: "%3",
 			agent:   "%9",
 			want: []string{
@@ -200,20 +198,12 @@ func TestBindFocusKey(t *testing.T) {
 			},
 		},
 		{
-			name:    "no key binds nothing",
-			key:     "",
-			sidebar: "%3",
-			agent:   "%9",
-		},
-		{
 			name:    "no sidebar binds nothing",
-			key:     "C-a",
 			sidebar: "",
 			agent:   "%9",
 		},
 		{
 			name:    "no agent pane binds nothing",
-			key:     "C-a",
 			sidebar: "%3",
 		},
 	}
@@ -222,9 +212,9 @@ func TestBindFocusKey(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			tmux := &bindingTmux{}
 
-			NewPopupWindow(tmux, "weave").HoldFocusKey(tt.key, tt.sidebar, tt.agent)
+			NewPopupWindow(tmux, "weave").HoldFocusKey(tt.sidebar, tt.agent)
 
-			command, bound := tmux.bound["root:"+tt.key]
+			command, bound := tmux.bound["root:"+FocusKey]
 			if tt.want == nil {
 				assert.False(t, bound)
 
@@ -243,14 +233,14 @@ func TestHoldFocusKeyGivesItBack(t *testing.T) {
 	tmux := &bindingTmux{}
 	popup := NewPopupWindow(tmux, "weave")
 
-	popup.HoldFocusKey("C-a", "%3", "%9")
-	popup.HoldFocusKey("C-a", "%3", "")
+	popup.HoldFocusKey("%3", "%9")
+	popup.HoldFocusKey("%3", "")
 
 	_, bound := tmux.bound["root:C-a"]
 	assert.False(t, bound)
 	assert.Equal(t, []string{"C-a"}, tmux.unbound)
 
-	popup.HoldFocusKey("", "%3", "")
+	popup.HoldFocusKey("%3", "")
 
 	assert.Equal(t, []string{"C-a"}, tmux.unbound)
 }
@@ -259,7 +249,7 @@ func TestHoldFocusKeyGivesItBack(t *testing.T) {
 // stage and given back on a screen that stages none.
 func TestFocusKeyHeldOnlyOverAStagedAgent(t *testing.T) {
 	binds := &bindingTmux{}
-	m := focusKeyModel(binds)
+	m := FocusKeyModel(binds)
 
 	m.holdFocusKey()
 
@@ -282,7 +272,7 @@ func TestFocusKeyHeldOnlyOverAStagedAgent(t *testing.T) {
 // which would otherwise jump to a pane nobody can see.
 func TestFocusKeyGivenBackByAnEmptyStage(t *testing.T) {
 	binds := &bindingTmux{}
-	m := focusKeyModel(binds)
+	m := FocusKeyModel(binds)
 
 	m.holdFocusKey()
 	m.frame.ReleaseGuest("%9")
@@ -296,7 +286,7 @@ func TestFocusKeyGivenBackByAnEmptyStage(t *testing.T) {
 // TestFocusKeyReachesTmuxOnce checks a key that is already right is left alone.
 func TestFocusKeyReachesTmuxOnce(t *testing.T) {
 	binds := &bindingTmux{}
-	m := focusKeyModel(binds)
+	m := FocusKeyModel(binds)
 
 	m.holdFocusKey()
 	m.holdFocusKey()
@@ -308,7 +298,7 @@ func TestFocusKeyReachesTmuxOnce(t *testing.T) {
 // stage, rather than being left pointed at the one before it.
 func TestFocusKeyFollowsTheStagedPane(t *testing.T) {
 	binds := &bindingTmux{}
-	m := focusKeyModel(binds)
+	m := FocusKeyModel(binds)
 
 	m.holdFocusKey()
 	m.frame.ShowGuest("%12")
@@ -323,10 +313,9 @@ func TestFocusKeyFollowsTheStagedPane(t *testing.T) {
 	assert.Equal(t, 2, binds.rootBinds)
 }
 
-func focusKeyModel(binds *bindingTmux) model {
+func FocusKeyModel(binds *bindingTmux) model {
 	m := filterModel()
 	m.popup = NewPopupWindow(binds, "weave")
-	m.focusKey = "C-a"
 	m.pane = "%3"
 	for i := range m.listing.agents {
 		m.listing.agents[i].alive = true
@@ -343,7 +332,7 @@ func focusKeyModel(binds *bindingTmux) model {
 // list, the form taking the whole window and leaving the staged pane nowhere to be seen.
 func TestFocusKeyGivenBackByAForm(t *testing.T) {
 	binds := &bindingTmux{}
-	m := focusKeyModel(binds)
+	m := FocusKeyModel(binds)
 
 	m.holdFocusKey()
 
@@ -367,7 +356,7 @@ func TestFocusKeyGivenBackByAForm(t *testing.T) {
 // where the panel takes the window while the pane it covers stays parked in the stage.
 func TestFocusKeyGivenBackByAHeaderRow(t *testing.T) {
 	binds := &bindingTmux{}
-	m := focusKeyModel(binds)
+	m := FocusKeyModel(binds)
 
 	m.holdFocusKey()
 

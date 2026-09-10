@@ -466,7 +466,7 @@ func TestEmptyArchivePromptStartsOnCancel(t *testing.T) {
 	m, ok := opened.(model)
 	require.True(t, ok)
 
-	got := answerEmptyPrompt(t, m, keys.Form.Submit[0])
+	got := answerEmptyPrompt(t, m, formKeys().Submit[0])
 
 	assert.Zero(t, client.emptied, "a submit that answered nothing queues no sweep")
 	assert.Equal(t, screenArchive, got.screen)

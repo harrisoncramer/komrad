@@ -52,7 +52,7 @@ func (m model) archiveAgentsConfirm(agents []agentstore.Agent) (tea.Model, tea.C
 		return m, nil
 	}
 
-	form, answer := archiveAgentsForm(agents, unnamedChildren(m.liveAgents(), agents), m.keys.Form)
+	form, answer := archiveAgentsForm(agents, unnamedChildren(m.liveAgents(), agents), formKeys())
 
 	return m, m.openForm(formState{
 		kind:   formAgentArchive,
@@ -522,7 +522,7 @@ func agentPrefill(workflow workflowstore.Workflow) agentFormValues {
 func (m model) openAgentForm(workflow workflowstore.Workflow, values *agentFormValues) (tea.Model, tea.Cmd) {
 	return m.openRedrawnForm(
 		formAgent,
-		func(m model) *huh.Form { return newAgentForm(m.keys.Form, values, workflow.Worktree.Enabled) },
+		func(m model) *huh.Form { return newAgentForm(formKeys(), values, workflow.Worktree.Enabled) },
 		func(m model) (tea.Model, tea.Cmd) { return m.submitAgent(workflow, *values) },
 	)
 }
@@ -544,7 +544,7 @@ func (m model) openNewChild(parent agentstore.Agent) (tea.Model, tea.Cmd) {
 func (m model) openChildForm(parent agentstore.Agent, values *agentFormValues) (tea.Model, tea.Cmd) {
 	return m.openRedrawnForm(
 		formChild,
-		func(m model) *huh.Form { return childAgentForm(m.keys.Form, values, parent) },
+		func(m model) *huh.Form { return childAgentForm(formKeys(), values, parent) },
 		func(m model) (tea.Model, tea.Cmd) { return m.submitChild(parent, *values) },
 	)
 }
@@ -570,7 +570,7 @@ func (m model) openRename(agent agentstore.Agent) (tea.Model, tea.Cmd) {
 func (m model) openRenameForm(agent agentstore.Agent, name *string) (tea.Model, tea.Cmd) {
 	return m.openRedrawnForm(
 		formRename,
-		func(m model) *huh.Form { return renameForm(agent.Name, name, m.keys.Form) },
+		func(m model) *huh.Form { return renameForm(agent.Name, name, formKeys()) },
 		func(m model) (tea.Model, tea.Cmd) { return m.submitRename(agent, *name) },
 	)
 }
@@ -595,7 +595,7 @@ func adoptPrefill(workflow workflowstore.Workflow) adoptFormValues {
 func (m model) openAdoptForm(workflow workflowstore.Workflow, values *adoptFormValues) (tea.Model, tea.Cmd) {
 	return m.openRedrawnForm(
 		formAdopt,
-		func(m model) *huh.Form { return adoptAgentForm(m.keys.Form, values) },
+		func(m model) *huh.Form { return adoptAgentForm(formKeys(), values) },
 		func(m model) (tea.Model, tea.Cmd) { return m.submitAdopt(workflow, *values) },
 	)
 }
@@ -672,7 +672,7 @@ func (m model) refreshAgent(agent agentstore.Agent) (tea.Model, tea.Cmd) {
 
 // openRefreshPicker asks which half of a refresh to run, naming what a rebase would cost.
 func (m model) openRefreshPicker(plan refreshPlan) (tea.Model, tea.Cmd) {
-	form, answer := refreshForm(plan, m.keys.Form)
+	form, answer := refreshForm(plan, formKeys())
 
 	return m, m.openForm(formState{
 		kind:   formAgentRefresh,

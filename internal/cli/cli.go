@@ -88,10 +88,12 @@ the machine, start or stop the service, or call an endpoint from a script.`,
 			if _, err := harnessRegistry.GetByID(cfg.DefaultHarness); err != nil && app.configErr == nil {
 				app.configErr = fmt.Errorf("default_harness: %w", err)
 			}
+			if err := ui.ValidateKeybindings(cfg.Keybindings); err != nil && app.configErr == nil {
+				app.configErr = err
+			}
 			app.harnesses = harnessRegistry
 
 			app.layout = cfg.Layout
-			app.focusKey = cfg.Panel.FocusKey
 			app.logLevel = cfg.Log.Level
 			app.logViewer = cfg.Log.Viewer
 			app.processViewer = cfg.Log.ProcessViewer

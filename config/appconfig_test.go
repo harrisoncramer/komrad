@@ -673,17 +673,16 @@ func TestLoadDerivesConnectionValuesAfterPrecedence(t *testing.T) {
 	assert.Equal(t, SourceDerived, report.Sources["cache_dir"])
 }
 
-// TestLoadExplicitEmptyCollectionReplacesDefault pins that writing an empty list clears the
-// default rather than leaving it in place.
-func TestLoadExplicitEmptyCollectionReplacesDefault(t *testing.T) {
+// TestLoadRefusesAnEmptyBinding pins the one collection an empty list cannot clear, a binding
+// naming no key being an action drawn in the legend that no press reaches.
+func TestLoadRefusesAnEmptyBinding(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.toml")
 	require.NoError(t, os.WriteFile(path, []byte("[keybindings.nav]\nup = []\n"), 0o644))
 
-	cfg, err := Load([]string{path})
-	require.NoError(t, err)
+	_, err := Load([]string{path})
 
-	assert.Empty(t, cfg.Keybindings.Nav.Up)
-	assert.Equal(t, DefaultKeybindings().Nav.Down, cfg.Keybindings.Nav.Down)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "nav.up")
 }
 
 // TestResolveLayers covers naming a config file replacing the default rather than adding to

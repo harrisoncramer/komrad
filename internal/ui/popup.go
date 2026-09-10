@@ -29,6 +29,10 @@ func NewPopupWindow(tmux popupTmux, session string) *PopupWindow {
 	return &PopupWindow{tmux: tmux, session: session}
 }
 
+// FocusKey moves the cursor between the panel's sidebar and the agent's pane on the stage, named
+// the way tmux names a key because that is where it is bound.
+const FocusKey = "C-a"
+
 const managerKeyOption = "@weave_key"
 
 const defaultPanelKey = "g"
@@ -54,20 +58,31 @@ func (p *PopupWindow) BindHide(key string) {
 // pane is on the stage, and gives it back when the stage holds none and on the screens that
 // stage no agent.
 
-// HoldFocusKey takes the key that moves focus between the panel's sidebar and the agent's pane
-// on the stage, or gives it back to the panes when that pane is empty.
-func (p *PopupWindow) HoldFocusKey(key, sidebar, agent string) {
+// HoldFocusKey takes the focus key while an agent's pane is on the stage beside sidebar, or gives
+// it back to the panes when that pane is empty.
+func (p *PopupWindow) HoldFocusKey(sidebar, agent string) {
 	switch {
-	case key == "" || sidebar == "":
+	case sidebar == "":
 	case p.focus != nil && *p.focus == agent:
 	case agent != "":
-		p.tmux.BindRootKey(key, "if-shell", "-F", "#{==:#{pane_id},"+sidebar+"}",
+		p.tmux.BindRootKey(FocusKey, "if-shell", "-F", "#{==:#{pane_id},"+sidebar+"}",
 			"select-pane -t "+agent, "select-pane -t "+sidebar)
 		p.focus = &agent
 	default:
-		p.tmux.UnbindRootKey(key)
+		p.tmux.UnbindRootKey(FocusKey)
 		p.focus = &agent
 	}
+}
+
+// ReleaseFocusKey gives the focus key back to the panes, which the panel owes them on its way out
+// because the tmux server it bound the key on outlives it.
+func (p *PopupWindow) ReleaseFocusKey() {
+	if p.focus == nil || *p.focus == "" {
+		return
+	}
+
+	p.tmux.UnbindRootKey(FocusKey)
+	p.focus = nil
 }
 
 type keyNamer interface {

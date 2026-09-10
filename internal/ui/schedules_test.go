@@ -179,7 +179,7 @@ func TestScheduleFormButtonsLineUp(t *testing.T) {
 		ID:   "w1",
 		Name: "api",
 		Cwd:  "/work/api",
-	}}, config.DefaultKeybindings().Form)
+	}}, config.FixedFormKeys())
 	form.Init()
 	form.Update(tea.WindowSizeMsg{Width: 80, Height: 40})
 

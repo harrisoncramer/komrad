@@ -10,6 +10,7 @@ func Checks(settings Settings) []Check {
 		newTmuxVersionCheck(),
 		newTmuxShellCheck(),
 		newConfigCheck(),
+		newKeybindingsCheck(),
 		newDefaultHarnessCheck(),
 		newHooksCheck(),
 		newWorktreesCheck(),

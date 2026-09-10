@@ -224,7 +224,7 @@ func (m model) deleteFromArchiveConfirm(agents []agentstore.Agent) (tea.Model, t
 		return m, nil
 	}
 
-	form, confirmed := deleteAgentsForm(agents, unnamedChildren(m.archive.agents, agents), m.keys.Form)
+	form, confirmed := deleteAgentsForm(agents, unnamedChildren(m.archive.agents, agents), formKeys())
 
 	return m, m.openForm(formState{
 		kind:   formArchiveDelete,
@@ -244,7 +244,7 @@ func (m model) deleteFromArchiveConfirm(agents []agentstore.Agent) (tea.Model, t
 }
 
 func (m model) deleteWorkflowConfirm(workflow workflowstore.Workflow) (tea.Model, tea.Cmd) {
-	form, confirmed := deleteWorkflowForm(workflow, m.archivedCount(workflow.ID), m.keys.Form)
+	form, confirmed := deleteWorkflowForm(workflow, m.archivedCount(workflow.ID), formKeys())
 
 	return m, m.openForm(formState{
 		kind:   formArchiveDelete,
@@ -268,7 +268,7 @@ func (m model) emptyArchiveConfirm() (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	form, confirmed := emptyArchiveForm(len(m.archive.agents), m.keys.Form)
+	form, confirmed := emptyArchiveForm(len(m.archive.agents), formKeys())
 
 	return m, m.openForm(formState{
 		kind:   formArchiveEmpty,

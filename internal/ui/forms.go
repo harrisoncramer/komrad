@@ -458,7 +458,7 @@ func (m model) answerForm() (tea.Model, tea.Cmd) {
 // updateForm hands a message to the form on screen, and answers it either when huh says it is
 // finished or on the submit key.
 func (m model) updateForm(msg tea.Msg) (tea.Model, tea.Cmd) {
-	if key, ok := msg.(tea.KeyMsg); ok && isBound(key.String(), m.keys.Form.Submit) {
+	if key, ok := msg.(tea.KeyMsg); ok && isBound(key.String(), formKeys().Submit) {
 		return m.answerForm()
 	}
 

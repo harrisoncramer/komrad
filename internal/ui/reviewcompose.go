@@ -99,13 +99,13 @@ func (m model) updateReviewComposer(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	// Every other key is a character being typed into the message, so the keys that leave it, and
 	// the one that opens it in an editor, come from the form keymap.
 	switch {
-	case isBound(k, m.keys.Form.Back):
+	case isBound(k, formKeys().Back):
 		return m.cancelReviewMessage(), nil
-	case isBound(k, m.keys.Form.Quit):
+	case isBound(k, formKeys().Quit):
 		return m, m.hide()
-	case isBound(k, m.keys.Form.Editor):
+	case isBound(k, formKeys().Editor):
 		return m.openMessageEditor()
-	case isBound(k, m.keys.Form.Submit):
+	case isBound(k, formKeys().Submit):
 		return m.saveReviewMessage()
 	}
 
@@ -336,9 +336,9 @@ func (m model) updateReviewRelease(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	k := key.String()
 
 	switch {
-	case isBound(k, m.keys.Form.Back):
+	case isBound(k, formKeys().Back):
 		return m.closeReviewRelease(), nil
-	case isBound(k, m.keys.Form.Quit):
+	case isBound(k, formKeys().Quit):
 		return m, m.hide()
 	case k == "tab":
 		m.review.verdict = (m.review.verdict + 1) % len(reviewVerdicts)
@@ -348,11 +348,11 @@ func (m model) updateReviewRelease(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.review.verdict = (m.review.verdict + len(reviewVerdicts) - 1) % len(reviewVerdicts)
 
 		return m, nil
-	case isBound(k, m.keys.Form.Editor):
+	case isBound(k, formKeys().Editor):
 		return m.openMessageEditor()
-	case isBound(k, m.keys.Form.Submit):
+	case isBound(k, formKeys().Submit):
 		return m.sendReview(false)
-	case isBound(k, m.keys.Review.SendNow):
+	case isBound(k, formKeys().SendNow):
 		return m.sendReview(true)
 	}
 

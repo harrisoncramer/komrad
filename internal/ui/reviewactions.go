@@ -129,7 +129,7 @@ func reviewTable() []action {
 			id: actionReviewSend,
 			// A verdict with no comments is how a change is approved, so this is offered while
 			// reading as well as while writing.
-			keys: func(k config.Keybindings) []string { return k.Form.Submit },
+			keys: func(config.Keybindings) []string { return formKeys().Submit },
 			run:  orRefuseWrite(func(m model) (tea.Model, tea.Cmd) { return m.openReviewRelease() }),
 		},
 	}
