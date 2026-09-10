@@ -8,8 +8,11 @@ option go_package = "weave/proto/gen/agent/v1;agentv1";
 
 // ReviewAuthorKind is who wrote a review message.
 enum ReviewAuthorKind {
+  // No author was recorded.
   REVIEW_AUTHOR_KIND_UNSPECIFIED = 0;
+  // The person running weave.
   REVIEW_AUTHOR_KIND_HUMAN = 1;
+  // The agent whose work is being read, or the reviewer reading it.
   REVIEW_AUTHOR_KIND_AGENT = 2;
 }
 
@@ -32,6 +35,7 @@ enum ReviewDeliveryState {
 // ReviewVerdict is what an author concluded about a round, which is what tells the agent
 // whether it is done rather than leaving it to read that out of the prose.
 enum ReviewVerdict {
+  // Nothing has been concluded, which is what an unreleased review carries.
   REVIEW_VERDICT_UNSPECIFIED = 0;
   // This round is good as it stands.
   REVIEW_VERDICT_APPROVED = 1;

@@ -9,16 +9,23 @@ option go_package = "weave/proto/gen/agent/v1;agentv1";
 
 // MailKind tells an agent's own mail from a notice weave raised itself.
 enum MailKind {
+  // No kind was recorded, which the panel draws as a dash.
   MAIL_KIND_UNSPECIFIED = 0;
+  // One agent writing to another, or the person writing to an agent.
   MAIL_KIND_PLAIN = 1;
+  // Weave saying a review has moved, naming the file the comments were written to.
   MAIL_KIND_REVIEW_ACTIVITY = 2;
+  // Weave telling an agent that it and one other have spent their mail limit.
   MAIL_KIND_EXCHANGE_CAPPED = 3;
 }
 
 // MailDirection is which half of an agent's correspondence a listing asks for.
 enum MailDirection {
+  // Unspecified is received, since that is the half an agent asks for by default.
   MAIL_DIRECTION_UNSPECIFIED = 0;
+  // The mail addressed to the agent.
   MAIL_DIRECTION_RECEIVED = 1;
+  // The mail the agent sent.
   MAIL_DIRECTION_SENT = 2;
 }
 

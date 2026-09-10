@@ -71,3 +71,25 @@ service EnumService {
     option idempotency_level = NO_SIDE_EFFECTS;
   }
 }
+
+message Inner {
+  string agent_id = 1;
+  Colour tint = 2;
+  Loop loop = 3;
+}
+
+message Loop {
+  optional Loop next = 1;
+  string round_id = 2;
+}
+
+message NestedRequest {
+  Inner inner = 1;
+  map<string, Colour> palette = 2;
+}
+
+service NestedService {
+  rpc GetNested(NestedRequest) returns (Response) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+}

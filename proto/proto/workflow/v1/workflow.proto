@@ -169,6 +169,8 @@ message DeleteWorkflowRequest {
   string id = 1 [(buf.validate.field).string.min_len = 1];
 }
 
+// WorkflowService is the groups agents are filed under, which decide the directory, flags and
+// shared context each of their agents starts from.
 service WorkflowService {
   rpc ListWorkflows(ListWorkflowsRequest) returns (ListWorkflowsResponse) {
     option idempotency_level = NO_SIDE_EFFECTS;

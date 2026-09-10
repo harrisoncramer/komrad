@@ -212,3 +212,123 @@ func repeatedEnumField(t *testing.T, rules *validate.FieldRules) protoreflect.Fi
 
 	return field
 }
+
+// TestDefinedOnlyOnAMap builds the descriptor rather than compiling one.
+func TestDefinedOnlyOnAMap(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name  string
+		rules *validate.FieldRules
+		want  bool
+	}{
+		{
+			name: "the map spelling",
+			rules: &validate.FieldRules{
+				Type: &validate.FieldRules_Map{
+					Map: &validate.MapRules{
+						Values: &validate.FieldRules{
+							Type: &validate.FieldRules_Enum{
+								Enum: &validate.EnumRules{DefinedOnly: xptr.Ptr(true)},
+							},
+						},
+					},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "the scalar spelling, which protovalidate refuses on a map",
+			rules: &validate.FieldRules{
+				Type: &validate.FieldRules_Enum{
+					Enum: &validate.EnumRules{DefinedOnly: xptr.Ptr(true)},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "the list spelling, which is the wrong cardinality too",
+			rules: &validate.FieldRules{
+				Type: &validate.FieldRules_Repeated{
+					Repeated: &validate.RepeatedRules{
+						Items: &validate.FieldRules{
+							Type: &validate.FieldRules_Enum{
+								Enum: &validate.EnumRules{DefinedOnly: xptr.Ptr(true)},
+							},
+						},
+					},
+				},
+			},
+			want: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			field := enumMapField(t, tt.rules)
+			assert.Equal(t, tt.want, definedOnly(field))
+		})
+	}
+}
+
+func enumMapField(t *testing.T, rules *validate.FieldRules) protoreflect.FieldDescriptor {
+	t.Helper()
+
+	options := &descriptorpb.FieldOptions{}
+	proto.SetExtension(options, validate.E_Field, rules)
+
+	file := &descriptorpb.FileDescriptorProto{
+		Name:    xptr.Ptr("keyed/v1/keyed.proto"),
+		Package: xptr.Ptr("keyed.v1"),
+		Syntax:  xptr.Ptr("proto3"),
+		EnumType: []*descriptorpb.EnumDescriptorProto{{
+			Name: xptr.Ptr("Colour"),
+			Value: []*descriptorpb.EnumValueDescriptorProto{
+				{Name: xptr.Ptr("COLOUR_UNSPECIFIED"), Number: xptr.Ptr(int32(0))},
+			},
+		}},
+		MessageType: []*descriptorpb.DescriptorProto{{
+			Name: xptr.Ptr("KeyedRequest"),
+			NestedType: []*descriptorpb.DescriptorProto{{
+				Name:    xptr.Ptr("PaletteEntry"),
+				Options: &descriptorpb.MessageOptions{MapEntry: xptr.Ptr(true)},
+				Field: []*descriptorpb.FieldDescriptorProto{
+					{
+						Name:     xptr.Ptr("key"),
+						Number:   xptr.Ptr(int32(1)),
+						Label:    descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL.Enum(),
+						Type:     descriptorpb.FieldDescriptorProto_TYPE_STRING.Enum(),
+						JsonName: xptr.Ptr("key"),
+					},
+					{
+						Name:     xptr.Ptr("value"),
+						Number:   xptr.Ptr(int32(2)),
+						Label:    descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL.Enum(),
+						Type:     descriptorpb.FieldDescriptorProto_TYPE_ENUM.Enum(),
+						TypeName: xptr.Ptr(".keyed.v1.Colour"),
+						JsonName: xptr.Ptr("value"),
+					},
+				},
+			}},
+			Field: []*descriptorpb.FieldDescriptorProto{{
+				Name:     xptr.Ptr("palette"),
+				Number:   xptr.Ptr(int32(1)),
+				Label:    descriptorpb.FieldDescriptorProto_LABEL_REPEATED.Enum(),
+				Type:     descriptorpb.FieldDescriptorProto_TYPE_MESSAGE.Enum(),
+				TypeName: xptr.Ptr(".keyed.v1.KeyedRequest.PaletteEntry"),
+				JsonName: xptr.Ptr("palette"),
+				Options:  options,
+			}},
+		}},
+	}
+
+	built, err := protodesc.NewFile(file, protoregistry.GlobalFiles)
+	require.NoError(t, err)
+
+	field := built.Messages().Get(0).Fields().Get(0)
+	require.True(t, field.IsMap())
+
+	return field
+}

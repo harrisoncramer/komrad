@@ -27,9 +27,13 @@ const (
 type MailKind int32
 
 const (
-	MailKind_MAIL_KIND_UNSPECIFIED     MailKind = 0
-	MailKind_MAIL_KIND_PLAIN           MailKind = 1
+	// No kind was recorded, which the panel draws as a dash.
+	MailKind_MAIL_KIND_UNSPECIFIED MailKind = 0
+	// One agent writing to another, or the person writing to an agent.
+	MailKind_MAIL_KIND_PLAIN MailKind = 1
+	// Weave saying a review has moved, naming the file the comments were written to.
 	MailKind_MAIL_KIND_REVIEW_ACTIVITY MailKind = 2
+	// Weave telling an agent that it and one other have spent their mail limit.
 	MailKind_MAIL_KIND_EXCHANGE_CAPPED MailKind = 3
 )
 
@@ -80,9 +84,12 @@ func (MailKind) EnumDescriptor() ([]byte, []int) {
 type MailDirection int32
 
 const (
+	// Unspecified is received, since that is the half an agent asks for by default.
 	MailDirection_MAIL_DIRECTION_UNSPECIFIED MailDirection = 0
-	MailDirection_MAIL_DIRECTION_RECEIVED    MailDirection = 1
-	MailDirection_MAIL_DIRECTION_SENT        MailDirection = 2
+	// The mail addressed to the agent.
+	MailDirection_MAIL_DIRECTION_RECEIVED MailDirection = 1
+	// The mail the agent sent.
+	MailDirection_MAIL_DIRECTION_SENT MailDirection = 2
 )
 
 // Enum value maps for MailDirection.

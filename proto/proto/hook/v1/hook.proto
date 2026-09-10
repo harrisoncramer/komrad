@@ -25,6 +25,8 @@ message OpenPullRequestRequest {
   string agent_id = 1 [(buf.validate.field).string.min_len = 1];
 }
 
+// HookService lists the scripts the user has written for weave to fire, and opens the pull
+// request an agent recorded.
 service HookService {
   rpc ListHooks(google.protobuf.Empty) returns (ListHooksResponse) {
     option idempotency_level = NO_SIDE_EFFECTS;
