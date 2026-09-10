@@ -8,11 +8,13 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"net"
 	"net/url"
 	"os"
 	"path/filepath"
 	"reflect"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 
@@ -792,6 +794,12 @@ func (c Config) validate() error {
 	if err := newKeyChecker().checkKeybindings(c.Keybindings); err != nil {
 		return err
 	}
+	if err := validateMail(c.Mail); err != nil {
+		return err
+	}
+	if err := validateConnection(c.Connection); err != nil {
+		return err
+	}
 
 	return validateLayout(c.Layout)
 }
@@ -799,6 +807,101 @@ func (c Config) validate() error {
 // logLevels are the levels the service understands. One it does not know decodes as debug,
 // so an unchecked typo turns the log up instead of saying the word was wrong.
 var logLevels = []string{"debug", "info", "warn", "error"}
+
+// validateMail rejects the two mail settings the service reads at send time, so a deadline that
+// will not parse stops the file being read rather than every send that follows it.
+func validateMail(mail Mail) error {
+	if _, err := mail.GetDeliveryDeadline(); err != nil {
+		return fmt.Errorf("mail.delivery_deadline: %w", err)
+	}
+	if _, err := mail.GetMaxExchange(); err != nil {
+		return fmt.Errorf("mail.max_exchange: %w", err)
+	}
+
+	return nil
+}
+
+// Explainer: the API has no auth and its writes spawn agents, so the address it answers on is
+// the one setting in this file with a consequence outside the machine. Anything but a loopback
+// host hands that to whoever can reach the port, which is why it is refused here rather than
+// left to a person to notice.
+
+// validateConnection rejects an address the service could not listen on or should not, and a
+// database url that is not one Postgres would answer.
+func validateConnection(connection Connection) error {
+	if err := validateAddr(connection.Addr); err != nil {
+		return err
+	}
+
+	return validateDatabaseURL(connection.DatabaseURL, connection.ReadOnlyDatabaseURL)
+}
+
+// loopbackHosts are the hosts that reach only this machine, spelled the ways a person writes them.
+var loopbackHosts = []string{"localhost", "::1"}
+
+func validateAddr(addr string) error {
+	trimmed := strings.TrimSpace(addr)
+	if trimmed == "" {
+		return nil
+	}
+
+	host, port, err := net.SplitHostPort(trimmed)
+	if err != nil {
+		return fmt.Errorf("connection.addr: %q is not a host and port: %w", addr, err)
+	}
+	if _, err := strconv.Atoi(port); err != nil {
+		return fmt.Errorf("connection.addr: %q is not a port", port)
+	}
+	if host == "" {
+		return fmt.Errorf("connection.addr: %q names no host, which answers on every interface, and the api has no auth", addr)
+	}
+
+	if slices.Contains(loopbackHosts, host) {
+		return nil
+	}
+
+	parsed := net.ParseIP(host)
+	if parsed == nil {
+		return fmt.Errorf("connection.addr: %q is not an address this machine can answer on", host)
+	}
+	if !parsed.IsLoopback() {
+		return fmt.Errorf("connection.addr: %q reaches this machine from the network, and the api has no auth and its writes spawn agents", host)
+	}
+
+	return nil
+}
+
+// validateDatabaseURL rejects a url Postgres would not answer, since the read-only url is derived
+// from it and comes out empty for anything else.
+func validateDatabaseURL(databaseURL, readOnlyURL string) error {
+	trimmed := strings.TrimSpace(databaseURL)
+	if trimmed == "" {
+		return nil
+	}
+
+	parsed, err := url.Parse(trimmed)
+	if err != nil {
+		return fmt.Errorf("connection.database_url: %q is not a url: %w", databaseURL, err)
+	}
+	if parsed.Scheme != "postgres" && parsed.Scheme != "postgresql" {
+		return fmt.Errorf("connection.database_url: %q is a %s url, and weave stores its records in Postgres",
+			databaseURL, describeScheme(parsed.Scheme))
+	}
+	if readOnlyURL == "" {
+		return fmt.Errorf("connection.database_url: %q is a postgres url a read-only login cannot be derived from", databaseURL)
+	}
+
+	return nil
+}
+
+// describeScheme names the scheme a url carries, for a url that carries none.
+func describeScheme(scheme string) string {
+	if scheme == "" {
+		return "schemeless"
+	}
+
+	return scheme
+}
 
 // validateLog rejects a level the service could not act on.
 func validateLog(log Log) error {

@@ -599,13 +599,13 @@ func TestLoadMergesLayers(t *testing.T) {
 		{
 			name: "three layers resolve each key to the last that set it",
 			files: []string{
-				"[connection]\ndatabase_url = \"postgres://one/db\"\naddr = \"1.1.1.1:1\"\n",
-				"[connection]\naddr = \"2.2.2.2:2\"\n",
+				"[connection]\ndatabase_url = \"postgres://one/db\"\naddr = \"127.0.0.1:1\"\n",
+				"[connection]\naddr = \"127.0.0.2:2\"\n",
 				"[connection]\ntmux_socket = \"three\"\n",
 			},
 			check: func(t *testing.T, cfg *Config) {
 				assert.Equal(t, "postgres://one/db", cfg.Connection.DatabaseURL)
-				assert.Equal(t, "2.2.2.2:2", cfg.Connection.Addr)
+				assert.Equal(t, "127.0.0.2:2", cfg.Connection.Addr)
 				assert.Equal(t, "three", cfg.Connection.TmuxSocket)
 			},
 		},
@@ -638,14 +638,14 @@ func TestLoadConnectionPrecedence(t *testing.T) {
 	dir := t.TempDir()
 	base := filepath.Join(dir, "base.toml")
 	local := filepath.Join(dir, "local.toml")
-	require.NoError(t, os.WriteFile(base, []byte("[connection]\naddr = \"1.1.1.1:1\"\n"), 0o644))
-	require.NoError(t, os.WriteFile(local, []byte("[connection]\naddr = \"2.2.2.2:2\"\n"), 0o644))
-	t.Setenv("WEAVE_ADDR", "3.3.3.3:3")
+	require.NoError(t, os.WriteFile(base, []byte("[connection]\naddr = \"127.0.0.1:1\"\n"), 0o644))
+	require.NoError(t, os.WriteFile(local, []byte("[connection]\naddr = \"127.0.0.2:2\"\n"), 0o644))
+	t.Setenv("WEAVE_ADDR", "127.0.0.3:3")
 
 	cfg, report, err := LoadWithReport([]string{base, local})
 	require.NoError(t, err)
 
-	assert.Equal(t, "3.3.3.3:3", cfg.Connection.Addr)
+	assert.Equal(t, "127.0.0.3:3", cfg.Connection.Addr)
 	assert.Equal(t, SourceEnvironment, report.Sources["addr"])
 }
 

@@ -14,6 +14,7 @@ func Checks(settings Settings) []Check {
 		newDefaultHarnessCheck(),
 		newHooksCheck(),
 		newWorktreesCheck(),
+		newContextCheck(),
 		newDatabaseCheck(),
 		newSchemaCheck(),
 		newReadOnlyLoginCheck(),
