@@ -626,14 +626,14 @@ func refreshForm(plan refreshPlan, keys config.FormKeys) (*huh.Form, *refreshCho
 func refreshRebaseLabel(plan refreshPlan) string {
 	base := fmt.Sprintf("%s (%s)", plan.baseRef, shortSHA(plan.baseSHA))
 	if plan.replay == 0 {
-		return fmt.Sprintf("Move onto %s, dropping %s it already holds", base, countWord(plan.landed, "commit", "commits"))
+		return fmt.Sprintf("Move onto %s. It already has %s of yours.", base, countWord(plan.landed, "commit", "commits"))
 	}
 	if plan.landed > 0 {
-		return fmt.Sprintf("Rebase onto %s, replaying %s and dropping %d it already holds",
+		return fmt.Sprintf("Rebase onto %s. Replay %s, drop %d it already has.",
 			base, countWord(plan.replay, "commit", "commits"), plan.landed)
 	}
 
-	return fmt.Sprintf("Rebase onto %s, replaying %s", base, countWord(plan.replay, "commit", "commits"))
+	return fmt.Sprintf("Rebase onto %s. Replay %s.", base, countWord(plan.replay, "commit", "commits"))
 }
 
 // refreshWarning is what a person is owed before the worktree is touched rather than after,
@@ -642,12 +642,11 @@ func refreshWarning(plan refreshPlan) string {
 	warnings := []string{}
 
 	if plan.landed > 0 {
-		warnings = append(warnings, fmt.Sprintf("The base already holds %s of this branch, which is what a merge of its "+
-			"work into the base leaves behind, so replaying them would collide with their own files.",
-			countWord(plan.landed, "commit", "commits")))
+		warnings = append(warnings, fmt.Sprintf("The base already has %s from this branch. "+
+			"Replaying them would collide with their own files.", countWord(plan.landed, "commit", "commits")))
 	}
 	if plan.merges > 0 {
-		warnings = append(warnings, fmt.Sprintf("A rebase discards %s and replays what they reconciled.",
+		warnings = append(warnings, fmt.Sprintf("A rebase throws away %s and replays what they settled.",
 			countWord(plan.merges, "merge commit", "merge commits")))
 	}
 	if len(plan.conflictPaths) > 0 {

@@ -560,7 +560,7 @@ func TestRebaseMailsForAnAgentWithNoWorkOfItsOwn(t *testing.T) {
 	body := rebaseMail(agentstore.Agent{}, *result)
 	assert.NotContains(t, body, "of your commits are no longer on the branch",
 		"an agent with no commits must not be told its commits are gone")
-	assert.Contains(t, body, "no commits of your own to replay")
+	assert.Contains(t, body, "You had no commits of your own to replay")
 }
 
 // TestRebaseMailNamesThePark covers the undo being findable from every outcome, not only the one

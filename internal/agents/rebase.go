@@ -306,25 +306,25 @@ func parkNote(result RebaseResult) string {
 		return ""
 	}
 
-	return " What the worktree held beforehand, including anything uncommitted and every commit " +
-		"that is no longer on the branch, is kept at " + result.ParkedRef + " if you need it back."
+	return "\n\nA copy of the worktree from before this ran is kept at " + result.ParkedRef +
+		". It holds anything you had not committed, and every commit that is no longer on the branch."
 }
 
 // conflictedMail is a rebase stopped part-way, which is the agent's to settle and nobody else's.
 func conflictedMail(agent agentstore.Agent, result RebaseResult) string {
 	var body strings.Builder
 
-	fmt.Fprintf(&body, "Your worktree was rebased onto %s (%s) and the rebase stopped on conflicts, so it is still in progress.\n\n",
+	fmt.Fprintf(&body, "Your worktree was being rebased onto %s (%s). The rebase hit conflicts and stopped part way, so it is still in progress.\n\n",
 		result.BaseRef, short(result.BaseSHA))
-	body.WriteString("Your commits are all still there, and your branch has not moved yet. " +
-		"Do not resolve it or abort it on your own initiative: say what state you are in and wait to be told " +
-		"which way to go, since whoever pressed the key is the one deciding whether this work is worth " +
-		"carrying forward.")
+	body.WriteString("All your commits are still there. Your branch has not moved. " +
+		"Do not resolve the conflicts and do not abort the rebase on your own. " +
+		"Say what state you are in and wait to be told what to do. " +
+		"The person who pressed the key decides whether this work is worth carrying forward.")
 
 	if metadataFor(agent, prMetadataKey) != "" {
-		body.WriteString(" Say too whether the pull request recorded against you is still open, since finishing " +
-			"the rebase rewrites the commits it was opened from: that invalidates an open one, and means nothing " +
-			"for one already merged.")
+		body.WriteString("\n\nSay also whether your recorded pull request is still open. " +
+			"Finishing the rebase rewrites the commits it was opened from. " +
+			"That invalidates an open pull request. It means nothing for one that has already merged.")
 	}
 	body.WriteString(parkNote(result))
 
@@ -336,14 +336,13 @@ func conflictedMail(agent agentstore.Agent, result RebaseResult) string {
 func movedMail(result RebaseResult) string {
 	var body strings.Builder
 
-	fmt.Fprintf(&body, "Your branch now stands on %s (%s) without replaying anything.\n\n", result.BaseRef, short(result.BaseSHA))
-	body.WriteString("The base already held every change your own commits made, which is what a merge of your work " +
-		"into it leaves behind, so there was nothing left to move. ")
-	body.WriteString("Nothing was lost. Your own commits are no longer on the branch, and the base's history stands " +
-		"in their place, so start your next piece of work from here.")
+	fmt.Fprintf(&body, "Your branch is now on %s (%s).\n\n", result.BaseRef, short(result.BaseSHA))
+	body.WriteString("Your work had already been merged into the base. " +
+		"There was nothing left to replay, so your branch was moved straight onto it.\n\n")
+	body.WriteString("Nothing was lost. Your own commits are no longer on the branch and the base's history " +
+		"has taken their place. Start your next piece of work from here.")
 	if result.ClearedPullRequest {
-		body.WriteString(" The pull request recorded against you has been cleared, since it no longer tracks anything " +
-			"this branch carries.")
+		body.WriteString("\n\nYour recorded pull request has been cleared. It no longer tracks anything this branch carries.")
 	}
 	body.WriteString(parkNote(result))
 
@@ -355,22 +354,22 @@ func replayedMail(result RebaseResult) string {
 	var body strings.Builder
 
 	if result.Replay == 0 {
-		fmt.Fprintf(&body, "Your worktree was brought up to date with %s (%s), with no commits of your own to replay.\n\n",
+		fmt.Fprintf(&body, "Your worktree is up to date with %s (%s). You had no commits of your own to replay.\n\n",
 			result.BaseRef, short(result.BaseSHA))
 	} else {
 		fmt.Fprintf(&body, "Your worktree was rebased onto %s (%s), replaying %d of your own commits.\n\n",
 			result.BaseRef, short(result.BaseSHA), result.Replay)
 	}
-	body.WriteString("Your files may have changed under you, so read them again rather than trusting what you remember. ")
+	body.WriteString("Your files may have changed under you. Read them again rather than trusting what you remember. ")
 	if result.Landed > 0 {
-		fmt.Fprintf(&body, "%d of your commits are no longer on the branch, because the base already held their "+
-			"changes and replaying them would have collided with those. ", result.Landed)
+		fmt.Fprintf(&body, "%d of your commits are no longer on the branch. "+
+			"The base already held those changes, so replaying them would have collided with themselves. ", result.Landed)
 	}
-	body.WriteString("Your branch is the same branch.")
+	body.WriteString("Your branch is still the same branch.")
 
 	if result.ClearedPullRequest {
-		body.WriteString(" The pull request recorded against you has been cleared, because the rebase rewrote the " +
-			"branch it was opened from: open a new one rather than assuming the old one still tracks your work.")
+		body.WriteString("\n\nYour recorded pull request has been cleared. The rebase rewrote the branch it was " +
+			"opened from, so open a new one rather than assuming the old one still tracks your work.")
 	}
 	body.WriteString(parkNote(result))
 

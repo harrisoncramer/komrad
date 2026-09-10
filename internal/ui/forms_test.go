@@ -1395,7 +1395,7 @@ func TestRefreshRebaseLabelNamesWhatWillRun(t *testing.T) {
 				baseSHA: "a6e5d5cd1234",
 				replay:  3,
 			},
-			want:     []string{"Rebase onto origin/main", "replaying 3 commits"},
+			want:     []string{"Rebase onto origin/main", "Replay 3 commits"},
 			wantNone: []string{"already holds"},
 		},
 		{
@@ -1405,7 +1405,7 @@ func TestRefreshRebaseLabelNamesWhatWillRun(t *testing.T) {
 				baseSHA: "a6e5d5cd1234",
 				landed:  3,
 			},
-			want:     []string{"Move onto origin/main", "dropping 3 commits"},
+			want:     []string{"Move onto origin/main", "already has 3 commits"},
 			wantNone: []string{"Rebase"},
 		},
 		{
@@ -1416,7 +1416,7 @@ func TestRefreshRebaseLabelNamesWhatWillRun(t *testing.T) {
 				landed:  2,
 				replay:  1,
 			},
-			want: []string{"Rebase onto origin/main", "replaying 1 commit", "dropping 2"},
+			want: []string{"Rebase onto origin/main", "Replay 1 commit", "drop 2 it already has"},
 		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
@@ -1452,12 +1452,12 @@ func TestRefreshWarning(t *testing.T) {
 		{
 			name: "commits the base already holds, whose replay would collide with themselves",
 			plan: refreshPlan{landed: 2},
-			want: []string{"already holds 2 commits", "collide"},
+			want: []string{"already has 2 commits", "collide"},
 		},
 		{
 			name: "merge commits, which a rebase throws away before replaying what they settled",
 			plan: refreshPlan{merges: 2},
-			want: []string{"discards 2 merge commits"},
+			want: []string{"throws away 2 merge commits"},
 		},
 		{
 			name: "the paths the two sides both changed",
