@@ -117,11 +117,12 @@ func Start(t *testing.T, p Params) *Instance {
 
 	// Claimed before the tmux server, which is what orders the two teardowns.
 	root := t.TempDir()
+	harnessDir := harnessRoot(t)
 
 	tmuxServer := tmuxtest.New(t)
 	tmuxServer.NewSession(agents.ManagerSession)
 
-	fake, err := harnesstest.New(harnessRoot(t))
+	fake, err := harnesstest.New(harnessDir)
 	require.NoError(t, err)
 
 	harnesses, err := harness.NewRegistry(fake)
@@ -214,12 +215,15 @@ func harnessRoot(t *testing.T) string {
 	require.NoError(t, err)
 
 	t.Cleanup(func() {
+		var err error
 		for range removalAttempts {
-			if os.RemoveAll(dir) == nil {
+			if err = os.RemoveAll(dir); err == nil {
 				return
 			}
 			time.Sleep(removalPause)
 		}
+
+		t.Logf("gave up removing the fake harness root %s: %v", dir, err)
 	})
 
 	return dir
