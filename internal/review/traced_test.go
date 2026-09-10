@@ -116,8 +116,8 @@ func TestTracingLeavesTheOtherAttemptsAlone(t *testing.T) {
 }
 
 // TestAnExactCoordinateKeepsItsRowFromATracedGuess covers the two thread orders meeting one row:
-// placement walks the arms across every thread, so a traced answer cannot take a row that a
-// thread's own coordinates name, whichever of them the query returned first.
+// the thread written against the snapshot on screen is offered the row first, so a traced answer
+// cannot take it whichever of them the query returned first.
 func TestAnExactCoordinateKeepsItsRowFromATracedGuess(t *testing.T) {
 	view := NewView(patchWith(diff.File{
 		OldPath: "greet.go",
@@ -136,7 +136,17 @@ func TestAnExactCoordinateKeepsItsRowFromATracedGuess(t *testing.T) {
 	older := threadAt("older", "greet.go", 0, 9, "+return fmt.Sprintf(\"hello\")")
 	newer := threadAt("newer", "greet.go", 0, 4, "+return greeting(nameOr(name))")
 
-	view.SetTraced(map[string]Traced{"older": {FilePath: "greet.go", NewStart: 4}})
+	view.SetTraced(map[string]Traced{
+		"older": {
+			FilePath: "greet.go",
+			NewStart: 4,
+		},
+		"newer": {
+			FilePath: "greet.go",
+			NewStart: 4,
+			Exact:    true,
+		},
+	})
 
 	// The listing orders by round, so the older thread is offered its row first.
 	view.PinThreads([]*agentv1.ReviewThread{older, newer})
@@ -172,4 +182,62 @@ func TestAFollowedRenameFoldsWithItsFile(t *testing.T) {
 	view.PinThreads([]*agentv1.ReviewThread{thread})
 
 	assert.Equal(t, collapsed, view.placed["t1"], "the thread folds away with the file it is in")
+}
+
+// TestPlacesAThreadWrittenAgainstTheSnapshotOnScreen covers the comment whose numbers were
+// counted in the tree being drawn, which stands on its own line without git being asked.
+func TestPlacesAThreadWrittenAgainstTheSnapshotOnScreen(t *testing.T) {
+	view := NewView(patchWith(diff.File{
+		OldPath: "greet.go",
+		NewPath: "greet.go",
+		Hunks: []diff.Hunk{hunkOf(
+			diff.Line{
+				Kind:      diff.Addition,
+				Text:      "\treturn \"hi\"",
+				NewNumber: 4,
+			},
+		)},
+	}), false)
+
+	thread := threadAt("t1", "greet.go", 0, 4, "+\treturn \"hi\"")
+
+	view.SetTraced(map[string]Traced{"t1": {
+		FilePath: "greet.go",
+		NewStart: 4,
+		Exact:    true,
+	}})
+	view.PinThreads([]*agentv1.ReviewThread{thread})
+
+	found, ok := view.GetThreadAt(2)
+	require.True(t, ok, "the thread stands on the line it was written against")
+	assert.Equal(t, "t1", found.GetId())
+	assert.Equal(t, pinned, view.placed["t1"])
+}
+
+// TestRefusesACoordinateCountedInAnotherRound covers the comment written on an earlier round
+// whose line number the round on screen also holds, where the code at that number is unrelated.
+func TestRefusesACoordinateCountedInAnotherRound(t *testing.T) {
+	view := NewView(patchWith(diff.File{
+		OldPath: "config/keys.go",
+		NewPath: "config/keys.go",
+		Hunks: []diff.Hunk{hunkOf(
+			diff.Line{
+				Kind:      diff.Addition,
+				Text:      "",
+				NewNumber: 76,
+			},
+		)},
+	}), false)
+
+	thread := threadAt("t1", "config/keys.go", 0, 76, "+\t\t\t\treturn fmt.Errorf(\"names no key\")")
+
+	view.SetTraced(map[string]Traced{"t1": {
+		FilePath: "config/keys.go",
+		FileOnly: true,
+	}})
+	view.PinThreads([]*agentv1.ReviewThread{thread})
+
+	_, ok := view.GetThreadAt(2)
+	assert.False(t, ok, "the line that number names now is not the line the comment was about")
+	assert.Equal(t, adrift, view.placed["t1"])
 }

@@ -88,9 +88,9 @@ func TestTraceThreadsFollowsALineThroughGit(t *testing.T) {
 	assert.False(t, found.FileOnly)
 }
 
-// TestTraceThreadsLeavesTheCurrentRoundAlone covers a thread written against the snapshot on
-// screen, which answers to its own coordinates and needs no tracing at all.
-func TestTraceThreadsLeavesTheCurrentRoundAlone(t *testing.T) {
+// TestTraceThreadsMarksTheRoundOnScreenAsExact covers a thread written against the snapshot on
+// screen, whose numbers are counted in that tree and so need no git call to be trusted.
+func TestTraceThreadsMarksTheRoundOnScreenAsExact(t *testing.T) {
 	dir, _, second := traceRepo(t)
 
 	traced := traceThreads(t.Context(), traceThreadsParams{
@@ -110,7 +110,11 @@ func TestTraceThreadsLeavesTheCurrentRoundAlone(t *testing.T) {
 		}},
 	})
 
-	assert.Empty(t, traced, "nothing to trace between one snapshot and itself")
+	found, ok := traced["t1"]
+	require.True(t, ok, "the thread is placed rather than left to another attempt")
+	assert.Equal(t, "greet.go", found.FilePath)
+	assert.Equal(t, int32(8), found.NewStart, "the number it was written at is the number it holds")
+	assert.True(t, found.Exact, "and it is exact rather than traced")
 }
 
 // TestTraceThreadsKeepsTheFileWhenTheLinesAreGone covers code the agent wrote over: the file is
@@ -206,6 +210,11 @@ func TestTraceThreadsGivesUpWholeRatherThanInPart(t *testing.T) {
 			Ordinal:     2,
 			SnapshotSha: "0000000000000000000000000000000000000000",
 		},
+		{
+			Id:          "r3",
+			Ordinal:     3,
+			SnapshotSha: second,
+		},
 	}
 	threads := []*agentv1.ReviewThread{
 		{
@@ -222,6 +231,13 @@ func TestTraceThreadsGivesUpWholeRatherThanInPart(t *testing.T) {
 			NewStart: 4,
 			NewEnd:   4,
 		},
+		{
+			Id:       "onscreen",
+			RoundId:  "r3",
+			FilePath: "greet.go",
+			NewStart: 8,
+			NewEnd:   8,
+		},
 	}
 
 	traced := traceThreads(t.Context(), traceThreadsParams{
@@ -231,5 +247,51 @@ func TestTraceThreadsGivesUpWholeRatherThanInPart(t *testing.T) {
 		Rounds:  rounds,
 	})
 
-	assert.Empty(t, traced, "a pair nobody could read means no tracing rather than some of it")
+	assert.NotContains(t, traced, "readable", "a pair nobody could read means no tracing rather than some of it")
+	assert.NotContains(t, traced, "unreadable")
+
+	found, ok := traced["onscreen"]
+	require.True(t, ok, "the round on screen needs no git and so cannot be lost with it")
+	assert.True(t, found.Exact)
+}
+
+// TestTraceThreadsMarksEveryRoundHoldingTheSnapshotOnScreen covers an agent that edited a file
+// and then put it back, which takes a second round carrying a snapshot an earlier round already
+// held.
+func TestTraceThreadsMarksEveryRoundHoldingTheSnapshotOnScreen(t *testing.T) {
+	dir, first, second := traceRepo(t)
+
+	traced := traceThreads(t.Context(), traceThreadsParams{
+		Dir:   dir,
+		ToSHA: second,
+		Threads: []*agentv1.ReviewThread{{
+			Id:       "t1",
+			RoundId:  "r1",
+			FilePath: "greet.go",
+			NewStart: 8,
+			NewEnd:   8,
+		}},
+		Rounds: []*agentv1.ReviewRound{
+			{
+				Id:          "r1",
+				Ordinal:     1,
+				SnapshotSha: second,
+			},
+			{
+				Id:          "r2",
+				Ordinal:     2,
+				SnapshotSha: first,
+			},
+			{
+				Id:          "r3",
+				Ordinal:     3,
+				SnapshotSha: second,
+			},
+		},
+	})
+
+	found, ok := traced["t1"]
+	require.True(t, ok, "the earlier round holding this snapshot is on screen too")
+	assert.True(t, found.Exact)
+	assert.Equal(t, int32(8), found.NewStart)
 }

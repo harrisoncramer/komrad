@@ -2,6 +2,7 @@ package ui
 
 import (
 	"context"
+	"maps"
 	"time"
 
 	"weave/internal/git"
@@ -30,9 +31,11 @@ func traceThreads(ctx context.Context, params traceThreadsParams) map[string]rev
 		return nil
 	}
 
+	exact := traceOnScreen(params)
+
 	byFrom := groupBySnapshot(params)
 	if len(byFrom) == 0 {
-		return nil
+		return exact
 	}
 
 	// Explainer: the pairs are all or nothing. Sharing the load's deadline let it land part way
@@ -41,7 +44,7 @@ func traceThreads(ctx context.Context, params traceThreadsParams) map[string]rev
 	ctx, cancel := context.WithTimeout(ctx, traceTimeout)
 	defer cancel()
 
-	traced := map[string]review.Traced{}
+	traced := maps.Clone(exact)
 	for from, threads := range byFrom {
 		mappings, err := git.MapRanges(ctx, git.MapRangesParams{
 			Dir:     params.Dir,
@@ -49,11 +52,37 @@ func traceThreads(ctx context.Context, params traceThreadsParams) map[string]rev
 			ToSHA:   params.ToSHA,
 		})
 		if err != nil {
-			return nil
+			return exact
 		}
 
 		for id, found := range traceOne(traceOneParams{Mappings: mappings, Threads: threads}) {
 			traced[id] = found
+		}
+	}
+
+	return traced
+}
+
+// traceOnScreen places the threads whose numbers were counted in the snapshot on screen.
+func traceOnScreen(params traceThreadsParams) map[string]review.Traced {
+	onScreen := map[string]bool{}
+
+	for _, round := range params.Rounds {
+		if round.GetSnapshotSha() == params.ToSHA {
+			onScreen[round.GetId()] = true
+		}
+	}
+
+	traced := map[string]review.Traced{}
+	for _, thread := range params.Threads {
+		if !onScreen[thread.GetRoundId()] || thread.GetNewStart() <= 0 {
+			continue
+		}
+
+		traced[thread.GetId()] = review.Traced{
+			FilePath: thread.GetFilePath(),
+			NewStart: thread.GetNewStart(),
+			Exact:    true,
 		}
 	}
 

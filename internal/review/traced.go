@@ -12,6 +12,8 @@ type Traced struct {
 	// FileOnly says the file survived and the lines did not, so the thread belongs to the file
 	// rather than to any line of it.
 	FileOnly bool
+	// Exact says the thread's numbers were counted in the snapshot on screen.
+	Exact bool
 }
 
 // SetTraced holds where each thread's lines went, keyed by thread id, and is read by the next
@@ -29,6 +31,11 @@ func (v *View) pathOf(thread *agentv1.ReviewThread) string {
 	}
 
 	return found.FilePath
+}
+
+// isExact reports whether a thread's numbers were counted in the snapshot on screen.
+func (v *View) isExact(thread *agentv1.ReviewThread) bool {
+	return v.traced[thread.GetId()].Exact
 }
 
 // tracedRowFor is the row git says a thread's lines became, and whether it said anything.
