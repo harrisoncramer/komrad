@@ -464,7 +464,6 @@ type agentServiceOptions struct {
 	lifecycle   agentScriptRunner
 	maxAgents   int
 	maxChildren int
-	notifier    systemMailSender
 	logsDir     string
 	framesDir   string
 	agents      testAgentStore
@@ -526,7 +525,6 @@ func (s *testStore) agentService(options agentServiceOptions) *testAgents {
 			EmptyWorkflows: emptied,
 			Tx:             tx,
 			Scripts:        options.lifecycle,
-			Notifier:       options.notifier,
 			Reviews:        reviewstore.New(s.Pool.GetDB()),
 			LogsDir:        options.logsDir,
 			FramesDir:      options.framesDir,
@@ -669,7 +667,6 @@ type workflowServiceOptions struct {
 	lifecycle   agentScriptRunner
 	maxAgents   int
 	maxChildren int
-	notifier    systemMailSender
 }
 
 func (s *testStore) workflowService(options workflowServiceOptions) *WorkflowService {
@@ -690,7 +687,6 @@ func (s *testStore) workflowService(options workflowServiceOptions) *WorkflowSer
 		Scripts:      options.lifecycle,
 		MaxAgents:    options.maxAgents,
 		MaxChildren:  options.maxChildren,
-		Notifier:     options.notifier,
 	})
 }
 
@@ -802,26 +798,6 @@ func seedChild(t *testing.T, st *testStore, tmux paneStamper, parent agentstore.
 	require.NoError(t, err)
 	require.NotNil(t, got)
 	require.NoError(t, tmux.SetPaneOwner(got.Pane, got.ID))
-
-	return *got
-}
-
-func seedSpawned(t *testing.T, st *testStore, parentID string) agentstore.Agent {
-	t.Helper()
-	ctx := t.Context()
-	workflowID := seedWorkflow(t, st)
-
-	require.NoError(t, st.Create(ctx, agentstore.Agent{
-		Name:             "child",
-		Pane:             "%child",
-		State:            agentstore.StateThinking,
-		WorkflowID:       workflowID,
-		SpawnedByAgentID: &parentID,
-	}))
-
-	got, err := st.Agents.GetInWorkflow(ctx, workflowID, "child")
-	require.NoError(t, err)
-	require.NotNil(t, got)
 
 	return *got
 }

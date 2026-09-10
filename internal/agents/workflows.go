@@ -57,7 +57,6 @@ type WorkflowService struct {
 	scripts      agentScriptRunner
 	maxAgents    int
 	maxChildren  int
-	notifier     systemMailSender
 }
 
 type NewWorkflowServiceParams struct {
@@ -71,7 +70,6 @@ type NewWorkflowServiceParams struct {
 	Scripts      agentScriptRunner
 	MaxAgents    int
 	MaxChildren  int
-	Notifier     systemMailSender
 }
 
 // NewWorkflowService builds the service from its dependencies.
@@ -87,7 +85,6 @@ func NewWorkflowService(params NewWorkflowServiceParams) *WorkflowService {
 		scripts:      params.Scripts,
 		maxAgents:    params.MaxAgents,
 		maxChildren:  params.MaxChildren,
-		notifier:     params.Notifier,
 	}
 }
 
@@ -337,8 +334,6 @@ func (w *WorkflowService) ArchiveWorkflow(ctx context.Context, id string) error 
 	// A pane recorded after inside was read only ever reaches here through what the transaction
 	// took off the rows.
 	killPanes(ctx, w.tmux, taken)
-
-	notifyParents(ctx, w.notifier, inside, inside, "archived")
 
 	return nil
 }

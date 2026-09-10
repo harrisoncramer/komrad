@@ -167,7 +167,6 @@ func buildServices(p Params, st *stores) (*services, error) {
 		EmptyWorkflows: emptyWorkflows,
 		Tx:             st.pool,
 		Scripts:        scriptService,
-		Notifier:       mailService,
 		Reviews:        st.review,
 		LogsDir:        runLogsDir,
 		FramesDir:      p.Env.FramesDir(),
@@ -185,7 +184,6 @@ func buildServices(p Params, st *stores) (*services, error) {
 		Scripts:      scriptService,
 		MaxAgents:    p.MaxAgents,
 		MaxChildren:  p.MaxChildren,
-		Notifier:     mailService,
 	})
 
 	markService := agents.NewMarkService(agents.NewMarkServiceParams{Marks: st.marks, Tx: st.pool})
