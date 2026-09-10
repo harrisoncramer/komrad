@@ -36,6 +36,7 @@ STEPS=(
 	"bash:fmt --check"
 	"go:fmt --check"
 	"db:fmt --check"
+	"proto:fmt --check"
 	"db:validate"
 	"go:lint"
 	"proto:lint"

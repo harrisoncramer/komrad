@@ -1,0 +1,49 @@
+#!/usr/bin/env bash
+source "$MISE_CONFIG_ROOT/mise/tasks/_"
+set -euo pipefail
+#MISE description="Format the protobufs."
+
+usage() {
+	echo "Usage: mise run proto:fmt [--check]"
+	echo
+	echo "Rewrites proto/proto with buf format. Pass --check to name the files that"
+	echo "would change and exit non-zero instead."
+	echo
+	echo "proto/gen is left alone, since protoc writes it. The import order reaches"
+	echo "the generated descriptor, so run 'mise run proto:generate' after this"
+	echo "rewrites anything."
+}
+
+CHECK=false
+for arg in "$@"; do
+	case "$arg" in
+	-h | --help)
+		usage
+		exit 0
+		;;
+	--check)
+		CHECK=true
+		;;
+	*)
+		usage >&2
+		exit 1
+		;;
+	esac
+done
+
+cd "$MISE_CONFIG_ROOT/proto"
+
+if [ "$CHECK" = false ]; then
+	buf format --write
+	echo "buf format clean"
+	exit 0
+fi
+
+diff="$(buf format --diff)"
+if [ -n "$diff" ]; then
+	gum log --level error "these protobufs are not buf format clean; run 'mise run proto:fmt'"
+	printf '%s\n' "$diff" | sed -n 's/^diff -u \([^ ]*\)\.orig .*/  \1/p' >&2
+	exit 1
+fi
+
+echo "buf format clean"

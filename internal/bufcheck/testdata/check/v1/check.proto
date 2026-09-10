@@ -40,3 +40,17 @@ service WrongLevelService {
     option idempotency_level = NO_SIDE_EFFECTS;
   }
 }
+
+message IDRequest {
+  string id = 1;
+  string agent_id = 2;
+  repeated string ids = 3;
+  string name = 4;
+  string identifier = 5;
+}
+
+service IDService {
+  rpc GetThing(IDRequest) returns (Response) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+}
