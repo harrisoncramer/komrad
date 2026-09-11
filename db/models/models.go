@@ -267,6 +267,7 @@ type Agent struct {
 	HeldAt *time.Time
 	// Whether the hold cut a turn that was still running, which is what decides whether letting go has to type the agent back into motion or merely stop holding it.
 	HeldMidTurn bool
+	NudgeSentAt *time.Time
 }
 
 // Facts an agent recorded about its own work, such as the pull request it opened.

@@ -95,14 +95,18 @@ type Agent struct {
 
 	// ReportedReason is what the agent's own CLI last said it was doing, cleared whenever the
 	// state changes.
-	ReportedReason   string
-	Harness          string
-	SessionID        string
-	WorkflowID       string
-	ScheduleID       *string
-	IdempotencyKey   *string
-	ArchivedAt       *time.Time
-	NudgedAt         *time.Time
+	ReportedReason string
+	Harness        string
+	SessionID      string
+	WorkflowID     string
+	ScheduleID     *string
+	IdempotencyKey *string
+	ArchivedAt     *time.Time
+	NudgedAt       *time.Time
+
+	// NudgeSentAt is when an agent was last told about its mail, which a claimed nudge that
+	// typed nothing does not set.
+	NudgeSentAt      *time.Time
 	Hidden           bool
 	Metadata         []Metadata
 	SpawnedByAgentID *string
@@ -184,6 +188,7 @@ func agentFromRow(agent models.Agent) Agent {
 		IdempotencyKey:   agent.IdempotencyKey,
 		ArchivedAt:       agent.ArchivedAt,
 		NudgedAt:         agent.NudgedAt,
+		NudgeSentAt:      agent.NudgeSentAt,
 		Hidden:           agent.IsHidden,
 		SpawnedByAgentID: agent.SpawnedByAgentID,
 		ParentAgentID:    agent.ParentAgentID,

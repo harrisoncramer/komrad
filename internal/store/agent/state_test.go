@@ -188,6 +188,40 @@ func TestANudgeIsReclaimedOnTheDatabaseClock(t *testing.T) {
 	}))
 }
 
+// TestAClaimedNudgeIsNotASentOne pins that the stamp the claim takes says nothing about
+// whether an agent was ever told, which only a pass that typed something records.
+func TestAClaimedNudgeIsNotASentOne(t *testing.T) {
+	st := open(t)
+	ctx := t.Context()
+
+	require.NoError(t, st.Create(ctx, Agent{
+		Name:  "idler",
+		Pane:  "%1",
+		State: StateIdle,
+	}))
+	agent, err := st.Get(ctx, "idler")
+	require.NoError(t, err)
+
+	claimed, err := st.ClaimNudge(ctx, agent.ID, time.Minute)
+	require.NoError(t, err)
+	require.True(t, claimed)
+
+	agent, err = st.Get(ctx, "idler")
+	require.NoError(t, err)
+	require.NotNil(t, agent.NudgedAt, "the claim is stamped")
+	assert.Nil(t, agent.NudgeSentAt, "and nothing has been typed at the pane yet")
+
+	require.NoError(t, st.SetNudgeSent(ctx, agent.ID))
+
+	agent, err = st.Get(ctx, "idler")
+	require.NoError(t, err)
+	require.NotNil(t, agent.NudgeSentAt)
+
+	again, err := st.ClaimNudge(ctx, agent.ID, time.Minute)
+	require.NoError(t, err)
+	assert.False(t, again, "recording the nudge leaves the claim where it was")
+}
+
 func backdateNudge(t *testing.T, st *fixture, id string, age time.Duration) {
 	t.Helper()
 

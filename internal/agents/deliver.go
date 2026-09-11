@@ -33,6 +33,7 @@ type paneReader interface {
 type nudgeClaimer interface {
 	agentGetter
 	ClaimNudge(ctx context.Context, id string, retryAfter time.Duration) (bool, error)
+	SetNudgeSent(ctx context.Context, id string) error
 }
 
 type mailboxReader interface {
@@ -151,6 +152,10 @@ func (s *DeliveryService) Deliver(ctx context.Context, agentID string) (Delivery
 		return DeliveryLater, nil
 	}
 
+	if err := s.nudgeClaimer.SetNudgeSent(ctx, agent.ID); err != nil {
+		return DeliveryLater, err
+	}
+
 	return DeliverySoon, nil
 }
 
@@ -183,11 +188,11 @@ func (s *DeliveryService) nudge(ctx context.Context, agent agentstore.Agent, pen
 // didLastNudgeGoNowhere reports whether the agent was told about mail before and has ended no
 // turn since.
 func didLastNudgeGoNowhere(agent agentstore.Agent) bool {
-	if agent.NudgedAt == nil {
+	if agent.NudgeSentAt == nil {
 		return false
 	}
 
-	return agent.TurnEndedAt == nil || !agent.TurnEndedAt.After(*agent.NudgedAt)
+	return agent.TurnEndedAt == nil || !agent.TurnEndedAt.After(*agent.NudgeSentAt)
 }
 
 func (s *DeliveryService) reportExpired(ctx context.Context, agent agentstore.Agent) {

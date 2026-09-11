@@ -27,6 +27,20 @@ func (s *Store) ClaimNudge(ctx context.Context, id string, retryAfter time.Durat
 	return len(claimed) > 0, nil
 }
 
+// SetNudgeSent records that an agent was actually told about its mail, which the claim alone
+// does not say.
+func (s *Store) SetNudgeSent(ctx context.Context, id string) error {
+	if !store.IsID(id) {
+		return fmt.Errorf("%w: agent %q", store.ErrNotFound, id)
+	}
+
+	if err := s.queries.SetAgentNudgeSentByID(ctx, id); err != nil {
+		return fmt.Errorf("failed to record the nudge sent to agent %q: %w", id, err)
+	}
+
+	return nil
+}
+
 // SetStateByID records the state a reconcile pass observed, stamping when it was seen whether
 // or not the value moved, and clearing the reported reason when it did.
 func (s *Store) SetStateByID(ctx context.Context, id string, state State) error {

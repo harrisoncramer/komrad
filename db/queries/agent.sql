@@ -305,6 +305,14 @@ WHERE
 RETURNING
     id;
 
+-- name: SetAgentNudgeSentByID :exec
+UPDATE
+    agents
+SET
+    nudge_sent_at = NOW()
+WHERE
+    id = @id;
+
 -- name: SetAgentStateByID :exec
 UPDATE
     agents
