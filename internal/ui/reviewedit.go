@@ -5,7 +5,6 @@ import (
 	"strings"
 
 	agentstore "weave/internal/store/agent"
-
 	"weave/internal/ui/layout"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -93,23 +92,43 @@ func (m model) editReviewFile() (tea.Model, tea.Cmd, bool) {
 	return m, nil, true
 }
 
-// reviewIsAgentBusy is whether the agent is writing in the tree the editor would open, and what
-// to say about it.
+// reviewIsAgentBusy is whether anything says the agent may be writing in the tree the editor
+// would open, and what to say about it.
 func (m model) reviewIsAgentBusy() (string, bool) {
-	for _, item := range m.listing.agents {
-		if item.agent.ID != m.review.agentID {
-			continue
-		}
+	item, ok := m.reviewAgentItem()
+	if !ok || !item.alive {
+		return "", false
+	}
 
-		if !isReviewAgentWriting(item) {
-			return "", false
-		}
-
+	// No default, so a state added later fails the exhaustive check here rather than quietly
+	// letting an editor in over a writer.
+	switch item.agent.State {
+	case agentstore.StateThinking:
 		return "the agent is writing in this worktree · " +
 			"two writers in one checkout cannot both win, so stop it before you edit", true
+	case agentstore.StateUncertain:
+		// Explainer: uncertain is weave failing to read the pane rather than the agent doing
+		// nothing, so an agent part way through a build or a screen weave has no pattern for sits
+		// here while it writes. Nothing the panel knows can say the tree is idle, and the editor is
+		// the one place that has to be sure.
+		return "weave cannot read this agent's pane, so it may be writing in this worktree · " +
+			"look at the pane before you edit", true
+	case agentstore.StateWaiting, agentstore.StateIdle, agentstore.StateSettingUp,
+		agentstore.StateFailedToCreate, agentstore.StateFailedToCleanup:
 	}
 
 	return "", false
+}
+
+// reviewAgentItem is the listing's row for the agent whose diff is on screen.
+func (m model) reviewAgentItem() (agentItem, bool) {
+	for _, item := range m.listing.agents {
+		if item.agent.ID == m.review.agentID {
+			return item, true
+		}
+	}
+
+	return agentItem{}, false
 }
 
 // closeReviewEdit gives the stage back to the diff and reads the worktree again, since what the
@@ -157,10 +176,4 @@ func (m model) reviewEditorDesc() string {
 	}
 
 	return "open in your editor"
-}
-
-// isReviewAgentWriting reports whether an agent is putting words in its own worktree, which is
-// thinking alone: a waiting agent is stopped at a prompt until somebody answers it.
-func isReviewAgentWriting(item agentItem) bool {
-	return item.alive && item.agent.State == agentstore.StateThinking
 }

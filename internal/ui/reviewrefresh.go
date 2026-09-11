@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	agentstore "weave/internal/store/agent"
 	agentv1 "weave/proto/gen/agent/v1"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -225,14 +226,11 @@ func deliverySlot(state agentv1.ReviewDeliveryState) int {
 	return int(state)
 }
 
-// isReviewAgentWriting reports whether the agent whose diff is on screen is part way through
-// writing in its worktree.
+// isReviewAgentWriting reports whether the agent whose diff is on screen is putting words in its
+// worktree, which is thinking alone: an unreadable pane is not a reason to hold the diff for as
+// long as it stays unreadable.
 func (m model) isReviewAgentWriting() bool {
-	for _, item := range m.listing.agents {
-		if item.agent.ID == m.review.agentID {
-			return isReviewAgentWriting(item)
-		}
-	}
+	item, ok := m.reviewAgentItem()
 
-	return false
+	return ok && item.alive && item.agent.State == agentstore.StateThinking
 }

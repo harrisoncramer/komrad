@@ -512,6 +512,29 @@ func TestAWaitingAgentDoesNotHoldTheEditKey(t *testing.T) {
 	assert.Equal(t, modeEditing, m.review.mode)
 }
 
+// TestAnUnreadablePaneRefusesTheEditKey pins the state that says weave could not read the pane
+// rather than that the agent is idle, which is the one place the gate cannot claim the tree is
+// free.
+func TestAnUnreadablePaneRefusesTheEditKey(t *testing.T) {
+	dir := reviewRepo(t)
+	agents := &fakeReviewAgents{}
+	m, _ := reviewModel(t, agents, dir)
+	m = openReview(t, m)
+
+	setReviewAgentState(&m, agentstore.StateUncertain)
+	m.review.cursor = reviewRowWithAnEditTarget(t, m)
+
+	next, _ := m.updateReview(editorKey())
+	m = next.(model)
+
+	assert.Equal(t, modeWatching, m.review.mode, "nothing opened")
+	assert.Contains(t, m.review.notice, "cannot read this agent's pane")
+
+	// The catch-up is the other reader of the agent's state, and an unreadable pane is not a
+	// reason to hold the diff forever.
+	assert.True(t, m.doesReviewFollowLive(), "the diff still catches up")
+}
+
 // TestEditingGivesTheWindowToTheEditor pins the panel letting go of the window, which it has to
 // do or it zooms its own sidebar over the editor it just opened.
 func TestEditingGivesTheWindowToTheEditor(t *testing.T) {
