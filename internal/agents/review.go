@@ -302,8 +302,13 @@ func (s *ReviewService) CreateReviewThread(
 	// message, with nothing in the batch saying which comment meant which. So the reader sends
 	// what they have before starting on another snapshot.
 	if open.RoundID != round.ID {
+		held, err := s.rounds.GetRound(ctx, open.RoundID)
+		if err != nil {
+			return nil, err
+		}
+
 		return nil, fmt.Errorf("%w: send the comments you have on round %d first",
-			ErrReviewInFlight, open.RoundOrdinal)
+			ErrReviewInFlight, held.Ordinal)
 	}
 
 	baseSHA := params.BaseSHA

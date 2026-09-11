@@ -324,9 +324,9 @@ func (s *ReviewService) requirePreviousReviewAnswered(
 
 	// Explainer: the danger a second review runs is being about code that predates the agent's
 	// answer to the first, so the two arrive as one set of comments describing two versions of
-	// the work. The question is whether a round exists that the last review was not against,
-	// which is a matter of which round rather than of when, since a snapshot of an unchanged tree
-	// gives back the round already taken of it.
+	// the work. What clears that is work the agent has done since, which is a round taken after
+	// the one the last review was against. An older round is no evidence of anything, and naming
+	// one is how a caller reaches this guard from the wrong side.
 	last, err := s.reviews.GetLastReleasedReview(ctx, params)
 	if errors.Is(err, store.ErrNotFound) {
 		return nil
@@ -334,7 +334,15 @@ func (s *ReviewService) requirePreviousReviewAnswered(
 	if err != nil {
 		return err
 	}
-	if last.ReleasedAt == nil || last.RoundID != round.ID {
+	if last.ReleasedAt == nil {
+		return nil
+	}
+
+	reviewed, err := s.rounds.GetRound(ctx, last.RoundID)
+	if err != nil {
+		return err
+	}
+	if round.Ordinal > reviewed.Ordinal {
 		return nil
 	}
 
@@ -372,7 +380,10 @@ func (s *ReviewService) hasAnsweredSince(ctx context.Context, agentID string, si
 
 	for _, thread := range threads {
 		for _, message := range thread.Messages {
-			if message.AuthorKind == reviewstore.AuthorAgent && message.CreatedAt.After(since) {
+			if message.AuthorAgentID == nil || *message.AuthorAgentID != agentID {
+				continue
+			}
+			if message.CreatedAt.After(since) {
 				return true, nil
 			}
 		}

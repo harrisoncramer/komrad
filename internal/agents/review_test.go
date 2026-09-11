@@ -461,7 +461,7 @@ func TestNothingIsReleasedWhenTheMailCannotBeSent(t *testing.T) {
 	require.ErrorIs(t, err, ErrMailboxFull)
 
 	assert.Nil(t, reviews.released, "a review that could not be rung is still the author's to send")
-	assert.NotNil(t, reviews.open)
+	assert.NotEmpty(t, reviews.open)
 }
 
 // TestAChildMayReviewItsParentAndNothingElse pins the entitlement: reviewing is open to an
@@ -1204,7 +1204,7 @@ type fakeReviewStore struct {
 	viewed   map[string]bool
 	rounds   []reviewstore.Round
 	reviews  map[string]reviewstore.Review
-	open     *reviewstore.Review
+	open     map[string]*reviewstore.Review
 	comments int
 	released *reviewstore.Review
 	doorbell string
@@ -1328,6 +1328,10 @@ func (f *fakeReviewStore) record(message reviewstore.Message) {
 		}
 	}
 
+	if message.CreatedAt.IsZero() {
+		message.CreatedAt = time.Now()
+	}
+
 	if f.messages == nil {
 		f.messages = map[string]reviewstore.Message{}
 	}
@@ -1440,10 +1444,26 @@ func (f *fakeReviewStore) OpenReview(
 		AuthorKind:    params.AuthorKind,
 		AuthorAgentID: params.AuthorAgentID,
 	}
-	f.open = &review
+	if f.open == nil {
+		f.open = map[string]*reviewstore.Review{}
+	}
+	f.open[authorSlot(reviewstore.AuthorParams{
+		AuthorKind:    params.AuthorKind,
+		AuthorAgentID: params.AuthorAgentID,
+	})] = &review
 	f.reviews[review.ID] = review
 
 	return &review, nil
+}
+
+// authorSlot is which batch belongs to one author, since the store allows the person and each
+// reviewing agent one open review of the same agent at a time.
+func authorSlot(params reviewstore.AuthorParams) string {
+	if params.AuthorAgentID == nil {
+		return string(params.AuthorKind)
+	}
+
+	return string(params.AuthorKind) + ":" + *params.AuthorAgentID
 }
 
 // batchID keeps the first batch named the way the fixture's canned thread names it, and mints
@@ -1466,11 +1486,12 @@ func (f *fakeReviewStore) GetReview(_ context.Context, id string) (*reviewstore.
 }
 
 func (f *fakeReviewStore) OpenReviewOf(_ context.Context, params reviewstore.AuthorParams) (*reviewstore.Review, error) {
-	if f.open == nil {
+	open, ok := f.open[authorSlot(params)]
+	if !ok {
 		return nil, fmt.Errorf("%w: open review on %q", store.ErrNotFound, params.AgentID)
 	}
 
-	return f.open, nil
+	return open, nil
 }
 
 func (f *fakeReviewStore) GetLastReleasedReview(_ context.Context, params reviewstore.AuthorParams) (*reviewstore.Review, error) {
@@ -1519,7 +1540,10 @@ func (f *fakeReviewStore) ReleaseReview(
 
 	f.reviews[review.ID] = review
 	f.released = &review
-	f.open = nil
+	delete(f.open, authorSlot(reviewstore.AuthorParams{
+		AuthorKind:    review.AuthorKind,
+		AuthorAgentID: review.AuthorAgentID,
+	}))
 	if params.DoorbellMailID != nil {
 		f.doorbell = *params.DoorbellMailID
 	}
@@ -2056,8 +2080,9 @@ func TestAnswersInProseAreAnAnswer(t *testing.T) {
 	require.NoError(t, err, "and writes a further comment about what the answer says")
 }
 
-// TestASecondReviewWaitsForTheAgentToSayAnything pins the other side of that: an agent that has
-// done nothing at all since the review was sent still holds the person to one review at a time.
+// TestASecondReviewWaitsForTheAgentToSayAnything is a regression guard on the bound this change
+// keeps rather than a failure it fixes: an agent that has done nothing at all since the review
+// was sent still holds the person to one review at a time.
 func TestASecondReviewWaitsForTheAgentToSayAnything(t *testing.T) {
 	reviews := newFakeReviewStore()
 	reviews.comments = 1
@@ -2092,6 +2117,100 @@ func TestASecondReviewWaitsForTheAgentToSayAnything(t *testing.T) {
 		Author:      humanAuthor(),
 	})
 	require.ErrorIs(t, err, ErrReviewNotAnswered)
+}
+
+// TestASecondReviewOnAnOlderRoundIsRefused pins the other side of a caller picking its own
+// round: an older round is no evidence the agent has done anything, so naming one is not a way
+// past the wait for it to answer.
+func TestASecondReviewOnAnOlderRoundIsRefused(t *testing.T) {
+	reviews := newFakeReviewStore()
+	reviews.comments = 1
+	service := reviewService(t, reviews, &fakeNoticeSender{answer: &mailstore.Mail{ID: "mail-1"}})
+
+	first, err := service.GetLatestRound(t.Context(), reviewedAgentID)
+	require.NoError(t, err)
+
+	second, err := reviews.CreateRound(t.Context(), reviewstore.CreateRoundParams{
+		AgentID: reviewedAgentID, BaseSHA: "base-sha", SnapshotSHA: "moved-on",
+	})
+	require.NoError(t, err)
+
+	opened, err := service.CreateReviewThread(t.Context(), CreateReviewThreadParams{
+		AgentID: reviewedAgentID, SnapshotSHA: second.SnapshotSHA, FilePath: "greet.go",
+		Body: "this needs a nil check", Author: humanAuthor(),
+	})
+	require.NoError(t, err)
+	reviews.thread = opened.Thread
+
+	_, err = service.ReleaseReview(t.Context(), ReleaseReviewParams{
+		AgentID: reviewedAgentID, Verdict: reviewstore.VerdictChangesRequested, Author: humanAuthor(),
+	})
+	require.NoError(t, err)
+
+	_, err = service.CreateReviewThread(t.Context(), CreateReviewThreadParams{
+		AgentID: reviewedAgentID, SnapshotSHA: first.SnapshotSHA, FilePath: "greet.go",
+		Body: "and this one", Author: humanAuthor(),
+	})
+	require.ErrorIs(t, err, ErrReviewNotAnswered, "an earlier snapshot is not work done since")
+}
+
+// TestAnotherReviewersNoteIsNotTheAgentsAnswer pins whose words count: threads hang off the
+// agent being reviewed whoever wrote in them, so a second reviewer's note, released or not,
+// would otherwise read as the agent having answered.
+func TestAnotherReviewersNoteIsNotTheAgentsAnswer(t *testing.T) {
+	reviews := newFakeReviewStore()
+	reviews.comments = 1
+	service := reviewService(t, reviews, &fakeNoticeSender{answer: &mailstore.Mail{ID: "mail-1"}})
+
+	opened, err := service.CreateReviewThread(t.Context(), CreateReviewThreadParams{
+		AgentID: reviewedAgentID, FilePath: "greet.go", Body: "this needs a nil check", Author: humanAuthor(),
+	})
+	require.NoError(t, err)
+	reviews.thread = opened.Thread
+
+	_, err = service.ReleaseReview(t.Context(), ReleaseReviewParams{
+		AgentID: reviewedAgentID, Verdict: reviewstore.VerdictChangesRequested, Author: humanAuthor(),
+	})
+	require.NoError(t, err)
+
+	_, err = service.CreateReviewThread(t.Context(), CreateReviewThreadParams{
+		AgentID: reviewedAgentID, FilePath: "greet.go", Body: "and the caller above it",
+		Author: agentAuthor(reviewerAgentID),
+	})
+	require.NoError(t, err, "a reviewer agent writes a comment of its own")
+
+	_, err = service.CreateReviewThread(t.Context(), CreateReviewThreadParams{
+		AgentID: reviewedAgentID, FilePath: "greet.go", Body: "and this one", Author: humanAuthor(),
+	})
+	require.ErrorIs(t, err, ErrReviewNotAnswered, "the agent under review has still said nothing")
+}
+
+// TestTheInFlightRefusalNamesTheRoundHeld pins the number in that refusal, which is the one
+// thing the reader has to go on when told to send what they are holding.
+func TestTheInFlightRefusalNamesTheRoundHeld(t *testing.T) {
+	reviews := newFakeReviewStore()
+	service := reviewService(t, reviews, &fakeNoticeSender{answer: &mailstore.Mail{ID: "mail-1"}})
+
+	held, err := service.GetLatestRound(t.Context(), reviewedAgentID)
+	require.NoError(t, err)
+
+	_, err = service.CreateReviewThread(t.Context(), CreateReviewThreadParams{
+		AgentID: reviewedAgentID, SnapshotSHA: held.SnapshotSHA, FilePath: "greet.go",
+		Body: "this needs a nil check", Author: humanAuthor(),
+	})
+	require.NoError(t, err)
+
+	moved, err := reviews.CreateRound(t.Context(), reviewstore.CreateRoundParams{
+		AgentID: reviewedAgentID, BaseSHA: "base-sha", SnapshotSHA: "moved-on",
+	})
+	require.NoError(t, err)
+
+	_, err = service.CreateReviewThread(t.Context(), CreateReviewThreadParams{
+		AgentID: reviewedAgentID, SnapshotSHA: moved.SnapshotSHA, FilePath: "greet.go",
+		Body: "and this one", Author: humanAuthor(),
+	})
+	require.ErrorIs(t, err, ErrReviewInFlight)
+	assert.Contains(t, err.Error(), fmt.Sprintf("round %d", held.Ordinal))
 }
 
 // TestAReviewerCannotAlternateBetweenTwoRounds pins the hole a caller picking its own round
