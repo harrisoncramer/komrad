@@ -6,6 +6,7 @@ import (
 	agentstore "weave/internal/store/agent"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // TestEveryAgentBelongsToAWorkflowThatExists covers a cast the panel can group, since an agent
@@ -48,18 +49,28 @@ func TestTheCastCoversEveryStateThePanelDrawsDifferently(t *testing.T) {
 	held := newCast()
 
 	seen := map[string]bool{}
-	for _, agent := range held.agents {
+	for _, agent := range append(held.agents, held.archivedAgents...) {
 		seen[agent.GetState()] = true
 	}
 
-	for _, state := range []agentstore.State{
-		agentstore.StateThinking,
-		agentstore.StateIdle,
-		agentstore.StateWaiting,
-		agentstore.StateUncertain,
-	} {
+	// Ranged over rather than listed, so an eighth state has to be drawn here before this passes.
+	for _, state := range agentstore.States() {
 		assert.True(t, seen[string(state)], "no agent is %s", state)
 	}
+}
+
+// TestTheCastCarriesAReportedReasonLongEnoughToBeClipped covers the widest and only varying part
+// of a row, which is what decides whether one fits.
+func TestTheCastCarriesAReportedReasonLongEnoughToBeClipped(t *testing.T) {
+	held := newCast()
+
+	var longest int
+
+	for _, agent := range append(held.agents, held.archivedAgents...) {
+		longest = max(longest, len(agent.GetReportedReason()))
+	}
+
+	assert.Greater(t, longest, 60, "no reported reason is long enough to be clipped")
 }
 
 // TestTheCastCarriesTheMarksARowCanShow covers unread mail, an unviewed turn, a failed run and a
@@ -67,7 +78,7 @@ func TestTheCastCoversEveryStateThePanelDrawsDifferently(t *testing.T) {
 func TestTheCastCarriesTheMarksARowCanShow(t *testing.T) {
 	held := newCast()
 
-	var unread, unviewed, failed, marked, child bool
+	var unread, unviewed, failed, marked, child, hidden, scheduled bool
 
 	for _, agent := range held.agents {
 		unread = unread || agent.GetUnreadMail()
@@ -75,6 +86,8 @@ func TestTheCastCarriesTheMarksARowCanShow(t *testing.T) {
 		failed = failed || agent.GetFailedRun()
 		marked = marked || agent.GetMark() != ""
 		child = child || agent.GetParentAgentId() != ""
+		hidden = hidden || agent.GetHidden()
+		scheduled = scheduled || agent.GetScheduleId() != ""
 	}
 
 	assert.True(t, unread, "no agent has unread mail")
@@ -82,6 +95,32 @@ func TestTheCastCarriesTheMarksARowCanShow(t *testing.T) {
 	assert.True(t, failed, "no agent has a failed run")
 	assert.True(t, marked, "no agent carries a mark")
 	assert.True(t, child, "no agent is a child of another")
+	assert.True(t, hidden, "no agent is hidden")
+	assert.True(t, scheduled, "no agent was launched by a schedule")
+}
+
+// TestAnArchivedAgentIsNotAlive covers a state no real archived agent is in, which would mislead
+// whoever writes the next screen against this cast.
+func TestAnArchivedAgentIsNotAlive(t *testing.T) {
+	for _, agent := range newCast().archivedAgents {
+		assert.False(t, agent.GetAlive(), "%s is archived and reads as alive", agent.GetName())
+		assert.NotEmpty(t, agent.GetArchivedAt(), "%s is archived and carries no time", agent.GetName())
+	}
+}
+
+// TestMailIsNumberedOldestFirst covers the mail screen taking id order for time order, which it
+// does because a real id is a uuidv7.
+func TestMailIsNumberedOldestFirst(t *testing.T) {
+	held := newCast().mail
+	require.Greater(t, len(held), 1)
+
+	for i := 1; i < len(held); i++ {
+		previous, current := held[i-1], held[i]
+
+		assert.Less(t, previous.GetId(), current.GetId(), "the ids are out of order")
+		assert.Less(t, previous.GetCreatedAt(), current.GetCreatedAt(),
+			"%s sorts before %s but was written after it", previous.GetId(), current.GetId())
+	}
 }
 
 // TestAWorkflowHoldsNoAgents covers the empty group, which is a row the panel draws and a cast of

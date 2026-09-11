@@ -20,6 +20,11 @@ document cannot tell you whether a sidebar and a column both fit at eighty colum
 demo` starts the real panel against a fake service, so what you are looking at is what the panel
 draws rather than a drawing of it. It needs no database, no `weave serve`, and no tmux.
 
+Two things it does not do yet. The review screen does not draw: pressing the review key reports
+that `ListReviewThreads` is not implemented, which is the tool and not your branch. And the
+command sets no size of its own, so the width a screen is drawn at is the width of the terminal
+you start it in, and eighty columns means sizing that terminal by hand.
+
 The fake lives in `cmd/paneldemo`. Its services embed the generated unimplemented handlers and
 are served over an `httptest` server, so a call nobody wrote comes back as an error the panel
 draws rather than as a panic, and the cast in `cast.go` is where the agents, workflows, schedules

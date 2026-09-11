@@ -28,6 +28,19 @@ const (
 	StateUncertain       State = State(models.AgentStateUncertain)
 )
 
+// States is every state an agent can be in, for a caller that has to cover all of them.
+func States() []State {
+	return []State{
+		StateThinking,
+		StateWaiting,
+		StateIdle,
+		StateSettingUp,
+		StateFailedToCreate,
+		StateFailedToCleanup,
+		StateUncertain,
+	}
+}
+
 // DoesPaneDecide reports whether reading the agent's terminal is what decides this state.
 func (s State) DoesPaneDecide() bool {
 	// Written without a default so an eighth state has to be answered for here rather than

@@ -24,16 +24,20 @@ type cast struct {
 // agentSpec is one agent of the cast, written as the handful of things that decide how a row is
 // drawn.
 type agentSpec struct {
-	name     string
-	state    agentstore.State
-	workflow string
-	unread   bool
-	unviewed bool
-	mark     string
-	branch   string
-	failed   bool
-	role     string
-	parent   string
+	name      string
+	state     agentstore.State
+	workflow  string
+	unread    bool
+	unviewed  bool
+	mark      string
+	branch    string
+	failed    bool
+	role      string
+	parent    string
+	reason    string
+	hidden    bool
+	scheduled bool
+	archived  bool
 }
 
 // newCast builds a panel's worth of agents, workflows, schedules and mail, with enough variety
@@ -54,12 +58,17 @@ func newCast() cast {
 	specs := []agentSpec{
 		{name: "orca", state: agentstore.StateThinking, workflow: "wf-review", branch: "agent/orca"},
 		{name: "narwhal", state: agentstore.StateIdle, workflow: "wf-review", unviewed: true, branch: "agent/narwhal"},
-		{name: "pelican", state: agentstore.StateUncertain, workflow: "wf-review"},
+		{name: "pelican", state: agentstore.StateUncertain, workflow: "wf-review", reason: "the pane has not read since 11:02"},
 		{name: "orca-reviewer", state: agentstore.StateThinking, workflow: "wf-review", role: "reviewer", parent: "agent-orca"},
+		{name: "cowrie", state: agentstore.StateSettingUp, workflow: "wf-review"},
 		{name: "mockup", state: agentstore.StateThinking, workflow: "wf-weave", unread: true, branch: "agent/mockup"},
-		{name: "krill", state: agentstore.StateWaiting, workflow: "wf-weave", mark: "!", branch: "agent/krill"},
+		{name: "krill", state: agentstore.StateWaiting, workflow: "wf-weave", mark: "!", branch: "agent/krill", scheduled: true},
 		{name: "limpet", state: agentstore.StateIdle, workflow: "wf-weave", failed: true},
-		{name: "barnacle", state: agentstore.StateIdle, workflow: "wf-weave", unviewed: true, mark: "?"},
+		{name: "barnacle", state: agentstore.StateIdle, workflow: "wf-weave", unviewed: true, mark: "?", hidden: true},
+		{
+			name: "abalone", state: agentstore.StateFailedToCreate, workflow: "wf-weave",
+			reason: "the worktree could not be made: fatal: 'agent/abalone' is already checked out at /Users/harry/weave-test",
+		},
 	}
 
 	agents := make([]*agentv1.Agent, 0, len(specs))
@@ -68,11 +77,11 @@ func newCast() cast {
 	}
 
 	archived := []*agentv1.Agent{
-		agentFrom(agentSpec{name: "urchin", state: agentstore.StateIdle, workflow: "wf-weave"}, 90),
-		agentFrom(agentSpec{name: "cuttlefish", state: agentstore.StateIdle, workflow: "wf-review"}, 91),
-	}
-	for _, agent := range archived {
-		agent.ArchivedAt = ptr(ago(26 * time.Hour))
+		agentFrom(agentSpec{name: "urchin", state: agentstore.StateIdle, workflow: "wf-weave", archived: true}, 90),
+		agentFrom(agentSpec{
+			name: "cuttlefish", state: agentstore.StateFailedToCleanup, workflow: "wf-review", archived: true,
+			reason: "the worktree is still there: unlinking failed, directory not empty",
+		}, 91),
 	}
 
 	return cast{
@@ -97,11 +106,21 @@ func agentFrom(spec agentSpec, at int) *agentv1.Agent {
 		WorkflowId:     spec.workflow,
 		CreatedAt:      ago(time.Duration(at+1) * 37 * time.Minute),
 		StateChangedAt: ago(time.Duration(at+1) * 4 * time.Minute),
-		Alive:          true,
+		Alive:          !spec.archived,
 		UnreadMail:     spec.unread,
 		Unviewed:       spec.unviewed,
 		FailedRun:      spec.failed,
 		Role:           spec.role,
+		ReportedReason: spec.reason,
+		Hidden:         spec.hidden,
+	}
+
+	if spec.archived {
+		agent.ArchivedAt = ptr(ago(26 * time.Hour))
+	}
+
+	if spec.scheduled {
+		agent.ScheduleId = ptr("sched-triage")
 	}
 
 	if spec.mark != "" {
@@ -164,58 +183,61 @@ func newSchedules() []*schedulev1.Schedule {
 	}
 }
 
+// newMail is a mailbox in id order, since real ids are uuidv7 and the mail screen takes id order
+// for time order.
 func newMail() []*agentv1.Mail {
 	return []*agentv1.Mail{
 		{
 			Id:          "mail-1",
-			FromAgentId: ptr("agent-mockup"),
-			FromName:    "mockup",
-			ToAgentId:   "agent-orca",
-			Body:        "The pull request is open. Approved on round three, and the full check passed.",
-			CreatedAt:   ago(7 * time.Minute),
-			ExpiresAt:   ago(-3 * time.Hour),
-			Kind:        agentv1.MailKind_MAIL_KIND_PLAIN,
-		},
-		{
-			Id:        "mail-2",
-			FromName:  "weave",
-			ToAgentId: "agent-mockup",
-			Body:      "review of round 3, approved, 0 comments",
-			CreatedAt: ago(21 * time.Minute),
-			ExpiresAt: ago(-2 * time.Hour),
-			Kind:      agentv1.MailKind_MAIL_KIND_REVIEW_ACTIVITY,
-		},
-		{
-			Id:          "mail-3",
-			FromAgentId: ptr("agent-krill"),
-			FromName:    "krill",
-			ToAgentId:   "agent-mockup",
-			Body:        "The migration landed on main, so rebase before you push. It renames the column your query reads.",
-			CreatedAt:   ago(2 * time.Hour),
-			ClaimedAt:   ptr(ago(105 * time.Minute)),
-			ExpiresAt:   ago(-1 * time.Hour),
-			Kind:        agentv1.MailKind_MAIL_KIND_PLAIN,
-		},
-		{
-			Id:          "mail-4",
-			FromAgentId: ptr("agent-mockup"),
-			FromName:    "mockup",
-			ToAgentId:   "agent-krill",
-			Body:        "Rebased, and the query reads the new name. Thanks for the heads up.",
-			CreatedAt:   ago(94 * time.Minute),
-			ClaimedAt:   ptr(ago(90 * time.Minute)),
-			ExpiresAt:   ago(-90 * time.Minute),
-			Kind:        agentv1.MailKind_MAIL_KIND_PLAIN,
-		},
-		{
-			Id:          "mail-5",
 			FromAgentId: ptr("agent-orca"),
 			FromName:    "orca",
 			ToAgentId:   "agent-narwhal",
 			Body:        "Taking the review screen. Leave reviewband.go alone so we do not collide.",
 			CreatedAt:   ago(3 * time.Hour),
 			ClaimedAt:   ptr(ago(3 * time.Hour)),
-			ExpiresAt:   ago(-30 * time.Minute),
+			ExpiresAt:   in(30 * time.Minute),
+			Kind:        agentv1.MailKind_MAIL_KIND_PLAIN,
+		},
+		{
+			Id:          "mail-2",
+			FromAgentId: ptr("agent-krill"),
+			FromName:    "krill",
+			ToAgentId:   "agent-mockup",
+			Body:        "The migration landed on main, so rebase before you push. It renames the column your query reads.",
+			CreatedAt:   ago(2 * time.Hour),
+			ClaimedAt:   ptr(ago(105 * time.Minute)),
+			ExpiresAt:   in(time.Hour),
+			Kind:        agentv1.MailKind_MAIL_KIND_PLAIN,
+		},
+		{
+			Id:          "mail-3",
+			FromAgentId: ptr("agent-mockup"),
+			FromName:    "mockup",
+			ToAgentId:   "agent-krill",
+			Body:        "Rebased, and the query reads the new name. Thanks for the heads up.",
+			CreatedAt:   ago(94 * time.Minute),
+			ClaimedAt:   ptr(ago(90 * time.Minute)),
+			ReplyTo:     ptr("mail-2"),
+			ExpiresAt:   in(90 * time.Minute),
+			Kind:        agentv1.MailKind_MAIL_KIND_PLAIN,
+		},
+		{
+			Id:        "mail-4",
+			FromName:  "weave",
+			ToAgentId: "agent-mockup",
+			Body:      "review of round 3, approved, 0 comments",
+			CreatedAt: ago(21 * time.Minute),
+			ExpiresAt: in(2 * time.Hour),
+			Kind:      agentv1.MailKind_MAIL_KIND_REVIEW_ACTIVITY,
+		},
+		{
+			Id:          "mail-5",
+			FromAgentId: ptr("agent-mockup"),
+			FromName:    "mockup",
+			ToAgentId:   "agent-orca",
+			Body:        "The pull request is open. Approved on round three, and the full check passed.",
+			CreatedAt:   ago(7 * time.Minute),
+			ExpiresAt:   in(3 * time.Hour),
 			Kind:        agentv1.MailKind_MAIL_KIND_PLAIN,
 		},
 	}
@@ -224,6 +246,11 @@ func newMail() []*agentv1.Mail {
 // ago is a timestamp the given duration in the past, in the format the service sends.
 func ago(d time.Duration) string {
 	return time.Now().Add(-d).Format(time.RFC3339)
+}
+
+// in is a timestamp the given duration from now, which is what an expiry is.
+func in(d time.Duration) string {
+	return time.Now().Add(d).Format(time.RFC3339)
 }
 
 func ptr[T any](value T) *T { return &value }
