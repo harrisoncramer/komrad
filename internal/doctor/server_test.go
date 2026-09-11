@@ -2,7 +2,6 @@ package doctor
 
 import (
 	"context"
-	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -15,19 +14,12 @@ func serverEnv(status ServerStatus) Env {
 func withPanel(status ServerStatus, running bool) Env {
 	return Env{
 		Settings: Settings{
-			Addr:         "127.0.0.1:8787",
-			Version:      "v1.2.3",
-			TmuxSocket:   "weave",
-			PanelSession: "weave",
+			Addr:       "127.0.0.1:8787",
+			Version:    "v1.2.3",
+			TmuxSocket: "weave",
 		},
-		ProbeServer: func(context.Context, string) ServerStatus { return status },
-		Output: func(_ context.Context, _ string, args ...string) (string, error) {
-			if running {
-				return "", nil
-			}
-
-			return "", errors.New("no server running on /tmp/tmux-501/weave")
-		},
+		ProbeServer:    func(context.Context, string) ServerStatus { return status },
+		IsPanelRunning: func(context.Context) bool { return running },
 	}
 }
 
