@@ -15,7 +15,7 @@ type Worktree struct {
 }
 
 // ListWorktrees reports every checkout of a repository, the main one first.
-func ListWorktrees(ctx context.Context, repo string) ([]Worktree, error) {
+func (c *Client) ListWorktrees(ctx context.Context, repo string) ([]Worktree, error) {
 	out, err := Run(ctx, repo, "worktree", "list", "--porcelain")
 	if err != nil {
 		return nil, fmt.Errorf("failed to list the checkouts of %q: %w", repo, err)
@@ -42,10 +42,10 @@ func parseWorktrees(out string) []Worktree {
 
 // Materialise checks a commit out as a worktree of its own, detached so nothing can be pushed
 // from it by accident.
-func Materialise(ctx context.Context, dir, sha, at string) error {
+func (c *Client) Materialise(ctx context.Context, dir, sha, at string) error {
 	// A checkout already on the commit is left exactly as it is, holding whatever the reviewer has
 	// typed into it.
-	if head, ok := WorktreeHead(ctx, at); ok {
+	if head, ok := c.WorktreeHead(ctx, at); ok {
 		if head == sha {
 			return nil
 		}
@@ -55,7 +55,7 @@ func Materialise(ctx context.Context, dir, sha, at string) error {
 		}
 	}
 
-	if err := Reap(ctx, dir, at); err != nil {
+	if err := c.Reap(ctx, dir, at); err != nil {
 		return err
 	}
 
@@ -72,7 +72,7 @@ func Materialise(ctx context.Context, dir, sha, at string) error {
 
 // WorktreeHead is the commit a materialised checkout stands on, and false for anything that is
 // not the top of one.
-func WorktreeHead(ctx context.Context, at string) (string, bool) {
+func (c *Client) WorktreeHead(ctx context.Context, at string) (string, bool) {
 	if !isWorktreeAt(ctx, at) {
 		return "", false
 	}
@@ -87,7 +87,7 @@ func WorktreeHead(ctx context.Context, at string) (string, bool) {
 
 // IsDirty reports whether a checkout holds anything the commit it stands on does not, counting
 // untracked files but not ignored ones.
-func IsDirty(ctx context.Context, at string) (bool, error) {
+func (c *Client) IsDirty(ctx context.Context, at string) (bool, error) {
 	out, err := Run(ctx, at, "status", "--porcelain", "--untracked-files=all")
 	if err != nil {
 		return false, fmt.Errorf("failed to read what is in the checkout at %q: %w", at, err)
@@ -113,7 +113,7 @@ func isWorktreeAt(ctx context.Context, at string) bool {
 
 // Reap takes a materialised worktree away along with the record git keeps of it, and says
 // nothing about a directory that was never there.
-func Reap(ctx context.Context, dir, at string) error {
+func (c *Client) Reap(ctx context.Context, dir, at string) error {
 	if _, err := os.Stat(at); err != nil {
 		return nil
 	}

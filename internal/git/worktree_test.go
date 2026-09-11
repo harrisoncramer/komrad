@@ -16,13 +16,13 @@ func TestMaterialiseIsTheRoundRatherThanTheWorktree(t *testing.T) {
 	root := repo(t)
 	write(t, root, "kept.go", "package main\n\nfunc Frozen() {}\n")
 
-	snapshot, err := TakeSnapshot(t.Context(), TakeSnapshotParams{Dir: root, Base: "main"})
+	snapshot, err := client.TakeSnapshot(t.Context(), TakeSnapshotParams{Dir: root, Base: "main"})
 	require.NoError(t, err)
 
 	write(t, root, "kept.go", "package main\n\nfunc MovedOn() {}\n")
 
 	at := filepath.Join(t.TempDir(), "round")
-	require.NoError(t, Materialise(t.Context(), root, snapshot.SHA, at))
+	require.NoError(t, client.Materialise(t.Context(), root, snapshot.SHA, at))
 
 	held, err := os.ReadFile(filepath.Join(at, "kept.go"))
 	require.NoError(t, err)
@@ -43,18 +43,18 @@ func TestMaterialiseMovesACheckoutAlreadyThere(t *testing.T) {
 	root := repo(t)
 	write(t, root, "kept.go", "package main\n\nfunc First() {}\n")
 
-	first, err := TakeSnapshot(t.Context(), TakeSnapshotParams{Dir: root, Base: "main"})
+	first, err := client.TakeSnapshot(t.Context(), TakeSnapshotParams{Dir: root, Base: "main"})
 	require.NoError(t, err)
-	require.NoError(t, HoldRef(t.Context(), root, "refs/weave/rounds/first", first.SHA))
+	require.NoError(t, client.HoldRef(t.Context(), root, "refs/weave/rounds/first", first.SHA))
 
 	at := filepath.Join(t.TempDir(), "round")
-	require.NoError(t, Materialise(t.Context(), root, first.SHA, at))
+	require.NoError(t, client.Materialise(t.Context(), root, first.SHA, at))
 
 	write(t, root, "kept.go", "package main\n\nfunc Second() {}\n")
 
-	second, err := TakeSnapshot(t.Context(), TakeSnapshotParams{Dir: root, Base: "main"})
+	second, err := client.TakeSnapshot(t.Context(), TakeSnapshotParams{Dir: root, Base: "main"})
 	require.NoError(t, err)
-	require.NoError(t, Materialise(t.Context(), root, second.SHA, at))
+	require.NoError(t, client.Materialise(t.Context(), root, second.SHA, at))
 
 	held, err := os.ReadFile(filepath.Join(at, "kept.go"))
 	require.NoError(t, err)
@@ -71,14 +71,14 @@ func TestMaterialiseKeepsWhatTheReviewerWrote(t *testing.T) {
 	root := repo(t)
 	write(t, root, "kept.go", "package main\n")
 
-	snapshot, err := TakeSnapshot(t.Context(), TakeSnapshotParams{Dir: root, Base: "main"})
+	snapshot, err := client.TakeSnapshot(t.Context(), TakeSnapshotParams{Dir: root, Base: "main"})
 	require.NoError(t, err)
 
 	at := filepath.Join(t.TempDir(), "round")
-	require.NoError(t, Materialise(t.Context(), root, snapshot.SHA, at))
+	require.NoError(t, client.Materialise(t.Context(), root, snapshot.SHA, at))
 	write(t, at, "kept.go", "package main\n\nfunc TheReviewersIdea() {}\n")
 
-	require.NoError(t, Materialise(t.Context(), root, snapshot.SHA, at))
+	require.NoError(t, client.Materialise(t.Context(), root, snapshot.SHA, at))
 
 	held, err := os.ReadFile(filepath.Join(at, "kept.go"))
 	require.NoError(t, err)
@@ -92,7 +92,7 @@ func TestMaterialiseWillNotCheckOutAnEnclosingRepository(t *testing.T) {
 	root := repo(t)
 	write(t, root, "kept.go", "package main\n\nfunc Frozen() {}\n")
 
-	snapshot, err := TakeSnapshot(t.Context(), TakeSnapshotParams{Dir: root, Base: "main"})
+	snapshot, err := client.TakeSnapshot(t.Context(), TakeSnapshotParams{Dir: root, Base: "main"})
 	require.NoError(t, err)
 
 	// The agent keeps working, so the tree now holds something no commit does.
@@ -100,7 +100,7 @@ func TestMaterialiseWillNotCheckOutAnEnclosingRepository(t *testing.T) {
 	write(t, root, "rounds/a1/leftover.txt", "not ours\n")
 
 	at := filepath.Join(root, "rounds", "a1")
-	require.NoError(t, Materialise(t.Context(), root, snapshot.SHA, at))
+	require.NoError(t, client.Materialise(t.Context(), root, snapshot.SHA, at))
 
 	held, err := os.ReadFile(filepath.Join(at, "kept.go"))
 	require.NoError(t, err)
@@ -116,12 +116,12 @@ func TestMaterialiseWillNotCheckOutAnEnclosingRepository(t *testing.T) {
 func TestReapTakesTheRecordWithTheDirectory(t *testing.T) {
 	root := repo(t)
 
-	snapshot, err := TakeSnapshot(t.Context(), TakeSnapshotParams{Dir: root, Base: "main"})
+	snapshot, err := client.TakeSnapshot(t.Context(), TakeSnapshotParams{Dir: root, Base: "main"})
 	require.NoError(t, err)
 
 	at := filepath.Join(t.TempDir(), "round")
-	require.NoError(t, Materialise(t.Context(), root, snapshot.SHA, at))
-	require.NoError(t, Reap(t.Context(), root, at))
+	require.NoError(t, client.Materialise(t.Context(), root, snapshot.SHA, at))
+	require.NoError(t, client.Reap(t.Context(), root, at))
 
 	assert.NoDirExists(t, at)
 
@@ -129,7 +129,7 @@ func TestReapTakesTheRecordWithTheDirectory(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 0, countWorktrees(t, trees, at))
 
-	require.NoError(t, Reap(t.Context(), root, at))
+	require.NoError(t, client.Reap(t.Context(), root, at))
 }
 
 // countWorktrees is how many of the worktrees git lists are the one at a path, resolved first

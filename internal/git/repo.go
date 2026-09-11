@@ -67,7 +67,7 @@ func ReadFile(ctx context.Context, dir, sha, path string) ([]byte, error) {
 }
 
 // ReadFileLines is one file as a commit holds it, split into lines.
-func ReadFileLines(ctx context.Context, dir, sha, path string) ([]string, error) {
+func (c *Client) ReadFileLines(ctx context.Context, dir, sha, path string) ([]string, error) {
 	out, err := ReadFile(ctx, dir, sha, path)
 	if err != nil {
 		return nil, err
@@ -102,7 +102,7 @@ type CountChangedFilesParams struct {
 }
 
 // CountChangedFiles is how many files differ between two commits.
-func CountChangedFiles(ctx context.Context, params CountChangedFilesParams) (int, error) {
+func (c *Client) CountChangedFiles(ctx context.Context, params CountChangedFilesParams) (int, error) {
 	if params.FromSHA == "" || params.ToSHA == "" || params.FromSHA == params.ToSHA {
 		return 0, nil
 	}

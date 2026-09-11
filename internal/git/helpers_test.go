@@ -9,6 +9,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// client is the git these tests drive.
+var client = NewClient()
+
 func write(t *testing.T, root, path, content string) {
 	t.Helper()
 

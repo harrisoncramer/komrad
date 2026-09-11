@@ -22,7 +22,7 @@ type MapRangesParams struct {
 
 // MapRanges is what the later commit did to each file, in the form the position package moves a
 // place through.
-func MapRanges(ctx context.Context, params MapRangesParams) ([]position.Mapping, error) {
+func (c *Client) MapRanges(ctx context.Context, params MapRangesParams) ([]position.Mapping, error) {
 	if params.FromSHA == "" || params.ToSHA == "" {
 		return nil, fmt.Errorf("failed to map %q: two commits are needed", params.Dir)
 	}

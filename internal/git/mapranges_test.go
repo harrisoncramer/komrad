@@ -73,7 +73,7 @@ func TestMapRangesRefusals(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			mappings, err := MapRanges(t.Context(), tt.params)
+			mappings, err := client.MapRanges(t.Context(), tt.params)
 
 			require.Error(t, err)
 			assert.Nil(t, mappings)
@@ -265,7 +265,7 @@ func TestMapRangesReadsWhatTheCommitDid(t *testing.T) {
 			tt.change(t, root)
 			to := commitAll(t, root, "changed")
 
-			mappings, err := MapRanges(t.Context(), MapRangesParams{
+			mappings, err := client.MapRanges(t.Context(), MapRangesParams{
 				Dir:     root,
 				FromSHA: from,
 				ToSHA:   to,
@@ -289,7 +289,7 @@ func TestMapRangesFindsARenameAcrossTheWholeTree(t *testing.T) {
 	write(t, root, "new.go", strings.Replace(numbered(9), "original 2\n", "rewritten 2\n", 1))
 	to := commitAll(t, root, "after the rename")
 
-	mappings, err := MapRanges(t.Context(), MapRangesParams{
+	mappings, err := client.MapRanges(t.Context(), MapRangesParams{
 		Dir:     root,
 		FromSHA: from,
 		ToSHA:   to,
@@ -317,7 +317,7 @@ func TestATracedLineHoldsItsContent(t *testing.T) {
 		write(t, root, "counted.go", next)
 		to := commitAll(t, root, "rewritten")
 
-		mappings, err := MapRanges(t.Context(), MapRangesParams{
+		mappings, err := client.MapRanges(t.Context(), MapRangesParams{
 			Dir:     root,
 			FromSHA: from,
 			ToSHA:   to,

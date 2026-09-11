@@ -33,7 +33,7 @@ func TestTakeLeavesTheAgentsIndexAndWorktreeAlone(t *testing.T) {
 	before := capture(t, root, "status", "--porcelain")
 	head := capture(t, root, "rev-parse", "HEAD")
 
-	_, err := TakeSnapshot(t.Context(), TakeSnapshotParams{
+	_, err := client.TakeSnapshot(t.Context(), TakeSnapshotParams{
 		Dir:  root,
 		Base: "main",
 		Ref:  "refs/weave/rounds/two",
@@ -51,19 +51,19 @@ func TestTakingTheSameTreeTwiceIsTheSameRound(t *testing.T) {
 	root := repo(t)
 	write(t, root, "kept.go", "package main\n\nfunc A() {}\n")
 
-	first, err := TakeSnapshot(t.Context(), TakeSnapshotParams{Dir: root, Base: "main"})
+	first, err := client.TakeSnapshot(t.Context(), TakeSnapshotParams{Dir: root, Base: "main"})
 	require.NoError(t, err)
 
 	time.Sleep(1100 * time.Millisecond)
 
-	second, err := TakeSnapshot(t.Context(), TakeSnapshotParams{Dir: root, Base: "main"})
+	second, err := client.TakeSnapshot(t.Context(), TakeSnapshotParams{Dir: root, Base: "main"})
 	require.NoError(t, err)
 
 	assert.Equal(t, first.SHA, second.SHA, "the same worktree is the same round however long later")
 
 	write(t, root, "kept.go", "package main\n\nfunc B() {}\n")
 
-	moved, err := TakeSnapshot(t.Context(), TakeSnapshotParams{Dir: root, Base: "main"})
+	moved, err := client.TakeSnapshot(t.Context(), TakeSnapshotParams{Dir: root, Base: "main"})
 	require.NoError(t, err)
 	assert.NotEqual(t, first.SHA, moved.SHA, "and a worktree that moved is a new one")
 }
@@ -73,14 +73,14 @@ func TestReleaseDropsTheRef(t *testing.T) {
 	root := repo(t)
 	write(t, root, "kept.go", "package main\n\nfunc C() {}\n")
 
-	_, err := TakeSnapshot(t.Context(), TakeSnapshotParams{
+	_, err := client.TakeSnapshot(t.Context(), TakeSnapshotParams{
 		Dir:  root,
 		Base: "main",
 		Ref:  "refs/weave/rounds/five",
 	})
 	require.NoError(t, err)
 
-	require.NoError(t, ReleaseRef(t.Context(), root, "refs/weave/rounds/five"))
+	require.NoError(t, client.ReleaseRef(t.Context(), root, "refs/weave/rounds/five"))
 
 	cmd := exec.Command("git", "-C", root, "rev-parse", "--verify", "--quiet", "refs/weave/rounds/five")
 	require.Error(t, cmd.Run())
@@ -92,21 +92,21 @@ func TestFileAtReadsTheRoundRatherThanTheWorktree(t *testing.T) {
 	root := repo(t)
 	write(t, root, "greet.go", "package main\n\nfunc greet() {}\n")
 
-	snapshot, err := TakeSnapshot(t.Context(), TakeSnapshotParams{Dir: root, Base: "main"})
+	snapshot, err := client.TakeSnapshot(t.Context(), TakeSnapshotParams{Dir: root, Base: "main"})
 	require.NoError(t, err)
 
-	lines, err := ReadFileLines(t.Context(), root, snapshot.SHA, "greet.go")
+	lines, err := client.ReadFileLines(t.Context(), root, snapshot.SHA, "greet.go")
 	require.NoError(t, err)
 	assert.Equal(t, []string{"package main", "", "func greet() {}"}, lines)
 
 	// The agent rewrites the file wholesale, which is the case the round exists for.
 	write(t, root, "greet.go", "package main\n\nfunc greet(name string) {}\n")
 
-	again, err := ReadFileLines(t.Context(), root, snapshot.SHA, "greet.go")
+	again, err := client.ReadFileLines(t.Context(), root, snapshot.SHA, "greet.go")
 	require.NoError(t, err)
 	assert.Equal(t, lines, again, "the round still holds what the comment was written about")
 
-	_, err = ReadFileLines(t.Context(), root, snapshot.SHA, "never-existed.go")
+	_, err = client.ReadFileLines(t.Context(), root, snapshot.SHA, "never-existed.go")
 	require.Error(t, err, "a path the round does not hold is an error the caller falls back from")
 }
 
@@ -149,7 +149,7 @@ func TestTheTreeIsTheSameHoweverTheIndexWasSeeded(t *testing.T) {
 	require.NoError(t, os.Chmod(filepath.Join(root, "proto/gen/api.pb.go"), 0o755))
 	require.NoError(t, os.Symlink("loose.go", filepath.Join(root, "link.go")))
 
-	tree, err := ProbeTree(t.Context(), root)
+	tree, err := client.ProbeTree(t.Context(), root)
 	require.NoError(t, err)
 	assert.Equal(t, controlTree(t, root), tree)
 }
@@ -162,10 +162,10 @@ func TestAnAssumeUnchangedFileIsStillHashed(t *testing.T) {
 	run(t, root, "update-index", "--assume-unchanged", "kept.go")
 	write(t, root, "kept.go", "package main\n\nfunc Edited() {}\n")
 
-	snapshot, err := TakeSnapshot(t.Context(), TakeSnapshotParams{Dir: root, Base: "main"})
+	snapshot, err := client.TakeSnapshot(t.Context(), TakeSnapshotParams{Dir: root, Base: "main"})
 	require.NoError(t, err)
 
-	lines, err := ReadFileLines(t.Context(), root, snapshot.SHA, "kept.go")
+	lines, err := client.ReadFileLines(t.Context(), root, snapshot.SHA, "kept.go")
 	require.NoError(t, err)
 	assert.Equal(t, []string{"package main", "", "func Edited() {}"}, lines)
 }
@@ -177,10 +177,10 @@ func TestASkipWorktreeFileIsKept(t *testing.T) {
 	run(t, root, "update-index", "--skip-worktree", "kept.go")
 	require.NoError(t, os.Remove(filepath.Join(root, "kept.go")))
 
-	snapshot, err := TakeSnapshot(t.Context(), TakeSnapshotParams{Dir: root, Base: "main"})
+	snapshot, err := client.TakeSnapshot(t.Context(), TakeSnapshotParams{Dir: root, Base: "main"})
 	require.NoError(t, err)
 
-	lines, err := ReadFileLines(t.Context(), root, snapshot.SHA, "kept.go")
+	lines, err := client.ReadFileLines(t.Context(), root, snapshot.SHA, "kept.go")
 	require.NoError(t, err)
 	assert.Equal(t, []string{"package main"}, lines)
 }
@@ -194,10 +194,10 @@ func TestASnapshotSurvivesAnUnreadableIndex(t *testing.T) {
 	path := filepath.Join(root, capture(t, root, "rev-parse", "--git-path", "index"))
 	require.NoError(t, os.WriteFile(path, []byte("not an index at all"), 0o644))
 
-	snapshot, err := TakeSnapshot(t.Context(), TakeSnapshotParams{Dir: root, Base: "main"})
+	snapshot, err := client.TakeSnapshot(t.Context(), TakeSnapshotParams{Dir: root, Base: "main"})
 	require.NoError(t, err)
 
-	lines, err := ReadFileLines(t.Context(), root, snapshot.SHA, "loose.go")
+	lines, err := client.ReadFileLines(t.Context(), root, snapshot.SHA, "loose.go")
 	require.NoError(t, err)
 	assert.Equal(t, []string{"package main"}, lines)
 }

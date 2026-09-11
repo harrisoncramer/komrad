@@ -120,13 +120,13 @@ func (f *fakeReviewAgents) OpenReviewRound(
 	ctx context.Context,
 	req *connect.Request[agentv1.OpenReviewRoundRequest],
 ) (*connect.Response[agentv1.OpenReviewRoundResponse], error) {
-	snapshot, err := git.TakeSnapshot(ctx, git.TakeSnapshotParams{Dir: f.dir, Base: "main"})
+	snapshot, err := git.NewClient().TakeSnapshot(ctx, git.TakeSnapshotParams{Dir: f.dir, Base: "main"})
 	if err != nil {
 		return nil, err
 	}
 
 	if len(f.rounds) == 0 || f.rounds[len(f.rounds)-1].GetSnapshotSha() != snapshot.SHA {
-		if err := git.HoldRef(ctx, f.dir, "refs/weave/rounds/"+snapshot.SHA, snapshot.SHA); err != nil {
+		if err := git.NewClient().HoldRef(ctx, f.dir, "refs/weave/rounds/"+snapshot.SHA, snapshot.SHA); err != nil {
 			return nil, err
 		}
 

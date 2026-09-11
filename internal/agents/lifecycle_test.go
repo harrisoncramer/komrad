@@ -660,8 +660,8 @@ func TestDeletingAnAgentLeavesAnotherAgentsRoundHeld(t *testing.T) {
 	staying := seedRoundedAgent(t, st, reviews, "staying", root, "same-sha")
 
 	held := roundRef(staying, "same-sha")
-	require.NoError(t, git.HoldRef(t.Context(), root, roundRef(going, "same-sha"), headOf(t, root)))
-	require.NoError(t, git.HoldRef(t.Context(), root, held, headOf(t, root)))
+	require.NoError(t, git.NewClient().HoldRef(t.Context(), root, roundRef(going, "same-sha"), headOf(t, root)))
+	require.NoError(t, git.NewClient().HoldRef(t.Context(), root, held, headOf(t, root)))
 
 	require.NoError(t, manager.lifecycle.DeleteAgents(t.Context(), []string{going}))
 
