@@ -480,7 +480,7 @@ func (m model) agentsListView() string {
 		}
 
 		if r.header {
-			label := m.filter.highlight(r.workflow.Name, m.nameStyle(hovered, false))
+			label := m.filter.highlight(clipName(r.workflow.Name), m.nameStyle(hovered, false))
 			header := prefix + paint.MarkGutter(m.listing.marks[rowKey(r)]) + label + hiddenTally(r.hiddenCount, m.tree.showHidden)
 			rows = append(rows, header)
 
