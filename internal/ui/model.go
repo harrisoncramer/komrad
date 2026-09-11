@@ -8,6 +8,7 @@
 package ui
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"strings"
@@ -15,6 +16,8 @@ import (
 
 	"weave/config"
 	"weave/internal/errui"
+	"weave/internal/git"
+	"weave/internal/position"
 	"weave/internal/ui/layout"
 	"weave/proto/gen/agent/v1/agentv1connect"
 	"weave/proto/gen/hook/v1/hookv1connect"
@@ -121,6 +124,20 @@ type uiTmux interface {
 	SendKeys(target string, keys ...string) error
 }
 
+// uiGit is the git the review screen reads a round through and checks one out with.
+type uiGit interface {
+	Materialise(ctx context.Context, dir, sha, at string) error
+	WorktreeHead(ctx context.Context, at string) (string, bool)
+	IsDirty(ctx context.Context, at string) (bool, error)
+	Reap(ctx context.Context, dir, at string) error
+	Edits(ctx context.Context, dir string) ([]git.Edit, error)
+	ReadFileLines(ctx context.Context, dir, sha, path string) ([]string, error)
+	CountChangedFiles(ctx context.Context, params git.CountChangedFilesParams) (int, error)
+	MapRanges(ctx context.Context, params git.MapRangesParams) ([]position.Mapping, error)
+	ProbeTree(ctx context.Context, dir string) (string, error)
+	GetTree(ctx context.Context, dir, sha string) (string, error)
+}
+
 // harnessFrameReader tells a harness that has drawn itself in a pane from one that has only
 // started.
 type harnessFrameReader interface {
@@ -130,6 +147,7 @@ type harnessFrameReader interface {
 type Deps struct {
 	PopupWindow     *PopupWindow
 	Tmux            uiTmux
+	Git             uiGit
 	HarnessFrames   harnessFrameReader
 	Agents          agentv1connect.AgentServiceClient
 	Workflows       workflowv1connect.WorkflowServiceClient
@@ -154,6 +172,7 @@ type model struct {
 	popup           *PopupWindow
 	api             api
 	tmux            uiTmux
+	git             uiGit
 	harnessFrames   harnessFrameReader
 	frame           *layout.Frame
 	addr            string
@@ -265,6 +284,7 @@ func newModel(deps Deps, isDark bool, post *postbox) model {
 		popup:           deps.PopupWindow,
 		clip:            systemClipboard{},
 		tmux:            deps.Tmux,
+		git:             deps.Git,
 		harnessFrames:   deps.HarnessFrames,
 		frame:           layout.New(deps.Tmux, deps.Layout),
 		detailsHeight:   deps.Layout.DetailsHeight,

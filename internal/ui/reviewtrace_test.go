@@ -75,6 +75,7 @@ func TestTraceThreadsFollowsALineThroughGit(t *testing.T) {
 	}}
 
 	traced := traceThreads(t.Context(), traceThreadsParams{
+		Git:     GitClient{},
 		Dir:     dir,
 		ToSHA:   second,
 		Threads: threads,
@@ -94,6 +95,7 @@ func TestTraceThreadsMarksTheRoundOnScreenAsExact(t *testing.T) {
 	dir, _, second := traceRepo(t)
 
 	traced := traceThreads(t.Context(), traceThreadsParams{
+		Git:   GitClient{},
 		Dir:   dir,
 		ToSHA: second,
 		Threads: []*agentv1.ReviewThread{{
@@ -131,6 +133,7 @@ func TestTraceThreadsKeepsTheFileWhenTheLinesAreGone(t *testing.T) {
 	third := gitOut(t, dir, "rev-parse", "HEAD")
 
 	traced := traceThreads(t.Context(), traceThreadsParams{
+		Git:   GitClient{},
 		Dir:   dir,
 		ToSHA: third,
 		Threads: []*agentv1.ReviewThread{{
@@ -184,6 +187,7 @@ func TestTraceThreadsSkipsRoundsTheScreenWillNotDraw(t *testing.T) {
 
 	// The reader has stepped back to the first round, so that snapshot is what is drawn.
 	traced := traceThreads(t.Context(), traceThreadsParams{
+		Git:     GitClient{},
 		Dir:     dir,
 		ToSHA:   first,
 		Threads: threads,
@@ -241,6 +245,7 @@ func TestTraceThreadsGivesUpWholeRatherThanInPart(t *testing.T) {
 	}
 
 	traced := traceThreads(t.Context(), traceThreadsParams{
+		Git:     GitClient{},
 		Dir:     dir,
 		ToSHA:   second,
 		Threads: threads,
@@ -262,6 +267,7 @@ func TestTraceThreadsMarksEveryRoundHoldingTheSnapshotOnScreen(t *testing.T) {
 	dir, first, second := traceRepo(t)
 
 	traced := traceThreads(t.Context(), traceThreadsParams{
+		Git:   GitClient{},
 		Dir:   dir,
 		ToSHA: second,
 		Threads: []*agentv1.ReviewThread{{

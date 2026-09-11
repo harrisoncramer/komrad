@@ -4,7 +4,6 @@ import (
 	"context"
 	"time"
 
-	"weave/internal/git"
 	agentv1 "weave/proto/gen/agent/v1"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -97,15 +96,16 @@ func (m model) refreshReviewThreadsCmd() tea.Cmd {
 func (m model) pollReviewDiffCmd() tea.Cmd {
 	agentID, dir := m.review.agentID, m.review.dir
 	snapshot := m.review.round.GetSnapshotSha()
+	repo := m.git
 
 	return func() tea.Msg {
 		moved, err := call(reviewTimeout, func(ctx context.Context) (bool, error) {
-			probe, err := git.ProbeTree(ctx, dir)
+			probe, err := repo.ProbeTree(ctx, dir)
 			if err != nil {
 				return false, err
 			}
 
-			held, err := git.GetTree(ctx, dir, snapshot)
+			held, err := repo.GetTree(ctx, dir, snapshot)
 			if err != nil {
 				return false, err
 			}

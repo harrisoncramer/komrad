@@ -268,6 +268,7 @@ func infoModel(tmux *recordingTmux) model {
 
 	return model{
 		tmux:          tmux,
+		git:           fakeGit{},
 		frame:         frame,
 		shell:         tmux.GetDefaultShell(),
 		keys:          config.DefaultKeybindings(),

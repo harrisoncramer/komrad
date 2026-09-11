@@ -128,17 +128,18 @@ func (m model) editReviewFile() (tea.Model, tea.Cmd, bool) {
 func (m model) materialiseRoundCmd(force bool) tea.Cmd {
 	agentID, root, sha := m.review.agentID, m.review.root, m.review.round.GetSnapshotSha()
 	at := filepath.Join(m.roundsDir, agentID)
+	repo := m.git
 
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), reviewTimeout)
 		defer cancel()
 
 		// The disk is asked here rather than on the keypress.
-		if !force && doesHoldLeftover(ctx, at, sha) {
+		if !force && doesHoldLeftover(ctx, repo, at, sha) {
 			return roundReadyMsg{agentID: agentID, leftover: at}
 		}
 
-		if err := git.Materialise(ctx, root, sha, at); err != nil {
+		if err := repo.Materialise(ctx, root, sha, at); err != nil {
 			return roundReadyMsg{agentID: agentID, err: err}
 		}
 
@@ -152,13 +153,13 @@ func (m model) materialiseRoundCmd(force bool) tea.Cmd {
 
 // doesHoldLeftover reports whether the checkout is an earlier round's with work still in it,
 // which checking this round out over the top of it would destroy.
-func doesHoldLeftover(ctx context.Context, at, sha string) bool {
-	head, ok := git.WorktreeHead(ctx, at)
+func doesHoldLeftover(ctx context.Context, repo uiGit, at, sha string) bool {
+	head, ok := repo.WorktreeHead(ctx, at)
 	if !ok || head == sha {
 		return false
 	}
 
-	dirty, err := git.IsDirty(ctx, at)
+	dirty, err := repo.IsDirty(ctx, at)
 
 	return err != nil || dirty
 }
@@ -202,6 +203,8 @@ func (m model) reapRoundCmd(root, at string) tea.Cmd {
 		return nil
 	}
 
+	repo := m.git
+
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), reviewTimeout)
 		defer cancel()
@@ -210,13 +213,13 @@ func (m model) reapRoundCmd(root, at string) tea.Cmd {
 		// from nothing is theirs too and no diff of the commit reports it. A checkout weave cannot
 		// read is kept as well, since the answer it could not get is whether there was anything in
 		// it worth keeping.
-		if dirty, err := git.IsDirty(ctx, at); err != nil || dirty {
+		if dirty, err := repo.IsDirty(ctx, at); err != nil || dirty {
 			return nil
 		}
 
 		// A checkout that will not go is left where it is: the screen reading it has already
 		// closed, and the next round to be edited replaces it rather than finding it.
-		if err := git.Reap(ctx, root, at); err != nil {
+		if err := repo.Reap(ctx, root, at); err != nil {
 			return nil
 		}
 
@@ -228,17 +231,18 @@ func (m model) reapRoundCmd(root, at string) tea.Cmd {
 func (m model) findRoundLeftoverCmd() tea.Cmd {
 	agentID := m.review.agentID
 	at := filepath.Join(m.roundsDir, agentID)
+	repo := m.git
 
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), reviewTimeout)
 		defer cancel()
 
-		sha, ok := git.WorktreeHead(ctx, at)
+		sha, ok := repo.WorktreeHead(ctx, at)
 		if !ok {
 			return nil
 		}
 
-		edits, err := git.Edits(ctx, at)
+		edits, err := repo.Edits(ctx, at)
 		if err != nil || len(edits) == 0 {
 			return nil
 		}
@@ -285,9 +289,11 @@ func (m model) readRoundEditsCmd() tea.Cmd {
 		return nil
 	}
 
+	repo := m.git
+
 	return func() tea.Msg {
 		edits, err := call(reviewTimeout, func(ctx context.Context) ([]git.Edit, error) {
-			return git.Edits(ctx, at)
+			return repo.Edits(ctx, at)
 		})
 
 		return roundEditedMsg{
@@ -392,9 +398,11 @@ func (m model) roundFallback() func(string) ([]string, bool) {
 		return nil
 	}
 
+	repo := m.git
+
 	return func(path string) ([]string, bool) {
 		lines, err := call(reviewTimeout, func(ctx context.Context) ([]string, error) {
-			return git.ReadFileLines(ctx, dir, "HEAD", path)
+			return repo.ReadFileLines(ctx, dir, "HEAD", path)
 		})
 
 		return lines, err == nil

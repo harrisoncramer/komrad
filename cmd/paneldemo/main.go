@@ -64,6 +64,7 @@ func run() error {
 	deps := ui.Deps{
 		PopupWindow:   ui.NewPopupWindow(stub, "paneldemo"),
 		Tmux:          stub,
+		Git:           ui.GitClient{},
 		HarnessFrames: noFrames{},
 		Agents:        agentv1connect.NewAgentServiceClient(server.Client(), server.URL),
 		Workflows:     workflowv1connect.NewWorkflowServiceClient(server.Client(), server.URL),

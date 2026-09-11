@@ -136,6 +136,7 @@ type loadReviewCmdParams struct {
 func (m model) loadReviewCmd(params loadReviewCmdParams) tea.Cmd {
 	agents := m.api.agents
 	agentID, dir, exclude := params.AgentID, params.Dir, params.Exclude
+	repo := m.git
 
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), reviewTimeout)
@@ -208,6 +209,7 @@ func (m model) loadReviewCmd(params loadReviewCmdParams) tea.Cmd {
 			OnScreen: round,
 		})
 		traced := traceThreads(ctx, traceThreadsParams{
+			Git:     repo,
 			Dir:     dir,
 			ToSHA:   head,
 			Threads: threads,
@@ -227,6 +229,7 @@ func (m model) loadReviewCmd(params loadReviewCmdParams) tea.Cmd {
 			chapters:  chapters,
 			traced:    traced,
 			since: changedSinceLastReview(ctx, changedSinceLastReviewParams{
+				Git:         repo,
 				Dir:         dir,
 				Exclude:     exclude,
 				Earlier:     earlier,
@@ -240,6 +243,7 @@ func (m model) loadReviewCmd(params loadReviewCmdParams) tea.Cmd {
 // changedSinceLastReviewParams says which round to measure against and what to leave out of the
 // count.
 type changedSinceLastReviewParams struct {
+	Git     uiGit
 	Dir     string
 	Exclude []string
 	// Earlier is the round the person last reviewed, nil when there is none.
@@ -255,7 +259,7 @@ func changedSinceLastReview(ctx context.Context, params changedSinceLastReviewPa
 		return ""
 	}
 
-	changed, err := git.CountChangedFiles(ctx, git.CountChangedFilesParams{
+	changed, err := params.Git.CountChangedFiles(ctx, git.CountChangedFilesParams{
 		Dir:     params.Dir,
 		FromSHA: params.Earlier.GetSnapshotSha(),
 		ToSHA:   params.SnapshotSHA,
