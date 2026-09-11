@@ -8,6 +8,7 @@ import (
 
 	"weave/internal/diff"
 	"weave/internal/review"
+	agentstore "weave/internal/store/agent"
 	agentv1 "weave/proto/gen/agent/v1"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -243,14 +244,14 @@ func TestSendingAReviewLeavesWritingBehind(t *testing.T) {
 
 	next, _ := m.updateReview(keyMsg("c"))
 	m = next.(model)
-	require.True(t, m.review.writing, "the compose key opens the mode")
+	require.Equal(t, modeReviewing, m.review.mode, "the compose key opens the mode")
 
 	// The composer holds the keyboard while it is open, so it is put away before the verdict key
 	// is pressed.
 	next, _ = m.updateReview(keyMsg("esc"))
 	m = next.(model)
 	require.False(t, m.review.composing)
-	require.True(t, m.review.writing, "and the mode outlives one abandoned comment")
+	require.Equal(t, modeReviewing, m.review.mode, "and the mode outlives one abandoned comment")
 
 	next, _ = m.updateReview(tea.KeyMsg{Type: tea.KeyCtrlS})
 	m = next.(model)
@@ -260,7 +261,7 @@ func TestSendingAReviewLeavesWritingBehind(t *testing.T) {
 	m = next.(model)
 	require.NotNil(t, cmd, "and the same key sends it")
 
-	assert.False(t, m.review.writing, "the mode goes with the review it was for")
+	assert.Equal(t, modeWatching, m.review.mode, "the mode goes with the review it was for")
 }
 
 // TestTheVerdictIsRefusedOnAFinishedRound covers rule three reaching the third write key: the
@@ -295,32 +296,10 @@ func TestWritingIsRefusedWhileAReviewIsOut(t *testing.T) {
 	next, _ := m.updateReview(keyMsg("c"))
 	m = next.(model)
 
-	assert.False(t, m.review.writing, "the mode did not open")
+	assert.Equal(t, modeWatching, m.review.mode, "the mode did not open")
 	assert.False(t, m.review.composing, "and no editor did either")
 	assert.Contains(t, m.review.notice, "answered")
 	assert.Nil(t, agents.created, "and nothing was written")
-}
-
-// TestAFailedEditLeavesTheModeAlone covers the edit key's early returns: it opens the writing mode
-// on the way in, so a press that opens no editor used to switch the mode anyway and take the round
-// keys away with it.
-func TestAFailedEditLeavesTheModeAlone(t *testing.T) {
-	dir := reviewRepo(t)
-	agents := &fakeReviewAgents{}
-	m, _ := reviewModel(t, agents, dir)
-	m = openReview(t, m)
-
-	// A checkout already being made is the deterministic refusal: a second one would reap the
-	// directory the first is writing into, so the key returns having opened nothing.
-	m.review.materialising = true
-	require.NotEqual(t, m.review.roundSha, m.review.round.GetSnapshotSha())
-	require.False(t, m.review.writing)
-
-	next, cmd := m.updateReview(keyMsg("e"))
-	m = next.(model)
-
-	require.Nil(t, cmd, "the key opened nothing")
-	assert.False(t, m.review.writing, "so it did not change the mode either")
 }
 
 // reviewRepoWithADeletion is a worktree whose round both changes a file and removes one, since a
@@ -363,6 +342,23 @@ func reviewRowInDeletedFile(t *testing.T, m model) int {
 	return -1
 }
 
+// editorKey is the key the edit action is bound to by default.
+func editorKey() tea.KeyMsg {
+	return keyMsg("e")
+}
+
+// pressEdit presses the edit key and requires that something opened.
+func pressEdit(t *testing.T, m model) model {
+	t.Helper()
+
+	next, _ := m.updateReview(editorKey())
+	written, ok := next.(model)
+	require.True(t, ok)
+	require.Empty(t, written.review.notice, "the press opened the editor")
+
+	return written
+}
+
 // reviewRowWithAnEditTarget is a row the editor key has something to open.
 func reviewRowWithAnEditTarget(t *testing.T, m model) int {
 	t.Helper()
@@ -378,11 +374,27 @@ func reviewRowWithAnEditTarget(t *testing.T, m model) int {
 	return -1
 }
 
-// TestAnEditRefusedOnADeletedFileLeavesTheModeAlone covers the editor pane outliving the mode it
-// was opened from: a press that refuses on a removed file used to read the pane the last press
-// left up and switch to writing on the strength of it.
-func TestAnEditRefusedOnADeletedFileLeavesTheModeAlone(t *testing.T) {
+// TestAnEditRefusedOnADeletedFileOpensNoMode covers a press on a row with no file behind it,
+// which used to switch the screen's mode on the strength of an editor it never opened.
+func TestAnEditRefusedOnADeletedFileOpensNoMode(t *testing.T) {
 	dir := reviewRepoWithADeletion(t)
+	agents := &fakeReviewAgents{}
+	m, _ := reviewModel(t, agents, dir)
+	m = openReview(t, m)
+
+	m.review.cursor = reviewRowInDeletedFile(t, m)
+
+	next, _ := m.updateReview(editorKey())
+	m = next.(model)
+
+	assert.Equal(t, modeWatching, m.review.mode, "a press that opened nothing does not open a mode")
+	assert.Contains(t, m.review.notice, "deleted")
+}
+
+// TestAnEditThatTakesOpensTheEditingMode pins that editing is its own mode rather than a review
+// being written, since what it writes goes into the worktree rather than into a comment.
+func TestAnEditThatTakesOpensTheEditingMode(t *testing.T) {
+	dir := reviewRepo(t)
 	agents := &fakeReviewAgents{}
 	m, _ := reviewModel(t, agents, dir)
 	m = openReview(t, m)
@@ -390,47 +402,76 @@ func TestAnEditRefusedOnADeletedFileLeavesTheModeAlone(t *testing.T) {
 	m.review.cursor = reviewRowWithAnEditTarget(t, m)
 
 	m = pressEdit(t, m)
-	require.True(t, m.review.writing, "the first press opened the editor and the mode with it")
-	require.Equal(t, infoEditFile, m.info.kind)
 
-	next, _ := m.leaveReviewWriting()
-	m = next.(model)
-	require.False(t, m.review.writing)
-	require.Equal(t, infoEditFile, m.info.kind, "leaving the mode leaves the editor up")
-
-	m.review.cursor = reviewRowInDeletedFile(t, m)
-
-	next, _ = m.updateReview(editorKey())
-	m = next.(model)
-
-	assert.False(t, m.review.writing, "a press that opened nothing does not open the mode")
-	assert.Contains(t, m.review.notice, "deleted")
+	assert.Equal(t, modeEditing, m.review.mode)
+	assert.True(t, m.review.atEditor, "the editor holds the stage")
+	assert.NotEmpty(t, m.review.editingPath, "and the band can name what it opened")
 }
 
-// TestAnEditThatTakesOpensTheMode is the other side of it, since a write that reaches the editor
-// is a review being started.
-func TestAnEditThatTakesOpensTheMode(t *testing.T) {
+// TestAnEditIsRefusedWhileTheAgentsTurnRuns pins the one thing standing between you and the
+// worktree: two writers in one checkout.
+func TestAnEditIsRefusedWhileTheAgentsTurnRuns(t *testing.T) {
 	dir := reviewRepo(t)
 	agents := &fakeReviewAgents{}
 	m, _ := reviewModel(t, agents, dir)
 	m = openReview(t, m)
 
-	line := -1
-	for row := 0; row < m.review.view.Len(); row++ {
-		if _, _, ok := m.review.view.GetEditTarget(row); ok {
-			line = row
-
-			break
+	for i, item := range m.listing.agents {
+		if item.agent.ID == m.review.agentID {
+			m.listing.agents[i].agent.State = agentstore.StateThinking
 		}
 	}
 
-	require.GreaterOrEqual(t, line, 0, "the diff draws a line the editor can open")
-	m.review.cursor = line
+	m.review.cursor = reviewRowWithAnEditTarget(t, m)
 
-	next, _ := m.updateReview(keyMsg("e"))
+	next, _ := m.updateReview(editorKey())
 	m = next.(model)
 
-	assert.True(t, m.review.writing, "the editor opening is a review being written")
+	assert.Equal(t, modeWatching, m.review.mode, "nothing opened")
+	assert.False(t, m.review.atEditor)
+	assert.Contains(t, m.review.notice, "stop it before you edit")
+}
+
+// TestTheEditorClosingGivesTheStageBack covers the editor being another process: it can be quit
+// from inside, and the screen has to notice rather than keep drawing a mode nothing is in.
+func TestTheEditorClosingGivesTheStageBack(t *testing.T) {
+	dir := reviewRepo(t)
+	agents := &fakeReviewAgents{}
+	m, tmux := reviewModel(t, agents, dir)
+	m = openReview(t, m)
+
+	m.review.cursor = reviewRowWithAnEditTarget(t, m)
+	m = pressEdit(t, m)
+	require.Equal(t, modeEditing, m.review.mode)
+	require.NotEmpty(t, m.review.editorPane, "the editor was given a pane")
+
+	tmux.deadPanes = map[string]bool{m.review.editorPane: true}
+
+	m, cmd := m.reconcileEditor()
+
+	assert.Equal(t, modeWatching, m.review.mode, "the mode goes with the pane")
+	assert.False(t, m.review.atEditor)
+	assert.NotNil(t, cmd, "and the diff is read again, since the editor may have written to it")
+}
+
+// TestLeavingTheReviewClosesTheEditorFirst pins the back key against the editor outliving the
+// screen it was opened from.
+func TestLeavingTheReviewClosesTheEditorFirst(t *testing.T) {
+	dir := reviewRepo(t)
+	agents := &fakeReviewAgents{}
+	m, _ := reviewModel(t, agents, dir)
+	m = openReview(t, m)
+
+	m.review.cursor = reviewRowWithAnEditTarget(t, m)
+	m = pressEdit(t, m)
+	require.Equal(t, modeEditing, m.review.mode)
+
+	next, _ := m.leaveReview()
+	m = next.(model)
+
+	assert.Equal(t, screenReview, m.screen, "the first press gives up the editor rather than the screen")
+	assert.Equal(t, modeWatching, m.review.mode)
+	assert.False(t, m.review.atEditor)
 }
 
 // TestTheForwardRoundKeyIsOfferedOnlyWhereItAnswers covers the two halves of one walk disagreeing:
@@ -439,7 +480,7 @@ func TestTheForwardRoundKeyIsOfferedOnlyWhereItAnswers(t *testing.T) {
 	m := model{}
 	m.review.chapters = []reviewChapter{{ToSHA: "s1", Ordinal: 1}, {ToSHA: "s2", Ordinal: 2}}
 	m.review.chapter = 0
-	m.review.writing = true
+	m.review.mode = modeReviewing
 
 	for _, row := range reviewLegend() {
 		if len(row.of) == 1 && row.of[0] == actionReviewBaseForward {
@@ -581,7 +622,7 @@ func reviewLegendRowFor(t *testing.T, id actionID) legendRow {
 // writing it puts the review down, and the legend claimed it left the screen.
 func TestTheBackKeySaysWhichThingItLeaves(t *testing.T) {
 	m := model{}
-	m.review.writing = true
+	m.review.mode = modeReviewing
 
 	for _, row := range reviewLegend() {
 		if len(row.of) == 1 && row.of[0] == actionReviewBack {

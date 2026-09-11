@@ -5,7 +5,6 @@ import (
 
 	"weave/cmd/paneldemo/scenario"
 	agentv1 "weave/proto/gen/agent/v1"
-	"weave/proto/gen/agent/v1/agentv1connect"
 	hookv1 "weave/proto/gen/hook/v1"
 	"weave/proto/gen/hook/v1/hookv1connect"
 	schedulev1 "weave/proto/gen/schedule/v1"
@@ -17,9 +16,10 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-// agentService answers the panel's reads about agents out of the scenario.
+// agentService answers the panel's reads about agents out of the scenario, with the review half
+// embedded so the review screen finds the calls it makes.
 type agentService struct {
-	agentv1connect.UnimplementedAgentServiceHandler
+	*reviewFake
 	held scenario.Scenario
 }
 

@@ -41,9 +41,6 @@ type reviewThreadReadWriter interface {
 	GetThread(ctx context.Context, id string) (*reviewstore.Thread, error)
 	MarkThreadRead(ctx context.Context, id string) (*reviewstore.Thread, error)
 	SetThreadResolved(ctx context.Context, id string, resolved bool) (*reviewstore.Thread, error)
-	ListHarvested(ctx context.Context, agentID, roundID string) ([]reviewstore.HarvestedThread, error)
-	MoveThread(ctx context.Context, params reviewstore.MoveThreadParams) (*reviewstore.Thread, error)
-	DeleteThread(ctx context.Context, id string) error
 }
 
 // reviewMessageReadWriter is the other half: what was said in those conversations, and how far
@@ -257,9 +254,6 @@ type CreateReviewThreadParams struct {
 	// RoundID is the round the anchor's line numbers were measured in, empty for a caller that
 	// means whichever round is latest.
 	RoundID string
-	// Harvested says weave read this thread off an edit of the round's checkout rather than
-	// somebody typing it.
-	Harvested bool
 	// Suggestion is replacement lines the reviewer proposes for the range, empty on an ordinary
 	// comment.
 	Suggestion []string
@@ -334,7 +328,6 @@ func (s *ReviewService) CreateReviewThread(
 		AgentID:       params.AgentID,
 		ReviewID:      open.ID,
 		RoundID:       roundID,
-		Harvested:     params.Harvested,
 		BaseSHA:       baseSHA,
 		Suggestion:    params.Suggestion,
 		FilePath:      params.FilePath,

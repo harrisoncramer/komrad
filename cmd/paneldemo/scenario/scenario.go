@@ -22,11 +22,52 @@ type Scenario struct {
 	Workflows      []*workflowv1.Workflow
 	Schedules      []*schedulev1.Schedule
 	Mail           []*agentv1.Mail
+	Rounds         []*agentv1.ReviewRound
+	Reviews        []*agentv1.Review
+	Threads        []*agentv1.ReviewThread
+	Viewed         []*agentv1.ReviewViewedFile
+	// NeedsRepo says the screens here run git, so a throwaway repository is built before the panel
+	// starts and handed back through WithRepo.
+	NeedsRepo bool
+}
+
+// WithRepoParams is the throwaway repository a scenario was given, and the commits in it a round
+// stands on.
+type WithRepoParams struct {
+	Dir string
+	// BaseSHA is where the branch left main.
+	BaseSHA string
+	// Snapshots are the commits the scenario's rounds stand on, oldest first.
+	Snapshots []string
+}
+
+// WithRepo points the scenario at a real repository, so the agents live in it and each round
+// names a commit that is actually there.
+func (s Scenario) WithRepo(params WithRepoParams) Scenario {
+	for _, agent := range s.Agents {
+		agent.Cwd = params.Dir
+	}
+
+	// A round stands on the commit its own ordinal names, so two agents' rounds can share the
+	// repository without either one's numbering deciding the other's.
+	for _, round := range s.Rounds {
+		round.BaseSha = params.BaseSHA
+
+		if at := int(round.GetOrdinal()) - 1; at >= 0 && at < len(params.Snapshots) {
+			round.SnapshotSha = params.Snapshots[at]
+		}
+	}
+
+	for _, thread := range s.Threads {
+		thread.BaseSha = params.BaseSHA
+	}
+
+	return s
 }
 
 // All is every scenario a demo can be started with, the first being the default.
 func All() []Scenario {
-	return []Scenario{Busy(), Empty()}
+	return []Scenario{Busy(), Review(), Empty()}
 }
 
 // Named is the scenario with that name.

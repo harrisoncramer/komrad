@@ -145,9 +145,9 @@ func (m *model) applyReviewRefreshed(msg reviewRefreshedMsg) {
 	m.applyReviewThreads(msg.threads)
 }
 
-func (m *model) applyReviewDiffPolled(msg reviewDiffPolledMsg) {
+func (m *model) applyReviewDiffPolled(msg reviewDiffPolledMsg) tea.Cmd {
 	if msg.agentID != m.review.agentID {
-		return
+		return nil
 	}
 
 	m.review.diffPolling = false
@@ -155,12 +155,35 @@ func (m *model) applyReviewDiffPolled(msg reviewDiffPolledMsg) {
 	// A worktree emptied under an open review is a move like any other, so the bar offers to catch
 	// up and the reload is what finds nothing to show and backs out to the listing.
 	if msg.err != nil {
-		return
+		return nil
 	}
 
 	// A worktree edited back to the round it was cut from is not a move, so the notice goes
 	// away rather than standing until the reader opens a round for nothing.
 	m.review.moved = msg.moved
+
+	if !msg.moved || !m.doesReviewFollowLive() {
+		return nil
+	}
+
+	next, cmd := m.reloadReview()
+	*m = next
+
+	return cmd
+}
+
+// doesReviewFollowLive reports whether the diff on screen is meant to keep up with the agent,
+// which is what makes a move something to draw rather than something to offer.
+func (m model) doesReviewFollowLive() bool {
+	if m.review.mode != modeWatching || m.review.view == nil || m.review.loading {
+		return false
+	}
+
+	// Explainer: the three below are each a reason the reader is holding a particular snapshot.
+	// Comments are pinned to the round they were written against, an earlier chapter is a
+	// photograph the reader chose, and a pinned diff is the one an unsent batch belongs to. Any of
+	// them makes redrawing underneath them a way to lose the reader's place or their words.
+	return !m.doesReviewHoldUnsent() && m.review.chapter < 0 && !m.review.pinned
 }
 
 // setReviewThreads holds the conversation and the probe a refresh compares it against together.

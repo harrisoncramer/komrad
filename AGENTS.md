@@ -26,15 +26,19 @@ scenario, so the binary on its own refuses rather than guessing. `mise run demo 
 them. The quit key closes it, since there is no tmux client here to detach and leave it running
 behind.
 
-Two things it does not do yet. The review screen does not draw: pressing the review key reports
-that `ListReviewThreads` is not implemented, which is the tool and not your branch. And the
-command sets no size of its own, so the width a screen is drawn at is the width of the terminal
-you start it in, and eighty columns means sizing that terminal by hand.
+The review screen runs git in the agent's own directory, so the `review` scenario builds a
+throwaway repository first and points its agents at it. That is what `NeedsRepo` on a scenario
+asks for, and `WithRepo` is what fills the commits in. The repository goes when the demo closes.
+
+One thing it does not do yet. The command sets no size of its own, so the width a screen is drawn
+at is the width of the terminal you start it in, and eighty columns means sizing that terminal by
+hand.
 
 The fake lives in `cmd/paneldemo`. Its services embed the generated unimplemented handlers and
 are served over an `httptest` server, so a call nobody wrote comes back as an error the panel
 draws rather than as a panic. The data is `cmd/paneldemo/scenario`, one file per scenario, which
-is where a new one is added. The panel asks tmux only about the panes beside it, so the stub
+is where a new one is added. A scenario that writes as well as reads keeps what the panel wrote,
+so a comment typed into the demo is there when the sidebar draws again. The panel asks tmux only about the panes beside it, so the stub
 answers that there are none and every screen draws both its columns itself. An agent's own
 terminal on the stage is another process, so the screens that put one there draw their sidebar
 and nothing beside it.

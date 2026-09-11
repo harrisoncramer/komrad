@@ -195,7 +195,7 @@ func (v *View) renderThreadRow(current row, cursor Cursor, width int) string {
 
 	head := strings.Repeat(" ", max(GutterWidth-2, 0))
 	said := FormatThreadLocation(current.thread)
-	if opening := threadSummary(current.thread); opening != "" {
+	if opening := firstLine(current.thread); opening != "" {
 		said += "  " + opening
 	}
 
@@ -203,31 +203,6 @@ func (v *View) renderThreadRow(current row, cursor Cursor, width int) string {
 		style.Render(head)+markStyle.Background(background).Render(mark)+style.Render(" ")+
 			fitWindow(style.Foreground(lipgloss.Color("8")).Italic(true).Render(said), 0, max(0, width-GutterWidth), background),
 		width, "…")
-}
-
-// threadSummary is what a thread is about in one line, which for a harvested thread is the edit
-// it proposes rather than its body.
-func threadSummary(thread *agentv1.ReviewThread) string {
-	if !thread.GetHarvested() {
-		return firstLine(thread)
-	}
-
-	messages := thread.GetMessages()
-	if len(messages) == 0 {
-		return ""
-	}
-
-	suggestion := messages[0].GetSuggestion()
-	if len(suggestion) == 0 {
-		return firstLine(thread)
-	}
-
-	said := strings.TrimSpace(suggestion[0])
-	if len(suggestion) > 1 {
-		said += fmt.Sprintf(" (+%d more)", len(suggestion)-1)
-	}
-
-	return "your edit: " + said
 }
 
 // firstLine is the opening line of a thread.

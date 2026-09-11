@@ -12,16 +12,44 @@ import (
 // The mode is the one thing on the screen that changes what every key does, so each state gets
 // its own colour.
 var (
-	reviewReadingStyle = lipgloss.NewStyle().Foreground(paint.Accent).Bold(true)
-	reviewWritingStyle = lipgloss.NewStyle().Foreground(paint.Success).Bold(true)
-	reviewHistoryStyle = lipgloss.NewStyle().Foreground(paint.Warning).Bold(true)
-	reviewHeldStyle    = lipgloss.NewStyle().Foreground(paint.Muted).Bold(true)
+	reviewWatchingStyle = lipgloss.NewStyle().Foreground(paint.Accent).Bold(true)
+	reviewEditingStyle  = lipgloss.NewStyle().Foreground(paint.Success).Bold(true)
+	reviewWritingStyle  = lipgloss.NewStyle().Foreground(paint.Mark).Bold(true)
+	reviewHistoryStyle  = lipgloss.NewStyle().Foreground(paint.Warning).Bold(true)
+	reviewHeldStyle     = lipgloss.NewStyle().Foreground(paint.Muted).Bold(true)
 )
 
-// reviewModeView says whether the reader is looking or writing.
+// reviewMode is which of the three things the review screen is doing.
+type reviewMode uint8
+
+const (
+	// modeWatching is the mode the screen opens in, where the diff keeps up with the agent and
+	// nothing a key does reaches it.
+	modeWatching reviewMode = iota
+	// modeEditing is your own editor holding the stage over the agent's worktree.
+	modeEditing
+	// modeReviewing is a round frozen so a batch of comments can be pinned to it.
+	modeReviewing
+)
+
+// reviewModeView says which of the three the screen is in, and what to press next.
 func (m model) reviewModeView() string {
+	switch m.review.mode {
+	case modeEditing:
+		return m.reviewBandRow(reviewEditingStyle, "editing", m.reviewEditingSaid())
+	case modeReviewing:
+		return m.reviewBandRow(reviewWritingStyle, "reviewing", m.reviewWritingSaid())
+	case modeWatching:
+	}
+
+	return m.reviewWatchingView()
+}
+
+// reviewWatchingView is the mode line while nothing is being written, which is where whatever
+// stands in the way of writing is said.
+func (m model) reviewWatchingView() string {
 	if _, dead := m.reviewIsReadOnly(); dead {
-		return m.reviewBandRow(reviewHeldStyle, "reading", "this agent is gone, nothing can be sent")
+		return m.reviewBandRow(reviewHeldStyle, "watching", "this agent is gone, nothing can be sent")
 	}
 
 	if said, history := m.reviewIsHistory(); history {
@@ -29,29 +57,37 @@ func (m model) reviewModeView() string {
 			said+" is finished · "+keyLabel(m.keys.Review.BaseForward)+" for the current work")
 	}
 
-	if m.review.writing {
-		return m.reviewBandRow(reviewWritingStyle, "writing a review", m.reviewWritingSaid())
-	}
-
 	if m.doesReviewHoldUnsent() {
-		return m.reviewBandRow(reviewHeldStyle, "reading",
+		return m.reviewBandRow(reviewHeldStyle, "watching",
 			counted(m.reviewUnsentCount(), "comment")+" not sent · "+
 				keyLabel(m.keys.Review.Compose)+" to carry on")
 	}
 
 	if m.review.awaiting {
-		return m.reviewBandRow(reviewHeldStyle, "reading", "your review is with the agent")
+		return m.reviewBandRow(reviewHeldStyle, "watching", "your review is with the agent")
 	}
 
-	return m.reviewBandRow(reviewReadingStyle, "reading",
-		"press "+keyLabel(m.keys.Review.Compose)+" to comment")
+	return m.reviewBandRow(reviewWatchingStyle, "watching",
+		"live · "+keyLabel(m.keys.Review.EditFile)+" to edit · "+
+			keyLabel(m.keys.Review.Compose)+" to comment")
 }
 
-// reviewWritingSaid is what the writing mode offers: the way out until something has been
+// reviewEditingSaid is what the editing mode offers: the file being edited, and the way back to
+// the diff.
+func (m model) reviewEditingSaid() string {
+	said := "the agent's own worktree"
+	if m.review.editingPath != "" {
+		said = m.review.editingPath
+	}
+
+	return said + " · " + keyLabel(m.keys.Review.EditFile) + " to come back"
+}
+
+// reviewWritingSaid is what the reviewing mode offers: the way out until something has been
 // written, and the way to send it once something has.
 func (m model) reviewWritingSaid() string {
 	if !m.doesReviewHoldUnsent() {
-		return "nothing written yet · " + keyLabel(m.keys.Review.Back) + " to go back to reading"
+		return "nothing written yet · " + keyLabel(m.keys.Review.Back) + " to go back to watching"
 	}
 
 	if m.review.pinned {
@@ -86,7 +122,7 @@ func (m model) reviewIsReadOnly() (string, bool) {
 
 // doesReviewHoldUnsent says whether the reader has comments nobody has seen.
 func (m model) doesReviewHoldUnsent() bool {
-	return m.review.activity.delivery[deliverySlot(agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_UNSENT)] > 0
+	return m.reviewUnsentCount() > 0
 }
 
 // reviewIsHistory says whether the round on screen ends before the agent's current work, and
@@ -112,8 +148,8 @@ func (m model) reviewIsHistory() (string, bool) {
 	return fmt.Sprintf("round %d of %d", at+1, len(m.review.chapters)), true
 }
 
-// doesReviewWalk says whether the round keys have anywhere to go, which reading has and writing
-// does not.
+// doesReviewWalk says whether the round keys have anywhere to go, which watching has and the two
+// modes that hold the tree do not.
 func (m model) doesReviewWalk() bool {
-	return !m.review.writing && len(m.review.chapters) > 0
+	return m.review.mode == modeWatching && len(m.review.chapters) > 0
 }

@@ -370,11 +370,11 @@ func (m model) reviewComposeDesc() string {
 	return "comment on this line"
 }
 
-// reviewBackDesc says which of the two things the back key leaves, since writing is a mode inside
-// the screen and it is given up first.
+// reviewBackDesc says which of the two things the back key leaves, since a mode inside the screen
+// is given up first.
 func (m model) reviewBackDesc() string {
-	if m.review.writing {
-		return "stop writing"
+	if m.review.mode == modeReviewing {
+		return "stop reviewing"
 	}
 
 	return "back to the agents"

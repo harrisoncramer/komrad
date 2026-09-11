@@ -28,7 +28,7 @@ func (m model) composeReview() (tea.Model, tea.Cmd) {
 	// Explainer: reading walks the rounds and writes nothing, so the compose key is also the way
 	// into the mode that can. The switch reloads the whole change and puts the cursor back on the
 	// line it was pressed on, which is why one press still means one thing.
-	if !m.review.writing {
+	if m.review.mode != modeReviewing {
 		return m.enterReviewWriting()
 	}
 
@@ -68,7 +68,7 @@ func (m model) enterReviewWriting() (tea.Model, tea.Cmd) {
 		}
 	}
 
-	m.review.writing = true
+	m.review.mode = modeReviewing
 
 	return m.composeReview()
 }
@@ -80,9 +80,9 @@ func (m model) refuseReviewLine() (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// leaveReviewWriting goes back to reading, keeping whatever has been written.
+// leaveReviewWriting goes back to watching, keeping whatever has been written.
 func (m model) leaveReviewWriting() (tea.Model, tea.Cmd) {
-	m.review.writing = false
+	m.review.mode = modeWatching
 
 	// Comments already written are held by the panel rather than by the mode, so leaving keeps
 	// them and says so, which is the difference between putting a review down and losing it.
@@ -372,7 +372,7 @@ func (m model) sendReview(interrupt bool) (tea.Model, tea.Cmd) {
 
 	// The mode existed for the batch that has just gone, so it goes too rather than parking the
 	// reader in a mode whose own keys have withdrawn with the review.
-	m.review.writing = false
+	m.review.mode = modeWatching
 
 	agents, agentID := m.api.agents, m.review.agentID
 

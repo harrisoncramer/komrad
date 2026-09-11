@@ -1228,7 +1228,6 @@ func (f *fakeReviewStore) CreateThread(
 		AgentID:     params.AgentID,
 		ReviewID:    params.ReviewID,
 		RoundID:     roundOr(params.RoundID),
-		Harvested:   params.Harvested,
 		BaseSHA:     params.BaseSHA,
 		FilePath:    params.FilePath,
 		OldStart:    params.OldStart,
@@ -1268,78 +1267,6 @@ func roundOr(roundID string) string {
 	return roundID
 }
 
-func (f *fakeReviewStore) ListHarvested(
-	_ context.Context,
-	agentID, roundID string,
-) ([]reviewstore.HarvestedThread, error) {
-	var harvested []reviewstore.HarvestedThread
-
-	for _, thread := range f.threads {
-		if thread.AgentID != agentID || thread.RoundID != roundID || !thread.Harvested {
-			continue
-		}
-
-		if thread.ReviewReleasedAt != nil {
-			continue
-		}
-
-		var count int64
-		for _, message := range f.messages {
-			if message.ThreadID == thread.ID {
-				count++
-			}
-		}
-
-		harvested = append(harvested, reviewstore.HarvestedThread{Thread: thread, MessageCount: count})
-	}
-
-	return harvested, nil
-}
-
-func (f *fakeReviewStore) MoveThread(
-	_ context.Context,
-	params reviewstore.MoveThreadParams,
-) (*reviewstore.Thread, error) {
-	for i, thread := range f.threads {
-		if thread.ID != params.ID {
-			continue
-		}
-
-		f.threads[i].BaseSHA = params.BaseSHA
-		f.threads[i].OldStart = params.OldStart
-		f.threads[i].OldEnd = params.OldEnd
-		f.threads[i].NewStart = params.NewStart
-		f.threads[i].NewEnd = params.NewEnd
-		f.threads[i].QuotedLines = params.QuotedLines
-
-		return &f.threads[i], nil
-	}
-
-	return nil, fmt.Errorf("no thread %q", params.ID)
-}
-
-func (f *fakeReviewStore) DeleteThread(_ context.Context, id string) error {
-	for i, thread := range f.threads {
-		if thread.ID != id {
-			continue
-		}
-
-		f.threads = append(f.threads[:i], f.threads[i+1:]...)
-
-		for messageID, message := range f.messages {
-			if message.ThreadID == id {
-				delete(f.messages, messageID)
-			}
-		}
-
-		return nil
-	}
-
-	return nil
-}
-
-// record files a message and stamps it with the state of the batch it belongs to, which is what
-// the store does with a join and the fake has to do by hand.
 func (f *fakeReviewStore) record(message reviewstore.Message) {
 	if message.ReviewID != nil {
 		if review, ok := f.reviews[*message.ReviewID]; ok {

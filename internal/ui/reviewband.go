@@ -71,14 +71,22 @@ func (m model) reviewDeadView(width int) string {
 	return reviewDeadStyle.Render(reviewFill(" "+reason+" ", width)) + "\n"
 }
 
-// reviewStaleView says the agent has written since the photograph on screen was taken, and holds
-// its row when it has not, so the diff under it does not jump every time the agent saves.
+// reviewStaleView says the agent has written since the diff on screen was read, and says whether
+// the screen is about to catch up on its own or is holding the snapshot on purpose.
 func (m model) reviewStaleView() string {
 	if !m.review.moved || m.review.pinned {
 		return "\n"
 	}
 
+	if m.doesReviewFollowLive() {
+		return reviewMovedStyle.Render("the agent has written since · catching up") + "\n"
+	}
+
 	said := "the agent has written since · " + keyLabel(m.keys.Review.Reload) + " to catch up"
+	if m.doesReviewHoldUnsent() {
+		said = "the agent has written since · your comments are pinned to this round · " +
+			keyLabel(m.keys.Review.Reload) + " to catch up"
+	}
 
 	return reviewMovedStyle.Render(said) + "\n"
 }

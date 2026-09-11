@@ -653,7 +653,6 @@ service AgentService {
   rpc EditReviewMessage(EditReviewMessageRequest) returns (EditReviewMessageResponse) {
     option idempotency_level = IDEMPOTENT;
   }
-  rpc HarvestRoundEdits(HarvestRoundEditsRequest) returns (HarvestRoundEditsResponse) {}
   // Panel only, deliberately carrying no tool annotation: an agent must not rebase or reset
   // itself or anybody else.
   rpc PlanRefresh(PlanRefreshRequest) returns (PlanRefreshResponse) {}

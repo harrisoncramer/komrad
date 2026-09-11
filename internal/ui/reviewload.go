@@ -344,19 +344,6 @@ func (m *model) applyReviewLoaded(msg reviewLoadedMsg) tea.Cmd {
 	// to be given it back, once the marks and the threads have settled the rows it walks.
 	m.review.view.SetPattern(m.review.filter.pattern)
 
-	// Explainer: A new round is a different snapshot, so an edit held against the last one no
-	// longer names lines of what is on screen. The checkout itself is kept, since it is named
-	// after the agent and is moved onto the new snapshot the next time the editor asks for it.
-	if m.review.round.GetSnapshotSha() != msg.round.GetSnapshotSha() {
-		// A checkout still standing on the round being left holds whatever was saved into it, and
-		// the comments already written from it belong to that round rather than to this one.
-		if m.review.roundDir != "" && m.review.roundSha != msg.round.GetSnapshotSha() {
-			m.review.notice = "the round moved on, so your comments stay on the one you wrote them against"
-		}
-
-		m.review.oversized = false
-	}
-
 	m.setReviewThreads(msg.threads)
 
 	m.review.round = msg.round
@@ -373,13 +360,7 @@ func (m *model) applyReviewLoaded(msg reviewLoadedMsg) tea.Cmd {
 
 	m.scrollReviewToCursor()
 
-	// A checkout weave already owns is the one on screen, so only a screen opening on an agent it
-	// holds nothing for has an earlier sitting's work to look for.
-	if m.review.roundDir != "" {
-		return nil
-	}
-
-	return m.findRoundLeftoverCmd()
+	return nil
 }
 
 // indexViewedFiles indexes the files read in this round, a later round starting with none.
@@ -468,12 +449,13 @@ func (m model) reloadReview() (model, tea.Cmd) {
 }
 
 func (m model) leaveReview() (tea.Model, tea.Cmd) {
-	reap := m.reapRoundCmd(m.review.root, m.review.roundDir)
+	if m.review.atEditor {
+		return m.closeReviewEdit()
+	}
+
 	m.review = reviewState{}
 
-	next, cmd := m.returnToAgents()
-
-	return next, tea.Batch(cmd, reap)
+	return m.returnToAgents()
 }
 
 func (m model) worktreeFor(agent agentstore.Agent) workflowstore.WorktreeConfig {
