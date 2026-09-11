@@ -14,6 +14,7 @@ import (
 
 	"weave/cmd/paneldemo/scenario"
 	"weave/config"
+	"weave/internal/git"
 	"weave/internal/ui"
 	"weave/proto/gen/agent/v1/agentv1connect"
 	"weave/proto/gen/hook/v1/hookv1connect"
@@ -64,7 +65,7 @@ func run() error {
 	deps := ui.Deps{
 		PopupWindow:   ui.NewPopupWindow(stub, "paneldemo"),
 		Tmux:          stub,
-		Git:           ui.GitClient{},
+		Git:           git.NewClient(),
 		HarnessFrames: noFrames{},
 		Agents:        agentv1connect.NewAgentServiceClient(server.Client(), server.URL),
 		Workflows:     workflowv1connect.NewWorkflowServiceClient(server.Client(), server.URL),

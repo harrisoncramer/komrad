@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"weave/internal/frames"
+	"weave/internal/git"
 	"weave/internal/harness"
 	"weave/internal/store"
 	agentstore "weave/internal/store/agent"
@@ -517,7 +518,7 @@ func (s *testStore) agentService(options agentServiceOptions) *testAgents {
 			Agents:    agents,
 			Workflows: s.Workflows,
 			Launch:    launch,
-			Worktrees: GitWorktrees{},
+			Worktrees: git.NewClient(),
 		}),
 		lifecycle: NewLifecycleService(NewLifecycleServiceParams{
 			Tmux:           options.tmux,
@@ -527,7 +528,7 @@ func (s *testStore) agentService(options agentServiceOptions) *testAgents {
 			Tx:             tx,
 			Scripts:        options.lifecycle,
 			Reviews:        reviewstore.New(s.Pool.GetDB()),
-			Snapshots:      GitSnapshotter{},
+			Snapshots:      git.NewClient(),
 			LogsDir:        options.logsDir,
 			FramesDir:      options.framesDir,
 			MaxAgents:      options.maxAgents,

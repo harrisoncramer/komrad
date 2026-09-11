@@ -6,6 +6,7 @@ import (
 
 	"weave/internal/agents"
 	"weave/internal/errui"
+	"weave/internal/git"
 	"weave/internal/logging"
 	"weave/internal/ui"
 	"weave/proto/gen/agent/v1/agentv1connect"
@@ -70,7 +71,7 @@ Use ` + "`weave open`" + ` to bring the panel up.`,
 			return ui.Run(ui.Deps{
 				PopupWindow:     state.popup,
 				Tmux:            state.tmux,
-				Git:             ui.GitClient{},
+				Git:             git.NewClient(),
 				HarnessFrames:   paneFrameReader{panes: state.tmux, harnesses: state.harnesses},
 				Agents:          agentClient,
 				Workflows:       workflowClient,

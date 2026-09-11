@@ -75,38 +75,15 @@ type reviewBatchReadWriter interface {
 }
 
 type reviewSnapshotter interface {
-	Take(ctx context.Context, params git.TakeSnapshotParams) (*git.Snapshot, error)
-	Hold(ctx context.Context, dir, ref, sha string) error
-	FileAt(ctx context.Context, dir, sha, path string) ([]string, error)
+	TakeSnapshot(ctx context.Context, params git.TakeSnapshotParams) (*git.Snapshot, error)
+	HoldRef(ctx context.Context, dir, ref, sha string) error
+	ReadFileLines(ctx context.Context, dir, sha, path string) ([]string, error)
 	snapshotReleaser
 }
 
 // snapshotReleaser drops the ref holding a round's snapshot.
 type snapshotReleaser interface {
-	Release(ctx context.Context, dir, ref string) error
-}
-
-// GitSnapshotter takes a round's snapshot with git.
-type GitSnapshotter struct{}
-
-// Take freezes the worktree as a commit nothing else can reach.
-func (GitSnapshotter) Take(ctx context.Context, params git.TakeSnapshotParams) (*git.Snapshot, error) {
-	return git.TakeSnapshot(ctx, params)
-}
-
-// Hold points a ref at a snapshot so nothing collects it.
-func (GitSnapshotter) Hold(ctx context.Context, dir, ref, sha string) error {
-	return git.HoldRef(ctx, dir, ref, sha)
-}
-
-// FileAt reads one file as the round froze it.
-func (GitSnapshotter) FileAt(ctx context.Context, dir, sha, path string) ([]string, error) {
-	return git.ReadFileLines(ctx, dir, sha, path)
-}
-
-// Release drops the ref a snapshot was held by, leaving it to be collected.
-func (GitSnapshotter) Release(ctx context.Context, dir, ref string) error {
-	return git.ReleaseRef(ctx, dir, ref)
+	ReleaseRef(ctx context.Context, dir, ref string) error
 }
 
 // roundRef is the ref a snapshot is held by so nothing collects it, named after the agent and
@@ -134,7 +111,7 @@ func (s *ReviewService) OpenRound(ctx context.Context, agentID string, author Re
 		base = flow.Worktree.BaseBranch
 	}
 
-	snapshot, err := s.snapshots.Take(ctx, git.TakeSnapshotParams{Dir: agent.Cwd, Base: base})
+	snapshot, err := s.snapshots.TakeSnapshot(ctx, git.TakeSnapshotParams{Dir: agent.Cwd, Base: base})
 	if err != nil {
 		return nil, err
 	}
@@ -149,7 +126,7 @@ func (s *ReviewService) OpenRound(ctx context.Context, agentID string, author Re
 		return latest, nil
 	}
 
-	if err := s.snapshots.Hold(ctx, agent.Cwd, roundRef(agentID, snapshot.SHA), snapshot.SHA); err != nil {
+	if err := s.snapshots.HoldRef(ctx, agent.Cwd, roundRef(agentID, snapshot.SHA), snapshot.SHA); err != nil {
 		return nil, err
 	}
 
@@ -613,7 +590,7 @@ func (s *ReviewService) getSnapshotLines(ctx context.Context, params getSnapshot
 			continue
 		}
 
-		lines, err := s.snapshots.FileAt(ctx, params.Dir, params.Round.SnapshotSHA, path)
+		lines, err := s.snapshots.ReadFileLines(ctx, params.Dir, params.Round.SnapshotSHA, path)
 		if err != nil {
 			lines = nil
 		}

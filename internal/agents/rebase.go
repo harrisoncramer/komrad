@@ -58,49 +58,6 @@ type worktreeRebaser interface {
 	RebaseOnto(ctx context.Context, dir, ref, cutoff string) error
 }
 
-// GitRebaser moves a branch onto its base with git.
-type GitRebaser struct{}
-
-// ReadTreeState reports what the checkout is holding.
-func (GitRebaser) ReadTreeState(ctx context.Context, dir string) (git.TreeState, error) {
-	return git.ReadTreeState(ctx, dir)
-}
-
-// FetchBase brings the base branch up to date and names what it resolved to.
-func (GitRebaser) FetchBase(ctx context.Context, dir, base string) (ref, sha string, err error) {
-	return git.FetchBase(ctx, dir, base)
-}
-
-// CountCommitsToReplay is how many of the branch's own commits sit above the base.
-func (GitRebaser) CountCommitsToReplay(ctx context.Context, dir, ref string) (int, error) {
-	return git.CountCommitsToReplay(ctx, dir, ref)
-}
-
-// PredictRebase reads what a rebase would do without moving anything.
-func (GitRebaser) PredictRebase(ctx context.Context, dir, ref string) (git.Prediction, error) {
-	return git.PredictRebase(ctx, dir, ref)
-}
-
-// Park holds the checkout as it stands under a ref of its own.
-func (GitRebaser) Park(ctx context.Context, dir, ref string) (string, error) {
-	return git.Park(ctx, dir, ref)
-}
-
-// ReleaseRefsUnder drops every ref under a prefix apart from the one to keep.
-func (GitRebaser) ReleaseRefsUnder(ctx context.Context, dir, prefix, keep string) error {
-	return git.ReleaseRefsUnder(ctx, dir, prefix, keep)
-}
-
-// Rebase replays the branch's commits onto the base.
-func (GitRebaser) Rebase(ctx context.Context, dir, ref string) error {
-	return git.Rebase(ctx, dir, ref)
-}
-
-// RebaseOnto replays only what follows the cutoff, which is what a squashed branch needs.
-func (GitRebaser) RebaseOnto(ctx context.Context, dir, ref, cutoff string) error {
-	return git.RebaseOnto(ctx, dir, ref, cutoff)
-}
-
 type NewRebaseServiceParams struct {
 	Agents      rebaseAgentReadWriter
 	Workflows   workflowReader

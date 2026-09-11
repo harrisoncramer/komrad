@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"weave/internal/agents"
+	"weave/internal/git"
 	"weave/internal/rpc/render"
 	"weave/internal/store"
 	"weave/internal/storetest"
@@ -581,7 +582,7 @@ func service(t *testing.T) (*Service, *storetest.Stores) {
 		Workflows:      st.Workflows,
 		EmptyWorkflows: emptied,
 		Tx:             st.Pool,
-		Snapshots:      agents.GitSnapshotter{},
+		Snapshots:      git.NewClient(),
 	})
 	manager := agents.NewWorkflowService(agents.NewWorkflowServiceParams{
 		Workflows:    st.Workflows,
