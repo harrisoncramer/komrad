@@ -1542,6 +1542,10 @@ func (f *fakeSnapshotter) Hold(_ context.Context, _, ref, _ string) error {
 	return nil
 }
 
+func (f *fakeSnapshotter) Release(context.Context, string, string) error {
+	return nil
+}
+
 func (f *fakeSnapshotter) FileAt(_ context.Context, _, _, path string) ([]string, error) {
 	lines, ok := f.files[path]
 	if !ok {

@@ -517,6 +517,7 @@ func (s *testStore) agentService(options agentServiceOptions) *testAgents {
 			Agents:    agents,
 			Workflows: s.Workflows,
 			Launch:    launch,
+			Worktrees: GitWorktrees{},
 		}),
 		lifecycle: NewLifecycleService(NewLifecycleServiceParams{
 			Tmux:           options.tmux,
@@ -526,6 +527,7 @@ func (s *testStore) agentService(options agentServiceOptions) *testAgents {
 			Tx:             tx,
 			Scripts:        options.lifecycle,
 			Reviews:        reviewstore.New(s.Pool.GetDB()),
+			Snapshots:      GitSnapshotter{},
 			LogsDir:        options.logsDir,
 			FramesDir:      options.framesDir,
 			MaxAgents:      options.maxAgents,
@@ -544,6 +546,7 @@ func (a *testAgents) withPullRequests(resolver pullRequestResolver) *testAgents 
 		Workflows:    a.adopt.workflows,
 		Launch:       a.adopt.launch,
 		PullRequests: resolver,
+		Worktrees:    a.adopt.worktrees,
 	})
 
 	return a
