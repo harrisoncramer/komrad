@@ -334,10 +334,9 @@ func TestReviewRefreshSaysNothingWhenTheReadFails(t *testing.T) {
 	assert.False(t, m.review.polling)
 }
 
-// TestReviewDiffPollSaysTheWorktreeHasMovedOn covers the round never moving on its own: the
-// worktree is hashed in the background, and finding it has moved says so without touching what
-// the reader is standing in.
-func TestReviewDiffPollSaysTheWorktreeHasMovedOn(t *testing.T) {
+// TestReviewDiffPollCatchesUpOnceTheTurnIsOver covers what watching is for: the worktree is
+// hashed in the background, and a move an idle agent left behind is read again on its own.
+func TestReviewDiffPollCatchesUpOnceTheTurnIsOver(t *testing.T) {
 	dir := reviewRepo(t)
 	m, tmux := reviewModel(t, &fakeReviewAgents{}, dir)
 	m = openReview(t, m)
@@ -351,14 +350,23 @@ func TestReviewDiffPollSaysTheWorktreeHasMovedOn(t *testing.T) {
 	require.NoError(t, polled.err)
 
 	tmux.sentKeys = nil
-	m.applyReviewDiffPolled(polled)
+	caught := m.applyReviewDiffPolled(polled)
 
 	require.True(t, m.review.moved)
-	assert.Empty(t, tmux.sentKeys, "the diff on screen is left where the reader had it")
+	require.NotNil(t, caught, "an idle agent's move is read again rather than offered")
+	assert.Empty(t, tmux.sentKeys, "and nothing is typed at anybody to do it")
 
+	// The patch is only replaced once the read answers, so what is on screen until then is still
+	// the diff the reader was standing in.
 	shown := ansi.Strip(m.reviewView())
-	assert.Contains(t, shown, "the agent has written since")
+	assert.Contains(t, shown, "catching up")
 	assert.NotContains(t, shown, "written by the agent")
+
+	loaded, ok := caught().(reviewLoadedMsg)
+	require.True(t, ok)
+	m.applyReviewLoaded(loaded)
+
+	assert.Contains(t, ansi.Strip(m.reviewView()), "written by the agent", "and then it is drawn")
 }
 
 // TestReviewDiffPollIgnoresAWorktreeThatHasNotMoved pins the probe leaving an unchanged worktree

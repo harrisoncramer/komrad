@@ -49,7 +49,7 @@ func (m model) logsDesc() string {
 		return "agent log"
 	case infoAgentLog:
 		return "hide logs"
-	case infoNothing, infoTerminal, infoEditFile:
+	case infoNothing, infoTerminal:
 	}
 
 	return "run log"

@@ -23,7 +23,7 @@ func reviewTable() []action {
 			// Writing is a mode inside the screen, so the back key gives up the mode before it
 			// gives up the screen.
 			run: func(m model, _ string) (tea.Model, tea.Cmd) {
-				if m.review.writing {
+				if m.review.mode == modeReviewing {
 					return m.leaveReviewWriting()
 				}
 
@@ -100,9 +100,9 @@ func reviewTable() []action {
 		{
 			id:   actionReviewEdit,
 			keys: func(k config.Keybindings) []string { return k.Review.EditFile },
-			// An edit of the round's checkout becomes a suggestion the next comment carries, so
-			// it is a write, and pressing it while reading is the same way in as the compose key.
-			run: orRefuseWrite(orEnterWriting(model.editReviewFile)),
+			// Editing writes to the worktree rather than to the agent, so it is offered whether or
+			// not there is anybody there to read a comment.
+			run: func(m model, _ string) (tea.Model, tea.Cmd) { return m.pressReviewEdit() },
 		},
 		{
 			id:   actionReviewResolve,
@@ -132,26 +132,6 @@ func reviewTable() []action {
 			keys: func(config.Keybindings) []string { return formKeys().Submit },
 			run:  orRefuseWrite(func(m model) (tea.Model, tea.Cmd) { return m.openReviewRelease() }),
 		},
-	}
-}
-
-// orEnterWriting turns a write into one that opens the mode that can write first, for a reader
-// who pressed it while reading.
-func orEnterWriting(fn func(model) (tea.Model, tea.Cmd, bool)) func(model) (tea.Model, tea.Cmd) {
-	return func(m model) (tea.Model, tea.Cmd) {
-		next, cmd, took := fn(m)
-		if !took {
-			return next, cmd
-		}
-
-		writer, ok := next.(model)
-		if !ok {
-			return next, cmd
-		}
-
-		writer.review.writing = true
-
-		return writer, cmd
 	}
 }
 
@@ -248,9 +228,13 @@ func reviewLegend() []legendRow {
 		{
 			of:   []actionID{actionReviewEdit},
 			desc: model.reviewEditorDesc,
-			// Pressing it while reading opens the mode that writes, so it is offered where the
-			// compose key is.
-			show:  offered,
+			// The one thing standing in the way of editing is an earlier round, whose line numbers
+			// name a file the worktree no longer holds.
+			show: func(m model) bool {
+				_, history := m.reviewIsHistory()
+
+				return !history
+			},
 			strip: true,
 		},
 		{

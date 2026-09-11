@@ -15,16 +15,38 @@ const demoPane = "%0"
 // Explainer: the panel draws itself from the size bubbletea reports and asks tmux only about the
 // panes beside it, so answering that there are none puts every screen into the branch that draws
 // both columns itself. An agent's own terminal on the stage is another process and cannot be
-// faked, so the screens that put one there draw their sidebar and nothing beside it.
+// faked, so the screens that put one there draw their sidebar and nothing beside it. The stage
+// flag answers that a split landed somewhere anyway, which is the only way to look at those
+// screens' own layout: the process is still not there, so the window beside the sidebar is
+// empty rather than holding an editor.
+
+// The panes the stub hands back for a split when it has been asked to pretend one landed, one per
+// direction the frame splits in, since the stage and the info pane are never one pane in tmux and
+// the frame reads real behaviour off which is which.
+const (
+	stagePane = "%1"
+	infoPane  = "%2"
+)
 
 // noPanes answers the panel's questions about tmux as though it holds the window alone.
-type noPanes struct{}
+type noPanes struct {
+	// stage makes every split answer with a pane, so the panel draws its sidebar alone the way it
+	// would beside a real one.
+	stage bool
+}
 
-func (noPanes) MovePanes([]panes.Move)       {}
-func (noPanes) IsPaneAlive(pane string) bool { return pane == demoPane }
+func (noPanes) MovePanes([]panes.Move) {}
+
+func (p noPanes) IsPaneAlive(pane string) bool {
+	if pane == demoPane {
+		return true
+	}
+
+	return p.stage && (pane == stagePane || pane == infoPane)
+}
 
 // GetPaneWidth and GetPaneHeight answer for the panel's own pane and for nothing else.
-func (noPanes) GetPaneWidth(pane string) int {
+func (p noPanes) GetPaneWidth(pane string) int {
 	if pane != demoPane {
 		return 0
 	}
@@ -34,7 +56,7 @@ func (noPanes) GetPaneWidth(pane string) int {
 	return width
 }
 
-func (noPanes) GetPaneHeight(pane string) int {
+func (p noPanes) GetPaneHeight(pane string) int {
 	if pane != demoPane {
 		return 0
 	}
@@ -44,10 +66,20 @@ func (noPanes) GetPaneHeight(pane string) int {
 	return height
 }
 
-func (noPanes) SplitRight(string, string, string) string        { return "" }
-func (noPanes) SplitLeft(string, string, string) string         { return "" }
-func (noPanes) SplitBelow(string, string, string) string        { return "" }
-func (noPanes) SplitAbove(string, string, string) string        { return "" }
+func (p noPanes) SplitRight(string, string, string) string { return p.split(stagePane) }
+func (p noPanes) SplitLeft(string, string, string) string  { return p.split(stagePane) }
+func (p noPanes) SplitBelow(string, string, string) string { return p.split(infoPane) }
+func (p noPanes) SplitAbove(string, string, string) string { return p.split(infoPane) }
+
+// split is the pane a split lands in, which is none unless the stub was told to pretend.
+func (p noPanes) split(pane string) string {
+	if p.stage {
+		return pane
+	}
+
+	return ""
+}
+
 func (noPanes) ResizePane(string, string)                       {}
 func (noPanes) GetPaneFocus(pane string) (focused, zoomed bool) { return pane == demoPane, false }
 func (noPanes) GetSiblingPanes(string) []string                 { return nil }

@@ -245,12 +245,6 @@ table "review_threads" {
     type    = timestamptz
     comment = "When the person reviewing settled this thread, null while it is still owed an answer. Settling is theirs to do even on a thread an agent opened."
   }
-  column "harvested" {
-    null    = false
-    type    = boolean
-    default = false
-    comment = "Whether weave wrote this thread itself, from an edit made in the round's checkout, rather than a person or an agent typing it. Such a thread is weave's to rewrite or delete on a later harvest."
-  }
   column "created_at" {
     null    = false
     type    = timestamptz

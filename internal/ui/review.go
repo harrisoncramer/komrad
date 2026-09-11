@@ -53,8 +53,14 @@ type reviewState struct {
 	// editing is the thread a composed message is going into, empty when it will open a new
 	// thread on the line under the cursor.
 	editing string
-	loading bool
-	notice  string
+	// atEditor says your own editor holds the stage, so the panel draws its sidebar alone.
+	atEditor    bool
+	editingPath string
+	// editorPane is the pane the editor was given, empty where the split was refused, which is
+	// what says whether a pane going away is the editor being closed.
+	editorPane string
+	loading    bool
+	notice     string
 	// since says how much of the diff is new to the reader, which is a standing fact about what is
 	// on screen rather than an answer to a keypress.
 	since string
@@ -77,31 +83,13 @@ type reviewState struct {
 	// awaiting says the last released review has produced no work yet, so a second one would be
 	// refused.
 	awaiting bool
-	// writing says the review is in the mode that can reach the agent, rather than the mode that
-	// walks the rounds and writes nothing.
-	writing bool
+	// mode is which of the three things the screen is doing: watching the work, editing it, or
+	// reviewing it.
+	mode reviewMode
 	// chapters are the rounds of the review the two step keys walk, oldest first.
 	chapters []reviewChapter
 	// chapter is which of those is on screen, negative for the whole change.
 	chapter int
-
-	// roundDir is where the round has been checked out for the editor to read, named after the
-	// agent rather than the round.
-	roundDir string
-	// roundSha is the snapshot that checkout is standing on, which says whether it is still the
-	// round being read.
-	roundSha string
-	// materialising is set while that checkout is being made, so a second press does not start a
-	// second one against the same directory.
-	materialising bool
-	// replacing is the checkout of an earlier round weave has already said it would take, so the
-	// press after that warning goes through.
-	replacing string
-	// harvesting is set while what the reviewer wrote is being read back and written as threads, so
-	// a second editor closing does not start a harvest beside the one in flight.
-	harvesting bool
-	// oversized is the harvest weave refused for its size, held for the next press to write.
-	oversized bool
 
 	// restore is where the cursor was standing when the patch was read again, so a reload lands the
 	// reader back where they left.

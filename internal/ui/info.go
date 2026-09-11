@@ -11,7 +11,6 @@ const (
 	infoRunLog
 	infoAgentLog
 	infoTerminal
-	infoEditFile
 )
 
 type infoState struct {
@@ -66,19 +65,16 @@ func (m *model) stageInfo() {
 		m.frame.Show(layout.RegionInfo, m.agentLogContent())
 	case infoTerminal:
 		m.frame.Show(layout.RegionInfo, terminalContent(m.shell, m.info.subject))
-	case infoNothing, infoEditFile:
+	case infoNothing:
 	}
 }
 
-// reconcileInfo catches the pane going away on its own, which is what an editor quitting does,
-// and reports whether what went was the editor.
-func (m *model) reconcileInfo() bool {
+// reconcileInfo catches the info pane going away on its own, which is what quitting whatever was
+// running in it does.
+func (m *model) reconcileInfo() {
 	if m.info.kind == infoNothing || m.frame.IsOpen(layout.RegionInfo) {
-		return false
+		return
 	}
 
-	edited := m.info.kind == infoEditFile
 	m.forgetInfo()
-
-	return edited
 }

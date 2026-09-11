@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	agentstore "weave/internal/store/agent"
 	agentv1 "weave/proto/gen/agent/v1"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -145,9 +146,9 @@ func (m *model) applyReviewRefreshed(msg reviewRefreshedMsg) {
 	m.applyReviewThreads(msg.threads)
 }
 
-func (m *model) applyReviewDiffPolled(msg reviewDiffPolledMsg) {
+func (m *model) applyReviewDiffPolled(msg reviewDiffPolledMsg) tea.Cmd {
 	if msg.agentID != m.review.agentID {
-		return
+		return nil
 	}
 
 	m.review.diffPolling = false
@@ -155,12 +156,43 @@ func (m *model) applyReviewDiffPolled(msg reviewDiffPolledMsg) {
 	// A worktree emptied under an open review is a move like any other, so the bar offers to catch
 	// up and the reload is what finds nothing to show and backs out to the listing.
 	if msg.err != nil {
-		return
+		return nil
 	}
 
 	// A worktree edited back to the round it was cut from is not a move, so the notice goes
 	// away rather than standing until the reader opens a round for nothing.
 	m.review.moved = msg.moved
+
+	if !msg.moved || !m.doesReviewFollowLive() {
+		return nil
+	}
+
+	next, cmd := m.reloadReview()
+	*m = next
+
+	return cmd
+}
+
+// doesReviewFollowLive reports whether the diff on screen is meant to keep up with the agent,
+// which is what makes a move something to draw rather than something to offer.
+func (m model) doesReviewFollowLive() bool {
+	if m.review.mode != modeWatching || m.review.view == nil || m.review.loading {
+		return false
+	}
+
+	// Explainer: catching up reads a round of the tree, so following every save would leave a
+	// round behind every few seconds and watching would cost history again, which is the thing
+	// this screen is being rebuilt to stop. The end of a turn is the moment the agent has handed
+	// the work back, so it is both the cheapest place to catch up and the one worth drawing.
+	if m.isReviewAgentWriting() {
+		return false
+	}
+
+	// Explainer: the three below are each a reason the reader is holding a particular snapshot.
+	// Comments are pinned to the round they were written against, an earlier chapter is a
+	// photograph the reader chose, and a pinned diff is the one an unsent batch belongs to. Any of
+	// them makes redrawing underneath them a way to lose the reader's place or their words.
+	return !m.doesReviewHoldUnsent() && m.review.chapter < 0 && !m.review.pinned
 }
 
 // setReviewThreads holds the conversation and the probe a refresh compares it against together.
@@ -192,4 +224,13 @@ func deliverySlot(state agentv1.ReviewDeliveryState) int {
 	}
 
 	return int(state)
+}
+
+// isReviewAgentWriting reports whether the agent whose diff is on screen is putting words in its
+// worktree, which is thinking alone: an unreadable pane is not a reason to hold the diff for as
+// long as it stays unreadable.
+func (m model) isReviewAgentWriting() bool {
+	item, ok := m.reviewAgentItem()
+
+	return ok && item.alive && item.agent.State == agentstore.StateThinking
 }
