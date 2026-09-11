@@ -55,7 +55,7 @@ type Snapshot struct {
 // ProbeTree writes an agent's worktree out as a tree and nothing else, which is the cheap way
 // to ask whether it has moved since a round was taken.
 func (c *Client) ProbeTree(ctx context.Context, dir string) (string, error) {
-	root, err := GetRoot(ctx, dir)
+	root, err := c.GetRoot(ctx, dir)
 	if err != nil {
 		return "", err
 	}
@@ -108,7 +108,7 @@ func writeTreeSeeded(ctx context.Context, root string, fill seed) (string, error
 // the point its branch left the base, building the tree in an index of its own so the agent's
 // own index, worktree and branch are left exactly as they were.
 func (c *Client) TakeSnapshot(ctx context.Context, params TakeSnapshotParams) (*Snapshot, error) {
-	root, err := GetRoot(ctx, params.Dir)
+	root, err := c.GetRoot(ctx, params.Dir)
 	if err != nil {
 		return nil, err
 	}
@@ -295,7 +295,7 @@ func (c *Client) GetTree(ctx context.Context, dir, sha string) (string, error) {
 
 // Park records a checkout as it stands, tracked and untracked alike, so a move can be undone.
 func (c *Client) Park(ctx context.Context, dir, ref string) (string, error) {
-	root, err := GetRoot(ctx, dir)
+	root, err := c.GetRoot(ctx, dir)
 	if err != nil {
 		return "", err
 	}

@@ -57,7 +57,7 @@ func loadRound(t *testing.T, root string, exclude ...string) *Patch {
 	snapshot, err := gitClient.TakeSnapshot(t.Context(), git.TakeSnapshotParams{Dir: root, Base: "main"})
 	require.NoError(t, err)
 
-	patch, err := Load(t.Context(), LoadParams{
+	patch, err := Load(t.Context(), gitClient, LoadParams{
 		Dir:         root,
 		BaseSHA:     snapshot.BaseSHA,
 		SnapshotSHA: snapshot.SHA,

@@ -27,7 +27,7 @@ func (c *Client) MapRanges(ctx context.Context, params MapRangesParams) ([]posit
 		return nil, fmt.Errorf("failed to map %q: two commits are needed", params.Dir)
 	}
 
-	root, err := GetRoot(ctx, params.Dir)
+	root, err := c.GetRoot(ctx, params.Dir)
 	if err != nil {
 		return nil, err
 	}

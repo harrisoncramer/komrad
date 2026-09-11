@@ -76,7 +76,7 @@ type Prediction struct {
 func (c *Client) ReadTreeState(ctx context.Context, dir string) (TreeState, error) {
 	state := TreeState{}
 
-	if branch := GetCurrentBranch(ctx, dir); branch != nil {
+	if branch := c.GetCurrentBranch(ctx, dir); branch != nil {
 		state.Branch = *branch
 	}
 
@@ -113,7 +113,7 @@ func (c *Client) ReadTreeState(ctx context.Context, dir string) (TreeState, erro
 
 // FetchBase brings the base up to date and answers with the ref to rebase onto and its commit.
 func (c *Client) FetchBase(ctx context.Context, dir, base string) (ref, sha string, err error) {
-	root, err := GetRoot(ctx, dir)
+	root, err := c.GetRoot(ctx, dir)
 	if err != nil {
 		return "", "", err
 	}

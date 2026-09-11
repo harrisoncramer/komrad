@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"weave/internal/agents"
+	"weave/internal/git"
 	"weave/internal/harness"
 	"weave/internal/jobs"
 	"weave/internal/jobs/internaljobs"
@@ -70,7 +71,7 @@ func buildLoops(params buildLoopsParams) []Loop {
 		{
 			Name:     CwdSyncLoop,
 			Interval: CwdSyncInterval,
-			Pass:     agents.NewCwdSyncer(params.Stores.agents).Sync,
+			Pass:     agents.NewCwdSyncer(params.Stores.agents, git.NewClient()).Sync,
 		},
 		{
 			Name:     PRArchiveLoop,
@@ -79,7 +80,7 @@ func buildLoops(params buildLoopsParams) []Loop {
 				Agents:       params.Stores.agents,
 				Workflows:    params.Stores.workflows,
 				Archiver:     params.Services.lifecycle,
-				PullRequests: agents.NewGHPullRequests(),
+				PullRequests: agents.NewGHPullRequests(git.NewClient()),
 			}).Sync,
 		},
 	}

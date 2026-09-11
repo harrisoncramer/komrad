@@ -6,8 +6,6 @@ import (
 	"fmt"
 	"os/exec"
 	"strings"
-
-	"weave/internal/git"
 )
 
 // PullRequest is what weave needs to know about a pull request somebody else opened.
@@ -22,12 +20,19 @@ type PullRequest struct {
 	State           string
 }
 
+// originURLGetter is the remote a repository was cloned from.
+type originURLGetter interface {
+	GetOriginURL(ctx context.Context, dir string) (string, error)
+}
+
 // GHPullRequests answers pullRequestResolver using the gh CLI.
-type GHPullRequests struct{}
+type GHPullRequests struct {
+	remotes originURLGetter
+}
 
 // NewGHPullRequests returns a pullRequestResolver backed by gh.
-func NewGHPullRequests() *GHPullRequests {
-	return &GHPullRequests{}
+func NewGHPullRequests(remotes originURLGetter) *GHPullRequests {
+	return &GHPullRequests{remotes: remotes}
 }
 
 // Resolve reads a pull request named by URL or number, running in the dir gh resolves a bare
@@ -72,8 +77,8 @@ func (GHPullRequests) Resolve(ctx context.Context, dir, ref string) (*PullReques
 
 // Repository reports the owner and name of the repository dir's origin points at, in the
 // owner/name form a pull request URL carries.
-func (GHPullRequests) Repository(ctx context.Context, dir string) (string, error) {
-	url, err := git.GetOriginURL(ctx, dir)
+func (g GHPullRequests) Repository(ctx context.Context, dir string) (string, error) {
+	url, err := g.remotes.GetOriginURL(ctx, dir)
 	if err != nil {
 		return "", err
 	}

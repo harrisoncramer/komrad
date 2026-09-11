@@ -43,7 +43,7 @@ func TestTakeHoldsCommittedAndUncommittedWorkAlike(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	patch, err := Load(t.Context(), LoadParams{
+	patch, err := Load(t.Context(), gitClient, LoadParams{
 		Dir:         root,
 		BaseSHA:     snapshot.BaseSHA,
 		SnapshotSHA: snapshot.SHA,
@@ -80,7 +80,7 @@ func TestTakeIsHeldByItsRefAndReadableAfterTheWorktreeMovesOn(t *testing.T) {
 	write(t, root, "kept.go", "package main\n\nfunc Second() {}\n")
 	require.NoError(t, os.Remove(filepath.Join(root, "proto", "gen", "api.pb.go")))
 
-	patch, err := Load(t.Context(), LoadParams{
+	patch, err := Load(t.Context(), gitClient, LoadParams{
 		Dir:         root,
 		BaseSHA:     snapshot.BaseSHA,
 		SnapshotSHA: snapshot.SHA,
@@ -107,7 +107,7 @@ func TestTakeIgnoresWhatGitIgnores(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	patch, err := Load(t.Context(), LoadParams{
+	patch, err := Load(t.Context(), gitClient, LoadParams{
 		Dir:         root,
 		BaseSHA:     snapshot.BaseSHA,
 		SnapshotSHA: snapshot.SHA,
@@ -137,7 +137,7 @@ func TestTakeExcludesNothingItself(t *testing.T) {
 	assert.Contains(t, lines, "func Gen() {}")
 
 	// The reader is shown none of it, and is told that rather than told the agent did nothing.
-	_, err = Load(t.Context(), LoadParams{
+	_, err = Load(t.Context(), gitClient, LoadParams{
 		Dir:         root,
 		BaseSHA:     snapshot.BaseSHA,
 		SnapshotSHA: snapshot.SHA,
@@ -156,7 +156,7 @@ func TestLoadSaysNothingChangedOnlyWhenNothingDid(t *testing.T) {
 	require.NoError(t, err)
 
 	for _, exclude := range [][]string{nil, {"proto/gen"}} {
-		_, err = Load(t.Context(), LoadParams{
+		_, err = Load(t.Context(), gitClient, LoadParams{
 			Dir:         root,
 			BaseSHA:     snapshot.BaseSHA,
 			SnapshotSHA: snapshot.SHA,

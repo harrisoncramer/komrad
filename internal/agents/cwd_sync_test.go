@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"weave/internal/git"
 	agentstore "weave/internal/store/agent"
 	"weave/lib/xptr"
 
@@ -87,7 +88,7 @@ func TestCwdSyncerSync(t *testing.T) {
 			created, err := st.Agents.GetInWorkflow(ctx, workflowID, "a")
 			require.NoError(t, err)
 
-			require.NoError(t, NewCwdSyncer(st.Agents).Sync(ctx))
+			require.NoError(t, NewCwdSyncer(st.Agents, git.NewClient()).Sync(ctx))
 
 			got, err := st.Agents.GetByID(ctx, created.ID)
 			require.NoError(t, err)
@@ -120,21 +121,27 @@ func TestCwdSyncerSyncSkipsTheGitCallForARemovedCwd(t *testing.T) {
 	created, err := st.Agents.GetInWorkflow(ctx, workflowID, "a")
 	require.NoError(t, err)
 
-	var looked []string
-	syncer := NewCwdSyncer(st.Agents)
-	syncer.branch = func(_ context.Context, dir string) *string {
-		looked = append(looked, dir)
-
-		return nil
-	}
+	looked := &recordingBranches{}
+	syncer := NewCwdSyncer(st.Agents, looked)
 
 	require.NoError(t, syncer.Sync(ctx))
 
-	assert.Empty(t, looked, "a cwd that is gone is never asked for its branch")
+	assert.Empty(t, looked.dirs, "a cwd that is gone is never asked for its branch")
 
 	got, err := st.Agents.GetByID(ctx, created.ID)
 	require.NoError(t, err)
 	assert.True(t, got.WorktreeRemoved)
+}
+
+// recordingBranches is a git that answers nothing and remembers what it was asked about.
+type recordingBranches struct {
+	dirs []string
+}
+
+func (r *recordingBranches) GetCurrentBranch(_ context.Context, dir string) *string {
+	r.dirs = append(r.dirs, dir)
+
+	return nil
 }
 
 // TestCwdSyncerSyncClearsAStaleBranch covers an agent whose cwd changed out from under it,
@@ -155,7 +162,7 @@ func TestCwdSyncerSyncClearsAStaleBranch(t *testing.T) {
 	created, err := st.Agents.GetInWorkflow(ctx, workflowID, "a")
 	require.NoError(t, err)
 
-	syncer := NewCwdSyncer(st.Agents)
+	syncer := NewCwdSyncer(st.Agents, git.NewClient())
 	require.NoError(t, syncer.Sync(ctx))
 
 	got, err := st.Agents.GetByID(ctx, created.ID)
@@ -190,7 +197,7 @@ func TestCwdSyncerSyncClearsAStaleRemoval(t *testing.T) {
 	created, err := st.Agents.GetInWorkflow(ctx, workflowID, "a")
 	require.NoError(t, err)
 
-	syncer := NewCwdSyncer(st.Agents)
+	syncer := NewCwdSyncer(st.Agents, git.NewClient())
 	require.NoError(t, syncer.Sync(ctx))
 
 	got, err := st.Agents.GetByID(ctx, created.ID)
@@ -240,7 +247,7 @@ func TestCwdSyncerSyncSkipsArchivedAgents(t *testing.T) {
 			_, archiveErr := st.Agents.Archive(ctx, []string{created.ID})
 			require.NoError(t, archiveErr)
 
-			require.NoError(t, NewCwdSyncer(st.Agents).Sync(ctx))
+			require.NoError(t, NewCwdSyncer(st.Agents, git.NewClient()).Sync(ctx))
 
 			got, err := st.Agents.GetByID(ctx, created.ID)
 			require.NoError(t, err)

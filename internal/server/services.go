@@ -155,7 +155,7 @@ func buildServices(p Params, st *stores) (*services, error) {
 		Agents:       st.agents,
 		Workflows:    st.workflows,
 		Launch:       launchService,
-		PullRequests: agents.NewGHPullRequests(),
+		PullRequests: agents.NewGHPullRequests(git.NewClient()),
 		Worktrees:    git.NewClient(),
 	})
 	emptyWorkflows := agents.NewEmptyWorkflowDeleter(agents.NewEmptyWorkflowDeleterParams{
