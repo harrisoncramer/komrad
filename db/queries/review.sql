@@ -380,12 +380,6 @@ WHERE
 ORDER BY
     v.file_path;
 
--- name: DeleteReviewThread :one
-DELETE FROM review_threads
-WHERE id = @id
-RETURNING
-    id;
-
 -- name: ListReviewTallies :many
 WITH released AS (
     SELECT

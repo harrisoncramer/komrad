@@ -47,19 +47,6 @@ func (q *Queries) DeleteReview(ctx context.Context, id string) error {
 	return err
 }
 
-const deleteReviewThread = `-- name: DeleteReviewThread :one
-DELETE FROM review_threads
-WHERE id = $1
-RETURNING
-    id
-`
-
-func (q *Queries) DeleteReviewThread(ctx context.Context, id string) (string, error) {
-	row := q.db.QueryRow(ctx, deleteReviewThread, id)
-	err := row.Scan(&id)
-	return id, err
-}
-
 const getLastReleasedReview = `-- name: GetLastReleasedReview :one
 SELECT
     id, agent_id, round_id, author_kind, author_agent_id, verdict, released_at, path, doorbell_mail_id, created_at, updated_at, body

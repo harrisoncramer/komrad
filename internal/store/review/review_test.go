@@ -574,28 +574,6 @@ func TestTalliesCountOneRoundOnce(t *testing.T) {
 	}, tallies[0])
 }
 
-// TestDeletingAThreadTakesWhatWasSaidInIt pins the messages going with the thread they hang off.
-func TestDeletingAThreadTakesWhatWasSaidInIt(t *testing.T) {
-	st := open(t)
-	ctx := t.Context()
-	agentID := seedAgent(t, st)
-	round := openRound(t, st, agentID, "tree-one")
-	review := openReview(t, st, agentID, round.ID)
-
-	going := openThread(t, st, agentID, review, "an edit that was undone")
-	staying := openThread(t, st, agentID, review, "an edit that stands")
-
-	require.NoError(t, st.DeleteThread(ctx, going.ID))
-
-	_, err := st.GetThread(ctx, going.ID)
-	require.ErrorIs(t, err, store.ErrNotFound)
-
-	messages, err := st.ListMessages(ctx, []string{going.ID, staying.ID})
-	require.NoError(t, err)
-	require.Len(t, messages, 1, "the deleted thread's message goes with it")
-	assert.Equal(t, staying.ID, messages[0].ThreadID)
-}
-
 // TestTheLastReleasedReviewIsTheNewestOne pins which batch answers for where an author last
 // looked.
 func TestTheLastReleasedReviewIsTheNewestOne(t *testing.T) {

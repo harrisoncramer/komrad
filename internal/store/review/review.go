@@ -555,20 +555,3 @@ func threadNotFound(id string) error {
 func messageNotFound(id string) error {
 	return fmt.Errorf("%w: review message %q", store.ErrNotFound, id)
 }
-
-// DeleteThread removes a thread and the messages under it.
-func (s *Store) DeleteThread(ctx context.Context, id string) error {
-	if !store.IsID(id) {
-		return threadNotFound(id)
-	}
-
-	_, err := s.queries.DeleteReviewThread(ctx, id)
-	if db.IsNoRows(err) {
-		return threadNotFound(id)
-	}
-	if err != nil {
-		return fmt.Errorf("failed to delete the review thread %q: %w", id, err)
-	}
-
-	return nil
-}
