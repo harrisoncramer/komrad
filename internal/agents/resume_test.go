@@ -291,7 +291,7 @@ func TestAResumeInItsSetupIsNotArchivedOutFromUnderItself(t *testing.T) {
 
 	created, err := st.Workflows.Create(ctx, workflowstore.Config{
 		Name:              "worktrees",
-		Cwd:               initRepo(t),
+		Cwd:               fakeCheckout(t),
 		Worktree:          workflowstore.WorktreeConfig{Enabled: true},
 		ArchiveOnPRClosed: true,
 	})
@@ -387,7 +387,7 @@ func TestAResumeThatGivesUpPutsTheStateBack(t *testing.T) {
 	lifecycle := &fakeLifecycle{resumeErr: errors.New("git worktree add: already checked out")}
 	require.NoError(t, st.Workflows.Update(ctx, workflowID, workflowstore.Config{
 		Name:     "workflow",
-		Cwd:      initRepo(t),
+		Cwd:      fakeCheckout(t),
 		Worktree: workflowstore.WorktreeConfig{Enabled: true},
 	}))
 
@@ -530,7 +530,7 @@ func TestAnArchiveAfterTheMarkStopsTheResume(t *testing.T) {
 
 	created, err := st.Workflows.Create(ctx, workflowstore.Config{
 		Name:     "worktrees",
-		Cwd:      initRepo(t),
+		Cwd:      fakeCheckout(t),
 		Worktree: workflowstore.WorktreeConfig{Enabled: true},
 	})
 	require.NoError(t, err)
@@ -581,7 +581,7 @@ func TestADeleteAfterTheMarkStopsTheResume(t *testing.T) {
 
 	created, err := st.Workflows.Create(ctx, workflowstore.Config{
 		Name:     "worktrees",
-		Cwd:      initRepo(t),
+		Cwd:      fakeCheckout(t),
 		Worktree: workflowstore.WorktreeConfig{Enabled: true},
 	})
 	require.NoError(t, err)
@@ -704,7 +704,7 @@ func TestResumeRunsTheProvisioner(t *testing.T) {
 
 			created, err := st.Workflows.Create(ctx, workflowstore.Config{
 				Name:     "resume-" + tt.name,
-				Cwd:      initRepo(t),
+				Cwd:      fakeCheckout(t),
 				Worktree: workflowstore.WorktreeConfig{Enabled: true},
 			})
 			require.NoError(t, err)

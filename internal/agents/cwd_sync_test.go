@@ -267,6 +267,16 @@ func gitOutput(t *testing.T, dir string, args ...string) string {
 	return string(out)
 }
 
+// fakeCheckout is a directory that reads as a primary checkout.
+func fakeCheckout(t *testing.T) string {
+	t.Helper()
+
+	dir := t.TempDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, ".git"), 0o755))
+
+	return dir
+}
+
 func initRepo(t *testing.T) string {
 	t.Helper()
 
