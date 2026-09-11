@@ -8,10 +8,17 @@ description: Debug weave's own runtime - pane frames and how an agent's state wa
 ## How a state is decided
 
 Every couple of seconds the service captures each agent's pane and hands the frame to that
-agent's harness. `ReadInput` in `internal/harness/claude/activity.go` returns an
-`harness.Activity` (`internal/harness/harness.go`), and `internal/agents/reconcile.go` maps it
-onto the `agent_state` enum: working to thinking, waiting to waiting, idle and composing to
+agent's harness. `ReadInput` in `internal/harness/claude/activity.go` returns a
+`harness.Input`, whose `Activity` (`internal/harness/harness.go`) `internal/agents/reconcile.go`
+maps onto the `agent_state` enum: working to thinking, waiting to waiting, idle and composing to
 idle, unrecognized to uncertain, unknown leaves the agent where it was.
+
+Only half of that mapping is immediate. Thinking and waiting are applied on the first frame that
+says so, but idle and uncertain go through `settle`: they need `reconcileMisses` passes in a row
+reading the same thing, or for idle a fresh turn boundary reported by the CLI's own hook.
+Uncertain holds twice over, since `observeUnrecognized` keeps an unrecognized frame that is still
+changing rather than demoting the agent at all. So a pane that has plainly stopped while the row
+still says thinking is usually the reconciler counting, not the classifier misreading.
 
 The classifier anchors on the input box, not on the bottom of the frame. It finds the rule with
 the prompt marker under it, then reads only the lines between that box and the conversation
@@ -22,8 +29,11 @@ line pattern and is deliberately read as working; see `api_retry_banner.txt` in 
 
 ## The recorded frames
 
-Turned off by default. `[debug] frames = true` in `~/.config/weave/config.toml`, with
-`frame_history` capping how many are kept per agent.
+Turned off by default, under `[debug]`: `frames = true` records them and `frame_history` caps
+how many are kept per agent. Which file to set it in depends on the instance. The development one
+reads `~/.config/weave/config.toml`; the throwaway one reads `weave.test.toml` in that checkout,
+named by `WEAVE_CONFIG` in `mise.test.toml`, which replaces the user's config rather than layering
+on it. That file already turns the recording on, so weave-test has captures waiting.
 
 They land in `<cache dir>/weave-frames/<agent id>/`, so
 `~/Library/Caches/weave/weave-frames/<agent id>/` for the development instance and
