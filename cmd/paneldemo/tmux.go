@@ -30,9 +30,8 @@ const (
 
 // noPanes answers the panel's questions about tmux as though it holds the window alone.
 type noPanes struct {
-	// stage makes every split answer with a pane, which is how the screens that put another
-	// process on the stage can be looked at: the panel draws its sidebar alone, as it would with
-	// an editor or an agent's terminal beside it, and the rest of the window stays empty.
+	// stage makes every split answer with a pane, so the panel draws its sidebar alone the way it
+	// would beside a real one.
 	stage bool
 }
 

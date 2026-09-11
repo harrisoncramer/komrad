@@ -23,7 +23,7 @@ type reviewFake struct {
 	reviews []*agentv1.Review
 	threads []*agentv1.ReviewThread
 	viewed  []*agentv1.ReviewViewedFile
-	// written counts the comments typed into the demo, which names the ones it makes up.
+	// written is how many comments have been typed into the demo, which names the ids it makes up.
 	written int
 }
 

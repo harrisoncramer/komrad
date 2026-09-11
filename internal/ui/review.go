@@ -53,10 +53,8 @@ type reviewState struct {
 	// editing is the thread a composed message is going into, empty when it will open a new
 	// thread on the line under the cursor.
 	editing string
-	// atEditor says your own editor holds the stage, so the diff is not drawn and the keys
-	// belong to the editor rather than to the panel.
-	atEditor bool
-	// editingPath is the file the editor was opened on, relative to the worktree.
+	// atEditor says your own editor holds the stage, so the panel draws its sidebar alone.
+	atEditor    bool
 	editingPath string
 	// editorPane is the pane the editor was given, empty where the split was refused, which is
 	// what says whether a pane going away is the editor being closed.

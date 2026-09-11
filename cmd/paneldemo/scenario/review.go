@@ -59,8 +59,7 @@ func reviewRounds() []*agentv1.ReviewRound {
 		{Id: "round-1", AgentId: reviewAgentID, Ordinal: 1, CreatedAt: ago(3 * time.Hour)},
 		{Id: "round-2", AgentId: reviewAgentID, Ordinal: 2, CreatedAt: ago(80 * time.Minute)},
 		{Id: "round-3", AgentId: reviewAgentID, Ordinal: 3, CreatedAt: ago(6 * time.Minute)},
-		// The idle agent's own round, which is where editing can be tried, the other agent being
-		// part way through a turn.
+		// The idle agent's own round, which is where editing can be tried.
 		{Id: "round-t", AgentId: "agent-treesitter", Ordinal: 3, CreatedAt: ago(20 * time.Minute)},
 	}
 }
