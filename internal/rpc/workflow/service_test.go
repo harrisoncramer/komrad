@@ -581,6 +581,7 @@ func service(t *testing.T) (*Service, *storetest.Stores) {
 		Workflows:      st.Workflows,
 		EmptyWorkflows: emptied,
 		Tx:             st.Pool,
+		Snapshots:      agents.GitSnapshotter{},
 	})
 	manager := agents.NewWorkflowService(agents.NewWorkflowServiceParams{
 		Workflows:    st.Workflows,

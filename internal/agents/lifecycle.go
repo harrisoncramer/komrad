@@ -10,7 +10,6 @@ import (
 
 	"weave/config"
 	"weave/internal/frames"
-	"weave/internal/git"
 	"weave/internal/logging"
 	"weave/internal/store"
 	"weave/lib/xslice"
@@ -50,6 +49,7 @@ type LifecycleService struct {
 	tx             txRunner
 	scripts        agentScriptRunner
 	reviews        reviewReaper
+	snapshots      snapshotReleaser
 	logsDir        string
 	framesDir      string
 	maxAgents      int
@@ -66,6 +66,7 @@ type NewLifecycleServiceParams struct {
 	Tx             txRunner
 	Scripts        agentScriptRunner
 	Reviews        reviewReaper
+	Snapshots      snapshotReleaser
 	LogsDir        string
 	FramesDir      string
 	MaxAgents      int
@@ -82,6 +83,7 @@ func NewLifecycleService(params NewLifecycleServiceParams) *LifecycleService {
 		tx:             params.Tx,
 		scripts:        params.Scripts,
 		reviews:        params.Reviews,
+		snapshots:      params.Snapshots,
 		logsDir:        params.LogsDir,
 		framesDir:      params.FramesDir,
 		maxAgents:      params.MaxAgents,
@@ -552,7 +554,7 @@ func (s *LifecycleService) releaseRounds(ctx context.Context, ids []string) {
 		}
 
 		for _, round := range rounds {
-			if err := git.ReleaseRef(ctx, agent.Cwd, roundRef(agent.ID, round.SnapshotSHA)); err != nil {
+			if err := s.snapshots.Release(ctx, agent.Cwd, roundRef(agent.ID, round.SnapshotSHA)); err != nil {
 				logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to release the snapshot of a round",
 					append([]slog.Attr{slog.String(logging.AgentID, agent.ID)}, logging.Err(err)...)...)
 			}

@@ -46,11 +46,67 @@ type rebaseAgentReadWriter interface {
 	metadataSetter
 }
 
+// worktreeRebaser is the git a rebase reads the checkout through and moves the branch with.
+type worktreeRebaser interface {
+	ReadTreeState(ctx context.Context, dir string) (git.TreeState, error)
+	FetchBase(ctx context.Context, dir, base string) (ref, sha string, err error)
+	CountCommitsToReplay(ctx context.Context, dir, ref string) (int, error)
+	PredictRebase(ctx context.Context, dir, ref string) (git.Prediction, error)
+	Park(ctx context.Context, dir, ref string) (string, error)
+	ReleaseRefsUnder(ctx context.Context, dir, prefix, keep string) error
+	Rebase(ctx context.Context, dir, ref string) error
+	RebaseOnto(ctx context.Context, dir, ref, cutoff string) error
+}
+
+// GitRebaser moves a branch onto its base with git.
+type GitRebaser struct{}
+
+// ReadTreeState reports what the checkout is holding.
+func (GitRebaser) ReadTreeState(ctx context.Context, dir string) (git.TreeState, error) {
+	return git.ReadTreeState(ctx, dir)
+}
+
+// FetchBase brings the base branch up to date and names what it resolved to.
+func (GitRebaser) FetchBase(ctx context.Context, dir, base string) (ref, sha string, err error) {
+	return git.FetchBase(ctx, dir, base)
+}
+
+// CountCommitsToReplay is how many of the branch's own commits sit above the base.
+func (GitRebaser) CountCommitsToReplay(ctx context.Context, dir, ref string) (int, error) {
+	return git.CountCommitsToReplay(ctx, dir, ref)
+}
+
+// PredictRebase reads what a rebase would do without moving anything.
+func (GitRebaser) PredictRebase(ctx context.Context, dir, ref string) (git.Prediction, error) {
+	return git.PredictRebase(ctx, dir, ref)
+}
+
+// Park holds the checkout as it stands under a ref of its own.
+func (GitRebaser) Park(ctx context.Context, dir, ref string) (string, error) {
+	return git.Park(ctx, dir, ref)
+}
+
+// ReleaseRefsUnder drops every ref under a prefix apart from the one to keep.
+func (GitRebaser) ReleaseRefsUnder(ctx context.Context, dir, prefix, keep string) error {
+	return git.ReleaseRefsUnder(ctx, dir, prefix, keep)
+}
+
+// Rebase replays the branch's commits onto the base.
+func (GitRebaser) Rebase(ctx context.Context, dir, ref string) error {
+	return git.Rebase(ctx, dir, ref)
+}
+
+// RebaseOnto replays only what follows the cutoff, which is what a squashed branch needs.
+func (GitRebaser) RebaseOnto(ctx context.Context, dir, ref, cutoff string) error {
+	return git.RebaseOnto(ctx, dir, ref, cutoff)
+}
+
 type NewRebaseServiceParams struct {
 	Agents      rebaseAgentReadWriter
 	Workflows   workflowReader
 	Interrupter agentInterrupter
 	Notifier    systemMailSender
+	Rebaser     worktreeRebaser
 	Locks       *TreeLocks
 }
 
@@ -60,6 +116,7 @@ type RebaseService struct {
 	workflows   workflowReader
 	interrupter agentInterrupter
 	notifier    systemMailSender
+	rebaser     worktreeRebaser
 	locks       *TreeLocks
 }
 
@@ -75,6 +132,7 @@ func NewRebaseService(params NewRebaseServiceParams) *RebaseService {
 		workflows:   params.Workflows,
 		interrupter: params.Interrupter,
 		notifier:    params.Notifier,
+		rebaser:     params.Rebaser,
 		locks:       locks,
 	}
 }
@@ -121,7 +179,7 @@ func (s *RebaseService) PlanRebase(ctx context.Context, agentID string) (*Rebase
 		return nil, err
 	}
 
-	state, err := git.ReadTreeState(ctx, agent.Cwd)
+	state, err := s.rebaser.ReadTreeState(ctx, agent.Cwd)
 	if err != nil {
 		return nil, err
 	}
@@ -134,17 +192,17 @@ func (s *RebaseService) PlanRebase(ctx context.Context, agentID string) (*Rebase
 		base = flow.Worktree.BaseBranch
 	}
 
-	ref, sha, err := git.FetchBase(ctx, agent.Cwd, base)
+	ref, sha, err := s.rebaser.FetchBase(ctx, agent.Cwd, base)
 	if err != nil {
 		return nil, err
 	}
 
-	commits, err := git.CountCommitsToReplay(ctx, agent.Cwd, ref)
+	commits, err := s.rebaser.CountCommitsToReplay(ctx, agent.Cwd, ref)
 	if err != nil {
 		return nil, err
 	}
 
-	prediction, err := git.PredictRebase(ctx, agent.Cwd, ref)
+	prediction, err := s.rebaser.PredictRebase(ctx, agent.Cwd, ref)
 	if err != nil {
 		return nil, err
 	}
@@ -194,7 +252,7 @@ func (s *RebaseService) Rebase(ctx context.Context, agentID string) (*RebaseResu
 	// Parked before anything moves, since a replay from a cutoff drops commits on purpose and
 	// the reflog holds refs rather than the files that were never committed.
 	result.ParkedRef = buildParkRef(agentID)
-	if _, err := git.Park(ctx, agent.Cwd, result.ParkedRef); err != nil {
+	if _, err := s.rebaser.Park(ctx, agent.Cwd, result.ParkedRef); err != nil {
 		return nil, err
 	}
 
@@ -224,7 +282,7 @@ func buildParkRef(agentID string) string {
 // whole worktree in the shared clone and nothing else ever collects them.
 func (s *RebaseService) releaseOlderParks(ctx context.Context, agent agentstore.Agent, keep string) {
 	prefix := fmt.Sprintf("refs/weave/prerefresh/%s/", agent.ID)
-	if err := git.ReleaseRefsUnder(ctx, agent.Cwd, prefix, keep); err != nil {
+	if err := s.rebaser.ReleaseRefsUnder(ctx, agent.Cwd, prefix, keep); err != nil {
 		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to release the older parks of a rebased agent",
 			append([]slog.Attr{slog.String(logging.AgentID, agent.ID)}, logging.Err(err)...)...)
 	}
@@ -235,9 +293,9 @@ func (s *RebaseService) releaseOlderParks(ctx context.Context, agent agentstore.
 func (s *RebaseService) move(ctx context.Context, dir string, result *RebaseResult) error {
 	// Replayed from the cutoff when the base already holds part of this branch, which is what a
 	// squash merge leaves behind: replaying those commits would collide with their own content.
-	replay := func() error { return git.Rebase(ctx, dir, result.BaseRef) }
+	replay := func() error { return s.rebaser.Rebase(ctx, dir, result.BaseRef) }
 	if result.Cutoff != "" {
-		replay = func() error { return git.RebaseOnto(ctx, dir, result.BaseRef, result.Cutoff) }
+		replay = func() error { return s.rebaser.RebaseOnto(ctx, dir, result.BaseRef, result.Cutoff) }
 	}
 
 	err := replay()

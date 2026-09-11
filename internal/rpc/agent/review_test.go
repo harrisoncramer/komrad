@@ -136,6 +136,8 @@ func (fakeSnapshotter) Take(context.Context, git.TakeSnapshotParams) (*git.Snaps
 
 func (fakeSnapshotter) Hold(context.Context, string, string, string) error { return nil }
 
+func (fakeSnapshotter) Release(context.Context, string, string) error { return nil }
+
 func (fakeSnapshotter) FileAt(context.Context, string, string, string) ([]string, error) {
 	return nil, nil
 }

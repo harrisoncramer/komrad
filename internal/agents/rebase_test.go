@@ -94,6 +94,7 @@ func TestRebaseRefusals(t *testing.T) {
 			service := NewRebaseService(NewRebaseServiceParams{
 				Agents:    fakeRebaseAgents{agent: agent},
 				Workflows: fakeRebaseWorkflows{flow: flow},
+				Rebaser:   &fakeRebaser{},
 			})
 
 			_, err := service.Rebase(t.Context(), "a1")
@@ -114,6 +115,7 @@ func TestRebaseRefusesAnArchivedAgent(t *testing.T) {
 			State: agentstore.StateIdle, ArchivedAt: &at,
 		}},
 		Workflows: fakeRebaseWorkflows{flow: worktreeFlow()},
+		Rebaser:   &fakeRebaser{},
 	})
 
 	_, err := service.Rebase(t.Context(), "a1")
@@ -137,6 +139,7 @@ func TestRebaseTakesTheTreeLock(t *testing.T) {
 		}},
 		Workflows: fakeRebaseWorkflows{flow: worktreeFlow()},
 		Locks:     locks,
+		Rebaser:   &fakeRebaser{},
 	})
 
 	_, err := service.Rebase(t.Context(), "a1")
@@ -245,6 +248,7 @@ func TestRebaseAndThePullRequest(t *testing.T) {
 			service := NewRebaseService(NewRebaseServiceParams{
 				Agents:    agents,
 				Workflows: fakeRebaseWorkflows{flow: worktreeFlow()},
+				Rebaser:   GitRebaser{},
 			})
 
 			result, err := service.Rebase(t.Context(), "a1")
@@ -255,6 +259,57 @@ func TestRebaseAndThePullRequest(t *testing.T) {
 			assert.Equal(t, tt.wantCleared, agents.clearedPR, "the row is written only when the branch moved")
 		})
 	}
+}
+
+// fakeRebaser answers as a checkout with no repository behind it.
+type fakeRebaser struct {
+	state      git.TreeState
+	prediction git.Prediction
+	commits    int
+	parked     []string
+	cutoff     string
+	// calls is what was asked of git, in the order it was asked.
+	calls []string
+}
+
+func (f *fakeRebaser) ReadTreeState(context.Context, string) (git.TreeState, error) {
+	return f.state, nil
+}
+
+func (f *fakeRebaser) FetchBase(_ context.Context, _, _ string) (ref, sha string, err error) {
+	return "origin/main", "basesha", nil
+}
+
+func (f *fakeRebaser) CountCommitsToReplay(context.Context, string, string) (int, error) {
+	return f.commits, nil
+}
+
+func (f *fakeRebaser) PredictRebase(context.Context, string, string) (git.Prediction, error) {
+	return f.prediction, nil
+}
+
+func (f *fakeRebaser) Park(_ context.Context, _, ref string) (string, error) {
+	f.parked = append(f.parked, ref)
+	f.calls = append(f.calls, "park")
+
+	return "parkedsha", nil
+}
+
+func (f *fakeRebaser) ReleaseRefsUnder(context.Context, string, string, string) error {
+	return nil
+}
+
+func (f *fakeRebaser) Rebase(context.Context, string, string) error {
+	f.calls = append(f.calls, "rebase")
+
+	return nil
+}
+
+func (f *fakeRebaser) RebaseOnto(_ context.Context, _, _, cutoff string) error {
+	f.cutoff = cutoff
+	f.calls = append(f.calls, "rebaseOnto")
+
+	return nil
 }
 
 // buildAgentWorktree is an origin, a clone and a worktree on an agent branch that is behind it,
@@ -347,6 +402,7 @@ func TestRebaseFastForwardsASquashedBranch(t *testing.T) {
 	service := NewRebaseService(NewRebaseServiceParams{
 		Agents:    agents,
 		Workflows: fakeRebaseWorkflows{flow: worktreeFlow()},
+		Rebaser:   GitRebaser{},
 	})
 
 	result, err := service.Rebase(t.Context(), "a1")
@@ -378,6 +434,7 @@ func TestRebaseReplaysWhenTheTreesDiffer(t *testing.T) {
 			ID: "a1", Name: "auth", WorkflowID: "w1", Cwd: tree, State: agentstore.StateIdle,
 		}},
 		Workflows: fakeRebaseWorkflows{flow: worktreeFlow()},
+		Rebaser:   GitRebaser{},
 	})
 
 	result, err := service.Rebase(t.Context(), "a1")
@@ -451,6 +508,7 @@ func TestRebaseReplaysOnlyWhatFollowedTheMerge(t *testing.T) {
 			ID: "a1", Name: "auth", WorkflowID: "w1", Cwd: tree, State: agentstore.StateIdle,
 		}},
 		Workflows: fakeRebaseWorkflows{flow: worktreeFlow()},
+		Rebaser:   GitRebaser{},
 	})
 
 	result, err := service.Rebase(t.Context(), "a1")
@@ -482,6 +540,7 @@ func TestRebaseRefusesAPathTheIndexIsHolding(t *testing.T) {
 			ID: "a1", Name: "auth", WorkflowID: "w1", Cwd: tree, State: agentstore.StateIdle,
 		}},
 		Workflows: fakeRebaseWorkflows{flow: worktreeFlow()},
+		Rebaser:   GitRebaser{},
 	})
 
 	_, err := service.Rebase(t.Context(), "a1")
@@ -503,6 +562,7 @@ func TestRebaseParksBeforeItMoves(t *testing.T) {
 			ID: "a1", Name: "auth", WorkflowID: "w1", Cwd: tree, State: agentstore.StateIdle,
 		}},
 		Workflows: fakeRebaseWorkflows{flow: worktreeFlow()},
+		Rebaser:   GitRebaser{},
 	})
 
 	result, err := service.Rebase(t.Context(), "a1")
@@ -519,42 +579,70 @@ func TestRebaseParksBeforeItMoves(t *testing.T) {
 	assert.Equal(t, "never committed", kept, "and so is the work that was never committed")
 }
 
-// TestRebaseMailsForAnAgentWithNoWorkOfItsOwn is the commonest press of all, where the agent is
-// simply behind, and must not be told its commits are gone when it never had any.
-func TestRebaseMailsForAnAgentWithNoWorkOfItsOwn(t *testing.T) {
+// TestRebaseParksBeforeItAsksGitToMove pins the order the whole undo depends on, since a park
+// taken after the branch moved would hold what the move already did.
+func TestRebaseParksBeforeItAsksGitToMove(t *testing.T) {
 	t.Parallel()
 
-	root := t.TempDir()
-	origin := filepath.Join(root, "origin")
-	gitRun(t, root, "init", "--quiet", "-b", "main", origin)
-	gitRun(t, origin, "config", "user.email", "t@example.com")
-	gitRun(t, origin, "config", "user.name", "t")
-	writeTree(t, origin, "base.txt", "base\n")
-	gitRun(t, origin, "add", "base.txt")
-	gitRun(t, origin, "commit", "--quiet", "-m", "base")
-
-	clone := filepath.Join(root, "clone")
-	gitRun(t, root, "clone", "--quiet", origin, clone)
-	gitRun(t, clone, "config", "user.email", "t@example.com")
-	gitRun(t, clone, "config", "user.name", "t")
-
-	tree := filepath.Join(root, "tree")
-	gitRun(t, clone, "worktree", "add", "--quiet", "--no-track", "-b", "agent/a1", tree, "origin/main")
-
-	writeTree(t, origin, "moved.txt", "main moved on\n")
-	gitRun(t, origin, "add", "moved.txt")
-	gitRun(t, origin, "commit", "--quiet", "-m", "main moved on")
+	rebaser := &fakeRebaser{state: git.TreeState{Branch: "agent/a1"}}
 
 	service := NewRebaseService(NewRebaseServiceParams{
 		Agents: &recordingRebaseAgents{agent: agentstore.Agent{
-			ID: "a1", Name: "auth", WorkflowID: "w1", Cwd: tree, State: agentstore.StateIdle,
+			ID: "a1", Name: "auth", WorkflowID: "w1", Cwd: "/tree", State: agentstore.StateIdle,
 		}},
 		Workflows: fakeRebaseWorkflows{flow: worktreeFlow()},
+		Rebaser:   rebaser,
+	})
+
+	_, err := service.Rebase(t.Context(), "a1")
+	require.NoError(t, err)
+
+	require.Len(t, rebaser.parked, 1)
+	assert.Equal(t, []string{"park", "rebase"}, rebaser.calls)
+}
+
+// TestRebaseReplaysFromACutoffWhenThePlanFindsOne covers the branch a squash merge needs, where
+// replaying every commit would collide with content the base already holds.
+func TestRebaseReplaysFromACutoffWhenThePlanFindsOne(t *testing.T) {
+	t.Parallel()
+
+	rebaser := &fakeRebaser{
+		state:      git.TreeState{Branch: "agent/a1"},
+		prediction: git.Prediction{Cutoff: "cutoffsha", Landed: 2, Replay: 1},
+	}
+
+	service := NewRebaseService(NewRebaseServiceParams{
+		Agents: &recordingRebaseAgents{agent: agentstore.Agent{
+			ID: "a1", Name: "auth", WorkflowID: "w1", Cwd: "/tree", State: agentstore.StateIdle,
+		}},
+		Workflows: fakeRebaseWorkflows{flow: worktreeFlow()},
+		Rebaser:   rebaser,
 	})
 
 	result, err := service.Rebase(t.Context(), "a1")
 	require.NoError(t, err)
-	require.Zero(t, result.Landed, "the fixture must be a branch that never had work of its own")
+
+	assert.Equal(t, "cutoffsha", result.Cutoff)
+	assert.Equal(t, "cutoffsha", rebaser.cutoff, "the cutoff the plan found is the one git is given")
+	assert.Equal(t, []string{"park", "rebaseOnto"}, rebaser.calls, "a plain rebase would collide with the landed content")
+}
+
+// TestRebaseMailsForAnAgentWithNoWorkOfItsOwn is the commonest press of all, where the agent is
+// simply behind and must not be told its commits are gone when it never had any.
+func TestRebaseMailsForAnAgentWithNoWorkOfItsOwn(t *testing.T) {
+	t.Parallel()
+
+	service := NewRebaseService(NewRebaseServiceParams{
+		Agents: &recordingRebaseAgents{agent: agentstore.Agent{
+			ID: "a1", Name: "auth", WorkflowID: "w1", Cwd: "/tree", State: agentstore.StateIdle,
+		}},
+		Workflows: fakeRebaseWorkflows{flow: worktreeFlow()},
+		Rebaser:   &fakeRebaser{state: git.TreeState{Branch: "agent/a1"}},
+	})
+
+	result, err := service.Rebase(t.Context(), "a1")
+	require.NoError(t, err)
+	require.Zero(t, result.Landed, "a branch that never had work of its own")
 
 	assert.False(t, result.Moved, "nothing landed, so nothing was moved off the branch")
 	body := rebaseMail(agentstore.Agent{}, *result)
