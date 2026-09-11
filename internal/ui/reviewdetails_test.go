@@ -127,7 +127,7 @@ func TestReviewDimsTheCursorWhileTheRecordHasTheKeys(t *testing.T) {
 // earlier review to measure from, since the legend is a row longer in that case and it is the case
 // the pane is least likely to hold.
 func TestReviewRecordGivesWayInASmallPane(t *testing.T) {
-	dir := reviewRepo(t)
+	dir := realReviewRepo(t)
 	agents := &fakeReviewAgents{}
 	m := reviewWithAnEarlierReview(t, dir, agents)
 

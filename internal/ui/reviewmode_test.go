@@ -119,7 +119,7 @@ func TestReviewIsHistoryReadsTheDiffOnScreen(t *testing.T) {
 // standing on a round: the walk goes with it, and the diff that arrived was measured for the
 // round they were on, so drawing it under the whole change's label reads as current work.
 func TestReloadWithNoChaptersLetsTheReaderOut(t *testing.T) {
-	dir := reviewRepo(t)
+	dir := realReviewRepo(t)
 	agents := &fakeReviewAgents{}
 	m := reviewWithAnEarlierReview(t, dir, agents)
 	m = pressReviewBase(t, m)
@@ -379,7 +379,7 @@ func reviewRowWithAnEditTarget(t *testing.T, m model) int {
 func TestAnEditRefusedOnADeletedFileOpensNoMode(t *testing.T) {
 	dir := reviewRepoWithADeletion(t)
 	agents := &fakeReviewAgents{}
-	m, _ := reviewModel(t, agents, dir)
+	m, _ := realReviewModel(t, agents, dir)
 	m = openReview(t, m)
 
 	m.review.cursor = reviewRowInDeletedFile(t, m)
@@ -634,7 +634,7 @@ func reviewAnchorInTheDiff(t *testing.T, m model) review.Anchor {
 // that answers with a short walk lands: the diff it was anchored to is taken away, and the submit
 // key read it anyway.
 func TestAComposerDoesNotOutliveTheDiffItWasWrittenOn(t *testing.T) {
-	dir := reviewRepo(t)
+	dir := realReviewRepo(t)
 	agents := &fakeReviewAgents{}
 	m := reviewWithAnEarlierReview(t, dir, agents)
 	m = pressReviewBase(t, m)
@@ -779,7 +779,7 @@ func TestComposingOnARowWithNoLineSaysSo(t *testing.T) {
 // the mode split left with no test of its own: the newest round is narrowed on its base and
 // writing there is allowed, so the base it was counted from still has to reach the service.
 func TestACommentOnTheNewestRoundRecordsItsBase(t *testing.T) {
-	dir := reviewRepo(t)
+	dir := realReviewRepo(t)
 	agents := &fakeReviewAgents{}
 
 	m := reviewWithAnEarlierReview(t, dir, agents)

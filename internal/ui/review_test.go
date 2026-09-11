@@ -37,6 +37,7 @@ type fakeReviewAgents struct {
 	replied    *agentv1.AddReviewMessageRequest
 	released   *agentv1.ReleaseReviewRequest
 	dir        string
+	repo       *fakeRepo
 	rounds     []*agentv1.ReviewRound
 	reviews    []*agentv1.Review
 	marked     *agentv1.SetReviewFileViewedRequest
@@ -95,27 +96,34 @@ func (f *fakeReviewAgents) ReleaseReview(
 	return connect.NewResponse(&agentv1.ReleaseReviewResponse{Comments: 1}), nil
 }
 
-// OpenReviewRound takes a real snapshot of the repository under test.
+// OpenReviewRound hands back the round the worktree stands at.
 func (f *fakeReviewAgents) OpenReviewRound(
 	ctx context.Context,
 	req *connect.Request[agentv1.OpenReviewRoundRequest],
 ) (*connect.Response[agentv1.OpenReviewRoundResponse], error) {
-	snapshot, err := git.NewClient().TakeSnapshot(ctx, git.TakeSnapshotParams{Dir: f.dir, Base: "main"})
-	if err != nil {
-		return nil, err
-	}
+	// A test over a repository on disk gets the round that repository is actually at, and one
+	// reading through the fake gets the round the fixture stands for.
+	sha, baseSHA := fakeSnapshotSHA, fakeBaseSHA
+	if f.repo == nil {
+		snapshot, err := git.NewClient().TakeSnapshot(ctx, git.TakeSnapshotParams{Dir: f.dir, Base: "main"})
+		if err != nil {
+			return nil, err
+		}
 
-	if len(f.rounds) == 0 || f.rounds[len(f.rounds)-1].GetSnapshotSha() != snapshot.SHA {
 		if err := git.NewClient().HoldRef(ctx, f.dir, "refs/weave/rounds/"+snapshot.SHA, snapshot.SHA); err != nil {
 			return nil, err
 		}
 
+		sha, baseSHA = snapshot.SHA, snapshot.BaseSHA
+	}
+
+	if len(f.rounds) == 0 || f.rounds[len(f.rounds)-1].GetSnapshotSha() != sha {
 		f.rounds = append(f.rounds, &agentv1.ReviewRound{
 			Id:          fmt.Sprintf("round-%d", len(f.rounds)+1),
 			AgentId:     req.Msg.GetAgentId(),
 			Ordinal:     int32(len(f.rounds) + 1),
-			BaseSha:     snapshot.BaseSHA,
-			SnapshotSha: snapshot.SHA,
+			BaseSha:     baseSHA,
+			SnapshotSha: sha,
 		})
 	}
 
@@ -201,20 +209,41 @@ func (f *fakeReviewAgents) CreateReviewThread(
 	}), nil
 }
 
-// reviewRepo is a worktree with one committed file and one uncommitted change, which is the
-// shape the diff loader expects: a base branch to measure against and work sitting past it.
+// reviewRepo is the directory a review is read from, holding no repository.
 func reviewRepo(t *testing.T) string {
+	t.Helper()
+
+	return t.TempDir()
+}
+
+// realReviewModel is a review screen over a repository on disk, for the tests that are about
+// what git does with one.
+func realReviewModel(t *testing.T, agents agentv1connect.AgentServiceClient, dir string) (model, *recordingTmux) {
+	t.Helper()
+
+	m, tmux := reviewModel(t, agents, dir)
+	m.git = git.NewClient()
+
+	if fake, ok := agents.(*fakeReviewAgents); ok {
+		fake.repo = nil
+	}
+
+	return m, tmux
+}
+
+// realReviewRepo is a repository on disk, for the tests that are about what git does with one.
+func realReviewRepo(t *testing.T) string {
 	t.Helper()
 
 	dir := t.TempDir()
 
 	gitIn(t, dir, "init", "-b", "main")
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "greet.go"),
-		[]byte("package greet\n\nfunc Hello() string {\n\treturn \"hello\"\n}\n"), 0o644))
+		[]byte(fakeBaseSource), 0o644))
 	gitIn(t, dir, "add", ".")
 	gitIn(t, dir, "commit", "-m", "first")
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "greet.go"),
-		[]byte("package greet\n\nfunc Hello() string {\n\treturn \"goodbye\"\n}\n"), 0o644))
+		[]byte(fakeHeadSource), 0o644))
 
 	return dir
 }
@@ -241,14 +270,17 @@ func gitCmd(t *testing.T, dir string, args ...string) *exec.Cmd {
 func reviewModel(t *testing.T, agents agentv1connect.AgentServiceClient, dir string) (model, *recordingTmux) {
 	t.Helper()
 
+	repo := newFakeRepo(dir)
+
 	tmux := &recordingTmux{width: 200, height: 30}
 	if fake, ok := agents.(*fakeReviewAgents); ok {
 		fake.dir = dir
+		fake.repo = repo
 	}
 
 	m := infoModel(tmux)
 	m.api = api{agents: agents}
-	m.git = git.NewClient()
+	m.git = repo
 	// The review holds the whole window, so this is the size the rest of the panel's screens are
 	// measured at.
 	m.width, m.height = 200, 30
@@ -321,10 +353,10 @@ func enterReview(t *testing.T, m model) model {
 // TestEnterReviewRefusesAnEmptyWorktree pins the drop back to the listing for an agent that has
 // written nothing.
 func TestEnterReviewRefusesAnEmptyWorktree(t *testing.T) {
-	dir := reviewRepo(t)
+	dir := realReviewRepo(t)
 	gitIn(t, dir, "commit", "-am", "second")
 
-	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
+	m, _ := realReviewModel(t, &fakeReviewAgents{}, dir)
 
 	m = enterReview(t, m)
 
@@ -338,11 +370,11 @@ func TestEnterReviewRefusesAnEmptyWorktree(t *testing.T) {
 // TestEnterReviewOpensAnUntrackedFile covers the worktree whose only work is a file git has
 // never seen, which is a diff to read even though git will draw none of it.
 func TestEnterReviewOpensAnUntrackedFile(t *testing.T) {
-	dir := reviewRepo(t)
+	dir := realReviewRepo(t)
 	gitIn(t, dir, "commit", "-am", "second")
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "new.go"), []byte("package greet\n"), 0o644))
 
-	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
+	m, _ := realReviewModel(t, &fakeReviewAgents{}, dir)
 
 	m = openReview(t, m)
 
@@ -852,7 +884,7 @@ func TestReviewRendersWhileLoading(t *testing.T) {
 // reader is put back on the listing and told through the messages region rather than left in a
 // viewer with the raw error drawn in the sidebar.
 func TestReviewReportsAFailedLoad(t *testing.T) {
-	m, _ := reviewModel(t, &fakeReviewAgents{}, t.TempDir())
+	m, _ := realReviewModel(t, &fakeReviewAgents{}, t.TempDir())
 
 	m = enterReview(t, m)
 
@@ -1390,14 +1422,14 @@ func TestReviewSearchWithNoMatchesSaysSo(t *testing.T) {
 // TestReviewFileJumpSurvivesARepaint covers a window pinned by a file jump holding across a
 // repaint.
 func TestReviewFileJumpSurvivesARepaint(t *testing.T) {
-	dir := reviewRepo(t)
+	dir := realReviewRepo(t)
 
 	// A jump needs somewhere to land, and the repository the other tests share holds one file.
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "second.go"),
 		[]byte("package greet\n\nfunc Second() string {\n\treturn \"second\"\n}\n"), 0o644))
 
 	agents := &fakeReviewAgents{}
-	m, _ := reviewModel(t, agents, dir)
+	m, _ := realReviewModel(t, agents, dir)
 	m = openReview(t, m)
 
 	next, _ := m.updateReview(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("]")})
@@ -1493,9 +1525,9 @@ func TestMarkingAFileViewedFoldsItAway(t *testing.T) {
 // reopening an unmoved tree finds the file still folded, and a round the agent has written into
 // starts with nothing read.
 func TestAViewedFileComesBackInTheNextRound(t *testing.T) {
-	dir := reviewRepo(t)
+	dir := realReviewRepo(t)
 	agents := &fakeReviewAgents{}
-	m, _ := reviewModel(t, agents, dir)
+	m, _ := realReviewModel(t, agents, dir)
 	m = openReview(t, m)
 
 	next, cmd := m.updateReview(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("v")})
@@ -1546,9 +1578,9 @@ func TestReviewMatchCountSpellsMatchesOffAMatch(t *testing.T) {
 // TestReviewBaseNarrowsToTheLastReview covers the question a second round is about: the diff
 // measured from the round the person last reviewed rather than from the fork point.
 func TestReviewBaseNarrowsToTheLastReview(t *testing.T) {
-	dir := reviewRepo(t)
+	dir := realReviewRepo(t)
 	agents := &fakeReviewAgents{}
-	m, _ := reviewModel(t, agents, dir)
+	m, _ := realReviewModel(t, agents, dir)
 
 	m = openReview(t, m)
 	require.Len(t, agents.rounds, 1, "the first look takes a round")
@@ -1605,7 +1637,7 @@ func TestReviewBaseNarrowsToTheLastReview(t *testing.T) {
 func reviewWithAnEarlierReview(t *testing.T, dir string, agents *fakeReviewAgents) model {
 	t.Helper()
 
-	m, _ := reviewModel(t, agents, dir)
+	m, _ := realReviewModel(t, agents, dir)
 	m = openReview(t, m)
 	require.Len(t, agents.rounds, 1)
 
@@ -1670,10 +1702,10 @@ func pressReviewBase(t *testing.T, m model) model {
 // one already reviewed, where narrowing draws nothing and used to throw the reader out of the
 // screen with the notice an empty agent gets.
 func TestReviewBaseSaysSoWhenNothingChangedSinceThatReview(t *testing.T) {
-	dir := reviewRepo(t)
+	dir := realReviewRepo(t)
 	agents := &fakeReviewAgents{}
 
-	m, _ := reviewModel(t, agents, dir)
+	m, _ := realReviewModel(t, agents, dir)
 	m = openReview(t, m)
 	first := agents.rounds[0]
 
@@ -1705,7 +1737,7 @@ func TestReviewBaseSaysSoWhenNothingChangedSinceThatReview(t *testing.T) {
 // comment could ask it to change, and carrying the reader forward would land them somewhere they
 // never chose.
 func TestWritingIsRefusedOnAFinishedRound(t *testing.T) {
-	dir := reviewRepo(t)
+	dir := realReviewRepo(t)
 	agents := &fakeReviewAgents{}
 
 	m := reviewWithAnEarlierReview(t, dir, agents)
@@ -1751,9 +1783,9 @@ func TestWritingIsRefusedOnAFinishedRound(t *testing.T) {
 // TestReviewBaseIsRefusedWhenTheBaseMoved covers two rounds measured from different points, where
 // a diff of the two snapshots would carry whatever else moved on the base.
 func TestReviewBaseIsRefusedWhenTheBaseMoved(t *testing.T) {
-	dir := reviewRepo(t)
+	dir := realReviewRepo(t)
 	agents := &fakeReviewAgents{}
-	m, _ := reviewModel(t, agents, dir)
+	m, _ := realReviewModel(t, agents, dir)
 
 	m = openReview(t, m)
 	first := agents.rounds[0]
