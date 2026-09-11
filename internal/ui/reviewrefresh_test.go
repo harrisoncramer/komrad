@@ -337,8 +337,8 @@ func TestReviewRefreshSaysNothingWhenTheReadFails(t *testing.T) {
 // TestReviewDiffPollCatchesUpOnceTheTurnIsOver covers what watching is for: the worktree is
 // hashed in the background, and a move an idle agent left behind is read again on its own.
 func TestReviewDiffPollCatchesUpOnceTheTurnIsOver(t *testing.T) {
-	dir := reviewRepo(t)
-	m, tmux := reviewModel(t, &fakeReviewAgents{}, dir)
+	dir := realReviewRepo(t)
+	m, tmux := realReviewModel(t, &fakeReviewAgents{}, dir)
 	m = openReview(t, m)
 
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "greet.go"),
@@ -390,8 +390,8 @@ func TestReviewDiffPollIgnoresAWorktreeThatHasNotMoved(t *testing.T) {
 // the review is open: catching up finds nothing to show, so the reader is put back on the listing
 // rather than left in a diff viewer with no diff in it.
 func TestReviewBacksOutWhenTheWorktreeWasEmptied(t *testing.T) {
-	dir := reviewRepo(t)
-	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
+	dir := realReviewRepo(t)
+	m, _ := realReviewModel(t, &fakeReviewAgents{}, dir)
 	m = openReview(t, m)
 
 	gitIn(t, dir, "checkout", "--", ".")
@@ -412,8 +412,8 @@ func TestReviewBacksOutWhenTheWorktreeWasEmptied(t *testing.T) {
 // TestReviewReloadKeyOpensTheNextRound pins the opt-in: the reader asks for the next round, and
 // lands back where they were standing in the new one.
 func TestReviewReloadKeyOpensTheNextRound(t *testing.T) {
-	dir := reviewRepo(t)
-	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
+	dir := realReviewRepo(t)
+	m, _ := realReviewModel(t, &fakeReviewAgents{}, dir)
 	m = openReview(t, m)
 
 	first := m.review.round.GetOrdinal()
@@ -546,13 +546,13 @@ func TestANoticeCoversWhatChangedAndGivesItBack(t *testing.T) {
 // an agent that has written nothing and one whose every line is in a path the workflow hides both
 // leave the screen empty, and only one of them means the agent has not worked.
 func TestReviewSaysWhenEverythingIsExcluded(t *testing.T) {
-	dir := reviewRepo(t)
+	dir := realReviewRepo(t)
 	gitIn(t, dir, "checkout", "--", ".")
 	require.NoError(t, os.MkdirAll(filepath.Join(dir, "proto", "gen"), 0o755))
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "proto", "gen", "api.pb.go"),
 		[]byte("package gen\n"), 0o644))
 
-	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
+	m, _ := realReviewModel(t, &fakeReviewAgents{}, dir)
 	m = openReview(t, m)
 
 	loaded, ok := m.loadReviewCmd(loadReviewCmdParams{
