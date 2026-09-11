@@ -29,7 +29,6 @@ var noToolSurface = map[protoreflect.Name]bool{
 	"PlanRefresh":             true,
 	"RebaseWorktree":          true,
 	"ResetWorktree":           true,
-	"HarvestRoundEdits":       true,
 	"MarkReviewThreadRead":    true,
 	"SetReviewThreadResolved": true,
 	"ListReviews":             true,

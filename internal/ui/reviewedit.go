@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"strings"
 
+	agentstore "weave/internal/store/agent"
+
 	"weave/internal/ui/layout"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -71,30 +73,39 @@ func (m model) editReviewFile() (tea.Model, tea.Cmd, bool) {
 		return m, nil, false
 	}
 
+	m.frame.Show(layout.RegionStage, editorContent(m.editor, m.review.dir, path, line))
+
+	// The mode is taken only once there is a pane in it, a refused split otherwise leaving the
+	// band saying editing over a screen with no editor on it.
+	pane := m.frame.Pane(layout.RegionStage)
+	if pane == "" {
+		m.review.notice = "there is no room beside the sidebar for an editor"
+
+		return m, nil, false
+	}
+
 	m.review.mode = modeEditing
 	m.review.atEditor = true
 	m.review.editingPath = path
-
-	m.frame.Show(layout.RegionStage, editorContent(m.editor, m.review.dir, path, line))
-	m.review.editorPane = m.frame.Pane(layout.RegionStage)
-	m.tmux.SelectPane(m.review.editorPane)
+	m.review.editorPane = pane
+	m.tmux.SelectPane(pane)
 
 	return m, nil, true
 }
 
-// reviewIsAgentBusy is whether the agent's turn is still running in the tree the editor would
-// open, and what to say about it.
+// reviewIsAgentBusy is whether the agent is writing in the tree the editor would open, and what
+// to say about it.
 func (m model) reviewIsAgentBusy() (string, bool) {
 	for _, item := range m.listing.agents {
 		if item.agent.ID != m.review.agentID {
 			continue
 		}
 
-		if !item.alive || !item.agent.State.IsTurnUnfinished() {
+		if !isReviewAgentWriting(item) {
 			return "", false
 		}
 
-		return "the agent is part way through a turn in this worktree · " +
+		return "the agent is writing in this worktree · " +
 			"two writers in one checkout cannot both win, so stop it before you edit", true
 	}
 
@@ -146,4 +157,10 @@ func (m model) reviewEditorDesc() string {
 	}
 
 	return "open in your editor"
+}
+
+// isReviewAgentWriting reports whether an agent is putting words in its own worktree, which is
+// thinking alone: a waiting agent is stopped at a prompt until somebody answers it.
+func isReviewAgentWriting(item agentItem) bool {
+	return item.alive && item.agent.State == agentstore.StateThinking
 }

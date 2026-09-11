@@ -474,6 +474,72 @@ func TestLeavingTheReviewClosesTheEditorFirst(t *testing.T) {
 	assert.False(t, m.review.atEditor)
 }
 
+// TestWatchingHoldsTheDiffWhileTheAgentWrites is what keeps watching from costing history: a
+// catch-up reads a round, so following every save would leave one behind every few seconds.
+func TestWatchingHoldsTheDiffWhileTheAgentWrites(t *testing.T) {
+	dir := reviewRepo(t)
+	agents := &fakeReviewAgents{}
+	m, _ := reviewModel(t, agents, dir)
+	m = openReview(t, m)
+
+	setReviewAgentState(&m, agentstore.StateThinking)
+	assert.False(t, m.doesReviewFollowLive(), "a diff is not redrawn under a writer")
+
+	cmd := m.applyReviewDiffPolled(reviewDiffPolledMsg{agentID: m.review.agentID, moved: true})
+	assert.Nil(t, cmd, "so nothing is read again while it writes")
+	assert.Contains(t, m.reviewStaleSaid(), "catches up when it stops")
+
+	setReviewAgentState(&m, agentstore.StateIdle)
+	require.True(t, m.doesReviewFollowLive(), "the end of a turn is where it catches up")
+
+	cmd = m.applyReviewDiffPolled(reviewDiffPolledMsg{agentID: m.review.agentID, moved: true})
+	assert.NotNil(t, cmd, "and that is one read rather than one every poll")
+}
+
+// TestAWaitingAgentDoesNotHoldTheEditKey pins the gate against the half of an unfinished turn
+// that writes nothing: an agent at a prompt is stopped until somebody answers it.
+func TestAWaitingAgentDoesNotHoldTheEditKey(t *testing.T) {
+	dir := reviewRepo(t)
+	agents := &fakeReviewAgents{}
+	m, _ := reviewModel(t, agents, dir)
+	m = openReview(t, m)
+
+	setReviewAgentState(&m, agentstore.StateWaiting)
+	m.review.cursor = reviewRowWithAnEditTarget(t, m)
+
+	m = pressEdit(t, m)
+
+	assert.Equal(t, modeEditing, m.review.mode)
+}
+
+// TestEditingGivesTheWindowToTheEditor pins the panel letting go of the window, which it has to
+// do or it zooms its own sidebar over the editor it just opened.
+func TestEditingGivesTheWindowToTheEditor(t *testing.T) {
+	dir := reviewRepo(t)
+	agents := &fakeReviewAgents{}
+	m, _ := reviewModel(t, agents, dir)
+	m = openReview(t, m)
+
+	spec, ok := reviewColumn(), true
+	require.True(t, ok)
+	require.NotNil(t, spec.holds, "the review says whether it is holding the window")
+	require.True(t, spec.holds(m), "and it is, while it is drawing the diff")
+
+	m.review.cursor = reviewRowWithAnEditTarget(t, m)
+	m = pressEdit(t, m)
+
+	assert.False(t, spec.holds(m), "the editor has the window now")
+}
+
+// setReviewAgentState puts the agent whose diff is on screen into one state.
+func setReviewAgentState(m *model, state agentstore.State) {
+	for i, item := range m.listing.agents {
+		if item.agent.ID == m.review.agentID {
+			m.listing.agents[i].agent.State = state
+		}
+	}
+}
+
 // TestTheForwardRoundKeyIsOfferedOnlyWhereItAnswers covers the two halves of one walk disagreeing:
 // the key was drawn in the writing mode, where its own action refuses to run.
 func TestTheForwardRoundKeyIsOfferedOnlyWhereItAnswers(t *testing.T) {

@@ -38,7 +38,7 @@ The fake lives in `cmd/paneldemo`. Its services embed the generated unimplemente
 are served over an `httptest` server, so a call nobody wrote comes back as an error the panel
 draws rather than as a panic. The data is `cmd/paneldemo/scenario`, one file per scenario, which
 is where a new one is added. A scenario that writes as well as reads keeps what the panel wrote,
-so a comment typed into the demo is there when the sidebar draws again. The panel asks tmux only about the panes beside it, so the stub
-answers that there are none and every screen draws both its columns itself. An agent's own
-terminal on the stage is another process, so the screens that put one there draw their sidebar
-and nothing beside it.
+so a comment typed into the demo is there when the sidebar draws again. The panel asks tmux only
+about the panes beside it, so the stub answers that there are none and every screen draws both
+its columns itself. An agent's own terminal on the stage is another process, so the screens that
+put one there draw their sidebar and nothing beside it.

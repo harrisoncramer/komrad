@@ -367,4 +367,3 @@ message ListReviewViewedFilesResponse {
   // Every file marked read in that round.
   repeated ReviewViewedFile viewed = 1;
 }
-

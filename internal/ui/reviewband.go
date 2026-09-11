@@ -71,24 +71,34 @@ func (m model) reviewDeadView(width int) string {
 	return reviewDeadStyle.Render(reviewFill(" "+reason+" ", width)) + "\n"
 }
 
-// reviewStaleView says the agent has written since the diff on screen was read, and says whether
-// the screen is about to catch up on its own or is holding the snapshot on purpose.
+// reviewStaleView says the worktree has moved since the diff on screen was read, and says
+// whether the screen will catch up on its own or is holding what it has on purpose.
 func (m model) reviewStaleView() string {
-	if !m.review.moved || m.review.pinned {
+	// The editor holds the stage rather than the diff, and the move it reports is usually the
+	// reader's own writing, so there is nothing here worth a row.
+	if !m.review.moved || m.review.pinned || m.review.mode == modeEditing {
 		return "\n"
 	}
 
-	if m.doesReviewFollowLive() {
-		return reviewMovedStyle.Render("the agent has written since · catching up") + "\n"
+	return reviewMovedStyle.Render(m.reviewStaleSaid()) + "\n"
+}
+
+// reviewStaleSaid is why the diff is behind the worktree, in the terms the reader can act on.
+func (m model) reviewStaleSaid() string {
+	if m.isReviewAgentWriting() {
+		return "the agent is writing · the diff catches up when it stops"
 	}
 
-	said := "the agent has written since · " + keyLabel(m.keys.Review.Reload) + " to catch up"
+	if m.doesReviewFollowLive() {
+		return "the worktree has moved · catching up"
+	}
+
 	if m.doesReviewHoldUnsent() {
-		said = "the agent has written since · your comments are pinned to this round · " +
+		return "the worktree has moved · your comments are pinned to this round · " +
 			keyLabel(m.keys.Review.Reload) + " to catch up"
 	}
 
-	return reviewMovedStyle.Render(said) + "\n"
+	return "the worktree has moved · " + keyLabel(m.keys.Review.Reload) + " to catch up"
 }
 
 // reviewFill pads a line out to the band's width, so a background colour reads as a bar rather
