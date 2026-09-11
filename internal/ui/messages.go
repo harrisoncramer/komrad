@@ -612,6 +612,12 @@ func kindStyle(kind messageKind) lipgloss.Style {
 var mockMessages = []message{
 	{
 		kind:    messageError,
+		summary: "Your editor could not be opened on that message",
+		detail:  "fork/exec /Users/harry/.local/state/weave/worktrees/01a086ae-d59b-769b-a8a0-202d4014bddd/bin/editor: no such file or directory",
+		trace:   "b3d0117e",
+	},
+	{
+		kind:    messageError,
 		summary: "Nothing to review in fix-ci",
 		detail:  "the worktree holds no change against the base, so there is nothing to open a round on. commit first, then ask again.",
 		trace:   "7c1f2a94",
