@@ -252,7 +252,7 @@ func isReadableBy(message reviewstore.Message, author ReviewAuthor) bool {
 type CreateReviewThreadParams struct {
 	AgentID string
 	// RoundID is the round the anchor's line numbers were measured in, empty for a caller that
-	// means whichever round is latest.
+	// leaves the round to be worked out from the snapshot it names.
 	RoundID string
 	// Suggestion is replacement lines the reviewer proposes for the range, empty on an ordinary
 	// comment.
@@ -261,7 +261,7 @@ type CreateReviewThreadParams struct {
 	// round's own base.
 	BaseSHA string
 	// SnapshotSHA is the commit the new side of these line numbers was read against, empty for a
-	// caller that read the round's own snapshot.
+	// caller that read the round its own review sits on.
 	SnapshotSHA string
 	FilePath    string
 	OldStart    int32
@@ -279,55 +279,42 @@ func (s *ReviewService) CreateReviewThread(
 	ctx context.Context,
 	params CreateReviewThreadParams,
 ) (*ReviewThreadWithMessages, error) {
-	open, err := s.openReviewFor(ctx, params.AgentID, params.Author)
+	if err := s.requireEntitled(ctx, params.AgentID, params.Author); err != nil {
+		return nil, err
+	}
+
+	round, err := s.roundFor(ctx, params)
 	if err != nil {
 		return nil, err
 	}
 
-	roundID, baseSHA := params.RoundID, params.BaseSHA
-	if roundID == "" {
-		round, err := s.GetLatestRound(ctx, params.AgentID)
-		if err != nil {
-			return nil, err
-		}
-
-		roundID = round.ID
+	open, err := s.openReviewFor(ctx, openReviewForParams{
+		AgentID: params.AgentID,
+		Author:  params.Author,
+		Round:   round,
+	})
+	if err != nil {
+		return nil, err
 	}
 
 	// Explainer: a review is written against one snapshot. Letting a second snapshot into the
 	// batch already open would send the agent comments about two versions of its work in one
 	// message, with nothing in the batch saying which comment meant which. So the reader sends
-	// what they have, or throws it away, before starting on a newer snapshot.
-	if open.RoundID != "" && open.RoundID != roundID {
-		return nil, fmt.Errorf("%w: send or discard the comments you have on the earlier snapshot first", ErrReviewInFlight)
+	// what they have before starting on another snapshot.
+	if open.RoundID != round.ID {
+		return nil, fmt.Errorf("%w: send the comments you have on round %d first",
+			ErrReviewInFlight, open.RoundOrdinal)
 	}
 
-	// A caller that says nothing read its numbers against the round's own base, which is what
-	// every caller did before a diff could be narrowed.
-	if baseSHA == "" || params.SnapshotSHA != "" {
-		round, err := s.rounds.GetRound(ctx, roundID)
-		if err != nil {
-			return nil, err
-		}
-
-		// Explainer: a thread's new side is line numbers of one snapshot, and the row says which
-		// round it belongs to rather than which snapshot it was read from. So a caller that read
-		// an older snapshot is refused here: the numbers would be filed against a round whose
-		// file they do not describe, and nothing later could tell that they were.
-		if params.SnapshotSHA != "" && params.SnapshotSHA != round.SnapshotSHA {
-			return nil, fmt.Errorf("%w: %s is not the snapshot of the round this would be filed against",
-				ErrReviewNotCurrent, params.SnapshotSHA[:min(len(params.SnapshotSHA), 12)])
-		}
-
-		if baseSHA == "" {
-			baseSHA = round.BaseSHA
-		}
+	baseSHA := params.BaseSHA
+	if baseSHA == "" {
+		baseSHA = round.BaseSHA
 	}
 
 	thread, err := s.threads.CreateThread(ctx, reviewstore.CreateThreadParams{
 		AgentID:       params.AgentID,
 		ReviewID:      open.ID,
-		RoundID:       roundID,
+		RoundID:       round.ID,
 		BaseSHA:       baseSHA,
 		Suggestion:    params.Suggestion,
 		FilePath:      params.FilePath,
@@ -373,7 +360,11 @@ func (s *ReviewService) AddReviewMessage(
 
 	var reviewID *string
 	if params.Author.IsHuman() || !doesOwnAgent(params.Author, thread.AgentID) {
-		open, err := s.openReviewFor(ctx, thread.AgentID, params.Author)
+		open, err := s.openReviewFor(ctx, openReviewForParams{
+			AgentID: thread.AgentID,
+			Author:  params.Author,
+			Reply:   true,
+		})
 		if err != nil {
 			return nil, err
 		}

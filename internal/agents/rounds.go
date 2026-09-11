@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"weave/internal/fail"
 	"weave/internal/git"
@@ -41,9 +42,9 @@ var ErrReviewInFlight = fail.Precondition("you have unsent comments on an earlie
 // to act on the one they already sent.
 var ErrReviewNotAnswered = fail.Precondition("the agent has not answered your last review yet")
 
-// ErrReviewNotCurrent is answered when a comment's line numbers were read from a snapshot other
-// than the one of the round it would be filed against.
-var ErrReviewNotCurrent = fail.Precondition("those lines were read from an older snapshot")
+// ErrReviewNotCurrent is answered when a comment's line numbers were read from a snapshot no
+// round of that agent was taken of.
+var ErrReviewNotCurrent = fail.Precondition("those lines were read from a snapshot weave never froze")
 
 // ErrReviewEmpty is answered when a review is released with nothing written in it.
 var ErrReviewEmpty = fail.Precondition("that review has nothing in it")
@@ -59,6 +60,7 @@ type reviewRoundReadWriter interface {
 	CreateRound(ctx context.Context, params reviewstore.CreateRoundParams) (*reviewstore.Round, error)
 	GetRound(ctx context.Context, id string) (*reviewstore.Round, error)
 	GetLatestRound(ctx context.Context, agentID string) (*reviewstore.Round, error)
+	GetRoundBySnapshot(ctx context.Context, agentID, snapshotSHA string) (*reviewstore.Round, error)
 	ListRounds(ctx context.Context, agentID string) ([]reviewstore.Round, error)
 }
 
@@ -203,24 +205,74 @@ func (s *ReviewService) ListReviews(
 	return reviews, nil
 }
 
-// openReviewFor is the review an author is writing against an agent, opened against the newest
-// round when they have none open.
-func (s *ReviewService) openReviewFor(
+// openReviewForParams says whose work an author is writing about, and from where.
+type openReviewForParams struct {
+	AgentID string
+	Author  ReviewAuthor
+	// Round is the round the author read their line numbers from, nil for a caller with nothing
+	// to say about which round that was.
+	Round *reviewstore.Round
+	// Reply says the words are going into a thread that already exists, which is answering what
+	// was said there rather than starting a review.
+	Reply bool
+}
+
+// roundFor is the round a comment's line numbers were read from: the one the caller names, the
+// one holding the snapshot it read, or the round its own open review sits on.
+func (s *ReviewService) roundFor(
 	ctx context.Context,
-	agentID string,
-	author ReviewAuthor,
-) (*reviewstore.Review, error) {
-	if err := s.requireEntitled(ctx, agentID, author); err != nil {
+	params CreateReviewThreadParams,
+) (*reviewstore.Round, error) {
+	if params.RoundID != "" {
+		return s.rounds.GetRound(ctx, params.RoundID)
+	}
+
+	// Explainer: the snapshot is the stronger fact than a round id would be, since it names the
+	// exact tree the numbers were counted off. A tree that has moved since is a round of its own,
+	// so a caller reading an older one is filed there rather than against a file its numbers do
+	// not describe.
+	if params.SnapshotSHA != "" {
+		round, err := s.rounds.GetRoundBySnapshot(ctx, params.AgentID, params.SnapshotSHA)
+		if errors.Is(err, store.ErrNotFound) {
+			return nil, fmt.Errorf("%w: %s is the snapshot of no round of this agent",
+				ErrReviewNotCurrent, params.SnapshotSHA[:min(len(params.SnapshotSHA), 12)])
+		}
+
+		return round, err
+	}
+
+	open, err := s.reviews.OpenReviewOf(ctx, reviewstore.AuthorParams{
+		AgentID:       params.AgentID,
+		AuthorKind:    params.Author.Kind,
+		AuthorAgentID: params.Author.AgentID,
+	})
+	if err == nil {
+		return s.rounds.GetRound(ctx, open.RoundID)
+	}
+	if !errors.Is(err, store.ErrNotFound) {
 		return nil, err
 	}
 
-	params := reviewstore.AuthorParams{
-		AgentID:       agentID,
-		AuthorKind:    author.Kind,
-		AuthorAgentID: author.AgentID,
+	return s.GetLatestRound(ctx, params.AgentID)
+}
+
+// openReviewFor is the review an author is writing against an agent, opened against the round
+// they read when they have none.
+func (s *ReviewService) openReviewFor(
+	ctx context.Context,
+	params openReviewForParams,
+) (*reviewstore.Review, error) {
+	if err := s.requireEntitled(ctx, params.AgentID, params.Author); err != nil {
+		return nil, err
 	}
 
-	open, err := s.reviews.OpenReviewOf(ctx, params)
+	author := reviewstore.AuthorParams{
+		AgentID:       params.AgentID,
+		AuthorKind:    params.Author.Kind,
+		AuthorAgentID: params.Author.AgentID,
+	}
+
+	open, err := s.reviews.OpenReviewOf(ctx, author)
 	if err == nil {
 		return open, nil
 	}
@@ -228,29 +280,36 @@ func (s *ReviewService) openReviewFor(
 		return nil, err
 	}
 
-	round, err := s.GetLatestRound(ctx, agentID)
-	if err != nil {
+	round := params.Round
+	if round == nil {
+		round, err = s.GetLatestRound(ctx, params.AgentID)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	if err := s.requireNotReviewedAlready(ctx, author, *round); err != nil {
 		return nil, err
 	}
 
-	if err := s.requireNotReviewedAlready(ctx, params, *round); err != nil {
-		return nil, err
-	}
-
-	if err := s.requirePreviousReviewAnswered(ctx, agentID, params, *round); err != nil {
-		return nil, err
+	// Answering in a thread is not a second review, so the wait for the agent to act is not
+	// something to hold a reply behind.
+	if !params.Reply {
+		if err := s.requirePreviousReviewAnswered(ctx, params.AgentID, author, *round); err != nil {
+			return nil, err
+		}
 	}
 
 	return s.reviews.OpenReview(ctx, reviewstore.OpenReviewParams{
-		AgentID:       agentID,
+		AgentID:       params.AgentID,
 		RoundID:       round.ID,
-		AuthorKind:    author.Kind,
-		AuthorAgentID: author.AgentID,
+		AuthorKind:    params.Author.Kind,
+		AuthorAgentID: params.Author.AgentID,
 	})
 }
 
 // requirePreviousReviewAnswered holds a reviewer to one review at a time, refusing a second
-// until the agent has written something in answer to the last.
+// until the agent has answered the last.
 func (s *ReviewService) requirePreviousReviewAnswered(
 	ctx context.Context,
 	agentID string,
@@ -279,6 +338,17 @@ func (s *ReviewService) requirePreviousReviewAnswered(
 		return nil
 	}
 
+	// The briefing tells an agent it may answer a finding in prose rather than by writing code,
+	// so words written since the review are an answer to it and the tree standing still is not
+	// silence.
+	answered, err := s.hasAnsweredSince(ctx, agentID, *last.ReleasedAt)
+	if err != nil {
+		return err
+	}
+	if answered {
+		return nil
+	}
+
 	// An agent nobody can reach will never answer, so a reader is left able to write notes on it
 	// rather than locked out by a wait that cannot end.
 	agent, err := s.getLiveAgent(ctx, agentID)
@@ -287,6 +357,28 @@ func (s *ReviewService) requirePreviousReviewAnswered(
 	}
 
 	return fmt.Errorf("%w: it has written nothing since", ErrReviewNotAnswered)
+}
+
+// hasAnsweredSince reports whether the agent under review has said anything in its threads
+// since the given moment.
+func (s *ReviewService) hasAnsweredSince(ctx context.Context, agentID string, since time.Time) (bool, error) {
+	threads, err := s.ListReviewThreads(ctx, ListReviewThreadsParams{
+		AgentID: agentID,
+		Author:  ReviewAuthor{Kind: reviewstore.AuthorHuman},
+	})
+	if err != nil {
+		return false, err
+	}
+
+	for _, thread := range threads {
+		for _, message := range thread.Messages {
+			if message.AuthorKind == reviewstore.AuthorAgent && message.CreatedAt.After(since) {
+				return true, nil
+			}
+		}
+	}
+
+	return false, nil
 }
 
 // requireNotReviewedAlready holds a reviewing agent to one review per round, so a reviewer and
@@ -300,15 +392,21 @@ func (s *ReviewService) requireNotReviewedAlready(
 		return nil
 	}
 
-	last, err := s.reviews.GetLastReleasedReview(ctx, params)
-	if errors.Is(err, store.ErrNotFound) {
-		return nil
-	}
+	reviews, err := s.reviews.ListReviews(ctx, params.AgentID)
 	if err != nil {
 		return err
 	}
-	if last.RoundID == round.ID {
-		return fmt.Errorf("%w: round %d", ErrReviewAlreadyGiven, round.Ordinal)
+
+	for _, review := range reviews {
+		if review.ReleasedAt == nil || review.RoundID != round.ID {
+			continue
+		}
+		if review.AuthorAgentID == nil || params.AuthorAgentID == nil {
+			continue
+		}
+		if *review.AuthorAgentID == *params.AuthorAgentID {
+			return fmt.Errorf("%w: round %d", ErrReviewAlreadyGiven, round.Ordinal)
+		}
 	}
 
 	return nil
@@ -408,7 +506,7 @@ func (s *ReviewService) ReleaseReview(
 			return nil, fmt.Errorf("%w: %q", ErrReviewEmpty, params.AgentID)
 		}
 
-		open, err = s.openReviewFor(ctx, params.AgentID, params.Author)
+		open, err = s.openReviewFor(ctx, openReviewForParams{AgentID: params.AgentID, Author: params.Author})
 	}
 	if err != nil {
 		return nil, err

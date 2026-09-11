@@ -230,6 +230,38 @@ func (q *Queries) GetReviewRound(ctx context.Context, id string) (*ReviewRound, 
 	return &i, err
 }
 
+const getReviewRoundBySnapshot = `-- name: GetReviewRoundBySnapshot :one
+SELECT
+    id, agent_id, ordinal, base_sha, snapshot_sha, created_at
+FROM
+    review_rounds r
+WHERE
+    r.agent_id = $1
+    AND r.snapshot_sha = $2
+ORDER BY
+    r.ordinal DESC
+LIMIT 1
+`
+
+type GetReviewRoundBySnapshotParams struct {
+	AgentID     string
+	SnapshotSha string
+}
+
+func (q *Queries) GetReviewRoundBySnapshot(ctx context.Context, arg GetReviewRoundBySnapshotParams) (*ReviewRound, error) {
+	row := q.db.QueryRow(ctx, getReviewRoundBySnapshot, arg.AgentID, arg.SnapshotSha)
+	var i ReviewRound
+	err := row.Scan(
+		&i.ID,
+		&i.AgentID,
+		&i.Ordinal,
+		&i.BaseSha,
+		&i.SnapshotSha,
+		&i.CreatedAt,
+	)
+	return &i, err
+}
+
 const getReviewThread = `-- name: GetReviewThread :one
 SELECT
     t.id, t.agent_id, t.file_path, t.old_start, t.old_end, t.new_start, t.new_end, t.quoted_lines, t.human_read_at, t.created_at, t.updated_at, t.last_agent_activity_at, t.resolved_at, t.review_id, t.round_id, t.base_sha, t.resolved_by_kind, t.resolved_by_agent_id,
