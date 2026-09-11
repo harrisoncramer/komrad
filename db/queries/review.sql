@@ -144,7 +144,6 @@ WITH opened AS (
         agent_id,
         review_id,
         round_id,
-        harvested,
         base_sha,
         file_path,
         old_start,
@@ -157,7 +156,6 @@ WITH opened AS (
         @agent_id,
         @review_id,
         @round_id,
-        @harvested,
         @base_sha,
         @file_path,
         @old_start,
@@ -381,51 +379,6 @@ WHERE
     v.round_id = @round_id
 ORDER BY
     v.file_path;
-
--- name: ListHarvestedReviewThreads :many
-SELECT
-    t.*,
-(
-        SELECT
-            COUNT(*)
-        FROM
-            review_messages m
-        WHERE
-            m.thread_id = t.id) AS message_count
-FROM
-    review_threads t
-    JOIN reviews v ON v.id = t.review_id
-WHERE
-    t.agent_id = @agent_id
-    AND t.round_id = @round_id
-    AND t.harvested
-    AND v.released_at IS NULL
-ORDER BY
-    t.file_path,
-    t.new_start,
-    t.id;
-
--- name: MoveReviewThread :one
-UPDATE
-    review_threads t
-SET
-    base_sha = @base_sha,
-    old_start = @old_start,
-    old_end = @old_end,
-    new_start = @new_start,
-    new_end = @new_end,
-    quoted_lines = @quoted_lines,
-    updated_at = NOW()
-WHERE
-    t.id = @id
-RETURNING
-    *;
-
--- name: DeleteReviewThread :one
-DELETE FROM review_threads
-WHERE id = @id
-RETURNING
-    id;
 
 -- name: ListReviewTallies :many
 WITH released AS (

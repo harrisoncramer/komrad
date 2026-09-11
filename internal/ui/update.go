@@ -290,12 +290,6 @@ func (m model) routeAsyncMessage(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
 		m.applyReviewRefreshed(msg)
 
 		return m, nil, true
-	case roundReadyMsg:
-		next, cmd := m.applyRoundReady(msg)
-
-		return next, cmd, true
-	case roundEditedMsg:
-		return m, m.applyRoundEdited(msg), true
 	case formFieldEditedMsg:
 		next, cmd := m.applyFormFieldEdited(msg)
 
@@ -304,18 +298,8 @@ func (m model) routeAsyncMessage(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
 		m.applyMessageEdited(msg)
 
 		return m, nil, true
-	case roundHarvestedMsg:
-		m.applyRoundHarvested(msg)
-
-		return m, nil, true
-	case roundLeftoverMsg:
-		m.applyRoundLeftover(msg)
-
-		return m, nil, true
 	case reviewDiffPolledMsg:
-		m.applyReviewDiffPolled(msg)
-
-		return m, nil, true
+		return m, m.applyReviewDiffPolled(msg), true
 	case searchSettledMsg:
 		return m, m.runSettledSearch(msg), true
 	case searchResult:

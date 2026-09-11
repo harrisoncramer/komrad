@@ -415,8 +415,6 @@ type ReviewThread struct {
 	ReviewID   string
 	// The round this thread's line numbers were measured against. It is not read through the review, because a review stays open across several rounds and would name the wrong one.
 	RoundID string
-	// Whether weave wrote this thread itself, from an edit made in the round's checkout, rather than a person or an agent typing it. Such a thread is weave's to rewrite or delete on a later harvest.
-	Harvested bool
 	// The commit the old side of this thread's line numbers was read against. For a thread written on the whole change that is the round's own base. For a thread written while the diff was narrowed to one round it is the earlier round's snapshot.
 	BaseSha string
 }

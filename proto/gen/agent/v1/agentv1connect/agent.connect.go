@@ -108,9 +108,6 @@ const (
 	// AgentServiceEditReviewMessageProcedure is the fully-qualified name of the AgentService's
 	// EditReviewMessage RPC.
 	AgentServiceEditReviewMessageProcedure = "/agent.v1.AgentService/EditReviewMessage"
-	// AgentServiceHarvestRoundEditsProcedure is the fully-qualified name of the AgentService's
-	// HarvestRoundEdits RPC.
-	AgentServiceHarvestRoundEditsProcedure = "/agent.v1.AgentService/HarvestRoundEdits"
 	// AgentServicePlanRefreshProcedure is the fully-qualified name of the AgentService's PlanRefresh
 	// RPC.
 	AgentServicePlanRefreshProcedure = "/agent.v1.AgentService/PlanRefresh"
@@ -173,7 +170,6 @@ type AgentServiceClient interface {
 	CreateReviewThread(context.Context, *connect.Request[v1.CreateReviewThreadRequest]) (*connect.Response[v1.CreateReviewThreadResponse], error)
 	AddReviewMessage(context.Context, *connect.Request[v1.AddReviewMessageRequest]) (*connect.Response[v1.AddReviewMessageResponse], error)
 	EditReviewMessage(context.Context, *connect.Request[v1.EditReviewMessageRequest]) (*connect.Response[v1.EditReviewMessageResponse], error)
-	HarvestRoundEdits(context.Context, *connect.Request[v1.HarvestRoundEditsRequest]) (*connect.Response[v1.HarvestRoundEditsResponse], error)
 	// Panel only, deliberately carrying no tool annotation: an agent must not rebase or reset
 	// itself or anybody else.
 	PlanRefresh(context.Context, *connect.Request[v1.PlanRefreshRequest]) (*connect.Response[v1.PlanRefreshResponse], error)
@@ -387,12 +383,6 @@ func NewAgentServiceClient(httpClient connect.HTTPClient, baseURL string, opts .
 			connect.WithIdempotency(connect.IdempotencyIdempotent),
 			connect.WithClientOptions(opts...),
 		),
-		harvestRoundEdits: connect.NewClient[v1.HarvestRoundEditsRequest, v1.HarvestRoundEditsResponse](
-			httpClient,
-			baseURL+AgentServiceHarvestRoundEditsProcedure,
-			connect.WithSchema(agentServiceMethods.ByName("HarvestRoundEdits")),
-			connect.WithClientOptions(opts...),
-		),
 		planRefresh: connect.NewClient[v1.PlanRefreshRequest, v1.PlanRefreshResponse](
 			httpClient,
 			baseURL+AgentServicePlanRefreshProcedure,
@@ -492,7 +482,6 @@ type agentServiceClient struct {
 	createReviewThread      *connect.Client[v1.CreateReviewThreadRequest, v1.CreateReviewThreadResponse]
 	addReviewMessage        *connect.Client[v1.AddReviewMessageRequest, v1.AddReviewMessageResponse]
 	editReviewMessage       *connect.Client[v1.EditReviewMessageRequest, v1.EditReviewMessageResponse]
-	harvestRoundEdits       *connect.Client[v1.HarvestRoundEditsRequest, v1.HarvestRoundEditsResponse]
 	planRefresh             *connect.Client[v1.PlanRefreshRequest, v1.PlanRefreshResponse]
 	rebaseWorktree          *connect.Client[v1.RebaseWorktreeRequest, v1.RebaseWorktreeResponse]
 	markReviewThreadRead    *connect.Client[v1.MarkReviewThreadReadRequest, v1.MarkReviewThreadReadResponse]
@@ -645,11 +634,6 @@ func (c *agentServiceClient) EditReviewMessage(ctx context.Context, req *connect
 	return c.editReviewMessage.CallUnary(ctx, req)
 }
 
-// HarvestRoundEdits calls agent.v1.AgentService.HarvestRoundEdits.
-func (c *agentServiceClient) HarvestRoundEdits(ctx context.Context, req *connect.Request[v1.HarvestRoundEditsRequest]) (*connect.Response[v1.HarvestRoundEditsResponse], error) {
-	return c.harvestRoundEdits.CallUnary(ctx, req)
-}
-
 // PlanRefresh calls agent.v1.AgentService.PlanRefresh.
 func (c *agentServiceClient) PlanRefresh(ctx context.Context, req *connect.Request[v1.PlanRefreshRequest]) (*connect.Response[v1.PlanRefreshResponse], error) {
 	return c.planRefresh.CallUnary(ctx, req)
@@ -730,7 +714,6 @@ type AgentServiceHandler interface {
 	CreateReviewThread(context.Context, *connect.Request[v1.CreateReviewThreadRequest]) (*connect.Response[v1.CreateReviewThreadResponse], error)
 	AddReviewMessage(context.Context, *connect.Request[v1.AddReviewMessageRequest]) (*connect.Response[v1.AddReviewMessageResponse], error)
 	EditReviewMessage(context.Context, *connect.Request[v1.EditReviewMessageRequest]) (*connect.Response[v1.EditReviewMessageResponse], error)
-	HarvestRoundEdits(context.Context, *connect.Request[v1.HarvestRoundEditsRequest]) (*connect.Response[v1.HarvestRoundEditsResponse], error)
 	// Panel only, deliberately carrying no tool annotation: an agent must not rebase or reset
 	// itself or anybody else.
 	PlanRefresh(context.Context, *connect.Request[v1.PlanRefreshRequest]) (*connect.Response[v1.PlanRefreshResponse], error)
@@ -940,12 +923,6 @@ func NewAgentServiceHandler(svc AgentServiceHandler, opts ...connect.HandlerOpti
 		connect.WithIdempotency(connect.IdempotencyIdempotent),
 		connect.WithHandlerOptions(opts...),
 	)
-	agentServiceHarvestRoundEditsHandler := connect.NewUnaryHandler(
-		AgentServiceHarvestRoundEditsProcedure,
-		svc.HarvestRoundEdits,
-		connect.WithSchema(agentServiceMethods.ByName("HarvestRoundEdits")),
-		connect.WithHandlerOptions(opts...),
-	)
 	agentServicePlanRefreshHandler := connect.NewUnaryHandler(
 		AgentServicePlanRefreshProcedure,
 		svc.PlanRefresh,
@@ -1070,8 +1047,6 @@ func NewAgentServiceHandler(svc AgentServiceHandler, opts ...connect.HandlerOpti
 			agentServiceAddReviewMessageHandler.ServeHTTP(w, r)
 		case AgentServiceEditReviewMessageProcedure:
 			agentServiceEditReviewMessageHandler.ServeHTTP(w, r)
-		case AgentServiceHarvestRoundEditsProcedure:
-			agentServiceHarvestRoundEditsHandler.ServeHTTP(w, r)
 		case AgentServicePlanRefreshProcedure:
 			agentServicePlanRefreshHandler.ServeHTTP(w, r)
 		case AgentServiceRebaseWorktreeProcedure:
@@ -1211,10 +1186,6 @@ func (UnimplementedAgentServiceHandler) AddReviewMessage(context.Context, *conne
 
 func (UnimplementedAgentServiceHandler) EditReviewMessage(context.Context, *connect.Request[v1.EditReviewMessageRequest]) (*connect.Response[v1.EditReviewMessageResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("agent.v1.AgentService.EditReviewMessage is not implemented"))
-}
-
-func (UnimplementedAgentServiceHandler) HarvestRoundEdits(context.Context, *connect.Request[v1.HarvestRoundEditsRequest]) (*connect.Response[v1.HarvestRoundEditsResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("agent.v1.AgentService.HarvestRoundEdits is not implemented"))
 }
 
 func (UnimplementedAgentServiceHandler) PlanRefresh(context.Context, *connect.Request[v1.PlanRefreshRequest]) (*connect.Response[v1.PlanRefreshResponse], error) {

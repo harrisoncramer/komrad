@@ -124,13 +124,8 @@ type uiTmux interface {
 	SendKeys(target string, keys ...string) error
 }
 
-// uiGit is the git the review screen reads a round through and checks one out with.
+// uiGit is the git the review screen reads a round through.
 type uiGit interface {
-	Materialise(ctx context.Context, dir, sha, at string) error
-	WorktreeHead(ctx context.Context, at string) (string, bool)
-	IsDirty(ctx context.Context, at string) (bool, error)
-	Reap(ctx context.Context, dir, at string) error
-	Edits(ctx context.Context, dir string) ([]git.Edit, error)
 	ReadFileLines(ctx context.Context, dir, sha, path string) ([]string, error)
 	CountChangedFiles(ctx context.Context, params git.CountChangedFilesParams) (int, error)
 	MapRanges(ctx context.Context, params git.MapRangesParams) ([]position.Mapping, error)
@@ -164,7 +159,6 @@ type Deps struct {
 	ProcessViewer   string
 	Editor          string
 	RunLogsDir      string
-	RoundsDir       string
 	ConfigErr       error
 	StartupErr      error
 	StartupFindings []errui.Finding
@@ -228,7 +222,6 @@ type model struct {
 	processViewer string
 	editor        string
 	runLogsDir    string
-	roundsDir     string
 	pane          string
 	// paneMeasure is the column a screen is measuring its own chrome in while it works out whether
 	// its split leaves room for it.
@@ -297,7 +290,6 @@ func newModel(deps Deps, isDark bool, post *postbox) model {
 		processViewer:   deps.ProcessViewer,
 		editor:          deps.Editor,
 		runLogsDir:      deps.RunLogsDir,
-		roundsDir:       deps.RoundsDir,
 		pane:            deps.Pane,
 		keys:            deps.Keys,
 		configErr:       deps.ConfigErr,

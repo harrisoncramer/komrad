@@ -128,9 +128,6 @@ message ReviewThread {
   string resolved_at = 9;
   // Whether the agent has replied since the person reviewing last looked.
   bool unread_by_human = 11;
-  // Whether weave wrote this thread from an edit of the round's checkout rather than somebody
-  // typing it, which is what makes its body the same sentence every time.
-  bool harvested = 18;
   // Everything said in the thread, oldest first.
   repeated ReviewMessage messages = 12;
   // When the thread was opened.
@@ -369,50 +366,4 @@ message ListReviewViewedFilesRequest {
 message ListReviewViewedFilesResponse {
   // Every file marked read in that round.
   repeated ReviewViewedFile viewed = 1;
-}
-
-// HarvestedRun is one run of adjacent lines the person reviewing wrote into the round's own
-// checkout, anchored by the panel because the numbers a thread is pinned by come from the patch.
-message HarvestedRun {
-  // Which file the reviewer edited, relative to the checkout.
-  string file_path = 1 [(buf.validate.field).string.min_len = 1];
-  // Where the run begins on the old side of the diff, counting from one.
-  int32 old_start = 2;
-  // Where it ends on the old side, inclusive.
-  int32 old_end = 3;
-  // Where the run begins on the new side.
-  int32 new_start = 4;
-  // Where it ends on the new side, inclusive.
-  int32 new_end = 5;
-  // The diff lines the run was written against, empty for a run in a file the patch does not
-  // draw, which is what leaves its thread adrift rather than pinned.
-  repeated string quoted_lines = 6;
-  // The replacement lines the reviewer wrote, which become the thread's suggestion.
-  repeated string lines = 7;
-}
-
-message HarvestRoundEditsRequest {
-  // Whose checkout was edited.
-  string agent_id = 1 [(buf.validate.field).string.min_len = 1];
-  // Which round the edits are measured against.
-  string round_id = 2 [(buf.validate.field).string.min_len = 1];
-  // The runs to turn into threads, already anchored by the panel.
-  repeated HarvestedRun runs = 3;
-  // The commit the old side of these runs was measured from, empty for the round's own base.
-  string base_sha = 5;
-  // Write a harvest that went past the ceiling anyway, which is the reviewer answering for an
-  // edit big enough to look like a formatter.
-  bool force = 4;
-}
-
-message HarvestRoundEditsResponse {
-  // How many threads were written for the first time.
-  int32 opened = 1;
-  // How many already-open threads had their suggestion rewritten.
-  int32 moved = 2;
-  // How many threads went because the reviewer took their edit back out.
-  int32 deleted = 3;
-  // Runs written over a comment that has already gone out, which weave leaves in the checkout
-  // rather than rewriting words the agent has been sent.
-  repeated HarvestedRun skipped = 4;
 }

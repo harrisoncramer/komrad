@@ -40,31 +40,11 @@ type fakeReviewAgents struct {
 	rounds     []*agentv1.ReviewRound
 	reviews    []*agentv1.Review
 	marked     *agentv1.SetReviewFileViewedRequest
-	harvested  *agentv1.HarvestRoundEditsRequest
-	harvests   int
-	harvestErr error
 	reviewsErr error
 	roundsErr  error
 	// reviewReads and roundReads count what one load asked the server for.
 	reviewReads int
 	roundReads  int
-}
-
-// HarvestRoundEdits records what the panel sent rather than reconciling anything.
-func (f *fakeReviewAgents) HarvestRoundEdits(
-	_ context.Context,
-	req *connect.Request[agentv1.HarvestRoundEditsRequest],
-) (*connect.Response[agentv1.HarvestRoundEditsResponse], error) {
-	f.harvested = req.Msg
-	f.harvests++
-
-	if f.harvestErr != nil {
-		return nil, f.harvestErr
-	}
-
-	return connect.NewResponse(&agentv1.HarvestRoundEditsResponse{
-		Opened: int32(len(req.Msg.GetRuns())),
-	}), nil
 }
 
 func (f *fakeReviewAgents) ListReviewViewedFiles(
@@ -269,7 +249,6 @@ func reviewModel(t *testing.T, agents agentv1connect.AgentServiceClient, dir str
 	m := infoModel(tmux)
 	m.api = api{agents: agents}
 	m.git = git.NewClient()
-	m.roundsDir = t.TempDir()
 	// The review holds the whole window, so this is the size the rest of the panel's screens are
 	// measured at.
 	m.width, m.height = 200, 30
@@ -322,23 +301,6 @@ func openReview(t *testing.T, m model) model {
 	return m
 }
 
-// enterReviewWithoutPickup is the screen opening with the look for an earlier sitting's checkout
-// still in flight, which is what a reader who presses a key straight away is looking at.
-func enterReviewWithoutPickup(t *testing.T, m model) model {
-	t.Helper()
-
-	next, cmd := m.enterReview(reviewAgent(m.listing.agents[0].agent.Cwd))
-	m = next.(model)
-	require.NotNil(t, cmd)
-
-	loaded, ok := cmd().(reviewLoadedMsg)
-	require.True(t, ok)
-
-	m.applyReviewLoaded(loaded)
-
-	return m
-}
-
 // enterReview is the same path without the diff having to be readable, for the worktree that
 // holds nothing and the one that cannot be read at all.
 func enterReview(t *testing.T, m model) model {
@@ -351,13 +313,7 @@ func enterReview(t *testing.T, m model) model {
 	loaded, ok := cmd().(reviewLoadedMsg)
 	require.True(t, ok)
 
-	// The load answers with the look for a checkout an earlier sitting left behind, which is part
-	// of opening the screen rather than of anything the reader does on it.
-	if found := m.applyReviewLoaded(loaded); found != nil {
-		if left, ok := found().(roundLeftoverMsg); ok {
-			m.applyRoundLeftover(left)
-		}
-	}
+	m.applyReviewLoaded(loaded)
 
 	return m
 }
@@ -1699,14 +1655,11 @@ func pressReviewBase(t *testing.T, m model) model {
 	loaded, ok := msg.(reviewLoadedMsg)
 	require.True(t, ok, "the reload answers with a load")
 
-	// A load can answer with more than one thing: a refused narrowing asks for the whole change
-	// again, and an earlier sitting's checkout reports itself.
+	// A refused narrowing asks for the whole change again, which is the one thing a load can
+	// answer with.
 	if again := m.applyReviewLoaded(loaded); again != nil {
-		switch answer := again().(type) {
-		case reviewLoadedMsg:
+		if answer, ok := again().(reviewLoadedMsg); ok {
 			m.applyReviewLoaded(answer)
-		case roundLeftoverMsg:
-			m.applyRoundLeftover(answer)
 		}
 	}
 
@@ -1774,12 +1727,12 @@ func TestWritingIsRefusedOnAFinishedRound(t *testing.T) {
 
 	next, _ := m.updateReview(keyMsg("c"))
 	m = next.(model)
-	assert.True(t, m.review.writing, "so the key opens the mode that writes")
+	assert.Equal(t, modeReviewing, m.review.mode, "so the key opens the mode that writes")
 	assert.True(t, m.review.composing, "on the line it was pressed on")
 
 	// An older round is a different matter, and the same key refuses rather than moving anybody.
 	m.review.composing = false
-	m.review.writing = false
+	m.review.mode = modeWatching
 	m = standOnAFinishedRound(m)
 
 	said, history := m.reviewIsHistory()
@@ -1789,7 +1742,7 @@ func TestWritingIsRefusedOnAFinishedRound(t *testing.T) {
 	next, _ = m.updateReview(keyMsg("c"))
 	m = next.(model)
 
-	assert.False(t, m.review.writing, "the mode did not open")
+	assert.Equal(t, modeWatching, m.review.mode, "the mode did not open")
 	assert.False(t, m.review.composing, "and no editor did either")
 	assert.Contains(t, m.review.notice, "round 1 of 2 is finished")
 	assert.Nil(t, agents.created, "and nothing was written")

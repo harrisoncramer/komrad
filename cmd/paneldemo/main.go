@@ -3,6 +3,7 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"flag"
 	"fmt"
@@ -34,6 +35,7 @@ func main() {
 func run() error {
 	name := flag.String("scenario", "", "the data to draw the panel against, which is required")
 	list := flag.Bool("list", false, "name the scenarios and stop")
+	stage := flag.Bool("stage", false, "pretend another process holds the stage, to look at the screens that put one there")
 	flag.Parse()
 
 	if *list {
@@ -53,6 +55,28 @@ func run() error {
 		return err
 	}
 
+	if held.NeedsRepo {
+		at, err := os.MkdirTemp("", "weave-demo-")
+		if err != nil {
+			return fmt.Errorf("failed to make a directory for the demo's repository: %w", err)
+		}
+
+		// Said on the way out rather than while the panel is up, whose own screen is this
+		// terminal.
+		defer func() {
+			if err := os.RemoveAll(at); err != nil {
+				fmt.Fprintln(os.Stderr, err)
+			}
+		}()
+
+		repo, err := buildRepo(context.Background(), at)
+		if err != nil {
+			return err
+		}
+
+		held = held.WithRepo(repo)
+	}
+
 	// The panel's stderr is the terminal it draws in, so a record written there lands on top of
 	// the screen.
 	slog.SetDefault(slog.New(slog.DiscardHandler))
@@ -60,7 +84,7 @@ func run() error {
 	server := httptest.NewServer(serviceFor(held))
 	defer server.Close()
 
-	stub := noPanes{}
+	stub := noPanes{stage: *stage}
 
 	deps := ui.Deps{
 		PopupWindow:   ui.NewPopupWindow(stub, "paneldemo"),
@@ -89,7 +113,10 @@ func run() error {
 // finds a fake rather than nothing.
 func serviceFor(held scenario.Scenario) http.Handler {
 	mux := http.NewServeMux()
-	mux.Handle(agentv1connect.NewAgentServiceHandler(agentService{held: held}))
+	mux.Handle(agentv1connect.NewAgentServiceHandler(agentService{
+		reviewFake: newReviewFake(held),
+		held:       held,
+	}))
 	mux.Handle(workflowv1connect.NewWorkflowServiceHandler(workflowService{held: held}))
 	mux.Handle(schedulev1connect.NewScheduleServiceHandler(scheduleService{held: held}))
 	mux.Handle(hookv1connect.NewHookServiceHandler(hookService{}))

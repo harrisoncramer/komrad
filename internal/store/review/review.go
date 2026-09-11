@@ -31,8 +31,6 @@ type Thread struct {
 	ReviewID string
 	// RoundID is the round the thread's line numbers were measured against.
 	RoundID string
-	// Harvested says weave wrote this thread itself, from an edit of the round's checkout.
-	Harvested bool
 	// BaseSHA is the commit the old side of the line numbers was read against.
 	BaseSHA string
 	// RoundOrdinal names that round the way the panel does, zero when it was not read.
@@ -109,7 +107,6 @@ type CreateThreadParams struct {
 	AgentID       string
 	ReviewID      string
 	RoundID       string
-	Harvested     bool
 	BaseSHA       string
 	Suggestion    []string
 	FilePath      string
@@ -130,7 +127,6 @@ func (s *Store) CreateThread(ctx context.Context, params CreateThreadParams) (*T
 		AgentID:       params.AgentID,
 		ReviewID:      params.ReviewID,
 		RoundID:       params.RoundID,
-		Harvested:     params.Harvested,
 		BaseSha:       params.BaseSHA,
 		Suggestion:    lines(params.Suggestion),
 		FilePath:      params.FilePath,
@@ -152,7 +148,6 @@ func (s *Store) CreateThread(ctx context.Context, params CreateThreadParams) (*T
 		AgentID:             row.AgentID,
 		ReviewID:            row.ReviewID,
 		RoundID:             row.RoundID,
-		Harvested:           row.Harvested,
 		BaseSHA:             row.BaseSha,
 		FilePath:            row.FilePath,
 		OldStart:            row.OldStart,
@@ -186,7 +181,6 @@ func (s *Store) ListThreads(ctx context.Context, agentID string) ([]Thread, erro
 			AgentID:             row.AgentID,
 			ReviewID:            row.ReviewID,
 			RoundID:             row.RoundID,
-			Harvested:           row.Harvested,
 			BaseSHA:             row.BaseSha,
 			RoundOrdinal:        row.RoundOrdinal,
 			ReviewReleasedAt:    row.ReviewReleasedAt,
@@ -233,7 +227,6 @@ func (s *Store) GetThread(ctx context.Context, id string) (*Thread, error) {
 		AgentID:             row.AgentID,
 		ReviewID:            row.ReviewID,
 		RoundID:             row.RoundID,
-		Harvested:           row.Harvested,
 		BaseSha:             row.BaseSha,
 		FilePath:            row.FilePath,
 		OldStart:            row.OldStart,
@@ -500,7 +493,6 @@ func threadFromRow(row models.ReviewThread) Thread {
 		AgentID:             row.AgentID,
 		ReviewID:            row.ReviewID,
 		RoundID:             row.RoundID,
-		Harvested:           row.Harvested,
 		BaseSHA:             row.BaseSha,
 		FilePath:            row.FilePath,
 		OldStart:            row.OldStart,
@@ -562,108 +554,4 @@ func threadNotFound(id string) error {
 
 func messageNotFound(id string) error {
 	return fmt.Errorf("%w: review message %q", store.ErrNotFound, id)
-}
-
-// HarvestedThread is a thread weave wrote from an edit of the round's checkout, carrying how
-// many messages it holds.
-type HarvestedThread struct {
-	Thread
-	MessageCount int64
-}
-
-// ListHarvested is every unreleased harvested thread on one round.
-func (s *Store) ListHarvested(ctx context.Context, agentID, roundID string) ([]HarvestedThread, error) {
-	if !store.IsID(agentID) || !store.IsID(roundID) {
-		return nil, nil
-	}
-
-	rows, err := s.queries.ListHarvestedReviewThreads(ctx, models.ListHarvestedReviewThreadsParams{
-		AgentID: agentID,
-		RoundID: roundID,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("failed to list the harvested threads of round %q: %w", roundID, err)
-	}
-
-	threads := make([]HarvestedThread, 0, len(rows))
-	for _, row := range rows {
-		threads = append(threads, HarvestedThread{
-			Thread: threadFromRow(models.ReviewThread{
-				ID:                  row.ID,
-				AgentID:             row.AgentID,
-				ReviewID:            row.ReviewID,
-				RoundID:             row.RoundID,
-				Harvested:           row.Harvested,
-				BaseSha:             row.BaseSha,
-				FilePath:            row.FilePath,
-				OldStart:            row.OldStart,
-				OldEnd:              row.OldEnd,
-				NewStart:            row.NewStart,
-				NewEnd:              row.NewEnd,
-				QuotedLines:         row.QuotedLines,
-				LastAgentActivityAt: row.LastAgentActivityAt,
-				HumanReadAt:         row.HumanReadAt,
-				ResolvedAt:          row.ResolvedAt,
-				CreatedAt:           row.CreatedAt,
-				UpdatedAt:           row.UpdatedAt,
-			}),
-			MessageCount: row.MessageCount,
-		})
-	}
-
-	return threads, nil
-}
-
-type MoveThreadParams struct {
-	ID          string
-	BaseSHA     string
-	OldStart    int32
-	OldEnd      int32
-	NewStart    int32
-	NewEnd      int32
-	QuotedLines []string
-}
-
-// MoveThread repins a thread to a new range of the same round.
-func (s *Store) MoveThread(ctx context.Context, params MoveThreadParams) (*Thread, error) {
-	if !store.IsID(params.ID) {
-		return nil, threadNotFound(params.ID)
-	}
-
-	row, err := s.queries.MoveReviewThread(ctx, models.MoveReviewThreadParams{
-		ID:          params.ID,
-		BaseSha:     params.BaseSHA,
-		OldStart:    params.OldStart,
-		OldEnd:      params.OldEnd,
-		NewStart:    params.NewStart,
-		NewEnd:      params.NewEnd,
-		QuotedLines: lines(params.QuotedLines),
-	})
-	if db.IsNoRows(err) {
-		return nil, threadNotFound(params.ID)
-	}
-	if err != nil {
-		return nil, fmt.Errorf("failed to move the review thread %q: %w", params.ID, err)
-	}
-
-	thread := threadFromRow(*row)
-
-	return &thread, nil
-}
-
-// DeleteThread removes a thread and the messages under it.
-func (s *Store) DeleteThread(ctx context.Context, id string) error {
-	if !store.IsID(id) {
-		return threadNotFound(id)
-	}
-
-	_, err := s.queries.DeleteReviewThread(ctx, id)
-	if db.IsNoRows(err) {
-		return threadNotFound(id)
-	}
-	if err != nil {
-		return fmt.Errorf("failed to delete the review thread %q: %w", id, err)
-	}
-
-	return nil
 }

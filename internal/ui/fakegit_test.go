@@ -14,16 +14,6 @@ var errNoGit = errors.New("this test was given no git")
 // fakeGit answers as a checkout with no repository behind it.
 type fakeGit struct{}
 
-func (fakeGit) Materialise(context.Context, string, string, string) error { return errNoGit }
-
-func (fakeGit) WorktreeHead(context.Context, string) (string, bool) { return "", false }
-
-func (fakeGit) IsDirty(context.Context, string) (bool, error) { return false, errNoGit }
-
-func (fakeGit) Reap(context.Context, string, string) error { return errNoGit }
-
-func (fakeGit) Edits(context.Context, string) ([]git.Edit, error) { return nil, errNoGit }
-
 func (fakeGit) ReadFileLines(context.Context, string, string, string) ([]string, error) {
 	return nil, errNoGit
 }

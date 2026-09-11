@@ -76,12 +76,6 @@ func (e *Environment) RunLogsDir() string {
 	return filepath.Join(e.CacheDir, "weave-run-logs")
 }
 
-// RoundsDir is where a review round is checked out for an editor to open, one directory per
-// agent, kept beside weave's other scratch since nothing in it outlives the review it was cut for.
-func (e *Environment) RoundsDir() string {
-	return filepath.Join(e.CacheDir, "weave-rounds")
-}
-
 // FramesDir is where the pane captures are kept when debug mode is on, one directory per agent.
 func (e *Environment) FramesDir() string {
 	return filepath.Join(e.CacheDir, "weave-frames")
