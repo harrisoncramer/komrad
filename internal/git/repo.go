@@ -7,7 +7,7 @@ import (
 )
 
 // GetRoot is the top of the working tree any path inside it belongs to.
-func GetRoot(ctx context.Context, dir string) (string, error) {
+func (c *Client) GetRoot(ctx context.Context, dir string) (string, error) {
 	root, err := Run(ctx, dir, "rev-parse", "--show-toplevel")
 	if err != nil {
 		return "", fmt.Errorf("failed to find the repository at %q: %w", dir, err)
@@ -37,7 +37,7 @@ func resolveBase(ctx context.Context, root, base string) string {
 
 // GetCurrentBranch is the branch a worktree is on, and nothing for a detached head or a
 // directory git will not answer about.
-func GetCurrentBranch(ctx context.Context, dir string) *string {
+func (c *Client) GetCurrentBranch(ctx context.Context, dir string) *string {
 	branch, err := Run(ctx, dir, "rev-parse", "--abbrev-ref", "HEAD")
 	if err != nil || branch == "" || branch == "HEAD" {
 		return nil
@@ -47,7 +47,7 @@ func GetCurrentBranch(ctx context.Context, dir string) *string {
 }
 
 // GetOriginURL is where a checkout pushes to.
-func GetOriginURL(ctx context.Context, dir string) (string, error) {
+func (c *Client) GetOriginURL(ctx context.Context, dir string) (string, error) {
 	url, err := Run(ctx, dir, "remote", "get-url", "origin")
 	if err != nil {
 		return "", fmt.Errorf("failed to read the origin of %q: %w", dir, err)
@@ -57,7 +57,7 @@ func GetOriginURL(ctx context.Context, dir string) (string, error) {
 }
 
 // ReadFile is one file as a commit holds it.
-func ReadFile(ctx context.Context, dir, sha, path string) ([]byte, error) {
+func (c *Client) ReadFile(ctx context.Context, dir, sha, path string) ([]byte, error) {
 	out, err := RunBytes(ctx, dir, "show", sha+":"+path)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read %q at %q: %w", path, sha, err)
@@ -68,7 +68,7 @@ func ReadFile(ctx context.Context, dir, sha, path string) ([]byte, error) {
 
 // ReadFileLines is one file as a commit holds it, split into lines.
 func (c *Client) ReadFileLines(ctx context.Context, dir, sha, path string) ([]string, error) {
-	out, err := ReadFile(ctx, dir, sha, path)
+	out, err := c.ReadFile(ctx, dir, sha, path)
 	if err != nil {
 		return nil, err
 	}
@@ -76,9 +76,9 @@ func (c *Client) ReadFileLines(ctx context.Context, dir, sha, path string) ([]st
 	return strings.Split(strings.TrimSuffix(string(out), "\n"), "\n"), nil
 }
 
-// ExcludePathspecs turns paths into pathspecs git will subtract, so a caller writes only a path
+// excludePathspecs turns paths into pathspecs git will subtract, so a caller writes only a path
 // or a glob such as proto/gen.
-func ExcludePathspecs(paths []string) []string {
+func excludePathspecs(paths []string) []string {
 	specs := make([]string, 0, len(paths))
 	for _, path := range paths {
 		path = strings.TrimSpace(path)
@@ -111,7 +111,7 @@ func (c *Client) CountChangedFiles(ctx context.Context, params CountChangedFiles
 		"-c", "core.quotepath=false",
 		"--no-pager", "diff", "--no-ext-diff", "--name-only",
 		params.FromSHA, params.ToSHA, "--", ".",
-	}, ExcludePathspecs(params.Exclude)...)
+	}, excludePathspecs(params.Exclude)...)
 
 	out, err := Run(ctx, params.Dir, args...)
 	if err != nil {
@@ -122,4 +122,37 @@ func (c *Client) CountChangedFiles(ctx context.Context, params CountChangedFiles
 	}
 
 	return len(strings.Split(strings.TrimSpace(out), "\n")), nil
+}
+
+// DiffParams says which two commits to read the patch between and what to leave out of it.
+type DiffParams struct {
+	// Dir is the repository holding both commits.
+	Dir string
+	// FromSHA is the commit the patch is measured from, and ToSHA the one it is measured to.
+	FromSHA string
+	ToSHA   string
+	// Exclude is the paths and globs to leave out, relative to the repository root.
+	Exclude []string
+}
+
+// Diff is the patch between two commits, written with the prefixes a parser of it expects.
+func (c *Client) Diff(ctx context.Context, params DiffParams) ([]byte, error) {
+	args := append([]string{
+		"-c", "core.quotepath=false",
+		"-c", "diff.external=",
+		"-c", "diff.noprefix=false",
+		"-c", "diff.mnemonicPrefix=false",
+		"-c", "diff.srcPrefix=a/",
+		"-c", "diff.dstPrefix=b/",
+		"--no-pager", "diff",
+		"--no-ext-diff", "--no-color", "--find-renames", "--unified=3", "--full-index",
+		params.FromSHA, params.ToSHA, "--", ".",
+	}, excludePathspecs(params.Exclude)...)
+
+	raw, err := RunBytes(ctx, params.Dir, args...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to diff %s against %s: %w", params.FromSHA, params.ToSHA, err)
+	}
+
+	return raw, nil
 }

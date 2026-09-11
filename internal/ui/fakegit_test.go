@@ -39,3 +39,11 @@ func (fakeGit) MapRanges(context.Context, git.MapRangesParams) ([]position.Mappi
 func (fakeGit) ProbeTree(context.Context, string) (string, error) { return "", errNoGit }
 
 func (fakeGit) GetTree(context.Context, string, string) (string, error) { return "", errNoGit }
+
+func (fakeGit) GetRoot(context.Context, string) (string, error) { return "", errNoGit }
+
+func (fakeGit) Diff(context.Context, git.DiffParams) ([]byte, error) { return nil, errNoGit }
+
+func (fakeGit) ReadFile(context.Context, string, string, string) ([]byte, error) {
+	return nil, errNoGit
+}

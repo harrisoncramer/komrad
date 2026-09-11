@@ -7,7 +7,6 @@ import (
 	"os"
 	"time"
 
-	"weave/internal/git"
 	agentstore "weave/internal/store/agent"
 )
 
@@ -21,16 +20,21 @@ type cwdSetter interface {
 	SetWorktreeRemovedByID(ctx context.Context, id string, removed bool) error
 }
 
+// branchGetter is the branch a checkout is on.
+type branchGetter interface {
+	GetCurrentBranch(ctx context.Context, dir string) *string
+}
+
 // CwdSyncer keeps what the panel shows of an agent's working directory in step with the
 // directory itself.
 type CwdSyncer struct {
-	agents cwdSetter
-	branch func(ctx context.Context, dir string) *string
+	agents   cwdSetter
+	branches branchGetter
 }
 
 // NewCwdSyncer builds a syncer over the agent store.
-func NewCwdSyncer(agents cwdSetter) *CwdSyncer {
-	return &CwdSyncer{agents: agents, branch: readBranch}
+func NewCwdSyncer(agents cwdSetter, branches branchGetter) *CwdSyncer {
+	return &CwdSyncer{agents: agents, branches: branches}
 }
 
 // Sync looks at every live agent's cwd once and writes what changed, clearing the branch when
@@ -49,7 +53,7 @@ func (cs *CwdSyncer) Sync(ctx context.Context) error {
 		// run against it and waited out.
 		var branch *string
 		if !removed {
-			branch = cs.branch(ctx, agent.Cwd)
+			branch = cs.readBranch(ctx, agent.Cwd)
 		}
 
 		if removed != agent.WorktreeRemoved {
@@ -90,7 +94,7 @@ func isCwdRemoved(ctx context.Context, dir string) bool {
 	}
 }
 
-func readBranch(ctx context.Context, dir string) *string {
+func (cs *CwdSyncer) readBranch(ctx context.Context, dir string) *string {
 	if dir == "" {
 		return nil
 	}
@@ -98,7 +102,7 @@ func readBranch(ctx context.Context, dir string) *string {
 	ctx, cancel := context.WithTimeout(ctx, cwdLookTimeout)
 	defer cancel()
 
-	return git.GetCurrentBranch(ctx, dir)
+	return cs.branches.GetCurrentBranch(ctx, dir)
 }
 
 func isSameBranch(a, b *string) bool {

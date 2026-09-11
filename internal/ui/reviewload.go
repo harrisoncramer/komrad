@@ -187,7 +187,7 @@ func (m model) loadReviewCmd(params loadReviewCmdParams) tea.Cmd {
 			head = params.Head
 		}
 
-		patch, err := diff.Load(ctx, diff.LoadParams{
+		patch, err := diff.Load(ctx, repo, diff.LoadParams{
 			Dir:         dir,
 			BaseSHA:     base,
 			SnapshotSHA: head,

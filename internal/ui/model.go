@@ -136,6 +136,9 @@ type uiGit interface {
 	MapRanges(ctx context.Context, params git.MapRangesParams) ([]position.Mapping, error)
 	ProbeTree(ctx context.Context, dir string) (string, error)
 	GetTree(ctx context.Context, dir, sha string) (string, error)
+	GetRoot(ctx context.Context, dir string) (string, error)
+	Diff(ctx context.Context, params git.DiffParams) ([]byte, error)
+	ReadFile(ctx context.Context, dir, sha, path string) ([]byte, error)
 }
 
 // harnessFrameReader tells a harness that has drawn itself in a pane from one that has only

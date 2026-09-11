@@ -24,6 +24,13 @@ var ErrAllExcluded = errors.New("every change in the worktree is in a path this 
 // colouring while the patch still shows its hunks.
 const maxFileBytes = 2 << 20
 
+// patchReader is the git a patch and its two sides are read through.
+type patchReader interface {
+	GetRoot(ctx context.Context, dir string) (string, error)
+	Diff(ctx context.Context, params git.DiffParams) ([]byte, error)
+	ReadFile(ctx context.Context, dir, sha, path string) ([]byte, error)
+}
+
 // LoadParams says which snapshot to read and what to measure it against.
 type LoadParams struct {
 	// Dir is anywhere inside the agent's worktree.
@@ -38,20 +45,24 @@ type LoadParams struct {
 
 // Load reads everything one round holds, measured against the point its branch left the base,
 // with both sides coming out of commits so the patch is the same bytes however long afterwards.
-func Load(ctx context.Context, params LoadParams) (*Patch, error) {
-	root, err := git.GetRoot(ctx, params.Dir)
+func Load(ctx context.Context, repo patchReader, params LoadParams) (*Patch, error) {
+	root, err := repo.GetRoot(ctx, params.Dir)
 	if err != nil {
 		return nil, err
 	}
 
-	exclude := git.ExcludePathspecs(params.Exclude)
-
-	raw, err := git.RunBytes(ctx, root, diffArgs(params.BaseSHA, params.SnapshotSHA, exclude)...)
+	raw, err := repo.Diff(ctx, git.DiffParams{
+		Dir:     root,
+		FromSHA: params.BaseSHA,
+		ToSHA:   params.SnapshotSHA,
+		Exclude: params.Exclude,
+	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to diff %s against %s: %w", params.BaseSHA, params.SnapshotSHA, err)
+		return nil, err
 	}
 
 	files, err := parseFiles(ctx, parseFilesParams{
+		Git:         repo,
 		Root:        root,
 		BaseSHA:     params.BaseSHA,
 		SnapshotSHA: params.SnapshotSHA,
@@ -64,7 +75,7 @@ func Load(ctx context.Context, params LoadParams) (*Patch, error) {
 	// Untracked files are already in the snapshot, so the parsed list is the whole of what the
 	// reader would see and an empty one is nothing to show them.
 	if len(files) == 0 {
-		return nil, explainEmptyDiff(ctx, root, params)
+		return nil, explainEmptyDiff(ctx, repo, root, params)
 	}
 
 	return &Patch{
@@ -77,12 +88,16 @@ func Load(ctx context.Context, params LoadParams) (*Patch, error) {
 
 // explainEmptyDiff says why a round drew nothing, telling a worktree that never moved from one
 // whose every change is hidden.
-func explainEmptyDiff(ctx context.Context, root string, params LoadParams) error {
+func explainEmptyDiff(ctx context.Context, repo patchReader, root string, params LoadParams) error {
 	if len(params.Exclude) == 0 {
 		return ErrNoChanges
 	}
 
-	raw, err := git.RunBytes(ctx, root, diffArgs(params.BaseSHA, params.SnapshotSHA, nil)...)
+	raw, err := repo.Diff(ctx, git.DiffParams{
+		Dir:     root,
+		FromSHA: params.BaseSHA,
+		ToSHA:   params.SnapshotSHA,
+	})
 	if err != nil || len(bytes.TrimSpace(raw)) == 0 {
 		return ErrNoChanges
 	}
@@ -90,26 +105,10 @@ func explainEmptyDiff(ctx context.Context, root string, params LoadParams) error
 	return ErrAllExcluded
 }
 
-// diffArgs pins the prefix git writes on the header line, whose first segment the parser drops
-// whatever it is.
-func diffArgs(baseSHA, snapshotSHA string, exclude []string) []string {
-	args := []string{
-		"-c", "core.quotepath=false",
-		"-c", "diff.external=",
-		"-c", "diff.noprefix=false",
-		"-c", "diff.mnemonicPrefix=false",
-		"-c", "diff.srcPrefix=a/",
-		"-c", "diff.dstPrefix=b/",
-		"--no-pager", "diff",
-		"--no-ext-diff", "--no-color", "--find-renames", "--unified=3", "--full-index",
-		baseSHA, snapshotSHA, "--", ".",
-	}
-
-	return append(args, exclude...)
-}
-
 // parseFilesParams says which patch to read and which two commits to read each side of it out of.
 type parseFilesParams struct {
+	// Git is what each side of a file is read through.
+	Git patchReader
 	// Root is the repository the two commits live in.
 	Root string
 	// BaseSHA is the commit the round was measured against, holding the old side of every file.
@@ -154,8 +153,8 @@ func parseFiles(ctx context.Context, params parseFilesParams) ([]File, error) {
 			file.Metadata = append(file.Metadata, "content omitted: over 2 MiB")
 			file.Content = current.OldOIDPrefix + ".." + current.NewOIDPrefix
 		default:
-			file.OldSource = readRevision(ctx, params.Root, params.BaseSHA, file.OldPath)
-			file.NewSource = readRevision(ctx, params.Root, params.SnapshotSHA, file.NewPath)
+			file.OldSource = readRevision(ctx, params.Git, params.Root, params.BaseSHA, file.OldPath)
+			file.NewSource = readRevision(ctx, params.Git, params.Root, params.SnapshotSHA, file.NewPath)
 			file.Hunks = buildHunks(current.TextFragments)
 		}
 
@@ -240,12 +239,12 @@ func buildHunks(fragments []*gitdiff.TextFragment) []Hunk {
 	return hunks
 }
 
-func readRevision(ctx context.Context, root, revision, path string) string {
+func readRevision(ctx context.Context, repo patchReader, root, revision, path string) string {
 	if path == "" {
 		return ""
 	}
 
-	out, err := git.ReadFile(ctx, root, revision, path)
+	out, err := repo.ReadFile(ctx, root, revision, path)
 	if err != nil || len(out) > maxFileBytes {
 		return ""
 	}

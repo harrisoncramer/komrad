@@ -34,7 +34,7 @@ func TestMaterialiseIsTheRoundRatherThanTheWorktree(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, snapshot.SHA, head)
 
-	assert.Nil(t, GetCurrentBranch(t.Context(), at), "the checkout is detached, so nothing can be pushed from it")
+	assert.Nil(t, client.GetCurrentBranch(t.Context(), at), "the checkout is detached, so nothing can be pushed from it")
 }
 
 // TestMaterialiseMovesACheckoutAlreadyThere covers the second round of the same agent, which
