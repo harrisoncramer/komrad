@@ -8,6 +8,7 @@ import (
 
 	"weave/config"
 	"weave/internal/ui/layout"
+	"weave/internal/ui/paint"
 
 	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
@@ -438,8 +439,10 @@ func (m model) failedPlaceholder(agent agentstore.Agent) string {
 	// A create dies at the provisioner or at one of the pre-launch hooks after it, so the run
 	// that failed is the newest of either rather than the newest provision run.
 	label, moments := "setup", []string{config.TriggerProvision, config.HookPreLaunch}
+	// A delete dies either at a pre-teardown hook or at the deprovisioner after it, so the run
+	// that failed is the newest of the two.
 	if agent.State == agentstore.StateFailedToCleanup {
-		label, moments = "teardown", []string{config.TriggerDeprovision}
+		label, moments = "teardown", []string{config.HookPreTeardown, config.TriggerDeprovision}
 	}
 
 	if run, ok := m.latestRunLog(agent.ID, moments); ok {
@@ -478,7 +481,7 @@ func (m model) agentsListView() string {
 
 		if r.header {
 			label := m.filter.highlight(r.workflow.Name, m.nameStyle(hovered, false))
-			header := prefix + markGutter(m.listing.marks[rowKey(r)]) + label + hiddenTally(r.hiddenCount, m.tree.showHidden)
+			header := prefix + paint.MarkGutter(m.listing.marks[rowKey(r)]) + label + hiddenTally(r.hiddenCount, m.tree.showHidden)
 			rows = append(rows, header)
 
 			continue
@@ -486,9 +489,9 @@ func (m model) agentsListView() string {
 
 		item := r.item
 		name := m.filter.highlight(clipName(item.agent.Name), m.nameStyle(hovered, !item.alive))
-		row := prefix + markGutter(m.listing.marks[rowKey(r)]) + childMark(r.child) + stateMark(displayState(item)) + " " + name + " " + worktreeRemovedMark(item) + scheduledMark(item.agent) + hiddenMark(item.agent.Hidden) + unreadMailMark(item.unreadMail) + unviewedMark(item.unviewed) + failedRunMark(item.failedRun) + localReviewRoundsMark(item.localRounds) + localReviewMark(item.inLocalReview, item.localVerdict) + hiddenTally(r.hiddenCount, m.tree.showHidden) + reasonMark(item.agent)
+		row := prefix + paint.MarkGutter(m.listing.marks[rowKey(r)]) + childMark(r.child) + stateMark(displayState(item)) + " " + name + " " + worktreeRemovedMark(item) + scheduledMark(item.agent) + hiddenMark(item.agent.Hidden) + unreadMailMark(item.unreadMail) + unviewedMark(item.unviewed) + failedRunMark(item.failedRun) + localReviewRoundsMark(item.localRounds) + localReviewMark(item.inLocalReview, item.localVerdict) + hiddenTally(r.hiddenCount, m.tree.showHidden) + reasonMark(item.agent)
 		if m.tree.selected.has(item.agent.ID) {
-			row = paintRow(row, selectionBackground, m.width)
+			row = paint.PaintRow(row, paint.SelectionBackground, m.width)
 		}
 
 		rows = append(rows, row)
@@ -520,11 +523,14 @@ func agentPrefill(workflow workflowstore.Workflow) agentFormValues {
 }
 
 func (m model) openAgentForm(workflow workflowstore.Workflow, values *agentFormValues) (tea.Model, tea.Cmd) {
-	return m.openRedrawnForm(
-		formAgent,
-		func(m model) *huh.Form { return newAgentForm(formKeys(), values, workflow.Worktree.Enabled) },
-		func(m model) (tea.Model, tea.Cmd) { return m.submitAgent(workflow, *values) },
-	)
+	return m.openRedrawnForm(openRedrawnFormParams{
+		Kind: formAgent,
+		Build: func(m model) (*huh.Form, []string) {
+			return newAgentForm(formKeys(), values, workflow.Worktree.Enabled)
+		},
+		Editable: []editableText{{key: "prompt", value: &values.Prompt}},
+		Submit:   func(m model) (tea.Model, tea.Cmd) { return m.submitAgent(workflow, *values) },
+	})
 }
 
 // openNewChild attaches a child to the hovered agent, saying why on a child rather than opening
@@ -542,11 +548,12 @@ func (m model) openNewChild(parent agentstore.Agent) (tea.Model, tea.Cmd) {
 }
 
 func (m model) openChildForm(parent agentstore.Agent, values *agentFormValues) (tea.Model, tea.Cmd) {
-	return m.openRedrawnForm(
-		formChild,
-		func(m model) *huh.Form { return childAgentForm(formKeys(), values, parent) },
-		func(m model) (tea.Model, tea.Cmd) { return m.submitChild(parent, *values) },
-	)
+	return m.openRedrawnForm(openRedrawnFormParams{
+		Kind:     formChild,
+		Build:    func(m model) (*huh.Form, []string) { return childAgentForm(formKeys(), values, parent) },
+		Editable: []editableText{{key: "prompt", value: &values.Prompt}},
+		Submit:   func(m model) (tea.Model, tea.Cmd) { return m.submitChild(parent, *values) },
+	})
 }
 
 // submitChild launches the child without a directory or a provisioner.
@@ -568,11 +575,11 @@ func (m model) openRename(agent agentstore.Agent) (tea.Model, tea.Cmd) {
 }
 
 func (m model) openRenameForm(agent agentstore.Agent, name *string) (tea.Model, tea.Cmd) {
-	return m.openRedrawnForm(
-		formRename,
-		func(m model) *huh.Form { return renameForm(agent.Name, name, formKeys()) },
-		func(m model) (tea.Model, tea.Cmd) { return m.submitRename(agent, *name) },
-	)
+	return m.openRedrawnForm(openRedrawnFormParams{
+		Kind:   formRename,
+		Build:  func(m model) (*huh.Form, []string) { return renameForm(agent.Name, name, formKeys()) },
+		Submit: func(m model) (tea.Model, tea.Cmd) { return m.submitRename(agent, *name) },
+	})
 }
 
 func (m model) openAdopt(workflow *workflowstore.Workflow) (tea.Model, tea.Cmd) {
@@ -593,11 +600,12 @@ func adoptPrefill(workflow workflowstore.Workflow) adoptFormValues {
 }
 
 func (m model) openAdoptForm(workflow workflowstore.Workflow, values *adoptFormValues) (tea.Model, tea.Cmd) {
-	return m.openRedrawnForm(
-		formAdopt,
-		func(m model) *huh.Form { return adoptAgentForm(formKeys(), values) },
-		func(m model) (tea.Model, tea.Cmd) { return m.submitAdopt(workflow, *values) },
-	)
+	return m.openRedrawnForm(openRedrawnFormParams{
+		Kind:     formAdopt,
+		Build:    func(m model) (*huh.Form, []string) { return adoptAgentForm(formKeys(), values) },
+		Editable: []editableText{{key: "prompt", value: &values.Prompt}},
+		Submit:   func(m model) (tea.Model, tea.Cmd) { return m.submitAdopt(workflow, *values) },
+	})
 }
 
 func (m model) submitAdopt(workflow workflowstore.Workflow, values adoptFormValues) (tea.Model, tea.Cmd) {
@@ -670,28 +678,21 @@ func (m model) refreshAgent(agent agentstore.Agent) (tea.Model, tea.Cmd) {
 	return m, m.planRefreshCmd(agentID, name)
 }
 
-// openRefreshPicker asks which half of a refresh to run, naming what a rebase would cost.
-func (m model) openRefreshPicker(plan refreshPlan) (tea.Model, tea.Cmd) {
-	form, answer := refreshForm(plan, formKeys())
+// openRefreshConfirm asks before bringing a worktree up to date, saying what it will do to the
+// branch and to the files.
+func (m model) openRefreshConfirm(plan refreshPlan) (tea.Model, tea.Cmd) {
+	form, confirmed := refreshForm(plan, formKeys())
 
 	return m, m.openForm(formState{
 		kind:   formAgentRefresh,
 		form:   form,
 		update: model.updateForm,
 		submit: confirmSubmit(func(m model) (model, tea.Cmd) {
-			switch *answer {
-			case refreshChoiceRebase:
-				return m, m.rebaseCmd(plan.agentID, plan.name)
-			case refreshChoiceReset:
-				return m, m.writeCmd(
-					"Could not replace the worktree",
-					func(a api) error { return a.resetWorktree(plan.agentID) },
-				)
-			case refreshChoiceCancel:
+			if !*confirmed {
 				return m, nil
 			}
 
-			return m, nil
+			return m, m.rebaseCmd(plan.agentID, plan.name)
 		}),
 	})
 }

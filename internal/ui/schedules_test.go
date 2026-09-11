@@ -173,7 +173,7 @@ func TestSchedulesView(t *testing.T) {
 // TestScheduleFormButtonsLineUp pins the confirm buttons left, which huh otherwise centres
 // under the field's own prompt.
 func TestScheduleFormButtonsLineUp(t *testing.T) {
-	form := scheduleForm(&schedulestore.Config{
+	form, _ := scheduleForm(&schedulestore.Config{
 		Name: "sweeper", Cron: "*/5 * * * *", Prompt: "sweep", Enabled: true, WorkflowID: "w1",
 	}, []workflowstore.Workflow{{
 		ID:   "w1",

@@ -261,7 +261,7 @@ func TestTheDiffColumnSaysWhatItIsWaitingFor(t *testing.T) {
 
 	column := ansi.Strip(m.reviewDiffView(split))
 	assert.Contains(t, column, reviewLoadingWord, "which says what it is waiting for")
-	// lipgloss rather than countLines, which takes one trailing newline off and so under-reports a
+	// lipgloss rather than paint.CountLines, which takes one trailing newline off and so under-reports a
 	// block whose last row is blank padding, as this one's is.
 	assert.Equal(t, split.rows, lipgloss.Height(column), "and stands its full height while it waits")
 

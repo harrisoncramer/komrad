@@ -1,10 +1,13 @@
 package ui
 
 import (
+	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"weave/internal/ui/layout"
+	"weave/internal/ui/paint"
 )
 
 var stageTextPath = stageFilePath("text")
@@ -22,7 +25,7 @@ func newTextContent(markdown string) layout.Content {
 		Dir:   homeDir(),
 		Wraps: true,
 		Render: func(target layout.Target) ([]string, bool) {
-			if !writeStageFile(stageTextPath, render(markdown, target.Width)) {
+			if !writeStageFile(stageTextPath, paint.Render(markdown, target.Width)) {
 				return nil, false
 			}
 
@@ -49,4 +52,30 @@ func newBlankContent() layout.Content {
 		Dir:    homeDir(),
 		Render: func(layout.Target) ([]string, bool) { return nil, true },
 	}
+}
+
+// stageFilePath names a screenful for the panel that wrote it, in the one temporary directory
+// every weave on the machine shares.
+func stageFilePath(name string) string {
+	return filepath.Join(os.TempDir(), fmt.Sprintf("weave-%s-%d.ansi", name, os.Getpid()))
+}
+
+// writeStageFile renames the frame into place, so a drawer reading while the panel writes gets
+// the frame before or the frame after rather than half of each.
+func writeStageFile(path, content string) bool {
+	temp := path + ".tmp"
+	if os.WriteFile(temp, []byte(content), 0o644) != nil {
+		return false
+	}
+
+	return os.Rename(temp, path) == nil
+}
+
+func pagerArgv(path string, line int) []string {
+	argv := []string{"less", "-R", "-X", "-Ps"}
+	if line > 1 {
+		argv = append(argv, fmt.Sprintf("+%d", line))
+	}
+
+	return append(argv, path)
 }

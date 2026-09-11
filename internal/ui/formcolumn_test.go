@@ -7,6 +7,7 @@ import (
 
 	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
+	"weave/internal/ui/paint"
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
@@ -142,7 +143,7 @@ func TestFormStaysInsideTheFrame(t *testing.T) {
 
 		m = delivered(t, m, cmd)
 
-		assert.LessOrEqual(t, countLines(m.View()), height, "height=%d", height)
+		assert.LessOrEqual(t, paint.CountLines(m.View()), height, "height=%d", height)
 		assert.Contains(t, ansi.Strip(m.View()), "New workflow name", "height=%d opens at the top of itself", height)
 	}
 }
@@ -165,7 +166,7 @@ func TestFormStaysInsideTheFrameUnderARefusal(t *testing.T) {
 
 		require.NotEmpty(t, m.messages.items, "the reason is on screen")
 		require.True(t, m.form.isActive(), "and the form is still up to fix it in")
-		assert.LessOrEqual(t, countLines(m.View()), height, "height=%d", height)
+		assert.LessOrEqual(t, paint.CountLines(m.View()), height, "height=%d", height)
 	}
 }
 
@@ -186,7 +187,7 @@ func TestAHeldFormCarriesItsOwnNotice(t *testing.T) {
 
 		assert.NotContains(t, lines[0], "submitting", "height=%d the panel keeps its top row", height)
 		assert.Contains(t, lastFilled(lines), "submitting…", "height=%d the notice sits under the form", height)
-		assert.LessOrEqual(t, countLines(m.View()), height, "height=%d", height)
+		assert.LessOrEqual(t, paint.CountLines(m.View()), height, "height=%d", height)
 	}
 }
 
@@ -221,13 +222,13 @@ func TestFormKeepsTheWholePaneOnANarrowWindow(t *testing.T) {
 func TestFormBlursTheListBesideIt(t *testing.T) {
 	m := formColumnModel(t)
 	require.True(t, m.isListFocused(), "the list holds the keys to start with")
-	require.Equal(t, headerStyle, m.titleStyle())
+	require.Equal(t, paint.HeaderStyle, m.titleStyle())
 
 	m = openWorkflowForm(t, m)
 
 	assert.False(t, m.isListFocused(), "the form holds them once it is up")
-	assert.Equal(t, blurredHeaderStyle, m.titleStyle(), "so the list's title is drawn blurred")
-	assert.Equal(t, blurredCursorStyle.Render(rowCursorGlyph), m.rowCursorPrefix(), "and its cursor stands still")
+	assert.Equal(t, paint.BlurredHeaderStyle, m.titleStyle(), "so the list's title is drawn blurred")
+	assert.Equal(t, paint.BlurredCursorStyle.Render(rowCursorGlyph), m.rowCursorPrefix(), "and its cursor stands still")
 }
 
 // TestFormRefusalIsReadableFromInsideTheForm covers reaching the whole reason without leaving

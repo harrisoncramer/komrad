@@ -39,6 +39,19 @@ type pullRequestResolver interface {
 	Repository(ctx context.Context, dir string) (string, error)
 }
 
+// worktreeLister reports the checkouts of a repository.
+type worktreeLister interface {
+	ListWorktrees(ctx context.Context, repo string) ([]git.Worktree, error)
+}
+
+// GitWorktrees lists a repository's checkouts with git.
+type GitWorktrees struct{}
+
+// ListWorktrees reports every checkout of a repository, the main one first.
+func (GitWorktrees) ListWorktrees(ctx context.Context, repo string) ([]git.Worktree, error) {
+	return git.ListWorktrees(ctx, repo)
+}
+
 // adoptAgentReadWriter is the slice of the agent store adoption reads.
 type adoptAgentReadWriter interface {
 	List(ctx context.Context) ([]agentstore.Agent, error)
@@ -53,6 +66,7 @@ type AdoptService struct {
 	workflows    workflowReader
 	launch       *LaunchService
 	pullRequests pullRequestResolver
+	worktrees    worktreeLister
 }
 
 type NewAdoptServiceParams struct {
@@ -62,6 +76,7 @@ type NewAdoptServiceParams struct {
 	// PullRequests lets adoption take a pull request rather than a branch, a branch name still
 	// adopting without it.
 	PullRequests pullRequestResolver
+	Worktrees    worktreeLister
 }
 
 // NewAdoptService builds the service from its dependencies.
@@ -71,6 +86,7 @@ func NewAdoptService(params NewAdoptServiceParams) *AdoptService {
 		workflows:    params.Workflows,
 		launch:       params.Launch,
 		pullRequests: params.PullRequests,
+		worktrees:    params.Worktrees,
 	}
 }
 
@@ -139,7 +155,7 @@ func (s *AdoptService) Adopt(ctx context.Context, params AdoptParams) (*agentsto
 		AdoptedBranch:  branch,
 	}
 
-	trees, err := readWorktrees(ctx, repo, branch)
+	trees, err := s.readWorktrees(ctx, repo, branch)
 	if err != nil {
 		return nil, err
 	}
@@ -280,30 +296,25 @@ type worktrees struct {
 }
 
 // readWorktrees reports the checkout holding a branch, blank when none does.
-func readWorktrees(ctx context.Context, repo, branch string) (worktrees, error) {
+func (s *AdoptService) readWorktrees(ctx context.Context, repo, branch string) (worktrees, error) {
 	listCtx, cancel := context.WithTimeout(ctx, worktreeListTimeout)
 	defer cancel()
 
-	out, err := git.RunBytes(listCtx, repo, "worktree", "list", "--porcelain")
+	listed, err := s.worktrees.ListWorktrees(listCtx, repo)
 	if err != nil {
 		return worktrees{}, err
 	}
 
-	want := "branch refs/heads/" + branch
-
 	var found worktrees
-	var dir string
-	for line := range strings.SplitSeq(string(out), "\n") {
-		switch {
-		case strings.HasPrefix(line, "worktree "):
-			dir = strings.TrimPrefix(line, "worktree ")
-			// git answers from anywhere inside a checkout and reports roots, so the main worktree is
-			// the first one listed rather than the directory git was asked from.
-			if found.main == "" {
-				found.main = dir
-			}
-		case line == want:
-			found.holder = dir
+	for _, tree := range listed {
+		// git answers from anywhere inside a checkout and reports roots, so the main worktree is
+		// the first one listed rather than the directory git was asked from.
+		if found.main == "" {
+			found.main = tree.Dir
+		}
+
+		if tree.Branch == branch {
+			found.holder = tree.Dir
 		}
 	}
 

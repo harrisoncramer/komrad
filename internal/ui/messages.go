@@ -6,10 +6,12 @@ import (
 	"strings"
 	"time"
 
+	"weave/internal/ui/paint"
 	"weave/lib/dates"
 
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
+	glamouransi "github.com/charmbracelet/glamour/ansi"
 	"github.com/charmbracelet/lipgloss"
 )
 
@@ -115,7 +117,7 @@ func (m model) messagesRegion(record, help string) string {
 		// The summary keeps its row while the pieces under it move, so what failed and where in
 		// the stack it sits are on screen wherever the cursor has got to.
 		drawn := m.messagesRender()
-		slot = drawn.rows[0] + "\n" + padRows(renderList(drawn.rows[1:], drawn.cursorRow-1, rows-1), rows-1)
+		slot = drawn.rows[0] + "\n" + paint.PadRows(paint.RenderList(drawn.rows[1:], drawn.cursorRow-1, rows-1, dimStyle), rows-1)
 	}
 
 	block := slot
@@ -214,7 +216,7 @@ func (m model) messagePieceRows(piece messagePiece, hovered, flashed bool) []str
 	}
 
 	rows := []string{}
-	for _, line := range wrapRows(piece.text, m.lineWidth()-messagesIndent-2-lipgloss.Width(piece.label)) {
+	for _, line := range paint.WrapRows(piece.text, m.lineWidth()-messagesIndent-2-lipgloss.Width(piece.label)) {
 		if len(rows) == 0 {
 			label := ""
 			if piece.label != "" {
@@ -274,7 +276,7 @@ func (m model) messagesSlot() []string {
 
 	return []string{
 		m.messagesSummaryStyle(held, 0, false) + m.messagesTally(0),
-		dimStyle.Render("  " + clip(held.detail, max(m.lineWidth()-messagesIndent, 1))),
+		dimStyle.Render("  " + paint.Clip(held.detail, max(m.lineWidth()-messagesIndent, 1))),
 		dimStyle.Render("  " + m.messagesHint()),
 	}
 }
@@ -288,7 +290,7 @@ func (m model) messagesSummaryLine(taken int) string {
 
 	held := m.messages.items[m.messagesCursor()]
 
-	return clip(kindIcon(held.kind)+" "+held.summary, max(m.lineWidth()-taken-messagesTallyWidth, 1))
+	return paint.Clip(kindIcon(held.kind)+" "+held.summary, max(m.lineWidth()-taken-messagesTallyWidth, 1))
 }
 
 // messagesSummaryStyle is the summary row drawn with the kind on the icon alone.
@@ -333,7 +335,7 @@ func (m model) messagesTally(taken int) string {
 	// The tally is where the region says the keys are its own.
 	style := dimStyle
 	if m.messages.focused {
-		style = headerStyle
+		style = paint.HeaderStyle
 	}
 
 	return strings.Repeat(" ", pad) + style.Render(tally)
@@ -403,7 +405,7 @@ func (m model) messagesDoc() string {
 // messagesBlock is the message drawn in the block beside the list, asked for directly.
 func (m model) messagesBlock(split columnSplit) docWindow {
 	return docWindow{
-		rows:    docStyledRows(m.messagesDoc(), split.column, kindStyleConfig(m.messagesKind())),
+		rows:    paint.DocStyledRows(m.messagesDoc(), split.column, kindStyleConfig(m.messagesKind())),
 		top:     m.column.top,
 		markers: true,
 	}
@@ -589,16 +591,16 @@ func kindLabel(kind messageKind) string {
 func kindColor(kind messageKind) lipgloss.Color {
 	switch kind {
 	case messageError:
-		return colorDanger
+		return paint.Danger
 	case messageWarning:
-		return colorWarning
+		return paint.Warning
 	case messageSuccess:
-		return colorSuccess
+		return paint.Success
 	case messageInfo:
-		return colorMuted
+		return paint.Muted
 	}
 
-	return colorMuted
+	return paint.Muted
 }
 
 func kindStyle(kind messageKind) lipgloss.Style {
@@ -625,4 +627,16 @@ var mockMessages = []message{
 		summary: "Archived 4 agents",
 		detail:  "weave-bughunt-job, iss-408-reviewer, test-2 and test are hidden from the sidebar. restore them from the archive screen with Z.",
 	},
+}
+
+// kindStyleConfig is the markdown a message is drawn in, where the kind colours the icon alone.
+func kindStyleConfig(kind messageKind) glamouransi.StyleConfig {
+	style := paint.StageStyle
+	style.Strong.Color = nil
+	style.Emph.Color = paint.ANSIColor(paint.Muted)
+	style.Code.Color = paint.ANSIColor(kindColor(kind))
+	style.Code.Prefix = ""
+	style.Code.Suffix = ""
+
+	return style
 }

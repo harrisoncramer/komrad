@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"strings"
 
+	"weave/internal/ui/paint"
+
 	"github.com/charmbracelet/glamour/ansi"
 	"github.com/charmbracelet/lipgloss"
 )
@@ -11,6 +13,9 @@ import (
 // reviewBandFloor is how many rows the band leaves the rest of the frame: the blank row, the
 // search prompt, and enough of the diff to be worth drawing.
 const reviewBandFloor = 5
+
+// reviewScopeOnStyle is the half of the scope switch that is in force.
+var reviewScopeOnStyle = lipgloss.NewStyle().Foreground(paint.Accent).Bold(true)
 
 // reviewBandView is what stands over the diff: what is being read, how big it is, what the
 // reader has sent, and the pattern they are searching it for.
@@ -32,7 +37,7 @@ func (m model) reviewBandView(width int) string {
 // reviewBandRows is the band's rows in the order they give way, least valuable last.
 func (m model) reviewBandRows() []string {
 	rows := []string{
-		titleOf(m.isReviewDiffFocused(), "Review · "+m.review.agentName) + "\n",
+		paint.TitleOf(m.isReviewDiffFocused(), "Review · "+m.review.agentName) + "\n",
 		m.reviewModeView(),
 		m.reviewScopeView(),
 		m.reviewStatView(),
@@ -177,10 +182,10 @@ func (m model) reviewBandRow(style lipgloss.Style, state, hint string) string {
 
 	room := m.lineWidth() - lipgloss.Width(state) - len(" · ")
 	if room <= 0 {
-		return style.Render(clip(state, m.lineWidth())) + "\n"
+		return style.Render(paint.Clip(state, m.lineWidth())) + "\n"
 	}
 
-	return style.Render(state) + dimStyle.Render(" · "+clip(hint, room)) + "\n"
+	return style.Render(state) + dimStyle.Render(" · "+paint.Clip(hint, room)) + "\n"
 }
 
 // reviewBandStyle is what the band over the diff wears: its own colour while the diff holds the
@@ -190,14 +195,14 @@ func (m model) reviewBandStyle(style lipgloss.Style) lipgloss.Style {
 		return style
 	}
 
-	return style.Foreground(colorMuted)
+	return style.Foreground(paint.Muted)
 }
 
 // reviewColumnStyle is the markdown a notice standing in for the patch is drawn in.
 func (m model) reviewColumnStyle() ansi.StyleConfig {
 	if m.isReviewDiffFocused() {
-		return stageStyle
+		return paint.StageStyle
 	}
 
-	return blurredStageStyle
+	return paint.BlurredStageStyle
 }

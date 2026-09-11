@@ -12,6 +12,7 @@ import (
 	"weave/lib/xslice"
 
 	agentstore "weave/internal/store/agent"
+	"weave/internal/ui/paint"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/stretchr/testify/assert"
@@ -472,8 +473,8 @@ func assertKeysWithTheList(t *testing.T, m model) {
 
 	assert.Equal(t, 2, moved.tree.cursor, "the list answers movement")
 	assert.Equal(t, m.details.cursor, moved.details.cursor, "no cursor runs down fields that are not drawn")
-	assert.Equal(t, colorAccent, m.titleStyle().GetForeground(), "the list keeps the accent")
-	assert.Equal(t, colorAccent, m.rowCursorStyle().GetForeground())
+	assert.Equal(t, paint.Accent, m.titleStyle().GetForeground(), "the list keeps the accent")
+	assert.Equal(t, paint.Accent, m.rowCursorStyle().GetForeground())
 	assert.NotContains(t, m.renderHelp(m.agentHelp()), "back to the list", "and the legend is its own")
 }
 
@@ -521,7 +522,7 @@ func TestDetailsFocusReturnsWithTheSection(t *testing.T) {
 
 	assert.Equal(t, 2, moved.details.cursor, "the keys are back on the fields")
 	assert.Equal(t, 1, moved.tree.cursor, "and off the list")
-	assert.Equal(t, colorMuted, grown.titleStyle().GetForeground(), "the accent goes back with them")
+	assert.Equal(t, paint.Muted, grown.titleStyle().GetForeground(), "the accent goes back with them")
 }
 
 func resize(m model, width, height int) tea.Model {

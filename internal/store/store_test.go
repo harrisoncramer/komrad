@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"weave/internal/pgtest"
+	"weave/internal/dbtest"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -100,7 +100,7 @@ func TestUpdatedAtStamped(t *testing.T) {
 func open(ctx context.Context, t *testing.T) *Pool {
 	t.Helper()
 
-	pool, err := Open(ctx, pgtest.URL(t))
+	pool, err := Open(ctx, dbtest.URL(t))
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = pool.Close() })
 

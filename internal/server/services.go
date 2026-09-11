@@ -143,6 +143,7 @@ func buildServices(p Params, st *stores) (*services, error) {
 		Agents:    st.agents,
 		Workflows: st.workflows,
 		Notifier:  mailService,
+		Rebaser:   agents.GitRebaser{},
 		Interrupter: agents.NewPaneInterrupter(agents.NewPaneInterrupterParams{
 			Agents:    st.agents,
 			Harnesses: p.Harnesses,
@@ -154,6 +155,7 @@ func buildServices(p Params, st *stores) (*services, error) {
 		Workflows:    st.workflows,
 		Launch:       launchService,
 		PullRequests: agents.NewGHPullRequests(),
+		Worktrees:    agents.GitWorktrees{},
 	})
 	emptyWorkflows := agents.NewEmptyWorkflowDeleter(agents.NewEmptyWorkflowDeleterParams{
 		Workflows: st.workflows,
@@ -168,6 +170,7 @@ func buildServices(p Params, st *stores) (*services, error) {
 		Tx:             st.pool,
 		Scripts:        scriptService,
 		Reviews:        st.review,
+		Snapshots:      agents.GitSnapshotter{},
 		LogsDir:        runLogsDir,
 		FramesDir:      p.Env.FramesDir(),
 		MaxAgents:      p.MaxAgents,

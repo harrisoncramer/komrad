@@ -48,6 +48,18 @@ linters:
       # and may not reach past it, and the panel receives its adapters rather than
       # importing them. These are cheap to keep and expensive to rediscover.
       rules:
+        presentation:
+          files:
+            - "**/internal/ui/paint/**"
+          deny:
+            - pkg: weave/internal/store
+              desc: the drawing primitives hold no domain, so nothing here reads a record
+            - pkg: weave/db
+              desc: the drawing primitives hold no domain, so nothing here reads a record
+            - pkg: weave/proto
+              desc: the drawing primitives hold no domain, so nothing here reads a record
+            - pkg: weave/internal/ui
+              desc: paint is under the panel rather than beside it, so it never reaches back up
         panel:
           files:
             - "**/internal/ui/**"

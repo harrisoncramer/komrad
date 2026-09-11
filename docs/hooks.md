@@ -2,7 +2,7 @@
 
 A hook is a script or a binary weave runs at a moment in an agent's life spawned by a workflow.
 
-Hooks can be used to install worktree packages or other tooling, or run basic setup that cannot be handled by the workflow copy or linking commands. They can also be used to clean up afterwards, or fire when a workflow is restored from the archive.
+Use a hook to install packages or tooling in a worktree, or to do setup the workflow's copy and symlink settings cannot cover. A hook can also clean up after an agent is deleted, or run when one comes back out of the archive.
 
 ## Where they live
 
@@ -19,12 +19,13 @@ Hooks runs in their agent's directory, which is the worktree when its workflow p
 
 Every workflow can add one hook on each of these lifecycle event, picked in the workflow:
 
-- `pre-launch` runs after the agent's directory exists but before the pane is opened. Good for dependency installs (that aren't covered by the workflows copy/symlinks), for instance. This is the only hook weave waits for, because it's failure is blocking: no agent is spawned, and any worktree created is given back.
+- `pre-launch` runs after the agent's directory exists but before the pane is opened. Good for dependency installs (that aren't covered by the workflows copy/symlinks), for instance. A failure here is blocking: no agent is spawned, and any worktree created is given back.
 - `post-launch` runs once the CLI has been launched into the pane. It runs in the background.
 - `post-resume` runs once a dormant agent is back in a pane, after its worktree has been put back. Runs in the background.
 - `post-restore` runs when an archived row comes back. Runs in the background.
+- `pre-teardown` runs when an agent is deleted, before its worktree is handed back. This is where you take down anything the agent started outside its own directory, such as a docker stack it brought up from its pane. Weave waits for this one. If it fails the delete stops, the row goes to `failed_to_cleanup`, and the worktree is left alone so the next attempt still has the files it needs. A delete can therefore ask this hook to run more than once, so write one that is safe to run again. Weave skips it if the worktree has already gone, because there is nothing left for it to work on. It does not run when you archive an agent. Archiving keeps the worktree, and restoring the agent puts it back to work in the same one.
 
-Child agents do not run hooks, and neither do non-worktree agents. The reason for this is that both may be working in a directory they do not own.
+Child agents do not run hooks. Neither do agents told to keep the directory they were given instead of being made one. Both may be working in a directory that belongs to somebody else.
 
 ## The environment
 
@@ -36,7 +37,7 @@ The `WEAVE_AGENT` environment variable is a JSON blob that carries `id`, `name`,
 - `WEAVE_ADDR`, this server's address, for calling back into the API or the [CLI](commands.md).
 - `WEAVE_TMUX_SOCKET`, the tmux server every agent's pane lives on
 - `WEAVE_SCRIPT_DIR`, the directory the script came out of, which is how one that cds elsewhere finds its siblings again.
-- `WEAVE_TRIGGER`, the moment that set it off. One of `pre-launch`, `post-launch`, `post-resume`, `post-restore`, or, for the scripts weave ships, `provision`, `resume`, or `deprovision`.
+- `WEAVE_TRIGGER`, the moment that set it off. One of `pre-launch`, `post-launch`, `post-resume`, `post-restore`, `pre-teardown`, or, for the scripts weave ships, `provision`, `resume`, or `deprovision`.
 - `WEAVE_SCRIPT`, its own name, for tagging its own log lines.
 - `WEAVE_INFO_PANE`, the panel's info pane, for a script that wants to draw something where the panel's own scripts do.
 - `WEAVE_HOST_TMUX_SOCKET`, your own tmux server, as the last open recorded it.

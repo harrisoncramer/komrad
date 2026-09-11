@@ -98,6 +98,7 @@ const (
 	HookPostLaunch     = "post-launch"
 	HookPostResume     = "post-resume"
 	HookPostRestore    = "post-restore"
+	HookPreTeardown    = "pre-teardown"
 )
 
 // runMoments is every moment by name, which is the set a run's file name is read back against.
@@ -110,6 +111,7 @@ func runMoments() []string {
 		HookPostLaunch,
 		HookPostResume,
 		HookPostRestore,
+		HookPreTeardown,
 	}
 }
 

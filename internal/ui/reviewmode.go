@@ -3,7 +3,19 @@ package ui
 import (
 	"fmt"
 
+	"weave/internal/ui/paint"
 	agentv1 "weave/proto/gen/agent/v1"
+
+	"github.com/charmbracelet/lipgloss"
+)
+
+// The mode is the one thing on the screen that changes what every key does, so each state gets
+// its own colour.
+var (
+	reviewReadingStyle = lipgloss.NewStyle().Foreground(paint.Accent).Bold(true)
+	reviewWritingStyle = lipgloss.NewStyle().Foreground(paint.Success).Bold(true)
+	reviewHistoryStyle = lipgloss.NewStyle().Foreground(paint.Warning).Bold(true)
+	reviewHeldStyle    = lipgloss.NewStyle().Foreground(paint.Muted).Bold(true)
 )
 
 // reviewModeView says whether the reader is looking or writing.

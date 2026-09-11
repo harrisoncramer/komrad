@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"weave/internal/client"
+	"weave/internal/ui/paint"
 	"weave/lib/xslice"
 	agentv1 "weave/proto/gen/agent/v1"
 	paginationv1 "weave/proto/gen/pagination/v1"
@@ -50,6 +51,9 @@ const (
 	nearSection
 	nameSection
 )
+
+// snippetIndent is how far a snippet is drawn in from the row naming the hit it came from.
+const snippetIndent = 4
 
 func (s searchSection) label() string {
 	switch s {
@@ -228,22 +232,22 @@ func (m model) nameHits() []searchHit {
 }
 
 func nameSays(name, query string) bool {
-	return strings.Contains(foldASCII(name), foldASCII(query))
+	return strings.Contains(paint.FoldASCII(name), paint.FoldASCII(query))
 }
 
 // markName marks where in a name the query was found.
 func markName(name, query string) string {
-	folded := foldASCII(strings.TrimSpace(query))
+	folded := paint.FoldASCII(strings.TrimSpace(query))
 	if folded == "" {
 		return name
 	}
 
-	at := strings.Index(foldASCII(name), folded)
+	at := strings.Index(paint.FoldASCII(name), folded)
 	if at < 0 {
 		return name
 	}
 
-	return name[:at] + matchStyle.Render(name[at:at+len(folded)]) + name[at+len(folded):]
+	return name[:at] + paint.MatchStyle.Render(name[at:at+len(folded)]) + name[at+len(folded):]
 }
 
 func (m *model) applySearch(result searchResult) tea.Cmd {
@@ -275,7 +279,7 @@ func (m model) previewCmd(hit searchHit) tea.Cmd {
 				return "", err
 			}
 
-			return scrubMarks(transcript), nil
+			return paint.ScrubMarks(transcript), nil
 		})
 		if err != nil {
 			return previewResult{agentID: hit.agentID, query: query}
@@ -369,7 +373,7 @@ func (m model) updateSearchInput(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, m.hide()
 	case k == "backspace":
 		if m.search.query != "" {
-			m.search.query = trimLastRune(m.search.query)
+			m.search.query = paint.TrimLastRune(m.search.query)
 		}
 
 		return m, m.debounceSearchCmd(m.search.query)
@@ -474,8 +478,8 @@ func (m model) jumpToSearchHit() (tea.Model, tea.Cmd) {
 
 // spans locates this hit's own matched words in the transcript, measured from the turn the hit
 // names and not from whatever the preview last fetched.
-func (h searchHit) spans(content string) []span {
-	return matchSpans(content, h.offset, h.length, markedTerms(h.snippet))
+func (h searchHit) spans(content string) []paint.Span {
+	return paint.MatchSpans(content, h.offset, h.length, paint.MarkedTerms(h.snippet))
 }
 
 // hitHeader names the agent a run of hits came from, wearing the same marks its row wears on the
@@ -529,7 +533,7 @@ func (m model) searchRows() ([]string, int) {
 
 		hovered := i == m.search.cursor
 
-		gutter := markGutter(m.listing.marks[agentRowKey(hit.agentID)])
+		gutter := paint.MarkGutter(m.listing.marks[agentRowKey(hit.agentID)])
 
 		var row string
 		if hit.section == nameSection {
@@ -545,7 +549,7 @@ func (m model) searchRows() ([]string, int) {
 				labelled = hit.agentID
 			}
 
-			row = "  " + m.cursorGap(hovered) + dimStyle.Render(renderSnippet(hit.snippet, m.paneWidth()-snippetIndent))
+			row = "  " + m.cursorGap(hovered) + dimStyle.Render(paint.RenderSnippet(hit.snippet, m.paneWidth()-snippetIndent))
 		}
 
 		if hovered {
@@ -582,11 +586,11 @@ func (m model) searchView() string {
 
 // searchSidebarView is the panel's own column: the query and the hits it found.
 func (m model) searchSidebarView() string {
-	query := cursorStyle.Render("/") + " " + m.search.query
+	query := paint.CursorStyle.Render("/") + " " + m.search.query
 	if m.search.typing {
-		query += cursorStyle.Render("▏")
+		query += paint.CursorStyle.Render("▏")
 	}
-	header := titleOf(m.isListFocused(), "Search") + "\n\n" + query + "\n\n"
+	header := paint.TitleOf(m.isListFocused(), "Search") + "\n\n" + query + "\n\n"
 	help := m.renderHelp(m.searchHelp())
 
 	switch {
@@ -598,5 +602,5 @@ func (m model) searchSidebarView() string {
 
 	rows, cursor := m.searchRows()
 
-	return header + renderList(rows, cursor, m.listLines(header, help)) + help
+	return header + paint.RenderList(rows, cursor, m.listLines(header, help), dimStyle) + help
 }

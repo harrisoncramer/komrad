@@ -123,11 +123,26 @@ and selection.go for the multi-select. Then archive.go, schedules.go, search.go,
 Shared concerns: api.go, column.go, details.go, document.go, filter.go, forms.go, help.go,
 info.go, logs.go, refresh.go, keys.go, clipboard.go, report.go, convert.go.
 
-Presentation, holding no panel state at all: content.go, list.go, markdown.go, palette.go,
-render.go, snippet.go, style.go.
+Presentation that still knows what it is drawing: content.go, list.go, markdown.go, style.go.
+style.go is the marks a row wears for an agent's state, and what is left in list.go and
+document.go is the model methods that measure a pane before handing the drawing on.
 
 The frame is its own package, internal/ui/layout, which owns the panes the panel lays out
 around itself and is the only thing here that talks to tmux.
+
+## The drawing primitives
+
+internal/ui/paint is the colours, the styles, the markdown rendering, the arithmetic that fits
+a list into a pane, and the markers a search hit carries. Nothing in it takes a model and
+nothing in it reads a store, so what a screen draws stays the screen's business and how it is
+drawn is paint's.
+
+The rule is enforced rather than described: depguard denies paint the store, the database, the
+protos, and the panel itself, listed in .golangci.yaml beside the panel's own rule.
+
+The one contract paint cannot import is the pair of markers the transcript store wraps a
+search hit in. It declares them itself and marker_test.go in the panel pins the two together,
+so a change to either is a failing test rather than a silent mismatch.
 
 ## Why the errors live in another package
 

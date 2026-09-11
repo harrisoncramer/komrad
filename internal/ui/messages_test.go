@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"weave/internal/ui/paint"
 	"weave/lib/dates"
 
 	"github.com/charmbracelet/lipgloss"
@@ -491,7 +492,7 @@ func TestChromeKeepsEveryRowInsideThePane(t *testing.T) {
 
 		// A worktree path is nothing but dashes, and a wrap that breaks at one has to keep every
 		// column it was handed: a path the reader copies out and cannot find is the worse failure.
-		joined := strings.Join(wrapRows("a "+path, width), "")
+		joined := strings.Join(paint.WrapRows("a "+path, width), "")
 		assert.Contains(t, strings.ReplaceAll(joined, " ", ""), path, "path survives the wrap at width %d", width)
 	}
 }

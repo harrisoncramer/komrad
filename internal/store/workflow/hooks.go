@@ -16,11 +16,12 @@ const (
 	HookPostLaunch  = config.HookPostLaunch
 	HookPostResume  = config.HookPostResume
 	HookPostRestore = config.HookPostRestore
+	HookPreTeardown = config.HookPreTeardown
 )
 
 // HookEvents are the moments a workflow can hang a script on, in the order they fire.
 func HookEvents() []string {
-	return []string{HookPreLaunch, HookPostLaunch, HookPostResume, HookPostRestore}
+	return []string{HookPreLaunch, HookPostLaunch, HookPostResume, HookPostRestore, HookPreTeardown}
 }
 
 // Hook is one script a workflow hangs on a moment, and a moment can hold several.

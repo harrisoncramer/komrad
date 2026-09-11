@@ -78,6 +78,12 @@ type reviewSnapshotter interface {
 	Take(ctx context.Context, params git.TakeSnapshotParams) (*git.Snapshot, error)
 	Hold(ctx context.Context, dir, ref, sha string) error
 	FileAt(ctx context.Context, dir, sha, path string) ([]string, error)
+	snapshotReleaser
+}
+
+// snapshotReleaser drops the ref holding a round's snapshot.
+type snapshotReleaser interface {
+	Release(ctx context.Context, dir, ref string) error
 }
 
 // GitSnapshotter takes a round's snapshot with git.
@@ -96,6 +102,11 @@ func (GitSnapshotter) Hold(ctx context.Context, dir, ref, sha string) error {
 // FileAt reads one file as the round froze it.
 func (GitSnapshotter) FileAt(ctx context.Context, dir, sha, path string) ([]string, error) {
 	return git.ReadFileLines(ctx, dir, sha, path)
+}
+
+// Release drops the ref a snapshot was held by, leaving it to be collected.
+func (GitSnapshotter) Release(ctx context.Context, dir, ref string) error {
+	return git.ReleaseRef(ctx, dir, ref)
 }
 
 // roundRef is the ref a snapshot is held by so nothing collects it, named after the agent and

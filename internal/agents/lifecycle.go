@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"sync"
 
 	"weave/config"
 	"weave/internal/frames"
-	"weave/internal/git"
 	"weave/internal/logging"
 	"weave/internal/store"
 	"weave/lib/xslice"
@@ -49,10 +49,13 @@ type LifecycleService struct {
 	tx             txRunner
 	scripts        agentScriptRunner
 	reviews        reviewReaper
+	snapshots      snapshotReleaser
 	logsDir        string
 	framesDir      string
 	maxAgents      int
 	maxChildren    int
+	tearingDownMu  sync.Mutex
+	tearingDown    map[string]struct{}
 }
 
 type NewLifecycleServiceParams struct {
@@ -63,6 +66,7 @@ type NewLifecycleServiceParams struct {
 	Tx             txRunner
 	Scripts        agentScriptRunner
 	Reviews        reviewReaper
+	Snapshots      snapshotReleaser
 	LogsDir        string
 	FramesDir      string
 	MaxAgents      int
@@ -79,10 +83,12 @@ func NewLifecycleService(params NewLifecycleServiceParams) *LifecycleService {
 		tx:             params.Tx,
 		scripts:        params.Scripts,
 		reviews:        params.Reviews,
+		snapshots:      params.Snapshots,
 		logsDir:        params.LogsDir,
 		framesDir:      params.FramesDir,
 		maxAgents:      params.MaxAgents,
 		maxChildren:    params.MaxChildren,
+		tearingDown:    make(map[string]struct{}),
 	}
 }
 
@@ -109,29 +115,28 @@ func (s *LifecycleService) DeleteAgents(ctx context.Context, ids []string) error
 	var immediate []agentstore.Agent
 	for _, agent := range agents {
 		name := deprovisionerFor(ctx, s.workflows, agent)
-		if s.scripts == nil || name == "" {
+		hooks := agentHooks(ctx, s.workflows, agent)
+		teardown := s.scripts != nil && hasHookOn(hooks, workflowstore.HookPreTeardown)
+		if s.scripts == nil || (name == "" && !teardown) {
 			immediate = append(immediate, agent)
 
 			continue
 		}
 
 		// The row is never dropped before the script says whether it worked.
-		runDeprovision(ctx, s.scripts, agent, name, func(deprovisionErr error) {
-			if deprovisionErr != nil {
-				s.failCleanup(bg, agent, deprovisionErr)
+		done := s.finishDelete(bg, agent)
+		if !teardown {
+			runDeprovision(ctx, s.scripts, agent, name, done)
 
-				return
-			}
+			continue
+		}
 
-			if err := s.removeAgents(bg, []string{agent.ID}); err != nil {
-				logging.From(bg).LogAttrs(bg, slog.LevelError, "failed to remove an agent whose cleanup finished",
-					append([]slog.Attr{slog.String(logging.AgentID, agent.ID)}, logging.Err(err)...)...)
+		// The deprovisioner claims the agent so it cannot run twice at once, and a hook does not.
+		if !s.claimTeardown(agent.ID) {
+			continue
+		}
 
-				return
-			}
-
-			s.cleanupEmptyWorkflows(bg, []agentstore.Agent{agent})
-		})
+		go s.tearDown(bg, agent, hooks, name, done)
 	}
 
 	if len(immediate) == 0 {
@@ -145,6 +150,74 @@ func (s *LifecycleService) DeleteAgents(ctx context.Context, ids []string) error
 	s.cleanupEmptyWorkflows(ctx, immediate)
 
 	return nil
+}
+
+// tearDown runs a workflow's teardown hooks while the agent's directory is still there, then
+// lets the deprovisioner take it away.
+func (s *LifecycleService) tearDown(ctx context.Context, agent agentstore.Agent, hooks []workflowstore.Hook, deprovisioner string, done func(error)) {
+	// A hook has nothing to run against once the directory has gone.
+	if requireUsableDir(agent.Cwd) == nil {
+		// The deprovisioner waits until the teardown has worked.
+		if err := runHooks(ctx, hookRunParams{
+			scripts: s.scripts,
+			agent:   agent,
+			hooks:   hooks,
+			event:   workflowstore.HookPreTeardown,
+		}); err != nil {
+			s.releaseTeardown(agent.ID)
+			s.failCleanup(ctx, agent, err)
+
+			return
+		}
+	}
+
+	runDeprovision(ctx, s.scripts, agent, deprovisioner, func(deprovisionErr error) {
+		s.releaseTeardown(agent.ID)
+		done(deprovisionErr)
+	})
+}
+
+// claimTeardown reports whether this caller is the one tearing an agent down, so a second
+// delete does nothing instead of running the hooks again.
+func (s *LifecycleService) claimTeardown(id string) bool {
+	s.tearingDownMu.Lock()
+	defer s.tearingDownMu.Unlock()
+
+	if _, running := s.tearingDown[id]; running {
+		return false
+	}
+
+	s.tearingDown[id] = struct{}{}
+
+	return true
+}
+
+func (s *LifecycleService) releaseTeardown(id string) {
+	s.tearingDownMu.Lock()
+	defer s.tearingDownMu.Unlock()
+
+	delete(s.tearingDown, id)
+}
+
+// finishDelete drops the row of an agent whose teardown worked, and writes down the reason on
+// one whose teardown did not.
+func (s *LifecycleService) finishDelete(ctx context.Context, agent agentstore.Agent) func(error) {
+	return func(deprovisionErr error) {
+		if deprovisionErr != nil {
+			s.failCleanup(ctx, agent, deprovisionErr)
+
+			return
+		}
+
+		if err := s.removeAgents(ctx, []string{agent.ID}); err != nil {
+			logging.From(ctx).LogAttrs(ctx, slog.LevelError, "failed to remove an agent whose cleanup finished",
+				append([]slog.Attr{slog.String(logging.AgentID, agent.ID)}, logging.Err(err)...)...)
+
+			return
+		}
+
+		s.cleanupEmptyWorkflows(ctx, []agentstore.Agent{agent})
+	}
 }
 
 func (s *LifecycleService) failCleanup(ctx context.Context, agent agentstore.Agent, cause error) {
@@ -481,7 +554,7 @@ func (s *LifecycleService) releaseRounds(ctx context.Context, ids []string) {
 		}
 
 		for _, round := range rounds {
-			if err := git.ReleaseRef(ctx, agent.Cwd, roundRef(agent.ID, round.SnapshotSHA)); err != nil {
+			if err := s.snapshots.Release(ctx, agent.Cwd, roundRef(agent.ID, round.SnapshotSHA)); err != nil {
 				logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to release the snapshot of a round",
 					append([]slog.Attr{slog.String(logging.AgentID, agent.ID)}, logging.Err(err)...)...)
 			}

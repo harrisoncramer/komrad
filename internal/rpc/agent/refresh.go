@@ -2,7 +2,6 @@ package agent
 
 import (
 	"context"
-	"errors"
 
 	"weave/internal/agents"
 	"weave/internal/rpcerr"
@@ -10,9 +9,6 @@ import (
 
 	"connectrpc.com/connect"
 )
-
-// ErrResetUnimplemented stands in for the destructive half of a refresh, which is not built.
-var ErrResetUnimplemented = errors.New("resetting a worktree is not implemented yet, only rebasing is")
 
 // worktreeRefresher brings an agent's existing worktree up to date in place.
 type worktreeRefresher interface {
@@ -62,12 +58,4 @@ func (s *Service) RebaseWorktree(
 		LandedCommits: int32(result.Landed),
 		ReplayCommits: int32(result.Replay),
 	}), nil
-}
-
-// ResetWorktree is the destructive half, which is designed in rfcs/0042 and not yet built.
-func (s *Service) ResetWorktree(
-	_ context.Context,
-	_ *connect.Request[agentv1.ResetWorktreeRequest],
-) (*connect.Response[agentv1.ResetWorktreeResponse], error) {
-	return nil, rpcerr.Wrap(ErrResetUnimplemented, "failed to reset the worktree")
 }

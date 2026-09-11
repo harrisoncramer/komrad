@@ -4,6 +4,8 @@ import (
 	"slices"
 	"strings"
 
+	"weave/internal/ui/paint"
+
 	"github.com/charmbracelet/bubbles/help"
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/lipgloss"
@@ -72,7 +74,7 @@ func (m model) refusedExpansion(bindings []key.Binding) []key.Binding {
 
 func helpView(width int) help.Model {
 	view := help.New()
-	view.Styles = helpStyles()
+	view.Styles = paint.HelpStyles()
 	view.Width = width
 
 	return view

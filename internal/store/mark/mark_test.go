@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"weave/internal/pgtest"
+	"weave/internal/dbtest"
 	"weave/internal/store"
 	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
@@ -24,7 +24,7 @@ type fixture struct {
 func open(t *testing.T) *fixture {
 	t.Helper()
 
-	pool, err := store.Open(t.Context(), pgtest.URL(t))
+	pool, err := store.Open(t.Context(), dbtest.URL(t))
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = pool.Close() })
 

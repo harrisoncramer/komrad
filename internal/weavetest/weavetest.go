@@ -69,6 +69,8 @@ type Instance struct {
 	// BuiltinDir is where the server installed the scripts weave ships, which a test overwrites
 	// when it needs one of them to behave differently.
 	BuiltinDir string
+	// WorktreesDir is the directory the instance makes its agents' worktrees in.
+	WorktreesDir string
 	// Opened holds what the instance was asked to open in a browser, which a test may not put in
 	// front of whoever is running it.
 	Opened  *OpenedURLs
@@ -104,7 +106,9 @@ func (o *OpenedURLs) Targets() []string {
 type Params struct {
 	MaxAgents        int
 	DeliveryDeadline string
-	WorktreesDir     string
+	// WorktreesDir replaces the temporary directory the instance would otherwise make its
+	// worktrees in.
+	WorktreesDir string
 }
 
 // Start builds the service and returns it running, torn down when the test ends.
@@ -134,12 +138,15 @@ func Start(t *testing.T, p Params) *Instance {
 	hooksDir := filepath.Join(root, "hooks")
 	require.NoError(t, os.MkdirAll(hooksDir, 0o755))
 
-	settings := fmt.Sprintf("[hooks]\ndir = %q\n", hooksDir)
+	worktreesDir := p.WorktreesDir
+	if worktreesDir == "" {
+		worktreesDir = filepath.Join(root, "worktrees")
+	}
+	require.NoError(t, os.MkdirAll(worktreesDir, 0o755))
+
+	settings := fmt.Sprintf("[hooks]\ndir = %q\n\n[worktrees]\ndir = %q\n", hooksDir, worktreesDir)
 	if p.DeliveryDeadline != "" {
 		settings += fmt.Sprintf("\n[mail]\ndelivery_deadline = %q\n", p.DeliveryDeadline)
-	}
-	if p.WorktreesDir != "" {
-		settings += fmt.Sprintf("\n[worktrees]\ndir = %q\n", p.WorktreesDir)
 	}
 
 	configPath := filepath.Join(root, "config.toml")
@@ -182,20 +189,21 @@ func Start(t *testing.T, p Params) *Instance {
 	client, url := httpServer.Client(), httpServer.URL
 
 	return &Instance{
-		t:          t,
-		Agents:     agentv1connect.NewAgentServiceClient(client, url),
-		Workflows:  workflowv1connect.NewWorkflowServiceClient(client, url),
-		Schedules:  schedulev1connect.NewScheduleServiceClient(client, url),
-		Hooks:      hookv1connect.NewHookServiceClient(client, url),
-		Config:     configv1connect.NewConfigServiceClient(client, url),
-		Harness:    fake,
-		Tmux:       tmuxServer,
-		Stores:     stores,
-		HooksDir:   hooksDir,
-		BuiltinDir: server.BuiltinScriptsDir(cacheDir),
-		Opened:     opened,
-		URL:        url,
-		server:     built,
+		t:            t,
+		Agents:       agentv1connect.NewAgentServiceClient(client, url),
+		Workflows:    workflowv1connect.NewWorkflowServiceClient(client, url),
+		Schedules:    schedulev1connect.NewScheduleServiceClient(client, url),
+		Hooks:        hookv1connect.NewHookServiceClient(client, url),
+		Config:       configv1connect.NewConfigServiceClient(client, url),
+		Harness:      fake,
+		Tmux:         tmuxServer,
+		Stores:       stores,
+		HooksDir:     hooksDir,
+		BuiltinDir:   server.BuiltinScriptsDir(cacheDir),
+		WorktreesDir: worktreesDir,
+		Opened:       opened,
+		URL:          url,
+		server:       built,
 	}
 }
 

@@ -336,6 +336,26 @@ func TestFailedPlaceholderPointsAtTheHookThatFailedTheCreate(t *testing.T) {
 	assert.Contains(t, m.failedPlaceholder(agent), "run 002", "the hook's run is the one that failed")
 }
 
+// TestFailedPlaceholderPointsAtTheHookThatFailedTheDelete pins the same thing on the way out,
+// where the deprovisioner never ran and left no run of its own.
+func TestFailedPlaceholderPointsAtTheHookThatFailedTheDelete(t *testing.T) {
+	tmux := &recordingTmux{}
+	m, _ := logsModel(t, tmux)
+
+	agent := agentstore.Agent{
+		ID:       "a1",
+		State:    agentstore.StateFailedToCleanup,
+		Metadata: []agentstore.Metadata{{Key: "error", Value: "take-the-stack-down: docker refused"}},
+	}
+
+	writeRun(t, m.runLogsDir, agent.ID, 1, config.TriggerProvision, "make-worktree")
+	writeRun(t, m.runLogsDir, agent.ID, 2, config.HookPreTeardown, "take-the-stack-down")
+
+	drawn := m.failedPlaceholder(agent)
+	assert.Contains(t, drawn, "run 002", "the hook's run is the one that failed")
+	assert.NotContains(t, drawn, "docker refused", "the log says why, so the reason is not repeated here")
+}
+
 // TestFailedPlaceholderSkipsARunWithNothingInIt pins a claimed but empty run being passed
 // over.
 func TestFailedPlaceholderSkipsARunWithNothingInIt(t *testing.T) {

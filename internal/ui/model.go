@@ -308,7 +308,3 @@ func (m model) currentDir(dir string) string {
 
 	return home
 }
-
-func clampCursor(idx, length int) int {
-	return max(min(idx, length-1), 0)
-}

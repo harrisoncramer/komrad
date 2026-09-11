@@ -4,6 +4,7 @@ import (
 	"regexp"
 	"strings"
 
+	"weave/internal/ui/paint"
 	"weave/lib/xslice"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -68,7 +69,7 @@ func (f filterState) highlight(name string, base lipgloss.Style) string {
 	at := 0
 	for _, span := range spans {
 		writeStyled(&b, base, name[at:span[0]])
-		writeStyled(&b, matchStyle, name[span[0]:span[1]])
+		writeStyled(&b, paint.MatchStyle, name[span[0]:span[1]])
 		at = span[1]
 	}
 	writeStyled(&b, base, name[at:])
@@ -129,7 +130,7 @@ func (f *filterState) takeKey(key tea.KeyMsg) bool {
 	case k == "enter":
 		f.typing = false
 	case k == "backspace":
-		f.setQuery(trimLastRune(f.query))
+		f.setQuery(paint.TrimLastRune(f.query))
 	case key.Type == tea.KeySpace:
 		f.setQuery(f.query + " ")
 	case key.Type == tea.KeyRunes:
@@ -232,17 +233,17 @@ func (m model) filterView() string {
 func (f filterState) view() string {
 	query := f.query
 	if f.broken {
-		query = brokenStyle.Render(query)
+		query = paint.BrokenStyle.Render(query)
 	}
 
-	slash := cursorStyle
+	slash := paint.CursorStyle
 	if !f.typing && !f.isStanding() {
 		slash = dimStyle
 	}
 
 	line := slash.Render("/") + " " + query
 	if f.typing {
-		line += cursorStyle.Render("▏")
+		line += paint.CursorStyle.Render("▏")
 	}
 
 	return line + "\n\n"

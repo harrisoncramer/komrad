@@ -1,3 +1,10 @@
 bin/
 local/
 dist/
+/weave
+/mockup
+/paneldemo
+
+!.claude/
+.claude/*
+!.claude/skills/

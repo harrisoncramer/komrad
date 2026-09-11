@@ -3,6 +3,8 @@ package ui
 import (
 	"strings"
 
+	"weave/internal/ui/paint"
+
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
@@ -180,7 +182,7 @@ func (m model) detailsView() string {
 
 	return m.detailsRule() +
 		block +
-		padRows(renderList(rows, cursor, lines), lines) +
+		paint.PadRows(paint.RenderList(rows, cursor, lines, dimStyle), lines) +
 		m.detailsRule()
 }
 
@@ -229,7 +231,7 @@ func (m model) noticeLines(n notice, most int) []string {
 		width--
 	}
 
-	text := wrapRows(n.text, width)
+	text := paint.WrapRows(n.text, width)
 	if most > 0 && len(text) > most {
 		text = text[:most]
 		text[most-1] += "…"
@@ -256,7 +258,7 @@ func (m model) detailFieldRows(fields []recordField, cursor int) []string {
 		}
 
 		label := dimStyle.Render(padRight(field.label, labels))
-		value := clip(field.value, max(m.lineWidth()-labels-gutter-1, 1))
+		value := paint.Clip(field.value, max(m.lineWidth()-labels-gutter-1, 1))
 		if m.details.flashed == i+1 {
 			value = flashFieldStyle.Render(value)
 		}
@@ -293,4 +295,4 @@ func padRight(text string, width int) string {
 	return text + strings.Repeat(" ", pad)
 }
 
-var flashFieldStyle = lipgloss.NewStyle().Background(colorAccent).Foreground(lipgloss.Color("0"))
+var flashFieldStyle = lipgloss.NewStyle().Background(paint.Accent).Foreground(lipgloss.Color("0"))
