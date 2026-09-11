@@ -153,7 +153,8 @@ func (s *DeliveryService) Deliver(ctx context.Context, agentID string) (Delivery
 	}
 
 	if err := s.nudgeClaimer.SetNudgeSent(ctx, agent.ID); err != nil {
-		return DeliveryLater, err
+		logging.From(ctx).LogAttrs(ctx, slog.LevelError, "failed to record the nudge weave sent an agent, so the next one will read as a first",
+			append(logging.Err(err), slog.String(logging.TargetAgentID, agent.ID))...)
 	}
 
 	return DeliverySoon, nil

@@ -379,6 +379,35 @@ func TestDeliverDoesNotWarnAfterAPassThatTypedNothing(t *testing.T) {
 		"the agent has been told once, so nothing went nowhere")
 }
 
+// TestDeliverKeepsALandedNudgeWhenTheBookkeepingFails pins that a nudge already typed is not
+// reported as a failed delivery because the row it is recorded on refused the write.
+func TestDeliverKeepsALandedNudgeWhenTheBookkeepingFails(t *testing.T) {
+	agents := &fakeAgents{claimed: true, sentErr: errors.New("no database"), agent: &agentstore.Agent{
+		ID:    "agent-a",
+		Pane:  "%1",
+		State: agentstore.StateIdle,
+	}}
+	channel := &fakeChannel{}
+
+	svc := NewDeliveryService(NewDeliveryServiceParams{
+		MailboxReader: &fakeMailboxReader{pending: 1},
+		NudgeClaimer:  agents,
+		PaneReader:    &fakePanes{alive: true, frame: idleFrame},
+		Channel:       channel,
+	})
+
+	ctx, records := loggedContext(t)
+
+	got, err := svc.Deliver(ctx, "agent-a")
+	require.NoError(t, err, "the rest of the pass goes on")
+	assert.Equal(t, DeliverySoon, got)
+	assert.Len(t, channel.sent, 1)
+
+	written := records()
+	require.Len(t, written, 2)
+	assert.Equal(t, "ERROR", written[1]["severity_text"])
+}
+
 // TestDeliverReportsExpiredMail pins that mail nobody read before its deadline is reported
 // rather than dropped in silence.
 func TestDeliverReportsExpiredMail(t *testing.T) {
@@ -429,6 +458,7 @@ type fakeAgents struct {
 	agent   *agentstore.Agent
 	claimed bool
 	taken   bool
+	sentErr error
 }
 
 func (f *fakeAgents) GetByID(_ context.Context, id string) (*agentstore.Agent, error) {
@@ -454,6 +484,10 @@ func (f *fakeAgents) ClaimNudge(context.Context, string, time.Duration) (bool, e
 }
 
 func (f *fakeAgents) SetNudgeSent(_ context.Context, _ string) error {
+	if f.sentErr != nil {
+		return f.sentErr
+	}
+
 	sentAt := time.Now()
 	f.agent.NudgeSentAt = &sentAt
 

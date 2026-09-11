@@ -27,8 +27,8 @@ func (s *Store) ClaimNudge(ctx context.Context, id string, retryAfter time.Durat
 	return len(claimed) > 0, nil
 }
 
-// SetNudgeSent records that an agent was actually told about its mail, which the claim alone
-// does not say.
+// SetNudgeSent records that an agent was actually told about its mail, an advisory stamp the
+// claim alone does not make.
 func (s *Store) SetNudgeSent(ctx context.Context, id string) error {
 	if !store.IsID(id) {
 		return fmt.Errorf("%w: agent %q", store.ErrNotFound, id)
