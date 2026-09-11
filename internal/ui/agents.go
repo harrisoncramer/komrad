@@ -8,6 +8,7 @@ import (
 
 	"weave/config"
 	"weave/internal/ui/layout"
+	"weave/internal/ui/paint"
 
 	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
@@ -480,7 +481,7 @@ func (m model) agentsListView() string {
 
 		if r.header {
 			label := m.filter.highlight(r.workflow.Name, m.nameStyle(hovered, false))
-			header := prefix + markGutter(m.listing.marks[rowKey(r)]) + label + hiddenTally(r.hiddenCount, m.tree.showHidden)
+			header := prefix + paint.MarkGutter(m.listing.marks[rowKey(r)]) + label + hiddenTally(r.hiddenCount, m.tree.showHidden)
 			rows = append(rows, header)
 
 			continue
@@ -488,9 +489,9 @@ func (m model) agentsListView() string {
 
 		item := r.item
 		name := m.filter.highlight(clipName(item.agent.Name), m.nameStyle(hovered, !item.alive))
-		row := prefix + markGutter(m.listing.marks[rowKey(r)]) + childMark(r.child) + stateMark(displayState(item)) + " " + name + " " + worktreeRemovedMark(item) + scheduledMark(item.agent) + hiddenMark(item.agent.Hidden) + unreadMailMark(item.unreadMail) + unviewedMark(item.unviewed) + failedRunMark(item.failedRun) + localReviewRoundsMark(item.localRounds) + localReviewMark(item.inLocalReview, item.localVerdict) + hiddenTally(r.hiddenCount, m.tree.showHidden) + reasonMark(item.agent)
+		row := prefix + paint.MarkGutter(m.listing.marks[rowKey(r)]) + childMark(r.child) + stateMark(displayState(item)) + " " + name + " " + worktreeRemovedMark(item) + scheduledMark(item.agent) + hiddenMark(item.agent.Hidden) + unreadMailMark(item.unreadMail) + unviewedMark(item.unviewed) + failedRunMark(item.failedRun) + localReviewRoundsMark(item.localRounds) + localReviewMark(item.inLocalReview, item.localVerdict) + hiddenTally(r.hiddenCount, m.tree.showHidden) + reasonMark(item.agent)
 		if m.tree.selected.has(item.agent.ID) {
-			row = paintRow(row, selectionBackground, m.width)
+			row = paint.PaintRow(row, paint.SelectionBackground, m.width)
 		}
 
 		rows = append(rows, row)

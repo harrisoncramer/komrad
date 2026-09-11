@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"weave/internal/ui/paint"
 	agentv1 "weave/proto/gen/agent/v1"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -128,7 +129,7 @@ func (m model) scrollReviewThread(delta int) model {
 func (m model) reviewThreadMax() int {
 	lines := m.listLines(m.renderHelp(m.reviewHelp()), m.detailsView(), m.reviewHeadView())
 
-	return max(countLines(m.reviewRestView())-max(lines-1, 1), 0)
+	return max(paint.CountLines(m.reviewRestView())-max(lines-1, 1), 0)
 }
 
 // refuseReviewWrite says why a key that would write to the agent did nothing.

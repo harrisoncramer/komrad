@@ -11,6 +11,7 @@ import (
 	agentstore "weave/internal/store/agent"
 	schedulestore "weave/internal/store/schedule"
 	workflowstore "weave/internal/store/workflow"
+	"weave/internal/ui/paint"
 
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
@@ -330,7 +331,7 @@ func formOf(keys config.FormKeys, fields ...huh.Field) (*huh.Form, []string) {
 	form := huh.NewForm(huh.NewGroup(fields...)).
 		WithShowHelp(true).
 		WithKeyMap(multiFieldKeyMap(keys)).
-		WithTheme(formTheme())
+		WithTheme(paint.FormTheme())
 
 	reached := make([]string, 0, len(fields))
 	for _, field := range fields {
@@ -447,7 +448,7 @@ func confirmFormStartingOn(confirmed bool, title, description, affirmative strin
 				Negative("Cancel").
 				Value(&confirmed),
 		),
-	).WithShowHelp(true).WithKeyMap(multiFieldKeyMap(keys)).WithTheme(formTheme())
+	).WithShowHelp(true).WithKeyMap(multiFieldKeyMap(keys)).WithTheme(paint.FormTheme())
 
 	return form, &confirmed
 }
@@ -629,7 +630,7 @@ func archiveAgentsForm(agents []agentstore.Agent, children int, keys config.Form
 		)
 
 	form := huh.NewForm(huh.NewGroup(field)).
-		WithShowHelp(true).WithKeyMap(multiFieldKeyMap(keys)).WithTheme(formTheme())
+		WithShowHelp(true).WithKeyMap(multiFieldKeyMap(keys)).WithTheme(paint.FormTheme())
 
 	return form, &choice
 }

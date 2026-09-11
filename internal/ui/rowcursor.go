@@ -1,6 +1,8 @@
 package ui
 
 import (
+	"weave/internal/ui/paint"
+
 	"github.com/charmbracelet/bubbles/cursor"
 	tea "github.com/charmbracelet/bubbletea"
 )
@@ -45,7 +47,7 @@ func (m model) cursorPrefix(focused bool) string {
 		return blankCursor
 	}
 
-	return cursorStyleFor(focused).Render(rowCursorGlyph)
+	return paint.CursorStyleFor(focused).Render(rowCursorGlyph)
 }
 
 func (m model) rowCursorPrefix() string {

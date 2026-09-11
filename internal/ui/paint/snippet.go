@@ -1,4 +1,4 @@
-package ui
+package paint
 
 import (
 	"slices"
@@ -6,15 +6,18 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	transcriptstore "weave/internal/store/transcript"
-
 	"github.com/charmbracelet/lipgloss"
 )
 
-const snippetIndent = 4
+const (
+	// MarkOpen and MarkClose wrap the stretches a search hit matched on.
+	MarkOpen  = "\x02"
+	MarkClose = "\x03"
+)
 
 const snippetClipLead = 12
 
+// clipToMatch narrows a snippet to the width, keeping the first marked word in view.
 func clipToMatch(snippet string, width int) string {
 	if width <= 0 {
 		return snippet
@@ -22,7 +25,7 @@ func clipToMatch(snippet string, width int) string {
 
 	const ellipsis = "…"
 
-	openMark, closeMark := rune(transcriptstore.SnippetOpen[0]), rune(transcriptstore.SnippetClose[0])
+	openMark, closeMark := rune(MarkOpen[0]), rune(MarkClose[0])
 	runes := []rune(snippet)
 
 	visible, matchAt := 0, -1
@@ -83,7 +86,7 @@ func clipToMatch(snippet string, width int) string {
 
 		if at >= start && at < start+budget {
 			if marked && !wrapped {
-				b.WriteString(transcriptstore.SnippetOpen)
+				b.WriteString(MarkOpen)
 				wrapped = true
 			}
 			b.WriteRune(r)
@@ -92,7 +95,7 @@ func clipToMatch(snippet string, width int) string {
 	}
 
 	if wrapped {
-		b.WriteString(transcriptstore.SnippetClose)
+		b.WriteString(MarkClose)
 	}
 	if start+budget < visible {
 		b.WriteString(ellipsis)
@@ -101,18 +104,19 @@ func clipToMatch(snippet string, width int) string {
 	return b.String()
 }
 
-func renderSnippet(s string, width int) string {
-	return styleMarks(clipToMatch(strings.ReplaceAll(s, "\n", " "), width), matchStyle)
+// RenderSnippet draws a search hit's snippet on one row, with the matched words styled.
+func RenderSnippet(s string, width int) string {
+	return styleMarks(clipToMatch(strings.ReplaceAll(s, "\n", " "), width), MatchStyle)
 }
 
-// styleMarks consumes the store's match markers into styling, putting back whatever styling was
+// styleMarks consumes the match markers into styling, putting back whatever styling was
 // in force where a mark falls inside it.
 func styleMarks(s string, style lipgloss.Style) string {
 	var b strings.Builder
 
 	active := ""
 	for {
-		i := strings.Index(s, transcriptstore.SnippetOpen)
+		i := strings.Index(s, MarkOpen)
 		if i < 0 {
 			b.WriteString(s)
 			break
@@ -120,15 +124,15 @@ func styleMarks(s string, style lipgloss.Style) string {
 		b.WriteString(s[:i])
 		active = activeSGR(active, s[:i])
 
-		rest := s[i+len(transcriptstore.SnippetOpen):]
-		j := strings.Index(rest, transcriptstore.SnippetClose)
+		rest := s[i+len(MarkOpen):]
+		j := strings.Index(rest, MarkClose)
 		if j < 0 {
 			b.WriteString(rest)
 			break
 		}
 		b.WriteString(style.Render(rest[:j]))
 		b.WriteString(active)
-		s = rest[j+len(transcriptstore.SnippetClose):]
+		s = rest[j+len(MarkClose):]
 	}
 
 	return b.String()
@@ -169,7 +173,8 @@ func activeSGR(active, chunk string) string {
 	return active
 }
 
-func trimLastRune(s string) string {
+// TrimLastRune drops the last rune of a string.
+func TrimLastRune(s string) string {
 	r := []rune(s)
 	if len(r) == 0 {
 		return s
@@ -178,26 +183,26 @@ func trimLastRune(s string) string {
 	return string(r[:len(r)-1])
 }
 
-// markedTerms pulls the words the search marked in a snippet: the forms the turn actually
+// MarkedTerms pulls the words the search marked in a snippet: the forms the turn actually
 // spells, not the words the query asked for.
-func markedTerms(snippet string) []string {
+func MarkedTerms(snippet string) []string {
 	var terms []string
 	seen := make(map[string]bool)
 
 	rest := snippet
 	for {
-		i := strings.Index(rest, transcriptstore.SnippetOpen)
+		i := strings.Index(rest, MarkOpen)
 		if i < 0 {
 			break
 		}
-		rest = rest[i+len(transcriptstore.SnippetOpen):]
+		rest = rest[i+len(MarkOpen):]
 
-		j := strings.Index(rest, transcriptstore.SnippetClose)
+		j := strings.Index(rest, MarkClose)
 		if j < 0 {
 			break
 		}
-		term := foldASCII(strings.TrimSpace(rest[:j]))
-		rest = rest[j+len(transcriptstore.SnippetClose):]
+		term := FoldASCII(strings.TrimSpace(rest[:j]))
+		rest = rest[j+len(MarkClose):]
 
 		if term == "" || seen[term] {
 			continue
@@ -209,25 +214,25 @@ func markedTerms(snippet string) []string {
 	return terms
 }
 
-// span is a stretch of a transcript a hit matched on, in bytes.
-type span struct {
-	start int
-	end   int
+// Span is a stretch of a transcript a hit matched on, in bytes.
+type Span struct {
+	Start int
+	End   int
 }
 
-// matchSpans locates the marked words within the one turn a hit came from, which is as much as a
+// MatchSpans locates the marked words within the one turn a hit came from, which is as much as a
 // hit says about where it matched.
-func matchSpans(content string, offset, length int64, terms []string) []span {
+func MatchSpans(content string, offset, length int64, terms []string) []Span {
 	if len(terms) == 0 || offset < 0 || offset > int64(len(content)) || length <= 0 {
 		return nil
 	}
 
 	end := min(offset+length, int64(len(content)))
-	turn := foldASCII(content[offset:end])
+	turn := FoldASCII(content[offset:end])
 
-	var spans []span
+	var spans []Span
 	for _, term := range terms {
-		folded := foldASCII(term)
+		folded := FoldASCII(term)
 		if folded == "" {
 			continue
 		}
@@ -243,14 +248,14 @@ func matchSpans(content string, offset, length int64, terms []string) []span {
 			// kept for the stemmed hit that spells it.
 			if doesStartWord(turn, at+i) {
 				start := int(offset) + at + i
-				spans = append(spans, span{start: start, end: start + len(folded)})
+				spans = append(spans, Span{Start: start, End: start + len(folded)})
 			}
 
 			at += i + len(folded)
 		}
 	}
 
-	slices.SortFunc(spans, func(a, b span) int { return a.start - b.start })
+	slices.SortFunc(spans, func(a, b Span) int { return a.Start - b.Start })
 
 	return mergeSpans(spans)
 }
@@ -268,16 +273,16 @@ func doesStartWord(s string, at int) bool {
 }
 
 // mergeSpans folds overlapping spans together.
-func mergeSpans(spans []span) []span {
+func mergeSpans(spans []Span) []Span {
 	if len(spans) == 0 {
 		return nil
 	}
 
-	merged := []span{spans[0]}
+	merged := []Span{spans[0]}
 	for _, s := range spans[1:] {
 		last := len(merged) - 1
-		if s.start <= merged[last].end {
-			merged[last].end = max(merged[last].end, s.end)
+		if s.Start <= merged[last].End {
+			merged[last].End = max(merged[last].End, s.End)
 
 			continue
 		}
@@ -288,9 +293,9 @@ func mergeSpans(spans []span) []span {
 	return merged
 }
 
-// foldASCII lowercases the ASCII letters and leaves every other byte where it is, keeping the
+// FoldASCII lowercases the ASCII letters and leaves every other byte where it is, keeping the
 // byte offsets a Unicode fold would move.
-func foldASCII(s string) string {
+func FoldASCII(s string) string {
 	b := []byte(s)
 	for i, c := range b {
 		if c >= 'A' && c <= 'Z' {

@@ -12,6 +12,7 @@ import (
 	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
 	"weave/internal/ui/layout"
+	"weave/internal/ui/paint"
 
 	"connectrpc.com/connect"
 	tea "github.com/charmbracelet/bubbletea"
@@ -406,12 +407,12 @@ func TestArchiveSelection(t *testing.T) {
 		m.width = rowPaneWidth
 
 		rest := m.archiveView()
-		assert.NotContains(t, line(t, rest, "api"), backgroundSequence(selectionBackground))
+		assert.NotContains(t, line(t, rest, "api"), paint.BackgroundSequence(paint.SelectionBackground))
 
 		m.archive.selected = selection{ids: []string{"a2"}}
 		view := m.archiveView()
-		assert.Contains(t, line(t, view, "api"), backgroundSequence(selectionBackground))
-		assert.NotContains(t, line(t, view, "db"), backgroundSequence(selectionBackground), "and only that row")
+		assert.Contains(t, line(t, view, "api"), paint.BackgroundSequence(paint.SelectionBackground))
+		assert.NotContains(t, line(t, view, "db"), paint.BackgroundSequence(paint.SelectionBackground), "and only that row")
 		assert.Equal(t, rowPaneWidth, lineWidth(t, view, "api"), "the bar spans the pane")
 		assert.Equal(t, lineWidth(t, rest, "db"), lineWidth(t, view, "db"), "and the row below it is left as it was")
 	})
@@ -431,12 +432,12 @@ func TestAgentsViewSelectionColour(t *testing.T) {
 	m.width = rowPaneWidth
 
 	rest := m.agentsView()
-	assert.NotContains(t, line(t, rest, "api"), backgroundSequence(selectionBackground))
+	assert.NotContains(t, line(t, rest, "api"), paint.BackgroundSequence(paint.SelectionBackground))
 
 	m.tree.selected = selection{ids: []string{"a2"}}
 	view := m.agentsView()
-	assert.Contains(t, line(t, view, "api"), backgroundSequence(selectionBackground), "the selected row takes the bar")
-	assert.NotContains(t, line(t, view, "db"), backgroundSequence(selectionBackground), "and only that row")
+	assert.Contains(t, line(t, view, "api"), paint.BackgroundSequence(paint.SelectionBackground), "the selected row takes the bar")
+	assert.NotContains(t, line(t, view, "db"), paint.BackgroundSequence(paint.SelectionBackground), "and only that row")
 	assert.Equal(t, rowPaneWidth, lineWidth(t, view, "api"), "the bar spans the pane")
 	assert.Equal(t, lineWidth(t, rest, "db"), lineWidth(t, view, "db"), "and the row below it is left as it was")
 }
@@ -457,7 +458,7 @@ func TestSelectionKeepsTheCursor(t *testing.T) {
 	}
 
 	row := line(t, m.agentsView(), "api")
-	assert.Contains(t, row, backgroundSequence(selectionBackground))
+	assert.Contains(t, row, paint.BackgroundSequence(paint.SelectionBackground))
 	assert.Contains(t, row, m.rowCursorStyle().Render("api"), "and the cursor still has the name")
 }
 

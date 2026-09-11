@@ -1,12 +1,7 @@
-package ui
+package paint
 
 import (
-	"fmt"
-	"os"
-	"path/filepath"
 	"strings"
-
-	transcriptstore "weave/internal/store/transcript"
 
 	"github.com/charmbracelet/glamour"
 	glamouransi "github.com/charmbracelet/glamour/ansi"
@@ -15,6 +10,7 @@ import (
 
 const tabWidth = 4
 
+// expandTabs replaces tabs with the spaces that reach the next stop.
 func expandTabs(text string) string {
 	if !strings.Contains(text, "\t") {
 		return text
@@ -40,10 +36,13 @@ func expandTabs(text string) string {
 	return b.String()
 }
 
-func render(markdown string, wrap int) string {
-	return renderWith(markdown, wrap, stageStyle)
+// Render draws markdown in the panel's own colours.
+func Render(markdown string, wrap int) string {
+	return renderWith(markdown, wrap, StageStyle)
 }
 
+// renderWith draws markdown in the style it is handed, hard-wrapped to the column so nothing a
+// word wrap will not break runs past it.
 func renderWith(markdown string, wrap int, style glamouransi.StyleConfig) string {
 	markdown = expandTabs(markdown)
 
@@ -74,7 +73,7 @@ func renderWith(markdown string, wrap int, style glamouransi.StyleConfig) string
 
 // markSpans writes the search's own markers around the stretches a hit matched on, before the
 // markdown is rendered and reflows the text under them.
-func markSpans(content string, spans []span) string {
+func markSpans(content string, spans []Span) string {
 	if len(spans) == 0 {
 		return content
 	}
@@ -82,44 +81,46 @@ func markSpans(content string, spans []span) string {
 	var b strings.Builder
 	at := 0
 	for _, s := range spans {
-		if s.start < at || s.end > len(content) {
+		if s.Start < at || s.End > len(content) {
 			continue
 		}
 
-		b.WriteString(content[at:s.start])
-		b.WriteString(transcriptstore.SnippetOpen)
-		b.WriteString(content[s.start:s.end])
-		b.WriteString(transcriptstore.SnippetClose)
-		at = s.end
+		b.WriteString(content[at:s.Start])
+		b.WriteString(MarkOpen)
+		b.WriteString(content[s.Start:s.End])
+		b.WriteString(MarkClose)
+		at = s.End
 	}
 	b.WriteString(content[at:])
 
 	return b.String()
 }
 
-// scrubMarks blanks the search's own markers wherever a transcript holds one itself, using a
+// ScrubMarks blanks the search's own markers wherever a transcript holds one itself, using a
 // space to keep the byte offsets the search reports pointing where they did.
-var scrubMarks = strings.NewReplacer(transcriptstore.SnippetOpen, " ", transcriptstore.SnippetClose, " ").Replace
+var ScrubMarks = strings.NewReplacer(MarkOpen, " ", MarkClose, " ").Replace
 
-// renderTranscript draws a transcript as the markdown it is written in, with the matched words
+// RenderTranscript draws a transcript as the markdown it is written in, with the matched words
 // styled, and reports the line the first of them ended up on.
-func renderTranscript(conversation string, spans []span, width int) (string, int) {
-	rendered := render(markSpans(conversation, spans), width)
+func RenderTranscript(conversation string, spans []Span, width int) (string, int) {
+	rendered := Render(markSpans(conversation, spans), width)
 
 	line := markedLine(rendered)
 	if line == 0 && len(spans) > 0 {
 		// The rendering drops some constructs whole, a link's destination and an HTML tag among
 		// them, so a marker inside one goes with it and a guess says more about where the match
 		// sat than the top of a transcript thousands of lines long.
-		line = estimatedLine(rendered, spans[0].start, len(conversation))
+		line = estimatedLine(rendered, spans[0].Start, len(conversation))
 	}
 
 	return styleMarks(rendered, stageMatchStyle), line
 }
 
+// markedLine is the line the first marked stretch fell on, counting from one, or zero when none
+// survived the rendering.
 func markedLine(rendered string) int {
 	for i, row := range strings.Split(rendered, "\n") {
-		if strings.Contains(row, transcriptstore.SnippetOpen) {
+		if strings.Contains(row, MarkOpen) {
 			return i + 1
 		}
 	}
@@ -136,30 +137,4 @@ func estimatedLine(rendered string, at, size int) int {
 	rows := strings.Count(rendered, "\n") + 1
 
 	return min(max(rows*at/size, 1), rows)
-}
-
-// stageFilePath names a screenful for the panel that wrote it, in the one temporary directory
-// every weave on the machine shares.
-func stageFilePath(name string) string {
-	return filepath.Join(os.TempDir(), fmt.Sprintf("weave-%s-%d.ansi", name, os.Getpid()))
-}
-
-// writeStageFile renames the frame into place, so a drawer reading while the panel writes gets
-// the frame before or the frame after rather than half of each.
-func writeStageFile(path, content string) bool {
-	temp := path + ".tmp"
-	if os.WriteFile(temp, []byte(content), 0o644) != nil {
-		return false
-	}
-
-	return os.Rename(temp, path) == nil
-}
-
-func pagerArgv(path string, line int) []string {
-	argv := []string{"less", "-R", "-X", "-Ps"}
-	if line > 1 {
-		argv = append(argv, fmt.Sprintf("+%d", line))
-	}
-
-	return append(argv, path)
 }

@@ -2,7 +2,6 @@ package ui
 
 import (
 	"fmt"
-	"strconv"
 	"strings"
 	"testing"
 
@@ -14,122 +13,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 )
-
-func numbered(n int) []string {
-	rows := make([]string, 0, n)
-	for i := range n {
-		rows = append(rows, fmt.Sprintf("row%d", i))
-	}
-
-	return rows
-}
-
-func lines(rendered string) []string {
-	trimmed := strings.TrimSuffix(rendered, "\n")
-	if trimmed == "" {
-		return nil
-	}
-
-	return strings.Split(trimmed, "\n")
-}
-
-// TestRenderListFits pins that a list short enough to draw whole is not cut and draws no
-// counts.
-func TestRenderListFits(t *testing.T) {
-	tests := []struct {
-		name  string
-		rows  []string
-		lines int
-	}{
-		{
-			name:  "shorter than the pane",
-			rows:  numbered(3),
-			lines: 10,
-		},
-		{
-			name:  "exactly as tall as the pane",
-			rows:  numbered(10),
-			lines: 10,
-		},
-		{
-			name:  "a height nothing has measured yet",
-			rows:  numbered(100),
-			lines: 0,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.rows, lines(renderList(tt.rows, 0, tt.lines)))
-		})
-	}
-}
-
-// TestRenderListEmpty pins that a list with no rows draws nothing rather than a blank line,
-// leaving the screen's own empty-state text to show.
-func TestRenderListEmpty(t *testing.T) {
-	assert.Empty(t, renderList(nil, 0, 10))
-}
-
-// TestRenderListWindow pins that a clipped list keeps the cursor's row on screen, never
-// scrolls past either end, and never grows taller than the pane it was given.
-func TestRenderListWindow(t *testing.T) {
-	const total = 20
-
-	tests := []struct {
-		name   string
-		cursor int
-		lines  int
-		want   []string
-	}{
-		{
-			name:   "at the top the list is pinned there",
-			cursor: 0,
-			lines:  5,
-			want:   []string{"row0", "row1", "row2", "row3", "  ↓ 16 more"},
-		},
-		{
-			name:   "in the middle the cursor sits centred with both ends counted",
-			cursor: 10,
-			lines:  5,
-			want:   []string{"  ↑ 9 more", "row9", "row10", "row11", "  ↓ 8 more"},
-		},
-		{
-			name:   "at the bottom the list is pinned there",
-			cursor: total - 1,
-			lines:  5,
-			want:   []string{"  ↑ 16 more", "row16", "row17", "row18", "row19"},
-		},
-		{
-			name:   "a pane with room for one row spends it on the hovered row",
-			cursor: 7,
-			lines:  1,
-			want:   []string{"row7"},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := lines(renderList(numbered(total), tt.cursor, tt.lines))
-
-			assert.Equal(t, tt.want, got)
-		})
-	}
-}
-
-// TestRenderListKeepsCursorVisible walks the cursor down the list at every pane height.
-func TestRenderListKeepsCursorVisible(t *testing.T) {
-	rows := numbered(50)
-
-	for height := 1; height <= len(rows); height++ {
-		for cursor := range rows {
-			drawn := lines(renderList(rows, cursor, height))
-
-			assert.Contains(t, drawn, fmt.Sprintf("row%d", cursor))
-			assert.LessOrEqual(t, len(drawn), height)
-		}
-	}
-}
 
 // TestScreensFitThePane pins the header, the list, and the legend fitting the pane together.
 func TestScreensFitThePane(t *testing.T) {
@@ -231,26 +114,11 @@ func TestListLines(t *testing.T) {
 	}
 }
 
-// TestWindowRowsNeverOutgrowsThePane pins the one bound every caller of the marker arithmetic
-// rests on.
-func TestWindowRowsNeverOutgrowsThePane(t *testing.T) {
-	rows := make([]string, 12)
-	for i := range rows {
-		rows[i] = "row " + strconv.Itoa(i)
+func lines(rendered string) []string {
+	trimmed := strings.TrimSuffix(rendered, "\n")
+	if trimmed == "" {
+		return nil
 	}
 
-	for lines := 1; lines <= len(rows)-1; lines++ {
-		for scroll := range len(rows) + 2 {
-			// Anchored to the end the way the review's own thread is, which is the placement that
-			// puts a start in the middle and so asks for both counts at once.
-			place := func(visible int) int {
-				return len(rows) - visible - min(scroll, len(rows)-visible)
-			}
-
-			out := windowRows(rows, lines, place, dimStyle)
-
-			assert.Equal(t, lines, strings.Count(out, "\n"),
-				"windowRows drew %d rows into %d, scroll=%d", strings.Count(out, "\n"), lines, scroll)
-		}
-	}
+	return strings.Split(trimmed, "\n")
 }

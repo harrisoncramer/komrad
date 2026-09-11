@@ -5,6 +5,7 @@ import (
 
 	agentstore "weave/internal/store/agent"
 	reviewstore "weave/internal/store/review"
+	"weave/internal/ui/paint"
 
 	"github.com/charmbracelet/lipgloss"
 )
@@ -57,21 +58,21 @@ func agentNotices(item agentItem) []notice {
 	state := displayState(item)
 
 	notices := failureNotices(state)
-	notices = appendNotice(notices, item.failedRun, failedRunIcon, colorDanger, failedRunNotice)
-	notices = appendNotice(notices, item.unreadMail, unreadMailIcon, colorAccent, unreadMailNotice)
-	notices = appendNotice(notices, item.agent.WorktreeRemoved && state != agentstore.StateFailedToCreate, worktreeRemovedIcon, colorDanger, worktreeRemovedNotice)
-	notices = appendNotice(notices, item.unviewed, unviewedIcon, colorSuccess, unviewedNotice)
-	notices = appendNotice(notices, item.agent.Hidden, hiddenIcon, colorMuted, hiddenNotice)
+	notices = appendNotice(notices, item.failedRun, failedRunIcon, paint.Danger, failedRunNotice)
+	notices = appendNotice(notices, item.unreadMail, unreadMailIcon, paint.Accent, unreadMailNotice)
+	notices = appendNotice(notices, item.agent.WorktreeRemoved && state != agentstore.StateFailedToCreate, worktreeRemovedIcon, paint.Danger, worktreeRemovedNotice)
+	notices = appendNotice(notices, item.unviewed, unviewedIcon, paint.Success, unviewedNotice)
+	notices = appendNotice(notices, item.agent.Hidden, hiddenIcon, paint.Muted, hiddenNotice)
 
 	icon, color := localVerdictIcon(item.localVerdict)
 	said := localVerdictNotice(item.localVerdict)
 	if icon == "" || said == "" {
-		notices = appendNotice(notices, item.inLocalReview, inLocalReviewIcon, colorAccent, inLocalReviewNotice)
+		notices = appendNotice(notices, item.inLocalReview, inLocalReviewIcon, paint.Accent, inLocalReviewNotice)
 	}
 
 	notices = appendNotice(notices, icon != "" && said != "", icon, color, said)
 
-	return appendNotice(notices, item.localRounds > 0, localReviewRoundsIcon, colorMuted, localReviewRoundsNotice(item.localRounds))
+	return appendNotice(notices, item.localRounds > 0, localReviewRoundsIcon, paint.Muted, localReviewRoundsNotice(item.localRounds))
 }
 
 // failureNotices is the whole of what an archived row has to say.

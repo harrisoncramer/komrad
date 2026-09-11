@@ -3,6 +3,8 @@ package ui
 import (
 	"strings"
 
+	"weave/internal/ui/paint"
+
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
 )
@@ -286,7 +288,7 @@ func (m model) columnDoc(split columnSplit) docWindow {
 	}
 
 	return docWindow{
-		rows:    docStyledRows(spec.doc(m), split.column, m.columnStyle()),
+		rows:    paint.DocStyledRows(spec.doc(m), split.column, m.columnStyle()),
 		top:     m.column.top,
 		markers: true,
 	}

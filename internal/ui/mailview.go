@@ -5,6 +5,7 @@ import (
 	"strings"
 	"time"
 
+	"weave/internal/ui/paint"
 	"weave/lib/dates"
 	agentv1 "weave/proto/gen/agent/v1"
 
@@ -206,7 +207,7 @@ func (m model) mailView() string {
 }
 
 func (m model) mailListView() string {
-	header := titleOf(m.isListFocused(), "Mail · "+m.mail.agentName) + "\n" +
+	header := paint.TitleOf(m.isListFocused(), "Mail · "+m.mail.agentName) + "\n" +
 		dimStyle.Render(m.mailCountView()) + "\n\n" +
 		m.filterView()
 	record, help := m.detailsView(), m.renderHelp(m.mailHelp())
@@ -266,7 +267,7 @@ func (m model) mailRowsView() []string {
 	rows := make([]string, 0, len(all))
 	for i, r := range all {
 		if r.header {
-			rows = append(rows, "  "+blurredHeaderStyle.Render(clip(r.label, max(m.width-mailCursorWidth, 1))))
+			rows = append(rows, "  "+paint.BlurredHeaderStyle.Render(paint.Clip(r.label, max(m.width-mailCursorWidth, 1))))
 
 			continue
 		}
@@ -322,7 +323,7 @@ func (m model) mailRowView(r mailRow, clocks int, hovered bool) string {
 	// text: clipping the styled head would cut through an escape sequence, and a row wider than
 	// the pane wraps onto a line the list has not counted.
 	if room := m.width - mailCursorWidth; lipgloss.Width(head) > room {
-		return dimStyle.Render(clip(strings.TrimSpace(clock), max(room, 1)))
+		return dimStyle.Render(paint.Clip(strings.TrimSpace(clock), max(room, 1)))
 	}
 
 	body := mailSnippet(r.item.GetBody())
@@ -334,7 +335,7 @@ func (m model) mailRowView(r mailRow, clocks int, hovered bool) string {
 
 	// Drawn at full strength whichever way it went: dimming what this agent sent made half the
 	// conversation read as though it mattered less, and the arrow already says the direction.
-	return head + " " + m.filter.highlight(clip(body, spare), m.nameStyle(hovered, false))
+	return head + " " + m.filter.highlight(paint.Clip(body, spare), m.nameStyle(hovered, false))
 }
 
 // mailSnippet is the opening of a message on one line, which makes a row worth reading before
@@ -344,9 +345,9 @@ func mailSnippet(body string) string {
 }
 
 var (
-	mailUnreadStyle  = lipgloss.NewStyle().Foreground(colorAccent)
-	mailExpiredStyle = lipgloss.NewStyle().Foreground(colorDanger).Bold(true)
-	mailReadStyle    = lipgloss.NewStyle().Foreground(colorSuccess)
+	mailUnreadStyle  = lipgloss.NewStyle().Foreground(paint.Accent)
+	mailExpiredStyle = lipgloss.NewStyle().Foreground(paint.Danger).Bold(true)
+	mailReadStyle    = lipgloss.NewStyle().Foreground(paint.Success)
 )
 
 // mailStateMark is the glyph in the gutter of a row: waiting, never read, or taken.

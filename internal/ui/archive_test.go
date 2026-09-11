@@ -12,6 +12,7 @@ import (
 	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
 	"weave/internal/ui/layout"
+	"weave/internal/ui/paint"
 	agentv1 "weave/proto/gen/agent/v1"
 	"weave/proto/gen/agent/v1/agentv1connect"
 	workflowv1 "weave/proto/gen/workflow/v1"
@@ -1001,7 +1002,7 @@ func TestArchiveScrollsTheDocument(t *testing.T) {
 
 	split, ok := m.screenColumnSplit()
 	require.True(t, ok, "the archive holds the window")
-	require.Greater(t, len(docRows(m.archiveDoc(), split.column)), split.rows, "the document runs past the window")
+	require.Greater(t, len(paint.DocRows(m.archiveDoc(), split.column)), split.rows, "the document runs past the window")
 
 	top := ansi.Strip(m.View())
 	assert.NotContains(t, top, "↑", "nothing is above the first screenful")
@@ -1128,13 +1129,13 @@ func TestArchiveGivesUpTheSplitWhenTheListWillNotFit(t *testing.T) {
 	_, ok := m.screenColumnSplit()
 	assert.False(t, ok, "ten rows cannot hold the list beside the document")
 	assert.Equal(t, m.width, m.paneWidth(), "so the list is drawn in the whole of the pane")
-	assert.LessOrEqual(t, countLines(m.View()), m.height, "and stays inside it")
+	assert.LessOrEqual(t, paint.CountLines(m.View()), m.height, "and stays inside it")
 
 	m.height = 24
 	split, ok := m.screenColumnSplit()
 	require.True(t, ok, "a taller window holds both halves")
 	assert.Equal(t, split.sidebar, m.paneWidth(), "and the list is laid out against its own column")
-	assert.LessOrEqual(t, countLines(m.View()), m.height)
+	assert.LessOrEqual(t, paint.CountLines(m.View()), m.height)
 }
 
 // TestArchiveDocViewFillsItsColumn covers the document's own column standing exactly as tall as
@@ -1148,7 +1149,7 @@ func TestArchiveDocViewFillsItsColumn(t *testing.T) {
 		Context: strings.Repeat("a line of the document. ", 30),
 	}}
 
-	total := len(docRows(m.archiveDoc(), 60))
+	total := len(paint.DocRows(m.archiveDoc(), 60))
 	require.Greater(t, total, 5, "the document runs past every window this walks")
 
 	for rows := 1; rows <= 5; rows++ {
@@ -1160,7 +1161,7 @@ func TestArchiveDocViewFillsItsColumn(t *testing.T) {
 				rows:    rows,
 			})
 
-			assert.Equal(t, rows, countLines(drawn), "rows=%d top=%d", rows, top)
+			assert.Equal(t, rows, paint.CountLines(drawn), "rows=%d top=%d", rows, top)
 		}
 	}
 }
