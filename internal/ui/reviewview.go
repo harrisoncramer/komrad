@@ -11,7 +11,6 @@ import (
 	agentv1 "weave/proto/gen/agent/v1"
 
 	"github.com/charmbracelet/lipgloss"
-	"github.com/charmbracelet/x/ansi"
 )
 
 var (
@@ -116,10 +115,8 @@ func (m model) reviewHeadView() string {
 
 // reviewNote is a line of prose under the conversation, wrapped into the sidebar's own column.
 func (m model) reviewNote(style lipgloss.Style, text string) string {
-	width := max(20, m.paneWidth()-2)
-
 	var out strings.Builder
-	for _, row := range strings.Split(ansi.Wordwrap(text, width, ""), "\n") {
+	for _, row := range paint.WrapRows(text, m.lineWidth()-2) {
 		out.WriteString(style.Render("  "+row) + "\n")
 	}
 

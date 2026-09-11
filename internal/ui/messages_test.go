@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"weave/internal/ui/paint"
 	"weave/lib/dates"
 
 	"github.com/charmbracelet/lipgloss"
@@ -457,4 +458,52 @@ func TestMessagesPulseHoldsStillOnAnOlderMessage(t *testing.T) {
 
 	m.messages.cursor = 1
 	assert.False(t, m.messagesPulseOn())
+}
+
+// TestChromeKeepsEveryRowInsideThePane covers the invariant every block of chrome the panel draws
+// is held to: a reason holding a path is one word to a word wrap, and the renderer cuts a row
+// wider than the pane, so the middle of the path is missing from the screen.
+func TestChromeKeepsEveryRowInsideThePane(t *testing.T) {
+	const path = "/Users/harrisoncramer/.local/state/weave/worktrees/01a086ae-d59b-769b-a8a0-202d4014bddd/bin/editor"
+
+	// 61 is a width where the wrap misplaces a breakpoint in this path and hands back a row two
+	// columns over the column it was given.
+	for _, width := range []int{20, 30, 45, 61, 80} {
+		m := detailsModel(&recordingTmux{})
+		m.height, m.width = 40, width
+		m.messages = oneMessage("Your editor could not be opened on that message", "fork/exec "+path+": no such file or directory")
+		m.messages.focused = true
+
+		view := m.View()
+		for i, row := range strings.Split(view, "\n") {
+			assert.LessOrEqual(t, ansi.StringWidth(row), width, "message row %d at width %d: %q", i, width, ansi.Strip(row))
+		}
+
+		assert.Equal(t, m.height, strings.Count(view, "\n")+1, "frame rows at width %d", width)
+
+		note := m.reviewNote(dimStyle, "editing this round replaces the edit of an earlier one in "+path+", so press again to go on")
+		for i, row := range strings.Split(strings.TrimRight(note, "\n"), "\n") {
+			assert.LessOrEqual(t, ansi.StringWidth(row), m.paneWidth(), "review note row %d at width %d: %q", i, width, ansi.Strip(row))
+		}
+
+		for i, row := range m.noticeLines(notice{icon: "✗", text: "nothing was written to " + path}, 0) {
+			assert.LessOrEqual(t, ansi.StringWidth(row), m.paneWidth(), "notice row %d at width %d: %q", i, width, ansi.Strip(row))
+		}
+
+		// A worktree path is nothing but dashes, and a wrap that breaks at one has to keep every
+		// column it was handed: a path the reader copies out and cannot find is the worse failure.
+		joined := strings.Join(paint.WrapRows("a "+path, width), "")
+		assert.Contains(t, strings.ReplaceAll(joined, " ", ""), path, "path survives the wrap at width %d", width)
+	}
+}
+
+// TestReviewNoteWrapsBeforeTheFirstResize covers the note drawn before the panel has been told how
+// wide it is, which reaches the wrap as a column of nothing and would come out one letter a row.
+func TestReviewNoteWrapsBeforeTheFirstResize(t *testing.T) {
+	m := detailsModel(&recordingTmux{})
+	m.height, m.width = 0, 0
+
+	note := strings.TrimRight(m.reviewNote(dimStyle, "editing this round replaces the edit of an earlier one, so press again to go on"), "\n")
+
+	assert.Less(t, strings.Count(note, "\n")+1, 10, "rows before the first resize: %q", ansi.Strip(note))
 }

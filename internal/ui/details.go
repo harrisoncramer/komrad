@@ -7,7 +7,6 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/charmbracelet/x/ansi"
 )
 
 type detailsState struct {
@@ -227,12 +226,12 @@ func (m model) noticeLines(n notice, most int) []string {
 	const indent = "    "
 
 	// A notice that is going to be cut keeps a cell back for the ellipsis.
-	width := max(m.lineWidth()-len(indent), 1)
+	width := m.lineWidth() - len(indent)
 	if most > 0 {
-		width = max(width-1, 1)
+		width--
 	}
 
-	text := strings.Split(ansi.Wordwrap(n.text, width, ""), "\n")
+	text := paint.WrapRows(n.text, width)
 	if most > 0 && len(text) > most {
 		text = text[:most]
 		text[most-1] += "…"

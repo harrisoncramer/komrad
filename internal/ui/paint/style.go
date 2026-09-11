@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/x/ansi"
 )
 
 // ansiReset ends every styled run lipgloss writes.
@@ -82,6 +83,21 @@ func Clip(text string, width int) string {
 	}
 
 	return string(runes[:width-1]) + "…"
+}
+
+// WrapRows is prose wrapped into the column it is drawn in, breaking a token longer than the
+// column rather than handing back a row the renderer cuts, which drops the tail of a path.
+func WrapRows(text string, width int) []string {
+	width = max(width, 1)
+
+	rows := []string{}
+	for _, row := range strings.Split(ansi.Wrap(text, width, ""), "\n") {
+		// Wrap misplaces its own breakpoints, so a row can come back wider than the column it
+		// was given, and the overrun is cut onto a row of its own rather than dropped.
+		rows = append(rows, strings.Split(ansi.Hardwrap(row, width, true), "\n")...)
+	}
+
+	return rows
 }
 
 // Explainer: the fill is measured across the whole string PaintRow is handed, so it holds only

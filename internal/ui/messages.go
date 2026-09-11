@@ -13,7 +13,6 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	glamouransi "github.com/charmbracelet/glamour/ansi"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/charmbracelet/x/ansi"
 )
 
 // messagesRows is the most rows the region takes, which the pane keeps back whether or not the
@@ -217,7 +216,7 @@ func (m model) messagePieceRows(piece messagePiece, hovered, flashed bool) []str
 	}
 
 	rows := []string{}
-	for line := range strings.SplitSeq(ansi.Wordwrap(piece.text, max(m.lineWidth()-messagesIndent-2-lipgloss.Width(piece.label), 1), ""), "\n") {
+	for _, line := range paint.WrapRows(piece.text, m.lineWidth()-messagesIndent-2-lipgloss.Width(piece.label)) {
 		if len(rows) == 0 {
 			label := ""
 			if piece.label != "" {
@@ -611,6 +610,12 @@ func kindStyle(kind messageKind) lipgloss.Style {
 // mockMessages are the fixtures the region is drawn from while nothing real reports through it,
 // long enough in the reason to show what the rows do with one that does not fit.
 var mockMessages = []message{
+	{
+		kind:    messageError,
+		summary: "Your editor could not be opened on that message",
+		detail:  "fork/exec /Users/harry/.local/state/weave/worktrees/01a086ae-d59b-769b-a8a0-202d4014bddd/bin/editor: no such file or directory",
+		trace:   "b3d0117e",
+	},
 	{
 		kind:    messageError,
 		summary: "Nothing to review in fix-ci",
