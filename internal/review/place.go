@@ -139,7 +139,7 @@ func (v *View) rowByOld(index lineIndex, thread *agentv1.ReviewThread) (int, pla
 		return 0, adrift, false
 	}
 
-	y, ok := index.byOld[oldKey{filePath: thread.GetFilePath(), oldLine: old}]
+	y, ok := index.byOld[oldKey{filePath: v.pathOf(thread), oldLine: old}]
 	if !ok {
 		return 0, adrift, false
 	}
@@ -155,12 +155,34 @@ func (v *View) rowByQuote(index lineIndex, thread *agentv1.ReviewThread) (int, p
 		return 0, adrift, false
 	}
 
-	found := index.quoted(thread.GetFilePath(), quote)
+	var found []int
+
+	for _, y := range index.quoted(v.pathOf(thread), quote) {
+		if v.isOnSideOf(y, thread) {
+			found = append(found, y)
+		}
+	}
+
 	if len(found) != 1 {
 		return 0, adrift, false
 	}
 
 	return found[0], pinned, true
+}
+
+// isOnSideOf reports whether a row is drawn on the side of the diff the thread's line was
+// counted on.
+func (v *View) isOnSideOf(y int, thread *agentv1.ReviewThread) bool {
+	line, ok := v.getLine(y)
+	if !ok {
+		return false
+	}
+
+	if thread.GetNewStart() > 0 {
+		return line.NewNumber > 0
+	}
+
+	return line.OldNumber > 0
 }
 
 // placementFor is whether the line a thread landed on still reads the way the thread was

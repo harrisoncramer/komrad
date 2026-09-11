@@ -435,3 +435,116 @@ func TestPinSkipsTheOldSideWhenItIsForeign(t *testing.T) {
 			"and never the row that happens to hold old line 38")
 	}
 }
+
+// TestPinHoldsASpaceIndentedQuoteThatNothingTouched covers a bare quote of a line indented with
+// spaces, whose first byte is the byte a context marker is also spelled with.
+func TestPinHoldsASpaceIndentedQuoteThatNothingTouched(t *testing.T) {
+	view := NewView(patchWith(diff.File{
+		OldPath: "agent.proto",
+		NewPath: "agent.proto",
+		Hunks: []diff.Hunk{hunkOf(
+			diff.Line{
+				Kind:      diff.Addition,
+				Text:      "  int32 local_review_rounds = 40;",
+				NewNumber: 10,
+			},
+			diff.Line{
+				Kind:      diff.Context,
+				Text:      "  bool in_local_review = 41;",
+				OldNumber: 10,
+				NewNumber: 11,
+			},
+		)},
+	}), false)
+
+	thread := threadAt("t1", "agent.proto", 10, 11, "  bool in_local_review = 41;")
+	view.PinThreads([]*agentv1.ReviewThread{thread})
+
+	assert.Equal(t, pinned, view.placed[thread.GetId()],
+		"nothing was written over that line, so it should not read as ghosted")
+}
+
+// TestPinRefusesASpaceIndentedQuoteThatTwoRowsAnswerTo covers the same quote reading as a bare
+// line on one row and as the drawn spelling of its neighbour.
+func TestPinRefusesASpaceIndentedQuoteThatTwoRowsAnswerTo(t *testing.T) {
+	view := NewView(patchWith(diff.File{
+		OldPath: "steps.yml",
+		NewPath: "steps.yml",
+		Hunks: []diff.Hunk{hunkOf(
+			diff.Line{
+				Kind:      diff.Addition,
+				Text:      " run: check",
+				NewNumber: 20,
+			},
+			diff.Line{
+				Kind:      diff.Context,
+				Text:      "run: check",
+				OldNumber: 4,
+				NewNumber: 21,
+			},
+		)},
+	}), false)
+
+	thread := threadAt("t1", "steps.yml", 0, 99, " run: check")
+	view.PinThreads([]*agentv1.ReviewThread{thread})
+
+	assert.Equal(t, adrift, view.placed[thread.GetId()],
+		"the foot is honest where the neighbour row is a guess")
+}
+
+// renamedPatch is a file the round renamed, whose lines the diff draws under the new name.
+func renamedPatch() *diff.Patch {
+	return patchWith(diff.File{
+		OldPath: "greet.go",
+		NewPath: "hello.go",
+		Hunks: []diff.Hunk{hunkOf(
+			diff.Line{
+				Kind:      diff.Context,
+				Text:      "package greet",
+				OldNumber: 1,
+				NewNumber: 1,
+			},
+			diff.Line{
+				Kind:      diff.Deletion,
+				Text:      "old",
+				OldNumber: 2,
+			},
+			diff.Line{
+				Kind:      diff.Addition,
+				Text:      "new",
+				NewNumber: 2,
+			},
+		)},
+	})
+}
+
+// TestPinFindsTheOldSideOfARenamedFile covers a thread whose old-side line is drawn in the patch
+// under a name the thread has never heard of, quoting text no row draws so no other arm can
+// reach it.
+func TestPinFindsTheOldSideOfARenamedFile(t *testing.T) {
+	view := NewView(renamedPatch(), false)
+
+	thread := threadAt("t1", "greet.go", 1, 1, " package greet // gone")
+	view.SetTraced(map[string]Traced{"t1": {FilePath: "hello.go", FileOnly: true}})
+	view.PinThreads([]*agentv1.ReviewThread{thread})
+
+	require.Equal(t, ghosted, view.placed[thread.GetId()],
+		"old line 1 of the shared base is on screen under the new name")
+
+	found, ok := view.GetThreadAt(2)
+	require.True(t, ok)
+	assert.Equal(t, "t1", found.GetId())
+}
+
+// TestPinFindsTheQuoteOfARenamedFile covers the text arm reaching a line the rename moved, where
+// trace says the file survived and the lines did not.
+func TestPinFindsTheQuoteOfARenamedFile(t *testing.T) {
+	view := NewView(renamedPatch(), false)
+
+	thread := threadAt("t1", "greet.go", 0, 9, "+new")
+	view.SetTraced(map[string]Traced{"t1": {FilePath: "hello.go", FileOnly: true}})
+	view.PinThreads([]*agentv1.ReviewThread{thread})
+
+	assert.Equal(t, pinned, view.placed[thread.GetId()],
+		"the line the thread quoted is drawn unchanged under the new name")
+}

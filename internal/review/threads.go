@@ -2,6 +2,7 @@ package review
 
 import (
 	"fmt"
+	"slices"
 
 	agentv1 "weave/proto/gen/agent/v1"
 )
@@ -88,27 +89,10 @@ func quoteOf(thread *agentv1.ReviewThread) string {
 	return lines[0]
 }
 
+// doesQuoteMatch reports whether a drawn line reads the way a thread's quote was stored, under
+// either spelling.
 func doesQuoteMatch(drawn, stored string) bool {
-	if stored == "" || doesCarryMarker(stored) {
-		return drawn == stored
-	}
-
-	return strippedQuote(drawn) == stored
-}
-
-// doesCarryMarker reports whether a quoted line was stored with the marker the diff draws in
-// front of it.
-func doesCarryMarker(quote string) bool {
-	if quote == "" {
-		return false
-	}
-
-	switch quote[0] {
-	case '+', '-', ' ':
-		return true
-	}
-
-	return false
+	return drawn == stored || strippedQuote(drawn) == stored
 }
 
 // strippedQuote is a quoted line with its diff marker taken off the front.
@@ -125,16 +109,14 @@ func strippedQuote(quote string) string {
 	return quote
 }
 
-// quoted is the rows a thread's quote names, read only against the spelling it was stored in.
+// quoted is the rows a thread's quote names under either spelling it could have been stored in.
 func (index lineIndex) quoted(filePath, quote string) []int {
-	// Explainer: a drawn line always carries a marker and a bare quote never does, so the two
-	// spellings can never name the same row and the maps must not be crossed.
+	// Explainer: a stored quote's first byte cannot say which spelling it holds, because a bare
+	// quote of a space-indented line begins with the byte a context marker is spelled with. Both
+	// readings are offered, and a quote two rows answer to is left for the caller to refuse.
 	key := quoteKey{filePath: filePath, quote: quote}
-	if doesCarryMarker(quote) {
-		return index.byQuote[key]
-	}
 
-	return index.byBareQuote[key]
+	return append(slices.Clone(index.byQuote[key]), index.byBareQuote[key]...)
 }
 
 // FormatLocation names a place in the diff, on whichever side the line actually lives.
