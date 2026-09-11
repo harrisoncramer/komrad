@@ -3,12 +3,14 @@
 package main
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"strings"
 
 	"weave/cmd/paneldemo/scenario"
 	"weave/config"
@@ -17,6 +19,8 @@ import (
 	"weave/proto/gen/hook/v1/hookv1connect"
 	"weave/proto/gen/schedule/v1/schedulev1connect"
 	"weave/proto/gen/workflow/v1/workflowv1connect"
+
+	tea "github.com/charmbracelet/bubbletea"
 )
 
 func main() {
@@ -27,7 +31,7 @@ func main() {
 }
 
 func run() error {
-	name := flag.String("scenario", scenario.Names()[0], "the data to draw the panel against")
+	name := flag.String("scenario", "", "the data to draw the panel against, which is required")
 	list := flag.Bool("list", false, "name the scenarios and stop")
 	flag.Parse()
 
@@ -37,6 +41,10 @@ func run() error {
 		}
 
 		return nil
+	}
+
+	if *name == "" {
+		return fmt.Errorf("name a scenario with -scenario, one of: %s", strings.Join(scenario.Names(), ", "))
 	}
 
 	held, err := scenario.Named(*name)
@@ -67,7 +75,12 @@ func run() error {
 		Pane:          demoPane,
 	}
 
-	return ui.Run(deps)
+	// The quit key signals rather than returning, so an interrupt here is the panel being closed.
+	if err := ui.Run(deps); err != nil && !errors.Is(err, tea.ErrInterrupted) {
+		return err
+	}
+
+	return nil
 }
 
 // serviceFor mounts every service the panel is a client of, so a screen reaching one of them
