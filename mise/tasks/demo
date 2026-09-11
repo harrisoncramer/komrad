@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+#MISE description="Run the panel against a fake service, to look at a screen without a database or an agent."
+set -euo pipefail
+cd "$MISE_CONFIG_ROOT"
+
+exec go run ./cmd/paneldemo "$@"
