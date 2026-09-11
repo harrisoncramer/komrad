@@ -155,9 +155,14 @@ func (v *View) rowByQuote(index lineIndex, thread *agentv1.ReviewThread) (int, p
 		return 0, adrift, false
 	}
 
-	var found []int
+	// Explainer: only the bare reading is weighed by side. A drawn match is the spelling the row
+	// is actually written in, so nothing about it is a guess, and charging it for the ambiguity
+	// the bare reading carries gives up rows the diff agrees with.
+	drawn, bare := index.quoted(v.pathOf(thread), quote)
 
-	for _, y := range index.quoted(v.pathOf(thread), quote) {
+	found := slices.Clone(drawn)
+
+	for _, y := range bare {
 		if v.isOnSideOf(y, thread) {
 			found = append(found, y)
 		}

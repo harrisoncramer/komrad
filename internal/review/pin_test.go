@@ -519,8 +519,7 @@ func renamedPatch() *diff.Patch {
 }
 
 // TestPinFindsTheOldSideOfARenamedFile covers a thread whose old-side line is drawn in the patch
-// under a name the thread has never heard of, quoting text no row draws so no other arm can
-// reach it.
+// under a name the thread has never heard of.
 func TestPinFindsTheOldSideOfARenamedFile(t *testing.T) {
 	view := NewView(renamedPatch(), false)
 
@@ -547,4 +546,56 @@ func TestPinFindsTheQuoteOfARenamedFile(t *testing.T) {
 
 	assert.Equal(t, pinned, view.placed[thread.GetId()],
 		"the line the thread quoted is drawn unchanged under the new name")
+}
+
+// TestPinHoldsADrawnQuoteOnARemovedLine covers the spelling a row is actually written in, which
+// answers for itself and is not weighed by the side the thread's line was counted on.
+func TestPinHoldsADrawnQuoteOnARemovedLine(t *testing.T) {
+	view := NewView(patchWith(diff.File{
+		OldPath: "greet.go",
+		NewPath: "greet.go",
+		Hunks: []diff.Hunk{hunkOf(
+			diff.Line{
+				Kind:      diff.Deletion,
+				Text:      "gone",
+				OldNumber: 2,
+			},
+		)},
+	}), false)
+
+	thread := threadAt("t1", "greet.go", 2, 2, "-gone")
+	thread.BaseSha = "0000000000000000000000000000000000000000"
+	view.PinThreads([]*agentv1.ReviewThread{thread})
+
+	found, ok := view.GetThreadAt(2)
+	require.True(t, ok, "the row the diff draws that text on is the row")
+	assert.Equal(t, "t1", found.GetId())
+}
+
+// TestPinStillReadsAnIndentAsUnchanged holds the mislabel reading both spellings leaves behind,
+// which only a recorded spelling can take away.
+func TestPinStillReadsAnIndentAsUnchanged(t *testing.T) {
+	view := NewView(patchWith(diff.File{
+		OldPath: "conf.yaml",
+		NewPath: "conf.yaml",
+		Hunks: []diff.Hunk{hunkOf(
+			diff.Line{
+				Kind:      diff.Deletion,
+				Text:      "x",
+				OldNumber: 3,
+			},
+			diff.Line{
+				Kind:      diff.Addition,
+				Text:      " x",
+				NewNumber: 3,
+			},
+		)},
+	}), false)
+
+	thread := threadAt("t1", "conf.yaml", 3, 3, " x")
+	view.SetTraced(map[string]Traced{"t1": {FilePath: "conf.yaml", NewStart: 3}})
+	view.PinThreads([]*agentv1.ReviewThread{thread})
+
+	assert.Equal(t, pinned, view.placed[thread.GetId()],
+		"the drawn spelling of the line before the indent reads as the bare spelling of it after")
 }

@@ -2,7 +2,6 @@ package review
 
 import (
 	"fmt"
-	"slices"
 
 	agentv1 "weave/proto/gen/agent/v1"
 )
@@ -109,14 +108,14 @@ func strippedQuote(quote string) string {
 	return quote
 }
 
-// quoted is the rows a thread's quote names under either spelling it could have been stored in.
-func (index lineIndex) quoted(filePath, quote string) []int {
+// quoted is the rows answering a thread's quote, kept apart by the spelling each answered under.
+func (index lineIndex) quoted(filePath, quote string) (drawn, bare []int) {
 	// Explainer: a stored quote's first byte cannot say which spelling it holds, because a bare
 	// quote of a space-indented line begins with the byte a context marker is spelled with. Both
-	// readings are offered, and a quote two rows answer to is left for the caller to refuse.
+	// readings are offered, and which one a row answered under is what the caller weighs it by.
 	key := quoteKey{filePath: filePath, quote: quote}
 
-	return append(slices.Clone(index.byQuote[key]), index.byBareQuote[key]...)
+	return index.byQuote[key], index.byBareQuote[key]
 }
 
 // FormatLocation names a place in the diff, on whichever side the line actually lives.
