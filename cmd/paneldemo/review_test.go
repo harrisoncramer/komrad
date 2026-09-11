@@ -131,4 +131,10 @@ func TestTheStageFlagLetsAScreenGiveUpTheWindow(t *testing.T) {
 	pretending := noPanes{stage: true}
 	assert.Equal(t, stagePane, pretending.SplitRight(demoPane, "", ""))
 	assert.True(t, pretending.IsPaneAlive(stagePane), "and the pane it hands back stays alive")
+
+	// The frame reads real behaviour off the stage and the info pane being different panes, which
+	// tmux could never answer otherwise.
+	assert.Equal(t, infoPane, pretending.SplitBelow(demoPane, "", ""))
+	assert.NotEqual(t, pretending.SplitRight(demoPane, "", ""), pretending.SplitBelow(demoPane, "", ""))
+	assert.True(t, pretending.IsPaneAlive(infoPane))
 }

@@ -20,9 +20,13 @@ const demoPane = "%0"
 // screens' own layout: the process is still not there, so the window beside the sidebar is
 // empty rather than holding an editor.
 
-// stagePane is the pane the stub hands back for a split when it has been asked to pretend the
-// stage is taken.
-const stagePane = "%1"
+// The panes the stub hands back for a split when it has been asked to pretend one landed, one per
+// direction the frame splits in, since the stage and the info pane are never one pane in tmux and
+// the frame reads real behaviour off which is which.
+const (
+	stagePane = "%1"
+	infoPane  = "%2"
+)
 
 // noPanes answers the panel's questions about tmux as though it holds the window alone.
 type noPanes struct {
@@ -35,7 +39,11 @@ type noPanes struct {
 func (noPanes) MovePanes([]panes.Move) {}
 
 func (p noPanes) IsPaneAlive(pane string) bool {
-	return pane == demoPane || (p.stage && pane == stagePane)
+	if pane == demoPane {
+		return true
+	}
+
+	return p.stage && (pane == stagePane || pane == infoPane)
 }
 
 // GetPaneWidth and GetPaneHeight answer for the panel's own pane and for nothing else.
@@ -59,15 +67,15 @@ func (p noPanes) GetPaneHeight(pane string) int {
 	return height
 }
 
-func (p noPanes) SplitRight(string, string, string) string { return p.split() }
-func (p noPanes) SplitLeft(string, string, string) string  { return p.split() }
-func (p noPanes) SplitBelow(string, string, string) string { return p.split() }
-func (p noPanes) SplitAbove(string, string, string) string { return p.split() }
+func (p noPanes) SplitRight(string, string, string) string { return p.split(stagePane) }
+func (p noPanes) SplitLeft(string, string, string) string  { return p.split(stagePane) }
+func (p noPanes) SplitBelow(string, string, string) string { return p.split(infoPane) }
+func (p noPanes) SplitAbove(string, string, string) string { return p.split(infoPane) }
 
 // split is the pane a split lands in, which is none unless the stub was told to pretend.
-func (p noPanes) split() string {
+func (p noPanes) split(pane string) string {
 	if p.stage {
-		return stagePane
+		return pane
 	}
 
 	return ""

@@ -535,6 +535,29 @@ func TestAnUnreadablePaneRefusesTheEditKey(t *testing.T) {
 	assert.True(t, m.doesReviewFollowLive(), "the diff still catches up")
 }
 
+// TestTheGateReadsTheReviewedAgentRatherThanTheFirstRow covers the listing holding more than one
+// agent, which the fixture does not: a gate that stops at the first row answers for whoever
+// happens to be at the top of the panel.
+func TestTheGateReadsTheReviewedAgentRatherThanTheFirstRow(t *testing.T) {
+	dir := reviewRepo(t)
+	agents := &fakeReviewAgents{}
+	m, _ := reviewModel(t, agents, dir)
+	m = openReview(t, m)
+
+	idle := agentItem{agent: agentstore.Agent{ID: "someone-else", Name: "idle", State: agentstore.StateIdle}, alive: true}
+	m.listing.agents = append([]agentItem{idle}, m.listing.agents...)
+	setReviewAgentState(&m, agentstore.StateThinking)
+
+	m.review.cursor = reviewRowWithAnEditTarget(t, m)
+
+	next, _ := m.updateReview(editorKey())
+	m = next.(model)
+
+	assert.Equal(t, modeWatching, m.review.mode, "the agent being reviewed is the one that decides")
+	assert.Contains(t, m.review.notice, "stop it before you edit")
+	assert.False(t, m.doesReviewFollowLive(), "and the catch-up reads the same row")
+}
+
 // TestEditingGivesTheWindowToTheEditor pins the panel letting go of the window, which it has to
 // do or it zooms its own sidebar over the editor it just opened.
 func TestEditingGivesTheWindowToTheEditor(t *testing.T) {
