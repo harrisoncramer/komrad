@@ -30,6 +30,13 @@ The review screen runs git in the agent's own directory, so the `review` scenari
 throwaway repository first and points its agents at it. That is what `NeedsRepo` on a scenario
 asks for, and `WithRepo` is what fills the commits in. The repository goes when the demo closes.
 
+Some screens put another process on the stage beside the sidebar: an attached agent's terminal,
+or your editor while you are editing an agent's worktree. There is no tmux here, so those cannot
+be drawn, and by default the panel is told every split was refused, which is what the screens
+themselves would see with no room. `-stage` answers that the split landed instead, so the panel
+draws its sidebar alone the way it would beside a real pane. The pane is still imaginary, so the
+rest of the window is empty.
+
 One thing it does not do yet. The command sets no size of its own, so the width a screen is drawn
 at is the width of the terminal you start it in, and eighty columns means sizing that terminal by
 hand.

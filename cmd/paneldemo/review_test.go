@@ -118,3 +118,17 @@ func TestACommentTypedIntoTheDemoStays(t *testing.T) {
 		written.GetMessages()[0].GetDelivery(),
 		"a comment typed into the demo is held rather than sent")
 }
+
+// TestTheStageFlagLetsAScreenGiveUpTheWindow pins what -stage is for: the screens that put
+// another process beside the sidebar can only be looked at when a split answers with a pane.
+func TestTheStageFlagLetsAScreenGiveUpTheWindow(t *testing.T) {
+	t.Parallel()
+
+	refused := noPanes{}
+	assert.Empty(t, refused.SplitRight(demoPane, "", ""), "by default every split is refused")
+	assert.False(t, refused.IsPaneAlive(stagePane))
+
+	pretending := noPanes{stage: true}
+	assert.Equal(t, stagePane, pretending.SplitRight(demoPane, "", ""))
+	assert.True(t, pretending.IsPaneAlive(stagePane), "and the pane it hands back stays alive")
+}

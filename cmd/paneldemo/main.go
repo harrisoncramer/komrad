@@ -35,6 +35,7 @@ func main() {
 func run() error {
 	name := flag.String("scenario", "", "the data to draw the panel against, which is required")
 	list := flag.Bool("list", false, "name the scenarios and stop")
+	stage := flag.Bool("stage", false, "pretend another process holds the stage, to look at the screens that put one there")
 	flag.Parse()
 
 	if *list {
@@ -83,7 +84,7 @@ func run() error {
 	server := httptest.NewServer(serviceFor(held))
 	defer server.Close()
 
-	stub := noPanes{}
+	stub := noPanes{stage: *stage}
 
 	deps := ui.Deps{
 		PopupWindow:   ui.NewPopupWindow(stub, "paneldemo"),
