@@ -2,6 +2,7 @@ package main
 
 import (
 	"os"
+	"syscall"
 
 	"weave/internal/panes"
 
@@ -66,7 +67,18 @@ func (noPanes) GetSessionClient(string) string                  { return "" }
 func (noPanes) BindKey(string, ...string)                       {}
 func (noPanes) BindRootKey(string, ...string)                   {}
 func (noPanes) UnbindRootKey(string)                            {}
-func (noPanes) DetachSession(string)                            {}
+
+// Explainer: the panel's quit key detaches the tmux client and leaves the panel running behind
+// it, which is why quitting a real weave does not stop it. There is no client here to detach and
+// nothing to leave running, so the same key has to end the process instead.
+
+// DetachSession is what the panel's quit key reaches.
+func (noPanes) DetachSession(string) {
+	// Signalled rather than exited so bubbletea puts the terminal back as it found it.
+	if err := syscall.Kill(os.Getpid(), syscall.SIGINT); err != nil {
+		os.Exit(1)
+	}
+}
 
 // terminalSize is the terminal the demo is drawn in, falling back to a wide one where stdout is
 // not one.

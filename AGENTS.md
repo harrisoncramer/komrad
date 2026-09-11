@@ -20,8 +20,11 @@ document cannot tell you whether a sidebar and a column both fit at eighty colum
 demo` starts the real panel against a fake service, so what you are looking at is what the panel
 draws rather than a drawing of it. It needs no database, no `weave serve`, and no tmux.
 
-`mise run demo -- -list` names the scenarios it can draw and `-scenario <name>` picks one, so a
-screen can be looked at busy or empty without editing anything.
+`mise run demo` with no arguments asks which scenario to draw, and `-scenario <name>` names one
+outright. There is no default: a screen is worth looking at for a reason, and the reason is the
+scenario, so the binary on its own refuses rather than guessing. `mise run demo -- -list` names
+them. The quit key closes it, since there is no tmux client here to detach and leave it running
+behind.
 
 Two things it does not do yet. The review screen does not draw: pressing the review key reports
 that `ListReviewThreads` is not implemented, which is the tool and not your branch. And the
