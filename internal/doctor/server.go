@@ -111,19 +111,9 @@ func requireListenable(ctx context.Context, addr string) error {
 }
 
 func describeStaleServerFix(ctx context.Context, env Env) string {
-	if !isPanelRunning(ctx, env) {
+	if !env.IsPanelRunning(ctx) {
 		return "weave stop, then reopen the panel"
 	}
 
 	return "tmux -L " + env.TmuxSocket + " kill-server, then reopen the panel, which also restarts every agent"
-}
-
-func isPanelRunning(ctx context.Context, env Env) bool {
-	if env.TmuxSocket == "" || env.PanelSession == "" {
-		return false
-	}
-
-	_, err := env.Output(ctx, "tmux", "-L", env.TmuxSocket, "has-session", "-t", env.PanelSession)
-
-	return err == nil
 }

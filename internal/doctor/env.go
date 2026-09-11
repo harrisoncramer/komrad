@@ -28,6 +28,7 @@ type Env struct {
 	ConnectReadOnly       func(ctx context.Context, url string) error
 	ReadWorktreeOwners    func(ctx context.Context, url string) (WorktreeOwners, error)
 	ProbeServer           func(ctx context.Context, addr string) ServerStatus
+	IsPanelRunning        func(ctx context.Context) bool
 }
 
 type HarnessInfo struct {
@@ -38,7 +39,6 @@ type HarnessInfo struct {
 type Settings struct {
 	TmuxSocket          string
 	InsideTmux          string
-	PanelSession        string
 	ConfigLayers        []config.Layer
 	Sources             map[string]config.Source
 	Harnesses           []HarnessInfo

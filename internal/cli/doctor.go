@@ -8,7 +8,6 @@ import (
 	"os"
 
 	"weave/config"
-	"weave/internal/agents"
 	"weave/internal/doctor"
 	"weave/internal/errui"
 	"weave/internal/version"
@@ -100,6 +99,8 @@ func (a *app) buildDoctor() (doctor.Env, []doctor.Check, error) {
 		}
 	}
 
+	env.IsPanelRunning = func(ctx context.Context) bool { return isPanelRunning(ctx, a) }
+
 	return env, doctor.Checks(settings), nil
 }
 
@@ -122,7 +123,6 @@ func (a *app) buildDoctorSettings() (doctor.Settings, error) {
 	return doctor.Settings{
 		TmuxSocket:          a.env.TmuxSocket,
 		InsideTmux:          a.env.Tmux,
-		PanelSession:        agents.ManagerSession,
 		ConfigLayers:        layers,
 		Sources:             a.configSources,
 		Harnesses:           harnesses,
