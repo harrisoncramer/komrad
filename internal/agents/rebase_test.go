@@ -248,7 +248,7 @@ func TestRebaseAndThePullRequest(t *testing.T) {
 			service := NewRebaseService(NewRebaseServiceParams{
 				Agents:    agents,
 				Workflows: fakeRebaseWorkflows{flow: worktreeFlow()},
-				Rebaser:   GitRebaser{},
+				Rebaser:   git.NewClient(),
 			})
 
 			result, err := service.Rebase(t.Context(), "a1")
@@ -402,7 +402,7 @@ func TestRebaseFastForwardsASquashedBranch(t *testing.T) {
 	service := NewRebaseService(NewRebaseServiceParams{
 		Agents:    agents,
 		Workflows: fakeRebaseWorkflows{flow: worktreeFlow()},
-		Rebaser:   GitRebaser{},
+		Rebaser:   git.NewClient(),
 	})
 
 	result, err := service.Rebase(t.Context(), "a1")
@@ -434,7 +434,7 @@ func TestRebaseReplaysWhenTheTreesDiffer(t *testing.T) {
 			ID: "a1", Name: "auth", WorkflowID: "w1", Cwd: tree, State: agentstore.StateIdle,
 		}},
 		Workflows: fakeRebaseWorkflows{flow: worktreeFlow()},
-		Rebaser:   GitRebaser{},
+		Rebaser:   git.NewClient(),
 	})
 
 	result, err := service.Rebase(t.Context(), "a1")
@@ -508,7 +508,7 @@ func TestRebaseReplaysOnlyWhatFollowedTheMerge(t *testing.T) {
 			ID: "a1", Name: "auth", WorkflowID: "w1", Cwd: tree, State: agentstore.StateIdle,
 		}},
 		Workflows: fakeRebaseWorkflows{flow: worktreeFlow()},
-		Rebaser:   GitRebaser{},
+		Rebaser:   git.NewClient(),
 	})
 
 	result, err := service.Rebase(t.Context(), "a1")
@@ -540,7 +540,7 @@ func TestRebaseRefusesAPathTheIndexIsHolding(t *testing.T) {
 			ID: "a1", Name: "auth", WorkflowID: "w1", Cwd: tree, State: agentstore.StateIdle,
 		}},
 		Workflows: fakeRebaseWorkflows{flow: worktreeFlow()},
-		Rebaser:   GitRebaser{},
+		Rebaser:   git.NewClient(),
 	})
 
 	_, err := service.Rebase(t.Context(), "a1")
@@ -562,7 +562,7 @@ func TestRebaseParksBeforeItMoves(t *testing.T) {
 			ID: "a1", Name: "auth", WorkflowID: "w1", Cwd: tree, State: agentstore.StateIdle,
 		}},
 		Workflows: fakeRebaseWorkflows{flow: worktreeFlow()},
-		Rebaser:   GitRebaser{},
+		Rebaser:   git.NewClient(),
 	})
 
 	result, err := service.Rebase(t.Context(), "a1")

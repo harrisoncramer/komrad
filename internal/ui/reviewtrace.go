@@ -18,6 +18,7 @@ const traceTimeout = 10 * time.Second
 // traceThreadsParams says which conversation to trace, where to read the repository, and which
 // snapshot the diff on screen was drawn to.
 type traceThreadsParams struct {
+	Git     uiGit
 	Dir     string
 	ToSHA   string
 	Threads []*agentv1.ReviewThread
@@ -46,7 +47,7 @@ func traceThreads(ctx context.Context, params traceThreadsParams) map[string]rev
 
 	traced := maps.Clone(exact)
 	for from, threads := range byFrom {
-		mappings, err := git.MapRanges(ctx, git.MapRangesParams{
+		mappings, err := params.Git.MapRanges(ctx, git.MapRangesParams{
 			Dir:     params.Dir,
 			FromSHA: from,
 			ToSHA:   params.ToSHA,

@@ -130,15 +130,15 @@ func reviewService(t *testing.T) (*Service, *storetest.Stores, *reviewstore.Stor
 // rather than about what a worktree holds.
 type fakeSnapshotter struct{}
 
-func (fakeSnapshotter) Take(context.Context, git.TakeSnapshotParams) (*git.Snapshot, error) {
+func (fakeSnapshotter) TakeSnapshot(context.Context, git.TakeSnapshotParams) (*git.Snapshot, error) {
 	return &git.Snapshot{BaseSHA: "base-sha", SHA: "snapshot-sha"}, nil
 }
 
-func (fakeSnapshotter) Hold(context.Context, string, string, string) error { return nil }
+func (fakeSnapshotter) HoldRef(context.Context, string, string, string) error { return nil }
 
-func (fakeSnapshotter) Release(context.Context, string, string) error { return nil }
+func (fakeSnapshotter) ReleaseRef(context.Context, string, string) error { return nil }
 
-func (fakeSnapshotter) FileAt(context.Context, string, string, string) ([]string, error) {
+func (fakeSnapshotter) ReadFileLines(context.Context, string, string, string) ([]string, error) {
 	return nil, nil
 }
 

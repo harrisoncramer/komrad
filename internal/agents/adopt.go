@@ -44,14 +44,6 @@ type worktreeLister interface {
 	ListWorktrees(ctx context.Context, repo string) ([]git.Worktree, error)
 }
 
-// GitWorktrees lists a repository's checkouts with git.
-type GitWorktrees struct{}
-
-// ListWorktrees reports every checkout of a repository, the main one first.
-func (GitWorktrees) ListWorktrees(ctx context.Context, repo string) ([]git.Worktree, error) {
-	return git.ListWorktrees(ctx, repo)
-}
-
 // adoptAgentReadWriter is the slice of the agent store adoption reads.
 type adoptAgentReadWriter interface {
 	List(ctx context.Context) ([]agentstore.Agent, error)

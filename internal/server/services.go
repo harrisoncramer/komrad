@@ -9,6 +9,7 @@ import (
 	"weave/internal/agents"
 	"weave/internal/browser"
 	"weave/internal/frames"
+	"weave/internal/git"
 	"weave/internal/scripts"
 )
 
@@ -127,7 +128,7 @@ func buildServices(p Params, st *stores) (*services, error) {
 		Viewed:    st.review,
 		Rounds:    st.review,
 		Reviews:   st.review,
-		Snapshots: agents.GitSnapshotter{},
+		Snapshots: git.NewClient(),
 		Workflows: st.workflows,
 		Agents:    st.agents,
 		Mailer:    mailService,
@@ -143,7 +144,7 @@ func buildServices(p Params, st *stores) (*services, error) {
 		Agents:    st.agents,
 		Workflows: st.workflows,
 		Notifier:  mailService,
-		Rebaser:   agents.GitRebaser{},
+		Rebaser:   git.NewClient(),
 		Interrupter: agents.NewPaneInterrupter(agents.NewPaneInterrupterParams{
 			Agents:    st.agents,
 			Harnesses: p.Harnesses,
@@ -155,7 +156,7 @@ func buildServices(p Params, st *stores) (*services, error) {
 		Workflows:    st.workflows,
 		Launch:       launchService,
 		PullRequests: agents.NewGHPullRequests(),
-		Worktrees:    agents.GitWorktrees{},
+		Worktrees:    git.NewClient(),
 	})
 	emptyWorkflows := agents.NewEmptyWorkflowDeleter(agents.NewEmptyWorkflowDeleterParams{
 		Workflows: st.workflows,
@@ -170,7 +171,7 @@ func buildServices(p Params, st *stores) (*services, error) {
 		Tx:             st.pool,
 		Scripts:        scriptService,
 		Reviews:        st.review,
-		Snapshots:      agents.GitSnapshotter{},
+		Snapshots:      git.NewClient(),
 		LogsDir:        runLogsDir,
 		FramesDir:      p.Env.FramesDir(),
 		MaxAgents:      p.MaxAgents,

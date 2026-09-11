@@ -1532,21 +1532,21 @@ type fakeSnapshotter struct {
 	files map[string][]string
 }
 
-func (f *fakeSnapshotter) Take(context.Context, git.TakeSnapshotParams) (*git.Snapshot, error) {
+func (f *fakeSnapshotter) TakeSnapshot(context.Context, git.TakeSnapshotParams) (*git.Snapshot, error) {
 	return &git.Snapshot{BaseSHA: f.base, SHA: f.sha}, nil
 }
 
-func (f *fakeSnapshotter) Hold(_ context.Context, _, ref, _ string) error {
+func (f *fakeSnapshotter) HoldRef(_ context.Context, _, ref, _ string) error {
 	f.held = append(f.held, ref)
 
 	return nil
 }
 
-func (f *fakeSnapshotter) Release(context.Context, string, string) error {
+func (f *fakeSnapshotter) ReleaseRef(context.Context, string, string) error {
 	return nil
 }
 
-func (f *fakeSnapshotter) FileAt(_ context.Context, _, _, path string) ([]string, error) {
+func (f *fakeSnapshotter) ReadFileLines(_ context.Context, _, _, path string) ([]string, error) {
 	lines, ok := f.files[path]
 	if !ok {
 		return nil, fmt.Errorf("no such path %q", path)
