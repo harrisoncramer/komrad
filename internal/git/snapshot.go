@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 // Explainer: a park is a commit parented on the head it was taken at, holding the whole
@@ -215,9 +216,7 @@ func seedIndexFromHead(ctx context.Context, root, index string, env []string) er
 
 // copyIndex writes the agent's index out as the temporary one, modification time included.
 func copyIndex(ctx context.Context, root, index string, _ []string) error {
-	// The git directory is asked for rather than the index path, which an inherited
-	// GIT_INDEX_FILE would answer with instead.
-	dir, err := Run(ctx, root, "rev-parse", "--absolute-git-dir")
+	dir, err := runEnv(ctx, root, agentEnv(), "rev-parse", "--absolute-git-dir")
 	if err != nil {
 		return fmt.Errorf("failed to find the index of %q: %w", root, err)
 	}
@@ -278,12 +277,28 @@ func seedIndexFromAgent(ctx context.Context, root, index string, env []string) e
 		return err
 	}
 
-	return revealPaths(ctx, root, env, presentPaths(root, hidden))
+	return revealPaths(ctx, root, index, env, presentPaths(root, hidden))
+}
+
+// agentEnv is the environment for the commands that read the agent's own index, with the variable
+// naming an index of somebody else's taken out of it.
+func agentEnv() []string {
+	kept := []string{}
+
+	for _, entry := range os.Environ() {
+		if strings.HasPrefix(entry, "GIT_INDEX_FILE=") {
+			continue
+		}
+
+		kept = append(kept, entry)
+	}
+
+	return kept
 }
 
 // hiddenPaths are the tracked paths whose working copy git is told not to read.
 func hiddenPaths(ctx context.Context, root string) ([]string, error) {
-	out, err := RunBytes(ctx, root, "ls-files", "-v", "-z")
+	out, err := runWithEnv(ctx, root, agentEnv(), "ls-files", "-v", "-z")
 	if err != nil {
 		return nil, fmt.Errorf("failed to read the index flags of %q: %w", root, err)
 	}
@@ -317,9 +332,14 @@ func presentPaths(root string, paths []string) []string {
 
 // revealPaths clears both flags in the temporary index, one command each, since git keeps only
 // the last of them named in a single one.
-func revealPaths(ctx context.Context, root string, env []string, paths []string) error {
+func revealPaths(ctx context.Context, root, index string, env []string, paths []string) error {
 	if len(paths) == 0 {
 		return nil
+	}
+
+	stat, err := os.Stat(index)
+	if err != nil {
+		return fmt.Errorf("failed to read a snapshot index for %q: %w", root, err)
 	}
 
 	var input bytes.Buffer
@@ -333,6 +353,12 @@ func revealPaths(ctx context.Context, root string, env []string, paths []string)
 		if _, err := runInput(ctx, root, env, input.Bytes(), args...); err != nil {
 			return fmt.Errorf("failed to unflag the files of %q for a snapshot: %w", root, err)
 		}
+	}
+
+	// Writing the index stamps it with the current time, which would leave every entry in it
+	// older than the index and so trusted on its recorded stat alone.
+	if err := os.Chtimes(index, stat.ModTime(), stat.ModTime()); err != nil {
+		return fmt.Errorf("failed to write a snapshot index for %q: %w", root, err)
 	}
 
 	return nil

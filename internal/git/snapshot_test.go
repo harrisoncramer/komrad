@@ -234,6 +234,38 @@ func TestASkipWorktreeFileIsKeptBesideAnAssumeUnchangedOne(t *testing.T) {
 	assert.Equal(t, []string{"package main"}, lines)
 }
 
+// TestTheIndexIsReadPastAnInheritedIndexFile covers a panel started with GIT_INDEX_FILE in its
+// environment, which git would otherwise answer about instead of the agent's own index.
+func TestTheIndexIsReadPastAnInheritedIndexFile(t *testing.T) {
+	root := repo(t)
+	run(t, root, "update-index", "--skip-worktree", "kept.go")
+	t.Setenv("GIT_INDEX_FILE", filepath.Join(t.TempDir(), "elsewhere.index"))
+
+	paths, err := hiddenPaths(t.Context(), root)
+	require.NoError(t, err)
+	assert.Equal(t, []string{"kept.go"}, paths)
+}
+
+// TestUnflaggingKeepsTheIndexTime covers git stamping an index it writes with the current time,
+// which decides how much of the copy it is safe to trust a recorded stat for.
+func TestUnflaggingKeepsTheIndexTime(t *testing.T) {
+	root := repo(t)
+	run(t, root, "update-index", "--skip-worktree", "kept.go")
+
+	index := filepath.Join(t.TempDir(), "round.index")
+	env := append(append(os.Environ(), snapshotIdentity...), "GIT_INDEX_FILE="+index)
+	require.NoError(t, copyIndex(t.Context(), root, index, env))
+
+	before, err := os.Stat(index)
+	require.NoError(t, err)
+
+	require.NoError(t, revealPaths(t.Context(), root, index, env, []string{"kept.go"}))
+
+	after, err := os.Stat(index)
+	require.NoError(t, err)
+	assert.Equal(t, before.ModTime(), after.ModTime())
+}
+
 // TestASnapshotSurvivesARepositoryWithNoIndex covers a repository nothing has been added to yet,
 // whose index file git has not written.
 func TestASnapshotSurvivesARepositoryWithNoIndex(t *testing.T) {
