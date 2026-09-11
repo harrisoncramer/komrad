@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"weave/internal/review"
+	"weave/internal/ui/paint"
 	agentv1 "weave/proto/gen/agent/v1"
 
 	"github.com/charmbracelet/lipgloss"
@@ -18,19 +19,19 @@ var (
 	reviewHumanStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("6")).Bold(true)
 	reviewAgentStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("11")).Bold(true)
 	reviewNoticeStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("10"))
-	reviewAddedStyle   = lipgloss.NewStyle().Foreground(colorSuccess)
-	reviewRemovedStyle = lipgloss.NewStyle().Foreground(colorDanger)
+	reviewAddedStyle   = lipgloss.NewStyle().Foreground(paint.Success)
+	reviewRemovedStyle = lipgloss.NewStyle().Foreground(paint.Danger)
 	// reviewMovedStyle draws the catch-up notice as coloured text rather than as a filled bar, the
 	// agent writing while you read being ordinary rather than an alarm.
-	reviewMovedStyle = lipgloss.NewStyle().Foreground(colorWarning)
+	reviewMovedStyle = lipgloss.NewStyle().Foreground(paint.Warning)
 
 	// Reversed rather than merely coloured: a reader who keeps writing against a patch that has
 	// already moved has those comments pinned as ghosted or adrift when they finally reload, so
 	// this is worth a bar across the sidebar rather than a dim line they read past.
-	reviewDeadStyle      = lipgloss.NewStyle().Foreground(lipgloss.Color("0")).Background(colorMuted).Bold(true)
-	reviewUnsentStyle    = lipgloss.NewStyle().Foreground(colorAccent)
-	reviewSentStyle      = lipgloss.NewStyle().Foreground(colorWarning)
-	reviewDeliveredStyle = lipgloss.NewStyle().Foreground(colorSuccess)
+	reviewDeadStyle      = lipgloss.NewStyle().Foreground(lipgloss.Color("0")).Background(paint.Muted).Bold(true)
+	reviewUnsentStyle    = lipgloss.NewStyle().Foreground(paint.Accent)
+	reviewSentStyle      = lipgloss.NewStyle().Foreground(paint.Warning)
+	reviewDeliveredStyle = lipgloss.NewStyle().Foreground(paint.Success)
 )
 
 // reviewView draws the diff and, beside it, the thread the cursor is standing on, as one frame.
@@ -65,7 +66,7 @@ func (m model) reviewSidebarView(above ...string) string {
 	chrome := slices.Concat(above, []string{help, record, messages})
 	rest := m.reviewThreadWindow(m.reviewRestView(), m.listLines(slices.Concat(chrome, []string{head})...))
 
-	return padRows(head+rest, m.listLines(chrome...)) + record + messages + help
+	return paint.PadRows(head+rest, m.listLines(chrome...)) + record + messages + help
 }
 
 // reviewThreadWindow cuts the conversation down to the rows the sidebar has, keeping its end
@@ -86,7 +87,7 @@ func (m model) reviewThreadWindow(rendered string, lines int) string {
 		return len(rows) - visible - min(m.review.threadScroll, len(rows)-visible)
 	}
 
-	return windowRows(rows, lines, place, m.reviewMarkerStyle())
+	return paint.WindowRows(rows, lines, place, m.reviewMarkerStyle())
 }
 
 // doesReviewFitDetails reports whether the sidebar has a line left over once the record has taken
@@ -159,14 +160,14 @@ func (m model) reviewAnchorView() string {
 	anchor, ok := m.review.view.GetAnchor(m.review.cursor)
 	if !ok {
 		if thread, ok := m.reviewThreadAtCursor(); ok {
-			return titleOf(m.isReviewThreadFocused(), clipName(review.FormatThreadLocation(thread))) +
+			return paint.TitleOf(m.isReviewThreadFocused(), clipName(review.FormatThreadLocation(thread))) +
 				m.reviewCommentWhereView(thread) + "\n"
 		}
 
 		return dimStyle.Render("  move onto a line to start a thread on it") + "\n"
 	}
 
-	head := titleOf(m.isReviewThreadFocused(), clipName(review.FormatLocation(anchor.FilePath, anchor.OldStart, anchor.NewStart)))
+	head := paint.TitleOf(m.isReviewThreadFocused(), clipName(review.FormatLocation(anchor.FilePath, anchor.OldStart, anchor.NewStart)))
 	if thread, ok := m.reviewThreadAtCursor(); ok {
 		head += m.reviewCommentWhereView(thread)
 	}
@@ -340,7 +341,7 @@ func (m model) reviewFields() []recordField {
 // the panel's own colour while the keys are on the thread rather than on the diff.
 func (m model) reviewMarkerStyle() lipgloss.Style {
 	if m.isReviewThreadFocused() {
-		return headerStyle
+		return paint.HeaderStyle
 	}
 
 	return dimStyle

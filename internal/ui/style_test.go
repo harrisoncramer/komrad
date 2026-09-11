@@ -8,10 +8,9 @@ import (
 	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
 	"weave/internal/ui/layout"
+	"weave/internal/ui/paint"
 	"weave/lib/xptr"
 
-	"github.com/charmbracelet/lipgloss"
-	"github.com/muesli/termenv"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -52,7 +51,7 @@ func TestAgentsViewRowWidthIsStableRegardlessOfBranch(t *testing.T) {
 func TestUncertainStateMark(t *testing.T) {
 	assert.Equal(t, "?", stateIcon(agentstore.StateUncertain))
 	assert.NotEqual(t, stateIcon(agentstore.StateIdle), stateIcon(agentstore.StateUncertain))
-	assert.Equal(t, colorMuted, stateColor(agentstore.StateUncertain), "an unreadable pane is quiet, not an alarm")
+	assert.Equal(t, paint.Muted, stateColor(agentstore.StateUncertain), "an unreadable pane is quiet, not an alarm")
 }
 
 // TestWorktreeRemovedMark covers the glyph shown beside an agent's row when the worktree
@@ -169,17 +168,17 @@ func rowNamed(rows []string, name string) (string, bool) {
 func TestFocusColours(t *testing.T) {
 	m := detailsModel(&recordingTmux{})
 
-	assert.Equal(t, colorAccent, m.titleStyle().GetForeground(), "the list has the keys to begin with")
-	assert.Equal(t, colorAccent, m.rowCursorStyle().GetForeground())
-	assert.Equal(t, colorMuted, titleStyleFor(false).GetForeground(), "the details title is grey under it")
-	assert.Empty(t, cursorStyleFor(false).GetForeground(), "and its cursor names no colour at all")
+	assert.Equal(t, paint.Accent, m.titleStyle().GetForeground(), "the list has the keys to begin with")
+	assert.Equal(t, paint.Accent, m.rowCursorStyle().GetForeground())
+	assert.Equal(t, paint.Muted, paint.TitleStyleFor(false).GetForeground(), "the details title is grey under it")
+	assert.Empty(t, paint.CursorStyleFor(false).GetForeground(), "and its cursor names no colour at all")
 
 	m.details.focused = true
 
-	assert.Equal(t, colorMuted, m.titleStyle().GetForeground(), "the accent goes with the keys")
+	assert.Equal(t, paint.Muted, m.titleStyle().GetForeground(), "the accent goes with the keys")
 	assert.Empty(t, m.rowCursorStyle().GetForeground())
-	assert.Equal(t, colorAccent, titleStyleFor(true).GetForeground())
-	assert.Equal(t, colorAccent, cursorStyleFor(true).GetForeground())
+	assert.Equal(t, paint.Accent, paint.TitleStyleFor(true).GetForeground())
+	assert.Equal(t, paint.Accent, paint.CursorStyleFor(true).GetForeground())
 }
 
 // TestFocusKeepsTheMarkers covers what does not change with the focus: both cursors stay
@@ -195,45 +194,16 @@ func TestFocusKeepsTheMarkers(t *testing.T) {
 	assert.Contains(t, m.agentsView(), "›", "and the row cursor while the details have them")
 }
 
-// TestPaintRow covers laying a background under a row that is already coloured.
-func TestPaintRow(t *testing.T) {
-	withColor(t)
-
-	set := backgroundSequence(selectionBackground)
-	row := "  " + lipgloss.NewStyle().Foreground(colorAccent).Render("api") + " " + dimStyle.Render("1m")
-
-	painted := paintRow(row, selectionBackground, 20)
-
-	assert.True(t, strings.HasPrefix(painted, set), "the row opens under the background")
-	assert.Equal(t, strings.Count(row, ansiReset), strings.Count(painted, ansiReset+set),
-		"and every reset inside it sets the background again")
-	assert.Equal(t, 20, lipgloss.Width(painted), "the bar is filled out to the pane")
-	assert.True(t, strings.HasSuffix(painted, ansiReset), "and closes")
-
-	assert.Equal(t, lipgloss.Width(row), lipgloss.Width(paintRow(row, selectionBackground, 2)),
-		"a row wider than the pane is painted as it stands rather than padded")
-}
-
-// TestPaintRowWithoutColour covers a terminal that writes no escapes, where a bar nobody can
-// see would only pad the row out and make it look wider than the rows around it.
-func TestPaintRowWithoutColour(t *testing.T) {
-	restore := lipgloss.ColorProfile()
-	t.Cleanup(func() { lipgloss.SetColorProfile(restore) })
-	lipgloss.SetColorProfile(termenv.Ascii)
-
-	assert.Equal(t, "  api", paintRow("  api", selectionBackground, 20))
-}
-
 // TestTheBlockBesideTheListGreysWithTheKeys covers the document drawn beside the list, which was
 // in the panel's own colours whichever half of the sidebar was being read.
 func TestTheBlockBesideTheListGreysWithTheKeys(t *testing.T) {
 	m := detailsModel(&recordingTmux{})
 
-	require.Equal(t, string(colorAccent), *m.columnStyle().H1.Color, "the list has the keys to begin with")
+	require.Equal(t, string(paint.Accent), *m.columnStyle().H1.Color, "the list has the keys to begin with")
 
 	m.details.focused = true
 
-	assert.Equal(t, string(colorMuted), *m.columnStyle().H1.Color, "and the block greys when the record takes them")
+	assert.Equal(t, string(paint.Muted), *m.columnStyle().H1.Color, "and the block greys when the record takes them")
 }
 
 // TestKeysOnAnotherPaneGreyThePanel covers the keyboard moving off the panel onto an agent, which
@@ -241,10 +211,10 @@ func TestTheBlockBesideTheListGreysWithTheKeys(t *testing.T) {
 func TestKeysOnAnotherPaneGreyThePanel(t *testing.T) {
 	m := detailsModel(&recordingTmux{})
 
-	require.Equal(t, colorAccent, m.titleStyle().GetForeground())
+	require.Equal(t, paint.Accent, m.titleStyle().GetForeground())
 
 	m.keysElsewhere = true
 
-	assert.Equal(t, colorMuted, m.titleStyle().GetForeground(), "the title greys with the keys")
-	assert.Equal(t, string(colorMuted), *m.columnStyle().H1.Color, "and so does the block beside the list")
+	assert.Equal(t, paint.Muted, m.titleStyle().GetForeground(), "the title greys with the keys")
+	assert.Equal(t, string(paint.Muted), *m.columnStyle().H1.Color, "and so does the block beside the list")
 }

@@ -6,6 +6,7 @@ import (
 
 	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
+	"weave/internal/ui/paint"
 	"weave/lib/xslice"
 	agentv1 "weave/proto/gen/agent/v1"
 
@@ -358,7 +359,7 @@ func archiveColumn() columnSpec {
 			// The legend gives up its columns as the sidebar narrows and stands taller for it, so a
 			// window the list fitted whole may not hold it once the document has taken half, and
 			// the list is worth more whole at the full width than halved and running off the bottom.
-			return countLines(m.at(split.sidebar).archiveListView()) <= split.rows
+			return paint.CountLines(m.at(split.sidebar).archiveListView()) <= split.rows
 		},
 	}
 }
@@ -395,7 +396,7 @@ func (m model) archiveListView() string {
 		name := m.filter.highlight(clipName(agent.Name), m.nameStyle(hovered, true))
 		row := prefix + "  " + childMark(r.child) + name + failedMark(agent) + scheduledMark(agent)
 		if m.archive.selected.has(agent.ID) {
-			row = paintRow(row, selectionBackground, m.paneWidth())
+			row = paint.PaintRow(row, paint.SelectionBackground, m.paneWidth())
 		}
 
 		rows = append(rows, row)

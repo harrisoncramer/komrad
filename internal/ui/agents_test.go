@@ -8,6 +8,7 @@ import (
 	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
 	"weave/internal/ui/layout"
+	"weave/internal/ui/paint"
 
 	"github.com/charmbracelet/x/ansi"
 	"github.com/stretchr/testify/assert"
@@ -38,7 +39,7 @@ func TestAgentsViewRowsOpenAtTheGutter(t *testing.T) {
 	m.tree.cursor = -1
 
 	rows := strings.Split(m.agentsView(), "\n")
-	opening := len(markGutter("")) + 2
+	opening := len(paint.MarkGutter("")) + 2
 
 	for _, name := range []string{"weave", "worker"} {
 		row, ok := rowNamed(rows, name)

@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	"weave/internal/review"
+	"weave/internal/ui/paint"
 )
 
 // reviewDiffFloor is the narrowest the diff is worth drawing at: the gutter and enough of a line
@@ -46,7 +47,7 @@ func (m model) reviewDiffView(split columnSplit) string {
 		// This is the larger half of the window, so it says what is being waited on rather than
 		// standing empty under a band, and stands rather than collapsing so the frame does not
 		// shift under the reader when the patch lands.
-		return docWindow{rows: docStyledRows(m.reviewDiffNotice(), split.column, m.reviewColumnStyle())}.view(split.rows)
+		return docWindow{rows: paint.DocStyledRows(m.reviewDiffNotice(), split.column, m.reviewColumnStyle())}.view(split.rows)
 	}
 
 	start := max(min(m.review.top, view.Len()-split.rows), 0)

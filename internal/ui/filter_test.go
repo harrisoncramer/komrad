@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"weave/config"
+	"weave/internal/ui/paint"
 
 	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
@@ -497,17 +498,17 @@ func TestFilterSlashMarksAStandingSearch(t *testing.T) {
 	m := filterModel()
 
 	assert.Contains(t, m.filterView(), dimStyle.Render("/"), "an idle line is dim")
-	assert.NotContains(t, m.filterView(), cursorStyle.Render("/"))
+	assert.NotContains(t, m.filterView(), paint.CursorStyle.Render("/"))
 
 	typing := m
 	typing.filter.typing = true
 
-	assert.Contains(t, typing.filterView(), cursorStyle.Render("/"), "an open input takes the accent")
+	assert.Contains(t, typing.filterView(), paint.CursorStyle.Render("/"), "an open input takes the accent")
 
 	standing := m
 	standing.filter.setQuery("pay")
 
-	assert.Contains(t, standing.filterView(), cursorStyle.Render("/"), "and so does a pattern left standing")
+	assert.Contains(t, standing.filterView(), paint.CursorStyle.Render("/"), "and so does a pattern left standing")
 }
 
 // typeIntoFilter types a whole pattern at the filter, the way a person does one key at a time.

@@ -1,4 +1,4 @@
-package ui
+package paint
 
 import (
 	"strings"
@@ -38,7 +38,7 @@ func TestStageStyleRendersEveryElement(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			renderer, err := glamour.NewTermRenderer(glamour.WithStyles(stageStyle), glamour.WithWordWrap(60))
+			renderer, err := glamour.NewTermRenderer(glamour.WithStyles(StageStyle), glamour.WithWordWrap(60))
 			require.NoError(t, err)
 
 			got, err := renderer.Render(tt.markdown)
@@ -62,27 +62,27 @@ func TestPaletteFollowsTheTerminal(t *testing.T) {
 	}{
 		{
 			name:  "accent is the scheme's blue",
-			color: colorAccent,
+			color: Accent,
 			want:  "\x1b[34m",
 		},
 		{
 			name:  "success is its bright green",
-			color: colorSuccess,
+			color: Success,
 			want:  "\x1b[92m",
 		},
 		{
 			name:  "warning is its bright yellow",
-			color: colorWarning,
+			color: Warning,
 			want:  "\x1b[93m",
 		},
 		{
 			name:  "danger is its bright red",
-			color: colorDanger,
+			color: Danger,
 			want:  "\x1b[91m",
 		},
 		{
 			name:  "muted is its bright black",
-			color: colorMuted,
+			color: Muted,
 			want:  "\x1b[90m",
 		},
 	}

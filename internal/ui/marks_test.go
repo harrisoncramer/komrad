@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"weave/internal/ui/paint"
 	"weave/lib/xptr"
 	agentv1 "weave/proto/gen/agent/v1"
 	"weave/proto/gen/agent/v1/agentv1connect"
@@ -31,10 +32,10 @@ func TestIsMarkLetter(t *testing.T) {
 func TestMarkGutter(t *testing.T) {
 	withColor(t)
 
-	bare := markGutter("")
+	bare := paint.MarkGutter("")
 	assert.Equal(t, "  ", bare)
 
-	marked := markGutter("a")
+	marked := paint.MarkGutter("a")
 	assert.Contains(t, marked, "a")
 	assert.Equal(t, lipgloss.Width(bare), lipgloss.Width(marked), "a marked row is drawn no wider than an unmarked one")
 }

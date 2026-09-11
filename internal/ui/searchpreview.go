@@ -3,6 +3,8 @@ package ui
 import (
 	"strings"
 
+	"weave/internal/ui/paint"
+
 	tea "github.com/charmbracelet/bubbletea"
 )
 
@@ -16,7 +18,7 @@ type searchPreview struct {
 	// conversation is the markdown the rows are drawn from, held rather than only the rows, since
 	// the column is wrapped again whenever the window changes width.
 	conversation string
-	spans        []span
+	spans        []paint.Span
 	doc          docWindow
 }
 
@@ -28,7 +30,7 @@ func searchColumn() columnSpec {
 
 // holdPreview takes the transcript a hit was fetched for and draws it at the width it will be
 // read in, opening it on the match.
-func (m *model) holdPreview(conversation string, spans []span) {
+func (m *model) holdPreview(conversation string, spans []paint.Span) {
 	if strings.TrimSpace(conversation) == "" {
 		conversation, spans = noTranscriptMarkdown, nil
 	}
@@ -52,7 +54,7 @@ func (m *model) drawPreview() {
 		return
 	}
 
-	text, line := renderTranscript(preview.conversation, preview.spans, split.column)
+	text, line := paint.RenderTranscript(preview.conversation, preview.spans, split.column)
 	preview.doc.rows = strings.Split(strings.TrimRight(text, "\n"), "\n")
 
 	preview.doc.top = 0
@@ -68,7 +70,7 @@ func (m *model) drawPreview() {
 func (m model) searchPreviewView(split columnSplit) string {
 	doc := m.search.preview.doc
 	if len(doc.rows) == 0 {
-		doc = docWindow{rows: docRows(m.searchPreviewNotice(), split.column)}
+		doc = docWindow{rows: paint.DocRows(m.searchPreviewNotice(), split.column)}
 	}
 
 	return doc.view(split.rows)

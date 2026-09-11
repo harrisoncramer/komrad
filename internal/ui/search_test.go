@@ -12,13 +12,13 @@ import (
 	transcriptstore "weave/internal/store/transcript"
 
 	"weave/internal/ui/layout"
+	"weave/internal/ui/paint"
 	agentv1 "weave/proto/gen/agent/v1"
 	"weave/proto/gen/agent/v1/agentv1connect"
 
 	"connectrpc.com/connect"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -174,7 +174,7 @@ func TestTrimLastRune(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, trimLastRune(tt.in))
+			assert.Equal(t, tt.want, paint.TrimLastRune(tt.in))
 		})
 	}
 }
@@ -213,7 +213,7 @@ func TestMarkedTerms(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, markedTerms(tt.in))
+			assert.Equal(t, tt.want, paint.MarkedTerms(tt.in))
 		})
 	}
 }
@@ -226,10 +226,10 @@ func TestMatchSpans(t *testing.T) {
 	turn := int64(strings.Index(content, "the Sandbox"))
 	turnLen := int64(len("the Sandbox tenant\nruns sandboxed"))
 
-	at := func(from int, word string) span {
+	at := func(from int, word string) paint.Span {
 		i := from + strings.Index(content[from:], word)
 
-		return span{start: i, end: i + len(word)}
+		return paint.Span{Start: i, End: i + len(word)}
 	}
 
 	tests := []struct {
@@ -237,14 +237,14 @@ func TestMatchSpans(t *testing.T) {
 		offset int64
 		length int64
 		terms  []string
-		want   []span
+		want   []paint.Span
 	}{
 		{
 			name:   "every spelling of the word within the turn is marked",
 			offset: turn,
 			length: turnLen,
 			terms:  []string{"sandbox"},
-			want:   []span{at(int(turn), "Sandbox"), at(strings.Index(content, "runs "), "sandbox")},
+			want:   []paint.Span{at(int(turn), "Sandbox"), at(strings.Index(content, "runs "), "sandbox")},
 		},
 		{
 			name:   "the turns around it are left alone",
@@ -257,7 +257,7 @@ func TestMatchSpans(t *testing.T) {
 			offset: turn,
 			length: turnLen,
 			terms:  []string{"sandbox", "sandboxed"},
-			want:   []span{at(int(turn), "Sandbox"), at(strings.Index(content, "runs "), "sandboxed")},
+			want:   []paint.Span{at(int(turn), "Sandbox"), at(strings.Index(content, "runs "), "sandboxed")},
 		},
 		{
 			name:   "the word inside a longer word is left alone",
@@ -281,13 +281,13 @@ func TestMatchSpans(t *testing.T) {
 			offset: turn,
 			length: turnLen * 4,
 			terms:  []string{"tenant", "down"},
-			want:   []span{at(int(turn), "tenant"), at(int(turn), "down")},
+			want:   []paint.Span{at(int(turn), "tenant"), at(int(turn), "down")},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, matchSpans(content, tt.offset, tt.length, tt.terms))
+			assert.Equal(t, tt.want, paint.MatchSpans(content, tt.offset, tt.length, tt.terms))
 		})
 	}
 }
@@ -328,7 +328,7 @@ func TestMatchSpansMarksWholeWords(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			spans := matchSpans(tt.content, 0, int64(len(tt.content)), []string{"sandbox"})
+			spans := paint.MatchSpans(tt.content, 0, int64(len(tt.content)), []string{"sandbox"})
 
 			if !tt.want {
 				assert.Empty(t, spans, "the word is only spelled inside a longer one")
@@ -337,7 +337,7 @@ func TestMatchSpansMarksWholeWords(t *testing.T) {
 			}
 
 			word := strings.Index(tt.content, "sandbox")
-			assert.Equal(t, []span{{start: word, end: word + len("sandbox")}}, spans)
+			assert.Equal(t, []paint.Span{{Start: word, End: word + len("sandbox")}}, spans)
 		})
 	}
 }
@@ -348,11 +348,11 @@ func TestMatchSpansMarksWholeWords(t *testing.T) {
 func TestMatchSpansFoldsLikeTheTermsDo(t *testing.T) {
 	const content = "the Ökonomie report"
 
-	terms := markedTerms("the " + marked("Ökonomie") + " report")
+	terms := paint.MarkedTerms("the " + marked("Ökonomie") + " report")
 	word := strings.Index(content, "Ökonomie")
 
-	assert.Equal(t, []span{{start: word, end: word + len("Ökonomie")}},
-		matchSpans(content, 0, int64(len(content)), terms))
+	assert.Equal(t, []paint.Span{{Start: word, End: word + len("Ökonomie")}},
+		paint.MatchSpans(content, 0, int64(len(content)), terms))
 }
 
 // TestHitSpansCoverTheHoveredTurn covers the turn a highlight is measured from, which is the hit
@@ -366,12 +366,12 @@ func TestHitSpansCoverTheHoveredTurn(t *testing.T) {
 	tests := []struct {
 		name   string
 		offset int64
-		want   []span
+		want   []paint.Span
 	}{
 		{
 			name:   "the hovered hit's own turn is marked",
 			offset: second,
-			want:   []span{{start: word, end: word + len("reconcile")}},
+			want:   []paint.Span{{Start: word, End: word + len("reconcile")}},
 		},
 		{
 			name:   "an offset past the end marks nothing",
@@ -424,79 +424,12 @@ func TestRenderSnippet(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			out := renderSnippet(tt.in, 0)
+			out := paint.RenderSnippet(tt.in, 0)
 
 			assert.Contains(t, out, tt.wantContain)
 			assert.NotContains(t, out, transcriptstore.SnippetOpen, "the markers are consumed")
 			assert.NotContains(t, out, transcriptstore.SnippetClose)
 			assert.NotContains(t, out, "\n", "the snippet occupies one row")
-		})
-	}
-}
-
-// TestClipToMatch pins the match surviving the cut and the row still fitting, wherever the
-// match sits in the snippet.
-func TestClipToMatch(t *testing.T) {
-	const (
-		lead  = "the quick brown fox jumps over the lazy dog and keeps on running for a while "
-		trail = " and then carries on well past where any pane could show it all"
-	)
-
-	marked := func(match string) string {
-		return transcriptstore.SnippetOpen + match + transcriptstore.SnippetClose
-	}
-
-	tests := []struct {
-		name  string
-		in    string
-		width int
-		want  string
-	}{
-		{
-			name:  "an unmeasured pane clips nothing",
-			in:    lead + marked("needle") + trail,
-			width: 0,
-			want:  "needle",
-		},
-		{
-			name:  "a snippet already narrow enough is left alone",
-			in:    "short " + marked("needle"),
-			width: 40,
-			want:  "needle",
-		},
-		{
-			name:  "a match past the width is pulled into view",
-			in:    lead + marked("needle") + trail,
-			width: 40,
-			want:  "needle",
-		},
-		{
-			name:  "a match at the very end is still shown",
-			in:    lead + trail + marked("needle"),
-			width: 40,
-			want:  "needle",
-		},
-		{
-			name:  "an unmarked snippet is clipped from the start",
-			in:    lead + trail,
-			width: 40,
-			want:  "the quick",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			out := clipToMatch(tt.in, tt.width)
-			assert.Contains(t, out, tt.want, "the match survives the clip")
-
-			if tt.width > 0 {
-				assert.LessOrEqual(t, lipgloss.Width(renderSnippet(tt.in, tt.width)), tt.width,
-					"the rendered row fits the pane")
-			}
-
-			opens := strings.Count(out, transcriptstore.SnippetOpen)
-			assert.Equal(t, opens, strings.Count(out, transcriptstore.SnippetClose),
-				"every marker left in the snippet is paired")
 		})
 	}
 }
@@ -1150,7 +1083,7 @@ func TestSearchNameHitJumps(t *testing.T) {
 // TestMarkName covers where a name is marked, which is the query as the name spells it rather
 // than as it was typed.
 func TestMarkName(t *testing.T) {
-	assert.Equal(t, "bi"+matchStyle.Render("LL")+"ing", markName("biLLing", " bill "))
+	assert.Equal(t, "bi"+paint.MatchStyle.Render("LL")+"ing", markName("biLLing", " bill "))
 	assert.Equal(t, "billing", markName("billing", "  "))
 	assert.Equal(t, "billing", markName("billing", "payouts"))
 }
