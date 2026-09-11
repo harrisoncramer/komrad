@@ -36,7 +36,7 @@ func TestTakeHoldsCommittedAndUncommittedWorkAlike(t *testing.T) {
 	write(t, root, "kept.go", "package main\n\nfunc B() {}\n")
 	write(t, root, "untracked.go", "package main\n")
 
-	snapshot, err := git.TakeSnapshot(t.Context(), git.TakeSnapshotParams{
+	snapshot, err := gitClient.TakeSnapshot(t.Context(), git.TakeSnapshotParams{
 		Dir:  root,
 		Base: "main",
 		Ref:  "refs/weave/rounds/one",
@@ -70,7 +70,7 @@ func TestTakeIsHeldByItsRefAndReadableAfterTheWorktreeMovesOn(t *testing.T) {
 	root := repo(t)
 	write(t, root, "kept.go", "package main\n\nfunc First() {}\n")
 
-	snapshot, err := git.TakeSnapshot(t.Context(), git.TakeSnapshotParams{
+	snapshot, err := gitClient.TakeSnapshot(t.Context(), git.TakeSnapshotParams{
 		Dir:  root,
 		Base: "main",
 		Ref:  "refs/weave/rounds/three",
@@ -100,7 +100,7 @@ func TestTakeIgnoresWhatGitIgnores(t *testing.T) {
 	write(t, root, ".gitignore", ".weave/\n")
 	write(t, root, ".weave/reviews/round-1.md", "a review\n")
 
-	snapshot, err := git.TakeSnapshot(t.Context(), git.TakeSnapshotParams{
+	snapshot, err := gitClient.TakeSnapshot(t.Context(), git.TakeSnapshotParams{
 		Dir:  root,
 		Base: "main",
 		Ref:  "refs/weave/rounds/four",
@@ -123,7 +123,7 @@ func TestTakeExcludesNothingItself(t *testing.T) {
 	root := repo(t)
 	write(t, root, "proto/gen/api.pb.go", "package gen\n\nfunc Gen() {}\n")
 
-	snapshot, err := git.TakeSnapshot(t.Context(), git.TakeSnapshotParams{
+	snapshot, err := gitClient.TakeSnapshot(t.Context(), git.TakeSnapshotParams{
 		Dir:  root,
 		Base: "main",
 		Ref:  "refs/weave/rounds/six",
@@ -132,7 +132,7 @@ func TestTakeExcludesNothingItself(t *testing.T) {
 
 	// The round holds the excluded file whole, which is what makes an exclude a view of a
 	// snapshot rather than a decision baked into it.
-	lines, err := git.ReadFileLines(t.Context(), root, snapshot.SHA, "proto/gen/api.pb.go")
+	lines, err := gitClient.ReadFileLines(t.Context(), root, snapshot.SHA, "proto/gen/api.pb.go")
 	require.NoError(t, err)
 	assert.Contains(t, lines, "func Gen() {}")
 
@@ -152,7 +152,7 @@ func TestTakeExcludesNothingItself(t *testing.T) {
 func TestLoadSaysNothingChangedOnlyWhenNothingDid(t *testing.T) {
 	root := repo(t)
 
-	snapshot, err := git.TakeSnapshot(t.Context(), git.TakeSnapshotParams{Dir: root, Base: "main"})
+	snapshot, err := gitClient.TakeSnapshot(t.Context(), git.TakeSnapshotParams{Dir: root, Base: "main"})
 	require.NoError(t, err)
 
 	for _, exclude := range [][]string{nil, {"proto/gen"}} {

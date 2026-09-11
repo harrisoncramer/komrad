@@ -17,7 +17,7 @@ func TestEditsAreOneRunApiece(t *testing.T) {
 
 	write(t, root, "wide.txt", "ONE\ntwo\nthree\nfour\nfive\nSIX\n")
 
-	edits, err := Edits(t.Context(), root)
+	edits, err := client.Edits(t.Context(), root)
 	require.NoError(t, err)
 	require.Len(t, edits, 2)
 
@@ -45,7 +45,7 @@ func TestEditsSpellAnInsertionAsAnEmptyRange(t *testing.T) {
 
 	write(t, root, "wide.txt", "one\nextra\ntwo\n")
 
-	edits, err := Edits(t.Context(), root)
+	edits, err := client.Edits(t.Context(), root)
 	require.NoError(t, err)
 	require.Len(t, edits, 1)
 
@@ -67,7 +67,7 @@ func TestEditsSpellAnInsertionAtTheTop(t *testing.T) {
 
 	write(t, root, "wide.txt", "zero\none\ntwo\n")
 
-	edits, err := Edits(t.Context(), root)
+	edits, err := client.Edits(t.Context(), root)
 	require.NoError(t, err)
 	require.Len(t, edits, 1)
 
@@ -83,7 +83,7 @@ func TestEditsSpellAnInsertionAtTheTop(t *testing.T) {
 func TestEditsSaysNothingAboutATreeNobodyTouched(t *testing.T) {
 	root := repo(t)
 
-	edits, err := Edits(t.Context(), root)
+	edits, err := client.Edits(t.Context(), root)
 	require.NoError(t, err)
 
 	assert.Empty(t, edits)

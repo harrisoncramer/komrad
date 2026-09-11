@@ -54,7 +54,7 @@ type Snapshot struct {
 
 // ProbeTree writes an agent's worktree out as a tree and nothing else, which is the cheap way
 // to ask whether it has moved since a round was taken.
-func ProbeTree(ctx context.Context, dir string) (string, error) {
+func (c *Client) ProbeTree(ctx context.Context, dir string) (string, error) {
 	root, err := GetRoot(ctx, dir)
 	if err != nil {
 		return "", err
@@ -107,7 +107,7 @@ func writeTreeSeeded(ctx context.Context, root string, fill seed) (string, error
 // TakeSnapshot writes an agent's whole worktree, tracked and untracked alike, as a commit off
 // the point its branch left the base, building the tree in an index of its own so the agent's
 // own index, worktree and branch are left exactly as they were.
-func TakeSnapshot(ctx context.Context, params TakeSnapshotParams) (*Snapshot, error) {
+func (c *Client) TakeSnapshot(ctx context.Context, params TakeSnapshotParams) (*Snapshot, error) {
 	root, err := GetRoot(ctx, params.Dir)
 	if err != nil {
 		return nil, err
@@ -147,7 +147,7 @@ func TakeSnapshot(ctx context.Context, params TakeSnapshotParams) (*Snapshot, er
 }
 
 // HoldRef points a ref at a snapshot already written.
-func HoldRef(ctx context.Context, dir, ref, sha string) error {
+func (c *Client) HoldRef(ctx context.Context, dir, ref, sha string) error {
 	if ref == "" {
 		return nil
 	}
@@ -161,7 +161,7 @@ func HoldRef(ctx context.Context, dir, ref, sha string) error {
 }
 
 // ReleaseRef drops the ref holding a snapshot, leaving the commit to be collected.
-func ReleaseRef(ctx context.Context, dir, ref string) error {
+func (c *Client) ReleaseRef(ctx context.Context, dir, ref string) error {
 	if ref == "" {
 		return nil
 	}
@@ -284,7 +284,7 @@ func removeIndex(path string) {
 
 // GetTree is the tree one snapshot commit holds, which a probe of the worktree is compared
 // against to say whether the agent has written anything since.
-func GetTree(ctx context.Context, dir, sha string) (string, error) {
+func (c *Client) GetTree(ctx context.Context, dir, sha string) (string, error) {
 	tree, err := Run(ctx, dir, "rev-parse", sha+"^{tree}")
 	if err != nil {
 		return "", fmt.Errorf("failed to read the tree of %q: %w", sha, err)
@@ -294,7 +294,7 @@ func GetTree(ctx context.Context, dir, sha string) (string, error) {
 }
 
 // Park records a checkout as it stands, tracked and untracked alike, so a move can be undone.
-func Park(ctx context.Context, dir, ref string) (string, error) {
+func (c *Client) Park(ctx context.Context, dir, ref string) (string, error) {
 	root, err := GetRoot(ctx, dir)
 	if err != nil {
 		return "", err
@@ -316,7 +316,7 @@ func Park(ctx context.Context, dir, ref string) (string, error) {
 		return "", fmt.Errorf("failed to park %q: %w", root, err)
 	}
 
-	if err := HoldRef(ctx, root, ref, sha); err != nil {
+	if err := c.HoldRef(ctx, root, ref, sha); err != nil {
 		return "", err
 	}
 

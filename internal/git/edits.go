@@ -22,7 +22,7 @@ type Edit struct {
 
 // Edits is what a working tree has written since it was checked out, one entry per run of
 // adjacent lines, so two changes to one file can be proposed separately.
-func Edits(ctx context.Context, dir string) ([]Edit, error) {
+func (c *Client) Edits(ctx context.Context, dir string) ([]Edit, error) {
 	raw, err := RunBytes(ctx, dir, "-c", "core.quotepath=false", "--no-pager", "diff",
 		"--no-ext-diff", "--unified=0", "HEAD", "--", ".")
 	if err != nil {

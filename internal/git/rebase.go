@@ -73,7 +73,7 @@ type Prediction struct {
 }
 
 // ReadTreeState reads the three things about a checkout a rebase has to decide on.
-func ReadTreeState(ctx context.Context, dir string) (TreeState, error) {
+func (c *Client) ReadTreeState(ctx context.Context, dir string) (TreeState, error) {
 	state := TreeState{}
 
 	if branch := GetCurrentBranch(ctx, dir); branch != nil {
@@ -112,7 +112,7 @@ func ReadTreeState(ctx context.Context, dir string) (TreeState, error) {
 }
 
 // FetchBase brings the base up to date and answers with the ref to rebase onto and its commit.
-func FetchBase(ctx context.Context, dir, base string) (ref, sha string, err error) {
+func (c *Client) FetchBase(ctx context.Context, dir, base string) (ref, sha string, err error) {
 	root, err := GetRoot(ctx, dir)
 	if err != nil {
 		return "", "", err
@@ -143,12 +143,12 @@ func FetchBase(ctx context.Context, dir, base string) (ref, sha string, err erro
 }
 
 // CountCommitsToReplay is how many of the checkout's own commits a rebase onto ref would move.
-func CountCommitsToReplay(ctx context.Context, dir, ref string) (int, error) {
+func (c *Client) CountCommitsToReplay(ctx context.Context, dir, ref string) (int, error) {
 	return countRevList(ctx, dir, ref, "--count", ref+"..HEAD")
 }
 
 // PredictRebase reads what a rebase onto ref would run into, without touching the checkout.
-func PredictRebase(ctx context.Context, dir, ref string) (Prediction, error) {
+func (c *Client) PredictRebase(ctx context.Context, dir, ref string) (Prediction, error) {
 	prediction := Prediction{}
 
 	related, err := doesShareHistory(ctx, dir, ref, "HEAD")
@@ -213,13 +213,13 @@ func PredictRebase(ctx context.Context, dir, ref string) (Prediction, error) {
 }
 
 // RebaseOnto replays the checkout's commits after cutoff onto ref, leaving a stopped rebase.
-func RebaseOnto(ctx context.Context, dir, ref, cutoff string) error {
+func (c *Client) RebaseOnto(ctx context.Context, dir, ref, cutoff string) error {
 	return runRebase(ctx, dir, ref, "rebase", "--onto", ref, cutoff)
 }
 
 // ReleaseRefsUnder deletes every ref beneath prefix except keep, which is how a park that has
 // been superseded stops pinning a whole worktree in the shared clone.
-func ReleaseRefsUnder(ctx context.Context, dir, prefix, keep string) error {
+func (c *Client) ReleaseRefsUnder(ctx context.Context, dir, prefix, keep string) error {
 	out, err := Run(ctx, dir, "for-each-ref", "--format=%(refname)", prefix)
 	if err != nil {
 		return fmt.Errorf("failed to list the refs under %q: %w", prefix, err)
@@ -229,7 +229,7 @@ func ReleaseRefsUnder(ctx context.Context, dir, prefix, keep string) error {
 		if ref == "" || ref == keep {
 			continue
 		}
-		if err := ReleaseRef(ctx, dir, ref); err != nil {
+		if err := c.ReleaseRef(ctx, dir, ref); err != nil {
 			return err
 		}
 	}
@@ -238,7 +238,7 @@ func ReleaseRefsUnder(ctx context.Context, dir, prefix, keep string) error {
 }
 
 // Rebase moves a checkout's branch onto ref, leaving a stopped rebase where it is.
-func Rebase(ctx context.Context, dir, ref string) error {
+func (c *Client) Rebase(ctx context.Context, dir, ref string) error {
 	return runRebase(ctx, dir, ref, "rebase", ref)
 }
 

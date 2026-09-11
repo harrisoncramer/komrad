@@ -13,6 +13,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// gitClient is the git these tests drive.
+var gitClient = git.NewClient()
+
 func write(t *testing.T, root, path, content string) {
 	t.Helper()
 
@@ -51,7 +54,7 @@ func repo(t *testing.T) string {
 func loadRound(t *testing.T, root string, exclude ...string) *Patch {
 	t.Helper()
 
-	snapshot, err := git.TakeSnapshot(t.Context(), git.TakeSnapshotParams{Dir: root, Base: "main"})
+	snapshot, err := gitClient.TakeSnapshot(t.Context(), git.TakeSnapshotParams{Dir: root, Base: "main"})
 	require.NoError(t, err)
 
 	patch, err := Load(t.Context(), LoadParams{

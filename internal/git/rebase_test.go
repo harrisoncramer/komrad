@@ -12,6 +12,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// client is the git these tests drive.
+var client = git.NewClient()
+
 // TestReadTreeStateIgnoresUntrackedFiles pins the fact the dirty refusal turns on.
 func TestReadTreeStateIgnoresUntrackedFiles(t *testing.T) {
 	t.Parallel()
@@ -19,7 +22,7 @@ func TestReadTreeStateIgnoresUntrackedFiles(t *testing.T) {
 	repo := newRepo(t)
 	writeFile(t, repo, "scratch.txt", "untracked")
 
-	state, err := git.ReadTreeState(t.Context(), repo)
+	state, err := client.ReadTreeState(t.Context(), repo)
 	require.NoError(t, err)
 
 	assert.False(t, state.TrackedChanges, "an untracked file is not a tracked change")
@@ -47,7 +50,7 @@ func TestReadTreeStateSeesTrackedChanges(t *testing.T) {
 				run(t, repo, "add", "tracked.txt")
 			}
 
-			state, err := git.ReadTreeState(t.Context(), repo)
+			state, err := client.ReadTreeState(t.Context(), repo)
 			require.NoError(t, err)
 
 			assert.True(t, state.TrackedChanges)
@@ -63,7 +66,7 @@ func TestReadTreeStateReportsADetachedHead(t *testing.T) {
 	repo := newRepo(t)
 	run(t, repo, "checkout", "--quiet", "--detach", "HEAD")
 
-	state, err := git.ReadTreeState(t.Context(), repo)
+	state, err := client.ReadTreeState(t.Context(), repo)
 	require.NoError(t, err)
 
 	assert.Empty(t, state.Branch)
@@ -77,7 +80,7 @@ func TestReadTreeStateReportsAStoppedSequence(t *testing.T) {
 	repo := newRepo(t)
 	conflict(t, repo)
 
-	state, err := git.ReadTreeState(t.Context(), repo)
+	state, err := client.ReadTreeState(t.Context(), repo)
 	require.NoError(t, err)
 
 	assert.True(t, state.InProgress)
@@ -96,11 +99,11 @@ func TestRebaseMovesTheBranchOnto(t *testing.T) {
 	run(t, repo, "checkout", "--quiet", "agent/abc")
 	writeFile(t, repo, "scratch.txt", "untracked")
 
-	count, err := git.CountCommitsToReplay(t.Context(), repo, "main")
+	count, err := client.CountCommitsToReplay(t.Context(), repo, "main")
 	require.NoError(t, err)
 	assert.Equal(t, 1, count, "one commit of the agent's own to replay")
 
-	require.NoError(t, git.Rebase(t.Context(), repo, "main"))
+	require.NoError(t, client.Rebase(t.Context(), repo, "main"))
 
 	assert.Equal(t, base, out(t, repo, "rev-parse", "HEAD~1"), "the branch now sits on the base")
 	body, err := os.ReadFile(filepath.Join(repo, "scratch.txt"))
@@ -122,10 +125,10 @@ func TestRebaseLeavesAConflictStopped(t *testing.T) {
 	run(t, repo, "add", "clash.txt")
 	run(t, repo, "commit", "--quiet", "-m", "ours")
 
-	err := git.Rebase(t.Context(), repo, "main")
+	err := client.Rebase(t.Context(), repo, "main")
 	require.ErrorIs(t, err, git.ErrRebaseConflicted)
 
-	state, stateErr := git.ReadTreeState(t.Context(), repo)
+	state, stateErr := client.ReadTreeState(t.Context(), repo)
 	require.NoError(t, stateErr)
 	assert.True(t, state.InProgress, "the stopped rebase is still there for the agent to settle")
 	assert.Empty(t, state.Branch, "a stopped rebase detaches the head, which blanks the branch")
@@ -137,7 +140,7 @@ func TestFetchBaseRefusesARepositoryWithNoOrigin(t *testing.T) {
 
 	repo := newRepo(t)
 
-	_, _, err := git.FetchBase(t.Context(), repo, "")
+	_, _, err := client.FetchBase(t.Context(), repo, "")
 	require.Error(t, err)
 }
 
@@ -153,7 +156,7 @@ func TestFetchBaseRefusesABaseThatResolvesToHead(t *testing.T) {
 	clone := filepath.Join(root, "clone")
 	run(t, root, "clone", "--quiet", bare, clone)
 
-	_, _, err := git.FetchBase(t.Context(), clone, "")
+	_, _, err := client.FetchBase(t.Context(), clone, "")
 	require.ErrorIs(t, err, git.ErrBaseUnresolved)
 }
 
@@ -164,7 +167,7 @@ func TestFetchBaseRepairsAMissingOriginHead(t *testing.T) {
 	_, clone := newClonePair(t)
 	run(t, clone, "symbolic-ref", "-d", "refs/remotes/origin/HEAD")
 
-	ref, _, err := git.FetchBase(t.Context(), clone, "")
+	ref, _, err := client.FetchBase(t.Context(), clone, "")
 	require.NoError(t, err)
 
 	assert.Equal(t, "origin/main", ref, "the unqualified fetch put origin/HEAD back")
@@ -182,7 +185,7 @@ func TestFetchBaseFetchesWhenNoBaseIsNamed(t *testing.T) {
 	run(t, origin, "commit", "--quiet", "--allow-empty", "-m", "origin moved on")
 	moved := out(t, origin, "rev-parse", "HEAD")
 
-	ref, sha, err := git.FetchBase(t.Context(), clone, "")
+	ref, sha, err := client.FetchBase(t.Context(), clone, "")
 	require.NoError(t, err)
 
 	assert.Equal(t, "origin/main", ref, "the base resolves to a remote-tracking ref, never to HEAD")
@@ -201,7 +204,7 @@ func TestReadTreeStateRefreshesTheIndex(t *testing.T) {
 	writeFile(t, repo, "tracked.txt", string(body))
 	require.NoError(t, os.Chtimes(filepath.Join(repo, "tracked.txt"), time.Time{}, time.Unix(1, 0)))
 
-	state, err := git.ReadTreeState(t.Context(), repo)
+	state, err := client.ReadTreeState(t.Context(), repo)
 	require.NoError(t, err)
 
 	assert.False(t, state.TrackedChanges, "identical content with a stale mtime is not a change")
@@ -250,7 +253,7 @@ func conflict(t *testing.T, dir string) {
 	// Expected to fail, which is the point.
 	_, _ = git.Run(t.Context(), dir, "merge", "theirs")
 
-	state, err := git.ReadTreeState(t.Context(), dir)
+	state, err := client.ReadTreeState(t.Context(), dir)
 	require.NoError(t, err)
 	require.True(t, state.InProgress, "failed to build a stopped sequence")
 }
@@ -329,7 +332,7 @@ func TestPredictRebaseFindsTheCutoffOfASquashedBranch(t *testing.T) {
 	require.NotEqual(t, out(t, repo, "rev-parse", "main^{tree}"), out(t, repo, "rev-parse", "HEAD^{tree}"),
 		"the fixture must have differing trees, or it is not the case this is about")
 
-	prediction, err := git.PredictRebase(t.Context(), repo, "main")
+	prediction, err := client.PredictRebase(t.Context(), repo, "main")
 	require.NoError(t, err)
 
 	assert.Equal(t, landed, prediction.Cutoff, "the cutoff is the tip that landed")
@@ -358,7 +361,7 @@ func TestPredictRebaseCutoffIsTheTipWhenEverythingLanded(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, base, middleMerged, "the fixture needs a landed commit behind the tip to be about anything")
 
-	prediction, err := git.PredictRebase(t.Context(), repo, "main")
+	prediction, err := client.PredictRebase(t.Context(), repo, "main")
 	require.NoError(t, err)
 
 	assert.Equal(t, tip, prediction.Cutoff, "the newest landed commit, not the oldest")
@@ -376,7 +379,7 @@ func TestPredictRebaseFindsNoCutoffOnAnOrdinaryBranch(t *testing.T) {
 	commitFile(t, repo, "mine.txt", "mine\n", "mine")
 	moveMain(t, repo, "theirs.txt", "theirs\n")
 
-	prediction, err := git.PredictRebase(t.Context(), repo, "main")
+	prediction, err := client.PredictRebase(t.Context(), repo, "main")
 	require.NoError(t, err)
 
 	assert.Empty(t, prediction.Cutoff)
@@ -419,7 +422,7 @@ func TestPredictRebaseRefusesABaseTheBranchAlreadyContains(t *testing.T) {
 	require.Equal(t, out(t, repo, "rev-parse", "main^{tree}"), out(t, repo, "rev-parse", "HEAD^{tree}"),
 		"the fixture did not produce the equal trees it is about")
 
-	prediction, err := git.PredictRebase(t.Context(), repo, "main")
+	prediction, err := client.PredictRebase(t.Context(), repo, "main")
 	require.NoError(t, err)
 
 	assert.Empty(t, prediction.Cutoff, "the base is already contained, so nothing is dropped")
@@ -436,7 +439,7 @@ func TestPredictRebaseRefusesAnUnrelatedBase(t *testing.T) {
 	run(t, repo, "rm", "-rf", "--quiet", ".")
 	commitFile(t, repo, "alone.txt", "alone\n", "unrelated root")
 
-	_, err := git.PredictRebase(t.Context(), repo, "main")
+	_, err := client.PredictRebase(t.Context(), repo, "main")
 	require.ErrorIs(t, err, git.ErrBaseUnrelated)
 }
 
@@ -459,7 +462,7 @@ func TestReadTreeStateReportsAShallowClone(t *testing.T) {
 	require.NoFileExists(t, filepath.Join(clone, ".git", "worktrees", "tree", "shallow"),
 		"the marker is not in the worktree's own git directory, which is what makes this test worth having")
 
-	state, err := git.ReadTreeState(t.Context(), tree)
+	state, err := client.ReadTreeState(t.Context(), tree)
 	require.NoError(t, err)
 
 	assert.True(t, state.Shallow)
@@ -473,7 +476,7 @@ func TestReadTreeStateNamesPathsTheIndexIsHolding(t *testing.T) {
 	repo := newRepo(t)
 	run(t, repo, "update-index", "--assume-unchanged", "tracked.txt")
 
-	state, err := git.ReadTreeState(t.Context(), repo)
+	state, err := client.ReadTreeState(t.Context(), repo)
 	require.NoError(t, err)
 
 	assert.Equal(t, []string{"tracked.txt"}, state.HiddenPaths)
@@ -492,14 +495,14 @@ func TestRebaseOntoReplaysOnlyWhatFollowsTheCutoff(t *testing.T) {
 	moveMain(t, repo, "elsewhere.txt", "elsewhere\n")
 	commitFile(t, repo, "g.txt", "new work\n", "C")
 
-	prediction, err := git.PredictRebase(t.Context(), repo, "main")
+	prediction, err := client.PredictRebase(t.Context(), repo, "main")
 	require.NoError(t, err)
 	require.NotEmpty(t, prediction.Cutoff, "the fixture did not produce the cutoff it is about")
 
-	require.Error(t, git.Rebase(t.Context(), repo, "main"), "a plain rebase cannot settle this branch")
+	require.Error(t, client.Rebase(t.Context(), repo, "main"), "a plain rebase cannot settle this branch")
 	run(t, repo, "rebase", "--abort")
 
-	require.NoError(t, git.RebaseOnto(t.Context(), repo, "main", prediction.Cutoff))
+	require.NoError(t, client.RebaseOnto(t.Context(), repo, "main", prediction.Cutoff))
 
 	assert.Equal(t, "new work\n", readFile(t, repo, "g.txt"), "the work written after the merge survived")
 	assert.Equal(t, "elsewhere\n", readFile(t, repo, "elsewhere.txt"), "and the other pull request came in")
@@ -517,13 +520,13 @@ func TestRebaseOntoRefusesWhatARebaseRefuses(t *testing.T) {
 	squashLanded(t, repo, "squashed (#1)")
 	moveMain(t, repo, "elsewhere.txt", "elsewhere\n")
 
-	prediction, err := git.PredictRebase(t.Context(), repo, "main")
+	prediction, err := client.PredictRebase(t.Context(), repo, "main")
 	require.NoError(t, err)
 	require.NotEmpty(t, prediction.Cutoff)
 
 	writeFile(t, repo, "tracked.txt", "written while the operation was deciding")
 
-	require.Error(t, git.RebaseOnto(t.Context(), repo, "main", prediction.Cutoff))
+	require.Error(t, client.RebaseOnto(t.Context(), repo, "main", prediction.Cutoff))
 	assert.Equal(t, "written while the operation was deciding", readFile(t, repo, "tracked.txt"),
 		"the edit is still there rather than reverted")
 }
@@ -551,13 +554,13 @@ func TestParkRecoversWhatAMoveDrops(t *testing.T) {
 	writeFile(t, repo, "scratch.txt", "never committed")
 
 	dropped := out(t, repo, "rev-parse", "HEAD")
-	parked, err := git.Park(t.Context(), repo, "refs/weave/prerefresh/a1/1")
+	parked, err := client.Park(t.Context(), repo, "refs/weave/prerefresh/a1/1")
 	require.NoError(t, err)
 
-	prediction, err := git.PredictRebase(t.Context(), repo, "main")
+	prediction, err := client.PredictRebase(t.Context(), repo, "main")
 	require.NoError(t, err)
 	require.NotEmpty(t, prediction.Cutoff)
-	require.NoError(t, git.RebaseOnto(t.Context(), repo, "main", prediction.Cutoff))
+	require.NoError(t, client.RebaseOnto(t.Context(), repo, "main", prediction.Cutoff))
 
 	require.Equal(t, "0", out(t, repo, "rev-list", "--count", "main..HEAD"),
 		"the fixture did not drop the commits this is about")
@@ -579,7 +582,7 @@ func TestParkLeavesTheCheckoutAlone(t *testing.T) {
 	before := out(t, repo, "status", "--porcelain")
 	head := out(t, repo, "rev-parse", "HEAD")
 
-	_, err := git.Park(t.Context(), repo, "refs/weave/prerefresh/a1/1")
+	_, err := client.Park(t.Context(), repo, "refs/weave/prerefresh/a1/1")
 	require.NoError(t, err)
 
 	assert.Equal(t, before, out(t, repo, "status", "--porcelain"), "the working tree reads the same")
@@ -597,7 +600,7 @@ func TestReleaseRefsUnderKeepsOnlyTheCurrent(t *testing.T) {
 		run(t, repo, "update-ref", ref, head)
 	}
 
-	require.NoError(t, git.ReleaseRefsUnder(t.Context(), repo, "refs/weave/prerefresh/a1/", "refs/weave/prerefresh/a1/2"))
+	require.NoError(t, client.ReleaseRefsUnder(t.Context(), repo, "refs/weave/prerefresh/a1/", "refs/weave/prerefresh/a1/2"))
 
 	left := out(t, repo, "for-each-ref", "--format=%(refname)", "refs/weave/prerefresh/")
 	assert.Equal(t, "refs/weave/prerefresh/a1/2\nrefs/weave/prerefresh/a2/1", left,
@@ -618,7 +621,7 @@ func TestPredictRebaseCountsWhatARebaseWouldReplay(t *testing.T) {
 	require.Equal(t, "2", out(t, repo, "rev-list", "--count", "main..HEAD"),
 		"two commits of its own, one of them the merge")
 
-	prediction, err := git.PredictRebase(t.Context(), repo, "main")
+	prediction, err := client.PredictRebase(t.Context(), repo, "main")
 	require.NoError(t, err)
 
 	assert.Equal(t, 1, prediction.Merges)
@@ -649,7 +652,7 @@ func TestPredictRebaseCountsLandedOffTheGraph(t *testing.T) {
 	require.Equal(t, "S", out(t, repo, "log", "--format=%s", "-1", out(t, repo, "rev-list", "--reverse", "main..HEAD")[:40]),
 		"the fixture needs the side commit ordered before the cutoff, or it is not about anything")
 
-	prediction, err := git.PredictRebase(t.Context(), repo, "main")
+	prediction, err := client.PredictRebase(t.Context(), repo, "main")
 	require.NoError(t, err)
 
 	assert.Equal(t, 1, prediction.Landed, "only the commit the base actually holds leaves the branch")
@@ -681,7 +684,7 @@ func TestPredictRebaseCountsMergesAsLanded(t *testing.T) {
 	require.Equal(t, "1", out(t, repo, "rev-list", "--count", "--merges", "main..HEAD"),
 		"the fixture needs a merge inside the landed run, or it is not about anything")
 
-	prediction, err := git.PredictRebase(t.Context(), repo, "main")
+	prediction, err := client.PredictRebase(t.Context(), repo, "main")
 	require.NoError(t, err)
 
 	require.Zero(t, prediction.Replay, "the whole branch landed")
@@ -707,14 +710,14 @@ func TestPredictRebaseCountsOnlyWhatWouldReplay(t *testing.T) {
 	run(t, repo, "cherry-pick", picked)
 	run(t, repo, "checkout", "--quiet", "agent/abc")
 
-	prediction, err := git.PredictRebase(t.Context(), repo, "main")
+	prediction, err := client.PredictRebase(t.Context(), repo, "main")
 	require.NoError(t, err)
 	require.Equal(t, "2", out(t, repo, "rev-list", "--count", prediction.Cutoff+"..HEAD"),
 		"two commits sit past the cutoff, which is what makes the naive count wrong")
 
 	assert.Equal(t, 1, prediction.Replay, "only one of them still owes the base anything")
 
-	require.NoError(t, git.RebaseOnto(t.Context(), repo, "main", prediction.Cutoff))
+	require.NoError(t, client.RebaseOnto(t.Context(), repo, "main", prediction.Cutoff))
 	assert.Equal(t, "1", out(t, repo, "rev-list", "--count", "main..HEAD"),
 		"and that is what git actually replayed")
 }
