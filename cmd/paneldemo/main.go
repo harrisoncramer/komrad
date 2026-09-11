@@ -10,6 +10,7 @@ import (
 	"net/http/httptest"
 	"os"
 
+	"weave/cmd/paneldemo/scenario"
 	"weave/config"
 	"weave/internal/ui"
 	"weave/proto/gen/agent/v1/agentv1connect"
@@ -26,13 +27,26 @@ func main() {
 }
 
 func run() error {
+	name := flag.String("scenario", scenario.Names()[0], "the data to draw the panel against")
+	list := flag.Bool("list", false, "name the scenarios and stop")
 	flag.Parse()
+
+	if *list {
+		for _, held := range scenario.All() {
+			fmt.Printf("%-8s %s\n", held.Name, held.Blurb)
+		}
+
+		return nil
+	}
+
+	held, err := scenario.Named(*name)
+	if err != nil {
+		return err
+	}
 
 	// The panel's stderr is the terminal it draws in, so a record written there lands on top of
 	// the screen.
 	slog.SetDefault(slog.New(slog.DiscardHandler))
-
-	held := newCast()
 
 	server := httptest.NewServer(serviceFor(held))
 	defer server.Close()
@@ -56,12 +70,13 @@ func run() error {
 	return ui.Run(deps)
 }
 
-// serviceFor mounts the fake services the panel reads from.
-func serviceFor(held cast) http.Handler {
+// serviceFor mounts every service the panel is a client of, so a screen reaching one of them
+// finds a fake rather than nothing.
+func serviceFor(held scenario.Scenario) http.Handler {
 	mux := http.NewServeMux()
-	mux.Handle(agentv1connect.NewAgentServiceHandler(agentService{cast: held}))
-	mux.Handle(workflowv1connect.NewWorkflowServiceHandler(workflowService{cast: held}))
-	mux.Handle(schedulev1connect.NewScheduleServiceHandler(scheduleService{cast: held}))
+	mux.Handle(agentv1connect.NewAgentServiceHandler(agentService{held: held}))
+	mux.Handle(workflowv1connect.NewWorkflowServiceHandler(workflowService{held: held}))
+	mux.Handle(schedulev1connect.NewScheduleServiceHandler(scheduleService{held: held}))
 	mux.Handle(hookv1connect.NewHookServiceHandler(hookService{}))
 
 	return mux

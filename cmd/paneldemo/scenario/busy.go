@@ -1,4 +1,4 @@
-package main
+package scenario
 
 import (
 	"fmt"
@@ -11,15 +11,6 @@ import (
 
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
-
-// cast is everything the fake service has to answer with, built once at startup.
-type cast struct {
-	agents         []*agentv1.Agent
-	archivedAgents []*agentv1.Agent
-	workflows      []*workflowv1.Workflow
-	schedules      []*schedulev1.Schedule
-	mail           []*agentv1.Mail
-}
 
 // agentSpec is one agent of the cast, written as the handful of things that decide how a row is
 // drawn.
@@ -42,9 +33,9 @@ type agentSpec struct {
 	archived  bool
 }
 
-// newCast builds a panel's worth of agents, workflows, schedules and mail, with enough variety
-// that a screen drawn against it shows every row the panel draws differently.
-func newCast() cast {
+// Busy is a panel's worth of agents, workflows, schedules and mail, with enough variety that a
+// screen drawn against it shows every row the panel draws differently.
+func Busy() Scenario {
 	workflows := []*workflowv1.Workflow{
 		{
 			Id: "wf-weave", Name: "weave itself", Cwd: "~/weave", Harness: "claude",
@@ -58,22 +49,22 @@ func newCast() cast {
 	}
 
 	specs := []agentSpec{
-		{name: "orca", state: agentstore.StateThinking, workflow: "wf-review", branch: "agent/orca"},
-		{name: "narwhal", state: agentstore.StateIdle, workflow: "wf-review", unviewed: true, branch: "agent/narwhal"},
-		{name: "pelican", state: agentstore.StateUncertain, workflow: "wf-review", reason: "the pane has not read since 11:02"},
-		{name: "orca-reviewer", state: agentstore.StateThinking, workflow: "wf-review", role: "reviewer", parent: "agent-orca"},
-		{name: "cowrie", state: agentstore.StateSettingUp, workflow: "wf-review"},
-		{name: "mockup", state: agentstore.StateThinking, workflow: "wf-weave", unread: true, branch: "agent/mockup"},
+		{name: "telescope", state: agentstore.StateThinking, workflow: "wf-review", branch: "agent/telescope"},
+		{name: "treesitter", state: agentstore.StateIdle, workflow: "wf-review", unviewed: true, branch: "agent/treesitter"},
+		{name: "which-key", state: agentstore.StateUncertain, workflow: "wf-review", reason: "the pane has not read since 11:02"},
+		{name: "telescope-reviewer", state: agentstore.StateThinking, workflow: "wf-review", role: "reviewer", parent: "agent-telescope"},
+		{name: "lazygit", state: agentstore.StateSettingUp, workflow: "wf-review"},
+		{name: "fugitive", state: agentstore.StateThinking, workflow: "wf-weave", unread: true, branch: "agent/fugitive"},
 		{
-			name: "krill", state: agentstore.StateWaiting, workflow: "wf-weave", mark: "!",
-			branch: "agent/krill", scheduled: true,
+			name: "magit", state: agentstore.StateWaiting, workflow: "wf-weave", mark: "!",
+			branch: "agent/magit", scheduled: true,
 			reason: "waiting on a confirmation: apply the migration that renames reported_reason?",
 		},
-		{name: "limpet", state: agentstore.StateIdle, workflow: "wf-weave", failed: true},
-		{name: "barnacle", state: agentstore.StateIdle, workflow: "wf-weave", unviewed: true, mark: "?", hidden: true},
+		{name: "evil", state: agentstore.StateIdle, workflow: "wf-weave", failed: true},
+		{name: "org-mode", state: agentstore.StateIdle, workflow: "wf-weave", unviewed: true, mark: "?", hidden: true},
 		{
-			name: "abalone", state: agentstore.StateFailedToCreate, workflow: "wf-weave",
-			failure: "the worktree could not be made: fatal: 'agent/abalone' is already checked out at /Users/harry/weave-test",
+			name: "tramp", state: agentstore.StateFailedToCreate, workflow: "wf-weave",
+			failure: "the worktree could not be made: fatal: 'agent/tramp' is already checked out at /Users/harry/weave-test",
 		},
 	}
 
@@ -83,19 +74,21 @@ func newCast() cast {
 	}
 
 	archived := []*agentv1.Agent{
-		agentFrom(agentSpec{name: "urchin", state: agentstore.StateIdle, workflow: "wf-weave", archived: true}, 90),
+		agentFrom(agentSpec{name: "dired", state: agentstore.StateIdle, workflow: "wf-weave", archived: true}, 90),
 		agentFrom(agentSpec{
-			name: "cuttlefish", state: agentstore.StateFailedToCleanup, workflow: "wf-review", archived: true,
+			name: "projectile", state: agentstore.StateFailedToCleanup, workflow: "wf-review", archived: true,
 			failure: "the worktree is still there: unlinking failed, directory not empty",
 		}, 91),
 	}
 
-	return cast{
-		agents:         agents,
-		archivedAgents: archived,
-		workflows:      workflows,
-		schedules:      newSchedules(),
-		mail:           newMail(),
+	return Scenario{
+		Name:           "busy",
+		Blurb:          "every row the panel draws differently, on one screen",
+		Agents:         agents,
+		ArchivedAgents: archived,
+		Workflows:      workflows,
+		Schedules:      newSchedules(),
+		Mail:           newMail(),
 	}
 }
 
@@ -200,9 +193,9 @@ func newMail() []*agentv1.Mail {
 	return []*agentv1.Mail{
 		{
 			Id:          "mail-1",
-			FromAgentId: ptr("agent-orca"),
-			FromName:    "orca",
-			ToAgentId:   "agent-narwhal",
+			FromAgentId: ptr("agent-telescope"),
+			FromName:    "telescope",
+			ToAgentId:   "agent-treesitter",
 			Body:        "Taking the review screen. Leave reviewband.go alone so we do not collide.",
 			CreatedAt:   ago(3 * time.Hour),
 			ClaimedAt:   ptr(ago(3 * time.Hour)),
@@ -211,9 +204,9 @@ func newMail() []*agentv1.Mail {
 		},
 		{
 			Id:          "mail-2",
-			FromAgentId: ptr("agent-krill"),
-			FromName:    "krill",
-			ToAgentId:   "agent-mockup",
+			FromAgentId: ptr("agent-magit"),
+			FromName:    "magit",
+			ToAgentId:   "agent-fugitive",
 			Body:        "The migration landed on main, so rebase before you push. It renames the column your query reads.",
 			CreatedAt:   ago(2 * time.Hour),
 			ClaimedAt:   ptr(ago(105 * time.Minute)),
@@ -222,9 +215,9 @@ func newMail() []*agentv1.Mail {
 		},
 		{
 			Id:          "mail-3",
-			FromAgentId: ptr("agent-mockup"),
-			FromName:    "mockup",
-			ToAgentId:   "agent-krill",
+			FromAgentId: ptr("agent-fugitive"),
+			FromName:    "fugitive",
+			ToAgentId:   "agent-magit",
 			Body:        "Rebased, and the query reads the new name. Thanks for the heads up.",
 			CreatedAt:   ago(94 * time.Minute),
 			ClaimedAt:   ptr(ago(90 * time.Minute)),
@@ -235,7 +228,7 @@ func newMail() []*agentv1.Mail {
 		{
 			Id:        "mail-4",
 			FromName:  "weave",
-			ToAgentId: "agent-mockup",
+			ToAgentId: "agent-fugitive",
 			Body:      "review of round 3, approved, 0 comments",
 			CreatedAt: ago(21 * time.Minute),
 			ExpiresAt: in(2 * time.Hour),
@@ -243,9 +236,9 @@ func newMail() []*agentv1.Mail {
 		},
 		{
 			Id:          "mail-5",
-			FromAgentId: ptr("agent-mockup"),
-			FromName:    "mockup",
-			ToAgentId:   "agent-orca",
+			FromAgentId: ptr("agent-fugitive"),
+			FromName:    "fugitive",
+			ToAgentId:   "agent-telescope",
 			Body:        "The pull request is open. Approved on round three, and the full check passed.",
 			CreatedAt:   ago(7 * time.Minute),
 			ExpiresAt:   in(3 * time.Hour),
@@ -253,15 +246,3 @@ func newMail() []*agentv1.Mail {
 		},
 	}
 }
-
-// ago is a timestamp the given duration in the past, in the format the service sends.
-func ago(d time.Duration) string {
-	return time.Now().Add(-d).Format(time.RFC3339)
-}
-
-// in is a timestamp the given duration from now, which is what an expiry is.
-func in(d time.Duration) string {
-	return time.Now().Add(d).Format(time.RFC3339)
-}
-
-func ptr[T any](value T) *T { return &value }
