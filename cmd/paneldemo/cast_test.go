@@ -53,8 +53,17 @@ func TestTheCastCoversEveryStateThePanelDrawsDifferently(t *testing.T) {
 		seen[agent.GetState()] = true
 	}
 
-	// Ranged over rather than listed, so an eighth state has to be drawn here before this passes.
-	for _, state := range agentstore.States() {
+	// Kept by hand: nothing fails when an eighth state is added to agentstore, so this list is
+	// what somebody has to remember to extend.
+	for _, state := range []agentstore.State{
+		agentstore.StateThinking,
+		agentstore.StateWaiting,
+		agentstore.StateIdle,
+		agentstore.StateSettingUp,
+		agentstore.StateFailedToCreate,
+		agentstore.StateFailedToCleanup,
+		agentstore.StateUncertain,
+	} {
 		assert.True(t, seen[string(state)], "no agent is %s", state)
 	}
 }
@@ -142,4 +151,32 @@ func TestAWorkflowHoldsNoAgents(t *testing.T) {
 	}
 
 	assert.Positive(t, empty, "every workflow holds an agent")
+}
+
+// TestBothFailedAgentsCarryTheirReason covers the screen a person opens because an agent failed,
+// which reads the reason out of metadata rather than off the row.
+func TestBothFailedAgentsCarryTheirReason(t *testing.T) {
+	held := newCast()
+
+	var failed int
+
+	for _, agent := range append(held.agents, held.archivedAgents...) {
+		if !agentstore.State(agent.GetState()).IsFailed() {
+			continue
+		}
+
+		failed++
+
+		var reason string
+
+		for _, entry := range agent.GetMetadata() {
+			if entry.GetKey() == "error" {
+				reason = entry.GetValue()
+			}
+		}
+
+		assert.NotEmpty(t, reason, "%s failed and records no reason", agent.GetName())
+	}
+
+	assert.Equal(t, 2, failed, "the cast should hold a failed create and a failed cleanup")
 }

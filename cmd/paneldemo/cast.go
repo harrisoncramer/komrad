@@ -24,17 +24,19 @@ type cast struct {
 // agentSpec is one agent of the cast, written as the handful of things that decide how a row is
 // drawn.
 type agentSpec struct {
-	name      string
-	state     agentstore.State
-	workflow  string
-	unread    bool
-	unviewed  bool
-	mark      string
-	branch    string
-	failed    bool
-	role      string
-	parent    string
-	reason    string
+	name     string
+	state    agentstore.State
+	workflow string
+	unread   bool
+	unviewed bool
+	mark     string
+	branch   string
+	failed   bool
+	role     string
+	parent   string
+	reason   string
+	// failure is why a create or a cleanup died.
+	failure   string
 	hidden    bool
 	scheduled bool
 	archived  bool
@@ -62,12 +64,16 @@ func newCast() cast {
 		{name: "orca-reviewer", state: agentstore.StateThinking, workflow: "wf-review", role: "reviewer", parent: "agent-orca"},
 		{name: "cowrie", state: agentstore.StateSettingUp, workflow: "wf-review"},
 		{name: "mockup", state: agentstore.StateThinking, workflow: "wf-weave", unread: true, branch: "agent/mockup"},
-		{name: "krill", state: agentstore.StateWaiting, workflow: "wf-weave", mark: "!", branch: "agent/krill", scheduled: true},
+		{
+			name: "krill", state: agentstore.StateWaiting, workflow: "wf-weave", mark: "!",
+			branch: "agent/krill", scheduled: true,
+			reason: "waiting on a confirmation: apply the migration that renames reported_reason?",
+		},
 		{name: "limpet", state: agentstore.StateIdle, workflow: "wf-weave", failed: true},
 		{name: "barnacle", state: agentstore.StateIdle, workflow: "wf-weave", unviewed: true, mark: "?", hidden: true},
 		{
 			name: "abalone", state: agentstore.StateFailedToCreate, workflow: "wf-weave",
-			reason: "the worktree could not be made: fatal: 'agent/abalone' is already checked out at /Users/harry/weave-test",
+			failure: "the worktree could not be made: fatal: 'agent/abalone' is already checked out at /Users/harry/weave-test",
 		},
 	}
 
@@ -80,7 +86,7 @@ func newCast() cast {
 		agentFrom(agentSpec{name: "urchin", state: agentstore.StateIdle, workflow: "wf-weave", archived: true}, 90),
 		agentFrom(agentSpec{
 			name: "cuttlefish", state: agentstore.StateFailedToCleanup, workflow: "wf-review", archived: true,
-			reason: "the worktree is still there: unlinking failed, directory not empty",
+			failure: "the worktree is still there: unlinking failed, directory not empty",
 		}, 91),
 	}
 
@@ -129,10 +135,15 @@ func agentFrom(spec agentSpec, at int) *agentv1.Agent {
 
 	if spec.branch != "" {
 		agent.Branch = ptr(spec.branch)
-		agent.Metadata = []*agentv1.AgentMetadata{
-			{Key: "branch", Value: spec.branch},
-			{Key: "summary", Value: "settled the review and opened the pull request"},
-		}
+		agent.Metadata = append(agent.Metadata,
+			&agentv1.AgentMetadata{Key: "branch", Value: spec.branch},
+			&agentv1.AgentMetadata{Key: "summary", Value: "settled the review and opened the pull request"},
+		)
+	}
+
+	// The failure screen reads the reason out of metadata under this key rather than off the row.
+	if spec.failure != "" {
+		agent.Metadata = append(agent.Metadata, &agentv1.AgentMetadata{Key: "error", Value: spec.failure})
 	}
 
 	if spec.parent != "" {
