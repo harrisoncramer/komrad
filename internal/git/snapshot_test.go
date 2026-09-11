@@ -187,6 +187,67 @@ func TestASkipWorktreeFileIsKept(t *testing.T) {
 	assert.Equal(t, []string{"package main"}, lines)
 }
 
+// TestASkipWorktreeFileOnDiskIsStillHashed is the same invariant for the other flag git reads an
+// index entry over a file for.
+func TestASkipWorktreeFileOnDiskIsStillHashed(t *testing.T) {
+	root := repo(t)
+	run(t, root, "update-index", "--skip-worktree", "kept.go")
+	write(t, root, "kept.go", "package main\n\nfunc Edited() {}\n")
+
+	snapshot, err := client.TakeSnapshot(t.Context(), TakeSnapshotParams{Dir: root, Base: "main"})
+	require.NoError(t, err)
+
+	lines, err := client.ReadFileLines(t.Context(), root, snapshot.SHA, "kept.go")
+	require.NoError(t, err)
+	assert.Equal(t, []string{"package main", "", "func Edited() {}"}, lines)
+}
+
+// TestAFileUnderBothFlagsIsStillHashed covers an entry carrying assume-unchanged and
+// skip-worktree at once, which git clears one command at a time.
+func TestAFileUnderBothFlagsIsStillHashed(t *testing.T) {
+	root := repo(t)
+	run(t, root, "update-index", "--assume-unchanged", "kept.go")
+	run(t, root, "update-index", "--skip-worktree", "kept.go")
+	write(t, root, "kept.go", "package main\n\nfunc Edited() {}\n")
+
+	snapshot, err := client.TakeSnapshot(t.Context(), TakeSnapshotParams{Dir: root, Base: "main"})
+	require.NoError(t, err)
+
+	lines, err := client.ReadFileLines(t.Context(), root, snapshot.SHA, "kept.go")
+	require.NoError(t, err)
+	assert.Equal(t, []string{"package main", "", "func Edited() {}"}, lines)
+}
+
+// TestASkipWorktreeFileIsKeptBesideAnAssumeUnchangedOne is the sparse checkout again, in a
+// worktree that also holds the flag a snapshot once seeded itself from the last commit over.
+func TestASkipWorktreeFileIsKeptBesideAnAssumeUnchangedOne(t *testing.T) {
+	root := repo(t)
+	run(t, root, "update-index", "--assume-unchanged", "proto/gen/api.pb.go")
+	run(t, root, "update-index", "--skip-worktree", "kept.go")
+	require.NoError(t, os.Remove(filepath.Join(root, "kept.go")))
+
+	snapshot, err := client.TakeSnapshot(t.Context(), TakeSnapshotParams{Dir: root, Base: "main"})
+	require.NoError(t, err)
+
+	lines, err := client.ReadFileLines(t.Context(), root, snapshot.SHA, "kept.go")
+	require.NoError(t, err)
+	assert.Equal(t, []string{"package main"}, lines)
+}
+
+// TestASnapshotSurvivesARepositoryWithNoIndex covers a repository nothing has been added to yet,
+// whose index file git has not written.
+func TestASnapshotSurvivesARepositoryWithNoIndex(t *testing.T) {
+	root := t.TempDir()
+	run(t, root, "init", "--initial-branch=main")
+	run(t, root, "config", "user.email", "test@example.com")
+	run(t, root, "config", "user.name", "test")
+	write(t, root, "loose.go", "package main\n")
+
+	tree, err := client.ProbeTree(t.Context(), root)
+	require.NoError(t, err)
+	assert.Equal(t, "loose.go", capture(t, root, "ls-tree", "--name-only", tree))
+}
+
 // TestASnapshotSurvivesAnUnreadableIndex is the fallback: an index the agent's own git would
 // refuse is no reason for the panel to refuse a diff.
 func TestASnapshotSurvivesAnUnreadableIndex(t *testing.T) {
