@@ -2,8 +2,6 @@ package ui
 
 import (
 	"errors"
-	"os"
-	"path/filepath"
 	"testing"
 
 	"weave/internal/diff"
@@ -119,9 +117,8 @@ func TestReviewIsHistoryReadsTheDiffOnScreen(t *testing.T) {
 // standing on a round: the walk goes with it, and the diff that arrived was measured for the
 // round they were on, so drawing it under the whole change's label reads as current work.
 func TestReloadWithNoChaptersLetsTheReaderOut(t *testing.T) {
-	dir := realReviewRepo(t)
 	agents := &fakeReviewAgents{}
-	m := reviewWithAnEarlierReview(t, dir, agents)
+	m := reviewWithAnEarlierReview(t, newFakeRepo(t.TempDir()), agents)
 	m = pressReviewBase(t, m)
 	require.NotEmpty(t, m.review.base)
 	require.GreaterOrEqual(t, m.review.chapter, 0)
@@ -304,23 +301,18 @@ func TestWritingIsRefusedWhileAReviewIsOut(t *testing.T) {
 
 // reviewRepoWithADeletion is a worktree whose round both changes a file and removes one, since a
 // removed file is the row the editor key has nothing to open.
-func reviewRepoWithADeletion(t *testing.T) string {
+func reviewRepoWithADeletion(t *testing.T) *fakeRepo {
 	t.Helper()
 
-	dir := t.TempDir()
+	repo := newFakeRepo(t.TempDir())
+	repo.sources[sourceOf(fakeBaseSHA, "gone.go")] = "package greet\n\nfunc Gone() {}\n"
+	repo.wrote(wroteParams{
+		Tree:    "tree-with-a-deletion",
+		Whole:   fakePatchWithADeletion,
+		Sources: map[string]string{fakeFile: fakeHeadSource},
+	})
 
-	gitIn(t, dir, "init", "-b", "main")
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "greet.go"),
-		[]byte("package greet\n\nfunc Hello() string {\n\treturn \"hello\"\n}\n"), 0o644))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "gone.go"),
-		[]byte("package greet\n\nfunc Gone() {}\n"), 0o644))
-	gitIn(t, dir, "add", ".")
-	gitIn(t, dir, "commit", "-m", "first")
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "greet.go"),
-		[]byte("package greet\n\nfunc Hello() string {\n\treturn \"goodbye\"\n}\n"), 0o644))
-	require.NoError(t, os.Remove(filepath.Join(dir, "gone.go")))
-
-	return dir
+	return repo
 }
 
 // reviewRowInDeletedFile is a row of the file the round removed.
@@ -377,9 +369,8 @@ func reviewRowWithAnEditTarget(t *testing.T, m model) int {
 // TestAnEditRefusedOnADeletedFileOpensNoMode covers a press on a row with no file behind it,
 // which used to switch the screen's mode on the strength of an editor it never opened.
 func TestAnEditRefusedOnADeletedFileOpensNoMode(t *testing.T) {
-	dir := reviewRepoWithADeletion(t)
 	agents := &fakeReviewAgents{}
-	m, _ := realReviewModel(t, agents, dir)
+	m, _ := reviewModelOver(t, agents, reviewRepoWithADeletion(t))
 	m = openReview(t, m)
 
 	m.review.cursor = reviewRowInDeletedFile(t, m)
@@ -544,7 +535,11 @@ func TestTheGateReadsTheReviewedAgentRatherThanTheFirstRow(t *testing.T) {
 	m, _ := reviewModel(t, agents, dir)
 	m = openReview(t, m)
 
-	idle := agentItem{agent: agentstore.Agent{ID: "someone-else", Name: "idle", State: agentstore.StateIdle}, alive: true}
+	idle := agentItem{agent: agentstore.Agent{
+		ID:    "someone-else",
+		Name:  "idle",
+		State: agentstore.StateIdle,
+	}, alive: true}
 	m.listing.agents = append([]agentItem{idle}, m.listing.agents...)
 	setReviewAgentState(&m, agentstore.StateThinking)
 
@@ -634,9 +629,8 @@ func reviewAnchorInTheDiff(t *testing.T, m model) review.Anchor {
 // that answers with a short walk lands: the diff it was anchored to is taken away, and the submit
 // key read it anyway.
 func TestAComposerDoesNotOutliveTheDiffItWasWrittenOn(t *testing.T) {
-	dir := realReviewRepo(t)
 	agents := &fakeReviewAgents{}
-	m := reviewWithAnEarlierReview(t, dir, agents)
+	m := reviewWithAnEarlierReview(t, newFakeRepo(t.TempDir()), agents)
 	m = pressReviewBase(t, m)
 	require.GreaterOrEqual(t, m.review.chapter, 0)
 
@@ -779,10 +773,9 @@ func TestComposingOnARowWithNoLineSaysSo(t *testing.T) {
 // the mode split left with no test of its own: the newest round is narrowed on its base and
 // writing there is allowed, so the base it was counted from still has to reach the service.
 func TestACommentOnTheNewestRoundRecordsItsBase(t *testing.T) {
-	dir := realReviewRepo(t)
 	agents := &fakeReviewAgents{}
 
-	m := reviewWithAnEarlierReview(t, dir, agents)
+	m := reviewWithAnEarlierReview(t, newFakeRepo(t.TempDir()), agents)
 	m = pressReviewBase(t, m)
 	require.NotEmpty(t, m.review.base, "the diff is measured from the round reviewed before")
 

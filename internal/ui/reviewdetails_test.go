@@ -127,9 +127,8 @@ func TestReviewDimsTheCursorWhileTheRecordHasTheKeys(t *testing.T) {
 // earlier review to measure from, since the legend is a row longer in that case and it is the case
 // the pane is least likely to hold.
 func TestReviewRecordGivesWayInASmallPane(t *testing.T) {
-	dir := realReviewRepo(t)
 	agents := &fakeReviewAgents{}
-	m := reviewWithAnEarlierReview(t, dir, agents)
+	m := reviewWithAnEarlierReview(t, newFakeRepo(t.TempDir()), agents)
 
 	require.NotNil(t, m.review.baseRound, "the base key has somewhere to go")
 	require.Contains(t, ansi.Strip(m.reviewView()), "agent_id", "the record draws at full height")
