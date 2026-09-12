@@ -23,6 +23,7 @@ linters:
     - usetesting
     - errname
     - errname
+    - forbidigo
   settings:
     errcheck:
       # A discarded error is the same bug whether it went to _ or nowhere, so the blank
@@ -43,6 +44,17 @@ linters:
     staticcheck:
       checks:
         - all
+    forbidigo:
+      # Explainer: driving a real git is what makes a test slow and what makes it flake under
+      # load, so the suite is split in two and only the packages below pay for it. The rule is
+      # written against the calls rather than the imports, since a test that hands over a fake
+      # still imports weave/internal/git for the types the fake is written in.
+      analyze-types: true
+      forbid:
+        - pattern: ^git\.NewClient$
+          msg: a test outside the external lane takes the git seam and hands over a fake
+        - pattern: ^exec\.Command$
+          msg: a test outside the external lane does not shell out to git
     depguard:
       # The layers, as docs/concepts.md describes them. A layer may call the one below it
       # and may not reach past it, and the panel receives its adapters rather than
@@ -216,6 +228,16 @@ linters:
             skip: false
   exclusions:
     rules:
+      # The rule is about tests. Everything else constructs the real client on purpose, which
+      # is what a seam is for.
+      - path-except: _test\.go$
+        linters:
+          - forbidigo
+      # The external lane: the packages whose subject is what git, tmux or the panel's own
+      # binaries actually do, which is the one case a test has to drive the real thing.
+      - path: (internal/(git|diff|scripts|e2e|tmux|tmuxtest|cli|harnesstest|weavetest)/|^cmd/paneldemo/)
+        linters:
+          - forbidigo
       # A binary's package comment would be the first thing a reader of the command sees on
       # pkg.go.dev, and these three exist to be run rather than to be read about.
       - path: (^main\.go$|^cmd/|^config/gen/)
