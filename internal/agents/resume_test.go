@@ -96,7 +96,7 @@ func TestAnInterruptedTurnIsAskedForAgain(t *testing.T) {
 
 		rec := NewReconciler(NewReconcilerParams{
 			Panes:    tmux,
-			Observer: pane.New(pane.Params{Terminal: tmux, Harnesses: fakeHarnesses{harness: h}}),
+			Observer: pane.New(pane.NewParams{Terminal: tmux, Harnesses: fakeHarnesses{harness: h}}),
 			States:   st.Agents,
 		})
 		for range listingsBeforePaneGone {
@@ -213,7 +213,7 @@ func TestAnInterruptedTurnIsAskedForAgain(t *testing.T) {
 		tmux := newFakeTmux()
 		rec := NewReconciler(NewReconcilerParams{
 			Panes:    tmux,
-			Observer: pane.New(pane.Params{Terminal: tmux, Harnesses: fakeHarnesses{harness: h}}),
+			Observer: pane.New(pane.NewParams{Terminal: tmux, Harnesses: fakeHarnesses{harness: h}}),
 			States:   st.Agents,
 		})
 		for range listingsBeforePaneGone {
@@ -243,7 +243,7 @@ func TestATurnCutOffWithNoTmuxServerIsAskedForAgain(t *testing.T) {
 	tmux.paneOwnersErr = errors.New("error connecting to /private/tmp/tmux-501/weave")
 	rec := NewReconciler(NewReconcilerParams{
 		Panes:    tmux,
-		Observer: pane.New(pane.Params{Terminal: tmux, Harnesses: fakeHarnesses{harness: h}}),
+		Observer: pane.New(pane.NewParams{Terminal: tmux, Harnesses: fakeHarnesses{harness: h}}),
 		States:   st.Agents,
 	})
 	require.Error(t, rec.Reconcile(t.Context()))

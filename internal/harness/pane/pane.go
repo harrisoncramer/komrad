@@ -37,15 +37,6 @@ type harnessGetter interface {
 	GetByID(id string) (harness.Harness, error)
 }
 
-// Params is what a pane channel and observer are built over.
-type Params struct {
-	Terminal  terminal
-	Harnesses harnessGetter
-
-	// Now is the clock a draft's stillness is measured on, defaulting to time.Now.
-	Now func() time.Time
-}
-
 // Pane reaches an agent through the terminal it is running in.
 type Pane struct {
 	terminal  terminal
@@ -59,8 +50,17 @@ var (
 	_ harness.Observer = (*Pane)(nil)
 )
 
+// NewParams is what a pane channel and observer are built over.
+type NewParams struct {
+	Terminal  terminal
+	Harnesses harnessGetter
+
+	// Now is the clock a draft's stillness is measured on, defaulting to time.Now.
+	Now func() time.Time
+}
+
 // New builds the channel and observer over the tmux server and the harness registry.
-func New(params Params) *Pane {
+func New(params NewParams) *Pane {
 	now := params.Now
 	if now == nil {
 		now = time.Now
