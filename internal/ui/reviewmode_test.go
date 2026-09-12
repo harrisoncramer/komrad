@@ -530,7 +530,11 @@ func TestTheGateReadsTheReviewedAgentRatherThanTheFirstRow(t *testing.T) {
 	m, _ := reviewModel(t, agents, dir)
 	m = openReview(t, m)
 
-	idle := agentItem{agent: agentstore.Agent{ID: "someone-else", Name: "idle", State: agentstore.StateIdle}, alive: true}
+	idle := agentItem{agent: agentstore.Agent{
+		ID:    "someone-else",
+		Name:  "idle",
+		State: agentstore.StateIdle,
+	}, alive: true}
 	m.listing.agents = append([]agentItem{idle}, m.listing.agents...)
 	setReviewAgentState(&m, agentstore.StateThinking)
 

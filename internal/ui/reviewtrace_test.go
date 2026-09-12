@@ -14,12 +14,12 @@ import (
 )
 
 const (
-	traceDir   = "/checkout"
-	firstSHA   = "1111111111111111111111111111111111111111"
-	secondSHA  = "2222222222222222222222222222222222222222"
-	thirdSHA   = "3333333333333333333333333333333333333333"
-	unreadable = "0000000000000000000000000000000000000000"
-	tracedFile = "greet.go"
+	traceDir      = "/checkout"
+	firstSHA      = "1111111111111111111111111111111111111111"
+	secondSHA     = "2222222222222222222222222222222222222222"
+	thirdSHA      = "3333333333333333333333333333333333333333"
+	unreadableSHA = "0000000000000000000000000000000000000000"
+	tracedFile    = "greet.go"
 )
 
 // insertedAHelper is what git reports between two snapshots where the second put a four line
@@ -36,21 +36,21 @@ var rewroteTheLine = []position.Mapping{{
 	Ranges: []position.RangeMapping{{Old: position.Range{Start: 4, End: 5}, New: position.Range{Start: 4, End: 5}}},
 }}
 
-// tracedGit answers a pair of snapshots with what git reported for it, refusing any pair the
+// mappingGit answers a pair of snapshots with what git reported for it, refusing any pair the
 // test did not state and recording every pair it was asked for.
-type tracedGit struct {
+type mappingGit struct {
 	fakeGit
 	mu      sync.Mutex
 	asked   []git.MapRangesParams
 	answers map[string][]position.Mapping
 }
 
-// newTracedGit is a git that answers for the snapshots a test names and nothing else.
-func newTracedGit(answers map[string][]position.Mapping) *tracedGit {
-	return &tracedGit{answers: answers}
+// newMappingGit is a git that answers for the snapshots a test names and nothing else.
+func newMappingGit(answers map[string][]position.Mapping) *mappingGit {
+	return &mappingGit{answers: answers}
 }
 
-func (g *tracedGit) MapRanges(_ context.Context, params git.MapRangesParams) ([]position.Mapping, error) {
+func (g *mappingGit) MapRanges(_ context.Context, params git.MapRangesParams) ([]position.Mapping, error) {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 
@@ -65,7 +65,7 @@ func (g *tracedGit) MapRanges(_ context.Context, params git.MapRangesParams) ([]
 }
 
 // pairsAsked is every pair of snapshots the tracing asked git about.
-func (g *tracedGit) pairsAsked() []git.MapRangesParams {
+func (g *mappingGit) pairsAsked() []git.MapRangesParams {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 
@@ -75,7 +75,7 @@ func (g *tracedGit) pairsAsked() []git.MapRangesParams {
 // TestTraceThreadsFollowsALineThroughGit covers the whole tracing path: a comment on line four of
 // the first snapshot is line eight of the second, which only the mapping between the two can say.
 func TestTraceThreadsFollowsALineThroughGit(t *testing.T) {
-	repo := newTracedGit(map[string][]position.Mapping{firstSHA: insertedAHelper})
+	repo := newMappingGit(map[string][]position.Mapping{firstSHA: insertedAHelper})
 
 	rounds := []*agentv1.ReviewRound{
 		{
@@ -111,14 +111,18 @@ func TestTraceThreadsFollowsALineThroughGit(t *testing.T) {
 	assert.Equal(t, int32(8), found.NewStart, "four lines arrived above it")
 	assert.False(t, found.FileOnly)
 
-	assert.Equal(t, []git.MapRangesParams{{Dir: traceDir, FromSHA: firstSHA, ToSHA: secondSHA}}, repo.pairsAsked(),
+	assert.Equal(t, []git.MapRangesParams{{
+		Dir:     traceDir,
+		FromSHA: firstSHA,
+		ToSHA:   secondSHA,
+	}}, repo.pairsAsked(),
 		"the pair read is the snapshot it was written against and the one on screen")
 }
 
 // TestTraceThreadsMarksTheRoundOnScreenAsExact covers a thread written against the snapshot on
 // screen, whose numbers are counted in that tree and so need no git call to be trusted.
 func TestTraceThreadsMarksTheRoundOnScreenAsExact(t *testing.T) {
-	repo := newTracedGit(nil)
+	repo := newMappingGit(nil)
 
 	traced := traceThreads(t.Context(), traceThreadsParams{
 		Git:   repo,
@@ -149,7 +153,7 @@ func TestTraceThreadsMarksTheRoundOnScreenAsExact(t *testing.T) {
 // TestTraceThreadsKeepsTheFileWhenTheLinesAreGone covers code the agent wrote over: the file is
 // still there and the lines are not, which is a file-level answer rather than no answer.
 func TestTraceThreadsKeepsTheFileWhenTheLinesAreGone(t *testing.T) {
-	repo := newTracedGit(map[string][]position.Mapping{firstSHA: rewroteTheLine})
+	repo := newMappingGit(map[string][]position.Mapping{firstSHA: rewroteTheLine})
 
 	traced := traceThreads(t.Context(), traceThreadsParams{
 		Git:   repo,
@@ -180,7 +184,7 @@ func TestTraceThreadsKeepsTheFileWhenTheLinesAreGone(t *testing.T) {
 // earlier snapshot, so a thread from a later round is not drawn there and tracing it would run a
 // backwards diff of the whole tree for an answer nothing reads.
 func TestTraceThreadsSkipsRoundsTheScreenWillNotDraw(t *testing.T) {
-	repo := newTracedGit(map[string][]position.Mapping{secondSHA: insertedAHelper})
+	repo := newMappingGit(map[string][]position.Mapping{secondSHA: insertedAHelper})
 
 	rounds := []*agentv1.ReviewRound{
 		{
@@ -221,7 +225,7 @@ func TestTraceThreadsSkipsRoundsTheScreenWillNotDraw(t *testing.T) {
 // keeping the answers that arrived would make placement depend on which pairs could be read, so
 // two loads of the same screen would draw the same comments in different places.
 func TestTraceThreadsGivesUpWholeRatherThanInPart(t *testing.T) {
-	repo := newTracedGit(map[string][]position.Mapping{firstSHA: insertedAHelper})
+	repo := newMappingGit(map[string][]position.Mapping{firstSHA: insertedAHelper})
 
 	rounds := []*agentv1.ReviewRound{
 		{
@@ -232,7 +236,7 @@ func TestTraceThreadsGivesUpWholeRatherThanInPart(t *testing.T) {
 		{
 			Id:          "gone",
 			Ordinal:     2,
-			SnapshotSha: unreadable,
+			SnapshotSha: unreadableSHA,
 		},
 		{
 			Id:          "r3",
@@ -284,7 +288,7 @@ func TestTraceThreadsGivesUpWholeRatherThanInPart(t *testing.T) {
 // and then put it back, which takes a second round carrying a snapshot an earlier round already
 // held.
 func TestTraceThreadsMarksEveryRoundHoldingTheSnapshotOnScreen(t *testing.T) {
-	repo := newTracedGit(nil)
+	repo := newMappingGit(nil)
 
 	traced := traceThreads(t.Context(), traceThreadsParams{
 		Git:   repo,
