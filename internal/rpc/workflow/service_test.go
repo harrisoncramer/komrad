@@ -1,6 +1,8 @@
 package workflow
 
 import (
+	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -8,7 +10,6 @@ import (
 	"time"
 
 	"weave/internal/agents"
-	"weave/internal/git"
 	"weave/internal/rpc/render"
 	"weave/internal/store"
 	"weave/internal/storetest"
@@ -28,6 +29,13 @@ import (
 )
 
 const missingID = "00000000-0000-0000-0000-000000000000"
+
+// refusingSnapshots is the git a workflow test hands the lifecycle service, which refuses rather than answers.
+type refusingSnapshots struct{}
+
+func (refusingSnapshots) ReleaseRef(context.Context, string, string) error {
+	return errors.New("a workflow test reached for a real git")
+}
 
 // TestCreateWorkflow pins what a workflow is stored as, a blank name falling back to a label
 // so the list never draws an empty row.
@@ -582,7 +590,7 @@ func service(t *testing.T) (*Service, *storetest.Stores) {
 		Workflows:      st.Workflows,
 		EmptyWorkflows: emptied,
 		Tx:             st.Pool,
-		Snapshots:      git.NewClient(),
+		Snapshots:      refusingSnapshots{},
 	})
 	manager := agents.NewWorkflowService(agents.NewWorkflowServiceParams{
 		Workflows:    st.Workflows,
