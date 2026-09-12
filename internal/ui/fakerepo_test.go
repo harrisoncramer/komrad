@@ -2,6 +2,7 @@ package ui
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	"weave/internal/git"
@@ -22,8 +23,7 @@ index 0a90f17972dec66c378df67739faaf48b6235df9..23cef252a97433f151c14725c88e0c2d
  }
 `
 
-// fakePatchWrittenOver is the same file written over a second time, which is what an agent
-// working while a review is open leaves behind.
+// fakePatchWrittenOver is the same file written over a second time.
 const fakePatchWrittenOver = `diff --git a/greet.go b/greet.go
 index 0a90f17972dec66c378df67739faaf48b6235df9..5586caad9270132f074ee5374d4652b83d0acc98 100644
 --- a/greet.go
@@ -37,8 +37,7 @@ index 0a90f17972dec66c378df67739faaf48b6235df9..5586caad9270132f074ee5374d4652b8
  }
 `
 
-// fakePatchOfAnAddedFile is a worktree whose only work is a file git had never seen, which is a
-// diff to read even though the file is new.
+// fakePatchOfAnAddedFile is a worktree whose only work is a file git had never seen.
 const fakePatchOfAnAddedFile = `diff --git a/new.go b/new.go
 new file mode 100644
 index 0000000000000000000000000000000000000000..eb3519d6032ff1d467fca3ee4bca7670dd93c393
@@ -48,8 +47,7 @@ index 0000000000000000000000000000000000000000..eb3519d6032ff1d467fca3ee4bca7670
 +package greet
 `
 
-// fakePatchWithADeletion changes one file and removes another, since a removed file is the row
-// the editor key has nothing to open.
+// fakePatchWithADeletion changes one file and removes another.
 const fakePatchWithADeletion = `diff --git a/gone.go b/gone.go
 deleted file mode 100644
 index 2e28ecec343b169b8c4b27117080bd08dc427c5d..0000000000000000000000000000000000000000
@@ -84,8 +82,7 @@ index 0000000000000000000000000000000000000000..6f3be6f46b20679ed1c38500fd37b317
 +func Second() {}
 `
 
-// fakePatchOfTheSecondFile is what git reports between those two rounds, which is the file
-// written since the first was reviewed and nothing else.
+// fakePatchOfTheSecondFile is what git reports between those two rounds.
 const fakePatchOfTheSecondFile = `diff --git a/second.go b/second.go
 new file mode 100644
 index 0000000000000000000000000000000000000000..6f3be6f46b20679ed1c38500fd37b317742c260e
@@ -111,8 +108,7 @@ index 0000000000000000000000000000000000000000..a3c7f6e558464c8b1b0eab6d0a6c5368
 +}
 `
 
-// fakePatchInAnExcludedPath is a worktree that has moved, with every line of it inside a path
-// the workflow keeps out of the diff.
+// fakePatchInAnExcludedPath is a worktree whose every changed line sits inside an excluded path.
 const fakePatchInAnExcludedPath = `diff --git a/proto/gen/api.pb.go b/proto/gen/api.pb.go
 new file mode 100644
 index 0000000000000000000000000000000000000000..15c192a3393746be504c4f3ffeb5bcf24a264988
@@ -123,16 +119,20 @@ index 0000000000000000000000000000000000000000..15c192a3393746be504c4f3ffeb5bcf2
 `
 
 const (
+	// snapshotPrefix is what a round's commit is named after the tree it froze.
+	snapshotPrefix  = "snapshot-"
 	fakeBaseSHA     = "39d09b1e629b114cf0fb9651479f2225948c20ea"
 	fakeTree        = "tree-unmoved"
+	fakeFile        = "greet.go"
 	fakeSnapshotSHA = snapshotPrefix + fakeTree
 	fakeBaseSource  = "package greet\n\nfunc Hello() string {\n\treturn \"hello\"\n}\n"
 	fakeHeadSource  = "package greet\n\nfunc Hello() string {\n\treturn \"goodbye\"\n}\n"
 )
 
-// snapshotPrefix is what a round's commit is named after the tree it froze, so a worktree that
-// has not moved is the round already taken of it and one that has is another round.
-const snapshotPrefix = "snapshot-"
+// sourceOf names one file's whole source: the snapshot holding it and its path.
+func sourceOf(sha, path string) string {
+	return sha + ":" + path
+}
 
 // snapshotOf is the round a tree is frozen as.
 func snapshotOf(tree string) string {
@@ -172,8 +172,8 @@ func newFakeRepo(root string) *fakeRepo {
 		patches: map[string]string{pairOf(fakeBaseSHA, fakeSnapshotSHA): fakePatch},
 		hidden:  map[string]bool{},
 		sources: map[string]string{
-			fakeBaseSHA:     fakeBaseSource,
-			fakeSnapshotSHA: fakeHeadSource,
+			sourceOf(fakeBaseSHA, fakeFile):     fakeBaseSource,
+			sourceOf(fakeSnapshotSHA, fakeFile): fakeHeadSource,
 		},
 	}
 }
@@ -187,8 +187,8 @@ type wroteParams struct {
 	Whole string
 	// Since is what git reports between the snapshot before it and this one.
 	Since string
-	// Source is the file's whole source in this snapshot.
-	Source string
+	// Sources is the whole source each path holds in this snapshot, keyed by path.
+	Sources map[string]string
 	// Hidden says every changed path is one the workflow keeps out of the diff.
 	Hidden bool
 }
@@ -199,19 +199,14 @@ func (f *fakeRepo) wrote(params wroteParams) {
 	f.tree = params.Tree
 
 	sha := snapshotOf(params.Tree)
-
-	// A tree the fixture has stood on before is the same round again, so what git reports for it
-	// is left as it was rather than written over with nothing.
-	if params.Whole != "" {
-		f.patches[pairOf(fakeBaseSHA, sha)] = params.Whole
-	}
+	f.patches[pairOf(fakeBaseSHA, sha)] = params.Whole
 
 	if params.Since != "" {
 		f.patches[pairOf(previous, sha)] = params.Since
 	}
 
-	if params.Source != "" {
-		f.sources[sha] = params.Source
+	for path, source := range params.Sources {
+		f.sources[sourceOf(sha, path)] = source
 	}
 
 	if params.Hidden {
@@ -232,22 +227,66 @@ func (f *fakeRepo) GetRoot(_ context.Context, dir string) (string, error) {
 }
 
 func (f *fakeRepo) Diff(_ context.Context, params git.DiffParams) ([]byte, error) {
-	pair := pairOf(params.FromSHA, params.ToSHA)
-	if len(params.Exclude) > 0 && f.hidden[pair] {
-		return nil, nil
+	patch, err := f.patchBetween(patchBetweenParams{
+		FromSHA: params.FromSHA,
+		ToSHA:   params.ToSHA,
+		Exclude: params.Exclude,
+	})
+	if err != nil {
+		return nil, err
 	}
 
-	return []byte(f.patches[pair]), nil
+	return []byte(patch), nil
 }
 
 func (f *fakeRepo) CountChangedFiles(_ context.Context, params git.CountChangedFilesParams) (int, error) {
-	return strings.Count(f.patches[pairOf(params.FromSHA, params.ToSHA)], "diff --git "), nil
+	patch, err := f.patchBetween(patchBetweenParams{
+		FromSHA: params.FromSHA,
+		ToSHA:   params.ToSHA,
+		Exclude: params.Exclude,
+	})
+	if err != nil {
+		return 0, err
+	}
+
+	return strings.Count(patch, "diff --git "), nil
 }
 
-func (f *fakeRepo) ReadFile(_ context.Context, _, sha, _ string) ([]byte, error) {
-	source, held := f.sources[sha]
-	if !held {
-		return []byte(fakeBaseSource), nil
+// patchBetweenParams is one read of a diff: the two snapshots, and the paths left out of it.
+type patchBetweenParams struct {
+	FromSHA string
+	ToSHA   string
+	Exclude []string
+}
+
+// patchBetween is what git reports between two snapshots, refusing a pair the test never stated
+// rather than answering as a pair nothing changed between.
+func (f *fakeRepo) patchBetween(params patchBetweenParams) (string, error) {
+	// A snapshot against itself is nothing changed, which is git's own answer rather than
+	// something a test has to state.
+	if params.FromSHA == params.ToSHA {
+		return "", nil
+	}
+
+	pair := pairOf(params.FromSHA, params.ToSHA)
+
+	patch, stated := f.patches[pair]
+	if !stated {
+		return "", fmt.Errorf("this test stated no diff between %s and %s: %w",
+			params.FromSHA, params.ToSHA, errNoGit)
+	}
+
+	if len(params.Exclude) > 0 && f.hidden[pair] {
+		return "", nil
+	}
+
+	return patch, nil
+}
+
+func (f *fakeRepo) ReadFile(_ context.Context, _, sha, path string) ([]byte, error) {
+	source, stated := f.sources[sourceOf(sha, path)]
+	if !stated {
+		return nil, fmt.Errorf("the snapshot %s holds no %s: %w", sha, path, errNoGit)
 	}
 
 	return []byte(source), nil

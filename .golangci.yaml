@@ -53,7 +53,9 @@ linters:
       forbid:
         - pattern: ^git\.NewClient$
           msg: a test outside the external lane takes the git seam and hands over a fake
-        - pattern: ^exec\.Command$
+        - pattern: ^git\.(Run|RunBytes)$
+          msg: a test outside the external lane does not run git itself
+        - pattern: ^exec\.Command(Context)?$
           msg: a test outside the external lane does not shell out to git
     depguard:
       # The layers, as docs/concepts.md describes them. A layer may call the one below it

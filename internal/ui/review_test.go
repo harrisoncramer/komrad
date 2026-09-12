@@ -310,7 +310,11 @@ func TestEnterReviewRefusesAnEmptyWorktree(t *testing.T) {
 // never seen, which is a diff to read even though git will draw none of it.
 func TestEnterReviewOpensAnUntrackedFile(t *testing.T) {
 	repo := newFakeRepo(t.TempDir())
-	repo.wrote(wroteParams{Tree: "tree-with-an-untracked-file", Whole: fakePatchOfAnAddedFile})
+	repo.wrote(wroteParams{
+		Tree:    "tree-with-an-untracked-file",
+		Whole:   fakePatchOfAnAddedFile,
+		Sources: map[string]string{"new.go": "package greet\n"},
+	})
 
 	m, _ := reviewModelOver(t, &fakeReviewAgents{}, repo)
 
@@ -823,7 +827,7 @@ func TestReviewRendersWhileLoading(t *testing.T) {
 // viewer with the raw error drawn in the sidebar.
 func TestReviewReportsAFailedLoad(t *testing.T) {
 	repo := newFakeRepo(t.TempDir())
-	repo.rootErr = fmt.Errorf("failed to find the repository at %q: %w", repo.root, errNoGit)
+	repo.rootErr = errNoGit
 
 	m, _ := reviewModelOver(t, &fakeReviewAgents{}, repo)
 
@@ -833,7 +837,8 @@ func TestReviewReportsAFailedLoad(t *testing.T) {
 	require.Len(t, m.messages.items, 1)
 	assert.Equal(t, messageError, m.messages.items[0].kind)
 	assert.Contains(t, m.messages.items[0].summary, "Could not read the diff of")
-	assert.Contains(t, m.messages.items[0].detail, "failed to find the repository")
+	assert.Contains(t, m.messages.items[0].detail, errNoGit.Error(),
+		"the error the read failed with is what the reader is told")
 }
 
 // TestReviewKeepsDrawingAfterAWrite covers the stage still repainting after a save.
@@ -1365,7 +1370,14 @@ func TestReviewSearchWithNoMatchesSaysSo(t *testing.T) {
 func TestReviewFileJumpSurvivesARepaint(t *testing.T) {
 	// A jump needs somewhere to land, and the round the other tests share holds one file.
 	repo := newFakeRepo(t.TempDir())
-	repo.wrote(wroteParams{Tree: "tree-with-two-files", Whole: fakePatch + fakePatchOfAnotherFile})
+	repo.wrote(wroteParams{
+		Tree:  "tree-with-two-files",
+		Whole: fakePatch + fakePatchOfAnotherFile,
+		Sources: map[string]string{
+			fakeFile:    fakeHeadSource,
+			"second.go": "package greet\n\nfunc Second() string {\n\treturn \"second\"\n}\n",
+		},
+	})
 
 	agents := &fakeReviewAgents{}
 	m, _ := reviewModelOver(t, agents, repo)
@@ -1478,9 +1490,11 @@ func TestAViewedFileComesBackInTheNextRound(t *testing.T) {
 	assert.Empty(t, m.review.notice)
 
 	repo.wrote(wroteParams{
-		Tree:   "tree-written-again",
-		Whole:  fakePatchWrittenOver,
-		Source: "package greet\n\nfunc Hello() string {\n\treturn \"written by the agent\"\n}\n",
+		Tree:  "tree-written-again",
+		Whole: fakePatchWrittenOver,
+		Sources: map[string]string{
+			fakeFile: "package greet\n\nfunc Hello() string {\n\treturn \"written by the agent\"\n}\n",
+		},
 	})
 
 	m = openReview(t, m)
@@ -1540,6 +1554,10 @@ func TestReviewBaseNarrowsToTheLastReview(t *testing.T) {
 		Tree:  "tree-with-a-second-file",
 		Whole: fakePatchOfBothFiles,
 		Since: fakePatchOfTheSecondFile,
+		Sources: map[string]string{
+			fakeFile:    fakeHeadSource,
+			"second.go": "package greet\n\nfunc Second() {}\n",
+		},
 	})
 
 	m = openReview(t, m)
@@ -1599,6 +1617,10 @@ func reviewWithAnEarlierReview(t *testing.T, repo *fakeRepo, agents *fakeReviewA
 		Tree:  "tree-with-a-second-file",
 		Whole: fakePatchOfBothFiles,
 		Since: fakePatchOfTheSecondFile,
+		Sources: map[string]string{
+			fakeFile:    fakeHeadSource,
+			"second.go": "package greet\n\nfunc Second() {}\n",
+		},
 	})
 
 	m = openReview(t, m)
@@ -1670,9 +1692,16 @@ func TestReviewBaseSaysSoWhenNothingChangedSinceThatReview(t *testing.T) {
 		Tree:  "tree-with-a-second-file",
 		Whole: fakePatchOfBothFiles,
 		Since: fakePatchOfTheSecondFile,
+		Sources: map[string]string{
+			fakeFile:    fakeHeadSource,
+			"second.go": "package greet\n\nfunc Second() {}\n",
+		},
 	})
 	m = openReview(t, m)
-	repo.wrote(wroteParams{Tree: fakeTree})
+	repo.wrote(wroteParams{
+		Tree:  fakeTree,
+		Whole: fakePatch,
+	})
 	m = openReview(t, m)
 	require.NotNil(t, m.review.baseRound)
 
@@ -1754,6 +1783,10 @@ func TestReviewBaseIsRefusedWhenTheBaseMoved(t *testing.T) {
 		Tree:  "tree-with-a-second-file",
 		Whole: fakePatchOfBothFiles,
 		Since: fakePatchOfTheSecondFile,
+		Sources: map[string]string{
+			fakeFile:    fakeHeadSource,
+			"second.go": "package greet\n\nfunc Second() {}\n",
+		},
 	})
 
 	m = openReview(t, m)

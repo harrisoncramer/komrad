@@ -340,9 +340,11 @@ func TestReviewDiffPollCatchesUpOnceTheTurnIsOver(t *testing.T) {
 	m = openReview(t, m)
 
 	repo.wrote(wroteParams{
-		Tree:   "tree-written-again",
-		Whole:  fakePatchWrittenOver,
-		Source: "package greet\n\nfunc Hello() string {\n\treturn \"written by the agent\"\n}\n",
+		Tree:  "tree-written-again",
+		Whole: fakePatchWrittenOver,
+		Sources: map[string]string{
+			fakeFile: "package greet\n\nfunc Hello() string {\n\treturn \"written by the agent\"\n}\n",
+		},
 	})
 
 	cmd := m.pollReviewDiffCmd()
@@ -420,9 +422,11 @@ func TestReviewReloadKeyOpensTheNextRound(t *testing.T) {
 	first := m.review.round.GetOrdinal()
 
 	repo.wrote(wroteParams{
-		Tree:   "tree-written-again",
-		Whole:  fakePatchWrittenOver,
-		Source: "package greet\n\nfunc Hello() string {\n\treturn \"written by the agent\"\n}\n",
+		Tree:  "tree-written-again",
+		Whole: fakePatchWrittenOver,
+		Sources: map[string]string{
+			fakeFile: "package greet\n\nfunc Hello() string {\n\treturn \"written by the agent\"\n}\n",
+		},
 	})
 
 	polled, ok := m.pollReviewDiffCmd()().(reviewDiffPolledMsg)

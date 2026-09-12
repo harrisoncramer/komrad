@@ -36,8 +36,7 @@ var rewroteTheLine = []position.Mapping{{
 	Ranges: []position.RangeMapping{{Old: position.Range{Start: 4, End: 5}, New: position.Range{Start: 4, End: 5}}},
 }}
 
-// mappingGit answers a pair of snapshots with what git reported for it, refusing any pair the
-// test did not state and recording every pair it was asked for.
+// mappingGit answers a pair of snapshots with what git reported between them.
 type mappingGit struct {
 	fakeGit
 	mu      sync.Mutex
@@ -56,7 +55,7 @@ func (g *mappingGit) MapRanges(_ context.Context, params git.MapRangesParams) ([
 
 	g.asked = append(g.asked, params)
 
-	mappings, held := g.answers[params.FromSHA]
+	mappings, held := g.answers[pairOf(params.FromSHA, params.ToSHA)]
 	if !held {
 		return nil, errNoGit
 	}
@@ -75,7 +74,7 @@ func (g *mappingGit) pairsAsked() []git.MapRangesParams {
 // TestTraceThreadsFollowsALineThroughGit covers the whole tracing path: a comment on line four of
 // the first snapshot is line eight of the second, which only the mapping between the two can say.
 func TestTraceThreadsFollowsALineThroughGit(t *testing.T) {
-	repo := newMappingGit(map[string][]position.Mapping{firstSHA: insertedAHelper})
+	repo := newMappingGit(map[string][]position.Mapping{pairOf(firstSHA, secondSHA): insertedAHelper})
 
 	rounds := []*agentv1.ReviewRound{
 		{
@@ -153,7 +152,7 @@ func TestTraceThreadsMarksTheRoundOnScreenAsExact(t *testing.T) {
 // TestTraceThreadsKeepsTheFileWhenTheLinesAreGone covers code the agent wrote over: the file is
 // still there and the lines are not, which is a file-level answer rather than no answer.
 func TestTraceThreadsKeepsTheFileWhenTheLinesAreGone(t *testing.T) {
-	repo := newMappingGit(map[string][]position.Mapping{firstSHA: rewroteTheLine})
+	repo := newMappingGit(map[string][]position.Mapping{pairOf(firstSHA, thirdSHA): rewroteTheLine})
 
 	traced := traceThreads(t.Context(), traceThreadsParams{
 		Git:   repo,
@@ -184,7 +183,7 @@ func TestTraceThreadsKeepsTheFileWhenTheLinesAreGone(t *testing.T) {
 // earlier snapshot, so a thread from a later round is not drawn there and tracing it would run a
 // backwards diff of the whole tree for an answer nothing reads.
 func TestTraceThreadsSkipsRoundsTheScreenWillNotDraw(t *testing.T) {
-	repo := newMappingGit(map[string][]position.Mapping{secondSHA: insertedAHelper})
+	repo := newMappingGit(map[string][]position.Mapping{pairOf(secondSHA, firstSHA): insertedAHelper})
 
 	rounds := []*agentv1.ReviewRound{
 		{
@@ -225,7 +224,7 @@ func TestTraceThreadsSkipsRoundsTheScreenWillNotDraw(t *testing.T) {
 // keeping the answers that arrived would make placement depend on which pairs could be read, so
 // two loads of the same screen would draw the same comments in different places.
 func TestTraceThreadsGivesUpWholeRatherThanInPart(t *testing.T) {
-	repo := newMappingGit(map[string][]position.Mapping{firstSHA: insertedAHelper})
+	repo := newMappingGit(map[string][]position.Mapping{pairOf(firstSHA, secondSHA): insertedAHelper})
 
 	rounds := []*agentv1.ReviewRound{
 		{

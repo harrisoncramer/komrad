@@ -305,7 +305,12 @@ func reviewRepoWithADeletion(t *testing.T) *fakeRepo {
 	t.Helper()
 
 	repo := newFakeRepo(t.TempDir())
-	repo.wrote(wroteParams{Tree: "tree-with-a-deletion", Whole: fakePatchWithADeletion})
+	repo.sources[sourceOf(fakeBaseSHA, "gone.go")] = "package greet\n\nfunc Gone() {}\n"
+	repo.wrote(wroteParams{
+		Tree:    "tree-with-a-deletion",
+		Whole:   fakePatchWithADeletion,
+		Sources: map[string]string{fakeFile: fakeHeadSource},
+	})
 
 	return repo
 }
