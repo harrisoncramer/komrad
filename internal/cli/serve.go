@@ -152,7 +152,7 @@ func getHookBinaryPath(ctx context.Context) string {
 func serve(ctx context.Context, params serveParams) error {
 	state, logger, addr := params.App, params.Logger, params.Addr
 
-	server, err := serverPkg.New(ctx, serverPkg.Params{
+	server, err := serverPkg.NewServer(ctx, serverPkg.NewServerParams{
 		Env:            state.env,
 		ConfigPaths:    state.configPaths,
 		Logger:         logger,

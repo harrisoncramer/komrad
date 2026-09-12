@@ -161,7 +161,7 @@ func Start(t *testing.T, p Params) *Instance {
 
 	opened := &OpenedURLs{}
 
-	built, err := server.New(t.Context(), server.Params{
+	built, err := server.NewServer(t.Context(), server.NewServerParams{
 		Env: &config.Environment{
 			DatabaseURL:         stores.URL,
 			ReadOnlyDatabaseURL: stores.ReadOnlyURL,

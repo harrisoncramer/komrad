@@ -50,8 +50,8 @@ var (
 	_ harness.Observer = (*Pane)(nil)
 )
 
-// Params is what a pane channel and observer are built over.
-type Params struct {
+// NewPaneParams is what a pane channel and observer are built over.
+type NewPaneParams struct {
 	Terminal  terminal
 	Harnesses harnessGetter
 
@@ -59,8 +59,8 @@ type Params struct {
 	Now func() time.Time
 }
 
-// New builds the channel and observer over the tmux server and the harness registry.
-func New(params Params) *Pane {
+// NewPane builds the channel and observer over the tmux server and the harness registry.
+func NewPane(params NewPaneParams) *Pane {
 	now := params.Now
 	if now == nil {
 		now = time.Now

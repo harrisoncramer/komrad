@@ -342,7 +342,7 @@ func TestScheduleIsNotBlockedByARunThatNeverStarted(t *testing.T) {
 
 			rec := NewReconciler(NewReconcilerParams{
 				Panes:    tmux,
-				Observer: pane.New(pane.Params{Terminal: tmux, Harnesses: fakeHarnesses{harness: &fakeHarness{}}}),
+				Observer: pane.NewPane(pane.NewPaneParams{Terminal: tmux, Harnesses: fakeHarnesses{harness: &fakeHarness{}}}),
 				States:   st.Agents,
 			})
 			for range reconcileMisses + 2 {

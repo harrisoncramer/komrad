@@ -77,7 +77,7 @@ func TestReconcileRecordsAPullRequestOnceIdle(t *testing.T) {
 
 	rec := NewReconciler(NewReconcilerParams{
 		Panes:    tmux,
-		Observer: pane.New(pane.Params{Terminal: tmux, Harnesses: fakeHarnesses{harness: &fakeHarness{}}}),
+		Observer: pane.NewPane(pane.NewPaneParams{Terminal: tmux, Harnesses: fakeHarnesses{harness: &fakeHarness{}}}),
 		States:   st.Agents,
 	}).WithPRFinder(finder)
 	require.NoError(t, rec.Reconcile(t.Context()))
@@ -110,7 +110,7 @@ func TestReconcileChecksOnceThenLeavesItAlone(t *testing.T) {
 
 		rec := NewReconciler(NewReconcilerParams{
 			Panes:    tmux,
-			Observer: pane.New(pane.Params{Terminal: tmux, Harnesses: fakeHarnesses{harness: &fakeHarness{}}}),
+			Observer: pane.NewPane(pane.NewPaneParams{Terminal: tmux, Harnesses: fakeHarnesses{harness: &fakeHarness{}}}),
 			States:   st.Agents,
 		}).WithPRFinder(finder)
 		require.NoError(t, rec.Reconcile(t.Context()))
@@ -130,7 +130,7 @@ func TestReconcileChecksOnceThenLeavesItAlone(t *testing.T) {
 
 		rec := NewReconciler(NewReconcilerParams{
 			Panes:    tmux,
-			Observer: pane.New(pane.Params{Terminal: tmux, Harnesses: fakeHarnesses{harness: &fakeHarness{}}}),
+			Observer: pane.NewPane(pane.NewPaneParams{Terminal: tmux, Harnesses: fakeHarnesses{harness: &fakeHarness{}}}),
 			States:   st.Agents,
 		}).WithPRFinder(finder)
 		require.NoError(t, rec.Reconcile(t.Context()))
@@ -150,7 +150,7 @@ func TestReconcileChecksOnceThenLeavesItAlone(t *testing.T) {
 
 		rec := NewReconciler(NewReconcilerParams{
 			Panes:    tmux,
-			Observer: pane.New(pane.Params{Terminal: tmux, Harnesses: fakeHarnesses{harness: &fakeHarness{}}}),
+			Observer: pane.NewPane(pane.NewPaneParams{Terminal: tmux, Harnesses: fakeHarnesses{harness: &fakeHarness{}}}),
 			States:   st.Agents,
 		}).WithPRFinder(finder)
 		require.NoError(t, rec.Reconcile(t.Context()))
@@ -167,7 +167,7 @@ func TestReconcileChecksOnceThenLeavesItAlone(t *testing.T) {
 		tmux.owners["%1"] = ""
 		rec := NewReconciler(NewReconcilerParams{
 			Panes:    tmux,
-			Observer: pane.New(pane.Params{Terminal: tmux, Harnesses: fakeHarnesses{harness: &fakeHarness{}}}),
+			Observer: pane.NewPane(pane.NewPaneParams{Terminal: tmux, Harnesses: fakeHarnesses{harness: &fakeHarness{}}}),
 			States:   st.Agents,
 		})
 		require.NoError(t, rec.Reconcile(t.Context()))
@@ -189,7 +189,7 @@ func TestReconcileSwallowsALookupFailure(t *testing.T) {
 
 	rec := NewReconciler(NewReconcilerParams{
 		Panes:    tmux,
-		Observer: pane.New(pane.Params{Terminal: tmux, Harnesses: fakeHarnesses{harness: &fakeHarness{}}}),
+		Observer: pane.NewPane(pane.NewPaneParams{Terminal: tmux, Harnesses: fakeHarnesses{harness: &fakeHarness{}}}),
 		States:   st.Agents,
 	}).WithPRFinder(finder)
 	require.NoError(t, rec.Reconcile(t.Context()))
@@ -212,7 +212,7 @@ func TestReconcileBacksOffAfterARateLimitedLookup(t *testing.T) {
 
 	rec := NewReconciler(NewReconcilerParams{
 		Panes:    tmux,
-		Observer: pane.New(pane.Params{Terminal: tmux, Harnesses: fakeHarnesses{harness: &fakeHarness{}}}),
+		Observer: pane.NewPane(pane.NewPaneParams{Terminal: tmux, Harnesses: fakeHarnesses{harness: &fakeHarness{}}}),
 		States:   st.Agents,
 	}).WithPRFinder(finder)
 	at := time.Now()
