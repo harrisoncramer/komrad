@@ -3,14 +3,11 @@ package agents
 import (
 	"errors"
 	"os"
-	"os/exec"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"weave/config"
 	"weave/internal/frames"
-	"weave/internal/git"
 	"weave/internal/harness/pane"
 	"weave/internal/store"
 	agentstore "weave/internal/store/agent"
@@ -656,18 +653,14 @@ func TestDeletingAnAgentLeavesAnotherAgentsRoundHeld(t *testing.T) {
 	manager := st.agentServiceWithLifecycle(tmux, fakeHarnesses{harness: &fakeHarness{}}, &fakeLifecycle{})
 	reviews := reviewstore.New(st.Pool.GetDB())
 
-	root := sharedRepo(t)
+	root := t.TempDir()
 	going := seedRoundedAgent(t, st, reviews, "going", root, "same-sha")
-	staying := seedRoundedAgent(t, st, reviews, "staying", root, "same-sha")
-
-	held := roundRef(staying, "same-sha")
-	require.NoError(t, git.NewClient().HoldRef(t.Context(), root, roundRef(going, "same-sha"), headOf(t, root)))
-	require.NoError(t, git.NewClient().HoldRef(t.Context(), root, held, headOf(t, root)))
+	seedRoundedAgent(t, st, reviews, "staying", root, "same-sha")
 
 	require.NoError(t, manager.lifecycle.DeleteAgents(t.Context(), []string{going}))
 
-	assert.Equal(t, headOf(t, root), revParse(t, root, held),
-		"the other agent's round is still held by a ref of its own")
+	assert.Equal(t, []string{roundRef(going, "same-sha")}, manager.snapshots.releasedRefs(),
+		"only the going agent's round is let go of, since the other's ref names the other agent")
 }
 
 // TestDeletingAnAgentTakesItsDraftsAndKeepsItsReviews pins the two halves apart: a batch nobody
@@ -679,7 +672,7 @@ func TestDeletingAnAgentTakesItsDraftsAndKeepsItsReviews(t *testing.T) {
 	manager := st.agentServiceWithLifecycle(tmux, fakeHarnesses{harness: &fakeHarness{}}, &fakeLifecycle{})
 	reviews := reviewstore.New(st.Pool.GetDB())
 
-	root := sharedRepo(t)
+	root := t.TempDir()
 	worker := seedRoundedAgent(t, st, reviews, "worker", root, "worker-sha")
 	first := seedRoundedAgent(t, st, reviews, "kid-a", root, "kid-a-sha")
 	second := seedRoundedAgent(t, st, reviews, "kid-b", root, "kid-b-sha")
@@ -742,47 +735,4 @@ func seedRoundedAgent(t *testing.T, st *testStore, reviews *reviewstore.Store, n
 	require.NoError(t, err)
 
 	return agent.ID
-}
-
-func sharedRepo(t *testing.T) string {
-	t.Helper()
-
-	root := t.TempDir()
-	for _, args := range [][]string{
-		{"init", "--initial-branch=main"},
-		{"config", "user.email", "weave@example.com"},
-		{"config", "user.name", "weave"},
-	} {
-		gitIn(t, root, args...)
-	}
-
-	require.NoError(t, os.WriteFile(filepath.Join(root, "kept.go"), []byte("package main\n"), 0o644))
-	gitIn(t, root, "add", "-A")
-	gitIn(t, root, "commit", "-m", "init")
-
-	return root
-}
-
-func headOf(t *testing.T, root string) string {
-	t.Helper()
-
-	return revParse(t, root, "HEAD")
-}
-
-func revParse(t *testing.T, root, ref string) string {
-	t.Helper()
-
-	cmd := exec.Command("git", "-C", root, "rev-parse", ref)
-	out, err := cmd.Output()
-	require.NoError(t, err, ref)
-
-	return strings.TrimSpace(string(out))
-}
-
-func gitIn(t *testing.T, root string, args ...string) {
-	t.Helper()
-
-	cmd := exec.Command("git", append([]string{"-C", root}, args...)...)
-	out, err := cmd.CombinedOutput()
-	require.NoError(t, err, string(out))
 }

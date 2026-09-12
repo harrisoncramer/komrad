@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"testing"
 
+	"weave/internal/git"
+
 	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
 
@@ -69,23 +71,27 @@ func TestAdoptPlacesTheAgent(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			tmux := newFakeTmux()
 			st := newStore(t)
-			manager := newManager(tmux, st, "")
+			repo := fakeCheckout(t)
 
-			repo := initRepo(t)
-			runGit(t, repo, "branch", "someones/work")
+			// What git reports about the repository's checkouts, the main one first.
+			reported := []git.Worktree{{Dir: repo}}
 
 			var elsewhere string
 			switch tt.held {
 			case "another worktree":
 				elsewhere = filepath.Join(t.TempDir(), "theirs")
-				runGit(t, repo, "worktree", "add", "--quiet", elsewhere, "someones/work")
+				require.NoError(t, os.MkdirAll(elsewhere, 0o755))
+				reported = append(reported, git.Worktree{Dir: elsewhere, Branch: "someones/work"})
 			case "a worktree that is gone":
+				// Registered with git, and no longer on disk, which is what deleting one by hand
+				// leaves behind.
 				stale := filepath.Join(t.TempDir(), "stale")
-				runGit(t, repo, "worktree", "add", "--quiet", stale, "someones/work")
-				require.NoError(t, os.RemoveAll(stale))
+				reported = append(reported, git.Worktree{Dir: stale, Branch: "someones/work"})
 			case "the repo":
-				runGit(t, repo, "checkout", "--quiet", "someones/work")
+				reported = []git.Worktree{{Dir: repo, Branch: "someones/work"}}
 			}
+
+			manager := newManager(tmux, st, "").withWorktrees(fakeWorktrees(reported))
 
 			created, err := manager.adopt.Adopt(t.Context(), AdoptParams{
 				Ref:        "someones/work",
@@ -121,6 +127,13 @@ func TestAdoptPlacesTheAgent(t *testing.T) {
 	}
 }
 
+// fakeWorktrees is what git reports about a repository's checkouts, the main one first.
+type fakeWorktrees []git.Worktree
+
+func (f fakeWorktrees) ListWorktrees(context.Context, string) ([]git.Worktree, error) {
+	return f, nil
+}
+
 // TestAdoptRefusesADirectoryAnotherAgentHolds pins that two agents never share a worktree.
 func TestAdoptRefusesADirectoryAnotherAgentHolds(t *testing.T) {
 	tests := []struct {
@@ -149,11 +162,12 @@ func TestAdoptRefusesADirectoryAnotherAgentHolds(t *testing.T) {
 			st := newStore(t)
 			manager := newManager(tmux, st, "")
 
-			repo := initRepo(t)
+			repo := fakeCheckout(t)
 			workflow := seedWorktreeWorkflow(t, st, repo)
 
 			sitting := filepath.Join(t.TempDir(), "sitting")
-			runGit(t, repo, "worktree", "add", "--quiet", "-b", tt.branch, sitting)
+			require.NoError(t, os.MkdirAll(sitting, 0o755))
+			manager.withWorktrees(fakeWorktrees{{Dir: repo}, {Dir: sitting, Branch: tt.branch}})
 
 			require.NoError(t, st.Create(t.Context(), agentstore.Agent{
 				Name: "sitting", Cwd: sitting, State: agentstore.StateIdle,
@@ -178,9 +192,7 @@ func TestAdoptTakesOverFromAnAgentWhoseWorktreeIsGone(t *testing.T) {
 	st := newStore(t)
 	manager := newManager(tmux, st, "")
 
-	repo := initRepo(t)
-	runGit(t, repo, "branch", "someones/work")
-	workflow := seedWorktreeWorkflow(t, st, repo)
+	workflow := seedWorktreeWorkflow(t, st, fakeCheckout(t))
 
 	first, err := manager.adopt.Adopt(t.Context(), AdoptParams{Ref: "someones/work", WorkflowID: workflow})
 	require.NoError(t, err)
@@ -200,18 +212,18 @@ func TestAdoptTakesOverAWorktreeRegistrationWithNoDirectory(t *testing.T) {
 	st := newStore(t)
 	manager := newManager(tmux, st, "")
 
-	repo := initRepo(t)
+	repo := fakeCheckout(t)
 	workflow := seedWorktreeWorkflow(t, st, repo)
 
+	// Git keeps the registration of a checkout deleted by hand, so it still names the branch.
 	sitting := filepath.Join(t.TempDir(), "sitting")
-	runGit(t, repo, "worktree", "add", "--quiet", "-b", "someones/work", sitting)
+	manager.withWorktrees(fakeWorktrees{{Dir: repo}, {Dir: sitting, Branch: "someones/work"}})
 
 	require.NoError(t, st.Create(t.Context(), agentstore.Agent{
 		Name: "sitting", Cwd: sitting, State: agentstore.StateIdle,
 		WorkflowID: workflow, AdoptedBranch: "someones/work",
 	}))
 	require.NoError(t, st.SoftDelete(t.Context(), "sitting"))
-	require.NoError(t, os.RemoveAll(sitting))
 
 	created, err := manager.adopt.Adopt(t.Context(), AdoptParams{Ref: "someones/work", WorkflowID: workflow})
 	require.NoError(t, err)
@@ -243,9 +255,7 @@ func TestAdoptTwiceIsRefused(t *testing.T) {
 	st := newStore(t)
 	manager := newManager(tmux, st, "")
 
-	repo := initRepo(t)
-	runGit(t, repo, "branch", "someones/work")
-	workflow := seedWorktreeWorkflow(t, st, repo)
+	workflow := seedWorktreeWorkflow(t, st, fakeCheckout(t))
 
 	first, err := manager.adopt.Adopt(t.Context(), AdoptParams{Ref: "someones/work", WorkflowID: workflow})
 	require.NoError(t, err)
@@ -266,9 +276,7 @@ func TestAdoptWithTheSameIdempotencyKeyIsAnsweredNotRefused(t *testing.T) {
 	st := newStore(t)
 	manager := newManager(tmux, st, "")
 
-	repo := initRepo(t)
-	runGit(t, repo, "branch", "someones/work")
-	workflow := seedWorktreeWorkflow(t, st, repo)
+	workflow := seedWorktreeWorkflow(t, st, fakeCheckout(t))
 
 	params := AdoptParams{
 		Ref:            "someones/work",
@@ -298,9 +306,7 @@ func TestAdoptAfterASetupFailureIsNotRefusedByTheCorpse(t *testing.T) {
 	st := newStore(t)
 	manager := newManager(tmux, st, "")
 
-	repo := initRepo(t)
-	runGit(t, repo, "branch", "someones/work")
-	workflow := seedWorktreeWorkflow(t, st, repo)
+	workflow := seedWorktreeWorkflow(t, st, fakeCheckout(t))
 
 	first, err := manager.adopt.Adopt(t.Context(), AdoptParams{Ref: "someones/work", WorkflowID: workflow})
 	require.NoError(t, err)
@@ -328,7 +334,7 @@ func TestAdoptFromAPullRequest(t *testing.T) {
 		},
 	})
 
-	repo := initRepo(t)
+	repo := fakeCheckout(t)
 
 	created, err := manager.adopt.Adopt(t.Context(), AdoptParams{
 		Ref:        "https://github.com/acmecorp/admin/pull/1069",
@@ -395,7 +401,7 @@ func TestAdoptRefusesAPullRequestItCannotWorkOn(t *testing.T) {
 
 			_, err := manager.adopt.Adopt(t.Context(), AdoptParams{
 				Ref:        "https://github.com/acmecorp/admin/pull/1069",
-				WorkflowID: seedWorktreeWorkflow(t, st, initRepo(t)),
+				WorkflowID: seedWorktreeWorkflow(t, st, fakeCheckout(t)),
 			})
 
 			require.ErrorIs(t, err, tt.wantErrIs)
@@ -417,7 +423,7 @@ func TestAdoptReportsAFailureToRead(t *testing.T) {
 
 	_, err := manager.adopt.Adopt(t.Context(), AdoptParams{
 		Ref:        "1069",
-		WorkflowID: seedWorktreeWorkflow(t, st, initRepo(t)),
+		WorkflowID: seedWorktreeWorkflow(t, st, fakeCheckout(t)),
 	})
 
 	require.ErrorContains(t, err, "gh: not logged in")

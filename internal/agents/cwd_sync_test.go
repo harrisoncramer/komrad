@@ -3,7 +3,6 @@ package agents
 import (
 	"context"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"testing"
 
@@ -265,28 +264,6 @@ func fakeCheckout(t *testing.T) string {
 	require.NoError(t, os.MkdirAll(filepath.Join(dir, ".git"), 0o755))
 
 	return dir
-}
-
-func initRepo(t *testing.T) string {
-	t.Helper()
-
-	dir := t.TempDir()
-	runGit(t, dir, "init", "--quiet", "-b", "main")
-	runGit(t, dir, "config", "user.email", "test@weave.test")
-	runGit(t, dir, "config", "user.name", "weave test")
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "README.md"), []byte("hello\n"), 0o644))
-	runGit(t, dir, "add", "README.md")
-	runGit(t, dir, "commit", "--quiet", "-m", "initial")
-
-	return dir
-}
-
-func runGit(t *testing.T, dir string, args ...string) {
-	t.Helper()
-
-	cmd := exec.Command("git", append([]string{"-C", dir}, args...)...)
-	output, err := cmd.CombinedOutput()
-	require.NoErrorf(t, err, "git %v: %s", args, output)
 }
 
 func removedDir(t *testing.T) string {

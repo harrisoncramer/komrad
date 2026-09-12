@@ -471,6 +471,7 @@ type testAgents struct {
 	lifecycle *LifecycleService
 	panes     *PaneLiveness
 	emptied   *EmptyWorkflowDeleter
+	snapshots *recordingSnapshots
 }
 
 type agentServiceOptions struct {
@@ -520,8 +521,11 @@ func (s *testStore) agentService(options agentServiceOptions) *testAgents {
 		MaxChildren:        options.maxChildren,
 	})
 
+	snapshots := &recordingSnapshots{}
+
 	return &testAgents{
-		launch: launch,
+		launch:    launch,
+		snapshots: snapshots,
 		resume: NewResumeService(NewResumeServiceParams{
 			Tmux:      options.tmux,
 			Agents:    agents,
@@ -534,7 +538,7 @@ func (s *testStore) agentService(options agentServiceOptions) *testAgents {
 			Agents:    agents,
 			Workflows: s.Workflows,
 			Launch:    launch,
-			Worktrees: git.NewClient(),
+			Worktrees: onlyTheMainCheckout{},
 		}),
 		lifecycle: NewLifecycleService(NewLifecycleServiceParams{
 			Tmux:           options.tmux,
@@ -544,7 +548,7 @@ func (s *testStore) agentService(options agentServiceOptions) *testAgents {
 			Tx:             tx,
 			Scripts:        options.lifecycle,
 			Reviews:        reviewstore.New(s.Pool.GetDB()),
-			Snapshots:      git.NewClient(),
+			Snapshots:      snapshots,
 			LogsDir:        options.logsDir,
 			FramesDir:      options.framesDir,
 			MaxAgents:      options.maxAgents,
@@ -553,6 +557,52 @@ func (s *testStore) agentService(options agentServiceOptions) *testAgents {
 		panes:   NewPaneLiveness(options.tmux),
 		emptied: emptied,
 	}
+}
+
+// recordingSnapshots is the git a lifecycle service releases round refs through, which records
+// the refs rather than holding any.
+type recordingSnapshots struct {
+	mu       sync.Mutex
+	released []string
+}
+
+func (r *recordingSnapshots) ReleaseRef(_ context.Context, _, ref string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	r.released = append(r.released, ref)
+
+	return nil
+}
+
+// releasedRefs is what has been released so far.
+func (r *recordingSnapshots) releasedRefs() []string {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	return slices.Clone(r.released)
+}
+
+// onlyTheMainCheckout is git reporting one checkout of a repository, the repository itself,
+// holding no branch.
+type onlyTheMainCheckout struct{}
+
+func (onlyTheMainCheckout) ListWorktrees(_ context.Context, repo string) ([]git.Worktree, error) {
+	return []git.Worktree{{Dir: repo}}, nil
+}
+
+// withWorktrees rebuilds the adopt service over a listing of its own, which is what a test about
+// a branch some checkout already holds needs.
+func (a *testAgents) withWorktrees(worktrees worktreeLister) *testAgents {
+	a.adopt = NewAdoptService(NewAdoptServiceParams{
+		Agents:       a.adopt.agents,
+		Workflows:    a.adopt.workflows,
+		Launch:       a.adopt.launch,
+		PullRequests: a.adopt.pullRequests,
+		Worktrees:    worktrees,
+	})
+
+	return a
 }
 
 // withPullRequests rebuilds the adopt service over a resolver, which is what a test adopting
@@ -917,7 +967,7 @@ func worktreeConfig(t *testing.T, name string) workflowstore.Config {
 
 	return workflowstore.Config{
 		Name:     name,
-		Cwd:      initRepo(t),
+		Cwd:      fakeCheckout(t),
 		Worktree: workflowstore.WorktreeConfig{Enabled: true},
 	}
 }

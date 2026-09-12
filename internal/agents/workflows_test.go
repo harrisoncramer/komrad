@@ -2,7 +2,6 @@ package agents
 
 import (
 	"errors"
-	"path/filepath"
 	"testing"
 
 	"weave/internal/store"
@@ -217,7 +216,7 @@ func TestNewWorkflowWithWorktree(t *testing.T) {
 }
 
 // TestNewWorkflowWantsAPrimaryCheckout pins both directions of the cwd a worktree workflow is
-// held to, since every other test in this package stands on a directory shaped like one.
+// held to, with internal/e2e holding the same pair against repositories git made.
 func TestNewWorkflowWantsAPrimaryCheckout(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -232,19 +231,8 @@ func TestNewWorkflowWantsAPrimaryCheckout(t *testing.T) {
 			wantErr: ErrWorktreeCwdNotPrimaryCheckout,
 		},
 		{
-			name: "cwd is a linked worktree rather than the primary checkout",
-			cwd: func(t *testing.T) string {
-				repo := initRepo(t)
-				tree := filepath.Join(t.TempDir(), "tree")
-				runGit(t, repo, "worktree", "add", "--quiet", "-b", "feature", tree)
-
-				return tree
-			},
-			wantErr: ErrWorktreeCwdNotPrimaryCheckout,
-		},
-		{
-			name: "cwd is a repository git made",
-			cwd:  initRepo,
+			name: "cwd is a directory shaped like a checkout",
+			cwd:  fakeCheckout,
 		},
 	}
 
