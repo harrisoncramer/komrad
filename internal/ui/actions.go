@@ -53,6 +53,8 @@ const (
 	actionSelectClear
 	actionMarkSet
 	actionMarkJump
+	actionHistoryBack
+	actionHistoryForward
 	actionSchedulesOpen
 	actionArchiveOpen
 	actionScheduleNew
