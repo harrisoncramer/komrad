@@ -34,7 +34,6 @@ type prFinder interface {
 
 type paneObserver interface {
 	GetPanes() (map[string]tmux.PaneStatus, error)
-	CapturePane(pane string) string
 	ClearPaneOwner(pane string) error
 }
 
@@ -55,11 +54,11 @@ type agentStateReadWriter interface {
 // Reconciler treats the pane as the only authority on an agent's state, letting any other
 // signal only hurry along a transition the pane would reach anyway.
 type Reconciler struct {
-	tmux      paneObserver
-	harnesses harnessGetter
-	store     agentStateReadWriter
-	prFinder  prFinder
-	frames    frameRecorder
+	tmux     paneObserver
+	observer harness.Observer
+	store    agentStateReadWriter
+	prFinder prFinder
+	frames   frameRecorder
 
 	// unrecognizedTotal is only ever touched by the reconcile pass, so it needs none of the
 	// locking the tally below does.
@@ -67,21 +66,21 @@ type Reconciler struct {
 	tally             *tally
 }
 
-// NewReconcilerParams is what a Reconciler is built over: a tmux probe, the harnesses that
-// read its captures, and the state store.
+// NewReconcilerParams is what a Reconciler is built over: a tmux probe for who owns a pane,
+// an observer for what each agent is doing, and the state store.
 type NewReconcilerParams struct {
-	Panes     paneObserver
-	Harnesses harnessGetter
-	States    agentStateReadWriter
+	Panes    paneObserver
+	Observer harness.Observer
+	States   agentStateReadWriter
 }
 
-// NewReconciler builds a Reconciler over the probe, harnesses and store it is given.
+// NewReconciler builds a Reconciler over the probe, observer and store it is given.
 func NewReconciler(params NewReconcilerParams) *Reconciler {
 	return &Reconciler{
-		tmux:      params.Panes,
-		harnesses: params.Harnesses,
-		store:     params.States,
-		tally:     newTally(),
+		tmux:     params.Panes,
+		observer: params.Observer,
+		store:    params.States,
+		tally:    newTally(),
 	}
 }
 
@@ -171,19 +170,13 @@ func (r *Reconciler) reconcileAgent(ctx context.Context, agent agentstore.Agent,
 	}
 	r.tally.clearShell(agent.ID)
 
-	frame := r.tmux.CapturePane(agent.Pane)
-
-	if frame == "" {
-		return
-	}
-
-	hn, err := r.harnesses.GetByID(agent.Harness)
+	observed, err := r.observer.Observe(ctx, targetOf(agent))
 	if err != nil {
 		return
 	}
 
-	activity := hn.ReadInput(frame).Activity
-	r.recordFrame(ctx, agent, frame, activity)
+	activity := observed.Activity
+	r.recordFrame(ctx, agent, observed.Frame, activity)
 
 	switch activity {
 	case harness.ActivityWorking:
@@ -196,14 +189,15 @@ func (r *Reconciler) reconcileAgent(ctx context.Context, agent agentstore.Agent,
 		r.settle(ctx, agent, agentstore.StateIdle)
 
 	case harness.ActivityUnrecognized:
-		r.observeUnrecognized(ctx, agent, frame)
+		r.observeUnrecognized(ctx, agent, observed.Frame)
 	}
 }
 
 // recordFrame keeps the capture a reading was taken from, marking the ones that dispute the
 // state on record.
 func (r *Reconciler) recordFrame(ctx context.Context, agent agentstore.Agent, frame string, activity harness.Activity) {
-	if r.frames == nil {
+	// A source that reads no screen leaves nothing to replay a misreading through.
+	if r.frames == nil || frame == "" {
 		return
 	}
 

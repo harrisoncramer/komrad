@@ -211,10 +211,10 @@ func (f *fakeTmux) NewWindow(session, name, dir string) (string, error) {
 	f.newWindowCalls++
 
 	f.newWindows[name] = dir
-	pane := "%" + name
-	f.owners[pane] = ""
+	opened := "%" + name
+	f.owners[opened] = ""
 
-	return pane, nil
+	return opened, nil
 }
 
 func (f *fakeTmux) windowsOpened() int {
@@ -243,6 +243,22 @@ func (f *fakeTmux) KillPane(pane string) {
 	f.killedPanes = append(f.killedPanes, pane)
 	delete(f.owners, pane)
 }
+
+func (f *fakeTmux) IsPaneInMode(string) bool { return false }
+
+func (f *fakeTmux) IsClientAtPane(string, time.Duration) bool { return false }
+
+func (f *fakeTmux) PasteAndSubmit(target, text string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.sent[target] = append(f.sent[target], []string{text})
+
+	return nil
+}
+
+func (f *fakeTmux) CutLine(string) error { return nil }
+
+func (f *fakeTmux) YankLine(string) error { return nil }
 
 const (
 	busyFrame         = "frame: working"
@@ -557,8 +573,8 @@ func (a *testAgents) withPullRequests(resolver pullRequestResolver) *testAgents 
 // one of its calls without every helper here having to know the wrapper's type.
 type fakeTmuxController interface {
 	paneController
-	paneWriter
 	paneStarter
+	SendKeys(target string, keys ...string) error
 }
 
 func (s *testStore) agentServiceWithLifecycle(tmux fakeTmuxController, harnesses fakeHarnesses, lifecycle agentScriptRunner) *testAgents {

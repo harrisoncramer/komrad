@@ -27,7 +27,8 @@ import (
 	"github.com/riverqueue/river"
 )
 
-type Params struct {
+// NewServerParams is what the service is built over.
+type NewServerParams struct {
 	Env                *config.Environment
 	ConfigPaths        []string
 	Logger             *slog.Logger
@@ -80,20 +81,21 @@ type Server struct {
 	closers       []func()
 }
 
-// New builds the service, with nothing listening and no loop running until the caller says so.
-func New(ctx context.Context, p Params) (*Server, error) {
-	if err := harness.RequirePOSIXShell(p.Tmux.GetDefaultShell()); err != nil {
+// NewServer builds the service, with nothing listening and no loop running until the caller
+// says so.
+func NewServer(ctx context.Context, params NewServerParams) (*Server, error) {
+	if err := harness.RequirePOSIXShell(params.Tmux.GetDefaultShell()); err != nil {
 		return nil, err
 	}
 
-	st, err := openStores(ctx, p.Env.DatabaseURL)
+	st, err := openStores(ctx, params.Env.DatabaseURL)
 	if err != nil {
 		return nil, err
 	}
 
 	srv := &Server{
 		Pool:          st.pool,
-		logger:        p.Logger,
+		logger:        params.Logger,
 		stopRequested: make(chan struct{}, 1),
 	}
 	srv.closers = append(srv.closers, func() { _ = st.pool.Close() })
@@ -107,7 +109,7 @@ func New(ctx context.Context, p Params) (*Server, error) {
 		}
 	}()
 
-	svc, err := buildServices(p, st)
+	svc, err := buildServices(params, st)
 	if err != nil {
 		return nil, err
 	}
@@ -126,7 +128,7 @@ func New(ctx context.Context, p Params) (*Server, error) {
 		Deleter:   svc.lifecycle,
 		Archived:  st.agents,
 		Running:   st.agents,
-		Logger:    p.Logger,
+		Logger:    params.Logger,
 	})
 	if err != nil {
 		return nil, err
@@ -134,15 +136,15 @@ func New(ctx context.Context, p Params) (*Server, error) {
 
 	// The MCP query tools connect through a least-privilege role, so their pool is opened
 	// apart from the one everything else writes through.
-	readOnly, err := store.OpenReadOnly(ctx, p.Env.ReadOnlyDatabaseURL)
+	readOnly, err := store.OpenReadOnly(ctx, params.Env.ReadOnlyDatabaseURL)
 	if err != nil {
 		return nil, err
 	}
 	srv.closers = append(srv.closers, readOnly.Close)
 
 	srv.Mux, err = newMux(newMuxParams{
-		Logger:        p.Logger,
-		Addr:          p.Addr,
+		Logger:        params.Logger,
+		Addr:          params.Addr,
 		Stores:        st,
 		Services:      svc,
 		Jobs:          srv.Jobs,
@@ -155,7 +157,7 @@ func New(ctx context.Context, p Params) (*Server, error) {
 
 	srv.Periodic = jobs.NewRiverPeriodic(srv.Jobs.PeriodicJobs())
 	srv.Loops = buildLoops(buildLoopsParams{
-		Harnesses: p.Harnesses,
+		Harnesses: params.Harnesses,
 		Stores:    st,
 		Services:  svc,
 		Periodic:  srv.Periodic,

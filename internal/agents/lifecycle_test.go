@@ -11,6 +11,7 @@ import (
 	"weave/config"
 	"weave/internal/frames"
 	"weave/internal/git"
+	"weave/internal/harness/pane"
 	"weave/internal/store"
 	agentstore "weave/internal/store/agent"
 	reviewstore "weave/internal/store/review"
@@ -533,9 +534,9 @@ func TestAReissuedPaneIsNotTheAgents(t *testing.T) {
 		tmux.captures[shared] = busyFrame
 
 		rec := NewReconciler(NewReconcilerParams{
-			Panes:     tmux,
-			Harnesses: fakeHarnesses{harness: &fakeHarness{}},
-			States:    st.Agents,
+			Panes:    tmux,
+			Observer: pane.NewPane(pane.NewPaneParams{Terminal: tmux, Harnesses: fakeHarnesses{harness: &fakeHarness{}}}),
+			States:   st.Agents,
 		})
 		require.NoError(t, rec.Reconcile(t.Context()))
 

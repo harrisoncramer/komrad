@@ -4,6 +4,7 @@ import (
 	"testing"
 	"time"
 
+	"weave/internal/harness/pane"
 	agentstore "weave/internal/store/agent"
 	schedulestore "weave/internal/store/schedule"
 	workflowstore "weave/internal/store/workflow"
@@ -340,9 +341,9 @@ func TestScheduleIsNotBlockedByARunThatNeverStarted(t *testing.T) {
 			tmux.captures["%1"] = tt.frame
 
 			rec := NewReconciler(NewReconcilerParams{
-				Panes:     tmux,
-				Harnesses: fakeHarnesses{harness: &fakeHarness{}},
-				States:    st.Agents,
+				Panes:    tmux,
+				Observer: pane.NewPane(pane.NewPaneParams{Terminal: tmux, Harnesses: fakeHarnesses{harness: &fakeHarness{}}}),
+				States:   st.Agents,
 			})
 			for range reconcileMisses + 2 {
 				require.NoError(t, rec.Reconcile(ctx))
