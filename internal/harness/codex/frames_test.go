@@ -15,11 +15,36 @@ func TestReadActivityOnCapturedFrames(t *testing.T) {
 	tests := []struct {
 		file string
 		want harness.Activity
+		held []string
 	}{
-		{file: "dim_rule_above_an_empty_composer.txt", want: harness.ActivityIdle},
-		{file: "dim_rule_above_a_composer_holding_a_draft.txt", want: harness.ActivityComposing},
-		{file: "slash_menu_under_the_composer.txt", want: harness.ActivityComposing},
-		{file: "starting_mcp_servers_offering_interrupt.txt", want: harness.ActivityWorking},
+		{
+			file: "dim_rule_above_an_empty_composer.txt",
+			want: harness.ActivityIdle,
+			held: []string{" ", ""},
+		},
+		{
+			file: "dim_rule_above_a_composer_holding_a_draft.txt",
+			want: harness.ActivityComposing,
+			held: []string{
+				" a codex draft that nobody sent, long enough to wrap across the composer more",
+				"  than once so the frame shows it",
+				"",
+			},
+		},
+		{
+			file: "composer_holding_a_draft_across_a_blank_line.txt",
+			want: harness.ActivityComposing,
+			held: []string{" first line", "", "  third line after a blank", ""},
+		},
+		{
+			file: "slash_menu_under_the_composer.txt",
+			want: harness.ActivityComposing,
+			held: []string{" /"},
+		},
+		{
+			file: "starting_mcp_servers_offering_interrupt.txt",
+			want: harness.ActivityWorking,
+		},
 	}
 
 	for _, tt := range tests {
@@ -29,7 +54,10 @@ func TestReadActivityOnCapturedFrames(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			assert.Equal(t, tt.want, NewHarness(NewHarnessParams{SessionsDir: t.TempDir()}).ReadInput(string(frame)).Activity)
+			input := NewHarness(NewHarnessParams{SessionsDir: t.TempDir()}).ReadInput(string(frame))
+
+			assert.Equal(t, tt.want, input.Activity)
+			assert.Equal(t, tt.held, input.Held)
 		})
 	}
 }

@@ -18,6 +18,8 @@ var waitingFooter = regexp.MustCompile(`(?i)press enter to (confirm|continue)|en
 
 var composerMarker = regexp.MustCompile(`^\s*›(.*)$`)
 
+var slashWord = regexp.MustCompile(`^\s*/\S*$`)
+
 const liveRegionLines = 30
 
 const waitingRegionLines = 8
@@ -149,22 +151,37 @@ func composerText(frame string) ([]string, bool) {
 		return nil, false
 	}
 
-	// The composer has no rule under it, so what it holds runs down to the lowest line Codex draws
-	// below it, dim hints included.
-	footer := marker
-	for i := marker + 1; i < len(drawn); i++ {
-		if strings.TrimSpace(drawn[i]) != "" {
-			footer = i
-		}
-	}
-
 	held := []string{""}
 	if typed := composerMarker.FindStringSubmatch(lines[marker]); typed != nil {
 		held[0] = typed[1]
 	}
 
-	if footer > marker {
-		held = append(held, lines[marker+1:footer]...)
+	// The composer has no rule under it, so what it holds runs down to the lowest line Codex
+	// draws below it, dim hints included.
+	end := marker + 1
+
+	for i := len(drawn) - 1; i > marker; i-- {
+		if strings.TrimSpace(drawn[i]) != "" {
+			end = i
+
+			break
+		}
+	}
+
+	// Codex opens the slash menu for a box holding one slash word and nothing else, and draws it
+	// where the footer would be.
+	if slashWord.MatchString(held[0]) {
+		for i := end; i > marker; i-- {
+			if strings.TrimSpace(drawn[i]) == "" {
+				end = i
+
+				break
+			}
+		}
+	}
+
+	if end > marker+1 {
+		held = append(held, lines[marker+1:end]...)
 	}
 
 	return held, true
