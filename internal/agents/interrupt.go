@@ -5,34 +5,41 @@ import (
 	"errors"
 	"fmt"
 
+	"weave/internal/harness"
 	"weave/internal/store"
+	agentstore "weave/internal/store/agent"
 )
 
-type NewPaneInterrupterParams struct {
-	Agents    agentGetter
-	Harnesses harnessGetter
-	Panes     paneWriter
-}
-
-// PaneInterrupter stops an agent where it stands by typing whatever its own CLI reads as an
-// interrupt into its pane.
-type PaneInterrupter struct {
-	agents    agentGetter
-	harnesses harnessGetter
-	panes     paneWriter
-}
-
-// NewPaneInterrupter builds the interrupter over the registry and the tmux server.
-func NewPaneInterrupter(params NewPaneInterrupterParams) *PaneInterrupter {
-	return &PaneInterrupter{
-		agents:    params.Agents,
-		harnesses: params.Harnesses,
-		panes:     params.Panes,
+// targetOf names an agent the way a channel or an observer reaches it.
+func targetOf(agent agentstore.Agent) harness.Target {
+	return harness.Target{
+		AgentID:   agent.ID,
+		Pane:      agent.Pane,
+		HarnessID: agent.Harness,
 	}
 }
 
-// Interrupt sends the agent's harness the keys that stop it.
-func (i *PaneInterrupter) Interrupt(ctx context.Context, agentID string) error {
+type NewInterrupterParams struct {
+	Agents  agentGetter
+	Channel harness.Channel
+}
+
+// Interrupter stops an agent where it stands.
+type Interrupter struct {
+	agents  agentGetter
+	channel harness.Channel
+}
+
+// NewInterrupter builds the interrupter over the store and the channel reaching the agent.
+func NewInterrupter(params NewInterrupterParams) *Interrupter {
+	return &Interrupter{
+		agents:  params.Agents,
+		channel: params.Channel,
+	}
+}
+
+// Interrupt asks the agent's channel to stop it.
+func (i *Interrupter) Interrupt(ctx context.Context, agentID string) error {
 	agent, err := i.agents.GetByID(ctx, agentID)
 	if errors.Is(err, store.ErrNotFound) {
 		return fmt.Errorf("%w: %q", ErrAgentNotFound, agentID)
@@ -40,23 +47,6 @@ func (i *PaneInterrupter) Interrupt(ctx context.Context, agentID string) error {
 	if err != nil {
 		return err
 	}
-	if agent.Pane == "" {
-		return fmt.Errorf("agent %q is not in a pane to interrupt", agentID)
-	}
 
-	running, err := i.harnesses.GetByID(agent.Harness)
-	if err != nil {
-		return fmt.Errorf("failed to find the harness of agent %q: %w", agentID, err)
-	}
-
-	keys := running.InterruptKeys()
-	if len(keys) == 0 {
-		return fmt.Errorf("the %q harness has no keys that interrupt it", agent.Harness)
-	}
-
-	if err := i.panes.SendKeys(agent.Pane, keys...); err != nil {
-		return fmt.Errorf("failed to interrupt agent %q: %w", agentID, err)
-	}
-
-	return nil
+	return i.channel.Interrupt(ctx, targetOf(*agent))
 }

@@ -10,6 +10,7 @@ import (
 	"weave/internal/browser"
 	"weave/internal/frames"
 	"weave/internal/git"
+	"weave/internal/harness/pane"
 	"weave/internal/scripts"
 )
 
@@ -99,6 +100,7 @@ func buildServices(p Params, st *stores) (*services, error) {
 		HookCommand: p.HookCommand,
 	})
 	paneLiveness := agents.NewPaneLiveness(p.Tmux)
+	paneChannel := pane.New(pane.Params{Terminal: p.Tmux, Harnesses: p.Harnesses})
 	launchService := agents.NewLaunchService(agents.NewLaunchServiceParams{
 		Tmux:               p.Tmux,
 		Agents:             st.agents,
@@ -134,10 +136,9 @@ func buildServices(p Params, st *stores) (*services, error) {
 		Mailer:    mailService,
 		Resumer:   resumeService,
 		StateDir:  stateDir,
-		Interrupter: agents.NewPaneInterrupter(agents.NewPaneInterrupterParams{
-			Agents:    st.agents,
-			Harnesses: p.Harnesses,
-			Panes:     p.Tmux,
+		Interrupter: agents.NewInterrupter(agents.NewInterrupterParams{
+			Agents:  st.agents,
+			Channel: paneChannel,
 		}),
 	})
 	rebaseService := agents.NewRebaseService(agents.NewRebaseServiceParams{
@@ -145,10 +146,9 @@ func buildServices(p Params, st *stores) (*services, error) {
 		Workflows: st.workflows,
 		Notifier:  mailService,
 		Rebaser:   git.NewClient(),
-		Interrupter: agents.NewPaneInterrupter(agents.NewPaneInterrupterParams{
-			Agents:    st.agents,
-			Harnesses: p.Harnesses,
-			Panes:     p.Tmux,
+		Interrupter: agents.NewInterrupter(agents.NewInterrupterParams{
+			Agents:  st.agents,
+			Channel: paneChannel,
 		}),
 	})
 	adoptService := agents.NewAdoptService(agents.NewAdoptServiceParams{
@@ -211,13 +211,12 @@ func buildServices(p Params, st *stores) (*services, error) {
 			MailboxReader: st.mail,
 			NudgeClaimer:  st.agents,
 			PaneReader:    paneLiveness,
-			PaneWriter:    p.Tmux,
-			Harnesses:     p.Harnesses,
+			Channel:       paneChannel,
 		}),
 		reconciler: agents.NewReconciler(agents.NewReconcilerParams{
-			Panes:     p.Tmux,
-			Harnesses: p.Harnesses,
-			States:    st.agents,
+			Panes:    p.Tmux,
+			Observer: paneChannel,
+			States:   st.agents,
 		}).
 			WithPRFinder(agents.NewGHPRFinder()).
 			WithFrameRecorder(frames.NewRecorder(p.Env.FramesDir(), newFrameSettings(loadConfig).get)),

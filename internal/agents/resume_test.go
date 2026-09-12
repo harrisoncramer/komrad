@@ -8,6 +8,7 @@ import (
 	"sync"
 	"testing"
 	"time"
+	"weave/internal/harness/pane"
 
 	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
@@ -94,9 +95,9 @@ func TestAnInterruptedTurnIsAskedForAgain(t *testing.T) {
 		service, h := newManagerWithHarness(tmux, st, "")
 
 		rec := NewReconciler(NewReconcilerParams{
-			Panes:     tmux,
-			Harnesses: fakeHarnesses{harness: h},
-			States:    st.Agents,
+			Panes:    tmux,
+			Observer: pane.New(pane.Params{Terminal: tmux, Harnesses: fakeHarnesses{harness: h}}),
+			States:   st.Agents,
 		})
 		for range listingsBeforePaneGone {
 			require.NoError(t, rec.Reconcile(t.Context()))
@@ -211,9 +212,9 @@ func TestAnInterruptedTurnIsAskedForAgain(t *testing.T) {
 
 		tmux := newFakeTmux()
 		rec := NewReconciler(NewReconcilerParams{
-			Panes:     tmux,
-			Harnesses: fakeHarnesses{harness: h},
-			States:    st.Agents,
+			Panes:    tmux,
+			Observer: pane.New(pane.Params{Terminal: tmux, Harnesses: fakeHarnesses{harness: h}}),
+			States:   st.Agents,
 		})
 		for range listingsBeforePaneGone {
 			require.NoError(t, rec.Reconcile(t.Context()))
@@ -241,9 +242,9 @@ func TestATurnCutOffWithNoTmuxServerIsAskedForAgain(t *testing.T) {
 
 	tmux.paneOwnersErr = errors.New("error connecting to /private/tmp/tmux-501/weave")
 	rec := NewReconciler(NewReconcilerParams{
-		Panes:     tmux,
-		Harnesses: fakeHarnesses{harness: h},
-		States:    st.Agents,
+		Panes:    tmux,
+		Observer: pane.New(pane.Params{Terminal: tmux, Harnesses: fakeHarnesses{harness: h}}),
+		States:   st.Agents,
 	})
 	require.Error(t, rec.Reconcile(t.Context()))
 	tmux.paneOwnersErr = nil

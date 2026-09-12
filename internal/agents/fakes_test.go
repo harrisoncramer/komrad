@@ -244,6 +244,22 @@ func (f *fakeTmux) KillPane(pane string) {
 	delete(f.owners, pane)
 }
 
+func (f *fakeTmux) IsPaneInMode(string) bool { return false }
+
+func (f *fakeTmux) IsClientAtPane(string, time.Duration) bool { return false }
+
+func (f *fakeTmux) PasteAndSubmit(target, text string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.sent[target] = append(f.sent[target], []string{text})
+
+	return nil
+}
+
+func (f *fakeTmux) CutLine(string) error { return nil }
+
+func (f *fakeTmux) YankLine(string) error { return nil }
+
 const (
 	busyFrame         = "frame: working"
 	idleFrame         = "frame: idle"

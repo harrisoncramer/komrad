@@ -6,6 +6,7 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+	"weave/internal/harness/pane"
 
 	agentstore "weave/internal/store/agent"
 	"weave/lib/xptr"
@@ -75,9 +76,9 @@ func TestReconcileRecordsAPullRequestOnceIdle(t *testing.T) {
 	finder := &fakePRFinder{url: "https://github.com/harrisoncramer/weave/pull/1"}
 
 	rec := NewReconciler(NewReconcilerParams{
-		Panes:     tmux,
-		Harnesses: fakeHarnesses{harness: &fakeHarness{}},
-		States:    st.Agents,
+		Panes:    tmux,
+		Observer: pane.New(pane.Params{Terminal: tmux, Harnesses: fakeHarnesses{harness: &fakeHarness{}}}),
+		States:   st.Agents,
 	}).WithPRFinder(finder)
 	require.NoError(t, rec.Reconcile(t.Context()))
 	require.Equal(t, agentstore.StateIdle, stateOf(t, st, "agent"))
@@ -108,9 +109,9 @@ func TestReconcileChecksOnceThenLeavesItAlone(t *testing.T) {
 		finder := &fakePRFinder{url: "https://github.com/harrisoncramer/weave/pull/2"}
 
 		rec := NewReconciler(NewReconcilerParams{
-			Panes:     tmux,
-			Harnesses: fakeHarnesses{harness: &fakeHarness{}},
-			States:    st.Agents,
+			Panes:    tmux,
+			Observer: pane.New(pane.Params{Terminal: tmux, Harnesses: fakeHarnesses{harness: &fakeHarness{}}}),
+			States:   st.Agents,
 		}).WithPRFinder(finder)
 		require.NoError(t, rec.Reconcile(t.Context()))
 		require.Equal(t, agentstore.StateIdle, stateOf(t, st, "agent"))
@@ -128,9 +129,9 @@ func TestReconcileChecksOnceThenLeavesItAlone(t *testing.T) {
 		finder := &fakePRFinder{url: "https://github.com/harrisoncramer/weave/pull/1"}
 
 		rec := NewReconciler(NewReconcilerParams{
-			Panes:     tmux,
-			Harnesses: fakeHarnesses{harness: &fakeHarness{}},
-			States:    st.Agents,
+			Panes:    tmux,
+			Observer: pane.New(pane.Params{Terminal: tmux, Harnesses: fakeHarnesses{harness: &fakeHarness{}}}),
+			States:   st.Agents,
 		}).WithPRFinder(finder)
 		require.NoError(t, rec.Reconcile(t.Context()))
 		require.Equal(t, agentstore.StateIdle, stateOf(t, st, "agent"))
@@ -148,9 +149,9 @@ func TestReconcileChecksOnceThenLeavesItAlone(t *testing.T) {
 		finder := &fakePRFinder{url: "https://github.com/harrisoncramer/weave/pull/1"}
 
 		rec := NewReconciler(NewReconcilerParams{
-			Panes:     tmux,
-			Harnesses: fakeHarnesses{harness: &fakeHarness{}},
-			States:    st.Agents,
+			Panes:    tmux,
+			Observer: pane.New(pane.Params{Terminal: tmux, Harnesses: fakeHarnesses{harness: &fakeHarness{}}}),
+			States:   st.Agents,
 		}).WithPRFinder(finder)
 		require.NoError(t, rec.Reconcile(t.Context()))
 
@@ -165,9 +166,9 @@ func TestReconcileChecksOnceThenLeavesItAlone(t *testing.T) {
 		tmux := newFakeTmux()
 		tmux.owners["%1"] = ""
 		rec := NewReconciler(NewReconcilerParams{
-			Panes:     tmux,
-			Harnesses: fakeHarnesses{harness: &fakeHarness{}},
-			States:    st.Agents,
+			Panes:    tmux,
+			Observer: pane.New(pane.Params{Terminal: tmux, Harnesses: fakeHarnesses{harness: &fakeHarness{}}}),
+			States:   st.Agents,
 		})
 		require.NoError(t, rec.Reconcile(t.Context()))
 		require.Equal(t, agentstore.StateIdle, stateOf(t, st, "agent"))
@@ -187,9 +188,9 @@ func TestReconcileSwallowsALookupFailure(t *testing.T) {
 	finder := &fakePRFinder{err: errors.New("gh: command not found")}
 
 	rec := NewReconciler(NewReconcilerParams{
-		Panes:     tmux,
-		Harnesses: fakeHarnesses{harness: &fakeHarness{}},
-		States:    st.Agents,
+		Panes:    tmux,
+		Observer: pane.New(pane.Params{Terminal: tmux, Harnesses: fakeHarnesses{harness: &fakeHarness{}}}),
+		States:   st.Agents,
 	}).WithPRFinder(finder)
 	require.NoError(t, rec.Reconcile(t.Context()))
 
@@ -210,9 +211,9 @@ func TestReconcileBacksOffAfterARateLimitedLookup(t *testing.T) {
 	finder := &fakePRFinder{err: errors.New("API rate limit exceeded for installation ID 123.")}
 
 	rec := NewReconciler(NewReconcilerParams{
-		Panes:     tmux,
-		Harnesses: fakeHarnesses{harness: &fakeHarness{}},
-		States:    st.Agents,
+		Panes:    tmux,
+		Observer: pane.New(pane.Params{Terminal: tmux, Harnesses: fakeHarnesses{harness: &fakeHarness{}}}),
+		States:   st.Agents,
 	}).WithPRFinder(finder)
 	at := time.Now()
 	rec.tally.now = func() time.Time { return at }

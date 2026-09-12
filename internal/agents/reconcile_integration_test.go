@@ -6,6 +6,7 @@ import (
 
 	"weave/internal/harness"
 	"weave/internal/harness/claude"
+	"weave/internal/harness/pane"
 	agentstore "weave/internal/store/agent"
 	"weave/internal/tmux"
 	"weave/internal/tmuxtest"
@@ -22,9 +23,9 @@ func TestReconcileAgainstRealTmux(t *testing.T) {
 	st := newStore(t)
 	ctx := t.Context()
 	rec := NewReconciler(NewReconcilerParams{
-		Panes:     cli,
-		Harnesses: mustRegistry(t, claude.NewHarness(claude.NewHarnessParams{ProjectsDir: t.TempDir()})),
-		States:    st.Agents,
+		Panes:    cli,
+		Observer: pane.New(pane.Params{Terminal: cli, Harnesses: mustRegistry(t, claude.NewHarness(claude.NewHarnessParams{ProjectsDir: t.TempDir()}))}),
+		States:   st.Agents,
 	})
 
 	busyPane := it.Spawn("busy", `sh -c 'printf "\033[H· Cooking… (3s · down 1k tokens)\n"; exec cat'`)
@@ -84,14 +85,14 @@ func TestExitedCLIStopsBeingANudgeTarget(t *testing.T) {
 	st := newStore(t)
 	ctx := t.Context()
 	rec := NewReconciler(NewReconcilerParams{
-		Panes:     cli,
-		Harnesses: mustRegistry(t, claude.NewHarness(claude.NewHarnessParams{ProjectsDir: t.TempDir()})),
-		States:    st.Agents,
+		Panes:    cli,
+		Observer: pane.New(pane.Params{Terminal: cli, Harnesses: mustRegistry(t, claude.NewHarness(claude.NewHarnessParams{ProjectsDir: t.TempDir()}))}),
+		States:   st.Agents,
 	})
 
-	pane := it.Spawn("exited", `sh -c 'printf "\033[H❯ ready\n"; exec sh'`)
-	agent := seedRunning(t, st, cli, "exited", pane, agentstore.StateThinking)
-	it.WaitForFrame(pane, "ready")
+	exitedPane := it.Spawn("exited", `sh -c 'printf "\033[H❯ ready\n"; exec sh'`)
+	agent := seedRunning(t, st, cli, "exited", exitedPane, agentstore.StateThinking)
+	it.WaitForFrame(exitedPane, "ready")
 
 	for range reconcileMisses {
 		require.NoError(t, rec.Reconcile(ctx))
@@ -106,7 +107,7 @@ func TestExitedCLIStopsBeingANudgeTarget(t *testing.T) {
 		MailboxReader: &fakeMailboxReader{pending: 1},
 		NudgeClaimer:  &fakeAgents{agent: &after, claimed: true},
 		PaneReader:    NewPaneLiveness(cli),
-		PaneWriter:    panes,
+		Channel:       pane.New(pane.Params{Terminal: panes, Harnesses: fakeHarnesses{harness: &fakeHarness{}}}),
 	})
 
 	got, err := svc.Deliver(ctx, agent.ID)
@@ -130,9 +131,9 @@ func TestReconcileHoldsAPaneOneListingLeftOut(t *testing.T) {
 	st := newStore(t)
 	ctx := t.Context()
 	rec := NewReconciler(NewReconcilerParams{
-		Panes:     it.Client(),
-		Harnesses: mustRegistry(t, claude.NewHarness(claude.NewHarnessParams{ProjectsDir: t.TempDir()})),
-		States:    st.Agents,
+		Panes:    it.Client(),
+		Observer: pane.New(pane.Params{Terminal: it.Client(), Harnesses: mustRegistry(t, claude.NewHarness(claude.NewHarnessParams{ProjectsDir: t.TempDir()}))}),
+		States:   st.Agents,
 	})
 
 	it.Spawn("bystander", "sleep 300")
@@ -171,9 +172,9 @@ func TestReconcileHoldsAPaneWhateverElseTheListingKept(t *testing.T) {
 	st := newStore(t)
 	ctx := t.Context()
 	rec := NewReconciler(NewReconcilerParams{
-		Panes:     it.Client(),
-		Harnesses: mustRegistry(t, claude.NewHarness(claude.NewHarnessParams{ProjectsDir: t.TempDir()})),
-		States:    st.Agents,
+		Panes:    it.Client(),
+		Observer: pane.New(pane.Params{Terminal: it.Client(), Harnesses: mustRegistry(t, claude.NewHarness(claude.NewHarnessParams{ProjectsDir: t.TempDir()}))}),
+		States:   st.Agents,
 	})
 
 	board := seedBoard(t, it, st, 8)
@@ -197,9 +198,9 @@ func TestReconcileForgetsAPaneThatStaysGone(t *testing.T) {
 	st := newStore(t)
 	ctx := t.Context()
 	rec := NewReconciler(NewReconcilerParams{
-		Panes:     it.Client(),
-		Harnesses: mustRegistry(t, claude.NewHarness(claude.NewHarnessParams{ProjectsDir: t.TempDir()})),
-		States:    st.Agents,
+		Panes:    it.Client(),
+		Observer: pane.New(pane.Params{Terminal: it.Client(), Harnesses: mustRegistry(t, claude.NewHarness(claude.NewHarnessParams{ProjectsDir: t.TempDir()}))}),
+		States:   st.Agents,
 	})
 
 	board := seedBoard(t, it, st, 5)
@@ -229,9 +230,9 @@ func TestReconcileReturnsAHoldWhenTheListingComesBack(t *testing.T) {
 	ctx := t.Context()
 	dropping := &listingDroppingPanes{Client: it.Client()}
 	rec := NewReconciler(NewReconcilerParams{
-		Panes:     dropping,
-		Harnesses: mustRegistry(t, claude.NewHarness(claude.NewHarnessParams{ProjectsDir: t.TempDir()})),
-		States:    st.Agents,
+		Panes:    dropping,
+		Observer: pane.New(pane.Params{Terminal: dropping, Harnesses: mustRegistry(t, claude.NewHarness(claude.NewHarnessParams{ProjectsDir: t.TempDir()}))}),
+		States:   st.Agents,
 	})
 
 	board := seedBoard(t, it, st, 5)
