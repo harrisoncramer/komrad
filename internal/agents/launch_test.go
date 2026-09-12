@@ -208,8 +208,11 @@ func TestNewAgentIdempotency(t *testing.T) {
 			dir := t.TempDir()
 
 			params := NewAgentParams{
-				Title: "morning-ci", Dir: dir, Prompt: "check CI",
-				WorkflowID: seedWorkflow(t, st), IdempotencyKey: tt.first,
+				Title:          "morning-ci",
+				Dir:            dir,
+				Prompt:         "check CI",
+				WorkflowID:     seedWorkflow(t, st),
+				IdempotencyKey: tt.first,
 			}
 			first, err := manager.launch.NewAgent(t.Context(), params)
 			require.NoError(t, err)
@@ -277,8 +280,11 @@ func TestNewAgentRetriesUnderTheSameKey(t *testing.T) {
 			manager := newManager(tmux, st, "")
 
 			params := NewAgentParams{
-				Title: "morning-ci", Dir: t.TempDir(), Prompt: "check CI",
-				WorkflowID: seedWorkflow(t, st), IdempotencyKey: key,
+				Title:          "morning-ci",
+				Dir:            t.TempDir(),
+				Prompt:         "check CI",
+				WorkflowID:     seedWorkflow(t, st),
+				IdempotencyKey: key,
 			}
 
 			first, err := manager.launch.NewAgent(t.Context(), params)
@@ -354,7 +360,9 @@ func TestNewAgentRecordsWhoSpawnedIt(t *testing.T) {
 			}
 
 			created, err := manager.launch.NewAgent(ctx, NewAgentParams{
-				Title: "delegate", Dir: t.TempDir(), Prompt: "do the thing",
+				Title:      "delegate",
+				Dir:        t.TempDir(),
+				Prompt:     "do the thing",
 				WorkflowID: seedWorkflow(t, st),
 			})
 
@@ -436,7 +444,9 @@ func TestNewAgentGetsDirectory(t *testing.T) {
 			require.NoError(t, err)
 
 			_, err = manager.launch.NewAgent(t.Context(), NewAgentParams{
-				Title: "scoped", Dir: tt.dir, WorkflowID: created.ID,
+				Title:      "scoped",
+				Dir:        tt.dir,
+				WorkflowID: created.ID,
 			})
 			require.NoError(t, err)
 

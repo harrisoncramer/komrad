@@ -9,6 +9,9 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
+// flashFieldStyle marks a row or a field that has just been copied.
+var flashFieldStyle = lipgloss.NewStyle().Background(paint.Accent).Foreground(lipgloss.Color("0"))
+
 type detailsState struct {
 	focused bool
 	cursor  int
@@ -294,5 +297,3 @@ func padRight(text string, width int) string {
 
 	return text + strings.Repeat(" ", pad)
 }
-
-var flashFieldStyle = lipgloss.NewStyle().Background(paint.Accent).Foreground(lipgloss.Color("0"))

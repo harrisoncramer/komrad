@@ -108,7 +108,11 @@ func TestDoctorAdviceReadsThePanelsOwnPane(t *testing.T) {
 		require.NoError(t, err)
 
 		env.ProbeServer = func(context.Context, string) doctor.ServerStatus {
-			return doctor.ServerStatus{Answering: true, Ready: true, Version: "v1.0.0"}
+			return doctor.ServerStatus{
+				Answering: true,
+				Ready:     true,
+				Version:   "v1.0.0",
+			}
 		}
 
 		index := slices.IndexFunc(checks, func(check doctor.Check) bool { return check.Name == "server" })

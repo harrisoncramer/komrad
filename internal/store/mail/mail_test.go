@@ -675,7 +675,9 @@ func seedAgent(t *testing.T, st *fixture, name string) string {
 	t.Helper()
 	ctx := t.Context()
 	require.NoError(t, st.agents.Create(ctx, agentstore.Agent{
-		Name: name, State: agentstore.StateIdle, WorkflowID: st.workflow,
+		Name:       name,
+		State:      agentstore.StateIdle,
+		WorkflowID: st.workflow,
 	}))
 	got, err := st.agents.GetInWorkflow(ctx, st.workflow, name)
 	require.NoError(t, err)

@@ -144,7 +144,11 @@ func (m model) openMessageEditor() (tea.Model, tea.Cmd) {
 
 		body, err := os.ReadFile(path)
 
-		return messageEditedMsg{agentID: agentID, body: string(body), err: err}
+		return messageEditedMsg{
+			agentID: agentID,
+			body:    string(body),
+			err:     err,
+		}
 	})
 }
 

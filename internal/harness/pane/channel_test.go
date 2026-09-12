@@ -319,7 +319,11 @@ func TestSendHandsBackADraftWhenTheFrameGoesUnreadable(t *testing.T) {
 	now := time.Date(2026, time.September, 9, 12, 0, 0, 0, time.UTC)
 	terminal := &fakeTerminal{frame: composingFrame}
 	harnesses := &harnessesFailingAfter{harness: &fakeHarness{}, answer: 3}
-	p := NewPane(NewPaneParams{Terminal: terminal, Harnesses: harnesses, Now: func() time.Time { return now }})
+	p := NewPane(NewPaneParams{
+		Terminal:  terminal,
+		Harnesses: harnesses,
+		Now:       func() time.Time { return now },
+	})
 
 	sent, err := deliver(t.Context(), t, p)
 	require.NoError(t, err)

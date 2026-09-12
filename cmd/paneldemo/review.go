@@ -307,8 +307,12 @@ func (r *reviewFake) openBatch(agentID string, round *agentv1.ReviewRound) {
 	}
 
 	r.reviews = append(r.reviews, &agentv1.Review{
-		Id: "batch-open", AgentId: agentID, RoundId: round.GetId(), RoundOrdinal: round.GetOrdinal(),
-		AuthorKind: agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_HUMAN, CreatedAt: now(),
+		Id:           "batch-open",
+		AgentId:      agentID,
+		RoundId:      round.GetId(),
+		RoundOrdinal: round.GetOrdinal(),
+		AuthorKind:   agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_HUMAN,
+		CreatedAt:    now(),
 	})
 }
 

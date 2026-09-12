@@ -66,12 +66,21 @@ func (m model) openFormFieldEditor() (tea.Model, tea.Cmd, bool) {
 
 	return m, tea.ExecProcess(open, func(err error) tea.Msg {
 		if err != nil {
-			return formFieldEditedMsg{kind: kind, key: key, err: err}
+			return formFieldEditedMsg{
+				kind: kind,
+				key:  key,
+				err:  err,
+			}
 		}
 
 		text, err := os.ReadFile(path)
 
-		return formFieldEditedMsg{kind: kind, key: key, text: string(text), err: err}
+		return formFieldEditedMsg{
+			kind: kind,
+			key:  key,
+			text: string(text),
+			err:  err,
+		}
 	}), true
 }
 

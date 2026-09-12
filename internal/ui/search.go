@@ -219,12 +219,21 @@ func (m model) nameHits() []searchHit {
 	var hits []searchHit
 	for _, item := range m.listing.agents {
 		if nameSays(item.agent.Name, query) {
-			hits = append(hits, searchHit{agentID: item.agent.ID, name: item.agent.Name, section: nameSection})
+			hits = append(hits, searchHit{
+				agentID: item.agent.ID,
+				name:    item.agent.Name,
+				section: nameSection,
+			})
 		}
 	}
 	for _, agent := range m.archive.agents {
 		if nameSays(agent.Name, query) {
-			hits = append(hits, searchHit{agentID: agent.ID, name: agent.Name, archived: true, section: nameSection})
+			hits = append(hits, searchHit{
+				agentID:  agent.ID,
+				name:     agent.Name,
+				archived: true,
+				section:  nameSection,
+			})
 		}
 	}
 

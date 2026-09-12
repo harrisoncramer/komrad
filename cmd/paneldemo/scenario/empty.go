@@ -9,7 +9,10 @@ func Empty() Scenario {
 		Blurb: "a weave with nothing in it yet",
 		Workflows: []*workflowv1.Workflow{
 			{
-				Id: "wf-weave", Name: "weave itself", Cwd: "~/weave", Harness: "claude",
+				Id:       "wf-weave",
+				Name:     "weave itself",
+				Cwd:      "~/weave",
+				Harness:  "claude",
 				Worktree: &workflowv1.WorktreeConfig{Enabled: true, BaseBranch: "main"},
 			},
 		},

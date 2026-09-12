@@ -174,7 +174,11 @@ func TestSchedulesView(t *testing.T) {
 // under the field's own prompt.
 func TestScheduleFormButtonsLineUp(t *testing.T) {
 	form, _ := scheduleForm(&schedulestore.Config{
-		Name: "sweeper", Cron: "*/5 * * * *", Prompt: "sweep", Enabled: true, WorkflowID: "w1",
+		Name:       "sweeper",
+		Cron:       "*/5 * * * *",
+		Prompt:     "sweep",
+		Enabled:    true,
+		WorkflowID: "w1",
 	}, []workflowstore.Workflow{{
 		ID:   "w1",
 		Name: "api",
@@ -265,7 +269,9 @@ func TestScheduleMarkdown(t *testing.T) {
 			name: "a status without a time does not render rather than guess one",
 			item: scheduleItem{
 				schedule: schedulestore.Schedule{
-					Name: "odd", Enabled: true, Prompt: "go",
+					Name:             "odd",
+					Enabled:          true,
+					Prompt:           "go",
 					LastResultStatus: schedulestore.LaunchResultLaunched,
 				},
 			},
@@ -275,9 +281,12 @@ func TestScheduleMarkdown(t *testing.T) {
 			name: "a schedule that failed to launch shows what happened and why",
 			item: scheduleItem{
 				schedule: schedulestore.Schedule{
-					Name: "flaky", Enabled: true, Prompt: "go",
-					LastResultStatus: schedulestore.LaunchResultCannotLaunch, LastResultMessage: "bad directory",
-					LastResultAt: &next,
+					Name:              "flaky",
+					Enabled:           true,
+					Prompt:            "go",
+					LastResultStatus:  schedulestore.LaunchResultCannotLaunch,
+					LastResultMessage: "bad directory",
+					LastResultAt:      &next,
 				},
 			},
 			wants: []string{"last result", "cannot_launch", "bad directory"},
@@ -303,7 +312,10 @@ func TestScheduleMarkdown(t *testing.T) {
 // launched with.
 func TestScheduleFields(t *testing.T) {
 	sched := schedulestore.Schedule{
-		Name: "morning-ci", Cron: "0 9 * * 1-5", Timezone: "America/New_York", Enabled: true,
+		Name:     "morning-ci",
+		Cron:     "0 9 * * 1-5",
+		Timezone: "America/New_York",
+		Enabled:  true,
 	}
 
 	t.Run("its own settings, then what the workflow hands each run", func(t *testing.T) {

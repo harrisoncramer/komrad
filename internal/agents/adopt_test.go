@@ -170,8 +170,11 @@ func TestAdoptRefusesADirectoryAnotherAgentHolds(t *testing.T) {
 			manager.withWorktrees(fakeWorktrees{{Dir: repo}, {Dir: sitting, Branch: tt.branch}})
 
 			require.NoError(t, st.Create(t.Context(), agentstore.Agent{
-				Name: "sitting", Cwd: sitting, State: agentstore.StateIdle,
-				WorkflowID: workflow, AdoptedBranch: tt.adoptedBranch,
+				Name:          "sitting",
+				Cwd:           sitting,
+				State:         agentstore.StateIdle,
+				WorkflowID:    workflow,
+				AdoptedBranch: tt.adoptedBranch,
 			}))
 			if tt.archived {
 				require.NoError(t, st.SoftDelete(t.Context(), "sitting"))
@@ -220,8 +223,11 @@ func TestAdoptTakesOverAWorktreeRegistrationWithNoDirectory(t *testing.T) {
 	manager.withWorktrees(fakeWorktrees{{Dir: repo}, {Dir: sitting, Branch: "someones/work"}})
 
 	require.NoError(t, st.Create(t.Context(), agentstore.Agent{
-		Name: "sitting", Cwd: sitting, State: agentstore.StateIdle,
-		WorkflowID: workflow, AdoptedBranch: "someones/work",
+		Name:          "sitting",
+		Cwd:           sitting,
+		State:         agentstore.StateIdle,
+		WorkflowID:    workflow,
+		AdoptedBranch: "someones/work",
 	}))
 	require.NoError(t, st.SoftDelete(t.Context(), "sitting"))
 

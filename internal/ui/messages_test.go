@@ -178,9 +178,21 @@ func TestMessagesTallySaysWhereTheKeysAre(t *testing.T) {
 func TestMessagesTallyCountsFromTheOldest(t *testing.T) {
 	m := detailsModel(&recordingTmux{})
 	m.height, m.width = 30, 66
-	m.pushMessage(message{kind: messageInfo, summary: "First", detail: "one"})
-	m.pushMessage(message{kind: messageInfo, summary: "Second", detail: "two"})
-	m.pushMessage(message{kind: messageInfo, summary: "Newest", detail: "three"})
+	m.pushMessage(message{
+		kind:    messageInfo,
+		summary: "First",
+		detail:  "one",
+	})
+	m.pushMessage(message{
+		kind:    messageInfo,
+		summary: "Second",
+		detail:  "two",
+	})
+	m.pushMessage(message{
+		kind:    messageInfo,
+		summary: "Newest",
+		detail:  "three",
+	})
 
 	focused := m.toggleMessagesFocus()
 

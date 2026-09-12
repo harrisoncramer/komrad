@@ -135,7 +135,11 @@ func findInputBox(lines, held []string) (inputBox, bool) {
 			continue
 		}
 
-		return inputBox{Rule: i, Marker: marker, Held: typed}, true
+		return inputBox{
+			Rule:   i,
+			Marker: marker,
+			Held:   typed,
+		}, true
 	}
 
 	return inputBox{}, false

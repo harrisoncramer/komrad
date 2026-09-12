@@ -330,7 +330,11 @@ func TestArchiveWorkflow(t *testing.T) {
 			}
 			if tt.scheduled {
 				st.SeedSchedule(t, schedulestore.Config{
-					Name: "nightly", Cron: "0 2 * * *", Prompt: "sweep", Enabled: true, WorkflowID: id,
+					Name:       "nightly",
+					Cron:       "0 2 * * *",
+					Prompt:     "sweep",
+					Enabled:    true,
+					WorkflowID: id,
 				})
 			}
 

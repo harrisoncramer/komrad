@@ -94,8 +94,11 @@ func TestCreate(t *testing.T) {
 		{
 			name: "the fields a schedule was given are read back",
 			cfg: Config{
-				Name: "morning-ci", Cron: "0 9 * * 1-5", Timezone: "America/New_York",
-				Enabled: true, Prompt: "check CI",
+				Name:     "morning-ci",
+				Cron:     "0 9 * * 1-5",
+				Timezone: "America/New_York",
+				Enabled:  true,
+				Prompt:   "check CI",
 			},
 			wantEnabled: true,
 		},
@@ -231,7 +234,10 @@ func TestUpdate(t *testing.T) {
 
 			original := seedWorkflow(t, st)
 			created := seed(t, st, Config{
-				Name: "morning-ci", Cron: "0 9 * * 1-5", Prompt: "check CI", WorkflowID: original,
+				Name:       "morning-ci",
+				Cron:       "0 9 * * 1-5",
+				Prompt:     "check CI",
+				WorkflowID: original,
 			})
 
 			update := tt.update
@@ -322,8 +328,11 @@ func TestHideAgents(t *testing.T) {
 	ctx := t.Context()
 
 	created := seed(t, st, Config{
-		Name: "sweeper", Cron: "*/5 * * * *", Prompt: "sweep",
-		Enabled: true, HideAgents: true,
+		Name:       "sweeper",
+		Cron:       "*/5 * * * *",
+		Prompt:     "sweep",
+		Enabled:    true,
+		HideAgents: true,
 	})
 
 	got, err := st.Get(ctx, created.ID)
@@ -332,8 +341,12 @@ func TestHideAgents(t *testing.T) {
 	assert.True(t, got.HideAgents)
 
 	require.NoError(t, st.Update(ctx, created.ID, Config{
-		Name: "sweeper", Cron: "*/5 * * * *", Prompt: "sweep",
-		Enabled: true, HideAgents: false, WorkflowID: got.WorkflowID,
+		Name:       "sweeper",
+		Cron:       "*/5 * * * *",
+		Prompt:     "sweep",
+		Enabled:    true,
+		HideAgents: false,
+		WorkflowID: got.WorkflowID,
 	}))
 
 	updated, err := st.Get(ctx, created.ID)

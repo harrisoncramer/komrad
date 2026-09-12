@@ -1005,7 +1005,11 @@ func TestSearchNameSectionStandsFirst(t *testing.T) {
 	m := filterModel()
 	m.screen = screenSearch
 	m.width = 80
-	m.archive.agents = []agentstore.Agent{{ID: "a3", Name: "billing-old", WorkflowID: "w1"}}
+	m.archive.agents = []agentstore.Agent{{
+		ID:         "a3",
+		Name:       "billing-old",
+		WorkflowID: "w1",
+	}}
 	m.search = searchState{query: "BILL"}
 
 	m.applySearch(searchResult{
@@ -1036,7 +1040,11 @@ func TestSearchNameSectionStandsFirst(t *testing.T) {
 // turns, the two being one list to walk.
 func TestSearchNameHitsTakeTheCursor(t *testing.T) {
 	m := filterModel()
-	m.api = api{agents: &fakeSearchAgents{}, workflows: emptyLists{}, schedules: emptyLists{}}
+	m.api = api{
+		agents:    &fakeSearchAgents{},
+		workflows: emptyLists{},
+		schedules: emptyLists{},
+	}
 	m.screen = screenSearch
 	m.width = 80
 	m.search = searchState{query: "bill"}
@@ -1067,7 +1075,11 @@ func TestSearchNameHitsTakeTheCursor(t *testing.T) {
 // hit on its conversation does.
 func TestSearchNameHitJumps(t *testing.T) {
 	m := filterModel()
-	m.api = api{agents: &fakeSearchAgents{}, workflows: emptyLists{}, schedules: emptyLists{}}
+	m.api = api{
+		agents:    &fakeSearchAgents{},
+		workflows: emptyLists{},
+		schedules: emptyLists{},
+	}
 	m.screen = screenSearch
 	m.search = searchState{query: "payout"}
 
@@ -1094,7 +1106,11 @@ func TestMarkName(t *testing.T) {
 func TestSearchCursorSurvivesARefresh(t *testing.T) {
 	sectioned := func() model {
 		m := filterModel()
-		m.api = api{agents: &fakeSearchAgents{}, workflows: emptyLists{}, schedules: emptyLists{}}
+		m.api = api{
+			agents:    &fakeSearchAgents{},
+			workflows: emptyLists{},
+			schedules: emptyLists{},
+		}
 		m.screen = screenSearch
 		m.width = 80
 		m.search = searchState{query: "bill"}
@@ -1115,7 +1131,11 @@ func TestSearchCursorSurvivesARefresh(t *testing.T) {
 		m := sectioned()
 
 		cmd := m.applyRefresh(refreshResult{agents: append([]agentItem{
-			{agent: agentstore.Agent{ID: "a4", Name: "billing-two", WorkflowID: "w1"}},
+			{agent: agentstore.Agent{
+				ID:         "a4",
+				Name:       "billing-two",
+				WorkflowID: "w1",
+			}},
 		}, m.listing.agents...)})
 
 		hit, ok := m.hoveredHit()

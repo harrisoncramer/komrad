@@ -258,7 +258,10 @@ func TestScheduleWorkflowMustExist(t *testing.T) {
 
 			live := st.SeedWorkflow(t, workflowstore.Config{Name: "backend"}).ID
 			existing, err := svc.NewSchedule(ctx, schedulestore.Config{
-				Name: "nightly", Cron: "0 9 * * *", Prompt: "go", WorkflowID: live,
+				Name:       "nightly",
+				Cron:       "0 9 * * *",
+				Prompt:     "go",
+				WorkflowID: live,
 			})
 			require.NoError(t, err)
 
@@ -269,12 +272,18 @@ func TestScheduleWorkflowMustExist(t *testing.T) {
 			}
 
 			_, err = svc.NewSchedule(ctx, schedulestore.Config{
-				Name: "morning", Cron: "0 9 * * *", Prompt: "go", WorkflowID: target,
+				Name:       "morning",
+				Cron:       "0 9 * * *",
+				Prompt:     "go",
+				WorkflowID: target,
 			})
 			require.ErrorIs(t, err, ErrWorkflowNotFound, "a schedule is not created into a workflow that is not there")
 
 			err = svc.UpdateSchedule(ctx, existing.ID, schedulestore.Config{
-				Name: "nightly", Cron: "0 9 * * *", Prompt: "go", WorkflowID: target,
+				Name:       "nightly",
+				Cron:       "0 9 * * *",
+				Prompt:     "go",
+				WorkflowID: target,
 			})
 			require.ErrorIs(t, err, ErrWorkflowNotFound, "nor is one moved into it")
 
@@ -332,8 +341,11 @@ func TestScheduleIsNotBlockedByARunThatNeverStarted(t *testing.T) {
 				Prompt: "sweep",
 			})
 			run := st.SeedAgent(t, agentstore.Agent{
-				Name: "nightly-run", Pane: "%1", State: tt.state,
-				WorkflowID: schedule.WorkflowID, ScheduleID: &schedule.ID,
+				Name:       "nightly-run",
+				Pane:       "%1",
+				State:      tt.state,
+				WorkflowID: schedule.WorkflowID,
+				ScheduleID: &schedule.ID,
 			})
 
 			tmux := newFakeTmux()

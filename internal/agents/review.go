@@ -112,19 +112,18 @@ type NewReviewServiceParams struct {
 // ReviewService owns the conversations pinned to the lines of an agent's diff, and holds the
 // only copy.
 type ReviewService struct {
-	threads     reviewThreadReadWriter
-	messages    reviewMessageReadWriter
-	viewed      reviewViewedFileReadWriter
-	rounds      reviewRoundReadWriter
-	reviews     reviewBatchReadWriter
-	snapshots   reviewSnapshotter
-	workflows   workflowGetter
-	agents      agentGetter
-	mailer      reviewNoticeSender
-	resumer     reviewerResumer
-	interrupter agentInterrupter
-	stateDir    string
-
+	threads        reviewThreadReadWriter
+	messages       reviewMessageReadWriter
+	viewed         reviewViewedFileReadWriter
+	rounds         reviewRoundReadWriter
+	reviews        reviewBatchReadWriter
+	snapshots      reviewSnapshotter
+	workflows      workflowGetter
+	agents         agentGetter
+	mailer         reviewNoticeSender
+	resumer        reviewerResumer
+	interrupter    agentInterrupter
+	stateDir       string
 	noticeDebounce time.Duration
 	noticesMu      sync.Mutex
 	notices        map[string]*pendingReviewerNotice

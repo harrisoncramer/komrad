@@ -5,6 +5,13 @@ import (
 	"strings"
 )
 
+// FocusKey moves the cursor between the panel's sidebar and the agent's pane on the stage.
+const FocusKey = "C-a"
+
+const managerKeyOption = "@weave_key"
+
+const defaultPanelKey = "g"
+
 type popupTmux interface {
 	SetGlobal(name, value string)
 	GetSessionClient(session string) string
@@ -28,13 +35,6 @@ type PopupWindow struct {
 func NewPopupWindow(tmux popupTmux, session string) *PopupWindow {
 	return &PopupWindow{tmux: tmux, session: session}
 }
-
-// FocusKey moves the cursor between the panel's sidebar and the agent's pane on the stage.
-const FocusKey = "C-a"
-
-const managerKeyOption = "@weave_key"
-
-const defaultPanelKey = "g"
 
 // BindHide binds the panel key on the manager's own tmux server, which sources the user's config
 // too and would otherwise open a popup inside the popup.

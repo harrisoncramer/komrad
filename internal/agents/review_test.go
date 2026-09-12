@@ -55,7 +55,9 @@ func TestOnlyTheTargetAgentWritesToAReview(t *testing.T) {
 			author: agentAuthor(otherAgentID),
 			call: func(ctx context.Context, service *ReviewService, author ReviewAuthor) error {
 				_, err := service.AddReviewMessage(ctx, AddReviewMessageParams{
-					ThreadID: reviewThreadID, Body: "done", Author: author,
+					ThreadID: reviewThreadID,
+					Body:     "done",
+					Author:   author,
 				})
 
 				return err
@@ -67,7 +69,9 @@ func TestOnlyTheTargetAgentWritesToAReview(t *testing.T) {
 			author: agentAuthor(reviewedAgentID),
 			call: func(ctx context.Context, service *ReviewService, author ReviewAuthor) error {
 				_, err := service.AddReviewMessage(ctx, AddReviewMessageParams{
-					ThreadID: reviewThreadID, Body: "done", Author: author,
+					ThreadID: reviewThreadID,
+					Body:     "done",
+					Author:   author,
 				})
 
 				return err
@@ -78,7 +82,9 @@ func TestOnlyTheTargetAgentWritesToAReview(t *testing.T) {
 			author: humanAuthor(),
 			call: func(ctx context.Context, service *ReviewService, author ReviewAuthor) error {
 				_, err := service.AddReviewMessage(ctx, AddReviewMessageParams{
-					ThreadID: reviewThreadID, Body: "and another thing", Author: author,
+					ThreadID: reviewThreadID,
+					Body:     "and another thing",
+					Author:   author,
 				})
 
 				return err
@@ -115,7 +121,10 @@ func TestReviewOperationsTheAgentDoesNotGet(t *testing.T) {
 			want: ErrReviewOwnWork,
 			call: func(ctx context.Context, service *ReviewService, author ReviewAuthor) error {
 				_, err := service.CreateReviewThread(ctx, CreateReviewThreadParams{
-					AgentID: reviewedAgentID, FilePath: "a.go", Body: "looks fine to me", Author: author,
+					AgentID:  reviewedAgentID,
+					FilePath: "a.go",
+					Body:     "looks fine to me",
+					Author:   author,
 				})
 
 				return err
@@ -125,7 +134,9 @@ func TestReviewOperationsTheAgentDoesNotGet(t *testing.T) {
 			name: "an agent cannot settle the feedback on its own work",
 			call: func(ctx context.Context, service *ReviewService, author ReviewAuthor) error {
 				_, err := service.SetReviewThreadResolved(ctx, SetReviewThreadResolvedParams{
-					ID: reviewThreadID, Resolved: true, Author: author,
+					ID:       reviewThreadID,
+					Resolved: true,
+					Author:   author,
 				})
 
 				return err
@@ -136,7 +147,9 @@ func TestReviewOperationsTheAgentDoesNotGet(t *testing.T) {
 			want: ErrReviewOwnWork,
 			call: func(ctx context.Context, service *ReviewService, author ReviewAuthor) error {
 				_, err := service.ReleaseReview(ctx, ReleaseReviewParams{
-					AgentID: reviewedAgentID, Verdict: reviewstore.VerdictApproved, Author: author,
+					AgentID: reviewedAgentID,
+					Verdict: reviewstore.VerdictApproved,
+					Author:  author,
 				})
 
 				return err
@@ -146,7 +159,8 @@ func TestReviewOperationsTheAgentDoesNotGet(t *testing.T) {
 			name: "an agent cannot claim a review thread as read for the person",
 			call: func(ctx context.Context, service *ReviewService, author ReviewAuthor) error {
 				_, err := service.MarkReviewThreadRead(ctx, MarkReviewThreadReadParams{
-					ID: reviewThreadID, Author: author,
+					ID:     reviewThreadID,
+					Author: author,
 				})
 
 				return err
@@ -159,7 +173,9 @@ func TestReviewOperationsTheAgentDoesNotGet(t *testing.T) {
 			reviews := newFakeReviewStore()
 			reviews.comments = 1
 			_, err := reviews.OpenReview(t.Context(), reviewstore.OpenReviewParams{
-				AgentID: reviewedAgentID, RoundID: reviewRoundID, AuthorKind: reviewstore.AuthorHuman,
+				AgentID:    reviewedAgentID,
+				RoundID:    reviewRoundID,
+				AuthorKind: reviewstore.AuthorHuman,
 			})
 			require.NoError(t, err)
 
@@ -223,7 +239,9 @@ func TestOnlyTheAuthorRewritesAMessage(t *testing.T) {
 			service := reviewService(t, newFakeReviewStore(), &fakeNoticeSender{})
 
 			_, err := service.EditReviewMessage(t.Context(), EditReviewMessageParams{
-				ID: tt.messageID, Body: "rewritten", Author: tt.author,
+				ID:     tt.messageID,
+				Body:   "rewritten",
+				Author: tt.author,
 			})
 			if tt.wantErr != nil {
 				require.ErrorIs(t, err, tt.wantErr)
@@ -344,7 +362,9 @@ func TestReleasingAReviewWritesItOutAndRingsOnce(t *testing.T) {
 	reviews := newFakeReviewStore()
 	reviews.comments = 3
 	_, err := reviews.OpenReview(t.Context(), reviewstore.OpenReviewParams{
-		AgentID: reviewedAgentID, RoundID: reviewRoundID, AuthorKind: reviewstore.AuthorHuman,
+		AgentID:    reviewedAgentID,
+		RoundID:    reviewRoundID,
+		AuthorKind: reviewstore.AuthorHuman,
 	})
 	require.NoError(t, err)
 
@@ -395,7 +415,9 @@ func TestReleasingAnEmptyReviewIsRefused(t *testing.T) {
 func TestApprovingWithNothingWrittenStillGoes(t *testing.T) {
 	reviews := newFakeReviewStore()
 	_, err := reviews.OpenReview(t.Context(), reviewstore.OpenReviewParams{
-		AgentID: reviewedAgentID, RoundID: reviewRoundID, AuthorKind: reviewstore.AuthorHuman,
+		AgentID:    reviewedAgentID,
+		RoundID:    reviewRoundID,
+		AuthorKind: reviewstore.AuthorHuman,
 	})
 	require.NoError(t, err)
 
@@ -421,7 +443,9 @@ func TestNothingIsReleasedWhenTheMailCannotBeSent(t *testing.T) {
 	reviews := newFakeReviewStore()
 	reviews.comments = 3
 	_, err := reviews.OpenReview(t.Context(), reviewstore.OpenReviewParams{
-		AgentID: reviewedAgentID, RoundID: reviewRoundID, AuthorKind: reviewstore.AuthorHuman,
+		AgentID:    reviewedAgentID,
+		RoundID:    reviewRoundID,
+		AuthorKind: reviewstore.AuthorHuman,
 	})
 	require.NoError(t, err)
 
@@ -535,7 +559,9 @@ func TestAReleasedReviewCarriesTheCodeAroundEachComment(t *testing.T) {
 	service := reviewServiceHolding(t, reviews, notices, map[string][]string{"greet.go": source})
 
 	_, err := reviews.OpenReview(t.Context(), reviewstore.OpenReviewParams{
-		AgentID: reviewedAgentID, RoundID: reviewRoundID, AuthorKind: reviewstore.AuthorHuman,
+		AgentID:    reviewedAgentID,
+		RoundID:    reviewRoundID,
+		AuthorKind: reviewstore.AuthorHuman,
 	})
 	require.NoError(t, err)
 
@@ -569,7 +595,9 @@ func TestAReviewWithNoSourceFallsBackToTheQuotedLines(t *testing.T) {
 	service := reviewServiceHolding(t, reviews, notices, nil)
 
 	_, err := reviews.OpenReview(t.Context(), reviewstore.OpenReviewParams{
-		AgentID: reviewedAgentID, RoundID: reviewRoundID, AuthorKind: reviewstore.AuthorHuman,
+		AgentID:    reviewedAgentID,
+		RoundID:    reviewRoundID,
+		AuthorKind: reviewstore.AuthorHuman,
 	})
 	require.NoError(t, err)
 
@@ -597,7 +625,10 @@ func TestAReleasedReviewNamesWhatItWasAbout(t *testing.T) {
 	reviewer := agentAuthor(reviewerAgentID)
 
 	_, err := service.CreateReviewThread(t.Context(), CreateReviewThreadParams{
-		AgentID: reviewedAgentID, FilePath: "greet.go", Body: "this needs a nil check", Author: reviewer,
+		AgentID:  reviewedAgentID,
+		FilePath: "greet.go",
+		Body:     "this needs a nil check",
+		Author:   reviewer,
 	})
 	require.NoError(t, err)
 
@@ -716,28 +747,41 @@ func TestAReviewerGetsOneReviewPerRound(t *testing.T) {
 	reviewer := agentAuthor(reviewerAgentID)
 
 	_, err := service.CreateReviewThread(t.Context(), CreateReviewThreadParams{
-		AgentID: reviewedAgentID, FilePath: "greet.go", Body: "this needs a nil check", Author: reviewer,
+		AgentID:  reviewedAgentID,
+		FilePath: "greet.go",
+		Body:     "this needs a nil check",
+		Author:   reviewer,
 	})
 	require.NoError(t, err)
 
 	_, err = service.ReleaseReview(t.Context(), ReleaseReviewParams{
-		AgentID: reviewedAgentID, Verdict: reviewstore.VerdictChangesRequested, Author: reviewer,
+		AgentID: reviewedAgentID,
+		Verdict: reviewstore.VerdictChangesRequested,
+		Author:  reviewer,
 	})
 	require.NoError(t, err)
 
 	_, err = service.CreateReviewThread(t.Context(), CreateReviewThreadParams{
-		AgentID: reviewedAgentID, FilePath: "greet.go", Body: "and another thing", Author: reviewer,
+		AgentID:  reviewedAgentID,
+		FilePath: "greet.go",
+		Body:     "and another thing",
+		Author:   reviewer,
 	})
 	require.ErrorIs(t, err, ErrReviewAlreadyGiven, "the reviewer has had its say on this round")
 
 	// The parent writing something is what opens the next round, and the reviewer may review that.
 	_, err = reviews.CreateRound(t.Context(), reviewstore.CreateRoundParams{
-		AgentID: reviewedAgentID, BaseSHA: "base-sha", SnapshotSHA: "moved-on",
+		AgentID:     reviewedAgentID,
+		BaseSHA:     "base-sha",
+		SnapshotSHA: "moved-on",
 	})
 	require.NoError(t, err)
 
 	_, err = service.CreateReviewThread(t.Context(), CreateReviewThreadParams{
-		AgentID: reviewedAgentID, FilePath: "greet.go", Body: "and another thing", Author: reviewer,
+		AgentID:  reviewedAgentID,
+		FilePath: "greet.go",
+		Body:     "and another thing",
+		Author:   reviewer,
 	})
 	require.NoError(t, err)
 }
@@ -765,7 +809,10 @@ func TestOnlyTheReviewedAgentAndItsReviewerReachARound(t *testing.T) {
 	require.NoError(t, err, "including taking one of its own work to diff")
 
 	_, err = service.CreateReviewThread(t.Context(), CreateReviewThreadParams{
-		AgentID: reviewedAgentID, FilePath: "greet.go", Body: "looks fine to me", Author: agentAuthor(reviewedAgentID),
+		AgentID:  reviewedAgentID,
+		FilePath: "greet.go",
+		Body:     "looks fine to me",
+		Author:   agentAuthor(reviewedAgentID),
 	})
 	require.ErrorIs(t, err, ErrReviewOwnWork, "but reading its own work is not reviewing it")
 }
@@ -779,7 +826,9 @@ func TestAnAgentIsNotToldWhereAnotherReviewWasWritten(t *testing.T) {
 	service := reviewService(t, reviews, notices)
 
 	_, err := reviews.OpenReview(t.Context(), reviewstore.OpenReviewParams{
-		AgentID: reviewedAgentID, RoundID: reviewRoundID, AuthorKind: reviewstore.AuthorHuman,
+		AgentID:    reviewedAgentID,
+		RoundID:    reviewRoundID,
+		AuthorKind: reviewstore.AuthorHuman,
 	})
 	require.NoError(t, err)
 
@@ -807,7 +856,9 @@ func TestReleasingToAnArchivedAgentIsRefused(t *testing.T) {
 	reviews := newFakeReviewStore()
 	reviews.comments = 1
 	_, err := reviews.OpenReview(t.Context(), reviewstore.OpenReviewParams{
-		AgentID: reviewedAgentID, RoundID: reviewRoundID, AuthorKind: reviewstore.AuthorHuman,
+		AgentID:    reviewedAgentID,
+		RoundID:    reviewRoundID,
+		AuthorKind: reviewstore.AuthorHuman,
 	})
 	require.NoError(t, err)
 
@@ -815,7 +866,9 @@ func TestReleasingToAnArchivedAgentIsRefused(t *testing.T) {
 	service := reviewServiceForAgent(t, reviews, notices, archivedAgent)
 
 	_, err = service.ReleaseReview(t.Context(), ReleaseReviewParams{
-		AgentID: reviewedAgentID, Verdict: reviewstore.VerdictChangesRequested, Author: humanAuthor(),
+		AgentID: reviewedAgentID,
+		Verdict: reviewstore.VerdictChangesRequested,
+		Author:  humanAuthor(),
 	})
 	require.ErrorIs(t, err, ErrAgentArchived)
 
@@ -1624,7 +1677,9 @@ func TestReviewThreadMustExist(t *testing.T) {
 	human := ReviewAuthor{Kind: reviewstore.AuthorHuman}
 
 	_, err := service.SetReviewThreadResolved(t.Context(), SetReviewThreadResolvedParams{
-		ID: otherAgentID, Resolved: true, Author: human,
+		ID:       otherAgentID,
+		Resolved: true,
+		Author:   human,
 	})
 	require.ErrorIs(t, err, ErrReviewThreadNotFound)
 
@@ -1641,7 +1696,9 @@ func TestReleasingAReviewCostsTheMailboxOneNotice(t *testing.T) {
 			reviews := newFakeReviewStore()
 			reviews.comments = comments
 			_, err := reviews.OpenReview(t.Context(), reviewstore.OpenReviewParams{
-				AgentID: reviewedAgentID, RoundID: reviewRoundID, AuthorKind: reviewstore.AuthorHuman,
+				AgentID:    reviewedAgentID,
+				RoundID:    reviewRoundID,
+				AuthorKind: reviewstore.AuthorHuman,
 			})
 			require.NoError(t, err)
 
@@ -1668,7 +1725,9 @@ func TestAReleasedReviewLeavesRoomForPeerMail(t *testing.T) {
 	reviews := newFakeReviewStore()
 	reviews.comments = 30
 	_, err := reviews.OpenReview(t.Context(), reviewstore.OpenReviewParams{
-		AgentID: reviewedAgentID, RoundID: reviewRoundID, AuthorKind: reviewstore.AuthorHuman,
+		AgentID:    reviewedAgentID,
+		RoundID:    reviewRoundID,
+		AuthorKind: reviewstore.AuthorHuman,
 	})
 	require.NoError(t, err)
 
@@ -1684,7 +1743,9 @@ func TestAReleasedReviewLeavesRoomForPeerMail(t *testing.T) {
 
 	mail := mailService(mailbox)
 	_, err = mail.SendMail(t.Context(), SendMailParams{
-		From: otherAgentID, ToAgentID: reviewedAgentID, Body: "here is the answer you asked for",
+		From:      otherAgentID,
+		ToAgentID: reviewedAgentID,
+		Body:      "here is the answer you asked for",
 	})
 	require.NoError(t, err, "a peer can still reach an agent whose review was just released")
 

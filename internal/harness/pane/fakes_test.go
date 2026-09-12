@@ -25,7 +25,11 @@ const (
 const testHarnessID = "claude"
 
 // target is the agent every test in this package speaks to.
-var target = harness.Target{AgentID: "agent-a", Pane: "%1", HarnessID: testHarnessID}
+var target = harness.Target{
+	AgentID:   "agent-a",
+	Pane:      "%1",
+	HarnessID: testHarnessID,
+}
 
 // fakeTerminal stands in for the tmux server, recording what was done to the pane in the order
 // it was done.
