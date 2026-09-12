@@ -17,7 +17,8 @@
 //
 // Arriving where you already are is ignored rather than treated as a move. A caller that walks
 // back and then acts on what it found keeps its forward list, which it would otherwise throw
-// away by acting.
+// away by acting. The cost is that such an entry keeps its place rather than moving to the end,
+// so the recency ordering holds for every entry except the one under the cursor.
 //
 // The entries are whatever the caller wants to remember, so long as they can be compared. The
 // package holds no opinion about what makes one valid, which is why a caller whose entry has

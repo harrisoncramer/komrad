@@ -24,7 +24,7 @@ func (l *List[T]) Visit(entry T) {
 		return
 	}
 
-	l.entries = l.entries[:l.cursor+1]
+	l.entries = l.entries[:min(l.cursor+1, len(l.entries))]
 	if at := slices.Index(l.entries, entry); at >= 0 {
 		l.entries = slices.Delete(l.entries, at, at+1)
 	}
@@ -71,7 +71,7 @@ func (l *List[T]) GetCurrent() (T, bool) {
 	return l.entries[l.cursor], true
 }
 
-// Remove forgets an entry, leaving the cursor on whatever takes its place.
+// Remove forgets an entry, leaving the cursor on whatever takes its place, which may change the current entry.
 func (l *List[T]) Remove(entry T) bool {
 	at := slices.Index(l.entries, entry)
 	if at < 0 {
@@ -90,8 +90,12 @@ func (l *List[T]) Remove(entry T) bool {
 	return true
 }
 
-// GetEntries returns the entries from oldest to most recent.
+// GetEntries returns the entries from oldest to most recent, and nil for an empty list.
 func (l *List[T]) GetEntries() []T {
+	if len(l.entries) == 0 {
+		return nil
+	}
+
 	return slices.Clone(l.entries)
 }
 

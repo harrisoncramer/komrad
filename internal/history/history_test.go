@@ -348,7 +348,7 @@ func TestRemove(t *testing.T) {
 			backs:       0,
 			remove:      "a",
 			wantRemoved: true,
-			wantEntries: []string{},
+			wantEntries: nil,
 			wantCurrent: "",
 		},
 	}
@@ -378,23 +378,123 @@ func TestRemove(t *testing.T) {
 func TestLimit(t *testing.T) {
 	t.Parallel()
 
-	list := history.New[string](3)
-	for _, visit := range []string{"a", "b", "c", "d", "e"} {
+	tests := []struct {
+		name        string
+		limit       int
+		visits      []string
+		backs       int
+		then        string
+		wantEntries []string
+		wantCurrent string
+		wantBack    bool
+	}{
+		{
+			name:        "a limit of one holds only the latest place",
+			limit:       1,
+			visits:      []string{"a", "b"},
+			backs:       0,
+			then:        "",
+			wantEntries: []string{"b"},
+			wantCurrent: "b",
+			wantBack:    false,
+		},
+		{
+			name:        "a straight run past the limit drops the oldest",
+			limit:       3,
+			visits:      []string{"a", "b", "c", "d", "e"},
+			backs:       0,
+			then:        "",
+			wantEntries: []string{"c", "d", "e"},
+			wantCurrent: "e",
+			wantBack:    true,
+		},
+		{
+			name:        "arriving mid-walk drops the forward entries before the limit applies",
+			limit:       2,
+			visits:      []string{"a", "b", "c"},
+			backs:       1,
+			then:        "d",
+			wantEntries: []string{"b", "d"},
+			wantCurrent: "d",
+			wantBack:    true,
+		},
+		{
+			name:        "revisiting inside a full list reorders it rather than trimming it",
+			limit:       3,
+			visits:      []string{"a", "b", "c"},
+			backs:       0,
+			then:        "a",
+			wantEntries: []string{"b", "c", "a"},
+			wantCurrent: "a",
+			wantBack:    true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			list := history.New[string](tt.limit)
+			for _, visit := range tt.visits {
+				list.Visit(visit)
+			}
+
+			goBackTimes(list, tt.backs)
+
+			if tt.then != "" {
+				list.Visit(tt.then)
+			}
+
+			assert.Equal(t, tt.wantEntries, list.GetEntries())
+
+			current, ok := list.GetCurrent()
+			require.True(t, ok)
+			assert.Equal(t, tt.wantCurrent, current)
+
+			_, ok = list.GoBack()
+			assert.Equal(t, tt.wantBack, ok)
+		})
+	}
+}
+
+// TestRemoveThenVisit shows the cursor Remove leaves behind deciding where the next arrival lands.
+func TestRemoveThenVisit(t *testing.T) {
+	t.Parallel()
+
+	list := history.New[string](0)
+	for _, visit := range []string{"a", "b", "c"} {
 		list.Visit(visit)
 	}
 
-	require.Equal(t, []string{"c", "d", "e"}, list.GetEntries())
+	goBackTimes(list, 1)
+	require.True(t, list.Remove("b"))
+
+	list.Visit("d")
+
+	assert.Equal(t, []string{"a", "c", "d"}, list.GetEntries())
+
+	current, ok := list.GetCurrent()
+	require.True(t, ok)
+	assert.Equal(t, "d", current)
+}
+
+// TestZeroValue shows a list nobody built with New behaving as an empty one.
+func TestZeroValue(t *testing.T) {
+	t.Parallel()
+
+	var list history.List[string]
+
+	_, ok := list.GetCurrent()
+	require.False(t, ok)
+
+	list.Visit("a")
+	list.Visit("b")
+
+	assert.Equal(t, []string{"a", "b"}, list.GetEntries())
 
 	entry, ok := list.GoBack()
 	require.True(t, ok)
-	assert.Equal(t, "d", entry)
-
-	entry, ok = list.GoBack()
-	require.True(t, ok)
-	assert.Equal(t, "c", entry)
-
-	_, ok = list.GoBack()
-	assert.False(t, ok)
+	assert.Equal(t, "a", entry)
 }
 
 // TestIntEntries shows the list holding something other than strings.
