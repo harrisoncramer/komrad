@@ -1,0 +1,18 @@
+
+[38;5;188m⏺[39m 113 left. Dumping the rest.
+
+[38;5;102m⏺[39m Running [1m6[0m shell commands…
+[38;5;102m  ⎿  $ W=/Users/harrisoncramer/.claude/jobs/ac78b4ee/tmp[39m
+     [38;5;102mcd /Users/harrisoncramer/weave[39m
+     [38;5;102m./local/custom-gcl run --config .golangci.yaml --timeout 10m ./... > $W/m3.txt 2>&1[39m
+     [38;5;102mgrep -E '^[a-zA-Z0-9_./-]+\.go:[0-9]+:[0-9]+:' $W/m3.txt > $W/m3-diags.txt[39m
+     [38;5;102mwc -l < $W/m3-diags.txt[39m
+     [38;5;102mpython3 $W/d.py $W/m3-diags.txt $…[39m
+
+[38;5;216m·[39m [38;5;216mH[38;5;215monk[38;5;216ming… [38;5;102m(8m 16s · ↓[39m [38;5;102m46.6k tokens)[39m
+
+[38;5;102m────────────────────────────────────────────────────────────────── Weave comments rewrite for fussy v0.4.0 ─
+❯ [39m
+[38;5;102m────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+[39m  [38;5;102m-- INSERT --[39m [38;5;203m⏵⏵ bypass permissions on[38;5;102m (shift+tab to cycle) · ← 3 agents[39m

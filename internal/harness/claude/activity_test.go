@@ -122,6 +122,31 @@ func TestReadActivity(t *testing.T) {
 			want:  harness.ActivityComposing,
 		},
 		{
+			name:  "the box in shell mode, which draws a marker of its own",
+			frame: "───────────────\n\x1b[39m! aws sso login\n───────────────\n  -- INSERT -- ! for shell mode",
+			want:  harness.ActivityComposing,
+		},
+		{
+			name:  "an empty box in shell mode",
+			frame: "───────────────\n\x1b[39m!\n───────────────\n  -- INSERT -- ! for shell mode",
+			want:  harness.ActivityIdle,
+		},
+		{
+			name:  "a title drawn on the rule opening the box",
+			frame: "─────── a conversation title ─\n\x1b[39m❯ half a question about\n───────────────\n  -- INSERT --",
+			want:  harness.ActivityComposing,
+		},
+		{
+			name:  "a queued-message divider drawn as a titled rule above a question",
+			frame: "⏺ Some earlier reply\n\n──────── 1 new message ────────\n❯ the user's queued message\n\n╭─ Do you want to proceed? ─╮\n│ ❯ 1. Yes                  │\n╰───────────────────────────╯\n  esc to cancel",
+			want:  harness.ActivityWaiting,
+		},
+		{
+			name:  "a bang command echoed into the transcript under a rule",
+			frame: "⏺ Here is the command:\n\n────────────────────────────\n!important note in the reply\n\n✳ Honking… (12s · 1.2k tokens)",
+			want:  harness.ActivityWorking,
+		},
+		{
 			name:  "a tool-result line rather than the spinner",
 			frame: "⎿ Found… (3 files)",
 			want:  harness.ActivityUnrecognized,
