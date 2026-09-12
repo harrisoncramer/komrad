@@ -197,6 +197,8 @@ func (m model) toggleAgentViewed(item agentItem) (tea.Model, tea.Cmd) {
 
 func (m model) openAgent() (tea.Model, tea.Cmd) {
 	return m.withSelectedAgent(func(item agentItem) (tea.Model, tea.Cmd) {
+		m.history.Visit(item.agent.ID)
+
 		if item.alive {
 			if pane := m.frame.GuestPane(); pane != "" && pane == item.agent.Pane {
 				m.tmux.SelectPane(pane)

@@ -130,6 +130,18 @@ func agentsModeActions() []action {
 			when: func(m model) bool { return !m.tree.selected.isActive() },
 			run:  func(m model, _ string) (tea.Model, tea.Cmd) { return m.beginMark(markPendingSet) },
 		},
+		{
+			id:   actionHistoryBack,
+			keys: func(k config.Keybindings) []string { return k.History.Back },
+			when: isBrowsing,
+			run:  func(m model, _ string) (tea.Model, tea.Cmd) { return m.goBackAgent() },
+		},
+		{
+			id:   actionHistoryForward,
+			keys: func(k config.Keybindings) []string { return k.History.Forward },
+			when: isBrowsing,
+			run:  func(m model, _ string) (tea.Model, tea.Cmd) { return m.goForwardAgent() },
+		},
 	}
 }
 
@@ -415,6 +427,11 @@ func agentsBrowsingLegend() []legendRow {
 		{
 			of:   []actionID{actionMarkSet},
 			desc: func(model) string { return "set mark" },
+			show: isBrowsing,
+		},
+		{
+			of:   []actionID{actionHistoryBack, actionHistoryForward},
+			desc: func(model) string { return "back, forward" },
 			show: isBrowsing,
 		},
 		{

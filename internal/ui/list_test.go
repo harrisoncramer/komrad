@@ -18,7 +18,7 @@ import (
 func TestScreensFitThePane(t *testing.T) {
 	const (
 		// Taller than the tallest legend on purpose.
-		height = 29
+		height = 30
 		total  = 40
 	)
 
