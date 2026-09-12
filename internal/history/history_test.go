@@ -428,6 +428,16 @@ func TestLimit(t *testing.T) {
 			wantCurrent: "a",
 			wantBack:    true,
 		},
+		{
+			name:        "revisiting the middle of a full list keeps every entry",
+			limit:       3,
+			visits:      []string{"a", "b", "c"},
+			backs:       0,
+			then:        "b",
+			wantEntries: []string{"a", "c", "b"},
+			wantCurrent: "b",
+			wantBack:    true,
+		},
 	}
 
 	for _, tt := range tests {
