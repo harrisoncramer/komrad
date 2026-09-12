@@ -430,13 +430,8 @@ func agentsBrowsingLegend() []legendRow {
 			show: isBrowsing,
 		},
 		{
-			of:   []actionID{actionHistoryBack, actionHistoryForward},
-			desc: func(model) string { return "back, forward" },
-			show: isBrowsing,
-		},
-		{
-			of:   []actionID{actionMarkJump},
-			desc: func(model) string { return "jump to mark" },
+			of:   []actionID{actionMarkJump, actionHistoryBack, actionHistoryForward},
+			desc: func(model) string { return "jump to mark, back, forward" },
 			show: isBrowsing,
 		},
 		{

@@ -9,19 +9,28 @@ const agentHistoryLimit = 20
 
 // goBackAgent puts the cursor on the agent opened before the one it is on.
 func (m *model) goBackAgent() (tea.Model, tea.Cmd) {
-	return m.walkHistory(m.history.GoBack)
+	return m.walkHistory(walkHistoryParams{step: m.history.GoBack})
 }
 
 // goForwardAgent undoes a step back.
 func (m *model) goForwardAgent() (tea.Model, tea.Cmd) {
-	return m.walkHistory(m.history.GoForward)
+	return m.walkHistory(walkHistoryParams{
+		step:        m.history.GoForward,
+		afterForget: m.history.GoBack,
+	})
+}
+
+// walkHistoryParams is one direction of a walk and the step its forgetting needs afterwards.
+type walkHistoryParams struct {
+	step        func() (string, bool)
+	afterForget func() (string, bool)
 }
 
 // walkHistory steps until it reaches an agent still on the list, forgetting the ones that are
 // not.
-func (m *model) walkHistory(step func() (string, bool)) (tea.Model, tea.Cmd) {
+func (m *model) walkHistory(params walkHistoryParams) (tea.Model, tea.Cmd) {
 	for {
-		id, ok := step()
+		id, ok := params.step()
 		if !ok {
 			return *m, nil
 		}
@@ -32,5 +41,9 @@ func (m *model) walkHistory(step func() (string, bool)) (tea.Model, tea.Cmd) {
 		}
 
 		m.history.Remove(id)
+
+		if params.afterForget != nil {
+			params.afterForget()
+		}
 	}
 }
