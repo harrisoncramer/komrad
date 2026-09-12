@@ -141,7 +141,7 @@ toggle = ["?"]
 # Step back to the agent you opened before this one.
 back    = ["ctrl+o"]
 # Step forward again after stepping back. This is tab rather than ctrl+i because a
-# terminal sends the same byte for both, which is why vim's forward jump is also tab.
+# terminal sends the same byte for both. Vim's forward jump is tab for the same reason.
 forward = ["tab"]
 
 # The key that pages the service's log, shared by every screen since the log is

@@ -91,28 +91,28 @@ func TestHistoryWalksTheAgentsOpened(t *testing.T) {
 // TestHistoryHasNowhereToGo pins the keys doing nothing at either end of the walk.
 func TestHistoryHasNowhereToGo(t *testing.T) {
 	tests := []struct {
-		name   string
-		opened []string
-		key    func(m model) string
-		wantID string
+		name    string
+		opened  []string
+		forward bool
+		wantID  string
 	}{
 		{
-			name:   "nothing opened leaves the cursor alone",
-			opened: nil,
-			key:    func(m model) string { return m.keys.History.Back[0] },
-			wantID: "a1",
+			name:    "nothing opened leaves the cursor alone",
+			opened:  nil,
+			forward: false,
+			wantID:  "a1",
 		},
 		{
-			name:   "one agent opened has nothing behind it",
-			opened: []string{"a1"},
-			key:    func(m model) string { return m.keys.History.Back[0] },
-			wantID: "a1",
+			name:    "one agent opened has nothing behind it",
+			opened:  []string{"a1"},
+			forward: false,
+			wantID:  "a1",
 		},
 		{
-			name:   "the agent opened last has nothing ahead of it",
-			opened: []string{"a1", "a2"},
-			key:    func(m model) string { return m.keys.History.Forward[0] },
-			wantID: "a2",
+			name:    "the agent opened last has nothing ahead of it",
+			opened:  []string{"a1", "a2"},
+			forward: true,
+			wantID:  "a2",
 		},
 	}
 
@@ -125,7 +125,12 @@ func TestHistoryHasNowhereToGo(t *testing.T) {
 				m = openAgentRow(t, m, id)
 			}
 
-			after := pressHistory(t, m, tt.key(m))
+			pressed := m.keys.History.Back[0]
+			if tt.forward {
+				pressed = m.keys.History.Forward[0]
+			}
+
+			after := pressHistory(t, m, pressed)
 			assert.Equal(t, tt.wantID, hoveredAgentID(t, after))
 		})
 	}

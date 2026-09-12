@@ -181,14 +181,14 @@ type HelpKeys struct {
 }
 
 // HistoryKeys are the bindings that walk back and forward through the agents you have opened,
-// the way a browser's back and forward buttons do. Opening an agent puts it at the end of the
-// walk, and these keys only move along it, so stepping back and forth costs nothing. An agent
-// that has been archived since is stepped over and forgotten.
+// the way a browser's back and forward buttons do. Opening an agent adds it to the end of the
+// walk. These keys only move along that list, so walking back and forward again changes
+// nothing. An agent archived since you opened it is stepped over and forgotten.
 type HistoryKeys struct {
 	// Step back to the agent you opened before this one.
 	Back []string `mapstructure:"back" default:"ctrl+o"`
 	// Step forward again after stepping back. This is tab rather than ctrl+i because a
-	// terminal sends the same byte for both, which is why vim's forward jump is also tab.
+	// terminal sends the same byte for both. Vim's forward jump is tab for the same reason.
 	Forward []string `mapstructure:"forward" default:"tab"`
 }
 
