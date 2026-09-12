@@ -209,8 +209,8 @@ func composingPane(t *testing.T, terminal *fakeTerminal, now *time.Time) *Pane {
 	})
 }
 
-// deliver is one whole attempt at saying something, which is what the delivery service does with
-// a channel: ask whether it would be taken, then say it.
+// deliver is the two calls the delivery service makes: ask whether the line would be taken,
+// then say it.
 func deliver(ctx context.Context, t *testing.T, p *Pane) (bool, error) {
 	t.Helper()
 

@@ -2,8 +2,7 @@ package harness
 
 import "context"
 
-// Target is the agent a channel speaks to or an observer reads, carrying only what reaching it
-// takes.
+// Target is the agent a channel speaks to or an observer reads.
 type Target struct {
 	AgentID   string
 	Pane      string

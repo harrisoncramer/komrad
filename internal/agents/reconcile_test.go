@@ -862,8 +862,7 @@ func TestReconcileLeavesARowAResumeHasMovedOn(t *testing.T) {
 	}
 }
 
-// fakeObserver reports a reading of its own rather than reading any screen, which is what a
-// source weave is told by rather than watches looks like.
+// fakeObserver reports a reading of its own rather than reading any screen.
 type fakeObserver struct {
 	observation harness.Observation
 	err         error

@@ -35,8 +35,7 @@ func (p *Pane) readFrame(harnessID, frame string) (harness.Input, error) {
 	return found.ReadInput(frame), nil
 }
 
-// readInput captures the pane and reads it, which is the whole of an observation minus the
-// frame itself.
+// readInput captures the pane and reads what its harness makes of it.
 func (p *Pane) readInput(target harness.Target) (harness.Input, error) {
 	return p.readFrame(target.HarnessID, p.terminal.CapturePane(target.Pane))
 }
