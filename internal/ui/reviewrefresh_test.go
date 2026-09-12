@@ -2,8 +2,6 @@ package ui
 
 import (
 	"fmt"
-	"os"
-	"path/filepath"
 	"testing"
 	"time"
 
@@ -337,12 +335,15 @@ func TestReviewRefreshSaysNothingWhenTheReadFails(t *testing.T) {
 // TestReviewDiffPollCatchesUpOnceTheTurnIsOver covers what watching is for: the worktree is
 // hashed in the background, and a move an idle agent left behind is read again on its own.
 func TestReviewDiffPollCatchesUpOnceTheTurnIsOver(t *testing.T) {
-	dir := realReviewRepo(t)
-	m, tmux := realReviewModel(t, &fakeReviewAgents{}, dir)
+	repo := newFakeRepo(t.TempDir())
+	m, tmux := reviewModelOver(t, &fakeReviewAgents{}, repo)
 	m = openReview(t, m)
 
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "greet.go"),
-		[]byte("package greet\n\nfunc Hello() string {\n\treturn \"written by the agent\"\n}\n"), 0o644))
+	repo.wrote(wroteParams{
+		Tree:   "tree-written-again",
+		Whole:  fakePatchWrittenOver,
+		Source: "package greet\n\nfunc Hello() string {\n\treturn \"written by the agent\"\n}\n",
+	})
 
 	cmd := m.pollReviewDiffCmd()
 	polled, ok := cmd().(reviewDiffPolledMsg)
@@ -390,11 +391,11 @@ func TestReviewDiffPollIgnoresAWorktreeThatHasNotMoved(t *testing.T) {
 // the review is open: catching up finds nothing to show, so the reader is put back on the listing
 // rather than left in a diff viewer with no diff in it.
 func TestReviewBacksOutWhenTheWorktreeWasEmptied(t *testing.T) {
-	dir := realReviewRepo(t)
-	m, _ := realReviewModel(t, &fakeReviewAgents{}, dir)
+	repo := newFakeRepo(t.TempDir())
+	m, _ := reviewModelOver(t, &fakeReviewAgents{}, repo)
 	m = openReview(t, m)
 
-	gitIn(t, dir, "checkout", "--", ".")
+	repo.wrote(wroteParams{Tree: "tree-of-the-base"})
 
 	next, cmd := m.reloadReview()
 	require.NotNil(t, cmd)
@@ -412,14 +413,17 @@ func TestReviewBacksOutWhenTheWorktreeWasEmptied(t *testing.T) {
 // TestReviewReloadKeyOpensTheNextRound pins the opt-in: the reader asks for the next round, and
 // lands back where they were standing in the new one.
 func TestReviewReloadKeyOpensTheNextRound(t *testing.T) {
-	dir := realReviewRepo(t)
-	m, _ := realReviewModel(t, &fakeReviewAgents{}, dir)
+	repo := newFakeRepo(t.TempDir())
+	m, _ := reviewModelOver(t, &fakeReviewAgents{}, repo)
 	m = openReview(t, m)
 
 	first := m.review.round.GetOrdinal()
 
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "greet.go"),
-		[]byte("package greet\n\nfunc Hello() string {\n\treturn \"written by the agent\"\n}\n"), 0o644))
+	repo.wrote(wroteParams{
+		Tree:   "tree-written-again",
+		Whole:  fakePatchWrittenOver,
+		Source: "package greet\n\nfunc Hello() string {\n\treturn \"written by the agent\"\n}\n",
+	})
 
 	polled, ok := m.pollReviewDiffCmd()().(reviewDiffPolledMsg)
 	require.True(t, ok)
@@ -546,18 +550,19 @@ func TestANoticeCoversWhatChangedAndGivesItBack(t *testing.T) {
 // an agent that has written nothing and one whose every line is in a path the workflow hides both
 // leave the screen empty, and only one of them means the agent has not worked.
 func TestReviewSaysWhenEverythingIsExcluded(t *testing.T) {
-	dir := realReviewRepo(t)
-	gitIn(t, dir, "checkout", "--", ".")
-	require.NoError(t, os.MkdirAll(filepath.Join(dir, "proto", "gen"), 0o755))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "proto", "gen", "api.pb.go"),
-		[]byte("package gen\n"), 0o644))
+	repo := newFakeRepo(t.TempDir())
+	repo.wrote(wroteParams{
+		Tree:   "tree-inside-an-excluded-path",
+		Whole:  fakePatchInAnExcludedPath,
+		Hidden: true,
+	})
 
-	m, _ := realReviewModel(t, &fakeReviewAgents{}, dir)
+	m, _ := reviewModelOver(t, &fakeReviewAgents{}, repo)
 	m = openReview(t, m)
 
 	loaded, ok := m.loadReviewCmd(loadReviewCmdParams{
 		AgentID: m.review.agentID,
-		Dir:     dir,
+		Dir:     repo.root,
 		Exclude: []string{"proto/gen"},
 	})().(reviewLoadedMsg)
 	require.True(t, ok)
