@@ -24,7 +24,7 @@ func TestNewAgentRunsPreLaunchHooksInOrder(t *testing.T) {
 
 	created, err := workflowsFor(st, tmux).NewWorkflow(t.Context(), workflowstore.Config{
 		Name:     "backend",
-		Cwd:      initRepo(t),
+		Cwd:      fakeCheckout(t),
 		Worktree: workflowstore.WorktreeConfig{Enabled: true},
 		Hooks: []workflowstore.Hook{
 			{Event: workflowstore.HookPreLaunch, Script: "install-deps"},
@@ -102,7 +102,7 @@ func TestNewAgentAbandonsACreateAPreLaunchHookRefused(t *testing.T) {
 
 	created, err := workflowsFor(st, tmux).NewWorkflow(t.Context(), workflowstore.Config{
 		Name:     "backend",
-		Cwd:      initRepo(t),
+		Cwd:      fakeCheckout(t),
 		Worktree: workflowstore.WorktreeConfig{Enabled: true},
 		Hooks: []workflowstore.Hook{
 			{Event: workflowstore.HookPreLaunch, Script: "install-deps"},
@@ -175,7 +175,7 @@ func TestARetiredProvisionerRunsNoHooks(t *testing.T) {
 
 	created, err := workflowsFor(st, tmux).NewWorkflow(t.Context(), workflowstore.Config{
 		Name:     "backend",
-		Cwd:      initRepo(t),
+		Cwd:      fakeCheckout(t),
 		Worktree: workflowstore.WorktreeConfig{Enabled: true},
 		Hooks: []workflowstore.Hook{
 			{Event: workflowstore.HookPreLaunch, Script: "install-deps"},
@@ -352,7 +352,7 @@ func TestAProvisionerDisabledAgentRunsNoHooksOnTheWayBackIn(t *testing.T) {
 
 			created, err := st.Workflows.Create(ctx, workflowstore.Config{
 				Name:     "backend",
-				Cwd:      initRepo(t),
+				Cwd:      fakeCheckout(t),
 				Worktree: workflowstore.WorktreeConfig{Enabled: true},
 				Hooks: []workflowstore.Hook{
 					{Event: workflowstore.HookPostResume, Script: "announce-back"},

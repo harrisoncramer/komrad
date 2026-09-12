@@ -104,7 +104,7 @@ func TestUpdateWorkflow(t *testing.T) {
 // TestNewWorkflowWithWorktree covers the validation a worktree-enabled create is held to,
 // and that enabling it is the whole of what a workflow says about its agents' directories.
 func TestNewWorkflowWithWorktree(t *testing.T) {
-	repo := initRepo(t)
+	repo := fakeCheckout(t)
 
 	tests := []struct {
 		name         string
@@ -216,18 +216,20 @@ func TestNewWorkflowWithWorktree(t *testing.T) {
 	}
 }
 
-// TestNewWorkflowRefusesACwdThatIsNotAPrimaryCheckout pins that a worktree workflow is
-// refused unless its cwd is a repository agents can be branched off.
-func TestNewWorkflowRefusesACwdThatIsNotAPrimaryCheckout(t *testing.T) {
+// TestNewWorkflowWantsAPrimaryCheckout pins both directions of the cwd a worktree workflow is
+// held to, since every other test in this package stands on a directory shaped like one.
+func TestNewWorkflowWantsAPrimaryCheckout(t *testing.T) {
 	tests := []struct {
-		name string
-		cwd  func(t *testing.T) string
+		name    string
+		cwd     func(t *testing.T) string
+		wantErr error
 	}{
 		{
 			name: "cwd is not a git repository at all",
 			cwd: func(t *testing.T) string {
 				return t.TempDir()
 			},
+			wantErr: ErrWorktreeCwdNotPrimaryCheckout,
 		},
 		{
 			name: "cwd is a linked worktree rather than the primary checkout",
@@ -238,6 +240,11 @@ func TestNewWorkflowRefusesACwdThatIsNotAPrimaryCheckout(t *testing.T) {
 
 				return tree
 			},
+			wantErr: ErrWorktreeCwdNotPrimaryCheckout,
+		},
+		{
+			name: "cwd is a repository git made",
+			cwd:  initRepo,
 		},
 	}
 
@@ -248,7 +255,14 @@ func TestNewWorkflowRefusesACwdThatIsNotAPrimaryCheckout(t *testing.T) {
 				Cwd:      tt.cwd(t),
 				Worktree: workflowstore.WorktreeConfig{Enabled: true},
 			})
-			require.ErrorIs(t, err, ErrWorktreeCwdNotPrimaryCheckout)
+
+			if tt.wantErr == nil {
+				require.NoError(t, err)
+
+				return
+			}
+
+			require.ErrorIs(t, err, tt.wantErr)
 		})
 	}
 }
@@ -260,7 +274,7 @@ func TestUpdateWorkflowRefusesAnUnsafeWorktreePath(t *testing.T) {
 
 	created, err := workflows.NewWorkflow(t.Context(), workflowstore.Config{
 		Name:     "backend",
-		Cwd:      initRepo(t),
+		Cwd:      fakeCheckout(t),
 		Worktree: workflowstore.WorktreeConfig{Enabled: true},
 	})
 	require.NoError(t, err)
@@ -278,7 +292,7 @@ func TestUpdateWorkflowRefusesAnUnsafeWorktreePath(t *testing.T) {
 func TestWorkflowWorktreePathsAreStoredCleaned(t *testing.T) {
 	st := newStore(t)
 	workflows := workflowsFor(st, newFakeTmux())
-	repo := initRepo(t)
+	repo := fakeCheckout(t)
 
 	created, err := workflows.NewWorkflow(t.Context(), workflowstore.Config{
 		Name: "backend",
@@ -326,7 +340,7 @@ func TestUpdateWorkflowWorktree(t *testing.T) {
 
 	err = workflows.UpdateWorkflow(t.Context(), created.ID, workflowstore.Config{
 		Name:     "backend",
-		Cwd:      initRepo(t),
+		Cwd:      fakeCheckout(t),
 		Worktree: workflowstore.WorktreeConfig{Enabled: true},
 	})
 	require.NoError(t, err)
@@ -356,7 +370,7 @@ func TestUpdateWorkflowWorktreeDisablePreservesTheDetails(t *testing.T) {
 		SymlinkPaths: []string{"node_modules"},
 	}
 
-	repo := initRepo(t)
+	repo := fakeCheckout(t)
 
 	created, err := workflows.NewWorkflow(t.Context(), workflowstore.Config{
 		Name: "backend",
@@ -405,7 +419,7 @@ func TestUpdateWorkflowWorktreeDisablePreservesTheDetails(t *testing.T) {
 func TestWorkflowArchiveOnPRClosed(t *testing.T) {
 	st := newStore(t)
 	workflows := workflowsFor(st, newFakeTmux())
-	repo := initRepo(t)
+	repo := fakeCheckout(t)
 
 	created, err := workflows.NewWorkflow(t.Context(), workflowstore.Config{
 		Name:              "backend",

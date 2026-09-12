@@ -689,7 +689,7 @@ func TestNewAgentCeiling(t *testing.T) {
 
 			workflow, err := workflowsFor(st, tmux).NewWorkflow(t.Context(), workflowstore.Config{
 				Name:     "backend",
-				Cwd:      initRepo(t),
+				Cwd:      fakeCheckout(t),
 				Worktree: workflowstore.WorktreeConfig{Enabled: true},
 			})
 			require.NoError(t, err)
@@ -798,7 +798,7 @@ func TestNewAgentCleansUpAfterASetupThatRan(t *testing.T) {
 
 			created, err := workflowsFor(st, tmux).NewWorkflow(t.Context(), workflowstore.Config{
 				Name:     "backend",
-				Cwd:      initRepo(t),
+				Cwd:      fakeCheckout(t),
 				Worktree: workflowstore.WorktreeConfig{Enabled: true},
 			})
 			require.NoError(t, err)
@@ -837,7 +837,7 @@ func TestNewAgentDoesNotCleanUpASetupThatRefused(t *testing.T) {
 
 	created, err := workflowsFor(st, tmux).NewWorkflow(t.Context(), workflowstore.Config{
 		Name:     "backend",
-		Cwd:      initRepo(t),
+		Cwd:      fakeCheckout(t),
 		Worktree: workflowstore.WorktreeConfig{Enabled: true},
 	})
 	require.NoError(t, err)
@@ -879,7 +879,7 @@ func TestNewAgentClosesOutACreateTheCallerAbandoned(t *testing.T) {
 
 	created, err := workflowsFor(st, tmux).NewWorkflow(t.Context(), workflowstore.Config{
 		Name:     "backend",
-		Cwd:      initRepo(t),
+		Cwd:      fakeCheckout(t),
 		Worktree: workflowstore.WorktreeConfig{Enabled: true},
 	})
 	require.NoError(t, err)
@@ -935,7 +935,7 @@ func TestNewAgentWaitsForTheCleanupOfAFailedCreate(t *testing.T) {
 
 	created, err := workflowsFor(st, tmux).NewWorkflow(t.Context(), workflowstore.Config{
 		Name:     "backend",
-		Cwd:      initRepo(t),
+		Cwd:      fakeCheckout(t),
 		Worktree: workflowstore.WorktreeConfig{Enabled: true},
 	})
 	require.NoError(t, err)

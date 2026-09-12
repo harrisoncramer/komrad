@@ -239,21 +239,25 @@ func TestRebaseAndThePullRequest(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			tree := buildAgentWorktree(t, tt.conflict)
 			agents := &recordingRebaseAgents{agent: agentstore.Agent{
-				ID: "a1", Name: "auth", WorkflowID: "w1", Cwd: tree, State: agentstore.StateIdle,
+				ID: "a1", Name: "auth", WorkflowID: "w1", Cwd: "/tree", State: agentstore.StateIdle,
 				Metadata: []agentstore.Metadata{{Key: prMetadataKey, Value: "https://example.test/pr/1"}},
 			}}
+
+			rebaser := &fakeRebaser{state: git.TreeState{Branch: "agent/a1"}}
+			if tt.conflict {
+				rebaser.replayErr = git.ErrRebaseConflicted
+			}
 
 			service := NewRebaseService(NewRebaseServiceParams{
 				Agents:    agents,
 				Workflows: fakeRebaseWorkflows{flow: worktreeFlow()},
-				Rebaser:   git.NewClient(),
+				Rebaser:   rebaser,
 			})
 
 			result, err := service.Rebase(t.Context(), "a1")
 			require.NoError(t, err)
-			require.Equal(t, tt.conflict, result.Conflicted, "the fixture did not produce the state it was built for")
+			require.Equal(t, tt.conflict, result.Conflicted)
 
 			assert.Equal(t, tt.wantCleared, result.ClearedPullRequest)
 			assert.Equal(t, tt.wantCleared, agents.clearedPR, "the row is written only when the branch moved")
@@ -268,6 +272,8 @@ type fakeRebaser struct {
 	commits    int
 	parked     []string
 	cutoff     string
+	// replayErr is what a replay answers with, which is how a conflict is asked for.
+	replayErr error
 	// calls is what was asked of git, in the order it was asked.
 	calls []string
 }
@@ -302,55 +308,14 @@ func (f *fakeRebaser) ReleaseRefsUnder(context.Context, string, string, string) 
 func (f *fakeRebaser) Rebase(context.Context, string, string) error {
 	f.calls = append(f.calls, "rebase")
 
-	return nil
+	return f.replayErr
 }
 
 func (f *fakeRebaser) RebaseOnto(_ context.Context, _, _, cutoff string) error {
 	f.cutoff = cutoff
 	f.calls = append(f.calls, "rebaseOnto")
 
-	return nil
-}
-
-// buildAgentWorktree is an origin, a clone and a worktree on an agent branch that is behind it,
-// optionally with a change that makes the rebase stop on a conflict.
-func buildAgentWorktree(t *testing.T, conflict bool) string {
-	t.Helper()
-
-	root := t.TempDir()
-	origin := filepath.Join(root, "origin")
-	gitRun(t, root, "init", "--quiet", "-b", "main", origin)
-	gitRun(t, origin, "config", "user.email", "t@example.com")
-	gitRun(t, origin, "config", "user.name", "t")
-	writeTree(t, origin, "clash.txt", "base\n")
-	gitRun(t, origin, "add", "clash.txt")
-	gitRun(t, origin, "commit", "--quiet", "-m", "base")
-
-	clone := filepath.Join(root, "clone")
-	gitRun(t, root, "clone", "--quiet", origin, clone)
-	gitRun(t, clone, "config", "user.email", "t@example.com")
-	gitRun(t, clone, "config", "user.name", "t")
-
-	tree := filepath.Join(root, "tree")
-	gitRun(t, clone, "worktree", "add", "--quiet", "--no-track", "-b", "agent/a1", tree, "origin/main")
-	writeTree(t, tree, "own.txt", "the agent's work\n")
-	gitRun(t, tree, "add", "own.txt")
-	gitRun(t, tree, "commit", "--quiet", "-m", "the agent's work")
-
-	// Origin moves on, so there is something to rebase onto.
-	body := "moved on\n"
-	if conflict {
-		// The same path the agent is about to touch, so the replay cannot settle it.
-		writeTree(t, tree, "clash.txt", "ours\n")
-		gitRun(t, tree, "add", "clash.txt")
-		gitRun(t, tree, "commit", "--quiet", "-m", "ours")
-		body = "theirs\n"
-	}
-	writeTree(t, origin, "clash.txt", body)
-	gitRun(t, origin, "add", "clash.txt")
-	gitRun(t, origin, "commit", "--quiet", "-m", "origin moved on")
-
-	return tree
+	return f.replayErr
 }
 
 func writeTree(t *testing.T, dir, name, body string) {
@@ -428,24 +393,25 @@ func TestRebaseFastForwardsASquashedBranch(t *testing.T) {
 func TestRebaseReplaysWhenTheTreesDiffer(t *testing.T) {
 	t.Parallel()
 
-	tree := buildAgentWorktree(t, false)
+	rebaser := &fakeRebaser{
+		state:      git.TreeState{Branch: "agent/a1"},
+		prediction: git.Prediction{Replay: 1},
+	}
+
 	service := NewRebaseService(NewRebaseServiceParams{
 		Agents: &recordingRebaseAgents{agent: agentstore.Agent{
-			ID: "a1", Name: "auth", WorkflowID: "w1", Cwd: tree, State: agentstore.StateIdle,
+			ID: "a1", Name: "auth", WorkflowID: "w1", Cwd: "/tree", State: agentstore.StateIdle,
 		}},
 		Workflows: fakeRebaseWorkflows{flow: worktreeFlow()},
-		Rebaser:   git.NewClient(),
+		Rebaser:   rebaser,
 	})
 
 	result, err := service.Rebase(t.Context(), "a1")
 	require.NoError(t, err)
 
-	assert.False(t, result.Moved)
+	assert.False(t, result.Moved, "work was replayed, so the branch was not merely moved")
 	assert.Empty(t, result.Cutoff)
-
-	own, err := git.Run(t.Context(), tree, "log", "--format=%s", "-1")
-	require.NoError(t, err)
-	assert.Equal(t, "the agent's work", own, "the agent's own commit is still on the branch")
+	assert.Equal(t, []string{"park", "rebase"}, rebaser.calls, "no cutoff, so the whole branch replays")
 }
 
 // buildSquashedWorktree is an agent worktree whose commits reached origin's main as one squashed
@@ -493,54 +459,20 @@ func buildSquashedWorktree(t *testing.T) (tree, origin string) {
 	return tree, origin
 }
 
-// TestRebaseReplaysOnlyWhatFollowedTheMerge is the partly landed branch, where a plain rebase
-// replays the landed commits into their own content and stops.
-func TestRebaseReplaysOnlyWhatFollowedTheMerge(t *testing.T) {
-	t.Parallel()
-
-	tree, _ := buildSquashedWorktree(t)
-	writeTree(t, tree, "after.txt", "written after the merge\n")
-	gitRun(t, tree, "add", "after.txt")
-	gitRun(t, tree, "commit", "--quiet", "-m", "kept going")
-
-	service := NewRebaseService(NewRebaseServiceParams{
-		Agents: &recordingRebaseAgents{agent: agentstore.Agent{
-			ID: "a1", Name: "auth", WorkflowID: "w1", Cwd: tree, State: agentstore.StateIdle,
-		}},
-		Workflows: fakeRebaseWorkflows{flow: worktreeFlow()},
-		Rebaser:   git.NewClient(),
-	})
-
-	result, err := service.Rebase(t.Context(), "a1")
-	require.NoError(t, err)
-
-	require.False(t, result.Conflicted, "the cutoff is what keeps this off the conflict path")
-	assert.Equal(t, 1, result.Replay, "only the commit written after the merge")
-	assert.Positive(t, result.Landed, "and the ones the base already holds are not replayed")
-	assert.False(t, result.Moved, "there was real work to move, so this is not a bare move")
-
-	body, err := os.ReadFile(filepath.Join(tree, "after.txt"))
-	require.NoError(t, err)
-	assert.Equal(t, "written after the merge\n", string(body), "the work written after the merge survived")
-
-	_, err = os.Stat(filepath.Join(tree, "elsewhere.txt"))
-	require.NoError(t, err, "and the other pull request came in")
-}
-
 // TestRebaseRefusesAPathTheIndexIsHolding covers a path whose working copy git is deliberately
 // not reading, which nothing could put back if the move went wrong.
 func TestRebaseRefusesAPathTheIndexIsHolding(t *testing.T) {
 	t.Parallel()
 
-	tree := buildAgentWorktree(t, false)
-	gitRun(t, tree, "update-index", "--assume-unchanged", "own.txt")
-
 	service := NewRebaseService(NewRebaseServiceParams{
 		Agents: &recordingRebaseAgents{agent: agentstore.Agent{
-			ID: "a1", Name: "auth", WorkflowID: "w1", Cwd: tree, State: agentstore.StateIdle,
+			ID: "a1", Name: "auth", WorkflowID: "w1", Cwd: "/tree", State: agentstore.StateIdle,
 		}},
 		Workflows: fakeRebaseWorkflows{flow: worktreeFlow()},
-		Rebaser:   git.NewClient(),
+		Rebaser: &fakeRebaser{state: git.TreeState{
+			Branch:      "agent/a1",
+			HiddenPaths: []string{"own.txt"},
+		}},
 	})
 
 	_, err := service.Rebase(t.Context(), "a1")
@@ -601,9 +533,9 @@ func TestRebaseParksBeforeItAsksGitToMove(t *testing.T) {
 	assert.Equal(t, []string{"park", "rebase"}, rebaser.calls)
 }
 
-// TestRebaseReplaysFromACutoffWhenThePlanFindsOne covers the branch a squash merge needs, where
+// TestRebaseReplaysFromTheCutoffThePlanFound covers the branch a squash merge needs, where
 // replaying every commit would collide with content the base already holds.
-func TestRebaseReplaysFromACutoffWhenThePlanFindsOne(t *testing.T) {
+func TestRebaseReplaysFromTheCutoffThePlanFound(t *testing.T) {
 	t.Parallel()
 
 	rebaser := &fakeRebaser{
@@ -622,9 +554,13 @@ func TestRebaseReplaysFromACutoffWhenThePlanFindsOne(t *testing.T) {
 	result, err := service.Rebase(t.Context(), "a1")
 	require.NoError(t, err)
 
+	require.False(t, result.Conflicted, "the cutoff is what keeps this off the conflict path")
 	assert.Equal(t, "cutoffsha", result.Cutoff)
 	assert.Equal(t, "cutoffsha", rebaser.cutoff, "the cutoff the plan found is the one git is given")
 	assert.Equal(t, []string{"park", "rebaseOnto"}, rebaser.calls, "a plain rebase would collide with the landed content")
+	assert.Equal(t, 1, result.Replay, "the plan's counts reach the result")
+	assert.Positive(t, result.Landed)
+	assert.False(t, result.Moved, "work was replayed, so this is not a bare move")
 }
 
 // TestRebaseMailsForAnAgentWithNoWorkOfItsOwn is the commonest press of all, where the agent is
