@@ -1,160 +1,178 @@
 package ui
 
 import (
-	"os"
-	"path/filepath"
-	"strings"
+	"context"
+	"sync"
 	"testing"
 
 	"weave/internal/git"
+	"weave/internal/position"
 	agentv1 "weave/proto/gen/agent/v1"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-// traceRepo is two snapshots of one file, where the second inserts a helper above the line the
-// first commented on and renames nothing, so a line that did not change is at a new number.
-func traceRepo(t *testing.T) (string, string, string) {
-	t.Helper()
+const (
+	traceDir   = "/checkout"
+	firstSHA   = "1111111111111111111111111111111111111111"
+	secondSHA  = "2222222222222222222222222222222222222222"
+	thirdSHA   = "3333333333333333333333333333333333333333"
+	unreadable = "0000000000000000000000000000000000000000"
+	tracedFile = "greet.go"
+)
 
-	dir := t.TempDir()
-	path := filepath.Join(dir, "greet.go")
+// insertedAHelper is what git reports between two snapshots where the second put a four line
+// helper above the commented line, taken from a real repository so the numbers are git's own.
+var insertedAHelper = []position.Mapping{{
+	File:   position.FileMapping{OldPath: tracedFile, NewPath: tracedFile},
+	Ranges: []position.RangeMapping{{Old: position.Range{Start: 3, End: 3}, New: position.Range{Start: 3, End: 7}}},
+}}
 
-	gitIn(t, dir, "init", "-b", "main")
-	require.NoError(t, os.WriteFile(path,
-		[]byte("package greet\n\nfunc Hello(name string) string {\n\treturn \"hello \" + name\n}\n"), 0o644))
-	gitIn(t, dir, "add", ".")
-	gitIn(t, dir, "commit", "-m", "first")
+// rewroteTheLine is what git reports where the commented line itself was written over, which
+// leaves the file in place and the line nowhere.
+var rewroteTheLine = []position.Mapping{{
+	File:   position.FileMapping{OldPath: tracedFile, NewPath: tracedFile},
+	Ranges: []position.RangeMapping{{Old: position.Range{Start: 4, End: 5}, New: position.Range{Start: 4, End: 5}}},
+}}
 
-	first := gitOut(t, dir, "rev-parse", "HEAD")
-
-	require.NoError(t, os.WriteFile(path,
-		[]byte("package greet\n\nfunc nameOr(name string) string {\n\treturn name\n}\n\n"+
-			"func Hello(name string) string {\n\treturn \"hello \" + name\n}\n"), 0o644))
-	gitIn(t, dir, "add", ".")
-	gitIn(t, dir, "commit", "-m", "second")
-
-	return dir, first, gitOut(t, dir, "rev-parse", "HEAD")
+// tracedGit answers a pair of snapshots with what git reported for it, refusing any pair the
+// test did not state and recording every pair it was asked for.
+type tracedGit struct {
+	fakeGit
+	mu      sync.Mutex
+	asked   []git.MapRangesParams
+	answers map[string][]position.Mapping
 }
 
-func gitOut(t *testing.T, dir string, args ...string) string {
-	t.Helper()
-
-	cmd := gitCmd(t, dir, args...)
-
-	out, err := cmd.Output()
-	require.NoError(t, err, strings.Join(args, " "))
-
-	return strings.TrimSpace(string(out))
+// newTracedGit is a git that answers for the snapshots a test names and nothing else.
+func newTracedGit(answers map[string][]position.Mapping) *tracedGit {
+	return &tracedGit{answers: answers}
 }
 
-// TestTraceThreadsFollowsALineThroughGit covers the whole tracing path against a real repository:
-// a comment on line four of the first snapshot is line eight of the second, and nothing but git
-// can say so.
+func (g *tracedGit) MapRanges(_ context.Context, params git.MapRangesParams) ([]position.Mapping, error) {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+
+	g.asked = append(g.asked, params)
+
+	mappings, held := g.answers[params.FromSHA]
+	if !held {
+		return nil, errNoGit
+	}
+
+	return mappings, nil
+}
+
+// pairsAsked is every pair of snapshots the tracing asked git about.
+func (g *tracedGit) pairsAsked() []git.MapRangesParams {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+
+	return append([]git.MapRangesParams(nil), g.asked...)
+}
+
+// TestTraceThreadsFollowsALineThroughGit covers the whole tracing path: a comment on line four of
+// the first snapshot is line eight of the second, which only the mapping between the two can say.
 func TestTraceThreadsFollowsALineThroughGit(t *testing.T) {
-	dir, first, second := traceRepo(t)
+	repo := newTracedGit(map[string][]position.Mapping{firstSHA: insertedAHelper})
 
 	rounds := []*agentv1.ReviewRound{
 		{
 			Id:          "r1",
 			Ordinal:     1,
-			SnapshotSha: first,
+			SnapshotSha: firstSHA,
 		},
 		{
 			Id:          "r2",
 			Ordinal:     2,
-			SnapshotSha: second,
+			SnapshotSha: secondSHA,
 		},
 	}
 	threads := []*agentv1.ReviewThread{{
 		Id:       "t1",
 		RoundId:  "r1",
-		FilePath: "greet.go",
+		FilePath: tracedFile,
 		NewStart: 4,
 		NewEnd:   4,
 	}}
 
 	traced := traceThreads(t.Context(), traceThreadsParams{
-		Git:     git.NewClient(),
-		Dir:     dir,
-		ToSHA:   second,
+		Git:     repo,
+		Dir:     traceDir,
+		ToSHA:   secondSHA,
 		Threads: threads,
 		Rounds:  rounds,
 	})
 
 	found, ok := traced["t1"]
 	require.True(t, ok, "the thread was traced")
-	assert.Equal(t, "greet.go", found.FilePath)
+	assert.Equal(t, tracedFile, found.FilePath)
 	assert.Equal(t, int32(8), found.NewStart, "four lines arrived above it")
 	assert.False(t, found.FileOnly)
+
+	assert.Equal(t, []git.MapRangesParams{{Dir: traceDir, FromSHA: firstSHA, ToSHA: secondSHA}}, repo.pairsAsked(),
+		"the pair read is the snapshot it was written against and the one on screen")
 }
 
 // TestTraceThreadsMarksTheRoundOnScreenAsExact covers a thread written against the snapshot on
 // screen, whose numbers are counted in that tree and so need no git call to be trusted.
 func TestTraceThreadsMarksTheRoundOnScreenAsExact(t *testing.T) {
-	dir, _, second := traceRepo(t)
+	repo := newTracedGit(nil)
 
 	traced := traceThreads(t.Context(), traceThreadsParams{
-		Git:   git.NewClient(),
-		Dir:   dir,
-		ToSHA: second,
+		Git:   repo,
+		Dir:   traceDir,
+		ToSHA: secondSHA,
 		Threads: []*agentv1.ReviewThread{{
 			Id:       "t1",
 			RoundId:  "r2",
-			FilePath: "greet.go",
+			FilePath: tracedFile,
 			NewStart: 8,
 			NewEnd:   8,
 		}},
 		Rounds: []*agentv1.ReviewRound{{
 			Id:          "r2",
 			Ordinal:     2,
-			SnapshotSha: second,
+			SnapshotSha: secondSHA,
 		}},
 	})
 
 	found, ok := traced["t1"]
 	require.True(t, ok, "the thread is placed rather than left to another attempt")
-	assert.Equal(t, "greet.go", found.FilePath)
+	assert.Equal(t, tracedFile, found.FilePath)
 	assert.Equal(t, int32(8), found.NewStart, "the number it was written at is the number it holds")
 	assert.True(t, found.Exact, "and it is exact rather than traced")
+	assert.Empty(t, repo.pairsAsked(), "nothing was read to place it")
 }
 
 // TestTraceThreadsKeepsTheFileWhenTheLinesAreGone covers code the agent wrote over: the file is
 // still there and the lines are not, which is a file-level answer rather than no answer.
 func TestTraceThreadsKeepsTheFileWhenTheLinesAreGone(t *testing.T) {
-	dir, first, _ := traceRepo(t)
-
-	path := filepath.Join(dir, "greet.go")
-	require.NoError(t, os.WriteFile(path,
-		[]byte("package greet\n\nfunc Hello(name string) string {\n\treturn greeting(name)\n}\n"), 0o644))
-	gitIn(t, dir, "add", ".")
-	gitIn(t, dir, "commit", "-m", "third")
-
-	third := gitOut(t, dir, "rev-parse", "HEAD")
+	repo := newTracedGit(map[string][]position.Mapping{firstSHA: rewroteTheLine})
 
 	traced := traceThreads(t.Context(), traceThreadsParams{
-		Git:   git.NewClient(),
-		Dir:   dir,
-		ToSHA: third,
+		Git:   repo,
+		Dir:   traceDir,
+		ToSHA: thirdSHA,
 		Threads: []*agentv1.ReviewThread{{
 			Id:       "t1",
 			RoundId:  "r1",
-			FilePath: "greet.go",
+			FilePath: tracedFile,
 			NewStart: 4,
 			NewEnd:   4,
 		}},
 		Rounds: []*agentv1.ReviewRound{{
 			Id:          "r1",
 			Ordinal:     1,
-			SnapshotSha: first,
+			SnapshotSha: firstSHA,
 		}},
 	})
 
 	found, ok := traced["t1"]
 	require.True(t, ok)
 	assert.True(t, found.FileOnly, "the line it was about is gone")
-	assert.Equal(t, "greet.go", found.FilePath, "and the file it was in is not")
+	assert.Equal(t, tracedFile, found.FilePath, "and the file it was in is not")
 	assert.Zero(t, found.NewStart)
 }
 
@@ -162,25 +180,25 @@ func TestTraceThreadsKeepsTheFileWhenTheLinesAreGone(t *testing.T) {
 // earlier snapshot, so a thread from a later round is not drawn there and tracing it would run a
 // backwards diff of the whole tree for an answer nothing reads.
 func TestTraceThreadsSkipsRoundsTheScreenWillNotDraw(t *testing.T) {
-	dir, first, second := traceRepo(t)
+	repo := newTracedGit(map[string][]position.Mapping{secondSHA: insertedAHelper})
 
 	rounds := []*agentv1.ReviewRound{
 		{
 			Id:          "r1",
 			Ordinal:     1,
-			SnapshotSha: first,
+			SnapshotSha: firstSHA,
 		},
 		{
 			Id:          "r2",
 			Ordinal:     2,
-			SnapshotSha: second,
+			SnapshotSha: secondSHA,
 		},
 	}
 	threads := []*agentv1.ReviewThread{
 		{
 			Id:       "later",
 			RoundId:  "r2",
-			FilePath: "greet.go",
+			FilePath: tracedFile,
 			NewStart: 8,
 			NewEnd:   8,
 		},
@@ -188,67 +206,68 @@ func TestTraceThreadsSkipsRoundsTheScreenWillNotDraw(t *testing.T) {
 
 	// The reader has stepped back to the first round, so that snapshot is what is drawn.
 	traced := traceThreads(t.Context(), traceThreadsParams{
-		Git:     git.NewClient(),
-		Dir:     dir,
-		ToSHA:   first,
+		Git:     repo,
+		Dir:     traceDir,
+		ToSHA:   firstSHA,
 		Threads: threads,
 		Rounds:  rounds,
 	})
 
 	assert.Empty(t, traced, "a later round is not traced backwards into an earlier one")
+	assert.Empty(t, repo.pairsAsked(), "and the diff it would have taken was never run")
 }
 
 // TestTraceThreadsGivesUpWholeRatherThanInPart covers one pair failing while another answers:
 // keeping the answers that arrived would make placement depend on which pairs could be read, so
 // two loads of the same screen would draw the same comments in different places.
 func TestTraceThreadsGivesUpWholeRatherThanInPart(t *testing.T) {
-	dir, first, second := traceRepo(t)
+	repo := newTracedGit(map[string][]position.Mapping{firstSHA: insertedAHelper})
 
 	rounds := []*agentv1.ReviewRound{
 		{
 			Id:          "r1",
 			Ordinal:     1,
-			SnapshotSha: first,
+			SnapshotSha: firstSHA,
 		},
 		{
 			Id:          "gone",
 			Ordinal:     2,
-			SnapshotSha: "0000000000000000000000000000000000000000",
+			SnapshotSha: unreadable,
 		},
 		{
 			Id:          "r3",
 			Ordinal:     3,
-			SnapshotSha: second,
+			SnapshotSha: secondSHA,
 		},
 	}
 	threads := []*agentv1.ReviewThread{
 		{
 			Id:       "readable",
 			RoundId:  "r1",
-			FilePath: "greet.go",
+			FilePath: tracedFile,
 			NewStart: 4,
 			NewEnd:   4,
 		},
 		{
 			Id:       "unreadable",
 			RoundId:  "gone",
-			FilePath: "greet.go",
+			FilePath: tracedFile,
 			NewStart: 4,
 			NewEnd:   4,
 		},
 		{
 			Id:       "onscreen",
 			RoundId:  "r3",
-			FilePath: "greet.go",
+			FilePath: tracedFile,
 			NewStart: 8,
 			NewEnd:   8,
 		},
 	}
 
 	traced := traceThreads(t.Context(), traceThreadsParams{
-		Git:     git.NewClient(),
-		Dir:     dir,
-		ToSHA:   second,
+		Git:     repo,
+		Dir:     traceDir,
+		ToSHA:   secondSHA,
 		Threads: threads,
 		Rounds:  rounds,
 	})
@@ -265,16 +284,16 @@ func TestTraceThreadsGivesUpWholeRatherThanInPart(t *testing.T) {
 // and then put it back, which takes a second round carrying a snapshot an earlier round already
 // held.
 func TestTraceThreadsMarksEveryRoundHoldingTheSnapshotOnScreen(t *testing.T) {
-	dir, first, second := traceRepo(t)
+	repo := newTracedGit(nil)
 
 	traced := traceThreads(t.Context(), traceThreadsParams{
-		Git:   git.NewClient(),
-		Dir:   dir,
-		ToSHA: second,
+		Git:   repo,
+		Dir:   traceDir,
+		ToSHA: secondSHA,
 		Threads: []*agentv1.ReviewThread{{
 			Id:       "t1",
 			RoundId:  "r1",
-			FilePath: "greet.go",
+			FilePath: tracedFile,
 			NewStart: 8,
 			NewEnd:   8,
 		}},
@@ -282,17 +301,17 @@ func TestTraceThreadsMarksEveryRoundHoldingTheSnapshotOnScreen(t *testing.T) {
 			{
 				Id:          "r1",
 				Ordinal:     1,
-				SnapshotSha: second,
+				SnapshotSha: secondSHA,
 			},
 			{
 				Id:          "r2",
 				Ordinal:     2,
-				SnapshotSha: first,
+				SnapshotSha: firstSHA,
 			},
 			{
 				Id:          "r3",
 				Ordinal:     3,
-				SnapshotSha: second,
+				SnapshotSha: secondSHA,
 			},
 		},
 	})
@@ -301,4 +320,5 @@ func TestTraceThreadsMarksEveryRoundHoldingTheSnapshotOnScreen(t *testing.T) {
 	require.True(t, ok, "the earlier round holding this snapshot is on screen too")
 	assert.True(t, found.Exact)
 	assert.Equal(t, int32(8), found.NewStart)
+	assert.Empty(t, repo.pairsAsked(), "the round it was written against is the one on screen")
 }
