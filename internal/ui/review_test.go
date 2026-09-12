@@ -1734,7 +1734,7 @@ func TestWritingIsRefusedOnAFinishedRound(t *testing.T) {
 
 	// The newest round ends at the work in hand, so its new side is the current snapshot and a
 	// comment on it is about code the agent still has.
-	_, history := m.reviewIsHistory()
+	_, history := m.isReviewHistory()
 	require.False(t, history, "the newest round is not finished")
 
 	next, _ := m.updateReview(keyMsg("c"))
@@ -1747,7 +1747,7 @@ func TestWritingIsRefusedOnAFinishedRound(t *testing.T) {
 	m.review.mode = modeWatching
 	m = standOnAFinishedRound(m)
 
-	said, history := m.reviewIsHistory()
+	said, history := m.isReviewHistory()
 	require.True(t, history)
 	require.Equal(t, "round 1 of 2", said)
 

@@ -38,5 +38,5 @@ func (i *Interrupter) Interrupt(ctx context.Context, agentID string) error {
 		return err
 	}
 
-	return i.channel.Interrupt(ctx, targetOf(*agent))
+	return i.channel.Interrupt(ctx, buildTarget(*agent))
 }

@@ -73,8 +73,8 @@ func TestRefusesEmpty(t *testing.T) {
 	}
 }
 
-// TestDefinedOnly reads the enum rules off weave's own descriptors.
-func TestDefinedOnly(t *testing.T) {
+// TestIsDefinedOnly reads the enum rules off weave's own descriptors.
+func TestIsDefinedOnly(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -117,13 +117,13 @@ func TestDefinedOnly(t *testing.T) {
 			field := message.Fields().ByName(tt.field)
 			require.NotNil(t, field)
 
-			assert.Equal(t, tt.want, definedOnly(field))
+			assert.Equal(t, tt.want, isDefinedOnly(field))
 		})
 	}
 }
 
-// TestDefinedOnlyOnAList builds the descriptor rather than compiling one.
-func TestDefinedOnlyOnAList(t *testing.T) {
+// TestIsDefinedOnlyOnAList builds the descriptor rather than compiling one.
+func TestIsDefinedOnlyOnAList(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -167,7 +167,7 @@ func TestDefinedOnlyOnAList(t *testing.T) {
 			t.Parallel()
 
 			field := repeatedEnumField(t, tt.rules)
-			assert.Equal(t, tt.want, definedOnly(field))
+			assert.Equal(t, tt.want, isDefinedOnly(field))
 		})
 	}
 }
@@ -213,8 +213,8 @@ func repeatedEnumField(t *testing.T, rules *validate.FieldRules) protoreflect.Fi
 	return field
 }
 
-// TestDefinedOnlyOnAMap builds the descriptor rather than compiling one.
-func TestDefinedOnlyOnAMap(t *testing.T) {
+// TestIsDefinedOnlyOnAMap builds the descriptor rather than compiling one.
+func TestIsDefinedOnlyOnAMap(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -268,7 +268,7 @@ func TestDefinedOnlyOnAMap(t *testing.T) {
 			t.Parallel()
 
 			field := enumMapField(t, tt.rules)
-			assert.Equal(t, tt.want, definedOnly(field))
+			assert.Equal(t, tt.want, isDefinedOnly(field))
 		})
 	}
 }

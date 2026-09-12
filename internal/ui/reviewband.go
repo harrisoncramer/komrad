@@ -63,7 +63,7 @@ func (m model) reviewBandRows() []string {
 
 // reviewDeadView says there is nobody on the other end.
 func (m model) reviewDeadView(width int) string {
-	reason, dead := m.reviewIsReadOnly()
+	reason, dead := m.isReviewReadOnly()
 	if !dead {
 		return ""
 	}

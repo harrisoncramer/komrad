@@ -131,7 +131,7 @@ func checkRequestEnums(
 	method protoreflect.MethodDescriptor,
 ) error {
 	for message, field := range requestFields(request, method) {
-		if !holdsEnum(field) || definedOnly(field) {
+		if !doesHoldEnum(field) || isDefinedOnly(field) {
 			continue
 		}
 
@@ -141,7 +141,7 @@ func checkRequestEnums(
 				"%q on %s must carry %s. Without it a number the enum does not define reaches %s as a value no switch over it expects.",
 				field.Name(),
 				message.Name(),
-				definedOnlySpelling(field),
+				buildDefinedOnlySpelling(field),
 				method.Name(),
 			),
 		)
@@ -150,7 +150,7 @@ func checkRequestEnums(
 	return nil
 }
 
-func holdsEnum(field protoreflect.FieldDescriptor) bool {
+func doesHoldEnum(field protoreflect.FieldDescriptor) bool {
 	if field.IsMap() {
 		return field.MapValue().Kind() == protoreflect.EnumKind
 	}
@@ -158,7 +158,7 @@ func holdsEnum(field protoreflect.FieldDescriptor) bool {
 	return field.Kind() == protoreflect.EnumKind
 }
 
-func definedOnlySpelling(field protoreflect.FieldDescriptor) string {
+func buildDefinedOnlySpelling(field protoreflect.FieldDescriptor) string {
 	switch {
 	case field.IsMap():
 		return "(buf.validate.field).map.values.enum.defined_only = true"
@@ -169,7 +169,7 @@ func definedOnlySpelling(field protoreflect.FieldDescriptor) string {
 	}
 }
 
-func definedOnly(field protoreflect.FieldDescriptor) bool {
+func isDefinedOnly(field protoreflect.FieldDescriptor) bool {
 	rules := fieldRules(field)
 	if rules == nil {
 		return false

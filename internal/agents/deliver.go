@@ -118,7 +118,7 @@ func (s *DeliveryService) Deliver(ctx context.Context, agentID string) (Delivery
 		return DeliveryLater, nil
 	}
 
-	ready, err := s.channel.Ready(ctx, targetOf(*agent))
+	ready, err := s.channel.Ready(ctx, buildTarget(*agent))
 	if err != nil {
 		return DeliveryLater, err
 	}
@@ -152,7 +152,7 @@ func (s *DeliveryService) Deliver(ctx context.Context, agentID string) (Delivery
 func (s *DeliveryService) nudge(ctx context.Context, agent agentstore.Agent, pending int64) (bool, error) {
 	line := fmt.Sprintf("weave: %d piece(s) of unread mail, call read_mail", pending)
 
-	sent, err := s.channel.Send(ctx, targetOf(agent), line)
+	sent, err := s.channel.Send(ctx, buildTarget(agent), line)
 	if err != nil {
 		return false, err
 	}

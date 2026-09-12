@@ -47,11 +47,11 @@ func (m model) reviewModeView() string {
 
 // reviewWatchingView is the mode line while nothing is being written.
 func (m model) reviewWatchingView() string {
-	if _, dead := m.reviewIsReadOnly(); dead {
+	if _, dead := m.isReviewReadOnly(); dead {
 		return m.reviewBandRow(reviewHeldStyle, "watching", "this agent is gone, nothing can be sent")
 	}
 
-	if said, history := m.reviewIsHistory(); history {
+	if said, history := m.isReviewHistory(); history {
 		return m.reviewBandRow(reviewHistoryStyle, "reading history",
 			said+" is finished · "+keyLabel(m.keys.Review.BaseForward)+" for the current work")
 	}
@@ -101,9 +101,8 @@ func (m model) reviewUnsentCount() int {
 	return m.review.activity.delivery[deliverySlot(agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_UNSENT)]
 }
 
-// reviewIsReadOnly is whether there is nobody there to receive a comment, and what to say about
-// it.
-func (m model) reviewIsReadOnly() (string, bool) {
+// isReviewReadOnly reports whether there is nobody there to receive a comment.
+func (m model) isReviewReadOnly() (string, bool) {
 	for _, item := range m.listing.agents {
 		if item.agent.ID != m.review.agentID {
 			continue
@@ -124,9 +123,8 @@ func (m model) doesReviewHoldUnsent() bool {
 	return m.reviewUnsentCount() > 0
 }
 
-// reviewIsHistory says whether the round on screen ends before the agent's current work, and
-// names it for the refusal to quote.
-func (m model) reviewIsHistory() (string, bool) {
+// isReviewHistory reports whether the round on screen ends before the agent's current work.
+func (m model) isReviewHistory() (string, bool) {
 	// Explainer: what decides this is the snapshot the diff was drawn to, not what the chapter at
 	// the reader's index happens to say now. The list is recut on every load, so an index and a
 	// list can disagree, and the refusal has to follow the code on screen rather than the label.

@@ -228,7 +228,7 @@ func deliverySlot(state agentv1.ReviewDeliveryState) int {
 // isReviewAgentWriting reports whether the agent whose diff is on screen is putting words in
 // its worktree.
 func (m model) isReviewAgentWriting() bool {
-	item, ok := m.reviewAgentItem()
+	item, ok := m.getReviewAgentItem()
 
 	return ok && item.alive && item.agent.State == agentstore.StateThinking
 }

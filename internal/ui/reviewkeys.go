@@ -134,7 +134,7 @@ func (m model) reviewThreadMax() int {
 
 // refuseReviewWrite says why a key that would write to the agent did nothing.
 func (m model) refuseReviewWrite() (tea.Model, tea.Cmd) {
-	reason, _ := m.reviewIsReadOnly()
+	reason, _ := m.isReviewReadOnly()
 	m.review.notice = reason
 
 	return m, nil

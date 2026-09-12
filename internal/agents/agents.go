@@ -124,8 +124,8 @@ type harnessGetter interface {
 	GetByID(id string) (harness.Harness, error)
 }
 
-// targetOf names an agent the way a channel or an observer reaches it.
-func targetOf(agent agentstore.Agent) harness.Target {
+// buildTarget names an agent the way a channel or an observer reaches it.
+func buildTarget(agent agentstore.Agent) harness.Target {
 	return harness.Target{
 		AgentID:   agent.ID,
 		Pane:      agent.Pane,

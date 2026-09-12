@@ -58,7 +58,7 @@ func (m model) enterReviewWriting() (tea.Model, tea.Cmd) {
 	// Explainer: an older round draws code the agent has since rewritten, so the line under the
 	// cursor has no counterpart in the work a comment could ask it to change. Carrying the reader
 	// across would land them on whatever the anchor now matches, which is not the line they chose.
-	if said, history := m.reviewIsHistory(); history {
+	if said, history := m.isReviewHistory(); history {
 		return m.refuseReviewHistory(said)
 	}
 
