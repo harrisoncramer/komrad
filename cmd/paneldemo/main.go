@@ -109,8 +109,7 @@ func run() error {
 	return nil
 }
 
-// serviceFor mounts every service the panel is a client of, so a screen reaching one of them
-// finds a fake rather than nothing.
+// serviceFor mounts a fake of every service the panel is a client of.
 func serviceFor(held scenario.Scenario) http.Handler {
 	mux := http.NewServeMux()
 	mux.Handle(agentv1connect.NewAgentServiceHandler(agentService{

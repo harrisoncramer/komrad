@@ -46,8 +46,7 @@ var tmuxNames = map[string]string{
 	"insert":    "IC",
 }
 
-// newKeybindingsCheck asserts tmux is not holding a key the panel reads, which it cannot see from
-// the config file because the root table is whatever the user's own tmux config put there.
+// newKeybindingsCheck asserts tmux is not holding a key the panel reads.
 func newKeybindingsCheck() Check {
 	return Check{
 		Name:        "keybindings",
@@ -146,7 +145,7 @@ func parseRootBinding(line string) (key, command string, ok bool) {
 }
 
 // heldByAnythingElse reports the command the root table runs for a key, ignoring the panel's own
-// focus binding, which is weave holding the key on purpose rather than something taking it away.
+// focus binding.
 func heldByAnythingElse(rootKeys map[string]string, key string) (string, bool) {
 	command, held := rootKeys[key]
 	if !held || isPanelFocusBinding(command) {
@@ -156,8 +155,7 @@ func heldByAnythingElse(rootKeys map[string]string, key string) (string, bool) {
 	return command, true
 }
 
-// isPanelFocusBinding reports whether a root binding is the one the panel holds, which is an
-// if-shell over the pane the sidebar is in and not a command a person writes by hand.
+// isPanelFocusBinding reports whether a root binding is the one the panel holds.
 func isPanelFocusBinding(command string) bool {
 	return strings.HasPrefix(command, "if-shell") && strings.Contains(command, "#{==:#{pane_id},")
 }
@@ -201,7 +199,7 @@ func boundKeys(keys config.Keybindings) []string {
 	return bound
 }
 
-// tmuxSpelling is how tmux names the key a panel binding names, so the two can be compared.
+// tmuxSpelling is how tmux names the key a panel binding names.
 func tmuxSpelling(key string) string {
 	if named, ok := tmuxNames[key]; ok {
 		return named

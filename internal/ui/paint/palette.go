@@ -59,7 +59,7 @@ func FormTheme() *huh.Theme {
 	return theme
 }
 
-// HelpStyles is the legend's styling, muted so the keys never compete with the list above them.
+// HelpStyles is the legend's styling, muted throughout.
 func HelpStyles() help.Styles {
 	muted := lipgloss.NewStyle().Foreground(Muted)
 
@@ -121,7 +121,7 @@ func ANSIColor(color lipgloss.Color) *string {
 }
 
 // BlurredStageStyle is the markdown of a block beside the list while the keys are somewhere
-// else, drawn as one grey column rather than competing with the half that holds them.
+// else, drawn as one grey column.
 var BlurredStageStyle = func() ansi.StyleConfig {
 	style := StageStyle
 	muted := ANSIColor(Muted)

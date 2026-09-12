@@ -16,8 +16,7 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-// agentService answers the panel's reads about agents out of the scenario, with the review half
-// embedded so the review screen finds the calls it makes.
+// agentService answers the panel's reads about agents out of the scenario.
 type agentService struct {
 	*reviewFake
 	held scenario.Scenario

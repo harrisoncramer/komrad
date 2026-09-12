@@ -53,8 +53,7 @@ func screenActions(s screen) (actionSpec, bool) {
 	return actionSpec{}, false
 }
 
-// ValidateKeybindings rejects the bindings a screen could not dispatch, which is a key an
-// unguarded arm answers ahead of another arm bound to it.
+// ValidateKeybindings rejects the bindings a screen could not dispatch.
 func ValidateKeybindings(keys config.Keybindings) error {
 	for _, s := range []screen{screenAgents, screenSchedules, screenArchive, screenMail, screenReview} {
 		if err := validateScreenKeys(s, keys); err != nil {

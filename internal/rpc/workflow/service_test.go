@@ -30,7 +30,7 @@ import (
 
 const missingID = "00000000-0000-0000-0000-000000000000"
 
-// refusingSnapshots is the git a workflow test hands the lifecycle service, which refuses rather than answers.
+// refusingSnapshots is a git that refuses every call a workflow test makes of it.
 type refusingSnapshots struct{}
 
 func (refusingSnapshots) ReleaseRef(context.Context, string, string) error {

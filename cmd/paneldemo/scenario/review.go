@@ -11,8 +11,8 @@ import (
 // reviewAgentID is the agent whose diff the review scenario is about.
 const reviewAgentID = "agent-telescope"
 
-// Review is one agent part way through a change, with three rounds behind it and a conversation
-// on the current one, which is what the review screen needs to draw every mode it has.
+// Review is one agent part way through a change, with three rounds behind it and a
+// conversation on the current one.
 func Review() Scenario {
 	return Scenario{
 		Name:      "review",
@@ -64,8 +64,7 @@ func reviewRounds() []*agentv1.ReviewRound {
 	}
 }
 
-// reviewBatches are the two reviews already sent, which are what cut the rounds into chapters the
-// round keys walk.
+// reviewBatches are the two reviews already sent.
 func reviewBatches() []*agentv1.Review {
 	return []*agentv1.Review{
 		{

@@ -187,8 +187,7 @@ func newSchedules() []*schedulev1.Schedule {
 	}
 }
 
-// newMail is a mailbox in id order, since real ids are uuidv7 and the mail screen takes id order
-// for time order.
+// newMail is a mailbox in id order.
 func newMail() []*agentv1.Mail {
 	return []*agentv1.Mail{
 		{

@@ -173,8 +173,7 @@ func (m *model) applyReviewDiffPolled(msg reviewDiffPolledMsg) tea.Cmd {
 	return cmd
 }
 
-// doesReviewFollowLive reports whether the diff on screen is meant to keep up with the agent,
-// which is what makes a move something to draw rather than something to offer.
+// doesReviewFollowLive reports whether the diff on screen is meant to keep up with the agent.
 func (m model) doesReviewFollowLive() bool {
 	if m.review.mode != modeWatching || m.review.view == nil || m.review.loading {
 		return false
@@ -226,9 +225,8 @@ func deliverySlot(state agentv1.ReviewDeliveryState) int {
 	return int(state)
 }
 
-// isReviewAgentWriting reports whether the agent whose diff is on screen is putting words in its
-// worktree, which is thinking alone: an unreadable pane is not a reason to hold the diff for as
-// long as it stays unreadable.
+// isReviewAgentWriting reports whether the agent whose diff is on screen is putting words in
+// its worktree.
 func (m model) isReviewAgentWriting() bool {
 	item, ok := m.reviewAgentItem()
 

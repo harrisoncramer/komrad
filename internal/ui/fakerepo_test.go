@@ -9,7 +9,7 @@ import (
 )
 
 // fakePatch is what git writes between the two commits fakeRepo stands for, taken from a real
-// repository so the parser meets the bytes it would meet in one.
+// repository.
 const fakePatch = `diff --git a/greet.go b/greet.go
 index 0a90f17972dec66c378df67739faaf48b6235df9..23cef252a97433f151c14725c88e0c2dafce63ef 100644
 --- a/greet.go
@@ -164,7 +164,7 @@ type fakeRepo struct {
 	sources map[string]string
 }
 
-// newFakeRepo is a repository holding one changed file, which is what most review tests draw.
+// newFakeRepo is a repository holding one changed file.
 func newFakeRepo(root string) *fakeRepo {
 	return &fakeRepo{
 		root:    root,
@@ -310,8 +310,7 @@ func (f *fakeRepo) GetTree(_ context.Context, _, sha string) (string, error) {
 	return strings.TrimPrefix(sha, snapshotPrefix), nil
 }
 
-// WorktreeHead answers as a round nothing has checked out yet, which is what a screen opening
-// on one finds.
+// WorktreeHead answers as a round nothing has checked out yet.
 func (f *fakeRepo) WorktreeHead(context.Context, string) (string, bool) {
 	return "", false
 }

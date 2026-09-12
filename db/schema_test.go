@@ -46,8 +46,8 @@ func TestSchemaVersionChangesWithTheMigrations(t *testing.T) {
 	assert.Equal(t, version, again, "the same migrations fingerprint the same twice")
 }
 
-// TestSchemaVersionReadsTheEmbeddedMigrations covers the exported call, which is the one a test
-// database is named after.
+// TestSchemaVersionReadsTheEmbeddedMigrations covers the exported call a test database is
+// named after.
 func TestSchemaVersionReadsTheEmbeddedMigrations(t *testing.T) {
 	version, err := SchemaVersion()
 	require.NoError(t, err)

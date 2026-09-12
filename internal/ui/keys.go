@@ -29,8 +29,7 @@ func (m *model) takeTopPress(pressed string) bool {
 	return held && isBound(pressed, m.keys.Nav.Top)
 }
 
-// formKeys is what a form answers, fixed rather than configured because they are read before the
-// key reaches the box being typed into.
+// formKeys is what a form answers, fixed rather than configured.
 func formKeys() config.FormKeys {
 	return config.FixedFormKeys()
 }

@@ -132,8 +132,7 @@ func TestValidateAddrRefusesNothing(t *testing.T) {
 	require.NoError(t, ValidateAddr("127.0.0.1:8787"))
 }
 
-// TestLoadTakesEveryLoopbackAddress covers the spellings that reach only this machine, since a
-// rule that refused one of them would take the panel off the air.
+// TestLoadTakesEveryLoopbackAddress covers the spellings that reach only this machine.
 func TestLoadTakesEveryLoopbackAddress(t *testing.T) {
 	for _, addr := range []string{"127.0.0.1:8787", "127.0.0.2:8790", "localhost:8787", "[::1]:8787"} {
 		t.Run(addr, func(t *testing.T) {
@@ -188,8 +187,7 @@ func TestLoadRejectsADatabaseUrlPostgresWouldNotAnswer(t *testing.T) {
 	}
 }
 
-// TestLoadTakesEitherPostgresScheme covers both spellings Postgres answers to, since the
-// read-only login is derived from either.
+// TestLoadTakesEitherPostgresScheme covers both spellings Postgres answers to.
 func TestLoadTakesEitherPostgresScheme(t *testing.T) {
 	for _, databaseURL := range []string{
 		"postgres://weave:weave@localhost:5460/weave?sslmode=disable",

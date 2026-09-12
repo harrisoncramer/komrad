@@ -17,8 +17,7 @@ type demoFile struct {
 	revisions []string
 }
 
-// buildRepo writes a throwaway repository with a base commit and one commit per round, which is
-// what lets the review screen run git against something real.
+// buildRepo writes a throwaway repository with a base commit and one commit per round.
 func buildRepo(ctx context.Context, at string) (scenario.WithRepoParams, error) {
 	if err := os.MkdirAll(at, 0o755); err != nil {
 		return scenario.WithRepoParams{}, fmt.Errorf("failed to make %q: %w", at, err)

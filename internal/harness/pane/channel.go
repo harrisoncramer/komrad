@@ -10,8 +10,7 @@ import (
 	"weave/internal/logging"
 )
 
-// plan is what a pane's frame will take, which is nothing at all unless the input box is empty
-// or holds a draft weave can put back.
+// plan is what weave may do to an agent's input box.
 type plan int
 
 const (

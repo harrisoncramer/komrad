@@ -52,8 +52,7 @@ func TestReadyRefusesAPaneThatIsNotListening(t *testing.T) {
 	}
 }
 
-// TestSendPastesIntoAnEmptyBox pins the whole of what an idle pane takes, which is the paste and
-// nothing around it.
+// TestSendPastesIntoAnEmptyBox pins that an idle pane takes the paste and nothing around it.
 func TestSendPastesIntoAnEmptyBox(t *testing.T) {
 	terminal := &fakeTerminal{frame: idleFrame}
 	p := NewPane(NewPaneParams{Terminal: terminal, Harnesses: fakeHarnesses{harness: &fakeHarness{}}})
@@ -65,8 +64,8 @@ func TestSendPastesIntoAnEmptyBox(t *testing.T) {
 	assert.Equal(t, []string{"weave: read_mail"}, terminal.pasted)
 }
 
-// TestSendToAnUnknownHarnessPastesAnyway pins that a frame nothing can read is written to rather
-// than held forever, since no frame of an unknown harness will ever be recognised.
+// TestSendToAnUnknownHarnessPastesAnyway pins that a frame nothing can read is written to
+// rather than held forever.
 func TestSendToAnUnknownHarnessPastesAnyway(t *testing.T) {
 	terminal := &fakeTerminal{frame: busyFrame}
 	p := NewPane(NewPaneParams{Terminal: terminal, Harnesses: fakeHarnesses{}})
@@ -270,7 +269,7 @@ func TestForgetDropsWhatWasRememberedOfABox(t *testing.T) {
 }
 
 // TestSendHandsBackADraftWhenThePasteFails pins that a cut weave made is put back however the
-// paste after it turns out, since the line is a human's and nothing else will ever restore it.
+// paste after it turns out.
 func TestSendHandsBackADraftWhenThePasteFails(t *testing.T) {
 	now := time.Date(2026, time.September, 9, 12, 0, 0, 0, time.UTC)
 	terminal := &fakeTerminal{frame: composingFrame, pasteErr: errors.New("tmux said no")}
@@ -288,9 +287,8 @@ func TestSendHandsBackADraftWhenThePasteFails(t *testing.T) {
 	assert.Equal(t, []string{"cut", "paste-failed", "yank"}, terminal.actions)
 }
 
-// TestSendReportsAYankItCouldNotMake pins that a hand-back tmux refuses is said out loud rather
-// than failing the send that already landed, since only the person at the pane can reach the
-// kill ring holding the line.
+// TestSendReportsAYankItCouldNotMake pins that a hand-back tmux refuses is said out loud
+// rather than failing the send that already landed.
 func TestSendReportsAYankItCouldNotMake(t *testing.T) {
 	now := time.Date(2026, time.September, 9, 12, 0, 0, 0, time.UTC)
 	terminal := &fakeTerminal{frame: composingFrame, yankErr: errors.New("tmux said no")}

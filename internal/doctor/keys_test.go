@@ -61,8 +61,7 @@ func TestKeybindingsCheckPassesWhenTmuxHoldsNothing(t *testing.T) {
 	assert.Equal(t, StatusOK, result.Status)
 }
 
-// TestKeybindingsCheckIgnoresThePanelsOwnFocusBinding covers the focus key the panel binds itself,
-// which is weave holding a key on purpose rather than tmux taking one away.
+// TestKeybindingsCheckIgnoresThePanelsOwnFocusBinding covers the focus key the panel binds itself.
 func TestKeybindingsCheckIgnoresThePanelsOwnFocusBinding(t *testing.T) {
 	env := configEnv(config.Defaults(), nil, true)
 	env.TmuxSocket = "weave"
@@ -97,8 +96,7 @@ func TestKeybindingsCheckFindsTheFocusKeyTakenByTmux(t *testing.T) {
 	assert.Contains(t, result.Fix, "unbind -n "+ui.FocusKey)
 }
 
-// TestTheKeybindingsCheckIsRun pins the check being one doctor makes, since a check nothing runs
-// is worth nothing.
+// TestTheKeybindingsCheckIsRun pins the check being one doctor makes.
 func TestTheKeybindingsCheckIsRun(t *testing.T) {
 	checks := Checks(Settings{Harnesses: claudeAndCodex, TmuxSocket: "weave"})
 

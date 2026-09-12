@@ -2,8 +2,7 @@ package scenario
 
 import workflowv1 "weave/proto/gen/workflow/v1"
 
-// Empty is a weave nobody has used yet, which is the first screen anybody sees and the one a cast
-// of twelve agents never shows.
+// Empty is a weave nobody has used yet.
 func Empty() Scenario {
 	return Scenario{
 		Name:  "empty",

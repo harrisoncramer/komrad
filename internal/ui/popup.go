@@ -29,8 +29,7 @@ func NewPopupWindow(tmux popupTmux, session string) *PopupWindow {
 	return &PopupWindow{tmux: tmux, session: session}
 }
 
-// FocusKey moves the cursor between the panel's sidebar and the agent's pane on the stage, named
-// the way tmux names a key because that is where it is bound.
+// FocusKey moves the cursor between the panel's sidebar and the agent's pane on the stage.
 const FocusKey = "C-a"
 
 const managerKeyOption = "@weave_key"
@@ -74,8 +73,7 @@ func (p *PopupWindow) HoldFocusKey(sidebar, agent string) {
 	}
 }
 
-// ReleaseFocusKey gives the focus key back to the panes, which the panel owes them on its way out
-// because the tmux server it bound the key on outlives it.
+// ReleaseFocusKey gives the focus key back to the panes on the panel's way out.
 func (p *PopupWindow) ReleaseFocusKey() {
 	if p.focus == nil || *p.focus == "" {
 		return

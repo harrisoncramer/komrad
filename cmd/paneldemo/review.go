@@ -48,8 +48,7 @@ func (r *reviewFake) ListReviewRounds(
 	}), nil
 }
 
-// OpenReviewRound answers with the newest round rather than taking a snapshot, since the demo's
-// worktree is not one an agent is writing in.
+// OpenReviewRound answers with the newest round rather than taking a snapshot.
 func (r *reviewFake) OpenReviewRound(
 	_ context.Context,
 	req *connect.Request[agentv1.OpenReviewRoundRequest],
@@ -297,8 +296,7 @@ func (r *reviewFake) SetReviewFileViewed(
 	return connect.NewResponse(&agentv1.SetReviewFileViewedResponse{}), nil
 }
 
-// openBatch makes sure an unreleased review of the person's exists, which is what holds the
-// comments they have written but not sent.
+// openBatch makes sure the person has an unreleased review to write comments into.
 func (r *reviewFake) openBatch(agentID string, round *agentv1.ReviewRound) {
 	for _, review := range r.reviews {
 		if review.GetAgentId() == agentID &&

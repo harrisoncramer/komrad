@@ -71,8 +71,7 @@ func (m model) reviewDeadView(width int) string {
 	return reviewDeadStyle.Render(reviewFill(" "+reason+" ", width)) + "\n"
 }
 
-// reviewStaleView says the worktree has moved since the diff on screen was read, and says
-// whether the screen will catch up on its own or is holding what it has on purpose.
+// reviewStaleView says the worktree has moved since the diff on screen was read.
 func (m model) reviewStaleView() string {
 	// The editor holds the stage rather than the diff, and the move it reports is usually the
 	// reader's own writing, so there is nothing here worth a row.

@@ -780,8 +780,7 @@ func TestDeliverTellsTheChannelToForgetAnAgentNothingWillLookAtAgain(t *testing.
 }
 
 // TestDeliverSpendsTheClaimOnAChannelThatTakesTheLineAndThenRefuses pins the two ways a send
-// can fail after the claim was taken, since the claim is never given back and a pass that got
-// this far has already reached the agent.
+// can fail after the claim was taken.
 func TestDeliverSpendsTheClaimOnAChannelThatTakesTheLineAndThenRefuses(t *testing.T) {
 	tests := []struct {
 		name    string

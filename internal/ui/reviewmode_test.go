@@ -382,8 +382,8 @@ func TestAnEditRefusedOnADeletedFileOpensNoMode(t *testing.T) {
 	assert.Contains(t, m.review.notice, "deleted")
 }
 
-// TestAnEditThatTakesOpensTheEditingMode pins that editing is its own mode rather than a review
-// being written, since what it writes goes into the worktree rather than into a comment.
+// TestAnEditThatTakesOpensTheEditingMode pins that editing is its own mode rather than a
+// review being written.
 func TestAnEditThatTakesOpensTheEditingMode(t *testing.T) {
 	dir := reviewRepo(t)
 	agents := &fakeReviewAgents{}
@@ -423,8 +423,8 @@ func TestAnEditIsRefusedWhileTheAgentsTurnRuns(t *testing.T) {
 	assert.Contains(t, m.review.notice, "stop it before you edit")
 }
 
-// TestTheEditorClosingGivesTheStageBack covers the editor being another process: it can be quit
-// from inside, and the screen has to notice rather than keep drawing a mode nothing is in.
+// TestTheEditorClosingGivesTheStageBack covers the screen noticing an editor that was quit
+// from inside.
 func TestTheEditorClosingGivesTheStageBack(t *testing.T) {
 	dir := reviewRepo(t)
 	agents := &fakeReviewAgents{}
@@ -504,8 +504,7 @@ func TestAWaitingAgentDoesNotHoldTheEditKey(t *testing.T) {
 }
 
 // TestAnUnreadablePaneRefusesTheEditKey pins the state that says weave could not read the pane
-// rather than that the agent is idle, which is the one place the gate cannot claim the tree is
-// free.
+// rather than that the agent is idle.
 func TestAnUnreadablePaneRefusesTheEditKey(t *testing.T) {
 	dir := reviewRepo(t)
 	agents := &fakeReviewAgents{}

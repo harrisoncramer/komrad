@@ -559,8 +559,7 @@ func (s *testStore) agentService(options agentServiceOptions) *testAgents {
 	}
 }
 
-// recordingSnapshots is the git a lifecycle service releases round refs through, which records
-// the refs rather than holding any.
+// recordingSnapshots is a git that records the round refs released through it.
 type recordingSnapshots struct {
 	mu       sync.Mutex
 	released []string
@@ -591,8 +590,7 @@ func (onlyTheMainCheckout) ListWorktrees(_ context.Context, repo string) ([]git.
 	return []git.Worktree{{Dir: repo}}, nil
 }
 
-// withWorktrees rebuilds the adopt service over a listing of its own, which is what a test about
-// a branch some checkout already holds needs.
+// withWorktrees rebuilds the adopt service over a worktree listing of its own.
 func (a *testAgents) withWorktrees(worktrees worktreeLister) *testAgents {
 	a.adopt = NewAdoptService(NewAdoptServiceParams{
 		Agents:       a.adopt.agents,

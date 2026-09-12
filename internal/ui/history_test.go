@@ -9,8 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// historyTree is the shared fixture with its agents alive, since an agent the panel would refuse
-// to open records no visit.
+// historyTree is the shared fixture with its agents alive.
 func historyTree() model {
 	m := selectionTree()
 	for i := range m.listing.agents {

@@ -383,8 +383,7 @@ func TestRebaseRefusesAPathTheIndexIsHolding(t *testing.T) {
 	require.ErrorIs(t, err, ErrRebaseHiddenPaths)
 }
 
-// TestRebaseParksBeforeItAsksGitToMove pins the order the whole undo depends on, since a park
-// taken after the branch moved would hold what the move already did.
+// TestRebaseParksBeforeItAsksGitToMove pins the order the whole undo depends on.
 func TestRebaseParksBeforeItAsksGitToMove(t *testing.T) {
 	t.Parallel()
 

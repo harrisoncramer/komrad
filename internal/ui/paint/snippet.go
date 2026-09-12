@@ -220,8 +220,7 @@ type Span struct {
 	End   int
 }
 
-// MatchSpans locates the marked words within the one turn a hit came from, which is as much as a
-// hit says about where it matched.
+// MatchSpans locates the marked words within the one turn a hit came from.
 func MatchSpans(content string, offset, length int64, terms []string) []Span {
 	if len(terms) == 0 || offset < 0 || offset > int64(len(content)) || length <= 0 {
 		return nil

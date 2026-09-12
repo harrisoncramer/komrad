@@ -35,8 +35,7 @@ func editorContent(editor, dir, path string, line int) layout.Content {
 	}
 }
 
-// pressReviewEdit is the edit key, which is refused on a round the agent has written past since
-// the file on disk is no longer the file those line numbers name.
+// pressReviewEdit is the edit key, refused on a round the agent has written past.
 func (m model) pressReviewEdit() (tea.Model, tea.Cmd) {
 	if said, history := m.reviewIsHistory(); history && !m.review.atEditor {
 		m.review.notice = said + " is finished, so the worktree no longer holds these lines · " +
@@ -131,8 +130,7 @@ func (m model) reviewAgentItem() (agentItem, bool) {
 	return agentItem{}, false
 }
 
-// closeReviewEdit gives the stage back to the diff and reads the worktree again, since what the
-// editor wrote is part of the change from now on.
+// closeReviewEdit gives the stage back to the diff and reads the worktree again.
 func (m model) closeReviewEdit() (tea.Model, tea.Cmd) {
 	m.review.mode = modeWatching
 	m.review.atEditor = false

@@ -88,9 +88,8 @@ func TestDoctorSurvivesAnEmptyLayerElement(t *testing.T) {
 	assert.Contains(t, loadErr.Error(), "empty path")
 }
 
-// TestDoctorAdviceReadsThePanelsOwnPane covers the doctor asking the same question the
-// panel key asks, since the manager session answers for as long as any agent window is up
-// and the advice under a panel that has gone restarts every one of them.
+// TestDoctorAdviceReadsThePanelsOwnPane covers the doctor asking the same question the panel
+// key asks.
 func TestDoctorAdviceReadsThePanelsOwnPane(t *testing.T) {
 	socket := throwawaySocket(t)
 	panelSession(t, socket)

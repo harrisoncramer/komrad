@@ -45,8 +45,7 @@ func (m model) reviewModeView() string {
 	return m.reviewWatchingView()
 }
 
-// reviewWatchingView is the mode line while nothing is being written, which is where whatever
-// stands in the way of writing is said.
+// reviewWatchingView is the mode line while nothing is being written.
 func (m model) reviewWatchingView() string {
 	if _, dead := m.reviewIsReadOnly(); dead {
 		return m.reviewBandRow(reviewHeldStyle, "watching", "this agent is gone, nothing can be sent")
