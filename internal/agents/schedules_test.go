@@ -3,8 +3,8 @@ package agents
 import (
 	"testing"
 	"time"
-	"weave/internal/harness/pane"
 
+	"weave/internal/harness/pane"
 	agentstore "weave/internal/store/agent"
 	schedulestore "weave/internal/store/schedule"
 	workflowstore "weave/internal/store/workflow"

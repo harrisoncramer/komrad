@@ -211,10 +211,10 @@ func (f *fakeTmux) NewWindow(session, name, dir string) (string, error) {
 	f.newWindowCalls++
 
 	f.newWindows[name] = dir
-	pane := "%" + name
-	f.owners[pane] = ""
+	opened := "%" + name
+	f.owners[opened] = ""
 
-	return pane, nil
+	return opened, nil
 }
 
 func (f *fakeTmux) windowsOpened() int {
@@ -573,8 +573,8 @@ func (a *testAgents) withPullRequests(resolver pullRequestResolver) *testAgents 
 // one of its calls without every helper here having to know the wrapper's type.
 type fakeTmuxController interface {
 	paneController
-	paneWriter
 	paneStarter
+	SendKeys(target string, keys ...string) error
 }
 
 func (s *testStore) agentServiceWithLifecycle(tmux fakeTmuxController, harnesses fakeHarnesses, lifecycle agentScriptRunner) *testAgents {

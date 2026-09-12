@@ -2,6 +2,7 @@ package agents
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"testing"
 	"time"
@@ -778,23 +779,95 @@ func TestDeliverTellsTheChannelToForgetAnAgentNothingWillLookAtAgain(t *testing.
 	}
 }
 
+// TestDeliverSpendsTheClaimOnAChannelThatTakesTheLineAndThenRefuses pins the two ways a send
+// can fail after the claim was taken, since the claim is never given back and a pass that got
+// this far has already reached the agent.
+func TestDeliverSpendsTheClaimOnAChannelThatTakesTheLineAndThenRefuses(t *testing.T) {
+	tests := []struct {
+		name    string
+		channel *fakeChannel
+		wantErr bool
+	}{
+		{
+			name:    "a channel that says yes and then declines",
+			channel: &fakeChannel{refuseSend: true},
+		},
+		{
+			name:    "a channel whose send fails outright",
+			channel: &fakeChannel{sendErr: errors.New("tmux said no")},
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			agents := &fakeAgents{claimed: true, agent: &agentstore.Agent{
+				ID:    "agent-a",
+				Pane:  "%1",
+				State: agentstore.StateIdle,
+			}}
+			svc := NewDeliveryService(NewDeliveryServiceParams{
+				MailboxReader: &fakeMailboxReader{pending: 1},
+				NudgeClaimer:  agents,
+				PaneReader:    &fakePanes{alive: true, frame: idleFrame},
+				Channel:       tt.channel,
+			})
+
+			got, err := svc.Deliver(t.Context(), "agent-a")
+			if tt.wantErr {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+			}
+
+			assert.Equal(t, DeliveryLater, got)
+			assert.True(t, agents.taken, "the claim is spent on a send that reached the agent")
+			assert.Empty(t, tt.channel.sent)
+		})
+	}
+}
+
+// TestDeliverLeavesTheClaimOnAChannelThatWasNeverReady pins that an agent weave never spoke to
+// is left for the next pass rather than held off for the retry window.
+func TestDeliverLeavesTheClaimOnAChannelThatWasNeverReady(t *testing.T) {
+	agents := &fakeAgents{claimed: true, agent: &agentstore.Agent{
+		ID:    "agent-a",
+		Pane:  "%1",
+		State: agentstore.StateIdle,
+	}}
+	channel := &fakeChannel{refuseReady: true}
+	svc := NewDeliveryService(NewDeliveryServiceParams{
+		MailboxReader: &fakeMailboxReader{pending: 1},
+		NudgeClaimer:  agents,
+		PaneReader:    &fakePanes{alive: true, frame: idleFrame},
+		Channel:       channel,
+	})
+
+	got, err := svc.Deliver(t.Context(), "agent-a")
+	require.NoError(t, err)
+	assert.Equal(t, DeliveryLater, got)
+	assert.False(t, agents.taken, "nothing reached the agent, so the right to type is not spent")
+	assert.Empty(t, channel.sent)
+}
+
 // fakeChannel stands in for whatever reaches an agent, taking every line it is handed.
 type fakeChannel struct {
-	refuse    bool
-	sendErr   error
-	sent      []string
-	forgotten []string
+	refuseReady bool
+	refuseSend  bool
+	sendErr     error
+	sent        []string
+	forgotten   []string
 }
 
 func (f *fakeChannel) Ready(context.Context, harness.Target) (bool, error) {
-	return !f.refuse, nil
+	return !f.refuseReady, nil
 }
 
 func (f *fakeChannel) Send(_ context.Context, _ harness.Target, text string) (bool, error) {
 	if f.sendErr != nil {
 		return false, f.sendErr
 	}
-	if f.refuse {
+	if f.refuseSend {
 		return false, nil
 	}
 	f.sent = append(f.sent, text)

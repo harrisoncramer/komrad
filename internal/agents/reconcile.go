@@ -175,12 +175,7 @@ func (r *Reconciler) reconcileAgent(ctx context.Context, agent agentstore.Agent,
 		return
 	}
 
-	// An observer with nothing to say leaves the agent where it was.
 	activity := observed.Activity
-	if activity == harness.ActivityUnknown && observed.Frame == "" {
-		return
-	}
-
 	r.recordFrame(ctx, agent, observed.Frame, activity)
 
 	switch activity {

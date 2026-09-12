@@ -7,17 +7,7 @@ import (
 
 	"weave/internal/harness"
 	"weave/internal/store"
-	agentstore "weave/internal/store/agent"
 )
-
-// targetOf names an agent the way a channel or an observer reaches it.
-func targetOf(agent agentstore.Agent) harness.Target {
-	return harness.Target{
-		AgentID:   agent.ID,
-		Pane:      agent.Pane,
-		HarnessID: agent.Harness,
-	}
-}
 
 type NewInterrupterParams struct {
 	Agents  agentGetter

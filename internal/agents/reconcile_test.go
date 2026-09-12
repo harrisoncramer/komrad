@@ -1,12 +1,14 @@
 package agents
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"testing"
 	"time"
-	"weave/internal/harness/pane"
 
+	"weave/internal/harness"
+	"weave/internal/harness/pane"
 	agentstore "weave/internal/store/agent"
 	"weave/internal/tmux"
 	"weave/lib/xptr"
@@ -858,6 +860,91 @@ func TestReconcileLeavesARowAResumeHasMovedOn(t *testing.T) {
 			assert.Nil(t, after.InterruptedAt, "a resumed agent's turn was not cut off by the pass that was mid-walk")
 		})
 	}
+}
+
+// fakeObserver reports a reading of its own rather than reading any screen, which is what a
+// source weave is told by rather than watches looks like.
+type fakeObserver struct {
+	observation harness.Observation
+	err         error
+}
+
+func (f *fakeObserver) Observe(context.Context, harness.Target) (harness.Observation, error) {
+	return f.observation, f.err
+}
+
+// TestReconcileSettlesOnASourceThatReadsNoScreen pins that an observer carrying no frame moves
+// an agent's state and leaves the recorder nothing, since a recording exists to replay a
+// misread frame and there is none.
+func TestReconcileSettlesOnASourceThatReadsNoScreen(t *testing.T) {
+	st := newStore(t)
+	ctx := t.Context()
+	agent := seed(t, st, "agent", "%1", agentstore.StateThinking)
+
+	tmux := newFakeTmux()
+	tmux.owners["%1"] = agent.ID
+
+	recorder := &fakeFrameRecorder{}
+	rec := NewReconciler(NewReconcilerParams{
+		Panes:    tmux,
+		Observer: &fakeObserver{observation: harness.Observation{Activity: harness.ActivityIdle}},
+		States:   st.Agents,
+	}).WithFrameRecorder(recorder)
+
+	for range reconcileMisses {
+		require.NoError(t, rec.Reconcile(ctx))
+	}
+
+	assert.Equal(t, agentstore.StateIdle, stateOf(t, st, "agent"))
+	assert.Empty(t, recorder.recorded, "a source with no frame has nothing to record")
+}
+
+// TestReconcileLeavesAnAgentAloneWhenTheObserverHasNothingToSay pins that a reading carrying
+// neither an activity nor a frame writes nothing at all.
+func TestReconcileLeavesAnAgentAloneWhenTheObserverHasNothingToSay(t *testing.T) {
+	st := newStore(t)
+	ctx := t.Context()
+	agent := seed(t, st, "agent", "%1", agentstore.StateThinking)
+
+	tmux := newFakeTmux()
+	tmux.owners["%1"] = agent.ID
+
+	recorder := &fakeFrameRecorder{}
+	rec := NewReconciler(NewReconcilerParams{
+		Panes:    tmux,
+		Observer: &fakeObserver{},
+		States:   st.Agents,
+	}).WithFrameRecorder(recorder)
+
+	for range reconcileMisses {
+		require.NoError(t, rec.Reconcile(ctx))
+	}
+
+	assert.Equal(t, agentstore.StateThinking, stateOf(t, st, "agent"))
+	assert.Empty(t, recorder.recorded)
+}
+
+// TestReconcileLeavesAnAgentAloneWhenTheObserverFails pins that a reading weave could not take
+// is not a reading that moves anything.
+func TestReconcileLeavesAnAgentAloneWhenTheObserverFails(t *testing.T) {
+	st := newStore(t)
+	ctx := t.Context()
+	agent := seed(t, st, "agent", "%1", agentstore.StateThinking)
+
+	tmux := newFakeTmux()
+	tmux.owners["%1"] = agent.ID
+
+	rec := NewReconciler(NewReconcilerParams{
+		Panes:    tmux,
+		Observer: &fakeObserver{err: errors.New("the frame went unreadable")},
+		States:   st.Agents,
+	})
+
+	for range reconcileMisses {
+		require.NoError(t, rec.Reconcile(ctx))
+	}
+
+	assert.Equal(t, agentstore.StateThinking, stateOf(t, st, "agent"))
 }
 
 // TestReconcileStampsTheTurnItSettled pins that the pane raises the unread mark when no hook

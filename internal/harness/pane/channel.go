@@ -25,7 +25,7 @@ const (
 	planCutAndRestore
 )
 
-// Ready reports whether the agent's input box would take something right now, touching nothing.
+// Ready reports whether the agent's input box would take something right now, leaving the pane as it found it.
 func (p *Pane) Ready(ctx context.Context, target harness.Target) (bool, error) {
 	if p.terminal.IsPaneInMode(target.Pane) {
 		return false, nil

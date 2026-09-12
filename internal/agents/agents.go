@@ -105,10 +105,6 @@ type paneController interface {
 	GetHostPath() string
 }
 
-type paneWriter interface {
-	SendKeys(target string, keys ...string) error
-}
-
 // paneStarter runs an agent's CLI as the pane's own process.
 type paneStarter interface {
 	RespawnPane(pane, dir string, argv ...string) error
@@ -126,6 +122,15 @@ type txRunner interface {
 
 type harnessGetter interface {
 	GetByID(id string) (harness.Harness, error)
+}
+
+// targetOf names an agent the way a channel or an observer reaches it.
+func targetOf(agent agentstore.Agent) harness.Target {
+	return harness.Target{
+		AgentID:   agent.ID,
+		Pane:      agent.Pane,
+		HarnessID: agent.Harness,
+	}
 }
 
 // agentScriptRunner is the seam onto the executables a user hangs off an agent's life.

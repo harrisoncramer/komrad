@@ -282,9 +282,9 @@ func seedBoard(t *testing.T, it *tmuxtest.Server, st *testStore, count int) []ag
 	board := make([]agentstore.Agent, 0, count)
 	for i := range count {
 		name := fmt.Sprintf("agent-%d", i)
-		pane := it.Spawn(name, `sh -c 'printf "\033[H· Cooking… (3s · down 1k tokens)\n"; exec cat'`)
-		board = append(board, seedRunning(t, st, it.Client(), name, pane, agentstore.StateThinking))
-		it.WaitForFrame(pane, "Cooking…")
+		spawned := it.Spawn(name, `sh -c 'printf "\033[H· Cooking… (3s · down 1k tokens)\n"; exec cat'`)
+		board = append(board, seedRunning(t, st, it.Client(), name, spawned, agentstore.StateThinking))
+		it.WaitForFrame(spawned, "Cooking…")
 	}
 
 	return board

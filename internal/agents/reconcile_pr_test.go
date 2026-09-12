@@ -6,8 +6,8 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
-	"weave/internal/harness/pane"
 
+	"weave/internal/harness/pane"
 	agentstore "weave/internal/store/agent"
 	"weave/lib/xptr"
 
