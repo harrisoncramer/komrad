@@ -231,7 +231,7 @@ func TestDeliver(t *testing.T) {
 				MailboxReader: &fakeMailboxReader{pending: tt.pending},
 				NudgeClaimer:  agents,
 				PaneReader:    panes,
-				Channel:       pane.New(pane.NewParams{Terminal: panes, Harnesses: fakeHarnesses{harness: &fakeHarness{}}}),
+				Channel:       pane.New(pane.Params{Terminal: panes, Harnesses: fakeHarnesses{harness: &fakeHarness{}}}),
 			})
 
 			got, err := svc.Deliver(t.Context(), "agent-a")
@@ -305,7 +305,7 @@ func TestDeliverSaysWhenANudgeWentNowhere(t *testing.T) {
 				MailboxReader: &fakeMailboxReader{pending: 1},
 				NudgeClaimer:  agents,
 				PaneReader:    panes,
-				Channel:       pane.New(pane.NewParams{Terminal: panes, Harnesses: fakeHarnesses{harness: &fakeHarness{}}}),
+				Channel:       pane.New(pane.Params{Terminal: panes, Harnesses: fakeHarnesses{harness: &fakeHarness{}}}),
 			})
 
 			ctx, records := loggedContext(t)
@@ -336,7 +336,7 @@ func TestDeliverReportsExpiredMail(t *testing.T) {
 		MailboxReader: mailbox,
 		NudgeClaimer:  agents,
 		PaneReader:    panes,
-		Channel:       pane.New(pane.NewParams{Terminal: panes, Harnesses: fakeHarnesses{harness: &fakeHarness{}}}),
+		Channel:       pane.New(pane.Params{Terminal: panes, Harnesses: fakeHarnesses{harness: &fakeHarness{}}}),
 	})
 
 	got, err := svc.Deliver(t.Context(), "agent-a")
@@ -482,7 +482,7 @@ func TestDeliverAllVisitsEveryMailboxHoldingMail(t *testing.T) {
 		MailboxReader: mailbox,
 		NudgeClaimer:  agents,
 		PaneReader:    panes,
-		Channel:       pane.New(pane.NewParams{Terminal: panes, Harnesses: fakeHarnesses{harness: &fakeHarness{}}}),
+		Channel:       pane.New(pane.Params{Terminal: panes, Harnesses: fakeHarnesses{harness: &fakeHarness{}}}),
 	})
 
 	require.NoError(t, svc.DeliverAll(t.Context()))
@@ -498,7 +498,7 @@ func TestDeliverAllDoesNothingWhenNoMailIsWaiting(t *testing.T) {
 		MailboxReader: &fakeMailboxReader{},
 		NudgeClaimer:  agents,
 		PaneReader:    panes,
-		Channel:       pane.New(pane.NewParams{Terminal: panes, Harnesses: fakeHarnesses{harness: &fakeHarness{}}}),
+		Channel:       pane.New(pane.Params{Terminal: panes, Harnesses: fakeHarnesses{harness: &fakeHarness{}}}),
 	})
 
 	require.NoError(t, svc.DeliverAll(t.Context()))
@@ -526,7 +526,7 @@ func TestDeliverToAnAgentNoPassCanRead(t *testing.T) {
 
 	rec := NewReconciler(NewReconcilerParams{
 		Panes:    tmux,
-		Observer: pane.New(pane.NewParams{Terminal: tmux, Harnesses: fakeHarnesses{harness: &fakeHarness{}, only: []string{testHarnessID}}}),
+		Observer: pane.New(pane.Params{Terminal: tmux, Harnesses: fakeHarnesses{harness: &fakeHarness{}, only: []string{testHarnessID}}}),
 		States:   st.Agents,
 	})
 	for range 30 {
@@ -550,7 +550,7 @@ func TestDeliverToAnAgentNoPassCanRead(t *testing.T) {
 		MailboxReader: st.Mail,
 		NudgeClaimer:  st.Agents,
 		PaneReader:    panes,
-		Channel:       pane.New(pane.NewParams{Terminal: panes, Harnesses: fakeHarnesses{harness: &fakeHarness{}, only: []string{testHarnessID}}}),
+		Channel:       pane.New(pane.Params{Terminal: panes, Harnesses: fakeHarnesses{harness: &fakeHarness{}, only: []string{testHarnessID}}}),
 	})
 
 	got, err := svc.Deliver(ctx, agent.ID)
@@ -599,7 +599,7 @@ func TestDeliverRetriesANudgeTheAgentNeverActedOn(t *testing.T) {
 		MailboxReader: st.Mail,
 		NudgeClaimer:  st.Agents,
 		PaneReader:    panes,
-		Channel:       pane.New(pane.NewParams{Terminal: panes, Harnesses: fakeHarnesses{harness: &fakeHarness{}}}),
+		Channel:       pane.New(pane.Params{Terminal: panes, Harnesses: fakeHarnesses{harness: &fakeHarness{}}}),
 	})
 
 	got, err := svc.Deliver(ctx, agent.ID)
@@ -660,7 +660,7 @@ func TestDeliverRetriesANudgeAcrossAnArchive(t *testing.T) {
 		MailboxReader: st.Mail,
 		NudgeClaimer:  st.Agents,
 		PaneReader:    panes,
-		Channel:       pane.New(pane.NewParams{Terminal: panes, Harnesses: fakeHarnesses{harness: &fakeHarness{}}}),
+		Channel:       pane.New(pane.Params{Terminal: panes, Harnesses: fakeHarnesses{harness: &fakeHarness{}}}),
 	})
 
 	got, err := svc.Deliver(ctx, agent.ID)
@@ -718,7 +718,7 @@ func TestDeliverDefersToARealHarnessStillComingUp(t *testing.T) {
 				MailboxReader: &fakeMailboxReader{pending: 1},
 				NudgeClaimer:  agents,
 				PaneReader:    panes,
-				Channel:       pane.New(pane.NewParams{Terminal: panes, Harnesses: fixedHarnesses{harness: tt.harness}}),
+				Channel:       pane.New(pane.Params{Terminal: panes, Harnesses: fixedHarnesses{harness: tt.harness}}),
 			})
 
 			got, err := svc.Deliver(t.Context(), "agent-a")

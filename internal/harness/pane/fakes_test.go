@@ -202,7 +202,7 @@ func (f *harnessesFailingAfter) GetByID(string) (harness.Harness, error) {
 func composingPane(t *testing.T, terminal *fakeTerminal, now *time.Time) *Pane {
 	t.Helper()
 
-	return New(NewParams{
+	return New(Params{
 		Terminal:  terminal,
 		Harnesses: fakeHarnesses{harness: &fakeHarness{}},
 		Now:       func() time.Time { return *now },

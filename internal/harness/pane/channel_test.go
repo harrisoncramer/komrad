@@ -42,7 +42,7 @@ func TestReadyRefusesAPaneThatIsNotListening(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			terminal := &fakeTerminal{frame: tt.frame, inMode: tt.inMode}
-			p := New(NewParams{Terminal: terminal, Harnesses: fakeHarnesses{harness: &fakeHarness{}}})
+			p := New(Params{Terminal: terminal, Harnesses: fakeHarnesses{harness: &fakeHarness{}}})
 
 			ready, err := p.Ready(t.Context(), target)
 			require.NoError(t, err)
@@ -56,7 +56,7 @@ func TestReadyRefusesAPaneThatIsNotListening(t *testing.T) {
 // nothing around it.
 func TestSendPastesIntoAnEmptyBox(t *testing.T) {
 	terminal := &fakeTerminal{frame: idleFrame}
-	p := New(NewParams{Terminal: terminal, Harnesses: fakeHarnesses{harness: &fakeHarness{}}})
+	p := New(Params{Terminal: terminal, Harnesses: fakeHarnesses{harness: &fakeHarness{}}})
 
 	sent, err := p.Send(t.Context(), target, "weave: read_mail")
 	require.NoError(t, err)
@@ -69,7 +69,7 @@ func TestSendPastesIntoAnEmptyBox(t *testing.T) {
 // than held forever, since no frame of an unknown harness will ever be recognised.
 func TestSendToAnUnknownHarnessPastesAnyway(t *testing.T) {
 	terminal := &fakeTerminal{frame: busyFrame}
-	p := New(NewParams{Terminal: terminal, Harnesses: fakeHarnesses{}})
+	p := New(Params{Terminal: terminal, Harnesses: fakeHarnesses{}})
 
 	sent, err := p.Send(t.Context(), target, "weave: read_mail")
 	require.NoError(t, err)
@@ -321,7 +321,7 @@ func TestSendHandsBackADraftWhenTheFrameGoesUnreadable(t *testing.T) {
 	now := time.Date(2026, time.September, 9, 12, 0, 0, 0, time.UTC)
 	terminal := &fakeTerminal{frame: composingFrame}
 	harnesses := &harnessesFailingAfter{harness: &fakeHarness{}, answer: 3}
-	p := New(NewParams{Terminal: terminal, Harnesses: harnesses, Now: func() time.Time { return now }})
+	p := New(Params{Terminal: terminal, Harnesses: harnesses, Now: func() time.Time { return now }})
 
 	sent, err := deliver(t.Context(), t, p)
 	require.NoError(t, err)
@@ -340,7 +340,7 @@ func TestSendHandsBackADraftWhenTheFrameGoesUnreadable(t *testing.T) {
 // rather than anything weave decides.
 func TestInterruptSendsTheHarnessItsOwnKeys(t *testing.T) {
 	terminal := &fakeTerminal{frame: busyFrame}
-	p := New(NewParams{Terminal: terminal, Harnesses: fakeHarnesses{harness: &fakeHarness{interruptKeys: []string{"Escape", "Escape"}}}})
+	p := New(Params{Terminal: terminal, Harnesses: fakeHarnesses{harness: &fakeHarness{interruptKeys: []string{"Escape", "Escape"}}}})
 
 	require.NoError(t, p.Interrupt(t.Context(), target))
 	assert.Equal(t, []string{"keys:Escape,Escape"}, terminal.actions)
@@ -373,7 +373,7 @@ func TestInterruptRefusesWhatItCannotStop(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			terminal := &fakeTerminal{frame: busyFrame}
-			p := New(NewParams{Terminal: terminal, Harnesses: tt.harnesses})
+			p := New(Params{Terminal: terminal, Harnesses: tt.harnesses})
 
 			require.Error(t, p.Interrupt(t.Context(), tt.target))
 			assert.Empty(t, terminal.actions)

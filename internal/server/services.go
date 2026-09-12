@@ -100,7 +100,7 @@ func buildServices(p Params, st *stores) (*services, error) {
 		HookCommand: p.HookCommand,
 	})
 	paneLiveness := agents.NewPaneLiveness(p.Tmux)
-	paneChannel := pane.New(pane.NewParams{Terminal: p.Tmux, Harnesses: p.Harnesses})
+	paneChannel := pane.New(pane.Params{Terminal: p.Tmux, Harnesses: p.Harnesses})
 	launchService := agents.NewLaunchService(agents.NewLaunchServiceParams{
 		Tmux:               p.Tmux,
 		Agents:             st.agents,

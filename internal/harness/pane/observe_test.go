@@ -43,7 +43,7 @@ func TestObserveReadsTheFrameThroughItsHarness(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			p := New(NewParams{
+			p := New(Params{
 				Terminal:  &fakeTerminal{frame: tt.frame},
 				Harnesses: fakeHarnesses{harness: &fakeHarness{}},
 			})
@@ -58,7 +58,7 @@ func TestObserveReadsTheFrameThroughItsHarness(t *testing.T) {
 // TestObserveRefusesAHarnessItCannotLookUp pins that an unreadable frame is an error rather than
 // a reading, since nothing should move an agent's state on it.
 func TestObserveRefusesAHarnessItCannotLookUp(t *testing.T) {
-	p := New(NewParams{Terminal: &fakeTerminal{frame: busyFrame}, Harnesses: fakeHarnesses{}})
+	p := New(Params{Terminal: &fakeTerminal{frame: busyFrame}, Harnesses: fakeHarnesses{}})
 
 	_, err := p.Observe(t.Context(), target)
 	require.Error(t, err)
