@@ -935,9 +935,12 @@ func TestReconcileLeavesAnAgentAloneWhenTheObserverFails(t *testing.T) {
 	tmux.owners["%1"] = agent.ID
 
 	rec := NewReconciler(NewReconcilerParams{
-		Panes:    tmux,
-		Observer: &fakeObserver{err: errors.New("the frame went unreadable")},
-		States:   st.Agents,
+		Panes: tmux,
+		Observer: &fakeObserver{
+			observation: harness.Observation{Activity: harness.ActivityIdle},
+			err:         errors.New("the frame went unreadable"),
+		},
+		States: st.Agents,
 	})
 
 	for range reconcileMisses {

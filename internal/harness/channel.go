@@ -30,9 +30,6 @@ type Observer interface {
 type Observation struct {
 	Activity Activity
 
-	// Held is the text the agent's input box holds, empty for a source that has no box to read.
-	Held []string
-
 	// Frame is the capture the reading was taken from, empty for a source that reads no screen.
 	Frame string
 }

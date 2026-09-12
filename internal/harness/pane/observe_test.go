@@ -25,14 +25,13 @@ func TestObserveReadsTheFrameThroughItsHarness(t *testing.T) {
 		{
 			name:  "an empty input box",
 			frame: idleFrame,
-			want:  harness.Observation{Activity: harness.ActivityIdle, Held: []string{""}, Frame: idleFrame},
+			want:  harness.Observation{Activity: harness.ActivityIdle, Frame: idleFrame},
 		},
 		{
 			name:  "a box holding a draft",
 			frame: composingFrame + ": half a thought",
 			want: harness.Observation{
 				Activity: harness.ActivityComposing,
-				Held:     []string{"half a thought"},
 				Frame:    composingFrame + ": half a thought",
 			},
 		},

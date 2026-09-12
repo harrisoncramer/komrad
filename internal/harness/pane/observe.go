@@ -21,7 +21,6 @@ func (p *Pane) Observe(_ context.Context, target harness.Target) (harness.Observ
 
 	return harness.Observation{
 		Activity: input.Activity,
-		Held:     input.Held,
 		Frame:    frame,
 	}, nil
 }
