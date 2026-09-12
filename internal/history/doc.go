@@ -1,26 +1,19 @@
-// Package history remembers the places somebody has been and lets them walk back and forward
-// through them, the way a browser's back and forward buttons do.
+// Package history remembers where somebody has been and lets them walk back and forward through
+// it, the way a browser's back and forward buttons do.
 //
-// It is a list of entries and a cursor saying which one is current. Stepping does not change the
-// list, it only moves the cursor, so walking back and forward is free and reversible. The list
-// changes only when a caller says it has arrived somewhere by its own choice.
+// It is a list of entries and a cursor. Stepping only moves the cursor. The list changes when a
+// caller arrives somewhere by choice, which drops everything after the cursor, removes any
+// earlier entry for the same place, and appends.
 //
-// Arriving does three things in order. Everything after the cursor is dropped, since a forward
-// list only means the places you have just come back from. An existing entry for the same place
-// is removed, so a place appears once rather than once per visit. Then the entry is appended and
-// the cursor moves to it.
+// Dropping keeps stepping back honest, since the list is then the path actually taken to the
+// current entry rather than a record of everywhere the cursor has sat. Removing the earlier entry
+// is what makes the keypress worth pressing: without it, bouncing between two places by hand
+// leaves a list alternating between them, and three steps back reach only two places.
 //
-// That middle step is what makes stepping back worth the keypress. Without it, bouncing between
-// two places by hand leaves a list that alternates between them, and three steps back land on
-// two distinct places. With it the list is a recency ordering rather than a log, and every step
-// back reaches somewhere new.
+// Arriving where you already are is ignored rather than treated as a move, so a caller that walks
+// back and then acts on what it found keeps its forward entries. The cost is that such an entry
+// keeps its place rather than moving to the end.
 //
-// Arriving where you already are is ignored rather than treated as a move. A caller that walks
-// back and then acts on what it found keeps its forward list, which it would otherwise throw
-// away by acting. The cost is that such an entry keeps its place rather than moving to the end,
-// so the recency ordering holds for every entry except the one under the cursor.
-//
-// The entries are whatever the caller wants to remember, so long as they can be compared. The
-// package holds no opinion about what makes one valid, which is why a caller whose entry has
-// gone away removes it rather than teaching this package to recognise the dead.
+// The entries are whatever the caller wants to remember, so long as they can be compared. A
+// caller whose entry has gone away removes it.
 package history
