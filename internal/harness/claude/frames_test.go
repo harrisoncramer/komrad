@@ -32,6 +32,7 @@ func TestReadActivityOnCapturedFrames(t *testing.T) {
 		{file: "a_title_on_the_box_over_a_greyed_prompt.txt", want: harness.ActivityWorking},
 		{file: "a_title_on_the_box_over_an_empty_prompt.txt", want: harness.ActivityIdle},
 		{file: "a_recalled_history_entry_in_the_box.txt", want: harness.ActivityComposing},
+		{file: "a_shell_command_typed_into_the_box.txt", want: harness.ActivityComposing},
 		{file: "a_screen_no_pattern_matches.txt", want: harness.ActivityUnrecognized},
 		// Every agent draws this for a few seconds after the panel restarts, so the panel
 		// showing a wave of uncertain rows on startup is this frame rather than a fault.

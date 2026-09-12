@@ -137,6 +137,16 @@ func TestReadActivity(t *testing.T) {
 			want:  harness.ActivityComposing,
 		},
 		{
+			name:  "a queued-message divider drawn as a titled rule above a question",
+			frame: "⏺ Some earlier reply\n\n──────── 1 new message ────────\n❯ the user's queued message\n\n╭─ Do you want to proceed? ─╮\n│ ❯ 1. Yes                  │\n╰───────────────────────────╯\n  esc to cancel",
+			want:  harness.ActivityWaiting,
+		},
+		{
+			name:  "a bang command echoed into the transcript under a rule",
+			frame: "⏺ Here is the command:\n\n────────────────────────────\n!important note in the reply\n\n✳ Honking… (12s · 1.2k tokens)",
+			want:  harness.ActivityWorking,
+		},
+		{
 			name:  "a tool-result line rather than the spinner",
 			frame: "⎿ Found… (3 files)",
 			want:  harness.ActivityUnrecognized,

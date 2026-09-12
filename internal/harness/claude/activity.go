@@ -34,8 +34,13 @@ var dialogBorder = regexp.MustCompile(`^[╭╮╰╯│]`)
 // hintLine is the note Claude draws under a status line.
 var hintLine = regexp.MustCompile(`^\s*⎿`)
 
-// promptMarkers open the line the box holds, the second being the box in shell mode.
-var promptMarkers = []string{"❯", "!"}
+// The markers opening the line the box holds, the second being the box in shell mode.
+const (
+	chatPrompt  = "❯"
+	shellPrompt = "!"
+)
+
+var promptMarkers = []string{chatPrompt, shellPrompt}
 
 // boxSearchLines is how far up the rule opening the input box is looked for.
 const boxSearchLines = 30
@@ -44,11 +49,12 @@ const waitingRegionLines = 6
 
 var ansiSeq = regexp.MustCompile(`\x1b\[[0-9;?]*[ -/]*[@-~]`)
 
-// inputBox is the rule opening the box and the lines the box holds, less the prompt Claude
-// suggests there itself.
+// inputBox is the rule opening the box, the marker it holds, and the lines the box holds less
+// the prompt Claude suggests there itself.
 type inputBox struct {
-	Rule int
-	Held []string
+	Rule   int
+	Marker string
+	Held   []string
 }
 
 // ReadInput reads what a captured frame says Claude is doing and what its box holds, measured
@@ -112,11 +118,24 @@ func findInputBox(lines, held []string) (inputBox, bool) {
 		rest, _ := strings.CutPrefix(held[i+1], marker)
 
 		typed := []string{rest}
-		for j := i + 2; j < len(lines) && !boxRule.MatchString(lines[j]); j++ {
+		closed := false
+
+		for j := i + 2; j < len(lines); j++ {
+			if boxRule.MatchString(lines[j]) {
+				closed = true
+
+				break
+			}
+
 			typed = append(typed, held[j])
 		}
 
-		return inputBox{Rule: i, Held: typed}, true
+		// A frame cut off at the marker is a box the capture caught half of rather than no box.
+		if !closed && i+1 < len(lines)-1 {
+			continue
+		}
+
+		return inputBox{Rule: i, Marker: marker, Held: typed}, true
 	}
 
 	return inputBox{}, false
@@ -147,7 +166,8 @@ func doesFrameShowWork(lines []string, box inputBox, boxed bool) bool {
 // isPromptGreyed reports whether the box draws its prompt marker in the colour of the rule
 // above it rather than in the terminal's own, which is Claude greying the box out for a turn.
 func isPromptGreyed(colours []string, box inputBox, boxed bool) bool {
-	if !boxed {
+	// Shell mode draws the whole box in one colour, marker included.
+	if !boxed || box.Marker != chatPrompt {
 		return false
 	}
 
