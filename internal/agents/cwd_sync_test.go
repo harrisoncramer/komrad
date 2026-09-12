@@ -3,12 +3,9 @@ package agents
 import (
 	"context"
 	"os"
-	"os/exec"
 	"path/filepath"
-	"strings"
 	"testing"
 
-	"weave/internal/git"
 	agentstore "weave/internal/store/agent"
 	"weave/lib/xptr"
 
@@ -17,17 +14,18 @@ import (
 )
 
 // TestCwdSyncerSync covers what the periodic pass writes for a live agent: whether its cwd
-// still exists, and the branch a git checkout is on, cleared for a cwd that names no
-// directory, is not a checkout at all, or sits on a detached HEAD rather than a named branch.
+// still exists, and the branch git names for it, cleared for a cwd that names no directory or
+// that git names no branch for.
 func TestCwdSyncerSync(t *testing.T) {
-	repoOnMain := initRepo(t)
+	onMain := fakeCheckout(t)
+	onFeature := fakeCheckout(t)
 
-	repoOnFeature := initRepo(t)
-	runGit(t, repoOnFeature, "checkout", "--quiet", "-b", "feature/x")
-
-	detached := initRepo(t)
-	sha := strings.TrimSpace(gitOutput(t, detached, "rev-parse", "HEAD"))
-	runGit(t, detached, "checkout", "--quiet", sha)
+	// What git answers for each directory, which internal/git's own tests pin against a real
+	// repository.
+	branches := fakeBranches{
+		onMain:    xptr.Ptr("main"),
+		onFeature: xptr.Ptr("feature/x"),
+	}
 
 	tests := []struct {
 		name        string
@@ -48,20 +46,14 @@ func TestCwdSyncerSync(t *testing.T) {
 			wantRemoved: false,
 		},
 		{
-			name:        "a detached HEAD is not a named branch",
-			cwd:         detached,
-			wantBranch:  nil,
-			wantRemoved: false,
-		},
-		{
 			name:        "a checkout on main reads main",
-			cwd:         repoOnMain,
+			cwd:         onMain,
 			wantBranch:  xptr.Ptr("main"),
 			wantRemoved: false,
 		},
 		{
 			name:        "a checkout on another branch reads that branch",
-			cwd:         repoOnFeature,
+			cwd:         onFeature,
 			wantBranch:  xptr.Ptr("feature/x"),
 			wantRemoved: false,
 		},
@@ -88,7 +80,7 @@ func TestCwdSyncerSync(t *testing.T) {
 			created, err := st.Agents.GetInWorkflow(ctx, workflowID, "a")
 			require.NoError(t, err)
 
-			require.NoError(t, NewCwdSyncer(st.Agents, git.NewClient()).Sync(ctx))
+			require.NoError(t, NewCwdSyncer(st.Agents, branches).Sync(ctx))
 
 			got, err := st.Agents.GetByID(ctx, created.ID)
 			require.NoError(t, err)
@@ -103,6 +95,13 @@ func TestCwdSyncerSync(t *testing.T) {
 			assert.Equal(t, *tt.wantBranch, *got.Branch)
 		})
 	}
+}
+
+// fakeBranches is the branch git would read for each directory, and no branch for any other.
+type fakeBranches map[string]*string
+
+func (f fakeBranches) GetCurrentBranch(_ context.Context, dir string) *string {
+	return f[dir]
 }
 
 // TestCwdSyncerSyncSkipsTheGitCallForARemovedCwd covers the waste the single pass exists to
@@ -152,7 +151,7 @@ func TestCwdSyncerSyncClearsAStaleBranch(t *testing.T) {
 	ctx := t.Context()
 
 	workflowID := seedWorkflow(t, st)
-	repo := initRepo(t)
+	repo := fakeCheckout(t)
 	require.NoError(t, st.Agents.Create(ctx, agentstore.Agent{
 		Name:       "a",
 		State:      agentstore.StateIdle,
@@ -162,7 +161,7 @@ func TestCwdSyncerSyncClearsAStaleBranch(t *testing.T) {
 	created, err := st.Agents.GetInWorkflow(ctx, workflowID, "a")
 	require.NoError(t, err)
 
-	syncer := NewCwdSyncer(st.Agents, git.NewClient())
+	syncer := NewCwdSyncer(st.Agents, fakeBranches{repo: xptr.Ptr("main")})
 	require.NoError(t, syncer.Sync(ctx))
 
 	got, err := st.Agents.GetByID(ctx, created.ID)
@@ -197,7 +196,7 @@ func TestCwdSyncerSyncClearsAStaleRemoval(t *testing.T) {
 	created, err := st.Agents.GetInWorkflow(ctx, workflowID, "a")
 	require.NoError(t, err)
 
-	syncer := NewCwdSyncer(st.Agents, git.NewClient())
+	syncer := NewCwdSyncer(st.Agents, fakeBranches{})
 	require.NoError(t, syncer.Sync(ctx))
 
 	got, err := st.Agents.GetByID(ctx, created.ID)
@@ -222,7 +221,7 @@ func TestCwdSyncerSyncSkipsArchivedAgents(t *testing.T) {
 	}{
 		{
 			name: "a checkout is not read for its branch",
-			cwd:  initRepo(t),
+			cwd:  fakeCheckout(t),
 		},
 		{
 			name: "a cwd that is gone is not reported removed",
@@ -247,7 +246,7 @@ func TestCwdSyncerSyncSkipsArchivedAgents(t *testing.T) {
 			_, archiveErr := st.Agents.Archive(ctx, []string{created.ID})
 			require.NoError(t, archiveErr)
 
-			require.NoError(t, NewCwdSyncer(st.Agents, git.NewClient()).Sync(ctx))
+			require.NoError(t, NewCwdSyncer(st.Agents, fakeBranches{tt.cwd: xptr.Ptr("main")}).Sync(ctx))
 
 			got, err := st.Agents.GetByID(ctx, created.ID)
 			require.NoError(t, err)
@@ -255,16 +254,6 @@ func TestCwdSyncerSyncSkipsArchivedAgents(t *testing.T) {
 			assert.False(t, got.WorktreeRemoved)
 		})
 	}
-}
-
-func gitOutput(t *testing.T, dir string, args ...string) string {
-	t.Helper()
-
-	cmd := exec.CommandContext(t.Context(), "git", append([]string{"-C", dir}, args...)...)
-	out, err := cmd.Output()
-	require.NoError(t, err)
-
-	return string(out)
 }
 
 // fakeCheckout is a directory that reads as a primary checkout.
@@ -275,28 +264,6 @@ func fakeCheckout(t *testing.T) string {
 	require.NoError(t, os.MkdirAll(filepath.Join(dir, ".git"), 0o755))
 
 	return dir
-}
-
-func initRepo(t *testing.T) string {
-	t.Helper()
-
-	dir := t.TempDir()
-	runGit(t, dir, "init", "--quiet", "-b", "main")
-	runGit(t, dir, "config", "user.email", "test@weave.test")
-	runGit(t, dir, "config", "user.name", "weave test")
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "README.md"), []byte("hello\n"), 0o644))
-	runGit(t, dir, "add", "README.md")
-	runGit(t, dir, "commit", "--quiet", "-m", "initial")
-
-	return dir
-}
-
-func runGit(t *testing.T, dir string, args ...string) {
-	t.Helper()
-
-	cmd := exec.Command("git", append([]string{"-C", dir}, args...)...)
-	output, err := cmd.CombinedOutput()
-	require.NoErrorf(t, err, "git %v: %s", args, output)
 }
 
 func removedDir(t *testing.T) string {
