@@ -18,7 +18,8 @@ var waitingFooter = regexp.MustCompile(`(?i)esc to cancel|enter to select`)
 // when a bordered dialog draws it inside its own frame.
 var optionCursor = regexp.MustCompile(`^\s*│?\s*❯\s+\d+\.\s`)
 
-var boxRule = regexp.MustCompile(`^─{3,}\s*$`)
+// boxRule is an edge of the input box, the top one carrying the conversation's title.
+var boxRule = regexp.MustCompile(`^─{3,}(\s\S.*─)?\s*$`)
 
 // panelRule is the rule Claude draws across the top of a panel it opens over the whole pane,
 // which eats every key typed at the pane until somebody dismisses it.
@@ -33,7 +34,8 @@ var dialogBorder = regexp.MustCompile(`^[╭╮╰╯│]`)
 // hintLine is the note Claude draws under a status line.
 var hintLine = regexp.MustCompile(`^\s*⎿`)
 
-const promptMarker = "❯"
+// promptMarkers open the line the box holds, the second being the box in shell mode.
+var promptMarkers = []string{"❯", "!"}
 
 // boxSearchLines is how far up the rule opening the input box is looked for.
 const boxSearchLines = 30
@@ -100,13 +102,14 @@ func findInputBox(lines, held []string) (inputBox, bool) {
 			continue
 		}
 
-		if !strings.HasPrefix(lines[i+1], promptMarker) {
+		marker, prompted := openingMarker(lines[i+1])
+		if !prompted {
 			continue
 		}
 
 		// A dim-blanked marker is a box holding nothing rather than no box, so the marker is
 		// read from the frame and the text from the frame less the dim.
-		rest, _ := strings.CutPrefix(held[i+1], promptMarker)
+		rest, _ := strings.CutPrefix(held[i+1], marker)
 
 		typed := []string{rest}
 		for j := i + 2; j < len(lines) && !boxRule.MatchString(lines[j]); j++ {
@@ -117,6 +120,17 @@ func findInputBox(lines, held []string) (inputBox, bool) {
 	}
 
 	return inputBox{}, false
+}
+
+// openingMarker is the prompt marker a line opens with, when it opens with one.
+func openingMarker(line string) (string, bool) {
+	for _, marker := range promptMarkers {
+		if strings.HasPrefix(line, marker) {
+			return marker, true
+		}
+	}
+
+	return "", false
 }
 
 // doesFrameShowWork reads only the lines between the box and the conversation above it.

@@ -122,6 +122,21 @@ func TestReadActivity(t *testing.T) {
 			want:  harness.ActivityComposing,
 		},
 		{
+			name:  "the box in shell mode, which draws a marker of its own",
+			frame: "───────────────\n\x1b[39m! aws sso login\n───────────────\n  -- INSERT -- ! for shell mode",
+			want:  harness.ActivityComposing,
+		},
+		{
+			name:  "an empty box in shell mode",
+			frame: "───────────────\n\x1b[39m!\n───────────────\n  -- INSERT -- ! for shell mode",
+			want:  harness.ActivityIdle,
+		},
+		{
+			name:  "a title drawn on the rule opening the box",
+			frame: "─────── a conversation title ─\n\x1b[39m❯ half a question about\n───────────────\n  -- INSERT --",
+			want:  harness.ActivityComposing,
+		},
+		{
 			name:  "a tool-result line rather than the spinner",
 			frame: "⎿ Found… (3 files)",
 			want:  harness.ActivityUnrecognized,

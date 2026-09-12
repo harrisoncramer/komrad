@@ -1,0 +1,43 @@
+[38;5;102mRebased onto [1morigin/main[0m[38;5;102m [39m
+
+[38;5;188m⏺[39m Clean rebase. Re-verifying before push, since their commit touched a file I edited.
+
+  [38;5;102mRan [1m2[0m[38;5;102m shell commands [39m
+
+[38;5;188m⏺[39m Both repos pushed. Final verification of both.
+
+  [38;5;102mRan [1m1[0m[38;5;102m shell command [39m
+
+[38;5;188m⏺[39m Both clean, both pushed. Replying to the mail I owe, then archiving.
+
+  [38;5;102mCalled weave [1m2[0m[38;5;102m times [39m
+
+[38;5;188m⏺[39m Reviewer's gone — archived with the merge. Recording the durable finding, then archiving myself.
+
+  [38;5;102mRan [1m2[0m[38;5;102m shell commands [39m
+
+[38;5;188m⏺[39m Done. Both repos pushed and green.
+
+  [1mweave[0m — [38;5;153med2ee7c8[39m on main. All 330 remaining comments rewritten (175 files, comments only: [38;5;153mgit diff -U0 --
+[39m  [38;5;153m'*.go'[39m shows zero non-comment changed lines). Bumped to fussy v0.6.0, [38;5;153mcomment_clause[39m config removed along
+  with the [38;5;153mpath-except[39m gate. Full module lints clean, full test suite green under [38;5;153mGOFLAGS=-count=1[39m. Rebased
+  onto #433, which had landed on a file I'd edited, and re-verified after.
+
+  [1mfussy[0m — [38;5;153m374df08[39m on main, tagged [1mv0.6.0[0m. [38;5;153mcomment_clause[39m analyzer, config struct, testdata and all three
+  README references deleted. Analyzer tests pass. Three failures in [38;5;153munexported[39m are pre-existing on clean
+  main (a recursive type in testdata that doesn't compile) — I confirmed that by stashing and re-running,
+  and left them alone.
+
+  The measurement that justifies the deletion: the rule only fired on a comma before the clause word. With
+  comma cases excluded, [38;5;153mbecause[39m (38) and [38;5;153mso that[39m (20) were nearly all the real construction, while [38;5;153msince[39m
+  (118) and [38;5;153mrather than[39m (689) were nearly all ordinary prose. No regexp separates those, so widening it
+  wasn't available.
+
+  Three things to know:
+
+
+[38;5;102m────────────────────────────────────────────────────────────────── Weave comments rewrite for fussy v0.4.0 ─
+❯ [39m
+[38;5;102m────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+[39m  [38;5;102m-- INSERT --[39m [38;5;203m⏵⏵ bypass permissions on[38;5;102m (shift+tab to cycle) · ← 3 agents[39m
