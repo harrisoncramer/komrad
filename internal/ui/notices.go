@@ -25,10 +25,10 @@ const (
 	worktreeRemovedNotice = "its directory no longer exists"
 	unviewedNotice        = "unread output in its pane"
 	hiddenNotice          = "hidden from the sidebar"
-	heldNotice            = "held: you stopped it and have its worktree"
-	heldWorkingNotice     = "held, but it has started working again"
-	heldUnreadableNotice  = "held, but its pane cannot be read, so it may be writing"
-	heldPromptedNotice    = "held, but stopped at a prompt, so a write lands if anybody answers"
+	heldNotice            = "paused: you stopped it and have its worktree"
+	heldWorkingNotice     = "paused, but it has started working again"
+	heldUnreadableNotice  = "paused, but its pane cannot be read, so it may be writing"
+	heldPromptedNotice    = "paused, but stopped at a prompt, so a write lands if anybody answers"
 )
 
 const inLocalReviewNotice = "in review, reviewer owed an answer"

@@ -128,7 +128,7 @@ func scheduledMark(agent agentstore.Agent) string {
 	return paint.IconMark(agent.ScheduleID != nil, scheduledIcon, paint.Muted)
 }
 
-// heldMark says a person has stopped this agent and is holding its worktree.
+// heldMark says a person has paused this agent and has its worktree.
 func heldMark(agent agentstore.Agent) string {
 	return paint.IconMark(agent.HeldAt != nil, heldIcon, paint.Warning)
 }

@@ -288,6 +288,10 @@ type AgentsKeys struct {
 	// workflow does not make worktrees, since there is no base branch to measure one against, and
 	// the legend leaves it off there.
 	Review []string `mapstructure:"review" default:"d"`
+	// Pause the hovered agent where it stands, or unpause one you have already paused. Weave
+	// waits for the agent to come to rest before it claims the worktree, and refuses rather than
+	// claiming it when the agent will not stop or its pane cannot be read.
+	Pause []string `mapstructure:"pause" default:"p"`
 	// Hide the hovered agent from this list.
 	Hide []string `mapstructure:"hide" default:"h"`
 	// Start a new agent.
