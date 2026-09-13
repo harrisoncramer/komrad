@@ -9,8 +9,7 @@ import (
 	"connectrpc.com/connect"
 )
 
-// Wrap turns an error the domain returned into the one its caller sees, a sentinel keeping its
-// own message under the code its kind maps to and anything else becoming internal.
+// Wrap turns an error the domain returned into the one its caller sees.
 func Wrap(err error, failure string) error {
 	if err == nil {
 		return nil
