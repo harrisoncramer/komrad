@@ -4,7 +4,7 @@ set -euo pipefail
 #MISE description="Run every check: shell, formatting, lint, and tests."
 
 usage() {
-	echo "Usage: mise run check"
+	echo "Usage: mise run check [--kind unit|integration]"
 	echo
 	echo "Runs the whole suite and reports which steps failed rather than stopping at"
 	echo "the first, so one run tells you everything that is wrong. The formatters are"
@@ -18,16 +18,44 @@ usage() {
 	echo "and compare, so a stale file fails here without needing a clean git tree."
 	echo "gen:check covers the sqlc and buf output too, but only when those paths"
 	echo "have no uncommitted edits."
+	echo
+	echo "--kind is handed to go:test. Everything else here runs whichever kind you"
+	echo "name, since formatting and linting are properties of the tree rather than"
+	echo "of a kind of test."
 }
 
-for arg in "$@"; do
-	case "$arg" in
+KIND="integration"
+while (($#)); do
+	case "$1" in
 	-h | --help)
 		usage
 		exit 0
 		;;
+	--kind)
+		KIND="${2:-}"
+		if [ -z "$KIND" ]; then
+			echo "check: --kind takes unit or integration" >&2
+			usage >&2
+			exit 1
+		fi
+		shift 2
+		;;
+	*)
+		echo "check: unknown argument $1" >&2
+		usage >&2
+		exit 1
+		;;
 	esac
 done
+
+case "$KIND" in
+unit | integration) ;;
+*)
+	echo "check: no kind of test called $KIND" >&2
+	usage >&2
+	exit 1
+	;;
+esac
 
 cd "$MISE_CONFIG_ROOT"
 
@@ -40,7 +68,7 @@ STEPS=(
 	"db:validate"
 	"go:lint"
 	"proto:lint"
-	"go:test"
+	"go:test --kind $KIND"
 	"gen:check"
 )
 

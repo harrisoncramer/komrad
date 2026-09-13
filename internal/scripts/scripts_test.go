@@ -1,3 +1,5 @@
+//go:build integration
+
 package scripts
 
 import (
@@ -577,12 +579,6 @@ func TestRunAndWaitRefusesAContextAlreadyDone(t *testing.T) {
 	require.NotErrorIs(t, err, ErrNotStartable, "a cancelled run says nothing about whether the file would exec")
 	assert.Contains(t, err.Error(), "gave up after 1m0s", "the refusal names the limit it was given")
 	assert.Equal(t, -1, result.ExitCode, "a process that never ran has no status of its own")
-}
-
-func write(t *testing.T, path string, mode os.FileMode) {
-	t.Helper()
-
-	require.NoError(t, os.WriteFile(path, []byte("#!/bin/sh\n"), mode))
 }
 
 func eventually(t *testing.T, path string) string {

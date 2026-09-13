@@ -1,5 +1,61 @@
 #!/usr/bin/env bash
-#MISE description="Run every Go test."
+source "$MISE_CONFIG_ROOT/mise/tasks/_"
 set -euo pipefail
+#MISE description="Run the Go tests, the unit ones or those plus the integration ones."
+
+usage() {
+	echo "Usage: mise run go:test [--kind unit|integration]"
+	echo
+	echo "Runs both kinds by default. A test that drives a real git, a real tmux or a"
+	echo "real weave carries the integration build tag, so it is compiled out of a"
+	echo "unit run rather than skipped inside one."
+	echo
+	echo "An integration run compiles the tagged files in, which means it runs the"
+	echo "unit tests of those packages as well. Go has no way to run only what a tag"
+	echo "brought in."
+	echo
+	echo "Which tests a pull request runs is decided in .github/workflows/ci.yml,"
+	echo "since that is where the files a branch changed are already known."
+}
+
+KIND="integration"
+
+while (($#)); do
+	case "$1" in
+	-h | --help)
+		usage
+		exit 0
+		;;
+	--kind)
+		KIND="${2:-}"
+		if [ -z "$KIND" ]; then
+			echo "go:test: --kind takes unit or integration" >&2
+			usage >&2
+			exit 1
+		fi
+		shift 2
+		;;
+	*)
+		echo "go:test: unknown argument $1" >&2
+		usage >&2
+		exit 1
+		;;
+	esac
+done
+
+TAGS=()
+case "$KIND" in
+unit) ;;
+integration)
+	TAGS=(-tags integration)
+	;;
+*)
+	echo "go:test: no kind of test called $KIND" >&2
+	usage >&2
+	exit 1
+	;;
+esac
+
 cd "$MISE_CONFIG_ROOT"
-gotestsum --format pkgname -- ./...
+
+gotestsum --format pkgname -- "${TAGS[@]}" ./...

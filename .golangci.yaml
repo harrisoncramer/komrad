@@ -1,4 +1,9 @@
 version: "2"
+# The integration tests carry a build tag, so without this the linter would not read them
+# at all and every rule below would stop at the files a unit run compiles.
+run:
+  build-tags:
+    - integration
 issues:
   max-issues-per-linter: 0
   max-same-issues: 0
@@ -46,17 +51,18 @@ linters:
         - all
     forbidigo:
       # Explainer: driving a real git is what makes a test slow and what makes it flake under
-      # load, so the suite is split in two and only the packages below pay for it. The rule is
-      # written against the calls rather than the imports, since a test that hands over a fake
-      # still imports weave/internal/git for the types the fake is written in.
+      # load, so the suite is split into unit tests and integration tests, and only the
+      # packages below pay for it. The rule is written against the calls rather than the
+      # imports, since a unit test that hands over a fake still imports weave/internal/git
+      # for the types the fake is written in.
       analyze-types: true
       forbid:
         - pattern: ^git\.NewClient$
-          msg: a test outside the external lane takes the git seam and hands over a fake
+          msg: a unit test takes the git seam and hands over a fake
         - pattern: ^git\.(Run|RunBytes)$
-          msg: a test outside the external lane does not run git itself
+          msg: a unit test does not run git itself
         - pattern: ^exec\.Command(Context)?$
-          msg: a test outside the external lane does not shell out to git
+          msg: a unit test does not shell out to git
     depguard:
       # The layers, as docs/concepts.md describes them. A layer may call the one below it
       # and may not reach past it, and the panel receives its adapters rather than
@@ -235,9 +241,11 @@ linters:
       - path-except: _test\.go$
         linters:
           - forbidigo
-      # The external lane: the packages whose subject is what git, tmux or the panel's own
-      # binaries actually do, which is the one case a test has to drive the real thing.
-      - path: (internal/(git|diff|scripts|e2e|tmux|tmuxtest|cli|harnesstest|weavetest)/|^cmd/paneldemo/)
+      # The integration tests: the packages whose subject is what git, tmux or the panel's own
+      # binaries actually do, which is the one case a test has to drive the real thing. It is
+      # the set mise/tasks/go/test runs for --kind integration. The fixture packages beside
+      # them, such as internal/weavetest, hold no test of their own and so need no entry.
+      - path: (internal/(git|diff|scripts|e2e|tmux|cli)/|^cmd/paneldemo/)
         linters:
           - forbidigo
       # A binary's package comment would be the first thing a reader of the command sees on

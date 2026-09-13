@@ -969,3 +969,13 @@ func worktreeConfig(t *testing.T, name string) workflowstore.Config {
 		Worktree: workflowstore.WorktreeConfig{Enabled: true},
 	}
 }
+
+// mustRegistry is a registry of the harnesses a test names, which every caller here
+// treats as a precondition rather than as something to handle.
+func mustRegistry(t *testing.T, harnesses ...harness.Harness) *harness.Registry {
+	t.Helper()
+	registry, err := harness.NewRegistry(harnesses...)
+	require.NoError(t, err)
+
+	return registry
+}

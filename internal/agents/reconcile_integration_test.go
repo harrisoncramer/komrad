@@ -1,10 +1,11 @@
+//go:build integration
+
 package agents
 
 import (
 	"fmt"
 	"testing"
 
-	"weave/internal/harness"
 	"weave/internal/harness/claude"
 	"weave/internal/harness/pane"
 	agentstore "weave/internal/store/agent"
@@ -114,14 +115,6 @@ func TestExitedCLIStopsBeingANudgeTarget(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, DeliveryLater, got, "delivery to an agent whose CLI exited")
 	assert.Empty(t, panes.actions, "nothing is sent to an agent whose CLI exited")
-}
-
-func mustRegistry(t *testing.T, harnesses ...harness.Harness) *harness.Registry {
-	t.Helper()
-	registry, err := harness.NewRegistry(harnesses...)
-	require.NoError(t, err)
-
-	return registry
 }
 
 // TestReconcileHoldsAPaneOneListingLeftOut pins that a pane missing from a single listing is not

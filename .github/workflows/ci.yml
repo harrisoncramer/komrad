@@ -10,8 +10,159 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
+permissions:
+  contents: read
+  pull-requests: read
+
 jobs:
-  check:
+  # What the branch touched, which is what every job below gates on. A push to main
+  # answers true to everything, since there is no pull request to compare against.
+  changes:
+    runs-on: namespace-profile-harrisoncramer
+    outputs:
+      go: ${{ steps.filter.outputs.go }}
+      shell: ${{ steps.filter.outputs.shell }}
+      db: ${{ steps.filter.outputs.db }}
+      proto: ${{ steps.filter.outputs.proto }}
+      generated: ${{ steps.filter.outputs.generated }}
+      integration: ${{ steps.filter.outputs.integration }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            go:
+              - '**/*.go'
+              - 'go.mod'
+              - 'go.sum'
+              - '.golangci.yaml'
+              - '.custom-gcl.yml'
+              - '.github/workflows/ci.yml'
+            shell:
+              - 'mise/**'
+              - '**/*.sh'
+              - 'internal/scripts/builtin/**'
+              - '.github/workflows/ci.yml'
+            db:
+              - 'db/**'
+              - '.github/workflows/ci.yml'
+            proto:
+              - 'proto/**'
+              - 'buf*.yaml'
+              - '.github/workflows/ci.yml'
+            integration:
+              - '**/*.go'
+              - 'go.mod'
+              - 'go.sum'
+              - 'mise/**'
+              - 'db/**'
+              - 'proto/**'
+              - '.github/workflows/ci.yml'
+            generated:
+              - 'proto/**'
+              - 'db/**'
+              - 'config/**'
+              - 'mise/tasks/gen/**'
+              - '.github/workflows/ci.yml'
+
+  # The shell weave runs: the mise tasks and the builtin scripts an agent's hooks call.
+  shell:
+    needs: changes
+    if: needs.changes.outputs.shell == 'true'
+    runs-on: namespace-profile-harrisoncramer
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Mise
+        uses: ./.github/actions/use-mise
+        with:
+          gh-access-token: ${{ env.GH_ACCESS_TOKEN }}
+
+      - name: Check the shell
+        run: |
+          mise run bash:check
+          mise run bash:fmt --check
+
+  proto:
+    needs: changes
+    if: needs.changes.outputs.proto == 'true'
+    runs-on: namespace-profile-harrisoncramer
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Mise
+        uses: ./.github/actions/use-mise
+        with:
+          gh-access-token: ${{ env.GH_ACCESS_TOKEN }}
+
+      - name: Check the protobufs
+        run: |
+          mise run proto:fmt --check
+          mise run proto:lint
+
+  db:
+    needs: changes
+    if: needs.changes.outputs.db == 'true'
+    runs-on: namespace-profile-harrisoncramer
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Mise
+        uses: ./.github/actions/use-mise
+        with:
+          gh-access-token: ${{ env.GH_ACCESS_TOKEN }}
+
+      - name: Check the migrations
+        run: |
+          mise run db:fmt --check
+          mise run db:validate
+
+  # The generators, which read the protobufs, the schema and the config and write Go.
+  generated:
+    needs: changes
+    if: needs.changes.outputs.generated == 'true'
+    runs-on: namespace-profile-harrisoncramer
+
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: weave
+          POSTGRES_PASSWORD: weave
+          POSTGRES_DB: weave
+        ports:
+          - 5460:5432
+        options: >-
+          --health-cmd "pg_isready -U weave"
+          --health-interval 2s
+          --health-timeout 5s
+          --health-retries 15
+
+    env:
+      WEAVE_DATABASE_URL: postgres://weave:weave@localhost:5460/weave?sslmode=disable
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cache the Go and lint caches
+        uses: namespacelabs/nscloud-cache-action@v1
+        with:
+          cache: go
+
+      - name: Use Mise
+        uses: ./.github/actions/use-mise
+        with:
+          gh-access-token: ${{ env.GH_ACCESS_TOKEN }}
+
+      - name: Check the generated files are in step
+        run: mise run gen:check
+
+  # The Go itself: formatting, the linter, and the tests that drive no external binary.
+  go:
+    needs: changes
+    if: needs.changes.outputs.go == 'true'
     runs-on: namespace-profile-harrisoncramer
 
     # The store tests run against a real Postgres rather than a fake, and
@@ -36,9 +187,9 @@ jobs:
       WEAVE_DATABASE_URL: postgres://weave:weave@localhost:5460/weave?sslmode=disable
 
       # A warm build cache otherwise lets go test replay a package's last result
-      # instead of running it, and these tests reach a real Postgres and a real
-      # tmux that the cache cannot see. The compile is still cached; only the
-      # decision to skip running is turned off.
+      # instead of running it, and these tests reach a real Postgres that the cache
+      # cannot see. The compile is still cached; only the decision to skip running is
+      # turned off.
       GOFLAGS: -count=1
 
     steps:
@@ -60,14 +211,6 @@ jobs:
         with:
           gh-access-token: ${{ env.GH_ACCESS_TOKEN }}
 
-      # The agents reconciler drives a real tmux server instead of a fake, and
-      # those tests skip themselves when tmux is missing rather than failing, so
-      # without this they would quietly not run. less is what the panel pages a
-      # dormant agent's placeholder into a pane with, and a runner missing it
-      # fails those tests rather than skipping them.
-      - name: Install tmux
-        run: sudo apt-get update && sudo apt-get install -y tmux less
-
       # go:lint builds golangci-lint from source to bundle the repo's plugin,
       # which dominates the job. The binary only changes when the plugin or its
       # pin does, so it is cached against those rather than rebuilt every run.
@@ -77,5 +220,61 @@ jobs:
           path: local/custom-gcl
           key: custom-gcl-${{ runner.os }}-${{ hashFiles('.custom-gcl.yml') }}
 
-      - name: Check
-        run: mise run check
+      - name: Check the formatting
+        run: mise run go:fmt --check
+
+      - name: Lint
+        run: mise run go:lint
+
+      - name: Run the unit tests
+        run: mise run go:test --kind unit
+
+  # The integration tests drive a real git, a real tmux and a real weave, which is slow
+  # and flakes when the machine is busy. They carry a build tag, so this is the only job
+  # that compiles them in. The paths above are wide because these tests drive the panel
+  # end to end, so most of the module is behind them.
+  integration:
+    needs: changes
+    if: needs.changes.outputs.integration == 'true'
+    runs-on: namespace-profile-harrisoncramer
+
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: weave
+          POSTGRES_PASSWORD: weave
+          POSTGRES_DB: weave
+        ports:
+          - 5460:5432
+        options: >-
+          --health-cmd "pg_isready -U weave"
+          --health-interval 2s
+          --health-timeout 5s
+          --health-retries 15
+
+    env:
+      WEAVE_DATABASE_URL: postgres://weave:weave@localhost:5460/weave?sslmode=disable
+      GOFLAGS: -count=1
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cache the Go and lint caches
+        uses: namespacelabs/nscloud-cache-action@v1
+        with:
+          cache: go
+
+      - name: Use Mise
+        uses: ./.github/actions/use-mise
+        with:
+          gh-access-token: ${{ env.GH_ACCESS_TOKEN }}
+
+      # The tmux tests skip themselves when tmux is missing rather than failing, which
+      # issue 553 is about. less is what the panel pages a dormant agent's placeholder
+      # into a pane with.
+      - name: Install tmux
+        run: sudo apt-get update && sudo apt-get install -y tmux less
+
+      - name: Run the integration tests
+        run: mise run go:test --kind integration
