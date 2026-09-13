@@ -407,6 +407,31 @@ SET
 WHERE
     id = @id;
 
+-- name: HoldAgentByID :many
+UPDATE
+    agents
+SET
+    held_at = @held_at,
+    held_mid_turn = @held_mid_turn
+WHERE
+    id = @id
+    AND archived_at IS NULL
+    AND held_at IS NULL
+RETURNING
+    id;
+
+-- name: ReleaseAgentByID :many
+UPDATE
+    agents
+SET
+    held_at = NULL,
+    held_mid_turn = FALSE
+WHERE
+    id = @id
+    AND held_at IS NOT NULL
+RETURNING
+    id;
+
 -- name: SetAgentSessionID :exec
 UPDATE
     agents

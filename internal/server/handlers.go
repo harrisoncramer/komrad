@@ -65,13 +65,14 @@ func newMux(params newMuxParams) (*http.ServeMux, error) {
 			Liveness:     params.Services.liveness,
 			Lifecycle:    params.Services.lifecycle,
 			Resumer:      params.Services.resume,
+			Holder:       params.Services.holder,
 			Reconciler:   params.Services.reconciler,
 			Archive:      jobs.NewEnqueuer(params.Jobs),
 			Review:       params.Services.review,
 			Runs:         params.Stores.runs,
 			Marks:        params.Services.marks,
-			Orchestrator: params.Services.orchestrator,
 			Refresher:    params.Services.rebase,
+			Orchestrator: params.Services.orchestrator,
 		})}, options...))
 	mux.Handle(workflowv1connect.NewWorkflowServiceHandler(
 		workflowv1weave.WorkflowServiceAdapter{
