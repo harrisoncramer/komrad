@@ -69,6 +69,11 @@ const (
 	// AgentServiceRestoreAgentsProcedure is the fully-qualified name of the AgentService's
 	// RestoreAgents RPC.
 	AgentServiceRestoreAgentsProcedure = "/agent.v1.AgentService/RestoreAgents"
+	// AgentServiceHoldAgentProcedure is the fully-qualified name of the AgentService's HoldAgent RPC.
+	AgentServiceHoldAgentProcedure = "/agent.v1.AgentService/HoldAgent"
+	// AgentServiceReleaseAgentProcedure is the fully-qualified name of the AgentService's ReleaseAgent
+	// RPC.
+	AgentServiceReleaseAgentProcedure = "/agent.v1.AgentService/ReleaseAgent"
 	// AgentServiceResumeAgentProcedure is the fully-qualified name of the AgentService's ResumeAgent
 	// RPC.
 	AgentServiceResumeAgentProcedure = "/agent.v1.AgentService/ResumeAgent"
@@ -157,6 +162,10 @@ type AgentServiceClient interface {
 	DeleteMail(context.Context, *connect.Request[v1.DeleteMailRequest]) (*connect.Response[emptypb.Empty], error)
 	ArchiveAgents(context.Context, *connect.Request[v1.ArchiveAgentsRequest]) (*connect.Response[emptypb.Empty], error)
 	RestoreAgents(context.Context, *connect.Request[v1.RestoreAgentsRequest]) (*connect.Response[v1.RestoreAgentsResponse], error)
+	// Panel only, deliberately carrying no tool annotation: holding an agent is a person taking its
+	// worktree, and an agent that could hold another could stop work nobody asked it to stop.
+	HoldAgent(context.Context, *connect.Request[v1.HoldAgentRequest]) (*connect.Response[v1.HoldAgentResponse], error)
+	ReleaseAgent(context.Context, *connect.Request[v1.ReleaseAgentRequest]) (*connect.Response[v1.ReleaseAgentResponse], error)
 	ResumeAgent(context.Context, *connect.Request[v1.ResumeAgentRequest]) (*connect.Response[v1.ResumeAgentResponse], error)
 	DeleteAgents(context.Context, *connect.Request[v1.DeleteAgentsRequest]) (*connect.Response[emptypb.Empty], error)
 	UpdateAgent(context.Context, *connect.Request[v1.UpdateAgentRequest]) (*connect.Response[emptypb.Empty], error)
@@ -292,6 +301,18 @@ func NewAgentServiceClient(httpClient connect.HTTPClient, baseURL string, opts .
 			baseURL+AgentServiceRestoreAgentsProcedure,
 			connect.WithSchema(agentServiceMethods.ByName("RestoreAgents")),
 			connect.WithIdempotency(connect.IdempotencyIdempotent),
+			connect.WithClientOptions(opts...),
+		),
+		holdAgent: connect.NewClient[v1.HoldAgentRequest, v1.HoldAgentResponse](
+			httpClient,
+			baseURL+AgentServiceHoldAgentProcedure,
+			connect.WithSchema(agentServiceMethods.ByName("HoldAgent")),
+			connect.WithClientOptions(opts...),
+		),
+		releaseAgent: connect.NewClient[v1.ReleaseAgentRequest, v1.ReleaseAgentResponse](
+			httpClient,
+			baseURL+AgentServiceReleaseAgentProcedure,
+			connect.WithSchema(agentServiceMethods.ByName("ReleaseAgent")),
 			connect.WithClientOptions(opts...),
 		),
 		resumeAgent: connect.NewClient[v1.ResumeAgentRequest, v1.ResumeAgentResponse](
@@ -469,6 +490,8 @@ type agentServiceClient struct {
 	deleteMail              *connect.Client[v1.DeleteMailRequest, emptypb.Empty]
 	archiveAgents           *connect.Client[v1.ArchiveAgentsRequest, emptypb.Empty]
 	restoreAgents           *connect.Client[v1.RestoreAgentsRequest, v1.RestoreAgentsResponse]
+	holdAgent               *connect.Client[v1.HoldAgentRequest, v1.HoldAgentResponse]
+	releaseAgent            *connect.Client[v1.ReleaseAgentRequest, v1.ReleaseAgentResponse]
 	resumeAgent             *connect.Client[v1.ResumeAgentRequest, v1.ResumeAgentResponse]
 	deleteAgents            *connect.Client[v1.DeleteAgentsRequest, emptypb.Empty]
 	updateAgent             *connect.Client[v1.UpdateAgentRequest, emptypb.Empty]
@@ -567,6 +590,16 @@ func (c *agentServiceClient) ArchiveAgents(ctx context.Context, req *connect.Req
 // RestoreAgents calls agent.v1.AgentService.RestoreAgents.
 func (c *agentServiceClient) RestoreAgents(ctx context.Context, req *connect.Request[v1.RestoreAgentsRequest]) (*connect.Response[v1.RestoreAgentsResponse], error) {
 	return c.restoreAgents.CallUnary(ctx, req)
+}
+
+// HoldAgent calls agent.v1.AgentService.HoldAgent.
+func (c *agentServiceClient) HoldAgent(ctx context.Context, req *connect.Request[v1.HoldAgentRequest]) (*connect.Response[v1.HoldAgentResponse], error) {
+	return c.holdAgent.CallUnary(ctx, req)
+}
+
+// ReleaseAgent calls agent.v1.AgentService.ReleaseAgent.
+func (c *agentServiceClient) ReleaseAgent(ctx context.Context, req *connect.Request[v1.ReleaseAgentRequest]) (*connect.Response[v1.ReleaseAgentResponse], error) {
+	return c.releaseAgent.CallUnary(ctx, req)
 }
 
 // ResumeAgent calls agent.v1.AgentService.ResumeAgent.
@@ -701,6 +734,10 @@ type AgentServiceHandler interface {
 	DeleteMail(context.Context, *connect.Request[v1.DeleteMailRequest]) (*connect.Response[emptypb.Empty], error)
 	ArchiveAgents(context.Context, *connect.Request[v1.ArchiveAgentsRequest]) (*connect.Response[emptypb.Empty], error)
 	RestoreAgents(context.Context, *connect.Request[v1.RestoreAgentsRequest]) (*connect.Response[v1.RestoreAgentsResponse], error)
+	// Panel only, deliberately carrying no tool annotation: holding an agent is a person taking its
+	// worktree, and an agent that could hold another could stop work nobody asked it to stop.
+	HoldAgent(context.Context, *connect.Request[v1.HoldAgentRequest]) (*connect.Response[v1.HoldAgentResponse], error)
+	ReleaseAgent(context.Context, *connect.Request[v1.ReleaseAgentRequest]) (*connect.Response[v1.ReleaseAgentResponse], error)
 	ResumeAgent(context.Context, *connect.Request[v1.ResumeAgentRequest]) (*connect.Response[v1.ResumeAgentResponse], error)
 	DeleteAgents(context.Context, *connect.Request[v1.DeleteAgentsRequest]) (*connect.Response[emptypb.Empty], error)
 	UpdateAgent(context.Context, *connect.Request[v1.UpdateAgentRequest]) (*connect.Response[emptypb.Empty], error)
@@ -832,6 +869,18 @@ func NewAgentServiceHandler(svc AgentServiceHandler, opts ...connect.HandlerOpti
 		svc.RestoreAgents,
 		connect.WithSchema(agentServiceMethods.ByName("RestoreAgents")),
 		connect.WithIdempotency(connect.IdempotencyIdempotent),
+		connect.WithHandlerOptions(opts...),
+	)
+	agentServiceHoldAgentHandler := connect.NewUnaryHandler(
+		AgentServiceHoldAgentProcedure,
+		svc.HoldAgent,
+		connect.WithSchema(agentServiceMethods.ByName("HoldAgent")),
+		connect.WithHandlerOptions(opts...),
+	)
+	agentServiceReleaseAgentHandler := connect.NewUnaryHandler(
+		AgentServiceReleaseAgentProcedure,
+		svc.ReleaseAgent,
+		connect.WithSchema(agentServiceMethods.ByName("ReleaseAgent")),
 		connect.WithHandlerOptions(opts...),
 	)
 	agentServiceResumeAgentHandler := connect.NewUnaryHandler(
@@ -1021,6 +1070,10 @@ func NewAgentServiceHandler(svc AgentServiceHandler, opts ...connect.HandlerOpti
 			agentServiceArchiveAgentsHandler.ServeHTTP(w, r)
 		case AgentServiceRestoreAgentsProcedure:
 			agentServiceRestoreAgentsHandler.ServeHTTP(w, r)
+		case AgentServiceHoldAgentProcedure:
+			agentServiceHoldAgentHandler.ServeHTTP(w, r)
+		case AgentServiceReleaseAgentProcedure:
+			agentServiceReleaseAgentHandler.ServeHTTP(w, r)
 		case AgentServiceResumeAgentProcedure:
 			agentServiceResumeAgentHandler.ServeHTTP(w, r)
 		case AgentServiceDeleteAgentsProcedure:
@@ -1134,6 +1187,14 @@ func (UnimplementedAgentServiceHandler) ArchiveAgents(context.Context, *connect.
 
 func (UnimplementedAgentServiceHandler) RestoreAgents(context.Context, *connect.Request[v1.RestoreAgentsRequest]) (*connect.Response[v1.RestoreAgentsResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("agent.v1.AgentService.RestoreAgents is not implemented"))
+}
+
+func (UnimplementedAgentServiceHandler) HoldAgent(context.Context, *connect.Request[v1.HoldAgentRequest]) (*connect.Response[v1.HoldAgentResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("agent.v1.AgentService.HoldAgent is not implemented"))
+}
+
+func (UnimplementedAgentServiceHandler) ReleaseAgent(context.Context, *connect.Request[v1.ReleaseAgentRequest]) (*connect.Response[v1.ReleaseAgentResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("agent.v1.AgentService.ReleaseAgent is not implemented"))
 }
 
 func (UnimplementedAgentServiceHandler) ResumeAgent(context.Context, *connect.Request[v1.ResumeAgentRequest]) (*connect.Response[v1.ResumeAgentResponse], error) {

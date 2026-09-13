@@ -198,6 +198,12 @@ func agentsRowActions() []action {
 			run:  onHoveredAgent(model.toggleAgentViewed),
 		},
 		{
+			id:   actionAgentHold,
+			keys: func(k config.Keybindings) []string { return k.Agents.Hold },
+			when: isHoveringAgent,
+			run:  onHoveredAgent(func(m model, item agentItem) (tea.Model, tea.Cmd) { return m.holdAgent(item.agent) }),
+		},
+		{
 			id:   actionAgentHide,
 			keys: func(k config.Keybindings) []string { return k.Agents.Hide },
 			when: isHoveringAgent,
@@ -420,8 +426,8 @@ func agentsBrowsingLegend() []legendRow {
 			show: isHoveringAgent,
 		},
 		{
-			of:   []actionID{actionAgentMail},
-			desc: func(model) string { return "mailbox" },
+			of:   []actionID{actionAgentMail, actionAgentHold},
+			desc: model.mailAndHoldDesc,
 			show: isHoveringAgent,
 		},
 		{
@@ -537,6 +543,21 @@ func (m model) selectionClearDesc() string {
 
 func (m model) showHiddenDescOf() string {
 	return m.showHiddenDesc()
+}
+
+// mailAndHoldDesc names the two keys that share a legend row, which is what keeps the expanded
+// legend inside a pane that already fits.
+func (m model) mailAndHoldDesc() string {
+	return "mailbox, " + m.holdDesc()
+}
+
+// holdDesc names the hold key for what pressing it would do to the row under the cursor.
+func (m model) holdDesc() string {
+	if item, ok := m.selectedAgent(); ok && item.agent.HeldAt != nil {
+		return "let it go"
+	}
+
+	return "hold it"
 }
 
 func (m model) hideDesc() string {

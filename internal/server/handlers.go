@@ -65,6 +65,7 @@ func newMux(params newMuxParams) (*http.ServeMux, error) {
 			Liveness:    params.Services.liveness,
 			Lifecycle:   params.Services.lifecycle,
 			Resumer:     params.Services.resume,
+			Holder:      params.Services.holder,
 			Reconciler:  params.Services.reconciler,
 			Archive:     jobs.NewEnqueuer(params.Jobs),
 			Review:      params.Services.review,

@@ -288,6 +288,10 @@ type AgentsKeys struct {
 	// workflow does not make worktrees, since there is no base branch to measure one against, and
 	// the legend leaves it off there.
 	Review []string `mapstructure:"review" default:"d"`
+	// Stop the hovered agent where it stands and take its worktree, or let go of one you are
+	// already holding. Weave waits for the agent to come to rest before it claims the tree, and
+	// refuses rather than claiming it when the agent will not stop or its pane cannot be read.
+	Hold []string `mapstructure:"hold" default:"p"`
 	// Hide the hovered agent from this list.
 	Hide []string `mapstructure:"hide" default:"h"`
 	// Start a new agent.

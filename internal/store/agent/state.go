@@ -153,6 +153,46 @@ func (s *Store) SetInterruptedAtByID(ctx context.Context, id string, at *time.Ti
 	return nil
 }
 
+// Hold records that a person has stopped an agent, and reports false when somebody already had it.
+func (s *Store) Hold(ctx context.Context, params HoldParams) (bool, error) {
+	if !store.IsID(params.ID) {
+		return false, fmt.Errorf("%w: agent %q", store.ErrNotFound, params.ID)
+	}
+
+	held, err := s.queries.HoldAgentByID(ctx, models.HoldAgentByIDParams{
+		ID:          params.ID,
+		HeldAt:      &params.At,
+		HeldMidTurn: params.MidTurn,
+	})
+	if err != nil {
+		return false, fmt.Errorf("failed to hold agent %q: %w", params.ID, err)
+	}
+
+	return len(held) > 0, nil
+}
+
+// HoldParams is the agent being held and what holding it interrupted.
+type HoldParams struct {
+	ID string
+	At time.Time
+	// MidTurn says the interrupt cut a turn that was still running.
+	MidTurn bool
+}
+
+// Release lets go of an agent, and reports false when nobody was holding it.
+func (s *Store) Release(ctx context.Context, id string) (bool, error) {
+	if !store.IsID(id) {
+		return false, fmt.Errorf("%w: agent %q", store.ErrNotFound, id)
+	}
+
+	released, err := s.queries.ReleaseAgentByID(ctx, id)
+	if err != nil {
+		return false, fmt.Errorf("failed to release agent %q: %w", id, err)
+	}
+
+	return len(released) > 0, nil
+}
+
 // SetSessionID records an agent's conversation when none is already stored.
 func (s *Store) SetSessionID(ctx context.Context, id, sessionID string) error {
 	if !store.IsID(id) {

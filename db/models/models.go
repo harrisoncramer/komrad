@@ -262,6 +262,10 @@ type Agent struct {
 	ReportedReason string
 	// What the agent was launched to do. It decides which review briefing the agent is given. A reviewer reads the work of the agent it is a child of and never writes any code of its own.
 	Role AgentRole
+	// When a person stopped this agent and took the tree, null while nobody is holding it. Held is not a state, since the states are decided by reading the pane and would overwrite it.
+	HeldAt *time.Time
+	// Whether the hold cut a turn that was still running, which is what decides whether letting go has to type the agent back into motion or merely stop holding it.
+	HeldMidTurn bool
 }
 
 // Facts an agent recorded about its own work, such as the pull request it opened.

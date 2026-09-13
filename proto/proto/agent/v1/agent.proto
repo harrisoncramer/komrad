@@ -84,6 +84,8 @@ message Agent {
   string local_review_verdict = 33;
   // Whether a reviewer child is still owed an answer about the agent's own work.
   bool in_local_review = 34;
+  // When a person stopped this agent and took its worktree, empty while nobody is holding it.
+  string held_at = 35;
 }
 
 message AgentMetadata {
@@ -436,6 +438,29 @@ message ResumeAgentResponse {
   Agent agent = 1;
 }
 
+message HoldAgentRequest {
+  // Which agent to stop and take the worktree of.
+  string id = 1 [(buf.validate.field).string.min_len = 1];
+}
+
+message HoldAgentResponse {
+  // The agent as it now stands, held.
+  Agent agent = 1;
+}
+
+message ReleaseAgentRequest {
+  // Which held agent to let go of.
+  string id = 1 [(buf.validate.field).string.min_len = 1];
+  // What to tell the agent happened while it was held, typed into it as it starts again. Empty
+  // lets it go in silence, and it is ignored for an agent whose own turn had already ended.
+  string said = 2;
+}
+
+message ReleaseAgentResponse {
+  // The agent as it now stands, running again.
+  Agent agent = 1;
+}
+
 message DeleteAgentsRequest {
   // The agents to remove for good, transcripts and worktrees with them.
   repeated string ids = 1 [(buf.validate.field).repeated = {
@@ -577,6 +602,10 @@ service AgentService {
       destructive: false
     };
   }
+  // Panel only, deliberately carrying no tool annotation: holding an agent is a person taking its
+  // worktree, and an agent that could hold another could stop work nobody asked it to stop.
+  rpc HoldAgent(HoldAgentRequest) returns (HoldAgentResponse) {}
+  rpc ReleaseAgent(ReleaseAgentRequest) returns (ReleaseAgentResponse) {}
   rpc ResumeAgent(ResumeAgentRequest) returns (ResumeAgentResponse) {
     option idempotency_level = IDEMPOTENT;
     option (annotation.v1.tool) = {

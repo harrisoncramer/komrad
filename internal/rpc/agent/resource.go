@@ -1,6 +1,8 @@
 package agent
 
 import (
+	"time"
+
 	"weave/internal/rpc/render"
 	"weave/lib/dates"
 
@@ -117,6 +119,7 @@ func renderAgent(stored agentstore.Agent, flags agentFlags, opts ...agentOption)
 			LocalReviewRounds:  flags.localRounds,
 			LocalReviewVerdict: flags.localVerdict,
 			InLocalReview:      flags.inLocalReview,
+			HeldAt:             heldStamp(stored.HeldAt),
 		},
 		cursor: agentstore.Cursor{ID: stored.ID},
 	}
@@ -185,4 +188,13 @@ func renderSearchHit(hit transcriptstore.SearchHit) *agentv1.SearchHit {
 		ContentOffset: hit.ContentOffset,
 		ContentLength: hit.ContentLength,
 	}
+}
+
+// heldStamp is when a person took the agent's worktree, empty while nobody has.
+func heldStamp(at *time.Time) string {
+	if at == nil {
+		return ""
+	}
+
+	return dates.Stamp(*at)
 }

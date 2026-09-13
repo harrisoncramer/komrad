@@ -1,4 +1,4 @@
-h1:qIbjDujKdCN70ww+CKX0r6VtCdKZXnyg/gGwPzs7fBs=
+h1:DFzGfwoSSesZsYrcYX2FTqGPClml8x121bNDlox1rSI=
 20260727000000_initial.sql h1:ubkXyswrZOM0CuuAD9GtwEBRjcnCAl3KY6uamudWwuY=
 20260824163026_state_seen_at.sql h1:wPnZ5xyxQrLBegwX9PP0U6LRh91JcItKfcJz1cQKUU8=
 20260825032556_add_schedule_last_result.sql h1:CpH3A88qiOKXKKb1zefqQlqI/O8DxxNpZjrsQJZ8g5Q=
@@ -42,4 +42,5 @@ h1:qIbjDujKdCN70ww+CKX0r6VtCdKZXnyg/gGwPzs7fBs=
 20260908153308_thread_base_sha.sql h1:NnoIsp73pwi3V4HwzcqVz42oSu3XD9ieGQNcY9TMfvY=
 20260909205252_plain_english_comments.sql h1:XAK2raEi09IEOXd7hhLVCQjiGVgkwq7QEQnZtGQTclQ=
 20260911171722_drop_harvested_threads.sql h1:SsPtyT53EXEYVrcqPZcRbs2M2icyLu7HshrWejaFQbA=
-20260913205858_transcript_sessions.sql h1:XiLVp8eeNRiV4tdtDk5qRRLX1r/AsTjR6IDU8sUWkF4=
+20260913205131_hold_an_agent.sql h1:vCi+MOC4gQanQO8F3tXZJUVXQAJBo8+5s+DjOUmHmzo=
+20260913205858_transcript_sessions.sql h1:x9oBUSRvApnQVZfaPYRF9f/6O9uEalfys1FMskdj5Lk=

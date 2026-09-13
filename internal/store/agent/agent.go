@@ -117,6 +117,11 @@ type Agent struct {
 	AdoptedBranch   string
 	WorktreeRemoved bool
 	InterruptedAt   *time.Time
+
+	// HeldAt is when a person stopped this agent and took its worktree, nil while nobody holds it.
+	HeldAt *time.Time
+	// HeldMidTurn says the hold cut a turn that was still running.
+	HeldMidTurn bool
 }
 
 // SanitizeName maps a name to characters tmux accepts in session names.
@@ -187,5 +192,7 @@ func agentFromRow(agent models.Agent) Agent {
 		AdoptedBranch:    agent.AdoptedBranch,
 		WorktreeRemoved:  agent.WorktreeRemoved,
 		InterruptedAt:    agent.InterruptedAt,
+		HeldAt:           agent.HeldAt,
+		HeldMidTurn:      agent.HeldMidTurn,
 	}
 }

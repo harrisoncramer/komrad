@@ -109,6 +109,12 @@ func (s *DeliveryService) Deliver(ctx context.Context, agentID string) (Delivery
 		return DeliveryDone, nil
 	}
 
+	// A held agent is one a person has stopped to take its worktree, so nothing may type at it
+	// until they let it go.
+	if agent.HeldAt != nil {
+		return DeliveryLater, nil
+	}
+
 	switch {
 	case agent.State == agentstore.StateThinking && !isStateUnconfirmed(*agent):
 		return DeliverySoon, nil

@@ -561,6 +561,17 @@ table "agents" {
     null = true
     type = timestamptz
   }
+  column "held_at" {
+    null    = true
+    type    = timestamptz
+    comment = "When a person stopped this agent and took the tree, null while nobody is holding it. Held is not a state, since the states are decided by reading the pane and would overwrite it."
+  }
+  column "held_mid_turn" {
+    null    = false
+    type    = boolean
+    default = false
+    comment = "Whether the hold cut a turn that was still running, which is what decides whether letting go has to type the agent back into motion or merely stop holding it."
+  }
   column "created_at" {
     null    = false
     type    = timestamptz

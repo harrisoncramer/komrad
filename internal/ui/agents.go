@@ -244,6 +244,19 @@ func (m model) hideAgent(agent agentstore.Agent) (tea.Model, tea.Cmd) {
 	return m, m.writeCmd(failure, func(a api) error { return a.setHidden(agent, !agent.Hidden) })
 }
 
+// holdAgent stops the agent and takes its worktree, or lets go of one already held.
+func (m model) holdAgent(agent agentstore.Agent) (tea.Model, tea.Cmd) {
+	if agent.HeldAt != nil {
+		return m, m.writeCmd(fmt.Sprintf("Could not let go of agent %q", agent.Name), func(a api) error {
+			return a.release(agent, "")
+		})
+	}
+
+	return m, m.writeCmd(fmt.Sprintf("Could not hold agent %q", agent.Name), func(a api) error {
+		return a.hold(agent)
+	})
+}
+
 func (m model) agentsDetails() details {
 	r, ok := rowAt(m.agentRows(), m.tree.cursor)
 	if !ok {
@@ -491,7 +504,7 @@ func (m model) agentsListView() string {
 
 		item := r.item
 		name := m.filter.highlight(clipName(item.agent.Name), m.nameStyle(hovered, !item.alive))
-		row := prefix + paint.MarkGutter(m.listing.marks[rowKey(r)]) + childMark(r.child) + stateMark(displayState(item)) + " " + name + " " + worktreeRemovedMark(item) + scheduledMark(item.agent) + hiddenMark(item.agent.Hidden) + unreadMailMark(item.unreadMail) + unviewedMark(item.unviewed) + failedRunMark(item.failedRun) + localReviewRoundsMark(item.localRounds) + localReviewMark(item.inLocalReview, item.localVerdict) + hiddenTally(r.hiddenCount, m.tree.showHidden) + reasonMark(item.agent)
+		row := prefix + paint.MarkGutter(m.listing.marks[rowKey(r)]) + childMark(r.child) + stateMark(displayState(item)) + " " + name + " " + worktreeRemovedMark(item) + heldMark(item.agent) + scheduledMark(item.agent) + hiddenMark(item.agent.Hidden) + unreadMailMark(item.unreadMail) + unviewedMark(item.unviewed) + failedRunMark(item.failedRun) + localReviewRoundsMark(item.localRounds) + localReviewMark(item.inLocalReview, item.localVerdict) + hiddenTally(r.hiddenCount, m.tree.showHidden) + reasonMark(item.agent)
 		if m.tree.selected.has(item.agent.ID) {
 			row = paint.PaintRow(row, paint.SelectionBackground, m.width)
 		}
