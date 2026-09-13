@@ -40,14 +40,6 @@ func (r refusingAgents) ResumeAgent(context.Context, *connect.Request[agentv1.Re
 	return nil, r.err
 }
 
-func (r refusingAgents) HoldAgent(context.Context, *connect.Request[agentv1.HoldAgentRequest]) (*connect.Response[agentv1.HoldAgentResponse], error) {
-	return nil, r.err
-}
-
-func (r refusingAgents) ReleaseAgent(context.Context, *connect.Request[agentv1.ReleaseAgentRequest]) (*connect.Response[agentv1.ReleaseAgentResponse], error) {
-	return nil, r.err
-}
-
 func (r refusingAgents) ListAgents(context.Context, *connect.Request[agentv1.ListAgentsRequest]) (*connect.Response[agentv1.ListAgentsResponse], error) {
 	return connect.NewResponse(&agentv1.ListAgentsResponse{}), nil
 }
@@ -421,39 +413,4 @@ func TestUnreachableView(t *testing.T) {
 	require.True(t, ok)
 
 	assert.Len(t, m.messages.items, 2, "the server going away a second time is said again")
-}
-
-// TestRefusedHoldIsReported covers the hold weave would not claim, which leaves the agent running
-// and so changes nothing on screen without the message.
-func TestRefusedHoldIsReported(t *testing.T) {
-	m := model{
-		api: api{
-			agents: refusingAgents{err: connect.NewError(connect.CodeFailedPrecondition,
-				errors.New(`"telescope" would not stop`))},
-			workflows: emptyLists{},
-		},
-		tmux:   &recordingTmux{},
-		frame:  layout.New(&recordingTmux{}, config.DefaultLayout()),
-		keys:   config.DefaultKeybindings(),
-		screen: screenAgents,
-		listing: listing{
-			workflows: []workflowstore.Workflow{{ID: "w1", Name: "backend"}},
-			agents: []agentItem{{agent: agentstore.Agent{
-				Name:       "telescope",
-				State:      agentstore.StateThinking,
-				WorkflowID: "w1",
-			}, alive: true}},
-		},
-	}
-	m.tree.cursor = firstAgentRowIndex(m.agentRows())
-
-	pressed, cmd := m.Update(keyMsg("p"))
-	written, ok := pressed.(model)
-	require.True(t, ok)
-
-	written = settle(t, written, cmd)
-
-	require.NotEmpty(t, written.messages.items, "a refused hold is reported rather than swallowed")
-	assert.Equal(t, `Could not hold agent "telescope"`, newestMessage(written).summary)
-	assert.Equal(t, `"telescope" would not stop`, newestMessage(written).detail)
 }

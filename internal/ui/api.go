@@ -159,23 +159,6 @@ func (a api) setHidden(agent agentstore.Agent, hidden bool) error {
 	})
 }
 
-// hold stops an agent so the person may take its worktree.
-func (a api) hold(agent agentstore.Agent) error {
-	return mutate(func(ctx context.Context) (any, error) {
-		return a.agents.HoldAgent(ctx, connect.NewRequest(&agentv1.HoldAgentRequest{Id: agent.ID}))
-	})
-}
-
-// release lets go of a held agent, saying what changed while it was held.
-func (a api) release(agent agentstore.Agent, said string) error {
-	return mutate(func(ctx context.Context) (any, error) {
-		return a.agents.ReleaseAgent(ctx, connect.NewRequest(&agentv1.ReleaseAgentRequest{
-			Id:   agent.ID,
-			Said: said,
-		}))
-	})
-}
-
 func (a api) setMark(target markTargetRef, mark string) error {
 	return a.writeMark(markRequest(target, &mark))
 }
