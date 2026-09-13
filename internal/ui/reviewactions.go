@@ -139,11 +139,11 @@ func reviewTable() []action {
 // did not, when the agent it would reach is no longer there.
 func orRefuseWrite(fn func(model) (tea.Model, tea.Cmd)) func(model, string) (tea.Model, tea.Cmd) {
 	return func(m model, _ string) (tea.Model, tea.Cmd) {
-		if _, dead := m.reviewIsReadOnly(); dead {
+		if _, dead := m.isReviewReadOnly(); dead {
 			return m.refuseReviewWrite()
 		}
 
-		if said, history := m.reviewIsHistory(); history {
+		if said, history := m.isReviewHistory(); history {
 			return m.refuseReviewHistory(said)
 		}
 
@@ -159,7 +159,7 @@ func reviewLegend() []legendRow {
 	// A dead agent keeps every key that reads and loses every key that sends, so the ones that
 	// would only explain their own refusal are not offered.
 	reachable := func(m model) bool {
-		_, dead := m.reviewIsReadOnly()
+		_, dead := m.isReviewReadOnly()
 
 		return !dead
 	}
@@ -168,7 +168,7 @@ func reviewLegend() []legendRow {
 	// holds no line a comment could ask to be changed, so the keys that write are offered in
 	// neither.
 	offered := func(m model) bool {
-		_, history := m.reviewIsHistory()
+		_, history := m.isReviewHistory()
 
 		return reachable(m) && !history && !m.review.awaiting
 	}
@@ -231,7 +231,7 @@ func reviewLegend() []legendRow {
 			// The one thing standing in the way of editing is an earlier round, whose line numbers
 			// name a file the worktree no longer holds.
 			show: func(m model) bool {
-				_, history := m.reviewIsHistory()
+				_, history := m.isReviewHistory()
 
 				return !history
 			},

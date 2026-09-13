@@ -109,8 +109,12 @@ func TestRebaseRefusesAnArchivedAgent(t *testing.T) {
 	at := time.Now()
 	service := NewRebaseService(NewRebaseServiceParams{
 		Agents: fakeRebaseAgents{agent: agentstore.Agent{
-			ID: "a1", Name: "auth", WorkflowID: "w1", Cwd: "/tree",
-			State: agentstore.StateIdle, ArchivedAt: &at,
+			ID:         "a1",
+			Name:       "auth",
+			WorkflowID: "w1",
+			Cwd:        "/tree",
+			State:      agentstore.StateIdle,
+			ArchivedAt: &at,
 		}},
 		Workflows: fakeRebaseWorkflows{flow: worktreeFlow()},
 		Rebaser:   &fakeRebaser{},
@@ -133,7 +137,11 @@ func TestRebaseTakesTheTreeLock(t *testing.T) {
 
 	service := NewRebaseService(NewRebaseServiceParams{
 		Agents: fakeRebaseAgents{agent: agentstore.Agent{
-			ID: "a1", Name: "auth", WorkflowID: "w1", Cwd: "/tree", State: agentstore.StateIdle,
+			ID:         "a1",
+			Name:       "auth",
+			WorkflowID: "w1",
+			Cwd:        "/tree",
+			State:      agentstore.StateIdle,
 		}},
 		Workflows: fakeRebaseWorkflows{flow: worktreeFlow()},
 		Locks:     locks,
@@ -238,8 +246,12 @@ func TestRebaseAndThePullRequest(t *testing.T) {
 			t.Parallel()
 
 			agents := &recordingRebaseAgents{agent: agentstore.Agent{
-				ID: "a1", Name: "auth", WorkflowID: "w1", Cwd: "/tree", State: agentstore.StateIdle,
-				Metadata: []agentstore.Metadata{{Key: prMetadataKey, Value: "https://example.test/pr/1"}},
+				ID:         "a1",
+				Name:       "auth",
+				WorkflowID: "w1",
+				Cwd:        "/tree",
+				State:      agentstore.StateIdle,
+				Metadata:   []agentstore.Metadata{{Key: prMetadataKey, Value: "https://example.test/pr/1"}},
 			}}
 
 			rebaser := &fakeRebaser{state: git.TreeState{Branch: "agent/a1"}}
@@ -349,7 +361,11 @@ func TestRebaseReplaysWhenTheTreesDiffer(t *testing.T) {
 
 	service := NewRebaseService(NewRebaseServiceParams{
 		Agents: &recordingRebaseAgents{agent: agentstore.Agent{
-			ID: "a1", Name: "auth", WorkflowID: "w1", Cwd: "/tree", State: agentstore.StateIdle,
+			ID:         "a1",
+			Name:       "auth",
+			WorkflowID: "w1",
+			Cwd:        "/tree",
+			State:      agentstore.StateIdle,
 		}},
 		Workflows: fakeRebaseWorkflows{flow: worktreeFlow()},
 		Rebaser:   rebaser,
@@ -370,7 +386,11 @@ func TestRebaseRefusesAPathTheIndexIsHolding(t *testing.T) {
 
 	service := NewRebaseService(NewRebaseServiceParams{
 		Agents: &recordingRebaseAgents{agent: agentstore.Agent{
-			ID: "a1", Name: "auth", WorkflowID: "w1", Cwd: "/tree", State: agentstore.StateIdle,
+			ID:         "a1",
+			Name:       "auth",
+			WorkflowID: "w1",
+			Cwd:        "/tree",
+			State:      agentstore.StateIdle,
 		}},
 		Workflows: fakeRebaseWorkflows{flow: worktreeFlow()},
 		Rebaser: &fakeRebaser{state: git.TreeState{
@@ -383,8 +403,7 @@ func TestRebaseRefusesAPathTheIndexIsHolding(t *testing.T) {
 	require.ErrorIs(t, err, ErrRebaseHiddenPaths)
 }
 
-// TestRebaseParksBeforeItAsksGitToMove pins the order the whole undo depends on, since a park
-// taken after the branch moved would hold what the move already did.
+// TestRebaseParksBeforeItAsksGitToMove pins the order the whole undo depends on.
 func TestRebaseParksBeforeItAsksGitToMove(t *testing.T) {
 	t.Parallel()
 
@@ -392,7 +411,11 @@ func TestRebaseParksBeforeItAsksGitToMove(t *testing.T) {
 
 	service := NewRebaseService(NewRebaseServiceParams{
 		Agents: &recordingRebaseAgents{agent: agentstore.Agent{
-			ID: "a1", Name: "auth", WorkflowID: "w1", Cwd: "/tree", State: agentstore.StateIdle,
+			ID:         "a1",
+			Name:       "auth",
+			WorkflowID: "w1",
+			Cwd:        "/tree",
+			State:      agentstore.StateIdle,
 		}},
 		Workflows: fakeRebaseWorkflows{flow: worktreeFlow()},
 		Rebaser:   rebaser,
@@ -411,13 +434,21 @@ func TestRebaseReplaysFromTheCutoffThePlanFound(t *testing.T) {
 	t.Parallel()
 
 	rebaser := &fakeRebaser{
-		state:      git.TreeState{Branch: "agent/a1"},
-		prediction: git.Prediction{Cutoff: "cutoffsha", Landed: 2, Replay: 1},
+		state: git.TreeState{Branch: "agent/a1"},
+		prediction: git.Prediction{
+			Cutoff: "cutoffsha",
+			Landed: 2,
+			Replay: 1,
+		},
 	}
 
 	service := NewRebaseService(NewRebaseServiceParams{
 		Agents: &recordingRebaseAgents{agent: agentstore.Agent{
-			ID: "a1", Name: "auth", WorkflowID: "w1", Cwd: "/tree", State: agentstore.StateIdle,
+			ID:         "a1",
+			Name:       "auth",
+			WorkflowID: "w1",
+			Cwd:        "/tree",
+			State:      agentstore.StateIdle,
 		}},
 		Workflows: fakeRebaseWorkflows{flow: worktreeFlow()},
 		Rebaser:   rebaser,
@@ -442,7 +473,11 @@ func TestRebaseMailsForAnAgentWithNoWorkOfItsOwn(t *testing.T) {
 
 	service := NewRebaseService(NewRebaseServiceParams{
 		Agents: &recordingRebaseAgents{agent: agentstore.Agent{
-			ID: "a1", Name: "auth", WorkflowID: "w1", Cwd: "/tree", State: agentstore.StateIdle,
+			ID:         "a1",
+			Name:       "auth",
+			WorkflowID: "w1",
+			Cwd:        "/tree",
+			State:      agentstore.StateIdle,
 		}},
 		Workflows: fakeRebaseWorkflows{flow: worktreeFlow()},
 		Rebaser:   &fakeRebaser{state: git.TreeState{Branch: "agent/a1"}},

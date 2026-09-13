@@ -153,8 +153,11 @@ func TestListedAgentsCarryTheirReviewRounds(t *testing.T) {
 		State: agentstore.StateIdle,
 	})
 	reviewer := st.SeedAgent(t, agentstore.Agent{
-		Name: "reviewer", Cwd: "/repo", State: agentstore.StateIdle,
-		Role: agentstore.RoleReviewer, ParentAgentID: &worker.ID,
+		Name:          "reviewer",
+		Cwd:           "/repo",
+		State:         agentstore.StateIdle,
+		Role:          agentstore.RoleReviewer,
+		ParentAgentID: &worker.ID,
 	})
 
 	asReviewer := caller.With(t.Context(), caller.Caller{AgentID: reviewer.ID})

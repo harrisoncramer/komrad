@@ -214,8 +214,13 @@ func TestFormsSubmitWhatIsOnScreen(t *testing.T) {
 			name: "the schedule edit form",
 			open: func(t *testing.T, m model) model {
 				target := schedulestore.Schedule{
-					ID: "s1", Name: "sweeper", Cron: "*/5 * * * *", Prompt: "sweep",
-					Enabled: true, HideAgents: true, WorkflowID: "w1",
+					ID:         "s1",
+					Name:       "sweeper",
+					Cron:       "*/5 * * * *",
+					Prompt:     "sweep",
+					Enabled:    true,
+					HideAgents: true,
+					WorkflowID: "w1",
 				}
 
 				values := schedulePrefill(target)
@@ -762,8 +767,11 @@ func asModel(t *testing.T, updated tea.Model) model {
 // cursor leaves it.
 func TestFormResultsAreNotWhatIsSubmitted(t *testing.T) {
 	values := schedulestore.Config{
-		Name: "sweeper", Cron: "*/5 * * * *", Prompt: "sweep",
-		Enabled: true, HideAgents: true,
+		Name:       "sweeper",
+		Cron:       "*/5 * * * *",
+		Prompt:     "sweep",
+		Enabled:    true,
+		HideAgents: true,
 	}
 
 	form, _ := scheduleForm(&values, nil, config.FixedFormKeys())
@@ -1442,7 +1450,7 @@ func TestRefreshDescriptionSaysWhatWillHappen(t *testing.T) {
 }
 
 // TestRefreshDescriptionAlwaysSaysWhatItDoesToTheFiles pins the half a person is most likely to
-// be wrong about, since the branch moving is expected and the files changing under it is not.
+// be wrong about.
 func TestRefreshDescriptionAlwaysSaysWhatItDoesToTheFiles(t *testing.T) {
 	t.Parallel()
 
@@ -1458,8 +1466,7 @@ func TestRefreshDescriptionAlwaysSaysWhatItDoesToTheFiles(t *testing.T) {
 	}
 }
 
-// TestRefreshAffirmativeNamesWhatRuns covers the button, since a branch the base already holds
-// is moved rather than replayed and the word should not claim otherwise.
+// TestRefreshAffirmativeNamesWhatRuns covers the button naming what actually runs.
 func TestRefreshAffirmativeNamesWhatRuns(t *testing.T) {
 	t.Parallel()
 

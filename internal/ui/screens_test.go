@@ -148,7 +148,9 @@ func crowdedModel(t *testing.T) model {
 			},
 		})
 		m.archive.agents = append(m.archive.agents, agentstore.Agent{
-			ID: fmt.Sprintf("r%d", i), Name: name, WorkflowID: "w1",
+			ID:         fmt.Sprintf("r%d", i),
+			Name:       name,
+			WorkflowID: "w1",
 		})
 		m.schedules.items = append(m.schedules.items, scheduleItem{
 			schedule: schedulestore.Schedule{ID: fmt.Sprintf("s%d", i), Name: name},

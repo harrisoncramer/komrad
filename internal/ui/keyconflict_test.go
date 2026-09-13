@@ -132,8 +132,7 @@ func TestValidateKeybindingsAllowsAKeyOnlyATypingModeReads(t *testing.T) {
 }
 
 // TestGlobalArmsAnswerForEveryKeyTheRouterTakes presses every configured key against every screen
-// and fails on one routeGlobalKey answers that globalArms does not name, since the two are written
-// in different places and an arm added to the router alone would shadow silently.
+// and fails on one routeGlobalKey answers that globalArms does not name.
 func TestGlobalArmsAnswerForEveryKeyTheRouterTakes(t *testing.T) {
 	keys := config.DefaultKeybindings()
 	pressable := configuredKeys(t, keys)

@@ -134,16 +134,14 @@ func TestLoadRejectsTheTopKeyOnTheBottomKey(t *testing.T) {
 	require.Error(t, err)
 }
 
-// TestTheKeyTypeRangeCoversAllOfThem pins the span pressableNames reads, since a key type added
-// outside it would go missing without a word.
+// TestTheKeyTypeRangeCoversAllOfThem pins the span pressableNames reads.
 func TestTheKeyTypeRangeCoversAllOfThem(t *testing.T) {
 	assert.Empty(t, tea.KeyType(firstKeyType-1).String(), "a key type below the range has a name, so the range is too narrow")
 	assert.Empty(t, tea.KeyType(lastKeyType+1).String(), "a key type above the range has a name, so the range is too narrow")
 	assert.NotEmpty(t, pressableNames)
 }
 
-// TestIsPressableTakesEveryNameAPressProduces covers the accepting half of the name check, since
-// a rule that refused every multi-character name would pass a suite that only asserts refusals.
+// TestIsPressableTakesEveryNameAPressProduces covers the accepting half of the name check.
 func TestIsPressableTakesEveryNameAPressProduces(t *testing.T) {
 	for _, key := range []string{
 		"enter", "esc", "tab", "shift+tab", "backspace", "delete", "insert",

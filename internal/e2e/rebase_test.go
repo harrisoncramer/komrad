@@ -14,7 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// writeIn writes a file into a checkout, which is how a fixture here makes work to move.
+// writeIn writes a file into a checkout.
 func writeIn(t *testing.T, dir, name, body string) {
 	t.Helper()
 
@@ -22,7 +22,7 @@ func writeIn(t *testing.T, dir, name, body string) {
 }
 
 // rebaseAgent is an agent on a worktree of its own, with one commit of its own work on its
-// branch, which is the shape every refresh here starts from.
+// branch.
 func rebaseAgent(t *testing.T, instance *weavetest.Instance, repo string) (agentID, tree string) {
 	t.Helper()
 
@@ -57,7 +57,7 @@ func rebaseAgent(t *testing.T, instance *weavetest.Instance, repo string) (agent
 }
 
 // landOnTheBase puts the finished content of the agent's file on main as a commit of its own,
-// which is what a squash merge of its branch leaves behind: the same content, a different commit.
+// the way a squash merge of its branch would.
 func landOnTheBase(t *testing.T, repo string) {
 	t.Helper()
 

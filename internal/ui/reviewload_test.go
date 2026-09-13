@@ -25,7 +25,7 @@ func (c *countingGit) CountChangedFiles(_ context.Context, params git.CountChang
 }
 
 // TestChangedSinceLastReview covers the line drawn above a round saying how much of it the
-// person has not seen, which says nothing at all rather than guessing when it cannot answer.
+// person has not seen.
 func TestChangedSinceLastReview(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -83,8 +83,8 @@ func TestChangedSinceLastReview(t *testing.T) {
 	}
 }
 
-// TestChangedSinceLastReviewMeasuresBetweenTheTwoRounds pins which pair of commits the count is
-// taken across, since measuring from the wrong end would read as the whole branch being new.
+// TestChangedSinceLastReviewMeasuresBetweenTheTwoRounds pins which pair of commits the count
+// is taken across.
 func TestChangedSinceLastReviewMeasuresBetweenTheTwoRounds(t *testing.T) {
 	counter := &countingGit{changed: 2}
 

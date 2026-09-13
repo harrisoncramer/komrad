@@ -25,8 +25,7 @@ const (
 	lastKeyType  = 127
 )
 
-// pressableNames is every name bubbletea prints for a press, which is the set a binding can name
-// besides a single rune.
+// pressableNames is every name bubbletea prints for a press.
 var pressableNames = func() []string {
 	var names []string
 
@@ -67,7 +66,7 @@ func (c *keyChecker) checkKeybindings(keys Keybindings) error {
 	return nil
 }
 
-// checkGroup refuses a binding in one group, which is the scope a key may be used once in.
+// checkGroup refuses a key used twice inside one group.
 func (c *keyChecker) checkGroup(name string, group reflect.Value) error {
 	c.taken = map[string]string{}
 

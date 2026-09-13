@@ -41,18 +41,25 @@ func TestAnAuthorHoldsOneOpenReviewAtATime(t *testing.T) {
 	round := openRound(t, st, agentID, "tree-one")
 
 	_, err := st.OpenReview(ctx, OpenReviewParams{
-		AgentID: agentID, RoundID: round.ID, AuthorKind: AuthorHuman,
+		AgentID:    agentID,
+		RoundID:    round.ID,
+		AuthorKind: AuthorHuman,
 	})
 	require.NoError(t, err)
 
 	_, err = st.OpenReview(ctx, OpenReviewParams{
-		AgentID: agentID, RoundID: round.ID, AuthorKind: AuthorHuman,
+		AgentID:    agentID,
+		RoundID:    round.ID,
+		AuthorKind: AuthorHuman,
 	})
 	require.Error(t, err, "the person cannot draft two reviews of one agent")
 
 	reviewer := seedAgentNamed(t, st, "reviewer")
 	_, err = st.OpenReview(ctx, OpenReviewParams{
-		AgentID: agentID, RoundID: round.ID, AuthorKind: AuthorAgent, AuthorAgentID: &reviewer,
+		AgentID:       agentID,
+		RoundID:       round.ID,
+		AuthorKind:    AuthorAgent,
+		AuthorAgentID: &reviewer,
 	})
 	require.NoError(t, err, "another author reviewing the same round is a review of its own")
 }
@@ -444,7 +451,9 @@ func seedAgentNamed(t *testing.T, st *fixture, name string) string {
 	ctx := t.Context()
 
 	require.NoError(t, st.agents.Create(ctx, agentstore.Agent{
-		Name: name, State: agentstore.StateIdle, WorkflowID: st.workflow,
+		Name:       name,
+		State:      agentstore.StateIdle,
+		WorkflowID: st.workflow,
 	}))
 	got, err := st.agents.GetInWorkflow(ctx, st.workflow, name)
 	require.NoError(t, err)
@@ -527,7 +536,10 @@ func TestTalliesCountTheAgentHoldingTheDiff(t *testing.T) {
 	for _, tree := range []string{"tree-one", "tree-two"} {
 		round := openRound(t, st, agentID, tree)
 		review, err := st.OpenReview(ctx, OpenReviewParams{
-			AgentID: agentID, RoundID: round.ID, AuthorKind: AuthorAgent, AuthorAgentID: &reviewer,
+			AgentID:       agentID,
+			RoundID:       round.ID,
+			AuthorKind:    AuthorAgent,
+			AuthorAgentID: &reviewer,
 		})
 		require.NoError(t, err)
 		release(t, st, agentID, review.ID, VerdictChangesRequested)
@@ -557,7 +569,10 @@ func TestTalliesCountOneRoundOnce(t *testing.T) {
 	release(t, st, agentID, human.ID, VerdictCommented)
 
 	agent, err := st.OpenReview(ctx, OpenReviewParams{
-		AgentID: agentID, RoundID: round.ID, AuthorKind: AuthorAgent, AuthorAgentID: &reviewer,
+		AgentID:       agentID,
+		RoundID:       round.ID,
+		AuthorKind:    AuthorAgent,
+		AuthorAgentID: &reviewer,
 	})
 	require.NoError(t, err)
 	release(t, st, agentID, agent.ID, VerdictChangesRequested)
@@ -642,14 +657,20 @@ func TestDeletingAnAuthorsOpenReviewsLeavesWhatTheyReleased(t *testing.T) {
 
 	first := openRound(t, st, agentID, "tree-one")
 	released, err := st.OpenReview(ctx, OpenReviewParams{
-		AgentID: agentID, RoundID: first.ID, AuthorKind: AuthorAgent, AuthorAgentID: &reviewer,
+		AgentID:       agentID,
+		RoundID:       first.ID,
+		AuthorKind:    AuthorAgent,
+		AuthorAgentID: &reviewer,
 	})
 	require.NoError(t, err)
 	release(t, st, agentID, released.ID, VerdictChangesRequested)
 
 	second := openRound(t, st, agentID, "tree-two")
 	draft, err := st.OpenReview(ctx, OpenReviewParams{
-		AgentID: agentID, RoundID: second.ID, AuthorKind: AuthorAgent, AuthorAgentID: &reviewer,
+		AgentID:       agentID,
+		RoundID:       second.ID,
+		AuthorKind:    AuthorAgent,
+		AuthorAgentID: &reviewer,
 	})
 	require.NoError(t, err)
 
@@ -716,7 +737,10 @@ func TestLiveReviewersStopAtAnApproval(t *testing.T) {
 
 	first := openRound(t, st, agentID, "tree-one")
 	sentBack, err := st.OpenReview(ctx, OpenReviewParams{
-		AgentID: agentID, RoundID: first.ID, AuthorKind: AuthorAgent, AuthorAgentID: &reviewer,
+		AgentID:       agentID,
+		RoundID:       first.ID,
+		AuthorKind:    AuthorAgent,
+		AuthorAgentID: &reviewer,
 	})
 	require.NoError(t, err)
 	release(t, st, agentID, sentBack.ID, VerdictChangesRequested)
@@ -727,7 +751,10 @@ func TestLiveReviewersStopAtAnApproval(t *testing.T) {
 
 	second := openRound(t, st, agentID, "tree-two")
 	signed, err := st.OpenReview(ctx, OpenReviewParams{
-		AgentID: agentID, RoundID: second.ID, AuthorKind: AuthorAgent, AuthorAgentID: &reviewer,
+		AgentID:       agentID,
+		RoundID:       second.ID,
+		AuthorKind:    AuthorAgent,
+		AuthorAgentID: &reviewer,
 	})
 	require.NoError(t, err)
 	release(t, st, agentID, signed.ID, VerdictApproved)
@@ -772,7 +799,10 @@ func TestTalliesDropAVerdictAnEditOutLived(t *testing.T) {
 
 	first := openRound(t, st, agentID, "tree-one")
 	signed, err := st.OpenReview(ctx, OpenReviewParams{
-		AgentID: agentID, RoundID: first.ID, AuthorKind: AuthorAgent, AuthorAgentID: &reviewer,
+		AgentID:       agentID,
+		RoundID:       first.ID,
+		AuthorKind:    AuthorAgent,
+		AuthorAgentID: &reviewer,
 	})
 	require.NoError(t, err)
 	release(t, st, agentID, signed.ID, VerdictApproved)

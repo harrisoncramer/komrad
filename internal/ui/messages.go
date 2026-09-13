@@ -193,11 +193,33 @@ func (m model) messagePieces() []messagePiece {
 	// The reason is the one thing here somebody has to read, so it is drawn in the plain
 	// foreground and everything around it is dim.
 	pieces := []messagePiece{
-		{text: held.summary, value: held.summary, head: true},
-		{text: held.detail, value: held.detail, style: lipgloss.NewStyle()},
-		{text: held.hint, value: held.hint, style: dimStyle},
-		{label: "weave trace ", text: held.trace, value: held.trace, style: dimStyle},
-		{label: kindLabel(held.kind) + " · ", text: landed, value: landed, style: dimStyle},
+		{
+			text:  held.summary,
+			value: held.summary,
+			head:  true,
+		},
+		{
+			text:  held.detail,
+			value: held.detail,
+			style: lipgloss.NewStyle(),
+		},
+		{
+			text:  held.hint,
+			value: held.hint,
+			style: dimStyle,
+		},
+		{
+			label: "weave trace ",
+			text:  held.trace,
+			value: held.trace,
+			style: dimStyle,
+		},
+		{
+			label: kindLabel(held.kind) + " · ",
+			text:  landed,
+			value: landed,
+			style: dimStyle,
+		},
 	}
 
 	return slices.DeleteFunc(pieces, func(piece messagePiece) bool { return piece.text == "" })

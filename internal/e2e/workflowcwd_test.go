@@ -13,7 +13,7 @@ import (
 )
 
 // TestWorkflowCwdMustBeAPrimaryCheckout covers the cwd a worktree workflow is held to against
-// real repositories, which is what every fake checkout in internal/agents stands on.
+// real repositories.
 func TestWorkflowCwdMustBeAPrimaryCheckout(t *testing.T) {
 	hermeticGit(t)
 

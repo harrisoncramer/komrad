@@ -702,7 +702,10 @@ func TestArchiveDrawsWhyADeleteLeftARowBehind(t *testing.T) {
 func TestArchiveFields(t *testing.T) {
 	archivedAt := time.Date(2026, time.July, 30, 9, 0, 0, 0, time.UTC)
 	fields := archiveFields(agentstore.Agent{
-		Name: "api-refactor", Cwd: "/work/api", Flags: "--model opus", SessionID: "sess-1",
+		Name:       "api-refactor",
+		Cwd:        "/work/api",
+		Flags:      "--model opus",
+		SessionID:  "sess-1",
 		ArchivedAt: &archivedAt,
 	}, "nightly")
 
@@ -1191,7 +1194,11 @@ func TestArchiveOpensOnTheSearch(t *testing.T) {
 
 	jumping := archiveModel(&fakeArchiveAgents{}, &fakeArchiveWorkflows{}, keys)
 	jumping.screen = screenSearch
-	jumping.search = searchState{query: "api", turns: []searchHit{{agentID: "a1", name: "api-refactor", archived: true}}}
+	jumping.search = searchState{query: "api", turns: []searchHit{{
+		agentID:  "a1",
+		name:     "api-refactor",
+		archived: true,
+	}}}
 
 	jumped, _ := jumping.jumpToSearchHit()
 	landed, ok := jumped.(model)

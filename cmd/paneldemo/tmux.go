@@ -9,7 +9,7 @@ import (
 	"golang.org/x/term"
 )
 
-// demoPane is the pane the panel itself draws in, which is the terminal the demo was started in.
+// demoPane is the terminal the demo was started in.
 const demoPane = "%0"
 
 // Explainer: the panel draws itself from the size bubbletea reports and asks tmux only about the
@@ -20,9 +20,8 @@ const demoPane = "%0"
 // screens' own layout: the process is still not there, so the window beside the sidebar is
 // empty rather than holding an editor.
 
-// The panes the stub hands back for a split when it has been asked to pretend one landed, one per
-// direction the frame splits in, since the stage and the info pane are never one pane in tmux and
-// the frame reads real behaviour off which is which.
+// The panes the stub hands back for a split when it has been asked to pretend one landed, one
+// per direction the frame splits in.
 const (
 	stagePane = "%1"
 	infoPane  = "%2"
@@ -71,7 +70,7 @@ func (p noPanes) SplitLeft(string, string, string) string  { return p.split(stag
 func (p noPanes) SplitBelow(string, string, string) string { return p.split(infoPane) }
 func (p noPanes) SplitAbove(string, string, string) string { return p.split(infoPane) }
 
-// split is the pane a split lands in, which is none unless the stub was told to pretend.
+// split is the pane a split lands in, empty unless the stub was told to pretend.
 func (p noPanes) split(pane string) string {
 	if p.stage {
 		return pane

@@ -38,33 +38,100 @@ type agentSpec struct {
 func Busy() Scenario {
 	workflows := []*workflowv1.Workflow{
 		{
-			Id: "wf-weave", Name: "weave itself", Cwd: "~/weave", Harness: "claude",
-			Worktree: &workflowv1.WorktreeConfig{Enabled: true, BaseBranch: "main"},
+			Id:      "wf-weave",
+			Name:    "weave itself",
+			Cwd:     "~/weave",
+			Harness: "claude",
+			Worktree: &workflowv1.WorktreeConfig{
+				Enabled:    true,
+				BaseBranch: "main",
+			},
 		},
 		{
-			Id: "wf-review", Name: "review flow", Cwd: "~/weave", Harness: "claude",
-			Worktree: &workflowv1.WorktreeConfig{Enabled: true, BaseBranch: "main"},
+			Id:      "wf-review",
+			Name:    "review flow",
+			Cwd:     "~/weave",
+			Harness: "claude",
+			Worktree: &workflowv1.WorktreeConfig{
+				Enabled:    true,
+				BaseBranch: "main",
+			},
 		},
-		{Id: "wf-empty", Name: "nothing here yet", Cwd: "~/scratch", Harness: "codex"},
+		{
+			Id:      "wf-empty",
+			Name:    "nothing here yet",
+			Cwd:     "~/scratch",
+			Harness: "codex",
+		},
 	}
 
 	specs := []agentSpec{
-		{name: "telescope", state: agentstore.StateThinking, workflow: "wf-review", branch: "agent/telescope"},
-		{name: "treesitter", state: agentstore.StateIdle, workflow: "wf-review", unviewed: true, branch: "agent/treesitter"},
-		{name: "which-key", state: agentstore.StateUncertain, workflow: "wf-review", reason: "the pane has not read since 11:02"},
-		{name: "telescope-reviewer", state: agentstore.StateThinking, workflow: "wf-review", role: "reviewer", parent: "agent-telescope"},
-		{name: "lazygit", state: agentstore.StateSettingUp, workflow: "wf-review"},
-		{name: "fugitive", state: agentstore.StateThinking, workflow: "wf-weave", unread: true, branch: "agent/fugitive"},
 		{
-			name: "magit", state: agentstore.StateWaiting, workflow: "wf-weave", mark: "!",
-			branch: "agent/magit", scheduled: true,
-			reason: "waiting on a confirmation: apply the migration that renames reported_reason?",
+			name:     "telescope",
+			state:    agentstore.StateThinking,
+			workflow: "wf-review",
+			branch:   "agent/telescope",
 		},
-		{name: "evil", state: agentstore.StateIdle, workflow: "wf-weave", failed: true},
-		{name: "org-mode", state: agentstore.StateIdle, workflow: "wf-weave", unviewed: true, mark: "?", hidden: true},
 		{
-			name: "tramp", state: agentstore.StateFailedToCreate, workflow: "wf-weave",
-			failure: "the worktree could not be made: fatal: 'agent/tramp' is already checked out at /Users/harry/weave-test",
+			name:     "treesitter",
+			state:    agentstore.StateIdle,
+			workflow: "wf-review",
+			unviewed: true,
+			branch:   "agent/treesitter",
+		},
+		{
+			name:     "which-key",
+			state:    agentstore.StateUncertain,
+			workflow: "wf-review",
+			reason:   "the pane has not read since 11:02",
+		},
+		{
+			name:     "telescope-reviewer",
+			state:    agentstore.StateThinking,
+			workflow: "wf-review",
+			role:     "reviewer",
+			parent:   "agent-telescope",
+		},
+		{
+			name:     "lazygit",
+			state:    agentstore.StateSettingUp,
+			workflow: "wf-review",
+		},
+		{
+			name:     "fugitive",
+			state:    agentstore.StateThinking,
+			workflow: "wf-weave",
+			unread:   true,
+			branch:   "agent/fugitive",
+		},
+		{
+			name:      "magit",
+			state:     agentstore.StateWaiting,
+			workflow:  "wf-weave",
+			mark:      "!",
+			branch:    "agent/magit",
+			scheduled: true,
+			reason:    "waiting on a confirmation: apply the migration that renames reported_reason?",
+		},
+		{
+			name:     "evil",
+			state:    agentstore.StateIdle,
+			workflow: "wf-weave",
+			failed:   true,
+		},
+		{
+			name:     "org-mode",
+			state:    agentstore.StateIdle,
+			workflow: "wf-weave",
+			unviewed: true,
+			mark:     "?",
+			hidden:   true,
+		},
+		{
+			name:     "tramp",
+			state:    agentstore.StateFailedToCreate,
+			workflow: "wf-weave",
+			failure:  "the worktree could not be made: fatal: 'agent/tramp' is already checked out at /Users/harry/weave-test",
 		},
 	}
 
@@ -74,10 +141,18 @@ func Busy() Scenario {
 	}
 
 	archived := []*agentv1.Agent{
-		agentFrom(agentSpec{name: "dired", state: agentstore.StateIdle, workflow: "wf-weave", archived: true}, 90),
 		agentFrom(agentSpec{
-			name: "projectile", state: agentstore.StateFailedToCleanup, workflow: "wf-review", archived: true,
-			failure: "the worktree is still there: unlinking failed, directory not empty",
+			name:     "dired",
+			state:    agentstore.StateIdle,
+			workflow: "wf-weave",
+			archived: true,
+		}, 90),
+		agentFrom(agentSpec{
+			name:     "projectile",
+			state:    agentstore.StateFailedToCleanup,
+			workflow: "wf-review",
+			archived: true,
+			failure:  "the worktree is still there: unlinking failed, directory not empty",
 		}, 91),
 	}
 
@@ -187,8 +262,7 @@ func newSchedules() []*schedulev1.Schedule {
 	}
 }
 
-// newMail is a mailbox in id order, since real ids are uuidv7 and the mail screen takes id order
-// for time order.
+// newMail is a mailbox in id order.
 func newMail() []*agentv1.Mail {
 	return []*agentv1.Mail{
 		{

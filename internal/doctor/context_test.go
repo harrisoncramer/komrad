@@ -40,11 +40,15 @@ func TestContextCheck(t *testing.T) {
 			code:    ErrContextFileAbsent.Code,
 		},
 		{
-			name:    "a named path that is a directory",
-			file:    "/home/u/notes",
-			readErr: &fs.PathError{Op: "read", Path: "/home/u/notes", Err: syscall.EISDIR},
-			want:    StatusFail,
-			code:    ErrContextFileNotAFile.Code,
+			name: "a named path that is a directory",
+			file: "/home/u/notes",
+			readErr: &fs.PathError{
+				Op:   "read",
+				Path: "/home/u/notes",
+				Err:  syscall.EISDIR,
+			},
+			want: StatusFail,
+			code: ErrContextFileNotAFile.Code,
 		},
 		{
 			name:    "a file that is there and cannot be read, which presence alone would pass",

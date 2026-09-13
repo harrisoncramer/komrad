@@ -14,8 +14,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestMigratedBuildsTheTemplateOnce is the point of the whole thing: the second database of a
-// schema is a copy rather than another build.
+// TestMigratedBuildsTheTemplateOnce pins that the second database of a schema is a copy rather
+// than another build.
 func TestMigratedBuildsTheTemplateOnce(t *testing.T) {
 	var builds atomic.Int64
 	schema := markerSchema(t, &builds)
@@ -113,8 +113,8 @@ func TestURLIsUnmigrated(t *testing.T) {
 	assert.Zero(t, tables)
 }
 
-// TestLeakedTakesOnlyTheDatabasesPastMaxAge covers a template being swept on age like any other
-// database, which is why a copy has to survive one going missing.
+// TestLeakedTakesOnlyTheDatabasesPastMaxAge covers a template being swept on age like any
+// other database.
 func TestLeakedTakesOnlyTheDatabasesPastMaxAge(t *testing.T) {
 	now := time.Now()
 	old := now.Add(-2 * maxAge).UTC().Format(nameTimeLayout)

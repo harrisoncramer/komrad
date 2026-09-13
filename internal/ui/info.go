@@ -69,8 +69,7 @@ func (m *model) stageInfo() {
 	}
 }
 
-// reconcileInfo catches the info pane going away on its own, which is what quitting whatever was
-// running in it does.
+// reconcileInfo catches the info pane going away on its own.
 func (m *model) reconcileInfo() {
 	if m.info.kind == infoNothing || m.frame.IsOpen(layout.RegionInfo) {
 		return

@@ -170,7 +170,7 @@ func (r *Reconciler) reconcileAgent(ctx context.Context, agent agentstore.Agent,
 	}
 	r.tally.clearShell(agent.ID)
 
-	observed, err := r.observer.Observe(ctx, targetOf(agent))
+	observed, err := r.observer.Observe(ctx, buildTarget(agent))
 	if err != nil {
 		return
 	}

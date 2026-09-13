@@ -41,7 +41,11 @@ func TestEditorKeyOpensTheFieldUnderTheCursor(t *testing.T) {
 	t.Cleanup(func() { _ = os.Remove(formFieldDraftPath("context")) })
 	assert.Equal(t, "the notes as they stand", string(draft))
 
-	written, _ := m.Update(formFieldEditedMsg{kind: formWorkflow, key: "context", text: "the notes as the editor left them\n"})
+	written, _ := m.Update(formFieldEditedMsg{
+		kind: formWorkflow,
+		key:  "context",
+		text: "the notes as the editor left them\n",
+	})
 	m = asModel(t, written)
 
 	assert.Equal(t, "the notes as the editor left them", values.Context, "the newline every editor writes at the end of a file is not part of the field")
@@ -103,7 +107,11 @@ func TestEditorKeyOnEitherProvisioner(t *testing.T) {
 			opened, _ := m.openWorkflowConfigForm(&values, nil)
 			m = asModel(t, opened)
 
-			written, _ := m.Update(formFieldEditedMsg{kind: formWorkflow, key: tt.field, text: "what the editor wrote"})
+			written, _ := m.Update(formFieldEditedMsg{
+				kind: formWorkflow,
+				key:  tt.field,
+				text: "what the editor wrote",
+			})
 			m = asModel(t, written)
 
 			assert.Equal(t, "what the editor wrote", tt.want(&values))

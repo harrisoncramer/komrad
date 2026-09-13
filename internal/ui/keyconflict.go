@@ -53,8 +53,7 @@ func screenActions(s screen) (actionSpec, bool) {
 	return actionSpec{}, false
 }
 
-// ValidateKeybindings rejects the bindings a screen could not dispatch, which is a key an
-// unguarded arm answers ahead of another arm bound to it.
+// ValidateKeybindings rejects the bindings a screen could not dispatch.
 func ValidateKeybindings(keys config.Keybindings) error {
 	for _, s := range []screen{screenAgents, screenSchedules, screenArchive, screenMail, screenReview} {
 		if err := validateScreenKeys(s, keys); err != nil {
@@ -133,8 +132,16 @@ func globalArms(s screen, keys config.Keybindings) []dispatchArm {
 
 	// The column answers only while the block beside the list is holding one.
 	arms = append(arms,
-		dispatchArm{describe: "the column scroll", keys: keys.Column.ScrollDown, guarded: true},
-		dispatchArm{describe: "the column scroll", keys: keys.Column.ScrollUp, guarded: true},
+		dispatchArm{
+			describe: "the column scroll",
+			keys:     keys.Column.ScrollDown,
+			guarded:  true,
+		},
+		dispatchArm{
+			describe: "the column scroll",
+			keys:     keys.Column.ScrollUp,
+			guarded:  true,
+		},
 	)
 
 	if s.spec().details != nil {
@@ -145,7 +152,11 @@ func globalArms(s screen, keys config.Keybindings) []dispatchArm {
 			dispatchArm{describe: "the details focus", keys: keys.Details.Focus},
 			// The copy key answers only while the details hold the cursor, which is a mode the two
 			// message keys above are read ahead of.
-			dispatchArm{describe: "the details copy", keys: keys.Details.Copy, guarded: true},
+			dispatchArm{
+				describe: "the details copy",
+				keys:     keys.Details.Copy,
+				guarded:  true,
+			},
 		)
 	}
 

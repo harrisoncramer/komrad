@@ -56,8 +56,8 @@ func TestTheReviewScenarioDrawsARealDiff(t *testing.T) {
 	assert.Len(t, patch.Files, 3, "the fake change touches three files")
 }
 
-// TestEachRoundOfTheScenarioIsItsOwnDiff pins what the round keys walk, since two rounds of one
-// agent standing on the same commit would draw the same patch and the walk would look broken.
+// TestEachRoundOfTheScenarioIsItsOwnDiff pins that no two rounds of one agent stand on the
+// same commit.
 func TestEachRoundOfTheScenarioIsItsOwnDiff(t *testing.T) {
 	t.Parallel()
 
@@ -82,8 +82,7 @@ func TestEachRoundOfTheScenarioIsItsOwnDiff(t *testing.T) {
 	}
 }
 
-// TestACommentTypedIntoTheDemoStays covers the demo being worth pressing keys in: the fake holds
-// what the panel wrote, so the sidebar draws it on the next tick.
+// TestACommentTypedIntoTheDemoStays covers the fake holding what the panel wrote.
 func TestACommentTypedIntoTheDemoStays(t *testing.T) {
 	t.Parallel()
 

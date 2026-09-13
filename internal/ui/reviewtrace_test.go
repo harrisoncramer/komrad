@@ -23,7 +23,7 @@ const (
 )
 
 // insertedAHelper is what git reports between two snapshots where the second put a four line
-// helper above the commented line, taken from a real repository so the numbers are git's own.
+// helper above the commented line, taken from a real repository.
 var insertedAHelper = []position.Mapping{{
 	File:   position.FileMapping{OldPath: tracedFile, NewPath: tracedFile},
 	Ranges: []position.RangeMapping{{Old: position.Range{Start: 3, End: 3}, New: position.Range{Start: 3, End: 7}}},

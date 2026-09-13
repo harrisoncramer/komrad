@@ -108,7 +108,7 @@ func findInputBox(lines, held []string) (inputBox, bool) {
 			continue
 		}
 
-		marker, prompted := openingMarker(lines[i+1])
+		marker, prompted := readOpeningMarker(lines[i+1])
 		if !prompted {
 			continue
 		}
@@ -135,14 +135,18 @@ func findInputBox(lines, held []string) (inputBox, bool) {
 			continue
 		}
 
-		return inputBox{Rule: i, Marker: marker, Held: typed}, true
+		return inputBox{
+			Rule:   i,
+			Marker: marker,
+			Held:   typed,
+		}, true
 	}
 
 	return inputBox{}, false
 }
 
-// openingMarker is the prompt marker a line opens with, when it opens with one.
-func openingMarker(line string) (string, bool) {
+// readOpeningMarker reads the prompt marker a line opens with, when it opens with one.
+func readOpeningMarker(line string) (string, bool) {
 	for _, marker := range promptMarkers {
 		if strings.HasPrefix(line, marker) {
 			return marker, true

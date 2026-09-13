@@ -98,17 +98,17 @@ func TestAMessageWithAnUnreadableStampIsKept(t *testing.T) {
 	assert.Len(t, drawn[0].GetMessages(), 3, "a stamp nobody can read is not a reason to hide a comment")
 }
 
-// TestReviewIsHistoryReadsTheDiffOnScreen covers the chapter list being recut under a stationary
+// TestIsReviewHistoryReadsTheDiffOnScreen covers the chapter list being recut under a stationary
 // index: what decides whether a comment can be written is the snapshot the diff was drawn to, not
 // what the chapter at that index happens to say now.
-func TestReviewIsHistoryReadsTheDiffOnScreen(t *testing.T) {
+func TestIsReviewHistoryReadsTheDiffOnScreen(t *testing.T) {
 	m := model{}
 	m.review.round = &agentv1.ReviewRound{Id: "r3", SnapshotSha: "s3"}
 	m.review.chapters = []reviewChapter{{ToSHA: "s3", Ordinal: 3}}
 	m.review.chapter = 0
 	m.review.head = "s2"
 
-	said, history := m.reviewIsHistory()
+	said, history := m.isReviewHistory()
 	assert.True(t, history, "the diff was drawn to an older snapshot")
 	assert.NotEmpty(t, said, "and the refusal has something to name")
 }
@@ -149,15 +149,15 @@ func TestReloadWithNoChaptersLetsTheReaderOut(t *testing.T) {
 		"and what comes back is the work as it stands")
 }
 
-// TestReviewIsHistoryReadsTheSnapshotDrawn covers the base and head being cleared under a diff
+// TestIsReviewHistoryReadsTheSnapshotDrawn covers the base and head being cleared under a diff
 // that is still an older round: what a comment would anchor to is the code on screen, so the
 // refusal follows the patch rather than what was asked for.
-func TestReviewIsHistoryReadsTheSnapshotDrawn(t *testing.T) {
+func TestIsReviewHistoryReadsTheSnapshotDrawn(t *testing.T) {
 	m := model{}
 	m.review.round = &agentv1.ReviewRound{Id: "r3", SnapshotSha: "s3"}
 	m.review.view = review.NewView(&diff.Patch{BaseSHA: "s1", SnapshotSHA: "s2"}, false)
 
-	said, history := m.reviewIsHistory()
+	said, history := m.isReviewHistory()
 	assert.True(t, history, "the diff on screen was drawn to an older snapshot")
 	assert.NotEmpty(t, said, "and the refusal has something to name")
 }
@@ -382,8 +382,8 @@ func TestAnEditRefusedOnADeletedFileOpensNoMode(t *testing.T) {
 	assert.Contains(t, m.review.notice, "deleted")
 }
 
-// TestAnEditThatTakesOpensTheEditingMode pins that editing is its own mode rather than a review
-// being written, since what it writes goes into the worktree rather than into a comment.
+// TestAnEditThatTakesOpensTheEditingMode pins that editing is its own mode rather than a
+// review being written.
 func TestAnEditThatTakesOpensTheEditingMode(t *testing.T) {
 	dir := reviewRepo(t)
 	agents := &fakeReviewAgents{}
@@ -423,8 +423,8 @@ func TestAnEditIsRefusedWhileTheAgentsTurnRuns(t *testing.T) {
 	assert.Contains(t, m.review.notice, "stop it before you edit")
 }
 
-// TestTheEditorClosingGivesTheStageBack covers the editor being another process: it can be quit
-// from inside, and the screen has to notice rather than keep drawing a mode nothing is in.
+// TestTheEditorClosingGivesTheStageBack covers the screen noticing an editor that was quit
+// from inside.
 func TestTheEditorClosingGivesTheStageBack(t *testing.T) {
 	dir := reviewRepo(t)
 	agents := &fakeReviewAgents{}
@@ -504,8 +504,7 @@ func TestAWaitingAgentDoesNotHoldTheEditKey(t *testing.T) {
 }
 
 // TestAnUnreadablePaneRefusesTheEditKey pins the state that says weave could not read the pane
-// rather than that the agent is idle, which is the one place the gate cannot claim the tree is
-// free.
+// rather than that the agent is idle.
 func TestAnUnreadablePaneRefusesTheEditKey(t *testing.T) {
 	dir := reviewRepo(t)
 	agents := &fakeReviewAgents{}

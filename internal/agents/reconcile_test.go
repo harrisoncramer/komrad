@@ -873,8 +873,7 @@ func (f *fakeObserver) Observe(context.Context, harness.Target) (harness.Observa
 }
 
 // TestReconcileSettlesOnASourceThatReadsNoScreen pins that an observer carrying no frame moves
-// an agent's state and leaves the recorder nothing, since a recording exists to replay a
-// misread frame and there is none.
+// an agent's state and leaves the recorder nothing.
 func TestReconcileSettlesOnASourceThatReadsNoScreen(t *testing.T) {
 	st := newStore(t)
 	ctx := t.Context()

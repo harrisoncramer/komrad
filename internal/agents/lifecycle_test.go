@@ -451,7 +451,9 @@ func TestDeleteAgent(t *testing.T) {
 
 			seeded := seedRunning(t, st, tmux, "target", "%1", agentstore.StateThinking)
 			require.NoError(t, st.Transcripts.Upsert(ctx, transcriptstore.UpsertParams{
-				AgentID: seeded.ID, Content: "something it said", Offset: 1,
+				AgentID: seeded.ID,
+				Content: "something it said",
+				Offset:  1,
 			}))
 			if tt.archive {
 				require.NoError(t, st.SoftDelete(ctx, seeded.Name))
@@ -684,7 +686,9 @@ func TestDeletingAnAgentTakesItsDraftsAndKeepsItsReviews(t *testing.T) {
 	// first, which is the pair that used to make the second delete fail.
 	released := openBatch(t, reviews, worker, round.ID, first)
 	_, err = reviews.ReleaseReview(t.Context(), reviewstore.ReleaseReviewParams{
-		ID: released.ID, Verdict: reviewstore.VerdictChangesRequested, Path: "/tmp/round-1.md",
+		ID:      released.ID,
+		Verdict: reviewstore.VerdictChangesRequested,
+		Path:    "/tmp/round-1.md",
 	})
 	require.NoError(t, err)
 
@@ -730,7 +734,9 @@ func seedRoundedAgent(t *testing.T, st *testStore, reviews *reviewstore.Store, n
 	require.NoError(t, err)
 
 	_, err = reviews.CreateRound(t.Context(), reviewstore.CreateRoundParams{
-		AgentID: agent.ID, BaseSHA: "base", SnapshotSHA: sha,
+		AgentID:     agent.ID,
+		BaseSHA:     "base",
+		SnapshotSHA: sha,
 	})
 	require.NoError(t, err)
 

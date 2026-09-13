@@ -41,8 +41,7 @@ type WithRepoParams struct {
 	Snapshots []string
 }
 
-// WithRepo points the scenario at a real repository, so the agents live in it and each round
-// names a commit that is actually there.
+// WithRepo points the scenario at a real repository.
 func (s Scenario) WithRepo(params WithRepoParams) Scenario {
 	for _, agent := range s.Agents {
 		agent.Cwd = params.Dir
@@ -98,7 +97,7 @@ func ago(d time.Duration) string {
 	return time.Now().Add(-d).Format(time.RFC3339)
 }
 
-// in is a timestamp the given duration from now, which is what an expiry is.
+// in is a timestamp the given duration from now.
 func in(d time.Duration) string {
 	return time.Now().Add(d).Format(time.RFC3339)
 }

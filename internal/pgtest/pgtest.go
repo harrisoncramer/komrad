@@ -51,8 +51,7 @@ var sweepOnce sync.Once
 // server has none.
 var lookupTemplate = (*admin).findTemplate
 
-// Schema is a database a test's own can be copied from, versioned so that changing what Apply
-// builds is a different template.
+// Schema is a versioned database a test's own is copied from.
 type Schema struct {
 	Version string
 	Apply   func(ctx context.Context, url string) error
@@ -91,7 +90,7 @@ func Migrated(t *testing.T, schema Schema) string {
 	return url
 }
 
-// admin is a connection to the server's own database, which is where a database is created from.
+// admin is the connection new databases are created through.
 type admin struct {
 	conn    *pgx.Conn
 	baseURL string
@@ -202,8 +201,7 @@ func (a *admin) template(t *testing.T, schema Schema) string {
 	return a.buildTemplate(t, schema)
 }
 
-// buildTemplate builds the template under an advisory lock, so that of several runs reaching an
-// empty server at once only the first does the work.
+// buildTemplate builds the template under an advisory lock.
 func (a *admin) buildTemplate(t *testing.T, schema Schema) string {
 	t.Helper()
 
@@ -272,8 +270,7 @@ func (a *admin) findTemplate(ctx context.Context, version string) (string, error
 	return names[0], nil
 }
 
-// protect closes a built template to connections, which is what keeps a copy of it from failing
-// because something is reading it.
+// protect closes a built template to connections.
 func (a *admin) protect(ctx context.Context, name string) {
 	// It needs a superuser and is worth nothing more than the connection it refuses, so a
 	// server that says no is left as it is.
@@ -367,8 +364,7 @@ func templateName(version string) string {
 	return newName(templateSuffix(version))
 }
 
-// templateSuffix ends the name of every template built from a version of a schema, hashed so
-// that a long version cannot push the name past what Postgres keeps.
+// templateSuffix ends the name of every template built from a version of a schema.
 func templateSuffix(version string) string {
 	sum := sha256.Sum256([]byte(version))
 

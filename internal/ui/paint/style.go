@@ -65,8 +65,7 @@ func IconMark(show bool, icon string, color lipgloss.Color) string {
 	return " " + lipgloss.NewStyle().Foreground(color).Render(icon)
 }
 
-// MarkGutter is the column a mark is drawn in, left of every row, so the letters a person types
-// to jump to rows read down one edge rather than being hunted for along a row.
+// MarkGutter is the column a mark is drawn in, left of every row.
 func MarkGutter(mark string) string {
 	if mark == "" {
 		return "  "
@@ -86,7 +85,7 @@ func Clip(text string, width int) string {
 }
 
 // WrapRows is prose wrapped into the column it is drawn in, breaking a token longer than the
-// column rather than handing back a row the renderer cuts, which drops the tail of a path.
+// column.
 func WrapRows(text string, width int) []string {
 	width = max(width, 1)
 

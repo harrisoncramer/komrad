@@ -100,7 +100,9 @@ func TestServerDownIsNotAProblem(t *testing.T) {
 // TestStaleServerNamesBothBuilds covers that the message carries the two versions.
 func TestStaleServerNamesBothBuilds(t *testing.T) {
 	result := newServerCheck().Run(t.Context(), serverEnv(ServerStatus{
-		Answering: true, Ready: true, Version: "v1.0.0",
+		Answering: true,
+		Ready:     true,
+		Version:   "v1.0.0",
 	}))
 
 	assert.Contains(t, result.Err.Error(), "v1.0.0")
@@ -139,7 +141,9 @@ func TestStaleServerFixDependsOnThePanel(t *testing.T) {
 // intervention: the pool reconnects, so the server recovers and the panel clears itself.
 func TestNotReadyWaitsRatherThanRestarts(t *testing.T) {
 	result := newServerCheck().Run(t.Context(), withPanel(ServerStatus{
-		Answering: true, Version: "v1.2.3", Current: true,
+		Answering: true,
+		Version:   "v1.2.3",
+		Current:   true,
 	}, true))
 
 	assert.Equal(t, "server_not_ready", codeOf(result.Err))

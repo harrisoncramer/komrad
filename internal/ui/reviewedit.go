@@ -35,10 +35,9 @@ func editorContent(editor, dir, path string, line int) layout.Content {
 	}
 }
 
-// pressReviewEdit is the edit key, which is refused on a round the agent has written past since
-// the file on disk is no longer the file those line numbers name.
+// pressReviewEdit is the edit key, refused on a round the agent has written past.
 func (m model) pressReviewEdit() (tea.Model, tea.Cmd) {
-	if said, history := m.reviewIsHistory(); history && !m.review.atEditor {
+	if said, history := m.isReviewHistory(); history && !m.review.atEditor {
 		m.review.notice = said + " is finished, so the worktree no longer holds these lines · " +
 			keyLabel(m.keys.Review.BaseForward) + " for the current work"
 
@@ -66,7 +65,7 @@ func (m model) editReviewFile() (tea.Model, tea.Cmd, bool) {
 		return m, nil, false
 	}
 
-	if reason, busy := m.reviewIsAgentBusy(); busy {
+	if reason, busy := m.isReviewAgentBusy(); busy {
 		m.review.notice = reason
 
 		return m, nil, false
@@ -92,10 +91,9 @@ func (m model) editReviewFile() (tea.Model, tea.Cmd, bool) {
 	return m, nil, true
 }
 
-// reviewIsAgentBusy is whether anything says the agent may be writing in the tree the editor
-// would open, and what to say about it.
-func (m model) reviewIsAgentBusy() (string, bool) {
-	item, ok := m.reviewAgentItem()
+// isReviewAgentBusy reports whether the agent may be writing in the tree the editor would open.
+func (m model) isReviewAgentBusy() (string, bool) {
+	item, ok := m.getReviewAgentItem()
 	if !ok || !item.alive {
 		return "", false
 	}
@@ -120,8 +118,8 @@ func (m model) reviewIsAgentBusy() (string, bool) {
 	return "", false
 }
 
-// reviewAgentItem is the listing's row for the agent whose diff is on screen.
-func (m model) reviewAgentItem() (agentItem, bool) {
+// getReviewAgentItem hands back the listing's row for the agent whose diff is on screen.
+func (m model) getReviewAgentItem() (agentItem, bool) {
 	for _, item := range m.listing.agents {
 		if item.agent.ID == m.review.agentID {
 			return item, true
@@ -131,8 +129,7 @@ func (m model) reviewAgentItem() (agentItem, bool) {
 	return agentItem{}, false
 }
 
-// closeReviewEdit gives the stage back to the diff and reads the worktree again, since what the
-// editor wrote is part of the change from now on.
+// closeReviewEdit gives the stage back to the diff and reads the worktree again.
 func (m model) closeReviewEdit() (tea.Model, tea.Cmd) {
 	m.review.mode = modeWatching
 	m.review.atEditor = false

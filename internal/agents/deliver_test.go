@@ -139,8 +139,11 @@ func TestDeliver(t *testing.T) {
 		{
 			name: "an agent told about the mail recently enough that the line may yet be answered",
 			agent: &agentstore.Agent{
-				ID: "agent-a", Pane: "%1", State: agentstore.StateIdle,
-				StateChangedAt: idleSince, NudgedAt: &nudgedAfter,
+				ID:             "agent-a",
+				Pane:           "%1",
+				State:          agentstore.StateIdle,
+				StateChangedAt: idleSince,
+				NudgedAt:       &nudgedAfter,
 			},
 			pending:   1,
 			alive:     true,
@@ -150,8 +153,11 @@ func TestDeliver(t *testing.T) {
 		{
 			name: "an agent whose last nudge has stood long enough to have been lost",
 			agent: &agentstore.Agent{
-				ID: "agent-a", Pane: "%1", State: agentstore.StateIdle,
-				StateChangedAt: idleSince, NudgedAt: &nudgedBefore,
+				ID:             "agent-a",
+				Pane:           "%1",
+				State:          agentstore.StateIdle,
+				StateChangedAt: idleSince,
+				NudgedAt:       &nudgedBefore,
 			},
 			pending:   2,
 			alive:     true,
@@ -780,8 +786,7 @@ func TestDeliverTellsTheChannelToForgetAnAgentNothingWillLookAtAgain(t *testing.
 }
 
 // TestDeliverSpendsTheClaimOnAChannelThatTakesTheLineAndThenRefuses pins the two ways a send
-// can fail after the claim was taken, since the claim is never given back and a pass that got
-// this far has already reached the agent.
+// can fail after the claim was taken.
 func TestDeliverSpendsTheClaimOnAChannelThatTakesTheLineAndThenRefuses(t *testing.T) {
 	tests := []struct {
 		name    string
