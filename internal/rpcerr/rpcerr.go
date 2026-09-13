@@ -1,5 +1,4 @@
-// Package rpcerr turns the domain's sentinels into the connect codes callers see, so a handler
-// names a code only for a failure it raises itself.
+// Package rpcerr turns the domain's sentinels into the connect codes callers see.
 package rpcerr
 
 import (
