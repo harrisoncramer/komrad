@@ -14,8 +14,6 @@ import (
 	agentv1 "weave/proto/gen/agent/v1"
 
 	transcriptstore "weave/internal/store/transcript"
-
-	"connectrpc.com/connect"
 )
 
 type transcriptReader interface {
@@ -25,11 +23,7 @@ type transcriptReader interface {
 
 // SearchTranscripts runs a search over stored transcripts and returns one page of the turns
 // that say the words, and one of the turns that only carry the letters.
-func (s *Service) SearchTranscripts(ctx context.Context, req *connect.Request[agentv1.SearchTranscriptsRequest]) (*connect.Response[agentv1.SearchTranscriptsResponse], error) {
-	return rpcerr.Answer(s.searchTranscripts(ctx, req.Msg))
-}
-
-func (s *Service) searchTranscripts(ctx context.Context, req *agentv1.SearchTranscriptsRequest) (*agentv1.SearchTranscriptsResponse, *fail.Error) {
+func (s *Service) SearchTranscripts(ctx context.Context, req *agentv1.SearchTranscriptsRequest) (*agentv1.SearchTranscriptsResponse, *fail.Error) {
 	paginator, err := pagination.New[transcriptstore.Cursor, searchPage](req.GetPagination())
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to read the pagination")
@@ -79,11 +73,7 @@ var errWindowTooSmall = fail.InvalidArgument("the window is too small to hold th
 const maxTranscriptWindow = 32 * 1024
 
 // GetTranscript returns one window of an agent's stored transcript by id.
-func (s *Service) GetTranscript(ctx context.Context, req *connect.Request[agentv1.GetTranscriptRequest]) (*connect.Response[agentv1.GetTranscriptResponse], error) {
-	return rpcerr.Answer(s.getTranscript(ctx, req.Msg))
-}
-
-func (s *Service) getTranscript(ctx context.Context, req *agentv1.GetTranscriptRequest) (*agentv1.GetTranscriptResponse, *fail.Error) {
+func (s *Service) GetTranscript(ctx context.Context, req *agentv1.GetTranscriptRequest) (*agentv1.GetTranscriptResponse, *fail.Error) {
 	logCrossAgentRead(ctx, req.GetAgentId(), "agent read another agent's transcript")
 
 	cursor, err := pagination.Decode[transcriptstore.ContentCursor](req.GetCursor())

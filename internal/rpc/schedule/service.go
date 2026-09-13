@@ -14,7 +14,6 @@ import (
 
 	schedulestore "weave/internal/store/schedule"
 
-	"connectrpc.com/connect"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -42,11 +41,7 @@ func NewService(lister scheduleLister, schedules scheduleReadWriter) *Service {
 }
 
 // ListSchedules returns one page of schedules, newest first.
-func (s *Service) ListSchedules(ctx context.Context, req *connect.Request[schedulev1.ListSchedulesRequest]) (*connect.Response[schedulev1.ListSchedulesResponse], error) {
-	return rpcerr.Answer(s.listSchedules(ctx, req.Msg))
-}
-
-func (s *Service) listSchedules(ctx context.Context, req *schedulev1.ListSchedulesRequest) (*schedulev1.ListSchedulesResponse, *fail.Error) {
+func (s *Service) ListSchedules(ctx context.Context, req *schedulev1.ListSchedulesRequest) (*schedulev1.ListSchedulesResponse, *fail.Error) {
 	paginator, err := pagination.New[schedulestore.Cursor, schedule](req.GetPagination())
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to read the pagination")
@@ -74,11 +69,7 @@ func (s *Service) listSchedules(ctx context.Context, req *schedulev1.ListSchedul
 }
 
 // GetSchedule returns one schedule by id.
-func (s *Service) GetSchedule(ctx context.Context, req *connect.Request[schedulev1.GetScheduleRequest]) (*connect.Response[schedulev1.GetScheduleResponse], error) {
-	return rpcerr.Answer(s.getSchedule(ctx, req.Msg))
-}
-
-func (s *Service) getSchedule(ctx context.Context, req *schedulev1.GetScheduleRequest) (*schedulev1.GetScheduleResponse, *fail.Error) {
+func (s *Service) GetSchedule(ctx context.Context, req *schedulev1.GetScheduleRequest) (*schedulev1.GetScheduleResponse, *fail.Error) {
 	found, err := s.schedules.GetSchedule(ctx, req.GetId())
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to get schedule")
@@ -90,11 +81,7 @@ func (s *Service) getSchedule(ctx context.Context, req *schedulev1.GetScheduleRe
 }
 
 // CreateSchedule records a recurring launch and returns it as stored.
-func (s *Service) CreateSchedule(ctx context.Context, req *connect.Request[schedulev1.CreateScheduleRequest]) (*connect.Response[schedulev1.CreateScheduleResponse], error) {
-	return rpcerr.Answer(s.createSchedule(ctx, req.Msg))
-}
-
-func (s *Service) createSchedule(ctx context.Context, req *schedulev1.CreateScheduleRequest) (*schedulev1.CreateScheduleResponse, *fail.Error) {
+func (s *Service) CreateSchedule(ctx context.Context, req *schedulev1.CreateScheduleRequest) (*schedulev1.CreateScheduleResponse, *fail.Error) {
 	created, err := s.schedules.NewSchedule(ctx, configFrom(req))
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to create schedule")
@@ -106,11 +93,7 @@ func (s *Service) createSchedule(ctx context.Context, req *schedulev1.CreateSche
 }
 
 // UpdateSchedule replaces a schedule's editable fields.
-func (s *Service) UpdateSchedule(ctx context.Context, req *connect.Request[schedulev1.UpdateScheduleRequest]) (*connect.Response[emptypb.Empty], error) {
-	return rpcerr.Answer(s.updateSchedule(ctx, req.Msg))
-}
-
-func (s *Service) updateSchedule(ctx context.Context, req *schedulev1.UpdateScheduleRequest) (*emptypb.Empty, *fail.Error) {
+func (s *Service) UpdateSchedule(ctx context.Context, req *schedulev1.UpdateScheduleRequest) (*emptypb.Empty, *fail.Error) {
 	err := s.schedules.UpdateSchedule(ctx, req.GetId(), schedulestore.Config{
 		Name:       req.GetName(),
 		Cron:       req.GetCron(),
@@ -128,11 +111,7 @@ func (s *Service) updateSchedule(ctx context.Context, req *schedulev1.UpdateSche
 }
 
 // SetScheduleEnabled pauses or resumes a schedule.
-func (s *Service) SetScheduleEnabled(ctx context.Context, req *connect.Request[schedulev1.SetScheduleEnabledRequest]) (*connect.Response[emptypb.Empty], error) {
-	return rpcerr.Answer(s.setScheduleEnabled(ctx, req.Msg))
-}
-
-func (s *Service) setScheduleEnabled(ctx context.Context, req *schedulev1.SetScheduleEnabledRequest) (*emptypb.Empty, *fail.Error) {
+func (s *Service) SetScheduleEnabled(ctx context.Context, req *schedulev1.SetScheduleEnabledRequest) (*emptypb.Empty, *fail.Error) {
 	if err := s.schedules.SetScheduleEnabled(ctx, req.GetId(), req.GetEnabled()); err != nil {
 		return nil, rpcerr.From(err, "failed to set schedule enabled")
 	}
@@ -141,11 +120,7 @@ func (s *Service) setScheduleEnabled(ctx context.Context, req *schedulev1.SetSch
 }
 
 // ArchiveSchedule stops a schedule from firing again.
-func (s *Service) ArchiveSchedule(ctx context.Context, req *connect.Request[schedulev1.ArchiveScheduleRequest]) (*connect.Response[emptypb.Empty], error) {
-	return rpcerr.Answer(s.archiveSchedule(ctx, req.Msg))
-}
-
-func (s *Service) archiveSchedule(ctx context.Context, req *schedulev1.ArchiveScheduleRequest) (*emptypb.Empty, *fail.Error) {
+func (s *Service) ArchiveSchedule(ctx context.Context, req *schedulev1.ArchiveScheduleRequest) (*emptypb.Empty, *fail.Error) {
 	if err := s.schedules.ArchiveSchedule(ctx, req.GetId()); err != nil {
 		return nil, rpcerr.From(err, "failed to archive schedule")
 	}

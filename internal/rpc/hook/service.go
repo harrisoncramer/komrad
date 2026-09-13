@@ -10,7 +10,6 @@ import (
 	"weave/internal/rpcerr"
 	hookv1 "weave/proto/gen/hook/v1"
 
-	"connectrpc.com/connect"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
@@ -38,11 +37,7 @@ func NewService(hooks hookLister, pullRequests pullRequestOpener) *Service {
 
 // ListHooks returns every file in the user's hooks directory, and a directory that is not
 // there is an empty listing rather than an error.
-func (s *Service) ListHooks(ctx context.Context, req *connect.Request[emptypb.Empty]) (*connect.Response[hookv1.ListHooksResponse], error) {
-	return rpcerr.Answer(s.listHooks(ctx, req.Msg))
-}
-
-func (s *Service) listHooks(_ context.Context, _ *emptypb.Empty) (*hookv1.ListHooksResponse, *fail.Error) {
+func (s *Service) ListHooks(_ context.Context, _ *emptypb.Empty) (*hookv1.ListHooksResponse, *fail.Error) {
 	listed, err := s.hooks.ListHooks()
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to list hooks")
@@ -64,11 +59,7 @@ func (s *Service) listHooks(_ context.Context, _ *emptypb.Empty) (*hookv1.ListHo
 
 // OpenPullRequest opens the pull request an agent recorded, which is the panel's own key and
 // the one thing weave does to an agent on demand rather than at a moment of its own choosing.
-func (s *Service) OpenPullRequest(ctx context.Context, req *connect.Request[hookv1.OpenPullRequestRequest]) (*connect.Response[emptypb.Empty], error) {
-	return rpcerr.Answer(s.openPullRequest(ctx, req.Msg))
-}
-
-func (s *Service) openPullRequest(ctx context.Context, req *hookv1.OpenPullRequestRequest) (*emptypb.Empty, *fail.Error) {
+func (s *Service) OpenPullRequest(ctx context.Context, req *hookv1.OpenPullRequestRequest) (*emptypb.Empty, *fail.Error) {
 	if err := s.pullRequests.OpenPullRequest(ctx, req.GetAgentId()); err != nil {
 		return nil, rpcerr.From(err, "failed to open the pull request")
 	}

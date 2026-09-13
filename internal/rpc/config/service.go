@@ -11,7 +11,6 @@ import (
 	"weave/internal/version"
 	configv1 "weave/proto/gen/config/v1"
 
-	"connectrpc.com/connect"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
@@ -29,11 +28,7 @@ func NewService(load loader) *Service {
 
 // GetConfig returns the configuration in force and the build answering, falling back to the
 // built-in defaults and the reason when the user's file will not parse.
-func (s *Service) GetConfig(ctx context.Context, req *connect.Request[emptypb.Empty]) (*connect.Response[configv1.GetConfigResponse], error) {
-	return rpcerr.Answer(s.getConfig(ctx, req.Msg))
-}
-
-func (s *Service) getConfig(_ context.Context, _ *emptypb.Empty) (*configv1.GetConfigResponse, *fail.Error) {
+func (s *Service) GetConfig(_ context.Context, _ *emptypb.Empty) (*configv1.GetConfigResponse, *fail.Error) {
 	var configError *string
 
 	cfg, err := s.load()

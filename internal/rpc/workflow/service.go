@@ -14,7 +14,6 @@ import (
 	markstore "weave/internal/store/mark"
 	workflowstore "weave/internal/store/workflow"
 
-	"connectrpc.com/connect"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -54,11 +53,7 @@ func NewService(lister workflowLister, workflows workflowReadWriter, marks markR
 }
 
 // ListWorkflows returns one page of workflows, by name.
-func (s *Service) ListWorkflows(ctx context.Context, req *connect.Request[workflowv1.ListWorkflowsRequest]) (*connect.Response[workflowv1.ListWorkflowsResponse], error) {
-	return rpcerr.Answer(s.listWorkflows(ctx, req.Msg))
-}
-
-func (s *Service) listWorkflows(ctx context.Context, req *workflowv1.ListWorkflowsRequest) (*workflowv1.ListWorkflowsResponse, *fail.Error) {
+func (s *Service) ListWorkflows(ctx context.Context, req *workflowv1.ListWorkflowsRequest) (*workflowv1.ListWorkflowsResponse, *fail.Error) {
 	paginator, err := pagination.New[workflowstore.Cursor, workflow](req.GetPagination())
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to read the pagination")
@@ -89,11 +84,7 @@ func (s *Service) listWorkflows(ctx context.Context, req *workflowv1.ListWorkflo
 }
 
 // GetWorkflow returns one workflow by id.
-func (s *Service) GetWorkflow(ctx context.Context, req *connect.Request[workflowv1.GetWorkflowRequest]) (*connect.Response[workflowv1.GetWorkflowResponse], error) {
-	return rpcerr.Answer(s.getWorkflow(ctx, req.Msg))
-}
-
-func (s *Service) getWorkflow(ctx context.Context, req *workflowv1.GetWorkflowRequest) (*workflowv1.GetWorkflowResponse, *fail.Error) {
+func (s *Service) GetWorkflow(ctx context.Context, req *workflowv1.GetWorkflowRequest) (*workflowv1.GetWorkflowResponse, *fail.Error) {
 	found, err := s.workflows.GetWorkflow(ctx, req.GetId())
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to get workflow")
@@ -108,11 +99,7 @@ func (s *Service) getWorkflow(ctx context.Context, req *workflowv1.GetWorkflowRe
 }
 
 // CreateWorkflow adds a workflow and returns it as stored.
-func (s *Service) CreateWorkflow(ctx context.Context, req *connect.Request[workflowv1.CreateWorkflowRequest]) (*connect.Response[workflowv1.CreateWorkflowResponse], error) {
-	return rpcerr.Answer(s.createWorkflow(ctx, req.Msg))
-}
-
-func (s *Service) createWorkflow(ctx context.Context, req *workflowv1.CreateWorkflowRequest) (*workflowv1.CreateWorkflowResponse, *fail.Error) {
+func (s *Service) CreateWorkflow(ctx context.Context, req *workflowv1.CreateWorkflowRequest) (*workflowv1.CreateWorkflowResponse, *fail.Error) {
 	created, err := s.workflows.NewWorkflow(ctx, workflowstore.Config{
 		Name:              req.GetName(),
 		Context:           req.GetContext(),
@@ -131,11 +118,7 @@ func (s *Service) createWorkflow(ctx context.Context, req *workflowv1.CreateWork
 }
 
 // UpdateWorkflow replaces a workflow's editable fields.
-func (s *Service) UpdateWorkflow(ctx context.Context, req *connect.Request[workflowv1.UpdateWorkflowRequest]) (*connect.Response[emptypb.Empty], error) {
-	return rpcerr.Answer(s.updateWorkflow(ctx, req.Msg))
-}
-
-func (s *Service) updateWorkflow(ctx context.Context, req *workflowv1.UpdateWorkflowRequest) (*emptypb.Empty, *fail.Error) {
+func (s *Service) UpdateWorkflow(ctx context.Context, req *workflowv1.UpdateWorkflowRequest) (*emptypb.Empty, *fail.Error) {
 	err := s.workflows.UpdateWorkflow(ctx, req.GetId(), workflowstore.Config{
 		Name:              req.GetName(),
 		Context:           req.GetContext(),
@@ -171,11 +154,7 @@ func worktreeConfigFromProto(w *workflowv1.WorktreeConfig) workflowstore.Worktre
 }
 
 // ArchiveWorkflow hides a workflow and archives the agents inside it.
-func (s *Service) ArchiveWorkflow(ctx context.Context, req *connect.Request[workflowv1.ArchiveWorkflowRequest]) (*connect.Response[emptypb.Empty], error) {
-	return rpcerr.Answer(s.archiveWorkflow(ctx, req.Msg))
-}
-
-func (s *Service) archiveWorkflow(ctx context.Context, req *workflowv1.ArchiveWorkflowRequest) (*emptypb.Empty, *fail.Error) {
+func (s *Service) ArchiveWorkflow(ctx context.Context, req *workflowv1.ArchiveWorkflowRequest) (*emptypb.Empty, *fail.Error) {
 	if err := s.workflows.ArchiveWorkflow(ctx, req.GetId()); err != nil {
 		return nil, rpcerr.From(err, "failed to archive workflow")
 	}
@@ -184,11 +163,7 @@ func (s *Service) archiveWorkflow(ctx context.Context, req *workflowv1.ArchiveWo
 }
 
 // RestoreWorkflow brings a workflow back with the agents archived inside it.
-func (s *Service) RestoreWorkflow(ctx context.Context, req *connect.Request[workflowv1.RestoreWorkflowRequest]) (*connect.Response[workflowv1.RestoreWorkflowResponse], error) {
-	return rpcerr.Answer(s.restoreWorkflow(ctx, req.Msg))
-}
-
-func (s *Service) restoreWorkflow(ctx context.Context, req *workflowv1.RestoreWorkflowRequest) (*workflowv1.RestoreWorkflowResponse, *fail.Error) {
+func (s *Service) RestoreWorkflow(ctx context.Context, req *workflowv1.RestoreWorkflowRequest) (*workflowv1.RestoreWorkflowResponse, *fail.Error) {
 	restored, err := s.workflows.RestoreWorkflow(ctx, req.GetId())
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to restore workflow")
@@ -199,11 +174,7 @@ func (s *Service) restoreWorkflow(ctx context.Context, req *workflowv1.RestoreWo
 
 // DeleteWorkflow permanently removes an archived workflow, the archived agents still inside
 // it, and the archived schedules that launched into it.
-func (s *Service) DeleteWorkflow(ctx context.Context, req *connect.Request[workflowv1.DeleteWorkflowRequest]) (*connect.Response[emptypb.Empty], error) {
-	return rpcerr.Answer(s.deleteWorkflow(ctx, req.Msg))
-}
-
-func (s *Service) deleteWorkflow(ctx context.Context, req *workflowv1.DeleteWorkflowRequest) (*emptypb.Empty, *fail.Error) {
+func (s *Service) DeleteWorkflow(ctx context.Context, req *workflowv1.DeleteWorkflowRequest) (*emptypb.Empty, *fail.Error) {
 	if err := s.workflows.DeleteWorkflow(ctx, req.GetId()); err != nil {
 		return nil, rpcerr.From(err, "failed to delete workflow")
 	}

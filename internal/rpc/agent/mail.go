@@ -13,7 +13,6 @@ import (
 
 	mailstore "weave/internal/store/mail"
 
-	"connectrpc.com/connect"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -26,11 +25,7 @@ type mailer interface {
 }
 
 // SendMail records mail from the calling agent to the recipient the request names.
-func (s *Service) SendMail(ctx context.Context, req *connect.Request[agentv1.SendMailRequest]) (*connect.Response[agentv1.SendMailResponse], error) {
-	return rpcerr.Answer(s.sendMail(ctx, req.Msg))
-}
-
-func (s *Service) sendMail(ctx context.Context, req *agentv1.SendMailRequest) (*agentv1.SendMailResponse, *fail.Error) {
+func (s *Service) SendMail(ctx context.Context, req *agentv1.SendMailRequest) (*agentv1.SendMailResponse, *fail.Error) {
 	sent, err := s.mail.SendMail(ctx, agents.SendMailParams{
 		From:      caller.From(ctx).AgentID,
 		ToAgentID: req.GetToAgentId(),
@@ -45,11 +40,7 @@ func (s *Service) sendMail(ctx context.Context, req *agentv1.SendMailRequest) (*
 }
 
 // ReadMail claims an agent's waiting mail, defaulting to the caller's own mailbox.
-func (s *Service) ReadMail(ctx context.Context, req *connect.Request[agentv1.ReadMailRequest]) (*connect.Response[agentv1.ReadMailResponse], error) {
-	return rpcerr.Answer(s.readMail(ctx, req.Msg))
-}
-
-func (s *Service) readMail(ctx context.Context, req *agentv1.ReadMailRequest) (*agentv1.ReadMailResponse, *fail.Error) {
+func (s *Service) ReadMail(ctx context.Context, req *agentv1.ReadMailRequest) (*agentv1.ReadMailResponse, *fail.Error) {
 	id, failure := scopedAgentID(ctx, req.GetId())
 	if failure != nil {
 		return nil, failure
@@ -68,11 +59,7 @@ func (s *Service) readMail(ctx context.Context, req *agentv1.ReadMailRequest) (*
 }
 
 // ListMail returns a page of an agent's mail without claiming any of it.
-func (s *Service) ListMail(ctx context.Context, req *connect.Request[agentv1.ListMailRequest]) (*connect.Response[agentv1.ListMailResponse], error) {
-	return rpcerr.Answer(s.listMail(ctx, req.Msg))
-}
-
-func (s *Service) listMail(ctx context.Context, req *agentv1.ListMailRequest) (*agentv1.ListMailResponse, *fail.Error) {
+func (s *Service) ListMail(ctx context.Context, req *agentv1.ListMailRequest) (*agentv1.ListMailResponse, *fail.Error) {
 	id, failure := scopedAgentID(ctx, req.GetId())
 	if failure != nil {
 		return nil, failure
@@ -109,11 +96,7 @@ func (s *Service) listMail(ctx context.Context, req *agentv1.ListMailRequest) (*
 }
 
 // DeleteMail permanently removes mail by id, so the recipient never sees it.
-func (s *Service) DeleteMail(ctx context.Context, req *connect.Request[agentv1.DeleteMailRequest]) (*connect.Response[emptypb.Empty], error) {
-	return rpcerr.Answer(s.deleteMail(ctx, req.Msg))
-}
-
-func (s *Service) deleteMail(ctx context.Context, req *agentv1.DeleteMailRequest) (*emptypb.Empty, *fail.Error) {
+func (s *Service) DeleteMail(ctx context.Context, req *agentv1.DeleteMailRequest) (*emptypb.Empty, *fail.Error) {
 	if err := s.mail.DeleteMail(ctx, req.GetIds()); err != nil {
 		return nil, rpcerr.From(err, "failed to delete mail")
 	}

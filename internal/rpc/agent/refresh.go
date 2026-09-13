@@ -7,8 +7,6 @@ import (
 	"weave/internal/fail"
 	"weave/internal/rpcerr"
 	agentv1 "weave/proto/gen/agent/v1"
-
-	"connectrpc.com/connect"
 )
 
 // worktreeRefresher brings an agent's existing worktree up to date in place.
@@ -18,14 +16,7 @@ type worktreeRefresher interface {
 }
 
 // PlanRefresh reads what a rebase would do without doing it.
-func (s *Service) PlanRefresh(
-	ctx context.Context,
-	req *connect.Request[agentv1.PlanRefreshRequest],
-) (*connect.Response[agentv1.PlanRefreshResponse], error) {
-	return rpcerr.Answer(s.planRefresh(ctx, req.Msg))
-}
-
-func (s *Service) planRefresh(ctx context.Context, req *agentv1.PlanRefreshRequest) (*agentv1.PlanRefreshResponse, *fail.Error) {
+func (s *Service) PlanRefresh(ctx context.Context, req *agentv1.PlanRefreshRequest) (*agentv1.PlanRefreshResponse, *fail.Error) {
 	plan, err := s.refresher.PlanRebase(ctx, req.GetAgentId())
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to work out what a rebase would do")
@@ -44,14 +35,7 @@ func (s *Service) planRefresh(ctx context.Context, req *agentv1.PlanRefreshReque
 }
 
 // RebaseWorktree moves the agent's branch onto the latest base in place.
-func (s *Service) RebaseWorktree(
-	ctx context.Context,
-	req *connect.Request[agentv1.RebaseWorktreeRequest],
-) (*connect.Response[agentv1.RebaseWorktreeResponse], error) {
-	return rpcerr.Answer(s.rebaseWorktree(ctx, req.Msg))
-}
-
-func (s *Service) rebaseWorktree(ctx context.Context, req *agentv1.RebaseWorktreeRequest) (*agentv1.RebaseWorktreeResponse, *fail.Error) {
+func (s *Service) RebaseWorktree(ctx context.Context, req *agentv1.RebaseWorktreeRequest) (*agentv1.RebaseWorktreeResponse, *fail.Error) {
 	result, err := s.refresher.Rebase(ctx, req.GetAgentId())
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to rebase the worktree")

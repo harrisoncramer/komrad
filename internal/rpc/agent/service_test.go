@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 	"time"
+	agentv1weave "weave/proto/gen/agent/v1/agentv1weave"
 
 	"weave/config"
 	"weave/internal/agents"
@@ -866,7 +867,7 @@ func (f *fakeReconciler) RecordReportedReason(_, reason string) {
 // speaks for is turned away rather than stamping somebody.
 func TestRecordReportRefusesACallerWithNoIdentity(t *testing.T) {
 	reconciler := &fakeReconciler{}
-	svc := NewService(NewServiceParams{Reconciler: reconciler})
+	svc := agentv1weave.AgentServiceAdapter{Impl: NewService(NewServiceParams{Reconciler: reconciler})}
 
 	_, err := svc.RecordReport(t.Context(), connect.NewRequest(&agentv1.RecordReportRequest{TurnEnded: true}))
 	assert.Equal(t, connect.CodeInvalidArgument, connect.CodeOf(err))
@@ -880,7 +881,7 @@ func TestRecordReportRefusesACallerWithNoIdentity(t *testing.T) {
 func TestRecordReportMarksTheAgentUnviewed(t *testing.T) {
 	svc, st := service(t)
 	reconciler := &fakeReconciler{}
-	svc.reconciler = reconciler
+	svc.Impl.(*Service).reconciler = reconciler
 
 	id := st.SeedAgent(t, agentstore.Agent{Name: "alpha", State: agentstore.StateIdle}).ID
 
@@ -905,7 +906,7 @@ func TestRecordReportMarksTheAgentUnviewed(t *testing.T) {
 func TestRecordReportKeepsTheReasonWithoutEndingTheTurn(t *testing.T) {
 	svc, st := service(t)
 	reconciler := &fakeReconciler{}
-	svc.reconciler = reconciler
+	svc.Impl.(*Service).reconciler = reconciler
 
 	id := st.SeedAgent(t, agentstore.Agent{Name: "alpha", State: agentstore.StateThinking}).ID
 	ctx := caller.With(t.Context(), caller.Caller{AgentID: id})
@@ -1038,13 +1039,13 @@ func TestSendMailPastTheExchangeLimitIsResourceExhausted(t *testing.T) {
 		Agents:         st.Agents,
 		Config:         fakeMailConfig(1),
 	})
-	svc := NewService(NewServiceParams{
+	svc := agentv1weave.AgentServiceAdapter{Impl: NewService(NewServiceParams{
 		Agents:      st.Agents,
 		Transcripts: st.Transcripts,
 		Mail:        mail,
 		Runs:        st.Runs,
 		Marks:       markService(st),
-	})
+	})}
 
 	alpha := st.SeedAgent(t, agentstore.Agent{
 		Name:  "alpha",
@@ -1603,12 +1604,12 @@ func TestPagedReadsRefuseAMangledToken(t *testing.T) {
 	tests := []struct {
 		name  string
 		token string
-		call  func(t *testing.T, svc *Service, page *paginationv1.Pagination) error
+		call  func(t *testing.T, svc agentv1weave.AgentServiceAdapter, page *paginationv1.Pagination) error
 	}{
 		{
 			name:  "listing agents",
 			token: listToken,
-			call: func(t *testing.T, svc *Service, page *paginationv1.Pagination) error {
+			call: func(t *testing.T, svc agentv1weave.AgentServiceAdapter, page *paginationv1.Pagination) error {
 				_, err := svc.ListAgents(t.Context(), connect.NewRequest(&agentv1.ListAgentsRequest{Pagination: page}))
 				return err
 			},
@@ -1616,7 +1617,7 @@ func TestPagedReadsRefuseAMangledToken(t *testing.T) {
 		{
 			name:  "searching transcripts",
 			token: searchToken,
-			call: func(t *testing.T, svc *Service, page *paginationv1.Pagination) error {
+			call: func(t *testing.T, svc agentv1weave.AgentServiceAdapter, page *paginationv1.Pagination) error {
 				_, err := svc.SearchTranscripts(t.Context(), connect.NewRequest(&agentv1.SearchTranscriptsRequest{
 					Query:      "reconciler",
 					Pagination: page,
@@ -1686,13 +1687,13 @@ func TestCrossAgentReadIsRecorded(t *testing.T) {
 	tests := []struct {
 		name       string
 		callerIs   string
-		read       func(t *testing.T, svc *Service, ctx context.Context, target string)
+		read       func(t *testing.T, svc agentv1weave.AgentServiceAdapter, ctx context.Context, target string)
 		wantRecord bool
 	}{
 		{
 			name:     "an agent searching another agent",
 			callerIs: "alpha",
-			read: func(t *testing.T, svc *Service, ctx context.Context, target string) {
+			read: func(t *testing.T, svc agentv1weave.AgentServiceAdapter, ctx context.Context, target string) {
 				t.Helper()
 				_, err := svc.SearchTranscripts(ctx, connect.NewRequest(&agentv1.SearchTranscriptsRequest{
 					Query:   "reconciler",
@@ -1705,7 +1706,7 @@ func TestCrossAgentReadIsRecorded(t *testing.T) {
 		{
 			name:     "an agent fetching another agent's whole conversation",
 			callerIs: "alpha",
-			read: func(t *testing.T, svc *Service, ctx context.Context, target string) {
+			read: func(t *testing.T, svc agentv1weave.AgentServiceAdapter, ctx context.Context, target string) {
 				t.Helper()
 				_, err := svc.GetTranscript(ctx, connect.NewRequest(&agentv1.GetTranscriptRequest{AgentId: target}))
 				require.NoError(t, err)
@@ -1715,7 +1716,7 @@ func TestCrossAgentReadIsRecorded(t *testing.T) {
 		{
 			name:     "an agent searching itself",
 			callerIs: "beta",
-			read: func(t *testing.T, svc *Service, ctx context.Context, _ string) {
+			read: func(t *testing.T, svc agentv1weave.AgentServiceAdapter, ctx context.Context, _ string) {
 				t.Helper()
 				_, err := svc.SearchTranscripts(ctx, connect.NewRequest(&agentv1.SearchTranscriptsRequest{Query: "reconciler"}))
 				require.NoError(t, err)
@@ -1723,7 +1724,7 @@ func TestCrossAgentReadIsRecorded(t *testing.T) {
 		},
 		{
 			name: "the panel reading anyone, which is what it is for",
-			read: func(t *testing.T, svc *Service, ctx context.Context, target string) {
+			read: func(t *testing.T, svc agentv1weave.AgentServiceAdapter, ctx context.Context, target string) {
 				t.Helper()
 				_, err := svc.GetTranscript(ctx, connect.NewRequest(&agentv1.GetTranscriptRequest{AgentId: target}))
 				require.NoError(t, err)
@@ -1822,14 +1823,14 @@ func TestGetTranscript(t *testing.T) {
 func TestAgentLifecycleGoesThroughTheService(t *testing.T) {
 	tests := []struct {
 		name       string
-		call       func(t *testing.T, svc *Service) error
+		call       func(t *testing.T, svc agentv1weave.AgentServiceAdapter) error
 		fail       func(l *fakeLauncher)
 		wantCode   connect.Code
 		wantCalled func(t *testing.T, l *fakeLauncher)
 	}{
 		{
 			name: "deleting an agent nobody holds",
-			call: func(t *testing.T, svc *Service) error {
+			call: func(t *testing.T, svc agentv1weave.AgentServiceAdapter) error {
 				_, err := svc.DeleteAgents(t.Context(), connect.NewRequest(&agentv1.DeleteAgentsRequest{Ids: []string{"ghost"}}))
 				return err
 			},
@@ -1838,7 +1839,7 @@ func TestAgentLifecycleGoesThroughTheService(t *testing.T) {
 		},
 		{
 			name: "archiving an agent nobody holds",
-			call: func(t *testing.T, svc *Service) error {
+			call: func(t *testing.T, svc agentv1weave.AgentServiceAdapter) error {
 				_, err := svc.ArchiveAgents(t.Context(), connect.NewRequest(&agentv1.ArchiveAgentsRequest{Ids: []string{"ghost"}}))
 				return err
 			},
@@ -1847,7 +1848,7 @@ func TestAgentLifecycleGoesThroughTheService(t *testing.T) {
 		},
 		{
 			name: "restoring an id nobody holds",
-			call: func(t *testing.T, svc *Service) error {
+			call: func(t *testing.T, svc agentv1weave.AgentServiceAdapter) error {
 				_, err := svc.RestoreAgents(t.Context(), connect.NewRequest(&agentv1.RestoreAgentsRequest{Ids: []string{"ghost"}}))
 				return err
 			},
@@ -1856,7 +1857,7 @@ func TestAgentLifecycleGoesThroughTheService(t *testing.T) {
 		},
 		{
 			name: "deleting stops the agent",
-			call: func(t *testing.T, svc *Service) error {
+			call: func(t *testing.T, svc agentv1weave.AgentServiceAdapter) error {
 				_, err := svc.DeleteAgents(t.Context(), connect.NewRequest(&agentv1.DeleteAgentsRequest{Ids: []string{"alpha"}}))
 				return err
 			},
@@ -1866,7 +1867,7 @@ func TestAgentLifecycleGoesThroughTheService(t *testing.T) {
 		},
 		{
 			name: "archiving stops the agent",
-			call: func(t *testing.T, svc *Service) error {
+			call: func(t *testing.T, svc agentv1weave.AgentServiceAdapter) error {
 				_, err := svc.ArchiveAgents(t.Context(), connect.NewRequest(&agentv1.ArchiveAgentsRequest{Ids: []string{"alpha"}}))
 				return err
 			},
@@ -1876,7 +1877,7 @@ func TestAgentLifecycleGoesThroughTheService(t *testing.T) {
 		},
 		{
 			name: "restoring relaunches it",
-			call: func(t *testing.T, svc *Service) error {
+			call: func(t *testing.T, svc agentv1weave.AgentServiceAdapter) error {
 				_, err := svc.RestoreAgents(t.Context(), connect.NewRequest(&agentv1.RestoreAgentsRequest{Ids: []string{"id-1"}}))
 				return err
 			},
@@ -2015,7 +2016,7 @@ func markService(st *storetest.Stores) *agents.MarkService {
 	return agents.NewMarkService(agents.NewMarkServiceParams{Marks: st.Marks, Tx: st.Pool})
 }
 
-func service(t *testing.T) (*Service, *storetest.Stores) {
+func service(t *testing.T) (agentv1weave.AgentServiceAdapter, *storetest.Stores) {
 	t.Helper()
 	svc, st, _ := serviceWithLauncher(t)
 
@@ -2050,7 +2051,7 @@ func storedMetadata(agent *agentv1.Agent) []agentstore.Metadata {
 	return stored
 }
 
-func serviceWithLauncher(t *testing.T) (*Service, *storetest.Stores, *fakeLauncher) {
+func serviceWithLauncher(t *testing.T) (agentv1weave.AgentServiceAdapter, *storetest.Stores, *fakeLauncher) {
 	t.Helper()
 
 	st := storetest.Open(t)
@@ -2081,7 +2082,7 @@ func serviceWithLauncher(t *testing.T) (*Service, *storetest.Stores, *fakeLaunch
 		Mailer:    mail,
 	})
 
-	return NewService(NewServiceParams{
+	return agentv1weave.AgentServiceAdapter{Impl: NewService(NewServiceParams{
 		Agents:      st.Agents,
 		Transcripts: st.Transcripts,
 		Mail:        mail,
@@ -2093,7 +2094,7 @@ func serviceWithLauncher(t *testing.T) (*Service, *storetest.Stores, *fakeLaunch
 		Liveness:    launcher,
 		Lifecycle:   launcher,
 		Resumer:     launcher,
-	}), st, launcher
+	})}, st, launcher
 }
 
 // TestEmptyArchiveQueuesTheSweep covers the request coming back once the work is queued, and a
@@ -2117,7 +2118,7 @@ func TestEmptyArchiveQueuesTheSweep(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			archive := &fakeArchiveEmptier{err: tt.err}
-			svc := NewService(NewServiceParams{Archive: archive})
+			svc := agentv1weave.AgentServiceAdapter{Impl: NewService(NewServiceParams{Archive: archive})}
 
 			_, err := svc.EmptyArchive(t.Context(), connect.NewRequest(&emptypb.Empty{}))
 
@@ -2150,13 +2151,13 @@ func (f *fakeArchiveEmptier) EmptyArchive(context.Context) error {
 func TestBatchLifecycleErrorsMapToCodes(t *testing.T) {
 	tests := []struct {
 		name     string
-		call     func(t *testing.T, svc *Service) error
+		call     func(t *testing.T, svc agentv1weave.AgentServiceAdapter) error
 		fail     func(l *fakeLauncher)
 		wantCode connect.Code
 	}{
 		{
 			name: "an archive naming an agent nobody holds",
-			call: func(t *testing.T, svc *Service) error {
+			call: func(t *testing.T, svc agentv1weave.AgentServiceAdapter) error {
 				_, err := svc.ArchiveAgents(t.Context(), connect.NewRequest(&agentv1.ArchiveAgentsRequest{
 					Ids: []string{"alpha", "ghost"},
 				}))
@@ -2168,7 +2169,7 @@ func TestBatchLifecycleErrorsMapToCodes(t *testing.T) {
 		},
 		{
 			name: "a delete naming one",
-			call: func(t *testing.T, svc *Service) error {
+			call: func(t *testing.T, svc agentv1weave.AgentServiceAdapter) error {
 				_, err := svc.DeleteAgents(t.Context(), connect.NewRequest(&agentv1.DeleteAgentsRequest{
 					Ids: []string{"alpha", "ghost"},
 				}))
@@ -2180,7 +2181,7 @@ func TestBatchLifecycleErrorsMapToCodes(t *testing.T) {
 		},
 		{
 			name: "a restore that would take the panel past its ceiling",
-			call: func(t *testing.T, svc *Service) error {
+			call: func(t *testing.T, svc agentv1weave.AgentServiceAdapter) error {
 				_, err := svc.RestoreAgents(t.Context(), connect.NewRequest(&agentv1.RestoreAgentsRequest{
 					Ids: []string{"alpha", "beta"},
 				}))
@@ -2192,7 +2193,7 @@ func TestBatchLifecycleErrorsMapToCodes(t *testing.T) {
 		},
 		{
 			name: "a restore onto a name a live agent has taken",
-			call: func(t *testing.T, svc *Service) error {
+			call: func(t *testing.T, svc agentv1weave.AgentServiceAdapter) error {
 				_, err := svc.RestoreAgents(t.Context(), connect.NewRequest(&agentv1.RestoreAgentsRequest{
 					Ids: []string{"alpha", "beta"},
 				}))
@@ -2219,12 +2220,12 @@ func TestBatchLifecycleErrorsMapToCodes(t *testing.T) {
 func TestBatchLifecycleReachesTheService(t *testing.T) {
 	tests := []struct {
 		name       string
-		call       func(t *testing.T, svc *Service) error
+		call       func(t *testing.T, svc agentv1weave.AgentServiceAdapter) error
 		wantCalled func(l *fakeLauncher) []string
 	}{
 		{
 			name: "archiving",
-			call: func(t *testing.T, svc *Service) error {
+			call: func(t *testing.T, svc agentv1weave.AgentServiceAdapter) error {
 				_, err := svc.ArchiveAgents(t.Context(), connect.NewRequest(&agentv1.ArchiveAgentsRequest{
 					Ids: []string{"a1", "a2", "a3"},
 				}))
@@ -2235,7 +2236,7 @@ func TestBatchLifecycleReachesTheService(t *testing.T) {
 		},
 		{
 			name: "deleting",
-			call: func(t *testing.T, svc *Service) error {
+			call: func(t *testing.T, svc agentv1weave.AgentServiceAdapter) error {
 				_, err := svc.DeleteAgents(t.Context(), connect.NewRequest(&agentv1.DeleteAgentsRequest{
 					Ids: []string{"a1", "a2", "a3"},
 				}))
@@ -2246,7 +2247,7 @@ func TestBatchLifecycleReachesTheService(t *testing.T) {
 		},
 		{
 			name: "restoring",
-			call: func(t *testing.T, svc *Service) error {
+			call: func(t *testing.T, svc agentv1weave.AgentServiceAdapter) error {
 				_, err := svc.RestoreAgents(t.Context(), connect.NewRequest(&agentv1.RestoreAgentsRequest{
 					Ids: []string{"a1", "a2", "a3"},
 				}))

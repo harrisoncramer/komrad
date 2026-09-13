@@ -10,8 +10,6 @@ import (
 	reviewstore "weave/internal/store/review"
 	"weave/lib/dates"
 	agentv1 "weave/proto/gen/agent/v1"
-
-	"connectrpc.com/connect"
 )
 
 type reviewConversation interface {
@@ -39,14 +37,7 @@ type reviewConversation interface {
 var errUnnamedReview = fail.InvalidArgument("name the agent whose review you are reading")
 
 // ListReviewThreads reads the review pinned to an agent's diff.
-func (s *Service) ListReviewThreads(
-	ctx context.Context,
-	req *connect.Request[agentv1.ListReviewThreadsRequest],
-) (*connect.Response[agentv1.ListReviewThreadsResponse], error) {
-	return rpcerr.Answer(s.listReviewThreads(ctx, req.Msg))
-}
-
-func (s *Service) listReviewThreads(ctx context.Context, req *agentv1.ListReviewThreadsRequest) (*agentv1.ListReviewThreadsResponse, *fail.Error) {
+func (s *Service) ListReviewThreads(ctx context.Context, req *agentv1.ListReviewThreadsRequest) (*agentv1.ListReviewThreadsResponse, *fail.Error) {
 	author := reviewAuthorFrom(ctx)
 
 	agentID := req.GetAgentId()
@@ -74,14 +65,7 @@ func (s *Service) listReviewThreads(ctx context.Context, req *agentv1.ListReview
 }
 
 // CreateReviewThread pins a conversation to a place in a diff and writes its first message.
-func (s *Service) CreateReviewThread(
-	ctx context.Context,
-	req *connect.Request[agentv1.CreateReviewThreadRequest],
-) (*connect.Response[agentv1.CreateReviewThreadResponse], error) {
-	return rpcerr.Answer(s.createReviewThread(ctx, req.Msg))
-}
-
-func (s *Service) createReviewThread(ctx context.Context, req *agentv1.CreateReviewThreadRequest) (*agentv1.CreateReviewThreadResponse, *fail.Error) {
+func (s *Service) CreateReviewThread(ctx context.Context, req *agentv1.CreateReviewThreadRequest) (*agentv1.CreateReviewThreadResponse, *fail.Error) {
 	thread, err := s.review.CreateReviewThread(ctx, agents.CreateReviewThreadParams{
 		AgentID:     req.GetAgentId(),
 		BaseSHA:     req.GetBaseSha(),
@@ -104,14 +88,7 @@ func (s *Service) createReviewThread(ctx context.Context, req *agentv1.CreateRev
 }
 
 // AddReviewMessage says something in an existing thread, as whoever is calling.
-func (s *Service) AddReviewMessage(
-	ctx context.Context,
-	req *connect.Request[agentv1.AddReviewMessageRequest],
-) (*connect.Response[agentv1.AddReviewMessageResponse], error) {
-	return rpcerr.Answer(s.addReviewMessage(ctx, req.Msg))
-}
-
-func (s *Service) addReviewMessage(ctx context.Context, req *agentv1.AddReviewMessageRequest) (*agentv1.AddReviewMessageResponse, *fail.Error) {
+func (s *Service) AddReviewMessage(ctx context.Context, req *agentv1.AddReviewMessageRequest) (*agentv1.AddReviewMessageResponse, *fail.Error) {
 	message, err := s.review.AddReviewMessage(ctx, agents.AddReviewMessageParams{
 		ThreadID:   req.GetThreadId(),
 		Body:       req.GetBody(),
@@ -126,14 +103,7 @@ func (s *Service) addReviewMessage(ctx context.Context, req *agentv1.AddReviewMe
 }
 
 // EditReviewMessage rewrites what was said.
-func (s *Service) EditReviewMessage(
-	ctx context.Context,
-	req *connect.Request[agentv1.EditReviewMessageRequest],
-) (*connect.Response[agentv1.EditReviewMessageResponse], error) {
-	return rpcerr.Answer(s.editReviewMessage(ctx, req.Msg))
-}
-
-func (s *Service) editReviewMessage(ctx context.Context, req *agentv1.EditReviewMessageRequest) (*agentv1.EditReviewMessageResponse, *fail.Error) {
+func (s *Service) EditReviewMessage(ctx context.Context, req *agentv1.EditReviewMessageRequest) (*agentv1.EditReviewMessageResponse, *fail.Error) {
 	message, err := s.review.EditReviewMessage(ctx, agents.EditReviewMessageParams{
 		ID:         req.GetId(),
 		Body:       req.GetBody(),
@@ -148,14 +118,7 @@ func (s *Service) editReviewMessage(ctx context.Context, req *agentv1.EditReview
 }
 
 // MarkReviewThreadRead catches the calling side up on one conversation.
-func (s *Service) MarkReviewThreadRead(
-	ctx context.Context,
-	req *connect.Request[agentv1.MarkReviewThreadReadRequest],
-) (*connect.Response[agentv1.MarkReviewThreadReadResponse], error) {
-	return rpcerr.Answer(s.markReviewThreadRead(ctx, req.Msg))
-}
-
-func (s *Service) markReviewThreadRead(ctx context.Context, req *agentv1.MarkReviewThreadReadRequest) (*agentv1.MarkReviewThreadReadResponse, *fail.Error) {
+func (s *Service) MarkReviewThreadRead(ctx context.Context, req *agentv1.MarkReviewThreadReadRequest) (*agentv1.MarkReviewThreadReadResponse, *fail.Error) {
 	thread, err := s.review.MarkReviewThreadRead(ctx, agents.MarkReviewThreadReadParams{
 		ID:     req.GetId(),
 		Author: reviewAuthorFrom(ctx),
@@ -170,14 +133,7 @@ func (s *Service) markReviewThreadRead(ctx context.Context, req *agentv1.MarkRev
 }
 
 // SetReviewThreadResolved settles one conversation, or reopens it.
-func (s *Service) SetReviewThreadResolved(
-	ctx context.Context,
-	req *connect.Request[agentv1.SetReviewThreadResolvedRequest],
-) (*connect.Response[agentv1.SetReviewThreadResolvedResponse], error) {
-	return rpcerr.Answer(s.setReviewThreadResolved(ctx, req.Msg))
-}
-
-func (s *Service) setReviewThreadResolved(ctx context.Context, req *agentv1.SetReviewThreadResolvedRequest) (*agentv1.SetReviewThreadResolvedResponse, *fail.Error) {
+func (s *Service) SetReviewThreadResolved(ctx context.Context, req *agentv1.SetReviewThreadResolvedRequest) (*agentv1.SetReviewThreadResolvedResponse, *fail.Error) {
 	thread, err := s.review.SetReviewThreadResolved(ctx, agents.SetReviewThreadResolvedParams{
 		ID:       req.GetId(),
 		Resolved: req.GetResolved(),
@@ -193,14 +149,7 @@ func (s *Service) setReviewThreadResolved(ctx context.Context, req *agentv1.SetR
 }
 
 // OpenReviewRound freezes what an agent has written and records it as its next round.
-func (s *Service) OpenReviewRound(
-	ctx context.Context,
-	req *connect.Request[agentv1.OpenReviewRoundRequest],
-) (*connect.Response[agentv1.OpenReviewRoundResponse], error) {
-	return rpcerr.Answer(s.openReviewRound(ctx, req.Msg))
-}
-
-func (s *Service) openReviewRound(ctx context.Context, req *agentv1.OpenReviewRoundRequest) (*agentv1.OpenReviewRoundResponse, *fail.Error) {
+func (s *Service) OpenReviewRound(ctx context.Context, req *agentv1.OpenReviewRoundRequest) (*agentv1.OpenReviewRoundResponse, *fail.Error) {
 	round, err := s.review.OpenRound(ctx, req.GetAgentId(), reviewAuthorFrom(ctx))
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to open a review round")
@@ -210,14 +159,7 @@ func (s *Service) openReviewRound(ctx context.Context, req *agentv1.OpenReviewRo
 }
 
 // ListReviewRounds reads every round taken of an agent.
-func (s *Service) ListReviewRounds(
-	ctx context.Context,
-	req *connect.Request[agentv1.ListReviewRoundsRequest],
-) (*connect.Response[agentv1.ListReviewRoundsResponse], error) {
-	return rpcerr.Answer(s.listReviewRounds(ctx, req.Msg))
-}
-
-func (s *Service) listReviewRounds(ctx context.Context, req *agentv1.ListReviewRoundsRequest) (*agentv1.ListReviewRoundsResponse, *fail.Error) {
+func (s *Service) ListReviewRounds(ctx context.Context, req *agentv1.ListReviewRoundsRequest) (*agentv1.ListReviewRoundsResponse, *fail.Error) {
 	rounds, err := s.review.ListRounds(ctx, req.GetAgentId(), reviewAuthorFrom(ctx))
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to list the review rounds")
@@ -232,14 +174,7 @@ func (s *Service) listReviewRounds(ctx context.Context, req *agentv1.ListReviewR
 }
 
 // ListReviews reads every review given on an agent.
-func (s *Service) ListReviews(
-	ctx context.Context,
-	req *connect.Request[agentv1.ListReviewsRequest],
-) (*connect.Response[agentv1.ListReviewsResponse], error) {
-	return rpcerr.Answer(s.listReviews(ctx, req.Msg))
-}
-
-func (s *Service) listReviews(ctx context.Context, req *agentv1.ListReviewsRequest) (*agentv1.ListReviewsResponse, *fail.Error) {
+func (s *Service) ListReviews(ctx context.Context, req *agentv1.ListReviewsRequest) (*agentv1.ListReviewsResponse, *fail.Error) {
 	reviews, err := s.review.ListReviews(ctx, req.GetAgentId(), reviewAuthorFrom(ctx))
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to list the reviews")
@@ -254,14 +189,7 @@ func (s *Service) listReviews(ctx context.Context, req *agentv1.ListReviewsReque
 }
 
 // ReleaseReview releases the caller's open review, writing it out and mailing the path.
-func (s *Service) ReleaseReview(
-	ctx context.Context,
-	req *connect.Request[agentv1.ReleaseReviewRequest],
-) (*connect.Response[agentv1.ReleaseReviewResponse], error) {
-	return rpcerr.Answer(s.releaseReview(ctx, req.Msg))
-}
-
-func (s *Service) releaseReview(ctx context.Context, req *agentv1.ReleaseReviewRequest) (*agentv1.ReleaseReviewResponse, *fail.Error) {
+func (s *Service) ReleaseReview(ctx context.Context, req *agentv1.ReleaseReviewRequest) (*agentv1.ReleaseReviewResponse, *fail.Error) {
 	result, err := s.review.ReleaseReview(ctx, agents.ReleaseReviewParams{
 		AgentID:   req.GetAgentId(),
 		Verdict:   fromReviewVerdict(req.GetVerdict()),
@@ -281,14 +209,7 @@ func (s *Service) releaseReview(ctx context.Context, req *agentv1.ReleaseReviewR
 }
 
 // SetReviewFileViewed marks one file of a diff read, or drops the mark.
-func (s *Service) SetReviewFileViewed(
-	ctx context.Context,
-	req *connect.Request[agentv1.SetReviewFileViewedRequest],
-) (*connect.Response[agentv1.SetReviewFileViewedResponse], error) {
-	return rpcerr.Answer(s.setReviewFileViewed(ctx, req.Msg))
-}
-
-func (s *Service) setReviewFileViewed(ctx context.Context, req *agentv1.SetReviewFileViewedRequest) (*agentv1.SetReviewFileViewedResponse, *fail.Error) {
+func (s *Service) SetReviewFileViewed(ctx context.Context, req *agentv1.SetReviewFileViewedRequest) (*agentv1.SetReviewFileViewedResponse, *fail.Error) {
 	viewed, err := s.review.SetReviewFileViewed(ctx, agents.SetReviewFileViewedParams{
 		RoundID:  req.GetRoundId(),
 		FilePath: req.GetFilePath(),
@@ -308,14 +229,7 @@ func (s *Service) setReviewFileViewed(ctx context.Context, req *agentv1.SetRevie
 }
 
 // ListReviewViewedFiles reads which files of an agent's diff have been marked read.
-func (s *Service) ListReviewViewedFiles(
-	ctx context.Context,
-	req *connect.Request[agentv1.ListReviewViewedFilesRequest],
-) (*connect.Response[agentv1.ListReviewViewedFilesResponse], error) {
-	return rpcerr.Answer(s.listReviewViewedFiles(ctx, req.Msg))
-}
-
-func (s *Service) listReviewViewedFiles(ctx context.Context, req *agentv1.ListReviewViewedFilesRequest) (*agentv1.ListReviewViewedFilesResponse, *fail.Error) {
+func (s *Service) ListReviewViewedFiles(ctx context.Context, req *agentv1.ListReviewViewedFilesRequest) (*agentv1.ListReviewViewedFilesResponse, *fail.Error) {
 	files, err := s.review.ListReviewViewedFiles(ctx, agents.ListReviewViewedFilesParams{
 		RoundID: req.GetRoundId(),
 		Author:  reviewAuthorFrom(ctx),
