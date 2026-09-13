@@ -588,36 +588,36 @@ func (s *Service) ResumeAgent(ctx context.Context, req *agentv1.ResumeAgentReque
 
 // HoldAgent stops an agent so a person may take its worktree, refusing unless it is seen to come
 // to rest.
-func (s *Service) HoldAgent(ctx context.Context, req *connect.Request[agentv1.HoldAgentRequest]) (*connect.Response[agentv1.HoldAgentResponse], error) {
-	held, err := s.holder.Hold(ctx, req.Msg.GetId())
+func (s *Service) HoldAgent(ctx context.Context, req *agentv1.HoldAgentRequest) (*agentv1.HoldAgentResponse, *fail.Error) {
+	held, err := s.holder.Hold(ctx, req.GetId())
 	if err != nil {
-		return nil, rpcerr.Wrap(err, "failed to hold agent")
+		return nil, rpcerr.From(err, "failed to hold agent")
 	}
 
-	rendered, err := s.renderOneAgent(ctx, held)
-	if err != nil {
-		return nil, err
+	rendered, failure := s.renderOneAgent(ctx, held)
+	if failure != nil {
+		return nil, failure
 	}
 
-	return connect.NewResponse(&agentv1.HoldAgentResponse{Agent: rendered}), nil
+	return &agentv1.HoldAgentResponse{Agent: rendered}, nil
 }
 
 // ReleaseAgent lets go of a held agent, telling it what changed while it was held.
-func (s *Service) ReleaseAgent(ctx context.Context, req *connect.Request[agentv1.ReleaseAgentRequest]) (*connect.Response[agentv1.ReleaseAgentResponse], error) {
+func (s *Service) ReleaseAgent(ctx context.Context, req *agentv1.ReleaseAgentRequest) (*agentv1.ReleaseAgentResponse, *fail.Error) {
 	released, err := s.holder.Release(ctx, agents.ReleaseParams{
-		AgentID: req.Msg.GetId(),
-		Said:    req.Msg.GetSaid(),
+		AgentID: req.GetId(),
+		Said:    req.GetSaid(),
 	})
 	if err != nil {
-		return nil, rpcerr.Wrap(err, "failed to release agent")
+		return nil, rpcerr.From(err, "failed to release agent")
 	}
 
-	rendered, err := s.renderOneAgent(ctx, released)
-	if err != nil {
-		return nil, err
+	rendered, failure := s.renderOneAgent(ctx, released)
+	if failure != nil {
+		return nil, failure
 	}
 
-	return connect.NewResponse(&agentv1.ReleaseAgentResponse{Agent: rendered}), nil
+	return &agentv1.ReleaseAgentResponse{Agent: rendered}, nil
 }
 
 // UpdateAgent renames the agent with the given id, reporting a name another agent holds as a
