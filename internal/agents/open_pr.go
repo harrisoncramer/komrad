@@ -1,6 +1,8 @@
 package agents
 
 import (
+	"weave/internal/fail"
+
 	"context"
 	"errors"
 	"fmt"
@@ -9,7 +11,7 @@ import (
 	"weave/internal/store"
 )
 
-var ErrNoPullRequest = errors.New("no pull request is recorded on this agent")
+var ErrNoPullRequest = fail.Precondition("no pull request is recorded on this agent")
 
 type NewPullRequestOpenerParams struct {
 	Agents agentGetter
@@ -35,7 +37,7 @@ func NewPullRequestOpener(params NewPullRequestOpenerParams) *PullRequestOpener 
 func (o *PullRequestOpener) OpenPullRequest(ctx context.Context, agentID string) error {
 	agent, err := o.agents.GetByID(ctx, agentID)
 	if errors.Is(err, store.ErrNotFound) {
-		return ErrAgentNotFound
+		return ErrAgentNotFound.Saying("no agent with id %q", agentID)
 	}
 	if err != nil {
 		return fmt.Errorf("failed to read agent %q: %w", agentID, err)

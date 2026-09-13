@@ -109,12 +109,12 @@ func (s *Store) ListPage(ctx context.Context, limit int64, cursor *Cursor) ([]Sc
 // Get returns a schedule by id, or ErrNotFound when none has that id.
 func (s *Store) Get(ctx context.Context, id string) (*Schedule, error) {
 	if !store.IsID(id) {
-		return nil, fmt.Errorf("%w: schedule %q", store.ErrNotFound, id)
+		return nil, store.ErrNotFound.Saying("no schedule with id %q", id)
 	}
 
 	row, err := s.queries.GetSchedule(ctx, id)
 	if db.IsNoRows(err) {
-		return nil, fmt.Errorf("%w: schedule %q", store.ErrNotFound, id)
+		return nil, store.ErrNotFound.Saying("no schedule with id %q", id)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to get schedule %q: %w", id, err)
@@ -137,7 +137,7 @@ func (s *Store) Create(ctx context.Context, cfg Config) (*Schedule, error) {
 		WorkflowID: cfg.WorkflowID,
 	})
 	if db.IsUniqueViolation(err) {
-		return nil, fmt.Errorf("%w: %q", store.ErrNameTaken, cfg.Name)
+		return nil, store.ErrNameTaken.Saying("a schedule named %q already exists", cfg.Name)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to create schedule %q: %w", cfg.Name, err)
@@ -165,7 +165,7 @@ func (s *Store) Update(ctx context.Context, id string, cfg Config) error {
 		WorkflowID: cfg.WorkflowID,
 	})
 	if db.IsUniqueViolation(err) {
-		return fmt.Errorf("%w: %q", store.ErrNameTaken, cfg.Name)
+		return store.ErrNameTaken.Saying("a schedule named %q already exists", cfg.Name)
 	}
 	if err != nil {
 		return fmt.Errorf("failed to update schedule %q: %w", id, err)

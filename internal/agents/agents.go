@@ -1,6 +1,8 @@
 package agents
 
 import (
+	"weave/internal/fail"
+
 	"context"
 	"errors"
 	"fmt"
@@ -21,41 +23,41 @@ import (
 )
 
 var (
-	ErrAgentNotFound    = errors.New("agent not found")
-	ErrWorkflowNotFound = errors.New("workflow not found")
-	ErrBadDirectory     = errors.New("unusable working directory")
-	ErrTooManyAgents    = errors.New("too many agents")
-	ErrAgentArchived    = errors.New("agent is archived")
-	ErrSpawnerUnknown   = errors.New("the spawning agent is not one this panel knows")
-	ErrParentNotFound   = errors.New("parent agent not found")
-	ErrParentIsChild    = errors.New("a child agent may not have children of its own")
-	ErrChildOwnsLaunch  = errors.New("a child agent takes its launch from its parent")
-	ErrTooManyChildren  = errors.New("too many children")
+	ErrAgentNotFound    = fail.NotFound("agent not found")
+	ErrWorkflowNotFound = fail.NotFound("workflow not found")
+	ErrBadDirectory     = fail.InvalidArgument("unusable working directory")
+	ErrTooManyAgents    = fail.Exhausted("too many agents")
+	ErrAgentArchived    = fail.Precondition("agent is archived")
+	ErrSpawnerUnknown   = fail.InvalidArgument("the spawning agent is not one this panel knows")
+	ErrParentNotFound   = fail.NotFound("parent agent not found")
+	ErrParentIsChild    = fail.InvalidArgument("a child agent may not have children of its own")
+	ErrChildOwnsLaunch  = fail.InvalidArgument("a child agent takes its launch from its parent")
+	ErrTooManyChildren  = fail.Exhausted("too many children")
 
 	// ErrChildNeedsParentDirectory says the agent a child was to be attached to has no directory
 	// recorded.
-	ErrChildNeedsParentDirectory = errors.New("a child agent needs its parent's directory to run in")
+	ErrChildNeedsParentDirectory = fail.Precondition("a child agent needs its parent's directory to run in")
 
 	// ErrParentStillArchived says a restore named a child whose parent stays archived.
-	ErrParentStillArchived = errors.New("a child agent cannot come back before its parent")
+	ErrParentStillArchived = fail.Precondition("a child agent cannot come back before its parent")
 
 	// ErrResumeInFlight says another resume of the same agent is already under way.
-	ErrResumeInFlight = errors.New("this agent is already being resumed")
+	ErrResumeInFlight = fail.Precondition("this agent is already being resumed")
 
 	// ErrReviewerAlreadyRunning says the agent asking already has a reviewer of its own reading
 	// its work.
-	ErrReviewerAlreadyRunning = errors.New("this agent already has a reviewer")
+	ErrReviewerAlreadyRunning = fail.AlreadyExists("this agent already has a reviewer")
 
 	// ErrNoLiveReviewer says the agent has no reviewer still owed an answer.
-	ErrNoLiveReviewer = errors.New("this agent has no reviewer still reading its work")
+	ErrNoLiveReviewer = fail.Precondition("this agent has no reviewer still reading its work")
 
 	// ErrOutsideFamily says a child tried to reach an agent other than its parent or one of that
 	// parent's other children.
-	ErrOutsideFamily = errors.New("a child agent may only mail its parent and its parent's other children")
+	ErrOutsideFamily = fail.Denied("a child agent may only mail its parent and its parent's other children")
 
 	// ErrAlreadyLaunched says an idempotency key was already spent on an agent that launched, and
 	// is returned alongside that agent rather than instead of it.
-	ErrAlreadyLaunched     = errors.New("this idempotency key already launched an agent")
+	ErrAlreadyLaunched     = fail.AlreadyExists("this idempotency key already launched an agent")
 	ErrHarnessUnknown      = harness.ErrNotRegistered
 	ErrScriptNotFound      = scripts.ErrScriptNotFound
 	ErrScriptNotExecutable = scripts.ErrNotExecutable

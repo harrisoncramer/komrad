@@ -1,6 +1,8 @@
 package agents
 
 import (
+	"weave/internal/fail"
+
 	"context"
 	"errors"
 	"fmt"
@@ -21,9 +23,9 @@ type scheduleReadWriter interface {
 	Archive(ctx context.Context, id string) error
 }
 
-var ErrScheduleNotFound = errors.New("schedule not found")
+var ErrScheduleNotFound = fail.NotFound("schedule not found")
 
-var ErrBadCron = errors.New("unreadable cron expression")
+var ErrBadCron = fail.InvalidArgument("unreadable cron expression")
 
 type ScheduleService struct {
 	store     scheduleReadWriter
@@ -74,7 +76,7 @@ func (s *ScheduleService) NewSchedule(ctx context.Context, cfg schedulestore.Con
 func (s *ScheduleService) UpdateSchedule(ctx context.Context, id string, cfg schedulestore.Config) error {
 	existing, err := s.GetSchedule(ctx, id)
 	if errors.Is(err, store.ErrNotFound) {
-		return fmt.Errorf("%w: %q", ErrScheduleNotFound, id)
+		return ErrScheduleNotFound.Saying("no schedule with id %q", id)
 	}
 	if err != nil {
 		return err
@@ -102,7 +104,7 @@ func (s *ScheduleService) UpdateSchedule(ctx context.Context, id string, cfg sch
 func (s *ScheduleService) SetScheduleEnabled(ctx context.Context, id string, enabled bool) error {
 	_, err := s.GetSchedule(ctx, id)
 	if errors.Is(err, store.ErrNotFound) {
-		return fmt.Errorf("%w: %q", ErrScheduleNotFound, id)
+		return ErrScheduleNotFound.Saying("no schedule with id %q", id)
 	}
 	if err != nil {
 		return err
@@ -120,7 +122,7 @@ func (s *ScheduleService) SetScheduleEnabled(ctx context.Context, id string, ena
 func (s *ScheduleService) ArchiveSchedule(ctx context.Context, id string) error {
 	_, err := s.GetSchedule(ctx, id)
 	if errors.Is(err, store.ErrNotFound) {
-		return fmt.Errorf("%w: %q", ErrScheduleNotFound, id)
+		return ErrScheduleNotFound.Saying("no schedule with id %q", id)
 	}
 	if err != nil {
 		return err
@@ -136,7 +138,7 @@ func (s *ScheduleService) ArchiveSchedule(ctx context.Context, id string) error 
 func (s *ScheduleService) requireWorkflow(ctx context.Context, workflowID string) error {
 	_, err := s.workflows.Get(ctx, workflowID)
 	if errors.Is(err, store.ErrNotFound) {
-		return fmt.Errorf("%w: %q", ErrWorkflowNotFound, workflowID)
+		return ErrWorkflowNotFound.Saying("no workflow with id %q", workflowID)
 	}
 	if err != nil {
 		return fmt.Errorf("failed to look up workflow %q: %w", workflowID, err)

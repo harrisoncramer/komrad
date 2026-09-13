@@ -1,6 +1,8 @@
 package agents
 
 import (
+	"weave/internal/fail"
+
 	"context"
 	"errors"
 	"fmt"
@@ -20,21 +22,21 @@ const maxClaimedMail = 20
 
 const exchangeCappedBody = "weave: %s (%s) wrote to you and the send was refused, because the two of you have now exchanged %d pieces of mail, which is the limit. Nothing further will get through between you, in either direction. Whatever you were waiting on from them is not coming, so do not keep waiting: say where you got to, and tell the person what is unfinished. A row has been marked for attention in the panel so the person knows to look."
 
-var ErrRecipientNotFound = errors.New("no agent holds that id")
+var ErrRecipientNotFound = fail.NotFound("no agent holds that id")
 
-var ErrSenderUnknown = errors.New("the sender is not an agent this panel knows")
+var ErrSenderUnknown = fail.InvalidArgument("the sender is not an agent this panel knows")
 
-var ErrSelfAddressed = errors.New("an agent cannot send itself mail")
+var ErrSelfAddressed = fail.InvalidArgument("an agent cannot send itself mail")
 
-var ErrMailboxFull = errors.New("the recipient's mailbox is full")
+var ErrMailboxFull = fail.Exhausted("the recipient's mailbox is full")
 
-var ErrExchangeCapped = errors.New("this pair of agents has reached its mail limit")
+var ErrExchangeCapped = fail.Exhausted("this pair of agents has reached its mail limit")
 
-var ErrReplyToNotFound = errors.New("no mail holds that id")
+var ErrReplyToNotFound = fail.InvalidArgument("no mail holds that id")
 
-var ErrMailNotFound = errors.New("no mail holds that id, deleting nothing")
+var ErrMailNotFound = fail.NotFound("no mail holds that id, deleting nothing")
 
-var ErrNoticeKindMissing = errors.New("a notice must name a kind other than plain")
+var ErrNoticeKindMissing = fail.InvalidArgument("a notice must name a kind other than plain")
 
 const WeaveSenderName = "weave"
 
@@ -315,7 +317,7 @@ func (s *MailService) tellTheCapWasReached(ctx context.Context, sender, recipien
 func (s *MailService) ClaimMail(ctx context.Context, agentID string) ([]mailstore.Mail, error) {
 	agent, err := s.agents.GetByID(ctx, agentID)
 	if errors.Is(err, store.ErrNotFound) {
-		return nil, fmt.Errorf("%w: %q", ErrAgentNotFound, agentID)
+		return nil, ErrAgentNotFound.Saying("no agent with id %q", agentID)
 	}
 	if err != nil {
 		return nil, err
@@ -342,7 +344,7 @@ type ListMailParams struct {
 func (s *MailService) ListMail(ctx context.Context, params ListMailParams) ([]mailstore.Mail, error) {
 	agent, err := s.agents.GetByID(ctx, params.AgentID)
 	if errors.Is(err, store.ErrNotFound) {
-		return nil, fmt.Errorf("%w: %q", ErrAgentNotFound, params.AgentID)
+		return nil, ErrAgentNotFound.Saying("no agent with id %q", params.AgentID)
 	}
 	if err != nil {
 		return nil, err

@@ -1,13 +1,15 @@
 package harness
 
 import (
+	"weave/internal/fail"
+
 	"errors"
 	"fmt"
 	"slices"
 	"strings"
 )
 
-var ErrNotRegistered = errors.New("harness not registered")
+var ErrNotRegistered = fail.InvalidArgument("harness not registered")
 
 type Registry struct {
 	harnesses map[string]Harness

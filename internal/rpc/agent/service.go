@@ -12,7 +12,6 @@ import (
 	"weave/internal/caller"
 	"weave/internal/logging"
 	"weave/internal/rpcerr"
-	"weave/internal/store"
 	"weave/lib/pagination"
 	"weave/lib/xslice"
 	agentv1 "weave/proto/gen/agent/v1"
@@ -181,8 +180,7 @@ func (s *Service) RequestReview(ctx context.Context, req *connect.Request[agentv
 		IdempotencyKey: req.Msg.GetIdempotencyKey(),
 	})
 	if err != nil {
-		return nil, rpcerr.Wrap(err, "failed to request a review",
-			rpcerr.Saying(agents.ErrAgentNotFound, "no agent with id %q", id))
+		return nil, rpcerr.Wrap(err, "failed to request a review")
 	}
 
 	return connect.NewResponse(&agentv1.RequestReviewResponse{
@@ -333,8 +331,7 @@ func (s *Service) renderOneAgent(ctx context.Context, stored agentstore.Agent) (
 func (s *Service) GetAgent(ctx context.Context, req *connect.Request[agentv1.GetAgentRequest]) (*connect.Response[agentv1.GetAgentResponse], error) {
 	agent, err := s.agents.GetByID(ctx, req.Msg.GetId())
 	if err != nil {
-		return nil, rpcerr.Wrap(err, "failed to get agent",
-			rpcerr.Saying(store.ErrNotFound, "no agent with id %q", req.Msg.GetId()))
+		return nil, rpcerr.Wrap(err, "failed to get agent")
 	}
 
 	rendered, err := s.renderOneAgent(ctx, *agent)
@@ -417,8 +414,7 @@ func (s *Service) SetMetadata(ctx context.Context, req *connect.Request[agentv1.
 		Value: req.Msg.Value,
 	})
 	if err != nil {
-		return nil, rpcerr.Wrap(err, "failed to set the metadata",
-			rpcerr.Saying(agentstore.ErrTooManyMetadataKeys, "agent %q already holds as much metadata as it may", req.Msg.GetId()))
+		return nil, rpcerr.Wrap(err, "failed to set the metadata")
 	}
 	// Clearing a key nothing held is not an error.
 	if !changed && req.Msg.Value != nil {
@@ -438,8 +434,7 @@ func (s *Service) Log(ctx context.Context, req *connect.Request[agentv1.LogReque
 
 	agent, err := s.agents.GetByID(ctx, id)
 	if err != nil {
-		return nil, rpcerr.Wrap(err, "failed to get agent",
-			rpcerr.Saying(store.ErrNotFound, "no agent with id %q", id))
+		return nil, rpcerr.Wrap(err, "failed to get agent")
 	}
 
 	attrs := []slog.Attr{
@@ -568,8 +563,7 @@ func (s *Service) EmptyArchive(ctx context.Context, _ *connect.Request[emptypb.E
 func (s *Service) ResumeAgent(ctx context.Context, req *connect.Request[agentv1.ResumeAgentRequest]) (*connect.Response[agentv1.ResumeAgentResponse], error) {
 	resumed, err := s.resumer.ResumeAgent(ctx, req.Msg.GetId())
 	if err != nil {
-		return nil, rpcerr.Wrap(err, "failed to resume agent",
-			rpcerr.Saying(agents.ErrAgentNotFound, "no agent with id %q", req.Msg.GetId()))
+		return nil, rpcerr.Wrap(err, "failed to resume agent")
 	}
 
 	rendered, err := s.renderOneAgent(ctx, *resumed)
@@ -585,8 +579,7 @@ func (s *Service) ResumeAgent(ctx context.Context, req *connect.Request[agentv1.
 func (s *Service) UpdateAgent(ctx context.Context, req *connect.Request[agentv1.UpdateAgentRequest]) (*connect.Response[emptypb.Empty], error) {
 	renamed, err := s.agents.Rename(ctx, req.Msg.GetId(), req.Msg.GetName())
 	if err != nil {
-		return nil, rpcerr.Wrap(err, "failed to update agent",
-			rpcerr.Saying(store.ErrNameTaken, "an agent named %q already exists", req.Msg.GetName()))
+		return nil, rpcerr.Wrap(err, "failed to update agent")
 	}
 	if !renamed {
 		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("no agent with id %q", req.Msg.GetId()))

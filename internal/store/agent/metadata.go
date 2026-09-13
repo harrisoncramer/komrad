@@ -1,8 +1,9 @@
 package agent
 
 import (
+	"weave/internal/fail"
+
 	"context"
-	"errors"
 	"fmt"
 	"slices"
 
@@ -10,7 +11,7 @@ import (
 	"weave/internal/store"
 )
 
-var ErrTooManyMetadataKeys = errors.New("too many metadata keys")
+var ErrTooManyMetadataKeys = fail.Exhausted("too many metadata keys")
 
 const maxMetadataKeys = 32
 
@@ -114,7 +115,7 @@ func (s *Store) SetMetadata(ctx context.Context, params SetMetadataParams) (bool
 		return row.Key == params.Key
 	})
 	if len(held) >= maxMetadataKeys && !revising {
-		return false, ErrTooManyMetadataKeys
+		return false, ErrTooManyMetadataKeys.Saying("agent %q already holds as much metadata as it may", params.ID)
 	}
 
 	written, err := queries.SetAgentMetadata(ctx, models.SetAgentMetadataParams{

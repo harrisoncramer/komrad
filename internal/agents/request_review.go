@@ -1,6 +1,8 @@
 package agents
 
 import (
+	"weave/internal/fail"
+
 	"context"
 	"errors"
 	"fmt"
@@ -13,7 +15,7 @@ import (
 
 // ErrReviewNeedsOwnWork says the agent asked for has no work of its own to be read, which is
 // true of a reviewer and of any child.
-var ErrReviewNeedsOwnWork = errors.New("this agent has no work of its own to have read")
+var ErrReviewNeedsOwnWork = fail.Precondition("this agent has no work of its own to have read")
 
 // liveReviewerLister reads which reviewers are still owed an answer.
 type liveReviewerLister interface {
@@ -36,7 +38,7 @@ type RequestReviewParams struct {
 func (s *LaunchService) RequestReview(ctx context.Context, params RequestReviewParams) (*agentstore.Agent, string, error) {
 	author, err := s.agents.GetByID(ctx, params.AgentID)
 	if errors.Is(err, store.ErrNotFound) {
-		return nil, "", fmt.Errorf("%w: %q", ErrAgentNotFound, params.AgentID)
+		return nil, "", ErrAgentNotFound.Saying("no agent with id %q", params.AgentID)
 	}
 	if err != nil {
 		return nil, "", err

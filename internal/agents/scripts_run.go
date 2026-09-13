@@ -1,6 +1,8 @@
 package agents
 
 import (
+	"weave/internal/fail"
+
 	"bytes"
 	"context"
 	"errors"
@@ -27,11 +29,11 @@ const maxProvisionedDir = 4096
 
 const setupDirFileVar = "WEAVE_SETUP_DIR_FILE"
 
-var ErrProvisionFailed = errors.New("the provisioner failed")
+var ErrProvisionFailed = fail.Precondition("the provisioner failed")
 
-var ErrHookFailed = errors.New("a hook failed")
+var ErrHookFailed = fail.Precondition("a hook failed")
 
-var ErrScriptAlreadyRunning = errors.New("the script is already running for this agent")
+var ErrScriptAlreadyRunning = fail.Precondition("the script is already running for this agent")
 
 type scriptRunner interface {
 	Run(p scripts.RunParams) error
