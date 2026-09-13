@@ -31,7 +31,7 @@ func (s *Store) ClaimNudge(ctx context.Context, id string, retryAfter time.Durat
 // or not the value moved, and clearing the reported reason when it did.
 func (s *Store) SetStateByID(ctx context.Context, id string, state State) error {
 	if !store.IsID(id) {
-		return fmt.Errorf("%w: agent %q", store.ErrNotFound, id)
+		return store.ErrNotFound.Saying("no agent with id %q", id)
 	}
 
 	params := models.SetAgentStateByIDParams{ID: id, State: models.AgentState(state)}
@@ -46,7 +46,7 @@ func (s *Store) SetStateByID(ctx context.Context, id string, state State) error 
 // puts the mark back when viewed is unset.
 func (s *Store) SetViewed(ctx context.Context, id string, viewed bool) error {
 	if !store.IsID(id) {
-		return fmt.Errorf("%w: agent %q", store.ErrNotFound, id)
+		return store.ErrNotFound.Saying("no agent with id %q", id)
 	}
 
 	if err := s.queries.SetAgentViewedByID(ctx, models.SetAgentViewedByIDParams{ID: id, Viewed: viewed}); err != nil {
@@ -60,7 +60,7 @@ func (s *Store) SetViewed(ctx context.Context, id string, viewed bool) error {
 // reporting it or, when nothing did, from the reconciler watching the pane stop working.
 func (s *Store) SetTurnEnded(ctx context.Context, id string) error {
 	if !store.IsID(id) {
-		return fmt.Errorf("%w: agent %q", store.ErrNotFound, id)
+		return store.ErrNotFound.Saying("no agent with id %q", id)
 	}
 
 	if err := s.queries.SetAgentTurnEndedByID(ctx, id); err != nil {
@@ -74,7 +74,7 @@ func (s *Store) SetTurnEnded(ctx context.Context, id string) error {
 // clearing whatever was reported before it.
 func (s *Store) SetReportedReason(ctx context.Context, id, reason string) error {
 	if !store.IsID(id) {
-		return fmt.Errorf("%w: agent %q", store.ErrNotFound, id)
+		return store.ErrNotFound.Saying("no agent with id %q", id)
 	}
 
 	params := models.SetAgentReportedReasonByIDParams{ID: id, ReportedReason: reason}
@@ -115,7 +115,7 @@ func (s *Store) MarkSettingUpIfLive(ctx context.Context, id string) (bool, error
 // is nil, and is written only by the cwd syncer's periodic pass.
 func (s *Store) SetBranchByID(ctx context.Context, id string, branch *string) error {
 	if !store.IsID(id) {
-		return fmt.Errorf("%w: agent %q", store.ErrNotFound, id)
+		return store.ErrNotFound.Saying("no agent with id %q", id)
 	}
 
 	if err := s.queries.SetAgentBranchByID(ctx, models.SetAgentBranchByIDParams{ID: id, Branch: branch}); err != nil {
@@ -129,7 +129,7 @@ func (s *Store) SetBranchByID(ctx context.Context, id string, branch *string) er
 // only by the cwd syncer's periodic pass.
 func (s *Store) SetWorktreeRemovedByID(ctx context.Context, id string, removed bool) error {
 	if !store.IsID(id) {
-		return fmt.Errorf("%w: agent %q", store.ErrNotFound, id)
+		return store.ErrNotFound.Saying("no agent with id %q", id)
 	}
 
 	if err := s.queries.SetAgentWorktreeRemovedByID(ctx, models.SetAgentWorktreeRemovedByIDParams{ID: id, WorktreeRemoved: removed}); err != nil {
@@ -143,7 +143,7 @@ func (s *Store) SetWorktreeRemovedByID(ctx context.Context, id string, removed b
 // turn.
 func (s *Store) SetInterruptedAtByID(ctx context.Context, id string, at *time.Time) error {
 	if !store.IsID(id) {
-		return fmt.Errorf("%w: agent %q", store.ErrNotFound, id)
+		return store.ErrNotFound.Saying("no agent with id %q", id)
 	}
 
 	if err := s.queries.SetAgentInterruptedAtByID(ctx, models.SetAgentInterruptedAtByIDParams{ID: id, InterruptedAt: at}); err != nil {
@@ -156,7 +156,7 @@ func (s *Store) SetInterruptedAtByID(ctx context.Context, id string, at *time.Ti
 // SetSessionID records an agent's conversation when none is already stored.
 func (s *Store) SetSessionID(ctx context.Context, id, sessionID string) error {
 	if !store.IsID(id) {
-		return fmt.Errorf("%w: agent %q", store.ErrNotFound, id)
+		return store.ErrNotFound.Saying("no agent with id %q", id)
 	}
 
 	if err := s.queries.SetAgentSessionID(ctx, models.SetAgentSessionIDParams{ID: id, SessionID: sessionID}); err != nil {

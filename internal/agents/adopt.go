@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"weave/config"
+	"weave/internal/fail"
 	"weave/internal/git"
 	"weave/internal/store"
 	agentstore "weave/internal/store/agent"
@@ -17,17 +18,17 @@ import (
 	"weave/lib/xstr"
 )
 
-var ErrAdoptNeedsWorktree = errors.New("adoption needs a workflow whose agents get a worktree of their own")
+var ErrAdoptNeedsWorktree = fail.Precondition("adoption needs a workflow whose agents get a worktree of their own")
 
-var ErrAdoptNoResolver = errors.New("this panel cannot read pull requests, so name a branch instead")
+var ErrAdoptNoResolver = fail.InvalidArgument("this panel cannot read pull requests, so name a branch instead")
 
-var ErrAdoptRepoMismatch = errors.New("that pull request belongs to another repository than the workflow's")
+var ErrAdoptRepoMismatch = fail.InvalidArgument("that pull request belongs to another repository than the workflow's")
 
-var ErrAdoptForkBranch = errors.New("that pull request is from a fork, whose branch is not on this repository's origin")
+var ErrAdoptForkBranch = fail.InvalidArgument("that pull request is from a fork, whose branch is not on this repository's origin")
 
-var ErrAdoptBranchInUse = errors.New("that branch is already checked out")
+var ErrAdoptBranchInUse = fail.Precondition("that branch is already checked out")
 
-var ErrAdoptAlreadyAdopted = errors.New("that branch already has an agent on it")
+var ErrAdoptAlreadyAdopted = fail.AlreadyExists("that branch already has an agent on it")
 
 const adoptLookupTimeout = 30 * time.Second
 
@@ -103,7 +104,7 @@ func (s *AdoptService) Adopt(ctx context.Context, params AdoptParams) (*agentsto
 
 	wf, err := s.workflows.Get(ctx, params.WorkflowID)
 	if errors.Is(err, store.ErrNotFound) {
-		return nil, fmt.Errorf("%w: %q", ErrWorkflowNotFound, params.WorkflowID)
+		return nil, ErrWorkflowNotFound.Saying("no workflow with id %q", params.WorkflowID)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to look up workflow %q: %w", params.WorkflowID, err)

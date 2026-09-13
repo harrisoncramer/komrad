@@ -5,9 +5,7 @@ package workflow
 import (
 	"context"
 
-	"weave/internal/agents"
 	"weave/internal/rpcerr"
-	"weave/internal/store"
 	"weave/lib/pagination"
 	"weave/lib/xslice"
 	workflowv1 "weave/proto/gen/workflow/v1"
@@ -89,8 +87,7 @@ func (s *Service) ListWorkflows(ctx context.Context, req *connect.Request[workfl
 func (s *Service) GetWorkflow(ctx context.Context, req *connect.Request[workflowv1.GetWorkflowRequest]) (*connect.Response[workflowv1.GetWorkflowResponse], error) {
 	found, err := s.workflows.GetWorkflow(ctx, req.Msg.GetId())
 	if err != nil {
-		return nil, rpcerr.Wrap(err, "failed to get workflow",
-			rpcerr.Saying(store.ErrNotFound, "no workflow with id %q", req.Msg.GetId()))
+		return nil, rpcerr.Wrap(err, "failed to get workflow")
 	}
 
 	mark, err := s.markOf(ctx, found.ID)
@@ -133,8 +130,7 @@ func (s *Service) UpdateWorkflow(ctx context.Context, req *connect.Request[workf
 		ArchiveOnPRClosed: req.Msg.GetArchiveOnPrClosed(),
 	})
 	if err != nil {
-		return nil, rpcerr.Wrap(err, "failed to update workflow",
-			rpcerr.Saying(agents.ErrWorkflowNotFound, "no workflow with id %q", req.Msg.GetId()))
+		return nil, rpcerr.Wrap(err, "failed to update workflow")
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
@@ -160,8 +156,7 @@ func worktreeConfigFromProto(w *workflowv1.WorktreeConfig) workflowstore.Worktre
 // ArchiveWorkflow hides a workflow and archives the agents inside it.
 func (s *Service) ArchiveWorkflow(ctx context.Context, req *connect.Request[workflowv1.ArchiveWorkflowRequest]) (*connect.Response[emptypb.Empty], error) {
 	if err := s.workflows.ArchiveWorkflow(ctx, req.Msg.GetId()); err != nil {
-		return nil, rpcerr.Wrap(err, "failed to archive workflow",
-			rpcerr.Saying(agents.ErrWorkflowNotFound, "no workflow with id %q", req.Msg.GetId()))
+		return nil, rpcerr.Wrap(err, "failed to archive workflow")
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
@@ -171,8 +166,7 @@ func (s *Service) ArchiveWorkflow(ctx context.Context, req *connect.Request[work
 func (s *Service) RestoreWorkflow(ctx context.Context, req *connect.Request[workflowv1.RestoreWorkflowRequest]) (*connect.Response[workflowv1.RestoreWorkflowResponse], error) {
 	restored, err := s.workflows.RestoreWorkflow(ctx, req.Msg.GetId())
 	if err != nil {
-		return nil, rpcerr.Wrap(err, "failed to restore workflow",
-			rpcerr.Saying(agents.ErrWorkflowNotFound, "no archived workflow with id %q", req.Msg.GetId()))
+		return nil, rpcerr.Wrap(err, "failed to restore workflow")
 	}
 
 	return connect.NewResponse(&workflowv1.RestoreWorkflowResponse{Workflow: renderWorkflow(*restored, nil).Workflow}), nil
@@ -182,8 +176,7 @@ func (s *Service) RestoreWorkflow(ctx context.Context, req *connect.Request[work
 // it, and the archived schedules that launched into it.
 func (s *Service) DeleteWorkflow(ctx context.Context, req *connect.Request[workflowv1.DeleteWorkflowRequest]) (*connect.Response[emptypb.Empty], error) {
 	if err := s.workflows.DeleteWorkflow(ctx, req.Msg.GetId()); err != nil {
-		return nil, rpcerr.Wrap(err, "failed to delete workflow",
-			rpcerr.Saying(agents.ErrWorkflowNotFound, "no archived workflow with id %q", req.Msg.GetId()))
+		return nil, rpcerr.Wrap(err, "failed to delete workflow")
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil

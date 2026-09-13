@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"weave/config"
+	"weave/internal/fail"
 	"weave/internal/store"
 	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
@@ -20,17 +21,17 @@ const (
 	worktreeDeprovisioner = "_worktree_cleanup"
 )
 
-var ErrWorkflowHasSchedules = errors.New("workflow still has schedules")
+var ErrWorkflowHasSchedules = fail.Precondition("workflow still has schedules")
 
-var ErrScheduleHasAgents = errors.New("schedule still has agents outside the workflow being deleted")
+var ErrScheduleHasAgents = fail.Precondition("schedule still has agents outside the workflow being deleted")
 
-var ErrWorktreeNeedsCwd = errors.New("a worktree-enabled workflow needs a cwd naming the repo")
+var ErrWorktreeNeedsCwd = fail.InvalidArgument("a worktree-enabled workflow needs a cwd naming the repo")
 
-var ErrWorktreeCwdNotPrimaryCheckout = errors.New("a worktree-enabled workflow's cwd must be a primary checkout, not a linked worktree, a bare repo, or a submodule")
+var ErrWorktreeCwdNotPrimaryCheckout = fail.InvalidArgument("a worktree-enabled workflow's cwd must be a primary checkout, not a linked worktree, a bare repo, or a submodule")
 
-var ErrWorktreeUnsafePath = errors.New("a worktree copy or symlink path must be a relative path inside the repo")
+var ErrWorktreeUnsafePath = fail.InvalidArgument("a worktree copy or symlink path must be a relative path inside the repo")
 
-var ErrUnknownHookEvent = errors.New("a hook must name a moment weave fires")
+var ErrUnknownHookEvent = fail.InvalidArgument("a hook must name a moment weave fires")
 
 type workflowScheduleCounter interface {
 	CountLive(ctx context.Context, workflowID string) (int64, error)
@@ -146,7 +147,7 @@ func (w *WorkflowService) NewWorkflow(ctx context.Context, cfg workflowstore.Con
 func (w *WorkflowService) UpdateWorkflow(ctx context.Context, id string, cfg workflowstore.Config) error {
 	existing, err := w.GetWorkflow(ctx, id)
 	if errors.Is(err, store.ErrNotFound) {
-		return fmt.Errorf("%w: %q", ErrWorkflowNotFound, id)
+		return ErrWorkflowNotFound.Saying("no workflow with id %q", id)
 	}
 	if err != nil {
 		return err
@@ -293,7 +294,7 @@ func requirePrimaryCheckout(cwd string) error {
 func (w *WorkflowService) ArchiveWorkflow(ctx context.Context, id string) error {
 	existing, err := w.GetWorkflow(ctx, id)
 	if errors.Is(err, store.ErrNotFound) {
-		return fmt.Errorf("%w: %q", ErrWorkflowNotFound, id)
+		return ErrWorkflowNotFound.Saying("no workflow with id %q", id)
 	}
 	if err != nil {
 		return err
@@ -343,13 +344,13 @@ func (w *WorkflowService) ArchiveWorkflow(ctx context.Context, id string) error 
 func (w *WorkflowService) RestoreWorkflow(ctx context.Context, id string) (*workflowstore.Workflow, error) {
 	existing, err := w.store.GetIncludingArchived(ctx, id)
 	if errors.Is(err, store.ErrNotFound) {
-		return nil, fmt.Errorf("%w: %q is not archived", ErrWorkflowNotFound, id)
+		return nil, ErrWorkflowNotFound.Saying("no archived workflow with id %q", id)
 	}
 	if err != nil {
 		return nil, err
 	}
 	if existing.ArchivedAt == nil {
-		return nil, fmt.Errorf("%w: %q is not archived", ErrWorkflowNotFound, id)
+		return nil, ErrWorkflowNotFound.Saying("no archived workflow with id %q", id)
 	}
 
 	var restoring []agentstore.Agent
@@ -405,13 +406,13 @@ func (w *WorkflowService) RestoreWorkflow(ctx context.Context, id string) (*work
 func (w *WorkflowService) DeleteWorkflow(ctx context.Context, id string) error {
 	existing, err := w.store.GetIncludingArchived(ctx, id)
 	if errors.Is(err, store.ErrNotFound) {
-		return fmt.Errorf("%w: %q is not archived", ErrWorkflowNotFound, id)
+		return ErrWorkflowNotFound.Saying("no archived workflow with id %q", id)
 	}
 	if err != nil {
 		return err
 	}
 	if existing.ArchivedAt == nil {
-		return fmt.Errorf("%w: %q is not archived", ErrWorkflowNotFound, id)
+		return ErrWorkflowNotFound.Saying("no archived workflow with id %q", id)
 	}
 
 	schedules, err := w.emptied.heldSchedules(ctx, existing)

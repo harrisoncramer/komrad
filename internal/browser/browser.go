@@ -6,12 +6,13 @@ package browser
 import (
 	"bytes"
 	"context"
-	"errors"
 	"fmt"
 	"net/url"
 	"os/exec"
 	"strings"
 	"time"
+
+	"weave/internal/fail"
 )
 
 const (
@@ -19,7 +20,7 @@ const (
 	detailCap   = 400
 )
 
-var ErrNotAWebURL = errors.New("not an http or https URL")
+var ErrNotAWebURL = fail.InvalidArgument("not an http or https URL")
 
 // Opener is what anything with a URL to show a person calls.
 type Opener interface {

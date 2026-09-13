@@ -114,7 +114,7 @@ func (s *Store) Rename(ctx context.Context, id, name string) (bool, error) {
 
 	renamed, err := s.queries.RenameAgent(ctx, models.RenameAgentParams{ID: id, Name: name})
 	if db.IsUniqueViolation(err) {
-		return false, store.ErrNameTaken
+		return false, store.ErrNameTaken.Saying("an agent named %q already exists", name)
 	}
 	if err != nil {
 		return false, fmt.Errorf("failed to rename agent %q: %w", id, err)

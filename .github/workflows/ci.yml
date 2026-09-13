@@ -39,6 +39,7 @@ jobs:
               - 'go.sum'
               - '.golangci.yaml'
               - '.custom-gcl.yml'
+              - 'tools/weavelint/**'
               - '.github/workflows/ci.yml'
             shell:
               - 'mise/**'
@@ -211,14 +212,15 @@ jobs:
         with:
           gh-access-token: ${{ env.GH_ACCESS_TOKEN }}
 
-      # go:lint builds golangci-lint from source to bundle the repo's plugin,
-      # which dominates the job. The binary only changes when the plugin or its
-      # pin does, so it is cached against those rather than rebuilt every run.
+      # go:lint builds golangci-lint from source to bundle the repo's plugins,
+      # which dominates the job. The binary only changes when a plugin's pin or
+      # weave's own rules change, so it is cached against those rather than
+      # rebuilt every run.
       - name: Cache the custom linter
         uses: actions/cache@v4
         with:
           path: local/custom-gcl
-          key: custom-gcl-${{ runner.os }}-${{ hashFiles('.custom-gcl.yml') }}
+          key: custom-gcl-${{ runner.os }}-${{ hashFiles('.custom-gcl.yml', 'tools/weavelint/**') }}
 
       - name: Check the formatting
         run: mise run go:fmt --check

@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"weave/internal/fail"
 	"weave/internal/git"
 	"weave/internal/logging"
 	"weave/internal/store"
@@ -16,28 +17,28 @@ import (
 
 var (
 	// ErrRebaseNoWorktree says the agent sits in a directory weave did not cut.
-	ErrRebaseNoWorktree = errors.New("this agent has no worktree of its own to rebase")
+	ErrRebaseNoWorktree = fail.Precondition("this agent has no worktree of its own to rebase")
 
 	// ErrRebaseAdopted says the branch belongs to whoever made it.
-	ErrRebaseAdopted = errors.New("this agent is on a branch weave did not cut, so its history is not weave's to rewrite")
+	ErrRebaseAdopted = fail.Precondition("this agent is on a branch weave did not cut, so its history is not weave's to rewrite")
 
 	// ErrRebaseDirty says the checkout holds tracked changes.
-	ErrRebaseDirty = errors.New("the worktree holds tracked changes, so commit or discard them first")
+	ErrRebaseDirty = fail.Precondition("the worktree holds tracked changes, so commit or discard them first")
 
 	// ErrRebaseInProgress says something already owns the index.
-	ErrRebaseInProgress = errors.New("the worktree is already part-way through a merge or a rebase, so finish or abort that first")
+	ErrRebaseInProgress = fail.Precondition("the worktree is already part-way through a merge or a rebase, so finish or abort that first")
 
 	// ErrRebaseDetached says the checkout is on no branch, so a rebase would move nothing.
-	ErrRebaseDetached = errors.New("the worktree is on no branch, so a rebase would move nothing")
+	ErrRebaseDetached = fail.Precondition("the worktree is on no branch, so a rebase would move nothing")
 
 	// ErrRebaseBusy says the agent is part-way through a turn.
-	ErrRebaseBusy = errors.New("the agent is working, so its files must not move under it")
+	ErrRebaseBusy = fail.Precondition("the agent is working, so its files must not move under it")
 
 	// ErrRebaseShallow says the clone cannot answer what the branch and the base share.
-	ErrRebaseShallow = errors.New("the clone is shallow, so what this branch shares with the base cannot be read")
+	ErrRebaseShallow = fail.Precondition("the clone is shallow, so what this branch shares with the base cannot be read")
 
 	// ErrRebaseHiddenPaths says the index is holding a path's content back on purpose.
-	ErrRebaseHiddenPaths = errors.New("these paths are marked assume-unchanged or skip-worktree, so their contents cannot be read back if the move goes wrong")
+	ErrRebaseHiddenPaths = fail.Precondition("these paths are marked assume-unchanged or skip-worktree, so their contents cannot be read back if the move goes wrong")
 )
 
 // rebaseAgentReadWriter is the slice of the agent store a rebase reads and writes.
@@ -395,7 +396,7 @@ func replayedMail(result RebaseResult) string {
 func (s *RebaseService) eligible(ctx context.Context, agentID string) (*agentstore.Agent, error) {
 	agent, err := s.agents.GetByID(ctx, agentID)
 	if errors.Is(err, store.ErrNotFound) {
-		return nil, ErrAgentNotFound
+		return nil, ErrAgentNotFound.Saying("no agent with id %q", agentID)
 	}
 	if err != nil {
 		return nil, err

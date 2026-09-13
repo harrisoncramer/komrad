@@ -255,7 +255,7 @@ type launchPlan struct {
 func (s *LaunchService) planLaunch(ctx context.Context, params NewAgentParams) (*launchPlan, error) {
 	wf, err := s.workflows.Get(ctx, params.WorkflowID)
 	if errors.Is(err, store.ErrNotFound) {
-		return nil, fmt.Errorf("%w: %q", ErrWorkflowNotFound, params.WorkflowID)
+		return nil, ErrWorkflowNotFound.Saying("no workflow with id %q", params.WorkflowID)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to look up workflow %q: %w", params.WorkflowID, err)
