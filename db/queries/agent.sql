@@ -830,3 +830,13 @@ SELECT
     cwd
 FROM
     agents;
+
+-- name: GetWorkflowOrchestratorID :one
+SELECT
+    s.id
+FROM
+    agents s
+WHERE
+    s.workflow_id = @workflow_id
+    AND s.role = 'orchestrator'
+LIMIT 1;

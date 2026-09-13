@@ -119,6 +119,9 @@ const (
 	// AgentServiceRebaseWorktreeProcedure is the fully-qualified name of the AgentService's
 	// RebaseWorktree RPC.
 	AgentServiceRebaseWorktreeProcedure = "/agent.v1.AgentService/RebaseWorktree"
+	// AgentServiceStartOrchestratorProcedure is the fully-qualified name of the AgentService's
+	// StartOrchestrator RPC.
+	AgentServiceStartOrchestratorProcedure = "/agent.v1.AgentService/StartOrchestrator"
 	// AgentServiceMarkReviewThreadReadProcedure is the fully-qualified name of the AgentService's
 	// MarkReviewThreadRead RPC.
 	AgentServiceMarkReviewThreadReadProcedure = "/agent.v1.AgentService/MarkReviewThreadRead"
@@ -183,6 +186,7 @@ type AgentServiceClient interface {
 	// itself or anybody else.
 	PlanRefresh(context.Context, *connect.Request[v1.PlanRefreshRequest]) (*connect.Response[v1.PlanRefreshResponse], error)
 	RebaseWorktree(context.Context, *connect.Request[v1.RebaseWorktreeRequest]) (*connect.Response[v1.RebaseWorktreeResponse], error)
+	StartOrchestrator(context.Context, *connect.Request[v1.StartOrchestratorRequest]) (*connect.Response[v1.StartOrchestratorResponse], error)
 	MarkReviewThreadRead(context.Context, *connect.Request[v1.MarkReviewThreadReadRequest]) (*connect.Response[v1.MarkReviewThreadReadResponse], error)
 	SetReviewThreadResolved(context.Context, *connect.Request[v1.SetReviewThreadResolvedRequest]) (*connect.Response[v1.SetReviewThreadResolvedResponse], error)
 	OpenReviewRound(context.Context, *connect.Request[v1.OpenReviewRoundRequest]) (*connect.Response[v1.OpenReviewRoundResponse], error)
@@ -416,6 +420,13 @@ func NewAgentServiceClient(httpClient connect.HTTPClient, baseURL string, opts .
 			connect.WithSchema(agentServiceMethods.ByName("RebaseWorktree")),
 			connect.WithClientOptions(opts...),
 		),
+		startOrchestrator: connect.NewClient[v1.StartOrchestratorRequest, v1.StartOrchestratorResponse](
+			httpClient,
+			baseURL+AgentServiceStartOrchestratorProcedure,
+			connect.WithSchema(agentServiceMethods.ByName("StartOrchestrator")),
+			connect.WithIdempotency(connect.IdempotencyIdempotent),
+			connect.WithClientOptions(opts...),
+		),
 		markReviewThreadRead: connect.NewClient[v1.MarkReviewThreadReadRequest, v1.MarkReviewThreadReadResponse](
 			httpClient,
 			baseURL+AgentServiceMarkReviewThreadReadProcedure,
@@ -507,6 +518,7 @@ type agentServiceClient struct {
 	editReviewMessage       *connect.Client[v1.EditReviewMessageRequest, v1.EditReviewMessageResponse]
 	planRefresh             *connect.Client[v1.PlanRefreshRequest, v1.PlanRefreshResponse]
 	rebaseWorktree          *connect.Client[v1.RebaseWorktreeRequest, v1.RebaseWorktreeResponse]
+	startOrchestrator       *connect.Client[v1.StartOrchestratorRequest, v1.StartOrchestratorResponse]
 	markReviewThreadRead    *connect.Client[v1.MarkReviewThreadReadRequest, v1.MarkReviewThreadReadResponse]
 	setReviewThreadResolved *connect.Client[v1.SetReviewThreadResolvedRequest, v1.SetReviewThreadResolvedResponse]
 	openReviewRound         *connect.Client[v1.OpenReviewRoundRequest, v1.OpenReviewRoundResponse]
@@ -677,6 +689,11 @@ func (c *agentServiceClient) RebaseWorktree(ctx context.Context, req *connect.Re
 	return c.rebaseWorktree.CallUnary(ctx, req)
 }
 
+// StartOrchestrator calls agent.v1.AgentService.StartOrchestrator.
+func (c *agentServiceClient) StartOrchestrator(ctx context.Context, req *connect.Request[v1.StartOrchestratorRequest]) (*connect.Response[v1.StartOrchestratorResponse], error) {
+	return c.startOrchestrator.CallUnary(ctx, req)
+}
+
 // MarkReviewThreadRead calls agent.v1.AgentService.MarkReviewThreadRead.
 func (c *agentServiceClient) MarkReviewThreadRead(ctx context.Context, req *connect.Request[v1.MarkReviewThreadReadRequest]) (*connect.Response[v1.MarkReviewThreadReadResponse], error) {
 	return c.markReviewThreadRead.CallUnary(ctx, req)
@@ -755,6 +772,7 @@ type AgentServiceHandler interface {
 	// itself or anybody else.
 	PlanRefresh(context.Context, *connect.Request[v1.PlanRefreshRequest]) (*connect.Response[v1.PlanRefreshResponse], error)
 	RebaseWorktree(context.Context, *connect.Request[v1.RebaseWorktreeRequest]) (*connect.Response[v1.RebaseWorktreeResponse], error)
+	StartOrchestrator(context.Context, *connect.Request[v1.StartOrchestratorRequest]) (*connect.Response[v1.StartOrchestratorResponse], error)
 	MarkReviewThreadRead(context.Context, *connect.Request[v1.MarkReviewThreadReadRequest]) (*connect.Response[v1.MarkReviewThreadReadResponse], error)
 	SetReviewThreadResolved(context.Context, *connect.Request[v1.SetReviewThreadResolvedRequest]) (*connect.Response[v1.SetReviewThreadResolvedResponse], error)
 	OpenReviewRound(context.Context, *connect.Request[v1.OpenReviewRoundRequest]) (*connect.Response[v1.OpenReviewRoundResponse], error)
@@ -984,6 +1002,13 @@ func NewAgentServiceHandler(svc AgentServiceHandler, opts ...connect.HandlerOpti
 		connect.WithSchema(agentServiceMethods.ByName("RebaseWorktree")),
 		connect.WithHandlerOptions(opts...),
 	)
+	agentServiceStartOrchestratorHandler := connect.NewUnaryHandler(
+		AgentServiceStartOrchestratorProcedure,
+		svc.StartOrchestrator,
+		connect.WithSchema(agentServiceMethods.ByName("StartOrchestrator")),
+		connect.WithIdempotency(connect.IdempotencyIdempotent),
+		connect.WithHandlerOptions(opts...),
+	)
 	agentServiceMarkReviewThreadReadHandler := connect.NewUnaryHandler(
 		AgentServiceMarkReviewThreadReadProcedure,
 		svc.MarkReviewThreadRead,
@@ -1104,6 +1129,8 @@ func NewAgentServiceHandler(svc AgentServiceHandler, opts ...connect.HandlerOpti
 			agentServicePlanRefreshHandler.ServeHTTP(w, r)
 		case AgentServiceRebaseWorktreeProcedure:
 			agentServiceRebaseWorktreeHandler.ServeHTTP(w, r)
+		case AgentServiceStartOrchestratorProcedure:
+			agentServiceStartOrchestratorHandler.ServeHTTP(w, r)
 		case AgentServiceMarkReviewThreadReadProcedure:
 			agentServiceMarkReviewThreadReadHandler.ServeHTTP(w, r)
 		case AgentServiceSetReviewThreadResolvedProcedure:
@@ -1255,6 +1282,10 @@ func (UnimplementedAgentServiceHandler) PlanRefresh(context.Context, *connect.Re
 
 func (UnimplementedAgentServiceHandler) RebaseWorktree(context.Context, *connect.Request[v1.RebaseWorktreeRequest]) (*connect.Response[v1.RebaseWorktreeResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("agent.v1.AgentService.RebaseWorktree is not implemented"))
+}
+
+func (UnimplementedAgentServiceHandler) StartOrchestrator(context.Context, *connect.Request[v1.StartOrchestratorRequest]) (*connect.Response[v1.StartOrchestratorResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("agent.v1.AgentService.StartOrchestrator is not implemented"))
 }
 
 func (UnimplementedAgentServiceHandler) MarkReviewThreadRead(context.Context, *connect.Request[v1.MarkReviewThreadReadRequest]) (*connect.Response[v1.MarkReviewThreadReadResponse], error) {

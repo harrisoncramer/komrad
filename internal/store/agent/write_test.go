@@ -551,3 +551,39 @@ func TestCreateWithRole(t *testing.T) {
 		})
 	}
 }
+
+// TestOneOrchestratorPerWorkflow pins the index that makes the rule true, rather than a check
+// before an insert that two callers can both pass.
+func TestOneOrchestratorPerWorkflow(t *testing.T) {
+	tests := []struct {
+		name    string
+		archive bool
+	}{
+		{name: "while the first is live"},
+		{name: "and after it has been archived", archive: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			st := open(t)
+			ctx := t.Context()
+
+			require.NoError(t, st.Create(ctx, Agent{Name: "first", State: StateIdle, Role: RoleOrchestrator}))
+
+			if tt.archive {
+				first, err := st.GetInWorkflow(ctx, st.defaultWorkflow, "first")
+				require.NoError(t, err)
+				require.NotNil(t, first)
+				_, err = st.Archive(ctx, []string{first.ID})
+				require.NoError(t, err)
+			}
+
+			err := st.Create(ctx, Agent{Name: "second", State: StateIdle, Role: RoleOrchestrator})
+			require.Error(t, err, "a workflow holds one orchestrator for life")
+			assert.Contains(t, err.Error(), "agents_workflow_orchestrator",
+				"the index is what refused it")
+
+			require.NoError(t, st.Create(ctx, Agent{Name: "worker", State: StateIdle}))
+		})
+	}
+}

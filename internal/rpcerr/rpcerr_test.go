@@ -94,6 +94,8 @@ func TestWrapCodes(t *testing.T) {
 		{agents.ErrReviewNotEntitled, connect.CodePermissionDenied},
 		{agents.ErrReviewOwnWork, connect.CodePermissionDenied},
 		{agents.ErrOutsideFamily, connect.CodePermissionDenied},
+		{agents.ErrOutsideWorkflow, connect.CodePermissionDenied},
+		{agentstore.ErrOrchestratorPullRequest, connect.CodePermissionDenied},
 	}
 
 	for _, tt := range tests {

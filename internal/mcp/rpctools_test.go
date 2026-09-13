@@ -18,7 +18,8 @@ import (
 )
 
 // noToolSurface is the methods deliberately kept out of a model's reach, which are the reviewer's
-// half of a review conversation and the marks the panel keeps for the person.
+// half of a review conversation, the marks the panel keeps for the person, and the actions a
+// person takes in the panel.
 var noToolSurface = map[protoreflect.Name]bool{
 	"EmptyArchive":            true,
 	"RecordReport":            true,
@@ -36,6 +37,7 @@ var noToolSurface = map[protoreflect.Name]bool{
 	"ListReviews":             true,
 	"SetReviewFileViewed":     true,
 	"ListReviewViewedFiles":   true,
+	"StartOrchestrator":       true,
 }
 
 // TestEveryMethodIsAnnotated fails when an RPC carries no tool annotation, so leaving one out

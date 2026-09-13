@@ -8,7 +8,7 @@ enum "agent_state" {
 
 enum "agent_role" {
   schema = schema.public
-  values = ["implementer", "reviewer"]
+  values = ["implementer", "reviewer", "orchestrator"]
 }
 
 table "workflow_configs" {
@@ -613,6 +613,11 @@ table "agents" {
     unique  = true
     columns = [column.workflow_id, column.name]
     where   = "archived_at IS NULL"
+  }
+  index "agents_workflow_orchestrator" {
+    unique  = true
+    columns = [column.workflow_id]
+    where   = "role = 'orchestrator'"
   }
   index "agents_workflow_id" {
     columns = [column.workflow_id]

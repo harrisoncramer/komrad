@@ -24,7 +24,7 @@ const stateSeenBound = 2 * time.Minute
 const prLookupTimeout = 15 * time.Second
 
 // prMetadataKey is the metadata key a found pull request is recorded under.
-const prMetadataKey = "pr"
+const prMetadataKey = agentstore.MetadataKeyPR
 
 // prFinder looks up the URL of an open pull request for a branch, an empty string with no
 // error meaning there isn't one yet.

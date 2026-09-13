@@ -278,6 +278,16 @@ message PlanRefreshResponse {
   repeated string conflict_paths = 7;
 }
 
+message StartOrchestratorRequest {
+  // The workflow whose orchestrator to bring back, or to start if it has never had one.
+  string workflow_id = 1 [(buf.validate.field).string.min_len = 1];
+}
+
+message StartOrchestratorResponse {
+  // The orchestrator, with a pane to talk to.
+  Agent agent = 1;
+}
+
 message RebaseWorktreeRequest {
   // Whose branch to move onto its base.
   string agent_id = 1 [(buf.validate.field).string.min_len = 1];
@@ -686,6 +696,9 @@ service AgentService {
   // itself or anybody else.
   rpc PlanRefresh(PlanRefreshRequest) returns (PlanRefreshResponse) {}
   rpc RebaseWorktree(RebaseWorktreeRequest) returns (RebaseWorktreeResponse) {}
+  rpc StartOrchestrator(StartOrchestratorRequest) returns (StartOrchestratorResponse) {
+    option idempotency_level = IDEMPOTENT;
+  }
   rpc MarkReviewThreadRead(MarkReviewThreadReadRequest) returns (MarkReviewThreadReadResponse) {
     option idempotency_level = IDEMPOTENT;
   }

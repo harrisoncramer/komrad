@@ -26,6 +26,7 @@ type services struct {
 	resume       *agents.ResumeService
 	adopt        *agents.AdoptService
 	lifecycle    *agents.LifecycleService
+	orchestrator *agents.OrchestratorService
 	workflow     *agents.WorkflowService
 	delivery     *agents.DeliveryService
 	reconciler   *agents.Reconciler
@@ -212,7 +213,15 @@ func buildServices(params NewServerParams, st *stores) (*services, error) {
 		}),
 		adopt:     adoptService,
 		lifecycle: lifecycleService,
-		workflow:  workflowService,
+		orchestrator: agents.NewOrchestratorService(agents.NewOrchestratorServiceParams{
+			Agents:    st.agents,
+			Workflows: st.workflows,
+			Launch:    launchService,
+			Lifecycle: lifecycleService,
+			Resume:    resumeService,
+			StateDir:  stateDir,
+		}),
+		workflow: workflowService,
 		delivery: agents.NewDeliveryService(agents.NewDeliveryServiceParams{
 			MailboxReader: st.mail,
 			NudgeClaimer:  st.agents,

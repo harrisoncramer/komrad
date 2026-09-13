@@ -48,6 +48,7 @@ type AgentServiceImpl interface {
 	EditReviewMessage(context.Context, *v1.EditReviewMessageRequest) (*v1.EditReviewMessageResponse, *fail.Error)
 	PlanRefresh(context.Context, *v1.PlanRefreshRequest) (*v1.PlanRefreshResponse, *fail.Error)
 	RebaseWorktree(context.Context, *v1.RebaseWorktreeRequest) (*v1.RebaseWorktreeResponse, *fail.Error)
+	StartOrchestrator(context.Context, *v1.StartOrchestratorRequest) (*v1.StartOrchestratorResponse, *fail.Error)
 	MarkReviewThreadRead(context.Context, *v1.MarkReviewThreadReadRequest) (*v1.MarkReviewThreadReadResponse, *fail.Error)
 	SetReviewThreadResolved(context.Context, *v1.SetReviewThreadResolvedRequest) (*v1.SetReviewThreadResolvedResponse, *fail.Error)
 	OpenReviewRound(context.Context, *v1.OpenReviewRoundRequest) (*v1.OpenReviewRoundResponse, *fail.Error)
@@ -222,6 +223,11 @@ func (a AgentServiceAdapter) PlanRefresh(ctx context.Context, req *connect.Reque
 // RebaseWorktree answers the request as connect serves it.
 func (a AgentServiceAdapter) RebaseWorktree(ctx context.Context, req *connect.Request[v1.RebaseWorktreeRequest]) (*connect.Response[v1.RebaseWorktreeResponse], error) {
 	return rpcerr.Answer(a.Impl.RebaseWorktree(ctx, req.Msg))
+}
+
+// StartOrchestrator answers the request as connect serves it.
+func (a AgentServiceAdapter) StartOrchestrator(ctx context.Context, req *connect.Request[v1.StartOrchestratorRequest]) (*connect.Response[v1.StartOrchestratorResponse], error) {
+	return rpcerr.Answer(a.Impl.StartOrchestrator(ctx, req.Msg))
 }
 
 // MarkReviewThreadRead answers the request as connect serves it.

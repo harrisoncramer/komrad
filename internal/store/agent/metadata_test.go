@@ -234,3 +234,59 @@ func TestSetMetadataCeilingUnderConcurrency(t *testing.T) {
 	require.NotNil(t, after)
 	assert.Len(t, after.Metadata, maxMetadataKeys, "only room many racers should have gotten past the limit")
 }
+
+// TestSetMetadataRefusesAnOrchestratorThePullRequestKey pins the one key an orchestrator may
+// not record, which would file an agent's work under the agent that commissioned it.
+func TestSetMetadataRefusesAnOrchestratorThePullRequestKey(t *testing.T) {
+	tests := []struct {
+		name      string
+		role      Role
+		key       string
+		wantError bool
+	}{
+		{
+			name:      "an orchestrator recording a pull request",
+			role:      RoleOrchestrator,
+			key:       MetadataKeyPR,
+			wantError: true,
+		},
+		{
+			name: "an orchestrator recording anything else",
+			role: RoleOrchestrator,
+			key:  "ticket",
+		},
+		{
+			name: "an implementer recording its own pull request",
+			role: RoleImplementer,
+			key:  MetadataKeyPR,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			st := open(t)
+			ctx := t.Context()
+
+			require.NoError(t, st.Create(ctx, Agent{Name: "agent", State: StateIdle, Role: tt.role}))
+			created, err := st.GetInWorkflow(ctx, st.defaultWorkflow, "agent")
+			require.NoError(t, err)
+			require.NotNil(t, created)
+
+			changed, err := st.SetMetadata(ctx, SetMetadataParams{
+				ID:    created.ID,
+				Key:   tt.key,
+				Value: xptr.Ptr("https://example.test/pull/1"),
+			})
+
+			if tt.wantError {
+				require.ErrorIs(t, err, ErrOrchestratorPullRequest)
+				assert.False(t, changed)
+
+				return
+			}
+
+			require.NoError(t, err)
+			assert.True(t, changed)
+		})
+	}
+}
