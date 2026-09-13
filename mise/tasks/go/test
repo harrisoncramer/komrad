@@ -6,11 +6,14 @@ set -euo pipefail
 usage() {
 	echo "Usage: mise run go:test [--kind all|unit|integration] [--changed-since REF]"
 	echo
-	echo "Runs every test by default. A handful of packages drive a real git, a real"
-	echo "tmux or a real weave, which is slow and flakes when the machine is busy."
-	echo "Those are the integration tests and everything else is a unit test. The"
-	echo "same split is written into .golangci.yaml, which forbids a unit test from"
-	echo "reaching for either binary."
+	echo "Runs every test by default. The line between the two kinds is a real git:"
+	echo "seven packages drive one, which is slow and flakes when the machine is"
+	echo "busy, and they are the integration tests. The same split is written into"
+	echo ".golangci.yaml, which forbids a unit test from reaching for git at all."
+	echo
+	echo "The unit tests are not free of everything external. They reach a real"
+	echo "Postgres, and the panel and the agents reconciler drive a real tmux, which"
+	echo "is the next line to draw."
 	echo
 	echo "--changed-since takes a git ref and drops the integration packages that"
 	echo "cannot be affected by what changed since it. A package is kept when the"
@@ -30,10 +33,20 @@ while (($#)); do
 		;;
 	--kind)
 		KIND="${2:-}"
+		if [ -z "$KIND" ]; then
+			echo "go:test: --kind takes all, unit or integration" >&2
+			usage >&2
+			exit 1
+		fi
 		shift 2
 		;;
 	--changed-since)
 		SINCE="${2:-}"
+		if [ -z "$SINCE" ]; then
+			echo "go:test: --changed-since takes a git ref" >&2
+			usage >&2
+			exit 1
+		fi
 		shift 2
 		;;
 	*)
@@ -44,10 +57,25 @@ while (($#)); do
 	esac
 done
 
+case "$KIND" in
+all | unit | integration) ;;
+*)
+	echo "go:test: no kind of test called $KIND" >&2
+	usage >&2
+	exit 1
+	;;
+esac
+
+if [ -n "$SINCE" ] && [ "$KIND" != "integration" ]; then
+	echo "go:test: --changed-since narrows the integration tests, and this run is $KIND" >&2
+	exit 1
+fi
+
 cd "$MISE_CONFIG_ROOT"
 
-# The integration packages, as directories. .golangci.yaml names the same set in
-# the forbidigo exclusion, so a package added here belongs there too.
+# The integration packages, as directories. .golangci.yaml excuses the same set
+# from the rule against driving a real git, so a package added here belongs
+# there too.
 INTEGRATION_DIRS=(
 	internal/git
 	internal/diff
@@ -60,6 +88,16 @@ INTEGRATION_DIRS=(
 
 MODULE="$(go list -m)"
 
+# The base is resolved here rather than inside a pipeline, where errexit does
+# not reach and an unresolvable ref would read as a branch that changed nothing.
+BASE=""
+if [ -n "$SINCE" ]; then
+	if ! BASE="$(git merge-base "$SINCE" HEAD)"; then
+		echo "go:test: $SINCE names no commit this branch shares history with" >&2
+		exit 1
+	fi
+fi
+
 integrationPackages() {
 	local dir
 	for dir in "${INTEGRATION_DIRS[@]}"; do
@@ -71,13 +109,10 @@ unitPackages() {
 	go list ./... | grep -vxF -f <(integrationPackages)
 }
 
-# changedFiles is what the branch has written since the ref, counting the files
+# changedFiles is what the branch has written since the base, counting the files
 # git has not been told about yet.
 changedFiles() {
-	local base
-	base="$(git merge-base "$SINCE" HEAD)"
-
-	git diff --name-only "$base"
+	git diff --name-only "$BASE"
 	git ls-files --others --exclude-standard
 }
 
@@ -132,20 +167,17 @@ unit)
 integration)
 	if [ -n "$SINCE" ] && doesChangeReachOnlyGo; then
 		mapfile -t PACKAGES < <(affectedIntegrationPackages)
+
+		# Selecting nothing is the answer here rather than a symptom, and it is
+		# the only arm where that is true.
+		if ((${#PACKAGES[@]} == 0)); then
+			echo "no integration test can be reached by what changed since $SINCE"
+			exit 0
+		fi
 	else
 		mapfile -t PACKAGES < <(integrationPackages)
 	fi
 	;;
-*)
-	echo "go:test: no kind of test called $KIND" >&2
-	usage >&2
-	exit 1
-	;;
 esac
-
-if ((${#PACKAGES[@]} == 0)); then
-	echo "no integration test can be reached by what changed since $SINCE"
-	exit 0
-fi
 
 gotestsum --format pkgname -- "${PACKAGES[@]}"

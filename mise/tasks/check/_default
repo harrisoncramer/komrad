@@ -32,6 +32,11 @@ while (($#)); do
 		;;
 	--kind)
 		KIND="${2:-}"
+		if [ -z "$KIND" ]; then
+			echo "check: --kind takes all, unit or integration" >&2
+			usage >&2
+			exit 1
+		fi
 		shift 2
 		;;
 	*)
@@ -41,6 +46,15 @@ while (($#)); do
 		;;
 	esac
 done
+
+case "$KIND" in
+all | unit | integration) ;;
+*)
+	echo "check: no kind of test called $KIND" >&2
+	usage >&2
+	exit 1
+	;;
+esac
 
 cd "$MISE_CONFIG_ROOT"
 
