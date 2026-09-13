@@ -1,5 +1,151 @@
 #!/usr/bin/env bash
-#MISE description="Run every Go test."
+source "$MISE_CONFIG_ROOT/mise/tasks/_"
 set -euo pipefail
+#MISE description="Run the Go tests, all of them or one kind."
+
+usage() {
+	echo "Usage: mise run go:test [--kind all|unit|integration] [--changed-since REF]"
+	echo
+	echo "Runs every test by default. A handful of packages drive a real git, a real"
+	echo "tmux or a real weave, which is slow and flakes when the machine is busy."
+	echo "Those are the integration tests and everything else is a unit test. The"
+	echo "same split is written into .golangci.yaml, which forbids a unit test from"
+	echo "reaching for either binary."
+	echo
+	echo "--changed-since takes a git ref and drops the integration packages that"
+	echo "cannot be affected by what changed since it. A package is kept when the"
+	echo "change touched something it imports, counting the imports of its tests, and"
+	echo "when anything outside Go changed at all. internal/e2e and internal/cli"
+	echo "import most of the module, so in practice they run whenever any Go file does."
+}
+
+KIND="all"
+SINCE=""
+
+while (($#)); do
+	case "$1" in
+	-h | --help)
+		usage
+		exit 0
+		;;
+	--kind)
+		KIND="${2:-}"
+		shift 2
+		;;
+	--changed-since)
+		SINCE="${2:-}"
+		shift 2
+		;;
+	*)
+		echo "go:test: unknown argument $1" >&2
+		usage >&2
+		exit 1
+		;;
+	esac
+done
+
 cd "$MISE_CONFIG_ROOT"
-gotestsum --format pkgname -- ./...
+
+# The integration packages, as directories. .golangci.yaml names the same set in
+# the forbidigo exclusion, so a package added here belongs there too.
+INTEGRATION_DIRS=(
+	internal/git
+	internal/diff
+	internal/scripts
+	internal/e2e
+	internal/tmux
+	internal/cli
+	cmd/paneldemo
+)
+
+MODULE="$(go list -m)"
+
+integrationPackages() {
+	local dir
+	for dir in "${INTEGRATION_DIRS[@]}"; do
+		echo "$MODULE/$dir"
+	done
+}
+
+unitPackages() {
+	go list ./... | grep -vxF -f <(integrationPackages)
+}
+
+# changedFiles is what the branch has written since the ref, counting the files
+# git has not been told about yet.
+changedFiles() {
+	local base
+	base="$(git merge-base "$SINCE" HEAD)"
+
+	git diff --name-only "$base"
+	git ls-files --others --exclude-standard
+}
+
+# changedPackages is the packages holding a Go file that changed since the ref,
+# and nothing for a change outside Go.
+changedPackages() {
+	local file dir
+
+	changedFiles | while IFS= read -r file; do
+		case "$file" in
+		*.go) ;;
+		*) continue ;;
+		esac
+
+		dir="$(dirname "$file")"
+		[ -d "$dir" ] || continue
+
+		go list "./$dir" 2>/dev/null || true
+	done | sort -u
+}
+
+# doesChangeReachOnlyGo reports whether everything that changed since the ref is
+# a Go file, since anything else can reach a test in ways nothing here models.
+doesChangeReachOnlyGo() {
+	! changedFiles | grep -qv '\.go$'
+}
+
+# affectedIntegrationPackages is the integration packages that import something
+# the change touched, reading the imports of their tests as well as their own.
+affectedIntegrationPackages() {
+	local changed pkg
+	changed="$(changedPackages)"
+
+	if [ -z "$changed" ]; then
+		return 0
+	fi
+
+	while IFS= read -r pkg; do
+		if go list -deps -test "$pkg" 2>/dev/null | grep -qxF -f <(echo "$changed"); then
+			echo "$pkg"
+		fi
+	done < <(integrationPackages)
+}
+
+case "$KIND" in
+all)
+	PACKAGES=(./...)
+	;;
+unit)
+	mapfile -t PACKAGES < <(unitPackages)
+	;;
+integration)
+	if [ -n "$SINCE" ] && doesChangeReachOnlyGo; then
+		mapfile -t PACKAGES < <(affectedIntegrationPackages)
+	else
+		mapfile -t PACKAGES < <(integrationPackages)
+	fi
+	;;
+*)
+	echo "go:test: no kind of test called $KIND" >&2
+	usage >&2
+	exit 1
+	;;
+esac
+
+if ((${#PACKAGES[@]} == 0)); then
+	echo "no integration test can be reached by what changed since $SINCE"
+	exit 0
+fi
+
+gotestsum --format pkgname -- "${PACKAGES[@]}"

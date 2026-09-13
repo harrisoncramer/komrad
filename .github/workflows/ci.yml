@@ -60,14 +60,6 @@ jobs:
         with:
           gh-access-token: ${{ env.GH_ACCESS_TOKEN }}
 
-      # The agents reconciler drives a real tmux server instead of a fake, and
-      # those tests skip themselves when tmux is missing rather than failing, so
-      # without this they would quietly not run. less is what the panel pages a
-      # dormant agent's placeholder into a pane with, and a runner missing it
-      # fails those tests rather than skipping them.
-      - name: Install tmux
-        run: sudo apt-get update && sudo apt-get install -y tmux less
-
       # go:lint builds golangci-lint from source to bundle the repo's plugin,
       # which dominates the job. The binary only changes when the plugin or its
       # pin does, so it is cached against those rather than rebuilt every run.
@@ -77,5 +69,70 @@ jobs:
           path: local/custom-gcl
           key: custom-gcl-${{ runner.os }}-${{ hashFiles('.custom-gcl.yml') }}
 
+      # The unit tests are the packages that do not drive a real git. They still
+      # drive a real tmux from the panel and the agents reconciler, and those
+      # tests skip themselves when tmux is missing rather than failing, so
+      # without this they would quietly not run. less is what the panel pages a
+      # dormant agent's placeholder into a pane with.
+      - name: Install tmux
+        run: sudo apt-get update && sudo apt-get install -y tmux less
+
       - name: Check
-        run: mise run check
+        run: mise run check --kind unit
+
+  # The integration tests drive a real git, a real tmux and a real weave. They
+  # are a job of their own so they run beside the rest rather than after it, and
+  # on a pull request they run only the packages the branch can reach.
+  integration:
+    runs-on: namespace-profile-harrisoncramer
+
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: weave
+          POSTGRES_PASSWORD: weave
+          POSTGRES_DB: weave
+        ports:
+          - 5460:5432
+        options: >-
+          --health-cmd "pg_isready -U weave"
+          --health-interval 2s
+          --health-timeout 5s
+          --health-retries 15
+
+    env:
+      WEAVE_DATABASE_URL: postgres://weave:weave@localhost:5460/weave?sslmode=disable
+      GOFLAGS: -count=1
+
+    steps:
+      # The whole history, since which tests to run is chosen from what changed
+      # against the base branch and a shallow clone has no merge base to ask about.
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Cache the Go and lint caches
+        uses: namespacelabs/nscloud-cache-action@v1
+        with:
+          cache: go
+
+      - name: Use Mise
+        uses: ./.github/actions/use-mise
+        with:
+          gh-access-token: ${{ env.GH_ACCESS_TOKEN }}
+
+      # The tmux tests skip themselves when tmux is missing rather than failing,
+      # so without this they would quietly not run. less is what the panel pages
+      # a dormant agent's placeholder into a pane with.
+      - name: Install tmux
+        run: sudo apt-get update && sudo apt-get install -y tmux less
+
+      - name: Run the integration tests
+        run: |
+          if [ -n "${{ github.base_ref }}" ]; then
+            git fetch --quiet origin "${{ github.base_ref }}"
+            mise run go:test --kind integration --changed-since "origin/${{ github.base_ref }}"
+          else
+            mise run go:test --kind integration
+          fi
