@@ -244,8 +244,7 @@ func (m model) hideAgent(agent agentstore.Agent) (tea.Model, tea.Cmd) {
 	return m, m.writeCmd(failure, func(a api) error { return a.setHidden(agent, !agent.Hidden) })
 }
 
-// releaseSaid is what a released agent is told, which is a turn rather than a silence: letting go
-// of one that never starts again is a stop with a friendlier name.
+// releaseSaid is what a released agent is told.
 const releaseSaid = "I stopped you for a moment and have let you go now. " +
 	"Look at your worktree as it stands before carrying on, since it may have changed while you were held."
 

@@ -299,3 +299,28 @@ func TestRebasingAHeldAgentIsRefused(t *testing.T) {
 	_, err := service.Rebase(t.Context(), "a1")
 	require.ErrorIs(t, err, ErrAgentHeld)
 }
+
+// TestReleaseKeepsTheHoldWhenTheBoxRefuses covers the box that will not take the words: letting go
+// there would leave an interrupted agent with nothing to carry on from and call it success.
+func TestReleaseKeepsTheHoldWhenTheBoxRefuses(t *testing.T) {
+	st := newStore(t)
+	agent := seed(t, st, "telescope", "%1", agentstore.StateThinking)
+
+	channel := &fakeChannel{}
+	holder := holderOver(st, channel, &settlingObserver{readings: []harness.Activity{
+		harness.ActivityWorking,
+		harness.ActivityIdle,
+	}})
+
+	_, err := holder.Hold(t.Context(), agent.ID)
+	require.NoError(t, err)
+
+	channel.refuseSend = true
+
+	_, err = holder.Release(t.Context(), ReleaseParams{AgentID: agent.ID, Said: "carry on"})
+	require.ErrorIs(t, err, ErrReleaseRefused)
+
+	after := agentByID(t, st, agent.ID)
+	require.NotNil(t, after.HeldAt, "the hold stands, so pressing the key again is the recovery")
+	assert.True(t, after.HeldMidTurn)
+}

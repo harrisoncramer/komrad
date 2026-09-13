@@ -14,6 +14,9 @@ import (
 // ErrHoldRefused is an agent that would not settle, so nobody may claim its worktree.
 var ErrHoldRefused = errors.New("the agent did not stop")
 
+// ErrReleaseRefused is a release that could not tell the agent to carry on, so the hold stands.
+var ErrReleaseRefused = errors.New("the agent could not be told to carry on")
+
 // ErrNotHeld is a release of an agent nobody was holding.
 var ErrNotHeld = errors.New("nobody is holding this agent")
 
@@ -185,8 +188,18 @@ func (h *Holder) Release(ctx context.Context, params ReleaseParams) (agentstore.
 	// on with, so typing at it would start work nobody asked for. Only a turn this hold cut short
 	// is one the agent was in the middle of.
 	if agent.HeldMidTurn && params.Said != "" && agent.Pane != "" {
-		if _, err := h.channel.Send(ctx, buildTarget(agent), params.Said); err != nil {
+		said, err := h.channel.Send(ctx, buildTarget(agent), params.Said)
+		if err != nil {
 			return agentstore.Agent{}, fmt.Errorf("failed to say what changed to %q: %w", agent.Name, err)
+		}
+
+		// Explainer: a box that would not take the words leaves an agent that was interrupted with
+		// nothing to carry on from, so letting go here would stop it for good and call that
+		// success. The hold is kept instead, which leaves the key meaning something and makes
+		// pressing it again the whole recovery.
+		if !said {
+			return agentstore.Agent{}, fmt.Errorf("%w: %q, its input box would not take the words",
+				ErrReleaseRefused, agent.Name)
 		}
 	}
 

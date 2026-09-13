@@ -98,3 +98,39 @@ func TestHoldingSendsNoWordsToTheAgent(t *testing.T) {
 	assert.Equal(t, []string{"a1"}, agents.held)
 	assert.Empty(t, agents.released)
 }
+
+// TestAHeldAgentThatWorksAgainSaysSo is the answer to the one window a hold cannot close: it is
+// taken on a single reading, so an agent that was about to start a turn reads like one that
+// stopped, and the row is where weave admits it rather than letting go on the person's behalf.
+func TestAHeldAgentThatWorksAgainSaysSo(t *testing.T) {
+	at := time.Now()
+
+	stopped := agentItem{agent: agentstore.Agent{
+		Name:   "telescope",
+		State:  agentstore.StateIdle,
+		HeldAt: &at,
+	}, alive: true}
+
+	working := agentItem{agent: agentstore.Agent{
+		Name:   "telescope",
+		State:  agentstore.StateThinking,
+		HeldAt: &at,
+	}, alive: true}
+
+	assert.Contains(t, noticeTexts(agentNotices(stopped)), heldNotice)
+	assert.NotContains(t, noticeTexts(agentNotices(stopped)), heldWorkingNotice)
+
+	assert.Contains(t, noticeTexts(agentNotices(working)), heldWorkingNotice,
+		"a held agent that is writing again is not the same fact as a held agent")
+	assert.NotContains(t, noticeTexts(agentNotices(working)), heldNotice)
+}
+
+// noticeTexts is what a row's notices say, without their icons.
+func noticeTexts(notices []notice) []string {
+	said := make([]string, 0, len(notices))
+	for _, n := range notices {
+		said = append(said, n.text)
+	}
+
+	return said
+}

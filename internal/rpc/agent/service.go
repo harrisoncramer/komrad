@@ -614,7 +614,8 @@ func (s *Service) ReleaseAgent(ctx context.Context, req *connect.Request[agentv1
 	if err != nil {
 		return nil, rpcerr.Wrap(err, "failed to release agent",
 			rpcerr.Saying(agents.ErrAgentNotFound, "no agent with id %q", req.Msg.GetId()),
-			rpcerr.Saying(agents.ErrNotHeld, "nobody is holding %q", req.Msg.GetId()))
+			rpcerr.Saying(agents.ErrNotHeld, "nobody is holding %q", req.Msg.GetId()),
+			rpcerr.Saying(agents.ErrReleaseRefused, "%q could not be told to carry on, so it is still held", req.Msg.GetId()))
 	}
 
 	rendered, err := s.renderOneAgent(ctx, released)
