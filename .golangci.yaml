@@ -10,6 +10,7 @@ issues:
 linters:
   enable:
     - bodyclose
+    - weavelint
     - unparam
     - exhaustive
     - fussy
@@ -194,6 +195,31 @@ linters:
         - switch
       default-signifies-exhaustive: false
     custom:
+      weavelint:
+        type: module
+        description: Checks for this repo; a sentinel error must declare the kind of failure it is, and a connect handler must hand its strict half to the adapter rather than answering for itself.
+        settings:
+          handler_shape:
+            skip: false
+            # Unanchored regexps over the path lint was run from. The adapter's own signature is
+            # the one this rule looks for, and the panel demo serves canned data rather than a
+            # domain's failures.
+            exclude:
+              - ^internal/rpcerr/
+              - ^cmd/paneldemo/
+          sentinel_kind:
+            skip: false
+            # Unanchored regexps over the path lint was run from. Nothing a caller reaches
+            # through the RPC layer is declared in these, so their sentinels answer no status
+            # code: the panel's own screens, the CLI's control flow, the diff the panel draws
+            # for itself, configuration, and the pool held open before a request can arrive.
+            exclude:
+              - ^internal/ui/
+              - ^internal/cli/
+              - ^internal/diff/
+              - ^internal/interceptors/
+              - ^config/
+              - ^db/
       fussy:
         type: module
         description: Checks for this repo; forbids bare os environment access and a nil pointer returned with a nil error, asks the panel to bound the contexts it starts, keeps doc comments present and prefixed with the identifier name, and holds comments to a single sentence.

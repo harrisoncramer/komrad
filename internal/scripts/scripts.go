@@ -12,7 +12,6 @@ package scripts
 import (
 	"bytes"
 	"context"
-	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -21,16 +20,17 @@ import (
 	"syscall"
 	"time"
 
+	"weave/internal/fail"
 	"weave/internal/logging"
 )
 
-var ErrNotExecutable = errors.New("the file is not executable: run chmod +x on it")
+var ErrNotExecutable = fail.Precondition("the file is not executable: run chmod +x on it")
 
-var ErrNotStartable = errors.New("the file could not be started")
+var ErrNotStartable = fail.Precondition("the file could not be started")
 
-var ErrDirMissing = errors.New("the directory to run in does not exist")
+var ErrDirMissing = fail.Precondition("the directory to run in does not exist")
 
-var ErrFailed = errors.New("the script exited non-zero")
+var ErrFailed = fail.Internal("the script exited non-zero")
 
 const killDelay = 2 * time.Second
 

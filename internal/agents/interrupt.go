@@ -3,7 +3,6 @@ package agents
 import (
 	"context"
 	"errors"
-	"fmt"
 
 	"weave/internal/harness"
 	"weave/internal/store"
@@ -32,7 +31,7 @@ func NewInterrupter(params NewInterrupterParams) *Interrupter {
 func (i *Interrupter) Interrupt(ctx context.Context, agentID string) error {
 	agent, err := i.agents.GetByID(ctx, agentID)
 	if errors.Is(err, store.ErrNotFound) {
-		return fmt.Errorf("%w: %q", ErrAgentNotFound, agentID)
+		return ErrAgentNotFound.Saying("no agent with id %q", agentID)
 	}
 	if err != nil {
 		return err

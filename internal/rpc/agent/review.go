@@ -2,16 +2,14 @@ package agent
 
 import (
 	"context"
-	"errors"
 
 	"weave/internal/agents"
 	"weave/internal/caller"
+	"weave/internal/fail"
 	"weave/internal/rpcerr"
 	reviewstore "weave/internal/store/review"
 	"weave/lib/dates"
 	agentv1 "weave/proto/gen/agent/v1"
-
-	"connectrpc.com/connect"
 )
 
 type reviewConversation interface {
@@ -34,20 +32,20 @@ type reviewConversation interface {
 	ListReviewViewedFiles(ctx context.Context, params agents.ListReviewViewedFilesParams) ([]reviewstore.ViewedFile, error)
 }
 
+// errUnnamedReview is a request to read a review without saying whose, from something that is
+// not an agent with a review of its own.
+var errUnnamedReview = fail.InvalidArgument("name the agent whose review you are reading")
+
 // ListReviewThreads reads the review pinned to an agent's diff.
-func (s *Service) ListReviewThreads(
-	ctx context.Context,
-	req *connect.Request[agentv1.ListReviewThreadsRequest],
-) (*connect.Response[agentv1.ListReviewThreadsResponse], error) {
+func (s *Service) ListReviewThreads(ctx context.Context, req *agentv1.ListReviewThreadsRequest) (*agentv1.ListReviewThreadsResponse, *fail.Error) {
 	author := reviewAuthorFrom(ctx)
 
-	agentID := req.Msg.GetAgentId()
+	agentID := req.GetAgentId()
 	if agentID == "" && author.AgentID != nil {
 		agentID = *author.AgentID
 	}
 	if agentID == "" {
-		return nil, connect.NewError(connect.CodeInvalidArgument,
-			errors.New("name the agent whose review you are reading"))
+		return nil, errUnnamedReview
 	}
 
 	threads, err := s.review.ListReviewThreads(ctx, agents.ListReviewThreadsParams{
@@ -55,7 +53,7 @@ func (s *Service) ListReviewThreads(
 		Author:  author,
 	})
 	if err != nil {
-		return nil, rpcerr.Wrap(err, "failed to list the review threads")
+		return nil, rpcerr.From(err, "failed to list the review threads")
 	}
 
 	answered := make([]*agentv1.ReviewThread, 0, len(threads))
@@ -63,129 +61,108 @@ func (s *Service) ListReviewThreads(
 		answered = append(answered, toReviewThread(thread))
 	}
 
-	return connect.NewResponse(&agentv1.ListReviewThreadsResponse{Threads: answered}), nil
+	return &agentv1.ListReviewThreadsResponse{Threads: answered}, nil
 }
 
 // CreateReviewThread pins a conversation to a place in a diff and writes its first message.
-func (s *Service) CreateReviewThread(
-	ctx context.Context,
-	req *connect.Request[agentv1.CreateReviewThreadRequest],
-) (*connect.Response[agentv1.CreateReviewThreadResponse], error) {
+func (s *Service) CreateReviewThread(ctx context.Context, req *agentv1.CreateReviewThreadRequest) (*agentv1.CreateReviewThreadResponse, *fail.Error) {
 	thread, err := s.review.CreateReviewThread(ctx, agents.CreateReviewThreadParams{
-		AgentID:     req.Msg.GetAgentId(),
-		BaseSHA:     req.Msg.GetBaseSha(),
-		SnapshotSHA: req.Msg.GetSnapshotSha(),
-		FilePath:    req.Msg.GetFilePath(),
-		OldStart:    req.Msg.GetOldStart(),
-		OldEnd:      req.Msg.GetOldEnd(),
-		NewStart:    req.Msg.GetNewStart(),
-		NewEnd:      req.Msg.GetNewEnd(),
-		QuotedLines: req.Msg.GetQuotedLines(),
-		Body:        req.Msg.GetBody(),
-		Suggestion:  req.Msg.GetSuggestion(),
+		AgentID:     req.GetAgentId(),
+		BaseSHA:     req.GetBaseSha(),
+		SnapshotSHA: req.GetSnapshotSha(),
+		FilePath:    req.GetFilePath(),
+		OldStart:    req.GetOldStart(),
+		OldEnd:      req.GetOldEnd(),
+		NewStart:    req.GetNewStart(),
+		NewEnd:      req.GetNewEnd(),
+		QuotedLines: req.GetQuotedLines(),
+		Body:        req.GetBody(),
+		Suggestion:  req.GetSuggestion(),
 		Author:      reviewAuthorFrom(ctx),
 	})
 	if err != nil {
-		return nil, rpcerr.Wrap(err, "failed to create the review thread")
+		return nil, rpcerr.From(err, "failed to create the review thread")
 	}
 
-	return connect.NewResponse(&agentv1.CreateReviewThreadResponse{Thread: toReviewThread(*thread)}), nil
+	return &agentv1.CreateReviewThreadResponse{Thread: toReviewThread(*thread)}, nil
 }
 
 // AddReviewMessage says something in an existing thread, as whoever is calling.
-func (s *Service) AddReviewMessage(
-	ctx context.Context,
-	req *connect.Request[agentv1.AddReviewMessageRequest],
-) (*connect.Response[agentv1.AddReviewMessageResponse], error) {
+func (s *Service) AddReviewMessage(ctx context.Context, req *agentv1.AddReviewMessageRequest) (*agentv1.AddReviewMessageResponse, *fail.Error) {
 	message, err := s.review.AddReviewMessage(ctx, agents.AddReviewMessageParams{
-		ThreadID:   req.Msg.GetThreadId(),
-		Body:       req.Msg.GetBody(),
-		Suggestion: req.Msg.GetSuggestion(),
+		ThreadID:   req.GetThreadId(),
+		Body:       req.GetBody(),
+		Suggestion: req.GetSuggestion(),
 		Author:     reviewAuthorFrom(ctx),
 	})
 	if err != nil {
-		return nil, rpcerr.Wrap(err, "failed to add the review message")
+		return nil, rpcerr.From(err, "failed to add the review message")
 	}
 
-	return connect.NewResponse(&agentv1.AddReviewMessageResponse{Message: toReviewMessage(*message)}), nil
+	return &agentv1.AddReviewMessageResponse{Message: toReviewMessage(*message)}, nil
 }
 
 // EditReviewMessage rewrites what was said.
-func (s *Service) EditReviewMessage(
-	ctx context.Context,
-	req *connect.Request[agentv1.EditReviewMessageRequest],
-) (*connect.Response[agentv1.EditReviewMessageResponse], error) {
+func (s *Service) EditReviewMessage(ctx context.Context, req *agentv1.EditReviewMessageRequest) (*agentv1.EditReviewMessageResponse, *fail.Error) {
 	message, err := s.review.EditReviewMessage(ctx, agents.EditReviewMessageParams{
-		ID:         req.Msg.GetId(),
-		Body:       req.Msg.GetBody(),
-		Suggestion: req.Msg.GetSuggestion(),
+		ID:         req.GetId(),
+		Body:       req.GetBody(),
+		Suggestion: req.GetSuggestion(),
 		Author:     reviewAuthorFrom(ctx),
 	})
 	if err != nil {
-		return nil, rpcerr.Wrap(err, "failed to edit the review message")
+		return nil, rpcerr.From(err, "failed to edit the review message")
 	}
 
-	return connect.NewResponse(&agentv1.EditReviewMessageResponse{Message: toReviewMessage(*message)}), nil
+	return &agentv1.EditReviewMessageResponse{Message: toReviewMessage(*message)}, nil
 }
 
 // MarkReviewThreadRead catches the calling side up on one conversation.
-func (s *Service) MarkReviewThreadRead(
-	ctx context.Context,
-	req *connect.Request[agentv1.MarkReviewThreadReadRequest],
-) (*connect.Response[agentv1.MarkReviewThreadReadResponse], error) {
+func (s *Service) MarkReviewThreadRead(ctx context.Context, req *agentv1.MarkReviewThreadReadRequest) (*agentv1.MarkReviewThreadReadResponse, *fail.Error) {
 	thread, err := s.review.MarkReviewThreadRead(ctx, agents.MarkReviewThreadReadParams{
-		ID:     req.Msg.GetId(),
+		ID:     req.GetId(),
 		Author: reviewAuthorFrom(ctx),
 	})
 	if err != nil {
-		return nil, rpcerr.Wrap(err, "failed to mark the review thread read")
+		return nil, rpcerr.From(err, "failed to mark the review thread read")
 	}
 
-	return connect.NewResponse(&agentv1.MarkReviewThreadReadResponse{
+	return &agentv1.MarkReviewThreadReadResponse{
 		Thread: toReviewThread(agents.ReviewThreadWithMessages{Thread: *thread}),
-	}), nil
+	}, nil
 }
 
 // SetReviewThreadResolved settles one conversation, or reopens it.
-func (s *Service) SetReviewThreadResolved(
-	ctx context.Context,
-	req *connect.Request[agentv1.SetReviewThreadResolvedRequest],
-) (*connect.Response[agentv1.SetReviewThreadResolvedResponse], error) {
+func (s *Service) SetReviewThreadResolved(ctx context.Context, req *agentv1.SetReviewThreadResolvedRequest) (*agentv1.SetReviewThreadResolvedResponse, *fail.Error) {
 	thread, err := s.review.SetReviewThreadResolved(ctx, agents.SetReviewThreadResolvedParams{
-		ID:       req.Msg.GetId(),
-		Resolved: req.Msg.GetResolved(),
+		ID:       req.GetId(),
+		Resolved: req.GetResolved(),
 		Author:   reviewAuthorFrom(ctx),
 	})
 	if err != nil {
-		return nil, rpcerr.Wrap(err, "failed to set the review thread resolved")
+		return nil, rpcerr.From(err, "failed to set the review thread resolved")
 	}
 
-	return connect.NewResponse(&agentv1.SetReviewThreadResolvedResponse{
+	return &agentv1.SetReviewThreadResolvedResponse{
 		Thread: toReviewThread(agents.ReviewThreadWithMessages{Thread: *thread}),
-	}), nil
+	}, nil
 }
 
 // OpenReviewRound freezes what an agent has written and records it as its next round.
-func (s *Service) OpenReviewRound(
-	ctx context.Context,
-	req *connect.Request[agentv1.OpenReviewRoundRequest],
-) (*connect.Response[agentv1.OpenReviewRoundResponse], error) {
-	round, err := s.review.OpenRound(ctx, req.Msg.GetAgentId(), reviewAuthorFrom(ctx))
+func (s *Service) OpenReviewRound(ctx context.Context, req *agentv1.OpenReviewRoundRequest) (*agentv1.OpenReviewRoundResponse, *fail.Error) {
+	round, err := s.review.OpenRound(ctx, req.GetAgentId(), reviewAuthorFrom(ctx))
 	if err != nil {
-		return nil, rpcerr.Wrap(err, "failed to open a review round")
+		return nil, rpcerr.From(err, "failed to open a review round")
 	}
 
-	return connect.NewResponse(&agentv1.OpenReviewRoundResponse{Round: toReviewRound(*round)}), nil
+	return &agentv1.OpenReviewRoundResponse{Round: toReviewRound(*round)}, nil
 }
 
 // ListReviewRounds reads every round taken of an agent.
-func (s *Service) ListReviewRounds(
-	ctx context.Context,
-	req *connect.Request[agentv1.ListReviewRoundsRequest],
-) (*connect.Response[agentv1.ListReviewRoundsResponse], error) {
-	rounds, err := s.review.ListRounds(ctx, req.Msg.GetAgentId(), reviewAuthorFrom(ctx))
+func (s *Service) ListReviewRounds(ctx context.Context, req *agentv1.ListReviewRoundsRequest) (*agentv1.ListReviewRoundsResponse, *fail.Error) {
+	rounds, err := s.review.ListRounds(ctx, req.GetAgentId(), reviewAuthorFrom(ctx))
 	if err != nil {
-		return nil, rpcerr.Wrap(err, "failed to list the review rounds")
+		return nil, rpcerr.From(err, "failed to list the review rounds")
 	}
 
 	answered := make([]*agentv1.ReviewRound, 0, len(rounds))
@@ -193,17 +170,14 @@ func (s *Service) ListReviewRounds(
 		answered = append(answered, toReviewRound(round))
 	}
 
-	return connect.NewResponse(&agentv1.ListReviewRoundsResponse{Rounds: answered}), nil
+	return &agentv1.ListReviewRoundsResponse{Rounds: answered}, nil
 }
 
 // ListReviews reads every review given on an agent.
-func (s *Service) ListReviews(
-	ctx context.Context,
-	req *connect.Request[agentv1.ListReviewsRequest],
-) (*connect.Response[agentv1.ListReviewsResponse], error) {
-	reviews, err := s.review.ListReviews(ctx, req.Msg.GetAgentId(), reviewAuthorFrom(ctx))
+func (s *Service) ListReviews(ctx context.Context, req *agentv1.ListReviewsRequest) (*agentv1.ListReviewsResponse, *fail.Error) {
+	reviews, err := s.review.ListReviews(ctx, req.GetAgentId(), reviewAuthorFrom(ctx))
 	if err != nil {
-		return nil, rpcerr.Wrap(err, "failed to list the reviews")
+		return nil, rpcerr.From(err, "failed to list the reviews")
 	}
 
 	answered := make([]*agentv1.Review, 0, len(reviews))
@@ -211,45 +185,39 @@ func (s *Service) ListReviews(
 		answered = append(answered, toReview(review))
 	}
 
-	return connect.NewResponse(&agentv1.ListReviewsResponse{Reviews: answered}), nil
+	return &agentv1.ListReviewsResponse{Reviews: answered}, nil
 }
 
 // ReleaseReview releases the caller's open review, writing it out and mailing the path.
-func (s *Service) ReleaseReview(
-	ctx context.Context,
-	req *connect.Request[agentv1.ReleaseReviewRequest],
-) (*connect.Response[agentv1.ReleaseReviewResponse], error) {
+func (s *Service) ReleaseReview(ctx context.Context, req *agentv1.ReleaseReviewRequest) (*agentv1.ReleaseReviewResponse, *fail.Error) {
 	result, err := s.review.ReleaseReview(ctx, agents.ReleaseReviewParams{
-		AgentID:   req.Msg.GetAgentId(),
-		Verdict:   fromReviewVerdict(req.Msg.GetVerdict()),
-		Body:      req.Msg.GetBody(),
-		Interrupt: req.Msg.GetInterrupt(),
+		AgentID:   req.GetAgentId(),
+		Verdict:   fromReviewVerdict(req.GetVerdict()),
+		Body:      req.GetBody(),
+		Interrupt: req.GetInterrupt(),
 		Author:    reviewAuthorFrom(ctx),
 	})
 	if err != nil {
-		return nil, rpcerr.Wrap(err, "failed to release the review")
+		return nil, rpcerr.From(err, "failed to release the review")
 	}
 
-	return connect.NewResponse(&agentv1.ReleaseReviewResponse{
+	return &agentv1.ReleaseReviewResponse{
 		Review:   toReview(result.Review),
 		Comments: int32(result.Comments),
 		Path:     result.Path,
-	}), nil
+	}, nil
 }
 
 // SetReviewFileViewed marks one file of a diff read, or drops the mark.
-func (s *Service) SetReviewFileViewed(
-	ctx context.Context,
-	req *connect.Request[agentv1.SetReviewFileViewedRequest],
-) (*connect.Response[agentv1.SetReviewFileViewedResponse], error) {
+func (s *Service) SetReviewFileViewed(ctx context.Context, req *agentv1.SetReviewFileViewedRequest) (*agentv1.SetReviewFileViewedResponse, *fail.Error) {
 	viewed, err := s.review.SetReviewFileViewed(ctx, agents.SetReviewFileViewedParams{
-		RoundID:  req.Msg.GetRoundId(),
-		FilePath: req.Msg.GetFilePath(),
-		Viewed:   req.Msg.GetViewed(),
+		RoundID:  req.GetRoundId(),
+		FilePath: req.GetFilePath(),
+		Viewed:   req.GetViewed(),
 		Author:   reviewAuthorFrom(ctx),
 	})
 	if err != nil {
-		return nil, rpcerr.Wrap(err, "failed to set the file viewed")
+		return nil, rpcerr.From(err, "failed to set the file viewed")
 	}
 
 	answered := &agentv1.SetReviewFileViewedResponse{}
@@ -257,20 +225,17 @@ func (s *Service) SetReviewFileViewed(
 		answered.Viewed = toReviewViewedFile(*viewed)
 	}
 
-	return connect.NewResponse(answered), nil
+	return answered, nil
 }
 
 // ListReviewViewedFiles reads which files of an agent's diff have been marked read.
-func (s *Service) ListReviewViewedFiles(
-	ctx context.Context,
-	req *connect.Request[agentv1.ListReviewViewedFilesRequest],
-) (*connect.Response[agentv1.ListReviewViewedFilesResponse], error) {
+func (s *Service) ListReviewViewedFiles(ctx context.Context, req *agentv1.ListReviewViewedFilesRequest) (*agentv1.ListReviewViewedFilesResponse, *fail.Error) {
 	files, err := s.review.ListReviewViewedFiles(ctx, agents.ListReviewViewedFilesParams{
-		RoundID: req.Msg.GetRoundId(),
+		RoundID: req.GetRoundId(),
 		Author:  reviewAuthorFrom(ctx),
 	})
 	if err != nil {
-		return nil, rpcerr.Wrap(err, "failed to list the viewed files")
+		return nil, rpcerr.From(err, "failed to list the viewed files")
 	}
 
 	answered := make([]*agentv1.ReviewViewedFile, 0, len(files))
@@ -278,7 +243,7 @@ func (s *Service) ListReviewViewedFiles(
 		answered = append(answered, toReviewViewedFile(file))
 	}
 
-	return connect.NewResponse(&agentv1.ListReviewViewedFilesResponse{Viewed: answered}), nil
+	return &agentv1.ListReviewViewedFilesResponse{Viewed: answered}, nil
 }
 
 // reviewAuthorFrom reads who a call belongs to from the identity on it, so an agent cannot post

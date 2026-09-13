@@ -7,14 +7,15 @@ import (
 	"slices"
 
 	"weave/db/models"
+	"weave/internal/fail"
 	"weave/internal/store"
 )
 
 var (
-	ErrTooManyMetadataKeys = errors.New("too many metadata keys")
+	ErrTooManyMetadataKeys = fail.Exhausted("too many metadata keys")
 
 	// ErrOrchestratorPullRequest refuses an orchestrator the pull request key.
-	ErrOrchestratorPullRequest = errors.New("an orchestrator opens no pull request of its own")
+	ErrOrchestratorPullRequest = fail.Denied("an orchestrator opens no pull request of its own")
 )
 
 // MetadataKeyPR is the key an agent records its own pull request under.
@@ -126,7 +127,7 @@ func (s *Store) SetMetadata(ctx context.Context, params SetMetadataParams) (bool
 		return row.Key == params.Key
 	})
 	if len(held) >= maxMetadataKeys && !revising {
-		return false, ErrTooManyMetadataKeys
+		return false, ErrTooManyMetadataKeys.Saying("agent %q already holds as much metadata as it may", params.ID)
 	}
 
 	written, err := queries.SetAgentMetadata(ctx, models.SetAgentMetadataParams{

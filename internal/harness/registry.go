@@ -5,9 +5,11 @@ import (
 	"fmt"
 	"slices"
 	"strings"
+
+	"weave/internal/fail"
 )
 
-var ErrNotRegistered = errors.New("harness not registered")
+var ErrNotRegistered = fail.InvalidArgument("harness not registered")
 
 type Registry struct {
 	harnesses map[string]Harness

@@ -1,15 +1,15 @@
 package scripts
 
 import (
-	"errors"
 	"fmt"
 	"slices"
 	"strings"
 
+	"weave/internal/fail"
 	"weave/lib/xslice"
 )
 
-var ErrScriptNotFound = errors.New("script not found")
+var ErrScriptNotFound = fail.NotFound("script not found")
 
 // List returns every script across dirs in name order, an earlier dir's file winning over a
 // later one offering the same name.

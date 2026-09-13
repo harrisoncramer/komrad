@@ -100,7 +100,7 @@ func (s *ResumeService) ResumeAgent(ctx context.Context, id string) (*agentstore
 func (s *ResumeService) getByID(ctx context.Context, id string) (*agentstore.Agent, error) {
 	agent, err := s.agents.GetByID(ctx, id)
 	if errors.Is(err, store.ErrNotFound) {
-		return nil, ErrAgentNotFound
+		return nil, ErrAgentNotFound.Saying("no agent with id %q", id)
 	}
 	if err != nil {
 		return nil, err

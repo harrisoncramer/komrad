@@ -8,6 +8,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+
+	"weave/internal/fail"
 )
 
 // Explainer: a rebase that stops on conflicts is reported and left in place rather than
@@ -30,13 +32,13 @@ import (
 // origin/HEAD back, which is what would otherwise make the base fall through to literal HEAD.
 
 // ErrRebaseConflicted says a rebase stopped part-way on paths it could not settle.
-var ErrRebaseConflicted = errors.New("the rebase stopped on conflicts")
+var ErrRebaseConflicted = fail.Precondition("the rebase stopped on conflicts")
 
 // ErrBaseUnresolved says the base to rebase onto is not a ref this repository can reach.
-var ErrBaseUnresolved = errors.New("the base branch does not resolve to a remote-tracking ref")
+var ErrBaseUnresolved = fail.Precondition("the base branch does not resolve to a remote-tracking ref")
 
 // ErrBaseUnrelated says the base shares no history with the branch, so nothing relates them.
-var ErrBaseUnrelated = errors.New("the base shares no history with this branch")
+var ErrBaseUnrelated = fail.Precondition("the base shares no history with this branch")
 
 // sequenceMarkers are the paths git keeps while something else owns the index.
 var sequenceMarkers = []string{"MERGE_HEAD", "CHERRY_PICK_HEAD", "REVERT_HEAD", "rebase-merge", "rebase-apply"}

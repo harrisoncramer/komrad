@@ -85,12 +85,12 @@ func (s *Store) GetInWorkflow(ctx context.Context, workflowID, name string) (*Ag
 // GetByID returns a live or archived agent by ID.
 func (s *Store) GetByID(ctx context.Context, id string) (*Agent, error) {
 	if !store.IsID(id) {
-		return nil, fmt.Errorf("%w: agent %q", store.ErrNotFound, id)
+		return nil, store.ErrNotFound.Saying("no agent with id %q", id)
 	}
 
 	row, err := s.queries.GetAgentByID(ctx, id)
 	if db.IsNoRows(err) {
-		return nil, fmt.Errorf("%w: agent %q", store.ErrNotFound, id)
+		return nil, store.ErrNotFound.Saying("no agent with id %q", id)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to get agent %q: %w", id, err)

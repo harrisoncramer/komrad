@@ -6,3 +6,6 @@ plugins:
   - local: protoc-gen-connect-go
     out: gen
     opt: paths=source_relative
+  - local: ["go", "run", "../cmd/protoc-gen-weave-rpc"]
+    out: gen
+    opt: paths=source_relative

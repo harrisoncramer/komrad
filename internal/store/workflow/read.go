@@ -91,12 +91,12 @@ func (s *Store) ListPage(ctx context.Context, limit int64, cursor *Cursor, archi
 // Get returns a live workflow by id, or ErrNotFound when none has that id.
 func (s *Store) Get(ctx context.Context, id string) (*Workflow, error) {
 	if !store.IsID(id) {
-		return nil, fmt.Errorf("%w: workflow %q", store.ErrNotFound, id)
+		return nil, store.ErrNotFound.Saying("no workflow with id %q", id)
 	}
 
 	row, err := s.queries.GetWorkflow(ctx, id)
 	if db.IsNoRows(err) {
-		return nil, fmt.Errorf("%w: workflow %q", store.ErrNotFound, id)
+		return nil, store.ErrNotFound.Saying("no workflow with id %q", id)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to get workflow %q: %w", id, err)
@@ -116,12 +116,12 @@ func (s *Store) Get(ctx context.Context, id string) (*Workflow, error) {
 // ErrNotFound when none has that id.
 func (s *Store) GetIncludingArchived(ctx context.Context, id string) (*Workflow, error) {
 	if !store.IsID(id) {
-		return nil, fmt.Errorf("%w: workflow %q", store.ErrNotFound, id)
+		return nil, store.ErrNotFound.Saying("no workflow with id %q", id)
 	}
 
 	row, err := s.queries.GetWorkflowIncludingArchived(ctx, id)
 	if db.IsNoRows(err) {
-		return nil, fmt.Errorf("%w: workflow %q", store.ErrNotFound, id)
+		return nil, store.ErrNotFound.Saying("no workflow with id %q", id)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to get workflow %q: %w", id, err)

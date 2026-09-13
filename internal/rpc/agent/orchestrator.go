@@ -5,10 +5,9 @@ import (
 
 	agentv1 "weave/proto/gen/agent/v1"
 
+	"weave/internal/fail"
 	"weave/internal/rpcerr"
 	agentstore "weave/internal/store/agent"
-
-	"connectrpc.com/connect"
 )
 
 type orchestratorStarter interface {
@@ -19,17 +18,17 @@ type orchestratorStarter interface {
 // it has never had.
 func (s *Service) StartOrchestrator(
 	ctx context.Context,
-	req *connect.Request[agentv1.StartOrchestratorRequest],
-) (*connect.Response[agentv1.StartOrchestratorResponse], error) {
-	started, err := s.orchestrator.Start(ctx, req.Msg.GetWorkflowId())
+	req *agentv1.StartOrchestratorRequest,
+) (*agentv1.StartOrchestratorResponse, *fail.Error) {
+	started, err := s.orchestrator.Start(ctx, req.GetWorkflowId())
 	if err != nil {
-		return nil, rpcerr.Wrap(err, "failed to start the orchestrator")
+		return nil, rpcerr.From(err, "failed to start the orchestrator")
 	}
 
-	rendered, err := s.renderOneAgent(ctx, *started)
-	if err != nil {
-		return nil, err
+	rendered, failure := s.renderOneAgent(ctx, *started)
+	if failure != nil {
+		return nil, failure
 	}
 
-	return connect.NewResponse(&agentv1.StartOrchestratorResponse{Agent: rendered}), nil
+	return &agentv1.StartOrchestratorResponse{Agent: rendered}, nil
 }

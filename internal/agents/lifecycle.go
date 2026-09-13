@@ -492,7 +492,7 @@ func (s *LifecycleService) requireEveryAgent(ctx context.Context, ids []string) 
 		return !ok
 	})
 
-	return nil, fmt.Errorf("%w: %s", ErrAgentNotFound, describeMissing(missing))
+	return nil, ErrAgentNotFound.Saying("no agent with id %s", describeMissing(missing))
 }
 
 func (s *LifecycleService) removeAgents(ctx context.Context, ids []string) error {

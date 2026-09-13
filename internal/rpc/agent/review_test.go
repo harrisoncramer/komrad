@@ -3,6 +3,7 @@ package agent
 import (
 	"context"
 	"testing"
+	agentv1weave "weave/proto/gen/agent/v1/agentv1weave"
 
 	"weave/internal/git"
 
@@ -93,7 +94,7 @@ func TestListReviewThreadsAnswersTheCallerItHas(t *testing.T) {
 	assert.Equal(t, agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_UNSPECIFIED, message.GetDelivery())
 }
 
-func reviewService(t *testing.T) (*Service, *storetest.Stores, *reviewstore.Store) {
+func reviewService(t *testing.T) (agentv1weave.AgentServiceAdapter, *storetest.Stores, *reviewstore.Store) {
 	t.Helper()
 
 	st := storetest.Open(t)
@@ -116,14 +117,14 @@ func reviewService(t *testing.T) (*Service, *storetest.Stores, *reviewstore.Stor
 		Mailer:    mail,
 	})
 
-	return NewService(NewServiceParams{
+	return agentv1weave.AgentServiceAdapter{Impl: NewService(NewServiceParams{
 		Agents:   st.Agents,
 		Mail:     mail,
 		Review:   review,
 		Runs:     st.Runs,
 		Marks:    markService(st),
 		Liveness: &fakeLauncher{},
-	}), st, reviews
+	})}, st, reviews
 }
 
 // fakeSnapshotter stands in for git, these tests being about who the handler thinks is calling

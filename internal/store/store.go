@@ -9,22 +9,22 @@ package store
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	"weave/db"
 	"weave/db/models"
+	"weave/internal/fail"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-var ErrNameTaken = errors.New("name already taken")
+var ErrNameTaken = fail.AlreadyExists("name already taken")
 
 // ErrNotFound is what a single-row lookup returns when the row is absent.
-var ErrNotFound = errors.New("not found")
+var ErrNotFound = fail.NotFound("not found")
 
-var ErrNoReadOnlyURL = errors.New(
+var ErrNoReadOnlyURL = fail.Internal(
 	"no read-only database url: set WEAVE_READONLY_DATABASE_URL, or a DATABASE_URL one can be derived from")
 
 type DBTX = models.DBTX

@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"weave/internal/fail"
 	"weave/internal/logging"
 	"weave/internal/store"
 	agentstore "weave/internal/store/agent"
@@ -20,18 +21,18 @@ import (
 const interruptSettleFor = 200 * time.Millisecond
 
 // ErrReviewThreadNotFound is answered when a thread id names nothing.
-var ErrReviewThreadNotFound = errors.New("review thread not found")
+var ErrReviewThreadNotFound = fail.NotFound("review thread not found")
 
 // ErrReviewMessageNotFound is answered when a message id names nothing.
-var ErrReviewMessageNotFound = errors.New("review message not found")
+var ErrReviewMessageNotFound = fail.NotFound("review message not found")
 
 // ErrReviewNotYours is answered when a caller writes to or claims another agent's review, which
 // it may still read.
-var ErrReviewNotYours = errors.New("that review belongs to another agent")
+var ErrReviewNotYours = fail.Denied("that review belongs to another agent")
 
 // ErrReviewHumanOnly is answered when an agent asks for something only the person reviewing
 // does, such as opening, deleting, or releasing a review.
-var ErrReviewHumanOnly = errors.New("only the person reviewing can do that")
+var ErrReviewHumanOnly = fail.Denied("only the person reviewing can do that")
 
 // reviewThreadReadWriter is the half of the store that keeps conversations: where they are
 // pinned, whether the person has read the replies, and whether they are still owed an answer.

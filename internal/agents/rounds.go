@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"weave/internal/fail"
 	"weave/internal/git"
 	"weave/internal/store"
 	agentstore "weave/internal/store/agent"
@@ -21,31 +22,31 @@ const reviewDirName = "reviews"
 
 // ErrReviewNoRound is answered when a review is asked for on an agent no round has been taken
 // of.
-var ErrReviewNoRound = errors.New("no round has been taken of that agent yet")
+var ErrReviewNoRound = fail.Precondition("no round has been taken of that agent yet")
 
 // ErrReviewNotEntitled is answered when an agent asks to review one it is not attached to.
-var ErrReviewNotEntitled = errors.New("an agent may only review the agent it is a child of")
+var ErrReviewNotEntitled = fail.Denied("an agent may only review the agent it is a child of")
 
 // ErrReviewOwnWork is answered when an agent asks to review its own work.
-var ErrReviewOwnWork = errors.New("an agent cannot review its own work")
+var ErrReviewOwnWork = fail.Denied("an agent cannot review its own work")
 
 // ErrReviewAlreadyGiven is answered when an agent asks to review a round it has reviewed once.
-var ErrReviewAlreadyGiven = errors.New("that round has already been reviewed; wait for the agent to write something")
+var ErrReviewAlreadyGiven = fail.Precondition("that round has already been reviewed; wait for the agent to write something")
 
 // ErrReviewInFlight is answered when somebody writes a comment on one snapshot while holding
 // unsent comments on another.
-var ErrReviewInFlight = errors.New("you have unsent comments on an earlier snapshot")
+var ErrReviewInFlight = fail.Precondition("you have unsent comments on an earlier snapshot")
 
 // ErrReviewNotAnswered is answered when somebody starts a second review while the agent has yet
 // to act on the one they already sent.
-var ErrReviewNotAnswered = errors.New("the agent has not answered your last review yet")
+var ErrReviewNotAnswered = fail.Precondition("the agent has not answered your last review yet")
 
 // ErrReviewNotCurrent is answered when a comment's line numbers were read from a snapshot other
 // than the one of the round it would be filed against.
-var ErrReviewNotCurrent = errors.New("those lines were read from an older snapshot")
+var ErrReviewNotCurrent = fail.Precondition("those lines were read from an older snapshot")
 
 // ErrReviewEmpty is answered when a review is released with nothing written in it.
-var ErrReviewEmpty = errors.New("that review has nothing in it")
+var ErrReviewEmpty = fail.Precondition("that review has nothing in it")
 
 // reviewReaper is the half of the review store the lifecycle needs, being the refs an agent's
 // snapshots are held by and the drafts it was writing about others.
@@ -345,7 +346,7 @@ func (s *ReviewService) requireMayRead(
 
 	reviewer, err := s.agents.GetByID(ctx, *author.AgentID)
 	if errors.Is(err, store.ErrNotFound) {
-		return fmt.Errorf("%w: %q", ErrAgentNotFound, *author.AgentID)
+		return ErrAgentNotFound.Saying("no agent with id %q", *author.AgentID)
 	}
 	if err != nil {
 		return err
@@ -605,7 +606,7 @@ func (s *ReviewService) getSnapshotLines(ctx context.Context, params getSnapshot
 func (s *ReviewService) getLiveAgent(ctx context.Context, agentID string) (*agentstore.Agent, error) {
 	agent, err := s.agents.GetByID(ctx, agentID)
 	if errors.Is(err, store.ErrNotFound) {
-		return nil, fmt.Errorf("%w: %q", ErrAgentNotFound, agentID)
+		return nil, ErrAgentNotFound.Saying("no agent with id %q", agentID)
 	}
 	if err != nil {
 		return nil, err

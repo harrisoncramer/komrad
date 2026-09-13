@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"weave/internal/agents"
+	"weave/internal/git"
 	"weave/internal/rpcerr"
 	"weave/internal/scripts"
 	"weave/internal/store"
@@ -15,10 +16,18 @@ import (
 	"connectrpc.com/connect"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-// TestWrapCodes pins the code every sentinel a handler can receive is answered with, which is
-// the mapping the handlers used to each rewrite for themselves.
+// answered is what a caller is served when a handler returns this failure, which is the whole
+// path from the domain's error to the response connect writes.
+func answered(err error, failure string) error {
+	_, served := rpcerr.Answer[emptypb.Empty](nil, rpcerr.From(err, failure))
+
+	return served
+}
+
+// TestWrapCodes pins the code every sentinel a handler can receive is answered with.
 func TestWrapCodes(t *testing.T) {
 	tests := []struct {
 		sentinel error
@@ -36,6 +45,7 @@ func TestWrapCodes(t *testing.T) {
 		{agents.ErrParentNotFound, connect.CodeNotFound},
 		{store.ErrNameTaken, connect.CodeAlreadyExists},
 		{agents.ErrAdoptAlreadyAdopted, connect.CodeAlreadyExists},
+		{agents.ErrAlreadyLaunched, connect.CodeAlreadyExists},
 		{agents.ErrAgentArchived, connect.CodeFailedPrecondition},
 		{agents.ErrProvisionFailed, connect.CodeFailedPrecondition},
 		{agents.ErrScriptNotExecutable, connect.CodeFailedPrecondition},
@@ -49,9 +59,17 @@ func TestWrapCodes(t *testing.T) {
 		{agents.ErrParentStillArchived, connect.CodeFailedPrecondition},
 		{agents.ErrChildNeedsParentDirectory, connect.CodeFailedPrecondition},
 		{agents.ErrReviewNoRound, connect.CodeFailedPrecondition},
+		{agents.ErrRebaseShallow, connect.CodeFailedPrecondition},
+		{agents.ErrRebaseHiddenPaths, connect.CodeFailedPrecondition},
+		{agents.ErrHookFailed, connect.CodeFailedPrecondition},
+		{agents.ErrNoLiveReviewer, connect.CodeFailedPrecondition},
+		{git.ErrBaseUnresolved, connect.CodeFailedPrecondition},
+		{git.ErrBaseUnrelated, connect.CodeFailedPrecondition},
 		{agents.ErrReviewEmpty, connect.CodeFailedPrecondition},
 		{agents.ErrReviewAlreadyGiven, connect.CodeFailedPrecondition},
 		{agents.ErrBadCron, connect.CodeInvalidArgument},
+		{agents.ErrUnknownHookEvent, connect.CodeInvalidArgument},
+		{agents.ErrNoticeKindMissing, connect.CodeInvalidArgument},
 		{agents.ErrBadDirectory, connect.CodeInvalidArgument},
 		{agents.ErrHarnessUnknown, connect.CodeInvalidArgument},
 		{agents.ErrSpawnerUnknown, connect.CodeInvalidArgument},
@@ -82,10 +100,10 @@ func TestWrapCodes(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.sentinel.Error(), func(t *testing.T) {
-			bare := rpcerr.Wrap(tt.sentinel, "failed to do the thing")
+			bare := answered(tt.sentinel, "failed to do the thing")
 			assert.Equal(t, tt.want, connect.CodeOf(bare))
 
-			wrapped := rpcerr.Wrap(fmt.Errorf("%w: %q", tt.sentinel, "abc"), "failed to do the thing")
+			wrapped := answered(fmt.Errorf("%w: %q", tt.sentinel, "abc"), "failed to do the thing")
 			assert.Equal(t, tt.want, connect.CodeOf(wrapped), "a sentinel is still found under a wrapping")
 			assert.Contains(t, wrapped.Error(), `"abc"`, "and what the domain added to it is kept")
 			assert.NotContains(t, wrapped.Error(), "failed to do the thing",
@@ -94,15 +112,15 @@ func TestWrapCodes(t *testing.T) {
 	}
 }
 
-// TestWrapNil pins that wrapping no error is no error, so a handler can wrap unconditionally.
-func TestWrapNil(t *testing.T) {
-	require.NoError(t, rpcerr.Wrap(nil, "failed to do the thing"))
+// TestFromNil pins that converting no error is no failure, so a handler may convert whatever
+// it holds without asking first.
+func TestFromNil(t *testing.T) {
+	assert.Nil(t, rpcerr.From(nil, "failed to do the thing"))
 }
 
-// TestWrapCarriesTwoSentinels covers an error holding two of the table's sentinels at once, where the table's order alone decides the code.
+// TestWrapCarriesTwoSentinels covers an error holding two sentinels at once, where the order they were wrapped in decides the code.
 func TestWrapCarriesTwoSentinels(t *testing.T) {
-	err := rpcerr.Wrap(
-		fmt.Errorf("%w: %w", agents.ErrProvisionFailed, agents.ErrBadDirectory),
+	err := answered(fmt.Errorf("%w: %w", agents.ErrProvisionFailed, agents.ErrBadDirectory),
 		"failed to create agent",
 	)
 
@@ -113,7 +131,7 @@ func TestWrapCarriesTwoSentinels(t *testing.T) {
 // TestWrapUnknown covers the error a caller cannot fix, which is internal and says only what
 // the handler was doing.
 func TestWrapUnknown(t *testing.T) {
-	err := rpcerr.Wrap(errors.New("connection refused"), "failed to archive agents")
+	err := answered(errors.New("connection refused"), "failed to archive agents")
 
 	require.Error(t, err)
 	assert.Equal(t, connect.CodeInternal, connect.CodeOf(err))
@@ -121,10 +139,10 @@ func TestWrapUnknown(t *testing.T) {
 	assert.Contains(t, err.Error(), "connection refused")
 }
 
-// TestWrapSaying covers a sentinel whose own message says less than the request can.
+// TestWrapSaying covers a sentinel worded for the request that raised it, which keeps its kind
+// and replaces its own message.
 func TestWrapSaying(t *testing.T) {
-	err := rpcerr.Wrap(store.ErrNotFound, "failed to get schedule",
-		rpcerr.Saying(store.ErrNotFound, "no schedule with id %q", "s-1"))
+	err := answered(store.ErrNotFound.Saying("no schedule with id %q", "s-1"), "failed to get schedule")
 
 	require.Error(t, err)
 	assert.Equal(t, connect.CodeNotFound, connect.CodeOf(err))
@@ -132,22 +150,24 @@ func TestWrapSaying(t *testing.T) {
 	assert.NotContains(t, err.Error(), "not found:", "the sentinel's own message is replaced, not appended")
 }
 
-// TestWrapSayingLeavesOthers covers a replacement named for a sentinel the error is not.
-func TestWrapSayingLeavesOthers(t *testing.T) {
-	err := rpcerr.Wrap(agents.ErrTooManyAgents, "failed to restore agents",
-		rpcerr.Saying(store.ErrNameTaken, "the name is taken"))
+// TestWrapSayingUnderAWrapping covers a worded sentinel the domain put its own prefix on, where
+// the caller is told the sentence the raise site chose and nothing else.
+func TestWrapSayingUnderAWrapping(t *testing.T) {
+	said := store.ErrNotFound.Saying("no schedule with id %q", "s-1")
+
+	err := answered(fmt.Errorf("failed to get schedule %q: %w", "s-1", said), "failed to get schedule")
 
 	require.Error(t, err)
-	assert.Equal(t, connect.CodeResourceExhausted, connect.CodeOf(err))
-	assert.Contains(t, err.Error(), "too many agents")
+	assert.Equal(t, connect.CodeNotFound, connect.CodeOf(err))
+	assert.Equal(t, `not_found: no schedule with id "s-1"`, err.Error())
 }
 
-// TestWrapKeepsTheMappedCodeBesideAnUnmappedSentinel covers an error carrying a sentinel the
-// table holds no entry for, which must not cost it the code of the mapped sentinel beside it.
+// TestWrapKeepsTheMappedCodeBesideAnUnmappedSentinel covers an error carrying a plain error
+// beside a sentinel, which must not cost it the sentinel's code.
 func TestWrapKeepsTheMappedCodeBesideAnUnmappedSentinel(t *testing.T) {
 	ran := fmt.Errorf("%w: %w: exited 1", agents.ErrProvisionFailed, scripts.ErrFailed)
 
-	err := rpcerr.Wrap(ran, "failed to create the agent")
+	err := answered(ran, "failed to create the agent")
 
 	require.Error(t, err)
 	assert.Equal(t, connect.CodeFailedPrecondition, connect.CodeOf(err))

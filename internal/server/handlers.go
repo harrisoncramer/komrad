@@ -14,10 +14,15 @@ import (
 	rpcworkflow "weave/internal/rpc/workflow"
 	"weave/internal/rpccodec"
 	"weave/proto/gen/agent/v1/agentv1connect"
+	agentv1weave "weave/proto/gen/agent/v1/agentv1weave"
 	"weave/proto/gen/config/v1/configv1connect"
+	configv1weave "weave/proto/gen/config/v1/configv1weave"
 	"weave/proto/gen/hook/v1/hookv1connect"
+	hookv1weave "weave/proto/gen/hook/v1/hookv1weave"
 	"weave/proto/gen/schedule/v1/schedulev1connect"
+	schedulev1weave "weave/proto/gen/schedule/v1/schedulev1weave"
 	"weave/proto/gen/workflow/v1/workflowv1connect"
+	workflowv1weave "weave/proto/gen/workflow/v1/workflowv1weave"
 
 	"connectrpc.com/connect"
 	"github.com/jackc/pgx/v5"
@@ -51,7 +56,7 @@ func newMux(params newMuxParams) (*http.ServeMux, error) {
 	mux.Handle(HealthPath, newHealthHandler(params.Stores.pool.GetRawPool()))
 	mux.Handle(StopPath, interceptors.NewLoggingHandler(params.Logger, newStopHandler(params.StopRequested)))
 	mux.Handle(agentv1connect.NewAgentServiceHandler(
-		rpcagent.NewService(rpcagent.NewServiceParams{
+		agentv1weave.AgentServiceAdapter{Impl: rpcagent.NewService(rpcagent.NewServiceParams{
 			Agents:       params.Stores.agents,
 			Transcripts:  params.Stores.transcripts,
 			Mail:         params.Services.mail,
@@ -67,15 +72,21 @@ func newMux(params newMuxParams) (*http.ServeMux, error) {
 			Marks:        params.Services.marks,
 			Orchestrator: params.Services.orchestrator,
 			Refresher:    params.Services.rebase,
-		}), options...))
+		})}, options...))
 	mux.Handle(workflowv1connect.NewWorkflowServiceHandler(
-		rpcworkflow.NewService(params.Stores.workflows, params.Services.workflow, params.Services.marks), options...))
+		workflowv1weave.WorkflowServiceAdapter{
+			Impl: rpcworkflow.NewService(params.Stores.workflows, params.Services.workflow, params.Services.marks),
+		}, options...))
 	mux.Handle(schedulev1connect.NewScheduleServiceHandler(
-		rpcschedule.NewService(params.Stores.schedules, params.Services.schedule), options...))
+		schedulev1weave.ScheduleServiceAdapter{
+			Impl: rpcschedule.NewService(params.Stores.schedules, params.Services.schedule),
+		}, options...))
 	mux.Handle(configv1connect.NewConfigServiceHandler(
-		rpcconfig.NewService(params.Services.loadConfig), options...))
+		configv1weave.ConfigServiceAdapter{Impl: rpcconfig.NewService(params.Services.loadConfig)}, options...))
 	mux.Handle(hookv1connect.NewHookServiceHandler(
-		rpchook.NewService(params.Services.script, params.Services.pullRequests), options...))
+		hookv1weave.HookServiceAdapter{
+			Impl: rpchook.NewService(params.Services.script, params.Services.pullRequests),
+		}, options...))
 
 	mcpHandler, err := mcp.NewHandler(mcp.NewHandlerParams{DB: params.ReadOnly, BaseURL: "http://" + params.Addr})
 	if err != nil {
