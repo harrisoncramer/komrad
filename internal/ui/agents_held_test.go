@@ -103,8 +103,8 @@ func TestHoldingSendsNoWordsToTheAgent(t *testing.T) {
 // like one that has stopped, and a pane that goes unreadable afterwards says nothing about
 // whether it stopped at all. The row admits both rather than letting go on the person's behalf.
 
-// TestAHeldRowSaysWhichOfThreeThingsIsTrue pins what a held row draws in each case.
-func TestAHeldRowSaysWhichOfThreeThingsIsTrue(t *testing.T) {
+// TestAHeldRowSaysWhichThingIsTrue pins what a held row draws in each case.
+func TestAHeldRowSaysWhichThingIsTrue(t *testing.T) {
 	at := time.Now()
 
 	held := func(state agentstore.State) agentItem {
@@ -122,6 +122,7 @@ func TestAHeldRowSaysWhichOfThreeThingsIsTrue(t *testing.T) {
 	}{
 		{name: "at rest, which is what a hold claims", item: held(agentstore.StateIdle), wants: heldNotice},
 		{name: "writing again", item: held(agentstore.StateThinking), wants: heldWorkingNotice},
+		{name: "stopped at a prompt anybody could answer", item: held(agentstore.StateWaiting), wants: heldPromptedNotice},
 		{name: "a pane nobody can read", item: held(agentstore.StateUncertain), wants: heldUnreadableNotice},
 	}
 
@@ -140,7 +141,7 @@ func heldSaid(said []string) []string {
 	kept := make([]string, 0, len(said))
 
 	for _, one := range said {
-		if one == heldNotice || one == heldWorkingNotice || one == heldUnreadableNotice {
+		if one == heldNotice || one == heldWorkingNotice || one == heldPromptedNotice || one == heldUnreadableNotice {
 			kept = append(kept, one)
 		}
 	}

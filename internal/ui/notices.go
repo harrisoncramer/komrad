@@ -28,6 +28,7 @@ const (
 	heldNotice            = "held: you stopped it and have its worktree"
 	heldWorkingNotice     = "held, but it has started working again"
 	heldUnreadableNotice  = "held, but its pane cannot be read, so it may be writing"
+	heldPromptedNotice    = "held, but stopped at a prompt, so a write lands if anybody answers"
 )
 
 const inLocalReviewNotice = "in review, reviewer owed an answer"
@@ -118,9 +119,11 @@ func heldFact(item agentItem) (notice, bool) {
 		switch item.agent.State {
 		case agentstore.StateThinking:
 			return notice{icon: heldIcon, color: paint.Danger, text: heldWorkingNotice}, true
+		case agentstore.StateWaiting:
+			return notice{icon: heldIcon, color: paint.Danger, text: heldPromptedNotice}, true
 		case agentstore.StateUncertain:
 			return notice{icon: heldIcon, color: paint.Warning, text: heldUnreadableNotice}, true
-		case agentstore.StateIdle, agentstore.StateWaiting, agentstore.StateSettingUp,
+		case agentstore.StateIdle, agentstore.StateSettingUp,
 			agentstore.StateFailedToCreate, agentstore.StateFailedToCleanup:
 		}
 	}
