@@ -16,7 +16,16 @@ import (
 	"connectrpc.com/connect"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
+
+// answered is what a caller is served when a handler returns this failure, which is the whole
+// path from the domain's error to the response connect writes.
+func answered(err error, failure string) error {
+	_, served := rpcerr.Answer[emptypb.Empty](nil, rpcerr.From(err, failure))
+
+	return served
+}
 
 // TestWrapCodes pins the code every sentinel a handler can receive is answered with.
 func TestWrapCodes(t *testing.T) {
@@ -89,10 +98,10 @@ func TestWrapCodes(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.sentinel.Error(), func(t *testing.T) {
-			bare := rpcerr.Wrap(tt.sentinel, "failed to do the thing")
+			bare := answered(tt.sentinel, "failed to do the thing")
 			assert.Equal(t, tt.want, connect.CodeOf(bare))
 
-			wrapped := rpcerr.Wrap(fmt.Errorf("%w: %q", tt.sentinel, "abc"), "failed to do the thing")
+			wrapped := answered(fmt.Errorf("%w: %q", tt.sentinel, "abc"), "failed to do the thing")
 			assert.Equal(t, tt.want, connect.CodeOf(wrapped), "a sentinel is still found under a wrapping")
 			assert.Contains(t, wrapped.Error(), `"abc"`, "and what the domain added to it is kept")
 			assert.NotContains(t, wrapped.Error(), "failed to do the thing",
@@ -101,15 +110,15 @@ func TestWrapCodes(t *testing.T) {
 	}
 }
 
-// TestWrapNil pins that wrapping no error is no error, so a handler can wrap unconditionally.
-func TestWrapNil(t *testing.T) {
-	require.NoError(t, rpcerr.Wrap(nil, "failed to do the thing"))
+// TestFromNil pins that converting no error is no failure, so a handler may convert whatever
+// it holds without asking first.
+func TestFromNil(t *testing.T) {
+	assert.Nil(t, rpcerr.From(nil, "failed to do the thing"))
 }
 
 // TestWrapCarriesTwoSentinels covers an error holding two sentinels at once, where the order they were wrapped in decides the code.
 func TestWrapCarriesTwoSentinels(t *testing.T) {
-	err := rpcerr.Wrap(
-		fmt.Errorf("%w: %w", agents.ErrProvisionFailed, agents.ErrBadDirectory),
+	err := answered(fmt.Errorf("%w: %w", agents.ErrProvisionFailed, agents.ErrBadDirectory),
 		"failed to create agent",
 	)
 
@@ -120,7 +129,7 @@ func TestWrapCarriesTwoSentinels(t *testing.T) {
 // TestWrapUnknown covers the error a caller cannot fix, which is internal and says only what
 // the handler was doing.
 func TestWrapUnknown(t *testing.T) {
-	err := rpcerr.Wrap(errors.New("connection refused"), "failed to archive agents")
+	err := answered(errors.New("connection refused"), "failed to archive agents")
 
 	require.Error(t, err)
 	assert.Equal(t, connect.CodeInternal, connect.CodeOf(err))
@@ -131,7 +140,7 @@ func TestWrapUnknown(t *testing.T) {
 // TestWrapSaying covers a sentinel worded for the request that raised it, which keeps its kind
 // and replaces its own message.
 func TestWrapSaying(t *testing.T) {
-	err := rpcerr.Wrap(store.ErrNotFound.Saying("no schedule with id %q", "s-1"), "failed to get schedule")
+	err := answered(store.ErrNotFound.Saying("no schedule with id %q", "s-1"), "failed to get schedule")
 
 	require.Error(t, err)
 	assert.Equal(t, connect.CodeNotFound, connect.CodeOf(err))
@@ -144,7 +153,7 @@ func TestWrapSaying(t *testing.T) {
 func TestWrapSayingUnderAWrapping(t *testing.T) {
 	said := store.ErrNotFound.Saying("no schedule with id %q", "s-1")
 
-	err := rpcerr.Wrap(fmt.Errorf("failed to get schedule %q: %w", "s-1", said), "failed to get schedule")
+	err := answered(fmt.Errorf("failed to get schedule %q: %w", "s-1", said), "failed to get schedule")
 
 	require.Error(t, err)
 	assert.Equal(t, connect.CodeNotFound, connect.CodeOf(err))
@@ -156,7 +165,7 @@ func TestWrapSayingUnderAWrapping(t *testing.T) {
 func TestWrapKeepsTheMappedCodeBesideAnUnmappedSentinel(t *testing.T) {
 	ran := fmt.Errorf("%w: %w: exited 1", agents.ErrProvisionFailed, scripts.ErrFailed)
 
-	err := rpcerr.Wrap(ran, "failed to create the agent")
+	err := answered(ran, "failed to create the agent")
 
 	require.Error(t, err)
 	assert.Equal(t, connect.CodeFailedPrecondition, connect.CodeOf(err))

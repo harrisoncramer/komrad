@@ -40,32 +40,37 @@ const (
 type Error struct {
 	kind    Kind
 	message string
+	wrapped error
+	worded  bool
 }
 
 // Error returns the sentinel's own wording.
 func (s *Error) Error() string { return s.message }
 
-func (s *Error) answer() (*Error, string) { return s, "" }
-
 // Kind returns what a caller can do about this failure.
 func (s *Error) Kind() Kind { return s.kind }
 
 // Saying returns this sentinel worded for one request, replacing its own message.
-func (s *Error) Saying(format string, args ...any) error {
-	return &said{sentinel: s, message: fmt.Sprintf(format, args...)}
+func (s *Error) Saying(format string, args ...any) *Error {
+	return &Error{kind: s.kind, message: fmt.Sprintf(format, args...), wrapped: s, worded: true}
 }
 
-// said is one sentinel worded for the request that raised it.
-type said struct {
-	sentinel *Error
-	message  string
+// Worded says whether a raise site chose this failure's message for one request, which is what
+// a caller is told in place of whatever the domain wrapped it in.
+func (s *Error) Worded() bool { return s.worded }
+
+// Unwrap returns the sentinel this one was worded from, or the failure it was built around.
+func (s *Error) Unwrap() error { return s.wrapped }
+
+// Kinded returns this failure as a different kind, for a code somebody else already decided.
+func (s *Error) Kinded(kind Kind) *Error {
+	return &Error{kind: kind, message: s.message, wrapped: s.wrapped, worded: s.worded}
 }
 
-func (s *said) Error() string { return s.message }
-
-func (s *said) Unwrap() error { return s.sentinel }
-
-func (s *said) answer() (*Error, string) { return s.sentinel, s.message }
+// Because returns an internal failure carrying the error that caused it.
+func Because(err error, message string) *Error {
+	return &Error{kind: KindInternal, message: message, wrapped: err, worded: true}
+}
 
 // Internal declares a sentinel for a failure the caller did nothing to cause and cannot fix.
 func Internal(message string) *Error { return &Error{kind: KindInternal, message: message} }
@@ -94,19 +99,12 @@ func Exhausted(message string) *Error { return &Error{kind: KindExhausted, messa
 // Denied declares a sentinel for a request its caller is not allowed to make.
 func Denied(message string) *Error { return &Error{kind: KindDenied, message: message} }
 
-// answerer is a sentinel, or one worded for the request that raised it.
-type answerer interface {
-	error
-	answer() (*Error, string)
-}
-
-// Answer returns the sentinel an error answers with and the wording its raise site chose, which
-// is empty when the raise site chose none.
-func Answer(err error) (*Error, string) {
-	var found answerer
+// Of returns the failure an error answers with, or nil when it holds none.
+func Of(err error) *Error {
+	var found *Error
 	if errors.As(err, &found) {
-		return found.answer()
+		return found
 	}
 
-	return nil, ""
+	return nil
 }
