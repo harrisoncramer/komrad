@@ -581,12 +581,6 @@ func TestRunAndWaitRefusesAContextAlreadyDone(t *testing.T) {
 	assert.Equal(t, -1, result.ExitCode, "a process that never ran has no status of its own")
 }
 
-func write(t *testing.T, path string, mode os.FileMode) {
-	t.Helper()
-
-	require.NoError(t, os.WriteFile(path, []byte("#!/bin/sh\n"), mode))
-}
-
 func eventually(t *testing.T, path string) string {
 	t.Helper()
 
