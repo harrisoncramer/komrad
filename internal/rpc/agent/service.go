@@ -591,10 +591,7 @@ func (s *Service) ResumeAgent(ctx context.Context, req *agentv1.ResumeAgentReque
 func (s *Service) HoldAgent(ctx context.Context, req *connect.Request[agentv1.HoldAgentRequest]) (*connect.Response[agentv1.HoldAgentResponse], error) {
 	held, err := s.holder.Hold(ctx, req.Msg.GetId())
 	if err != nil {
-		return nil, rpcerr.Wrap(err, "failed to hold agent",
-			rpcerr.Saying(agents.ErrAgentNotFound, "no agent with id %q", req.Msg.GetId()),
-			rpcerr.Saying(agents.ErrAlreadyHeld, "%q is already held", req.Msg.GetId()),
-			rpcerr.Saying(agents.ErrHoldRefused, "%q would not stop", req.Msg.GetId()))
+		return nil, rpcerr.Wrap(err, "failed to hold agent")
 	}
 
 	rendered, err := s.renderOneAgent(ctx, held)
@@ -612,10 +609,7 @@ func (s *Service) ReleaseAgent(ctx context.Context, req *connect.Request[agentv1
 		Said:    req.Msg.GetSaid(),
 	})
 	if err != nil {
-		return nil, rpcerr.Wrap(err, "failed to release agent",
-			rpcerr.Saying(agents.ErrAgentNotFound, "no agent with id %q", req.Msg.GetId()),
-			rpcerr.Saying(agents.ErrNotHeld, "nobody is holding %q", req.Msg.GetId()),
-			rpcerr.Saying(agents.ErrReleaseRefused, "%q could not be told to carry on, so it is still held", req.Msg.GetId()))
+		return nil, rpcerr.Wrap(err, "failed to release agent")
 	}
 
 	rendered, err := s.renderOneAgent(ctx, released)

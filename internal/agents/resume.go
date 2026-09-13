@@ -88,7 +88,7 @@ func (s *ResumeService) ResumeAgent(ctx context.Context, id string) (*agentstore
 
 	// Relaunching a held agent would put it back to work under whoever is holding its worktree.
 	if agent.HeldAt != nil {
-		return nil, fmt.Errorf("%w: %q is held, let it go first", ErrAgentHeld, agent.Name)
+		return nil, ErrAgentHeld.Saying("%q is paused, unpause it first", agent.Name)
 	}
 
 	if isPaneOwnedBy(s.tmux.GetPaneOwner(agent.Pane), agent.ID) {

@@ -6,25 +6,26 @@ import (
 	"fmt"
 	"time"
 
+	"weave/internal/fail"
 	"weave/internal/harness"
 	"weave/internal/store"
 	agentstore "weave/internal/store/agent"
 )
 
 // ErrHoldRefused is an agent that would not settle, so nobody may claim its worktree.
-var ErrHoldRefused = errors.New("the agent did not stop")
+var ErrHoldRefused = fail.Precondition("the agent did not stop")
 
 // ErrReleaseRefused is a release that could not tell the agent to carry on, so the hold stands.
-var ErrReleaseRefused = errors.New("the agent could not be told to carry on")
+var ErrReleaseRefused = fail.Precondition("the agent could not be told to carry on")
 
 // ErrNotHeld is a release of an agent nobody was holding.
-var ErrNotHeld = errors.New("nobody is holding this agent")
+var ErrNotHeld = fail.Precondition("nobody is holding this agent")
 
 // ErrAlreadyHeld is a hold on an agent somebody is already holding.
-var ErrAlreadyHeld = errors.New("this agent is already held")
+var ErrAlreadyHeld = fail.AlreadyExists("this agent is already held")
 
 // ErrAgentHeld is anything else weave was asked to do to an agent a person is holding.
-var ErrAgentHeld = errors.New("this agent is held")
+var ErrAgentHeld = fail.Precondition("this agent is held")
 
 // holdSettleBudget is how long weave waits for an interrupted agent to come to rest before it
 // gives the hold up.
@@ -88,11 +89,11 @@ func (h *Holder) Hold(ctx context.Context, agentID string) (agentstore.Agent, er
 	}
 
 	if agent.HeldAt != nil {
-		return agentstore.Agent{}, fmt.Errorf("%w: %q", ErrAlreadyHeld, agent.Name)
+		return agentstore.Agent{}, ErrAlreadyHeld.Saying("%q is already paused", agent.Name)
 	}
 
 	if agent.Pane == "" {
-		return agentstore.Agent{}, fmt.Errorf("%w: %q is not in a pane", ErrHoldRefused, agent.Name)
+		return agentstore.Agent{}, ErrHoldRefused.Saying("%q is not in a pane", agent.Name)
 	}
 
 	target := buildTarget(agent)
@@ -103,7 +104,7 @@ func (h *Holder) Hold(ctx context.Context, agentID string) (agentstore.Agent, er
 	// frame the interrupt was meant to clear.
 	observed, err := h.observer.Observe(ctx, target)
 	if err != nil {
-		return agentstore.Agent{}, fmt.Errorf("%w: %q, its pane could not be read", ErrHoldRefused, agent.Name)
+		return agentstore.Agent{}, ErrHoldRefused.Saying("%q could not be read, so nothing here can say it stopped", agent.Name)
 	}
 
 	interrupted := !isAtRest(observed.Activity)
@@ -115,8 +116,8 @@ func (h *Holder) Hold(ctx context.Context, agentID string) (agentstore.Agent, er
 		// Explainer: the interrupt is keys typed into a terminal, so nothing about sending it says
 		// the agent read it. What may claim the worktree is an agent observed to have come to rest
 		// afterwards, which is why a prompt still on screen is not an answer.
-		if err := h.settle(ctx, target); err != nil {
-			return agentstore.Agent{}, fmt.Errorf("%w: %q", err, agent.Name)
+		if err := h.settle(ctx, target, agent.Name); err != nil {
+			return agentstore.Agent{}, err
 		}
 	}
 
@@ -129,7 +130,7 @@ func (h *Holder) Hold(ctx context.Context, agentID string) (agentstore.Agent, er
 		return agentstore.Agent{}, err
 	}
 	if !held {
-		return agentstore.Agent{}, fmt.Errorf("%w: %q", ErrAlreadyHeld, agent.Name)
+		return agentstore.Agent{}, ErrAlreadyHeld.Saying("%q is already paused", agent.Name)
 	}
 
 	return h.get(ctx, agentID)
@@ -137,7 +138,7 @@ func (h *Holder) Hold(ctx context.Context, agentID string) (agentstore.Agent, er
 
 // settle waits for the agent to read as at rest, giving up once the budget is spent and saying
 // which of the two things it gave up on.
-func (h *Holder) settle(ctx context.Context, target harness.Target) error {
+func (h *Holder) settle(ctx context.Context, target harness.Target, name string) error {
 	deadline := h.now().Add(holdSettleBudget)
 	last := harness.ActivityUnknown
 
@@ -152,7 +153,7 @@ func (h *Holder) settle(ctx context.Context, target harness.Target) error {
 		}
 
 		if !h.now().Before(deadline) {
-			return fmt.Errorf("%w: %s", ErrHoldRefused, describeUnsettled(last))
+			return ErrHoldRefused.Saying("%q %s", name, describeUnsettled(last))
 		}
 
 		select {
@@ -166,10 +167,10 @@ func (h *Holder) settle(ctx context.Context, target harness.Target) error {
 // describeUnsettled says why the wait gave up.
 func describeUnsettled(last harness.Activity) string {
 	if last == harness.ActivityWorking || last == harness.ActivityWaiting {
-		return "it had not stopped after " + holdSettleBudget.String()
+		return "had not stopped after " + holdSettleBudget.String()
 	}
 
-	return "its pane could not be read, so nothing here can say it stopped"
+	return "could not be read, so nothing here can say it stopped"
 }
 
 // Release lets go of an agent, typing it back into motion when the hold cut a turn short and
@@ -181,7 +182,7 @@ func (h *Holder) Release(ctx context.Context, params ReleaseParams) (agentstore.
 	}
 
 	if agent.HeldAt == nil {
-		return agentstore.Agent{}, fmt.Errorf("%w: %q", ErrNotHeld, agent.Name)
+		return agentstore.Agent{}, ErrNotHeld.Saying("nobody is holding %q", agent.Name)
 	}
 
 	// Explainer: an agent that finished its own turn before the hold landed has nothing to carry
@@ -198,8 +199,8 @@ func (h *Holder) Release(ctx context.Context, params ReleaseParams) (agentstore.
 		// success. The hold is kept instead, which leaves the key meaning something and makes
 		// pressing it again the whole recovery.
 		if !said {
-			return agentstore.Agent{}, fmt.Errorf("%w: %q, its input box would not take the words",
-				ErrReleaseRefused, agent.Name)
+			return agentstore.Agent{}, ErrReleaseRefused.Saying(
+				"%q could not be told to carry on, since its input box would not take the words", agent.Name)
 		}
 	}
 
@@ -208,7 +209,7 @@ func (h *Holder) Release(ctx context.Context, params ReleaseParams) (agentstore.
 		return agentstore.Agent{}, err
 	}
 	if !released {
-		return agentstore.Agent{}, fmt.Errorf("%w: %q", ErrNotHeld, agent.Name)
+		return agentstore.Agent{}, ErrNotHeld.Saying("nobody is holding %q", agent.Name)
 	}
 
 	return h.get(ctx, params.AgentID)
