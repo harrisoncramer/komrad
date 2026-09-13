@@ -27,6 +27,7 @@ const (
 	hiddenNotice          = "hidden from the sidebar"
 	heldNotice            = "held: you stopped it and have its worktree"
 	heldWorkingNotice     = "held, but it has started working again"
+	heldUnreadableNotice  = "held, but its pane cannot be read, so it may be writing"
 )
 
 const inLocalReviewNotice = "in review, reviewer owed an answer"
@@ -64,8 +65,10 @@ func agentNotices(item agentItem) []notice {
 	notices = appendNotice(notices, item.unreadMail, unreadMailIcon, paint.Accent, unreadMailNotice)
 	notices = appendNotice(notices, item.agent.WorktreeRemoved && state != agentstore.StateFailedToCreate, worktreeRemovedIcon, paint.Danger, worktreeRemovedNotice)
 	notices = appendNotice(notices, item.unviewed, unviewedIcon, paint.Success, unviewedNotice)
-	notices = appendNotice(notices, item.agent.HeldAt != nil && !isHeldButWorking(item), heldIcon, paint.Warning, heldNotice)
-	notices = appendNotice(notices, isHeldButWorking(item), heldIcon, paint.Danger, heldWorkingNotice)
+	if held, ok := heldFact(item); ok {
+		notices = append(notices, held)
+	}
+
 	notices = appendNotice(notices, item.agent.Hidden, hiddenIcon, paint.Muted, hiddenNotice)
 
 	icon, color := localVerdictIcon(item.localVerdict)
@@ -101,9 +104,26 @@ func appendNotice(notices []notice, show bool, icon string, color lipgloss.Color
 // Explainer: a hold is taken on one reading of a pane, and an agent that was about to start a
 // turn reads exactly like one that has stopped. The reconciler goes on reading that pane every
 // few seconds, so weave finds out, and what it does about it is say so rather than quietly let
-// go of a tree somebody has an editor open on.
+// go of a tree somebody has an editor open on. A pane that has since gone unreadable is its own
+// answer: it says nothing about whether the agent stopped, which is a different thing to tell
+// somebody with an editor open than that it did.
 
-// isHeldButWorking reports whether an agent a person is holding has started writing again.
-func isHeldButWorking(item agentItem) bool {
-	return item.agent.HeldAt != nil && item.alive && item.agent.State == agentstore.StateThinking
+// heldFact is what the row has to say about an agent somebody is holding.
+func heldFact(item agentItem) (notice, bool) {
+	if item.agent.HeldAt == nil {
+		return notice{}, false
+	}
+
+	if item.alive {
+		switch item.agent.State {
+		case agentstore.StateThinking:
+			return notice{icon: heldIcon, color: paint.Danger, text: heldWorkingNotice}, true
+		case agentstore.StateUncertain:
+			return notice{icon: heldIcon, color: paint.Warning, text: heldUnreadableNotice}, true
+		case agentstore.StateIdle, agentstore.StateWaiting, agentstore.StateSettingUp,
+			agentstore.StateFailedToCreate, agentstore.StateFailedToCleanup:
+		}
+	}
+
+	return notice{icon: heldIcon, color: paint.Warning, text: heldNotice}, true
 }

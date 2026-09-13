@@ -99,30 +99,53 @@ func TestHoldingSendsNoWordsToTheAgent(t *testing.T) {
 	assert.Empty(t, agents.released)
 }
 
-// TestAHeldAgentThatWorksAgainSaysSo is the answer to the one window a hold cannot close: it is
-// taken on a single reading, so an agent that was about to start a turn reads like one that
-// stopped, and the row is where weave admits it rather than letting go on the person's behalf.
-func TestAHeldAgentThatWorksAgainSaysSo(t *testing.T) {
+// Explainer: a hold is taken on one reading, so an agent that was about to start a turn reads
+// like one that has stopped, and a pane that goes unreadable afterwards says nothing about
+// whether it stopped at all. The row admits both rather than letting go on the person's behalf.
+
+// TestAHeldRowSaysWhichOfThreeThingsIsTrue pins what a held row draws in each case.
+func TestAHeldRowSaysWhichOfThreeThingsIsTrue(t *testing.T) {
 	at := time.Now()
 
-	stopped := agentItem{agent: agentstore.Agent{
-		Name:   "telescope",
-		State:  agentstore.StateIdle,
-		HeldAt: &at,
-	}, alive: true}
+	held := func(state agentstore.State) agentItem {
+		return agentItem{agent: agentstore.Agent{
+			Name:   "telescope",
+			State:  state,
+			HeldAt: &at,
+		}, alive: true}
+	}
 
-	working := agentItem{agent: agentstore.Agent{
-		Name:   "telescope",
-		State:  agentstore.StateThinking,
-		HeldAt: &at,
-	}, alive: true}
+	tests := []struct {
+		name  string
+		item  agentItem
+		wants string
+	}{
+		{name: "at rest, which is what a hold claims", item: held(agentstore.StateIdle), wants: heldNotice},
+		{name: "writing again", item: held(agentstore.StateThinking), wants: heldWorkingNotice},
+		{name: "a pane nobody can read", item: held(agentstore.StateUncertain), wants: heldUnreadableNotice},
+	}
 
-	assert.Contains(t, noticeTexts(agentNotices(stopped)), heldNotice)
-	assert.NotContains(t, noticeTexts(agentNotices(stopped)), heldWorkingNotice)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			said := noticeTexts(agentNotices(tt.item))
 
-	assert.Contains(t, noticeTexts(agentNotices(working)), heldWorkingNotice,
-		"a held agent that is writing again is not the same fact as a held agent")
-	assert.NotContains(t, noticeTexts(agentNotices(working)), heldNotice)
+			assert.Contains(t, said, tt.wants)
+			assert.Len(t, heldSaid(said), 1, "a row says one thing about a hold, not two")
+		})
+	}
+}
+
+// heldSaid is the notices about the hold itself, which is what a row may only say once.
+func heldSaid(said []string) []string {
+	kept := make([]string, 0, len(said))
+
+	for _, one := range said {
+		if one == heldNotice || one == heldWorkingNotice || one == heldUnreadableNotice {
+			kept = append(kept, one)
+		}
+	}
+
+	return kept
 }
 
 // noticeTexts is what a row's notices say, without their icons.
