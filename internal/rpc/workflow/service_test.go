@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 	"time"
+	workflowv1weave "weave/proto/gen/workflow/v1/workflowv1weave"
 
 	"weave/internal/agents"
 	"weave/internal/rpc/render"
@@ -579,7 +580,7 @@ func (idlePanes) SetPaneOwner(_, _ string) error                { return nil }
 func (idlePanes) GetPaneOwner(string) string                    { return "" }
 func (idlePanes) GetHostPath() string                           { return "" }
 
-func service(t *testing.T) (*Service, *storetest.Stores) {
+func service(t *testing.T) (workflowv1weave.WorkflowServiceAdapter, *storetest.Stores) {
 	t.Helper()
 
 	st := storetest.Open(t)
@@ -608,10 +609,10 @@ func service(t *testing.T) (*Service, *storetest.Stores) {
 
 	marks := agents.NewMarkService(agents.NewMarkServiceParams{Marks: st.Marks, Tx: st.Pool})
 
-	return NewService(st.Workflows, manager, marks), st
+	return workflowv1weave.WorkflowServiceAdapter{Impl: NewService(st.Workflows, manager, marks)}, st
 }
 
-func createWorkflow(t *testing.T, svc *Service, name string) string {
+func createWorkflow(t *testing.T, svc workflowv1weave.WorkflowServiceAdapter, name string) string {
 	t.Helper()
 
 	created, err := svc.CreateWorkflow(t.Context(), connect.NewRequest(&workflowv1.CreateWorkflowRequest{Name: name}))

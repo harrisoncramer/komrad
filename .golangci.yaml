@@ -197,8 +197,16 @@ linters:
     custom:
       weavelint:
         type: module
-        description: Checks for this repo; a sentinel error must declare the kind of failure it is, so the code the RPC layer answers with is decided where the sentinel is written.
+        description: Checks for this repo; a sentinel error must declare the kind of failure it is, and a connect handler must hand its strict half to the adapter rather than answering for itself.
         settings:
+          handler_shape:
+            skip: false
+            # Unanchored regexps over the path lint was run from. The adapter's own signature is
+            # the one this rule looks for, and the panel demo serves canned data rather than a
+            # domain's failures.
+            exclude:
+              - ^internal/rpcerr/
+              - ^cmd/paneldemo/
           sentinel_kind:
             skip: false
             # Unanchored regexps over the path lint was run from. Nothing a caller reaches

@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"weave/internal/rpcerr"
 	"weave/lib/pagination"
 	agentv1 "weave/proto/gen/agent/v1"
 
@@ -101,16 +102,18 @@ func TestTranscriptWindow(t *testing.T) {
 				cursor = &transcriptstore.ContentCursor{Offset: tt.offset}
 			}
 
-			window, next, err := transcriptWindow(tt.content, cursor, tt.requested)
+			window, next, failure := transcriptWindow(tt.content, cursor, tt.requested)
 			if tt.wantCode != 0 {
-				assert.Equal(t, tt.wantCode, connect.CodeOf(err))
-				require.Error(t, err)
-				assert.Contains(t, err.Error(), tt.wantErr, "the message has to name the real cause")
+				require.NotNil(t, failure)
+
+				_, served := rpcerr.Answer[agentv1.GetTranscriptResponse](nil, failure)
+				assert.Equal(t, tt.wantCode, connect.CodeOf(served))
+				assert.Contains(t, failure.Error(), tt.wantErr, "the message has to name the real cause")
 
 				return
 			}
 
-			require.NoError(t, err)
+			require.Nil(t, failure)
 			assert.Equal(t, tt.want, window)
 
 			if tt.wantLast {

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"testing"
 	"time"
+	hookv1weave "weave/proto/gen/hook/v1/hookv1weave"
 
 	"weave/internal/agents"
 	hookv1 "weave/proto/gen/hook/v1"
@@ -18,7 +19,7 @@ import (
 // TestOpenPullRequest covers the handler translating and nothing more, the code each sentinel earns being rpcerr's own.
 func TestOpenPullRequest(t *testing.T) {
 	manager := &fakeHooks{}
-	service := NewService(manager, manager)
+	service := hookv1weave.HookServiceAdapter{Impl: NewService(manager, manager)}
 
 	_, err := service.OpenPullRequest(t.Context(), connect.NewRequest(&hookv1.OpenPullRequestRequest{
 		AgentId: "a7",
@@ -28,7 +29,7 @@ func TestOpenPullRequest(t *testing.T) {
 	assert.Equal(t, "a7", manager.agentID)
 
 	refusing := &fakeHooks{err: agents.ErrNoPullRequest}
-	refused := NewService(refusing, refusing)
+	refused := hookv1weave.HookServiceAdapter{Impl: NewService(refusing, refusing)}
 
 	_, err = refused.OpenPullRequest(t.Context(), connect.NewRequest(&hookv1.OpenPullRequestRequest{
 		AgentId: "a1",
@@ -57,7 +58,7 @@ func TestListHooks(t *testing.T) {
 		},
 	}}
 
-	resp, err := NewService(manager, manager).ListHooks(t.Context(), connect.NewRequest(&emptypb.Empty{}))
+	resp, err := hookv1weave.HookServiceAdapter{Impl: NewService(manager, manager)}.ListHooks(t.Context(), connect.NewRequest(&emptypb.Empty{}))
 	require.NoError(t, err)
 
 	listed := resp.Msg.GetHooks()
@@ -77,7 +78,7 @@ func TestListHooks(t *testing.T) {
 // problem rather than the caller's.
 func TestListHooksFailure(t *testing.T) {
 	failing := &fakeHooks{listErr: errors.New("permission denied")}
-	service := NewService(failing, failing)
+	service := hookv1weave.HookServiceAdapter{Impl: NewService(failing, failing)}
 
 	_, err := service.ListHooks(t.Context(), connect.NewRequest(&emptypb.Empty{}))
 

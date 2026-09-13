@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	hookv1weave "weave/proto/gen/hook/v1/hookv1weave"
 
 	"weave/config"
 	"weave/internal/agents"
@@ -150,7 +151,7 @@ func hookClient(t *testing.T, p hookClientParams) hookv1connect.HookServiceClien
 
 	mux := http.NewServeMux()
 	mux.Handle(hookv1connect.NewHookServiceHandler(
-		NewService(service, pullRequests),
+		hookv1weave.HookServiceAdapter{Impl: NewService(service, pullRequests)},
 		connect.WithInterceptors(validation),
 	))
 

@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	configv1weave "weave/proto/gen/config/v1/configv1weave"
 
 	weaveconfig "weave/config"
 	"weave/internal/version"
@@ -77,7 +78,7 @@ func TestGetConfig(t *testing.T) {
 				t.Setenv("HOME", t.TempDir())
 			}
 
-			svc := NewService(func() (*weaveconfig.Config, error) { return weaveconfig.Load(paths) })
+			svc := configv1weave.ConfigServiceAdapter{Impl: NewService(func() (*weaveconfig.Config, error) { return weaveconfig.Load(paths) })}
 
 			resp, err := svc.GetConfig(t.Context(), connect.NewRequest(&emptypb.Empty{}))
 			require.NoError(t, err)
@@ -89,7 +90,7 @@ func TestGetConfig(t *testing.T) {
 // TestGetConfigReportsTheBuild covers the build in the response, which is the only way an
 // agent reaching this server over MCP can say which one it was talking to.
 func TestGetConfigReportsTheBuild(t *testing.T) {
-	svc := NewService(func() (*weaveconfig.Config, error) { return weaveconfig.Defaults(), nil })
+	svc := configv1weave.ConfigServiceAdapter{Impl: NewService(func() (*weaveconfig.Config, error) { return weaveconfig.Defaults(), nil })}
 
 	resp, err := svc.GetConfig(t.Context(), connect.NewRequest(&emptypb.Empty{}))
 
@@ -138,9 +139,9 @@ func TestGetConfigKeysMatchTheFile(t *testing.T) {
 		},
 	}
 
-	svc := NewService(func() (*weaveconfig.Config, error) {
+	svc := configv1weave.ConfigServiceAdapter{Impl: NewService(func() (*weaveconfig.Config, error) {
 		return &weaveconfig.Config{Keybindings: weaveconfig.DefaultKeybindings()}, nil
-	})
+	})}
 
 	resp, err := svc.GetConfig(t.Context(), connect.NewRequest(&emptypb.Empty{}))
 	require.NoError(t, err)
@@ -205,7 +206,7 @@ func TestGetConfigRedactsTheConnectionStrings(t *testing.T) {
 		"readonly_database_url = \"postgres://reader:alsosecret@db.internal:5432/panel\"\n"
 	require.NoError(t, os.WriteFile(path, []byte(body), 0o600))
 
-	svc := NewService(func() (*weaveconfig.Config, error) { return weaveconfig.Load([]string{path}) })
+	svc := configv1weave.ConfigServiceAdapter{Impl: NewService(func() (*weaveconfig.Config, error) { return weaveconfig.Load([]string{path}) })}
 
 	resp, err := svc.GetConfig(t.Context(), connect.NewRequest(&emptypb.Empty{}))
 	require.NoError(t, err)

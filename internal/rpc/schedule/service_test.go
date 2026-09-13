@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 	"time"
+	schedulev1weave "weave/proto/gen/schedule/v1/schedulev1weave"
 
 	"weave/internal/agents"
 	"weave/internal/rpc/render"
@@ -227,7 +228,7 @@ func TestGetSchedule(t *testing.T) {
 func TestGetScheduleLastResult(t *testing.T) {
 	st := storetest.Open(t)
 	manager := agents.NewScheduleService(agents.NewScheduleServiceParams{Schedules: st.Schedules, Workflows: st.Workflows})
-	svc := NewService(st.Schedules, manager)
+	svc := schedulev1weave.ScheduleServiceAdapter{Impl: NewService(st.Schedules, manager)}
 	workflow := st.SeedWorkflow(t, workflowstore.Config{Name: "schedules"}).ID
 
 	id := createSchedule(t, svc, workflow, "morning-ci")
@@ -506,16 +507,16 @@ func TestListSchedulesRefusesAMangledToken(t *testing.T) {
 	assert.Equal(t, connect.CodeInvalidArgument, connect.CodeOf(err))
 }
 
-func service(t *testing.T) (*Service, string) {
+func service(t *testing.T) (schedulev1weave.ScheduleServiceAdapter, string) {
 	t.Helper()
 
 	st := storetest.Open(t)
 	manager := agents.NewScheduleService(agents.NewScheduleServiceParams{Schedules: st.Schedules, Workflows: st.Workflows})
 
-	return NewService(st.Schedules, manager), st.SeedWorkflow(t, workflowstore.Config{Name: "schedules"}).ID
+	return schedulev1weave.ScheduleServiceAdapter{Impl: NewService(st.Schedules, manager)}, st.SeedWorkflow(t, workflowstore.Config{Name: "schedules"}).ID
 }
 
-func createSchedule(t *testing.T, svc *Service, workflow, name string) string {
+func createSchedule(t *testing.T, svc schedulev1weave.ScheduleServiceAdapter, workflow, name string) string {
 	t.Helper()
 
 	created, err := svc.CreateSchedule(t.Context(), connect.NewRequest(&schedulev1.CreateScheduleRequest{
@@ -564,7 +565,7 @@ func TestGetScheduleKeepsTheWholePrompt(t *testing.T) {
 	assert.False(t, got.Msg.GetSchedule().GetPromptTruncated())
 }
 
-func seedSchedule(t *testing.T, svc *Service, workflow, name, prompt string) string {
+func seedSchedule(t *testing.T, svc schedulev1weave.ScheduleServiceAdapter, workflow, name, prompt string) string {
 	t.Helper()
 
 	created, err := svc.CreateSchedule(t.Context(), connect.NewRequest(&schedulev1.CreateScheduleRequest{

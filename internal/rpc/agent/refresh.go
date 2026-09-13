@@ -4,10 +4,9 @@ import (
 	"context"
 
 	"weave/internal/agents"
+	"weave/internal/fail"
 	"weave/internal/rpcerr"
 	agentv1 "weave/proto/gen/agent/v1"
-
-	"connectrpc.com/connect"
 )
 
 // worktreeRefresher brings an agent's existing worktree up to date in place.
@@ -17,16 +16,13 @@ type worktreeRefresher interface {
 }
 
 // PlanRefresh reads what a rebase would do without doing it.
-func (s *Service) PlanRefresh(
-	ctx context.Context,
-	req *connect.Request[agentv1.PlanRefreshRequest],
-) (*connect.Response[agentv1.PlanRefreshResponse], error) {
-	plan, err := s.refresher.PlanRebase(ctx, req.Msg.GetAgentId())
+func (s *Service) PlanRefresh(ctx context.Context, req *agentv1.PlanRefreshRequest) (*agentv1.PlanRefreshResponse, *fail.Error) {
+	plan, err := s.refresher.PlanRebase(ctx, req.GetAgentId())
 	if err != nil {
-		return nil, rpcerr.Wrap(err, "failed to work out what a rebase would do")
+		return nil, rpcerr.From(err, "failed to work out what a rebase would do")
 	}
 
-	return connect.NewResponse(&agentv1.PlanRefreshResponse{
+	return &agentv1.PlanRefreshResponse{
 		BaseRef:       plan.BaseRef,
 		BaseSha:       plan.BaseSHA,
 		Commits:       int32(plan.Commits),
@@ -35,20 +31,17 @@ func (s *Service) PlanRefresh(
 		ReplayCommits: int32(plan.Replay),
 		Merges:        int32(plan.Merges),
 		ConflictPaths: plan.ConflictPaths,
-	}), nil
+	}, nil
 }
 
 // RebaseWorktree moves the agent's branch onto the latest base in place.
-func (s *Service) RebaseWorktree(
-	ctx context.Context,
-	req *connect.Request[agentv1.RebaseWorktreeRequest],
-) (*connect.Response[agentv1.RebaseWorktreeResponse], error) {
-	result, err := s.refresher.Rebase(ctx, req.Msg.GetAgentId())
+func (s *Service) RebaseWorktree(ctx context.Context, req *agentv1.RebaseWorktreeRequest) (*agentv1.RebaseWorktreeResponse, *fail.Error) {
+	result, err := s.refresher.Rebase(ctx, req.GetAgentId())
 	if err != nil {
-		return nil, rpcerr.Wrap(err, "failed to rebase the worktree")
+		return nil, rpcerr.From(err, "failed to rebase the worktree")
 	}
 
-	return connect.NewResponse(&agentv1.RebaseWorktreeResponse{
+	return &agentv1.RebaseWorktreeResponse{
 		BaseRef:       result.BaseRef,
 		BaseSha:       result.BaseSHA,
 		Commits:       int32(result.Commits),
@@ -57,5 +50,5 @@ func (s *Service) RebaseWorktree(
 		Moved:         result.Moved,
 		LandedCommits: int32(result.Landed),
 		ReplayCommits: int32(result.Replay),
-	}), nil
+	}, nil
 }

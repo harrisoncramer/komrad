@@ -41,7 +41,12 @@ func (l *linter) BuildAnalyzers() ([]*analysis.Analyzer, error) {
 		return nil, err
 	}
 
-	return []*analysis.Analyzer{sentinels}, nil
+	handlers, err := newHandlerShape(l.config.HandlerShape)
+	if err != nil {
+		return nil, err
+	}
+
+	return []*analysis.Analyzer{sentinels, handlers}, nil
 }
 
 // GetLoadMode tells golangci-lint the analyzers read syntax alone.
