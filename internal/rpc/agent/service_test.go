@@ -25,7 +25,6 @@ import (
 	agentstore "weave/internal/store/agent"
 	reviewstore "weave/internal/store/review"
 	runstore "weave/internal/store/run"
-	transcriptstore "weave/internal/store/transcript"
 	workflowstore "weave/internal/store/workflow"
 
 	"connectrpc.com/connect"
@@ -2030,31 +2029,12 @@ func seedTranscript(t *testing.T, st *storetest.Stores, agentID string, turns []
 		return ""
 	}
 
-	var content strings.Builder
+	st.SeedTranscript(t, agentID, turns...)
 
-	indexed := make([]transcriptstore.Turn, 0, len(turns))
-	for _, text := range turns {
-		if content.Len() > 0 {
-			content.WriteString("\n\n")
-		}
+	content, err := st.Transcripts.Get(t.Context(), agentID)
+	require.NoError(t, err)
 
-		indexed = append(indexed, transcriptstore.Turn{
-			Role:    "user",
-			Content: text,
-			Offset:  int64(content.Len()),
-		})
-		content.WriteString(text)
-	}
-
-	ctx := t.Context()
-	require.NoError(t, st.Transcripts.Upsert(ctx, transcriptstore.UpsertParams{
-		AgentID: agentID,
-		Content: content.String(),
-		Offset:  int64(content.Len()),
-	}))
-	require.NoError(t, st.Transcripts.AppendTurns(ctx, agentID, indexed))
-
-	return content.String()
+	return content
 }
 
 func storedMetadata(agent *agentv1.Agent) []agentstore.Metadata {

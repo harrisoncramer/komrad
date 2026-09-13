@@ -12,7 +12,6 @@ import (
 	"weave/internal/store"
 	agentstore "weave/internal/store/agent"
 	reviewstore "weave/internal/store/review"
-	transcriptstore "weave/internal/store/transcript"
 	workflowstore "weave/internal/store/workflow"
 
 	"github.com/stretchr/testify/assert"
@@ -450,11 +449,7 @@ func TestDeleteAgent(t *testing.T) {
 			ctx := t.Context()
 
 			seeded := seedRunning(t, st, tmux, "target", "%1", agentstore.StateThinking)
-			require.NoError(t, st.Transcripts.Upsert(ctx, transcriptstore.UpsertParams{
-				AgentID: seeded.ID,
-				Content: "something it said",
-				Offset:  1,
-			}))
+			st.SeedTranscript(t, seeded.ID, "something it said")
 			if tt.archive {
 				require.NoError(t, st.SoftDelete(ctx, seeded.Name))
 			}
@@ -481,7 +476,7 @@ func TestDeleteAgent(t *testing.T) {
 
 			tr, err := st.GetTranscript(ctx, seeded.ID)
 			require.NoError(t, err)
-			assert.Empty(t, tr.Content, "the transcript goes with the agent")
+			assert.Empty(t, tr, "the transcript goes with the agent")
 		})
 	}
 }

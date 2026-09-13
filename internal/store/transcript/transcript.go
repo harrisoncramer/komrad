@@ -6,7 +6,6 @@ import (
 	"context"
 	"fmt"
 	"strings"
-	"time"
 	"unicode"
 	"unicode/utf8"
 
@@ -16,12 +15,10 @@ import (
 	"weave/lib/xslice"
 )
 
-type Transcript struct {
-	Content      string
+// Session is one conversation an agent has held.
+type Session struct {
+	ID           string
 	SyncedOffset int64
-	// SyncedAt moves only when the log had new bytes, so it is when the agent last wrote
-	// something.
-	SyncedAt time.Time
 }
 
 type SearchHit struct {
@@ -59,42 +56,54 @@ func New(db store.DBTX) *Store {
 	return &Store{queries: models.New(db)}
 }
 
-// Get returns an agent's stored transcript, or a zero Transcript when none has been synced
-// yet.
-func (s *Store) Get(ctx context.Context, agentID string) (Transcript, error) {
+// Get assembles an agent's whole conversation from its indexed turns.
+func (s *Store) Get(ctx context.Context, agentID string) (string, error) {
 	if !store.IsID(agentID) {
-		return Transcript{}, nil
+		return "", nil
 	}
 
-	row, err := s.queries.GetTranscript(ctx, agentID)
+	content, err := s.queries.GetTranscript(ctx, agentID)
 	if db.IsNoRows(err) {
-		return Transcript{}, nil
+		return "", nil
 	}
 	if err != nil {
-		return Transcript{}, fmt.Errorf("failed to get transcript for %q: %w", agentID, err)
+		return "", fmt.Errorf("failed to get transcript for %q: %w", agentID, err)
 	}
 
-	return Transcript{
-		Content:      row.Content,
-		SyncedOffset: row.SyncedOffset,
-		SyncedAt:     row.SyncedAt,
-	}, nil
+	return content, nil
 }
 
-type UpsertParams struct {
-	AgentID string
-	Content string
-	Offset  int64
+type OpenSessionParams struct {
+	AgentID   string
+	SessionID string
 }
 
-// Upsert writes the whole copy of an agent's transcript that the panel previews.
-func (s *Store) Upsert(ctx context.Context, params UpsertParams) error {
-	if err := s.queries.UpsertTranscript(ctx, models.UpsertTranscriptParams{
-		AgentID:      params.AgentID,
-		Content:      params.Content,
-		SyncedOffset: params.Offset,
+// OpenSession returns the session an agent's current conversation is copied under.
+func (s *Store) OpenSession(ctx context.Context, params OpenSessionParams) (Session, error) {
+	id, err := store.NewID()
+	if err != nil {
+		return Session{}, err
+	}
+
+	row, err := s.queries.OpenTranscriptSession(ctx, models.OpenTranscriptSessionParams{
+		ID:        id,
+		AgentID:   params.AgentID,
+		SessionID: params.SessionID,
+	})
+	if err != nil {
+		return Session{}, fmt.Errorf("failed to open a transcript session for %q: %w", params.AgentID, err)
+	}
+
+	return Session{ID: row.ID, SyncedOffset: row.SyncedOffset}, nil
+}
+
+// Advance records how far a session's log has been read.
+func (s *Store) Advance(ctx context.Context, sessionID string, offset int64) error {
+	if err := s.queries.AdvanceTranscriptSession(ctx, models.AdvanceTranscriptSessionParams{
+		ID:           sessionID,
+		SyncedOffset: offset,
 	}); err != nil {
-		return fmt.Errorf("failed to upsert transcript for %q: %w", params.AgentID, err)
+		return fmt.Errorf("failed to advance transcript session %q: %w", sessionID, err)
 	}
 
 	return nil
@@ -106,23 +115,33 @@ type Turn struct {
 	Offset  int64
 }
 
+type AppendTurnsParams struct {
+	AgentID   string
+	SessionID string
+	Turns     []Turn
+}
+
+// turnSeparator is the blank line the assembled conversation puts between two turns.
+const turnSeparator = "\n\n"
+
 // AppendTurns indexes newly-synced turns for an agent, numbering them after those already
 // stored.
-func (s *Store) AppendTurns(ctx context.Context, agentID string, turns []Turn) error {
-	if len(turns) == 0 {
+func (s *Store) AppendTurns(ctx context.Context, params AppendTurnsParams) error {
+	if len(params.Turns) == 0 {
 		return nil
 	}
 
-	next, err := s.queries.NextTranscriptChunkSeq(ctx, agentID)
+	next, err := s.queries.NextTranscriptChunk(ctx, params.AgentID)
 	if err != nil {
-		return fmt.Errorf("failed to read the next transcript chunk seq for %q: %w", agentID, err)
+		return fmt.Errorf("failed to read the next transcript chunk for %q: %w", params.AgentID, err)
 	}
 
-	rows := make([]models.InsertTranscriptChunksParams, 0, len(turns))
-	for i, turn := range turns {
+	rows := make([]models.InsertTranscriptChunksParams, 0, len(params.Turns))
+	for i, turn := range placeTurns(next.ContentLength, next.NextSeq == 0, params.Turns) {
 		rows = append(rows, models.InsertTranscriptChunksParams{
-			AgentID:       agentID,
-			Seq:           next + int32(i),
+			AgentID:       params.AgentID,
+			SessionID:     params.SessionID,
+			Seq:           next.NextSeq + int32(i),
 			Role:          turn.Role,
 			Content:       turn.Content,
 			ContentOffset: turn.Offset,
@@ -130,29 +149,44 @@ func (s *Store) AppendTurns(ctx context.Context, agentID string, turns []Turn) e
 	}
 
 	if _, err := s.queries.InsertTranscriptChunks(ctx, rows); err != nil {
-		return fmt.Errorf("failed to insert transcript chunks for %q: %w", agentID, err)
+		return fmt.Errorf("failed to insert transcript chunks for %q: %w", params.AgentID, err)
 	}
 
 	return nil
 }
 
-// DeleteTurns drops every indexed turn for an agent.
-func (s *Store) DeleteTurns(ctx context.Context, agentID string) error {
-	if err := s.queries.DeleteAgentTranscriptChunks(ctx, agentID); err != nil {
-		return fmt.Errorf("failed to delete transcript chunks for %q: %w", agentID, err)
+// placeTurns numbers each turn by where it starts in the assembled conversation.
+func placeTurns(length int64, first bool, turns []Turn) []Turn {
+	placed := make([]Turn, 0, len(turns))
+	for i, turn := range turns {
+		if !first || i > 0 {
+			length += int64(len(turnSeparator))
+		}
+
+		turn.Offset = length
+		placed = append(placed, turn)
+		length += int64(len(turn.Content))
+	}
+
+	return placed
+}
+
+// DeleteSessionTurns drops the turns indexed under one session.
+func (s *Store) DeleteSessionTurns(ctx context.Context, sessionID string) error {
+	if err := s.queries.DeleteTranscriptSessionChunks(ctx, sessionID); err != nil {
+		return fmt.Errorf("failed to delete transcript chunks for session %q: %w", sessionID, err)
 	}
 
 	return nil
 }
 
-// Delete removes the transcripts belonging to agents, both the whole copies and the indexed
-// turns.
+// Delete removes the conversations belonging to agents.
 func (s *Store) Delete(ctx context.Context, agentIDs []string) error {
 	if len(agentIDs) == 0 {
 		return nil
 	}
 
-	if err := s.queries.DeleteAgentTranscripts(ctx, agentIDs); err != nil {
+	if err := s.queries.DeleteAgentsTranscriptSessions(ctx, agentIDs); err != nil {
 		return fmt.Errorf("failed to delete the transcripts of %d agents: %w", len(agentIDs), err)
 	}
 	if err := s.queries.DeleteAgentsTranscriptChunks(ctx, agentIDs); err != nil {

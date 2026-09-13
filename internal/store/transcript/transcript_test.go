@@ -13,50 +13,44 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestUpsertAndGet covers what a transcript reads back as, including before
-// anything has been synced for the agent at all.
-func TestUpsertAndGet(t *testing.T) {
+// TestAppendAndGet covers what a conversation reads back as, including before anything has
+// been synced for the agent at all.
+func TestAppendAndGet(t *testing.T) {
 	tests := []struct {
-		name        string
-		writes      []UpsertParams
-		wantContent string
-		wantOffset  int64
+		name  string
+		turns [][]Turn
+		want  string
 	}{
 		{
-			name: "an unsynced agent reads as the zero transcript",
+			name: "an unsynced agent reads as no conversation at all",
 		},
 		{
-			name:        "content and offset round-trip",
-			writes:      []UpsertParams{{Content: "hello world", Offset: 11}},
-			wantContent: "hello world",
-			wantOffset:  11,
+			name:  "one turn reads back as itself",
+			turns: [][]Turn{{{Role: "user", Content: "hello world"}}},
+			want:  "hello world",
 		},
 		{
-			name: "a later write replaces the content in place",
-			writes: []UpsertParams{
-				{Content: "hello world", Offset: 11},
-				{Content: "hello world again", Offset: 17},
+			name: "a later append follows the turns already stored",
+			turns: [][]Turn{
+				{{Role: "user", Content: "hello world"}},
+				{{Role: "assistant", Content: "hello yourself"}},
 			},
-			wantContent: "hello world again",
-			wantOffset:  17,
+			want: "hello world\n\nhello yourself",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			st := open(t)
-			ctx := t.Context()
 			id := seedAgent(t, st, "agent")
 
-			for _, write := range tt.writes {
-				write.AgentID = id
-				require.NoError(t, st.Upsert(ctx, write))
+			for _, turns := range tt.turns {
+				seedTurns(t, st, id, turns)
 			}
 
-			got, err := st.Get(ctx, id)
+			got, err := st.Get(t.Context(), id)
 			require.NoError(t, err)
-			assert.Equal(t, tt.wantContent, got.Content)
-			assert.Equal(t, tt.wantOffset, got.SyncedOffset)
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }
@@ -84,7 +78,7 @@ func TestGetOfUnknownID(t *testing.T) {
 
 			got, err := st.Get(t.Context(), tt.id)
 			require.NoError(t, err)
-			assert.Equal(t, Transcript{}, got)
+			assert.Empty(t, got)
 		})
 	}
 }
@@ -263,7 +257,7 @@ func TestSearch(t *testing.T) {
 				seedTranscript(t, st, second, tt.other)
 			}
 			if tt.reindexTo != "" {
-				require.NoError(t, st.DeleteTurns(ctx, id))
+				require.NoError(t, st.DeleteSessionTurns(ctx, openSession(t, st, id).ID))
 				seedTranscript(t, st, id, tt.reindexTo)
 			}
 			if tt.archive {
@@ -299,14 +293,17 @@ func TestSearchReturnsEveryMatchingTurn(t *testing.T) {
 	st := open(t)
 	ctx := t.Context()
 
-	content, turns := layOutTurns([]Turn{
+	turns := []Turn{
 		{Role: "user", Content: "how does the reconciler work"},
 		{Role: "assistant", Content: "it derives state from the pane"},
 		{Role: "user", Content: "and where do the reconciler markers come in"},
-	})
+	}
 
 	id := seedAgent(t, st, "one")
-	seedTurns(t, st, id, content, turns)
+	seedTurns(t, st, id, turns)
+
+	content, err := st.Get(ctx, id)
+	require.NoError(t, err)
 
 	got, err := st.Search(ctx, SearchParams{Query: "reconciler", Limit: 10})
 	require.NoError(t, err)
@@ -333,11 +330,11 @@ func TestSearchScopedToOneAgent(t *testing.T) {
 
 	mine, theirs := seedAgent(t, st, "mine"), seedAgent(t, st, "theirs")
 
-	content, turns := layOutTurns([]Turn{
+	turns := []Turn{
 		{Role: "user", Content: "how does the reconciler work"},
 		{Role: "assistant", Content: "the reconciler reads the pane"},
-	})
-	seedTurns(t, st, mine, content, turns)
+	}
+	seedTurns(t, st, mine, turns)
 	seedTranscript(t, st, theirs, "the reconciler is described here too")
 
 	unscoped, err := st.Search(ctx, SearchParams{Query: "reconciler", Limit: 10})
@@ -822,34 +819,27 @@ func seedAgent(t *testing.T, st *fixture, name string) string {
 
 func seedTranscript(t *testing.T, st *fixture, id, content string) {
 	t.Helper()
-	seedTurns(t, st, id, content, []Turn{{Role: "user", Content: content}})
+	seedTurns(t, st, id, []Turn{{Role: "user", Content: content}})
 }
 
-func layOutTurns(turns []Turn) (string, []Turn) {
-	var content strings.Builder
-
-	out := make([]Turn, 0, len(turns))
-	for _, turn := range turns {
-		if content.Len() > 0 {
-			content.WriteString("\n\n")
-		}
-		turn.Offset = int64(content.Len())
-		out = append(out, turn)
-		content.WriteString(turn.Content)
-	}
-
-	return content.String(), out
-}
-
-func seedTurns(t *testing.T, st *fixture, id, content string, turns []Turn) {
+func seedTurns(t *testing.T, st *fixture, id string, turns []Turn) {
 	t.Helper()
-	ctx := t.Context()
-	require.NoError(t, st.Upsert(ctx, UpsertParams{
-		AgentID: id,
-		Content: content,
-		Offset:  1,
+	require.NoError(t, st.AppendTurns(t.Context(), AppendTurnsParams{
+		AgentID:   id,
+		SessionID: openSession(t, st, id).ID,
+		Turns:     turns,
 	}))
-	require.NoError(t, st.AppendTurns(ctx, id, turns))
+}
+
+func openSession(t *testing.T, st *fixture, id string) Session {
+	t.Helper()
+	session, err := st.OpenSession(t.Context(), OpenSessionParams{
+		AgentID:   id,
+		SessionID: "session-" + id,
+	})
+	require.NoError(t, err)
+
+	return session
 }
 
 // allHits flattens both sections in the order the panel shows them, for the tests that care
@@ -879,4 +869,84 @@ func uniqueStrings(in []string) []string {
 	}
 
 	return out
+}
+
+// TestAppendTurnsPlacesEachTurn covers the offset stored against a turn, which is what locates
+// it in the conversation the store assembles.
+func TestAppendTurnsPlacesEachTurn(t *testing.T) {
+	tests := []struct {
+		name   string
+		passes [][]Turn
+		want   string
+	}{
+		{
+			name:   "nothing to append leaves the conversation empty",
+			passes: [][]Turn{{}},
+		},
+		{
+			name:   "the first turns start the conversation",
+			passes: [][]Turn{{{Role: "user", Content: "alpha question"}, {Role: "assistant", Content: "beta answer"}}},
+			want:   "alpha question\n\nbeta answer",
+		},
+		{
+			name: "later turns are placed after what is already stored",
+			passes: [][]Turn{
+				{{Role: "user", Content: "alpha earlier"}},
+				{{Role: "user", Content: "beta later"}},
+			},
+			want: "alpha earlier\n\nbeta later",
+		},
+		{
+			name:   "a turn saying nothing still takes its separator",
+			passes: [][]Turn{{{Role: "user", Content: ""}, {Role: "assistant", Content: "alpha answer"}}},
+			want:   "\n\nalpha answer",
+		},
+		{
+			name: "a turn holding multi-byte runes is measured in bytes",
+			passes: [][]Turn{
+				{{Role: "user", Content: "alpha héllo wörld"}},
+				{{Role: "user", Content: "beta after"}},
+			},
+			want: "alpha héllo wörld\n\nbeta after",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			st := open(t)
+			id := seedAgent(t, st, "agent")
+
+			for _, turns := range tt.passes {
+				seedTurns(t, st, id, turns)
+			}
+
+			content, err := st.Get(t.Context(), id)
+			require.NoError(t, err)
+			require.Equal(t, tt.want, content)
+
+			for _, turns := range tt.passes {
+				for _, turn := range turns {
+					words := strings.Fields(turn.Content)
+					if len(words) == 0 {
+						continue
+					}
+
+					hit := onlyHit(t, st, id, words[0])
+					assert.Equal(t, turn.Content, content[hit.ContentOffset:hit.ContentOffset+hit.ContentLength],
+						"the offset and length cut the turn that matched out of the conversation")
+				}
+			}
+		})
+	}
+}
+
+func onlyHit(t *testing.T, st *fixture, id, query string) SearchHit {
+	t.Helper()
+	got, err := st.Search(t.Context(), SearchParams{Query: query, AgentID: &id, Limit: 10})
+	require.NoError(t, err)
+
+	hits := allHits(got)
+	require.Len(t, hits, 1)
+
+	return hits[0]
 }

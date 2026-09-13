@@ -287,14 +287,6 @@ type AgentRun struct {
 	ViewedAt   *time.Time
 }
 
-// One agent's whole conversation as plain text, copied from the log its CLI writes on disk. Every agent has exactly one row.
-type AgentTranscript struct {
-	AgentID      string
-	Content      string
-	SyncedOffset int64
-	SyncedAt     time.Time
-}
-
 // One turn of an agent's conversation, indexed so it can be searched by word.
 type AgentTranscriptChunk struct {
 	AgentID       string
@@ -303,6 +295,17 @@ type AgentTranscriptChunk struct {
 	Content       string
 	ContentOffset int64
 	Tsv           interface{}
+	SessionID     string
+}
+
+// One conversation an agent has held, holding how far its log has been copied into the store.
+type AgentTranscriptSession struct {
+	ID           string
+	AgentID      string
+	SessionID    string
+	SyncedOffset int64
+	SyncedAt     time.Time
+	CreatedAt    time.Time
 }
 
 // One piece of mail from one agent to another, held until the recipient claims it.

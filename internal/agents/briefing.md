@@ -16,7 +16,7 @@ A file you write for a person to read is one of those. When you leave a markdown
 
 The panel serves itself over MCP as a server named "weave" at {{MCP_URL}}, and it has two halves.
 
-One half is read-only SQL over the panel's own Postgres: list_tables, describe_table, and query, which runs a single SELECT and rejects writes. The agents table holds each agent's name, state, pane, working directory, and flags, workflows the groups agents are filed under, and agent_transcripts the text of every conversation. It is the whole database and it is not narrowed by who is asking, so a query over that table reads other agents' conversations. Reach for these when the question is about the other agents rather than the code in front of you, and for anything shaped like an aggregate or a join.
+One half is read-only SQL over the panel's own Postgres: list_tables, describe_table, and query, which runs a single SELECT and rejects writes. The agents table holds each agent's name, state, pane, working directory, and flags, workflows the groups agents are filed under, and agent_transcript_chunks the turns of every conversation. It is the whole database and it is not narrowed by who is asking, so a query over that table reads other agents' conversations. Reach for these when the question is about the other agents rather than the code in front of you, and for anything shaped like an aggregate or a join.
 
 The other half drives the panel itself: agents, workflows, mail, schedules, hooks, and transcript search. Your client lists those tools with their descriptions, so read the list rather than guessing at names.
 

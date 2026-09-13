@@ -141,7 +141,7 @@ func TestAppendedSystemPrompt(t *testing.T) {
 			wantContain: []string{
 				"http://127.0.0.1:9999/mcp",
 				"list_tables",
-				"agent_transcripts",
+				"agent_transcript_chunks",
 
 				"WEAVE_AGENT_ID",
 				"set_agent_metadata",

@@ -7,7 +7,6 @@ import (
 	"path/filepath"
 	"testing"
 
-	"weave/internal/harness"
 	"weave/internal/harness/claude"
 	"weave/internal/harness/codex"
 	agentstore "weave/internal/store/agent"
@@ -16,48 +15,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
-
-// TestAppendTurns covers the join and the offsets together.
-func TestAppendTurns(t *testing.T) {
-	tests := []struct {
-		name     string
-		existing string
-		turns    []harness.Turn
-		want     string
-	}{
-		{
-			name:     "nothing new leaves the transcript alone",
-			existing: "earlier",
-			want:     "earlier",
-		},
-		{
-			name:  "the first turns start the transcript",
-			turns: []harness.Turn{{Role: "user", Content: "question"}, {Role: "assistant", Content: "answer"}},
-			want:  "question\n\nanswer",
-		},
-		{
-			name:     "later turns are separated from what is already there",
-			existing: "earlier",
-			turns:    []harness.Turn{{Role: "user", Content: "later"}},
-			want:     "earlier\n\nlater",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			content, indexed := appendTurns(tt.existing, tt.turns)
-			assert.Equal(t, tt.want, content)
-			require.Len(t, indexed, len(tt.turns))
-
-			for i, got := range indexed {
-				assert.Equal(t, tt.turns[i].Role, got.Role)
-				assert.Equal(t, tt.turns[i].Content, got.Content)
-				assert.Equal(t, got.Content, content[got.Offset:got.Offset+int64(len(got.Content))],
-					"the offset locates the turn in the text it was appended to")
-			}
-		})
-	}
-}
 
 // TestTranscriptSyncer covers a sync pass end to end, including how a second pass treats a
 // log that has moved on since the first.
@@ -134,8 +91,9 @@ func TestTranscriptSyncer(t *testing.T) {
 			first, err := st.GetTranscript(ctx, agent.ID)
 			require.NoError(t, err)
 			if tt.wantFirst != "" {
-				assert.Equal(t, tt.wantFirst, first.Content)
+				assert.Equal(t, tt.wantFirst, first)
 			}
+			firstOffset := syncedOffset(t, st, agent.ID, testSessionID)
 
 			if tt.appended != "" {
 				appendToLog(t, path, tt.appended)
@@ -149,16 +107,17 @@ func TestTranscriptSyncer(t *testing.T) {
 
 			tr, err := st.GetTranscript(ctx, agent.ID)
 			require.NoError(t, err)
-			assert.Equal(t, tt.want, tr.Content)
+			assert.Equal(t, tt.want, tr)
 
 			if tt.want == "" {
-				assert.Equal(t, transcriptstore.Transcript{}, tr)
 				return
 			}
-			assert.Positive(t, tr.SyncedOffset)
+
+			offset := syncedOffset(t, st, agent.ID, testSessionID)
+			assert.Positive(t, offset)
 
 			if tt.appended != "" {
-				assert.Greater(t, tr.SyncedOffset, first.SyncedOffset, "the offset advances with the log")
+				assert.Greater(t, offset, firstOffset, "the offset advances with the log")
 			}
 
 			if tt.searchFor != "" {
@@ -197,11 +156,11 @@ func TestSyncSurvivesOneUnsyncableAgent(t *testing.T) {
 
 	stranded, err := st.GetTranscript(ctx, readable.ID)
 	require.NoError(t, err)
-	assert.Equal(t, "a turn worth keeping", stranded.Content, "the rest of the pass is synced anyway")
+	assert.Equal(t, "a turn worth keeping", stranded, "the rest of the pass is synced anyway")
 
 	empty, err := st.GetTranscript(ctx, unsyncable.ID)
 	require.NoError(t, err)
-	assert.Empty(t, empty.Content, "the agent that failed has nothing stored")
+	assert.Empty(t, empty, "the agent that failed has nothing stored")
 }
 
 type failingTranscripts struct {
@@ -209,12 +168,24 @@ type failingTranscripts struct {
 	failFor string
 }
 
-func (f failingTranscripts) Upsert(ctx context.Context, params transcriptstore.UpsertParams) error {
+func (f failingTranscripts) AppendTurns(ctx context.Context, params transcriptstore.AppendTurnsParams) error {
 	if params.AgentID == f.failFor {
 		return errors.New("this log will never be accepted")
 	}
 
-	return f.transcriptReadWriter.Upsert(ctx, params)
+	return f.transcriptReadWriter.AppendTurns(ctx, params)
+}
+
+// syncedOffset reads how far a session's log has been copied.
+func syncedOffset(t *testing.T, st *testStore, agentID, sessionID string) int64 {
+	t.Helper()
+	session, err := st.Transcripts.OpenSession(t.Context(), transcriptstore.OpenSessionParams{
+		AgentID:   agentID,
+		SessionID: sessionID,
+	})
+	require.NoError(t, err)
+
+	return session.SyncedOffset
 }
 
 const testSessionID = "claude-abc"
@@ -373,7 +344,7 @@ func TestSyncAdoptedSessionIsIndexed(t *testing.T) {
 
 	tr, err := st.GetTranscript(ctx, adopted.ID)
 	require.NoError(t, err)
-	assert.Equal(t, "how do I use trigram search", tr.Content)
+	assert.Equal(t, "how do I use trigram search", tr)
 }
 
 // TestSyncStartsOverOnALogEmptiedBetweenPasses pins the pass that sees nothing but a restart,
@@ -395,15 +366,15 @@ func TestSyncStartsOverOnALogEmptiedBetweenPasses(t *testing.T) {
 
 	before, err := st.GetTranscript(ctx, agent.ID)
 	require.NoError(t, err)
-	require.Equal(t, "the conversation that was", before.Content)
+	require.Equal(t, "the conversation that was", before)
 
 	require.NoError(t, os.WriteFile(path, nil, 0o644))
 	require.NoError(t, syncer.Sync(ctx))
 
 	emptied, err := st.GetTranscript(ctx, agent.ID)
 	require.NoError(t, err)
-	assert.Empty(t, emptied.Content, "the transcript of a log that is gone is gone with it")
-	assert.Zero(t, emptied.SyncedOffset, "and the next pass reads the new log from its start")
+	assert.Empty(t, emptied, "the transcript of a log that is gone is gone with it")
+	assert.Zero(t, syncedOffset(t, st, agent.ID, testSessionID), "and the next pass reads the new log from its start")
 
 	require.NoError(t, os.WriteFile(path, []byte(
 		`{"type":"user","message":{"content":"a longer conversation that replaced the first one"}}`+"\n",
@@ -412,9 +383,78 @@ func TestSyncStartsOverOnALogEmptiedBetweenPasses(t *testing.T) {
 
 	after, err := st.GetTranscript(ctx, agent.ID)
 	require.NoError(t, err)
-	assert.Equal(t, "a longer conversation that replaced the first one", after.Content)
+	assert.Equal(t, "a longer conversation that replaced the first one", after)
 
 	found, err := st.Transcripts.Search(ctx, transcriptstore.SearchParams{Query: "was", Limit: 10})
 	require.NoError(t, err)
 	assert.Empty(t, found.Matches, "and search no longer answers with the conversation that went")
+}
+
+// TestSyncKeepsEarlierConversations pins that a second conversation is copied alongside the
+// first rather than replacing it, which is what a log read from its start used to do.
+func TestSyncKeepsEarlierConversations(t *testing.T) {
+	st := newStore(t)
+	ctx := t.Context()
+	projects := t.TempDir()
+
+	agent := seedWithSessionID(t, st, "claude-first", "agent")
+	writeLogFor(t, projects, "claude-first", `{"type":"user","message":{"content":"what the first conversation said"}}`+"\n")
+
+	syncer := NewTranscriptSyncer(NewTranscriptSyncerParams{
+		Agents:      st.Agents,
+		Transcripts: st.Transcripts,
+		Harnesses:   mustRegistry(t, claude.NewHarness(claude.NewHarnessParams{ProjectsDir: projects})),
+	})
+	require.NoError(t, syncer.Sync(ctx))
+
+	moveToSession(t, st, agent.ID, "claude-second")
+	writeLogFor(t, projects, "claude-second", `{"type":"user","message":{"content":"what the second conversation said"}}`+"\n")
+	require.NoError(t, syncer.Sync(ctx))
+
+	stored, err := st.GetTranscript(ctx, agent.ID)
+	require.NoError(t, err)
+	assert.Equal(t, "what the first conversation said\n\nwhat the second conversation said", stored,
+		"the second conversation follows the first rather than replacing it")
+
+	found, err := st.Transcripts.Search(ctx, transcriptstore.SearchParams{Query: "first", Limit: 10})
+	require.NoError(t, err)
+	require.Len(t, found.Matches, 1, "the conversation the agent has moved on from is still searchable")
+	assert.Equal(t, agent.ID, found.Matches[0].AgentID)
+}
+
+// TestSyncStartsOverOnlyWithinOneConversation pins that a log read again from its start clears
+// what that conversation held and nothing of the conversations before it.
+func TestSyncStartsOverOnlyWithinOneConversation(t *testing.T) {
+	st := newStore(t)
+	ctx := t.Context()
+	projects := t.TempDir()
+
+	agent := seedWithSessionID(t, st, "claude-first", "agent")
+	writeLogFor(t, projects, "claude-first", `{"type":"user","message":{"content":"what the first conversation said"}}`+"\n")
+
+	syncer := NewTranscriptSyncer(NewTranscriptSyncerParams{
+		Agents:      st.Agents,
+		Transcripts: st.Transcripts,
+		Harnesses:   mustRegistry(t, claude.NewHarness(claude.NewHarnessParams{ProjectsDir: projects})),
+	})
+	require.NoError(t, syncer.Sync(ctx))
+
+	moveToSession(t, st, agent.ID, "claude-second")
+	second := writeLogFor(t, projects, "claude-second", `{"type":"user","message":{"content":"a long second conversation"}}`+"\n")
+	require.NoError(t, syncer.Sync(ctx))
+
+	require.NoError(t, os.WriteFile(second, []byte(`{"type":"user","message":{"content":"rewritten"}}`+"\n"), 0o644))
+	require.NoError(t, syncer.Sync(ctx))
+
+	stored, err := st.GetTranscript(ctx, agent.ID)
+	require.NoError(t, err)
+	assert.Equal(t, "what the first conversation said\n\nrewritten", stored)
+}
+
+// moveToSession puts an agent on a second conversation, which the store's own setter refuses
+// once one is recorded.
+func moveToSession(t *testing.T, st *testStore, agentID, sessionID string) {
+	t.Helper()
+	_, err := st.Pool.GetRawPool().Exec(t.Context(), "UPDATE agents SET session_id = $1 WHERE id = $2", sessionID, agentID)
+	require.NoError(t, err)
 }
