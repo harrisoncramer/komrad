@@ -405,6 +405,12 @@ func (s *RebaseService) eligible(ctx context.Context, agentID string) (*agentsto
 	if agent.ArchivedAt != nil {
 		return nil, fmt.Errorf("%w: %q", ErrAgentArchived, agent.Name)
 	}
+
+	// A rebase types at the agent and then rewrites the branch under its checkout, which is the
+	// collision somebody holding that tree stopped it to avoid.
+	if agent.HeldAt != nil {
+		return nil, fmt.Errorf("%w: %q is held, let it go first", ErrAgentHeld, agent.Name)
+	}
 	if agent.State.IsTurnUnfinished() {
 		return nil, fmt.Errorf("%w: %q", ErrRebaseBusy, agent.Name)
 	}

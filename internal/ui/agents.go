@@ -244,11 +244,16 @@ func (m model) hideAgent(agent agentstore.Agent) (tea.Model, tea.Cmd) {
 	return m, m.writeCmd(failure, func(a api) error { return a.setHidden(agent, !agent.Hidden) })
 }
 
+// releaseSaid is what a released agent is told, which is a turn rather than a silence: letting go
+// of one that never starts again is a stop with a friendlier name.
+const releaseSaid = "I stopped you for a moment and have let you go now. " +
+	"Look at your worktree as it stands before carrying on, since it may have changed while you were held."
+
 // holdAgent stops the agent and takes its worktree, or lets go of one already held.
 func (m model) holdAgent(agent agentstore.Agent) (tea.Model, tea.Cmd) {
 	if agent.HeldAt != nil {
 		return m, m.writeCmd(fmt.Sprintf("Could not let go of agent %q", agent.Name), func(a api) error {
-			return a.release(agent, "")
+			return a.release(agent, releaseSaid)
 		})
 	}
 

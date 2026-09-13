@@ -41,6 +41,8 @@ type NewHolderParams struct {
 	Channel  harness.Channel
 	Observer harness.Observer
 	Clock    func() time.Time
+	// Wait is how the settle rests between readings, time.After when nothing else is given.
+	Wait func(time.Duration) <-chan time.Time
 }
 
 // Holder stops an agent on a person's behalf and lets it go again.
@@ -49,6 +51,7 @@ type Holder struct {
 	channel  harness.Channel
 	observer harness.Observer
 	now      func() time.Time
+	wait     func(time.Duration) <-chan time.Time
 }
 
 // NewHolder builds the holder over the store, the channel that reaches an agent and the observer
@@ -59,11 +62,17 @@ func NewHolder(params NewHolderParams) *Holder {
 		now = time.Now
 	}
 
+	wait := params.Wait
+	if wait == nil {
+		wait = time.After
+	}
+
 	return &Holder{
 		agents:   params.Agents,
 		channel:  params.Channel,
 		observer: params.Observer,
 		now:      now,
+		wait:     wait,
 	}
 }
 
@@ -84,25 +93,34 @@ func (h *Holder) Hold(ctx context.Context, agentID string) (agentstore.Agent, er
 	}
 
 	target := buildTarget(agent)
-	midTurn := agent.State.IsTurnUnfinished()
 
-	if midTurn {
+	// Explainer: the stored state is a pane reading a few seconds old, so it says what the agent
+	// was doing rather than what it is doing. Both the decision to interrupt and the reading that
+	// confirms it have to come from the pane as it is now, or the hold is granted on the same
+	// frame the interrupt was meant to clear.
+	observed, err := h.observer.Observe(ctx, target)
+	if err != nil {
+		return agentstore.Agent{}, fmt.Errorf("%w: %q, its pane could not be read", ErrHoldRefused, agent.Name)
+	}
+
+	interrupted := !isAtRest(observed.Activity)
+	if interrupted {
 		if err := h.channel.Interrupt(ctx, target); err != nil {
 			return agentstore.Agent{}, fmt.Errorf("failed to stop %q: %w", agent.Name, err)
 		}
-	}
 
-	// Explainer: the interrupt is keys typed into a terminal, so nothing about sending it says the
-	// agent read it. What may claim the worktree is an agent observed to have come to rest, which
-	// is why this waits and why a pane that cannot be read refuses rather than waits longer.
-	if err := h.settle(ctx, target); err != nil {
-		return agentstore.Agent{}, fmt.Errorf("%w: %q", err, agent.Name)
+		// Explainer: the interrupt is keys typed into a terminal, so nothing about sending it says
+		// the agent read it. What may claim the worktree is an agent observed to have come to rest
+		// afterwards, which is why a prompt still on screen is not an answer.
+		if err := h.settle(ctx, target); err != nil {
+			return agentstore.Agent{}, fmt.Errorf("%w: %q", err, agent.Name)
+		}
 	}
 
 	held, err := h.agents.Hold(ctx, agentstore.HoldParams{
 		ID:      agent.ID,
 		At:      h.now(),
-		MidTurn: midTurn,
+		MidTurn: interrupted,
 	})
 	if err != nil {
 		return agentstore.Agent{}, err
@@ -137,16 +155,15 @@ func (h *Holder) settle(ctx context.Context, target harness.Target) error {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
-		case <-time.After(holdSettleInterval):
+		case <-h.wait(holdSettleInterval):
 		}
 	}
 }
 
-// describeUnsettled says why the wait gave up, since a pane nobody can read and an agent that
-// kept working are different answers to the person holding the key down.
+// describeUnsettled says why the wait gave up.
 func describeUnsettled(last harness.Activity) string {
-	if last == harness.ActivityWorking {
-		return "it was still working after " + holdSettleBudget.String()
+	if last == harness.ActivityWorking || last == harness.ActivityWaiting {
+		return "it had not stopped after " + holdSettleBudget.String()
 	}
 
 	return "its pane could not be read, so nothing here can say it stopped"
@@ -203,13 +220,16 @@ func (h *Holder) get(ctx context.Context, agentID string) (agentstore.Agent, err
 	return *agent, nil
 }
 
-// isAtRest reports whether a reading says the agent has stopped writing, which a box holding
-// somebody's unsent text and a prompt waiting on an answer both do.
+// Explainer: a prompt waiting on an answer is not at rest. It holds a write that lands the moment
+// anybody answers it, and it is also the frame an interrupt is sent to clear, so treating it as
+// rest would let a hold be granted on the picture it was meant to change.
+
+// isAtRest reports whether a reading says the agent has stopped.
 func isAtRest(activity harness.Activity) bool {
 	switch activity {
-	case harness.ActivityIdle, harness.ActivityComposing, harness.ActivityWaiting:
+	case harness.ActivityIdle, harness.ActivityComposing:
 		return true
-	case harness.ActivityWorking, harness.ActivityUnrecognized, harness.ActivityUnknown:
+	case harness.ActivityWaiting, harness.ActivityWorking, harness.ActivityUnrecognized, harness.ActivityUnknown:
 		return false
 	}
 

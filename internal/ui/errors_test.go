@@ -44,6 +44,10 @@ func (r refusingAgents) HoldAgent(context.Context, *connect.Request[agentv1.Hold
 	return nil, r.err
 }
 
+func (r refusingAgents) ReleaseAgent(context.Context, *connect.Request[agentv1.ReleaseAgentRequest]) (*connect.Response[agentv1.ReleaseAgentResponse], error) {
+	return nil, r.err
+}
+
 func (r refusingAgents) ListAgents(context.Context, *connect.Request[agentv1.ListAgentsRequest]) (*connect.Response[agentv1.ListAgentsResponse], error) {
 	return connect.NewResponse(&agentv1.ListAgentsResponse{}), nil
 }

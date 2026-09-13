@@ -46,6 +46,13 @@ func holderOver(st *testStore, channel *fakeChannel, observer harness.Observer) 
 
 			return at
 		},
+		// The budget is walked by the clock above, so resting between readings costs no real time.
+		Wait: func(time.Duration) <-chan time.Time {
+			rested := make(chan time.Time, 1)
+			rested <- at
+
+			return rested
+		},
 	})
 }
 
@@ -81,7 +88,7 @@ func TestHoldRefusesAnAgentThatWillNotStop(t *testing.T) {
 
 	_, err := holderOver(st, &fakeChannel{}, observer).Hold(t.Context(), agent.ID)
 	require.ErrorIs(t, err, ErrHoldRefused)
-	assert.Contains(t, err.Error(), "still working")
+	assert.Contains(t, err.Error(), "had not stopped")
 
 	after := agentByID(t, st, agent.ID)
 	assert.Nil(t, after.HeldAt, "a refused hold claims nothing")
@@ -126,7 +133,10 @@ func TestReleasingATurnThatWasCutSaysWhatChanged(t *testing.T) {
 	agent := seed(t, st, "telescope", "%1", agentstore.StateThinking)
 
 	channel := &fakeChannel{}
-	holder := holderOver(st, channel, &settlingObserver{readings: []harness.Activity{harness.ActivityIdle}})
+	holder := holderOver(st, channel, &settlingObserver{readings: []harness.Activity{
+		harness.ActivityWorking,
+		harness.ActivityIdle,
+	}})
 
 	_, err := holder.Hold(t.Context(), agent.ID)
 	require.NoError(t, err)
@@ -207,5 +217,85 @@ func TestResumingAHeldAgentIsRefused(t *testing.T) {
 	manager := st.agentService(agentServiceOptions{tmux: tmux, harnesses: fakeHarnesses{harness: &fakeHarness{}}})
 
 	_, err = manager.resume.ResumeAgent(t.Context(), agent.ID)
+	require.ErrorIs(t, err, ErrAgentHeld)
+}
+
+// TestHoldingAWaitingAgentWaitsForThePromptToGo is the case a stored state gets wrong twice over:
+// a prompt is a write that lands the moment anybody answers it, and it is also the frame the
+// interrupt is sent to clear, so it can never be the reading that confirms the interrupt worked.
+func TestHoldingAWaitingAgentWaitsForThePromptToGo(t *testing.T) {
+	st := newStore(t)
+	agent := seed(t, st, "telescope", "%1", agentstore.StateWaiting)
+
+	channel := &fakeChannel{}
+	observer := &settlingObserver{readings: []harness.Activity{
+		harness.ActivityWaiting,
+		harness.ActivityWaiting,
+		harness.ActivityIdle,
+	}}
+
+	held, err := holderOver(st, channel, observer).Hold(t.Context(), agent.ID)
+	require.NoError(t, err)
+
+	assert.Equal(t, 1, channel.interrupts, "a prompt holds a pending write, so it is interrupted")
+	assert.NotNil(t, held.HeldAt)
+	assert.True(t, held.HeldMidTurn)
+	assert.Equal(t, 3, observer.reads, "and the hold waits for a frame that is not the prompt")
+}
+
+// TestHoldRefusesAPromptThatNeverClears covers the interrupt that is swallowed at a prompt, where
+// the agent is still holding a write that a person answering the prompt would land.
+func TestHoldRefusesAPromptThatNeverClears(t *testing.T) {
+	st := newStore(t)
+	agent := seed(t, st, "telescope", "%1", agentstore.StateWaiting)
+
+	observer := &settlingObserver{readings: []harness.Activity{harness.ActivityWaiting}}
+
+	_, err := holderOver(st, &fakeChannel{}, observer).Hold(t.Context(), agent.ID)
+	require.ErrorIs(t, err, ErrHoldRefused)
+
+	after := agentByID(t, st, agent.ID)
+	assert.Nil(t, after.HeldAt, "the prompt is still there, so nobody has the tree")
+}
+
+// TestHoldReadsThePaneRatherThanTheRow pins both halves being decided now: a row that says idle
+// while the pane is working must not hand over a tree.
+func TestHoldReadsThePaneRatherThanTheRow(t *testing.T) {
+	st := newStore(t)
+	agent := seed(t, st, "telescope", "%1", agentstore.StateIdle)
+
+	channel := &fakeChannel{}
+	observer := &settlingObserver{readings: []harness.Activity{
+		harness.ActivityWorking,
+		harness.ActivityIdle,
+	}}
+
+	held, err := holderOver(st, channel, observer).Hold(t.Context(), agent.ID)
+	require.NoError(t, err)
+
+	assert.Equal(t, 1, channel.interrupts, "the pane said it was working, whatever the row said")
+	assert.True(t, held.HeldMidTurn, "so letting go has a turn to carry on with")
+}
+
+// TestRebasingAHeldAgentIsRefused covers the third writer: a rebase types at the agent and then
+// rewrites the branch under the very checkout somebody stopped it to take.
+func TestRebasingAHeldAgentIsRefused(t *testing.T) {
+	t.Parallel()
+
+	at := time.Now()
+	service := NewRebaseService(NewRebaseServiceParams{
+		Agents: fakeRebaseAgents{agent: agentstore.Agent{
+			ID:         "a1",
+			Name:       "auth",
+			WorkflowID: "w1",
+			Cwd:        "/tree",
+			State:      agentstore.StateIdle,
+			HeldAt:     &at,
+		}},
+		Workflows: fakeRebaseWorkflows{flow: worktreeFlow()},
+		Rebaser:   &fakeRebaser{},
+	})
+
+	_, err := service.Rebase(t.Context(), "a1")
 	require.ErrorIs(t, err, ErrAgentHeld)
 }
