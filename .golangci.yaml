@@ -1,4 +1,9 @@
 version: "2"
+# The integration tests carry a build tag, so without this the linter would not read them
+# at all and every rule below would stop at the files a unit run compiles.
+run:
+  build-tags:
+    - integration
 issues:
   max-issues-per-linter: 0
   max-same-issues: 0

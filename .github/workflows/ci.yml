@@ -69,21 +69,44 @@ jobs:
           path: local/custom-gcl
           key: custom-gcl-${{ runner.os }}-${{ hashFiles('.custom-gcl.yml') }}
 
-      # The unit tests are the packages that do not drive a real git. They still
-      # drive a real tmux from the panel and the agents reconciler, and those
-      # tests skip themselves when tmux is missing rather than failing, so
-      # without this they would quietly not run. less is what the panel pages a
-      # dormant agent's placeholder into a pane with.
-      - name: Install tmux
-        run: sudo apt-get update && sudo apt-get install -y tmux less
-
       - name: Check
         run: mise run check --kind unit
 
+      # The integration tests are compiled out of a unit run, so this is what
+      # says they still build when a branch has not run them.
+      - name: Build the integration tests
+        run: go vet -tags integration ./...
+
+  # Whether the branch touches anything the integration tests read. They drive
+  # the panel end to end, so most of the module is behind them and the honest
+  # filter is any Go file rather than a list of packages that would go stale.
+  changes:
+    runs-on: namespace-profile-harrisoncramer
+    outputs:
+      code: ${{ steps.filter.outputs.code }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            code:
+              - '**/*.go'
+              - 'go.mod'
+              - 'go.sum'
+              - 'mise/**'
+              - '.mise.toml'
+              - 'db/**'
+              - 'proto/**'
+              - '.github/workflows/ci.yml'
+
   # The integration tests drive a real git, a real tmux and a real weave. They
   # are a job of their own so they run beside the rest rather than after it, and
-  # on a pull request they run only the packages the branch can reach.
+  # a branch that reaches none of the code behind them skips the job.
   integration:
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: namespace-profile-harrisoncramer
 
     services:
@@ -106,11 +129,7 @@ jobs:
       GOFLAGS: -count=1
 
     steps:
-      # The whole history, since which tests to run is chosen from what changed
-      # against the base branch and a shallow clone has no merge base to ask about.
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
       - name: Cache the Go and lint caches
         uses: namespacelabs/nscloud-cache-action@v1
@@ -123,16 +142,10 @@ jobs:
           gh-access-token: ${{ env.GH_ACCESS_TOKEN }}
 
       # The tmux tests skip themselves when tmux is missing rather than failing,
-      # so without this they would quietly not run. less is what the panel pages
-      # a dormant agent's placeholder into a pane with.
+      # which issue 553 is about. less is what the panel pages a dormant agent's
+      # placeholder into a pane with.
       - name: Install tmux
         run: sudo apt-get update && sudo apt-get install -y tmux less
 
       - name: Run the integration tests
-        run: |
-          if [ -n "${{ github.base_ref }}" ]; then
-            git fetch --quiet origin "${{ github.base_ref }}"
-            mise run go:test --kind integration --changed-since "origin/${{ github.base_ref }}"
-          else
-            mise run go:test --kind integration
-          fi
+        run: mise run go:test --kind integration
