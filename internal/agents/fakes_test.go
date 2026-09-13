@@ -464,13 +464,14 @@ type testAgentStore interface {
 // testAgents is what a test drives instead of one service, holding the pieces an AgentService
 // used to be.
 type testAgents struct {
-	launch    *LaunchService
-	resume    *ResumeService
-	adopt     *AdoptService
-	lifecycle *LifecycleService
-	panes     *PaneLiveness
-	emptied   *EmptyWorkflowDeleter
-	snapshots *recordingSnapshots
+	launch       *LaunchService
+	resume       *ResumeService
+	adopt        *AdoptService
+	lifecycle    *LifecycleService
+	panes        *PaneLiveness
+	emptied      *EmptyWorkflowDeleter
+	orchestrator *OrchestratorService
+	snapshots    *recordingSnapshots
 }
 
 type agentServiceOptions struct {
@@ -485,6 +486,7 @@ type agentServiceOptions struct {
 	framesDir   string
 	agents      testAgentStore
 	tx          txRunner
+	stateDir    string
 }
 
 func (s *testStore) agentService(options agentServiceOptions) *testAgents {
@@ -522,7 +524,7 @@ func (s *testStore) agentService(options agentServiceOptions) *testAgents {
 
 	snapshots := &recordingSnapshots{}
 
-	return &testAgents{
+	built := &testAgents{
 		launch:    launch,
 		snapshots: snapshots,
 		resume: NewResumeService(NewResumeServiceParams{
@@ -556,6 +558,17 @@ func (s *testStore) agentService(options agentServiceOptions) *testAgents {
 		panes:   NewPaneLiveness(options.tmux),
 		emptied: emptied,
 	}
+
+	built.orchestrator = NewOrchestratorService(NewOrchestratorServiceParams{
+		Agents:    s.Agents,
+		Workflows: s.Workflows,
+		Launch:    built.launch,
+		Lifecycle: built.lifecycle,
+		Resume:    built.resume,
+		StateDir:  options.stateDir,
+	})
+
+	return built
 }
 
 // recordingSnapshots is a git that records the round refs released through it.

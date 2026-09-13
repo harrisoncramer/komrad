@@ -90,57 +90,60 @@ type archiveEmptier interface {
 }
 
 type Service struct {
-	agents      agentReadWriter
-	transcripts transcriptReader
-	mail        mailer
-	creator     agentCreator
-	adopter     agentAdopter
-	liveness    agentLiveness
-	lifecycle   agentLifecycle
-	resumer     agentResumer
-	reconciler  reportRecorder
-	archive     archiveEmptier
-	review      reviewConversation
-	runs        runReadWriter
-	marks       markReadWriter
-	refresher   worktreeRefresher
+	agents       agentReadWriter
+	transcripts  transcriptReader
+	mail         mailer
+	creator      agentCreator
+	adopter      agentAdopter
+	liveness     agentLiveness
+	lifecycle    agentLifecycle
+	resumer      agentResumer
+	reconciler   reportRecorder
+	archive      archiveEmptier
+	review       reviewConversation
+	runs         runReadWriter
+	marks        markReadWriter
+	refresher    worktreeRefresher
+	orchestrator orchestratorStarter
 }
 
 type NewServiceParams struct {
-	Agents      agentReadWriter
-	Transcripts transcriptReader
-	Mail        mailer
-	Creator     agentCreator
-	Adopter     agentAdopter
-	Liveness    agentLiveness
-	Lifecycle   agentLifecycle
-	Resumer     agentResumer
-	Reconciler  reportRecorder
-	Archive     archiveEmptier
-	Review      reviewConversation
-	Runs        runReadWriter
-	Marks       markReadWriter
-	Refresher   worktreeRefresher
+	Agents       agentReadWriter
+	Transcripts  transcriptReader
+	Mail         mailer
+	Creator      agentCreator
+	Adopter      agentAdopter
+	Liveness     agentLiveness
+	Lifecycle    agentLifecycle
+	Resumer      agentResumer
+	Reconciler   reportRecorder
+	Archive      archiveEmptier
+	Review       reviewConversation
+	Runs         runReadWriter
+	Marks        markReadWriter
+	Refresher    worktreeRefresher
+	Orchestrator orchestratorStarter
 }
 
 // NewService constructs the handler from the stores it reads and the services that move agents
 // through their life.
 func NewService(params NewServiceParams) *Service {
 	return &Service{
-		agents:      params.Agents,
-		transcripts: params.Transcripts,
-		mail:        params.Mail,
-		creator:     params.Creator,
-		adopter:     params.Adopter,
-		liveness:    params.Liveness,
-		lifecycle:   params.Lifecycle,
-		resumer:     params.Resumer,
-		reconciler:  params.Reconciler,
-		archive:     params.Archive,
-		review:      params.Review,
-		runs:        params.Runs,
-		marks:       params.Marks,
-		refresher:   params.Refresher,
+		agents:       params.Agents,
+		transcripts:  params.Transcripts,
+		mail:         params.Mail,
+		creator:      params.Creator,
+		adopter:      params.Adopter,
+		liveness:     params.Liveness,
+		lifecycle:    params.Lifecycle,
+		resumer:      params.Resumer,
+		reconciler:   params.Reconciler,
+		archive:      params.Archive,
+		review:       params.Review,
+		runs:         params.Runs,
+		marks:        params.Marks,
+		refresher:    params.Refresher,
+		orchestrator: params.Orchestrator,
 	}
 }
 

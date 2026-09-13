@@ -27,6 +27,7 @@ var (
 	ErrTooManyAgents    = errors.New("too many agents")
 	ErrAgentArchived    = errors.New("agent is archived")
 	ErrSpawnerUnknown   = errors.New("the spawning agent is not one this panel knows")
+	ErrOutsideWorkflow  = errors.New("an orchestrator spawns only into its own workflow")
 	ErrParentNotFound   = errors.New("parent agent not found")
 	ErrParentIsChild    = errors.New("a child agent may not have children of its own")
 	ErrChildOwnsLaunch  = errors.New("a child agent takes its launch from its parent")

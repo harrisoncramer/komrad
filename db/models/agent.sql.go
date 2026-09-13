@@ -474,6 +474,24 @@ func (q *Queries) GetTranscript(ctx context.Context, agentID string) (string, er
 	return content, err
 }
 
+const getWorkflowOrchestratorID = `-- name: GetWorkflowOrchestratorID :one
+SELECT
+    s.id
+FROM
+    agents s
+WHERE
+    s.workflow_id = $1
+    AND s.role = 'orchestrator'
+LIMIT 1
+`
+
+func (q *Queries) GetWorkflowOrchestratorID(ctx context.Context, workflowID string) (string, error) {
+	row := q.db.QueryRow(ctx, getWorkflowOrchestratorID, workflowID)
+	var id string
+	err := row.Scan(&id)
+	return id, err
+}
+
 const insertAgent = `-- name: InsertAgent :one
 INSERT INTO agents(
     id,

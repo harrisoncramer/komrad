@@ -95,6 +95,8 @@ var table = []mapping{
 	{agents.ErrReviewNotEntitled, connect.CodePermissionDenied},
 	{agents.ErrReviewOwnWork, connect.CodePermissionDenied},
 	{agents.ErrOutsideFamily, connect.CodePermissionDenied},
+	{agents.ErrOutsideWorkflow, connect.CodePermissionDenied},
+	{agentstore.ErrOrchestratorPullRequest, connect.CodePermissionDenied},
 }
 
 // Replacement is what a caller is told in place of a sentinel's own message, given at the call

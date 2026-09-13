@@ -207,3 +207,21 @@ func (s *Store) CountLiveChildren(ctx context.Context, parentID string) (int, er
 
 	return int(count), nil
 }
+
+// GetWorkflowOrchestrator returns the orchestrator a workflow holds, live or archived, and
+// ErrNotFound when it has none.
+func (s *Store) GetWorkflowOrchestrator(ctx context.Context, workflowID string) (*Agent, error) {
+	if !store.IsID(workflowID) {
+		return nil, fmt.Errorf("%w: workflow %q", store.ErrNotFound, workflowID)
+	}
+
+	id, err := s.queries.GetWorkflowOrchestratorID(ctx, workflowID)
+	if db.IsNoRows(err) {
+		return nil, fmt.Errorf("%w: workflow %q has no orchestrator", store.ErrNotFound, workflowID)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to get the orchestrator of workflow %q: %w", workflowID, err)
+	}
+
+	return s.GetByID(ctx, id)
+}

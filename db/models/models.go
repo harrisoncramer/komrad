@@ -13,8 +13,9 @@ import (
 type AgentRole string
 
 const (
-	AgentRoleImplementer AgentRole = "implementer"
-	AgentRoleReviewer    AgentRole = "reviewer"
+	AgentRoleImplementer  AgentRole = "implementer"
+	AgentRoleReviewer     AgentRole = "reviewer"
+	AgentRoleOrchestrator AgentRole = "orchestrator"
 )
 
 func (e *AgentRole) Scan(src interface{}) error {

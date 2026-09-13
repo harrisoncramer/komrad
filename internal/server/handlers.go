@@ -52,20 +52,21 @@ func newMux(params newMuxParams) (*http.ServeMux, error) {
 	mux.Handle(StopPath, interceptors.NewLoggingHandler(params.Logger, newStopHandler(params.StopRequested)))
 	mux.Handle(agentv1connect.NewAgentServiceHandler(
 		rpcagent.NewService(rpcagent.NewServiceParams{
-			Agents:      params.Stores.agents,
-			Transcripts: params.Stores.transcripts,
-			Mail:        params.Services.mail,
-			Creator:     params.Services.launch,
-			Adopter:     params.Services.adopt,
-			Liveness:    params.Services.liveness,
-			Lifecycle:   params.Services.lifecycle,
-			Resumer:     params.Services.resume,
-			Reconciler:  params.Services.reconciler,
-			Archive:     jobs.NewEnqueuer(params.Jobs),
-			Review:      params.Services.review,
-			Runs:        params.Stores.runs,
-			Marks:       params.Services.marks,
-			Refresher:   params.Services.rebase,
+			Agents:       params.Stores.agents,
+			Transcripts:  params.Stores.transcripts,
+			Mail:         params.Services.mail,
+			Creator:      params.Services.launch,
+			Adopter:      params.Services.adopt,
+			Liveness:     params.Services.liveness,
+			Lifecycle:    params.Services.lifecycle,
+			Resumer:      params.Services.resume,
+			Reconciler:   params.Services.reconciler,
+			Archive:      jobs.NewEnqueuer(params.Jobs),
+			Review:       params.Services.review,
+			Runs:         params.Stores.runs,
+			Marks:        params.Services.marks,
+			Orchestrator: params.Services.orchestrator,
+			Refresher:    params.Services.rebase,
 		}), options...))
 	mux.Handle(workflowv1connect.NewWorkflowServiceHandler(
 		rpcworkflow.NewService(params.Stores.workflows, params.Services.workflow, params.Services.marks), options...))

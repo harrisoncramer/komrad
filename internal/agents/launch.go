@@ -150,6 +150,10 @@ func (s *LaunchService) NewAgent(ctx context.Context, params NewAgentParams) (*a
 			return nil, err
 		}
 		spawner = found
+
+		if err := requireOwnWorkflow(*found, params); err != nil {
+			return nil, err
+		}
 	}
 
 	var parent *agentstore.Agent
@@ -180,6 +184,15 @@ func (s *LaunchService) releaseFailedLaunch(ctx context.Context, existing agents
 	// The row is left where it stands rather than relaunched into, its id naming the worktree and
 	// branch the deprovisioner is still tearing down.
 	return s.agents.ReleaseIdempotencyKey(ctx, key)
+}
+
+// requireOwnWorkflow holds an orchestrator to the workflow it stands behind.
+func requireOwnWorkflow(spawner agentstore.Agent, params NewAgentParams) error {
+	if spawner.Role != agentstore.RoleOrchestrator || params.WorkflowID == spawner.WorkflowID {
+		return nil
+	}
+
+	return fmt.Errorf("%w: %q stands behind workflow %q", ErrOutsideWorkflow, spawner.Name, spawner.WorkflowID)
 }
 
 func (s *LaunchService) findSpawner(ctx context.Context, id string) (*agentstore.Agent, error) {

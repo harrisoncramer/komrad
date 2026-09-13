@@ -56,8 +56,9 @@ func (s State) IsTurnUnfinished() bool {
 type Role string
 
 const (
-	RoleImplementer Role = Role(models.AgentRoleImplementer)
-	RoleReviewer    Role = Role(models.AgentRoleReviewer)
+	RoleImplementer  Role = Role(models.AgentRoleImplementer)
+	RoleReviewer     Role = Role(models.AgentRoleReviewer)
+	RoleOrchestrator Role = Role(models.AgentRoleOrchestrator)
 )
 
 // orDefault is the role an agent that names none is given.

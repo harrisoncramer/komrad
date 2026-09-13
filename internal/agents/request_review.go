@@ -51,6 +51,8 @@ func (s *LaunchService) RequestReview(ctx context.Context, params RequestReviewP
 	switch {
 	case author.Role == agentstore.RoleReviewer:
 		return nil, "", fmt.Errorf("%w: %q was launched to review", ErrReviewNeedsOwnWork, author.Name)
+	case author.Role == agentstore.RoleOrchestrator:
+		return nil, "", fmt.Errorf("%w: %q writes no code, so it has no change to be read", ErrReviewNeedsOwnWork, author.Name)
 	case author.ParentAgentID != nil:
 		return nil, "", fmt.Errorf("%w: %q is a child, writing in a checkout it does not own", ErrReviewNeedsOwnWork, author.Name)
 	}
