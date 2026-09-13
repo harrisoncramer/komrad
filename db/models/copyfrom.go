@@ -30,6 +30,7 @@ func (r *iteratorForInsertTranscriptChunks) Next() bool {
 func (r iteratorForInsertTranscriptChunks) Values() ([]interface{}, error) {
 	return []interface{}{
 		r.rows[0].AgentID,
+		r.rows[0].SessionID,
 		r.rows[0].Seq,
 		r.rows[0].Role,
 		r.rows[0].Content,
@@ -42,5 +43,5 @@ func (r iteratorForInsertTranscriptChunks) Err() error {
 }
 
 func (q *Queries) InsertTranscriptChunks(ctx context.Context, arg []InsertTranscriptChunksParams) (int64, error) {
-	return q.db.CopyFrom(ctx, []string{"agent_transcript_chunks"}, []string{"agent_id", "seq", "role", "content", "content_offset"}, &iteratorForInsertTranscriptChunks{rows: arg})
+	return q.db.CopyFrom(ctx, []string{"agent_transcript_chunks"}, []string{"agent_id", "session_id", "seq", "role", "content", "content_offset"}, &iteratorForInsertTranscriptChunks{rows: arg})
 }

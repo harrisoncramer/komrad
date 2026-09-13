@@ -35,6 +35,26 @@ func (q *Queries) ActiveNameExists(ctx context.Context, arg ActiveNameExistsPara
 	return exists, err
 }
 
+const advanceTranscriptSession = `-- name: AdvanceTranscriptSession :exec
+UPDATE
+    agent_transcript_sessions
+SET
+    synced_offset = $1,
+    synced_at = NOW()
+WHERE
+    id = $2
+`
+
+type AdvanceTranscriptSessionParams struct {
+	SyncedOffset int64
+	ID           string
+}
+
+func (q *Queries) AdvanceTranscriptSession(ctx context.Context, arg AdvanceTranscriptSessionParams) error {
+	_, err := q.db.Exec(ctx, advanceTranscriptSession, arg.SyncedOffset, arg.ID)
+	return err
+}
+
 const agentExists = `-- name: AgentExists :one
 SELECT
     EXISTS (
@@ -178,26 +198,6 @@ func (q *Queries) DeleteAgentMetadata(ctx context.Context, arg DeleteAgentMetada
 	return items, nil
 }
 
-const deleteAgentTranscriptChunks = `-- name: DeleteAgentTranscriptChunks :exec
-DELETE FROM agent_transcript_chunks
-WHERE agent_id = $1
-`
-
-func (q *Queries) DeleteAgentTranscriptChunks(ctx context.Context, agentID string) error {
-	_, err := q.db.Exec(ctx, deleteAgentTranscriptChunks, agentID)
-	return err
-}
-
-const deleteAgentTranscripts = `-- name: DeleteAgentTranscripts :exec
-DELETE FROM agent_transcripts
-WHERE agent_id = ANY ($1::uuid[])
-`
-
-func (q *Queries) DeleteAgentTranscripts(ctx context.Context, agentIds []string) error {
-	_, err := q.db.Exec(ctx, deleteAgentTranscripts, agentIds)
-	return err
-}
-
 const deleteAgentsByID = `-- name: DeleteAgentsByID :many
 DELETE FROM agents
 WHERE id = ANY ($1::uuid[])
@@ -238,6 +238,26 @@ WHERE agent_id = ANY ($1::uuid[])
 
 func (q *Queries) DeleteAgentsTranscriptChunks(ctx context.Context, agentIds []string) error {
 	_, err := q.db.Exec(ctx, deleteAgentsTranscriptChunks, agentIds)
+	return err
+}
+
+const deleteAgentsTranscriptSessions = `-- name: DeleteAgentsTranscriptSessions :exec
+DELETE FROM agent_transcript_sessions
+WHERE agent_id = ANY ($1::uuid[])
+`
+
+func (q *Queries) DeleteAgentsTranscriptSessions(ctx context.Context, agentIds []string) error {
+	_, err := q.db.Exec(ctx, deleteAgentsTranscriptSessions, agentIds)
+	return err
+}
+
+const deleteTranscriptSessionChunks = `-- name: DeleteTranscriptSessionChunks :exec
+DELETE FROM agent_transcript_chunks
+WHERE session_id = $1
+`
+
+func (q *Queries) DeleteTranscriptSessionChunks(ctx context.Context, sessionID string) error {
+	_, err := q.db.Exec(ctx, deleteTranscriptSessionChunks, sessionID)
 	return err
 }
 
@@ -440,26 +460,18 @@ func (q *Queries) GetAgentInWorkflow(ctx context.Context, arg GetAgentInWorkflow
 
 const getTranscript = `-- name: GetTranscript :one
 SELECT
-    content,
-    synced_offset,
-    synced_at
+    COALESCE(STRING_AGG(content, E'\n\n' ORDER BY seq), '')::text AS content
 FROM
-    agent_transcripts
+    agent_transcript_chunks
 WHERE
     agent_id = $1
 `
 
-type GetTranscriptRow struct {
-	Content      string
-	SyncedOffset int64
-	SyncedAt     time.Time
-}
-
-func (q *Queries) GetTranscript(ctx context.Context, agentID string) (*GetTranscriptRow, error) {
+func (q *Queries) GetTranscript(ctx context.Context, agentID string) (string, error) {
 	row := q.db.QueryRow(ctx, getTranscript, agentID)
-	var i GetTranscriptRow
-	err := row.Scan(&i.Content, &i.SyncedOffset, &i.SyncedAt)
-	return &i, err
+	var content string
+	err := row.Scan(&content)
+	return content, err
 }
 
 const insertAgent = `-- name: InsertAgent :one
@@ -554,6 +566,7 @@ func (q *Queries) InsertAgent(ctx context.Context, arg InsertAgentParams) (strin
 
 type InsertTranscriptChunksParams struct {
 	AgentID       string
+	SessionID     string
 	Seq           int32
 	Role          string
 	Content       string
@@ -1393,20 +1406,63 @@ func (q *Queries) MarkWorkflowAgentsRestored(ctx context.Context, workflowID str
 	return err
 }
 
-const nextTranscriptChunkSeq = `-- name: NextTranscriptChunkSeq :one
+const nextTranscriptChunk = `-- name: NextTranscriptChunk :one
 SELECT
-    COALESCE(MAX(seq) + 1, 0)::int AS next
+    COALESCE(MAX(seq) + 1, 0)::int AS next_seq,
+    COALESCE(MAX(content_offset + OCTET_LENGTH(content)), 0)::bigint AS content_length
 FROM
     agent_transcript_chunks
 WHERE
     agent_id = $1
 `
 
-func (q *Queries) NextTranscriptChunkSeq(ctx context.Context, agentID string) (int32, error) {
-	row := q.db.QueryRow(ctx, nextTranscriptChunkSeq, agentID)
-	var next int32
-	err := row.Scan(&next)
-	return next, err
+type NextTranscriptChunkRow struct {
+	NextSeq       int32
+	ContentLength int64
+}
+
+func (q *Queries) NextTranscriptChunk(ctx context.Context, agentID string) (*NextTranscriptChunkRow, error) {
+	row := q.db.QueryRow(ctx, nextTranscriptChunk, agentID)
+	var i NextTranscriptChunkRow
+	err := row.Scan(&i.NextSeq, &i.ContentLength)
+	return &i, err
+}
+
+const openTranscriptSession = `-- name: OpenTranscriptSession :one
+INSERT INTO agent_transcript_sessions(
+    id,
+    agent_id,
+    session_id)
+VALUES (
+    $1,
+    $2,
+    $3)
+ON CONFLICT (
+    agent_id,
+    session_id)
+    DO UPDATE SET
+        synced_offset = agent_transcript_sessions.synced_offset
+    RETURNING
+        id,
+        synced_offset
+`
+
+type OpenTranscriptSessionParams struct {
+	ID        string
+	AgentID   string
+	SessionID string
+}
+
+type OpenTranscriptSessionRow struct {
+	ID           string
+	SyncedOffset int64
+}
+
+func (q *Queries) OpenTranscriptSession(ctx context.Context, arg OpenTranscriptSessionParams) (*OpenTranscriptSessionRow, error) {
+	row := q.db.QueryRow(ctx, openTranscriptSession, arg.ID, arg.AgentID, arg.SessionID)
+	var i OpenTranscriptSessionRow
+	err := row.Scan(&i.ID, &i.SyncedOffset)
+	return &i, err
 }
 
 const releaseAgentIdempotencyKey = `-- name: ReleaseAgentIdempotencyKey :many
@@ -2121,34 +2177,4 @@ func (q *Queries) UpdateAgentIfLive(ctx context.Context, arg UpdateAgentIfLivePa
 		return nil, err
 	}
 	return items, nil
-}
-
-const upsertTranscript = `-- name: UpsertTranscript :exec
-INSERT INTO agent_transcripts(
-    agent_id,
-    content,
-    synced_offset,
-    synced_at)
-VALUES (
-    $1,
-    $2,
-    $3,
-    NOW())
-ON CONFLICT (
-    agent_id)
-    DO UPDATE SET
-        content = excluded.content,
-        synced_offset = excluded.synced_offset,
-        synced_at = NOW()
-`
-
-type UpsertTranscriptParams struct {
-	AgentID      string
-	Content      string
-	SyncedOffset int64
-}
-
-func (q *Queries) UpsertTranscript(ctx context.Context, arg UpsertTranscriptParams) error {
-	_, err := q.db.Exec(ctx, upsertTranscript, arg.AgentID, arg.Content, arg.SyncedOffset)
-	return err
 }

@@ -491,8 +491,8 @@ RETURNING
     id,
     pane_id;
 
--- name: DeleteAgentTranscripts :exec
-DELETE FROM agent_transcripts
+-- name: DeleteAgentsTranscriptSessions :exec
+DELETE FROM agent_transcript_sessions
 WHERE agent_id = ANY (@agent_ids::uuid[]);
 
 -- name: RenameAgent :many
@@ -579,43 +579,51 @@ WHERE
 
 -- name: GetTranscript :one
 SELECT
-    content,
-    synced_offset,
-    synced_at
+    COALESCE(STRING_AGG(content, E'\n\n' ORDER BY seq), '')::text AS content
 FROM
-    agent_transcripts
+    agent_transcript_chunks
 WHERE
     agent_id = @agent_id;
 
--- name: UpsertTranscript :exec
-INSERT INTO agent_transcripts(
+-- name: OpenTranscriptSession :one
+INSERT INTO agent_transcript_sessions(
+    id,
     agent_id,
-    content,
-    synced_offset,
-    synced_at)
+    session_id)
 VALUES (
+    @id,
     @agent_id,
-    @content,
-    @synced_offset,
-    NOW())
+    @session_id)
 ON CONFLICT (
-    agent_id)
+    agent_id,
+    session_id)
     DO UPDATE SET
-        content = excluded.content,
-        synced_offset = excluded.synced_offset,
-        synced_at = NOW();
+        synced_offset = agent_transcript_sessions.synced_offset
+    RETURNING
+        id,
+        synced_offset;
 
--- name: DeleteAgentTranscriptChunks :exec
+-- name: AdvanceTranscriptSession :exec
+UPDATE
+    agent_transcript_sessions
+SET
+    synced_offset = @synced_offset,
+    synced_at = NOW()
+WHERE
+    id = @id;
+
+-- name: DeleteTranscriptSessionChunks :exec
 DELETE FROM agent_transcript_chunks
-WHERE agent_id = @agent_id;
+WHERE session_id = @session_id;
 
 -- name: DeleteAgentsTranscriptChunks :exec
 DELETE FROM agent_transcript_chunks
 WHERE agent_id = ANY (@agent_ids::uuid[]);
 
--- name: NextTranscriptChunkSeq :one
+-- name: NextTranscriptChunk :one
 SELECT
-    COALESCE(MAX(seq) + 1, 0)::int AS next
+    COALESCE(MAX(seq) + 1, 0)::int AS next_seq,
+    COALESCE(MAX(content_offset + OCTET_LENGTH(content)), 0)::bigint AS content_length
 FROM
     agent_transcript_chunks
 WHERE
@@ -624,12 +632,14 @@ WHERE
 -- name: InsertTranscriptChunks :copyfrom
 INSERT INTO agent_transcript_chunks(
     agent_id,
+    session_id,
     seq,
     role,
     content,
     content_offset)
 VALUES (
     @agent_id,
+    @session_id,
     @seq,
     @role,
     @content,

@@ -4,18 +4,18 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
 
 	"weave/internal/harness"
 	agentstore "weave/internal/store/agent"
 	transcriptstore "weave/internal/store/transcript"
+	"weave/lib/xslice"
 )
 
 type transcriptReadWriter interface {
-	Get(ctx context.Context, agentID string) (transcriptstore.Transcript, error)
-	Upsert(ctx context.Context, params transcriptstore.UpsertParams) error
-	AppendTurns(ctx context.Context, agentID string, turns []transcriptstore.Turn) error
-	DeleteTurns(ctx context.Context, agentID string) error
+	OpenSession(ctx context.Context, params transcriptstore.OpenSessionParams) (transcriptstore.Session, error)
+	Advance(ctx context.Context, sessionID string, offset int64) error
+	AppendTurns(ctx context.Context, params transcriptstore.AppendTurnsParams) error
+	DeleteSessionTurns(ctx context.Context, sessionID string) error
 }
 
 type agentSessionReadWriter interface {
@@ -104,12 +104,15 @@ func (ts *TranscriptSyncer) syncOne(ctx context.Context, agent agentstore.Agent)
 		return nil
 	}
 
-	tr, err := ts.store.Get(ctx, agent.ID)
+	session, err := ts.store.OpenSession(ctx, transcriptstore.OpenSessionParams{
+		AgentID:   agent.ID,
+		SessionID: agent.SessionID,
+	})
 	if err != nil {
 		return err
 	}
 
-	read, err := hn.ReadLog(path, tr.SyncedOffset)
+	read, err := hn.ReadLog(path, session.SyncedOffset)
 	if err != nil {
 		return err
 	}
@@ -118,45 +121,28 @@ func (ts *TranscriptSyncer) syncOne(ctx context.Context, agent agentstore.Agent)
 		return nil
 	}
 
-	offset, content := tr.SyncedOffset, tr.Content
+	offset := session.SyncedOffset
 	if read.Restart {
-		offset, content = 0, ""
+		offset = 0
 
-		if err := ts.store.DeleteTurns(ctx, agent.ID); err != nil {
+		if err := ts.store.DeleteSessionTurns(ctx, session.ID); err != nil {
 			return err
 		}
 	}
 
-	content, turns := appendTurns(content, read.Turns)
-
-	if err := ts.store.Upsert(ctx, transcriptstore.UpsertParams{
-		AgentID: agent.ID,
-		Content: content,
-		Offset:  offset + read.Consumed,
+	if err := ts.store.AppendTurns(ctx, transcriptstore.AppendTurnsParams{
+		AgentID:   agent.ID,
+		SessionID: session.ID,
+		Turns:     turns(read.Turns),
 	}); err != nil {
 		return err
 	}
 
-	return ts.store.AppendTurns(ctx, agent.ID, turns)
+	return ts.store.Advance(ctx, session.ID, offset+read.Consumed)
 }
 
-func appendTurns(existing string, turns []harness.Turn) (string, []transcriptstore.Turn) {
-	var content strings.Builder
-	content.WriteString(existing)
-
-	indexed := make([]transcriptstore.Turn, 0, len(turns))
-	for _, t := range turns {
-		if content.Len() > 0 {
-			content.WriteString("\n\n")
-		}
-
-		indexed = append(indexed, transcriptstore.Turn{
-			Role:    t.Role,
-			Content: t.Content,
-			Offset:  int64(content.Len()),
-		})
-		content.WriteString(t.Content)
-	}
-
-	return content.String(), indexed
+func turns(read []harness.Turn) []transcriptstore.Turn {
+	return xslice.Map(read, func(turn harness.Turn) transcriptstore.Turn {
+		return transcriptstore.Turn{Role: turn.Role, Content: turn.Content}
+	})
 }

@@ -16,7 +16,6 @@ import (
 	"weave/internal/store"
 	agentstore "weave/internal/store/agent"
 	reviewstore "weave/internal/store/review"
-	transcriptstore "weave/internal/store/transcript"
 	workflowstore "weave/internal/store/workflow"
 	"weave/internal/storetest"
 	"weave/internal/tmux"
@@ -449,7 +448,7 @@ func (s *testStore) GetWorkflow(ctx context.Context, id string) (*workflowstore.
 	return s.Workflows.Get(ctx, id)
 }
 
-func (s *testStore) GetTranscript(ctx context.Context, agentID string) (transcriptstore.Transcript, error) {
+func (s *testStore) GetTranscript(ctx context.Context, agentID string) (string, error) {
 	return s.Transcripts.Get(ctx, agentID)
 }
 

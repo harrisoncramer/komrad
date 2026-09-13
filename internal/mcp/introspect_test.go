@@ -27,7 +27,7 @@ func TestListTables(t *testing.T) {
 		},
 		{
 			name:     "the transcripts search reads",
-			want:     "agent_transcripts",
+			want:     "agent_transcript_chunks",
 			wantRows: 1,
 		},
 	}

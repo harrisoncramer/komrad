@@ -8,7 +8,6 @@ import (
 	"weave/internal/storetest"
 
 	agentstore "weave/internal/store/agent"
-	transcriptstore "weave/internal/store/transcript"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -25,11 +24,7 @@ func openTools(t *testing.T) *dbTools {
 		Cwd:   "/repo",
 		State: agentstore.StateWaiting,
 	})
-	require.NoError(t, st.Transcripts.Upsert(t.Context(), transcriptstore.UpsertParams{
-		AgentID: agent.ID,
-		Content: "we should update the parser",
-		Offset:  0,
-	}))
+	st.SeedTranscript(t, agent.ID, "we should update the parser")
 
 	readOnly, err := store.OpenReadOnly(t.Context(), st.ReadOnlyURL)
 	require.NoError(t, err)
@@ -124,18 +119,18 @@ func TestValidateReadOnly(t *testing.T) {
 		},
 		{
 			name: "keyword inside a literal is a search, not a write",
-			sql:  "SELECT agent_id FROM agent_transcripts WHERE content LIKE '%update%'",
-			want: "SELECT agent_id FROM agent_transcripts WHERE content LIKE '%update%'",
+			sql:  "SELECT agent_id FROM agent_transcript_chunks WHERE content LIKE '%update%'",
+			want: "SELECT agent_id FROM agent_transcript_chunks WHERE content LIKE '%update%'",
 		},
 		{
 			name: "escaped quote inside a literal does not end it",
-			sql:  "SELECT agent_id FROM agent_transcripts WHERE content LIKE '%don''t drop it%'",
-			want: "SELECT agent_id FROM agent_transcripts WHERE content LIKE '%don''t drop it%'",
+			sql:  "SELECT agent_id FROM agent_transcript_chunks WHERE content LIKE '%don''t drop it%'",
+			want: "SELECT agent_id FROM agent_transcript_chunks WHERE content LIKE '%don''t drop it%'",
 		},
 		{
 			name: "semicolon inside a literal is not a second statement",
-			sql:  "SELECT agent_id FROM agent_transcripts WHERE content LIKE '%a; b%'",
-			want: "SELECT agent_id FROM agent_transcripts WHERE content LIKE '%a; b%'",
+			sql:  "SELECT agent_id FROM agent_transcript_chunks WHERE content LIKE '%a; b%'",
+			want: "SELECT agent_id FROM agent_transcript_chunks WHERE content LIKE '%a; b%'",
 		},
 		{
 			name: "keyword as a quoted identifier",
@@ -215,7 +210,7 @@ SELECT i FROM n`
 		},
 		{
 			name:     "a word that is also a write verb searches rather than being refused",
-			sql:      `SELECT agent_id FROM agent_transcripts WHERE content LIKE '%update%'`,
+			sql:      `SELECT agent_id FROM agent_transcript_chunks WHERE content LIKE '%update%'`,
 			wantCols: []string{"agent_id"},
 			wantRows: 1,
 		},

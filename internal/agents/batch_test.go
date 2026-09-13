@@ -5,7 +5,6 @@ import (
 
 	"weave/internal/store"
 	agentstore "weave/internal/store/agent"
-	transcriptstore "weave/internal/store/transcript"
 	workflowstore "weave/internal/store/workflow"
 
 	"github.com/google/uuid"
@@ -152,9 +151,7 @@ func TestDeleteAgentsTakesTheirTranscripts(t *testing.T) {
 	api := seed(t, st, "api", "%2", agentstore.StateIdle)
 
 	for _, agent := range []agentstore.Agent{auth, api} {
-		require.NoError(t, st.Transcripts.Upsert(ctx, transcriptstore.UpsertParams{
-			AgentID: agent.ID, Content: "something " + agent.Name + " said", Offset: 1,
-		}))
+		st.SeedTranscript(t, agent.ID, "something "+agent.Name+" said")
 	}
 
 	require.NoError(t, manager.lifecycle.DeleteAgents(ctx, []string{auth.ID, api.ID}))
@@ -162,7 +159,7 @@ func TestDeleteAgentsTakesTheirTranscripts(t *testing.T) {
 	for _, agent := range []agentstore.Agent{auth, api} {
 		stored, err := st.GetTranscript(ctx, agent.ID)
 		require.NoError(t, err)
-		assert.Empty(t, stored.Content, "%s left no conversation behind", agent.Name)
+		assert.Empty(t, stored, "%s left no conversation behind", agent.Name)
 	}
 }
 

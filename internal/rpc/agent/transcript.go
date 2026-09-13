@@ -18,7 +18,7 @@ import (
 )
 
 type transcriptReader interface {
-	Get(ctx context.Context, agentID string) (transcriptstore.Transcript, error)
+	Get(ctx context.Context, agentID string) (string, error)
 	Search(ctx context.Context, params transcriptstore.SearchParams) (transcriptstore.Results, error)
 }
 
@@ -84,15 +84,15 @@ func (s *Service) GetTranscript(ctx context.Context, req *connect.Request[agentv
 		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("no agent with id %q", req.Msg.GetAgentId()))
 	}
 
-	// The store hands over the whole transcript and the window is cut from it below, so the cap
+	// The store assembles the whole conversation and the window is cut from it below, so the cap
 	// bounds what the caller reads rather than what the server does, and paging one to its end
 	// costs the whole transcript once per window.
-	tr, err := s.transcripts.Get(ctx, req.Msg.GetAgentId())
+	content, err := s.transcripts.Get(ctx, req.Msg.GetAgentId())
 	if err != nil {
 		return nil, rpcerr.Wrap(err, "failed to get transcript")
 	}
 
-	window, next, err := transcriptWindow(tr.Content, cursor, req.Msg.GetMaxBytes())
+	window, next, err := transcriptWindow(content, cursor, req.Msg.GetMaxBytes())
 	if err != nil {
 		return nil, err
 	}

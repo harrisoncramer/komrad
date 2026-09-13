@@ -19,6 +19,7 @@ import (
 	schedulestore "weave/internal/store/schedule"
 	transcriptstore "weave/internal/store/transcript"
 	workflowstore "weave/internal/store/workflow"
+	"weave/lib/xslice"
 
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/stretchr/testify/require"
@@ -127,6 +128,27 @@ func (s *Stores) SeedTurnEnded(t *testing.T, agentID string) {
 	t.Helper()
 
 	require.NoError(t, s.Agents.SetTurnEnded(t.Context(), agentID))
+}
+
+// SeedTranscript stores turns for an agent under a session of its own.
+func (s *Stores) SeedTranscript(t *testing.T, agentID string, turns ...string) {
+	t.Helper()
+
+	session, err := s.Transcripts.OpenSession(t.Context(), transcriptstore.OpenSessionParams{
+		AgentID:   agentID,
+		SessionID: "session-" + agentID,
+	})
+	require.NoError(t, err)
+
+	indexed := xslice.Map(turns, func(text string) transcriptstore.Turn {
+		return transcriptstore.Turn{Role: "user", Content: text}
+	})
+
+	require.NoError(t, s.Transcripts.AppendTurns(t.Context(), transcriptstore.AppendTurnsParams{
+		AgentID:   agentID,
+		SessionID: session.ID,
+		Turns:     indexed,
+	}))
 }
 
 // SeedWorkflow creates a workflow and returns it, for the tests that only need

@@ -212,17 +212,20 @@ table "workflows" {
   }
 }
 
-table "agent_transcripts" {
+table "agent_transcript_sessions" {
   schema  = schema.public
-  comment = "One agent's whole conversation as plain text, copied from the log its CLI writes on disk. Every agent has exactly one row."
+  comment = "One conversation an agent has held, holding how far its log has been copied into the store."
+  column "id" {
+    null = false
+    type = uuid
+  }
   column "agent_id" {
     null = false
     type = uuid
   }
-  column "content" {
-    null    = false
-    type    = text
-    default = ""
+  column "session_id" {
+    null = false
+    type = text
   }
   column "synced_offset" {
     null    = false
@@ -234,14 +237,22 @@ table "agent_transcripts" {
     type    = timestamptz
     default = sql("now()")
   }
-  primary_key {
-    columns = [column.agent_id]
+  column "created_at" {
+    null    = false
+    type    = timestamptz
+    default = sql("now()")
   }
-  foreign_key "agent_transcripts_agent_id_fkey" {
+  primary_key {
+    columns = [column.id]
+  }
+  foreign_key "agent_transcript_sessions_agent_id_fkey" {
     columns     = [column.agent_id]
     ref_columns = [table.agents.column.id]
     on_delete   = CASCADE
     on_update   = NO_ACTION
+  }
+  unique "agent_transcript_sessions_agent_id_session_id_key" {
+    columns = [column.agent_id, column.session_id]
   }
 }
 
@@ -268,6 +279,10 @@ table "agent_transcript_chunks" {
     null = false
     type = bigint
   }
+  column "session_id" {
+    null = false
+    type = uuid
+  }
   column "tsv" {
     null = false
     type = sql("tsvector")
@@ -284,6 +299,15 @@ table "agent_transcript_chunks" {
     ref_columns = [table.agents.column.id]
     on_delete   = CASCADE
     on_update   = NO_ACTION
+  }
+  foreign_key "agent_transcript_chunks_session_id_fkey" {
+    columns     = [column.session_id]
+    ref_columns = [table.agent_transcript_sessions.column.id]
+    on_delete   = CASCADE
+    on_update   = NO_ACTION
+  }
+  index "agent_transcript_chunks_session_id" {
+    columns = [column.session_id]
   }
   index "agent_transcript_chunks_tsv" {
     type    = GIN
