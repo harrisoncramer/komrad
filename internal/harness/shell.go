@@ -1,7 +1,8 @@
 package harness
 
 import (
-	"errors"
+	"weave/internal/fail"
+
 	"fmt"
 	"path/filepath"
 	"strings"
@@ -9,7 +10,7 @@ import (
 	"weave/lib/xslice"
 )
 
-var ErrShellUnsupported = errors.New("unsupported pane shell")
+var ErrShellUnsupported = fail.Internal("unsupported pane shell")
 
 var posixShells = map[string]bool{
 	"ash":   true,

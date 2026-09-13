@@ -1,6 +1,8 @@
 package scripts
 
 import (
+	"weave/internal/fail"
+
 	"embed"
 	"errors"
 	"fmt"
@@ -14,9 +16,9 @@ const builtinRoot = "builtin"
 
 const markerName = ".weave-builtins"
 
-var ErrDirNotAbsolute = errors.New("the directory is not an absolute path")
+var ErrDirNotAbsolute = fail.Internal("the directory is not an absolute path")
 
-var ErrDirNotOurs = errors.New("the directory holds files weave did not write")
+var ErrDirNotOurs = fail.Internal("the directory holds files weave did not write")
 
 //go:embed all:builtin
 var builtinFS embed.FS

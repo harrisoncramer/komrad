@@ -14,7 +14,6 @@ import (
 
 	"bytes"
 	"context"
-	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -32,7 +31,7 @@ var ErrNotStartable = fail.Precondition("the file could not be started")
 
 var ErrDirMissing = fail.Precondition("the directory to run in does not exist")
 
-var ErrFailed = errors.New("the script exited non-zero")
+var ErrFailed = fail.Internal("the script exited non-zero")
 
 const killDelay = 2 * time.Second
 

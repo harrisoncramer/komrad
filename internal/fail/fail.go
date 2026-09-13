@@ -58,6 +58,9 @@ func (s *said) Error() string { return s.message }
 
 func (s *said) Unwrap() error { return s.sentinel }
 
+// Internal declares a sentinel for a failure the caller did nothing to cause and cannot fix.
+func Internal(message string) *Sentinel { return &Sentinel{kind: KindInternal, message: message} }
+
 // NotFound declares a sentinel for a thing the request named that does not exist.
 func NotFound(message string) *Sentinel { return &Sentinel{kind: KindNotFound, message: message} }
 

@@ -11,7 +11,6 @@ import (
 	"weave/internal/fail"
 
 	"context"
-	"errors"
 	"fmt"
 
 	"weave/db"
@@ -26,7 +25,7 @@ var ErrNameTaken = fail.AlreadyExists("name already taken")
 // ErrNotFound is what a single-row lookup returns when the row is absent.
 var ErrNotFound = fail.NotFound("not found")
 
-var ErrNoReadOnlyURL = errors.New(
+var ErrNoReadOnlyURL = fail.Internal(
 	"no read-only database url: set WEAVE_READONLY_DATABASE_URL, or a DATABASE_URL one can be derived from")
 
 type DBTX = models.DBTX
