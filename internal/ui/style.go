@@ -25,6 +25,7 @@ const (
 	localApprovedIcon         = "✓"
 	localChangesRequestedIcon = "↩"
 	worktreeRemovedIcon       = "⊘"
+	heldIcon                  = "⏸"
 	workflowIcon              = "⧉"
 
 	// noStateIcon fills the column the state icon would take for a row with no live state to
@@ -125,6 +126,11 @@ func archivedTag(w workflowstore.Workflow) string {
 
 func scheduledMark(agent agentstore.Agent) string {
 	return paint.IconMark(agent.ScheduleID != nil, scheduledIcon, paint.Muted)
+}
+
+// heldMark says a person has paused this agent and has its worktree.
+func heldMark(agent agentstore.Agent) string {
+	return paint.IconMark(agent.HeldAt != nil, heldIcon, paint.Warning)
 }
 
 func hiddenMark(hidden bool) string {

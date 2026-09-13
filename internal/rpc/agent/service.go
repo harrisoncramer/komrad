@@ -56,6 +56,11 @@ type agentResumer interface {
 	ResumeAgent(ctx context.Context, id string) (*agentstore.Agent, error)
 }
 
+type agentHolder interface {
+	Hold(ctx context.Context, agentID string) (agentstore.Agent, error)
+	Release(ctx context.Context, params agents.ReleaseParams) (agentstore.Agent, error)
+}
+
 type agentReadWriter interface {
 	ListPage(ctx context.Context, limit int64, cursor *agentstore.Cursor, archived bool) ([]agentstore.Agent, error)
 	GetByID(ctx context.Context, id string) (*agentstore.Agent, error)
@@ -97,6 +102,7 @@ type Service struct {
 	liveness    agentLiveness
 	lifecycle   agentLifecycle
 	resumer     agentResumer
+	holder      agentHolder
 	reconciler  reportRecorder
 	archive     archiveEmptier
 	review      reviewConversation
@@ -114,6 +120,7 @@ type NewServiceParams struct {
 	Liveness    agentLiveness
 	Lifecycle   agentLifecycle
 	Resumer     agentResumer
+	Holder      agentHolder
 	Reconciler  reportRecorder
 	Archive     archiveEmptier
 	Review      reviewConversation
@@ -134,6 +141,7 @@ func NewService(params NewServiceParams) *Service {
 		liveness:    params.Liveness,
 		lifecycle:   params.Lifecycle,
 		resumer:     params.Resumer,
+		holder:      params.Holder,
 		reconciler:  params.Reconciler,
 		archive:     params.Archive,
 		review:      params.Review,
@@ -576,6 +584,40 @@ func (s *Service) ResumeAgent(ctx context.Context, req *agentv1.ResumeAgentReque
 	}
 
 	return &agentv1.ResumeAgentResponse{Agent: rendered}, nil
+}
+
+// HoldAgent stops an agent so a person may take its worktree, refusing unless it is seen to come
+// to rest.
+func (s *Service) HoldAgent(ctx context.Context, req *agentv1.HoldAgentRequest) (*agentv1.HoldAgentResponse, *fail.Error) {
+	held, err := s.holder.Hold(ctx, req.GetId())
+	if err != nil {
+		return nil, rpcerr.From(err, "failed to hold agent")
+	}
+
+	rendered, failure := s.renderOneAgent(ctx, held)
+	if failure != nil {
+		return nil, failure
+	}
+
+	return &agentv1.HoldAgentResponse{Agent: rendered}, nil
+}
+
+// ReleaseAgent lets go of a held agent, telling it what changed while it was held.
+func (s *Service) ReleaseAgent(ctx context.Context, req *agentv1.ReleaseAgentRequest) (*agentv1.ReleaseAgentResponse, *fail.Error) {
+	released, err := s.holder.Release(ctx, agents.ReleaseParams{
+		AgentID: req.GetId(),
+		Said:    req.GetSaid(),
+	})
+	if err != nil {
+		return nil, rpcerr.From(err, "failed to release agent")
+	}
+
+	rendered, failure := s.renderOneAgent(ctx, released)
+	if failure != nil {
+		return nil, failure
+	}
+
+	return &agentv1.ReleaseAgentResponse{Agent: rendered}, nil
 }
 
 // UpdateAgent renames the agent with the given id, reporting a name another agent holds as a

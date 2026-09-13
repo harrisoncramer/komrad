@@ -244,6 +244,23 @@ func (m model) hideAgent(agent agentstore.Agent) (tea.Model, tea.Cmd) {
 	return m, m.writeCmd(failure, func(a api) error { return a.setHidden(agent, !agent.Hidden) })
 }
 
+// unpauseSaid is what an unpaused agent is told.
+const unpauseSaid = "I paused you for a moment and have let you go now. " +
+	"Look at your worktree as it stands before carrying on. It may have changed while you were paused."
+
+// pauseAgent stops the agent where it stands, or starts one already paused.
+func (m model) pauseAgent(agent agentstore.Agent) (tea.Model, tea.Cmd) {
+	if agent.HeldAt != nil {
+		return m, m.writeCmd(fmt.Sprintf("Could not unpause agent %q", agent.Name), func(a api) error {
+			return a.release(agent, unpauseSaid)
+		})
+	}
+
+	return m, m.writeCmd(fmt.Sprintf("Could not pause agent %q", agent.Name), func(a api) error {
+		return a.hold(agent)
+	})
+}
+
 func (m model) agentsDetails() details {
 	r, ok := rowAt(m.agentRows(), m.tree.cursor)
 	if !ok {
@@ -491,7 +508,7 @@ func (m model) agentsListView() string {
 
 		item := r.item
 		name := m.filter.highlight(clipName(item.agent.Name), m.nameStyle(hovered, !item.alive))
-		row := prefix + paint.MarkGutter(m.listing.marks[rowKey(r)]) + childMark(r.child) + stateMark(displayState(item)) + " " + name + " " + worktreeRemovedMark(item) + scheduledMark(item.agent) + hiddenMark(item.agent.Hidden) + unreadMailMark(item.unreadMail) + unviewedMark(item.unviewed) + failedRunMark(item.failedRun) + localReviewRoundsMark(item.localRounds) + localReviewMark(item.inLocalReview, item.localVerdict) + hiddenTally(r.hiddenCount, m.tree.showHidden) + reasonMark(item.agent)
+		row := prefix + paint.MarkGutter(m.listing.marks[rowKey(r)]) + childMark(r.child) + stateMark(displayState(item)) + " " + name + " " + worktreeRemovedMark(item) + heldMark(item.agent) + scheduledMark(item.agent) + hiddenMark(item.agent.Hidden) + unreadMailMark(item.unreadMail) + unviewedMark(item.unviewed) + failedRunMark(item.failedRun) + localReviewRoundsMark(item.localRounds) + localReviewMark(item.inLocalReview, item.localVerdict) + hiddenTally(r.hiddenCount, m.tree.showHidden) + reasonMark(item.agent)
 		if m.tree.selected.has(item.agent.ID) {
 			row = paint.PaintRow(row, paint.SelectionBackground, m.width)
 		}

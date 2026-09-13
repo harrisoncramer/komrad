@@ -30,6 +30,7 @@ type services struct {
 	delivery     *agents.DeliveryService
 	reconciler   *agents.Reconciler
 	marks        *agents.MarkService
+	holder       *agents.Holder
 	rebase       *agents.RebaseService
 }
 
@@ -204,9 +205,14 @@ func buildServices(params NewServerParams, st *stores) (*services, error) {
 		liveness:     paneLiveness,
 		launch:       launchService,
 		resume:       resumeService,
-		adopt:        adoptService,
-		lifecycle:    lifecycleService,
-		workflow:     workflowService,
+		holder: agents.NewHolder(agents.NewHolderParams{
+			Agents:   st.agents,
+			Channel:  paneChannel,
+			Observer: paneChannel,
+		}),
+		adopt:     adoptService,
+		lifecycle: lifecycleService,
+		workflow:  workflowService,
 		delivery: agents.NewDeliveryService(agents.NewDeliveryServiceParams{
 			MailboxReader: st.mail,
 			NudgeClaimer:  st.agents,

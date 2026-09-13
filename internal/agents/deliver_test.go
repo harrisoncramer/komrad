@@ -59,6 +59,20 @@ func TestDeliver(t *testing.T) {
 			want:    DeliveryDone,
 		},
 		{
+			name: "an agent a person is holding, whose tree is not weave's to type into",
+			agent: &agentstore.Agent{
+				ID:     "agent-a",
+				Pane:   "%1",
+				State:  agentstore.StateIdle,
+				HeldAt: &archivedAt,
+			},
+			pending: 1,
+			alive:   true,
+			want:    DeliveryLater,
+			// No claim and no nudge: a held agent is one somebody stopped on purpose.
+
+		},
+		{
 			name: "an empty mailbox",
 			agent: &agentstore.Agent{
 				ID:    "agent-a",
@@ -862,6 +876,7 @@ type fakeChannel struct {
 	sendErr     error
 	sent        []string
 	forgotten   []string
+	interrupts  int
 }
 
 func (f *fakeChannel) Ready(context.Context, harness.Target) (bool, error) {
@@ -880,6 +895,10 @@ func (f *fakeChannel) Send(_ context.Context, _ harness.Target, text string) (bo
 	return true, nil
 }
 
-func (f *fakeChannel) Interrupt(context.Context, harness.Target) error { return nil }
+func (f *fakeChannel) Interrupt(context.Context, harness.Target) error {
+	f.interrupts++
+
+	return nil
+}
 
 func (f *fakeChannel) Forget(agentID string) { f.forgotten = append(f.forgotten, agentID) }
