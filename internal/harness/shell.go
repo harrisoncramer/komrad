@@ -1,12 +1,11 @@
 package harness
 
 import (
-	"weave/internal/fail"
-
 	"fmt"
 	"path/filepath"
 	"strings"
 
+	"weave/internal/fail"
 	"weave/lib/xslice"
 )
 

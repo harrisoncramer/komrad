@@ -1,14 +1,13 @@
 package agents
 
 import (
-	"weave/internal/fail"
-
 	"context"
 	"errors"
 	"fmt"
 	"strings"
 	"time"
 
+	"weave/internal/fail"
 	"weave/internal/store"
 	schedulestore "weave/internal/store/schedule"
 

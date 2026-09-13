@@ -1,8 +1,6 @@
 package scripts
 
 import (
-	"weave/internal/fail"
-
 	"embed"
 	"errors"
 	"fmt"
@@ -10,6 +8,8 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+
+	"weave/internal/fail"
 )
 
 const builtinRoot = "builtin"

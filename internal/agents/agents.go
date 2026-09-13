@@ -1,8 +1,6 @@
 package agents
 
 import (
-	"weave/internal/fail"
-
 	"context"
 	"errors"
 	"fmt"
@@ -10,6 +8,7 @@ import (
 	"slices"
 	"strings"
 
+	"weave/internal/fail"
 	"weave/internal/logging"
 	"weave/internal/store"
 	"weave/internal/tmux"

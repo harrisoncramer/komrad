@@ -2,6 +2,7 @@
 package rpcerr
 
 import (
+	"errors"
 	"fmt"
 
 	"weave/internal/fail"
@@ -15,7 +16,11 @@ func Wrap(err error, failure string) error {
 		return nil
 	}
 
-	if sentinel := fail.Of(err); sentinel != nil {
+	if sentinel, wording := fail.Answer(err); sentinel != nil {
+		if wording != "" {
+			return connect.NewError(codeOf(sentinel.Kind()), errors.New(wording))
+		}
+
 		return connect.NewError(codeOf(sentinel.Kind()), err)
 	}
 
@@ -39,7 +44,7 @@ func codeOf(kind fail.Kind) connect.Code {
 		return connect.CodePermissionDenied
 	case fail.KindInternal:
 		return connect.CodeInternal
-	default:
-		return connect.CodeInternal
 	}
+
+	return connect.CodeInternal
 }

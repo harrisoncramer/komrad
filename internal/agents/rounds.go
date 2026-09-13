@@ -1,8 +1,6 @@
 package agents
 
 import (
-	"weave/internal/fail"
-
 	"context"
 	"errors"
 	"fmt"
@@ -10,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"weave/internal/fail"
 	"weave/internal/git"
 	"weave/internal/store"
 	agentstore "weave/internal/store/agent"

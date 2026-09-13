@@ -1,8 +1,6 @@
 package git
 
 import (
-	"weave/internal/fail"
-
 	"context"
 	"errors"
 	"fmt"
@@ -10,6 +8,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+
+	"weave/internal/fail"
 )
 
 // Explainer: a rebase that stops on conflicts is reported and left in place rather than

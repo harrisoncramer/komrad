@@ -71,6 +71,13 @@ var (
 				Handler: checkutil.NewServiceRuleHandler(checkOneService, checkutil.WithoutImports()),
 			},
 			{
+				ID:      RequestEnumRuleID,
+				Default: true,
+				Purpose: "Checks that an enum field on a request carries a validation rule refusing a value the enum does not define.",
+				Type:    check.RuleTypeLint,
+				Handler: checkutil.NewMethodRuleHandler(checkRequestEnums, checkutil.WithoutImports()),
+			},
+			{
 				ID:      TypesUniqueRuleID,
 				Default: true,
 				Purpose: "Checks that a named request or response type belongs to exactly one method, google.protobuf.Empty aside.",
@@ -183,6 +190,39 @@ func isDefinedOnly(field protoreflect.FieldDescriptor) bool {
 	default:
 		return rules.GetEnum().GetDefinedOnly()
 	}
+}
+
+func checkRequestEnums(
+	_ context.Context,
+	responseWriter check.ResponseWriter,
+	_ check.Request,
+	method protoreflect.MethodDescriptor,
+) error {
+	fields := method.Input().Fields()
+	for i := range fields.Len() {
+		field := fields.Get(i)
+		if field.Kind() != protoreflect.EnumKind || definedOnly(field) {
+			continue
+		}
+
+		responseWriter.AddAnnotation(
+			check.WithDescriptor(field),
+			check.WithMessagef(
+				"%q on %s must carry (buf.validate.field).enum.defined_only = true. Without it a number the enum does not define reaches %s as a value no switch over it expects.",
+				field.Name(),
+				method.Input().Name(),
+				method.Name(),
+			),
+		)
+	}
+
+	return nil
+}
+
+func definedOnly(field protoreflect.FieldDescriptor) bool {
+	rules := fieldRules(field)
+
+	return rules != nil && rules.GetEnum().GetDefinedOnly()
 }
 
 func namesAnID(field protoreflect.FieldDescriptor) bool {

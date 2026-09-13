@@ -1,13 +1,12 @@
 package agents
 
 import (
-	"weave/internal/fail"
-
 	"context"
 	"errors"
 	"fmt"
 	"strings"
 
+	"weave/internal/fail"
 	"weave/internal/store"
 	agentstore "weave/internal/store/agent"
 	reviewstore "weave/internal/store/review"

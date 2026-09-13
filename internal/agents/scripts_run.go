@@ -1,8 +1,6 @@
 package agents
 
 import (
-	"weave/internal/fail"
-
 	"bytes"
 	"context"
 	"errors"
@@ -13,6 +11,7 @@ import (
 	"os"
 	"time"
 
+	"weave/internal/fail"
 	"weave/internal/logging"
 	"weave/internal/scripts"
 

@@ -1,12 +1,11 @@
 package scripts
 
 import (
-	"weave/internal/fail"
-
 	"fmt"
 	"slices"
 	"strings"
 
+	"weave/internal/fail"
 	"weave/lib/xslice"
 )
 

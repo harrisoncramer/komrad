@@ -139,6 +139,18 @@ func TestWrapSaying(t *testing.T) {
 	assert.NotContains(t, err.Error(), "not found:", "the sentinel's own message is replaced, not appended")
 }
 
+// TestWrapSayingUnderAWrapping covers a worded sentinel the domain put its own prefix on, where
+// the caller is told the sentence the raise site chose and nothing else.
+func TestWrapSayingUnderAWrapping(t *testing.T) {
+	said := store.ErrNotFound.Saying("no schedule with id %q", "s-1")
+
+	err := rpcerr.Wrap(fmt.Errorf("failed to get schedule %q: %w", "s-1", said), "failed to get schedule")
+
+	require.Error(t, err)
+	assert.Equal(t, connect.CodeNotFound, connect.CodeOf(err))
+	assert.Equal(t, `not_found: no schedule with id "s-1"`, err.Error())
+}
+
 // TestWrapKeepsTheMappedCodeBesideAnUnmappedSentinel covers an error carrying a plain error
 // beside a sentinel, which must not cost it the sentinel's code.
 func TestWrapKeepsTheMappedCodeBesideAnUnmappedSentinel(t *testing.T) {

@@ -10,8 +10,6 @@
 package scripts
 
 import (
-	"weave/internal/fail"
-
 	"bytes"
 	"context"
 	"fmt"
@@ -22,6 +20,7 @@ import (
 	"syscall"
 	"time"
 
+	"weave/internal/fail"
 	"weave/internal/logging"
 )
 

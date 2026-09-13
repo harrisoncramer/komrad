@@ -8,13 +8,12 @@
 package store
 
 import (
-	"weave/internal/fail"
-
 	"context"
 	"fmt"
 
 	"weave/db"
 	"weave/db/models"
+	"weave/internal/fail"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"

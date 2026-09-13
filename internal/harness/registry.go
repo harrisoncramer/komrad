@@ -1,12 +1,12 @@
 package harness
 
 import (
-	"weave/internal/fail"
-
 	"errors"
 	"fmt"
 	"slices"
 	"strings"
+
+	"weave/internal/fail"
 )
 
 var ErrNotRegistered = fail.InvalidArgument("harness not registered")

@@ -1,13 +1,12 @@
 package agent
 
 import (
-	"weave/internal/fail"
-
 	"context"
 	"fmt"
 	"slices"
 
 	"weave/db/models"
+	"weave/internal/fail"
 	"weave/internal/store"
 )
 

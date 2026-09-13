@@ -4,8 +4,6 @@
 package browser
 
 import (
-	"weave/internal/fail"
-
 	"bytes"
 	"context"
 	"fmt"
@@ -13,6 +11,8 @@ import (
 	"os/exec"
 	"strings"
 	"time"
+
+	"weave/internal/fail"
 )
 
 const (
