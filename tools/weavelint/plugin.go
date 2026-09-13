@@ -4,7 +4,11 @@
 // It is a module of its own because golangci-lint builds its custom binary by importing the
 // plugin by module path, which it cannot do for a package inside a module whose root is a
 // command. Nothing else imports it, and `go list ./...` in the main module does not see it, so
-// its own tests are run by the lint task rather than by the suite.
+// its own tests are run by the test task rather than by the suite.
+//
+// The rules read syntax rather than types, which is enough for what they ask and keeps the lint
+// pass cheap. The cost is that a name is only a name: a package aliased to errors reads as the
+// standard library's, and one brought in by a dot import does not read as anything at all.
 package weavelint
 
 import (

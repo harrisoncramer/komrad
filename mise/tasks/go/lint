@@ -32,8 +32,13 @@ MODULES=(. tools/weavelint)
 CONFIG="$MISE_CONFIG_ROOT/.golangci.yaml"
 BIN_PATH="$MISE_CONFIG_ROOT/local/custom-gcl"
 
+# weave's own rules are built into the binary from a path rather than pinned as a
+# version, so a binary older than them lints with the rules as they used to be.
 if [ ! -x "$BIN_PATH" ]; then
 	echo "==> custom-gcl missing, building it"
+	golangci-lint custom
+elif [ -n "$(find "$MISE_CONFIG_ROOT/tools/weavelint" "$MISE_CONFIG_ROOT/.custom-gcl.yml" -type f -newer "$BIN_PATH" -print -quit)" ]; then
+	echo "==> custom-gcl is older than the rules it holds, rebuilding it"
 	golangci-lint custom
 fi
 
