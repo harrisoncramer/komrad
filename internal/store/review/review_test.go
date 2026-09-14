@@ -288,7 +288,7 @@ func TestSettlingAThreadIsCarriedByTheList(t *testing.T) {
 
 	thread := openThread(t, st, agentID, review, "this needs a nil check")
 
-	_, err := st.SetThreadResolved(ctx, thread.ID, true)
+	_, err := st.SetThreadResolved(ctx, SetThreadResolvedParams{ID: thread.ID, Resolved: true, ByKind: AuthorHuman})
 	require.NoError(t, err)
 
 	threads, err := st.ListThreads(ctx, agentID)
@@ -308,7 +308,11 @@ func TestSayingSomethingElseReopensAThread(t *testing.T) {
 
 	thread := openThread(t, st, agentID, review, "this needs a nil check")
 
-	_, err := st.SetThreadResolved(ctx, thread.ID, true)
+	settledBy := seedAgentNamed(t, st, "reviewer")
+
+	_, err := st.SetThreadResolved(ctx, SetThreadResolvedParams{
+		ID: thread.ID, Resolved: true, ByKind: AuthorAgent, ByAgentID: &settledBy,
+	})
 	require.NoError(t, err)
 
 	said, err := st.CreateMessage(ctx, CreateMessageParams{
@@ -323,8 +327,14 @@ func TestSayingSomethingElseReopensAThread(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, again)
 	assert.Nil(t, again.ResolvedAt)
+	assert.Empty(t, again.ResolvedByKind, "an unsettled thread names nobody as having settled it")
+	assert.Nil(t, again.ResolvedByAgentID)
 
-	_, err = st.SetThreadResolved(ctx, thread.ID, true)
+	// Settled by the agent again rather than by a person, or the agent id below would read as
+	// cleared when it was never written.
+	_, err = st.SetThreadResolved(ctx, SetThreadResolvedParams{
+		ID: thread.ID, Resolved: true, ByKind: AuthorAgent, ByAgentID: &settledBy,
+	})
 	require.NoError(t, err)
 
 	_, err = st.UpdateMessage(ctx, said.ID, "one more thing, rewritten", nil)
@@ -334,6 +344,8 @@ func TestSayingSomethingElseReopensAThread(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, edited)
 	assert.Nil(t, edited.ResolvedAt, "an edit reopens it too")
+	assert.Empty(t, edited.ResolvedByKind, "and takes the record of who settled it with it")
+	assert.Nil(t, edited.ResolvedByAgentID)
 }
 
 // TestASuggestionIsCarriedWithTheComment pins that replacement lines survive the round trip.

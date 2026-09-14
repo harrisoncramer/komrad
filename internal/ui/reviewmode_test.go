@@ -2,6 +2,7 @@ package ui
 
 import (
 	"errors"
+	"fmt"
 	"testing"
 
 	"weave/internal/diff"
@@ -803,4 +804,211 @@ func TestACommentOnTheNewestRoundRecordsItsBase(t *testing.T) {
 	assert.Equal(t, m.review.round.GetSnapshotSha(), agents.created.GetSnapshotSha(),
 		"and which snapshot its new side came from")
 	assert.Positive(t, agents.created.GetNewStart())
+}
+
+// TestTheOpenCommentKeyWalksOnlyWhatIsUnsettled is how a person clears a review: the settled
+// threads are history and the key steps past them.
+func TestTheOpenCommentKeyWalksOnlyWhatIsUnsettled(t *testing.T) {
+	dir := reviewRepo(t)
+	agents := &fakeReviewAgents{}
+	m, _ := reviewModel(t, agents, dir)
+	m = openReview(t, m)
+
+	m.applyReviewWrote(reviewWroteMsg{agentID: "a1", threads: threadsOnEveryLine(t)})
+
+	next, _ := m.updateReview(keyMsg("u"))
+	written, ok := next.(model)
+	require.True(t, ok)
+
+	thread, ok := written.review.view.GetThreadAt(written.review.cursor)
+	require.True(t, ok, "the key lands on a thread")
+	assert.Empty(t, thread.GetResolvedAt(), "and it is one nobody has settled")
+	assert.Equal(t, "open-1", thread.GetId(), "which is the open one rather than the settled one above it")
+}
+
+// TestTheOpenCommentKeySaysWhenThereIsNothingLeft covers a review whose threads are all settled,
+// where a key that silently did nothing would read as a key that did not register.
+func TestTheOpenCommentKeySaysWhenThereIsNothingLeft(t *testing.T) {
+	dir := reviewRepo(t)
+	agents := &fakeReviewAgents{}
+	m, _ := reviewModel(t, agents, dir)
+	m = openReview(t, m)
+
+	settled := threadsOnEveryLine(t)
+	for _, thread := range settled {
+		thread.ResolvedAt = "2026-09-13T12:00:00Z"
+	}
+
+	m.applyReviewWrote(reviewWroteMsg{agentID: "a1", threads: settled})
+
+	next, _ := m.updateReview(keyMsg("u"))
+	written, ok := next.(model)
+	require.True(t, ok)
+
+	assert.Contains(t, written.review.notice, "settled")
+}
+
+// threadsOnEveryLine pins one settled thread and one open one onto the first lines the diff
+// draws, so a walk has something to step over.
+func threadsOnEveryLine(t *testing.T) []*agentv1.ReviewThread {
+	t.Helper()
+
+	var threads []*agentv1.ReviewThread
+
+	for i := range 2 {
+		thread := &agentv1.ReviewThread{
+			Id:          fmt.Sprintf("open-%d", i),
+			AgentId:     "a1",
+			FilePath:    "greet.go",
+			NewStart:    int32(i + 1),
+			NewEnd:      int32(i + 1),
+			QuotedLines: []string{"+\treturn \"goodbye\""},
+			Messages: []*agentv1.ReviewMessage{{
+				Id:         fmt.Sprintf("m-%d", i),
+				AuthorKind: agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_HUMAN,
+				Body:       "worth another look",
+			}},
+		}
+
+		if i == 0 {
+			thread.ResolvedAt = "2026-09-13T12:00:00Z"
+		}
+
+		threads = append(threads, thread)
+	}
+
+	return threads
+}
+
+// TestTheOpenCommentKeySaysWhenYouAreOnTheLastOne covers the row every review ends on: the cursor
+// standing on the only comment left, where a key that moved nowhere silently would read as a key
+// that did not register.
+func TestTheOpenCommentKeySaysWhenYouAreOnTheLastOne(t *testing.T) {
+	dir := reviewRepo(t)
+	agents := &fakeReviewAgents{}
+	m, _ := reviewModel(t, agents, dir)
+	m = openReview(t, m)
+
+	m.applyReviewWrote(reviewWroteMsg{agentID: "a1", threads: threadsOnEveryLine(t)})
+
+	next, _ := m.updateReview(keyMsg("u"))
+	written, ok := next.(model)
+	require.True(t, ok)
+	require.Empty(t, written.review.notice, "the first press lands on the only open comment")
+
+	next, _ = written.updateReview(keyMsg("u"))
+	written, ok = next.(model)
+	require.True(t, ok)
+
+	assert.Contains(t, written.review.notice, "only comment left open")
+}
+
+// TestTheOpenCommentKeyDoesNotClaimAFoldedReviewIsSettled covers folding a file you have read,
+// which is the ordinary way through a review: the thread is no longer pinned to any row, and the
+// legend beside this key is still counting it.
+func TestTheOpenCommentKeyDoesNotClaimAFoldedReviewIsSettled(t *testing.T) {
+	dir := reviewRepo(t)
+	agents := &fakeReviewAgents{}
+	m, _ := reviewModel(t, agents, dir)
+	m = openReview(t, m)
+
+	m.applyReviewWrote(reviewWroteMsg{agentID: "a1", threads: threadsOnEveryLine(t)})
+
+	next, _ := m.updateReview(keyMsg("v"))
+	written, ok := next.(model)
+	require.True(t, ok)
+	require.Positive(t, written.review.view.CountOpenThreads(), "the folded file's comment is still open")
+
+	next, _ = written.updateReview(keyMsg("u"))
+	written, ok = next.(model)
+	require.True(t, ok)
+
+	assert.Contains(t, written.review.notice, "folded away")
+	assert.NotContains(t, written.review.notice, "settled")
+}
+
+// Explainer: the cursor can be on the last comment the walk can reach while another sits in a
+// file folded away. Saying only the first contradicts the legend, which is counting both.
+
+// TestTheOpenCommentKeySaysBothWhenOneIsFoldedAway pins which of the two the key says.
+func TestTheOpenCommentKeySaysBothWhenOneIsFoldedAway(t *testing.T) {
+	repo := newFakeRepo(t.TempDir())
+	agents := &fakeReviewAgents{}
+	m, _ := reviewModelOver(t, agents, repo)
+
+	repo.wrote(wroteParams{
+		Tree:  "tree-with-a-second-file",
+		Whole: fakePatchOfBothFiles,
+		Since: fakePatchOfTheSecondFile,
+		Sources: map[string]string{
+			fakeFile:    fakeHeadSource,
+			"second.go": "package greet\n\nfunc Second() {}\n",
+		},
+	})
+
+	m = openReview(t, m)
+	require.Equal(t, 2, m.review.view.Stat().Files, "the diff draws both files")
+
+	m.applyReviewWrote(reviewWroteMsg{agentID: "a1", threads: openThreadInEachFile(t)})
+	require.Equal(t, 2, m.review.view.CountOpenThreads())
+
+	// Fold the file the cursor is standing in, which leaves one open comment drawn and one not.
+	m.review.cursor = firstRowInFile(t, m, "second.go")
+
+	next, _ := m.updateReview(keyMsg("v"))
+	written, ok := next.(model)
+	require.True(t, ok)
+
+	next, _ = written.updateReview(keyMsg("u"))
+	written, ok = next.(model)
+	require.True(t, ok)
+
+	next, _ = written.updateReview(keyMsg("u"))
+	written, ok = next.(model)
+	require.True(t, ok)
+
+	assert.Contains(t, written.review.notice, "folded away",
+		"the comment nobody can reach is named rather than counted in silence")
+	assert.NotContains(t, written.review.notice, "only comment",
+		"since it is not the only one left open, whatever the walk can reach")
+}
+
+// openThreadInEachFile pins one unsettled comment into each of the two files.
+func openThreadInEachFile(t *testing.T) []*agentv1.ReviewThread {
+	t.Helper()
+
+	var threads []*agentv1.ReviewThread
+
+	for i, path := range []string{fakeFile, "second.go"} {
+		threads = append(threads, &agentv1.ReviewThread{
+			Id:          fmt.Sprintf("open-%d", i),
+			AgentId:     "a1",
+			FilePath:    path,
+			NewStart:    1,
+			NewEnd:      1,
+			QuotedLines: []string{"+package greet"},
+			Messages: []*agentv1.ReviewMessage{{
+				Id:         fmt.Sprintf("m-%d", i),
+				AuthorKind: agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_HUMAN,
+				Body:       "worth another look",
+			}},
+		})
+	}
+
+	return threads
+}
+
+// firstRowInFile is a row the named file draws, so a fold lands on that file rather than another.
+func firstRowInFile(t *testing.T, m model, path string) int {
+	t.Helper()
+
+	for row := range m.review.view.Len() {
+		if at, _, ok := m.review.view.GetEditTarget(row); ok && at == path {
+			return row
+		}
+	}
+
+	t.Fatalf("the diff draws no row of %q", path)
+
+	return 0
 }

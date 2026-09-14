@@ -74,6 +74,7 @@ const (
 	actionReviewScroll
 	actionReviewFile
 	actionReviewThread
+	actionReviewOpenThread
 	actionReviewMatch
 	actionReviewPan
 	actionReviewPanReset

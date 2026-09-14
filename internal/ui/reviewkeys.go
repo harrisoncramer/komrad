@@ -1,6 +1,8 @@
 package ui
 
 import (
+	"fmt"
+
 	"weave/internal/ui/paint"
 	agentv1 "weave/proto/gen/agent/v1"
 
@@ -214,6 +216,56 @@ func (m model) jumpReviewMatch(direction int) (tea.Model, tea.Cmd) {
 	}
 
 	return m.moveReviewCursor(next)
+}
+
+// jumpOpenThread moves to the next comment nobody has settled, wrapping to the first one, which
+// is how a person clearing a review walks it.
+func (m model) jumpOpenThread() (tea.Model, tea.Cmd) {
+	next, ok := m.review.view.JumpOpenThread(m.review.cursor)
+	if !ok {
+		// Explainer: the walk wraps rather than stopping at the end, since a reader part-way down
+		// a diff would otherwise be told there is nothing left while the answer is above them.
+		next, ok = m.review.view.JumpOpenThread(-1)
+	}
+
+	if !ok || next == m.review.cursor {
+		m.review.notice = m.noOpenThreadSaid(ok)
+
+		return m, nil
+	}
+
+	return m.moveReviewCursor(next)
+}
+
+// noOpenThreadSaid is why the key moved nowhere, which is three different facts and never the
+// same sentence.
+func (m model) noOpenThreadSaid(standingOnIt bool) string {
+	if standingOnIt && m.review.view.CountOpenThreads() == 1 {
+		return "this is the only comment left open"
+	}
+
+	// Explainer: a thread in a file the reader has folded away is never pinned to a row, so the
+	// walk cannot reach it while the count still holds it. Saying everything is settled there
+	// would contradict the legend, which is counting the same thread.
+	if m.review.view.CountOpenThreads() > 0 {
+		return "the comments left open are in files you have folded away"
+	}
+
+	return "every comment here has been settled"
+}
+
+// threadStepDesc names the three keys that walk the conversations, by what is left to settle.
+func (m model) threadStepDesc() string {
+	if m.review.view == nil {
+		return "thread, next open"
+	}
+
+	open := m.review.view.CountOpenThreads()
+	if open == 0 {
+		return "thread, next open"
+	}
+
+	return fmt.Sprintf("thread, %d open", open)
 }
 
 // reviewThreadAtCursor is the thread the cursor is standing on, and false while the diff is

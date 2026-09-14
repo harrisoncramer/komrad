@@ -246,6 +246,16 @@ SET
         NOW()
     ELSE
         NULL
+    END,
+    resolved_by_kind = CASE WHEN @resolved::boolean THEN
+        sqlc.narg('resolved_by_kind')::review_author_kind
+    ELSE
+        NULL
+    END,
+    resolved_by_agent_id = CASE WHEN @resolved::boolean THEN
+        sqlc.narg('resolved_by_agent_id')::uuid
+    ELSE
+        NULL
     END
 WHERE
     t.id = @id
@@ -280,7 +290,9 @@ touched AS (
         ELSE
             t.last_agent_activity_at
         END,
-        resolved_at = NULL
+        resolved_at = NULL,
+        resolved_by_kind = NULL,
+        resolved_by_agent_id = NULL
     FROM
         written w
     WHERE
@@ -314,7 +326,9 @@ touched AS (
         ELSE
             t.last_agent_activity_at
         END,
-        resolved_at = NULL
+        resolved_at = NULL,
+        resolved_by_kind = NULL,
+        resolved_by_agent_id = NULL
     FROM
         written w
     WHERE

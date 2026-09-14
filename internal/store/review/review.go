@@ -50,7 +50,11 @@ type Thread struct {
 	LastAgentActivityAt *time.Time
 	HumanReadAt         *time.Time
 
-	// ResolvedAt is when the person reviewing settled the thread, nil while it is still owed an
+	// ResolvedByKind is whether a person or an agent settled the thread, empty while nobody has.
+	ResolvedByKind AuthorKind
+	// ResolvedByAgentID is the agent that settled it, nil for a person or an unsettled thread.
+	ResolvedByAgentID *string
+	// ResolvedAt is when the thread was settled, nil while it is still owed an
 	// answer.
 	ResolvedAt    *time.Time
 	UnreadByHuman bool
@@ -158,6 +162,8 @@ func (s *Store) CreateThread(ctx context.Context, params CreateThreadParams) (*T
 		LastAgentActivityAt: row.LastAgentActivityAt,
 		HumanReadAt:         row.HumanReadAt,
 		ResolvedAt:          row.ResolvedAt,
+		ResolvedByKind:      AuthorKind(row.ResolvedByKind.ReviewAuthorKind),
+		ResolvedByAgentID:   row.ResolvedByAgentID,
 		CreatedAt:           row.CreatedAt,
 		UpdatedAt:           row.UpdatedAt,
 	}, nil
@@ -194,6 +200,8 @@ func (s *Store) ListThreads(ctx context.Context, agentID string) ([]Thread, erro
 			LastAgentActivityAt: row.LastAgentActivityAt,
 			HumanReadAt:         row.HumanReadAt,
 			ResolvedAt:          row.ResolvedAt,
+			ResolvedByKind:      AuthorKind(row.ResolvedByKind.ReviewAuthorKind),
+			ResolvedByAgentID:   row.ResolvedByAgentID,
 			CreatedAt:           row.CreatedAt,
 			UpdatedAt:           row.UpdatedAt,
 		}
@@ -237,6 +245,8 @@ func (s *Store) GetThread(ctx context.Context, id string) (*Thread, error) {
 		LastAgentActivityAt: row.LastAgentActivityAt,
 		HumanReadAt:         row.HumanReadAt,
 		ResolvedAt:          row.ResolvedAt,
+		ResolvedByKind:      row.ResolvedByKind,
+		ResolvedByAgentID:   row.ResolvedByAgentID,
 		CreatedAt:           row.CreatedAt,
 		UpdatedAt:           row.UpdatedAt,
 	})
@@ -265,21 +275,34 @@ func (s *Store) MarkThreadRead(ctx context.Context, id string) (*Thread, error) 
 	return &thread, nil
 }
 
-// SetThreadResolved settles a thread or reopens it.
-func (s *Store) SetThreadResolved(ctx context.Context, id string, resolved bool) (*Thread, error) {
-	if !store.IsID(id) {
-		return nil, threadNotFound(id)
+// SetThreadResolvedParams is the thread being settled or reopened, and who is doing it.
+type SetThreadResolvedParams struct {
+	ID       string
+	Resolved bool
+	// ByKind is whether a person or an agent settled it, which reopening clears along with the
+	// rest.
+	ByKind AuthorKind
+	// ByAgentID is the agent that settled it, nil for a person.
+	ByAgentID *string
+}
+
+// SetThreadResolved settles a thread or reopens it, recording who did.
+func (s *Store) SetThreadResolved(ctx context.Context, params SetThreadResolvedParams) (*Thread, error) {
+	if !store.IsID(params.ID) {
+		return nil, threadNotFound(params.ID)
 	}
 
 	row, err := s.queries.SetReviewThreadResolved(ctx, models.SetReviewThreadResolvedParams{
-		ID:       id,
-		Resolved: resolved,
+		ID:                params.ID,
+		Resolved:          params.Resolved,
+		ResolvedByKind:    models.NullReviewAuthorKind{ReviewAuthorKind: models.ReviewAuthorKind(params.ByKind), Valid: params.ByKind != ""},
+		ResolvedByAgentID: params.ByAgentID,
 	})
 	if db.IsNoRows(err) {
-		return nil, threadNotFound(id)
+		return nil, threadNotFound(params.ID)
 	}
 	if err != nil {
-		return nil, fmt.Errorf("failed to settle the review thread %q: %w", id, err)
+		return nil, fmt.Errorf("failed to settle the review thread %q: %w", params.ID, err)
 	}
 
 	thread := threadFromRow(*row)
@@ -503,6 +526,8 @@ func threadFromRow(row models.ReviewThread) Thread {
 		LastAgentActivityAt: row.LastAgentActivityAt,
 		HumanReadAt:         row.HumanReadAt,
 		ResolvedAt:          row.ResolvedAt,
+		ResolvedByKind:      AuthorKind(row.ResolvedByKind.ReviewAuthorKind),
+		ResolvedByAgentID:   row.ResolvedByAgentID,
 		CreatedAt:           row.CreatedAt,
 		UpdatedAt:           row.UpdatedAt,
 	}

@@ -61,6 +61,11 @@ func reviewTable() []action {
 			run:  model.stepReviewThread,
 		},
 		{
+			id:   actionReviewOpenThread,
+			keys: func(k config.Keybindings) []string { return k.Review.NextOpenThread },
+			run:  func(m model, _ string) (tea.Model, tea.Cmd) { return m.jumpOpenThread() },
+		},
+		{
 			id:   actionFilterOpen,
 			keys: func(k config.Keybindings) []string { return k.Filter.Open },
 			run:  model.openReviewFilter,
@@ -195,10 +200,11 @@ func reviewLegend() []legendRow {
 			},
 		},
 		{
-			of:   []actionID{actionReviewThread},
-			desc: func(model) string { return "next/previous thread" },
+			of:   []actionID{actionReviewThread, actionReviewOpenThread},
+			desc: model.threadStepDesc,
 			label: func(k config.Keybindings) string {
-				return headLabel(k.Review.NextThread) + "/" + headLabel(k.Review.PrevThread)
+				return headLabel(k.Review.NextThread) + "/" + headLabel(k.Review.PrevThread) +
+					"/" + headLabel(k.Review.NextOpenThread)
 			},
 		},
 		{

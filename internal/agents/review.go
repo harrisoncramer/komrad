@@ -41,7 +41,7 @@ type reviewThreadReadWriter interface {
 	ListThreads(ctx context.Context, agentID string) ([]reviewstore.Thread, error)
 	GetThread(ctx context.Context, id string) (*reviewstore.Thread, error)
 	MarkThreadRead(ctx context.Context, id string) (*reviewstore.Thread, error)
-	SetThreadResolved(ctx context.Context, id string, resolved bool) (*reviewstore.Thread, error)
+	SetThreadResolved(ctx context.Context, params reviewstore.SetThreadResolvedParams) (*reviewstore.Thread, error)
 }
 
 // reviewMessageReadWriter is the other half: what was said in those conversations, and how far
@@ -611,21 +611,33 @@ type SetReviewThreadResolvedParams struct {
 	Author   ReviewAuthor
 }
 
-// SetReviewThreadResolved settles a thread or reopens it, which only the person reviewing may
-// do.
+// SetReviewThreadResolved settles a thread or reopens it, which the author of the comment and the
+// person reviewing may do.
 func (s *ReviewService) SetReviewThreadResolved(
 	ctx context.Context,
 	params SetReviewThreadResolvedParams,
 ) (*reviewstore.Thread, error) {
-	if !params.Author.IsHuman() {
-		return nil, fmt.Errorf("%w: settling a review thread", ErrReviewHumanOnly)
-	}
-
-	if err := s.requireOwnThread(ctx, params.ID, params.Author); err != nil {
+	thread, err := s.getOwnThread(ctx, params.ID, params.Author)
+	if err != nil {
 		return nil, err
 	}
 
-	return s.threads.SetThreadResolved(ctx, params.ID, params.Resolved)
+	// Explainer: whether a thread is settled is what says whether a review is finished, so an
+	// agent that could settle a comment about its own work would be marking its own homework. What
+	// it may settle is a comment it wrote itself, which is how a reviewer says the answer was good
+	// enough. A person may settle anything, including somebody else's, since somebody has to be
+	// able to clear a thread whose author is gone.
+	if !params.Author.IsHuman() && !doesOwnReview(params.Author, *thread) {
+		return nil, ErrReviewNotYours.Saying(
+			"%q is a comment about your own work, so it is not yours to settle", params.ID)
+	}
+
+	return s.threads.SetThreadResolved(ctx, reviewstore.SetThreadResolvedParams{
+		ID:        params.ID,
+		Resolved:  params.Resolved,
+		ByKind:    params.Author.Kind,
+		ByAgentID: params.Author.AgentID,
+	})
 }
 
 // SetReviewFileViewedParams names one file of a round to mark read or unread.

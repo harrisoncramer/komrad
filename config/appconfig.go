@@ -404,6 +404,9 @@ type ReviewKeys struct {
 	NextMatch []string `mapstructure:"next_match" default:"n"`
 	// Jump to the next line carrying a review thread.
 	NextThread []string `mapstructure:"next_thread" default:"t"`
+	// Move the cursor to the next comment nobody has settled, which is what a review still owes
+	// an answer to. It wraps to the first one past the end of the diff.
+	NextOpenThread []string `mapstructure:"next_open_thread" default:"u"`
 	// Pan the diff left, for a line wider than the pane.
 	PanLeft []string `mapstructure:"pan_left" default:"h,left"`
 	// Pan back to the start of the line.
