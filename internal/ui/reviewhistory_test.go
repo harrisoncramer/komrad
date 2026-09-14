@@ -56,6 +56,14 @@ func TestOnlyTheLastReleasedReviewIsOwedAnAnswer(t *testing.T) {
 			wants: false,
 		},
 		{
+			name: "an hour later across the clocks going back, which is not a later string",
+			reviews: []*agentv1.Review{
+				review("2026-11-01T01:30:00-04:00", 1, human),
+				review("2026-11-01T01:15:00-05:00", 0, human),
+			},
+			wants: false,
+		},
+		{
 			name: "the newest one left open, whatever came before it",
 			reviews: []*agentv1.Review{
 				review("2026-09-13T11:00:00Z", 2, human),

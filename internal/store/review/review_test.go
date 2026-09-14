@@ -347,6 +347,37 @@ func TestTheSettlersOwnWordsReopenAThread(t *testing.T) {
 	assert.Nil(t, edited.ResolvedByAgentID)
 }
 
+// TestThePersonCanTakeTheirOwnSettlingBack covers the arm the panel walks, where neither the
+// settler nor the author of the new words is an agent, so both agent ids are absent.
+func TestThePersonCanTakeTheirOwnSettlingBack(t *testing.T) {
+	st := open(t)
+	ctx := t.Context()
+	agentID := seedAgent(t, st)
+	round := openRound(t, st, agentID, "tree-one")
+	review := openReview(t, st, agentID, round.ID)
+
+	thread := openThread(t, st, agentID, review, "this needs a nil check")
+
+	_, err := st.SetThreadResolved(ctx, SetThreadResolvedParams{
+		ID: thread.ID, Resolved: true, ByKind: AuthorHuman,
+	})
+	require.NoError(t, err)
+
+	_, err = st.CreateMessage(ctx, CreateMessageParams{
+		ThreadID:   thread.ID,
+		ReviewID:   &review.ID,
+		Body:       "actually, one more thing",
+		AuthorKind: AuthorHuman,
+	})
+	require.NoError(t, err)
+
+	again, err := st.GetThread(ctx, thread.ID)
+	require.NoError(t, err)
+	require.NotNil(t, again)
+	assert.Nil(t, again.ResolvedAt, "the person settled it, so the person may take that back")
+	assert.Empty(t, again.ResolvedByKind)
+}
+
 // Explainer: whether a review is finished is counted from its unsettled threads, so anyone who
 // could reopen a thread by writing in it could hold the person's next review and every hand-edit
 // open for as long as they kept writing. Reopening is the settler taking their own word back.

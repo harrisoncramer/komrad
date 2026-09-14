@@ -3,6 +3,7 @@ package ui
 import (
 	"time"
 
+	"weave/lib/dates"
 	agentv1 "weave/proto/gen/agent/v1"
 )
 
@@ -106,7 +107,7 @@ func isAwaitingReviewAnswer(reviews []*agentv1.Review) bool {
 		if review.GetReleasedAt() == "" {
 			continue
 		}
-		if last == nil || review.GetReleasedAt() > last.GetReleasedAt() {
+		if last == nil || dates.Parse(review.GetReleasedAt()).After(dates.Parse(last.GetReleasedAt())) {
 			last = review
 		}
 	}

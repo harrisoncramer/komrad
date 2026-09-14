@@ -143,10 +143,6 @@ func (m model) isReviewOwedAnAnswer() (string, bool) {
 	// comment on, since it writes to the worktree rather than to the agent. An agent that will
 	// never answer is not a wait, so holding the key behind one would take it away in the very
 	// case the screen means to offer it.
-	// Explainer: editing is the one key this screen keeps for an agent nobody is there to read a
-	// comment on, since it writes to the worktree rather than to the agent. An agent that will
-	// never answer is not a wait, so holding the key behind one would take it away in the very
-	// case the screen means to offer it.
 	if _, unreachable := m.isReviewReadOnly(); unreachable {
 		return "", false
 	}
