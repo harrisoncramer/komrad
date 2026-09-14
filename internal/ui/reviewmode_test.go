@@ -301,6 +301,41 @@ func TestASendThatFailsKeepsThePass(t *testing.T) {
 	assert.True(t, m.review.paused)
 }
 
+// TestASendThatLandedIsNotUndoneByAnUnreadableReview covers the two failures the answer used to
+// carry as one: the comments are in the agent's hands, so a review that will not read back is a
+// stale screen rather than a send to try again.
+func TestASendThatLandedIsNotUndoneByAnUnreadableReview(t *testing.T) {
+	dir := reviewRepo(t)
+	agents := &fakeReviewAgents{}
+	m, _ := reviewModel(t, agents, dir)
+	m = openReview(t, m)
+
+	m.review.cursor = reviewRowWithAnEditTarget(t, m)
+	m = pressEdit(t, m)
+	next, _ := m.closeReviewEdit()
+	m = next.(model)
+	require.True(t, m.review.paused)
+
+	next, cmd := m.sendReview(false)
+	m = next.(model)
+	require.NotNil(t, cmd)
+
+	letGo := m.applyReviewWrote(reviewWroteMsg{
+		agentID: m.review.agentID,
+		notice:  "changes requested",
+		readErr: errors.New("the review could not be read back"),
+		sent:    true,
+	})
+
+	assert.Equal(t, modeWatching, m.review.mode, "the review went, so the pass is over")
+	assert.False(t, m.review.paused)
+
+	runReviewCmd(t, letGo)
+
+	require.NotNil(t, agents.letGo, "and the agent is let go, told what it was sent")
+	assert.Contains(t, agents.letGo.GetSaid(), "My comments are pinned")
+}
+
 // TestAnotherWriteLandingMidSendIsNotTheSend covers every write on this screen coming back the
 // same way: a comment answered while a review is still in flight would otherwise end the pass and
 // let the agent go before the review had landed at all.

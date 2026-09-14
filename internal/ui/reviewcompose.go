@@ -458,13 +458,13 @@ func (m model) reviewWriteMsgCmd(sent bool, write func(context.Context) (string,
 			return reviewWroteMsg{agentID: agentID, err: err, sent: sent}
 		}
 
-		threads, err := listReviewThreads(ctx, agents, agentID)
+		threads, readErr := listReviewThreads(ctx, agents, agentID)
 
 		return reviewWroteMsg{
 			agentID: agentID,
 			notice:  notice,
 			threads: threads,
-			err:     err,
+			readErr: readErr,
 			sent:    sent,
 		}
 	}
