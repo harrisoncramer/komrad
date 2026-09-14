@@ -37,8 +37,8 @@ elif [ -n "$FAKE_PROMPT_FILE" ]; then
 fi
 
 (
-	while :; do
-		printf '%s\n' "$(cat "$state" 2>/dev/null || printf '` + idleLine + `')"
+	while [ -d "$FAKE_ROOT" ]; do
+		printf '%s\n' "$(cat "$state" 2>/dev/null || printf '` + idleLine + `')" || exit 0
 		sleep 0.2
 	done
 ) &
