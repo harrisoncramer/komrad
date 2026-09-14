@@ -51,6 +51,9 @@ type reviewWroteMsg struct {
 	notice  string
 	threads []*agentv1.ReviewThread
 	err     error
+	// readErr is the review coming back unreadable after a write that landed, which is a stale
+	// screen rather than a write to try again.
+	readErr error
 	// sent says this is the answer to a released review rather than to any of the other writes
 	// this screen makes, which all come back the same way.
 	sent bool
@@ -402,7 +405,16 @@ func (m *model) applyReviewWrote(msg reviewWroteMsg) tea.Cmd {
 	}
 
 	m.review.notice = msg.notice
-	m.applyReviewThreads(msg.threads)
+
+	// Explainer: the write landing and the review being readable afterwards are two facts, and
+	// only the first says what became of what the reader sent. Reading them as one turns a send
+	// that landed into a send the screen believes never went, which then offers to send it again
+	// and tells the agent nothing was sent on the way out.
+	if msg.readErr != nil {
+		m.report("Could not read the review of "+m.review.agentName+" back", msg.readErr)
+	} else {
+		m.applyReviewThreads(msg.threads)
+	}
 
 	// Explainer: every write on this screen comes back as one of these, so what says the pass is
 	// over has to ride on the message rather than on the screen. A flag on the model says a send
