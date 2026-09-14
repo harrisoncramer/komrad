@@ -216,22 +216,16 @@ func agentsRowActions() []action {
 			run:  onHoveredAgent(func(m model, item agentItem) (tea.Model, tea.Cmd) { return m.hideAgent(item.agent) }),
 		},
 		{
-			id:   actionAgentOpenPR,
-			keys: func(k config.Keybindings) []string { return k.Agents.OpenPR },
+			id:   actionGitMenu,
+			keys: func(k config.Keybindings) []string { return k.Git.Open },
 			when: isHoveringAgent,
-			run:  onHoveredAgent(func(m model, item agentItem) (tea.Model, tea.Cmd) { return m.openAgentPR(item.agent) }),
+			run:  func(m model, _ string) (tea.Model, tea.Cmd) { return m.openGitMenu() },
 		},
 		{
 			id:   actionAgentReview,
 			keys: func(k config.Keybindings) []string { return k.Agents.Review },
 			when: isHoveringAgent,
 			run:  onHoveredAgent(func(m model, item agentItem) (tea.Model, tea.Cmd) { return m.enterReview(item.agent) }),
-		},
-		{
-			id:   actionAgentRefresh,
-			keys: func(k config.Keybindings) []string { return k.Agents.Refresh },
-			when: isHoveringAgent,
-			run:  onHoveredAgent(func(m model, item agentItem) (tea.Model, tea.Cmd) { return m.refreshAgent(item.agent) }),
 		},
 		{
 			id:   actionAgentMail,
@@ -419,13 +413,13 @@ func agentsBrowsingLegend() []legendRow {
 			desc: model.selectionToggleDesc,
 			show: isBrowsing,
 		},
-		// The pr and review keys answer for some agents and not others, so both are drawn for any
-		// of them and the caveats say which, which keeps the legend one height as the cursor moves.
 		{
-			of:   []actionID{actionAgentOpenPR},
-			desc: func(model) string { return "open pr" },
+			of:   []actionID{actionGitMenu},
+			desc: func(model) string { return "git actions" },
 			show: isHoveringAgent,
 		},
+		// The review key answers for some agents and not others, so it is drawn for any of them and
+		// the caveats say which, which keeps the legend one height as the cursor moves.
 		{
 			of:   []actionID{actionAgentReview},
 			desc: func(model) string { return "review diff" },

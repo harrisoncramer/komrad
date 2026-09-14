@@ -702,17 +702,6 @@ func hasPR(agent agentstore.Agent) bool {
 	return false
 }
 
-// refreshAgent asks the server what a rebase would do, then offers the picker.
-func (m model) refreshAgent(agent agentstore.Agent) (tea.Model, tea.Cmd) {
-	if !m.isReviewable(agent) {
-		return m, nil
-	}
-
-	agentID, name := agent.ID, agent.Name
-
-	return m, m.planRefreshCmd(agentID, name)
-}
-
 // openRefreshConfirm asks before bringing a worktree up to date, saying what it will do to the
 // branch and to the files.
 func (m model) openRefreshConfirm(plan refreshPlan) (tea.Model, tea.Cmd) {
@@ -730,19 +719,6 @@ func (m model) openRefreshConfirm(plan refreshPlan) (tea.Model, tea.Cmd) {
 			return m, m.rebaseCmd(plan.agentID, plan.name)
 		}),
 	})
-}
-
-func (m model) openAgentPR(agent agentstore.Agent) (tea.Model, tea.Cmd) {
-	if !hasPR(agent) {
-		return m, nil
-	}
-
-	agentID := agent.ID
-
-	return m, m.writeCmd(
-		"Could not open the pull request",
-		func(a api) error { return a.openPullRequest(agentID) },
-	)
 }
 
 // startOrchestrator brings the workflow's orchestrator back, or starts the one it has never

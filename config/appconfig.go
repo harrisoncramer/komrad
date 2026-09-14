@@ -132,6 +132,8 @@ type Keybindings struct {
 	// The key that draws the legend under a list, shared by every screen for the
 	// same reason navigation is.
 	Help HelpKeys `mapstructure:"help"`
+	// The git menu on the agents list, and the actions inside it.
+	Git GitKeys `mapstructure:"git"`
 	// The keys that walk back and forward through the agents you have opened.
 	History HistoryKeys `mapstructure:"history"`
 	// The key that pages the service's log, shared by every screen since the log is
@@ -308,16 +310,10 @@ type AgentsKeys struct {
 	Mail []string `mapstructure:"mail" default:"m"`
 	// Attach to the hovered agent.
 	Open []string `mapstructure:"open" default:"enter"`
-	// Open the pull request the hovered agent recorded, in your browser. The key does
-	// nothing on an agent with none recorded, and the legend leaves it off there.
-	OpenPR []string `mapstructure:"open_pr" default:"o"`
 	// Quit the panel.
 	Quit []string `mapstructure:"quit" default:"ctrl+c"`
 	// Rename the hovered agent.
 	Rename []string `mapstructure:"rename" default:"r"`
-	// Bring the hovered agent's worktree up to date on the latest base, or replace it. Opens a
-	// picker, since the two differ in what they destroy.
-	Refresh []string `mapstructure:"refresh" default:"W"`
 	// Search every conversation the panel holds for what you type, the archived ones included.
 	Search []string `mapstructure:"search" default:"s"`
 	// Toggles visibility of hidden agents alongside the rest.
@@ -334,6 +330,19 @@ type MarksKeys struct {
 	// Jump the cursor to a marked row, then the letter to jump to, or the jump key again to
 	// go back to where the last jump left from.
 	Jump []string `mapstructure:"jump" default:"'"`
+}
+
+// GitKeys are the bindings for the git menu, which opens beside the agents list and holds the
+// actions that act on the hovered agent's branch.
+type GitKeys struct {
+	// Open the git menu on the hovered agent.
+	Open []string `mapstructure:"open" default:"b"`
+	// Open the pull request the hovered agent recorded, in your browser. The entry says so
+	// rather than acting on an agent with no pull request recorded.
+	OpenPR []string `mapstructure:"open_pr" default:"o"`
+	// Bring the hovered agent's worktree up to date on the latest base, which asks first and
+	// says what it would do to the branch and to the files.
+	Rebase []string `mapstructure:"rebase" default:"r"`
 }
 
 // WorkflowsKeys are the bindings that act on a workflow. New is global. Rename,

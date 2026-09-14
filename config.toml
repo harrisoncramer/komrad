@@ -79,16 +79,10 @@ toggle_viewed = ["u"]
 mail          = ["m"]
 # Attach to the hovered agent.
 open          = ["enter"]
-# Open the pull request the hovered agent recorded, in your browser. The key does
-# nothing on an agent with none recorded, and the legend leaves it off there.
-open_pr       = ["o"]
 # Quit the panel.
 quit          = ["ctrl+c"]
 # Rename the hovered agent.
 rename        = ["r"]
-# Bring the hovered agent's worktree up to date on the latest base, or replace it. Opens a
-# picker, since the two differ in what they destroy.
-refresh       = ["W"]
 # Search every conversation the panel holds for what you type, the archived ones included.
 search        = ["s"]
 # Toggles visibility of hidden agents alongside the rest.
@@ -139,6 +133,17 @@ prev_match = ["N"]
 [keybindings.help]
 # Toggle for the keybindings
 toggle = ["?"]
+
+# The git menu on the agents list, and the actions inside it.
+[keybindings.git]
+# Open the git menu on the hovered agent.
+open    = ["b"]
+# Open the pull request the hovered agent recorded, in your browser. The entry says so
+# rather than acting on an agent with no pull request recorded.
+open_pr = ["o"]
+# Bring the hovered agent's worktree up to date on the latest base, which asks first and
+# says what it would do to the branch and to the files.
+rebase  = ["r"]
 
 # The keys that walk back and forward through the agents you have opened.
 [keybindings.history]

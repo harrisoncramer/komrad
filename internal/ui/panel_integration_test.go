@@ -136,14 +136,18 @@ func TestPanelOpensThePullRequestKey(t *testing.T) {
 	panel = settle(t, panel, panel.refreshCmd())
 	panel.tree.cursor = 1
 
-	updated, cmd := panel.Update(keyMsg(keys.Agents.OpenPR[0]))
+	opened, _ := panel.Update(keyMsg(keys.Git.Open[0]))
+	menu, ok := opened.(model)
+	require.True(t, ok)
+
+	updated, cmd := menu.Update(keyMsg(keys.Git.OpenPR[0]))
 	pressed, ok := updated.(model)
 	require.True(t, ok)
 	settle(t, pressed, cmd)
 
 	assert.Equal(t, []string{"https://example.test/1"}, instance.Opened.Targets(),
 		"the address recorded on the agent the cursor was on")
-	assert.Contains(t, helpDescriptions(pressed.agentHelp().full), "open pr", "the legend carries the key")
+	assert.Contains(t, helpDescriptions(pressed.agentHelp().full), "git actions", "the legend carries the key")
 }
 
 // TestPanelLeavesThePullRequestKeyAloneWithoutOne pins that an agent with no recorded pull
@@ -184,14 +188,19 @@ func TestPanelLeavesThePullRequestKeyAloneWithoutOne(t *testing.T) {
 	panel = settle(t, panel, panel.refreshCmd())
 	panel.tree.cursor = 1
 
-	assert.Contains(t, helpDescriptions(panel.agentHelp().full), "open pr", "the legend keeps one height whether or not the key has an address to open")
+	assert.Contains(t, helpDescriptions(panel.agentHelp().full), "git actions", "the legend keeps one height whether or not the menu has an address to open")
 
-	updated, cmd := panel.Update(keyMsg(keys.Agents.OpenPR[0]))
+	opened, _ := panel.Update(keyMsg(keys.Git.Open[0]))
+	menu, ok := opened.(model)
+	require.True(t, ok)
+
+	updated, cmd := menu.Update(keyMsg(keys.Git.OpenPR[0]))
 	pressed, ok := updated.(model)
 	require.True(t, ok)
 	settle(t, pressed, cmd)
 
 	assert.Empty(t, instance.Opened.Targets(), "nothing is opened for an agent with no pull request")
+	require.Len(t, pressed.messages.items, 1, "the menu said why instead")
 }
 
 // TestStagedAgentExitsOnItsOwn covers a staged agent's pane dying while staging holds it in the

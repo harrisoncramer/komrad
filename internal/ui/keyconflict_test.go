@@ -116,7 +116,7 @@ func TestValidateKeybindingsAllowsAKeyOnlyATypingModeReads(t *testing.T) {
 		},
 		{
 			name:   "backspace, which only the filter and the search box read",
-			rebind: func(k *config.Keybindings) { k.Agents.Refresh = []string{"backspace"} },
+			rebind: func(k *config.Keybindings) { k.Agents.Hide = []string{"backspace"} },
 		},
 	}
 

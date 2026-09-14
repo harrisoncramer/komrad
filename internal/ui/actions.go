@@ -30,9 +30,8 @@ const (
 	actionQuit
 	actionAgentsBack
 	actionAgentOpen
-	actionAgentOpenPR
 	actionAgentReview
-	actionAgentRefresh
+	actionGitMenu
 	actionAgentMail
 	actionAgentChild
 	actionAgentRename
