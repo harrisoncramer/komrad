@@ -543,6 +543,10 @@ table "agents" {
     null = true
     type = timestamptz
   }
+  column "nudge_sent_at" {
+    null = true
+    type = timestamptz
+  }
   column "branch" {
     null = true
     type = text

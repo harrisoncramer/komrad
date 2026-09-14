@@ -283,7 +283,7 @@ func TestDeliverSaysWhenANudgeWentNowhere(t *testing.T) {
 
 	tests := []struct {
 		name        string
-		nudgedAt    *time.Time
+		nudgeSentAt *time.Time
 		turnEndedAt *time.Time
 		want        string
 	}{
@@ -293,20 +293,20 @@ func TestDeliverSaysWhenANudgeWentNowhere(t *testing.T) {
 		},
 		{
 			name:        "an agent that ended a turn after the last nudge",
-			nudgedAt:    &nudgedAt,
+			nudgeSentAt: &nudgedAt,
 			turnEndedAt: &after,
 			want:        "INFO",
 		},
 		{
 			name:        "an agent that has ended no turn since the last nudge",
-			nudgedAt:    &nudgedAt,
+			nudgeSentAt: &nudgedAt,
 			turnEndedAt: &before,
 			want:        "WARN",
 		},
 		{
-			name:     "an agent that has never reported a turn at all",
-			nudgedAt: &nudgedAt,
-			want:     "WARN",
+			name:        "an agent that has never reported a turn at all",
+			nudgeSentAt: &nudgedAt,
+			want:        "WARN",
 		},
 	}
 
@@ -316,7 +316,7 @@ func TestDeliverSaysWhenANudgeWentNowhere(t *testing.T) {
 				ID:          "agent-a",
 				Pane:        "%1",
 				State:       agentstore.StateIdle,
-				NudgedAt:    tt.nudgedAt,
+				NudgeSentAt: tt.nudgeSentAt,
 				TurnEndedAt: tt.turnEndedAt,
 			}}
 			panes := &fakePanes{alive: true, frame: idleFrame}
@@ -339,6 +339,73 @@ func TestDeliverSaysWhenANudgeWentNowhere(t *testing.T) {
 			assert.Equal(t, tt.want, written[0]["severity_text"])
 		})
 	}
+}
+
+// TestDeliverDoesNotWarnAfterAPassThatTypedNothing pins that a claim spent on a pass the
+// channel refused leaves the went-nowhere warning unarmed, so the first nudge an agent actually
+// gets reads as a first one.
+func TestDeliverDoesNotWarnAfterAPassThatTypedNothing(t *testing.T) {
+	agents := &fakeAgents{claimed: true, agent: &agentstore.Agent{
+		ID:    "agent-a",
+		Pane:  "%1",
+		State: agentstore.StateIdle,
+	}}
+	channel := &fakeChannel{refuseSend: true}
+
+	svc := NewDeliveryService(NewDeliveryServiceParams{
+		MailboxReader: &fakeMailboxReader{pending: 1},
+		NudgeClaimer:  agents,
+		PaneReader:    &fakePanes{alive: true, frame: idleFrame},
+		Channel:       channel,
+	})
+
+	ctx, records := loggedContext(t)
+
+	got, err := svc.Deliver(ctx, "agent-a")
+	require.NoError(t, err)
+	require.Equal(t, DeliveryLater, got)
+	require.Empty(t, channel.sent, "the channel refused the line, so nothing was typed")
+
+	channel.refuseSend = false
+
+	got, err = svc.Deliver(ctx, "agent-a")
+	require.NoError(t, err)
+	require.Equal(t, DeliverySoon, got)
+	require.Len(t, channel.sent, 1)
+
+	written := records()
+	require.Len(t, written, 1)
+	assert.Equal(t, "INFO", written[0]["severity_text"],
+		"the agent has been told once, so nothing went nowhere")
+}
+
+// TestDeliverKeepsALandedNudgeWhenTheBookkeepingFails pins that a nudge already typed is not
+// reported as a failed delivery because the row it is recorded on refused the write.
+func TestDeliverKeepsALandedNudgeWhenTheBookkeepingFails(t *testing.T) {
+	agents := &fakeAgents{claimed: true, sentErr: errors.New("no database"), agent: &agentstore.Agent{
+		ID:    "agent-a",
+		Pane:  "%1",
+		State: agentstore.StateIdle,
+	}}
+	channel := &fakeChannel{}
+
+	svc := NewDeliveryService(NewDeliveryServiceParams{
+		MailboxReader: &fakeMailboxReader{pending: 1},
+		NudgeClaimer:  agents,
+		PaneReader:    &fakePanes{alive: true, frame: idleFrame},
+		Channel:       channel,
+	})
+
+	ctx, records := loggedContext(t)
+
+	got, err := svc.Deliver(ctx, "agent-a")
+	require.NoError(t, err, "the rest of the pass goes on")
+	assert.Equal(t, DeliverySoon, got)
+	assert.Len(t, channel.sent, 1)
+
+	written := records()
+	require.Len(t, written, 2)
+	assert.Equal(t, "ERROR", written[1]["severity_text"])
 }
 
 // TestDeliverReportsExpiredMail pins that mail nobody read before its deadline is reported
@@ -391,6 +458,7 @@ type fakeAgents struct {
 	agent   *agentstore.Agent
 	claimed bool
 	taken   bool
+	sentErr error
 }
 
 func (f *fakeAgents) GetByID(_ context.Context, id string) (*agentstore.Agent, error) {
@@ -398,13 +466,32 @@ func (f *fakeAgents) GetByID(_ context.Context, id string) (*agentstore.Agent, e
 		return nil, fmt.Errorf("%w: agent %q", store.ErrNotFound, id)
 	}
 
-	return f.agent, nil
+	// The store hands back a row read before the claim stamps it, so a caller never sees its own
+	// claim.
+	agent := *f.agent
+
+	return &agent, nil
 }
 
 func (f *fakeAgents) ClaimNudge(context.Context, string, time.Duration) (bool, error) {
 	f.taken = true
+	if f.claimed {
+		claimedAt := time.Now()
+		f.agent.NudgedAt = &claimedAt
+	}
 
 	return f.claimed, nil
+}
+
+func (f *fakeAgents) SetNudgeSent(_ context.Context, _ string) error {
+	if f.sentErr != nil {
+		return f.sentErr
+	}
+
+	sentAt := time.Now()
+	f.agent.NudgeSentAt = &sentAt
+
+	return nil
 }
 
 // fakePanes stands in for tmux, showing one frame until a cut of its input box has landed and
