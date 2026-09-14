@@ -134,8 +134,6 @@ type Keybindings struct {
 	Help HelpKeys `mapstructure:"help"`
 	// The git menu on the agents list, and the actions inside it.
 	Git GitKeys `mapstructure:"git"`
-	// The keys that walk back and forward through the agents you have opened.
-	History HistoryKeys `mapstructure:"history"`
 	// The key that pages the service's log, shared by every screen since the log is
 	// about the service rather than about anything a screen lists.
 	Logs LogsKeys `mapstructure:"logs"`
@@ -180,18 +178,6 @@ type NavKeys struct {
 type HelpKeys struct {
 	// Toggle for the keybindings
 	Toggle []string `mapstructure:"toggle" default:"?"`
-}
-
-// HistoryKeys are the bindings that walk back and forward through the agents you have opened,
-// the way a browser's back and forward buttons do. Opening an agent adds it to the end of the
-// walk. These keys only move along that list, so walking back and forward again changes
-// nothing. An agent archived since you opened it is stepped over and forgotten.
-type HistoryKeys struct {
-	// Step back to the agent you opened before this one.
-	Back []string `mapstructure:"back" default:"ctrl+o"`
-	// Step forward again after stepping back. This is tab rather than ctrl+i because a
-	// terminal sends the same byte for both. Vim's forward jump is tab for the same reason.
-	Forward []string `mapstructure:"forward" default:"tab"`
 }
 
 // DetailsKeys are the bindings for the details drawn under a list. Focus moves the cursor

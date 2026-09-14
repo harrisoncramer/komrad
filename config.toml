@@ -146,14 +146,6 @@ open_pr = ["o"]
 # says what it would do to the branch and to the files.
 rebase  = ["r"]
 
-# The keys that walk back and forward through the agents you have opened.
-[keybindings.history]
-# Step back to the agent you opened before this one.
-back    = ["ctrl+o"]
-# Step forward again after stepping back. This is tab rather than ctrl+i because a
-# terminal sends the same byte for both. Vim's forward jump is tab for the same reason.
-forward = ["tab"]
-
 # The key that pages the service's log, shared by every screen since the log is
 # about the service rather than about anything a screen lists.
 [keybindings.logs]

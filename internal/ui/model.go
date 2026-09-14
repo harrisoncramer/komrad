@@ -17,7 +17,6 @@ import (
 	"weave/config"
 	"weave/internal/errui"
 	"weave/internal/git"
-	"weave/internal/history"
 	"weave/internal/position"
 	"weave/internal/ui/layout"
 	"weave/proto/gen/agent/v1/agentv1connect"
@@ -204,7 +203,6 @@ type model struct {
 	rowCursor     cursor.Model
 	column        columnState
 	marks         markState
-	history       history.List[string]
 	form          formState
 	held          heldWrite
 	// detached holds the writes a person escaped out of, which land without taking the screen to
@@ -300,7 +298,6 @@ func newModel(deps Deps, isDark bool, post *postbox) model {
 		screen:          screenAgents,
 		rowCursor:       newRowCursor(),
 		warm:            newWarmupState(),
-		history:         *history.New[string](agentHistoryLimit),
 	}
 
 	if m.fatal() != nil {
