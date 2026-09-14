@@ -2,6 +2,7 @@ package ui
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"weave/config"
@@ -10,6 +11,7 @@ import (
 	"weave/internal/ui/layout"
 	agentv1 "weave/proto/gen/agent/v1"
 	"weave/proto/gen/agent/v1/agentv1connect"
+	workflowv1 "weave/proto/gen/workflow/v1"
 
 	"connectrpc.com/connect"
 	"github.com/stretchr/testify/assert"
@@ -20,6 +22,22 @@ import (
 type recordingOrchestrators struct {
 	agentv1connect.AgentServiceClient
 	started []string
+	err     error
+}
+
+// creatingWorkflows answers the workflow create with an id of its own.
+type creatingWorkflows struct {
+	emptyLists
+	id string
+}
+
+func (c *creatingWorkflows) CreateWorkflow(
+	context.Context,
+	*connect.Request[workflowv1.CreateWorkflowRequest],
+) (*connect.Response[workflowv1.CreateWorkflowResponse], error) {
+	return connect.NewResponse(&workflowv1.CreateWorkflowResponse{
+		Workflow: &workflowv1.Workflow{Id: c.id},
+	}), nil
 }
 
 func (r *recordingOrchestrators) StartOrchestrator(
@@ -27,6 +45,9 @@ func (r *recordingOrchestrators) StartOrchestrator(
 	req *connect.Request[agentv1.StartOrchestratorRequest],
 ) (*connect.Response[agentv1.StartOrchestratorResponse], error) {
 	r.started = append(r.started, req.Msg.GetWorkflowId())
+	if r.err != nil {
+		return nil, r.err
+	}
 
 	return connect.NewResponse(&agentv1.StartOrchestratorResponse{}), nil
 }
@@ -274,4 +295,38 @@ func TestTheWorkflowRowNamesItsOrchestratorsPane(t *testing.T) {
 	pane, harness := m.selectedAgentPane()
 	assert.Equal(t, "%9", pane)
 	assert.Equal(t, "claude", harness)
+}
+
+// TestCreatingAWorkflowStartsItsOrchestrator pins that a workflow made in the panel comes with
+// the agent that stands behind it, rather than waiting for a key on its row.
+func TestCreatingAWorkflowStartsItsOrchestrator(t *testing.T) {
+	agents := &recordingOrchestrators{}
+
+	m := orchestratorModel(agents)
+	m.api.workflows = &creatingWorkflows{id: "w2"}
+
+	settle(t, m, m.createWorkflowCmd(workflowstore.Config{Name: "backend"}))
+
+	assert.Equal(t, []string{"w2"}, agents.started)
+}
+
+// TestCreatingAWorkflowStandsWhenItsOrchestratorWillNot pins that a refused orchestrator leaves
+// the workflow, since the workflow is what the person asked for.
+func TestCreatingAWorkflowStandsWhenItsOrchestratorWillNot(t *testing.T) {
+	agents := &recordingOrchestrators{err: errors.New("the person refused the directory")}
+
+	m := orchestratorModel(agents)
+	m.api.workflows = &creatingWorkflows{id: "w2"}
+
+	var result writeResult
+	for _, msg := range produced(m.createWorkflowCmd(workflowstore.Config{Name: "backend"})) {
+		if written, ok := msg.(writeResult); ok {
+			result = written
+		}
+	}
+
+	require.NoError(t, result.err, "the workflow was created, so the write did not fail")
+	require.NotNil(t, result.written)
+	assert.Equal(t, workflowRowKey("w2"), result.written.row)
+	assert.Empty(t, result.written.pane, "and no pane is staged for an orchestrator that never started")
 }

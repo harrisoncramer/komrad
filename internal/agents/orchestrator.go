@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"weave/db"
 	"weave/internal/store"
@@ -23,35 +24,45 @@ type orchestratorAgentReader interface {
 	GetWorkflowOrchestrator(ctx context.Context, workflowID string) (*agentstore.Agent, error)
 }
 
+type orchestratorTranscriptReader interface {
+	Get(ctx context.Context, agentID string) (string, error)
+}
+
 // OrchestratorService brings a workflow's orchestrator back, or starts the one it has never
 // had.
 type OrchestratorService struct {
-	agents    orchestratorAgentReader
-	workflows workflowReader
-	launch    *LaunchService
-	lifecycle *LifecycleService
-	resume    *ResumeService
-	stateDir  string
+	agents      orchestratorAgentReader
+	workflows   workflowReader
+	transcripts orchestratorTranscriptReader
+	harnesses   harnessGetter
+	launch      *LaunchService
+	lifecycle   *LifecycleService
+	resume      *ResumeService
+	stateDir    string
 }
 
 type NewOrchestratorServiceParams struct {
-	Agents    orchestratorAgentReader
-	Workflows workflowReader
-	Launch    *LaunchService
-	Lifecycle *LifecycleService
-	Resume    *ResumeService
-	StateDir  string
+	Agents      orchestratorAgentReader
+	Workflows   workflowReader
+	Transcripts orchestratorTranscriptReader
+	Harnesses   harnessGetter
+	Launch      *LaunchService
+	Lifecycle   *LifecycleService
+	Resume      *ResumeService
+	StateDir    string
 }
 
 // NewOrchestratorService builds the service over the stores and the services it drives.
 func NewOrchestratorService(params NewOrchestratorServiceParams) *OrchestratorService {
 	return &OrchestratorService{
-		agents:    params.Agents,
-		workflows: params.Workflows,
-		launch:    params.Launch,
-		lifecycle: params.Lifecycle,
-		resume:    params.Resume,
-		stateDir:  params.StateDir,
+		agents:      params.Agents,
+		workflows:   params.Workflows,
+		transcripts: params.Transcripts,
+		harnesses:   params.Harnesses,
+		launch:      params.Launch,
+		lifecycle:   params.Lifecycle,
+		resume:      params.Resume,
+		stateDir:    params.StateDir,
 	}
 }
 
@@ -66,6 +77,20 @@ func (s *OrchestratorService) Start(ctx context.Context, workflowID string) (*ag
 		return nil, err
 	}
 
+	// A row whose conversation never started cannot be resumed into one.
+	spoken, err := s.hasSpoken(ctx, *found)
+	if err != nil {
+		return nil, err
+	}
+	// A row still holding a pane is running, whether or not it has said anything yet.
+	if !spoken && found.Pane == "" {
+		if err := s.lifecycle.DeleteAgents(ctx, []string{found.ID}); err != nil {
+			return nil, fmt.Errorf("failed to clear the orchestrator of workflow %q, which never ran: %w", workflowID, err)
+		}
+
+		return s.launchOrchestrator(ctx, workflowID)
+	}
+
 	if found.ArchivedAt != nil {
 		if _, err := s.lifecycle.RestoreAgents(ctx, []string{found.ID}); err != nil {
 			return nil, fmt.Errorf("failed to restore the orchestrator of workflow %q: %w", workflowID, err)
@@ -73,6 +98,29 @@ func (s *OrchestratorService) Start(ctx context.Context, workflowID string) (*ag
 	}
 
 	return s.resume.ResumeAgent(ctx, found.ID)
+}
+
+// hasSpoken reports whether an orchestrator ever held a conversation, which is what a resume
+// hands back to its CLI and what a person would lose if the row went.
+func (s *OrchestratorService) hasSpoken(ctx context.Context, agent agentstore.Agent) (bool, error) {
+	stored, err := s.transcripts.Get(ctx, agent.ID)
+	if err != nil {
+		return false, err
+	}
+	if strings.TrimSpace(stored) != "" {
+		return true, nil
+	}
+
+	if agent.SessionID == "" {
+		return false, nil
+	}
+
+	hn, err := s.harnesses.GetByID(agent.Harness)
+	if err != nil {
+		return false, err
+	}
+
+	return hn.LogPath(agent.SessionID) != "", nil
 }
 
 func (s *OrchestratorService) launchOrchestrator(ctx context.Context, workflowID string) (*agentstore.Agent, error) {

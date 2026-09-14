@@ -813,20 +813,21 @@ type formRecorder struct {
 	workflowv1connect.WorkflowServiceClient
 	schedulev1connect.ScheduleServiceClient
 	hookv1connect.HookServiceClient
-	refuse           error
-	storedWorkflow   *workflowv1.Workflow
-	createdAgent     *agentv1.CreateAgentRequest
-	adoptedAgent     *agentv1.AdoptRequest
-	renamedAgent     *agentv1.UpdateAgentRequest
-	deletedAgents    *agentv1.DeleteAgentsRequest
-	archivedAgents   *agentv1.ArchiveAgentsRequest
-	createdWorkflow  *workflowv1.CreateWorkflowRequest
-	updatedWorkflow  *workflowv1.UpdateWorkflowRequest
-	archivedWorkflow *workflowv1.ArchiveWorkflowRequest
-	deletedWorkflow  *workflowv1.DeleteWorkflowRequest
-	createdSchedule  *schedulev1.CreateScheduleRequest
-	updatedSchedule  *schedulev1.UpdateScheduleRequest
-	archivedSchedule *schedulev1.ArchiveScheduleRequest
+	refuse              error
+	storedWorkflow      *workflowv1.Workflow
+	createdAgent        *agentv1.CreateAgentRequest
+	startedOrchestrator *agentv1.StartOrchestratorRequest
+	adoptedAgent        *agentv1.AdoptRequest
+	renamedAgent        *agentv1.UpdateAgentRequest
+	deletedAgents       *agentv1.DeleteAgentsRequest
+	archivedAgents      *agentv1.ArchiveAgentsRequest
+	createdWorkflow     *workflowv1.CreateWorkflowRequest
+	updatedWorkflow     *workflowv1.UpdateWorkflowRequest
+	archivedWorkflow    *workflowv1.ArchiveWorkflowRequest
+	deletedWorkflow     *workflowv1.DeleteWorkflowRequest
+	createdSchedule     *schedulev1.CreateScheduleRequest
+	updatedSchedule     *schedulev1.UpdateScheduleRequest
+	archivedSchedule    *schedulev1.ArchiveScheduleRequest
 }
 
 func (f *formRecorder) ListAgents(context.Context, *connect.Request[agentv1.ListAgentsRequest]) (*connect.Response[agentv1.ListAgentsResponse], error) {
@@ -917,6 +918,15 @@ func (f *formRecorder) CreateWorkflow(_ context.Context, req *connect.Request[wo
 	f.createdWorkflow = req.Msg
 
 	return connect.NewResponse(&workflowv1.CreateWorkflowResponse{Workflow: &workflowv1.Workflow{Id: "new"}}), nil
+}
+
+func (f *formRecorder) StartOrchestrator(
+	_ context.Context,
+	req *connect.Request[agentv1.StartOrchestratorRequest],
+) (*connect.Response[agentv1.StartOrchestratorResponse], error) {
+	f.startedOrchestrator = req.Msg
+
+	return connect.NewResponse(&agentv1.StartOrchestratorResponse{}), nil
 }
 
 func (f *formRecorder) UpdateWorkflow(_ context.Context, req *connect.Request[workflowv1.UpdateWorkflowRequest]) (*connect.Response[emptypb.Empty], error) {

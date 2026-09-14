@@ -560,12 +560,14 @@ func (s *testStore) agentService(options agentServiceOptions) *testAgents {
 	}
 
 	built.orchestrator = NewOrchestratorService(NewOrchestratorServiceParams{
-		Agents:    s.Agents,
-		Workflows: s.Workflows,
-		Launch:    built.launch,
-		Lifecycle: built.lifecycle,
-		Resume:    built.resume,
-		StateDir:  options.stateDir,
+		Agents:      s.Agents,
+		Workflows:   s.Workflows,
+		Transcripts: s.Transcripts,
+		Harnesses:   options.harnesses,
+		Launch:      built.launch,
+		Lifecycle:   built.lifecycle,
+		Resume:      built.resume,
+		StateDir:    options.stateDir,
 	})
 
 	return built

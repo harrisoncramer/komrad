@@ -215,3 +215,87 @@ func TestOrchestratorIsRefusedAReview(t *testing.T) {
 	})
 	require.ErrorIs(t, err, ErrReviewNeedsOwnWork)
 }
+
+// TestStartOrchestratorReplacesOneThatNeverRan pins the row a refused launch leaves behind: it
+// holds no conversation, so resuming it asks its CLI for one that was never written.
+func TestStartOrchestratorReplacesOneThatNeverRan(t *testing.T) {
+	st := newStore(t)
+	tmux := newFakeTmux()
+	manager := st.agentService(agentServiceOptions{
+		tmux:      tmux,
+		harnesses: fakeHarnesses{harness: &fakeHarness{}},
+		addr:      "127.0.0.1:9999",
+		stateDir:  t.TempDir(),
+	})
+	ctx := t.Context()
+	workflow := seedWorkflow(t, st)
+
+	first, err := manager.orchestrator.Start(ctx, workflow)
+	require.NoError(t, err)
+
+	// What a launch the person refused leaves behind: the row stands and the reconciler takes
+	// the pane away, so nothing on disk holds the conversation it was given an id for.
+	forgotten, err := st.Agents.ForgetPane(ctx, agentstore.ForgetPaneParams{
+		ID:        first.ID,
+		Pane:      first.Pane,
+		UpdatedAt: agentByID(t, st, first.ID).UpdatedAt,
+	})
+	require.NoError(t, err)
+	require.True(t, forgotten)
+
+	again, err := manager.orchestrator.Start(ctx, workflow)
+	require.NoError(t, err)
+
+	assert.NotEqual(t, first.ID, again.ID, "the row that never spoke is replaced rather than resumed")
+	assert.Equal(t, workflow, again.WorkflowID)
+	assert.Equal(t, agentstore.RoleOrchestrator, again.Role)
+}
+
+// TestStartOrchestratorKeepsOneStillRunning pins that pressing the key twice does not replace
+// the orchestrator the first press started, which has said nothing yet either.
+func TestStartOrchestratorKeepsOneStillRunning(t *testing.T) {
+	st := newStore(t)
+	manager := st.agentService(agentServiceOptions{
+		tmux:      newFakeTmux(),
+		harnesses: fakeHarnesses{harness: &fakeHarness{}},
+		addr:      "127.0.0.1:9999",
+		stateDir:  t.TempDir(),
+	})
+	ctx := t.Context()
+	workflow := seedWorkflow(t, st)
+
+	first, err := manager.orchestrator.Start(ctx, workflow)
+	require.NoError(t, err)
+	require.NotEmpty(t, first.Pane)
+
+	again, err := manager.orchestrator.Start(ctx, workflow)
+	require.NoError(t, err)
+	assert.Equal(t, first.ID, again.ID, "a running orchestrator is handed back, not replaced")
+}
+
+// TestStartOrchestratorKeepsOneThatHasSpoken is the other half: a row holding a conversation is
+// resumed, never replaced, since replacing it would throw the conversation away.
+func TestStartOrchestratorKeepsOneThatHasSpoken(t *testing.T) {
+	st := newStore(t)
+	tmux := newFakeTmux()
+	manager := st.agentService(agentServiceOptions{
+		tmux:      tmux,
+		harnesses: fakeHarnesses{harness: &fakeHarness{}},
+		addr:      "127.0.0.1:9999",
+		stateDir:  t.TempDir(),
+	})
+	ctx := t.Context()
+	workflow := seedWorkflow(t, st)
+
+	first, err := manager.orchestrator.Start(ctx, workflow)
+	require.NoError(t, err)
+	st.SeedTranscript(t, first.ID, "why this workflow was split three ways")
+
+	again, err := manager.orchestrator.Start(ctx, workflow)
+	require.NoError(t, err)
+	assert.Equal(t, first.ID, again.ID)
+
+	stored, err := st.GetTranscript(ctx, again.ID)
+	require.NoError(t, err)
+	assert.Equal(t, "why this workflow was split three ways", stored)
+}

@@ -438,7 +438,19 @@ func (m *model) createWorkflowCmd(cfg workflowstore.Config) tea.Cmd {
 			return written{}, err
 		}
 
-		return written{row: workflowRowKey(workflow.GetId())}, nil
+		// A new workflow comes with the agent that stands behind it, and stands on its own when
+		// that agent will not start.
+		agent, err := clients.startOrchestrator(workflow.GetId())
+		if err != nil {
+			return written{row: workflowRowKey(workflow.GetId())}, nil //nolint:nilerr // the workflow was created
+		}
+
+		return written{
+			row:     workflowRowKey(workflow.GetId()),
+			pane:    agent.GetPaneId(),
+			harness: agent.GetHarness(),
+			focus:   true,
+		}, nil
 	})
 }
 
