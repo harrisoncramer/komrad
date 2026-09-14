@@ -54,34 +54,43 @@ func TestUncertainStateMark(t *testing.T) {
 	assert.Equal(t, paint.Muted, stateColor(agentstore.StateUncertain), "an unreadable pane is quiet, not an alarm")
 }
 
-// TestWorktreeRemovedMark covers the glyph shown beside an agent's row when the worktree
-// syncer has found its cwd gone: nothing for one whose cwd is still there, and just the
-// icon for one it is not.
-func TestWorktreeRemovedMark(t *testing.T) {
+// TestWorktreeMark covers the one glyph the row spends on the state of a checkout, which
+// says a cwd is gone, a sequence is stopped in it, or nothing at all.
+func TestWorktreeMark(t *testing.T) {
 	tests := []struct {
 		name    string
-		removed bool
-		want    bool
+		agent   agentstore.Agent
+		wantOne string
 	}{
 		{
-			name: "a cwd still on disk is drawn as nothing",
+			name: "a settled checkout is drawn as nothing",
 		},
 		{
-			name:    "a cwd the syncer found gone is drawn with the icon",
-			removed: true,
-			want:    true,
+			name:    "a cwd the syncer found gone is drawn with the removed icon",
+			agent:   agentstore.Agent{WorktreeRemoved: true},
+			wantOne: worktreeRemovedIcon,
+		},
+		{
+			name:    "a checkout part-way through a rebase is drawn with the sequence icon",
+			agent:   agentstore.Agent{SequenceInProgress: true},
+			wantOne: sequenceInProgressIcon,
+		},
+		{
+			name:    "a cwd that is gone outranks a sequence nothing can be doing in it",
+			agent:   agentstore.Agent{WorktreeRemoved: true, SequenceInProgress: true},
+			wantOne: worktreeRemovedIcon,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := worktreeRemovedMark(agentItem{agent: agentstore.Agent{WorktreeRemoved: tt.removed}})
-			if !tt.want {
+			got := worktreeMark(agentItem{agent: tt.agent})
+			if tt.wantOne == "" {
 				assert.Empty(t, got)
 				return
 			}
 
-			assert.Contains(t, got, worktreeRemovedIcon)
+			assert.Contains(t, got, tt.wantOne)
 		})
 	}
 }

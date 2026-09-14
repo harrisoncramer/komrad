@@ -41,8 +41,10 @@ func protoToAgent(s *agentv1.Agent) agentstore.Agent {
 		Metadata:        metadata,
 		Branch:          s.Branch,
 		WorktreeRemoved: s.GetWorktreeRemoved(),
-		ParentAgentID:   s.ParentAgentId,
-		HeldAt:          dates.ParsePtr(s.GetHeldAt()),
+
+		SequenceInProgress: s.GetSequenceInProgress(),
+		ParentAgentID:      s.ParentAgentId,
+		HeldAt:             dates.ParsePtr(s.GetHeldAt()),
 	}
 }
 

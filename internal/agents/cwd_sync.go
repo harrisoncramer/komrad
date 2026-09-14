@@ -7,6 +7,7 @@ import (
 	"os"
 	"time"
 
+	"weave/internal/git"
 	agentstore "weave/internal/store/agent"
 )
 
@@ -18,23 +19,24 @@ type cwdSetter interface {
 	List(ctx context.Context) ([]agentstore.Agent, error)
 	SetBranchByID(ctx context.Context, id string, branch *string) error
 	SetWorktreeRemovedByID(ctx context.Context, id string, removed bool) error
+	SetSequenceInProgressByID(ctx context.Context, id string, inProgress bool) error
 }
 
-// branchGetter is the branch a checkout is on.
-type branchGetter interface {
-	GetCurrentBranch(ctx context.Context, dir string) *string
+// headReader reads a checkout's HEAD.
+type headReader interface {
+	ReadHeadState(ctx context.Context, dir string) git.HeadState
 }
 
 // CwdSyncer keeps what the panel shows of an agent's working directory in step with the
 // directory itself.
 type CwdSyncer struct {
-	agents   cwdSetter
-	branches branchGetter
+	agents cwdSetter
+	heads  headReader
 }
 
 // NewCwdSyncer builds a syncer over the agent store.
-func NewCwdSyncer(agents cwdSetter, branches branchGetter) *CwdSyncer {
-	return &CwdSyncer{agents: agents, branches: branches}
+func NewCwdSyncer(agents cwdSetter, heads headReader) *CwdSyncer {
+	return &CwdSyncer{agents: agents, heads: heads}
 }
 
 // Sync looks at every live agent's cwd once and writes what changed, clearing the branch when
@@ -49,11 +51,16 @@ func (cs *CwdSyncer) Sync(ctx context.Context) error {
 	for _, agent := range agents {
 		removed := isCwdRemoved(ctx, agent.Cwd)
 
-		// A directory that is gone has no branch, so the git call is skipped rather than
+		// A directory that is gone has no head, so the git call is skipped rather than
 		// run against it and waited out.
-		var branch *string
+		var head git.HeadState
 		if !removed {
-			branch = cs.readBranch(ctx, agent.Cwd)
+			head = cs.readHead(ctx, agent.Cwd)
+		}
+
+		var branch *string
+		if head.Branch != "" {
+			branch = &head.Branch
 		}
 
 		if removed != agent.WorktreeRemoved {
@@ -65,6 +72,12 @@ func (cs *CwdSyncer) Sync(ctx context.Context) error {
 		if !isSameBranch(agent.Branch, branch) {
 			if err := cs.agents.SetBranchByID(ctx, agent.ID, branch); err != nil {
 				failures = append(failures, fmt.Errorf("failed to set branch for %q: %w", agent.Name, err))
+			}
+		}
+
+		if head.SequenceInProgress != agent.SequenceInProgress {
+			if err := cs.agents.SetSequenceInProgressByID(ctx, agent.ID, head.SequenceInProgress); err != nil {
+				failures = append(failures, fmt.Errorf("failed to set sequence_in_progress for %q: %w", agent.Name, err))
 			}
 		}
 	}
@@ -94,15 +107,15 @@ func isCwdRemoved(ctx context.Context, dir string) bool {
 	}
 }
 
-func (cs *CwdSyncer) readBranch(ctx context.Context, dir string) *string {
+func (cs *CwdSyncer) readHead(ctx context.Context, dir string) git.HeadState {
 	if dir == "" {
-		return nil
+		return git.HeadState{}
 	}
 
 	ctx, cancel := context.WithTimeout(ctx, cwdLookTimeout)
 	defer cancel()
 
-	return cs.branches.GetCurrentBranch(ctx, dir)
+	return cs.heads.ReadHeadState(ctx, dir)
 }
 
 func isSameBranch(a, b *string) bool {

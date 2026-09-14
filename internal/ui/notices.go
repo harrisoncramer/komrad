@@ -23,6 +23,7 @@ const (
 	failedRunNotice       = "a script weave fired failed, log unread"
 	unreadMailNotice      = "mail waiting, it has not read it"
 	worktreeRemovedNotice = "its directory no longer exists"
+	sequenceNotice        = "a rebase is stopped part way in it"
 	unviewedNotice        = "unread output in its pane"
 	hiddenNotice          = "hidden from the sidebar"
 	heldNotice            = "paused: you stopped it and have its worktree"
@@ -65,6 +66,7 @@ func agentNotices(item agentItem) []notice {
 	notices = appendNotice(notices, item.failedRun, failedRunIcon, paint.Danger, failedRunNotice)
 	notices = appendNotice(notices, item.unreadMail, unreadMailIcon, paint.Accent, unreadMailNotice)
 	notices = appendNotice(notices, item.agent.WorktreeRemoved && state != agentstore.StateFailedToCreate, worktreeRemovedIcon, paint.Danger, worktreeRemovedNotice)
+	notices = appendNotice(notices, !item.agent.WorktreeRemoved && item.agent.SequenceInProgress && state != agentstore.StateFailedToCreate, sequenceInProgressIcon, paint.Warning, sequenceNotice)
 	notices = appendNotice(notices, item.unviewed, unviewedIcon, paint.Success, unviewedNotice)
 	if held, ok := heldFact(item); ok {
 		notices = append(notices, held)

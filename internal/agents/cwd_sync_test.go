@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"weave/internal/git"
 	agentstore "weave/internal/store/agent"
 	"weave/lib/xptr"
 
@@ -22,9 +23,9 @@ func TestCwdSyncerSync(t *testing.T) {
 
 	// What git answers for each directory, which internal/git's own tests pin against a real
 	// repository.
-	branches := fakeBranches{
-		onMain:    xptr.Ptr("main"),
-		onFeature: xptr.Ptr("feature/x"),
+	branches := fakeHeads{
+		onMain:    {Branch: "main"},
+		onFeature: {Branch: "feature/x"},
 	}
 
 	tests := []struct {
@@ -97,11 +98,45 @@ func TestCwdSyncerSync(t *testing.T) {
 	}
 }
 
-// fakeBranches is the branch git would read for each directory, and no branch for any other.
-type fakeBranches map[string]*string
+// fakeHeads is what git would read for each directory, and nothing at all for any other.
+type fakeHeads map[string]git.HeadState
 
-func (f fakeBranches) GetCurrentBranch(_ context.Context, dir string) *string {
+func (f fakeHeads) ReadHeadState(_ context.Context, dir string) git.HeadState {
 	return f[dir]
+}
+
+// TestCwdSyncerSyncRecordsAStoppedSequence covers the signal the row draws from: a checkout
+// part-way through a rebase says so on the agent, and still names the branch the work is on.
+func TestCwdSyncerSyncRecordsAStoppedSequence(t *testing.T) {
+	st := newStore(t)
+	ctx := t.Context()
+
+	workflowID := seedWorkflow(t, st)
+	repo := fakeCheckout(t)
+	require.NoError(t, st.Agents.Create(ctx, agentstore.Agent{
+		Name:       "a",
+		State:      agentstore.StateIdle,
+		WorkflowID: workflowID,
+		Cwd:        repo,
+	}))
+	created, err := st.Agents.GetInWorkflow(ctx, workflowID, "a")
+	require.NoError(t, err)
+
+	stopped := fakeHeads{repo: {Branch: "topic", SequenceInProgress: true}}
+	require.NoError(t, NewCwdSyncer(st.Agents, stopped).Sync(ctx))
+
+	got, err := st.Agents.GetByID(ctx, created.ID)
+	require.NoError(t, err)
+	assert.True(t, got.SequenceInProgress)
+	require.NotNil(t, got.Branch)
+	assert.Equal(t, "topic", *got.Branch)
+
+	// Settled by hand in the worktree, which nothing tells weave about.
+	require.NoError(t, NewCwdSyncer(st.Agents, fakeHeads{repo: {Branch: "topic"}}).Sync(ctx))
+
+	after, err := st.Agents.GetByID(ctx, created.ID)
+	require.NoError(t, err)
+	assert.False(t, after.SequenceInProgress)
 }
 
 // TestCwdSyncerSyncSkipsTheGitCallForARemovedCwd covers the waste the single pass exists to
@@ -120,7 +155,7 @@ func TestCwdSyncerSyncSkipsTheGitCallForARemovedCwd(t *testing.T) {
 	created, err := st.Agents.GetInWorkflow(ctx, workflowID, "a")
 	require.NoError(t, err)
 
-	looked := &recordingBranches{}
+	looked := &recordingHeads{}
 	syncer := NewCwdSyncer(st.Agents, looked)
 
 	require.NoError(t, syncer.Sync(ctx))
@@ -132,15 +167,15 @@ func TestCwdSyncerSyncSkipsTheGitCallForARemovedCwd(t *testing.T) {
 	assert.True(t, got.WorktreeRemoved)
 }
 
-// recordingBranches is a git that answers nothing and remembers what it was asked about.
-type recordingBranches struct {
+// recordingHeads is a git that answers nothing and remembers what it was asked about.
+type recordingHeads struct {
 	dirs []string
 }
 
-func (r *recordingBranches) GetCurrentBranch(_ context.Context, dir string) *string {
+func (r *recordingHeads) ReadHeadState(_ context.Context, dir string) git.HeadState {
 	r.dirs = append(r.dirs, dir)
 
-	return nil
+	return git.HeadState{}
 }
 
 // TestCwdSyncerSyncClearsAStaleBranch covers an agent whose cwd changed out from under it,
@@ -161,7 +196,7 @@ func TestCwdSyncerSyncClearsAStaleBranch(t *testing.T) {
 	created, err := st.Agents.GetInWorkflow(ctx, workflowID, "a")
 	require.NoError(t, err)
 
-	syncer := NewCwdSyncer(st.Agents, fakeBranches{repo: xptr.Ptr("main")})
+	syncer := NewCwdSyncer(st.Agents, fakeHeads{repo: {Branch: "main"}})
 	require.NoError(t, syncer.Sync(ctx))
 
 	got, err := st.Agents.GetByID(ctx, created.ID)
@@ -196,7 +231,7 @@ func TestCwdSyncerSyncClearsAStaleRemoval(t *testing.T) {
 	created, err := st.Agents.GetInWorkflow(ctx, workflowID, "a")
 	require.NoError(t, err)
 
-	syncer := NewCwdSyncer(st.Agents, fakeBranches{})
+	syncer := NewCwdSyncer(st.Agents, fakeHeads{})
 	require.NoError(t, syncer.Sync(ctx))
 
 	got, err := st.Agents.GetByID(ctx, created.ID)
@@ -246,7 +281,7 @@ func TestCwdSyncerSyncSkipsArchivedAgents(t *testing.T) {
 			_, archiveErr := st.Agents.Archive(ctx, []string{created.ID})
 			require.NoError(t, archiveErr)
 
-			require.NoError(t, NewCwdSyncer(st.Agents, fakeBranches{tt.cwd: xptr.Ptr("main")}).Sync(ctx))
+			require.NoError(t, NewCwdSyncer(st.Agents, fakeHeads{tt.cwd: {Branch: "main"}}).Sync(ctx))
 
 			got, err := st.Agents.GetByID(ctx, created.ID)
 			require.NoError(t, err)

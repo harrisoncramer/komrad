@@ -407,6 +407,14 @@ SET
 WHERE
     id = @id;
 
+-- name: SetAgentSequenceInProgressByID :exec
+UPDATE
+    agents
+SET
+    sequence_in_progress = @sequence_in_progress
+WHERE
+    id = @id;
+
 -- name: SetAgentInterruptedAtByID :exec
 UPDATE
     agents
