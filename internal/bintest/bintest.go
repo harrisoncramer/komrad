@@ -20,13 +20,21 @@ const RequireVariable = "WEAVE_REQUIRE_BINARIES"
 func Require(t *testing.T, name string) {
 	t.Helper()
 
-	if _, err := exec.LookPath(name); err == nil {
-		return
-	}
+	missing, required := decide(name)
 
-	if _, set := config.LookupEnv(RequireVariable); set {
+	switch {
+	case !missing:
+	case required:
 		t.Fatalf("%s is not installed and %s is set", name, RequireVariable)
+	default:
+		t.Skip(name + " is not installed")
 	}
+}
 
-	t.Skip(name + " is not installed")
+// decide reports whether name is unrunnable and whether a missing binary is required to be there.
+func decide(name string) (missing, required bool) {
+	_, err := exec.LookPath(name)
+	_, set := config.LookupEnv(RequireVariable)
+
+	return err != nil, set
 }
