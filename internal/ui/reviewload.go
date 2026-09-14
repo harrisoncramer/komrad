@@ -51,6 +51,12 @@ type reviewWroteMsg struct {
 	notice  string
 	threads []*agentv1.ReviewThread
 	err     error
+	// readErr is the review coming back unreadable after a write that landed, which is a stale
+	// screen rather than a write to try again.
+	readErr error
+	// sent says this is the answer to a released review rather than to any of the other writes
+	// this screen makes, which all come back the same way.
+	sent bool
 }
 
 // enterReview opens the review of an agent's diff, with the threads in the sidebar and the
@@ -87,26 +93,42 @@ func (m model) enterReview(agent agentstore.Agent) (tea.Model, tea.Cmd) {
 }
 
 // refuseReview backs out to the listing, for a worktree that turned out to hold nothing.
-func (m *model) refuseReview(err error) {
+func (m *model) refuseReview(err error) tea.Cmd {
 	name := m.review.agentName
-	m.dropReview()
+	letGo := m.dropReview()
 	m.reportBrief(describeRefusedReview(name, err), err.Error(), nil)
+
+	return letGo
 }
 
 // abandonReview backs out to the listing for a diff that could not be read at all.
-func (m *model) abandonReview(err error) {
+func (m *model) abandonReview(err error) tea.Cmd {
 	name := m.review.agentName
-	m.dropReview()
+	letGo := m.dropReview()
 	m.report("Could not read the diff of "+name, err)
+
+	return letGo
 }
 
-// dropReview puts the reader back on the row they opened the review from.
-func (m *model) dropReview() {
+// Explainer: the pass lives in this state and nowhere else, so an agent stopped for one is let go
+// by the panel or not at all. Every way off this screen comes through here, including the ones
+// nobody chose, such as a diff that stopped being readable part way through a pass.
+
+// dropReview puts the reader back on the row they opened the review from, letting go of an agent
+// the pass stopped.
+func (m *model) dropReview() tea.Cmd {
+	next, letGo := m.endReviewPass(abandonedSaid)
+	if ended, ok := next.(model); ok {
+		*m = ended
+	}
+
 	m.review = reviewState{}
 
 	m.enterScreen(screenAgents)
 	m.tree.cursor = clampCursor(m.tree.cursor, len(m.agentRows()))
 	m.stageSelection()
+
+	return letGo
 }
 
 // describeRefusedReview says which of the two empty diffs this is: an agent that has written
@@ -295,15 +317,11 @@ func (m *model) applyReviewLoaded(msg reviewLoadedMsg) tea.Cmd {
 
 	// Both draw nothing, so both back out rather than leaving the reader in an empty viewer.
 	if drewNothing {
-		m.refuseReview(msg.err)
-
-		return nil
+		return m.refuseReview(msg.err)
 	}
 
 	if msg.patch == nil {
-		m.abandonReview(msg.err)
-
-		return nil
+		return m.abandonReview(msg.err)
 	}
 
 	m.review.loading = false
@@ -373,19 +391,47 @@ func indexViewedFiles(viewed []*agentv1.ReviewViewedFile) map[string]bool {
 	return held
 }
 
-func (m *model) applyReviewWrote(msg reviewWroteMsg) {
+func (m *model) applyReviewWrote(msg reviewWroteMsg) tea.Cmd {
 	if msg.agentID != m.review.agentID || m.review.view == nil {
-		return
+		return nil
 	}
 
 	if msg.err != nil {
+		// A send that did not land leaves the pass standing, so the reader keeps their comments
+		// and keeps the agent stopped rather than being put back to watching with neither.
 		m.report("Could not write on "+m.review.agentName, msg.err)
 
-		return
+		return nil
 	}
 
 	m.review.notice = msg.notice
-	m.applyReviewThreads(msg.threads)
+
+	// Explainer: the write landing and the review being readable afterwards are two facts, and
+	// only the first says what became of what the reader sent. Reading them as one turns a send
+	// that landed into a send the screen believes never went, which then offers to send it again
+	// and tells the agent nothing was sent on the way out.
+	if msg.readErr != nil {
+		m.report("Could not read the review of "+m.review.agentName+" back", msg.readErr)
+	} else {
+		m.applyReviewThreads(msg.threads)
+	}
+
+	// Explainer: every write on this screen comes back as one of these, so what says the pass is
+	// over has to ride on the message rather than on the screen. A flag on the model says a send
+	// is out and not which answer is its own, so a comment written just before it would end the
+	// pass and let the agent go while the review was still in flight.
+	if !msg.sent {
+		return nil
+	}
+
+	// The comments are in the agent's hands now, and answering them is the next thing it does, so
+	// this is what lets it go.
+	next, letGo := m.endReviewPass(sentSaid)
+	if ended, ok := next.(model); ok {
+		*m = ended
+	}
+
+	return letGo
 }
 
 // applyReviewThreads draws the review as it now stands, keeping the reader where they were.
@@ -453,9 +499,9 @@ func (m model) leaveReview() (tea.Model, tea.Cmd) {
 		return m.closeReviewEdit()
 	}
 
-	m.review = reviewState{}
-
-	return m.returnToAgents()
+	// dropReview is the one way off this screen, since it is what lets go of an agent the pass
+	// stopped, and it puts the reader back on the row they came from.
+	return m, m.dropReview()
 }
 
 func (m model) worktreeFor(agent agentstore.Agent) workflowstore.WorktreeConfig {

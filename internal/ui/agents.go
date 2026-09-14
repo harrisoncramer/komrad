@@ -259,8 +259,10 @@ const unpauseSaid = "I paused you for a moment and have let you go now. " +
 // pauseAgent stops the agent where it stands, or starts one already paused.
 func (m model) pauseAgent(agent agentstore.Agent) (tea.Model, tea.Cmd) {
 	if agent.HeldAt != nil {
+		said := unpauseSaid + m.takeEdited(agent.ID)
+
 		return m, m.writeCmd(fmt.Sprintf("Could not unpause agent %q", agent.Name), func(a api) error {
-			return a.release(agent, unpauseSaid)
+			return a.release(agent, said)
 		})
 	}
 
