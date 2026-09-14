@@ -85,8 +85,7 @@ func gitMenuForm(menu gitMenu, keys config.GitKeys, form config.FormKeys) (*huh.
 		WithShowHelp(true).WithKeyMap(gitMenuKeyMap(form)).WithTheme(paint.FormTheme()), &choice
 }
 
-// gitMenuKeyMap is the form's own keys without the select's filter, which would otherwise take
-// the letters the entries answer to.
+// gitMenuKeyMap is the form's own keys without the select's filter.
 func gitMenuKeyMap(keys config.FormKeys) *huh.KeyMap {
 	km := multiFieldKeyMap(keys)
 	km.Select.Filter.SetEnabled(false)
@@ -140,7 +139,7 @@ func (m model) updateGitMenu(msg tea.Msg, choice *gitChoice) (tea.Model, tea.Cmd
 
 // runGitChoice does what the entry asked for, or says why this agent is not one to ask it of.
 func (m model) runGitChoice(agentID string, choice gitChoice) (model, tea.Cmd) {
-	// Read back rather than captured, so an entry acts on the agent as the list holds it now.
+	// The list may have moved under the open menu.
 	item, ok := m.liveAgent(agentID)
 	if !ok {
 		m.report("Could not act on the agent", errAgentGone)

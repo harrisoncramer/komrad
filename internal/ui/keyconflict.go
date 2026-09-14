@@ -66,8 +66,7 @@ func ValidateKeybindings(keys config.Keybindings) error {
 	return validateGitMenuKeys(keys.Git)
 }
 
-// gitMenuReserved is every key the menu is drawn over, named as the error would name it, being
-// the form's own keys and the ones huh moves a list with.
+// gitMenuReserved is every key the menu is drawn over, named as the error would name it.
 func gitMenuReserved() map[string]string {
 	km := gitMenuKeyMap(formKeys())
 
@@ -92,8 +91,7 @@ func gitMenuReserved() map[string]string {
 	return reserved
 }
 
-// validateGitMenuKeys refuses an entry's key that the menu around it needs, the menu being read
-// ahead of the form it is drawn as.
+// validateGitMenuKeys refuses an entry's key that the menu around it needs.
 func validateGitMenuKeys(keys config.GitKeys) error {
 	entries := []struct {
 		describe string
