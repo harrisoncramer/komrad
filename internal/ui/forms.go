@@ -447,6 +447,7 @@ func confirmFormStartingOn(confirmed bool, title, description, affirmative strin
 				Description(description).
 				Affirmative(affirmative).
 				Negative("Cancel").
+				WithButtonAlignment(lipgloss.Left).
 				Value(&confirmed),
 		),
 	).WithShowHelp(true).WithKeyMap(multiFieldKeyMap(keys)).WithTheme(paint.FormTheme())
