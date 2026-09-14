@@ -371,7 +371,9 @@ touched AS (
         ELSE
             t.last_agent_activity_at
         END,
-        resolved_at = NULL
+        resolved_at = NULL,
+        resolved_by_kind = NULL,
+        resolved_by_agent_id = NULL
     FROM
         written w
     WHERE
@@ -1228,7 +1230,9 @@ touched AS (
         ELSE
             t.last_agent_activity_at
         END,
-        resolved_at = NULL
+        resolved_at = NULL,
+        resolved_by_kind = NULL,
+        resolved_by_agent_id = NULL
     FROM
         written w
     WHERE

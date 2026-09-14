@@ -308,7 +308,11 @@ func TestSayingSomethingElseReopensAThread(t *testing.T) {
 
 	thread := openThread(t, st, agentID, review, "this needs a nil check")
 
-	_, err := st.SetThreadResolved(ctx, SetThreadResolvedParams{ID: thread.ID, Resolved: true, ByKind: AuthorHuman})
+	settledBy := seedAgentNamed(t, st, "reviewer")
+
+	_, err := st.SetThreadResolved(ctx, SetThreadResolvedParams{
+		ID: thread.ID, Resolved: true, ByKind: AuthorAgent, ByAgentID: &settledBy,
+	})
 	require.NoError(t, err)
 
 	said, err := st.CreateMessage(ctx, CreateMessageParams{
@@ -323,6 +327,8 @@ func TestSayingSomethingElseReopensAThread(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, again)
 	assert.Nil(t, again.ResolvedAt)
+	assert.Empty(t, again.ResolvedByKind, "an unsettled thread names nobody as having settled it")
+	assert.Nil(t, again.ResolvedByAgentID)
 
 	_, err = st.SetThreadResolved(ctx, SetThreadResolvedParams{ID: thread.ID, Resolved: true, ByKind: AuthorHuman})
 	require.NoError(t, err)

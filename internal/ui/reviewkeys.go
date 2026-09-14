@@ -240,7 +240,7 @@ func (m model) jumpOpenThread() (tea.Model, tea.Cmd) {
 // noOpenThreadSaid is why the key moved nowhere, which is three different facts and never the
 // same sentence.
 func (m model) noOpenThreadSaid(standingOnIt bool) string {
-	if standingOnIt {
+	if standingOnIt && m.review.view.CountOpenThreads() == 1 {
 		return "this is the only comment left open"
 	}
 

@@ -926,3 +926,89 @@ func TestTheOpenCommentKeyDoesNotClaimAFoldedReviewIsSettled(t *testing.T) {
 	assert.Contains(t, written.review.notice, "folded away")
 	assert.NotContains(t, written.review.notice, "settled")
 }
+
+// Explainer: the cursor can be on the last comment the walk can reach while another sits in a
+// file folded away. Saying only the first contradicts the legend, which is counting both.
+
+// TestTheOpenCommentKeySaysBothWhenOneIsFoldedAway pins which of the two the key says.
+func TestTheOpenCommentKeySaysBothWhenOneIsFoldedAway(t *testing.T) {
+	repo := newFakeRepo(t.TempDir())
+	agents := &fakeReviewAgents{}
+	m, _ := reviewModelOver(t, agents, repo)
+
+	repo.wrote(wroteParams{
+		Tree:  "tree-with-a-second-file",
+		Whole: fakePatchOfBothFiles,
+		Since: fakePatchOfTheSecondFile,
+		Sources: map[string]string{
+			fakeFile:    fakeHeadSource,
+			"second.go": "package greet\n\nfunc Second() {}\n",
+		},
+	})
+
+	m = openReview(t, m)
+	require.Equal(t, 2, m.review.view.Stat().Files, "the diff draws both files")
+
+	m.applyReviewWrote(reviewWroteMsg{agentID: "a1", threads: openThreadInEachFile(t)})
+	require.Equal(t, 2, m.review.view.CountOpenThreads())
+
+	// Fold the file the cursor is standing in, which leaves one open comment drawn and one not.
+	m.review.cursor = firstRowInFile(t, m, "second.go")
+
+	next, _ := m.updateReview(keyMsg("v"))
+	written, ok := next.(model)
+	require.True(t, ok)
+
+	next, _ = written.updateReview(keyMsg("u"))
+	written, ok = next.(model)
+	require.True(t, ok)
+
+	next, _ = written.updateReview(keyMsg("u"))
+	written, ok = next.(model)
+	require.True(t, ok)
+
+	assert.Contains(t, written.review.notice, "folded away",
+		"the comment nobody can reach is named rather than counted in silence")
+	assert.NotContains(t, written.review.notice, "only comment",
+		"since it is not the only one left open, whatever the walk can reach")
+}
+
+// openThreadInEachFile pins one unsettled comment into each of the two files.
+func openThreadInEachFile(t *testing.T) []*agentv1.ReviewThread {
+	t.Helper()
+
+	var threads []*agentv1.ReviewThread
+
+	for i, path := range []string{fakeFile, "second.go"} {
+		threads = append(threads, &agentv1.ReviewThread{
+			Id:          fmt.Sprintf("open-%d", i),
+			AgentId:     "a1",
+			FilePath:    path,
+			NewStart:    1,
+			NewEnd:      1,
+			QuotedLines: []string{"+package greet"},
+			Messages: []*agentv1.ReviewMessage{{
+				Id:         fmt.Sprintf("m-%d", i),
+				AuthorKind: agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_HUMAN,
+				Body:       "worth another look",
+			}},
+		})
+	}
+
+	return threads
+}
+
+// firstRowInFile is a row the named file draws, so a fold lands on that file rather than another.
+func firstRowInFile(t *testing.T, m model, path string) int {
+	t.Helper()
+
+	for row := range m.review.view.Len() {
+		if at, _, ok := m.review.view.GetEditTarget(row); ok && at == path {
+			return row
+		}
+	}
+
+	t.Fatalf("the diff draws no row of %q", path)
+
+	return 0
+}
