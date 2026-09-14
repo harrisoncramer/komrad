@@ -417,3 +417,99 @@ func TestBriefingKeepsWhatEveryAgentNeeds(t *testing.T) {
 		assert.Contains(t, prompt, key, "the metadata keys are named rather than left to invention")
 	}
 }
+
+// TestRoleBriefing pins which document an agent is given, since the three roles are told
+// different jobs and one of them writes no code at all.
+func TestRoleBriefing(t *testing.T) {
+	tests := []struct {
+		name   string
+		params launchParams
+		want   string
+	}{
+		{
+			name:   "an orchestrator stands behind a workflow",
+			params: launchParams{Role: agentstore.RoleOrchestrator},
+			want:   orchestratorDoc,
+		},
+		{
+			name:   "an orchestrator owning a checkout is still an orchestrator",
+			params: launchParams{Role: agentstore.RoleOrchestrator, OwnsCheckout: true},
+			want:   orchestratorDoc,
+		},
+		{
+			name:   "a reviewer reads somebody else's work",
+			params: launchParams{Role: agentstore.RoleReviewer},
+			want:   reviewerDoc,
+		},
+		{
+			name:   "an agent holding its own checkout gets it read",
+			params: launchParams{Role: agentstore.RoleImplementer, OwnsCheckout: true},
+			want:   implementerDoc,
+		},
+		{
+			name:   "an agent holding no checkout is told nothing of the three",
+			params: launchParams{Role: agentstore.RoleImplementer},
+			want:   "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, roleBriefing(tt.params))
+		})
+	}
+}
+
+// TestContextBriefing pins that a workflow's context still reaches an orchestrator, and that
+// the sentence saying whose job it describes lands immediately before it.
+func TestContextBriefing(t *testing.T) {
+	tests := []struct {
+		name     string
+		params   launchParams
+		wantDoc  string
+		wantLast bool
+	}{
+		{
+			name: "an orchestrator is told whose job the context describes",
+			params: launchParams{
+				Role:            agentstore.RoleOrchestrator,
+				WorkflowContext: "the implementer lands work on a branch",
+			},
+			wantDoc:  orchestratorContextDoc,
+			wantLast: true,
+		},
+		{
+			name:   "an orchestrator in a workflow with no context is told nothing",
+			params: launchParams{Role: agentstore.RoleOrchestrator},
+		},
+		{
+			name: "every other role reads the context unframed",
+			params: launchParams{
+				Role:            agentstore.RoleImplementer,
+				WorkflowContext: "the implementer lands work on a branch",
+			},
+			wantLast: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.wantDoc, contextBriefing(tt.params))
+
+			prompt := NewLauncher(NewLauncherParams{Addr: "127.0.0.1:9999"}).appendedSystemPrompt(tt.params)
+			if !tt.wantLast {
+				return
+			}
+
+			assert.Contains(t, prompt, tt.params.WorkflowContext,
+				"the workflow's own facts reach every role")
+
+			if tt.wantDoc == "" {
+				return
+			}
+
+			assert.Contains(t, prompt, strings.TrimSpace(tt.wantDoc)+"\n\n"+tt.params.WorkflowContext,
+				"the framing sits immediately before the block it frames")
+		})
+	}
+}

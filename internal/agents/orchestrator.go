@@ -15,11 +15,9 @@ import (
 const orchestratorDirName = "orchestrators"
 
 // orchestratorPrompt is the opening prompt every orchestrator is launched with.
-const orchestratorPrompt = `You stand behind this workflow rather than in front of a piece of work.
+const orchestratorPrompt = `You are this workflow's orchestrator, and nobody has asked you for anything yet.
 
-You hold no checkout and write no code. The directory you are in is scratch space for your own notes and is not a git repository, so there is nothing here to commit. When work needs doing, spawn an agent into this workflow with create_agent and leave the writing to it.
-
-Your conversation is where this workflow's decisions live. Say why work was split the way it was, and what was tried and abandoned, so a person coming back in a month can read it here.`
+Have a look at the workflow you stand behind and at the agents already in it, then say what you see and wait. Do not spawn anything until somebody asks you to.`
 
 type orchestratorAgentReader interface {
 	GetWorkflowOrchestrator(ctx context.Context, workflowID string) (*agentstore.Agent, error)

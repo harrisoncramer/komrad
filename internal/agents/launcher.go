@@ -19,6 +19,12 @@ var briefingDoc string
 //go:embed briefing_implementer.md
 var implementerDoc string
 
+//go:embed briefing_orchestrator.md
+var orchestratorDoc string
+
+//go:embed briefing_orchestrator_context.md
+var orchestratorContextDoc string
+
 //go:embed briefing_reviewer.md
 var reviewerDoc string
 
@@ -70,7 +76,14 @@ func (l *Launcher) buildBriefing() string {
 }
 
 func (l *Launcher) appendedSystemPrompt(params launchParams) string {
-	parts := []string{l.buildBriefing(), reviewBriefing(params), relationBriefing(params), l.globalContext(), params.WorkflowContext}
+	parts := []string{
+		l.buildBriefing(),
+		roleBriefing(params),
+		relationBriefing(params),
+		l.globalContext(),
+		contextBriefing(params),
+		params.WorkflowContext,
+	}
 
 	trimmed := xslice.Map(parts, strings.TrimSpace)
 	kept := xslice.Filter(trimmed, func(s string) bool { return s != "" })
@@ -78,17 +91,27 @@ func (l *Launcher) appendedSystemPrompt(params launchParams) string {
 	return strings.Join(kept, "\n\n")
 }
 
-// reviewBriefing is the half of the review loop this agent needs.
-func reviewBriefing(params launchParams) string {
-	if params.Role == agentstore.RoleReviewer {
+// roleBriefing is what an agent is told about the job it was launched to do.
+func roleBriefing(params launchParams) string {
+	switch {
+	case params.Role == agentstore.RoleOrchestrator:
+		return orchestratorDoc
+	case params.Role == agentstore.RoleReviewer:
 		return reviewerDoc
-	}
-
-	if params.OwnsCheckout {
+	case params.OwnsCheckout:
 		return implementerDoc
 	}
 
 	return ""
+}
+
+// contextBriefing is what an agent is told about the workflow context coming after it.
+func contextBriefing(params launchParams) string {
+	if params.Role != agentstore.RoleOrchestrator || strings.TrimSpace(params.WorkflowContext) == "" {
+		return ""
+	}
+
+	return orchestratorContextDoc
 }
 
 // relationBriefing is what an agent is told about whoever it answers to, and for a child the
