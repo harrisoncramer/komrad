@@ -123,6 +123,29 @@ func (s *Store) GetLatestRound(ctx context.Context, agentID string) (*Round, err
 	return &round, nil
 }
 
+// GetRoundBySnapshot is the round an agent's snapshot was frozen as, ErrNotFound when no round
+// holds that snapshot.
+func (s *Store) GetRoundBySnapshot(ctx context.Context, agentID, snapshotSHA string) (*Round, error) {
+	if !store.IsID(agentID) || snapshotSHA == "" {
+		return nil, roundNotFound(agentID)
+	}
+
+	row, err := s.queries.GetReviewRoundBySnapshot(ctx, models.GetReviewRoundBySnapshotParams{
+		AgentID:     agentID,
+		SnapshotSha: snapshotSHA,
+	})
+	if db.IsNoRows(err) {
+		return nil, roundNotFound(snapshotSHA)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to read the review round of agent %q holding %q: %w", agentID, snapshotSHA, err)
+	}
+
+	round := roundFromRow(*row)
+
+	return &round, nil
+}
+
 // ListRounds is every round of an agent, oldest first.
 func (s *Store) ListRounds(ctx context.Context, agentID string) ([]Round, error) {
 	if !store.IsID(agentID) {

@@ -35,6 +35,18 @@ ORDER BY
     r.ordinal DESC
 LIMIT 1;
 
+-- name: GetReviewRoundBySnapshot :one
+SELECT
+    *
+FROM
+    review_rounds r
+WHERE
+    r.agent_id = @agent_id
+    AND r.snapshot_sha = @snapshot_sha
+ORDER BY
+    r.ordinal DESC
+LIMIT 1;
+
 -- name: ListReviewRounds :many
 SELECT
     *
