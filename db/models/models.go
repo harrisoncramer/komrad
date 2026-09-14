@@ -418,13 +418,17 @@ type ReviewThread struct {
 	UpdatedAt   time.Time
 	// When the agent last wrote or rewrote a message here, null until it has written one. It is a column rather than something read off the messages. An agent that rewrites its own reply is activity the person reviewing has not seen, and comparing against the message's created_at would miss that.
 	LastAgentActivityAt *time.Time
-	// When the person reviewing settled this thread, null while it is still owed an answer. Settling is theirs to do even on a thread an agent opened.
+	// When this thread was settled, null while it is still owed an answer.
 	ResolvedAt *time.Time
 	ReviewID   string
 	// The round this thread's line numbers were measured against. It is not read through the review, because a review stays open across several rounds and would name the wrong one.
 	RoundID string
 	// The commit the old side of this thread's line numbers was read against. For a thread written on the whole change that is the round's own base. For a thread written while the diff was narrowed to one round it is the earlier round's snapshot.
 	BaseSha string
+	// Whether a person or an agent settled this thread, null while nobody has. Two parties can settle one: the agent that wrote the comment, saying the answer was good enough, and the person, who may settle anything including a thread whose author is gone.
+	ResolvedByKind NullReviewAuthorKind
+	// The agent that settled this thread, null when a person did or when nobody has. Do not read null as meaning a person, because resolved_by_kind is what says that. Deleting that agent clears this column rather than the settling.
+	ResolvedByAgentID *string
 }
 
 // One file of one round that the person reviewing has read. Rows are per round, so an agent that rewrites the file makes a new round and the file reads as unread again.

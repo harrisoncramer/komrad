@@ -1360,12 +1360,16 @@ func (f *fakeReviewStore) MarkThreadRead(_ context.Context, _ string) (*reviewst
 
 func (f *fakeReviewStore) SetThreadResolved(
 	_ context.Context,
-	_ string,
-	resolved bool,
+	params reviewstore.SetThreadResolvedParams,
 ) (*reviewstore.Thread, error) {
 	f.thread.ResolvedAt = nil
-	if resolved {
+	f.thread.ResolvedByKind = ""
+	f.thread.ResolvedByAgentID = nil
+
+	if params.Resolved {
 		f.thread.ResolvedAt = &settledAt
+		f.thread.ResolvedByKind = params.ByKind
+		f.thread.ResolvedByAgentID = params.ByAgentID
 	}
 
 	thread := f.thread
@@ -1982,4 +1986,43 @@ func TestOneAgentCannotSettleAnothersComment(t *testing.T) {
 		Author:   agentAuthor("11111111-1111-1111-1111-111111111111"),
 	})
 	require.ErrorIs(t, err, ErrReviewNotYours)
+}
+
+// TestSettlingRecordsWhoDidIt is what tells a reviewer clearing its own finding apart from a
+// person overruling it, which is the same row otherwise.
+func TestSettlingRecordsWhoDidIt(t *testing.T) {
+	reviews := newFakeReviewStore()
+	reviews.comments = 1
+	wroteIt := reviewerAgentID
+	reviews.thread.ReviewAuthorAgentID = &wroteIt
+	notices := &fakeNoticeSender{answer: &mailstore.Mail{ID: "mail-1"}}
+	service := reviewService(t, reviews, notices)
+
+	byAgent, err := service.SetReviewThreadResolved(t.Context(), SetReviewThreadResolvedParams{
+		ID:       reviewThreadID,
+		Resolved: true,
+		Author:   agentAuthor(reviewerAgentID),
+	})
+	require.NoError(t, err)
+	assert.Equal(t, reviewstore.AuthorAgent, byAgent.ResolvedByKind)
+	require.NotNil(t, byAgent.ResolvedByAgentID)
+	assert.Equal(t, reviewerAgentID, *byAgent.ResolvedByAgentID)
+
+	byPerson, err := service.SetReviewThreadResolved(t.Context(), SetReviewThreadResolvedParams{
+		ID:       reviewThreadID,
+		Resolved: true,
+		Author:   humanAuthor(),
+	})
+	require.NoError(t, err)
+	assert.Equal(t, reviewstore.AuthorHuman, byPerson.ResolvedByKind)
+	assert.Nil(t, byPerson.ResolvedByAgentID, "a person is not an agent id")
+
+	reopened, err := service.SetReviewThreadResolved(t.Context(), SetReviewThreadResolvedParams{
+		ID:       reviewThreadID,
+		Resolved: false,
+		Author:   humanAuthor(),
+	})
+	require.NoError(t, err)
+	assert.Empty(t, reopened.ResolvedByKind, "reopening takes the record with it")
+	assert.Nil(t, reopened.ResolvedByAgentID)
 }

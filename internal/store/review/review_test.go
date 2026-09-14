@@ -288,7 +288,7 @@ func TestSettlingAThreadIsCarriedByTheList(t *testing.T) {
 
 	thread := openThread(t, st, agentID, review, "this needs a nil check")
 
-	_, err := st.SetThreadResolved(ctx, thread.ID, true)
+	_, err := st.SetThreadResolved(ctx, SetThreadResolvedParams{ID: thread.ID, Resolved: true, ByKind: AuthorHuman})
 	require.NoError(t, err)
 
 	threads, err := st.ListThreads(ctx, agentID)
@@ -308,7 +308,7 @@ func TestSayingSomethingElseReopensAThread(t *testing.T) {
 
 	thread := openThread(t, st, agentID, review, "this needs a nil check")
 
-	_, err := st.SetThreadResolved(ctx, thread.ID, true)
+	_, err := st.SetThreadResolved(ctx, SetThreadResolvedParams{ID: thread.ID, Resolved: true, ByKind: AuthorHuman})
 	require.NoError(t, err)
 
 	said, err := st.CreateMessage(ctx, CreateMessageParams{
@@ -324,7 +324,7 @@ func TestSayingSomethingElseReopensAThread(t *testing.T) {
 	require.NotNil(t, again)
 	assert.Nil(t, again.ResolvedAt)
 
-	_, err = st.SetThreadResolved(ctx, thread.ID, true)
+	_, err = st.SetThreadResolved(ctx, SetThreadResolvedParams{ID: thread.ID, Resolved: true, ByKind: AuthorHuman})
 	require.NoError(t, err)
 
 	_, err = st.UpdateMessage(ctx, said.ID, "one more thing, rewritten", nil)

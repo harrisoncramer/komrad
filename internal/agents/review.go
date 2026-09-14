@@ -41,7 +41,7 @@ type reviewThreadReadWriter interface {
 	ListThreads(ctx context.Context, agentID string) ([]reviewstore.Thread, error)
 	GetThread(ctx context.Context, id string) (*reviewstore.Thread, error)
 	MarkThreadRead(ctx context.Context, id string) (*reviewstore.Thread, error)
-	SetThreadResolved(ctx context.Context, id string, resolved bool) (*reviewstore.Thread, error)
+	SetThreadResolved(ctx context.Context, params reviewstore.SetThreadResolvedParams) (*reviewstore.Thread, error)
 }
 
 // reviewMessageReadWriter is the other half: what was said in those conversations, and how far
@@ -632,7 +632,12 @@ func (s *ReviewService) SetReviewThreadResolved(
 			"%q is a comment about your own work, so it is not yours to settle", params.ID)
 	}
 
-	return s.threads.SetThreadResolved(ctx, params.ID, params.Resolved)
+	return s.threads.SetThreadResolved(ctx, reviewstore.SetThreadResolvedParams{
+		ID:        params.ID,
+		Resolved:  params.Resolved,
+		ByKind:    params.Author.Kind,
+		ByAgentID: params.Author.AgentID,
+	})
 }
 
 // SetReviewFileViewedParams names one file of a round to mark read or unread.

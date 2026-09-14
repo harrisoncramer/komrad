@@ -243,7 +243,17 @@ table "review_threads" {
   column "resolved_at" {
     null    = true
     type    = timestamptz
-    comment = "When the person reviewing settled this thread, null while it is still owed an answer. Settling is theirs to do even on a thread an agent opened."
+    comment = "When this thread was settled, null while it is still owed an answer."
+  }
+  column "resolved_by_kind" {
+    null    = true
+    type    = enum.review_author_kind
+    comment = "Whether a person or an agent settled this thread, null while nobody has. Two parties can settle one: the agent that wrote the comment, saying the answer was good enough, and the person, who may settle anything including a thread whose author is gone."
+  }
+  column "resolved_by_agent_id" {
+    null    = true
+    type    = uuid
+    comment = "The agent that settled this thread, null when a person did or when nobody has. Do not read null as meaning a person, because resolved_by_kind is what says that. Deleting that agent clears this column rather than the settling."
   }
   column "created_at" {
     null    = false
@@ -274,6 +284,12 @@ table "review_threads" {
     columns     = [column.round_id]
     ref_columns = [table.review_rounds.column.id]
     on_delete   = CASCADE
+    on_update   = NO_ACTION
+  }
+  foreign_key "review_threads_resolved_by_agent_id_fkey" {
+    columns     = [column.resolved_by_agent_id]
+    ref_columns = [table.agents.column.id]
+    on_delete   = SET_NULL
     on_update   = NO_ACTION
   }
   index "review_threads_agent_id" {

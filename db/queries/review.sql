@@ -246,6 +246,16 @@ SET
         NOW()
     ELSE
         NULL
+    END,
+    resolved_by_kind = CASE WHEN @resolved::boolean THEN
+        sqlc.narg('resolved_by_kind')::review_author_kind
+    ELSE
+        NULL
+    END,
+    resolved_by_agent_id = CASE WHEN @resolved::boolean THEN
+        sqlc.narg('resolved_by_agent_id')::uuid
+    ELSE
+        NULL
     END
 WHERE
     t.id = @id
