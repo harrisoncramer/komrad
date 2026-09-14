@@ -195,15 +195,6 @@ func (m model) toggleAgentViewed(item agentItem) (tea.Model, tea.Cmd) {
 	return m, m.writeCmd(summary, func(a api) error { return a.setViewed(item.agent.ID, viewed) })
 }
 
-// openDesc names what the open key reaches from the row the cursor is on.
-func (m model) openDesc() string {
-	if _, ok := m.hoveredWorkflow(); ok {
-		return "open orchestrator"
-	}
-
-	return "open"
-}
-
 // openHovered attaches to whatever the cursor is on, which for a workflow is the orchestrator
 // standing behind it.
 func (m model) openHovered() (tea.Model, tea.Cmd) {

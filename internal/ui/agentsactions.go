@@ -394,7 +394,7 @@ func agentsBrowsingLegend() []legendRow {
 	return []legendRow{
 		{
 			of:    []actionID{actionAgentOpen},
-			desc:  model.openDesc,
+			desc:  func(model) string { return "open" },
 			show:  isBrowsing,
 			strip: true,
 		},
