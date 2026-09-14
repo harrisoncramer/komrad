@@ -161,6 +161,134 @@ func TestAnUnreadablePaneIsNotStopped(t *testing.T) {
 	assert.Contains(t, m.review.notice, "look at the pane")
 }
 
+// TestAPassGivenUpBeforeTheAgentStopsLetsItGo pins the gap between the keypress and the answer:
+// an agent stopped for a pass nobody is making any more is one nothing else would ever let go.
+func TestAPassGivenUpBeforeTheAgentStopsLetsItGo(t *testing.T) {
+	dir := reviewRepo(t)
+	agents := &fakeReviewAgents{}
+	m, _ := reviewModel(t, agents, dir)
+	m = openReview(t, m)
+
+	setReviewAgentState(&m, agentstore.StateThinking)
+	m.review.cursor = reviewRowWithAnEditTarget(t, m)
+
+	next, cmd := m.updateReview(editorKey())
+	m, ok := next.(model)
+	require.True(t, ok)
+	require.True(t, m.review.pausing)
+
+	next, _ = m.updateReview(tea.KeyMsg{Type: tea.KeyEsc})
+	m, ok = next.(model)
+	require.True(t, ok)
+	require.Equal(t, modeWatching, m.review.mode, "the reader gave the pass up")
+	require.False(t, m.review.pausing)
+
+	paused, ok := cmd().(reviewPausedMsg)
+	require.True(t, ok)
+
+	next, letGo := m.applyReviewPaused(paused)
+	m, ok = next.(model)
+	require.True(t, ok)
+
+	assert.False(t, m.review.atEditor, "nothing opens onto a screen that went back to watching")
+	assert.Equal(t, modeWatching, m.review.mode)
+
+	runReviewCmd(t, letGo)
+
+	require.NotNil(t, agents.letGo, "and the agent the pass stopped is let go")
+	assert.Equal(t, m.review.agentID, agents.letGo.GetId())
+}
+
+// TestASecondEditPressWaitsRatherThanOpening covers the press that arrives while the agent is
+// still stopping, which would otherwise walk past the wait the first press is serving.
+func TestASecondEditPressWaitsRatherThanOpening(t *testing.T) {
+	dir := reviewRepo(t)
+	agents := &fakeReviewAgents{}
+	m, _ := reviewModel(t, agents, dir)
+	m = openReview(t, m)
+
+	setReviewAgentState(&m, agentstore.StateIdle)
+	m.review.cursor = reviewRowWithAnEditTarget(t, m)
+
+	next, cmd := m.updateReview(editorKey())
+	m, ok := next.(model)
+	require.True(t, ok)
+	require.True(t, m.review.pausing)
+
+	next, _ = m.updateReview(editorKey())
+	m, ok = next.(model)
+	require.True(t, ok)
+
+	assert.False(t, m.review.atEditor, "the second press is the wait, not a second thing to do")
+	assert.Contains(t, m.review.notice, "still stopping")
+
+	m = settlePause(t, m, cmd)
+	assert.True(t, m.review.atEditor, "and the editor opens once, when the agent has stopped")
+}
+
+// TestADiffThatStopsBeingReadableLetsTheAgentGo covers the ways off this screen nobody chose,
+// since a pass that lost its diff still holds the agent it stopped.
+func TestADiffThatStopsBeingReadableLetsTheAgentGo(t *testing.T) {
+	dir := reviewRepo(t)
+	agents := &fakeReviewAgents{}
+	m, _ := reviewModel(t, agents, dir)
+	m = openReview(t, m)
+
+	m.review.cursor = reviewRowWithAnEditTarget(t, m)
+	m = pressEdit(t, m)
+	next, _ := m.closeReviewEdit()
+	m, ok := next.(model)
+	require.True(t, ok)
+	require.True(t, m.review.paused)
+
+	letGo := m.abandonReview(errors.New("the worktree could not be read"))
+
+	assert.Equal(t, screenAgents, m.screen)
+
+	runReviewCmd(t, letGo)
+
+	require.NotNil(t, agents.letGo, "the agent the pass stopped is let go")
+	assert.Contains(t, agents.letGo.GetSaid(), "greet.go", "and told where to look")
+}
+
+// TestAReadersOwnPauseKeepsTheFilesForWhoeverLetsItGo covers the files under an editor reaching
+// an agent whose pause the pass never took, since the release for it comes from another screen.
+func TestAReadersOwnPauseKeepsTheFilesForWhoeverLetsItGo(t *testing.T) {
+	dir := reviewRepo(t)
+	agents := &fakeReviewAgents{}
+	m, _ := reviewModel(t, agents, dir)
+	m = openReview(t, m)
+
+	at := time.Now()
+	for i, item := range m.listing.agents {
+		if item.agent.ID == m.review.agentID {
+			m.listing.agents[i].agent.HeldAt = &at
+		}
+	}
+
+	m.review.cursor = reviewRowWithAnEditTarget(t, m)
+	m = pressEdit(t, m)
+	next, _ := m.closeReviewEdit()
+	m, ok := next.(model)
+	require.True(t, ok)
+
+	agentID := m.review.agentID
+
+	next, _ = m.leaveReviewWriting()
+	m, ok = next.(model)
+	require.True(t, ok)
+
+	held, ok := m.getReviewAgentItem()
+	require.True(t, ok)
+
+	_, cmd := m.pauseAgent(held.agent)
+	runReviewCmd(t, cmd)
+
+	require.NotNil(t, agents.letGo, "the pause the reader took is theirs to let go")
+	assert.Equal(t, agentID, agents.letGo.GetId())
+	assert.Contains(t, agents.letGo.GetSaid(), "greet.go", "and it still says where to look")
+}
+
 // settlePauseBatch runs a batch holding the stop and whatever was opened beside it, and hands the
 // panel the answer to the stop.
 func settlePauseBatch(t *testing.T, m model, cmd tea.Cmd) model {

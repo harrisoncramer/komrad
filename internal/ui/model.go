@@ -208,6 +208,9 @@ type model struct {
 	// detached holds the writes a person escaped out of, which land without taking the screen to
 	// what they made.
 	detached map[int]struct{}
+	// edited is the files a reader opened an editor on over an agent's worktree while it was
+	// paused, keyed by agent, so whoever lets that agent go can tell it where to look.
+	edited map[string][]string
 	// blurred is whether another pane holds the keyboard, which stops the row cursor blinking.
 	blurred bool
 

@@ -77,6 +77,14 @@ func (m model) pressReviewEdit() (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
+	// A press that arrives while the agent is still coming to a stop is the wait, not a second
+	// thing to do, and letting it through would open the editor the wait exists to hold shut.
+	if m.review.pausing {
+		m.review.notice = "the agent is still stopping"
+
+		return m, nil
+	}
+
 	if m.review.mode != modeReviewing {
 		// The refusals are read before the agent is stopped, since stopping one to then say the
 		// key was never going to open anything is a real thing done for nothing.

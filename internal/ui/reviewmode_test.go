@@ -259,7 +259,45 @@ func TestSendingAReviewLeavesWritingBehind(t *testing.T) {
 	m = next.(model)
 	require.NotNil(t, cmd, "and the same key sends it")
 
-	assert.Equal(t, modeWatching, m.review.mode, "the mode goes with the review it was for")
+	assert.Equal(t, modeReviewing, m.review.mode, "the pass stands until the comments have landed")
+	require.True(t, m.review.sending)
+
+	letGo := m.applyReviewWrote(reviewWroteMsg{agentID: m.review.agentID, notice: "changes requested"})
+
+	assert.Equal(t, modeWatching, m.review.mode, "and then goes with the review it was for")
+	assert.False(t, m.review.sending)
+	assert.Nil(t, letGo, "with nothing to let go of, since this pass stopped nothing")
+}
+
+// TestASendThatFailsKeepsThePass covers the reader being put back to watching with neither their
+// comments nor the agent they stopped, over a send that never landed.
+func TestASendThatFailsKeepsThePass(t *testing.T) {
+	dir := reviewRepo(t)
+	agents := &fakeReviewAgents{}
+	m, _ := reviewModel(t, agents, dir)
+	m = openReview(t, m)
+
+	m.review.cursor = reviewRowWithAnEditTarget(t, m)
+	m = pressEdit(t, m)
+	next, _ := m.closeReviewEdit()
+	m = next.(model)
+	require.True(t, m.review.paused)
+
+	next, cmd := m.sendReview(false)
+	m = next.(model)
+	require.NotNil(t, cmd)
+	require.True(t, m.review.sending)
+
+	letGo := m.applyReviewWrote(reviewWroteMsg{
+		agentID: m.review.agentID,
+		err:     errors.New("the review could not be released"),
+	})
+
+	assert.Nil(t, letGo, "the agent is not let go over comments it never got")
+	assert.Nil(t, agents.letGo)
+	assert.Equal(t, modeReviewing, m.review.mode, "and the reader is left where they were")
+	assert.True(t, m.review.paused)
+	assert.False(t, m.review.sending)
 }
 
 // TestTheVerdictIsRefusedOnAFinishedRound covers rule three reaching the third write key: the
