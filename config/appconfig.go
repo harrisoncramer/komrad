@@ -350,6 +350,10 @@ type WorkflowsKeys struct {
 	New []string `mapstructure:"new" default:"w"`
 	// Rename the workflow under the cursor.
 	Rename []string `mapstructure:"rename" default:"r"`
+	// Talk to the workflow under the cursor, which brings its orchestrator back and puts its
+	// conversation in the stage. An orchestrator writes no code: it spawns agents into its own
+	// workflow and reports on them.
+	Orchestrator []string `mapstructure:"orchestrator" default:"O"`
 }
 
 // MailKeys are the bindings for the mailbox screen, which draws an agent's mail grouped

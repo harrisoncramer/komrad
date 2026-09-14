@@ -295,27 +295,36 @@ func agentsColumn() columnSpec {
 // leaves the window free for the panel to say why instead.
 func (m model) hasNoAgentPane() bool {
 	r, ok := rowAt(m.agentRows(), m.tree.cursor)
-	if !ok || r.header {
+	if !ok {
 		return true
 	}
 
-	return !r.item.alive ||
-		r.item.agent.State == agentstore.StateSettingUp ||
-		r.item.agent.State.IsFailed()
+	item, held := r.paneItem()
+	if !held {
+		return true
+	}
+
+	return !item.alive ||
+		item.agent.State == agentstore.StateSettingUp ||
+		item.agent.State.IsFailed()
 }
 
 // agentDoc is the markdown drawn beside the list for a row with no pane of its own.
 func (m model) agentDoc() string {
 	r, ok := rowAt(m.agentRows(), m.tree.cursor)
+	item, held := r.paneItem()
+
 	switch {
 	case !ok:
 		return noAgentsMarkdown
-	case r.header:
+	case r.header && !held:
 		return workflowContextMarkdown(r.workflow)
-	case r.item.agent.State == agentstore.StateSettingUp:
+	case item.agent.State == agentstore.StateSettingUp:
 		return settingUpPlaceholder
-	case r.item.agent.State.IsFailed():
-		return m.failedPlaceholder(r.item.agent)
+	case item.agent.State.IsFailed():
+		return m.failedPlaceholder(item.agent)
+	case r.header:
+		return workflowDormantPlaceholder
 	default:
 		return dormantPlaceholder
 	}
@@ -360,10 +369,13 @@ func (m *model) stageSelection() {
 	m.placeColumn(screenAgents, rowKeyAt(rows, m.tree.cursor))
 	m.reconcileSolo()
 
-	switch r, ok := rowAt(rows, m.tree.cursor); {
-	case ok && !m.hasNoAgentPane() && m.isPaneStageable(r.item.agent.Pane, r.item.agent.Harness):
-		m.sizeGuestWindow(r.item.agent.Pane)
-		m.frame.ShowGuest(r.item.agent.Pane)
+	r, ok := rowAt(rows, m.tree.cursor)
+	staged, held := r.paneItem()
+
+	switch {
+	case ok && held && !m.hasNoAgentPane() && m.isPaneStageable(staged.agent.Pane, staged.agent.Harness):
+		m.sizeGuestWindow(staged.agent.Pane)
+		m.frame.ShowGuest(staged.agent.Pane)
 	case m.frame.IsSolo() && m.isGuestLive():
 	default:
 		m.frame.Show(layout.RegionStage, newBlankContent())
@@ -445,6 +457,10 @@ func (m model) scheduleName(agent agentstore.Agent) string {
 
 const dormantPlaceholder = "_dormant — not running_\n\nPress open to resume."
 
+// workflowDormantPlaceholder is what a workflow row draws for an orchestrator that has stopped,
+// where the open key is not bound.
+const workflowDormantPlaceholder = "_dormant — not running_\n\nPress the orchestrator key to bring it back."
+
 // noAgentsMarkdown is what stands beside an empty list.
 const noAgentsMarkdown = "# Agents\n\n_nothing here yet_\n\nPress new to make a workflow and an agent in it.\n"
 
@@ -500,7 +516,7 @@ func (m model) agentsListView() string {
 
 		if r.header {
 			label := m.filter.highlight(clipName(r.workflow.Name), m.nameStyle(hovered, false))
-			header := prefix + paint.MarkGutter(m.listing.marks[rowKey(r)]) + label + hiddenTally(r.hiddenCount, m.tree.showHidden)
+			header := prefix + paint.MarkGutter(m.listing.marks[rowKey(r)]) + label + orchestratorMark(r) + hiddenTally(r.hiddenCount, m.tree.showHidden)
 			rows = append(rows, header)
 
 			continue
@@ -726,5 +742,28 @@ func (m model) openAgentPR(agent agentstore.Agent) (tea.Model, tea.Cmd) {
 	return m, m.writeCmd(
 		"Could not open the pull request",
 		func(a api) error { return a.openPullRequest(agentID) },
+	)
+}
+
+// startOrchestrator brings the workflow's orchestrator back, or starts the one it has never
+// had, and ends with the keyboard in its pane.
+func (m model) startOrchestrator(workflow workflowstore.Workflow) (tea.Model, tea.Cmd) {
+	return m, m.rowWriteCmd(
+		fmt.Sprintf("Could not reach the orchestrator of workflow %q", workflow.Name),
+		func(a api) (written, error) {
+			agent, err := a.startOrchestrator(workflow.ID)
+			if err != nil {
+				return written{}, err
+			}
+
+			// The orchestrator has no row of its own, so the landing goes to the workflow it
+			// stands behind.
+			return written{
+				row:     workflowRowKey(workflow.ID),
+				pane:    agent.GetPaneId(),
+				harness: agent.GetHarness(),
+				focus:   true,
+			}, nil
+		},
 	)
 }

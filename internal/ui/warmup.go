@@ -180,7 +180,12 @@ func (m model) selectedAgentPane() (pane, harnessID string) {
 		return "", ""
 	}
 
-	return r.item.agent.Pane, r.item.agent.Harness
+	item, held := r.paneItem()
+	if !held {
+		return "", ""
+	}
+
+	return item.agent.Pane, item.agent.Harness
 }
 
 // revealCreated gives an agent its pane and takes down the form that made it in one

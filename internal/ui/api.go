@@ -166,6 +166,20 @@ func (a api) hold(agent agentstore.Agent) error {
 	})
 }
 
+// startOrchestrator brings a workflow's orchestrator back, starting the one it has never had.
+func (a api) startOrchestrator(workflowID string) (*agentv1.Agent, error) {
+	return call(createAgentTimeout, func(ctx context.Context) (*agentv1.Agent, error) {
+		resp, err := a.agents.StartOrchestrator(ctx, connect.NewRequest(&agentv1.StartOrchestratorRequest{
+			WorkflowId: workflowID,
+		}))
+		if err != nil {
+			return nil, fmt.Errorf("failed to start the orchestrator of workflow %q: %w", workflowID, err)
+		}
+
+		return resp.Msg.GetAgent(), nil
+	})
+}
+
 // release lets go of a held agent, saying what changed while it was held.
 func (a api) release(agent agentstore.Agent, said string) error {
 	return mutate(func(ctx context.Context) (any, error) {
