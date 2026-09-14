@@ -170,7 +170,7 @@ func TestWorkflowRowShowsItsOrchestrator(t *testing.T) {
 			name:        "a workflow whose orchestrator has stopped",
 			items:       []agentItem{dormantOrchestrator()},
 			wantStateOf: agentstore.StateIdle,
-			wantDoc:     workflowDormantPlaceholder,
+			wantDoc:     dormantPlaceholder,
 		},
 		{
 			name:        "a workflow whose orchestrator failed to start",
@@ -217,15 +217,15 @@ func TestWorkflowRowShowsItsOrchestrator(t *testing.T) {
 	}
 }
 
-// TestTalkingToAWorkflowStartsItsOrchestrator pins the key, which is what starts or restores
-// one rather than the cursor landing on the row.
+// TestTalkingToAWorkflowStartsItsOrchestrator pins that open answers a workflow row the way it
+// answers an agent row, starting what is not running.
 func TestTalkingToAWorkflowStartsItsOrchestrator(t *testing.T) {
 	agents := &recordingOrchestrators{}
 
 	m := orchestratorModel(agents)
 	m.tree.cursor = 0
 
-	pressed, cmd := m.Update(keyMsg("O"))
+	pressed, cmd := m.Update(keyMsg("enter"))
 	written, ok := pressed.(model)
 	require.True(t, ok)
 
@@ -329,4 +329,34 @@ func TestCreatingAWorkflowStandsWhenItsOrchestratorWillNot(t *testing.T) {
 	require.NotNil(t, result.written)
 	assert.Equal(t, workflowRowKey("w2"), result.written.row)
 	assert.Empty(t, result.written.pane, "and no pane is staged for an orchestrator that never started")
+}
+
+// TestOpenAnswersBothKindsOfRow pins that one key does the same thing on either row, which is
+// what makes the orchestrator a place to open rather than a second concept.
+func TestOpenAnswersBothKindsOfRow(t *testing.T) {
+	agents := &recordingOrchestrators{}
+	worker := agentItem{agent: agentstore.Agent{
+		ID: "a1", Name: "telescope", Pane: "%3", Harness: "claude", State: agentstore.StateIdle, WorkflowID: "w1",
+	}, alive: true}
+
+	m := orchestratorModel(agents, orchestratorItem(), worker)
+
+	rows := m.agentRows()
+	require.Len(t, rows, 2)
+	require.True(t, rows[0].header)
+
+	m.tree.cursor = 1
+	assert.Equal(t, "open", m.openDesc(), "an agent row reads as open")
+
+	m.tree.cursor = 0
+	assert.Equal(t, "open orchestrator", m.openDesc(), "and a workflow row says what it opens")
+
+	pressed, cmd := m.Update(keyMsg("enter"))
+	written, ok := pressed.(model)
+	require.True(t, ok)
+
+	settle(t, written, cmd)
+
+	assert.Equal(t, []string{"w1"}, agents.started,
+		"open on a workflow row reaches its orchestrator")
 }

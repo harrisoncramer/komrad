@@ -48,7 +48,6 @@ const (
 	actionWorkflowRename
 	actionWorkflowEdit
 	actionWorkflowArchive
-	actionWorkflowOrchestrator
 	actionSelectToggle
 	actionSelectRange
 	actionSelectClear

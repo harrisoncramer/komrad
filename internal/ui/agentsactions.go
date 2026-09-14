@@ -180,12 +180,6 @@ func agentsRowActions() []action {
 			run:  onHoveredWorkflow(model.editWorkflowForm),
 		},
 		{
-			id:   actionWorkflowOrchestrator,
-			keys: func(k config.Keybindings) []string { return k.Workflows.Orchestrator },
-			when: isHoveringWorkflow,
-			run:  onHoveredWorkflow(model.startOrchestrator),
-		},
-		{
 			id:   actionWorkflowArchive,
 			keys: func(k config.Keybindings) []string { return k.Workflows.Archive },
 			when: isHoveringWorkflow,
@@ -194,8 +188,8 @@ func agentsRowActions() []action {
 		{
 			id:   actionAgentOpen,
 			keys: func(k config.Keybindings) []string { return k.Agents.Open },
-			when: isHoveringAgent,
-			run:  func(m model, _ string) (tea.Model, tea.Cmd) { return m.openAgent() },
+			when: isBrowsing,
+			run:  func(m model, _ string) (tea.Model, tea.Cmd) { return m.openHovered() },
 		},
 		{
 			id:   actionAgentToggleViewed,
@@ -400,8 +394,8 @@ func agentsBrowsingLegend() []legendRow {
 	return []legendRow{
 		{
 			of:    []actionID{actionAgentOpen},
-			desc:  func(model) string { return "open" },
-			show:  isHoveringAgent,
+			desc:  model.openDesc,
+			show:  isBrowsing,
 			strip: true,
 		},
 		{
@@ -472,11 +466,6 @@ func agentsBrowsingLegend() []legendRow {
 		{
 			of:   []actionID{actionWorkflowEdit},
 			desc: func(model) string { return "edit" },
-		},
-		{
-			of:   []actionID{actionWorkflowOrchestrator},
-			desc: func(model) string { return "talk to workflow" },
-			show: isHoveringWorkflow,
 		},
 		{
 			of:   []actionID{actionAgentToggleViewed},

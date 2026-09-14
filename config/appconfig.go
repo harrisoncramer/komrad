@@ -308,7 +308,8 @@ type AgentsKeys struct {
 	// Read the mail the hovered agent has sent and been sent, with the mailbox in the
 	// sidebar and the message under the cursor in the stage.
 	Mail []string `mapstructure:"mail" default:"m"`
-	// Attach to the hovered agent.
+	// Attach to the hovered agent, or to the workflow's own orchestrator when the cursor is on a
+	// workflow. Either one is started first if it is not running.
 	Open []string `mapstructure:"open" default:"enter"`
 	// Quit the panel.
 	Quit []string `mapstructure:"quit" default:"ctrl+c"`
@@ -359,10 +360,6 @@ type WorkflowsKeys struct {
 	New []string `mapstructure:"new" default:"w"`
 	// Rename the workflow under the cursor.
 	Rename []string `mapstructure:"rename" default:"r"`
-	// Talk to the workflow under the cursor, which brings its orchestrator back and puts its
-	// conversation in the stage. An orchestrator writes no code: it spawns agents into its own
-	// workflow and reports on them.
-	Orchestrator []string `mapstructure:"orchestrator" default:"O"`
 }
 
 // MailKeys are the bindings for the mailbox screen, which draws an agent's mail grouped
