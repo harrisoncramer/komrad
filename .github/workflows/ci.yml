@@ -272,8 +272,8 @@ jobs:
         with:
           gh-access-token: ${{ env.GH_ACCESS_TOKEN }}
 
-      # The tmux tests skip themselves when tmux is missing rather than failing, which
-      # issue 553 is about. less is what the panel pages a dormant agent's placeholder
+      # A test that needs tmux fails without it rather than skipping, so this step is what
+      # keeps the job honest. less is what the panel pages a dormant agent's placeholder
       # into a pane with.
       - name: Install tmux
         run: sudo apt-get update && sudo apt-get install -y tmux less

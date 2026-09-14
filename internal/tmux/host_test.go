@@ -52,9 +52,8 @@ func TestClientAtPath(t *testing.T) {
 
 func newTestServer(t *testing.T, role string) string {
 	t.Helper()
-	if _, err := exec.LookPath("tmux"); err != nil {
-		t.Skip("tmux not installed")
-	}
+	_, err := exec.LookPath("tmux")
+	require.NoError(t, err)
 
 	socket := "cca-" + role + "-" + filepath.Base(t.TempDir())
 	t.Cleanup(func() { _ = exec.Command("tmux", "-L", socket, "kill-server").Run() })

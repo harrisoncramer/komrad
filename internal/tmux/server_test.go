@@ -14,9 +14,8 @@ import (
 func testServer(t *testing.T, name string) *Client {
 	t.Helper()
 
-	if _, err := exec.LookPath("tmux"); err != nil {
-		t.Skip("tmux is not installed")
-	}
+	_, lookErr := exec.LookPath("tmux")
+	require.NoError(t, lookErr)
 
 	socket := "weave-test-" + strings.ReplaceAll(t.Name(), "/", "-")
 	client := &Client{server: []string{"-L", socket, "-f", "/dev/null"}}

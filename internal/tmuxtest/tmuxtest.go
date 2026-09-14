@@ -25,13 +25,12 @@ type Server struct {
 	socket string
 }
 
-// New starts a tmux server for this test and returns it, skipping the test when tmux is not
-// installed.
+// New starts a tmux server for this test and returns it.
 func New(t *testing.T) *Server {
 	t.Helper()
 
 	if _, err := exec.LookPath("tmux"); err != nil {
-		t.Skip("tmux not installed")
+		t.Fatalf("tmux is not installed: %v", err)
 	}
 
 	server := &Server{t: t, socket: fmt.Sprintf("weavetest-%d-%d", os.Getpid(), created.Add(1))}

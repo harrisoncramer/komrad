@@ -3,7 +3,7 @@
 package tmux
 
 import (
-	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -151,9 +151,8 @@ func rawPane(t *testing.T, client *Client, session string, bracketed bool) (pane
 // clearing its own box whole and handing the text back, which is the whole reason the pair
 // exists.
 func TestCutAndYankRoundTripsThroughReadline(t *testing.T) {
-	if _, err := os.Stat(readlineShell); err != nil {
-		t.Skipf("%s is not installed", readlineShell)
-	}
+	_, err := exec.LookPath(readlineShell)
+	require.NoError(t, err)
 
 	client := testServer(t, "readline")
 

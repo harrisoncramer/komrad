@@ -74,9 +74,8 @@ var sockets atomic.Int64
 
 func throwawaySocket(t *testing.T) string {
 	t.Helper()
-	if _, err := exec.LookPath("tmux"); err != nil {
-		t.Skip("tmux is not installed")
-	}
+	_, err := exec.LookPath("tmux")
+	require.NoError(t, err)
 
 	socket := fmt.Sprintf("weave-attach-%d-%d", os.Getpid(), sockets.Add(1))
 	t.Cleanup(func() { _ = exec.Command("tmux", "-L", socket, "kill-server").Run() })

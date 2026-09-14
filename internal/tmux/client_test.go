@@ -18,9 +18,8 @@ import (
 // TestQueryCarriesStderr checks a failed tmux call names the command and carries tmux's own
 // complaint.
 func TestQueryCarriesStderr(t *testing.T) {
-	if _, err := exec.LookPath("tmux"); err != nil {
-		t.Skip("tmux is not installed")
-	}
+	_, lookErr := exec.LookPath("tmux")
+	require.NoError(t, lookErr)
 
 	_, err := NewClient("weave-test-no-such-socket").GetPanes()
 
