@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"path/filepath"
 	"strings"
 
 	agentstore "weave/internal/store/agent"
@@ -21,7 +22,34 @@ func editorShell(editor, path string, line int) string {
 	}
 
 	// The editor is left unquoted so an EDITOR of several words stays several words.
-	return fmt.Sprintf("exec %s +%d %s", command, line, shellQuote(path))
+	return "exec " + command + " " + strings.Join(editorLineArgs(command, path, line), " ")
+}
+
+// editorLineArgs is how one editor is told which line to open a file on, defaulting to the +line
+// argument every terminal editor in the vi and emacs line takes.
+func editorLineArgs(command, path string, line int) []string {
+	at := shellQuote(fmt.Sprintf("%s:%d", path, line))
+
+	switch editorName(command) {
+	case "code", "code-insiders", "codium", "vscodium", "cursor", "windsurf":
+		return []string{"--wait", "--goto", at}
+	case "subl", "sublime_text", "zed":
+		return []string{"--wait", at}
+	case "hx", "helix":
+		return []string{at}
+	}
+
+	return []string{fmt.Sprintf("+%d", line), shellQuote(path)}
+}
+
+// editorName is the program an EDITOR of several words runs.
+func editorName(command string) string {
+	fields := strings.Fields(command)
+	if len(fields) == 0 {
+		return ""
+	}
+
+	return filepath.Base(fields[0])
 }
 
 // editorContent opens a file in the user's editor, on one line of it.
@@ -71,7 +99,7 @@ func (m model) editReviewFile() (tea.Model, tea.Cmd, bool) {
 		return m, nil, false
 	}
 
-	m.frame.Show(layout.RegionStage, editorContent(m.editor, m.review.dir, path, line))
+	m.frame.Show(layout.RegionStage, editorContent(m.editor, m.review.root, path, line))
 
 	// The mode is taken only once there is a pane in it, a refused split otherwise leaving the
 	// band saying editing over a screen with no editor on it.
