@@ -104,7 +104,7 @@ func (c *Client) ReadTreeState(ctx context.Context, dir string) (TreeState, erro
 	}
 	state.Shallow = shallow
 
-	hidden, err := readHiddenPaths(ctx, dir)
+	hidden, err := hiddenPaths(ctx, dir)
 	if err != nil {
 		return TreeState{}, err
 	}
@@ -419,27 +419,6 @@ func isShallow(ctx context.Context, dir string) (bool, error) {
 	}
 
 	return out == "true", nil
-}
-
-// readHiddenPaths reads the tracked paths marked assume-unchanged or skip-worktree, whose
-// working copy git is deliberately not reading.
-func readHiddenPaths(ctx context.Context, dir string) ([]string, error) {
-	out, err := Run(ctx, dir, "ls-files", "-v")
-	if err != nil {
-		return nil, fmt.Errorf("failed to read the index flags of %q: %w", dir, err)
-	}
-
-	paths := []string{}
-	for _, line := range strings.Split(out, "\n") {
-		// Any lowercase tag is assume-unchanged and S is skip-worktree, which is the same rule
-		// hasAssumeUnchanged applies, since a path that is both marked and modified reads as c.
-		if len(line) < 3 || (line[0] != 'S' && (line[0] < 'a' || line[0] > 'z')) {
-			continue
-		}
-		paths = append(paths, line[2:])
-	}
-
-	return paths, nil
 }
 
 // isTrackedDirty reports whether anything git tracks differs from HEAD.

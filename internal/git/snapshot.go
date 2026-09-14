@@ -3,10 +3,14 @@ package git
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
+
+	"weave/internal/fail"
 )
 
 // Explainer: a park is a commit parented on the head it was taken at, holding the whole
@@ -69,13 +73,12 @@ type seed func(ctx context.Context, root, index string, env []string) error
 // writeTree stages the whole worktree into an index of its own and hashes it, leaving the
 // agent's index, worktree and branch exactly as they were.
 func writeTree(ctx context.Context, root string) (string, error) {
-	if !hasAssumeUnchanged(ctx, root) {
-		if tree, err := writeTreeSeeded(ctx, root, copyIndex); err == nil {
-			return tree, nil
-		}
+	tree, err := writeTreeSeeded(ctx, root, seedIndexFromAgent)
+	if errors.Is(err, errIndexUnreadable) {
+		return writeTreeSeeded(ctx, root, seedIndexFromHead)
 	}
 
-	return writeTreeSeeded(ctx, root, seedIndexFromHead)
+	return tree, err
 }
 
 // writeTreeSeeded is one attempt at the tree, from an index filled the given way.
@@ -215,16 +218,14 @@ func seedIndexFromHead(ctx context.Context, root, index string, env []string) er
 
 // copyIndex writes the agent's index out as the temporary one, modification time included.
 func copyIndex(ctx context.Context, root, index string, _ []string) error {
-	// The git directory is asked for rather than the index path, which an inherited
-	// GIT_INDEX_FILE would answer with instead.
-	dir, err := Run(ctx, root, "rev-parse", "--absolute-git-dir")
+	dir, err := runEnv(ctx, root, agentEnv(), "rev-parse", "--absolute-git-dir")
 	if err != nil {
 		return fmt.Errorf("failed to find the index of %q: %w", root, err)
 	}
 
 	from, err := os.Open(filepath.Join(dir, "index"))
 	if err != nil {
-		return fmt.Errorf("failed to read the index of %q: %w", root, err)
+		return fmt.Errorf("%w: %w", errIndexUnreadable, err)
 	}
 	defer from.Close()
 
@@ -255,21 +256,114 @@ func copyIndex(ctx context.Context, root, index string, _ []string) error {
 	return nil
 }
 
-// hasAssumeUnchanged says whether the agent's index promises git that some file will not be
-// edited, and says so of an index it cannot read.
-func hasAssumeUnchanged(ctx context.Context, root string) bool {
-	out, err := RunBytes(ctx, root, "ls-files", "-v")
+// Explainer: assume-unchanged and skip-worktree both tell git to read the index instead of the
+// file. A round must not do that for a file the worktree has, or the agent's edit is left out of
+// the diff it is reviewed by and the tree does not move, so no new round opens. A flagged path the
+// worktree does not have is the other case, a sparse checkout, where nobody deleted anything and
+// the index is all there is. So the flags are cleared for the paths that are on disk and left for
+// the paths that are not.
+
+// errIndexUnreadable is the one failure the fallback stands for, so a snapshot seeded from the
+// last commit means the agent's index could not be read rather than that anything at all failed.
+var errIndexUnreadable = fail.Internal("the agent's index cannot be read")
+
+// seedIndexFromAgent copies the agent's index over and clears the flags on the hidden paths the
+// worktree still holds.
+func seedIndexFromAgent(ctx context.Context, root, index string, env []string) error {
+	hidden, err := hiddenPaths(ctx, root)
 	if err != nil {
-		return true
+		return fmt.Errorf("%w: %w", errIndexUnreadable, err)
 	}
 
-	for line := range bytes.SplitSeq(out, []byte("\n")) {
-		if len(line) > 0 && line[0] >= 'a' && line[0] <= 'z' {
-			return true
+	if err := copyIndex(ctx, root, index, env); err != nil {
+		return err
+	}
+
+	return revealPaths(ctx, root, index, env, presentPaths(root, hidden))
+}
+
+// agentEnv is the environment for the commands that read the agent's own index, with the variable
+// naming an index of somebody else's taken out of it.
+func agentEnv() []string {
+	kept := []string{}
+
+	for _, entry := range os.Environ() {
+		if strings.HasPrefix(entry, "GIT_INDEX_FILE=") {
+			continue
+		}
+
+		kept = append(kept, entry)
+	}
+
+	return kept
+}
+
+// hiddenPaths are the tracked paths whose working copy git is told not to read.
+func hiddenPaths(ctx context.Context, root string) ([]string, error) {
+	out, err := runWithEnv(ctx, root, agentEnv(), "ls-files", "-v", "-z")
+	if err != nil {
+		return nil, fmt.Errorf("failed to read the index flags of %q: %w", root, err)
+	}
+
+	paths := []string{}
+
+	for entry := range bytes.SplitSeq(out, []byte{0}) {
+		// A lowercase tag is assume-unchanged and S is skip-worktree.
+		if len(entry) < 3 || (entry[0] != 'S' && (entry[0] < 'a' || entry[0] > 'z')) {
+			continue
+		}
+
+		paths = append(paths, string(entry[2:]))
+	}
+
+	return paths, nil
+}
+
+// presentPaths are the given paths the worktree still has a file for.
+func presentPaths(root string, paths []string) []string {
+	present := make([]string, 0, len(paths))
+
+	for _, path := range paths {
+		if _, err := os.Lstat(filepath.Join(root, filepath.FromSlash(path))); err == nil {
+			present = append(present, path)
 		}
 	}
 
-	return false
+	return present
+}
+
+// revealPaths clears both flags in the temporary index, one command each, since git keeps only
+// the last of them named in a single one.
+func revealPaths(ctx context.Context, root, index string, env []string, paths []string) error {
+	if len(paths) == 0 {
+		return nil
+	}
+
+	stat, err := os.Stat(index)
+	if err != nil {
+		return fmt.Errorf("failed to read a snapshot index for %q: %w", root, err)
+	}
+
+	var input bytes.Buffer
+	for _, path := range paths {
+		input.WriteString(path)
+		input.WriteByte(0)
+	}
+
+	for _, flag := range []string{"--no-skip-worktree", "--no-assume-unchanged"} {
+		args := []string{"update-index", flag, "-z", "--stdin"}
+		if _, err := runInput(ctx, root, env, input.Bytes(), args...); err != nil {
+			return fmt.Errorf("failed to unflag the files of %q for a snapshot: %w", root, err)
+		}
+	}
+
+	// Writing the index stamps it with the current time, which would leave every entry in it
+	// older than the index and so trusted on its recorded stat alone.
+	if err := os.Chtimes(index, stat.ModTime(), stat.ModTime()); err != nil {
+		return fmt.Errorf("failed to write a snapshot index for %q: %w", root, err)
+	}
+
+	return nil
 }
 
 // removeIndex drops the temporary index and the lock git leaves beside it when a write is cut
