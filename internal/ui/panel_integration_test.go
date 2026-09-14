@@ -221,8 +221,10 @@ func TestArchivingAWorkflowSendsItsPanesBack(t *testing.T) {
 		return staged.instance.Tmux.Run("display-message", "-p", "-t", pane, "#{pane_width}")
 	}
 	// The divider dragged where the user wants it rather than where the config put it.
+	configured := width(staged.agentPane)
 	staged.instance.Tmux.Run("resize-pane", "-t", staged.navPane, "-x", "60")
 	dragged := width(staged.agentPane)
+	require.NotEqual(t, configured, dragged, "the drag moved the divider off the configured width")
 
 	panel.tree.cursor = 0
 	require.True(t, isHoveringWorkflow(panel), "the cursor is on the folder the agent is in")
