@@ -52,6 +52,20 @@ func (s *Store) Archive(ctx context.Context, ids []string) ([]AgentPane, error) 
 	}), nil
 }
 
+// RestampArchived moves the stamp of agents that are already archived to now.
+func (s *Store) RestampArchived(ctx context.Context, ids []string) error {
+	storable := keepStorableIDs(ids)
+	if len(storable) == 0 {
+		return nil
+	}
+
+	if err := s.queries.RestampAgentsArchived(ctx, storable); err != nil {
+		return fmt.Errorf("failed to restamp %d archived agents: %w", len(storable), err)
+	}
+
+	return nil
+}
+
 // Restore returns archived agents to live listings.
 func (s *Store) Restore(ctx context.Context, ids []string) error {
 	storable := keepStorableIDs(ids)

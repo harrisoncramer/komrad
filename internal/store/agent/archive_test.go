@@ -358,3 +358,86 @@ func TestArchiveAndRestoreInBatches(t *testing.T) {
 	require.NoError(t, err)
 	assert.Len(t, live, 3, "the batch came back whole, across both workflows")
 }
+
+// TestListForTranscriptSync pins which agents the transcript loop is handed, an agent with no
+// conversation to read being the one that would otherwise never leave it.
+func TestListForTranscriptSync(t *testing.T) {
+	tests := []struct {
+		name      string
+		sessionID string
+		archive   bool
+		synced    bool
+		wantsRead bool
+	}{
+		{
+			name:      "a live agent is always read",
+			sessionID: "claude-live",
+			wantsRead: true,
+		},
+		{
+			name:      "a live agent with no session yet is still read",
+			wantsRead: true,
+		},
+		{
+			name:      "an agent archived before its last sync is read once more",
+			sessionID: "claude-tail",
+			archive:   true,
+			wantsRead: true,
+		},
+		{
+			name:      "an agent synced since it was archived is done with",
+			sessionID: "claude-settled",
+			archive:   true,
+			synced:    true,
+		},
+		{
+			name:    "an archived agent that never held a conversation is done with",
+			archive: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f := open(t)
+			ctx := t.Context()
+
+			require.NoError(t, f.Create(ctx, Agent{Name: "subject", State: StateIdle, SessionID: tt.sessionID}))
+			subject, err := f.Get(ctx, "subject")
+			require.NoError(t, err)
+
+			if tt.archive {
+				require.NoError(t, f.archiveByName(ctx, "subject"))
+			}
+			if tt.synced {
+				seedSyncedSession(t, f, subject.ID, tt.sessionID)
+			}
+
+			listed, err := f.ListForTranscriptSync(ctx)
+			require.NoError(t, err)
+
+			ids := make([]string, 0, len(listed))
+			for _, agent := range listed {
+				ids = append(ids, agent.ID)
+			}
+
+			if tt.wantsRead {
+				assert.Contains(t, ids, subject.ID)
+
+				return
+			}
+			assert.NotContains(t, ids, subject.ID)
+		})
+	}
+}
+
+// seedSyncedSession records a conversation read after the agent holding it was archived.
+func seedSyncedSession(t *testing.T, f *fixture, agentID, sessionID string) {
+	t.Helper()
+	id, err := store.NewID()
+	require.NoError(t, err)
+
+	_, err = f.db.Exec(t.Context(),
+		`INSERT INTO agent_transcript_sessions (id, agent_id, session_id, synced_at) VALUES ($1, $2, $3, NOW())`,
+		id, agentID, sessionID)
+	require.NoError(t, err)
+}

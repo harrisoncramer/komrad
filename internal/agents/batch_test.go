@@ -1,6 +1,7 @@
 package agents
 
 import (
+	"context"
 	"testing"
 
 	"weave/internal/store"
@@ -406,4 +407,39 @@ func TestArchiveAgentsNamesOnlyTheFirstMissing(t *testing.T) {
 	require.ErrorContains(t, err, ids[0], "the first few are named")
 	require.ErrorContains(t, err, "and 15 more", "and the rest are counted")
 	assert.NotContains(t, err.Error(), ids[19], "rather than spelled out")
+}
+
+// TestArchiveUnchangedAgentsStampsAfterTheKill pins the ordering the transcript sync rests on:
+// an agent's archived stamp is written again once the CLI holding its log is dead.
+func TestArchiveUnchangedAgentsStampsAfterTheKill(t *testing.T) {
+	st := newStore(t)
+	tmux := newFakeTmux()
+	agents := &restampWatcher{lifecycleAgentReadWriter: st.Agents, tmux: tmux}
+	manager := newManager(tmux, st, "")
+	manager.lifecycle.agents = agents
+	ctx := t.Context()
+
+	workflowID := seedWorkflow(t, st)
+	settled := seedRunningIn(t, st, tmux, workflowID, "settled", "%1")
+
+	archived, err := manager.lifecycle.ArchiveUnchangedAgents(ctx, []agentstore.Agent{settled})
+	require.NoError(t, err)
+	require.Len(t, archived, 1)
+
+	assert.Equal(t, []string{"%1"}, agents.killedWhenRestamped,
+		"the pane is already gone when the stamp is written again")
+}
+
+// restampWatcher records which panes had been killed by the time the archived stamp was
+// written again.
+type restampWatcher struct {
+	lifecycleAgentReadWriter
+	tmux                *fakeTmux
+	killedWhenRestamped []string
+}
+
+func (r *restampWatcher) RestampArchived(ctx context.Context, ids []string) error {
+	r.killedWhenRestamped = append([]string(nil), r.tmux.killedPanes...)
+
+	return r.lifecycleAgentReadWriter.RestampArchived(ctx, ids)
 }

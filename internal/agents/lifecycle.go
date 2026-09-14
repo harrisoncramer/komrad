@@ -32,6 +32,7 @@ type lifecycleAgentReadWriter interface {
 	ListByID(ctx context.Context, ids []string) ([]agentstore.Agent, error)
 	Archive(ctx context.Context, ids []string) ([]agentstore.AgentPane, error)
 	ArchiveIfUnchanged(ctx context.Context, params agentstore.ArchiveIfUnchangedParams) (bool, error)
+	RestampArchived(ctx context.Context, ids []string) error
 }
 
 // emptyWorkflowDeleter permanently removes a workflow left with nothing archived inside it.
@@ -287,6 +288,11 @@ func (s *LifecycleService) ArchiveUnchangedAgents(ctx context.Context, observed 
 	archived = append(archived, children...)
 
 	killOwnedPanes(ctx, s.tmux, archived)
+
+	// The stamp stands for a CLI that is already dead.
+	if err := s.agents.RestampArchived(ctx, agentIDs(archived)); err != nil {
+		failures = append(failures, err)
+	}
 
 	return archived, errors.Join(failures...)
 }

@@ -66,6 +66,17 @@ func (s *Store) ListAll(ctx context.Context) ([]Agent, error) {
 	return s.hydrateMetadataForAgents(ctx, rows)
 }
 
+// ListForTranscriptSync returns every agent whose log can still hold turns nobody has read: the
+// live ones, and the archived ones holding a conversation last synced before they were archived.
+func (s *Store) ListForTranscriptSync(ctx context.Context) ([]Agent, error) {
+	rows, err := s.queries.ListAgentsForTranscriptSync(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list agents for transcript sync: %w", err)
+	}
+
+	return s.hydrateMetadataForAgents(ctx, rows)
+}
+
 // GetInWorkflow returns a live agent by workflow and name.
 func (s *Store) GetInWorkflow(ctx context.Context, workflowID, name string) (*Agent, error) {
 	row, err := s.queries.GetAgentInWorkflow(ctx, models.GetAgentInWorkflowParams{

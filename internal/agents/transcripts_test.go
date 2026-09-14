@@ -458,3 +458,67 @@ func moveToSession(t *testing.T, st *testStore, agentID, sessionID string) {
 	_, err := st.Pool.GetRawPool().Exec(t.Context(), "UPDATE agents SET session_id = $1 WHERE id = $2", sessionID, agentID)
 	require.NoError(t, err)
 }
+
+// TestArchivedAgentSyncsOnceThenFallsOut pins both halves of what archiving does to a sync: the
+// turns written before the archive are still folded in, and the agent is not read again after.
+func TestArchivedAgentSyncsOnceThenFallsOut(t *testing.T) {
+	st := newStore(t)
+	ctx := t.Context()
+	projects := t.TempDir()
+
+	agent := seedWithSessionID(t, st, testSessionID, "archived")
+	path := writeLog(t, projects, `{"type":"user","message":{"content":"said before the archive"}}`+"\n")
+
+	_, err := st.Agents.Archive(ctx, []string{agent.ID})
+	require.NoError(t, err)
+
+	syncer := NewTranscriptSyncer(NewTranscriptSyncerParams{
+		Agents:      st.Agents,
+		Transcripts: st.Transcripts,
+		Harnesses:   mustRegistry(t, claude.NewHarness(claude.NewHarnessParams{ProjectsDir: projects})),
+	})
+
+	require.NoError(t, syncer.Sync(ctx))
+
+	tail, err := st.GetTranscript(ctx, agent.ID)
+	require.NoError(t, err)
+	assert.Equal(t, "said before the archive", tail, "what the agent said before it was archived is kept")
+
+	appendToLog(t, path, `{"type":"user","message":{"content":"written after the archive"}}`+"\n")
+	require.NoError(t, syncer.Sync(ctx))
+
+	after, err := st.GetTranscript(ctx, agent.ID)
+	require.NoError(t, err)
+	assert.Equal(t, "said before the archive", after, "an archived agent is not read again")
+}
+
+// TestArchivedAgentWithNothingNewFallsOut pins that an agent archived with its log already read
+// leaves the listing rather than being globbed and opened on every pass forever.
+func TestArchivedAgentWithNothingNewFallsOut(t *testing.T) {
+	st := newStore(t)
+	ctx := t.Context()
+	projects := t.TempDir()
+
+	agent := seedWithSessionID(t, st, testSessionID, "settled")
+	path := writeLog(t, projects, `{"type":"user","message":{"content":"the whole conversation"}}`+"\n")
+
+	syncer := NewTranscriptSyncer(NewTranscriptSyncerParams{
+		Agents:      st.Agents,
+		Transcripts: st.Transcripts,
+		Harnesses:   mustRegistry(t, claude.NewHarness(claude.NewHarnessParams{ProjectsDir: projects})),
+	})
+	require.NoError(t, syncer.Sync(ctx))
+
+	_, err := st.Agents.Archive(ctx, []string{agent.ID})
+	require.NoError(t, err)
+
+	// The pass that finds nothing new is the one that stamps the session read.
+	require.NoError(t, syncer.Sync(ctx))
+
+	appendToLog(t, path, `{"type":"user","message":{"content":"written after the archive"}}`+"\n")
+	require.NoError(t, syncer.Sync(ctx))
+
+	after, err := st.GetTranscript(ctx, agent.ID)
+	require.NoError(t, err)
+	assert.Equal(t, "the whole conversation", after, "an archived agent is not read again")
+}

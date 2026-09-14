@@ -28,6 +28,26 @@ FROM
 ORDER BY
     s.id DESC;
 
+-- name: ListAgentsForTranscriptSync :many
+SELECT
+    *
+FROM
+    agents s
+WHERE
+    s.archived_at IS NULL
+    OR (s.session_id <> ''
+        AND NOT EXISTS (
+            SELECT
+                1
+            FROM
+                agent_transcript_sessions t
+            WHERE
+                t.agent_id = s.id
+                AND t.session_id = s.session_id
+                AND t.synced_at >= s.archived_at))
+ORDER BY
+    s.id DESC;
+
 -- name: GetAgentInWorkflow :one
 SELECT
     *
@@ -545,6 +565,15 @@ WHERE
     id = @id
 RETURNING
     id;
+
+-- name: RestampAgentsArchived :exec
+UPDATE
+    agents
+SET
+    archived_at = NOW()
+WHERE
+    id = ANY (@ids::uuid[])
+    AND archived_at IS NOT NULL;
 
 -- name: MarkAgentsArchived :many
 WITH prior AS (

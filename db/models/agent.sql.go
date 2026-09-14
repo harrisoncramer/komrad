@@ -848,6 +848,82 @@ func (q *Queries) ListAgentsByID(ctx context.Context, ids []string) ([]*Agent, e
 	return items, nil
 }
 
+const listAgentsForTranscriptSync = `-- name: ListAgentsForTranscriptSync :many
+SELECT
+    id, name, cwd, flags, prompt, pane_id, state, state_changed_at, harness, session_id, workflow_id, schedule_id, idempotency_key, spawned_by_agent_id, archived_at, is_hidden, nudged_at, branch, worktree_removed, created_at, updated_at, state_seen_at, interrupted_at, adopted_branch, viewed_at, parent_agent_id, turn_ended_at, provision_enabled, reported_reason, role, held_at, held_mid_turn, nudge_sent_at, sequence_in_progress
+FROM
+    agents s
+WHERE
+    s.archived_at IS NULL
+    OR (s.session_id <> ''
+        AND NOT EXISTS (
+            SELECT
+                1
+            FROM
+                agent_transcript_sessions t
+            WHERE
+                t.agent_id = s.id
+                AND t.session_id = s.session_id
+                AND t.synced_at >= s.archived_at))
+ORDER BY
+    s.id DESC
+`
+
+func (q *Queries) ListAgentsForTranscriptSync(ctx context.Context) ([]*Agent, error) {
+	rows, err := q.db.Query(ctx, listAgentsForTranscriptSync)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []*Agent
+	for rows.Next() {
+		var i Agent
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Cwd,
+			&i.Flags,
+			&i.Prompt,
+			&i.PaneID,
+			&i.State,
+			&i.StateChangedAt,
+			&i.Harness,
+			&i.SessionID,
+			&i.WorkflowID,
+			&i.ScheduleID,
+			&i.IdempotencyKey,
+			&i.SpawnedByAgentID,
+			&i.ArchivedAt,
+			&i.IsHidden,
+			&i.NudgedAt,
+			&i.Branch,
+			&i.WorktreeRemoved,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.StateSeenAt,
+			&i.InterruptedAt,
+			&i.AdoptedBranch,
+			&i.ViewedAt,
+			&i.ParentAgentID,
+			&i.TurnEndedAt,
+			&i.ProvisionEnabled,
+			&i.ReportedReason,
+			&i.Role,
+			&i.HeldAt,
+			&i.HeldMidTurn,
+			&i.NudgeSentAt,
+			&i.SequenceInProgress,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listAgentsPage = `-- name: ListAgentsPage :many
 SELECT
     id, name, cwd, flags, prompt, pane_id, state, state_changed_at, harness, session_id, workflow_id, schedule_id, idempotency_key, spawned_by_agent_id, archived_at, is_hidden, nudged_at, branch, worktree_removed, created_at, updated_at, state_seen_at, interrupted_at, adopted_branch, viewed_at, parent_agent_id, turn_ended_at, provision_enabled, reported_reason, role, held_at, held_mid_turn, nudge_sent_at, sequence_in_progress
@@ -1662,6 +1738,21 @@ func (q *Queries) RenameAgent(ctx context.Context, arg RenameAgentParams) ([]str
 		return nil, err
 	}
 	return items, nil
+}
+
+const restampAgentsArchived = `-- name: RestampAgentsArchived :exec
+UPDATE
+    agents
+SET
+    archived_at = NOW()
+WHERE
+    id = ANY ($1::uuid[])
+    AND archived_at IS NOT NULL
+`
+
+func (q *Queries) RestampAgentsArchived(ctx context.Context, ids []string) error {
+	_, err := q.db.Exec(ctx, restampAgentsArchived, ids)
+	return err
 }
 
 const restoreAgents = `-- name: RestoreAgents :exec
