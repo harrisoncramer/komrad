@@ -9,6 +9,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"weave/internal/fail"
 )
 
 // Explainer: a park is a commit parented on the head it was taken at, holding the whole
@@ -263,7 +265,7 @@ func copyIndex(ctx context.Context, root, index string, _ []string) error {
 
 // errIndexUnreadable is the one failure the fallback stands for, so a snapshot seeded from the
 // last commit means the agent's index could not be read rather than that anything at all failed.
-var errIndexUnreadable = errors.New("the agent's index cannot be read")
+var errIndexUnreadable = fail.Internal("the agent's index cannot be read")
 
 // seedIndexFromAgent copies the agent's index over and clears the flags on the hidden paths the
 // worktree still holds.
