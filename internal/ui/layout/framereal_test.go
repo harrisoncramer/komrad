@@ -53,6 +53,36 @@ func TestSidebarWidthFollowsADraggedDividerUnderTheWindow(t *testing.T) {
 	assert.Equal(t, 50, width, "and holding the window leaves the divider where it was")
 }
 
+// Explainer: a stage pane that dies is the ordinary end of anything the panel runs there, an
+// editor being the one a person quits by hand. The frame splits another to replace it, and the
+// split is where the divider is set, so a width the user dragged to has to survive that or every
+// editor they close moves their panel.
+
+// TestADeadStagePaneIsReplacedAtTheDraggedWidth covers the divider outliving whatever was in the
+// pane beside the sidebar.
+func TestADeadStagePaneIsReplacedAtTheDraggedWidth(t *testing.T) {
+	frame, server, sidebar := realFrame(t)
+
+	stage := frame.Pane(RegionStage)
+	total := paneWidth(t, server, sidebar) + paneWidth(t, server, stage) + 1
+
+	server.Run("resize-pane", "-t", sidebar, "-x", "50")
+	frame.SyncSplit()
+	require.Equal(t, 50, paneWidth(t, server, sidebar), "the divider is dragged off the configured width")
+
+	// The editor the person opened here has been quit, which is the pane going with it.
+	server.Run("kill-pane", "-t", stage)
+	frame.Show(RegionStage, newDocument("# back to the diff"))
+
+	replaced := frame.Pane(RegionStage)
+	require.NotEqual(t, stage, replaced, "the dead pane was replaced")
+	assert.Equal(t, 50, paneWidth(t, server, sidebar), "and the sidebar is left where it was dragged")
+
+	width, measured := frame.SidebarWidth(total)
+	assert.Equal(t, 50, width, "so what the panel draws in agrees with what tmux gave it")
+	assert.True(t, measured)
+}
+
 func paneWidth(t *testing.T, server *tmuxtest.Server, pane string) int {
 	t.Helper()
 

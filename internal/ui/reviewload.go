@@ -151,6 +151,9 @@ type loadReviewCmdParams struct {
 	Base string
 	// Head is the commit to measure it to, empty for the round's own snapshot.
 	Head string
+	// Fresh asks for a snapshot of the worktree as it stands rather than the one an unsent review
+	// was opened against, which is what shows a reader their own edits.
+	Fresh bool
 }
 
 // loadReviewCmd opens a round of the agent and reads that rather than the worktree, a tree that
@@ -186,7 +189,15 @@ func (m model) loadReviewCmd(params loadReviewCmdParams) tea.Cmd {
 			return reviewLoadedMsg{agentID: agentID, err: roundsErr}
 		}
 
-		round, pinned := findPendingRound(rounds, openBatch)
+		// The pin holds the agent's writing off the diff, and in a pass the only writer left is
+		// the reader, whose own edits it would hide from them.
+		var round *agentv1.ReviewRound
+
+		var pinned bool
+		if !params.Fresh {
+			round, pinned = findPendingRound(rounds, openBatch)
+		}
+
 		if round == nil {
 			opened, err := agents.OpenReviewRound(ctx, connect.NewRequest(&agentv1.OpenReviewRoundRequest{
 				AgentId: agentID,
@@ -491,6 +502,7 @@ func (m model) reloadReview() (model, tea.Cmd) {
 		Exclude: m.review.exclude,
 		Base:    m.review.base,
 		Head:    m.review.head,
+		Fresh:   m.review.mode == modeReviewing,
 	})
 }
 

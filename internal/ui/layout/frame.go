@@ -3,6 +3,7 @@ package layout
 import (
 	"log/slog"
 	"os"
+	"strconv"
 
 	"weave/config"
 	"weave/internal/panes"
@@ -407,9 +408,23 @@ func (f *Frame) claimStage() {
 	f.forget(RegionInfo)
 
 	if f.stage != "" {
-		f.tmux.ResizePane(f.sidebar, f.spec.sidebarSize)
+		f.tmux.ResizePane(f.restoredDivider())
 		f.SyncSplit()
 	}
+}
+
+// Explainer: the split is where the divider is set, and a stage pane dies for ordinary reasons,
+// an editor being quit by hand among them. Setting the configured width every time would move a
+// panel the person had dragged, on nothing they did to the panel.
+
+// restoredDivider is the pane to size and what to size it to, which is the stage at the width the
+// divider was last measured at, and the configured sidebar when nothing has measured it yet.
+func (f *Frame) restoredDivider() (pane, width string) {
+	if f.stageCols > 0 {
+		return f.stage, strconv.Itoa(f.stageCols)
+	}
+
+	return f.sidebar, f.spec.sidebarSize
 }
 
 func (f *Frame) splitStage() string {
