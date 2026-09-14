@@ -56,6 +56,7 @@ flags, and the response is the API's own JSON on stdout.
 * [weave rpc release-review](weave_rpc_release-review.md)	 - Let go of the review you have been writing on another agent's diff, which is what sends it.
 * [weave rpc rename-agent](weave_rpc_rename-agent.md)	 - Rename an agent, keyed by its id rather than its current name.
 * [weave rpc request-review](weave_rpc_request-review.md)	 - Get your own work read before you call it finished, which spawns the reviewer for you and hands you back the rest of the loop.
+* [weave rpc resolve-review-thread](weave_rpc_resolve-review-thread.md)	 - Settle a review thread you wrote, once the answer to it is good enough, or reopen one you settled too early.
 * [weave rpc restore-agents](weave_rpc_restore-agents.md)	 - Take a list of agents out of the archive, keyed by id, along with the workflows they belong to.
 * [weave rpc restore-workflow](weave_rpc_restore-workflow.md)	 - Take a workflow out of the archive, keyed by id, along with every agent archived inside it.
 * [weave rpc resume-agent](weave_rpc_resume-agent.md)	 - Relaunch an agent's CLI on the same conversation, keyed by id, which is what reaches an agent whose pane has since died.
