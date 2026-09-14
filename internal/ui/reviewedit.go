@@ -37,6 +37,9 @@ func editorLineArgs(command, path string, line int) []string {
 		return []string{"--wait", at}
 	case "hx", "helix":
 		return []string{at}
+	case "goland", "idea", "pycharm", "webstorm", "phpstorm", "rubymine", "clion", "rider",
+		"rustrover", "datagrip":
+		return []string{"--wait", "--line", fmt.Sprint(line), shellQuote(path)}
 	}
 
 	return []string{fmt.Sprintf("+%d", line), shellQuote(path)}

@@ -54,6 +54,11 @@ func TestEditorShellNamesTheLineTheEditorUnderstands(t *testing.T) {
 			want:   "exec hx 'greet.go:42'",
 		},
 		{
+			name:   "a jetbrains launcher takes the line as its own flag",
+			editor: "goland",
+			want:   "exec goland --wait --line 42 'greet.go'",
+		},
+		{
 			name:   "vi takes the line as a flag",
 			editor: "vi",
 			want:   "exec vi +42 'greet.go'",
