@@ -229,7 +229,7 @@ func searchMenuTop(drawn []string) int {
 	}
 
 	for i >= 0 && strings.TrimSpace(drawn[i]) != "" {
-		// Codex draws the menu under the composer, so a block carrying the marker is the composer.
+		// Codex draws the menu under the composer.
 		if composerMarker.MatchString(drawn[i]) {
 			return -1
 		}
