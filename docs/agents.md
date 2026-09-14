@@ -26,7 +26,7 @@ Where the agent runs depends on what is already there. When nothing has the bran
 
 The branch belongs to whoever made it. Weave never resets it, and deleting an adopted agent removes the worktree but leaves the branch alone. Adopting a branch that already has an agent on it is refused, naming the agent that has it, since git could not check the branch out twice anyway.
 
-The agent starts knowing what it walked into: the prompt it is given is prefixed with the branch, the pull request if there is one, and that the commits are not its own to rewrite. Leave the prompt blank and it is told nothing has been asked of it yet, and to say when it is ready and wait. A pull request is recorded on the agent as it starts, so the `o` key opens it straight away.
+The agent starts knowing what it walked into: the prompt it is given is prefixed with the branch, the pull request if there is one, and that the commits are not its own to rewrite. Leave the prompt blank and it is told nothing has been asked of it yet, and to say when it is ready and wait. A pull request is recorded on the agent as it starts, so `b` then `o` opens it straight away.
 
 Agents can adopt too, through `adopt` over [MCP](mcp.md).
 
@@ -49,6 +49,12 @@ Because they all edit the one checkout, one agent may hold only a few children a
 Metadata is how an agent records what a person would want to open later. It is a set of key/value rows on the agent, written by the agent.
 
 The panel shows those in the details under the list, after what the agent was launched with, and agents write them with `set_agent_metadata`, keyed on their own id from `WEAVE_AGENT_ID` environment variable.
+
+## The git menu
+
+`b`, for branch, draws the git actions beside the list: `r` rebases the hovered agent's worktree onto the latest base, and `o` opens the pull request it recorded. Either is picked with its own letter or with the cursor, and `esc` leaves without doing anything.
+
+An entry that would do nothing on this agent says so in the menu rather than leaving the key dead. An agent whose workflow makes no worktrees has no base to rebase onto, and an agent nothing has recorded a pull request on has no address to open.
 
 ## Marks
 

@@ -27,7 +27,6 @@ var takenAndUndrawn = map[screen][]undrawn{
 		{key: "esc", reason: "on the root list this is the quit key by another name"},
 		{key: "V", reason: "select to nearest is named once the selection it needs is standing"},
 		{key: "L", reason: "the earlier run is named only while the pane is showing one"},
-		{key: "W", reason: "the expanded legend is at the row budget TestScreensFitThePane pins, so refresh is undrawn until a row is freed"},
 	},
 	screenSchedules: {
 		{key: "ctrl+c", reason: "quit is not worth a row on any screen"},
