@@ -5,6 +5,7 @@ import (
 	"slices"
 	"strings"
 
+	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
 	"weave/lib/xslice"
 	hookv1 "weave/proto/gen/hook/v1"
@@ -156,12 +157,26 @@ func (m model) archiveWorkflowConfirm(workflow workflowstore.Workflow) (tea.Mode
 				return m, nil
 			}
 
+			m.releasePanes(m.agentsOf(workflow.ID))
+
 			return m, m.writeCmd(
 				fmt.Sprintf("Could not archive workflow %q", workflow.Name),
 				func(a api) error { return a.archiveWorkflow(workflow.ID) },
 			)
 		}),
 	})
+}
+
+// agentsOf is the agents the last listing found inside a workflow.
+func (m model) agentsOf(workflowID string) []agentstore.Agent {
+	var held []agentstore.Agent
+	for _, item := range m.listing.agents {
+		if item.agent.WorkflowID == workflowID {
+			held = append(held, item.agent)
+		}
+	}
+
+	return held
 }
 
 // updateWorkflowForm is the one form whose fields change as it is answered, so it watches the

@@ -210,6 +210,41 @@ func TestStagedAgentExitsOnItsOwn(t *testing.T) {
 		"the panel is a nav pane and a stage pane again, the now-dormant agent's record in the stage")
 }
 
+// TestArchivingAWorkflowSendsItsPanesBack covers the panel's own stage pane, which is parked in
+// the staged agent's window and would be killed with it.
+func TestArchivingAWorkflowSendsItsPanesBack(t *testing.T) {
+	staged := newStagedPanel(t)
+	panel := staged.panel
+	stagePane := panel.frame.Pane(layout.RegionStage)
+
+	width := func(pane string) string {
+		return staged.instance.Tmux.Run("display-message", "-p", "-t", pane, "#{pane_width}")
+	}
+	// The divider dragged where the user wants it rather than where the config put it.
+	staged.instance.Tmux.Run("resize-pane", "-t", staged.navPane, "-x", "60")
+	dragged := width(staged.agentPane)
+
+	panel.tree.cursor = 0
+	require.True(t, isHoveringWorkflow(panel), "the cursor is on the folder the agent is in")
+
+	updated, _ := panel.Update(keyMsg(panel.keys.Workflows.Archive[0]))
+	pressed, ok := updated.(model)
+	require.True(t, ok)
+	require.Equal(t, formWorkflowArchive, pressed.form.kind)
+
+	pressed.form.form.State = huh.StateCompleted
+	confirmed, cmd := pressed.form.update(pressed, keyMsg("enter"))
+	panel, ok = confirmed.(model)
+	require.True(t, ok)
+	panel = settle(t, panel, cmd)
+	panel = settle(t, panel, panel.refreshCmd())
+
+	assert.Empty(t, panel.frame.GuestPane(), "the archived agent's pane is not left standing in the panel")
+	require.True(t, panel.tmux.IsPaneAlive(stagePane), "the panel's own stage pane outlives the archive")
+	assert.Equal(t, stagePane, panel.frame.Pane(layout.RegionStage), "so the panel is not left splitting another")
+	assert.Equal(t, dragged, width(stagePane), "and the divider stays where it was dragged")
+}
+
 type stagedPanel struct {
 	instance  *weavetest.Instance
 	panel     model
