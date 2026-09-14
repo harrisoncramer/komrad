@@ -150,9 +150,7 @@ type loadReviewCmdParams struct {
 	// Base is the commit to measure the round from, empty for the point the branch left main.
 	Base string
 	// Head is the commit to measure it to, empty for the round's own snapshot.
-	Head string
-	// Fresh asks for a snapshot of the worktree as it stands rather than the one an unsent review
-	// was opened against, which is what shows a reader their own edits.
+	Head  string
 	Fresh bool
 }
 
@@ -189,8 +187,6 @@ func (m model) loadReviewCmd(params loadReviewCmdParams) tea.Cmd {
 			return reviewLoadedMsg{agentID: agentID, err: roundsErr}
 		}
 
-		// The pin holds the agent's writing off the diff, and in a pass the only writer left is
-		// the reader, whose own edits it would hide from them.
 		var round *agentv1.ReviewRound
 
 		var pinned bool

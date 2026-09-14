@@ -53,13 +53,7 @@ func TestSidebarWidthFollowsADraggedDividerUnderTheWindow(t *testing.T) {
 	assert.Equal(t, 50, width, "and holding the window leaves the divider where it was")
 }
 
-// Explainer: a stage pane that dies is the ordinary end of anything the panel runs there, an
-// editor being the one a person quits by hand. The frame splits another to replace it, and the
-// split is where the divider is set, so a width the user dragged to has to survive that or every
-// editor they close moves their panel.
-
-// TestADeadStagePaneIsReplacedAtTheDraggedWidth covers the divider outliving whatever was in the
-// pane beside the sidebar.
+// TestADeadStagePaneIsReplacedAtTheDraggedWidth keeps the dragged sidebar width.
 func TestADeadStagePaneIsReplacedAtTheDraggedWidth(t *testing.T) {
 	frame, server, sidebar := realFrame(t)
 
@@ -70,7 +64,6 @@ func TestADeadStagePaneIsReplacedAtTheDraggedWidth(t *testing.T) {
 	frame.SyncSplit()
 	require.Equal(t, 50, paneWidth(t, server, sidebar), "the divider is dragged off the configured width")
 
-	// The editor the person opened here has been quit, which is the pane going with it.
 	server.Run("kill-pane", "-t", stage)
 	frame.Show(RegionStage, newDocument("# back to the diff"))
 

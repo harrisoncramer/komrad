@@ -408,23 +408,20 @@ func (f *Frame) claimStage() {
 	f.forget(RegionInfo)
 
 	if f.stage != "" {
-		f.tmux.ResizePane(f.restoredDivider())
+		f.tmux.ResizePane(f.restoredSidebar())
 		f.SyncSplit()
 	}
 }
 
-// Explainer: the split is where the divider is set, and a stage pane dies for ordinary reasons,
-// an editor being quit by hand among them. Setting the configured width every time would move a
-// panel the person had dragged, on nothing they did to the panel.
-
-// restoredDivider is the pane to size and what to size it to, which is the stage at the width the
-// divider was last measured at, and the configured sidebar when nothing has measured it yet.
-func (f *Frame) restoredDivider() (pane, width string) {
-	if f.stageCols > 0 {
-		return f.stage, strconv.Itoa(f.stageCols)
+func (f *Frame) restoredSidebar() (pane, width string) {
+	if f.stageCols == 0 {
+		return f.sidebar, f.spec.sidebarSize
 	}
 
-	return f.sidebar, f.spec.sidebarSize
+	total := f.tmux.GetPaneWidth(f.sidebar) + f.tmux.GetPaneWidth(f.stage) + 1
+	sidebarWidth, _ := f.SidebarWidth(total)
+
+	return f.sidebar, strconv.Itoa(sidebarWidth)
 }
 
 func (f *Frame) splitStage() string {

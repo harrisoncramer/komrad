@@ -327,19 +327,13 @@ func TestADroppedPassKeepsTheFilesForAReadersOwnPause(t *testing.T) {
 	assert.Contains(t, agents.letGo.GetSaid(), "greet.go", "and the files survived the drop")
 }
 
-// Explainer: the diff is pinned to the snapshot an unsent review was opened against so the agent
-// writing cannot move it under a reader part way through. In a pass the agent is stopped, so the
-// only writer left is the reader, and pinning would hide their own edits from them.
-
-// TestAPassRedrawsTheReadersOwnEdits covers pressing the edit key, changing the file and coming
-// back to a diff that still says what it said before.
+// TestAPassRedrawsTheReadersOwnEdits redraws the reader's worktree changes.
 func TestAPassRedrawsTheReadersOwnEdits(t *testing.T) {
 	repo := newFakeRepo(t.TempDir())
 	agents := &fakeReviewAgents{}
 	m, _ := reviewModelOver(t, agents, repo)
 	m = openReview(t, m)
 
-	// A comment, which is what pins the diff to the snapshot the pass opened on.
 	next, cmd := m.updateReview(keyMsg("c"))
 	m, ok := next.(model)
 	require.True(t, ok)
@@ -355,7 +349,6 @@ func TestAPassRedrawsTheReadersOwnEdits(t *testing.T) {
 	m.review.cursor = reviewRowWithAnEditTarget(t, m)
 	m = pressEdit(t, m)
 
-	// The reader's editor wrote to the worktree, which is the only writer a pass leaves.
 	repo.wrote(wroteParams{Tree: "tree-the-reader-edited", Whole: fakePatchWrittenOver})
 
 	next, cmd = m.closeReviewEdit()
@@ -367,10 +360,8 @@ func TestAPassRedrawsTheReadersOwnEdits(t *testing.T) {
 	require.True(t, ok)
 	m.applyReviewLoaded(loaded)
 
-	assert.Equal(t, snapshotOf("tree-the-reader-edited"), m.review.view.GetSnapshotSHA(),
-		"the diff is drawn to the worktree as the reader left it")
-	assert.Contains(t, ansi.Strip(m.reviewView()), "written by the agent",
-		"so their own edit is on the screen they are reviewing from")
+	assert.Equal(t, snapshotOf("tree-the-reader-edited"), m.review.view.GetSnapshotSHA())
+	assert.Contains(t, ansi.Strip(m.reviewView()), "written by the agent")
 }
 
 // settlePauseBatch runs a batch holding the stop and whatever was opened beside it, and hands the
