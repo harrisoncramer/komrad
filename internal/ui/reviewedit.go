@@ -3,6 +3,7 @@ package ui
 import (
 	"fmt"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	agentstore "weave/internal/store/agent"
@@ -66,7 +67,8 @@ func editorContent(editor, dir, path string, line int) layout.Content {
 	}
 }
 
-// pressReviewEdit is the edit key, refused on a round the agent has written past.
+// pressReviewEdit is the edit key, refused on a round the agent has written past, and the way
+// into a pass when the reader is still only watching.
 func (m model) pressReviewEdit() (tea.Model, tea.Cmd) {
 	if said, history := m.isReviewHistory(); history && !m.review.atEditor {
 		m.review.notice = said + " is finished, so the worktree no longer holds these lines · " +
@@ -75,37 +77,78 @@ func (m model) pressReviewEdit() (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	next, cmd, _ := m.editReviewFile()
+	if m.review.mode != modeReviewing {
+		// The refusals are read before the agent is stopped, since stopping one to then say the
+		// key was never going to open anything is a real thing done for nothing.
+		if reason, refused := m.isReviewEditRefused(); refused {
+			m.review.notice = reason
 
-	return next, cmd
+			return m, nil
+		}
+
+		return m.startReviewPass(intentEdit)
+	}
+
+	return m.editReviewFile()
+}
+
+// isReviewEditRefused is why the edit key would open nothing, read before a pass is opened for it.
+func (m model) isReviewEditRefused() (string, bool) {
+	if _, _, ok := m.review.view.GetEditTarget(m.review.cursor); !ok {
+		return "that file was deleted, so there is nothing to open", true
+	}
+
+	if reason, unreadable := m.isReviewAgentUnreadable(); unreadable {
+		return reason, true
+	}
+
+	if reason, owed := m.isReviewOwedAnAnswer(); owed {
+		return reason, true
+	}
+
+	return "", false
+}
+
+// isReviewAgentUnreadable reports whether weave cannot say what the agent is doing, which is the
+// one state a pass may not stop its way out of.
+func (m model) isReviewAgentUnreadable() (string, bool) {
+	item, ok := m.getReviewAgentItem()
+	if !ok || !item.alive || item.agent.State != agentstore.StateUncertain {
+		return "", false
+	}
+
+	// Explainer: uncertain is weave failing to read the pane rather than the agent doing nothing,
+	// so an agent part way through a build or a screen weave has no pattern for sits here while it
+	// writes. A pause is granted on a reading of that same pane, so asking for one here would be
+	// asking the thing that cannot answer.
+	return "weave cannot read this agent's pane, so it may be writing in this worktree · " +
+		"look at the pane before you edit", true
 }
 
 // editReviewFile opens the file under the cursor in the agent's own worktree, in the stage beside
-// the sidebar, and reports whether anything was opened.
-func (m model) editReviewFile() (tea.Model, tea.Cmd, bool) {
+// the sidebar.
+func (m model) editReviewFile() (tea.Model, tea.Cmd) {
 	if m.review.atEditor {
-		next, cmd := m.closeReviewEdit()
-
-		return next, cmd, false
+		return m.closeReviewEdit()
 	}
 
 	path, line, ok := m.review.view.GetEditTarget(m.review.cursor)
 	if !ok {
 		m.review.notice = "that file was deleted, so there is nothing to open"
 
-		return m, nil, false
+		return m, nil
 	}
 
 	if reason, busy := m.isReviewAgentBusy(); busy {
 		m.review.notice = reason
 
-		return m, nil, false
+		return m, nil
 	}
 
 	if reason, owed := m.isReviewOwedAnAnswer(); owed {
 		m.review.notice = reason
 
-		return m, nil, false
+		return m, nil
 	}
 
 	m.frame.Show(layout.RegionStage, editorContent(m.editor, m.review.root, path, line))
@@ -116,16 +159,18 @@ func (m model) editReviewFile() (tea.Model, tea.Cmd, bool) {
 	if pane == "" {
 		m.review.notice = "there is no room beside the sidebar for an editor"
 
-		return m, nil, false
+		return m, nil
 	}
 
-	m.review.mode = modeEditing
 	m.review.atEditor = true
 	m.review.editingPath = path
 	m.review.editorPane = pane
+	if !slices.Contains(m.review.touched, path) {
+		m.review.touched = append(m.review.touched, path)
+	}
 	m.tmux.SelectPane(pane)
 
-	return m, nil, true
+	return m, nil
 }
 
 // Explainer: an agent sitting on comments nobody has settled is a writer that has not started
@@ -153,6 +198,12 @@ func (m model) isReviewOwedAnAnswer() (string, bool) {
 
 // isReviewAgentBusy reports whether the agent may be writing in the tree the editor would open.
 func (m model) isReviewAgentBusy() (string, bool) {
+	// A pass stops the agent before it opens anything, and an agent that has been seen to stop is
+	// not writing, whatever the state on its row was read as before that.
+	if m.review.paused {
+		return "", false
+	}
+
 	item, ok := m.getReviewAgentItem()
 	if !ok || !item.alive {
 		return "", false
@@ -165,12 +216,7 @@ func (m model) isReviewAgentBusy() (string, bool) {
 		return "the agent is writing in this worktree · " +
 			"two writers in one checkout cannot both win, so stop it before you edit", true
 	case agentstore.StateUncertain:
-		// Explainer: uncertain is weave failing to read the pane rather than the agent doing
-		// nothing, so an agent part way through a build or a screen weave has no pattern for sits
-		// here while it writes. Nothing the panel knows can say the tree is idle, and the editor is
-		// the one place that has to be sure.
-		return "weave cannot read this agent's pane, so it may be writing in this worktree · " +
-			"look at the pane before you edit", true
+		return m.isReviewAgentUnreadable()
 	case agentstore.StateWaiting, agentstore.StateIdle, agentstore.StateSettingUp,
 		agentstore.StateFailedToCreate, agentstore.StateFailedToCleanup:
 	}
@@ -189,9 +235,9 @@ func (m model) getReviewAgentItem() (agentItem, bool) {
 	return agentItem{}, false
 }
 
-// closeReviewEdit gives the stage back to the diff and reads the worktree again.
+// closeReviewEdit gives the stage back to the diff and reads the worktree again, staying in the
+// pass, since closing an editor is not the end of reading somebody's work.
 func (m model) closeReviewEdit() (tea.Model, tea.Cmd) {
-	m.review.mode = modeWatching
 	m.review.atEditor = false
 	m.review.editingPath = ""
 	m.review.editorPane = ""

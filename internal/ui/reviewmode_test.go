@@ -344,12 +344,35 @@ func editorKey() tea.KeyMsg {
 func pressEdit(t *testing.T, m model) model {
 	t.Helper()
 
-	next, _ := m.updateReview(editorKey())
+	next, cmd := m.updateReview(editorKey())
 	written, ok := next.(model)
 	require.True(t, ok)
 	require.Empty(t, written.review.notice, "the press opened the editor")
 
+	// The first write in a pass stops the agent first, so the editor opens on the answer to that
+	// rather than on the keypress.
+	if written.review.pausing {
+		written = settlePause(t, written, cmd)
+	}
+
 	return written
+}
+
+// settlePause runs the stop the pass asked for and hands the panel what came back, which is what
+// opens the editor or the composer.
+func settlePause(t *testing.T, m model, cmd tea.Cmd) model {
+	t.Helper()
+
+	require.NotNil(t, cmd, "the pass asked for the agent to stop")
+
+	paused, ok := cmd().(reviewPausedMsg)
+	require.True(t, ok, "a pass waits on the agent stopping")
+
+	next, _ := m.applyReviewPaused(paused)
+	settled, ok := next.(model)
+	require.True(t, ok)
+
+	return settled
 }
 
 // reviewRowWithAnEditTarget is a row the editor key has something to open.
@@ -395,33 +418,58 @@ func TestAnEditThatTakesOpensTheEditingMode(t *testing.T) {
 
 	m = pressEdit(t, m)
 
-	assert.Equal(t, modeEditing, m.review.mode)
+	assert.Equal(t, modeReviewing, m.review.mode)
 	assert.True(t, m.review.atEditor, "the editor holds the stage")
 	assert.NotEmpty(t, m.review.editingPath, "and the band can name what it opened")
 }
 
-// TestAnEditIsRefusedWhileTheAgentsTurnRuns pins the one thing standing between you and the
-// worktree: two writers in one checkout.
-func TestAnEditIsRefusedWhileTheAgentsTurnRuns(t *testing.T) {
+// TestAnEditPausesAnAgentMidTurn pins what a pass does about two writers in one checkout: it
+// stops the one that is not you, rather than refusing you the key.
+func TestAnEditPausesAnAgentMidTurn(t *testing.T) {
 	dir := reviewRepo(t)
 	agents := &fakeReviewAgents{}
 	m, _ := reviewModel(t, agents, dir)
 	m = openReview(t, m)
 
-	for i, item := range m.listing.agents {
-		if item.agent.ID == m.review.agentID {
-			m.listing.agents[i].agent.State = agentstore.StateThinking
-		}
-	}
-
+	setReviewAgentState(&m, agentstore.StateThinking)
 	m.review.cursor = reviewRowWithAnEditTarget(t, m)
 
-	next, _ := m.updateReview(editorKey())
+	next, cmd := m.updateReview(editorKey())
 	m = next.(model)
 
-	assert.Equal(t, modeWatching, m.review.mode, "nothing opened")
-	assert.False(t, m.review.atEditor)
-	assert.Contains(t, m.review.notice, "stop it before you edit")
+	require.True(t, m.review.pausing, "the editor waits on the agent stopping")
+	assert.False(t, m.review.atEditor, "so nothing is open over a writer yet")
+
+	m = settlePause(t, m, cmd)
+
+	require.NotNil(t, agents.held, "the agent was asked to stop")
+	assert.Equal(t, m.review.agentID, agents.held.GetId())
+	assert.True(t, m.review.paused)
+	assert.True(t, m.review.atEditor, "and the editor opens once it has")
+}
+
+// TestAPassThatCannotStopTheAgentOpensNothing pins the case the whole wait is for: an interrupt
+// that never lands must not put a second writer in the tree.
+func TestAPassThatCannotStopTheAgentOpensNothing(t *testing.T) {
+	dir := reviewRepo(t)
+	agents := &fakeReviewAgents{holdErr: errors.New("the agent did not stop")}
+	m, _ := reviewModel(t, agents, dir)
+	m = openReview(t, m)
+
+	// An idle agent is the case with nothing else standing in the way, so what keeps the editor
+	// shut here is the stop not having landed rather than the row saying the agent is writing.
+	setReviewAgentState(&m, agentstore.StateIdle)
+	m.review.cursor = reviewRowWithAnEditTarget(t, m)
+
+	next, cmd := m.updateReview(editorKey())
+	m = next.(model)
+	require.False(t, m.review.atEditor, "nothing opens while the agent may still be writing")
+
+	m = settlePause(t, m, cmd)
+
+	assert.Equal(t, modeWatching, m.review.mode, "the pass is given up rather than opened")
+	assert.False(t, m.review.paused)
+	assert.False(t, m.review.atEditor, "and nothing is open over an agent that may be writing")
 }
 
 // TestTheEditorClosingGivesTheStageBack covers the screen noticing an editor that was quit
@@ -434,14 +482,14 @@ func TestTheEditorClosingGivesTheStageBack(t *testing.T) {
 
 	m.review.cursor = reviewRowWithAnEditTarget(t, m)
 	m = pressEdit(t, m)
-	require.Equal(t, modeEditing, m.review.mode)
+	require.Equal(t, modeReviewing, m.review.mode)
 	require.NotEmpty(t, m.review.editorPane, "the editor was given a pane")
 
 	tmux.deadPanes = map[string]bool{m.review.editorPane: true}
 
 	m, cmd := m.reconcileEditor()
 
-	assert.Equal(t, modeWatching, m.review.mode, "the mode goes with the pane")
+	assert.Equal(t, modeReviewing, m.review.mode, "closing an editor is not the end of the pass")
 	assert.False(t, m.review.atEditor)
 	assert.NotNil(t, cmd, "and the diff is read again, since the editor may have written to it")
 }
@@ -456,13 +504,13 @@ func TestLeavingTheReviewClosesTheEditorFirst(t *testing.T) {
 
 	m.review.cursor = reviewRowWithAnEditTarget(t, m)
 	m = pressEdit(t, m)
-	require.Equal(t, modeEditing, m.review.mode)
+	require.Equal(t, modeReviewing, m.review.mode)
 
 	next, _ := m.leaveReview()
 	m = next.(model)
 
 	assert.Equal(t, screenReview, m.screen, "the first press gives up the editor rather than the screen")
-	assert.Equal(t, modeWatching, m.review.mode)
+	assert.Equal(t, modeReviewing, m.review.mode, "and stays in the pass the editor was opened in")
 	assert.False(t, m.review.atEditor)
 }
 
@@ -501,7 +549,7 @@ func TestAWaitingAgentDoesNotHoldTheEditKey(t *testing.T) {
 
 	m = pressEdit(t, m)
 
-	assert.Equal(t, modeEditing, m.review.mode)
+	assert.Equal(t, modeReviewing, m.review.mode)
 }
 
 // TestAnUnreadablePaneRefusesTheEditKey pins the state that says weave could not read the pane
@@ -545,11 +593,12 @@ func TestTheGateReadsTheReviewedAgentRatherThanTheFirstRow(t *testing.T) {
 
 	m.review.cursor = reviewRowWithAnEditTarget(t, m)
 
-	next, _ := m.updateReview(editorKey())
+	next, cmd := m.updateReview(editorKey())
 	m = next.(model)
+	m = settlePause(t, m, cmd)
 
-	assert.Equal(t, modeWatching, m.review.mode, "the agent being reviewed is the one that decides")
-	assert.Contains(t, m.review.notice, "stop it before you edit")
+	require.NotNil(t, agents.held, "the agent being reviewed is the one that decides")
+	assert.Equal(t, m.review.agentID, agents.held.GetId(), "rather than whoever is at the top")
 	assert.False(t, m.doesReviewFollowLive(), "and the catch-up reads the same row")
 }
 
@@ -1053,7 +1102,7 @@ func TestEditingADormantAgentIsAllowedWhileOwedAnAnswer(t *testing.T) {
 
 	m = pressEdit(t, m)
 
-	assert.Equal(t, modeEditing, m.review.mode, "an agent that will never answer is not a wait")
+	assert.Equal(t, modeReviewing, m.review.mode, "an agent that will never answer is not a wait")
 }
 
 // TestEditingIsAllowedOnceNothingIsOwed is the other half, since a gate that never lifts is a
@@ -1069,5 +1118,5 @@ func TestEditingIsAllowedOnceNothingIsOwed(t *testing.T) {
 
 	m = pressEdit(t, m)
 
-	assert.Equal(t, modeEditing, m.review.mode)
+	assert.Equal(t, modeReviewing, m.review.mode)
 }

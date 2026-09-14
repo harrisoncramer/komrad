@@ -4,7 +4,6 @@ import (
 	"path/filepath"
 	"testing"
 
-	tea "github.com/charmbracelet/bubbletea"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -85,9 +84,7 @@ func TestEditorOpensAtTheRepositoryRoot(t *testing.T) {
 	require.NotNil(t, m.review.view)
 	require.Equal(t, dir, m.review.root)
 
-	next, _ := m.updateReview(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("e")})
-	written, ok := next.(model)
-	require.True(t, ok)
+	written := pressEdit(t, m)
 	require.True(t, written.review.atEditor, "the edit key opened an editor")
 
 	require.NotEmpty(t, tmux.respawnDirs)

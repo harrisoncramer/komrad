@@ -83,9 +83,20 @@ type reviewState struct {
 	// awaiting says the last released review still holds comments nobody has settled, so a second
 	// one would be refused.
 	awaiting bool
-	// mode is which of the three things the screen is doing: watching the work, editing it, or
-	// reviewing it.
+	// mode is which of the two things the screen is doing: watching the work, or making a pass
+	// over it in which both writing keys are available.
 	mode reviewMode
+	// paused says the agent is stopped for the pass, whoever stopped it.
+	paused bool
+	// pausing is set while the panel is asking for the agent to stop, which is a wait for the
+	// agent to reach a resting place rather than for a message to be sent.
+	pausing bool
+	// ourPause says this pass is what stopped the agent, so ending the pass is what lets it go,
+	// rather than a pause the person took themselves and means to keep.
+	ourPause bool
+	// touched are the files the reader opened an editor on during the pass, oldest first, which
+	// is what the agent is told about when it is let go.
+	touched []string
 	// chapters are the rounds of the review the two step keys walk, oldest first.
 	chapters []reviewChapter
 	// chapter is which of those is on screen, negative for the whole change.
