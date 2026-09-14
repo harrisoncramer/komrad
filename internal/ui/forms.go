@@ -55,6 +55,7 @@ const (
 	formRename
 	formAgentArchive
 	formAgentRefresh
+	formGit
 	formWorkflow
 	formWorkflowArchive
 	formSchedule
@@ -117,7 +118,7 @@ func formColumn(kind formKind) (columnSpec, bool) {
 	switch kind {
 	case formAgent, formChild, formAdopt, formRename, formWorkflow, formSchedule:
 		return columnSpec{floor: formColumnFloor}, true
-	case formAgentArchive, formAgentRefresh, formWorkflowArchive, formScheduleArchive,
+	case formGit, formAgentArchive, formAgentRefresh, formWorkflowArchive, formScheduleArchive,
 		formArchiveDelete, formArchiveEmpty:
 		return columnSpec{floor: columnFloor}, true
 	case formNone:

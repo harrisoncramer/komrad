@@ -4,6 +4,8 @@ import (
 	"fmt"
 
 	"weave/config"
+
+	"github.com/charmbracelet/bubbles/key"
 )
 
 // Explainer: one key on two actions is how the shipped bindings put three actions on the archive
@@ -58,6 +60,62 @@ func ValidateKeybindings(keys config.Keybindings) error {
 	for _, s := range []screen{screenAgents, screenSchedules, screenArchive, screenMail, screenReview} {
 		if err := validateScreenKeys(s, keys); err != nil {
 			return err
+		}
+	}
+
+	return validateGitMenuKeys(keys.Git)
+}
+
+// gitMenuReserved is every key the menu is drawn over, named as the error would name it.
+func gitMenuReserved() map[string]string {
+	km := gitMenuKeyMap(formKeys())
+
+	arms := []struct {
+		describe string
+		binding  key.Binding
+	}{
+		{describe: "the key that takes a form down", binding: km.Quit},
+		{describe: "the key that picks the entry under the cursor", binding: km.Select.Next},
+		{describe: "the key that answers a form", binding: km.Select.Submit},
+		{describe: "the key that moves up a form's list", binding: km.Select.Up},
+		{describe: "the key that moves down a form's list", binding: km.Select.Down},
+	}
+
+	reserved := map[string]string{}
+	for _, arm := range arms {
+		for _, k := range arm.binding.Keys() {
+			reserved[k] = arm.describe
+		}
+	}
+
+	return reserved
+}
+
+// validateGitMenuKeys refuses an entry's key that the menu around it needs.
+func validateGitMenuKeys(keys config.GitKeys) error {
+	entries := []struct {
+		describe string
+		keys     []string
+	}{
+		{describe: "the git menu's rebase", keys: keys.Rebase},
+		{describe: "the git menu's pull request", keys: keys.OpenPR},
+	}
+
+	reserved := gitMenuReserved()
+	answered := map[string]string{}
+
+	for _, entry := range entries {
+		for _, k := range entry.keys {
+			if taken, ok := reserved[k]; ok {
+				return fmt.Errorf("keybindings: %s is bound to %q, which is %s, and the menu answers it first",
+					entry.describe, k, taken)
+			}
+			if taken, ok := answered[k]; ok {
+				return fmt.Errorf("keybindings: in the git menu, %q is bound to both %s and %s, and %s answers every press of it, so the other never runs",
+					k, taken, entry.describe, taken)
+			}
+
+			answered[k] = entry.describe
 		}
 	}
 
