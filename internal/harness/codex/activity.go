@@ -136,7 +136,7 @@ func composerText(frame string) ([]string, bool) {
 	marker := -1
 
 	// Codex draws the file-search menu where the footer would be and draws the row it has
-	// selected at the first column, so the composer is looked for above the menu.
+	// selected at the first column.
 	menu := searchMenuTop(drawn)
 
 	bottom := len(drawn) - 1
@@ -229,6 +229,11 @@ func searchMenuTop(drawn []string) int {
 	}
 
 	for i >= 0 && strings.TrimSpace(drawn[i]) != "" {
+		// Codex draws the menu under the composer, so a block carrying the marker is the composer.
+		if composerMarker.MatchString(drawn[i]) {
+			return -1
+		}
+
 		i--
 	}
 
