@@ -49,7 +49,15 @@ func (q *Queries) DeleteReview(ctx context.Context, id string) error {
 
 const getLastReleasedReview = `-- name: GetLastReleasedReview :one
 SELECT
-    id, agent_id, round_id, author_kind, author_agent_id, verdict, released_at, path, doorbell_mail_id, created_at, updated_at, body
+    v.id, v.agent_id, v.round_id, v.author_kind, v.author_agent_id, v.verdict, v.released_at, v.path, v.doorbell_mail_id, v.created_at, v.updated_at, v.body,
+(
+        SELECT
+            COUNT(*)
+        FROM
+            review_threads t
+        WHERE
+            t.review_id = v.id
+            AND t.resolved_at IS NULL)::int AS open_threads
 FROM
     reviews v
 WHERE
@@ -68,9 +76,25 @@ type GetLastReleasedReviewParams struct {
 	AuthorAgentID *string
 }
 
-func (q *Queries) GetLastReleasedReview(ctx context.Context, arg GetLastReleasedReviewParams) (*Review, error) {
+type GetLastReleasedReviewRow struct {
+	ID             string
+	AgentID        string
+	RoundID        string
+	AuthorKind     ReviewAuthorKind
+	AuthorAgentID  *string
+	Verdict        NullReviewVerdict
+	ReleasedAt     *time.Time
+	Path           string
+	DoorbellMailID *string
+	CreatedAt      time.Time
+	UpdatedAt      time.Time
+	Body           string
+	OpenThreads    int32
+}
+
+func (q *Queries) GetLastReleasedReview(ctx context.Context, arg GetLastReleasedReviewParams) (*GetLastReleasedReviewRow, error) {
 	row := q.db.QueryRow(ctx, getLastReleasedReview, arg.AgentID, arg.AuthorKind, arg.AuthorAgentID)
-	var i Review
+	var i GetLastReleasedReviewRow
 	err := row.Scan(
 		&i.ID,
 		&i.AgentID,
@@ -84,6 +108,7 @@ func (q *Queries) GetLastReleasedReview(ctx context.Context, arg GetLastReleased
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.Body,
+		&i.OpenThreads,
 	)
 	return &i, err
 }

@@ -267,7 +267,21 @@ func (s *Store) GetLastReleasedReview(ctx context.Context, params AuthorParams) 
 		return nil, fmt.Errorf("failed to read the last released review on agent %q: %w", params.AgentID, err)
 	}
 
-	review := reviewFromRow(*row)
+	review := reviewFromRow(models.Review{
+		ID:             row.ID,
+		AgentID:        row.AgentID,
+		RoundID:        row.RoundID,
+		AuthorKind:     row.AuthorKind,
+		AuthorAgentID:  row.AuthorAgentID,
+		Verdict:        row.Verdict,
+		ReleasedAt:     row.ReleasedAt,
+		Body:           row.Body,
+		Path:           row.Path,
+		DoorbellMailID: row.DoorbellMailID,
+		CreatedAt:      row.CreatedAt,
+		UpdatedAt:      row.UpdatedAt,
+	})
+	review.OpenThreads = row.OpenThreads
 
 	return &review, nil
 }

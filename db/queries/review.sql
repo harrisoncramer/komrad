@@ -92,7 +92,15 @@ WHERE
 
 -- name: GetLastReleasedReview :one
 SELECT
-    *
+    v.*,
+(
+        SELECT
+            COUNT(*)
+        FROM
+            review_threads t
+        WHERE
+            t.review_id = v.id
+            AND t.resolved_at IS NULL)::int AS open_threads
 FROM
     reviews v
 WHERE

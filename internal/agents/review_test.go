@@ -1499,7 +1499,32 @@ func (f *fakeReviewStore) GetLastReleasedReview(_ context.Context, params review
 		return nil, fmt.Errorf("%w: released review on %q", store.ErrNotFound, params.AgentID)
 	}
 
-	return f.released, nil
+	released := *f.released
+	released.OpenThreads = f.countOpenThreads(released.ID)
+
+	return &released, nil
+}
+
+// countOpenThreads is how many of a review's conversations nobody has settled, which the store
+// counts in the query rather than holding on the row.
+func (f *fakeReviewStore) countOpenThreads(reviewID string) int32 {
+	held := map[string]reviewstore.Thread{}
+	for _, thread := range f.threads {
+		held[thread.ID] = thread
+	}
+
+	if f.thread.ID != "" {
+		held[f.thread.ID] = f.thread
+	}
+
+	var open int32
+	for _, thread := range held {
+		if thread.ReviewID == reviewID && thread.ResolvedAt == nil {
+			open++
+		}
+	}
+
+	return open
 }
 
 func (f *fakeReviewStore) ListTallies(context.Context) ([]reviewstore.Tally, error) {
@@ -2371,4 +2396,62 @@ func TestSettlingRecordsWhoDidIt(t *testing.T) {
 	require.NoError(t, err)
 	assert.Empty(t, reopened.ResolvedByKind, "reopening takes the record with it")
 	assert.Nil(t, reopened.ResolvedByAgentID)
+}
+
+// Explainer: the rule this replaces asked whether the agent had written since the last review,
+// which an agent can do without answering a word. What says a review is done with is its comments
+// having been settled by whoever wrote them.
+
+// TestASecondReviewWaitsForTheFirstToBeSettled pins both halves of the new rule.
+func TestASecondReviewWaitsForTheFirstToBeSettled(t *testing.T) {
+	reviews := newFakeReviewStore()
+	reviews.comments = 1
+	notices := &fakeNoticeSender{answer: &mailstore.Mail{ID: "mail-1"}}
+	service := reviewService(t, reviews, notices)
+
+	opened, err := service.CreateReviewThread(t.Context(), CreateReviewThreadParams{
+		AgentID:  reviewedAgentID,
+		FilePath: "greet.go",
+		Body:     "this needs a nil check",
+		Author:   humanAuthor(),
+	})
+	require.NoError(t, err)
+	reviews.thread = opened.Thread
+
+	_, err = service.ReleaseReview(t.Context(), ReleaseReviewParams{
+		AgentID: reviewedAgentID,
+		Verdict: reviewstore.VerdictChangesRequested,
+		Author:  humanAuthor(),
+	})
+	require.NoError(t, err)
+
+	_, err = service.AddReviewMessage(t.Context(), AddReviewMessageParams{
+		ThreadID: opened.Thread.ID,
+		Body:     "fixed, added the nil check",
+		Author:   agentAuthor(reviewedAgentID),
+	})
+	require.NoError(t, err, "the agent answers in prose, which is not the same as the finding being done with")
+
+	_, err = service.CreateReviewThread(t.Context(), CreateReviewThreadParams{
+		AgentID:  reviewedAgentID,
+		FilePath: "greet.go",
+		Body:     "and another thing",
+		Author:   humanAuthor(),
+	})
+	require.ErrorIs(t, err, ErrReviewNotAnswered)
+
+	_, err = service.SetReviewThreadResolved(t.Context(), SetReviewThreadResolvedParams{
+		ID:       opened.Thread.ID,
+		Resolved: true,
+		Author:   humanAuthor(),
+	})
+	require.NoError(t, err)
+
+	_, err = service.CreateReviewThread(t.Context(), CreateReviewThreadParams{
+		AgentID:  reviewedAgentID,
+		FilePath: "greet.go",
+		Body:     "and another thing",
+		Author:   humanAuthor(),
+	})
+	require.NoError(t, err, "a settled review is done with, so the next one may start")
 }
