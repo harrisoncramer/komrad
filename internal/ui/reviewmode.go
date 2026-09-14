@@ -13,36 +13,44 @@ import (
 // its own colour.
 var (
 	reviewWatchingStyle = lipgloss.NewStyle().Foreground(paint.Accent).Bold(true)
-	reviewEditingStyle  = lipgloss.NewStyle().Foreground(paint.Success).Bold(true)
 	reviewWritingStyle  = lipgloss.NewStyle().Foreground(paint.Mark).Bold(true)
 	reviewHistoryStyle  = lipgloss.NewStyle().Foreground(paint.Warning).Bold(true)
 	reviewHeldStyle     = lipgloss.NewStyle().Foreground(paint.Muted).Bold(true)
 )
 
-// reviewMode is which of the three things the review screen is doing.
+// Explainer: editing and commenting were two modes a reader had to choose between before doing
+// either, which is not how anybody reads a colleague's work: a line is wrong, and then they either
+// fix it or say something about it. Both are the same pass now, and the pass is what pauses the
+// agent rather than the edit key.
+
+// reviewMode is which of the two things the review screen is doing.
 type reviewMode uint8
 
 const (
 	// modeWatching is the mode the screen opens in, where the diff keeps up with the agent and
 	// nothing a key does reaches it.
 	modeWatching reviewMode = iota
-	// modeEditing is your own editor holding the stage over the agent's worktree.
-	modeEditing
-	// modeReviewing is a round frozen so a batch of comments can be pinned to it.
+	// modeReviewing is a pass over the work, anchored to a snapshot, with the agent paused and
+	// both writing keys available.
 	modeReviewing
 )
 
-// reviewModeView says which of the three the screen is in, and what to press next.
+// reviewModeView says which of the two the screen is in, and what to press next.
 func (m model) reviewModeView() string {
-	switch m.review.mode {
-	case modeEditing:
-		return m.reviewBandRow(reviewEditingStyle, "editing", m.reviewEditingSaid())
-	case modeReviewing:
-		return m.reviewBandRow(reviewWritingStyle, "reviewing", m.reviewWritingSaid())
-	case modeWatching:
+	if m.review.mode == modeReviewing {
+		return m.reviewBandRow(reviewWritingStyle, m.reviewPassLabel(), m.reviewWritingSaid())
 	}
 
 	return m.reviewWatchingView()
+}
+
+// reviewPassLabel is what the band calls the pass, which says the editor is up while it is.
+func (m model) reviewPassLabel() string {
+	if m.review.atEditor {
+		return "reviewing · editing"
+	}
+
+	return "reviewing"
 }
 
 // reviewWatchingView is the mode line while nothing is being written.
@@ -73,29 +81,37 @@ func (m model) reviewWatchingView() string {
 			keyLabel(m.keys.Review.Compose)+" to comment")
 }
 
-// reviewEditingSaid is what the editing mode offers: the file being edited, and the way back to
-// the diff.
-func (m model) reviewEditingSaid() string {
-	said := "the agent's own worktree"
-	if m.review.editingPath != "" {
-		said = m.review.editingPath
+// reviewWritingSaid is what the pass offers: what is happening to the agent, the file under your
+// editor while one is open, and the way out or the way to send.
+func (m model) reviewWritingSaid() string {
+	if m.review.atEditor {
+		return m.review.editingPath + " · " + keyLabel(m.keys.Review.EditFile) + " to come back"
 	}
 
-	return said + " · " + keyLabel(m.keys.Review.EditFile) + " to come back"
-}
+	if m.review.pausing {
+		return "stopping the agent · the pass starts once it has"
+	}
 
-// reviewWritingSaid is what the reviewing mode offers: the way out until something has been
-// written, and the way to send it once something has.
-func (m model) reviewWritingSaid() string {
 	if !m.doesReviewHoldUnsent() {
-		return "nothing written yet · " + keyLabel(m.keys.Review.Back) + " to go back to watching"
+		return m.reviewPausedSaid() + keyLabel(m.keys.Review.Back) + " to let it go"
 	}
 
 	if m.review.pinned {
-		return "the code as it was when you started · " + keyLabel(formKeys().Submit) + " sends it"
+		return m.reviewPausedSaid() + "the code as it was when you started · " +
+			keyLabel(formKeys().Submit) + " sends it"
 	}
 
-	return keyLabel(formKeys().Submit) + " sends it to the agent"
+	return m.reviewPausedSaid() + keyLabel(formKeys().Submit) + " sends it to the agent"
+}
+
+// reviewPausedSaid opens what the band says with the state of the agent, since stopping it is a
+// real thing happening to it that nobody asked for in so many words.
+func (m model) reviewPausedSaid() string {
+	if !m.review.paused {
+		return ""
+	}
+
+	return "agent paused · "
 }
 
 // reviewUnsentCount is how many comments the reader is holding.

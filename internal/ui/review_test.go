@@ -42,6 +42,33 @@ type fakeReviewAgents struct {
 	// reviewReads and roundReads count what one load asked the server for.
 	reviewReads int
 	roundReads  int
+	// held and let go are what the pass did to the agent, and holdErr is an agent that would not
+	// stop.
+	held    *agentv1.HoldAgentRequest
+	letGo   *agentv1.ReleaseAgentRequest
+	holdErr error
+}
+
+func (f *fakeReviewAgents) HoldAgent(
+	_ context.Context,
+	req *connect.Request[agentv1.HoldAgentRequest],
+) (*connect.Response[agentv1.HoldAgentResponse], error) {
+	if f.holdErr != nil {
+		return nil, f.holdErr
+	}
+
+	f.held = req.Msg
+
+	return connect.NewResponse(&agentv1.HoldAgentResponse{}), nil
+}
+
+func (f *fakeReviewAgents) ReleaseAgent(
+	_ context.Context,
+	req *connect.Request[agentv1.ReleaseAgentRequest],
+) (*connect.Response[agentv1.ReleaseAgentResponse], error) {
+	f.letGo = req.Msg
+
+	return connect.NewResponse(&agentv1.ReleaseAgentResponse{}), nil
 }
 
 func (f *fakeReviewAgents) ListReviewViewedFiles(

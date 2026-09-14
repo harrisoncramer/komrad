@@ -29,7 +29,7 @@ func (m model) composeReview() (tea.Model, tea.Cmd) {
 	// into the mode that can. The switch reloads the whole change and puts the cursor back on the
 	// line it was pressed on, which is why one press still means one thing.
 	if m.review.mode != modeReviewing {
-		return m.enterReviewWriting()
+		return m.enterReviewWriting(intentComment)
 	}
 
 	thread, replying := m.reviewThreadAtCursor()
@@ -54,7 +54,7 @@ func (m model) composeReview() (tea.Model, tea.Cmd) {
 
 // enterReviewWriting moves from reading to writing, keeping the reader on the line they pressed
 // the key on, and refuses when that line is in a round the whole change does not draw.
-func (m model) enterReviewWriting() (tea.Model, tea.Cmd) {
+func (m model) enterReviewWriting(intent passIntent) (tea.Model, tea.Cmd) {
 	// Explainer: an older round draws code the agent has since rewritten, so the line under the
 	// cursor has no counterpart in the work a comment could ask it to change. Carrying the reader
 	// across would land them on whatever the anchor now matches, which is not the line they chose.
@@ -68,9 +68,7 @@ func (m model) enterReviewWriting() (tea.Model, tea.Cmd) {
 		}
 	}
 
-	m.review.mode = modeReviewing
-
-	return m.composeReview()
+	return m.startReviewPass(intent)
 }
 
 // refuseReviewLine says why nothing opened on a row that is not a line of code.
@@ -80,17 +78,16 @@ func (m model) refuseReviewLine() (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// leaveReviewWriting goes back to watching, keeping whatever has been written.
+// leaveReviewWriting puts the pass down, keeping whatever has been written and letting the agent
+// go.
 func (m model) leaveReviewWriting() (tea.Model, tea.Cmd) {
-	m.review.mode = modeWatching
-
-	// Comments already written are held by the panel rather than by the mode, so leaving keeps
+	// Comments already written are held by the panel rather than by the pass, so leaving keeps
 	// them and says so, which is the difference between putting a review down and losing it.
 	if m.doesReviewHoldUnsent() {
 		m.review.notice = counted(m.reviewUnsentCount(), "comment") + " kept, still unsent"
 	}
 
-	return m, nil
+	return m.endReviewPass(abandonedSaid)
 }
 
 func (m model) updateReviewComposer(key tea.KeyMsg) (tea.Model, tea.Cmd) {
@@ -374,13 +371,16 @@ func (m model) sendReview(interrupt bool) (tea.Model, tea.Cmd) {
 
 	m = m.closeReviewRelease()
 
-	// The mode existed for the batch that has just gone, so it goes too rather than parking the
-	// reader in a mode whose own keys have withdrawn with the review.
-	m.review.mode = modeWatching
+	// Explainer: the pass existed for the batch that has just gone, so it ends with it rather than
+	// parking the reader in a pass whose own keys have withdrawn with the review. Sending is also
+	// what lets the agent go, since the comments are now in its hands and answering them is the
+	// next thing it does.
+	next, letGo := m.endReviewPass(sentSaid)
+	m, _ = next.(model)
 
 	agents, agentID := m.api.agents, m.review.agentID
 
-	return m, m.reviewWriteNoticeCmd(func(ctx context.Context) (string, error) {
+	sent := m.reviewWriteNoticeCmd(func(ctx context.Context) (string, error) {
 		resp, err := agents.ReleaseReview(ctx, connect.NewRequest(&agentv1.ReleaseReviewRequest{
 			AgentId:   agentID,
 			Verdict:   verdict,
@@ -393,7 +393,20 @@ func (m model) sendReview(interrupt bool) (tea.Model, tea.Cmd) {
 
 		return releasedNotice(verdict, resp.Msg.GetComments(), interrupt), nil
 	})
+
+	// The review goes first, so an agent let go before its comments landed cannot start writing
+	// over the lines they were pinned to.
+	return m, tea.Sequence(sent, letGo)
 }
+
+// abandonedSaid is what an agent is told when a pass ends without a review.
+const abandonedSaid = "I paused you while I read your work and have let you go now. " +
+	"Nothing was sent, so there is nothing of mine to answer."
+
+// sentSaid is what an agent is told when the pass ended by sending it a review.
+const sentSaid = "I paused you while I reviewed your work and have let you go now. " +
+	"My comments are pinned to your work as it stood when I started, so read them against " +
+	"the worktree as it is rather than assuming the lines still match."
 
 func (m model) closeReviewRelease() model {
 	m.review.editor.Blur()

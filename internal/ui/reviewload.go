@@ -453,9 +453,20 @@ func (m model) leaveReview() (tea.Model, tea.Cmd) {
 		return m.closeReviewEdit()
 	}
 
+	// A pass that left the screen still holds the agent, and the state it was recorded in goes
+	// with the screen, so the release is asked for before there is nothing left to ask it of.
+	var letGo tea.Cmd
+	if m.review.mode == modeReviewing {
+		next, cmd := m.endReviewPass(abandonedSaid)
+		m, _ = next.(model)
+		letGo = cmd
+	}
+
 	m.review = reviewState{}
 
-	return m.returnToAgents()
+	next, leaving := m.returnToAgents()
+
+	return next, tea.Batch(letGo, leaving)
 }
 
 func (m model) worktreeFor(agent agentstore.Agent) workflowstore.WorktreeConfig {
