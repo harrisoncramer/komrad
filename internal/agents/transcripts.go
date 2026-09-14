@@ -19,7 +19,7 @@ type transcriptReadWriter interface {
 }
 
 type agentSessionReadWriter interface {
-	ListAll(ctx context.Context) ([]agentstore.Agent, error)
+	ListForTranscriptSync(ctx context.Context) ([]agentstore.Agent, error)
 	SetSessionID(ctx context.Context, id, sessionID string) error
 }
 
@@ -45,10 +45,10 @@ func NewTranscriptSyncer(params NewTranscriptSyncerParams) *TranscriptSyncer {
 	}
 }
 
-// Sync folds any new transcript text for every tracked agent into the store, reading only the
-// bytes appended since that agent's last sync.
+// Sync folds any new transcript text for every agent whose log can still hold unread turns into
+// the store, reading only the bytes appended since that agent's last sync.
 func (ts *TranscriptSyncer) Sync(ctx context.Context) error {
-	agents, err := ts.agents.ListAll(ctx)
+	agents, err := ts.agents.ListForTranscriptSync(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to list agents for transcript sync: %w", err)
 	}
@@ -99,11 +99,6 @@ func (ts *TranscriptSyncer) syncOne(ctx context.Context, agent agentstore.Agent)
 		return err
 	}
 
-	path := hn.LogPath(agent.SessionID)
-	if path == "" {
-		return nil
-	}
-
 	session, err := ts.store.OpenSession(ctx, transcriptstore.OpenSessionParams{
 		AgentID:   agent.ID,
 		SessionID: agent.SessionID,
@@ -112,12 +107,17 @@ func (ts *TranscriptSyncer) syncOne(ctx context.Context, agent agentstore.Agent)
 		return err
 	}
 
-	read, err := hn.ReadLog(path, session.SyncedOffset)
+	read, err := readLog(hn, agent.SessionID, session.SyncedOffset)
 	if err != nil {
 		return err
 	}
 
 	if read.Consumed == 0 && !read.Restart {
+		// A stamp on a log that cannot grow is what takes an archived agent out of the next listing.
+		if agent.ArchivedAt != nil {
+			return ts.store.Advance(ctx, session.ID, session.SyncedOffset)
+		}
+
 		return nil
 	}
 
@@ -139,6 +139,16 @@ func (ts *TranscriptSyncer) syncOne(ctx context.Context, agent agentstore.Agent)
 	}
 
 	return ts.store.Advance(ctx, session.ID, offset+read.Consumed)
+}
+
+// readLog reads whatever a session's log holds past offset, an unwritten log reading as empty.
+func readLog(hn harness.Harness, sessionID string, offset int64) (harness.LogRead, error) {
+	path := hn.LogPath(sessionID)
+	if path == "" {
+		return harness.LogRead{}, nil
+	}
+
+	return hn.ReadLog(path, offset)
 }
 
 func turns(read []harness.Turn) []transcriptstore.Turn {
