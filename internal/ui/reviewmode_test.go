@@ -1012,3 +1012,62 @@ func firstRowInFile(t *testing.T, m model, path string) int {
 
 	return 0
 }
+
+// TestEditingIsRefusedWhileYourReviewIsOwedAnAnswer pins the second of the two gates: an agent
+// sitting on comments nobody has settled will answer them in the tree you would be editing.
+func TestEditingIsRefusedWhileYourReviewIsOwedAnAnswer(t *testing.T) {
+	dir := reviewRepo(t)
+	agents := &fakeReviewAgents{}
+	m, _ := reviewModel(t, agents, dir)
+	m = openReview(t, m)
+
+	m.review.cursor = reviewRowWithAnEditTarget(t, m)
+	m.review.awaiting = true
+
+	next, _ := m.updateReview(editorKey())
+	written, ok := next.(model)
+	require.True(t, ok)
+
+	assert.Equal(t, modeWatching, written.review.mode, "nothing opened")
+	assert.False(t, written.review.atEditor)
+	assert.Contains(t, written.review.notice, "owed an answer")
+	assert.Contains(t, written.review.notice, "comments left open", "and it names the way to them")
+}
+
+// TestEditingADormantAgentIsAllowedWhileOwedAnAnswer pins the escape the service has and this
+// gate needs more, since editing is the one key this screen keeps for an agent nobody can reach.
+func TestEditingADormantAgentIsAllowedWhileOwedAnAnswer(t *testing.T) {
+	dir := reviewRepo(t)
+	agents := &fakeReviewAgents{}
+	m, _ := reviewModel(t, agents, dir)
+	m = openReview(t, m)
+
+	for i, item := range m.listing.agents {
+		if item.agent.ID == m.review.agentID {
+			m.listing.agents[i].alive = false
+		}
+	}
+
+	m.review.cursor = reviewRowWithAnEditTarget(t, m)
+	m.review.awaiting = true
+
+	m = pressEdit(t, m)
+
+	assert.Equal(t, modeEditing, m.review.mode, "an agent that will never answer is not a wait")
+}
+
+// TestEditingIsAllowedOnceNothingIsOwed is the other half, since a gate that never lifts is a
+// gate nobody can get past.
+func TestEditingIsAllowedOnceNothingIsOwed(t *testing.T) {
+	dir := reviewRepo(t)
+	agents := &fakeReviewAgents{}
+	m, _ := reviewModel(t, agents, dir)
+	m = openReview(t, m)
+
+	m.review.cursor = reviewRowWithAnEditTarget(t, m)
+	m.review.awaiting = false
+
+	m = pressEdit(t, m)
+
+	assert.Equal(t, modeEditing, m.review.mode)
+}

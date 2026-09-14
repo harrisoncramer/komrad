@@ -7,7 +7,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
 
 	"weave/internal/fail"
 	"weave/internal/git"
@@ -38,9 +37,9 @@ var ErrReviewAlreadyGiven = fail.Precondition("that round has already been revie
 // unsent comments on another.
 var ErrReviewInFlight = fail.Precondition("you have unsent comments on an earlier snapshot")
 
-// ErrReviewNotAnswered is answered when somebody starts a second review while the agent has yet
-// to act on the one they already sent.
-var ErrReviewNotAnswered = fail.Precondition("the agent has not answered your last review yet")
+// ErrReviewNotAnswered is a second review started while the last one still has comments nobody
+// has settled.
+var ErrReviewNotAnswered = fail.Precondition("your last review is still owed an answer")
 
 // ErrReviewNotCurrent is answered when a comment's line numbers were read from a snapshot no
 // round of that agent was taken of.
@@ -295,7 +294,7 @@ func (s *ReviewService) openReviewFor(
 	// Answering in a thread is not a second review, so the wait for the agent to act is not
 	// something to hold a reply behind.
 	if !params.Reply {
-		if err := s.requirePreviousReviewAnswered(ctx, params.AgentID, author, *round); err != nil {
+		if err := s.requirePreviousReviewAnswered(ctx, params.AgentID, author); err != nil {
 			return nil, err
 		}
 	}
@@ -314,7 +313,6 @@ func (s *ReviewService) requirePreviousReviewAnswered(
 	ctx context.Context,
 	agentID string,
 	params reviewstore.AuthorParams,
-	round reviewstore.Round,
 ) error {
 	// An agent reviewing is held to one review per round elsewhere, in its own words, so this is
 	// the person's rule alone.
@@ -322,11 +320,10 @@ func (s *ReviewService) requirePreviousReviewAnswered(
 		return nil
 	}
 
-	// Explainer: the danger a second review runs is being about code that predates the agent's
-	// answer to the first, so the two arrive as one set of comments describing two versions of
-	// the work. What clears that is work the agent has done since, which is a round taken after
-	// the one the last review was against. An older round is no evidence of anything, and naming
-	// one is how a caller reaches this guard from the wrong side.
+	// Explainer: the danger a second review runs is stacking, where one set of comments is still
+	// owed an answer and another arrives about the same work. What says the first is done with is
+	// its comments having been settled by whoever wrote them, rather than the agent having
+	// written or said anything, either of which it can do without the finding being dealt with.
 	last, err := s.reviews.GetLastReleasedReview(ctx, params)
 	if errors.Is(err, store.ErrNotFound) {
 		return nil
@@ -334,26 +331,7 @@ func (s *ReviewService) requirePreviousReviewAnswered(
 	if err != nil {
 		return err
 	}
-	if last.ReleasedAt == nil {
-		return nil
-	}
-
-	reviewed, err := s.rounds.GetRound(ctx, last.RoundID)
-	if err != nil {
-		return err
-	}
-	if round.Ordinal > reviewed.Ordinal {
-		return nil
-	}
-
-	// The briefing tells an agent it may answer a finding in prose rather than by writing code,
-	// so words written since the review are an answer to it and the tree standing still is not
-	// silence.
-	answered, err := s.hasAnsweredSince(ctx, agentID, *last.ReleasedAt)
-	if err != nil {
-		return err
-	}
-	if answered {
+	if last.IsSettled() {
 		return nil
 	}
 
@@ -364,32 +342,8 @@ func (s *ReviewService) requirePreviousReviewAnswered(
 		return nil
 	}
 
-	return fmt.Errorf("%w: it has written nothing since", ErrReviewNotAnswered)
-}
-
-// hasAnsweredSince reports whether the agent under review has said anything in its threads
-// since the given moment.
-func (s *ReviewService) hasAnsweredSince(ctx context.Context, agentID string, since time.Time) (bool, error) {
-	threads, err := s.ListReviewThreads(ctx, ListReviewThreadsParams{
-		AgentID: agentID,
-		Author:  ReviewAuthor{Kind: reviewstore.AuthorHuman},
-	})
-	if err != nil {
-		return false, err
-	}
-
-	for _, thread := range threads {
-		for _, message := range thread.Messages {
-			if message.AuthorAgentID == nil || *message.AuthorAgentID != agentID {
-				continue
-			}
-			if message.CreatedAt.After(since) {
-				return true, nil
-			}
-		}
-	}
-
-	return false, nil
+	return ErrReviewNotAnswered.Saying(
+		"your last review has %d comment(s) nobody has settled", last.OpenThreads)
 }
 
 // requireNotReviewedAlready holds a reviewing agent to one review per round, so a reviewer and

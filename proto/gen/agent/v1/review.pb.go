@@ -317,7 +317,11 @@ type Review struct {
 	UpdatedAt string `protobuf:"bytes,12,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
 	// What the author said about the work as a whole rather than about any one line, empty when
 	// they said nothing.
-	Body          string `protobuf:"bytes,13,opt,name=body,proto3" json:"body,omitempty"`
+	Body string `protobuf:"bytes,13,opt,name=body,proto3" json:"body,omitempty"`
+	// How many of this review's comments nobody has settled. A released review with none left is
+	// finished, which the verdict does not say, since a verdict is what its author concluded at
+	// the time rather than what has happened since.
+	OpenThreads   int32 `protobuf:"varint,14,opt,name=open_threads,json=openThreads,proto3" json:"open_threads,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -441,6 +445,13 @@ func (x *Review) GetBody() string {
 		return x.Body
 	}
 	return ""
+}
+
+func (x *Review) GetOpenThreads() int32 {
+	if x != nil {
+		return x.OpenThreads
+	}
+	return 0
 }
 
 // ReviewThread is one conversation pinned to a place in a round of an agent's diff.
@@ -2146,7 +2157,7 @@ const file_agent_v1_review_proto_rawDesc = "" +
 	"\bbase_sha\x18\x04 \x01(\tR\abaseSha\x12!\n" +
 	"\fsnapshot_sha\x18\x05 \x01(\tR\vsnapshotSha\x12\x1d\n" +
 	"\n" +
-	"created_at\x18\x06 \x01(\tR\tcreatedAt\"\xce\x03\n" +
+	"created_at\x18\x06 \x01(\tR\tcreatedAt\"\xf1\x03\n" +
 	"\x06Review\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x19\n" +
 	"\bagent_id\x18\x02 \x01(\tR\aagentId\x12\x19\n" +
@@ -2165,7 +2176,8 @@ const file_agent_v1_review_proto_rawDesc = "" +
 	"created_at\x18\v \x01(\tR\tcreatedAt\x12\x1d\n" +
 	"\n" +
 	"updated_at\x18\f \x01(\tR\tupdatedAt\x12\x12\n" +
-	"\x04body\x18\r \x01(\tR\x04bodyB\x12\n" +
+	"\x04body\x18\r \x01(\tR\x04body\x12!\n" +
+	"\fopen_threads\x18\x0e \x01(\x05R\vopenThreadsB\x12\n" +
 	"\x10_author_agent_id\"\x99\x04\n" +
 	"\fReviewThread\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x19\n" +

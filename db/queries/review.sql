@@ -92,7 +92,15 @@ WHERE
 
 -- name: GetLastReleasedReview :one
 SELECT
-    *
+    sqlc.embed(v),
+(
+        SELECT
+            COUNT(*)
+        FROM
+            review_threads t
+        WHERE
+            t.review_id = v.id
+            AND t.resolved_at IS NULL)::int AS open_threads
 FROM
     reviews v
 WHERE
@@ -106,9 +114,17 @@ LIMIT 1;
 
 -- name: ListReviews :many
 SELECT
-    v.*,
+    sqlc.embed(v),
     r.ordinal AS round_ordinal,
-    d.claimed_at AS delivered_at
+    d.claimed_at AS delivered_at,
+(
+        SELECT
+            COUNT(*)
+        FROM
+            review_threads t
+        WHERE
+            t.review_id = v.id
+            AND t.resolved_at IS NULL)::int AS open_threads
 FROM
     reviews v
     JOIN review_rounds r ON r.id = v.round_id
@@ -293,22 +309,45 @@ WITH written AS (
 RETURNING
     *
 ),
+said AS (
+    SELECT
+        w.thread_id,
+        w.author_kind,
+(t.resolved_at IS NOT NULL
+            AND w.author_kind = t.resolved_by_kind
+            AND w.author_agent_id IS NOT DISTINCT FROM t.resolved_by_agent_id) AS reopens
+    FROM
+        written w
+        JOIN review_threads t ON t.id = w.thread_id
+),
 touched AS (
     UPDATE
         review_threads t
     SET
-        last_agent_activity_at = CASE WHEN w.author_kind = 'agent' THEN
+        last_agent_activity_at = CASE WHEN s.author_kind = 'agent' THEN
             NOW()
         ELSE
             t.last_agent_activity_at
         END,
-        resolved_at = NULL,
-        resolved_by_kind = NULL,
-        resolved_by_agent_id = NULL
+        resolved_at = CASE WHEN s.reopens THEN
+            NULL
+        ELSE
+            t.resolved_at
+        END,
+        resolved_by_kind = CASE WHEN s.reopens THEN
+            NULL
+        ELSE
+            t.resolved_by_kind
+        END,
+        resolved_by_agent_id = CASE WHEN s.reopens THEN
+            NULL
+        ELSE
+            t.resolved_by_agent_id
+        END
     FROM
-        written w
+        said s
     WHERE
-        t.id = w.thread_id
+        t.id = s.thread_id
     RETURNING
         t.id
 )
@@ -329,22 +368,45 @@ WITH written AS (
     RETURNING
         *
 ),
+said AS (
+    SELECT
+        w.thread_id,
+        w.author_kind,
+(t.resolved_at IS NOT NULL
+            AND w.author_kind = t.resolved_by_kind
+            AND w.author_agent_id IS NOT DISTINCT FROM t.resolved_by_agent_id) AS reopens
+    FROM
+        written w
+        JOIN review_threads t ON t.id = w.thread_id
+),
 touched AS (
     UPDATE
         review_threads t
     SET
-        last_agent_activity_at = CASE WHEN w.author_kind = 'agent' THEN
+        last_agent_activity_at = CASE WHEN s.author_kind = 'agent' THEN
             NOW()
         ELSE
             t.last_agent_activity_at
         END,
-        resolved_at = NULL,
-        resolved_by_kind = NULL,
-        resolved_by_agent_id = NULL
+        resolved_at = CASE WHEN s.reopens THEN
+            NULL
+        ELSE
+            t.resolved_at
+        END,
+        resolved_by_kind = CASE WHEN s.reopens THEN
+            NULL
+        ELSE
+            t.resolved_by_kind
+        END,
+        resolved_by_agent_id = CASE WHEN s.reopens THEN
+            NULL
+        ELSE
+            t.resolved_by_agent_id
+        END
     FROM
-        written w
+        said s
     WHERE
-        t.id = w.thread_id
+        t.id = s.thread_id
     RETURNING
         t.id
 )

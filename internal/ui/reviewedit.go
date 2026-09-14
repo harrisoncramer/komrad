@@ -102,6 +102,12 @@ func (m model) editReviewFile() (tea.Model, tea.Cmd, bool) {
 		return m, nil, false
 	}
 
+	if reason, owed := m.isReviewOwedAnAnswer(); owed {
+		m.review.notice = reason
+
+		return m, nil, false
+	}
+
 	m.frame.Show(layout.RegionStage, editorContent(m.editor, m.review.root, path, line))
 
 	// The mode is taken only once there is a pane in it, a refused split otherwise leaving the
@@ -120,6 +126,29 @@ func (m model) editReviewFile() (tea.Model, tea.Cmd, bool) {
 	m.tmux.SelectPane(pane)
 
 	return m, nil, true
+}
+
+// Explainer: an agent sitting on comments nobody has settled is a writer that has not started
+// yet, since answering them is what it does next. Editing the tree underneath it means its answer
+// and the edit land on the same lines, which is the collision the pause exists to avoid, arriving
+// later rather than at once.
+
+// isReviewOwedAnAnswer reports whether comments stand against this work, and what to say about it.
+func (m model) isReviewOwedAnAnswer() (string, bool) {
+	if !m.review.awaiting {
+		return "", false
+	}
+
+	// Explainer: editing is the one key this screen keeps for an agent nobody is there to read a
+	// comment on, since it writes to the worktree rather than to the agent. An agent that will
+	// never answer is not a wait, so holding the key behind one would take it away in the very
+	// case the screen means to offer it.
+	if _, unreachable := m.isReviewReadOnly(); unreachable {
+		return "", false
+	}
+
+	return "your review is still owed an answer · " +
+		keyLabel(m.keys.Review.NextOpenThread) + " for the comments left open", true
 }
 
 // isReviewAgentBusy reports whether the agent may be writing in the tree the editor would open.

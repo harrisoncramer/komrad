@@ -52,8 +52,14 @@ func TestListReviewThreadsAnswersTheCallerItHas(t *testing.T) {
 	}))
 	require.NoError(t, err)
 
-	// A second review may only be started once the agent has written something in answer to the
-	// first, so the work moves on before the panel writes again.
+	// A second review may only be started once the first is done with, which is its comments
+	// having been settled rather than the agent having written anything.
+	_, err = svc.SetReviewThreadResolved(asHuman, connect.NewRequest(&agentv1.SetReviewThreadResolvedRequest{
+		Id:       released.Msg.GetThread().GetId(),
+		Resolved: true,
+	}))
+	require.NoError(t, err)
+
 	_, err = reviews.CreateRound(asHuman, reviewstore.CreateRoundParams{
 		AgentID:     worker.ID,
 		BaseSHA:     "base-sha",

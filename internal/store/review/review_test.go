@@ -297,9 +297,9 @@ func TestSettlingAThreadIsCarriedByTheList(t *testing.T) {
 	assert.NotNil(t, threads[0].ResolvedAt)
 }
 
-// TestSayingSomethingElseReopensAThread covers a settled conversation that turns out not to be
-// finished, whether the new words are written or an old message is rewritten.
-func TestSayingSomethingElseReopensAThread(t *testing.T) {
+// TestTheSettlersOwnWordsReopenAThread covers a settled conversation its settler turns out not
+// to be finished with, whether the new words are written or an old message is rewritten.
+func TestTheSettlersOwnWordsReopenAThread(t *testing.T) {
 	st := open(t)
 	ctx := t.Context()
 	agentID := seedAgent(t, st)
@@ -316,10 +316,11 @@ func TestSayingSomethingElseReopensAThread(t *testing.T) {
 	require.NoError(t, err)
 
 	said, err := st.CreateMessage(ctx, CreateMessageParams{
-		ThreadID:   thread.ID,
-		ReviewID:   &review.ID,
-		Body:       "one more thing",
-		AuthorKind: AuthorHuman,
+		ThreadID:      thread.ID,
+		ReviewID:      &review.ID,
+		Body:          "one more thing",
+		AuthorKind:    AuthorAgent,
+		AuthorAgentID: &settledBy,
 	})
 	require.NoError(t, err)
 
@@ -330,8 +331,6 @@ func TestSayingSomethingElseReopensAThread(t *testing.T) {
 	assert.Empty(t, again.ResolvedByKind, "an unsettled thread names nobody as having settled it")
 	assert.Nil(t, again.ResolvedByAgentID)
 
-	// Settled by the agent again rather than by a person, or the agent id below would read as
-	// cleared when it was never written.
 	_, err = st.SetThreadResolved(ctx, SetThreadResolvedParams{
 		ID: thread.ID, Resolved: true, ByKind: AuthorAgent, ByAgentID: &settledBy,
 	})
@@ -346,6 +345,81 @@ func TestSayingSomethingElseReopensAThread(t *testing.T) {
 	assert.Nil(t, edited.ResolvedAt, "an edit reopens it too")
 	assert.Empty(t, edited.ResolvedByKind, "and takes the record of who settled it with it")
 	assert.Nil(t, edited.ResolvedByAgentID)
+}
+
+// TestThePersonCanTakeTheirOwnSettlingBack covers the arm the panel walks, where neither the
+// settler nor the author of the new words is an agent, so both agent ids are absent.
+func TestThePersonCanTakeTheirOwnSettlingBack(t *testing.T) {
+	st := open(t)
+	ctx := t.Context()
+	agentID := seedAgent(t, st)
+	round := openRound(t, st, agentID, "tree-one")
+	review := openReview(t, st, agentID, round.ID)
+
+	thread := openThread(t, st, agentID, review, "this needs a nil check")
+
+	_, err := st.SetThreadResolved(ctx, SetThreadResolvedParams{
+		ID: thread.ID, Resolved: true, ByKind: AuthorHuman,
+	})
+	require.NoError(t, err)
+
+	_, err = st.CreateMessage(ctx, CreateMessageParams{
+		ThreadID:   thread.ID,
+		ReviewID:   &review.ID,
+		Body:       "actually, one more thing",
+		AuthorKind: AuthorHuman,
+	})
+	require.NoError(t, err)
+
+	again, err := st.GetThread(ctx, thread.ID)
+	require.NoError(t, err)
+	require.NotNil(t, again)
+	assert.Nil(t, again.ResolvedAt, "the person settled it, so the person may take that back")
+	assert.Empty(t, again.ResolvedByKind)
+}
+
+// Explainer: whether a review is finished is counted from its unsettled threads, so anyone who
+// could reopen a thread by writing in it could hold the person's next review and every hand-edit
+// open for as long as they kept writing. Reopening is the settler taking their own word back.
+
+// TestWritingInSomebodyElsesThreadLeavesItSettled covers the agent under review writing into a
+// finding the person has settled, which is the shape that would otherwise be a lock it holds.
+func TestWritingInSomebodyElsesThreadLeavesItSettled(t *testing.T) {
+	st := open(t)
+	ctx := t.Context()
+	agentID := seedAgent(t, st)
+	round := openRound(t, st, agentID, "tree-one")
+	review := openReview(t, st, agentID, round.ID)
+
+	thread := openThread(t, st, agentID, review, "this needs a nil check")
+
+	_, err := st.SetThreadResolved(ctx, SetThreadResolvedParams{
+		ID: thread.ID, Resolved: true, ByKind: AuthorHuman,
+	})
+	require.NoError(t, err)
+
+	said, err := st.CreateMessage(ctx, CreateMessageParams{
+		ThreadID:      thread.ID,
+		ReviewID:      &review.ID,
+		Body:          "fixed, added the nil check",
+		AuthorKind:    AuthorAgent,
+		AuthorAgentID: &agentID,
+	})
+	require.NoError(t, err)
+
+	answered, err := st.GetThread(ctx, thread.ID)
+	require.NoError(t, err)
+	require.NotNil(t, answered)
+	assert.NotNil(t, answered.ResolvedAt, "the agent saying something does not take the settling back")
+	assert.Equal(t, AuthorHuman, answered.ResolvedByKind)
+
+	_, err = st.UpdateMessage(ctx, said.ID, "fixed, and covered by a test", nil)
+	require.NoError(t, err)
+
+	rewritten, err := st.GetThread(ctx, thread.ID)
+	require.NoError(t, err)
+	require.NotNil(t, rewritten)
+	assert.NotNil(t, rewritten.ResolvedAt, "nor does it rewriting what it said")
 }
 
 // TestASuggestionIsCarriedWithTheComment pins that replacement lines survive the round trip.
@@ -836,4 +910,71 @@ func TestTalliesDropAVerdictAnEditOutLived(t *testing.T) {
 	require.Len(t, tallies, 1)
 	assert.Equal(t, Tally{AgentID: agentID, Rounds: 1}, tallies[0],
 		"the approval was given on a round the agent has since written past")
+}
+
+// Explainer: the verdict says what its author concluded at the time and never moves again, so a
+// review that has been answered and settled reads the same as one nobody has touched. What is
+// counted here is what changes as the work is done with.
+
+// TestAReviewCountsWhatIsStillOwedAnAnswer pins the count a released review carries.
+func TestAReviewCountsWhatIsStillOwedAnAnswer(t *testing.T) {
+	st := open(t)
+	ctx := t.Context()
+	agentID := seedAgent(t, st)
+	round := openRound(t, st, agentID, "tree-one")
+	review := openReview(t, st, agentID, round.ID)
+
+	first := openThread(t, st, agentID, review, "this needs a nil check")
+	second := openThread(t, st, agentID, review, "and this reads the flag twice")
+
+	release(t, st, agentID, review.ID, VerdictChangesRequested)
+
+	listed := reviewByID(t, st, agentID, review.ID)
+	assert.Equal(t, int32(2), listed.OpenThreads, "both comments are owed an answer")
+	assert.False(t, listed.IsSettled())
+
+	_, err := st.SetThreadResolved(ctx, SetThreadResolvedParams{ID: first.ID, Resolved: true, ByKind: AuthorHuman})
+	require.NoError(t, err)
+
+	listed = reviewByID(t, st, agentID, review.ID)
+	assert.Equal(t, int32(1), listed.OpenThreads)
+	assert.False(t, listed.IsSettled(), "a review is not finished while one comment stands")
+
+	_, err = st.SetThreadResolved(ctx, SetThreadResolvedParams{ID: second.ID, Resolved: true, ByKind: AuthorHuman})
+	require.NoError(t, err)
+
+	listed = reviewByID(t, st, agentID, review.ID)
+	assert.Zero(t, listed.OpenThreads)
+	assert.True(t, listed.IsSettled(), "and is finished once none do")
+}
+
+// TestAnOpenReviewIsNeverSettled covers the batch still being written, which has nothing owed an
+// answer because nobody has seen it.
+func TestAnOpenReviewIsNeverSettled(t *testing.T) {
+	st := open(t)
+	agentID := seedAgent(t, st)
+	round := openRound(t, st, agentID, "tree-one")
+	review := openReview(t, st, agentID, round.ID)
+
+	listed := reviewByID(t, st, agentID, review.ID)
+	assert.Zero(t, listed.OpenThreads, "a batch with no comments in it owes nothing")
+	assert.False(t, listed.IsSettled(), "but an unsent review is not a finished one")
+}
+
+// reviewByID is one review read back off the listing, which is where the count is computed.
+func reviewByID(t *testing.T, st *fixture, agentID, reviewID string) Review {
+	t.Helper()
+
+	listed, err := st.ListReviews(t.Context(), agentID)
+	require.NoError(t, err)
+
+	for _, review := range listed {
+		if review.ID == reviewID {
+			return review
+		}
+	}
+
+	t.Fatalf("the listing holds no review %q", reviewID)
+
+	return Review{}
 }
