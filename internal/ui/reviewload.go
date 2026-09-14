@@ -87,26 +87,46 @@ func (m model) enterReview(agent agentstore.Agent) (tea.Model, tea.Cmd) {
 }
 
 // refuseReview backs out to the listing, for a worktree that turned out to hold nothing.
-func (m *model) refuseReview(err error) {
+func (m *model) refuseReview(err error) tea.Cmd {
 	name := m.review.agentName
-	m.dropReview()
+	letGo := m.dropReview()
 	m.reportBrief(describeRefusedReview(name, err), err.Error(), nil)
+
+	return letGo
 }
 
 // abandonReview backs out to the listing for a diff that could not be read at all.
-func (m *model) abandonReview(err error) {
+func (m *model) abandonReview(err error) tea.Cmd {
 	name := m.review.agentName
-	m.dropReview()
+	letGo := m.dropReview()
 	m.report("Could not read the diff of "+name, err)
+
+	return letGo
 }
 
-// dropReview puts the reader back on the row they opened the review from.
-func (m *model) dropReview() {
+// Explainer: the pass lives in this state and nowhere else, so an agent stopped for one is let go
+// by the panel or not at all. Every way off this screen comes through here, including the ones
+// nobody chose, such as a diff that stopped being readable part way through a pass.
+
+// dropReview puts the reader back on the row they opened the review from, letting go of an agent
+// the pass stopped.
+func (m *model) dropReview() tea.Cmd {
+	var letGo tea.Cmd
+	if next, cmd := m.endReviewPass(abandonedSaid); cmd != nil {
+		if ended, ok := next.(model); ok {
+			*m = ended
+		}
+
+		letGo = cmd
+	}
+
 	m.review = reviewState{}
 
 	m.enterScreen(screenAgents)
 	m.tree.cursor = clampCursor(m.tree.cursor, len(m.agentRows()))
 	m.stageSelection()
+
+	return letGo
 }
 
 // describeRefusedReview says which of the two empty diffs this is: an agent that has written
@@ -295,15 +315,11 @@ func (m *model) applyReviewLoaded(msg reviewLoadedMsg) tea.Cmd {
 
 	// Both draw nothing, so both back out rather than leaving the reader in an empty viewer.
 	if drewNothing {
-		m.refuseReview(msg.err)
-
-		return nil
+		return m.refuseReview(msg.err)
 	}
 
 	if msg.patch == nil {
-		m.abandonReview(msg.err)
-
-		return nil
+		return m.abandonReview(msg.err)
 	}
 
 	m.review.loading = false
@@ -373,19 +389,37 @@ func indexViewedFiles(viewed []*agentv1.ReviewViewedFile) map[string]bool {
 	return held
 }
 
-func (m *model) applyReviewWrote(msg reviewWroteMsg) {
+func (m *model) applyReviewWrote(msg reviewWroteMsg) tea.Cmd {
 	if msg.agentID != m.review.agentID || m.review.view == nil {
-		return
+		return nil
 	}
 
 	if msg.err != nil {
+		// A send that did not land leaves the pass standing, so the reader keeps their comments
+		// and keeps the agent stopped rather than being put back to watching with neither.
+		m.review.sending = false
 		m.report("Could not write on "+m.review.agentName, msg.err)
 
-		return
+		return nil
 	}
 
 	m.review.notice = msg.notice
 	m.applyReviewThreads(msg.threads)
+
+	if !m.review.sending {
+		return nil
+	}
+
+	// The comments are in the agent's hands now, and answering them is the next thing it does, so
+	// this is what lets it go.
+	m.review.sending = false
+
+	next, letGo := m.endReviewPass(sentSaid)
+	if ended, ok := next.(model); ok {
+		*m = ended
+	}
+
+	return letGo
 }
 
 // applyReviewThreads draws the review as it now stands, keeping the reader where they were.
@@ -453,20 +487,9 @@ func (m model) leaveReview() (tea.Model, tea.Cmd) {
 		return m.closeReviewEdit()
 	}
 
-	// A pass that left the screen still holds the agent, and the state it was recorded in goes
-	// with the screen, so the release is asked for before there is nothing left to ask it of.
-	var letGo tea.Cmd
-	if m.review.mode == modeReviewing {
-		next, cmd := m.endReviewPass(abandonedSaid)
-		m, _ = next.(model)
-		letGo = cmd
-	}
-
-	m.review = reviewState{}
-
-	next, leaving := m.returnToAgents()
-
-	return next, tea.Batch(letGo, leaving)
+	// dropReview is the one way off this screen, since it is what lets go of an agent the pass
+	// stopped, and it puts the reader back on the row they came from.
+	return m, m.dropReview()
 }
 
 func (m model) worktreeFor(agent agentstore.Agent) workflowstore.WorktreeConfig {

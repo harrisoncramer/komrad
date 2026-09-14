@@ -371,16 +371,15 @@ func (m model) sendReview(interrupt bool) (tea.Model, tea.Cmd) {
 
 	m = m.closeReviewRelease()
 
-	// Explainer: the pass existed for the batch that has just gone, so it ends with it rather than
-	// parking the reader in a pass whose own keys have withdrawn with the review. Sending is also
-	// what lets the agent go, since the comments are now in its hands and answering them is the
-	// next thing it does.
-	next, letGo := m.endReviewPass(sentSaid)
-	m, _ = next.(model)
+	// Explainer: the pass ends when the comments have landed rather than when they were sent for,
+	// since a send that failed leaves the reader holding a review nobody has and an agent that
+	// would be let go believing it had one. Keeping the pass until the answer comes back leaves
+	// them where they were, holding both.
+	m.review.sending = true
 
 	agents, agentID := m.api.agents, m.review.agentID
 
-	sent := m.reviewWriteNoticeCmd(func(ctx context.Context) (string, error) {
+	return m, m.reviewWriteNoticeCmd(func(ctx context.Context) (string, error) {
 		resp, err := agents.ReleaseReview(ctx, connect.NewRequest(&agentv1.ReleaseReviewRequest{
 			AgentId:   agentID,
 			Verdict:   verdict,
@@ -393,10 +392,6 @@ func (m model) sendReview(interrupt bool) (tea.Model, tea.Cmd) {
 
 		return releasedNotice(verdict, resp.Msg.GetComments(), interrupt), nil
 	})
-
-	// The review goes first, so an agent let go before its comments landed cannot start writing
-	// over the lines they were pinned to.
-	return m, tea.Sequence(sent, letGo)
 }
 
 // abandonedSaid is what an agent is told when a pass ends without a review.

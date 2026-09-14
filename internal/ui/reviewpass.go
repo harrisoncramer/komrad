@@ -37,12 +37,6 @@ type reviewPausedMsg struct {
 // startReviewPass stops the agent and opens the pass on what the reader pressed, and is a no-op
 // for a pass already under way.
 func (m model) startReviewPass(intent passIntent) (tea.Model, tea.Cmd) {
-	if m.review.pausing {
-		m.review.notice = "the agent is still stopping"
-
-		return m, nil
-	}
-
 	// Explainer: an agent that is dormant or archived cannot write, so there is nothing for a
 	// pause to stop and nothing to let go of afterwards. The editor still opens on its worktree,
 	// which is what the review screen keeps that key for.
@@ -103,6 +97,21 @@ func (m model) applyReviewPaused(msg reviewPausedMsg) (tea.Model, tea.Cmd) {
 
 	m.review.pausing = false
 
+	// Explainer: the hold outlives the keypress that asked for it, so the pass may be over before
+	// the agent has stopped. An agent stopped for a pass nobody is making is one nothing left in
+	// the panel would ever let go, so it is let go here rather than opening an editor onto a
+	// screen that has gone back to watching.
+	if m.review.mode != modeReviewing {
+		if msg.err != nil {
+			return m, nil
+		}
+
+		m.review.paused = true
+		m.review.ourPause = true
+
+		return m.endReviewPass(abandonedSaid)
+	}
+
 	if msg.err != nil {
 		// A comment written against a snapshot the agent is free to write past is the collision
 		// the pass exists to prevent, so the composer goes with the pass rather than standing on
@@ -140,18 +149,27 @@ func (m model) openReviewPass(intent passIntent) (tea.Model, tea.Cmd) {
 // it was stopped.
 func (m model) endReviewPass(said string) (tea.Model, tea.Cmd) {
 	ours, touched := m.review.ourPause, slices.Clone(m.review.touched)
+	agentID := m.review.agentID
 
 	m.review.mode = modeWatching
 	m.review.paused = false
 	m.review.ourPause = false
 	m.review.touched = nil
+	m.review.pausing = false
 
+	// Explainer: a pause the reader took themselves is theirs to let go, from the screen they took
+	// it on, so the files they opened are left where that release will find them rather than
+	// reaching an agent nobody is letting go yet.
 	if !ours {
+		m.rememberEdited(agentID, touched)
+
 		return m, nil
 	}
 
 	item, ok := m.getReviewAgentItem()
 	if !ok {
+		m.rememberEdited(agentID, touched)
+
 		return m, nil
 	}
 
@@ -160,6 +178,33 @@ func (m model) endReviewPass(said string) (tea.Model, tea.Cmd) {
 	return m, m.writeCmd("Could not let "+name+" go", func(a api) error {
 		return a.release(agent, said+touchedSaid(touched))
 	})
+}
+
+// rememberEdited keeps the files a reader opened over a paused agent until whoever holds that
+// pause lets it go.
+func (m *model) rememberEdited(agentID string, touched []string) {
+	if len(touched) == 0 {
+		return
+	}
+
+	if m.edited == nil {
+		m.edited = map[string][]string{}
+	}
+
+	for _, path := range touched {
+		if !slices.Contains(m.edited[agentID], path) {
+			m.edited[agentID] = append(m.edited[agentID], path)
+		}
+	}
+}
+
+// takeEdited is what a release has to tell an agent about the files under a reader's editor, and
+// forgets them, since one agent hears about them once.
+func (m *model) takeEdited(agentID string) string {
+	touched := m.edited[agentID]
+	delete(m.edited, agentID)
+
+	return touchedSaid(touched)
 }
 
 // touchedSaid names the files the reader opened an editor on, since the agent is coming back to a
