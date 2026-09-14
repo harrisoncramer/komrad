@@ -2626,7 +2626,7 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\x12UpdateAgentRequest\x12\x17\n" +
 	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\x12\xfd\x01\n" +
 	"\x04name\x18\x02 \x01(\tB\xe8\x01\xbaH\xe4\x01\xba\x01\xd9\x01\n" +
-	"\rname.storable\x12Jname must not contain spaces, colons, dots, slashes, or control characters\x1a|!this.contains(' ') && !this.contains(':') && !this.contains('.') && !this.contains('/') && !this.matches('[\\x00-\\x1f\\x7f]')r\x05\x10\x01\x18\xc8\x01R\x04name2Ҭ\x01\n" +
+	"\rname.storable\x12Jname must not contain spaces, colons, dots, slashes, or control characters\x1a|!this.contains(' ') && !this.contains(':') && !this.contains('.') && !this.contains('/') && !this.matches('[\\x00-\\x1f\\x7f]')r\x05\x10\x01\x18\xc8\x01R\x04name2\x99\xb1\x01\n" +
 	"\fAgentService\x12\xc6\x05\n" +
 	"\n" +
 	"ListAgents\x12\x1b.agent.v1.ListAgentsRequest\x1a\x1c.agent.v1.ListAgentsResponse\"\xfc\x04\x9a\xb5\x18\xf4\x04\n" +
@@ -2688,8 +2688,9 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\vPlanRefresh\x12\x1c.agent.v1.PlanRefreshRequest\x1a\x1d.agent.v1.PlanRefreshResponse\"\x00\x12U\n" +
 	"\x0eRebaseWorktree\x12\x1f.agent.v1.RebaseWorktreeRequest\x1a .agent.v1.RebaseWorktreeResponse\"\x00\x12a\n" +
 	"\x11StartOrchestrator\x12\".agent.v1.StartOrchestratorRequest\x1a#.agent.v1.StartOrchestratorResponse\"\x03\x90\x02\x02\x12j\n" +
-	"\x14MarkReviewThreadRead\x12%.agent.v1.MarkReviewThreadReadRequest\x1a&.agent.v1.MarkReviewThreadReadResponse\"\x03\x90\x02\x02\x12s\n" +
-	"\x17SetReviewThreadResolved\x12(.agent.v1.SetReviewThreadResolvedRequest\x1a).agent.v1.SetReviewThreadResolvedResponse\"\x03\x90\x02\x02\x12\x9d\x04\n" +
+	"\x14MarkReviewThreadRead\x12%.agent.v1.MarkReviewThreadReadRequest\x1a&.agent.v1.MarkReviewThreadReadResponse\"\x03\x90\x02\x02\x12\xb9\x05\n" +
+	"\x17SetReviewThreadResolved\x12(.agent.v1.SetReviewThreadResolvedRequest\x1a).agent.v1.SetReviewThreadResolvedResponse\"\xc8\x04\x9a\xb5\x18\xc0\x04\n" +
+	"\x15resolve_review_thread\x12\xa2\x04Settle a review thread you wrote, once the answer to it is good enough, or reopen one you settled too early. Whether a review is finished is decided by its threads rather than by the verdict you gave, so this is how you say a finding is done with. You may only settle a comment you wrote yourself: a comment about your own work is not yours to settle, however well you think you have answered it, and saying so in the thread is what moves it instead. The person reviewing may settle anything, including a thread whose author is no longer running. \x00(\x01\x90\x02\x02\x12\x9d\x04\n" +
 	"\x0fOpenReviewRound\x12 .agent.v1.OpenReviewRoundRequest\x1a!.agent.v1.OpenReviewRoundResponse\"\xc4\x03\x9a\xb5\x18\xbf\x03\n" +
 	"\x11open_review_round\x12\xa5\x03Freeze what an agent has written right now and get back the round to review against, which is a snapshot commit covering its whole worktree, committed and uncommitted alike. Call this before reading its diff, and diff the round's baseSha against its snapshotSha to see exactly what you are reviewing. A tree that has not moved since the last round gives that round back rather than a new one, so calling it twice is safe. \x00(\x01\x12\xdc\x04\n" +
 	"\x10ListReviewRounds\x12!.agent.v1.ListReviewRoundsRequest\x1a\".agent.v1.ListReviewRoundsResponse\"\x80\x04\x9a\xb5\x18\xf8\x03\n" +

@@ -132,6 +132,7 @@ func TestReviewOperationsTheAgentDoesNotGet(t *testing.T) {
 		},
 		{
 			name: "an agent cannot settle the feedback on its own work",
+			want: ErrReviewNotYours,
 			call: func(ctx context.Context, service *ReviewService, author ReviewAuthor) error {
 				_, err := service.SetReviewThreadResolved(ctx, SetReviewThreadResolvedParams{
 					ID:       reviewThreadID,
@@ -1931,4 +1932,54 @@ func TestACommentReadFromAnOlderSnapshotIsRefused(t *testing.T) {
 	})
 	require.NoError(t, err)
 	assert.Equal(t, round.ID, opened.Thread.RoundID, "the snapshot it named is the round it went under")
+}
+
+// Explainer: whether a thread is settled is what says whether a review is finished, so who may
+// settle one decides whether that fact means anything. A reviewer settling its own comment is a
+// reviewer saying the answer was good enough, which is the whole loop; the agent under review
+// settling it would be marking its own homework.
+
+// TestAReviewerSettlesItsOwnComment pins the half of the rule that was refused before.
+func TestAReviewerSettlesItsOwnComment(t *testing.T) {
+	reviews := newFakeReviewStore()
+	reviews.comments = 1
+	wroteIt := reviewerAgentID
+	reviews.thread.ReviewAuthorAgentID = &wroteIt
+	notices := &fakeNoticeSender{answer: &mailstore.Mail{ID: "mail-1"}}
+	service := reviewService(t, reviews, notices)
+	reviewer := agentAuthor(reviewerAgentID)
+
+	settled, err := service.SetReviewThreadResolved(t.Context(), SetReviewThreadResolvedParams{
+		ID:       reviewThreadID,
+		Resolved: true,
+		Author:   reviewer,
+	})
+	require.NoError(t, err)
+	assert.NotNil(t, settled.ResolvedAt, "the author of a comment says when it is done with")
+
+	reopened, err := service.SetReviewThreadResolved(t.Context(), SetReviewThreadResolvedParams{
+		ID:       reviewThreadID,
+		Resolved: false,
+		Author:   reviewer,
+	})
+	require.NoError(t, err)
+	assert.Nil(t, reopened.ResolvedAt, "and may take that back when it was said too early")
+}
+
+// TestOneAgentCannotSettleAnothersComment covers a third agent reaching for a thread that is
+// neither about its work nor written by it.
+func TestOneAgentCannotSettleAnothersComment(t *testing.T) {
+	reviews := newFakeReviewStore()
+	reviews.comments = 1
+	wroteIt := reviewerAgentID
+	reviews.thread.ReviewAuthorAgentID = &wroteIt
+	notices := &fakeNoticeSender{answer: &mailstore.Mail{ID: "mail-1"}}
+	service := reviewService(t, reviews, notices)
+
+	_, err := service.SetReviewThreadResolved(t.Context(), SetReviewThreadResolvedParams{
+		ID:       reviewThreadID,
+		Resolved: true,
+		Author:   agentAuthor("11111111-1111-1111-1111-111111111111"),
+	})
+	require.ErrorIs(t, err, ErrReviewNotYours)
 }

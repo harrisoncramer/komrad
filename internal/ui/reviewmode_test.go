@@ -2,6 +2,7 @@ package ui
 
 import (
 	"errors"
+	"fmt"
 	"testing"
 
 	"weave/internal/diff"
@@ -803,4 +804,78 @@ func TestACommentOnTheNewestRoundRecordsItsBase(t *testing.T) {
 	assert.Equal(t, m.review.round.GetSnapshotSha(), agents.created.GetSnapshotSha(),
 		"and which snapshot its new side came from")
 	assert.Positive(t, agents.created.GetNewStart())
+}
+
+// TestTheOpenCommentKeyWalksOnlyWhatIsUnsettled is how a person clears a review: the settled
+// threads are history and the key steps past them.
+func TestTheOpenCommentKeyWalksOnlyWhatIsUnsettled(t *testing.T) {
+	dir := reviewRepo(t)
+	agents := &fakeReviewAgents{}
+	m, _ := reviewModel(t, agents, dir)
+	m = openReview(t, m)
+
+	m.applyReviewWrote(reviewWroteMsg{agentID: "a1", threads: threadsOnEveryLine(t, 2)})
+
+	next, _ := m.updateReview(keyMsg("u"))
+	written, ok := next.(model)
+	require.True(t, ok)
+
+	thread, ok := written.review.view.GetThreadAt(written.review.cursor)
+	require.True(t, ok, "the key lands on a thread")
+	assert.Empty(t, thread.GetResolvedAt(), "and it is one nobody has settled")
+	assert.Equal(t, "open-1", thread.GetId(), "which is the open one rather than the settled one above it")
+}
+
+// TestTheOpenCommentKeySaysWhenThereIsNothingLeft covers a review whose threads are all settled,
+// where a key that silently did nothing would read as a key that did not register.
+func TestTheOpenCommentKeySaysWhenThereIsNothingLeft(t *testing.T) {
+	dir := reviewRepo(t)
+	agents := &fakeReviewAgents{}
+	m, _ := reviewModel(t, agents, dir)
+	m = openReview(t, m)
+
+	settled := threadsOnEveryLine(t, 2)
+	for _, thread := range settled {
+		thread.ResolvedAt = "2026-09-13T12:00:00Z"
+	}
+
+	m.applyReviewWrote(reviewWroteMsg{agentID: "a1", threads: settled})
+
+	next, _ := m.updateReview(keyMsg("u"))
+	written, ok := next.(model)
+	require.True(t, ok)
+
+	assert.Contains(t, written.review.notice, "settled")
+}
+
+// threadsOnEveryLine pins one settled thread and one open one onto the first lines the diff
+// draws, so a walk has something to step over.
+func threadsOnEveryLine(t *testing.T, count int) []*agentv1.ReviewThread {
+	t.Helper()
+
+	var threads []*agentv1.ReviewThread
+
+	for i := range count {
+		thread := &agentv1.ReviewThread{
+			Id:          fmt.Sprintf("open-%d", i),
+			AgentId:     "a1",
+			FilePath:    "greet.go",
+			NewStart:    int32(i + 1),
+			NewEnd:      int32(i + 1),
+			QuotedLines: []string{"+\treturn \"goodbye\""},
+			Messages: []*agentv1.ReviewMessage{{
+				Id:         fmt.Sprintf("m-%d", i),
+				AuthorKind: agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_HUMAN,
+				Body:       "worth another look",
+			}},
+		}
+
+		if i == 0 {
+			thread.ResolvedAt = "2026-09-13T12:00:00Z"
+		}
+
+		threads = append(threads, thread)
+	}
+
+	return threads
 }

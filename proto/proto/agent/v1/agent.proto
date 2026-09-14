@@ -704,6 +704,12 @@ service AgentService {
   }
   rpc SetReviewThreadResolved(SetReviewThreadResolvedRequest) returns (SetReviewThreadResolvedResponse) {
     option idempotency_level = IDEMPOTENT;
+    option (annotation.v1.tool) = {
+      tool_name: "resolve_review_thread"
+      description: "Settle a review thread you wrote, once the answer to it is good enough, or reopen one you settled too early. Whether a review is finished is decided by its threads rather than by the verdict you gave, so this is how you say a finding is done with. You may only settle a comment you wrote yourself: a comment about your own work is not yours to settle, however well you think you have answered it, and saying so in the thread is what moves it instead. The person reviewing may settle anything, including a thread whose author is no longer running."
+      destructive: false
+      idempotent: true
+    };
   }
   rpc OpenReviewRound(OpenReviewRoundRequest) returns (OpenReviewRoundResponse) {
     option (annotation.v1.tool) = {
