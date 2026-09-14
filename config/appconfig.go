@@ -382,11 +382,11 @@ type ReviewKeys struct {
 	// Write a message on the line under the cursor, replying in the thread already there
 	// or opening a new one.
 	Compose []string `mapstructure:"compose" default:"c"`
-	// Open the round's own copy of the file under the cursor in your editor, on the line
-	// the cursor is on. The round is a frozen snapshot, so nothing you type there reaches
-	// the agent's worktree and neither of you can write over the other. What you change
-	// becomes a suggestion, which your next comment carries to the agent for it to apply
-	// in its own turn.
+	// Open the file under the cursor in your editor, beside the diff, on the line the
+	// cursor is on. This is the agent's own worktree rather than a copy of it, so what
+	// you write is what the agent finds there, and the key is refused while the agent is
+	// working rather than letting you both write at once. It is refused on a round the
+	// agent has written past, since those lines have moved on.
 	EditFile []string `mapstructure:"edit_file" default:"e"`
 	// Move the keys onto the thread in the sidebar, so up and down read the conversation
 	// rather than the diff, and press it again to hand them back. A thread longer than the
