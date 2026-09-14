@@ -211,8 +211,6 @@ func (m model) openAgent() (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 
-		m.history.Visit(item.agent.ID)
-
 		if item.alive {
 			if pane := m.frame.GuestPane(); pane != "" && pane == item.agent.Pane {
 				m.tmux.SelectPane(pane)
