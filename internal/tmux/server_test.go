@@ -3,20 +3,19 @@
 package tmux
 
 import (
-	"os/exec"
 	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"weave/internal/bintest"
 )
 
 func testServer(t *testing.T, name string) *Client {
 	t.Helper()
 
-	if _, err := exec.LookPath("tmux"); err != nil {
-		t.Skip("tmux is not installed")
-	}
+	bintest.Require(t, "tmux")
 
 	socket := "weave-test-" + strings.ReplaceAll(t.Name(), "/", "-")
 	client := &Client{server: []string{"-L", socket, "-f", "/dev/null"}}

@@ -259,6 +259,11 @@ jobs:
       WEAVE_DATABASE_URL: postgres://weave:weave@localhost:5460/weave?sslmode=disable
       GOFLAGS: -count=1
 
+      # A test that drives an external binary skips itself when that binary is missing,
+      # which on a runner would report success for a test that ran nothing. This turns
+      # the skip into a failure.
+      WEAVE_REQUIRE_BINARIES: "1"
+
     steps:
       - uses: actions/checkout@v4
 
@@ -272,9 +277,7 @@ jobs:
         with:
           gh-access-token: ${{ env.GH_ACCESS_TOKEN }}
 
-      # The tmux tests skip themselves when tmux is missing rather than failing, which
-      # issue 553 is about. less is what the panel pages a dormant agent's placeholder
-      # into a pane with.
+      # less is what the panel pages a dormant agent's placeholder into a pane with.
       - name: Install tmux
         run: sudo apt-get update && sudo apt-get install -y tmux less
 

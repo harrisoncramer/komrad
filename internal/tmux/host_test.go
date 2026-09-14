@@ -10,6 +10,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"weave/internal/bintest"
 )
 
 // TestHostRecord drives two real tmux servers and checks everything the panel writes about the
@@ -52,9 +54,7 @@ func TestClientAtPath(t *testing.T) {
 
 func newTestServer(t *testing.T, role string) string {
 	t.Helper()
-	if _, err := exec.LookPath("tmux"); err != nil {
-		t.Skip("tmux not installed")
-	}
+	bintest.Require(t, "tmux")
 
 	socket := "cca-" + role + "-" + filepath.Base(t.TempDir())
 	t.Cleanup(func() { _ = exec.Command("tmux", "-L", socket, "kill-server").Run() })
