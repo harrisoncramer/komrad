@@ -6,20 +6,20 @@ import (
 	"bytes"
 	"log/slog"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	"weave/internal/bintest"
 )
 
 // TestQueryCarriesStderr checks a failed tmux call names the command and carries tmux's own
 // complaint.
 func TestQueryCarriesStderr(t *testing.T) {
-	bintest.Require(t, "tmux")
+	_, lookErr := exec.LookPath("tmux")
+	require.NoError(t, lookErr)
 
 	_, err := NewClient("weave-test-no-such-socket").GetPanes()
 

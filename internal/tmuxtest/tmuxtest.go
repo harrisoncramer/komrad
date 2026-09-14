@@ -15,7 +15,6 @@ import (
 	"testing"
 	"time"
 
-	"weave/internal/bintest"
 	"weave/internal/tmux"
 )
 
@@ -30,7 +29,9 @@ type Server struct {
 func New(t *testing.T) *Server {
 	t.Helper()
 
-	bintest.Require(t, "tmux")
+	if _, err := exec.LookPath("tmux"); err != nil {
+		t.Fatalf("tmux is not installed: %v", err)
+	}
 
 	server := &Server{t: t, socket: fmt.Sprintf("weavetest-%d-%d", os.Getpid(), created.Add(1))}
 	t.Cleanup(func() { _ = exec.Command("tmux", "-L", server.socket, "kill-server").Run() })

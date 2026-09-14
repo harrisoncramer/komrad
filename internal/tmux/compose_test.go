@@ -3,6 +3,7 @@
 package tmux
 
 import (
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -10,8 +11,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	"weave/internal/bintest"
 )
 
 // readlineShell is a shell whose line editing is the same emacs binding family both harnesses
@@ -152,7 +151,8 @@ func rawPane(t *testing.T, client *Client, session string, bracketed bool) (pane
 // clearing its own box whole and handing the text back, which is the whole reason the pair
 // exists.
 func TestCutAndYankRoundTripsThroughReadline(t *testing.T) {
-	bintest.Require(t, readlineShell)
+	_, err := exec.LookPath(readlineShell)
+	require.NoError(t, err)
 
 	client := testServer(t, "readline")
 
