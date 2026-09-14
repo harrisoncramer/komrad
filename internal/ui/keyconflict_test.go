@@ -158,3 +158,46 @@ func TestGlobalArmsAnswerForEveryKeyTheRouterTakes(t *testing.T) {
 		})
 	}
 }
+
+// TestValidateGitMenuKeysReadsTheKeysTheMenuIsDrawnOver covers an entry bound to a key the form
+// around it needs, which the menu would answer first.
+func TestValidateGitMenuKeysReadsTheKeysTheMenuIsDrawnOver(t *testing.T) {
+	tests := []struct {
+		name   string
+		rebind func(*config.Keybindings)
+		names  string
+	}{
+		{
+			name:   "the key that takes the menu down",
+			rebind: func(k *config.Keybindings) { k.Git.Rebase = []string{"esc"} },
+			names:  "the key that takes a form down",
+		},
+		{
+			name:   "the key that answers it",
+			rebind: func(k *config.Keybindings) { k.Git.OpenPR = []string{"ctrl+s"} },
+			names:  "the key that answers a form",
+		},
+		{
+			name:   "the key that walks the entries",
+			rebind: func(k *config.Keybindings) { k.Git.Rebase = []string{"j"} },
+			names:  "the key that moves down a form's list",
+		},
+		{
+			name:   "one key on both entries",
+			rebind: func(k *config.Keybindings) { k.Git.OpenPR = k.Git.Rebase },
+			names:  "the git menu's rebase",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			keys := config.DefaultKeybindings()
+			tt.rebind(&keys)
+
+			err := ValidateKeybindings(keys)
+
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), tt.names)
+		})
+	}
+}

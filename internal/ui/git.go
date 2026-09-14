@@ -4,7 +4,6 @@ import (
 	"errors"
 
 	"weave/config"
-	agentstore "weave/internal/store/agent"
 	"weave/internal/ui/paint"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -23,6 +22,7 @@ const (
 var (
 	errNoPR       = errors.New("nothing has recorded a pull request on this agent yet")
 	errNoWorktree = errors.New("this agent has no worktree of its own, so there is no base to move it onto")
+	errAgentGone  = errors.New("the agent the menu was opened on has left the list")
 )
 
 // openGitMenu draws the git actions beside the list, for the agent the cursor is on.
@@ -39,11 +39,13 @@ func (m model) openGitMenu() (tea.Model, tea.Cmd) {
 		hasPR:      hasPR(agent),
 	}, m.keys.Git, formKeys())
 
+	agentID := agent.ID
+
 	return m, m.openForm(formState{
 		kind:   formGit,
 		form:   form,
-		update: model.updateGitMenu,
-		submit: confirmSubmit(func(m model) (model, tea.Cmd) { return m.runGitChoice(agent, *choice) }),
+		update: func(m model, msg tea.Msg) (tea.Model, tea.Cmd) { return m.updateGitMenu(msg, choice) },
+		submit: confirmSubmit(func(m model) (model, tea.Cmd) { return m.runGitChoice(agentID, *choice) }),
 	})
 }
 
@@ -80,7 +82,16 @@ func gitMenuForm(menu gitMenu, keys config.GitKeys, form config.FormKeys) (*huh.
 		)
 
 	return huh.NewForm(huh.NewGroup(field)).
-		WithShowHelp(true).WithKeyMap(multiFieldKeyMap(form)).WithTheme(paint.FormTheme()), &choice
+		WithShowHelp(true).WithKeyMap(gitMenuKeyMap(form)).WithTheme(paint.FormTheme()), &choice
+}
+
+// gitMenuKeyMap is the form's own keys without the select's filter, which would otherwise take
+// the letters the entries answer to.
+func gitMenuKeyMap(keys config.FormKeys) *huh.KeyMap {
+	km := multiFieldKeyMap(keys)
+	km.Select.Filter.SetEnabled(false)
+
+	return km
 }
 
 // gitEntry is one row of the menu: what it does, the key that picks it, and its refusal.
@@ -100,14 +111,14 @@ func gitEntryLabel(entry gitEntry) string {
 	}
 
 	if !entry.held {
-		label += ", " + entry.refusal
+		label += " · " + entry.refusal
 	}
 
 	return label
 }
 
-// updateGitMenu reads the mnemonic of each entry before huh is given the message.
-func (m model) updateGitMenu(msg tea.Msg) (tea.Model, tea.Cmd) {
+// updateGitMenu answers an entry by its own letter, and hands huh every other message.
+func (m model) updateGitMenu(msg tea.Msg, choice *gitChoice) (tea.Model, tea.Cmd) {
 	press, ok := msg.(tea.KeyMsg)
 	if !ok {
 		return m.updateForm(msg)
@@ -115,31 +126,30 @@ func (m model) updateGitMenu(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	switch k := press.String(); {
 	case isBound(k, m.keys.Git.Rebase):
-		return m.pickGit(gitChoiceRebase)
+		*choice = gitChoiceRebase
+
+		return m.answerForm()
 	case isBound(k, m.keys.Git.OpenPR):
-		return m.pickGit(gitChoiceOpenPR)
+		*choice = gitChoiceOpenPR
+
+		return m.answerForm()
 	default:
 		return m.updateForm(msg)
 	}
 }
 
-// pickGit answers the menu with an entry the cursor never had to reach.
-func (m model) pickGit(choice gitChoice) (tea.Model, tea.Cmd) {
-	item, ok := m.selectedAgent()
+// runGitChoice does what the entry asked for, or says why this agent is not one to ask it of.
+func (m model) runGitChoice(agentID string, choice gitChoice) (model, tea.Cmd) {
+	// Read back rather than captured, so an entry acts on the agent as the list holds it now.
+	item, ok := m.liveAgent(agentID)
 	if !ok {
-		return m.closeForm()
+		m.report("Could not act on the agent", errAgentGone)
+
+		return m, nil
 	}
 
-	return m.closeAfter(func(m model) (model, tea.Cmd) { return m.runGitChoice(item.agent, choice) })
-}
+	agent := item.agent
 
-// closeAfter runs what an entry asked for and takes the menu down as it goes.
-func (m model) closeAfter(write func(model) (model, tea.Cmd)) (tea.Model, tea.Cmd) {
-	return confirmSubmit(write)(m)
-}
-
-// runGitChoice does what the entry asked for, or says why this agent is not one to ask it of.
-func (m model) runGitChoice(agent agentstore.Agent, choice gitChoice) (model, tea.Cmd) {
 	switch choice {
 	case gitChoiceRebase:
 		if !m.isReviewable(agent) {
@@ -155,8 +165,6 @@ func (m model) runGitChoice(agent agentstore.Agent, choice gitChoice) (model, te
 
 			return m, nil
 		}
-
-		agentID := agent.ID
 
 		return m, m.writeCmd(
 			"Could not open the pull request",

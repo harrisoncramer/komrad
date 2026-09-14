@@ -113,10 +113,10 @@ func TestGitMenuEntriesNameTheirKeysAndTheirRefusals(t *testing.T) {
 	assert.Equal(t, "Rebase onto the base (r)", gitEntryLabel(entry))
 
 	entry.held = false
-	assert.Equal(t, "Rebase onto the base (r), no worktree of its own", gitEntryLabel(entry))
+	assert.Equal(t, "Rebase onto the base (r) · no worktree of its own", gitEntryLabel(entry))
 
 	entry.keys = nil
-	assert.Equal(t, "Rebase onto the base, no worktree of its own", gitEntryLabel(entry))
+	assert.Equal(t, "Rebase onto the base · no worktree of its own", gitEntryLabel(entry))
 }
 
 // TestGitMenuDrawsEveryEntry covers the menu on an agent neither entry can act on, where the
@@ -131,4 +131,29 @@ func TestGitMenuDrawsEveryEntry(t *testing.T) {
 	assert.Contains(t, drawn, "Rebase onto the base")
 	assert.Contains(t, drawn, "Open the pull request")
 	assert.Contains(t, drawn, "Cancel")
+}
+
+// TestGitMenuDoesNotFilter covers the select's own filter, which would otherwise take the letters
+// the entries answer to.
+func TestGitMenuDoesNotFilter(t *testing.T) {
+	opened := routeKey(t, gitModel(t), "b")
+	assert.NotContains(t, opened.View(), "filter", "the footer offers no filter to type into")
+
+	typed := routeKey(t, opened, "/")
+
+	assert.Equal(t, formGit, typed.form.kind)
+	assert.Contains(t, typed.View(), "Rebase onto the base", "the entries are as they were")
+}
+
+// TestGitMenuActsOnTheAgentItWasOpenedOn covers the row leaving the list while the menu stands,
+// where the entry has nothing left to act on.
+func TestGitMenuActsOnTheAgentItWasOpenedOn(t *testing.T) {
+	opened := routeKey(t, gitModel(t), "b")
+	opened.listing.agents = nil
+
+	picked := routeKey(t, opened, "o")
+
+	assert.Equal(t, formNone, picked.form.kind)
+	require.Len(t, picked.messages.items, 1)
+	assert.Contains(t, picked.messages.items[0].detail, errAgentGone.Error())
 }
