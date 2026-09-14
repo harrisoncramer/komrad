@@ -16,6 +16,9 @@ usage() {
 	echo
 	echo "Which tests a pull request runs is decided in .github/workflows/ci.yml,"
 	echo "since that is where the files a branch changed are already known."
+	echo
+	echo "A package with no test files is not printed, which is most of proto/gen"
+	echo "and db/models."
 }
 
 KIND="integration"
@@ -60,6 +63,6 @@ cd "$MISE_CONFIG_ROOT"
 
 # The lint rules are a module of their own, so the suite below does not see them. They run
 # first because a red suite under set -e would otherwise mean they never run at all.
-(cd "$MISE_CONFIG_ROOT/tools/weavelint" && gotestsum --format pkgname -- ./...)
+(cd "$MISE_CONFIG_ROOT/tools/weavelint" && gotestsum --format pkgname --format-hide-empty-pkg -- ./...)
 
-gotestsum --format pkgname -- "${TAGS[@]}" ./...
+gotestsum --format pkgname --format-hide-empty-pkg -- "${TAGS[@]}" ./...
