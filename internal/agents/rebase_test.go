@@ -206,6 +206,10 @@ func (s fakeRebaseAgents) SetMetadata(context.Context, agentstore.SetMetadataPar
 	return true, nil
 }
 
+func (s fakeRebaseAgents) SetSequenceInProgressByID(context.Context, string, bool) error {
+	return nil
+}
+
 type fakeRebaseWorkflows struct {
 	flow workflowstore.Workflow
 }
@@ -230,16 +234,19 @@ func TestRebaseAndThePullRequest(t *testing.T) {
 		name        string
 		conflict    bool
 		wantCleared bool
+		wantStopped bool
 	}{
 		{
 			name:        "a stopped rebase keeps it, since the branch has not moved",
 			conflict:    true,
 			wantCleared: false,
+			wantStopped: true,
 		},
 		{
 			name:        "a completed rebase clears it, since the branch was rewritten",
 			conflict:    false,
 			wantCleared: true,
+			wantStopped: false,
 		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
@@ -271,6 +278,7 @@ func TestRebaseAndThePullRequest(t *testing.T) {
 
 			assert.Equal(t, tt.wantCleared, result.ClearedPullRequest)
 			assert.Equal(t, tt.wantCleared, agents.clearedPR, "the row is written only when the branch moved")
+			assert.Equal(t, tt.wantStopped, agents.setStopped, "a stopped rebase reaches the row without waiting for the next pass")
 		})
 	}
 }
@@ -331,8 +339,9 @@ func (f *fakeRebaser) RebaseOnto(_ context.Context, _, _, cutoff string) error {
 // recordingRebaseAgents notes whether the pull request key was cleared, which is the write the
 // decision under test produces.
 type recordingRebaseAgents struct {
-	agent     agentstore.Agent
-	clearedPR bool
+	agent      agentstore.Agent
+	clearedPR  bool
+	setStopped bool
 }
 
 func (r *recordingRebaseAgents) GetByID(context.Context, string) (*agentstore.Agent, error) {
@@ -347,6 +356,12 @@ func (r *recordingRebaseAgents) SetMetadata(_ context.Context, params agentstore
 	}
 
 	return true, nil
+}
+
+func (r *recordingRebaseAgents) SetSequenceInProgressByID(_ context.Context, _ string, inProgress bool) error {
+	r.setStopped = inProgress
+
+	return nil
 }
 
 // TestRebaseReplaysWhenTheTreesDiffer is the other side of that decision, since a fast-forward

@@ -113,6 +113,7 @@ func renderAgent(stored agentstore.Agent, flags agentFlags, opts ...agentOption)
 			ParentAgentId:      stored.ParentAgentID,
 			Branch:             stored.Branch,
 			WorktreeRemoved:    stored.WorktreeRemoved,
+			SequenceInProgress: stored.SequenceInProgress,
 			Unviewed:           flags.unviewed,
 			FailedRun:          flags.failedRun,
 			FailedRunLog:       flags.failedRunLog,

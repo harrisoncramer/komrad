@@ -123,6 +123,10 @@ type Agent struct {
 	WorktreeRemoved bool
 	InterruptedAt   *time.Time
 
+	// SequenceInProgress is whether a merge, a rebase or a cherry-pick is part-way through the
+	// agent's checkout and waiting on somebody.
+	SequenceInProgress bool
+
 	// HeldAt is when a person stopped this agent and took its worktree, nil while nobody holds it.
 	HeldAt *time.Time
 	// HeldMidTurn says the hold cut a turn that was still running.
@@ -167,38 +171,39 @@ func keepStorableIDs(ids []string) []string {
 
 func agentFromRow(agent models.Agent) Agent {
 	return Agent{
-		ID:               agent.ID,
-		Name:             agent.Name,
-		Pane:             agent.PaneID,
-		Cwd:              agent.Cwd,
-		Flags:            agent.Flags,
-		ProvisionEnabled: agent.ProvisionEnabled,
-		Prompt:           agent.Prompt,
-		Role:             Role(agent.Role),
-		State:            State(agent.State),
-		StateChangedAt:   agent.StateChangedAt,
-		StateSeenAt:      agent.StateSeenAt,
-		ViewedAt:         agent.ViewedAt,
-		TurnEndedAt:      agent.TurnEndedAt,
-		ReportedReason:   agent.ReportedReason,
-		Harness:          agent.Harness,
-		SessionID:        agent.SessionID,
-		WorkflowID:       agent.WorkflowID,
-		ScheduleID:       agent.ScheduleID,
-		IdempotencyKey:   agent.IdempotencyKey,
-		ArchivedAt:       agent.ArchivedAt,
-		NudgedAt:         agent.NudgedAt,
-		NudgeSentAt:      agent.NudgeSentAt,
-		Hidden:           agent.IsHidden,
-		SpawnedByAgentID: agent.SpawnedByAgentID,
-		ParentAgentID:    agent.ParentAgentID,
-		CreatedAt:        agent.CreatedAt,
-		UpdatedAt:        agent.UpdatedAt,
-		Branch:           agent.Branch,
-		AdoptedBranch:    agent.AdoptedBranch,
-		WorktreeRemoved:  agent.WorktreeRemoved,
-		InterruptedAt:    agent.InterruptedAt,
-		HeldAt:           agent.HeldAt,
-		HeldMidTurn:      agent.HeldMidTurn,
+		ID:                 agent.ID,
+		Name:               agent.Name,
+		Pane:               agent.PaneID,
+		Cwd:                agent.Cwd,
+		Flags:              agent.Flags,
+		ProvisionEnabled:   agent.ProvisionEnabled,
+		Prompt:             agent.Prompt,
+		Role:               Role(agent.Role),
+		State:              State(agent.State),
+		StateChangedAt:     agent.StateChangedAt,
+		StateSeenAt:        agent.StateSeenAt,
+		ViewedAt:           agent.ViewedAt,
+		TurnEndedAt:        agent.TurnEndedAt,
+		ReportedReason:     agent.ReportedReason,
+		Harness:            agent.Harness,
+		SessionID:          agent.SessionID,
+		WorkflowID:         agent.WorkflowID,
+		ScheduleID:         agent.ScheduleID,
+		IdempotencyKey:     agent.IdempotencyKey,
+		ArchivedAt:         agent.ArchivedAt,
+		NudgedAt:           agent.NudgedAt,
+		NudgeSentAt:        agent.NudgeSentAt,
+		Hidden:             agent.IsHidden,
+		SpawnedByAgentID:   agent.SpawnedByAgentID,
+		ParentAgentID:      agent.ParentAgentID,
+		CreatedAt:          agent.CreatedAt,
+		UpdatedAt:          agent.UpdatedAt,
+		Branch:             agent.Branch,
+		AdoptedBranch:      agent.AdoptedBranch,
+		WorktreeRemoved:    agent.WorktreeRemoved,
+		InterruptedAt:      agent.InterruptedAt,
+		SequenceInProgress: agent.SequenceInProgress,
+		HeldAt:             agent.HeldAt,
+		HeldMidTurn:        agent.HeldMidTurn,
 	}
 }

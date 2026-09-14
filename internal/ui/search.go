@@ -516,7 +516,7 @@ func (m model) hitHeader(hit searchHit, gutter string) string {
 	}
 
 	return gutter + stateMark(displayState(item)) + " " + name +
-		worktreeRemovedMark(item) + scheduledMark(item.agent) + hiddenMark(item.agent.Hidden) +
+		worktreeMark(item) + scheduledMark(item.agent) + hiddenMark(item.agent.Hidden) +
 		unreadMailMark(item.unreadMail) + unviewedMark(item.unviewed) +
 		failedRunMark(item.failedRun) + localReviewRoundsMark(item.localRounds) +
 		localReviewMark(item.inLocalReview, item.localVerdict)

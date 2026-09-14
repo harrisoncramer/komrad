@@ -45,6 +45,7 @@ var (
 type rebaseAgentReadWriter interface {
 	agentGetter
 	metadataSetter
+	SetSequenceInProgressByID(ctx context.Context, id string, inProgress bool) error
 }
 
 // worktreeRebaser is the git a rebase reads the checkout through and moves the branch with.
@@ -225,6 +226,10 @@ func (s *RebaseService) Rebase(ctx context.Context, agentID string) (*RebaseResu
 		result.ClearedPullRequest = s.clearPullRequest(ctx, *agent)
 	}
 
+	if result.Conflicted {
+		s.recordStopped(ctx, *agent)
+	}
+
 	s.tell(ctx, *agent, *result)
 
 	return result, nil
@@ -288,6 +293,15 @@ func (s *RebaseService) clearPullRequest(ctx context.Context, agent agentstore.A
 	}
 
 	return true
+}
+
+// recordStopped puts the stopped rebase on the agent's row now, ahead of the pass that would
+// otherwise take up to a whole interval to find it.
+func (s *RebaseService) recordStopped(ctx context.Context, agent agentstore.Agent) {
+	if err := s.agents.SetSequenceInProgressByID(ctx, agent.ID, true); err != nil {
+		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to record that an agent's rebase stopped part-way",
+			append([]slog.Attr{slog.String(logging.AgentID, agent.ID)}, logging.Err(err)...)...)
+	}
 }
 
 // tell says what happened in the agent's mailbox.

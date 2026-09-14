@@ -25,6 +25,7 @@ const (
 	localApprovedIcon         = "✓"
 	localChangesRequestedIcon = "↩"
 	worktreeRemovedIcon       = "⊘"
+	sequenceInProgressIcon    = "◑"
 	heldIcon                  = "⏸"
 	workflowIcon              = "⧉"
 
@@ -185,12 +186,18 @@ func failedRunMark(failed bool) string {
 	return paint.IconMark(failed, failedRunIcon, paint.Danger)
 }
 
-// worktreeRemovedMark says the directory an agent was given is gone, and stays quiet for a
-// failed create.
-func worktreeRemovedMark(item agentItem) string {
-	gone := item.agent.WorktreeRemoved && displayState(item) != agentstore.StateFailedToCreate
+// worktreeMark says the checkout an agent was given is not in a state it can be left in, and
+// stays quiet for a failed create.
+func worktreeMark(item agentItem) string {
+	if displayState(item) == agentstore.StateFailedToCreate {
+		return ""
+	}
 
-	return paint.IconMark(gone, worktreeRemovedIcon, paint.Danger)
+	if item.agent.WorktreeRemoved {
+		return paint.IconMark(true, worktreeRemovedIcon, paint.Danger)
+	}
+
+	return paint.IconMark(item.agent.SequenceInProgress, sequenceInProgressIcon, paint.Warning)
 }
 
 func scheduleIcon(enabled bool) string {

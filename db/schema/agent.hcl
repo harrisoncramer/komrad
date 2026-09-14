@@ -561,6 +561,12 @@ table "agents" {
     type    = boolean
     default = false
   }
+  column "sequence_in_progress" {
+    null    = false
+    type    = boolean
+    default = false
+    comment = "Whether a merge, a rebase or a cherry-pick is part-way through the agent's checkout and waiting on somebody. Weave reads the checkout every few seconds and writes what it found here, so settling the sequence by hand clears this on its own."
+  }
   column "interrupted_at" {
     null = true
     type = timestamptz

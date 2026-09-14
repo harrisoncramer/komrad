@@ -4,9 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
 	"os/exec"
-	"path/filepath"
 	"strings"
 
 	"weave/internal/fail"
@@ -452,11 +450,5 @@ func isSequenceInProgress(ctx context.Context, dir string) (bool, error) {
 		return false, fmt.Errorf("failed to read the git directory of %q: %w", dir, err)
 	}
 
-	for _, marker := range sequenceMarkers {
-		if _, err := os.Stat(filepath.Join(gitDir, marker)); err == nil {
-			return true, nil
-		}
-	}
-
-	return false, nil
+	return hasSequenceMarker(gitDir), nil
 }

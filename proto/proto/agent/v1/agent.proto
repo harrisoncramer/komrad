@@ -61,6 +61,9 @@ message Agent {
   optional string branch = 22;
   // Whether its checkout has been taken away, which leaves the record and the transcript.
   bool worktree_removed = 23;
+  // Whether a merge, a rebase or a cherry-pick is part-way through its checkout, waiting on
+  // somebody to settle it.
+  bool sequence_in_progress = 36;
   // Whether the agent has finished a turn the person has not looked at since.
   bool unviewed = 24;
   // Whether a script weave fired for the agent failed and nobody has looked at it since.

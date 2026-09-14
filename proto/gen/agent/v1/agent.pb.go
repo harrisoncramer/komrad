@@ -75,6 +75,9 @@ type Agent struct {
 	Branch *string `protobuf:"bytes,22,opt,name=branch,proto3,oneof" json:"branch,omitempty"`
 	// Whether its checkout has been taken away, which leaves the record and the transcript.
 	WorktreeRemoved bool `protobuf:"varint,23,opt,name=worktree_removed,json=worktreeRemoved,proto3" json:"worktree_removed,omitempty"`
+	// Whether a merge, a rebase or a cherry-pick is part-way through its checkout, waiting on
+	// somebody to settle it.
+	SequenceInProgress bool `protobuf:"varint,36,opt,name=sequence_in_progress,json=sequenceInProgress,proto3" json:"sequence_in_progress,omitempty"`
 	// Whether the agent has finished a turn the person has not looked at since.
 	Unviewed bool `protobuf:"varint,24,opt,name=unviewed,proto3" json:"unviewed,omitempty"`
 	// Whether a script weave fired for the agent failed and nobody has looked at it since.
@@ -291,6 +294,13 @@ func (x *Agent) GetBranch() string {
 func (x *Agent) GetWorktreeRemoved() bool {
 	if x != nil {
 		return x.WorktreeRemoved
+	}
+	return false
+}
+
+func (x *Agent) GetSequenceInProgress() bool {
+	if x != nil {
+		return x.SequenceInProgress
 	}
 	return false
 }
@@ -2422,7 +2432,8 @@ var File_agent_v1_agent_proto protoreflect.FileDescriptor
 
 const file_agent_v1_agent_proto_rawDesc = "" +
 	"\n" +
-	"\x14agent/v1/agent.proto\x12\bagent.v1\x1a\x13agent/v1/mail.proto\x1a\x15agent/v1/review.proto\x1a\x19agent/v1/transcript.proto\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1epagination/v1/pagination.proto\x1a\x14rules/v1/rules.proto\x1a\x12view/v1/view.proto\"\xf5\t\n" +
+	"\x14agent/v1/agent.proto\x12\bagent.v1\x1a\x13agent/v1/mail.proto\x1a\x15agent/v1/review.proto\x1a\x19agent/v1/transcript.proto\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1epagination/v1/pagination.proto\x1a\x14rules/v1/rules.proto\x1a\x12view/v1/view.proto\"\xa7\n" +
+	"\n" +
 	"\x05Agent\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x10\n" +
@@ -2453,7 +2464,8 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\x13spawned_by_agent_id\x18\x14 \x01(\tH\x04R\x10spawnedByAgentId\x88\x01\x01\x12+\n" +
 	"\x0fparent_agent_id\x18\x1a \x01(\tH\x05R\rparentAgentId\x88\x01\x01\x12\x1b\n" +
 	"\x06branch\x18\x16 \x01(\tH\x06R\x06branch\x88\x01\x01\x12)\n" +
-	"\x10worktree_removed\x18\x17 \x01(\bR\x0fworktreeRemoved\x12\x1a\n" +
+	"\x10worktree_removed\x18\x17 \x01(\bR\x0fworktreeRemoved\x120\n" +
+	"\x14sequence_in_progress\x18$ \x01(\bR\x12sequenceInProgress\x12\x1a\n" +
 	"\bunviewed\x18\x18 \x01(\bR\bunviewed\x12\x1d\n" +
 	"\n" +
 	"failed_run\x18\x1b \x01(\bR\tfailedRun\x12)\n" +

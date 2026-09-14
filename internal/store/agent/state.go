@@ -153,6 +153,20 @@ func (s *Store) SetWorktreeRemovedByID(ctx context.Context, id string, removed b
 	return nil
 }
 
+// SetSequenceInProgressByID records whether a merge, a rebase or a cherry-pick is part-way
+// through an agent's checkout.
+func (s *Store) SetSequenceInProgressByID(ctx context.Context, id string, inProgress bool) error {
+	if !store.IsID(id) {
+		return fmt.Errorf("%w: agent %q", store.ErrNotFound, id)
+	}
+
+	if err := s.queries.SetAgentSequenceInProgressByID(ctx, models.SetAgentSequenceInProgressByIDParams{ID: id, SequenceInProgress: inProgress}); err != nil {
+		return fmt.Errorf("failed to set sequence_in_progress for id %q: %w", id, err)
+	}
+
+	return nil
+}
+
 // SetInterruptedAtByID records when an agent's conversation was cut off part-way through a
 // turn.
 func (s *Store) SetInterruptedAtByID(ctx context.Context, id string, at *time.Time) error {
