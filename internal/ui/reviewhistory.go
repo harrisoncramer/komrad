@@ -90,22 +90,28 @@ func findLastHumanReview(reviews []*agentv1.Review, ordinal int32) *agentv1.Revi
 	return last
 }
 
-// isAwaitingReviewAnswer reports whether a review the person released is still owed an answer.
+// Explainer: the screen used to ask whether the round on screen was the one last reviewed, which
+// is the question the service stopped asking: an agent moving on is not an answer. The service
+// reads the count off the newest released review alone, so reading any other review here would
+// leave the panel refusing keys the service would allow, with nothing on the round to lift it.
+
+// isAwaitingReviewAnswer reports whether the review the person released last is still owed an
+// answer.
 func isAwaitingReviewAnswer(reviews []*agentv1.Review) bool {
+	var last *agentv1.Review
 	for _, review := range reviews {
 		if review.GetAuthorKind() != agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_HUMAN {
 			continue
 		}
-
-		// Explainer: the screen used to ask whether the round on screen was the one last reviewed,
-		// which is the question the service stopped asking: an agent moving on is not an answer.
-		// Reading the same count the service reads is what keeps the two saying one thing.
-		if review.GetReleasedAt() != "" && review.GetOpenThreads() > 0 {
-			return true
+		if review.GetReleasedAt() == "" {
+			continue
+		}
+		if last == nil || review.GetReleasedAt() > last.GetReleasedAt() {
+			last = review
 		}
 	}
 
-	return false
+	return last.GetOpenThreads() > 0
 }
 
 // releasedAtOf is the clock time the person last released a review, which the screen says

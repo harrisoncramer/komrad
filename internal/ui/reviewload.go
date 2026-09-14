@@ -34,8 +34,8 @@ type reviewLoadedMsg struct {
 	// pinned says the diff is the snapshot the reader's unsent comments were written against
 	// rather than the work as it now stands.
 	pinned bool
-	// awaiting says the reader's last released review has produced no work yet, so the panel will
-	// refuse a second one.
+	// awaiting says the reader's last released review still holds comments nobody has settled, so
+	// the panel will refuse a second one.
 	awaiting bool
 	// chapters are the rounds of the review as the reader can step through them, oldest first.
 	chapters []reviewChapter

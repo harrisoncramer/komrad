@@ -1663,8 +1663,29 @@ func (f *fakeReviewStore) CreateMessage(
 		Suggestion:    params.Suggestion,
 	}
 	f.record(message)
+	f.reopenIfSettler(message)
 
 	return &message, nil
+}
+
+// reopenIfSettler takes a settling back when its own author writes again, which is what the
+// store's query does on the thread the message lands in.
+func (f *fakeReviewStore) reopenIfSettler(message reviewstore.Message) {
+	if f.thread.ID != message.ThreadID || f.thread.ResolvedAt == nil {
+		return
+	}
+	if f.thread.ResolvedByKind != message.AuthorKind {
+		return
+	}
+
+	settler, author := f.thread.ResolvedByAgentID, message.AuthorAgentID
+	if (settler == nil) != (author == nil) || (settler != nil && *settler != *author) {
+		return
+	}
+
+	f.thread.ResolvedAt = nil
+	f.thread.ResolvedByKind = ""
+	f.thread.ResolvedByAgentID = nil
 }
 
 func (f *fakeReviewStore) UpdateMessage(
@@ -2396,6 +2417,53 @@ func TestSettlingRecordsWhoDidIt(t *testing.T) {
 	require.NoError(t, err)
 	assert.Empty(t, reopened.ResolvedByKind, "reopening takes the record with it")
 	assert.Nil(t, reopened.ResolvedByAgentID)
+}
+
+// TestTheAgentCannotReopenWhatThePersonSettled pins the lock the counting rule would otherwise
+// hand the agent under review: it may not settle a comment about its own work, so if writing in
+// the thread reopened one, it could hold the person's next review and every hand-edit open.
+func TestTheAgentCannotReopenWhatThePersonSettled(t *testing.T) {
+	reviews := newFakeReviewStore()
+	reviews.comments = 1
+	service := reviewService(t, reviews, &fakeNoticeSender{answer: &mailstore.Mail{ID: "mail-1"}})
+
+	opened, err := service.CreateReviewThread(t.Context(), CreateReviewThreadParams{
+		AgentID:  reviewedAgentID,
+		FilePath: "greet.go",
+		Body:     "this needs a nil check",
+		Author:   humanAuthor(),
+	})
+	require.NoError(t, err)
+	reviews.thread = opened.Thread
+
+	_, err = service.ReleaseReview(t.Context(), ReleaseReviewParams{
+		AgentID: reviewedAgentID,
+		Verdict: reviewstore.VerdictChangesRequested,
+		Author:  humanAuthor(),
+	})
+	require.NoError(t, err)
+
+	_, err = service.SetReviewThreadResolved(t.Context(), SetReviewThreadResolvedParams{
+		ID:       opened.Thread.ID,
+		Resolved: true,
+		Author:   humanAuthor(),
+	})
+	require.NoError(t, err)
+
+	_, err = service.AddReviewMessage(t.Context(), AddReviewMessageParams{
+		ThreadID: opened.Thread.ID,
+		Body:     "and here is how I did it",
+		Author:   agentAuthor(reviewedAgentID),
+	})
+	require.NoError(t, err)
+
+	_, err = service.CreateReviewThread(t.Context(), CreateReviewThreadParams{
+		AgentID:  reviewedAgentID,
+		FilePath: "greet.go",
+		Body:     "and another thing",
+		Author:   humanAuthor(),
+	})
+	require.NoError(t, err, "the agent writing does not take the person's settling back")
 }
 
 // Explainer: the rule this replaces asked whether the agent had written since the last review,

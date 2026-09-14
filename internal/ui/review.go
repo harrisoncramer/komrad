@@ -80,8 +80,8 @@ type reviewState struct {
 	// pinned says the diff is the snapshot the reader's unsent comments were written against
 	// rather than the work as it now stands.
 	pinned bool
-	// awaiting says the last released review has produced no work yet, so a second one would be
-	// refused.
+	// awaiting says the last released review still holds comments nobody has settled, so a second
+	// one would be refused.
 	awaiting bool
 	// mode is which of the three things the screen is doing: watching the work, editing it, or
 	// reviewing it.

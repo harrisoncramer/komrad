@@ -63,7 +63,9 @@ func (m model) reviewWatchingView() string {
 	}
 
 	if m.review.awaiting {
-		return m.reviewBandRow(reviewHeldStyle, "watching", "your review is with the agent")
+		return m.reviewBandRow(reviewHeldStyle, "watching",
+			"your review is owed an answer · "+keyLabel(m.keys.Review.NextOpenThread)+
+				" for the comments left open")
 	}
 
 	return m.reviewBandRow(reviewWatchingStyle, "watching",

@@ -267,20 +267,7 @@ func (s *Store) GetLastReleasedReview(ctx context.Context, params AuthorParams) 
 		return nil, fmt.Errorf("failed to read the last released review on agent %q: %w", params.AgentID, err)
 	}
 
-	review := reviewFromRow(models.Review{
-		ID:             row.ID,
-		AgentID:        row.AgentID,
-		RoundID:        row.RoundID,
-		AuthorKind:     row.AuthorKind,
-		AuthorAgentID:  row.AuthorAgentID,
-		Verdict:        row.Verdict,
-		ReleasedAt:     row.ReleasedAt,
-		Body:           row.Body,
-		Path:           row.Path,
-		DoorbellMailID: row.DoorbellMailID,
-		CreatedAt:      row.CreatedAt,
-		UpdatedAt:      row.UpdatedAt,
-	})
+	review := reviewFromRow(row.Review)
 	review.OpenThreads = row.OpenThreads
 
 	return &review, nil
@@ -299,20 +286,7 @@ func (s *Store) ListReviews(ctx context.Context, agentID string) ([]Review, erro
 
 	reviews := make([]Review, 0, len(rows))
 	for _, row := range rows {
-		review := reviewFromRow(models.Review{
-			ID:             row.ID,
-			AgentID:        row.AgentID,
-			RoundID:        row.RoundID,
-			AuthorKind:     row.AuthorKind,
-			AuthorAgentID:  row.AuthorAgentID,
-			Verdict:        row.Verdict,
-			ReleasedAt:     row.ReleasedAt,
-			Body:           row.Body,
-			Path:           row.Path,
-			DoorbellMailID: row.DoorbellMailID,
-			CreatedAt:      row.CreatedAt,
-			UpdatedAt:      row.UpdatedAt,
-		})
+		review := reviewFromRow(row.Review)
 		review.RoundOrdinal = row.RoundOrdinal
 		review.DeliveredAt = row.DeliveredAt
 		review.OpenThreads = row.OpenThreads

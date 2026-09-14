@@ -77,37 +77,26 @@ type GetLastReleasedReviewParams struct {
 }
 
 type GetLastReleasedReviewRow struct {
-	ID             string
-	AgentID        string
-	RoundID        string
-	AuthorKind     ReviewAuthorKind
-	AuthorAgentID  *string
-	Verdict        NullReviewVerdict
-	ReleasedAt     *time.Time
-	Path           string
-	DoorbellMailID *string
-	CreatedAt      time.Time
-	UpdatedAt      time.Time
-	Body           string
-	OpenThreads    int32
+	Review      Review
+	OpenThreads int32
 }
 
 func (q *Queries) GetLastReleasedReview(ctx context.Context, arg GetLastReleasedReviewParams) (*GetLastReleasedReviewRow, error) {
 	row := q.db.QueryRow(ctx, getLastReleasedReview, arg.AgentID, arg.AuthorKind, arg.AuthorAgentID)
 	var i GetLastReleasedReviewRow
 	err := row.Scan(
-		&i.ID,
-		&i.AgentID,
-		&i.RoundID,
-		&i.AuthorKind,
-		&i.AuthorAgentID,
-		&i.Verdict,
-		&i.ReleasedAt,
-		&i.Path,
-		&i.DoorbellMailID,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-		&i.Body,
+		&i.Review.ID,
+		&i.Review.AgentID,
+		&i.Review.RoundID,
+		&i.Review.AuthorKind,
+		&i.Review.AuthorAgentID,
+		&i.Review.Verdict,
+		&i.Review.ReleasedAt,
+		&i.Review.Path,
+		&i.Review.DoorbellMailID,
+		&i.Review.CreatedAt,
+		&i.Review.UpdatedAt,
+		&i.Review.Body,
 		&i.OpenThreads,
 	)
 	return &i, err
@@ -419,22 +408,45 @@ WITH written AS (
 RETURNING
     id, thread_id, author_kind, author_agent_id, body, created_at, updated_at, review_id, suggestion
 ),
+said AS (
+    SELECT
+        w.thread_id,
+        w.author_kind,
+(t.resolved_at IS NOT NULL
+            AND w.author_kind = t.resolved_by_kind
+            AND w.author_agent_id IS NOT DISTINCT FROM t.resolved_by_agent_id) AS reopens
+    FROM
+        written w
+        JOIN review_threads t ON t.id = w.thread_id
+),
 touched AS (
     UPDATE
         review_threads t
     SET
-        last_agent_activity_at = CASE WHEN w.author_kind = 'agent' THEN
+        last_agent_activity_at = CASE WHEN s.author_kind = 'agent' THEN
             NOW()
         ELSE
             t.last_agent_activity_at
         END,
-        resolved_at = NULL,
-        resolved_by_kind = NULL,
-        resolved_by_agent_id = NULL
+        resolved_at = CASE WHEN s.reopens THEN
+            NULL
+        ELSE
+            t.resolved_at
+        END,
+        resolved_by_kind = CASE WHEN s.reopens THEN
+            NULL
+        ELSE
+            t.resolved_by_kind
+        END,
+        resolved_by_agent_id = CASE WHEN s.reopens THEN
+            NULL
+        ELSE
+            t.resolved_by_agent_id
+        END
     FROM
-        written w
+        said s
     WHERE
-        t.id = w.thread_id
+        t.id = s.thread_id
     RETURNING
         t.id
 )
@@ -1030,21 +1042,10 @@ ORDER BY
 `
 
 type ListReviewsRow struct {
-	ID             string
-	AgentID        string
-	RoundID        string
-	AuthorKind     ReviewAuthorKind
-	AuthorAgentID  *string
-	Verdict        NullReviewVerdict
-	ReleasedAt     *time.Time
-	Path           string
-	DoorbellMailID *string
-	CreatedAt      time.Time
-	UpdatedAt      time.Time
-	Body           string
-	RoundOrdinal   int32
-	DeliveredAt    *time.Time
-	OpenThreads    int32
+	Review       Review
+	RoundOrdinal int32
+	DeliveredAt  *time.Time
+	OpenThreads  int32
 }
 
 func (q *Queries) ListReviews(ctx context.Context, agentID string) ([]*ListReviewsRow, error) {
@@ -1057,18 +1058,18 @@ func (q *Queries) ListReviews(ctx context.Context, agentID string) ([]*ListRevie
 	for rows.Next() {
 		var i ListReviewsRow
 		if err := rows.Scan(
-			&i.ID,
-			&i.AgentID,
-			&i.RoundID,
-			&i.AuthorKind,
-			&i.AuthorAgentID,
-			&i.Verdict,
-			&i.ReleasedAt,
-			&i.Path,
-			&i.DoorbellMailID,
-			&i.CreatedAt,
-			&i.UpdatedAt,
-			&i.Body,
+			&i.Review.ID,
+			&i.Review.AgentID,
+			&i.Review.RoundID,
+			&i.Review.AuthorKind,
+			&i.Review.AuthorAgentID,
+			&i.Review.Verdict,
+			&i.Review.ReleasedAt,
+			&i.Review.Path,
+			&i.Review.DoorbellMailID,
+			&i.Review.CreatedAt,
+			&i.Review.UpdatedAt,
+			&i.Review.Body,
 			&i.RoundOrdinal,
 			&i.DeliveredAt,
 			&i.OpenThreads,
@@ -1288,22 +1289,45 @@ WITH written AS (
     RETURNING
         id, thread_id, author_kind, author_agent_id, body, created_at, updated_at, review_id, suggestion
 ),
+said AS (
+    SELECT
+        w.thread_id,
+        w.author_kind,
+(t.resolved_at IS NOT NULL
+            AND w.author_kind = t.resolved_by_kind
+            AND w.author_agent_id IS NOT DISTINCT FROM t.resolved_by_agent_id) AS reopens
+    FROM
+        written w
+        JOIN review_threads t ON t.id = w.thread_id
+),
 touched AS (
     UPDATE
         review_threads t
     SET
-        last_agent_activity_at = CASE WHEN w.author_kind = 'agent' THEN
+        last_agent_activity_at = CASE WHEN s.author_kind = 'agent' THEN
             NOW()
         ELSE
             t.last_agent_activity_at
         END,
-        resolved_at = NULL,
-        resolved_by_kind = NULL,
-        resolved_by_agent_id = NULL
+        resolved_at = CASE WHEN s.reopens THEN
+            NULL
+        ELSE
+            t.resolved_at
+        END,
+        resolved_by_kind = CASE WHEN s.reopens THEN
+            NULL
+        ELSE
+            t.resolved_by_kind
+        END,
+        resolved_by_agent_id = CASE WHEN s.reopens THEN
+            NULL
+        ELSE
+            t.resolved_by_agent_id
+        END
     FROM
-        written w
+        said s
     WHERE
-        t.id = w.thread_id
+        t.id = s.thread_id
     RETURNING
         t.id
 )
