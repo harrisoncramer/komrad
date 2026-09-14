@@ -1,0 +1,40 @@
+[2m╭───────────────────────────────────────────────────────────────╮[0m
+[2m│ [0;1m[38;5;6m✨ Update available![0m [1m0.144.4 -> 0.154.0[0;2m                       │[0m
+[2m│ [0mSee [4m[38;5;6m]8;;https://github.com/openai/codex\https://github.com/openai/codex[0m]8;;\ for installation options.[2m │[0m
+[2m│                                                               │[0m
+[2m│ [0mSee full release notes:[2m                                       │[0m
+[2m│ [0;4m[38;5;6m]8;;https://github.com/openai/codex/releases/latest\https://github.com/openai/codex/releases/latest[0;2m]8;;\               │[0m
+[2m╰───────────────────────────────────────────────────────────────╯[0m
+
+[2m╭──────────────────────────────────────────────────────────╮
+│ >_ [0;1mOpenAI Codex[0;2m (v0.144.4)                               │
+│                                                          │
+│ model:     [0mgpt-5.6-luna medium[2m   [0m[38;5;6m/model[2m[39m to change        │
+│ directory: [0m/private/tmp/claude-501/…5/…/scratchpad/probe[2m │
+╰──────────────────────────────────────────────────────────╯
+
+[0m  [1mTip:[0m Use /permissions to control when Codex asks for confirmation.
+
+
+[1m›[0m first line
+
+  third line after a blank @
+
+[1m[38;5;6m> Default templates    Default templates for documents, spreadsheets, and presentations                           Plugin
+[0m  [38;5;5mPlugin Management[2m[39m    Discover and manage plugins                                                                [0m[38;5;5mPlugin
+[39m  [2mAnalytics Dashboard  Create spreadsheets with the Analytics Dashboard template                                  Skill
+[0m  [2mBusiness Review      Create presentations with the Business Review template                                     Skill
+[0m  [2mDesign Report        Create documents with the Design Report template                                           Skill
+[0m  [2mExperiment Analysis  Create documents with the Experiment Analysis template                                     Skill
+[0m  [2mFinancial Budget     Create spreadsheets with the Financial Budget template                                     Skill
+[0m  [2mImage Gen            Generate or edit images for websites, games, and more                                      Skill
+
+[0m  [2menter insert · esc close · ←/→ switch search modes[0m                         [1m[38;5;6m[All Results][0;2m   Filesystem Only    Plugins
+
+
+
+
+
+
+
+
