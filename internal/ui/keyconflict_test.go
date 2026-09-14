@@ -173,6 +173,11 @@ func TestValidateGitMenuKeysReadsTheKeysTheMenuIsDrawnOver(t *testing.T) {
 			names:  "the key that takes a form down",
 		},
 		{
+			name:   "the key that picks the entry under the cursor",
+			rebind: func(k *config.Keybindings) { k.Git.Rebase = []string{"enter"} },
+			names:  "the key that picks the entry under the cursor",
+		},
+		{
 			name:   "the key that answers it",
 			rebind: func(k *config.Keybindings) { k.Git.OpenPR = []string{"ctrl+s"} },
 			names:  "the key that answers a form",

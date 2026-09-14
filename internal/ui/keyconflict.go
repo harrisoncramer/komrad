@@ -69,13 +69,14 @@ func ValidateKeybindings(keys config.Keybindings) error {
 // gitMenuReserved is every key the menu is drawn over, named as the error would name it, being
 // the form's own keys and the ones huh moves a list with.
 func gitMenuReserved() map[string]string {
-	km := multiFieldKeyMap(formKeys())
+	km := gitMenuKeyMap(formKeys())
 
 	arms := []struct {
 		describe string
 		binding  key.Binding
 	}{
 		{describe: "the key that takes a form down", binding: km.Quit},
+		{describe: "the key that picks the entry under the cursor", binding: km.Select.Next},
 		{describe: "the key that answers a form", binding: km.Select.Submit},
 		{describe: "the key that moves up a form's list", binding: km.Select.Up},
 		{describe: "the key that moves down a form's list", binding: km.Select.Down},
