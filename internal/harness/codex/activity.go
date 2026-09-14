@@ -20,6 +20,8 @@ var composerMarker = regexp.MustCompile(`^\s*›(.*)$`)
 
 var slashWord = regexp.MustCompile(`^\s*/\S*$`)
 
+var searchMenuHint = regexp.MustCompile(`esc close.*switch search modes`)
+
 const liveRegionLines = 30
 
 const waitingRegionLines = 8
@@ -133,9 +135,18 @@ func composerText(frame string) ([]string, bool) {
 	// is read from the frame and the text from the frame less the dim.
 	marker := -1
 
+	// Codex draws the file-search menu where the footer would be and draws the row it has
+	// selected at the first column.
+	menu := searchMenuTop(drawn)
+
+	bottom := len(drawn) - 1
+	if menu >= 0 {
+		bottom = menu
+	}
+
 	// The composer is the lowest line Codex draws at the first column, with indented furniture
 	// under it and the transcript above.
-	for i := len(drawn) - 1; i >= 0; i-- {
+	for i := bottom; i >= 0; i-- {
 		if strings.TrimSpace(drawn[i]) == "" || strings.HasPrefix(drawn[i], " ") || strings.HasPrefix(drawn[i], "\t") {
 			continue
 		}
@@ -168,6 +179,10 @@ func composerText(frame string) ([]string, bool) {
 		}
 	}
 
+	if menu >= 0 {
+		end = menu
+	}
+
 	// Codex opens the slash menu for a box holding one slash word and nothing else, and draws it
 	// where the footer would be.
 	if slashWord.MatchString(held[0]) {
@@ -185,6 +200,44 @@ func composerText(frame string) ([]string, bool) {
 	}
 
 	return held, true
+}
+
+// searchMenuTop is the blank line separating the composer from an open file-search menu, or -1
+// for a frame whose lowest line is not that menu's hint.
+func searchMenuTop(drawn []string) int {
+	hint := -1
+
+	for i := len(drawn) - 1; i >= 0; i-- {
+		if strings.TrimSpace(drawn[i]) == "" {
+			continue
+		}
+
+		if searchMenuHint.MatchString(drawn[i]) {
+			hint = i
+		}
+
+		break
+	}
+
+	if hint < 0 {
+		return -1
+	}
+
+	i := hint - 1
+	for i >= 0 && strings.TrimSpace(drawn[i]) == "" {
+		i--
+	}
+
+	for i >= 0 && strings.TrimSpace(drawn[i]) != "" {
+		// Codex draws the menu under the composer.
+		if composerMarker.MatchString(drawn[i]) {
+			return -1
+		}
+
+		i--
+	}
+
+	return i
 }
 
 func doesFrameShowPromptFooter(frame string) bool {

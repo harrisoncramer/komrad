@@ -42,6 +42,32 @@ func TestReadActivityOnCapturedFrames(t *testing.T) {
 			held: []string{" /"},
 		},
 		{
+			file: "file_search_menu_under_the_composer.txt",
+			want: harness.ActivityComposing,
+			held: []string{" please look at @"},
+		},
+		{
+			file: "file_search_menu_under_a_draft_across_a_blank_line.txt",
+			want: harness.ActivityComposing,
+			held: []string{" first line", "", "  third line after a blank @"},
+		},
+		{
+			file: "file_search_menu_matching_nothing.txt",
+			want: harness.ActivityComposing,
+			held: []string{" please look at @zzzznomatch"},
+		},
+		{
+			file: "composer_holding_a_draft_reading_like_a_menu_hint.txt",
+			want: harness.ActivityComposing,
+			held: []string{
+				" first line",
+				"",
+				"  second line",
+				"  enter insert · esc close · arrows switch search modes",
+				"",
+			},
+		},
+		{
 			file: "starting_mcp_servers_offering_interrupt.txt",
 			want: harness.ActivityWorking,
 		},

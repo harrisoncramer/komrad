@@ -383,3 +383,19 @@ func TestReadActivityWithoutComposer(t *testing.T) {
 		})
 	}
 }
+
+// TestReadComposerEndingInAMenuHint covers a composer whose own lowest line reads like the hint
+// under Codex's file-search menu, where taking that line for the menu would send the search for
+// the composer above the box and read the transcript back as what the box holds.
+func TestReadComposerEndingInAMenuHint(t *testing.T) {
+	frame := "› an earlier message I already sent\n" +
+		"\n" +
+		"› paste of codex keys:\n" +
+		"\n" +
+		"  enter insert · esc close · arrows switch search modes"
+
+	input := NewHarness(NewHarnessParams{SessionsDir: t.TempDir()}).ReadInput(frame)
+
+	assert.Equal(t, harness.ActivityComposing, input.Activity)
+	assert.Equal(t, []string{" paste of codex keys:", ""}, input.Held)
+}
