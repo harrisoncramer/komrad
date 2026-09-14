@@ -3,7 +3,6 @@ local/
 dist/
 /weave
 /mockup
-/paneldemo
 
 !.claude/
 .claude/*
