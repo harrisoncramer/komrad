@@ -180,6 +180,12 @@ func agentsRowActions() []action {
 			run:  onHoveredWorkflow(model.editWorkflowForm),
 		},
 		{
+			id:   actionWorkflowOrchestrator,
+			keys: func(k config.Keybindings) []string { return k.Workflows.Orchestrator },
+			when: isHoveringWorkflow,
+			run:  onHoveredWorkflow(model.startOrchestrator),
+		},
+		{
 			id:   actionWorkflowArchive,
 			keys: func(k config.Keybindings) []string { return k.Workflows.Archive },
 			when: isHoveringWorkflow,
@@ -472,6 +478,11 @@ func agentsBrowsingLegend() []legendRow {
 		{
 			of:   []actionID{actionWorkflowEdit},
 			desc: func(model) string { return "edit" },
+		},
+		{
+			of:   []actionID{actionWorkflowOrchestrator},
+			desc: func(model) string { return "talk to workflow" },
+			show: isHoveringWorkflow,
 		},
 		{
 			of:   []actionID{actionAgentToggleViewed},

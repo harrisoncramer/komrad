@@ -25,21 +25,59 @@ type agentRow struct {
 	// child says the row is drawn under the one above it rather than under the workflow, which is
 	// an indent and nothing else.
 	child bool
+	// orchestrator is the agent a workflow header stands in for, unset on every other row.
+	orchestrator *agentItem
 }
 
-func treeRows(workflows []workflowstore.Workflow, agents []agentItem, showHidden bool) []agentRow {
+// paneItem is the agent whose pane this row shows, which for a workflow header is the
+// orchestrator standing behind it.
+func (r agentRow) paneItem() (agentItem, bool) {
+	if r.header {
+		if r.orchestrator == nil {
+			return agentItem{}, false
+		}
+
+		return *r.orchestrator, true
+	}
+
+	return r.item, true
+}
+
+type treeRowsParams struct {
+	workflows []workflowstore.Workflow
+	agents    []agentItem
+	// showHidden draws the agents a person has hidden alongside the rest.
+	showHidden bool
+	// foldOrchestrators draws a workflow's orchestrator on the workflow's own row rather than
+	// as a row of its own.
+	foldOrchestrators bool
+}
+
+func treeRows(params treeRowsParams) []agentRow {
+	workflows, agents := params.workflows, params.agents
+
 	children := make(map[string][]agentItem)
 	present := make(map[string]bool, len(agents))
+	orchestrators := make(map[string]agentItem)
 	for _, it := range agents {
 		present[it.agent.ID] = true
 		if it.agent.ParentAgentID != nil {
 			children[*it.agent.ParentAgentID] = append(children[*it.agent.ParentAgentID], it)
+		}
+		if params.foldOrchestrators && it.agent.Role == agentstore.RoleOrchestrator {
+			orchestrators[it.agent.WorkflowID] = it
 		}
 	}
 
 	byWorkflow := make(map[string][]agentRow)
 	hiddenCounts := make(map[string]int)
 	for _, it := range agents {
+		// An orchestrator is drawn on its workflow's own row, so it stands in no count and no
+		// key reveals it here.
+		if params.foldOrchestrators && it.agent.Role == agentstore.RoleOrchestrator {
+			continue
+		}
+
 		// A child is drawn where its parent is, and one whose parent is not in this listing has
 		// nowhere to be indented under, so it stands on its own rather than going missing.
 		if it.agent.ParentAgentID != nil && present[*it.agent.ParentAgentID] {
@@ -52,7 +90,7 @@ func treeRows(workflows []workflowstore.Workflow, agents []agentItem, showHidden
 			// Hiding the head takes the rows under it too, so the whole family stands in the
 			// workflow's own count.
 			hiddenCounts[workflowID] += len(family)
-			if !showHidden {
+			if !params.showHidden {
 				continue
 			}
 		}
@@ -64,7 +102,7 @@ func treeRows(workflows []workflowstore.Workflow, agents []agentItem, showHidden
 			// workflow.
 			if member.agent.Hidden && member.agent.ID != it.agent.ID {
 				rows[head].hiddenCount++
-				if !showHidden {
+				if !params.showHidden {
 					continue
 				}
 			}
@@ -81,11 +119,16 @@ func treeRows(workflows []workflowstore.Workflow, agents []agentItem, showHidden
 
 	var rows []agentRow
 	for _, w := range workflows {
-		rows = append(rows, agentRow{
+		header := agentRow{
 			header:      true,
 			workflow:    w,
 			hiddenCount: hiddenCounts[w.ID],
-		})
+		}
+		if found, ok := orchestrators[w.ID]; ok {
+			header.orchestrator = &found
+		}
+
+		rows = append(rows, header)
 		for _, row := range byWorkflow[w.ID] {
 			row.workflow = w
 			rows = append(rows, row)
@@ -96,7 +139,12 @@ func treeRows(workflows []workflowstore.Workflow, agents []agentItem, showHidden
 }
 
 func (m model) agentRows() []agentRow {
-	return treeRows(m.listing.workflows, m.listing.agents, m.tree.showHidden)
+	return treeRows(treeRowsParams{
+		workflows:         m.listing.workflows,
+		agents:            m.listing.agents,
+		showHidden:        m.tree.showHidden,
+		foldOrchestrators: true,
+	})
 }
 
 func (m model) hoveredRow() (agentRow, bool) {
@@ -168,7 +216,8 @@ func nearestAgentRowIndex(rows []agentRow, idx int) int {
 
 func rowIndexOfAgentID(rows []agentRow, id string) int {
 	for i, r := range rows {
-		if !r.header && r.item.agent.ID == id {
+		item, held := r.paneItem()
+		if held && item.agent.ID == id {
 			return i
 		}
 	}
@@ -234,7 +283,9 @@ func (m model) liveAgents() []agentstore.Agent {
 }
 
 func (m model) agentCount(workflowID string) int {
-	return xslice.Count(m.listing.agents, func(it agentItem) bool { return it.agent.WorkflowID == workflowID })
+	return xslice.Count(m.listing.agents, func(it agentItem) bool {
+		return it.agent.WorkflowID == workflowID && it.agent.Role != agentstore.RoleOrchestrator
+	})
 }
 
 type agentItem struct {
@@ -360,4 +411,15 @@ func (m *model) revealAgent(id string) {
 	if idx := rowIndexOfAgentID(m.agentRows(), id); idx >= 0 {
 		m.tree.cursor = idx
 	}
+}
+
+// orchestratorMark is the state of the orchestrator standing behind a workflow, drawn after the
+// name so every workflow still opens at the gutter.
+func orchestratorMark(row agentRow) string {
+	item, held := row.paneItem()
+	if !held {
+		return ""
+	}
+
+	return " " + stateMark(displayState(item))
 }
