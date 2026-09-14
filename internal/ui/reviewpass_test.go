@@ -289,6 +289,42 @@ func TestAReadersOwnPauseKeepsTheFilesForWhoeverLetsItGo(t *testing.T) {
 	assert.Contains(t, agents.letGo.GetSaid(), "greet.go", "and it still says where to look")
 }
 
+// TestADroppedPassKeepsTheFilesForAReadersOwnPause covers the exit with nothing to let go of,
+// which is the one that has something to keep: the files are the only thing that pass leaves.
+func TestADroppedPassKeepsTheFilesForAReadersOwnPause(t *testing.T) {
+	dir := reviewRepo(t)
+	agents := &fakeReviewAgents{}
+	m, _ := reviewModel(t, agents, dir)
+	m = openReview(t, m)
+
+	at := time.Now()
+	for i, item := range m.listing.agents {
+		if item.agent.ID == m.review.agentID {
+			m.listing.agents[i].agent.HeldAt = &at
+		}
+	}
+
+	m.review.cursor = reviewRowWithAnEditTarget(t, m)
+	m = pressEdit(t, m)
+	next, _ := m.closeReviewEdit()
+	m, ok := next.(model)
+	require.True(t, ok)
+
+	agentID := m.review.agentID
+	held, ok := m.getReviewAgentItem()
+	require.True(t, ok)
+
+	letGo := m.abandonReview(errors.New("the worktree could not be read"))
+	assert.Nil(t, letGo, "a pause the reader took is not the pass's to let go")
+
+	_, cmd := m.pauseAgent(held.agent)
+	runReviewCmd(t, cmd)
+
+	require.NotNil(t, agents.letGo)
+	assert.Equal(t, agentID, agents.letGo.GetId())
+	assert.Contains(t, agents.letGo.GetSaid(), "greet.go", "and the files survived the drop")
+}
+
 // settlePauseBatch runs a batch holding the stop and whatever was opened beside it, and hands the
 // panel the answer to the stop.
 func settlePauseBatch(t *testing.T, m model, cmd tea.Cmd) model {
