@@ -225,7 +225,7 @@ func (m model) loadReviewCmd(params loadReviewCmdParams) tea.Cmd {
 			earlier:   earlier,
 			earlierAt: releasedAtOf(reviews, round),
 			pinned:    pinned,
-			awaiting:  isAwaitingReviewAnswer(reviews, round),
+			awaiting:  isAwaitingReviewAnswer(reviews),
 			chapters:  chapters,
 			traced:    traced,
 			since: changedSinceLastReview(ctx, changedSinceLastReviewParams{

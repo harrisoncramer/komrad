@@ -90,14 +90,17 @@ func findLastHumanReview(reviews []*agentv1.Review, ordinal int32) *agentv1.Revi
 	return last
 }
 
-// isAwaitingReviewAnswer reports whether the person has released a review against the round on
-// screen, the state the service refuses a second review in.
-func isAwaitingReviewAnswer(reviews []*agentv1.Review, round *agentv1.ReviewRound) bool {
+// isAwaitingReviewAnswer reports whether a review the person released is still owed an answer.
+func isAwaitingReviewAnswer(reviews []*agentv1.Review) bool {
 	for _, review := range reviews {
 		if review.GetAuthorKind() != agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_HUMAN {
 			continue
 		}
-		if review.GetReleasedAt() != "" && review.GetRoundOrdinal() == round.GetOrdinal() {
+
+		// Explainer: the screen used to ask whether the round on screen was the one last reviewed,
+		// which is the question the service stopped asking: an agent moving on is not an answer.
+		// Reading the same count the service reads is what keeps the two saying one thing.
+		if review.GetReleasedAt() != "" && review.GetOpenThreads() > 0 {
 			return true
 		}
 	}
