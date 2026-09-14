@@ -375,11 +375,9 @@ func (m model) sendReview(interrupt bool) (tea.Model, tea.Cmd) {
 	// since a send that failed leaves the reader holding a review nobody has and an agent that
 	// would be let go believing it had one. Keeping the pass until the answer comes back leaves
 	// them where they were, holding both.
-	m.review.sending = true
-
 	agents, agentID := m.api.agents, m.review.agentID
 
-	return m, m.reviewWriteNoticeCmd(func(ctx context.Context) (string, error) {
+	return m, m.reviewSendCmd(func(ctx context.Context) (string, error) {
 		resp, err := agents.ReleaseReview(ctx, connect.NewRequest(&agentv1.ReleaseReviewRequest{
 			AgentId:   agentID,
 			Verdict:   verdict,
@@ -439,6 +437,16 @@ func (m model) reviewWriteCmd(notice string, write func(context.Context) error) 
 
 // reviewWriteNoticeCmd is the same for a write whose notice is only known once it has run.
 func (m model) reviewWriteNoticeCmd(write func(context.Context) (string, error)) tea.Cmd {
+	return m.reviewWriteMsgCmd(false, write)
+}
+
+// reviewSendCmd is the write that releases a review, which is the one whose answer ends the pass.
+func (m model) reviewSendCmd(write func(context.Context) (string, error)) tea.Cmd {
+	return m.reviewWriteMsgCmd(true, write)
+}
+
+// reviewWriteMsgCmd runs one write and reads the review back, marking whose answer it is.
+func (m model) reviewWriteMsgCmd(sent bool, write func(context.Context) (string, error)) tea.Cmd {
 	agents, agentID := m.api.agents, m.review.agentID
 
 	return func() tea.Msg {
@@ -447,7 +455,7 @@ func (m model) reviewWriteNoticeCmd(write func(context.Context) (string, error))
 
 		notice, err := write(ctx)
 		if err != nil {
-			return reviewWroteMsg{agentID: agentID, err: err}
+			return reviewWroteMsg{agentID: agentID, err: err, sent: sent}
 		}
 
 		threads, err := listReviewThreads(ctx, agents, agentID)
@@ -457,6 +465,7 @@ func (m model) reviewWriteNoticeCmd(write func(context.Context) (string, error))
 			notice:  notice,
 			threads: threads,
 			err:     err,
+			sent:    sent,
 		}
 	}
 }

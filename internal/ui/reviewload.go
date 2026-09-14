@@ -51,6 +51,9 @@ type reviewWroteMsg struct {
 	notice  string
 	threads []*agentv1.ReviewThread
 	err     error
+	// sent says this is the answer to a released review rather than to any of the other writes
+	// this screen makes, which all come back the same way.
+	sent bool
 }
 
 // enterReview opens the review of an agent's diff, with the threads in the sidebar and the
@@ -111,13 +114,9 @@ func (m *model) abandonReview(err error) tea.Cmd {
 // dropReview puts the reader back on the row they opened the review from, letting go of an agent
 // the pass stopped.
 func (m *model) dropReview() tea.Cmd {
-	var letGo tea.Cmd
-	if next, cmd := m.endReviewPass(abandonedSaid); cmd != nil {
-		if ended, ok := next.(model); ok {
-			*m = ended
-		}
-
-		letGo = cmd
+	next, letGo := m.endReviewPass(abandonedSaid)
+	if ended, ok := next.(model); ok {
+		*m = ended
 	}
 
 	m.review = reviewState{}
@@ -397,7 +396,6 @@ func (m *model) applyReviewWrote(msg reviewWroteMsg) tea.Cmd {
 	if msg.err != nil {
 		// A send that did not land leaves the pass standing, so the reader keeps their comments
 		// and keeps the agent stopped rather than being put back to watching with neither.
-		m.review.sending = false
 		m.report("Could not write on "+m.review.agentName, msg.err)
 
 		return nil
@@ -406,14 +404,16 @@ func (m *model) applyReviewWrote(msg reviewWroteMsg) tea.Cmd {
 	m.review.notice = msg.notice
 	m.applyReviewThreads(msg.threads)
 
-	if !m.review.sending {
+	// Explainer: every write on this screen comes back as one of these, so what says the pass is
+	// over has to ride on the message rather than on the screen. A flag on the model says a send
+	// is out and not which answer is its own, so a comment written just before it would end the
+	// pass and let the agent go while the review was still in flight.
+	if !msg.sent {
 		return nil
 	}
 
 	// The comments are in the agent's hands now, and answering them is the next thing it does, so
 	// this is what lets it go.
-	m.review.sending = false
-
 	next, letGo := m.endReviewPass(sentSaid)
 	if ended, ok := next.(model); ok {
 		*m = ended

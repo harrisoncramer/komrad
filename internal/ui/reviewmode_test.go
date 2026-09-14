@@ -260,12 +260,14 @@ func TestSendingAReviewLeavesWritingBehind(t *testing.T) {
 	require.NotNil(t, cmd, "and the same key sends it")
 
 	assert.Equal(t, modeReviewing, m.review.mode, "the pass stands until the comments have landed")
-	require.True(t, m.review.sending)
 
-	letGo := m.applyReviewWrote(reviewWroteMsg{agentID: m.review.agentID, notice: "changes requested"})
+	letGo := m.applyReviewWrote(reviewWroteMsg{
+		agentID: m.review.agentID,
+		notice:  "changes requested",
+		sent:    true,
+	})
 
 	assert.Equal(t, modeWatching, m.review.mode, "and then goes with the review it was for")
-	assert.False(t, m.review.sending)
 	assert.Nil(t, letGo, "with nothing to let go of, since this pass stopped nothing")
 }
 
@@ -286,18 +288,44 @@ func TestASendThatFailsKeepsThePass(t *testing.T) {
 	next, cmd := m.sendReview(false)
 	m = next.(model)
 	require.NotNil(t, cmd)
-	require.True(t, m.review.sending)
 
 	letGo := m.applyReviewWrote(reviewWroteMsg{
 		agentID: m.review.agentID,
 		err:     errors.New("the review could not be released"),
+		sent:    true,
 	})
 
 	assert.Nil(t, letGo, "the agent is not let go over comments it never got")
 	assert.Nil(t, agents.letGo)
 	assert.Equal(t, modeReviewing, m.review.mode, "and the reader is left where they were")
 	assert.True(t, m.review.paused)
-	assert.False(t, m.review.sending)
+}
+
+// TestAnotherWriteLandingMidSendIsNotTheSend covers every write on this screen coming back the
+// same way: a comment answered while a review is still in flight would otherwise end the pass and
+// let the agent go before the review had landed at all.
+func TestAnotherWriteLandingMidSendIsNotTheSend(t *testing.T) {
+	dir := reviewRepo(t)
+	agents := &fakeReviewAgents{}
+	m, _ := reviewModel(t, agents, dir)
+	m = openReview(t, m)
+
+	m.review.cursor = reviewRowWithAnEditTarget(t, m)
+	m = pressEdit(t, m)
+	next, _ := m.closeReviewEdit()
+	m = next.(model)
+	require.True(t, m.review.paused)
+
+	next, cmd := m.sendReview(false)
+	m = next.(model)
+	require.NotNil(t, cmd, "the review is on its way")
+
+	letGo := m.applyReviewWrote(reviewWroteMsg{agentID: m.review.agentID, notice: "comment added"})
+
+	assert.Nil(t, letGo, "an ordinary write is not the send")
+	assert.Nil(t, agents.letGo)
+	assert.Equal(t, modeReviewing, m.review.mode)
+	assert.True(t, m.review.paused, "so the agent is still stopped when the review lands")
 }
 
 // TestTheVerdictIsRefusedOnAFinishedRound covers rule three reaching the third write key: the

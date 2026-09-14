@@ -97,9 +97,6 @@ type reviewState struct {
 	// touched are the files the reader opened an editor on during the pass, oldest first, which
 	// is what the agent is told about when it is let go.
 	touched []string
-	// sending is set while a released review is on its way, which is what says the pass ends when
-	// the answer comes back rather than when it was asked for.
-	sending bool
 	// chapters are the rounds of the review the two step keys walk, oldest first.
 	chapters []reviewChapter
 	// chapter is which of those is on screen, negative for the whole change.
