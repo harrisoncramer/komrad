@@ -837,3 +837,70 @@ func TestTalliesDropAVerdictAnEditOutLived(t *testing.T) {
 	assert.Equal(t, Tally{AgentID: agentID, Rounds: 1}, tallies[0],
 		"the approval was given on a round the agent has since written past")
 }
+
+// Explainer: the verdict says what its author concluded at the time and never moves again, so a
+// review that has been answered and settled reads the same as one nobody has touched. What is
+// counted here is what changes as the work is done with.
+
+// TestAReviewCountsWhatIsStillOwedAnAnswer pins the count a released review carries.
+func TestAReviewCountsWhatIsStillOwedAnAnswer(t *testing.T) {
+	st := open(t)
+	ctx := t.Context()
+	agentID := seedAgent(t, st)
+	round := openRound(t, st, agentID, "tree-one")
+	review := openReview(t, st, agentID, round.ID)
+
+	first := openThread(t, st, agentID, review, "this needs a nil check")
+	second := openThread(t, st, agentID, review, "and this reads the flag twice")
+
+	release(t, st, agentID, review.ID, VerdictChangesRequested)
+
+	listed := reviewByID(t, st, agentID, review.ID)
+	assert.Equal(t, int32(2), listed.OpenThreads, "both comments are owed an answer")
+	assert.False(t, listed.IsSettled())
+
+	_, err := st.SetThreadResolved(ctx, SetThreadResolvedParams{ID: first.ID, Resolved: true, ByKind: AuthorHuman})
+	require.NoError(t, err)
+
+	listed = reviewByID(t, st, agentID, review.ID)
+	assert.Equal(t, int32(1), listed.OpenThreads)
+	assert.False(t, listed.IsSettled(), "a review is not finished while one comment stands")
+
+	_, err = st.SetThreadResolved(ctx, SetThreadResolvedParams{ID: second.ID, Resolved: true, ByKind: AuthorHuman})
+	require.NoError(t, err)
+
+	listed = reviewByID(t, st, agentID, review.ID)
+	assert.Zero(t, listed.OpenThreads)
+	assert.True(t, listed.IsSettled(), "and is finished once none do")
+}
+
+// TestAnOpenReviewIsNeverSettled covers the batch still being written, which has nothing owed an
+// answer because nobody has seen it.
+func TestAnOpenReviewIsNeverSettled(t *testing.T) {
+	st := open(t)
+	agentID := seedAgent(t, st)
+	round := openRound(t, st, agentID, "tree-one")
+	review := openReview(t, st, agentID, round.ID)
+
+	listed := reviewByID(t, st, agentID, review.ID)
+	assert.Zero(t, listed.OpenThreads, "a batch with no comments in it owes nothing")
+	assert.False(t, listed.IsSettled(), "but an unsent review is not a finished one")
+}
+
+// reviewByID is one review read back off the listing, which is where the count is computed.
+func reviewByID(t *testing.T, st *fixture, agentID, reviewID string) Review {
+	t.Helper()
+
+	listed, err := st.ListReviews(t.Context(), agentID)
+	require.NoError(t, err)
+
+	for _, review := range listed {
+		if review.ID == reviewID {
+			return review
+		}
+	}
+
+	t.Fatalf("the listing holds no review %q", reviewID)
+
+	return Review{}
+}

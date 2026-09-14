@@ -55,12 +55,21 @@ type Review struct {
 	DoorbellMailID *string
 	// DeliveredAt is when the agent claimed the mail that told it the review was waiting.
 	DeliveredAt *time.Time
+	// OpenThreads is how many of this review's conversations nobody has settled.
+	OpenThreads int32
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
 }
 
 // IsOpen reports whether the review is still being written.
 func (r Review) IsOpen() bool { return r.ReleasedAt == nil }
+
+// Explainer: a verdict is what the reviewer concluded at the time, and it does not move when the
+// agent answers. What says the work is done with is every comment in the batch having been
+// settled by whoever wrote it, which is why this is counted rather than declared.
+
+// IsSettled reports whether a released review has nothing left owed an answer.
+func (r Review) IsSettled() bool { return !r.IsOpen() && r.OpenThreads == 0 }
 
 type CreateRoundParams struct {
 	AgentID     string
@@ -292,6 +301,7 @@ func (s *Store) ListReviews(ctx context.Context, agentID string) ([]Review, erro
 		})
 		review.RoundOrdinal = row.RoundOrdinal
 		review.DeliveredAt = row.DeliveredAt
+		review.OpenThreads = row.OpenThreads
 
 		reviews = append(reviews, review)
 	}

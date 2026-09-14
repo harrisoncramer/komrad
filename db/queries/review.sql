@@ -108,7 +108,15 @@ LIMIT 1;
 SELECT
     v.*,
     r.ordinal AS round_ordinal,
-    d.claimed_at AS delivered_at
+    d.claimed_at AS delivered_at,
+(
+        SELECT
+            COUNT(*)
+        FROM
+            review_threads t
+        WHERE
+            t.review_id = v.id
+            AND t.resolved_at IS NULL)::int AS open_threads
 FROM
     reviews v
     JOIN review_rounds r ON r.id = v.round_id

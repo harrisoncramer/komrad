@@ -93,6 +93,10 @@ message Review {
   // What the author said about the work as a whole rather than about any one line, empty when
   // they said nothing.
   string body = 13;
+  // How many of this review's comments nobody has settled. A released review with none left is
+  // finished, which the verdict does not say, since a verdict is what its author concluded at
+  // the time rather than what has happened since.
+  int32 open_threads = 14;
 }
 
 // ReviewThread is one conversation pinned to a place in a round of an agent's diff.

@@ -366,6 +366,7 @@ func toReview(review reviewstore.Review) *agentv1.Review {
 		AuthorAgentId: review.AuthorAgentID,
 		Body:          review.Body,
 		Path:          review.Path,
+		OpenThreads:   review.OpenThreads,
 		CreatedAt:     dates.Stamp(review.CreatedAt),
 		UpdatedAt:     dates.Stamp(review.UpdatedAt),
 	}

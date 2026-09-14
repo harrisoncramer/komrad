@@ -984,7 +984,15 @@ const listReviews = `-- name: ListReviews :many
 SELECT
     v.id, v.agent_id, v.round_id, v.author_kind, v.author_agent_id, v.verdict, v.released_at, v.path, v.doorbell_mail_id, v.created_at, v.updated_at, v.body,
     r.ordinal AS round_ordinal,
-    d.claimed_at AS delivered_at
+    d.claimed_at AS delivered_at,
+(
+        SELECT
+            COUNT(*)
+        FROM
+            review_threads t
+        WHERE
+            t.review_id = v.id
+            AND t.resolved_at IS NULL)::int AS open_threads
 FROM
     reviews v
     JOIN review_rounds r ON r.id = v.round_id
@@ -1011,6 +1019,7 @@ type ListReviewsRow struct {
 	Body           string
 	RoundOrdinal   int32
 	DeliveredAt    *time.Time
+	OpenThreads    int32
 }
 
 func (q *Queries) ListReviews(ctx context.Context, agentID string) ([]*ListReviewsRow, error) {
@@ -1037,6 +1046,7 @@ func (q *Queries) ListReviews(ctx context.Context, agentID string) ([]*ListRevie
 			&i.Body,
 			&i.RoundOrdinal,
 			&i.DeliveredAt,
+			&i.OpenThreads,
 		); err != nil {
 			return nil, err
 		}
