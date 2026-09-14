@@ -195,6 +195,16 @@ func (m model) toggleAgentViewed(item agentItem) (tea.Model, tea.Cmd) {
 	return m, m.writeCmd(summary, func(a api) error { return a.setViewed(item.agent.ID, viewed) })
 }
 
+// openHovered attaches to whatever the cursor is on, which for a workflow is the orchestrator
+// standing behind it.
+func (m model) openHovered() (tea.Model, tea.Cmd) {
+	if workflow, ok := m.hoveredWorkflow(); ok {
+		return m.startOrchestrator(workflow)
+	}
+
+	return m.openAgent()
+}
+
 func (m model) openAgent() (tea.Model, tea.Cmd) {
 	return m.withSelectedAgent(func(item agentItem) (tea.Model, tea.Cmd) {
 		if !item.alive && !item.agent.State.DoesPaneDecide() {
@@ -323,8 +333,6 @@ func (m model) agentDoc() string {
 		return settingUpPlaceholder
 	case item.agent.State.IsFailed():
 		return m.failedPlaceholder(item.agent)
-	case r.header:
-		return workflowDormantPlaceholder
 	default:
 		return dormantPlaceholder
 	}
@@ -456,10 +464,6 @@ func (m model) scheduleName(agent agentstore.Agent) string {
 }
 
 const dormantPlaceholder = "_dormant — not running_\n\nPress open to resume."
-
-// workflowDormantPlaceholder is what a workflow row draws for an orchestrator that has stopped,
-// where the open key is not bound.
-const workflowDormantPlaceholder = "_dormant — not running_\n\nPress the orchestrator key to bring it back."
 
 // noAgentsMarkdown is what stands beside an empty list.
 const noAgentsMarkdown = "# Agents\n\n_nothing here yet_\n\nPress new to make a workflow and an agent in it.\n"

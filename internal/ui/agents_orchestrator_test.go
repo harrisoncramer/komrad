@@ -170,7 +170,7 @@ func TestWorkflowRowShowsItsOrchestrator(t *testing.T) {
 			name:        "a workflow whose orchestrator has stopped",
 			items:       []agentItem{dormantOrchestrator()},
 			wantStateOf: agentstore.StateIdle,
-			wantDoc:     workflowDormantPlaceholder,
+			wantDoc:     dormantPlaceholder,
 		},
 		{
 			name:        "a workflow whose orchestrator failed to start",
@@ -217,15 +217,15 @@ func TestWorkflowRowShowsItsOrchestrator(t *testing.T) {
 	}
 }
 
-// TestTalkingToAWorkflowStartsItsOrchestrator pins the key, which is what starts or restores
-// one rather than the cursor landing on the row.
+// TestTalkingToAWorkflowStartsItsOrchestrator pins that open answers a workflow row the way it
+// answers an agent row, starting what is not running.
 func TestTalkingToAWorkflowStartsItsOrchestrator(t *testing.T) {
 	agents := &recordingOrchestrators{}
 
 	m := orchestratorModel(agents)
 	m.tree.cursor = 0
 
-	pressed, cmd := m.Update(keyMsg("O"))
+	pressed, cmd := m.Update(keyMsg("enter"))
 	written, ok := pressed.(model)
 	require.True(t, ok)
 
