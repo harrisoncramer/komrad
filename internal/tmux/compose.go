@@ -68,9 +68,8 @@ func (c *Client) YankLine(target string) error {
 	return nil
 }
 
-// paste loads the text into a buffer of weave's own and pastes it, running whatever commands
-// follow in the same invocation.
-func (c *Client) paste(target, text string, then ...string) error {
+// paste loads the text into a buffer of weave's own and pastes it.
+func (c *Client) paste(target, text string) error {
 	if target == "" {
 		return errors.New("refusing to paste into an empty target")
 	}
@@ -78,7 +77,7 @@ func (c *Client) paste(target, text string, then ...string) error {
 		return errors.New("refusing to paste nothing")
 	}
 
-	if _, err := c.query(pasteArgs(pasteBufferName(), target, text, then...)...); err != nil {
+	if _, err := c.query(pasteArgs(pasteBufferName(), target, text)...); err != nil {
 		return fmt.Errorf("failed to paste into %q: %w", target, err)
 	}
 
@@ -91,13 +90,11 @@ func pasteBufferName() string {
 }
 
 // pasteArgs is the one invocation a paste is sent as.
-func pasteArgs(buffer, target, text string, then ...string) []string {
+func pasteArgs(buffer, target, text string) []string {
 	// -d drops the buffer once it has been pasted, and -p wraps it in the markers that say the
 	// text was pasted rather than typed.
-	args := []string{
+	return []string{
 		"set-buffer", "-b", buffer, "--", text,
 		";", "paste-buffer", "-p", "-d", "-b", buffer, "-t", target,
 	}
-
-	return append(args, then...)
 }
