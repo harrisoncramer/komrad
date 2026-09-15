@@ -1,0 +1,4 @@
+aws_region                      = "us-east-1"
+aws_profile                     = "weave"
+aws_config_file                 = "/absolute/path/to/aws/config"
+aws_shared_credentials_file     = "/absolute/path/to/aws/credentials"
