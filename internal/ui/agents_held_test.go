@@ -99,6 +99,7 @@ func TestPausingSendsNoWordsToTheAgent(t *testing.T) {
 	assert.Empty(t, agents.released)
 }
 
+// TestOpenKeyDoesNothingForHeldAgent covers the open key while an agent is held.
 func TestOpenKeyDoesNothingForHeldAgent(t *testing.T) {
 	at := time.Now()
 	tmux := &recordingTmux{}
@@ -139,6 +140,7 @@ func TestOpenKeyDoesNothingForHeldAgent(t *testing.T) {
 	assert.Equal(t, screenAgents, got.screen)
 }
 
+// TestHeldAgentShowsDocNotPane covers a held agent drawing its document in place of its pane.
 func TestHeldAgentShowsDocNotPane(t *testing.T) {
 	at := time.Now()
 
