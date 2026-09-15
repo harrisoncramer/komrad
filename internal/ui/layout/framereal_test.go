@@ -5,6 +5,7 @@ package layout
 import (
 	"strconv"
 	"testing"
+	"time"
 
 	"weave/config"
 	"weave/internal/tmuxtest"
@@ -39,7 +40,7 @@ func TestSidebarWidthFollowsADraggedDividerUnderTheWindow(t *testing.T) {
 	require.Equal(t, config.DefaultSidebarWidth, width, "the configured columns to begin with")
 
 	server.Run("resize-pane", "-t", sidebar, "-x", "50")
-	frame.SyncSplit()
+	syncDivider(t, frame, total-51)
 
 	width, measured := frame.SidebarWidth(total)
 	assert.Equal(t, 50, width, "a dragged divider is what the sidebar draws in")
@@ -61,13 +62,20 @@ func TestADeadStagePaneIsReplacedAtTheDraggedWidth(t *testing.T) {
 	total := paneWidth(t, server, sidebar) + paneWidth(t, server, stage) + 1
 
 	server.Run("resize-pane", "-t", sidebar, "-x", "50")
-	frame.SyncSplit()
+	syncDivider(t, frame, total-51)
 	require.Equal(t, 50, paneWidth(t, server, sidebar), "the divider is dragged off the configured width")
 
 	server.Run("kill-pane", "-t", stage)
-	frame.Show(RegionStage, newDocument("# back to the diff"))
+	frame.Show(RegionStage, Content{
+		Key:   "back-to-diff",
+		Wraps: true,
+		Render: func(Target) ([]string, bool) {
+			return []string{"sh", "-c", "sleep 10"}, true
+		},
+	})
 
 	replaced := frame.Pane(RegionStage)
+	require.NotEmpty(t, replaced, "the replacement stage was opened")
 	require.NotEqual(t, stage, replaced, "the dead pane was replaced")
 	assert.Equal(t, 50, paneWidth(t, server, sidebar), "and the sidebar is left where it was dragged")
 
@@ -83,4 +91,13 @@ func paneWidth(t *testing.T, server *tmuxtest.Server, pane string) int {
 	require.NoError(t, err)
 
 	return width
+}
+
+func syncDivider(t *testing.T, frame *Frame, want int) {
+	t.Helper()
+
+	require.EventuallyWithT(t, func(collect *assert.CollectT) {
+		frame.SyncSplit()
+		assert.Equal(collect, want, frame.StageCols())
+	}, time.Second, 10*time.Millisecond)
 }
