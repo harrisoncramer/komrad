@@ -20,6 +20,8 @@ var composerMarker = regexp.MustCompile(`^\s*›(.*)$`)
 
 var slashWord = regexp.MustCompile(`^\s*/\S*$`)
 
+var errorLine = regexp.MustCompile(`(?m)^\s*■`)
+
 var searchMenuHint = regexp.MustCompile(`esc close.*switch search modes`)
 
 const liveRegionLines = 30
@@ -51,6 +53,9 @@ func (h *Harness) ReadInput(frame string) harness.Input {
 		if !composing {
 			return harness.Input{Activity: harness.ActivityUnrecognized}
 		}
+		if doesFrameShowError(frame) {
+			return harness.Input{Activity: harness.ActivityUnrecognized}
+		}
 
 		input := harness.Input{Activity: harness.ActivityIdle, Held: held}
 		if strings.TrimSpace(input.Text()) != "" {
@@ -69,6 +74,10 @@ func tailLines(frame string, count int) string {
 	}
 
 	return strings.Join(lines, "\n")
+}
+
+func doesFrameShowError(frame string) bool {
+	return errorLine.MatchString(tailLines(frame, liveRegionLines))
 }
 
 func doesFrameShowWork(frame string) bool {

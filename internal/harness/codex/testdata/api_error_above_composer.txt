@@ -1,0 +1,24 @@
+the server is answering on.
+  </panel_briefing>
+
+  say hello
+
+
+[38;5;3m⚠ The chariot MCP server is not logged in. Run[39m
+  [38;5;3m`codex mcp login chariot`.[39m
+
+[38;5;3m⚠ Model metadata for `foo` not found. Defaulting[39m
+  [38;5;3mto fallback metadata; this can degrade[39m
+  [38;5;3mperformance and cause issues.[39m
+
+[38;5;3m⚠ MCP startup incomplete (failed: chariot)[39m
+
+[38;5;1m■ {"type":"error","status":400,"error":[39m
+[38;5;1m{"type":"invalid_request_error","message":"The[39m
+[38;5;1m'foo' model is not supported when using Codex[39m
+[38;5;1mwith a ChatGPT account."}}[39m
+
+
+[1m›[0m [2mUse /skills to list available skills[0m
+
+  [38;2;130;156;207mfoo medium[2m[39m · [0m[38;2;154;184;117m~/weave-test[39m
