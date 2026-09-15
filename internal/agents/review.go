@@ -548,10 +548,14 @@ func (s *ReviewService) Close() {
 
 		author, err := s.agents.GetByID(ctx, authorID)
 		if err != nil {
+			logging.From(ctx).LogAttrs(ctx, slog.LevelError, "failed to look up author while flushing pending review notice",
+				append([]slog.Attr{slog.String(logging.AgentID, authorID)}, logging.Err(err)...)...)
 			continue
 		}
 
 		if _, err := s.sendReviewerNotice(ctx, *author); err != nil {
+			logging.From(ctx).LogAttrs(ctx, slog.LevelError, "failed to send pending review notice during shutdown",
+				append([]slog.Attr{slog.String(logging.AgentID, authorID)}, logging.Err(err)...)...)
 			continue
 		}
 	}
