@@ -4,6 +4,8 @@ This directory holds the Terraform configuration for Weave's AWS development hos
 
 The first layer creates one Ubuntu EC2 instance, a public subnet, a fixed public IP, a restricted SSH rule, Systems Manager access, and an encrypted data volume. The instance has the public IP because SSH reaches the terminal panel. Weave itself stays on loopback.
 
+Postgres runs on RDS in private subnets that have no route out, reachable only from the instance's security group. Its password is created and held by AWS, and the instance reads it at boot through its own role, so nobody types a connection string and no password is written into Terraform state.
+
 The data volume mounts at `/var/lib/weave`. The Go build and module caches, weave's worktrees, and its cache directory all live there, so the disks that grow without bound are on the volume sized for growth and survive an instance replacement. A systemd unit performs the mount on every boot rather than only the first, so a slow volume attachment costs a retry rather than leaving the host quietly writing to its root disk. Weave's own unit checks that `/var/lib/weave` is a mount point before it starts, so a host whose volume never arrived runs no weave rather than writing to its root disk.
 
 The mount finds its disk by serial rather than by device name. EBS volumes attached to a Nitro instance appear to the guest as NVMe devices whose serial is the volume id with the dashes removed, and the name they are attached under is not the name the guest sees.
@@ -20,7 +22,9 @@ So the order of operations for a new host is: run `mise run packer:build`, take 
 
 Changing `ami_id` replaces the instance. That is the upgrade path rather than an accident: a new image means a new host, the data volume is detached and reattached to it, and everything on the root volume is discarded. The two volumes have different jobs for that reason. The root volume is disposable and holds only what the image put there, while `/var/lib/weave` holds the things that must outlive a host, which is why weave's worktrees, its cache, and the Go build and module caches are all pointed at it.
 
-The image carries no credentials. Weave's systemd unit requires `/etc/weave/database.env`, which the image does not contain, so the unit is skipped rather than failed and a freshly booted host runs every dependency and no weave until secret delivery puts that file in place.
+The image carries no credentials. A unit fetches the database password at boot and writes `/etc/weave/database.env`, and weave's own unit is skipped until that file exists, so a host that cannot reach its secret runs no weave rather than failing in a loop.
+
+The GitHub and harness logins are not delivered by machinery. Sign in to the host once over SSH with `gh auth login` and the first-run flows for Claude and Codex, exactly as on a laptop. The weave user's home is on the data volume, so those logins survive a new image and are a one-time cost rather than something repeated on every upgrade.
 
 ## Authentication
 

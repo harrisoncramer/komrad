@@ -43,4 +43,10 @@ fi
 mountpoint -q /var/lib/weave || mount /var/lib/weave
 
 mkdir -p /var/lib/weave/go-build /var/lib/weave/go-mod /var/lib/weave/worktrees /var/lib/weave/cache
+mkdir -p /var/lib/weave/home/.config/weave
+
+if [ ! -f /var/lib/weave/home/.config/weave/config.toml ]; then
+	install -m 0644 /usr/share/weave/config.toml /var/lib/weave/home/.config/weave/config.toml
+fi
+
 chown -R weave:weave /var/lib/weave

@@ -1,6 +1,6 @@
 [Unit]
 Description=weave
-After=network-online.target weave-data-volume.service
+After=network-online.target weave-data-volume.service weave-database-credentials.service
 Wants=network-online.target
 Requires=weave-data-volume.service
 RequiresMountsFor=/var/lib/weave

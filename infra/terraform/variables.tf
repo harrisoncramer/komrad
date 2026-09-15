@@ -82,3 +82,41 @@ variable "tags" {
     Project   = "weave"
   }
 }
+
+variable "private_subnet_cidrs" {
+  type = map(string)
+  default = {
+    "us-east-1a" = "10.42.1.0/24"
+    "us-east-1b" = "10.42.2.0/24"
+  }
+}
+
+variable "database_engine_version" {
+  type    = string
+  default = "17.5"
+}
+
+variable "database_instance_class" {
+  type    = string
+  default = "db.t4g.micro"
+}
+
+variable "database_storage_gib" {
+  type    = number
+  default = 20
+}
+
+variable "database_max_storage_gib" {
+  type    = number
+  default = 100
+}
+
+variable "database_backup_retention_days" {
+  type    = number
+  default = 7
+}
+
+variable "database_deletion_protection" {
+  type    = bool
+  default = true
+}

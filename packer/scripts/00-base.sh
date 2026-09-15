@@ -17,19 +17,31 @@ apt-get install -y \
 	tmux \
 	unzip
 
-useradd --create-home --shell /bin/bash weave
+useradd --no-create-home --home-dir /var/lib/weave/home --shell /bin/bash weave
 
 install -m 0755 /tmp/files/weave-data-volume /usr/local/sbin/weave-data-volume
+install -m 0755 /tmp/files/weave-database-credentials /usr/local/sbin/weave-database-credentials
 install -m 0644 /tmp/files/weave-data-volume.service /etc/systemd/system/weave-data-volume.service
+install -m 0644 /tmp/files/weave-database-credentials.service /etc/systemd/system/weave-database-credentials.service
 install -m 0644 /tmp/files/weave.service /etc/systemd/system/weave.service
-mkdir -p /etc/weave
-install -d -o weave -g weave /home/weave/.config /home/weave/.config/weave
+mkdir -p /etc/weave /usr/share/weave
 
 install -m 0644 /tmp/files/weave.env /etc/weave/weave.env
-install -m 0644 -o weave -g weave /tmp/files/weave-config.toml /home/weave/.config/weave/config.toml
+install -m 0644 /tmp/files/weave-config.toml /usr/share/weave/config.toml
+
+curl -fsSL -o /tmp/awscli.zip \
+	https://awscli.amazonaws.com/awscli-exe-linux-aarch64.zip
+unzip -q /tmp/awscli.zip -d /tmp
+/tmp/aws/install
+rm -rf /tmp/awscli.zip /tmp/aws
+
+curl -fsSL -o /etc/weave/rds-ca.pem \
+	https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem
+chmod 0644 /etc/weave/rds-ca.pem
 
 sed 's/^/export /' /tmp/files/weave.env >/etc/profile.d/weave-env.sh
 chmod 0644 /etc/profile.d/weave-env.sh
 
 systemctl enable weave-data-volume.service
+systemctl enable weave-database-credentials.service
 systemctl enable weave.service

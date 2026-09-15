@@ -43,7 +43,11 @@ resource "aws_instance" "weave" {
   iam_instance_profile        = aws_iam_instance_profile.weave.name
   key_name                    = var.ssh_public_key_path == null ? null : aws_key_pair.weave[0].key_name
   user_data = templatefile("${path.module}/weave-data-volume.sh.tftpl", {
-    data_volume_id = aws_ebs_volume.weave_data.id
+    data_volume_id     = aws_ebs_volume.weave_data.id
+    database_secret_id = aws_db_instance.weave.master_user_secret[0].secret_arn
+    database_host      = aws_db_instance.weave.address
+    database_name      = aws_db_instance.weave.db_name
+    aws_region         = var.aws_region
   })
 
   dynamic "credit_specification" {
