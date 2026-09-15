@@ -407,6 +407,12 @@ func (m *model) afterStaging() {
 // sizeGuestWindow puts an agent's own window at the size of the stage before it is swapped in,
 // which sizeAgentWindows cannot do for the pane already standing there.
 func (m *model) sizeGuestWindow(pane string) {
+	// A remote agent's window is sized by the ssh client attached to it, which is the stage pane
+	// itself, so there is nothing here to set and the pane id names a window on another server.
+	if m.frame.IsRemote() {
+		return
+	}
+
 	width, height := m.frame.StageCols(), m.height
 	if pane == "" || pane == m.frame.GuestPane() || width <= 0 || height <= 0 {
 		return

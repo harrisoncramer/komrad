@@ -2,6 +2,8 @@ package cli
 
 import (
 	"weave/config"
+	"weave/internal/agents"
+	"weave/internal/engine"
 	"weave/internal/harness"
 	"weave/internal/tmux"
 	"weave/internal/ui"
@@ -25,4 +27,19 @@ type app struct {
 	configPaths    []string
 	configSources  map[string]config.Source
 	tmux           *tmux.Client
+}
+
+// engine says where the agents are running, which the panel needs so it can show a terminal it
+// cannot reach with a pane move.
+func (a *app) engine() engine.Remote {
+	socket := a.env.EngineTmuxSocket
+	if socket == "" {
+		socket = a.env.TmuxSocket
+	}
+
+	return engine.Remote{
+		Destination: a.env.SSH,
+		Socket:      socket,
+		Session:     agents.ManagerSession,
+	}
 }

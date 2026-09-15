@@ -654,6 +654,14 @@ type Connection struct {
 	// Left empty this is ~/Library/Caches/weave on a Mac and ~/.cache/weave on Linux.
 	// Everything under it is weave's to delete and rewrite, so nothing of yours belongs here.
 	CacheDir string `mapstructure:"cache_dir"`
+	// The ssh destination the engine runs on, like user@host, when it is not this machine.
+	// Left empty the engine is local and an agent's terminal is shown by moving its own pane
+	// into the panel, which only works while the panel and the agents share a tmux server.
+	SSH string `mapstructure:"ssh"`
+	// The tmux socket the engine's own server runs on, which is only consulted when ssh names
+	// a destination. Left empty it is tmux_socket, which is right when both machines run a
+	// default weave and wrong when this machine is also running an engine of its own.
+	EngineTmuxSocket string `mapstructure:"engine_tmux_socket"`
 }
 
 // Config is the user's customization.

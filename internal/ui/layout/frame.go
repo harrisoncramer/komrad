@@ -6,6 +6,7 @@ import (
 	"strconv"
 
 	"weave/config"
+	"weave/internal/engine"
 	"weave/internal/panes"
 )
 
@@ -39,6 +40,9 @@ type Frame struct {
 	// onSize is told the size the sidebar landed at, once the moves that changed it have been
 	// sent.
 	onSize func(width, height int)
+
+	// remote is the engine the agents are running in, the zero value meaning this machine.
+	remote engine.Remote
 }
 
 type shown struct {
@@ -47,13 +51,28 @@ type shown struct {
 	height int
 }
 
+// Option is a setting New takes beyond the geometry, so the common case names none of them.
+type Option func(*Frame)
+
+// WithEngine says the agents are running somewhere this tmux server cannot reach, which is what
+// makes the stage attach to them rather than move their panes.
+func WithEngine(remote engine.Remote) Option {
+	return func(f *Frame) { f.remote = remote }
+}
+
 // New builds the frame the panel lays out around itself, at the geometry the config asks for.
-func New(tmux Tmux, layout config.Layout) *Frame {
-	return &Frame{
+func New(tmux Tmux, layout config.Layout, options ...Option) *Frame {
+	frame := &Frame{
 		tmux:  tmux,
 		spec:  newSpec(layout),
 		shown: map[Region]shown{},
 	}
+
+	for _, option := range options {
+		option(frame)
+	}
+
+	return frame
 }
 
 // OnResize says where the sidebar's new size is reported once a change has moved it.
@@ -303,16 +322,31 @@ func (f *Frame) SyncSplit() {
 	f.stageCols = f.tmux.GetPaneWidth(f.visibleStagePane())
 }
 
+// IsRemote reports whether the agents are running in an engine this tmux server cannot reach,
+// which decides how a terminal is shown and who owns its size.
+func (f *Frame) IsRemote() bool { return f.remote.IsRemote() }
+
 // IsSidebarOnRight is the side the panel's own column sits on, so a screen drawing its own split
 // puts it where the panes it took the window from would have.
 func (f *Frame) IsSidebarOnRight() bool { return f.spec.sidebarOnRight }
 
-// ShowGuest swaps a pane somebody else owns into the stage.
+// ShowGuest puts an agent's terminal in the stage, by moving its pane in when the engine is
+// this machine and by attaching to the engine's tmux when it is not.
 func (f *Frame) ShowGuest(pane string) {
 	defer f.holdSolo()
 
 	f.claimStage()
-	if f.stage == "" || pane == "" || pane == f.guest {
+	if f.stage == "" || pane == "" {
+		return
+	}
+
+	if f.remote.IsRemote() {
+		f.showRemoteGuest(pane)
+
+		return
+	}
+
+	if pane == f.guest {
 		return
 	}
 
@@ -320,6 +354,22 @@ func (f *Frame) ShowGuest(pane string) {
 	f.move(panes.Swap(pane, f.stage))
 	f.guest = pane
 	f.forget(RegionStage)
+}
+
+// showRemoteGuest respawns the stage on an ssh attach, which is the only way to reach a pane on
+// a tmux server this one cannot address.
+func (f *Frame) showRemoteGuest(pane string) {
+	argv := f.remote.AttachArgv(pane)
+	if len(argv) == 0 {
+		return
+	}
+
+	if f.isShowing(RegionStage, Content{Key: pane}, Target{Region: RegionStage}) {
+		return
+	}
+
+	f.move(panes.Respawn(f.stage, "", argv...))
+	f.shown[RegionStage] = shown{key: pane}
 }
 
 // ReleaseGuest returns a guest pane to where it came from before it is killed, so the main

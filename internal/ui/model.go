@@ -15,6 +15,7 @@ import (
 	"sync"
 
 	"weave/config"
+	"weave/internal/engine"
 	"weave/internal/errui"
 	"weave/internal/git"
 	"weave/internal/position"
@@ -153,6 +154,7 @@ type Deps struct {
 	Hooks           hookv1connect.HookServiceClient
 	Keys            config.Keybindings
 	Layout          config.Layout
+	Engine          engine.Remote
 	Addr            string
 	LogViewer       string
 	LogPath         string
@@ -285,7 +287,7 @@ func newModel(deps Deps, isDark bool, post *postbox) model {
 		tmux:            deps.Tmux,
 		git:             deps.Git,
 		harnessFrames:   deps.HarnessFrames,
-		frame:           layout.New(deps.Tmux, deps.Layout),
+		frame:           layout.New(deps.Tmux, deps.Layout, layout.WithEngine(deps.Engine)),
 		detailsHeight:   deps.Layout.DetailsHeight,
 		addr:            deps.Addr,
 		logPath:         deps.LogPath,

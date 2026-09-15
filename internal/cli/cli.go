@@ -72,6 +72,8 @@ the machine, start or stop the service, or call an endpoint from a script.`,
 				Addr:                cfg.Connection.Addr,
 				TmuxSocket:          cfg.Connection.TmuxSocket,
 				CacheDir:            cfg.Connection.CacheDir,
+				SSH:                 cfg.Connection.SSH,
+				EngineTmuxSocket:    cfg.Connection.EngineTmuxSocket,
 			})
 
 			codexHarness := codex.NewHarness(codex.NewHarnessParams{

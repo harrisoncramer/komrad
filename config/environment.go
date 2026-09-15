@@ -21,6 +21,8 @@ type Environment struct {
 	Addr                string
 	TmuxSocket          string
 	CacheDir            string
+	SSH                 string
+	EngineTmuxSocket    string
 	Tmux                string
 	TmuxPane            string
 	AgentID             string
