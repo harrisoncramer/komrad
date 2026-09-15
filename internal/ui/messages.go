@@ -77,6 +77,8 @@ type messagesState struct {
 	// landed counts the messages pushed, and pulse blinks the newest of them as it arrives.
 	landed int
 	pulse  pulse
+	// savedColumnTop is where the screen's column doc was scrolled to before the region lost focus
+	savedColumnTop int
 }
 
 // pulseMessages blinks the summary when the stack has grown since the count it is given.
@@ -470,10 +472,17 @@ func (m model) toggleMessagesFocus() model {
 		return m
 	}
 
+	entering := !m.messages.focused
 	m.messages.focused = !m.messages.focused
 	m.details.focused = false
-	m.messages.cursor = 0
-	m = m.landedOnMessage()
+
+	if entering {
+		m.messages.savedColumnTop = m.column.top
+		m.messages.field = 0
+		m.column.top = 0
+	} else {
+		m.column.top = m.messages.savedColumnTop
+	}
 
 	m.reconcileSolo()
 	m.restageScreen()
