@@ -1,6 +1,17 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Explainer: this is everything the host cannot know until Terraform has built it.
+#
+# The machine image carries the scripts, the units and the toolchain, so almost nothing
+# is installed at boot. What the image cannot contain is the identity of the volume and
+# the database this particular instance was given, because those are created by the same
+# Terraform run that creates the instance. Writing them here is the handover.
+#
+# The units below are enabled in the image, so they also try to run earlier in the boot,
+# before these files exist. They are written to skip cleanly in that case, and starting
+# them here is what actually runs them once the files are in place.
+
 mkdir -p /etc/weave
 
 echo "WEAVE_DATA_VOLUME_ID=${data_volume_id}" >/etc/weave/data-volume.env
@@ -12,6 +23,9 @@ WEAVE_DATABASE_NAME=${database_name}
 AWS_REGION=${aws_region}
 ENV
 
+# Order matters. The volume has to be mounted before weave can use it, and the password
+# has to be fetched before weave can start, so each is started in turn rather than left
+# to systemd's own ordering.
 systemctl start weave-data-volume.service
 systemctl start weave-database-credentials.service
 systemctl start weave.service
