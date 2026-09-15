@@ -99,6 +99,46 @@ func TestPausingSendsNoWordsToTheAgent(t *testing.T) {
 	assert.Empty(t, agents.released)
 }
 
+func TestOpenKeyShowsHeldPaneWithoutFocus(t *testing.T) {
+	at := time.Now()
+	tmux := &recordingTmux{}
+
+	m := model{
+		api:    api{agents: &recordingHolds{}, workflows: emptyLists{}},
+		tmux:   tmux,
+		pane:   "%3",
+		frame:  layout.New(tmux, config.DefaultLayout()),
+		keys:   config.DefaultKeybindings(),
+		screen: screenAgents,
+		listing: listing{
+			workflows: []workflowstore.Workflow{{
+				ID:   "w1",
+				Name: "backend",
+			}},
+			agents: []agentItem{{
+				agent: agentstore.Agent{
+					ID:         "a1",
+					Name:       "telescope",
+					State:      agentstore.StateThinking,
+					WorkflowID: "w1",
+					Pane:       "%9",
+					HeldAt:     &at,
+				},
+				alive: true,
+			}},
+		},
+	}
+	m.tree.cursor = firstAgentRowIndex(m.agentRows())
+	m.frame.Attach("%3")
+
+	pressed, _ := m.openAgent()
+	got := asModel(t, pressed)
+
+	assert.Equal(t, "%9", got.frame.GuestPane(), "the held agent's pane is shown on the right")
+	assert.Empty(t, tmux.selected, "the held agent's pane is not focused")
+	assert.Equal(t, screenAgents, got.screen, "the panel stays on the agents screen")
+}
+
 // Explainer: a hold is taken on one reading, so an agent that was about to start a turn reads
 // like one that has stopped, and a pane that goes unreadable afterwards says nothing about
 // whether it stopped at all. The row admits both rather than letting go on the person's behalf.

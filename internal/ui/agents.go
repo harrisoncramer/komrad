@@ -212,6 +212,16 @@ func (m model) openAgent() (tea.Model, tea.Cmd) {
 		}
 
 		if item.alive {
+			if item.agent.HeldAt != nil {
+				if pane := item.agent.Pane; pane != "" {
+					m.frame.Solo(false)
+					m.sizeGuestWindow(pane)
+					m.frame.ShowGuest(pane)
+				}
+
+				return m, nil
+			}
+
 			if pane := m.frame.GuestPane(); pane != "" && pane == item.agent.Pane {
 				m.tmux.SelectPane(pane)
 			}
