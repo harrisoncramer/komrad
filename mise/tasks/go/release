@@ -44,10 +44,7 @@ for TARGET in "${TARGETS[@]}"; do
 
 	gum log --level info "building $out at $VERSION"
 
-	CGO_ENABLED=0 GOOS="$os" GOARCH="$arch" go build \
-		-trimpath \
-		-ldflags "-s -w -X weave/internal/version.stamped=$VERSION" \
-		-o "$out" .
+	go_build_binary "$os" "$arch" "$VERSION" "$out"
 done
 
 cd dist

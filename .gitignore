@@ -9,6 +9,7 @@ dist/
 *.tfstate.*
 *.tfvars
 !*.tfvars.example
+/infra/terraform/backend.hcl
 crash.log
 crash.*.log
 

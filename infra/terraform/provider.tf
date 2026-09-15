@@ -1,4 +1,5 @@
 provider "aws" {
+  allowed_account_ids      = [var.aws_account_id]
   region                   = var.aws_region
   profile                  = var.aws_profile
   shared_config_files      = var.aws_config_file == null ? null : [var.aws_config_file]

@@ -1,0 +1,21 @@
+[Unit]
+Description=weave
+After=network-online.target weave-data-volume.service
+Wants=network-online.target
+Requires=weave-data-volume.service
+RequiresMountsFor=/var/lib/weave
+ConditionPathExists=/etc/weave/database.env
+ConditionPathIsMountPoint=/var/lib/weave
+
+[Service]
+Type=simple
+User=weave
+Group=weave
+EnvironmentFile=-/etc/weave/weave.env
+EnvironmentFile=/etc/weave/database.env
+ExecStart=/usr/local/bin/weave serve
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

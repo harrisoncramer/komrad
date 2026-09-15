@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+source "$MISE_CONFIG_ROOT/mise/tasks/_"
+set -euo pipefail
+#MISE description="Build the weave AMI with Packer."
+
+usage() {
+	echo "Usage: mise run packer:build [-- <packer args>]"
+	echo
+	echo "Builds the weave machine image in AWS and prints the resulting AMI id."
+	echo "The image is stamped with the revision this repository is on, so the id"
+	echo "can be traced back to a commit."
+}
+
+for arg in "$@"; do
+	case "$arg" in
+	-h | --help)
+		usage
+		exit 0
+		;;
+	esac
+done
+
+cd "$MISE_CONFIG_ROOT"
+
+REVISION="$(git rev-parse --short HEAD)"
+
+go_build_binary linux arm64 "v0.0.0-ami.$REVISION" dist/weave-linux-arm64
+
+cd packer
+
+packer init .
+packer build \
+	-var "weave_revision=$REVISION" \
+	"$@" \
+	.

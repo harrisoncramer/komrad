@@ -9,7 +9,7 @@ adminURL() {
 }
 
 shell_scripts() {
-	local roots=(mise/tasks internal/scripts/builtin)
+	local roots=(mise/tasks internal/scripts/builtin packer/scripts packer/files)
 
 	for root in "${roots[@]}"; do
 		if [ ! -d "$root" ]; then
@@ -20,4 +20,13 @@ shell_scripts() {
 	done
 
 	find "${roots[@]}" -type f -exec file {} + | grep -i 'shell script' | cut -d: -f1
+}
+
+go_build_binary() {
+	local os="$1" arch="$2" version="$3" out="$4"
+
+	CGO_ENABLED=0 GOOS="$os" GOARCH="$arch" go build \
+		-trimpath \
+		-ldflags "-s -w -X weave/internal/version.stamped=$version" \
+		-o "$out" .
 }

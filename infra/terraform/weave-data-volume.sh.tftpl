@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+mkdir -p /etc/weave
+echo "WEAVE_DATA_VOLUME_ID=${data_volume_id}" >/etc/weave/data-volume.env
+
+systemctl start weave-data-volume.service
+systemctl start weave.service
