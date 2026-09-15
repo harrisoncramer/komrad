@@ -161,6 +161,12 @@ func (m model) isReviewHistory() (string, bool) {
 	return fmt.Sprintf("round %d of %d", at+1, len(m.review.chapters)), true
 }
 
+// isReviewNarrowed reports whether the diff on screen is one chapter of the change rather than
+// the whole of it.
+func (m model) isReviewNarrowed() bool {
+	return m.review.base != "" || m.review.head != ""
+}
+
 // doesReviewWalk says whether the round keys have anywhere to go, which watching has and the two
 // modes that hold the tree do not.
 func (m model) doesReviewWalk() bool {

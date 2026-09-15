@@ -164,6 +164,21 @@ func (m model) refuseReviewHistory(said string) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
+// refuseReviewViewed says why the fold key did nothing on a chapter, and names the key back to
+// the change a mark is about.
+func (m model) refuseReviewViewed() (tea.Model, tea.Cmd) {
+	summary := "a file is read in the whole change, not in one round"
+	detail := "This draws one round of the change, so the file under the cursor is a different " +
+		"diff here than it is in the whole of it and a mark taken on it would say you had read " +
+		"something else. Press " + keyLabel(m.keys.Review.BaseForward) + " until the whole change " +
+		"is on screen, then mark it there."
+
+	m.reportBrief(summary, detail, nil)
+	m.review.notice = summary
+
+	return m, nil
+}
+
 // refuseReviewAwaiting says why a write did not happen while the review already sent is still
 // unanswered, and names the key to the comments it can still be answered in.
 func (m model) refuseReviewAwaiting() (tea.Model, tea.Cmd) {
