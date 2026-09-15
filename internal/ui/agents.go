@@ -213,12 +213,6 @@ func (m model) openAgent() (tea.Model, tea.Cmd) {
 
 		if item.alive {
 			if item.agent.HeldAt != nil {
-				if pane := item.agent.Pane; pane != "" {
-					m.frame.Solo(false)
-					m.sizeGuestWindow(pane)
-					m.frame.ShowGuest(pane)
-				}
-
 				return m, nil
 			}
 
@@ -325,6 +319,7 @@ func (m model) hasNoAgentPane() bool {
 	}
 
 	return !item.alive ||
+		item.agent.HeldAt != nil ||
 		item.agent.State == agentstore.StateSettingUp ||
 		item.agent.State.IsFailed()
 }
@@ -341,6 +336,8 @@ func (m model) agentDoc() string {
 		return workflowContextMarkdown(r.workflow)
 	case item.agent.State == agentstore.StateSettingUp:
 		return settingUpPlaceholder
+	case item.agent.HeldAt != nil:
+		return heldPlaceholder
 	case item.agent.State.IsFailed():
 		return m.failedPlaceholder(item.agent)
 	default:
@@ -475,6 +472,8 @@ func (m model) scheduleName(agent agentstore.Agent) string {
 
 const dormantPlaceholder = "_dormant — not running_\n\nPress open to resume."
 
+const heldPlaceholder = "_paused_\n\nPress unpause to let it carry on."
+
 func (m model) noAgentsMarkdown() string {
 	key := "w"
 	if len(m.keys.Workflows.New) > 0 {
@@ -543,7 +542,7 @@ func (m model) agentsListView() string {
 		}
 
 		item := r.item
-		name := m.filter.highlight(clipName(item.agent.Name), m.nameStyle(hovered, !item.alive))
+		name := m.filter.highlight(clipName(item.agent.Name), m.nameStyle(hovered, !item.alive || item.agent.HeldAt != nil))
 		row := prefix + paint.MarkGutter(m.listing.marks[rowKey(r)]) + childMark(r.child) + stateMark(displayState(item)) + " " + name + " " + worktreeMark(item) + heldMark(item.agent) + scheduledMark(item.agent) + hiddenMark(item.agent.Hidden) + unreadMailMark(item.unreadMail) + unviewedMark(item.unviewed) + failedRunMark(item.failedRun) + localReviewRoundsMark(item.localRounds) + localReviewMark(item.inLocalReview, item.localVerdict) + hiddenTally(r.hiddenCount, m.tree.showHidden) + reasonMark(item.agent)
 		if m.tree.selected.has(item.agent.ID) {
 			row = paint.PaintRow(row, paint.SelectionBackground, m.width)

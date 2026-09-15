@@ -99,7 +99,7 @@ func TestPausingSendsNoWordsToTheAgent(t *testing.T) {
 	assert.Empty(t, agents.released)
 }
 
-func TestOpenKeyShowsHeldPaneWithoutFocus(t *testing.T) {
+func TestOpenKeyDoesNothingForHeldAgent(t *testing.T) {
 	at := time.Now()
 	tmux := &recordingTmux{}
 
@@ -134,9 +134,18 @@ func TestOpenKeyShowsHeldPaneWithoutFocus(t *testing.T) {
 	pressed, _ := m.openAgent()
 	got := asModel(t, pressed)
 
-	assert.Equal(t, "%9", got.frame.GuestPane(), "the held agent's pane is shown on the right")
-	assert.Empty(t, tmux.selected, "the held agent's pane is not focused")
-	assert.Equal(t, screenAgents, got.screen, "the panel stays on the agents screen")
+	assert.Empty(t, tmux.selected, "held agent pane not focused")
+	assert.Empty(t, got.frame.GuestPane(), "held agent pane not shown as guest")
+	assert.Equal(t, screenAgents, got.screen)
+}
+
+func TestHeldAgentShowsDocNotPane(t *testing.T) {
+	at := time.Now()
+
+	m := heldModel(&recordingHolds{}, &at)
+
+	assert.True(t, m.hasNoAgentPane(), "held agent treated as having no pane")
+	assert.Equal(t, heldPlaceholder, m.agentDoc(), "held agent shows paused placeholder")
 }
 
 // Explainer: a hold is taken on one reading, so an agent that was about to start a turn reads
