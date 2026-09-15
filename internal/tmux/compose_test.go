@@ -17,16 +17,14 @@ import (
 // implement, which is the closest a test gets to a real input box.
 const readlineShell = "/bin/bash"
 
-// TestPasteAndSubmitSendsTheText covers the text and Enter arriving together without
-// bracketed-paste markers.
+// TestPasteAndSubmitSendsTheText covers the text reaching a pane wrapped in paste markers.
 func TestPasteAndSubmitSendsTheText(t *testing.T) {
 	client := testServer(t, "submit")
 	pane, received := rawPane(t, client, "submit")
 
 	require.NoError(t, client.PasteAndSubmit(pane, "read your mail"))
 
-	waitForLine(t, received, "read your mail^M")
-	assert.NotContains(t, readFile(t, received), "^[[200~", "submit must not wrap in paste markers")
+	waitForLine(t, received, "^[[200~read your mail^[[201~^M")
 }
 
 // TestPasteAndSubmitIsOneInvocation covers the paste and Enter riding in a single tmux call
@@ -36,7 +34,7 @@ func TestPasteAndSubmitIsOneInvocation(t *testing.T) {
 
 	assert.Equal(t, []string{
 		"set-buffer", "-b", "buffer", "--", "read your mail",
-		";", "paste-buffer", "-d", "-b", "buffer", "-t", "%9",
+		";", "paste-buffer", "-d", "-p", "-b", "buffer", "-t", "%9",
 		";", "send-keys", "-t", "%9", "Enter",
 	}, args)
 }
@@ -101,12 +99,12 @@ func TestComposingRefusesWhatItCannotSend(t *testing.T) {
 func rawPane(t *testing.T, client *Client, session string) (pane, received string) {
 	t.Helper()
 
-	pane, err := client.query("display-message", "-p", "-t", session+":", "#{pane_id}")
-	require.NoError(t, err)
-
 	received = filepath.Join(t.TempDir(), "received")
-	require.NoError(t, client.SendText(pane, "stty raw -echo && cat -uv > "+received))
-	require.NoError(t, client.SendKeys(pane, "Enter"))
+	script := "stty raw -echo; printf '\033[?2004h'; exec cat -uv > " + received
+
+	pane, err := client.query("new-window", "-d", "-P", "-F", "#{pane_id}", "-t", session+":",
+		"--", readlineShell, "-c", script)
+	require.NoError(t, err)
 
 	require.NoError(t, client.SendText(pane, "started"))
 	waitForLine(t, received, "started")

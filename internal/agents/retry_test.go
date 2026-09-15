@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// TestRetryCreateRelaunches covers a failed launch being put back into a pane.
 func TestRetryCreateRelaunches(t *testing.T) {
 	tmux := newFakeTmux()
 	tmux.respawnErr = errors.New("bad flags")
@@ -48,6 +49,7 @@ func TestRetryCreateRelaunches(t *testing.T) {
 	assert.NotEmpty(t, tmux.respawned, "the agent was launched into a pane")
 }
 
+// TestRetryCreateRefusesNonFailedAgent covers an agent that never failed to create.
 func TestRetryCreateRefusesNonFailedAgent(t *testing.T) {
 	tmux := newFakeTmux()
 	st := newStore(t)
@@ -67,6 +69,7 @@ func TestRetryCreateRefusesNonFailedAgent(t *testing.T) {
 	require.ErrorIs(t, err, ErrAgentNotFailed)
 }
 
+// TestRetryCreateKeepsOriginalFlagsWhenNoneGiven covers a retry that names no flags of its own.
 func TestRetryCreateKeepsOriginalFlagsWhenNoneGiven(t *testing.T) {
 	tmux := newFakeTmux()
 	tmux.respawnErr = errors.New("boom")
@@ -100,6 +103,7 @@ func TestRetryCreateKeepsOriginalFlagsWhenNoneGiven(t *testing.T) {
 	assert.Equal(t, "--original", got.Flags, "original flags are preserved when no replacement given")
 }
 
+// TestRetryCreateFailsAgainOnBadLaunch covers a retry whose launch fails the same way.
 func TestRetryCreateFailsAgainOnBadLaunch(t *testing.T) {
 	tmux := newFakeTmux()
 	tmux.respawnErr = errors.New("still broken")

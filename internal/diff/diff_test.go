@@ -41,6 +41,7 @@ func TestStatOfAnEmptyPatchIsZero(t *testing.T) {
 	assert.Equal(t, Stat{}, Patch{}.Stat())
 }
 
+// TestFingerprintIsDeterministic covers the same file hashing to the same string twice.
 func TestFingerprintIsDeterministic(t *testing.T) {
 	file := File{
 		NewPath:  "greet.go",
@@ -61,6 +62,7 @@ func TestFingerprintIsDeterministic(t *testing.T) {
 	assert.Len(t, first, 64, "hex-encoded SHA-256")
 }
 
+// TestFingerprintChangesWhenHunksDiffer covers a changed hunk line moving the hash.
 func TestFingerprintChangesWhenHunksDiffer(t *testing.T) {
 	base := File{
 		NewPath: "greet.go",
@@ -81,6 +83,7 @@ func TestFingerprintChangesWhenHunksDiffer(t *testing.T) {
 	assert.NotEqual(t, base.Fingerprint(), changed.Fingerprint())
 }
 
+// TestFingerprintChangesWhenMetadataDiffers covers a changed file mode moving the hash.
 func TestFingerprintChangesWhenMetadataDiffers(t *testing.T) {
 	a := File{
 		NewPath:  "greet.go",
@@ -97,6 +100,7 @@ func TestFingerprintChangesWhenMetadataDiffers(t *testing.T) {
 	assert.NotEqual(t, a.Fingerprint(), b.Fingerprint())
 }
 
+// TestFingerprintIgnoresPathAndSource covers a renamed file hashing to the same string.
 func TestFingerprintIgnoresPathAndSource(t *testing.T) {
 	hunks := []Hunk{{Header: "@@ -1 +1 @@", Lines: []Line{{Kind: Context, Text: "x"}}}}
 
@@ -106,6 +110,7 @@ func TestFingerprintIgnoresPathAndSource(t *testing.T) {
 	assert.Equal(t, a.Fingerprint(), b.Fingerprint(), "path and source are not part of the fingerprint")
 }
 
+// TestFingerprintOfBinaryUsesContent covers a binary file, which has no hunks to hash.
 func TestFingerprintOfBinaryUsesContent(t *testing.T) {
 	a := File{NewPath: "icon.png", Content: "Binary file"}
 	b := File{NewPath: "icon.png", Content: "Binary file (differs)"}

@@ -250,8 +250,7 @@ func TestMissingRowsAnswerNotFound(t *testing.T) {
 	}
 }
 
-// TestAViewedMarkBelongsToItsRound is why the fingerprint could go: a mark is held against the
-// round it was made in, so the next round starts with nothing read and no hash is compared.
+// TestViewedMarkUsesFingerprint covers a mark being held against the round it was made in.
 func TestViewedMarkUsesFingerprint(t *testing.T) {
 	st := open(t)
 	ctx := t.Context()

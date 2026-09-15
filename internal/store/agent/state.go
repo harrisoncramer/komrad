@@ -125,10 +125,8 @@ func (s *Store) MarkSettingUpIfLive(ctx context.Context, id string) (bool, error
 	return len(marked) > 0, nil
 }
 
-// MarkSettingUpIfFailedToCreate moves a failed-to-create agent into setting_up so a retry
-// can relaunch it, and reports whether it did. Returns false when the agent is not in
-// failed_to_create or is archived, which means another retry got there first or the state
-// changed underneath.
+// MarkSettingUpIfFailedToCreate moves a failed-to-create agent into setting_up, reporting
+// whether it did.
 func (s *Store) MarkSettingUpIfFailedToCreate(ctx context.Context, id string) (bool, error) {
 	if !store.IsID(id) {
 		return false, nil
