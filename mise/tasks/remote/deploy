@@ -1,0 +1,73 @@
+#!/usr/bin/env bash
+source "$MISE_CONFIG_ROOT/mise/tasks/_"
+set -euo pipefail
+#MISE description="Put this checkout's weave on the remote engine and restart it."
+
+usage() {
+	echo "Usage: mise run remote:deploy [ssh-destination]"
+	echo
+	echo "Cross-compiles weave for the engine, installs it there, and restarts the service."
+	echo "It also builds a local binary carrying the same version, because the panel refuses"
+	echo "to talk to a server whose build string differs from its own."
+	echo
+	echo "The destination defaults to WEAVE_ENGINE_SSH. Both binaries land in dist/."
+	echo
+	echo "This is the administrative account, which needs sudo to replace the binary and"
+	echo "restart the service. It is not the account the panel connects as, which owns the"
+	echo "engine's tmux server and deliberately has no sudo."
+}
+
+for arg in "$@"; do
+	case "$arg" in
+	-h | --help)
+		usage
+		exit 0
+		;;
+	esac
+done
+
+DESTINATION="${1:-${WEAVE_ENGINE_SSH:-}}"
+if [ -z "$DESTINATION" ]; then
+	echo "no engine given: pass an ssh destination or set WEAVE_ENGINE_SSH" >&2
+	exit 1
+fi
+
+cd "$MISE_CONFIG_ROOT"
+
+REVISION="$(git rev-parse --short HEAD)"
+DIRTY=""
+if ! git diff --quiet || ! git diff --cached --quiet; then
+	DIRTY="+dirty.$(date +%H%M%S)"
+fi
+VERSION="v0.0.0-engine.$REVISION$DIRTY"
+
+mkdir -p dist
+go_build_binary linux arm64 "$VERSION" dist/weave-linux-arm64
+go_build_binary "$(go env GOOS)" "$(go env GOARCH)" "$VERSION" dist/weave-panel
+
+# A fixed name in a sticky /tmp cannot be overwritten by a different account, so each run
+# uploads to a path of its own and removes it afterwards.
+STAGED="$(ssh "$DESTINATION" 'mktemp /tmp/weave-deploy.XXXXXX')"
+
+scp -q dist/weave-linux-arm64 "$DESTINATION:$STAGED"
+ssh "$DESTINATION" "
+	set -e
+	sudo install -m 0755 '$STAGED' /usr/local/bin/weave
+	rm -f '$STAGED'
+	sudo systemctl restart weave.service
+"
+
+for _ in {1..20}; do
+	if ssh "$DESTINATION" 'systemctl is-active --quiet weave.service'; then
+		break
+	fi
+	sleep 2
+done
+
+if ! ssh "$DESTINATION" 'systemctl is-active --quiet weave.service'; then
+	echo "weave did not come back up on $DESTINATION; check journalctl -u weave" >&2
+	exit 1
+fi
+
+echo "engine: $(ssh "$DESTINATION" /usr/local/bin/weave version 2>&1 | head -1)"
+echo "panel:  dist/weave-panel at $VERSION"
