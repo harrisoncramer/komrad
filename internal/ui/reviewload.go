@@ -150,7 +150,8 @@ type loadReviewCmdParams struct {
 	// Base is the commit to measure the round from, empty for the point the branch left main.
 	Base string
 	// Head is the commit to measure it to, empty for the round's own snapshot.
-	Head string
+	Head  string
+	Fresh bool
 }
 
 // loadReviewCmd opens a round of the agent and reads that rather than the worktree, a tree that
@@ -186,7 +187,13 @@ func (m model) loadReviewCmd(params loadReviewCmdParams) tea.Cmd {
 			return reviewLoadedMsg{agentID: agentID, err: roundsErr}
 		}
 
-		round, pinned := findPendingRound(rounds, openBatch)
+		var round *agentv1.ReviewRound
+
+		var pinned bool
+		if !params.Fresh {
+			round, pinned = findPendingRound(rounds, openBatch)
+		}
+
 		if round == nil {
 			opened, err := agents.OpenReviewRound(ctx, connect.NewRequest(&agentv1.OpenReviewRoundRequest{
 				AgentId: agentID,
@@ -491,6 +498,7 @@ func (m model) reloadReview() (model, tea.Cmd) {
 		Exclude: m.review.exclude,
 		Base:    m.review.base,
 		Head:    m.review.head,
+		Fresh:   m.review.mode == modeReviewing,
 	})
 }
 

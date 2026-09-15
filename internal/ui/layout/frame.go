@@ -3,6 +3,7 @@ package layout
 import (
 	"log/slog"
 	"os"
+	"strconv"
 
 	"weave/config"
 	"weave/internal/panes"
@@ -407,9 +408,20 @@ func (f *Frame) claimStage() {
 	f.forget(RegionInfo)
 
 	if f.stage != "" {
-		f.tmux.ResizePane(f.sidebar, f.spec.sidebarSize)
+		f.tmux.ResizePane(f.restoredSidebar())
 		f.SyncSplit()
 	}
+}
+
+func (f *Frame) restoredSidebar() (pane, width string) {
+	if f.stageCols == 0 {
+		return f.sidebar, f.spec.sidebarSize
+	}
+
+	total := f.tmux.GetPaneWidth(f.sidebar) + f.tmux.GetPaneWidth(f.stage) + 1
+	sidebarWidth, _ := f.SidebarWidth(total)
+
+	return f.sidebar, strconv.Itoa(sidebarWidth)
 }
 
 func (f *Frame) splitStage() string {
