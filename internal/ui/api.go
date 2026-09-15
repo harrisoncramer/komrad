@@ -228,11 +228,23 @@ func (a api) restoreAgents(ids []string) error {
 	})
 }
 
-func (a api) retryAgent(id, flags string) (*agentv1.Agent, error) {
+type retryAgentParams struct {
+	ID      string
+	Flags   string
+	Prompt  string
+	Harness string
+}
+
+func (a api) retryAgent(params retryAgentParams) (*agentv1.Agent, error) {
 	return call(createAgentTimeout, func(ctx context.Context) (*agentv1.Agent, error) {
-		resp, err := a.agents.RetryAgent(ctx, connect.NewRequest(&agentv1.RetryAgentRequest{Id: id, Flags: flags}))
+		resp, err := a.agents.RetryAgent(ctx, connect.NewRequest(&agentv1.RetryAgentRequest{
+			Id:      params.ID,
+			Flags:   params.Flags,
+			Prompt:  params.Prompt,
+			Harness: params.Harness,
+		}))
 		if err != nil {
-			return nil, fmt.Errorf("failed to retry agent %q: %w", id, err)
+			return nil, fmt.Errorf("failed to retry agent %q: %w", params.ID, err)
 		}
 
 		return resp.Msg.GetAgent(), nil

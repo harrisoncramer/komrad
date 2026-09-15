@@ -14,8 +14,10 @@ import (
 var ErrAgentNotFailed = fail.Precondition("agent is not in a failed state")
 
 type RetryCreateParams struct {
-	ID    string
-	Flags string
+	ID      string
+	Flags   string
+	Prompt  string
+	Harness string
 }
 
 // RetryCreate relaunches an agent that failed to create, optionally with corrected flags.
@@ -49,6 +51,12 @@ func (s *LaunchService) RetryCreate(ctx context.Context, params RetryCreateParam
 
 	if flags := strings.TrimSpace(params.Flags); flags != "" {
 		agent.Flags = flags
+	}
+	if prompt := strings.TrimSpace(params.Prompt); prompt != "" {
+		agent.Prompt = prompt
+	}
+	if harness := strings.TrimSpace(params.Harness); harness != "" {
+		agent.Harness = harness
 	}
 
 	hn, err := s.harnesses.GetByID(agent.Harness)

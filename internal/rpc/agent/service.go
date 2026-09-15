@@ -593,8 +593,10 @@ func (s *Service) ResumeAgent(ctx context.Context, req *agentv1.ResumeAgentReque
 // RetryAgent relaunches an agent that failed to create, optionally with corrected flags.
 func (s *Service) RetryAgent(ctx context.Context, req *agentv1.RetryAgentRequest) (*agentv1.RetryAgentResponse, *fail.Error) {
 	retried, err := s.creator.RetryCreate(ctx, agents.RetryCreateParams{
-		ID:    req.GetId(),
-		Flags: req.GetFlags(),
+		ID:      req.GetId(),
+		Flags:   req.GetFlags(),
+		Prompt:  req.GetPrompt(),
+		Harness: req.GetHarness(),
 	})
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to retry agent")

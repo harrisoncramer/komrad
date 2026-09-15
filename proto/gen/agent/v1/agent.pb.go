@@ -2054,7 +2054,11 @@ type RetryAgentRequest struct {
 	// Which failed agent to retry launching.
 	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	// Replacement flags for its CLI, blank to keep the ones the failed attempt used.
-	Flags         string `protobuf:"bytes,2,opt,name=flags,proto3" json:"flags,omitempty"`
+	Flags string `protobuf:"bytes,2,opt,name=flags,proto3" json:"flags,omitempty"`
+	// Replacement prompt, blank to keep the original.
+	Prompt string `protobuf:"bytes,3,opt,name=prompt,proto3" json:"prompt,omitempty"`
+	// Replacement harness, blank to keep the original.
+	Harness       string `protobuf:"bytes,4,opt,name=harness,proto3" json:"harness,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2099,6 +2103,20 @@ func (x *RetryAgentRequest) GetId() string {
 func (x *RetryAgentRequest) GetFlags() string {
 	if x != nil {
 		return x.Flags
+	}
+	return ""
+}
+
+func (x *RetryAgentRequest) GetPrompt() string {
+	if x != nil {
+		return x.Prompt
+	}
+	return ""
+}
+
+func (x *RetryAgentRequest) GetHarness() string {
+	if x != nil {
+		return x.Harness
 	}
 	return ""
 }
@@ -2718,10 +2736,12 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\x14RestoreAgentsRequest\x12$\n" +
 	"\x03ids\x18\x01 \x03(\tB\x12\xbaH\x0f\x92\x01\f\b\x01\x10d\x18\x01\"\x04r\x02\x10\x01R\x03ids\"@\n" +
 	"\x15RestoreAgentsResponse\x12'\n" +
-	"\x06agents\x18\x01 \x03(\v2\x0f.agent.v1.AgentR\x06agents\"P\n" +
+	"\x06agents\x18\x01 \x03(\v2\x0f.agent.v1.AgentR\x06agents\"\xa4\x01\n" +
 	"\x11RetryAgentRequest\x12\x17\n" +
 	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\x12\"\n" +
-	"\x05flags\x18\x02 \x01(\tB\f\xbaH\tr\a\xa0\xbb\x18\x01\x18\xf4\x03R\x05flags\";\n" +
+	"\x05flags\x18\x02 \x01(\tB\f\xbaH\tr\a\xa0\xbb\x18\x01\x18\xf4\x03R\x05flags\x12!\n" +
+	"\x06prompt\x18\x03 \x01(\tB\t\xbaH\x06r\x04\x18І\x03R\x06prompt\x12/\n" +
+	"\aharness\x18\x04 \x01(\tB\x15\xbaH\x12r\x10\x18(2\f^[a-z0-9-]*$R\aharness\";\n" +
 	"\x12RetryAgentResponse\x12%\n" +
 	"\x05agent\x18\x01 \x01(\v2\x0f.agent.v1.AgentR\x05agent\"-\n" +
 	"\x12ResumeAgentRequest\x12\x17\n" +
@@ -2742,7 +2762,7 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\x12UpdateAgentRequest\x12\x17\n" +
 	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\x12\xfd\x01\n" +
 	"\x04name\x18\x02 \x01(\tB\xe8\x01\xbaH\xe4\x01\xba\x01\xd9\x01\n" +
-	"\rname.storable\x12Jname must not contain spaces, colons, dots, slashes, or control characters\x1a|!this.contains(' ') && !this.contains(':') && !this.contains('.') && !this.contains('/') && !this.matches('[\\x00-\\x1f\\x7f]')r\x05\x10\x01\x18\xc8\x01R\x04name2\x84\xb5\x01\n" +
+	"\rname.storable\x12Jname must not contain spaces, colons, dots, slashes, or control characters\x1a|!this.contains(' ') && !this.contains(':') && !this.contains('.') && !this.contains('/') && !this.matches('[\\x00-\\x1f\\x7f]')r\x05\x10\x01\x18\xc8\x01R\x04name2\x98\xb5\x01\n" +
 	"\fAgentService\x12\xc6\x05\n" +
 	"\n" +
 	"ListAgents\x12\x1b.agent.v1.ListAgentsRequest\x1a\x1c.agent.v1.ListAgentsResponse\"\xfc\x04\x9a\xb5\x18\xf4\x04\n" +
@@ -2781,10 +2801,10 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\tHoldAgent\x12\x1a.agent.v1.HoldAgentRequest\x1a\x1b.agent.v1.HoldAgentResponse\"\x00\x12O\n" +
 	"\fReleaseAgent\x12\x1d.agent.v1.ReleaseAgentRequest\x1a\x1e.agent.v1.ReleaseAgentResponse\"\x00\x12\xff\x03\n" +
 	"\vResumeAgent\x12\x1c.agent.v1.ResumeAgentRequest\x1a\x1d.agent.v1.ResumeAgentResponse\"\xb2\x03\x9a\xb5\x18\xaa\x03\n" +
-	"\fresume_agent\x12\x97\x03Relaunch an agent's CLI on the same conversation, keyed by id, which is what reaches an agent whose pane has since died. An agent already running is returned as it stands rather than started twice. An archived agent is refused, so call restore_agent first, and one this panel is already part-way through resuming is refused as failed_precondition, which means to wait for the pane rather than to call again. \x00\x90\x02\x02\x12\xb1\x02\n" +
+	"\fresume_agent\x12\x97\x03Relaunch an agent's CLI on the same conversation, keyed by id, which is what reaches an agent whose pane has since died. An agent already running is returned as it stands rather than started twice. An archived agent is refused, so call restore_agent first, and one this panel is already part-way through resuming is refused as failed_precondition, which means to wait for the pane rather than to call again. \x00\x90\x02\x02\x12\xc5\x02\n" +
 	"\n" +
-	"RetryAgent\x12\x1b.agent.v1.RetryAgentRequest\x1a\x1c.agent.v1.RetryAgentResponse\"\xe7\x01\x9a\xb5\x18\xe2\x01\n" +
-	"\vretry_agent\x12\xd0\x01Retry launching an agent that failed to create, keyed by id, optionally with corrected flags. Only works on agents in the failed_to_create state. An archived agent is refused. Returns the agent as relaunched. \x00\x12\xe8\a\n" +
+	"RetryAgent\x12\x1b.agent.v1.RetryAgentRequest\x1a\x1c.agent.v1.RetryAgentResponse\"\xfb\x01\x9a\xb5\x18\xf6\x01\n" +
+	"\vretry_agent\x12\xe4\x01Retry launching an agent that failed to create, keyed by id, optionally with corrected flags, prompt, or harness. Only works on agents in the failed_to_create state. An archived agent is refused. Returns the agent as relaunched. \x00\x12\xe8\a\n" +
 	"\fDeleteAgents\x12\x1d.agent.v1.DeleteAgentsRequest\x1a\x16.google.protobuf.Empty\"\xa0\a\x9a\xb5\x18\x98\a\n" +
 	"\rdelete_agents\x12\x84\aPermanently remove a list of agents, keyed by id. This is a hard delete, not the panel's archive: the records and the transcripts go with them and search will never find the conversations again. The worktree of each one is removed with it, so a batch can tear down real directories. Returns not_found, and deletes nothing at all, if any id given holds no agent. It answers as soon as the teardown of each directory is under way rather than once it has finished, so success here means the removal was started: one that fails afterwards leaves that agent behind in failed_to_cleanup with the reason on it, rather than removing it, and the panel shows that row. Prefer archive_agents, and prefer leaving agents alone unless asked to remove them. The children of any agent named here are deleted with it, and a child named on its own is deleted alone, since it holds no directory of its own to tear down. \x01\x90\x02\x02\x12\xd7\x02\n" +
 	"\vUpdateAgent\x12\x1c.agent.v1.UpdateAgentRequest\x1a\x16.google.protobuf.Empty\"\x91\x02\x9a\xb5\x18\x89\x02\n" +

@@ -410,9 +410,17 @@ func adoptAgentForm(keys config.FormKeys, values *adoptFormValues) (*huh.Form, [
 	return formOf(keys, fields...)
 }
 
-func retryAgentForm(keys config.FormKeys, flags *string) (*huh.Form, []string) {
+type retryFormValues struct {
+	Prompt  string
+	Harness string
+	Flags   string
+}
+
+func retryAgentForm(keys config.FormKeys, values *retryFormValues) (*huh.Form, []string) {
 	return formOf(keys,
-		huh.NewInput().Key("flags").Title("Flags").Placeholder("--model opus").Value(flags),
+		textField("prompt").Title("Prompt").Description(fmt.Sprintf("%s opens $EDITOR; %s submits", keyLabel(keys.Editor), keyLabel(keys.Submit))).Value(&values.Prompt),
+		huh.NewInput().Key("harness").Title("Agent").Placeholder("claude").Value(&values.Harness),
+		huh.NewInput().Key("flags").Title("Flags").Placeholder("--model opus").Value(&values.Flags),
 	)
 }
 

@@ -449,6 +449,13 @@ message RetryAgentRequest {
     max_len: 500
     [rules.v1.shell_safe]: true
   }];
+  // Replacement prompt, blank to keep the original.
+  string prompt = 3 [(buf.validate.field).string.max_len = 50000];
+  // Replacement harness, blank to keep the original.
+  string harness = 4 [(buf.validate.field).string = {
+    max_len: 40
+    pattern: "^[a-z0-9-]*$"
+  }];
 }
 
 message RetryAgentResponse {
@@ -645,7 +652,7 @@ service AgentService {
   rpc RetryAgent(RetryAgentRequest) returns (RetryAgentResponse) {
     option (annotation.v1.tool) = {
       tool_name: "retry_agent"
-      description: "Retry launching an agent that failed to create, keyed by id, optionally with corrected flags. Only works on agents in the failed_to_create state. An archived agent is refused. Returns the agent as relaunched."
+      description: "Retry launching an agent that failed to create, keyed by id, optionally with corrected flags, prompt, or harness. Only works on agents in the failed_to_create state. An archived agent is refused. Returns the agent as relaunched."
       destructive: false
     };
   }

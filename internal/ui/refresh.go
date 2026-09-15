@@ -420,9 +420,14 @@ func (m *model) resumeCmd(params resumeParams) tea.Cmd {
 	})
 }
 
-func (m *model) retryCmd(agent agentstore.Agent, flags string) tea.Cmd {
+func (m *model) retryCmd(agent agentstore.Agent, values retryFormValues) tea.Cmd {
 	return m.agentWriteCmd(fmt.Sprintf("Could not retry agent %q", agent.Name), func(clients api) (*agentv1.Agent, error) {
-		return clients.retryAgent(agent.ID, flags)
+		return clients.retryAgent(retryAgentParams{
+			ID:      agent.ID,
+			Flags:   values.Flags,
+			Prompt:  values.Prompt,
+			Harness: values.Harness,
+		})
 	})
 }
 
