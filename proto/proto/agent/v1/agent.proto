@@ -441,6 +441,21 @@ message RestoreAgentsResponse {
   repeated Agent agents = 1;
 }
 
+message RetryAgentRequest {
+  // Which failed agent to retry launching.
+  string id = 1 [(buf.validate.field).string.min_len = 1];
+  // Replacement flags for its CLI, blank to keep the ones the failed attempt used.
+  string flags = 2 [(buf.validate.field).string = {
+    max_len: 500
+    [rules.v1.shell_safe]: true
+  }];
+}
+
+message RetryAgentResponse {
+  // The agent as relaunched, running.
+  Agent agent = 1;
+}
+
 message ResumeAgentRequest {
   // Which dormant agent to put back in a pane on its own conversation.
   string id = 1 [(buf.validate.field).string.min_len = 1];
@@ -624,6 +639,13 @@ service AgentService {
     option (annotation.v1.tool) = {
       tool_name: "resume_agent"
       description: "Relaunch an agent's CLI on the same conversation, keyed by id, which is what reaches an agent whose pane has since died. An agent already running is returned as it stands rather than started twice. An archived agent is refused, so call restore_agent first, and one this panel is already part-way through resuming is refused as failed_precondition, which means to wait for the pane rather than to call again."
+      destructive: false
+    };
+  }
+  rpc RetryAgent(RetryAgentRequest) returns (RetryAgentResponse) {
+    option (annotation.v1.tool) = {
+      tool_name: "retry_agent"
+      description: "Retry launching an agent that failed to create, keyed by id, optionally with corrected flags. Only works on agents in the failed_to_create state. An archived agent is refused. Returns the agent as relaunched."
       destructive: false
     };
   }

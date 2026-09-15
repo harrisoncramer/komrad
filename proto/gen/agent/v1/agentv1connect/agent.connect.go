@@ -77,6 +77,8 @@ const (
 	// AgentServiceResumeAgentProcedure is the fully-qualified name of the AgentService's ResumeAgent
 	// RPC.
 	AgentServiceResumeAgentProcedure = "/agent.v1.AgentService/ResumeAgent"
+	// AgentServiceRetryAgentProcedure is the fully-qualified name of the AgentService's RetryAgent RPC.
+	AgentServiceRetryAgentProcedure = "/agent.v1.AgentService/RetryAgent"
 	// AgentServiceDeleteAgentsProcedure is the fully-qualified name of the AgentService's DeleteAgents
 	// RPC.
 	AgentServiceDeleteAgentsProcedure = "/agent.v1.AgentService/DeleteAgents"
@@ -170,6 +172,7 @@ type AgentServiceClient interface {
 	HoldAgent(context.Context, *connect.Request[v1.HoldAgentRequest]) (*connect.Response[v1.HoldAgentResponse], error)
 	ReleaseAgent(context.Context, *connect.Request[v1.ReleaseAgentRequest]) (*connect.Response[v1.ReleaseAgentResponse], error)
 	ResumeAgent(context.Context, *connect.Request[v1.ResumeAgentRequest]) (*connect.Response[v1.ResumeAgentResponse], error)
+	RetryAgent(context.Context, *connect.Request[v1.RetryAgentRequest]) (*connect.Response[v1.RetryAgentResponse], error)
 	DeleteAgents(context.Context, *connect.Request[v1.DeleteAgentsRequest]) (*connect.Response[emptypb.Empty], error)
 	UpdateAgent(context.Context, *connect.Request[v1.UpdateAgentRequest]) (*connect.Response[emptypb.Empty], error)
 	SearchTranscripts(context.Context, *connect.Request[v1.SearchTranscriptsRequest]) (*connect.Response[v1.SearchTranscriptsResponse], error)
@@ -324,6 +327,12 @@ func NewAgentServiceClient(httpClient connect.HTTPClient, baseURL string, opts .
 			baseURL+AgentServiceResumeAgentProcedure,
 			connect.WithSchema(agentServiceMethods.ByName("ResumeAgent")),
 			connect.WithIdempotency(connect.IdempotencyIdempotent),
+			connect.WithClientOptions(opts...),
+		),
+		retryAgent: connect.NewClient[v1.RetryAgentRequest, v1.RetryAgentResponse](
+			httpClient,
+			baseURL+AgentServiceRetryAgentProcedure,
+			connect.WithSchema(agentServiceMethods.ByName("RetryAgent")),
 			connect.WithClientOptions(opts...),
 		),
 		deleteAgents: connect.NewClient[v1.DeleteAgentsRequest, emptypb.Empty](
@@ -504,6 +513,7 @@ type agentServiceClient struct {
 	holdAgent               *connect.Client[v1.HoldAgentRequest, v1.HoldAgentResponse]
 	releaseAgent            *connect.Client[v1.ReleaseAgentRequest, v1.ReleaseAgentResponse]
 	resumeAgent             *connect.Client[v1.ResumeAgentRequest, v1.ResumeAgentResponse]
+	retryAgent              *connect.Client[v1.RetryAgentRequest, v1.RetryAgentResponse]
 	deleteAgents            *connect.Client[v1.DeleteAgentsRequest, emptypb.Empty]
 	updateAgent             *connect.Client[v1.UpdateAgentRequest, emptypb.Empty]
 	searchTranscripts       *connect.Client[v1.SearchTranscriptsRequest, v1.SearchTranscriptsResponse]
@@ -617,6 +627,11 @@ func (c *agentServiceClient) ReleaseAgent(ctx context.Context, req *connect.Requ
 // ResumeAgent calls agent.v1.AgentService.ResumeAgent.
 func (c *agentServiceClient) ResumeAgent(ctx context.Context, req *connect.Request[v1.ResumeAgentRequest]) (*connect.Response[v1.ResumeAgentResponse], error) {
 	return c.resumeAgent.CallUnary(ctx, req)
+}
+
+// RetryAgent calls agent.v1.AgentService.RetryAgent.
+func (c *agentServiceClient) RetryAgent(ctx context.Context, req *connect.Request[v1.RetryAgentRequest]) (*connect.Response[v1.RetryAgentResponse], error) {
+	return c.retryAgent.CallUnary(ctx, req)
 }
 
 // DeleteAgents calls agent.v1.AgentService.DeleteAgents.
@@ -756,6 +771,7 @@ type AgentServiceHandler interface {
 	HoldAgent(context.Context, *connect.Request[v1.HoldAgentRequest]) (*connect.Response[v1.HoldAgentResponse], error)
 	ReleaseAgent(context.Context, *connect.Request[v1.ReleaseAgentRequest]) (*connect.Response[v1.ReleaseAgentResponse], error)
 	ResumeAgent(context.Context, *connect.Request[v1.ResumeAgentRequest]) (*connect.Response[v1.ResumeAgentResponse], error)
+	RetryAgent(context.Context, *connect.Request[v1.RetryAgentRequest]) (*connect.Response[v1.RetryAgentResponse], error)
 	DeleteAgents(context.Context, *connect.Request[v1.DeleteAgentsRequest]) (*connect.Response[emptypb.Empty], error)
 	UpdateAgent(context.Context, *connect.Request[v1.UpdateAgentRequest]) (*connect.Response[emptypb.Empty], error)
 	SearchTranscripts(context.Context, *connect.Request[v1.SearchTranscriptsRequest]) (*connect.Response[v1.SearchTranscriptsResponse], error)
@@ -906,6 +922,12 @@ func NewAgentServiceHandler(svc AgentServiceHandler, opts ...connect.HandlerOpti
 		svc.ResumeAgent,
 		connect.WithSchema(agentServiceMethods.ByName("ResumeAgent")),
 		connect.WithIdempotency(connect.IdempotencyIdempotent),
+		connect.WithHandlerOptions(opts...),
+	)
+	agentServiceRetryAgentHandler := connect.NewUnaryHandler(
+		AgentServiceRetryAgentProcedure,
+		svc.RetryAgent,
+		connect.WithSchema(agentServiceMethods.ByName("RetryAgent")),
 		connect.WithHandlerOptions(opts...),
 	)
 	agentServiceDeleteAgentsHandler := connect.NewUnaryHandler(
@@ -1101,6 +1123,8 @@ func NewAgentServiceHandler(svc AgentServiceHandler, opts ...connect.HandlerOpti
 			agentServiceReleaseAgentHandler.ServeHTTP(w, r)
 		case AgentServiceResumeAgentProcedure:
 			agentServiceResumeAgentHandler.ServeHTTP(w, r)
+		case AgentServiceRetryAgentProcedure:
+			agentServiceRetryAgentHandler.ServeHTTP(w, r)
 		case AgentServiceDeleteAgentsProcedure:
 			agentServiceDeleteAgentsHandler.ServeHTTP(w, r)
 		case AgentServiceUpdateAgentProcedure:
@@ -1226,6 +1250,10 @@ func (UnimplementedAgentServiceHandler) ReleaseAgent(context.Context, *connect.R
 
 func (UnimplementedAgentServiceHandler) ResumeAgent(context.Context, *connect.Request[v1.ResumeAgentRequest]) (*connect.Response[v1.ResumeAgentResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("agent.v1.AgentService.ResumeAgent is not implemented"))
+}
+
+func (UnimplementedAgentServiceHandler) RetryAgent(context.Context, *connect.Request[v1.RetryAgentRequest]) (*connect.Response[v1.RetryAgentResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("agent.v1.AgentService.RetryAgent is not implemented"))
 }
 
 func (UnimplementedAgentServiceHandler) DeleteAgents(context.Context, *connect.Request[v1.DeleteAgentsRequest]) (*connect.Response[emptypb.Empty], error) {

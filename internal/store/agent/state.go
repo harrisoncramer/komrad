@@ -125,6 +125,23 @@ func (s *Store) MarkSettingUpIfLive(ctx context.Context, id string) (bool, error
 	return len(marked) > 0, nil
 }
 
+// MarkSettingUpIfFailedToCreate moves a failed-to-create agent into setting_up so a retry
+// can relaunch it, and reports whether it did. Returns false when the agent is not in
+// failed_to_create or is archived, which means another retry got there first or the state
+// changed underneath.
+func (s *Store) MarkSettingUpIfFailedToCreate(ctx context.Context, id string) (bool, error) {
+	if !store.IsID(id) {
+		return false, nil
+	}
+
+	marked, err := s.queries.MarkAgentSettingUpIfFailedToCreate(ctx, id)
+	if err != nil {
+		return false, fmt.Errorf("failed to mark id %q as setting up for retry: %w", id, err)
+	}
+
+	return len(marked) > 0, nil
+}
+
 // SetBranchByID records the branch checked out at an agent's cwd, or clears it when branch
 // is nil, and is written only by the cwd syncer's periodic pass.
 func (s *Store) SetBranchByID(ctx context.Context, id string, branch *string) error {

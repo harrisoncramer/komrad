@@ -411,6 +411,21 @@ WHERE
 RETURNING
     id;
 
+-- name: MarkAgentSettingUpIfFailedToCreate :many
+UPDATE
+    agents
+SET
+    state = 'setting_up',
+    state_changed_at = NOW(),
+    reported_reason = '',
+    state_seen_at = NOW()
+WHERE
+    id = @id
+    AND state = 'failed_to_create'
+    AND archived_at IS NULL
+RETURNING
+    id;
+
 -- name: SetAgentBranchByID :exec
 UPDATE
     agents

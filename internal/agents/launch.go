@@ -56,6 +56,7 @@ type launchAgentReadWriter interface {
 	GetByIdempotencyKey(ctx context.Context, key string) (*agentstore.Agent, error)
 	ReleaseIdempotencyKey(ctx context.Context, key string) (bool, error)
 	GetInWorkflow(ctx context.Context, workflowID, name string) (*agentstore.Agent, error)
+	MarkSettingUpIfFailedToCreate(ctx context.Context, id string) (bool, error)
 }
 
 type LaunchService struct {
@@ -380,6 +381,30 @@ func (s *LaunchService) launchAgent(ctx context.Context, params NewAgentParams, 
 		return nil, err
 	}
 
+	return s.startInPane(ctx, agent, resolvedLaunch{
+		harness:         plan.harness,
+		provisioner:     plan.provisioner,
+		deprovisioner:   plan.deprovisioner,
+		hooks:           plan.hooks,
+		defaultDir:      plan.dir,
+		workflowContext: plan.workflowContext,
+		spawner:         spawner,
+		parent:          parent,
+	})
+}
+
+type resolvedLaunch struct {
+	harness         harness.Harness
+	provisioner     string
+	deprovisioner   string
+	hooks           []workflowstore.Hook
+	defaultDir      string
+	workflowContext string
+	spawner         *agentstore.Agent
+	parent          *agentstore.Agent
+}
+
+func (s *LaunchService) startInPane(ctx context.Context, agent agentstore.Agent, resolved resolvedLaunch) (result *agentstore.Agent, launchErr error) {
 	var pane string
 	provisioned := false
 	launched := false
@@ -388,8 +413,6 @@ func (s *LaunchService) launchAgent(ctx context.Context, params NewAgentParams, 
 			return
 		}
 
-		// Nothing else in weave moves a row out of setting_up, so closing out a failed
-		// create cannot depend on the caller still being around to see it happen.
 		teardown, cancel := context.WithTimeout(context.WithoutCancel(ctx), teardownTimeout)
 		defer cancel()
 
@@ -397,89 +420,87 @@ func (s *LaunchService) launchAgent(ctx context.Context, params NewAgentParams, 
 			s.tmux.KillPane(pane)
 		}
 		if provisioned {
-			awaitDeprovision(teardown, s.scripts, agent, plan.deprovisioner)
+			awaitDeprovision(teardown, s.scripts, agent, resolved.deprovisioner)
 		}
 		s.failCreate(teardown, agent, launchErr)
 	}()
 
-	named, err := s.runProvision(ctx, agent, plan.provisioner)
+	named, err := s.runProvision(ctx, agent, resolved.provisioner)
 	if err != nil {
 		return nil, err
 	}
-	provisioned = true
+	provisioned = resolved.provisioner != ""
 
 	dir, err := namedDir(named)
 	if err != nil {
 		return nil, err
 	}
 	if dir == "" {
-		dir = plan.dir
+		dir = resolved.defaultDir
 	}
-	agent = plan.agent(params, id, sessionID, dir, "", spawner)
+	agent.Cwd = dir
 
 	if err := runHooks(ctx, hookRunParams{
 		scripts: s.scripts,
 		agent:   agent,
-		hooks:   plan.hooks,
+		hooks:   resolved.hooks,
 		event:   workflowstore.HookPreLaunch,
 	}); err != nil {
 		return nil, err
 	}
 
-	pane, err = s.tmux.NewWindow(ManagerSession, plan.name, dir)
+	pane, err = s.tmux.NewWindow(ManagerSession, agent.Name, dir)
 	if err != nil {
-		return nil, fmt.Errorf("failed to open a window for %q: %w", plan.name, err)
-	}
-	agent = plan.agent(params, id, sessionID, dir, pane, spawner)
-
-	if err := s.tmux.SetPaneOwner(pane, id); err != nil {
-		return nil, fmt.Errorf("failed to stamp the pane for %q: %w", plan.name, err)
+		return nil, fmt.Errorf("failed to open a window for %q: %w", agent.Name, err)
 	}
 
+	if err := s.tmux.SetPaneOwner(pane, agent.ID); err != nil {
+		return nil, fmt.Errorf("failed to stamp the pane for %q: %w", agent.Name, err)
+	}
+
+	agent.Pane = pane
+	agent.State = agentstore.StateIdle
 	if err := s.agents.Update(ctx, agent); err != nil {
-		return nil, fmt.Errorf("failed to record agent %q: %w", plan.name, err)
-	}
-
-	created, err := s.agents.GetInWorkflow(ctx, params.WorkflowID, plan.name)
-	if errors.Is(err, store.ErrNotFound) {
-		return nil, fmt.Errorf("agent %q vanished after being recorded", plan.name)
-	}
-	if err != nil {
-		return nil, fmt.Errorf("failed to read back agent %q: %w", plan.name, err)
+		return nil, fmt.Errorf("failed to record agent %q: %w", agent.Name, err)
 	}
 
 	launch := launchParams{
 		Pane:            pane,
-		Dir:             agent.Cwd,
-		Flags:           plan.flags,
-		Prompt:          params.Prompt,
-		WorkflowContext: plan.workflowContext,
-		SessionID:       sessionID,
-		AgentID:         id,
-		Role:            created.Role,
-		OwnsCheckout:    plan.provisioner != "",
+		Dir:             dir,
+		Flags:           agent.Flags,
+		Prompt:          agent.Prompt,
+		WorkflowContext: resolved.workflowContext,
+		SessionID:       agent.SessionID,
+		AgentID:         agent.ID,
+		Role:            agent.Role,
+		OwnsCheckout:    resolved.provisioner != "",
 	}
-	if spawner != nil {
-		launch.SpawnedByAgentID = spawner.ID
-		launch.SpawnedByName = spawner.Name
+	if resolved.spawner != nil {
+		launch.SpawnedByAgentID = resolved.spawner.ID
+		launch.SpawnedByName = resolved.spawner.Name
 	}
-	if parent != nil {
-		launch.ParentAgentID = parent.ID
-		launch.ParentName = parent.Name
+	if resolved.parent != nil {
+		launch.ParentAgentID = resolved.parent.ID
+		launch.ParentName = resolved.parent.Name
 	}
 
-	if err := s.launcher.launch(plan.harness, launch); err != nil {
-		return nil, fmt.Errorf("failed to launch the agent for %q: %w", plan.name, err)
+	if err := s.launcher.launch(resolved.harness, launch); err != nil {
+		return nil, fmt.Errorf("failed to launch the agent for %q: %w", agent.Name, err)
 	}
 
 	launched = true
 
 	startHooks(ctx, hookRunParams{
 		scripts: s.scripts,
-		agent:   *created,
-		hooks:   plan.hooks,
+		agent:   agent,
+		hooks:   resolved.hooks,
 		event:   workflowstore.HookPostLaunch,
 	})
+
+	created, err := s.agents.GetByID(ctx, agent.ID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read back agent %q: %w", agent.Name, err)
+	}
 
 	return created, nil
 }

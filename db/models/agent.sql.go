@@ -1409,6 +1409,42 @@ func (q *Queries) MarkAgentArchivedIfUnchanged(ctx context.Context, arg MarkAgen
 	return items, nil
 }
 
+const markAgentSettingUpIfFailedToCreate = `-- name: MarkAgentSettingUpIfFailedToCreate :many
+UPDATE
+    agents
+SET
+    state = 'setting_up',
+    state_changed_at = NOW(),
+    reported_reason = '',
+    state_seen_at = NOW()
+WHERE
+    id = $1
+    AND state = 'failed_to_create'
+    AND archived_at IS NULL
+RETURNING
+    id
+`
+
+func (q *Queries) MarkAgentSettingUpIfFailedToCreate(ctx context.Context, id string) ([]string, error) {
+	rows, err := q.db.Query(ctx, markAgentSettingUpIfFailedToCreate, id)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const markAgentSettingUpIfLive = `-- name: MarkAgentSettingUpIfLive :many
 UPDATE
     agents

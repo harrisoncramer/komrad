@@ -35,6 +35,7 @@ type reportRecorder interface {
 type agentCreator interface {
 	NewAgent(ctx context.Context, p agents.NewAgentParams) (*agentstore.Agent, error)
 	RequestReview(ctx context.Context, p agents.RequestReviewParams) (*agentstore.Agent, string, error)
+	RetryCreate(ctx context.Context, p agents.RetryCreateParams) (*agentstore.Agent, error)
 }
 
 type agentAdopter interface {
@@ -587,6 +588,24 @@ func (s *Service) ResumeAgent(ctx context.Context, req *agentv1.ResumeAgentReque
 	}
 
 	return &agentv1.ResumeAgentResponse{Agent: rendered}, nil
+}
+
+// RetryAgent relaunches an agent that failed to create, optionally with corrected flags.
+func (s *Service) RetryAgent(ctx context.Context, req *agentv1.RetryAgentRequest) (*agentv1.RetryAgentResponse, *fail.Error) {
+	retried, err := s.creator.RetryCreate(ctx, agents.RetryCreateParams{
+		ID:    req.GetId(),
+		Flags: req.GetFlags(),
+	})
+	if err != nil {
+		return nil, rpcerr.From(err, "failed to retry agent")
+	}
+
+	rendered, failure := s.renderOneAgent(ctx, *retried)
+	if failure != nil {
+		return nil, failure
+	}
+
+	return &agentv1.RetryAgentResponse{Agent: rendered}, nil
 }
 
 // HoldAgent stops an agent so a person may take its worktree, refusing unless it is seen to come

@@ -2004,6 +2004,10 @@ func (f *fakeLauncher) ResumeAgent(_ context.Context, id string) (*agentstore.Ag
 	return f.created, nil
 }
 
+func (f *fakeLauncher) RetryCreate(_ context.Context, _ agents.RetryCreateParams) (*agentstore.Agent, error) {
+	return f.created, nil
+}
+
 type fakeMailConfig int
 
 func (fakeMailConfig) GetDeliveryDeadline() (time.Duration, error) { return time.Hour, nil }
