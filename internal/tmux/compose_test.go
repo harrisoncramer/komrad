@@ -17,59 +17,37 @@ import (
 // implement, which is the closest a test gets to a real input box.
 const readlineShell = "/bin/bash"
 
-// TestPasteArrivesWrappedInTheMarkers covers the reason a paste is used at all, a program in a
-// vi keymap running typed characters as commands rather than taking them as text.
-func TestPasteArrivesWrappedInTheMarkers(t *testing.T) {
-	client := testServer(t, "paste")
-	pane, received := rawPane(t, client, "paste", true)
-
-	require.NoError(t, client.Paste(pane, "weave: 1 piece(s) of unread mail"))
-
-	waitForLine(t, received, "^[[200~weave: 1 piece(s) of unread mail^[[201~")
-}
-
-// TestPasteAndSubmitSendsTheNewlineBehindTheText covers the order the two arrive in, the
-// program taking a newline ahead of the text as a submission of whatever it already held.
-func TestPasteAndSubmitSendsTheNewlineBehindTheText(t *testing.T) {
+// TestPasteAndSubmitSendsTheText covers the text and Enter arriving together without
+// bracketed-paste markers.
+func TestPasteAndSubmitSendsTheText(t *testing.T) {
 	client := testServer(t, "submit")
-	pane, received := rawPane(t, client, "submit", true)
+	pane, received := rawPane(t, client, "submit")
 
 	require.NoError(t, client.PasteAndSubmit(pane, "read your mail"))
 
-	waitForLine(t, received, "^[[200~read your mail^[[201~^M")
+	waitForLine(t, received, "read your mail^M")
+	assert.NotContains(t, readFile(t, received), "^[[200~", "submit must not wrap in paste markers")
 }
 
-// TestPasteAndSubmitIsTwoInvocations covers the split that lets the program leave paste mode
-// before Enter arrives, the delay being what keeps the Enter from landing in the same PTY
-// write as the paste-end marker.
-func TestPasteAndSubmitIsTwoInvocations(t *testing.T) {
-	args := pasteArgs("buffer", "%9", "read your mail")
+// TestPasteAndSubmitIsOneInvocation covers the paste and Enter riding in a single tmux call
+// so nothing typed at the pane can land between them.
+func TestPasteAndSubmitIsOneInvocation(t *testing.T) {
+	args := pasteArgs("buffer", "%9", "read your mail", ";", "send-keys", "-t", "%9", "Enter")
 
 	assert.Equal(t, []string{
 		"set-buffer", "-b", "buffer", "--", "read your mail",
-		";", "paste-buffer", "-p", "-d", "-b", "buffer", "-t", "%9",
-	}, args, "the paste carries no Enter of its own")
-}
-
-// TestPasteWithoutTheModeArrivesAsPlainText covers a program that never asked for the markers,
-// which takes the text as though it had been typed.
-func TestPasteWithoutTheModeArrivesAsPlainText(t *testing.T) {
-	client := testServer(t, "unbracketed")
-	pane, received := rawPane(t, client, "unbracketed", false)
-
-	require.NoError(t, client.Paste(pane, "typed after all"))
-
-	waitForLine(t, received, "typed after all")
-	assert.NotContains(t, readFile(t, received), "^[[200~", "no markers reached a program that never asked for them")
+		";", "paste-buffer", "-d", "-b", "buffer", "-t", "%9",
+		";", "send-keys", "-t", "%9", "Enter",
+	}, args)
 }
 
 // TestPasteLeavesNoBufferBehind covers the buffer the paste is loaded through, which a person
 // pasting at the pane themselves would otherwise find weave's text in.
 func TestPasteLeavesNoBufferBehind(t *testing.T) {
 	client := testServer(t, "buffers")
-	pane, received := rawPane(t, client, "buffers", true)
+	pane, received := rawPane(t, client, "buffers")
 
-	require.NoError(t, client.Paste(pane, "gone once pasted"))
+	require.NoError(t, client.PasteAndSubmit(pane, "gone once pasted"))
 	waitForLine(t, received, "gone once pasted")
 
 	out, err := client.query("list-buffers")
@@ -90,7 +68,7 @@ func TestPastesAtOnceHoldTheirOwnBuffers(t *testing.T) {
 // what leaves the tail of a line behind.
 func TestCutLineCarriesTheCursorFirst(t *testing.T) {
 	client := testServer(t, "cut")
-	pane, received := rawPane(t, client, "cut", true)
+	pane, received := rawPane(t, client, "cut")
 
 	require.NoError(t, client.CutLine(pane))
 
@@ -100,7 +78,7 @@ func TestCutLineCarriesTheCursorFirst(t *testing.T) {
 // TestYankLineSendsTheYank covers the other half of the round trip.
 func TestYankLineSendsTheYank(t *testing.T) {
 	client := testServer(t, "yank")
-	pane, received := rawPane(t, client, "yank", true)
+	pane, received := rawPane(t, client, "yank")
 
 	require.NoError(t, client.YankLine(pane))
 
@@ -112,8 +90,6 @@ func TestYankLineSendsTheYank(t *testing.T) {
 func TestComposingRefusesWhatItCannotSend(t *testing.T) {
 	client := testServer(t, "refusals")
 
-	require.Error(t, client.Paste("", "text"))
-	require.Error(t, client.Paste("%0", ""))
 	require.Error(t, client.PasteAndSubmit("", "text"))
 	require.Error(t, client.PasteAndSubmit("%0", ""))
 	require.Error(t, client.CutLine(""))
@@ -122,25 +98,16 @@ func TestComposingRefusesWhatItCannotSend(t *testing.T) {
 
 // rawPane is a pane whose terminal passes the control characters through rather than acting on
 // them itself, alongside the file it writes what it receives to.
-func rawPane(t *testing.T, client *Client, session string, bracketed bool) (pane, received string) {
+func rawPane(t *testing.T, client *Client, session string) (pane, received string) {
 	t.Helper()
 
 	pane, err := client.query("display-message", "-p", "-t", session+":", "#{pane_id}")
 	require.NoError(t, err)
 
-	// tmux wraps a paste in the markers only for a pane whose program has asked for them, which
-	// it learns from the program's own output rather than from anything weave says.
-	enable := ""
-	if bracketed {
-		enable = `printf '\033[?2004h'; `
-	}
-
 	received = filepath.Join(t.TempDir(), "received")
-	require.NoError(t, client.SendText(pane, enable+"stty raw -echo && cat -uv > "+received))
+	require.NoError(t, client.SendText(pane, "stty raw -echo && cat -uv > "+received))
 	require.NoError(t, client.SendKeys(pane, "Enter"))
 
-	// The redirection is what says the shell has reached cat, since nothing typed before that
-	// would be written anywhere.
 	require.NoError(t, client.SendText(pane, "started"))
 	waitForLine(t, received, "started")
 

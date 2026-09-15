@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"sync/atomic"
-	"time"
 )
 
 // pasteBufferPrefix opens the name of every buffer a paste is loaded through.
@@ -15,30 +14,11 @@ const pasteBufferPrefix = "weave-paste"
 // once cannot overwrite each other's text.
 var pastes atomic.Int64
 
-// Paste inserts text into a pane as a bracketed paste.
-func (c *Client) Paste(target, text string) error {
-	return c.paste(target, text)
-}
-
-// pasteSettleDelay is the pause between a bracketed paste and the Enter that submits it.
-// Claude Code needs time to process the paste-end marker (\e[201~) before it will accept
-// Enter as a submission; an Enter that lands in the same PTY write is swallowed.
-const pasteSettleDelay = 100 * time.Millisecond
-
-// PasteAndSubmit inserts text as a bracketed paste, waits for the program to leave paste
-// mode, then sends Enter.
+// PasteAndSubmit inserts text into a pane and sends Enter in a single invocation. The paste
+// is unbracketed so Enter lands in the same input state as the text rather than racing the
+// program's paste-mode exit, which swallows the keystroke in Claude Code.
 func (c *Client) PasteAndSubmit(target, text string) error {
-	if err := c.paste(target, text); err != nil {
-		return err
-	}
-
-	time.Sleep(pasteSettleDelay)
-
-	if _, err := c.query("send-keys", "-t", target, "Enter"); err != nil {
-		return fmt.Errorf("failed to submit at %q: %w", target, err)
-	}
-
-	return nil
+	return c.paste(target, text, ";", "send-keys", "-t", target, "Enter")
 }
 
 // CutLine takes the line a pane's cursor sits on into the kill ring of the program reading it.
@@ -68,8 +48,9 @@ func (c *Client) YankLine(target string) error {
 	return nil
 }
 
-// paste loads the text into a buffer of weave's own and pastes it.
-func (c *Client) paste(target, text string) error {
+// paste loads text into a buffer and pastes it, running whatever commands follow in the
+// same invocation.
+func (c *Client) paste(target, text string, then ...string) error {
 	if target == "" {
 		return errors.New("refusing to paste into an empty target")
 	}
@@ -77,7 +58,7 @@ func (c *Client) paste(target, text string) error {
 		return errors.New("refusing to paste nothing")
 	}
 
-	if _, err := c.query(pasteArgs(pasteBufferName(), target, text)...); err != nil {
+	if _, err := c.query(pasteArgs(pasteBufferName(), target, text, then...)...); err != nil {
 		return fmt.Errorf("failed to paste into %q: %w", target, err)
 	}
 
@@ -90,11 +71,11 @@ func pasteBufferName() string {
 }
 
 // pasteArgs is the one invocation a paste is sent as.
-func pasteArgs(buffer, target, text string) []string {
-	// -d drops the buffer once it has been pasted, and -p wraps it in the markers that say the
-	// text was pasted rather than typed.
-	return []string{
+func pasteArgs(buffer, target, text string, then ...string) []string {
+	args := []string{
 		"set-buffer", "-b", buffer, "--", text,
-		";", "paste-buffer", "-p", "-d", "-b", buffer, "-t", target,
+		";", "paste-buffer", "-d", "-b", buffer, "-t", target,
 	}
+
+	return append(args, then...)
 }
