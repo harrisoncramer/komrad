@@ -2,4 +2,11 @@
 set -euo pipefail
 source "$MISE_CONFIG_ROOT/mise/tasks/terraform/_terraform_utils"
 
-run_terraform init "$@"
+backend="$MISE_CONFIG_ROOT/infra/terraform/backend.hcl"
+
+if [ ! -f "$backend" ]; then
+	echo "create infra/terraform/backend.hcl from backend.hcl.example before initializing" >&2
+	exit 1
+fi
+
+run_terraform init -backend-config="$backend" "$@"
