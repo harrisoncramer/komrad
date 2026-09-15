@@ -42,6 +42,7 @@ const (
 	actionAgentHide
 	actionAgentShowHidden
 	actionAgentNew
+	actionAgentRetry
 	actionAgentSearch
 	actionWorkflowNew
 	actionWorkflowAdopt

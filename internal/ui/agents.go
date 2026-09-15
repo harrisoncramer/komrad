@@ -615,6 +615,22 @@ func (m model) submitChild(parent agentstore.Agent, values agentFormValues) (tea
 	return m, tea.Batch(cmd, m.holdForm())
 }
 
+func (m model) openRetryForm(agent agentstore.Agent) (tea.Model, tea.Cmd) {
+	flags := agent.Flags
+
+	return m.openRedrawnForm(openRedrawnFormParams{
+		Kind:   formAgentRetry,
+		Build:  func(m model) (*huh.Form, []string) { return retryAgentForm(formKeys(), &flags) },
+		Submit: func(m model) (tea.Model, tea.Cmd) { return m.submitRetry(agent, flags) },
+	})
+}
+
+func (m model) submitRetry(agent agentstore.Agent, flags string) (tea.Model, tea.Cmd) {
+	cmd := m.retryCmd(agent, flags)
+
+	return m, tea.Batch(cmd, m.holdForm())
+}
+
 func (m model) openRename(agent agentstore.Agent) (tea.Model, tea.Cmd) {
 	return m.openRenameForm(agent, new(string))
 }

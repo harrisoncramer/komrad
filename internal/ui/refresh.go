@@ -2,6 +2,7 @@ package ui
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"sync"
 	"time"
@@ -416,6 +417,12 @@ func (m *model) paneWriteCmd(summary string, focus bool, write func(api) (*agent
 func (m *model) resumeCmd(params resumeParams) tea.Cmd {
 	return m.openingWriteCmd(params.summary, func(clients api) (*agentv1.Agent, error) {
 		return clients.resumeAgent(params.id)
+	})
+}
+
+func (m *model) retryCmd(agent agentstore.Agent, flags string) tea.Cmd {
+	return m.agentWriteCmd(fmt.Sprintf("Could not retry agent %q", agent.Name), func(clients api) (*agentv1.Agent, error) {
+		return clients.retryAgent(agent.ID, flags)
 	})
 }
 

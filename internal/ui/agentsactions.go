@@ -228,6 +228,12 @@ func agentsRowActions() []action {
 			run:  onHoveredAgent(func(m model, item agentItem) (tea.Model, tea.Cmd) { return m.openRename(item.agent) }),
 		},
 		{
+			id:   actionAgentRetry,
+			keys: func(k config.Keybindings) []string { return k.Agents.Retry },
+			when: isRetryableAgent,
+			run:  onHoveredAgent(func(m model, item agentItem) (tea.Model, tea.Cmd) { return m.openRetryForm(item.agent) }),
+		},
+		{
 			id:   actionAgentArchive,
 			keys: func(k config.Keybindings) []string { return k.Agents.Archive },
 			when: isHoveringAgent,
@@ -252,6 +258,12 @@ func isHoveringAgent(m model) bool {
 	_, ok := m.hoveredWorkflow()
 
 	return isBrowsing(m) && !ok
+}
+
+func isRetryableAgent(m model) bool {
+	item, ok := m.selectedAgent()
+
+	return isHoveringAgent(m) && ok && item.agent.State == agentstore.StateFailedToCreate
 }
 
 // onHoveredWorkflow hands an arm the workflow under the cursor, which its gate has already said
@@ -436,6 +448,11 @@ func agentsBrowsingLegend() []legendRow {
 			of:   []actionID{actionAgentNew, actionWorkflowNew},
 			desc: func(model) string { return "new agent/workflow" },
 			show: isBrowsing,
+		},
+		{
+			of:   []actionID{actionAgentRetry},
+			desc: func(model) string { return "retry launch" },
+			show: isRetryableAgent,
 		},
 		{
 			of:   []actionID{actionAgentChild},

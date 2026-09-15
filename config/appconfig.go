@@ -301,6 +301,9 @@ type AgentsKeys struct {
 	Quit []string `mapstructure:"quit" default:"ctrl+c"`
 	// Rename the hovered agent.
 	Rename []string `mapstructure:"rename" default:"r"`
+	// Retry the launch of an agent that failed to create, opening a form where the flags can be
+	// corrected before confirming.
+	Retry []string `mapstructure:"retry" default:"R"`
 	// Search every conversation the panel holds for what you type, the archived ones included.
 	Search []string `mapstructure:"search" default:"s"`
 	// Toggles visibility of hidden agents alongside the rest.

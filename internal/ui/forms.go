@@ -55,6 +55,7 @@ const (
 	formRename
 	formAgentArchive
 	formAgentRefresh
+	formAgentRetry
 	formGit
 	formWorkflow
 	formWorkflowArchive
@@ -116,7 +117,7 @@ const formColumnFloor = 50
 // still on screen while it is answered.
 func formColumn(kind formKind) (columnSpec, bool) {
 	switch kind {
-	case formAgent, formChild, formAdopt, formRename, formWorkflow, formSchedule:
+	case formAgent, formChild, formAdopt, formRename, formAgentRetry, formWorkflow, formSchedule:
 		return columnSpec{floor: formColumnFloor}, true
 	case formGit, formAgentArchive, formAgentRefresh, formWorkflowArchive, formScheduleArchive,
 		formArchiveDelete, formArchiveEmpty:
@@ -407,6 +408,12 @@ func adoptAgentForm(keys config.FormKeys, values *adoptFormValues) (*huh.Form, [
 	}
 
 	return formOf(keys, fields...)
+}
+
+func retryAgentForm(keys config.FormKeys, flags *string) (*huh.Form, []string) {
+	return formOf(keys,
+		huh.NewInput().Key("flags").Title("Flags").Placeholder("--model opus").Value(flags),
+	)
 }
 
 func renameForm(current string, name *string, keys config.FormKeys) (*huh.Form, []string) {
