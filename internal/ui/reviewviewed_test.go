@@ -96,9 +96,7 @@ func TestAViewedMarkTakenInAChapterDoesNotEatTheWholeChangeMark(t *testing.T) {
 
 	next, cmd = m.updateReview(keyMsg("v"))
 	m = next.(model)
-	if cmd != nil {
-		cmd()
-	}
+	require.Nil(t, cmd, "the refusal sends no write")
 
 	assert.Equal(t, whole, agents.marked.GetFingerprint(),
 		"the mark taken in a chapter does not overwrite the one taken on the whole change")
