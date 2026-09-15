@@ -43,6 +43,10 @@ type Frame struct {
 
 	// remote is the engine the agents are running in, the zero value meaning this machine.
 	remote engine.Remote
+
+	// remoteGuest is the agent whose terminal the stage is attached to, which is not a pane this
+	// server holds and so cannot be tracked as guest is.
+	remoteGuest string
 }
 
 type shown struct {
@@ -108,6 +112,20 @@ func (f *Frame) Pane(region Region) string {
 
 // GuestPane is the pane somebody else owns currently swapped into the stage.
 func (f *Frame) GuestPane() string { return f.guest }
+
+// FocusPane is the pane the focus key jumps to, which is the agent's own pane when it was moved
+// into the stage and the stage itself when the stage is attached to an agent elsewhere.
+func (f *Frame) FocusPane() string {
+	if f.remote.IsRemote() {
+		if f.remoteGuest == "" {
+			return ""
+		}
+
+		return f.stage
+	}
+
+	return f.guest
+}
 
 // Begin collects the frame's pane moves for Flush to send together, so a change that moves
 // several panes is one invocation of tmux and so one repaint rather than one for each.
@@ -241,6 +259,10 @@ func (f *Frame) Show(region Region, content Content) {
 		return
 	}
 
+	if region == RegionStage {
+		f.remoteGuest = ""
+	}
+
 	f.move(panes.Respawn(pane, content.Dir, argv...))
 	f.shown[region] = shown{
 		key:    content.Key,
@@ -370,6 +392,7 @@ func (f *Frame) showRemoteGuest(pane string) {
 
 	f.move(panes.Respawn(f.stage, "", argv...))
 	f.shown[RegionStage] = shown{key: pane}
+	f.remoteGuest = pane
 }
 
 // ReleaseGuest returns a guest pane to where it came from before it is killed, so the main

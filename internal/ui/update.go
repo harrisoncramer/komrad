@@ -68,7 +68,7 @@ func (m model) focusPane() string {
 		return ""
 	}
 
-	return m.frame.GuestPane()
+	return m.frame.FocusPane()
 }
 
 func (m model) route(msg tea.Msg) (tea.Model, tea.Cmd) {

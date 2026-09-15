@@ -3,6 +3,7 @@ package engine_test
 import (
 	"strings"
 	"testing"
+	"time"
 
 	"weave/internal/engine"
 
@@ -117,4 +118,82 @@ func TestStringNamesTheEngine(t *testing.T) {
 	assert.Equal(t,
 		"ubuntu@host (tmux -L weave)",
 		engine.Remote{Destination: "ubuntu@host", Socket: "weave"}.String())
+}
+
+// TestTunnelArgvForwardsTheEnginesAddress covers the forward ssh is asked for.
+func TestTunnelArgvForwardsTheEnginesAddress(t *testing.T) {
+	t.Parallel()
+
+	remote := engine.Remote{Destination: "weave@host", Socket: "weave", Session: "weave"}
+
+	argv := remote.TunnelArgv("127.0.0.1:54321", "127.0.0.1:8787")
+
+	assert.Equal(t, "ssh", argv[0])
+	assert.Contains(t, argv, "-N")
+	assert.Contains(t, argv, "127.0.0.1:54321:127.0.0.1:8787")
+	assert.Equal(t, "weave@host", argv[len(argv)-1])
+}
+
+// TestTunnelArgvFailsRatherThanOpeningAUselessSession covers ssh otherwise staying up with no
+// forward when the port is taken, which would look like a working tunnel that carries nothing.
+func TestTunnelArgvFailsRatherThanOpeningAUselessSession(t *testing.T) {
+	t.Parallel()
+
+	remote := engine.Remote{Destination: "weave@host"}
+
+	assert.Contains(t, remote.TunnelArgv("127.0.0.1:1", "127.0.0.1:8787"), "ExitOnForwardFailure=yes")
+}
+
+// TestDialRefusesALocalEngine covers the caller being told rather than an ssh to nowhere.
+func TestDialRefusesALocalEngine(t *testing.T) {
+	t.Parallel()
+
+	tunnel, err := engine.Remote{}.Dial(t.Context(), "127.0.0.1:8787", time.Second)
+
+	require.Error(t, err)
+	assert.Nil(t, tunnel)
+}
+
+// TestClosingANilTunnelIsFine covers the panel's exit path running whether or not one was opened.
+func TestClosingANilTunnelIsFine(t *testing.T) {
+	t.Parallel()
+
+	var tunnel *engine.Tunnel
+
+	assert.NoError(t, tunnel.Close())
+}
+
+// TestTunnelPortIsStableForAnEngine covers a tunnel that outlived its panel being found again
+// rather than leaked, which needs the port to be the same every time.
+func TestTunnelPortIsStableForAnEngine(t *testing.T) {
+	t.Parallel()
+
+	remote := engine.Remote{Destination: "weave@host"}
+
+	assert.Equal(t, remote.TunnelPort("127.0.0.1:8787"), remote.TunnelPort("127.0.0.1:8787"))
+}
+
+// TestTunnelPortDiffersBetweenEngines covers two engines driven from one machine not fighting
+// over the same forward.
+func TestTunnelPortDiffersBetweenEngines(t *testing.T) {
+	t.Parallel()
+
+	first := engine.Remote{Destination: "weave@one"}.TunnelPort("127.0.0.1:8787")
+	second := engine.Remote{Destination: "weave@two"}.TunnelPort("127.0.0.1:8787")
+	other := engine.Remote{Destination: "weave@one"}.TunnelPort("127.0.0.1:9999")
+
+	assert.NotEqual(t, first, second)
+	assert.NotEqual(t, first, other)
+}
+
+// TestTunnelPortIsInTheChosenRange covers the forward staying out of the way of both privileged
+// ports and the range the kernel hands out on its own.
+func TestTunnelPortIsInTheChosenRange(t *testing.T) {
+	t.Parallel()
+
+	for _, destination := range []string{"a@b", "weave@host", "someone@somewhere.example"} {
+		port := engine.Remote{Destination: destination}.TunnelPort("127.0.0.1:8787")
+		assert.GreaterOrEqual(t, port, 19000)
+		assert.Less(t, port, 20000)
+	}
 }

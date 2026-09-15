@@ -3,6 +3,7 @@ package cli
 import (
 	"log/slog"
 	"net/http"
+	"time"
 
 	"weave/internal/agents"
 	"weave/internal/errui"
@@ -16,6 +17,9 @@ import (
 
 	"github.com/spf13/cobra"
 )
+
+// tunnelWait is how long the panel waits for an ssh forward to start carrying the engine.
+const tunnelWait = 15 * time.Second
 
 func panelCmd(state *app) *cobra.Command {
 	return &cobra.Command{
@@ -44,10 +48,29 @@ Use ` + "`weave open`" + ` to bring the panel up.`,
 			// whose panel has gone, and a second open would start a second panel in it.
 			state.tmux.RecordPanelPane(state.env.TmuxPane)
 
+			// A remote engine is reached through an ssh forward weave owns, so the panel talks to a
+			// port on this machine that carries the engine's api. Nothing local is started: the
+			// service, the agents and their tmux server all belong to the other machine.
+			remote := state.engine()
+			addr := state.env.Addr
+
 			var startupErr error
-			if state.configErr == nil {
+
+			switch {
+			case remote.IsRemote():
+				tunnel, err := remote.Dial(cmd.Context(), addr, tunnelWait)
+				if err != nil {
+					startupErr = err
+
+					break
+				}
+
+				defer func() { _ = tunnel.Close() }()
+
+				addr = tunnel.Local
+			case state.configErr == nil:
 				startupErr = ensureServer(cmd.Context(), ensureServerParams{
-					Addr:        state.env.Addr,
+					Addr:        addr,
 					Self:        getSelfPath(),
 					LogPath:     logPath,
 					ConfigPaths: state.configPaths,
@@ -59,7 +82,7 @@ Use ` + "`weave open`" + ` to bring the panel up.`,
 				startupFindings = state.diagnose(cmd.Context())
 			}
 
-			base := "http://" + state.env.Addr
+			base := "http://" + addr
 			agentClient := agentv1connect.NewAgentServiceClient(http.DefaultClient, base)
 			workflowClient := workflowv1connect.NewWorkflowServiceClient(http.DefaultClient, base)
 			scheduleClient := schedulev1connect.NewScheduleServiceClient(http.DefaultClient, base)
@@ -79,8 +102,8 @@ Use ` + "`weave open`" + ` to bring the panel up.`,
 				Keys:            state.keys,
 				Hooks:           hookClient,
 				Layout:          state.layout,
-				Engine:          state.engine(),
-				Addr:            state.env.Addr,
+				Engine:          remote,
+				Addr:            addr,
 				LogPath:         logPath,
 				LogViewer:       state.logViewer,
 				ProcessViewer:   state.processViewer,
