@@ -39,16 +39,16 @@ func TestPasteAndSubmitSendsTheNewlineBehindTheText(t *testing.T) {
 	waitForLine(t, received, "^[[200~read your mail^[[201~^M")
 }
 
-// TestPasteAndSubmitIsOneInvocation covers the reason the newline rides along with the paste,
-// a second invocation leaving a gap for whatever is typed at the pane meanwhile.
-func TestPasteAndSubmitIsOneInvocation(t *testing.T) {
-	args := pasteArgs("buffer", "%9", "read your mail", ";", "send-keys", "-t", "%9", "Enter")
+// TestPasteAndSubmitIsTwoInvocations covers the split that lets the program leave paste mode
+// before Enter arrives, the delay being what keeps the Enter from landing in the same PTY
+// write as the paste-end marker.
+func TestPasteAndSubmitIsTwoInvocations(t *testing.T) {
+	args := pasteArgs("buffer", "%9", "read your mail")
 
 	assert.Equal(t, []string{
 		"set-buffer", "-b", "buffer", "--", "read your mail",
 		";", "paste-buffer", "-p", "-d", "-b", "buffer", "-t", "%9",
-		";", "send-keys", "-t", "%9", "Enter",
-	}, args)
+	}, args, "the paste carries no Enter of its own")
 }
 
 // TestPasteWithoutTheModeArrivesAsPlainText covers a program that never asked for the markers,
