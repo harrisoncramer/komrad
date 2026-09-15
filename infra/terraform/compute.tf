@@ -39,16 +39,19 @@ resource "aws_instance" "weave" {
   instance_type               = var.instance_type
   subnet_id                   = aws_subnet.weave.id
   vpc_security_group_ids      = [aws_security_group.weave.id]
-  associate_public_ip_address = false
+  associate_public_ip_address = true
   iam_instance_profile        = aws_iam_instance_profile.weave.name
   key_name                    = var.ssh_public_key_path == null ? null : aws_key_pair.weave[0].key_name
   user_data = templatefile("${path.module}/weave-data-volume.sh.tftpl", {
-    data_volume_id = replace(aws_ebs_volume.weave_data.id, "-", "")
+    data_volume_id = aws_ebs_volume.weave_data.id
   })
-  user_data_replace_on_change = true
 
-  credit_specification {
-    cpu_credits = var.cpu_credits
+  dynamic "credit_specification" {
+    for_each = startswith(var.instance_type, "t") ? [1] : []
+
+    content {
+      cpu_credits = var.cpu_credits
+    }
   }
 
   metadata_options {

@@ -1,0 +1,46 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+env_file=/etc/weave/data-volume.env
+
+if [ ! -f "$env_file" ]; then
+	echo "$env_file is missing, so the data volume cannot be identified" >&2
+	exit 1
+fi
+
+# shellcheck source=/dev/null
+. "$env_file"
+
+: "${WEAVE_DATA_VOLUME_ID:?WEAVE_DATA_VOLUME_ID is not set}"
+
+serial="${WEAVE_DATA_VOLUME_ID//-/}"
+device=""
+
+for _ in {1..60}; do
+	device="$(lsblk -dn -o PATH,SERIAL | awk -v serial="$serial" '$2 == serial { print $1; exit }')"
+	if [ -n "$device" ]; then
+		break
+	fi
+	sleep 2
+done
+
+if [ -z "$device" ]; then
+	echo "no block device carries serial $serial" >&2
+	exit 1
+fi
+
+if ! blkid "$device" >/dev/null 2>&1; then
+	mkfs.ext4 -F "$device"
+fi
+
+mkdir -p /var/lib/weave
+uuid="$(blkid -s UUID -o value "$device")"
+
+if ! grep -q "UUID=$uuid" /etc/fstab; then
+	echo "UUID=$uuid /var/lib/weave ext4 defaults,nofail 0 2" >>/etc/fstab
+fi
+
+mountpoint -q /var/lib/weave || mount /var/lib/weave
+
+mkdir -p /var/lib/weave/go-build /var/lib/weave/go-mod /var/lib/weave/worktrees /var/lib/weave/cache
+chown -R weave:weave /var/lib/weave

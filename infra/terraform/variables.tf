@@ -52,12 +52,12 @@ variable "instance_type" {
 
 variable "cpu_credits" {
   type    = string
-  default = "standard"
+  default = "unlimited"
 }
 
 variable "root_volume_size_gib" {
   type    = number
-  default = 50
+  default = 100
 }
 
 variable "data_volume_size_gib" {

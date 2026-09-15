@@ -1,29 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-volume_id="${data_volume_id}"
-device=""
+mkdir -p /etc/weave
+echo "WEAVE_DATA_VOLUME_ID=${data_volume_id}" >/etc/weave/data-volume.env
 
-for attempt in {1..60}; do
-  device="$(lsblk -dn -o PATH,SERIAL | awk -v volume_id="$volume_id" '$2 == volume_id { print $1; exit }')"
-  if [ -n "$device" ]; then
-    break
-  fi
-  sleep 2
-done
-
-test -n "$device"
-
-if ! blkid "$device" >/dev/null 2>&1; then
-  mkfs.ext4 -F "$device"
-fi
-
-mkdir -p /var/lib/weave
-uuid="$(blkid -s UUID -o value "$device")"
-
-if ! grep -q "UUID=$uuid" /etc/fstab; then
-  echo "UUID=$uuid /var/lib/weave ext4 defaults,nofail 0 2" >>/etc/fstab
-fi
-
-mount /var/lib/weave
-chown ubuntu:ubuntu /var/lib/weave
+systemctl start weave-data-volume.service
+systemctl start weave.service

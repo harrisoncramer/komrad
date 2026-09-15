@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+set -euo pipefail
+#MISE description="Validate the Packer template."
+
+cd "$MISE_CONFIG_ROOT/packer"
+
+packer init .
+packer validate .

@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+set -euo pipefail
+#MISE description="Format the Packer template."
+
+cd "$MISE_CONFIG_ROOT/packer"
+
+packer fmt .
