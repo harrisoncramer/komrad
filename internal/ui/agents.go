@@ -326,7 +326,7 @@ func (m model) agentDoc() string {
 
 	switch {
 	case !ok:
-		return noAgentsMarkdown
+		return m.noAgentsMarkdown()
 	case r.header && !held:
 		return workflowContextMarkdown(r.workflow)
 	case item.agent.State == agentstore.StateSettingUp:
@@ -465,8 +465,14 @@ func (m model) scheduleName(agent agentstore.Agent) string {
 
 const dormantPlaceholder = "_dormant — not running_\n\nPress open to resume."
 
-// noAgentsMarkdown is what stands beside an empty list.
-const noAgentsMarkdown = "# Agents\n\n_nothing here yet_\n\nPress new to make a workflow and an agent in it.\n"
+func (m model) noAgentsMarkdown() string {
+	key := "w"
+	if len(m.keys.Workflows.New) > 0 {
+		key = m.keys.Workflows.New[0]
+	}
+
+	return fmt.Sprintf("# Agents\n\n_nothing here yet_\n\nPress %q to make a workflow and an agent in it.\n", key)
+}
 
 const settingUpPlaceholder = "_setting up…_\n\nMaking this agent's worktree. It has no pane yet."
 
