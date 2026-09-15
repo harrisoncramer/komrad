@@ -59,14 +59,14 @@ func listReviewThreads(
 	return resp.Msg.GetThreads(), nil
 }
 
-// listReviewViewedFiles is the files of a round the person reviewing has already read.
+// listReviewViewedFiles is the files of an agent the person reviewing has already read.
 func listReviewViewedFiles(
 	ctx context.Context,
 	agents agentv1connect.AgentServiceClient,
-	roundID string,
+	agentID string,
 ) ([]*agentv1.ReviewViewedFile, error) {
 	resp, err := agents.ListReviewViewedFiles(ctx, connect.NewRequest(&agentv1.ListReviewViewedFilesRequest{
-		RoundId: roundID,
+		AgentId: agentID,
 	}))
 	if err != nil {
 		return nil, fmt.Errorf("failed to read which files you have already read: %w", err)

@@ -252,27 +252,30 @@ func TestMissingRowsAnswerNotFound(t *testing.T) {
 
 // TestAViewedMarkBelongsToItsRound is why the fingerprint could go: a mark is held against the
 // round it was made in, so the next round starts with nothing read and no hash is compared.
-func TestAViewedMarkBelongsToItsRound(t *testing.T) {
+func TestViewedMarkUsesFingerprint(t *testing.T) {
 	st := open(t)
 	ctx := t.Context()
 	agentID := seedAgent(t, st)
 
-	first := openRound(t, st, agentID, "tree-one")
-	_, err := st.MarkFileViewed(ctx, MarkFileViewedParams{RoundID: first.ID, FilePath: "greet.go"})
+	_, err := st.MarkFileViewed(ctx, MarkFileViewedParams{AgentID: agentID, FilePath: "greet.go", Fingerprint: "abc123"})
 	require.NoError(t, err)
 
-	viewed, err := st.ListViewedFiles(ctx, first.ID)
+	viewed, err := st.ListViewedFiles(ctx, agentID)
 	require.NoError(t, err)
 	require.Len(t, viewed, 1)
+	assert.Equal(t, "abc123", viewed[0].Fingerprint)
 
-	second := openRound(t, st, agentID, "tree-two")
-	viewed, err = st.ListViewedFiles(ctx, second.ID)
+	_, err = st.MarkFileViewed(ctx, MarkFileViewedParams{AgentID: agentID, FilePath: "greet.go", Fingerprint: "def456"})
 	require.NoError(t, err)
-	assert.Empty(t, viewed, "a later round has read nothing yet")
 
-	require.NoError(t, st.UnmarkFileViewed(ctx, first.ID, "greet.go"))
+	viewed, err = st.ListViewedFiles(ctx, agentID)
+	require.NoError(t, err)
+	require.Len(t, viewed, 1)
+	assert.Equal(t, "def456", viewed[0].Fingerprint, "upsert updates fingerprint")
 
-	viewed, err = st.ListViewedFiles(ctx, first.ID)
+	require.NoError(t, st.UnmarkFileViewed(ctx, agentID, "greet.go"))
+
+	viewed, err = st.ListViewedFiles(ctx, agentID)
 	require.NoError(t, err)
 	assert.Empty(t, viewed)
 }

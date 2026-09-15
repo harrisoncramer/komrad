@@ -211,10 +211,11 @@ func (s *Service) ReleaseReview(ctx context.Context, req *agentv1.ReleaseReviewR
 // SetReviewFileViewed marks one file of a diff read, or drops the mark.
 func (s *Service) SetReviewFileViewed(ctx context.Context, req *agentv1.SetReviewFileViewedRequest) (*agentv1.SetReviewFileViewedResponse, *fail.Error) {
 	viewed, err := s.review.SetReviewFileViewed(ctx, agents.SetReviewFileViewedParams{
-		RoundID:  req.GetRoundId(),
-		FilePath: req.GetFilePath(),
-		Viewed:   req.GetViewed(),
-		Author:   reviewAuthorFrom(ctx),
+		AgentID:     req.GetAgentId(),
+		FilePath:    req.GetFilePath(),
+		Fingerprint: req.GetFingerprint(),
+		Viewed:      req.GetViewed(),
+		Author:      reviewAuthorFrom(ctx),
 	})
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to set the file viewed")
@@ -231,7 +232,7 @@ func (s *Service) SetReviewFileViewed(ctx context.Context, req *agentv1.SetRevie
 // ListReviewViewedFiles reads which files of an agent's diff have been marked read.
 func (s *Service) ListReviewViewedFiles(ctx context.Context, req *agentv1.ListReviewViewedFilesRequest) (*agentv1.ListReviewViewedFilesResponse, *fail.Error) {
 	files, err := s.review.ListReviewViewedFiles(ctx, agents.ListReviewViewedFilesParams{
-		RoundID: req.GetRoundId(),
+		AgentID: req.GetAgentId(),
 		Author:  reviewAuthorFrom(ctx),
 	})
 	if err != nil {
@@ -334,9 +335,10 @@ func toReviewDeliveryState(state reviewstore.DeliveryState) agentv1.ReviewDelive
 
 func toReviewViewedFile(viewed reviewstore.ViewedFile) *agentv1.ReviewViewedFile {
 	return &agentv1.ReviewViewedFile{
-		RoundId:  viewed.RoundID,
-		FilePath: viewed.FilePath,
-		ViewedAt: dates.Stamp(viewed.ViewedAt),
+		AgentId:     viewed.AgentID,
+		FilePath:    viewed.FilePath,
+		Fingerprint: viewed.Fingerprint,
+		ViewedAt:    dates.Stamp(viewed.ViewedAt),
 	}
 }
 

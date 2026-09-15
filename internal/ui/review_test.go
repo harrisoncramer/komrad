@@ -77,7 +77,7 @@ func (f *fakeReviewAgents) ListReviewViewedFiles(
 ) (*connect.Response[agentv1.ListReviewViewedFilesResponse], error) {
 	held := make([]*agentv1.ReviewViewedFile, 0, len(f.viewed))
 	for _, mark := range f.viewed {
-		if mark.GetRoundId() == req.Msg.GetRoundId() {
+		if mark.GetAgentId() == req.Msg.GetAgentId() {
 			held = append(held, mark)
 		}
 	}
@@ -100,8 +100,9 @@ func (f *fakeReviewAgents) SetReviewFileViewed(
 
 	if req.Msg.GetViewed() {
 		kept = append(kept, &agentv1.ReviewViewedFile{
-			RoundId:  req.Msg.GetRoundId(),
-			FilePath: req.Msg.GetFilePath(),
+			AgentId:     req.Msg.GetAgentId(),
+			FilePath:    req.Msg.GetFilePath(),
+			Fingerprint: req.Msg.GetFingerprint(),
 		})
 	}
 
@@ -1487,7 +1488,8 @@ func TestMarkingAFileViewedFoldsItAway(t *testing.T) {
 	require.NotNil(t, agents.marked)
 	assert.Equal(t, "greet.go", agents.marked.GetFilePath())
 	assert.True(t, agents.marked.GetViewed())
-	assert.NotEmpty(t, agents.marked.GetRoundId(), "the mark is held against the round it was made in")
+	assert.NotEmpty(t, agents.marked.GetAgentId(), "the mark is held against the agent")
+	assert.NotEmpty(t, agents.marked.GetFingerprint(), "the mark carries the file's fingerprint")
 
 	next, cmd = m.updateReview(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("v")})
 	m = next.(model)

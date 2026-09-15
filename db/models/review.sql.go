@@ -988,17 +988,17 @@ func (q *Queries) ListReviewThreads(ctx context.Context, agentID string) ([]*Lis
 
 const listReviewViewedFiles = `-- name: ListReviewViewedFiles :many
 SELECT
-    v.file_path, v.viewed_at, v.round_id
+    v.file_path, v.viewed_at, v.agent_id, v.fingerprint
 FROM
     review_viewed_files v
 WHERE
-    v.round_id = $1
+    v.agent_id = $1
 ORDER BY
     v.file_path
 `
 
-func (q *Queries) ListReviewViewedFiles(ctx context.Context, roundID string) ([]*ReviewViewedFile, error) {
-	rows, err := q.db.Query(ctx, listReviewViewedFiles, roundID)
+func (q *Queries) ListReviewViewedFiles(ctx context.Context, agentID string) ([]*ReviewViewedFile, error) {
+	rows, err := q.db.Query(ctx, listReviewViewedFiles, agentID)
 	if err != nil {
 		return nil, err
 	}
@@ -1006,7 +1006,12 @@ func (q *Queries) ListReviewViewedFiles(ctx context.Context, roundID string) ([]
 	var items []*ReviewViewedFile
 	for rows.Next() {
 		var i ReviewViewedFile
-		if err := rows.Scan(&i.FilePath, &i.ViewedAt, &i.RoundID); err != nil {
+		if err := rows.Scan(
+			&i.FilePath,
+			&i.ViewedAt,
+			&i.AgentID,
+			&i.Fingerprint,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, &i)
@@ -1086,29 +1091,38 @@ func (q *Queries) ListReviews(ctx context.Context, agentID string) ([]*ListRevie
 
 const markReviewFileViewed = `-- name: MarkReviewFileViewed :one
 INSERT INTO review_viewed_files(
-    round_id,
-    file_path)
+    agent_id,
+    file_path,
+    fingerprint)
 VALUES (
     $1,
-    $2)
+    $2,
+    $3)
 ON CONFLICT (
-    round_id,
+    agent_id,
     file_path)
     DO UPDATE SET
+        fingerprint = $3,
         viewed_at = NOW()
     RETURNING
-        file_path, viewed_at, round_id
+        file_path, viewed_at, agent_id, fingerprint
 `
 
 type MarkReviewFileViewedParams struct {
-	RoundID  string
-	FilePath string
+	AgentID     string
+	FilePath    string
+	Fingerprint string
 }
 
 func (q *Queries) MarkReviewFileViewed(ctx context.Context, arg MarkReviewFileViewedParams) (*ReviewViewedFile, error) {
-	row := q.db.QueryRow(ctx, markReviewFileViewed, arg.RoundID, arg.FilePath)
+	row := q.db.QueryRow(ctx, markReviewFileViewed, arg.AgentID, arg.FilePath, arg.Fingerprint)
 	var i ReviewViewedFile
-	err := row.Scan(&i.FilePath, &i.ViewedAt, &i.RoundID)
+	err := row.Scan(
+		&i.FilePath,
+		&i.ViewedAt,
+		&i.AgentID,
+		&i.Fingerprint,
+	)
 	return &i, err
 }
 
@@ -1263,17 +1277,17 @@ func (q *Queries) SetReviewThreadResolved(ctx context.Context, arg SetReviewThre
 
 const unmarkReviewFileViewed = `-- name: UnmarkReviewFileViewed :exec
 DELETE FROM review_viewed_files
-WHERE round_id = $1
+WHERE agent_id = $1
     AND file_path = $2
 `
 
 type UnmarkReviewFileViewedParams struct {
-	RoundID  string
+	AgentID  string
 	FilePath string
 }
 
 func (q *Queries) UnmarkReviewFileViewed(ctx context.Context, arg UnmarkReviewFileViewedParams) error {
-	_, err := q.db.Exec(ctx, unmarkReviewFileViewed, arg.RoundID, arg.FilePath)
+	_, err := q.db.Exec(ctx, unmarkReviewFileViewed, arg.AgentID, arg.FilePath)
 	return err
 }
 

@@ -230,7 +230,7 @@ func (m model) loadReviewCmd(params loadReviewCmdParams) tea.Cmd {
 			}
 		}
 
-		viewed, err := listReviewViewedFiles(ctx, agents, round.GetId())
+		viewed, err := listReviewViewedFiles(ctx, agents, agentID)
 		earlier := findPreviousReviewedRound(reviews, rounds, round)
 		chapters := cutChapters(cutChaptersParams{
 			Rounds:   rounds,
@@ -358,7 +358,7 @@ func (m *model) applyReviewLoaded(msg reviewLoadedMsg) tea.Cmd {
 	m.review.root = msg.patch.Root
 	m.review.view = review.NewView(msg.patch, m.isDark)
 	m.review.view.SetTraced(msg.traced)
-	m.review.view.SetViewed(indexViewedFiles(msg.viewed))
+	m.review.view.SetViewed(indexViewedFiles(msg.viewed, msg.patch))
 	m.review.view.PinThreads(threadsByChapter(threadsByChapterParams{
 		Threads:  msg.threads,
 		Chapters: m.review.chapters,
@@ -388,11 +388,19 @@ func (m *model) applyReviewLoaded(msg reviewLoadedMsg) tea.Cmd {
 	return nil
 }
 
-// indexViewedFiles indexes the files read in this round, a later round starting with none.
-func indexViewedFiles(viewed []*agentv1.ReviewViewedFile) map[string]bool {
+// indexViewedFiles indexes the files whose stored fingerprint still matches the current patch,
+// so a file the agent has rewritten since it was read shows as unread again.
+func indexViewedFiles(viewed []*agentv1.ReviewViewedFile, patch *diff.Patch) map[string]bool {
+	fingerprints := map[string]string{}
+	for i := range patch.Files {
+		fingerprints[patch.Files[i].Path()] = patch.Files[i].Fingerprint()
+	}
+
 	held := map[string]bool{}
 	for _, mark := range viewed {
-		held[mark.GetFilePath()] = true
+		if fp, ok := fingerprints[mark.GetFilePath()]; ok && fp == mark.GetFingerprint() {
+			held[mark.GetFilePath()] = true
+		}
 	}
 
 	return held

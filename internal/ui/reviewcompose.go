@@ -291,13 +291,15 @@ func (m model) toggleReviewViewed() (tea.Model, tea.Cmd) {
 
 	m.scrollReviewToCursor()
 
-	agents, roundID := m.api.agents, m.review.round.GetId()
+	agents, agentID := m.api.agents, m.review.agentID
+	fingerprint := file.Fingerprint()
 
 	return m, m.reviewWriteCmd(notice, func(ctx context.Context) error {
 		_, err := agents.SetReviewFileViewed(ctx, connect.NewRequest(&agentv1.SetReviewFileViewedRequest{
-			RoundId:  roundID,
-			FilePath: path,
-			Viewed:   viewed,
+			AgentId:     agentID,
+			FilePath:    path,
+			Fingerprint: fingerprint,
+			Viewed:      viewed,
 		}))
 
 		return err
