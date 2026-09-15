@@ -71,6 +71,10 @@ func TestReadActivityOnCapturedFrames(t *testing.T) {
 			file: "starting_mcp_servers_offering_interrupt.txt",
 			want: harness.ActivityWorking,
 		},
+		{
+			file: "api_error_above_composer.txt",
+			want: harness.ActivityUnrecognized,
+		},
 	}
 
 	for _, tt := range tests {
