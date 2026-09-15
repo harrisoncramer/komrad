@@ -14,9 +14,8 @@ const pasteBufferPrefix = "weave-paste"
 // once cannot overwrite each other's text.
 var pastes atomic.Int64
 
-// PasteAndSubmit inserts text into a pane and sends Enter in a single invocation. The paste
-// is unbracketed so Enter lands in the same input state as the text rather than racing the
-// program's paste-mode exit, which swallows the keystroke in Claude Code.
+// PasteAndSubmit inserts text into a pane as a bracketed paste and sends Enter in a single
+// invocation.
 func (c *Client) PasteAndSubmit(target, text string) error {
 	return c.paste(target, text, ";", "send-keys", "-t", target, "Enter")
 }
@@ -74,7 +73,7 @@ func pasteBufferName() string {
 func pasteArgs(buffer, target, text string, then ...string) []string {
 	args := []string{
 		"set-buffer", "-b", buffer, "--", text,
-		";", "paste-buffer", "-d", "-b", buffer, "-t", target,
+		";", "paste-buffer", "-d", "-p", "-b", buffer, "-t", target,
 	}
 
 	return append(args, then...)
