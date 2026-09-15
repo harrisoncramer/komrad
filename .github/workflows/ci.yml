@@ -24,6 +24,7 @@ jobs:
       shell: ${{ steps.filter.outputs.shell }}
       db: ${{ steps.filter.outputs.db }}
       proto: ${{ steps.filter.outputs.proto }}
+      infra: ${{ steps.filter.outputs.infra }}
       generated: ${{ steps.filter.outputs.generated }}
       integration: ${{ steps.filter.outputs.integration }}
     steps:
@@ -52,6 +53,11 @@ jobs:
             proto:
               - 'proto/**'
               - 'buf*.yaml'
+              - '.github/workflows/ci.yml'
+            infra:
+              - 'infra/**'
+              - 'mise/tasks/terraform/**'
+              - 'mise.toml'
               - '.github/workflows/ci.yml'
             integration:
               - '**/*.go'
@@ -102,6 +108,21 @@ jobs:
         run: |
           mise run proto:fmt --check
           mise run proto:lint
+
+  infra:
+    needs: changes
+    if: needs.changes.outputs.infra == 'true'
+    runs-on: namespace-profile-harrisoncramer
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Mise
+        uses: ./.github/actions/use-mise
+        with:
+          gh-access-token: ${{ env.GH_ACCESS_TOKEN }}
+
+      - name: Check the Terraform formatting
+        run: mise run terraform:fmt
 
   db:
     needs: changes

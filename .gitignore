@@ -4,6 +4,14 @@ dist/
 /weave
 /mockup
 
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+!*.tfvars.example
+crash.log
+crash.*.log
+
 !.claude/
 .claude/*
 !.claude/skills/
