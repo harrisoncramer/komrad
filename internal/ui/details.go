@@ -76,7 +76,9 @@ func (m model) toggleDetailsFocus() model {
 	}
 
 	m.details.focused = true
-	m.details.cursor = 0
+	if m.details.row != held.id {
+		m.details.cursor = 0
+	}
 	m.details.row = held.id
 
 	return m.refocused()
