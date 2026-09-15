@@ -440,22 +440,25 @@ ORDER BY
 
 -- name: MarkReviewFileViewed :one
 INSERT INTO review_viewed_files(
-    round_id,
-    file_path)
+    agent_id,
+    file_path,
+    fingerprint)
 VALUES (
-    @round_id,
-    @file_path)
+    @agent_id,
+    @file_path,
+    @fingerprint)
 ON CONFLICT (
-    round_id,
+    agent_id,
     file_path)
     DO UPDATE SET
+        fingerprint = @fingerprint,
         viewed_at = NOW()
     RETURNING
         *;
 
 -- name: UnmarkReviewFileViewed :exec
 DELETE FROM review_viewed_files
-WHERE round_id = @round_id
+WHERE agent_id = @agent_id
     AND file_path = @file_path;
 
 -- name: ListReviewViewedFiles :many
@@ -464,7 +467,7 @@ SELECT
 FROM
     review_viewed_files v
 WHERE
-    v.round_id = @round_id
+    v.agent_id = @agent_id
 ORDER BY
     v.file_path;
 

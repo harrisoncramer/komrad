@@ -439,26 +439,30 @@ func (s *Store) ListMessages(ctx context.Context, threadIDs []string) ([]Message
 	return messages, nil
 }
 
-// ViewedFile is one file of one round that the person reviewing has read.
+// ViewedFile is one file of an agent's diff that the person reviewing has read.
 type ViewedFile struct {
-	RoundID  string
-	FilePath string
-	ViewedAt time.Time
+	AgentID     string
+	FilePath    string
+	Fingerprint string
+	ViewedAt    time.Time
 }
 
 type MarkFileViewedParams struct {
-	RoundID  string
-	FilePath string
+	AgentID     string
+	FilePath    string
+	Fingerprint string
 }
 
-// MarkFileViewed records that a file of a round has been read.
+// MarkFileViewed records that a file has been read, storing the fingerprint of its diff content
+// so the mark can be checked against a later patch.
 func (s *Store) MarkFileViewed(ctx context.Context, params MarkFileViewedParams) (*ViewedFile, error) {
 	row, err := s.queries.MarkReviewFileViewed(ctx, models.MarkReviewFileViewedParams{
-		RoundID:  params.RoundID,
-		FilePath: params.FilePath,
+		AgentID:     params.AgentID,
+		FilePath:    params.FilePath,
+		Fingerprint: params.Fingerprint,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to mark %q viewed on round %q: %w", params.FilePath, params.RoundID, err)
+		return nil, fmt.Errorf("failed to mark %q viewed on agent %q: %w", params.FilePath, params.AgentID, err)
 	}
 
 	viewed := viewedFileFromRow(*row)
@@ -467,31 +471,31 @@ func (s *Store) MarkFileViewed(ctx context.Context, params MarkFileViewedParams)
 }
 
 // UnmarkFileViewed drops the mark on one file.
-func (s *Store) UnmarkFileViewed(ctx context.Context, roundID, filePath string) error {
-	if !store.IsID(roundID) {
+func (s *Store) UnmarkFileViewed(ctx context.Context, agentID, filePath string) error {
+	if !store.IsID(agentID) {
 		return nil
 	}
 
 	err := s.queries.UnmarkReviewFileViewed(ctx, models.UnmarkReviewFileViewedParams{
-		RoundID:  roundID,
+		AgentID:  agentID,
 		FilePath: filePath,
 	})
 	if err != nil {
-		return fmt.Errorf("failed to unmark %q viewed on round %q: %w", filePath, roundID, err)
+		return fmt.Errorf("failed to unmark %q viewed on agent %q: %w", filePath, agentID, err)
 	}
 
 	return nil
 }
 
-// ListViewedFiles is every file of a round marked read.
-func (s *Store) ListViewedFiles(ctx context.Context, roundID string) ([]ViewedFile, error) {
-	if !store.IsID(roundID) {
+// ListViewedFiles is every file of an agent marked read.
+func (s *Store) ListViewedFiles(ctx context.Context, agentID string) ([]ViewedFile, error) {
+	if !store.IsID(agentID) {
 		return nil, nil
 	}
 
-	rows, err := s.queries.ListReviewViewedFiles(ctx, roundID)
+	rows, err := s.queries.ListReviewViewedFiles(ctx, agentID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list the viewed files of round %q: %w", roundID, err)
+		return nil, fmt.Errorf("failed to list the viewed files of agent %q: %w", agentID, err)
 	}
 
 	viewed := make([]ViewedFile, 0, len(rows))
@@ -504,9 +508,10 @@ func (s *Store) ListViewedFiles(ctx context.Context, roundID string) ([]ViewedFi
 
 func viewedFileFromRow(row models.ReviewViewedFile) ViewedFile {
 	return ViewedFile{
-		RoundID:  row.RoundID,
-		FilePath: row.FilePath,
-		ViewedAt: row.ViewedAt,
+		AgentID:     row.AgentID,
+		FilePath:    row.FilePath,
+		Fingerprint: row.Fingerprint,
+		ViewedAt:    row.ViewedAt,
 	}
 }
 

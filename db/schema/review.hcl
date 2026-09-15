@@ -379,15 +379,20 @@ table "review_messages" {
 
 table "review_viewed_files" {
   schema  = schema.public
-  comment = "One file of one round that the person reviewing has read. Rows are per round, so an agent that rewrites the file makes a new round and the file reads as unread again."
-  column "round_id" {
+  comment = "One file of an agent's diff the person reviewing has read, and the shape that file had when they read it."
+  column "agent_id" {
     null = false
     type = uuid
   }
   column "file_path" {
     null    = false
     type    = text
-    comment = "The file that was read, named the way the diff names it. That is a path relative to the repository root, and where the change left the file if it moved it."
+    comment = "The file that was read, named the way the diff names it: relative to the repository root, where the change left it if it moved it."
+  }
+  column "fingerprint" {
+    null    = false
+    type    = text
+    comment = "A hash of the file's own slice of the patch as it stood when it was read. The panel hashes the file again on every load and shows it as unread once the two disagree, which is what makes an agent writing to the file undo the mark. It is the diff that is hashed rather than the file, since the hunks change when the base moves under a file nothing has touched."
   }
   column "viewed_at" {
     null    = false
@@ -395,11 +400,11 @@ table "review_viewed_files" {
     default = sql("now()")
   }
   primary_key {
-    columns = [column.round_id, column.file_path]
+    columns = [column.agent_id, column.file_path]
   }
-  foreign_key "review_viewed_files_round_id_fkey" {
-    columns     = [column.round_id]
-    ref_columns = [table.review_rounds.column.id]
+  foreign_key "review_viewed_files_agent_id_fkey" {
+    columns     = [column.agent_id]
+    ref_columns = [table.agents.column.id]
     on_delete   = CASCADE
     on_update   = NO_ACTION
   }

@@ -335,26 +335,30 @@ message ReleaseReviewResponse {
   string path = 3;
 }
 
-// ReviewViewedFile is one file of a round the person reviewing has marked as read. A later
-// round is a mark of its own, which is how an agent rewriting the file undoes this one without
-// anything having to be compared.
+// ReviewViewedFile is one file of an agent's diff the person reviewing has marked as read,
+// together with the fingerprint the diff had when they read it.
 message ReviewViewedFile {
-  // Which round the file was read in.
-  string round_id = 1;
+  // Which agent the file belongs to.
+  string agent_id = 1;
   // Which file, relative to the checkout.
   string file_path = 2;
   // When it was marked, in RFC 3339.
   string viewed_at = 3;
+  // A hash of the file's diff content as it stood when marked. The panel recomputes this on
+  // every load and shows the file as unread once the two disagree.
+  string fingerprint = 4;
 }
 
 message SetReviewFileViewedRequest {
-  // Which round the mark belongs to.
-  string round_id = 1 [(buf.validate.field).string.min_len = 1];
+  // Which agent the mark belongs to.
+  string agent_id = 1 [(buf.validate.field).string.min_len = 1];
   // Which file, relative to the checkout.
   string file_path = 2 [(buf.validate.field).string.min_len = 1];
   // Whether the file has been read. Unsetting it drops the mark, which is what the toggle does
   // on its way back.
   bool viewed = 3;
+  // The fingerprint of the file's diff content at the time it was marked.
+  string fingerprint = 4;
 }
 
 message SetReviewFileViewedResponse {
@@ -363,11 +367,11 @@ message SetReviewFileViewedResponse {
 }
 
 message ListReviewViewedFilesRequest {
-  // Which round's marks to read.
-  string round_id = 1 [(buf.validate.field).string.min_len = 1];
+  // Which agent's marks to read.
+  string agent_id = 1 [(buf.validate.field).string.min_len = 1];
 }
 
 message ListReviewViewedFilesResponse {
-  // Every file marked read in that round.
+  // Every file marked read for that agent.
   repeated ReviewViewedFile viewed = 1;
 }

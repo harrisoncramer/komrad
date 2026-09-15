@@ -636,16 +636,17 @@ func (s *ReviewService) SetReviewThreadResolved(
 	})
 }
 
-// SetReviewFileViewedParams names one file of a round to mark read or unread.
+// SetReviewFileViewedParams names one file of an agent's diff to mark read or unread.
 type SetReviewFileViewedParams struct {
-	RoundID  string
-	FilePath string
-	Viewed   bool
-	Author   ReviewAuthor
+	AgentID     string
+	FilePath    string
+	Fingerprint string
+	Viewed      bool
+	Author      ReviewAuthor
 }
 
-// SetReviewFileViewed marks one file of a round read or drops the mark, which only the person
-// reviewing may do.
+// SetReviewFileViewed marks one file read or drops the mark, which only the person reviewing
+// may do.
 func (s *ReviewService) SetReviewFileViewed(
 	ctx context.Context,
 	params SetReviewFileViewedParams,
@@ -655,23 +656,23 @@ func (s *ReviewService) SetReviewFileViewed(
 	}
 
 	if !params.Viewed {
-		return nil, s.viewed.UnmarkFileViewed(ctx, params.RoundID, params.FilePath)
+		return nil, s.viewed.UnmarkFileViewed(ctx, params.AgentID, params.FilePath)
 	}
 
 	return s.viewed.MarkFileViewed(ctx, reviewstore.MarkFileViewedParams{
-		RoundID:  params.RoundID,
-		FilePath: params.FilePath,
+		AgentID:     params.AgentID,
+		FilePath:    params.FilePath,
+		Fingerprint: params.Fingerprint,
 	})
 }
 
-// ListReviewViewedFilesParams names the round whose read files are wanted.
+// ListReviewViewedFilesParams names the agent whose read files are wanted.
 type ListReviewViewedFilesParams struct {
-	RoundID string
+	AgentID string
 	Author  ReviewAuthor
 }
 
-// ListReviewViewedFiles is every file of a round the person reviewing has marked read, which is
-// theirs alone.
+// ListReviewViewedFiles is every file of an agent the person reviewing has marked read.
 func (s *ReviewService) ListReviewViewedFiles(
 	ctx context.Context,
 	params ListReviewViewedFilesParams,
@@ -680,7 +681,7 @@ func (s *ReviewService) ListReviewViewedFiles(
 		return nil, fmt.Errorf("%w: reading which files have been viewed", ErrReviewHumanOnly)
 	}
 
-	return s.viewed.ListViewedFiles(ctx, params.RoundID)
+	return s.viewed.ListViewedFiles(ctx, params.AgentID)
 }
 
 // interrupt stops the agent where it stands, and failing to is no reason to withhold the

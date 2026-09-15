@@ -3,6 +3,12 @@
 // place in a file.
 package diff
 
+import (
+	"crypto/sha256"
+	"encoding/hex"
+	"io"
+)
+
 // LineKind is what one line of a hunk does.
 type LineKind uint8
 
@@ -77,6 +83,43 @@ func (p Patch) Stat() Stat {
 	}
 
 	return stat
+}
+
+// Fingerprint is a hex-encoded SHA-256 of the file's diff content: its metadata, hunk headers,
+// and hunk lines. Two patches that draw the same change for a file produce the same fingerprint,
+// so a mark taken against one is still good against the other.
+func (f File) Fingerprint() string {
+	h := sha256.New()
+	for _, m := range f.Metadata {
+		io.WriteString(h, m)
+		h.Write([]byte{'\n'})
+	}
+	for _, hunk := range f.Hunks {
+		io.WriteString(h, hunk.Header)
+		h.Write([]byte{'\n'})
+		for _, line := range hunk.Lines {
+			h.Write([]byte{kindByte(line.Kind)})
+			io.WriteString(h, line.Text)
+			h.Write([]byte{'\n'})
+		}
+	}
+	if f.Content != "" {
+		io.WriteString(h, f.Content)
+		h.Write([]byte{'\n'})
+	}
+
+	return hex.EncodeToString(h.Sum(nil))
+}
+
+func kindByte(k LineKind) byte {
+	switch k {
+	case Addition:
+		return '+'
+	case Deletion:
+		return '-'
+	default:
+		return ' '
+	}
 }
 
 // Stat is the size of one file's change.

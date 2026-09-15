@@ -40,3 +40,75 @@ func TestStatCountsFilesAndLines(t *testing.T) {
 func TestStatOfAnEmptyPatchIsZero(t *testing.T) {
 	assert.Equal(t, Stat{}, Patch{}.Stat())
 }
+
+func TestFingerprintIsDeterministic(t *testing.T) {
+	file := File{
+		NewPath:  "greet.go",
+		Metadata: []string{"new file mode 100644"},
+		Hunks: []Hunk{{
+			Header: "@@ -0,0 +1,3 @@",
+			Lines: []Line{
+				{Kind: Addition, Text: "package main", NewNumber: 1},
+				{Kind: Addition, Text: "", NewNumber: 2},
+				{Kind: Addition, Text: `func greet() { println("hi") }`, NewNumber: 3},
+			},
+		}},
+	}
+
+	first := file.Fingerprint()
+	second := file.Fingerprint()
+	assert.Equal(t, first, second)
+	assert.Len(t, first, 64, "hex-encoded SHA-256")
+}
+
+func TestFingerprintChangesWhenHunksDiffer(t *testing.T) {
+	base := File{
+		NewPath: "greet.go",
+		Hunks: []Hunk{{
+			Header: "@@ -1,1 +1,1 @@",
+			Lines:  []Line{{Kind: Deletion, Text: "old"}, {Kind: Addition, Text: "new"}},
+		}},
+	}
+
+	changed := File{
+		NewPath: "greet.go",
+		Hunks: []Hunk{{
+			Header: "@@ -1,1 +1,1 @@",
+			Lines:  []Line{{Kind: Deletion, Text: "old"}, {Kind: Addition, Text: "newer"}},
+		}},
+	}
+
+	assert.NotEqual(t, base.Fingerprint(), changed.Fingerprint())
+}
+
+func TestFingerprintChangesWhenMetadataDiffers(t *testing.T) {
+	a := File{
+		NewPath:  "greet.go",
+		Metadata: []string{"new file mode 100644"},
+		Hunks:    []Hunk{{Header: "@@ -0,0 +1 @@", Lines: []Line{{Kind: Addition, Text: "x"}}}},
+	}
+
+	b := File{
+		NewPath:  "greet.go",
+		Metadata: []string{"new file mode 100755"},
+		Hunks:    []Hunk{{Header: "@@ -0,0 +1 @@", Lines: []Line{{Kind: Addition, Text: "x"}}}},
+	}
+
+	assert.NotEqual(t, a.Fingerprint(), b.Fingerprint())
+}
+
+func TestFingerprintIgnoresPathAndSource(t *testing.T) {
+	hunks := []Hunk{{Header: "@@ -1 +1 @@", Lines: []Line{{Kind: Context, Text: "x"}}}}
+
+	a := File{OldPath: "a.go", NewPath: "b.go", OldSource: "old", NewSource: "new", Hunks: hunks}
+	b := File{OldPath: "c.go", NewPath: "d.go", OldSource: "different", NewSource: "also different", Hunks: hunks}
+
+	assert.Equal(t, a.Fingerprint(), b.Fingerprint(), "path and source are not part of the fingerprint")
+}
+
+func TestFingerprintOfBinaryUsesContent(t *testing.T) {
+	a := File{NewPath: "icon.png", Content: "Binary file"}
+	b := File{NewPath: "icon.png", Content: "Binary file (differs)"}
+
+	assert.NotEqual(t, a.Fingerprint(), b.Fingerprint())
+}

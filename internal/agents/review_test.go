@@ -1153,15 +1153,16 @@ func TestViewedFilesAreTheReviewersOwn(t *testing.T) {
 	ctx := t.Context()
 
 	_, err := service.SetReviewFileViewed(ctx, SetReviewFileViewedParams{
-		RoundID:  reviewRoundID,
-		FilePath: "greet.go",
-		Viewed:   true,
-		Author:   humanAuthor(),
+		AgentID:     reviewedAgentID,
+		FilePath:    "greet.go",
+		Fingerprint: "abc123",
+		Viewed:      true,
+		Author:      humanAuthor(),
 	})
 	require.NoError(t, err)
 
 	viewed, err := service.ListReviewViewedFiles(ctx, ListReviewViewedFilesParams{
-		RoundID: reviewRoundID,
+		AgentID: reviewedAgentID,
 		Author:  humanAuthor(),
 	})
 	require.NoError(t, err)
@@ -1169,28 +1170,29 @@ func TestViewedFilesAreTheReviewersOwn(t *testing.T) {
 	assert.Equal(t, "greet.go", viewed[0].FilePath)
 
 	_, err = service.SetReviewFileViewed(ctx, SetReviewFileViewedParams{
-		RoundID:  reviewRoundID,
-		FilePath: "greet.go",
-		Viewed:   true,
-		Author:   agentAuthor(reviewedAgentID),
+		AgentID:     reviewedAgentID,
+		FilePath:    "greet.go",
+		Fingerprint: "abc123",
+		Viewed:      true,
+		Author:      agentAuthor(reviewedAgentID),
 	})
 	require.ErrorIs(t, err, ErrReviewHumanOnly)
 
 	_, err = service.ListReviewViewedFiles(ctx, ListReviewViewedFilesParams{
-		RoundID: reviewRoundID,
+		AgentID: reviewedAgentID,
 		Author:  agentAuthor(reviewedAgentID),
 	})
 	require.ErrorIs(t, err, ErrReviewHumanOnly)
 
 	_, err = service.SetReviewFileViewed(ctx, SetReviewFileViewedParams{
-		RoundID:  reviewRoundID,
+		AgentID:  reviewedAgentID,
 		FilePath: "greet.go",
 		Author:   humanAuthor(),
 	})
 	require.NoError(t, err)
 
 	viewed, err = service.ListReviewViewedFiles(ctx, ListReviewViewedFilesParams{
-		RoundID: reviewRoundID,
+		AgentID: reviewedAgentID,
 		Author:  humanAuthor(),
 	})
 	require.NoError(t, err)
@@ -1629,8 +1631,9 @@ func (f *fakeReviewStore) MarkFileViewed(
 	f.viewed[params.FilePath] = true
 
 	return &reviewstore.ViewedFile{
-		RoundID:  params.RoundID,
-		FilePath: params.FilePath,
+		AgentID:     params.AgentID,
+		FilePath:    params.FilePath,
+		Fingerprint: params.Fingerprint,
 	}, nil
 }
 
@@ -1640,10 +1643,10 @@ func (f *fakeReviewStore) UnmarkFileViewed(_ context.Context, _, filePath string
 	return nil
 }
 
-func (f *fakeReviewStore) ListViewedFiles(_ context.Context, roundID string) ([]reviewstore.ViewedFile, error) {
+func (f *fakeReviewStore) ListViewedFiles(_ context.Context, agentID string) ([]reviewstore.ViewedFile, error) {
 	files := make([]reviewstore.ViewedFile, 0, len(f.viewed))
 	for path := range f.viewed {
-		files = append(files, reviewstore.ViewedFile{RoundID: roundID, FilePath: path})
+		files = append(files, reviewstore.ViewedFile{AgentID: agentID, FilePath: path})
 	}
 
 	return files, nil
