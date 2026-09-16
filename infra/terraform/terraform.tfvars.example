@@ -5,5 +5,3 @@ aws_config_file                 = "/absolute/path/to/aws/config"
 aws_shared_credentials_file     = "/absolute/path/to/aws/credentials"
 ami_id                          = "ami-0123456789abcdef0"  # arm64 (Graviton) image, must match instance_type
 availability_zone               = "us-east-1a"
-ssh_allowed_cidr                = "203.0.113.42/32"
-ssh_public_key_path             = "/absolute/path/to/id_ed25519.pub"

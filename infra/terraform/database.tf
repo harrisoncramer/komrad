@@ -42,9 +42,8 @@ resource "aws_db_instance" "weave" {
   storage_type          = "gp3"
   storage_encrypted     = true
 
-  db_name  = "weave"
-  username = "weave"
-
+  db_name                     = "weave"
+  username                    = "weave"
   manage_master_user_password = true
 
   db_subnet_group_name   = aws_db_subnet_group.weave.name
@@ -69,6 +68,17 @@ resource "aws_db_instance" "weave" {
   }
 }
 
+resource "aws_secretsmanager_secret" "database_url" {
+  name                    = "${var.secret_prefix}/DATABASE_URL"
+  recovery_window_in_days = var.secret_recovery_days
+  tags                    = merge(local.tags, { Name = "${var.secret_prefix}/DATABASE_URL" })
+}
+
+# The role reads the whole weave namespace rather than one secret, so a second secret is a new
+# entry in the store rather than an edit to IAM. It is still only this prefix, and only reading.
+# The database's own password stays the one AWS generates and rotates, which is why that secret
+# is named alongside the prefix rather than being replaced by it: moving it into the namespace
+# would mean Terraform composing the url, and the password would land in state.
 resource "aws_iam_role_policy" "secrets" {
   name = "${var.name}-secrets"
   role = aws_iam_role.weave.id
@@ -76,9 +86,12 @@ resource "aws_iam_role_policy" "secrets" {
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [{
-      Effect   = "Allow"
-      Action   = ["secretsmanager:GetSecretValue"]
-      Resource = aws_db_instance.weave.master_user_secret[0].secret_arn
+      Effect = "Allow"
+      Action = ["secretsmanager:GetSecretValue"]
+      Resource = [
+        "arn:aws:secretsmanager:${var.aws_region}:${var.aws_account_id}:secret:${var.secret_prefix}/*",
+        aws_db_instance.weave.master_user_secret[0].secret_arn,
+      ]
     }]
   })
 }

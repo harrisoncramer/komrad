@@ -2,7 +2,13 @@
 
 This directory holds the Terraform configuration for Weave's AWS development host.
 
-The first layer creates one Ubuntu EC2 instance, a public subnet, a fixed public IP, a restricted SSH rule, Systems Manager access, and an encrypted data volume. The instance has the public IP because SSH reaches the terminal panel. Weave itself stays on loopback.
+The first layer creates one Ubuntu EC2 instance, a subnet, a fixed public address, an encrypted data volume, and an instance role that Systems Manager accepts.
+
+Nothing may connect to the instance. Its security group has no inbound rules at all, there is no SSH key on it, and port 22 is closed. Reaching it is a Systems Manager session, which the instance opens outward, so access is an IAM decision rather than a key plus an allowed address range. That matters on a machine whose whole purpose is running coding agents, and it also means a changing home IP never locks you out.
+
+The public address is only there so the instance can reach out: to Systems Manager, to package registries, to GitHub, and to the model APIs the agents use. Nothing reaches in through it. Moving the instance to a private subnet behind a NAT gateway would remove even that, at roughly thirty dollars a month, and is the next step rather than a thing this layer does.
+
+Weave itself stays on loopback, and the panel reaches its API by forwarding a port over the same Systems Manager session.
 
 Postgres runs on RDS in private subnets that have no route out, reachable only from the instance's security group. Its password is created and held by AWS, and the instance reads it at boot through its own role, so nobody types a connection string and no password is written into Terraform state.
 
@@ -12,7 +18,9 @@ The mount finds its disk by serial rather than by device name. EBS volumes attac
 
 Destroying the stack removes the host and volume after AWS takes a recovery snapshot.
 
-Reach the host with `aws ssm start-session --target "$(terraform output -raw instance_id)"`.
+Reach the host with `aws ssm start-session --target "$(terraform output -raw instance_id)"`, which needs the Session Manager plugin; `mise.toml` pins it.
+
+A session arrives as its own account rather than as the one that owns weave, so `sudo -u weave -i` is how you become it.
 
 Terraform pins the AWS account, availability zone, and machine image in local configuration. This prevents a default AWS profile or a new image from replacing the host by accident.
 

@@ -65,15 +65,7 @@ variable "data_volume_size_gib" {
   default = 100
 }
 
-variable "ssh_allowed_cidr" {
-  type    = string
-  default = null
-}
 
-variable "ssh_public_key_path" {
-  type    = string
-  default = null
-}
 
 variable "tags" {
   type = map(string)
@@ -93,7 +85,7 @@ variable "private_subnet_cidrs" {
 
 variable "database_engine_version" {
   type    = string
-  default = "17.5"
+  default = "18.6"
 }
 
 variable "database_instance_class" {
@@ -119,4 +111,14 @@ variable "database_backup_retention_days" {
 variable "database_deletion_protection" {
   type    = bool
   default = true
+}
+
+variable "secret_prefix" {
+  type    = string
+  default = "weave"
+}
+
+variable "secret_recovery_days" {
+  type    = number
+  default = 7
 }

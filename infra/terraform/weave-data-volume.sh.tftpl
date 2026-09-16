@@ -16,8 +16,11 @@ mkdir -p /etc/weave
 
 echo "WEAVE_DATA_VOLUME_ID=${data_volume_id}" >/etc/weave/data-volume.env
 
+# Only the name of the secret travels here, never its value. User data is readable by anything
+# on the instance that can reach the metadata service, so it carries identifiers and nothing else.
 cat >/etc/weave/database-source.env <<ENV
-WEAVE_DATABASE_SECRET_ID=${database_secret_id}
+WEAVE_DATABASE_SECRET=${database_secret}
+WEAVE_DATABASE_FALLBACK_SECRET_ARN=${database_fallback_secret}
 WEAVE_DATABASE_HOST=${database_host}
 WEAVE_DATABASE_NAME=${database_name}
 AWS_REGION=${aws_region}
