@@ -24,13 +24,14 @@ func githubCmd(state *app) *cobra.Command {
 		Short: "Reach GitHub as the engine's own App",
 		Long: `Reach GitHub as the engine's own App.
 
-An engine that writes code has to push it, and the usual ways to let a machine do
-that leave a long-lived secret on it. Instead weave holds a GitHub App's private
-key, signs a brief assertion with it, and exchanges that for an installation token
-that expires in an hour and only reaches the repositories the App was installed on.
+An engine runs agents that write code, so it has to push. Giving it a personal
+access token would leave a secret on the machine that works forever.
 
-Configure it under ` + "`[github]`" + ` with the App id, the installation id, and the path
-to the key.`,
+Instead weave holds a GitHub App's private key and signs a short assertion with it.
+GitHub returns a token that stops working after an hour and only reaches the
+repositories the App was installed on.
+
+Set the App id, the installation id and the path to the key under ` + "`[github]`" + `.`,
 		Args:          cobra.NoArgs,
 		SilenceUsage:  true,
 		SilenceErrors: true,
@@ -47,8 +48,8 @@ func githubTokenCmd(state *app) *cobra.Command {
 		Short: "Print an installation token, minting one if the cached one is spent",
 		Long: `Print an installation token.
 
-This is how to check the App is wired up: a token starting ghs_ means the key, the
-App id and the installation id agree. Anything else names which of them does not.`,
+Run this to check the App is set up. A token starting ghs_ means the key, the App id
+and the installation id all agree. Any other answer says which one does not.`,
 		Args:          cobra.NoArgs,
 		SilenceUsage:  true,
 		SilenceErrors: true,
@@ -69,14 +70,15 @@ func githubCredentialCmd(state *app) *cobra.Command {
 	return &cobra.Command{
 		Use:   "credential",
 		Short: "Answer git's credential helper protocol with an installation token",
-		Long: `Answer git's credential helper protocol.
+		Long: `Answer git when it asks for a password.
 
-Git runs this with an action and a description of what it wants to reach. Only
-` + "`get`" + ` is answered, and only for https to github.com, so anything else falls
-through to whatever else the account has configured. Nothing is stored, because the
-token this returns is minted on demand and expires within the hour.
+Git runs this and describes what it wants to reach. This answers only for https to
+github.com. Anything else gets no answer, so git falls back to whatever else the
+account has configured.
 
-Wire it up with:
+Nothing is stored. The token is made when git asks and stops working within the hour.
+
+Set it up with:
 
     git config --global credential.https://github.com.helper '!weave github credential'`,
 		Args:          cobra.MaximumNArgs(1),

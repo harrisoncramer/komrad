@@ -71,9 +71,9 @@ Creates the network, the box, the data volume, Postgres, and the permissions bet
 
 ## 4. Register a GitHub App
 
-The engine needs its own GitHub identity to fetch and push. It uses a GitHub App scoped to the one repository, which mints tokens that expire after an hour.
+The engine has to fetch and push, so it needs its own GitHub login. A GitHub App is the way to give it one without leaving a password on the machine. The App holds a private key, and weave uses that key to get a token that stops working after an hour.
 
-This covers git. It does not cover `gh`, which reads a token from its own environment rather than asking git, so `gh pr create` on the engine still needs a login of its own.
+This covers git and nothing else. It does not cover `gh`. That tool reads a token from its own environment instead of asking git, so `gh pr create` on the engine will still stop and ask you to log in.
 
 Go to https://github.com/settings/apps/new and fill in:
 

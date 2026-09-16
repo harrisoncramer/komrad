@@ -6,13 +6,14 @@ Reach GitHub as the engine's own App
 
 Reach GitHub as the engine's own App.
 
-An engine that writes code has to push it, and the usual ways to let a machine do
-that leave a long-lived secret on it. Instead weave holds a GitHub App's private
-key, signs a brief assertion with it, and exchanges that for an installation token
-that expires in an hour and only reaches the repositories the App was installed on.
+An engine runs agents that write code, so it has to push. Giving it a personal
+access token would leave a secret on the machine that works forever.
 
-Configure it under `[github]` with the App id, the installation id, and the path
-to the key.
+Instead weave holds a GitHub App's private key and signs a short assertion with it.
+GitHub returns a token that stops working after an hour and only reaches the
+repositories the App was installed on.
+
+Set the App id, the installation id and the path to the key under `[github]`.
 
 ### Options
 

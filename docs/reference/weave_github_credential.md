@@ -4,14 +4,15 @@ Answer git's credential helper protocol with an installation token
 
 ### Synopsis
 
-Answer git's credential helper protocol.
+Answer git when it asks for a password.
 
-Git runs this with an action and a description of what it wants to reach. Only
-`get` is answered, and only for https to github.com, so anything else falls
-through to whatever else the account has configured. Nothing is stored, because the
-token this returns is minted on demand and expires within the hour.
+Git runs this and describes what it wants to reach. This answers only for https to
+github.com. Anything else gets no answer, so git falls back to whatever else the
+account has configured.
 
-Wire it up with:
+Nothing is stored. The token is made when git asks and stops working within the hour.
+
+Set it up with:
 
     git config --global credential.https://github.com.helper '!weave github credential'
 

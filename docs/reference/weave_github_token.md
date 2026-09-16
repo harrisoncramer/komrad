@@ -6,8 +6,8 @@ Print an installation token, minting one if the cached one is spent
 
 Print an installation token.
 
-This is how to check the App is wired up: a token starting ghs_ means the key, the
-App id and the installation id agree. Anything else names which of them does not.
+Run this to check the App is set up. A token starting ghs_ means the key, the App id
+and the installation id all agree. Any other answer says which one does not.
 
 ```
 weave github token [flags]

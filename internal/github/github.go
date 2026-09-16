@@ -1,10 +1,13 @@
-// Package github mints the short-lived token an engine fetches and pushes with.
+// Package github mints the token an engine fetches and pushes with.
 //
-// A machine that runs agents needs to reach a forge, and the obvious ways to let it are a
-// personal token or a deploy key, both of which are long-lived secrets sitting on a shared box.
-// A GitHub App is the alternative: the box holds the App's private key, signs a brief assertion
-// with it, and exchanges that for an installation token which expires in an hour and is scoped to
-// the repositories the App was installed on. Losing the box costs an hour rather than an account.
+// An engine runs agents that write code, so it has to reach GitHub. Giving it a personal access
+// token or a deploy key would leave a secret on the machine that works forever and covers more
+// than one repository.
+//
+// A GitHub App works differently. The machine holds the App's private key and signs a short
+// assertion with it. GitHub takes that assertion and returns a token that stops working after an
+// hour and only reaches the repositories the App was installed on. Somebody who takes the machine
+// gets an hour, not an account.
 package github
 
 import (
