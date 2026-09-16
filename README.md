@@ -48,6 +48,7 @@ Weave is a terminal tool, intended for power users. It does not aspire to be a r
 
 - [Installation](docs/install.md): the tmux plugin setup
 - [How it works](docs/concepts.md): the state model, the store and server, the reconciler, and agents
+- [Running it remotely](docs/remote.md): keeping the panel on your machine and the agents on a box somewhere else
 
 ### Terminology
 

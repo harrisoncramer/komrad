@@ -149,3 +149,18 @@ variable "ssh_allowed_cidrs" {
     error_message = "Reaching the engine is gated by the source address, so the whole internet is refused here."
   }
 }
+
+variable "github_repository" {
+  type    = string
+  default = ""
+
+  validation {
+    condition     = var.github_repository == "" || can(regex("^[^/]+/[^/]+$", var.github_repository))
+    error_message = "A repository is owner/name, since it is matched against the token GitHub signs."
+  }
+}
+
+variable "state_bucket" {
+  type    = string
+  default = ""
+}

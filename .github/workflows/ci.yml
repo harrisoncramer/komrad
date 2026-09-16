@@ -56,7 +56,9 @@ jobs:
               - '.github/workflows/ci.yml'
             infra:
               - 'infra/**'
+              - 'packer/**'
               - 'mise/tasks/terraform/**'
+              - 'mise/tasks/packer/**'
               - 'mise.toml'
               - '.github/workflows/ci.yml'
             integration:
@@ -123,6 +125,12 @@ jobs:
 
       - name: Check the Terraform formatting
         run: mise run terraform:fmt
+
+      - name: Check the Packer formatting
+        run: mise run packer:fmt
+
+      - name: Validate the Packer template
+        run: mise run packer:validate
 
   db:
     needs: changes

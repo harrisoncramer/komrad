@@ -1,7 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
-#MISE description="Format the Packer template."
+#MISE description="Check the Packer template's formatting, or rewrite it with --fix."
 
 cd "$MISE_CONFIG_ROOT/packer"
 
-packer fmt .
+if [ "${1:-}" = "--fix" ]; then
+	shift
+	packer fmt "$@" .
+	exit 0
+fi
+
+packer fmt -check "$@" .
