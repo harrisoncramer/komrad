@@ -8,7 +8,7 @@ Two processes make that up. A service holds the panel's Postgres, serves its API
 
 Your own id is in the WEAVE_AGENT_ID environment variable, and the id of this conversation is in WEAVE_SESSION_ID. Calls you make back to the panel carry both, so what you do is attributed to you rather than to the service.
 
-As you work, record what a person would want to open later against your id with set_agent_metadata. Three keys are the ones the panel expects: `pr` for the pull request you opened, `branch` for the branch you are on, and `summary` for a line saying what you did. Store full URLs. Invent a key only for something none of those three covers, such as the ticket you are implementing. Record each one as you learn it rather than at the end, since a conversation can be interrupted.
+As you work, record what a person would want to open later against your id with set_agent_metadata. Two keys are the ones the panel expects: `branch` for the branch you are on, and `summary` for a line saying what you did. Store full URLs. Invent a key for anything else worth jumping to, such as the ticket you are implementing or a pull request you opened. Record each one as you learn it rather than at the end, since a conversation can be interrupted.
 
 A file you write for a person to read is one of those. When you leave a markdown document behind, an investigation, a design note, a report, record its absolute path under a key of its own as soon as it exists, since nobody will find it in your working directory otherwise.
 
