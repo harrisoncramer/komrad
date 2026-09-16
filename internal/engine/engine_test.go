@@ -168,9 +168,12 @@ func TestClosingANilTunnelIsFine(t *testing.T) {
 func TestTunnelPortIsStableForAnEngine(t *testing.T) {
 	t.Parallel()
 
-	remote := engine.Remote{Destination: "weave@host"}
+	// Two values rather than two calls on one, since the port has to come from what the engine is
+	// rather than from anything an instance remembers.
+	first := engine.Remote{Destination: "weave@host"}
+	second := engine.Remote{Destination: "weave@host"}
 
-	assert.Equal(t, remote.TunnelPort("127.0.0.1:8787"), remote.TunnelPort("127.0.0.1:8787"))
+	assert.Equal(t, first.TunnelPort("127.0.0.1:8787"), second.TunnelPort("127.0.0.1:8787"))
 }
 
 // TestTunnelPortDiffersBetweenEngines covers two engines driven from one machine not fighting
