@@ -12,7 +12,6 @@ import (
 	agentv1 "weave/proto/gen/agent/v1"
 
 	"connectrpc.com/connect"
-	"github.com/charmbracelet/bubbles/textarea"
 	tea "github.com/charmbracelet/bubbletea"
 )
 
@@ -68,18 +67,12 @@ func (m model) enterReview(agent agentstore.Agent) (tea.Model, tea.Cmd) {
 
 	worktree := m.worktreeFor(agent)
 
-	editor := textarea.New()
-	editor.Placeholder = "what should the agent change here?"
-	editor.ShowLineNumbers = false
-	editor.SetHeight(reviewEditorHeight)
-
 	m.enterScreen(screenReview)
 	m.review = reviewState{
 		agentID:   agent.ID,
 		agentName: agent.Name,
 		dir:       agent.Cwd,
 		exclude:   worktree.DiffExclude,
-		editor:    editor,
 		loading:   true,
 		// The whole change is what a review opens on, and it sits before the first round rather
 		// than on it, so the first press of the step key lands on the newest round.

@@ -175,6 +175,10 @@ func (m model) resizeTo(size tea.WindowSizeMsg) model {
 	m.frame.SyncSplit()
 	m.sizeAgentWindows()
 
+	// A field open in the review's sidebar is drawn in a column of this window rather than in the
+	// form's, so the size is rewritten here too.
+	m.review.editor.resize(m.reviewInputWidth())
+
 	if rewrap {
 		m.drawPreview()
 	}

@@ -114,28 +114,39 @@ func TestReviewGutterMarksWhatHasNotReachedTheAgent(t *testing.T) {
 			comment: "the submit key is what fixes this one",
 		},
 		{
-			name: "an answer waiting to be read still comes first",
+			name: "a draft outranks the answer waiting in it",
 			thread: &agentv1.ReviewThread{
 				UnreadByHuman: true,
 				Messages:      []*agentv1.ReviewMessage{unsentComment()},
 			},
-			want:   "◆",
-			unwant: "◇",
+			want:    "◇",
+			unwant:  "●",
+			comment: "what a reader does about this one is send it",
+		},
+		{
+			name: "an answer nobody has read is filled in",
+			thread: &agentv1.ReviewThread{
+				UnreadByHuman: true,
+				Messages:      []*agentv1.ReviewMessage{deliveredComment()},
+			},
+			want:   "●",
+			unwant: "○",
 		},
 		{
 			name: "and a thread finished with says so",
 			thread: &agentv1.ReviewThread{
 				ResolvedAt: "2026-09-02T11:00:00Z",
-				Messages:   []*agentv1.ReviewMessage{unsentComment()},
+				Messages:   []*agentv1.ReviewMessage{deliveredComment()},
 			},
 			want:   "✓",
-			unwant: "◇",
+			unwant: "●",
 		},
 		{
-			name:   "a comment that landed is just a thread",
-			thread: &agentv1.ReviewThread{Messages: []*agentv1.ReviewMessage{deliveredComment()}},
-			want:   "●",
-			unwant: "◇",
+			name:    "a comment that landed and was read is hollow",
+			thread:  &agentv1.ReviewThread{Messages: []*agentv1.ReviewMessage{deliveredComment()}},
+			want:    "○",
+			unwant:  "●",
+			comment: "nothing has happened in it since the reader last looked",
 		},
 	}
 

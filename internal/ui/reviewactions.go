@@ -128,14 +128,14 @@ func reviewTable() []action {
 		{
 			id:   actionReviewCompose,
 			keys: func(k config.Keybindings) []string { return k.Review.Compose },
-			run:  orRefuseWrite(func(m model) (tea.Model, tea.Cmd) { return m.composeReview() }),
+			run:  orRefuseWrite(model.pressReviewCompose),
 		},
 		{
 			id: actionReviewSend,
 			// A verdict with no comments is how a change is approved, so this is offered while
 			// reading as well as while writing.
 			keys: func(config.Keybindings) []string { return formKeys().Submit },
-			run:  orRefuseWrite(func(m model) (tea.Model, tea.Cmd) { return m.openReviewRelease() }),
+			run:  orRefuseWrite(model.pressReviewSend),
 		},
 	}
 }
@@ -152,12 +152,32 @@ func orRefuseWrite(fn func(model) (tea.Model, tea.Cmd)) func(model, string) (tea
 			return m.refuseReviewHistory(said)
 		}
 
-		if m.review.awaiting {
-			return m.refuseReviewAwaiting()
-		}
-
 		return fn(m)
 	}
+}
+
+// Explainer: the review already out is stacked on by a second batch of findings about the same
+// work, not by an answer to what it said. The service draws that line at the thread, so the
+// screen draws it in the same place rather than refusing a key the service would take.
+
+// pressReviewCompose is the comment key, which while a review is owed an answer only opens on a
+// thread that review already holds.
+func (m model) pressReviewCompose() (tea.Model, tea.Cmd) {
+	if _, replying := m.reviewThreadAtCursor(); m.review.awaiting && !replying {
+		return m.refuseReviewAwaiting()
+	}
+
+	return m.composeReview()
+}
+
+// pressReviewSend is the send key, which while a review is owed an answer needs replies written
+// to send, a verdict on its own being the second review the wait holds off.
+func (m model) pressReviewSend() (tea.Model, tea.Cmd) {
+	if m.review.awaiting && !m.doesReviewHoldUnsent() {
+		return m.refuseReviewAwaiting()
+	}
+
+	return m.openReviewRelease()
 }
 
 func reviewLegend() []legendRow {
@@ -169,13 +189,12 @@ func reviewLegend() []legendRow {
 		return !dead
 	}
 
-	// A review already out is answered by the agent rather than added to, and an older round
-	// holds no line a comment could ask to be changed, so the keys that write are offered in
-	// neither.
+	// An older round holds no line a comment could ask to be changed, so the keys that write are
+	// not offered on one.
 	offered := func(m model) bool {
 		_, history := m.isReviewHistory()
 
-		return reachable(m) && !history && !m.review.awaiting
+		return reachable(m) && !history
 	}
 
 	return []legendRow{

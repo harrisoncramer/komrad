@@ -46,10 +46,44 @@ func (m model) composeReview() (tea.Model, tea.Cmd) {
 	}
 
 	m.review.composing = true
-	m.review.editor.SetValue("")
-	m.review.editor.SetWidth(max(20, m.paneWidth()-4))
 
-	return m, m.review.editor.Focus()
+	return m.openReviewInput(newReviewInputParams{
+		Title:       m.reviewInputTitle(replying),
+		Description: reviewInputHint(formKeys().Editor, formKeys().Submit, "save"),
+		Placeholder: "what should the agent change here?",
+	})
+}
+
+// reviewInputTitle names what the field is for, which is the one thing the words go into.
+func (m model) reviewInputTitle(replying bool) string {
+	if replying {
+		return "Reply"
+	}
+
+	return "Comment"
+}
+
+// reviewInputWidth is the room a field has in the sidebar, the field's own bar and the space
+// after it taken off.
+func (m model) reviewInputWidth() int {
+	return max(m.paneWidth()-2, 20)
+}
+
+// reviewInputHint is the line under a field's title, naming the keys that finish with it.
+func reviewInputHint(editor, submit []string, said string) string {
+	return keyLabel(editor) + " opens $EDITOR; " + keyLabel(submit) + " " + said + "; " +
+		keyLabel(formKeys().Back) + " cancels"
+}
+
+// openReviewInput puts a field in the sidebar, sized to the column it is drawn in.
+func (m model) openReviewInput(params newReviewInputParams) (tea.Model, tea.Cmd) {
+	params.Width = m.reviewInputWidth()
+	params.Keys = formKeys()
+
+	input, cmd := newReviewInput(params)
+	m.review.editor = input
+
+	return m, cmd
 }
 
 // enterReviewWriting moves from reading to writing, keeping the reader on the line they pressed
@@ -106,7 +140,7 @@ func (m model) updateReviewComposer(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.saveReviewMessage()
 	}
 
-	editor, cmd := m.review.editor.Update(key)
+	editor, cmd := m.review.editor.update(key)
 	m.review.editor = editor
 
 	return m, cmd
@@ -124,7 +158,7 @@ func (m model) openMessageEditor() (tea.Model, tea.Cmd) {
 	agentID := m.review.agentID
 	path := messageDraftPath(agentID)
 
-	if err := os.WriteFile(path, []byte(m.review.editor.Value()), 0o600); err != nil {
+	if err := os.WriteFile(path, []byte(m.review.editor.value()), 0o600); err != nil {
 		m.report("Your editor could not be opened on that message", err)
 
 		return m, nil
@@ -154,7 +188,8 @@ func messageDraftPath(agentID string) string {
 	return filepath.Join(os.TempDir(), fmt.Sprintf("weave-comment-%s-%d.md", agentID, os.Getpid()))
 }
 
-// applyMessageEdited puts what the editor wrote back into the composer.
+// applyMessageEdited puts what the editor wrote back into the composer, which is a field built
+// again around those words, huh seeding a field from its value only as it is built.
 func (m *model) applyMessageEdited(msg messageEditedMsg) {
 	if msg.agentID != m.review.agentID || (!m.review.composing && !m.review.releasing) {
 		return
@@ -166,17 +201,28 @@ func (m *model) applyMessageEdited(msg messageEditedMsg) {
 		return
 	}
 
-	m.review.editor.SetValue(strings.TrimRight(msg.body, "\n"))
-	m.review.editor.CursorEnd()
+	said, key := "save", formKeys().Submit
+	if m.review.releasing {
+		said = "send"
+	}
+
+	input, _ := newReviewInput(newReviewInputParams{
+		Title:       m.reviewInputTitle(m.review.editing != ""),
+		Description: reviewInputHint(formKeys().Editor, key, said),
+		Body:        strings.TrimRight(msg.body, "\n"),
+		Width:       m.reviewInputWidth(),
+		Keys:        formKeys(),
+	})
+	m.review.editor = input
 }
 
 func (m model) saveReviewMessage() (tea.Model, tea.Cmd) {
-	body := strings.TrimSpace(m.review.editor.Value())
+	body := strings.TrimSpace(m.review.editor.value())
 	if body == "" {
 		return m.cancelReviewMessage(), nil
 	}
 
-	m.review.editor.Blur()
+	m.review.editor = reviewInput{}
 	m.review.composing = false
 
 	agents, threadID := m.api.agents, m.review.editing
@@ -203,7 +249,7 @@ func (m model) saveReviewMessage() (tea.Model, tea.Cmd) {
 
 // cancelReviewMessage puts the composer away, abandoning nothing but the words typed into it.
 func (m model) cancelReviewMessage() model {
-	m.review.editor.Blur()
+	m.review.editor = reviewInput{}
 	m.review.composing = false
 
 	return m
@@ -327,10 +373,12 @@ func (m model) openReviewRelease() (tea.Model, tea.Cmd) {
 	m.review.releasing = true
 	m.review.verdict = 0
 	m.review.notice = ""
-	m.review.editor.SetValue("")
-	m.review.editor.SetWidth(max(20, m.paneWidth()-4))
 
-	return m, m.review.editor.Focus()
+	return m.openReviewInput(newReviewInputParams{
+		Title:       "Anything about the work as a whole?",
+		Description: reviewInputHint(formKeys().Editor, formKeys().Submit, "sends"),
+		Placeholder: "optional",
+	})
 }
 
 // updateReviewRelease takes every key while the panel is up: tab walks the verdict, the submit
@@ -359,7 +407,7 @@ func (m model) updateReviewRelease(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.sendReview(true)
 	}
 
-	editor, cmd := m.review.editor.Update(key)
+	editor, cmd := m.review.editor.update(key)
 	m.review.editor = editor
 
 	return m, cmd
@@ -369,7 +417,7 @@ func (m model) updateReviewRelease(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 // as a whole, reaching the agent as one file and one piece of mail.
 func (m model) sendReview(interrupt bool) (tea.Model, tea.Cmd) {
 	verdict := reviewVerdicts[m.review.verdict]
-	body := strings.TrimSpace(m.review.editor.Value())
+	body := strings.TrimSpace(m.review.editor.value())
 
 	m = m.closeReviewRelease()
 
@@ -404,7 +452,7 @@ const sentSaid = "I paused you while I reviewed your work and have let you go no
 	"the worktree as it is rather than assuming the lines still match."
 
 func (m model) closeReviewRelease() model {
-	m.review.editor.Blur()
+	m.review.editor = reviewInput{}
 	m.review.releasing = false
 
 	return m

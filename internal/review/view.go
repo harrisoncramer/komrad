@@ -486,7 +486,7 @@ func (v *View) JumpThread(y, direction int) int {
 // person clearing a review walks.
 func (v *View) JumpOpenThread(y int) (int, bool) {
 	for next := y + 1; next < len(v.rows); next++ {
-		if thread, ok := v.GetThreadAt(next); ok && thread.GetResolvedAt() == "" {
+		if thread, ok := v.GetThreadAt(next); ok && isUnsettled(thread) {
 			return next, true
 		}
 	}
@@ -494,12 +494,13 @@ func (v *View) JumpOpenThread(y int) (int, bool) {
 	return y, false
 }
 
-// CountOpenThreads is how many conversations are still owed an answer, drawn or folded away.
+// CountOpenThreads is how many conversations the person reviewing still owes an answer on, drawn
+// or folded away.
 func (v *View) CountOpenThreads() int {
 	open := 0
 
 	for _, thread := range v.threads {
-		if thread.GetResolvedAt() == "" {
+		if isUnsettled(thread) {
 			open++
 		}
 	}
