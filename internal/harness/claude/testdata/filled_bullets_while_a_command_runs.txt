@@ -1,0 +1,65 @@
+
+[38;5;174m ▐[48;5;16m▛███▛█[39m[49m   [1mClaude Code[0m [38;5;246mv2.1.273[39m
+[38;5;174m▝▜[48;5;16m█████[49m█▀[39m  [38;5;246mOpus 5 with medium effort · Claude Max[39m
+[38;5;174m  ▝▝ ▝▝  [39m  [38;5;246m/var/lib/weave/worktrees/01a0abfc-a0ac-7291-acd2-fec36e7ae56a[39m
+
+
+[38;5;239m[48;5;237m❯ [38;5;231mRun this exact command: sleep 25 && echo captured. Then say what it printed in one line and stop.[39m
+
+[49m  [38;5;246mRan [1m1[0m[38;5;246m shell command [39m
+
+[38;5;231m●[39m The harness blocks a foreground [38;5;153msleep[39m, so I'll run the exact command in the background instead.
+
+  [38;5;246mRan [1m1[0m[38;5;246m shell command [39m
+
+[38;5;231m●[39m The command is running in the background; I'll report what it printed once it finishes.
+
+[38;5;246m✻[39m [38;5;246mCrunched for 8s · done 8:51 PM[39m
+
+[38;5;114m●[39m Background command "Wait 25 seconds then print captured" completed (exit code 0)
+
+[38;5;246m●[39m Running [1m1[0m shell command…
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[38;5;174m*[39m [38;5;174mSkedaddlin[38;5;216mg…[38;5;174m [39m
+[38;5;246m  ⎿  Tip: Run /install-github-app to tag @claude right from your Github issues and PRs[39m
+
+[38;5;244m───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+[38;5;246m❯ [39m
+[38;5;244m───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+[39m  [38;5;220m⏵⏵ auto mode on[38;5;246m (shift+tab to cycle) · gh auth login for PR status · esc to interrupt · ← for agents[39m
