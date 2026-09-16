@@ -70,9 +70,6 @@ resource "aws_db_instance" "weave" {
 
 # The role reads the whole weave namespace rather than one secret, so a second secret is a new
 # entry in the store rather than an edit to IAM. It is still only this prefix, and only reading.
-# The database's own password stays the one AWS generates and rotates, which is why that secret
-# is named alongside the prefix rather than being replaced by it: moving it into the namespace
-# would mean Terraform composing the url, and the password would land in state.
 resource "aws_iam_role_policy" "secrets" {
   name = "${var.name}-secrets"
   role = aws_iam_role.weave.id

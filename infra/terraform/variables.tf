@@ -130,7 +130,3 @@ variable "secret_prefix" {
   default = "weave"
 }
 
-variable "secret_recovery_days" {
-  type    = number
-  default = 7
-}
