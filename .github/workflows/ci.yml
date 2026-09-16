@@ -42,26 +42,21 @@ jobs:
               - '.golangci.yaml'
               - '.custom-gcl.yml'
               - 'tools/weavelint/**'
-              - '.github/workflows/ci.yml'
             shell:
               - 'mise/**'
               - '**/*.sh'
               - 'internal/scripts/builtin/**'
-              - '.github/workflows/ci.yml'
             db:
               - 'db/**'
-              - '.github/workflows/ci.yml'
             proto:
               - 'proto/**'
               - 'buf*.yaml'
-              - '.github/workflows/ci.yml'
             infra:
               - 'infra/**'
               - 'packer/**'
               - 'mise/tasks/terraform/**'
               - 'mise/tasks/packer/**'
               - 'mise.toml'
-              - '.github/workflows/ci.yml'
             integration:
               - '**/*.go'
               - 'go.mod'
@@ -69,14 +64,12 @@ jobs:
               - 'mise/**'
               - 'db/**'
               - 'proto/**'
-              - '.github/workflows/ci.yml'
             generated:
               - 'proto/**'
               - 'db/**'
               - 'config/**'
               - 'cmd/protoc-gen-weave-rpc/**'
               - 'mise/tasks/gen/**'
-              - '.github/workflows/ci.yml'
 
   # The shell weave runs: the mise tasks and the builtin scripts an agent's hooks call.
   shell:
