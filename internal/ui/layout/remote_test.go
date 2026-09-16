@@ -26,9 +26,9 @@ func TestFocusPaneIsTheGuestForALocalEngine(t *testing.T) {
 	assert.Equal(t, "%7", frame.FocusPane())
 }
 
-// TestFocusPaneIsTheStageForARemoteEngine covers the agent's pane belonging to another server,
-// so the only pane the key can land on is the stage that is attached to it. Without this the
-// key is unbound and pressing it does nothing.
+// TestFocusPaneIsTheStageForARemoteEngine covers an agent's pane belonging to another server,
+// where the only pane the focus key can land on is the stage attached to it and without which
+// the key is unbound.
 func TestFocusPaneIsTheStageForARemoteEngine(t *testing.T) {
 	tmux := &recordingTmux{width: 80, height: 40}
 	frame := New(tmux, config.DefaultLayout(), WithEngine(remoteEngine()))

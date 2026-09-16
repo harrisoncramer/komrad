@@ -48,9 +48,10 @@ Use ` + "`weave open`" + ` to bring the panel up.`,
 			// whose panel has gone, and a second open would start a second panel in it.
 			state.tmux.RecordPanelPane(state.env.TmuxPane)
 
-			// A remote engine is reached through an ssh forward weave owns, so the panel talks to a
-			// port on this machine that carries the engine's api. Nothing local is started: the
-			// service, the agents and their tmux server all belong to the other machine.
+			// Explainer: a remote engine is reached through an ssh forward weave owns, so the panel
+			// talks to a port on this machine that carries the engine's api. Nothing local is
+			// started: the service, the agents and their tmux server all belong to the other
+			// machine.
 			remote := state.engine()
 			addr := state.env.Addr
 

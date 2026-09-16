@@ -36,8 +36,8 @@ type Tunnel struct {
 	borrowed bool
 }
 
-// TunnelPort is the port an engine's forward always lands on, so a tunnel that outlived its panel
-// is reused rather than leaked. It is derived from the engine so two engines never collide.
+// TunnelPort is the port an engine's forward always lands on, derived from the engine so that two
+// of them never collide and a tunnel outliving its panel is reused rather than leaked.
 func (r Remote) TunnelPort(engineAddr string) int {
 	sum := sha256.Sum256([]byte(r.Destination + strings.Join(r.Exec, " ") + "/" + engineAddr))
 
@@ -75,9 +75,9 @@ func (r Remote) Dial(ctx context.Context, engineAddr string, wait time.Duration)
 
 	local := net.JoinHostPort("127.0.0.1", strconv.Itoa(r.TunnelPort(engineAddr)))
 
-	// A tunnel outlives a panel that was killed rather than asked to stop, since ssh is orphaned
-	// rather than signalled. The port is therefore the same every time for a given engine, so a
-	// surviving tunnel is found and used again instead of leaking one per panel.
+	// Explainer: a tunnel outlives a panel that was killed rather than asked to stop, since ssh is
+	// orphaned rather than signalled. The port is therefore the same every time for a given
+	// engine, so a surviving tunnel is found and used again instead of leaking one per panel.
 	if err := waitForPort(ctx, local, 0); err == nil {
 		return &Tunnel{Local: local, borrowed: true}, nil
 	}
@@ -122,7 +122,9 @@ func waitForPort(ctx context.Context, address string, wait time.Duration) error 
 	deadline := time.Now().Add(wait)
 
 	for {
-		connection, err := net.DialTimeout("tcp", address, dialTimeout)
+		dialer := net.Dialer{Timeout: dialTimeout}
+
+		connection, err := dialer.DialContext(ctx, "tcp", address)
 		if err == nil {
 			_ = connection.Close() //nolint:errcheck // the dial was the whole question
 
