@@ -1,0 +1,16 @@
+[Unit]
+Description=Create the tmux session weave holds its agents in
+After=weave.service
+Requires=weave.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+User=weave
+Group=weave
+EnvironmentFile=-/etc/weave/weave.env
+EnvironmentFile=/etc/weave/database.env
+ExecStart=/usr/local/sbin/weave-manager-session
+
+[Install]
+WantedBy=multi-user.target

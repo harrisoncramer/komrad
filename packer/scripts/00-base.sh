@@ -24,6 +24,8 @@ install -m 0755 /tmp/files/weave-database-credentials /usr/local/sbin/weave-data
 install -m 0755 /tmp/files/weave-manager-session /usr/local/sbin/weave-manager-session
 install -m 0644 /tmp/files/weave-data-volume.service /etc/systemd/system/weave-data-volume.service
 install -m 0644 /tmp/files/weave-database-credentials.service /etc/systemd/system/weave-database-credentials.service
+install -m 0644 /tmp/files/weave-database-credentials.timer /etc/systemd/system/weave-database-credentials.timer
+install -m 0644 /tmp/files/weave-manager-session.service /etc/systemd/system/weave-manager-session.service
 install -m 0644 /tmp/files/weave.service /etc/systemd/system/weave.service
 mkdir -p /etc/weave /usr/share/weave
 
@@ -45,4 +47,6 @@ chmod 0644 /etc/profile.d/weave-env.sh
 
 systemctl enable weave-data-volume.service
 systemctl enable weave-database-credentials.service
+systemctl enable weave-database-credentials.timer
+systemctl enable weave-manager-session.service
 systemctl enable weave.service

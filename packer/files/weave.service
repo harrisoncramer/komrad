@@ -1,7 +1,7 @@
 [Unit]
 Description=weave
 After=network-online.target weave-data-volume.service weave-database-credentials.service
-Wants=network-online.target
+Wants=network-online.target weave-manager-session.service
 Requires=weave-data-volume.service
 RequiresMountsFor=/var/lib/weave
 ConditionPathExists=/etc/weave/database.env
@@ -14,7 +14,6 @@ Group=weave
 EnvironmentFile=-/etc/weave/weave.env
 EnvironmentFile=/etc/weave/database.env
 ExecStart=/usr/local/bin/weave serve
-ExecStartPost=/usr/local/sbin/weave-manager-session
 # The tmux server holding every agent is spawned by weave and so lands in this service's
 # cgroup, which systemd kills wholesale by default. Killing only weave leaves the agents
 # running, which is the property tmux is here for: the engine can be upgraded under them.

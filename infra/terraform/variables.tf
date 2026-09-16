@@ -33,6 +33,11 @@ variable "ami_id" {
 
 variable "availability_zone" {
   type = string
+
+  validation {
+    condition     = contains(keys(var.private_subnet_cidrs), var.availability_zone)
+    error_message = "availability_zone must be one of the zones private_subnet_cidrs names, since the database sits in that zone and its subnet group has to cover it."
+  }
 }
 
 variable "vpc_cidr" {
@@ -80,6 +85,13 @@ variable "private_subnet_cidrs" {
   default = {
     "us-east-1a" = "10.42.1.0/24"
     "us-east-1b" = "10.42.2.0/24"
+  }
+
+  validation {
+    # The database pins itself to availability_zone and can only sit in a subnet its group
+    # covers, so changing one without the other fails deep inside the RDS create rather than here.
+    condition     = length(var.private_subnet_cidrs) > 1
+    error_message = "A database subnet group needs subnets in at least two availability zones."
   }
 }
 

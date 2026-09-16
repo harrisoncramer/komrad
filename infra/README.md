@@ -6,6 +6,8 @@ The first layer creates one Ubuntu EC2 instance, a subnet, a fixed public addres
 
 Nothing may connect to the instance. Its security group has no inbound rules at all, there is no SSH key on it, and port 22 is closed. Reaching it is a Systems Manager session, which the instance opens outward, so access is an IAM decision rather than a key plus an allowed address range. That matters on a machine whose whole purpose is running coding agents, and it also means a changing home IP never locks you out.
 
+Every agent on this host can read the database. `weave open` puts the connection string in the tmux server's environment, so each agent window inherits it, and the read-only login weave derives has a fixed password. Any process on the machine can also reach the instance metadata service and so the instance role. This is therefore a host you trust the agents on. Making it one you do not means blocking 169.254.169.254 for the weave user, which is the next step after the NAT gateway rather than something this layer does.
+
 The public address is only there so the instance can reach out: to Systems Manager, to package registries, to GitHub, and to the model APIs the agents use. Nothing reaches in through it. Moving the instance to a private subnet behind a NAT gateway would remove even that, at roughly thirty dollars a month, and is the next step rather than a thing this layer does.
 
 Weave itself stays on loopback, and the panel reaches its API by forwarding a port over the same Systems Manager session.
@@ -16,7 +18,7 @@ The data volume mounts at `/var/lib/weave`. The Go build and module caches, weav
 
 The mount finds its disk by serial rather than by device name. EBS volumes attached to a Nitro instance appear to the guest as NVMe devices whose serial is the volume id with the dashes removed, and the name they are attached under is not the name the guest sees.
 
-Destroying the stack removes the host and volume after AWS takes a recovery snapshot.
+Destroying the stack removes the host and volume after AWS takes a recovery snapshot. The database refuses, because `database_deletion_protection` defaults to true: set it false and apply before the destroy will complete, which is deliberate for the store holding the panel's whole history.
 
 Reach the host with `aws ssm start-session --target "$(terraform output -raw instance_id)"`, which needs the Session Manager plugin; `mise.toml` pins it.
 
@@ -32,7 +34,7 @@ Changing `ami_id` replaces the instance. That is the upgrade path rather than an
 
 The image carries no credentials. A unit fetches the database password at boot and writes `/etc/weave/database.env`, and weave's own unit is skipped until that file exists, so a host that cannot reach its secret runs no weave rather than failing in a loop.
 
-The GitHub and harness logins are not delivered by machinery. Sign in to the host once over SSH with `gh auth login` and the first-run flows for Claude and Codex, exactly as on a laptop. The weave user's home is on the data volume, so those logins survive a new image and are a one-time cost rather than something repeated on every upgrade.
+The GitHub and harness logins are not delivered by machinery. Sign in to the host once, over a Session Manager session, with `gh auth login` and the first-run flows for Claude and Codex, exactly as on a laptop. The weave user's home is on the data volume, so those logins survive a new image and are a one-time cost rather than something repeated on every upgrade.
 
 ## Authentication
 

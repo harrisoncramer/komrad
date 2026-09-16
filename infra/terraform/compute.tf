@@ -34,12 +34,11 @@ resource "aws_instance" "weave" {
   associate_public_ip_address = true
   iam_instance_profile        = aws_iam_instance_profile.weave.name
   user_data = templatefile("${path.module}/weave-data-volume.sh.tftpl", {
-    data_volume_id           = aws_ebs_volume.weave_data.id
-    database_secret          = aws_secretsmanager_secret.database_url.name
-    database_fallback_secret = aws_db_instance.weave.master_user_secret[0].secret_arn
-    database_host            = aws_db_instance.weave.address
-    database_name            = aws_db_instance.weave.db_name
-    aws_region               = var.aws_region
+    data_volume_id      = aws_ebs_volume.weave_data.id
+    database_secret_arn = aws_db_instance.weave.master_user_secret[0].secret_arn
+    database_host       = aws_db_instance.weave.address
+    database_name       = aws_db_instance.weave.db_name
+    aws_region          = var.aws_region
   })
 
   dynamic "credit_specification" {

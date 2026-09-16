@@ -68,12 +68,6 @@ resource "aws_db_instance" "weave" {
   }
 }
 
-resource "aws_secretsmanager_secret" "database_url" {
-  name                    = "${var.secret_prefix}/DATABASE_URL"
-  recovery_window_in_days = var.secret_recovery_days
-  tags                    = merge(local.tags, { Name = "${var.secret_prefix}/DATABASE_URL" })
-}
-
 # The role reads the whole weave namespace rather than one secret, so a second secret is a new
 # entry in the store rather than an edit to IAM. It is still only this prefix, and only reading.
 # The database's own password stays the one AWS generates and rotates, which is why that secret
