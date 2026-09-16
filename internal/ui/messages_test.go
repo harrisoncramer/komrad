@@ -425,7 +425,7 @@ func TestMessagesPulseBlinksWhatJustLanded(t *testing.T) {
 	t.Cleanup(func() { lipgloss.SetColorProfile(restore) })
 	lipgloss.SetColorProfile(termenv.TrueColor)
 
-	lit, _, _ := strings.Cut(flashFieldStyle.Render("x"), "x")
+	lit, _, _ := strings.Cut(flashFieldStyle(paint.Grey).Render("x"), "x")
 	require.NotEmpty(t, lit)
 
 	m := detailsModel(&recordingTmux{})

@@ -3,6 +3,7 @@ package ui
 import (
 	"strings"
 	"testing"
+	"weave/internal/ui/paint"
 
 	"weave/lib/xptr"
 
@@ -98,7 +99,7 @@ func TestAFailedCreateSaysNothingOfItsWorktree(t *testing.T) {
 
 	require.Len(t, notices, 1)
 	assert.Equal(t, failedToCreateNotice, notices[0].text)
-	assert.Empty(t, worktreeMark(item), "the row draws no mark of its own either")
+	assert.Empty(t, worktreeMark(paint.Colored, item), "the row draws no mark of its own either")
 }
 
 // TestArchivedNoticesAreOnlyTheFailures covers the archive, whose rows draw one mark of their

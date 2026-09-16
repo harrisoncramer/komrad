@@ -1844,14 +1844,14 @@ func TestTheDiffGreysWhileTheThreadHasTheKeys(t *testing.T) {
 	m.applyReviewWrote(reviewWroteMsg{agentID: "a1", threads: reviewLongThread(t, m)})
 
 	require.True(t, m.isReviewDiffFocused(), "the patch has the keys to begin with")
-	require.Equal(t, paint.Accent, m.reviewBandStyle(reviewScopeOnStyle).GetForeground())
+	require.Equal(t, paint.Colored.Color(paint.ToneAccent), m.palette(regionColumn).Color(reviewScopeOnTone))
 
 	next, _ := m.updateReview(tea.KeyMsg{Type: tea.KeyCtrlF})
 	m = next.(model)
 	require.True(t, m.isReviewThreadFocused())
 
 	assert.False(t, m.isReviewDiffFocused(), "the diff has given the keys up")
-	assert.Equal(t, paint.Muted, m.reviewBandStyle(reviewScopeOnStyle).GetForeground(), "so the band over it greys")
+	assert.Equal(t, paint.Colored.Color(paint.ToneMuted), m.palette(regionColumn).Color(reviewScopeOnTone), "so the band over it greys")
 }
 
 // typeReviewMessage types words into the composer the way a person does, the field taking only

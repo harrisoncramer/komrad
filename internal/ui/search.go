@@ -245,7 +245,7 @@ func nameSays(name, query string) bool {
 }
 
 // markName marks where in a name the query was found.
-func markName(name, query string) string {
+func markName(palette paint.Palette, name, query string) string {
 	folded := paint.FoldASCII(strings.TrimSpace(query))
 	if folded == "" {
 		return name
@@ -256,7 +256,7 @@ func markName(name, query string) string {
 		return name
 	}
 
-	return name[:at] + paint.MatchStyle.Render(name[at:at+len(folded)]) + name[at+len(folded):]
+	return name[:at] + palette.Match().Render(name[at:at+len(folded)]) + name[at+len(folded):]
 }
 
 func (m *model) applySearch(result searchResult) tea.Cmd {
@@ -494,9 +494,11 @@ func (h searchHit) spans(content string) []paint.Span {
 // hitHeader names the agent a run of hits came from, wearing the same marks its row wears on the
 // screen it lives on, in the gutter given.
 func (m model) hitHeader(hit searchHit, gutter string) string {
+	palette := m.palette(regionList)
+
 	name := clipName(hit.name)
 	if hit.section == nameSection {
-		name = markName(name, m.search.query)
+		name = markName(palette, name, m.search.query)
 	}
 
 	if hit.archived {
@@ -507,7 +509,7 @@ func (m model) hitHeader(hit searchHit, gutter string) string {
 			return row
 		}
 
-		return row + failedMark(agent) + scheduledMark(agent)
+		return row + failedMark(palette, agent) + scheduledMark(palette, agent)
 	}
 
 	item, ok := m.liveAgent(hit.agentID)
@@ -515,11 +517,11 @@ func (m model) hitHeader(hit searchHit, gutter string) string {
 		return gutter + noStateMark() + " " + name
 	}
 
-	return gutter + stateMark(displayState(item)) + " " + name +
-		worktreeMark(item) + scheduledMark(item.agent) + hiddenMark(item.agent.Hidden) +
-		unreadMailMark(item.unreadMail) + unviewedMark(item.unviewed) +
-		failedRunMark(item.failedRun) + localReviewRoundsMark(item.localRounds) +
-		localReviewMark(item.inLocalReview, item.localVerdict)
+	return gutter + stateMark(palette, displayState(item)) + " " + name +
+		worktreeMark(palette, item) + scheduledMark(palette, item.agent) + hiddenMark(palette, item.agent.Hidden) +
+		unreadMailMark(palette, item.unreadMail) + unviewedMark(palette, item.unviewed) +
+		failedRunMark(palette, item.failedRun) + localReviewRoundsMark(palette, item.localRounds) +
+		localReviewMark(palette, item.inLocalReview, item.localVerdict)
 }
 
 // searchRows lays the hits out as the lines the screen draws, reporting where the cursor's own
@@ -542,7 +544,7 @@ func (m model) searchRows() ([]string, int) {
 
 		hovered := i == m.search.cursor
 
-		gutter := paint.MarkGutter(m.listing.marks[agentRowKey(hit.agentID)])
+		gutter := m.palette(regionList).MarkGutter(m.listing.marks[agentRowKey(hit.agentID)])
 
 		var row string
 		if hit.section == nameSection {
@@ -558,7 +560,7 @@ func (m model) searchRows() ([]string, int) {
 				labelled = hit.agentID
 			}
 
-			row = "  " + m.cursorGap(hovered) + dimStyle.Render(paint.RenderSnippet(hit.snippet, m.paneWidth()-snippetIndent))
+			row = "  " + m.cursorGap(hovered) + dimStyle.Render(m.palette(regionList).RenderSnippet(hit.snippet, m.paneWidth()-snippetIndent))
 		}
 
 		if hovered {
@@ -595,11 +597,13 @@ func (m model) searchView() string {
 
 // searchSidebarView is the panel's own column: the query and the hits it found.
 func (m model) searchSidebarView() string {
-	query := paint.CursorStyle.Render("/") + " " + m.search.query
+	palette := m.palette(regionList)
+
+	query := palette.Cursor().Render("/") + " " + m.search.query
 	if m.search.typing {
-		query += paint.CursorStyle.Render("▏")
+		query += palette.Cursor().Render("▏")
 	}
-	header := paint.TitleOf(m.isListFocused(), "Search") + "\n\n" + query + "\n\n"
+	header := palette.Title("Search") + "\n\n" + query + "\n\n"
 	help := m.renderHelp(m.searchHelp())
 
 	switch {

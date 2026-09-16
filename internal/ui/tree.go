@@ -1,6 +1,8 @@
 package ui
 
 import (
+	"weave/internal/ui/paint"
+
 	"maps"
 	"strings"
 
@@ -415,11 +417,11 @@ func (m *model) revealAgent(id string) {
 
 // orchestratorMark is the state of the orchestrator standing behind a workflow, drawn after the
 // name so every workflow still opens at the gutter.
-func orchestratorMark(row agentRow) string {
+func orchestratorMark(palette paint.Palette, row agentRow) string {
 	item, held := row.paneItem()
 	if !held {
 		return ""
 	}
 
-	return " " + stateMark(displayState(item))
+	return " " + stateMark(palette, displayState(item))
 }

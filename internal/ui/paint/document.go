@@ -7,8 +7,8 @@ import (
 )
 
 // DocRows renders markdown into a column of its own, a row at a time.
-func DocRows(markdown string, width int) []string {
-	return DocStyledRows(markdown, width, StageStyle)
+func (p Palette) DocRows(markdown string, width int) []string {
+	return DocStyledRows(markdown, width, p.Stage())
 }
 
 // DocStyledRows renders markdown a row at a time in the style it is handed.

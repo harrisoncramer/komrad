@@ -18,7 +18,7 @@ import (
 func TestRowCursorBlinksWhileFocused(t *testing.T) {
 	m := model{rowCursor: newRowCursor()}
 
-	assert.Equal(t, paint.CursorStyle.Render(rowCursorGlyph), m.cursorPrefix(true), "a shown cursor draws the arrow")
+	assert.Equal(t, paint.Colored.Cursor().Render(rowCursorGlyph), m.cursorPrefix(true), "a shown cursor draws the arrow")
 
 	m.rowCursor.Blink = true
 
@@ -33,11 +33,11 @@ func TestRowCursorStandsStillUnfocused(t *testing.T) {
 	m := model{rowCursor: newRowCursor()}
 	m.rowCursor.Blink = true
 
-	assert.Equal(t, paint.BlurredCursorStyle.Render(rowCursorGlyph), m.cursorPrefix(false), "the details hold the keys")
+	assert.Equal(t, paint.Grey.Cursor().Render(rowCursorGlyph), m.cursorPrefix(false), "the details hold the keys")
 
 	m.blurred = true
 
-	assert.Equal(t, paint.CursorStyle.Render(rowCursorGlyph), m.cursorPrefix(true), "another pane holds them")
+	assert.Equal(t, paint.Colored.Cursor().Render(rowCursorGlyph), m.cursorPrefix(true), "another pane holds them")
 }
 
 // TestRowCursorSolidUnderAKeypress covers moving about: the phase is restarted rather than
@@ -136,11 +136,11 @@ func TestRowCursorStandsStillWhileTyping(t *testing.T) {
 	m.rowCursor.Blink = true
 	m.filter.typing = true
 
-	assert.Equal(t, paint.CursorStyle.Render(rowCursorGlyph), m.cursorPrefix(true), "the filter has the arrows")
+	assert.Equal(t, paint.Colored.Cursor().Render(rowCursorGlyph), m.cursorPrefix(true), "the filter has the arrows")
 
 	m.filter.typing = false
 	m.screen = screenSearch
 	m.search.typing = true
 
-	assert.Equal(t, paint.CursorStyle.Render(rowCursorGlyph), m.cursorPrefix(true), "the query has them")
+	assert.Equal(t, paint.Colored.Cursor().Render(rowCursorGlyph), m.cursorPrefix(true), "the query has them")
 }

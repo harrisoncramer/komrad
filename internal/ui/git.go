@@ -72,7 +72,7 @@ func gitMenuForm(menu gitMenu, keys config.GitKeys, form config.FormKeys) (*huh.
 		)
 
 	return huh.NewForm(huh.NewGroup(field)).
-		WithShowHelp(true).WithKeyMap(gitMenuKeyMap(form)).WithTheme(paint.FormTheme()), &choice
+		WithShowHelp(true).WithKeyMap(gitMenuKeyMap(form)).WithTheme(paint.Colored.FormTheme()), &choice
 }
 
 // gitMenuKeyMap is the form's own keys without the select's filter.

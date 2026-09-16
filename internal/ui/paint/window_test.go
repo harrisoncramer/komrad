@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-var dim = lipgloss.NewStyle().Foreground(Muted)
+var dim = Colored.Style(ToneMuted)
 
 func numbered(n int) []string {
 	rows := make([]string, 0, n)
@@ -155,10 +155,10 @@ func TestWindowRowsNeverOutgrowsThePane(t *testing.T) {
 func TestPaintRow(t *testing.T) {
 	withColor(t)
 
-	set := BackgroundSequence(SelectionBackground)
-	row := "  " + lipgloss.NewStyle().Foreground(Accent).Render("api") + " " + dim.Render("1m")
+	set := BackgroundSequence(Colored.selection)
+	row := "  " + Colored.Style(ToneAccent).Render("api") + " " + dim.Render("1m")
 
-	painted := PaintRow(row, SelectionBackground, 20)
+	painted := Colored.PaintRow(row, 20)
 
 	assert.True(t, strings.HasPrefix(painted, set), "the row opens under the background")
 	assert.Equal(t, strings.Count(row, ansiReset), strings.Count(painted, ansiReset+set),
@@ -166,7 +166,7 @@ func TestPaintRow(t *testing.T) {
 	assert.Equal(t, 20, lipgloss.Width(painted), "the bar is filled out to the pane")
 	assert.True(t, strings.HasSuffix(painted, ansiReset), "and closes")
 
-	assert.Equal(t, lipgloss.Width(row), lipgloss.Width(PaintRow(row, SelectionBackground, 2)),
+	assert.Equal(t, lipgloss.Width(row), lipgloss.Width(Colored.PaintRow(row, 2)),
 		"a row wider than the pane is painted as it stands rather than padded")
 }
 
@@ -176,5 +176,5 @@ func TestPaintRowWithoutColour(t *testing.T) {
 	t.Cleanup(func() { lipgloss.SetColorProfile(restore) })
 	lipgloss.SetColorProfile(termenv.Ascii)
 
-	assert.Equal(t, "  api", PaintRow("  api", SelectionBackground, 20))
+	assert.Equal(t, "  api", Colored.PaintRow("  api", 20))
 }

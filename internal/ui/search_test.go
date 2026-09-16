@@ -424,7 +424,7 @@ func TestRenderSnippet(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			out := paint.RenderSnippet(tt.in, 0)
+			out := paint.Colored.RenderSnippet(tt.in, 0)
 
 			assert.Contains(t, out, tt.wantContain)
 			assert.NotContains(t, out, transcriptstore.SnippetOpen, "the markers are consumed")
@@ -1095,9 +1095,9 @@ func TestSearchNameHitJumps(t *testing.T) {
 // TestMarkName covers where a name is marked, which is the query as the name spells it rather
 // than as it was typed.
 func TestMarkName(t *testing.T) {
-	assert.Equal(t, "bi"+paint.MatchStyle.Render("LL")+"ing", markName("biLLing", " bill "))
-	assert.Equal(t, "billing", markName("billing", "  "))
-	assert.Equal(t, "billing", markName("billing", "payouts"))
+	assert.Equal(t, "bi"+paint.Colored.Match().Render("LL")+"ing", markName(paint.Colored, "biLLing", " bill "))
+	assert.Equal(t, "billing", markName(paint.Colored, "billing", "  "))
+	assert.Equal(t, "billing", markName(paint.Colored, "billing", "payouts"))
 }
 
 // TestSearchCursorSurvivesARefresh covers the names among the hits being read off the listings:

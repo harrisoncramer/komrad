@@ -3,6 +3,7 @@ package ui
 import (
 	"testing"
 	"time"
+	"weave/internal/ui/paint"
 
 	"weave/config"
 	agentstore "weave/internal/store/agent"
@@ -189,6 +190,6 @@ func TestToggleViewedLetsGoWhenTheCursorMoves(t *testing.T) {
 // says only what the agent is doing, the mark beside it says only whether there is something to
 // read, and either is true without the other.
 func TestUnviewedMarkIsItsOwnColumn(t *testing.T) {
-	assert.Contains(t, unviewedMark(true), unviewedIcon)
-	assert.Empty(t, unviewedMark(false), "and takes no room on a row with nothing to read")
+	assert.Contains(t, unviewedMark(paint.Colored, true), unviewedIcon)
+	assert.Empty(t, unviewedMark(paint.Colored, false), "and takes no room on a row with nothing to read")
 }

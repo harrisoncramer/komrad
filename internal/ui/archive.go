@@ -378,6 +378,8 @@ func (m model) archiveListView() string {
 		return m.listView("Archive", []string{dimStyle.Render("nothing archived")}, 0, below)
 	}
 
+	palette := m.palette(regionList)
+
 	rows := make([]string, 0, len(all))
 	for i, r := range all {
 		hovered := i == m.archive.cursor
@@ -387,17 +389,17 @@ func (m model) archiveListView() string {
 		}
 
 		if r.header {
-			label := m.filter.highlight(clipName(r.workflow.Name), m.nameStyle(hovered, false))
-			rows = append(rows, prefix+dimStyle.Render(workflowIcon)+" "+label+archivedTag(r.workflow))
+			label := m.filter.highlight(palette, clipName(r.workflow.Name), m.nameStyle(hovered, false))
+			rows = append(rows, prefix+dimStyle.Render(workflowIcon)+" "+label+archivedTag(palette, r.workflow))
 
 			continue
 		}
 
 		agent := r.item.agent
-		name := m.filter.highlight(clipName(agent.Name), m.nameStyle(hovered, true))
-		row := prefix + "  " + childMark(r.child) + name + failedMark(agent) + scheduledMark(agent)
+		name := m.filter.highlight(palette, clipName(agent.Name), m.nameStyle(hovered, true))
+		row := prefix + "  " + childMark(r.child) + name + failedMark(palette, agent) + scheduledMark(palette, agent)
 		if m.archive.selected.has(agent.ID) {
-			row = paint.PaintRow(row, paint.SelectionBackground, m.paneWidth())
+			row = palette.PaintRow(row, m.paneWidth())
 		}
 
 		rows = append(rows, row)

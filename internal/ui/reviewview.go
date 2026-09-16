@@ -13,25 +13,31 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-var (
-	reviewQuoteStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("8")).Italic(true)
-	reviewHumanStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("12")).Bold(true)
-	reviewAgentStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("13")).Bold(true)
-	reviewNoticeStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("10"))
-	reviewAddedStyle   = lipgloss.NewStyle().Foreground(paint.Success)
-	reviewRemovedStyle = lipgloss.NewStyle().Foreground(paint.Danger)
-	// reviewMovedStyle draws the catch-up notice as coloured text rather than as a filled bar, the
+// The tones the review wears, which the region drawing each one turns into a colour.
+const (
+	reviewQuoteTone  = paint.ToneMuted
+	reviewHumanTone  = paint.ToneBright
+	reviewAgentTone  = paint.ToneAlt
+	reviewNoticeTone = paint.ToneSuccess
+	reviewAddedTone  = paint.ToneSuccess
+	// reviewMovedTone draws the catch-up notice as coloured text rather than as a filled bar, the
 	// agent writing while you read being ordinary rather than an alarm.
-	reviewMovedStyle = lipgloss.NewStyle().Foreground(paint.Warning)
-
-	// Reversed rather than merely coloured: a reader who keeps writing against a patch that has
-	// already moved has those comments pinned as ghosted or adrift when they finally reload, so
-	// this is worth a bar across the sidebar rather than a dim line they read past.
-	reviewDeadStyle      = lipgloss.NewStyle().Foreground(lipgloss.Color("0")).Background(paint.Muted).Bold(true)
-	reviewUnsentStyle    = lipgloss.NewStyle().Foreground(paint.Accent)
-	reviewSentStyle      = lipgloss.NewStyle().Foreground(paint.Warning)
-	reviewDeliveredStyle = lipgloss.NewStyle().Foreground(paint.Success)
+	reviewMovedTone     = paint.ToneWarning
+	reviewRemovedTone   = paint.ToneDanger
+	reviewUnsentTone    = paint.ToneAccent
+	reviewSentTone      = paint.ToneWarning
+	reviewDeliveredTone = paint.ToneSuccess
 )
+
+// Explainer: the dead bar is reversed rather than merely coloured, since a reader who keeps
+// writing against a patch that has already moved has those comments pinned as ghosted or adrift
+// when they finally reload, which is worth a bar across the sidebar rather than a dim line they
+// read past.
+
+// reviewDeadStyle says there is nobody left to send a review to.
+func reviewDeadStyle(palette paint.Palette) lipgloss.Style {
+	return lipgloss.NewStyle().Foreground(lipgloss.Color("0")).Background(palette.Color(paint.ToneMuted)).Bold(true)
+}
 
 // reviewView draws the diff and, beside it, the thread the cursor is standing on, as one frame.
 func (m model) reviewView() string {
@@ -141,7 +147,7 @@ func (m model) reviewRestView() string {
 	// A notice answers the last keypress and a keypress clears it, so what the reader is told
 	// about the diff itself stands underneath and comes back the moment the answer is gone.
 	if notice := m.review.notice; notice != "" {
-		out += "\n" + m.reviewNote(reviewNoticeStyle, notice)
+		out += "\n" + m.reviewNote(m.palette(regionThread).Style(reviewNoticeTone), notice)
 	} else if since := m.review.since; since != "" && m.review.baseLabel == "" {
 		out += "\n" + m.reviewNote(dimStyle, since)
 	}
@@ -155,14 +161,14 @@ func (m model) reviewAnchorView() string {
 	anchor, ok := m.review.view.GetAnchor(m.review.cursor)
 	if !ok {
 		if thread, ok := m.reviewThreadAtCursor(); ok {
-			return paint.TitleOf(m.isReviewThreadFocused(), clipName(review.FormatThreadLocation(thread))) +
+			return m.palette(regionThread).Title(clipName(review.FormatThreadLocation(thread))) +
 				m.reviewCommentWhereView(thread) + "\n"
 		}
 
 		return dimStyle.Render("  move onto a line to start a thread on it") + "\n"
 	}
 
-	head := paint.TitleOf(m.isReviewThreadFocused(), clipName(review.FormatLocation(anchor.FilePath, anchor.OldStart, anchor.NewStart)))
+	head := m.palette(regionThread).Title(clipName(review.FormatLocation(anchor.FilePath, anchor.OldStart, anchor.NewStart)))
 	if thread, ok := m.reviewThreadAtCursor(); ok {
 		head += m.reviewCommentWhereView(thread)
 	}
@@ -188,7 +194,7 @@ func (m model) reviewReleaseView() string {
 	for i, verdict := range reviewVerdicts {
 		mark, style := "  ", dimStyle
 		if i == m.review.verdict {
-			mark, style = "▸ ", pickVerdictStyle(verdict)
+			mark, style = "▸ ", m.palette(regionThread).Style(verdictTone(verdict))
 		}
 
 		out += style.Render("  "+mark+describeVerdict(verdict)) + "\n"
@@ -213,17 +219,17 @@ func describeVerdict(verdict agentv1.ReviewVerdict) string {
 	return "no verdict"
 }
 
-// pickVerdictStyle colours the chosen verdict by what it means.
-func pickVerdictStyle(verdict agentv1.ReviewVerdict) lipgloss.Style {
+// verdictTone colours the chosen verdict by what it means.
+func verdictTone(verdict agentv1.ReviewVerdict) paint.Tone {
 	switch verdict {
 	case agentv1.ReviewVerdict_REVIEW_VERDICT_APPROVED:
-		return reviewDeliveredStyle
+		return reviewDeliveredTone
 	case agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED:
-		return reviewSentStyle
+		return reviewSentTone
 	case agentv1.ReviewVerdict_REVIEW_VERDICT_COMMENTED, agentv1.ReviewVerdict_REVIEW_VERDICT_UNSPECIFIED:
 	}
 
-	return reviewUnsentStyle
+	return reviewUnsentTone
 }
 
 func (m model) reviewThreadView() string {
@@ -249,7 +255,7 @@ func (m model) reviewOriginView(thread *agentv1.ReviewThread) string {
 
 	out := dimStyle.Render("  "+m.reviewOriginSaid(thread)) + "\n"
 	for _, quoted := range thread.GetQuotedLines() {
-		out += reviewQuoteStyle.Render(m.reviewWrap("  "+quoted)) + "\n"
+		out += m.palette(regionThread).Style(reviewQuoteTone).Italic(true).Render(m.reviewWrap("  "+quoted)) + "\n"
 	}
 
 	return out + "\n"
@@ -274,17 +280,17 @@ func (m model) reviewOriginSaid(thread *agentv1.ReviewThread) string {
 }
 
 func (m model) reviewMessageView(message *agentv1.ReviewMessage) string {
-	author, style := "you", reviewHumanStyle
+	author, tone := "you", reviewHumanTone
 	if message.GetAuthorKind() == agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_AGENT {
-		author, style = m.review.agentName, reviewAgentStyle
+		author, tone = m.review.agentName, reviewAgentTone
 	}
 
-	head := style.Render(author)
+	head := m.palette(regionThread).Style(tone).Bold(true).Render(author)
 	if when := reviewTimeOf(message.GetCreatedAt()); when != "" {
 		head += " " + dimStyle.Render(when)
 	}
 
-	return head + "\n" + m.reviewWrap(message.GetBody()) + "\n" + reviewDeliveryBadge(message) + "\n"
+	return head + "\n" + m.reviewWrap(message.GetBody()) + "\n" + reviewDeliveryBadge(m.palette(regionThread), message) + "\n"
 }
 
 // reviewSendDesc says what the send key opens, since a verdict with nothing written is an
@@ -330,14 +336,9 @@ func (m model) reviewFields() []recordField {
 	return fields
 }
 
-// reviewMarkerStyle is what the counts above and below the conversation are drawn in, which is
-// the panel's own colour while the keys are on the thread rather than on the diff.
+// reviewMarkerStyle is what the counts above and below the conversation are drawn in.
 func (m model) reviewMarkerStyle() lipgloss.Style {
-	if m.isReviewThreadFocused() {
-		return paint.HeaderStyle
-	}
-
-	return dimStyle
+	return m.palette(regionThread).Header()
 }
 
 func (m model) reviewWrap(body string) string {

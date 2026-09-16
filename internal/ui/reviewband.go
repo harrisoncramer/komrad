@@ -14,8 +14,8 @@ import (
 // search prompt, and enough of the diff to be worth drawing.
 const reviewBandFloor = 5
 
-// reviewScopeOnStyle is the half of the scope switch that is in force.
-var reviewScopeOnStyle = lipgloss.NewStyle().Foreground(paint.Accent).Bold(true)
+// reviewScopeOnTone is the half of the scope switch that is in force.
+const reviewScopeOnTone = paint.ToneAccent
 
 // reviewBandView is what stands over the diff: what is being read, how big it is, what the
 // reader has sent, and the pattern they are searching it for.
@@ -25,7 +25,7 @@ func (m model) reviewBandView(width int) string {
 	// more than the counts, so the counts go first and the mode line never goes at all.
 	kept := m.reviewBandRows()
 
-	out := strings.Join(kept, "") + "\n\n" + m.review.filter.view() + m.reviewMatchCount()
+	out := strings.Join(kept, "") + "\n\n" + m.review.filter.view(m.palette(regionColumn)) + m.reviewMatchCount()
 
 	if m.review.view != nil && m.review.view.Len() > 0 {
 		out += m.reviewDeadView(width)
@@ -37,7 +37,7 @@ func (m model) reviewBandView(width int) string {
 // reviewBandRows is the band's rows in the order they give way, least valuable last.
 func (m model) reviewBandRows() []string {
 	rows := []string{
-		paint.TitleOf(m.isReviewDiffFocused(), "Review · "+m.review.agentName) + "\n",
+		m.palette(regionColumn).Title("Review · "+m.review.agentName) + "\n",
 		m.reviewModeView(),
 		m.reviewScopeView(),
 		m.reviewStatView(),
@@ -68,7 +68,7 @@ func (m model) reviewDeadView(width int) string {
 		return ""
 	}
 
-	return reviewDeadStyle.Render(reviewFill(" "+reason+" ", width)) + "\n"
+	return reviewDeadStyle(m.palette(regionColumn)).Render(reviewFill(" "+reason+" ", width)) + "\n"
 }
 
 // reviewStaleView says the worktree has moved since the diff on screen was read.
@@ -79,7 +79,7 @@ func (m model) reviewStaleView() string {
 		return "\n"
 	}
 
-	return reviewMovedStyle.Render(m.reviewStaleSaid()) + "\n"
+	return m.palette(regionColumn).Style(reviewMovedTone).Render(m.reviewStaleSaid()) + "\n"
 }
 
 // reviewStaleSaid is why the diff is behind the worktree, in the terms the reader can act on.
@@ -124,8 +124,8 @@ func (m model) reviewStatView() string {
 	}
 
 	out := dimStyle.Render(counted(stat.Files, "file")+", ") +
-		m.reviewBandStyle(reviewAddedStyle).Render(fmt.Sprintf("+%d", stat.Added)) + " " +
-		m.reviewBandStyle(reviewRemovedStyle).Render(fmt.Sprintf("-%d", stat.Removed))
+		m.palette(regionColumn).Style(reviewAddedTone).Render(fmt.Sprintf("+%d", stat.Added)) + " " +
+		m.palette(regionColumn).Style(reviewRemovedTone).Render(fmt.Sprintf("-%d", stat.Removed))
 
 	if read, total := m.review.view.CountViewedFiles(); read > 0 {
 		out += dimStyle.Render(fmt.Sprintf("  %d/%d viewed", read, total))
@@ -146,7 +146,7 @@ func (m model) reviewScopeView() string {
 		from = m.review.baseLabel
 	}
 
-	out := m.reviewBandStyle(reviewScopeOnStyle).Render(from)
+	out := m.palette(regionColumn).Style(reviewScopeOnTone).Bold(true).Render(from)
 
 	if m.doesReviewFitBaseLegend() {
 		out += dimStyle.Render(" · " + m.reviewStepSaid())
@@ -194,8 +194,8 @@ func (m model) reviewMatchCount() string {
 
 // reviewBandRow draws one row of the band as a coloured state and a hint after it, cutting the
 // hint rather than letting the row run past the pane.
-func (m model) reviewBandRow(style lipgloss.Style, state, hint string) string {
-	style = m.reviewBandStyle(style)
+func (m model) reviewBandRow(tone paint.Tone, state, hint string) string {
+	style := m.palette(regionColumn).Style(tone).Bold(true)
 
 	room := m.lineWidth() - lipgloss.Width(state) - len(" · ")
 	if room <= 0 {
@@ -205,21 +205,7 @@ func (m model) reviewBandRow(style lipgloss.Style, state, hint string) string {
 	return style.Render(state) + dimStyle.Render(" · "+paint.Clip(hint, room)) + "\n"
 }
 
-// reviewBandStyle is what the band over the diff wears: its own colour while the diff holds the
-// keys, the muted one while the sidebar does.
-func (m model) reviewBandStyle(style lipgloss.Style) lipgloss.Style {
-	if m.isReviewDiffFocused() {
-		return style
-	}
-
-	return style.Foreground(paint.Muted)
-}
-
 // reviewColumnStyle is the markdown a notice standing in for the patch is drawn in.
 func (m model) reviewColumnStyle() ansi.StyleConfig {
-	if m.isReviewDiffFocused() {
-		return paint.StageStyle
-	}
-
-	return paint.BlurredStageStyle
+	return m.palette(regionColumn).Stage()
 }

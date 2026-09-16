@@ -38,7 +38,7 @@ func TestStageStyleRendersEveryElement(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			renderer, err := glamour.NewTermRenderer(glamour.WithStyles(StageStyle), glamour.WithWordWrap(60))
+			renderer, err := glamour.NewTermRenderer(glamour.WithStyles(Colored.Stage()), glamour.WithWordWrap(60))
 			require.NoError(t, err)
 
 			got, err := renderer.Render(tt.markdown)
@@ -56,41 +56,85 @@ func TestPaletteFollowsTheTerminal(t *testing.T) {
 	lipgloss.SetColorProfile(termenv.TrueColor)
 
 	tests := []struct {
-		name  string
-		color lipgloss.Color
-		want  string
+		name string
+		tone Tone
+		want string
 	}{
 		{
-			name:  "accent is the scheme's blue",
-			color: Accent,
-			want:  "\x1b[34m",
+			name: "accent is the scheme's blue",
+			tone: ToneAccent,
+			want: "\x1b[34m",
 		},
 		{
-			name:  "success is its bright green",
-			color: Success,
-			want:  "\x1b[92m",
+			name: "success is its bright green",
+			tone: ToneSuccess,
+			want: "\x1b[92m",
 		},
 		{
-			name:  "warning is its bright yellow",
-			color: Warning,
-			want:  "\x1b[93m",
+			name: "warning is its bright yellow",
+			tone: ToneWarning,
+			want: "\x1b[93m",
 		},
 		{
-			name:  "danger is its bright red",
-			color: Danger,
-			want:  "\x1b[91m",
+			name: "danger is its bright red",
+			tone: ToneDanger,
+			want: "\x1b[91m",
 		},
 		{
-			name:  "muted is its bright black",
-			color: Muted,
-			want:  "\x1b[90m",
+			name: "muted is its bright black",
+			tone: ToneMuted,
+			want: "\x1b[90m",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := lipgloss.NewStyle().Foreground(tt.color).Render("x")
+			got := Colored.Style(tt.tone).Render("x")
 			assert.True(t, strings.HasPrefix(got, tt.want), "want prefix %q, got %q", tt.want, got)
 		})
 	}
+}
+
+// TestGreyCollapsesEveryTone pins the whole point of the grey palette: a region that does not
+// hold the keys carries no hue at all, whatever part each piece of it plays.
+func TestGreyCollapsesEveryTone(t *testing.T) {
+	tones := []Tone{ToneMuted, ToneAccent, ToneSuccess, ToneWarning, ToneDanger, ToneMark, ToneBright, ToneAlt}
+
+	for _, tone := range tones {
+		assert.Equal(t, Grey.Color(ToneMuted), Grey.Color(tone), "tone %d is grey like the rest", tone)
+	}
+
+	assert.NotEqual(t, Colored.Color(ToneMuted), Colored.Color(ToneAccent), "the coloured palette still tells them apart")
+	assert.NotEqual(t, Colored.Color(ToneSuccess), Colored.Color(ToneDanger))
+}
+
+// TestPaletteForPicksTheRegionsOwn covers the one call every region makes.
+func TestPaletteForPicksTheRegionsOwn(t *testing.T) {
+	assert.Equal(t, Colored, PaletteFor(true))
+	assert.Equal(t, Grey, PaletteFor(false))
+}
+
+// TestGreyStageCarriesNoHue covers the markdown a block beside a list is drawn in, which greys
+// with the block rather than keeping its own colours under it.
+func TestGreyStageCarriesNoHue(t *testing.T) {
+	grey := Grey.Stage()
+
+	require.NotNil(t, grey.H1.Color)
+	require.NotNil(t, grey.Item.Color)
+	assert.Equal(t, *grey.H1.Color, *grey.Item.Color, "a heading and a bullet are the same grey")
+	assert.Equal(t, string(muted), *grey.H1.Color)
+
+	colored := Colored.Stage()
+	require.NotNil(t, colored.H1.Color)
+	assert.NotEqual(t, *colored.H1.Color, *grey.H1.Color)
+}
+
+// TestMarkTakesItsToneFromThePalette covers the shape every optional mark on a row is drawn in.
+func TestMarkTakesItsToneFromThePalette(t *testing.T) {
+	withColor(t)
+
+	assert.Empty(t, Colored.Mark(false, "✓", ToneSuccess), "a fact that is not true draws nothing")
+	assert.Equal(t, " "+Colored.Style(ToneSuccess).Render("✓"), Colored.Mark(true, "✓", ToneSuccess))
+	assert.Equal(t, " "+Grey.Style(ToneMuted).Render("✓"), Grey.Mark(true, "✓", ToneSuccess),
+		"the same mark is grey in a region that does not hold the keys")
 }

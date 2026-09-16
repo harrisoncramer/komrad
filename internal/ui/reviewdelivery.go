@@ -4,9 +4,8 @@ import (
 	"fmt"
 	"strings"
 
+	"weave/internal/ui/paint"
 	agentv1 "weave/proto/gen/agent/v1"
-
-	"github.com/charmbracelet/lipgloss"
 )
 
 // reviewDeliveryOrder is the three states a comment can stand in, ordered by how much they are
@@ -20,9 +19,9 @@ var reviewDeliveryOrder = []agentv1.ReviewDeliveryState{
 // reviewDelivery is how one delivery state is drawn: what it is called, the glyph a badge opens
 // with, and the colour both of those carry.
 type reviewDelivery struct {
-	word  string
-	mark  string
-	style lipgloss.Style
+	word string
+	mark string
+	tone paint.Tone
 }
 
 // reviewDeliveryOf is how a state is drawn wherever it appears, so the count at the top of the
@@ -31,32 +30,32 @@ func reviewDeliveryOf(state agentv1.ReviewDeliveryState) reviewDelivery {
 	switch state {
 	case agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_UNSENT:
 		return reviewDelivery{
-			word:  "unsent",
-			mark:  "◇",
-			style: reviewUnsentStyle,
+			word: "unsent",
+			mark: "◇",
+			tone: reviewUnsentTone,
 		}
 	case agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_SENT:
 		return reviewDelivery{
-			word:  "waiting",
-			mark:  "→",
-			style: reviewSentStyle,
+			word: "waiting",
+			mark: "→",
+			tone: reviewSentTone,
 		}
 	case agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_DELIVERED:
 		return reviewDelivery{
-			word:  "delivered",
-			mark:  "✓",
-			style: reviewDeliveredStyle,
+			word: "delivered",
+			mark: "✓",
+			tone: reviewDeliveredTone,
 		}
 	case agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_UNSPECIFIED:
-		return reviewDelivery{style: dimStyle}
+		return reviewDelivery{}
 	}
 
-	return reviewDelivery{style: dimStyle}
+	return reviewDelivery{}
 }
 
 // reviewDeliveryBadge is how far one comment has got towards being read, drawn under the comment
 // itself and not at all for what the agent wrote.
-func reviewDeliveryBadge(message *agentv1.ReviewMessage) string {
+func reviewDeliveryBadge(palette paint.Palette, message *agentv1.ReviewMessage) string {
 	drawn := reviewDeliveryOf(message.GetDelivery())
 	if drawn.word == "" {
 		return ""
@@ -67,7 +66,7 @@ func reviewDeliveryBadge(message *agentv1.ReviewMessage) string {
 		badge += " " + when
 	}
 
-	return drawn.style.Render("  "+badge) + "\n"
+	return palette.Style(drawn.tone).Render("  "+badge) + "\n"
 }
 
 // reviewDeliveryStamp is the moment a badge names: the last thing that happened to the comment,
@@ -90,7 +89,7 @@ func (m model) reviewDeliveryCountView() string {
 		}
 
 		drawn := reviewDeliveryOf(state)
-		parts = append(parts, drawn.style.Render(fmt.Sprintf("%d %s", count, drawn.word)))
+		parts = append(parts, m.palette(regionColumn).Style(drawn.tone).Render(fmt.Sprintf("%d %s", count, drawn.word)))
 	}
 
 	return strings.Join(parts, dimStyle.Render(" · "))

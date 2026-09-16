@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"weave/internal/ui/paint"
 
 	"weave/config"
 	agentstore "weave/internal/store/agent"
@@ -197,14 +198,14 @@ func TestWorkflowRowShowsItsOrchestrator(t *testing.T) {
 				"the window is left to the panel only when there is no pane to show")
 
 			if len(tt.items) == 0 {
-				assert.Empty(t, orchestratorMark(rows[0]))
+				assert.Empty(t, orchestratorMark(paint.Colored, rows[0]))
 				assert.Equal(t, workflowContextMarkdown(rows[0].workflow), m.agentDoc(),
 					"a workflow with no orchestrator still draws its shared context")
 
 				return
 			}
 
-			assert.Equal(t, " "+stateMark(tt.wantStateOf), orchestratorMark(rows[0]),
+			assert.Equal(t, " "+stateMark(paint.Colored, tt.wantStateOf), orchestratorMark(paint.Colored, rows[0]),
 				"the workflow row carries its orchestrator's state")
 
 			if tt.wantPane {

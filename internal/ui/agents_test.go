@@ -39,7 +39,7 @@ func TestAgentsViewRowsOpenAtTheGutter(t *testing.T) {
 	m.tree.cursor = -1
 
 	rows := strings.Split(m.agentsView(), "\n")
-	opening := len(paint.MarkGutter("")) + 2
+	opening := len(paint.Colored.MarkGutter("")) + 2
 
 	for _, name := range []string{"weave", "worker"} {
 		row, ok := rowNamed(rows, name)

@@ -6,15 +6,14 @@ import (
 	agentstore "weave/internal/store/agent"
 	reviewstore "weave/internal/store/review"
 	"weave/internal/ui/paint"
-
-	"github.com/charmbracelet/lipgloss"
 )
 
-// notice is one of the marks a row draws said in words.
+// notice is one of the marks a row draws said in words, carrying the part it plays rather than a
+// colour, since the region it is drawn in decides that.
 type notice struct {
-	icon  string
-	color lipgloss.Color
-	text  string
+	icon string
+	tone paint.Tone
+	text string
 }
 
 const (
@@ -63,44 +62,44 @@ func agentNotices(item agentItem) []notice {
 	state := displayState(item)
 
 	notices := failureNotices(state)
-	notices = appendNotice(notices, item.failedRun, failedRunIcon, paint.Danger, failedRunNotice)
-	notices = appendNotice(notices, item.unreadMail, unreadMailIcon, paint.Accent, unreadMailNotice)
-	notices = appendNotice(notices, item.agent.WorktreeRemoved && state != agentstore.StateFailedToCreate, worktreeRemovedIcon, paint.Danger, worktreeRemovedNotice)
-	notices = appendNotice(notices, !item.agent.WorktreeRemoved && item.agent.SequenceInProgress && state != agentstore.StateFailedToCreate, sequenceInProgressIcon, paint.Warning, sequenceNotice)
-	notices = appendNotice(notices, item.unviewed, unviewedIcon, paint.Success, unviewedNotice)
+	notices = appendNotice(notices, item.failedRun, failedRunIcon, paint.ToneDanger, failedRunNotice)
+	notices = appendNotice(notices, item.unreadMail, unreadMailIcon, paint.ToneAccent, unreadMailNotice)
+	notices = appendNotice(notices, item.agent.WorktreeRemoved && state != agentstore.StateFailedToCreate, worktreeRemovedIcon, paint.ToneDanger, worktreeRemovedNotice)
+	notices = appendNotice(notices, !item.agent.WorktreeRemoved && item.agent.SequenceInProgress && state != agentstore.StateFailedToCreate, sequenceInProgressIcon, paint.ToneWarning, sequenceNotice)
+	notices = appendNotice(notices, item.unviewed, unviewedIcon, paint.ToneSuccess, unviewedNotice)
 	if held, ok := heldFact(item); ok {
 		notices = append(notices, held)
 	}
 
-	notices = appendNotice(notices, item.agent.Hidden, hiddenIcon, paint.Muted, hiddenNotice)
+	notices = appendNotice(notices, item.agent.Hidden, hiddenIcon, paint.ToneMuted, hiddenNotice)
 
-	icon, color := localVerdictIcon(item.localVerdict)
+	icon, tone := localVerdictIcon(item.localVerdict)
 	said := localVerdictNotice(item.localVerdict)
 	if icon == "" || said == "" {
-		notices = appendNotice(notices, item.inLocalReview, inLocalReviewIcon, paint.Accent, inLocalReviewNotice)
+		notices = appendNotice(notices, item.inLocalReview, inLocalReviewIcon, paint.ToneAccent, inLocalReviewNotice)
 	}
 
-	notices = appendNotice(notices, icon != "" && said != "", icon, color, said)
+	notices = appendNotice(notices, icon != "" && said != "", icon, tone, said)
 
-	return appendNotice(notices, item.localRounds > 0, localReviewRoundsIcon, paint.Muted, localReviewRoundsNotice(item.localRounds))
+	return appendNotice(notices, item.localRounds > 0, localReviewRoundsIcon, paint.ToneMuted, localReviewRoundsNotice(item.localRounds))
 }
 
 // failureNotices is the whole of what an archived row has to say.
 func failureNotices(state agentstore.State) []notice {
-	notices := appendNotice(nil, state == agentstore.StateFailedToCreate, stateIcon(state), stateColor(state), failedToCreateNotice)
+	notices := appendNotice(nil, state == agentstore.StateFailedToCreate, stateIcon(state), stateTone(state), failedToCreateNotice)
 
-	return appendNotice(notices, state == agentstore.StateFailedToCleanup, stateIcon(state), stateColor(state), failedToCleanupNotice)
+	return appendNotice(notices, state == agentstore.StateFailedToCleanup, stateIcon(state), stateTone(state), failedToCleanupNotice)
 }
 
-func appendNotice(notices []notice, show bool, icon string, color lipgloss.Color, text string) []notice {
+func appendNotice(notices []notice, show bool, icon string, tone paint.Tone, text string) []notice {
 	if !show {
 		return notices
 	}
 
 	return append(notices, notice{
-		icon:  icon,
-		color: color,
-		text:  text,
+		icon: icon,
+		tone: tone,
+		text: text,
 	})
 }
 
@@ -120,15 +119,15 @@ func heldFact(item agentItem) (notice, bool) {
 	if item.alive {
 		switch item.agent.State {
 		case agentstore.StateThinking:
-			return notice{icon: heldIcon, color: paint.Danger, text: heldWorkingNotice}, true
+			return notice{icon: heldIcon, tone: paint.ToneDanger, text: heldWorkingNotice}, true
 		case agentstore.StateWaiting:
-			return notice{icon: heldIcon, color: paint.Danger, text: heldPromptedNotice}, true
+			return notice{icon: heldIcon, tone: paint.ToneDanger, text: heldPromptedNotice}, true
 		case agentstore.StateUncertain:
-			return notice{icon: heldIcon, color: paint.Warning, text: heldUnreadableNotice}, true
+			return notice{icon: heldIcon, tone: paint.ToneWarning, text: heldUnreadableNotice}, true
 		case agentstore.StateIdle, agentstore.StateSettingUp,
 			agentstore.StateFailedToCreate, agentstore.StateFailedToCleanup:
 		}
 	}
 
-	return notice{icon: heldIcon, color: paint.Warning, text: heldNotice}, true
+	return notice{icon: heldIcon, tone: paint.ToneWarning, text: heldNotice}, true
 }
