@@ -32,6 +32,9 @@ type Line struct {
 type Hunk struct {
 	Header string
 	Lines  []Line
+	// NewStart is the first line of the new side the hunk covers, which is where the run of
+	// lines above it ends.
+	NewStart int
 }
 
 // File is one file's worth of change with both sides of its source carried whole.

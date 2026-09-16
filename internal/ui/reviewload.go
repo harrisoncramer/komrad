@@ -352,6 +352,7 @@ func (m *model) applyReviewLoaded(msg reviewLoadedMsg) tea.Cmd {
 	m.review.view = review.NewView(msg.patch, m.isDark)
 	m.review.view.SetTraced(msg.traced)
 	m.review.view.SetViewed(indexViewedFiles(msg.viewed, msg.patch))
+	m.review.view.SetExpanded(m.review.expanded)
 	m.review.view.PinThreads(threadsByChapter(threadsByChapterParams{
 		Threads:  msg.threads,
 		Chapters: m.review.chapters,

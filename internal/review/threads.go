@@ -53,8 +53,8 @@ func (v *View) indexLines() lineIndex {
 			continue
 		}
 
-		file := v.patch.Files[current.file].Path()
-		line := v.patch.Files[current.file].Hunks[current.hunk].Lines[current.line]
+		file := v.files[current.file].Path()
+		line := v.files[current.file].Hunks[current.hunk].Lines[current.line]
 
 		if line.NewNumber > 0 {
 			index.byNew[newKey{filePath: file, newLine: int32(line.NewNumber)}] = y

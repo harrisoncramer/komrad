@@ -415,6 +415,11 @@ type ReviewKeys struct {
 	Reload []string `mapstructure:"reload" default:"R"`
 	// Settle the thread under the cursor, which marks it resolved without deleting it.
 	Resolve []string `mapstructure:"resolve" default:"r"`
+	// Draw the whole of the file the cursor is in rather than the changed lines and the
+	// three around them, or go back to those. The lines this adds behave like any other:
+	// the cursor rests on them and a comment can be written on one. A file stays open
+	// while you are reading this change and is drawn tight again when you leave.
+	Expand []string `mapstructure:"expand" default:"E"`
 	// Fold away the file the cursor is in once you have read it, or open it again. A file
 	// the agent writes to afterwards comes back on its own.
 	ToggleViewed []string `mapstructure:"toggle_viewed" default:"v"`

@@ -71,7 +71,7 @@ func (v *View) HiddenMatches() int {
 	}
 
 	hidden := 0
-	for _, file := range v.patch.Files {
+	for _, file := range v.files {
 		if !v.viewed[file.Path()] {
 			continue
 		}
@@ -155,7 +155,7 @@ func (v *View) quoteAt(y int) (string, bool) {
 		return "", false
 	}
 
-	line := v.patch.Files[current.file].Hunks[current.hunk].Lines[current.line]
+	line := v.files[current.file].Hunks[current.hunk].Lines[current.line]
 
 	return markerFor(line.Kind) + line.Text, true
 }

@@ -108,6 +108,23 @@ index 0000000000000000000000000000000000000000..a3c7f6e558464c8b1b0eab6d0a6c5368
 +}
 `
 
+// fakePatchOfATallFile changes one line in the middle of a file long enough that three lines of
+// context leave most of it off the screen, which is the file expanding exists for.
+const fakePatchOfATallFile = `diff --git a/tall.go b/tall.go
+index 0a90f17972dec66c378df67739faaf48b6235df9..23cef252a97433f151c14725c88e0c2dafce63ef 100644
+--- a/tall.go
++++ b/tall.go
+@@ -5,7 +5,7 @@ package tall
+ func One() {}
+ 
+ func Two() {
+-	fmt.Println("one")
++	fmt.Println("two")
+ }
+ 
+ func Three() {}
+`
+
 // fakePatchInAnExcludedPath is a worktree whose every changed line sits inside an excluded path.
 const fakePatchInAnExcludedPath = `diff --git a/proto/gen/api.pb.go b/proto/gen/api.pb.go
 new file mode 100644
@@ -127,6 +144,13 @@ const (
 	fakeSnapshotSHA = snapshotPrefix + fakeTree
 	fakeBaseSource  = "package greet\n\nfunc Hello() string {\n\treturn \"hello\"\n}\n"
 	fakeHeadSource  = "package greet\n\nfunc Hello() string {\n\treturn \"goodbye\"\n}\n"
+	fakeTallFile    = "tall.go"
+	// The two sources of the tall file differ only on line eight, so the lines the patch leaves
+	// out are lines one to four and twelve to thirteen.
+	fakeTallBase = "package tall\n\nimport \"fmt\"\n\nfunc One() {}\n\nfunc Two() {\n\tfmt.Println(\"one\")\n}" +
+		"\n\nfunc Three() {}\n\nfunc Four() {}\n"
+	fakeTallHead = "package tall\n\nimport \"fmt\"\n\nfunc One() {}\n\nfunc Two() {\n\tfmt.Println(\"two\")\n}" +
+		"\n\nfunc Three() {}\n\nfunc Four() {}\n"
 )
 
 // sourceOf names one file's whole source: the snapshot holding it and its path.
@@ -174,6 +198,21 @@ func newFakeRepo(root string) *fakeRepo {
 		sources: map[string]string{
 			sourceOf(fakeBaseSHA, fakeFile):     fakeBaseSource,
 			sourceOf(fakeSnapshotSHA, fakeFile): fakeHeadSource,
+		},
+	}
+}
+
+// newTallFakeRepo is a repository whose one changed file is long enough to have lines the patch
+// does not draw.
+func newTallFakeRepo(root string) *fakeRepo {
+	return &fakeRepo{
+		root:    root,
+		tree:    fakeTree,
+		patches: map[string]string{pairOf(fakeBaseSHA, fakeSnapshotSHA): fakePatchOfATallFile},
+		hidden:  map[string]bool{},
+		sources: map[string]string{
+			sourceOf(fakeBaseSHA, fakeTallFile):     fakeTallBase,
+			sourceOf(fakeSnapshotSHA, fakeTallFile): fakeTallHead,
 		},
 	}
 }

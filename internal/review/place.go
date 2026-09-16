@@ -4,6 +4,7 @@ import (
 	"cmp"
 	"slices"
 
+	"weave/internal/diff"
 	agentv1 "weave/proto/gen/agent/v1"
 )
 
@@ -225,7 +226,8 @@ func (v *View) appendAdrift(threads []*agentv1.ReviewThread) {
 	// makes a narrowed diff look like it has thrown every comment away.
 	var changed, outside []*agentv1.ReviewThread
 	for _, thread := range threads {
-		if _, drawn := v.findFile(v.pathOf(thread)); drawn {
+		_, drawn := v.findFile(v.pathOf(thread))
+		if drawn && !v.doesExpandingDraw(thread) {
 			changed = append(changed, thread)
 
 			continue
@@ -236,6 +238,40 @@ func (v *View) appendAdrift(threads []*agentv1.ReviewThread) {
 
 	v.appendFootSection(changedNotice, changed)
 	v.appendFootSection(outsideNotice, outside)
+}
+
+// doesExpandingDraw reports whether a thread stands on a line the reader would see again by
+// opening its file out, which is a comment off screen by their own choice rather than one the
+// agent has written over.
+func (v *View) doesExpandingDraw(thread *agentv1.ReviewThread) bool {
+	path := v.pathOf(thread)
+	if v.expanded[path] || thread.GetNewStart() == 0 {
+		return false
+	}
+
+	// A line the diff is drawing is on screen, so a thread adrift from it is one whose code has
+	// changed under it rather than one the reader has folded away.
+	drawn, ok := v.findFile(path)
+	if !ok || doesDrawLine(drawn, thread.GetNewStart()) {
+		return false
+	}
+
+	whole, ok := v.wholeFile(path)
+
+	return ok && doesDrawLine(whole, thread.GetNewStart())
+}
+
+// doesDrawLine reports whether a file draws one line of the new side.
+func doesDrawLine(file *diff.File, line int32) bool {
+	for hunkIndex := range file.Hunks {
+		for _, candidate := range file.Hunks[hunkIndex].Lines {
+			if int32(candidate.NewNumber) == line {
+				return true
+			}
+		}
+	}
+
+	return false
 }
 
 // appendFootSection draws one heading and the threads under it, and nothing for a section with

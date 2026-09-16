@@ -120,6 +120,11 @@ func reviewTable() []action {
 			run:  func(m model, _ string) (tea.Model, tea.Cmd) { return m.toggleReviewViewed() },
 		},
 		{
+			id:   actionReviewExpand,
+			keys: func(k config.Keybindings) []string { return k.Review.Expand },
+			run:  func(m model, _ string) (tea.Model, tea.Cmd) { return m.toggleReviewExpanded() },
+		},
+		{
 			id:   actionReviewFocusThread,
 			keys: func(k config.Keybindings) []string { return k.Review.FocusThread },
 			run:  func(m model, _ string) (tea.Model, tea.Cmd) { return m.focusReviewThread(), nil },
@@ -276,8 +281,8 @@ func reviewLegend() []legendRow {
 			desc: model.reviewResolveDesc,
 		},
 		{
-			of:   []actionID{actionReviewViewed},
-			desc: model.reviewViewedDesc,
+			of:   []actionID{actionReviewViewed, actionReviewExpand},
+			desc: model.reviewFileDesc,
 		},
 		{
 			of:   []actionID{actionReviewFocusThread},

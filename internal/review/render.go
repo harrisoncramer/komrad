@@ -121,10 +121,10 @@ func (v *View) renderFileRow(y int, current row, cursor Cursor, width int) strin
 // fileSummary is how much a collapsed file is hiding: the lines it changed, and how many
 // conversations in it are still open.
 func (v *View) fileSummary(fileIndex int) string {
-	stat := v.patch.Files[fileIndex].Stat()
+	stat := v.files[fileIndex].Stat()
 
 	summary := fmt.Sprintf("+%d −%d", stat.Added, stat.Removed)
-	if open := v.countOpenThreadsIn(v.patch.Files[fileIndex].Path()); open > 0 {
+	if open := v.countOpenThreadsIn(v.files[fileIndex].Path()); open > 0 {
 		summary += fmt.Sprintf("  %s %d", readMark, open)
 	}
 

@@ -82,6 +82,7 @@ const (
 	actionReviewReload
 	actionReviewResolve
 	actionReviewViewed
+	actionReviewExpand
 	actionReviewBaseForward
 	actionReviewCompose
 	actionReviewSend
