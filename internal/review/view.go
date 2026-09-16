@@ -645,17 +645,12 @@ func (v *View) GetDrawnFileAt(y int) (diff.File, bool) {
 // GetPatchFileAt is the file the cursor is inside as the patch holds it, before anything the
 // reader has opened out.
 func (v *View) GetPatchFileAt(y int) (diff.File, bool) {
-	drawn, ok := v.GetDrawnFileAt(y)
-	if !ok {
+	current, ok := v.getRow(y)
+	if !ok || current.file < 0 {
 		return diff.File{}, false
 	}
 
-	file, ok := v.patchFile(drawn.Path())
-	if !ok {
-		return diff.File{}, false
-	}
-
-	return *file, true
+	return v.patch.Files[current.file], true
 }
 
 // getLine is the diff line under the cursor.

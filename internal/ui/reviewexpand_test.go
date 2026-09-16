@@ -160,6 +160,16 @@ func rowOfNewLine(t *testing.T, m model, line int) int {
 func reloadReview(t *testing.T, m model) model {
 	t.Helper()
 
+	reloaded, _ := reloadReviewReading(t, m)
+
+	return reloaded
+}
+
+// reloadReviewReading is the same reload, handing back what the load answered as well as the
+// screen it left.
+func reloadReviewReading(t *testing.T, m model) (model, reviewLoadedMsg) {
+	t.Helper()
+
 	next, cmd := m.reloadReview()
 	require.NotNil(t, cmd)
 
@@ -168,7 +178,7 @@ func reloadReview(t *testing.T, m model) model {
 
 	next.applyReviewLoaded(loaded)
 
-	return next
+	return next, loaded
 }
 
 // TestACommentCanBeWrittenOnAnExpandedLine covers the reason expanding is worth having at all: a
@@ -260,24 +270,18 @@ func TestFoldingAnExpandedFileStaysFolded(t *testing.T) {
 	require.True(t, m.review.view.IsViewed(fakeTallFile), "the file folds away on screen")
 
 	require.NotNil(t, agents.marked)
-	assert.Equal(t, patchFingerprint(t, m, fakeTallFile), agents.marked.GetFingerprint(),
+
+	reloaded, loaded := reloadReviewReading(t, m)
+
+	assert.Equal(t, patchFingerprint(t, loaded, fakeTallFile), agents.marked.GetFingerprint(),
 		"the mark carries the fingerprint of the file as the patch holds it")
-
-	reloaded := reloadReview(t, m)
-
 	assert.True(t, reloaded.review.view.IsViewed(fakeTallFile), "and it is still read after a reload")
 }
 
-// patchFingerprint is the fingerprint a load computes for a file, which is the one a mark has to
+// patchFingerprint is the fingerprint a load computed for a file, which is the one a mark has to
 // match to survive.
-func patchFingerprint(t *testing.T, m model, path string) string {
+func patchFingerprint(t *testing.T, loaded reviewLoadedMsg, path string) string {
 	t.Helper()
-
-	_, cmd := m.reloadReview()
-	require.NotNil(t, cmd)
-
-	loaded, ok := cmd().(reviewLoadedMsg)
-	require.True(t, ok)
 
 	for i := range loaded.patch.Files {
 		if loaded.patch.Files[i].Path() == path {
