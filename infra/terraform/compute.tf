@@ -41,6 +41,13 @@ resource "aws_instance" "weave" {
     aws_region          = var.aws_region
   })
 
+  # User data now carries the database's address and secret, which move if RDS is ever replaced
+  # or restored. Writing them to a running instance would stop and start it to change a file
+  # cloud-init never re-reads, so the host would lose its agents and keep the old address. A
+  # replacement runs the script, and the data volume follows it, which is the same path an image
+  # change already takes.
+  user_data_replace_on_change = true
+
   dynamic "credit_specification" {
     for_each = startswith(var.instance_type, "t") ? [1] : []
 

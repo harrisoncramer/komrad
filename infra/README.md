@@ -30,7 +30,7 @@ The image itself is built by Packer from `packer/`, which is where the toolchain
 
 So the order of operations for a new host is: run `mise run packer:build`, take the AMI id it prints at the end, put it in `terraform.tfvars` as `ami_id`, then plan and apply.
 
-Changing `ami_id` replaces the instance. That is the upgrade path rather than an accident: a new image means a new host, the data volume is detached and reattached to it, and everything on the root volume is discarded. The two volumes have different jobs for that reason. The root volume is disposable and holds only what the image put there, while `/var/lib/weave` holds the things that must outlive a host, which is why weave's worktrees, its cache, and the Go build and module caches are all pointed at it.
+Changing `ami_id` replaces the instance, and so does anything that moves the database, since the host is told its address and its secret through user data. Replacing RDS or restoring it from a snapshot therefore costs the host as well, and the agents on it. That is the upgrade path rather than an accident: a new image means a new host, the data volume is detached and reattached to it, and everything on the root volume is discarded. The two volumes have different jobs for that reason. The root volume is disposable and holds only what the image put there, while `/var/lib/weave` holds the things that must outlive a host, which is why weave's worktrees, its cache, and the Go build and module caches are all pointed at it.
 
 The image carries no credentials. A unit fetches the database password at boot and writes `/etc/weave/database.env`, and weave's own unit is skipped until that file exists, so a host that cannot reach its secret runs no weave rather than failing in a loop.
 
