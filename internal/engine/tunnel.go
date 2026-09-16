@@ -8,6 +8,7 @@ import (
 	"net"
 	"os/exec"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -38,13 +39,23 @@ type Tunnel struct {
 // TunnelPort is the port an engine's forward always lands on, so a tunnel that outlived its panel
 // is reused rather than leaked. It is derived from the engine so two engines never collide.
 func (r Remote) TunnelPort(engineAddr string) int {
-	sum := sha256.Sum256([]byte(r.Destination + "/" + engineAddr))
+	sum := sha256.Sum256([]byte(r.Destination + strings.Join(r.Exec, " ") + "/" + engineAddr))
 
 	return tunnelPortBase + int(binary.BigEndian.Uint16(sum[:2]))%tunnelPortSpan
 }
 
-// TunnelArgv is what ssh is run with to forward local to the engine's address.
+// TunnelArgv is what is run to forward local to the engine's address.
 func (r Remote) TunnelArgv(local, engineAddr string) []string {
+	if len(r.Forward) > 0 {
+		_, localPort, _ := net.SplitHostPort(local)       //nolint:errcheck // weave built this address
+		_, enginePort, _ := net.SplitHostPort(engineAddr) //nolint:errcheck // a bad one fails at dial
+
+		return fill(r.Forward, map[string]string{
+			LocalPortPlaceholder:  localPort,
+			RemotePortPlaceholder: enginePort,
+		})
+	}
+
 	return []string{
 		"ssh",
 		"-N",
@@ -77,7 +88,7 @@ func (r Remote) Dial(ctx context.Context, engineAddr string, wait time.Duration)
 	command := exec.CommandContext(ctx, argv[0], argv[1:]...) //nolint:gosec // the destination is the user's own config
 
 	if err := command.Start(); err != nil {
-		return nil, fmt.Errorf("failed to open an ssh tunnel to %s: %w", r.Destination, err)
+		return nil, fmt.Errorf("failed to open a tunnel to %s: %w", r, err)
 	}
 
 	tunnel := &Tunnel{Local: local, command: command}
@@ -85,7 +96,7 @@ func (r Remote) Dial(ctx context.Context, engineAddr string, wait time.Duration)
 	if err := waitForPort(ctx, local, wait); err != nil {
 		_ = tunnel.Close() //nolint:errcheck // the start failed, and the close is only tidying up after it
 
-		return nil, fmt.Errorf("the tunnel to %s never carried %s: %w", r.Destination, engineAddr, err)
+		return nil, fmt.Errorf("the tunnel to %s never carried %s: %w", r, engineAddr, err)
 	}
 
 	return tunnel, nil

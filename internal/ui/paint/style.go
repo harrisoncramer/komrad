@@ -23,7 +23,7 @@ var MatchStyle = lipgloss.NewStyle().Foreground(Warning).Bold(true)
 
 // stageMatchStyle marks a match in rendered markdown, where the warning colour the listing marks
 // with is already spoken for by inline code, so the word gets a block behind it instead.
-var stageMatchStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("0")).Background(Muted)
+var stageMatchStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("0")).Background(Danger).Bold(true)
 
 // BrokenStyle is what a row draws in when what it stands for is gone.
 var BrokenStyle = lipgloss.NewStyle().Foreground(Danger)

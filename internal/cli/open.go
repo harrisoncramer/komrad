@@ -39,6 +39,10 @@ it needs somewhere for agents to be put back into.`,
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			if err := refuseNesting(state); err != nil {
+				return err
+			}
+
 			if err := ensureManagerSession(cmd.Context(), state, detach); err != nil {
 				return err
 			}
@@ -189,4 +193,15 @@ func hostPath(socket string) string {
 	}
 
 	return tmux.NewClientAtPath(socket).GetClientPath()
+}
+
+// refuseNesting stops a panel opening inside an agent's own pane.
+func refuseNesting(state *app) error {
+	if state.env.AgentID == "" {
+		return nil
+	}
+
+	return fmt.Errorf(
+		"this is agent %s's own pane, so opening a panel here would nest one weave inside "+
+			"another: open it from your own terminal instead", state.env.AgentID)
 }
