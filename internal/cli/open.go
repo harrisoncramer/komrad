@@ -113,8 +113,16 @@ func isPanelRunning(ctx context.Context, state *app) bool {
 // the session it already has when only the panel has gone.
 func ensureManagerSession(ctx context.Context, state *app, detached, headless bool) error {
 	if !isManagerSessionRunning(ctx, state) {
-		return runTmux(ctx, state, "failed to create the manager session",
-			buildManagerSessionArgs(state, getSelfPath(), headless))
+		if err := runTmux(ctx, state, "failed to create the manager session",
+			buildManagerSessionArgs(state, getSelfPath(), headless)); err != nil {
+			return err
+		}
+
+		if headless {
+			silenceManagerPrefix(state)
+		}
+
+		return nil
 	}
 
 	if headless || isPanelRunning(ctx, state) {
@@ -123,6 +131,13 @@ func ensureManagerSession(ctx context.Context, state *app, detached, headless bo
 
 	return runTmux(ctx, state, "failed to open a panel window in the manager session",
 		buildPanelWindowArgs(state, getSelfPath(), detached))
+}
+
+// silenceManagerPrefix leaves the engine's own server answering to no prefix, since a headless
+// session is a transport for a panel elsewhere rather than something anybody drives from here.
+func silenceManagerPrefix(state *app) {
+	state.tmux.SetGlobal("prefix", "None")
+	state.tmux.SetGlobal("prefix2", "None")
 }
 
 func runTmux(ctx context.Context, state *app, summary string, args []string) error {
