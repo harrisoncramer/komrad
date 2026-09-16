@@ -197,3 +197,106 @@ func TestTunnelPortIsInTheChosenRange(t *testing.T) {
 		assert.Less(t, port, 20000)
 	}
 }
+
+// ssmEngine is an engine reached by a transport that is not ssh, written the way a user would
+// configure AWS Session Manager, to show weave needs to know nothing about it.
+func ssmEngine() engine.Remote {
+	return engine.Remote{
+		Exec: []string{
+			"aws", "ssm", "start-session", "--target", "i-0abc",
+			"--document-name", "AWS-StartInteractiveCommand",
+			"--parameters", `command=["{{command_json}}"]`,
+		},
+		Forward: []string{
+			"aws", "ssm", "start-session", "--target", "i-0abc",
+			"--document-name", "AWS-StartPortForwardingSession",
+			"--parameters", `{"portNumber":["{{remote_port}}"],"localPortNumber":["{{local_port}}"]}`,
+		},
+		User:    "weave",
+		Socket:  "weave",
+		Session: "weave",
+	}
+}
+
+// TestATransportIsRemoteWithoutAnSshDestination covers a transport that needs no host, which is
+// what lets the engine keep no public address.
+func TestATransportIsRemoteWithoutAnSshDestination(t *testing.T) {
+	t.Parallel()
+
+	assert.True(t, ssmEngine().IsRemote())
+}
+
+// TestAttachArgvUsesTheConfiguredTransport covers weave running what it was given rather than
+// anything it knows about a cloud.
+func TestAttachArgvUsesTheConfiguredTransport(t *testing.T) {
+	t.Parallel()
+
+	argv := ssmEngine().AttachArgv("%9")
+
+	assert.Equal(t, []string{"aws", "ssm", "start-session"}, argv[:3])
+	assert.NotContains(t, argv, "ssh")
+}
+
+// TestAttachArgvFillsTheCommandPlaceholder covers the transport being told what to run, escaped
+// for the json the placeholder sits inside.
+func TestAttachArgvFillsTheCommandPlaceholder(t *testing.T) {
+	t.Parallel()
+
+	argv := ssmEngine().AttachArgv("%9")
+	parameters := argv[len(argv)-1]
+
+	assert.NotContains(t, parameters, "{{command_json}}")
+	assert.Contains(t, parameters, "view-9")
+
+	// The script quotes with backslashes, and those have to survive being placed inside json or
+	// the far side is handed a different script than the one weave built.
+	assert.Contains(t, parameters, `\\`)
+}
+
+// TestAttachArgvStepsIntoTheEnginesAccount covers a transport arriving as its own account rather
+// than the one that owns the tmux server.
+func TestAttachArgvStepsIntoTheEnginesAccount(t *testing.T) {
+	t.Parallel()
+
+	assert.Contains(t, ssmEngine().AttachArgv("%9")[len(ssmEngine().AttachArgv("%9"))-1],
+		`sudo -u ` + "'weave'")
+}
+
+// TestNoUserMeansNothingIsSteppedInto covers a transport that already arrives as the right
+// account, like an ssh destination naming one.
+func TestNoUserMeansNothingIsSteppedInto(t *testing.T) {
+	t.Parallel()
+
+	remote := engine.Remote{Destination: "weave@host", Socket: "weave", Session: "weave"}
+
+	assert.NotContains(t, remote.AttachArgv("%9")[3], "sudo")
+}
+
+// TestTunnelArgvFillsBothPorts covers the forward being told which two ends to join.
+func TestTunnelArgvFillsBothPorts(t *testing.T) {
+	t.Parallel()
+
+	argv := ssmEngine().TunnelArgv("127.0.0.1:19123", "127.0.0.1:8787")
+	parameters := argv[len(argv)-1]
+
+	assert.Equal(t, []string{"aws", "ssm", "start-session"}, argv[:3])
+	assert.Contains(t, parameters, `"portNumber":["8787"]`)
+	assert.Contains(t, parameters, `"localPortNumber":["19123"]`)
+}
+
+// TestSshIsStillTheShorthand covers the common case staying one line of config.
+func TestSshIsStillTheShorthand(t *testing.T) {
+	t.Parallel()
+
+	remote := engine.Remote{Destination: "weave@host", Socket: "weave", Session: "weave"}
+
+	assert.Equal(t, "ssh", remote.AttachArgv("%9")[0])
+	assert.Equal(t, "ssh", remote.TunnelArgv("127.0.0.1:1", "127.0.0.1:2")[0])
+}
+
+// TestStringNamesTheTransport covers an error saying how the engine is reached.
+func TestStringNamesTheTransport(t *testing.T) {
+	t.Parallel()
+
+	assert.Contains(t, ssmEngine().String(), "aws ssm start-session")
+}

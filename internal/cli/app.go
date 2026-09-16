@@ -39,6 +39,9 @@ func (a *app) engine() engine.Remote {
 
 	return engine.Remote{
 		Destination: a.env.SSH,
+		Exec:        a.env.Exec,
+		Forward:     a.env.Forward,
+		User:        a.env.EngineUser,
 		Socket:      socket,
 		Session:     agents.ManagerSession,
 	}

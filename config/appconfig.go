@@ -97,12 +97,10 @@ const DefaultHarness = "claude"
 // The layout the panel lays itself out at when the config names none. The info pane opens
 // tall enough to read a log in without pushing the agent above it off the screen.
 const (
-	DefaultSidebarSide  = SidebarSideLeft
-	DefaultSidebarWidth = 30
-	DefaultInfoSide     = InfoSideBelow
-	DefaultInfoHeight   = 0.4
-	// DefaultDetailsHeight holds a record's first fields and scrolls the rest, since a share of
-	// the sidebar takes room off the list on a tall screen without showing any more of a record.
+	DefaultSidebarSide   = SidebarSideLeft
+	DefaultSidebarWidth  = 30
+	DefaultInfoSide      = InfoSideBelow
+	DefaultInfoHeight    = 0.4
 	DefaultDetailsHeight = 9
 )
 
@@ -662,6 +660,21 @@ type Connection struct {
 	// a destination. Left empty it is tmux_socket, which is right when both machines run a
 	// default weave and wrong when this machine is also running an engine of its own.
 	EngineTmuxSocket string `mapstructure:"engine_tmux_socket"`
+	// The key, after your tmux prefix, that opens and hides this weave's panel. Left empty it
+	// is whatever @weave_key says, and failing that g.
+	PanelKey string `mapstructure:"panel_key"`
+	// How to run a command on the engine, as an argv, when ssh is not how you reach it.
+	// "{{command}}" is replaced with what weave wants run there, and "{{command_json}}" with the
+	// same text escaped for embedding in JSON. It needs to allocate a terminal, since what it
+	// carries is an interactive one.
+	Exec []string `mapstructure:"exec"`
+	// How to forward a port from this machine to the engine, as an argv, when ssh is not how you
+	// reach it. "{{local_port}}" and "{{remote_port}}" are replaced with the two ends. It should
+	// stay in the foreground for as long as the forward is wanted.
+	Forward []string `mapstructure:"forward"`
+	// The account on the engine that owns its tmux server, where the transport does not already
+	// arrive as it. Left empty nothing is stepped into.
+	EngineUser string `mapstructure:"engine_user"`
 }
 
 // Config is the user's customization.

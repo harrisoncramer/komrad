@@ -101,6 +101,8 @@ type panelKeyTmux interface {
 type BindPanelKeyParams struct {
 	Self        string
 	ConfigPaths []string
+	// Key is the panel key this weave asks for, empty meaning whatever the tmux option says.
+	Key string
 }
 
 // Explainer: the panel runs in a tmux session of its own that stays alive between presses, so
@@ -117,7 +119,13 @@ type BindPanelKeyParams struct {
 
 // BindPanelKey binds the panel key on the user's own tmux server, where it is pressed.
 func BindPanelKey(t panelKeyTmux, params BindPanelKeyParams) error {
-	key := t.ShowGlobal(managerKeyOption)
+	// A weave that names its own key can be bound beside another one, which is how a panel for a
+	// remote engine and a panel for a local one both answer from the same tmux.
+	key := params.Key
+	if key == "" {
+		key = t.ShowGlobal(managerKeyOption)
+	}
+
 	if key == "" {
 		key = defaultPanelKey
 	}
