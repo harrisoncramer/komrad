@@ -71,6 +71,9 @@ type View struct {
 	viewed map[string]bool
 	// expanded is the files the person reviewing has opened out, by path.
 	expanded map[string]bool
+	// whole is each file with every line of it drawn, built the first time it is asked for and
+	// kept, since it is the same answer every time and rebuilding it is the length of the file.
+	whole map[string]*diff.File
 	// threads is what was last pinned, kept so collapsing a file can pin them again over the rows
 	// that rebuilding left.
 	threads []*agentv1.ReviewThread
@@ -88,6 +91,7 @@ func NewView(patch *diff.Patch, isDark bool) *View {
 		files:    slices.Clone(patch.Files),
 		viewed:   map[string]bool{},
 		expanded: map[string]bool{},
+		whole:    map[string]*diff.File{},
 	}
 
 	highlight := newHighlighter(isDark)
@@ -215,7 +219,7 @@ func (v *View) SetFileExpanded(path string, expanded bool) bool {
 		return false
 	}
 
-	if !v.IsExpandable(path) {
+	if _, ok := v.wholeFile(path); !ok {
 		return false
 	}
 
@@ -228,28 +232,43 @@ func (v *View) SetFileExpanded(path string, expanded bool) bool {
 // IsExpanded reports whether a file is drawn whole.
 func (v *View) IsExpanded(path string) bool { return v.expanded[path] }
 
-// IsExpandable reports whether a file has lines the patch is not already drawing.
-func (v *View) IsExpandable(path string) bool {
-	file, ok := v.patchFile(path)
-	if !ok {
-		return false
+// wholeFile is a file with every line of it drawn, and false for one there is nothing to add to.
+func (v *View) wholeFile(path string) (*diff.File, bool) {
+	if found, ok := v.whole[path]; ok {
+		return found, found != nil
 	}
 
-	_, ok = diff.Expand(*file)
+	v.whole[path] = nil
 
-	return ok
+	file, ok := v.patchFile(path)
+	if !ok {
+		return nil, false
+	}
+
+	expanded, ok := diff.Expand(*file)
+	if !ok {
+		return nil, false
+	}
+
+	v.whole[path] = &expanded
+
+	return &expanded, true
 }
 
 // redraw builds the files as they are drawn, flattens them into rows, and puts the threads back
 // on the rows they now belong to, which is also what runs a standing search again.
 func (v *View) redraw() {
 	for index := range v.patch.Files {
-		file := v.patch.Files[index]
-		if v.expanded[file.Path()] {
-			file, _ = diff.Expand(file)
+		path := v.patch.Files[index].Path()
+
+		v.files[index] = v.patch.Files[index]
+		if !v.expanded[path] {
+			continue
 		}
 
-		v.files[index] = file
+		if whole, ok := v.wholeFile(path); ok {
+			v.files[index] = *whole
+		}
 	}
 
 	v.build()

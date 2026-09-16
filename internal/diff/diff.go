@@ -32,9 +32,8 @@ type Line struct {
 type Hunk struct {
 	Header string
 	Lines  []Line
-	// OldStart and NewStart are the first line each side of the hunk covers, which is what the
-	// header states and what the gap above it is numbered from.
-	OldStart int
+	// NewStart is the first line of the new side the hunk covers, which is where the run of
+	// lines above it ends.
 	NewStart int
 }
 

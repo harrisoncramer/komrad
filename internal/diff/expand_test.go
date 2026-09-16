@@ -21,7 +21,6 @@ func changedFile() File {
 		NewSource: wholeSource,
 		Hunks: []Hunk{{
 			Header:   "@@ -5,1 +5,1 @@",
-			OldStart: 5,
 			NewStart: 5,
 			Lines: []Line{
 				{
@@ -95,7 +94,6 @@ func TestExpandRefusesAFileAlreadyDrawnWhole(t *testing.T) {
 		NewPath:   "greet.go",
 		NewSource: "one\ntwo\n",
 		Hunks: []Hunk{{
-			OldStart: 0,
 			NewStart: 1,
 			Lines: []Line{
 				{
@@ -149,7 +147,6 @@ func TestExpandNumbersAGapBySidesThatHaveDiverged(t *testing.T) {
 		NewSource: wholeSource,
 		Hunks: []Hunk{
 			{
-				OldStart: 2,
 				NewStart: 2,
 				Lines: []Line{
 					{
@@ -165,7 +162,6 @@ func TestExpandNumbersAGapBySidesThatHaveDiverged(t *testing.T) {
 				},
 			},
 			{
-				OldStart: 6,
 				NewStart: 8,
 				Lines: []Line{{
 					Kind:      Addition,
@@ -208,4 +204,47 @@ func TestExpandDrawsEveryLineOfTheNewSide(t *testing.T) {
 	}
 
 	assert.Equal(t, strings.Split(strings.TrimSuffix(wholeSource, "\n"), "\n"), drawn)
+}
+
+// TestExpandNumbersAGapBelowAPureInsertion covers a hunk carrying no line of the old side at all,
+// which is where reading the shift off either side's last line numbers every line below it
+// against the wrong old line.
+func TestExpandNumbersAGapBelowAPureInsertion(t *testing.T) {
+	file := File{
+		OldPath:   "greet.go",
+		NewPath:   "greet.go",
+		NewSource: wholeSource,
+		Hunks: []Hunk{{
+			Header:   "@@ -1,0 +2,2 @@",
+			NewStart: 2,
+			Lines: []Line{
+				{
+					Kind:      Addition,
+					Text:      "two",
+					NewNumber: 2,
+				},
+				{
+					Kind:      Addition,
+					Text:      "three",
+					NewNumber: 3,
+				},
+			},
+		}},
+	}
+
+	expanded, ok := Expand(file)
+	require.True(t, ok)
+
+	below := map[int]Line{}
+	for _, line := range expanded.Hunks[0].Lines {
+		if line.Kind == Context {
+			below[line.NewNumber] = line
+		}
+	}
+
+	require.Contains(t, below, 4)
+	assert.Equal(t, 2, below[4].OldNumber, "two lines went in above it, so the old side is two behind")
+
+	require.Contains(t, below, 1)
+	assert.Equal(t, 1, below[1].OldNumber, "and the line above the insertion is where it was")
 }

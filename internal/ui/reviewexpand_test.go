@@ -3,6 +3,8 @@ package ui
 import (
 	"testing"
 
+	agentv1 "weave/proto/gen/agent/v1"
+
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/charmbracelet/x/ansi"
@@ -199,4 +201,41 @@ func TestACommentCanBeWrittenOnAnExpandedLine(t *testing.T) {
 	assert.Equal(t, fakeTallFile, agents.created.GetFilePath())
 	assert.Equal(t, int32(13), agents.created.GetNewStart(), "anchored to the line it was written on")
 	assert.Equal(t, []string{" func Four() {}"}, agents.created.GetQuotedLines())
+}
+
+// TestCollapsingPutsItsCommentOffScreenRatherThanCallingItChanged covers a comment written on a
+// line only expanding drew, whose line is still there after the file is drawn tight again, so the
+// heading for code the agent has rewritten would say something false about it.
+func TestCollapsingPutsItsCommentOffScreenRatherThanCallingItChanged(t *testing.T) {
+	m, agents := tallReview(t)
+
+	m = pressExpand(t, m)
+	m.review.cursor = rowOfNewLine(t, m, 13)
+
+	anchor, ok := m.review.view.GetAnchor(m.review.cursor)
+	require.True(t, ok)
+	require.Equal(t, 13, anchor.NewStart, "the comment is on a line only expanding draws")
+
+	agents.threads = []*agentv1.ReviewThread{{
+		Id:          "t1",
+		FilePath:    anchor.FilePath,
+		OldStart:    int32(anchor.OldStart),
+		NewStart:    int32(anchor.NewStart),
+		QuotedLines: anchor.QuotedLines,
+		Messages: []*agentv1.ReviewMessage{{
+			Id:         "m1",
+			AuthorKind: agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_HUMAN,
+			Body:       "unchanged and wrong",
+		}},
+	}}
+
+	m = reloadReview(t, m)
+	require.True(t, m.review.view.IsExpanded(fakeTallFile), "the file is still open")
+
+	collapsed := ansi.Strip(reviewFrameText(t, pressExpand(t, m)))
+
+	assert.Contains(t, collapsed, "outside what is on screen",
+		"the comment is off screen by the reader's own choice")
+	assert.NotContains(t, collapsed, "has changed",
+		"nothing about the agent's work moved")
 }

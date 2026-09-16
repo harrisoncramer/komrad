@@ -11,7 +11,7 @@ func Expand(file File) (File, bool) {
 	}
 
 	filled := make([]Line, 0, len(source))
-	oldEnd, newEnd := 0, 0
+	shift, newEnd := 0, 0
 
 	for hunkIndex := range file.Hunks {
 		hunk := &file.Hunks[hunkIndex]
@@ -19,17 +19,17 @@ func Expand(file File) (File, bool) {
 			Source: source,
 			From:   newEnd + 1,
 			Until:  hunk.NewStart - 1,
-			Shift:  hunk.OldStart - hunk.NewStart,
+			Shift:  shift,
 		})...)
 		filled = append(filled, hunk.Lines...)
-		oldEnd, newEnd = endsOf(hunk, oldEnd, newEnd)
+		shift, newEnd = shiftAfter(hunk, shift), newEndOf(hunk, newEnd)
 	}
 
 	filled = append(filled, gapLines(gapLinesParams{
 		Source: source,
 		From:   newEnd + 1,
 		Until:  len(source),
-		Shift:  oldEnd - newEnd,
+		Shift:  shift,
 	})...)
 
 	if len(filled) == countLines(file.Hunks) {
@@ -38,7 +38,7 @@ func Expand(file File) (File, bool) {
 
 	// One hunk covering the file, with no header, since a header saying where a run starts says
 	// nothing about a run that is the whole file.
-	file.Hunks = []Hunk{{Lines: filled, OldStart: 1, NewStart: 1}}
+	file.Hunks = []Hunk{{Lines: filled, NewStart: 1}}
 
 	return file, true
 }
@@ -85,15 +85,31 @@ func gapLines(params gapLinesParams) []Line {
 	return lines
 }
 
-// endsOf is the last line each side of a hunk covers, carrying the ends before it through a hunk
-// that touches only one side.
-func endsOf(hunk *Hunk, oldEnd, newEnd int) (int, int) {
+// shiftAfter is how far the old side's numbering sits from the new side's below a hunk, counted
+// rather than read off either side's last line, which a hunk of nothing but additions does not
+// move.
+func shiftAfter(hunk *Hunk, shift int) int {
 	for _, line := range hunk.Lines {
-		oldEnd = max(oldEnd, line.OldNumber)
+		switch line.Kind {
+		case Deletion:
+			shift++
+		case Addition:
+			shift--
+		case Context:
+		}
+	}
+
+	return shift
+}
+
+// newEndOf is the last line of the new side a hunk covers, which a hunk of nothing but deletions
+// leaves where it was.
+func newEndOf(hunk *Hunk, newEnd int) int {
+	for _, line := range hunk.Lines {
 		newEnd = max(newEnd, line.NewNumber)
 	}
 
-	return oldEnd, newEnd
+	return newEnd
 }
 
 // countLines is how many lines a file's hunks draw between them.

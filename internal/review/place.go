@@ -225,7 +225,8 @@ func (v *View) appendAdrift(threads []*agentv1.ReviewThread) {
 	// makes a narrowed diff look like it has thrown every comment away.
 	var changed, outside []*agentv1.ReviewThread
 	for _, thread := range threads {
-		if _, drawn := v.findFile(v.pathOf(thread)); drawn {
+		_, drawn := v.findFile(v.pathOf(thread))
+		if drawn && !v.doesExpandingDraw(thread) {
 			changed = append(changed, thread)
 
 			continue
@@ -236,6 +237,31 @@ func (v *View) appendAdrift(threads []*agentv1.ReviewThread) {
 
 	v.appendFootSection(changedNotice, changed)
 	v.appendFootSection(outsideNotice, outside)
+}
+
+// doesExpandingDraw reports whether a thread stands on a line the reader would see again by
+// opening its file out, which is a comment off screen by their own choice rather than one the
+// agent has written over.
+func (v *View) doesExpandingDraw(thread *agentv1.ReviewThread) bool {
+	path := v.pathOf(thread)
+	if v.expanded[path] || thread.GetNewStart() == 0 {
+		return false
+	}
+
+	whole, ok := v.wholeFile(path)
+	if !ok {
+		return false
+	}
+
+	for hunkIndex := range whole.Hunks {
+		for _, line := range whole.Hunks[hunkIndex].Lines {
+			if int32(line.NewNumber) == thread.GetNewStart() {
+				return true
+			}
+		}
+	}
+
+	return false
 }
 
 // appendFootSection draws one heading and the threads under it, and nothing for a section with

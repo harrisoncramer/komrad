@@ -298,17 +298,17 @@ func (m model) toggleReviewExpanded() (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 
-		if !m.review.view.IsExpandable(path) {
-			m.review.notice = "there is no more of that file to show"
-
-			return m, nil
-		}
 	}
 
 	// Where the cursor is standing is taken before the rows are built again.
 	place, located := m.review.view.GetPlace(m.review.cursor)
 
-	m.review.view.SetFileExpanded(path, expanding)
+	if m.review.view.SetFileExpanded(path, expanding) != expanding {
+		m.review.notice = "there is no more of that file to show"
+
+		return m, nil
+	}
+
 	m.review.expanded = withExpanded(m.review.expanded, path, expanding)
 
 	m = m.blurReviewThread()

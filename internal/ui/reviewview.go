@@ -415,9 +415,11 @@ func (m model) reviewFileDesc() string {
 		return "fold / whole file"
 	}
 
+	// A folded file has nothing on screen to open out, so the expand key is refused there and
+	// the legend names the fold key alone.
 	file, ok := m.review.view.GetFileAt(m.review.cursor)
 	if ok && m.review.view.IsViewed(file.Path()) {
-		return "open / whole file"
+		return "open the file"
 	}
 
 	if ok && m.review.view.IsExpanded(file.Path()) {
