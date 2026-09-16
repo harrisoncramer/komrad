@@ -6,6 +6,8 @@ import "runtime/debug"
 
 var stamped string
 
+var stampedCommit string
+
 const devel = "devel"
 
 // Version is which build this binary is.
@@ -13,6 +15,13 @@ func Version() string {
 	info, _ := debug.ReadBuildInfo()
 
 	return get(stamped, info)
+}
+
+// Commit is the commit this binary was built from, empty unless it names the source exactly.
+func Commit() string {
+	info, _ := debug.ReadBuildInfo()
+
+	return getCommit(stampedCommit, info)
 }
 
 func get(stamped string, info *debug.BuildInfo) string {
@@ -25,4 +34,29 @@ func get(stamped string, info *debug.BuildInfo) string {
 	}
 
 	return info.Main.Version
+}
+
+func getCommit(stamped string, info *debug.BuildInfo) string {
+	if stamped != "" {
+		return stamped
+	}
+
+	if info == nil {
+		return ""
+	}
+
+	revision := ""
+
+	for _, setting := range info.Settings {
+		switch setting.Key {
+		case "vcs.revision":
+			revision = setting.Value
+		case "vcs.modified":
+			if setting.Value == "true" {
+				return ""
+			}
+		}
+	}
+
+	return revision
 }

@@ -22,11 +22,27 @@ shell_scripts() {
 	find "${roots[@]}" -type f -exec file {} + | grep -i 'shell script' | cut -d: -f1
 }
 
+tree_is_dirty() {
+	[ -n "$(git status --porcelain)" ]
+}
+
+# The toolchain records no revision when it is built from a git worktree, so the commit is
+# stamped in the same way the version is.
+build_commit() {
+	if ! git rev-parse --git-dir >/dev/null 2>&1 || tree_is_dirty; then
+		return 0
+	fi
+
+	git rev-parse HEAD
+}
+
 go_build_binary() {
 	local os="$1" arch="$2" version="$3" out="$4"
+	local commit
+	commit="$(build_commit)"
 
 	CGO_ENABLED=0 GOOS="$os" GOARCH="$arch" go build \
 		-trimpath \
-		-ldflags "-s -w -X weave/internal/version.stamped=$version" \
+		-ldflags "-s -w -X weave/internal/version.stamped=$version -X weave/internal/version.stampedCommit=$commit" \
 		-o "$out" .
 }

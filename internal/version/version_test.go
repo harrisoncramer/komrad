@@ -66,3 +66,59 @@ func TestGet(t *testing.T) {
 func TestVersionIsNeverEmpty(t *testing.T) {
 	assert.NotEmpty(t, Version())
 }
+
+// TestGetCommit covers the commit the panel compares a server against, which has to be empty
+// rather than wrong whenever it does not name the source exactly.
+func TestGetCommit(t *testing.T) {
+	revision := debug.BuildSetting{Key: "vcs.revision", Value: "6da018be0403648b090dfa7695d160efea180b49"}
+
+	tests := []struct {
+		name    string
+		stamped string
+		info    *debug.BuildInfo
+		want    string
+	}{
+		{
+			name:    "no build information at all",
+			stamped: "",
+			info:    nil,
+			want:    "",
+		},
+		{
+			name:    "a build the toolchain recorded no revision for",
+			stamped: "",
+			info:    &debug.BuildInfo{},
+			want:    "",
+		},
+		{
+			name:    "an ordinary go build in a checkout",
+			stamped: "",
+			info: &debug.BuildInfo{Settings: []debug.BuildSetting{
+				revision,
+				{Key: "vcs.modified", Value: "false"},
+			}},
+			want: "6da018be0403648b090dfa7695d160efea180b49",
+		},
+		{
+			name:    "a build from a dirty tree, which the revision no longer describes",
+			stamped: "",
+			info: &debug.BuildInfo{Settings: []debug.BuildSetting{
+				revision,
+				{Key: "vcs.modified", Value: "true"},
+			}},
+			want: "",
+		},
+		{
+			name:    "a cross build stamped at link time",
+			stamped: "0000000000000000000000000000000000000000",
+			info:    &debug.BuildInfo{Settings: []debug.BuildSetting{revision}},
+			want:    "0000000000000000000000000000000000000000",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, getCommit(tt.stamped, tt.info))
+		})
+	}
+}
