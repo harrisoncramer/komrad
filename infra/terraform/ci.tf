@@ -5,6 +5,24 @@
 # the token says this repository. Nothing long-lived is stored in GitHub, so there is no secret to
 # rotate and nothing useful to leak out of a fork.
 
+# GitHub now writes immutable numeric ids into the subject it signs, so that a repository name
+# freed up and taken by somebody else does not inherit this trust. Both spellings are accepted,
+# and naming the ids in tfvars pins the newer one to this repository rather than to its name.
+locals {
+  github_parts = var.github_repository == "" ? ["", ""] : split("/", var.github_repository)
+  github_owner = local.github_parts[0]
+  github_name  = local.github_parts[1]
+
+  github_identified = var.github_owner_id != "" && var.github_repository_id != ""
+
+  github_subjects = [
+    "repo:${var.github_repository}:ref:refs/heads/*",
+    local.github_identified
+    ? "repo:${local.github_owner}@${var.github_owner_id}/${local.github_name}@${var.github_repository_id}:ref:refs/heads/*"
+    : "repo:${local.github_owner}@*/${local.github_name}@*:ref:refs/heads/*",
+  ]
+}
+
 resource "aws_iam_openid_connect_provider" "github" {
   count = var.github_repository == "" ? 0 : 1
 
@@ -36,7 +54,7 @@ data "aws_iam_policy_document" "github_assume" {
     condition {
       test     = "StringLike"
       variable = "token.actions.githubusercontent.com:sub"
-      values   = ["repo:${var.github_repository}:ref:refs/heads/*"]
+      values   = local.github_subjects
     }
   }
 }

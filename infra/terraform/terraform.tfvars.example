@@ -8,3 +8,8 @@ availability_zone               = "us-east-1a"
 
 ssh_public_key    = "ssh-ed25519 AAAA... weave-engine"
 ssh_allowed_cidrs = ["203.0.113.4/32"]
+
+github_repository    = "owner/repo"
+github_owner_id      = "0000000"
+github_repository_id = "000000000"
+state_bucket         = "your-terraform-state-bucket"

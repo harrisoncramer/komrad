@@ -164,3 +164,13 @@ variable "state_bucket" {
   type    = string
   default = ""
 }
+
+variable "github_owner_id" {
+  type    = string
+  default = ""
+}
+
+variable "github_repository_id" {
+  type    = string
+  default = ""
+}
