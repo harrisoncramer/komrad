@@ -248,3 +248,32 @@ func TestBuildManagerSessionArgsHeadlessHoldsNoPanel(t *testing.T) {
 		forwardedEnv(t, args),
 		"a headless session still carries what an agent launched into it needs")
 }
+
+// TestUserPanelKeyPrefersTheConfiguredKey covers the key the panel hides on being the one the
+// binding was made with.
+func TestUserPanelKeyPrefersTheConfiguredKey(t *testing.T) {
+	managerSocket := throwawaySocket(t)
+	panelSession(t, managerSocket)
+
+	hostSocket := throwawaySocket(t)
+	require.NoError(t, exec.Command("tmux", "-L", hostSocket, "-f", "/dev/null",
+		"new-session", "-d", "-s", "userland").Run())
+
+	hostPath := hostQuery(t, hostSocket, "display-message", "-p", "#{socket_path}")
+
+	state := hideState(managerSocket, "")
+	state.env.PanelKey = "w"
+
+	assert.Equal(t, "w", userPanelKey(state, hostPath),
+		"the config names the key the opener was bound on, so it names the one that hides too")
+
+	require.NoError(t, exec.Command("tmux", "-L", hostSocket, "set-option", "-g", "@weave_key", "j").Run())
+
+	assert.Equal(t, "w", userPanelKey(state, hostPath),
+		"the opener takes the config over the tmux option, so the hide key cannot take the other")
+
+	state.env.PanelKey = ""
+
+	assert.Equal(t, "j", userPanelKey(state, hostPath),
+		"with no key configured the tmux option is still what both sides read")
+}
