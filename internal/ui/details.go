@@ -10,7 +10,9 @@ import (
 )
 
 // flashFieldStyle marks a row or a field that has just been copied.
-var flashFieldStyle = lipgloss.NewStyle().Background(paint.Accent).Foreground(lipgloss.Color("0"))
+func flashFieldStyle(palette paint.Palette) lipgloss.Style {
+	return lipgloss.NewStyle().Background(palette.Color(paint.ToneAccent)).Foreground(lipgloss.Color("0"))
+}
 
 type detailsState struct {
 	focused bool
@@ -242,7 +244,7 @@ func (m model) noticeLines(n notice, most int) []string {
 		text[most-1] += "…"
 	}
 
-	lines := []string{"  " + lipgloss.NewStyle().Foreground(n.color).Render(n.icon) + " " + dimStyle.Render(text[0])}
+	lines := []string{"  " + m.palette(regionDetails).Style(n.tone).Render(n.icon) + " " + dimStyle.Render(text[0])}
 	for _, line := range text[1:] {
 		lines = append(lines, indent+dimStyle.Render(line))
 	}
@@ -265,7 +267,7 @@ func (m model) detailFieldRows(fields []recordField, cursor int) []string {
 		label := dimStyle.Render(padRight(field.label, labels))
 		value := paint.Clip(field.value, max(m.lineWidth()-labels-gutter-1, 1))
 		if m.details.flashed == i+1 {
-			value = flashFieldStyle.Render(value)
+			value = flashFieldStyle(m.palette(regionDetails)).Render(value)
 		}
 
 		rows = append(rows, prefix+label+" "+value)

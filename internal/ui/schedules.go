@@ -10,7 +10,6 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/huh"
-	"github.com/charmbracelet/lipgloss"
 )
 
 type scheduleState struct {
@@ -266,8 +265,8 @@ func (m model) schedulesListView() string {
 			prefix = m.rowCursorPrefix()
 		}
 
-		name := m.filter.highlight(clipName(item.schedule.Name), m.nameStyle(selected, !item.schedule.Enabled))
-		icon := lipgloss.NewStyle().Foreground(scheduleColor(item.schedule.Enabled)).Render(scheduleIcon(item.schedule.Enabled))
+		name := m.filter.highlight(m.palette(regionList), clipName(item.schedule.Name), m.nameStyle(selected, !item.schedule.Enabled))
+		icon := m.palette(regionList).Style(scheduleTone(item.schedule.Enabled)).Render(scheduleIcon(item.schedule.Enabled))
 		rows = append(rows, prefix+"  "+icon+" "+name+"  "+dimStyle.Render(item.schedule.Cron))
 	}
 

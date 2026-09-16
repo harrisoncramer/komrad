@@ -5,17 +5,15 @@ import (
 
 	"weave/internal/ui/paint"
 	agentv1 "weave/proto/gen/agent/v1"
-
-	"github.com/charmbracelet/lipgloss"
 )
 
 // The mode is the one thing on the screen that changes what every key does, so each state gets
-// its own colour.
-var (
-	reviewWatchingStyle = lipgloss.NewStyle().Foreground(paint.Accent).Bold(true)
-	reviewWritingStyle  = lipgloss.NewStyle().Foreground(paint.Mark).Bold(true)
-	reviewHistoryStyle  = lipgloss.NewStyle().Foreground(paint.Warning).Bold(true)
-	reviewHeldStyle     = lipgloss.NewStyle().Foreground(paint.Muted).Bold(true)
+// its own tone.
+const (
+	reviewWatchingTone = paint.ToneAccent
+	reviewWritingTone  = paint.ToneMark
+	reviewHistoryTone  = paint.ToneWarning
+	reviewHeldTone     = paint.ToneMuted
 )
 
 // Explainer: editing and commenting were two modes a reader had to choose between before doing
@@ -38,7 +36,7 @@ const (
 // reviewModeView says which of the two the screen is in, and what to press next.
 func (m model) reviewModeView() string {
 	if m.review.mode == modeReviewing {
-		return m.reviewBandRow(reviewWritingStyle, m.reviewPassLabel(), m.reviewWritingSaid())
+		return m.reviewBandRow(reviewWritingTone, m.reviewPassLabel(), m.reviewWritingSaid())
 	}
 
 	return m.reviewWatchingView()
@@ -56,27 +54,27 @@ func (m model) reviewPassLabel() string {
 // reviewWatchingView is the mode line while nothing is being written.
 func (m model) reviewWatchingView() string {
 	if _, dead := m.isReviewReadOnly(); dead {
-		return m.reviewBandRow(reviewHeldStyle, "watching", "this agent is gone, nothing can be sent")
+		return m.reviewBandRow(reviewHeldTone, "watching", "this agent is gone, nothing can be sent")
 	}
 
 	if said, history := m.isReviewHistory(); history {
-		return m.reviewBandRow(reviewHistoryStyle, "reading history",
+		return m.reviewBandRow(reviewHistoryTone, "reading history",
 			said+" is finished · "+keyLabel(m.keys.Review.BaseForward)+" for the current work")
 	}
 
 	if m.doesReviewHoldUnsent() {
-		return m.reviewBandRow(reviewHeldStyle, "watching",
+		return m.reviewBandRow(reviewHeldTone, "watching",
 			counted(m.reviewUnsentCount(), "comment")+" not sent · "+
 				keyLabel(m.keys.Review.Compose)+" to carry on")
 	}
 
 	if m.review.awaiting {
-		return m.reviewBandRow(reviewHeldStyle, "watching",
+		return m.reviewBandRow(reviewHeldTone, "watching",
 			"your review is owed an answer · "+keyLabel(m.keys.Review.NextOpenThread)+
 				" for the comments left open, "+keyLabel(m.keys.Review.Compose)+" to reply in one")
 	}
 
-	return m.reviewBandRow(reviewWatchingStyle, "watching",
+	return m.reviewBandRow(reviewWatchingTone, "watching",
 		"live · "+keyLabel(m.keys.Review.EditFile)+" to edit · "+
 			keyLabel(m.keys.Review.Compose)+" to comment")
 }

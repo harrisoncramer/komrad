@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 	"time"
+	"weave/internal/ui/paint"
 
 	"weave/config"
 	agentstore "weave/internal/store/agent"
@@ -617,7 +618,7 @@ func TestScheduledMark(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, strings.Contains(scheduledMark(tt.agent), scheduledIcon))
+			assert.Equal(t, tt.want, strings.Contains(scheduledMark(paint.Colored, tt.agent), scheduledIcon))
 		})
 	}
 }

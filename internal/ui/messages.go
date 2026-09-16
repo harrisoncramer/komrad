@@ -236,7 +236,7 @@ func (m model) messagePieceRows(piece messagePiece, hovered, flashed bool) []str
 
 	style := piece.style
 	if flashed {
-		style = flashFieldStyle
+		style = flashFieldStyle(m.palette(regionMessages))
 	}
 
 	rows := []string{}
@@ -326,11 +326,15 @@ func (m model) messagesSummaryStyle(held message, taken int, flashed bool) strin
 	if m.messages.focused {
 		style = style.Bold(true)
 	}
-	if flashed || m.messagesPulseOn() {
-		style = flashFieldStyle
+	// The pulse is the panel calling for attention rather than saying where the keys are, so it
+	// keeps its colour in a region that has given them up.
+	if m.messagesPulseOn() {
+		style = flashFieldStyle(paint.Colored)
+	} else if flashed {
+		style = flashFieldStyle(m.palette(regionMessages))
 	}
 
-	return kindStyle(held.kind).Render(icon) + " " + style.Render(words)
+	return m.palette(regionMessages).Style(kindTone(held.kind)).Render(icon) + " " + style.Render(words)
 }
 
 func (m model) messagesHint() string {
@@ -357,12 +361,7 @@ func (m model) messagesTally(taken int) string {
 	pad := max(m.lineWidth()-taken-lipgloss.Width(m.messagesSummaryLine(taken))-len(tally), 1)
 
 	// The tally is where the region says the keys are its own.
-	style := dimStyle
-	if m.messages.focused {
-		style = paint.HeaderStyle
-	}
-
-	return strings.Repeat(" ", pad) + style.Render(tally)
+	return strings.Repeat(" ", pad) + m.palette(regionMessages).Header().Render(tally)
 }
 
 // pushMessage puts a message at the front of the stack and keeps the reader on whatever they
@@ -429,7 +428,7 @@ func (m model) messagesDoc() string {
 // messagesBlock is the message drawn in the block beside the list, asked for directly.
 func (m model) messagesBlock(split columnSplit) docWindow {
 	return docWindow{
-		rows:    paint.DocStyledRows(m.messagesDoc(), split.column, kindStyleConfig(m.messagesKind())),
+		rows:    paint.DocStyledRows(m.messagesDoc(), split.column, m.messagesStyleConfig()),
 		top:     m.column.top,
 		markers: true,
 	}
@@ -619,23 +618,19 @@ func kindLabel(kind messageKind) string {
 	return "info"
 }
 
-func kindColor(kind messageKind) lipgloss.Color {
+func kindTone(kind messageKind) paint.Tone {
 	switch kind {
 	case messageError:
-		return paint.Danger
+		return paint.ToneDanger
 	case messageWarning:
-		return paint.Warning
+		return paint.ToneWarning
 	case messageSuccess:
-		return paint.Success
+		return paint.ToneSuccess
 	case messageInfo:
-		return paint.Muted
+		return paint.ToneMuted
 	}
 
-	return paint.Muted
-}
-
-func kindStyle(kind messageKind) lipgloss.Style {
-	return lipgloss.NewStyle().Foreground(kindColor(kind))
+	return paint.ToneMuted
 }
 
 // mockMessages are the fixtures the region is drawn from while nothing real reports through it,
@@ -666,12 +661,15 @@ var mockMessages = []message{
 	},
 }
 
-// kindStyleConfig is the markdown a message is drawn in, where the kind colours the icon alone.
-func kindStyleConfig(kind messageKind) glamouransi.StyleConfig {
-	style := paint.StageStyle
+// messagesStyleConfig is the markdown a message is drawn in, where the kind colours the icon
+// alone.
+func (m model) messagesStyleConfig() glamouransi.StyleConfig {
+	palette := m.palette(regionMessages)
+
+	style := palette.Stage()
 	style.Strong.Color = nil
-	style.Emph.Color = paint.ANSIColor(paint.Muted)
-	style.Code.Color = paint.ANSIColor(kindColor(kind))
+	style.Emph.Color = paint.ANSIColor(palette.Color(paint.ToneMuted))
+	style.Code.Color = paint.ANSIColor(palette.Color(kindTone(m.messagesKind())))
 	style.Code.Prefix = ""
 	style.Code.Suffix = ""
 

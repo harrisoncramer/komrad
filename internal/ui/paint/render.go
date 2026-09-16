@@ -36,9 +36,9 @@ func expandTabs(text string) string {
 	return b.String()
 }
 
-// Render draws markdown in the panel's own colours.
-func Render(markdown string, wrap int) string {
-	return renderWith(markdown, wrap, StageStyle)
+// Render draws markdown in the colours of the region it is drawn in.
+func (p Palette) Render(markdown string, wrap int) string {
+	return renderWith(markdown, wrap, p.Stage())
 }
 
 // renderWith draws markdown in the style it is handed, hard-wrapped to the column so nothing a
@@ -102,8 +102,8 @@ var ScrubMarks = strings.NewReplacer(MarkOpen, " ", MarkClose, " ").Replace
 
 // RenderTranscript draws a transcript as the markdown it is written in, with the matched words
 // styled, and reports the line the first of them ended up on.
-func RenderTranscript(conversation string, spans []Span, width int) (string, int) {
-	rendered := Render(markSpans(conversation, spans), width)
+func (p Palette) RenderTranscript(conversation string, spans []Span, width int) (string, int) {
+	rendered := p.Render(markSpans(conversation, spans), width)
 
 	line := markedLine(rendered)
 	if line == 0 && len(spans) > 0 {
@@ -113,7 +113,7 @@ func RenderTranscript(conversation string, spans []Span, width int) (string, int
 		line = estimatedLine(rendered, spans[0].Start, len(conversation))
 	}
 
-	return styleMarks(rendered, stageMatchStyle), line
+	return styleMarks(rendered, p.stageMatch()), line
 }
 
 // markedLine is the line the first marked stretch fell on, counting from one, or zero when none

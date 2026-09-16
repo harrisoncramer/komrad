@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"strings"
 	"time"
+	"weave/internal/ui/paint"
 
 	"weave/config"
 	"weave/internal/ui/layout"
-	"weave/internal/ui/paint"
 
 	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
@@ -530,6 +530,8 @@ func (m model) agentsListView() string {
 	record, help := m.detailsView(), m.renderHelp(m.agentHelp())
 	below := record + m.messagesRegion(record, help) + help
 
+	palette := m.palette(regionList)
+
 	all := m.agentRows()
 	rows := make([]string, 0, len(all))
 	for i, r := range all {
@@ -540,18 +542,18 @@ func (m model) agentsListView() string {
 		}
 
 		if r.header {
-			label := m.filter.highlight(clipName(r.workflow.Name), m.nameStyle(hovered, false))
-			header := prefix + paint.MarkGutter(m.listing.marks[rowKey(r)]) + label + orchestratorMark(r) + hiddenTally(r.hiddenCount, m.tree.showHidden)
+			label := m.filter.highlight(palette, clipName(r.workflow.Name), m.nameStyle(hovered, false))
+			header := prefix + palette.MarkGutter(m.listing.marks[rowKey(r)]) + label + orchestratorMark(palette, r) + hiddenTally(r.hiddenCount, m.tree.showHidden)
 			rows = append(rows, header)
 
 			continue
 		}
 
 		item := r.item
-		name := m.filter.highlight(clipName(item.agent.Name), m.nameStyle(hovered, !item.alive || item.agent.HeldAt != nil))
-		row := prefix + paint.MarkGutter(m.listing.marks[rowKey(r)]) + childMark(r.child) + stateMark(displayState(item)) + " " + name + " " + worktreeMark(item) + heldMark(item.agent) + scheduledMark(item.agent) + hiddenMark(item.agent.Hidden) + unreadMailMark(item.unreadMail) + unviewedMark(item.unviewed) + failedRunMark(item.failedRun) + localReviewRoundsMark(item.localRounds) + localReviewMark(item.inLocalReview, item.localVerdict) + hiddenTally(r.hiddenCount, m.tree.showHidden) + reasonMark(item.agent)
+		name := m.filter.highlight(palette, clipName(item.agent.Name), m.nameStyle(hovered, !item.alive || item.agent.HeldAt != nil))
+		row := prefix + palette.MarkGutter(m.listing.marks[rowKey(r)]) + childMark(r.child) + stateMark(palette, displayState(item)) + " " + name + " " + worktreeMark(palette, item) + heldMark(palette, item.agent) + scheduledMark(palette, item.agent) + hiddenMark(palette, item.agent.Hidden) + unreadMailMark(palette, item.unreadMail) + unviewedMark(palette, item.unviewed) + failedRunMark(palette, item.failedRun) + localReviewRoundsMark(palette, item.localRounds) + localReviewMark(palette, item.inLocalReview, item.localVerdict) + hiddenTally(r.hiddenCount, m.tree.showHidden) + reasonMark(palette, item.agent)
 		if m.tree.selected.has(item.agent.ID) {
-			row = paint.PaintRow(row, paint.SelectionBackground, m.width)
+			row = paint.PaintRow(row, m.width)
 		}
 
 		rows = append(rows, row)

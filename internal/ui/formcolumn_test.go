@@ -222,13 +222,13 @@ func TestFormKeepsTheWholePaneOnANarrowWindow(t *testing.T) {
 func TestFormBlursTheListBesideIt(t *testing.T) {
 	m := formColumnModel(t)
 	require.True(t, m.isListFocused(), "the list holds the keys to start with")
-	require.Equal(t, paint.HeaderStyle, m.titleStyle())
+	require.Equal(t, paint.Colored.Header(), m.titleStyle())
 
 	m = openWorkflowForm(t, m)
 
 	assert.False(t, m.isListFocused(), "the form holds them once it is up")
-	assert.Equal(t, paint.BlurredHeaderStyle, m.titleStyle(), "so the list's title is drawn blurred")
-	assert.Equal(t, paint.BlurredCursorStyle.Render(rowCursorGlyph), m.rowCursorPrefix(), "and its cursor stands still")
+	assert.Equal(t, paint.Grey.Header(), m.titleStyle(), "so the list's title is drawn blurred")
+	assert.Equal(t, paint.Grey.Cursor().Render(rowCursorGlyph), m.rowCursorPrefix(), "and its cursor stands still")
 }
 
 // TestFormRefusalIsReadableFromInsideTheForm covers reaching the whole reason without leaving

@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"strings"
 
-	"weave/internal/ui/paint"
-
 	"github.com/charmbracelet/glamour/ansi"
 )
 
@@ -74,12 +72,7 @@ func (d docWindow) view(rows int) string {
 	return strings.Join(out, "\n")
 }
 
-// columnStyle is the markdown the block beside the list is drawn in: the panel's own colours
-// while the list holds the keys, a grey column while it does not.
+// columnStyle is the markdown the block beside the list is drawn in.
 func (m model) columnStyle() ansi.StyleConfig {
-	if m.isListFocused() {
-		return paint.StageStyle
-	}
-
-	return paint.BlurredStageStyle
+	return m.palette(regionColumn).Stage()
 }

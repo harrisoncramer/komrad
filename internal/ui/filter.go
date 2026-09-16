@@ -55,7 +55,7 @@ func (f filterState) doesMatch(name string) bool {
 	return f.pattern.MatchString(name)
 }
 
-func (f filterState) highlight(name string, base lipgloss.Style) string {
+func (f filterState) highlight(palette paint.Palette, name string, base lipgloss.Style) string {
 	if f.pattern == nil {
 		return base.Render(name)
 	}
@@ -69,7 +69,7 @@ func (f filterState) highlight(name string, base lipgloss.Style) string {
 	at := 0
 	for _, span := range spans {
 		writeStyled(&b, base, name[at:span[0]])
-		writeStyled(&b, paint.MatchStyle, name[span[0]:span[1]])
+		writeStyled(&b, palette.Match(), name[span[0]:span[1]])
 		at = span[1]
 	}
 	writeStyled(&b, base, name[at:])
@@ -226,24 +226,24 @@ func placeCursor(found, cursor, length int) int {
 }
 
 func (m model) filterView() string {
-	return m.filter.view()
+	return m.filter.view(m.palette(regionList))
 }
 
 // view draws the search line whether or not there is a search.
-func (f filterState) view() string {
+func (f filterState) view(palette paint.Palette) string {
 	query := f.query
 	if f.broken {
-		query = paint.BrokenStyle.Render(query)
+		query = palette.Broken().Render(query)
 	}
 
-	slash := paint.CursorStyle
+	slash := palette.Cursor()
 	if !f.typing && !f.isStanding() {
 		slash = dimStyle
 	}
 
 	line := slash.Render("/") + " " + query
 	if f.typing {
-		line += paint.CursorStyle.Render("▏")
+		line += palette.Cursor().Render("▏")
 	}
 
 	return line + "\n\n"

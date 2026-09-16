@@ -105,8 +105,8 @@ func clipToMatch(snippet string, width int) string {
 }
 
 // RenderSnippet draws a search hit's snippet on one row, with the matched words styled.
-func RenderSnippet(s string, width int) string {
-	return styleMarks(clipToMatch(strings.ReplaceAll(s, "\n", " "), width), MatchStyle)
+func (p Palette) RenderSnippet(s string, width int) string {
+	return styleMarks(clipToMatch(strings.ReplaceAll(s, "\n", " "), width), p.Match())
 }
 
 // styleMarks consumes the match markers into styling, putting back whatever styling was
