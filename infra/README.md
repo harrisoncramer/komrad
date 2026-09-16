@@ -26,6 +26,8 @@ A session arrives as its own account rather than as the one that owns weave, so 
 
 Terraform pins the AWS account, availability zone, and machine image in local configuration. This prevents a default AWS profile or a new image from replacing the host by accident.
 
+Nothing in this directory has been run in the shape it ships. The image in `terraform.tfvars` predates the units that hold the agents across a restart, create the manager session, and re-read a rotated password, all of which exist only as files here and by hand on the running host. Build the image and bring a host up from nothing before trusting any of it.
+
 The image itself is built by Packer from `packer/`, which is where the toolchain, the harnesses, weave's binary, and the boot-time units live. Terraform receives a finished AMI id and adds almost nothing at boot: its user data writes the data volume id, starts the mount unit, then starts weave.
 
 So the order of operations for a new host is: run `mise run packer:build`, take the AMI id it prints at the end, put it in `terraform.tfvars` as `ami_id`, then plan and apply.
