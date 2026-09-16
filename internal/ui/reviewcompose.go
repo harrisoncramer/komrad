@@ -312,7 +312,7 @@ func (m model) resolveReviewThread() (tea.Model, tea.Cmd) {
 // toggleReviewViewed folds the file the cursor is in away once it has been read, or opens it
 // again, stepping on to the next file when it has just been folded.
 func (m model) toggleReviewViewed() (tea.Model, tea.Cmd) {
-	file, ok := m.review.view.GetFileAt(m.review.cursor)
+	file, ok := m.review.view.GetPatchFileAt(m.review.cursor)
 	if !ok {
 		return m, nil
 	}

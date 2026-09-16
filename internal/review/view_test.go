@@ -221,7 +221,7 @@ func TestCursorCanRestOnACollapsedHeader(t *testing.T) {
 
 	assert.Equal(t, 0, view.GetFirstRow(), "the fold leaves the header as the first row to rest on")
 
-	file, ok := view.GetFileAt(0)
+	file, ok := view.GetDrawnFileAt(0)
 	require.True(t, ok)
 	assert.Equal(t, "greet.go", file.Path())
 }
@@ -234,7 +234,7 @@ func TestJumpFileLandsOnACollapsedHeader(t *testing.T) {
 
 	landed := view.JumpFile(view.GetFirstRow(), 1)
 
-	file, ok := view.GetFileAt(landed)
+	file, ok := view.GetDrawnFileAt(landed)
 	require.True(t, ok)
 	assert.Equal(t, "wave.go", file.Path())
 }
@@ -262,7 +262,7 @@ func TestFoldingKeepsTheCursorInTheFile(t *testing.T) {
 	back, ok := view.Locate(place)
 	require.True(t, ok)
 
-	file, ok := view.GetFileAt(back)
+	file, ok := view.GetDrawnFileAt(back)
 	require.True(t, ok)
 	assert.Equal(t, "greet.go", file.Path())
 	assert.True(t, view.isPinnable(back), "opening the file again lands the cursor on a line of it")

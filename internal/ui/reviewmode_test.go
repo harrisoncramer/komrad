@@ -481,7 +481,7 @@ func reviewRowInDeletedFile(t *testing.T, m model) int {
 			continue
 		}
 
-		if file, ok := m.review.view.GetFileAt(row); ok && file.OldPath == "gone.go" {
+		if file, ok := m.review.view.GetDrawnFileAt(row); ok && file.OldPath == "gone.go" {
 			return row
 		}
 	}

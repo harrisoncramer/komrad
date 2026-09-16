@@ -282,7 +282,7 @@ func (m model) reviewThreadAtCursor() (*agentv1.ReviewThread, bool) {
 // toggleReviewExpanded draws the whole of the file the cursor is in, or gives back the changed
 // lines and the few around them.
 func (m model) toggleReviewExpanded() (tea.Model, tea.Cmd) {
-	file, ok := m.review.view.GetFileAt(m.review.cursor)
+	file, ok := m.review.view.GetDrawnFileAt(m.review.cursor)
 	if !ok {
 		return m, nil
 	}
