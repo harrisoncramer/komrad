@@ -220,14 +220,6 @@ _Do not skip the trust question. Agents run in worktrees cut from this checkout 
 
 Weave's home is on the data volume, so both survive a new image.
 
-## 10. Check it
-
-```
-weave --engine remote doctor
-```
-
-Shows which config files were layered and whether the engine answers.
-
 ## Updating
 
 The binary changes often. This does not disturb running agents. If you have this repo checked out locally, you can run this Mise helper:
