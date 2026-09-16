@@ -1,0 +1,106 @@
+#!/usr/bin/env bash
+source "$MISE_CONFIG_ROOT/mise/tasks/_"
+set -euo pipefail
+#MISE description="Restart the engine's service, and with --hard its tmux server and every agent."
+
+usage() {
+	echo "Usage: mise run remote:restart [--hard] [instance-id]"
+	echo
+	echo "Restarts the weave service on the engine. The agents keep running, because the"
+	echo "service is stopped in a way that leaves the tmux server it forked alone."
+	echo
+	echo "With --hard the tmux server goes too, which is what picks up a change to the"
+	echo "manager session itself. Every agent on the box stops and does not come back."
+	echo
+	echo "The account this connects as cannot become root, so the restart is sent through"
+	echo "Systems Manager rather than over ssh."
+}
+
+HARD=false
+
+for arg in "$@"; do
+	case "$arg" in
+	-h | --help)
+		usage
+		exit 0
+		;;
+	--hard)
+		HARD=true
+		;;
+	esac
+done
+
+set -- "${@/--hard/}"
+
+cd "$MISE_CONFIG_ROOT"
+
+# The backend reads state as whoever the environment is, and it takes no profile of its own, so
+# the one the provider was given is used unless the environment already names one.
+if [ -z "${AWS_PROFILE:-}" ] && [ -f infra/terraform/terraform.tfvars ]; then
+	PROFILE="$(sed -n 's/^[[:space:]]*aws_profile[[:space:]]*=[[:space:]]*"\(.*\)"[[:space:]]*$/\1/p' \
+		infra/terraform/terraform.tfvars | head -1)"
+	if [ -n "$PROFILE" ]; then
+		export AWS_PROFILE="$PROFILE"
+	fi
+fi
+
+INSTANCE="${1:-${WEAVE_ENGINE_INSTANCE:-}}"
+
+if [ -z "$INSTANCE" ]; then
+	if [ ! -d infra/terraform/.terraform ] && [ -f infra/terraform/backend.hcl ]; then
+		terraform -chdir=infra/terraform init \
+			-backend-config=backend.hcl -input=false >/dev/null 2>&1 || true
+	fi
+
+	REASON="$(terraform -chdir=infra/terraform output -raw instance_id 2>&1 >/dev/null || true)"
+	INSTANCE="$(terraform -chdir=infra/terraform output -raw instance_id 2>/dev/null || true)"
+fi
+
+if [ -z "$INSTANCE" ]; then
+	echo "no engine to restart, because the instance could not be read from Terraform:" >&2
+	echo "${REASON:-no state and no instance_id output}" | head -8 >&2
+	echo >&2
+	echo "Pass an instance id or set WEAVE_ENGINE_INSTANCE to skip Terraform entirely." >&2
+	exit 1
+fi
+
+REGION="${AWS_REGION:-us-east-1}"
+
+if [ "$HARD" = true ]; then
+	gum log --level info "restarting the engine and its tmux server on $INSTANCE, which stops every agent"
+	COMMANDS='["systemctl restart weave.service","sleep 3","sudo -u weave tmux -L weave kill-server 2>/dev/null || true","systemctl restart weave-manager-session.service","sleep 4","systemctl is-active weave.service weave-manager-session.service","sudo -u weave tmux -L weave list-windows -a -F \"WIN #{window_id} panes=#{window_panes} #{window_name}\" 2>&1"]'
+else
+	gum log --level info "restarting the engine on $INSTANCE, leaving its agents running"
+	COMMANDS='["systemctl restart weave.service","sleep 4","systemctl is-active weave.service","sudo -u weave tmux -L weave list-windows -a -F \"WIN #{window_id} panes=#{window_panes} #{window_name}\" 2>&1"]'
+fi
+
+COMMAND_ID="$(aws ssm send-command \
+	--region "$REGION" \
+	--instance-ids "$INSTANCE" \
+	--document-name AWS-RunShellScript \
+	--parameters "commands=$COMMANDS" \
+	--query 'Command.CommandId' --output text)"
+
+for _ in $(seq 1 60); do
+	STATUS="$(aws ssm get-command-invocation --region "$REGION" --command-id "$COMMAND_ID" \
+		--instance-id "$INSTANCE" --query 'Status' --output text 2>/dev/null || echo Pending)"
+
+	case "$STATUS" in
+	Success)
+		aws ssm get-command-invocation --region "$REGION" --command-id "$COMMAND_ID" \
+			--instance-id "$INSTANCE" --query 'StandardOutputContent' --output text
+		exit 0
+		;;
+	Failed | Cancelled | TimedOut)
+		echo "the restart did not finish: $STATUS" >&2
+		aws ssm get-command-invocation --region "$REGION" --command-id "$COMMAND_ID" \
+			--instance-id "$INSTANCE" --query 'StandardErrorContent' --output text >&2
+		exit 1
+		;;
+	esac
+
+	sleep 2
+done
+
+echo "the restart was still running after two minutes, so it is left to finish on its own" >&2
+exit 1
