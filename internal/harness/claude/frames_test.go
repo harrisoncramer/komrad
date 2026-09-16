@@ -33,8 +33,7 @@ func TestReadActivityOnCapturedFrames(t *testing.T) {
 		{file: "a_title_on_the_box_over_an_empty_prompt.txt", want: harness.ActivityIdle},
 		{file: "a_recalled_history_entry_in_the_box.txt", want: harness.ActivityComposing},
 		{file: "a_shell_command_typed_into_the_box.txt", want: harness.ActivityComposing},
-		// Some panes draw Claude's bullet as U+25CF rather than U+23FA, and the same glyph
-		// opens its live status line, so the two are told apart by the ellipsis alone.
+		// Some panes draw Claude's bullet as U+25CF rather than U+23FA.
 		{file: "filled_bullets_while_a_command_runs.txt", want: harness.ActivityWorking},
 		{file: "filled_bullets_after_a_truncated_tool_call.txt", want: harness.ActivityIdle},
 		{file: "a_screen_no_pattern_matches.txt", want: harness.ActivityUnrecognized},
