@@ -10,12 +10,10 @@ import (
 	"weave/config"
 	"weave/internal/ui/layout"
 	"weave/internal/weavetest"
-	"weave/lib/xptr"
 	agentv1 "weave/proto/gen/agent/v1"
 	workflowv1 "weave/proto/gen/workflow/v1"
 
 	"connectrpc.com/connect"
-	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/lipgloss"
@@ -89,118 +87,6 @@ func TestPanelArchivesThroughTheService(t *testing.T) {
 	panel = settle(t, panel, panel.refreshCmd())
 	assert.Equal(t, []string{"header:backend"}, describeRows(panel.agentRows()),
 		"and the row goes off the panel's own list, leaving the folder it was in")
-}
-
-// TestPanelOpensThePullRequestKey pins the pull request key by the address it hands the
-// desktop for the agent the cursor was on.
-func TestPanelOpensThePullRequestKey(t *testing.T) {
-	instance := weavetest.Start(t, weavetest.Params{})
-	ctx := t.Context()
-
-	workflow, err := instance.Workflows.CreateWorkflow(ctx, connect.NewRequest(&workflowv1.CreateWorkflowRequest{
-		Name: "backend",
-		Cwd:  t.TempDir(),
-	}))
-	require.NoError(t, err)
-
-	created, err := instance.Agents.CreateAgent(ctx, connect.NewRequest(&agentv1.CreateAgentRequest{
-		Prompt:     "fix the flaky login test",
-		Title:      "login",
-		WorkflowId: workflow.Msg.GetWorkflow().GetId(),
-	}))
-	require.NoError(t, err)
-
-	_, err = instance.Agents.SetMetadata(ctx, connect.NewRequest(&agentv1.SetMetadataRequest{
-		Id:    created.Msg.GetAgent().GetId(),
-		Key:   "pr",
-		Value: xptr.Ptr("https://example.test/1"),
-	}))
-	require.NoError(t, err)
-
-	keys := config.DefaultKeybindings()
-	tmux := &recordingTmux{}
-	panel := model{
-		api: api{
-			agents:    instance.Agents,
-			workflows: instance.Workflows,
-			schedules: instance.Schedules,
-			hooks:     instance.Hooks,
-		},
-		tmux:   tmux,
-		popup:  NewPopupWindow(tmux, "test-session"),
-		frame:  layout.New(tmux, config.DefaultLayout()),
-		keys:   keys,
-		screen: screenAgents,
-	}
-
-	panel = settle(t, panel, panel.refreshCmd())
-	panel.tree.cursor = 1
-
-	opened, _ := panel.Update(keyMsg(keys.Git.Open[0]))
-	menu, ok := opened.(model)
-	require.True(t, ok)
-
-	updated, cmd := menu.Update(keyMsg(keys.Git.OpenPR[0]))
-	pressed, ok := updated.(model)
-	require.True(t, ok)
-	settle(t, pressed, cmd)
-
-	assert.Equal(t, []string{"https://example.test/1"}, instance.Opened.Targets(),
-		"the address recorded on the agent the cursor was on")
-	assert.Contains(t, helpDescriptions(pressed.agentHelp().full), "git actions", "the legend carries the key")
-}
-
-// TestPanelLeavesThePullRequestKeyAloneWithoutOne pins that an agent with no recorded pull
-// request asks for nothing.
-func TestPanelLeavesThePullRequestKeyAloneWithoutOne(t *testing.T) {
-	instance := weavetest.Start(t, weavetest.Params{})
-	ctx := t.Context()
-
-	workflow, err := instance.Workflows.CreateWorkflow(ctx, connect.NewRequest(&workflowv1.CreateWorkflowRequest{
-		Name: "backend",
-		Cwd:  t.TempDir(),
-	}))
-	require.NoError(t, err)
-
-	_, err = instance.Agents.CreateAgent(ctx, connect.NewRequest(&agentv1.CreateAgentRequest{
-		Prompt:     "fix the flaky login test",
-		Title:      "login",
-		WorkflowId: workflow.Msg.GetWorkflow().GetId(),
-	}))
-	require.NoError(t, err)
-
-	keys := config.DefaultKeybindings()
-	tmux := &recordingTmux{}
-	panel := model{
-		api: api{
-			agents:    instance.Agents,
-			workflows: instance.Workflows,
-			schedules: instance.Schedules,
-			hooks:     instance.Hooks,
-		},
-		tmux:   tmux,
-		popup:  NewPopupWindow(tmux, "test-session"),
-		frame:  layout.New(tmux, config.DefaultLayout()),
-		keys:   keys,
-		screen: screenAgents,
-	}
-
-	panel = settle(t, panel, panel.refreshCmd())
-	panel.tree.cursor = 1
-
-	assert.Contains(t, helpDescriptions(panel.agentHelp().full), "git actions", "the legend keeps one height whether or not the menu has an address to open")
-
-	opened, _ := panel.Update(keyMsg(keys.Git.Open[0]))
-	menu, ok := opened.(model)
-	require.True(t, ok)
-
-	updated, cmd := menu.Update(keyMsg(keys.Git.OpenPR[0]))
-	pressed, ok := updated.(model)
-	require.True(t, ok)
-	settle(t, pressed, cmd)
-
-	assert.Empty(t, instance.Opened.Targets(), "nothing is opened for an agent with no pull request")
-	require.Len(t, pressed.messages.items, 1, "the menu said why instead")
 }
 
 // TestStagedAgentExitsOnItsOwn covers a staged agent's pane dying while staging holds it in the
@@ -332,15 +218,6 @@ func panesInPanel(t *testing.T, instance *weavetest.Instance) []string {
 	}
 
 	return panes
-}
-
-func helpDescriptions(bindings []key.Binding) []string {
-	described := make([]string, 0, len(bindings))
-	for _, b := range bindings {
-		described = append(described, b.Help().Desc)
-	}
-
-	return described
 }
 
 // TestPanelClearsTheUnviewedMarkThroughTheService takes the read marker all the way to the

@@ -84,13 +84,12 @@ func TestAgentsViewDrawsWorktreeRemovedFromTheWire(t *testing.T) {
 // TestWorkflowsFromCarriesTheWholeWorkflow covers the listing conversion field by field.
 func TestWorkflowsFromCarriesTheWholeWorkflow(t *testing.T) {
 	got := workflowsFrom([]*workflowv1.Workflow{{
-		Id:                "w1",
-		Name:              "api",
-		Context:           "shared notes",
-		Harness:           "claude",
-		Cwd:               "/work/api",
-		Flags:             "--model opus",
-		ArchiveOnPrClosed: true,
+		Id:      "w1",
+		Name:    "api",
+		Context: "shared notes",
+		Harness: "claude",
+		Cwd:     "/work/api",
+		Flags:   "--model opus",
 		Worktree: &workflowv1.WorktreeConfig{
 			Enabled:      true,
 			BaseBranch:   "develop",
@@ -116,7 +115,6 @@ func TestWorkflowsFromCarriesTheWholeWorkflow(t *testing.T) {
 			{Event: "pre-launch", Script: "install-deps"},
 			{Event: "post-launch", Script: "announce"},
 		},
-		ArchiveOnPRClosed: true,
 		Worktree: workflowstore.WorktreeConfig{
 			Enabled:      true,
 			BaseBranch:   "develop",

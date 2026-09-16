@@ -36,15 +36,11 @@ const (
 const (
 	// HookServiceListHooksProcedure is the fully-qualified name of the HookService's ListHooks RPC.
 	HookServiceListHooksProcedure = "/hook.v1.HookService/ListHooks"
-	// HookServiceOpenPullRequestProcedure is the fully-qualified name of the HookService's
-	// OpenPullRequest RPC.
-	HookServiceOpenPullRequestProcedure = "/hook.v1.HookService/OpenPullRequest"
 )
 
 // HookServiceClient is a client for the hook.v1.HookService service.
 type HookServiceClient interface {
 	ListHooks(context.Context, *connect.Request[emptypb.Empty]) (*connect.Response[v1.ListHooksResponse], error)
-	OpenPullRequest(context.Context, *connect.Request[v1.OpenPullRequestRequest]) (*connect.Response[emptypb.Empty], error)
 }
 
 // NewHookServiceClient constructs a client for the hook.v1.HookService service. By default, it uses
@@ -65,19 +61,12 @@ func NewHookServiceClient(httpClient connect.HTTPClient, baseURL string, opts ..
 			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 			connect.WithClientOptions(opts...),
 		),
-		openPullRequest: connect.NewClient[v1.OpenPullRequestRequest, emptypb.Empty](
-			httpClient,
-			baseURL+HookServiceOpenPullRequestProcedure,
-			connect.WithSchema(hookServiceMethods.ByName("OpenPullRequest")),
-			connect.WithClientOptions(opts...),
-		),
 	}
 }
 
 // hookServiceClient implements HookServiceClient.
 type hookServiceClient struct {
-	listHooks       *connect.Client[emptypb.Empty, v1.ListHooksResponse]
-	openPullRequest *connect.Client[v1.OpenPullRequestRequest, emptypb.Empty]
+	listHooks *connect.Client[emptypb.Empty, v1.ListHooksResponse]
 }
 
 // ListHooks calls hook.v1.HookService.ListHooks.
@@ -85,15 +74,9 @@ func (c *hookServiceClient) ListHooks(ctx context.Context, req *connect.Request[
 	return c.listHooks.CallUnary(ctx, req)
 }
 
-// OpenPullRequest calls hook.v1.HookService.OpenPullRequest.
-func (c *hookServiceClient) OpenPullRequest(ctx context.Context, req *connect.Request[v1.OpenPullRequestRequest]) (*connect.Response[emptypb.Empty], error) {
-	return c.openPullRequest.CallUnary(ctx, req)
-}
-
 // HookServiceHandler is an implementation of the hook.v1.HookService service.
 type HookServiceHandler interface {
 	ListHooks(context.Context, *connect.Request[emptypb.Empty]) (*connect.Response[v1.ListHooksResponse], error)
-	OpenPullRequest(context.Context, *connect.Request[v1.OpenPullRequestRequest]) (*connect.Response[emptypb.Empty], error)
 }
 
 // NewHookServiceHandler builds an HTTP handler from the service implementation. It returns the path
@@ -110,18 +93,10 @@ func NewHookServiceHandler(svc HookServiceHandler, opts ...connect.HandlerOption
 		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 		connect.WithHandlerOptions(opts...),
 	)
-	hookServiceOpenPullRequestHandler := connect.NewUnaryHandler(
-		HookServiceOpenPullRequestProcedure,
-		svc.OpenPullRequest,
-		connect.WithSchema(hookServiceMethods.ByName("OpenPullRequest")),
-		connect.WithHandlerOptions(opts...),
-	)
 	return "/hook.v1.HookService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case HookServiceListHooksProcedure:
 			hookServiceListHooksHandler.ServeHTTP(w, r)
-		case HookServiceOpenPullRequestProcedure:
-			hookServiceOpenPullRequestHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -133,8 +108,4 @@ type UnimplementedHookServiceHandler struct{}
 
 func (UnimplementedHookServiceHandler) ListHooks(context.Context, *connect.Request[emptypb.Empty]) (*connect.Response[v1.ListHooksResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("hook.v1.HookService.ListHooks is not implemented"))
-}
-
-func (UnimplementedHookServiceHandler) OpenPullRequest(context.Context, *connect.Request[v1.OpenPullRequestRequest]) (*connect.Response[emptypb.Empty], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("hook.v1.HookService.OpenPullRequest is not implemented"))
 }

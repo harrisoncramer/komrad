@@ -402,14 +402,13 @@ func (a api) createWorkflow(cfg workflowstore.Config) (*workflowv1.Workflow, err
 
 	return call(requestTimeout, func(ctx context.Context) (*workflowv1.Workflow, error) {
 		resp, err := a.workflows.CreateWorkflow(ctx, connect.NewRequest(&workflowv1.CreateWorkflowRequest{
-			Name:              name,
-			Context:           cfg.Context,
-			Harness:           cfg.Harness,
-			Cwd:               cfg.Cwd,
-			Flags:             cfg.Flags,
-			Worktree:          worktreeConfigToProto(cfg.Worktree),
-			Hooks:             hooksToProto(cfg.Hooks),
-			ArchiveOnPrClosed: cfg.ArchiveOnPRClosed,
+			Name:     name,
+			Context:  cfg.Context,
+			Harness:  cfg.Harness,
+			Cwd:      cfg.Cwd,
+			Flags:    cfg.Flags,
+			Worktree: worktreeConfigToProto(cfg.Worktree),
+			Hooks:    hooksToProto(cfg.Hooks),
 		}))
 		if err != nil {
 			return nil, err
@@ -427,15 +426,14 @@ func (a api) updateWorkflow(w workflowstore.Workflow) error {
 
 	return mutate(func(ctx context.Context) (any, error) {
 		return a.workflows.UpdateWorkflow(ctx, connect.NewRequest(&workflowv1.UpdateWorkflowRequest{
-			Id:                w.ID,
-			Name:              name,
-			Context:           w.Context,
-			Harness:           w.Harness,
-			Cwd:               w.Cwd,
-			Flags:             w.Flags,
-			Worktree:          worktreeConfigToProto(w.Worktree),
-			Hooks:             hooksToProto(w.Hooks),
-			ArchiveOnPrClosed: w.ArchiveOnPRClosed,
+			Id:       w.ID,
+			Name:     name,
+			Context:  w.Context,
+			Harness:  w.Harness,
+			Cwd:      w.Cwd,
+			Flags:    w.Flags,
+			Worktree: worktreeConfigToProto(w.Worktree),
+			Hooks:    hooksToProto(w.Hooks),
 		}))
 	})
 }
@@ -471,13 +469,5 @@ func (a api) listHooks() ([]*hookv1.Hook, error) {
 		}
 
 		return resp.Msg.GetHooks(), nil
-	})
-}
-
-func (a api) openPullRequest(agentID string) error {
-	return mutate(func(ctx context.Context) (any, error) {
-		return a.hooks.OpenPullRequest(ctx, connect.NewRequest(&hookv1.OpenPullRequestRequest{
-			AgentId: agentID,
-		}))
 	})
 }

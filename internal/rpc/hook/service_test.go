@@ -1,43 +1,18 @@
 package hook
 
 import (
-	"context"
 	"errors"
 	"testing"
 	"time"
 	hookv1weave "weave/proto/gen/hook/v1/hookv1weave"
 
 	"weave/internal/agents"
-	hookv1 "weave/proto/gen/hook/v1"
 
 	"connectrpc.com/connect"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
-
-// TestOpenPullRequest covers the handler translating and nothing more, the code each sentinel earns being rpcerr's own.
-func TestOpenPullRequest(t *testing.T) {
-	manager := &fakeHooks{}
-	service := hookv1weave.HookServiceAdapter{Impl: NewService(manager, manager)}
-
-	_, err := service.OpenPullRequest(t.Context(), connect.NewRequest(&hookv1.OpenPullRequestRequest{
-		AgentId: "a7",
-	}))
-
-	require.NoError(t, err)
-	assert.Equal(t, "a7", manager.agentID)
-
-	refusing := &fakeHooks{err: agents.ErrNoPullRequest}
-	refused := hookv1weave.HookServiceAdapter{Impl: NewService(refusing, refusing)}
-
-	_, err = refused.OpenPullRequest(t.Context(), connect.NewRequest(&hookv1.OpenPullRequestRequest{
-		AgentId: "a1",
-	}))
-
-	require.Error(t, err)
-	assert.Equal(t, connect.CodeFailedPrecondition, connect.CodeOf(err))
-}
 
 // TestListHooks covers a hook with no declared timeout leaving the field unset rather than
 // writing a zero.
@@ -58,7 +33,7 @@ func TestListHooks(t *testing.T) {
 		},
 	}}
 
-	resp, err := hookv1weave.HookServiceAdapter{Impl: NewService(manager, manager)}.ListHooks(t.Context(), connect.NewRequest(&emptypb.Empty{}))
+	resp, err := hookv1weave.HookServiceAdapter{Impl: NewService(manager)}.ListHooks(t.Context(), connect.NewRequest(&emptypb.Empty{}))
 	require.NoError(t, err)
 
 	listed := resp.Msg.GetHooks()
@@ -78,7 +53,7 @@ func TestListHooks(t *testing.T) {
 // problem rather than the caller's.
 func TestListHooksFailure(t *testing.T) {
 	failing := &fakeHooks{listErr: errors.New("permission denied")}
-	service := hookv1weave.HookServiceAdapter{Impl: NewService(failing, failing)}
+	service := hookv1weave.HookServiceAdapter{Impl: NewService(failing)}
 
 	_, err := service.ListHooks(t.Context(), connect.NewRequest(&emptypb.Empty{}))
 
@@ -89,8 +64,6 @@ func TestListHooksFailure(t *testing.T) {
 type fakeHooks struct {
 	listedHooks []agents.Script
 	listErr     error
-	err         error
-	agentID     string
 }
 
 func (f *fakeHooks) ListHooks() ([]agents.Script, error) {
@@ -99,10 +72,4 @@ func (f *fakeHooks) ListHooks() ([]agents.Script, error) {
 	}
 
 	return f.listedHooks, nil
-}
-
-func (f *fakeHooks) OpenPullRequest(_ context.Context, agentID string) error {
-	f.agentID = agentID
-
-	return f.err
 }

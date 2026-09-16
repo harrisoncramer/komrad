@@ -86,7 +86,7 @@ func newMux(params newMuxParams) (*http.ServeMux, error) {
 		configv1weave.ConfigServiceAdapter{Impl: rpcconfig.NewService(params.Services.loadConfig)}, options...))
 	mux.Handle(hookv1connect.NewHookServiceHandler(
 		hookv1weave.HookServiceAdapter{
-			Impl: rpchook.NewService(params.Services.script, params.Services.pullRequests),
+			Impl: rpchook.NewService(params.Services.script),
 		}, options...))
 
 	mcpHandler, err := mcp.NewHandler(mcp.NewHandlerParams{DB: params.ReadOnly, BaseURL: "http://" + params.Addr})

@@ -20,25 +20,13 @@ import (
 
 var ErrAdoptNeedsWorktree = fail.Precondition("adoption needs a workflow whose agents get a worktree of their own")
 
-var ErrAdoptNoResolver = fail.InvalidArgument("this panel cannot read pull requests, so name a branch instead")
-
-var ErrAdoptRepoMismatch = fail.InvalidArgument("that pull request belongs to another repository than the workflow's")
-
-var ErrAdoptForkBranch = fail.InvalidArgument("that pull request is from a fork, whose branch is not on this repository's origin")
+var ErrAdoptNotABranch = fail.InvalidArgument("weave adopts a branch, and this is not one")
 
 var ErrAdoptBranchInUse = fail.Precondition("that branch is already checked out")
 
 var ErrAdoptAlreadyAdopted = fail.AlreadyExists("that branch already has an agent on it")
 
-const adoptLookupTimeout = 30 * time.Second
-
 const worktreeListTimeout = 10 * time.Second
-
-// pullRequestResolver reads a pull request and reports which repository a directory belongs to.
-type pullRequestResolver interface {
-	Resolve(ctx context.Context, dir, ref string) (*PullRequest, error)
-	Repository(ctx context.Context, dir string) (string, error)
-}
 
 // worktreeLister reports the checkouts of a repository.
 type worktreeLister interface {
@@ -55,31 +43,26 @@ type adoptAgentReadWriter interface {
 // AdoptService puts an agent on a branch somebody else made, working out which checkout is to
 // hold that branch before handing the launch over.
 type AdoptService struct {
-	agents       adoptAgentReadWriter
-	workflows    workflowReader
-	launch       *LaunchService
-	pullRequests pullRequestResolver
-	worktrees    worktreeLister
+	agents    adoptAgentReadWriter
+	workflows workflowReader
+	launch    *LaunchService
+	worktrees worktreeLister
 }
 
 type NewAdoptServiceParams struct {
 	Agents    adoptAgentReadWriter
 	Workflows workflowReader
 	Launch    *LaunchService
-	// PullRequests lets adoption take a pull request rather than a branch, a branch name still
-	// adopting without it.
-	PullRequests pullRequestResolver
-	Worktrees    worktreeLister
+	Worktrees worktreeLister
 }
 
 // NewAdoptService builds the service from its dependencies.
 func NewAdoptService(params NewAdoptServiceParams) *AdoptService {
 	return &AdoptService{
-		agents:       params.Agents,
-		workflows:    params.Workflows,
-		launch:       params.Launch,
-		pullRequests: params.PullRequests,
-		worktrees:    params.Worktrees,
+		agents:    params.Agents,
+		workflows: params.Workflows,
+		launch:    params.Launch,
+		worktrees: params.Worktrees,
 	}
 }
 
@@ -94,12 +77,15 @@ type AdoptParams struct {
 	IdempotencyKey string
 }
 
-// Adopt puts an agent on a branch weave did not make, named directly or through a pull request,
-// running it either in a worktree of its own or in the checkout already holding the branch.
+// Adopt puts an agent on a branch weave did not make, running it either in a worktree of its
+// own or in the checkout already holding the branch.
 func (s *AdoptService) Adopt(ctx context.Context, params AdoptParams) (*agentstore.Agent, error) {
-	ref := strings.TrimSpace(params.Ref)
-	if ref == "" {
+	branch := strings.TrimSpace(params.Ref)
+	if branch == "" {
 		return nil, fmt.Errorf("%w: nothing to adopt", ErrBadDirectory)
+	}
+	if namesPullRequest(branch) {
+		return nil, fmt.Errorf("%w: %s names a pull request, so adopt the branch it is on", ErrAdoptNotABranch, branch)
 	}
 
 	wf, err := s.workflows.Get(ctx, params.WorkflowID)
@@ -118,11 +104,6 @@ func (s *AdoptService) Adopt(ctx context.Context, params AdoptParams) (*agentsto
 		return nil, ErrWorktreeNeedsCwd
 	}
 
-	pr, branch, err := s.resolveAdoption(ctx, repo, ref)
-	if err != nil {
-		return nil, err
-	}
-
 	existing, err := s.agentOnBranch(ctx, params.WorkflowID, branch)
 	if err != nil && !errors.Is(err, store.ErrNotFound) {
 		return nil, err
@@ -138,9 +119,9 @@ func (s *AdoptService) Adopt(ctx context.Context, params AdoptParams) (*agentsto
 	}
 
 	create := NewAgentParams{
-		Title:          adoptTitle(params.Title, pr, branch),
+		Title:          adoptTitle(params.Title, branch),
 		Flags:          params.Flags,
-		Prompt:         adoptPrompt(pr, branch, params.Prompt),
+		Prompt:         adoptPrompt(branch, params.Prompt),
 		Harness:        params.Harness,
 		WorkflowID:     params.WorkflowID,
 		Hidden:         params.Hidden,
@@ -185,49 +166,7 @@ func (s *AdoptService) Adopt(ctx context.Context, params AdoptParams) (*agentsto
 		return nil, err
 	}
 
-	if pr != nil {
-		if _, err := s.agents.SetMetadata(ctx, agentstore.SetMetadataParams{
-			ID:    created.ID,
-			Key:   prMetadataKey,
-			Value: &pr.URL,
-		}); err != nil {
-			return nil, fmt.Errorf("failed to record the pull request %s was adopted from: %w", created.Name, err)
-		}
-	}
-
 	return created, nil
-}
-
-// resolveAdoption turns what was typed into the branch to adopt, reading the pull request
-// behind it when that is what was named.
-func (s *AdoptService) resolveAdoption(ctx context.Context, repo, ref string) (*PullRequest, string, error) {
-	if !isPullRequestRef(ref) {
-		return nil, ref, nil
-	}
-	if s.pullRequests == nil {
-		return nil, "", ErrAdoptNoResolver
-	}
-
-	lookupCtx, cancel := context.WithTimeout(ctx, adoptLookupTimeout)
-	defer cancel()
-
-	pr, err := s.pullRequests.Resolve(lookupCtx, repo, ref)
-	if err != nil {
-		return nil, "", fmt.Errorf("failed to read the pull request %s: %w", ref, err)
-	}
-	if pr.CrossRepository {
-		return nil, "", fmt.Errorf("%w: %s", ErrAdoptForkBranch, pr.URL)
-	}
-
-	origin, err := s.pullRequests.Repository(lookupCtx, repo)
-	if err != nil {
-		return nil, "", fmt.Errorf("failed to work out which repository %s belongs to: %w", repo, err)
-	}
-	if pr.Repository != "" && origin != "" && !strings.EqualFold(pr.Repository, origin) {
-		return nil, "", fmt.Errorf("%w: %s is on %s where %s is on %s", ErrAdoptRepoMismatch, pr.URL, pr.Repository, repo, origin)
-	}
-
-	return pr, pr.Branch, nil
 }
 
 // agentOnBranch returns the live agent already adopted onto a branch in this workflow.
@@ -336,26 +275,19 @@ func isSameDir(a, b string) bool {
 	return filepath.Clean(resolvedA) == filepath.Clean(resolvedB)
 }
 
-func adoptTitle(title string, pr *PullRequest, branch string) string {
+func adoptTitle(title, branch string) string {
 	if strings.TrimSpace(title) != "" {
 		return title
-	}
-	if pr != nil {
-		return fmt.Sprintf("pr-%d", pr.Number)
 	}
 
 	return xstr.Slug(branch[strings.LastIndex(branch, "/")+1:], 40)
 }
 
 // adoptPrompt puts what the agent is walking into in front of whatever it was asked to do.
-func adoptPrompt(pr *PullRequest, branch, prompt string) string {
+func adoptPrompt(branch, prompt string) string {
 	var b strings.Builder
 
 	fmt.Fprintf(&b, "You are picking up work that already exists. The branch %s is checked out in your working directory and holds commits you did not write, so read the log and the diff against its base before you change anything.\n", branch)
-
-	if pr != nil {
-		fmt.Fprintf(&b, "\nIt is pull request %s, %q, open against %s. Read what people have already said on it with gh before you decide anything.\n", pr.URL, pr.Title, pr.BaseBranch)
-	}
 
 	b.WriteString("\nThe branch is not yours. Do not force-push it, do not rebase it, and do not delete it.\n")
 
@@ -369,4 +301,19 @@ func adoptPrompt(pr *PullRequest, branch, prompt string) string {
 	b.WriteString(prompt)
 
 	return b.String()
+}
+
+// namesPullRequest reports whether a ref is a pull request rather than a branch, meaning a URL,
+// a bare number, or a number behind a hash.
+func namesPullRequest(ref string) bool {
+	if strings.Contains(ref, "/pull/") || strings.Contains(ref, "/merge_requests/") {
+		return true
+	}
+
+	digits := strings.TrimPrefix(ref, "#")
+	if digits == "" {
+		return false
+	}
+
+	return !strings.ContainsFunc(digits, func(r rune) bool { return r < '0' || r > '9' })
 }

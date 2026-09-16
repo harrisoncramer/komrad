@@ -141,13 +141,10 @@ toggle = ["?"]
 # The git menu on the agents list, and the actions inside it.
 [keybindings.git]
 # Open the git menu on the hovered agent.
-open    = ["b"]
-# Open the pull request the hovered agent recorded, in your browser. The entry says so
-# rather than acting on an agent with no pull request recorded.
-open_pr = ["o"]
+open   = ["b"]
 # Bring the hovered agent's worktree up to date on the latest base, which asks first and
 # says what it would do to the branch and to the files.
-rebase  = ["r"]
+rebase = ["r"]
 
 # The key that pages the service's log, shared by every screen since the log is
 # about the service rather than about anything a screen lists.
@@ -288,8 +285,8 @@ open = ["T"]
 
 # The bindings that create and change workflows, from the agents list.
 [keybindings.workflows]
-# Put an agent on a branch or a pull request that already exists, in the
-# workflow under the cursor.
+# Put an agent on a branch that already exists, in the workflow under the
+# cursor.
 adopt   = ["a"]
 # Archive the workflow under the cursor, which archives the agents inside it.
 archive = ["z"]

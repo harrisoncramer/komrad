@@ -18,15 +18,15 @@ Separately from state, an agent is either running or dormant. Dormant agents' pa
 
 ## Adopting work that already exists
 
-Adoption puts an agent on a branch somebody else made. Hover a worktree-enabled workflow's header, press `a`, and give it a pull request URL, a pull request number, or a branch name. It is the workflow's key rather than an agent's, since what you are adopting into is the workflow.
+Adoption puts an agent on a branch somebody else made. Hover a worktree-enabled workflow's header, press `a`, and give it a branch name. It is the workflow's key rather than an agent's, since what you are adopting into is the workflow.
 
-The workflow decides the repository, so a pull request has to be one opened against the repository its directory points at, and a pull request from a fork is refused: its branch is not on that repository's origin.
+A branch is git's own idea rather than a forge's, so adoption works the same on GitHub, on GitLab, on a self-hosted remote, and on a repository with no forge behind it at all. A pull request URL or number is refused, naming what to do instead, since weave no longer reads one.
 
 Where the agent runs depends on what is already there. When nothing has the branch checked out, the agent gets a worktree of its own on it, fetched from origin first. When some other checkout already holds it, made by hand or by another tool, the agent is launched into that directory as it stands and provisions nothing. When the branch is checked out in the workflow's own directory, adoption refuses, since that is the checkout you are working in.
 
 The branch belongs to whoever made it. Weave never resets it, and deleting an adopted agent removes the worktree but leaves the branch alone. Adopting a branch that already has an agent on it is refused, naming the agent that has it, since git could not check the branch out twice anyway.
 
-The agent starts knowing what it walked into: the prompt it is given is prefixed with the branch, the pull request if there is one, and that the commits are not its own to rewrite. Leave the prompt blank and it is told nothing has been asked of it yet, and to say when it is ready and wait. A pull request is recorded on the agent as it starts, so `b` then `o` opens it straight away.
+The agent starts knowing what it walked into: the prompt it is given is prefixed with the branch and with the fact that the commits are not its own to rewrite. Leave the prompt blank and it is told nothing has been asked of it yet, and to say when it is ready and wait.
 
 Agents can adopt too, through `adopt` over [MCP](mcp.md).
 
@@ -52,9 +52,9 @@ The panel shows those in the details under the list, after what the agent was la
 
 ## The git menu
 
-`b`, for branch, draws the git actions beside the list: `r` rebases the hovered agent's worktree onto the latest base, and `o` opens the pull request it recorded. Either is picked with its own letter or with the cursor, and `esc` leaves without doing anything.
+`b`, for branch, draws the git actions beside the list: `r` rebases the hovered agent's worktree onto the latest base. It is picked with its own letter or with the cursor, and `esc` leaves without doing anything.
 
-An entry that would do nothing on this agent says so in the menu rather than leaving the key dead. An agent whose workflow makes no worktrees has no base to rebase onto, and an agent nothing has recorded a pull request on has no address to open.
+An entry that would do nothing on this agent says so in the menu rather than leaving the key dead. An agent whose workflow makes no worktrees has no base to rebase onto.
 
 ## Marks
 

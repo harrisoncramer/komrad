@@ -39,12 +39,10 @@ func TestHookServiceOverHTTP(t *testing.T) {
 	require.NoError(t, os.WriteFile(filepath.Join(hooks, "unrunnable"), []byte("#!/bin/sh\n"), 0o644))
 	require.NoError(t, os.WriteFile(filepath.Join(hooks, "compiled"), []byte{0x7f, 'E', 'L', 'F', 0x00}, 0o755))
 
-	opened := &recordingOpener{}
 	client := hookClient(t, hookClientParams{
 		hooks:    hooks,
 		builtins: builtins,
 		work:     work,
-		opener:   opened,
 	})
 
 	t.Run("a listing carries each hook and what it declares", func(t *testing.T) {
@@ -57,53 +55,6 @@ func TestHookServiceOverHTTP(t *testing.T) {
 		assert.True(t, listed[1].GetExecutable())
 		assert.False(t, listed[2].GetExecutable(), "the file waiting on a chmod is listed too")
 	})
-
-	t.Run("an agent nobody has is not found", func(t *testing.T) {
-		_, err := client.OpenPullRequest(t.Context(), connect.NewRequest(&hookv1.OpenPullRequestRequest{
-			AgentId: "gone",
-		}))
-
-		require.Error(t, err)
-		assert.Equal(t, connect.CodeNotFound, connect.CodeOf(err))
-	})
-
-	t.Run("an agent id nothing could answer to is refused before the handler", func(t *testing.T) {
-		_, err := client.OpenPullRequest(t.Context(), connect.NewRequest(&hookv1.OpenPullRequestRequest{
-			AgentId: "",
-		}))
-
-		require.Error(t, err)
-		assert.Equal(t, connect.CodeInvalidArgument, connect.CodeOf(err))
-	})
-
-	t.Run("an agent with nothing recorded is refused", func(t *testing.T) {
-		_, err := client.OpenPullRequest(t.Context(), connect.NewRequest(&hookv1.OpenPullRequestRequest{
-			AgentId: "a2",
-		}))
-
-		require.Error(t, err)
-		assert.Equal(t, connect.CodeFailedPrecondition, connect.CodeOf(err))
-		assert.Empty(t, opened.targets, "nothing was handed to the opener")
-	})
-
-	t.Run("opening hands the recorded URL to the opener", func(t *testing.T) {
-		_, err := client.OpenPullRequest(t.Context(), connect.NewRequest(&hookv1.OpenPullRequestRequest{
-			AgentId: "a1",
-		}))
-		require.NoError(t, err)
-
-		assert.Equal(t, []string{"https://github.com/weave/weave/pull/1"}, opened.targets)
-	})
-}
-
-type recordingOpener struct {
-	targets []string
-}
-
-func (o *recordingOpener) OpenURL(_ context.Context, target string) error {
-	o.targets = append(o.targets, target)
-
-	return nil
 }
 
 func names(listed []*hookv1.Hook) []string {
@@ -119,7 +70,6 @@ type hookClientParams struct {
 	hooks    string
 	builtins string
 	work     string
-	opener   *recordingOpener
 }
 
 func hookClient(t *testing.T, p hookClientParams) hookv1connect.HookServiceClient {
@@ -144,14 +94,9 @@ func hookClient(t *testing.T, p hookClientParams) hookv1connect.HookServiceClien
 		Socket:     "weave",
 	})
 
-	pullRequests := agents.NewPullRequestOpener(agents.NewPullRequestOpenerParams{
-		Agents: fakeAgents{cwd: p.work},
-		Opener: p.opener,
-	})
-
 	mux := http.NewServeMux()
 	mux.Handle(hookv1connect.NewHookServiceHandler(
-		hookv1weave.HookServiceAdapter{Impl: NewService(service, pullRequests)},
+		hookv1weave.HookServiceAdapter{Impl: NewService(service)},
 		connect.WithInterceptors(validation),
 	))
 

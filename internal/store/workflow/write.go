@@ -29,7 +29,6 @@ func (s *Store) Create(ctx context.Context, cfg Config) (*Workflow, error) {
 		WorktreeCopyPaths:    orEmpty(cfg.Worktree.CopyPaths),
 		WorktreeSymlinkPaths: orEmpty(cfg.Worktree.SymlinkPaths),
 		WorktreeDiffExclude:  orEmpty(cfg.Worktree.DiffExclude),
-		ArchiveOnPrClosed:    cfg.ArchiveOnPRClosed,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to insert the provisioner config for workflow %q: %w", cfg.Name, err)
@@ -90,7 +89,6 @@ func (s *Store) Update(ctx context.Context, id string, cfg Config) error {
 		WorktreeCopyPaths:    orEmpty(cfg.Worktree.CopyPaths),
 		WorktreeSymlinkPaths: orEmpty(cfg.Worktree.SymlinkPaths),
 		WorktreeDiffExclude:  orEmpty(cfg.Worktree.DiffExclude),
-		ArchiveOnPrClosed:    cfg.ArchiveOnPRClosed,
 	}); err != nil {
 		return fmt.Errorf("failed to update the provisioner for workflow %q: %w", id, err)
 	}

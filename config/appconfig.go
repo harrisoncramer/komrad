@@ -325,9 +325,6 @@ type MarksKeys struct {
 type GitKeys struct {
 	// Open the git menu on the hovered agent.
 	Open []string `mapstructure:"open" default:"b"`
-	// Open the pull request the hovered agent recorded, in your browser. The entry says so
-	// rather than acting on an agent with no pull request recorded.
-	OpenPR []string `mapstructure:"open_pr" default:"o"`
 	// Bring the hovered agent's worktree up to date on the latest base, which asks first and
 	// says what it would do to the branch and to the files.
 	Rebase []string `mapstructure:"rebase" default:"r"`
@@ -336,8 +333,8 @@ type GitKeys struct {
 // WorkflowsKeys are the bindings that act on a workflow. New is global. Rename,
 // edit, and archive apply while the cursor is on a workflow header.
 type WorkflowsKeys struct {
-	// Put an agent on a branch or a pull request that already exists, in the
-	// workflow under the cursor.
+	// Put an agent on a branch that already exists, in the workflow under the
+	// cursor.
 	Adopt []string `mapstructure:"adopt" default:"a"`
 	// Archive the workflow under the cursor, which archives the agents inside it.
 	Archive []string `mapstructure:"archive" default:"z"`

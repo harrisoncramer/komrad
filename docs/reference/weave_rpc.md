@@ -26,7 +26,7 @@ flags, and the response is the API's own JSON on stdout.
 
 * [weave](weave.md)	 - tmux panel and CLI for background coding agents
 * [weave rpc add-review-message](weave_rpc_add-review-message.md)	 - Say something in a review thread, which is how you answer feedback on your own diff.
-* [weave rpc adopt](weave_rpc_adopt.md)	 - Put an agent on work that already exists, naming a pull request by URL or number or naming a branch.
+* [weave rpc adopt](weave_rpc_adopt.md)	 - Put an agent on work that already exists, naming the branch it is on.
 * [weave rpc archive-agents](weave_rpc_archive-agents.md)	 - Stop a list of agents and hide them from the panel, keyed by id, keeping their records and transcripts.
 * [weave rpc archive-schedule](weave_rpc_archive-schedule.md)	 - Hide a schedule from the panel so it stops firing, keeping its record.
 * [weave rpc archive-workflow](weave_rpc_archive-workflow.md)	 - Hide a workflow from the panel, archiving the agents inside it.
@@ -50,7 +50,6 @@ flags, and the response is the API's own JSON on stdout.
 * [weave rpc list-schedules](weave_rpc_list-schedules.md)	 - List the recurring agent launches, most recently updated first, with each one's cron expression, prompt, workflow, next run time, and the outcome of its last firing.
 * [weave rpc list-workflows](weave_rpc_list-workflows.md)	 - List the workflows agents are grouped into, in alphabetical order, with each one's shared context, the working directory and flags its agents start from, and the scripts hooked to moments in their agents' lives.
 * [weave rpc log](weave_rpc_log.md)	 - Write one line to weave's log, tagged to an agent.
-* [weave rpc open-pull-request](weave_rpc_open-pull-request.md)	 - Open the pull request an agent recorded for itself, in the browser of whoever is at the panel.
 * [weave rpc open-review-round](weave_rpc_open-review-round.md)	 - Freeze what an agent has written right now and get back the round to review against, which is a snapshot commit covering its whole worktree, committed and uncommitted alike.
 * [weave rpc read-mail](weave_rpc_read-mail.md)	 - Take the unread mail other agents have sent you, oldest first.
 * [weave rpc release-review](weave_rpc_release-review.md)	 - Let go of the review you have been writing on another agent's diff, which is what sends it.

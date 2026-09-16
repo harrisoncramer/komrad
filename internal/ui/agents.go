@@ -736,18 +736,6 @@ func worktreeOverride(selected string) *bool {
 	return nil
 }
 
-const prMetadataKey = "pr"
-
-func hasPR(agent agentstore.Agent) bool {
-	for _, entry := range agent.Metadata {
-		if entry.Key == prMetadataKey {
-			return entry.Value != ""
-		}
-	}
-
-	return false
-}
-
 // openRefreshConfirm asks before bringing a worktree up to date, saying what it will do to the
 // branch and to the files.
 func (m model) openRefreshConfirm(plan refreshPlan) (tea.Model, tea.Cmd) {

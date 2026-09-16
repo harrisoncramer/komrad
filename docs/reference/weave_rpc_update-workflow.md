@@ -4,7 +4,7 @@ Replace a workflow's name, context, directory, flags, worktree config and hooks.
 
 ### Synopsis
 
-Replace a workflow's name, context, directory, flags, worktree config and hooks. Every field is written, so read the workflow first and send back the ones you are not changing, the hooks list included. Editing the context reaches only agents spawned afterwards, since existing agents took a snapshot at launch, while worktree.enabled reaches agents already running, since whether weave removes an agent's directory is read when the agent is deleted. worktree.dir names the parent new worktrees are made in, blank meaning the one every workflow shares. worktree.diffExclude drops paths from the diff the panel draws, as paths or globs relative to the checkout such as proto/gen or *.pb.go. archiveOnPrClosed archives an agent once weave sees the pull request it recorded merge or close. docs/workflows.md says why each of the three is there.
+Replace a workflow's name, context, directory, flags, worktree config and hooks. Every field is written, so read the workflow first and send back the ones you are not changing, the hooks list included. Editing the context reaches only agents spawned afterwards, since existing agents took a snapshot at launch, while worktree.enabled reaches agents already running, since whether weave removes an agent's directory is read when the agent is deleted. worktree.dir names the parent new worktrees are made in, blank meaning the one every workflow shares. worktree.diffExclude drops paths from the diff the panel draws, as paths or globs relative to the checkout such as proto/gen or *.pb.go. docs/workflows.md says why each is there.
 
 No flag is derived for hooks; pass those with --request-json.
 
@@ -15,7 +15,6 @@ weave rpc update-workflow [flags]
 ### Options
 
 ```
-      --archive-on-pr-closed             bool
       --compact                          print the response on one line
       --context string                   string, at most 50000 characters
       --cwd string                       string, at most 4096 characters

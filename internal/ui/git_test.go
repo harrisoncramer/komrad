@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	"weave/config"
-	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
 
 	"github.com/stretchr/testify/assert"
@@ -23,8 +22,6 @@ func gitModel(t *testing.T) model {
 		Name:     "backend",
 		Worktree: workflowstore.WorktreeConfig{Enabled: true},
 	}}
-	m.listing.agents[0].agent.Metadata = []agentstore.Metadata{{Key: prMetadataKey, Value: "https://example.test/pr/1"}}
-
 	return m
 }
 
@@ -60,44 +57,26 @@ func TestGitMenuClosesOnEsc(t *testing.T) {
 // TestGitMenuEntriesAnswerTheirOwnKeys covers picking an entry by its letter rather than by
 // walking the cursor onto it.
 func TestGitMenuEntriesAnswerTheirOwnKeys(t *testing.T) {
-	for _, pressed := range []string{"r", "o"} {
-		t.Run(pressed, func(t *testing.T) {
-			picked := routeKey(t, routeKey(t, gitModel(t), "b"), pressed)
+	picked := routeKey(t, routeKey(t, gitModel(t), "b"), "r")
 
-			assert.Equal(t, formNone, picked.form.kind)
-			assert.Empty(t, picked.messages.items, "the entry answered rather than saying why it could not")
-		})
-	}
+	assert.Equal(t, formNone, picked.form.kind)
+	assert.Empty(t, picked.messages.items, "the entry answered rather than saying why it could not")
 }
 
-// TestGitMenuSaysWhyAnEntryWouldDoNothing covers an agent neither entry can act on, where the
+// TestGitMenuSaysWhyAnEntryWouldDoNothing covers an agent the entry cannot act on, where the
 // menu is still drawn and the reason is read rather than the press being swallowed.
 func TestGitMenuSaysWhyAnEntryWouldDoNothing(t *testing.T) {
-	tests := []struct {
-		name    string
-		pressed string
-		want    string
-	}{
-		{name: "the rebase", pressed: "r", want: errNoWorktree.Error()},
-		{name: "the pull request", pressed: "o", want: errNoPR.Error()},
-	}
+	m := gitModel(t)
+	m.listing.workflows[0].Worktree.Enabled = false
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			m := gitModel(t)
-			m.listing.workflows[0].Worktree.Enabled = false
-			m.listing.agents[0].agent.Metadata = nil
+	opened := routeKey(t, m, "b")
+	require.Equal(t, formGit, opened.form.kind)
 
-			opened := routeKey(t, m, "b")
-			require.Equal(t, formGit, opened.form.kind)
+	picked := routeKey(t, opened, "r")
 
-			picked := routeKey(t, opened, tt.pressed)
-
-			assert.Equal(t, formNone, picked.form.kind)
-			require.Len(t, picked.messages.items, 1)
-			assert.Contains(t, picked.messages.items[0].detail, tt.want)
-		})
-	}
+	assert.Equal(t, formNone, picked.form.kind)
+	require.Len(t, picked.messages.items, 1)
+	assert.Contains(t, picked.messages.items[0].detail, errNoWorktree.Error())
 }
 
 // TestGitMenuEntriesNameTheirKeysAndTheirRefusals covers the labels, which carry both the letter
@@ -119,17 +98,15 @@ func TestGitMenuEntriesNameTheirKeysAndTheirRefusals(t *testing.T) {
 	assert.Equal(t, "Rebase onto the base · no worktree of its own", gitEntryLabel(entry))
 }
 
-// TestGitMenuDrawsEveryEntry covers the menu on an agent neither entry can act on, where the
-// select would otherwise scroll the first of them out of the column.
+// TestGitMenuDrawsEveryEntry covers the menu on an agent the entry cannot act on, where the
+// select would otherwise scroll it out of the column.
 func TestGitMenuDrawsEveryEntry(t *testing.T) {
 	m := gitModel(t)
 	m.listing.workflows[0].Worktree.Enabled = false
-	m.listing.agents[0].agent.Metadata = nil
 
 	drawn := routeKey(t, m, "b").View()
 
 	assert.Contains(t, drawn, "Rebase onto the base")
-	assert.Contains(t, drawn, "Open the pull request")
 	assert.Contains(t, drawn, "Cancel")
 }
 
@@ -151,7 +128,7 @@ func TestGitMenuActsOnTheAgentItWasOpenedOn(t *testing.T) {
 	opened := routeKey(t, gitModel(t), "b")
 	opened.listing.agents = nil
 
-	picked := routeKey(t, opened, "o")
+	picked := routeKey(t, opened, "r")
 
 	assert.Equal(t, formNone, picked.form.kind)
 	require.Len(t, picked.messages.items, 1)

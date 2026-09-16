@@ -74,6 +74,11 @@ type agentGetter interface {
 	GetByID(ctx context.Context, id string) (*agentstore.Agent, error)
 }
 
+// workflowGetter reads the workflow an agent belongs to.
+type workflowGetter interface {
+	Get(ctx context.Context, id string) (*workflowstore.Workflow, error)
+}
+
 type nameChecker interface {
 	ActiveNameExists(ctx context.Context, workflowID, name string) (bool, error)
 }

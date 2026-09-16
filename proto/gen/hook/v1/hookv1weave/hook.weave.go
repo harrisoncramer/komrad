@@ -17,7 +17,6 @@ import (
 // of failure they are rather than leaving it to be decided later.
 type HookServiceImpl interface {
 	ListHooks(context.Context, *emptypb.Empty) (*v1.ListHooksResponse, *fail.Error)
-	OpenPullRequest(context.Context, *v1.OpenPullRequestRequest) (*emptypb.Empty, *fail.Error)
 }
 
 // HookServiceAdapter carries what the implementation returned across to the signature
@@ -29,9 +28,4 @@ type HookServiceAdapter struct {
 // ListHooks answers the request as connect serves it.
 func (a HookServiceAdapter) ListHooks(ctx context.Context, req *connect.Request[emptypb.Empty]) (*connect.Response[v1.ListHooksResponse], error) {
 	return rpcerr.Answer(a.Impl.ListHooks(ctx, req.Msg))
-}
-
-// OpenPullRequest answers the request as connect serves it.
-func (a HookServiceAdapter) OpenPullRequest(ctx context.Context, req *connect.Request[v1.OpenPullRequestRequest]) (*connect.Response[emptypb.Empty], error) {
-	return rpcerr.Answer(a.Impl.OpenPullRequest(ctx, req.Msg))
 }

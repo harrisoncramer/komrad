@@ -1,4 +1,4 @@
-// Package hook serves the hooks a person has written, and the panel's open-pull-request key.
+// Package hook serves the hooks a person has written.
 package hook
 
 import (
@@ -18,21 +18,13 @@ type hookLister interface {
 	ListHooks() ([]agents.Script, error)
 }
 
-type pullRequestOpener interface {
-	OpenPullRequest(ctx context.Context, agentID string) error
-}
-
 type Service struct {
-	hooks        hookLister
-	pullRequests pullRequestOpener
+	hooks hookLister
 }
 
 // NewService constructs the handler from the services that own the rules.
-func NewService(hooks hookLister, pullRequests pullRequestOpener) *Service {
-	return &Service{
-		hooks:        hooks,
-		pullRequests: pullRequests,
-	}
+func NewService(hooks hookLister) *Service {
+	return &Service{hooks: hooks}
 }
 
 // ListHooks returns every file in the user's hooks directory, and a directory that is not
@@ -55,16 +47,6 @@ func (s *Service) ListHooks(_ context.Context, _ *emptypb.Empty) (*hookv1.ListHo
 	}
 
 	return &hookv1.ListHooksResponse{Hooks: resources}, nil
-}
-
-// OpenPullRequest opens the pull request an agent recorded, which is the panel's own key and
-// the one thing weave does to an agent on demand rather than at a moment of its own choosing.
-func (s *Service) OpenPullRequest(ctx context.Context, req *hookv1.OpenPullRequestRequest) (*emptypb.Empty, *fail.Error) {
-	if err := s.pullRequests.OpenPullRequest(ctx, req.GetAgentId()); err != nil {
-		return nil, rpcerr.From(err, "failed to open the pull request")
-	}
-
-	return &emptypb.Empty{}, nil
 }
 
 func declaredTimeout(timeout time.Duration) *durationpb.Duration {

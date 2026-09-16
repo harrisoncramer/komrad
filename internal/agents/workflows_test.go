@@ -403,33 +403,6 @@ func TestUpdateWorkflowWorktreeDisablePreservesTheDetails(t *testing.T) {
 	assert.Equal(t, []string{".env"}, reenabled.Worktree.CopyPaths, "re-enabling hands back what was there before")
 }
 
-// TestWorkflowArchiveOnPRClosed covers the setting surviving a create and an update.
-func TestWorkflowArchiveOnPRClosed(t *testing.T) {
-	st := newStore(t)
-	workflows := workflowsFor(st, newFakeTmux())
-	repo := fakeCheckout(t)
-
-	created, err := workflows.NewWorkflow(t.Context(), workflowstore.Config{
-		Name:              "backend",
-		Cwd:               repo,
-		Worktree:          workflowstore.WorktreeConfig{Enabled: true},
-		ArchiveOnPRClosed: true,
-	})
-	require.NoError(t, err)
-	assert.True(t, created.ArchiveOnPRClosed)
-
-	err = workflows.UpdateWorkflow(t.Context(), created.ID, workflowstore.Config{
-		Name:     "backend",
-		Cwd:      repo,
-		Worktree: workflowstore.WorktreeConfig{Enabled: true},
-	})
-	require.NoError(t, err)
-
-	updated, err := st.GetWorkflow(t.Context(), created.ID)
-	require.NoError(t, err)
-	assert.False(t, updated.ArchiveOnPRClosed)
-}
-
 // TestArchiveWorkflowKillsAPaneWrittenBeforeItsOwnWrite covers the same gap an archive of one
 // agent has, on the archive of a whole folder of them: the agents it read held no pane, so it
 // killed none, and the transaction that follows takes one off a row and hides it.

@@ -83,14 +83,14 @@ weave rpc log --message 'Some custom message'
 
 ## Example: reading one field back
 
-Agents can be instructed to record their own work as metadata via the MCP, such as the URL of a pull request. A hook that wants one such field should read it back through the API rather than out of the payload, since `weave` is on the PATH of every script weave runs:
+Agents can be instructed to record their own work as metadata via the MCP, such as the ticket they are implementing. A hook that wants one such field should read it back through the API rather than out of the payload, since `weave` is on the PATH of every script weave runs:
 
 ```sh
 #!/bin/sh
 set -eu
 
 agent=$(weave rpc get-agent --id "$WEAVE_AGENT_ID" --compact)
-url=$(printf '%s' "$agent" | jq -r '[.agent.metadata[]? | select(.key == "pr") | .value] | first // ""')
+url=$(printf '%s' "$agent" | jq -r '[.agent.metadata[]? | select(.key == "ticket") | .value] | first // ""')
 
 exec open "$url"
 ```

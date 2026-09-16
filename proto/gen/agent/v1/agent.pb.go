@@ -849,7 +849,7 @@ func (x *RequestReviewResponse) GetGuidance() string {
 
 type AdoptRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The work to put an agent on, as a pull request URL or number, or a branch name.
+	// The branch to put an agent on, which has to exist on the remote or on disk.
 	Ref string `protobuf:"bytes,1,opt,name=ref,proto3" json:"ref,omitempty"`
 	// Which workflow to launch into, which is what decides the repository.
 	WorkflowId string `protobuf:"bytes,2,opt,name=workflow_id,json=workflowId,proto3" json:"workflow_id,omitempty"`
@@ -948,7 +948,7 @@ func (x *AdoptRequest) GetIdempotencyKey() string {
 
 type AdoptResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The agent as launched, with the pull request already recorded on it.
+	// The agent as launched, on the branch it was adopted onto.
 	Agent         *Agent `protobuf:"bytes,1,opt,name=agent,proto3" json:"agent,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -2762,7 +2762,7 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\x12UpdateAgentRequest\x12\x17\n" +
 	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\x12\xfd\x01\n" +
 	"\x04name\x18\x02 \x01(\tB\xe8\x01\xbaH\xe4\x01\xba\x01\xd9\x01\n" +
-	"\rname.storable\x12Jname must not contain spaces, colons, dots, slashes, or control characters\x1a|!this.contains(' ') && !this.contains(':') && !this.contains('.') && !this.contains('/') && !this.matches('[\\x00-\\x1f\\x7f]')r\x05\x10\x01\x18\xc8\x01R\x04name2\x98\xb5\x01\n" +
+	"\rname.storable\x12Jname must not contain spaces, colons, dots, slashes, or control characters\x1a|!this.contains(' ') && !this.contains(':') && !this.contains('.') && !this.contains('/') && !this.matches('[\\x00-\\x1f\\x7f]')r\x05\x10\x01\x18\xc8\x01R\x04name2ִ\x01\n" +
 	"\fAgentService\x12\xc6\x05\n" +
 	"\n" +
 	"ListAgents\x12\x1b.agent.v1.ListAgentsRequest\x1a\x1c.agent.v1.ListAgentsResponse\"\xfc\x04\x9a\xb5\x18\xf4\x04\n" +
@@ -2775,9 +2775,9 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\x9a\xb5\x18\xef\n" +
 	"\n" +
 	"\x0erequest_review\x12\xda\n" +
-	"Get your own work read before you call it finished, which spawns the reviewer for you and hands you back the rest of the loop. Commit on your branch first, since a review is given against a snapshot of your checkout as it stands. The reviewer is launched as your child, in your checkout, marked as a reviewer so it is briefed to read rather than to write, and named after you unless you pass a title. Your prompt is the whole briefing it gets, so say what the change is meant to do and where you are unsure of it rather than only naming a branch. agentId defaults to your own, which is in the WEAVE_AGENT_ID environment variable. One reviewer reads every round of a change, so call this once: a second ask while that reviewer is still owed an answer is refused as already_exists, and what tells it there is more to read is you answering its threads with add_review_message. Pass idempotencyKey to make a retry safe, since a repeat of the call that spawned the reviewer is answered with that reviewer rather than refused. Once a reviewer has released an approval it is finished, so the next piece of work gets a reviewer of its own. Returns failed_precondition when the agent cannot hold a reviewer, which a child and a reviewer both cannot, and resource_exhausted when the panel has no room for another agent, which means to carry on and say so rather than to try again. \x00\x12\xd2\a\n" +
-	"\x05Adopt\x12\x16.agent.v1.AdoptRequest\x1a\x17.agent.v1.AdoptResponse\"\x97\a\x9a\xb5\x18\x92\a\n" +
-	"\x05adopt\x12\x86\aPut an agent on work that already exists, naming a pull request by URL or number or naming a branch. The workflow decides the repository, so the pull request has to belong to the repository its cwd points at, and the workflow has to be one whose agents get a worktree of their own. Weave works out where the agent runs: a worktree on that branch when nothing holds it, or the checkout already holding it when a human made one by hand. The branch is the human's, so nothing here creates it, resets it, or deletes it afterwards. The pull request is recorded on the agent as it starts. A branch that already has an agent on it is refused as already_exists naming that agent, since git could not check it out twice anyway, so read the refusal rather than retrying. Each call otherwise spawns another agent, and only a repeat carrying the same idempotency_key is answered with the agent it already launched. \x00\x12@\n" +
+	"Get your own work read before you call it finished, which spawns the reviewer for you and hands you back the rest of the loop. Commit on your branch first, since a review is given against a snapshot of your checkout as it stands. The reviewer is launched as your child, in your checkout, marked as a reviewer so it is briefed to read rather than to write, and named after you unless you pass a title. Your prompt is the whole briefing it gets, so say what the change is meant to do and where you are unsure of it rather than only naming a branch. agentId defaults to your own, which is in the WEAVE_AGENT_ID environment variable. One reviewer reads every round of a change, so call this once: a second ask while that reviewer is still owed an answer is refused as already_exists, and what tells it there is more to read is you answering its threads with add_review_message. Pass idempotencyKey to make a retry safe, since a repeat of the call that spawned the reviewer is answered with that reviewer rather than refused. Once a reviewer has released an approval it is finished, so the next piece of work gets a reviewer of its own. Returns failed_precondition when the agent cannot hold a reviewer, which a child and a reviewer both cannot, and resource_exhausted when the panel has no room for another agent, which means to carry on and say so rather than to try again. \x00\x12\x90\a\n" +
+	"\x05Adopt\x12\x16.agent.v1.AdoptRequest\x1a\x17.agent.v1.AdoptResponse\"\xd5\x06\x9a\xb5\x18\xd0\x06\n" +
+	"\x05adopt\x12\xc4\x06Put an agent on work that already exists, naming the branch it is on. A pull request URL or number is refused as invalid_argument, so read the branch off it and name that. The workflow decides the repository, and it has to be one whose agents get a worktree of their own. Weave works out where the agent runs: a worktree on that branch when nothing holds it, or the checkout already holding it when a human made one by hand. The branch is the human's, so nothing here creates it, resets it, or deletes it afterwards. A branch that already has an agent on it is refused as already_exists naming that agent, since git could not check it out twice anyway, so read the refusal rather than retrying. Each call otherwise spawns another agent, and only a repeat carrying the same idempotency_key is answered with the agent it already launched. \x00\x12@\n" +
 	"\aSetMark\x12\x18.agent.v1.SetMarkRequest\x1a\x16.google.protobuf.Empty\"\x03\x90\x02\x02\x12\xd3\x03\n" +
 	"\tSetHidden\x12\x1a.agent.v1.SetHiddenRequest\x1a\x16.google.protobuf.Empty\"\x91\x03\x9a\xb5\x18\x89\x03\n" +
 	"\x10set_agent_hidden\x12\xf2\x02Hide an agent from the panel's sidebar, keyed by its id, or unhide it by passing hidden false. This changes nothing about the agent: it keeps running, the reconciler keeps moving its state, and every tool still returns it. It only decides whether the person watching the panel sees a row for it, which is theirs to decide, so do not hide work you were not asked to hide. \x00\x90\x02\x02\x12\xd2\x06\n" +

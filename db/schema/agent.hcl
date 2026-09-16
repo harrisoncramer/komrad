@@ -87,11 +87,6 @@ table "workflow_provisioner_configs" {
     type    = sql("text[]")
     default = sql("'{}'")
   }
-  column "archive_on_pr_closed" {
-    null    = false
-    type    = boolean
-    default = false
-  }
   column "created_at" {
     null    = false
     type    = timestamptz

@@ -46,8 +46,6 @@ type Workflow struct {
 	ArchivedAt *string `protobuf:"bytes,9,opt,name=archived_at,json=archivedAt,proto3,oneof" json:"archived_at,omitempty"`
 	// Whether its agents each get a worktree of their own, and how those are built.
 	Worktree *WorktreeConfig `protobuf:"bytes,10,opt,name=worktree,proto3" json:"worktree,omitempty"`
-	// Whether an agent is archived once weave sees its recorded pull request merge or close.
-	ArchiveOnPrClosed bool `protobuf:"varint,11,opt,name=archive_on_pr_closed,json=archiveOnPrClosed,proto3" json:"archive_on_pr_closed,omitempty"`
 	// Scripts hung on moments in its agents' lives, one per moment.
 	Hooks []*WorkflowHook `protobuf:"bytes,12,rep,name=hooks,proto3" json:"hooks,omitempty"`
 	// The letter a person addresses this workflow by in the panel, if it holds one.
@@ -142,13 +140,6 @@ func (x *Workflow) GetWorktree() *WorktreeConfig {
 		return x.Worktree
 	}
 	return nil
-}
-
-func (x *Workflow) GetArchiveOnPrClosed() bool {
-	if x != nil {
-		return x.ArchiveOnPrClosed
-	}
-	return false
 }
 
 func (x *Workflow) GetHooks() []*WorkflowHook {
@@ -538,8 +529,6 @@ type CreateWorkflowRequest struct {
 	Harness string `protobuf:"bytes,5,opt,name=harness,proto3" json:"harness,omitempty"`
 	// Whether its agents each get a worktree, and how those are built.
 	Worktree *WorktreeConfig `protobuf:"bytes,8,opt,name=worktree,proto3" json:"worktree,omitempty"`
-	// True to archive an agent once its recorded pull request merges or closes.
-	ArchiveOnPrClosed bool `protobuf:"varint,9,opt,name=archive_on_pr_closed,json=archiveOnPrClosed,proto3" json:"archive_on_pr_closed,omitempty"`
 	// Scripts to hang on moments in its agents' lives.
 	Hooks         []*WorkflowHook `protobuf:"bytes,10,rep,name=hooks,proto3" json:"hooks,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -618,13 +607,6 @@ func (x *CreateWorkflowRequest) GetWorktree() *WorktreeConfig {
 	return nil
 }
 
-func (x *CreateWorkflowRequest) GetArchiveOnPrClosed() bool {
-	if x != nil {
-		return x.ArchiveOnPrClosed
-	}
-	return false
-}
-
 func (x *CreateWorkflowRequest) GetHooks() []*WorkflowHook {
 	if x != nil {
 		return x.Hooks
@@ -694,8 +676,6 @@ type UpdateWorkflowRequest struct {
 	// Turning worktrees off reaches agents already running, since whether weave removes a
 	// directory is read when the agent is deleted.
 	Worktree *WorktreeConfig `protobuf:"bytes,9,opt,name=worktree,proto3" json:"worktree,omitempty"`
-	// Whether an agent is archived once its pull request merges or closes.
-	ArchiveOnPrClosed bool `protobuf:"varint,10,opt,name=archive_on_pr_closed,json=archiveOnPrClosed,proto3" json:"archive_on_pr_closed,omitempty"`
 	// The whole hook list, so send back the ones you are keeping.
 	Hooks         []*WorkflowHook `protobuf:"bytes,11,rep,name=hooks,proto3" json:"hooks,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -779,13 +759,6 @@ func (x *UpdateWorkflowRequest) GetWorktree() *WorktreeConfig {
 		return x.Worktree
 	}
 	return nil
-}
-
-func (x *UpdateWorkflowRequest) GetArchiveOnPrClosed() bool {
-	if x != nil {
-		return x.ArchiveOnPrClosed
-	}
-	return false
 }
 
 func (x *UpdateWorkflowRequest) GetHooks() []*WorkflowHook {
@@ -979,7 +952,7 @@ var File_workflow_v1_workflow_proto protoreflect.FileDescriptor
 
 const file_workflow_v1_workflow_proto_rawDesc = "" +
 	"\n" +
-	"\x1aworkflow/v1/workflow.proto\x12\vworkflow.v1\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1epagination/v1/pagination.proto\x1a\x14rules/v1/rules.proto\x1a\x12view/v1/view.proto\"\xb6\x03\n" +
+	"\x1aworkflow/v1/workflow.proto\x12\vworkflow.v1\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1epagination/v1/pagination.proto\x1a\x14rules/v1/rules.proto\x1a\x12view/v1/view.proto\"\x85\x03\n" +
 	"\bWorkflow\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x18\n" +
@@ -991,7 +964,6 @@ const file_workflow_v1_workflow_proto_rawDesc = "" +
 	"archivedAt\x88\x01\x01\x127\n" +
 	"\bworktree\x18\n" +
 	" \x01(\v2\x1b.workflow.v1.WorktreeConfigR\bworktree\x12/\n" +
-	"\x14archive_on_pr_closed\x18\v \x01(\bR\x11archiveOnPrClosed\x12/\n" +
 	"\x05hooks\x18\f \x03(\v2\x19.workflow.v1.WorkflowHookR\x05hooks\x12\x17\n" +
 	"\x04mark\x18\r \x01(\tH\x01R\x04mark\x88\x01\x01\x12+\n" +
 	"\x11context_truncated\x18\x0e \x01(\bR\x10contextTruncatedB\x0e\n" +
@@ -1023,7 +995,7 @@ const file_workflow_v1_workflow_proto_rawDesc = "" +
 	"\x12GetWorkflowRequest\x12\x17\n" +
 	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\"H\n" +
 	"\x13GetWorkflowResponse\x121\n" +
-	"\bworkflow\x18\x01 \x01(\v2\x15.workflow.v1.WorkflowR\bworkflow\"\x82\x03\n" +
+	"\bworkflow\x18\x01 \x01(\v2\x15.workflow.v1.WorkflowR\bworkflow\"\xd1\x02\n" +
 	"\x15CreateWorkflowRequest\x12\x1e\n" +
 	"\x04name\x18\x01 \x01(\tB\n" +
 	"\xbaH\ar\x05\x10\x01\x18\xc8\x01R\x04name\x12#\n" +
@@ -1031,12 +1003,11 @@ const file_workflow_v1_workflow_proto_rawDesc = "" +
 	"\x03cwd\x18\x03 \x01(\tB\f\xbaH\tr\a\xb0\xbb\x18\x01\x18\x80 R\x03cwd\x12\"\n" +
 	"\x05flags\x18\x04 \x01(\tB\f\xbaH\tr\a\xa0\xbb\x18\x01\x18\xf4\x03R\x05flags\x12/\n" +
 	"\aharness\x18\x05 \x01(\tB\x15\xbaH\x12r\x10\x18(2\f^[a-z0-9-]*$R\aharness\x127\n" +
-	"\bworktree\x18\b \x01(\v2\x1b.workflow.v1.WorktreeConfigR\bworktree\x12/\n" +
-	"\x14archive_on_pr_closed\x18\t \x01(\bR\x11archiveOnPrClosed\x129\n" +
+	"\bworktree\x18\b \x01(\v2\x1b.workflow.v1.WorktreeConfigR\bworktree\x129\n" +
 	"\x05hooks\x18\n" +
 	" \x03(\v2\x19.workflow.v1.WorkflowHookB\b\xbaH\x05\x92\x01\x02\x102R\x05hooksJ\x04\b\x06\x10\aJ\x04\b\a\x10\b\"K\n" +
 	"\x16CreateWorkflowResponse\x121\n" +
-	"\bworkflow\x18\x01 \x01(\v2\x15.workflow.v1.WorkflowR\bworkflow\"\x9b\x03\n" +
+	"\bworkflow\x18\x01 \x01(\v2\x15.workflow.v1.WorkflowR\bworkflow\"\xea\x02\n" +
 	"\x15UpdateWorkflowRequest\x12\x17\n" +
 	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\x12\x1e\n" +
 	"\x04name\x18\x02 \x01(\tB\n" +
@@ -1045,9 +1016,7 @@ const file_workflow_v1_workflow_proto_rawDesc = "" +
 	"\x03cwd\x18\x04 \x01(\tB\f\xbaH\tr\a\xb0\xbb\x18\x01\x18\x80 R\x03cwd\x12\"\n" +
 	"\x05flags\x18\x05 \x01(\tB\f\xbaH\tr\a\xa0\xbb\x18\x01\x18\xf4\x03R\x05flags\x12/\n" +
 	"\aharness\x18\x06 \x01(\tB\x15\xbaH\x12r\x10\x18(2\f^[a-z0-9-]*$R\aharness\x127\n" +
-	"\bworktree\x18\t \x01(\v2\x1b.workflow.v1.WorktreeConfigR\bworktree\x12/\n" +
-	"\x14archive_on_pr_closed\x18\n" +
-	" \x01(\bR\x11archiveOnPrClosed\x129\n" +
+	"\bworktree\x18\t \x01(\v2\x1b.workflow.v1.WorktreeConfigR\bworktree\x129\n" +
 	"\x05hooks\x18\v \x03(\v2\x19.workflow.v1.WorkflowHookB\b\xbaH\x05\x92\x01\x02\x102R\x05hooksJ\x04\b\a\x10\bJ\x04\b\b\x10\t\"1\n" +
 	"\x16ArchiveWorkflowRequest\x12\x17\n" +
 	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\"1\n" +
@@ -1056,17 +1025,16 @@ const file_workflow_v1_workflow_proto_rawDesc = "" +
 	"\x17RestoreWorkflowResponse\x121\n" +
 	"\bworkflow\x18\x01 \x01(\v2\x15.workflow.v1.WorkflowR\bworkflow\"0\n" +
 	"\x15DeleteWorkflowRequest\x12\x17\n" +
-	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id2\xea&\n" +
+	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id2\x8e%\n" +
 	"\x0fWorkflowService\x12\xc6\x05\n" +
 	"\rListWorkflows\x12!.workflow.v1.ListWorkflowsRequest\x1a\".workflow.v1.ListWorkflowsResponse\"\xed\x04\x9a\xb5\x18\xe5\x04\n" +
 	"\x0elist_workflows\x12\xd2\x04List the workflows agents are grouped into, in alphabetical order, with each one's shared context, the working directory and flags its agents start from, and the scripts hooked to moments in their agents' lives. Archived workflows are excluded unless archived is set, which lists those and only those. Returns one page; pass the response's nextPageToken back as pagination.cursor for the next. The summary this returns by default holds only the opening of each workflow's context, marked by contextTruncated; get_workflow returns one whole, and view VIEW_FULL returns every context on the page.\x90\x02\x01\x12\xb0\x01\n" +
 	"\vGetWorkflow\x12\x1f.workflow.v1.GetWorkflowRequest\x1a .workflow.v1.GetWorkflowResponse\"^\x9a\xb5\x18W\n" +
-	"\fget_workflow\x12GFetch one workflow by id. Returns not_found if no workflow has that id.\x90\x02\x01\x12\xd0\n" +
-	"\n" +
-	"\x0eCreateWorkflow\x12\".workflow.v1.CreateWorkflowRequest\x1a#.workflow.v1.CreateWorkflowResponse\"\xf4\t\x9a\xb5\x18\xef\t\n" +
-	"\x0fcreate_workflow\x12\xd9\tCreate a workflow to group agents under. Nothing runs as a result; this is organisation. The cwd and flags become the defaults prefilled when an agent is created inside it, and the context is appended to those agents' system prompts. worktree.enabled gives every agent a git worktree of its own, cut from cwd, which weave makes before the agent starts and removes when it is deleted; left off, agents run in the directory they are given and weave provisions nothing. hooks hang your own scripts on a moment in those agents' lives, one per moment, each naming a hook from list_hooks and one of pre-launch, post-launch, post-resume, post-restore or pre-teardown; weave waits for pre-launch and pre-teardown and not the others, so a pre-launch that fails abandons the create and a pre-teardown that fails stops the delete and leaves the directory alone. worktree.dir names the parent new worktrees are made in, blank meaning the one every workflow shares. worktree.diffExclude drops paths from the diff the panel draws, as paths or globs relative to the checkout such as proto/gen or *.pb.go. archiveOnPrClosed archives an agent once weave sees the pull request it recorded merge or close. docs/workflows.md says why each of the three is there. \x00\x12\xb5\a\n" +
-	"\x0eUpdateWorkflow\x12\".workflow.v1.UpdateWorkflowRequest\x1a\x16.google.protobuf.Empty\"\xe6\x06\x9a\xb5\x18\xde\x06\n" +
-	"\x0fupdate_workflow\x12\xc8\x06Replace a workflow's name, context, directory, flags, worktree config and hooks. Every field is written, so read the workflow first and send back the ones you are not changing, the hooks list included. Editing the context reaches only agents spawned afterwards, since existing agents took a snapshot at launch, while worktree.enabled reaches agents already running, since whether weave removes an agent's directory is read when the agent is deleted. worktree.dir names the parent new worktrees are made in, blank meaning the one every workflow shares. worktree.diffExclude drops paths from the diff the panel draws, as paths or globs relative to the checkout such as proto/gen or *.pb.go. archiveOnPrClosed archives an agent once weave sees the pull request it recorded merge or close. docs/workflows.md says why each of the three is there. \x00\x90\x02\x02\x12\xff\x02\n" +
+	"\fget_workflow\x12GFetch one workflow by id. Returns not_found if no workflow has that id.\x90\x02\x01\x12\xe2\t\n" +
+	"\x0eCreateWorkflow\x12\".workflow.v1.CreateWorkflowRequest\x1a#.workflow.v1.CreateWorkflowResponse\"\x86\t\x9a\xb5\x18\x81\t\n" +
+	"\x0fcreate_workflow\x12\xeb\bCreate a workflow to group agents under. Nothing runs as a result; this is organisation. The cwd and flags become the defaults prefilled when an agent is created inside it, and the context is appended to those agents' system prompts. worktree.enabled gives every agent a git worktree of its own, cut from cwd, which weave makes before the agent starts and removes when it is deleted; left off, agents run in the directory they are given and weave provisions nothing. hooks hang your own scripts on a moment in those agents' lives, one per moment, each naming a hook from list_hooks and one of pre-launch, post-launch, post-resume, post-restore or pre-teardown; weave waits for pre-launch and pre-teardown and not the others, so a pre-launch that fails abandons the create and a pre-teardown that fails stops the delete and leaves the directory alone. worktree.dir names the parent new worktrees are made in, blank meaning the one every workflow shares. worktree.diffExclude drops paths from the diff the panel draws, as paths or globs relative to the checkout such as proto/gen or *.pb.go. docs/workflows.md says why each is there. \x00\x12\xc7\x06\n" +
+	"\x0eUpdateWorkflow\x12\".workflow.v1.UpdateWorkflowRequest\x1a\x16.google.protobuf.Empty\"\xf8\x05\x9a\xb5\x18\xf0\x05\n" +
+	"\x0fupdate_workflow\x12\xda\x05Replace a workflow's name, context, directory, flags, worktree config and hooks. Every field is written, so read the workflow first and send back the ones you are not changing, the hooks list included. Editing the context reaches only agents spawned afterwards, since existing agents took a snapshot at launch, while worktree.enabled reaches agents already running, since whether weave removes an agent's directory is read when the agent is deleted. worktree.dir names the parent new worktrees are made in, blank meaning the one every workflow shares. worktree.diffExclude drops paths from the diff the panel draws, as paths or globs relative to the checkout such as proto/gen or *.pb.go. docs/workflows.md says why each is there. \x00\x90\x02\x02\x12\xff\x02\n" +
 	"\x0fArchiveWorkflow\x12#.workflow.v1.ArchiveWorkflowRequest\x1a\x16.google.protobuf.Empty\"\xae\x02\x9a\xb5\x18\xa6\x02\n" +
 	"\x10archive_workflow\x12\x8f\x02Hide a workflow from the panel, archiving the agents inside it. Nothing is destroyed: the agents stay findable through search_transcripts and no transcript goes with them. Refused while any schedule still launches into the workflow, since those would have nowhere to run. \x00\x90\x02\x02\x12\xd6\x04\n" +
 	"\x0fRestoreWorkflow\x12#.workflow.v1.RestoreWorkflowRequest\x1a$.workflow.v1.RestoreWorkflowResponse\"\xf7\x03\x9a\xb5\x18\xef\x03\n" +

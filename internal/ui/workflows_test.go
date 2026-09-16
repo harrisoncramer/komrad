@@ -363,13 +363,12 @@ func describeRows(rows []agentRow) []string {
 // workflow the service reports, through the form, to the update written back.
 func TestWorkflowEditFormRoundTripsTheStoredConfig(t *testing.T) {
 	sent := &formRecorder{storedWorkflow: &workflowv1.Workflow{
-		Id:                "w1",
-		Name:              "api",
-		Harness:           "claude",
-		Cwd:               "/work/api",
-		Flags:             "--model opus",
-		ArchiveOnPrClosed: true,
-		Worktree:          &workflowv1.WorktreeConfig{Enabled: true, BaseBranch: "develop"},
+		Id:       "w1",
+		Name:     "api",
+		Harness:  "claude",
+		Cwd:      "/work/api",
+		Flags:    "--model opus",
+		Worktree: &workflowv1.WorktreeConfig{Enabled: true, BaseBranch: "develop"},
 	}}
 
 	opened, _ := formModel(sent).editWorkflowForm(workflowstore.Workflow{ID: "w1", Name: "api"})
@@ -388,7 +387,6 @@ func TestWorkflowEditFormRoundTripsTheStoredConfig(t *testing.T) {
 	assert.Equal(t, "/work/api", sent.updatedWorkflow.GetCwd())
 	assert.Equal(t, "--model opus", sent.updatedWorkflow.GetFlags())
 	assert.Equal(t, "claude", sent.updatedWorkflow.GetHarness())
-	assert.True(t, sent.updatedWorkflow.GetArchiveOnPrClosed())
 	require.NotNil(t, sent.updatedWorkflow.GetWorktree())
 	assert.Equal(t, "develop", sent.updatedWorkflow.GetWorktree().GetBaseBranch())
 }
@@ -399,10 +397,9 @@ func TestWorkflowRenameKeepsTheRestOfTheConfig(t *testing.T) {
 	sent := &formRecorder{}
 	m := formModel(sent)
 	m.listing.workflows = workflowsFrom([]*workflowv1.Workflow{{
-		Id:                "w1",
-		Name:              "api",
-		Cwd:               "/work/api",
-		ArchiveOnPrClosed: true,
+		Id:   "w1",
+		Name: "api",
+		Cwd:  "/work/api",
 	}})
 
 	values := workflowFormValues{Name: "backend"}
@@ -419,7 +416,6 @@ func TestWorkflowRenameKeepsTheRestOfTheConfig(t *testing.T) {
 	require.NotNil(t, sent.updatedWorkflow)
 	assert.Equal(t, "backend", sent.updatedWorkflow.GetName())
 	assert.Equal(t, "/work/api", sent.updatedWorkflow.GetCwd(), "a rename carries the config it is not changing")
-	assert.True(t, sent.updatedWorkflow.GetArchiveOnPrClosed())
 }
 
 type fakeHooks struct {

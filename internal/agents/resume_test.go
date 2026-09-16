@@ -291,14 +291,13 @@ func TestAResumeInItsSetupIsNotArchivedOutFromUnderItself(t *testing.T) {
 	ctx := t.Context()
 
 	created, err := st.Workflows.Create(ctx, workflowstore.Config{
-		Name:              "worktrees",
-		Cwd:               fakeCheckout(t),
-		Worktree:          workflowstore.WorktreeConfig{Enabled: true},
-		ArchiveOnPRClosed: true,
+		Name:     "worktrees",
+		Cwd:      fakeCheckout(t),
+		Worktree: workflowstore.WorktreeConfig{Enabled: true},
 	})
 	require.NoError(t, err)
 
-	agent := seedPRAgent(t, st, created.ID, agentstore.StateIdle, "", prURL)
+	agent := seedInWorkflow(t, st, created.ID, "agent", "", agentstore.StateIdle)
 
 	lifecycle := &blockingLifecycle{entered: make(chan struct{}), release: make(chan struct{})}
 	manager := st.agentServiceWithLifecycle(tmux, fakeHarnesses{harness: &fakeHarness{}}, lifecycle)
@@ -314,13 +313,8 @@ func TestAResumeInItsSetupIsNotArchivedOutFromUnderItself(t *testing.T) {
 	assert.Equal(t, agentstore.StateSettingUp, agentByID(t, st, agent.ID).State,
 		"the row says a resume is in flight before the resume does any work")
 
-	prs := &fakePRStates{
-		state:  prStateMerged,
-		branch: prBranch,
-		repo:   prRepo,
-		origin: prRepo,
-	}
-	require.NoError(t, newPRArchiver(st, prs, manager.lifecycle).Sync(ctx))
+	_, err = manager.lifecycle.ArchiveUnchangedAgents(ctx, []agentstore.Agent{agent})
+	require.NoError(t, err)
 
 	assert.Nil(t, agentByID(t, st, agent.ID).ArchivedAt, "a pass landing in the window leaves the resume alone")
 
@@ -343,34 +337,28 @@ func TestAResumeInItsSetupIsNotArchivedOutFromUnderItself(t *testing.T) {
 }
 
 // TestAPassArchivesAResumeThatFinishedFirst covers the other side of that window, where a
-// resume finished first and a merged pull request is reason enough to archive it.
+// resume finished first and the row a pass read is still the row it archives.
 func TestAPassArchivesAResumeThatFinishedFirst(t *testing.T) {
 	st := newStore(t)
 	tmux := newFakeTmux()
 	ctx := t.Context()
 
 	created, err := st.Workflows.Create(ctx, workflowstore.Config{
-		Name:              "worktrees",
-		Cwd:               t.TempDir(),
-		Worktree:          workflowstore.WorktreeConfig{Enabled: true},
-		ArchiveOnPRClosed: true,
+		Name:     "worktrees",
+		Cwd:      t.TempDir(),
+		Worktree: workflowstore.WorktreeConfig{Enabled: true},
 	})
 	require.NoError(t, err)
 
-	agent := seedPRAgent(t, st, created.ID, agentstore.StateIdle, "", prURL)
+	agent := seedInWorkflow(t, st, created.ID, "agent", "", agentstore.StateIdle)
 
 	manager := st.agentServiceWithLifecycle(tmux, fakeHarnesses{harness: &fakeHarness{}}, &fakeLifecycle{})
 	resumed, err := manager.resume.ResumeAgent(ctx, agent.ID)
 	require.NoError(t, err)
 	require.NotEmpty(t, resumed.Pane)
 
-	prs := &fakePRStates{
-		state:  prStateMerged,
-		branch: prBranch,
-		repo:   prRepo,
-		origin: prRepo,
-	}
-	require.NoError(t, newPRArchiver(st, prs, manager.lifecycle).Sync(ctx))
+	_, err = manager.lifecycle.ArchiveUnchangedAgents(ctx, []agentstore.Agent{agentByID(t, st, agent.ID)})
+	require.NoError(t, err)
 
 	assert.NotNil(t, agentByID(t, st, agent.ID).ArchivedAt)
 	assert.Equal(t, []string{resumed.Pane}, tmux.killedPanes, "the pane goes with the archive it belongs to")
@@ -465,9 +453,8 @@ func TestAResumeIsClaimableAgainAfterOneFinishes(t *testing.T) {
 	assert.Equal(t, 2, tmux.windowsOpened())
 }
 
-// archivingTmux runs one pull request archiving pass the first time a resume asks whether the
-// agent is already running, which is the only call between the caller reading the row and the
-// resume marking it.
+// archivingTmux archives the agent the first time a resume asks whether it is already running,
+// which is the only call between the caller reading the row and the resume marking it.
 type archivingTmux struct {
 	*fakeTmux
 	sync func()
@@ -488,25 +475,19 @@ func TestAPassThatArchivesBeforeTheMarkStopsTheResume(t *testing.T) {
 	ctx := t.Context()
 
 	created, err := st.Workflows.Create(ctx, workflowstore.Config{
-		Name:              "worktrees",
-		Cwd:               t.TempDir(),
-		Worktree:          workflowstore.WorktreeConfig{Enabled: true},
-		ArchiveOnPRClosed: true,
+		Name:     "worktrees",
+		Cwd:      t.TempDir(),
+		Worktree: workflowstore.WorktreeConfig{Enabled: true},
 	})
 	require.NoError(t, err)
 
-	agent := seedPRAgent(t, st, created.ID, agentstore.StateIdle, "", prURL)
+	agent := seedInWorkflow(t, st, created.ID, "agent", "", agentstore.StateIdle)
 
 	tmux := &archivingTmux{fakeTmux: base}
 	manager := st.agentServiceWithLifecycle(tmux, fakeHarnesses{harness: &fakeHarness{}}, &fakeLifecycle{})
 	tmux.sync = func() {
-		prs := &fakePRStates{
-			state:  prStateMerged,
-			branch: prBranch,
-			repo:   prRepo,
-			origin: prRepo,
-		}
-		require.NoError(t, newPRArchiver(st, prs, manager.lifecycle).Sync(ctx))
+		_, syncErr := manager.lifecycle.ArchiveUnchangedAgents(ctx, []agentstore.Agent{agent})
+		require.NoError(t, syncErr)
 	}
 
 	_, err = manager.resume.ResumeAgent(ctx, agent.ID)
