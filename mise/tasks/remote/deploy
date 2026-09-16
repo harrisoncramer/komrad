@@ -25,6 +25,16 @@ done
 
 cd "$MISE_CONFIG_ROOT"
 
+# The backend reads state as whoever the environment is, and it takes no profile of its own, so
+# the one the provider was given is used unless the environment already names one.
+if [ -z "${AWS_PROFILE:-}" ] && [ -f infra/terraform/terraform.tfvars ]; then
+	PROFILE="$(sed -n 's/^[[:space:]]*aws_profile[[:space:]]*=[[:space:]]*"\(.*\)"[[:space:]]*$/\1/p' \
+		infra/terraform/terraform.tfvars | head -1)"
+	if [ -n "$PROFILE" ]; then
+		export AWS_PROFILE="$PROFILE"
+	fi
+fi
+
 INSTANCE="${1:-${WEAVE_ENGINE_INSTANCE:-}}"
 
 if [ -z "$INSTANCE" ]; then
@@ -35,12 +45,15 @@ if [ -z "$INSTANCE" ]; then
 			-backend-config=backend.hcl -input=false >/dev/null 2>&1 || true
 	fi
 
+	REASON="$(terraform -chdir=infra/terraform output -raw instance_id 2>&1 >/dev/null || true)"
 	INSTANCE="$(terraform -chdir=infra/terraform output -raw instance_id 2>/dev/null || true)"
 fi
 
 if [ -z "$INSTANCE" ]; then
-	echo "no engine to deploy to. Pass an instance id, set WEAVE_ENGINE_INSTANCE, or give this" >&2
-	echo "checkout infra/terraform/backend.hcl so the instance_id output can be read from state." >&2
+	echo "no engine to deploy to, because the instance could not be read from Terraform:" >&2
+	echo "${REASON:-no state and no instance_id output}" | head -8 >&2
+	echo >&2
+	echo "Pass an instance id or set WEAVE_ENGINE_INSTANCE to skip Terraform entirely." >&2
 	exit 1
 fi
 
