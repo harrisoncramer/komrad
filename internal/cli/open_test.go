@@ -66,25 +66,30 @@ func TestBuildManagerSessionArgsForwardsTheEnvironment(t *testing.T) {
 // so a path left off here is a panel reading the default while the caller named another.
 func TestBuildManagerSessionArgsCarriesTheConfigPath(t *testing.T) {
 	tests := []struct {
-		name        string
-		configPaths []string
-		want        []string
+		name  string
+		stack config.Stack
+		want  []string
 	}{
 		{
-			name:        "no path given",
-			configPaths: nil,
-			want:        []string{"--", "/usr/local/bin/weave", "panel"},
+			name:  "no path given",
+			stack: config.Stack{},
+			want:  []string{"--", "/usr/local/bin/weave", "panel"},
 		},
 		{
-			name:        "a path given",
-			configPaths: []string{"/tmp/somewhere/config.toml"},
-			want:        []string{"--", "/usr/local/bin/weave", "panel", "--config", "/tmp/somewhere/config.toml"},
+			name:  "a path given",
+			stack: config.Stack{Paths: []string{"/tmp/somewhere/config.toml"}},
+			want:  []string{"--", "/usr/local/bin/weave", "panel", "--config", "/tmp/somewhere/config.toml"},
+		},
+		{
+			name:  "an engine given",
+			stack: config.Stack{Engine: "remote"},
+			want:  []string{"--", "/usr/local/bin/weave", "panel", "--engine", "remote"},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			state := &app{env: &config.Environment{}, configPaths: tt.configPaths}
+			state := &app{env: &config.Environment{}, configStack: tt.stack}
 
 			args := buildManagerSessionArgs(state, "/usr/local/bin/weave", false)
 
@@ -131,7 +136,7 @@ func TestBuildPanelWindowArgsOpensInTheSessionItAlreadyHas(t *testing.T) {
 			CacheDir:            "/tmp/cache",
 			Editor:              "nvim",
 		},
-		configPaths: []string{"/tmp/somewhere/config.toml"},
+		configStack: config.Stack{Paths: []string{"/tmp/somewhere/config.toml"}},
 	}
 
 	args := buildPanelWindowArgs(state, "/usr/local/bin/weave", false)

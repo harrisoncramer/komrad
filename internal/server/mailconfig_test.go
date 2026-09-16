@@ -19,7 +19,7 @@ func TestMailConfigReadsWhatTheFileSays(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.toml")
 	require.NoError(t, os.WriteFile(path, []byte("[mail]\ndelivery_deadline = \"45m\"\nmax_exchange = 7\n"), 0o600))
 
-	load := mailConfig(func() (*config.Config, error) { return config.Load([]string{path}) })
+	load := mailConfig(func() (*config.Config, error) { return config.LoadStack(config.Stack{Paths: []string{path}}) })
 
 	deadline, err := load.GetDeliveryDeadline()
 	require.NoError(t, err)
@@ -36,7 +36,7 @@ func TestMailConfigRefusesAConfigItCannotRead(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.toml")
 	require.NoError(t, os.WriteFile(path, []byte("[mail]\ndelivery_dedline = \"45m\"\n"), 0o600))
 
-	load := mailConfig(func() (*config.Config, error) { return config.Load([]string{path}) })
+	load := mailConfig(func() (*config.Config, error) { return config.LoadStack(config.Stack{Paths: []string{path}}) })
 
 	_, err := load.GetDeliveryDeadline()
 	require.Error(t, err, "an unreadable config is an error rather than the built-in deadline")

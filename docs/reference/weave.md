@@ -19,6 +19,7 @@ the machine, start or stop the service, or call an endpoint from a script.
 
 ```
       --config stringArray   path to a config TOML, repeatable, later files win over earlier ones
+      --engine string        engine to reach, named after a file in the config's engines directory, layered over the config
   -h, --help                 help for weave
 ```
 

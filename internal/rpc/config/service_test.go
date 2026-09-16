@@ -78,7 +78,7 @@ func TestGetConfig(t *testing.T) {
 				t.Setenv("HOME", t.TempDir())
 			}
 
-			svc := configv1weave.ConfigServiceAdapter{Impl: NewService(func() (*weaveconfig.Config, error) { return weaveconfig.Load(paths) })}
+			svc := configv1weave.ConfigServiceAdapter{Impl: NewService(func() (*weaveconfig.Config, error) { return weaveconfig.LoadStack(weaveconfig.Stack{Paths: paths}) })}
 
 			resp, err := svc.GetConfig(t.Context(), connect.NewRequest(&emptypb.Empty{}))
 			require.NoError(t, err)
@@ -206,7 +206,9 @@ func TestGetConfigRedactsTheConnectionStrings(t *testing.T) {
 		"readonly_database_url = \"postgres://reader:alsosecret@db.internal:5432/panel\"\n"
 	require.NoError(t, os.WriteFile(path, []byte(body), 0o600))
 
-	svc := configv1weave.ConfigServiceAdapter{Impl: NewService(func() (*weaveconfig.Config, error) { return weaveconfig.Load([]string{path}) })}
+	svc := configv1weave.ConfigServiceAdapter{Impl: NewService(func() (*weaveconfig.Config, error) {
+		return weaveconfig.LoadStack(weaveconfig.Stack{Paths: []string{path}})
+	})}
 
 	resp, err := svc.GetConfig(t.Context(), connect.NewRequest(&emptypb.Empty{}))
 	require.NoError(t, err)

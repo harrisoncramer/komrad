@@ -99,8 +99,8 @@ type panelKeyTmux interface {
 }
 
 type BindPanelKeyParams struct {
-	Self        string
-	ConfigPaths []string
+	Self       string
+	ConfigArgs []string
 	// Key is the panel key this weave asks for, empty meaning whatever the tmux option says.
 	Key string
 }
@@ -138,10 +138,7 @@ func BindPanelKey(t panelKeyTmux, params BindPanelKeyParams) error {
 }
 
 func panelCommand(params BindPanelKeyParams, subcommand string) string {
-	words := []string{params.Self, subcommand}
-	for _, path := range params.ConfigPaths {
-		words = append(words, "--config", path)
-	}
+	words := append([]string{params.Self, subcommand}, params.ConfigArgs...)
 
 	return strings.Join(words, " ")
 }

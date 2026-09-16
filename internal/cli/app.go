@@ -24,7 +24,7 @@ type app struct {
 	layout         config.Layout
 	configErr      error
 	contextPath    string
-	configPaths    []string
+	configStack    config.Stack
 	configSources  map[string]config.Source
 	tmux           *tmux.Client
 }

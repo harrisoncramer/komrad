@@ -30,10 +30,10 @@ bringing the service up without a panel.`,
 			}
 
 			if err := ensureServer(cmd.Context(), ensureServerParams{
-				Addr:        addr,
-				Self:        getSelfPath(),
-				LogPath:     state.env.LogPath(),
-				ConfigPaths: state.configPaths,
+				Addr:       addr,
+				Self:       getSelfPath(),
+				LogPath:    state.env.LogPath(),
+				ConfigArgs: configArgs(state.configStack),
 			}); err != nil {
 				return err
 			}
