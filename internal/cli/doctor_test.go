@@ -4,6 +4,8 @@ package cli
 
 import (
 	"context"
+	"os"
+	"path/filepath"
 	"slices"
 	"testing"
 
@@ -22,25 +24,32 @@ import (
 // apart from one somebody named and never created.
 func TestDoctorReadsTheConfigTheUserNamed(t *testing.T) {
 	tests := []struct {
-		name        string
-		configPaths []string
-		wantErr     bool
+		name    string
+		stack   config.Stack
+		wantErr string
 	}{
 		{
-			name:        "a file named on the command line that is not there",
-			configPaths: []string{"/no/such/config.toml"},
-			wantErr:     true,
+			name:    "a file named on the command line that is not there",
+			stack:   config.Stack{Paths: []string{"/no/such/config.toml"}},
+			wantErr: "/no/such/config.toml",
 		},
 		{
-			name:        "no file and none named, which is every fresh install",
-			configPaths: nil,
-			wantErr:     false,
+			name:  "no file and none named, which is every fresh install",
+			stack: config.Stack{},
+		},
+		{
+			name:  "an engine on a machine that never wrote a config file",
+			stack: config.Stack{Engine: "remote"},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			t.Setenv("HOME", t.TempDir())
+			home := t.TempDir()
+			t.Setenv("HOME", home)
+			engines := filepath.Join(home, ".config", "weave", "engines")
+			require.NoError(t, os.MkdirAll(engines, 0o755))
+			require.NoError(t, os.WriteFile(filepath.Join(engines, "remote.toml"), []byte(""), 0o600))
 
 			registry, err := harness.NewRegistry(claude.NewHarness(claude.NewHarnessParams{ProjectsDir: t.TempDir()}))
 			require.NoError(t, err)
@@ -48,7 +57,7 @@ func TestDoctorReadsTheConfigTheUserNamed(t *testing.T) {
 			state := &app{
 				env:         &config.Environment{},
 				harnesses:   registry,
-				configPaths: tt.configPaths,
+				configStack: tt.stack,
 			}
 
 			env, _, err := state.buildDoctor()
@@ -56,14 +65,14 @@ func TestDoctorReadsTheConfigTheUserNamed(t *testing.T) {
 
 			_, err = env.LoadConfig()
 
-			if !tt.wantErr {
+			if tt.wantErr == "" {
 				require.NoError(t, err)
 
 				return
 			}
 
 			require.Error(t, err)
-			assert.Contains(t, err.Error(), tt.configPaths[0], "the error names the file that is not there")
+			assert.Contains(t, err.Error(), tt.wantErr, "the error names the file that is not there")
 		})
 	}
 }
@@ -79,7 +88,7 @@ func TestDoctorSurvivesAnEmptyLayerElement(t *testing.T) {
 	state := &app{
 		env:         &config.Environment{},
 		harnesses:   registry,
-		configPaths: []string{"", "/no/such/config.toml"},
+		configStack: config.Stack{Paths: []string{"", "/no/such/config.toml"}},
 	}
 
 	env, _, err := state.buildDoctor()

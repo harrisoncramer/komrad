@@ -19,7 +19,7 @@ func settingsFor(t *testing.T, body string) *frameSettings {
 	path := filepath.Join(t.TempDir(), "config.toml")
 	require.NoError(t, os.WriteFile(path, []byte(body), 0o600))
 
-	return newFrameSettings(func() (*config.Config, error) { return config.Load([]string{path}) })
+	return newFrameSettings(func() (*config.Config, error) { return config.LoadStack(config.Stack{Paths: []string{path}}) })
 }
 
 // TestFrameSettingsAreOffUntilAskedFor covers the ordinary install, where nobody is chasing

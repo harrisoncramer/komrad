@@ -29,7 +29,7 @@ import (
 // NewServerParams is what the service is built over.
 type NewServerParams struct {
 	Env                *config.Environment
-	ConfigPaths        []string
+	ConfigStack        config.Stack
 	Logger             *slog.Logger
 	Addr               string
 	Tmux               *tmux.Client

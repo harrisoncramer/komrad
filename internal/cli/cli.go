@@ -10,7 +10,6 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"strings"
 
 	"weave/config"
 	"weave/internal/agents"
@@ -57,14 +56,12 @@ the machine, start or stop the service, or call an endpoint from a script.`,
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		PersistentPreRunE: func(cmd *cobra.Command, _ []string) error {
-			resolved, err := resolveConfigPaths(configPaths, engineName)
+			stack, err := resolveConfigStack(configPaths, engineName)
 			if err != nil {
 				return err
 			}
 
-			configPaths = resolved
-
-			cfg, report, err := config.LoadWithReport(configPaths)
+			cfg, report, err := config.LoadWithReport(stack)
 			if err != nil {
 				if isConfigFatal(cmd) {
 					return err
@@ -112,7 +109,7 @@ the machine, start or stop the service, or call an endpoint from a script.`,
 			app.logLevel = cfg.Log.Level
 			app.logViewer = cfg.Log.Viewer
 			app.processViewer = cfg.Log.ProcessViewer
-			app.configPaths = configPaths
+			app.configStack = stack
 			app.env = env
 			app.configSources = report.Sources
 			app.keys = cfg.Keybindings
@@ -171,33 +168,33 @@ var commandsSurvivingBadConfig = map[string]bool{
 	"panel":   true,
 }
 
-func resolveConfigPaths(flags []string, engine string) ([]string, error) {
+func resolveConfigStack(flags []string, engine string) (config.Stack, error) {
 	paths := flags
 	if len(paths) == 0 {
 		paths = config.LayerPaths()
 	}
 
-	if strings.TrimSpace(engine) == "" {
-		return paths, nil
-	}
-
-	if len(paths) == 0 {
-		layers, err := config.ResolveLayers(nil)
-		if err != nil {
-			return nil, err
-		}
-
-		for _, layer := range layers {
-			paths = append(paths, layer.Path)
+	if engine != "" {
+		if _, err := config.EnginePath(engine); err != nil {
+			return config.Stack{}, err
 		}
 	}
 
-	overlay, err := config.EnginePath(engine)
-	if err != nil {
-		return nil, err
+	return config.Stack{Paths: paths, Engine: engine}, nil
+}
+
+// configArgs is the flags that put a child process on the same config stack.
+func configArgs(stack config.Stack) []string {
+	args := make([]string, 0, len(stack.Paths)*2+2)
+	for _, path := range stack.Paths {
+		args = append(args, "--config", path)
 	}
 
-	return append(paths, overlay), nil
+	if stack.Engine != "" {
+		args = append(args, "--engine", stack.Engine)
+	}
+
+	return args
 }
 
 func isConfigFatal(cmd *cobra.Command) bool {

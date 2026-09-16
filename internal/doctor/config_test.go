@@ -19,7 +19,7 @@ var claudeAndCodex = []HarnessInfo{
 func configEnv(cfg *config.Config, loadErr error, exists bool, installed ...string) Env {
 	return Env{
 		Settings: Settings{
-			ConfigLayers: []config.Layer{{Path: "/home/u/.config/weave/config.toml"}},
+			configLayers: []config.Layer{{Path: "/home/u/.config/weave/config.toml"}},
 			Harnesses:    claudeAndCodex,
 		},
 		LookPath: func(name string) (string, error) {

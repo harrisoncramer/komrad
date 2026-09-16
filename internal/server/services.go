@@ -40,7 +40,7 @@ func BuiltinScriptsDir(cacheDir string) string {
 }
 
 func buildServices(params NewServerParams, st *stores) (*services, error) {
-	loadConfig := func() (*config.Config, error) { return config.Load(params.ConfigPaths) }
+	loadConfig := func() (*config.Config, error) { return config.LoadStack(params.ConfigStack) }
 
 	mailService := agents.NewMailService(agents.NewMailServiceParams{
 		MailReadWriter: st.mail,

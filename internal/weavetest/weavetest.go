@@ -138,7 +138,7 @@ func Start(t *testing.T, p Params) *Instance {
 			TmuxSocket:          tmuxServer.Socket(),
 			CacheDir:            cacheDir,
 		},
-		ConfigPaths:        []string{configPath},
+		ConfigStack:        config.Stack{Paths: []string{configPath}},
 		Logger:             logger,
 		Addr:               addr,
 		Tmux:               manager,

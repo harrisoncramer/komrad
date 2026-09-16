@@ -44,12 +44,12 @@ func newConfigCheck() Check {
 }
 
 func describeLayers(env Env) string {
-	if len(env.ConfigLayers) == 0 {
+	if len(env.configLayers) == 0 {
 		return "no config files"
 	}
 
-	described := make([]string, 0, len(env.ConfigLayers))
-	for _, layer := range env.ConfigLayers {
+	described := make([]string, 0, len(env.configLayers))
+	for _, layer := range env.configLayers {
 		if env.DoesLayerExist(layer.Path) {
 			described = append(described, layer.Path)
 
@@ -72,17 +72,17 @@ func describeSource(env Env, key string) string {
 }
 
 func describeConfigFix(env Env) string {
-	for _, layer := range env.ConfigLayers {
+	for _, layer := range env.configLayers {
 		if env.DoesLayerExist(layer.Path) {
 			return "fix or delete the file named above, since every key in it has a default"
 		}
 	}
 
-	if len(env.ConfigLayers) == 0 {
+	if len(env.configLayers) == 0 {
 		return "drop --config, or WEAVE_CONFIG, to run on the defaults"
 	}
 
-	return "write " + env.ConfigLayers[0].Path + ", or drop --config to run on the defaults"
+	return "write " + env.configLayers[0].Path + ", or drop --config to run on the defaults"
 }
 
 // newDefaultHarnessCheck asserts the CLI a new agent runs is one this build knows how to run.

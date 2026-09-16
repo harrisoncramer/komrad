@@ -41,9 +41,9 @@ by hand after changing @weave_key to bind the new one without restarting tmux.`,
 			}
 
 			return ui.BindPanelKey(server, ui.BindPanelKeyParams{
-				Self:        getSelfPath(),
-				ConfigPaths: state.configPaths,
-				Key:         state.env.PanelKey,
+				Self:       getSelfPath(),
+				ConfigArgs: configArgs(state.configStack),
+				Key:        state.env.PanelKey,
 			})
 		},
 	}

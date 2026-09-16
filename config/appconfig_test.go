@@ -72,7 +72,7 @@ func TestLoad(t *testing.T) {
 				t.Setenv("HOME", t.TempDir())
 			}
 
-			cfg, err := Load(paths)
+			cfg, err := LoadStack(Stack{Paths: paths})
 			require.NoError(t, err)
 			assert.Equal(t, tt.wantFlags, cfg.Harness.Claude.Flags)
 			assert.Equal(t, DefaultHarness, cfg.DefaultHarness, "a launch goes through this, so it is never empty")
@@ -174,7 +174,7 @@ func TestLoadLayout(t *testing.T) {
 			path := filepath.Join(t.TempDir(), "config.toml")
 			require.NoError(t, os.WriteFile(path, []byte(tt.file), 0o644))
 
-			cfg, err := Load([]string{path})
+			cfg, err := LoadStack(Stack{Paths: []string{path}})
 			if tt.wantErr {
 				require.Error(t, err)
 				return
@@ -223,7 +223,7 @@ func TestLoadMaxAgents(t *testing.T) {
 			path := filepath.Join(t.TempDir(), "config.toml")
 			require.NoError(t, os.WriteFile(path, []byte(tt.file), 0o644))
 
-			cfg, err := Load([]string{path})
+			cfg, err := LoadStack(Stack{Paths: []string{path}})
 			if tt.wantErr {
 				require.Error(t, err)
 				return
@@ -261,7 +261,7 @@ func TestLoadRejectsUnknownKeys(t *testing.T) {
 			path := filepath.Join(t.TempDir(), "config.toml")
 			require.NoError(t, os.WriteFile(path, []byte(tt.file), 0o644))
 
-			_, err := Load([]string{path})
+			_, err := LoadStack(Stack{Paths: []string{path}})
 			require.Error(t, err, "an unknown key is rejected rather than silently dropped")
 			assert.Contains(t, err.Error(), "failed to parse config")
 		})
@@ -292,7 +292,7 @@ func TestLoadErrorNamesTheFile(t *testing.T) {
 			path := filepath.Join(t.TempDir(), "config.toml")
 			require.NoError(t, os.WriteFile(path, []byte(tt.file), 0o644))
 
-			_, err := Load([]string{path})
+			_, err := LoadStack(Stack{Paths: []string{path}})
 
 			require.Error(t, err)
 			assert.Contains(t, err.Error(), tt.want)
@@ -309,7 +309,7 @@ func TestLoadDanglingSymlink(t *testing.T) {
 	target := filepath.Join(dir, "missing", "config.toml")
 	require.NoError(t, os.Symlink(target, path))
 
-	_, err := Load([]string{path})
+	_, err := LoadStack(Stack{Paths: []string{path}})
 
 	require.Error(t, err, "a link pointing at nothing is not the same as having no config")
 	assert.Contains(t, err.Error(), path, "the link to go and repoint is named")
@@ -322,7 +322,7 @@ func TestLoadDanglingSymlink(t *testing.T) {
 func TestLoadAbsentFileDefaults(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 
-	cfg, err := Load(nil)
+	cfg, err := LoadStack(Stack{})
 
 	require.NoError(t, err, "an install with no config file comes up on the defaults")
 	assert.Equal(t, DefaultKeybindings().Nav.Up, cfg.Keybindings.Nav.Up)
@@ -362,7 +362,7 @@ func TestLoadFrameHistoryRefusesToBeUnbounded(t *testing.T) {
 			path := filepath.Join(t.TempDir(), "config.toml")
 			require.NoError(t, os.WriteFile(path, []byte(tt.written), 0o600))
 
-			cfg, err := Load([]string{path})
+			cfg, err := LoadStack(Stack{Paths: []string{path}})
 			require.NoError(t, err)
 			assert.Equal(t, tt.want, cfg.Debug.FrameHistory)
 		})
@@ -404,7 +404,7 @@ func TestLoadLogLevel(t *testing.T) {
 			path := filepath.Join(t.TempDir(), "config.toml")
 			require.NoError(t, os.WriteFile(path, []byte(tt.file), 0o644))
 
-			cfg, err := Load([]string{path})
+			cfg, err := LoadStack(Stack{Paths: []string{path}})
 			if tt.wantErr {
 				require.Error(t, err)
 				return
@@ -448,7 +448,7 @@ func TestContextFile(t *testing.T) {
 			path := filepath.Join(t.TempDir(), "config.toml")
 			require.NoError(t, os.WriteFile(path, []byte(tt.file), 0o644))
 
-			cfg, err := Load([]string{path})
+			cfg, err := LoadStack(Stack{Paths: []string{path}})
 			require.NoError(t, err)
 
 			got, err := cfg.GetContextFile()
@@ -470,7 +470,7 @@ func TestContextFile(t *testing.T) {
 func TestLoadNamedFileMustExist(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.toml")
 
-	_, err := Load([]string{path})
+	_, err := LoadStack(Stack{Paths: []string{path}})
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), path, "the error names the file that is not there")
@@ -520,7 +520,7 @@ func TestConfiguredPathsExpandHome(t *testing.T) {
 			path := filepath.Join(t.TempDir(), "config.toml")
 			require.NoError(t, os.WriteFile(path, []byte(tt.file), 0o644))
 
-			cfg, err := Load([]string{path})
+			cfg, err := LoadStack(Stack{Paths: []string{path}})
 			require.NoError(t, err)
 
 			got, err := tt.read(*cfg)
@@ -623,7 +623,7 @@ func TestLoadMergesLayers(t *testing.T) {
 				paths = append(paths, path)
 			}
 
-			cfg, err := Load(paths)
+			cfg, err := LoadStack(Stack{Paths: paths})
 			require.NoError(t, err)
 
 			tt.check(t, cfg)
@@ -642,7 +642,7 @@ func TestLoadConnectionPrecedence(t *testing.T) {
 	require.NoError(t, os.WriteFile(local, []byte("[connection]\naddr = \"127.0.0.2:2\"\n"), 0o644))
 	t.Setenv("WEAVE_ADDR", "127.0.0.3:3")
 
-	cfg, report, err := LoadWithReport([]string{base, local})
+	cfg, report, err := LoadWithReport(Stack{Paths: []string{base, local}})
 	require.NoError(t, err)
 
 	assert.Equal(t, "127.0.0.3:3", cfg.Connection.Addr)
@@ -661,7 +661,7 @@ func TestLoadDerivesConnectionValuesAfterPrecedence(t *testing.T) {
 	t.Setenv("WEAVE_READONLY_DATABASE_URL", "")
 	t.Setenv("WEAVE_CACHE_DIR", "")
 
-	cfg, report, err := LoadWithReport([]string{path})
+	cfg, report, err := LoadWithReport(Stack{Paths: []string{path}})
 	require.NoError(t, err)
 
 	assert.Equal(t,
@@ -679,7 +679,7 @@ func TestLoadRefusesAnEmptyBinding(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.toml")
 	require.NoError(t, os.WriteFile(path, []byte("[keybindings.nav]\nup = []\n"), 0o644))
 
-	_, err := Load([]string{path})
+	_, err := LoadStack(Stack{Paths: []string{path}})
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "nav.up")
@@ -692,7 +692,7 @@ func TestResolveLayers(t *testing.T) {
 		home := t.TempDir()
 		t.Setenv("HOME", home)
 
-		layers, err := ResolveLayers(nil)
+		layers, err := ResolveLayers(Stack{})
 		require.NoError(t, err)
 
 		require.Len(t, layers, 1, "weave looks for one file and never goes hunting for a second")
@@ -703,7 +703,7 @@ func TestResolveLayers(t *testing.T) {
 	t.Run("named paths replace the default entirely", func(t *testing.T) {
 		t.Setenv("HOME", t.TempDir())
 
-		layers, err := ResolveLayers([]string{"/one.toml", "/two.toml"})
+		layers, err := ResolveLayers(Stack{Paths: []string{"/one.toml", "/two.toml"}})
 		require.NoError(t, err)
 
 		require.Len(t, layers, 2)
@@ -713,7 +713,7 @@ func TestResolveLayers(t *testing.T) {
 	})
 
 	t.Run("an empty path is a mistake rather than a request for the defaults", func(t *testing.T) {
-		_, err := ResolveLayers([]string{""})
+		_, err := ResolveLayers(Stack{Paths: []string{""}})
 		require.Error(t, err)
 	})
 }
@@ -748,7 +748,7 @@ func TestCacheDirExpandsHome(t *testing.T) {
 	path := filepath.Join(dir, "config.toml")
 	require.NoError(t, os.WriteFile(path, []byte("[connection]\ncache_dir = \"~/.cache/weave-remote\"\n"), 0o600))
 
-	cfg, err := Load([]string{path})
+	cfg, err := LoadStack(Stack{Paths: []string{path}})
 	require.NoError(t, err)
 
 	home, err := os.UserHomeDir()

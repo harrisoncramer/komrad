@@ -71,10 +71,10 @@ Use ` + "`weave open`" + ` to bring the panel up.`,
 				addr = tunnel.Local
 			case state.configErr == nil:
 				startupErr = ensureServer(cmd.Context(), ensureServerParams{
-					Addr:        addr,
-					Self:        getSelfPath(),
-					LogPath:     logPath,
-					ConfigPaths: state.configPaths,
+					Addr:       addr,
+					Self:       getSelfPath(),
+					LogPath:    logPath,
+					ConfigArgs: configArgs(state.configStack),
 				})
 			}
 
