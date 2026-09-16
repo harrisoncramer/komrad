@@ -1,0 +1,13 @@
+[Unit]
+Description=Fetch the weave GitHub App key
+Before=weave.service
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/local/sbin/weave-github-key
+
+[Install]
+WantedBy=multi-user.target

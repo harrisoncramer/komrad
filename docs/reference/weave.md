@@ -27,6 +27,7 @@ the machine, start or stop the service, or call an endpoint from a script.
 
 * [weave attach](weave_attach.md)	 - Attach the running panel in this terminal
 * [weave doctor](weave_doctor.md)	 - Check that this machine has everything weave needs
+* [weave github](weave_github.md)	 - Reach GitHub as the engine's own App
 * [weave hide](weave_hide.md)	 - Hide the panel popup without stopping anything
 * [weave hook](weave_hook.md)	 - Run one of the agent CLI hooks weave installs
 * [weave migrate](weave_migrate.md)	 - Apply any pending database migrations

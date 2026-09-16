@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Explainer: this puts the GitHub App's private key where weave can sign with it, and nowhere else.
+#
+# An engine that writes code has to push it, and the usual ways to let a machine do that leave a
+# long-lived secret on its disk. A GitHub App instead signs a brief assertion with a private key
+# and exchanges it for a token that expires within the hour, so what sits on the box is only
+# useful to something that can also reach GitHub as this installation.
+#
+# The key lands under /run, which is a tmpfs, so it exists only while the machine is up and is
+# never written to the volume or captured into an image. It is fetched again at every boot, which
+# is also how rotating the key reaches the host.
+
+secret="${WEAVE_GITHUB_SECRET_ID:-weave/github-app}"
+target=/run/weave/github.pem
+owner="${WEAVE_GITHUB_KEY_OWNER:-weave}"
+
+errors="$(mktemp)"
+trap 'rm -f "$errors"' EXIT
+
+# An engine with no github identity should still boot, but only a secret that is genuinely absent
+# means that. Anything else is a misconfiguration this would otherwise report as an absent secret.
+if ! value="$(aws secretsmanager get-secret-value --secret-id "$secret" --query SecretString --output text 2>"$errors")"; then
+	if grep -q ResourceNotFoundException "$errors"; then
+		echo "no secret called $secret, so this engine has no github identity and will not push" >&2
+		exit 0
+	fi
+
+	cat "$errors" >&2
+	exit 1
+fi
+
+key="$(jq -re .private_key <<<"$value")"
+
+install -d -m 0700 -o "$owner" -g "$owner" /run/weave
+
+# Created empty and private first, so the key is never briefly readable by anything else.
+install -m 0600 -o "$owner" -g "$owner" /dev/null "$target"
+printf '%s\n' "$key" >"$target"

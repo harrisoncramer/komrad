@@ -106,6 +106,7 @@ the machine, start or stop the service, or call an endpoint from a script.`,
 			app.harnesses = harnessRegistry
 
 			app.layout = cfg.Layout
+			app.githubApp = cfg.GitHubApp
 			app.logLevel = cfg.Log.Level
 			app.logViewer = cfg.Log.Viewer
 			app.processViewer = cfg.Log.ProcessViewer
@@ -148,6 +149,7 @@ the machine, start or stop the service, or call an endpoint from a script.`,
 		hideCmd(app),
 		shownCmd(app),
 		tmuxCmd(app),
+		githubCmd(app),
 		serveCmd(app),
 		startCmd(app),
 		stopCmd(app),
