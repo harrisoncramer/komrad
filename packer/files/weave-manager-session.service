@@ -1,0 +1,18 @@
+[Unit]
+Description=Create the tmux session weave holds its agents in
+After=weave.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+# weave forks the tmux server holding every agent, so it lands in this unit's cgroup and the
+# default KillMode would take it down with this unit.
+KillMode=process
+User=weave
+Group=weave
+EnvironmentFile=-/etc/weave/weave.env
+EnvironmentFile=/etc/weave/database.env
+ExecStart=/usr/local/sbin/weave-manager-session
+
+[Install]
+WantedBy=multi-user.target

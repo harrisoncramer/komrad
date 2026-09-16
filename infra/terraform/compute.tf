@@ -1,11 +1,3 @@
-resource "aws_key_pair" "weave" {
-  count = var.ssh_public_key_path == null ? 0 : 1
-
-  key_name   = "${var.name}-ssh"
-  public_key = file(var.ssh_public_key_path)
-  tags       = merge(local.tags, { Name = "${var.name}-ssh" })
-}
-
 resource "aws_iam_role" "weave" {
   name = "${var.name}-instance"
 
@@ -41,10 +33,20 @@ resource "aws_instance" "weave" {
   vpc_security_group_ids      = [aws_security_group.weave.id]
   associate_public_ip_address = true
   iam_instance_profile        = aws_iam_instance_profile.weave.name
-  key_name                    = var.ssh_public_key_path == null ? null : aws_key_pair.weave[0].key_name
   user_data = templatefile("${path.module}/weave-data-volume.sh.tftpl", {
-    data_volume_id = aws_ebs_volume.weave_data.id
+    data_volume_id      = aws_ebs_volume.weave_data.id
+    database_secret_arn = aws_db_instance.weave.master_user_secret[0].secret_arn
+    database_host       = aws_db_instance.weave.address
+    database_name       = aws_db_instance.weave.db_name
+    aws_region          = var.aws_region
   })
+
+  # User data now carries the database's address and secret, which move if RDS is ever replaced
+  # or restored. Writing them to a running instance would stop and start it to change a file
+  # cloud-init never re-reads, so the host would lose its agents and keep the old address. A
+  # replacement runs the script, and the data volume follows it, which is the same path an image
+  # change already takes.
+  user_data_replace_on_change = true
 
   dynamic "credit_specification" {
     for_each = startswith(var.instance_type, "t") ? [1] : []

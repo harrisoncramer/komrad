@@ -33,6 +33,11 @@ variable "ami_id" {
 
 variable "availability_zone" {
   type = string
+
+  validation {
+    condition     = contains(keys(var.private_subnet_cidrs), var.availability_zone)
+    error_message = "availability_zone must be one of the zones private_subnet_cidrs names, since the database sits in that zone and its subnet group has to cover it."
+  }
 }
 
 variable "vpc_cidr" {
@@ -65,15 +70,7 @@ variable "data_volume_size_gib" {
   default = 100
 }
 
-variable "ssh_allowed_cidr" {
-  type    = string
-  default = null
-}
 
-variable "ssh_public_key_path" {
-  type    = string
-  default = null
-}
 
 variable "tags" {
   type = map(string)
@@ -82,3 +79,54 @@ variable "tags" {
     Project   = "weave"
   }
 }
+
+variable "private_subnet_cidrs" {
+  type = map(string)
+  default = {
+    "us-east-1a" = "10.42.1.0/24"
+    "us-east-1b" = "10.42.2.0/24"
+  }
+
+  validation {
+    # The database pins itself to availability_zone and can only sit in a subnet its group
+    # covers, so changing one without the other fails deep inside the RDS create rather than here.
+    condition     = length(var.private_subnet_cidrs) > 1
+    error_message = "A database subnet group needs subnets in at least two availability zones."
+  }
+}
+
+variable "database_engine_version" {
+  type    = string
+  default = "18.6"
+}
+
+variable "database_instance_class" {
+  type    = string
+  default = "db.t4g.micro"
+}
+
+variable "database_storage_gib" {
+  type    = number
+  default = 20
+}
+
+variable "database_max_storage_gib" {
+  type    = number
+  default = 100
+}
+
+variable "database_backup_retention_days" {
+  type    = number
+  default = 7
+}
+
+variable "database_deletion_protection" {
+  type    = bool
+  default = true
+}
+
+variable "secret_prefix" {
+  type    = string
+  default = "weave"
+}
+
