@@ -222,7 +222,6 @@ func buildServices(params NewServerParams, st *stores) (*services, error) {
 			Observer: paneChannel,
 			States:   st.agents,
 		}).
-			WithPRFinder(agents.NewGHPRFinder()).
 			WithFrameRecorder(frames.NewRecorder(params.Env.FramesDir(), newFrameSettings(loadConfig).get)),
 	}, nil
 }

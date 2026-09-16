@@ -44,7 +44,6 @@ var (
 // rebaseAgentReadWriter is the slice of the agent store a rebase reads and writes.
 type rebaseAgentReadWriter interface {
 	agentGetter
-	metadataSetter
 	SetSequenceInProgressByID(ctx context.Context, id string, inProgress bool) error
 }
 
@@ -126,9 +125,6 @@ type RebaseResult struct {
 	Moved bool
 	// ParkedRef holds the checkout as it stood before any of this, which is what an undo reads.
 	ParkedRef string
-	// ClearedPullRequest says a recorded pull request was dropped, since the rebase rewrote the
-	// branch it was opened from.
-	ClearedPullRequest bool
 }
 
 // PlanRebase reads what a rebase would do without touching anything.
@@ -221,11 +217,6 @@ func (s *RebaseService) Rebase(ctx context.Context, agentID string) (*RebaseResu
 
 	s.releaseOlderParks(ctx, *agent, result.ParkedRef)
 
-	// A completed rebase rewrites the branch, where a stopped one has not moved it yet.
-	if !result.Conflicted {
-		result.ClearedPullRequest = s.clearPullRequest(ctx, *agent)
-	}
-
 	if result.Conflicted {
 		s.recordStopped(ctx, *agent)
 	}
@@ -276,25 +267,6 @@ func (s *RebaseService) move(ctx context.Context, dir string, result *RebaseResu
 	return nil
 }
 
-// clearPullRequest drops the recorded pull request and reports whether there was one.
-func (s *RebaseService) clearPullRequest(ctx context.Context, agent agentstore.Agent) bool {
-	if metadataFor(agent, prMetadataKey) == "" {
-		return false
-	}
-
-	if _, err := s.agents.SetMetadata(ctx, agentstore.SetMetadataParams{
-		ID:  agent.ID,
-		Key: prMetadataKey,
-	}); err != nil {
-		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to clear the pull request of a rebased agent",
-			append([]slog.Attr{slog.String(logging.AgentID, agent.ID)}, logging.Err(err)...)...)
-
-		return false
-	}
-
-	return true
-}
-
 // recordStopped puts the stopped rebase on the agent's row now, ahead of the pass that would
 // otherwise take up to a whole interval to find it.
 func (s *RebaseService) recordStopped(ctx context.Context, agent agentstore.Agent) {
@@ -310,7 +282,7 @@ func (s *RebaseService) tell(ctx context.Context, agent agentstore.Agent, result
 		return
 	}
 
-	if _, err := s.notifier.SendSystemMail(ctx, agent.ID, rebaseMail(agent, result)); err != nil {
+	if _, err := s.notifier.SendSystemMail(ctx, agent.ID, rebaseMail(result)); err != nil {
 		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to tell an agent its worktree was rebased",
 			append([]slog.Attr{slog.String(logging.AgentID, agent.ID)}, logging.Err(err)...)...)
 	}
@@ -318,10 +290,10 @@ func (s *RebaseService) tell(ctx context.Context, agent agentstore.Agent, result
 
 // rebaseMail is what the agent is told, which turns on what became of its branch rather than on
 // what was asked for.
-func rebaseMail(agent agentstore.Agent, result RebaseResult) string {
+func rebaseMail(result RebaseResult) string {
 	switch {
 	case result.Conflicted:
-		return conflictedMail(agent, result)
+		return conflictedMail(result)
 	case result.Moved:
 		return movedMail(result)
 	default:
@@ -341,7 +313,7 @@ func parkNote(result RebaseResult) string {
 }
 
 // conflictedMail is a rebase stopped part-way, which is the agent's to settle and nobody else's.
-func conflictedMail(agent agentstore.Agent, result RebaseResult) string {
+func conflictedMail(result RebaseResult) string {
 	var body strings.Builder
 
 	fmt.Fprintf(&body, "Your worktree was being rebased onto %s (%s). The rebase hit conflicts and stopped part way, so it is still in progress.\n\n",
@@ -351,11 +323,9 @@ func conflictedMail(agent agentstore.Agent, result RebaseResult) string {
 		"Say what state you are in and wait to be told what to do. " +
 		"The person who pressed the key decides whether this work is worth carrying forward.")
 
-	if metadataFor(agent, prMetadataKey) != "" {
-		body.WriteString("\n\nSay also whether your recorded pull request is still open. " +
-			"Finishing the rebase rewrites the commits it was opened from. " +
-			"That invalidates an open pull request. It means nothing for one that has already merged.")
-	}
+	body.WriteString("\n\nSay also whether you have a pull request open on this branch. " +
+		"Finishing the rebase rewrites the commits it was opened from. " +
+		"That invalidates an open pull request. It means nothing for one that has already merged.")
 	body.WriteString(parkNote(result))
 
 	return body.String()
@@ -371,9 +341,7 @@ func movedMail(result RebaseResult) string {
 		"There was nothing left to replay, so your branch was moved straight onto it.\n\n")
 	body.WriteString("Nothing was lost. Your own commits are no longer on the branch and the base's history " +
 		"has taken their place. Start your next piece of work from here.")
-	if result.ClearedPullRequest {
-		body.WriteString("\n\nYour recorded pull request has been cleared. It no longer tracks anything this branch carries.")
-	}
+	body.WriteString("\n\nA pull request you opened from this branch no longer tracks anything it carries.")
 	body.WriteString(parkNote(result))
 
 	return body.String()
@@ -397,10 +365,8 @@ func replayedMail(result RebaseResult) string {
 	}
 	body.WriteString("Your branch is still the same branch.")
 
-	if result.ClearedPullRequest {
-		body.WriteString("\n\nYour recorded pull request has been cleared. The rebase rewrote the branch it was " +
-			"opened from, so open a new one rather than assuming the old one still tracks your work.")
-	}
+	body.WriteString("\n\nThe rebase rewrote the commits any pull request on this branch was opened from, " +
+		"so open a new one rather than assuming an old one still tracks your work.")
 	body.WriteString(parkNote(result))
 
 	return body.String()

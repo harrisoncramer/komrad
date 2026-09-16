@@ -74,23 +74,9 @@ type agentGetter interface {
 	GetByID(ctx context.Context, id string) (*agentstore.Agent, error)
 }
 
-type metadataSetter interface {
-	SetMetadata(ctx context.Context, params agentstore.SetMetadataParams) (bool, error)
-}
-
 // workflowGetter reads the workflow an agent belongs to.
 type workflowGetter interface {
 	Get(ctx context.Context, id string) (*workflowstore.Workflow, error)
-}
-
-// metadataFor reads one of the facts an agent recorded about its own work.
-func metadataFor(agent agentstore.Agent, key string) string {
-	i := slices.IndexFunc(agent.Metadata, func(m agentstore.Metadata) bool { return m.Key == key })
-	if i < 0 {
-		return ""
-	}
-
-	return agent.Metadata[i].Value
 }
 
 type nameChecker interface {

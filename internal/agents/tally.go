@@ -16,15 +16,11 @@ const reconcileShellGrace = 10 * time.Second
 // is believed gone.
 const listingsBeforePaneGone = 3
 
-// prRateLimitBackoff is how long a rate-limited agent is left alone before its pull request is
-// checked again.
-const prRateLimitBackoff = 15 * time.Minute
-
 // tally is what the reconcile passes have accrued about each agent, all of it counters and
 // timestamps the panes drove.
 type tally struct {
-	// mu guards tracked and every field of the entries inside it, which the reconcile pass, the RPC
-	// handler and a pull request check all reach.
+	// mu guards tracked and every field of the entries inside it, which the reconcile pass and
+	// the RPC handler both reach.
 	mu      sync.Mutex
 	tracked map[string]trackedAgent
 	now     func() time.Time
@@ -38,7 +34,6 @@ type trackedAgent struct {
 	listingsMissing   int
 	shellSince        time.Time
 	turnBoundary      time.Time
-	rateLimitedUntil  time.Time
 	frameHash         uint64
 	frameHashSeen     bool
 	unrecognizedHolds int
@@ -130,7 +125,7 @@ func (t *tally) clearMisses(agentID string) {
 }
 
 // clearDebounce drops what an agent had accrued towards a transition once one has been decided,
-// leaving the frame hash and any rate limit.
+// leaving the frame hash.
 func (t *tally) clearDebounce(agentID string) {
 	t.updateExisting(agentID, func(entry *trackedAgent) {
 		entry.misses = 0
@@ -197,16 +192,6 @@ func (t *tally) isUnrecognizedHeld(agentID string, hash uint64) bool {
 	})
 
 	return held
-}
-
-func (t *tally) isRateLimited(agentID string) bool {
-	return t.now().Before(t.read(agentID).rateLimitedUntil)
-}
-
-func (t *tally) backOff(agentID string) {
-	t.update(agentID, func(entry *trackedAgent) {
-		entry.rateLimitedUntil = t.now().Add(prRateLimitBackoff)
-	})
 }
 
 // prune forgets the agents the store no longer holds.

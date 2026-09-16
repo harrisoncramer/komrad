@@ -224,28 +224,25 @@ func (s fakeRebaseWorkflows) GetIncludingArchived(ctx context.Context, id string
 	return s.Get(ctx, id)
 }
 
-// TestRebaseAndThePullRequest runs the real service against a real worktree, because the
-// decision it pins is which path clears the recorded pull request and a helper mirroring that
-// decision in the test would assert nothing.
-func TestRebaseAndThePullRequest(t *testing.T) {
+// TestRebaseRecordsAStoppedRebase runs the real service against a real worktree, because the
+// decision it pins is which path writes the stopped rebase onto the row and a helper mirroring
+// that decision in the test would assert nothing.
+func TestRebaseRecordsAStoppedRebase(t *testing.T) {
 	t.Parallel()
 
 	for _, tt := range []struct {
 		name        string
 		conflict    bool
-		wantCleared bool
 		wantStopped bool
 	}{
 		{
-			name:        "a stopped rebase keeps it, since the branch has not moved",
+			name:        "a stopped rebase reaches the row without waiting for the next pass",
 			conflict:    true,
-			wantCleared: false,
 			wantStopped: true,
 		},
 		{
-			name:        "a completed rebase clears it, since the branch was rewritten",
+			name:        "a completed rebase leaves the row alone",
 			conflict:    false,
-			wantCleared: true,
 			wantStopped: false,
 		},
 	} {
@@ -258,7 +255,6 @@ func TestRebaseAndThePullRequest(t *testing.T) {
 				WorkflowID: "w1",
 				Cwd:        "/tree",
 				State:      agentstore.StateIdle,
-				Metadata:   []agentstore.Metadata{{Key: prMetadataKey, Value: "https://example.test/pr/1"}},
 			}}
 
 			rebaser := &fakeRebaser{state: git.TreeState{Branch: "agent/a1"}}
@@ -276,9 +272,7 @@ func TestRebaseAndThePullRequest(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, tt.conflict, result.Conflicted)
 
-			assert.Equal(t, tt.wantCleared, result.ClearedPullRequest)
-			assert.Equal(t, tt.wantCleared, agents.clearedPR, "the row is written only when the branch moved")
-			assert.Equal(t, tt.wantStopped, agents.setStopped, "a stopped rebase reaches the row without waiting for the next pass")
+			assert.Equal(t, tt.wantStopped, agents.setStopped)
 		})
 	}
 }
@@ -340,7 +334,6 @@ func (f *fakeRebaser) RebaseOnto(_ context.Context, _, _, cutoff string) error {
 // decision under test produces.
 type recordingRebaseAgents struct {
 	agent      agentstore.Agent
-	clearedPR  bool
 	setStopped bool
 }
 
@@ -348,14 +341,6 @@ func (r *recordingRebaseAgents) GetByID(context.Context, string) (*agentstore.Ag
 	agent := r.agent
 
 	return &agent, nil
-}
-
-func (r *recordingRebaseAgents) SetMetadata(_ context.Context, params agentstore.SetMetadataParams) (bool, error) {
-	if params.Key == prMetadataKey && params.Value == nil {
-		r.clearedPR = true
-	}
-
-	return true, nil
 }
 
 func (r *recordingRebaseAgents) SetSequenceInProgressByID(_ context.Context, _ string, inProgress bool) error {
@@ -503,7 +488,7 @@ func TestRebaseMailsForAnAgentWithNoWorkOfItsOwn(t *testing.T) {
 	require.Zero(t, result.Landed, "a branch that never had work of its own")
 
 	assert.False(t, result.Moved, "nothing landed, so nothing was moved off the branch")
-	body := rebaseMail(agentstore.Agent{}, *result)
+	body := rebaseMail(*result)
 	assert.NotContains(t, body, "of your commits are no longer on the branch",
 		"an agent with no commits must not be told its commits are gone")
 	assert.Contains(t, body, "You had no commits of your own to replay")
@@ -541,7 +526,7 @@ func TestRebaseMailNamesThePark(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			assert.Contains(t, rebaseMail(agentstore.Agent{}, tt.result), "refs/weave/prerefresh/a1/1")
+			assert.Contains(t, rebaseMail(tt.result), "refs/weave/prerefresh/a1/1")
 		})
 	}
 }
@@ -551,7 +536,7 @@ func TestRebaseMailNamesThePark(t *testing.T) {
 func TestReplayedMailSaysWhatLeftTheBranch(t *testing.T) {
 	t.Parallel()
 
-	body := rebaseMail(agentstore.Agent{}, RebaseResult{
+	body := rebaseMail(RebaseResult{
 		RebasePlan: RebasePlan{Landed: 2, Replay: 1},
 	})
 

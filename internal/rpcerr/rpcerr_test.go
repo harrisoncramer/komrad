@@ -78,9 +78,6 @@ func TestWrapCodes(t *testing.T) {
 		{agents.ErrSelfAddressed, connect.CodeInvalidArgument},
 		{agents.ErrSenderUnknown, connect.CodeInvalidArgument},
 		{agents.ErrReplyToNotFound, connect.CodeInvalidArgument},
-		{agents.ErrAdoptRepoMismatch, connect.CodeInvalidArgument},
-		{agents.ErrAdoptForkBranch, connect.CodeInvalidArgument},
-		{agents.ErrAdoptNoResolver, connect.CodeInvalidArgument},
 		{agents.ErrWorktreeNeedsCwd, connect.CodeInvalidArgument},
 		{agents.ErrWorktreeCwdNotPrimaryCheckout, connect.CodeInvalidArgument},
 		{agents.ErrWorktreeUnsafePath, connect.CodeInvalidArgument},
@@ -95,7 +92,6 @@ func TestWrapCodes(t *testing.T) {
 		{agents.ErrReviewOwnWork, connect.CodePermissionDenied},
 		{agents.ErrOutsideFamily, connect.CodePermissionDenied},
 		{agents.ErrOutsideWorkflow, connect.CodePermissionDenied},
-		{agentstore.ErrOrchestratorPullRequest, connect.CodePermissionDenied},
 	}
 
 	for _, tt := range tests {

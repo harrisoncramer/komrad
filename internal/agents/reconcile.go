@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"hash/fnv"
 	"log/slog"
-	"slices"
 	"time"
 
 	"weave/internal/frames"
@@ -20,17 +19,6 @@ const reconcileMisses = 3
 const stateSeenCoalesce = 30 * time.Second
 
 const stateSeenBound = 2 * time.Minute
-
-const prLookupTimeout = 15 * time.Second
-
-// prMetadataKey is the metadata key a found pull request is recorded under.
-const prMetadataKey = agentstore.MetadataKeyPR
-
-// prFinder looks up the URL of an open pull request for a branch, an empty string with no
-// error meaning there isn't one yet.
-type prFinder interface {
-	FindPR(ctx context.Context, dir, branch string) (string, error)
-}
 
 type paneObserver interface {
 	GetPanes() (map[string]tmux.PaneStatus, error)
@@ -57,7 +45,6 @@ type Reconciler struct {
 	tmux     paneObserver
 	observer harness.Observer
 	store    agentStateReadWriter
-	prFinder prFinder
 	frames   frameRecorder
 
 	// unrecognizedTotal is only ever touched by the reconcile pass, so it needs none of the
@@ -99,14 +86,6 @@ func (r *Reconciler) RecordReportedReason(agentID, reason string) {
 // written while it is unset.
 func (r *Reconciler) WithFrameRecorder(recorder frameRecorder) *Reconciler {
 	r.frames = recorder
-
-	return r
-}
-
-// WithPRFinder attaches a way to check GitHub for a pull request an agent opened on its own,
-// no agent being checked while it is unset.
-func (r *Reconciler) WithPRFinder(finder prFinder) *Reconciler {
-	r.prFinder = finder
 
 	return r
 }
@@ -337,7 +316,6 @@ func (r *Reconciler) forget(ctx context.Context, agent agentstore.Agent, mine bo
 // apply writes the state a pass settled on and reports whether the store took it.
 func (r *Reconciler) apply(ctx context.Context, agent agentstore.Agent, state agentstore.State) bool {
 	r.tally.clearDebounce(agent.ID)
-	justWentIdle := state == agentstore.StateIdle && agent.State != agentstore.StateIdle
 	if agent.State == state && r.tally.now().Sub(agent.StateSeenAt) < stateSeenCoalesce {
 		return false
 	}
@@ -352,57 +330,7 @@ func (r *Reconciler) apply(ctx context.Context, agent agentstore.Agent, state ag
 		return false
 	}
 
-	if justWentIdle {
-		r.checkPR(ctx, agent)
-	}
-
 	return true
-}
-
-// checkPR looks for a pull request an agent opened, once as the agent goes idle, and records
-// the first one it finds.
-func (r *Reconciler) checkPR(ctx context.Context, agent agentstore.Agent) {
-	if r.prFinder == nil || agent.Branch == nil || *agent.Branch == "" {
-		return
-	}
-	if slices.ContainsFunc(agent.Metadata, func(m agentstore.Metadata) bool { return m.Key == prMetadataKey }) {
-		return
-	}
-	if r.tally.isRateLimited(agent.ID) {
-		return
-	}
-
-	bg := context.WithoutCancel(ctx)
-	branch := *agent.Branch
-
-	go func() {
-		lookupCtx, cancel := context.WithTimeout(bg, prLookupTimeout)
-		defer cancel()
-
-		url, err := r.prFinder.FindPR(lookupCtx, agent.Cwd, branch)
-		if err != nil {
-			if isGHRateLimitError(err) {
-				r.tally.backOff(agent.ID)
-			}
-
-			logging.From(bg).LogAttrs(bg, slog.LevelDebug, "failed to check for a pull request",
-				append([]slog.Attr{slog.String(logging.AgentID, agent.ID)}, logging.Err(err)...)...)
-
-			return
-		}
-		if url == "" {
-			return
-		}
-
-		if _, err := r.store.SetMetadata(bg, agentstore.SetMetadataParams{
-			ID:    agent.ID,
-			Key:   prMetadataKey,
-			Value: &url,
-		}); err != nil {
-			logging.From(bg).LogAttrs(bg, slog.LevelError, "failed to record a pull request found for an agent",
-				append([]slog.Attr{slog.String(logging.AgentID, agent.ID)}, logging.Err(err)...)...)
-		}
-	}()
 }
 
 func isStateUnconfirmed(agent agentstore.Agent) bool {

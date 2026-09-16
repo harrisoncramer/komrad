@@ -2,7 +2,6 @@ package agent
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"slices"
 
@@ -11,15 +10,7 @@ import (
 	"weave/internal/store"
 )
 
-var (
-	ErrTooManyMetadataKeys = fail.Exhausted("too many metadata keys")
-
-	// ErrOrchestratorPullRequest refuses an orchestrator the pull request key.
-	ErrOrchestratorPullRequest = fail.Denied("an orchestrator opens no pull request of its own")
-)
-
-// MetadataKeyPR is the key an agent records its own pull request under.
-const MetadataKeyPR = "pr"
+var ErrTooManyMetadataKeys = fail.Exhausted("too many metadata keys")
 
 const maxMetadataKeys = 32
 
@@ -88,10 +79,6 @@ func (s *Store) SetMetadata(ctx context.Context, params SetMetadataParams) (bool
 		return false, nil
 	}
 
-	if err := s.refuseOrchestratorPullRequest(ctx, params); err != nil {
-		return false, err
-	}
-
 	if params.Value == nil {
 		deleted, err := s.queries.DeleteAgentMetadata(ctx, models.DeleteAgentMetadataParams{AgentID: params.ID, Key: params.Key})
 		if err != nil {
@@ -144,25 +131,4 @@ func (s *Store) SetMetadata(ctx context.Context, params SetMetadataParams) (bool
 	}
 
 	return len(written) > 0, nil
-}
-
-// refuseOrchestratorPullRequest holds an orchestrator off the pull request key, which would
-// file an agent's work under the agent that commissioned it.
-func (s *Store) refuseOrchestratorPullRequest(ctx context.Context, params SetMetadataParams) error {
-	if params.Key != MetadataKeyPR || params.Value == nil {
-		return nil
-	}
-
-	agent, err := s.GetByID(ctx, params.ID)
-	if errors.Is(err, store.ErrNotFound) {
-		return nil
-	}
-	if err != nil {
-		return err
-	}
-	if agent.Role != RoleOrchestrator {
-		return nil
-	}
-
-	return fmt.Errorf("%w: %q", ErrOrchestratorPullRequest, agent.Name)
 }

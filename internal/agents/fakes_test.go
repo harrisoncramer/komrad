@@ -607,25 +607,10 @@ func (onlyTheMainCheckout) ListWorktrees(_ context.Context, repo string) ([]git.
 // withWorktrees rebuilds the adopt service over a worktree listing of its own.
 func (a *testAgents) withWorktrees(worktrees worktreeLister) *testAgents {
 	a.adopt = NewAdoptService(NewAdoptServiceParams{
-		Agents:       a.adopt.agents,
-		Workflows:    a.adopt.workflows,
-		Launch:       a.adopt.launch,
-		PullRequests: a.adopt.pullRequests,
-		Worktrees:    worktrees,
-	})
-
-	return a
-}
-
-// withPullRequests rebuilds the adopt service over a resolver, which is what a test adopting
-// by pull request rather than by branch needs.
-func (a *testAgents) withPullRequests(resolver pullRequestResolver) *testAgents {
-	a.adopt = NewAdoptService(NewAdoptServiceParams{
-		Agents:       a.adopt.agents,
-		Workflows:    a.adopt.workflows,
-		Launch:       a.adopt.launch,
-		PullRequests: resolver,
-		Worktrees:    a.adopt.worktrees,
+		Agents:    a.adopt.agents,
+		Workflows: a.adopt.workflows,
+		Launch:    a.adopt.launch,
+		Worktrees: worktrees,
 	})
 
 	return a
