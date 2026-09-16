@@ -498,6 +498,21 @@ type Worktrees struct {
 	Dir string `mapstructure:"dir"`
 }
 
+// GitHub is the App an engine fetches, pushes and opens pull requests as.
+type GitHub struct {
+	// The App's own id, from its settings page. Left empty the engine has no GitHub identity
+	// and git is left to whatever credentials the account already has, which on a machine
+	// nobody logs into is none.
+	AppID string `mapstructure:"app_id"`
+	// The installation the token is minted for, which is what scopes it to the repositories the
+	// App was installed on rather than to everything it could reach. GitHub writes it as a
+	// number, and it is in the URL of the installation's own settings page.
+	InstallationID string `mapstructure:"installation_id"`
+	// The PEM the App was created with. On a deployed engine this is fetched into a tmpfs at
+	// boot rather than written to disk, so the key does not outlive the machine.
+	PrivateKeyPath string `mapstructure:"private_key_path"`
+}
+
 // Context is the standing text every agent is started with, above whatever its workflow
 // adds. It is where what is true of your machine and how you want to be worked with goes,
 // so it does not have to be pasted into every workflow.
@@ -700,6 +715,8 @@ type Config struct {
 	Hooks Hooks `mapstructure:"hooks"`
 	// Where a workflow's generated worktree provisioner creates its worktrees.
 	Worktrees Worktrees `mapstructure:"worktrees"`
+	// The GitHub App an engine fetches, pushes and opens pull requests as.
+	GitHub GitHub `mapstructure:"github"`
 	// The standing text every agent is started with, whatever workflow it is in.
 	Context Context `mapstructure:"context"`
 	// How mail between agents is delivered.

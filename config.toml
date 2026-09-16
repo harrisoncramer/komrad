@@ -316,6 +316,20 @@ dir = ""
 # Left empty this is ~/.local/state/weave/worktrees.
 dir = ""
 
+# The GitHub App an engine fetches, pushes and opens pull requests as.
+[github]
+# The App's own id, from its settings page. Left empty the engine has no GitHub identity
+# and git is left to whatever credentials the account already has, which on a machine
+# nobody logs into is none.
+app_id           = ""
+# The installation the token is minted for, which is what scopes it to the repositories the
+# App was installed on rather than to everything it could reach. GitHub writes it as a
+# number, and it is in the URL of the installation's own settings page.
+installation_id  = ""
+# The PEM the App was created with. On a deployed engine this is fetched into a tmpfs at
+# boot rather than written to disk, so the key does not outlive the machine.
+private_key_path = ""
+
 # The standing text every agent is started with, whatever workflow it is in.
 [context]
 # The file holding global context, read at each launch.
