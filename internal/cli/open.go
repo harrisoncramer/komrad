@@ -207,9 +207,8 @@ func envWithoutTmux() []string {
 	return xslice.Filter(os.Environ(), func(entry string) bool { return !strings.HasPrefix(entry, "TMUX=") })
 }
 
-// userPanelKey settles the panel key the way the binding on the user's own server settled it,
-// asking this process's server when it runs inside tmux and the one the last open recorded
-// otherwise.
+// userPanelKey asks whichever server the user is at, this process's own when it is running in
+// tmux and otherwise the one the last open recorded, and takes the configured key over it.
 func userPanelKey(state *app, socket string) string {
 	if socket == "" {
 		socket = state.tmux.GetHostSocket()

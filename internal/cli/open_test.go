@@ -245,7 +245,7 @@ func TestBuildManagerSessionArgsHeadlessHoldsNoPanel(t *testing.T) {
 }
 
 // TestUserPanelKeyPrefersTheConfiguredKey covers the key the panel hides on being the one the
-// binding was made with, which the config names ahead of the tmux option.
+// binding was made with.
 func TestUserPanelKeyPrefersTheConfiguredKey(t *testing.T) {
 	managerSocket := throwawaySocket(t)
 	panelSession(t, managerSocket)
