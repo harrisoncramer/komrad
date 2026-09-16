@@ -89,11 +89,16 @@ forward = [
 
 The `ControlMaster` settings matter more than they look. They tell SSH to keep the first connection open and run every later command over it. Without them, opening an agent builds a whole new connection each time, which is slow enough to see.
 
-Then open the panel from a terminal that has no tmux of its own, naming the engine.
+Then bind a key to it, next to the one that opens the local panel, by adding a line to your tmux config.
 
 ```
-weave open --engine remote
+run-shell 'weave tmux'
+run-shell 'weave tmux --engine remote'
 ```
+
+Each line binds the key that engine's config asks for, so give the remote one a `panel_key` of its own and both answer from the same tmux.
+
+Open it with that key rather than by running `weave open` yourself. The key opens the panel as a popup over the session you are already in, which is what keeps its splits and its copy-mode inside the popup. Running `weave open` in a terminal instead attaches the panel as that terminal's only client, and then the panel owns the whole screen: the splits are not respected and copy-mode runs across everything. The popup is the right shape for a remote engine just as it is for a local one, because the panel runs on your machine either way.
 
 Without `--engine` you get the engine on this machine, so the same binary reaches either. A name weave does not know is refused with a list of the ones it does.
 
