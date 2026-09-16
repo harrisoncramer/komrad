@@ -29,14 +29,13 @@ const (
 )
 
 const (
-	threadMark = "●"
-	unreadMark = "◆"
-	// ghostMark is a thread whose line has changed under it, drawn hollow.
-	ghostMark = "○"
-	// settledMark is a thread the person reviewing has finished with.
+	// unreadMark is a thread carrying something the person reviewing has not read.
+	unreadMark = "●"
+	// readMark is a thread nobody has settled with nothing new in it.
+	readMark = "○"
+	// settledMark is a thread that has been settled.
 	settledMark = "✓"
-	// unsentMark is a thread holding a comment nobody has released yet, drawn hollow against the
-	// filled mark of a reply waiting to be read.
+	// unsentMark is a thread holding a comment nobody has released yet.
 	unsentMark = "◇"
 	// viewedMark heads the header of a file that has been read and folded away.
 	viewedMark = "✓"
@@ -53,9 +52,8 @@ var (
 	fileStyle           = lipgloss.NewStyle().Bold(true)
 	metadataStyle       = lipgloss.NewStyle().Faint(true)
 	hunkStyle           = lipgloss.NewStyle().Foreground(lipgloss.Color("5"))
-	threadMarkStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("11"))
-	settledMarkStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("10"))
-	unsentMarkStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("4"))
+	agentMarkStyle      = lipgloss.NewStyle().Foreground(lipgloss.Color("13"))
+	humanMarkStyle      = lipgloss.NewStyle().Foreground(lipgloss.Color("12"))
 )
 
 // RenderRow draws one row of the diff at the width it is shown at, taking the cursor as an
@@ -127,7 +125,7 @@ func (v *View) fileSummary(fileIndex int) string {
 
 	summary := fmt.Sprintf("+%d −%d", stat.Added, stat.Removed)
 	if open := v.countOpenThreadsIn(v.patch.Files[fileIndex].Path()); open > 0 {
-		summary += fmt.Sprintf("  %s %d", threadMark, open)
+		summary += fmt.Sprintf("  %s %d", readMark, open)
 	}
 
 	return summary
@@ -137,7 +135,7 @@ func (v *View) fileSummary(fileIndex int) string {
 func (v *View) countOpenThreadsIn(path string) int {
 	open := 0
 	for _, thread := range v.threads {
-		if thread.GetFilePath() == path && thread.GetResolvedAt() == "" {
+		if thread.GetFilePath() == path && isUnsettled(thread) {
 			open++
 		}
 	}
@@ -148,7 +146,7 @@ func (v *View) countOpenThreadsIn(path string) int {
 // renderGutter draws the line numbers, what the diff did to the line, and whether a thread is
 // pinned to it.
 func (v *View) renderGutter(y int, line diff.Line, background lipgloss.TerminalColor) string {
-	mark, markStyle := " ", threadMarkStyle
+	mark, markStyle := " ", gutterStyle
 	if thread, ok := v.GetThreadAt(y); ok {
 		mark, markStyle = v.markFor(thread)
 	}
@@ -161,21 +159,29 @@ func (v *View) renderGutter(y int, line diff.Line, background lipgloss.TerminalC
 		gutterStyle.Background(background).Render(" ")
 }
 
-// markFor is the glyph a thread gets in the gutter, ranking an unread reply first, then a
-// settled thread, then an unreleased comment, and last a line that has changed under it.
+// markFor is the glyph a thread gets in the gutter, drawn in the colour of whoever opened it.
 func (v *View) markFor(thread *agentv1.ReviewThread) (string, lipgloss.Style) {
+	style := markStyleFor(thread)
+
 	switch {
-	case thread.GetUnreadByHuman():
-		return unreadMark, threadMarkStyle
-	case thread.GetResolvedAt() != "":
-		return settledMark, settledMarkStyle
 	case doesHoldDelivery(thread, agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_UNSENT):
-		return unsentMark, unsentMarkStyle
-	case v.IsGhosted(thread):
-		return ghostMark, threadMarkStyle
+		return unsentMark, style
+	case thread.GetUnreadByHuman():
+		return unreadMark, style
+	case thread.GetResolvedAt() != "":
+		return settledMark, style
 	}
 
-	return threadMark, threadMarkStyle
+	return readMark, style
+}
+
+// markStyleFor is the colour a thread is drawn in, which says who opened it.
+func markStyleFor(thread *agentv1.ReviewThread) lipgloss.Style {
+	if isAgentThread(thread) {
+		return agentMarkStyle
+	}
+
+	return humanMarkStyle
 }
 
 // doesHoldDelivery reports whether any comment in a thread stands in one delivery state.

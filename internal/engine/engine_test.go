@@ -259,7 +259,7 @@ func TestAttachArgvStepsIntoTheEnginesAccount(t *testing.T) {
 	t.Parallel()
 
 	assert.Contains(t, ssmEngine().AttachArgv("%9")[len(ssmEngine().AttachArgv("%9"))-1],
-		`sudo -u ` + "'weave'")
+		`sudo -u `+"'weave'")
 }
 
 // TestNoUserMeansNothingIsSteppedInto covers a transport that already arrives as the right

@@ -196,21 +196,21 @@ func TestReviewRefreshLeavesTheComposerAlone(t *testing.T) {
 	m = next.(model)
 	require.True(t, m.review.composing)
 
-	m.review.editor.SetValue("half a thought")
+	m = typeReviewMessage(t, m, "half a thought")
 	cursor, top := m.review.cursor, m.review.top
 	tmux.sentKeys = nil
 
 	m.applyReviewRefreshed(reviewRefreshedMsg{agentID: "a1", threads: threads})
 
 	assert.True(t, m.review.composing, "the editor is still up")
-	assert.Equal(t, "half a thought", m.review.editor.Value(), "with what was typed into it")
+	assert.Equal(t, "half a thought", m.review.editor.value(), "with what was typed into it")
 	assert.Equal(t, cursor, m.review.cursor)
 	assert.Equal(t, top, m.review.top)
 	assert.Empty(t, tmux.sentKeys, "and the diff was not repainted under it")
 
 	// The probe is left where it was, so the tick after the composer closes finds this again.
 	m.review.composing = false
-	m.review.editor.Blur()
+	m.review.editor = reviewInput{}
 	m.applyReviewRefreshed(reviewRefreshedMsg{agentID: "a1", threads: threads})
 	assert.Contains(t, ansi.Strip(m.reviewView()), "fixed it")
 }

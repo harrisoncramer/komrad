@@ -401,6 +401,61 @@ func TestWritingIsRefusedWhileAReviewIsOut(t *testing.T) {
 	assert.Nil(t, agents.created, "and nothing was written")
 }
 
+// TestReplyingIsAllowedWhileAReviewIsOut covers the other side of that gate: an answer in a
+// comment the review already holds is not the second review the wait is there to hold off.
+func TestReplyingIsAllowedWhileAReviewIsOut(t *testing.T) {
+	dir := reviewRepo(t)
+	agents := &fakeReviewAgents{}
+	m, _ := reviewModel(t, agents, dir)
+	m = openReview(t, m)
+
+	m.applyReviewThreads(pinnedThread(t, m, deliveredComment()))
+	m.review.awaiting = true
+
+	next, _ := m.updateReview(keyMsg("c"))
+	m = next.(model)
+
+	assert.True(t, m.review.composing, "the editor opened on the thread")
+	assert.Equal(t, "t1", m.review.editing, "and what it writes goes into that thread")
+	assert.Empty(t, m.review.notice)
+}
+
+// TestSendingIsRefusedWhileAReviewIsOutWithNothingWritten covers the verdict key, which with
+// nothing drafted opens a review of its own rather than answering the one already out.
+func TestSendingIsRefusedWhileAReviewIsOutWithNothingWritten(t *testing.T) {
+	dir := reviewRepo(t)
+	agents := &fakeReviewAgents{}
+	m, _ := reviewModel(t, agents, dir)
+	m = openReview(t, m)
+
+	m.review.awaiting = true
+
+	next, _ := m.updateReview(tea.KeyMsg{Type: tea.KeyCtrlS})
+	m = next.(model)
+
+	assert.False(t, m.review.releasing, "the verdict panel stays shut")
+	assert.Contains(t, m.review.notice, "answered")
+	assert.Nil(t, agents.released)
+}
+
+// TestSendingAReplyIsAllowedWhileAReviewIsOut is the other half, since a reply nobody can send
+// never reaches the agent the wait is waiting on.
+func TestSendingAReplyIsAllowedWhileAReviewIsOut(t *testing.T) {
+	dir := reviewRepo(t)
+	agents := &fakeReviewAgents{}
+	m, _ := reviewModel(t, agents, dir)
+	m = openReview(t, m)
+
+	m.review.awaiting = true
+	m.review.activity.delivery[deliverySlot(agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_UNSENT)] = 1
+
+	next, _ := m.updateReview(tea.KeyMsg{Type: tea.KeyCtrlS})
+	m = next.(model)
+
+	assert.True(t, m.review.releasing, "what has been written can go")
+	assert.Empty(t, m.review.notice)
+}
+
 // reviewRepoWithADeletion is a worktree whose round both changes a file and removes one, since a
 // removed file is the row the editor key has nothing to open.
 func reviewRepoWithADeletion(t *testing.T) *fakeRepo {
@@ -790,7 +845,7 @@ func TestAComposerDoesNotOutliveTheDiffItWasWrittenOn(t *testing.T) {
 	m = next.(model)
 	require.True(t, m.review.composing, "the composer is open on a line of the round")
 
-	m.review.editor.SetValue("this should say hello")
+	m = typeReviewMessage(t, m, "this should say hello")
 
 	_, reload := m.reloadReview()
 	require.NotNil(t, reload)
@@ -842,7 +897,7 @@ func TestACommentRecordsTheDiffItWasWrittenOn(t *testing.T) {
 }
 
 // TestTheSendKeyIsOfferedOnlyWhereItAnswers covers the legend and the key disagreeing: the key
-// refuses on a finished round and while a review is out, and the row offered a verdict in both.
+// refuses on a finished round, and the row offered a verdict on one.
 func TestTheSendKeyIsOfferedOnlyWhereItAnswers(t *testing.T) {
 	dir := reviewRepo(t)
 	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
@@ -854,7 +909,7 @@ func TestTheSendKeyIsOfferedOnlyWhereItAnswers(t *testing.T) {
 
 	out := m
 	out.review.awaiting = true
-	assert.False(t, row.show(out), "a review already out is answered rather than added to")
+	assert.True(t, row.show(out), "a review already out is still answered in its own threads")
 
 	assert.False(t, row.show(standOnAFinishedRound(m)), "and a finished round holds nothing to send")
 }
@@ -941,7 +996,7 @@ func TestACommentOnTheNewestRoundRecordsItsBase(t *testing.T) {
 	m = next.(model)
 	require.True(t, m.review.composing, "writing is allowed on the newest round")
 
-	m.review.editor.SetValue("this line, in the work since I last looked")
+	m = typeReviewMessage(t, m, "this line, in the work since I last looked")
 
 	next, cmd := m.updateReviewComposer(keyMsg("ctrl+s"))
 	m = next.(model)

@@ -458,7 +458,7 @@ func TestReviewComposeOpensAThread(t *testing.T) {
 	m = next.(model)
 	require.True(t, m.review.composing)
 
-	m.review.editor.SetValue("this should say hello")
+	m = typeReviewMessage(t, m, "this should say hello")
 
 	next, cmd := m.updateReview(tea.KeyMsg{Type: tea.KeyCtrlS})
 	m = next.(model)
@@ -941,7 +941,7 @@ func TestReviewRepliesInAThread(t *testing.T) {
 	require.True(t, m.review.composing)
 	require.Equal(t, "t1", m.review.editing, "the reply goes into the thread under the cursor")
 
-	m.review.editor.SetValue("yes, that is it")
+	m = typeReviewMessage(t, m, "yes, that is it")
 
 	next, cmd := m.updateReview(tea.KeyMsg{Type: tea.KeyCtrlS})
 	m = next.(model)
@@ -1346,7 +1346,7 @@ func TestReviewComposerOwnsTheKeyboard(t *testing.T) {
 	}
 
 	assert.False(t, m.helpExpanded, "the help key is a character while typing")
-	assert.Equal(t, "?ln", m.review.editor.Value(), "and so is every other bound key")
+	assert.Equal(t, "?ln", m.review.editor.value(), "and so is every other bound key")
 
 	next, _ = m.route(keyMsg("esc"))
 	m = next.(model)
@@ -1852,4 +1852,21 @@ func TestTheDiffGreysWhileTheThreadHasTheKeys(t *testing.T) {
 
 	assert.False(t, m.isReviewDiffFocused(), "the diff has given the keys up")
 	assert.Equal(t, paint.Muted, m.reviewBandStyle(reviewScopeOnStyle).GetForeground(), "so the band over it greys")
+}
+
+// typeReviewMessage types words into the composer the way a person does, the field taking only
+// what its own keys give it.
+func typeReviewMessage(t *testing.T, m model, words string) model {
+	t.Helper()
+
+	for _, letter := range words {
+		next, _ := m.updateReview(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{letter}})
+		written, ok := next.(model)
+		require.True(t, ok)
+		m = written
+	}
+
+	require.Equal(t, words, m.review.editor.value())
+
+	return m
 }

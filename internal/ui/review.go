@@ -5,8 +5,6 @@ import (
 
 	"weave/internal/review"
 	agentv1 "weave/proto/gen/agent/v1"
-
-	"github.com/charmbracelet/bubbles/textarea"
 )
 
 const reviewTimeout = 30 * time.Second
@@ -32,7 +30,7 @@ type reviewState struct {
 	// about the work as a whole and one choice of verdict.
 	releasing bool
 	verdict   int
-	editor    textarea.Model
+	editor    reviewInput
 
 	// filter is the pattern being searched for in the diff, kept apart from the agents list's own
 	// filter so a pattern meant for code does not empty that list.

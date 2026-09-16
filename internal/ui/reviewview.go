@@ -15,8 +15,8 @@ import (
 
 var (
 	reviewQuoteStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("8")).Italic(true)
-	reviewHumanStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("6")).Bold(true)
-	reviewAgentStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("11")).Bold(true)
+	reviewHumanStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("12")).Bold(true)
+	reviewAgentStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("13")).Bold(true)
 	reviewNoticeStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("10"))
 	reviewAddedStyle   = lipgloss.NewStyle().Foreground(paint.Success)
 	reviewRemovedStyle = lipgloss.NewStyle().Foreground(paint.Danger)
@@ -129,9 +129,7 @@ func (m model) reviewRestView() string {
 	}
 
 	if m.review.composing {
-		return "\n" + m.review.editor.View() + "\n" +
-			dimStyle.Render("  "+keyLabel(formKeys().Submit)+" save · "+
-				keyLabel(formKeys().Editor)+" editor · "+keyLabel(formKeys().Back)+" cancel") + "\n"
+		return "\n" + m.review.editor.view() + "\n"
 	}
 
 	if m.review.releasing {
@@ -185,8 +183,7 @@ func (m model) reviewCommentWhereView(thread *agentv1.ReviewThread) string {
 // reviewReleaseView asks what to send: an optional word about the work as a whole, and the
 // verdict the agent acts on.
 func (m model) reviewReleaseView() string {
-	out := "\n" + dimStyle.Render("  anything to say about the work as a whole? (optional)") + "\n"
-	out += m.review.editor.View() + "\n\n"
+	out := "\n" + m.review.editor.view() + "\n\n"
 
 	for i, verdict := range reviewVerdicts {
 		mark, style := "  ", dimStyle
@@ -197,10 +194,9 @@ func (m model) reviewReleaseView() string {
 		out += style.Render("  "+mark+describeVerdict(verdict)) + "\n"
 	}
 
-	return out + "\n" + dimStyle.Render("  tab to change · "+
-		keyLabel(formKeys().Submit)+" send · "+
+	return out + "\n" + m.reviewNote(dimStyle, "tab to change · "+
 		keyLabel(formKeys().SendNow)+" send and interrupt · "+
-		keyLabel(formKeys().Editor)+" editor · "+keyLabel(formKeys().Back)+" cancel") + "\n"
+		keyLabel(formKeys().Back)+" cancel")
 }
 
 // describeVerdict is how a verdict reads in the panel, spelled the way a person would say it.
@@ -361,6 +357,10 @@ func reviewTimeOf(stamp string) string {
 func (m model) reviewComposeDesc() string {
 	if _, ok := m.reviewThreadAtCursor(); ok {
 		return "reply in this thread"
+	}
+
+	if m.review.awaiting {
+		return "reply in a comment left open"
 	}
 
 	if m.review.activity.delivery[deliverySlot(agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_UNSENT)] == 0 {

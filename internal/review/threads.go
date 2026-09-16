@@ -140,3 +140,21 @@ func lineOf(thread *agentv1.ReviewThread) int32 {
 
 	return thread.GetOldStart()
 }
+
+// isAgentThread reports whether an agent opened a conversation, read off the message that opened
+// it.
+func isAgentThread(thread *agentv1.ReviewThread) bool {
+	messages := thread.GetMessages()
+
+	return len(messages) > 0 &&
+		messages[0].GetAuthorKind() == agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_AGENT
+}
+
+// Explainer: only the author of a comment can say it has been dealt with, and an agent answers
+// its own comments by working rather than by settling them. Counting an agent's conversations as
+// open would leave the person reviewing walking comments they have no answer to give.
+
+// isUnsettled reports whether a conversation is one the person reviewing still owes an answer on.
+func isUnsettled(thread *agentv1.ReviewThread) bool {
+	return thread.GetResolvedAt() == "" && !isAgentThread(thread)
+}

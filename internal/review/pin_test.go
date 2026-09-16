@@ -215,17 +215,71 @@ func TestMarkForSaysWhichThreadIsWhich(t *testing.T) {
 	view.PinThreads([]*agentv1.ReviewThread{thread})
 
 	mark, style := view.markFor(thread)
-	assert.Equal(t, threadMark, mark)
-	assert.Equal(t, threadMarkStyle, style)
+	assert.Equal(t, readMark, mark)
+	assert.Equal(t, humanMarkStyle, style, "a thread the person opened is drawn in their colour")
 
 	thread.ResolvedAt = "2026-08-27T12:00:00Z"
 	mark, style = view.markFor(thread)
 	assert.Equal(t, settledMark, mark)
-	assert.Equal(t, settledMarkStyle, style, "a settled thread is green rather than yellow")
+	assert.Equal(t, humanMarkStyle, style, "and the check keeps the author's colour")
 
 	thread.UnreadByHuman = true
 	mark, _ = view.markFor(thread)
-	assert.Equal(t, unreadMark, mark, "an unread reply outranks the settling")
+	assert.Equal(t, unreadMark, mark,
+		"a reply nobody has read outranks the settling, the gutter being the only place it is said")
+
+	thread.Messages = []*agentv1.ReviewMessage{
+		{AuthorKind: agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_AGENT},
+	}
+	_, style = view.markFor(thread)
+	assert.Equal(t, agentMarkStyle, style, "a thread the agent opened is drawn in its own colour")
+}
+
+// TestAnAgentsOwnCommentIsNotOwedASettling covers who a settling is from: an agent answers its
+// own comments by working, so counting them would leave the person walking comments they have no
+// answer to give.
+func TestAnAgentsOwnCommentIsNotOwedASettling(t *testing.T) {
+	view := NewView(patchWith(diff.File{
+		OldPath: "greet.go",
+		NewPath: "greet.go",
+		Hunks: []diff.Hunk{hunkOf(
+			diff.Line{
+				Kind:      diff.Context,
+				Text:      "package greet",
+				OldNumber: 1,
+				NewNumber: 1,
+			},
+			diff.Line{
+				Kind:      diff.Addition,
+				Text:      "func Greet() {}",
+				NewNumber: 2,
+			},
+		)},
+	}), false)
+
+	mine := threadAt("t1", "greet.go", 1, 1, " package greet")
+	mine.Messages = []*agentv1.ReviewMessage{
+		{AuthorKind: agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_HUMAN},
+	}
+
+	its := threadAt("t2", "greet.go", 0, 2, "+func Greet() {}")
+	its.Messages = []*agentv1.ReviewMessage{
+		{AuthorKind: agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_AGENT},
+	}
+
+	view.PinThreads([]*agentv1.ReviewThread{mine, its})
+
+	assert.Equal(t, 1, view.CountOpenThreads(), "only the comment the person wrote is theirs to settle")
+
+	next, ok := view.JumpOpenThread(-1)
+	require.True(t, ok)
+
+	found, ok := view.GetThreadAt(next)
+	require.True(t, ok)
+	assert.Equal(t, "t1", found.GetId(), "and the walk stops on that one")
+
+	_, ok = view.JumpOpenThread(next)
+	assert.False(t, ok, "with nothing after it")
 }
 
 // TestASecondThreadOnALineGetsItsOwnRow covers the second of two conversations on one line going
