@@ -290,14 +290,11 @@ func (m model) toggleReviewExpanded() (tea.Model, tea.Cmd) {
 	path := file.Path()
 	expanding := !m.review.view.IsExpanded(path)
 
-	if expanding {
-		if m.review.view.IsViewed(path) {
-			m.review.notice = "that file is folded away · " +
-				keyLabel(m.keys.Review.ToggleViewed) + " to open it"
+	if expanding && m.review.view.IsViewed(path) {
+		m.review.notice = "that file is folded away · " +
+			keyLabel(m.keys.Review.ToggleViewed) + " to open it"
 
-			return m, nil
-		}
-
+		return m, nil
 	}
 
 	// Where the cursor is standing is taken before the rows are built again.

@@ -4,6 +4,7 @@ import (
 	"cmp"
 	"slices"
 
+	"weave/internal/diff"
 	agentv1 "weave/proto/gen/agent/v1"
 )
 
@@ -248,14 +249,23 @@ func (v *View) doesExpandingDraw(thread *agentv1.ReviewThread) bool {
 		return false
 	}
 
-	whole, ok := v.wholeFile(path)
-	if !ok {
+	// A line the diff is drawing is on screen, so a thread adrift from it is one whose code has
+	// changed under it rather than one the reader has folded away.
+	drawn, ok := v.findFile(path)
+	if !ok || doesDrawLine(drawn, thread.GetNewStart()) {
 		return false
 	}
 
-	for hunkIndex := range whole.Hunks {
-		for _, line := range whole.Hunks[hunkIndex].Lines {
-			if int32(line.NewNumber) == thread.GetNewStart() {
+	whole, ok := v.wholeFile(path)
+
+	return ok && doesDrawLine(whole, thread.GetNewStart())
+}
+
+// doesDrawLine reports whether a file draws one line of the new side.
+func doesDrawLine(file *diff.File, line int32) bool {
+	for hunkIndex := range file.Hunks {
+		for _, candidate := range file.Hunks[hunkIndex].Lines {
+			if int32(candidate.NewNumber) == line {
 				return true
 			}
 		}
