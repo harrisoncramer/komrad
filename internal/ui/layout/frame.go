@@ -338,18 +338,13 @@ func (f *Frame) SidebarWidth(total int) (int, bool) {
 // anything shown there is given.
 func (f *Frame) StageCols() int { return f.stageCols }
 
-// WindowCols is how wide the window the frame is laid out in is.
+// WindowCols is how many columns the frame has to lay itself out in.
 func (f *Frame) WindowCols() int {
 	if f.sidebar == "" {
 		return 0
 	}
 
-	sidebar := f.tmux.GetPaneWidth(f.sidebar)
-	if f.solo || f.stage == "" {
-		return sidebar
-	}
-
-	return sidebar + f.tmux.GetPaneWidth(f.visibleStagePane()) + 1
+	return f.tmux.GetWindowWidth(f.sidebar)
 }
 
 // SyncSplit measures the divider between the sidebar and the pane beside it, so a sidebar drawn

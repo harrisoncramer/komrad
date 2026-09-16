@@ -81,6 +81,25 @@ func (c *Client) GetPaneWidth(pane string) int {
 	return width
 }
 
+// GetWindowWidth is how many columns the window holding a pane has, zero when it is gone.
+func (c *Client) GetWindowWidth(pane string) int {
+	if pane == "" {
+		return 0
+	}
+
+	out, err := c.query("display-message", "-p", "-t", pane, "#{window_width}")
+	if err != nil {
+		return 0
+	}
+
+	width, err := strconv.Atoi(out)
+	if err != nil {
+		return 0
+	}
+
+	return width
+}
+
 // GetPaneHeight is how many rows a pane has.
 func (c *Client) GetPaneHeight(pane string) int {
 	if pane == "" {
