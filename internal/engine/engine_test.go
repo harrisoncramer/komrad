@@ -57,7 +57,7 @@ func TestAttachArgvPointsAtAViewSessionOfItsOwn(t *testing.T) {
 
 	script := remote.AttachArgv("%9")[3]
 	assert.Contains(t, script, "new-session -d -s 'view-9' -t 'weave'")
-	assert.Contains(t, script, "exec tmux -L 'weave' attach -t 'view-9'")
+	assert.Contains(t, script, "exec tmux -L 'weave' attach -d -t 'view-9'")
 	assert.NotEqual(t, engine.ViewSession("%9"), engine.ViewSession("%10"))
 }
 

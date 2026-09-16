@@ -110,7 +110,7 @@ func (r Remote) attachScript(pane string) string {
 		tmux + " new-session -d -s " + view + " -t " + quote(r.Session) + " 2>/dev/null || true",
 		tmux + " set-option -t " + view + " status off",
 		tmux + " select-window -t " + view + ":$w",
-		"exec " + tmux + " attach -t " + view,
+		"exec " + tmux + " attach -d -t " + view,
 	}, "; ")
 }
 
