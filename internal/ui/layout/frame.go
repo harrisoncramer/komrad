@@ -344,6 +344,12 @@ func (f *Frame) SyncSplit() {
 	f.stageCols = f.tmux.GetPaneWidth(f.visibleStagePane())
 }
 
+// ForgetSplit drops the measured divider, so a window that is no longer the size it was dragged
+// under is given the configured width rather than every new column.
+func (f *Frame) ForgetSplit() {
+	f.stageCols = 0
+}
+
 // IsRemote reports whether the agents are running in an engine this tmux server cannot reach,
 // which decides how a terminal is shown and who owns its size.
 func (f *Frame) IsRemote() bool { return f.remote.IsRemote() }

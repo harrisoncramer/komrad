@@ -426,3 +426,28 @@ func TestAgentWindowsAreTheSizeOfTheStage(t *testing.T) {
 	assert.Equal(t, "200x40", tmux.windowSizes["%9"], "the running agent's own window is put at the stage's size")
 	assert.NotContains(t, tmux.windowSizes, "", "and a dormant agent has no window to size")
 }
+
+// TestAWidenedWindowDropsADraggedDivider covers a terminal made wider after the divider was
+// dragged, where keeping the stage's columns hands every new column to the sidebar.
+func TestAWidenedWindowDropsADraggedDivider(t *testing.T) {
+	tmux := &recordingTmux{}
+	m := sizedTo(infoModel(tmux), tmux)
+
+	tmux.width = 100
+	m.frame.SyncSplit()
+
+	dragged, _ := m.frame.SidebarWidth(200)
+	require.Equal(t, 99, dragged, "the drag is followed while the window is the size it was made under")
+
+	// tmux widens both panes with the window, so the stage reads wider than it was dragged to and
+	// narrower than the window it now sits in.
+	tmux.width = 229
+
+	sized, _ := m.route(tea.WindowSizeMsg{Width: 382, Height: 66})
+	m = asModel(t, sized)
+
+	width, measured := m.frame.SidebarWidth(382)
+	assert.False(t, measured, "a window that changed size is not one the divider was measured under")
+	assert.Equal(t, config.DefaultSidebarWidth, width, "so the configured width is used again")
+	assert.NotEqual(t, 152, width, "rather than every column the window gained")
+}
