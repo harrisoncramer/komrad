@@ -174,12 +174,20 @@ func TestRequireServerSaysHowToStartOne(t *testing.T) {
 	}))
 	t.Cleanup(answering.Close)
 
-	require.NoError(t, requireServer(t.Context(), strings.TrimPrefix(answering.URL, "http://")))
+	addr := strings.TrimPrefix(answering.URL, "http://")
+	require.NoError(t, requireServer(t.Context(), addr, addr))
 	assert.Equal(t, server.HealthPath, healthPath, "the probe asks the health route rather than the call's own")
 
-	err := requireServer(t.Context(), deadAddr(t))
+	dead := deadAddr(t)
+
+	err := requireServer(t.Context(), dead, dead)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "weave start", "the refusal says what to do about it")
+
+	err = requireServer(t.Context(), dead, "127.0.0.1:8787")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "127.0.0.1:8787", "a forwarded engine is named by the address it was configured with")
+	assert.NotContains(t, err.Error(), "weave start", "starting a server here would not be the engine")
 }
 
 // deadAddr is an address nothing is listening on, taken by opening a server and closing it so

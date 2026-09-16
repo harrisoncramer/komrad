@@ -19,17 +19,23 @@ second line is not the first, restart the service.`,
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			addr := state.env.Addr
 			cmd.Printf("this binary: %s\n", version.Version())
+
+			addr, release, err := state.dialAPI(cmd.Context())
+			if err != nil {
+				return err
+			}
+
+			defer release()
 
 			probe := probeServer(cmd.Context(), addr)
 			if !probe.answering {
-				cmd.Printf("nothing is serving at %s\n", addr)
+				cmd.Printf("nothing is serving at %s\n", state.env.Addr)
 
 				return nil
 			}
 
-			cmd.Printf("the server at %s: %q\n", addr, probe.version)
+			cmd.Printf("the server at %s: %q\n", state.env.Addr, probe.version)
 
 			return nil
 		},

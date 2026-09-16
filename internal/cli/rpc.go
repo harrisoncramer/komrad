@@ -79,12 +79,19 @@ func rpcMethodCmd(state *app, exposed rpcapi.Method) *cobra.Command {
 		ctx, cancel := context.WithTimeout(cmd.Context(), timeout)
 		defer cancel()
 
-		if err := requireServer(ctx, state.env.Addr); err != nil {
+		addr, release, err := state.dialAPI(ctx)
+		if err != nil {
+			return err
+		}
+
+		defer release()
+
+		if err := requireServer(ctx, addr, state.env.Addr); err != nil {
 			return err
 		}
 
 		payload, err := callRPC(ctx, callRPCParams{
-			Addr:    state.env.Addr,
+			Addr:    addr,
 			Path:    exposed.GetPath(),
 			From:    caller.Caller{AgentID: state.env.AgentID, SessionID: state.env.SessionID},
 			Request: request,
@@ -99,12 +106,16 @@ func rpcMethodCmd(state *app, exposed rpcapi.Method) *cobra.Command {
 	return cmd
 }
 
-func requireServer(ctx context.Context, addr string) error {
+func requireServer(ctx context.Context, addr, named string) error {
 	if probeServer(ctx, addr).answering {
 		return nil
 	}
 
-	return fmt.Errorf("nothing is serving at %s, run weave start first", addr)
+	if named != addr {
+		return fmt.Errorf("the engine reached through %s is not serving at %s", addr, named)
+	}
+
+	return fmt.Errorf("nothing is serving at %s, run weave start first", named)
 }
 
 type callRPCParams struct {

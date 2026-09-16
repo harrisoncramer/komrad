@@ -111,6 +111,10 @@ func requireListenable(ctx context.Context, addr string) error {
 }
 
 func describeStaleServerFix(ctx context.Context, env Env) string {
+	if env.EngineIsRemote {
+		return "deploy this build to the engine, since the service it is running is its own"
+	}
+
 	if !env.IsPanelRunning(ctx) {
 		return "weave stop, then reopen the panel"
 	}

@@ -45,6 +45,7 @@ type Settings struct {
 	DatabaseURL         string
 	ReadOnlyDatabaseURL string
 	Addr                string
+	EngineIsRemote      bool
 	Version             string
 }
 

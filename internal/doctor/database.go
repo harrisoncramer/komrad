@@ -66,6 +66,7 @@ func newDatabaseCheck() Check {
 	return Check{
 		Name:        "database",
 		Description: "every agent, workflow, and schedule weave knows about lives in Postgres",
+		Engine:      true,
 		Run: func(ctx context.Context, env Env) Result {
 			if _, err := pgconn.ParseConfig(env.DatabaseURL); err != nil {
 				return fail(
@@ -93,6 +94,7 @@ func newSchemaCheck() Check {
 		Name:        "schema",
 		Description: "the tables weave reads have to match the build reading them",
 		Needs:       []string{"database"},
+		Engine:      true,
 		Run: func(ctx context.Context, env Env) Result {
 			pending, err := env.ReadPendingMigrations(ctx, env.DatabaseURL)
 			if err != nil {
@@ -118,6 +120,7 @@ func newReadOnlyLoginCheck() Check {
 		Name:        "readonly login",
 		Description: "the MCP query tools read through a login that can only read",
 		Needs:       []string{"database"},
+		Engine:      true,
 		Run: func(ctx context.Context, env Env) Result {
 			if env.ReadOnlyDatabaseURL == "" {
 				return fail(

@@ -85,7 +85,16 @@ func (a *app) buildDoctor() (doctor.Env, []doctor.Check, error) {
 
 	env := doctor.NewEnv(settings)
 
-	env.ProbeServer = func(ctx context.Context, addr string) doctor.ServerStatus {
+	// A remote engine answers on its own loopback, so the address it was configured with is
+	// reached through a forward rather than dialled here.
+	env.ProbeServer = func(ctx context.Context, _ string) doctor.ServerStatus {
+		addr, release, err := a.dialAPI(ctx)
+		if err != nil {
+			return doctor.ServerStatus{}
+		}
+
+		defer release()
+
 		found := probeServer(ctx, addr)
 
 		return doctor.ServerStatus{
@@ -121,6 +130,7 @@ func (a *app) buildDoctorSettings() (doctor.Settings, error) {
 		DatabaseURL:         a.env.DatabaseURL,
 		ReadOnlyDatabaseURL: a.env.ReadOnlyDatabaseURL,
 		Addr:                a.env.Addr,
+		EngineIsRemote:      a.engine().IsRemote(),
 		Version:             version.Version(),
 	}, nil
 }
