@@ -111,13 +111,15 @@ func TestWorkflowFieldsWorktree(t *testing.T) {
 const panelViewer = "/dev/ttys004"
 
 type recordingTmux struct {
-	path          string
-	swaps         int
-	windowSizes   map[string]string
-	sessionOpts   map[string]string
-	respawns      []string
-	width         int
-	height        int
+	path        string
+	swaps       int
+	windowSizes map[string]string
+	sessionOpts map[string]string
+	respawns    []string
+	width       int
+	height      int
+	// paneWidths is one pane's own width, falling back to width where a pane has no entry.
+	paneWidths    map[string]int
 	sentKeys      []string
 	detaches      int
 	killed        []string
@@ -171,8 +173,15 @@ func (t *recordingTmux) MovePanes(moves []panes.Move) {
 }
 
 func (t *recordingTmux) IsPaneAlive(pane string) bool    { return !t.deadPanes[pane] }
-func (t *recordingTmux) GetPaneWidth(string) int         { return t.width }
 func (t *recordingTmux) SetPaneZoomed(_ string, on bool) { t.zoomed = on }
+
+func (t *recordingTmux) GetPaneWidth(pane string) int {
+	if width, ok := t.paneWidths[pane]; ok {
+		return width
+	}
+
+	return t.width
+}
 
 // GetPaneFocus answers the way tmux was measured to: a pane the keys have moved off is neither
 // the active one nor zoomed any more.

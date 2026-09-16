@@ -168,19 +168,20 @@ func (m model) resizeTo(size tea.WindowSizeMsg) model {
 	// never drawn is one the rows are still owed to.
 	rewrap := size.Width != m.width || len(m.search.preview.doc.rows) == 0
 
-	widened := size.Width != m.width
-
 	m.height = size.Height
 	m.width = size.Width
 	m.awaitingSize = false
 
-	// A drag arrives as a resize of the same window, so only a window that changed width is one
-	// whose divider was measured against a width that is gone.
-	if widened {
+	// A drag and a zoom both change the panel's own pane and leave the window around it alone.
+	window := m.frame.WindowCols()
+	if window != m.windowCols && m.windowCols > 0 {
 		m.frame.ForgetSplit()
 	} else {
 		m.frame.SyncSplit()
 	}
+
+	m.windowCols = window
+
 	m.sizeAgentWindows()
 
 	// A field open in the review's sidebar is drawn in a column of this window rather than in the

@@ -431,23 +431,53 @@ func TestAgentWindowsAreTheSizeOfTheStage(t *testing.T) {
 // dragged, where keeping the stage's columns hands every new column to the sidebar.
 func TestAWidenedWindowDropsADraggedDivider(t *testing.T) {
 	tmux := &recordingTmux{}
-	m := sizedTo(infoModel(tmux), tmux)
+	m := draggedTo(t, infoModel(tmux), tmux, 50, 149)
 
-	tmux.width = 100
-	m.frame.SyncSplit()
+	dragged, measured := m.frame.SidebarWidth(200)
+	require.True(t, measured, "the drag is followed while the window is the size it was made under")
+	require.Equal(t, 50, dragged)
 
-	dragged, _ := m.frame.SidebarWidth(200)
-	require.Equal(t, 99, dragged, "the drag is followed while the window is the size it was made under")
+	// tmux widens both panes with the window, so each reads wider than it was dragged to.
+	tmux.paneWidths["%0"] = 75
+	tmux.paneWidths["%1"] = 224
 
-	// tmux widens both panes with the window, so the stage reads wider than it was dragged to and
-	// narrower than the window it now sits in.
-	tmux.width = 229
-
-	sized, _ := m.route(tea.WindowSizeMsg{Width: 382, Height: 66})
+	sized, _ := m.route(tea.WindowSizeMsg{Width: 75, Height: 40})
 	m = asModel(t, sized)
 
-	width, measured := m.frame.SidebarWidth(382)
+	width, measured := m.frame.SidebarWidth(300)
 	assert.False(t, measured, "a window that changed size is not one the divider was measured under")
 	assert.Equal(t, config.DefaultSidebarWidth, width, "so the configured width is used again")
-	assert.NotEqual(t, 152, width, "rather than every column the window gained")
+	assert.NotEqual(t, 75, width, "rather than every column the window gained")
+}
+
+// TestADraggedDividerSurvivesTheSidebarTakingTheWindow covers moving to a screen the panel draws
+// whole, where the zoom reports the panel's pane as the window it was measured against.
+func TestADraggedDividerSurvivesTheSidebarTakingTheWindow(t *testing.T) {
+	tmux := &recordingTmux{}
+	m := draggedTo(t, infoModel(tmux), tmux, 50, 149)
+
+	m.frame.Solo(true)
+
+	// The zoom makes the panel's own pane as wide as the window, which tmux reports as a resize.
+	tmux.paneWidths["%0"] = 200
+
+	sized, _ := m.route(tea.WindowSizeMsg{Width: 200, Height: 40})
+	m = asModel(t, sized)
+
+	width, measured := m.frame.SidebarWidth(200)
+	assert.True(t, measured, "the drag is still where the sidebar is drawn")
+	assert.Equal(t, 50, width, "rather than the configured width")
+}
+
+// draggedTo puts the panel beside a live stage pane at the given widths and measures the divider
+// there, which is the state a drag leaves behind.
+func draggedTo(t *testing.T, m model, tmux *recordingTmux, sidebar, stage int) model {
+	t.Helper()
+
+	m = sizedTo(m, tmux)
+	tmux.paneWidths = map[string]int{"%0": sidebar, "%1": stage}
+
+	sized, _ := m.route(tea.WindowSizeMsg{Width: sidebar, Height: 40})
+
+	return asModel(t, sized)
 }
