@@ -200,7 +200,9 @@ func buildHunks(fragments []*gitdiff.TextFragment) []Hunk {
 				fragment.OldPosition, fragment.OldLines,
 				fragment.NewPosition, fragment.NewLines,
 				comment),
-			Lines: make([]Line, 0, len(fragment.Lines)),
+			Lines:    make([]Line, 0, len(fragment.Lines)),
+			OldStart: int(fragment.OldPosition),
+			NewStart: int(fragment.NewPosition),
 		}
 
 		oldNumber, newNumber := int(fragment.OldPosition), int(fragment.NewPosition)

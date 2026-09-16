@@ -279,6 +279,66 @@ func (m model) reviewThreadAtCursor() (*agentv1.ReviewThread, bool) {
 	return m.review.view.GetThreadAt(m.review.cursor)
 }
 
+// toggleReviewExpanded draws the whole of the file the cursor is in, or gives back the changed
+// lines and the few around them.
+func (m model) toggleReviewExpanded() (tea.Model, tea.Cmd) {
+	file, ok := m.review.view.GetFileAt(m.review.cursor)
+	if !ok {
+		return m, nil
+	}
+
+	path := file.Path()
+	expanding := !m.review.view.IsExpanded(path)
+
+	if expanding {
+		if m.review.view.IsViewed(path) {
+			m.review.notice = "that file is folded away · " +
+				keyLabel(m.keys.Review.ToggleViewed) + " to open it"
+
+			return m, nil
+		}
+
+		if !m.review.view.IsExpandable(path) {
+			m.review.notice = "there is no more of that file to show"
+
+			return m, nil
+		}
+	}
+
+	// Where the cursor is standing is taken before the rows are built again.
+	place, located := m.review.view.GetPlace(m.review.cursor)
+
+	m.review.view.SetFileExpanded(path, expanding)
+	m.review.expanded = withExpanded(m.review.expanded, path, expanding)
+
+	m = m.blurReviewThread()
+	m.keepReviewCursor(place, located)
+	m.scrollReviewToCursor()
+
+	m.review.notice = "showing the changed lines"
+	if expanding {
+		m.review.notice = "showing the whole file"
+	}
+
+	return m, nil
+}
+
+// withExpanded records that a file is drawn whole, or that it is not, on the set the screen
+// keeps across a reload.
+func withExpanded(expanded map[string]bool, path string, on bool) map[string]bool {
+	if expanded == nil {
+		expanded = map[string]bool{}
+	}
+
+	if on {
+		expanded[path] = true
+	} else {
+		delete(expanded, path)
+	}
+
+	return expanded
+}
+
 // jumpReviewFile moves to the next or previous file and puts that file's header at the top of
 // the pane.
 func (m model) jumpReviewFile(direction int) (tea.Model, tea.Cmd) {

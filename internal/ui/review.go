@@ -42,6 +42,10 @@ type reviewState struct {
 	// threadScroll is how far up from the end of the conversation the sidebar is showing.
 	threadScroll int
 
+	// expanded is the files the reader has opened out, by path, held here rather than on the view
+	// so that catching up with the agent does not draw them tight again.
+	expanded map[string]bool
+
 	// pinTop holds the window where a file jump put it until the cursor moves.
 	pinTop bool
 

@@ -32,6 +32,10 @@ type Line struct {
 type Hunk struct {
 	Header string
 	Lines  []Line
+	// OldStart and NewStart are the first line each side of the hunk covers, which is what the
+	// header states and what the gap above it is numbered from.
+	OldStart int
+	NewStart int
 }
 
 // File is one file's worth of change with both sides of its source carried whole.

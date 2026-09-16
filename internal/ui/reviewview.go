@@ -408,15 +408,21 @@ func (m model) reviewResolveDesc() string {
 	return "settle the thread"
 }
 
-// reviewViewedDesc says which way the fold key would go where the cursor is standing.
-func (m model) reviewViewedDesc() string {
+// reviewFileDesc names the two keys that act on the whole file the cursor is in, which share a
+// legend row so that the taller of them costs the pane nothing.
+func (m model) reviewFileDesc() string {
 	if m.review.view == nil {
-		return "mark the file viewed"
+		return "fold / whole file"
 	}
 
-	if file, ok := m.review.view.GetFileAt(m.review.cursor); ok && m.review.view.IsViewed(file.Path()) {
-		return "open the file again"
+	file, ok := m.review.view.GetFileAt(m.review.cursor)
+	if ok && m.review.view.IsViewed(file.Path()) {
+		return "open / whole file"
 	}
 
-	return "mark the file viewed"
+	if ok && m.review.view.IsExpanded(file.Path()) {
+		return "fold / the changes"
+	}
+
+	return "fold / whole file"
 }

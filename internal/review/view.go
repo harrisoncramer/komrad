@@ -64,8 +64,13 @@ type View struct {
 
 	// placed is how each thread reached its row, by thread id.
 	placed map[string]placement
+	// files is the patch's files as they are drawn, an expanded one holding every line of itself
+	// rather than its hunks alone.
+	files []diff.File
 	// viewed is the files the person reviewing has read, by path, which are drawn collapsed.
 	viewed map[string]bool
+	// expanded is the files the person reviewing has opened out, by path.
+	expanded map[string]bool
 	// threads is what was last pinned, kept so collapsing a file can pin them again over the rows
 	// that rebuilding left.
 	threads []*agentv1.ReviewThread
@@ -76,11 +81,13 @@ type View struct {
 // terminal is on.
 func NewView(patch *diff.Patch, isDark bool) *View {
 	v := &View{
-		patch:   patch,
-		sources: make([]fileSource, len(patch.Files)),
-		pinned:  map[int]*agentv1.ReviewThread{},
-		placed:  map[string]placement{},
-		viewed:  map[string]bool{},
+		patch:    patch,
+		sources:  make([]fileSource, len(patch.Files)),
+		pinned:   map[int]*agentv1.ReviewThread{},
+		placed:   map[string]placement{},
+		files:    slices.Clone(patch.Files),
+		viewed:   map[string]bool{},
+		expanded: map[string]bool{},
 	}
 
 	highlight := newHighlighter(isDark)
@@ -102,8 +109,8 @@ func NewView(patch *diff.Patch, isDark bool) *View {
 func (v *View) build() {
 	v.rows = nil
 
-	for fileIndex := range v.patch.Files {
-		file := &v.patch.Files[fileIndex]
+	for fileIndex := range v.files {
+		file := &v.files[fileIndex]
 
 		v.rows = append(v.rows, row{
 			kind: fileRow,
@@ -129,13 +136,15 @@ func (v *View) build() {
 
 		for hunkIndex := range file.Hunks {
 			hunk := &file.Hunks[hunkIndex]
-			v.rows = append(v.rows, row{
-				kind: hunkRow,
-				file: fileIndex,
-				hunk: hunkIndex,
-				line: -1,
-				text: hunk.Header,
-			})
+			if hunk.Header != "" {
+				v.rows = append(v.rows, row{
+					kind: hunkRow,
+					file: fileIndex,
+					hunk: hunkIndex,
+					line: -1,
+					text: hunk.Header,
+				})
+			}
 			for lineIndex := range hunk.Lines {
 				v.rows = append(v.rows, row{
 					kind: lineRow,
@@ -168,8 +177,7 @@ func (v *View) SetViewed(paths map[string]bool) {
 		v.viewed = map[string]bool{}
 	}
 
-	v.build()
-	v.PinThreads(v.threads)
+	v.redraw()
 }
 
 // SetFileViewed folds one file away once it has been read, or opens it again.
@@ -186,25 +194,98 @@ func (v *View) SetFileViewed(path string, viewed bool) {
 // IsViewed reports whether a file is drawn collapsed.
 func (v *View) IsViewed(path string) bool { return v.viewed[path] }
 
+// SetExpanded says which files are drawn whole, for a view built again over a patch the reader
+// had already opened files in.
+func (v *View) SetExpanded(paths map[string]bool) {
+	v.expanded = paths
+	if v.expanded == nil {
+		v.expanded = map[string]bool{}
+	}
+
+	v.redraw()
+}
+
+// SetFileExpanded draws one file whole, or gives back its hunks alone, and reports whether the
+// file is drawn whole afterwards.
+func (v *View) SetFileExpanded(path string, expanded bool) bool {
+	if !expanded {
+		delete(v.expanded, path)
+		v.redraw()
+
+		return false
+	}
+
+	if !v.IsExpandable(path) {
+		return false
+	}
+
+	v.expanded[path] = true
+	v.redraw()
+
+	return true
+}
+
+// IsExpanded reports whether a file is drawn whole.
+func (v *View) IsExpanded(path string) bool { return v.expanded[path] }
+
+// IsExpandable reports whether a file has lines the patch is not already drawing.
+func (v *View) IsExpandable(path string) bool {
+	file, ok := v.patchFile(path)
+	if !ok {
+		return false
+	}
+
+	_, ok = diff.Expand(*file)
+
+	return ok
+}
+
+// redraw builds the files as they are drawn, flattens them into rows, and puts the threads back
+// on the rows they now belong to, which is also what runs a standing search again.
+func (v *View) redraw() {
+	for index := range v.patch.Files {
+		file := v.patch.Files[index]
+		if v.expanded[file.Path()] {
+			file, _ = diff.Expand(file)
+		}
+
+		v.files[index] = file
+	}
+
+	v.build()
+	v.PinThreads(v.threads)
+}
+
+// patchFile is a file as the patch holds it, before anything the reader has opened out.
+func (v *View) patchFile(path string) (*diff.File, bool) {
+	for index := range v.patch.Files {
+		if v.patch.Files[index].Path() == path {
+			return &v.patch.Files[index], true
+		}
+	}
+
+	return nil, false
+}
+
 // CountViewedFiles returns how many of the patch's files have been read, and how many there are.
 func (v *View) CountViewedFiles() (int, int) {
 	read := 0
-	for _, file := range v.patch.Files {
+	for _, file := range v.files {
 		if v.viewed[file.Path()] {
 			read++
 		}
 	}
 
-	return read, len(v.patch.Files)
+	return read, len(v.files)
 }
 
 // isCollapsed reports whether a file is drawn as its header alone.
 func (v *View) isCollapsed(fileIndex int) bool {
-	if fileIndex < 0 || fileIndex >= len(v.patch.Files) {
+	if fileIndex < 0 || fileIndex >= len(v.files) {
 		return false
 	}
 
-	return v.viewed[v.patch.Files[fileIndex].Path()]
+	return v.viewed[v.files[fileIndex].Path()]
 }
 
 // Len is how many rows the diff was flattened into.
@@ -306,7 +387,7 @@ func (v *View) GetPlace(y int) (Place, bool) {
 	// A file header has no line under the cursor, so the file itself is the place.
 	if ok && current.kind == fileRow {
 		return Place{
-			FilePath: v.patch.Files[current.file].Path(),
+			FilePath: v.files[current.file].Path(),
 			Header:   !v.isCollapsed(current.file),
 		}, true
 	}
@@ -349,11 +430,11 @@ func (v *View) Locate(place Place) (int, bool) {
 	}
 
 	for y, current := range v.rows {
-		if current.kind != lineRow || v.patch.Files[current.file].Path() != place.FilePath {
+		if current.kind != lineRow || v.files[current.file].Path() != place.FilePath {
 			continue
 		}
 
-		line := v.patch.Files[current.file].Hunks[current.hunk].Lines[current.line]
+		line := v.files[current.file].Hunks[current.hunk].Lines[current.line]
 		if line.NewNumber == place.NewLine && line.OldNumber == place.OldLine {
 			exact = y
 
@@ -391,7 +472,7 @@ func (v *View) fileHeader(path string) (int, bool) {
 	}
 
 	for y, current := range v.rows {
-		if current.kind == fileRow && v.patch.Files[current.file].Path() == path {
+		if current.kind == fileRow && v.files[current.file].Path() == path {
 			return y, true
 		}
 	}
@@ -439,7 +520,7 @@ func (v *View) JumpFile(y, direction int) int {
 	}
 
 	target := current.file + direction
-	if target < 0 || target >= len(v.patch.Files) {
+	if target < 0 || target >= len(v.files) {
 		return y
 	}
 
@@ -523,10 +604,10 @@ func (v *View) getKey(y int) (anchorKey, bool) {
 		return anchorKey{}, false
 	}
 
-	line := v.patch.Files[current.file].Hunks[current.hunk].Lines[current.line]
+	line := v.files[current.file].Hunks[current.hunk].Lines[current.line]
 
 	return anchorKey{
-		filePath: v.patch.Files[current.file].Path(),
+		filePath: v.files[current.file].Path(),
 		newLine:  int32(line.NewNumber),
 		oldLine:  int32(line.OldNumber),
 	}, true
@@ -539,7 +620,7 @@ func (v *View) GetFileAt(y int) (diff.File, bool) {
 		return diff.File{}, false
 	}
 
-	return v.patch.Files[current.file], true
+	return v.files[current.file], true
 }
 
 // getLine is the diff line under the cursor.
@@ -549,7 +630,7 @@ func (v *View) getLine(y int) (diff.Line, bool) {
 		return diff.Line{}, false
 	}
 
-	return v.patch.Files[current.file].Hunks[current.hunk].Lines[current.line], true
+	return v.files[current.file].Hunks[current.hunk].Lines[current.line], true
 }
 
 // GetAnchor lifts the cursor's row into an anchor, which is what a new thread is pinned to.
@@ -654,9 +735,9 @@ func (v *View) GetRangeAnchor(filePath string, newStart, newEnd int) (*Anchor, b
 }
 
 func (v *View) findFile(filePath string) (*diff.File, bool) {
-	for fileIndex := range v.patch.Files {
-		if v.patch.Files[fileIndex].Path() == filePath {
-			return &v.patch.Files[fileIndex], true
+	for fileIndex := range v.files {
+		if v.files[fileIndex].Path() == filePath {
+			return &v.files[fileIndex], true
 		}
 	}
 
