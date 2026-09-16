@@ -4,16 +4,13 @@ set -euo pipefail
 #MISE description="Put this checkout's weave on the remote engine and restart it."
 
 usage() {
-	echo "Usage: mise run remote:deploy [ssh-destination]"
+	echo "Usage: mise run remote:deploy [instance-id]"
 	echo
 	echo "Cross-compiles weave for the engine, installs it there, and restarts the service."
 	echo "It also builds a local binary carrying the same version, because the panel refuses"
 	echo "to talk to a server whose build string differs from its own."
 	echo
-	echo "With no argument the engine is the one connection.ssh names in your weave config,"
-	echo "with the account WEAVE_ENGINE_ADMIN gives (ubuntu by default). That account needs"
-	echo "sudo to replace the binary, which is why it is not the one the panel connects as."
-	echo
+	echo "With no argument the instance is whichever one Terraform last built."
 	echo "Both binaries land in dist/."
 }
 
@@ -28,30 +25,33 @@ done
 
 cd "$MISE_CONFIG_ROOT"
 
-DESTINATION="${1:-}"
+INSTANCE="${1:-${WEAVE_ENGINE_INSTANCE:-}}"
 
-if [ -z "$DESTINATION" ]; then
-	CONFIG="${WEAVE_CONFIG:-}"
-	CONFIG="${CONFIG%%:*}"
-	if [ -z "$CONFIG" ]; then
-		CONFIG="$HOME/.config/weave/config.toml"
+if [ -z "$INSTANCE" ]; then
+	# A checkout that has never run Terraform has no state to read the instance from, and
+	# initialising is idempotent, so it is done here rather than asked for.
+	if [ ! -d infra/terraform/.terraform ] && [ -f infra/terraform/backend.hcl ]; then
+		terraform -chdir=infra/terraform init \
+			-backend-config=backend.hcl -input=false >/dev/null 2>&1 || true
 	fi
 
-	if [ -f "$CONFIG" ]; then
-		ENGINE="$(sed -n 's/^[[:space:]]*ssh[[:space:]]*=[[:space:]]*"\(.*\)"[[:space:]]*$/\1/p' "$CONFIG" | head -1)"
-		if [ -n "$ENGINE" ]; then
-			DESTINATION="${WEAVE_ENGINE_ADMIN:-ubuntu}@${ENGINE#*@}"
-		fi
-	fi
+	INSTANCE="$(terraform -chdir=infra/terraform output -raw instance_id 2>/dev/null || true)"
 fi
 
-if [ -z "$DESTINATION" ]; then
-	echo "no engine to deploy to. Set connection.ssh in your weave config to the engine the" >&2
-	echo "panel talks to, or pass an ssh destination." >&2
+if [ -z "$INSTANCE" ]; then
+	echo "no engine to deploy to. Pass an instance id, set WEAVE_ENGINE_INSTANCE, or give this" >&2
+	echo "checkout infra/terraform/backend.hcl so the instance_id output can be read from state." >&2
 	exit 1
 fi
 
-gum log --level info "deploying to $DESTINATION"
+REGION="${AWS_REGION:-us-east-1}"
+BUCKET="$(sed -n 's/^[[:space:]]*bucket[[:space:]]*=[[:space:]]*"\(.*\)"[[:space:]]*$/\1/p' infra/terraform/backend.hcl | head -1)"
+if [ -z "$BUCKET" ]; then
+	echo "no bucket in infra/terraform/backend.hcl to stage the binary through" >&2
+	exit 1
+fi
+
+gum log --level info "deploying to $INSTANCE in $REGION"
 
 REVISION="$(git rev-parse --short HEAD)"
 DIRTY=""
@@ -64,35 +64,40 @@ mkdir -p dist
 go_build_binary linux arm64 "$VERSION" dist/weave-linux-arm64
 go_build_binary "$(go env GOOS)" "$(go env GOARCH)" "$VERSION" dist/weave-panel
 
-# A fixed name in a sticky /tmp cannot be overwritten by a different account, so each run
-# uploads to a path of its own and removes it afterwards.
-STAGED="$(ssh "$DESTINATION" 'mktemp /tmp/weave-deploy.XXXXXX')"
+KEY="deploy/weave-linux-arm64-$VERSION"
+aws s3 cp dist/weave-linux-arm64 "s3://$BUCKET/$KEY" --only-show-errors
+URL="$(aws s3 presign "s3://$BUCKET/$KEY" --expires-in 900 --region "$REGION")"
 
-scp -q dist/weave-linux-arm64 "$DESTINATION:$STAGED"
+# The instance fetches the binary itself, so nothing large travels through the command and the
+# instance needs no permission on the bucket.
+COMMAND_ID="$(aws ssm send-command \
+	--region "$REGION" \
+	--instance-ids "$INSTANCE" \
+	--document-name AWS-RunShellScript \
+	--parameters "commands=[\"set -e\",\"curl -fsSL -o /tmp/weave-new '$URL'\",\"install -m 0755 /tmp/weave-new /usr/local/bin/weave\",\"rm -f /tmp/weave-new\",\"systemctl restart weave.service\"]" \
+	--query Command.CommandId \
+	--output text)"
 
-# The script goes over stdin with the path as a real argument, so nothing is expanded by the
-# wrong shell on the way.
-ssh "$DESTINATION" bash -s -- "$STAGED" <<'REMOTE'
-set -euo pipefail
-
-staged="$1"
-
-sudo install -m 0755 "$staged" /usr/local/bin/weave
-rm -f "$staged"
-sudo systemctl restart weave.service
-REMOTE
-
-for _ in {1..20}; do
-	if ssh "$DESTINATION" 'systemctl is-active --quiet weave.service'; then
-		break
-	fi
-	sleep 2
+for _ in {1..30}; do
+	STATUS="$(aws ssm get-command-invocation --region "$REGION" --command-id "$COMMAND_ID" \
+		--instance-id "$INSTANCE" --query Status --output text 2>/dev/null || echo Pending)"
+	case "$STATUS" in
+	Success) break ;;
+	Failed | Cancelled | TimedOut)
+		aws ssm get-command-invocation --region "$REGION" --command-id "$COMMAND_ID" \
+			--instance-id "$INSTANCE" --query StandardErrorContent --output text >&2
+		exit 1
+		;;
+	esac
+	sleep 4
 done
 
-if ! ssh "$DESTINATION" 'systemctl is-active --quiet weave.service'; then
-	echo "weave did not come back up on $DESTINATION; check journalctl -u weave" >&2
+aws s3 rm "s3://$BUCKET/$KEY" --only-show-errors
+
+if [ "$STATUS" != "Success" ]; then
+	echo "the install did not finish on $INSTANCE; it was last $STATUS" >&2
 	exit 1
 fi
 
-echo "engine: $(ssh "$DESTINATION" /usr/local/bin/weave version 2>&1 | head -1)"
+echo "engine: $VERSION on $INSTANCE"
 echo "panel:  dist/weave-panel at $VERSION"
