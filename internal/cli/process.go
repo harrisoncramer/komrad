@@ -49,7 +49,7 @@ func ensureServer(ctx context.Context, params ensureServerParams) error {
 			return nil
 		}
 
-		if err := replaceServer(ctx, addr, probe.version); err != nil {
+		if err := replaceServer(ctx, addr, version.Describe(probe.version, probe.commit)); err != nil {
 			return err
 		}
 	}
@@ -107,8 +107,8 @@ func ensureServer(ctx context.Context, params ensureServerParams) error {
 
 func replaceServer(ctx context.Context, addr, reported string) error {
 	if _, err := stopServer(ctx, addr); err != nil {
-		return fmt.Errorf("the server at %s is build %q and this is %s, so it has to be replaced: %w",
-			addr, reported, version.Version(), err)
+		return fmt.Errorf("the server at %s is build %s and this is %s, so it has to be replaced: %w",
+			addr, reported, version.Describe(version.Version(), version.Commit()), err)
 	}
 
 	return nil
@@ -118,6 +118,7 @@ type serverProbe struct {
 	answering bool
 	ready     bool
 	version   string
+	commit    string
 	current   bool
 }
 
@@ -133,6 +134,7 @@ func probeServer(ctx context.Context, addr string) serverProbe {
 	var body server.Health
 	if err := json.NewDecoder(res.Body).Decode(&body); err == nil {
 		probe.version = body.Version
+		probe.commit = body.Commit
 		probe.current = sameBuild(body, version.Version(), version.Commit())
 	}
 

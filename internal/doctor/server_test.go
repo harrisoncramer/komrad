@@ -109,6 +109,24 @@ func TestStaleServerNamesBothBuilds(t *testing.T) {
 	assert.Contains(t, result.Err.Error(), "v1.2.3")
 }
 
+// TestStaleServerTellsApartTwoDevelBuilds covers the message a worktree build gets, where the
+// version is devel on both sides and only the commit says they differ.
+func TestStaleServerTellsApartTwoDevelBuilds(t *testing.T) {
+	env := serverEnv(ServerStatus{
+		Answering: true,
+		Ready:     true,
+		Version:   "devel",
+		Commit:    "4b1db3cfa7f3eb6f9f5f4de5b4ba5f5e12f5a0c1",
+	})
+	env.Version = "devel"
+	env.Commit = "6da018be0403648b090dfa7695d160efea180b49"
+
+	result := newServerCheck().Run(t.Context(), env)
+
+	assert.Contains(t, result.Err.Error(), "4b1db3c")
+	assert.Contains(t, result.Err.Error(), "6da018b")
+}
+
 // TestStaleServerFixDependsOnThePanel covers advice that would strand a live panel: the
 // panel calls ensureServer only once, when its tmux session is created, so telling somebody
 // with a live panel to stop the server leaves nothing that will ever start one again.

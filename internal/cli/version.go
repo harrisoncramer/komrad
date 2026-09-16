@@ -19,7 +19,7 @@ second line is not the first, restart the service.`,
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			cmd.Printf("this binary: %s\n", version.Version())
+			cmd.Printf("this binary: %s\n", version.Describe(version.Version(), version.Commit()))
 
 			addr, release, err := state.dialAPI(cmd.Context())
 			if err != nil {
@@ -35,7 +35,7 @@ second line is not the first, restart the service.`,
 				return nil
 			}
 
-			cmd.Printf("the server at %s: %q\n", state.env.Addr, probe.version)
+			cmd.Printf("the server at %s: %s\n", state.env.Addr, version.Describe(probe.version, probe.commit))
 
 			return nil
 		},
