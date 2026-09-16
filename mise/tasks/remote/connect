@@ -70,6 +70,21 @@ fi
 
 USER_NAME="${WEAVE_ENGINE_USER:-weave}"
 
+# The address outlives the instance, so a rebuild answers on it with a new host key. The known
+# hosts are kept in a file of this engine's own, which is what makes dropping the old key safe.
+KNOWN_HOSTS="${WEAVE_ENGINE_KNOWN_HOSTS:-$HOME/.ssh/known_hosts_weave_engine}"
+touch "$KNOWN_HOSTS"
+chmod 600 "$KNOWN_HOSTS"
+
+RECORDED="$(ssh-keygen -F "$HOST" -f "$KNOWN_HOSTS" 2>/dev/null | grep -c . || true)"
+LIVE="$(ssh-keyscan -T 5 -t ed25519 "$HOST" 2>/dev/null | grep -v "^#" | head -1)"
+
+if [ "$RECORDED" != "0" ] && [ -n "$LIVE" ] && ! grep -qxF "$LIVE" "$KNOWN_HOSTS"; then
+	echo "the engine at $HOST answers with a new host key, which is what a rebuilt instance does." >&2
+	echo "dropping the old one from $KNOWN_HOSTS and going on." >&2
+	ssh-keygen -R "$HOST" -f "$KNOWN_HOSTS" >/dev/null 2>&1 || true
+fi
+
 # The same control path the panel's own transport uses, so a shell opened here and a stage pane
 # attaching share one connection rather than building two.
 SSH_ARGS=(
@@ -77,6 +92,7 @@ SSH_ARGS=(
 	-o ControlPersist=10m
 	-o "ControlPath=/tmp/cm-weave-%r@%h:%p"
 	-o StrictHostKeyChecking=accept-new
+	-o "UserKnownHostsFile=$KNOWN_HOSTS"
 	-o ConnectTimeout=10
 	-i "$KEY"
 )
