@@ -84,6 +84,38 @@ func TestADeadStagePaneIsReplacedAtTheDraggedWidth(t *testing.T) {
 	assert.True(t, measured)
 }
 
+// TestAResizeWhileTheStagePaneIsDeadKeepsTheDivider covers the resize tmux delivers when the
+// stage pane dies and its columns go to the sidebar.
+func TestAResizeWhileTheStagePaneIsDeadKeepsTheDivider(t *testing.T) {
+	frame, server, sidebar := realFrame(t)
+
+	stage := frame.Pane(RegionStage)
+	total := paneWidth(t, server, sidebar) + paneWidth(t, server, stage) + 1
+
+	server.Run("resize-pane", "-t", sidebar, "-x", "50")
+	syncDivider(t, frame, total-51)
+
+	server.Run("kill-pane", "-t", stage)
+	require.Equal(t, total, frame.WindowCols(), "the window is the size it always was")
+
+	frame.SyncSplit()
+
+	frame.Show(RegionStage, Content{
+		Key:   "back-to-diff",
+		Wraps: true,
+		Render: func(Target) ([]string, bool) {
+			return []string{"sh", "-c", "sleep 10"}, true
+		},
+	})
+
+	require.NotEqual(t, stage, frame.Pane(RegionStage), "the dead pane was replaced")
+	assert.Equal(t, 50, paneWidth(t, server, sidebar), "and the sidebar is left where it was dragged")
+
+	width, measured := frame.SidebarWidth(total)
+	assert.Equal(t, 50, width, "so what the panel draws in agrees with what tmux gave it")
+	assert.True(t, measured)
+}
+
 func paneWidth(t *testing.T, server *tmuxtest.Server, pane string) int {
 	t.Helper()
 

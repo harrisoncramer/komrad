@@ -594,6 +594,12 @@ func TestFrameSidebarWidthFollowsTheDivider(t *testing.T) {
 	frame.SyncSplit()
 
 	width, measured = frame.SidebarWidth(200)
-	assert.Equal(t, 40, width, "and an unreadable pane leaves the configured width")
+	assert.Equal(t, 39, width, "and a pane too dead to measure leaves the divider where it was")
+	assert.True(t, measured)
+
+	frame.ForgetSplit()
+
+	width, measured = frame.SidebarWidth(200)
+	assert.Equal(t, 40, width, "only forgetting the divider gives the configured width back")
 	assert.False(t, measured, "which the caller is told is the configured one")
 }

@@ -350,7 +350,9 @@ func (f *Frame) WindowCols() int {
 // SyncSplit measures the divider between the sidebar and the pane beside it, so a sidebar drawn
 // over the whole window keeps the width the user has dragged the divider to.
 func (f *Frame) SyncSplit() {
-	f.stageCols = f.tmux.GetPaneWidth(f.visibleStagePane())
+	if cols := f.tmux.GetPaneWidth(f.visibleStagePane()); cols > 0 {
+		f.stageCols = cols
+	}
 }
 
 // ForgetSplit drops the measured divider, so a window that is no longer the size it was dragged
