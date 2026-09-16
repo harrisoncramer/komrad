@@ -239,3 +239,53 @@ func TestCollapsingPutsItsCommentOffScreenRatherThanCallingItChanged(t *testing.
 	assert.NotContains(t, collapsed, "has changed",
 		"nothing about the agent's work moved")
 }
+
+// TestFoldingAnExpandedFileStaysFolded covers the mark taken while the file is drawn whole, which
+// has to describe the change to that file rather than the way the reader chose to draw it, or the
+// file comes back unread on the next catch-up and can never be cleared from the list.
+func TestFoldingAnExpandedFileStaysFolded(t *testing.T) {
+	m, agents := tallReview(t)
+
+	m = pressExpand(t, m)
+	require.True(t, m.review.view.IsExpanded(fakeTallFile))
+
+	next, cmd := m.updateReview(keyMsg("v"))
+	m, ok := next.(model)
+	require.True(t, ok)
+	require.NotNil(t, cmd)
+
+	wrote, ok := cmd().(reviewWroteMsg)
+	require.True(t, ok)
+	require.NoError(t, wrote.err)
+	require.True(t, m.review.view.IsViewed(fakeTallFile), "the file folds away on screen")
+
+	require.NotNil(t, agents.marked)
+	assert.Equal(t, patchFingerprint(t, m, fakeTallFile), agents.marked.GetFingerprint(),
+		"the mark carries the fingerprint of the file as the patch holds it")
+
+	reloaded := reloadReview(t, m)
+
+	assert.True(t, reloaded.review.view.IsViewed(fakeTallFile), "and it is still read after a reload")
+}
+
+// patchFingerprint is the fingerprint a load computes for a file, which is the one a mark has to
+// match to survive.
+func patchFingerprint(t *testing.T, m model, path string) string {
+	t.Helper()
+
+	_, cmd := m.reloadReview()
+	require.NotNil(t, cmd)
+
+	loaded, ok := cmd().(reviewLoadedMsg)
+	require.True(t, ok)
+
+	for i := range loaded.patch.Files {
+		if loaded.patch.Files[i].Path() == path {
+			return loaded.patch.Files[i].Fingerprint()
+		}
+	}
+
+	require.FailNow(t, "the patch draws no such file")
+
+	return ""
+}

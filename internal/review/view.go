@@ -632,14 +632,30 @@ func (v *View) getKey(y int) (anchorKey, bool) {
 	}, true
 }
 
-// GetFileAt is the file the cursor is inside, header rows included.
-func (v *View) GetFileAt(y int) (diff.File, bool) {
+// GetDrawnFileAt is the file the cursor is inside as it is drawn, header rows included.
+func (v *View) GetDrawnFileAt(y int) (diff.File, bool) {
 	current, ok := v.getRow(y)
 	if !ok || current.file < 0 {
 		return diff.File{}, false
 	}
 
 	return v.files[current.file], true
+}
+
+// GetPatchFileAt is the file the cursor is inside as the patch holds it, before anything the
+// reader has opened out.
+func (v *View) GetPatchFileAt(y int) (diff.File, bool) {
+	drawn, ok := v.GetDrawnFileAt(y)
+	if !ok {
+		return diff.File{}, false
+	}
+
+	file, ok := v.patchFile(drawn.Path())
+	if !ok {
+		return diff.File{}, false
+	}
+
+	return *file, true
 }
 
 // getLine is the diff line under the cursor.
@@ -654,7 +670,7 @@ func (v *View) getLine(y int) (diff.Line, bool) {
 
 // GetAnchor lifts the cursor's row into an anchor, which is what a new thread is pinned to.
 func (v *View) GetAnchor(y int) (*Anchor, bool) {
-	file, fileOK := v.GetFileAt(y)
+	file, fileOK := v.GetDrawnFileAt(y)
 	line, lineOK := v.getLine(y)
 	if !fileOK || !lineOK {
 		return nil, false
@@ -696,7 +712,7 @@ func (v *View) getStyledLine(current row, line diff.Line) styledLine {
 // GetEditTarget returns the file the cursor is in and the line to open it on, answering with the
 // nearest surviving line when the cursor is on a deleted one.
 func (v *View) GetEditTarget(y int) (string, int, bool) {
-	file, ok := v.GetFileAt(y)
+	file, ok := v.GetDrawnFileAt(y)
 	if !ok || file.NewPath == "" {
 		return "", 0, false
 	}
