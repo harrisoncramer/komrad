@@ -498,8 +498,8 @@ type Worktrees struct {
 	Dir string `mapstructure:"dir"`
 }
 
-// GitHub is the App an engine fetches and pushes as.
-type GitHub struct {
+// GitHubApp is the App an engine fetches and pushes as.
+type GitHubApp struct {
 	// The App's own id, from its settings page. Left empty the engine has no GitHub identity
 	// and git is left to whatever credentials the account already has, which on a machine
 	// nobody logs into is none.
@@ -716,7 +716,7 @@ type Config struct {
 	// Where a workflow's generated worktree provisioner creates its worktrees.
 	Worktrees Worktrees `mapstructure:"worktrees"`
 	// The GitHub App an engine fetches and pushes as.
-	GitHub GitHub `mapstructure:"github"`
+	GitHubApp GitHubApp `mapstructure:"github_app"`
 	// The standing text every agent is started with, whatever workflow it is in.
 	Context Context `mapstructure:"context"`
 	// How mail between agents is delivered.

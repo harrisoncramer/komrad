@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Explainer: this puts a token in gh's environment, because gh will not ask for one.
+#
+# Git asks a credential helper every time it needs a password, which is why weave can hand it a
+# token that lives for an hour. The gh command does not do that. It reads GH_TOKEN, then
+# GITHUB_TOKEN, then its own hosts.yml, and it reads them once at startup. So there is nowhere to
+# put a short-lived token except in front of each invocation, which is what this does.
+#
+# It is installed as /usr/local/bin/gh, ahead of the real one on PATH. An agent that runs gh gets
+# a fresh token without knowing any of this, and an agent that has already been given a token of
+# its own keeps it.
+#
+# If this engine has no GitHub App configured, nothing is set and the real gh falls back to
+# whatever it was logged in as, so a host that was set up by hand keeps working.
+
+if [ -z "${GH_TOKEN:-}" ] && [ -z "${GITHUB_TOKEN:-}" ]; then
+	if token="$(weave github token 2>/dev/null)"; then
+		export GH_TOKEN="$token"
+	fi
+fi
+
+exec /usr/bin/gh "$@"

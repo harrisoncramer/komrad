@@ -13,7 +13,7 @@ Instead weave holds a GitHub App's private key and signs a short assertion with 
 GitHub returns a token that stops working after an hour and only reaches the
 repositories the App was installed on.
 
-Set the App id, the installation id and the path to the key under `[github]`.
+Set the App id, the installation id and the path to the key under `[github_app]`.
 
 ### Options
 

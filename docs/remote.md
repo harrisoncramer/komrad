@@ -71,9 +71,13 @@ Creates the network, the box, the data volume, Postgres, and the permissions bet
 
 ## 4. Register a GitHub App
 
-The engine has to fetch and push, so it needs its own GitHub login. A GitHub App is the way to give it one without leaving a password on the machine. The App holds a private key, and weave uses that key to get a token that stops working after an hour.
+The engine has to fetch, push and open pull requests, so it needs its own GitHub login.
 
-This covers git and nothing else. It does not cover `gh`. That tool reads a token from its own environment instead of asking git, so `gh pr create` on the engine will still stop and ask you to log in.
+You have two ways to give it one. You can run `gh auth login` on the box once and be done in a minute. That leaves a password on a machine nobody watches, and it works until you remember to revoke it. Or you can register a GitHub App, which is the rest of this section. The App holds a private key, and weave uses that key to get a token that stops working after an hour and only reaches the repositories you installed the App on.
+
+The App is more setup and better security. Everything below assumes you picked it. If you would rather log in by hand, skip to step 6 and leave the `[github_app]` section out of the config. Weave stays out of the way when that section is missing, so git and `gh` use whatever the machine was logged in as.
+
+None of this applies to weave on your own laptop. That already uses your own git and `gh` credentials.
 
 Go to https://github.com/settings/apps/new and fill in:
 
@@ -132,7 +136,7 @@ default_harness = "claude"
 [worktrees]
 dir = "/var/lib/weave/worktrees"
 
-[github]
+[github_app]
 app_id           = "APP_ID"
 installation_id  = "INSTALLATION_ID"
 private_key_path = "/run/weave/github.pem"
@@ -145,6 +149,8 @@ weave github token
 ```
 
 That prints a token starting `ghs_`. If it errors, the secret name, the App id or the installation id is wrong.
+
+Git gets this token by asking weave every time it needs one, so nothing is stored. The `gh` command cannot ask, because it only reads a token from its own environment at startup. So the image puts a small wrapper ahead of `gh` on the path which fetches a fresh token and then runs the real one. An agent does not have to know about any of this.
 
 ## 7. Clone the repo and create a workflow
 

@@ -106,7 +106,7 @@ the machine, start or stop the service, or call an endpoint from a script.`,
 			app.harnesses = harnessRegistry
 
 			app.layout = cfg.Layout
-			app.github = cfg.GitHub
+			app.githubApp = cfg.GitHubApp
 			app.logLevel = cfg.Log.Level
 			app.logViewer = cfg.Log.Viewer
 			app.processViewer = cfg.Log.ProcessViewer

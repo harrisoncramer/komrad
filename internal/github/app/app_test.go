@@ -1,4 +1,4 @@
-package auth
+package app
 
 import (
 	"crypto/rand"
@@ -46,7 +46,7 @@ func TestMintSignsAnAssertionGitHubCanCheck(t *testing.T) {
 	defer func() { api = old }()
 
 	now := time.Now()
-	app := App{ID: "12345", InstallationID: "678", PrivateKeyPath: writeKey(t)}
+	app := Identity{ID: "12345", InstallationID: "678", PrivateKeyPath: writeKey(t)}
 	token, err := app.Mint(t.Context(), server.Client(), now)
 	require.NoError(t, err)
 	assert.Equal(t, "ghs_abc", token.Value)
@@ -80,7 +80,7 @@ func TestMintExplainsARefusal(t *testing.T) {
 	api = server.URL
 	defer func() { api = old }()
 
-	app := App{ID: "12345", InstallationID: "678", PrivateKeyPath: writeKey(t)}
+	app := Identity{ID: "12345", InstallationID: "678", PrivateKeyPath: writeKey(t)}
 	_, err := app.Mint(t.Context(), server.Client(), time.Now())
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "12345")

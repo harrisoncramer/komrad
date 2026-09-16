@@ -1,4 +1,4 @@
-// Package auth mints the token an engine fetches and pushes with.
+// Package app mints the token an engine fetches and pushes with, using a GitHub App.
 //
 // An engine runs agents that write code, so it has to reach GitHub. Giving it a personal access
 // token or a deploy key would leave a secret on the machine that works forever and covers more
@@ -8,7 +8,7 @@
 // assertion with it. GitHub takes that assertion and returns a token that stops working after an
 // hour and only reaches the repositories the App was installed on. Somebody who takes the machine
 // gets an hour, not an account.
-package auth
+package app
 
 import (
 	"bytes"
@@ -54,8 +54,8 @@ func (t Token) Fresh(now time.Time) bool {
 	return t.Value != "" && t.ExpiresAt.After(now.Add(renewWithin))
 }
 
-// App is the identity an engine reaches GitHub as.
-type App struct {
+// Identity is the GitHub App an engine reaches GitHub as.
+type Identity struct {
 	// ID is the App's own id, which identifies the key the assertion is signed with.
 	ID string
 	// InstallationID is the installation the token is minted for, which is what scopes it to
@@ -66,12 +66,12 @@ type App struct {
 }
 
 // Configured reports whether an engine was told how to reach GitHub at all.
-func (a App) Configured() bool {
+func (a Identity) Configured() bool {
 	return a.ID != "" && a.InstallationID != "" && a.PrivateKeyPath != ""
 }
 
 // Mint exchanges the App's key for an installation token.
-func (a App) Mint(ctx context.Context, client *http.Client, now time.Time) (Token, error) {
+func (a Identity) Mint(ctx context.Context, client *http.Client, now time.Time) (Token, error) {
 	if !a.Configured() {
 		return Token{}, errors.New("no github app is configured, so there is nothing to mint a token from")
 	}
@@ -126,7 +126,7 @@ func (a App) Mint(ctx context.Context, client *http.Client, now time.Time) (Toke
 	return token, nil
 }
 
-func (a App) readKey() (*rsa.PrivateKey, error) {
+func (a Identity) readKey() (*rsa.PrivateKey, error) {
 	raw, err := os.ReadFile(a.PrivateKeyPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read the github app key at %s: %w", a.PrivateKeyPath, err)
