@@ -175,7 +175,7 @@ func (m model) resizeTo(size tea.WindowSizeMsg) model {
 	// A drag and a zoom both change the panel's own pane and leave the window around it alone.
 	window := m.frame.WindowCols()
 	if window != m.windowCols && m.windowCols > 0 {
-		m.frame.ForgetSplit()
+		m.frame.RestoreSplit()
 	} else {
 		m.frame.SyncSplit()
 	}

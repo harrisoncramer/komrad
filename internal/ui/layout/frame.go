@@ -361,6 +361,19 @@ func (f *Frame) ForgetSplit() {
 	f.stageCols = 0
 }
 
+// RestoreSplit gives the sidebar its configured width again, which a window that changed size
+// needs because tmux shares the change out between the panes and a narrow sidebar loses nearly
+// all of it, down to a single column it never gets back.
+func (f *Frame) RestoreSplit() {
+	f.ForgetSplit()
+
+	if f.sidebar == "" || f.solo || !f.hasStage() {
+		return
+	}
+
+	f.tmux.ResizePane(f.restoredSidebar())
+}
+
 // IsRemote reports whether the agents are running in an engine this tmux server cannot reach,
 // which decides how a terminal is shown and who owns its size.
 func (f *Frame) IsRemote() bool { return f.remote.IsRemote() }

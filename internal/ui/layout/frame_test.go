@@ -603,3 +603,33 @@ func TestFrameSidebarWidthFollowsTheDivider(t *testing.T) {
 	assert.Equal(t, 40, width, "only forgetting the divider gives the configured width back")
 	assert.False(t, measured, "which the caller is told is the configured one")
 }
+
+// TestRestoreSplitGivesTheSidebarItsColumnsBack covers a window that changed size, where tmux
+// shares the change out between the panes and leaves a narrow sidebar with almost none of it.
+func TestRestoreSplitGivesTheSidebarItsColumnsBack(t *testing.T) {
+	tmux := &recordingTmux{width: 200, height: 50}
+	frame := New(tmux, config.Layout{SidebarWidth: 16})
+	frame.Attach("%0")
+	frame.ShowGuest("%7")
+
+	tmux.resizes = nil
+	frame.RestoreSplit()
+
+	assert.Contains(t, tmux.resizes, frame.Pane(RegionSidebar)+" 16",
+		"the sidebar is put back to the width it is configured for")
+}
+
+// TestRestoreSplitLeavesAZoomedSidebarAlone covers the sidebar holding the whole window, where
+// resizing the pane beside it would fight the zoom rather than restore a split.
+func TestRestoreSplitLeavesAZoomedSidebarAlone(t *testing.T) {
+	tmux := &recordingTmux{width: 200, height: 50}
+	frame := New(tmux, config.Layout{SidebarWidth: 16})
+	frame.Attach("%0")
+	frame.ShowGuest("%7")
+	frame.Solo(true)
+
+	tmux.resizes = nil
+	frame.RestoreSplit()
+
+	assert.Empty(t, tmux.resizes, "nothing is resized while the sidebar holds the window")
+}
