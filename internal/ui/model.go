@@ -248,6 +248,9 @@ type model struct {
 	// leaves it.
 	awaitingSize bool
 
+	// windowCols is how wide the window was when the divider was last read.
+	windowCols int
+
 	// drawn is the last frame the panel put on screen, held through a pointer so a view can keep
 	// what it drew.
 	drawn *lastFrame
