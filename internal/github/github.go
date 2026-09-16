@@ -1,4 +1,4 @@
-// Package github mints the short-lived token an engine pushes and opens pull requests with.
+// Package github mints the short-lived token an engine fetches and pushes with.
 //
 // A machine that runs agents needs to reach a forge, and the obvious ways to let it are a
 // personal token or a deploy key, both of which are long-lived secrets sitting on a shared box.
@@ -23,14 +23,15 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
 )
 
-// assertionLife is how long the assertion an installation token is asked for with is good for,
-// kept under the ten minutes GitHub allows so a slow clock cannot make it expire on arrival.
-const assertionLife = 9 * time.Minute
+// assertionLife is how far ahead of now the assertion's expiry is set, leaving the span it covers
+// inside the ten minutes GitHub allows even with the minute its issued-at is backdated by.
+const assertionLife = 8 * time.Minute
 
 // renewWithin is how close to expiry a cached token is replaced rather than handed out, so a
 // long push does not lose its credential partway through.
@@ -223,7 +224,33 @@ func (c Cache) Write(token Token) error {
 		return fmt.Errorf("failed to record the github token: %w", err)
 	}
 
-	if err := os.WriteFile(c.Path, append(encoded, '\n'), 0o600); err != nil {
+	// Written to a file that is always new and renamed over the target, so the mode is the one
+	// asked for rather than whatever the target was first created with, and a reader never sees
+	// half a document.
+	temporary, err := os.CreateTemp(filepath.Dir(c.Path), ".github-token-*")
+	if err != nil {
+		return fmt.Errorf("failed to record the github token at %s: %w", c.Path, err)
+	}
+
+	defer func() { _ = os.Remove(temporary.Name()) }() //nolint:errcheck // gone already on success
+
+	if err := temporary.Chmod(0o600); err != nil {
+		_ = temporary.Close() //nolint:errcheck // the chmod is the failure worth reporting
+
+		return fmt.Errorf("failed to record the github token at %s: %w", c.Path, err)
+	}
+
+	if _, err := temporary.Write(append(encoded, '\n')); err != nil {
+		_ = temporary.Close() //nolint:errcheck // the write is the failure worth reporting
+
+		return fmt.Errorf("failed to record the github token at %s: %w", c.Path, err)
+	}
+
+	if err := temporary.Close(); err != nil {
+		return fmt.Errorf("failed to record the github token at %s: %w", c.Path, err)
+	}
+
+	if err := os.Rename(temporary.Name(), c.Path); err != nil {
 		return fmt.Errorf("failed to record the github token at %s: %w", c.Path, err)
 	}
 

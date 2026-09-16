@@ -61,8 +61,10 @@ func TestMintSignsAnAssertionGitHubCanCheck(t *testing.T) {
 	require.NoError(t, json.Unmarshal(raw, &claims))
 
 	assert.Equal(t, "12345", claims["iss"])
-	assert.Less(t, claims["exp"].(float64)-float64(now.Unix()), float64(600),
-		"github refuses an assertion good for more than ten minutes")
+	assert.Less(t, claims["exp"].(float64)-claims["iat"].(float64), float64(600),
+		"github refuses an assertion whose own span is more than ten minutes")
+	assert.Less(t, claims["iat"].(float64), float64(now.Unix()),
+		"iat is backdated, so this host's clock running slow does not make the assertion future-dated")
 }
 
 // TestMintExplainsARefusal covers the App id or the installation being wrong, which is the whole
@@ -123,4 +125,18 @@ func TestCacheRoundTrips(t *testing.T) {
 	info, err := os.Stat(cache.Path)
 	require.NoError(t, err)
 	assert.Equal(t, os.FileMode(0o600), info.Mode().Perm(), "a token is readable only by who minted it")
+}
+
+// TestCacheTightensAFileSomebodyElseCreated covers the mode being the one asked for rather than
+// whatever the path was first created with, which is what open(2) would otherwise leave alone.
+func TestCacheTightensAFileSomebodyElseCreated(t *testing.T) {
+	cache := Cache{Path: filepath.Join(t.TempDir(), "token.json")}
+	require.NoError(t, os.WriteFile(cache.Path, []byte("{}"), 0o644))
+
+	require.NoError(t, cache.Write(Token{Value: "ghs_abc", ExpiresAt: time.Now().Add(time.Hour)}))
+
+	info, err := os.Stat(cache.Path)
+	require.NoError(t, err)
+	assert.Equal(t, os.FileMode(0o600), info.Mode().Perm())
+	assert.Equal(t, "ghs_abc", cache.Read().Value)
 }

@@ -72,9 +72,9 @@ func githubCredentialCmd(state *app) *cobra.Command {
 		Long: `Answer git's credential helper protocol.
 
 Git runs this with an action and a description of what it wants to reach. Only
-` + "`get`" + ` is answered, and only for github.com, so anything else falls through to
-whatever else the account has configured. Nothing is stored, because the token this
-returns is minted on demand and expires within the hour.
+` + "`get`" + ` is answered, and only for https to github.com, so anything else falls
+through to whatever else the account has configured. Nothing is stored, because the
+token this returns is minted on demand and expires within the hour.
 
 Wire it up with:
 
@@ -98,7 +98,7 @@ Wire it up with:
 			}
 
 			query := github.CredentialQuery(string(input))
-			if host := query["host"]; host != "" && !strings.EqualFold(host, "github.com") {
+			if !strings.EqualFold(query["protocol"], "https") || !strings.EqualFold(query["host"], "github.com") {
 				return nil
 			}
 

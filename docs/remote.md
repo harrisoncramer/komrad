@@ -71,7 +71,9 @@ Creates the network, the box, the data volume, Postgres, and the permissions bet
 
 ## 4. Register a GitHub App
 
-The engine needs its own GitHub identity to fetch, push and open pull requests. It uses a GitHub App scoped to the one repository, which mints tokens that expire after an hour.
+The engine needs its own GitHub identity to fetch and push. It uses a GitHub App scoped to the one repository, which mints tokens that expire after an hour.
+
+This covers git. It does not cover `gh`, which reads a token from its own environment rather than asking git, so `gh pr create` on the engine still needs a login of its own.
 
 Go to https://github.com/settings/apps/new and fill in:
 

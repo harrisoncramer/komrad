@@ -316,7 +316,7 @@ dir = ""
 # Left empty this is ~/.local/state/weave/worktrees.
 dir = ""
 
-# The GitHub App an engine fetches, pushes and opens pull requests as.
+# The GitHub App an engine fetches and pushes as.
 [github]
 # The App's own id, from its settings page. Left empty the engine has no GitHub identity
 # and git is left to whatever credentials the account already has, which on a machine

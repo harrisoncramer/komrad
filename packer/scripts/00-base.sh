@@ -44,8 +44,8 @@ curl -fsSL -o /etc/weave/rds-ca.pem \
 	https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem
 chmod 0644 /etc/weave/rds-ca.pem
 
-# Git reaches github as the App rather than with a stored credential, and gh reads the same token
-# from the environment, so neither needs a login on a machine nobody logs into.
+# Git reaches github as the App rather than with a stored credential, so it needs no login on a
+# machine nobody logs into.
 git config --system credential.https://github.com.helper '!weave github credential'
 git config --system credential.https://github.com.username x-access-token
 

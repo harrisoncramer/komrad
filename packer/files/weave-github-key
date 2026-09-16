@@ -16,9 +16,19 @@ secret="${WEAVE_GITHUB_SECRET_ID:-weave/github-app}"
 target=/run/weave/github.pem
 owner="${WEAVE_GITHUB_KEY_OWNER:-weave}"
 
-if ! value="$(aws secretsmanager get-secret-value --secret-id "$secret" --query SecretString --output text 2>/dev/null)"; then
-	echo "no secret called $secret, so this engine has no github identity and will not push" >&2
-	exit 0
+errors="$(mktemp)"
+trap 'rm -f "$errors"' EXIT
+
+# An engine with no github identity should still boot, but only a secret that is genuinely absent
+# means that. Anything else is a misconfiguration this would otherwise report as an absent secret.
+if ! value="$(aws secretsmanager get-secret-value --secret-id "$secret" --query SecretString --output text 2>"$errors")"; then
+	if grep -q ResourceNotFoundException "$errors"; then
+		echo "no secret called $secret, so this engine has no github identity and will not push" >&2
+		exit 0
+	fi
+
+	cat "$errors" >&2
+	exit 1
 fi
 
 key="$(jq -re .private_key <<<"$value")"

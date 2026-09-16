@@ -7,9 +7,9 @@ Answer git's credential helper protocol with an installation token
 Answer git's credential helper protocol.
 
 Git runs this with an action and a description of what it wants to reach. Only
-`get` is answered, and only for github.com, so anything else falls through to
-whatever else the account has configured. Nothing is stored, because the token this
-returns is minted on demand and expires within the hour.
+`get` is answered, and only for https to github.com, so anything else falls
+through to whatever else the account has configured. Nothing is stored, because the
+token this returns is minted on demand and expires within the hour.
 
 Wire it up with:
 
