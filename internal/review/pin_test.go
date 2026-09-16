@@ -218,14 +218,15 @@ func TestMarkForSaysWhichThreadIsWhich(t *testing.T) {
 	assert.Equal(t, readMark, mark)
 	assert.Equal(t, humanMarkStyle, style, "a thread the person opened is drawn in their colour")
 
-	thread.UnreadByHuman = true
-	mark, _ = view.markFor(thread)
-	assert.Equal(t, unreadMark, mark, "a reply nobody has read fills the mark in")
-
 	thread.ResolvedAt = "2026-08-27T12:00:00Z"
 	mark, style = view.markFor(thread)
-	assert.Equal(t, settledMark, mark, "settling outranks the unread reply")
+	assert.Equal(t, settledMark, mark)
 	assert.Equal(t, humanMarkStyle, style, "and the check keeps the author's colour")
+
+	thread.UnreadByHuman = true
+	mark, _ = view.markFor(thread)
+	assert.Equal(t, unreadMark, mark,
+		"a reply nobody has read outranks the settling, the gutter being the only place it is said")
 
 	thread.Messages = []*agentv1.ReviewMessage{
 		{AuthorKind: agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_AGENT},

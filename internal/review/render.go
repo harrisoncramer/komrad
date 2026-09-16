@@ -125,7 +125,7 @@ func (v *View) fileSummary(fileIndex int) string {
 
 	summary := fmt.Sprintf("+%d −%d", stat.Added, stat.Removed)
 	if open := v.countOpenThreadsIn(v.patch.Files[fileIndex].Path()); open > 0 {
-		summary += fmt.Sprintf("  %s %d", unreadMark, open)
+		summary += fmt.Sprintf("  %s %d", readMark, open)
 	}
 
 	return summary
@@ -166,10 +166,10 @@ func (v *View) markFor(thread *agentv1.ReviewThread) (string, lipgloss.Style) {
 	switch {
 	case doesHoldDelivery(thread, agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_UNSENT):
 		return unsentMark, style
-	case thread.GetResolvedAt() != "":
-		return settledMark, style
 	case thread.GetUnreadByHuman():
 		return unreadMark, style
+	case thread.GetResolvedAt() != "":
+		return settledMark, style
 	}
 
 	return readMark, style

@@ -54,7 +54,6 @@ func (m model) composeReview() (tea.Model, tea.Cmd) {
 	})
 }
 
-// reviewInputTitle names what the field is for, which is the one thing the words go into.
 func (m model) reviewInputTitle(replying bool) string {
 	if replying {
 		return "Reply"
@@ -63,10 +62,9 @@ func (m model) reviewInputTitle(replying bool) string {
 	return "Comment"
 }
 
-// reviewInputWidth is the room a field has in the sidebar, the field's own bar and the space
-// after it taken off.
+// reviewInputWidth is the room a field has in the sidebar.
 func (m model) reviewInputWidth() int {
-	return max(m.paneWidth()-2, 20)
+	return max(m.paneWidth()-reviewInputBar, 1)
 }
 
 // reviewInputHint is the line under a field's title, naming the keys that finish with it.
@@ -188,8 +186,7 @@ func messageDraftPath(agentID string) string {
 	return filepath.Join(os.TempDir(), fmt.Sprintf("weave-comment-%s-%d.md", agentID, os.Getpid()))
 }
 
-// applyMessageEdited puts what the editor wrote back into the composer, which is a field built
-// again around those words, huh seeding a field from its value only as it is built.
+// applyMessageEdited puts what the editor wrote back into the composer.
 func (m *model) applyMessageEdited(msg messageEditedMsg) {
 	if msg.agentID != m.review.agentID || (!m.review.composing && !m.review.releasing) {
 		return

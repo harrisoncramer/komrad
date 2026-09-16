@@ -12,15 +12,18 @@ import (
 // reviewInputKey is the field's key inside its own one-field form.
 const reviewInputKey = "body"
 
-// reviewInputChrome is the rows a field takes around the words themselves: its title, the hint
-// under it, and the blank line the two are separated by.
-const reviewInputChrome = 4
+// reviewInputBar is the bar huh draws a field with and the space after it.
+const reviewInputBar = 2
 
 // reviewInput is the panel's ordinary text field, drawn in the review's own sidebar rather than
 // in the column every other form is given.
 type reviewInput struct {
 	form *huh.Form
 	body *string
+	// title and description are kept so the rows they wrap into can be measured again at every
+	// width the field is given.
+	title       string
+	description string
 }
 
 // newReviewInputParams is what a field is opened with.
@@ -51,7 +54,12 @@ func newReviewInput(params newReviewInputParams) (reviewInput, tea.Cmd) {
 		WithKeyMap(reviewInputKeyMap(params.Keys)).
 		WithTheme(paint.FormTheme())
 
-	input := reviewInput{form: form, body: body}
+	input := reviewInput{
+		form:        form,
+		body:        body,
+		title:       params.Title,
+		description: params.Description,
+	}
 
 	return input, tea.Batch(form.Init(), input.resize(params.Width))
 }
@@ -66,12 +74,25 @@ func (i reviewInput) resize(width int) tea.Cmd {
 		return nil
 	}
 
+	width = max(width, 1)
+
 	_, cmd := i.form.Update(tea.WindowSizeMsg{
-		Width:  max(width, 20),
-		Height: reviewEditorHeight + reviewInputChrome,
+		Width:  width,
+		Height: reviewEditorHeight + i.chromeRows(width),
 	})
 
 	return cmd
+}
+
+// Explainer: huh answers a height too small for what it holds by cutting the bottom off the
+// words rather than by growing, and the title and the hint both wrap, so how many rows they take
+// is measured at the width about to be sent rather than counted once.
+
+// chromeRows is how many rows the title and the hint under it take at one width.
+func (i reviewInput) chromeRows(width int) int {
+	text := max(width-reviewInputBar, 1)
+
+	return len(paint.WrapRows(i.title, text)) + len(paint.WrapRows(i.description, text))
 }
 
 // update hands a message to the field.

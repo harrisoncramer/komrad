@@ -160,8 +160,8 @@ func orRefuseWrite(fn func(model) (tea.Model, tea.Cmd)) func(model, string) (tea
 // work, not by an answer to what it said. The service draws that line at the thread, so the
 // screen draws it in the same place rather than refusing a key the service would take.
 
-// pressReviewCompose is the comment key, which while a review is owed an answer only opens on a
-// thread that review already holds.
+// pressReviewCompose is the comment key, which refuses a new thread while a review is owed an
+// answer.
 func (m model) pressReviewCompose() (tea.Model, tea.Cmd) {
 	if _, replying := m.reviewThreadAtCursor(); m.review.awaiting && !replying {
 		return m.refuseReviewAwaiting()

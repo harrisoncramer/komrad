@@ -142,6 +142,17 @@ func TestReviewGutterMarksWhatHasNotReachedTheAgent(t *testing.T) {
 			unwant: "●",
 		},
 		{
+			name: "until the agent says something more in it",
+			thread: &agentv1.ReviewThread{
+				ResolvedAt:    "2026-09-02T11:00:00Z",
+				UnreadByHuman: true,
+				Messages:      []*agentv1.ReviewMessage{deliveredComment()},
+			},
+			want:    "●",
+			unwant:  "✓",
+			comment: "nowhere else in the panel says a settled thread has moved",
+		},
+		{
 			name:    "a comment that landed and was read is hollow",
 			thread:  &agentv1.ReviewThread{Messages: []*agentv1.ReviewMessage{deliveredComment()}},
 			want:    "○",
