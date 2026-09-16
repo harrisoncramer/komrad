@@ -53,13 +53,16 @@ This creates a network, a box, a disk for the agents' work, a Postgres database,
 
 ## Step three, point the panel at it
 
-The panel decides where the engine is from a section in your own weave config, at `~/.config/weave/config.toml`. Nothing about this is specific to AWS. Weave is told two commands and runs them, so the same shape works for any box you can reach over SSH.
+An engine is a file in `~/.config/weave/engines/`, named after the engine. It is layered over your own config rather than replacing it, so it holds only what differs from running everything on this machine. Nothing about it is specific to AWS. Weave is told two commands and runs them, so the same shape works for any box you can reach over SSH.
+
+Write `~/.config/weave/engines/remote.toml`.
 
 ```toml
 [connection]
 addr               = "127.0.0.1:8787"
 tmux_socket        = "weave-remote"
 engine_tmux_socket = "weave"
+cache_dir          = "~/.cache/weave-remote"
 
 exec = [
   "ssh", "-t",
@@ -86,11 +89,21 @@ forward = [
 
 The `ControlMaster` settings matter more than they look. They tell SSH to keep the first connection open and run every later command over it. Without them, opening an agent builds a whole new connection each time, which is slow enough to see.
 
-Then open the panel from a terminal that has no tmux of its own.
+Then open the panel from a terminal that has no tmux of its own, naming the engine.
 
 ```
-weave open
+weave open --engine remote
 ```
+
+Without `--engine` you get the engine on this machine, so the same binary reaches either. A name weave does not know is refused with a list of the ones it does.
+
+The socket and the cache directory are in that file for a reason. They keep a remote panel's tmux server and its log apart from a local one's, so both can run at once and neither reads the other's state.
+
+```
+weave --engine remote doctor
+```
+
+is the quickest way to see which files were layered and whether the engine answers.
 
 ## Keeping it current
 

@@ -7,6 +7,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // TestIsConfigFatal covers which commands a broken config stops.
@@ -107,7 +108,9 @@ func TestResolveConfigPaths(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Setenv("WEAVE_CONFIG", tt.variable)
 
-			assert.Equal(t, tt.want, resolveConfigPaths(tt.flags))
+			paths, err := resolveConfigPaths(tt.flags, "")
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, paths)
 		})
 	}
 }

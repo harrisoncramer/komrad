@@ -738,3 +738,22 @@ func TestEveryBindingShipsAKey(t *testing.T) {
 		}
 	}
 }
+
+// TestCacheDirExpandsHome covers a cache directory written the way every other directory in the
+// config is, where a literal tilde makes weave write into a directory of that name instead.
+func TestCacheDirExpandsHome(t *testing.T) {
+	t.Setenv("WEAVE_CACHE_DIR", "")
+
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.toml")
+	require.NoError(t, os.WriteFile(path, []byte("[connection]\ncache_dir = \"~/.cache/weave-remote\"\n"), 0o600))
+
+	cfg, err := Load([]string{path})
+	require.NoError(t, err)
+
+	home, err := os.UserHomeDir()
+	require.NoError(t, err)
+
+	assert.Equal(t, filepath.Join(home, ".cache", "weave-remote"), cfg.Connection.CacheDir)
+	assert.NotContains(t, cfg.Connection.CacheDir, "~")
+}

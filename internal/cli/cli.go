@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"strings"
 
 	"weave/config"
 	"weave/internal/agents"
@@ -34,7 +35,10 @@ func IsQuiet(err error) bool {
 func NewRootCommand() *cobra.Command {
 	app := &app{}
 
-	var configPaths []string
+	var (
+		configPaths []string
+		engineName  string
+	)
 
 	root := &cobra.Command{
 		Use:   "weave",
@@ -53,7 +57,12 @@ the machine, start or stop the service, or call an endpoint from a script.`,
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		PersistentPreRunE: func(cmd *cobra.Command, _ []string) error {
-			configPaths = resolveConfigPaths(configPaths)
+			resolved, err := resolveConfigPaths(configPaths, engineName)
+			if err != nil {
+				return err
+			}
+
+			configPaths = resolved
 
 			cfg, report, err := config.LoadWithReport(configPaths)
 			if err != nil {
@@ -132,6 +141,7 @@ the machine, start or stop the service, or call an endpoint from a script.`,
 	}
 
 	root.PersistentFlags().StringArrayVar(&configPaths, "config", nil, "path to a config TOML, repeatable, later files win over earlier ones")
+	root.PersistentFlags().StringVar(&engineName, "engine", "", "engine to reach, named after a file in the config's engines directory, layered over the config")
 
 	root.AddCommand(
 		doctorCmd(app),
@@ -161,12 +171,33 @@ var commandsSurvivingBadConfig = map[string]bool{
 	"panel":   true,
 }
 
-func resolveConfigPaths(flags []string) []string {
-	if len(flags) > 0 {
-		return flags
+func resolveConfigPaths(flags []string, engine string) ([]string, error) {
+	paths := flags
+	if len(paths) == 0 {
+		paths = config.LayerPaths()
 	}
 
-	return config.LayerPaths()
+	if strings.TrimSpace(engine) == "" {
+		return paths, nil
+	}
+
+	if len(paths) == 0 {
+		layers, err := config.ResolveLayers(nil)
+		if err != nil {
+			return nil, err
+		}
+
+		for _, layer := range layers {
+			paths = append(paths, layer.Path)
+		}
+	}
+
+	overlay, err := config.EnginePath(engine)
+	if err != nil {
+		return nil, err
+	}
+
+	return append(paths, overlay), nil
 }
 
 func isConfigFatal(cmd *cobra.Command) bool {

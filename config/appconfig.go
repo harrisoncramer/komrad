@@ -1287,6 +1287,8 @@ func (c *Config) resolveDerived(report *Report) error {
 
 		c.Connection.CacheDir = filepath.Join(dir, "weave")
 		report.Sources["cache_dir"] = SourceDerived
+	} else {
+		c.Connection.CacheDir = ExpandHome(c.Connection.CacheDir)
 	}
 
 	if c.Connection.ReadOnlyDatabaseURL == "" {
