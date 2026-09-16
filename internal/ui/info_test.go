@@ -120,6 +120,7 @@ type recordingTmux struct {
 	height      int
 	// paneWidths is one pane's own width, falling back to width where a pane has no entry.
 	paneWidths    map[string]int
+	windowWidth   int
 	sentKeys      []string
 	detaches      int
 	killed        []string
@@ -174,6 +175,8 @@ func (t *recordingTmux) MovePanes(moves []panes.Move) {
 
 func (t *recordingTmux) IsPaneAlive(pane string) bool    { return !t.deadPanes[pane] }
 func (t *recordingTmux) SetPaneZoomed(_ string, on bool) { t.zoomed = on }
+
+func (t *recordingTmux) GetWindowWidth(string) int { return t.windowWidth }
 
 func (t *recordingTmux) GetPaneWidth(pane string) int {
 	if width, ok := t.paneWidths[pane]; ok {

@@ -22,6 +22,7 @@ type Tmux interface {
 	MovePanes(moves []panes.Move)
 	IsPaneAlive(pane string) bool
 	GetPaneWidth(pane string) int
+	GetWindowWidth(pane string) int
 	GetPaneHeight(pane string) int
 	SplitRight(anchorPane, dir, size string) string
 	SplitLeft(anchorPane, dir, size string) string

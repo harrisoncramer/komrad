@@ -9,6 +9,8 @@ import (
 	"testing"
 	"time"
 
+	"weave/internal/panes"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -186,6 +188,32 @@ func TestPaneMeasurementsAnswerZeroForAPaneThatIsNotThere(t *testing.T) {
 	for _, absent := range []string{"", "%999"} {
 		assert.Zero(t, client.GetPaneWidth(absent), "width of %q", absent)
 		assert.Zero(t, client.GetPaneHeight(absent), "height of %q", absent)
+	}
+}
+
+// TestWindowWidthIsUnmovedByASplitOrAZoom pins the number that tells a dragged divider apart
+// from a resized terminal.
+func TestWindowWidthIsUnmovedByASplitOrAZoom(t *testing.T) {
+	client := testServer(t, "windowwidth")
+
+	_, err := client.query("resize-window", "-t", "windowwidth:", "-x", "200", "-y", "40")
+	require.NoError(t, err)
+
+	sidebar := paneAt(t, client, "windowwidth", 0)
+	require.Equal(t, 200, client.GetWindowWidth(sidebar))
+
+	stage := client.SplitRight(sidebar, t.TempDir(), "149")
+	require.NotEmpty(t, stage)
+	assert.Equal(t, 200, client.GetWindowWidth(sidebar), "a split divides the window rather than changing it")
+	require.Equal(t, 50, client.GetPaneWidth(sidebar))
+
+	client.MovePanes([]panes.Move{panes.Zoom(sidebar, true)})
+	require.Equal(t, 200, client.GetPaneWidth(sidebar), "the zoom hands the sidebar the whole window")
+	assert.Equal(t, 200, client.GetWindowWidth(sidebar), "which leaves the window the size it was")
+	assert.Equal(t, 149, client.GetPaneWidth(stage), "and leaves the pane it covers alone")
+
+	for _, absent := range []string{"", "%999"} {
+		assert.Zero(t, client.GetWindowWidth(absent), "window width of %q", absent)
 	}
 }
 

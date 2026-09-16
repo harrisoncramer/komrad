@@ -386,6 +386,7 @@ func newProbe(key string, wraps bool, got *Target) Content {
 
 type recordingTmux struct {
 	width        int
+	windowWidth  int
 	height       int
 	splits       []string
 	anchors      []string
@@ -423,6 +424,7 @@ func (t *recordingTmux) MovePanes(moves []panes.Move) {
 
 func (t *recordingTmux) IsPaneAlive(pane string) bool { return !t.deadPanes[pane] }
 func (t *recordingTmux) GetPaneWidth(string) int      { return t.width }
+func (t *recordingTmux) GetWindowWidth(string) int    { return t.windowWidth }
 func (t *recordingTmux) SetPaneZoomed(_ string, on bool) {
 	t.zoomed = on
 	t.zooms = append(t.zooms, on)
