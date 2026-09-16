@@ -1,4 +1,4 @@
-// Package github mints the token an engine fetches and pushes with.
+// Package auth mints the token an engine fetches and pushes with.
 //
 // An engine runs agents that write code, so it has to reach GitHub. Giving it a personal access
 // token or a deploy key would leave a secret on the machine that works forever and covers more
@@ -8,7 +8,7 @@
 // assertion with it. GitHub takes that assertion and returns a token that stops working after an
 // hour and only reaches the repositories the App was installed on. Somebody who takes the machine
 // gets an hour, not an account.
-package github
+package auth
 
 import (
 	"bytes"

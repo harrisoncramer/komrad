@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"weave/config"
-	"weave/internal/github"
+	"weave/internal/github/auth"
 
 	"github.com/spf13/cobra"
 )
@@ -99,7 +99,7 @@ Set it up with:
 				return fmt.Errorf("failed to read what git asked about: %w", err)
 			}
 
-			query := github.CredentialQuery(string(input))
+			query := auth.CredentialQuery(string(input))
 			if !strings.EqualFold(query["protocol"], "https") || !strings.EqualFold(query["host"], "github.com") {
 				return nil
 			}
@@ -109,7 +109,7 @@ Set it up with:
 				return err
 			}
 
-			fmt.Fprint(cmd.OutOrStdout(), github.CredentialReply(token)) //nolint:errcheck // git closing the pipe is not this command failing
+			fmt.Fprint(cmd.OutOrStdout(), auth.CredentialReply(token)) //nolint:errcheck // git closing the pipe is not this command failing
 
 			return nil
 		},
@@ -118,12 +118,12 @@ Set it up with:
 
 // githubToken is the cached installation token, or a freshly minted one recorded for next time.
 func githubToken(ctx context.Context, state *app) (string, error) {
-	installation, err := github.InstallationIDFromString(state.github.InstallationID)
+	installation, err := auth.InstallationIDFromString(state.github.InstallationID)
 	if err != nil {
 		return "", err
 	}
 
-	current := github.App{
+	current := auth.App{
 		ID:             strings.TrimSpace(state.github.AppID),
 		InstallationID: installation,
 		PrivateKeyPath: config.ExpandHome(strings.TrimSpace(state.github.PrivateKeyPath)),
@@ -134,7 +134,7 @@ func githubToken(ctx context.Context, state *app) (string, error) {
 			"private_key_path under [github] in the config this weave was started with")
 	}
 
-	cache := github.Cache{Path: githubTokenCachePath(state)}
+	cache := auth.Cache{Path: githubTokenCachePath(state)}
 	if token := cache.Read(); token.Fresh(time.Now()) {
 		return token.Value, nil
 	}
