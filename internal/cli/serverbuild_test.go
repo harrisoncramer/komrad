@@ -57,6 +57,20 @@ func TestSameBuild(t *testing.T) {
 			selfCommit:  "",
 			want:        false,
 		},
+		{
+			name:        "two worktree builds from different commits, both reporting devel",
+			body:        server.Health{Version: "devel", Commit: behind},
+			selfVersion: "devel",
+			selfCommit:  commit,
+			want:        false,
+		},
+		{
+			name:        "a server naming no commit answering a build that does",
+			body:        server.Health{Version: "devel"},
+			selfVersion: "devel",
+			selfCommit:  commit,
+			want:        false,
+		},
 	}
 
 	for _, tt := range tests {
