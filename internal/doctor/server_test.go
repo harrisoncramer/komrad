@@ -18,7 +18,7 @@ func withPanel(status ServerStatus, running bool) Env {
 			Version:    "v1.2.3",
 			TmuxSocket: "weave",
 		},
-		ProbeServer:    func(context.Context, string) ServerStatus { return status },
+		ProbeServer:    func(context.Context) (ServerStatus, error) { return status, nil },
 		IsPanelRunning: func(context.Context) bool { return running },
 	}
 }

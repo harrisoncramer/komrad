@@ -118,12 +118,12 @@ func TestDoctorAdviceReadsThePanelsOwnPane(t *testing.T) {
 		env, checks, err := state.buildDoctor()
 		require.NoError(t, err)
 
-		env.ProbeServer = func(context.Context, string) doctor.ServerStatus {
+		env.ProbeServer = func(context.Context) (doctor.ServerStatus, error) {
 			return doctor.ServerStatus{
 				Answering: true,
 				Ready:     true,
 				Version:   "v1.0.0",
-			}
+			}, nil
 		}
 
 		index := slices.IndexFunc(checks, func(check doctor.Check) bool { return check.Name == "server" })

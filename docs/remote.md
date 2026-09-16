@@ -1,61 +1,162 @@
 # Running weave on a remote box
 
-Weave normally runs everything on one machine. The panel you look at, the service behind it, and the agents themselves all share a tmux server on your laptop.
+Weave can run remotely, where Postgres, tmux, and the agents moves to a box you reach over SSH. Agents keep running when you close your laptop.
 
-You can also split it. The panel stays on your machine, and everything else moves to a box somewhere else. The agents run there, they keep running when you close your laptop, and the panel connects to them over SSH. This page is how to set that up.
+The panel (and Go binary for launching) are still required on your machine.
 
-## What the two halves are
+Please work through the steps in this guide in order. Each one depends on the one before it.
 
-The engine is the part that does the work. It is a service called `weave serve`, a Postgres database, a tmux server that owns every agent's terminal, and the agents themselves.
+## Before you start
 
-The panel is the part you look at. It draws the sidebar, it handles your keys, and it runs on your own machine so that your clipboard, your editor and your own tmux all still work.
+An AWS account and a named profile in `~/.aws/config` that reaches it.
 
-The only thing that crosses between them is a connection. The panel talks to the engine's API over a forwarded port, and when you open an agent, the panel runs a command over SSH that attaches to that agent's terminal on the engine. Your local tmux draws what comes back.
+An S3 bucket for Terraform state. Terraform does not create this for you.
 
-## What you need before starting
+A key pair used for nothing else.
 
-An AWS account, and a named profile in your AWS config that can reach it.
+```
+ssh-keygen -t ed25519 -f ~/.ssh/weave_engine
+```
 
-An S3 bucket for Terraform to keep its state in. Terraform does not create this for you, because it needs somewhere to record what it created.
+The toolchain.
 
-A key pair used for nothing else. Make one with `ssh-keygen -t ed25519 -f ~/.ssh/weave_engine`. The public half goes into the machine, the private half stays on your laptop, and neither is shared with anything else you own.
+```
+mise install
+```
 
-The tools come from mise, so `mise install` gets you Terraform, Packer and the AWS CLI at the versions this repo expects.
-
-## Step one, build the machine image
-
-The image carries everything the box needs before it knows anything about your account. That is the weave binary, the systemd units that run it, and the scripts those units call.
+## 1. Build the machine image
 
 ```
 mise run packer:build
 ```
 
-It prints an AMI id when it finishes, which takes around twenty minutes. That id is stamped with the commit it was built from, so you can always trace an image back to the code in it.
+Takes about twenty minutes. Note the AMI id it prints at the end.
 
-## Step two, describe your infrastructure
+## 2. Describe the infrastructure
 
-Copy `infra/terraform/terraform.tfvars.example` to `terraform.tfvars` and fill it in. It wants your account id, your region, your AWS profile, the AMI id you just built, and two things about access.
+```
+cp infra/terraform/terraform.tfvars.example infra/terraform/terraform.tfvars
+cp infra/terraform/backend.hcl.example infra/terraform/backend.hcl
+```
 
-The first is `ssh_public_key`, which is the public half of the key you made. Terraform writes it into the box, so the key is never baked into the image and never shared between boxes.
+Fill in `terraform.tfvars`:
 
-The second is `ssh_allowed_cidrs`, which is the list of addresses allowed to reach port 22. Put your own address in it and nothing else. Terraform refuses to accept the whole internet here, on purpose.
+```
+aws_region                   the region to build in
+aws_account_id               your account id
+aws_profile                  your profile name
+aws_config_file              absolute path to your AWS config
+aws_shared_credentials_file  absolute path to your AWS credentials
+ami_id                       the id from step 1
+availability_zone            one inside aws_region
+ssh_public_key               contents of ~/.ssh/weave_engine.pub
+ssh_allowed_cidrs            ["YOUR.IP.ADDR.HERE/32"]
+state_bucket                 your Terraform state bucket
+```
 
-Copy `backend.hcl.example` to `backend.hcl` and point it at your state bucket. Both of these files are ignored by git, so your account details never leave your machine.
+Terraform refuses `0.0.0.0/0` for `ssh_allowed_cidrs`.
 
-Then build it.
+> NOTE: This file also has three `github_*` values. They are optional and unrelated to the app, they let this repository's own GitHub Actions get AWS credentials without a stored key. Leave them out.
+
+Point `backend.hcl` at your state bucket. Both files are gitignored.
+
+## 3. Create the infrastructure
 
 ```
 mise run terraform:init
 mise run terraform:apply
 ```
 
-This creates a network, a box, a disk for the agents' work, a Postgres database, and the permissions tying them together. It prints the address of the box when it is done.
+Creates the network, the box, the data volume, Postgres, and the permissions between them. Prints the address when it finishes.
 
-## Step three, point the panel at it
+## 4. Register a GitHub App
 
-An engine is a file in `~/.config/weave/engines/`, named after the engine. It is layered over your own config rather than replacing it, so it holds only what differs from running everything on this machine. Nothing about it is specific to AWS. Weave is told two commands and runs them, so the same shape works for any box you can reach over SSH.
+The engine needs its own GitHub identity to fetch, push and open pull requests. It uses a GitHub App scoped to the one repository, which mints tokens that expire after an hour.
 
-Write `~/.config/weave/engines/remote.toml`.
+Go to https://github.com/settings/apps/new and fill in:
+
+```
+GitHub App name    globally unique, becomes the bot name on every PR
+Homepage URL       anything, unused
+Webhook            untick Active
+Installed on       Only on this account
+```
+
+Repository permissions you'd like Weave to use. I'd recommend:
+
+```
+Contents        Read and write
+Pull requests   Read and write
+Issues          Read and write
+Workflows       Read and write
+Metadata        Read-only, selects itself
+```
+
+Create it.
+
+Under Private keys, Generate a private key. The `.pem` downloads once and GitHub keeps no copy.
+
+Under Install App, install it on your account, choose your repositories.
+
+## 5. Store the App key
+
+```
+aws secretsmanager create-secret \
+  --profile YOUR_PROFILE --region YOUR_REGION \
+  --name weave/github-app \
+  --secret-string "$(jq -n \
+      --arg id "APP_ID" \
+      --rawfile key ~/Downloads/YOUR-APP.private-key.pem \
+      '{app_id: $id, private_key: $key}')"
+
+rm -P ~/Downloads/YOUR-APP.private-key.pem
+```
+
+The instance role already reads `weave/*`, so this needs no Terraform change.
+
+## 6. Configure the engine
+
+Get on the box.
+
+```
+mise run remote:connect
+```
+
+Write `~/.config/weave/config.toml`:
+
+```toml
+default_harness = "claude"
+
+[worktrees]
+dir = "/var/lib/weave/worktrees"
+
+[github]
+app_id           = "APP_ID"
+installation_id  = "INSTALLATION_ID"
+private_key_path = "/run/weave/github.pem"
+```
+
+The key is fetched from Secrets Manager into `/run` at boot, which is tmpfs, so it never touches the disk. Check it arrived:
+
+```
+weave github token
+```
+
+That prints a token starting `ghs_`. If it errors, the secret name, the App id or the installation id is wrong.
+
+## 7. Clone the repo and create a workflow
+
+Put the checkout on the data volume so it survives an instance replacement.
+
+```
+git clone https://github.com/OWNER/REPO /var/lib/weave/repos/REPO
+```
+
+Git authenticates through weave's credential helper, so this needs no login.
+
+## 8. Point the panel at it
+
+An engine is a file in `~/.config/weave/engines/` on your own machine, layered over your config rather than replacing it. Write `~/.config/weave/engines/remote.toml`:
 
 ```toml
 [connection]
@@ -63,13 +164,14 @@ addr               = "127.0.0.1:8787"
 tmux_socket        = "weave-remote"
 engine_tmux_socket = "weave"
 cache_dir          = "~/.cache/weave-remote"
+panel_key          = "G"
 
 exec = [
   "ssh", "-t",
   "-o", "ControlMaster=auto",
   "-o", "ControlPersist=10m",
   "-o", "ControlPath=/tmp/cm-weave-%r@%h:%p",
-  "-i", "/absolute/path/to/your/weave_engine",
+  "-i", "/absolute/path/to/weave_engine",
   "weave@ENGINE_ADDRESS",
   "{{command}}",
 ]
@@ -79,76 +181,72 @@ forward = [
   "-o", "ControlMaster=auto",
   "-o", "ControlPersist=10m",
   "-o", "ControlPath=/tmp/cm-weave-%r@%h:%p",
-  "-i", "/absolute/path/to/your/weave_engine",
+  "-i", "/absolute/path/to/weave_engine",
   "-L", "{{local_port}}:127.0.0.1:{{remote_port}}",
   "weave@ENGINE_ADDRESS",
 ]
 ```
 
-`exec` is how weave runs one command on the engine, and `{{command}}` is where that command goes. `forward` is how weave carries a port to the engine, and the two placeholders are the local and remote ends of it.
-
-The `ControlMaster` settings matter more than they look. They tell SSH to keep the first connection open and run every later command over it. Without them, opening an agent builds a whole new connection each time, which is slow enough to see.
-
-Then bind a key to it, next to the one that opens the local panel, by adding a line to your tmux config.
+Add a second line to `~/.tmux.conf` for the remote engine, beside the one you already have for the local panel.
 
 ```
-run-shell 'weave tmux'
-run-shell 'weave tmux --engine remote'
+run-shell 'weave tmux'                  # local panel, key from your config.toml
+run-shell 'weave tmux --engine remote'  # remote panel, key from remote.toml
 ```
 
-Each line binds the key that engine's config asks for, so give the remote one a `panel_key` of its own and both answer from the same tmux.
+With `panel_key = "G"` above, G now opens the remote panel and your existing key still opens the local one. Give the two engines different keys.
 
-Open it with that key rather than by running `weave open` yourself. The key opens the panel as a popup over the session you are already in, which is what keeps its splits and its copy-mode inside the popup. Running `weave open` in a terminal instead attaches the panel as that terminal's only client, and then the panel owns the whole screen: the splits are not respected and copy-mode runs across everything. The popup is the right shape for a remote engine just as it is for a local one, because the panel runs on your machine either way.
-
-Without `--engine` you get the engine on this machine, so the same binary reaches either. A name weave does not know is refused with a list of the ones it does.
-
-The socket and the cache directory are in that file for a reason. They keep a remote panel's tmux server and its log apart from a local one's, so both can run at once and neither reads the other's state.
+Source the configuration:
 
 ```
-weave --engine remote doctor
+tmux source-file ~/.tmux.conf
 ```
 
-is the quickest way to see which files were layered and whether the engine answers.
+Open the panel with that key rather than by running `weave open`. The key opens it as a popup, which keeps its splits and copy-mode inside the popup.
 
-## Keeping it current
+## 9. Sign the harness in
 
-Two things go stale, and they are updated differently.
+You have to grant permissions inside the remote for the agent harness.
 
-The weave binary changes every time you merge something. Updating it is quick and does not disturb the agents, because the service is restarted in a way that leaves their terminals alone.
+```
+mise run remote:connect
+cd /var/lib/weave/repos/REPO
+claude
+```
+
+Accept the login, answer yes to the folder-trust question, then quit.
+
+_Do not skip the trust question. Agents run in worktrees cut from this checkout and inherit its answer, so leaving it unanswered means every agent you launch sits waiting at that prompt with an empty transcript._
+
+Weave's home is on the data volume, so both survive a new image.
+
+## Updating
+
+The binary changes often. This does not disturb running agents. If you have this repo checked out locally, you can run this Mise helper:
 
 ```
 mise run remote:deploy
 ```
 
-The machine image changes when the units or the provisioning scripts change, which is rare. Updating it means building a new image and applying it, and that replaces the box. Every agent on it stops. The disk holding their work follows the new box, and so does the address, but anything mid-conversation is gone. Do it deliberately.
+The image changes rarely, when the units or provisioning scripts do. This replaces the box and every agent on it stops. The data volume and the address follow the new box; anything mid-conversation is lost.
 
-## Getting a shell on it
+```
+mise run packer:build
+# put the new ami_id in terraform.tfvars
+mise run terraform:apply
+```
+
+## Getting a shell
 
 ```
 mise run remote:connect
 mise run remote:connect -- systemctl status weave
 ```
 
-The address comes from Terraform, so you do not have to remember it. The connection is shared with the panel's, so a shell you open here is nearly free.
+The address comes from Terraform. The connection is shared with the panel's, so this is nearly free.
 
-The address outlives the box, so a rebuilt engine answers on the same address with a different host key. The task keeps its host keys in a file of its own and drops the stale one when that happens, rather than making you edit the known hosts you use for everything else.
-
-## How the security works
-
-The box has no password login and no keys in its image. The only way in is the key you made, and the only addresses allowed to try are the ones you listed.
-
-The database password is never written into the image or into the instance's startup script. The startup script carries the name of a secret, and the box fetches the value itself using permissions attached to the box rather than a credential stored on it. A timer refetches it, so rotating the password does not need anyone to log in.
-
-The agents run as their own account, which is not the account you would log in as and cannot become root.
-
-AWS Systems Manager is left installed and permitted even though SSH is the way in. It costs nothing, it needs no open port, and it is how you get back in if you change address or break the key.
-
-## What it costs
-
-The box bills while it runs, and so does the database, whether or not anything is using them. There is no schedule that stops them outside working hours yet. Until there is, taking it down when you are finished with it is a single command, and the state in S3 means building it again later is the same command you used the first time.
+## Tearing it down
 
 ```
 mise run terraform:destroy
 ```
-
-This removes the box and the database. Read what it plans to remove before agreeing to it.

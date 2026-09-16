@@ -53,6 +53,7 @@ type Check struct {
 	Name        string
 	Description string
 	Needs       []string
+	Engine      bool
 	Run         func(context.Context, Env) Result
 }
 
@@ -86,6 +87,10 @@ func fail(err error, detail, fix string) Result {
 
 func skip(blocker string) Result {
 	return Result{Status: StatusSkip, Detail: "not checked, " + blocker + " has to pass first"}
+}
+
+func skipRemote() Result {
+	return Result{Status: StatusSkip, Detail: "not checked, the engine is on another machine"}
 }
 
 type Finding struct {
@@ -150,6 +155,10 @@ func (c conclusions) run(ctx context.Context, env Env, check Check) (result Resu
 			result = fail(fmt.Errorf("%w: %v", ErrCheckPanicked, recovered), "", "")
 		}
 	}()
+
+	if check.Engine && env.EngineIsRemote {
+		return skipRemote()
+	}
 
 	for _, needed := range check.Needs {
 		switch c[needed] {

@@ -141,6 +141,7 @@ func newTmuxShellCheck() Check {
 		Name:        "tmux shell",
 		Description: "agent panes are started through tmux's default-shell",
 		Needs:       []string{"tmux"},
+		Engine:      true,
 		Run: func(ctx context.Context, env Env) Result {
 			shell, from, err := readTmuxDefaultShell(ctx, env)
 			if err != nil {

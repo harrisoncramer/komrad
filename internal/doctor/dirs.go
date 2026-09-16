@@ -76,6 +76,7 @@ func newHooksCheck() Check {
 		Name:        "hooks",
 		Description: "a workflow hangs the user's own scripts on moments in its agents' lives",
 		Needs:       []string{"config"},
+		Engine:      true,
 		Run: func(_ context.Context, env Env) Result {
 			cfg, err := env.LoadConfig()
 			if err != nil {
@@ -113,6 +114,7 @@ func newWorktreesCheck() Check {
 		Name:        "worktrees",
 		Description: "a workflow that provisions its agents gives each one a worktree here",
 		Needs:       []string{"config"},
+		Engine:      true,
 		Run: func(_ context.Context, env Env) Result {
 			cfg, err := env.LoadConfig()
 			if err != nil {
@@ -156,6 +158,7 @@ func newOrphanedWorktreesCheck() Check {
 		Name:        "orphaned worktrees",
 		Description: "a worktree outlives its agent when the agent's row goes without it",
 		Needs:       []string{"config", "database"},
+		Engine:      true,
 		Run: func(ctx context.Context, env Env) Result {
 			cfg, err := env.LoadConfig()
 			if err != nil {

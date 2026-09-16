@@ -30,6 +30,10 @@ var (
 		Code:    "address_unusable",
 		Message: "WEAVE_ADDR is not an address the server can listen on",
 	}
+	ErrEngineUnreachable = &ProblemError{
+		Code:    "engine_unreachable",
+		Message: "the engine could not be reached from this machine",
+	}
 )
 
 type ServerStatus struct {
@@ -49,9 +53,23 @@ func newServerCheck() Check {
 				return fail(err, env.Addr, "set WEAVE_ADDR to a host and port, such as 127.0.0.1:8787")
 			}
 
-			status := env.ProbeServer(ctx, env.Addr)
+			status, err := env.ProbeServer(ctx)
+			if err != nil {
+				return fail(
+					fmt.Errorf("%w: %w", ErrEngineUnreachable, err),
+					env.Addr,
+					"check the engine is up and that this engine's ssh settings reach it",
+				)
+			}
 
 			switch {
+			case !status.Answering && env.EngineIsRemote:
+				return fail(
+					fmt.Errorf("%w: the engine answers nothing on %s", ErrServerDown, env.Addr),
+					env.Addr,
+					"start weave on the engine, since its service runs whether or not a panel is open",
+				)
+
 			case !status.Answering:
 				return warn(
 					fmt.Errorf("%w at %s, which is normal until the panel is first opened",
@@ -63,7 +81,7 @@ func newServerCheck() Check {
 				return fail(
 					fmt.Errorf("%w: %s answers, but not as weave", ErrAddressTaken, env.Addr),
 					env.Addr,
-					"free the address, or set WEAVE_ADDR to one nothing else is using",
+					describeTakenAddressFix(env),
 				)
 
 			case !status.Current:
@@ -110,7 +128,19 @@ func requireListenable(ctx context.Context, addr string) error {
 	return nil
 }
 
+func describeTakenAddressFix(env Env) string {
+	if env.EngineIsRemote {
+		return "free the address on the engine, since what holds it is a process there"
+	}
+
+	return "free the address, or set WEAVE_ADDR to one nothing else is using"
+}
+
 func describeStaleServerFix(ctx context.Context, env Env) string {
+	if env.EngineIsRemote {
+		return "deploy this build to the engine, since the service it is running is its own"
+	}
+
 	if !env.IsPanelRunning(ctx) {
 		return "weave stop, then reopen the panel"
 	}

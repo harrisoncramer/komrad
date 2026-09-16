@@ -26,7 +26,7 @@ type Env struct {
 	ReadPendingMigrations func(ctx context.Context, url string) ([]string, error)
 	ConnectReadOnly       func(ctx context.Context, url string) error
 	ReadWorktreeOwners    func(ctx context.Context, url string) (WorktreeOwners, error)
-	ProbeServer           func(ctx context.Context, addr string) ServerStatus
+	ProbeServer           func(ctx context.Context) (ServerStatus, error)
 	IsPanelRunning        func(ctx context.Context) bool
 }
 
@@ -45,6 +45,7 @@ type Settings struct {
 	DatabaseURL         string
 	ReadOnlyDatabaseURL string
 	Addr                string
+	EngineIsRemote      bool
 	Version             string
 }
 
