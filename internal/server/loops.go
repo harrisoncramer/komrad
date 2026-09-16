@@ -22,17 +22,12 @@ const TranscriptSyncInterval = 15 * time.Second
 
 const CwdSyncInterval = 15 * time.Second
 
-// PRArchiveInterval is how often recorded pull requests are asked about, in minutes rather than
-// seconds because every pass spends somebody's GitHub quota.
-const PRArchiveInterval = 2 * time.Minute
-
 const (
 	ScheduleReconcileLoop = "schedule reconcile"
 	ReconcileLoop         = "reconcile"
 	MailDeliveryLoop      = "mail delivery"
 	TranscriptSyncLoop    = "transcript sync"
 	CwdSyncLoop           = "cwd sync"
-	PRArchiveLoop         = "pr archive"
 )
 
 type buildLoopsParams struct {
@@ -72,16 +67,6 @@ func buildLoops(params buildLoopsParams) []Loop {
 			Name:     CwdSyncLoop,
 			Interval: CwdSyncInterval,
 			Pass:     agents.NewCwdSyncer(params.Stores.agents, git.NewClient()).Sync,
-		},
-		{
-			Name:     PRArchiveLoop,
-			Interval: PRArchiveInterval,
-			Pass: agents.NewPRArchiver(agents.NewPRArchiverParams{
-				Agents:       params.Stores.agents,
-				Workflows:    params.Stores.workflows,
-				Archiver:     params.Services.lifecycle,
-				PullRequests: agents.NewGHPullRequests(git.NewClient()),
-			}).Sync,
 		},
 	}
 }
