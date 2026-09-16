@@ -101,7 +101,7 @@ type admin struct {
 func connect(t *testing.T) *admin {
 	t.Helper()
 
-	cfg, err := config.Load(nil)
+	cfg, err := config.LoadStack(config.Stack{})
 	if err != nil {
 		t.Fatalf("failed to load config for the test database: %v", err)
 	}

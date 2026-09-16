@@ -10,7 +10,6 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"strings"
 
 	"weave/config"
 	"weave/internal/agents"
@@ -175,7 +174,7 @@ func resolveConfigStack(flags []string, engine string) (config.Stack, error) {
 		paths = config.LayerPaths()
 	}
 
-	if strings.TrimSpace(engine) != "" {
+	if engine != "" {
 		if _, err := config.EnginePath(engine); err != nil {
 			return config.Stack{}, err
 		}
@@ -191,7 +190,7 @@ func configArgs(stack config.Stack) []string {
 		args = append(args, "--config", path)
 	}
 
-	if strings.TrimSpace(stack.Engine) != "" {
+	if stack.Engine != "" {
 		args = append(args, "--engine", stack.Engine)
 	}
 

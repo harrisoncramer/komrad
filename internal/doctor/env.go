@@ -38,8 +38,8 @@ type HarnessInfo struct {
 type Settings struct {
 	TmuxSocket          string
 	InsideTmux          string
-	ConfigLayers        []config.Layer
 	ConfigStack         config.Stack
+	configLayers        []config.Layer
 	Sources             map[string]config.Source
 	Harnesses           []HarnessInfo
 	DatabaseURL         string
@@ -50,6 +50,8 @@ type Settings struct {
 
 // NewEnv is the env pointed at the machine this is running on.
 func NewEnv(settings Settings) Env {
+	settings.configLayers, _ = config.ResolveLayers(settings.ConfigStack) //nolint:errcheck // a stack that will not resolve is the config check's to report
+
 	return Env{
 		Settings:   settings,
 		LookPath:   exec.LookPath,

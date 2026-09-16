@@ -19,7 +19,7 @@ func loadStrict(t *testing.T, file string) (*Config, error) {
 	path := filepath.Join(t.TempDir(), "config.toml")
 	require.NoError(t, os.WriteFile(path, []byte(file), 0o600))
 
-	return Load([]string{path})
+	return LoadStack(Stack{Paths: []string{path}})
 }
 
 // TestLoadRejectsMailTheServiceCouldNotSendOn covers the two mail settings the service reads at

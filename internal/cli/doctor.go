@@ -7,7 +7,6 @@ import (
 	"io"
 	"os"
 
-	"weave/config"
 	"weave/internal/doctor"
 	"weave/internal/errui"
 	"weave/internal/version"
@@ -103,11 +102,6 @@ func (a *app) buildDoctor() (doctor.Env, []doctor.Check, error) {
 }
 
 func (a *app) buildDoctorSettings() (doctor.Settings, error) {
-	layers, err := config.ResolveLayers(a.configStack)
-	if err != nil {
-		layers = nil
-	}
-
 	harnesses := make([]doctor.HarnessInfo, 0, len(a.harnesses.IDs()))
 	for _, id := range a.harnesses.IDs() {
 		found, err := a.harnesses.GetByID(id)
@@ -121,7 +115,6 @@ func (a *app) buildDoctorSettings() (doctor.Settings, error) {
 	return doctor.Settings{
 		TmuxSocket:          a.env.TmuxSocket,
 		InsideTmux:          a.env.Tmux,
-		ConfigLayers:        layers,
 		ConfigStack:         a.configStack,
 		Sources:             a.configSources,
 		Harnesses:           harnesses,

@@ -137,16 +137,18 @@ func TestResolveConfigStack(t *testing.T) {
 	}
 }
 
-// TestResolveConfigStackRefusesAnUnknownEngine covers naming an engine this machine cannot
-// reach, where the local engine is a worse answer than none.
-func TestResolveConfigStackRefusesAnUnknownEngine(t *testing.T) {
+// TestResolveConfigStackRefusesAnEngineItCannotFind covers a name no file answers to, which
+// the local engine is a worse answer to than an error.
+func TestResolveConfigStackRefusesAnEngineItCannotFind(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	t.Setenv("WEAVE_CONFIG", "")
 
 	_, err := resolveConfigStack(nil, "missing")
-
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "missing")
+
+	_, err = resolveConfigStack(nil, "   ")
+	require.Error(t, err, "a name made of spaces is a name, not a request for the local engine")
 }
 
 // TestConfigArgs covers the flags a child process is given, which have to put it on the same

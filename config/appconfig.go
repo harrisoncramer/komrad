@@ -1076,7 +1076,7 @@ func ResolveLayers(stack Stack) ([]Layer, error) {
 		return nil, err
 	}
 
-	if strings.TrimSpace(stack.Engine) == "" {
+	if stack.Engine == "" {
 		return layers, nil
 	}
 
@@ -1110,19 +1110,14 @@ func namedLayers(paths []string) ([]Layer, error) {
 	return []Layer{{Path: filepath.Join(dir, "config.toml")}}, nil
 }
 
-// Load reads the layers in order and merges them, weakest first, so a later file wins where
-// two overlap. A missing file among them is not an error unless it was named, and yields
+// LoadStack reads the layers in order and merges them, weakest first, so a later file wins
+// where two overlap. A missing file among them is not an error unless it was named, and yields
 // nothing rather than the defaults, but a symlink pointing at nothing is, since that is a
 // config someone meant to have.
 //
 // A key the Config struct does not know about is an error rather than silently dropped, so
 // a typo is reported rather than quietly doing nothing. The error names the ordered file
 // stack beside what the key's table does take.
-func Load(paths []string) (*Config, error) {
-	return LoadStack(Stack{Paths: paths})
-}
-
-// LoadStack reads a stack of config files the way Load reads a list of paths.
 func LoadStack(stack Stack) (*Config, error) {
 	cfg, _, err := LoadWithReport(stack)
 
