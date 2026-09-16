@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Explainer: this makes the tmux session agents are created as windows of.
+#
+# Weave keeps every agent as a window of one manager session on its own tmux server, and that
+# session is normally made by `weave open` when a person opens the panel. Nobody opens a panel on
+# a host with no screen, so without this the first agent fails with "error connecting to
+# /tmp/tmux-1001/weave" and the engine looks healthy while being unable to do the one thing it
+# exists for.
+#
+# It runs after the service starts, and waits, because `weave open` is a client of the api and
+# the service is not answering the moment systemd has spawned it.
+
+for _ in {1..30}; do
+	if weave open --detach; then
+		exit 0
+	fi
+
+	sleep 2
+done
+
+echo "the manager session could not be created, so this engine can hold no agents" >&2
+exit 1

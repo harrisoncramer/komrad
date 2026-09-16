@@ -21,6 +21,7 @@ useradd --no-create-home --home-dir /var/lib/weave/home --shell /bin/bash weave
 
 install -m 0755 /tmp/files/weave-data-volume /usr/local/sbin/weave-data-volume
 install -m 0755 /tmp/files/weave-database-credentials /usr/local/sbin/weave-database-credentials
+install -m 0755 /tmp/files/weave-manager-session /usr/local/sbin/weave-manager-session
 install -m 0644 /tmp/files/weave-data-volume.service /etc/systemd/system/weave-data-volume.service
 install -m 0644 /tmp/files/weave-database-credentials.service /etc/systemd/system/weave-database-credentials.service
 install -m 0644 /tmp/files/weave.service /etc/systemd/system/weave.service
