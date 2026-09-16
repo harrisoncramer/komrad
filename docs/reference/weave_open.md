@@ -18,6 +18,10 @@ terminal instead, which is the panel without the popup around it.
 With --detach it creates the session and returns, which is what a script wants when
 it needs somewhere for agents to be put back into.
 
+With --headless it creates that session holding nothing but a placeholder, for an
+engine whose panel runs on somebody else's machine and which would otherwise swap
+an agent's pane into a panel nobody is looking at.
+
 ```
 weave open [flags]
 ```
@@ -25,8 +29,9 @@ weave open [flags]
 ### Options
 
 ```
-      --detach   create the manager session if it is not there, then return without attaching
-  -h, --help     help for open
+      --detach     create the manager session if it is not there, then return without attaching
+      --headless   create the manager session with no panel in it, for an engine driven from another machine
+  -h, --help       help for open
 ```
 
 ### Options inherited from parent commands

@@ -15,22 +15,23 @@ permissions:
   pull-requests: read
 
 jobs:
-  # What the branch touched, which is what every job below gates on. A push to main
-  # answers true to everything, since there is no pull request to compare against.
+  # What the branch touched, which is what every job below gates on. Only a pull request
+  # is filtered; a push to main runs every job.
   changes:
     runs-on: namespace-profile-harrisoncramer
     outputs:
-      go: ${{ steps.filter.outputs.go }}
-      shell: ${{ steps.filter.outputs.shell }}
-      db: ${{ steps.filter.outputs.db }}
-      proto: ${{ steps.filter.outputs.proto }}
-      infra: ${{ steps.filter.outputs.infra }}
-      generated: ${{ steps.filter.outputs.generated }}
-      integration: ${{ steps.filter.outputs.integration }}
+      go: ${{ github.event_name != 'pull_request' || steps.filter.outputs.go == 'true' }}
+      shell: ${{ github.event_name != 'pull_request' || steps.filter.outputs.shell == 'true' }}
+      db: ${{ github.event_name != 'pull_request' || steps.filter.outputs.db == 'true' }}
+      proto: ${{ github.event_name != 'pull_request' || steps.filter.outputs.proto == 'true' }}
+      infra: ${{ github.event_name != 'pull_request' || steps.filter.outputs.infra == 'true' }}
+      generated: ${{ github.event_name != 'pull_request' || steps.filter.outputs.generated == 'true' }}
+      integration: ${{ github.event_name != 'pull_request' || steps.filter.outputs.integration == 'true' }}
     steps:
       - uses: actions/checkout@v4
 
       - id: filter
+        if: github.event_name == 'pull_request'
         uses: dorny/paths-filter@v3
         with:
           filters: |
@@ -73,6 +74,7 @@ jobs:
               - 'proto/**'
               - 'db/**'
               - 'config/**'
+              - 'cmd/protoc-gen-weave-rpc/**'
               - 'mise/tasks/gen/**'
               - '.github/workflows/ci.yml'
 
