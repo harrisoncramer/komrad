@@ -15,9 +15,8 @@ import (
 // TestPackerValidateWithoutABuild covers the check CI runs, where nothing has cross
 // compiled the Linux binary the image is built around.
 func TestPackerValidateWithoutABuild(t *testing.T) {
-	if _, err := exec.LookPath("packer"); err != nil {
-		t.Skip("packer is not on PATH")
-	}
+	_, err := exec.LookPath("packer")
+	require.NoError(t, err, "packer is a tool this repository pins")
 
 	root := repoRoot(t)
 	work := t.TempDir()
@@ -33,6 +32,8 @@ func TestPackerValidateWithoutABuild(t *testing.T) {
 
 	out, err := cmd.CombinedOutput()
 	require.NoError(t, err, "validate failed with an empty dist:\n%s", out)
+	require.Contains(t, string(out), "The configuration is valid.")
+	require.NoFileExists(t, filepath.Join(work, "dist", "weave-linux-arm64"))
 }
 
 func repoRoot(t *testing.T) string {

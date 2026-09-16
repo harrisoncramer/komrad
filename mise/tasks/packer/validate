@@ -4,9 +4,11 @@ set -euo pipefail
 
 cd "$MISE_CONFIG_ROOT/packer"
 
-STANDIN="$(mktemp -d)"
-trap 'rm -rf "$STANDIN"' EXIT
-: >"$STANDIN/weave-linux-arm64"
+if [ ! -e ../dist/weave-linux-arm64 ]; then
+	mkdir -p ../dist
+	: >../dist/weave-linux-arm64
+	trap 'rm -f "$MISE_CONFIG_ROOT/dist/weave-linux-arm64"' EXIT
+fi
 
 packer init .
-packer validate -var "weave_binary=$STANDIN/weave-linux-arm64" .
+packer validate .
