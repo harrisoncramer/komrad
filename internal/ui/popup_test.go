@@ -171,12 +171,47 @@ func TestBindHide(t *testing.T) {
 	}
 }
 
-// TestUserPanelKey pins the key being read off the one server the user can have set it on.
-func TestUserPanelKey(t *testing.T) {
-	tmux := &bindingTmux{}
-	tmux.SetGlobal(managerKeyOption, "w")
+// TestPanelKey pins the order the key is settled in, which both the binding that opens the panel
+// and the one that hides it read.
+func TestPanelKey(t *testing.T) {
+	tests := []struct {
+		name       string
+		configured string
+		option     string
+		want       string
+	}{
+		{
+			name: "nothing names a key, so the built-in one stands",
+			want: defaultPanelKey,
+		},
+		{
+			name:   "the tmux option names one",
+			option: "w",
+			want:   "w",
+		},
+		{
+			name:       "the config names one",
+			configured: "w",
+			want:       "w",
+		},
+		{
+			name:       "the config beats the tmux option",
+			configured: "w",
+			option:     "j",
+			want:       "w",
+		},
+	}
 
-	assert.Equal(t, "w", UserPanelKey(tmux))
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tmux := &bindingTmux{}
+			if tt.option != "" {
+				tmux.SetGlobal(managerKeyOption, tt.option)
+			}
+
+			assert.Equal(t, tt.want, PanelKey(tmux, tt.configured))
+		})
+	}
 }
 
 // TestBindFocusKey pins the branch test being a tmux format and not a shell command, and pins

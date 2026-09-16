@@ -87,10 +87,18 @@ type keyNamer interface {
 	ShowGlobal(name string) string
 }
 
-// UserPanelKey returns the panel key as the user's own tmux server names it, empty where it
-// names none.
-func UserPanelKey(namer keyNamer) string {
-	return namer.ShowGlobal(managerKeyOption)
+// PanelKey settles the panel key from the config this weave was given, falling back to the user
+// tmux server's own option and then to the built-in key.
+func PanelKey(namer keyNamer, configured string) string {
+	if configured != "" {
+		return configured
+	}
+
+	if key := namer.ShowGlobal(managerKeyOption); key != "" {
+		return key
+	}
+
+	return defaultPanelKey
 }
 
 type panelKeyTmux interface {
@@ -121,14 +129,7 @@ type BindPanelKeyParams struct {
 func BindPanelKey(t panelKeyTmux, params BindPanelKeyParams) error {
 	// A weave that names its own key can be bound beside another one, which is how a panel for a
 	// remote engine and a panel for a local one both answer from the same tmux.
-	key := params.Key
-	if key == "" {
-		key = t.ShowGlobal(managerKeyOption)
-	}
-
-	if key == "" {
-		key = defaultPanelKey
-	}
+	key := PanelKey(t, params.Key)
 
 	hide := fmt.Sprintf("run-shell -b '%s'", panelCommand(params, "hide"))
 	open := fmt.Sprintf("display-popup -w 100%% -h 100%% -x C -y C -T ' weave ' -EE '%s'",
