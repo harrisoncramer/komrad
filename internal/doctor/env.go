@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"weave/config"
-	"weave/lib/xslice"
 )
 
 const commandTimeout = 5 * time.Second
@@ -40,6 +39,7 @@ type Settings struct {
 	TmuxSocket          string
 	InsideTmux          string
 	ConfigLayers        []config.Layer
+	ConfigStack         config.Stack
 	Sources             map[string]config.Source
 	Harnesses           []HarnessInfo
 	DatabaseURL         string
@@ -48,19 +48,13 @@ type Settings struct {
 	Version             string
 }
 
-func (s Settings) configPaths() []string {
-	named := xslice.Filter(s.ConfigLayers, func(layer config.Layer) bool { return layer.Named })
-
-	return xslice.Map(named, func(layer config.Layer) string { return layer.Path })
-}
-
 // NewEnv is the env pointed at the machine this is running on.
 func NewEnv(settings Settings) Env {
 	return Env{
 		Settings:   settings,
 		LookPath:   exec.LookPath,
 		Output:     runOutput,
-		LoadConfig: func() (*config.Config, error) { return config.Load(settings.configPaths()) },
+		LoadConfig: func() (*config.Config, error) { return config.LoadStack(settings.ConfigStack) },
 		DoesLayerExist: func(path string) bool {
 			_, err := os.Stat(path)
 

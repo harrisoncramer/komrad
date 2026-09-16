@@ -642,7 +642,7 @@ func TestLoadConnectionPrecedence(t *testing.T) {
 	require.NoError(t, os.WriteFile(local, []byte("[connection]\naddr = \"127.0.0.2:2\"\n"), 0o644))
 	t.Setenv("WEAVE_ADDR", "127.0.0.3:3")
 
-	cfg, report, err := LoadWithReport([]string{base, local})
+	cfg, report, err := LoadWithReport(Stack{Paths: []string{base, local}})
 	require.NoError(t, err)
 
 	assert.Equal(t, "127.0.0.3:3", cfg.Connection.Addr)
@@ -661,7 +661,7 @@ func TestLoadDerivesConnectionValuesAfterPrecedence(t *testing.T) {
 	t.Setenv("WEAVE_READONLY_DATABASE_URL", "")
 	t.Setenv("WEAVE_CACHE_DIR", "")
 
-	cfg, report, err := LoadWithReport([]string{path})
+	cfg, report, err := LoadWithReport(Stack{Paths: []string{path}})
 	require.NoError(t, err)
 
 	assert.Equal(t,
@@ -692,7 +692,7 @@ func TestResolveLayers(t *testing.T) {
 		home := t.TempDir()
 		t.Setenv("HOME", home)
 
-		layers, err := ResolveLayers(nil)
+		layers, err := ResolveLayers(Stack{})
 		require.NoError(t, err)
 
 		require.Len(t, layers, 1, "weave looks for one file and never goes hunting for a second")
@@ -703,7 +703,7 @@ func TestResolveLayers(t *testing.T) {
 	t.Run("named paths replace the default entirely", func(t *testing.T) {
 		t.Setenv("HOME", t.TempDir())
 
-		layers, err := ResolveLayers([]string{"/one.toml", "/two.toml"})
+		layers, err := ResolveLayers(Stack{Paths: []string{"/one.toml", "/two.toml"}})
 		require.NoError(t, err)
 
 		require.Len(t, layers, 2)
@@ -713,7 +713,7 @@ func TestResolveLayers(t *testing.T) {
 	})
 
 	t.Run("an empty path is a mistake rather than a request for the defaults", func(t *testing.T) {
-		_, err := ResolveLayers([]string{""})
+		_, err := ResolveLayers(Stack{Paths: []string{""}})
 		require.Error(t, err)
 	})
 }

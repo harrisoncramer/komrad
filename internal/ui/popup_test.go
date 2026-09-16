@@ -89,8 +89,8 @@ func TestBindPanelKey(t *testing.T) {
 			}
 
 			require.NoError(t, BindPanelKey(tmux, BindPanelKeyParams{
-				Self:        "/usr/local/bin/weave",
-				ConfigPaths: []string{"/etc/weave.toml", "/home/dev/weave.toml"},
+				Self:       "/usr/local/bin/weave",
+				ConfigArgs: []string{"--config", "/etc/weave.toml", "--config", "/home/dev/weave.toml"},
 			}))
 
 			command, bound := tmux.bound[tt.wantKey]

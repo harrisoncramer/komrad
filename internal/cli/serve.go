@@ -154,7 +154,7 @@ func serve(ctx context.Context, params serveParams) error {
 
 	server, err := serverPkg.NewServer(ctx, serverPkg.NewServerParams{
 		Env:            state.env,
-		ConfigPaths:    state.configPaths,
+		ConfigStack:    state.configStack,
 		Logger:         logger,
 		Addr:           addr,
 		Tmux:           state.tmux,

@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"weave/config"
 	"weave/internal/server"
 	"weave/internal/version"
 
@@ -178,19 +179,24 @@ func TestEnsureServerWithAnUnwritableLog(t *testing.T) {
 // a path left off here serves out of a different file than the one the caller named.
 func TestEnsureServerCarriesTheConfigPath(t *testing.T) {
 	tests := []struct {
-		name        string
-		configPaths []string
-		want        string
+		name  string
+		stack config.Stack
+		want  string
 	}{
 		{
-			name:        "no path given",
-			configPaths: nil,
-			want:        "",
+			name:  "no path given",
+			stack: config.Stack{},
+			want:  "",
 		},
 		{
-			name:        "a path given",
-			configPaths: []string{"/tmp/somewhere/config.toml"},
-			want:        "--config /tmp/somewhere/config.toml",
+			name:  "a path given",
+			stack: config.Stack{Paths: []string{"/tmp/somewhere/config.toml"}},
+			want:  "--config /tmp/somewhere/config.toml",
+		},
+		{
+			name:  "an engine given",
+			stack: config.Stack{Engine: "remote"},
+			want:  "--engine remote",
 		},
 	}
 
@@ -199,10 +205,10 @@ func TestEnsureServerCarriesTheConfigPath(t *testing.T) {
 			logPath := filepath.Join(t.TempDir(), "serve.log")
 
 			err := ensureServer(t.Context(), ensureServerParams{
-				Addr:        freeAddr(t),
-				Self:        fakeServeEchoingArgs(t),
-				LogPath:     logPath,
-				ConfigPaths: tt.configPaths,
+				Addr:       freeAddr(t),
+				Self:       fakeServeEchoingArgs(t),
+				LogPath:    logPath,
+				ConfigArgs: configArgs(tt.stack),
 			})
 
 			require.Error(t, err, "the stand-in serve always fails")

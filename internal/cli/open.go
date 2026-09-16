@@ -174,11 +174,7 @@ func sessionEnvArgs(state *app) []string {
 func panelCommandArgs(state *app, self string) []string {
 	args := append(sessionEnvArgs(state), "--", self, "panel")
 
-	for _, path := range state.configPaths {
-		args = append(args, "--config", path)
-	}
-
-	return args
+	return append(args, configArgs(state.configStack)...)
 }
 
 func (a *app) tmuxCommand(ctx context.Context, args ...string) *exec.Cmd {

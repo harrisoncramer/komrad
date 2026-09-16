@@ -34,6 +34,7 @@ weave doctor [flags]
 
 ```
       --config stringArray   path to a config TOML, repeatable, later files win over earlier ones
+      --engine string        engine to reach, named after a file in the config's engines directory, layered over the config
 ```
 
 ### SEE ALSO

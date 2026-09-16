@@ -1050,10 +1050,19 @@ type Layer struct {
 	Named bool
 }
 
+// Stack is a config to read: the files named by hand, and the engine laid over them.
+type Stack struct {
+	Paths  []string
+	Engine string
+}
+
 // ResolveLayers is the files Load would read, weakest first. Given paths, that is exactly
 // those paths, since naming any replaces the default rather than adding to it: being able
 // to say "this file and nothing else" is what lets a second instance be isolated from the
 // first one's config. Given none, it is the one default path.
+//
+// An engine is laid over whichever of those two the stack came to, so naming one adds a
+// file rather than replacing the config underneath it.
 //
 // Weave never looks for a file it was not asked for. There is no sibling convention and
 // nothing per directory, so which files are read depends on what was asked for rather than
@@ -1061,7 +1070,25 @@ type Layer struct {
 //
 // It is exported because a caller reporting on a config has to name the files, and a
 // missing one has no error to read the path out of.
-func ResolveLayers(paths []string) ([]Layer, error) {
+func ResolveLayers(stack Stack) ([]Layer, error) {
+	layers, err := namedLayers(stack.Paths)
+	if err != nil {
+		return nil, err
+	}
+
+	if strings.TrimSpace(stack.Engine) == "" {
+		return layers, nil
+	}
+
+	overlay, err := EnginePath(stack.Engine)
+	if err != nil {
+		return nil, err
+	}
+
+	return append(layers, Layer{Path: overlay, Named: true}), nil
+}
+
+func namedLayers(paths []string) ([]Layer, error) {
 	if len(paths) > 0 {
 		layers := make([]Layer, 0, len(paths))
 		for _, path := range paths {
@@ -1092,7 +1119,12 @@ func ResolveLayers(paths []string) ([]Layer, error) {
 // a typo is reported rather than quietly doing nothing. The error names the ordered file
 // stack beside what the key's table does take.
 func Load(paths []string) (*Config, error) {
-	cfg, _, err := LoadWithReport(paths)
+	return LoadStack(Stack{Paths: paths})
+}
+
+// LoadStack reads a stack of config files the way Load reads a list of paths.
+func LoadStack(stack Stack) (*Config, error) {
+	cfg, _, err := LoadWithReport(stack)
 
 	return cfg, err
 }
@@ -1114,8 +1146,8 @@ type Report struct {
 }
 
 // LoadWithReport resolves the configuration and reports where connection values came from.
-func LoadWithReport(paths []string) (*Config, *Report, error) {
-	layers, err := ResolveLayers(paths)
+func LoadWithReport(stack Stack) (*Config, *Report, error) {
+	layers, err := ResolveLayers(stack)
 	if err != nil {
 		return nil, nil, err
 	}

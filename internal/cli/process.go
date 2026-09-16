@@ -34,10 +34,10 @@ const stopWaitFor = 30 * time.Second
 const stopPollInterval = 100 * time.Millisecond
 
 type ensureServerParams struct {
-	Addr        string
-	Self        string
-	LogPath     string
-	ConfigPaths []string
+	Addr       string
+	Self       string
+	LogPath    string
+	ConfigArgs []string
 }
 
 func ensureServer(ctx context.Context, params ensureServerParams) error {
@@ -54,10 +54,7 @@ func ensureServer(ctx context.Context, params ensureServerParams) error {
 		}
 	}
 
-	args := []string{"serve", "--addr", addr}
-	for _, path := range params.ConfigPaths {
-		args = append(args, "--config", path)
-	}
+	args := append([]string{"serve", "--addr", addr}, params.ConfigArgs...)
 
 	// The server outlives the command that spawned it, so it is not bound to this context.
 	cmd := exec.Command(params.Self, args...) //nolint:noctx // a cancelled start must not kill the server it started
