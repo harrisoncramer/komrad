@@ -407,12 +407,12 @@ func TestArchiveSelection(t *testing.T) {
 		m.width = rowPaneWidth
 
 		rest := m.archiveView()
-		assert.NotContains(t, line(t, rest, "api"), paint.Colored.SelectionSequence())
+		assert.NotContains(t, line(t, rest, "api"), paint.BackgroundSequence(paint.SelectionBackground))
 
 		m.archive.selected = selection{ids: []string{"a2"}}
 		view := m.archiveView()
-		assert.Contains(t, line(t, view, "api"), paint.Colored.SelectionSequence())
-		assert.NotContains(t, line(t, view, "db"), paint.Colored.SelectionSequence(), "and only that row")
+		assert.Contains(t, line(t, view, "api"), paint.BackgroundSequence(paint.SelectionBackground))
+		assert.NotContains(t, line(t, view, "db"), paint.BackgroundSequence(paint.SelectionBackground), "and only that row")
 		assert.Equal(t, rowPaneWidth, lineWidth(t, view, "api"), "the bar spans the pane")
 		assert.Equal(t, lineWidth(t, rest, "db"), lineWidth(t, view, "db"), "and the row below it is left as it was")
 	})
@@ -432,12 +432,12 @@ func TestAgentsViewSelectionColour(t *testing.T) {
 	m.width = rowPaneWidth
 
 	rest := m.agentsView()
-	assert.NotContains(t, line(t, rest, "api"), paint.Colored.SelectionSequence())
+	assert.NotContains(t, line(t, rest, "api"), paint.BackgroundSequence(paint.SelectionBackground))
 
 	m.tree.selected = selection{ids: []string{"a2"}}
 	view := m.agentsView()
-	assert.Contains(t, line(t, view, "api"), paint.Colored.SelectionSequence(), "the selected row takes the bar")
-	assert.NotContains(t, line(t, view, "db"), paint.Colored.SelectionSequence(), "and only that row")
+	assert.Contains(t, line(t, view, "api"), paint.BackgroundSequence(paint.SelectionBackground), "the selected row takes the bar")
+	assert.NotContains(t, line(t, view, "db"), paint.BackgroundSequence(paint.SelectionBackground), "and only that row")
 	assert.Equal(t, rowPaneWidth, lineWidth(t, view, "api"), "the bar spans the pane")
 	assert.Equal(t, lineWidth(t, rest, "db"), lineWidth(t, view, "db"), "and the row below it is left as it was")
 }
@@ -458,7 +458,7 @@ func TestSelectionKeepsTheCursor(t *testing.T) {
 	}
 
 	row := line(t, m.agentsView(), "api")
-	assert.Contains(t, row, paint.Colored.SelectionSequence())
+	assert.Contains(t, row, paint.BackgroundSequence(paint.SelectionBackground))
 	assert.Contains(t, row, m.rowCursorStyle().Render("api"), "and the cursor still has the name")
 }
 
@@ -556,4 +556,26 @@ func (f *fakeTreeAgents) ArchiveAgents(_ context.Context, req *connect.Request[a
 	f.archived = append(f.archived, req.Msg.GetIds()...)
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
+}
+
+// TestSelectionKeepsItsBarWhileAFormHasTheKeys covers the screen the selection exists for: a
+// confirm stands beside the list it is about, taking its keys, and the rows it is about have to
+// stay picked out while somebody reads the question.
+func TestSelectionKeepsItsBarWhileAFormHasTheKeys(t *testing.T) {
+	withColor(t)
+
+	m := selectionTree()
+	m.width = rowPaneWidth
+	m.tree.selected = selection{ids: []string{"a2"}}
+
+	require.True(t, m.isListFocused(), "the list has the keys to begin with")
+	require.Contains(t, line(t, m.agentsView(), "api"), paint.BackgroundSequence(paint.SelectionBackground))
+
+	form, _ := confirmForm("Archive 1 agent?", "", "Archive", config.FormKeys{})
+	m.form.form = form
+
+	require.False(t, m.isListFocused(), "and gives them up to the confirm")
+	assert.Equal(t, paint.Grey, m.palette(regionList), "so the row greys")
+	assert.Contains(t, line(t, m.agentsView(), "api"), paint.BackgroundSequence(paint.SelectionBackground),
+		"but the bar under it does not follow the keys")
 }

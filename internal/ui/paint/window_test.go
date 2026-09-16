@@ -155,10 +155,10 @@ func TestWindowRowsNeverOutgrowsThePane(t *testing.T) {
 func TestPaintRow(t *testing.T) {
 	withColor(t)
 
-	set := BackgroundSequence(Colored.selection)
+	set := BackgroundSequence(SelectionBackground)
 	row := "  " + Colored.Style(ToneAccent).Render("api") + " " + dim.Render("1m")
 
-	painted := Colored.PaintRow(row, 20)
+	painted := PaintRow(row, 20)
 
 	assert.True(t, strings.HasPrefix(painted, set), "the row opens under the background")
 	assert.Equal(t, strings.Count(row, ansiReset), strings.Count(painted, ansiReset+set),
@@ -166,7 +166,7 @@ func TestPaintRow(t *testing.T) {
 	assert.Equal(t, 20, lipgloss.Width(painted), "the bar is filled out to the pane")
 	assert.True(t, strings.HasSuffix(painted, ansiReset), "and closes")
 
-	assert.Equal(t, lipgloss.Width(row), lipgloss.Width(Colored.PaintRow(row, 2)),
+	assert.Equal(t, lipgloss.Width(row), lipgloss.Width(PaintRow(row, 2)),
 		"a row wider than the pane is painted as it stands rather than padded")
 }
 
@@ -176,5 +176,5 @@ func TestPaintRowWithoutColour(t *testing.T) {
 	t.Cleanup(func() { lipgloss.SetColorProfile(restore) })
 	lipgloss.SetColorProfile(termenv.Ascii)
 
-	assert.Equal(t, "  api", Colored.PaintRow("  api", 20))
+	assert.Equal(t, "  api", PaintRow("  api", 20))
 }

@@ -24,7 +24,7 @@ func (m model) holdsKeys(area region) bool {
 	case regionList:
 		return m.isListFocused()
 	case regionColumn:
-		return m.isReviewDiffFocused()
+		return m.isColumnFocused()
 	case regionDetails:
 		return m.isDetailsFocused()
 	case regionMessages:

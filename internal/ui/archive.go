@@ -399,7 +399,7 @@ func (m model) archiveListView() string {
 		name := m.filter.highlight(palette, clipName(agent.Name), m.nameStyle(hovered, true))
 		row := prefix + "  " + childMark(r.child) + name + failedMark(palette, agent) + scheduledMark(palette, agent)
 		if m.archive.selected.has(agent.ID) {
-			row = palette.PaintRow(row, m.paneWidth())
+			row = paint.PaintRow(row, m.paneWidth())
 		}
 
 		rows = append(rows, row)

@@ -86,13 +86,19 @@ func WrapRows(text string, width int) []string {
 }
 
 // Explainer: the fill is measured across the whole string PaintRow is handed, so it holds only
-// for a row of a single line.
+// for a row of a single line. The bar is one colour rather than one per palette: a confirm form
+// takes the keys off the list it stands beside, and what has been picked has to stay legible on
+// the screen that asks whether to act on it.
+
+// SelectionBackground is the bar a row taken into a selection is drawn under, dark enough that
+// the colours the row is already carrying still read through it.
+var SelectionBackground = lipgloss.AdaptiveColor{Light: "#dbeafe", Dark: "#1e3a5f"}
 
 // PaintRow lays the selection background under one already-coloured line, setting it again after
 // every reset that line carries and filling the line out to the pane so it reads as a bar.
-func (p Palette) PaintRow(row string, width int) string {
+func PaintRow(row string, width int) string {
 	// The diff viewer threads a background into every fragment it draws instead.
-	set := BackgroundSequence(p.selection)
+	set := BackgroundSequence(SelectionBackground)
 	if set == "" {
 		return row
 	}
@@ -103,11 +109,6 @@ func (p Palette) PaintRow(row string, width int) string {
 	}
 
 	return painted + ansiReset
-}
-
-// SelectionSequence is the escape that lays this palette's selection bar down.
-func (p Palette) SelectionSequence() string {
-	return BackgroundSequence(p.selection)
 }
 
 // BackgroundSequence is the escape that sets a background and nothing else, which lipgloss will

@@ -98,7 +98,7 @@ func TestPaletteFollowsTheTerminal(t *testing.T) {
 // TestGreyCollapsesEveryTone pins the whole point of the grey palette: a region that does not
 // hold the keys carries no hue at all, whatever part each piece of it plays.
 func TestGreyCollapsesEveryTone(t *testing.T) {
-	tones := []Tone{ToneMuted, ToneAccent, ToneSuccess, ToneWarning, ToneDanger, ToneMark, ToneBright, ToneAlt}
+	tones := []Tone{ToneMuted, ToneAccent, ToneSuccess, ToneWarning, ToneDanger, ToneMark, ToneSelf, ToneOther}
 
 	for _, tone := range tones {
 		assert.Equal(t, Grey.Color(ToneMuted), Grey.Color(tone), "tone %d is grey like the rest", tone)

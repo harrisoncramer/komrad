@@ -59,3 +59,9 @@ func (m model) rowCursorPrefix() string {
 func (m model) isListFocused() bool {
 	return !m.keysElsewhere && !m.isDetailsFocused() && !m.isMessagesFocused() && !m.form.isActive()
 }
+
+// isColumnFocused reports whether the block beside the list holds the keys, which it does with
+// the list itself on every screen but the review, where the conversation can take them instead.
+func (m model) isColumnFocused() bool {
+	return m.isListFocused() && !m.isReviewThreadFocused()
+}

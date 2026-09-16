@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 	"time"
+	"weave/internal/ui/paint"
 
 	"weave/config"
 	"weave/internal/ui/layout"
@@ -552,7 +553,7 @@ func (m model) agentsListView() string {
 		name := m.filter.highlight(palette, clipName(item.agent.Name), m.nameStyle(hovered, !item.alive || item.agent.HeldAt != nil))
 		row := prefix + palette.MarkGutter(m.listing.marks[rowKey(r)]) + childMark(r.child) + stateMark(palette, displayState(item)) + " " + name + " " + worktreeMark(palette, item) + heldMark(palette, item.agent) + scheduledMark(palette, item.agent) + hiddenMark(palette, item.agent.Hidden) + unreadMailMark(palette, item.unreadMail) + unviewedMark(palette, item.unviewed) + failedRunMark(palette, item.failedRun) + localReviewRoundsMark(palette, item.localRounds) + localReviewMark(palette, item.inLocalReview, item.localVerdict) + hiddenTally(r.hiddenCount, m.tree.showHidden) + reasonMark(palette, item.agent)
 		if m.tree.selected.has(item.agent.ID) {
-			row = palette.PaintRow(row, m.width)
+			row = paint.PaintRow(row, m.width)
 		}
 
 		rows = append(rows, row)

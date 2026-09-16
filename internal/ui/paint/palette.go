@@ -13,13 +13,13 @@ import (
 // The panel's whole palette, as terminal colour numbers so a theme the user has set decides
 // what each one looks like.
 const (
-	accent  = lipgloss.Color("4")
-	success = lipgloss.Color("10")
-	warning = lipgloss.Color("11")
-	danger  = lipgloss.Color("9")
-	muted   = lipgloss.Color("8")
-	bright  = lipgloss.Color("12")
-	alt     = lipgloss.Color("13")
+	accent       = lipgloss.Color("4")
+	success      = lipgloss.Color("10")
+	warning      = lipgloss.Color("11")
+	danger       = lipgloss.Color("9")
+	muted        = lipgloss.Color("8")
+	speakerSelf  = lipgloss.Color("12")
+	speakerOther = lipgloss.Color("13")
 	// markColor is the plain yellow rather than the bright one a thinking agent is drawn in, so
 	// a mark in the gutter cannot be read as a lifecycle state.
 	markColor = lipgloss.Color("3")
@@ -36,57 +36,56 @@ const (
 	ToneWarning
 	ToneDanger
 	ToneMark
-	// ToneBright is the accent's brighter twin, and ToneAlt the one colour nothing else uses,
-	// for the places two things have to be told apart at a glance.
-	ToneBright
-	ToneAlt
+	// ToneSelf and ToneOther are the two voices in a conversation, told apart at a glance.
+	ToneSelf
+	ToneOther
 )
 
 // Palette is what one region of the panel draws in, and there are two of them: the colours for
 // the region holding the keys, and grey for every other.
 type Palette struct {
-	accent    lipgloss.Color
-	success   lipgloss.Color
-	warning   lipgloss.Color
-	danger    lipgloss.Color
-	muted     lipgloss.Color
-	mark      lipgloss.Color
-	bright    lipgloss.Color
-	alt       lipgloss.Color
-	selection lipgloss.AdaptiveColor
-	stage     ansi.StyleConfig
+	accent  lipgloss.Color
+	success lipgloss.Color
+	warning lipgloss.Color
+	danger  lipgloss.Color
+	muted   lipgloss.Color
+	mark    lipgloss.Color
+	self    lipgloss.Color
+	other   lipgloss.Color
+
+	// stage is held behind a pointer, since a palette is copied on every region's lookup and the
+	// config alone is six kilobytes.
+	stage *ansi.StyleConfig
 }
 
 // Colored is what the region holding the keys draws in.
 var Colored = withStage(Palette{
-	accent:    accent,
-	success:   success,
-	warning:   warning,
-	danger:    danger,
-	muted:     muted,
-	mark:      markColor,
-	bright:    bright,
-	alt:       alt,
-	selection: lipgloss.AdaptiveColor{Light: "#dbeafe", Dark: "#1e3a5f"},
+	accent:  accent,
+	success: success,
+	warning: warning,
+	danger:  danger,
+	muted:   muted,
+	mark:    markColor,
+	self:    speakerSelf,
+	other:   speakerOther,
 })
 
-// Grey is what every region that does not hold the keys draws in, one colour throughout so the
-// eye is left with nowhere but the active region to land.
+// Grey is what every region that does not hold the keys draws in, one colour throughout.
 var Grey = withStage(Palette{
-	accent:    muted,
-	success:   muted,
-	warning:   muted,
-	danger:    muted,
-	muted:     muted,
-	mark:      muted,
-	bright:    muted,
-	alt:       muted,
-	selection: lipgloss.AdaptiveColor{Light: "#e5e5e5", Dark: "#303030"},
+	accent:  muted,
+	success: muted,
+	warning: muted,
+	danger:  muted,
+	muted:   muted,
+	mark:    muted,
+	self:    muted,
+	other:   muted,
 })
 
 // withStage fills in the markdown styling a palette's own colours make.
 func withStage(palette Palette) Palette {
-	palette.stage = stageStyle(palette)
+	style := stageStyle(palette)
+	palette.stage = &style
 
 	return palette
 }
@@ -115,10 +114,10 @@ func (p Palette) Color(tone Tone) lipgloss.Color {
 		return p.muted
 	case ToneMark:
 		return p.mark
-	case ToneBright:
-		return p.bright
-	case ToneAlt:
-		return p.alt
+	case ToneSelf:
+		return p.self
+	case ToneOther:
+		return p.other
 	}
 
 	return p.muted
@@ -182,7 +181,7 @@ func HelpStyles() help.Styles {
 
 // Stage is the markdown a block beside a list is drawn in.
 func (p Palette) Stage() ansi.StyleConfig {
-	return p.stage
+	return *p.stage
 }
 
 // stageStyle is the markdown styling of one palette.

@@ -16,8 +16,8 @@ import (
 // The tones the review wears, which the region drawing each one turns into a colour.
 const (
 	reviewQuoteTone  = paint.ToneMuted
-	reviewHumanTone  = paint.ToneBright
-	reviewAgentTone  = paint.ToneAlt
+	reviewHumanTone  = paint.ToneSelf
+	reviewAgentTone  = paint.ToneOther
 	reviewNoticeTone = paint.ToneSuccess
 	reviewAddedTone  = paint.ToneSuccess
 	// reviewMovedTone draws the catch-up notice as coloured text rather than as a filled bar, the
