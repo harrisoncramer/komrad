@@ -130,3 +130,7 @@ variable "secret_prefix" {
   default = "weave"
 }
 
+variable "database_final_snapshot" {
+  type    = string
+  default = "weave-development-final"
+}

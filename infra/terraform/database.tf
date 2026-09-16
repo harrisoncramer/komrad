@@ -52,20 +52,20 @@ resource "aws_db_instance" "weave" {
   multi_az               = false
   publicly_accessible    = false
 
-  backup_retention_period   = var.database_backup_retention_days
-  copy_tags_to_snapshot     = true
-  deletion_protection       = var.database_deletion_protection
-  skip_final_snapshot       = false
-  final_snapshot_identifier = "${var.name}-final-${formatdate("YYYYMMDDhhmmss", timestamp())}"
+  backup_retention_period = var.database_backup_retention_days
+  copy_tags_to_snapshot   = true
+  deletion_protection     = var.database_deletion_protection
+  # A timestamp here churns on every plan, and silencing that with ignore_changes leaves the
+  # name unset on an instance Terraform imported rather than created, which makes the stack
+  # impossible to destroy. The name is therefore fixed: a second teardown asks for a new one
+  # rather than quietly skipping the snapshot.
+  skip_final_snapshot       = var.database_final_snapshot == ""
+  final_snapshot_identifier = var.database_final_snapshot == "" ? null : var.database_final_snapshot
 
   auto_minor_version_upgrade = true
   apply_immediately          = true
 
   tags = merge(local.tags, { Name = "${var.name}-database" })
-
-  lifecycle {
-    ignore_changes = [final_snapshot_identifier]
-  }
 }
 
 # The role reads the whole weave namespace rather than one secret, so a second secret is a new
