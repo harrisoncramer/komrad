@@ -13,7 +13,7 @@ set -euo pipefail
 # the service is not answering the moment systemd has spawned it.
 
 for _ in {1..30}; do
-	if weave open --detach; then
+	if weave open --headless; then
 		exit 0
 	fi
 

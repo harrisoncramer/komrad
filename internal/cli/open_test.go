@@ -49,7 +49,7 @@ func TestBuildManagerSessionArgsForwardsTheEnvironment(t *testing.T) {
 		Editor:              "nvim",
 	}}
 
-	args := buildManagerSessionArgs(state, "/usr/local/bin/weave")
+	args := buildManagerSessionArgs(state, "/usr/local/bin/weave", false)
 
 	assert.Equal(t, map[string]string{
 		"WEAVE_DATABASE_URL":          "postgres://weave@db/weave",
@@ -86,7 +86,7 @@ func TestBuildManagerSessionArgsCarriesTheConfigPath(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			state := &app{env: &config.Environment{}, configPaths: tt.configPaths}
 
-			args := buildManagerSessionArgs(state, "/usr/local/bin/weave")
+			args := buildManagerSessionArgs(state, "/usr/local/bin/weave", false)
 
 			separator := len(args) - len(tt.want)
 			require.GreaterOrEqual(t, separator, 0, "the command line is shorter than what it has to end with")
@@ -137,7 +137,7 @@ func TestBuildPanelWindowArgsOpensInTheSessionItAlreadyHas(t *testing.T) {
 	args := buildPanelWindowArgs(state, "/usr/local/bin/weave", false)
 
 	assert.Equal(t, []string{"new-window", "-t", agents.ManagerSession}, args[:3])
-	assert.Equal(t, forwardedEnv(t, buildManagerSessionArgs(state, "/usr/local/bin/weave")), forwardedEnv(t, args))
+	assert.Equal(t, forwardedEnv(t, buildManagerSessionArgs(state, "/usr/local/bin/weave", false)), forwardedEnv(t, args))
 	assert.Equal(t, []string{"--", "/usr/local/bin/weave", "panel", "--config", "/tmp/somewhere/config.toml"},
 		args[len(args)-5:])
 }
@@ -218,8 +218,28 @@ func TestEnsureManagerSessionLeavesTheCurrentWindowAlone(t *testing.T) {
 	require.NoError(t, exec.Command("tmux", "-L", socket, "new-window", "-t", agents.ManagerSession).Run())
 	watching := hostQuery(t, socket, "display-message", "-p", "-t", agents.ManagerSession, "#{window_index}")
 
-	require.NoError(t, ensureManagerSession(t.Context(), state, true))
+	require.NoError(t, ensureManagerSession(t.Context(), state, true, false))
 
 	assert.Equal(t, watching, hostQuery(t, socket, "display-message", "-p", "-t", agents.ManagerSession, "#{window_index}"),
 		"a panel that is already up is nothing to do, current window included")
+}
+
+// TestBuildManagerSessionArgsHeadlessHoldsNoPanel covers an engine whose panel runs on another
+// machine, where a panel here would swap an agent's pane into a stage nobody is looking at.
+func TestBuildManagerSessionArgsHeadlessHoldsNoPanel(t *testing.T) {
+	state := &app{env: &config.Environment{
+		DatabaseURL: "postgres://weave@db/weave",
+		Addr:        "127.0.0.1:9999",
+		TmuxSocket:  "weave-test",
+	}}
+
+	args := buildManagerSessionArgs(state, "/usr/local/bin/weave", true)
+
+	assert.NotContains(t, args, "panel")
+	assert.NotContains(t, args, "/usr/local/bin/weave")
+	assert.Contains(t, strings.Join(args, " "), "sleep")
+	assert.Equal(t,
+		forwardedEnv(t, buildManagerSessionArgs(state, "/usr/local/bin/weave", false)),
+		forwardedEnv(t, args),
+		"a headless session still carries what an agent launched into it needs")
 }

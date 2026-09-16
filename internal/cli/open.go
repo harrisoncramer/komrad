@@ -16,7 +16,10 @@ import (
 )
 
 func openCmd(state *app) *cobra.Command {
-	var detach bool
+	var (
+		detach   bool
+		headless bool
+	)
 
 	cmd := &cobra.Command{
 		Use:   "open",
@@ -33,7 +36,11 @@ detaches, which is what closes the popup. Pressing the panel key again runs
 terminal instead, which is the panel without the popup around it.
 
 With --detach it creates the session and returns, which is what a script wants when
-it needs somewhere for agents to be put back into.`,
+it needs somewhere for agents to be put back into.
+
+With --headless it creates that session holding nothing but a placeholder, for an
+engine whose panel runs on somebody else's machine and which would otherwise swap
+an agent's pane into a panel nobody is looking at.`,
 		Args:          cobra.ArbitraryArgs,
 		Hidden:        true,
 		SilenceUsage:  true,
@@ -43,11 +50,11 @@ it needs somewhere for agents to be put back into.`,
 				return err
 			}
 
-			if err := ensureManagerSession(cmd.Context(), state, detach); err != nil {
+			if err := ensureManagerSession(cmd.Context(), state, detach, headless); err != nil {
 				return err
 			}
 
-			if detach {
+			if detach || headless {
 				return nil
 			}
 
@@ -66,6 +73,7 @@ it needs somewhere for agents to be put back into.`,
 	}
 
 	cmd.Flags().BoolVar(&detach, "detach", false, "create the manager session if it is not there, then return without attaching")
+	cmd.Flags().BoolVar(&headless, "headless", false, "create the manager session with no panel in it, for an engine driven from another machine")
 
 	return cmd
 }
@@ -103,12 +111,13 @@ func isPanelRunning(ctx context.Context, state *app) bool {
 
 // ensureManagerSession puts a panel up, making the session when there is none and a window in
 // the session it already has when only the panel has gone.
-func ensureManagerSession(ctx context.Context, state *app, detached bool) error {
+func ensureManagerSession(ctx context.Context, state *app, detached, headless bool) error {
 	if !isManagerSessionRunning(ctx, state) {
-		return runTmux(ctx, state, "failed to create the manager session", buildManagerSessionArgs(state, getSelfPath()))
+		return runTmux(ctx, state, "failed to create the manager session",
+			buildManagerSessionArgs(state, getSelfPath(), headless))
 	}
 
-	if isPanelRunning(ctx, state) {
+	if headless || isPanelRunning(ctx, state) {
 		return nil
 	}
 
@@ -127,8 +136,17 @@ func runTmux(ctx context.Context, state *app, summary string, args []string) err
 	return nil
 }
 
-func buildManagerSessionArgs(state *app, self string) []string {
-	return append([]string{"new-session", "-d", "-s", agents.ManagerSession}, panelCommandArgs(state, self)...)
+func buildManagerSessionArgs(state *app, self string, headless bool) []string {
+	command := panelCommandArgs(state, self)
+	if headless {
+		command = holderCommandArgs(state)
+	}
+
+	return append([]string{"new-session", "-d", "-s", agents.ManagerSession}, command...)
+}
+
+func holderCommandArgs(state *app) []string {
+	return append(sessionEnvArgs(state), "--", "sh", "-c", "while :; do sleep 86400; done")
 }
 
 // buildPanelWindowArgs opens the panel in a session that is already there, detached when the
@@ -142,16 +160,19 @@ func buildPanelWindowArgs(state *app, self string, detached bool) []string {
 	return append(append(args, "-t", agents.ManagerSession), panelCommandArgs(state, self)...)
 }
 
-func panelCommandArgs(state *app, self string) []string {
-	args := []string{
+func sessionEnvArgs(state *app) []string {
+	return []string{
 		"-e", "WEAVE_TMUX_SOCKET=" + state.env.TmuxSocket,
 		"-e", "WEAVE_DATABASE_URL=" + state.env.DatabaseURL,
 		"-e", "WEAVE_READONLY_DATABASE_URL=" + state.env.ReadOnlyDatabaseURL,
 		"-e", "WEAVE_ADDR=" + state.env.Addr,
 		"-e", "EDITOR=" + state.env.Editor,
 		"-e", "WEAVE_CACHE_DIR=" + state.env.CacheDir,
-		"--", self, "panel",
 	}
+}
+
+func panelCommandArgs(state *app, self string) []string {
+	args := append(sessionEnvArgs(state), "--", self, "panel")
 
 	for _, path := range state.configPaths {
 		args = append(args, "--config", path)
