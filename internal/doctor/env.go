@@ -47,6 +47,7 @@ type Settings struct {
 	Addr                string
 	EngineIsRemote      bool
 	Version             string
+	Commit              string
 }
 
 // NewEnv is the env pointed at the machine this is running on.

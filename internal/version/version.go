@@ -10,6 +10,8 @@ var stampedCommit string
 
 const devel = "devel"
 
+const shortCommit = 7
+
 // Version is which build this binary is.
 func Version() string {
 	info, _ := debug.ReadBuildInfo()
@@ -59,4 +61,21 @@ func getCommit(stamped string, info *debug.BuildInfo) string {
 	}
 
 	return revision
+}
+
+// Describe names a build, with the short commit beside the version when the build names one.
+func Describe(version, commit string) string {
+	if commit == "" {
+		return version
+	}
+
+	return version + " (" + short(commit) + ")"
+}
+
+func short(commit string) string {
+	if len(commit) <= shortCommit {
+		return commit
+	}
+
+	return commit[:shortCommit]
 }

@@ -101,6 +101,7 @@ func (a *app) buildDoctor() (doctor.Env, []doctor.Check, error) {
 			Answering: found.answering,
 			Ready:     found.ready,
 			Version:   found.version,
+			Commit:    found.commit,
 			Current:   found.current,
 		}, nil
 	}
@@ -132,6 +133,7 @@ func (a *app) buildDoctorSettings() (doctor.Settings, error) {
 		Addr:                a.env.Addr,
 		EngineIsRemote:      a.engine().IsRemote(),
 		Version:             version.Version(),
+		Commit:              version.Commit(),
 	}, nil
 }
 

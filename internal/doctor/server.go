@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"net"
 	"strconv"
+
+	"weave/internal/version"
 )
 
 const maxPort = 65535
@@ -40,6 +42,7 @@ type ServerStatus struct {
 	Answering bool
 	Ready     bool
 	Version   string
+	Commit    string
 	Current   bool
 }
 
@@ -87,7 +90,9 @@ func newServerCheck() Check {
 			case !status.Current:
 				return fail(
 					fmt.Errorf("%w: %s is serving build %s and this is %s",
-						ErrServerStale, env.Addr, status.Version, env.Version),
+						ErrServerStale, env.Addr,
+						version.Describe(status.Version, status.Commit),
+						version.Describe(env.Version, env.Commit)),
 					env.Addr,
 					describeStaleServerFix(ctx, env),
 				)
@@ -101,7 +106,7 @@ func newServerCheck() Check {
 				)
 			}
 
-			return pass(env.Addr + " serving " + status.Version)
+			return pass(env.Addr + " serving " + version.Describe(status.Version, status.Commit))
 		},
 	}
 }
