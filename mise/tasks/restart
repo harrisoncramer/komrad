@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+source "$MISE_CONFIG_ROOT/mise/tasks/_build"
 #MISE description="Rebuild, then kill and restart the server and the panel, leaving agents stopped."
 set -euo pipefail
 cd "$MISE_CONFIG_ROOT"
@@ -8,7 +9,7 @@ weave="$MISE_CONFIG_ROOT/bin/weave"
 socket="${WEAVE_TMUX_SOCKET:-weave}"
 addr="${WEAVE_ADDR:-127.0.0.1:8787}"
 
-go build -o "$weave" .
+go_build_local "$weave"
 
 agents="$( (tmux -L "$socket" list-panes -a -F x 2>/dev/null || true) | wc -l | tr -d ' ')"
 

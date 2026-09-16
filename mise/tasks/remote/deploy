@@ -79,6 +79,8 @@ mkdir -p dist
 go_build_binary linux arm64 "$VERSION" dist/weave-linux-arm64
 if [ -n "$DIRTY" ]; then
 	go_build_binary "$(go env GOOS)" "$(go env GOARCH)" "$VERSION" dist/weave-panel
+else
+	rm -f dist/weave-panel
 fi
 
 KEY="deploy/weave-linux-arm64-$VERSION"
