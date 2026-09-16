@@ -15,12 +15,10 @@ type gitChoice int
 
 const (
 	gitChoiceRebase gitChoice = iota
-	gitChoiceOpenPR
 	gitChoiceCancel
 )
 
 var (
-	errNoPR       = errors.New("nothing has recorded a pull request on this agent yet")
 	errNoWorktree = errors.New("this agent has no worktree of its own, so there is no base to move it onto")
 	errAgentGone  = errors.New("the agent the menu was opened on has left the list")
 )
@@ -36,7 +34,6 @@ func (m model) openGitMenu() (tea.Model, tea.Cmd) {
 	form, choice := gitMenuForm(gitMenu{
 		name:       agent.Name,
 		rebaseable: m.isReviewable(agent),
-		hasPR:      hasPR(agent),
 	}, m.keys.Git, formKeys())
 
 	agentID := agent.ID
@@ -54,7 +51,6 @@ func (m model) openGitMenu() (tea.Model, tea.Cmd) {
 type gitMenu struct {
 	name       string
 	rebaseable bool
-	hasPR      bool
 }
 
 func gitMenuForm(menu gitMenu, keys config.GitKeys, form config.FormKeys) (*huh.Form, *gitChoice) {
@@ -72,12 +68,6 @@ func gitMenuForm(menu gitMenu, keys config.GitKeys, form config.FormKeys) (*huh.
 				refusal: "no worktree of its own",
 				held:    menu.rebaseable,
 			}), gitChoiceRebase),
-			huh.NewOption(gitEntryLabel(gitEntry{
-				name:    "Open the pull request",
-				keys:    keys.OpenPR,
-				refusal: "none recorded yet",
-				held:    menu.hasPR,
-			}), gitChoiceOpenPR),
 			huh.NewOption("Cancel", gitChoiceCancel),
 		)
 
@@ -128,10 +118,6 @@ func (m model) updateGitMenu(msg tea.Msg, choice *gitChoice) (tea.Model, tea.Cmd
 		*choice = gitChoiceRebase
 
 		return m.answerForm()
-	case isBound(k, m.keys.Git.OpenPR):
-		*choice = gitChoiceOpenPR
-
-		return m.answerForm()
 	default:
 		return m.updateForm(msg)
 	}
@@ -158,17 +144,6 @@ func (m model) runGitChoice(agentID string, choice gitChoice) (model, tea.Cmd) {
 		}
 
 		return m, m.planRefreshCmd(agent.ID, agent.Name)
-	case gitChoiceOpenPR:
-		if !hasPR(agent) {
-			m.report("Could not open the pull request of "+agent.Name, errNoPR)
-
-			return m, nil
-		}
-
-		return m, m.writeCmd(
-			"Could not open the pull request",
-			func(a api) error { return a.openPullRequest(agentID) },
-		)
 	case gitChoiceCancel:
 		return m, nil
 	}

@@ -63,7 +63,7 @@ const getWorkflow = `-- name: GetWorkflow :one
 SELECT
     w.id, w.name, w.context, w.workflow_config_id, w.provisioner_config_id, w.archived_at, w.created_at, w.updated_at,
     wc.id, wc.harness, wc.cwd, wc.flags, wc.created_at, wc.updated_at,
-    pc.id, pc.worktree_enabled, pc.worktree_base_branch, pc.worktree_copy_paths, pc.worktree_symlink_paths, pc.created_at, pc.updated_at, pc.worktree_diff_exclude, pc.archive_on_pr_closed, pc.worktree_dir
+    pc.id, pc.worktree_enabled, pc.worktree_base_branch, pc.worktree_copy_paths, pc.worktree_symlink_paths, pc.created_at, pc.updated_at, pc.worktree_diff_exclude, pc.worktree_dir
 FROM
     workflows w
     JOIN workflow_configs wc ON wc.id = w.workflow_config_id
@@ -106,7 +106,6 @@ func (q *Queries) GetWorkflow(ctx context.Context, id string) (*GetWorkflowRow, 
 		&i.WorkflowProvisionerConfig.CreatedAt,
 		&i.WorkflowProvisionerConfig.UpdatedAt,
 		&i.WorkflowProvisionerConfig.WorktreeDiffExclude,
-		&i.WorkflowProvisionerConfig.ArchiveOnPrClosed,
 		&i.WorkflowProvisionerConfig.WorktreeDir,
 	)
 	return &i, err
@@ -116,7 +115,7 @@ const getWorkflowIncludingArchived = `-- name: GetWorkflowIncludingArchived :one
 SELECT
     w.id, w.name, w.context, w.workflow_config_id, w.provisioner_config_id, w.archived_at, w.created_at, w.updated_at,
     wc.id, wc.harness, wc.cwd, wc.flags, wc.created_at, wc.updated_at,
-    pc.id, pc.worktree_enabled, pc.worktree_base_branch, pc.worktree_copy_paths, pc.worktree_symlink_paths, pc.created_at, pc.updated_at, pc.worktree_diff_exclude, pc.archive_on_pr_closed, pc.worktree_dir
+    pc.id, pc.worktree_enabled, pc.worktree_base_branch, pc.worktree_copy_paths, pc.worktree_symlink_paths, pc.created_at, pc.updated_at, pc.worktree_diff_exclude, pc.worktree_dir
 FROM
     workflows w
     JOIN workflow_configs wc ON wc.id = w.workflow_config_id
@@ -158,7 +157,6 @@ func (q *Queries) GetWorkflowIncludingArchived(ctx context.Context, id string) (
 		&i.WorkflowProvisionerConfig.CreatedAt,
 		&i.WorkflowProvisionerConfig.UpdatedAt,
 		&i.WorkflowProvisionerConfig.WorktreeDiffExclude,
-		&i.WorkflowProvisionerConfig.ArchiveOnPrClosed,
 		&i.WorkflowProvisionerConfig.WorktreeDir,
 	)
 	return &i, err
@@ -277,18 +275,16 @@ INSERT INTO workflow_provisioner_configs(
     worktree_dir,
     worktree_copy_paths,
     worktree_symlink_paths,
-    worktree_diff_exclude,
-    archive_on_pr_closed)
+    worktree_diff_exclude)
 VALUES (
     $1,
     $2,
     $3,
     $4,
     $5,
-    $6,
-    $7)
+    $6)
 RETURNING
-    id, worktree_enabled, worktree_base_branch, worktree_copy_paths, worktree_symlink_paths, created_at, updated_at, worktree_diff_exclude, archive_on_pr_closed, worktree_dir
+    id, worktree_enabled, worktree_base_branch, worktree_copy_paths, worktree_symlink_paths, created_at, updated_at, worktree_diff_exclude, worktree_dir
 `
 
 type InsertWorkflowProvisionerConfigParams struct {
@@ -298,7 +294,6 @@ type InsertWorkflowProvisionerConfigParams struct {
 	WorktreeCopyPaths    []string
 	WorktreeSymlinkPaths []string
 	WorktreeDiffExclude  []string
-	ArchiveOnPrClosed    bool
 }
 
 func (q *Queries) InsertWorkflowProvisionerConfig(ctx context.Context, arg InsertWorkflowProvisionerConfigParams) (*WorkflowProvisionerConfig, error) {
@@ -309,7 +304,6 @@ func (q *Queries) InsertWorkflowProvisionerConfig(ctx context.Context, arg Inser
 		arg.WorktreeCopyPaths,
 		arg.WorktreeSymlinkPaths,
 		arg.WorktreeDiffExclude,
-		arg.ArchiveOnPrClosed,
 	)
 	var i WorkflowProvisionerConfig
 	err := row.Scan(
@@ -321,7 +315,6 @@ func (q *Queries) InsertWorkflowProvisionerConfig(ctx context.Context, arg Inser
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.WorktreeDiffExclude,
-		&i.ArchiveOnPrClosed,
 		&i.WorktreeDir,
 	)
 	return &i, err
@@ -479,7 +472,7 @@ const listWorkflows = `-- name: ListWorkflows :many
 SELECT
     w.id, w.name, w.context, w.workflow_config_id, w.provisioner_config_id, w.archived_at, w.created_at, w.updated_at,
     wc.id, wc.harness, wc.cwd, wc.flags, wc.created_at, wc.updated_at,
-    pc.id, pc.worktree_enabled, pc.worktree_base_branch, pc.worktree_copy_paths, pc.worktree_symlink_paths, pc.created_at, pc.updated_at, pc.worktree_diff_exclude, pc.archive_on_pr_closed, pc.worktree_dir
+    pc.id, pc.worktree_enabled, pc.worktree_base_branch, pc.worktree_copy_paths, pc.worktree_symlink_paths, pc.created_at, pc.updated_at, pc.worktree_diff_exclude, pc.worktree_dir
 FROM
     workflows w
     JOIN workflow_configs wc ON wc.id = w.workflow_config_id
@@ -530,7 +523,6 @@ func (q *Queries) ListWorkflows(ctx context.Context) ([]*ListWorkflowsRow, error
 			&i.WorkflowProvisionerConfig.CreatedAt,
 			&i.WorkflowProvisionerConfig.UpdatedAt,
 			&i.WorkflowProvisionerConfig.WorktreeDiffExclude,
-			&i.WorkflowProvisionerConfig.ArchiveOnPrClosed,
 			&i.WorkflowProvisionerConfig.WorktreeDir,
 		); err != nil {
 			return nil, err
@@ -547,7 +539,7 @@ const listWorkflowsPage = `-- name: ListWorkflowsPage :many
 SELECT
     w.id, w.name, w.context, w.workflow_config_id, w.provisioner_config_id, w.archived_at, w.created_at, w.updated_at,
     wc.id, wc.harness, wc.cwd, wc.flags, wc.created_at, wc.updated_at,
-    pc.id, pc.worktree_enabled, pc.worktree_base_branch, pc.worktree_copy_paths, pc.worktree_symlink_paths, pc.created_at, pc.updated_at, pc.worktree_diff_exclude, pc.archive_on_pr_closed, pc.worktree_dir
+    pc.id, pc.worktree_enabled, pc.worktree_base_branch, pc.worktree_copy_paths, pc.worktree_symlink_paths, pc.created_at, pc.updated_at, pc.worktree_diff_exclude, pc.worktree_dir
 FROM
     workflows w
     JOIN workflow_configs wc ON wc.id = w.workflow_config_id
@@ -616,7 +608,6 @@ func (q *Queries) ListWorkflowsPage(ctx context.Context, arg ListWorkflowsPagePa
 			&i.WorkflowProvisionerConfig.CreatedAt,
 			&i.WorkflowProvisionerConfig.UpdatedAt,
 			&i.WorkflowProvisionerConfig.WorktreeDiffExclude,
-			&i.WorkflowProvisionerConfig.ArchiveOnPrClosed,
 			&i.WorkflowProvisionerConfig.WorktreeDir,
 		); err != nil {
 			return nil, err
@@ -723,8 +714,7 @@ SET
     worktree_dir = $3,
     worktree_copy_paths = $4,
     worktree_symlink_paths = $5,
-    worktree_diff_exclude = $6,
-    archive_on_pr_closed = $7
+    worktree_diff_exclude = $6
 WHERE
     id =(
         SELECT
@@ -732,7 +722,7 @@ WHERE
         FROM
             workflows
         WHERE
-            workflows.id = $8)
+            workflows.id = $7)
 `
 
 type SetWorkflowProvisionerParams struct {
@@ -742,7 +732,6 @@ type SetWorkflowProvisionerParams struct {
 	WorktreeCopyPaths    []string
 	WorktreeSymlinkPaths []string
 	WorktreeDiffExclude  []string
-	ArchiveOnPrClosed    bool
 	WorkflowID           string
 }
 
@@ -754,7 +743,6 @@ func (q *Queries) SetWorkflowProvisioner(ctx context.Context, arg SetWorkflowPro
 		arg.WorktreeCopyPaths,
 		arg.WorktreeSymlinkPaths,
 		arg.WorktreeDiffExclude,
-		arg.ArchiveOnPrClosed,
 		arg.WorkflowID,
 	)
 	return err

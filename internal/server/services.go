@@ -7,7 +7,6 @@ import (
 
 	"weave/config"
 	"weave/internal/agents"
-	"weave/internal/browser"
 	"weave/internal/frames"
 	"weave/internal/git"
 	"weave/internal/harness/pane"
@@ -17,7 +16,6 @@ import (
 type services struct {
 	loadConfig   func() (*config.Config, error)
 	script       *agents.ScriptService
-	pullRequests *agents.PullRequestOpener
 	mail         *agents.MailService
 	review       *agents.ReviewService
 	schedule     *agents.ScheduleService
@@ -84,15 +82,6 @@ func buildServices(params NewServerParams, st *stores) (*services, error) {
 		BinPath:    params.HookCommand,
 	})
 
-	opener := params.Opener
-	if opener == nil {
-		opener = browser.NewDesktop()
-	}
-
-	pullRequestOpener := agents.NewPullRequestOpener(agents.NewPullRequestOpenerParams{
-		Agents: st.agents,
-		Opener: opener,
-	})
 	harnessLauncher := agents.NewLauncher(agents.NewLauncherParams{
 		Tmux:        params.Tmux,
 		Addr:        params.Addr,
@@ -154,11 +143,10 @@ func buildServices(params NewServerParams, st *stores) (*services, error) {
 		}),
 	})
 	adoptService := agents.NewAdoptService(agents.NewAdoptServiceParams{
-		Agents:       st.agents,
-		Workflows:    st.workflows,
-		Launch:       launchService,
-		PullRequests: agents.NewGHPullRequests(git.NewClient()),
-		Worktrees:    git.NewClient(),
+		Agents:    st.agents,
+		Workflows: st.workflows,
+		Launch:    launchService,
+		Worktrees: git.NewClient(),
 	})
 	emptyWorkflows := agents.NewEmptyWorkflowDeleter(agents.NewEmptyWorkflowDeleterParams{
 		Workflows: st.workflows,
@@ -195,17 +183,16 @@ func buildServices(params NewServerParams, st *stores) (*services, error) {
 	markService := agents.NewMarkService(agents.NewMarkServiceParams{Marks: st.marks, Tx: st.pool})
 
 	return &services{
-		loadConfig:   loadConfig,
-		marks:        markService,
-		rebase:       rebaseService,
-		script:       scriptService,
-		pullRequests: pullRequestOpener,
-		mail:         mailService,
-		review:       reviewService,
-		schedule:     scheduleService,
-		liveness:     paneLiveness,
-		launch:       launchService,
-		resume:       resumeService,
+		loadConfig: loadConfig,
+		marks:      markService,
+		rebase:     rebaseService,
+		script:     scriptService,
+		mail:       mailService,
+		review:     reviewService,
+		schedule:   scheduleService,
+		liveness:   paneLiveness,
+		launch:     launchService,
+		resume:     resumeService,
 		holder: agents.NewHolder(agents.NewHolderParams{
 			Agents:   st.agents,
 			Channel:  paneChannel,

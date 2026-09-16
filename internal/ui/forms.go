@@ -234,7 +234,6 @@ type workflowFormValues struct {
 	WorktreeSymlinkPaths string
 	WorktreeDiffExclude  string
 	WorktreeDir          string
-	ArchiveOnPRClosed    bool
 }
 
 func workflowFormValuesFrom(cfg workflowstore.Config) workflowFormValues {
@@ -260,7 +259,6 @@ func workflowFormValuesFrom(cfg workflowstore.Config) workflowFormValues {
 		WorktreeSymlinkPaths: strings.Join(cfg.Worktree.SymlinkPaths, "\n"),
 		WorktreeDiffExclude:  strings.Join(cfg.Worktree.DiffExclude, "\n"),
 		WorktreeDir:          cfg.Worktree.Dir,
-		ArchiveOnPRClosed:    cfg.ArchiveOnPRClosed,
 	}
 }
 
@@ -286,7 +284,6 @@ func (v workflowFormValues) toConfig() workflowstore.Config {
 			hookOn(v.PostRestoreHook, workflowstore.HookPostRestore),
 			hookOn(v.PreTeardownHook, workflowstore.HookPreTeardown),
 		),
-		ArchiveOnPRClosed: v.ArchiveOnPRClosed,
 	}
 
 	return cfg
@@ -398,11 +395,11 @@ func childAgentForm(keys config.FormKeys, values *agentFormValues, parent agents
 func adoptAgentForm(keys config.FormKeys, values *adoptFormValues) (*huh.Form, []string) {
 	fields := []huh.Field{
 		huh.NewInput().Key("ref").Title("Adopt").
-			Description("a pull request url or number, or a branch already pushed or on disk").Value(&values.Ref),
+			Description("a branch already pushed or on disk").Value(&values.Ref),
 		textField("prompt").Title("Prompt").
 			Description(fmt.Sprintf("what to do with it; blank asks it to report in and wait. %s opens $EDITOR; %s submits",
 				keyLabel(keys.Editor), keyLabel(keys.Submit))).Value(&values.Prompt),
-		huh.NewInput().Key("title").Title("Title").Description("blank names it after the pull request or branch").Value(&values.Title),
+		huh.NewInput().Key("title").Title("Title").Description("blank names it after the branch").Value(&values.Title),
 		huh.NewInput().Key("harness").Title("Agent").Placeholder("claude").Value(&values.Harness),
 		huh.NewInput().Key("flags").Title("Flags").Placeholder("--model opus").Value(&values.Flags),
 	}
@@ -785,7 +782,6 @@ func workflowConfigForm(params workflowConfigParams) (form *huh.Form, order []st
 	}
 
 	fields = append(fields, hookFields(values, params.Hooks)...)
-	fields = append(fields, archiveOnPRClosedField(values))
 
 	// The form is taller than most terminals now, so it takes its height from the resize the panel
 	// sends it and huh scrolls it around whichever field has the cursor.
@@ -918,13 +914,6 @@ func hookOptions(available []hookChoice, chosen string) []huh.Option[string] {
 	}
 
 	return options
-}
-
-func archiveOnPRClosedField(values *workflowFormValues) huh.Field {
-	return huh.NewConfirm().Key("archive_on_pr_closed").Title("Archive once the pull request closes?").
-		Description("an idle agent is archived when the pull request on its branch merges or closes; nothing is deleted").
-		Affirmative("Archive").Negative("Leave").Value(&values.ArchiveOnPRClosed).
-		WithButtonAlignment(lipgloss.Left)
 }
 
 type hookChoice struct {

@@ -73,7 +73,6 @@ func renderWorkflow(w workflowstore.Workflow, mark *string, opts ...workflowOpti
 				SymlinkPaths: w.Worktree.SymlinkPaths,
 				DiffExclude:  w.Worktree.DiffExclude,
 			},
-			ArchiveOnPrClosed: w.ArchiveOnPRClosed,
 			Hooks: xslice.Map(w.Hooks, func(hook workflowstore.Hook) *workflowv1.WorkflowHook {
 				return &workflowv1.WorkflowHook{Event: hook.Event, Script: hook.Script}
 			}),

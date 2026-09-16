@@ -80,8 +80,7 @@ func workflowFrom(w *workflowv1.Workflow) workflowstore.Workflow {
 		Hooks: xslice.Map(w.GetHooks(), func(hook *workflowv1.WorkflowHook) workflowstore.Hook {
 			return workflowstore.Hook{Event: hook.GetEvent(), Script: hook.GetScript()}
 		}),
-		ArchiveOnPRClosed: w.GetArchiveOnPrClosed(),
-		ArchivedAt:        dates.ParsePtr(w.GetArchivedAt()),
+		ArchivedAt: dates.ParsePtr(w.GetArchivedAt()),
 	}
 }
 

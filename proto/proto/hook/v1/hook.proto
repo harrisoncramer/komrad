@@ -3,7 +3,6 @@ syntax = "proto3";
 package hook.v1;
 
 import "annotation/v1/tool.proto";
-import "buf/validate/validate.proto";
 import "google/protobuf/duration.proto";
 import "google/protobuf/empty.proto";
 
@@ -27,27 +26,13 @@ message ListHooksResponse {
   repeated Hook hooks = 1;
 }
 
-message OpenPullRequestRequest {
-  // The agent whose recorded pull request to open.
-  string agent_id = 1 [(buf.validate.field).string.min_len = 1];
-}
-
-// HookService lists the scripts the user has written for weave to fire, and opens the pull
-// request an agent recorded.
+// HookService lists the scripts the user has written for weave to fire.
 service HookService {
   rpc ListHooks(google.protobuf.Empty) returns (ListHooksResponse) {
     option idempotency_level = NO_SIDE_EFFECTS;
     option (annotation.v1.tool) = {
       tool_name: "list_hooks"
       description: "List the hooks the user has written, which are executable files in their hooks directory. A hook is a script or program that takes one agent as its input, and a workflow names one against a moment in its agents' lives, such as pre-launch or post-resume. The name is what create_workflow and update_workflow take in a hook's script field. A file listed with executable false cannot be run until the user chmods it, and the description and timeout are what the file's own header comments declare about it."
-    };
-  }
-
-  rpc OpenPullRequest(OpenPullRequestRequest) returns (google.protobuf.Empty) {
-    option (annotation.v1.tool) = {
-      tool_name: "open_pull_request"
-      description: "Open the pull request an agent recorded for itself, in the browser of whoever is at the panel. It is the panel's own key spelled as a call, and it waits for the opener rather than the browser, so it answers once the URL has been handed over and says nothing about what the browser did with it. An error means it never got that far: no such agent, no pull request recorded on it, or the opener itself failing."
-      destructive: false
     };
   }
 }

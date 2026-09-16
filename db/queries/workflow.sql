@@ -69,16 +69,14 @@ INSERT INTO workflow_provisioner_configs(
     worktree_dir,
     worktree_copy_paths,
     worktree_symlink_paths,
-    worktree_diff_exclude,
-    archive_on_pr_closed)
+    worktree_diff_exclude)
 VALUES (
     @worktree_enabled,
     @worktree_base_branch,
     @worktree_dir,
     @worktree_copy_paths,
     @worktree_symlink_paths,
-    @worktree_diff_exclude,
-    @archive_on_pr_closed)
+    @worktree_diff_exclude)
 RETURNING
     *;
 
@@ -121,8 +119,7 @@ SET
     worktree_dir = @worktree_dir,
     worktree_copy_paths = @worktree_copy_paths,
     worktree_symlink_paths = @worktree_symlink_paths,
-    worktree_diff_exclude = @worktree_diff_exclude,
-    archive_on_pr_closed = @archive_on_pr_closed
+    worktree_diff_exclude = @worktree_diff_exclude
 WHERE
     id =(
         SELECT

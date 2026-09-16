@@ -93,29 +93,12 @@ func gitMenuReserved() map[string]string {
 
 // validateGitMenuKeys refuses an entry's key that the menu around it needs.
 func validateGitMenuKeys(keys config.GitKeys) error {
-	entries := []struct {
-		describe string
-		keys     []string
-	}{
-		{describe: "the git menu's rebase", keys: keys.Rebase},
-		{describe: "the git menu's pull request", keys: keys.OpenPR},
-	}
-
 	reserved := gitMenuReserved()
-	answered := map[string]string{}
 
-	for _, entry := range entries {
-		for _, k := range entry.keys {
-			if taken, ok := reserved[k]; ok {
-				return fmt.Errorf("keybindings: %s is bound to %q, which is %s, and the menu answers it first",
-					entry.describe, k, taken)
-			}
-			if taken, ok := answered[k]; ok {
-				return fmt.Errorf("keybindings: in the git menu, %q is bound to both %s and %s, and %s answers every press of it, so the other never runs",
-					k, taken, entry.describe, taken)
-			}
-
-			answered[k] = entry.describe
+	for _, k := range keys.Rebase {
+		if taken, ok := reserved[k]; ok {
+			return fmt.Errorf("keybindings: the git menu's rebase is bound to %q, which is %s, and the menu answers it first",
+				k, taken)
 		}
 	}
 

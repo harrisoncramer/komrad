@@ -504,6 +504,5 @@ type WorkflowProvisionerConfig struct {
 	CreatedAt            time.Time
 	UpdatedAt            time.Time
 	WorktreeDiffExclude  []string
-	ArchiveOnPrClosed    bool
 	WorktreeDir          string
 }

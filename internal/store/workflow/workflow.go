@@ -10,56 +10,52 @@ import (
 )
 
 type Workflow struct {
-	ID                string
-	Name              string
-	Context           string
-	Harness           string
-	Cwd               string
-	Flags             string
-	Worktree          WorktreeConfig
-	Hooks             []Hook
-	ArchiveOnPRClosed bool
-	ArchivedAt        *time.Time
-	UpdatedAt         time.Time
+	ID         string
+	Name       string
+	Context    string
+	Harness    string
+	Cwd        string
+	Flags      string
+	Worktree   WorktreeConfig
+	Hooks      []Hook
+	ArchivedAt *time.Time
+	UpdatedAt  time.Time
 }
 
 type Config struct {
-	Name              string
-	Context           string
-	Harness           string
-	Cwd               string
-	Flags             string
-	Worktree          WorktreeConfig
-	Hooks             []Hook
-	ArchiveOnPRClosed bool
+	Name     string
+	Context  string
+	Harness  string
+	Cwd      string
+	Flags    string
+	Worktree WorktreeConfig
+	Hooks    []Hook
 }
 
 // Config is what an update writes, being every field of a workflow but its id.
 func (w Workflow) Config() Config {
 	return Config{
-		Name:              w.Name,
-		Context:           w.Context,
-		Harness:           w.Harness,
-		Cwd:               w.Cwd,
-		Flags:             w.Flags,
-		Worktree:          w.Worktree,
-		Hooks:             w.Hooks,
-		ArchiveOnPRClosed: w.ArchiveOnPRClosed,
+		Name:     w.Name,
+		Context:  w.Context,
+		Harness:  w.Harness,
+		Cwd:      w.Cwd,
+		Flags:    w.Flags,
+		Worktree: w.Worktree,
+		Hooks:    w.Hooks,
 	}
 }
 
 // Workflow is the config under an existing id, ready to be written back.
 func (c Config) Workflow(id string) Workflow {
 	return Workflow{
-		ID:                id,
-		Name:              c.Name,
-		Context:           c.Context,
-		Harness:           c.Harness,
-		Cwd:               c.Cwd,
-		Flags:             c.Flags,
-		Worktree:          c.Worktree,
-		Hooks:             c.Hooks,
-		ArchiveOnPRClosed: c.ArchiveOnPRClosed,
+		ID:       id,
+		Name:     c.Name,
+		Context:  c.Context,
+		Harness:  c.Harness,
+		Cwd:      c.Cwd,
+		Flags:    c.Flags,
+		Worktree: c.Worktree,
+		Hooks:    c.Hooks,
 	}
 }
 
@@ -105,9 +101,8 @@ func workflowFromRow(w models.Workflow, cfg models.WorkflowConfig, prov models.W
 			SymlinkPaths: prov.WorktreeSymlinkPaths,
 			DiffExclude:  prov.WorktreeDiffExclude,
 		},
-		Hooks:             hooks,
-		ArchiveOnPRClosed: prov.ArchiveOnPrClosed,
-		ArchivedAt:        w.ArchivedAt,
-		UpdatedAt:         w.UpdatedAt,
+		Hooks:      hooks,
+		ArchivedAt: w.ArchivedAt,
+		UpdatedAt:  w.UpdatedAt,
 	}
 }
