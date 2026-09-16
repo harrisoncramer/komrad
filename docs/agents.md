@@ -20,7 +20,7 @@ Separately from state, an agent is either running or dormant. Dormant agents' pa
 
 Adoption puts an agent on a branch somebody else made. Hover a worktree-enabled workflow's header, press `a`, and give it a branch name. It is the workflow's key rather than an agent's, since what you are adopting into is the workflow.
 
-A branch is git's own idea rather than a forge's, so adoption works the same on GitHub, on GitLab, on a self-hosted remote, and on a repository with no forge behind it at all.
+A branch is git's own idea rather than a forge's, so adoption works the same on GitHub, on GitLab, on a self-hosted remote, and on a repository with no forge behind it at all. A pull request URL or number is refused, naming what to do instead, since weave no longer reads one.
 
 Where the agent runs depends on what is already there. When nothing has the branch checked out, the agent gets a worktree of its own on it, fetched from origin first. When some other checkout already holds it, made by hand or by another tool, the agent is launched into that directory as it stands and provisions nothing. When the branch is checked out in the workflow's own directory, adoption refuses, since that is the checkout you are working in.
 

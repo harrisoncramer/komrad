@@ -341,7 +341,7 @@ func movedMail(result RebaseResult) string {
 		"There was nothing left to replay, so your branch was moved straight onto it.\n\n")
 	body.WriteString("Nothing was lost. Your own commits are no longer on the branch and the base's history " +
 		"has taken their place. Start your next piece of work from here.")
-	body.WriteString("\n\nA pull request you opened from this branch no longer tracks anything it carries.")
+	body.WriteString("\n\nAny pull request opened from this branch no longer tracks anything it carries.")
 	body.WriteString(parkNote(result))
 
 	return body.String()
@@ -366,7 +366,7 @@ func replayedMail(result RebaseResult) string {
 	body.WriteString("Your branch is still the same branch.")
 
 	body.WriteString("\n\nThe rebase rewrote the commits any pull request on this branch was opened from, " +
-		"so open a new one rather than assuming an old one still tracks your work.")
+		"so do not assume one you opened earlier still tracks your work.")
 	body.WriteString(parkNote(result))
 
 	return body.String()

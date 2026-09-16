@@ -20,6 +20,8 @@ import (
 
 var ErrAdoptNeedsWorktree = fail.Precondition("adoption needs a workflow whose agents get a worktree of their own")
 
+var ErrAdoptNotABranch = fail.InvalidArgument("weave adopts a branch, and this is not one")
+
 var ErrAdoptBranchInUse = fail.Precondition("that branch is already checked out")
 
 var ErrAdoptAlreadyAdopted = fail.AlreadyExists("that branch already has an agent on it")
@@ -81,6 +83,9 @@ func (s *AdoptService) Adopt(ctx context.Context, params AdoptParams) (*agentsto
 	branch := strings.TrimSpace(params.Ref)
 	if branch == "" {
 		return nil, fmt.Errorf("%w: nothing to adopt", ErrBadDirectory)
+	}
+	if namesPullRequest(branch) {
+		return nil, fmt.Errorf("%w: %s names a pull request, so adopt the branch it is on", ErrAdoptNotABranch, branch)
 	}
 
 	wf, err := s.workflows.Get(ctx, params.WorkflowID)
@@ -298,31 +303,17 @@ func adoptPrompt(branch, prompt string) string {
 	return b.String()
 }
 
-// repositoryFromRemote pulls owner/name out of a git remote, in either the SSH or the HTTPS
-// form and with or without a .git suffix.
-func repositoryFromRemote(remote string) string {
-	trimmed := strings.TrimSuffix(remote, ".git")
-	// A remote naming a path is not a forge, so it has no owner and name to read.
-	if strings.HasPrefix(trimmed, "file://") {
-		return ""
-	}
-	if !strings.Contains(trimmed, "://") && !strings.Contains(trimmed, "@") && !strings.Contains(trimmed, ":") {
-		return ""
+// namesPullRequest reports whether a ref is a pull request rather than a branch, meaning a URL,
+// a bare number, or a number behind a hash.
+func namesPullRequest(ref string) bool {
+	if strings.Contains(ref, "/pull/") || strings.Contains(ref, "/merge_requests/") {
+		return true
 	}
 
-	if _, rest, found := strings.Cut(trimmed, "@"); found {
-		trimmed = rest
-	}
-	if _, rest, found := strings.Cut(trimmed, "://"); found {
-		trimmed = rest
+	digits := strings.TrimPrefix(ref, "#")
+	if digits == "" {
+		return false
 	}
 
-	trimmed = strings.ReplaceAll(trimmed, ":", "/")
-
-	parts := strings.Split(strings.Trim(trimmed, "/"), "/")
-	if len(parts) < 3 {
-		return ""
-	}
-
-	return parts[len(parts)-2] + "/" + parts[len(parts)-1]
+	return !strings.ContainsFunc(digits, func(r rune) bool { return r < '0' || r > '9' })
 }

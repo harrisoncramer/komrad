@@ -304,27 +304,6 @@ func TestAdoptAfterASetupFailureIsNotRefusedByTheCorpse(t *testing.T) {
 	assert.NotEqual(t, first.ID, second.ID)
 }
 
-// TestRepositoryFromRemote covers the remotes a checkout is cloned with.
-func TestRepositoryFromRemote(t *testing.T) {
-	tests := []struct {
-		remote string
-		want   string
-	}{
-		{remote: "git@github.com:acmecorp/admin.git", want: "acmecorp/admin"},
-		{remote: "https://github.com/acmecorp/admin.git", want: "acmecorp/admin"},
-		{remote: "https://github.com/acmecorp/admin", want: "acmecorp/admin"},
-		{remote: "ssh://git@github.com/acmecorp/admin.git", want: "acmecorp/admin"},
-		{remote: "/some/local/clone", want: ""},
-		{remote: "file:///some/local/clone", want: ""},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.remote, func(t *testing.T) {
-			assert.Equal(t, tt.want, repositoryFromRemote(tt.remote))
-		})
-	}
-}
-
 func seedWorktreeWorkflow(t *testing.T, st *testStore, repo string) string {
 	t.Helper()
 
@@ -337,4 +316,40 @@ func seedWorktreeWorkflow(t *testing.T, st *testStore, repo string) string {
 	require.NotNil(t, created)
 
 	return created.ID
+}
+
+// TestAdoptRefusesAPullRequest pins the refusal reaching whoever pasted a URL out of habit,
+// which would otherwise be taken as a branch name and fail in the worktree hook.
+func TestAdoptRefusesAPullRequest(t *testing.T) {
+	for _, ref := range []string{
+		"https://github.com/acmecorp/admin/pull/1069",
+		"https://gitlab.com/acmecorp/admin/-/merge_requests/1069",
+		"1069",
+		"#1069",
+	} {
+		t.Run(ref, func(t *testing.T) {
+			st := newStore(t)
+			manager := newManager(newFakeTmux(), st, "")
+
+			_, err := manager.adopt.Adopt(t.Context(), AdoptParams{
+				Ref:        ref,
+				WorkflowID: seedWorktreeWorkflow(t, st, fakeCheckout(t)),
+			})
+
+			require.ErrorIs(t, err, ErrAdoptNotABranch)
+
+			agents, listErr := st.List(t.Context())
+			require.NoError(t, listErr)
+			assert.Empty(t, agents, "a refused adoption starts nothing")
+		})
+	}
+}
+
+// TestAdoptTakesABranchThatLooksLikeANumber covers the branch names the refusal must not eat.
+func TestAdoptTakesABranchThatLooksLikeANumber(t *testing.T) {
+	for _, ref := range []string{"1069-fix", "release/2026-08-27", "main", "-1", "+1"} {
+		t.Run(ref, func(t *testing.T) {
+			assert.False(t, namesPullRequest(ref))
+		})
+	}
 }

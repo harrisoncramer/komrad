@@ -71,6 +71,7 @@ func TestWrapCodes(t *testing.T) {
 		{agents.ErrUnknownHookEvent, connect.CodeInvalidArgument},
 		{agents.ErrNoticeKindMissing, connect.CodeInvalidArgument},
 		{agents.ErrBadDirectory, connect.CodeInvalidArgument},
+		{agents.ErrAdoptNotABranch, connect.CodeInvalidArgument},
 		{agents.ErrHarnessUnknown, connect.CodeInvalidArgument},
 		{agents.ErrSpawnerUnknown, connect.CodeInvalidArgument},
 		{agents.ErrParentIsChild, connect.CodeInvalidArgument},
