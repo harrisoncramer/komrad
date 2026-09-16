@@ -87,10 +87,10 @@ func (a *app) buildDoctor() (doctor.Env, []doctor.Check, error) {
 
 	// A remote engine answers on its own loopback, so the address it was configured with is
 	// reached through a forward rather than dialled here.
-	env.ProbeServer = func(ctx context.Context, _ string) doctor.ServerStatus {
+	env.ProbeServer = func(ctx context.Context) (doctor.ServerStatus, error) {
 		addr, release, err := a.dialAPI(ctx)
 		if err != nil {
-			return doctor.ServerStatus{}
+			return doctor.ServerStatus{}, err
 		}
 
 		defer release()
@@ -102,7 +102,7 @@ func (a *app) buildDoctor() (doctor.Env, []doctor.Check, error) {
 			Ready:     found.ready,
 			Version:   found.version,
 			Current:   found.current,
-		}
+		}, nil
 	}
 
 	env.IsPanelRunning = func(ctx context.Context) bool { return isPanelRunning(ctx, a) }

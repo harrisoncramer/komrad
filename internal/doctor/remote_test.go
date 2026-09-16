@@ -2,6 +2,7 @@ package doctor
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -119,6 +120,7 @@ func TestEngineSideChecksAreTheOnesThatReadTheEngine(t *testing.T) {
 	}
 
 	want := []string{
+		"tmux shell",
 		"default harness",
 		"hooks",
 		"worktrees",
@@ -131,4 +133,66 @@ func TestEngineSideChecksAreTheOnesThatReadTheEngine(t *testing.T) {
 	}
 
 	assert.Equal(t, want, engineSide)
+}
+
+// TestServerCheckOnARemoteEngine covers the arms whose wording and advice only make sense about
+// the machine holding the service, which for a remote engine is not this one.
+func TestServerCheckOnARemoteEngine(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name       string
+		status     ServerStatus
+		probeErr   error
+		wantStatus Status
+		wantCode   string
+		wantFix    string
+	}{
+		{
+			name:       "the forward never came up, so nothing was learned about the engine",
+			probeErr:   errors.New("ssh: connect to host 203.0.113.4 port 22: Connection refused"),
+			wantStatus: StatusFail,
+			wantCode:   "engine_unreachable",
+			wantFix:    "check the engine is up and that this engine's ssh settings reach it",
+		},
+		{
+			name:       "the engine is reachable but serving nothing",
+			status:     ServerStatus{},
+			wantStatus: StatusFail,
+			wantCode:   "server_down",
+			wantFix:    "start weave on the engine, since its service runs whether or not a panel is open",
+		},
+		{
+			name:       "something on the engine holds the address",
+			status:     ServerStatus{Answering: true},
+			wantStatus: StatusFail,
+			wantCode:   "address_taken",
+			wantFix:    "free the address on the engine, since what holds it is a process there",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			env := Env{
+				Settings: Settings{
+					Addr:           "127.0.0.1:8787",
+					Version:        "v1.2.3",
+					TmuxSocket:     "weave",
+					EngineIsRemote: true,
+				},
+				ProbeServer: func(context.Context) (ServerStatus, error) {
+					return tt.status, tt.probeErr
+				},
+				IsPanelRunning: func(context.Context) bool { return false },
+			}
+
+			result := newServerCheck().Run(t.Context(), env)
+
+			assert.Equal(t, tt.wantStatus, result.Status)
+			assert.Equal(t, tt.wantCode, codeOf(result.Err))
+			assert.Equal(t, tt.wantFix, result.Fix)
+		})
+	}
 }

@@ -5,8 +5,8 @@ import (
 	"fmt"
 )
 
-// dialAPI returns the address this machine reaches the engine's api on, and what to call when it
-// is finished with.
+// dialAPI returns the address this machine reaches the engine's api on, and a release for the
+// forward it opened.
 func (a *app) dialAPI(ctx context.Context) (string, func(), error) {
 	release := func() {}
 
