@@ -20,6 +20,7 @@ const healthTimeout = 2 * time.Second
 type Health struct {
 	Status  string `json:"status"`
 	Version string `json:"version"`
+	Commit  string `json:"commit,omitempty"`
 	Error   string `json:"error,omitempty"`
 }
 
@@ -28,11 +29,12 @@ func healthBody(pingErr error) (Health, int) {
 		return Health{
 			Status:  "unavailable",
 			Version: version.Version(),
+			Commit:  version.Commit(),
 			Error:   "database unreachable: " + pingErr.Error(),
 		}, http.StatusServiceUnavailable
 	}
 
-	return Health{Status: "ok", Version: version.Version()}, http.StatusOK
+	return Health{Status: "ok", Version: version.Version(), Commit: version.Commit()}, http.StatusOK
 }
 
 func newHealthHandler(pool *pgxpool.Pool) http.Handler {

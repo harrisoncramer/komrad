@@ -7,11 +7,13 @@ usage() {
 	echo "Usage: mise run remote:deploy [instance-id]"
 	echo
 	echo "Cross-compiles weave for the engine, installs it there, and restarts the service."
-	echo "It also builds a local binary carrying the same version, because the panel refuses"
-	echo "to talk to a server whose build string differs from its own."
+	echo "A clean deploy carries this checkout's commit, which is what the panel compares"
+	echo "against, so a panel built from the same commit needs nothing further. A deploy"
+	echo "from a dirty tree names no commit, so it also builds a local binary at the same"
+	echo "version for you to put in place of your own weave."
 	echo
 	echo "With no argument the instance is whichever one Terraform last built."
-	echo "Both binaries land in dist/."
+	echo "The binaries land in dist/."
 }
 
 for arg in "$@"; do
@@ -68,14 +70,18 @@ gum log --level info "deploying to $INSTANCE in $REGION"
 
 REVISION="$(git rev-parse --short HEAD)"
 DIRTY=""
-if ! git diff --quiet || ! git diff --cached --quiet; then
+if tree_is_dirty; then
 	DIRTY="+dirty.$(date +%H%M%S)"
 fi
 VERSION="v0.0.0-engine.$REVISION$DIRTY"
 
 mkdir -p dist
 go_build_binary linux arm64 "$VERSION" dist/weave-linux-arm64
-go_build_binary "$(go env GOOS)" "$(go env GOARCH)" "$VERSION" dist/weave-panel
+if [ -n "$DIRTY" ]; then
+	go_build_binary "$(go env GOOS)" "$(go env GOARCH)" "$VERSION" dist/weave-panel
+else
+	rm -f dist/weave-panel
+fi
 
 KEY="deploy/weave-linux-arm64-$VERSION"
 aws s3 cp dist/weave-linux-arm64 "s3://$BUCKET/$KEY" --only-show-errors
@@ -113,4 +119,6 @@ if [ "$STATUS" != "Success" ]; then
 fi
 
 echo "engine: $VERSION on $INSTANCE"
-echo "panel:  dist/weave-panel at $VERSION"
+if [ -n "$DIRTY" ]; then
+	echo "panel:  dist/weave-panel at $VERSION, since a dirty build is known by its version alone"
+fi

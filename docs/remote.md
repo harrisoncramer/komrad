@@ -228,6 +228,10 @@ The binary changes often. This does not disturb running agents. If you have this
 mise run remote:deploy
 ```
 
+The panel refuses to talk to an engine running other code, and it decides that on the commit each binary was built from rather than on the version each prints. The two are stamped differently on purpose, so `weave version` and `weave doctor` show the engine as `v0.0.0-engine.<commit>` and your own binary as a pseudo-version, and they agree as long as both were built from the same commit. Deploy from a clean checkout and build your own weave from it.
+
+Deploying from a tree with uncommitted changes is the exception, because there is no commit that names what was built. The deploy stamps a version instead and leaves a matching binary at `dist/weave-panel`; put that in place of your own weave, or doctor will report the engine as a different build.
+
 The image changes rarely, when the units or provisioning scripts do. This replaces the box and every agent on it stops. The data volume and the address follow the new box; anything mid-conversation is lost.
 
 ```

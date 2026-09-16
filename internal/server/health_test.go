@@ -45,6 +45,8 @@ func TestHealthBody(t *testing.T) {
 			assert.Equal(t, tt.wantError, body.Error)
 			assert.Equal(t, version.Version(), body.Version,
 				"a build whose database is down still has to say which build it is")
+			assert.Equal(t, version.Commit(), body.Commit,
+				"the commit is what the panel compares, since two builds of it are stamped differently")
 		})
 	}
 }

@@ -133,7 +133,7 @@ func probeServer(ctx context.Context, addr string) serverProbe {
 	var body server.Health
 	if err := json.NewDecoder(res.Body).Decode(&body); err == nil {
 		probe.version = body.Version
-		probe.current = body.Version == version.Version()
+		probe.current = sameBuild(body, version.Version(), version.Commit())
 	}
 
 	return probe

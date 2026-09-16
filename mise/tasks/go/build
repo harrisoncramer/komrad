@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
+source "$MISE_CONFIG_ROOT/mise/tasks/_build"
 #MISE description="Build the weave binary."
 set -euo pipefail
 cd "$MISE_CONFIG_ROOT"
-go build -o bin/weave .
+go_build_local bin/weave
