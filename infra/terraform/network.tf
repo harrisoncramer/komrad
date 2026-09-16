@@ -38,6 +38,17 @@ resource "aws_security_group" "weave" {
   name_prefix = "${var.name}-instance-"
   vpc_id      = aws_vpc.weave.id
 
+  dynamic "ingress" {
+    for_each = length(var.ssh_allowed_cidrs) > 0 ? [1] : []
+
+    content {
+      cidr_blocks = var.ssh_allowed_cidrs
+      from_port   = 22
+      protocol    = "tcp"
+      to_port     = 22
+    }
+  }
+
   egress {
     cidr_blocks = ["0.0.0.0/0"]
     from_port   = 0

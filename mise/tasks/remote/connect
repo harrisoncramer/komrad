@@ -1,0 +1,88 @@
+#!/usr/bin/env bash
+source "$MISE_CONFIG_ROOT/mise/tasks/_"
+set -euo pipefail
+#MISE description="Open a shell on the remote engine, or run one command there."
+
+usage() {
+	echo "Usage: mise run remote:connect [-- command...]"
+	echo
+	echo "Opens a shell on the engine as the weave account over ssh. With a command after --"
+	echo "it runs that instead and returns, which is what a script wants."
+	echo
+	echo "The address comes from Terraform, the key from WEAVE_ENGINE_KEY, and the connection"
+	echo "is shared, so a second call costs a fraction of the first."
+	echo
+	echo "  mise run remote:connect"
+	echo "  mise run remote:connect -- systemctl status weave"
+	echo "  mise run remote:connect -- tmux -L weave list-sessions"
+}
+
+for arg in "$@"; do
+	case "$arg" in
+	-h | --help)
+		usage
+		exit 0
+		;;
+	esac
+done
+
+cd "$MISE_CONFIG_ROOT"
+
+# The backend reads state as whoever the environment is, and it takes no profile of its own, so
+# the one the provider was given is used unless the environment already names one.
+if [ -z "${AWS_PROFILE:-}" ] && [ -f infra/terraform/terraform.tfvars ]; then
+	PROFILE="$(sed -n 's/^[[:space:]]*aws_profile[[:space:]]*=[[:space:]]*"\(.*\)"[[:space:]]*$/\1/p' \
+		infra/terraform/terraform.tfvars | head -1)"
+	if [ -n "$PROFILE" ]; then
+		export AWS_PROFILE="$PROFILE"
+	fi
+fi
+
+HOST="${WEAVE_ENGINE_HOST:-}"
+
+if [ -z "$HOST" ]; then
+	if [ ! -d infra/terraform/.terraform ] && [ -f infra/terraform/backend.hcl ]; then
+		terraform -chdir=infra/terraform init \
+			-backend-config=backend.hcl -input=false >/dev/null 2>&1 || true
+	fi
+
+	REASON="$(terraform -chdir=infra/terraform output -raw instance_public_ip 2>&1 >/dev/null || true)"
+	HOST="$(terraform -chdir=infra/terraform output -raw instance_public_ip 2>/dev/null || true)"
+fi
+
+if [ -z "$HOST" ]; then
+	echo "no engine to connect to, because its address could not be read from Terraform:" >&2
+	echo "${REASON:-no state and no instance_public_ip output}" | head -8 >&2
+	echo >&2
+	echo "Set WEAVE_ENGINE_HOST to skip Terraform entirely." >&2
+	exit 1
+fi
+
+KEY="${WEAVE_ENGINE_KEY:-$HOME/.ssh/weave_engine}"
+
+if [ ! -f "$KEY" ]; then
+	echo "no key at $KEY, so the engine will refuse the connection." >&2
+	echo >&2
+	echo "That key is the one whose public half Terraform put in the instance's authorized_keys," >&2
+	echo "as ssh_public_key in terraform.tfvars. Set WEAVE_ENGINE_KEY if yours lives elsewhere." >&2
+	exit 1
+fi
+
+USER_NAME="${WEAVE_ENGINE_USER:-weave}"
+
+# The same control path the panel's own transport uses, so a shell opened here and a stage pane
+# attaching share one connection rather than building two.
+SSH_ARGS=(
+	-o ControlMaster=auto
+	-o ControlPersist=10m
+	-o "ControlPath=/tmp/cm-weave-%r@%h:%p"
+	-o StrictHostKeyChecking=accept-new
+	-o ConnectTimeout=10
+	-i "$KEY"
+)
+
+if [ "$#" -gt 0 ]; then
+	exec ssh "${SSH_ARGS[@]}" "${USER_NAME}@${HOST}" "$@"
+fi
+
+exec ssh -t "${SSH_ARGS[@]}" "${USER_NAME}@${HOST}"

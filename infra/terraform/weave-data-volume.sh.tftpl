@@ -29,5 +29,14 @@ ENV
 # has to be fetched before weave can start, so each is started in turn rather than left
 # to systemd's own ordering.
 systemctl start weave-data-volume.service
+
+# The home this writes into lives on the data volume, so it has to follow the mount above.
+if [ -n "${ssh_public_key}" ]; then
+	install -d -m 700 -o weave -g weave /var/lib/weave/home/.ssh
+	printf '%s\n' "${ssh_public_key}" >/var/lib/weave/home/.ssh/authorized_keys
+	chmod 600 /var/lib/weave/home/.ssh/authorized_keys
+	chown weave:weave /var/lib/weave/home/.ssh/authorized_keys
+fi
+
 systemctl start weave-database-credentials.service
 systemctl start weave.service

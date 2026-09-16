@@ -134,3 +134,18 @@ variable "database_final_snapshot" {
   type    = string
   default = "weave-development-final"
 }
+
+variable "ssh_public_key" {
+  type    = string
+  default = ""
+}
+
+variable "ssh_allowed_cidrs" {
+  type    = list(string)
+  default = []
+
+  validation {
+    condition     = !contains(var.ssh_allowed_cidrs, "0.0.0.0/0")
+    error_message = "Reaching the engine is gated by the source address, so the whole internet is refused here."
+  }
+}
