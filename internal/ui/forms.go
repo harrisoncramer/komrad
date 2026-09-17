@@ -483,6 +483,21 @@ func (m *model) holdForm() tea.Cmd {
 	return nil
 }
 
+// redrawOpenForm draws the form on screen again from the listing as it stands now, leaving the
+// cursor on the field it was on.
+func (m *model) redrawOpenForm() tea.Cmd {
+	if !m.form.isActive() || m.held.active {
+		return nil
+	}
+
+	key := ""
+	if focused := m.form.form.GetFocusedField(); focused != nil {
+		key = focused.GetKey()
+	}
+
+	return m.redrawFormOn(key)
+}
+
 func (m *model) rebuildForm() tea.Cmd {
 	if m.form.rebuild == nil {
 		return nil

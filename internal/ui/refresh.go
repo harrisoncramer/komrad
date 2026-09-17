@@ -3,6 +3,7 @@ package ui
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"strings"
 	"sync"
 	"time"
@@ -188,6 +189,8 @@ func (m *model) applyRefresh(result refreshResult) tea.Cmd {
 	archiveRow := rowKeyAt(m.archiveRows(), m.archive.cursor)
 	searchRow := m.hoveredHitKey()
 
+	before := m.listing
+
 	if result.workflowsErr == nil {
 		m.applyWorkflows(result.workflows)
 	}
@@ -213,6 +216,13 @@ func (m *model) applyRefresh(result refreshResult) tea.Cmd {
 
 	preview := m.placeSearchHit(searchRow)
 
+	// A form draws its options from the listing it was built over, so it is drawn again when
+	// that listing moves under it.
+	var redrawn tea.Cmd
+	if !reflect.DeepEqual(before.workflows, m.listing.workflows) {
+		redrawn = m.redrawOpenForm()
+	}
+
 	// Explainer: a form drawn over the list holds the stage as it was when it went up, and the
 	// review draws a diff this pass knows nothing about.
 	//
@@ -222,7 +232,7 @@ func (m *model) applyRefresh(result refreshResult) tea.Cmd {
 		spec.stage(m)
 	}
 
-	return preview
+	return tea.Batch(preview, redrawn)
 }
 
 func (r refreshResult) err() error {
