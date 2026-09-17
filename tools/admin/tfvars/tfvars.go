@@ -4,6 +4,12 @@
 // simply rewrite the file. Nor can it reach for sed, since a value may be a list spread over
 // several lines and the file carries the alignment and comments somebody chose. This reads the
 // one assignment it was asked about and writes back the same file with that value replaced.
+//
+// Comments are blanked byte for byte rather than rune by rune when the list is scanned. Everything the scan looks for is ASCII, and keeping the length is what lets an index
+// taken from the blanked copy point at the same place in the original. One space per rune
+// shortens the copy wherever a comment holds a wider character, and slicing the original at a
+// short index cuts an entry mid-value, which leaves a file that still parses and an address
+// that is quietly wrong.
 package tfvars
 
 import (
@@ -122,32 +128,30 @@ func holds(inner, value string) bool {
 	return quoted.MatchString(withoutComments(inner))
 }
 
-// withoutComments blanks what a comment covers, keeping the length so offsets still line up.
+// withoutComments blanks what a comment covers, byte for byte, so every offset stays where it was.
 func withoutComments(inner string) string {
-	var out strings.Builder
+	out := []byte(inner)
 
 	commented := false
 
-	for index, char := range inner {
+	for index := 0; index < len(out); index++ {
 		switch {
-		case char == '\n':
+		case out[index] == '\n':
 			commented = false
-		case char == '#':
-			commented = true
-		case char == '/' && index+1 < len(inner) && inner[index+1] == '/':
-			commented = true
-		}
-
-		if commented && char != '\n' {
-			out.WriteByte(' ')
 
 			continue
+		case out[index] == '#':
+			commented = true
+		case out[index] == '/' && index+1 < len(out) && out[index+1] == '/':
+			commented = true
 		}
 
-		out.WriteRune(char)
+		if commented {
+			out[index] = ' '
+		}
 	}
 
-	return out.String()
+	return string(out)
 }
 
 // extended is the list with a value added, written so that whatever is already inside the
@@ -157,6 +161,17 @@ func extended(inner, value string) string {
 
 	last := lastEntry(inner)
 	if last < 0 {
+		// An empty list written over lines keeps its shape too, rather than having its closing
+		// bracket pulled up onto the entry.
+		if strings.Contains(inner, "\n") {
+			indent := indentOf(inner, len(inner))
+			if indent == "" {
+				indent = "  "
+			}
+
+			return "\n" + indent + quoted + "," + inner
+		}
+
 		return inner + quoted
 	}
 

@@ -158,3 +158,47 @@ func TestAddFillsAnEmptyList(t *testing.T) {
 		t.Fatalf("got %q", got)
 	}
 }
+
+// TestAddSurvivesANonAsciiComment covers a comment holding a character of more than one byte,
+// where blanking by rune shifts every later offset and slices an existing entry mid-value.
+func TestAddSurvivesANonAsciiComment(t *testing.T) {
+	const file = "ssh_allowed_cidrs = [\n  \"1.1.1.1/32\", # café\n  \"2.2.2.2/32\",\n]\n"
+	const want = "ssh_allowed_cidrs = [\n  \"1.1.1.1/32\", # café\n  \"2.2.2.2/32\",\n  \"9.9.9.9/32\",\n]\n"
+
+	got, changed, err := add(file, "ssh_allowed_cidrs", "9.9.9.9/32")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !changed || got != want {
+		t.Fatalf("got %q, want %q", got, want)
+	}
+}
+
+// TestWithoutCommentsKeepsEveryOffset covers the invariant the blanking exists for, which is
+// that an index taken from the copy points at the same byte in the original.
+func TestWithoutCommentsKeepsEveryOffset(t *testing.T) {
+	for _, inner := range []string{
+		"\n  \"1.1.1.1/32\", # café\n",
+		"\n  \"1.1.1.1/32\", // naïve\n  \"2.2.2.2/32\",\n",
+		"\"1.1.1.1/32\"",
+	} {
+		if got := len(withoutComments(inner)); got != len(inner) {
+			t.Fatalf("blanking %q gave %d bytes, want %d", inner, got, len(inner))
+		}
+	}
+}
+
+// TestAddKeepsAnEmptyListOnItsOwnLines covers a list written open across lines with nothing in
+// it yet, where filling it should not pull the closing bracket up.
+func TestAddKeepsAnEmptyListOnItsOwnLines(t *testing.T) {
+	got, _, err := add("ssh_allowed_cidrs = [\n]\n", "ssh_allowed_cidrs", "9.9.9.9/32")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	const want = "ssh_allowed_cidrs = [\n  \"9.9.9.9/32\",\n]\n"
+	if got != want {
+		t.Fatalf("got %q, want %q", got, want)
+	}
+}

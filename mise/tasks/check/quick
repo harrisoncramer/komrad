@@ -133,6 +133,7 @@ PROTO_LINTED=false
 PACKAGES=()
 DIRS=()
 MODULES_RUN=()
+MODULES_LINTED=false
 while IFS= read -r pkg; do
 	[ -n "$pkg" ] || continue
 	PACKAGES+=("$pkg")
@@ -174,6 +175,7 @@ while IFS= read -r module; do
 	run_step "go test ($module)" bash -c "cd '$module' && gotestsum --format pkgname -- ./..."
 
 	if [ -x "$BIN_PATH" ]; then
+		MODULES_LINTED=true
 		run_step "go lint ($module)" bash -c "cd '$module' && '$BIN_PATH' run --config '$MISE_CONFIG_ROOT/.golangci.yaml' --timeout 5m ./..."
 	fi
 
@@ -202,7 +204,12 @@ echo
 echo "  built     every package"
 
 if ((${#MODULES_RUN[@]} > 0)); then
-	echo "  built     every package in ${MODULES_RUN[*]}, and tested and linted it"
+	if [ "$MODULES_LINTED" = true ]; then
+		echo "  tested    ${MODULES_RUN[*]}, a module of its own, and linted it"
+	else
+		echo "  tested    ${MODULES_RUN[*]}, a module of its own"
+		echo "  linted    not that module: local/custom-gcl is missing, run 'mise run go:build-linter'"
+	fi
 fi
 
 if ((${#PACKAGES[@]} == 0)) && ((${#MODULES_RUN[@]} == 0)); then

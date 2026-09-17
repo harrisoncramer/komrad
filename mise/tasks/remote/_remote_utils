@@ -97,20 +97,35 @@ allows_address() {
 	return 1
 }
 
-# reachable reports whether anything answers ssh, using bash's own tcp support so that no
-# external command has to be present or spell its timeout a particular way.
+# reachable reports whether anything answers ssh within a few seconds, using bash's own tcp
+# support so that no external command has to be present or spell its timeout a particular way.
 reachable() {
 	local host=$1
 
-	timeout_connect "$host" 22
+	timeout_connect "$host" 22 5
 }
 
+# timeout_connect bounds the wait itself, because a firewall dropping packets is a black hole
+# and the kernel waits about a minute and a quarter before giving up on one. That is the case
+# this is here to diagnose, so it is the one that must not sit silent.
 timeout_connect() {
-	local host=$1 port=$2
+	local host=$1 port=$2 seconds=$3 pid killer status
+
+	(exec 3<>"/dev/tcp/$host/$port") 2>/dev/null &
+	pid=$!
 
 	(
-		exec 3<>"/dev/tcp/$host/$port"
-	) 2>/dev/null
+		sleep "$seconds"
+		kill "$pid" 2>/dev/null
+	) &
+	killer=$!
+
+	wait "$pid" 2>/dev/null
+	status=$?
+
+	kill "$killer" 2>/dev/null
+
+	return "$status"
 }
 
 # require_output reads one output, and says what to do when there is no infrastructure to read.
