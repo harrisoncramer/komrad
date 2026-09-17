@@ -1,0 +1,102 @@
+#!/usr/bin/env bash
+source "$MISE_CONFIG_ROOT/mise/tasks/_"
+source "$MISE_CONFIG_ROOT/mise/tasks/remote/_remote_utils"
+set -euo pipefail
+#MISE description="Let this machine's address through the engine's firewall."
+
+usage() {
+	echo "Usage: mise run remote:allow [address] [-- <terraform args>]"
+	echo
+	echo "Adds an address to the ones allowed to reach the engine over ssh, and applies it."
+	echo "With no argument it uses the address this machine currently appears as, which is"
+	echo "what you want after moving between networks."
+	echo
+	echo "The instance is not touched. Only the firewall rule changes."
+	echo
+	echo "  mise run remote:allow"
+	echo "  mise run remote:allow 203.0.113.4"
+	echo "  mise run remote:allow 203.0.113.0/24"
+	echo
+	echo "Needs AWS credentials in the environment, as AWS_PROFILE or the access key variables."
+}
+
+for arg in "$@"; do
+	case "$arg" in
+	-h | --help)
+		usage
+		exit 0
+		;;
+	esac
+done
+
+cd "$MISE_CONFIG_ROOT"
+
+require_aws_profile
+
+ADDRESS=""
+TERRAFORM_ARGS=()
+
+for arg in "$@"; do
+	case "$arg" in
+	[0-9]*)
+		ADDRESS="$arg"
+		;;
+	--) ;;
+	*)
+		TERRAFORM_ARGS+=("$arg")
+		;;
+	esac
+done
+
+if [ -z "$ADDRESS" ]; then
+	ADDRESS="$(public_address)"
+
+	if [ -z "$ADDRESS" ]; then
+		echo "could not work out how this machine appears from outside, so there is nothing to add." >&2
+		echo >&2
+		echo "Pass the address yourself." >&2
+		exit 1
+	fi
+fi
+
+case "$ADDRESS" in
+*/*) ;;
+*) ADDRESS="$ADDRESS/32" ;;
+esac
+
+# The file rather than the state, because an output added but not yet applied reads as empty,
+# and an empty answer must not read as "not allowed yet".
+if grep -q "\"$ADDRESS\"" infra/terraform/terraform.tfvars; then
+	gum log --level info "$ADDRESS already reaches the engine"
+	exit 0
+fi
+
+gum log --level info "allowing $ADDRESS, beside $(terraform_output_list ssh_allowed_cidrs || true)"
+
+python3 - "$ADDRESS" <<'PY'
+import re
+import sys
+
+path, address = "infra/terraform/terraform.tfvars", sys.argv[1]
+text = open(path).read()
+
+match = re.search(r'^[ \t]*ssh_allowed_cidrs[ \t]*=[ \t]*\[(.*?)\]', text, re.M | re.S)
+
+if match is None:
+    sys.exit("no ssh_allowed_cidrs line to change in " + path)
+
+existing = [part.strip() for part in match.group(1).split(",") if part.strip()]
+wanted = '"' + address + '"'
+
+if wanted in existing:
+    sys.exit(0)
+
+existing.append(wanted)
+
+updated = text[: match.start(1)] + ", ".join(existing) + text[match.end(1) :]
+open(path, "w").write(updated)
+PY
+
+terraform -chdir=infra/terraform apply -input=false "${TERRAFORM_ARGS[@]+"${TERRAFORM_ARGS[@]}"}"
+
+gum log --level info "$ADDRESS now reaches the engine"

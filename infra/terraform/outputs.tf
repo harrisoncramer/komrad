@@ -29,3 +29,7 @@ output "state_bucket" {
 output "ami_parameter" {
   value = "/${var.name}/engine/ami-id"
 }
+
+output "ssh_allowed_cidrs" {
+  value = var.ssh_allowed_cidrs
+}

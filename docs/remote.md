@@ -56,6 +56,8 @@ state_bucket                 your Terraform state bucket
 
 Terraform refuses `0.0.0.0/0` for `ssh_allowed_cidrs`.
 
+Home and office addresses usually change on their own, so you will hit this again after moving between networks. When the engine stops answering, `mise run remote:allow` adds whatever address this machine currently has and applies it. Nothing but the firewall rule changes.
+
 > NOTE: This file also has three `github_*` values. They are optional and unrelated to the app, they let this repository's own GitHub Actions get AWS credentials without a stored key. Leave them out.
 
 Point `backend.hcl` at your state bucket. Both files are gitignored.

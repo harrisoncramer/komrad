@@ -33,6 +33,49 @@ terraform_output() {
 	terraform -chdir=infra/terraform output -raw "$name" 2>/dev/null
 }
 
+# terraform_output_list reads an output holding a list, which -raw refuses to print.
+terraform_output_list() {
+	local name=$1
+
+	terraform -chdir=infra/terraform output -json "$name" 2>/dev/null |
+		python3 -c 'import json,sys; print(" ".join(json.load(sys.stdin)))' 2>/dev/null || true
+}
+
+# public_address is how this machine appears to the engine's firewall, or empty when nothing answers.
+public_address() {
+	curl -fsS --max-time 5 https://checkip.amazonaws.com 2>/dev/null | tr -d "[:space:]"
+}
+
+# refuse_unreachable says why a connection will not be made, since a firewall that drops a packet
+# looks the same from here as a box that is not running.
+refuse_unreachable() {
+	local host=$1 mine allowed
+
+	if nc -z -G 5 "$host" 22 2>/dev/null; then
+		return 0
+	fi
+
+	mine="$(public_address)"
+	allowed="$(terraform_output_list ssh_allowed_cidrs)"
+
+	echo "nothing on $host is answering ssh from this machine." >&2
+	echo >&2
+	echo "  this machine looks like  ${mine:-could not tell}" >&2
+	echo "  the firewall allows      ${allowed:-nothing}" >&2
+	echo >&2
+
+	if [ -n "$mine" ] && [ -n "$allowed" ] && ! printf '%s' "$allowed" | grep -qF "$mine"; then
+		echo "Your address is not one of those, which is what happens after you change network." >&2
+		echo "Add it with:" >&2
+		echo >&2
+		echo "  mise run remote:allow" >&2
+	else
+		echo "Your address is allowed, so the engine itself is not answering. Check it is running." >&2
+	fi
+
+	exit 1
+}
+
 # require_output reads one output, and says what to do when there is no infrastructure to read.
 require_output() {
 	local name=$1 value

@@ -54,6 +54,8 @@ if [ ! -f "$KEY" ]; then
 	exit 1
 fi
 
+refuse_unreachable "$HOST"
+
 USER_NAME="${WEAVE_ENGINE_USER:-weave}"
 
 # The address outlives the instance, so a rebuild answers on it with a new host key. The known
@@ -63,7 +65,7 @@ touch "$KNOWN_HOSTS"
 chmod 600 "$KNOWN_HOSTS"
 
 RECORDED="$(ssh-keygen -F "$HOST" -f "$KNOWN_HOSTS" 2>/dev/null | grep -c . || true)"
-LIVE="$(ssh-keyscan -T 5 -t ed25519 "$HOST" 2>/dev/null | grep -v "^#" | head -1)"
+LIVE="$(ssh-keyscan -T 5 -t ed25519 "$HOST" 2>/dev/null | grep -v "^#" | head -1 || true)"
 
 if [ "$RECORDED" != "0" ] && [ -n "$LIVE" ] && ! grep -qxF "$LIVE" "$KNOWN_HOSTS"; then
 	echo "the engine at $HOST answers with a new host key, which is what a rebuilt instance does." >&2
