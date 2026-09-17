@@ -275,12 +275,14 @@ func (s *LaunchService) planLaunch(ctx context.Context, params NewAgentParams) (
 		return nil, fmt.Errorf("failed to look up workflow %q: %w", params.WorkflowID, err)
 	}
 
+	workflowHarness := strings.TrimSpace(wf.Harness)
+	if workflowHarness == "" {
+		workflowHarness = s.userDefaultHarness
+	}
+
 	harnessID := strings.TrimSpace(params.Harness)
 	if harnessID == "" {
-		harnessID = strings.TrimSpace(wf.Harness)
-	}
-	if harnessID == "" {
-		harnessID = s.userDefaultHarness
+		harnessID = workflowHarness
 	}
 
 	hn, err := s.harnesses.GetByID(harnessID)
@@ -303,8 +305,10 @@ func (s *LaunchService) planLaunch(ctx context.Context, params NewAgentParams) (
 		return nil, err
 	}
 
+	// A workflow's flags are written for the CLI it names, so an agent running a different one
+	// is launched without them.
 	agentFlags := strings.TrimSpace(params.Flags)
-	if agentFlags == "" {
+	if agentFlags == "" && harnessID == workflowHarness {
 		agentFlags = strings.TrimSpace(wf.Flags)
 	}
 

@@ -604,9 +604,15 @@ func (m model) openNewChild(parent agentstore.Agent) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	values := agentFormValues{Harness: parent.Harness, Flags: parent.Flags}
+	values := childPrefill(parent)
 
 	return m.openChildForm(parent, &values)
+}
+
+// childPrefill is the child form as the parent leaves it, carrying no flags because the child
+// may be asked to run another CLI.
+func childPrefill(parent agentstore.Agent) agentFormValues {
+	return agentFormValues{Harness: parent.Harness}
 }
 
 func (m model) openChildForm(parent agentstore.Agent, values *agentFormValues) (tea.Model, tea.Cmd) {

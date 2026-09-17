@@ -69,6 +69,34 @@ func TestFormsSubmitWhatIsOnScreen(t *testing.T) {
 			},
 		},
 		{
+			name: "the child form",
+			open: func(t *testing.T, m model) model {
+				parent := agentstore.Agent{
+					ID:         "a1",
+					Name:       "author",
+					WorkflowID: "w1",
+					Cwd:        "/work/api",
+					Harness:    "claude",
+					Flags:      "--model opus",
+				}
+
+				values := childPrefill(parent)
+				values.Prompt = "run the tests"
+
+				opened, _ := m.openChildForm(parent, &values)
+
+				return asModel(t, opened)
+			},
+			submit: model.answerForm,
+			check: func(t *testing.T, sent *formRecorder) {
+				require.NotNil(t, sent.createdAgent)
+				assert.Equal(t, "run the tests", sent.createdAgent.GetPrompt())
+				assert.Equal(t, "a1", sent.createdAgent.GetParentAgentId())
+				assert.Equal(t, "claude", sent.createdAgent.GetHarness())
+				assert.Empty(t, sent.createdAgent.GetFlags(), "the parent's flags are written for the CLI it runs")
+			},
+		},
+		{
 			name: "the rename form",
 			open: func(t *testing.T, m model) model {
 				name := "api-v2"
