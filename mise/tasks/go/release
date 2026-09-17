@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-#MISE description="Cross-compile the release binaries into dist/ with their checksums."
+source "$MISE_CONFIG_ROOT/mise/tasks/_"
 set -euo pipefail
+#MISE description="Cross-compile the release binaries into dist/ with their checksums."
 
 usage() {
 	echo "Usage: mise run go:release"

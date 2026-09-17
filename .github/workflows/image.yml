@@ -1,0 +1,58 @@
+name: image
+
+# The engine's machine image, on its own clock and pressed by hand.
+#
+# Building an image and applying one are different acts. Building is cheap and changes nothing.
+# Applying replaces the instance and stops every agent on it, which is why this records the id and
+# stops there. Set `ami_id` to it and apply when the box is free, or run `mise run remote:reimage`.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  image:
+    if: vars.AWS_CI_ROLE != ''
+    runs-on: namespace-profile-harrisoncramer
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Mise
+        uses: ./.github/actions/use-mise
+        with:
+          gh-access-token: ${{ env.GH_ACCESS_TOKEN }}
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_CI_ROLE }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      # Dispatched on a tag the image records it, and on a branch it falls back to the revision.
+      - name: Build the image
+        env:
+          WEAVE_VERSION: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
+        run: mise run packer:build | tee /tmp/packer.log
+
+      - name: Record what it built
+        run: |
+          AMI="$(grep -oE 'ami-[0-9a-f]+' /tmp/packer.log | tail -1)"
+          if [ -z "$AMI" ]; then
+            echo "packer printed no ami id, so there is nothing to record" >&2
+            exit 1
+          fi
+
+          aws ssm put-parameter \
+            --name "/${{ vars.ENGINE_NAME || 'weave-development' }}/engine/ami-id" \
+            --type String --overwrite --value "$AMI"
+
+          {
+            echo "### A new engine image is ready"
+            echo
+            echo "    $AMI"
+            echo
+            echo "Applying it replaces the instance and stops every agent on it, so it is not"
+            echo "applied here. Set \`ami_id\` to it in your \`terraform.tfvars\` and apply when"
+            echo "the box is free."
+          } >>"$GITHUB_STEP_SUMMARY"

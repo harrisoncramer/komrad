@@ -32,6 +32,11 @@ variable "weave_revision" {
   default = "unknown"
 }
 
+variable "weave_version" {
+  type    = string
+  default = "unknown"
+}
+
 locals {
   name = "weave-${formatdate("YYYYMMDD-hhmmss", timestamp())}"
 }
@@ -68,6 +73,7 @@ source "amazon-ebs" "weave" {
     Project       = "weave"
     ManagedBy     = "packer"
     WeaveRevision = var.weave_revision
+    WeaveVersion  = var.weave_version
     BaseAmi       = "{{ .SourceAMI }}"
     BaseAmiName   = "{{ .SourceAMIName }}"
   }

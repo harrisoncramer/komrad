@@ -1,0 +1,111 @@
+#!/usr/bin/env bash
+source "$MISE_CONFIG_ROOT/mise/tasks/_"
+set -euo pipefail
+#MISE description="Tag a stable release and push it, which is what builds and publishes one."
+
+usage() {
+	echo "Usage: mise run release:cut v0.3.0"
+	echo
+	echo "Tags this commit and pushes the tag, which is what starts the release workflow."
+	echo "Nothing is built here. The workflow builds the four binaries, publishes a release"
+	echo "with a changelog, and deploys the engine from it."
+	echo
+	echo "The tag has to be pushed from here rather than by CI: a tag pushed with a"
+	echo "workflow's own GITHUB_TOKEN starts no other workflow, so nothing would happen."
+	echo
+	echo "Weave keeps no backward compatibility, so releases stay on v0.x and a minor bump"
+	echo "is the ordinary one."
+}
+
+for arg in "$@"; do
+	case "$arg" in
+	-h | --help)
+		usage
+		exit 0
+		;;
+	esac
+done
+
+cd "$MISE_CONFIG_ROOT"
+
+VERSION="${1:-}"
+
+if [ -z "$VERSION" ]; then
+	usage >&2
+	exit 1
+fi
+
+if ! [[ "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+	echo "'$VERSION' is not a release version. They look like v0.3.0." >&2
+	exit 1
+fi
+
+if tree_is_dirty; then
+	echo "the tree has uncommitted changes, and a tag would not name what they are." >&2
+	exit 1
+fi
+
+BRANCH="$(git rev-parse --abbrev-ref HEAD)"
+if [ "$BRANCH" != "main" ]; then
+	echo "releases are cut from main, and this is $BRANCH." >&2
+	exit 1
+fi
+
+git fetch --quiet origin main
+
+REVISION="$(git rev-parse HEAD)"
+if [ "$REVISION" != "$(git rev-parse origin/main)" ]; then
+	echo "HEAD is not origin/main, so the tag would name a commit nobody else has." >&2
+	echo >&2
+	echo "Pull, or push what you have, and try again." >&2
+	exit 1
+fi
+
+if git rev-parse -q --verify "refs/tags/$VERSION" >/dev/null ||
+	[ -n "$(git ls-remote --tags origin "refs/tags/$VERSION")" ]; then
+	echo "$VERSION has been released already." >&2
+	echo >&2
+	echo "A release that failed part way is re-run rather than re-tagged:" >&2
+	echo >&2
+	echo "  gh workflow run release.yml --ref $VERSION" >&2
+	exit 1
+fi
+
+# A release is cut from a commit that is known good rather than from one that looks good, and
+# main is only always-releasable because this refuses when it is not. The run has to be the one
+# main's own push started: a pull request run on the same sha is filtered by paths, and the newest
+# run for a sha is not necessarily the one that tested it.
+if ! RUN="$(gh run list --commit "$REVISION" --workflow ci.yml --event push --branch main \
+	--json conclusion,databaseId --jq '.[0] // {} | "\(.conclusion // "") \(.databaseId // "")"')"; then
+	echo "could not ask GitHub about CI on $(git rev-parse --short HEAD)." >&2
+	echo >&2
+	echo "Check that gh is logged in with 'gh auth status'." >&2
+	exit 1
+fi
+
+CONCLUSION="${RUN%% *}"
+RUN_ID="${RUN##* }"
+
+# Merges landing close together leave the ones in the middle cancelled while pending, which tested
+# nothing, so those are refused too and the way out is to run them rather than to wait.
+if [ "$CONCLUSION" != "success" ]; then
+	echo "CI on $(git rev-parse --short HEAD) is '${CONCLUSION:-missing}', not success." >&2
+	echo >&2
+
+	if [ -n "$RUN_ID" ]; then
+		echo "  gh run rerun $RUN_ID && gh run watch $RUN_ID" >&2
+	else
+		echo "Nothing has run against this commit yet." >&2
+	fi
+
+	exit 1
+fi
+
+gum log --level info "tagging $(git rev-parse --short HEAD) as $VERSION"
+
+git tag -a "$VERSION" -m "$VERSION"
+git push origin "refs/tags/$VERSION"
+
+echo "pushed $VERSION. The release is building:"
+echo
+echo "  gh run watch \$(gh run list --workflow release.yml --limit 1 --json databaseId --jq '.[0].databaseId')"

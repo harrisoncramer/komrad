@@ -15,12 +15,18 @@ locals {
 
   github_identified = var.github_owner_id != "" && var.github_repository_id != ""
 
-  github_subjects = [
-    "repo:${var.github_repository}:ref:refs/heads/*",
-    local.github_identified
-    ? "repo:${local.github_owner}@${var.github_owner_id}/${local.github_name}@${var.github_repository_id}:ref:refs/heads/*"
-    : "repo:${local.github_owner}@*/${local.github_name}@*:ref:refs/heads/*",
-  ]
+  # A release runs for a tag rather than a branch, so both refs are named. Without the tag arm the
+  # deploy a release triggers cannot assume this role at all.
+  github_refs = ["refs/heads/*", "refs/tags/*"]
+
+  github_subjects = flatten([
+    for ref in local.github_refs : [
+      "repo:${var.github_repository}:ref:${ref}",
+      local.github_identified
+      ? "repo:${local.github_owner}@${var.github_owner_id}/${local.github_name}@${var.github_repository_id}:ref:${ref}"
+      : "repo:${local.github_owner}@*/${local.github_name}@*:ref:${ref}",
+    ]
+  ])
 }
 
 resource "aws_iam_openid_connect_provider" "github" {
