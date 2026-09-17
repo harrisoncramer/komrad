@@ -1,0 +1,77 @@
+name: release
+
+# A stable release, which is a semver tag on main. Cut one with `mise run release:cut v0.3.0`.
+#
+# A tag push is one-shot, so a release that failed halfway is retried by dispatch rather than by
+# moving the tag. Dispatch it on the tag itself:
+#
+#     gh workflow run release.yml --ref v0.3.0
+#
+# The rolling `tip` channel in main-release.yml is untouched and still republishes on every merge.
+# This channel promises a version; tip deliberately promises none.
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: read
+  id-token: write
+
+jobs:
+  # Answered before the suite is spent on it, since a dispatch is hand-typed.
+  tag:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Refuse anything that is not a tag
+        if: github.ref_type != 'tag'
+        run: |
+          echo "release runs against a tag, and this is ${{ github.ref_type }} ${{ github.ref_name }}." >&2
+          echo "Dispatch it with --ref v0.3.0 rather than on a branch." >&2
+          exit 1
+
+  check:
+    needs: tag
+    uses: ./.github/workflows/ci.yml
+    secrets: inherit
+
+  publish:
+    needs: check
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: jdx/mise-action@v2
+        with:
+          install: true
+          cache: true
+
+      - name: Build
+        run: mise run go:release
+        env:
+          WEAVE_VERSION: ${{ github.ref_name }}
+
+      # --generate-notes is what makes this a release. GitHub writes the changelog from the pull requests merged since the last tag.
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            gh release create "$TAG" --title "$TAG" --generate-notes --verify-tag
+          fi
+
+          gh release upload "$TAG" dist/* --clobber
+
+  # The engine follows published releases rather than every merge, so an intermediate commit that
+  # breaks it no longer costs every agent on the box. This installs a binary and restarts the
+  # service; it does not replace the instance.
+  deploy:
+    needs: publish
+    uses: ./.github/workflows/engine.yml
+    secrets: inherit
+    with:
+      run_checks: false
+      version: ${{ github.ref_name }}

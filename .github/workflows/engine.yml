@@ -1,20 +1,34 @@
 name: engine
 
-# Keeps the remote engine current with main.
+# Puts a build on the remote engine. Two ways in, and they want different things.
 #
-# Two things go stale and they are not updated the same way. The binary changes on every merge, and
-# replacing it is cheap and leaves the agents running, so that happens here automatically. The
-# machine image changes when the units or the provisioning scripts change, and taking a new image
-# means replacing the instance, which stops every agent on it. So the image is built here and its
-# id recorded, and applying it is left to a person who knows what is running.
+# A release calls this workflow once it has published, which is the ordinary path and the reason
+# merging and shipping are no longer the same act. A dispatch names any ref and deploys it, which
+# is the escape hatch: it needs no AWS credentials on your own machine, so it works when the
+# laptop is the broken thing. The checks run on that path and not on the release path, where the
+# commit has already passed them twice.
 #
 # CI reaches the engine through Systems Manager rather than ssh, because the engine only accepts
 # ssh from named addresses and a runner does not have one.
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
+    inputs:
+      run_checks:
+        description: Run the full suite before touching the engine
+        type: boolean
+        default: true
+  workflow_call:
+    inputs:
+      run_checks:
+        type: boolean
+        default: true
+      version:
+        description: What the deployed binary should report, blank for the usual engine stamp
+        type: string
+        default: ""
 
+# One machine, so one deploy at a time. The group is a literal because github.workflow
+# resolves to the caller here, which would split the two entry points into separate groups.
 concurrency:
   group: engine
   cancel-in-progress: false
@@ -26,28 +40,14 @@ permissions:
 
 jobs:
   ci:
+    if: inputs.run_checks
     uses: ./.github/workflows/ci.yml
     secrets: inherit
 
-  changes:
-    runs-on: namespace-profile-harrisoncramer
-    outputs:
-      image: ${{ steps.filter.outputs.image }}
-    steps:
-      - uses: actions/checkout@v4
-
-      - id: filter
-        uses: dorny/paths-filter@v3
-        with:
-          filters: |
-            image:
-              - 'packer/**'
-              - 'mise/tasks/packer/**'
-              - '.github/workflows/engine.yml'
-
+  # A skipped check is not a failed one, so this runs when the suite passed or did not run.
   deploy:
-    needs: [ci, changes]
-    if: vars.AWS_CI_ROLE != ''
+    needs: ci
+    if: ${{ !failure() && !cancelled() && vars.AWS_CI_ROLE != '' }}
     runs-on: namespace-profile-harrisoncramer
     steps:
       - uses: actions/checkout@v4
@@ -78,46 +78,6 @@ jobs:
         run: mise run terraform:init -- -lockfile=readonly
 
       - name: Put this build on the engine
+        env:
+          WEAVE_VERSION: ${{ inputs.version }}
         run: mise run remote:deploy
-
-  image:
-    needs: [ci, changes]
-    if: needs.changes.outputs.image == 'true' && vars.AWS_CI_ROLE != ''
-    runs-on: namespace-profile-harrisoncramer
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Use Mise
-        uses: ./.github/actions/use-mise
-        with:
-          gh-access-token: ${{ env.GH_ACCESS_TOKEN }}
-
-      - uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: ${{ vars.AWS_CI_ROLE }}
-          aws-region: ${{ vars.AWS_REGION }}
-
-      - name: Build the image
-        run: mise run packer:build | tee /tmp/packer.log
-
-      - name: Record what it built
-        run: |
-          AMI="$(grep -oE 'ami-[0-9a-f]+' /tmp/packer.log | tail -1)"
-          if [ -z "$AMI" ]; then
-            echo "packer printed no ami id, so there is nothing to record" >&2
-            exit 1
-          fi
-
-          aws ssm put-parameter \
-            --name "/${{ vars.ENGINE_NAME || 'weave-development' }}/engine/ami-id" \
-            --type String --overwrite --value "$AMI"
-
-          {
-            echo "### A new engine image is ready"
-            echo
-            echo "    $AMI"
-            echo
-            echo "Applying it replaces the instance and stops every agent on it, so it is not"
-            echo "applied here. Set \`ami_id\` to it in your \`terraform.tfvars\` and apply when"
-            echo "the box is free."
-          } >>"$GITHUB_STEP_SUMMARY"

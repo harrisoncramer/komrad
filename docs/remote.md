@@ -236,19 +236,21 @@ Weave's home is on the data volume, so both survive a new image.
 
 ## Updating
 
-The binary changes often. This does not disturb running agents. CI deploys the engine on every merge to main, so the engine is usually main's tip and it is the weave on your own machine that falls behind. If you have this repo checked out locally, you can also deploy by hand:
+The binary changes often. This does not disturb running agents. CI deploys the engine when a release is published, so the engine sits at the last release until somebody cuts another, and it is usually the weave on your own machine that has moved. If you have this repo checked out locally, you can deploy by hand:
 
 ```
 mise run remote:deploy
 ```
 
-The panel refuses to talk to an engine running other code, and it decides that on the commit each binary was built from rather than on the version each prints. The two are stamped differently on purpose, so `weave version` and `weave doctor` show the engine as `v0.0.0-engine.<commit>` and your own binary as a pseudo-version, and they agree as long as both were built from the same commit. Deploy from a clean checkout and build your own weave from it.
+You can also deploy any ref without local AWS credentials at all, by dispatching the `engine` workflow on it from the Actions tab. That is the way in when the machine in front of you is the problem.
+
+The panel refuses to talk to an engine running other code, and it decides that on the commit each binary was built from rather than on the version each prints. So whatever channel you are on, your own weave and the engine's weave have to come from the same place: install both from the same release, or deploy from a clean checkout and build your own weave from it. `weave version` and `weave doctor` show both builds, the engine as its release tag or `v0.0.0-engine.<commit>` and your own as whatever it was built as.
 
 The refusal happens as the panel opens, once the forward to the engine is up. Instead of drawing, it names both builds and closes on any key. The engine is untouched by this and every agent on it keeps running, so the fix is on your own machine: rebuild your weave from the commit the engine is serving, which is what `weave doctor` says too. Deploying your own build over the engine is the other way out, and it is the wrong one whenever the engine is ahead of you, because it puts older code back on the box every agent is running under.
 
 Deploying from a tree with uncommitted changes is the exception, because there is no commit that names what was built. The deploy stamps a version instead and leaves a matching binary at `dist/weave-panel`; put that in place of your own weave, or doctor will report the engine as a different build.
 
-The image changes rarely, when the units or provisioning scripts do. CI builds a new one whenever something under `packer/` reaches main, and records it without applying it.
+The image changes rarely, when the units or provisioning scripts do. Dispatch the `image` workflow to build one; it records the id without applying it, because applying stops every agent on the box.
 
 ```
 mise run remote:reimage

@@ -7,8 +7,9 @@ usage() {
 	echo "Usage: mise run packer:build [-- <packer args>]"
 	echo
 	echo "Builds the weave machine image in AWS and prints the resulting AMI id."
-	echo "The image is stamped with the revision this repository is on, so the id"
-	echo "can be traced back to a commit."
+	echo "The image is tagged with the revision baked into it, and with WEAVE_VERSION when"
+	echo "one is set. Neither says what the instance ends up running: the binary is replaced"
+	echo "on the next deploy."
 }
 
 for arg in "$@"; do
@@ -23,13 +24,15 @@ done
 cd "$MISE_CONFIG_ROOT"
 
 REVISION="$(git rev-parse --short HEAD)"
+VERSION="${WEAVE_VERSION:-v0.0.0-ami.$REVISION}"
 
-go_build_binary linux arm64 "v0.0.0-ami.$REVISION" dist/weave-linux-arm64
+go_build_binary linux arm64 "$VERSION" dist/weave-linux-arm64
 
 cd packer
 
 packer init .
 packer build \
 	-var "weave_revision=$REVISION" \
+	-var "weave_version=$VERSION" \
 	"$@" \
 	.
