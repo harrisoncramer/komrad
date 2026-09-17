@@ -108,7 +108,7 @@ func writePlan(out io.Writer, value plan) error {
 	return nil
 }
 
-// buildable is the packages holding at least one Go file the current build tags let in, since a package gated entirely behind a tag can be linted but not tested.
+// buildable is the packages holding at least one Go file the current build tags let in.
 func buildable(pkgs []listed) map[string]bool {
 	set := map[string]bool{}
 

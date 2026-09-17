@@ -171,10 +171,14 @@ else
 	fi
 
 	if [ "$LINTED" = true ]; then
-		if ((CHANGED_COUNT > TESTED_COUNT)); then
-			echo "  linted    those and $((CHANGED_COUNT - TESTED_COUNT)) more that only build under a build tag"
-		else
+		TAG_ONLY=$((CHANGED_COUNT - TESTED_COUNT))
+
+		if ((TAG_ONLY == 0)); then
 			echo "  linted    the same packages"
+		elif [ "$TESTED_COUNT" = "0" ]; then
+			echo "  linted    $TAG_ONLY package(s), which is everything that changed"
+		else
+			echo "  linted    those and $TAG_ONLY more that only build under a build tag"
 		fi
 	else
 		echo "  linted    nothing: local/custom-gcl is missing, run 'mise run go:build-linter'"
