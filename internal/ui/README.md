@@ -150,9 +150,14 @@ does not hold the keys carries no hue at all.
 focus.go is the map of the regions: the list, the block beside it, the record under it, the
 message under that, and the review's conversation. holdsKeys says which of them the keys are
 on and m.palette hands back what that region draws in, so a screen asks for its own region's
-palette and everything under it follows. An agent's own pane is not one of these: it is
-another process drawing in its own colours, and the panel greys itself whole while the keys
-are on it.
+palette and everything under it follows.
+
+The messages region is the exception, and keeps its colours whoever holds the keys. It is
+there to be noticed rather than to say where the keys are, and a refused write is reported
+into it while the reader is on the list.
+
+An agent's own terminal is another process drawing in its own colours, so no palette reaches
+it, and the panel greys itself whole while the keys are on it.
 
 The one contract paint cannot import is the pair of markers the transcript store wraps a
 search hit in. It declares them itself and marker_test.go in the panel pins the two together,

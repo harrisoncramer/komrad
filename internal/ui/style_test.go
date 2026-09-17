@@ -243,14 +243,14 @@ func TestOnlyTheRegionHoldingTheKeysIsColoured(t *testing.T) {
 			coloured = append(coloured, area)
 		}
 	}
-	require.Equal(t, []region{regionList, regionColumn}, coloured, "the list and the block beside it read as one region")
+	require.Equal(t, []region{regionList, regionColumn, regionMessages}, coloured,
+		"the list and the block beside it read as one region, and the alerts stand apart from both")
 
 	m.details.focused = true
 
 	assert.Equal(t, paint.Colored, m.palette(regionDetails), "the record takes the colour")
 	assert.Equal(t, paint.Grey, m.palette(regionList), "and the list gives it up")
 	assert.Equal(t, paint.Grey, m.palette(regionColumn))
-	assert.Equal(t, paint.Grey, m.palette(regionMessages))
 }
 
 // TestKeysOnAnotherPaneLeaveNoRegionColoured covers the keyboard moving onto an agent's own pane,
@@ -259,9 +259,22 @@ func TestKeysOnAnotherPaneLeaveNoRegionColoured(t *testing.T) {
 	m := detailsModel(&recordingTmux{})
 	m.keysElsewhere = true
 
-	for _, area := range []region{regionList, regionColumn, regionDetails, regionMessages, regionThread} {
+	for _, area := range []region{regionList, regionColumn, regionDetails, regionThread} {
 		assert.Equal(t, paint.Grey, m.palette(area), "region %d greys with the rest", area)
 	}
+}
+
+// TestTheAlertsKeepTheirColour covers the region a refused write is reported in, which is there to
+// be noticed rather than to say where the keys are.
+func TestTheAlertsKeepTheirColour(t *testing.T) {
+	m := detailsModel(&recordingTmux{})
+
+	require.Equal(t, paint.Colored, m.palette(regionMessages), "coloured while the list has the keys")
+
+	m.keysElsewhere = true
+
+	assert.Equal(t, paint.Colored, m.palette(regionMessages), "and still coloured with the keys off the panel")
+	assert.Equal(t, paint.Grey, m.palette(regionList), "while everything around it greys")
 }
 
 // TestRowMarksGreyWithTheirList covers the marks a row wears, which are drawn in the palette the

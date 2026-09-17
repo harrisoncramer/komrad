@@ -37,7 +37,11 @@ func (m model) holdsKeys(area region) bool {
 }
 
 // palette is what a region draws in: the panel's colours while it holds the keys, grey while
-// they are anywhere else.
+// they are anywhere else, and the alerts coloured whoever holds them.
 func (m model) palette(area region) paint.Palette {
+	if area == regionMessages {
+		return paint.Colored
+	}
+
 	return paint.PaletteFor(m.holdsKeys(area))
 }

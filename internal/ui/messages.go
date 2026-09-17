@@ -326,11 +326,7 @@ func (m model) messagesSummaryStyle(held message, taken int, flashed bool) strin
 	if m.messages.focused {
 		style = style.Bold(true)
 	}
-	// The pulse is the panel calling for attention rather than saying where the keys are, so it
-	// keeps its colour in a region that has given them up.
-	if m.messagesPulseOn() {
-		style = flashFieldStyle(paint.Colored)
-	} else if flashed {
+	if flashed || m.messagesPulseOn() {
 		style = flashFieldStyle(m.palette(regionMessages))
 	}
 
