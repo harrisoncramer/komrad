@@ -110,6 +110,31 @@ func TestHoldRefusesAPaneItCannotRead(t *testing.T) {
 	assert.Nil(t, after.HeldAt)
 }
 
+// TestHoldRefusesAFrameItCannotMatchWithoutTypingAtIt is the pair of the failed capture: a frame
+// that matched none of the harness's patterns says neither that a turn is running nor that the
+// agent has stopped, and the keys sent on that guess open a dialog nobody is there to dismiss.
+func TestHoldRefusesAFrameItCannotMatchWithoutTypingAtIt(t *testing.T) {
+	for _, activity := range []harness.Activity{harness.ActivityUnrecognized, harness.ActivityUnknown} {
+		t.Run(activity.String(), func(t *testing.T) {
+			st := newStore(t)
+			agent := seed(t, st, "telescope", "%1", agentstore.StateThinking)
+
+			channel := &fakeChannel{}
+			observer := &settlingObserver{readings: []harness.Activity{activity}}
+
+			_, err := holderOver(st, channel, observer).Hold(t.Context(), agent.ID)
+			require.ErrorIs(t, err, ErrHoldRefused)
+			assert.Contains(t, err.Error(), "could not be read")
+
+			assert.Zero(t, channel.interrupts, "nothing said there was a turn to cut")
+			assert.Equal(t, 1, observer.reads, "and the refusal costs no settle")
+
+			after := agentByID(t, st, agent.ID)
+			assert.Nil(t, after.HeldAt, "a refused hold claims nothing")
+		})
+	}
+}
+
 // TestHoldingAnIdleAgentTypesNothingAtIt covers holding an agent that was already at rest, which
 // is reading rather than interrupting.
 func TestHoldingAnIdleAgentTypesNothingAtIt(t *testing.T) {
