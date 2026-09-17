@@ -128,8 +128,9 @@ func buildServices(params NewServerParams, st *stores) (*services, error) {
 		Resumer:   resumeService,
 		StateDir:  stateDir,
 		Interrupter: agents.NewInterrupter(agents.NewInterrupterParams{
-			Agents:  st.agents,
-			Channel: paneChannel,
+			Agents:   st.agents,
+			Channel:  paneChannel,
+			Observer: paneChannel,
 		}),
 	})
 	rebaseService := agents.NewRebaseService(agents.NewRebaseServiceParams{
@@ -138,8 +139,9 @@ func buildServices(params NewServerParams, st *stores) (*services, error) {
 		Notifier:  mailService,
 		Rebaser:   git.NewClient(),
 		Interrupter: agents.NewInterrupter(agents.NewInterrupterParams{
-			Agents:  st.agents,
-			Channel: paneChannel,
+			Agents:   st.agents,
+			Channel:  paneChannel,
+			Observer: paneChannel,
 		}),
 	})
 	adoptService := agents.NewAdoptService(agents.NewAdoptServiceParams{
