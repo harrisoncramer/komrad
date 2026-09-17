@@ -69,6 +69,7 @@ Use ` + "`weave open`" + ` to bring the panel up.`,
 				defer func() { _ = tunnel.Close() }()
 
 				addr = tunnel.Local
+				startupErr = requireEngineBuild(cmd.Context(), addr)
 			case state.configErr == nil:
 				startupErr = ensureServer(cmd.Context(), ensureServerParams{
 					Addr:       addr,

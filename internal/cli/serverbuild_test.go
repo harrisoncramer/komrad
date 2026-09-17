@@ -71,6 +71,13 @@ func TestSameBuild(t *testing.T) {
 			selfCommit:  commit,
 			want:        false,
 		},
+		{
+			name:        "an engine deployed from a dirty tree, which names no commit at all",
+			body:        server.Health{Version: "v0.0.0-engine.6da018be+dirty.131311"},
+			selfVersion: "v0.0.0-20260916203018-6da018be0403",
+			selfCommit:  commit,
+			want:        false,
+		},
 	}
 
 	for _, tt := range tests {

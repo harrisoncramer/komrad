@@ -143,7 +143,7 @@ func describeTakenAddressFix(env Env) string {
 
 func describeStaleServerFix(ctx context.Context, env Env) string {
 	if env.EngineIsRemote {
-		return "deploy this build to the engine, since the service it is running is its own"
+		return "rebuild this panel from the commit the engine is serving, since CI deploys the engine from main"
 	}
 
 	if !env.IsPanelRunning(ctx) {

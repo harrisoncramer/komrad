@@ -79,9 +79,9 @@ func TestStaleServerFixDependsOnWhereTheEngineIs(t *testing.T) {
 		want     string
 	}{
 		{
-			name:     "the engine is elsewhere, so the build has to be sent to it",
+			name:     "the engine is elsewhere, where CI keeps it on main",
 			isRemote: true,
-			want:     "deploy this build to the engine, since the service it is running is its own",
+			want:     "rebuild this panel from the commit the engine is serving, since CI deploys the engine from main",
 		},
 		{
 			name:     "the engine is this machine, so its server is restarted here",
