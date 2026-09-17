@@ -57,6 +57,7 @@ type launchAgentReadWriter interface {
 	ReleaseIdempotencyKey(ctx context.Context, key string) (bool, error)
 	GetInWorkflow(ctx context.Context, workflowID, name string) (*agentstore.Agent, error)
 	MarkSettingUpIfFailedToCreate(ctx context.Context, id string) (bool, error)
+	SetHarness(ctx context.Context, params agentstore.SetHarnessParams) error
 }
 
 type LaunchService struct {
@@ -275,10 +276,7 @@ func (s *LaunchService) planLaunch(ctx context.Context, params NewAgentParams) (
 		return nil, fmt.Errorf("failed to look up workflow %q: %w", params.WorkflowID, err)
 	}
 
-	workflowHarness := strings.TrimSpace(wf.Harness)
-	if workflowHarness == "" {
-		workflowHarness = s.userDefaultHarness
-	}
+	workflowHarness := s.workflowHarness(wf)
 
 	harnessID := strings.TrimSpace(params.Harness)
 	if harnessID == "" {
@@ -305,13 +303,6 @@ func (s *LaunchService) planLaunch(ctx context.Context, params NewAgentParams) (
 		return nil, err
 	}
 
-	// A workflow's flags are written for the CLI it names, so an agent running a different one
-	// is launched without them.
-	agentFlags := strings.TrimSpace(params.Flags)
-	if agentFlags == "" && harnessID == workflowHarness {
-		agentFlags = strings.TrimSpace(wf.Flags)
-	}
-
 	// The worktree is weave's own, so an agent gets the built-in pair or nothing at all.
 	provisioner, deprovisioner := "", ""
 	provisions := wf.Worktree.Enabled && !isProvisionerDisabled(params.ProvisionEnabled)
@@ -327,16 +318,53 @@ func (s *LaunchService) planLaunch(ctx context.Context, params NewAgentParams) (
 	}
 
 	return &launchPlan{
-		name:            s.uniqueAgentName(ctx, params.WorkflowID, params.Title, params.Prompt),
-		harness:         hn,
-		harnessID:       harnessID,
-		dir:             dir,
-		flags:           strings.TrimSpace(s.userDefaultFlags[harnessID] + " " + agentFlags),
+		name:      s.uniqueAgentName(ctx, params.WorkflowID, params.Title, params.Prompt),
+		harness:   hn,
+		harnessID: harnessID,
+		dir:       dir,
+		flags: s.launchFlags(launchFlagsParams{
+			harnessID:       harnessID,
+			workflowHarness: workflowHarness,
+			agentFlags:      params.Flags,
+			workflowFlags:   wf.Flags,
+		}),
 		workflowContext: wf.Context,
 		provisioner:     provisioner,
 		deprovisioner:   deprovisioner,
 		hooks:           hooks,
 	}, nil
+}
+
+type launchFlagsParams struct {
+	harnessID       string
+	workflowHarness string
+	agentFlags      string
+	workflowFlags   string
+}
+
+// launchFlags is what an agent is launched with, the user's defaults for the CLI it runs ahead
+// of the flags it was given.
+func (s *LaunchService) launchFlags(params launchFlagsParams) string {
+	// A workflow's flags are written for the CLI it names, so an agent running a different one
+	// is launched without them.
+	flags := strings.TrimSpace(params.agentFlags)
+	if flags == "" && params.harnessID == params.workflowHarness {
+		flags = strings.TrimSpace(params.workflowFlags)
+	}
+
+	return strings.TrimSpace(s.userDefaultFlags[params.harnessID] + " " + flags)
+}
+
+// workflowHarness is the CLI a workflow's agents take when they name none of their own.
+func (s *LaunchService) workflowHarness(wf *workflowstore.Workflow) string {
+	if wf == nil {
+		return s.userDefaultHarness
+	}
+	if named := strings.TrimSpace(wf.Harness); named != "" {
+		return named
+	}
+
+	return s.userDefaultHarness
 }
 
 func (plan *launchPlan) agent(params NewAgentParams, id, sessionID, dir, pane string, spawner *agentstore.Agent) agentstore.Agent {

@@ -7,8 +7,10 @@ import (
 	"strings"
 
 	"weave/internal/fail"
+	"weave/internal/harness"
 	"weave/internal/store"
 	agentstore "weave/internal/store/agent"
+	workflowstore "weave/internal/store/workflow"
 )
 
 var ErrAgentNotFailed = fail.Precondition("agent is not in a failed state")
@@ -55,15 +57,6 @@ func (s *LaunchService) RetryCreate(ctx context.Context, params RetryCreateParam
 	if prompt := strings.TrimSpace(params.Prompt); prompt != "" {
 		agent.Prompt = prompt
 	}
-	if harness := strings.TrimSpace(params.Harness); harness != "" {
-		agent.Harness = harness
-	}
-
-	hn, err := s.harnesses.GetByID(agent.Harness)
-	if err != nil {
-		s.failCreate(ctx, *agent, err)
-		return nil, err
-	}
 
 	provisioner := provisionerFor(ctx, s.workflows, *agent)
 	deprovisioner := deprovisionerFor(ctx, s.workflows, *agent)
@@ -73,6 +66,25 @@ func (s *LaunchService) RetryCreate(ctx context.Context, params RetryCreateParam
 	workflowContext := ""
 	if wf != nil {
 		workflowContext = wf.Context
+	}
+
+	harnessID := strings.TrimSpace(params.Harness)
+	switched := harnessID != "" && harnessID != agent.Harness
+	if switched {
+		agent.Harness = harnessID
+	}
+
+	hn, err := s.harnesses.GetByID(agent.Harness)
+	if err != nil {
+		s.failCreate(ctx, *agent, err)
+		return nil, err
+	}
+
+	if switched {
+		if err := s.moveOntoHarness(ctx, agent, wf, params.Flags, hn); err != nil {
+			s.failCreate(ctx, *agent, err)
+			return nil, err
+		}
 	}
 
 	var spawner *agentstore.Agent
@@ -98,5 +110,32 @@ func (s *LaunchService) RetryCreate(ctx context.Context, params RetryCreateParam
 		workflowContext: workflowContext,
 		spawner:         spawner,
 		parent:          parent,
+	})
+}
+
+// moveOntoHarness records the CLI a retry corrected an agent onto, with the flags and the
+// conversation that belong to it.
+func (s *LaunchService) moveOntoHarness(ctx context.Context, agent *agentstore.Agent, wf *workflowstore.Workflow, flags string, hn harness.Harness) error {
+	workflowFlags := ""
+	if wf != nil {
+		workflowFlags = wf.Flags
+	}
+
+	agent.Flags = s.launchFlags(launchFlagsParams{
+		harnessID:       agent.Harness,
+		workflowHarness: s.workflowHarness(wf),
+		agentFlags:      flags,
+		workflowFlags:   workflowFlags,
+	})
+
+	// The stored conversation was minted by the CLI the agent is leaving, and means nothing to
+	// the one it is joining.
+	agent.SessionID = hn.MintSessionID()
+
+	return s.agents.SetHarness(ctx, agentstore.SetHarnessParams{
+		ID:        agent.ID,
+		Harness:   agent.Harness,
+		Flags:     agent.Flags,
+		SessionID: agent.SessionID,
 	})
 }

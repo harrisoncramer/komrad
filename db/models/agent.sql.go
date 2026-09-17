@@ -2088,6 +2088,34 @@ func (q *Queries) SetAgentBranchByID(ctx context.Context, arg SetAgentBranchByID
 	return err
 }
 
+const setAgentHarness = `-- name: SetAgentHarness :exec
+UPDATE
+    agents
+SET
+    harness = $1,
+    flags = $2,
+    session_id = $3
+WHERE
+    id = $4
+`
+
+type SetAgentHarnessParams struct {
+	Harness   string
+	Flags     string
+	SessionID string
+	ID        string
+}
+
+func (q *Queries) SetAgentHarness(ctx context.Context, arg SetAgentHarnessParams) error {
+	_, err := q.db.Exec(ctx, setAgentHarness,
+		arg.Harness,
+		arg.Flags,
+		arg.SessionID,
+		arg.ID,
+	)
+	return err
+}
+
 const setAgentHidden = `-- name: SetAgentHidden :many
 UPDATE
     agents

@@ -236,6 +236,32 @@ func (s *Store) Release(ctx context.Context, id string) (bool, error) {
 	return len(released) > 0, nil
 }
 
+type SetHarnessParams struct {
+	ID        string
+	Harness   string
+	Flags     string
+	SessionID string
+}
+
+// SetHarness moves an agent onto another CLI, with the flags and the conversation that belong
+// to it.
+func (s *Store) SetHarness(ctx context.Context, params SetHarnessParams) error {
+	if !store.IsID(params.ID) {
+		return store.ErrNotFound.Saying("no agent with id %q", params.ID)
+	}
+
+	if err := s.queries.SetAgentHarness(ctx, models.SetAgentHarnessParams{
+		ID:        params.ID,
+		Harness:   params.Harness,
+		Flags:     params.Flags,
+		SessionID: params.SessionID,
+	}); err != nil {
+		return fmt.Errorf("failed to set the harness for id %q: %w", params.ID, err)
+	}
+
+	return nil
+}
+
 // SetSessionID records an agent's conversation when none is already stored.
 func (s *Store) SetSessionID(ctx context.Context, id, sessionID string) error {
 	if !store.IsID(id) {
