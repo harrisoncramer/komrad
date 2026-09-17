@@ -13,6 +13,9 @@ usage() {
 	echo "from a dirty tree names no commit, so it also builds a local binary at the same"
 	echo "version for you to put in place of your own weave."
 	echo
+	echo "WEAVE_VERSION names the version the binary reports, which is how a release deploy"
+	echo "puts its own tag on the engine. It is refused from a dirty tree."
+	echo
 	echo "With no argument the instance is whichever one Terraform last built."
 	echo "The binaries land in dist/."
 }
@@ -59,7 +62,18 @@ DIRTY=""
 if tree_is_dirty; then
 	DIRTY="+dirty.$(date +%H%M%S)"
 fi
-VERSION="v0.0.0-engine.$REVISION$DIRTY"
+
+# A dirty build carries no commit, so its version string is the only thing anybody has to go on.
+# Letting a caller name that version would put a binary on the engine that answers v0.3.0 and is
+# not v0.3.0, which is why this refuses rather than annotating what it was given.
+if [ -n "${WEAVE_VERSION:-}" ] && [ -n "$DIRTY" ]; then
+	echo "WEAVE_VERSION names $WEAVE_VERSION, and this tree has uncommitted changes." >&2
+	echo >&2
+	echo "Commit them, or unset WEAVE_VERSION and deploy under the engine stamp." >&2
+	exit 1
+fi
+
+VERSION="${WEAVE_VERSION:-v0.0.0-engine.$REVISION$DIRTY}"
 
 mkdir -p dist
 go_build_binary linux arm64 "$VERSION" dist/weave-linux-arm64
