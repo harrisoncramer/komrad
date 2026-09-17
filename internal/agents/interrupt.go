@@ -50,13 +50,8 @@ func (i *Interrupter) Interrupt(ctx context.Context, agentID string) error {
 	return i.channel.Interrupt(ctx, target)
 }
 
-// Explainer: the keys that stop a CLI mid-turn are keys its input box reads for something else
-// when no turn is running, and Claude's are its checkpoint shortcut. Sending them to an agent at
-// rest puts a dialog on screen that nobody is at the pane to dismiss, and every later delivery is
-// refused for as long as it stands. So the keys go only where a reading says there is a turn, and
-// a frame matching none of the harness's patterns is not that reading. A capture that failed
-// outright is, since it is no evidence either way and a rebase is about to move files under
-// whatever is there.
+// Explainer: a capture that failed outright is no evidence either way, and a rebase is about to
+// move files under whatever is on screen, so that one case sends the keys anyway.
 
 // hasTurnToCut reports whether the pane says a turn is running.
 func (i *Interrupter) hasTurnToCut(ctx context.Context, target harness.Target) bool {
@@ -65,12 +60,5 @@ func (i *Interrupter) hasTurnToCut(ctx context.Context, target harness.Target) b
 		return true
 	}
 
-	switch observed.Activity {
-	case harness.ActivityWorking, harness.ActivityWaiting:
-		return true
-	case harness.ActivityIdle, harness.ActivityComposing, harness.ActivityUnrecognized, harness.ActivityUnknown:
-		return false
-	}
-
-	return false
+	return isMidTurn(observed.Activity)
 }

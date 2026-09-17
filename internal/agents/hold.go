@@ -103,11 +103,12 @@ func (h *Holder) Hold(ctx context.Context, agentID string) (agentstore.Agent, er
 	// confirms it have to come from the pane as it is now, or the hold is granted on the same
 	// frame the interrupt was meant to clear.
 	observed, err := h.observer.Observe(ctx, target)
-	if err != nil {
+	read := err == nil && (isMidTurn(observed.Activity) || isAtRest(observed.Activity))
+	if !read {
 		return agentstore.Agent{}, ErrHoldRefused.Saying("%q could not be read, so nothing here can say it stopped", agent.Name)
 	}
 
-	interrupted := !isAtRest(observed.Activity)
+	interrupted := isMidTurn(observed.Activity)
 	if interrupted {
 		if err := h.channel.Interrupt(ctx, target); err != nil {
 			return agentstore.Agent{}, fmt.Errorf("failed to stop %q: %w", agent.Name, err)
@@ -232,20 +233,4 @@ func (h *Holder) get(ctx context.Context, agentID string) (agentstore.Agent, err
 	}
 
 	return *agent, nil
-}
-
-// Explainer: a prompt waiting on an answer is not at rest. It holds a write that lands the moment
-// anybody answers it, and it is also the frame an interrupt is sent to clear, so treating it as
-// rest would let a hold be granted on the picture it was meant to change.
-
-// isAtRest reports whether a reading says the agent has stopped.
-func isAtRest(activity harness.Activity) bool {
-	switch activity {
-	case harness.ActivityIdle, harness.ActivityComposing:
-		return true
-	case harness.ActivityWaiting, harness.ActivityWorking, harness.ActivityUnrecognized, harness.ActivityUnknown:
-		return false
-	}
-
-	return false
 }
