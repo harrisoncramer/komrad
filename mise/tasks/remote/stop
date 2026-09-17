@@ -57,6 +57,10 @@ REGION="$(engine_region)"
 STATE="$(engine_state "$INSTANCE" "$REGION")"
 
 case "$STATE" in
+"")
+	echo "could not read the state of $INSTANCE, so nothing was done to it." >&2
+	exit 1
+	;;
 stopped)
 	gum log --level info "the engine is already stopped"
 	exit 0
@@ -86,7 +90,7 @@ if [ -n "$AGENTS" ]; then
 	echo
 	echo "These agents are on the engine and will stop:"
 
-	while IFS=$'\t' read -r state age name; do
+	while IFS=$'\t' read -r state age stamp name; do
 		echo "  $state	$name"
 
 		case "$state" in
@@ -96,6 +100,11 @@ if [ -n "$AGENTS" ]; then
 		# A pane weave cannot read is either an agent mid-turn or one stuck since the
 		# afternoon, and only the second of those should let the engine go down.
 		uncertain)
+			if [ "$age" -lt 0 ]; then
+				echo "    weave could not read \"$stamp\" as when $name last changed" >&2
+				echo "    state, so it counts as mid-turn." >&2
+			fi
+
 			if [ "$age" -lt "$UNCERTAIN_IS_BUSY_FOR" ]; then
 				BUSY="$BUSY $name"
 			fi

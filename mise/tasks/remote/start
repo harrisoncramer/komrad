@@ -38,6 +38,10 @@ REGION="$(engine_region)"
 STATE="$(engine_state "$INSTANCE" "$REGION")"
 
 case "$STATE" in
+"")
+	echo "could not read the state of $INSTANCE, so nothing was done to it." >&2
+	exit 1
+	;;
 running)
 	gum log --level info "the engine is already running, so waiting for it to answer"
 	;;
