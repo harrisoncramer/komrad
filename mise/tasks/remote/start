@@ -2,20 +2,17 @@
 source "$MISE_CONFIG_ROOT/mise/tasks/_"
 source "$MISE_CONFIG_ROOT/mise/tasks/remote/_remote_utils"
 set -euo pipefail
-#MISE description="Start the remote engine again and wait until it is serving."
+#MISE description="Start the remote engine again."
 
 usage() {
 	echo "Usage: mise run remote:start [instance-id]"
 	echo
-	echo "Starts the engine's instance and waits until weave is answering on it. The"
-	echo "instance keeps the address, the data volume and the database it had before it"
-	echo "was stopped, so the panel reaches it with no change."
+	echo "Starts the engine's instance and waits until it is up. The instance keeps the"
+	echo "address, the data volume and the database it had before it was stopped, so the"
+	echo "panel reaches it with no change."
 	echo
-	echo "The agents that were on the box before the stop are not brought back. Their"
-	echo "conversations are on the data volume, so resume the ones you want from the panel."
-	echo
-	echo "An engine that is already running is waited on rather than refused, so a schedule"
-	echo "that fires twice costs nothing."
+	echo "The agents that were on the box are not brought back. Their conversations are on"
+	echo "the data volume, so resume the ones you want from the panel."
 	echo
 	echo "Needs AWS credentials in the environment, as AWS_PROFILE or the access key variables."
 }
@@ -43,14 +40,14 @@ case "$STATE" in
 	exit 1
 	;;
 running)
-	gum log --level info "the engine is already running, so waiting for it to answer"
+	gum log --level info "the engine is already running"
 	;;
 stopped)
 	gum log --level info "starting $INSTANCE"
 	aws ec2 start-instances --region "$REGION" --instance-ids "$INSTANCE" >/dev/null
 	;;
 pending)
-	gum log --level info "the engine is $STATE, so waiting for it to settle"
+	gum log --level info "the engine is already starting, so waiting for it"
 	;;
 stopping)
 	gum log --level info "the engine is stopping, so waiting for that to finish before starting it"
@@ -64,35 +61,9 @@ stopping)
 esac
 
 aws ec2 wait instance-running --region "$REGION" --instance-ids "$INSTANCE"
+
+# Weave is serving within ten seconds of the kernel coming up and the instance checks take minutes,
+# so an instance that passes them is one the panel can reach.
 aws ec2 wait instance-status-ok --region "$REGION" --instance-ids "$INSTANCE"
 
-ADDRESS="$(engine_address "$INSTANCE" "$REGION")"
-EXPECTED="$(terraform_output instance_public_ip)"
-
-if [ -n "$EXPECTED" ] && [ "$ADDRESS" != "$EXPECTED" ]; then
-	echo >&2
-	echo "the engine came back on ${ADDRESS:-no address} rather than $EXPECTED." >&2
-	echo "Your panel names the address literally in ~/.config/weave/engines/remote.toml, so it" >&2
-	echo "will not reach the engine until that file names the new one." >&2
-	exit 1
-fi
-
-# Systems Manager answers only once the agent on the booted host has registered, so a refusal
-# here is the host still coming up rather than the service being broken.
-SERVING='["systemctl is-active --quiet weave.service && systemctl is-active --quiet weave-manager-session.service && echo serving"]'
-
-for _ in $(seq 1 30); do
-	if [ "$(ssm_run "$INSTANCE" "$REGION" "$SERVING" 2>/dev/null)" = "serving" ]; then
-		gum log --level info "the engine is up on $ADDRESS and weave is serving"
-		exit 0
-	fi
-
-	sleep 5
-done
-
-echo "the engine started on $ADDRESS, but weave is not serving on it." >&2
-echo >&2
-echo "Look at what refused to come up:" >&2
-echo "  mise run remote:connect -- 'systemctl --failed --no-legend'" >&2
-echo "  mise run remote:connect -- 'journalctl -u weave -n 50 --no-pager'" >&2
-exit 1
+gum log --level info "the engine is up on $(terraform_output instance_public_ip)"

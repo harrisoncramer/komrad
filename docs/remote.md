@@ -1,168 +1,12 @@
 # Running weave on a remote box
 
-Weave can run remotely, where Postgres, tmux, and the agents moves to a box you reach over SSH. Agents keep running when you close your laptop.
+Weave can run remotely, where Postgres, tmux and the agents move to a box you reach over SSH. Agents keep running when you close your laptop.
 
-The panel (and Go binary for launching) are still required on your machine.
+The panel still runs on your machine. What moves is the engine: the service, the database, and every agent's tmux window.
 
-Please work through the steps in this guide in order. Each one depends on the one before it.
+Standing that box up, and everything done to it afterwards, is weave's own administration and lives in [engine-admin.md](engine-admin.md). This page is what you need once one exists.
 
-## Before you start
-
-An AWS account and a named profile in `~/.aws/config` that reaches it.
-
-An S3 bucket for Terraform state. Terraform does not create this for you.
-
-A key pair used for nothing else.
-
-```
-ssh-keygen -t ed25519 -f ~/.ssh/weave_engine
-```
-
-The toolchain.
-
-```
-mise install
-```
-
-## 1. Build the machine image
-
-```
-mise run packer:build
-```
-
-Takes about twenty minutes. Note the AMI id it prints at the end.
-
-## 2. Describe the infrastructure
-
-```
-cp infra/terraform/terraform.tfvars.example infra/terraform/terraform.tfvars
-cp infra/terraform/backend.hcl.example infra/terraform/backend.hcl
-```
-
-Fill in `terraform.tfvars`:
-
-```
-aws_region                   the region to build in
-aws_account_id               your account id
-aws_profile                  your profile name
-aws_config_file              absolute path to your AWS config
-aws_shared_credentials_file  absolute path to your AWS credentials
-ami_id                       the id from step 1
-availability_zone            one inside aws_region
-ssh_public_key               contents of ~/.ssh/weave_engine.pub
-ssh_allowed_cidrs            ["YOUR.IP.ADDR.HERE/32"]
-state_bucket                 your Terraform state bucket
-```
-
-Terraform refuses `0.0.0.0/0` for `ssh_allowed_cidrs`.
-
-> NOTE: This file also has three `github_*` values. They are optional and unrelated to the app, they let this repository's own GitHub Actions get AWS credentials without a stored key. Leave them out.
-
-Point `backend.hcl` at your state bucket. Both files are gitignored.
-
-## 3. Create the infrastructure
-
-```
-mise run terraform:init
-mise run terraform:apply
-```
-
-Creates the network, the box, the data volume, Postgres, and the permissions between them. Prints the address when it finishes.
-
-## 4. Register a GitHub App
-
-The engine has to fetch, push and open pull requests, so it needs its own GitHub login.
-
-You have two ways to give it one. You can run `gh auth login` on the box once and be done in a minute. That leaves a password on a machine nobody watches, and it works until you remember to revoke it. Or you can register a GitHub App, which is the rest of this section. The App holds a private key, and weave uses that key to get a token that stops working after an hour and only reaches the repositories you installed the App on.
-
-The App is more setup and better security. Everything below assumes you picked it. If you would rather log in by hand, skip to step 6 and leave the `[github_app]` section out of the config. Weave stays out of the way when that section is missing, so git and `gh` use whatever the machine was logged in as.
-
-None of this applies to weave on your own laptop. That already uses your own git and `gh` credentials.
-
-Go to https://github.com/settings/apps/new and fill in:
-
-```
-GitHub App name    globally unique, becomes the bot name on every PR
-Homepage URL       anything, unused
-Webhook            untick Active
-Installed on       Only on this account
-```
-
-Repository permissions you'd like Weave to use. I'd recommend:
-
-```
-Contents        Read and write
-Pull requests   Read and write
-Issues          Read and write
-Workflows       Read and write
-Metadata        Read-only, selects itself
-```
-
-Create it.
-
-Under Private keys, Generate a private key. The `.pem` downloads once and GitHub keeps no copy.
-
-Under Install App, install it on your account, choose your repositories.
-
-## 5. Store the App key
-
-```
-aws secretsmanager create-secret \
-  --profile YOUR_PROFILE --region YOUR_REGION \
-  --name weave/github-app \
-  --secret-string "$(jq -n \
-      --arg id "APP_ID" \
-      --rawfile key ~/Downloads/YOUR-APP.private-key.pem \
-      '{app_id: $id, private_key: $key}')"
-
-rm -P ~/Downloads/YOUR-APP.private-key.pem
-```
-
-The instance role already reads `weave/*`, so this needs no Terraform change.
-
-## 6. Configure the engine
-
-Get on the box.
-
-```
-mise run remote:connect
-```
-
-Write `~/.config/weave/config.toml`:
-
-```toml
-default_harness = "claude"
-
-[worktrees]
-dir = "/var/lib/weave/worktrees"
-
-[github_app]
-app_id           = "APP_ID"
-installation_id  = "INSTALLATION_ID"
-private_key_path = "/run/weave/github.pem"
-```
-
-The key is fetched from Secrets Manager into `/run` at boot, which is tmpfs, so it never touches the disk. Check it arrived:
-
-```
-weave github token
-```
-
-That prints a token starting `ghs_`. If it errors, the secret name, the App id or the installation id is wrong.
-
-Git gets this token by asking weave every time it needs one, so nothing is stored. The `gh` command cannot ask, because it only reads a token from its own environment at startup. So the image puts a small wrapper ahead of `gh` on the path which fetches a fresh token and then runs the real one. An agent does not have to know about any of this.
-
-## 7. Clone the repo and create a workflow
-
-Put the checkout on the data volume so it survives an instance replacement.
-
-```
-git clone https://github.com/OWNER/REPO /var/lib/weave/repos/REPO
-```
-
-Git authenticates through weave's credential helper, so this needs no login.
-
-## 8. Point the panel at it
+## Pointing the panel at it
 
 An engine is a file in `~/.config/weave/engines/` on your own machine, layered over your config rather than replacing it. Write `~/.config/weave/engines/remote.toml`:
 
@@ -199,7 +43,7 @@ forward = [
 ]
 ```
 
-The engine keeps its host keys in a file of its own. The address outlives the instance, so a rebuilt engine answers on it with a key nothing has seen before, and a shared `known_hosts` would refuse the connection until you edited it by hand. `mise run remote:reimage` drops the old key for you.
+The engine keeps its host keys in a file of its own. The address outlives the instance, so a rebuilt engine answers on it with a key nothing has seen before, and a shared `known_hosts` would refuse the connection until you edited it by hand.
 
 Add a second line to `~/.tmux.conf` for the remote engine, beside the one you already have for the local panel.
 
@@ -218,12 +62,11 @@ tmux source-file ~/.tmux.conf
 
 Open the panel with that key rather than by running `weave open`. The key opens it as a popup, which keeps its splits and copy-mode inside the popup.
 
-## 9. Sign the harness in
+## Signing the harness in
 
-You have to grant permissions inside the remote for the agent harness.
+You have to grant permissions inside the remote for the agent harness. Get a shell on the box, go to the checkout agents will be cut from, and start the harness once:
 
 ```
-mise run remote:connect
 cd /var/lib/weave/repos/REPO
 claude
 ```
@@ -234,82 +77,18 @@ _Do not skip the trust question. Agents run in worktrees cut from this checkout 
 
 Weave's home is on the data volume, so both survive a new image.
 
-## Updating
+## Keeping the two builds in step
 
-The binary changes often. This does not disturb running agents. CI deploys the engine when a release is published, so the engine sits at the last release until somebody cuts another, and it is usually the weave on your own machine that has moved. If you have this repo checked out locally, you can deploy by hand:
+The panel refuses to talk to an engine running other code, and it decides that on the commit each binary was built from rather than on the version each prints. So your own weave and the engine's have to come from the same place: install both from the same release, or build yours from the commit the engine was deployed from. `weave version` and `weave doctor` show both builds, the engine as its release tag or `v0.0.0-engine.<commit>` and your own as whatever it was built as.
 
-```
-mise run remote:deploy
-```
+The engine is deployed when a release is published, so it sits at the last release until somebody cuts another, and it is usually the weave on your own machine that has moved.
 
-You can also deploy any ref without local AWS credentials at all, by dispatching the `engine` workflow on it from the Actions tab. That is the way in when the machine in front of you is the problem.
+The refusal happens as the panel opens, once the forward to the engine is up. Instead of drawing, it names both builds and closes on any key. The engine is untouched by this and every agent on it keeps running, so the fix is on your own machine: rebuild your weave from the commit the engine is serving, which is what `weave doctor` says too.
 
-The panel refuses to talk to an engine running other code, and it decides that on the commit each binary was built from rather than on the version each prints. So whatever channel you are on, your own weave and the engine's weave have to come from the same place: install both from the same release, or deploy from a clean checkout and build your own weave from it. `weave version` and `weave doctor` show both builds, the engine as its release tag or `v0.0.0-engine.<commit>` and your own as whatever it was built as.
+## The box is not always up
 
-The refusal happens as the panel opens, once the forward to the engine is up. Instead of drawing, it names both builds and closes on any key. The engine is untouched by this and every agent on it keeps running, so the fix is on your own machine: rebuild your weave from the commit the engine is serving, which is what `weave doctor` says too. Deploying your own build over the engine is the other way out, and it is the wrong one whenever the engine is ahead of you, because it puts older code back on the box every agent is running under.
+The engine bills for every hour it is running, so it is stopped overnight and started again in the morning. Stopping keeps the instance rather than replacing it: the data volume, the database and the address all survive, so the file above stays correct and your panel needs no change.
 
-Deploying from a tree with uncommitted changes is the exception, because there is no commit that names what was built. The deploy stamps a version instead and leaves a matching binary at `dist/weave-panel`; put that in place of your own weave, or doctor will report the engine as a different build.
+Every agent on the box stops with it. Their conversations and worktrees are on the data volume, so resume the ones you want once it is back.
 
-The image changes rarely, when the units or provisioning scripts do. Dispatch the `image` workflow to build one; it records the id without applying it, because applying stops every agent on the box.
-
-```
-mise run remote:reimage
-```
-
-That moves the engine to the image CI last built. It names the agents that are about to stop and asks first. Every agent on the box goes and does not come back. The data volume, the database and the address all follow the new instance, so what is lost is whatever those agents were part way through.
-
-Pass an image id to use one other than the latest, or build your own with `mise run packer:build` and pass that.
-
-## Stopping it overnight
-
-The instance bills for every hour it is running, and it is running for far more hours than it is used. Stopping it is the way to stop paying for the hours nobody is there.
-
-```
-mise run remote:stop
-mise run remote:start
-```
-
-The stop names every agent on the box and asks before it does anything, because they all stop with it. What is lost is the turn each one was part way through. What is not lost is the work: the conversations, the worktrees and the database are all on the data volume or in RDS, so an agent can be resumed from the panel afterwards and picks up where it left off.
-
-This is not the reimage path. The instance is kept rather than replaced, so the data volume stays attached, the root disk survives, the host key is unchanged, and the Elastic IP stays associated throughout. The address your panel names in `~/.config/weave/engines/remote.toml` is still the right one when the engine comes back, so nothing on your machine needs editing. Both commands check the address anyway and fail loudly if it ever moves.
-
-The start waits until weave is actually answering rather than until the instance is running, so when it returns the engine is ready. Running either command against an engine already in the state it asks for costs nothing and reports what it found.
-
-Terraform is not involved. It does not track whether an instance is running, so `terraform plan` reports no changes against a stopped engine and a later `apply` will not start it. Stopping the box and reimaging it are still the same lock, though, so do not do both at once.
-
-Stopping the instance does not stop everything on the bill. The two 100 GiB volumes, the database, the snapshots and the address all keep costing what they cost. What goes away is the instance itself, which is the large part.
-
-## Putting that on a schedule
-
-`.github/workflows/engine-hours.yml` runs the same two commands from GitHub Actions, stopping the engine at 10pm New York time and starting it at 7am. It reaches AWS through the same OIDC role the deploy uses and touches the instance through Systems Manager, because a runner has no fixed address for the security group.
-
-It is not armed. The crons fire, and the job declines, until you set a repository variable:
-
-```
-gh variable set ENGINE_HOURS --body on
-```
-
-Setting it to anything else, or deleting it, turns the schedule off again. `gh workflow run "engine hours" -f action=stop` runs either half by hand whatever the variable says.
-
-The scheduled stop passes `--if-idle`, which leaves the engine running when any agent is mid-turn, and also when the engine cannot be asked what is on it at all. Nobody is at the panel at 10pm to be asked, and an hour of billing is worth less than a turn nobody knew was killed. The run stays green and says on its summary page that it left the box up, so a night that cost more than it should is visible the next morning rather than silent. Running the stop yourself is unchanged: it shows you what is there and you decide.
-
-An agent whose pane weave cannot read counts as mid-turn only for the first fifteen minutes. A pane sitting in a pager or a picker settles into that state and stays there, and without the time limit one stuck window would keep the box up every night from then on.
-
-GitHub's cron is UTC and ignores daylight saving, so each end of the day is scheduled twice, at the hour that is right in EDT and the hour that is right in EST, and the job checks the real New York hour before acting. It accepts the hour after each as well, because GitHub delays a scheduled run when it is busy and a run that arrived late would otherwise do nothing and say nothing. GitHub also disables scheduled workflows in a repository with no activity for sixty days, which is worth knowing if the engine ever stops going down on its own.
-
-One thing follows from the box being down for nine hours a day: `remote:deploy` cannot reach a stopped instance, because Systems Manager refuses one. A merge to main overnight therefore skips the deploy and says so rather than failing, and the engine picks that commit up whenever something is next deployed after it starts. If nothing is merged the following day, the engine is behind your own weave and the panel will say so.
-
-## Getting a shell
-
-```
-mise run remote:connect
-mise run remote:connect -- systemctl status weave
-```
-
-The address comes from Terraform. The connection is shared with the panel's, so this is nearly free.
-
-## Tearing it down
-
-```
-mise run terraform:destroy
-```
+If the panel cannot reach the engine at a time you did not expect, that is the first thing to check.

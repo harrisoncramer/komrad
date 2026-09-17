@@ -5,29 +5,19 @@ set -euo pipefail
 #MISE description="Stop the remote engine, which stops every agent on it and stops the bill."
 
 usage() {
-	echo "Usage: mise run remote:stop [--yes] [--if-idle] [instance-id]"
+	echo "Usage: mise run remote:stop [--yes] [instance-id]"
 	echo
 	echo "Stops the engine's instance. Every agent on the box stops with it, and the turn"
 	echo "each one was part way through is lost. The data volume, the database and the"
 	echo "address all survive, so 'mise run remote:start' brings the same engine back and"
 	echo "the panel needs no change."
 	echo
-	echo "It names the agents that are about to stop and asks first. Pass --yes to skip"
-	echo "the question, which is what a schedule does, and --if-idle to refuse the stop"
-	echo "while any agent is mid-turn, which it reports rather than fails."
-	echo
-	echo "  mise run remote:stop"
-	echo "  mise run remote:stop --yes"
-	echo "  mise run remote:stop --yes --if-idle"
+	echo "It asks first. Pass --yes to skip the question, which is what the schedule does."
 	echo
 	echo "Needs AWS credentials in the environment, as AWS_PROFILE or the access key variables."
 }
 
-# How long a pane weave cannot read still counts as an agent mid-turn.
-UNCERTAIN_IS_BUSY_FOR=900
-
 ASSUME_YES=false
-ONLY_IF_IDLE=false
 POSITIONAL=()
 
 for arg in "$@"; do
@@ -38,9 +28,6 @@ for arg in "$@"; do
 		;;
 	--yes | -y)
 		ASSUME_YES=true
-		;;
-	--if-idle)
-		ONLY_IF_IDLE=true
 		;;
 	*)
 		POSITIONAL+=("$arg")
@@ -77,60 +64,8 @@ running) ;;
 	;;
 esac
 
-BUSY=""
-UNREADABLE=false
-
-if ! AGENTS="$(engine_agents "$INSTANCE" "$REGION")"; then
-	AGENTS=""
-	UNREADABLE=true
-	echo "the engine could not be asked what it is running." >&2
-fi
-
-if [ -n "$AGENTS" ]; then
-	echo
-	echo "These agents are on the engine and will stop:"
-
-	while IFS=$'\t' read -r state age stamp name; do
-		echo "  $state	$name"
-
-		case "$state" in
-		thinking | setting_up)
-			BUSY="$BUSY $name"
-			;;
-		# A pane weave cannot read is either an agent mid-turn or one stuck since the
-		# afternoon, and only the second of those should let the engine go down.
-		uncertain)
-			if [ "$age" -lt 0 ]; then
-				echo "    weave could not read \"$stamp\" as when $name last changed" >&2
-				echo "    state, so it counts as mid-turn." >&2
-			fi
-
-			if [ "$age" -lt "$UNCERTAIN_IS_BUSY_FOR" ]; then
-				BUSY="$BUSY $name"
-			fi
-			;;
-		esac
-	done <<<"$AGENTS"
-
-	echo
-fi
-
-# Not stopping is this flag doing what it was asked, so it is reported rather than failed. A
-# schedule that went red every time somebody was working would stop being read.
-if [ "$ONLY_IF_IDLE" = true ] && [ "$UNREADABLE" = true ]; then
-	echo "The engine was left running, because it could not be asked what is on it."
-	echo "Stop it anyway with 'mise run remote:stop --yes'."
-	exit 0
-fi
-
-if [ "$ONLY_IF_IDLE" = true ] && [ -n "$BUSY" ]; then
-	echo "The engine was left running, because these agents are part way through a turn:$BUSY"
-	echo "Stop it anyway with 'mise run remote:stop --yes'."
-	exit 0
-fi
-
 if [ "$ASSUME_YES" != true ]; then
-	gum confirm "Stop the engine and every agent on it?" || {
+	gum confirm "Stop the engine? Whatever agents are running on it stop too." || {
 		gum log --level info "left the engine running"
 		exit 0
 	}
@@ -141,22 +76,13 @@ gum log --level info "stopping $INSTANCE"
 aws ec2 stop-instances --region "$REGION" --instance-ids "$INSTANCE" >/dev/null
 aws ec2 wait instance-stopped --region "$REGION" --instance-ids "$INSTANCE"
 
-ADDRESS="$(engine_address "$INSTANCE" "$REGION")"
-EXPECTED="$(terraform_output instance_public_ip)"
+# The panel's connection to the engine is multiplexed and the far end has gone, so the socket is
+# dropped here rather than left to fail the next command that finds it.
+ADDRESS="$(terraform_output instance_public_ip)"
 
-# The panel's own connection is multiplexed and the far end has gone, so the socket is dropped
-# here rather than left to fail the next command that finds it.
-if [ -n "$EXPECTED" ]; then
-	rm -f "/tmp/cm-weave-weave@$EXPECTED:22"
+if [ -n "$ADDRESS" ]; then
+	rm -f "/tmp/cm-weave-weave@$ADDRESS:22"
 fi
 
-if [ -n "$EXPECTED" ] && [ "$ADDRESS" != "$EXPECTED" ]; then
-	echo >&2
-	echo "the engine lost its address while stopping: it was $EXPECTED and is now ${ADDRESS:-none}." >&2
-	echo "Your panel names the address literally in ~/.config/weave/engines/remote.toml, so it" >&2
-	echo "will not reach the engine until that file names the new one." >&2
-	exit 1
-fi
-
-gum log --level info "the engine is stopped, and $ADDRESS is still its address"
+gum log --level info "the engine is stopped"
 echo "  mise run remote:start"
