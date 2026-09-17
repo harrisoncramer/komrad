@@ -49,3 +49,34 @@ require_output() {
 
 	echo "$value"
 }
+
+engine_region() {
+	echo "${AWS_REGION:-$(terraform_output aws_region)}"
+}
+
+# require_instance names the engine's instance, taking an argument over the environment over state.
+require_instance() {
+	local instance=${1:-${WEAVE_ENGINE_INSTANCE:-}}
+
+	if [ -z "$instance" ]; then
+		instance="$(terraform_output instance_id)"
+	fi
+
+	if [ -z "$instance" ]; then
+		echo "could not read the engine's instance from Terraform." >&2
+		echo >&2
+		echo "Run 'mise run terraform:apply' to build one, or set WEAVE_ENGINE_INSTANCE." >&2
+		exit 1
+	fi
+
+	echo "$instance"
+}
+
+# engine_state answers with nothing rather than failing, so that a caller reading it into a
+# variable under set -e reaches its own check instead of dying at the assignment.
+engine_state() {
+	local instance=$1 region=$2
+
+	aws ec2 describe-instances --region "$region" --instance-ids "$instance" \
+		--query 'Reservations[0].Instances[0].State.Name' --output text 2>/dev/null || true
+}

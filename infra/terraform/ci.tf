@@ -120,8 +120,21 @@ data "aws_iam_policy_document" "github" {
   }
 
   statement {
-    actions   = ["ec2:DescribeInstances", "ec2:DescribeTags"]
+    actions   = ["ec2:DescribeInstances", "ec2:DescribeInstanceStatus", "ec2:DescribeTags"]
     resources = ["*"]
+  }
+
+  # Stopping the engine overnight is a schedule rather than a person, so CI is allowed to stop and
+  # start this one instance and nothing else in the account.
+  statement {
+    actions   = ["ec2:StartInstances", "ec2:StopInstances"]
+    resources = ["arn:aws:ec2:${var.aws_region}:${var.aws_account_id}:instance/*"]
+
+    condition {
+      test     = "StringEquals"
+      variable = "ec2:ResourceTag/Project"
+      values   = ["weave"]
+    }
   }
 }
 

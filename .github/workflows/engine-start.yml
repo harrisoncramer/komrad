@@ -1,0 +1,57 @@
+name: engine start
+
+# Brings the engine back for the day.
+#
+# It waits for the instance checks to pass, which take minutes, so by the time this finishes weave
+# has long been serving. The agents that were on the box before the stop are not brought back;
+# their conversations are on the data volume, so resume the ones you want.
+#
+# GitHub's cron is UTC and does not follow daylight saving, so this is 7am in New York for half
+# the year and 6am for the other half.
+on:
+  schedule:
+    - cron: "0 11 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: engine
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  start:
+    if: vars.AWS_CI_ROLE != ''
+    runs-on: namespace-profile-harrisoncramer
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Mise
+        uses: ./.github/actions/use-mise
+        with:
+          gh-access-token: ${{ env.GH_ACCESS_TOKEN }}
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_CI_ROLE }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      # The backend is not in the repository, because it names an account's own bucket.
+      - name: Point Terraform at the state
+        run: |
+          cat >infra/terraform/backend.hcl <<EOF
+          bucket       = "${{ vars.TF_STATE_BUCKET }}"
+          key          = "${{ vars.TF_STATE_KEY }}"
+          region       = "${{ vars.AWS_REGION }}"
+          encrypt      = true
+          use_lockfile = true
+          EOF
+
+      # The lock is read as written, never rewritten.
+      - name: Read the state
+        run: mise run terraform:init -- -lockfile=readonly
+
+      - name: Start the engine
+        run: mise run remote:start

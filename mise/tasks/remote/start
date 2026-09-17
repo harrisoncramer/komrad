@@ -1,0 +1,69 @@
+#!/usr/bin/env bash
+source "$MISE_CONFIG_ROOT/mise/tasks/_"
+source "$MISE_CONFIG_ROOT/mise/tasks/remote/_remote_utils"
+set -euo pipefail
+#MISE description="Start the remote engine again."
+
+usage() {
+	echo "Usage: mise run remote:start [instance-id]"
+	echo
+	echo "Starts the engine's instance and waits until it is up. The instance keeps the"
+	echo "address, the data volume and the database it had before it was stopped, so the"
+	echo "panel reaches it with no change."
+	echo
+	echo "The agents that were on the box are not brought back. Their conversations are on"
+	echo "the data volume, so resume the ones you want from the panel."
+	echo
+	echo "Needs AWS credentials in the environment, as AWS_PROFILE or the access key variables."
+}
+
+for arg in "$@"; do
+	case "$arg" in
+	-h | --help)
+		usage
+		exit 0
+		;;
+	esac
+done
+
+cd "$MISE_CONFIG_ROOT"
+
+require_aws_profile
+
+INSTANCE="$(require_instance "${1:-}")"
+REGION="$(engine_region)"
+STATE="$(engine_state "$INSTANCE" "$REGION")"
+
+case "$STATE" in
+"")
+	echo "could not read the state of $INSTANCE, so nothing was done to it." >&2
+	exit 1
+	;;
+running)
+	gum log --level info "the engine is already running"
+	;;
+stopped)
+	gum log --level info "starting $INSTANCE"
+	aws ec2 start-instances --region "$REGION" --instance-ids "$INSTANCE" >/dev/null
+	;;
+pending)
+	gum log --level info "the engine is already starting, so waiting for it"
+	;;
+stopping)
+	gum log --level info "the engine is stopping, so waiting for that to finish before starting it"
+	aws ec2 wait instance-stopped --region "$REGION" --instance-ids "$INSTANCE"
+	aws ec2 start-instances --region "$REGION" --instance-ids "$INSTANCE" >/dev/null
+	;;
+*)
+	echo "the engine is $STATE, which is not a state to start from" >&2
+	exit 1
+	;;
+esac
+
+aws ec2 wait instance-running --region "$REGION" --instance-ids "$INSTANCE"
+
+# Weave is serving within ten seconds of the kernel coming up and the instance checks take minutes,
+# so an instance that passes them is one the panel can reach.
+aws ec2 wait instance-status-ok --region "$REGION" --instance-ids "$INSTANCE"
+
+gum log --level info "the engine is up on $(terraform_output instance_public_ip)"
