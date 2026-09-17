@@ -23,6 +23,9 @@ usage() {
 	echo "Needs AWS credentials in the environment, as AWS_PROFILE or the access key variables."
 }
 
+# How long a pane weave cannot read still counts as an agent mid-turn.
+UNCERTAIN_IS_BUSY_FOR=900
+
 ASSUME_YES=false
 ONLY_IF_IDLE=false
 POSITIONAL=()
@@ -70,19 +73,32 @@ running) ;;
 	;;
 esac
 
-AGENTS="$(engine_agents "$INSTANCE" "$REGION")"
 BUSY=""
+UNREADABLE=false
+
+if ! AGENTS="$(engine_agents "$INSTANCE" "$REGION")"; then
+	AGENTS=""
+	UNREADABLE=true
+	echo "the engine could not be asked what it is running." >&2
+fi
 
 if [ -n "$AGENTS" ]; then
 	echo
 	echo "These agents are on the engine and will stop:"
 
-	while IFS=$'\t' read -r state name; do
+	while IFS=$'\t' read -r state age name; do
 		echo "  $state	$name"
 
 		case "$state" in
-		thinking | setting_up | uncertain)
+		thinking | setting_up)
 			BUSY="$BUSY $name"
+			;;
+		# A pane weave cannot read is either an agent mid-turn or one stuck since the
+		# afternoon, and only the second of those should let the engine go down.
+		uncertain)
+			if [ "$age" -lt "$UNCERTAIN_IS_BUSY_FOR" ]; then
+				BUSY="$BUSY $name"
+			fi
 			;;
 		esac
 	done <<<"$AGENTS"
@@ -92,6 +108,12 @@ fi
 
 # Not stopping is this flag doing what it was asked, so it is reported rather than failed. A
 # schedule that went red every time somebody was working would stop being read.
+if [ "$ONLY_IF_IDLE" = true ] && [ "$UNREADABLE" = true ]; then
+	echo "The engine was left running, because it could not be asked what is on it."
+	echo "Stop it anyway with 'mise run remote:stop --yes'."
+	exit 0
+fi
+
 if [ "$ONLY_IF_IDLE" = true ] && [ -n "$BUSY" ]; then
 	echo "The engine was left running, because these agents are part way through a turn:$BUSY"
 	echo "Stop it anyway with 'mise run remote:stop --yes'."

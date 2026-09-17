@@ -81,7 +81,7 @@ ssm_run() {
 		--region "$region" \
 		--instance-ids "$instance" \
 		--document-name AWS-RunShellScript \
-		--parameters "commands=$commands" \
+		--parameters "$(jq -nc --argjson commands "$commands" '{commands: $commands}')" \
 		--query 'Command.CommandId' --output text)" || return 1
 
 	for _ in $(seq 1 60); do
@@ -109,15 +109,30 @@ ssm_run() {
 	return 1
 }
 
-# engine_agents prints one "state<tab>name" line per agent the engine holds, and nothing when it
-# cannot be asked.
+# The engine holds far more agents than one page carries, so the pages are walked on the host and
+# come back as one object per page.
+# shellcheck disable=SC2016 # This is a script for the engine to run, not for this shell to expand.
+ENGINE_AGENT_PAGES='token=""
+while :; do
+	request="{\"pagination\":{\"limit\":100${token:+,\"cursor\":\"$token\"}}}"
+	page="$(sudo -u weave --set-home weave rpc list-agents --compact --request-json "$request")" || exit 1
+	printf "%s\n" "$page"
+	token="$(printf "%s" "$page" | jq -r ".nextPageToken // \"\"")"
+	[ -n "$token" ] || break
+done'
+
+# engine_agents prints one "state<tab>age<tab>name" line per agent the engine holds, and fails when
+# the engine could not be asked.
 engine_agents() {
-	local instance=$1 region=$2 payload
+	local instance=$1 region=$2 pages
 
-	payload="$(ssm_run "$instance" "$region" \
-		'["sudo -u weave --set-home weave rpc list-agents --compact 2>/dev/null || true"]' 2>/dev/null)" || return 0
+	pages="$(ssm_run "$instance" "$region" "$(jq -nc --arg script "$ENGINE_AGENT_PAGES" '[$script]')")" || return 1
 
-	jq -r '.agents // [] | .[] | "\(.state)\t\(.name)"' <<<"$payload" 2>/dev/null || true
+	# An agent with no recorded moment is read as having just changed, which is the cautious way
+	# round for the caller that decides whether anything is mid-turn.
+	jq -r '.agents // [] | .[] |
+		[.state, ((now - ((.stateChangedAt // empty | fromdateiso8601)? // now)) | floor), .name] |
+		@tsv' <<<"$pages" || return 1
 }
 
 # engine_address prints the address the instance answers on, which is the Elastic IP for as long

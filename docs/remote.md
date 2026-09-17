@@ -291,9 +291,13 @@ gh variable set ENGINE_HOURS --body on
 
 Setting it to anything else, or deleting it, turns the schedule off again. `gh workflow run "engine hours" -f action=stop` runs either half by hand whatever the variable says.
 
-The scheduled stop passes `--if-idle`, which leaves the engine running when any agent is mid-turn. Nobody is at the panel at 10pm to be asked, and an hour of billing is worth less than a turn nobody knew was killed. The run stays green and says on its summary page that it left the box up, so a night that cost more than it should is visible the next morning rather than silent.
+The scheduled stop passes `--if-idle`, which leaves the engine running when any agent is mid-turn, and also when the engine cannot be asked what is on it at all. Nobody is at the panel at 10pm to be asked, and an hour of billing is worth less than a turn nobody knew was killed. The run stays green and says on its summary page that it left the box up, so a night that cost more than it should is visible the next morning rather than silent. Running the stop yourself is unchanged: it shows you what is there and you decide.
 
-GitHub's cron is UTC and ignores daylight saving, so each end of the day is scheduled twice, at the hour that is right in EDT and the hour that is right in EST, and the job checks the real New York hour before acting. GitHub also disables scheduled workflows in a repository with no activity for sixty days, which is worth knowing if the engine ever stops going down on its own.
+An agent whose pane weave cannot read counts as mid-turn only for the first fifteen minutes. A pane sitting in a pager or a picker settles into that state and stays there, and without the time limit one stuck window would keep the box up every night from then on.
+
+GitHub's cron is UTC and ignores daylight saving, so each end of the day is scheduled twice, at the hour that is right in EDT and the hour that is right in EST, and the job checks the real New York hour before acting. It accepts the hour after each as well, because GitHub delays a scheduled run when it is busy and a run that arrived late would otherwise do nothing and say nothing. GitHub also disables scheduled workflows in a repository with no activity for sixty days, which is worth knowing if the engine ever stops going down on its own.
+
+One thing follows from the box being down for nine hours a day: `remote:deploy` cannot reach a stopped instance, because Systems Manager refuses one. A merge to main overnight therefore skips the deploy and says so rather than failing, and the engine picks that commit up whenever something is next deployed after it starts. If nothing is merged the following day, the engine is behind your own weave and the panel will say so.
 
 ## Getting a shell
 

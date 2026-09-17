@@ -45,8 +45,13 @@ stopped)
 	gum log --level info "starting $INSTANCE"
 	aws ec2 start-instances --region "$REGION" --instance-ids "$INSTANCE" >/dev/null
 	;;
-pending | stopping)
+pending)
 	gum log --level info "the engine is $STATE, so waiting for it to settle"
+	;;
+stopping)
+	gum log --level info "the engine is stopping, so waiting for that to finish before starting it"
+	aws ec2 wait instance-stopped --region "$REGION" --instance-ids "$INSTANCE"
+	aws ec2 start-instances --region "$REGION" --instance-ids "$INSTANCE" >/dev/null
 	;;
 *)
 	echo "the engine is $STATE, which is not a state to start from" >&2

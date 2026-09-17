@@ -55,6 +55,14 @@ if [ -z "$BUCKET" ]; then
 	exit 1
 fi
 
+# The engine is stopped overnight, and Systems Manager refuses an instance that is not running,
+# so a merge in those hours skips rather than fails and the next deploy carries this build too.
+if [ "$(engine_state "$INSTANCE" "$REGION")" != "running" ]; then
+	echo "the engine is not running, so this build was not put on it."
+	echo "Whatever is deployed after it next starts carries this commit as well."
+	exit 0
+fi
+
 gum log --level info "deploying to $INSTANCE in $REGION"
 
 REVISION="$(git rev-parse --short HEAD)"
