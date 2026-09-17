@@ -50,8 +50,8 @@ func (i *Interrupter) Interrupt(ctx context.Context, agentID string) error {
 	return i.channel.Interrupt(ctx, target)
 }
 
-// Explainer: a capture that failed outright is no evidence either way, and a rebase is about to
-// move files under whatever is on screen, so that one case sends the keys anyway.
+// Explainer: Observe fails only when the agent's harness is not registered. Interrupt looks that
+// same harness up, so in that case no keys can land and the failure is reported from there.
 
 // hasTurnToCut reports whether the pane says a turn is running.
 func (i *Interrupter) hasTurnToCut(ctx context.Context, target harness.Target) bool {
