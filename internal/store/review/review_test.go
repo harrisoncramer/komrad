@@ -256,7 +256,11 @@ func TestViewedMarkUsesFingerprint(t *testing.T) {
 	ctx := t.Context()
 	agentID := seedAgent(t, st)
 
-	_, err := st.MarkFileViewed(ctx, MarkFileViewedParams{AgentID: agentID, FilePath: "greet.go", Fingerprint: "abc123"})
+	_, err := st.MarkFileViewed(ctx, MarkFileViewedParams{
+		AgentID:     agentID,
+		FilePath:    "greet.go",
+		Fingerprint: "abc123",
+	})
 	require.NoError(t, err)
 
 	viewed, err := st.ListViewedFiles(ctx, agentID)
@@ -264,7 +268,11 @@ func TestViewedMarkUsesFingerprint(t *testing.T) {
 	require.Len(t, viewed, 1)
 	assert.Equal(t, "abc123", viewed[0].Fingerprint)
 
-	_, err = st.MarkFileViewed(ctx, MarkFileViewedParams{AgentID: agentID, FilePath: "greet.go", Fingerprint: "def456"})
+	_, err = st.MarkFileViewed(ctx, MarkFileViewedParams{
+		AgentID:     agentID,
+		FilePath:    "greet.go",
+		Fingerprint: "def456",
+	})
 	require.NoError(t, err)
 
 	viewed, err = st.ListViewedFiles(ctx, agentID)
@@ -290,7 +298,11 @@ func TestSettlingAThreadIsCarriedByTheList(t *testing.T) {
 
 	thread := openThread(t, st, agentID, review, "this needs a nil check")
 
-	_, err := st.SetThreadResolved(ctx, SetThreadResolvedParams{ID: thread.ID, Resolved: true, ByKind: AuthorHuman})
+	_, err := st.SetThreadResolved(ctx, SetThreadResolvedParams{
+		ID:       thread.ID,
+		Resolved: true,
+		ByKind:   AuthorHuman,
+	})
 	require.NoError(t, err)
 
 	threads, err := st.ListThreads(ctx, agentID)
@@ -935,14 +947,22 @@ func TestAReviewCountsWhatIsStillOwedAnAnswer(t *testing.T) {
 	assert.Equal(t, int32(2), listed.OpenThreads, "both comments are owed an answer")
 	assert.False(t, listed.IsSettled())
 
-	_, err := st.SetThreadResolved(ctx, SetThreadResolvedParams{ID: first.ID, Resolved: true, ByKind: AuthorHuman})
+	_, err := st.SetThreadResolved(ctx, SetThreadResolvedParams{
+		ID:       first.ID,
+		Resolved: true,
+		ByKind:   AuthorHuman,
+	})
 	require.NoError(t, err)
 
 	listed = reviewByID(t, st, agentID, review.ID)
 	assert.Equal(t, int32(1), listed.OpenThreads)
 	assert.False(t, listed.IsSettled(), "a review is not finished while one comment stands")
 
-	_, err = st.SetThreadResolved(ctx, SetThreadResolvedParams{ID: second.ID, Resolved: true, ByKind: AuthorHuman})
+	_, err = st.SetThreadResolved(ctx, SetThreadResolvedParams{
+		ID:       second.ID,
+		Resolved: true,
+		ByKind:   AuthorHuman,
+	})
 	require.NoError(t, err)
 
 	listed = reviewByID(t, st, agentID, review.ID)

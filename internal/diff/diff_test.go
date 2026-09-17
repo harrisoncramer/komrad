@@ -49,9 +49,21 @@ func TestFingerprintIsDeterministic(t *testing.T) {
 		Hunks: []Hunk{{
 			Header: "@@ -0,0 +1,3 @@",
 			Lines: []Line{
-				{Kind: Addition, Text: "package main", NewNumber: 1},
-				{Kind: Addition, Text: "", NewNumber: 2},
-				{Kind: Addition, Text: `func greet() { println("hi") }`, NewNumber: 3},
+				{
+					Kind:      Addition,
+					Text:      "package main",
+					NewNumber: 1,
+				},
+				{
+					Kind:      Addition,
+					Text:      "",
+					NewNumber: 2,
+				},
+				{
+					Kind:      Addition,
+					Text:      `func greet() { println("hi") }`,
+					NewNumber: 3,
+				},
 			},
 		}},
 	}
@@ -104,8 +116,20 @@ func TestFingerprintChangesWhenMetadataDiffers(t *testing.T) {
 func TestFingerprintIgnoresPathAndSource(t *testing.T) {
 	hunks := []Hunk{{Header: "@@ -1 +1 @@", Lines: []Line{{Kind: Context, Text: "x"}}}}
 
-	a := File{OldPath: "a.go", NewPath: "b.go", OldSource: "old", NewSource: "new", Hunks: hunks}
-	b := File{OldPath: "c.go", NewPath: "d.go", OldSource: "different", NewSource: "also different", Hunks: hunks}
+	a := File{
+		OldPath:   "a.go",
+		NewPath:   "b.go",
+		OldSource: "old",
+		NewSource: "new",
+		Hunks:     hunks,
+	}
+	b := File{
+		OldPath:   "c.go",
+		NewPath:   "d.go",
+		OldSource: "different",
+		NewSource: "also different",
+		Hunks:     hunks,
+	}
 
 	assert.Equal(t, a.Fingerprint(), b.Fingerprint(), "path and source are not part of the fingerprint")
 }

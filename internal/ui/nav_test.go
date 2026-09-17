@@ -134,7 +134,11 @@ func TestResumeFocusesTheAgentItPutsBack(t *testing.T) {
 	tmux := &recordingTmux{}
 	m := infoModel(tmux)
 
-	landed, _ := m.applyWrite(writeResult{written: &written{row: agentRowKey("a1"), pane: "%9", focus: true}})
+	landed, _ := m.applyWrite(writeResult{written: &written{
+		row:   agentRowKey("a1"),
+		pane:  "%9",
+		focus: true,
+	}})
 	got := asModel(t, landed)
 
 	assert.Equal(t, "%9", got.frame.GuestPane())
@@ -162,7 +166,11 @@ func TestResumeFocusesOnceTheHarnessDraws(t *testing.T) {
 	m := infoModel(tmux)
 	m.harnessFrames = frames
 
-	landed, _ := m.applyWrite(writeResult{written: &written{row: agentRowKey("a1"), pane: "%9", focus: true}})
+	landed, _ := m.applyWrite(writeResult{written: &written{
+		row:   agentRowKey("a1"),
+		pane:  "%9",
+		focus: true,
+	}})
 	m = asModel(t, landed)
 
 	assert.Empty(t, tmux.selected, "a pane still at its shell is not given the keys")
@@ -192,7 +200,11 @@ func TestResumeLeavesTheKeyboardWhenTheStageIsRefused(t *testing.T) {
 	m.frame = layout.New(tmux, config.DefaultLayout())
 	m.frame.Attach("%0")
 
-	landed, _ := m.applyWrite(writeResult{written: &written{row: agentRowKey("a1"), pane: "%9", focus: true}})
+	landed, _ := m.applyWrite(writeResult{written: &written{
+		row:   agentRowKey("a1"),
+		pane:  "%9",
+		focus: true,
+	}})
 	got := asModel(t, landed)
 
 	assert.Empty(t, got.frame.GuestPane())

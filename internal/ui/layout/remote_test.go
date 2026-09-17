@@ -12,7 +12,11 @@ import (
 
 // remoteEngine is an engine somewhere this tmux server cannot reach.
 func remoteEngine() engine.Remote {
-	return engine.Remote{Destination: "weave@host", Socket: "weave", Session: "weave"}
+	return engine.Remote{
+		Destination: "weave@host",
+		Socket:      "weave",
+		Session:     "weave",
+	}
 }
 
 // TestFocusPaneIsTheGuestForALocalEngine covers the focus key jumping to the agent's own pane,

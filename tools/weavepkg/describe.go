@@ -47,7 +47,11 @@ func describe(root, base, tags string) (plan, error) {
 		}
 
 		refs, dependents := touched(pkgs, mod.dir, dirs)
-		result.Modules = append(result.Modules, moduleRef{Path: mod.path, Dir: mod.rel, Packages: refs})
+		result.Modules = append(result.Modules, moduleRef{
+			Path:     mod.path,
+			Dir:      mod.rel,
+			Packages: refs,
+		})
 		result.UntestedDependents += dependents
 	}
 
@@ -113,7 +117,11 @@ func modulesUnder(root string) ([]module, error) {
 			rel = dir
 		}
 
-		modules = append(modules, module{path: path, dir: dir, rel: rel})
+		modules = append(modules, module{
+			path: path,
+			dir:  dir,
+			rel:  rel,
+		})
 	}
 
 	return modules, nil

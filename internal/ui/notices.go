@@ -119,15 +119,31 @@ func heldFact(item agentItem) (notice, bool) {
 	if item.alive {
 		switch item.agent.State {
 		case agentstore.StateThinking:
-			return notice{icon: heldIcon, tone: paint.ToneDanger, text: heldWorkingNotice}, true
+			return notice{
+				icon: heldIcon,
+				tone: paint.ToneDanger,
+				text: heldWorkingNotice,
+			}, true
 		case agentstore.StateWaiting:
-			return notice{icon: heldIcon, tone: paint.ToneDanger, text: heldPromptedNotice}, true
+			return notice{
+				icon: heldIcon,
+				tone: paint.ToneDanger,
+				text: heldPromptedNotice,
+			}, true
 		case agentstore.StateUncertain:
-			return notice{icon: heldIcon, tone: paint.ToneWarning, text: heldUnreadableNotice}, true
+			return notice{
+				icon: heldIcon,
+				tone: paint.ToneWarning,
+				text: heldUnreadableNotice,
+			}, true
 		case agentstore.StateIdle, agentstore.StateSettingUp,
 			agentstore.StateFailedToCreate, agentstore.StateFailedToCleanup:
 		}
 	}
 
-	return notice{icon: heldIcon, tone: paint.ToneWarning, text: heldNotice}, true
+	return notice{
+		icon: heldIcon,
+		tone: paint.ToneWarning,
+		text: heldNotice,
+	}, true
 }

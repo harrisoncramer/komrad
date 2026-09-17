@@ -45,7 +45,11 @@ func (m model) archiveRows() []agentRow {
 	items := xslice.Map(m.archive.agents, func(agent agentstore.Agent) agentItem { return agentItem{agent: agent} })
 
 	// The archive draws an archived orchestrator as a row of its own.
-	return treeRows(treeRowsParams{workflows: m.archiveHeaders(), agents: items, showHidden: true})
+	return treeRows(treeRowsParams{
+		workflows:  m.archiveHeaders(),
+		agents:     items,
+		showHidden: true,
+	})
 }
 
 func (m model) archiveHeaders() []workflowstore.Workflow {

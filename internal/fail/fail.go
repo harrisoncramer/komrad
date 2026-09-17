@@ -52,7 +52,12 @@ func (s *Error) Kind() Kind { return s.kind }
 
 // Saying returns this sentinel worded for one request, replacing its own message.
 func (s *Error) Saying(format string, args ...any) *Error {
-	return &Error{kind: s.kind, message: fmt.Sprintf(format, args...), wrapped: s, worded: true}
+	return &Error{
+		kind:    s.kind,
+		message: fmt.Sprintf(format, args...),
+		wrapped: s,
+		worded:  true,
+	}
 }
 
 // Worded says whether a raise site chose this failure's message for one request, which is what
@@ -64,12 +69,22 @@ func (s *Error) Unwrap() error { return s.wrapped }
 
 // Kinded returns this failure as a different kind, for a code somebody else already decided.
 func (s *Error) Kinded(kind Kind) *Error {
-	return &Error{kind: kind, message: s.message, wrapped: s.wrapped, worded: s.worded}
+	return &Error{
+		kind:    kind,
+		message: s.message,
+		wrapped: s.wrapped,
+		worded:  s.worded,
+	}
 }
 
 // Because returns an internal failure carrying the error that caused it.
 func Because(err error, message string) *Error {
-	return &Error{kind: KindInternal, message: message, wrapped: err, worded: true}
+	return &Error{
+		kind:    KindInternal,
+		message: message,
+		wrapped: err,
+		worded:  true,
+	}
 }
 
 // Internal declares a sentinel for a failure the caller did nothing to cause and cannot fix.

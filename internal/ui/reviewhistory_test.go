@@ -16,7 +16,11 @@ import (
 // reads off it.
 func TestOnlyTheLastReleasedReviewIsOwedAnAnswer(t *testing.T) {
 	review := func(released string, open int32, kind agentv1.ReviewAuthorKind) *agentv1.Review {
-		return &agentv1.Review{ReleasedAt: released, OpenThreads: open, AuthorKind: kind}
+		return &agentv1.Review{
+			ReleasedAt:  released,
+			OpenThreads: open,
+			AuthorKind:  kind,
+		}
 	}
 	human := agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_HUMAN
 	agent := agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_AGENT
@@ -26,7 +30,11 @@ func TestOnlyTheLastReleasedReviewIsOwedAnAnswer(t *testing.T) {
 		reviews []*agentv1.Review
 		wants   bool
 	}{
-		{name: "nothing reviewed yet", reviews: nil, wants: false},
+		{
+			name:    "nothing reviewed yet",
+			reviews: nil,
+			wants:   false,
+		},
 		{
 			name:    "still being written, so nobody has been asked anything",
 			reviews: []*agentv1.Review{review("", 2, human)},

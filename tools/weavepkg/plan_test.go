@@ -9,9 +9,21 @@ import (
 func TestTouched(t *testing.T) {
 	pkgs := []listed{
 		{ImportPath: "weave/a", Dir: "/repo/a"},
-		{ImportPath: "weave/b", Dir: "/repo/b", Deps: []string{"weave/a"}},
-		{ImportPath: "weave/c", Dir: "/repo/c", TestImports: []string{"weave/a"}},
-		{ImportPath: "weave/d", Dir: "/repo/d", XTestImports: []string{"weave/a"}},
+		{
+			ImportPath: "weave/b",
+			Dir:        "/repo/b",
+			Deps:       []string{"weave/a"},
+		},
+		{
+			ImportPath:  "weave/c",
+			Dir:         "/repo/c",
+			TestImports: []string{"weave/a"},
+		},
+		{
+			ImportPath:   "weave/d",
+			Dir:          "/repo/d",
+			XTestImports: []string{"weave/a"},
+		},
 		{ImportPath: "weave/e", Dir: "/repo/e"},
 	}
 
