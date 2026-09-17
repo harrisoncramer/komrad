@@ -78,3 +78,83 @@ func TestMissingNameIsAnError(t *testing.T) {
 		t.Fatal("a name that is not there is an error")
 	}
 }
+
+// TestAddKeepsTheShapeTheFileWasWrittenIn covers a list somebody broke over lines, where
+// collapsing it onto one makes every later diff the whole variable rather than the added line.
+func TestAddKeepsTheShapeTheFileWasWrittenIn(t *testing.T) {
+	const file = "ssh_allowed_cidrs = [\n  \"1.1.1.1/32\",\n  \"3.3.3.3/32\",\n]\n"
+	const want = "ssh_allowed_cidrs = [\n  \"1.1.1.1/32\",\n  \"3.3.3.3/32\",\n  \"9.9.9.9/32\",\n]\n"
+
+	got, changed, err := add(file, "ssh_allowed_cidrs", "9.9.9.9/32")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !changed || got != want {
+		t.Fatalf("got %q, want %q", got, want)
+	}
+}
+
+// TestAddLeavesACommentWithItsOwnEntry covers annotating which address is which office, where
+// writing the new entry ahead of the comment silently reassigns what it describes, and writing
+// it into the line produces a list Terraform cannot parse.
+func TestAddLeavesACommentWithItsOwnEntry(t *testing.T) {
+	const file = "ssh_allowed_cidrs = [\n  \"1.1.1.1/32\", # home\n]\n"
+	const want = "ssh_allowed_cidrs = [\n  \"1.1.1.1/32\", # home\n  \"9.9.9.9/32\",\n]\n"
+
+	got, changed, err := add(file, "ssh_allowed_cidrs", "9.9.9.9/32")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !changed || got != want {
+		t.Fatalf("got %q, want %q", got, want)
+	}
+}
+
+// TestAddIsNotFooledByACommentNamingTheValue covers the membership test reading past comments,
+// since an address mentioned in one is not an entry.
+func TestAddIsNotFooledByACommentNamingTheValue(t *testing.T) {
+	const file = "ssh_allowed_cidrs = [\n  \"1.1.1.1/32\", # not 9.9.9.9/32\n]\n"
+
+	got, changed, err := add(file, "ssh_allowed_cidrs", "9.9.9.9/32")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !changed {
+		t.Fatal("a comment naming the value is not the value being in the list")
+	}
+
+	if _, changed, _ = add(got, "ssh_allowed_cidrs", "9.9.9.9/32"); changed {
+		t.Fatal("the second run has nothing to do")
+	}
+}
+
+// TestAddClosesAnEntryThatHadNoComma covers a last entry written without a trailing comma,
+// which needs one before anything can follow it.
+func TestAddClosesAnEntryThatHadNoComma(t *testing.T) {
+	const file = "ssh_allowed_cidrs = [\n  \"1.1.1.1/32\"\n]\n"
+	const want = "ssh_allowed_cidrs = [\n  \"1.1.1.1/32\",\n  \"9.9.9.9/32\",\n]\n"
+
+	got, _, err := add(file, "ssh_allowed_cidrs", "9.9.9.9/32")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if got != want {
+		t.Fatalf("got %q, want %q", got, want)
+	}
+}
+
+// TestAddFillsAnEmptyList covers the first address going in.
+func TestAddFillsAnEmptyList(t *testing.T) {
+	got, changed, err := add("ssh_allowed_cidrs = []\n", "ssh_allowed_cidrs", "9.9.9.9/32")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !changed || got != "ssh_allowed_cidrs = [\"9.9.9.9/32\"]\n" {
+		t.Fatalf("got %q", got)
+	}
+}

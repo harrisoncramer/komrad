@@ -54,7 +54,11 @@ if [ ! -f "$KEY" ]; then
 	exit 1
 fi
 
-refuse_unreachable "$HOST"
+if ! reachable "$HOST"; then
+	echo "nothing on $HOST is answering ssh from this machine." >&2
+	explain_unreachable "$HOST"
+	exit 1
+fi
 
 USER_NAME="${WEAVE_ENGINE_USER:-weave}"
 

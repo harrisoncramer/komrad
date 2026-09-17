@@ -51,6 +51,24 @@ changed_files() {
 	git ls-files --others --exclude-standard
 }
 
+# module_of is the directory holding the go.mod a path belongs to, since the internal tooling
+# under tools/ is its own module and go list at the root cannot see into it.
+module_of() {
+	local dir=$1
+
+	while [ "$dir" != "." ] && [ "$dir" != "/" ]; do
+		if [ -f "$dir/go.mod" ]; then
+			echo "$dir"
+
+			return 0
+		fi
+
+		dir="$(dirname "$dir")"
+	done
+
+	echo "."
+}
+
 changed_packages() {
 	local file dir
 	local -a dirs=()
@@ -68,9 +86,35 @@ changed_packages() {
 
 	((${#dirs[@]} > 0)) || return 0
 
+	# Only this module's own packages. One in a module of its own is built, tested and linted
+	# from inside it instead, since go list here cannot resolve it.
 	printf '%s\n' "${dirs[@]}" | sort -u | while IFS= read -r dir; do
-		go list "./$dir" 2>/dev/null || true
+		if [ "$(module_of "$dir")" = "." ]; then
+			go list "./$dir" 2>/dev/null || true
+		fi
 	done
+}
+
+# changed_modules is every module a changed file sits in, so one outside the root is built,
+# tested and linted rather than silently falling out of the fast loop.
+changed_modules() {
+	local file dir
+	local -a dirs=()
+
+	while IFS= read -r file; do
+		case "$file" in
+		*.go | */go.mod) ;;
+		*) continue ;;
+		esac
+
+		dir="$(dirname "$file")"
+		[ -d "$dir" ] || continue
+		dirs+=("$(module_of "$dir")")
+	done < <(changed_files)
+
+	((${#dirs[@]} > 0)) || return 0
+
+	printf '%s\n' "${dirs[@]}" | sort -u
 }
 
 untested_dependents() {
@@ -88,6 +132,7 @@ untested_dependents() {
 PROTO_LINTED=false
 PACKAGES=()
 DIRS=()
+MODULES_RUN=()
 while IFS= read -r pkg; do
 	[ -n "$pkg" ] || continue
 	PACKAGES+=("$pkg")
@@ -121,6 +166,20 @@ if [ -n "$(changed_files | grep '\.proto$' || true)" ]; then
 	run_step "proto:lint" mise run proto:lint
 fi
 
+while IFS= read -r module; do
+	[ -n "$module" ] || continue
+	[ "$module" = "." ] && continue
+
+	run_step "go build ($module)" bash -c "cd '$module' && go build ./..."
+	run_step "go test ($module)" bash -c "cd '$module' && gotestsum --format pkgname -- ./..."
+
+	if [ -x "$BIN_PATH" ]; then
+		run_step "go lint ($module)" bash -c "cd '$module' && '$BIN_PATH' run --config '$MISE_CONFIG_ROOT/.golangci.yaml' --timeout 5m ./..."
+	fi
+
+	MODULES_RUN+=("$module")
+done < <(changed_modules)
+
 LINTED=false
 if ((${#PACKAGES[@]} > 0)); then
 	run_step "go test" gotestsum --format pkgname -- "${PACKAGES[@]}"
@@ -142,10 +201,16 @@ echo
 
 echo "  built     every package"
 
-if ((${#PACKAGES[@]} == 0)); then
+if ((${#MODULES_RUN[@]} > 0)); then
+	echo "  built     every package in ${MODULES_RUN[*]}, and tested and linted it"
+fi
+
+if ((${#PACKAGES[@]} == 0)) && ((${#MODULES_RUN[@]} == 0)); then
 	echo "  tested    nothing: no Go package to run, either nothing Go changed"
 	echo "            or what changed is no longer in the tree"
 	echo "  linted    nothing, for the same reason"
+elif ((${#PACKAGES[@]} == 0)); then
+	echo "  tested    nothing in the root module"
 else
 	echo "  tested    ${#PACKAGES[@]} changed package(s):"
 	printf '              %s\n' "${DIRS[@]}"

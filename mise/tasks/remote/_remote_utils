@@ -41,34 +41,76 @@ terraform_output_list() {
 		jq -r 'join(" ")' 2>/dev/null || true
 }
 
-# refuse_unreachable says why a connection will not be made, since a firewall that drops a packet
-# looks the same from here as a box that is not running.
-refuse_unreachable() {
+# explain_unreachable says why ssh could not get through, which is worth saying because a
+# firewall dropping a packet looks the same from here as a box that is not running.
+#
+# It reports rather than decides, so a probe it cannot run leaves ssh to try anyway.
+explain_unreachable() {
 	local host=$1 mine allowed
-
-	if nc -z -G 5 "$host" 22 2>/dev/null; then
-		return 0
-	fi
 
 	mine="$(public_address)"
 	allowed="$(terraform_output_list ssh_allowed_cidrs)"
 
-	echo "nothing on $host is answering ssh from this machine." >&2
 	echo >&2
 	echo "  this machine looks like  ${mine:-could not tell}" >&2
-	echo "  the firewall allows      ${allowed:-nothing}" >&2
+	echo "  the firewall allows      ${allowed:-could not tell}" >&2
 	echo >&2
 
-	if [ -n "$mine" ] && [ -n "$allowed" ] && ! printf '%s' "$allowed" | grep -qF "$mine"; then
-		echo "Your address is not one of those, which is what happens after you change network." >&2
-		echo "Add it with:" >&2
-		echo >&2
-		echo "  mise run remote:allow" >&2
-	else
-		echo "Your address is allowed, so the engine itself is not answering. Check it is running." >&2
+	if [ -z "$mine" ]; then
+		echo "Could not work out how this machine appears from outside, so whether the firewall" >&2
+		echo "is the problem is unknown." >&2
+
+		return 0
 	fi
 
-	exit 1
+	if [ -z "$allowed" ]; then
+		echo "Could not read which addresses are allowed, so whether yours is among them is" >&2
+		echo "unknown. An output that Terraform has not applied yet reads as nothing here." >&2
+
+		return 0
+	fi
+
+	if allows_address "$allowed" "$mine"; then
+		echo "Your address is listed, so the firewall is not what is stopping you. Check the" >&2
+		echo "engine is running." >&2
+
+		return 0
+	fi
+
+	echo "Your address is not listed as an exact entry, which is what happens after you change" >&2
+	echo "network. A range among those may still cover it. Add yours with:" >&2
+	echo >&2
+	echo "  mise run remote:allow" >&2
+}
+
+# allows_address reports whether an address is one of the entries, comparing whole entries so
+# that 203.0.113.4 is not read as covered by 203.0.113.40.
+allows_address() {
+	local allowed=$1 mine=$2 entry
+
+	for entry in $allowed; do
+		if [ "$entry" = "$mine" ] || [ "$entry" = "$mine/32" ]; then
+			return 0
+		fi
+	done
+
+	return 1
+}
+
+# reachable reports whether anything answers ssh, using bash's own tcp support so that no
+# external command has to be present or spell its timeout a particular way.
+reachable() {
+	local host=$1
+
+	timeout_connect "$host" 22
+}
+
+timeout_connect() {
+	local host=$1 port=$2
+
+	(
+		exec 3<>"/dev/tcp/$host/$port"
+	) 2>/dev/null
 }
 
 # require_output reads one output, and says what to do when there is no infrastructure to read.

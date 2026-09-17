@@ -64,14 +64,9 @@ case "$ADDRESS" in
 *) ADDRESS="$ADDRESS/32" ;;
 esac
 
-# The file rather than the state, because an output added but not yet applied reads as empty,
-# and an empty answer must not read as "not allowed yet".
-if grep -q "\"$ADDRESS\"" infra/terraform/terraform.tfvars; then
-	gum log --level info "$ADDRESS already reaches the engine"
-	exit 0
-fi
-
-gum log --level info "allowing $ADDRESS, beside $(terraform_output_list ssh_allowed_cidrs || true)"
+# admin tfvars decides whether the file needs changing. The apply runs either way, because a
+# file that already names an address says nothing about whether the last apply carried it.
+gum log --level info "allowing $ADDRESS"
 
 admin tfvars add infra/terraform/terraform.tfvars ssh_allowed_cidrs "$ADDRESS"
 
