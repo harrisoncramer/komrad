@@ -16,8 +16,9 @@ locals {
   github_identified = var.github_owner_id != "" && var.github_repository_id != ""
 
   # A release runs for a tag rather than a branch, so both refs are named. Without the tag arm the
-  # deploy a release triggers cannot assume this role at all.
-  github_refs = ["refs/heads/*", "refs/tags/*"]
+  # deploy a release triggers cannot assume this role at all. Only v tags cut releases, so only
+  # those are trusted.
+  github_refs = ["refs/heads/*", "refs/tags/v*"]
 
   github_subjects = flatten([
     for ref in local.github_refs : [
@@ -56,7 +57,7 @@ data "aws_iam_policy_document" "github_assume" {
       values   = ["sts.amazonaws.com"]
     }
 
-    # Only this repository's own branches, so a fork's pull request cannot assume the role.
+    # Only this repository's own refs, so a fork's pull request cannot assume the role.
     condition {
       test     = "StringLike"
       variable = "token.actions.githubusercontent.com:sub"
