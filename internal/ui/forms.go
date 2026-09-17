@@ -961,6 +961,7 @@ func scheduleForm(values *schedulestore.Config, workflows []workflowstore.Workfl
 		huh.NewInput().Key("cron").Title("Cron").Placeholder("0 9 * * 1-5").Description("minute hour day month weekday").Value(&values.Cron),
 		huh.NewInput().Key("timezone").Title("Timezone").Placeholder("America/New_York").Description("blank = this machine's zone").Value(&values.Timezone),
 		textField("prompt").Title("Prompt").Description("what each launched agent is asked to do").Value(&values.Prompt),
+		// Options comes before Value so huh leaves the list scrolled to the top.
 		huh.NewSelect[string]().Key("workflow").Title("Workflow").Description("supplies the directory, flags, and context").Options(options...).Value(&values.WorkflowID),
 
 		huh.NewConfirm().Key("enabled").Title("Armed?").Affirmative("Armed").Negative("Paused").Value(&values.Enabled).WithButtonAlignment(lipgloss.Left),

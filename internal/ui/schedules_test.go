@@ -717,8 +717,8 @@ func TestScheduleFormKeepsAWorkflowThatIsGone(t *testing.T) {
 	assert.Contains(t, plain(edit.form.form.View()), "w1  gone")
 }
 
-// TestScheduleFormOffersEveryWorkflow covers a schedule on any workflow but the first, which huh
-// scrolls its list to and so draws alone.
+// TestScheduleFormOffersEveryWorkflow covers the options a schedule on any workflow but the
+// first is offered.
 func TestScheduleFormOffersEveryWorkflow(t *testing.T) {
 	values := schedulestore.Config{
 		Name:       "bughunt-fixer-dispatcher",
