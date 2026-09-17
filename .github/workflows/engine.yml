@@ -73,8 +73,9 @@ jobs:
           use_lockfile = true
           EOF
 
+      # The lock is read as written, never rewritten.
       - name: Read the state
-        run: mise run terraform:init
+        run: mise run terraform:init -- -lockfile=readonly
 
       - name: Put this build on the engine
         run: mise run remote:deploy

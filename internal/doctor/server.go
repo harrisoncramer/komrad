@@ -94,7 +94,7 @@ func newServerCheck() Check {
 						version.Describe(status.Version, status.Commit),
 						version.Describe(env.Version, env.Commit)),
 					env.Addr,
-					describeStaleServerFix(ctx, env),
+					describeStaleServerFix(ctx, env, status.Commit),
 				)
 
 			case !status.Ready:
@@ -141,9 +141,9 @@ func describeTakenAddressFix(env Env) string {
 	return "free the address, or set WEAVE_ADDR to one nothing else is using"
 }
 
-func describeStaleServerFix(ctx context.Context, env Env) string {
+func describeStaleServerFix(ctx context.Context, env Env, engineCommit string) string {
 	if env.EngineIsRemote {
-		return "deploy this build to the engine, since the service it is running is its own"
+		return StaleEngineFix(engineCommit)
 	}
 
 	if !env.IsPanelRunning(ctx) {
@@ -151,4 +151,13 @@ func describeStaleServerFix(ctx context.Context, env Env) string {
 	}
 
 	return "tmux -L " + env.TmuxSocket + " kill-server, then reopen the panel, which also restarts every agent"
+}
+
+// StaleEngineFix says how to bring this binary to the build a remote engine is serving.
+func StaleEngineFix(engineCommit string) string {
+	if engineCommit == "" {
+		return "put the dist/weave-panel the deploy left beside it in place of your own weave, since a deploy from a dirty tree names no commit to rebuild from"
+	}
+
+	return "rebuild this panel from the commit the engine is serving, since CI deploys the engine from main"
 }

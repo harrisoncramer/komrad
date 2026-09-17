@@ -27,7 +27,7 @@ terraform_output() {
 
 	if [ ! -d infra/terraform/.terraform ] && [ -f infra/terraform/backend.hcl ]; then
 		terraform -chdir=infra/terraform init \
-			-backend-config=backend.hcl -input=false >/dev/null 2>&1 || true
+			-backend-config=backend.hcl -input=false -lockfile=readonly >/dev/null 2>&1 || true
 	fi
 
 	terraform -chdir=infra/terraform output -raw "$name" 2>/dev/null

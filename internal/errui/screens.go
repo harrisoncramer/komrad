@@ -1,5 +1,10 @@
 package errui
 
+import "errors"
+
+// ErrEngineBuild marks a startup failure that is this binary rather than the engine it dialled.
+var ErrEngineBuild = errors.New("the engine is running code this panel was not built from")
+
 type Finding struct {
 	Name   string
 	Reason string
@@ -22,7 +27,7 @@ func RenderConfigError(width int, err error) string {
 	}.Render()
 }
 
-// RenderStartupError is shown instead of the panel when the server could not be started.
+// RenderStartupError is shown instead of the panel when it has no server it can talk to.
 func RenderStartupError(width int, err error, findings []Finding) string {
 	screen := Screen{
 		Width: width,
@@ -30,6 +35,13 @@ func RenderStartupError(width int, err error, findings []Finding) string {
 		Body: []string{
 			"The panel did not start. Nothing about your agents has changed, and none of them were stopped: the server is only how the panel reads and changes them.",
 		},
+	}
+
+	if errors.Is(err, ErrEngineBuild) {
+		screen.Title = "The engine is running different code"
+		screen.Body = []string{
+			"The panel did not start. The engine is up and every agent on it is still running, so there is nothing to restart over there: what does not match is the weave on this machine.",
+		}
 	}
 
 	for _, finding := range findings {

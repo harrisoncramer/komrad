@@ -214,6 +214,7 @@ linters:
             # for itself, configuration, and the pool held open before a request can arrive.
             exclude:
               - ^internal/ui/
+              - ^internal/errui/
               - ^internal/cli/
               - ^internal/diff/
               - ^internal/interceptors/
