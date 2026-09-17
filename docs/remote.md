@@ -85,10 +85,10 @@ The engine is deployed when a release is published, so it sits at the last relea
 
 The refusal happens as the panel opens, once the forward to the engine is up. Instead of drawing, it names both builds and closes on any key. The engine is untouched by this and every agent on it keeps running, so the fix is on your own machine: rebuild your weave from the commit the engine is serving, which is what `weave doctor` says too.
 
-## The box is not always up
+## The box may not be up
 
-The engine bills for every hour it is running, so it is stopped overnight and started again in the morning. Stopping keeps the instance rather than replacing it: the data volume, the database and the address all survive, so the file above stays correct and your panel needs no change.
+An engine can be stopped when it is not being used, since it bills for every hour it runs. Stopping keeps the instance rather than replacing it: the data volume, the database and the address all survive, so the file above stays correct and your panel needs no change.
 
 Every agent on the box stops with it. Their conversations and worktrees are on the data volume, so resume the ones you want once it is back.
 
-If the panel cannot reach the engine at a time you did not expect, that is the first thing to check.
+If the panel cannot reach the engine at a time you did not expect, ask whoever administers it whether the box is down. Stopping and starting it is in [engine-admin.md](engine-admin.md).

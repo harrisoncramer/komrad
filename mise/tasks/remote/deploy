@@ -33,22 +33,8 @@ cd "$MISE_CONFIG_ROOT"
 
 require_aws_profile
 
-INSTANCE="${1:-${WEAVE_ENGINE_INSTANCE:-}}"
-
-if [ -z "$INSTANCE" ]; then
-	# A checkout that has never run Terraform has no state to read the instance from, and
-	# initialising is idempotent, so it is done here rather than asked for.
-	INSTANCE="$(terraform_output instance_id)"
-fi
-
-if [ -z "$INSTANCE" ]; then
-	echo "could not read the engine's instance from Terraform." >&2
-	echo >&2
-	echo "Run 'mise run terraform:apply' to build one, or set WEAVE_ENGINE_INSTANCE." >&2
-	exit 1
-fi
-
-REGION="${AWS_REGION:-us-east-1}"
+INSTANCE="$(require_instance "${1:-}")"
+REGION="$(engine_region)"
 BUCKET="$(require_output state_bucket)"
 if [ -z "$BUCKET" ]; then
 	echo "no state bucket to stage the binary through" >&2

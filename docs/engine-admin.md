@@ -213,13 +213,13 @@ This is not the reimage path. The instance is kept rather than replaced, so the 
 
 The start waits for the instance checks to pass, which take minutes, by which time weave has long been serving. Running either command against an engine already in the state it asks for costs nothing and reports what it found.
 
-Terraform is not involved. It does not track whether an instance is running, so `terraform plan` reports no changes against a stopped engine and a later `apply` will not start it. Stopping and reimaging take the same lock, though, so do not do both at once.
+Terraform is not involved. It does not track whether an instance is running, so `terraform plan` reports no changes against a stopped engine and a later `apply` will not start it. Nothing stops you running a stop and a reimage at once, so do not: the reimage is replacing the instance the stop is waiting on.
 
 Stopping does not stop everything on the bill. The two 100 GiB volumes, the database, the snapshots and the address all keep costing what they cost. What goes away is the instance itself, which is the large part.
 
 ### The nightly schedule
 
-`.github/workflows/engine-stop.yml` and `.github/workflows/engine-start.yml` run those same two commands from GitHub Actions. They reach AWS through the same OIDC role the deploy uses and touch the instance through Systems Manager, because a runner has no fixed address for the security group.
+`.github/workflows/engine-stop.yml` and `.github/workflows/engine-start.yml` run those same two commands from GitHub Actions, reaching AWS through the same OIDC role the deploy uses. They talk to the EC2 API rather than to the box, so unlike the deploy they need nothing on the instance and no way in past the security group.
 
 They are live once merged, with nothing to turn on. Either one runs by hand from the Actions tab or with `gh workflow run "engine stop"`.
 

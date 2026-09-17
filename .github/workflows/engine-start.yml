@@ -2,9 +2,9 @@ name: engine start
 
 # Brings the engine back for the day.
 #
-# It waits until weave is actually answering rather than until the instance is running, so when
-# this finishes the panel can reach it. The agents that were on the box before the stop are not
-# brought back; their conversations are on the data volume, so resume the ones you want.
+# It waits for the instance checks to pass, which take minutes, so by the time this finishes weave
+# has long been serving. The agents that were on the box before the stop are not brought back;
+# their conversations are on the data volume, so resume the ones you want.
 #
 # GitHub's cron is UTC and does not follow daylight saving, so this is 7am in New York for half
 # the year and 6am for the other half.
