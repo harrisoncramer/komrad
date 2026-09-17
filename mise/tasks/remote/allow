@@ -73,7 +73,7 @@ fi
 
 gum log --level info "allowing $ADDRESS, beside $(terraform_output_list ssh_allowed_cidrs || true)"
 
-tfvars add infra/terraform/terraform.tfvars ssh_allowed_cidrs "$ADDRESS"
+admin tfvars add infra/terraform/terraform.tfvars ssh_allowed_cidrs "$ADDRESS"
 
 terraform -chdir=infra/terraform apply -input=false "${TERRAFORM_ARGS[@]+"${TERRAFORM_ARGS[@]}"}"
 

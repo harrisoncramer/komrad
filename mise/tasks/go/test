@@ -64,6 +64,6 @@ cd "$MISE_CONFIG_ROOT"
 # The lint rules are a module of their own, so the suite below does not see them. They run
 # first because a red suite under set -e would otherwise mean they never run at all.
 (cd "$MISE_CONFIG_ROOT/tools/weavelint" && gotestsum --format pkgname --format-hide-empty-pkg -- ./...)
-(cd "$MISE_CONFIG_ROOT/tools/tfvars" && gotestsum --format pkgname --format-hide-empty-pkg -- ./...)
+(cd "$MISE_CONFIG_ROOT/tools/admin" && gotestsum --format pkgname --format-hide-empty-pkg -- ./...)
 
 gotestsum --format pkgname --format-hide-empty-pkg -- "${TAGS[@]}" ./...

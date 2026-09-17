@@ -99,7 +99,7 @@ if ! printf '%s\n' "$@" | grep -q -- "-auto-approve"; then
 	}
 fi
 
-tfvars set infra/terraform/terraform.tfvars ami_id "$AMI"
+admin tfvars set infra/terraform/terraform.tfvars ami_id "$AMI"
 
 terraform -chdir=infra/terraform apply -input=false "${TERRAFORM_ARGS[@]+"${TERRAFORM_ARGS[@]}"}"
 

@@ -27,7 +27,7 @@ done
 
 cd "$MISE_CONFIG_ROOT"
 
-MODULES=(. tools/weavelint tools/tfvars)
+MODULES=(. tools/weavelint tools/admin)
 
 CONFIG="$MISE_CONFIG_ROOT/.golangci.yaml"
 BIN_PATH="$MISE_CONFIG_ROOT/local/custom-gcl"

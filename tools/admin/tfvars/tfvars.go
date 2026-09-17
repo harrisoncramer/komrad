@@ -1,49 +1,70 @@
-// Command tfvars changes one value in a Terraform variables file, leaving everything else alone.
+// Package tfvars changes one value in a Terraform variables file, leaving everything else alone.
 //
 // A variables file is edited by people, so a task that has to change one value in it cannot
 // simply rewrite the file. Nor can it reach for sed, since a value may be a list spread over
 // several lines and the file carries the alignment and comments somebody chose. This reads the
 // one assignment it was asked about and writes back the same file with that value replaced.
-package main
+package tfvars
 
 import (
 	"fmt"
 	"os"
 	"regexp"
 	"strings"
+
+	"github.com/spf13/cobra"
 )
 
-func main() {
-	if err := run(os.Args[1:]); err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
+// Command is the subcommand this package is reached through.
+func Command() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "tfvars",
+		Short: "Change one value in a Terraform variables file",
+		Long: `Change one value in a Terraform variables file.
+
+The file is edited by people, so this replaces the one value it was asked about and
+leaves the alignment, the comments and everything else as they were.`,
+		Args:          cobra.NoArgs,
+		SilenceUsage:  true,
+		SilenceErrors: true,
+	}
+
+	cmd.AddCommand(setCommand(), addCommand())
+
+	return cmd
+}
+
+func setCommand() *cobra.Command {
+	return &cobra.Command{
+		Use:   "set <file> <name> <value>",
+		Short: "Replace a value, keeping the padding the file uses",
+		Args:  cobra.ExactArgs(3),
+		RunE: func(_ *cobra.Command, args []string) error {
+			return apply(args[0], args[1], args[2], set)
+		},
 	}
 }
 
-func run(args []string) error {
-	if len(args) != 4 {
-		return fmt.Errorf("usage: tfvars set|add <file> <name> <value>")
+func addCommand() *cobra.Command {
+	return &cobra.Command{
+		Use:   "add <file> <name> <value>",
+		Short: "Append to a list, doing nothing when the value is already in it",
+		Args:  cobra.ExactArgs(3),
+		RunE: func(_ *cobra.Command, args []string) error {
+			return apply(args[0], args[1], args[2], add)
+		},
 	}
+}
 
-	action, path, name, value := args[0], args[1], args[2], args[3]
+type edit func(text, name, value string) (string, bool, error)
 
+func apply(path, name, value string, change edit) error {
 	raw, err := os.ReadFile(path)
 	if err != nil {
 		return fmt.Errorf("failed to read %s: %w", path, err)
 	}
 
-	var updated string
-	var changed bool
-
-	switch action {
-	case "set":
-		updated, changed, err = set(string(raw), name, value)
-	case "add":
-		updated, changed, err = add(string(raw), name, value)
-	default:
-		return fmt.Errorf("%q is not something this does, which is set or add", action)
-	}
-
+	updated, changed, err := change(string(raw), name, value)
 	if err != nil {
 		return fmt.Errorf("%s: %w", path, err)
 	}

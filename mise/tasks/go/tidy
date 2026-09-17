@@ -4,4 +4,4 @@ set -euo pipefail
 cd "$MISE_CONFIG_ROOT"
 go mod tidy
 (cd tools/weavelint && go mod tidy)
-(cd tools/tfvars && go mod tidy)
+(cd tools/admin && go mod tidy)
