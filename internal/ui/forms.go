@@ -483,6 +483,21 @@ func (m *model) holdForm() tea.Cmd {
 	return nil
 }
 
+// redrawOpenForm draws the form on screen again from the listing as it stands now, leaving the
+// cursor on the field it was on.
+func (m *model) redrawOpenForm() tea.Cmd {
+	if !m.form.isActive() || m.held.active {
+		return nil
+	}
+
+	key := ""
+	if focused := m.form.form.GetFocusedField(); focused != nil {
+		key = focused.GetKey()
+	}
+
+	return m.redrawFormOn(key)
+}
+
 func (m *model) rebuildForm() tea.Cmd {
 	if m.form.rebuild == nil {
 		return nil
@@ -930,9 +945,15 @@ func archiveWorkflowForm(name string, keys config.FormKeys) (*huh.Form, *bool) {
 }
 
 func scheduleForm(values *schedulestore.Config, workflows []workflowstore.Workflow, keys config.FormKeys) (*huh.Form, []string) {
-	options := make([]huh.Option[string], 0, len(workflows))
+	options := make([]huh.Option[string], 0, len(workflows)+1)
 	for _, w := range workflows {
 		options = append(options, huh.NewOption(w.Name+"  "+orDash(w.Cwd), w.ID))
+	}
+
+	// A select whose value names none of its options selects the first one and writes it back,
+	// which would move the schedule to a workflow nobody chose.
+	if values.WorkflowID != "" && !slices.ContainsFunc(options, func(o huh.Option[string]) bool { return o.Value == values.WorkflowID }) {
+		options = append(options, huh.NewOption(values.WorkflowID+"  gone", values.WorkflowID))
 	}
 
 	return formOf(keys,

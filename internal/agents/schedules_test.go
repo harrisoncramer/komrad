@@ -235,18 +235,24 @@ func TestScheduleWorkflowMustExist(t *testing.T) {
 		name            string
 		archiveWorkflow bool
 		workflowID      string
+		wantErr         error
+		wantSaying      string
 	}{
 		{
-			name:            "a workflow that has been deleted",
+			name:            "a workflow that has been archived",
 			archiveWorkflow: true,
+			wantErr:         ErrWorkflowArchived,
+			wantSaying:      "gone",
 		},
 		{
 			name:       "a well-formed id no workflow holds",
 			workflowID: missingWorkflowID,
+			wantErr:    ErrWorkflowNotFound,
 		},
 		{
 			name:       "an id that is not an id at all",
 			workflowID: "not-a-uuid",
+			wantErr:    ErrWorkflowNotFound,
 		},
 	}
 
@@ -277,7 +283,10 @@ func TestScheduleWorkflowMustExist(t *testing.T) {
 				Prompt:     "go",
 				WorkflowID: target,
 			})
-			require.ErrorIs(t, err, ErrWorkflowNotFound, "a schedule is not created into a workflow that is not there")
+			require.ErrorIs(t, err, tt.wantErr, "a schedule is not created into a workflow that is not there")
+			if tt.wantSaying != "" {
+				assert.Contains(t, err.Error(), tt.wantSaying, "the refusal names the workflow")
+			}
 
 			err = svc.UpdateSchedule(ctx, existing.ID, schedulestore.Config{
 				Name:       "nightly",
@@ -285,7 +294,7 @@ func TestScheduleWorkflowMustExist(t *testing.T) {
 				Prompt:     "go",
 				WorkflowID: target,
 			})
-			require.ErrorIs(t, err, ErrWorkflowNotFound, "nor is one moved into it")
+			require.ErrorIs(t, err, tt.wantErr, "nor is one moved into it")
 
 			listed, err := st.Schedules.List(ctx)
 			require.NoError(t, err)

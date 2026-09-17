@@ -137,13 +137,23 @@ func (s *ScheduleService) ArchiveSchedule(ctx context.Context, id string) error 
 func (s *ScheduleService) requireWorkflow(ctx context.Context, workflowID string) error {
 	_, err := s.workflows.Get(ctx, workflowID)
 	if errors.Is(err, store.ErrNotFound) {
-		return ErrWorkflowNotFound.Saying("no workflow with id %q", workflowID)
+		return s.workflowGone(ctx, workflowID)
 	}
 	if err != nil {
 		return fmt.Errorf("failed to look up workflow %q: %w", workflowID, err)
 	}
 
 	return nil
+}
+
+// workflowGone says which way a workflow a schedule named is unusable.
+func (s *ScheduleService) workflowGone(ctx context.Context, workflowID string) error {
+	archived, err := s.workflows.GetIncludingArchived(ctx, workflowID)
+	if err == nil && archived != nil {
+		return ErrWorkflowArchived.Saying("workflow %q has been archived", archived.Name)
+	}
+
+	return ErrWorkflowNotFound.Saying("no workflow with id %q", workflowID)
 }
 
 func normalize(cfg schedulestore.Config) (schedulestore.Config, error) {

@@ -654,3 +654,65 @@ func TestScheduleName(t *testing.T) {
 		})
 	}
 }
+
+// TestScheduleFormTakesNewWorkflows covers a workflow created while the schedule form is up,
+// which the form has to offer without being closed and opened again.
+func TestScheduleFormTakesNewWorkflows(t *testing.T) {
+	m := scheduleModel(&fakeSchedules{}, config.DefaultKeybindings())
+	m.schedules.items = []scheduleItem{{schedule: schedulestore.Schedule{
+		ID:         "s1",
+		Name:       "morning-ci",
+		Cron:       "0 9 * * 1-5",
+		Enabled:    true,
+		WorkflowID: "w1",
+	}}}
+	m.width, m.height = 120, 40
+
+	opened, _ := m.editScheduleForm()
+	edit, ok := opened.(model)
+	require.True(t, ok)
+	require.True(t, edit.form.isActive())
+	edit.form.form.Update(tea.WindowSizeMsg{Width: 80, Height: 40})
+	require.NotContains(t, plain(edit.form.form.View()), "brandnew")
+
+	settle(t, edit, edit.form.form.NextField())
+	require.Equal(t, "cron", edit.form.form.GetFocusedField().GetKey())
+
+	cmd := edit.applyRefresh(refreshResult{workflows: []workflowstore.Workflow{
+		{ID: "w1", Name: "api", Cwd: "/work/api"},
+		{ID: "w2", Name: "brandnew", Cwd: "/work/new"},
+	}})
+	settle(t, edit, cmd)
+	edit.form.form.Update(tea.WindowSizeMsg{Width: 80, Height: 40})
+
+	assert.Contains(t, plain(edit.form.form.View()), "brandnew")
+	assert.Equal(t, "cron", edit.form.form.GetFocusedField().GetKey(), "the cursor stays where it was")
+}
+
+// TestScheduleFormKeepsAWorkflowThatIsGone covers the workflow a schedule is bound to being
+// archived while its form is up, which huh would otherwise answer by picking another one.
+func TestScheduleFormKeepsAWorkflowThatIsGone(t *testing.T) {
+	m := scheduleModel(&fakeSchedules{}, config.DefaultKeybindings())
+	m.width, m.height = 120, 40
+
+	values := schedulestore.Config{
+		Name:       "morning-ci",
+		Cron:       "0 9 * * 1-5",
+		Enabled:    true,
+		WorkflowID: "w1",
+	}
+
+	opened, _ := m.openScheduleForm(&values, &schedulestore.Schedule{ID: "s1", Name: "morning-ci"})
+	edit, ok := opened.(model)
+	require.True(t, ok)
+	edit.form.form.Update(tea.WindowSizeMsg{Width: 80, Height: 40})
+
+	cmd := edit.applyRefresh(refreshResult{workflows: []workflowstore.Workflow{
+		{ID: "w2", Name: "other", Cwd: "/work/other"},
+	}})
+	settle(t, edit, cmd)
+	edit.form.form.Update(tea.WindowSizeMsg{Width: 80, Height: 40})
+
+	assert.Equal(t, "w1", values.WorkflowID, "the schedule stays on the workflow it was written against")
+	assert.Contains(t, plain(edit.form.form.View()), "w1  gone")
+}
