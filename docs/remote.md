@@ -179,6 +179,8 @@ exec = [
   "-o", "ControlMaster=auto",
   "-o", "ControlPersist=10m",
   "-o", "ControlPath=/tmp/cm-weave-%r@%h:%p",
+  "-o", "StrictHostKeyChecking=accept-new",
+  "-o", "UserKnownHostsFile=~/.ssh/known_hosts_weave_engine",
   "-i", "/absolute/path/to/weave_engine",
   "weave@ENGINE_ADDRESS",
   "{{command}}",
@@ -189,11 +191,15 @@ forward = [
   "-o", "ControlMaster=auto",
   "-o", "ControlPersist=10m",
   "-o", "ControlPath=/tmp/cm-weave-%r@%h:%p",
+  "-o", "StrictHostKeyChecking=accept-new",
+  "-o", "UserKnownHostsFile=~/.ssh/known_hosts_weave_engine",
   "-i", "/absolute/path/to/weave_engine",
   "-L", "{{local_port}}:127.0.0.1:{{remote_port}}",
   "weave@ENGINE_ADDRESS",
 ]
 ```
+
+The engine keeps its host keys in a file of its own. The address outlives the instance, so a rebuilt engine answers on it with a key nothing has seen before, and a shared `known_hosts` would refuse the connection until you edited it by hand. `mise run remote:reimage` drops the old key for you.
 
 Add a second line to `~/.tmux.conf` for the remote engine, beside the one you already have for the local panel.
 
