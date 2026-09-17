@@ -24,12 +24,15 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
+
+	"weave/internal/logging"
 )
 
 // assertionLife is how far ahead of now the assertion's expiry is set, leaving the span it covers
@@ -63,6 +66,18 @@ type Identity struct {
 	InstallationID string
 	// PrivateKeyPath is the PEM the App was created with.
 	PrivateKeyPath string
+}
+
+// keyDigest is the key's own bytes hashed.
+func (a Identity) keyDigest() string {
+	raw, err := os.ReadFile(a.PrivateKeyPath)
+	if err != nil {
+		return ""
+	}
+
+	sum := sha256.Sum256(raw)
+
+	return base64.RawURLEncoding.EncodeToString(sum[:])
 }
 
 // Configured reports whether an engine was told how to reach GitHub at all.
@@ -195,6 +210,16 @@ func joinSegments(parts ...any) (string, error) {
 // Cache is where a minted token is kept so that every git operation does not mint its own.
 type Cache struct {
 	Path string
+	// Identity is the App the cached token has to have been minted for.
+	Identity Identity
+}
+
+// record is a cached token and the App it was minted for.
+type record struct {
+	AppID          string `json:"app_id"`
+	InstallationID string `json:"installation_id"`
+	KeyDigest      string `json:"key_digest"`
+	Token          Token  `json:"token"`
 }
 
 // Read returns the cached token, or a zero one when there is nothing worth reusing.
@@ -208,12 +233,17 @@ func (c Cache) Read() Token {
 		return Token{}
 	}
 
-	var token Token
-	if err := json.Unmarshal(raw, &token); err != nil {
+	var held record
+	if err := json.Unmarshal(raw, &held); err != nil {
 		return Token{}
 	}
 
-	return token
+	if held.AppID != c.Identity.ID || held.InstallationID != c.Identity.InstallationID ||
+		held.KeyDigest != c.Identity.keyDigest() {
+		return Token{}
+	}
+
+	return held.Token
 }
 
 // Write keeps a token for the next caller, readable only by the account that minted it.
@@ -222,7 +252,12 @@ func (c Cache) Write(token Token) error {
 		return nil
 	}
 
-	encoded, err := json.Marshal(token)
+	encoded, err := json.Marshal(record{
+		AppID:          c.Identity.ID,
+		InstallationID: c.Identity.InstallationID,
+		KeyDigest:      c.Identity.keyDigest(),
+		Token:          token,
+	})
 	if err != nil {
 		return fmt.Errorf("failed to record the github token: %w", err)
 	}
@@ -258,6 +293,25 @@ func (c Cache) Write(token Token) error {
 	}
 
 	return nil
+}
+
+// Fetch is the cached token when one matches the App and is still worth reusing, and a freshly
+// minted one otherwise.
+func (c Cache) Fetch(ctx context.Context, client *http.Client, now time.Time) (Token, error) {
+	if token := c.Read(); token.Fresh(now) {
+		return token, nil
+	}
+
+	token, err := c.Identity.Mint(ctx, client, now)
+	if err != nil {
+		return Token{}, err
+	}
+
+	if err := c.Write(token); err != nil {
+		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to cache the github token", logging.Err(err)...)
+	}
+
+	return token, nil
 }
 
 // CredentialReply is what a git credential helper writes back for a query it can answer.

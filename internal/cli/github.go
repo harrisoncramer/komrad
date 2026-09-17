@@ -134,17 +134,10 @@ func githubToken(ctx context.Context, state *app) (string, error) {
 			"private_key_path under [github_app] in the config this weave was started with")
 	}
 
-	cache := githubapp.Cache{Path: githubTokenCachePath(state)}
-	if token := cache.Read(); token.Fresh(time.Now()) {
-		return token.Value, nil
-	}
+	cache := githubapp.Cache{Path: githubTokenCachePath(state), Identity: current}
 
-	token, err := current.Mint(ctx, &http.Client{Timeout: githubTokenTimeout}, time.Now())
+	token, err := cache.Fetch(ctx, &http.Client{Timeout: githubTokenTimeout}, time.Now())
 	if err != nil {
-		return "", err
-	}
-
-	if err := cache.Write(token); err != nil {
 		return "", err
 	}
 

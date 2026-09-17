@@ -115,7 +115,7 @@ func TestInstallationIDRefusesAPlaceholder(t *testing.T) {
 
 // TestCacheRoundTrips covers the token being reused rather than minted per git operation.
 func TestCacheRoundTrips(t *testing.T) {
-	cache := Cache{Path: filepath.Join(t.TempDir(), "token.json")}
+	cache := Cache{Path: filepath.Join(t.TempDir(), "token.json"), Identity: Identity{ID: "12345", InstallationID: "678", PrivateKeyPath: writeKey(t)}}
 	assert.Empty(t, cache.Read().Value)
 
 	want := Token{Value: "ghs_abc", ExpiresAt: time.Now().Add(time.Hour).Truncate(time.Second)}
@@ -130,7 +130,7 @@ func TestCacheRoundTrips(t *testing.T) {
 // TestCacheTightensAFileSomebodyElseCreated covers the mode being the one asked for rather than
 // whatever the path was first created with, which is what open(2) would otherwise leave alone.
 func TestCacheTightensAFileSomebodyElseCreated(t *testing.T) {
-	cache := Cache{Path: filepath.Join(t.TempDir(), "token.json")}
+	cache := Cache{Path: filepath.Join(t.TempDir(), "token.json"), Identity: Identity{ID: "12345", InstallationID: "678", PrivateKeyPath: writeKey(t)}}
 	require.NoError(t, os.WriteFile(cache.Path, []byte("{}"), 0o644))
 
 	require.NoError(t, cache.Write(Token{Value: "ghs_abc", ExpiresAt: time.Now().Add(time.Hour)}))
@@ -139,4 +139,85 @@ func TestCacheTightensAFileSomebodyElseCreated(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, os.FileMode(0o600), info.Mode().Perm())
 	assert.Equal(t, "ghs_abc", cache.Read().Value)
+}
+
+// TestCacheIgnoresATokenMintedForAnotherApp covers the App the config names being changed under a
+// cache that is still fresh.
+func TestCacheIgnoresATokenMintedForAnotherApp(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "token.json")
+	key := writeKey(t)
+	minted := Cache{Path: path, Identity: Identity{ID: "12345", InstallationID: "678", PrivateKeyPath: key}}
+	require.NoError(t, minted.Write(Token{Value: "ghs_abc", ExpiresAt: time.Now().Add(time.Hour)}))
+
+	assert.Equal(t, "ghs_abc", minted.Read().Value)
+
+	for name, identity := range map[string]Identity{
+		"another app":          {ID: "99999", InstallationID: "678", PrivateKeyPath: key},
+		"another installation": {ID: "12345", InstallationID: "999999", PrivateKeyPath: key},
+		"another key":          {ID: "12345", InstallationID: "678", PrivateKeyPath: writeKey(t)},
+		"no key at all":        {ID: "12345", InstallationID: "678", PrivateKeyPath: filepath.Join(t.TempDir(), "gone.pem")},
+	} {
+		t.Run(name, func(t *testing.T) {
+			assert.Empty(t, Cache{Path: path, Identity: identity}.Read().Value)
+		})
+	}
+}
+
+// TestFetchMintsForAnAppTheCacheDoesNotName covers the check an operator runs after changing the
+// config.
+func TestFetchMintsForAnAppTheCacheDoesNotName(t *testing.T) {
+	asked := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		asked++
+		w.WriteHeader(http.StatusCreated)
+		_ = json.NewEncoder(w).Encode(Token{Value: "ghs_new", ExpiresAt: time.Now().Add(time.Hour)})
+	}))
+	defer server.Close()
+
+	old := api
+	api = server.URL
+	defer func() { api = old }()
+
+	path := filepath.Join(t.TempDir(), "token.json")
+	stale := Cache{Path: path, Identity: Identity{ID: "12345", InstallationID: "678", PrivateKeyPath: writeKey(t)}}
+	require.NoError(t, stale.Write(Token{Value: "ghs_old", ExpiresAt: time.Now().Add(time.Hour)}))
+
+	cache := Cache{Path: path, Identity: Identity{ID: "99999", InstallationID: "999999", PrivateKeyPath: writeKey(t)}}
+
+	token, err := cache.Fetch(t.Context(), server.Client(), time.Now())
+	require.NoError(t, err)
+	assert.Equal(t, "ghs_new", token.Value)
+	assert.Equal(t, 1, asked)
+	assert.Equal(t, "ghs_new", cache.Read().Value)
+}
+
+// TestFetchKeepsATokenItCannotCache covers a full disk or a cache directory that cannot be
+// written into.
+func TestFetchKeepsATokenItCannotCache(t *testing.T) {
+	if os.Geteuid() == 0 {
+		t.Skip("root writes into a directory whatever its mode")
+	}
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusCreated)
+		_ = json.NewEncoder(w).Encode(Token{Value: "ghs_abc", ExpiresAt: time.Now().Add(time.Hour)})
+	}))
+	defer server.Close()
+
+	old := api
+	api = server.URL
+	defer func() { api = old }()
+
+	dir := filepath.Join(t.TempDir(), "cache")
+	require.NoError(t, os.Mkdir(dir, 0o500))
+	t.Cleanup(func() { _ = os.Chmod(dir, 0o700) })
+
+	cache := Cache{
+		Path:     filepath.Join(dir, "token.json"),
+		Identity: Identity{ID: "12345", InstallationID: "678", PrivateKeyPath: writeKey(t)},
+	}
+
+	token, err := cache.Fetch(t.Context(), server.Client(), time.Now())
+	require.NoError(t, err)
+	assert.Equal(t, "ghs_abc", token.Value)
 }
