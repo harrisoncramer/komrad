@@ -185,7 +185,11 @@ func longNamedModel(t *testing.T) model {
 	m.archive.workflows = m.listing.workflows
 	m.schedules.items[0].schedule.Name = long
 	m.listing.agents = append([]agentItem{{
-		agent: agentstore.Agent{ID: "zz", Name: long, WorkflowID: "w1"},
+		agent: agentstore.Agent{
+			ID:         "zz",
+			Name:       long,
+			WorkflowID: "w1",
+		},
 	}}, m.listing.agents...)
 
 	return m

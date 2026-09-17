@@ -42,6 +42,7 @@ jobs:
               - '.golangci.yaml'
               - '.custom-gcl.yml'
               - 'tools/weavelint/**'
+              - 'tools/weavepkg/**'
               - '.github/workflows/ci.yml'
             shell:
               - 'mise/**'

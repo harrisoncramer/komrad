@@ -31,7 +31,11 @@ func TestAttachArgvIsEmptyForALocalEngine(t *testing.T) {
 func TestAttachArgvIsEmptyWithoutAPane(t *testing.T) {
 	t.Parallel()
 
-	remote := engine.Remote{Destination: "ubuntu@host", Socket: "weave", Session: "weave"}
+	remote := engine.Remote{
+		Destination: "ubuntu@host",
+		Socket:      "weave",
+		Session:     "weave",
+	}
 
 	assert.Nil(t, remote.AttachArgv(""))
 	assert.Nil(t, remote.AttachArgv("   "))
@@ -41,7 +45,11 @@ func TestAttachArgvIsEmptyWithoutAPane(t *testing.T) {
 func TestAttachArgvRunsSshWithOneScript(t *testing.T) {
 	t.Parallel()
 
-	remote := engine.Remote{Destination: "ubuntu@host", Socket: "weave", Session: "weave"}
+	remote := engine.Remote{
+		Destination: "ubuntu@host",
+		Socket:      "weave",
+		Session:     "weave",
+	}
 
 	argv := remote.AttachArgv("%9")
 	require.Len(t, argv, 4)
@@ -53,7 +61,11 @@ func TestAttachArgvRunsSshWithOneScript(t *testing.T) {
 func TestAttachArgvPointsAtAViewSessionOfItsOwn(t *testing.T) {
 	t.Parallel()
 
-	remote := engine.Remote{Destination: "ubuntu@host", Socket: "weave", Session: "weave"}
+	remote := engine.Remote{
+		Destination: "ubuntu@host",
+		Socket:      "weave",
+		Session:     "weave",
+	}
 
 	script := remote.AttachArgv("%9")[3]
 	assert.Contains(t, script, "new-session -d -s 'view-9' -t 'weave'")
@@ -66,7 +78,11 @@ func TestAttachArgvPointsAtAViewSessionOfItsOwn(t *testing.T) {
 func TestAttachScriptSilencesTheRemoteStatusBar(t *testing.T) {
 	t.Parallel()
 
-	remote := engine.Remote{Destination: "ubuntu@host", Socket: "weave", Session: "weave"}
+	remote := engine.Remote{
+		Destination: "ubuntu@host",
+		Socket:      "weave",
+		Session:     "weave",
+	}
 
 	assert.Contains(t, remote.AttachArgv("%9")[3], "set-option -t 'view-9' status off")
 }
@@ -76,7 +92,11 @@ func TestAttachScriptSilencesTheRemoteStatusBar(t *testing.T) {
 func TestAttachScriptResolvesTheWindowOnTheEngine(t *testing.T) {
 	t.Parallel()
 
-	remote := engine.Remote{Destination: "ubuntu@host", Socket: "weave", Session: "weave"}
+	remote := engine.Remote{
+		Destination: "ubuntu@host",
+		Socket:      "weave",
+		Session:     "weave",
+	}
 
 	script := remote.AttachArgv("%9")[3]
 	assert.Contains(t, script, "display-message -p -t '%9' '#{window_id}'")
@@ -88,7 +108,11 @@ func TestAttachScriptResolvesTheWindowOnTheEngine(t *testing.T) {
 func TestAttachScriptToleratesAViewSessionThatAlreadyExists(t *testing.T) {
 	t.Parallel()
 
-	remote := engine.Remote{Destination: "ubuntu@host", Socket: "weave", Session: "weave"}
+	remote := engine.Remote{
+		Destination: "ubuntu@host",
+		Socket:      "weave",
+		Session:     "weave",
+	}
 
 	assert.Contains(t, remote.AttachArgv("%9")[3], "|| true")
 }
@@ -124,7 +148,11 @@ func TestStringNamesTheEngine(t *testing.T) {
 func TestTunnelArgvForwardsTheEnginesAddress(t *testing.T) {
 	t.Parallel()
 
-	remote := engine.Remote{Destination: "weave@host", Socket: "weave", Session: "weave"}
+	remote := engine.Remote{
+		Destination: "weave@host",
+		Socket:      "weave",
+		Session:     "weave",
+	}
 
 	argv := remote.TunnelArgv("127.0.0.1:54321", "127.0.0.1:8787")
 
@@ -270,7 +298,11 @@ func TestAttachArgvStepsIntoTheEnginesAccount(t *testing.T) {
 func TestNoUserMeansNothingIsSteppedInto(t *testing.T) {
 	t.Parallel()
 
-	remote := engine.Remote{Destination: "weave@host", Socket: "weave", Session: "weave"}
+	remote := engine.Remote{
+		Destination: "weave@host",
+		Socket:      "weave",
+		Session:     "weave",
+	}
 
 	assert.NotContains(t, remote.AttachArgv("%9")[3], "sudo")
 }
@@ -291,7 +323,11 @@ func TestTunnelArgvFillsBothPorts(t *testing.T) {
 func TestSshIsStillTheShorthand(t *testing.T) {
 	t.Parallel()
 
-	remote := engine.Remote{Destination: "weave@host", Socket: "weave", Session: "weave"}
+	remote := engine.Remote{
+		Destination: "weave@host",
+		Socket:      "weave",
+		Session:     "weave",
+	}
 
 	assert.Equal(t, "ssh", remote.AttachArgv("%9")[0])
 	assert.Equal(t, "ssh", remote.TunnelArgv("127.0.0.1:1", "127.0.0.1:2")[0])

@@ -50,7 +50,11 @@ func TestLaunchStartsTheHarnessCommand(t *testing.T) {
 				CacheDir: cache,
 			})
 
-			err := launcher.launch(h, launchParams{Pane: "pane", Dir: "/work", SessionID: "sess"})
+			err := launcher.launch(h, launchParams{
+				Pane:      "pane",
+				Dir:       "/work",
+				SessionID: "sess",
+			})
 
 			if tt.wantErr != "" {
 				require.ErrorContains(t, err, tt.wantErr)
@@ -90,7 +94,11 @@ func TestLaunchStartsTheHarnessCommand(t *testing.T) {
 func TestLaunchFallsBackToAPOSIXShell(t *testing.T) {
 	tmux := newFakeTmux()
 	tmux.shell = ""
-	launcher := NewLauncher(NewLauncherParams{Tmux: tmux, Addr: "127.0.0.1:9999", CacheDir: t.TempDir()})
+	launcher := NewLauncher(NewLauncherParams{
+		Tmux:     tmux,
+		Addr:     "127.0.0.1:9999",
+		CacheDir: t.TempDir(),
+	})
 
 	require.NoError(t, launcher.launch(&fakeHarness{}, launchParams{Pane: "pane"}))
 

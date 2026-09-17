@@ -502,7 +502,11 @@ func (m model) reviewWriteMsgCmd(sent bool, write func(context.Context) (string,
 
 		notice, err := write(ctx)
 		if err != nil {
-			return reviewWroteMsg{agentID: agentID, err: err, sent: sent}
+			return reviewWroteMsg{
+				agentID: agentID,
+				err:     err,
+				sent:    sent,
+			}
 		}
 
 		threads, readErr := listReviewThreads(ctx, agents, agentID)

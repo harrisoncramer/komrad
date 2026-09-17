@@ -84,7 +84,11 @@ func healthJSON(t *testing.T, build string) string {
 func healthWithCommit(t *testing.T, build, commit string) string {
 	t.Helper()
 
-	body, err := json.Marshal(server.Health{Status: "ok", Version: build, Commit: commit})
+	body, err := json.Marshal(server.Health{
+		Status:  "ok",
+		Version: build,
+		Commit:  commit,
+	})
 	require.NoError(t, err)
 
 	return string(body)

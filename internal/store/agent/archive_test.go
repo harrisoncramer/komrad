@@ -401,7 +401,11 @@ func TestListForTranscriptSync(t *testing.T) {
 			f := open(t)
 			ctx := t.Context()
 
-			require.NoError(t, f.Create(ctx, Agent{Name: "subject", State: StateIdle, SessionID: tt.sessionID}))
+			require.NoError(t, f.Create(ctx, Agent{
+				Name:      "subject",
+				State:     StateIdle,
+				SessionID: tt.sessionID,
+			}))
 			subject, err := f.Get(ctx, "subject")
 			require.NoError(t, err)
 

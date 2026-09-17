@@ -942,7 +942,11 @@ func TestAppendTurnsPlacesEachTurn(t *testing.T) {
 
 func onlyHit(t *testing.T, st *fixture, id, query string) SearchHit {
 	t.Helper()
-	got, err := st.Search(t.Context(), SearchParams{Query: query, AgentID: &id, Limit: 10})
+	got, err := st.Search(t.Context(), SearchParams{
+		Query:   query,
+		AgentID: &id,
+		Limit:   10,
+	})
 	require.NoError(t, err)
 
 	hits := allHits(got)

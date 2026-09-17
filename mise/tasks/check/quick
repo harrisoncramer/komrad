@@ -13,6 +13,10 @@ usage() {
 	echo "or moving a package leaves nothing for the diff to resolve to while still"
 	echo "breaking everything that imported it."
 	echo
+	echo "Which packages those are is worked out by 'weavepkg changed', which reads"
+	echo "the import graph of every module in the repository, so a change under"
+	echo "tools/ is tested and linted the same way as one in weave itself."
+	echo
 	echo "It is not the gate. The full test suite, gen:check, and db:validate are"
 	echo "deliberately not here, and the packages that import what you changed are"
 	echo "not tested either, so a pass here says your change compiles and its own"
@@ -37,8 +41,8 @@ done
 
 cd "$MISE_CONFIG_ROOT"
 
-MODULE="$(go list -m)"
 BIN_PATH="$MISE_CONFIG_ROOT/local/custom-gcl"
+CONFIG="$MISE_CONFIG_ROOT/.golangci.yaml"
 BASE_REF="origin/main"
 
 changed_files() {
@@ -51,53 +55,39 @@ changed_files() {
 	git ls-files --others --exclude-standard
 }
 
-changed_packages() {
-	local file dir
-	local -a dirs=()
-
-	while IFS= read -r file; do
-		case "$file" in
-		*.go) ;;
-		*) continue ;;
-		esac
-
-		dir="$(dirname "$file")"
-		[ -d "$dir" ] || continue
-		dirs+=("$dir")
-	done < <(changed_files)
-
-	((${#dirs[@]} > 0)) || return 0
-
-	printf '%s\n' "${dirs[@]}" | sort -u | while IFS= read -r dir; do
-		go list "./$dir" 2>/dev/null || true
-	done
+plan_field() {
+	printf '%s' "$PLAN" | jq -r "$1"
 }
 
-untested_dependents() {
-	local -a pkgs=("$@")
-
-	go list -f '{{.ImportPath}}{{range .Deps}} {{.}}{{end}}' ./... |
-		awk -v changed="$(printf '%s ' "${pkgs[@]}")" '
-			BEGIN { split(changed, list, " "); for (i in list) if (list[i] != "") set[list[i]] = 1 }
-			$1 in set { next }
-			{ for (i = 2; i <= NF; i++) if ($i in set) { count++; break } }
-			END { print count + 0 }
-		'
+module_field() {
+	printf '%s' "$PLAN" | jq -r --arg dir "$1" ".modules[] | select(.dir == \$dir) | $2"
 }
 
-PROTO_LINTED=false
-PACKAGES=()
-DIRS=()
-while IFS= read -r pkg; do
-	[ -n "$pkg" ] || continue
-	PACKAGES+=("$pkg")
+test_module() {
+	local dir="$1"
+	shift
 
-	if [ "$pkg" = "$MODULE" ]; then
-		DIRS+=(".")
-	else
-		DIRS+=("./${pkg#"$MODULE"/}")
-	fi
-done < <(changed_packages)
+	(cd "$MISE_CONFIG_ROOT/$dir" && gotestsum --format pkgname -- "$@")
+}
+
+lint_module() {
+	local dir="$1"
+	shift
+
+	(cd "$MISE_CONFIG_ROOT/$dir" && "$BIN_PATH" run --config "$CONFIG" --timeout 5m "$@")
+}
+
+PLAN="$(cd tools/weavepkg && go run . changed --base "$BASE_REF" --dir "$MISE_CONFIG_ROOT")"
+
+CHANGED_COUNT="$(plan_field '[.modules[].packages[]] | length')"
+TESTED_COUNT="$(plan_field '[.modules[].packages[] | select(.testable)] | length')"
+DEPENDENTS="$(plan_field '.untestedDependents')"
+
+MODULES=()
+while IFS= read -r dir; do
+	[ -n "$dir" ] || continue
+	MODULES+=("$dir")
+done < <(plan_field '.modules[] | select(.packages | length > 0) | .dir')
 
 failed=()
 run_step() {
@@ -115,6 +105,7 @@ run_step "bash:fmt --check" mise run bash:fmt --check
 run_step "go:fmt --check" mise run go:fmt --check
 run_step "go build" go build ./...
 
+PROTO_LINTED=false
 if [ -n "$(changed_files | grep '\.proto$' || true)" ]; then
 	PROTO_LINTED=true
 	run_step "proto:fmt --check" mise run proto:fmt --check
@@ -122,14 +113,33 @@ if [ -n "$(changed_files | grep '\.proto$' || true)" ]; then
 fi
 
 LINTED=false
-if ((${#PACKAGES[@]} > 0)); then
-	run_step "go test" gotestsum --format pkgname -- "${PACKAGES[@]}"
-
-	if [ -x "$BIN_PATH" ]; then
-		LINTED=true
-		run_step "go lint" "$BIN_PATH" run --config "$MISE_CONFIG_ROOT/.golangci.yaml" --timeout 5m "${DIRS[@]}"
-	fi
+if [ -x "$BIN_PATH" ]; then
+	LINTED=true
 fi
+
+for dir in ${MODULES[@]+"${MODULES[@]}"}; do
+	PACKAGES=()
+	while IFS= read -r pkg; do
+		[ -n "$pkg" ] || continue
+		PACKAGES+=("$pkg")
+	done < <(module_field "$dir" '.packages[] | select(.testable) | .importPath')
+
+	PATHS=()
+	while IFS= read -r relative; do
+		[ -n "$relative" ] || continue
+		PATHS+=("./$relative")
+	done < <(module_field "$dir" '.packages[].dir')
+
+	# A package every file of which is behind a build tag is linted under that tag and cannot
+	# be tested without it, and the integration suite is not what this loop is for.
+	if ((${#PACKAGES[@]} > 0)); then
+		run_step "go test ($dir)" test_module "$dir" "${PACKAGES[@]}"
+	fi
+
+	if [ "$LINTED" = true ]; then
+		run_step "go lint ($dir)" lint_module "$dir" "${PATHS[@]}"
+	fi
+done
 
 if ((${#failed[@]} > 0)); then
 	gum log --level error "check:quick failed: ${failed[*]}"
@@ -142,23 +152,40 @@ echo
 
 echo "  built     every package"
 
-if ((${#PACKAGES[@]} == 0)); then
+if [ "$CHANGED_COUNT" = "0" ]; then
 	echo "  tested    nothing: no Go package to run, either nothing Go changed"
 	echo "            or what changed is no longer in the tree"
 	echo "  linted    nothing, for the same reason"
 else
-	echo "  tested    ${#PACKAGES[@]} changed package(s):"
-	printf '              %s\n' "${DIRS[@]}"
+	if [ "$TESTED_COUNT" = "0" ]; then
+		echo "  tested    nothing: every package that changed builds only under a build"
+		echo "            tag, which the full suite runs and this does not"
+	else
+		echo "  tested    $TESTED_COUNT changed package(s):"
+
+		for dir in "${MODULES[@]}"; do
+			module_field "$dir" '.packages[] | select(.testable) | .importPath' | while IFS= read -r pkg; do
+				echo "              $pkg"
+			done
+		done
+	fi
 
 	if [ "$LINTED" = true ]; then
-		echo "  linted    the same packages"
+		TAG_ONLY=$((CHANGED_COUNT - TESTED_COUNT))
+
+		if ((TAG_ONLY == 0)); then
+			echo "  linted    the same packages"
+		elif [ "$TESTED_COUNT" = "0" ]; then
+			echo "  linted    $TAG_ONLY package(s), which is everything that changed"
+		else
+			echo "  linted    those and $TAG_ONLY more that only build under a build tag"
+		fi
 	else
 		echo "  linted    nothing: local/custom-gcl is missing, run 'mise run go:build-linter'"
 	fi
 
-	dependents="$(untested_dependents "${PACKAGES[@]}")"
-	if [ "$dependents" != "0" ]; then
-		echo "  untested  $dependents package(s) import what you changed"
+	if [ "$DEPENDENTS" != "0" ]; then
+		echo "  untested  $DEPENDENTS package(s) import what you changed"
 	fi
 fi
 

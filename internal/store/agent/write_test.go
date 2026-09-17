@@ -568,7 +568,11 @@ func TestOneOrchestratorPerWorkflow(t *testing.T) {
 			st := open(t)
 			ctx := t.Context()
 
-			require.NoError(t, st.Create(ctx, Agent{Name: "first", State: StateIdle, Role: RoleOrchestrator}))
+			require.NoError(t, st.Create(ctx, Agent{
+				Name:  "first",
+				State: StateIdle,
+				Role:  RoleOrchestrator,
+			}))
 
 			if tt.archive {
 				first, err := st.GetInWorkflow(ctx, st.defaultWorkflow, "first")
@@ -578,7 +582,11 @@ func TestOneOrchestratorPerWorkflow(t *testing.T) {
 				require.NoError(t, err)
 			}
 
-			err := st.Create(ctx, Agent{Name: "second", State: StateIdle, Role: RoleOrchestrator})
+			err := st.Create(ctx, Agent{
+				Name:  "second",
+				State: StateIdle,
+				Role:  RoleOrchestrator,
+			})
 			require.Error(t, err, "a workflow holds one orchestrator for life")
 			assert.Contains(t, err.Error(), "agents_workflow_orchestrator",
 				"the index is what refused it")

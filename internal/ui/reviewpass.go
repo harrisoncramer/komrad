@@ -84,7 +84,11 @@ func (m model) holdReviewAgentCmd(intent passIntent) tea.Cmd {
 
 		_, err := agents.HoldAgent(ctx, connect.NewRequest(&agentv1.HoldAgentRequest{Id: agentID}))
 
-		return reviewPausedMsg{agentID: agentID, intent: intent, err: err}
+		return reviewPausedMsg{
+			agentID: agentID,
+			intent:  intent,
+			err:     err,
+		}
 	}
 }
 

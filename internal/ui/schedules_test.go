@@ -679,8 +679,16 @@ func TestScheduleFormTakesNewWorkflows(t *testing.T) {
 	require.Equal(t, "cron", edit.form.form.GetFocusedField().GetKey())
 
 	cmd := edit.applyRefresh(refreshResult{workflows: []workflowstore.Workflow{
-		{ID: "w1", Name: "api", Cwd: "/work/api"},
-		{ID: "w2", Name: "brandnew", Cwd: "/work/new"},
+		{
+			ID:   "w1",
+			Name: "api",
+			Cwd:  "/work/api",
+		},
+		{
+			ID:   "w2",
+			Name: "brandnew",
+			Cwd:  "/work/new",
+		},
 	}})
 	settle(t, edit, cmd)
 	edit.form.form.Update(tea.WindowSizeMsg{Width: 80, Height: 40})
@@ -708,7 +716,11 @@ func TestScheduleFormKeepsAWorkflowThatIsGone(t *testing.T) {
 	edit.form.form.Update(tea.WindowSizeMsg{Width: 80, Height: 40})
 
 	cmd := edit.applyRefresh(refreshResult{workflows: []workflowstore.Workflow{
-		{ID: "w2", Name: "other", Cwd: "/work/other"},
+		{
+			ID:   "w2",
+			Name: "other",
+			Cwd:  "/work/other",
+		},
 	}})
 	settle(t, edit, cmd)
 	edit.form.form.Update(tea.WindowSizeMsg{Width: 80, Height: 40})

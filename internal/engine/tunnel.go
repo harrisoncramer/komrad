@@ -28,8 +28,7 @@ const (
 // Tunnel is an ssh forward from a port on this machine to the engine's api.
 type Tunnel struct {
 	// Local is the address on this machine that now reaches the engine.
-	Local string
-
+	Local   string
 	command *exec.Cmd
 	// borrowed says the tunnel was already up when this panel started, so closing it is not this
 	// panel's business.

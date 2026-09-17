@@ -34,7 +34,11 @@ func healthBody(pingErr error) (Health, int) {
 		}, http.StatusServiceUnavailable
 	}
 
-	return Health{Status: "ok", Version: version.Version(), Commit: version.Commit()}, http.StatusOK
+	return Health{
+		Status:  "ok",
+		Version: version.Version(),
+		Commit:  version.Commit(),
+	}, http.StatusOK
 }
 
 func newHealthHandler(pool *pgxpool.Pool) http.Handler {

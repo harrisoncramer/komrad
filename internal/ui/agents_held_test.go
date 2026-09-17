@@ -171,10 +171,26 @@ func TestAPausedRowSaysWhichThingIsTrue(t *testing.T) {
 		item  agentItem
 		wants string
 	}{
-		{name: "at rest, which is what a pause claims", item: held(agentstore.StateIdle), wants: heldNotice},
-		{name: "writing again", item: held(agentstore.StateThinking), wants: heldWorkingNotice},
-		{name: "stopped at a prompt anybody could answer", item: held(agentstore.StateWaiting), wants: heldPromptedNotice},
-		{name: "a pane nobody can read", item: held(agentstore.StateUncertain), wants: heldUnreadableNotice},
+		{
+			name:  "at rest, which is what a pause claims",
+			item:  held(agentstore.StateIdle),
+			wants: heldNotice,
+		},
+		{
+			name:  "writing again",
+			item:  held(agentstore.StateThinking),
+			wants: heldWorkingNotice,
+		},
+		{
+			name:  "stopped at a prompt anybody could answer",
+			item:  held(agentstore.StateWaiting),
+			wants: heldPromptedNotice,
+		},
+		{
+			name:  "a pane nobody can read",
+			item:  held(agentstore.StateUncertain),
+			wants: heldUnreadableNotice,
+		},
 	}
 
 	for _, tt := range tests {
