@@ -20,7 +20,7 @@ A workflow can name its own parent directory for that reason. Set it and this wo
 
 It reaches only agents spawned afterwards, since an agent already provisioned holds the directory it was given, and moving that out from under it would leave weave looking for a checkout that is no longer there.
 
-Which CLI the agents run is known as the "harness." Currently, `claude` and `codex` are supported. Like all settings, agents already spawned keep the harness they started on, so changing this only affects new ones.
+Which CLI the agents run is known as the "harness." Currently, `claude` and `codex` are supported. Like all settings, agents already spawned keep the harness they started on, so changing this only affects new ones. A workflow's flags go with its harness: an agent that runs another CLI is launched without them, since `--model opus` means nothing to a CLI that has never heard of it.
 
 ## Excluding paths from the diff
 

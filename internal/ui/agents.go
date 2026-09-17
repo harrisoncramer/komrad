@@ -579,7 +579,6 @@ func agentPrefill(workflow workflowstore.Workflow) agentFormValues {
 	return agentFormValues{
 		Harness:  workflow.Harness,
 		Dir:      workflow.Cwd,
-		Flags:    workflow.Flags,
 		Worktree: inheritWorktree,
 	}
 }
@@ -609,8 +608,7 @@ func (m model) openNewChild(parent agentstore.Agent) (tea.Model, tea.Cmd) {
 	return m.openChildForm(parent, &values)
 }
 
-// childPrefill is the child form as the parent leaves it, carrying no flags because the child
-// may be asked to run another CLI.
+// childPrefill is the child form as the parent leaves it.
 func childPrefill(parent agentstore.Agent) agentFormValues {
 	return agentFormValues{Harness: parent.Harness}
 }
@@ -685,7 +683,7 @@ func (m model) openAdopt(workflow *workflowstore.Workflow) (tea.Model, tea.Cmd) 
 
 // adoptPrefill is the adopt form as the workflow leaves it, before anything is typed.
 func adoptPrefill(workflow workflowstore.Workflow) adoptFormValues {
-	return adoptFormValues{Harness: workflow.Harness, Flags: workflow.Flags}
+	return adoptFormValues{Harness: workflow.Harness}
 }
 
 func (m model) openAdoptForm(workflow workflowstore.Workflow, values *adoptFormValues) (tea.Model, tea.Cmd) {
