@@ -68,7 +68,7 @@ type Identity struct {
 	PrivateKeyPath string
 }
 
-// keyDigest is the key's own bytes hashed, so a key replaced at the same path is another identity.
+// keyDigest is the key's own bytes hashed.
 func (a Identity) keyDigest() string {
 	raw, err := os.ReadFile(a.PrivateKeyPath)
 	if err != nil {
@@ -238,9 +238,8 @@ func (c Cache) Read() Token {
 		return Token{}
 	}
 
-	digest := c.Identity.keyDigest()
-	if digest == "" || held.AppID != c.Identity.ID || held.InstallationID != c.Identity.InstallationID ||
-		held.KeyDigest != digest {
+	if held.AppID != c.Identity.ID || held.InstallationID != c.Identity.InstallationID ||
+		held.KeyDigest != c.Identity.keyDigest() {
 		return Token{}
 	}
 
