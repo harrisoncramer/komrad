@@ -4,12 +4,6 @@
 // simply rewrite the file. Nor can it reach for sed, since a value may be a list spread over
 // several lines and the file carries the alignment and comments somebody chose. This reads the
 // one assignment it was asked about and writes back the same file with that value replaced.
-//
-// Comments are blanked byte for byte rather than rune by rune when the list is scanned. Everything the scan looks for is ASCII, and keeping the length is what lets an index
-// taken from the blanked copy point at the same place in the original. One space per rune
-// shortens the copy wherever a comment holds a wider character, and slicing the original at a
-// short index cuts an entry mid-value, which leaves a file that still parses and an address
-// that is quietly wrong.
 package tfvars
 
 import (
