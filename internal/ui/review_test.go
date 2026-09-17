@@ -1066,6 +1066,28 @@ func deliveredComment() *agentv1.ReviewMessage {
 	}
 }
 
+// TestReviewVerdictKeepsItsColour covers the chosen verdict wearing what it means, which the
+// sidebar greyed while the release panel held every key.
+func TestReviewVerdictKeepsItsColour(t *testing.T) {
+	restore := lipgloss.ColorProfile()
+	t.Cleanup(func() { lipgloss.SetColorProfile(restore) })
+	lipgloss.SetColorProfile(termenv.TrueColor)
+
+	dir := reviewRepo(t)
+	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
+	m = openReview(t, m)
+
+	next, _ := m.updateReview(tea.KeyMsg{Type: tea.KeyCtrlS})
+	m = next.(model)
+	require.True(t, m.review.releasing)
+
+	shown := m.reviewReleaseView()
+	chosen := "  ▸ " + describeVerdict(reviewVerdicts[m.review.verdict])
+	want := paint.Colored.Style(verdictTone(reviewVerdicts[m.review.verdict])).Render(chosen)
+	assert.Contains(t, shown, want)
+	assert.NotContains(t, shown, paint.Grey.Style(paint.ToneMuted).Render(chosen))
+}
+
 // TestReviewReleaseIsTheSubmitKey covers there being one way to send a review, on the same key
 // that submits everywhere else, which asks what to send rather than deciding for the reader.
 func TestReviewReleaseIsTheSubmitKey(t *testing.T) {

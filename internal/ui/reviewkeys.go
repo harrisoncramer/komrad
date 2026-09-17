@@ -79,10 +79,18 @@ func (m model) updateReviewThread(k string) (model, bool) {
 	return m, false
 }
 
-// isReviewThreadFocused is whether the conversation in the sidebar holds the keys, which it
-// cannot while the record under it does.
+// isReviewThreadFocused is whether the sidebar holds the keys, which it does mid-input and
+// while the conversation has been taken.
 func (m model) isReviewThreadFocused() bool {
-	if !m.review.threadFocus || m.screen != screenReview || m.isDetailsFocused() {
+	if m.screen != screenReview {
+		return false
+	}
+
+	if m.review.composing || m.review.releasing {
+		return true
+	}
+
+	if !m.review.threadFocus || m.isDetailsFocused() {
 		return false
 	}
 
