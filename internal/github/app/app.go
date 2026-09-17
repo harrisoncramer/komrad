@@ -68,6 +68,18 @@ type Identity struct {
 	PrivateKeyPath string
 }
 
+// keyDigest is the key's own bytes hashed, so a key replaced at the same path is another identity.
+func (a Identity) keyDigest() string {
+	raw, err := os.ReadFile(a.PrivateKeyPath)
+	if err != nil {
+		return ""
+	}
+
+	sum := sha256.Sum256(raw)
+
+	return base64.RawURLEncoding.EncodeToString(sum[:])
+}
+
 // Configured reports whether an engine was told how to reach GitHub at all.
 func (a Identity) Configured() bool {
 	return a.ID != "" && a.InstallationID != "" && a.PrivateKeyPath != ""
@@ -197,7 +209,6 @@ func joinSegments(parts ...any) (string, error) {
 
 // Cache is where a minted token is kept so that every git operation does not mint its own.
 type Cache struct {
-	// Path is the file the token is kept in.
 	Path string
 	// Identity is the App the cached token has to have been minted for.
 	Identity Identity
@@ -207,6 +218,7 @@ type Cache struct {
 type record struct {
 	AppID          string `json:"app_id"`
 	InstallationID string `json:"installation_id"`
+	KeyDigest      string `json:"key_digest"`
 	Token          Token  `json:"token"`
 }
 
@@ -226,7 +238,9 @@ func (c Cache) Read() Token {
 		return Token{}
 	}
 
-	if held.AppID != c.Identity.ID || held.InstallationID != c.Identity.InstallationID {
+	digest := c.Identity.keyDigest()
+	if digest == "" || held.AppID != c.Identity.ID || held.InstallationID != c.Identity.InstallationID ||
+		held.KeyDigest != digest {
 		return Token{}
 	}
 
@@ -242,6 +256,7 @@ func (c Cache) Write(token Token) error {
 	encoded, err := json.Marshal(record{
 		AppID:          c.Identity.ID,
 		InstallationID: c.Identity.InstallationID,
+		KeyDigest:      c.Identity.keyDigest(),
 		Token:          token,
 	})
 	if err != nil {
@@ -283,17 +298,17 @@ func (c Cache) Write(token Token) error {
 
 // Fetch is the cached token when one matches the App and is still worth reusing, and a freshly
 // minted one otherwise.
-func Fetch(ctx context.Context, client *http.Client, cache Cache, now time.Time) (Token, error) {
-	if token := cache.Read(); token.Fresh(now) {
+func (c Cache) Fetch(ctx context.Context, client *http.Client, now time.Time) (Token, error) {
+	if token := c.Read(); token.Fresh(now) {
 		return token, nil
 	}
 
-	token, err := cache.Identity.Mint(ctx, client, now)
+	token, err := c.Identity.Mint(ctx, client, now)
 	if err != nil {
 		return Token{}, err
 	}
 
-	if err := cache.Write(token); err != nil {
+	if err := c.Write(token); err != nil {
 		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to cache the github token", logging.Err(err)...)
 	}
 

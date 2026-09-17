@@ -136,7 +136,7 @@ func githubToken(ctx context.Context, state *app) (string, error) {
 
 	cache := githubapp.Cache{Path: githubTokenCachePath(state), Identity: current}
 
-	token, err := githubapp.Fetch(ctx, &http.Client{Timeout: githubTokenTimeout}, cache, time.Now())
+	token, err := cache.Fetch(ctx, &http.Client{Timeout: githubTokenTimeout}, time.Now())
 	if err != nil {
 		return "", err
 	}
