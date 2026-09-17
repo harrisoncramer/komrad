@@ -43,7 +43,7 @@ func (i *Interrupter) Interrupt(ctx context.Context, agentID string) error {
 
 	target := buildTarget(*agent)
 
-	if i.isAtRest(ctx, target) {
+	if !i.hasTurnToCut(ctx, target) {
 		return nil
 	}
 
@@ -53,19 +53,24 @@ func (i *Interrupter) Interrupt(ctx context.Context, agentID string) error {
 // Explainer: the keys that stop a CLI mid-turn are keys its input box reads for something else
 // when no turn is running, and Claude's are its checkpoint shortcut. Sending them to an agent at
 // rest puts a dialog on screen that nobody is at the pane to dismiss, and every later delivery is
-// refused for as long as it stands. A pane that could not be read is taken to be working, since
-// a rebase moves files under whatever is there.
+// refused for as long as it stands. So the keys go only where a reading says there is a turn, and
+// a frame matching none of the harness's patterns is not that reading. A capture that failed
+// outright is, since it is no evidence either way and a rebase is about to move files under
+// whatever is there.
 
-// isAtRest reports whether the pane says there is no turn to cut.
-func (i *Interrupter) isAtRest(ctx context.Context, target harness.Target) bool {
-	if i.observer == nil {
-		return false
-	}
-
+// hasTurnToCut reports whether the pane says a turn is running.
+func (i *Interrupter) hasTurnToCut(ctx context.Context, target harness.Target) bool {
 	observed, err := i.observer.Observe(ctx, target)
 	if err != nil {
+		return true
+	}
+
+	switch observed.Activity {
+	case harness.ActivityWorking, harness.ActivityWaiting:
+		return true
+	case harness.ActivityIdle, harness.ActivityComposing, harness.ActivityUnrecognized, harness.ActivityUnknown:
 		return false
 	}
 
-	return isAtRest(observed.Activity)
+	return false
 }

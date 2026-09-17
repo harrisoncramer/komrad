@@ -50,22 +50,45 @@ func TestInterruptLeavesADraftAlone(t *testing.T) {
 	assert.Zero(t, channel.interrupts)
 }
 
-// TestInterruptStopsAWorkingAgent is the case the keys were ever sent for.
-func TestInterruptStopsAWorkingAgent(t *testing.T) {
+// TestInterruptStopsATurnInFlight is the case the keys were ever sent for, a prompt waiting on an
+// answer counting as a turn since that is the frame the keys are meant to clear.
+func TestInterruptStopsATurnInFlight(t *testing.T) {
+	for name, activity := range map[string]harness.Activity{
+		"working": harness.ActivityWorking,
+		"waiting": harness.ActivityWaiting,
+	} {
+		t.Run(name, func(t *testing.T) {
+			st := newStore(t)
+			agent := seed(t, st, "compass", "%1", agentstore.StateThinking)
+
+			channel := &fakeChannel{}
+			observer := &settlingObserver{readings: []harness.Activity{activity}}
+
+			require.NoError(t, interrupterOver(st, channel, observer).Interrupt(t.Context(), agent.ID))
+
+			assert.Equal(t, 1, channel.interrupts)
+		})
+	}
+}
+
+// TestInterruptLeavesAnUnrecognizedFrameAlone is the reading that is not evidence of a turn: the
+// pane was captured and matched none of the harness's patterns, so an agent sitting at rest in a
+// frame weave cannot read would take the keys in the one case nobody would see it happen.
+func TestInterruptLeavesAnUnrecognizedFrameAlone(t *testing.T) {
 	st := newStore(t)
-	agent := seed(t, st, "compass", "%1", agentstore.StateThinking)
+	agent := seed(t, st, "quadrant", "%1", agentstore.StateThinking)
 
 	channel := &fakeChannel{}
-	observer := &settlingObserver{readings: []harness.Activity{harness.ActivityWorking}}
+	observer := &settlingObserver{readings: []harness.Activity{harness.ActivityUnrecognized}}
 
 	require.NoError(t, interrupterOver(st, channel, observer).Interrupt(t.Context(), agent.ID))
 
-	assert.Equal(t, 1, channel.interrupts)
+	assert.Zero(t, channel.interrupts)
 }
 
-// TestInterruptStopsAnUnreadablePane is the direction the doubt falls in: a pane nothing could
-// read is likelier mid-turn than at rest, and the keys are what a rebase sends before it moves
-// files under a running agent.
+// TestInterruptStopsAnUnreadablePane is the direction the doubt falls in: a capture that failed
+// outright is no evidence either way, and the keys are what a rebase sends before it moves files
+// under a running agent.
 func TestInterruptStopsAnUnreadablePane(t *testing.T) {
 	st := newStore(t)
 	agent := seed(t, st, "astrolabe", "%1", agentstore.StateThinking)
