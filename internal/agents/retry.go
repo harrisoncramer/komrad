@@ -7,8 +7,10 @@ import (
 	"strings"
 
 	"weave/internal/fail"
+	"weave/internal/harness"
 	"weave/internal/store"
 	agentstore "weave/internal/store/agent"
+	workflowstore "weave/internal/store/workflow"
 )
 
 var ErrAgentNotFailed = fail.Precondition("agent is not in a failed state")
@@ -49,20 +51,17 @@ func (s *LaunchService) RetryCreate(ctx context.Context, params RetryCreateParam
 		return nil, ErrAgentNotFailed.Saying("%q was changed while the retry was starting", agent.Name)
 	}
 
-	if flags := strings.TrimSpace(params.Flags); flags != "" {
+	// The panel prefills its retry form with the flags already composed for the CLI the agent is
+	// on, so flags that came back unchanged name nothing.
+	flags := strings.TrimSpace(params.Flags)
+	if flags == strings.TrimSpace(agent.Flags) {
+		flags = ""
+	}
+	if flags != "" {
 		agent.Flags = flags
 	}
 	if prompt := strings.TrimSpace(params.Prompt); prompt != "" {
 		agent.Prompt = prompt
-	}
-	if harness := strings.TrimSpace(params.Harness); harness != "" {
-		agent.Harness = harness
-	}
-
-	hn, err := s.harnesses.GetByID(agent.Harness)
-	if err != nil {
-		s.failCreate(ctx, *agent, err)
-		return nil, err
 	}
 
 	provisioner := provisionerFor(ctx, s.workflows, *agent)
@@ -73,6 +72,26 @@ func (s *LaunchService) RetryCreate(ctx context.Context, params RetryCreateParam
 	workflowContext := ""
 	if wf != nil {
 		workflowContext = wf.Context
+	}
+
+	wanted := strings.TrimSpace(params.Harness)
+	switched := wanted != "" && wanted != agent.Harness
+	if wanted == "" {
+		wanted = agent.Harness
+	}
+
+	hn, err := s.harnesses.GetByID(wanted)
+	if err != nil {
+		s.failCreate(ctx, *agent, err)
+		return nil, err
+	}
+
+	if switched {
+		agent.Harness = wanted
+		if err := s.moveOntoHarness(ctx, agent, wf, flags, hn); err != nil {
+			s.failCreate(ctx, *agent, err)
+			return nil, err
+		}
 	}
 
 	var spawner *agentstore.Agent
@@ -98,5 +117,30 @@ func (s *LaunchService) RetryCreate(ctx context.Context, params RetryCreateParam
 		workflowContext: workflowContext,
 		spawner:         spawner,
 		parent:          parent,
+	})
+}
+
+// moveOntoHarness records the CLI a retry corrected an agent onto, with the flags and the
+// conversation that belong to it.
+func (s *LaunchService) moveOntoHarness(ctx context.Context, agent *agentstore.Agent, wf *workflowstore.Workflow, flags string, hn harness.Harness) error {
+	workflowFlags := ""
+	if wf != nil {
+		workflowFlags = wf.Flags
+	}
+
+	agent.Flags = s.launchFlags(launchFlagsParams{
+		harnessID:       agent.Harness,
+		workflowHarness: s.workflowHarness(wf),
+		agentFlags:      flags,
+		workflowFlags:   workflowFlags,
+	})
+
+	agent.SessionID = hn.MintSessionID()
+
+	return s.agents.SetHarness(ctx, agentstore.SetHarnessParams{
+		ID:        agent.ID,
+		Harness:   agent.Harness,
+		Flags:     agent.Flags,
+		SessionID: agent.SessionID,
 	})
 }

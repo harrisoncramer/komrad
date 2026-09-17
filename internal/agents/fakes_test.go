@@ -298,10 +298,21 @@ type fakeHarness struct {
 	launches   []harness.Launch
 	commandErr error
 	found      string
+	id         string
+
+	// noSession stands in for Codex, which takes no session id on the command line.
+	noSession bool
 }
 
-func (f *fakeHarness) ID() string     { return testHarnessID }
-func (f *fakeHarness) Binary() string { return testHarnessID }
+func (f *fakeHarness) ID() string {
+	if f.id != "" {
+		return f.id
+	}
+
+	return testHarnessID
+}
+
+func (f *fakeHarness) Binary() string { return f.ID() }
 
 func (f *fakeHarness) BuildCommand(launch harness.Launch) (string, error) {
 	f.mu.Lock()
@@ -315,7 +326,13 @@ func (f *fakeHarness) BuildCommand(launch harness.Launch) (string, error) {
 	return "agent-cli --session " + launch.SessionID, nil
 }
 
-func (f *fakeHarness) MintSessionID() string { return uuid.NewString() }
+func (f *fakeHarness) MintSessionID() string {
+	if f.noSession {
+		return ""
+	}
+
+	return uuid.NewString()
+}
 
 func (f *fakeHarness) InterruptKeys() []string { return []string{"Escape"} }
 
@@ -362,12 +379,16 @@ func (f *fakeHarness) ReadLog(string, int64) (harness.LogRead, error) {
 
 type fakeHarnesses struct {
 	harness *fakeHarness
+	byID    map[string]*fakeHarness
 	only    []string
 }
 
 func (f fakeHarnesses) GetByID(id string) (harness.Harness, error) {
 	if len(f.only) > 0 && !slices.Contains(f.only, id) {
 		return nil, fmt.Errorf("%w: %q", harness.ErrNotRegistered, id)
+	}
+	if found, ok := f.byID[id]; ok {
+		return found, nil
 	}
 
 	return f.harness, nil

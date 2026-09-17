@@ -483,6 +483,16 @@ WHERE
 RETURNING
     id;
 
+-- name: SetAgentHarness :exec
+UPDATE
+    agents
+SET
+    harness = @harness,
+    flags = @flags,
+    session_id = @session_id
+WHERE
+    id = @id;
+
 -- name: SetAgentSessionID :exec
 UPDATE
     agents
