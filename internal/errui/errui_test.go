@@ -2,6 +2,7 @@ package errui
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -259,4 +260,18 @@ func tracedError(trace string) error {
 	err.Meta().Set(caller.TraceHeader, trace)
 
 	return err
+}
+
+// TestStartupOnAnEngineRunningOtherCode covers the screen a remote panel gets, where restarting
+// anything over there is the one action that helps least and disturbs most.
+func TestStartupOnAnEngineRunningOtherCode(t *testing.T) {
+	err := fmt.Errorf("%w: it is serving v0.0.0-engine.8fe4a3b and this panel is v0.0.0-engine.16cbead4",
+		ErrEngineBuild)
+
+	rendered := strings.Join(strings.Fields(RenderStartupError(narrowPane, err, nil)), " ")
+
+	assert.Contains(t, rendered, "The engine is running different code")
+	assert.Contains(t, rendered, "every agent on it is still running")
+	assert.Contains(t, rendered, "v0.0.0-engine.8fe4a3b")
+	assert.NotContains(t, rendered, "The agent server could not be started")
 }

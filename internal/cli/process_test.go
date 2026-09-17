@@ -14,6 +14,7 @@ import (
 	"testing"
 
 	"weave/config"
+	"weave/internal/errui"
 	"weave/internal/server"
 	"weave/internal/version"
 
@@ -355,22 +356,30 @@ func TestProbeServer(t *testing.T) {
 	}
 }
 
-// TestRequireEngineBuild covers the panel's own check against a remote engine, which it cannot
-// restart the way it replaces a local server it started itself.
+// TestRequireEngineBuild covers the panel's own check against a remote engine.
 func TestRequireEngineBuild(t *testing.T) {
 	const engineCommit = "4b1db3cfa7f3eb6f9f5f4de5b4ba5f5e12f5a0c1"
 
 	tests := []struct {
-		name  string
-		serve bool
-		body  string
-		want  string
+		name    string
+		serve   bool
+		body    string
+		want    string
+		wantFix string
 	}{
 		{
-			name:  "an engine on a commit this panel was not built from",
-			serve: true,
-			body:  healthWithCommit(t, "v0.0.0-engine.4b1db3cf", engineCommit),
-			want:  "v0.0.0-engine.4b1db3cf (4b1db3c)",
+			name:    "an engine on a commit this panel was not built from",
+			serve:   true,
+			body:    healthWithCommit(t, "v0.0.0-engine.4b1db3cf", engineCommit),
+			want:    "v0.0.0-engine.4b1db3cf (4b1db3c)",
+			wantFix: "rebuild this panel from the commit",
+		},
+		{
+			name:    "an engine deployed from a dirty tree, which has no commit to rebuild from",
+			serve:   true,
+			body:    healthJSON(t, "v0.0.0-engine.4b1db3cf+dirty.131311"),
+			want:    "v0.0.0-engine.4b1db3cf+dirty.131311",
+			wantFix: "dist/weave-panel",
 		},
 		{
 			name:  "an engine this panel matches",
@@ -406,7 +415,8 @@ func TestRequireEngineBuild(t *testing.T) {
 			assert.Contains(t, err.Error(), tt.want, "the engine's build is named")
 			assert.Contains(t, err.Error(), version.Describe(version.Version(), version.Commit()),
 				"this panel's build is named beside it")
-			assert.Contains(t, err.Error(), "rebuild this panel")
+			assert.Contains(t, err.Error(), tt.wantFix, "the fix named is one the reader can follow")
+			require.ErrorIs(t, err, errui.ErrEngineBuild, "the panel picks its screen off this")
 		})
 	}
 }

@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	"weave/internal/doctor"
+	"weave/internal/errui"
 	"weave/internal/server"
 	"weave/internal/version"
 )
@@ -24,7 +26,9 @@ func requireEngineBuild(ctx context.Context, addr string) error {
 		return nil
 	}
 
-	return fmt.Errorf("the engine is serving build %s and this panel is %s, so rebuild this panel from the commit the engine is serving",
+	return fmt.Errorf("%w: it is serving %s and this panel is %s, so %s",
+		errui.ErrEngineBuild,
 		version.Describe(probe.version, probe.commit),
-		version.Describe(version.Version(), version.Commit()))
+		version.Describe(version.Version(), version.Commit()),
+		doctor.StaleEngineFix(probe.commit))
 }

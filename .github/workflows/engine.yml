@@ -73,8 +73,7 @@ jobs:
           use_lockfile = true
           EOF
 
-      # A lock file the runner's platform is missing would be rewritten here, and a rewrite
-      # leaves the checkout dirty, which costs the deployed binary its commit stamp.
+      # The lock is read as written, never rewritten.
       - name: Read the state
         run: mise run terraform:init -- -lockfile=readonly
 

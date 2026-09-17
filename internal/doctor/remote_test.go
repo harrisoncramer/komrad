@@ -74,14 +74,21 @@ func TestStaleServerFixDependsOnWhereTheEngineIs(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name     string
-		isRemote bool
-		want     string
+		name         string
+		isRemote     bool
+		engineCommit string
+		want         string
 	}{
 		{
-			name:     "the engine is elsewhere, where CI keeps it on main",
+			name:         "the engine is elsewhere, where CI keeps it on main",
+			isRemote:     true,
+			engineCommit: "4b1db3cfa7f3eb6f9f5f4de5b4ba5f5e12f5a0c1",
+			want:         "rebuild this panel from the commit the engine is serving, since CI deploys the engine from main",
+		},
+		{
+			name:     "the engine was deployed from a dirty tree, so it names no commit to rebuild from",
 			isRemote: true,
-			want:     "rebuild this panel from the commit the engine is serving, since CI deploys the engine from main",
+			want:     "put the dist/weave-panel the deploy left beside it in place of your own weave, since a deploy from a dirty tree names no commit to rebuild from",
 		},
 		{
 			name:     "the engine is this machine, so its server is restarted here",
@@ -99,7 +106,7 @@ func TestStaleServerFixDependsOnWhereTheEngineIs(t *testing.T) {
 				IsPanelRunning: func(context.Context) bool { return true },
 			}
 
-			assert.Equal(t, tt.want, describeStaleServerFix(t.Context(), env))
+			assert.Equal(t, tt.want, describeStaleServerFix(t.Context(), env, tt.engineCommit))
 		})
 	}
 }
