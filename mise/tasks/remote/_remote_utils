@@ -1,0 +1,51 @@
+#!/usr/bin/env bash
+
+# Explainer: what every remote task needs to know, asked of the thing that knows it.
+#
+# Terraform built the engine, so Terraform is what says where it is. Reading its outputs keeps
+# these tasks agreeing with the infrastructure rather than with a copy of it, and means none of
+# them has to read the files an operator edits.
+#
+# The AWS profile is not one of those things. It is a credential choice belonging to whoever is
+# running the command, so it comes from the environment like it does for every other AWS tool.
+
+require_aws_profile() {
+	if [ -n "${AWS_PROFILE:-}" ] || [ -n "${AWS_ACCESS_KEY_ID:-}" ] || [ -n "${AWS_SESSION_TOKEN:-}" ]; then
+		return 0
+	fi
+
+	echo "no AWS credentials in the environment." >&2
+	echo >&2
+	echo "Export AWS_PROFILE, or whichever of AWS_ACCESS_KEY_ID and friends you use:" >&2
+	echo >&2
+	echo "  export AWS_PROFILE=your-profile" >&2
+	exit 1
+}
+
+terraform_output() {
+	local name=$1
+
+	if [ ! -d infra/terraform/.terraform ] && [ -f infra/terraform/backend.hcl ]; then
+		terraform -chdir=infra/terraform init \
+			-backend-config=backend.hcl -input=false >/dev/null 2>&1 || true
+	fi
+
+	terraform -chdir=infra/terraform output -raw "$name" 2>/dev/null
+}
+
+# require_output reads one output, and says what to do when there is no infrastructure to read.
+require_output() {
+	local name=$1 value
+
+	value="$(terraform_output "$name")"
+
+	if [ -z "$value" ]; then
+		echo "could not read $name from Terraform, so there is no engine to work with." >&2
+		echo >&2
+		echo "Run 'mise run terraform:apply' to build one, or set the matching WEAVE_ENGINE_*" >&2
+		echo "variable to skip Terraform entirely." >&2
+		exit 1
+	fi
+
+	echo "$value"
+}

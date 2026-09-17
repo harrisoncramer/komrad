@@ -1,22 +1,23 @@
 #!/usr/bin/env bash
 source "$MISE_CONFIG_ROOT/mise/tasks/_"
+source "$MISE_CONFIG_ROOT/mise/tasks/remote/_remote_utils"
 set -euo pipefail
 #MISE description="Rebuild the engine from a machine image, which stops every agent on it."
 
 usage() {
 	echo "Usage: mise run remote:reimage [ami-id] [-- <terraform args>]"
 	echo
-	echo "Points Terraform at a machine image and applies it, which replaces the instance."
-	echo "Every agent on the box stops and does not come back. The data volume, the database"
-	echo "and the address all follow the new instance."
+	echo "Moves the engine to a machine image and applies it, which replaces the instance."
+	echo "Every agent on the box stops and does not come back."
 	echo
-	echo "With no argument the image is whichever one CI last built, read from Parameter"
-	echo "Store. CI records one every time something under packer/ reaches main, and never"
-	echo "applies it, because applying is this."
+	echo "With no argument it uses the image CI last built. CI records one whenever something"
+	echo "under packer/ reaches main, and never applies it, because applying is this."
 	echo
 	echo "  mise run remote:reimage"
 	echo "  mise run remote:reimage ami-0123456789abcdef0"
 	echo "  mise run remote:reimage -- -auto-approve"
+	echo
+	echo "Needs AWS credentials in the environment, as AWS_PROFILE or the access key variables."
 }
 
 for arg in "$@"; do
@@ -30,42 +31,31 @@ done
 
 cd "$MISE_CONFIG_ROOT"
 
-TFVARS=infra/terraform/terraform.tfvars
+require_aws_profile
 
-if [ ! -f "$TFVARS" ]; then
-	echo "no $TFVARS, so there is no infrastructure described to reimage" >&2
-	exit 1
-fi
-
-# The backend reads state as whoever the environment is, and it takes no profile of its own, so
-# the one the provider was given is used unless the environment already names one.
-if [ -z "${AWS_PROFILE:-}" ]; then
-	PROFILE="$(sed -n 's/^[[:space:]]*aws_profile[[:space:]]*=[[:space:]]*"\(.*\)"[[:space:]]*$/\1/p' "$TFVARS" | head -1)"
-	if [ -n "$PROFILE" ]; then
-		export AWS_PROFILE="$PROFILE"
-	fi
-fi
-
-REGION="$(sed -n 's/^[[:space:]]*aws_region[[:space:]]*=[[:space:]]*"\(.*\)"[[:space:]]*$/\1/p' "$TFVARS" | head -1)"
-REGION="${AWS_REGION:-${REGION:-us-east-1}}"
-NAME="$(sed -n 's/^[[:space:]]*name[[:space:]]*=[[:space:]]*"\(.*\)"[[:space:]]*$/\1/p' "$TFVARS" | head -1)"
-NAME="${NAME:-weave-development}"
+REGION="$(require_output aws_region)"
+CURRENT="$(require_output instance_ami)"
 
 AMI=""
+TERRAFORM_ARGS=()
+
 for arg in "$@"; do
 	case "$arg" in
 	ami-*)
 		AMI="$arg"
 		;;
+	*)
+		TERRAFORM_ARGS+=("$arg")
+		;;
 	esac
 done
 
 if [ -z "$AMI" ]; then
-	PARAMETER="/$NAME/engine/ami-id"
+	PARAMETER="$(require_output ami_parameter)"
 
 	if ! AMI="$(aws ssm get-parameter --region "$REGION" --name "$PARAMETER" \
 		--query Parameter.Value --output text 2>/dev/null)"; then
-		echo "nothing has been recorded at $PARAMETER, so there is no image to move to." >&2
+		echo "nothing is recorded at $PARAMETER, so there is no image to move to." >&2
 		echo >&2
 		echo "CI writes that when something under packer/ reaches main. Build one with" >&2
 		echo "'mise run packer:build' and pass the id, or name an image yourself." >&2
@@ -73,10 +63,8 @@ if [ -z "$AMI" ]; then
 	fi
 fi
 
-CURRENT="$(sed -n 's/^[[:space:]]*ami_id[[:space:]]*=[[:space:]]*"\(.*\)"[[:space:]]*$/\1/p' "$TFVARS" | head -1)"
-
 if [ "$CURRENT" = "$AMI" ]; then
-	gum log --level info "the engine is already on $AMI, so there is nothing to apply"
+	gum log --level info "the engine is already on $AMI"
 	exit 0
 fi
 
@@ -86,7 +74,7 @@ if ! aws ec2 describe-images --region "$REGION" --image-ids "$AMI" \
 	exit 1
 fi
 
-gum log --level info "moving the engine from ${CURRENT:-nothing} to $AMI"
+gum log --level info "moving the engine from $CURRENT to $AMI"
 
 # Read before the instance goes, since afterwards there is nothing to ask.
 AGENTS="$(mise run remote:connect -- \
@@ -95,9 +83,11 @@ AGENTS="$(mise run remote:connect -- \
 if [ -n "$AGENTS" ]; then
 	echo
 	echo "These agents are running on the engine and will stop:"
+
 	while IFS= read -r agent; do
 		echo "  $agent"
 	done <<<"$AGENTS"
+
 	echo
 fi
 
@@ -108,36 +98,27 @@ if ! printf '%s\n' "$@" | grep -q -- "-auto-approve"; then
 	}
 fi
 
-# Written with the padding the file already uses, so the change is one value rather than a
-# reformatted line.
-python3 - "$TFVARS" "$AMI" <<'PY'
+python3 - "$AMI" <<'PY'
 import re
 import sys
 
-path, ami = sys.argv[1], sys.argv[2]
+path, ami = "infra/terraform/terraform.tfvars", sys.argv[1]
 text = open(path).read()
-updated, count = re.subn(r'(^[ \t]*ami_id[ \t]*=[ \t]*)"[^"]*"', lambda m: m.group(1) + '"' + ami + '"', text, count=1, flags=re.M)
+updated, count = re.subn(
+    r'(^[ \t]*ami_id[ \t]*=[ \t]*)"[^"]*"',
+    lambda match: match.group(1) + '"' + ami + '"',
+    text,
+    count=1,
+    flags=re.M,
+)
 
 if count != 1:
-    sys.exit("could not find an ami_id line to change in " + path)
+    sys.exit("no ami_id line to change in " + path)
 
 open(path, "w").write(updated)
 PY
 
-gum log --level info "applying"
-
-TERRAFORM_ARGS=()
-for arg in "$@"; do
-	case "$arg" in
-	ami-* | -h | --help) ;;
-	*)
-		TERRAFORM_ARGS+=("$arg")
-		;;
-	esac
-done
-
 terraform -chdir=infra/terraform apply -input=false "${TERRAFORM_ARGS[@]+"${TERRAFORM_ARGS[@]}"}"
 
-gum log --level info "the engine is on $AMI. It is rebuilt from the image, so anything you"
-gum log --level info "configured on the old instance by hand is gone. Check it with:"
+gum log --level info "the engine is on $AMI, rebuilt from the image"
 echo "  mise run remote:connect -- 'systemctl list-units --state=failed --no-legend | wc -l'"

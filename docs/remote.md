@@ -240,13 +240,15 @@ The panel refuses to talk to an engine running other code, and it decides that o
 
 Deploying from a tree with uncommitted changes is the exception, because there is no commit that names what was built. The deploy stamps a version instead and leaves a matching binary at `dist/weave-panel`; put that in place of your own weave, or doctor will report the engine as a different build.
 
-The image changes rarely, when the units or provisioning scripts do. This replaces the box and every agent on it stops. The data volume and the address follow the new box; anything mid-conversation is lost.
+The image changes rarely, when the units or provisioning scripts do. CI builds a new one whenever something under `packer/` reaches main, and records it without applying it.
 
 ```
-mise run packer:build
-# put the new ami_id in terraform.tfvars
-mise run terraform:apply
+mise run remote:reimage
 ```
+
+That moves the engine to the image CI last built. It names the agents that are about to stop and asks first. Every agent on the box goes and does not come back. The data volume, the database and the address all follow the new instance, so what is lost is whatever those agents were part way through.
+
+Pass an image id to use one other than the latest, or build your own with `mise run packer:build` and pass that.
 
 ## Getting a shell
 

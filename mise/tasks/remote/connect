@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 source "$MISE_CONFIG_ROOT/mise/tasks/_"
+source "$MISE_CONFIG_ROOT/mise/tasks/remote/_remote_utils"
 set -euo pipefail
 #MISE description="Open a shell on the remote engine, or run one command there."
 
@@ -28,33 +29,18 @@ done
 
 cd "$MISE_CONFIG_ROOT"
 
-# The backend reads state as whoever the environment is, and it takes no profile of its own, so
-# the one the provider was given is used unless the environment already names one.
-if [ -z "${AWS_PROFILE:-}" ] && [ -f infra/terraform/terraform.tfvars ]; then
-	PROFILE="$(sed -n 's/^[[:space:]]*aws_profile[[:space:]]*=[[:space:]]*"\(.*\)"[[:space:]]*$/\1/p' \
-		infra/terraform/terraform.tfvars | head -1)"
-	if [ -n "$PROFILE" ]; then
-		export AWS_PROFILE="$PROFILE"
-	fi
-fi
+require_aws_profile
 
 HOST="${WEAVE_ENGINE_HOST:-}"
 
 if [ -z "$HOST" ]; then
-	if [ ! -d infra/terraform/.terraform ] && [ -f infra/terraform/backend.hcl ]; then
-		terraform -chdir=infra/terraform init \
-			-backend-config=backend.hcl -input=false >/dev/null 2>&1 || true
-	fi
-
-	REASON="$(terraform -chdir=infra/terraform output -raw instance_public_ip 2>&1 >/dev/null || true)"
-	HOST="$(terraform -chdir=infra/terraform output -raw instance_public_ip 2>/dev/null || true)"
+	HOST="$(terraform_output instance_public_ip)"
 fi
 
 if [ -z "$HOST" ]; then
-	echo "no engine to connect to, because its address could not be read from Terraform:" >&2
-	echo "${REASON:-no state and no instance_public_ip output}" | head -8 >&2
+	echo "could not read the engine's address from Terraform." >&2
 	echo >&2
-	echo "Set WEAVE_ENGINE_HOST to skip Terraform entirely." >&2
+	echo "Run 'mise run terraform:apply' to build one, or set WEAVE_ENGINE_HOST." >&2
 	exit 1
 fi
 

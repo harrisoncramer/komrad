@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 source "$MISE_CONFIG_ROOT/mise/tasks/_"
+source "$MISE_CONFIG_ROOT/mise/tasks/remote/_remote_utils"
 set -euo pipefail
 #MISE description="Put this checkout's weave on the remote engine and restart it."
 
@@ -27,42 +28,27 @@ done
 
 cd "$MISE_CONFIG_ROOT"
 
-# The backend reads state as whoever the environment is, and it takes no profile of its own, so
-# the one the provider was given is used unless the environment already names one.
-if [ -z "${AWS_PROFILE:-}" ] && [ -f infra/terraform/terraform.tfvars ]; then
-	PROFILE="$(sed -n 's/^[[:space:]]*aws_profile[[:space:]]*=[[:space:]]*"\(.*\)"[[:space:]]*$/\1/p' \
-		infra/terraform/terraform.tfvars | head -1)"
-	if [ -n "$PROFILE" ]; then
-		export AWS_PROFILE="$PROFILE"
-	fi
-fi
+require_aws_profile
 
 INSTANCE="${1:-${WEAVE_ENGINE_INSTANCE:-}}"
 
 if [ -z "$INSTANCE" ]; then
 	# A checkout that has never run Terraform has no state to read the instance from, and
 	# initialising is idempotent, so it is done here rather than asked for.
-	if [ ! -d infra/terraform/.terraform ] && [ -f infra/terraform/backend.hcl ]; then
-		terraform -chdir=infra/terraform init \
-			-backend-config=backend.hcl -input=false >/dev/null 2>&1 || true
-	fi
-
-	REASON="$(terraform -chdir=infra/terraform output -raw instance_id 2>&1 >/dev/null || true)"
-	INSTANCE="$(terraform -chdir=infra/terraform output -raw instance_id 2>/dev/null || true)"
+	INSTANCE="$(terraform_output instance_id)"
 fi
 
 if [ -z "$INSTANCE" ]; then
-	echo "no engine to deploy to, because the instance could not be read from Terraform:" >&2
-	echo "${REASON:-no state and no instance_id output}" | head -8 >&2
+	echo "could not read the engine's instance from Terraform." >&2
 	echo >&2
-	echo "Pass an instance id or set WEAVE_ENGINE_INSTANCE to skip Terraform entirely." >&2
+	echo "Run 'mise run terraform:apply' to build one, or set WEAVE_ENGINE_INSTANCE." >&2
 	exit 1
 fi
 
 REGION="${AWS_REGION:-us-east-1}"
-BUCKET="$(sed -n 's/^[[:space:]]*bucket[[:space:]]*=[[:space:]]*"\(.*\)"[[:space:]]*$/\1/p' infra/terraform/backend.hcl | head -1)"
+BUCKET="$(require_output state_bucket)"
 if [ -z "$BUCKET" ]; then
-	echo "no bucket in infra/terraform/backend.hcl to stage the binary through" >&2
+	echo "no state bucket to stage the binary through" >&2
 	exit 1
 fi
 
