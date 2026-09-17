@@ -22,18 +22,19 @@ import (
 )
 
 var (
-	ErrAgentNotFound    = fail.NotFound("agent not found")
-	ErrWorkflowNotFound = fail.NotFound("workflow not found")
-	ErrBadDirectory     = fail.InvalidArgument("unusable working directory")
-	ErrTooManyAgents    = fail.Exhausted("too many agents")
-	ErrAgentArchived    = fail.Precondition("agent is archived")
-	ErrWorkflowArchived = fail.Precondition("workflow is archived")
-	ErrSpawnerUnknown   = fail.InvalidArgument("the spawning agent is not one this panel knows")
-	ErrOutsideWorkflow  = fail.Denied("an orchestrator spawns only into its own workflow")
-	ErrParentNotFound   = fail.NotFound("parent agent not found")
-	ErrParentIsChild    = fail.InvalidArgument("a child agent may not have children of its own")
-	ErrChildOwnsLaunch  = fail.InvalidArgument("a child agent takes its launch from its parent")
-	ErrTooManyChildren  = fail.Exhausted("too many children")
+	ErrAgentNotFound        = fail.NotFound("agent not found")
+	ErrWorkflowNotFound     = fail.NotFound("workflow not found")
+	ErrBadDirectory         = fail.InvalidArgument("unusable working directory")
+	ErrTooManyAgents        = fail.Exhausted("too many agents")
+	ErrAgentArchived        = fail.Precondition("agent is archived")
+	ErrWorkflowArchived     = fail.Precondition("workflow is archived")
+	ErrSpawnerUnknown       = fail.InvalidArgument("the spawning agent is not one this panel knows")
+	ErrOutsideWorkflow      = fail.Denied("an orchestrator spawns only into its own workflow")
+	ErrParentNotFound       = fail.NotFound("parent agent not found")
+	ErrParentIsChild        = fail.InvalidArgument("a child agent may not have children of its own")
+	ErrParentIsOrchestrator = fail.InvalidArgument("an orchestrator may not have children of its own")
+	ErrChildOwnsLaunch      = fail.InvalidArgument("a child agent takes its launch from its parent")
+	ErrTooManyChildren      = fail.Exhausted("too many children")
 
 	// ErrChildNeedsParentDirectory says the agent a child was to be attached to has no directory
 	// recorded.

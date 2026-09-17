@@ -325,3 +325,44 @@ func TestWorktreeAgentIsToldToGetItsWorkRead(t *testing.T) {
 	assert.Contains(t, briefing, "Commit on your branch and stop there")
 	assert.NotContains(t, briefing, "### When you are the one reviewing")
 }
+
+// TestRequestReviewIsNotCaughtByTheOrchestratorRefusal pins that the ordinary use of a child
+// still stands, since a reviewer is attached to an implementer rather than to an orchestrator.
+func TestRequestReviewIsNotCaughtByTheOrchestratorRefusal(t *testing.T) {
+	tmux := newFakeTmux()
+	st := newStore(t)
+	manager := newManager(tmux, st, "")
+	ctx := t.Context()
+
+	author, err := manager.launch.NewAgent(ctx, NewAgentParams{
+		Title:      "author",
+		Dir:        t.TempDir(),
+		Prompt:     "write the change",
+		WorkflowID: seedWorkflow(t, st),
+	})
+	require.NoError(t, err)
+
+	reviewer, _, err := manager.launch.RequestReview(ctx, RequestReviewParams{
+		AgentID: author.ID,
+		Prompt:  "read the parser change",
+	})
+	require.NotErrorIs(t, err, ErrParentIsOrchestrator)
+	require.NoError(t, err)
+	require.NotNil(t, reviewer)
+	require.NotNil(t, reviewer.ParentAgentID)
+	assert.Equal(t, author.ID, *reviewer.ParentAgentID)
+}
+
+// TestRequestReviewRefusesAnOrchestratorBeforeItSpawns pins that an orchestrator asking for a
+// review is turned away by the role check rather than by the parent check.
+func TestRequestReviewRefusesAnOrchestratorBeforeItSpawns(t *testing.T) {
+	tmux := newFakeTmux()
+	st := newStore(t)
+	manager := newManager(tmux, st, "")
+	ctx := t.Context()
+
+	author := seedOrchestrator(t, st, tmux)
+
+	_, _, err := manager.launch.RequestReview(ctx, RequestReviewParams{AgentID: author.ID, Prompt: "read it"})
+	require.ErrorIs(t, err, ErrReviewNeedsOwnWork)
+}

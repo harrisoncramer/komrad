@@ -10,6 +10,7 @@ import (
 	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
 	"weave/internal/ui/layout"
+	"weave/lib/xptr"
 	agentv1 "weave/proto/gen/agent/v1"
 	"weave/proto/gen/agent/v1/agentv1connect"
 	workflowv1 "weave/proto/gen/workflow/v1"
@@ -330,4 +331,21 @@ func TestCreatingAWorkflowStandsWhenItsOrchestratorWillNot(t *testing.T) {
 	require.NotNil(t, result.written)
 	assert.Equal(t, workflowRowKey("w2"), result.written.row)
 	assert.Empty(t, result.written.pane, "and no pane is staged for an orchestrator that never started")
+}
+
+// TestAnOrchestratorsChildStandsOnItsOwn pins that an agent whose parent is folded onto the
+// workflow row is drawn rather than left with no row anywhere.
+func TestAnOrchestratorsChildStandsOnItsOwn(t *testing.T) {
+	child := agentItem{agent: agentstore.Agent{
+		ID: "a1", Name: "reader", State: agentstore.StateIdle, WorkflowID: "w1",
+		ParentAgentID: xptr.Ptr("o1"),
+	}, alive: true}
+
+	m := orchestratorModel(&recordingOrchestrators{}, orchestratorItem(), child)
+
+	rows := m.agentRows()
+	require.Len(t, rows, 2, "the workflow header and the child standing under it")
+	assert.Equal(t, "a1", rows[1].item.agent.ID)
+	assert.False(t, rows[1].child, "it hangs off no row above it, since its parent draws none")
+	assert.Equal(t, 1, m.agentCount("w1"), "and the header counts the row it drew")
 }

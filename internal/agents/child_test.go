@@ -603,3 +603,49 @@ func TestChildBriefingReplacesTheDelegateOne(t *testing.T) {
 	assert.NotContains(t, prompt, "You were spawned by agent",
 		"the spawner paragraph would understate what a child runs under")
 }
+
+// TestNewChildAgentRefusesAnOrchestratorParent pins that the agent folded onto a workflow's own
+// row holds no children, since one would be drawn nowhere at all.
+func TestNewChildAgentRefusesAnOrchestratorParent(t *testing.T) {
+	tmux := newFakeTmux()
+	st := newStore(t)
+	manager := newManager(tmux, st, "")
+	ctx := t.Context()
+
+	parent := seedOrchestrator(t, st, tmux)
+	require.NoError(t, st.Update(ctx, withCwd(parent, t.TempDir())))
+
+	created, err := manager.launch.NewAgent(ctx, childOf(parent, "reader"))
+	require.ErrorIs(t, err, ErrParentIsOrchestrator)
+	assert.Nil(t, created)
+	require.ErrorContains(t, err, "provisionEnabled false", "the refusal names the shape to use instead")
+
+	live, err := st.List(ctx)
+	require.NoError(t, err)
+	assert.Len(t, live, 1, "the refusal records nothing beside the orchestrator")
+}
+
+// seedOrchestrator records the agent folded onto a workflow's own row, which is a role the store
+// takes only at create.
+func seedOrchestrator(t *testing.T, st *testStore, tmux paneStamper) agentstore.Agent {
+	t.Helper()
+	ctx := t.Context()
+
+	const name = "orchestrator"
+	workflowID := seedWorkflow(t, st)
+
+	require.NoError(t, st.Create(ctx, agentstore.Agent{
+		Name:       name,
+		Pane:       "%" + name,
+		State:      agentstore.StateIdle,
+		WorkflowID: workflowID,
+		Role:       agentstore.RoleOrchestrator,
+	}))
+
+	got, err := st.Agents.GetInWorkflow(ctx, workflowID, name)
+	require.NoError(t, err)
+	require.NotNil(t, got)
+	require.NoError(t, tmux.SetPaneOwner(got.Pane, got.ID))
+
+	return *got
+}

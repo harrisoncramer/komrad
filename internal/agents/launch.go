@@ -224,6 +224,11 @@ func (s *LaunchService) findParent(ctx context.Context, params NewAgentParams) (
 	if parent.ParentAgentID != nil {
 		return nil, fmt.Errorf("%w: %q is itself attached to another agent", ErrParentIsChild, parent.Name)
 	}
+	if parent.Role == agentstore.RoleOrchestrator {
+		return nil, fmt.Errorf(
+			"%w: %q is drawn on its workflow's own row, so a child of it would have no row anywhere; spawn an ordinary agent into the workflow with provisionEnabled false instead",
+			ErrParentIsOrchestrator, parent.Name)
+	}
 
 	// Ahead of what the request asked for, which puts the parent's missing directory in the
 	// refusal rather than a conflict with an empty one.
