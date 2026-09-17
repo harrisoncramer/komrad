@@ -165,7 +165,7 @@ The address comes from Terraform. The connection is shared with the panel's, so 
 
 ## Deploying a new binary
 
-CI does this on every merge to main, and it does not disturb running agents. By hand, from a clean checkout:
+A release deploys the engine when it is published, and it does not disturb running agents. By hand, from a clean checkout:
 
 ```
 mise run remote:deploy
@@ -173,11 +173,13 @@ mise run remote:deploy
 
 A clean deploy carries that checkout's commit, which is what the panel compares against. Deploying from a tree with uncommitted changes is the exception, because there is no commit that names what was built: the deploy stamps a version instead and leaves a matching binary at `dist/weave-panel`, which you put in place of your own weave.
 
-A stopped engine is skipped rather than failed, since Systems Manager refuses an instance that is not running. That commit reaches the box whenever something is next deployed after it starts.
+You can also deploy any ref without local AWS credentials, by dispatching the `engine` workflow on it from the Actions tab. That is the way in when the machine in front of you is the problem.
+
+A stopped engine is skipped rather than failed, since Systems Manager refuses an instance that is not running. That build reaches the box whenever something is next deployed after it starts.
 
 ## Taking a new image
 
-The image changes rarely, when the units or provisioning scripts do. CI builds a new one whenever something under `packer/` reaches main, and records it without applying it.
+The image changes rarely, when the units or provisioning scripts do. Dispatch the `image` workflow to build one; it records the id without applying it, because applying stops every agent on the box.
 
 ```
 mise run remote:reimage

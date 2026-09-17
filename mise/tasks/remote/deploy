@@ -42,7 +42,7 @@ if [ -z "$BUCKET" ]; then
 fi
 
 # The engine is stopped overnight, and Systems Manager refuses an instance that is not running,
-# so a merge in those hours skips rather than fails and the next deploy carries this build too.
+# so a deploy in those hours skips rather than fails and the next one carries this build too.
 STATE="$(engine_state "$INSTANCE" "$REGION")"
 
 if [ -z "$STATE" ]; then
