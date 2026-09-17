@@ -1,7 +1,7 @@
 # weave
 
 <p align="center">
-  <img src="docs/assets/weave.png" alt="Ultra" width="350" />
+  <img src="docs/assets/weave.png" alt="Weave" width="350" />
 </p>
 
 <p align="center">
