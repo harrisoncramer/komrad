@@ -716,3 +716,27 @@ func TestScheduleFormKeepsAWorkflowThatIsGone(t *testing.T) {
 	assert.Equal(t, "w1", values.WorkflowID, "the schedule stays on the workflow it was written against")
 	assert.Contains(t, plain(edit.form.form.View()), "w1  gone")
 }
+
+// TestScheduleFormOffersEveryWorkflow covers a schedule on any workflow but the first, which huh
+// scrolls its list to and so draws alone.
+func TestScheduleFormOffersEveryWorkflow(t *testing.T) {
+	values := schedulestore.Config{
+		Name:       "bughunt-fixer-dispatcher",
+		Cron:       "*/5 * * * *",
+		Prompt:     "sweep",
+		Enabled:    true,
+		WorkflowID: "w2",
+	}
+
+	form, _ := scheduleForm(&values, []workflowstore.Workflow{
+		{ID: "w1", Name: "bughunt", Cwd: "/repos/weave"},
+		{ID: "w2", Name: "weave", Cwd: "/repos/weave"},
+	}, config.FixedFormKeys())
+	form.Init()
+	form.Update(tea.WindowSizeMsg{Width: 80, Height: 60})
+
+	view := plain(form.View())
+	assert.Contains(t, view, "bughunt  /repos/weave")
+	assert.Contains(t, view, "weave  /repos/weave")
+	assert.Equal(t, "w2", values.WorkflowID, "the schedule stays on the workflow it named")
+}
