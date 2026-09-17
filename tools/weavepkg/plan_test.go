@@ -5,28 +5,44 @@ import (
 	"testing"
 )
 
+var fixture = []listed{
+	{
+		ImportPath: "weave/a",
+		Dir:        "/repo/a",
+		GoFiles:    []string{"a.go"},
+	},
+	{
+		ImportPath: "weave/b",
+		Dir:        "/repo/b",
+		Deps:       []string{"weave/a"},
+		GoFiles:    []string{"b.go"},
+	},
+	{
+		ImportPath:  "weave/c",
+		Dir:         "/repo/c",
+		TestImports: []string{"weave/a"},
+		GoFiles:     []string{"c.go"},
+	},
+	{
+		ImportPath:   "weave/d",
+		Dir:          "/repo/d",
+		XTestImports: []string{"weave/a"},
+		GoFiles:      []string{"d.go"},
+	},
+	{
+		ImportPath: "weave/e",
+		Dir:        "/repo/e",
+		GoFiles:    []string{"e.go"},
+	},
+	{
+		ImportPath:  "weave/f",
+		Dir:         "/repo/f",
+		TestImports: []string{"weave/a"},
+	},
+}
+
 // TestTouched covers which packages a change reaches, through imports and through test imports alike.
 func TestTouched(t *testing.T) {
-	pkgs := []listed{
-		{ImportPath: "weave/a", Dir: "/repo/a"},
-		{
-			ImportPath: "weave/b",
-			Dir:        "/repo/b",
-			Deps:       []string{"weave/a"},
-		},
-		{
-			ImportPath:  "weave/c",
-			Dir:         "/repo/c",
-			TestImports: []string{"weave/a"},
-		},
-		{
-			ImportPath:   "weave/d",
-			Dir:          "/repo/d",
-			XTestImports: []string{"weave/a"},
-		},
-		{ImportPath: "weave/e", Dir: "/repo/e"},
-	}
-
 	tests := []struct {
 		name           string
 		changed        []string
@@ -39,21 +55,71 @@ func TestTouched(t *testing.T) {
 			wantRefs: []pkgRef{},
 		},
 		{
-			name:           "a package everything reaches",
-			changed:        []string{"/repo/a"},
-			wantRefs:       []pkgRef{{ImportPath: "weave/a", Dir: "a"}},
-			wantDependents: 3,
+			name:    "a package everything reaches",
+			changed: []string{"/repo/a"},
+			wantRefs: []pkgRef{
+				{
+					ImportPath: "weave/a",
+					Dir:        "a",
+					Testable:   true,
+				},
+			},
+			wantDependents: 4,
 		},
 		{
-			name:           "an importer that changed is not its own dependent",
-			changed:        []string{"/repo/a", "/repo/b", "/repo/c", "/repo/d"},
-			wantRefs:       []pkgRef{{ImportPath: "weave/a", Dir: "a"}, {ImportPath: "weave/b", Dir: "b"}, {ImportPath: "weave/c", Dir: "c"}, {ImportPath: "weave/d", Dir: "d"}},
+			name:    "an importer that changed is not its own dependent",
+			changed: []string{"/repo/a", "/repo/b", "/repo/c", "/repo/d", "/repo/f"},
+			wantRefs: []pkgRef{
+				{
+					ImportPath: "weave/a",
+					Dir:        "a",
+					Testable:   true,
+				},
+				{
+					ImportPath: "weave/b",
+					Dir:        "b",
+					Testable:   true,
+				},
+				{
+					ImportPath: "weave/c",
+					Dir:        "c",
+					Testable:   true,
+				},
+				{
+					ImportPath: "weave/d",
+					Dir:        "d",
+					Testable:   true,
+				},
+				{
+					ImportPath: "weave/f",
+					Dir:        "f",
+					Testable:   false,
+				},
+			},
 			wantDependents: 0,
 		},
 		{
-			name:           "a package nothing imports",
-			changed:        []string{"/repo/e"},
-			wantRefs:       []pkgRef{{ImportPath: "weave/e", Dir: "e"}},
+			name:    "a package that only builds under a tag is listed but not testable",
+			changed: []string{"/repo/f"},
+			wantRefs: []pkgRef{
+				{
+					ImportPath: "weave/f",
+					Dir:        "f",
+					Testable:   false,
+				},
+			},
+			wantDependents: 0,
+		},
+		{
+			name:    "a package nothing imports",
+			changed: []string{"/repo/e"},
+			wantRefs: []pkgRef{
+				{
+					ImportPath: "weave/e",
+					Dir:        "e",
+					Testable:   true,
+				},
+			},
 			wantDependents: 0,
 		},
 		{
@@ -70,7 +136,7 @@ func TestTouched(t *testing.T) {
 				dirs[dir] = true
 			}
 
-			refs, dependents := touched(pkgs, "/repo", dirs)
+			refs, dependents := touched(fixture, "/repo", dirs, buildable(fixture))
 
 			if !reflect.DeepEqual(refs, tt.wantRefs) {
 				t.Errorf("packages: got %v, want %v", refs, tt.wantRefs)
@@ -78,6 +144,45 @@ func TestTouched(t *testing.T) {
 
 			if dependents != tt.wantDependents {
 				t.Errorf("dependents: got %d, want %d", dependents, tt.wantDependents)
+			}
+		})
+	}
+}
+
+// TestBuildable covers which packages hold a file the current build tags let in.
+func TestBuildable(t *testing.T) {
+	tests := []struct {
+		name string
+		pkg  listed
+		want bool
+	}{
+		{
+			name: "a package with source files",
+			pkg: listed{
+				ImportPath: "weave/a",
+				GoFiles:    []string{"a.go"},
+			},
+			want: true,
+		},
+		{
+			name: "a package with only external test files",
+			pkg: listed{
+				ImportPath:   "weave/b",
+				XTestGoFiles: []string{"b_test.go"},
+			},
+			want: true,
+		},
+		{
+			name: "a package whose every file is behind a tag",
+			pkg:  listed{ImportPath: "weave/c"},
+			want: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := buildable([]listed{tt.pkg})[tt.pkg.ImportPath]; got != tt.want {
+				t.Errorf("got %v, want %v", got, tt.want)
 			}
 		})
 	}

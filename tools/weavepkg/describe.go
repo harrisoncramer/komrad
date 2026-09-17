@@ -46,7 +46,12 @@ func describe(root, base, tags string) (plan, error) {
 			return plan{}, err
 		}
 
-		refs, dependents := touched(pkgs, mod.dir, dirs)
+		untagged, err := listPackages(mod.dir, "")
+		if err != nil {
+			return plan{}, err
+		}
+
+		refs, dependents := touched(pkgs, mod.dir, dirs, buildable(untagged))
 		result.Modules = append(result.Modules, moduleRef{
 			Path:     mod.path,
 			Dir:      mod.rel,
@@ -148,7 +153,7 @@ func modulePath(path string) (string, error) {
 
 // listPackages is what go list says about every package in the module rooted at dir.
 func listPackages(dir, tags string) ([]listed, error) {
-	command := exec.Command("go", "list", "-e", "-tags", tags, "-json=ImportPath,Dir,Deps,TestImports,XTestImports", "./...") //nolint:noctx // the caller is a one-shot command with no deadline of its own
+	command := exec.Command("go", "list", "-e", "-tags", tags, "-json=ImportPath,Dir,Deps,TestImports,XTestImports,GoFiles,TestGoFiles,XTestGoFiles", "./...") //nolint:noctx // the caller is a one-shot command with no deadline of its own
 	command.Dir = dir
 	command.Stderr = os.Stderr
 

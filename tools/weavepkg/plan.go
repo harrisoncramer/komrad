@@ -15,11 +15,15 @@ type listed struct {
 	Deps         []string
 	TestImports  []string
 	XTestImports []string
+	GoFiles      []string
+	TestGoFiles  []string
+	XTestGoFiles []string
 }
 
 type pkgRef struct {
 	ImportPath string `json:"importPath"`
 	Dir        string `json:"dir"`
+	Testable   bool   `json:"testable"`
 }
 
 type moduleRef struct {
@@ -34,7 +38,7 @@ type plan struct {
 }
 
 // touched is the packages of one module holding a changed file, and the count of packages that import them without being changed themselves.
-func touched(pkgs []listed, moduleDir string, changedDirs map[string]bool) ([]pkgRef, int) {
+func touched(pkgs []listed, moduleDir string, changedDirs, testable map[string]bool) ([]pkgRef, int) {
 	refs := []pkgRef{}
 	changed := map[string]bool{}
 
@@ -50,7 +54,11 @@ func touched(pkgs []listed, moduleDir string, changedDirs map[string]bool) ([]pk
 			rel = pkg.Dir
 		}
 
-		refs = append(refs, pkgRef{ImportPath: pkg.ImportPath, Dir: rel})
+		refs = append(refs, pkgRef{
+			ImportPath: pkg.ImportPath,
+			Dir:        rel,
+			Testable:   testable[pkg.ImportPath],
+		})
 	}
 
 	sort.Slice(refs, func(i, j int) bool { return refs[i].ImportPath < refs[j].ImportPath })
@@ -98,4 +106,17 @@ func writePlan(out io.Writer, value plan) error {
 	}
 
 	return nil
+}
+
+// buildable is the packages holding at least one Go file the current build tags let in, since a package gated entirely behind a tag can be linted but not tested.
+func buildable(pkgs []listed) map[string]bool {
+	set := map[string]bool{}
+
+	for _, pkg := range pkgs {
+		if len(pkg.GoFiles)+len(pkg.TestGoFiles)+len(pkg.XTestGoFiles) > 0 {
+			set[pkg.ImportPath] = true
+		}
+	}
+
+	return set
 }

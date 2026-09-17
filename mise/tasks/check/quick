@@ -80,6 +80,7 @@ lint_module() {
 PLAN="$(cd tools/weavepkg && go run . changed --base "$BASE_REF" --dir "$MISE_CONFIG_ROOT")"
 
 CHANGED_COUNT="$(plan_field '[.modules[].packages[]] | length')"
+TESTED_COUNT="$(plan_field '[.modules[].packages[] | select(.testable)] | length')"
 DEPENDENTS="$(plan_field '.untestedDependents')"
 
 MODULES=()
@@ -121,7 +122,7 @@ for dir in ${MODULES[@]+"${MODULES[@]}"}; do
 	while IFS= read -r pkg; do
 		[ -n "$pkg" ] || continue
 		PACKAGES+=("$pkg")
-	done < <(module_field "$dir" '.packages[].importPath')
+	done < <(module_field "$dir" '.packages[] | select(.testable) | .importPath')
 
 	PATHS=()
 	while IFS= read -r relative; do
@@ -129,7 +130,11 @@ for dir in ${MODULES[@]+"${MODULES[@]}"}; do
 		PATHS+=("./$relative")
 	done < <(module_field "$dir" '.packages[].dir')
 
-	run_step "go test ($dir)" test_module "$dir" "${PACKAGES[@]}"
+	# A package every file of which is behind a build tag is linted under that tag and cannot
+	# be tested without it, and the integration suite is not what this loop is for.
+	if ((${#PACKAGES[@]} > 0)); then
+		run_step "go test ($dir)" test_module "$dir" "${PACKAGES[@]}"
+	fi
 
 	if [ "$LINTED" = true ]; then
 		run_step "go lint ($dir)" lint_module "$dir" "${PATHS[@]}"
@@ -152,16 +157,25 @@ if [ "$CHANGED_COUNT" = "0" ]; then
 	echo "            or what changed is no longer in the tree"
 	echo "  linted    nothing, for the same reason"
 else
-	echo "  tested    $CHANGED_COUNT changed package(s):"
+	if [ "$TESTED_COUNT" = "0" ]; then
+		echo "  tested    nothing: every package that changed builds only under a build"
+		echo "            tag, which the full suite runs and this does not"
+	else
+		echo "  tested    $TESTED_COUNT changed package(s):"
 
-	for dir in "${MODULES[@]}"; do
-		module_field "$dir" '.packages[].importPath' | while IFS= read -r pkg; do
-			echo "              $pkg"
+		for dir in "${MODULES[@]}"; do
+			module_field "$dir" '.packages[] | select(.testable) | .importPath' | while IFS= read -r pkg; do
+				echo "              $pkg"
+			done
 		done
-	done
+	fi
 
 	if [ "$LINTED" = true ]; then
-		echo "  linted    the same packages"
+		if ((CHANGED_COUNT > TESTED_COUNT)); then
+			echo "  linted    those and $((CHANGED_COUNT - TESTED_COUNT)) more that only build under a build tag"
+		else
+			echo "  linted    the same packages"
+		fi
 	else
 		echo "  linted    nothing: local/custom-gcl is missing, run 'mise run go:build-linter'"
 	fi
