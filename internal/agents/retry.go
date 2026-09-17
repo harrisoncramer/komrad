@@ -51,7 +51,13 @@ func (s *LaunchService) RetryCreate(ctx context.Context, params RetryCreateParam
 		return nil, ErrAgentNotFailed.Saying("%q was changed while the retry was starting", agent.Name)
 	}
 
-	if flags := strings.TrimSpace(params.Flags); flags != "" {
+	// The panel prefills its retry form with the flags already composed for the CLI the agent is
+	// on, so flags that came back unchanged name nothing.
+	flags := strings.TrimSpace(params.Flags)
+	if flags == strings.TrimSpace(agent.Flags) {
+		flags = ""
+	}
+	if flags != "" {
 		agent.Flags = flags
 	}
 	if prompt := strings.TrimSpace(params.Prompt); prompt != "" {
@@ -68,20 +74,21 @@ func (s *LaunchService) RetryCreate(ctx context.Context, params RetryCreateParam
 		workflowContext = wf.Context
 	}
 
-	harnessID := strings.TrimSpace(params.Harness)
-	switched := harnessID != "" && harnessID != agent.Harness
-	if switched {
-		agent.Harness = harnessID
+	wanted := strings.TrimSpace(params.Harness)
+	switched := wanted != "" && wanted != agent.Harness
+	if wanted == "" {
+		wanted = agent.Harness
 	}
 
-	hn, err := s.harnesses.GetByID(agent.Harness)
+	hn, err := s.harnesses.GetByID(wanted)
 	if err != nil {
 		s.failCreate(ctx, *agent, err)
 		return nil, err
 	}
 
 	if switched {
-		if err := s.moveOntoHarness(ctx, agent, wf, params.Flags, hn); err != nil {
+		agent.Harness = wanted
+		if err := s.moveOntoHarness(ctx, agent, wf, flags, hn); err != nil {
 			s.failCreate(ctx, *agent, err)
 			return nil, err
 		}
@@ -128,8 +135,6 @@ func (s *LaunchService) moveOntoHarness(ctx context.Context, agent *agentstore.A
 		workflowFlags:   workflowFlags,
 	})
 
-	// The stored conversation was minted by the CLI the agent is leaving, and means nothing to
-	// the one it is joining.
 	agent.SessionID = hn.MintSessionID()
 
 	return s.agents.SetHarness(ctx, agentstore.SetHarnessParams{
