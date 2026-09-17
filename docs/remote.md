@@ -260,6 +260,41 @@ That moves the engine to the image CI last built. It names the agents that are a
 
 Pass an image id to use one other than the latest, or build your own with `mise run packer:build` and pass that.
 
+## Stopping it overnight
+
+The instance bills for every hour it is running, and it is running for far more hours than it is used. Stopping it is the way to stop paying for the hours nobody is there.
+
+```
+mise run remote:stop
+mise run remote:start
+```
+
+The stop names every agent on the box and asks before it does anything, because they all stop with it. What is lost is the turn each one was part way through. What is not lost is the work: the conversations, the worktrees and the database are all on the data volume or in RDS, so an agent can be resumed from the panel afterwards and picks up where it left off.
+
+This is not the reimage path. The instance is kept rather than replaced, so the data volume stays attached, the root disk survives, the host key is unchanged, and the Elastic IP stays associated throughout. The address your panel names in `~/.config/weave/engines/remote.toml` is still the right one when the engine comes back, so nothing on your machine needs editing. Both commands check the address anyway and fail loudly if it ever moves.
+
+The start waits until weave is actually answering rather than until the instance is running, so when it returns the engine is ready. Running either command against an engine already in the state it asks for costs nothing and reports what it found.
+
+Terraform is not involved. It does not track whether an instance is running, so `terraform plan` reports no changes against a stopped engine and a later `apply` will not start it. Stopping the box and reimaging it are still the same lock, though, so do not do both at once.
+
+Stopping the instance does not stop everything on the bill. The two 100 GiB volumes, the database, the snapshots and the address all keep costing what they cost. What goes away is the instance itself, which is the large part.
+
+## Putting that on a schedule
+
+`.github/workflows/engine-hours.yml` runs the same two commands from GitHub Actions, stopping the engine at 10pm New York time and starting it at 7am. It reaches AWS through the same OIDC role the deploy uses and touches the instance through Systems Manager, because a runner has no fixed address for the security group.
+
+It is not armed. The crons fire, and the job declines, until you set a repository variable:
+
+```
+gh variable set ENGINE_HOURS --body on
+```
+
+Setting it to anything else, or deleting it, turns the schedule off again. `gh workflow run "engine hours" -f action=stop` runs either half by hand whatever the variable says.
+
+The scheduled stop passes `--if-idle`, which leaves the engine running when any agent is mid-turn. Nobody is at the panel at 10pm to be asked, and an hour of billing is worth less than a turn nobody knew was killed. The run stays green and says on its summary page that it left the box up, so a night that cost more than it should is visible the next morning rather than silent.
+
+GitHub's cron is UTC and ignores daylight saving, so each end of the day is scheduled twice, at the hour that is right in EDT and the hour that is right in EST, and the job checks the real New York hour before acting. GitHub also disables scheduled workflows in a repository with no activity for sixty days, which is worth knowing if the engine ever stops going down on its own.
+
 ## Getting a shell
 
 ```

@@ -49,3 +49,95 @@ require_output() {
 
 	echo "$value"
 }
+
+engine_region() {
+	echo "${AWS_REGION:-$(terraform_output aws_region)}"
+}
+
+# require_instance names the engine's instance, taking an argument over the environment over state.
+require_instance() {
+	local instance=${1:-${WEAVE_ENGINE_INSTANCE:-}}
+
+	if [ -z "$instance" ]; then
+		instance="$(terraform_output instance_id)"
+	fi
+
+	if [ -z "$instance" ]; then
+		echo "could not read the engine's instance from Terraform." >&2
+		echo >&2
+		echo "Run 'mise run terraform:apply' to build one, or set WEAVE_ENGINE_INSTANCE." >&2
+		exit 1
+	fi
+
+	echo "$instance"
+}
+
+# ssm_run sends one command to the engine and prints what it wrote, which is the way in that does
+# not need the caller to have an address the security group allows.
+ssm_run() {
+	local instance=$1 region=$2 commands=$3 command_id outcome
+
+	command_id="$(aws ssm send-command \
+		--region "$region" \
+		--instance-ids "$instance" \
+		--document-name AWS-RunShellScript \
+		--parameters "commands=$commands" \
+		--query 'Command.CommandId' --output text)" || return 1
+
+	for _ in $(seq 1 60); do
+		outcome="$(aws ssm get-command-invocation --region "$region" --command-id "$command_id" \
+			--instance-id "$instance" --query 'Status' --output text 2>/dev/null || echo Pending)"
+
+		case "$outcome" in
+		Success)
+			aws ssm get-command-invocation --region "$region" --command-id "$command_id" \
+				--instance-id "$instance" --query 'StandardOutputContent' --output text
+			return 0
+			;;
+		Failed | Cancelled | TimedOut)
+			aws ssm get-command-invocation --region "$region" --command-id "$command_id" \
+				--instance-id "$instance" --query 'StandardErrorContent' --output text >&2
+			return 1
+			;;
+		esac
+
+		sleep 2
+	done
+
+	echo "the command sent to $instance was still running after two minutes" >&2
+
+	return 1
+}
+
+# engine_agents prints one "state<tab>name" line per agent the engine holds, and nothing when it
+# cannot be asked.
+engine_agents() {
+	local instance=$1 region=$2 payload
+
+	payload="$(ssm_run "$instance" "$region" \
+		'["sudo -u weave --set-home weave rpc list-agents --compact 2>/dev/null || true"]' 2>/dev/null)" || return 0
+
+	jq -r '.agents // [] | .[] | "\(.state)\t\(.name)"' <<<"$payload" 2>/dev/null || true
+}
+
+# engine_address prints the address the instance answers on, which is the Elastic IP for as long
+# as one is associated.
+engine_address() {
+	local instance=$1 region=$2 address
+
+	address="$(aws ec2 describe-instances --region "$region" --instance-ids "$instance" \
+		--query 'Reservations[0].Instances[0].PublicIpAddress' --output text 2>/dev/null)"
+
+	if [ "$address" = "None" ]; then
+		return 0
+	fi
+
+	echo "$address"
+}
+
+engine_state() {
+	local instance=$1 region=$2
+
+	aws ec2 describe-instances --region "$region" --instance-ids "$instance" \
+		--query 'Reservations[0].Instances[0].State.Name' --output text 2>/dev/null
+}
