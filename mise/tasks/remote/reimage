@@ -99,25 +99,7 @@ if ! printf '%s\n' "$@" | grep -q -- "-auto-approve"; then
 	}
 fi
 
-python3 - "$AMI" <<'PY'
-import re
-import sys
-
-path, ami = "infra/terraform/terraform.tfvars", sys.argv[1]
-text = open(path).read()
-updated, count = re.subn(
-    r'(^[ \t]*ami_id[ \t]*=[ \t]*)"[^"]*"',
-    lambda match: match.group(1) + '"' + ami + '"',
-    text,
-    count=1,
-    flags=re.M,
-)
-
-if count != 1:
-    sys.exit("no ami_id line to change in " + path)
-
-open(path, "w").write(updated)
-PY
+tfvars set infra/terraform/terraform.tfvars ami_id "$AMI"
 
 terraform -chdir=infra/terraform apply -input=false "${TERRAFORM_ARGS[@]+"${TERRAFORM_ARGS[@]}"}"
 

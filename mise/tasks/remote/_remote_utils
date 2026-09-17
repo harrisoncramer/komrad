@@ -38,7 +38,21 @@ terraform_output_list() {
 	local name=$1
 
 	terraform -chdir=infra/terraform output -json "$name" 2>/dev/null |
-		python3 -c 'import json,sys; print(" ".join(json.load(sys.stdin)))' 2>/dev/null || true
+		jq -r 'join(" ")' 2>/dev/null || true
+}
+
+# tfvars is the helper that changes one value in the variables file, built on demand because it
+# is part of this repository rather than a pinned tool.
+tfvars() {
+	local bin="$MISE_CONFIG_ROOT/local/tfvars"
+	local src="$MISE_CONFIG_ROOT/tools/tfvars"
+
+	if [ ! -x "$bin" ] || [ -n "$(find "$src" -type f -newer "$bin" -print -quit 2>/dev/null)" ]; then
+		mkdir -p "$MISE_CONFIG_ROOT/local"
+		(cd "$src" && go build -o "$bin" .)
+	fi
+
+	"$bin" "$@"
 }
 
 # public_address is how this machine appears to the engine's firewall, or empty when nothing answers.

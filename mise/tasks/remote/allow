@@ -73,29 +73,7 @@ fi
 
 gum log --level info "allowing $ADDRESS, beside $(terraform_output_list ssh_allowed_cidrs || true)"
 
-python3 - "$ADDRESS" <<'PY'
-import re
-import sys
-
-path, address = "infra/terraform/terraform.tfvars", sys.argv[1]
-text = open(path).read()
-
-match = re.search(r'^[ \t]*ssh_allowed_cidrs[ \t]*=[ \t]*\[(.*?)\]', text, re.M | re.S)
-
-if match is None:
-    sys.exit("no ssh_allowed_cidrs line to change in " + path)
-
-existing = [part.strip() for part in match.group(1).split(",") if part.strip()]
-wanted = '"' + address + '"'
-
-if wanted in existing:
-    sys.exit(0)
-
-existing.append(wanted)
-
-updated = text[: match.start(1)] + ", ".join(existing) + text[match.end(1) :]
-open(path, "w").write(updated)
-PY
+tfvars add infra/terraform/terraform.tfvars ssh_allowed_cidrs "$ADDRESS"
 
 terraform -chdir=infra/terraform apply -input=false "${TERRAFORM_ARGS[@]+"${TERRAFORM_ARGS[@]}"}"
 
