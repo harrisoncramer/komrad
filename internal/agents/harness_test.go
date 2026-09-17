@@ -71,6 +71,59 @@ func TestNewAgentGetsHarness(t *testing.T) {
 	}
 }
 
+// TestWorkflowFlagsFollowItsHarness pins that a workflow's flags reach only the agents running
+// the CLI it names.
+func TestWorkflowFlagsFollowItsHarness(t *testing.T) {
+	tests := []struct {
+		name      string
+		requested string
+		want      string
+	}{
+		{
+			name: "an agent on the workflow's own CLI takes its flags",
+			want: "--default-flag --model opus",
+		},
+		{
+			name:      "an agent on another CLI is launched without them",
+			requested: "codex",
+			want:      "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			st := newStore(t)
+			tmux := newFakeTmux()
+
+			service := st.agentService(agentServiceOptions{
+				tmux:      tmux,
+				harnesses: fakeHarnesses{harness: &fakeHarness{}},
+				flags:     "--default-flag",
+			})
+
+			created, err := st.Workflows.Create(t.Context(), workflowstore.Config{
+				Name:    "workflow-" + uuid.NewString(),
+				Harness: testHarnessID,
+				Flags:   "--model opus",
+			})
+			require.NoError(t, err)
+
+			_, err = service.launch.NewAgent(t.Context(), NewAgentParams{
+				Title:      "agent",
+				Dir:        t.TempDir(),
+				Harness:    tt.requested,
+				WorkflowID: created.ID,
+			})
+			require.NoError(t, err)
+
+			stored, err := st.Get(t.Context(), "agent")
+			require.NoError(t, err)
+			require.NotNil(t, stored)
+			assert.Equal(t, tt.want, stored.Flags)
+		})
+	}
+}
+
 // TestNewAgentRefusesUnknownHarness pins that a CLI this binary cannot run is refused before
 // a window is opened or a row written.
 func TestNewAgentRefusesUnknownHarness(t *testing.T) {

@@ -63,9 +63,37 @@ func TestFormsSubmitWhatIsOnScreen(t *testing.T) {
 				assert.Equal(t, "ci", sent.createdAgent.GetTitle())
 				assert.Equal(t, "codex", sent.createdAgent.GetHarness(), "the workflow's harness is prefilled and can be overridden")
 				assert.Equal(t, "/work/api", sent.createdAgent.GetDir(), "the workflow's directory is prefilled and kept")
-				assert.Equal(t, "--model opus", sent.createdAgent.GetFlags())
+				assert.Empty(t, sent.createdAgent.GetFlags(), "the workflow's flags are inherited at launch rather than copied into the field")
 				assert.Equal(t, "w1", sent.createdAgent.GetWorkflowId())
 				assert.Nil(t, sent.createdAgent.ProvisionEnabled, "left on the default, the agent takes no override of its own")
+			},
+		},
+		{
+			name: "the child form",
+			open: func(t *testing.T, m model) model {
+				parent := agentstore.Agent{
+					ID:         "a1",
+					Name:       "author",
+					WorkflowID: "w1",
+					Cwd:        "/work/api",
+					Harness:    "claude",
+					Flags:      "--model opus",
+				}
+
+				values := childPrefill(parent)
+				values.Prompt = "run the tests"
+
+				opened, _ := m.openChildForm(parent, &values)
+
+				return asModel(t, opened)
+			},
+			submit: model.answerForm,
+			check: func(t *testing.T, sent *formRecorder) {
+				require.NotNil(t, sent.createdAgent)
+				assert.Equal(t, "run the tests", sent.createdAgent.GetPrompt())
+				assert.Equal(t, "a1", sent.createdAgent.GetParentAgentId())
+				assert.Equal(t, "claude", sent.createdAgent.GetHarness())
+				assert.Empty(t, sent.createdAgent.GetFlags(), "the parent's flags are written for the CLI it runs")
 			},
 		},
 		{
@@ -1054,8 +1082,8 @@ func TestAdoptFormSendsWhatWasTyped(t *testing.T) {
 	workflow := m.listing.workflows[0]
 
 	values := adoptPrefill(workflow)
-	assert.Equal(t, "claude", values.Harness, "the workflow's harness and flags are prefilled")
-	assert.Equal(t, "--model opus", values.Flags)
+	assert.Equal(t, "claude", values.Harness, "the workflow's harness is prefilled")
+	assert.Empty(t, values.Flags, "its flags are not, being written for the CLI it names")
 
 	values.Ref = "https://github.com/acmecorp/admin/pull/1069"
 	values.Prompt = "pick it up"
