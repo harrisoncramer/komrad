@@ -11,8 +11,10 @@ on:
   push:
     branches: [main]
 
+# ci.yml is called below, and a called workflow cannot be granted more than its caller holds.
 permissions:
   contents: write
+  pull-requests: read
 
 # Two merges landing close together would otherwise publish against the same tag and the same
 # asset names, and could interleave into a tag at one commit with binaries from another. The
