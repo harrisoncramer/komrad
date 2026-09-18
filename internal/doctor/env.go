@@ -26,6 +26,7 @@ type Env struct {
 	ReadPendingMigrations func(ctx context.Context, url string) ([]string, error)
 	ConnectReadOnly       func(ctx context.Context, url string) error
 	ReadWorktreeOwners    func(ctx context.Context, url string) (WorktreeOwners, error)
+	VerifyForges          func(ctx context.Context, url string) ([]ForgeStatus, error)
 	ProbeServer           func(ctx context.Context) (ServerStatus, error)
 	IsPanelRunning        func(ctx context.Context) bool
 	ReadTerminfo          func(ctx context.Context, term, capability string) (string, error)
@@ -77,6 +78,7 @@ func NewEnv(settings Settings) Env {
 		ReadPendingMigrations: readPendingMigrations,
 		ConnectReadOnly:       connectReadOnly,
 		ReadWorktreeOwners:    readWorktreeOwners,
+		VerifyForges:          verifyForges,
 		ReadTerminfo:          readTerminfo,
 	}
 }

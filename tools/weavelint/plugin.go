@@ -6,9 +6,11 @@
 // command. Nothing else imports it, and `go list ./...` in the main module does not see it, so
 // its own tests are run by the test task rather than by the suite.
 //
-// The rules read syntax rather than types, which is enough for what they ask and keeps the lint
-// pass cheap. The cost is that a name is only a name: a package aliased to errors reads as the
-// standard library's, and one brought in by a dot import does not read as anything at all.
+// The sentinel and handler rules read syntax alone, so for them a name is only a name: a package
+// aliased to errors reads as the standard library's, and one brought in by a dot import does not
+// read as anything at all. The secret rule needs to know a method's receiver, so the plugin
+// loads types for every package it runs over, which the other linters in the pass already pay
+// for.
 package weavelint
 
 import (
@@ -46,8 +48,8 @@ func (l *linter) BuildAnalyzers() ([]*analysis.Analyzer, error) {
 		return nil, err
 	}
 
-	return []*analysis.Analyzer{sentinels, handlers}, nil
+	return []*analysis.Analyzer{sentinels, handlers, newSecretExpose(l.config.SecretExpose)}, nil
 }
 
-// GetLoadMode tells golangci-lint the analyzers read syntax alone.
-func (l *linter) GetLoadMode() string { return register.LoadModeSyntax }
+// GetLoadMode tells golangci-lint the analyzers need types resolved.
+func (l *linter) GetLoadMode() string { return register.LoadModeTypesInfo }

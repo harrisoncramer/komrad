@@ -1,0 +1,365 @@
+package forge
+
+import (
+	"context"
+	"testing"
+	"time"
+
+	"weave/internal/dbtest"
+	"weave/internal/git"
+	"weave/internal/store"
+	forgestore "weave/internal/store/forge"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+)
+
+// fakeForge answers Verify from what it was built with and records the credential it was
+// given.
+type fakeForge struct {
+	auth  Authenticator
+	login string
+	err   error
+}
+
+func (f *fakeForge) Kind() string { return KindGitHub }
+
+func (f *fakeForge) Verify(ctx context.Context) (string, error) {
+	if _, err := f.auth.Credential(ctx); err != nil {
+		return "", err
+	}
+
+	return f.login, f.err
+}
+
+func (f *fakeForge) ListOnBranch(context.Context, git.RemoteURL, string) ([]PullRequest, error) {
+	return nil, nil
+}
+
+func (f *fakeForge) Get(context.Context, string) (PullRequest, error) { return PullRequest{}, nil }
+
+type fixture struct {
+	service     *Service
+	store       *forgestore.Store
+	credentials *FileStore
+	seen        []Credential
+	apis        []string
+}
+
+func newFixture(t *testing.T, login string, verifyErr error) *fixture {
+	t.Helper()
+
+	pool, err := store.Open(t.Context(), dbtest.URL(t))
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = pool.Close() })
+
+	f := &fixture{store: forgestore.New(pool.GetDB()), credentials: NewFileStore(t.TempDir())}
+	f.service = NewService(NewServiceParams{
+		Connections: f.store,
+		Credentials: f.credentials,
+		Builders: map[string]Builder{
+			KindGitHub: func(api string, auth Authenticator) Forge {
+				credential, _ := auth.Credential(t.Context())
+				f.seen = append(f.seen, credential)
+				f.apis = append(f.apis, api)
+
+				return &fakeForge{
+					auth:  auth,
+					login: login,
+					err:   verifyErr,
+				}
+			},
+		},
+		Now: func() time.Time { return time.Date(2026, 9, 18, 12, 0, 0, 0, time.UTC) },
+	})
+
+	return f
+}
+
+// TestConnect covers the happy path: the token is proved, the row carries the login the forge
+// answered, and the credential is on disk for the next caller.
+func TestConnect(t *testing.T) {
+	f := newFixture(t, "harrisoncramer", nil)
+	ctx := t.Context()
+
+	connection, err := f.service.Connect(ctx, ConnectParams{Host: "GitHub.com", Token: NewSecret(" ghp_secret\n")})
+	require.NoError(t, err)
+	assert.Equal(t, "github.com", connection.Host)
+	assert.Equal(t, KindGitHub, connection.Kind)
+	assert.Equal(t, MethodToken, connection.Method)
+	assert.Equal(t, "harrisoncramer", connection.Login)
+	require.NotNil(t, connection.VerifiedAt)
+
+	require.Len(t, f.seen, 1)
+	assert.Equal(t, Credential{Header: HeaderBearer, Token: NewSecret("ghp_secret")}, f.seen[0])
+
+	token, err := f.credentials.Get(ctx, connection.ID)
+	require.NoError(t, err)
+	assert.Equal(t, "ghp_secret", token.Expose())
+
+	again, err := f.service.ForConnection(*connection)
+	require.NoError(t, err)
+	login, err := again.Verify(ctx)
+	require.NoError(t, err)
+	assert.Equal(t, "harrisoncramer", login)
+}
+
+// TestConnectRefusals covers everything Connect will not do, none of which leaves a row or a
+// file behind.
+func TestConnectRefusals(t *testing.T) {
+	tests := []struct {
+		name      string
+		login     string
+		verifyErr error
+		params    ConnectParams
+		wantErr   error
+	}{
+		{
+			name:    "no host",
+			params:  ConnectParams{Token: NewSecret("tok")},
+			wantErr: nil,
+		},
+		{
+			name:    "no token",
+			params:  ConnectParams{Host: "github.com"},
+			wantErr: nil,
+		},
+		{
+			name:    "an enterprise host with no kind",
+			params:  ConnectParams{Host: "ghe.example.com", Token: NewSecret("tok")},
+			wantErr: ErrKindUnknownForHost,
+		},
+		{
+			name: "a kind this build does not have",
+			params: ConnectParams{
+				Host:  "ghe.example.com",
+				Kind:  "gitea",
+				Token: NewSecret("tok"),
+			},
+			wantErr: ErrUnknownKind,
+		},
+		{
+			name:      "a token the forge refuses",
+			verifyErr: ErrUnauthorized,
+			params:    ConnectParams{Host: "github.com", Token: NewSecret("bad")},
+			wantErr:   ErrUnauthorized,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f := newFixture(t, tt.login, tt.verifyErr)
+
+			_, err := f.service.Connect(t.Context(), tt.params)
+			require.Error(t, err)
+			if tt.wantErr != nil {
+				require.ErrorIs(t, err, tt.wantErr)
+			}
+
+			listed, err := f.store.List(t.Context())
+			require.NoError(t, err)
+			assert.Empty(t, listed)
+		})
+	}
+}
+
+// TestAPIURLFor covers where the API is looked for: nowhere special for a public host, the
+// self-hosted convention for any other, an https address as given, and anything else refused.
+func TestAPIURLFor(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		kind    string
+		host    string
+		given   string
+		want    string
+		wantErr error
+	}{
+		{
+			name: "github.com needs nothing",
+			kind: KindGitHub,
+			host: "github.com",
+			want: "",
+		},
+		{
+			name: "gitlab.com needs nothing",
+			kind: KindGitLab,
+			host: "gitlab.com",
+			want: "",
+		},
+		{
+			name: "an enterprise github host derives api/v3",
+			kind: KindGitHub,
+			host: "ghe.example.com",
+			want: "https://ghe.example.com/api/v3",
+		},
+		{
+			name: "a self-hosted gitlab derives api/v4",
+			kind: KindGitLab,
+			host: "git.example.com",
+			want: "https://git.example.com/api/v4",
+		},
+		{
+			name:  "an https address is kept without its trailing slash",
+			kind:  KindGitHub,
+			host:  "ghe.example.com",
+			given: "https://api.ghe.example.com/",
+			want:  "https://api.ghe.example.com",
+		},
+		{
+			name:    "an http address is refused",
+			kind:    KindGitHub,
+			host:    "ghe.example.com",
+			given:   "http://ghe.example.com/api/v3",
+			wantErr: ErrInsecureAPI,
+		},
+		{
+			name:    "an address with no host is refused",
+			kind:    KindGitHub,
+			host:    "ghe.example.com",
+			given:   "https:///api/v3",
+			wantErr: ErrInsecureAPI,
+		},
+		{
+			name:    "not a url is refused",
+			kind:    KindGitHub,
+			host:    "ghe.example.com",
+			given:   "::nope::",
+			wantErr: ErrInsecureAPI,
+		},
+		{
+			name:    "an unknown kind on an unknown host is refused",
+			kind:    "gitea",
+			host:    "git.example.com",
+			wantErr: ErrUnknownKind,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			got, err := APIURLFor(tt.kind, tt.host, tt.given)
+			if tt.wantErr != nil {
+				require.ErrorIs(t, err, tt.wantErr)
+
+				return
+			}
+
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+// TestConnectSendsTheTokenWhereTheHostSays covers an enterprise connect: the probe is built
+// for the derived address and never for the public forge, and the row records that address.
+func TestConnectSendsTheTokenWhereTheHostSays(t *testing.T) {
+	f := newFixture(t, "harrisoncramer", nil)
+
+	connection, err := f.service.Connect(t.Context(), ConnectParams{
+		Host:  "ghe.example.com",
+		Kind:  KindGitHub,
+		Token: NewSecret("tok"),
+	})
+	require.NoError(t, err)
+	assert.Equal(t, "https://ghe.example.com/api/v3", connection.APIURL)
+	assert.Equal(t, []string{"https://ghe.example.com/api/v3"}, f.apis)
+
+	_, err = f.service.Connect(t.Context(), ConnectParams{
+		Host:   "other.example.com",
+		Kind:   KindGitHub,
+		APIURL: "http://other.example.com/api/v3",
+		Token:  NewSecret("tok"),
+	})
+	require.ErrorIs(t, err, ErrInsecureAPI)
+	assert.Len(t, f.apis, 1, "an insecure address is refused before any token is sent")
+}
+
+// TestConnectRefusesAConnectedHost covers the second connect to one host.
+func TestConnectRefusesAConnectedHost(t *testing.T) {
+	f := newFixture(t, "harrisoncramer", nil)
+	ctx := t.Context()
+
+	_, err := f.service.Connect(ctx, ConnectParams{Host: "github.com", Token: NewSecret("one")})
+	require.NoError(t, err)
+
+	_, err = f.service.Connect(ctx, ConnectParams{Host: "github.com", Token: NewSecret("two")})
+	require.ErrorIs(t, err, forgestore.ErrHostTaken)
+	assert.Len(t, f.seen, 1, "the second token is never sent anywhere")
+}
+
+// TestDisconnect covers the row and the file going together, and a host that was never
+// connected.
+func TestDisconnect(t *testing.T) {
+	f := newFixture(t, "harrisoncramer", nil)
+	ctx := t.Context()
+
+	connection, err := f.service.Connect(ctx, ConnectParams{Host: "github.com", Token: NewSecret("tok")})
+	require.NoError(t, err)
+
+	require.NoError(t, f.service.Disconnect(ctx, "github.com"))
+
+	_, err = f.store.GetByHost(ctx, "github.com")
+	require.ErrorIs(t, err, store.ErrNotFound)
+	_, err = f.credentials.Get(ctx, connection.ID)
+	require.ErrorIs(t, err, ErrNoCredential)
+
+	require.ErrorIs(t, f.service.Disconnect(ctx, "github.com"), store.ErrNotFound)
+}
+
+// TestHasCredential covers a row whose file is there, and one whose file is gone.
+func TestHasCredential(t *testing.T) {
+	f := newFixture(t, "harrisoncramer", nil)
+	ctx := t.Context()
+
+	connection, err := f.service.Connect(ctx, ConnectParams{Host: "github.com", Token: NewSecret("tok")})
+	require.NoError(t, err)
+
+	held, err := f.service.HasCredential(ctx, *connection)
+	require.NoError(t, err)
+	assert.True(t, held)
+
+	require.NoError(t, f.credentials.Delete(ctx, connection.ID))
+	held, err = f.service.HasCredential(ctx, *connection)
+	require.NoError(t, err)
+	assert.False(t, held)
+
+	f2, err := f.service.ForConnection(*connection)
+	require.NoError(t, err)
+	_, err = f2.Verify(ctx)
+	require.ErrorIs(t, err, ErrNoCredential)
+}
+
+// TestForConnectionRecordsWhereItIsTold covers Verified: a service built with NoRecord leaves
+// the row alone when the forge refuses, and one built without it clears verified_at.
+func TestForConnectionRecordsWhereItIsTold(t *testing.T) {
+	f := newFixture(t, "harrisoncramer", nil)
+	ctx := t.Context()
+
+	connection, err := f.service.Connect(ctx, ConnectParams{Host: "github.com", Token: NewSecret("tok")})
+	require.NoError(t, err)
+
+	reporting := NewService(NewServiceParams{
+		Connections: f.store,
+		Credentials: f.credentials,
+		Builders:    map[string]Builder{KindGitHub: func(_ string, auth Authenticator) Forge { return &fakeForge{auth: auth, err: ErrUnauthorized} }},
+		Verified:    NoRecord{},
+	})
+	reported, err := reporting.ForConnection(*connection)
+	require.NoError(t, err)
+	require.NoError(t, reported.(*fakeForge).auth.Invalidate(ctx))
+
+	untouched, err := f.store.Get(ctx, connection.ID)
+	require.NoError(t, err)
+	assert.NotNil(t, untouched.VerifiedAt)
+
+	recording, err := f.service.ForConnection(*connection)
+	require.NoError(t, err)
+	require.NoError(t, recording.(*fakeForge).auth.Invalidate(ctx))
+
+	cleared, err := f.store.Get(ctx, connection.ID)
+	require.NoError(t, err)
+	assert.Nil(t, cleared.VerifiedAt)
+}

@@ -10,9 +10,13 @@ import (
 	"syscall"
 	"time"
 
+	"weave/config"
 	"weave/db"
+	"weave/internal/forge"
+	"weave/internal/forge/forges"
 	"weave/internal/store"
 	agentstore "weave/internal/store/agent"
+	forgestore "weave/internal/store/forge"
 	workflowstore "weave/internal/store/workflow"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -154,4 +158,50 @@ func readWorktreeOwners(ctx context.Context, url string) (WorktreeOwners, error)
 	}
 
 	return owners, nil
+}
+
+// verifyForges asks each connected forge who weave is there, writing nothing back.
+func verifyForges(ctx context.Context, url string) ([]ForgeStatus, error) {
+	pool, err := openReadOnlyPool(ctx, url)
+	if err != nil {
+		return nil, err
+	}
+	defer pool.Close()
+
+	ctx, cancel := context.WithTimeout(ctx, connectTimeout)
+	defer cancel()
+
+	connections, err := forgestore.New(pool).List(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	stateDir, err := config.GetStateDir()
+	if err != nil {
+		return nil, err
+	}
+
+	service := forge.NewService(forge.NewServiceParams{
+		Connections: forgestore.New(pool),
+		Credentials: forge.NewFileStore(stateDir),
+		Builders:    forges.Builders,
+		Verified:    forge.NoRecord{},
+	})
+
+	statuses := make([]ForgeStatus, 0, len(connections))
+	for _, connection := range connections {
+		status := ForgeStatus{Host: connection.Host}
+		f, err := service.ForConnection(connection)
+		if err != nil {
+			status.Err = err
+			statuses = append(statuses, status)
+
+			continue
+		}
+
+		status.Login, status.Err = f.Verify(ctx)
+		statuses = append(statuses, status)
+	}
+
+	return statuses, nil
 }
