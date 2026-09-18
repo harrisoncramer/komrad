@@ -61,9 +61,11 @@ func reviewTable() []action {
 			run:  model.stepReviewThread,
 		},
 		{
-			id:   actionReviewOpenThread,
-			keys: func(k config.Keybindings) []string { return k.Review.NextOpenThread },
-			run:  func(m model, _ string) (tea.Model, tea.Cmd) { return m.jumpOpenThread() },
+			id: actionReviewOpenThread,
+			keys: func(k config.Keybindings) []string {
+				return concatKeys(k.Review.NextOpenThread, k.Review.PrevOpenThread)
+			},
+			run: model.stepOpenThread,
 		},
 		{
 			id:   actionFilterOpen,
@@ -228,7 +230,7 @@ func reviewLegend() []legendRow {
 			desc: model.threadStepDesc,
 			label: func(k config.Keybindings) string {
 				return headLabel(k.Review.NextThread) + "/" + headLabel(k.Review.PrevThread) +
-					"/" + headLabel(k.Review.NextOpenThread)
+					"/" + headLabel(k.Review.NextOpenThread) + "/" + headLabel(k.Review.PrevOpenThread)
 			},
 		},
 		{
@@ -342,6 +344,16 @@ func (m model) stepReviewFile(pressed string) (tea.Model, tea.Cmd) {
 	}
 
 	return m.jumpReviewFile(1)
+}
+
+// stepOpenThread walks the comments nobody has settled, which is the walk a person clearing a
+// review makes.
+func (m model) stepOpenThread(pressed string) (tea.Model, tea.Cmd) {
+	if isBound(pressed, m.keys.Review.PrevOpenThread) {
+		return m.jumpOpenThread(-1)
+	}
+
+	return m.jumpOpenThread(1)
 }
 
 func (m model) stepReviewThread(pressed string) (tea.Model, tea.Cmd) {

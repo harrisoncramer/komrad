@@ -392,7 +392,7 @@ type ReviewKeys struct {
 	// Jump to the next line carrying a review thread.
 	NextThread []string `mapstructure:"next_thread" default:"t"`
 	// Move the cursor to the next comment nobody has settled, which is what a review still owes
-	// an answer to. It wraps to the first one past the end of the diff.
+	// an answer to. It stops on the last one rather than wrapping.
 	NextOpenThread []string `mapstructure:"next_open_thread" default:"u"`
 	// Pan the diff left, for a line wider than the pane.
 	PanLeft []string `mapstructure:"pan_left" default:"h,left"`
@@ -404,6 +404,9 @@ type ReviewKeys struct {
 	PrevFile []string `mapstructure:"prev_file" default:"["`
 	// Jump to the previous line matching the pattern.
 	PrevMatch []string `mapstructure:"prev_match" default:"N"`
+	// Move the cursor to the previous comment nobody has settled. It stops on the first one
+	// rather than wrapping.
+	PrevOpenThread []string `mapstructure:"prev_open_thread" default:"U"`
 	// Jump to the previous line carrying a review thread.
 	PrevThread []string `mapstructure:"prev_thread" default:"T"`
 	// Scroll down a few lines.

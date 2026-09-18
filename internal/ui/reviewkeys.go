@@ -244,18 +244,16 @@ func (m model) jumpReviewMatch(direction int) (tea.Model, tea.Cmd) {
 	return m.moveReviewCursor(next)
 }
 
-// jumpOpenThread moves to the next comment nobody has settled, wrapping to the first one, which
-// is how a person clearing a review walks it.
-func (m model) jumpOpenThread() (tea.Model, tea.Cmd) {
-	next, ok := m.review.view.JumpOpenThread(m.review.cursor)
-	if !ok {
-		// Explainer: the walk wraps rather than stopping at the end, since a reader part-way down
-		// a diff would otherwise be told there is nothing left while the answer is above them.
-		next, ok = m.review.view.JumpOpenThread(-1)
-	}
+// Explainer: this stops at the ends rather than wrapping, which is what the keys that walk every
+// thread do. A reader who cannot tell which of the two walks they are on has to learn the diff's
+// shape twice, and the notice says what is left rather than leaving them to work it out.
 
+// jumpOpenThread moves to the next comment nobody has settled, which is how a person clearing a
+// review walks it.
+func (m model) jumpOpenThread(direction int) (tea.Model, tea.Cmd) {
+	next, ok := m.review.view.JumpOpenThread(m.review.cursor, direction)
 	if !ok || next == m.review.cursor {
-		m.review.notice = m.noOpenThreadSaid(ok)
+		m.review.notice = m.noOpenThreadSaid(m.review.view.IsOpenThreadAt(m.review.cursor))
 
 		return m, nil
 	}

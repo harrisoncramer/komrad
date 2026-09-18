@@ -588,16 +588,23 @@ func (v *View) JumpThread(y, direction int) int {
 	return y
 }
 
-// JumpOpenThread moves to the next line carrying a thread nobody has settled, which is what a
-// person clearing a review walks.
-func (v *View) JumpOpenThread(y int) (int, bool) {
-	for next := y + 1; next < len(v.rows); next++ {
+// JumpOpenThread moves to the next or previous line carrying a thread nobody has settled, which
+// is what a person clearing a review walks.
+func (v *View) JumpOpenThread(y, direction int) (int, bool) {
+	for next := y + direction; next >= 0 && next < len(v.rows); next += direction {
 		if thread, ok := v.GetThreadAt(next); ok && isUnsettled(thread) {
 			return next, true
 		}
 	}
 
 	return y, false
+}
+
+// IsOpenThreadAt reports whether a row carries a comment of the person's that nobody has settled.
+func (v *View) IsOpenThreadAt(y int) bool {
+	thread, ok := v.GetThreadAt(y)
+
+	return ok && isUnsettled(thread)
 }
 
 // CountOpenThreads is how many conversations the person reviewing still owes an answer on, drawn

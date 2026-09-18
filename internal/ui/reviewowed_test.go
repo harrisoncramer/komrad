@@ -179,3 +179,59 @@ func TestTheStripBrightensWhatIsOnScreen(t *testing.T) {
 	require.False(t, m.isReviewCommentNear(m.reviewOwedComments()[0]), "and now it is not")
 	assert.NotContains(t, m.reviewSidebarView(), bright)
 }
+
+// Explainer: two comments cannot tell a backward walk from a forward one that wrapped, since both
+// land on the same row. Three can, so these use three.
+
+// walkOpen presses a key and gives back the row the cursor landed on.
+func walkOpen(t *testing.T, m model, key string) (model, int) {
+	t.Helper()
+
+	next, _ := m.updateReview(keyMsg(key))
+	m, ok := next.(model)
+	require.True(t, ok)
+
+	return m, m.review.cursor
+}
+
+// TestWalkingTheOpenCommentsGoesBothWays covers the backward walk reaching the comment above the
+// cursor rather than lapping the diff to it.
+func TestWalkingTheOpenCommentsGoesBothWays(t *testing.T) {
+	m := owedModel(t, []*agentv1.ReviewThread{
+		owedThread("t1", fakeFile, 2),
+		owedThread("t2", fakeFile, 3),
+		owedThread("t3", fakeFile, 4),
+	})
+
+	m, first := walkOpen(t, m, "u")
+	m, second := walkOpen(t, m, "u")
+	m, third := walkOpen(t, m, "u")
+	require.Less(t, first, second)
+	require.Less(t, second, third)
+
+	_, back := walkOpen(t, m, "U")
+
+	assert.Equal(t, second, back, "the one above it, not the one a wrap would have reached")
+}
+
+// TestWalkingTheOpenCommentsStopsAtTheEnds covers the walk holding still at either end, which is
+// what the keys that walk every thread do.
+func TestWalkingTheOpenCommentsStopsAtTheEnds(t *testing.T) {
+	m := owedModel(t, []*agentv1.ReviewThread{
+		owedThread("t1", fakeFile, 2),
+		owedThread("t2", fakeFile, 3),
+		owedThread("t3", fakeFile, 4),
+	})
+
+	m, first := walkOpen(t, m, "u")
+
+	m, before := walkOpen(t, m, "U")
+	assert.Equal(t, first, before, "nothing is above the first one")
+
+	m, _ = walkOpen(t, m, "u")
+	m, last := walkOpen(t, m, "u")
+
+	m, after := walkOpen(t, m, "u")
+	assert.Equal(t, last, after, "and nothing is below the last")
+	assert.Contains(t, m.review.notice, "comment", "the notice says what is left")
+}
