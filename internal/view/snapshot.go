@@ -69,6 +69,9 @@ type Snapshot struct {
 	// Pane is how many columns the list is drawn in, from which the view works out which columns
 	// fit and what is left for a name, leaving everything whole when it is unset.
 	Pane int
+	// Dropped are the columns this screen does not draw at all whatever the pane, naming them the
+	// other way round from Columns so a screen that drops none says nothing.
+	Dropped Columns
 }
 
 // Row is one line of the agents list as the panel found it.

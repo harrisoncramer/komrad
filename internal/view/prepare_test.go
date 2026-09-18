@@ -724,3 +724,52 @@ func TestPrepareShedsMarksOnlyWhereTheMarksAloneWillNotFit(t *testing.T) {
 		})
 	}
 }
+
+// TestPrepareDropsColumnsAScreenDoesNotDraw pins the one thing a screen says about its columns
+// rather than its rows: a column given up here is gone whatever the pane.
+func TestPrepareDropsColumnsAScreenDoesNotDraw(t *testing.T) {
+	tests := []struct {
+		name    string
+		dropped Columns
+		want    Columns
+	}{
+		{
+			name: "a screen dropping nothing draws all three",
+			want: Columns{Repo: true, Review: true, Forge: true},
+		},
+		{
+			name:    "the archive gives up all three",
+			dropped: Columns{Repo: true, Review: true, Forge: true},
+		},
+		{
+			name:    "a screen may give up one and keep the rest",
+			dropped: Columns{Review: true},
+			want:    Columns{Repo: true, Forge: true},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// A pane far wider than the three columns need, so nothing here is the narrowing.
+			list := Prepare(Snapshot{Rows: []Row{{Name: "iss-582"}}, Pane: 200, Dropped: tt.dropped})
+
+			assert.Equal(t, tt.want, list.Columns)
+		})
+	}
+}
+
+// TestDroppedColumnsBuyTheNameTheirRoom pins that a column given up is given up in the width
+// arithmetic too, rather than only in the drawing.
+func TestDroppedColumnsBuyTheNameTheirRoom(t *testing.T) {
+	const pane = 60
+
+	every := Prepare(Snapshot{Rows: []Row{{Name: "iss-582"}}, Pane: pane})
+	none := Prepare(Snapshot{
+		Rows:    []Row{{Name: "iss-582"}},
+		Pane:    pane,
+		Dropped: Columns{Repo: true, Review: true, Forge: true},
+	})
+
+	assert.Equal(t, 9, NameColumns(pane, none.Columns)-NameColumns(pane, every.Columns),
+		"each of the three costs an Octicon and the space after it")
+}

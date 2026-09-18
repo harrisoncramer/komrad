@@ -589,3 +589,55 @@ func canonicalRows() []Row {
 		{Kind: KindWorkflow, Name: "weave-bughunt-job", HiddenCount: 5, Scheduled: true},
 	}
 }
+
+// archivePane is the sidebar an archive row is drawn in here, wide enough that nothing below is
+// the narrowing.
+const archivePane = 39
+
+// drawnArchiveNameColumn is the column a workflow opens its name at on a screen that draws none
+// of the three columns, counted off the drawing by hand rather than from the package's own
+// arithmetic: the caret, the mark and the bar, each a space apart, and a space before the name.
+const drawnArchiveNameColumn = 6
+
+// archiveRows is a list shaped like the archive: everything put away and so greyed, with a
+// workflow still live above the agents archived out of it.
+func archiveRows() []Row {
+	return []Row{
+		{Key: "w:live", Kind: KindWorkflow, Name: "weave", Dormant: true, Scheduled: true},
+		{Key: "a:one", Kind: KindAgent, Name: "rip-out-old-sidebar", Dim: true, Dormant: true},
+		{Key: "a:two", Kind: KindChild, Name: "rfc-0065-review", Dim: true, Dormant: true},
+		{Key: "w:gone", Kind: KindWorkflow, Name: "spike", Dim: true, Dormant: true},
+		{Key: "a:bad", Kind: KindAgent, Name: "failed-teardown", Dim: true, Status: StatusBroken},
+	}
+}
+
+// TestRenderArchiveList draws the archive as the shared renderer makes it.
+func TestRenderArchiveList(t *testing.T) {
+	list := Prepare(Snapshot{
+		Rows:    archiveRows(),
+		Focused: "a:one",
+		Pane:    archivePane,
+		Dropped: Columns{Repo: true, Review: true, Forge: true},
+	})
+
+	requireGolden(t, "list-archive", Render(list, paint.Colored, archivePane))
+}
+
+// TestArchiveNameOpensPastTheGutterItHas pins the three sites that must agree once a screen gives
+// its columns up: the drawing, the gutter arithmetic a caller sizes a name by, and the indent the
+// tree is carried by.
+func TestArchiveNameOpensPastTheGutterItHas(t *testing.T) {
+	dropped := Columns{Repo: true, Review: true, Forge: true}
+	list := Prepare(Snapshot{Rows: archiveRows(), Pane: archivePane, Dropped: dropped})
+	require.Len(t, list.Lines, len(archiveRows()))
+
+	assert.Equal(t, drawnArchiveNameColumn, GutterColumns(list.Columns))
+
+	rows := archiveRows()
+	for i, drawn := range Rows(list, paint.Colored, archivePane) {
+		want := wantNameColumn(rows[i].Kind) - drawnNameColumn + drawnArchiveNameColumn
+
+		assert.Equal(t, want, nameColumnOf(ansiEscapes.ReplaceAllString(drawn, ""), list.Lines[i]),
+			"row %d (%q) opens its name where the gutter it has says it does", i, rows[i].Name)
+	}
+}
