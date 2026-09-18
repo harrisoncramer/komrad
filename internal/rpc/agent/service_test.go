@@ -101,6 +101,27 @@ func TestCreateAgent(t *testing.T) {
 	}
 }
 
+// TestRequestReviewPassesTheLaunchDown pins that what an asker says about its reviewer's CLI
+// reaches the launcher rather than stopping at the handler.
+func TestRequestReviewPassesTheLaunchDown(t *testing.T) {
+	svc, _, launcher := serviceWithLauncher(t)
+
+	_, err := svc.RequestReview(t.Context(), connect.NewRequest(&agentv1.RequestReviewRequest{
+		Prompt:  "read the parser change",
+		Title:   "second-reader",
+		Harness: "codex",
+		Flags:   "--sandbox read-only",
+		AgentId: xptr.Ptr(missingID),
+	}))
+	require.NoError(t, err)
+
+	assert.Equal(t, "read the parser change", launcher.reviewed.Prompt)
+	assert.Equal(t, "second-reader", launcher.reviewed.Title)
+	assert.Equal(t, "codex", launcher.reviewed.Harness)
+	assert.Equal(t, "--sandbox read-only", launcher.reviewed.Flags)
+	assert.Equal(t, missingID, launcher.reviewed.AgentID)
+}
+
 // TestAdopt pins what the handler passes down and that a launcher's refusal reaches the caller as a code, the mapping itself being rpcerr's own.
 func TestAdopt(t *testing.T) {
 	workflow := "wf-1"

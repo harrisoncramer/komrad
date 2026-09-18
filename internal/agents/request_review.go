@@ -29,6 +29,8 @@ type RequestReviewParams struct {
 	AgentID        string
 	Prompt         string
 	Title          string
+	Harness        string
+	Flags          string
 	IdempotencyKey string
 }
 
@@ -77,6 +79,8 @@ func (s *LaunchService) RequestReview(ctx context.Context, params RequestReviewP
 	reviewer, err := s.NewAgent(ctx, NewAgentParams{
 		Title:          reviewerTitle(params.Title, author.Name),
 		Prompt:         reviewerPrompt(*author, params.Prompt),
+		Harness:        params.Harness,
+		Flags:          params.Flags,
 		WorkflowID:     author.WorkflowID,
 		ParentAgentID:  author.ID,
 		Role:           agentstore.RoleReviewer,
