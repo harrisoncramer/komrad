@@ -2,10 +2,13 @@ package agents
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
+	"weave/internal/caller"
 	"weave/internal/git"
+	"weave/internal/store"
 
 	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
@@ -40,6 +43,16 @@ func TestRebaseRefusals(t *testing.T) {
 		{
 			name:    "an agent waiting on a question, which is also an unfinished turn",
 			agent:   agentstore.Agent{State: agentstore.StateWaiting},
+			wantErr: ErrRebaseBusy,
+		},
+		{
+			name:    "an agent whose pane could not be read, which says nothing about whether it is working",
+			agent:   agentstore.Agent{State: agentstore.StateUncertain, Pane: "%1"},
+			wantErr: ErrRebaseBusy,
+		},
+		{
+			name:    "an agent whose worktree is still being provisioned",
+			agent:   agentstore.Agent{State: agentstore.StateSettingUp},
 			wantErr: ErrRebaseBusy,
 		},
 		{
@@ -542,4 +555,103 @@ func TestReplayedMailSaysWhatLeftTheBranch(t *testing.T) {
 
 	assert.Contains(t, body, "2 of your commits are no longer on the branch")
 	assert.NotContains(t, body, "Nothing was lost")
+}
+
+// rebaseRoster answers each agent by its own id, which is what a caller sharing a checkout with
+// another agent needs.
+type rebaseRoster map[string]agentstore.Agent
+
+// errRosterDown is the store failing to answer, which must not read as a caller working
+// elsewhere.
+var errRosterDown = errors.New("database is down")
+
+func (r rebaseRoster) GetByID(_ context.Context, id string) (*agentstore.Agent, error) {
+	if id == "a4" {
+		return nil, errRosterDown
+	}
+
+	found, ok := r[id]
+	if !ok {
+		return nil, store.ErrNotFound
+	}
+
+	return &found, nil
+}
+
+func (r rebaseRoster) SetSequenceInProgressByID(context.Context, string, bool) error {
+	return nil
+}
+
+// TestRebaseRefusesAnAgentInTheCallersCheckout covers who is asking rather than who the row
+// belongs to, since a rebase rewrites the branch under everybody working in the directory and a
+// child shares its parent's.
+func TestRebaseRefusesAnAgentInTheCallersCheckout(t *testing.T) {
+	t.Parallel()
+
+	target := agentstore.Agent{
+		ID: "a1", Name: "auth", WorkflowID: "w1", Cwd: "/tree", State: agentstore.StateIdle,
+	}
+	reviewer := agentstore.Agent{
+		ID: "a2", Name: "auth-reviewer", WorkflowID: "w1", Cwd: "/tree", State: agentstore.StateThinking,
+		ParentAgentID: xptr.Ptr("a1"),
+	}
+	elsewhere := agentstore.Agent{
+		ID: "a3", Name: "billing", WorkflowID: "w1", Cwd: "/other", State: agentstore.StateThinking,
+	}
+
+	for _, tt := range []struct {
+		name    string
+		from    caller.Caller
+		wantErr error
+	}{
+		{
+			name:    "the agent itself, whose turn the rebase would cut off",
+			from:    caller.Caller{AgentID: "a1"},
+			wantErr: ErrRebaseSelf,
+		},
+		{
+			name:    "its reviewer, which runs in the same checkout",
+			from:    caller.Caller{AgentID: "a2"},
+			wantErr: ErrRebaseSelf,
+		},
+		{
+			name: "an agent working somewhere else",
+			from: caller.Caller{AgentID: "a3"},
+		},
+		{
+			name: "a person, who carries no agent id",
+		},
+		{
+			name:    "an asker whose row could not be read, which is no answer either way",
+			from:    caller.Caller{AgentID: "a4"},
+			wantErr: errRosterDown,
+		},
+		{
+			name: "an asker weave has no row for at all",
+			from: caller.Caller{AgentID: "gone"},
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			rebaser := &fakeRebaser{state: git.TreeState{Branch: "fix/auth"}}
+			service := NewRebaseService(NewRebaseServiceParams{
+				Agents:    rebaseRoster{"a1": target, "a2": reviewer, "a3": elsewhere},
+				Workflows: fakeRebaseWorkflows{flow: worktreeFlow()},
+				Rebaser:   rebaser,
+			})
+
+			_, err := service.Rebase(caller.With(t.Context(), tt.from), "a1")
+
+			if tt.wantErr == nil {
+				require.NoError(t, err)
+				assert.Equal(t, []string{"park", "rebase"}, rebaser.calls)
+
+				return
+			}
+
+			require.ErrorIs(t, err, tt.wantErr)
+			assert.Empty(t, rebaser.calls)
+		})
+	}
 }
