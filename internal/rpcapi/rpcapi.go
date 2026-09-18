@@ -87,6 +87,22 @@ func GetToolAnnotation(method protoreflect.MethodDescriptor) *annotationv1.ToolA
 	return annotation
 }
 
+// GetPanelOnlyAnnotation returns the method's panel-only annotation, nil when it has none and so
+// is meant to be exposed.
+func GetPanelOnlyAnnotation(method protoreflect.MethodDescriptor) *annotationv1.PanelOnlyAnnotation {
+	opts, ok := method.Options().(*descriptorpb.MethodOptions)
+	if !ok || !proto.HasExtension(opts, annotationv1.E_PanelOnly) {
+		return nil
+	}
+
+	annotation, ok := proto.GetExtension(opts, annotationv1.E_PanelOnly).(*annotationv1.PanelOnlyAnnotation)
+	if !ok {
+		return nil
+	}
+
+	return annotation
+}
+
 // GetRules returns the validation rules declared on a field, nil when it carries none.
 func GetRules(field protoreflect.FieldDescriptor) *validate.FieldRules {
 	opts, ok := field.Options().(*descriptorpb.FieldOptions)

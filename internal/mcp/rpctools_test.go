@@ -17,31 +17,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// noToolSurface is the methods deliberately kept out of a model's reach, which are the reviewer's
-// half of a review conversation, the marks the panel keeps for the person, and the actions a
-// person takes in the panel.
-var noToolSurface = map[protoreflect.Name]bool{
-	"EmptyArchive":          true,
-	"RecordReport":          true,
-	"SetAgentViewed":        true,
-	"SetMark":               true,
-	"MarkRunsRead":          true,
-	"EditReviewMessage":     true,
-	"PlanRefresh":           true,
-	"RebaseWorktree":        true,
-	"ResetWorktree":         true,
-	"MarkReviewThreadRead":  true,
-	"HoldAgent":             true,
-	"ReleaseAgent":          true,
-	"ListReviews":           true,
-	"SetReviewFileViewed":   true,
-	"ListReviewViewedFiles": true,
-	"StartOrchestrator":     true,
-}
-
-// TestEveryMethodIsAnnotated fails when an RPC carries no tool annotation, so leaving one out
-// of a model's reach has to be written down in noToolSurface rather than happening by accident.
-func TestEveryMethodIsAnnotated(t *testing.T) {
+// TestEveryMethodDeclaresOneSurface fails when an RPC declares neither a tool annotation nor a
+// panel-only one, since a method carrying neither is served and reachable from nothing.
+func TestEveryMethodDeclaresOneSurface(t *testing.T) {
 	tests := []struct {
 		name string
 		file protoreflect.FileDescriptor
@@ -59,15 +37,19 @@ func TestEveryMethodIsAnnotated(t *testing.T) {
 
 			for i := range service.Methods().Len() {
 				method := service.Methods().Get(i)
-				if noToolSurface[method.Name()] {
-					assert.Nil(t, rpcapi.GetToolAnnotation(method), "method %s carries no tool surface", method.Name())
+				tool := rpcapi.GetToolAnnotation(method)
+				panelOnly := rpcapi.GetPanelOnlyAnnotation(method)
+
+				if panelOnly != nil {
+					assert.Nil(t, tool, "method %s declares both surfaces", method.Name())
+					assert.NotEmpty(t, panelOnly.GetReason(), "method %s is panel only for no stated reason", method.Name())
 
 					continue
 				}
 
-				annotation := rpcapi.GetToolAnnotation(method)
-				require.NotNil(t, annotation, "method %s has no tool annotation", method.Name())
-				assert.NotEmpty(t, annotation.GetDescription(), "tool %s needs a description", annotation.GetToolName())
+				require.NotNil(t, tool, "method %s declares neither surface", method.Name())
+				assert.NotEmpty(t, tool.GetToolName(), "method %s has a tool annotation with no name", method.Name())
+				assert.NotEmpty(t, tool.GetDescription(), "tool %s needs a description", tool.GetToolName())
 			}
 		})
 	}
