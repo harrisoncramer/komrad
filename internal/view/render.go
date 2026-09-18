@@ -42,15 +42,15 @@ func Render(list List, palette paint.Palette, width int) string {
 // colours it already carries read through.
 func renderLine(line Line, palette paint.Palette, width int) string {
 	gutter := strings.Join([]string{
-		drawFocus(palette, line.Focused),
-		drawMark(palette, line.Mark),
+		drawGutterCell(palette, line.Focus),
+		drawGutterCell(palette, line.Mark),
 		drawCell(palette, line.Repo),
 		drawCell(palette, line.Review),
 		drawCell(palette, line.Forge),
 		drawCell(palette, line.Status),
 	}, " ")
 
-	row := gutter + " " + strings.Repeat(" ", line.Indent) + drawRule(palette, line.Rule) +
+	row := gutter + " " + drawRule(palette, line.Rule) +
 		nameStyle(palette, line.Weight, line.Emphasis).Render(line.Name) + drawTrailing(palette, line)
 
 	if line.Selected {
@@ -64,7 +64,7 @@ func renderLine(line Line, palette paint.Palette, width int) string {
 func drawTrailing(palette paint.Palette, line Line) string {
 	var b strings.Builder
 	for _, cell := range []Cell{line.Held, line.Mail, line.Alert} {
-		if cell.Glyph != GlyphNone {
+		if !cell.IsBlank() {
 			b.WriteString(" " + drawCell(palette, cell))
 		}
 	}
@@ -73,29 +73,20 @@ func drawTrailing(palette paint.Palette, line Line) string {
 		b.WriteString(" " + palette.Style(paint.ToneMuted).Render(fmt.Sprintf("+%d", line.Tally)))
 	}
 
-	if line.Schedule.Glyph != GlyphNone {
+	if !line.Schedule.IsBlank() {
 		b.WriteString(" " + drawCell(palette, line.Schedule))
 	}
 
 	return b.String()
 }
 
-// drawFocus is the cell saying which row the keyboard is standing on.
-func drawFocus(palette paint.Palette, focused bool) string {
-	if !focused {
+// drawGutterCell is a cell that holds its column whether or not it has anything to draw.
+func drawGutterCell(palette paint.Palette, cell Cell) string {
+	if cell.IsBlank() {
 		return " "
 	}
 
-	return palette.Style(paint.ToneAccent).Render(spell(GlyphFocus))
-}
-
-// drawMark is the cell holding the letter a person typed onto a row.
-func drawMark(palette paint.Palette, mark string) string {
-	if mark == "" {
-		return " "
-	}
-
-	return palette.Style(paint.ToneMark).Render(mark)
+	return drawCell(palette, cell)
 }
 
 // drawRule is the corner a child hangs off its parent by.
@@ -107,9 +98,14 @@ func drawRule(palette paint.Palette, rule bool) string {
 	return palette.Style(paint.ToneMuted).Render(spell(GlyphChild)) + " "
 }
 
-// drawCell is one glyph in its own tone.
+// drawCell is what a cell holds, in its own tone.
 func drawCell(palette paint.Palette, cell Cell) string {
-	return palette.Style(cell.Tone).Render(spell(cell.Glyph))
+	text := cell.Text
+	if text == "" {
+		text = spell(cell.Glyph)
+	}
+
+	return palette.Style(cell.Tone).Render(text)
 }
 
 // nameStyle is the lettering a name is drawn in: its weight from where it sits in the tree, its

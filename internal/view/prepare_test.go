@@ -201,73 +201,29 @@ func TestPrepareWeight(t *testing.T) {
 	}
 }
 
-// TestPrepareIndent pins where a name opens, which its kind decides and its mark does not.
-func TestPrepareIndent(t *testing.T) {
+// TestPrepareMarkKeepsItsOwnColumn pins that a letter in the gutter is a cell of its own rather
+// than something that moves the name.
+func TestPrepareMarkKeepsItsOwnColumn(t *testing.T) {
 	tests := []struct {
 		name string
 		row  Row
-		want int
+		want Cell
 	}{
 		{
-			name: "a marked workflow opens at the gutter",
-			row:  Row{Kind: KindWorkflow, Mark: "w"},
-			want: 0,
+			name: "an unmarked row draws nothing in the gutter",
+			row:  Row{},
+			want: Cell{},
 		},
 		{
-			name: "an unmarked workflow opens at the same place",
-			row:  Row{Kind: KindWorkflow},
-			want: 0,
-		},
-		{
-			name: "a marked agent opens under its workflow",
-			row:  Row{Kind: KindAgent, Mark: "a"},
-			want: nameIndent,
-		},
-		{
-			name: "an unmarked agent opens at the same place",
-			row:  Row{Kind: KindAgent},
-			want: nameIndent,
-		},
-		{
-			name: "a child opens where an agent does and hangs off a corner",
-			row:  Row{Kind: KindChild},
-			want: nameIndent,
+			name: "a marked row carries the letter and the mark tone",
+			row:  Row{Mark: "a"},
+			want: Cell{Text: "a", Tone: paint.ToneMark},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, prepareOne(t, tt.row).Indent)
-		})
-	}
-}
-
-// TestPrepareMarkDoesNotMoveTheName pins the case a list of one row cannot express: two rows of
-// one kind, one marked and one not, whose names land on the same column.
-func TestPrepareMarkDoesNotMoveTheName(t *testing.T) {
-	tests := []struct {
-		name string
-		kind RowKind
-	}{
-		{
-			name: "two workflows",
-			kind: KindWorkflow,
-		},
-		{
-			name: "two agents",
-			kind: KindAgent,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			list := Prepare(Snapshot{Rows: []Row{
-				{Kind: tt.kind, Name: "marked", Mark: "m"},
-				{Kind: tt.kind, Name: "unmarked"},
-			}})
-			require.Len(t, list.Lines, 2)
-
-			assert.Equal(t, list.Lines[0].Indent, list.Lines[1].Indent)
+			assert.Equal(t, tt.want, prepareOne(t, tt.row).Mark)
 		})
 	}
 }
@@ -323,9 +279,21 @@ func TestPrepareDimRowGreysEveryCell(t *testing.T) {
 		Scheduled:  true,
 	})
 
-	for _, cell := range []Cell{line.Status, line.Repo, line.Review, line.Forge, line.Held, line.Mail, line.Alert, line.Schedule} {
+	for _, cell := range []Cell{line.Mark, line.Status, line.Repo, line.Review, line.Forge, line.Held, line.Mail, line.Alert, line.Schedule} {
 		assert.Equal(t, paint.ToneMuted, cell.Tone)
 	}
+}
+
+// TestPrepareDimRowKeepsItsCaret pins the one cell greying leaves alone, since a hidden row the
+// keyboard is standing on still has to say so.
+func TestPrepareDimRowKeepsItsCaret(t *testing.T) {
+	list := Prepare(Snapshot{
+		Rows:    []Row{{Key: "hidden", Name: "hidden", Dim: true}},
+		Focused: "hidden",
+	})
+	require.Len(t, list.Lines, 1)
+
+	assert.Equal(t, Cell{Glyph: GlyphFocus, Tone: paint.ToneAccent}, list.Lines[0].Focus)
 }
 
 // TestPrepareDimRowKeepsEveryGlyph pins that greying a row changes its colour and nothing else,
@@ -416,43 +384,57 @@ func TestPrepareTrailingMarks(t *testing.T) {
 	}
 }
 
-// TestPrepareFocus pins which row the cursor lands on.
+// TestPrepareFocus pins which row the keyboard is drawn as standing on.
 func TestPrepareFocus(t *testing.T) {
 	tests := []struct {
-		name   string
-		cursor int
-		want   []bool
+		name    string
+		focused string
+		want    []bool
 	}{
 		{
-			name:   "a cursor past the end focuses nothing",
-			cursor: 7,
-			want:   []bool{false, false, false},
+			name:    "a key belonging to no row focuses nothing",
+			focused: "gone",
+			want:    []bool{false, false, false},
 		},
 		{
-			name:   "a cursor before the start focuses nothing",
-			cursor: -1,
-			want:   []bool{false, false, false},
+			name:    "a snapshot naming no row focuses nothing rather than the first",
+			focused: "",
+			want:    []bool{false, false, false},
 		},
 		{
-			name:   "the cursor focuses the row it stands on and no other",
-			cursor: 1,
-			want:   []bool{false, true, false},
+			name:    "the named row is focused and no other",
+			focused: "two",
+			want:    []bool{false, true, false},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			list := Prepare(Snapshot{
-				Rows:   []Row{{Name: "one"}, {Name: "two"}, {Name: "three"}},
-				Cursor: tt.cursor,
+				Rows:    []Row{{Key: "one", Name: "one"}, {Key: "two", Name: "two"}, {Key: "three", Name: "three"}},
+				Focused: tt.focused,
 			})
 			require.Len(t, list.Lines, len(tt.want))
 
 			for i, want := range tt.want {
 				assert.Equal(t, want, list.Lines[i].Focused)
+				assert.Equal(t, want, !list.Lines[i].Focus.IsBlank())
 			}
 		})
 	}
+}
+
+// TestPrepareFocusSurvivesAReorder pins that naming the focused row rather than counting to it
+// follows that row when the list is sorted after it was gathered.
+func TestPrepareFocusSurvivesAReorder(t *testing.T) {
+	gathered := []Row{{Key: "one", Name: "one"}, {Key: "two", Name: "two"}}
+	sorted := []Row{gathered[1], gathered[0]}
+
+	list := Prepare(Snapshot{Rows: sorted, Focused: "two"})
+	require.Len(t, list.Lines, 2)
+
+	assert.True(t, list.Lines[0].Focused)
+	assert.False(t, list.Lines[1].Focused)
 }
 
 // TestPrepareClipsName pins the column a name is cut to.
@@ -499,6 +481,6 @@ func TestPrepareCarriesRowFacts(t *testing.T) {
 	line := prepareOne(t, Row{Name: "strip-demo", Mark: "a", Selected: true})
 
 	assert.Equal(t, "strip-demo", line.Name)
-	assert.Equal(t, "a", line.Mark)
+	assert.Equal(t, "a", line.Mark.Text)
 	assert.True(t, line.Selected)
 }

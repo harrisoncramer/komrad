@@ -22,7 +22,7 @@ var ansiEscapes = regexp.MustCompile(`\x1b\[[0-9;]*m`)
 func renderOne(t *testing.T, row Row) string {
 	t.Helper()
 
-	list := Prepare(Snapshot{Rows: []Row{row}, Cursor: -1, NameWidth: canonicalNameWidth})
+	list := Prepare(Snapshot{Rows: []Row{row}, NameWidth: canonicalNameWidth})
 	require.Len(t, list.Lines, 1)
 
 	return Render(list, paint.Colored, 0)
@@ -162,7 +162,6 @@ func TestNameColumnsTakesTheGutterOffThePane(t *testing.T) {
 func TestRenderSelectedRowFillsThePane(t *testing.T) {
 	list := Prepare(Snapshot{
 		Rows:      []Row{{Kind: KindAgent, Name: "iss-582", Selected: true}},
-		Cursor:    -1,
 		NameWidth: canonicalNameWidth,
 	})
 
@@ -172,50 +171,178 @@ func TestRenderSelectedRowFillsThePane(t *testing.T) {
 // TestRenderFocusedRow draws the row the keyboard is standing on.
 func TestRenderFocusedRow(t *testing.T) {
 	list := Prepare(Snapshot{
-		Rows:      []Row{{Kind: KindAgent, Name: "strip-demo", Status: StatusWaiting, Held: true}},
+		Rows:      []Row{{Key: "strip-demo", Kind: KindAgent, Name: "strip-demo", Status: StatusWaiting, Held: true}},
+		Focused:   "strip-demo",
 		NameWidth: canonicalNameWidth,
 	})
 
 	requireGolden(t, "row-focused", Render(list, paint.Colored, 0))
 }
 
+// emphasisRows is a list built to put all three emphases beside each other, which the settled
+// design has no row for.
+func emphasisRows() []Row {
+	return []Row{
+		{Kind: KindAgent, Name: "ordinary"},
+		{Kind: KindAgent, Name: "unviewed", Unviewed: true},
+		{Kind: KindAgent, Name: "hidden", Dim: true},
+	}
+}
+
+// TestRenderEmphasisSideBySide draws the three emphases together in both palettes.
+func TestRenderEmphasisSideBySide(t *testing.T) {
+	tests := []struct {
+		name    string
+		golden  string
+		palette paint.Palette
+	}{
+		{
+			name:    "coloured",
+			golden:  "list-emphasis",
+			palette: paint.Colored,
+		},
+		{
+			name:    "grey",
+			golden:  "list-emphasis-grey",
+			palette: paint.Grey,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			requireGolden(t, tt.golden, Render(Prepare(Snapshot{Rows: emphasisRows()}), tt.palette, 0))
+		})
+	}
+}
+
+// TestRenderGreyingNeverDemotesAnUnviewedRow pins the one thing greying a region must not do:
+// leave a row that has something to say worse off than the row beside it.
+func TestRenderGreyingNeverDemotesAnUnviewedRow(t *testing.T) {
+	lines := strings.Split(Render(Prepare(Snapshot{Rows: emphasisRows()}), paint.Grey, 0), "\n")
+	require.Len(t, lines, 3)
+
+	ordinary, unviewed, hidden := lines[0], lines[1], lines[2]
+
+	assert.Equal(t, styleOfName(ordinary, "ordinary"), styleOfName(unviewed, "unviewed"))
+	assert.NotEqual(t, styleOfName(ordinary, "ordinary"), styleOfName(hidden, "hidden"))
+}
+
+// styleOfName is the escape a drawn row opens its name with, empty when the name is drawn in
+// whatever the terminal already uses.
+func styleOfName(row, name string) string {
+	at := strings.Index(row, name)
+	if at < 0 {
+		return ""
+	}
+
+	opened := ansiEscapes.FindAllString(row[:at], -1)
+	if len(opened) == 0 {
+		return ""
+	}
+
+	return opened[len(opened)-1]
+}
+
 // TestRenderGreyPaletteTakesEveryColourOff pins that a list drawn where the keys are not carries
 // one colour throughout.
 func TestRenderGreyPaletteTakesEveryColourOff(t *testing.T) {
-	list := Prepare(Snapshot{Rows: canonicalRows(), Cursor: 6, NameWidth: canonicalNameWidth})
+	list := Prepare(Snapshot{Rows: canonicalRows(), Focused: "strip-demo", NameWidth: canonicalNameWidth})
 
 	requireGolden(t, "list-grey", Header(paint.Grey)+"\n"+Render(list, paint.Grey, 0))
 }
 
 // TestRenderCanonicalList draws the whole settled design.
 func TestRenderCanonicalList(t *testing.T) {
-	list := Prepare(Snapshot{Rows: canonicalRows(), Cursor: 6, NameWidth: canonicalNameWidth})
+	list := Prepare(Snapshot{Rows: canonicalRows(), Focused: "strip-demo", NameWidth: canonicalNameWidth})
 
 	requireGolden(t, "list-canonical", Header(paint.Colored)+"\n"+Render(list, paint.Colored, 0))
 }
 
-// TestRenderMatchesTheSpecifiedLayout pins every column of the settled design against the design
-// itself, read with its styling taken off so only the columns are compared.
-func TestRenderMatchesTheSpecifiedLayout(t *testing.T) {
-	list := Prepare(Snapshot{Rows: canonicalRows(), Cursor: 6, NameWidth: canonicalNameWidth})
-
-	drawn := ansiEscapes.ReplaceAllString(Header(paint.Colored)+"\n"+Render(list, paint.Colored, 0), "")
-
+// TestRenderDrawsTheSpecifiedGlyphSequence pins the glyphs of the settled design and the order
+// they come in, comparing runes rather than the columns they occupy.
+func TestRenderDrawsTheSpecifiedGlyphSequence(t *testing.T) {
 	want, err := readSpec()
 	require.NoError(t, err)
-	assert.Equal(t, want, strings.Split(drawn, "\n"))
+	assert.Equal(t, want, strings.Split(drawCanonical(), "\n"))
+}
+
+// TestRenderKeepsEveryNameOnOneColumn pins the rule the design is built on: every row, of every
+// kind, marked or not, opens its name at the same column.
+func TestRenderKeepsEveryNameOnOneColumn(t *testing.T) {
+	list := Prepare(Snapshot{Rows: canonicalRows(), Focused: "strip-demo", NameWidth: canonicalNameWidth})
+	drawn := strings.Split(drawCanonical(), "\n")
+	require.Len(t, drawn, len(list.Lines)+1)
+
+	for i, line := range list.Lines {
+		row := drawn[i+1]
+		assert.Equal(t, drawnNameColumn, nameColumnOf(row, line), "row %q", row)
+	}
+}
+
+// TestGutterColumnsAgreesWithWhatIsDrawn pins the arithmetic a caller sizes a name by against
+// the row the renderer actually draws, so the two cannot drift apart.
+func TestGutterColumnsAgreesWithWhatIsDrawn(t *testing.T) {
+	assert.Equal(t, drawnNameColumn, GutterColumns())
+}
+
+// drawnNameColumn is the column the settled design opens every name at, counted off the drawing
+// by hand rather than from the package's own arithmetic.
+const drawnNameColumn = 15
+
+// octiconColumns is how wide an Octicon is drawn, written out here rather than taken from the
+// package so a change to the package's own constant fails this test.
+const octiconColumns = 2
+
+// nameColumnOf is the column a drawn row opens its name cell at, which for a child is the corner
+// it hangs off rather than the name itself.
+func nameColumnOf(drawn string, line Line) int {
+	opens := line.Name
+	if line.Rule {
+		opens = spell(GlyphChild)
+	}
+
+	at := strings.Index(drawn, opens)
+	if at < 0 {
+		return -1
+	}
+
+	return drawnColumns(drawn[:at])
+}
+
+// drawCanonical is the settled design as this package draws it, with its styling taken off.
+func drawCanonical() string {
+	list := Prepare(Snapshot{Rows: canonicalRows(), Focused: "strip-demo", NameWidth: canonicalNameWidth})
+
+	return ansiEscapes.ReplaceAllString(Header(paint.Colored)+"\n"+Render(list, paint.Colored, 0), "")
+}
+
+// drawnColumns is how wide a stretch of a row is on screen, counting an Octicon as what the font
+// draws rather than as what Unicode declares.
+func drawnColumns(text string) int {
+	columns := 0
+	for _, r := range text {
+		if r >= 0xe000 && r <= 0xf8ff {
+			columns += octiconColumns
+
+			continue
+		}
+
+		columns++
+	}
+
+	return columns
 }
 
 // canonicalRows is the settled design as a snapshot, every row of it.
 func canonicalRows() []Row {
 	return []Row{
-		{Kind: KindWorkflow, Name: "admin", Mark: "a", HiddenCount: 2},
+		{Key: "admin", Kind: KindWorkflow, Name: "admin", Mark: "a", HiddenCount: 2},
 		{Kind: KindAgent, Name: "eng-6994-unable-to-create-a-grant", Review: ReviewApproved, Forge: ForgeOpen, Status: StatusThinking},
 		{Kind: KindChild, Name: "eng-6994-reviewer"},
 		{Kind: KindAgent, Name: "research-identity-assets", Status: StatusThinking},
 		{Kind: KindWorkflow, Name: "ops", Mark: "o"},
 		{Kind: KindAgent, Name: "rds-backup-hardening", Forge: ForgeOpen},
-		{Kind: KindAgent, Name: "strip-demo", Review: ReviewChangesRequested, Status: StatusWaiting, Held: true},
+		{Key: "strip-demo", Kind: KindAgent, Name: "strip-demo", Review: ReviewChangesRequested, Status: StatusWaiting, Held: true},
 		{Kind: KindWorkflow, Name: "weave", Mark: "w", HiddenCount: 3, Scheduled: true},
 		{Kind: KindAgent, Name: "frozen-review-bug", Review: ReviewOpen, Status: StatusWaiting},
 		{Kind: KindAgent, Name: "pr-metadata-fixes", Review: ReviewApproved, Forge: ForgeApproved, Status: StatusWaiting, Held: true, UnreadMail: true},

@@ -42,25 +42,31 @@ const (
 	EmphasisDim
 )
 
-// Cell is one drawn position: a glyph named rather than spelled, in a tone the palette turns
-// into a colour.
+// Cell is one drawn position, carrying either a named glyph or a letter a person typed, in a
+// tone the palette turns into a colour.
 type Cell struct {
 	Glyph Glyph
+	Text  string
 	Tone  paint.Tone
+}
+
+// IsBlank reports whether a cell has nothing to draw.
+func (c Cell) IsBlank() bool {
+	return c.Glyph == GlyphNone && c.Text == ""
 }
 
 // Line is one row of the agents list with every decision already made.
 type Line struct {
+	// Focused says the keyboard is standing on this row, which the selection bar reads and the
+	// caret in Focus is drawn from.
 	Focused bool
-	Mark    string
+	Focus   Cell
+	Mark    Cell
 	Repo    Cell
 	Review  Cell
 	Forge   Cell
 	Status  Cell
-	// Indent is the spaces the name is pushed across by, which is what says a row hangs under
-	// the workflow above it.
-	Indent int
-	// Rule draws the corner a child hangs off.
+	// Rule draws the corner a child hangs off, inside the name cell rather than before it.
 	Rule     bool
 	Name     string
 	Weight   Weight

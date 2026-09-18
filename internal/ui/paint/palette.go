@@ -23,8 +23,11 @@ const (
 	// bright is a foreground above the terminal's own default, which is what says a row holds
 	// something nobody has read.
 	bright = lipgloss.Color("15")
-	// merged is the one colour spent on a change that has landed.
-	merged = lipgloss.Color("13")
+	// merged is the plain magenta, kept off the bright one the other voice in a conversation
+	// wears so retuning the speakers leaves a landed change alone.
+	merged = lipgloss.Color("5")
+	// defaultForeground is whatever the terminal already draws text in.
+	defaultForeground = lipgloss.Color("")
 	// markColor is the plain yellow rather than the bright one a thinking agent is drawn in, so
 	// a mark in the gutter cannot be read as a lifecycle state.
 	markColor = lipgloss.Color("3")
@@ -91,8 +94,10 @@ var Grey = withStage(Palette{
 	mark:    muted,
 	self:    muted,
 	other:   muted,
-	bright:  muted,
-	merged:  muted,
+	// Greying a region flattens what it says rather than reversing it, so a brighter foreground
+	// falls back to the ordinary one instead of dropping below it.
+	bright: defaultForeground,
+	merged: muted,
 })
 
 // withStage fills in the markdown styling a palette's own colours make.

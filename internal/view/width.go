@@ -30,14 +30,14 @@ func NameColumns(pane int) int {
 // sits in the private use area and is measured as one column there.
 func extraColumns(line Line) int {
 	extra := 0
-	for _, cell := range []Cell{line.Repo, line.Review, line.Forge, line.Status, line.Held, line.Mail, line.Alert, line.Schedule} {
+	for _, cell := range []Cell{line.Focus, line.Mark, line.Repo, line.Review, line.Forge, line.Status, line.Held, line.Mail, line.Alert, line.Schedule} {
 		extra += glyphColumns(cell.Glyph) - plainColumns
 	}
 
 	return extra
 }
 
-// glyphColumns is how many columns one glyph takes, nothing at all for a cell drawing none.
+// glyphColumns is how many columns one glyph takes.
 func glyphColumns(glyph Glyph) int {
 	switch glyph {
 	case GlyphNone:

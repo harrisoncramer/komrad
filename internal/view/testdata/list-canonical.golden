@@ -1,16 +1,16 @@
     [90m[0m [90m[0m [90m[0m
   [33ma[0m [90m[0m [90m[0m [90m[0m [90m│[0m [1madmin[0m [90m+2[0m
-    [90m[0m [92m[0m [34m[0m [34m▍[0m  eng-6994-unable-to-crea…
-    [90m[0m [90m[0m [90m[0m [90m│[0m  [90m└[0m [3meng-6994-reviewer[0m
-    [90m[0m [90m[0m [90m[0m [34m▍[0m  research-identity-assets
+    [90m[0m [92m[0m [34m[0m [34m▍[0m eng-6994-unable-to-crea…
+    [90m[0m [90m[0m [90m[0m [90m│[0m [90m└[0m [3meng-6994-reviewer[0m
+    [90m[0m [90m[0m [90m[0m [34m▍[0m research-identity-assets
   [33mo[0m [90m[0m [90m[0m [90m[0m [90m│[0m [1mops[0m
-    [90m[0m [90m[0m [34m[0m [90m│[0m  rds-backup-hardening
-[34m›[0m   [90m[0m [93m[0m [90m[0m [93m▍[0m  strip-demo [93m[0m
+    [90m[0m [90m[0m [34m[0m [90m│[0m rds-backup-hardening
+[34m›[0m   [90m[0m [93m[0m [90m[0m [93m▍[0m strip-demo [93m[0m
   [33mw[0m [90m[0m [90m[0m [90m[0m [90m│[0m [1mweave[0m [90m+3[0m [90m[0m
-    [90m[0m [34m[0m [90m[0m [93m▍[0m  frozen-review-bug
-    [90m[0m [92m[0m [92m[0m [93m▍[0m  pr-metadata-fixes [93m[0m [34m[0m
-    [93m[0m [92m[0m [90m[0m [90m│[0m  iss-582
-    [91m[0m [90m[0m [90m[0m [91m▍[0m  gone-worktree [91m[0m
-    [90m[0m [90m[0m [91m[0m [90m│[0m  iss-641-reviewer [34m[0m
-    [90m[0m [90m[0m [95m[0m [90m│[0m  shipped-yesterday
+    [90m[0m [34m[0m [90m[0m [93m▍[0m frozen-review-bug
+    [90m[0m [92m[0m [92m[0m [93m▍[0m pr-metadata-fixes [93m[0m [34m[0m
+    [93m[0m [92m[0m [90m[0m [90m│[0m iss-582
+    [91m[0m [90m[0m [90m[0m [91m▍[0m gone-worktree [91m[0m
+    [90m[0m [90m[0m [91m[0m [90m│[0m iss-641-reviewer [34m[0m
+    [90m[0m [90m[0m [35m[0m [90m│[0m shipped-yesterday
     [90m[0m [90m[0m [90m[0m [90m│[0m [1mweave-bughunt-job[0m [90m+5[0m [90m[0m

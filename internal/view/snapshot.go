@@ -53,14 +53,17 @@ const (
 // Snapshot is everything the agents list draws itself from.
 type Snapshot struct {
 	Rows []Row
-	// Cursor is the row the keyboard is standing on, which no row of its own reports.
-	Cursor int
-	// NameWidth is the column names are cut to, falling back to a default when it is unset.
+	// Focused is the key of the row the keyboard is standing on, naming it rather than counting
+	// to it so a list re-sorted after it was gathered still focuses the same row.
+	Focused string
+	// NameWidth is the column names are cut to, leaving them whole when it is unset.
 	NameWidth int
 }
 
 // Row is one line of the agents list as the panel found it.
 type Row struct {
+	// Key is what the row answers to, which is how the snapshot names the focused one.
+	Key  string
 	Kind RowKind
 	Name string
 	// Mark is the letter a person typed onto this row, empty when none is on it.

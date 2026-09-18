@@ -2,14 +2,11 @@ package view
 
 import "weave/internal/ui/paint"
 
-// nameIndent is the space every row hanging under a workflow opens its name in by.
-const nameIndent = 1
-
 // Prepare turns a snapshot of the agents list into the view model a renderer draws.
 func Prepare(snapshot Snapshot) List {
 	lines := make([]Line, 0, len(snapshot.Rows))
-	for i, row := range snapshot.Rows {
-		lines = append(lines, prepareLine(row, i == snapshot.Cursor, snapshot.NameWidth))
+	for _, row := range snapshot.Rows {
+		lines = append(lines, prepareLine(row, isFocused(row, snapshot.Focused), snapshot.NameWidth))
 	}
 
 	return List{Lines: lines}
@@ -19,12 +16,12 @@ func Prepare(snapshot Snapshot) List {
 func prepareLine(row Row, focused bool, nameWidth int) Line {
 	line := Line{
 		Focused:  focused,
-		Mark:     row.Mark,
+		Focus:    markCell(focused, GlyphFocus, paint.ToneAccent),
+		Mark:     textCell(row.Mark, paint.ToneMark),
 		Repo:     repoCell(row.Repo),
 		Review:   reviewCell(row.Review),
 		Forge:    forgeCell(row.Forge),
 		Status:   statusCell(row.Status),
-		Indent:   indentFor(row.Kind),
 		Rule:     row.Kind == KindChild,
 		Name:     clipName(row.Name, nameWidth),
 		Weight:   weightFor(row.Kind),
@@ -44,13 +41,19 @@ func prepareLine(row Row, focused bool, nameWidth int) Line {
 	return line
 }
 
-// greyed takes the colour off every cell of a row, which is what hidden and archived look like.
+// greyed takes the colour off every cell of a row, leaving the focus caret alone since a hidden
+// row the keyboard is standing on still has to say so.
 func greyed(line Line) Line {
-	for _, cell := range []*Cell{&line.Repo, &line.Review, &line.Forge, &line.Status, &line.Held, &line.Mail, &line.Alert, &line.Schedule} {
+	for _, cell := range []*Cell{&line.Mark, &line.Repo, &line.Review, &line.Forge, &line.Status, &line.Held, &line.Mail, &line.Alert, &line.Schedule} {
 		cell.Tone = paint.ToneMuted
 	}
 
 	return line
+}
+
+// isFocused reports whether a row is the one the snapshot named, an unnamed row never being it.
+func isFocused(row Row, focused string) bool {
+	return focused != "" && row.Key == focused
 }
 
 // repoCell is where an agent's own checkout stands, always drawn so an untouched one reads as
@@ -129,6 +132,15 @@ func markCell(show bool, glyph Glyph, tone paint.Tone) Cell {
 	return Cell{Glyph: glyph, Tone: tone}
 }
 
+// textCell is a cell holding a letter a person typed rather than a glyph the design names.
+func textCell(text string, tone paint.Tone) Cell {
+	if text == "" {
+		return Cell{}
+	}
+
+	return Cell{Text: text, Tone: tone}
+}
+
 // weightFor is the lettering a row's place in the tree is carried by, spending no glyph on it.
 func weightFor(kind RowKind) Weight {
 	switch kind {
@@ -141,19 +153,6 @@ func weightFor(kind RowKind) Weight {
 	}
 
 	return WeightRegular
-}
-
-// indentFor is how far across a row's name opens, which the mark gutter does not move since it
-// is a fixed two columns whether or not a letter is in it.
-func indentFor(kind RowKind) int {
-	switch kind {
-	case KindWorkflow:
-		return 0
-	case KindAgent, KindChild:
-		return nameIndent
-	}
-
-	return nameIndent
 }
 
 // clipName cuts a name to the column it was given, leaving it whole when the snapshot names no
