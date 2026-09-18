@@ -43,6 +43,7 @@ type fixture struct {
 	store       *forgestore.Store
 	credentials *FileStore
 	seen        []Credential
+	apis        []string
 }
 
 func newFixture(t *testing.T, login string, verifyErr error) *fixture {
@@ -57,9 +58,10 @@ func newFixture(t *testing.T, login string, verifyErr error) *fixture {
 		Connections: f.store,
 		Credentials: f.credentials,
 		Builders: map[string]Builder{
-			KindGitHub: func(_ string, auth Authenticator) Forge {
+			KindGitHub: func(api string, auth Authenticator) Forge {
 				credential, _ := auth.Credential(t.Context())
 				f.seen = append(f.seen, credential)
+				f.apis = append(f.apis, api)
 
 				return &fakeForge{
 					auth:  auth,
@@ -159,6 +161,120 @@ func TestConnectRefusals(t *testing.T) {
 			assert.Empty(t, listed)
 		})
 	}
+}
+
+// TestAPIURLFor covers where the API is looked for: nowhere special for a public host, the
+// self-hosted convention for any other, an https address as given, and anything else refused.
+func TestAPIURLFor(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		kind    string
+		host    string
+		given   string
+		want    string
+		wantErr error
+	}{
+		{
+			name: "github.com needs nothing",
+			kind: KindGitHub,
+			host: "github.com",
+			want: "",
+		},
+		{
+			name: "gitlab.com needs nothing",
+			kind: KindGitLab,
+			host: "gitlab.com",
+			want: "",
+		},
+		{
+			name: "an enterprise github host derives api/v3",
+			kind: KindGitHub,
+			host: "ghe.example.com",
+			want: "https://ghe.example.com/api/v3",
+		},
+		{
+			name: "a self-hosted gitlab derives api/v4",
+			kind: KindGitLab,
+			host: "git.example.com",
+			want: "https://git.example.com/api/v4",
+		},
+		{
+			name:  "an https address is kept without its trailing slash",
+			kind:  KindGitHub,
+			host:  "ghe.example.com",
+			given: "https://api.ghe.example.com/",
+			want:  "https://api.ghe.example.com",
+		},
+		{
+			name:    "an http address is refused",
+			kind:    KindGitHub,
+			host:    "ghe.example.com",
+			given:   "http://ghe.example.com/api/v3",
+			wantErr: ErrInsecureAPI,
+		},
+		{
+			name:    "an address with no host is refused",
+			kind:    KindGitHub,
+			host:    "ghe.example.com",
+			given:   "https:///api/v3",
+			wantErr: ErrInsecureAPI,
+		},
+		{
+			name:    "not a url is refused",
+			kind:    KindGitHub,
+			host:    "ghe.example.com",
+			given:   "::nope::",
+			wantErr: ErrInsecureAPI,
+		},
+		{
+			name:    "an unknown kind on an unknown host is refused",
+			kind:    "gitea",
+			host:    "git.example.com",
+			wantErr: ErrUnknownKind,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			got, err := APIURLFor(tt.kind, tt.host, tt.given)
+			if tt.wantErr != nil {
+				require.ErrorIs(t, err, tt.wantErr)
+
+				return
+			}
+
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+// TestConnectSendsTheTokenWhereTheHostSays covers an enterprise connect: the probe is built
+// for the derived address and never for the public forge, and the row records that address.
+func TestConnectSendsTheTokenWhereTheHostSays(t *testing.T) {
+	f := newFixture(t, "harrisoncramer", nil)
+
+	connection, err := f.service.Connect(t.Context(), ConnectParams{
+		Host:  "ghe.example.com",
+		Kind:  KindGitHub,
+		Token: NewSecret("tok"),
+	})
+	require.NoError(t, err)
+	assert.Equal(t, "https://ghe.example.com/api/v3", connection.APIURL)
+	assert.Equal(t, []string{"https://ghe.example.com/api/v3"}, f.apis)
+
+	_, err = f.service.Connect(t.Context(), ConnectParams{
+		Host:   "other.example.com",
+		Kind:   KindGitHub,
+		APIURL: "http://other.example.com/api/v3",
+		Token:  NewSecret("tok"),
+	})
+	require.ErrorIs(t, err, ErrInsecureAPI)
+	assert.Len(t, f.apis, 1, "an insecure address is refused before any token is sent")
 }
 
 // TestConnectRefusesAConnectedHost covers the second connect to one host.

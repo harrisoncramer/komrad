@@ -53,9 +53,12 @@ machine. Pipe it in:
     op read op://vault/github/token | weave forge connect github.com
 
 Weave asks the forge who the token belongs to before storing anything, so a token
-that is wrong, expired or scoped to nothing is refused here rather than found out
-later. github.com and gitlab.com say which forge they run; any other host needs
---kind, and --api-url when the API is not at the host's usual place.`,
+that is wrong or expired is refused here rather than found out later. That proves
+the token is real, not that it can read your repositories: a token with no
+permissions answers the same question, and shows up later as a repository the
+forge says it cannot find. github.com and gitlab.com say which forge they run; any
+other host needs --kind, and --api-url when the API is not at https://<host>/api/v3
+for GitHub or /api/v4 for GitLab. The address has to be https.`,
 		Args:          cobra.ExactArgs(1),
 		SilenceUsage:  true,
 		SilenceErrors: true,

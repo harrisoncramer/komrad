@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/url"
 	"strings"
 	"time"
 
@@ -14,6 +15,9 @@ import (
 
 // ErrUnknownKind says no forge of that kind is compiled in.
 var ErrUnknownKind = fail.InvalidArgument("no forge of that kind")
+
+// ErrInsecureAPI says an API address would send the credential without TLS.
+var ErrInsecureAPI = fail.InvalidArgument("the API address has to be https")
 
 // ErrKindUnknownForHost says a host names no public forge, so the kind has to be given.
 var ErrKindUnknownForHost = fail.InvalidArgument("the host does not say which forge it runs")
@@ -85,6 +89,33 @@ func KindForHost(host string) (string, error) {
 	}
 }
 
+// APIURLFor is where a host's API answers: the given address checked for https, or for a host
+// that is not the public forge, the place that forge's self-hosted builds put it.
+func APIURLFor(kind, host, given string) (string, error) {
+	given = strings.TrimRight(strings.TrimSpace(given), "/")
+	if given != "" {
+		parsed, err := url.Parse(given)
+		if err != nil || parsed.Scheme != "https" || parsed.Host == "" {
+			return "", ErrInsecureAPI.Saying("%q is not an https address", given)
+		}
+
+		return given, nil
+	}
+
+	if _, err := KindForHost(host); err == nil {
+		return "", nil
+	}
+
+	switch kind {
+	case KindGitHub:
+		return "https://" + host + "/api/v3", nil
+	case KindGitLab:
+		return "https://" + host + "/api/v4", nil
+	default:
+		return "", ErrUnknownKind.Saying("%q is not a forge this build knows", kind)
+	}
+}
+
 // HeaderFor is the header a credential obtained one way is sent in on one kind of forge.
 func HeaderFor(kind, method string) string {
 	if kind == KindGitLab && method == MethodToken {
@@ -121,13 +152,18 @@ func (s *Service) Connect(ctx context.Context, params ConnectParams) (*forgestor
 		return nil, fail.InvalidArgument("a token is needed")
 	}
 
+	apiURL, err := APIURLFor(kind, host, params.APIURL)
+	if err != nil {
+		return nil, err
+	}
+
 	if _, err := s.connections.GetByHost(ctx, host); err == nil {
 		return nil, forgestore.ErrHostTaken.Saying("%s is already connected; disconnect it first", host)
 	} else if !errors.Is(err, store.ErrNotFound) {
 		return nil, err
 	}
 
-	probe := build(params.APIURL, staticCredential{Header: HeaderFor(kind, MethodToken), Token: params.Token})
+	probe := build(apiURL, staticCredential{Header: HeaderFor(kind, MethodToken), Token: params.Token})
 	login, err := probe.Verify(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("%s did not accept the token: %w", host, err)
@@ -136,7 +172,7 @@ func (s *Service) Connect(ctx context.Context, params ConnectParams) (*forgestor
 	connection, err := s.connections.Create(ctx, forgestore.CreateParams{
 		Kind:       kind,
 		Host:       host,
-		APIURL:     params.APIURL,
+		APIURL:     apiURL,
 		Method:     MethodToken,
 		Login:      login,
 		VerifiedAt: s.now(),

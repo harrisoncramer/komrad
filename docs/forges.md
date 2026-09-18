@@ -14,7 +14,7 @@ gh auth token | weave forge connect github.com
 
 Any command that prints the token works there, such as `pbpaste` or `op read`, and `--token-file` reads it from a file instead. The token is never taken as an argument, because arguments are visible to every process on the machine through `ps` and land in shell history.
 
-Before storing anything, weave sends one request to the forge asking who the token belongs to. A token that is wrong, expired or scoped to nothing is refused at that moment.
+Before storing anything, weave sends one request to the forge asking who the token belongs to. A token that is wrong or expired is refused at that moment. That proves the token is real, not that it can read your repositories: a fine-grained token with no permissions answers that question too, and shows up later as a repository the forge says it cannot find. Give the token read access to pull requests on the repositories your agents work in.
 
 To see your current forges:
 
@@ -23,6 +23,8 @@ weave forge list
 ```
 
 This shows every connected forge, who weave acts as there, and when the forge last confirmed it. You can use `weave forge disconnect github.com` to forget a forge, and `weave doctor` asks every connected forge again and warns for any that refuses.
+
+`github.com` and `gitlab.com` say which forge they run. Any other host needs `--kind`, and weave then looks for its API at `https://<host>/api/v3` for GitHub or `/api/v4` for GitLab, which `--api-url` overrides. The address has to be https, since the token travels in every request to it.
 
 ## Where authentication state lives
 
