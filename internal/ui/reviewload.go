@@ -61,7 +61,7 @@ type reviewWroteMsg struct {
 // enterReview opens the review of an agent's diff, with the threads in the sidebar and the
 // diff in the stage.
 func (m model) enterReview(agent agentstore.Agent) (tea.Model, tea.Cmd) {
-	if !m.isReviewable(agent) {
+	if !hasCheckout(agent) {
 		return m, nil
 	}
 

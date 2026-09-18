@@ -33,7 +33,7 @@ func (m model) openGitMenu() (tea.Model, tea.Cmd) {
 	agent := item.agent
 	form, choice := gitMenuForm(gitMenu{
 		name:       agent.Name,
-		rebaseable: m.isReviewable(agent),
+		rebaseable: m.isRebaseable(agent),
 	}, m.keys.Git, formKeys())
 
 	agentID := agent.ID
@@ -137,7 +137,7 @@ func (m model) runGitChoice(agentID string, choice gitChoice) (model, tea.Cmd) {
 
 	switch choice {
 	case gitChoiceRebase:
-		if !m.isReviewable(agent) {
+		if !m.isRebaseable(agent) {
 			m.report("Could not rebase the worktree of "+agent.Name, errNoWorktree)
 
 			return m, nil

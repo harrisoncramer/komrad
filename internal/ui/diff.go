@@ -7,9 +7,15 @@ import (
 	workflowstore "weave/internal/store/workflow"
 )
 
-// isReviewable reports whether an agent has a worktree of its own still on disk.
-func (m model) isReviewable(agent agentstore.Agent) bool {
-	if agent.Cwd == "" || agent.WorktreeRemoved {
+// hasCheckout reports whether an agent's directory is still there to read.
+func hasCheckout(agent agentstore.Agent) bool {
+	return agent.Cwd != "" && !agent.WorktreeRemoved
+}
+
+// isRebaseable reports whether an agent sits in a worktree weave cut for it alone, which is the
+// only checkout weave moves onto a base.
+func (m model) isRebaseable(agent agentstore.Agent) bool {
+	if !hasCheckout(agent) {
 		return false
 	}
 
