@@ -304,12 +304,12 @@ type agentItem struct {
 	failedRunLog *int32
 	// localRounds is how many rounds of local review this agent's own work has been through.
 	localRounds int32
-	// localVerdict is what the last released local review of this agent's newest round concluded,
-	// empty when that round carries none.
+	// localVerdict is what the last released local review concluded about this agent's work,
+	// empty when none has concluded anything.
 	localVerdict string
-	// inLocalReview reports whether a reviewer child is still owed an answer about this agent's
-	// work.
-	inLocalReview bool
+	// localTreeMoved reports whether the worktree no longer matches the round that verdict was
+	// given on.
+	localTreeMoved bool
 }
 
 // displayState is the state a row wears, which is idle once the pane has gone even though the

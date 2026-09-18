@@ -258,7 +258,8 @@ func TestPrepareRepoColumn(t *testing.T) {
 	}
 }
 
-// TestPrepareReviewColumn pins where the local review of an agent's work stands.
+// TestPrepareReviewColumn pins where the tree on disk stands with the local review of an
+// agent's work: yellow waits on a person, grey on nobody or on the agent, green on nobody.
 func TestPrepareReviewColumn(t *testing.T) {
 	tests := []struct {
 		name   string
@@ -266,29 +267,29 @@ func TestPrepareReviewColumn(t *testing.T) {
 		want   Cell
 	}{
 		{
-			name:   "changes requested gets its own glyph in warning",
-			review: ReviewChangesRequested,
-			want:   Cell{Glyph: GlyphChanges, Tone: paint.ToneWarning},
+			name:   "never reviewed is the unverified mark greyed",
+			review: ReviewNone,
+			want:   Cell{Glyph: GlyphUnverified, Tone: paint.ToneMuted},
 		},
 		{
-			name:   "approved gets the check in success",
+			name:   "approved on this tree gets the check in success",
 			review: ReviewApproved,
 			want:   Cell{Glyph: GlyphApproved, Tone: paint.ToneSuccess},
 		},
 		{
-			name:   "notes without a conclusion read as unremarkable, the design spending no value on them",
-			review: ReviewCommented,
-			want:   Cell{Glyph: GlyphReview, Tone: paint.ToneMuted},
+			name:   "approved on a tree since moved gets the checkbox in warning, since a pass is owed",
+			review: ReviewApprovedMoved,
+			want:   Cell{Glyph: GlyphCheckbox, Tone: paint.ToneWarning},
 		},
 		{
-			name:   "an open review keeps the glyph and takes the accent tone",
-			review: ReviewOpen,
-			want:   Cell{Glyph: GlyphReview, Tone: paint.ToneAccent},
+			name:   "changes still owed gets the hourglass greyed, since the agent is the one waited on",
+			review: ReviewChangesRequested,
+			want:   Cell{Glyph: GlyphHourglass, Tone: paint.ToneMuted},
 		},
 		{
-			name:   "no review at all is drawn greyed rather than left out",
-			review: ReviewNone,
-			want:   Cell{Glyph: GlyphReview, Tone: paint.ToneMuted},
+			name:   "changes pushed gets the bell in warning, since the reviewer is the one waited on",
+			review: ReviewChangesPushed,
+			want:   Cell{Glyph: GlyphBell, Tone: paint.ToneWarning},
 		},
 	}
 

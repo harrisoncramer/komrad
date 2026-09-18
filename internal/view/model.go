@@ -8,11 +8,13 @@ type Glyph int
 const (
 	GlyphNone Glyph = iota
 	GlyphRepo
-	GlyphReview
+	GlyphUnverified
 	GlyphForge
 	GlyphApproved
 	GlyphBroken
-	GlyphChanges
+	GlyphCheckbox
+	GlyphBell
+	GlyphHourglass
 	GlyphMerged
 	GlyphAlert
 	GlyphMail

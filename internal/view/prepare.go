@@ -112,7 +112,7 @@ func RepoCell(row Row) Cell {
 	return Cell{Glyph: GlyphRepo, Tone: paint.ToneMuted}
 }
 
-// ReviewCell is where the local review of an agent's work stands.
+// ReviewCell is where the tree on disk stands with the local review of an agent's work.
 func ReviewCell(row Row) Cell {
 	if row.Kind != KindAgent {
 		return Cell{}
@@ -120,18 +120,18 @@ func ReviewCell(row Row) Cell {
 
 	switch row.Review {
 	case ReviewNone:
-		return Cell{Glyph: GlyphReview, Tone: paint.ToneMuted}
-	case ReviewOpen:
-		return Cell{Glyph: GlyphReview, Tone: paint.ToneAccent}
+		return Cell{Glyph: GlyphUnverified, Tone: paint.ToneMuted}
 	case ReviewApproved:
 		return Cell{Glyph: GlyphApproved, Tone: paint.ToneSuccess}
+	case ReviewApprovedMoved:
+		return Cell{Glyph: GlyphCheckbox, Tone: paint.ToneWarning}
 	case ReviewChangesRequested:
-		return Cell{Glyph: GlyphChanges, Tone: paint.ToneWarning}
-	case ReviewCommented:
-		return Cell{Glyph: GlyphReview, Tone: paint.ToneMuted}
+		return Cell{Glyph: GlyphHourglass, Tone: paint.ToneMuted}
+	case ReviewChangesPushed:
+		return Cell{Glyph: GlyphBell, Tone: paint.ToneWarning}
 	}
 
-	return Cell{Glyph: GlyphReview, Tone: paint.ToneMuted}
+	return Cell{Glyph: GlyphUnverified, Tone: paint.ToneMuted}
 }
 
 // forgeCell is where the pull request opened from an agent's branch stands.

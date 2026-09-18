@@ -652,8 +652,13 @@ func TestTalliesCountTheAgentHoldingTheDiff(t *testing.T) {
 	require.NoError(t, err)
 
 	require.Len(t, tallies, 1, "the reviewer holds no diff of its own to have gone round")
-	assert.Equal(t, Tally{AgentID: agentID, Rounds: 2}, tallies[0],
-		"the third round carries no released review, so nothing has been concluded about the work as it stands")
+	changesRequested := VerdictChangesRequested
+	assert.Equal(t, Tally{
+		AgentID:     agentID,
+		Rounds:      2,
+		Verdict:     &changesRequested,
+		SnapshotSHA: "snapshot-tree-two",
+	}, tallies[0], "the third round carries no released review, so the second round's conclusion still stands, named with its round")
 }
 
 // TestTalliesCountOneRoundOnce is why the count is of rounds rather than of reviews: two authors
@@ -683,9 +688,10 @@ func TestTalliesCountOneRoundOnce(t *testing.T) {
 	require.Len(t, tallies, 1)
 	changesRequested := VerdictChangesRequested
 	assert.Equal(t, Tally{
-		AgentID: agentID,
-		Rounds:  1,
-		Verdict: &changesRequested,
+		AgentID:     agentID,
+		Rounds:      1,
+		Verdict:     &changesRequested,
+		SnapshotSHA: "snapshot-tree-one",
 	}, tallies[0])
 }
 
@@ -868,9 +874,10 @@ func TestLiveReviewersStopAtAnApproval(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, tallies, 1)
 	assert.Equal(t, Tally{
-		AgentID: agentID,
-		Rounds:  2,
-		Verdict: &approved,
+		AgentID:     agentID,
+		Rounds:      2,
+		Verdict:     &approved,
+		SnapshotSHA: "snapshot-tree-two",
 	}, tallies[0])
 }
 
@@ -889,9 +896,10 @@ func TestLiveReviewersLeaveOutADeadReviewer(t *testing.T) {
 	assert.Empty(t, live)
 }
 
-// TestTalliesDropAVerdictAnEditOutLived is why the verdict is scoped to the newest round: an
-// approval that outlived the work would draw a tick over code nobody has read.
-func TestTalliesDropAVerdictAnEditOutLived(t *testing.T) {
+// TestTalliesKeepAVerdictWithItsRound is why the tally names the round the verdict was given
+// on: a later round with nothing concluded on it leaves the approval standing, and the caller
+// asks the worktree whether that round is still what is on disk.
+func TestTalliesKeepAVerdictWithItsRound(t *testing.T) {
 	st := open(t)
 	ctx := t.Context()
 	agentID := seedAgent(t, st)
@@ -912,18 +920,42 @@ func TestTalliesDropAVerdictAnEditOutLived(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, tallies, 1)
 	assert.Equal(t, Tally{
-		AgentID: agentID,
-		Rounds:  1,
-		Verdict: &approved,
+		AgentID:     agentID,
+		Rounds:      1,
+		Verdict:     &approved,
+		SnapshotSHA: "snapshot-tree-one",
 	}, tallies[0])
 
-	openRound(t, st, agentID, "tree-two")
+	second := openRound(t, st, agentID, "tree-two")
+	noted := openReview(t, st, agentID, second.ID)
+	release(t, st, agentID, noted.ID, VerdictCommented)
 
 	tallies, err = st.ListTallies(ctx)
 	require.NoError(t, err)
 	require.Len(t, tallies, 1)
-	assert.Equal(t, Tally{AgentID: agentID, Rounds: 1}, tallies[0],
-		"the approval was given on a round the agent has since written past")
+	assert.Equal(t, Tally{
+		AgentID:     agentID,
+		Rounds:      2,
+		Verdict:     &approved,
+		SnapshotSHA: "snapshot-tree-one",
+	}, tallies[0], "a comment concludes nothing, so the approval and the round it was given on still stand")
+}
+
+// TestTalliesLeaveOutAnAgentOnlyCommentedOn pins that notes without a conclusion are no verdict
+// at all, so the work reads as never concluded on rather than as commented.
+func TestTalliesLeaveOutAnAgentOnlyCommentedOn(t *testing.T) {
+	st := open(t)
+	ctx := t.Context()
+	agentID := seedAgent(t, st)
+	round := openRound(t, st, agentID, "tree-one")
+
+	noted := openReview(t, st, agentID, round.ID)
+	release(t, st, agentID, noted.ID, VerdictCommented)
+
+	tallies, err := st.ListTallies(ctx)
+	require.NoError(t, err)
+	require.Len(t, tallies, 1)
+	assert.Equal(t, Tally{AgentID: agentID, Rounds: 1}, tallies[0])
 }
 
 // Explainer: the verdict says what its author concluded at the time and never moves again, so a

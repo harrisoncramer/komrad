@@ -112,7 +112,7 @@ func TestGlyphCheckReportsWidthsThatDisagree(t *testing.T) {
 	require.Equal(t, StatusWarn, result.Status,
 		"a font the terminal lacks is a degraded panel rather than a broken weave")
 	require.ErrorIs(t, result.Err, ErrGlyphWidthUnexpected)
-	assert.Contains(t, result.Err.Error(), "16 glyphs drew in 2 columns where the layout counts them as 1")
+	assert.Contains(t, result.Err.Error(), "18 glyphs drew in 2 columns where the layout counts them as 1")
 	assert.NotEmpty(t, result.Fix)
 }
 
@@ -133,7 +133,7 @@ func TestGlyphCheckDistrustsATerminalThatMisreadsPlainText(t *testing.T) {
 	result := newTerminalGlyphCheck().Run(t.Context(), env)
 	require.Equal(t, StatusWarn, result.Status)
 	require.ErrorIs(t, result.Err, ErrCursorQueryUntrusted)
-	assert.NotContains(t, result.Err.Error(), "review",
+	assert.NotContains(t, result.Err.Error(), "unverified",
 		"a calibration that failed stops the reading rather than colouring it with glyph widths")
 }
 

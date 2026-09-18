@@ -4,7 +4,6 @@ import (
 	"time"
 
 	"weave/internal/agents"
-	"weave/internal/git"
 	"weave/internal/harness"
 	"weave/internal/jobs"
 	"weave/internal/jobs/internaljobs"
@@ -66,7 +65,7 @@ func buildLoops(params buildLoopsParams) []Loop {
 		{
 			Name:     CwdSyncLoop,
 			Interval: CwdSyncInterval,
-			Pass:     agents.NewCwdSyncer(params.Stores.agents, git.NewClient()).Sync,
+			Pass:     params.Services.cwdSync.Sync,
 		},
 	}
 }

@@ -8,6 +8,7 @@ import (
 	"weave/lib/xptr"
 
 	agentstore "weave/internal/store/agent"
+	reviewstore "weave/internal/store/review"
 	workflowstore "weave/internal/store/workflow"
 	"weave/internal/view"
 
@@ -121,20 +122,21 @@ func TestNoticesWearTheGlyphTheRowDraws(t *testing.T) {
 			SequenceInProgress: true,
 			HeldAt:             xptr.Ptr(time.Now()),
 		},
-		alive:         true,
-		unreadMail:    true,
-		failedRun:     true,
-		inLocalReview: true,
+		alive:          true,
+		unreadMail:     true,
+		failedRun:      true,
+		localVerdict:   string(reviewstore.VerdictChangesRequested),
+		localTreeMoved: true,
 	}
 
 	line := view.Prepare(view.Snapshot{Rows: []view.Row{snapshotRow(noticeRow(item), snapshotParams{})}}).Lines[0]
 
 	want := map[string]view.Cell{
-		failedRunNotice:     line.Alert,
-		unreadMailNotice:    line.Mail,
-		sequenceNotice:      line.Repo,
-		heldPromptedNotice:  line.Held,
-		inLocalReviewNotice: line.Review,
+		failedRunNotice:          line.Alert,
+		unreadMailNotice:         line.Mail,
+		sequenceNotice:           line.Repo,
+		heldPromptedNotice:       line.Held,
+		localChangesPushedNotice: line.Review,
 	}
 
 	notices := agentNotices(noticeRow(item))
@@ -341,9 +343,8 @@ func TestEveryRepoStateIsSpokenForOrSilent(t *testing.T) {
 
 // TestEveryReviewStateIsSpokenForOrSilent walks the review column.
 func TestEveryReviewStateIsSpokenForOrSilent(t *testing.T) {
-	// ReviewNone has had no reviewer, and ReviewCommented is notes without a conclusion, which
-	// the column itself draws at its baseline.
-	silent := map[view.Review]bool{view.ReviewNone: true, view.ReviewCommented: true}
+	// ReviewNone has had no reviewer, which the column itself draws at its baseline.
+	silent := map[view.Review]bool{view.ReviewNone: true}
 
 	for state := range int(view.ReviewEnd) {
 		review := view.Review(state)
@@ -398,11 +399,11 @@ func TestNoticesReportAPlainWorkflowsDirectory(t *testing.T) {
 	rebasing := plain(agentstore.Agent{ID: "a1", Name: "worker", Cwd: "/tmp/somewhere", SequenceInProgress: true})
 
 	reviewed := plain(agentstore.Agent{ID: "a1", Name: "worker", Cwd: "/tmp/somewhere"})
-	reviewed.item.inLocalReview = true
+	reviewed.item.localVerdict = string(reviewstore.VerdictApproved)
 
 	assert.Equal(t, []string{worktreeRemovedNotice}, noticeTexts(agentNotices(gone)))
 	assert.Equal(t, []string{sequenceNotice}, noticeTexts(agentNotices(rebasing)))
-	assert.Equal(t, []string{inLocalReviewNotice}, noticeTexts(agentNotices(reviewed)))
+	assert.Equal(t, []string{localApprovedNotice}, noticeTexts(agentNotices(reviewed)))
 
 	child := plain(agentstore.Agent{ID: "a2", Name: "reviewer", Cwd: "/tmp/somewhere", WorktreeRemoved: true})
 	child.child = true

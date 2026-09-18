@@ -100,11 +100,11 @@ type Agent struct {
 	// Whether prompt holds only its opening, which a summary listing returns so that a page of
 	// agents does not carry every briefing they were launched with.
 	PromptTruncated bool `protobuf:"varint,32,opt,name=prompt_truncated,json=promptTruncated,proto3" json:"prompt_truncated,omitempty"`
-	// What the last released local review of the agent's newest round concluded, empty when that
-	// round carries none.
+	// What the last released local review concluded about the agent's own work, empty when
+	// none has concluded anything.
 	LocalReviewVerdict string `protobuf:"bytes,33,opt,name=local_review_verdict,json=localReviewVerdict,proto3" json:"local_review_verdict,omitempty"`
-	// Whether a reviewer child is still owed an answer about the agent's own work.
-	InLocalReview bool `protobuf:"varint,34,opt,name=in_local_review,json=inLocalReview,proto3" json:"in_local_review,omitempty"`
+	// Whether the agent's worktree no longer matches the round that verdict was given on.
+	LocalReviewTreeMoved bool `protobuf:"varint,34,opt,name=local_review_tree_moved,json=localReviewTreeMoved,proto3" json:"local_review_tree_moved,omitempty"`
 	// When a person stopped this agent and took its worktree, empty while nobody is holding it.
 	HeldAt        string `protobuf:"bytes,35,opt,name=held_at,json=heldAt,proto3" json:"held_at,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -379,9 +379,9 @@ func (x *Agent) GetLocalReviewVerdict() string {
 	return ""
 }
 
-func (x *Agent) GetInLocalReview() bool {
+func (x *Agent) GetLocalReviewTreeMoved() bool {
 	if x != nil {
-		return x.InLocalReview
+		return x.LocalReviewTreeMoved
 	}
 	return false
 }
@@ -2560,7 +2560,7 @@ var File_agent_v1_agent_proto protoreflect.FileDescriptor
 
 const file_agent_v1_agent_proto_rawDesc = "" +
 	"\n" +
-	"\x14agent/v1/agent.proto\x12\bagent.v1\x1a\x13agent/v1/mail.proto\x1a\x15agent/v1/review.proto\x1a\x19agent/v1/transcript.proto\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1epagination/v1/pagination.proto\x1a\x14rules/v1/rules.proto\x1a\x12view/v1/view.proto\"\xe6\n" +
+	"\x14agent/v1/agent.proto\x12\bagent.v1\x1a\x13agent/v1/mail.proto\x1a\x15agent/v1/review.proto\x1a\x19agent/v1/transcript.proto\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1epagination/v1/pagination.proto\x1a\x14rules/v1/rules.proto\x1a\x12view/v1/view.proto\"\xf5\n" +
 	"\n" +
 	"\x05Agent\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
@@ -2604,8 +2604,8 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\x04role\x18\x1e \x01(\tR\x04role\x12.\n" +
 	"\x13local_review_rounds\x18\x1f \x01(\x05R\x11localReviewRounds\x12)\n" +
 	"\x10prompt_truncated\x18  \x01(\bR\x0fpromptTruncated\x120\n" +
-	"\x14local_review_verdict\x18! \x01(\tR\x12localReviewVerdict\x12&\n" +
-	"\x0fin_local_review\x18\" \x01(\bR\rinLocalReview\x12\x17\n" +
+	"\x14local_review_verdict\x18! \x01(\tR\x12localReviewVerdict\x125\n" +
+	"\x17local_review_tree_moved\x18\" \x01(\bR\x14localReviewTreeMoved\x12\x17\n" +
 	"\aheld_at\x18# \x01(\tR\x06heldAtB\x0e\n" +
 	"\f_archived_atB\x0e\n" +
 	"\f_schedule_idB\a\n" +
