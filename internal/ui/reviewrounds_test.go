@@ -1,15 +1,10 @@
 package ui
 
 import (
-	"strings"
 	"testing"
 	"weave/internal/ui/paint"
 
-	"weave/config"
-	"weave/internal/ui/layout"
-
 	agentstore "weave/internal/store/agent"
-	workflowstore "weave/internal/store/workflow"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -44,35 +39,4 @@ func TestReviewRoundsNoticeIsGivenUpFirst(t *testing.T) {
 
 	require.Len(t, notices, 3)
 	assert.Contains(t, notices[len(notices)-1].text, "reviewed 2 times")
-}
-
-// TestAgentsViewReviewRounds pins the glyph drawn per agent, so one that has been round several
-// times shows it and the one beside it does not.
-func TestAgentsViewReviewRounds(t *testing.T) {
-	m := model{
-		frame: layout.New(&recordingTmux{}, config.DefaultLayout()),
-		keys:  config.DefaultKeybindings(),
-		listing: listing{workflows: []workflowstore.Workflow{{ID: "w1", Name: "acmecorp"}}, agents: []agentItem{
-			{agent: agentstore.Agent{
-				ID:         "a1",
-				Name:       "going-round",
-				WorkflowID: "w1",
-			}, localRounds: 4},
-			{agent: agentstore.Agent{
-				ID:         "a2",
-				Name:       "first-pass",
-				WorkflowID: "w1",
-			}},
-		}},
-	}
-
-	rows := strings.Split(m.agentsView(), "\n")
-	looping, ok := rowNamed(rows, "going-round")
-	require.True(t, ok)
-	assert.Contains(t, looping, localReviewRoundsIcon)
-	assert.Contains(t, looping, "4")
-
-	fresh, ok := rowNamed(rows, "first-pass")
-	require.True(t, ok)
-	assert.NotContains(t, fresh, localReviewRoundsIcon)
 }

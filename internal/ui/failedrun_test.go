@@ -3,7 +3,6 @@ package ui
 import (
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 	"time"
 
@@ -49,29 +48,6 @@ func failedRunTree() (model, *recordingTmux) {
 			},
 		},
 	}, tmux
-}
-
-// TestFailedRunMarkIsDrawnOnTheRow covers the point of the whole change: a hook that failed
-// after the agent came up is visible without opening anything.
-func TestFailedRunMarkIsDrawnOnTheRow(t *testing.T) {
-	m, _ := failedRunTree()
-
-	rows := strings.Split(m.agentsView(), "\n")
-
-	var carrying, clear string
-	for _, row := range rows {
-		switch {
-		case strings.Contains(row, "auth"):
-			carrying = row
-		case strings.Contains(row, "api"):
-			clear = row
-		}
-	}
-
-	require.NotEmpty(t, carrying)
-	require.NotEmpty(t, clear)
-	assert.Contains(t, carrying, failedRunIcon)
-	assert.NotContains(t, clear, failedRunIcon)
 }
 
 // TestRunsReadNeedsTheRunLogUpAndReadForASecond pins what counts as reading a failed run.

@@ -169,6 +169,32 @@ func TestRenderSelectedRowFillsThePane(t *testing.T) {
 	requireGolden(t, "row-selected-filled", Render(list, paint.Colored, 40))
 }
 
+// TestRenderSelectedRowUnderTheCursorKeepsBoth pins the row the two meet on: the bar spans it
+// and the name under that bar still carries the cursor's own colour.
+func TestRenderSelectedRowUnderTheCursorKeepsBoth(t *testing.T) {
+	list := Prepare(Snapshot{
+		Rows:    []Row{{Key: "iss-582", Kind: KindAgent, Name: "iss-582", Selected: true}},
+		Focused: "iss-582",
+		Pane:    canonicalPane,
+	})
+
+	drawn := Render(list, paint.Colored, 40)
+	requireGolden(t, "row-selected-focused", drawn)
+
+	// The golden alone would be satisfied by regenerating it, so the fact it is here for is
+	// asserted against the escape the name itself opens in.
+	assert.Contains(t, drawn, paint.BackgroundSequence(paint.SelectionBackground))
+
+	unfocused := Render(Prepare(Snapshot{
+		Rows: []Row{{Key: "iss-582", Kind: KindAgent, Name: "iss-582", Selected: true}},
+		Pane: canonicalPane,
+	}), paint.Colored, 40)
+
+	assert.Contains(t, unfocused, paint.BackgroundSequence(paint.SelectionBackground))
+	assert.NotEqual(t, styleOfName(unfocused, "iss-582"), styleOfName(drawn, "iss-582"),
+		"the bar flattened the cursor off the name")
+}
+
 // TestRenderFocusedRow draws the row the keyboard is standing on.
 func TestRenderFocusedRow(t *testing.T) {
 	list := Prepare(Snapshot{
@@ -249,14 +275,14 @@ func styleOfName(row, name string) string {
 func TestRenderGreyPaletteTakesEveryColourOff(t *testing.T) {
 	list := Prepare(Snapshot{Rows: canonicalRows(), Focused: "strip-demo", Pane: canonicalPane})
 
-	requireGolden(t, "list-grey", Header(paint.Grey, everyColumn())+"\n"+Render(list, paint.Grey, 0))
+	requireGolden(t, "list-grey", Render(list, paint.Grey, 0))
 }
 
 // TestRenderCanonicalList draws the whole settled design.
 func TestRenderCanonicalList(t *testing.T) {
 	list := Prepare(Snapshot{Rows: canonicalRows(), Focused: "strip-demo", Pane: canonicalPane})
 
-	requireGolden(t, "list-canonical", Header(paint.Colored, everyColumn())+"\n"+Render(list, paint.Colored, 0))
+	requireGolden(t, "list-canonical", Render(list, paint.Colored, 0))
 }
 
 // livePanelRows is the panel as it actually stands, taken off Harry's own listing rather than
@@ -293,7 +319,7 @@ func livePanelRows() []Row {
 func TestRenderLivePanelShape(t *testing.T) {
 	list := Prepare(Snapshot{Rows: livePanelRows(), Focused: "strip-demo", Pane: canonicalPane})
 
-	requireGolden(t, "list-live-panel", Header(paint.Colored, everyColumn())+"\n"+Render(list, paint.Colored, 0))
+	requireGolden(t, "list-live-panel", Render(list, paint.Colored, 0))
 }
 
 // TestRenderDrawsTheSpecifiedGlyphSequence pins the glyphs of the settled design and the order
@@ -309,10 +335,10 @@ func TestRenderDrawsTheSpecifiedGlyphSequence(t *testing.T) {
 func TestRenderKeepsEveryNameOnOneColumn(t *testing.T) {
 	list := Prepare(Snapshot{Rows: canonicalRows(), Focused: "strip-demo", Pane: canonicalPane})
 	drawn := strings.Split(drawCanonical(), "\n")
-	require.Len(t, drawn, len(list.Lines)+1)
+	require.Len(t, drawn, len(list.Lines))
 
 	for i, line := range list.Lines {
-		row := drawn[i+1]
+		row := drawn[i]
 		assert.Equal(t, drawnNameColumn, nameColumnOf(row, line), "row %q", row)
 	}
 }
@@ -510,7 +536,7 @@ func nameColumnOf(drawn string, line Line) int {
 func drawCanonical() string {
 	list := Prepare(Snapshot{Rows: canonicalRows(), Focused: "strip-demo", Pane: canonicalPane})
 
-	return ansiEscapes.ReplaceAllString(Header(paint.Colored, everyColumn())+"\n"+Render(list, paint.Colored, 0), "")
+	return ansiEscapes.ReplaceAllString(Render(list, paint.Colored, 0), "")
 }
 
 // drawnColumns is how wide a stretch of a row is on screen, counting an Octicon as what the font

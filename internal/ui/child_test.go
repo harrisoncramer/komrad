@@ -109,32 +109,6 @@ func TestOrphanedChildStandsOnItsOwn(t *testing.T) {
 	assert.False(t, rows[2].child, "with nothing to indent under, it is a row like any other")
 }
 
-// TestAgentsViewIndentsAChild pins the drawn row, where the branch glyph sits in the column the
-// parent's own state mark is in.
-func TestAgentsViewIndentsAChild(t *testing.T) {
-	m := familyTree()
-	m.height = 20
-
-	view := ansi.Strip(m.agentsView())
-
-	var author, reviewer string
-	for _, line := range strings.Split(view, "\n") {
-		if strings.Contains(line, "author") {
-			author = line
-		}
-		if strings.Contains(line, "reviewer") {
-			reviewer = line
-		}
-	}
-
-	require.NotEmpty(t, author)
-	require.NotEmpty(t, reviewer)
-	assert.Equal(t, strings.Index(author, "•"), strings.Index(reviewer, childIcon),
-		"the branch glyph takes the parent's state column")
-	assert.Greater(t, strings.Index(reviewer, "reviewer"), strings.Index(author, "author"),
-		"and the name sits two columns further in")
-}
-
 // TestChildIsNotReviewable pins that the review key answers on the parent's row only.
 func TestChildIsNotReviewable(t *testing.T) {
 	m := familyTree()

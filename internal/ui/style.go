@@ -33,10 +33,7 @@ const (
 	// report, keeping the indent every other row has.
 	noStateIcon = "▫"
 
-	// reasonWidth is how much of a reported reason a row draws: room for a tool name, and not so
-	// much that a row stops being a column of names.
-	reasonWidth = 24
-	nameWidth   = 30
+	nameWidth = 30
 )
 
 var dimStyle = errui.Dim
@@ -105,12 +102,6 @@ func failedMark(palette paint.Palette, agent agentstore.Agent) string {
 	return " " + stateMark(palette, agent.State)
 }
 
-// reasonMark is what the agent's own CLI last reported it was doing, drawn last on the row since
-// it is the only part of one that is prose rather than a glyph.
-func reasonMark(palette paint.Palette, agent agentstore.Agent) string {
-	return palette.Mark(agent.ReportedReason != "", paint.Clip(agent.ReportedReason, reasonWidth), paint.ToneMuted)
-}
-
 // childMark draws in the column its parent's own state mark sits in, pushing the rest of the
 // child's row across so every parent stays aligned.
 func childMark(child bool) string {
@@ -129,25 +120,12 @@ func scheduledMark(palette paint.Palette, agent agentstore.Agent) string {
 	return palette.Mark(agent.ScheduleID != nil, scheduledIcon, paint.ToneMuted)
 }
 
-// heldMark says a person has paused this agent and has its worktree.
-func heldMark(palette paint.Palette, agent agentstore.Agent) string {
-	return palette.Mark(agent.HeldAt != nil, heldIcon, paint.ToneWarning)
-}
-
 func hiddenMark(palette paint.Palette, hidden bool) string {
 	return palette.Mark(hidden, hiddenIcon, paint.ToneMuted)
 }
 
 func unreadMailMark(palette paint.Palette, unread bool) string {
 	return palette.Mark(unread, unreadMailIcon, paint.ToneAccent)
-}
-
-func hiddenTally(count int, showing bool) string {
-	if count == 0 || showing {
-		return ""
-	}
-
-	return " " + dimStyle.Render(fmt.Sprintf("+%d", count))
 }
 
 // localReviewRoundsMark counts the rounds of local review an agent's work has been through, drawn
