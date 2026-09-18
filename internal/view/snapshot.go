@@ -101,8 +101,8 @@ type Row struct {
 	// Matches are the stretches of the name a search picked out.
 	Matches []Span
 	Status  Status
-	// Process says whether anything stands behind the row, which the bar draws only while one is
-	// there and the weight greys once one has gone.
+	// Process says whether anything ever stood behind the row, which the bar leaves blank where
+	// nothing did and the weight greys once it has gone.
 	Process Process
 	Repo    Repo
 	Review  Review

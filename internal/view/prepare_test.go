@@ -55,8 +55,8 @@ func TestPrepareStatusBar(t *testing.T) {
 	}
 }
 
-// TestPrepareBarSaysWhatStandsBehindARow pins the bar drawing only while a process is there,
-// a stopped one and none at all both leaving the cell blank.
+// TestPrepareBarSaysWhatStandsBehindARow pins the bar drawing on every agent whatever became of
+// its process, and blank only where there never was one.
 func TestPrepareBarSaysWhatStandsBehindARow(t *testing.T) {
 	tests := []struct {
 		name string
@@ -69,14 +69,14 @@ func TestPrepareBarSaysWhatStandsBehindARow(t *testing.T) {
 			want: Cell{Glyph: GlyphQuiet, Tone: paint.ToneMuted},
 		},
 		{
-			name: "a process that has stopped draws nothing",
+			name: "a process that has stopped keeps the quiet pipe",
 			row:  Row{Status: StatusIdle, Process: ProcessStopped},
-			want: Cell{},
+			want: Cell{Glyph: GlyphQuiet, Tone: paint.ToneMuted},
 		},
 		{
-			name: "a process that stopped mid-thought draws nothing rather than busy",
+			name: "a process that stopped mid-thought keeps the bar it stopped in",
 			row:  Row{Status: StatusThinking, Process: ProcessStopped},
-			want: Cell{},
+			want: Cell{Glyph: GlyphBusy, Tone: paint.ToneAccent},
 		},
 		{
 			name: "a row that never had a process draws nothing",
