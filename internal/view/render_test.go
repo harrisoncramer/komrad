@@ -259,6 +259,43 @@ func TestRenderCanonicalList(t *testing.T) {
 	requireGolden(t, "list-canonical", Header(paint.Colored)+"\n"+Render(list, paint.Colored, 0))
 }
 
+// livePanelRows is the panel as it actually stands, taken off Harry's own listing rather than
+// drawn: mostly dormant agents with no bar at all, two running, one wanting a person and one
+// that never started.
+func livePanelRows() []Row {
+	return []Row{
+		{Key: "admin", Kind: KindWorkflow, Name: "admin", Mark: "a", Dormant: true},
+		{Kind: KindAgent, Name: "eng-6994-unable-to-create-a-fundraising", Review: ReviewApproved, Dormant: true},
+		{Kind: KindChild, Name: "eng-6994-reviewer", Dormant: true},
+		{Kind: KindWorkflow, Name: "bcs-project", Dormant: true},
+		{Kind: KindAgent, Name: "research-disbursements", Dormant: true},
+		{Kind: KindAgent, Name: "research-identity-assets", Status: StatusThinking},
+		{Kind: KindWorkflow, Name: "deploy", Dormant: true, HiddenCount: 2},
+		{Kind: KindWorkflow, Name: "ops", Mark: "o", Dormant: true},
+		{Kind: KindAgent, Name: "rds-backup-hardening", Dormant: true},
+		{Kind: KindWorkflow, Name: "strip-demo", Dormant: true},
+		{Key: "strip-demo", Kind: KindAgent, Name: "strip-demo", Review: ReviewChangesRequested, Status: StatusWaiting},
+		{Kind: KindWorkflow, Name: "weave", Mark: "w", Dormant: true, HiddenCount: 4},
+		{Kind: KindAgent, Name: "competitive-analysis", Dormant: true, Held: true},
+		{Kind: KindChild, Name: "competitor-architecture", Dormant: true},
+		{Kind: KindAgent, Name: "pr-metadata-fixes", Dormant: true, Held: true},
+		{Kind: KindAgent, Name: "frozen-review-bug", Review: ReviewChangesRequested, Dormant: true},
+		{Kind: KindAgent, Name: "view-foundation", Repo: RepoGone, Review: ReviewApproved, Dormant: true},
+		{Kind: KindChild, Name: "view-foundation-2", Dormant: true},
+		{Kind: KindAgent, Name: "view-gather", Repo: RepoRebasing, Review: ReviewOpen, Status: StatusThinking},
+		{Kind: KindWorkflow, Name: "weave-bughunt-job", Dormant: true, Scheduled: true, HiddenCount: 5},
+		{Kind: KindAgent, Name: "iss-641-reviewer", Status: StatusBroken},
+	}
+}
+
+// TestRenderLivePanelShape draws the distribution a panel actually holds, which the settled
+// design does not: it shows every value once, where a real listing is mostly empty bars.
+func TestRenderLivePanelShape(t *testing.T) {
+	list := Prepare(Snapshot{Rows: livePanelRows(), Focused: "strip-demo", NameWidth: canonicalNameWidth})
+
+	requireGolden(t, "list-live-panel", Header(paint.Colored)+"\n"+Render(list, paint.Colored, 0))
+}
+
 // TestRenderDrawsTheSpecifiedGlyphSequence pins the glyphs of the settled design and the order
 // they come in, comparing runes rather than the columns they occupy.
 func TestRenderDrawsTheSpecifiedGlyphSequence(t *testing.T) {
