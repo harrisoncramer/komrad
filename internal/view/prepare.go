@@ -27,7 +27,7 @@ func Prepare(snapshot Snapshot) List {
 // fitColumns gives the columns up from the right as the pane narrows, reading the pane alone so
 // a list does not change shape when a row gains a mark.
 func fitColumns(pane int, dropped Columns) Columns {
-	columns := everyColumn().without(dropped)
+	columns := Columns{Repo: !dropped.Repo, Review: !dropped.Review, Forge: !dropped.Forge}
 	if pane <= 0 {
 		return columns
 	}

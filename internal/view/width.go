@@ -32,15 +32,6 @@ func everyColumn() Columns {
 	return Columns{Repo: true, Review: true, Forge: true}
 }
 
-// without gives up the columns a screen does not draw at all.
-func (c Columns) without(dropped Columns) Columns {
-	return Columns{
-		Repo:   c.Repo && !dropped.Repo,
-		Review: c.Review && !dropped.Review,
-		Forge:  c.Forge && !dropped.Forge,
-	}
-}
-
 // GutterColumns is how wide everything left of a name is, which is what a caller takes off the
 // pane to reach the column a name has.
 func GutterColumns(columns Columns) int {
