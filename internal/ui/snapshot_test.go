@@ -299,7 +299,7 @@ func TestSnapshotMarksOnARow(t *testing.T) {
 			},
 		},
 		{
-			name: "output nobody has read brightens the name rather than marking it",
+			name: "output nobody has read carries through as unviewed",
 			item: agentItem{
 				agent:    agentstore.Agent{ID: "a1", Name: "unread"},
 				unviewed: true,

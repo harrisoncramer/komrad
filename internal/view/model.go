@@ -18,6 +18,7 @@ const (
 	GlyphMerged
 	GlyphAlert
 	GlyphMail
+	GlyphUnread
 	GlyphPaused
 	GlyphHidden
 	GlyphSchedule
@@ -43,7 +44,6 @@ type Emphasis int
 
 const (
 	EmphasisNormal Emphasis = iota
-	EmphasisBright
 	EmphasisDim
 	EmphasisFocused
 )
@@ -84,6 +84,7 @@ type Line struct {
 	Held     Cell
 	Hidden   Cell
 	Mail     Cell
+	Unread   Cell
 	Alert    Cell
 	// Tally is how many rows this one stands in for, drawn as a number.
 	Tally    int

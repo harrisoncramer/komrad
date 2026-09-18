@@ -111,7 +111,7 @@ func TestRenderRowShapes(t *testing.T) {
 			row:    Row{Kind: KindWorkflow, Name: "weave-bughunt-job", HiddenCount: 5, Scheduled: true},
 		},
 		{
-			name:   "an unviewed agent is brighter rather than bold",
+			name:   "an unviewed agent carries the unread mark after its name",
 			golden: "row-unviewed",
 			row:    Row{Kind: KindAgent, Name: "frozen-review-bug", Unviewed: true, Status: StatusWaiting},
 		},
@@ -224,8 +224,8 @@ func TestRenderFocusedRow(t *testing.T) {
 	requireGolden(t, "row-focused", Render(list, paint.Panel, 0))
 }
 
-// emphasisRows is a list built to put all three emphases beside each other, which the settled
-// design has no row for.
+// emphasisRows is a list built to put the emphases beside each other, with an unviewed row to
+// say the mark after its name is the whole of what unviewed changes.
 func emphasisRows() []Row {
 	return []Row{
 		{Kind: KindAgent, Name: "ordinary"},
@@ -234,9 +234,20 @@ func emphasisRows() []Row {
 	}
 }
 
-// TestRenderEmphasis draws the three emphases together.
+// TestRenderEmphasis draws the emphases together.
 func TestRenderEmphasis(t *testing.T) {
 	requireGolden(t, "list-emphasis", Render(Prepare(Snapshot{Rows: emphasisRows()}), paint.Panel, 0))
+}
+
+// TestRenderUnviewedIsAMarkNotALighterName pins the golden's reason: an unviewed name opens in
+// the same lettering as an ordinary one, and the difference is the mark after it.
+func TestRenderUnviewedIsAMarkNotALighterName(t *testing.T) {
+	rows := Rows(Prepare(Snapshot{Rows: emphasisRows()}), paint.Panel, 0)
+	require.Len(t, rows, 3)
+
+	assert.Equal(t, styleOfName(rows[0], "ordinary"), styleOfName(rows[1], "unviewed"))
+	assert.NotContains(t, rows[0], Spell(GlyphUnread))
+	assert.Contains(t, rows[1], Spell(GlyphUnread))
 }
 
 // styleOfName is the escape a drawn row opens its name with, empty when the name is drawn in
