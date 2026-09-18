@@ -565,6 +565,11 @@ service AgentService {
   }
   rpc SetMark(SetMarkRequest) returns (google.protobuf.Empty) {
     option idempotency_level = IDEMPOTENT;
+    option (annotation.v1.tool) = {
+      tool_name: "set_mark"
+      description: "Put a single lowercase letter on an agent's row or a workflow's row, which is the shorthand a person types in the panel to jump straight to that row. Name exactly one of agentId and workflowId, and leave mark out to take off whatever letter the row already answers to. A letter belongs to one row at a time, so claiming one another row already holds takes it off that row rather than being refused. Your own id is in the WEAVE_AGENT_ID environment variable, so this is how you label your own row while you work on something a person will want to come back to. The mark must be one lowercase character, and a row that is not live is refused as not_found."
+      destructive: false
+    };
   }
   rpc SetHidden(SetHiddenRequest) returns (google.protobuf.Empty) {
     option idempotency_level = IDEMPOTENT;
@@ -637,10 +642,20 @@ service AgentService {
       destructive: false
     };
   }
-  // Panel only, deliberately carrying no tool annotation: holding an agent is a person taking its
-  // worktree, and an agent that could hold another could stop work nobody asked it to stop.
-  rpc HoldAgent(HoldAgentRequest) returns (HoldAgentResponse) {}
-  rpc ReleaseAgent(ReleaseAgentRequest) returns (ReleaseAgentResponse) {}
+  rpc HoldAgent(HoldAgentRequest) returns (HoldAgentResponse) {
+    option (annotation.v1.tool) = {
+      tool_name: "hold_agent"
+      description: "Stop an agent and hold it, which is what somebody does before editing the files that agent is working in. The agent's terminal is interrupted and the hold is granted only once the agent is observed to have come to rest, so a turn part-way through is ended rather than waited out. Never call this on yourself: the interrupt would end the very turn that asked for it. A held agent runs nothing until release_agent lets it go, and weave refuses to rebase, archive or otherwise move an agent while it is held. An agent already held is refused as already_exists; one with no pane, one whose terminal could not be read, and one that would not settle within the budget are all refused as failed_precondition."
+      destructive: false
+    };
+  }
+  rpc ReleaseAgent(ReleaseAgentRequest) returns (ReleaseAgentResponse) {
+    option (annotation.v1.tool) = {
+      tool_name: "release_agent"
+      description: "Let an agent that hold_agent stopped carry on, telling it what happened while it was held. Whatever you pass as said is typed into the agent as it starts again, which is how it learns that its files moved under it or that the work it was part-way through is no longer wanted; an empty said lets it go in silence, and said is ignored for an agent whose own turn had already ended. Releasing an agent nobody is holding is refused as failed_precondition, and so is one that could not be told to carry on, in which case the hold still stands and the agent is still stopped."
+      destructive: false
+    };
+  }
   rpc ResumeAgent(ResumeAgentRequest) returns (ResumeAgentResponse) {
     option idempotency_level = IDEMPOTENT;
     option (annotation.v1.tool) = {
@@ -688,15 +703,19 @@ service AgentService {
   }
   rpc EmptyArchive(google.protobuf.Empty) returns (google.protobuf.Empty) {
     option idempotency_level = IDEMPOTENT;
+    option (annotation.v1.panel_only) = {reason: "Emptying the archive names nothing, tears down every worktree in it and cannot be undone, so it stays a key a person presses rather than a call a model could reach for on its own reading of an instruction to tidy up."};
   }
   rpc RecordReport(RecordReportRequest) returns (google.protobuf.Empty) {
     option idempotency_level = IDEMPOTENT;
+    option (annotation.v1.panel_only) = {reason: "Weave's own hook binary is the only caller, relaying what an agent's CLI said about itself, and an agent that could call it directly could tell the reconciler its turn had ended when it had not."};
   }
   rpc SetAgentViewed(SetAgentViewedRequest) returns (google.protobuf.Empty) {
     option idempotency_level = IDEMPOTENT;
+    option (annotation.v1.panel_only) = {reason: "Whether a person has caught up on what an agent finished is that person's own reading, which no agent can claim on their behalf."};
   }
   rpc MarkRunsRead(MarkRunsReadRequest) returns (google.protobuf.Empty) {
     option idempotency_level = IDEMPOTENT;
+    option (annotation.v1.panel_only) = {reason: "Whether a person has looked at an agent's failed script runs is that person's own reading, which no agent can claim on their behalf."};
   }
   rpc ListReviewThreads(ListReviewThreadsRequest) returns (ListReviewThreadsResponse) {
     option idempotency_level = NO_SIDE_EFFECTS;
@@ -723,16 +742,35 @@ service AgentService {
   }
   rpc EditReviewMessage(EditReviewMessageRequest) returns (EditReviewMessageResponse) {
     option idempotency_level = IDEMPOTENT;
+    option (annotation.v1.panel_only) = {reason: "What was said in a review is a record of what the two sides knew at the time, so an agent corrects itself with another message through add_review_message rather than rewriting one somebody has already read."};
   }
-  // Panel only, deliberately carrying no tool annotation: an agent must not rebase or reset
-  // itself or anybody else.
-  rpc PlanRefresh(PlanRefreshRequest) returns (PlanRefreshResponse) {}
-  rpc RebaseWorktree(RebaseWorktreeRequest) returns (RebaseWorktreeResponse) {}
+  rpc PlanRefresh(PlanRefreshRequest) returns (PlanRefreshResponse) {
+    option (annotation.v1.tool) = {
+      tool_name: "plan_rebase"
+      description: "Read what rebasing an agent's worktree onto its base would do, without moving anything. Call this before rebase_worktree, every time: it names the ref and the commit the branch would land on, how many of the agent's own commits would be replayed, how many the base already holds whole and so would be dropped, how many merge commits a rebase would flatten away, and the paths a merge of the base could not settle. Those paths are a warning rather than a verdict, since a rebase replays commit by commit and can conflict where a merge would not. This refuses for the same reasons rebase_worktree does, so it is also how you find out whether a rebase is possible at all without attempting one."
+      destructive: false
+      idempotent: true
+    };
+  }
+  rpc RebaseWorktree(RebaseWorktreeRequest) returns (RebaseWorktreeResponse) {
+    option (annotation.v1.tool) = {
+      tool_name: "rebase_worktree"
+      description: "Move an agent's branch onto the latest commit of its base, rewriting the branch in the checkout it sits in. Reach for this when an agent's worktree has fallen behind the base and its work has to sit on top of what has landed since, rather than driving git by hand: weave knows which base the agent's workflow cuts from, fetches it, parks the whole checkout at a ref of its own first so nothing is lost, replays from a cutoff when the base already holds part of the branch, and mails the agent to say its files moved under it. Read plan_rebase first, since this rewrites history and no pull request opened from the branch tracks the work afterwards. You cannot rebase yourself: an agent part-way through a turn is refused as failed_precondition, and an agent is part-way through a turn whenever it is calling a tool, so this reaches an agent that has come to rest and nobody else. It is refused for the same reason for an agent that is held, archived, on a branch weave did not cut, holding uncommitted tracked changes, or already part-way through a merge or a rebase. A rebase that hits conflicts stops part-way and is left for that agent to settle, which the response says rather than failing."
+      destructive: true
+      idempotent: false
+    };
+  }
   rpc StartOrchestrator(StartOrchestratorRequest) returns (StartOrchestratorResponse) {
     option idempotency_level = IDEMPOTENT;
+    option (annotation.v1.tool) = {
+      tool_name: "start_orchestrator"
+      description: "Bring a workflow's orchestrator back with a pane to talk to, starting the one that workflow has never had. An orchestrator is the agent drawn on the workflow's own row rather than a row of its own, and it hands work out across that workflow rather than writing any itself. This returns whichever orchestrator the workflow already has, taking it out of the archive and resuming its conversation as far as either is needed, and launches a fresh one only when the workflow has never had one hold a conversation at all. An orchestrator already running comes back as it stands rather than being started twice, so this is safe to call again. A workflow that does not exist is refused as not_found."
+      destructive: false
+    };
   }
   rpc MarkReviewThreadRead(MarkReviewThreadReadRequest) returns (MarkReviewThreadReadResponse) {
     option idempotency_level = IDEMPOTENT;
+    option (annotation.v1.panel_only) = {reason: "Catching up on a review thread is a person's own reading, and the handler refuses a caller that is not a person."};
   }
   rpc SetReviewThreadResolved(SetReviewThreadResolvedRequest) returns (SetReviewThreadResolvedResponse) {
     option idempotency_level = IDEMPOTENT;
@@ -760,6 +798,10 @@ service AgentService {
   }
   rpc ListReviews(ListReviewsRequest) returns (ListReviewsResponse) {
     option idempotency_level = NO_SIDE_EFFECTS;
+    option (annotation.v1.tool) = {
+      tool_name: "list_reviews"
+      description: "Read every review released on an agent, in the order their rounds were taken, each with the verdict it carried. This is how you find where a change stands: whether the person reviewing has approved it, asked for changes, or only commented, and how many rounds it took to get there. The findings themselves are in the threads, which list_review_threads reads; this is the verdict on each round rather than the comments under it. agentId names whose reviews to read. The path of the file a review was written out to is dropped for anyone but the agent that wrote that review, so your own reviews come back with their paths and somebody else's do not."
+    };
   }
   rpc ReleaseReview(ReleaseReviewRequest) returns (ReleaseReviewResponse) {
     option (annotation.v1.tool) = {
@@ -771,8 +813,10 @@ service AgentService {
   }
   rpc SetReviewFileViewed(SetReviewFileViewedRequest) returns (SetReviewFileViewedResponse) {
     option idempotency_level = IDEMPOTENT;
+    option (annotation.v1.panel_only) = {reason: "Which files of a diff have been read is a person's own reading, which no agent can claim on their behalf."};
   }
   rpc ListReviewViewedFiles(ListReviewViewedFilesRequest) returns (ListReviewViewedFilesResponse) {
     option idempotency_level = NO_SIDE_EFFECTS;
+    option (annotation.v1.panel_only) = {reason: "These marks are the record of which files a person has read, so only the panel drawing them back to that person has any use for them."};
   }
 }

@@ -1,0 +1,32 @@
+syntax = "proto3";
+
+package surface.v1;
+
+import "annotation/v1/tool.proto";
+
+message Request {}
+
+message Response {}
+
+service SurfaceService {
+  rpc Tooled(Request) returns (Response) {
+    option (annotation.v1.tool) = {
+      tool_name: "tooled"
+      description: "Reachable from a model and from a script."
+    };
+  }
+  rpc PanelKept(Request) returns (Response) {
+    option (annotation.v1.panel_only) = {reason: "The panel keeps this one."};
+  }
+  rpc Neither(Request) returns (Response) {}
+  rpc Both(Request) returns (Response) {
+    option (annotation.v1.tool) = {
+      tool_name: "both"
+      description: "Reachable from a model and from a script."
+    };
+    option (annotation.v1.panel_only) = {reason: "The panel keeps this one."};
+  }
+  rpc Silent(Request) returns (Response) {
+    option (annotation.v1.panel_only) = {reason: ""};
+  }
+}
