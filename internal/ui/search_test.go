@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+	"time"
 	"unicode/utf8"
 
 	"weave/config"
@@ -15,6 +16,7 @@ import (
 	"weave/internal/ui/layout"
 	"weave/internal/ui/paint"
 	"weave/internal/view"
+	"weave/lib/xptr"
 	"weave/lib/xslice"
 	agentv1 "weave/proto/gen/agent/v1"
 	"weave/proto/gen/agent/v1/agentv1connect"
@@ -829,6 +831,47 @@ func TestSearchRowCarriesTheAgent(t *testing.T) {
 		view.Spell(view.GlyphStopped), "the archived row draws the stopped bar")
 	assert.Contains(t, ansi.Strip(headerLine(t, strings.Join(ansiStripped(rows), "\n"), "billing")),
 		view.Spell(view.GlyphBusy), "while the thinking one draws a live bar")
+}
+
+// treeOwned blanks the fields a row carries because of where it sits in a list rather than
+// because of the agent behind it, so what is left is what both screens read off that agent.
+func treeOwned(row view.Row) view.Row {
+	row.Key, row.Kind, row.Name, row.Tag = "", 0, "", ""
+	row.Matches, row.Mark = nil, ""
+	row.Repo, row.Review, row.Forge = 0, 0, 0
+	row.Selected, row.NoCheckout, row.HiddenCount = false, false, 0
+
+	return row
+}
+
+// TestSearchRowSaysWhatTheAgentsListSays pins one agent read by both screens saying the same
+// thing, every field the helper above does not blank being compared.
+func TestSearchRowSaysWhatTheAgentsListSays(t *testing.T) {
+	item := agentItem{
+		agent: agentstore.Agent{
+			ID:         "a1",
+			Name:       "ledger",
+			WorkflowID: "w1",
+			State:      agentstore.StateWaiting,
+			Hidden:     true,
+			HeldAt:     xptr.Ptr(time.Now()),
+			ScheduleID: xptr.Ptr("s1"),
+		},
+		alive:      true,
+		unviewed:   true,
+		unreadMail: true,
+		failedRun:  true,
+	}
+
+	m := filterModel()
+	m.screen = screenSearch
+	m.search = searchState{query: "ledger"}
+	m.listing.agents = []agentItem{item}
+
+	hit := m.searchRow(searchHit{agentID: "a1", name: "ledger"}, "k")
+	tree := snapshotRow(agentRow{item: item}, snapshotParams{})
+
+	assert.Equal(t, treeOwned(tree), treeOwned(hit))
 }
 
 // TestSearchSnippetsHangOffTheirHeader covers the one thing the two kinds of line have to agree

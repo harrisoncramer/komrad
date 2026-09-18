@@ -18,7 +18,7 @@ const drawnResultNameColumn = 6
 func resultRows() []Row {
 	return []Row{
 		{Key: "live", Kind: KindResult, Name: "billing"},
-		{Key: "archived", Kind: KindResult, Name: "payouts", Tag: "archived", Dim: true, Process: ProcessNone},
+		{Key: "archived", Kind: KindResult, Name: "payouts", Tag: "archived", Dim: true, Process: ProcessStopped},
 	}
 }
 
@@ -67,7 +67,7 @@ func TestRenderTagFollowsTheName(t *testing.T) {
 	drawn := drawResults(canonicalPane)
 	require.Len(t, drawn, 2)
 
-	assert.Equal(t, "payouts archived", strings.TrimSpace(drawn[1]))
+	assert.True(t, strings.HasSuffix(drawn[1], "payouts archived"), "row %q", drawn[1])
 	assert.NotContains(t, drawn[0], "archived", "a row with no tag draws none")
 
 	styled := Render(Prepare(Snapshot{Rows: resultRows(), Dropped: everyColumn(), Pane: canonicalPane}), paint.Panel, 0)

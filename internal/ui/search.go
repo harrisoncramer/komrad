@@ -508,13 +508,12 @@ var searchDropped = view.Columns{Repo: true, Review: true, Forge: true}
 // stand on it so a snippet does not light the header above it.
 func (m model) searchRow(hit searchHit, key string) view.Row {
 	row := view.Row{
-		Key:        key,
-		Kind:       view.KindResult,
-		Name:       hit.name,
-		Matches:    nameMatches(hit.name, m.search.query),
-		Mark:       m.listing.marks[agentRowKey(hit.agentID)],
-		Process:    view.ProcessNone,
-		NoCheckout: true,
+		Key:     key,
+		Kind:    view.KindResult,
+		Name:    hit.name,
+		Matches: nameMatches(hit.name, m.search.query),
+		Mark:    m.listing.marks[agentRowKey(hit.agentID)],
+		Process: view.ProcessNone,
 	}
 
 	if hit.archived {
@@ -526,17 +525,7 @@ func (m model) searchRow(hit searchHit, key string) view.Row {
 		return row
 	}
 
-	row.Status = snapshotStatus(item)
-	row.Process = snapshotProcess(item)
-	row.Unviewed = item.unviewed
-	row.Dim = item.agent.Hidden
-	row.Held = item.agent.HeldAt != nil
-	row.HeldWorking = row.Held && heldWorking(item)
-	row.UnreadMail = item.unreadMail
-	row.FailedRun = item.failedRun
-	row.Scheduled = item.agent.ScheduleID != nil
-
-	return row
+	return agentFacts(row, item)
 }
 
 // archivedSearchRow is a hit on an agent nobody can reach any more, whose bar says a process was
