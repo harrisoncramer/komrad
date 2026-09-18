@@ -330,22 +330,22 @@ func TestRenderDrawsTheSpecifiedGlyphSequence(t *testing.T) {
 	assert.Equal(t, want, strings.Split(drawCanonical(), "\n"))
 }
 
-// TestRenderKeepsEveryNameOnOneColumn pins the rule the design is built on: every row, of every
-// kind, marked or not, opens its name at the same column.
-func TestRenderKeepsEveryNameOnOneColumn(t *testing.T) {
-	list := Prepare(Snapshot{Rows: canonicalRows(), Focused: "strip-demo", Pane: canonicalPane})
+// TestRenderIndentsEachKindUnderTheOneAbove pins the rule the design is built on: a workflow
+// opens its name at the gutter, an agent one step in, and a child one step further.
+func TestRenderIndentsEachKindUnderTheOneAbove(t *testing.T) {
+	rows := canonicalRows()
+	list := Prepare(Snapshot{Rows: rows, Focused: "strip-demo", Pane: canonicalPane})
 	drawn := strings.Split(drawCanonical(), "\n")
 	require.Len(t, drawn, len(list.Lines))
 
 	for i, line := range list.Lines {
-		row := drawn[i]
-		assert.Equal(t, drawnNameColumn, nameColumnOf(row, line), "row %q", row)
+		assert.Equal(t, wantNameColumn(rows[i].Kind), nameColumnOf(drawn[i], line), "row %q", drawn[i])
 	}
 }
 
-// TestRenderOpensEveryKindOnOneColumn pins the case the settled design cannot express on its
-// own: each kind of row beside its marked and unmarked twin, all opening their names together.
-func TestRenderOpensEveryKindOnOneColumn(t *testing.T) {
+// TestRenderIndentsEveryKindBesideItsTwin pins the case the settled design cannot express on
+// its own: each kind of row beside its marked and unmarked twin, indented alike.
+func TestRenderIndentsEveryKindBesideItsTwin(t *testing.T) {
 	rows := []Row{
 		{Key: "marked-workflow", Kind: KindWorkflow, Name: "marked-workflow", Mark: "m"},
 		{Key: "plain-workflow", Kind: KindWorkflow, Name: "plain-workflow"},
@@ -360,12 +360,12 @@ func TestRenderOpensEveryKindOnOneColumn(t *testing.T) {
 	require.Len(t, drawn, len(rows))
 
 	for i, line := range list.Lines {
-		assert.Equal(t, drawnNameColumn, nameColumnOf(drawn[i], line), "row %q", drawn[i])
+		assert.Equal(t, wantNameColumn(rows[i].Kind), nameColumnOf(drawn[i], line), "row %q", drawn[i])
 	}
 }
 
 // TestRenderDormantRowKeepsTheNameColumn pins that the empty status cell holds its column, so a
-// row with no bar opens its name where every other row does.
+// row with no bar opens its name where a row of its kind does.
 func TestRenderDormantRowKeepsTheNameColumn(t *testing.T) {
 	rows := []Row{
 		{Key: "quiet", Kind: KindAgent, Name: "quiet"},
@@ -377,7 +377,7 @@ func TestRenderDormantRowKeepsTheNameColumn(t *testing.T) {
 	require.Len(t, drawn, len(rows))
 
 	for i, line := range list.Lines {
-		assert.Equal(t, drawnNameColumn, nameColumnOf(drawn[i], line), "row %q", drawn[i])
+		assert.Equal(t, wantNameColumn(rows[i].Kind), nameColumnOf(drawn[i], line), "row %q", drawn[i])
 	}
 }
 
@@ -508,23 +508,36 @@ func TestGutterColumnsAgreesWithWhatIsDrawn(t *testing.T) {
 	assert.Equal(t, drawnNameColumn, GutterColumns(everyColumn()))
 }
 
-// drawnNameColumn is the column the settled design opens every name at, counted off the drawing
-// by hand rather than from the package's own arithmetic.
+// drawnNameColumn is the column the settled design opens a workflow's name at, counted off the
+// drawing by hand rather than from the package's own arithmetic.
 const drawnNameColumn = 15
+
+// drawnIndentStep is how far each level of the tree sets its name in, written out here rather
+// than taken from the package so a change to the package's own constant fails these tests.
+const drawnIndentStep = 2
+
+// wantNameColumn is the column a row of the given kind opens its name at.
+func wantNameColumn(kind RowKind) int {
+	switch kind {
+	case KindWorkflow:
+		return drawnNameColumn
+	case KindAgent:
+		return drawnNameColumn + drawnIndentStep
+	case KindChild:
+		return drawnNameColumn + 2*drawnIndentStep
+	}
+
+	return drawnNameColumn
+}
 
 // octiconColumns is how wide an Octicon is drawn, written out here rather than taken from the
 // package so a change to the package's own constant fails this test.
 const octiconColumns = 2
 
-// nameColumnOf is the column a drawn row opens its name cell at, which for a child is the corner
-// it hangs off rather than the name itself.
+// nameColumnOf is the column a drawn row opens its own name at, past the corner a child hangs
+// off rather than at it.
 func nameColumnOf(drawn string, line Line) int {
-	opens := line.Name
-	if line.Rule {
-		opens = spell(GlyphChild)
-	}
-
-	at := strings.Index(drawn, opens)
+	at := strings.Index(drawn, line.Name)
 	if at < 0 {
 		return -1
 	}

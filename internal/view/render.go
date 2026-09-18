@@ -38,7 +38,7 @@ func renderLine(line Line, columns Columns, palette paint.Palette, width int) st
 
 	gutter := strings.Join(append(cells, drawGutterCell(palette, line.Status)), " ")
 
-	row := gutter + " " + drawRule(palette, line.Rule) +
+	row := gutter + " " + strings.Repeat(" ", line.Indent) + drawRule(palette, line.Rule) +
 		drawName(palette, line) + drawTrailing(palette, line)
 
 	if line.Selected {

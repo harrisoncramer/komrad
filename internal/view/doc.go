@@ -8,13 +8,15 @@
 // The split is what lets a change of logic fail a readable assertion and a change of palette
 // move only a golden file.
 //
-// # Every name on one column
+// # Agents indent under their workflow
 //
 // A row is a fixed sequence of cells: focus, mark gutter, repo, review, forge, status bar, name,
-// then trailing marks. Every cell is always drawn and holds its column whether or not it has
-// anything to say, so every row opens its name at the same place whatever kind it is. A workflow
-// is told from an agent by weight and by its bar, and a child by italic and by the corner inside
-// its name cell, never by position.
+// then trailing marks. Every gutter cell is always drawn and holds its column whether or not it
+// has anything to say, so the gutter is identical on every row whatever kind it is. Only the
+// name is indented: a workflow opens at the gutter, an agent one step in, and a child one step
+// further, on the corner it hangs off its parent by. Weight carries the same structure over
+// again, bold for a workflow and italic for a child, so neither the indent nor the lettering is
+// the only thing saying where a row sits.
 //
 // The status bar is the one cell that draws nothing rather than drawing greyed. A dim pipe says
 // there is a process here and it is quiet, and an empty cell says there is no process at all, so
@@ -23,8 +25,12 @@
 //
 // The old sidebar did offset an agent's name from a workflow's, because agent rows carried a
 // state icon that workflow rows did not. Here the status bar is in the shared gutter on every
-// row, so that cause is gone and any offset left over would be decoration rather than
-// consequence.
+// row, so that cause is gone. The indent above is therefore a decision rather than the leftover
+// of one: it was asked for.
+//
+// An indent costs the name the columns it spends, so an agent has less room for its name than a
+// workflow at the same pane, and the narrowing and the mark shedding both read the indent rather
+// than the gutter alone.
 //
 // # A narrow pane gives up columns, not names
 //
