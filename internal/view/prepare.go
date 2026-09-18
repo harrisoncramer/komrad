@@ -163,7 +163,7 @@ func StatusCell(row Row) Cell {
 	case StatusIdle:
 		return Cell{Glyph: GlyphQuiet, Tone: paint.ToneMuted}
 	case StatusThinking:
-		return Cell{Glyph: GlyphBusy, Tone: paint.ToneAccent}
+		return Cell{Glyph: GlyphBusy, Tone: paint.ToneBright}
 	case StatusWaiting:
 		return Cell{Glyph: GlyphBusy, Tone: paint.ToneWarning}
 	case StatusBroken:

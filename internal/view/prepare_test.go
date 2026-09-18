@@ -37,9 +37,9 @@ func TestPrepareStatusBar(t *testing.T) {
 			want:   Cell{Glyph: GlyphBusy, Tone: paint.ToneWarning},
 		},
 		{
-			name:   "a thinking agent gets the accent bar",
+			name:   "a thinking agent gets the bright bar",
 			status: StatusThinking,
-			want:   Cell{Glyph: GlyphBusy, Tone: paint.ToneAccent},
+			want:   Cell{Glyph: GlyphBusy, Tone: paint.ToneBright},
 		},
 		{
 			name:   "an idle agent gets the muted pipe",
@@ -76,7 +76,7 @@ func TestPrepareBarSaysWhatStandsBehindARow(t *testing.T) {
 		{
 			name: "a process that stopped mid-thought keeps the bar it stopped in",
 			row:  Row{Status: StatusThinking, Process: ProcessStopped},
-			want: Cell{Glyph: GlyphBusy, Tone: paint.ToneAccent},
+			want: Cell{Glyph: GlyphBusy, Tone: paint.ToneBright},
 		},
 		{
 			name: "a row that never had a process draws the quiet pipe all the same",
