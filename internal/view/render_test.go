@@ -1,7 +1,6 @@
 package view
 
 import (
-	"fmt"
 	"regexp"
 	"strings"
 	"testing"
@@ -434,29 +433,47 @@ func TestColumnsDoNotMoveWhenARowGainsAMark(t *testing.T) {
 	}
 }
 
-// TestRenderKeepsTheBusiestRowInsideThePane pins that the marks after a name survive it: the row
-// carrying every one of them, on a child, still draws inside the pane it was sized for.
-func TestRenderKeepsTheBusiestRowInsideThePane(t *testing.T) {
-	busiest := Row{
-		Key:         "busiest",
-		Kind:        KindChild,
-		Name:        "an agent with a very long name indeed that will not fit",
-		Held:        true,
-		UnreadMail:  true,
-		FailedRun:   true,
-		Scheduled:   true,
-		HiddenCount: 12,
-	}
-
-	for _, pane := range []int{30, 40, 60, 120} {
-		t.Run(fmt.Sprintf("pane %d", pane), func(t *testing.T) {
-			list := Prepare(Snapshot{Rows: []Row{busiest}, Pane: pane})
+// TestRenderKeepsEveryReachableRowInsideThePane pins the rule the whole layout rests on: no row
+// draws past its pane, at any width, carrying anything the panel can actually put on it.
+func TestRenderKeepsEveryReachableRowInsideThePane(t *testing.T) {
+	for _, row := range reachableRows() {
+		for pane := 16; pane <= 120; pane++ {
+			list := Prepare(Snapshot{Rows: []Row{row}, Pane: pane})
 			drawn := ansiEscapes.ReplaceAllString(Render(list, paint.Colored, 0), "")
 
-			assert.LessOrEqual(t, drawnColumns(drawn), pane, "row %q", drawn)
-			assert.Contains(t, drawn, spell(GlyphSchedule), "the last mark is still drawn")
-		})
+			assert.LessOrEqual(t, drawnColumns(drawn), pane, "row %q draws past a pane of %d", drawn, pane)
+		}
 	}
+}
+
+// reachableRows is every combination of marks a row can actually carry, which is not every
+// combination of the fields: a child carries neither a tally nor a schedule, since nothing is
+// hidden behind it and a schedule targets a workflow rather than an agent.
+func reachableRows() []Row {
+	name := "an agent with a very long name indeed"
+
+	var rows []Row
+	for _, kind := range []RowKind{KindWorkflow, KindAgent, KindChild} {
+		for marks := range 16 {
+			row := Row{
+				Kind:       kind,
+				Name:       name,
+				Held:       marks&1 != 0,
+				UnreadMail: marks&2 != 0,
+				FailedRun:  marks&4 != 0,
+				Scheduled:  marks&8 != 0,
+			}
+			if kind == KindChild {
+				row.Scheduled = false
+			} else {
+				row.HiddenCount = 12
+			}
+
+			rows = append(rows, row)
+		}
+	}
+
+	return rows
 }
 
 // TestGutterColumnsAgreesWithWhatIsDrawn pins the arithmetic a caller sizes a name by against

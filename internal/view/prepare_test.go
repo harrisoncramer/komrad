@@ -623,15 +623,14 @@ func TestPrepareHeldCell(t *testing.T) {
 	}
 }
 
-// TestPrepareGivesTheTallyUpBeforeTheMarks pins what a row sheds when its pane is too narrow to
-// hold everything: the name first, then the count of what is out of sight, never a mark.
+// TestPrepareGivesTheTallyUpBeforeTheMarks pins what a row sheds as its pane narrows: the name
+// first, then the count of what is out of sight, and never a mark while the marks still fit.
 func TestPrepareGivesTheTallyUpBeforeTheMarks(t *testing.T) {
+	// A workflow row is the one that carries a tally beside a schedule, a child never having
+	// either.
 	busiest := Row{
-		Kind:        KindChild,
+		Kind:        KindWorkflow,
 		Name:        "an agent with a very long name indeed",
-		Held:        true,
-		UnreadMail:  true,
-		FailedRun:   true,
 		Scheduled:   true,
 		HiddenCount: 12,
 	}
@@ -643,21 +642,21 @@ func TestPrepareGivesTheTallyUpBeforeTheMarks(t *testing.T) {
 		wantTally int
 	}{
 		{
-			name:      "a pane with room for neither keeps the marks and gives up both",
-			pane:      28,
-			wantName:  "",
+			name:      "the width Harry runs gives the tally up and spends what it frees on the name",
+			pane:      16,
+			wantName:  "an …",
 			wantTally: 0,
 		},
 		{
-			name:      "the default sidebar keeps all three columns and gives the tally up",
+			name:      "the default sidebar has room for both",
 			pane:      30,
-			wantName:  "…",
-			wantTally: 0,
+			wantName:  "an agen…",
+			wantTally: 12,
 		},
 		{
-			name:      "a pane with room for both keeps the tally",
+			name:      "a wide sidebar cuts nothing at all",
 			pane:      60,
-			wantName:  "an agent with a very long …",
+			wantName:  "an agent with a very long name indeed",
 			wantTally: 12,
 		},
 	}
@@ -670,6 +669,58 @@ func TestPrepareGivesTheTallyUpBeforeTheMarks(t *testing.T) {
 			assert.Equal(t, tt.wantName, list.Lines[0].Name)
 			assert.Equal(t, tt.wantTally, list.Lines[0].Tally)
 			assert.False(t, list.Lines[0].Schedule.IsBlank(), "the marks are never what gives way")
+		})
+	}
+}
+
+// TestPrepareShedsMarksOnlyWhereTheMarksAloneWillNotFit pins the last thing a row gives up, on
+// the worst row a panel can hold: an agent a schedule launched, paused, with unread mail and a
+// failed run nobody has read either.
+func TestPrepareShedsMarksOnlyWhereTheMarksAloneWillNotFit(t *testing.T) {
+	worst := Row{
+		Kind:       KindAgent,
+		Name:       "nightly-bughunt-dispatcher",
+		Scheduled:  true,
+		Held:       true,
+		UnreadMail: true,
+		FailedRun:  true,
+	}
+
+	tests := []struct {
+		name string
+		pane int
+		want []Glyph
+	}{
+		{
+			name: "the width Harry runs keeps the failed run and the mail alone",
+			pane: 16,
+			want: []Glyph{GlyphMail, GlyphAlert},
+		},
+		{
+			name: "a pane two wider keeps the pause as well",
+			pane: 18,
+			want: []Glyph{GlyphPaused, GlyphMail, GlyphAlert},
+		},
+		{
+			name: "a pane wide enough for the marks keeps every one of them",
+			pane: 30,
+			want: []Glyph{GlyphPaused, GlyphMail, GlyphAlert, GlyphSchedule},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			list := Prepare(Snapshot{Rows: []Row{worst}, Pane: tt.pane})
+			require.Len(t, list.Lines, 1)
+
+			drawn := make([]Glyph, 0, 4)
+			for _, cell := range []Cell{list.Lines[0].Held, list.Lines[0].Mail, list.Lines[0].Alert, list.Lines[0].Schedule} {
+				if !cell.IsBlank() {
+					drawn = append(drawn, cell.Glyph)
+				}
+			}
+
+			assert.Equal(t, tt.want, drawn)
 		})
 	}
 }

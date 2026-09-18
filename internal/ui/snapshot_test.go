@@ -669,3 +669,34 @@ func TestReportedReasonSurvivesInTheRecord(t *testing.T) {
 	assert.Contains(t, fields, recordField{"doing", "reading internal/view"})
 	assert.NotContains(t, agentFields(agentstore.Agent{ID: "a1"}, "", ""), recordField{"doing", ""})
 }
+
+// TestSnapshotChildRowCarriesNoTally pins half of why the busiest row a panel can draw is
+// narrower than the busiest row the model can express: a hidden child is counted on the parent
+// drawn above it, so a child row never stands in for anything.
+func TestSnapshotChildRowCarriesNoTally(t *testing.T) {
+	parent := agentstore.Agent{ID: "a1", Name: "parent", WorkflowID: "w1", State: agentstore.StateIdle}
+	child := agentstore.Agent{
+		ID:            "a2",
+		Name:          "child",
+		WorkflowID:    "w1",
+		State:         agentstore.StateIdle,
+		Hidden:        true,
+		ParentAgentID: xptr.Ptr("a1"),
+	}
+
+	rows := treeRows(treeRowsParams{
+		workflows: []workflowstore.Workflow{{ID: "w1", Name: "weave"}},
+		agents:    []agentItem{{agent: parent}, {agent: child}},
+	})
+
+	snapshot := agentsSnapshot(snapshotParams{rows: rows})
+	require.NotEmpty(t, snapshot.Rows)
+
+	for _, row := range snapshot.Rows {
+		if row.Kind == view.KindChild {
+			assert.Zero(t, row.HiddenCount, "a child row stands in for nothing")
+		}
+	}
+
+	assert.Equal(t, 1, snapshot.Rows[1].HiddenCount, "the count lands on the parent instead")
+}

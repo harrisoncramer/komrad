@@ -17,7 +17,7 @@ func Prepare(snapshot Snapshot) List {
 	if snapshot.Pane > 0 {
 		width := NameColumns(snapshot.Pane, columns)
 		for i := range lines {
-			lines[i] = fitName(lines[i], width)
+			lines[i] = fitRow(lines[i], width)
 		}
 	}
 
@@ -204,16 +204,32 @@ func weightFor(kind RowKind) Weight {
 	return WeightRegular
 }
 
-// fitName gives a name what the row has left, dropping the tally first where there is not even a
-// column for it.
-func fitName(line Line, width int) Line {
+// fitRow gives a row's width up in order: the tally, then the name, and last the marks, which
+// only a pane too narrow for the marks alone ever reaches.
+func fitRow(line Line, width int) Line {
 	// A tally counts rows already out of sight, which is worth less than the marks saying
-	// somebody has to do something, so it is what gives way.
+	// somebody has to do something, so it is what gives way first.
 	if nameColumns(line, width) <= 0 {
 		line.Tally = 0
 	}
 
 	line.Name, line.Matches = clipName(line.Name, line.Matches, nameColumns(line, width))
+
+	return shedMarks(line, width)
+}
+
+// shedMarks gives the marks after a name up, in the order of what a person can do without,
+// where even a nameless row will not fit the pane.
+func shedMarks(line Line, width int) Line {
+	// The schedule is a standing fact about the row, the pause is one a person took themselves,
+	// and mail goes before the failed run nobody else will mention.
+	for _, shed := range []*Cell{&line.Schedule, &line.Held, &line.Mail, &line.Alert} {
+		if nameColumns(line, width) >= 0 {
+			return line
+		}
+
+		*shed = Cell{}
+	}
 
 	return line
 }
