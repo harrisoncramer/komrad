@@ -52,7 +52,7 @@ type CwdSyncer struct {
 	trees   treeReader
 	tallies tallyLister
 	mu      sync.Mutex
-	moved   map[string]bool
+	moved   map[string]string
 }
 
 type NewCwdSyncerParams struct {
@@ -69,7 +69,7 @@ func NewCwdSyncer(params NewCwdSyncerParams) *CwdSyncer {
 		heads:   params.Heads,
 		trees:   params.Trees,
 		tallies: params.Tallies,
-		moved:   map[string]bool{},
+		moved:   map[string]string{},
 	}
 }
 
@@ -79,14 +79,15 @@ type cwdLook struct {
 	removed bool
 	head    git.HeadState
 	moved   bool
+	err     error
 }
 
-// HasTreeMoved reports whether an agent's worktree has moved since the round its last verdict was given on.
-func (cs *CwdSyncer) HasTreeMoved(agentID string) bool {
+// HasTreeMoved reports whether an agent's worktree was found to have moved from the given round.
+func (cs *CwdSyncer) HasTreeMoved(agentID, snapshotSHA string) bool {
 	cs.mu.Lock()
 	defer cs.mu.Unlock()
 
-	return cs.moved[agentID]
+	return snapshotSHA != "" && cs.moved[agentID] == snapshotSHA
 }
 
 // Sync looks at every live agent's cwd once and writes what changed, clearing the branch and
@@ -113,11 +114,14 @@ func (cs *CwdSyncer) Sync(ctx context.Context) error {
 		return err
 	}
 
-	moved := map[string]bool{}
+	moved := map[string]string{}
 	var failures []error
 	for _, look := range looks {
 		if look.moved {
-			moved[look.agent.ID] = true
+			moved[look.agent.ID] = rounds[look.agent.ID]
+		}
+		if look.err != nil {
+			failures = append(failures, look.err)
 		}
 		failures = append(failures, cs.write(ctx, look)...)
 	}
@@ -169,7 +173,7 @@ func (cs *CwdSyncer) look(ctx context.Context, agent agentstore.Agent, round str
 	// run against it and waited out.
 	if !look.removed {
 		look.head = cs.readHead(ctx, agent.Cwd)
-		look.moved = cs.readTreeMoved(ctx, agent.Cwd, round)
+		look.moved, look.err = cs.readTreeMoved(ctx, agent, round)
 	}
 
 	return look
@@ -239,18 +243,18 @@ func (cs *CwdSyncer) readHead(ctx context.Context, dir string) git.HeadState {
 	return cs.heads.ReadHeadState(ctx, dir)
 }
 
-func (cs *CwdSyncer) readTreeMoved(ctx context.Context, dir, round string) bool {
-	if dir == "" || round == "" {
-		return false
+func (cs *CwdSyncer) readTreeMoved(ctx context.Context, agent agentstore.Agent, round string) (bool, error) {
+	if agent.Cwd == "" || round == "" {
+		return false, nil
 	}
 
 	ctx, cancel := context.WithTimeout(ctx, cwdLookTimeout)
 	defer cancel()
 
-	moved, err := cs.trees.HasTreeMoved(ctx, dir, round)
+	moved, err := cs.trees.HasTreeMoved(ctx, agent.Cwd, round)
 	if err != nil {
-		return false
+		return false, fmt.Errorf("failed to compare the tree of %q against its reviewed round: %w", agent.Name, err)
 	}
 
-	return moved
+	return moved, nil
 }
