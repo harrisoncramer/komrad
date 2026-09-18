@@ -28,6 +28,11 @@ type Env struct {
 	ReadWorktreeOwners    func(ctx context.Context, url string) (WorktreeOwners, error)
 	ProbeServer           func(ctx context.Context) (ServerStatus, error)
 	IsPanelRunning        func(ctx context.Context) bool
+	ReadTerminfo          func(ctx context.Context, capability string) (string, error)
+
+	// MeasureColumns asks the terminal how wide it drew each sample, and is left nil wherever
+	// there is no terminal to take over.
+	MeasureColumns func(ctx context.Context, samples []string) ([]int, error)
 }
 
 type HarnessInfo struct {
@@ -48,6 +53,8 @@ type Settings struct {
 	EngineIsRemote      bool
 	Version             string
 	Commit              string
+	Term                string
+	ColorTerm           string
 }
 
 // NewEnv is the env pointed at the machine this is running on.
@@ -70,6 +77,7 @@ func NewEnv(settings Settings) Env {
 		ReadPendingMigrations: readPendingMigrations,
 		ConnectReadOnly:       connectReadOnly,
 		ReadWorktreeOwners:    readWorktreeOwners,
+		ReadTerminfo:          readTerminfo,
 	}
 }
 

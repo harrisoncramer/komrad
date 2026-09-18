@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 
+	"weave/config"
 	"weave/internal/doctor"
 	"weave/internal/errui"
 	"weave/internal/version"
@@ -35,6 +36,13 @@ as, the service on its address, and the CLI binary behind each harness. It repai
 nothing, since a command that changed what it was describing could not be trusted
 to say what is wrong.
 
+It also asks the terminal itself what it can draw. The width of every glyph the
+agents list uses is measured by writing it and asking where the cursor landed, and
+bold, italic and colour depth are read out of terminfo. Those last three are what
+the terminal claims rather than what it does. None of it is asked when the output
+is not a terminal, and whether a glyph is in the font at all cannot be tested, so
+a width that surprises is the closest thing to an answer.
+
 The exit status is non-zero when any check failed, so it can gate a script, and
 --json prints the report rather than the summary. Run this first when the panel is
 doing something that makes no sense.`,
@@ -51,6 +59,10 @@ doing something that makes no sense.`,
 			if err != nil {
 				return err
 			}
+
+			// Only this command may take the terminal over to measure it: diagnose runs while
+			// the panel is starting, where a cursor query would be read as a keypress.
+			env.MeasureColumns = doctor.MeasureColumnsOnTTY
 
 			report := doctor.Run(cmd.Context(), env, checks)
 
@@ -122,6 +134,9 @@ func (a *app) buildDoctorSettings() (doctor.Settings, error) {
 		harnesses = append(harnesses, doctor.HarnessInfo{ID: found.ID(), Binary: found.Binary()})
 	}
 
+	termName, _ := config.LookupEnv("TERM")
+	colorTerm, _ := config.LookupEnv("COLORTERM")
+
 	return doctor.Settings{
 		TmuxSocket:          a.env.TmuxSocket,
 		InsideTmux:          a.env.Tmux,
@@ -134,6 +149,8 @@ func (a *app) buildDoctorSettings() (doctor.Settings, error) {
 		EngineIsRemote:      a.engine().IsRemote(),
 		Version:             version.Version(),
 		Commit:              version.Commit(),
+		Term:                termName,
+		ColorTerm:           colorTerm,
 	}, nil
 }
 
