@@ -23,9 +23,15 @@
 // own a checkout, and the bar is a dim pipe where a process is there and quiet, a dashed pipe
 // where one was there and has stopped, and blank where there is none.
 //
-// A blank bar on a workflow row means no orchestrator row is in the listing. It does not separate
-// a workflow that never had an orchestrator from one whose orchestrator has been archived, since
-// nothing in the store keeps a trace of one having existed.
+// The bar reports what stands behind a row now rather than what once did, so a workflow that
+// never had an orchestrator and one whose orchestrator has been archived both draw blank, those
+// being one fact in the present tense.
+//
+// That leaves the bar one uneven seam. An agent whose pane has died draws the dashed pipe, while
+// a workflow whose orchestrator was archived draws blank, though each is a process that was there
+// and has stopped. It shows only when somebody archives an orchestrator, nothing in the store can
+// tell the two apart today, and closing it wants a durable orchestrator id on the workflow rather
+// than a guess in the gather.
 //
 // The old sidebar did offset an agent's name from a workflow's, because agent rows carried a
 // state icon that workflow rows did not. Here the status bar is in the shared gutter on every
