@@ -566,3 +566,65 @@ func TestCheck(t *testing.T) {
 	_, err = f.service.Check(ctx, *app)
 	require.ErrorIs(t, err, ErrAppReachesNothing)
 }
+
+// TestCheckReportsARefusedMint covers the App's key or installation no longer being accepted:
+// GitHub's 401 or 404 on the mint comes back as a refusal, and the row's verified_at is cleared.
+func TestCheckReportsARefusedMint(t *testing.T) {
+	for _, status := range []int{http.StatusUnauthorized, http.StatusNotFound} {
+		t.Run(http.StatusText(status), func(t *testing.T) {
+			f := newFixture(t, "", nil)
+			server, _ := appServer(t, false)
+			withApp(t, f, server)
+			ctx := t.Context()
+
+			app, err := f.service.Connect(ctx, ConnectParams{Host: "github.com", Method: MethodGitHubApp})
+			require.NoError(t, err)
+			row, err := f.store.Get(ctx, app.ID)
+			require.NoError(t, err)
+			require.NotNil(t, row.VerifiedAt)
+
+			refusing := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				w.WriteHeader(status)
+				_, _ = w.Write([]byte(`{"message":"A JSON web token could not be decoded"}`))
+			}))
+			t.Cleanup(refusing.Close)
+			f.service.app.Cache.Identity.API = refusing.URL
+			require.NoError(t, f.service.app.Cache.Forget())
+
+			_, err = f.service.Check(ctx, *app)
+			require.ErrorIs(t, err, ErrUnauthorized)
+			assert.Contains(t, err.Error(), "A JSON web token could not be decoded")
+
+			row, err = f.store.Get(ctx, app.ID)
+			require.NoError(t, err)
+			assert.Nil(t, row.VerifiedAt, "a refused mint clears verified_at the way a refused request does")
+		})
+	}
+}
+
+// TestCheckPassesAMintOutageThrough covers GitHub failing to mint rather than refusing to: a
+// 5xx is not a refusal, so the row keeps its verified_at.
+func TestCheckPassesAMintOutageThrough(t *testing.T) {
+	f := newFixture(t, "", nil)
+	server, _ := appServer(t, false)
+	withApp(t, f, server)
+	ctx := t.Context()
+
+	app, err := f.service.Connect(ctx, ConnectParams{Host: "github.com", Method: MethodGitHubApp})
+	require.NoError(t, err)
+
+	down := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusBadGateway)
+	}))
+	t.Cleanup(down.Close)
+	f.service.app.Cache.Identity.API = down.URL
+	require.NoError(t, f.service.app.Cache.Forget())
+
+	_, err = f.service.Check(ctx, *app)
+	require.Error(t, err)
+	require.NotErrorIs(t, err, ErrUnauthorized)
+
+	row, err := f.store.Get(ctx, app.ID)
+	require.NoError(t, err)
+	assert.NotNil(t, row.VerifiedAt)
+}

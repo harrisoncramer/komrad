@@ -33,6 +33,7 @@ import (
 	"strings"
 	"time"
 
+	"weave/internal/fail"
 	"weave/internal/logging"
 	"weave/lib/xhttp"
 )
@@ -47,6 +48,9 @@ const renewWithin = 5 * time.Minute
 
 // api is where installation tokens are minted, as a variable so a test can answer instead.
 var api = "https://api.github.com"
+
+// ErrRefused says GitHub answered the mint and would not issue a token.
+var ErrRefused = fail.Denied("github refused to mint an installation token")
 
 // Token is an installation token and the moment it stops working.
 type Token struct {
@@ -136,8 +140,12 @@ func (a Identity) Mint(ctx context.Context, client *http.Client, now time.Time) 
 		return Token{}, fmt.Errorf("failed to read github's answer: %w", err)
 	}
 
+	if response.StatusCode >= 400 && response.StatusCode < 500 {
+		return Token{}, fmt.Errorf("%w for app %s installation %s: %s: %s",
+			ErrRefused, a.ID, a.InstallationID, response.Status, strings.TrimSpace(string(body)))
+	}
 	if response.StatusCode != http.StatusCreated {
-		return Token{}, fmt.Errorf("github refused to mint an installation token for app %s installation %s: %s: %s",
+		return Token{}, fmt.Errorf("github failed to mint an installation token for app %s installation %s: %s: %s",
 			a.ID, a.InstallationID, response.Status, strings.TrimSpace(string(body)))
 	}
 

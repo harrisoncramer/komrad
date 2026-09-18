@@ -86,6 +86,9 @@ func NewAppCredential(params NewAppCredentialParams) *AppCredential {
 // Credential is the installation token, minted when the cached one is spent.
 func (c *AppCredential) Credential(ctx context.Context) (Credential, error) {
 	token, err := c.app.Cache.Fetch(ctx, c.app.client(), c.app.now())
+	if errors.Is(err, githubapp.ErrRefused) {
+		return Credential{}, errors.Join(ErrUnauthorized.Saying("%v", err), c.Invalidate(ctx))
+	}
 	if err != nil {
 		return Credential{}, err
 	}

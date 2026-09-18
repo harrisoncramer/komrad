@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"weave/internal/fail"
 	"weave/internal/forge"
 	"weave/internal/git"
 	"weave/lib/xhttp"
@@ -139,6 +140,10 @@ func (f *Forge) get(ctx context.Context, path string, into any) error {
 		},
 	}, into)
 	if err != nil {
+		if failure := fail.Of(err); failure != nil {
+			return failure
+		}
+
 		return err
 	}
 
