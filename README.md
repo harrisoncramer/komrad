@@ -50,6 +50,7 @@ Weave is a terminal tool, intended for power users. It does not aspire to be a r
 - [How it works](docs/concepts.md): the state model, the store and server, the reconciler, and agents
 - [Running it remotely](docs/remote.md): keeping the panel on your machine and the agents on a box somewhere else
 - [Administering the engine](docs/engine-admin.md): building that box, deploying to it, and stopping it overnight
+- [Forges](docs/forges.md): connecting weave to GitHub, and where the token lives
 
 ### Terminology
 
