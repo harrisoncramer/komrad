@@ -174,15 +174,25 @@ func terminfo(answers map[string]string) func(context.Context, string, string) (
 	}
 }
 
-// naming is an env inside tmux whose tmux names the terminal it paints to.
-func naming(client string, answers map[string]string) Env {
+// naming is an env inside tmux whose tmux names the terminal it paints to and the entry it
+// advertises to what it runs.
+func naming(client, defaultTerminal string, answers map[string]string) Env {
 	return Env{
 		Settings:     Settings{Term: "tmux-256color", InsideTmux: "/tmp/tmux-501/default,1,0"},
 		ReadTerminfo: terminfo(answers),
-		Output: func(context.Context, string, ...string) (string, error) {
+		Output: func(_ context.Context, _ string, args ...string) (string, error) {
+			if slices.Contains(args, "default-terminal") {
+				return defaultTerminal, nil
+			}
+
 			return client, nil
 		},
 	}
+}
+
+// italicCapable is a terminfo entry naming both escapes.
+func italicCapable() map[string]string {
+	return map[string]string{"bold": "\x1b[1m", "sitm": "\x1b[3m"}
 }
 
 // TestEmphasisCheckNamesWhatIsLost covers the point of the check, which is that a person told
@@ -213,7 +223,7 @@ func TestEmphasisCheckPasses(t *testing.T) {
 // TestEmphasisCheckAsksTmuxRatherThanItsOwnTerm covers the environment weave always runs in,
 // where the entry tmux advertises to what it runs answers for nothing a person can see.
 func TestEmphasisCheckAsksTmuxRatherThanItsOwnTerm(t *testing.T) {
-	env := naming("xterm-256color", map[string]string{"bold": "\x1b[1m", "sitm": "\x1b[3m"})
+	env := naming("xterm-256color", "tmux-256color", italicCapable())
 
 	result := newTerminalEmphasisCheck().Run(t.Context(), env)
 	require.Equal(t, StatusOK, result.Status, result.Detail)
@@ -225,11 +235,123 @@ func TestEmphasisCheckAsksTmuxRatherThanItsOwnTerm(t *testing.T) {
 // TestEmphasisCheckSkipsWhenTmuxNamesNoClient covers a detached session, where nothing can be
 // said about the painting terminal and saying it is missing italics would be a lie.
 func TestEmphasisCheckSkipsWhenTmuxNamesNoClient(t *testing.T) {
-	env := naming("", nil)
+	env := naming("", "tmux-256color", nil)
 
 	result := newTerminalEmphasisCheck().Run(t.Context(), env)
 	require.Equal(t, StatusSkip, result.Status)
 	assert.Contains(t, result.Detail, "nothing is attached to this session")
+}
+
+// TestEmphasisCheckCatchesTmuxRefusingItalics covers a terminal that draws italics perfectly
+// well behind a tmux that will not send them, which no terminfo entry on its own reveals.
+func TestEmphasisCheckCatchesTmuxRefusingItalics(t *testing.T) {
+	env := naming("xterm-256color", "screen-256color", italicCapable())
+
+	result := newTerminalEmphasisCheck().Run(t.Context(), env)
+	require.Equal(t, StatusWarn, result.Status, result.Detail)
+	require.ErrorIs(t, result.Err, ErrItalicSubstituted)
+	assert.Contains(t, result.Err.Error(), "drawn reversed rather than italic")
+	assert.Contains(t, result.Fix, "default-terminal")
+}
+
+// TestEmphasisCheckSaysAChildIsReversedInTmux covers the shape of the loss, since tmux
+// substitutes standout rather than dropping the attribute and a reversed row reads as selected.
+func TestEmphasisCheckSaysAChildIsReversedInTmux(t *testing.T) {
+	inside := naming("vt100", "tmux-256color", map[string]string{"bold": "\x1b[1m"})
+
+	result := newTerminalEmphasisCheck().Run(t.Context(), inside)
+	require.Equal(t, StatusWarn, result.Status)
+	assert.Contains(t, result.Err.Error(), "drawn reversed rather than italic")
+
+	outside := Env{
+		Settings:     Settings{Term: "vt100"},
+		ReadTerminfo: terminfo(map[string]string{"bold": "\x1b[1m"}),
+	}
+
+	plain := newTerminalEmphasisCheck().Run(t.Context(), outside)
+	require.Equal(t, StatusWarn, plain.Status)
+	assert.Contains(t, plain.Err.Error(), "a child reads as an ordinary agent",
+		"with no tmux in the way the attribute is dropped rather than substituted")
+}
+
+// TestEmphasisCheckReportsBothFaultsAtOnce covers a terminal naming no bold behind a tmux that
+// refuses italics, where reporting either fault alone leaves the other one unsaid.
+func TestEmphasisCheckReportsBothFaultsAtOnce(t *testing.T) {
+	env := naming("xterm-256color", "screen-256color", map[string]string{"sitm": "\x1b[3m"})
+
+	result := newTerminalEmphasisCheck().Run(t.Context(), env)
+	require.Equal(t, StatusWarn, result.Status, result.Detail)
+	assert.Contains(t, result.Err.Error(), "a workflow row reads as an ordinary agent")
+	assert.Contains(t, result.Err.Error(), "drawn reversed rather than italic")
+	assert.Contains(t, result.Fix, "TERM")
+	assert.Contains(t, result.Fix, "default-terminal")
+}
+
+// TestEmphasisCheckSkipsWhenTmuxWillNotSayWhatItAdvertises covers the same unreachable tmux the
+// painting term is asked about, which must not be a skip there and a warn here.
+func TestEmphasisCheckSkipsWhenTmuxWillNotSayWhatItAdvertises(t *testing.T) {
+	env := naming("xterm-256color", "tmux-256color", italicCapable())
+	env.Output = func(_ context.Context, _ string, args ...string) (string, error) {
+		if slices.Contains(args, "default-terminal") {
+			return "", errors.New("no server running")
+		}
+
+		return "xterm-256color", nil
+	}
+
+	result := newTerminalEmphasisCheck().Run(t.Context(), env)
+	require.Equal(t, StatusSkip, result.Status)
+	assert.Contains(t, result.Detail, ErrDefaultTerminalUnknown.Message)
+}
+
+// TestDoesTmuxSubstituteItalics covers which entries tmux refuses italics on, every row of it
+// measured by capturing what tmux writes to an attached client.
+func TestDoesTmuxSubstituteItalics(t *testing.T) {
+	for _, tt := range []struct {
+		name    string
+		entry   string
+		refused bool
+	}{
+		{
+			name:    "the bare screen entry",
+			entry:   "screen",
+			refused: true,
+		},
+		{
+			name:    "a hyphenated screen entry",
+			entry:   "screen-256color",
+			refused: true,
+		},
+		{
+			name:  "a dotted screen entry, which tmux sends italics on",
+			entry: "screen.xterm-256color",
+		},
+		{
+			name:  "an entry naming no sitm of its own",
+			entry: "ansi",
+		},
+		{
+			name:  "the entry weave would want",
+			entry: "tmux-256color",
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			env := naming("xterm-256color", tt.entry, italicCapable())
+
+			refused, err := doesTmuxSubstituteItalics(t.Context(), env)
+			require.NoError(t, err)
+			assert.Equal(t, tt.refused, refused)
+		})
+	}
+}
+
+// TestDoesTmuxSubstituteItalicsOutsideTmux covers there being no tmux to ask, where the escape
+// reaches the terminal unaltered whatever any entry says.
+func TestDoesTmuxSubstituteItalicsOutsideTmux(t *testing.T) {
+	refused, err := doesTmuxSubstituteItalics(t.Context(), Env{Settings: Settings{Term: "xterm-256color"}})
+
+	require.NoError(t, err)
+	assert.False(t, refused)
 }
 
 // TestEmphasisCheckWithoutTerm covers a shell that names no terminal, where terminfo has
