@@ -5,7 +5,7 @@
     [90m[0m [90m[0m [90m[0m [90m▍[0m research-identity-assets
   [90mo[0m [90m[0m [90m[0m [90m[0m [90m│[0m [1mops[0m
     [90m[0m [90m[0m [90m[0m [90m│[0m rds-backup-hardening
-[90m›[0m   [90m[0m [90m[0m [90m[0m [90m▍[0m strip-demo [90m[0m
+[90m›[0m   [90m[0m [90m[0m [90m[0m [90m▍[0m [90mstrip-demo[0m [90m[0m
   [90mw[0m [90m[0m [90m[0m [90m[0m [90m│[0m [1mweave[0m [90m+3[0m [90m[0m
     [90m[0m [90m[0m [90m[0m [90m▍[0m frozen-review-bug
     [90m[0m [90m[0m [90m[0m [90m▍[0m pr-metadata-fixes [90m[0m [90m[0m

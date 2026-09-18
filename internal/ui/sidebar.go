@@ -14,13 +14,15 @@ func (m model) agentsSymbologyView() string {
 	rows := m.agentRows()
 
 	list := view.Prepare(agentsSnapshot(snapshotParams{
-		rows:       rows,
-		marks:      m.listing.marks,
-		selected:   m.tree.selected,
-		scheduled:  m.scheduledWorkflows(),
-		focused:    m.focusedRowKey(rows),
-		showHidden: m.tree.showHidden,
-		nameWidth:  view.NameColumns(m.width),
+		rows:        rows,
+		marks:       m.listing.marks,
+		selected:    m.tree.selected,
+		scheduled:   m.scheduledWorkflows(),
+		focused:     rowKeyAt(rows, m.tree.cursor),
+		caretHidden: m.cursorBlinkedOut(m.isListFocused()),
+		matcher:     m.filter.pattern,
+		showHidden:  m.tree.showHidden,
+		nameWidth:   view.NameColumns(m.width),
 	}))
 
 	header := palette.Title("Agents and Workflows") + "\n\n" + m.filterView() + view.Header(palette) + "\n"
@@ -37,14 +39,4 @@ func (m model) scheduledWorkflows() map[string]bool {
 	}
 
 	return scheduled
-}
-
-// focusedRowKey is the row the caret stands on, which is none of them while the blink has that
-// caret hidden.
-func (m model) focusedRowKey(rows []agentRow) string {
-	if m.cursorBlinkedOut(m.isListFocused()) {
-		return ""
-	}
-
-	return rowKeyAt(rows, m.tree.cursor)
 }

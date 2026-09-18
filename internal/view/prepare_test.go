@@ -115,6 +115,11 @@ func TestPrepareReviewColumn(t *testing.T) {
 			want:   Cell{Glyph: GlyphApproved, Tone: paint.ToneSuccess},
 		},
 		{
+			name:   "notes without a conclusion read as unremarkable, the design spending no value on them",
+			review: ReviewCommented,
+			want:   Cell{Glyph: GlyphReview, Tone: paint.ToneMuted},
+		},
+		{
 			name:   "an open review keeps the glyph and takes the accent tone",
 			review: ReviewOpen,
 			want:   Cell{Glyph: GlyphReview, Tone: paint.ToneAccent},
@@ -494,4 +499,127 @@ func TestPrepareCarriesRowFacts(t *testing.T) {
 	assert.Equal(t, "strip-demo", line.Name)
 	assert.Equal(t, "a", line.Mark.Text)
 	assert.True(t, line.Selected)
+}
+
+// TestPrepareFocusOutranksEveryOtherEmphasis pins the row under the cursor being drawn as the
+// row under the cursor whatever else it has to say.
+func TestPrepareFocusOutranksEveryOtherEmphasis(t *testing.T) {
+	tests := []struct {
+		name string
+		row  Row
+		want Emphasis
+	}{
+		{
+			name: "a hidden row under the cursor is still the row under the cursor",
+			row:  Row{Key: "one", Dim: true},
+			want: EmphasisFocused,
+		},
+		{
+			name: "so is one nobody has read",
+			row:  Row{Key: "one", Unviewed: true},
+			want: EmphasisFocused,
+		},
+		{
+			name: "an ordinary row under the cursor",
+			row:  Row{Key: "one"},
+			want: EmphasisFocused,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			list := Prepare(Snapshot{Rows: []Row{tt.row}, Focused: "one"})
+			require.Len(t, list.Lines, 1)
+
+			assert.Equal(t, tt.want, list.Lines[0].Emphasis)
+		})
+	}
+}
+
+// TestPrepareHiddenCaretKeepsTheRowFocused pins the blink taking the caret off without taking
+// the focus with it, so a row stays lit while the caret is dark.
+func TestPrepareHiddenCaretKeepsTheRowFocused(t *testing.T) {
+	list := Prepare(Snapshot{Rows: []Row{{Key: "one", Name: "one"}}, Focused: "one", CaretHidden: true})
+	require.Len(t, list.Lines, 1)
+
+	assert.True(t, list.Lines[0].Focus.IsBlank())
+	assert.True(t, list.Lines[0].Focused)
+	assert.Equal(t, EmphasisFocused, list.Lines[0].Emphasis)
+}
+
+// TestPrepareClipsMatchesWithTheName pins a search match surviving the cut that shortens the
+// name it sits in, since a match hanging off the end would be drawn over whatever follows.
+func TestPrepareClipsMatchesWithTheName(t *testing.T) {
+	tests := []struct {
+		name    string
+		matches []Span
+		width   int
+		want    []Span
+	}{
+		{
+			name:    "a match wholly past the cut is dropped",
+			matches: []Span{{Start: 10, End: 14}},
+			width:   6,
+			want:    nil,
+		},
+		{
+			name:    "a match the cut runs through is shortened to what is left",
+			matches: []Span{{Start: 3, End: 14}},
+			width:   6,
+			want:    []Span{{Start: 3, End: 5}},
+		},
+		{
+			name:    "a match before the cut is left alone",
+			matches: []Span{{Start: 0, End: 4}},
+			width:   6,
+			want:    []Span{{Start: 0, End: 4}},
+		},
+		{
+			name:    "no cut at all leaves every match alone",
+			matches: []Span{{Start: 10, End: 14}},
+			want:    []Span{{Start: 10, End: 14}},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			row := Row{Name: "agent-with-a-long-name", Matches: tt.matches}
+			list := Prepare(Snapshot{Rows: []Row{row}, NameWidth: tt.width})
+			require.Len(t, list.Lines, 1)
+
+			assert.Equal(t, tt.want, list.Lines[0].Matches)
+		})
+	}
+}
+
+// TestPrepareHeldCell pins the pause a person took, which is alarming where the agent is
+// working through it.
+func TestPrepareHeldCell(t *testing.T) {
+	tests := []struct {
+		name string
+		row  Row
+		want Cell
+	}{
+		{
+			name: "a paused agent working anyway is drawn in danger",
+			row:  Row{Held: true, HeldWorking: true},
+			want: Cell{Glyph: GlyphPaused, Tone: paint.ToneDanger},
+		},
+		{
+			name: "an ordinary pause is a warning",
+			row:  Row{Held: true},
+			want: Cell{Glyph: GlyphPaused, Tone: paint.ToneWarning},
+		},
+		{
+			name: "an agent nobody paused draws nothing",
+			row:  Row{},
+			want: Cell{},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, prepareOne(t, tt.row).Held)
+		})
+	}
 }

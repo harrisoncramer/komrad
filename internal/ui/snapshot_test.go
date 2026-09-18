@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"regexp"
 	"testing"
 	"time"
 
@@ -182,9 +183,9 @@ func TestSnapshotReview(t *testing.T) {
 			want: view.ReviewOpen,
 		},
 		{
-			name: "notes on work nobody is still reading leave the column empty",
+			name: "notes on work nobody is still reading are their own answer",
 			item: agentItem{localVerdict: string(reviewstore.VerdictCommented)},
-			want: view.ReviewNone,
+			want: view.ReviewCommented,
 		},
 		{
 			name: "a reviewer owed an answer is an open review",
@@ -534,4 +535,137 @@ func TestSnapshotListing(t *testing.T) {
 	assert.Equal(t, "p", snapshot.Rows[2].Mark)
 	assert.True(t, snapshot.Rows[1].Selected)
 	assert.False(t, snapshot.Rows[2].Selected)
+}
+
+// TestSnapshotSearchMatches pins what a filtered list carries about what it matched on, which is
+// where the matches are rather than any colour for them.
+func TestSnapshotSearchMatches(t *testing.T) {
+	tests := []struct {
+		name string
+		expr string
+		row  agentRow
+		want []view.Span
+	}{
+		{
+			name: "a search matching nothing in the name leaves it unmarked",
+			expr: "nothing",
+			row:  agentRow{item: agentItem{agent: agentstore.Agent{ID: "a1", Name: "view-gather"}}},
+			want: nil,
+		},
+		{
+			name: "a search matching twice marks both",
+			expr: "view",
+			row:  agentRow{item: agentItem{agent: agentstore.Agent{ID: "a1", Name: "view-of-a-view"}}},
+			want: []view.Span{{Start: 0, End: 4}, {Start: 10, End: 14}},
+		},
+		{
+			name: "a workflow name is searched the same way",
+			expr: "eave",
+			row:  agentRow{header: true, workflow: workflowstore.Workflow{ID: "w1", Name: "weave"}},
+			want: []view.Span{{Start: 1, End: 5}},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			row := snapshotRowOf(t, snapshotParams{
+				rows:    []agentRow{tt.row},
+				matcher: regexp.MustCompile(tt.expr),
+			})
+
+			assert.Equal(t, tt.want, row.Matches)
+		})
+	}
+}
+
+// TestSnapshotSearchOffMarksNothing pins a list nobody is searching carrying no matches at all.
+func TestSnapshotSearchOffMarksNothing(t *testing.T) {
+	row := snapshotOne(t, agentItem{agent: agentstore.Agent{ID: "a1", Name: "view-gather"}})
+
+	assert.Nil(t, row.Matches)
+}
+
+// TestSnapshotHeldWorking pins the pause that did not take: weave goes on reading the pane, so a
+// paused agent that is working again says so rather than the row claiming it stopped.
+func TestSnapshotHeldWorking(t *testing.T) {
+	tests := []struct {
+		name string
+		item agentItem
+		want bool
+	}{
+		{
+			name: "a paused agent that started a turn is working anyway",
+			item: agentItem{
+				agent: agentstore.Agent{State: agentstore.StateThinking, HeldAt: xptr.Ptr(time.Now())},
+				alive: true,
+			},
+			want: true,
+		},
+		{
+			name: "so is one stopped at a prompt, where an answer would land a write",
+			item: agentItem{
+				agent: agentstore.Agent{State: agentstore.StateWaiting, HeldAt: xptr.Ptr(time.Now())},
+				alive: true,
+			},
+			want: true,
+		},
+		{
+			name: "a pane nobody can read says nothing either way, so the hold stands",
+			item: agentItem{
+				agent: agentstore.Agent{State: agentstore.StateUncertain, HeldAt: xptr.Ptr(time.Now())},
+				alive: true,
+			},
+			want: false,
+		},
+		{
+			name: "a paused agent sitting quiet is held and nothing more",
+			item: agentItem{
+				agent: agentstore.Agent{State: agentstore.StateIdle, HeldAt: xptr.Ptr(time.Now())},
+				alive: true,
+			},
+			want: false,
+		},
+		{
+			name: "an agent nobody paused is never working through a hold",
+			item: agentItem{agent: agentstore.Agent{State: agentstore.StateThinking}, alive: true},
+			want: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, snapshotOne(t, tt.item).HeldWorking)
+		})
+	}
+}
+
+// TestSnapshotCarriesTheBlink pins the caret's blink reaching the view as a fact rather than the
+// view inventing one, the focused row being named either way.
+func TestSnapshotCarriesTheBlink(t *testing.T) {
+	rows := []agentRow{{item: agentItem{agent: agentstore.Agent{ID: "a1", Name: "worker"}}}}
+
+	hidden := agentsSnapshot(snapshotParams{rows: rows, focused: "agent:a1", caretHidden: true})
+	shown := agentsSnapshot(snapshotParams{rows: rows, focused: "agent:a1"})
+
+	assert.True(t, hidden.CaretHidden)
+	assert.False(t, shown.CaretHidden)
+	assert.Equal(t, "agent:a1", hidden.Focused)
+}
+
+// TestSnapshotOfAnEmptyPanelIsEmpty pins the first run, where there is nothing to draw at all.
+func TestSnapshotOfAnEmptyPanelIsEmpty(t *testing.T) {
+	snapshot := agentsSnapshot(snapshotParams{})
+
+	assert.Empty(t, snapshot.Rows)
+}
+
+// TestReportedReasonSurvivesInTheRecord pins the one thing the new row drops that nothing else
+// was showing: what the agent's own CLI last said it was doing.
+func TestReportedReasonSurvivesInTheRecord(t *testing.T) {
+	agent := agentstore.Agent{ID: "a1", Name: "worker", ReportedReason: "reading internal/view"}
+
+	fields := agentFields(agent, "", "")
+
+	assert.Contains(t, fields, recordField{"doing", "reading internal/view"})
+	assert.NotContains(t, agentFields(agentstore.Agent{ID: "a1"}, "", ""), recordField{"doing", ""})
 }

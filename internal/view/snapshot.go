@@ -37,6 +37,7 @@ const (
 	ReviewOpen
 	ReviewApproved
 	ReviewChangesRequested
+	ReviewCommented
 )
 
 // Forge is where the pull request opened from an agent's branch stands.
@@ -50,9 +51,18 @@ const (
 	ForgeMerged
 )
 
+// Span is a stretch of a name a search matched, in bytes of that name.
+type Span struct {
+	Start int
+	End   int
+}
+
 // Snapshot is everything the agents list draws itself from.
 type Snapshot struct {
 	Rows []Row
+	// CaretHidden says the blink has the focus caret out of sight this frame, which the caller
+	// knows and the view would otherwise have to invent.
+	CaretHidden bool
 	// Focused is the key of the row the keyboard is standing on, naming it rather than counting
 	// to it so a list re-sorted after it was gathered still focuses the same row.
 	Focused string
@@ -67,8 +77,10 @@ type Row struct {
 	Kind RowKind
 	Name string
 	// Mark is the letter a person typed onto this row, empty when none is on it.
-	Mark   string
-	Status Status
+	Mark string
+	// Matches are the stretches of the name a search picked out.
+	Matches []Span
+	Status  Status
 	// Dormant says there is no process behind the row at all, which is what empties the status
 	// cell rather than quieting it.
 	Dormant bool
@@ -80,11 +92,13 @@ type Row struct {
 	// Unviewed says the row has said something nobody has read.
 	Unviewed bool
 	// Dim says the row is hidden or archived, which greys everything on it.
-	Dim        bool
-	Held       bool
-	UnreadMail bool
-	FailedRun  bool
-	Scheduled  bool
+	Dim  bool
+	Held bool
+	// HeldWorking says a paused agent is working anyway, which the hold did not stop.
+	HeldWorking bool
+	UnreadMail  bool
+	FailedRun   bool
+	Scheduled   bool
 	// HiddenCount is how many rows this one stands in for while they are out of sight.
 	HiddenCount int
 }

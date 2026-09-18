@@ -89,3 +89,22 @@ func TestSymbologyDrawsTheColumnHeader(t *testing.T) {
 	assert.NotContains(t, ansi.Strip(symbologyModel(false).agentsView()), header)
 	assert.Contains(t, ansi.Strip(symbologyModel(true).agentsView()), header)
 }
+
+// TestSymbologyOnAnEmptyPanel pins the first run, where a panel holding nothing at all still
+// draws its chrome and says where to start.
+func TestSymbologyOnAnEmptyPanel(t *testing.T) {
+	for _, symbology := range []bool{false, true} {
+		m := model{
+			frame:   layout.New(&recordingTmux{}, config.DefaultLayout()),
+			keys:    config.DefaultKeybindings(),
+			sidebar: config.Sidebar{Symbology: symbology},
+			width:   120,
+			height:  40,
+		}
+		m.tree.cursor = -1
+
+		assert.NotPanics(t, func() { m.agentsView() })
+		assert.Contains(t, ansi.Strip(m.agentsView()), "Agents and Workflows")
+		assert.Contains(t, m.agentDoc(), "nothing here yet")
+	}
+}

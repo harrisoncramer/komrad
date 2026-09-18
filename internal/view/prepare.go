@@ -6,17 +6,32 @@ import "weave/internal/ui/paint"
 func Prepare(snapshot Snapshot) List {
 	lines := make([]Line, 0, len(snapshot.Rows))
 	for _, row := range snapshot.Rows {
-		lines = append(lines, prepareLine(row, isFocused(row, snapshot.Focused), snapshot.NameWidth))
+		lines = append(lines, prepareLine(prepareLineParams{
+			row:         row,
+			focused:     isFocused(row, snapshot.Focused),
+			caretHidden: snapshot.CaretHidden,
+			nameWidth:   snapshot.NameWidth,
+		}))
 	}
 
 	return List{Lines: lines}
 }
 
+// prepareLineParams is one row and what the list around it says about that row.
+type prepareLineParams struct {
+	row         Row
+	focused     bool
+	caretHidden bool
+	nameWidth   int
+}
+
 // prepareLine resolves one row to the glyphs, tones and weight it is drawn in.
-func prepareLine(row Row, focused bool, nameWidth int) Line {
+func prepareLine(params prepareLineParams) Line {
+	row, focused := params.row, params.focused
+
 	line := Line{
 		Focused:  focused,
-		Focus:    markCell(focused, GlyphFocus, paint.ToneAccent),
+		Focus:    markCell(focused && !params.caretHidden, GlyphFocus, paint.ToneAccent),
 		Mark:     textCell(row.Mark, paint.ToneMark),
 		Repo:     repoCell(row.Repo),
 		Review:   reviewCell(row.Review),
@@ -25,8 +40,8 @@ func prepareLine(row Row, focused bool, nameWidth int) Line {
 		Rule:     row.Kind == KindChild,
 		Name:     row.Name,
 		Weight:   weightFor(row.Kind),
-		Emphasis: emphasisFor(row),
-		Held:     markCell(row.Held, GlyphPaused, paint.ToneWarning),
+		Emphasis: emphasisFor(row, focused),
+		Held:     heldCell(row),
 		Mail:     markCell(row.UnreadMail, GlyphMail, paint.ToneAccent),
 		Alert:    markCell(row.FailedRun, GlyphAlert, paint.ToneDanger),
 		Tally:    row.HiddenCount,
@@ -34,7 +49,7 @@ func prepareLine(row Row, focused bool, nameWidth int) Line {
 		Selected: row.Selected,
 	}
 
-	line.Name = clipName(row.Name, nameColumns(line, nameWidth))
+	line.Name, line.Matches = clipName(row.Name, row.Matches, nameColumns(line, params.nameWidth))
 
 	if row.Dim {
 		return greyed(line)
@@ -84,6 +99,8 @@ func reviewCell(review Review) Cell {
 		return Cell{Glyph: GlyphApproved, Tone: paint.ToneSuccess}
 	case ReviewChangesRequested:
 		return Cell{Glyph: GlyphChanges, Tone: paint.ToneWarning}
+	case ReviewCommented:
+		return Cell{Glyph: GlyphReview, Tone: paint.ToneMuted}
 	}
 
 	return Cell{Glyph: GlyphReview, Tone: paint.ToneMuted}
@@ -161,20 +178,51 @@ func weightFor(kind RowKind) Weight {
 	return WeightRegular
 }
 
-// clipName cuts a name to the column it was given, leaving it whole when the snapshot names no
-// column at all.
-func clipName(name string, width int) string {
-	if width <= 0 {
-		return name
+// clipName cuts a name to the column it was given, along with the matches that survive the cut,
+// leaving both whole when the snapshot names no column at all.
+func clipName(name string, matches []Span, width int) (string, []Span) {
+	if width <= 0 || len([]rune(name)) <= width {
+		return name, matches
 	}
 
-	return paint.Clip(name, width)
+	kept := len(string([]rune(name)[:width-1]))
+
+	return paint.Clip(name, width), clipSpans(matches, kept)
 }
 
-// emphasisFor is how brightly a name is drawn, greying beating brightening since a hidden row
-// is out of the way whatever it has said.
-func emphasisFor(row Row) Emphasis {
+// clipSpans drops the matches the cut took and shortens the one it cut through.
+func clipSpans(matches []Span, kept int) []Span {
+	clipped := make([]Span, 0, len(matches))
+	for _, match := range matches {
+		if match.Start >= kept {
+			continue
+		}
+
+		clipped = append(clipped, Span{Start: match.Start, End: min(match.End, kept)})
+	}
+
+	if len(clipped) == 0 {
+		return nil
+	}
+
+	return clipped
+}
+
+// heldCell is the pause a person took on an agent, in danger where that agent is working anyway.
+func heldCell(row Row) Cell {
+	if row.Held && row.HeldWorking {
+		return Cell{Glyph: GlyphPaused, Tone: paint.ToneDanger}
+	}
+
+	return markCell(row.Held, GlyphPaused, paint.ToneWarning)
+}
+
+// emphasisFor is how brightly a name is drawn, the row under the cursor beating greying and
+// greying beating brightening.
+func emphasisFor(row Row, focused bool) Emphasis {
 	switch {
+	case focused:
+		return EmphasisFocused
 	case row.Dim:
 		return EmphasisDim
 	case row.Unviewed:

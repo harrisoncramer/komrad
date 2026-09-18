@@ -1,6 +1,8 @@
 package ui
 
 import (
+	"regexp"
+
 	agentstore "weave/internal/store/agent"
 	reviewstore "weave/internal/store/review"
 	"weave/internal/view"
@@ -14,8 +16,12 @@ type snapshotParams struct {
 	marks map[string]string
 	// selected are the agents taken into a selection several rows wide.
 	selected selection
-	// focused is the key of the row the caret stands on, empty when it stands on none.
+	// focused is the key of the row the cursor stands on, empty when it stands on none.
 	focused string
+	// caretHidden says the blink has the focus caret out of sight this frame.
+	caretHidden bool
+	// matcher is the search a person is filtering the list by, nil when they are not.
+	matcher *regexp.Regexp
 	// scheduled are the workflows at least one schedule launches into, keyed by workflow id.
 	scheduled map[string]bool
 	// showHidden says the hidden rows are drawn alongside the rest, so none is stood in for.
@@ -32,9 +38,10 @@ func agentsSnapshot(params snapshotParams) view.Snapshot {
 	}
 
 	return view.Snapshot{
-		Rows:      rows,
-		Focused:   params.focused,
-		NameWidth: params.nameWidth,
+		Rows:        rows,
+		CaretHidden: params.caretHidden,
+		Focused:     params.focused,
+		NameWidth:   params.nameWidth,
 	}
 }
 
@@ -51,6 +58,7 @@ func snapshotRow(r agentRow, params snapshotParams) view.Row {
 	if r.header {
 		row.Kind = view.KindWorkflow
 		row.Name = r.workflow.Name
+		row.Matches = matchesIn(params.matcher, r.workflow.Name)
 		row.Scheduled = params.scheduled[r.workflow.ID]
 
 		// A workflow's bar is its orchestrator's, and one that has never had an orchestrator has
@@ -70,6 +78,7 @@ func snapshotRow(r agentRow, params snapshotParams) view.Row {
 	item := r.item
 	row.Kind = snapshotKind(r)
 	row.Name = item.agent.Name
+	row.Matches = matchesIn(params.matcher, item.agent.Name)
 	row.Status = snapshotStatus(item)
 	row.Dormant = dormant(item)
 	row.Repo = snapshotRepo(item.agent)
@@ -78,6 +87,7 @@ func snapshotRow(r agentRow, params snapshotParams) view.Row {
 	row.Unviewed = item.unviewed
 	row.Dim = item.agent.Hidden
 	row.Held = item.agent.HeldAt != nil
+	row.HeldWorking = row.Held && heldWorking(item)
 	row.UnreadMail = item.unreadMail
 	row.FailedRun = item.failedRun
 	row.Scheduled = item.agent.ScheduleID != nil
@@ -126,6 +136,43 @@ func snapshotStatus(item agentItem) view.Status {
 	return view.StatusIdle
 }
 
+// matchesIn is the stretches of a name a search picked out, in bytes of that name.
+func matchesIn(matcher *regexp.Regexp, name string) []view.Span {
+	if matcher == nil {
+		return nil
+	}
+
+	found := matcher.FindAllStringIndex(name, -1)
+	if len(found) == 0 {
+		return nil
+	}
+
+	spans := make([]view.Span, 0, len(found))
+	for _, at := range found {
+		spans = append(spans, view.Span{Start: at[0], End: at[1]})
+	}
+
+	return spans
+}
+
+// heldWorking reports whether an agent somebody paused is working anyway, which weave finds out
+// by going on reading the pane rather than by the hold failing.
+func heldWorking(item agentItem) bool {
+	if !item.alive {
+		return false
+	}
+
+	switch item.agent.State {
+	case agentstore.StateThinking, agentstore.StateWaiting:
+		return true
+	case agentstore.StateIdle, agentstore.StateUncertain, agentstore.StateSettingUp,
+		agentstore.StateFailedToCreate, agentstore.StateFailedToCleanup:
+		return false
+	}
+
+	return false
+}
+
 // dormant reports whether nothing is running behind a row, which the state it wears cannot say
 // since an agent whose pane has gone wears the same idle as one sitting quiet.
 func dormant(item agentItem) bool {
@@ -154,6 +201,9 @@ func snapshotReview(item agentItem) view.Review {
 	case reviewstore.VerdictChangesRequested:
 		return view.ReviewChangesRequested
 	case reviewstore.VerdictCommented:
+		if !item.inLocalReview {
+			return view.ReviewCommented
+		}
 	}
 
 	if item.inLocalReview {

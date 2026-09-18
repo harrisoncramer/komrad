@@ -26,6 +26,14 @@
 // row, so that cause is gone and any offset left over would be decoration rather than
 // consequence.
 //
+// # Scrolling belongs to the caller
+//
+// Rows hands back one drawn string per row and stops there. Which of them fit the pane, and
+// which the list is scrolled to, is the caller's, since only the caller knows what else it has
+// put above and below them. A caller measuring those rows applies the same correction the
+// selection bar does, because an Octicon sits in the private use area and is measured as one
+// column where the font draws two.
+//
 // # Zero values are the ordinary case
 //
 // Every enum in a Snapshot starts at what an unremarkable row would say: an agent, a clean

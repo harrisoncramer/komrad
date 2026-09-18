@@ -355,6 +355,17 @@ func TestRenderDormantRowKeepsTheNameColumn(t *testing.T) {
 	}
 }
 
+// TestRenderDrawsASearchMatchInTheMatchColour pins a filtered list still showing what it
+// matched on, the rest of the name keeping its own lettering.
+func TestRenderDrawsASearchMatchInTheMatchColour(t *testing.T) {
+	row := Row{Key: "one", Kind: KindAgent, Name: "view-gather", Matches: []Span{{Start: 5, End: 11}}}
+
+	drawn := renderOne(t, row)
+
+	assert.Contains(t, drawn, paint.Colored.Match().Render("gather"))
+	assert.Contains(t, ansiEscapes.ReplaceAllString(drawn, ""), "view-gather")
+}
+
 // TestRenderKeepsTheBusiestRowInsideThePane pins that the marks after a name survive it: the row
 // carrying every one of them, on a child, still draws inside the pane it was sized for.
 func TestRenderKeepsTheBusiestRowInsideThePane(t *testing.T) {

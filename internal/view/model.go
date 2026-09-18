@@ -40,6 +40,7 @@ const (
 	EmphasisNormal Emphasis = iota
 	EmphasisBright
 	EmphasisDim
+	EmphasisFocused
 )
 
 // Cell is one drawn position, carrying either a named glyph or a letter a person typed, in a
@@ -66,8 +67,11 @@ type Line struct {
 	Forge   Cell
 	Status  Cell
 	// Rule draws the corner a child hangs off, inside the name cell rather than before it.
-	Rule     bool
-	Name     string
+	Rule bool
+	Name string
+	// Matches are the stretches of the name a search picked out, in bytes of the name as it is
+	// drawn rather than as it was gathered.
+	Matches  []Span
 	Weight   Weight
 	Emphasis Emphasis
 	Held     Cell
