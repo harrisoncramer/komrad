@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -14,6 +13,7 @@ import (
 
 	"weave/internal/forge"
 	"weave/internal/git"
+	"weave/lib/xhttp"
 )
 
 // DefaultAPI is where github.com answers REST calls.
@@ -116,35 +116,26 @@ func (f *Forge) Get(ctx context.Context, address string) (forge.PullRequest, err
 }
 
 func (f *Forge) get(ctx context.Context, path string, into any) error {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, f.api+path, nil)
+	answer, err := xhttp.JSON(ctx, xhttp.JSONParams{
+		Client: f.client,
+		Method: http.MethodGet,
+		URL:    f.api + path,
+		Header: http.Header{
+			"Accept":               {"application/vnd.github+json"},
+			"X-GitHub-Api-Version": {"2022-11-28"},
+		},
+	}, into)
 	if err != nil {
-		return fmt.Errorf("failed to build the request for %s: %w", path, err)
-	}
-	req.Header.Set("Accept", "application/vnd.github+json")
-	req.Header.Set("X-GitHub-Api-Version", "2022-11-28")
-
-	resp, err := f.client.Do(req)
-	if err != nil {
-		return fmt.Errorf("failed to reach github for %s: %w", path, err)
-	}
-	defer resp.Body.Close()
-
-	body, err := io.ReadAll(io.LimitReader(resp.Body, 8<<20))
-	if err != nil {
-		return fmt.Errorf("failed to read github's answer for %s: %w", path, err)
+		return err
 	}
 
 	switch {
-	case resp.StatusCode == http.StatusUnauthorized:
-		return fmt.Errorf("%w: %s", forge.ErrUnauthorized, messageOf(body))
-	case resp.StatusCode == http.StatusNotFound:
+	case answer.Status == http.StatusUnauthorized:
+		return fmt.Errorf("%w: %s", forge.ErrUnauthorized, messageOf(answer.Body))
+	case answer.Status == http.StatusNotFound:
 		return fmt.Errorf("%w: %s", forge.ErrNotFound, path)
-	case resp.StatusCode >= 300:
-		return fmt.Errorf("github answered %d for %s: %s", resp.StatusCode, path, messageOf(body))
-	}
-
-	if err := json.Unmarshal(body, into); err != nil {
-		return fmt.Errorf("failed to decode github's answer for %s: %w", path, err)
+	case !answer.IsSuccess():
+		return fmt.Errorf("github answered %d for %s: %s", answer.Status, path, messageOf(answer.Body))
 	}
 
 	return nil
