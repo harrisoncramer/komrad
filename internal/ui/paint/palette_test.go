@@ -99,7 +99,7 @@ func TestPaletteFollowsTheTerminal(t *testing.T) {
 func TestEveryToneIsItsOwnColour(t *testing.T) {
 	seen := map[lipgloss.Color]Tone{}
 
-	for _, tone := range []Tone{ToneMuted, ToneAccent, ToneSuccess, ToneWarning, ToneDanger, ToneMark, ToneSelf, ToneOther} {
+	for _, tone := range []Tone{ToneMuted, ToneAccent, ToneSuccess, ToneWarning, ToneDanger, ToneMark, ToneSelf, ToneOther, ToneBright, ToneMerged} {
 		color := Panel.Color(tone)
 		other, taken := seen[color]
 		assert.False(t, taken, "tone %d draws in the same colour as tone %d", tone, other)

@@ -140,24 +140,20 @@ drawn is paint's.
 The rule is enforced rather than described: depguard denies paint the store, the database, the
 protos, and the panel itself, listed in .golangci.yaml beside the panel's own rule.
 
-Colour is how the panel says where the keys are, and it is one mechanism rather than a
-decision each widget makes. paint.Palette is the colours one region draws in, and there are
-two of them: paint.Colored and paint.Grey. Nothing names a colour directly. Each piece of the
-panel names a paint.Tone, the part it plays, and the palette of the region drawing it turns
-that into a colour. The grey palette answers every tone with the same grey, so a region that
-does not hold the keys carries no hue at all.
+Nothing names a colour directly. Each piece of the panel names a paint.Tone, the part it
+plays, and paint.Panel, the one palette the panel draws in, turns that into a colour. So
+retuning what an accent or a danger looks like is one edit rather than a sweep.
 
-focus.go is the map of the regions: the list, the block beside it, the record under it, the
-message under that, and the review's conversation. holdsKeys says which of them the keys are
-on and m.palette hands back what that region draws in, so a screen asks for its own region's
-palette and everything under it follows.
-
-The messages region is the exception, and keeps its colours whoever holds the keys. It is
-there to be noticed rather than to say where the keys are, and a refused write is reported
-into it while the reader is on the list.
+Colour used to say where the keys are as well: a region that did not hold them drew in one
+grey throughout. That went, because the panel carries meaning in colour everywhere and
+flattening a region destroyed what it was saying. What says where the keys are now is the row
+cursor, which blinks on the half holding them and stands still on the other, and the legend
+row, which lists the keys of whatever is being typed at. The review screen has neither, so
+which of its two halves holds the keys is not on the screen at all. A better signal than the
+greying is still to be worked out.
 
 An agent's own terminal is another process drawing in its own colours, so no palette reaches
-it, and the panel greys itself whole while the keys are on it.
+it.
 
 The one contract paint cannot import is the pair of markers the transcript store wraps a
 search hit in. It declares them itself and marker_test.go in the panel pins the two together,
