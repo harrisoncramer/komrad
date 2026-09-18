@@ -394,7 +394,7 @@ func TestPrepareMarkKeepsItsOwnColumn(t *testing.T) {
 		{
 			name: "a marked row carries the letter and the mark tone",
 			row:  Row{Mark: "a"},
-			want: Cell{Text: "a", Tone: paint.ToneMark},
+			want: Cell{Text: "a", Tone: paint.ToneMuted},
 		},
 	}
 
@@ -513,9 +513,9 @@ func TestPrepareTrailingMarks(t *testing.T) {
 			want: Line{Mail: Cell{Glyph: GlyphMail, Tone: paint.ToneMuted}},
 		},
 		{
-			name: "a paused agent is the warning pause",
+			name: "a paused agent is the muted pause",
 			row:  Row{Held: true},
-			want: Line{Held: Cell{Glyph: GlyphPaused, Tone: paint.ToneWarning}},
+			want: Line{Held: Cell{Glyph: GlyphPaused, Tone: paint.ToneMuted}},
 		},
 		{
 			name: "a hidden agent is the muted closed eye",
@@ -753,9 +753,9 @@ func TestPrepareHeldCell(t *testing.T) {
 			want: Cell{Glyph: GlyphPaused, Tone: paint.ToneDanger},
 		},
 		{
-			name: "an ordinary pause is a warning",
+			name: "an ordinary pause is muted",
 			row:  Row{Held: true},
-			want: Cell{Glyph: GlyphPaused, Tone: paint.ToneWarning},
+			want: Cell{Glyph: GlyphPaused, Tone: paint.ToneMuted},
 		},
 		{
 			name: "an agent nobody paused draws nothing",

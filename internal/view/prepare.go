@@ -61,7 +61,7 @@ func prepareLine(params prepareLineParams) Line {
 	return Line{
 		Focused:  focused,
 		Focus:    markCell(focused && !params.caretHidden, GlyphFocus, paint.ToneAccent),
-		Mark:     textCell(row.Mark, paint.ToneMark),
+		Mark:     textCell(row.Mark, paint.ToneMuted),
 		Repo:     RepoCell(row),
 		Review:   ReviewCell(row),
 		Forge:    forgeCell(row),
@@ -312,7 +312,7 @@ func HeldCell(row Row) Cell {
 		return Cell{Glyph: GlyphPaused, Tone: paint.ToneDanger}
 	}
 
-	return markCell(row.Held, GlyphPaused, paint.ToneWarning)
+	return markCell(row.Held, GlyphPaused, paint.ToneMuted)
 }
 
 // emphasisFor is how brightly a name is drawn, the row under the cursor beating greying and
