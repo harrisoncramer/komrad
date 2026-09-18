@@ -30,12 +30,18 @@ func Header(palette paint.Palette) string {
 
 // Render draws every row of the agents list, one to a line.
 func Render(list List, palette paint.Palette, width int) string {
-	lines := make([]string, 0, len(list.Lines))
+	return strings.Join(Rows(list, palette, width), "\n")
+}
+
+// Rows draws every row of the agents list as its own string, which is what a caller that pads
+// or scrolls the list one row at a time takes.
+func Rows(list List, palette paint.Palette, width int) []string {
+	rows := make([]string, 0, len(list.Lines))
 	for _, line := range list.Lines {
-		lines = append(lines, renderLine(line, palette, width))
+		rows = append(rows, renderLine(line, palette, width))
 	}
 
-	return strings.Join(lines, "\n")
+	return rows
 }
 
 // renderLine spells one prepared row out, painting the selection bar under it last so the

@@ -154,6 +154,7 @@ type Deps struct {
 	Hooks           hookv1connect.HookServiceClient
 	Keys            config.Keybindings
 	Layout          config.Layout
+	Sidebar         config.Sidebar
 	Engine          engine.Remote
 	Addr            string
 	LogViewer       string
@@ -222,6 +223,7 @@ type model struct {
 	helpExpanded  bool
 	topHeld       bool
 	keys          config.Keybindings
+	sidebar       config.Sidebar
 	logPath       string
 	logViewer     string
 	processViewer string
@@ -300,6 +302,7 @@ func newModel(deps Deps, isDark bool, post *postbox) model {
 		runLogsDir:      deps.RunLogsDir,
 		pane:            deps.Pane,
 		keys:            deps.Keys,
+		sidebar:         deps.Sidebar,
 		configErr:       deps.ConfigErr,
 		startupErr:      deps.StartupErr,
 		startupFindings: deps.StartupFindings,

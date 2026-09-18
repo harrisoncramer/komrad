@@ -46,6 +46,13 @@ info_height    = 0.4
 # How many lines the details under the list draw, either a share of the sidebar's height below one or a whole number of lines. The marks the hovered row is carrying are spelled out in that same room, ahead of the fields. The chrome around them is added on top, and the two together never take more than half the sidebar's height.
 details_height = 9
 
+# How the panel draws its own agents list.
+[sidebar]
+# Draw the agents list through the newer symbology: one column each for the checkout, the
+# review and the pull request, a bar for what the agent is doing, and weight rather than a
+# glyph for where a row sits in the tree. Off, the list is drawn the way it always has been.
+symbology = false
+
 # Panel keybindings, scoped to the screen each binding acts in.
 
 # The agents list, the panel's main screen.
