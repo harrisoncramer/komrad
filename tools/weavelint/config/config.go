@@ -5,6 +5,16 @@ package config
 type Config struct {
 	SentinelKind SentinelKindConfig `json:"sentinel_kind"`
 	HandlerShape HandlerShapeConfig `json:"handler_shape"`
+	SecretExpose SecretExposeConfig `json:"secret_expose"`
+}
+
+// SecretExposeConfig settles where a forge Secret may give up its token.
+type SecretExposeConfig struct {
+	// Skip turns the rule off.
+	Skip bool `json:"skip"`
+	// Allow is the functions Expose may be called in, spelled as types.Func.FullName spells
+	// them, such as (weave/internal/forge.Credential).HeaderValue.
+	Allow []string `json:"allow"`
 }
 
 // HandlerShapeConfig settles where the handler rule applies.
