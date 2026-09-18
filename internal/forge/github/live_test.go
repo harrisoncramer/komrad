@@ -20,7 +20,7 @@ const TokenEnv = "WEAVE_FORGE_TEST_GITHUB_TOKEN"
 type envAuth struct{ token string }
 
 func (e envAuth) Credential(context.Context) (forge.Credential, error) {
-	return forge.Credential{Header: forge.HeaderBearer, Token: e.token}, nil
+	return forge.Credential{Header: forge.HeaderBearer, Token: forge.NewSecret(e.token)}, nil
 }
 
 func (e envAuth) Invalidate(context.Context) error { return nil }

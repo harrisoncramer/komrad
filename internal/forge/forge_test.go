@@ -45,7 +45,7 @@ func TestTransport(t *testing.T) {
 	}{
 		{
 			name:            "a bearer token is sent as Authorization",
-			credential:      Credential{Header: HeaderBearer, Token: "tok"},
+			credential:      Credential{Header: HeaderBearer, Token: NewSecret("tok")},
 			status:          http.StatusOK,
 			wantHeader:      "Authorization",
 			wantValue:       "Bearer tok",
@@ -53,7 +53,7 @@ func TestTransport(t *testing.T) {
 		},
 		{
 			name:            "a private token is sent bare",
-			credential:      Credential{Header: HeaderPrivateToken, Token: "tok"},
+			credential:      Credential{Header: HeaderPrivateToken, Token: NewSecret("tok")},
 			status:          http.StatusOK,
 			wantHeader:      "PRIVATE-TOKEN",
 			wantValue:       "tok",
@@ -61,7 +61,7 @@ func TestTransport(t *testing.T) {
 		},
 		{
 			name:            "a 401 invalidates the credential",
-			credential:      Credential{Header: HeaderBearer, Token: "tok"},
+			credential:      Credential{Header: HeaderBearer, Token: NewSecret("tok")},
 			status:          http.StatusUnauthorized,
 			wantHeader:      "Authorization",
 			wantValue:       "Bearer tok",
@@ -69,7 +69,7 @@ func TestTransport(t *testing.T) {
 		},
 		{
 			name:            "a 403 does not",
-			credential:      Credential{Header: HeaderBearer, Token: "tok"},
+			credential:      Credential{Header: HeaderBearer, Token: NewSecret("tok")},
 			status:          http.StatusForbidden,
 			wantHeader:      "Authorization",
 			wantValue:       "Bearer tok",

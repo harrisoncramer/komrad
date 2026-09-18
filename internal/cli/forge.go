@@ -156,12 +156,12 @@ func forgeDisconnectCmd(state *app) *cobra.Command {
 }
 
 // readToken is the token from a file when one is named, and otherwise from stdin.
-func readToken(stdin io.Reader, tokenFile string) (string, error) {
+func readToken(stdin io.Reader, tokenFile string) (forge.Secret, error) {
 	source := stdin
 	if tokenFile != "" {
 		file, err := os.Open(tokenFile)
 		if err != nil {
-			return "", fmt.Errorf("failed to open the token file: %w", err)
+			return forge.Secret{}, fmt.Errorf("failed to open the token file: %w", err)
 		}
 		defer file.Close()
 		source = file
@@ -169,12 +169,12 @@ func readToken(stdin io.Reader, tokenFile string) (string, error) {
 
 	raw, err := io.ReadAll(io.LimitReader(source, 4096))
 	if err != nil {
-		return "", fmt.Errorf("failed to read the token: %w", err)
+		return forge.Secret{}, fmt.Errorf("failed to read the token: %w", err)
 	}
 
-	token := strings.TrimSpace(string(raw))
-	if token == "" {
-		return "", fmt.Errorf("no token was given; pipe one in or name a file with --token-file")
+	token := forge.NewSecret(string(raw))
+	if token.IsZero() {
+		return forge.Secret{}, fmt.Errorf("no token was given; pipe one in or name a file with --token-file")
 	}
 
 	return token, nil
@@ -194,7 +194,7 @@ func withForgeService(ctx context.Context, state *app, run func(context.Context,
 
 	service := forge.NewService(forge.NewServiceParams{
 		Connections: forgestore.New(pool.GetDB()),
-		StateDir:    stateDir,
+		Credentials: forge.NewFileStore(stateDir),
 		Builders:    forgeBuilders,
 	})
 

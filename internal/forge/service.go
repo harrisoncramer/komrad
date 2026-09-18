@@ -28,13 +28,13 @@ type ConnectParams struct {
 	Kind string
 	// APIURL is where an enterprise host answers, empty for the public forge.
 	APIURL string
-	Token  string
+	Token  Secret
 }
 
 // NewServiceParams says what the service writes to and which forges it can build.
 type NewServiceParams struct {
 	Connections *forgestore.Store
-	StateDir    string
+	Credentials CredentialStore
 	Builders    map[string]Builder
 	// Now is the clock, time.Now when unset.
 	Now func() time.Time
@@ -43,7 +43,7 @@ type NewServiceParams struct {
 // Service connects and disconnects forges, and builds one to speak to for a connection.
 type Service struct {
 	connections *forgestore.Store
-	stateDir    string
+	credentials CredentialStore
 	builders    map[string]Builder
 	now         func() time.Time
 }
@@ -57,7 +57,7 @@ func NewService(params NewServiceParams) *Service {
 
 	return &Service{
 		connections: params.Connections,
-		stateDir:    params.StateDir,
+		credentials: params.Credentials,
 		builders:    params.Builders,
 		now:         now,
 	}
@@ -107,8 +107,7 @@ func (s *Service) Connect(ctx context.Context, params ConnectParams) (*forgestor
 		return nil, ErrUnknownKind.Saying("%q is not a forge this build knows", kind)
 	}
 
-	token := strings.TrimSpace(params.Token)
-	if token == "" {
+	if params.Token.IsZero() {
 		return nil, fail.InvalidArgument("a token is needed")
 	}
 
@@ -116,7 +115,7 @@ func (s *Service) Connect(ctx context.Context, params ConnectParams) (*forgestor
 		return nil, forgestore.ErrHostTaken.Saying("%s is already connected; disconnect it first", host)
 	}
 
-	probe := build(params.APIURL, staticCredential{Header: HeaderFor(kind, MethodToken), Token: token})
+	probe := build(params.APIURL, staticCredential{Header: HeaderFor(kind, MethodToken), Token: params.Token})
 	login, err := probe.Verify(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("%s did not accept the token: %w", host, err)
@@ -134,7 +133,7 @@ func (s *Service) Connect(ctx context.Context, params ConnectParams) (*forgestor
 		return nil, err
 	}
 
-	if err := WriteCredential(s.stateDir, connection.ID, token); err != nil {
+	if err := s.credentials.Set(ctx, connection.ID, params.Token); err != nil {
 		return nil, errors.Join(err, s.connections.Delete(ctx, connection.ID))
 	}
 
@@ -153,7 +152,7 @@ func (s *Service) Disconnect(ctx context.Context, host string) error {
 		return err
 	}
 
-	if err := RemoveCredential(s.stateDir, connection.ID); err != nil {
+	if err := s.credentials.Delete(ctx, connection.ID); err != nil {
 		return err
 	}
 
@@ -184,8 +183,8 @@ func (s *Service) ForConnection(connection forgestore.Connection) (Forge, error)
 		return nil, ErrUnknownKind.Saying("%q is not a forge this build knows", connection.Kind)
 	}
 
-	auth := NewFileCredential(NewFileCredentialParams{
-		StateDir:     s.stateDir,
+	auth := NewStoredCredential(NewStoredCredentialParams{
+		Store:        s.credentials,
 		ConnectionID: connection.ID,
 		Header:       HeaderFor(connection.Kind, connection.Method),
 		Connections:  s.connections,

@@ -80,7 +80,7 @@ type fakeAuth struct {
 }
 
 func (f *fakeAuth) Credential(context.Context) (forge.Credential, error) {
-	return forge.Credential{Header: forge.HeaderBearer, Token: f.token}, nil
+	return forge.Credential{Header: forge.HeaderBearer, Token: forge.NewSecret(f.token)}, nil
 }
 
 func (f *fakeAuth) Invalidate(context.Context) error {

@@ -39,9 +39,10 @@ func (f *fakeForge) ListOnBranch(context.Context, git.RemoteURL, string) ([]Pull
 func (f *fakeForge) Get(context.Context, string) (PullRequest, error) { return PullRequest{}, nil }
 
 type fixture struct {
-	service *Service
-	store   *forgestore.Store
-	seen    []Credential
+	service     *Service
+	store       *forgestore.Store
+	credentials *FileStore
+	seen        []Credential
 }
 
 func newFixture(t *testing.T, login string, verifyErr error) *fixture {
@@ -51,10 +52,10 @@ func newFixture(t *testing.T, login string, verifyErr error) *fixture {
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = pool.Close() })
 
-	f := &fixture{store: forgestore.New(pool.GetDB())}
+	f := &fixture{store: forgestore.New(pool.GetDB()), credentials: NewFileStore(t.TempDir())}
 	f.service = NewService(NewServiceParams{
 		Connections: f.store,
-		StateDir:    t.TempDir(),
+		Credentials: f.credentials,
 		Builders: map[string]Builder{
 			KindGitHub: func(_ string, auth Authenticator) Forge {
 				credential, _ := auth.Credential(t.Context())
@@ -79,7 +80,7 @@ func TestConnect(t *testing.T) {
 	f := newFixture(t, "harrisoncramer", nil)
 	ctx := t.Context()
 
-	connection, err := f.service.Connect(ctx, ConnectParams{Host: "GitHub.com", Token: " ghp_secret\n"})
+	connection, err := f.service.Connect(ctx, ConnectParams{Host: "GitHub.com", Token: NewSecret(" ghp_secret\n")})
 	require.NoError(t, err)
 	assert.Equal(t, "github.com", connection.Host)
 	assert.Equal(t, KindGitHub, connection.Kind)
@@ -88,11 +89,11 @@ func TestConnect(t *testing.T) {
 	require.NotNil(t, connection.VerifiedAt)
 
 	require.Len(t, f.seen, 1)
-	assert.Equal(t, Credential{Header: HeaderBearer, Token: "ghp_secret"}, f.seen[0])
+	assert.Equal(t, Credential{Header: HeaderBearer, Token: NewSecret("ghp_secret")}, f.seen[0])
 
-	token, err := ReadCredential(f.service.stateDir, connection.ID)
+	token, err := f.credentials.Get(ctx, connection.ID)
 	require.NoError(t, err)
-	assert.Equal(t, "ghp_secret", token)
+	assert.Equal(t, "ghp_secret", token.Expose())
 
 	again, err := f.service.ForConnection(*connection)
 	require.NoError(t, err)
@@ -113,7 +114,7 @@ func TestConnectRefusals(t *testing.T) {
 	}{
 		{
 			name:    "no host",
-			params:  ConnectParams{Token: "tok"},
+			params:  ConnectParams{Token: NewSecret("tok")},
 			wantErr: nil,
 		},
 		{
@@ -123,7 +124,7 @@ func TestConnectRefusals(t *testing.T) {
 		},
 		{
 			name:    "an enterprise host with no kind",
-			params:  ConnectParams{Host: "ghe.example.com", Token: "tok"},
+			params:  ConnectParams{Host: "ghe.example.com", Token: NewSecret("tok")},
 			wantErr: ErrKindUnknownForHost,
 		},
 		{
@@ -131,14 +132,14 @@ func TestConnectRefusals(t *testing.T) {
 			params: ConnectParams{
 				Host:  "ghe.example.com",
 				Kind:  "gitea",
-				Token: "tok",
+				Token: NewSecret("tok"),
 			},
 			wantErr: ErrUnknownKind,
 		},
 		{
 			name:      "a token the forge refuses",
 			verifyErr: ErrUnauthorized,
-			params:    ConnectParams{Host: "github.com", Token: "bad"},
+			params:    ConnectParams{Host: "github.com", Token: NewSecret("bad")},
 			wantErr:   ErrUnauthorized,
 		},
 	}
@@ -165,10 +166,10 @@ func TestConnectRefusesAConnectedHost(t *testing.T) {
 	f := newFixture(t, "harrisoncramer", nil)
 	ctx := t.Context()
 
-	_, err := f.service.Connect(ctx, ConnectParams{Host: "github.com", Token: "one"})
+	_, err := f.service.Connect(ctx, ConnectParams{Host: "github.com", Token: NewSecret("one")})
 	require.NoError(t, err)
 
-	_, err = f.service.Connect(ctx, ConnectParams{Host: "github.com", Token: "two"})
+	_, err = f.service.Connect(ctx, ConnectParams{Host: "github.com", Token: NewSecret("two")})
 	require.ErrorIs(t, err, forgestore.ErrHostTaken)
 	assert.Len(t, f.seen, 1, "the second token is never sent anywhere")
 }
@@ -179,14 +180,14 @@ func TestDisconnect(t *testing.T) {
 	f := newFixture(t, "harrisoncramer", nil)
 	ctx := t.Context()
 
-	connection, err := f.service.Connect(ctx, ConnectParams{Host: "github.com", Token: "tok"})
+	connection, err := f.service.Connect(ctx, ConnectParams{Host: "github.com", Token: NewSecret("tok")})
 	require.NoError(t, err)
 
 	require.NoError(t, f.service.Disconnect(ctx, "github.com"))
 
 	_, err = f.store.GetByHost(ctx, "github.com")
 	require.ErrorIs(t, err, store.ErrNotFound)
-	_, err = ReadCredential(f.service.stateDir, connection.ID)
+	_, err = f.credentials.Get(ctx, connection.ID)
 	require.ErrorIs(t, err, ErrNoCredential)
 
 	require.ErrorIs(t, f.service.Disconnect(ctx, "github.com"), store.ErrNotFound)
@@ -198,7 +199,7 @@ func TestVerifyRestoresAndClearsTheStamp(t *testing.T) {
 	f := newFixture(t, "harrisoncramer", nil)
 	ctx := t.Context()
 
-	connection, err := f.service.Connect(ctx, ConnectParams{Host: "github.com", Token: "tok"})
+	connection, err := f.service.Connect(ctx, ConnectParams{Host: "github.com", Token: NewSecret("tok")})
 	require.NoError(t, err)
 	require.NoError(t, f.store.SetVerifiedAt(ctx, connection.ID, nil))
 
@@ -210,7 +211,7 @@ func TestVerifyRestoresAndClearsTheStamp(t *testing.T) {
 	require.NoError(t, err)
 	assert.NotNil(t, restored.VerifiedAt)
 
-	require.NoError(t, RemoveCredential(f.service.stateDir, connection.ID))
+	require.NoError(t, f.credentials.Delete(ctx, connection.ID))
 	_, err = f.service.Verify(ctx, *connection)
 	require.ErrorIs(t, err, ErrNoCredential)
 }

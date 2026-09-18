@@ -181,6 +181,7 @@ func verifyForges(ctx context.Context, url string) ([]ForgeStatus, error) {
 		return nil, err
 	}
 
+	credentials := forge.NewFileStore(stateDir)
 	statuses := make([]ForgeStatus, 0, len(connections))
 	for _, connection := range connections {
 		status := ForgeStatus{Host: connection.Host}
@@ -192,8 +193,8 @@ func verifyForges(ctx context.Context, url string) ([]ForgeStatus, error) {
 			continue
 		}
 
-		auth := forge.NewFileCredential(forge.NewFileCredentialParams{
-			StateDir:     stateDir,
+		auth := forge.NewStoredCredential(forge.NewStoredCredentialParams{
+			Store:        credentials,
 			ConnectionID: connection.ID,
 			Header:       forge.HeaderFor(connection.Kind, connection.Method),
 			Connections:  forge.NoRecord{},
