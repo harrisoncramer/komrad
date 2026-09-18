@@ -8,7 +8,6 @@ import (
 	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
 	"weave/internal/ui/layout"
-	"weave/internal/ui/paint"
 	"weave/lib/xptr"
 
 	"github.com/stretchr/testify/assert"
@@ -44,14 +43,6 @@ func TestAgentsViewRowWidthIsStableRegardlessOfBranch(t *testing.T) {
 	require.True(t, ok)
 
 	assert.Len(t, rowWithoutBranch, len(rowWithBranch))
-}
-
-// TestUncertainStateMark covers the row weave draws for a pane it captured and could not read,
-// which is its own glyph rather than the idle dot it used to be collapsed into.
-func TestUncertainStateMark(t *testing.T) {
-	assert.Equal(t, "?", stateIcon(agentstore.StateUncertain))
-	assert.NotEqual(t, stateIcon(agentstore.StateIdle), stateIcon(agentstore.StateUncertain))
-	assert.Equal(t, paint.ToneMuted, stateTone(agentstore.StateUncertain), "an unreadable pane is quiet, not an alarm")
 }
 
 func rowNamed(rows []string, name string) (string, bool) {

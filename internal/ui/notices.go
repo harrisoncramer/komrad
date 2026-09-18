@@ -90,10 +90,10 @@ func localReviewRoundsNotice(rounds int32) string {
 }
 
 // failureNotices is the whole of what an archived row has to say.
-func failureNotices(state agentstore.State) []notice {
-	notices := appendNotice(nil, state == agentstore.StateFailedToCreate, stateIcon(state), stateTone(state), failedToCreateNotice)
+func failureNotices(r agentRow) []notice {
+	row := snapshotRow(r, snapshotParams{})
 
-	return appendNotice(notices, state == agentstore.StateFailedToCleanup, stateIcon(state), stateTone(state), failedToCleanupNotice)
+	return appendCellNotice(nil, view.StatusCell(row), failureSaid[displayState(r.item)])
 }
 
 // appendCellNotice says in words what a cell of the row stands for, taking the glyph and the tone

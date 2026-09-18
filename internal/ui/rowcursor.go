@@ -2,17 +2,18 @@ package ui
 
 import (
 	"weave/internal/ui/paint"
+	"weave/internal/view"
 
 	"github.com/charmbracelet/bubbles/cursor"
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-// rowCursorGlyph is the arrow a list draws on the row the cursor is standing on, and blankCursor
-// is the room it leaves while the blink has it hidden.
-const (
-	rowCursorGlyph = "› "
-	blankCursor    = "  "
-)
+// blankCursor is the room a row leaves the arrow while the blink has it hidden.
+const blankCursor = "  "
+
+// rowCursorGlyph is the arrow a list draws on the row the cursor is standing on, spelled where
+// every other glyph is.
+var rowCursorGlyph = view.Spell(view.GlyphFocus) + " "
 
 // newRowCursor is the blink the lists share, focused from the start, since a cursor nothing has
 // ticked yet would sit there dark.

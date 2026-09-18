@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"weave/internal/ui/paint"
+	"weave/internal/view"
 	"weave/lib/dates"
 	agentv1 "weave/proto/gen/agent/v1"
 
@@ -356,5 +357,5 @@ func mailStateMark(palette paint.Palette, item *agentv1.Mail) string {
 		return palette.Style(paint.ToneDanger).Bold(true).Render("!")
 	}
 
-	return palette.Style(paint.ToneAccent).Render(unreadMailIcon)
+	return palette.Style(paint.ToneAccent).Render(view.Spell(view.GlyphMail))
 }
