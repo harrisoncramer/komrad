@@ -198,10 +198,10 @@ func (m *model) rememberEdited(agentID string, touched []string) {
 	}
 }
 
-// forgetSpoken drops the files a release has named.
-func (m *model) forgetSpoken(agentID string, spoken []string) {
+// forgetSpoken drops the files a release has already carried.
+func (m *model) forgetSpoken(agentID string, carried []string) {
 	kept := slices.DeleteFunc(m.edited[agentID], func(path string) bool {
-		return slices.Contains(spoken, path)
+		return slices.Contains(carried, path)
 	})
 
 	if len(kept) == 0 {

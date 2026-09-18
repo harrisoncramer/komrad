@@ -265,9 +265,9 @@ type writeResult struct {
 type released struct {
 	id   string
 	name string
-	// spoken is the files the release named.
-	spoken []string
-	// silent says the release named nothing.
+	// files is the files a reader had open over the agent.
+	files []string
+	// silent says the release named none of them.
 	silent bool
 }
 
@@ -381,16 +381,16 @@ func (m *model) writeCmd(summary string, write func(api) error) tea.Cmd {
 
 // releaseCmd lets an agent go, naming the files a reader had open over it.
 func (m *model) releaseCmd(summary string, agent agentstore.Agent, said string) tea.Cmd {
-	let := released{id: agent.ID, name: agent.Name, spoken: slices.Clone(m.edited[agent.ID])}
+	let := released{id: agent.ID, name: agent.Name, files: slices.Clone(m.edited[agent.ID])}
 
 	return stampRelease(m.writeCmd(summary, func(a api) error {
-		return a.release(agent, said+touchedSaid(let.spoken))
+		return a.release(agent, said+touchedSaid(let.files))
 	}), let)
 }
 
 // releaseInSilenceCmd lets an agent go without typing at it.
 func (m *model) releaseInSilenceCmd(summary string, agent agentstore.Agent) tea.Cmd {
-	let := released{id: agent.ID, name: agent.Name, spoken: slices.Clone(m.edited[agent.ID]), silent: true}
+	let := released{id: agent.ID, name: agent.Name, files: slices.Clone(m.edited[agent.ID]), silent: true}
 
 	return stampRelease(m.writeCmd(summary, func(a api) error {
 		return a.release(agent, "")
@@ -537,10 +537,10 @@ func (m model) applyWrite(result writeResult) (tea.Model, tea.Cmd) {
 	m.report(result.summary, result.err)
 
 	if result.released != nil && result.err == nil {
-		m.forgetSpoken(result.released.id, result.released.spoken)
+		m.forgetSpoken(result.released.id, result.released.files)
 
 		if result.released.silent {
-			m.reportDropped(result.released.name, result.released.spoken)
+			m.reportDropped(result.released.name, result.released.files)
 		}
 	}
 

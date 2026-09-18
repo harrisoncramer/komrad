@@ -91,6 +91,27 @@ func TestALandedUnpauseForgetsTheEditedFiles(t *testing.T) {
 	assert.Empty(t, got.edited["a1"], "a release that named the files forgets them")
 }
 
+// TestALandedUnpauseKeepsAFileOpenedWhileItFlew covers a path remembered after the release was
+// built, which that release never named.
+func TestALandedUnpauseKeepsAFileOpenedWhileItFlew(t *testing.T) {
+	at := time.Now()
+	agents := &recordingHolds{}
+
+	m := heldModel(agents, &at)
+	m.rememberEdited("a1", []string{"internal/agents/hold.go"})
+
+	pressed, cmd := m.Update(keyMsg("p"))
+	sent := asModel(t, pressed)
+	sent.rememberEdited("a1", []string{"internal/ui/refresh.go"})
+
+	got := settle(t, sent, cmd)
+
+	require.Len(t, agents.released, 1)
+	assert.NotContains(t, agents.released[0].GetSaid(), "internal/ui/refresh.go")
+	assert.Equal(t, []string{"internal/ui/refresh.go"}, got.edited["a1"],
+		"a landing forgets the files it named and leaves the rest")
+}
+
 // TestARefusedEndOfAReviewPassKeepsTheEditedFiles covers the release the review screen sends at
 // the end of a pass.
 func TestARefusedEndOfAReviewPassKeepsTheEditedFiles(t *testing.T) {
