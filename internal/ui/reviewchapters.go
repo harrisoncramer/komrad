@@ -1,9 +1,12 @@
 package ui
 
 import (
+	"context"
 	"fmt"
+	"strings"
 	"time"
 
+	"weave/internal/git"
 	agentv1 "weave/proto/gen/agent/v1"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -33,6 +36,16 @@ type reviewChapter struct {
 	// Comparable is false for a chapter whose two ends hang off different base commits, which a
 	// rebase between two reviews leaves behind.
 	Comparable bool
+	// FromBase is the commit the chapter's start was measured from.
+	FromBase string
+	// ToBase is the commit its end was measured from.
+	ToBase string
+	// Rewritten says the base the chapter starts on is not reachable from the one it ends on.
+	Rewritten bool
+	// Replayed says the start was carried onto the end's base, so the two ends compare.
+	Replayed bool
+	// Conflicts is the paths the base rewrote under the agent, which a replay could not settle.
+	Conflicts []string
 }
 
 // stepReviewBase walks back a round, from the whole change to the newest round and on into the
@@ -109,15 +122,36 @@ type reviewChapterLabelParams struct {
 // meaning the same round however many follow it.
 func reviewChapterLabel(params reviewChapterLabelParams) string {
 	said := fmt.Sprintf("round %d of %d", params.At+1, params.Held)
+	chapter := params.Chapter
 
 	switch {
-	case !params.Chapter.Comparable:
-		return said + ", not comparable, the branch was rebased"
-	case params.Chapter.At == "":
-		return said + ", not reviewed yet"
+	case !chapter.Comparable:
+		said += ", not comparable, " + baseMovedSaid(chapter)
+		if len(chapter.Conflicts) > 0 {
+			said += ", conflicts in " + strings.Join(chapter.Conflicts, ", ")
+		}
+
+		return said
+	case chapter.At == "":
+		said += ", not reviewed yet"
 	default:
-		return said + ", reviewed at " + params.Chapter.At
+		said += ", reviewed at " + chapter.At
 	}
+
+	if chapter.Replayed {
+		said += ", " + baseMovedSaid(chapter) + ", replayed"
+	}
+
+	return said
+}
+
+// baseMovedSaid names which of the two things happened to the base between a chapter's ends.
+func baseMovedSaid(chapter reviewChapter) string {
+	if chapter.Rewritten {
+		return "history was rewritten"
+	}
+
+	return "the base moved"
 }
 
 // widenReviewBase puts the diff back to the whole change.
@@ -206,12 +240,67 @@ func cutChapters(params cutChaptersParams) []reviewChapter {
 				Ceiling: params.OnScreen.GetOrdinal(),
 			}),
 			Comparable: from == "" || fromBase == milestone.GetBaseSha(),
+			FromBase:   fromBase,
+			ToBase:     milestone.GetBaseSha(),
 		})
 
 		from, fromBase = milestone.GetSnapshotSha(), milestone.GetBaseSha()
 	}
 
 	return chapters
+}
+
+// replayChaptersParams is the chapters as cut and where to read the repository.
+type replayChaptersParams struct {
+	Git      uiGit
+	Dir      string
+	Chapters []reviewChapter
+}
+
+// replayChapters carries the start of every chapter whose base moved onto the base its end
+// stands on, so the two ends compare as the agent's own work, and leaves a chapter the base
+// rewrote under the agent refused as it was.
+func replayChapters(ctx context.Context, params replayChaptersParams) []reviewChapter {
+	for i := range params.Chapters {
+		chapter := &params.Chapters[i]
+		if chapter.Comparable {
+			continue
+		}
+
+		chapter.Rewritten = isBaseRewritten(ctx, params, *chapter)
+
+		// A git too old to replay, or a commit gone, leaves the refusal standing rather than
+		// failing the load.
+		replayed, err := params.Git.Replay(ctx, git.ReplayParams{
+			Dir:         params.Dir,
+			FromBase:    chapter.FromBase,
+			OntoBase:    chapter.ToBase,
+			SnapshotSHA: chapter.FromSHA,
+		})
+		if err != nil {
+			continue
+		}
+
+		if len(replayed.Conflicts) > 0 {
+			chapter.Conflicts = replayed.Conflicts
+
+			continue
+		}
+
+		chapter.FromSHA = replayed.Tree
+		chapter.Comparable = true
+		chapter.Replayed = true
+	}
+
+	return params.Chapters
+}
+
+// isBaseRewritten reports whether a chapter's start sits on a base its end cannot reach, saying
+// no when git cannot answer, which is the weaker of the two claims.
+func isBaseRewritten(ctx context.Context, params replayChaptersParams, chapter reviewChapter) bool {
+	reachable, err := params.Git.IsAncestor(ctx, params.Dir, chapter.FromBase, chapter.ToBase)
+
+	return err == nil && !reachable
 }
 
 // threadsByChapterParams is the whole conversation and which round of it is on screen.

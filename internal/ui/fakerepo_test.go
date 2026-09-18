@@ -153,6 +153,12 @@ const (
 		"\n\nfunc Three() {}\n\nfunc Four() {}\n"
 )
 
+// replayOf names one replay: the base a snapshot was measured from, the base it is carried
+// onto, and the snapshot.
+func replayOf(fromBase, ontoBase, snapshot string) string {
+	return fromBase + ">" + ontoBase + ":" + snapshot
+}
+
 // sourceOf names one file's whole source: the snapshot holding it and its path.
 func sourceOf(sha, path string) string {
 	return sha + ":" + path
@@ -186,6 +192,11 @@ type fakeRepo struct {
 	hidden map[string]bool
 	// sources is the file's whole source in each snapshot, which the colouring reads.
 	sources map[string]string
+	// replays is what carrying a snapshot onto another base answers, keyed by the three commits,
+	// and a triple nobody stated is a repository that cannot replay.
+	replays map[string]*git.Replayed
+	// rewritten is the base pairs whose older base the newer one cannot reach.
+	rewritten map[string]bool
 }
 
 // newFakeRepo is a repository holding one changed file.
@@ -251,6 +262,20 @@ func (f *fakeRepo) wrote(params wroteParams) {
 	if params.Hidden {
 		f.hidden[pairOf(fakeBaseSHA, sha)] = true
 	}
+}
+
+func (f *fakeRepo) Replay(_ context.Context, params git.ReplayParams) (*git.Replayed, error) {
+	replayed, stated := f.replays[replayOf(params.FromBase, params.OntoBase, params.SnapshotSHA)]
+	if !stated {
+		return nil, fmt.Errorf("this test stated no replay of %s from %s onto %s: %w",
+			params.SnapshotSHA, params.FromBase, params.OntoBase, errNoGit)
+	}
+
+	return replayed, nil
+}
+
+func (f *fakeRepo) IsAncestor(_ context.Context, _, maybeAncestor, of string) (bool, error) {
+	return !f.rewritten[pairOf(maybeAncestor, of)], nil
 }
 
 func (f *fakeRepo) GetRoot(_ context.Context, dir string) (string, error) {

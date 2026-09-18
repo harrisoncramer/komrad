@@ -225,10 +225,14 @@ func (m model) loadReviewCmd(params loadReviewCmdParams) tea.Cmd {
 
 		viewed, err := listReviewViewedFiles(ctx, agents, agentID)
 		earlier := findPreviousReviewedRound(reviews, rounds, round)
-		chapters := cutChapters(cutChaptersParams{
-			Rounds:   rounds,
-			Reviews:  reviews,
-			OnScreen: round,
+		chapters := replayChapters(ctx, replayChaptersParams{
+			Git: repo,
+			Dir: dir,
+			Chapters: cutChapters(cutChaptersParams{
+				Rounds:   rounds,
+				Reviews:  reviews,
+				OnScreen: round,
+			}),
 		})
 		traced := traceThreads(ctx, traceThreadsParams{
 			Git:     repo,

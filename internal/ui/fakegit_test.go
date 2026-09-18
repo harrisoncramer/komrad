@@ -26,6 +26,14 @@ func (fakeGit) MapRanges(context.Context, git.MapRangesParams) ([]position.Mappi
 	return nil, errNoGit
 }
 
+func (fakeGit) Replay(context.Context, git.ReplayParams) (*git.Replayed, error) {
+	return nil, errNoGit
+}
+
+func (fakeGit) IsAncestor(context.Context, string, string, string) (bool, error) {
+	return false, errNoGit
+}
+
 func (fakeGit) ProbeTree(context.Context, string) (string, error) { return "", errNoGit }
 
 func (fakeGit) GetTree(context.Context, string, string) (string, error) { return "", errNoGit }

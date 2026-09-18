@@ -130,6 +130,8 @@ type uiGit interface {
 	ReadFileLines(ctx context.Context, dir, sha, path string) ([]string, error)
 	CountChangedFiles(ctx context.Context, params git.CountChangedFilesParams) (int, error)
 	MapRanges(ctx context.Context, params git.MapRangesParams) ([]position.Mapping, error)
+	Replay(ctx context.Context, params git.ReplayParams) (*git.Replayed, error)
+	IsAncestor(ctx context.Context, dir, maybeAncestor, of string) (bool, error)
 	ProbeTree(ctx context.Context, dir string) (string, error)
 	GetTree(ctx context.Context, dir, sha string) (string, error)
 	GetRoot(ctx context.Context, dir string) (string, error)
