@@ -241,8 +241,8 @@ func indentFor(kind RowKind) int {
 	return indentColumns
 }
 
-// fitRow gives a row's width up in order: the tally, then the name, and last the marks, which
-// only a pane too narrow for the marks alone ever reaches.
+// fitRow decides what a row gives up to fit its width, the tally before the name and the name
+// before the marks.
 func fitRow(line Line, width int) Line {
 	// A tally counts rows already out of sight, which is worth less than the marks saying
 	// somebody has to do something, so it is what gives way first.
@@ -250,9 +250,10 @@ func fitRow(line Line, width int) Line {
 		line.Tally = 0
 	}
 
+	line = shedMarks(line, width)
 	line.Name, line.Matches = clipName(line.Name, line.Matches, nameColumns(line, width))
 
-	return shedMarks(line, width)
+	return line
 }
 
 // shedMarks gives the marks after a name up, in the order of what a person can do without,

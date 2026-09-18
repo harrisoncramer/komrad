@@ -816,6 +816,86 @@ func TestPrepareShedsMarksOnlyWhereTheMarksAloneWillNotFit(t *testing.T) {
 	}
 }
 
+// TestPrepareNeverLeavesANameColumnsItCouldHaveSpent pins the invariant the cut rests on, over
+// every shape a row takes at every pane it is drawn at.
+func TestPrepareNeverLeavesANameColumnsItCouldHaveSpent(t *testing.T) {
+	kinds := []struct {
+		kind  RowKind
+		label string
+	}{
+		{kind: KindWorkflow, label: "workflow"},
+		{kind: KindAgent, label: "agent"},
+		{kind: KindChild, label: "child"},
+	}
+	tallies := []int{0, 3, 12}
+
+	for _, kind := range kinds {
+		for _, tally := range tallies {
+			for marks := range 16 {
+				row := Row{
+					Kind:        kind.kind,
+					Name:        "iss-659-reviewer",
+					HiddenCount: tally,
+					Held:        marks&1 != 0,
+					UnreadMail:  marks&2 != 0,
+					FailedRun:   marks&4 != 0,
+					Scheduled:   marks&8 != 0,
+				}
+
+				for pane := 4; pane <= 46; pane++ {
+					list := Prepare(Snapshot{Rows: []Row{row}, Pane: pane})
+					require.Len(t, list.Lines, 1)
+
+					line := list.Lines[0]
+					spare := nameColumns(line, NameColumns(pane, list.Columns))
+					require.False(t, line.Name == "" && spare > 0,
+						"a %s row, tally %d, marks %04b at pane %d drew no name with %d columns to spare",
+						kind.label, tally, marks, pane, spare)
+				}
+			}
+		}
+	}
+}
+
+// TestPrepareSpendsWhatSheddingFreesOnTheName pins the column a shed mark gives back going to
+// the name.
+func TestPrepareSpendsWhatSheddingFreesOnTheName(t *testing.T) {
+	worst := Row{
+		Kind:       KindChild,
+		Name:       "iss-659-reviewer",
+		Scheduled:  true,
+		Held:       true,
+		UnreadMail: true,
+		FailedRun:  true,
+	}
+
+	tests := []struct {
+		name string
+		pane int
+		want string
+	}{
+		{
+			name: "a pane that sheds a mark says a name is there at all",
+			pane: 23,
+			want: "…",
+		},
+		{
+			name: "a pane shedding nothing cuts the name to what it always had",
+			pane: 30,
+			want: "iss-6…",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			list := Prepare(Snapshot{Rows: []Row{worst}, Pane: tt.pane})
+			require.Len(t, list.Lines, 1)
+
+			assert.Equal(t, tt.want, list.Lines[0].Name)
+		})
+	}
+}
+
 // TestPrepareDropsColumnsAScreenDoesNotDraw pins the one thing a screen says about its columns
 // rather than its rows: a column given up here is gone whatever the pane.
 func TestPrepareDropsColumnsAScreenDoesNotDraw(t *testing.T) {
