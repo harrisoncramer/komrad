@@ -98,7 +98,7 @@ func agentFacts(row view.Row, item agentItem) view.Row {
 	row.Process = snapshotProcess(item)
 	row.Unviewed = item.unviewed
 	row.Archived = item.agent.ArchivedAt != nil
-	row.Hidden = item.agent.Hidden
+	row.Hidden = item.agent.Hidden && !row.Archived
 	row.Held = item.agent.HeldAt != nil
 	row.HeldWorking = row.Held && heldWorking(item)
 	row.UnreadMail = item.unreadMail

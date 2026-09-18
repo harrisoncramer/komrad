@@ -836,7 +836,7 @@ func TestSearchRowCarriesTheAgent(t *testing.T) {
 
 // TestSearchTellsAHiddenHitFromAnArchivedOne pins the screen where the two used to draw alike:
 // a hidden agent still running is bright with the hidden mark, a dormant hidden one is dim with
-// it, and an archived one is dim without it.
+// it, and an archived one is dim without it, since archiving does not clear the hidden flag.
 func TestSearchTellsAHiddenHitFromAnArchivedOne(t *testing.T) {
 	m := filterModel()
 	m.screen = screenSearch
@@ -847,7 +847,7 @@ func TestSearchTellsAHiddenHitFromAnArchivedOne(t *testing.T) {
 		{agent: agentstore.Agent{ID: "a2", Name: "dormant", WorkflowID: "w1", Hidden: true, State: agentstore.StateIdle}},
 	}
 	m.archive.agents = []agentstore.Agent{
-		{ID: "a3", Name: "put-away", WorkflowID: "w1", ArchivedAt: xptr.Ptr(time.Now())},
+		{ID: "a3", Name: "put-away", WorkflowID: "w1", Hidden: true, ArchivedAt: xptr.Ptr(time.Now())},
 	}
 	m.applySearch(searchResult{
 		query: "ledger",
@@ -876,7 +876,7 @@ func TestSearchTellsAHiddenHitFromAnArchivedOne(t *testing.T) {
 	assert.False(t, dormant.Hidden.IsBlank(), "and keeps the hidden mark")
 
 	assert.Equal(t, view.EmphasisDim, archived.Emphasis, "an archived agent is dim")
-	assert.True(t, archived.Hidden.IsBlank(), "and carries no hidden mark")
+	assert.True(t, archived.Hidden.IsBlank(), "and carries no hidden mark, hidden before it was put away or not")
 }
 
 // treeOwned blanks the fields a row carries because of where it sits in a list rather than

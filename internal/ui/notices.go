@@ -37,9 +37,9 @@ const (
 )
 
 // Explainer: a notice teaches one mark on the row above it, so it takes its glyph and its tone
-// from the cell that row draws rather than naming either itself. Unviewed has no mark, and
-// emphasisFor ranks the cursor above the brightening, so it never reaches the one row a record
-// is ever drawn for, and a second's dwell on the row clears it, so it is not said either.
+// from the cell that row draws rather than naming either itself. Unviewed is the one fact with
+// no mark: emphasisFor ranks the cursor above the brightening, so it never reaches the row a
+// record is drawn for. It is not said in words either, since a second's dwell clears it.
 
 var (
 	// failureSaid is what the status column drawn broken says about how an agent got there.
