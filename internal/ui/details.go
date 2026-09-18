@@ -244,12 +244,22 @@ func (m model) noticeLines(n notice, most int) []string {
 		text[most-1] += "…"
 	}
 
-	lines := []string{"  " + m.palette(regionDetails).Style(n.tone).Render(n.icon) + " " + dimStyle.Render(text[0])}
+	lines := []string{"  " + m.noticeIcon(n) + " " + dimStyle.Render(text[0])}
 	for _, line := range text[1:] {
 		lines = append(lines, indent+dimStyle.Render(line))
 	}
 
 	return lines
+}
+
+// noticeIcon is the glyph a notice stands behind, a blank of the same width for a notice about a
+// fact the row carries without one.
+func (m model) noticeIcon(n notice) string {
+	if n.icon == "" {
+		return " "
+	}
+
+	return m.palette(regionDetails).Style(n.tone).Render(n.icon)
 }
 
 func (m model) detailFieldRows(fields []recordField, cursor int) []string {

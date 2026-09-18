@@ -60,19 +60,19 @@ func prepareLine(params prepareLineParams) Line {
 		Focused:  focused,
 		Focus:    markCell(focused && !params.caretHidden, GlyphFocus, paint.ToneAccent),
 		Mark:     textCell(row.Mark, paint.ToneMark),
-		Repo:     repoCell(row),
-		Review:   reviewCell(row),
+		Repo:     RepoCell(row),
+		Review:   ReviewCell(row),
 		Forge:    forgeCell(row),
-		Status:   statusCell(row),
+		Status:   StatusCell(row),
 		Rule:     row.Kind == KindChild,
 		Indent:   indentFor(row.Kind),
 		Name:     row.Name,
 		Matches:  row.Matches,
 		Weight:   weightFor(row.Kind),
 		Emphasis: emphasisFor(row, focused),
-		Held:     heldCell(row),
-		Mail:     markCell(row.UnreadMail, GlyphMail, paint.ToneAccent),
-		Alert:    markCell(row.FailedRun, GlyphAlert, paint.ToneDanger),
+		Held:     HeldCell(row),
+		Mail:     MailCell(row),
+		Alert:    AlertCell(row),
 		Tally:    row.HiddenCount,
 		Schedule: markCell(row.Scheduled, GlyphSchedule, paint.ToneMuted),
 		Selected: row.Selected,
@@ -100,9 +100,9 @@ func isFocused(row Row, focused string) bool {
 	return focused != "" && row.Key == focused
 }
 
-// repoCell is where an agent's own checkout stands, greyed while nothing has happened to it and
+// RepoCell is where an agent's own checkout stands, greyed while nothing has happened to it and
 // empty on a row that owns no checkout at all.
-func repoCell(row Row) Cell {
+func RepoCell(row Row) Cell {
 	if row.NoCheckout {
 		return Cell{}
 	}
@@ -119,8 +119,8 @@ func repoCell(row Row) Cell {
 	return Cell{Glyph: GlyphRepo, Tone: paint.ToneMuted}
 }
 
-// reviewCell is where the local review of an agent's work stands.
-func reviewCell(row Row) Cell {
+// ReviewCell is where the local review of an agent's work stands.
+func ReviewCell(row Row) Cell {
 	if row.NoCheckout {
 		return Cell{}
 	}
@@ -163,9 +163,9 @@ func forgeCell(row Row) Cell {
 	return Cell{Glyph: GlyphForge, Tone: paint.ToneMuted}
 }
 
-// statusCell is what the agent is doing this second, a bar rather than a glyph so it is noticed
+// StatusCell is what the agent is doing this second, a bar rather than a glyph so it is noticed
 // rather than decoded.
-func statusCell(row Row) Cell {
+func StatusCell(row Row) Cell {
 	switch row.Process {
 	case ProcessNone:
 		return Cell{}
@@ -186,6 +186,16 @@ func statusCell(row Row) Cell {
 	}
 
 	return Cell{Glyph: GlyphQuiet, Tone: paint.ToneMuted}
+}
+
+// MailCell is the mark a row draws for mail its agent has not read.
+func MailCell(row Row) Cell {
+	return markCell(row.UnreadMail, GlyphMail, paint.ToneAccent)
+}
+
+// AlertCell is the mark a row draws for a script weave fired that failed.
+func AlertCell(row Row) Cell {
+	return markCell(row.FailedRun, GlyphAlert, paint.ToneDanger)
 }
 
 // markCell is the shape every optional mark takes: nothing at all when what it stands for is
@@ -295,8 +305,8 @@ func clipSpans(matches []Span, kept int) []Span {
 	return clipped
 }
 
-// heldCell is the pause a person took on an agent, in danger where that agent is working anyway.
-func heldCell(row Row) Cell {
+// HeldCell is the pause a person took on an agent, in danger where that agent is working anyway.
+func HeldCell(row Row) Cell {
 	if row.Held && row.HeldWorking {
 		return Cell{Glyph: GlyphPaused, Tone: paint.ToneDanger}
 	}

@@ -3,11 +3,12 @@ package ui
 import (
 	"strings"
 	"testing"
-	"weave/internal/ui/paint"
+	"time"
 
 	"weave/lib/xptr"
 
 	agentstore "weave/internal/store/agent"
+	"weave/internal/view"
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/stretchr/testify/assert"
@@ -21,11 +22,11 @@ func TestNoticesSpellOutTheMarksOnTheRow(t *testing.T) {
 	m.width = 80
 	m.listing.agents[0].agent.WorktreeRemoved = true
 
-	view := m.detailsView()
+	drawn := m.detailsView()
 
-	assert.Contains(t, view, worktreeRemovedIcon)
-	assert.Contains(t, view, worktreeRemovedNotice)
-	assert.Contains(t, view, "directory", "the fields are still drawn under the notices")
+	assert.Contains(t, drawn, view.Spell(view.GlyphBroken))
+	assert.Contains(t, drawn, worktreeRemovedNotice)
+	assert.Contains(t, drawn, "directory", "the fields are still drawn under the notices")
 
 	m.listing.agents[0].agent.WorktreeRemoved = false
 
@@ -45,7 +46,6 @@ func TestNoticesCoverEveryOptionalMark(t *testing.T) {
 		{"a stopped rebase", agentItem{agent: agentstore.Agent{SequenceInProgress: true}}, sequenceNotice},
 		{"a hidden row", agentItem{agent: agentstore.Agent{Hidden: true}}, hiddenNotice},
 		{"mail waiting", agentItem{unreadMail: true}, unreadMailNotice},
-		{"output nobody read", agentItem{unviewed: true}, unviewedNotice},
 		{"a failed script", agentItem{failedRun: true}, failedRunNotice},
 	}
 
@@ -71,7 +71,6 @@ func TestNoticesAreOrderedByUrgency(t *testing.T) {
 			Hidden:          true,
 		},
 		unreadMail: true,
-		unviewed:   true,
 		failedRun:  true,
 	}
 
@@ -85,7 +84,6 @@ func TestNoticesAreOrderedByUrgency(t *testing.T) {
 		failedRunNotice,
 		unreadMailNotice,
 		worktreeRemovedNotice,
-		unviewedNotice,
 		hiddenNotice,
 	}, texts)
 }
@@ -100,7 +98,59 @@ func TestAFailedCreateSaysWhereItsWorktreeWent(t *testing.T) {
 	require.Len(t, notices, 2)
 	assert.Equal(t, failedToCreateNotice, notices[0].text)
 	assert.Equal(t, worktreeRemovedNotice, notices[1].text)
-	assert.Empty(t, worktreeMark(paint.Colored, item), "the old row spends no glyph of its own on it")
+}
+
+// TestNoticesWearTheGlyphTheRowDraws is the claim the record rests on: every notice about a mark
+// takes its glyph and its tone from the very cell the rebuilt row draws, so the two cannot say
+// different things about one fact.
+func TestNoticesWearTheGlyphTheRowDraws(t *testing.T) {
+	item := agentItem{
+		agent: agentstore.Agent{
+			State:              agentstore.StateWaiting,
+			SequenceInProgress: true,
+			HeldAt:             xptr.Ptr(time.Now()),
+		},
+		alive:         true,
+		unreadMail:    true,
+		failedRun:     true,
+		inLocalReview: true,
+	}
+
+	line := view.Prepare(view.Snapshot{Rows: []view.Row{snapshotRow(agentRow{item: item}, snapshotParams{})}}).Lines[0]
+
+	want := map[string]view.Cell{
+		failedRunNotice:     line.Alert,
+		unreadMailNotice:    line.Mail,
+		sequenceNotice:      line.Repo,
+		heldPromptedNotice:  line.Held,
+		inLocalReviewNotice: line.Review,
+	}
+
+	notices := agentNotices(item)
+	require.Len(t, notices, len(want))
+
+	for _, n := range notices {
+		cell, ok := want[n.text]
+		require.True(t, ok, "an unexpected notice %q", n.text)
+		assert.Equal(t, view.Spell(cell.Glyph), n.icon, "the glyph beside %q", n.text)
+		assert.Equal(t, cell.Tone, n.tone, "the tone beside %q", n.text)
+	}
+}
+
+// TestUnviewedAndHiddenCarryNoGlyph is why one of the two was dropped and the other kept: the
+// rebuilt row carries neither fact as a mark, and the row the record is about is the row under
+// the cursor, whose own colour beats both the brightening and the greying.
+func TestUnviewedAndHiddenCarryNoGlyph(t *testing.T) {
+	bright := view.Prepare(view.Snapshot{
+		Rows:    []view.Row{{Key: "a", Unviewed: true, Dim: true}},
+		Focused: "a",
+	}).Lines[0]
+
+	assert.Equal(t, view.EmphasisFocused, bright.Emphasis, "the hovered row says neither")
+
+	said := noticeTexts(agentNotices(agentItem{unviewed: true, agent: agentstore.Agent{Hidden: true}}))
+
+	assert.Equal(t, []string{hiddenNotice}, said, "hidden is durable, unviewed goes on a second's dwell")
 }
 
 // TestArchivedNoticesAreOnlyTheFailures covers the archive, whose rows draw one mark of their
@@ -126,7 +176,7 @@ func TestNoticesKeepTheRecordsHeight(t *testing.T) {
 	plain := strings.Count(m.detailsView(), "\n")
 
 	m.listing.agents[0].agent.WorktreeRemoved = true
-	m.listing.agents[0].unviewed = true
+	m.listing.agents[0].unreadMail = true
 	m.listing.agents[0].failedRun = true
 
 	flagged := m.detailsView()
@@ -142,14 +192,14 @@ func TestNoticesGiveUpBeforeTheFields(t *testing.T) {
 	m := detailsModel(&recordingTmux{})
 	m.height, m.width = 12, 40
 	m.listing.agents[0].agent.WorktreeRemoved = true
-	m.listing.agents[0].unviewed = true
+	m.listing.agents[0].unreadMail = true
 	m.listing.agents[0].failedRun = true
 
-	view := m.detailsView()
+	drawn := m.detailsView()
 
-	assert.Equal(t, m.detailsLines()+detailsChromeLines, strings.Count(view, "\n"))
-	assert.NotContains(t, view, failedRunNotice, "the last mark is given up rather than the fields")
-	assert.Contains(t, view, "name", "a field is still drawn")
+	assert.Equal(t, m.detailsLines()+detailsChromeLines, strings.Count(drawn, "\n"))
+	assert.NotContains(t, drawn, failedRunNotice, "the last mark is given up rather than the fields")
+	assert.Contains(t, drawn, "name", "a field is still drawn")
 }
 
 // TestNoticesCutTheFirstOneShort covers a pane too short for even one whole sentence, where the
@@ -159,11 +209,11 @@ func TestNoticesCutTheFirstOneShort(t *testing.T) {
 	m.height, m.width = 12, 24
 	m.listing.agents[0].failedRun = true
 
-	view := m.detailsView()
+	drawn := m.detailsView()
 
-	assert.Contains(t, view, "…")
-	assert.Contains(t, view, "a script weave")
-	assert.NotContains(t, view, "log unread")
+	assert.Contains(t, drawn, "…")
+	assert.Contains(t, drawn, "a script weave")
+	assert.NotContains(t, drawn, "log unread")
 }
 
 // TestNoticesStayInsideTheColumn covers the cut line, which is the one place the record draws
@@ -186,10 +236,10 @@ func TestNoticesStayInsideTheColumn(t *testing.T) {
 func TestNoticesLeaveRoomToCountTheFields(t *testing.T) {
 	m := detailsModel(&recordingTmux{})
 	m.height, m.width = 20, 40
-	m.listing.agents[0].unviewed = true
+	m.listing.agents[0].failedRun = true
 
-	view := m.detailsView()
+	drawn := m.detailsView()
 
-	assert.Contains(t, view, "name")
-	assert.Contains(t, view, "more", "the record still says how many fields it left out")
+	assert.Contains(t, drawn, "name")
+	assert.Contains(t, drawn, "more", "the record still says how many fields it left out")
 }
