@@ -592,7 +592,7 @@ func deleteAgentsForm(agents []agentstore.Agent, children int, keys config.FormK
 
 func releaseInSilenceForm(name string, keys config.FormKeys) (*huh.Form, *bool) {
 	title := fmt.Sprintf("Unpause %q without saying anything?", name)
-	warning := "Nothing is typed at it, so an agent the pause cut mid-turn sits where it is until you tell it something. Use this when its input box will not take the words and unpausing keeps being refused."
+	warning := "Nothing is typed at it, so an agent the pause cut mid-turn sits where it is until you tell it something. Use this when unpausing keeps being refused because its input box will not take the words."
 
 	return confirmFormStartingOn(false, title, warning, "Unpause", keys)
 }
