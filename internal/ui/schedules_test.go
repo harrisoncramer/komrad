@@ -7,7 +7,6 @@ import (
 	"strings"
 	"testing"
 	"time"
-	"weave/internal/ui/paint"
 
 	"weave/config"
 	agentstore "weave/internal/store/agent"
@@ -596,31 +595,6 @@ func keyMsg(key string) tea.KeyMsg {
 var namedKeys = map[string]tea.KeyType{
 	"esc":    tea.KeyEsc,
 	"ctrl+t": tea.KeyCtrlT,
-}
-
-// TestScheduledMark pins the clock beside a scheduled agent's row and nowhere else.
-func TestScheduledMark(t *testing.T) {
-	tests := []struct {
-		name  string
-		agent agentstore.Agent
-		want  bool
-	}{
-		{
-			name:  "an agent a schedule launched is marked",
-			agent: agentstore.Agent{Name: "nightly-sweep", ScheduleID: xptr.Ptr("s1")},
-			want:  true,
-		},
-		{
-			name:  "one a person started is not",
-			agent: agentstore.Agent{Name: "by-hand"},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, strings.Contains(scheduledMark(paint.Panel, tt.agent), scheduledIcon))
-		})
-	}
 }
 
 // TestScheduleName covers matching the schedule an agent came from against the list

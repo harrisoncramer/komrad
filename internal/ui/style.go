@@ -5,23 +5,12 @@ import (
 	"weave/internal/ui/paint"
 
 	agentstore "weave/internal/store/agent"
-	reviewstore "weave/internal/store/review"
 
 	"github.com/charmbracelet/lipgloss"
 )
 
 const (
-	unviewedIcon              = "●"
-	scheduledIcon             = "◷"
-	hiddenIcon                = "◌"
-	unreadMailIcon            = "✉"
-	failedRunIcon             = "⚑"
-	localReviewRoundsIcon     = "⟳"
-	inLocalReviewIcon         = "✎"
-	localApprovedIcon         = "✓"
-	localChangesRequestedIcon = "↩"
-	worktreeRemovedIcon       = "⊘"
-	sequenceInProgressIcon    = "◑"
+	unreadMailIcon = "✉"
 
 	nameWidth = 30
 )
@@ -64,24 +53,6 @@ func stateTone(state agentstore.State) paint.Tone {
 	}
 
 	return paint.ToneMuted
-}
-
-func scheduledMark(palette paint.Palette, agent agentstore.Agent) string {
-	return palette.Mark(agent.ScheduleID != nil, scheduledIcon, paint.ToneMuted)
-}
-
-// localVerdictIcon is the glyph and tone a released local verdict wears.
-func localVerdictIcon(verdict string) (string, paint.Tone) {
-	switch reviewstore.Verdict(verdict) {
-	case reviewstore.VerdictApproved:
-		return localApprovedIcon, paint.ToneSuccess
-	case reviewstore.VerdictChangesRequested:
-		return localChangesRequestedIcon, paint.ToneWarning
-	case reviewstore.VerdictCommented:
-		return "", paint.ToneMuted
-	}
-
-	return "", paint.ToneMuted
 }
 
 func scheduleIcon(enabled bool) string {

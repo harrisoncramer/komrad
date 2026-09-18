@@ -9,42 +9,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestVerdictIconDrawsOnlyAConclusion is why commented carries no glyph: the record says what
-// wants a person, and notes without a conclusion want nothing.
-func TestVerdictIconDrawsOnlyAConclusion(t *testing.T) {
-	tests := []struct {
-		name    string
-		verdict reviewstore.Verdict
-		icon    string
-	}{
-		{
-			name:    "commented",
-			verdict: reviewstore.VerdictCommented,
-			icon:    "",
-		},
-		{
-			name:    "approved",
-			verdict: reviewstore.VerdictApproved,
-			icon:    localApprovedIcon,
-		},
-		{
-			name:    "changes requested",
-			verdict: reviewstore.VerdictChangesRequested,
-			icon:    localChangesRequestedIcon,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			icon, _ := localVerdictIcon(string(tt.verdict))
-			assert.Equal(t, tt.icon, icon)
-		})
-	}
-
-	icon, _ := localVerdictIcon("")
-	assert.Empty(t, icon, "work no review has concluded on carries nothing")
-}
-
 // TestReviewNoticeSaysTheVerdictOnce pins the record spelling a sent-back round out, which is
 // the only place a verdict is said now the row draws no glyph for it.
 func TestReviewNoticeSaysTheVerdictOnce(t *testing.T) {

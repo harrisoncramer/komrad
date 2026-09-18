@@ -820,7 +820,8 @@ func TestSearchRowCarriesTheAgent(t *testing.T) {
 	archived := searchRowNamed(t, lines, "payouts")
 	assert.Equal(t, archivedTagText, archived.Tag, "the archived row still says so")
 	assert.True(t, archived.Dim)
-	assert.Equal(t, view.StatusBroken, archived.Status, "an archived agent that died failing keeps its bar")
+	assert.Equal(t, view.StatusBroken, archived.Status,
+		"an archived agent that died failing keeps a bar, greyed with the rest of the row")
 	assert.Equal(t, view.ProcessStopped, archived.Process)
 }
 
