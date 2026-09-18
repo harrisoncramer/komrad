@@ -2,6 +2,7 @@ package agents
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -10,6 +11,7 @@ import (
 
 	"weave/internal/git"
 	agentstore "weave/internal/store/agent"
+	reviewstore "weave/internal/store/review"
 	"weave/lib/xptr"
 
 	"github.com/stretchr/testify/assert"
@@ -83,7 +85,7 @@ func TestCwdSyncerSync(t *testing.T) {
 			created, err := st.Agents.GetInWorkflow(ctx, workflowID, "a")
 			require.NoError(t, err)
 
-			require.NoError(t, NewCwdSyncer(st.Agents, branches).Sync(ctx))
+			require.NoError(t, newCwdSyncer(st.Agents, branches).Sync(ctx))
 
 			got, err := st.Agents.GetByID(ctx, created.ID)
 			require.NoError(t, err)
@@ -98,6 +100,16 @@ func TestCwdSyncerSync(t *testing.T) {
 			assert.Equal(t, *tt.wantBranch, *got.Branch)
 		})
 	}
+}
+
+// newCwdSyncer is a syncer over a git that has no rounds to compare against.
+func newCwdSyncer(agents cwdSetter, heads headReader) *CwdSyncer {
+	return NewCwdSyncer(NewCwdSyncerParams{
+		Agents:  agents,
+		Heads:   heads,
+		Trees:   fakeTrees{},
+		Tallies: fakeTallies{},
+	})
 }
 
 // fakeHeads is what git would read for each directory, and nothing at all for any other.
@@ -173,7 +185,7 @@ func TestCwdSyncerSyncRecordsTheRepository(t *testing.T) {
 			require.NoError(t, err)
 			require.NoError(t, st.Agents.SetRepositoryURLByID(ctx, created.ID, tt.before))
 
-			require.NoError(t, NewCwdSyncer(st.Agents, tt.heads(cwd)).Sync(ctx))
+			require.NoError(t, newCwdSyncer(st.Agents, tt.heads(cwd)).Sync(ctx))
 
 			got, err := st.Agents.GetByID(ctx, created.ID)
 			require.NoError(t, err)
@@ -202,7 +214,7 @@ func TestCwdSyncerSyncLooksAtEveryAgent(t *testing.T) {
 		}))
 	}
 
-	require.NoError(t, NewCwdSyncer(st.Agents, heads).Sync(ctx))
+	require.NoError(t, newCwdSyncer(st.Agents, heads).Sync(ctx))
 
 	agents, err := st.Agents.List(ctx)
 	require.NoError(t, err)
@@ -231,7 +243,7 @@ func TestCwdSyncerSyncRecordsAStoppedSequence(t *testing.T) {
 	require.NoError(t, err)
 
 	stopped := fakeHeads{repo: {Branch: "topic", SequenceInProgress: true}}
-	require.NoError(t, NewCwdSyncer(st.Agents, stopped).Sync(ctx))
+	require.NoError(t, newCwdSyncer(st.Agents, stopped).Sync(ctx))
 
 	got, err := st.Agents.GetByID(ctx, created.ID)
 	require.NoError(t, err)
@@ -240,7 +252,7 @@ func TestCwdSyncerSyncRecordsAStoppedSequence(t *testing.T) {
 	assert.Equal(t, "topic", *got.Branch)
 
 	// Settled by hand in the worktree, which nothing tells weave about.
-	require.NoError(t, NewCwdSyncer(st.Agents, fakeHeads{repo: {Branch: "topic"}}).Sync(ctx))
+	require.NoError(t, newCwdSyncer(st.Agents, fakeHeads{repo: {Branch: "topic"}}).Sync(ctx))
 
 	after, err := st.Agents.GetByID(ctx, created.ID)
 	require.NoError(t, err)
@@ -264,7 +276,7 @@ func TestCwdSyncerSyncSkipsTheGitCallForARemovedCwd(t *testing.T) {
 	require.NoError(t, err)
 
 	looked := &recordingHeads{}
-	syncer := NewCwdSyncer(st.Agents, looked)
+	syncer := newCwdSyncer(st.Agents, looked)
 
 	require.NoError(t, syncer.Sync(ctx))
 
@@ -307,7 +319,7 @@ func TestCwdSyncerSyncClearsAStaleBranch(t *testing.T) {
 	created, err := st.Agents.GetInWorkflow(ctx, workflowID, "a")
 	require.NoError(t, err)
 
-	syncer := NewCwdSyncer(st.Agents, fakeHeads{repo: {Branch: "main"}})
+	syncer := newCwdSyncer(st.Agents, fakeHeads{repo: {Branch: "main"}})
 	require.NoError(t, syncer.Sync(ctx))
 
 	got, err := st.Agents.GetByID(ctx, created.ID)
@@ -342,7 +354,7 @@ func TestCwdSyncerSyncClearsAStaleRemoval(t *testing.T) {
 	created, err := st.Agents.GetInWorkflow(ctx, workflowID, "a")
 	require.NoError(t, err)
 
-	syncer := NewCwdSyncer(st.Agents, fakeHeads{})
+	syncer := newCwdSyncer(st.Agents, fakeHeads{})
 	require.NoError(t, syncer.Sync(ctx))
 
 	got, err := st.Agents.GetByID(ctx, created.ID)
@@ -392,7 +404,7 @@ func TestCwdSyncerSyncSkipsArchivedAgents(t *testing.T) {
 			_, archiveErr := st.Agents.Archive(ctx, []string{created.ID})
 			require.NoError(t, archiveErr)
 
-			require.NoError(t, NewCwdSyncer(st.Agents, fakeHeads{tt.cwd: {Branch: "main"}}).Sync(ctx))
+			require.NoError(t, newCwdSyncer(st.Agents, fakeHeads{tt.cwd: {Branch: "main"}}).Sync(ctx))
 
 			got, err := st.Agents.GetByID(ctx, created.ID)
 			require.NoError(t, err)
@@ -420,4 +432,193 @@ func removedDir(t *testing.T) string {
 	require.NoError(t, os.Remove(dir))
 
 	return dir
+}
+
+// fakeTrees is what git would answer about each directory against the one round it is asked
+// about, and an error for any other.
+type fakeTrees map[string]bool
+
+func (f fakeTrees) HasTreeMoved(_ context.Context, dir, _ string) (bool, error) {
+	moved, ok := f[dir]
+	if !ok {
+		return false, errors.New("no round to compare against")
+	}
+
+	return moved, nil
+}
+
+type fakeTallies []reviewstore.Tally
+
+func (f fakeTallies) ListTallies(context.Context) ([]reviewstore.Tally, error) {
+	return f, nil
+}
+
+// recordingTrees is a git that remembers which directories it was asked to hash.
+type recordingTrees struct {
+	mu   sync.Mutex
+	dirs []string
+}
+
+func (r *recordingTrees) HasTreeMoved(_ context.Context, dir, _ string) (bool, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.dirs = append(r.dirs, dir)
+
+	return true, nil
+}
+
+// TestCwdSyncerSyncReadsWhetherTheTreeMoved covers the fact the review column rests on: a
+// worktree that no longer hashes to the round its last verdict was given on is reported moved,
+// and one that still does is not.
+func TestCwdSyncerSyncReadsWhetherTheTreeMoved(t *testing.T) {
+	st := newStore(t)
+	ctx := t.Context()
+
+	workflowID := seedWorkflow(t, st)
+	edited, untouched := fakeCheckout(t), fakeCheckout(t)
+	for name, cwd := range map[string]string{"edited": edited, "untouched": untouched} {
+		require.NoError(t, st.Agents.Create(ctx, agentstore.Agent{
+			Name:       name,
+			State:      agentstore.StateIdle,
+			WorkflowID: workflowID,
+			Cwd:        cwd,
+		}))
+	}
+	editedAgent, err := st.Agents.GetInWorkflow(ctx, workflowID, "edited")
+	require.NoError(t, err)
+	untouchedAgent, err := st.Agents.GetInWorkflow(ctx, workflowID, "untouched")
+	require.NoError(t, err)
+
+	approved := reviewstore.VerdictApproved
+	syncer := NewCwdSyncer(NewCwdSyncerParams{
+		Agents: st.Agents,
+		Heads:  fakeHeads{},
+		Trees:  fakeTrees{edited: true, untouched: false},
+		Tallies: fakeTallies{
+			{AgentID: editedAgent.ID, Verdict: &approved, SnapshotSHA: "snapshot-one"},
+			{AgentID: untouchedAgent.ID, Verdict: &approved, SnapshotSHA: "snapshot-two"},
+		},
+	})
+
+	assert.False(t, syncer.HasTreeMoved(editedAgent.ID, "snapshot-one"), "nothing is known before the first pass")
+
+	require.NoError(t, syncer.Sync(ctx))
+
+	assert.True(t, syncer.HasTreeMoved(editedAgent.ID, "snapshot-one"))
+	assert.False(t, syncer.HasTreeMoved(untouchedAgent.ID, "snapshot-two"))
+	assert.False(t, syncer.HasTreeMoved(editedAgent.ID, "snapshot-newer"),
+		"a verdict on a round the pass has not compared against is not one the tree moved from")
+}
+
+// TestCwdSyncerSyncHashesOnlyAReviewedTree covers the cost the pass keeps down: a worktree with
+// no verdict on it, or none left on disk, is never hashed.
+func TestCwdSyncerSyncHashesOnlyAReviewedTree(t *testing.T) {
+	st := newStore(t)
+	ctx := t.Context()
+
+	workflowID := seedWorkflow(t, st)
+	reviewed, unreviewed, commented := fakeCheckout(t), fakeCheckout(t), fakeCheckout(t)
+	for name, cwd := range map[string]string{
+		"reviewed":   reviewed,
+		"unreviewed": unreviewed,
+		"commented":  commented,
+		"removed":    removedDir(t),
+	} {
+		require.NoError(t, st.Agents.Create(ctx, agentstore.Agent{
+			Name:       name,
+			State:      agentstore.StateIdle,
+			WorkflowID: workflowID,
+			Cwd:        cwd,
+		}))
+	}
+	reviewedAgent, err := st.Agents.GetInWorkflow(ctx, workflowID, "reviewed")
+	require.NoError(t, err)
+	commentedAgent, err := st.Agents.GetInWorkflow(ctx, workflowID, "commented")
+	require.NoError(t, err)
+	removedAgent, err := st.Agents.GetInWorkflow(ctx, workflowID, "removed")
+	require.NoError(t, err)
+
+	approved := reviewstore.VerdictApproved
+	hashed := &recordingTrees{}
+	syncer := NewCwdSyncer(NewCwdSyncerParams{
+		Agents: st.Agents,
+		Heads:  fakeHeads{},
+		Trees:  hashed,
+		Tallies: fakeTallies{
+			{AgentID: reviewedAgent.ID, Verdict: &approved, SnapshotSHA: "snapshot-one"},
+			{AgentID: commentedAgent.ID, Rounds: 1},
+			{AgentID: removedAgent.ID, Verdict: &approved, SnapshotSHA: "snapshot-three"},
+		},
+	})
+
+	require.NoError(t, syncer.Sync(ctx))
+
+	assert.Equal(t, []string{reviewed}, hashed.dirs)
+	assert.True(t, syncer.HasTreeMoved(reviewedAgent.ID, "snapshot-one"))
+	assert.False(t, syncer.HasTreeMoved(removedAgent.ID, "snapshot-three"))
+}
+
+// TestCwdSyncerSyncForgetsAMoveTheNextPassDoesNotSee pins that each pass replaces the last:
+// a round opened on the moved tree leaves nothing for the column to keep saying.
+func TestCwdSyncerSyncForgetsAMoveTheNextPassDoesNotSee(t *testing.T) {
+	st := newStore(t)
+	ctx := t.Context()
+
+	workflowID := seedWorkflow(t, st)
+	cwd := fakeCheckout(t)
+	require.NoError(t, st.Agents.Create(ctx, agentstore.Agent{
+		Name:       "a",
+		State:      agentstore.StateIdle,
+		WorkflowID: workflowID,
+		Cwd:        cwd,
+	}))
+	created, err := st.Agents.GetInWorkflow(ctx, workflowID, "a")
+	require.NoError(t, err)
+
+	approved := reviewstore.VerdictApproved
+	trees := fakeTrees{cwd: true}
+	syncer := NewCwdSyncer(NewCwdSyncerParams{
+		Agents:  st.Agents,
+		Heads:   fakeHeads{},
+		Trees:   trees,
+		Tallies: fakeTallies{{AgentID: created.ID, Verdict: &approved, SnapshotSHA: "snapshot-one"}},
+	})
+
+	require.NoError(t, syncer.Sync(ctx))
+	require.True(t, syncer.HasTreeMoved(created.ID, "snapshot-one"))
+
+	trees[cwd] = false
+	require.NoError(t, syncer.Sync(ctx))
+	assert.False(t, syncer.HasTreeMoved(created.ID, "snapshot-one"))
+}
+
+// TestCwdSyncerSyncReportsAProbeItCouldNotMake pins that a tree the pass cannot hash is said
+// rather than read as unmoved, since silence there keeps a green check on code nobody has read.
+func TestCwdSyncerSyncReportsAProbeItCouldNotMake(t *testing.T) {
+	st := newStore(t)
+	ctx := t.Context()
+
+	workflowID := seedWorkflow(t, st)
+	cwd := fakeCheckout(t)
+	require.NoError(t, st.Agents.Create(ctx, agentstore.Agent{
+		Name:       "a",
+		State:      agentstore.StateIdle,
+		WorkflowID: workflowID,
+		Cwd:        cwd,
+	}))
+	created, err := st.Agents.GetInWorkflow(ctx, workflowID, "a")
+	require.NoError(t, err)
+
+	approved := reviewstore.VerdictApproved
+	syncer := NewCwdSyncer(NewCwdSyncerParams{
+		Agents:  st.Agents,
+		Heads:   fakeHeads{},
+		Trees:   fakeTrees{},
+		Tallies: fakeTallies{{AgentID: created.ID, Verdict: &approved, SnapshotSHA: "snapshot-one"}},
+	})
+
+	err = syncer.Sync(ctx)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), `failed to compare the tree of "a"`)
+	assert.False(t, syncer.HasTreeMoved(created.ID, "snapshot-one"))
 }

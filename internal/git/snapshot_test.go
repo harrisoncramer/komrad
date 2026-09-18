@@ -296,3 +296,59 @@ func TestASnapshotSurvivesAnUnreadableIndex(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, []string{"package main"}, lines)
 }
+
+// TestTheTreeStandsUntilTheWorktreeMoves is the comparison the review column rests on: the
+// worktree a round was taken of hashes to that round until a file in it changes.
+func TestTheTreeStandsUntilTheWorktreeMoves(t *testing.T) {
+	root := repo(t)
+	write(t, root, "loose.go", "package main\n")
+
+	snapshot, err := client.TakeSnapshot(t.Context(), TakeSnapshotParams{Dir: root, Base: "main"})
+	require.NoError(t, err)
+
+	moved, err := client.HasTreeMoved(t.Context(), root, snapshot.SHA)
+	require.NoError(t, err)
+	assert.False(t, moved, "nothing has been written since the round was taken")
+
+	write(t, root, "loose.go", "package main\n\nfunc Later() {}\n")
+
+	moved, err = client.HasTreeMoved(t.Context(), root, snapshot.SHA)
+	require.NoError(t, err)
+	assert.True(t, moved, "an edit to a file the round holds is a move")
+
+	write(t, root, "loose.go", "package main\n")
+
+	moved, err = client.HasTreeMoved(t.Context(), root, snapshot.SHA)
+	require.NoError(t, err)
+	assert.False(t, moved, "a worktree edited back to the round is not a move")
+}
+
+// TestARebaseMovesTheTree pins that the comparison is of the whole tree rather than of the
+// agent's own diff: a rebase that brings in a commit of the base's moves it, which is the first
+// cut the column ships with.
+func TestARebaseMovesTheTree(t *testing.T) {
+	root := repo(t)
+	run(t, root, "checkout", "-b", "topic")
+	write(t, root, "topic.go", "package main\n")
+	run(t, root, "add", "-A")
+	run(t, root, "commit", "-m", "topic")
+
+	snapshot, err := client.TakeSnapshot(t.Context(), TakeSnapshotParams{Dir: root, Base: "main"})
+	require.NoError(t, err)
+
+	run(t, root, "checkout", "main")
+	write(t, root, "landed.go", "package main\n")
+	run(t, root, "add", "-A")
+	run(t, root, "commit", "-m", "landed")
+	run(t, root, "checkout", "topic")
+
+	moved, err := client.HasTreeMoved(t.Context(), root, snapshot.SHA)
+	require.NoError(t, err)
+	assert.False(t, moved, "the base moving on its own changes nothing in the agent's checkout")
+
+	run(t, root, "rebase", "main")
+
+	moved, err = client.HasTreeMoved(t.Context(), root, snapshot.SHA)
+	require.NoError(t, err)
+	assert.True(t, moved)
+}

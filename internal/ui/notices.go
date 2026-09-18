@@ -31,9 +31,10 @@ const (
 )
 
 const (
-	inLocalReviewNotice     = "in review, reviewer owed an answer"
-	localApprovedNotice     = "local reviewer approved this round"
-	localChangesAskedNotice = "local reviewer asked for changes"
+	localApprovedNotice      = "approved as it stands"
+	localApprovedMovedNotice = "approved, but the tree has changed since, so another pass is owed"
+	localChangesOwedNotice   = "changes were asked for and the tree has not moved, so the agent still owes them"
+	localChangesPushedNotice = "changes were asked for and the agent has pushed since, so it is ready to read again"
 )
 
 // Explainer: a notice teaches one mark on the row above it, so it takes its glyph and its tone
@@ -54,12 +55,13 @@ var (
 		view.RepoRebasing: sequenceNotice,
 	}
 
-	// reviewSaid is what the review column says, a released verdict and a reviewer still
-	// reading sharing the one column.
+	// reviewSaid is what the review column says where it stands away from its baseline, which
+	// is whose turn it is.
 	reviewSaid = map[view.Review]string{
-		view.ReviewOpen:             inLocalReviewNotice,
 		view.ReviewApproved:         localApprovedNotice,
-		view.ReviewChangesRequested: localChangesAskedNotice,
+		view.ReviewApprovedMoved:    localApprovedMovedNotice,
+		view.ReviewChangesRequested: localChangesOwedNotice,
+		view.ReviewChangesPushed:    localChangesPushedNotice,
 	}
 )
 

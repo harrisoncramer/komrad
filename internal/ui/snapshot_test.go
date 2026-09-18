@@ -156,8 +156,8 @@ func TestSnapshotRepo(t *testing.T) {
 	}
 }
 
-// TestSnapshotReview pins where the local review stands, a released verdict beating the reviewer
-// still reading since one column carries both.
+// TestSnapshotReview pins the five states the column picks from the last conclusion released
+// and whether the worktree still matches the round it was given on.
 func TestSnapshotReview(t *testing.T) {
 	tests := []struct {
 		name string
@@ -165,41 +165,32 @@ func TestSnapshotReview(t *testing.T) {
 		want view.Review
 	}{
 		{
-			name: "changes requested beats the reviewer still being owed an answer",
-			item: agentItem{
-				localVerdict:  string(reviewstore.VerdictChangesRequested),
-				inLocalReview: true,
-			},
-			want: view.ReviewChangesRequested,
-		},
-		{
-			name: "an approval beats the reviewer still being owed an answer",
-			item: agentItem{
-				localVerdict:  string(reviewstore.VerdictApproved),
-				inLocalReview: true,
-			},
+			name: "an approval on the tree as it stands is approved",
+			item: agentItem{localVerdict: string(reviewstore.VerdictApproved)},
 			want: view.ReviewApproved,
 		},
 		{
-			name: "notes without a conclusion leave the review open",
-			item: agentItem{
-				localVerdict:  string(reviewstore.VerdictCommented),
-				inLocalReview: true,
-			},
-			want: view.ReviewOpen,
+			name: "an approval the tree has moved past is owed another pass",
+			item: agentItem{localVerdict: string(reviewstore.VerdictApproved), localTreeMoved: true},
+			want: view.ReviewApprovedMoved,
 		},
 		{
-			name: "notes on work nobody is still reading are their own answer",
+			name: "changes requested on the tree as it stands are still owed by the agent",
+			item: agentItem{localVerdict: string(reviewstore.VerdictChangesRequested)},
+			want: view.ReviewChangesRequested,
+		},
+		{
+			name: "changes requested the tree has moved past are ready to read again",
+			item: agentItem{localVerdict: string(reviewstore.VerdictChangesRequested), localTreeMoved: true},
+			want: view.ReviewChangesPushed,
+		},
+		{
+			name: "notes without a conclusion are no review",
 			item: agentItem{localVerdict: string(reviewstore.VerdictCommented)},
-			want: view.ReviewCommented,
+			want: view.ReviewNone,
 		},
 		{
-			name: "a reviewer owed an answer is an open review",
-			item: agentItem{inLocalReview: true},
-			want: view.ReviewOpen,
-		},
-		{
-			name: "work no reviewer has read has no review",
+			name: "work nobody has concluded on has no review",
 			item: agentItem{},
 			want: view.ReviewNone,
 		},
@@ -515,8 +506,8 @@ func TestSnapshotPlainWorkflowKeepsItsColumns(t *testing.T) {
 	row := snapshotRowOf(t, snapshotParams{rows: []agentRow{{
 		workflow: workflowstore.Workflow{ID: "w1", Name: "weave"},
 		item: agentItem{
-			alive:         true,
-			inLocalReview: true,
+			alive:        true,
+			localVerdict: string(reviewstore.VerdictApproved),
 			agent: agentstore.Agent{
 				ID:              "a1",
 				Name:            "worker",
@@ -529,7 +520,7 @@ func TestSnapshotPlainWorkflowKeepsItsColumns(t *testing.T) {
 	}}})
 
 	assert.Equal(t, view.RepoGone, row.Repo)
-	assert.Equal(t, view.ReviewOpen, row.Review)
+	assert.Equal(t, view.ReviewApproved, row.Review)
 	assert.False(t, view.RepoCell(row).IsBlank())
 	assert.False(t, view.ReviewCell(row).IsBlank())
 }

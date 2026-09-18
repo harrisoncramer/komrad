@@ -1,6 +1,7 @@
 package view
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -44,4 +45,27 @@ func TestDrawingsAgreeWithTheLayout(t *testing.T) {
 	assert.Equal(t, plainColumns, widths["mail"])
 	assert.Equal(t, plainColumns, widths["busy"])
 	assert.Equal(t, plainColumns, widths["child"])
+}
+
+// TestReviewGlyphsSpellTheirOcticons pins each review mark to its codepoint, since the private
+// use characters are lost in transit and a wrong one draws as a box rather than failing.
+func TestReviewGlyphsSpellTheirOcticons(t *testing.T) {
+	tests := []struct {
+		glyph Glyph
+		want  string
+	}{
+		{GlyphUnverified, "f4a3"},
+		{GlyphCheckbox, "f4a7"},
+		{GlyphBell, "f49a"},
+		{GlyphHourglass, "f4e3"},
+		{GlyphApproved, "f42e"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.want, func(t *testing.T) {
+			runes := []rune(Spell(tt.glyph))
+			require.Len(t, runes, 1)
+			assert.Equal(t, tt.want, fmt.Sprintf("%x", runes[0]))
+		})
+	}
 }

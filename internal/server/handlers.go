@@ -63,6 +63,7 @@ func newMux(params newMuxParams) (*http.ServeMux, error) {
 			Creator:      params.Services.launch,
 			Adopter:      params.Services.adopt,
 			Liveness:     params.Services.liveness,
+			Trees:        params.Services.cwdSync,
 			Lifecycle:    params.Services.lifecycle,
 			Resumer:      params.Services.resume,
 			Holder:       params.Services.holder,
