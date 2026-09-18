@@ -165,7 +165,7 @@ func TestSymbologyWindowsALongList(t *testing.T) {
 			m := longListModel(tt.cursor)
 			drawn := ansi.Strip(m.agentsListView())
 
-			require.LessOrEqual(t, strings.Count(drawn, "\n"), m.height)
+			require.Equal(t, m.height, strings.Count(drawn, "\n"))
 			assert.Contains(t, drawn, tt.want, "the row the cursor stands on is inside the window")
 
 			for _, marker := range []string{"↑", "↓"} {
@@ -197,4 +197,18 @@ func visibleAgentRows(t *testing.T, m model) int {
 	}
 
 	return count
+}
+
+// TestSymbologyWindowFillsThePane pins the list being handed every line the pane has and no
+// more, which the difference between two widths cannot see: budget one line too few and the
+// whole drawing comes up a line short of the pane with nothing else to say so.
+func TestSymbologyWindowFillsThePane(t *testing.T) {
+	for _, width := range []int{16, 120} {
+		t.Run(fmt.Sprintf("width %d", width), func(t *testing.T) {
+			m := longListModel(20)
+			m.width = width
+
+			assert.Equal(t, m.height, strings.Count(ansi.Strip(m.agentsListView()), "\n"))
+		})
+	}
 }
