@@ -140,11 +140,12 @@ func (a Identity) Mint(ctx context.Context, client *http.Client, now time.Time) 
 		return Token{}, fmt.Errorf("failed to read github's answer: %w", err)
 	}
 
-	if response.StatusCode >= 400 && response.StatusCode < 500 {
+	switch response.StatusCode {
+	case http.StatusUnauthorized, http.StatusForbidden, http.StatusNotFound:
 		return Token{}, fmt.Errorf("%w for app %s installation %s: %s: %s",
 			ErrRefused, a.ID, a.InstallationID, response.Status, strings.TrimSpace(string(body)))
-	}
-	if response.StatusCode != http.StatusCreated {
+	case http.StatusCreated:
+	default:
 		return Token{}, fmt.Errorf("github failed to mint an installation token for app %s installation %s: %s: %s",
 			a.ID, a.InstallationID, response.Status, strings.TrimSpace(string(body)))
 	}

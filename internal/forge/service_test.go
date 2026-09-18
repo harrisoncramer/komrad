@@ -603,7 +603,7 @@ func TestCheckReportsARefusedMint(t *testing.T) {
 }
 
 // TestCheckPassesAMintOutageThrough covers GitHub failing to mint rather than refusing to: a
-// 5xx is not a refusal, so the row keeps its verified_at.
+// 5xx is not a refusal.
 func TestCheckPassesAMintOutageThrough(t *testing.T) {
 	f := newFixture(t, "", nil)
 	server, _ := appServer(t, false)

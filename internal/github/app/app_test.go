@@ -72,8 +72,7 @@ func TestMintSignsAnAssertionGitHubCanCheck(t *testing.T) {
 		"iat is backdated, so this host's clock running slow does not make the assertion future-dated")
 }
 
-// TestMintExplainsARefusal covers the App id or the installation being wrong, which is the whole
-// failure surface of this setup and is otherwise a bare 404.
+// TestMintExplainsARefusal covers which of GitHub's answers to a mint count as a refusal.
 func TestMintExplainsARefusal(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -83,6 +82,7 @@ func TestMintExplainsARefusal(t *testing.T) {
 		{name: "a key github cannot check", status: http.StatusUnauthorized, wantRefused: true},
 		{name: "a suspended installation", status: http.StatusForbidden, wantRefused: true},
 		{name: "an installation github does not have", status: http.StatusNotFound, wantRefused: true},
+		{name: "a rate limit", status: http.StatusTooManyRequests, wantRefused: false},
 		{name: "github failing to answer", status: http.StatusBadGateway, wantRefused: false},
 	}
 
@@ -90,7 +90,7 @@ func TestMintExplainsARefusal(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 				w.WriteHeader(tt.status)
-				_, _ = w.Write([]byte(`{"message":"Not Found"}`))
+				_, _ = w.Write([]byte(`{"message":"` + http.StatusText(tt.status) + `"}`))
 			}))
 			defer server.Close()
 

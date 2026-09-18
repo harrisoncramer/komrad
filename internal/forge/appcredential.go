@@ -87,7 +87,11 @@ func NewAppCredential(params NewAppCredentialParams) *AppCredential {
 func (c *AppCredential) Credential(ctx context.Context) (Credential, error) {
 	token, err := c.app.Cache.Fetch(ctx, c.app.client(), c.app.now())
 	if errors.Is(err, githubapp.ErrRefused) {
-		return Credential{}, errors.Join(ErrUnauthorized.Saying("%v", err), c.Invalidate(ctx))
+		if invalidateErr := c.Invalidate(ctx); invalidateErr != nil {
+			return Credential{}, ErrUnauthorized.Saying("%v; failed to record the refusal: %v", err, invalidateErr)
+		}
+
+		return Credential{}, ErrUnauthorized.Saying("%v", err)
 	}
 	if err != nil {
 		return Credential{}, err
