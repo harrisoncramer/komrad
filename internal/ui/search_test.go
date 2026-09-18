@@ -789,7 +789,8 @@ func TestSearchRowCarriesTheAgent(t *testing.T) {
 			ID:         "a2",
 			Name:       "payouts",
 			WorkflowID: "w1",
-			State:      agentstore.StateFailedToCleanup,
+			State:      agentstore.StateIdle,
+			ArchivedAt: xptr.Ptr(time.Now()),
 		},
 	}
 
@@ -872,6 +873,77 @@ func TestSearchRowSaysWhatTheAgentsListSays(t *testing.T) {
 	tree := snapshotRow(agentRow{item: item}, snapshotParams{})
 
 	assert.Equal(t, treeOwned(tree), treeOwned(hit))
+}
+
+// TestArchivedAgentsSayTheSameOnBothScreens pins one archived agent drawing alike on the two
+// screens that can both name it, the rule living where the archive already kept it.
+func TestArchivedAgentsSayTheSameOnBothScreens(t *testing.T) {
+	states := []agentstore.State{
+		agentstore.StateIdle,
+		agentstore.StateFailedToCreate,
+		agentstore.StateFailedToCleanup,
+	}
+
+	for _, state := range states {
+		t.Run(string(state), func(t *testing.T) {
+			agent := agentstore.Agent{
+				ID:         "a2",
+				Name:       "payouts",
+				WorkflowID: "w1",
+				State:      state,
+				ArchivedAt: xptr.Ptr(time.Now()),
+			}
+
+			m := filterModel()
+			m.screen = screenSearch
+			m.search = searchState{query: "payouts"}
+			m.archive.agents = []agentstore.Agent{agent}
+
+			archive := view.StatusCell(snapshotRow(agentRow{item: agentItem{agent: agent}}, snapshotParams{}))
+			search := view.StatusCell(m.searchRow(searchHit{agentID: "a2", name: "payouts", archived: true}, "k"))
+
+			assert.Equal(t, archive, search, "the two screens draw one agent the same")
+		})
+	}
+}
+
+// TestArchivedHitIsDimBeforeItsListingLands covers the archived hit the archive listing has not
+// arrived for, whose greying and tag rest on what the server said rather than on a stamp the
+// panel does not hold yet.
+func TestArchivedHitIsDimBeforeItsListingLands(t *testing.T) {
+	m := filterModel()
+	m.screen = screenSearch
+	m.search = searchState{query: "payouts"}
+	m.archive.agents = nil
+
+	row := m.searchRow(searchHit{agentID: "gone", name: "payouts", archived: true}, "k")
+
+	assert.True(t, row.Dim, "the server said it is archived, so it greys")
+	assert.Equal(t, archivedTagText, row.Tag)
+	assert.Equal(t, view.ProcessStopped, row.Process, "and it is over, whatever else is unknown")
+}
+
+// TestArchivedSearchRowKeepsTheDeleteThatFailed is the carve-out the archive already makes and
+// the search screen now inherits, an agent a delete could not destroy still having a worktree
+// somebody has to deal with.
+func TestArchivedSearchRowKeepsTheDeleteThatFailed(t *testing.T) {
+	agent := agentstore.Agent{
+		ID:         "a2",
+		Name:       "stuck",
+		WorkflowID: "w1",
+		State:      agentstore.StateFailedToCleanup,
+		ArchivedAt: xptr.Ptr(time.Now()),
+	}
+
+	m := filterModel()
+	m.screen = screenSearch
+	m.search = searchState{query: "stuck"}
+	m.archive.agents = []agentstore.Agent{agent}
+
+	cell := view.StatusCell(m.searchRow(searchHit{agentID: "a2", name: "stuck", archived: true}, "k"))
+
+	assert.Equal(t, view.GlyphBusy, cell.Glyph, "a failed delete is not quietened by being archived")
+	assert.Equal(t, paint.ToneDanger, cell.Tone)
 }
 
 // TestSearchSnippetsHangOffTheirHeader covers the one thing the two kinds of line have to agree

@@ -528,19 +528,20 @@ func (m model) searchRow(hit searchHit, key string) view.Row {
 	return agentFacts(row, item)
 }
 
-// archivedSearchRow is a hit on an agent nobody can reach any more, whose bar says a process was
-// there and has stopped.
+// archivedSearchRow is a hit on an agent nobody can reach any more, read the same way the archive
+// screen reads it so the two cannot say different things about one agent.
 func (m model) archivedSearchRow(row view.Row, id string) view.Row {
-	row.Dim = true
-	row.Tag = archivedTagText
+	// Nothing is known about a hit the archive listing has not landed yet, beyond its being over.
 	row.Process = view.ProcessStopped
 
-	agent, ok := m.archivedAgent(id)
-	if !ok {
-		return row
+	if agent, ok := m.archivedAgent(id); ok {
+		row = agentFacts(row, agentItem{agent: agent})
 	}
 
-	row.Scheduled = agent.ScheduleID != nil
+	// The server said this hit is archived, which holds whether or not the listing carrying the
+	// stamp has arrived.
+	row.Dim = true
+	row.Tag = archivedTagText
 
 	return row
 }
