@@ -377,19 +377,19 @@ func TestNarrowSidebarsDropColumnsRatherThanNames(t *testing.T) {
 		wantName int
 	}{
 		{
-			name:     "the width Harry's own config sets keeps the bar and the name alone",
+			name:     "the width Harry's own config sets still draws the checkout, the column never given up",
 			pane:     16,
-			want:     Columns{},
-			wantName: 10,
+			want:     Columns{Repo: true},
+			wantName: 7,
 		},
 		{
-			name:     "a little wider buys back the checkout, which is the column that stops work dead",
+			name:     "a little wider spends what it gains on the name rather than on a column",
 			pane:     20,
 			want:     Columns{Repo: true},
 			wantName: 11,
 		},
 		{
-			name:     "wider still buys back the review, the pull request being the one with nothing behind it",
+			name:     "wider still buys back the review, the pull request being the last to come",
 			pane:     24,
 			want:     Columns{Repo: true, Review: true},
 			wantName: 12,
@@ -414,6 +414,23 @@ func TestNarrowSidebarsDropColumnsRatherThanNames(t *testing.T) {
 				assert.NotEmpty(t, list.Lines[i].Name, "row %q lost its name while a column was still drawn", drawn)
 			}
 		})
+	}
+}
+
+// TestColumnsDoNotMoveWhenARowGainsAMark pins the column set being the pane's business alone: a
+// list must not change shape because one agent was sent mail.
+func TestColumnsDoNotMoveWhenARowGainsAMark(t *testing.T) {
+	for pane := 16; pane <= 40; pane++ {
+		quiet := livePanelRows()
+		busy := livePanelRows()
+		busy[2].UnreadMail = true
+		busy[2].FailedRun = true
+		busy[2].Held = true
+
+		assert.Equal(t,
+			Prepare(Snapshot{Rows: quiet, Pane: pane}).Columns,
+			Prepare(Snapshot{Rows: busy, Pane: pane}).Columns,
+			"the columns moved at pane %d because one row gained a mark", pane)
 	}
 }
 

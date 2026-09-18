@@ -558,19 +558,19 @@ func TestPrepareClipsMatchesWithTheName(t *testing.T) {
 		{
 			name:    "a match wholly past the cut is dropped",
 			matches: []Span{{Start: 10, End: 14}},
-			pane:    12,
+			pane:    15,
 			want:    nil,
 		},
 		{
 			name:    "a match the cut runs through is shortened to what is left",
 			matches: []Span{{Start: 3, End: 14}},
-			pane:    12,
+			pane:    15,
 			want:    []Span{{Start: 3, End: 5}},
 		},
 		{
 			name:    "a match before the cut is left alone",
 			matches: []Span{{Start: 0, End: 4}},
-			pane:    12,
+			pane:    15,
 			want:    []Span{{Start: 0, End: 4}},
 		},
 		{
@@ -643,9 +643,9 @@ func TestPrepareGivesTheTallyUpBeforeTheMarks(t *testing.T) {
 		wantTally int
 	}{
 		{
-			name:      "a pane that has already given a column up spends what is left on the name",
+			name:      "a pane with room for neither keeps the marks and gives up both",
 			pane:      28,
-			wantName:  "a…",
+			wantName:  "",
 			wantTally: 0,
 		},
 		{

@@ -13,7 +13,7 @@ func Prepare(snapshot Snapshot) List {
 		}))
 	}
 
-	columns := fitColumns(lines, snapshot.Pane)
+	columns := fitColumns(snapshot.Pane)
 	if snapshot.Pane > 0 {
 		width := NameColumns(snapshot.Pane, columns)
 		for i := range lines {
@@ -24,16 +24,18 @@ func Prepare(snapshot Snapshot) List {
 	return List{Lines: lines, Columns: columns}
 }
 
-// fitColumns gives the three columns up from the right until the names have room, a column being
-// what a narrow pane spends before it spends a name or a mark.
-func fitColumns(lines []Line, pane int) Columns {
+// fitColumns gives the columns up from the right as the pane narrows, reading the pane alone so
+// a list does not change shape when a row gains a mark.
+func fitColumns(pane int) Columns {
 	columns := everyColumn()
 	if pane <= 0 {
 		return columns
 	}
 
-	for _, give := range []*bool{&columns.Forge, &columns.Review, &columns.Repo} {
-		if roomFor(lines, pane, columns) {
+	// The repo column is never given up: a sidebar too narrow for the other two still says
+	// whether the checkout under an agent is somewhere you can work.
+	for _, give := range []*bool{&columns.Forge, &columns.Review} {
+		if NameColumns(pane, columns) >= minNameColumns {
 			return columns
 		}
 
@@ -41,24 +43,6 @@ func fitColumns(lines []Line, pane int) Columns {
 	}
 
 	return columns
-}
-
-// roomFor reports whether every row can draw a name of its own at this many columns, once it has
-// given up its tally.
-func roomFor(lines []Line, pane int, columns Columns) bool {
-	width := NameColumns(pane, columns)
-	if width < minNameColumns {
-		return false
-	}
-
-	for _, line := range lines {
-		line.Tally = 0
-		if line.Name != "" && nameColumns(line, width) <= 0 {
-			return false
-		}
-	}
-
-	return true
 }
 
 // prepareLineParams is one row and what the list around it says about that row.

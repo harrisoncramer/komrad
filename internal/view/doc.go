@@ -28,10 +28,12 @@
 //
 // # A narrow pane gives up columns, not names
 //
-// The three columns drop from the right as the pane narrows, forge first, then review, then
-// repo, and every row of the list drops the same ones so the names stay on one column. Nothing
-// else is given up for width: not the focus caret, the mark gutter, the status bar or the marks
-// after a name. Only once no column is left does a row give up its tally and then its name.
+// The columns drop from the right as the pane narrows, forge first and then review, decided by
+// the pane alone so a list never changes shape because a row gained a mark. The repo column is
+// never given up, since a sidebar too narrow for the rest still says whether the checkout under
+// an agent is one you can work in. Nothing else is given up for width: not the focus caret, the
+// mark gutter, the status bar or the marks after a name. A row too full for what is left gives
+// up its tally and then its name, which is a row at a time rather than the whole list.
 //
 // # Scrolling belongs to the caller
 //
