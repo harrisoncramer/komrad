@@ -838,7 +838,7 @@ func treeOwned(row view.Row) view.Row {
 	row.Key, row.Kind, row.Name = "", 0, ""
 	row.Matches, row.Mark = nil, ""
 	row.Repo, row.Review, row.Forge = 0, 0, 0
-	row.Selected, row.NoCheckout, row.HiddenCount = false, false, 0
+	row.Selected, row.HiddenCount = false, 0
 
 	return row
 }
