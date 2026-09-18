@@ -1066,8 +1066,8 @@ func deliveredComment() *agentv1.ReviewMessage {
 	}
 }
 
-// TestReviewVerdictKeepsItsColour covers the chosen verdict wearing what it means, which the
-// sidebar greyed while the release panel held every key.
+// TestReviewVerdictKeepsItsColour covers the chosen verdict wearing what it means rather than
+// the muted tone of the options it was picked out of.
 func TestReviewVerdictKeepsItsColour(t *testing.T) {
 	restore := lipgloss.ColorProfile()
 	t.Cleanup(func() { lipgloss.SetColorProfile(restore) })
@@ -1083,9 +1083,9 @@ func TestReviewVerdictKeepsItsColour(t *testing.T) {
 
 	shown := m.reviewReleaseView()
 	chosen := "  ▸ " + describeVerdict(reviewVerdicts[m.review.verdict])
-	want := paint.Colored.Style(verdictTone(reviewVerdicts[m.review.verdict])).Render(chosen)
+	want := paint.Panel.Style(verdictTone(reviewVerdicts[m.review.verdict])).Render(chosen)
 	assert.Contains(t, shown, want)
-	assert.NotContains(t, shown, paint.Grey.Style(paint.ToneMuted).Render(chosen))
+	assert.NotContains(t, shown, paint.Panel.Style(paint.ToneMuted).Render(chosen))
 }
 
 // TestReviewReleaseIsTheSubmitKey covers there being one way to send a review, on the same key
@@ -1853,27 +1853,6 @@ func TestReviewBaseIsRefusedWhenTheBaseMoved(t *testing.T) {
 	shown := ansi.Strip(m.reviewView())
 	assert.Contains(t, shown, "not comparable",
 		"and says the branch was rebased rather than drawing somebody else's work")
-}
-
-// TestTheDiffGreysWhileTheThreadHasTheKeys covers the band over the patch, which was in the
-// panel's own colours whichever side of the review was being read.
-func TestTheDiffGreysWhileTheThreadHasTheKeys(t *testing.T) {
-	dir := reviewRepo(t)
-	agents := &fakeReviewAgents{}
-	m, _ := reviewModel(t, agents, dir)
-	m = openReview(t, m)
-
-	m.applyReviewWrote(reviewWroteMsg{agentID: "a1", threads: reviewLongThread(t, m)})
-
-	require.True(t, m.isReviewDiffFocused(), "the patch has the keys to begin with")
-	require.Equal(t, paint.Colored.Color(paint.ToneAccent), m.palette(regionColumn).Color(reviewScopeOnTone))
-
-	next, _ := m.updateReview(tea.KeyMsg{Type: tea.KeyCtrlF})
-	m = next.(model)
-	require.True(t, m.isReviewThreadFocused())
-
-	assert.False(t, m.isReviewDiffFocused(), "the diff has given the keys up")
-	assert.Equal(t, paint.Colored.Color(paint.ToneMuted), m.palette(regionColumn).Color(reviewScopeOnTone), "so the band over it greys")
 }
 
 // typeReviewMessage types words into the composer the way a person does, the field taking only

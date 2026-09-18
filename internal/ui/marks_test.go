@@ -32,10 +32,10 @@ func TestIsMarkLetter(t *testing.T) {
 func TestMarkGutter(t *testing.T) {
 	withColor(t)
 
-	bare := paint.Colored.MarkGutter("")
+	bare := paint.Panel.MarkGutter("")
 	assert.Equal(t, "  ", bare)
 
-	marked := paint.Colored.MarkGutter("a")
+	marked := paint.Panel.MarkGutter("a")
 	assert.Contains(t, marked, "a")
 	assert.Equal(t, lipgloss.Width(bare), lipgloss.Width(marked), "a marked row is drawn no wider than an unmarked one")
 }

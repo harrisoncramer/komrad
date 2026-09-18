@@ -996,7 +996,7 @@ func TestArchiveScrollsTheDocument(t *testing.T) {
 
 	split, ok := m.screenColumnSplit()
 	require.True(t, ok, "the archive holds the window")
-	require.Greater(t, len(paint.Colored.DocRows(m.archiveDoc(), split.column)), split.rows, "the document runs past the window")
+	require.Greater(t, len(paint.Panel.DocRows(m.archiveDoc(), split.column)), split.rows, "the document runs past the window")
 
 	top := ansi.Strip(m.View())
 	assert.NotContains(t, top, "↑", "nothing is above the first screenful")
@@ -1143,7 +1143,7 @@ func TestArchiveDocViewFillsItsColumn(t *testing.T) {
 		Context: strings.Repeat("a line of the document. ", 30),
 	}}
 
-	total := len(paint.Colored.DocRows(m.archiveDoc(), 60))
+	total := len(paint.Panel.DocRows(m.archiveDoc(), 60))
 	require.Greater(t, total, 5, "the document runs past every window this walks")
 
 	for rows := 1; rows <= 5; rows++ {

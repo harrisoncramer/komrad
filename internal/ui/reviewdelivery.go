@@ -89,7 +89,7 @@ func (m model) reviewDeliveryCountView() string {
 		}
 
 		drawn := reviewDeliveryOf(state)
-		parts = append(parts, m.palette(regionColumn).Style(drawn.tone).Render(fmt.Sprintf("%d %s", count, drawn.word)))
+		parts = append(parts, paint.Panel.Style(drawn.tone).Render(fmt.Sprintf("%d %s", count, drawn.word)))
 	}
 
 	return strings.Join(parts, dimStyle.Render(" · "))

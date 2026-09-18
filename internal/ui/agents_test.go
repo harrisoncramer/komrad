@@ -52,7 +52,7 @@ func TestAgentsViewRowsOpenAtTheGutter(t *testing.T) {
 	m.tree.cursor = -1
 
 	rows := strings.Split(m.agentsView(), "\n")
-	opening := len(paint.Colored.MarkGutter("")) + 2
+	opening := len(paint.Panel.MarkGutter("")) + 2
 
 	agent, ok := rowNamed(rows, "worker")
 	require.True(t, ok)

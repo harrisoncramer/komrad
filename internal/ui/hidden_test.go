@@ -160,8 +160,8 @@ func TestHiddenHelpIsOneLine(t *testing.T) {
 // TestHiddenMark covers the marker on the row itself, which is what tells a revealed
 // row apart from the ones that were never hidden.
 func TestHiddenMark(t *testing.T) {
-	assert.Empty(t, hiddenMark(paint.Colored, false))
-	assert.Contains(t, hiddenMark(paint.Colored, true), hiddenIcon)
+	assert.Empty(t, hiddenMark(paint.Panel, false))
+	assert.Contains(t, hiddenMark(paint.Panel, true), hiddenIcon)
 }
 
 // TestAgentsViewHidden pins the rendered screen, where a hidden agent is absent while its

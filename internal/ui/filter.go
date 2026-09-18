@@ -226,7 +226,7 @@ func placeCursor(found, cursor, length int) int {
 }
 
 func (m model) filterView() string {
-	return m.filter.view(m.palette(regionList))
+	return m.filter.view(paint.Panel)
 }
 
 // view draws the search line whether or not there is a search.

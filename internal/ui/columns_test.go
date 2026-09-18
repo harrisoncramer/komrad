@@ -229,9 +229,9 @@ func TestAnUnfocusedTerminalKeepsTheWindow(t *testing.T) {
 	assert.False(t, m.keysElsewhere, "and the panel is still the thing being read")
 }
 
-// TestKeysMovingToAPaneGreyThePanel covers the keyboard going to an agent beside the panel, which
-// is the focus report the colours do follow.
-func TestKeysMovingToAPaneGreyThePanel(t *testing.T) {
+// TestKeysMovingToAPaneTakeThemOffTheList covers the keyboard going to an agent beside the
+// panel, which the panel hears about rather than the terminal losing focus.
+func TestKeysMovingToAPaneTakeThemOffTheList(t *testing.T) {
 	m, tmux := paneless(t)
 
 	require.True(t, m.isListFocused(), "the panel has the keys to begin with")
@@ -241,7 +241,7 @@ func TestKeysMovingToAPaneGreyThePanel(t *testing.T) {
 	m = asModel(t, left)
 
 	assert.True(t, m.keysElsewhere, "the panel knows the keys went to a pane rather than out of the terminal")
-	assert.False(t, m.isListFocused(), "so its own colours go grey")
+	assert.False(t, m.isListFocused(), "so the list is no longer the thing being typed at")
 }
 
 // TestTheDiffColumnSaysWhatItIsWaitingFor covers the review screen before its patch arrives,

@@ -63,13 +63,13 @@ func TestRenderTranscript(t *testing.T) {
 	const content = "# A heading\n\n- a list item\n\nthe ledger is here\n"
 
 	word := strings.Index(content, "ledger")
-	rendered, line := Colored.RenderTranscript(content, []Span{{Start: word, End: word + len("ledger")}}, 40)
+	rendered, line := Panel.RenderTranscript(content, []Span{{Start: word, End: word + len("ledger")}}, 40)
 
 	plain := ansi.Strip(rendered)
 	assert.Contains(t, plain, "• a list item", "the markdown is rendered rather than shown as source")
 	assert.NotContains(t, rendered, "\x02", "the markers are consumed into styling")
 	assert.NotContains(t, rendered, "\x03", "the markers are consumed into styling")
-	assert.Contains(t, rendered, Colored.stageMatch().Render("ledger"), "the matched word is styled")
+	assert.Contains(t, rendered, Panel.stageMatch().Render("ledger"), "the matched word is styled")
 
 	rows := strings.Split(plain, "\n")
 	require.Positive(t, line)
@@ -79,7 +79,7 @@ func TestRenderTranscript(t *testing.T) {
 // TestRenderTranscriptWithoutAMatch covers a transcript staged with nothing marked in it, which
 // is what a jump with no position left to it looks like.
 func TestRenderTranscriptWithoutAMatch(t *testing.T) {
-	rendered, line := Colored.RenderTranscript("plain prose\n", nil, 40)
+	rendered, line := Panel.RenderTranscript("plain prose\n", nil, 40)
 
 	assert.Equal(t, 0, line, "no match means no line to open on")
 	assert.Contains(t, ansi.Strip(rendered), "plain prose")
@@ -93,7 +93,7 @@ func TestRenderTranscriptEstimatesADroppedMatch(t *testing.T) {
 	content := head + "[the report](http://ledger.example.com)\n"
 
 	word := strings.Index(content, "ledger")
-	rendered, line := Colored.RenderTranscript(content, []Span{{Start: word, End: word + len("ledger")}}, 40)
+	rendered, line := Panel.RenderTranscript(content, []Span{{Start: word, End: word + len("ledger")}}, 40)
 
 	rows := strings.Count(rendered, "\n") + 1
 
@@ -110,14 +110,14 @@ func TestRenderTranscriptKeepsTheStylingAroundAMatch(t *testing.T) {
 	const content = "the `author_kind` column\n"
 
 	word := strings.Index(content, "author")
-	rendered, _ := Colored.RenderTranscript(content, []Span{{Start: word, End: word + len("author")}}, 60)
+	rendered, _ := Panel.RenderTranscript(content, []Span{{Start: word, End: word + len("author")}}, 60)
 
 	code := strings.Index(rendered, "\x1b[")
 	require.GreaterOrEqual(t, code, 0, "the renderer styles inline code")
 
 	opened := rendered[code : code+strings.IndexByte(rendered[code:], 'm')+1]
 
-	assert.Contains(t, rendered, Colored.stageMatch().Render("author")+opened,
+	assert.Contains(t, rendered, Panel.stageMatch().Render("author")+opened,
 		"the code styling is opened again after the match")
 }
 
@@ -144,7 +144,7 @@ func TestDocRowsFitTheColumn(t *testing.T) {
 	for name, body := range bodies {
 		for _, width := range []int{40, 50, 60, 80} {
 			t.Run(name+" at "+strconv.Itoa(width), func(t *testing.T) {
-				for _, row := range Colored.DocRows(body, width) {
+				for _, row := range Panel.DocRows(body, width) {
 					plain := ansi.Strip(row)
 
 					assert.NotContains(t, plain, "\t", "a row holds no tab for the terminal to widen")

@@ -147,7 +147,7 @@ func (m model) reviewRestView() string {
 	// A notice answers the last keypress and a keypress clears it, so what the reader is told
 	// about the diff itself stands underneath and comes back the moment the answer is gone.
 	if notice := m.review.notice; notice != "" {
-		out += "\n" + m.reviewNote(m.palette(regionThread).Style(reviewNoticeTone), notice)
+		out += "\n" + m.reviewNote(paint.Panel.Style(reviewNoticeTone), notice)
 	} else if since := m.review.since; since != "" && m.review.baseLabel == "" {
 		out += "\n" + m.reviewNote(dimStyle, since)
 	}
@@ -161,14 +161,14 @@ func (m model) reviewAnchorView() string {
 	anchor, ok := m.review.view.GetAnchor(m.review.cursor)
 	if !ok {
 		if thread, ok := m.reviewThreadAtCursor(); ok {
-			return m.palette(regionThread).Title(clipName(review.FormatThreadLocation(thread))) +
+			return paint.Panel.Title(clipName(review.FormatThreadLocation(thread))) +
 				m.reviewCommentWhereView(thread) + "\n"
 		}
 
 		return dimStyle.Render("  move onto a line to start a thread on it") + "\n"
 	}
 
-	head := m.palette(regionThread).Title(clipName(review.FormatLocation(anchor.FilePath, anchor.OldStart, anchor.NewStart)))
+	head := paint.Panel.Title(clipName(review.FormatLocation(anchor.FilePath, anchor.OldStart, anchor.NewStart)))
 	if thread, ok := m.reviewThreadAtCursor(); ok {
 		head += m.reviewCommentWhereView(thread)
 	}
@@ -194,7 +194,7 @@ func (m model) reviewReleaseView() string {
 	for i, verdict := range reviewVerdicts {
 		mark, style := "  ", dimStyle
 		if i == m.review.verdict {
-			mark, style = "▸ ", m.palette(regionThread).Style(verdictTone(verdict))
+			mark, style = "▸ ", paint.Panel.Style(verdictTone(verdict))
 		}
 
 		out += style.Render("  "+mark+describeVerdict(verdict)) + "\n"
@@ -255,7 +255,7 @@ func (m model) reviewOriginView(thread *agentv1.ReviewThread) string {
 
 	out := dimStyle.Render("  "+m.reviewOriginSaid(thread)) + "\n"
 	for _, quoted := range thread.GetQuotedLines() {
-		out += m.palette(regionThread).Style(reviewQuoteTone).Italic(true).Render(m.reviewWrap("  "+quoted)) + "\n"
+		out += paint.Panel.Style(reviewQuoteTone).Italic(true).Render(m.reviewWrap("  "+quoted)) + "\n"
 	}
 
 	return out + "\n"
@@ -285,12 +285,12 @@ func (m model) reviewMessageView(message *agentv1.ReviewMessage) string {
 		author, tone = m.review.agentName, reviewAgentTone
 	}
 
-	head := m.palette(regionThread).Style(tone).Bold(true).Render(author)
+	head := paint.Panel.Style(tone).Bold(true).Render(author)
 	if when := reviewTimeOf(message.GetCreatedAt()); when != "" {
 		head += " " + dimStyle.Render(when)
 	}
 
-	return head + "\n" + m.reviewWrap(message.GetBody()) + "\n" + reviewDeliveryBadge(m.palette(regionThread), message) + "\n"
+	return head + "\n" + m.reviewWrap(message.GetBody()) + "\n" + reviewDeliveryBadge(paint.Panel, message) + "\n"
 }
 
 // reviewSendDesc says what the send key opens, since a verdict with nothing written is an
@@ -345,7 +345,7 @@ func (m model) reviewFields() []recordField {
 
 // reviewMarkerStyle is what the counts above and below the conversation are drawn in.
 func (m model) reviewMarkerStyle() lipgloss.Style {
-	return m.palette(regionThread).Header()
+	return paint.Panel.Header()
 }
 
 func (m model) reviewWrap(body string) string {
