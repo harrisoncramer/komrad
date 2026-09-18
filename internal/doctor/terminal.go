@@ -183,28 +183,45 @@ func textOf(drawn view.Drawn) string { return drawn.Text }
 // reportGlyphWidths is the reading turned into a finding, warning rather than failing because a
 // font the terminal lacks degrades the panel without breaking weave.
 func reportGlyphWidths(drawings []view.Drawn, measured []int, insideTmux bool) Result {
-	var wrong []string
+	caveat := ""
+	if insideTmux {
+		caveat = "; measured through tmux, which answers the query from its own grid rather than the terminal's"
+	}
+
+	mismatch := describeMismatch(drawings, measured)
+	if mismatch == "" {
+		return pass(describeWidths(drawings, measured) + caveat)
+	}
+
+	return Result{
+		Status: StatusWarn,
+		Detail: describeWidths(drawings, measured) + caveat,
+		Err:    fmt.Errorf("%w: %s%s", ErrGlyphWidthUnexpected, mismatch, caveat),
+		Fix:    "install a Nerd Font and set your terminal to it, or report these widths so the layout can be corrected",
+	}
+}
+
+// describeMismatch groups the glyphs the terminal and the layout disagree about, since the text
+// mode of the report shows this instead of the detail and a list of fifteen would be cut.
+func describeMismatch(drawings []view.Drawn, measured []int) string {
+	type disagreement struct {
+		drew    int
+		counted int
+	}
+
+	grouped := map[disagreement]int{}
 	for index, drawn := range drawings {
 		if measured[index] != drawn.Columns {
-			wrong = append(wrong, fmt.Sprintf("%s drew in %d, counted as %d", drawn.Name, measured[index], drawn.Columns))
+			grouped[disagreement{drew: measured[index], counted: drawn.Columns}]++
 		}
 	}
 
-	reading := describeWidths(drawings, measured)
-	if insideTmux {
-		reading += "; measured through tmux, which answers the query from its own grid rather than the terminal's"
-	}
+	pairs := slices.SortedFunc(maps.Keys(grouped), func(a, b disagreement) int { return a.drew - b.drew })
 
-	if len(wrong) > 0 {
-		return Result{
-			Status: StatusWarn,
-			Detail: reading,
-			Err:    fmt.Errorf("%w: %s", ErrGlyphWidthUnexpected, strings.Join(wrong, ", ")),
-			Fix:    "install a Nerd Font and set your terminal to it, or report the widths above so the layout can be corrected",
-		}
-	}
-
-	return pass(reading)
+	return strings.Join(xslice.Map(pairs, func(pair disagreement) string {
+		return fmt.Sprintf("%s drew in %s where the layout counts them as %d",
+			count(grouped[pair], "glyph"), count(pair.drew, "column"), pair.counted)
+	}), "; ")
 }
 
 // describeWidths groups the glyphs by the width they drew in, since what a person wants is how
@@ -218,8 +235,17 @@ func describeWidths(drawings []view.Drawn, measured []int) string {
 	widths := slices.Sorted(maps.Keys(grouped))
 
 	return strings.Join(xslice.Map(widths, func(width int) string {
-		return fmt.Sprintf("%d columns: %s", width, strings.Join(grouped[width], ", "))
+		return fmt.Sprintf("%s: %s", count(width, "column"), strings.Join(grouped[width], ", "))
 	}), "; ")
+}
+
+// count is a number and the thing it counts, plural unless there is one of them.
+func count(number int, noun string) string {
+	if number == 1 {
+		return "1 " + noun
+	}
+
+	return strconv.Itoa(number) + " " + noun + "s"
 }
 
 // findMissingEmphasis reads both escapes out of terminfo and returns the ones the entry does

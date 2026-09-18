@@ -83,7 +83,7 @@ func TestGlyphCheckReportsWidthsThatDisagree(t *testing.T) {
 	require.Equal(t, StatusWarn, result.Status,
 		"a font the terminal lacks is a degraded panel rather than a broken weave")
 	require.ErrorIs(t, result.Err, ErrGlyphWidthUnexpected)
-	assert.Contains(t, result.Err.Error(), "repo drew in 1, counted as 2")
+	assert.Contains(t, result.Err.Error(), "11 glyphs drew in 1 column where the layout counts them as 2")
 	assert.NotEmpty(t, result.Fix)
 }
 
@@ -117,6 +117,14 @@ func TestGlyphCheckSaysWhenItMeasuredTmux(t *testing.T) {
 	result := newTerminalGlyphCheck().Run(t.Context(), env)
 	require.Equal(t, StatusOK, result.Status)
 	assert.Contains(t, result.Detail, "tmux")
+
+	disagreeing := measuring(t, 1)
+	disagreeing.InsideTmux = env.InsideTmux
+
+	warned := newTerminalGlyphCheck().Run(t.Context(), disagreeing)
+	require.Equal(t, StatusWarn, warned.Status)
+	assert.Contains(t, warned.Err.Error(), "tmux",
+		"the text report shows the error rather than the detail, so the caveat has to be in both")
 }
 
 // TestGlyphCheckRefusesAShortAnswer covers a terminal answering about fewer glyphs than it was
