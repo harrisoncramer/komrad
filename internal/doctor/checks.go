@@ -20,6 +20,9 @@ func Checks(settings Settings) []Check {
 		newReadOnlyLoginCheck(),
 		newOrphanedWorktreesCheck(),
 		newServerCheck(),
+		newTerminalGlyphCheck(),
+		newTerminalEmphasisCheck(),
+		newTerminalColorCheck(),
 	}
 
 	checks = append(checks, xslice.Map(settings.Harnesses, newHarnessBinaryCheck)...)
