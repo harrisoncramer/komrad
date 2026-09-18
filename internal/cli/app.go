@@ -22,6 +22,7 @@ type app struct {
 	processViewer  string
 	logLevel       string
 	layout         config.Layout
+	sidebar        config.Sidebar
 	githubApp      config.GitHubApp
 	configErr      error
 	contextPath    string

@@ -101,6 +101,10 @@ func agentFields(agent agentstore.Agent, schedule, parent string) []recordField 
 		recordField{"directory", orDash(agent.Cwd)},
 	)
 
+	if agent.ReportedReason != "" {
+		fields = append(fields, recordField{"doing", agent.ReportedReason})
+	}
+
 	readBranch := agent.Branch != nil
 	if readBranch {
 		fields = append(fields, recordField{branchFieldKey, *agent.Branch})

@@ -90,16 +90,17 @@ func TestNoticesAreOrderedByUrgency(t *testing.T) {
 	}, texts)
 }
 
-// TestAFailedCreateSaysNothingOfItsWorktree covers the pair a failed setup would otherwise
-// draw: the worktree it was never given is what the failure already stands for.
-func TestAFailedCreateSaysNothingOfItsWorktree(t *testing.T) {
+// TestAFailedCreateSaysWhereItsWorktreeWent covers the pair a failed setup draws: the failure
+// itself, and the directory that was made for it and taken away again on the way out.
+func TestAFailedCreateSaysWhereItsWorktreeWent(t *testing.T) {
 	item := agentItem{agent: agentstore.Agent{State: agentstore.StateFailedToCreate, WorktreeRemoved: true}}
 
 	notices := agentNotices(item)
 
-	require.Len(t, notices, 1)
+	require.Len(t, notices, 2)
 	assert.Equal(t, failedToCreateNotice, notices[0].text)
-	assert.Empty(t, worktreeMark(paint.Colored, item), "the row draws no mark of its own either")
+	assert.Equal(t, worktreeRemovedNotice, notices[1].text)
+	assert.Empty(t, worktreeMark(paint.Colored, item), "the old row spends no glyph of its own on it")
 }
 
 // TestArchivedNoticesAreOnlyTheFailures covers the archive, whose rows draw one mark of their

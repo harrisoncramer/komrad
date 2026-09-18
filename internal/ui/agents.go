@@ -548,6 +548,10 @@ func (m model) agentsView() string {
 }
 
 func (m model) agentsListView() string {
+	if m.sidebar.Symbology {
+		return m.agentsSymbologyView()
+	}
+
 	record, help := m.detailsView(), m.renderHelp(m.agentHelp())
 	below := record + m.messagesRegion(record, help) + help
 
