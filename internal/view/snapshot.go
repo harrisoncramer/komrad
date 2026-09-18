@@ -1,11 +1,12 @@
 package view
 
-// RowKind is what one line of the agents list stands for.
+// RowKind is what one line of the agents list stands for, an agent leading so a row that names
+// no kind is the ordinary one.
 type RowKind int
 
 const (
-	KindWorkflow RowKind = iota
-	KindAgent
+	KindAgent RowKind = iota
+	KindWorkflow
 	KindChild
 )
 

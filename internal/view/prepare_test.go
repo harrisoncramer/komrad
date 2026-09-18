@@ -201,8 +201,7 @@ func TestPrepareWeight(t *testing.T) {
 	}
 }
 
-// TestPrepareIndent pins that a name opens where its gutter leaves off rather than where its
-// kind puts it.
+// TestPrepareIndent pins where a name opens, which its kind decides and its mark does not.
 func TestPrepareIndent(t *testing.T) {
 	tests := []struct {
 		name string
@@ -210,23 +209,28 @@ func TestPrepareIndent(t *testing.T) {
 		want int
 	}{
 		{
-			name: "a marked workflow gives its indent up to the letter in its gutter",
+			name: "a marked workflow opens at the gutter",
 			row:  Row{Kind: KindWorkflow, Mark: "w"},
 			want: 0,
 		},
 		{
-			name: "a marked agent gives it up the same way",
-			row:  Row{Kind: KindAgent, Mark: "a"},
+			name: "an unmarked workflow opens at the same place",
+			row:  Row{Kind: KindWorkflow},
 			want: 0,
 		},
 		{
-			name: "an unmarked workflow opens where an agent does",
-			row:  Row{Kind: KindWorkflow},
+			name: "a marked agent opens under its workflow",
+			row:  Row{Kind: KindAgent, Mark: "a"},
 			want: nameIndent,
 		},
 		{
-			name: "an unmarked agent opens one space in",
+			name: "an unmarked agent opens at the same place",
 			row:  Row{Kind: KindAgent},
+			want: nameIndent,
+		},
+		{
+			name: "a child opens where an agent does and hangs off a corner",
+			row:  Row{Kind: KindChild},
 			want: nameIndent,
 		},
 	}
@@ -234,6 +238,36 @@ func TestPrepareIndent(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			assert.Equal(t, tt.want, prepareOne(t, tt.row).Indent)
+		})
+	}
+}
+
+// TestPrepareMarkDoesNotMoveTheName pins the case a list of one row cannot express: two rows of
+// one kind, one marked and one not, whose names land on the same column.
+func TestPrepareMarkDoesNotMoveTheName(t *testing.T) {
+	tests := []struct {
+		name string
+		kind RowKind
+	}{
+		{
+			name: "two workflows",
+			kind: KindWorkflow,
+		},
+		{
+			name: "two agents",
+			kind: KindAgent,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			list := Prepare(Snapshot{Rows: []Row{
+				{Kind: tt.kind, Name: "marked", Mark: "m"},
+				{Kind: tt.kind, Name: "unmarked"},
+			}})
+			require.Len(t, list.Lines, 2)
+
+			assert.Equal(t, list.Lines[0].Indent, list.Lines[1].Indent)
 		})
 	}
 }

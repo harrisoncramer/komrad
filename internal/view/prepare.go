@@ -2,8 +2,7 @@ package view
 
 import "weave/internal/ui/paint"
 
-// nameIndent is the space a name opens in by, which a row carrying a mark gives up to the
-// letter in its gutter.
+// nameIndent is the space every row hanging under a workflow opens its name in by.
 const nameIndent = 1
 
 // Prepare turns a snapshot of the agents list into the view model a renderer draws.
@@ -25,7 +24,7 @@ func prepareLine(row Row, focused bool, nameWidth int) Line {
 		Review:   reviewCell(row.Review),
 		Forge:    forgeCell(row.Forge),
 		Status:   statusCell(row.Status),
-		Indent:   indentFor(row.Mark),
+		Indent:   indentFor(row.Kind),
 		Rule:     row.Kind == KindChild,
 		Name:     clipName(row.Name, nameWidth),
 		Weight:   weightFor(row.Kind),
@@ -144,11 +143,14 @@ func weightFor(kind RowKind) Weight {
 	return WeightRegular
 }
 
-// indentFor is how far across a row's name opens, the letter in a marked row's gutter standing
-// where that row's indent would be.
-func indentFor(mark string) int {
-	if mark != "" {
+// indentFor is how far across a row's name opens, which the mark gutter does not move since it
+// is a fixed two columns whether or not a letter is in it.
+func indentFor(kind RowKind) int {
+	switch kind {
+	case KindWorkflow:
 		return 0
+	case KindAgent, KindChild:
+		return nameIndent
 	}
 
 	return nameIndent
