@@ -500,12 +500,14 @@ func TestCwdSyncerSyncReadsWhetherTheTreeMoved(t *testing.T) {
 		},
 	})
 
-	assert.False(t, syncer.HasTreeMoved(editedAgent.ID), "nothing is known before the first pass")
+	assert.False(t, syncer.HasTreeMoved(editedAgent.ID, "snapshot-one"), "nothing is known before the first pass")
 
 	require.NoError(t, syncer.Sync(ctx))
 
-	assert.True(t, syncer.HasTreeMoved(editedAgent.ID))
-	assert.False(t, syncer.HasTreeMoved(untouchedAgent.ID))
+	assert.True(t, syncer.HasTreeMoved(editedAgent.ID, "snapshot-one"))
+	assert.False(t, syncer.HasTreeMoved(untouchedAgent.ID, "snapshot-two"))
+	assert.False(t, syncer.HasTreeMoved(editedAgent.ID, "snapshot-newer"),
+		"a verdict on a round the pass has not compared against is not one the tree moved from")
 }
 
 // TestCwdSyncerSyncHashesOnlyAReviewedTree covers the cost the pass keeps down: a worktree with
@@ -552,8 +554,8 @@ func TestCwdSyncerSyncHashesOnlyAReviewedTree(t *testing.T) {
 	require.NoError(t, syncer.Sync(ctx))
 
 	assert.Equal(t, []string{reviewed}, hashed.dirs)
-	assert.True(t, syncer.HasTreeMoved(reviewedAgent.ID))
-	assert.False(t, syncer.HasTreeMoved(removedAgent.ID))
+	assert.True(t, syncer.HasTreeMoved(reviewedAgent.ID, "snapshot-one"))
+	assert.False(t, syncer.HasTreeMoved(removedAgent.ID, "snapshot-three"))
 }
 
 // TestCwdSyncerSyncForgetsAMoveTheNextPassDoesNotSee pins that each pass replaces the last:
@@ -583,9 +585,40 @@ func TestCwdSyncerSyncForgetsAMoveTheNextPassDoesNotSee(t *testing.T) {
 	})
 
 	require.NoError(t, syncer.Sync(ctx))
-	require.True(t, syncer.HasTreeMoved(created.ID))
+	require.True(t, syncer.HasTreeMoved(created.ID, "snapshot-one"))
 
 	trees[cwd] = false
 	require.NoError(t, syncer.Sync(ctx))
-	assert.False(t, syncer.HasTreeMoved(created.ID))
+	assert.False(t, syncer.HasTreeMoved(created.ID, "snapshot-one"))
+}
+
+// TestCwdSyncerSyncReportsAProbeItCouldNotMake pins that a tree the pass cannot hash is said
+// rather than read as unmoved, since silence there keeps a green check on code nobody has read.
+func TestCwdSyncerSyncReportsAProbeItCouldNotMake(t *testing.T) {
+	st := newStore(t)
+	ctx := t.Context()
+
+	workflowID := seedWorkflow(t, st)
+	cwd := fakeCheckout(t)
+	require.NoError(t, st.Agents.Create(ctx, agentstore.Agent{
+		Name:       "a",
+		State:      agentstore.StateIdle,
+		WorkflowID: workflowID,
+		Cwd:        cwd,
+	}))
+	created, err := st.Agents.GetInWorkflow(ctx, workflowID, "a")
+	require.NoError(t, err)
+
+	approved := reviewstore.VerdictApproved
+	syncer := NewCwdSyncer(NewCwdSyncerParams{
+		Agents:  st.Agents,
+		Heads:   fakeHeads{},
+		Trees:   fakeTrees{},
+		Tallies: fakeTallies{{AgentID: created.ID, Verdict: &approved, SnapshotSHA: "snapshot-one"}},
+	})
+
+	err = syncer.Sync(ctx)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), `failed to compare the tree of "a"`)
+	assert.False(t, syncer.HasTreeMoved(created.ID, "snapshot-one"))
 }

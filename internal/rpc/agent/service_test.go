@@ -2145,7 +2145,7 @@ func serviceWithLauncher(t *testing.T) (agentv1weave.AgentServiceAdapter, *store
 // it holds and not for any other.
 type fakeTrees map[string]bool
 
-func (f fakeTrees) HasTreeMoved(agentID string) bool { return f[agentID] }
+func (f fakeTrees) HasTreeMoved(agentID, _ string) bool { return f[agentID] }
 
 // TestEmptyArchiveQueuesTheSweep covers the request coming back once the work is queued, and a
 // queue that refuses saying so rather than reading as a sweep under way.

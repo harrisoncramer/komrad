@@ -48,7 +48,7 @@ type agentLiveness interface {
 }
 
 type treeWatcher interface {
-	HasTreeMoved(agentID string) bool
+	HasTreeMoved(agentID, snapshotSHA string) bool
 }
 
 type agentLifecycle interface {
@@ -291,7 +291,7 @@ func (s *Service) agentFlagsFor(ctx context.Context, listed []agentstore.Agent) 
 			failedRunLog:   failure.LogNumber,
 			localRounds:    tallies[a.ID].Rounds,
 			localVerdict:   localVerdictOf(tallies[a.ID]),
-			localTreeMoved: s.trees.HasTreeMoved(a.ID),
+			localTreeMoved: s.trees.HasTreeMoved(a.ID, tallies[a.ID].SnapshotSHA),
 		}
 	}, nil
 }
