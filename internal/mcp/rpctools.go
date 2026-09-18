@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"weave/lib/xhttp"
 	annotationv1 "weave/proto/gen/annotation/v1"
 
 	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"
@@ -29,7 +30,7 @@ type rpcTools struct {
 func registerRPCTools(server *mcpsdk.Server, baseURL string) error {
 	tools := &rpcTools{
 		baseURL: strings.TrimSuffix(baseURL, "/"),
-		client:  &http.Client{Timeout: callTimeout, Transport: caller.Transport(nil)},
+		client:  xhttp.NewClientOver(caller.Transport(xhttp.NewTransport()), callTimeout),
 	}
 
 	for exposed := range rpcapi.GetMethods() {

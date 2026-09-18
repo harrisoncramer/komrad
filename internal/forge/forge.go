@@ -8,6 +8,7 @@ import (
 
 	"weave/internal/fail"
 	"weave/internal/git"
+	"weave/lib/xhttp"
 )
 
 // ErrNotFound says the forge has no such pull request.
@@ -79,6 +80,12 @@ type Forge interface {
 	Get(ctx context.Context, url string) (PullRequest, error)
 }
 
+// InstallationVerifier is a forge that can say what an installation token reaches.
+type InstallationVerifier interface {
+	// VerifyInstallation is how many repositories the credential's installation covers.
+	VerifyInstallation(ctx context.Context) (int, error)
+}
+
 // Transport sends every request with the connection's credential and tells the
 // Authenticator when the forge refuses it.
 type Transport struct {
@@ -86,10 +93,10 @@ type Transport struct {
 	next http.RoundTripper
 }
 
-// NewTransport wraps a round tripper, http.DefaultTransport when nil.
+// NewTransport wraps a round tripper, xhttp's when nil.
 func NewTransport(auth Authenticator, next http.RoundTripper) *Transport {
 	if next == nil {
-		next = http.DefaultTransport
+		next = xhttp.NewTransport()
 	}
 
 	return &Transport{auth: auth, next: next}

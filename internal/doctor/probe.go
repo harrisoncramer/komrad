@@ -161,7 +161,7 @@ func readWorktreeOwners(ctx context.Context, url string) (WorktreeOwners, error)
 }
 
 // verifyForges asks each connected forge who weave is there, writing nothing back.
-func verifyForges(ctx context.Context, url string) ([]ForgeStatus, error) {
+func verifyForges(ctx context.Context, url string, appConfig config.GitHubApp) ([]ForgeStatus, error) {
 	pool, err := openReadOnlyPool(ctx, url)
 	if err != nil {
 		return nil, err
@@ -181,11 +181,17 @@ func verifyForges(ctx context.Context, url string) ([]ForgeStatus, error) {
 		return nil, err
 	}
 
+	app, err := forges.AppFrom(appConfig, "")
+	if err != nil {
+		return nil, err
+	}
+
 	service := forge.NewService(forge.NewServiceParams{
 		Connections: forgestore.New(pool),
 		Credentials: forge.NewFileStore(stateDir),
 		Builders:    forges.Builders,
 		Verified:    forge.NoRecord{},
+		App:         app,
 	})
 
 	statuses := make([]ForgeStatus, 0, len(connections))

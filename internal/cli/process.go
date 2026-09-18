@@ -18,6 +18,7 @@ import (
 	"weave/internal/logging"
 	"weave/internal/server"
 	"weave/internal/version"
+	"weave/lib/xhttp"
 )
 
 const (
@@ -147,7 +148,7 @@ func healthCheck(ctx context.Context, addr string) (*http.Response, error) {
 		return nil, fmt.Errorf("failed to build a health request for %s: %w", addr, err)
 	}
 
-	client := &http.Client{Timeout: healthTimeout}
+	client := xhttp.NewClient(healthTimeout)
 
 	return client.Do(req)
 }
@@ -185,7 +186,7 @@ func requestStop(ctx context.Context, addr string) (int, error) {
 	}
 	req.Header.Set("Content-Type", "text/plain")
 
-	client := &http.Client{Timeout: stopRequestTimeout}
+	client := xhttp.NewClient(stopRequestTimeout)
 
 	res, err := client.Do(req)
 	if err != nil {

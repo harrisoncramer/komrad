@@ -5,6 +5,8 @@ import (
 	"errors"
 	"testing"
 
+	"weave/config"
+
 	"github.com/stretchr/testify/assert"
 )
 
@@ -54,7 +56,8 @@ func TestForgesCheck(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := newForgesCheck().Run(t.Context(), Env{
-				VerifyForges: func(context.Context, string) ([]ForgeStatus, error) {
+				LoadConfig: func() (*config.Config, error) { return &config.Config{}, nil },
+				VerifyForges: func(context.Context, string, config.GitHubApp) ([]ForgeStatus, error) {
 					return tt.statuses, tt.err
 				},
 			})

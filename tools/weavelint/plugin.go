@@ -48,7 +48,12 @@ func (l *linter) BuildAnalyzers() ([]*analysis.Analyzer, error) {
 		return nil, err
 	}
 
-	return []*analysis.Analyzer{sentinels, handlers, newSecretExpose(l.config.SecretExpose)}, nil
+	bare, err := newBareHTTP(l.config.BareHTTP)
+	if err != nil {
+		return nil, err
+	}
+
+	return []*analysis.Analyzer{sentinels, handlers, newSecretExpose(l.config.SecretExpose), bare}, nil
 }
 
 // GetLoadMode tells golangci-lint the analyzers need types resolved.

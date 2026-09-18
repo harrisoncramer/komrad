@@ -2,7 +2,6 @@ package cli
 
 import (
 	"log/slog"
-	"net/http"
 	"time"
 
 	"weave/internal/agents"
@@ -10,6 +9,7 @@ import (
 	"weave/internal/git"
 	"weave/internal/logging"
 	"weave/internal/ui"
+	"weave/lib/xhttp"
 	"weave/proto/gen/agent/v1/agentv1connect"
 	"weave/proto/gen/hook/v1/hookv1connect"
 	"weave/proto/gen/schedule/v1/schedulev1connect"
@@ -85,10 +85,11 @@ Use ` + "`weave open`" + ` to bring the panel up.`,
 			}
 
 			base := "http://" + addr
-			agentClient := agentv1connect.NewAgentServiceClient(http.DefaultClient, base)
-			workflowClient := workflowv1connect.NewWorkflowServiceClient(http.DefaultClient, base)
-			scheduleClient := schedulev1connect.NewScheduleServiceClient(http.DefaultClient, base)
-			hookClient := hookv1connect.NewHookServiceClient(http.DefaultClient, base)
+			httpClient := xhttp.NewClient(0)
+			agentClient := agentv1connect.NewAgentServiceClient(httpClient, base)
+			workflowClient := workflowv1connect.NewWorkflowServiceClient(httpClient, base)
+			scheduleClient := schedulev1connect.NewScheduleServiceClient(httpClient, base)
+			hookClient := hookv1connect.NewHookServiceClient(httpClient, base)
 
 			state.popup.SilenceStatus(agents.ManagerSession)
 			state.tmux.EnableFocusEvents()

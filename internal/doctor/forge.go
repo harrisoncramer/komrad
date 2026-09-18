@@ -28,10 +28,15 @@ func newForgesCheck() Check {
 	return Check{
 		Name:        "forges",
 		Description: "pull requests are read through the forges weave is connected to",
-		Needs:       []string{"database"},
+		Needs:       []string{"config", "database"},
 		Engine:      true,
 		Run: func(ctx context.Context, env Env) Result {
-			statuses, err := env.VerifyForges(ctx, env.DatabaseURL)
+			cfg, err := env.LoadConfig()
+			if err != nil {
+				return fail(fmt.Errorf("%w: %w", ErrConfigUnreadable, err), "", "")
+			}
+
+			statuses, err := env.VerifyForges(ctx, env.DatabaseURL, cfg.GitHubApp)
 			if err != nil {
 				return warn(fmt.Errorf("%w: %w", ErrForgesUnreadable, err), "")
 			}

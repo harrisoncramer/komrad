@@ -269,3 +269,55 @@ func TestFetchKeepsATokenItCannotCache(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "ghs_abc", token.Value)
 }
+
+// TestSlugAsksAsTheApp covers the name read under the App's own assertion rather than an
+// installation token, and github refusing to describe an app that is not what it says.
+func TestSlugAsksAsTheApp(t *testing.T) {
+	var seen string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		seen = r.Header.Get("Authorization")
+		if r.URL.Path != "/app" {
+			w.WriteHeader(http.StatusNotFound)
+
+			return
+		}
+
+		_, _ = w.Write([]byte(`{"slug":"weave-engine"}`))
+	}))
+	defer server.Close()
+
+	old := api
+	api = server.URL
+	defer func() { api = old }()
+
+	app := Identity{
+		ID:             "12345",
+		InstallationID: "678",
+		PrivateKeyPath: writeKey(t),
+	}
+	slug, err := app.Slug(t.Context(), server.Client(), time.Now())
+	require.NoError(t, err)
+	assert.Equal(t, "weave-engine", slug)
+	assert.True(t, strings.HasPrefix(seen, "Bearer "))
+	assert.Len(t, strings.Split(strings.TrimPrefix(seen, "Bearer "), "."), 3, "the app speaks with its assertion, not a token")
+
+	_, err = Identity{}.Slug(t.Context(), server.Client(), time.Now())
+	require.Error(t, err)
+}
+
+// TestForgetDropsTheCachedToken covers a stale token being thrown away so the next fetch mints,
+// and forgetting when there is nothing to forget.
+func TestForgetDropsTheCachedToken(t *testing.T) {
+	cache := Cache{Path: filepath.Join(t.TempDir(), "token"), Identity: Identity{
+		ID:             "1",
+		InstallationID: "2",
+		PrivateKeyPath: writeKey(t),
+	}}
+	require.NoError(t, cache.Write(Token{Value: "ghs_old", ExpiresAt: time.Now().Add(time.Hour)}))
+	require.Equal(t, "ghs_old", cache.Read().Value)
+
+	require.NoError(t, cache.Forget())
+	assert.Empty(t, cache.Read().Value)
+	require.NoError(t, cache.Forget())
+	require.NoError(t, Cache{}.Forget())
+}

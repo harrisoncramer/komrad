@@ -7,7 +7,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
+	"time"
 )
 
 // DefaultMaxBytes bounds a response body when a caller names no cap.
@@ -15,7 +17,7 @@ const DefaultMaxBytes = 8 << 20
 
 // JSONParams says what to send and how far to read the answer.
 type JSONParams struct {
-	// Client makes the call, http.DefaultClient when nil.
+	// Client makes the call, NewClient(DefaultTimeout) when nil.
 	Client *http.Client
 	Method string
 	URL    string
@@ -43,7 +45,7 @@ func (a Answer) IsSuccess() bool {
 func JSON(ctx context.Context, params JSONParams, out any) (Answer, error) {
 	client := params.Client
 	if client == nil {
-		client = http.DefaultClient
+		client = NewClient(DefaultTimeout)
 	}
 	maxBytes := params.MaxBytes
 	if maxBytes == 0 {
@@ -97,4 +99,47 @@ func JSON(ctx context.Context, params JSONParams, out any) (Answer, error) {
 	}
 
 	return answer, nil
+}
+
+// DefaultTimeout bounds a whole call made through a client that names no timeout of its own.
+const DefaultTimeout = 30 * time.Second
+
+// dialTimeout bounds the TCP connect.
+const dialTimeout = 10 * time.Second
+
+// tlsHandshakeTimeout bounds the TLS handshake, which the default transport leaves unbounded.
+const tlsHandshakeTimeout = 10 * time.Second
+
+// responseHeaderTimeout bounds the wait for the first byte of a response after the request is
+// written.
+const responseHeaderTimeout = 30 * time.Second
+
+// idleConnTimeout is how long a kept-alive connection waits for reuse before it is closed.
+const idleConnTimeout = 90 * time.Second
+
+// NewTransport is the transport every weave client sits on, with the handshake and header
+// waits bounded that the standard library's default leaves open.
+func NewTransport() *http.Transport {
+	return &http.Transport{
+		Proxy:                 http.ProxyFromEnvironment,
+		DialContext:           (&net.Dialer{Timeout: dialTimeout, KeepAlive: 30 * time.Second}).DialContext,
+		TLSHandshakeTimeout:   tlsHandshakeTimeout,
+		ResponseHeaderTimeout: responseHeaderTimeout,
+		ExpectContinueTimeout: time.Second,
+		IdleConnTimeout:       idleConnTimeout,
+		MaxIdleConns:          100,
+		ForceAttemptHTTP2:     true,
+	}
+}
+
+// NewClient is a client over NewTransport whose whole call is bounded by timeout, or only by
+// the transport's own waits when timeout is zero, which is what a call that streams wants.
+func NewClient(timeout time.Duration) *http.Client {
+	return NewClientOver(NewTransport(), timeout)
+}
+
+// NewClientOver is a client over a round tripper of the caller's own, which wraps NewTransport
+// underneath, bounded the same way NewClient is.
+func NewClientOver(transport http.RoundTripper, timeout time.Duration) *http.Client {
+	return &http.Client{Transport: transport, Timeout: timeout}
 }
