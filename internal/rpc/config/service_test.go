@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
 	configv1weave "weave/proto/gen/config/v1/configv1weave"
 
 	weaveconfig "weave/config"
