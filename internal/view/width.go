@@ -27,11 +27,6 @@ func (c Columns) drawn() int {
 	return count
 }
 
-// everyColumn is the list a pane wide enough for all three draws.
-func everyColumn() Columns {
-	return Columns{Repo: true, Review: true, Forge: true}
-}
-
 // GutterColumns is how wide everything left of a name is, which is what a caller takes off the
 // pane to reach the column a name has.
 func GutterColumns(columns Columns) int {

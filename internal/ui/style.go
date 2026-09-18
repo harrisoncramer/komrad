@@ -90,7 +90,7 @@ func noStateMark() string {
 	return dimStyle.Render(noStateIcon)
 }
 
-// failedMark is the archive's only state icon.
+// failedMark is a state icon drawn only for an agent whose launch or teardown failed.
 func failedMark(palette paint.Palette, agent agentstore.Agent) string {
 	if !agent.State.IsFailed() {
 		return ""

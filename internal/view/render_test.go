@@ -15,6 +15,12 @@ import (
 // columns and the names beside them.
 const canonicalPane = 39
 
+// everyColumn is all three columns, written out here rather than taken from the package so a
+// test measuring the gutter does not borrow the package's own idea of what fills it.
+func everyColumn() Columns {
+	return Columns{Repo: true, Review: true, Forge: true}
+}
+
 // ansiEscapes matches the styling a rendered row carries, so a test about layout can take it
 // off and read the columns alone.
 var ansiEscapes = regexp.MustCompile(`\x1b\[[0-9;]*m`)

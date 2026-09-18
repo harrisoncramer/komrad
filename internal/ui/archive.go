@@ -14,9 +14,9 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-// archiveColumns are the three columns the archive gives up: an archived agent's checkout, its
+// archiveDropped are the three columns the archive gives up: an archived agent's checkout, its
 // review and its pull request are none of them refreshed once it is put away.
-var archiveColumns = view.Columns{Repo: true, Review: true, Forge: true}
+var archiveDropped = view.Columns{Repo: true, Review: true, Forge: true}
 
 type archiveState struct {
 	agents    []agentstore.Agent
@@ -392,7 +392,7 @@ func (m model) archiveSnapshot(rows []agentRow, pane int) view.Snapshot {
 		matcher:     m.filter.pattern,
 		showHidden:  true,
 		pane:        pane,
-		dropped:     archiveColumns,
+		dropped:     archiveDropped,
 	})
 }
 
