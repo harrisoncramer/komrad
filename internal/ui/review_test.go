@@ -117,7 +117,20 @@ func (f *fakeReviewAgents) ReleaseReview(
 ) (*connect.Response[agentv1.ReleaseReviewResponse], error) {
 	f.released = req.Msg
 
-	return connect.NewResponse(&agentv1.ReleaseReviewResponse{Comments: 1}), nil
+	var sent int32
+
+	for _, thread := range f.threads {
+		for _, message := range thread.GetMessages() {
+			if message.GetDelivery() != agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_UNSENT {
+				continue
+			}
+
+			message.Delivery = agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_SENT
+			sent++
+		}
+	}
+
+	return connect.NewResponse(&agentv1.ReleaseReviewResponse{Comments: sent}), nil
 }
 
 // OpenReviewRound hands back the round the worktree stands at.
@@ -172,13 +185,21 @@ func (f *fakeReviewAgents) AddReviewMessage(
 ) (*connect.Response[agentv1.AddReviewMessageResponse], error) {
 	f.replied = req.Msg
 
-	return connect.NewResponse(&agentv1.AddReviewMessageResponse{
-		Message: &agentv1.ReviewMessage{
-			Id:       "m2",
-			ThreadId: req.Msg.GetThreadId(),
-			Body:     req.Msg.GetBody(),
-		},
-	}), nil
+	message := &agentv1.ReviewMessage{
+		Id:         "m2",
+		ThreadId:   req.Msg.GetThreadId(),
+		Body:       req.Msg.GetBody(),
+		AuthorKind: agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_HUMAN,
+		Delivery:   agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_UNSENT,
+	}
+
+	for _, thread := range f.threads {
+		if thread.GetId() == req.Msg.GetThreadId() {
+			thread.Messages = append(thread.Messages, message)
+		}
+	}
+
+	return connect.NewResponse(&agentv1.AddReviewMessageResponse{Message: message}), nil
 }
 
 func (f *fakeReviewAgents) SetReviewThreadResolved(
@@ -198,7 +219,35 @@ func (f *fakeReviewAgents) SetReviewThreadResolved(
 		}
 	}
 
+	f.countOpenThreads()
+
 	return connect.NewResponse(&agentv1.SetReviewThreadResolvedResponse{}), nil
+}
+
+// countOpenThreads recounts the open threads of every review a thread names.
+func (f *fakeReviewAgents) countOpenThreads() {
+	open := map[string]int32{}
+
+	for _, thread := range f.threads {
+		id := thread.GetReviewId()
+		if id == "" {
+			continue
+		}
+
+		if _, named := open[id]; !named {
+			open[id] = 0
+		}
+
+		if thread.GetResolvedAt() == "" {
+			open[id]++
+		}
+	}
+
+	for _, review := range f.reviews {
+		if count, named := open[review.GetId()]; named {
+			review.OpenThreads = count
+		}
+	}
 }
 
 func (f *fakeReviewAgents) ListReviewThreads(
