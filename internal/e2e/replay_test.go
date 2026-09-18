@@ -31,7 +31,7 @@ type roundsAcrossARebase struct {
 
 // reviewAcrossARebase takes round one, releases a review on it, lands mainsGreet on main under
 // the agent, rebases through the service, and takes round two of the agent's next edit.
-func reviewAcrossARebase(t *testing.T, mainsGreet string) roundsAcrossARebase {
+func reviewAcrossARebase(t *testing.T, mainsGreet string, wantConflict bool) roundsAcrossARebase {
 	t.Helper()
 
 	hermeticGit(t)
@@ -89,7 +89,6 @@ func reviewAcrossARebase(t *testing.T, mainsGreet string) roundsAcrossARebase {
 	}))
 	require.NoError(t, err)
 
-	// Another pull request lands: a file of its own, and a change to the greeting.
 	runGitIn(t, repo, "checkout", "--quiet", "main")
 	writeIn(t, repo, "greet.go", mainsGreet)
 	writeIn(t, repo, "other.go", "package greet\n")
@@ -102,8 +101,9 @@ func reviewAcrossARebase(t *testing.T, mainsGreet string) roundsAcrossARebase {
 	}))
 	require.NoError(t, err)
 
-	if rebased.Msg.GetConflicted() {
-		// The agent settles the clash itself, keeping both sides, and carries on.
+	require.Equal(t, wantConflict, rebased.Msg.GetConflicted(), "the fixture has to take the path its test names")
+
+	if wantConflict {
 		writeIn(t, tree, "greet.go", strings.Replace(mainsGreet, "func Hello() {}", "func Hello() {}\n\nfunc Agent() {}", 1))
 		runGitIn(t, tree, "add", "greet.go")
 		runGitIn(t, tree, "-c", "core.editor=true", "rebase", "--continue")
@@ -135,7 +135,7 @@ func reviewAcrossARebase(t *testing.T, mainsGreet string) roundsAcrossARebase {
 // carried onto the moved base, diffed against the second, is the agent's own edit and nothing
 // the base brought with it.
 func TestRoundsEitherSideOfARebaseReplayToTheAgentsOwnChange(t *testing.T) {
-	rounds := reviewAcrossARebase(t, "// main moved\n"+greetBefore)
+	rounds := reviewAcrossARebase(t, "// main moved\n"+greetBefore, false)
 	client := git.NewClient()
 
 	naive := readGitOutput(t, rounds.tree, "diff", "--name-only",
@@ -180,7 +180,7 @@ func TestRoundsEitherSideOfARebaseReplayToTheAgentsOwnChange(t *testing.T) {
 // TestRoundsEitherSideOfAConflictedRebaseNameThePath covers the agent resolving a real clash
 // during the rebase, which is the one case the screen keeps refusing, with the path named.
 func TestRoundsEitherSideOfAConflictedRebaseNameThePath(t *testing.T) {
-	rounds := reviewAcrossARebase(t, "package greet\n\nfunc Hello() {}\n\nfunc Main() {}\n")
+	rounds := reviewAcrossARebase(t, "package greet\n\nfunc Hello() {}\n\nfunc Main() {}\n", true)
 
 	replayed, err := git.NewClient().Replay(t.Context(), git.ReplayParams{
 		Dir:         rounds.tree,
