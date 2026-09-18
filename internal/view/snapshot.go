@@ -29,6 +29,10 @@ const (
 	StatusBroken
 )
 
+// StatusCount is how many states the bar has, typed as an int so it stays out of the switches
+// over Status.
+const StatusCount = int(StatusBroken) + 1
+
 // Repo is where an agent's own checkout stands.
 type Repo int
 
@@ -37,6 +41,10 @@ const (
 	RepoRebasing
 	RepoGone
 )
+
+// RepoCount is how many states the repo column has, typed as an int so it stays out of the
+// switches over Repo.
+const RepoCount = int(RepoGone) + 1
 
 // Review is where the local review of an agent's work stands.
 type Review int
@@ -48,6 +56,10 @@ const (
 	ReviewChangesRequested
 	ReviewCommented
 )
+
+// ReviewCount is how many states the review column has, typed as an int so it stays out of the
+// switches over Review.
+const ReviewCount = int(ReviewCommented) + 1
 
 // Forge is where the pull request opened from an agent's branch stands.
 type Forge int

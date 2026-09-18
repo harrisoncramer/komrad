@@ -307,3 +307,52 @@ func TestNoticesAlignAgainstTheRowsOwnWidths(t *testing.T) {
 		}
 	}
 }
+
+// Explainer: the notice tables gave up the compile-time answer-for-it that an exhaustive switch
+// buys, so these keep it where it is actually wanted. A new column state draws a glyph on every
+// row that has it, and a table that has never heard of it stays silent, which is the record
+// disagreeing with the row about a mark: the defect this whole branch exists to close, arriving
+// with the suite green. Requiring every state to be either spoken for or named as deliberately
+// silent fails on the day somebody adds one. The bar is the exception: its sentences key on the
+// agent state behind it rather than on the bar, and agentstore.State is a string enum mirroring a
+// Postgres one, so there is no sentinel to walk. What forces an answer for an eighth state there
+// is snapshotStatus, whose switch over State carries no default.
+
+// TestEveryRepoStateIsSpokenForOrSilent walks the repo column.
+func TestEveryRepoStateIsSpokenForOrSilent(t *testing.T) {
+	// RepoClean is the baseline: a checkout an agent can work in is not news.
+	silent := map[view.Repo]bool{view.RepoClean: true}
+
+	for state := range view.RepoCount {
+		repo := view.Repo(state)
+		_, said := repoSaid[repo]
+
+		assert.NotEqual(t, said, silent[repo],
+			"repo state %d is neither given a sentence nor named as deliberately silent", state)
+	}
+}
+
+// TestEveryReviewStateIsSpokenForOrSilent walks the review column.
+func TestEveryReviewStateIsSpokenForOrSilent(t *testing.T) {
+	// ReviewNone has had no reviewer, and ReviewCommented is notes without a conclusion, which
+	// the column itself draws at its baseline.
+	silent := map[view.Review]bool{view.ReviewNone: true, view.ReviewCommented: true}
+
+	for state := range view.ReviewCount {
+		review := view.Review(state)
+		_, said := reviewSaid[review]
+
+		assert.NotEqual(t, said, silent[review],
+			"review state %d is neither given a sentence nor named as deliberately silent", state)
+	}
+}
+
+// TestEveryStateTheBarDrawsBrokenHasASentence covers the one status the record speaks for.
+func TestEveryStateTheBarDrawsBrokenHasASentence(t *testing.T) {
+	for _, state := range []agentstore.State{agentstore.StateFailedToCreate, agentstore.StateFailedToCleanup} {
+		item := agentItem{agent: agentstore.Agent{State: state}}
+
+		require.Equal(t, view.StatusBroken, snapshotStatus(item), "state %q no longer draws a broken bar", state)
+		assert.NotEmpty(t, failureSaid[state], "state %q draws a broken bar with no sentence", state)
+	}
+}
