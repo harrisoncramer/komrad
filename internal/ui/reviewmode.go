@@ -10,10 +10,8 @@ import (
 // The mode is the one thing on the screen that changes what every key does, so each state gets
 // its own tone.
 const (
-	reviewWatchingTone = paint.ToneAccent
-	reviewWritingTone  = paint.ToneMark
-	reviewHistoryTone  = paint.ToneWarning
-	reviewHeldTone     = paint.ToneMuted
+	reviewWritingTone = paint.ToneMark
+	reviewHeldTone    = paint.ToneMuted
 )
 
 // Explainer: editing and commenting were two modes a reader had to choose between before doing
@@ -51,15 +49,11 @@ func (m model) reviewPassLabel() string {
 	return "reviewing"
 }
 
-// reviewWatchingView is the mode line while nothing is being written.
+// reviewWatchingView names whatever stands in the way of a review, and says nothing when nothing
+// does.
 func (m model) reviewWatchingView() string {
 	if _, dead := m.isReviewReadOnly(); dead {
 		return m.reviewBandRow(reviewHeldTone, "watching", "this agent is gone, nothing can be sent")
-	}
-
-	if said, history := m.isReviewHistory(); history {
-		return m.reviewBandRow(reviewHistoryTone, "reading history",
-			said+" is finished · "+keyLabel(m.keys.Review.BaseForward)+" for the current work")
 	}
 
 	if m.doesReviewHoldUnsent() {
@@ -75,9 +69,7 @@ func (m model) reviewWatchingView() string {
 				keyLabel(m.keys.Review.Compose)+" replies")
 	}
 
-	return m.reviewBandRow(reviewWatchingTone, "watching",
-		"live · "+keyLabel(m.keys.Review.EditFile)+" to edit · "+
-			keyLabel(m.keys.Review.Compose)+" to comment")
+	return ""
 }
 
 // reviewWritingSaid is what the pass offers: what is happening to the agent, the file under your
