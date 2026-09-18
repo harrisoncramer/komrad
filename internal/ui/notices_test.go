@@ -3,16 +3,29 @@ package ui
 import (
 	"strings"
 	"testing"
-	"weave/internal/ui/paint"
+	"time"
 
 	"weave/lib/xptr"
 
 	agentstore "weave/internal/store/agent"
+	workflowstore "weave/internal/store/workflow"
+	"weave/internal/view"
 
 	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/x/ansi"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+// noticeRow is one agent as the list would hold it, under a workflow that cuts each agent its
+// own checkout, since an agent that owns none has its three columns blanked and so says nothing
+// about them.
+func noticeRow(item agentItem) agentRow {
+	return agentRow{
+		item:     item,
+		workflow: workflowstore.Workflow{Worktree: workflowstore.WorktreeConfig{Enabled: true}},
+	}
+}
 
 // TestNoticesSpellOutTheMarksOnTheRow covers the top of the record: every glyph the hovered row
 // is carrying is said again in words.
@@ -21,11 +34,11 @@ func TestNoticesSpellOutTheMarksOnTheRow(t *testing.T) {
 	m.width = 80
 	m.listing.agents[0].agent.WorktreeRemoved = true
 
-	view := m.detailsView()
+	drawn := m.detailsView()
 
-	assert.Contains(t, view, worktreeRemovedIcon)
-	assert.Contains(t, view, worktreeRemovedNotice)
-	assert.Contains(t, view, "directory", "the fields are still drawn under the notices")
+	assert.Contains(t, drawn, view.Spell(view.GlyphBroken))
+	assert.Contains(t, drawn, worktreeRemovedNotice)
+	assert.Contains(t, drawn, "directory", "the fields are still drawn under the notices")
 
 	m.listing.agents[0].agent.WorktreeRemoved = false
 
@@ -45,20 +58,19 @@ func TestNoticesCoverEveryOptionalMark(t *testing.T) {
 		{"a stopped rebase", agentItem{agent: agentstore.Agent{SequenceInProgress: true}}, sequenceNotice},
 		{"a hidden row", agentItem{agent: agentstore.Agent{Hidden: true}}, hiddenNotice},
 		{"mail waiting", agentItem{unreadMail: true}, unreadMailNotice},
-		{"output nobody read", agentItem{unviewed: true}, unviewedNotice},
 		{"a failed script", agentItem{failedRun: true}, failedRunNotice},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			notices := agentNotices(tt.item)
+			notices := agentNotices(noticeRow(tt.item))
 
 			require.Len(t, notices, 1)
 			assert.Equal(t, tt.want, notices[0].text)
 		})
 	}
 
-	assert.Empty(t, agentNotices(agentItem{alive: true}), "an agent carrying nothing has nothing to say")
+	assert.Empty(t, agentNotices(noticeRow(agentItem{alive: true})), "an agent carrying nothing has nothing to say")
 }
 
 // TestNoticesAreOrderedByUrgency covers what a short pane gives up: the marks a person would
@@ -71,12 +83,11 @@ func TestNoticesAreOrderedByUrgency(t *testing.T) {
 			Hidden:          true,
 		},
 		unreadMail: true,
-		unviewed:   true,
 		failedRun:  true,
 	}
 
-	texts := make([]string, 0, len(agentNotices(item)))
-	for _, n := range agentNotices(item) {
+	texts := make([]string, 0, len(agentNotices(noticeRow(item))))
+	for _, n := range agentNotices(noticeRow(item)) {
 		texts = append(texts, n.text)
 	}
 
@@ -85,7 +96,6 @@ func TestNoticesAreOrderedByUrgency(t *testing.T) {
 		failedRunNotice,
 		unreadMailNotice,
 		worktreeRemovedNotice,
-		unviewedNotice,
 		hiddenNotice,
 	}, texts)
 }
@@ -95,12 +105,64 @@ func TestNoticesAreOrderedByUrgency(t *testing.T) {
 func TestAFailedCreateSaysWhereItsWorktreeWent(t *testing.T) {
 	item := agentItem{agent: agentstore.Agent{State: agentstore.StateFailedToCreate, WorktreeRemoved: true}}
 
-	notices := agentNotices(item)
+	notices := agentNotices(noticeRow(item))
 
 	require.Len(t, notices, 2)
 	assert.Equal(t, failedToCreateNotice, notices[0].text)
 	assert.Equal(t, worktreeRemovedNotice, notices[1].text)
-	assert.Empty(t, worktreeMark(paint.Colored, item), "the old row spends no glyph of its own on it")
+}
+
+// TestNoticesWearTheGlyphTheRowDraws is the claim the record rests on: every notice about a mark
+// takes its glyph and its tone from the very cell the rebuilt row draws, so the two cannot say
+// different things about one fact.
+func TestNoticesWearTheGlyphTheRowDraws(t *testing.T) {
+	item := agentItem{
+		agent: agentstore.Agent{
+			State:              agentstore.StateWaiting,
+			SequenceInProgress: true,
+			HeldAt:             xptr.Ptr(time.Now()),
+		},
+		alive:         true,
+		unreadMail:    true,
+		failedRun:     true,
+		inLocalReview: true,
+	}
+
+	line := view.Prepare(view.Snapshot{Rows: []view.Row{snapshotRow(noticeRow(item), snapshotParams{})}}).Lines[0]
+
+	want := map[string]view.Cell{
+		failedRunNotice:     line.Alert,
+		unreadMailNotice:    line.Mail,
+		sequenceNotice:      line.Repo,
+		heldPromptedNotice:  line.Held,
+		inLocalReviewNotice: line.Review,
+	}
+
+	notices := agentNotices(noticeRow(item))
+	require.Len(t, notices, len(want))
+
+	for _, n := range notices {
+		cell, ok := want[n.text]
+		require.True(t, ok, "an unexpected notice %q", n.text)
+		assert.Equal(t, view.Spell(cell.Glyph), n.icon, "the glyph beside %q", n.text)
+		assert.Equal(t, cell.Tone, n.tone, "the tone beside %q", n.text)
+	}
+}
+
+// TestUnviewedAndHiddenCarryNoGlyph is why one of the two was dropped and the other kept: the
+// rebuilt row carries neither fact as a mark, and the row the record is about is the row under
+// the cursor, whose own colour beats both the brightening and the greying.
+func TestUnviewedAndHiddenCarryNoGlyph(t *testing.T) {
+	bright := view.Prepare(view.Snapshot{
+		Rows:    []view.Row{{Key: "a", Unviewed: true, Dim: true}},
+		Focused: "a",
+	}).Lines[0]
+
+	assert.Equal(t, view.EmphasisFocused, bright.Emphasis, "the hovered row says neither")
+
+	said := noticeTexts(agentNotices(noticeRow(agentItem{unviewed: true, agent: agentstore.Agent{Hidden: true}})))
+
+	assert.Equal(t, []string{hiddenNotice}, said, "hidden is durable, unviewed goes on a second's dwell")
 }
 
 // TestArchivedNoticesAreOnlyTheFailures covers the archive, whose rows draw one mark of their
@@ -126,7 +188,7 @@ func TestNoticesKeepTheRecordsHeight(t *testing.T) {
 	plain := strings.Count(m.detailsView(), "\n")
 
 	m.listing.agents[0].agent.WorktreeRemoved = true
-	m.listing.agents[0].unviewed = true
+	m.listing.agents[0].unreadMail = true
 	m.listing.agents[0].failedRun = true
 
 	flagged := m.detailsView()
@@ -142,14 +204,14 @@ func TestNoticesGiveUpBeforeTheFields(t *testing.T) {
 	m := detailsModel(&recordingTmux{})
 	m.height, m.width = 12, 40
 	m.listing.agents[0].agent.WorktreeRemoved = true
-	m.listing.agents[0].unviewed = true
+	m.listing.agents[0].unreadMail = true
 	m.listing.agents[0].failedRun = true
 
-	view := m.detailsView()
+	drawn := m.detailsView()
 
-	assert.Equal(t, m.detailsLines()+detailsChromeLines, strings.Count(view, "\n"))
-	assert.NotContains(t, view, failedRunNotice, "the last mark is given up rather than the fields")
-	assert.Contains(t, view, "name", "a field is still drawn")
+	assert.Equal(t, m.detailsLines()+detailsChromeLines, strings.Count(drawn, "\n"))
+	assert.NotContains(t, drawn, failedRunNotice, "the last mark is given up rather than the fields")
+	assert.Contains(t, drawn, "name", "a field is still drawn")
 }
 
 // TestNoticesCutTheFirstOneShort covers a pane too short for even one whole sentence, where the
@@ -159,11 +221,11 @@ func TestNoticesCutTheFirstOneShort(t *testing.T) {
 	m.height, m.width = 12, 24
 	m.listing.agents[0].failedRun = true
 
-	view := m.detailsView()
+	drawn := m.detailsView()
 
-	assert.Contains(t, view, "…")
-	assert.Contains(t, view, "a script weave")
-	assert.NotContains(t, view, "log unread")
+	assert.Contains(t, drawn, "…")
+	assert.Contains(t, drawn, "a script weave")
+	assert.NotContains(t, drawn, "log unread")
 }
 
 // TestNoticesStayInsideTheColumn covers the cut line, which is the one place the record draws
@@ -186,10 +248,130 @@ func TestNoticesStayInsideTheColumn(t *testing.T) {
 func TestNoticesLeaveRoomToCountTheFields(t *testing.T) {
 	m := detailsModel(&recordingTmux{})
 	m.height, m.width = 20, 40
-	m.listing.agents[0].unviewed = true
+	m.listing.agents[0].failedRun = true
 
-	view := m.detailsView()
+	drawn := m.detailsView()
 
-	assert.Contains(t, view, "name")
-	assert.Contains(t, view, "more", "the record still says how many fields it left out")
+	assert.Contains(t, drawn, "name")
+	assert.Contains(t, drawn, "more", "the record still says how many fields it left out")
+}
+
+// TestNoticesAlignAndFitTheColumn covers the layout the block depends on: every glyph the record
+// draws takes one column, so an Octicon notice, a bar notice and an iconless one have to put
+// their sentences in the same place as each other and as their own wrapped continuations.
+func TestNoticesAlignAndFitTheColumn(t *testing.T) {
+	m := detailsModel(&recordingTmux{})
+	m.height, m.width = 40, 60
+
+	// A bar notice, an Octicon notice and an iconless one, stacked.
+	m.listing.agents[0].agent.State = agentstore.StateFailedToCleanup
+	m.listing.agents[0].agent.WorktreeRemoved = true
+	m.listing.agents[0].localRounds = 2
+
+	drawn := m.detailsNotices(m.hoveredDetails(), m.detailsLines()-3)
+	require.Len(t, drawn, 3, "a bar, an octicon and a blank")
+
+	wants := []string{failedToCleanupNotice, worktreeRemovedNotice, "reviewed 2 times"}
+	starts := make([]int, 0, len(drawn))
+
+	for i, line := range drawn {
+		bare := ansi.Strip(line)
+		at := strings.Index(bare, wants[i])
+		require.GreaterOrEqual(t, at, 0, "notice %d does not say %q", i, wants[i])
+		starts = append(starts, lipgloss.Width(bare[:at]))
+	}
+
+	assert.Equal(t, []int{starts[0], starts[0], starts[0]}, starts,
+		"every notice puts its sentence in the same column")
+
+	// A wrapped notice's continuation lines have to land in that same column.
+	long := detailsModel(&recordingTmux{})
+	long.height, long.width = 40, 34
+	long.listing.agents[0].agent.HeldAt = xptr.Ptr(time.Unix(0, 0))
+
+	wrapped := long.detailsNotices(long.hoveredDetails(), long.detailsLines()-3)
+	require.Greater(t, len(wrapped), 1, "the pause sentence has to wrap at this width")
+
+	for _, line := range wrapped[1:] {
+		bare := ansi.Strip(line)
+		assert.Equal(t, starts[0], lipgloss.Width(bare)-lipgloss.Width(strings.TrimLeft(bare, " ")),
+			"a continuation line left the sentence column")
+	}
+
+	for width := 20; width <= 120; width++ {
+		m := detailsModel(&recordingTmux{})
+		m.height, m.width = 16, width
+		m.listing.agents[0].unreadMail = true
+		m.listing.agents[0].failedRun = true
+
+		for _, line := range m.detailsNotices(m.hoveredDetails(), m.detailsLines()-3) {
+			assert.LessOrEqual(t, lipgloss.Width(ansi.Strip(line)), width,
+				"a notice ran past the column at width %d", width)
+		}
+	}
+}
+
+// Explainer: the notice tables gave up the compile-time answer-for-it that an exhaustive switch
+// buys, so these keep it where it is actually wanted. A new column state draws a glyph on every
+// row that has it, and a table that has never heard of it stays silent, which is the record
+// disagreeing with the row about a mark: the defect this whole branch exists to close, arriving
+// with the suite green. Requiring every state to be either spoken for or named as deliberately
+// silent fails on the day somebody adds one. The bar is the exception: its sentences key on the
+// agent state behind it rather than on the bar, and agentstore.State is a string enum mirroring a
+// Postgres one, so there is no sentinel to walk. What forces an answer for an eighth state there
+// is snapshotStatus, whose switch over State carries no default.
+
+// TestEveryRepoStateIsSpokenForOrSilent walks the repo column.
+func TestEveryRepoStateIsSpokenForOrSilent(t *testing.T) {
+	// RepoClean is the baseline: a checkout an agent can work in is not news.
+	silent := map[view.Repo]bool{view.RepoClean: true}
+
+	for state := range int(view.RepoEnd) {
+		repo := view.Repo(state)
+		_, said := repoSaid[repo]
+
+		assert.NotEqual(t, said, silent[repo],
+			"repo state %d is neither given a sentence nor named as deliberately silent", state)
+	}
+}
+
+// TestEveryReviewStateIsSpokenForOrSilent walks the review column.
+func TestEveryReviewStateIsSpokenForOrSilent(t *testing.T) {
+	// ReviewNone has had no reviewer, and ReviewCommented is notes without a conclusion, which
+	// the column itself draws at its baseline.
+	silent := map[view.Review]bool{view.ReviewNone: true, view.ReviewCommented: true}
+
+	for state := range int(view.ReviewEnd) {
+		review := view.Review(state)
+		_, said := reviewSaid[review]
+
+		assert.NotEqual(t, said, silent[review],
+			"review state %d is neither given a sentence nor named as deliberately silent", state)
+	}
+}
+
+// TestEveryStateTheBarDrawsBrokenHasASentence covers the one status the record speaks for.
+func TestEveryStateTheBarDrawsBrokenHasASentence(t *testing.T) {
+	for _, state := range []agentstore.State{agentstore.StateFailedToCreate, agentstore.StateFailedToCleanup} {
+		item := agentItem{agent: agentstore.Agent{State: state}}
+
+		require.Equal(t, view.StatusBroken, snapshotStatus(item), "state %q no longer draws a broken bar", state)
+		assert.NotEmpty(t, failureSaid[state], "state %q draws a broken bar with no sentence", state)
+	}
+}
+
+// TestAStoppedRowDrawsABarAndSaysNothing covers the bar a row draws once its process has gone.
+func TestAStoppedRowDrawsABarAndSaysNothing(t *testing.T) {
+	stopped := agentItem{agent: agentstore.Agent{State: agentstore.StateIdle}}
+	row := snapshotRow(noticeRow(stopped), snapshotParams{})
+
+	require.Equal(t, view.ProcessStopped, row.Process, "an agent whose pane has gone reads as stopped")
+	require.False(t, view.StatusCell(row).IsBlank(), "and its bar is drawn rather than blank")
+	assert.Empty(t, noticeTexts(agentNotices(noticeRow(stopped))), "the record says nothing about it")
+
+	failed := agentItem{agent: agentstore.Agent{State: agentstore.StateFailedToCreate}}
+
+	require.Equal(t, view.ProcessAlive, snapshotRow(noticeRow(failed), snapshotParams{}).Process,
+		"a failed create is not a stopped process")
+	assert.Contains(t, noticeTexts(agentNotices(noticeRow(failed))), failedToCreateNotice)
 }

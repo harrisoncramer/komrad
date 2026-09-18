@@ -195,7 +195,7 @@ func TestAPausedRowSaysWhichThingIsTrue(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			said := noticeTexts(agentNotices(tt.item))
+			said := noticeTexts(agentNotices(noticeRow(tt.item)))
 
 			assert.Contains(t, said, tt.wants)
 			assert.Len(t, heldSaid(said), 1, "a row says one thing about a pause, not two")

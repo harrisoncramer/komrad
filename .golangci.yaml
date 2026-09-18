@@ -195,6 +195,9 @@ linters:
       check:
         - switch
       default-signifies-exhaustive: false
+      # A member named for an end is one past the last real state, there to give a caller walking
+      # an enum a bound that moves on its own, so no switch answers for it.
+      ignore-enum-members: End$
     custom:
       weavelint:
         type: module

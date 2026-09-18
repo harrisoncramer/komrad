@@ -244,7 +244,14 @@ func (m model) noticeLines(n notice, most int) []string {
 		text[most-1] += "…"
 	}
 
-	lines := []string{"  " + m.palette(regionDetails).Style(n.tone).Render(n.icon) + " " + dimStyle.Render(text[0])}
+	// Every glyph the record draws takes one column, and a fact the row carries with no mark
+	// leaves that column blank.
+	icon := " "
+	if n.icon != "" {
+		icon = m.palette(regionDetails).Style(n.tone).Render(n.icon)
+	}
+
+	lines := []string{"  " + icon + " " + dimStyle.Render(text[0])}
 	for _, line := range text[1:] {
 		lines = append(lines, indent+dimStyle.Render(line))
 	}

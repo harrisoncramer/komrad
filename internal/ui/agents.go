@@ -305,7 +305,7 @@ func (m model) agentsDetails() details {
 
 	return details{
 		id:      r.item.agent.ID,
-		notices: agentNotices(r.item),
+		notices: agentNotices(r),
 		fields:  agentFields(r.item.agent, m.scheduleName(r.item.agent), m.parentName(r.item.agent)),
 	}
 }

@@ -36,6 +36,9 @@ const (
 	RepoClean Repo = iota
 	RepoRebasing
 	RepoGone
+	// RepoEnd is one past the last state, so a caller walking them all gets a bound that moves
+	// when a state is added.
+	RepoEnd
 )
 
 // Review is where the local review of an agent's work stands.
@@ -47,6 +50,9 @@ const (
 	ReviewApproved
 	ReviewChangesRequested
 	ReviewCommented
+	// ReviewEnd is one past the last state, so a caller walking them all gets a bound that moves
+	// when a state is added.
+	ReviewEnd
 )
 
 // Forge is where the pull request opened from an agent's branch stands.

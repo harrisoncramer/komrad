@@ -115,14 +115,14 @@ func drawRule(palette paint.Palette, rule bool) string {
 		return ""
 	}
 
-	return palette.Style(paint.ToneMuted).Render(spell(GlyphChild)) + " "
+	return palette.Style(paint.ToneMuted).Render(Spell(GlyphChild)) + " "
 }
 
 // drawCell is what a cell holds, in its own tone.
 func drawCell(palette paint.Palette, cell Cell) string {
 	text := cell.Text
 	if text == "" {
-		text = spell(cell.Glyph)
+		text = Spell(cell.Glyph)
 	}
 
 	return palette.Style(cell.Tone).Render(text)
@@ -154,9 +154,9 @@ func nameStyle(palette paint.Palette, weight Weight, emphasis Emphasis) lipgloss
 	return style
 }
 
-// spell is the one place a glyph is written out, every one of them a Nerd Font Octicon or a
+// Spell is the one place a glyph is written out, every one of them a Nerd Font Octicon or a
 // box-drawing rule.
-func spell(glyph Glyph) string {
+func Spell(glyph Glyph) string {
 	switch glyph {
 	case GlyphNone, glyphCount:
 		return ""
