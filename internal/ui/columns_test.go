@@ -8,6 +8,7 @@ import (
 	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
 	"weave/internal/ui/layout"
+	"weave/lib/xptr"
 	agentv1 "weave/proto/gen/agent/v1"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -504,4 +505,33 @@ func draggedTo(t *testing.T, m model, tmux *recordingTmux, sidebar, stage int) m
 	sized, _ := m.route(tea.WindowSizeMsg{Width: sidebar, Height: 40})
 
 	return asModel(t, sized)
+}
+
+// TestASplitAgentsListIsLaidOutAgainstItsOwnColumn covers the list the panel draws beside a
+// document being fitted to the column it is drawn in rather than to the whole window, since a row
+// laid out against the window is squared off by the frame afterwards and loses its marks before
+// its name.
+func TestASplitAgentsListIsLaidOutAgainstItsOwnColumn(t *testing.T) {
+	withColor(t)
+
+	m, _ := paneless(t)
+	m.listing.agents = []agentItem{{agent: agentstore.Agent{
+		ID:         "a1",
+		Name:       strings.Repeat("long-agent-name-", 6),
+		WorkflowID: "w1",
+		State:      agentstore.StateIdle,
+		ScheduleID: xptr.Ptr("s1"),
+	}}}
+	m.tree.selected = selection{ids: []string{"a1"}}
+
+	split, ok := m.screenColumnSplit()
+	require.True(t, ok, "the hovered header has no pane, so the panel draws a document beside its list")
+
+	sidebar := m.at(split.sidebar)
+	require.Equal(t, split.sidebar, sidebar.paneWidth())
+
+	for i, row := range strings.Split(strings.TrimRight(sidebar.agentsListView(), "\n"), "\n") {
+		assert.LessOrEqual(t, lipgloss.Width(row), split.sidebar,
+			"row %d reaches past its own column: %q", i, ansi.Strip(row))
+	}
 }

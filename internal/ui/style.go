@@ -8,14 +8,12 @@ import (
 
 	agentstore "weave/internal/store/agent"
 	reviewstore "weave/internal/store/review"
-	workflowstore "weave/internal/store/workflow"
 
 	"github.com/charmbracelet/lipgloss"
 )
 
 const (
 	unviewedIcon              = "●"
-	childIcon                 = "└"
 	scheduledIcon             = "◷"
 	hiddenIcon                = "◌"
 	unreadMailIcon            = "✉"
@@ -27,7 +25,6 @@ const (
 	worktreeRemovedIcon       = "⊘"
 	sequenceInProgressIcon    = "◑"
 	heldIcon                  = "⏸"
-	workflowIcon              = "⧉"
 
 	// noStateIcon fills the column the state icon would take for a row with no live state to
 	// report, keeping the indent every other row has.
@@ -93,27 +90,13 @@ func noStateMark() string {
 	return dimStyle.Render(noStateIcon)
 }
 
-// failedMark is the archive's only state icon.
+// failedMark is a state icon drawn only for an agent whose launch or teardown failed.
 func failedMark(palette paint.Palette, agent agentstore.Agent) string {
 	if !agent.State.IsFailed() {
 		return ""
 	}
 
 	return " " + stateMark(palette, agent.State)
-}
-
-// childMark draws in the column its parent's own state mark sits in, pushing the rest of the
-// child's row across so every parent stays aligned.
-func childMark(child bool) string {
-	if !child {
-		return ""
-	}
-
-	return dimStyle.Render(childIcon) + " "
-}
-
-func archivedTag(palette paint.Palette, w workflowstore.Workflow) string {
-	return palette.Mark(w.ArchivedAt != nil, "archived", paint.ToneMuted)
 }
 
 func scheduledMark(palette paint.Palette, agent agentstore.Agent) string {

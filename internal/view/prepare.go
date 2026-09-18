@@ -13,7 +13,7 @@ func Prepare(snapshot Snapshot) List {
 		}))
 	}
 
-	columns := fitColumns(snapshot.Pane)
+	columns := fitColumns(snapshot.Pane, snapshot.Dropped)
 	if snapshot.Pane > 0 {
 		width := NameColumns(snapshot.Pane, columns)
 		for i := range lines {
@@ -26,8 +26,8 @@ func Prepare(snapshot Snapshot) List {
 
 // fitColumns gives the columns up from the right as the pane narrows, reading the pane alone so
 // a list does not change shape when a row gains a mark.
-func fitColumns(pane int) Columns {
-	columns := everyColumn()
+func fitColumns(pane int, dropped Columns) Columns {
+	columns := Columns{Repo: !dropped.Repo, Review: !dropped.Review, Forge: !dropped.Forge}
 	if pane <= 0 {
 		return columns
 	}

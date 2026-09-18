@@ -13,6 +13,7 @@ import (
 	workflowstore "weave/internal/store/workflow"
 	"weave/internal/ui/layout"
 	"weave/internal/ui/paint"
+	"weave/internal/view"
 	agentv1 "weave/proto/gen/agent/v1"
 	"weave/proto/gen/agent/v1/agentv1connect"
 	workflowv1 "weave/proto/gen/workflow/v1"
@@ -630,24 +631,12 @@ func TestArchiveView(t *testing.T) {
 				Name:       "api-refactor",
 				WorkflowID: "w1",
 			}},
-			wants:       []string{"backend", "api-refactor"},
-			wantsAbsent: []string{"archived"},
+			wants: []string{"backend", "api-refactor"},
 		},
 		{
-			name:     "an archived folder says it is put away",
+			name:     "an archived folder is drawn under its own name",
 			archived: []workflowstore.Workflow{archivedWorkflow("w1", "backend")},
-			wants:    []string{"backend", "archived"},
-		},
-		{
-			name: "a row a delete could not destroy is marked",
-			live: []workflowstore.Workflow{{ID: "w1", Name: "backend"}},
-			agents: []agentstore.Agent{{
-				ID:         "a1",
-				Name:       "api-refactor",
-				WorkflowID: "w1",
-				State:      agentstore.StateFailedToCleanup,
-			}},
-			wants: []string{"api-refactor", "✗"},
+			wants:    []string{"backend"},
 		},
 	}
 
@@ -1207,4 +1196,94 @@ func TestArchiveOpensOnTheSearch(t *testing.T) {
 	require.True(t, ok)
 	assert.Equal(t, screenArchive, landed.screen)
 	assert.False(t, landed.filter.typing, "a jump to a hit lands on the row it named, not in the search")
+}
+
+// archivedAgent is an agent as the archive listing hands it over, stamped with when it was put
+// away since that stamp is what greys its row.
+func archivedAgent(id, name, workflowID string) agentstore.Agent {
+	at := time.Date(2026, time.July, 30, 9, 0, 0, 0, time.UTC)
+
+	return agentstore.Agent{
+		ID:         id,
+		Name:       name,
+		WorkflowID: workflowID,
+		State:      agentstore.StateIdle,
+		ArchivedAt: &at,
+	}
+}
+
+// archiveLines is the archive drawn through the shared preparation, with every decision made and
+// none of them spelled out yet.
+func archiveLines(t *testing.T, m model) []view.Line {
+	t.Helper()
+
+	rows := m.archiveRows()
+	list := view.Prepare(m.archiveSnapshot(rows, 80))
+	require.Len(t, list.Lines, len(rows))
+
+	return list.Lines
+}
+
+// TestArchiveGreysWhatIsPutAway pins the one thing the archive says that the agents list cannot:
+// a row is greyed because the thing it names was put away, and a live folder holding archived
+// agents is not put away.
+func TestArchiveGreysWhatIsPutAway(t *testing.T) {
+	m := archiveModel(&fakeArchiveAgents{}, &fakeArchiveWorkflows{}, config.DefaultKeybindings())
+	m.listing.workflows = []workflowstore.Workflow{{ID: "w1", Name: "backend"}}
+	m.archive = archiveState{
+		agents:    []agentstore.Agent{archivedAgent("a1", "auth", "w1"), archivedAgent("a2", "ui", "w2")},
+		workflows: []workflowstore.Workflow{archivedWorkflow("w2", "frontend")},
+	}
+	// Parked on the last row, since the cursor's own colour beats greying on the row it stands on.
+	m.archive.cursor = 3
+
+	lines := archiveLines(t, m)
+	require.Len(t, lines, 4)
+
+	assert.Equal(t, "backend", lines[0].Name)
+	assert.Equal(t, view.EmphasisNormal, lines[0].Emphasis, "a live folder is not put away")
+	assert.Equal(t, view.WeightBold, lines[0].Weight, "and it is still a folder")
+
+	assert.Equal(t, "auth", lines[1].Name)
+	assert.Equal(t, view.EmphasisDim, lines[1].Emphasis, "an archived agent is greyed")
+
+	assert.Equal(t, "frontend", lines[2].Name)
+	assert.Equal(t, view.EmphasisDim, lines[2].Emphasis, "an archived folder is greyed too")
+	assert.Equal(t, view.WeightBold, lines[2].Weight)
+
+	assert.NotEqual(t, lines[0].Emphasis, lines[2].Emphasis,
+		"which is what tells the folder restore acts on from the one it does not")
+}
+
+// TestArchiveGivesUpTheThreeColumns pins the archive drawing fewer columns than the agents list,
+// since none of the three is refreshed once an agent is put away.
+func TestArchiveGivesUpTheThreeColumns(t *testing.T) {
+	m := archiveModel(&fakeArchiveAgents{}, &fakeArchiveWorkflows{}, config.DefaultKeybindings())
+
+	rows := m.archiveRows()
+	require.NotEmpty(t, rows)
+
+	assert.Equal(t, view.Columns{}, view.Prepare(m.archiveSnapshot(rows, 200)).Columns,
+		"a pane wide enough for all three still draws none of them")
+
+	live := view.Prepare(agentsSnapshot(snapshotParams{rows: m.agentRows(), pane: 200}))
+	assert.Equal(t, view.Columns{Repo: true, Review: true, Forge: true}, live.Columns,
+		"where the agents list at the same pane draws all three")
+}
+
+// TestArchiveDrawsABarOnlyOnARowADeleteCouldNotDestroy pins what is left of the archive's one
+// state glyph: every archived agent is dormant and draws no bar, so the failed one is the only
+// row with anything in that cell.
+func TestArchiveDrawsABarOnlyOnARowADeleteCouldNotDestroy(t *testing.T) {
+	m := archiveModel(&fakeArchiveAgents{}, &fakeArchiveWorkflows{}, config.DefaultKeybindings())
+	broken := archivedAgent("a2", "stuck", "w1")
+	broken.State = agentstore.StateFailedToCleanup
+	m.archive = archiveState{agents: []agentstore.Agent{archivedAgent("a1", "auth", "w1"), broken}}
+
+	lines := archiveLines(t, m)
+	require.Len(t, lines, 3)
+
+	assert.True(t, lines[1].Status.IsBlank(), "an agent merely put away has no process to report on")
+	assert.False(t, lines[2].Status.IsBlank(), "and one a delete could not destroy says so")
+	assert.Equal(t, view.GlyphBusy, lines[2].Status.Glyph)
 }
