@@ -901,7 +901,7 @@ type CreateReviewThreadRequest struct {
 	// The diff lines being written about, each keeping its leading marker, so the anchor still
 	// says something once the code moves.
 	QuotedLines []string `protobuf:"bytes,7,rep,name=quoted_lines,json=quotedLines,proto3" json:"quoted_lines,omitempty"`
-	// The first thing said, which is the thread's reason for existing.
+	// The first thing said. The ceiling refuses an essay and is not a length to write up to.
 	Body string `protobuf:"bytes,8,opt,name=body,proto3" json:"body,omitempty"`
 	// Replacement lines proposed for the range, empty for an ordinary comment.
 	Suggestion    []string `protobuf:"bytes,9,rep,name=suggestion,proto3" json:"suggestion,omitempty"`
@@ -1065,7 +1065,7 @@ type AddReviewMessageRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Which conversation to say it in.
 	ThreadId string `protobuf:"bytes,1,opt,name=thread_id,json=threadId,proto3" json:"thread_id,omitempty"`
-	// What to say, which for an agent answering is what it did.
+	// What to say. The ceiling refuses an essay and is not a length to write up to.
 	Body string `protobuf:"bytes,2,opt,name=body,proto3" json:"body,omitempty"`
 	// Replacement lines proposed for the thread's range, empty for an ordinary message.
 	Suggestion    []string `protobuf:"bytes,3,rep,name=suggestion,proto3" json:"suggestion,omitempty"`
@@ -1173,7 +1173,7 @@ type EditReviewMessageRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Which message to rewrite.
 	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	// What it should say instead.
+	// What it should say instead, under the same ceiling the message was written to.
 	Body string `protobuf:"bytes,2,opt,name=body,proto3" json:"body,omitempty"`
 	// Replacement lines proposed for the thread's range, empty for an ordinary message.
 	Suggestion    []string `protobuf:"bytes,3,rep,name=suggestion,proto3" json:"suggestion,omitempty"`
@@ -2254,7 +2254,7 @@ const file_agent_v1_review_proto_rawDesc = "" +
 	"\anew_end\x18\x06 \x01(\x05R\x06newEnd\x12!\n" +
 	"\fquoted_lines\x18\a \x03(\tR\vquotedLines\x12\x1e\n" +
 	"\x04body\x18\b \x01(\tB\n" +
-	"\xbaH\ar\x05\x10\x01\x18\x90NR\x04body\x12\x1e\n" +
+	"\xbaH\ar\x05\x10\x01\x18\xe8\aR\x04body\x12\x1e\n" +
 	"\n" +
 	"suggestion\x18\t \x03(\tR\n" +
 	"suggestion\"L\n" +
@@ -2263,7 +2263,7 @@ const file_agent_v1_review_proto_rawDesc = "" +
 	"\x17AddReviewMessageRequest\x12$\n" +
 	"\tthread_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\bthreadId\x12\x1e\n" +
 	"\x04body\x18\x02 \x01(\tB\n" +
-	"\xbaH\ar\x05\x10\x01\x18\x90NR\x04body\x12\x1e\n" +
+	"\xbaH\ar\x05\x10\x01\x18\xe8\aR\x04body\x12\x1e\n" +
 	"\n" +
 	"suggestion\x18\x03 \x03(\tR\n" +
 	"suggestion\"M\n" +
@@ -2272,7 +2272,7 @@ const file_agent_v1_review_proto_rawDesc = "" +
 	"\x18EditReviewMessageRequest\x12\x17\n" +
 	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\x12\x1e\n" +
 	"\x04body\x18\x02 \x01(\tB\n" +
-	"\xbaH\ar\x05\x10\x01\x18\x90NR\x04body\x12\x1e\n" +
+	"\xbaH\ar\x05\x10\x01\x18\xe8\aR\x04body\x12\x1e\n" +
 	"\n" +
 	"suggestion\x18\x03 \x03(\tR\n" +
 	"suggestion\"N\n" +
@@ -2304,7 +2304,7 @@ const file_agent_v1_review_proto_rawDesc = "" +
 	"\averdict\x18\x02 \x01(\x0e2\x17.agent.v1.ReviewVerdictB\n" +
 	"\xbaH\a\x82\x01\x04\x10\x01 \x00R\averdict\x12\x1c\n" +
 	"\tinterrupt\x18\x03 \x01(\bR\tinterrupt\x12\x1c\n" +
-	"\x04body\x18\x04 \x01(\tB\b\xbaH\x05r\x03\x18\x90NR\x04body\"q\n" +
+	"\x04body\x18\x04 \x01(\tB\b\xbaH\x05r\x03\x18\xdc\vR\x04body\"q\n" +
 	"\x15ReleaseReviewResponse\x12(\n" +
 	"\x06review\x18\x01 \x01(\v2\x10.agent.v1.ReviewR\x06review\x12\x1a\n" +
 	"\bcomments\x18\x02 \x01(\x05R\bcomments\x12\x12\n" +

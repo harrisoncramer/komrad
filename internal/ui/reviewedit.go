@@ -188,7 +188,7 @@ func (m model) editReviewFile() (tea.Model, tea.Cmd) {
 
 // isReviewOwedAnAnswer reports whether comments stand against this work, and what to say about it.
 func (m model) isReviewOwedAnAnswer() (string, bool) {
-	if !m.review.awaiting {
+	if !m.review.isOwedAnAnswer() {
 		return "", false
 	}
 
@@ -200,8 +200,9 @@ func (m model) isReviewOwedAnAnswer() (string, bool) {
 		return "", false
 	}
 
-	return "your review is still owed an answer · " +
-		keyLabel(m.keys.Review.NextOpenThread) + " for the comments left open", true
+	return reviewOwedSaid(m.reviewOwedComments()) + " · " +
+		keyLabel(m.keys.Review.Resolve) + " settles one, " +
+		keyLabel(m.keys.Review.NextOpenThread) + " walks them", true
 }
 
 // isReviewAgentBusy reports whether the agent may be writing in the tree the editor would open.

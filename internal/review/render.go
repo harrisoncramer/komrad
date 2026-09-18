@@ -33,6 +33,8 @@ const (
 	unreadMark = "●"
 	// readMark is a thread nobody has settled with nothing new in it.
 	readMark = "○"
+	// OpenMark is what a comment nobody has settled wears away from the diff.
+	OpenMark = readMark
 	// settledMark is a thread that has been settled.
 	settledMark = "✓"
 	// unsentMark is a thread holding a comment nobody has released yet.

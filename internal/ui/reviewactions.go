@@ -61,9 +61,11 @@ func reviewTable() []action {
 			run:  model.stepReviewThread,
 		},
 		{
-			id:   actionReviewOpenThread,
-			keys: func(k config.Keybindings) []string { return k.Review.NextOpenThread },
-			run:  func(m model, _ string) (tea.Model, tea.Cmd) { return m.jumpOpenThread() },
+			id: actionReviewOpenThread,
+			keys: func(k config.Keybindings) []string {
+				return concatKeys(k.Review.NextOpenThread, k.Review.PrevOpenThread)
+			},
+			run: model.stepOpenThread,
 		},
 		{
 			id:   actionFilterOpen,
@@ -168,7 +170,7 @@ func orRefuseWrite(fn func(model) (tea.Model, tea.Cmd)) func(model, string) (tea
 // pressReviewCompose is the comment key, which refuses a new thread while a review is owed an
 // answer.
 func (m model) pressReviewCompose() (tea.Model, tea.Cmd) {
-	if _, replying := m.reviewThreadAtCursor(); m.review.awaiting && !replying {
+	if _, replying := m.reviewThreadAtCursor(); m.review.isOwedAnAnswer() && !replying {
 		return m.refuseReviewAwaiting()
 	}
 
@@ -178,7 +180,7 @@ func (m model) pressReviewCompose() (tea.Model, tea.Cmd) {
 // pressReviewSend is the send key, which while a review is owed an answer needs replies written
 // to send, a verdict on its own being the second review the wait holds off.
 func (m model) pressReviewSend() (tea.Model, tea.Cmd) {
-	if m.review.awaiting && !m.doesReviewHoldUnsent() {
+	if m.review.isOwedAnAnswer() && !m.doesReviewHoldUnsent() {
 		return m.refuseReviewAwaiting()
 	}
 
@@ -228,7 +230,7 @@ func reviewLegend() []legendRow {
 			desc: model.threadStepDesc,
 			label: func(k config.Keybindings) string {
 				return headLabel(k.Review.NextThread) + "/" + headLabel(k.Review.PrevThread) +
-					"/" + headLabel(k.Review.NextOpenThread)
+					"/" + headLabel(k.Review.NextOpenThread) + "/" + headLabel(k.Review.PrevOpenThread)
 			},
 		},
 		{
@@ -342,6 +344,15 @@ func (m model) stepReviewFile(pressed string) (tea.Model, tea.Cmd) {
 	}
 
 	return m.jumpReviewFile(1)
+}
+
+// stepOpenThread walks the comments nobody has settled.
+func (m model) stepOpenThread(pressed string) (tea.Model, tea.Cmd) {
+	if isBound(pressed, m.keys.Review.PrevOpenThread) {
+		return m.jumpOpenThread(-1)
+	}
+
+	return m.jumpOpenThread(1)
 }
 
 func (m model) stepReviewThread(pressed string) (tea.Model, tea.Cmd) {

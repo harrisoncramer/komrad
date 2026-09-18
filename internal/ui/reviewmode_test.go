@@ -390,14 +390,14 @@ func TestWritingIsRefusedWhileAReviewIsOut(t *testing.T) {
 	m, _ := reviewModel(t, agents, dir)
 	m = openReview(t, m)
 
-	m.review.awaiting = true
+	m.review.owed = "r1"
 
 	next, _ := m.updateReview(keyMsg("c"))
 	m = next.(model)
 
 	assert.Equal(t, modeWatching, m.review.mode, "the mode did not open")
 	assert.False(t, m.review.composing, "and no editor did either")
-	assert.Contains(t, m.review.notice, "answered")
+	assert.Contains(t, m.review.notice, "still owed an answer")
 	assert.Nil(t, agents.created, "and nothing was written")
 }
 
@@ -410,7 +410,7 @@ func TestReplyingIsAllowedWhileAReviewIsOut(t *testing.T) {
 	m = openReview(t, m)
 
 	m.applyReviewThreads(pinnedThread(t, m, deliveredComment()))
-	m.review.awaiting = true
+	m.review.owed = "r1"
 
 	next, _ := m.updateReview(keyMsg("c"))
 	m = next.(model)
@@ -428,13 +428,13 @@ func TestSendingIsRefusedWhileAReviewIsOutWithNothingWritten(t *testing.T) {
 	m, _ := reviewModel(t, agents, dir)
 	m = openReview(t, m)
 
-	m.review.awaiting = true
+	m.review.owed = "r1"
 
 	next, _ := m.updateReview(tea.KeyMsg{Type: tea.KeyCtrlS})
 	m = next.(model)
 
 	assert.False(t, m.review.releasing, "the verdict panel stays shut")
-	assert.Contains(t, m.review.notice, "answered")
+	assert.Contains(t, m.review.notice, "still owed an answer")
 	assert.Nil(t, agents.released)
 }
 
@@ -446,7 +446,7 @@ func TestSendingAReplyIsAllowedWhileAReviewIsOut(t *testing.T) {
 	m, _ := reviewModel(t, agents, dir)
 	m = openReview(t, m)
 
-	m.review.awaiting = true
+	m.review.owed = "r1"
 	m.review.activity.delivery[deliverySlot(agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_UNSENT)] = 1
 
 	next, _ := m.updateReview(tea.KeyMsg{Type: tea.KeyCtrlS})
@@ -908,7 +908,7 @@ func TestTheSendKeyIsOfferedOnlyWhereItAnswers(t *testing.T) {
 	assert.True(t, row.show(m), "reading the current work is where a verdict answers")
 
 	out := m
-	out.review.awaiting = true
+	out.review.owed = "r1"
 	assert.True(t, row.show(out), "a review already out is still answered in its own threads")
 
 	assert.False(t, row.show(standOnAFinishedRound(m)), "and a finished round holds nothing to send")
@@ -1227,7 +1227,7 @@ func TestEditingIsRefusedWhileYourReviewIsOwedAnAnswer(t *testing.T) {
 	m = openReview(t, m)
 
 	m.review.cursor = reviewRowWithAnEditTarget(t, m)
-	m.review.awaiting = true
+	m.review.owed = "r1"
 
 	next, _ := m.updateReview(editorKey())
 	written, ok := next.(model)
@@ -1236,7 +1236,7 @@ func TestEditingIsRefusedWhileYourReviewIsOwedAnAnswer(t *testing.T) {
 	assert.Equal(t, modeWatching, written.review.mode, "nothing opened")
 	assert.False(t, written.review.atEditor)
 	assert.Contains(t, written.review.notice, "owed an answer")
-	assert.Contains(t, written.review.notice, "comments left open", "and it names the way to them")
+	assert.Contains(t, written.review.notice, keyLabel(m.keys.Review.Resolve), "and it names the key that settles one")
 }
 
 // TestEditingADormantAgentIsAllowedWhileOwedAnAnswer pins the escape the service has and this
@@ -1254,7 +1254,7 @@ func TestEditingADormantAgentIsAllowedWhileOwedAnAnswer(t *testing.T) {
 	}
 
 	m.review.cursor = reviewRowWithAnEditTarget(t, m)
-	m.review.awaiting = true
+	m.review.owed = "r1"
 
 	m = pressEdit(t, m)
 
@@ -1270,7 +1270,7 @@ func TestEditingIsAllowedOnceNothingIsOwed(t *testing.T) {
 	m = openReview(t, m)
 
 	m.review.cursor = reviewRowWithAnEditTarget(t, m)
-	m.review.awaiting = false
+	m.review.owed = ""
 
 	m = pressEdit(t, m)
 

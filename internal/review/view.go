@@ -78,7 +78,12 @@ type View struct {
 	// that rebuilding left.
 	threads []*agentv1.ReviewThread
 	search  *search
+	// narrowed says the patch is a slice of the change rather than the whole of it.
+	narrowed bool
 }
+
+// SetNarrowed says whether the patch on screen is a slice of the change rather than all of it.
+func (v *View) SetNarrowed(narrowed bool) { v.narrowed = narrowed }
 
 // NewView builds the review view over a patch, highlighting each file for the theme the
 // terminal is on.
@@ -582,16 +587,23 @@ func (v *View) JumpThread(y, direction int) int {
 	return y
 }
 
-// JumpOpenThread moves to the next line carrying a thread nobody has settled, which is what a
-// person clearing a review walks.
-func (v *View) JumpOpenThread(y int) (int, bool) {
-	for next := y + 1; next < len(v.rows); next++ {
+// JumpOpenThread moves to the next or previous line carrying a thread nobody has settled, which
+// is what a person clearing a review walks.
+func (v *View) JumpOpenThread(y, direction int) (int, bool) {
+	for next := y + direction; next >= 0 && next < len(v.rows); next += direction {
 		if thread, ok := v.GetThreadAt(next); ok && isUnsettled(thread) {
 			return next, true
 		}
 	}
 
 	return y, false
+}
+
+// IsOpenThreadAt reports whether a row carries a comment of the person's that nobody has settled.
+func (v *View) IsOpenThreadAt(y int) bool {
+	thread, ok := v.GetThreadAt(y)
+
+	return ok && isUnsettled(thread)
 }
 
 // CountOpenThreads is how many conversations the person reviewing still owes an answer on, drawn
@@ -795,4 +807,20 @@ func (v *View) nearestNewLine(y int) int {
 	}
 
 	return 1
+}
+
+// GetThreadRow is the row a thread is drawn on, false for one no row carries.
+func (v *View) GetThreadRow(id string) (int, bool) {
+	for y, thread := range v.pinned {
+		if thread.GetId() == id {
+			return y, true
+		}
+	}
+
+	return 0, false
+}
+
+// IsFoldedAway reports whether a thread stands in a file the reader has read and folded away.
+func (v *View) IsFoldedAway(thread *agentv1.ReviewThread) bool {
+	return v.placed[thread.GetId()] == collapsed
 }

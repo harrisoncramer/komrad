@@ -271,14 +271,14 @@ func TestAnAgentsOwnCommentIsNotOwedASettling(t *testing.T) {
 
 	assert.Equal(t, 1, view.CountOpenThreads(), "only the comment the person wrote is theirs to settle")
 
-	next, ok := view.JumpOpenThread(-1)
+	next, ok := view.JumpOpenThread(-1, 1)
 	require.True(t, ok)
 
 	found, ok := view.GetThreadAt(next)
 	require.True(t, ok)
 	assert.Equal(t, "t1", found.GetId(), "and the walk stops on that one")
 
-	_, ok = view.JumpOpenThread(next)
+	_, ok = view.JumpOpenThread(next, 1)
 	assert.False(t, ok, "with nothing after it")
 }
 

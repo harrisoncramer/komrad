@@ -33,9 +33,9 @@ type reviewLoadedMsg struct {
 	// pinned says the diff is the snapshot the reader's unsent comments were written against
 	// rather than the work as it now stands.
 	pinned bool
-	// awaiting says the reader's last released review still holds comments nobody has settled, so
-	// the panel will refuse a second one.
-	awaiting bool
+	// owed is the id of the reader's last released review while it still holds comments nobody
+	// has settled, empty once a second review would be allowed.
+	owed string
 	// chapters are the rounds of the review as the reader can step through them, oldest first.
 	chapters []reviewChapter
 	// traced is where git says each thread's lines went, keyed by thread id, and empty for a
@@ -247,7 +247,7 @@ func (m model) loadReviewCmd(params loadReviewCmdParams) tea.Cmd {
 			earlier:   earlier,
 			earlierAt: releasedAtOf(reviews, round),
 			pinned:    pinned,
-			awaiting:  isAwaitingReviewAnswer(reviews),
+			owed:      findLastOwedReview(reviews).GetId(),
 			chapters:  chapters,
 			traced:    traced,
 			since: changedSinceLastReview(ctx, changedSinceLastReviewParams{
@@ -346,10 +346,11 @@ func (m *model) applyReviewLoaded(msg reviewLoadedMsg) tea.Cmd {
 	m.review.baseRound = msg.earlier
 	m.review.baseAt = msg.earlierAt
 	m.review.pinned = msg.pinned
-	m.review.awaiting = msg.awaiting
+	m.review.owed = msg.owed
 	m.review.chapters = msg.chapters
 	m.review.root = msg.patch.Root
 	m.review.view = review.NewView(msg.patch, m.isDark)
+	m.review.view.SetNarrowed(m.review.base != "")
 	m.review.view.SetTraced(msg.traced)
 	m.review.view.SetViewed(indexViewedFiles(msg.viewed, msg.patch))
 	m.review.view.SetExpanded(m.review.expanded)

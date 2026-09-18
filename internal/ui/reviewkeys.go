@@ -137,7 +137,8 @@ func (m model) scrollReviewThread(delta int) model {
 
 // reviewThreadMax is how far up the conversation the sidebar can be scrolled.
 func (m model) reviewThreadMax() int {
-	lines := m.listLines(m.renderHelp(m.reviewHelp()), m.detailsView(), m.reviewHeadView())
+	help, record := m.renderHelp(m.reviewHelp()), m.detailsView()
+	lines := m.listLines(help, record, m.reviewHeadView(reviewOwedRoom(m.listLines(help, record))))
 
 	return max(paint.CountLines(m.reviewRestView())-max(lines-1, 1), 0)
 }
@@ -180,13 +181,14 @@ func (m model) refuseReviewViewed() (tea.Model, tea.Cmd) {
 }
 
 // refuseReviewAwaiting says why a write did not happen while the review already sent is still
-// unanswered, and names the key to the comments it can still be answered in.
+// unanswered, and names both ways out of it.
 func (m model) refuseReviewAwaiting() (tea.Model, tea.Cmd) {
-	summary := "your review has not been answered yet"
-	detail := "The agent has written nothing since the review you sent, so a second one would be " +
-		"about the same code and the service refuses it. Replying in a comment it already holds " +
-		"is not a second review: press " + keyLabel(m.keys.Review.NextOpenThread) +
-		" for the comments left open, or " + keyLabel(m.keys.Review.Reload) + " once it has answered."
+	summary := reviewOwedSaid(m.reviewOwedComments())
+	detail := "You may not leave more comments until this review is settled. Reviews are settled " +
+		"when all comments are addressed. Press " + keyLabel(m.keys.Review.NextOpenThread) +
+		" to walk to the next unresolved comment, and reply with " +
+		keyLabel(m.keys.Review.Compose) + " or press " + keyLabel(m.keys.Review.Resolve) +
+		" to resolve it."
 
 	m.reportBrief(summary, detail, nil)
 	m.review.notice = summary
@@ -242,18 +244,11 @@ func (m model) jumpReviewMatch(direction int) (tea.Model, tea.Cmd) {
 	return m.moveReviewCursor(next)
 }
 
-// jumpOpenThread moves to the next comment nobody has settled, wrapping to the first one, which
-// is how a person clearing a review walks it.
-func (m model) jumpOpenThread() (tea.Model, tea.Cmd) {
-	next, ok := m.review.view.JumpOpenThread(m.review.cursor)
-	if !ok {
-		// Explainer: the walk wraps rather than stopping at the end, since a reader part-way down
-		// a diff would otherwise be told there is nothing left while the answer is above them.
-		next, ok = m.review.view.JumpOpenThread(-1)
-	}
-
+// jumpOpenThread moves to the next comment nobody has settled, stopping at the ends.
+func (m model) jumpOpenThread(direction int) (tea.Model, tea.Cmd) {
+	next, ok := m.review.view.JumpOpenThread(m.review.cursor, direction)
 	if !ok || next == m.review.cursor {
-		m.review.notice = m.noOpenThreadSaid(ok)
+		m.review.notice = m.noOpenThreadSaid(m.review.view.IsOpenThreadAt(m.review.cursor))
 
 		return m, nil
 	}

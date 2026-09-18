@@ -82,9 +82,9 @@ type reviewState struct {
 	// pinned says the diff is the snapshot the reader's unsent comments were written against
 	// rather than the work as it now stands.
 	pinned bool
-	// awaiting says the last released review still holds comments nobody has settled, so a second
-	// one would be refused.
-	awaiting bool
+	// owed is the id of the last released review while it still holds comments nobody has
+	// settled, empty once a second review would be allowed.
+	owed string
 	// mode is which of the two things the screen is doing: watching the work, or making a pass
 	// over it in which both writing keys are available.
 	mode reviewMode
@@ -131,3 +131,6 @@ type reviewState struct {
 func (r reviewState) doesTakeEveryKey() bool {
 	return r.composing || r.releasing || r.filter.typing
 }
+
+// isOwedAnAnswer reports whether a comment the reader released is still open.
+func (r reviewState) isOwedAnAnswer() bool { return r.owed != "" }

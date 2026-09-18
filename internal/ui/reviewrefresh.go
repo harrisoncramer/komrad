@@ -33,10 +33,10 @@ type reviewActivity struct {
 // reviewRefreshedMsg is the conversation as a tick found it, drawn only when the probe says
 // something has been said since the sidebar was written.
 type reviewRefreshedMsg struct {
-	agentID  string
-	threads  []*agentv1.ReviewThread
-	err      error
-	awaiting *bool
+	agentID string
+	threads []*agentv1.ReviewThread
+	err     error
+	owed    *string
 }
 
 // reviewDiffPolledMsg is the worktree as a background read found it, compared with what is on
@@ -85,21 +85,21 @@ func (m model) refreshReviewThreadsCmd() tea.Cmd {
 			return listReviewThreads(ctx, agents, agentID)
 		})
 
-		var awaiting *bool
+		var owed *string
 		if err == nil {
 			if reviews, rerr := call(reviewTimeout, func(ctx context.Context) ([]*agentv1.Review, error) {
 				return listReviews(ctx, agents, agentID)
 			}); rerr == nil {
-				a := isAwaitingReviewAnswer(reviews)
-				awaiting = &a
+				id := findLastOwedReview(reviews).GetId()
+				owed = &id
 			}
 		}
 
 		return reviewRefreshedMsg{
-			agentID:  agentID,
-			threads:  threads,
-			err:      err,
-			awaiting: awaiting,
+			agentID: agentID,
+			threads: threads,
+			err:     err,
+			owed:    owed,
 		}
 	}
 }
@@ -151,8 +151,8 @@ func (m *model) applyReviewRefreshed(msg reviewRefreshedMsg) {
 		return
 	}
 
-	if msg.awaiting != nil {
-		m.review.awaiting = *msg.awaiting
+	if msg.owed != nil {
+		m.review.owed = *msg.owed
 	}
 
 	if reviewActivityOf(msg.threads) == m.review.activity {

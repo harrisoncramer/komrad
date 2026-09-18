@@ -4,7 +4,7 @@ Pin a comment to a place in another agent's diff, which is how you give it a rev
 
 ### Synopsis
 
-Pin a comment to a place in another agent's diff, which is how you give it a review rather than mailing it prose. You may only review the agent you are a child of. The comment is filed under a batch of your own that nobody sees until you release it with release_review, so write every comment you have and then release once. Anchor it with the file and the line range from the round you are reviewing, and pass the diff lines you are writing about as quotedLines so the anchor still says something after the code moves. Pass snapshotSha, which is the snapshot of the round you are reading, so the comment is filed against the code you counted the lines off rather than against whatever round is newest. Pass suggestion to propose exact replacement lines the agent should apply. Each call opens another thread, so do not retry a call that may have succeeded.
+Pin a comment to a place in another agent's diff, which is how you give it a review rather than mailing it prose. You may only review the agent you are a child of. The comment is filed under a batch of your own that nobody sees until you release it with release_review, so write every comment you have and then release once. Anchor it with the file and the line range from the round you are reviewing, and pass the diff lines you are writing about as quotedLines so the anchor still says something after the code moves. Pass snapshotSha, which is the snapshot of the round you are reading, so the comment is filed against the code you counted the lines off rather than against whatever round is newest. Pass suggestion to propose exact replacement lines the agent should apply. Write it the way you would say it out loud. One or two sentences is the normal size and a hundred words is the ceiling. Name the line, the value or the case you mean, and quote code where the code is the point. No preamble, no summary at the end, no hedging, and no invented names for things the repository does not call that. Say what is wrong and what to do about it. Each call opens another thread, so do not retry a call that may have succeeded.
 
 ```
 weave rpc create-review-thread [flags]
@@ -15,7 +15,7 @@ weave rpc create-review-thread [flags]
 ```
       --agent-id string        string, required
       --base-sha string        string
-      --body string            string, required, at most 10000 characters
+      --body string            string, required, at most 1000 characters
       --compact                print the response on one line
       --file-path string       string, required
   -h, --help                   help for create-review-thread
