@@ -30,6 +30,13 @@ func newRowCursor() cursor.Model {
 // updateRowCursor carries the bubble's own blink timer, and puts the arrow back on for a
 // keypress so a row being moved to is drawn solid.
 func (m model) updateRowCursor(msg tea.Msg) (model, tea.Cmd) {
+	// The bubble stops its timer on a blur, and the working bars pulse on that timer whether or
+	// not the panel has the keyboard, so the caret alone reads blurred.
+	switch msg.(type) {
+	case tea.BlurMsg, tea.FocusMsg:
+		return m, nil
+	}
+
 	next, cmd := m.rowCursor.Update(msg)
 	m.rowCursor = next
 
