@@ -1,6 +1,18 @@
 -- name: CreateForgeConnection :one
-INSERT INTO forge_connections (kind, host, api_url, method, login, verified_at)
-    VALUES (@kind, @host, @api_url, @method, @login, @verified_at)
+INSERT INTO forge_connections(
+    kind,
+    host,
+    api_url,
+    method,
+    login,
+    verified_at)
+VALUES (
+    @kind,
+    @host,
+    @api_url,
+    @method,
+    @login,
+    @verified_at)
 RETURNING
     id,
     kind,

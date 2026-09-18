@@ -11,8 +11,20 @@ import (
 )
 
 const createForgeConnection = `-- name: CreateForgeConnection :one
-INSERT INTO forge_connections (kind, host, api_url, method, login, verified_at)
-    VALUES ($1, $2, $3, $4, $5, $6)
+INSERT INTO forge_connections(
+    kind,
+    host,
+    api_url,
+    method,
+    login,
+    verified_at)
+VALUES (
+    $1,
+    $2,
+    $3,
+    $4,
+    $5,
+    $6)
 RETURNING
     id,
     kind,
