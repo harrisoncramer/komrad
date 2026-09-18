@@ -538,6 +538,29 @@ func TestSnapshotCheckout(t *testing.T) {
 	}
 }
 
+// TestSnapshotPlainWorkflowKeepsTheRepoColumn pins that an agent in a workflow cutting no
+// worktrees still reports the directory it was handed, and reports nothing about a branch.
+func TestSnapshotPlainWorkflowKeepsTheRepoColumn(t *testing.T) {
+	row := snapshotRowOf(t, snapshotParams{rows: []agentRow{{
+		workflow: workflowstore.Workflow{ID: "w1", Name: "weave"},
+		item: agentItem{
+			alive: true,
+			agent: agentstore.Agent{
+				ID:              "a1",
+				Name:            "worker",
+				WorkflowID:      "w1",
+				Cwd:             "/tmp/somewhere",
+				State:           agentstore.StateIdle,
+				WorktreeRemoved: true,
+			},
+		},
+	}}})
+
+	assert.Equal(t, view.RepoGone, row.Repo)
+	assert.False(t, view.RepoCell(row).IsBlank())
+	assert.True(t, view.ReviewCell(row).IsBlank())
+}
+
 // TestSnapshotHiddenTally pins the count a row stands in for, which is nothing at all once the
 // rows it stands for are drawn themselves.
 func TestSnapshotHiddenTally(t *testing.T) {

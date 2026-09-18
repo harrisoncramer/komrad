@@ -109,8 +109,8 @@ func standingIn(count int, showHidden bool) int {
 	return count
 }
 
-// noCheckout reports whether a row owns no checkout of its own, which is every workflow header
-// and every agent weave cuts no worktree for.
+// noCheckout reports whether a row owns no branch weave cut for it, which is every workflow
+// header and every agent weave cuts no worktree for.
 func noCheckout(r agentRow) bool {
 	return r.header || !ownsWorktree(r.item.agent, r.workflow)
 }

@@ -100,10 +100,10 @@ func isFocused(row Row, focused string) bool {
 	return focused != "" && row.Key == focused
 }
 
-// RepoCell is where an agent's own checkout stands, greyed while nothing has happened to it and
-// empty on a row that owns no checkout at all.
+// RepoCell is where the directory an agent sits in stands, greyed while nothing has happened to
+// it and empty on a row another row already reports that directory for.
 func RepoCell(row Row) Cell {
-	if row.NoCheckout {
+	if row.Kind != KindAgent {
 		return Cell{}
 	}
 

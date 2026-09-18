@@ -104,36 +104,64 @@ func TestPrepareBarTellsAStoppedProcessFromNone(t *testing.T) {
 }
 
 // TestPrepareRowWithNoCheckoutDrawsNoColumns pins the difference between a stage that has not
-// happened and one that never can: a row owning no checkout draws all three columns blank where
-// a row owning one draws them greyed.
+// happened and one that never can: a row owning no checkout draws the review and forge columns
+// blank where a row owning one draws them greyed.
 func TestPrepareRowWithNoCheckoutDrawsNoColumns(t *testing.T) {
 	owns := prepareOne(t, Row{Name: "worker"})
 	none := prepareOne(t, Row{Name: "reviewer", NoCheckout: true})
 
-	for _, cell := range []Cell{owns.Repo, owns.Review, owns.Forge} {
+	for _, cell := range []Cell{owns.Review, owns.Forge} {
 		assert.False(t, cell.IsBlank())
 		assert.Equal(t, paint.ToneMuted, cell.Tone)
 	}
 
-	assert.True(t, none.Repo.IsBlank())
 	assert.True(t, none.Review.IsBlank())
 	assert.True(t, none.Forge.IsBlank())
 }
 
 // TestPrepareNoCheckoutBeatsWhatTheColumnsWouldSay pins that a row owning no checkout draws
-// nothing in the three columns whatever the snapshot put in them.
+// nothing in the review and forge columns whatever the snapshot put in them.
 func TestPrepareNoCheckoutBeatsWhatTheColumnsWouldSay(t *testing.T) {
 	line := prepareOne(t, Row{
 		Name:       "reviewer",
 		NoCheckout: true,
-		Repo:       RepoGone,
 		Review:     ReviewApproved,
 		Forge:      ForgeMerged,
 	})
 
-	assert.True(t, line.Repo.IsBlank())
 	assert.True(t, line.Review.IsBlank())
 	assert.True(t, line.Forge.IsBlank())
+}
+
+// TestPrepareRepoColumnFollowsTheRowKind pins that the directory an agent sits in is reported on
+// its own row whether or not weave cut it, and reported once.
+func TestPrepareRepoColumnFollowsTheRowKind(t *testing.T) {
+	tests := []struct {
+		name  string
+		row   Row
+		blank bool
+	}{
+		{
+			name: "an agent weave cut no branch for still reports its directory",
+			row:  Row{Name: "worker", NoCheckout: true, Repo: RepoGone},
+		},
+		{
+			name:  "a child leaves the directory to the row above it",
+			row:   Row{Kind: KindChild, Name: "reviewer", NoCheckout: true, Repo: RepoGone},
+			blank: true,
+		},
+		{
+			name:  "a workflow header stands for no directory",
+			row:   Row{Kind: KindWorkflow, Name: "weave", NoCheckout: true, Repo: RepoGone},
+			blank: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.blank, prepareOne(t, tt.row).Repo.IsBlank())
+		})
+	}
 }
 
 // TestPrepareNoCheckoutKeepsEveryOtherCell pins that emptying the three columns takes nothing

@@ -103,8 +103,8 @@ type Row struct {
 	// Process says whether anything stands behind the row, which the bar draws as a dashed pipe
 	// where a process has stopped and nothing at all where there is none.
 	Process Process
-	// NoCheckout says the row can own no checkout of its own, which empties the three columns
-	// that report on one.
+	// NoCheckout says the row can own no branch weave cut for it, which empties the review and
+	// forge columns.
 	NoCheckout bool
 	Repo       Repo
 	Review     Review
