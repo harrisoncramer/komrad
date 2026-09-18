@@ -104,6 +104,12 @@ type verifiedSetter interface {
 	SetVerifiedAt(ctx context.Context, id string, at *time.Time) error
 }
 
+// NoRecord is a verifiedSetter that writes nothing, for a caller that only reports.
+type NoRecord struct{}
+
+// SetVerifiedAt does nothing.
+func (NoRecord) SetVerifiedAt(context.Context, string, *time.Time) error { return nil }
+
 // FileCredential is a token a person supplied, read from its file on each use.
 type FileCredential struct {
 	stateDir     string

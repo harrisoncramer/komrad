@@ -10,9 +10,13 @@ import (
 	"syscall"
 	"time"
 
+	"weave/config"
 	"weave/db"
+	"weave/internal/forge"
+	"weave/internal/forge/github"
 	"weave/internal/store"
 	agentstore "weave/internal/store/agent"
+	forgestore "weave/internal/store/forge"
 	workflowstore "weave/internal/store/workflow"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -154,4 +158,54 @@ func readWorktreeOwners(ctx context.Context, url string) (WorktreeOwners, error)
 	}
 
 	return owners, nil
+}
+
+// verifyForges asks each connected forge who weave is there, writing nothing back.
+func verifyForges(ctx context.Context, url string) ([]ForgeStatus, error) {
+	pool, err := openReadOnlyPool(ctx, url)
+	if err != nil {
+		return nil, err
+	}
+	defer pool.Close()
+
+	ctx, cancel := context.WithTimeout(ctx, connectTimeout)
+	defer cancel()
+
+	connections, err := forgestore.New(pool).List(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	stateDir, err := config.GetStateDir()
+	if err != nil {
+		return nil, err
+	}
+
+	statuses := make([]ForgeStatus, 0, len(connections))
+	for _, connection := range connections {
+		status := ForgeStatus{Host: connection.Host}
+		build, ok := forgeBuilders[connection.Kind]
+		if !ok {
+			status.Err = fmt.Errorf("no forge of kind %q in this build", connection.Kind)
+			statuses = append(statuses, status)
+
+			continue
+		}
+
+		auth := forge.NewFileCredential(forge.NewFileCredentialParams{
+			StateDir:     stateDir,
+			ConnectionID: connection.ID,
+			Header:       forge.HeaderFor(connection.Kind, connection.Method),
+			Connections:  forge.NoRecord{},
+		})
+		status.Login, status.Err = build(connection.APIURL, auth).Verify(ctx)
+		statuses = append(statuses, status)
+	}
+
+	return statuses, nil
+}
+
+// forgeBuilders is every forge this build can speak to, by kind.
+var forgeBuilders = map[string]forge.Builder{
+	forge.KindGitHub: github.Build,
 }

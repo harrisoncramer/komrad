@@ -19,6 +19,7 @@ func Checks(settings Settings) []Check {
 		newSchemaCheck(),
 		newReadOnlyLoginCheck(),
 		newOrphanedWorktreesCheck(),
+		newForgesCheck(),
 		newServerCheck(),
 		newTerminalGlyphCheck(),
 		newTerminalEmphasisCheck(),

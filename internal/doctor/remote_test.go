@@ -136,6 +136,7 @@ func TestEngineSideChecksAreTheOnesThatReadTheEngine(t *testing.T) {
 		"schema",
 		"readonly login",
 		"orphaned worktrees",
+		"forges",
 		"claude",
 	}
 

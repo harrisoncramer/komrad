@@ -126,11 +126,11 @@ func (f *Forge) get(ctx context.Context, path string, into any) error {
 
 	switch {
 	case resp.StatusCode == http.StatusUnauthorized:
-		return fmt.Errorf("%w: %s", forge.ErrUnauthorized, strings.TrimSpace(string(body)))
+		return fmt.Errorf("%w: %s", forge.ErrUnauthorized, messageOf(body))
 	case resp.StatusCode == http.StatusNotFound:
 		return fmt.Errorf("%w: %s", forge.ErrNotFound, path)
 	case resp.StatusCode >= 300:
-		return fmt.Errorf("github answered %d for %s: %s", resp.StatusCode, path, strings.TrimSpace(string(body)))
+		return fmt.Errorf("github answered %d for %s: %s", resp.StatusCode, path, messageOf(body))
 	}
 
 	if err := json.Unmarshal(body, into); err != nil {
@@ -138,6 +138,18 @@ func (f *Forge) get(ctx context.Context, path string, into any) error {
 	}
 
 	return nil
+}
+
+// messageOf is what GitHub said went wrong, which its error bodies carry as message.
+func messageOf(body []byte) string {
+	var failure struct {
+		Message string `json:"message"`
+	}
+	if err := json.Unmarshal(body, &failure); err == nil && failure.Message != "" {
+		return failure.Message
+	}
+
+	return strings.TrimSpace(string(body))
 }
 
 // ownerAndName splits a repository path, which on GitHub is always two segments.
@@ -230,4 +242,9 @@ func remoteOf(r *repo) git.RemoteURL {
 	}
 
 	return remote
+}
+
+// Build is the Builder for GitHub.
+func Build(api string, auth forge.Authenticator) forge.Forge {
+	return New(NewParams{Auth: auth, API: api})
 }
