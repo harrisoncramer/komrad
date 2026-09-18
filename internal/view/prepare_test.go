@@ -861,6 +861,6 @@ func TestDroppedColumnsBuyTheNameTheirRoom(t *testing.T) {
 		Dropped: Columns{Repo: true, Review: true, Forge: true},
 	})
 
-	assert.Equal(t, 9, NameColumns(pane, none.Columns)-NameColumns(pane, every.Columns),
+	assert.Equal(t, 6, NameColumns(pane, none.Columns)-NameColumns(pane, every.Columns),
 		"each of the three costs an Octicon and the space after it")
 }

@@ -90,7 +90,7 @@ func TestGlyphCheckSaysItMeasuredAdvanceNotInk(t *testing.T) {
 // TestGlyphCheckDoesNotBlameTheFont covers the fix text, since a cursor advance says nothing
 // about whether a glyph is in the font and telling a person to install one would be a guess.
 func TestGlyphCheckDoesNotBlameTheFont(t *testing.T) {
-	result := newTerminalGlyphCheck().Run(t.Context(), measuring(t, 1))
+	result := newTerminalGlyphCheck().Run(t.Context(), measuring(t, 2))
 
 	require.Equal(t, StatusWarn, result.Status)
 	assert.NotContains(t, strings.ToLower(result.Fix), "font")
@@ -101,18 +101,18 @@ func TestGlyphCheckDoesNotBlameTheFont(t *testing.T) {
 func TestGlyphCheckPassesWhenTheWidthsAgree(t *testing.T) {
 	result := newTerminalGlyphCheck().Run(t.Context(), agreeing())
 	require.Equal(t, StatusOK, result.Status, result.Detail)
-	assert.Contains(t, result.Detail, "columns")
+	assert.Contains(t, result.Detail, "column")
 }
 
 // TestGlyphCheckReportsWidthsThatDisagree covers the whole reason this exists, a terminal
 // drawing an Octicon in a width the layout does not count it as.
 func TestGlyphCheckReportsWidthsThatDisagree(t *testing.T) {
-	result := newTerminalGlyphCheck().Run(t.Context(), measuring(t, 1))
+	result := newTerminalGlyphCheck().Run(t.Context(), measuring(t, 2))
 
 	require.Equal(t, StatusWarn, result.Status,
 		"a font the terminal lacks is a degraded panel rather than a broken weave")
 	require.ErrorIs(t, result.Err, ErrGlyphWidthUnexpected)
-	assert.Contains(t, result.Err.Error(), "11 glyphs drew in 1 column where the layout counts them as 2")
+	assert.Contains(t, result.Err.Error(), "16 glyphs drew in 2 columns where the layout counts them as 1")
 	assert.NotEmpty(t, result.Fix)
 }
 
@@ -147,7 +147,7 @@ func TestGlyphCheckSaysWhenItMeasuredTmux(t *testing.T) {
 	require.Equal(t, StatusOK, result.Status)
 	assert.Contains(t, result.Detail, "tmux")
 
-	disagreeing := measuring(t, 1)
+	disagreeing := measuring(t, 2)
 	disagreeing.InsideTmux = env.InsideTmux
 
 	warned := newTerminalGlyphCheck().Run(t.Context(), disagreeing)

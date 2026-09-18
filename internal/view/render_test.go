@@ -627,10 +627,10 @@ const drawnArchiveNameColumn = 6
 // workflow still live above the agents archived out of it.
 func archiveRows() []Row {
 	return []Row{
-		{Key: "w:live", Kind: KindWorkflow, Name: "weave", Dormant: true, Scheduled: true},
-		{Key: "a:one", Kind: KindAgent, Name: "rip-out-old-sidebar", Dim: true, Dormant: true},
-		{Key: "a:two", Kind: KindChild, Name: "rfc-0065-review", Dim: true, Dormant: true},
-		{Key: "w:gone", Kind: KindWorkflow, Name: "spike", Dim: true, Dormant: true},
+		{Key: "w:live", Kind: KindWorkflow, Name: "weave", Process: ProcessNone, Scheduled: true, NoCheckout: true},
+		{Key: "a:one", Kind: KindAgent, Name: "rip-out-old-sidebar", Dim: true, Process: ProcessStopped},
+		{Key: "a:two", Kind: KindChild, Name: "rfc-0065-review", Dim: true, Process: ProcessStopped, NoCheckout: true},
+		{Key: "w:gone", Kind: KindWorkflow, Name: "spike", Dim: true, Process: ProcessNone, NoCheckout: true},
 		{Key: "a:bad", Kind: KindAgent, Name: "failed-teardown", Dim: true, Status: StatusBroken},
 	}
 }

@@ -14,7 +14,7 @@ func Drawings() []Drawn {
 		drawings = append(drawings, Drawn{
 			Name:    named.name,
 			Text:    spell(named.glyph),
-			Columns: glyphColumns(named.glyph),
+			Columns: plainColumns,
 		})
 	}
 
@@ -39,6 +39,7 @@ var glyphNames = []struct {
 	{GlyphSchedule, "schedule"},
 	{GlyphBusy, "busy"},
 	{GlyphQuiet, "quiet"},
+	{GlyphStopped, "stopped"},
 	{GlyphChild, "child"},
 	{GlyphFocus, "focus"},
 }
