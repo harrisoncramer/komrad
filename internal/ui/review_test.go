@@ -1905,8 +1905,8 @@ func TestReviewBaseIsRefusedWhenTheBaseMoved(t *testing.T) {
 	require.NotNil(t, cmd, "the walk still moves")
 
 	shown := ansi.Strip(m.reviewView())
-	assert.Contains(t, shown, "not comparable",
-		"and says the branch was rebased rather than drawing somebody else's work")
+	assert.Contains(t, shown, "not comparable, the base moved",
+		"and says the base moved rather than drawing somebody else's work")
 }
 
 // typeReviewMessage types words into the composer the way a person does, the field taking only
