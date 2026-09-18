@@ -26,6 +26,11 @@ type RemoteURL struct {
 	Path string
 }
 
+// IsZero says whether nothing was parsed into the remote.
+func (r RemoteURL) IsZero() bool {
+	return r == RemoteURL{}
+}
+
 // Canonical is the one web address every spelling of the repository shares.
 func (r RemoteURL) Canonical() string {
 	host := r.Host
