@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
 	hookv1weave "weave/proto/gen/hook/v1/hookv1weave"
 
 	"weave/config"

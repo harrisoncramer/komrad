@@ -3,6 +3,7 @@ package agent
 import (
 	"context"
 	"testing"
+
 	agentv1weave "weave/proto/gen/agent/v1/agentv1weave"
 
 	"weave/internal/git"
