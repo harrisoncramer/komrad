@@ -57,8 +57,7 @@ func (c Cell) IsBlank() bool {
 
 // Line is one row of the agents list with every decision already made.
 type Line struct {
-	// Focused says the keyboard is standing on this row, which the selection bar reads and the
-	// caret in Focus is drawn from.
+	// Focused says the keyboard is standing on this row, which the caret in Focus is drawn from.
 	Focused bool
 	Focus   Cell
 	Mark    Cell
