@@ -315,7 +315,7 @@ func TestEveryRepoStateIsSpokenForOrSilent(t *testing.T) {
 	// RepoClean is the baseline: a checkout an agent can work in is not news.
 	silent := map[view.Repo]bool{view.RepoClean: true}
 
-	for state := range view.RepoCount {
+	for state := range int(view.RepoEnd) {
 		repo := view.Repo(state)
 		_, said := repoSaid[repo]
 
@@ -330,7 +330,7 @@ func TestEveryReviewStateIsSpokenForOrSilent(t *testing.T) {
 	// the column itself draws at its baseline.
 	silent := map[view.Review]bool{view.ReviewNone: true, view.ReviewCommented: true}
 
-	for state := range view.ReviewCount {
+	for state := range int(view.ReviewEnd) {
 		review := view.Review(state)
 		_, said := reviewSaid[review]
 
