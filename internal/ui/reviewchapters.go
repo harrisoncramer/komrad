@@ -20,7 +20,7 @@ const reviewLegendFloor = 21
 // reviewChapter is one round of the review as a reader reads it: the work between two of their
 // reviews, or between their last one and now.
 type reviewChapter struct {
-	// FromSHA is the snapshot the chapter starts after, empty for the point the branch left main.
+	// FromSHA is the snapshot the chapter starts after, or the oldest round's base for the first.
 	FromSHA string
 	// ToSHA is the snapshot the chapter ends at.
 	ToSHA string
@@ -46,6 +46,8 @@ type reviewChapter struct {
 	Replayed bool
 	// Conflicts is the paths the base rewrote under the agent, which a replay could not settle.
 	Conflicts []string
+	// OnOlderBase says the chapter ends on a base the round on screen has since moved past.
+	OnOlderBase bool
 }
 
 // stepReviewBase walks back a round, from the whole change to the newest round and on into the
@@ -142,6 +144,10 @@ func reviewChapterLabel(params reviewChapterLabelParams) string {
 		said += ", " + baseMovedSaid(chapter) + ", replayed"
 	}
 
+	if chapter.OnOlderBase {
+		said += ", on an earlier base"
+	}
+
 	return said
 }
 
@@ -226,8 +232,8 @@ func cutChapters(params cutChaptersParams) []reviewChapter {
 	}
 
 	chapters := make([]reviewChapter, 0, len(milestones))
-	from := ""
-	fromBase := params.OnScreen.GetBaseSha()
+	from := milestones[0].GetBaseSha()
+	fromBase := from
 	for _, milestone := range milestones {
 		chapters = append(chapters, reviewChapter{
 			FromSHA: from,
@@ -239,9 +245,10 @@ func cutChapters(params cutChaptersParams) []reviewChapter {
 				After:   milestone.GetOrdinal(),
 				Ceiling: params.OnScreen.GetOrdinal(),
 			}),
-			Comparable: from == "" || fromBase == milestone.GetBaseSha(),
-			FromBase:   fromBase,
-			ToBase:     milestone.GetBaseSha(),
+			Comparable:  fromBase == milestone.GetBaseSha(),
+			FromBase:    fromBase,
+			ToBase:      milestone.GetBaseSha(),
+			OnOlderBase: milestone.GetBaseSha() != params.OnScreen.GetBaseSha(),
 		})
 
 		from, fromBase = milestone.GetSnapshotSha(), milestone.GetBaseSha()
