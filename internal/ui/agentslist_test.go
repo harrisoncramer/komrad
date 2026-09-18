@@ -11,7 +11,6 @@ import (
 	workflowstore "weave/internal/store/workflow"
 	"weave/internal/ui/layout"
 	"weave/internal/ui/paint"
-	"weave/internal/view"
 
 	"github.com/charmbracelet/x/ansi"
 	"github.com/stretchr/testify/assert"
@@ -40,13 +39,6 @@ func agentsListModel() model {
 	m.tree.cursor = -1
 
 	return m
-}
-
-// TestAgentsListDrawsTheColumnHeader pins the row of column names the list stands under.
-func TestAgentsListDrawsTheColumnHeader(t *testing.T) {
-	header := ansi.Strip(view.Header(paint.Colored, view.Columns{Repo: true, Review: true, Forge: true}))
-
-	assert.Contains(t, ansi.Strip(agentsListModel().agentsView()), header)
 }
 
 // TestAgentsListOnAnEmptyPanel pins the first run, where a panel holding nothing at all still

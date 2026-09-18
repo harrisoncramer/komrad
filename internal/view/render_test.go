@@ -275,14 +275,14 @@ func styleOfName(row, name string) string {
 func TestRenderGreyPaletteTakesEveryColourOff(t *testing.T) {
 	list := Prepare(Snapshot{Rows: canonicalRows(), Focused: "strip-demo", Pane: canonicalPane})
 
-	requireGolden(t, "list-grey", Header(paint.Grey, everyColumn())+"\n"+Render(list, paint.Grey, 0))
+	requireGolden(t, "list-grey", Render(list, paint.Grey, 0))
 }
 
 // TestRenderCanonicalList draws the whole settled design.
 func TestRenderCanonicalList(t *testing.T) {
 	list := Prepare(Snapshot{Rows: canonicalRows(), Focused: "strip-demo", Pane: canonicalPane})
 
-	requireGolden(t, "list-canonical", Header(paint.Colored, everyColumn())+"\n"+Render(list, paint.Colored, 0))
+	requireGolden(t, "list-canonical", Render(list, paint.Colored, 0))
 }
 
 // livePanelRows is the panel as it actually stands, taken off Harry's own listing rather than
@@ -319,7 +319,7 @@ func livePanelRows() []Row {
 func TestRenderLivePanelShape(t *testing.T) {
 	list := Prepare(Snapshot{Rows: livePanelRows(), Focused: "strip-demo", Pane: canonicalPane})
 
-	requireGolden(t, "list-live-panel", Header(paint.Colored, everyColumn())+"\n"+Render(list, paint.Colored, 0))
+	requireGolden(t, "list-live-panel", Render(list, paint.Colored, 0))
 }
 
 // TestRenderDrawsTheSpecifiedGlyphSequence pins the glyphs of the settled design and the order
@@ -335,10 +335,10 @@ func TestRenderDrawsTheSpecifiedGlyphSequence(t *testing.T) {
 func TestRenderKeepsEveryNameOnOneColumn(t *testing.T) {
 	list := Prepare(Snapshot{Rows: canonicalRows(), Focused: "strip-demo", Pane: canonicalPane})
 	drawn := strings.Split(drawCanonical(), "\n")
-	require.Len(t, drawn, len(list.Lines)+1)
+	require.Len(t, drawn, len(list.Lines))
 
 	for i, line := range list.Lines {
-		row := drawn[i+1]
+		row := drawn[i]
 		assert.Equal(t, drawnNameColumn, nameColumnOf(row, line), "row %q", row)
 	}
 }
@@ -536,7 +536,7 @@ func nameColumnOf(drawn string, line Line) int {
 func drawCanonical() string {
 	list := Prepare(Snapshot{Rows: canonicalRows(), Focused: "strip-demo", Pane: canonicalPane})
 
-	return ansiEscapes.ReplaceAllString(Header(paint.Colored, everyColumn())+"\n"+Render(list, paint.Colored, 0), "")
+	return ansiEscapes.ReplaceAllString(Render(list, paint.Colored, 0), "")
 }
 
 // drawnColumns is how wide a stretch of a row is on screen, counting an Octicon as what the font

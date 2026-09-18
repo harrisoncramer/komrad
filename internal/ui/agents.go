@@ -560,7 +560,7 @@ func (m model) agentsListView() string {
 		pane:        m.width,
 	}))
 
-	header := palette.Title("Agents and Workflows") + "\n\n" + m.filterView() + view.Header(palette, list.Columns) + "\n"
+	header := palette.Title("Agents and Workflows") + "\n\n" + m.filterView()
 	lines := m.listLines(header, below)
 	window := view.Window(view.WindowParams{
 		List:    list,

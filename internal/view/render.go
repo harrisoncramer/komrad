@@ -9,29 +9,6 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-// headerGutter is the focus and mark cells the column header has nothing to put in.
-const headerGutter = "    "
-
-// Header is the row of column names standing over the list, greyed throughout and naming only
-// the columns the list is wide enough to draw.
-func Header(palette paint.Palette, columns Columns) string {
-	cells := drawnColumnCells(Line{
-		Repo:   Cell{Glyph: GlyphRepo, Tone: paint.ToneMuted},
-		Review: Cell{Glyph: GlyphReview, Tone: paint.ToneMuted},
-		Forge:  Cell{Glyph: GlyphForge, Tone: paint.ToneMuted},
-	}, columns)
-	if len(cells) == 0 {
-		return ""
-	}
-
-	drawn := make([]string, 0, len(cells))
-	for _, cell := range cells {
-		drawn = append(drawn, drawCell(palette, cell))
-	}
-
-	return headerGutter + strings.Join(drawn, " ")
-}
-
 // Render draws every row of the agents list, one to a line.
 func Render(list List, palette paint.Palette, width int) string {
 	return strings.Join(Rows(list, palette, width), "\n")

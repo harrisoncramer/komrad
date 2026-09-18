@@ -180,5 +180,5 @@ func TestWindowOverTheLivePanel(t *testing.T) {
 	list := Prepare(Snapshot{Rows: livePanelRows(), Focused: "strip-demo", Pane: canonicalPane})
 	block := Window(WindowParams{List: list, Palette: paint.Colored, Width: canonicalPane, Lines: 12})
 
-	requireGolden(t, "window-live-panel", Header(paint.Colored, list.Columns)+"\n"+block)
+	requireGolden(t, "window-live-panel", block)
 }
