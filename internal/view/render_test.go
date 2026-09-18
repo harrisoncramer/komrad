@@ -88,17 +88,17 @@ func TestRenderRowShapes(t *testing.T) {
 		{
 			name:   "a child is italic and hangs off a corner",
 			golden: "row-child",
-			row:    Row{Kind: KindChild, Name: "eng-6994-reviewer", NoCheckout: true},
+			row:    Row{Kind: KindChild, Name: "eng-6994-reviewer"},
 		},
 		{
 			name:   "a marked workflow is bold and opens where its letter leaves off",
 			golden: "row-workflow",
-			row:    Row{Kind: KindWorkflow, Name: "weave", Mark: "w", HiddenCount: 3, Scheduled: true, NoCheckout: true},
+			row:    Row{Kind: KindWorkflow, Name: "weave", Mark: "w", HiddenCount: 3, Scheduled: true},
 		},
 		{
 			name:   "an unmarked workflow is bold and opens where an agent does",
 			golden: "row-workflow-unmarked",
-			row:    Row{Kind: KindWorkflow, Name: "weave-bughunt-job", HiddenCount: 5, Scheduled: true, NoCheckout: true},
+			row:    Row{Kind: KindWorkflow, Name: "weave-bughunt-job", HiddenCount: 5, Scheduled: true},
 		},
 		{
 			name:   "an unviewed agent is brighter rather than bold",
@@ -257,26 +257,26 @@ func TestRenderCanonicalList(t *testing.T) {
 // that never started.
 func livePanelRows() []Row {
 	return []Row{
-		{Key: "admin", Kind: KindWorkflow, Name: "admin", Mark: "a", Process: ProcessNone, NoCheckout: true},
+		{Key: "admin", Kind: KindWorkflow, Name: "admin", Mark: "a", Process: ProcessNone},
 		{Kind: KindAgent, Name: "eng-6994-unable-to-create-a-fundraising", Review: ReviewApproved, Process: ProcessStopped},
-		{Kind: KindChild, Name: "eng-6994-reviewer", Process: ProcessStopped, NoCheckout: true},
-		{Kind: KindWorkflow, Name: "bcs-project", Process: ProcessNone, NoCheckout: true},
+		{Kind: KindChild, Name: "eng-6994-reviewer", Process: ProcessStopped},
+		{Kind: KindWorkflow, Name: "bcs-project", Process: ProcessNone},
 		{Kind: KindAgent, Name: "research-disbursements", Process: ProcessStopped},
 		{Kind: KindAgent, Name: "research-identity-assets", Status: StatusThinking},
-		{Kind: KindWorkflow, Name: "deploy", Process: ProcessNone, HiddenCount: 2, NoCheckout: true},
-		{Kind: KindWorkflow, Name: "ops", Mark: "o", Process: ProcessNone, NoCheckout: true},
+		{Kind: KindWorkflow, Name: "deploy", Process: ProcessNone, HiddenCount: 2},
+		{Kind: KindWorkflow, Name: "ops", Mark: "o", Process: ProcessNone},
 		{Kind: KindAgent, Name: "rds-backup-hardening", Process: ProcessStopped},
-		{Kind: KindWorkflow, Name: "strip-demo", Process: ProcessNone, NoCheckout: true},
+		{Kind: KindWorkflow, Name: "strip-demo", Process: ProcessNone},
 		{Key: "strip-demo", Kind: KindAgent, Name: "strip-demo", Review: ReviewChangesRequested, Status: StatusWaiting},
-		{Kind: KindWorkflow, Name: "weave", Mark: "w", Process: ProcessNone, HiddenCount: 4, NoCheckout: true},
+		{Kind: KindWorkflow, Name: "weave", Mark: "w", Process: ProcessNone, HiddenCount: 4},
 		{Kind: KindAgent, Name: "competitive-analysis", Process: ProcessStopped, Held: true},
-		{Kind: KindChild, Name: "competitor-architecture", Process: ProcessStopped, NoCheckout: true},
+		{Kind: KindChild, Name: "competitor-architecture", Process: ProcessStopped},
 		{Kind: KindAgent, Name: "pr-metadata-fixes", Process: ProcessStopped, Held: true},
 		{Kind: KindAgent, Name: "frozen-review-bug", Review: ReviewChangesRequested, Process: ProcessStopped},
 		{Kind: KindAgent, Name: "view-foundation", Repo: RepoGone, Review: ReviewApproved, Process: ProcessStopped},
-		{Kind: KindChild, Name: "view-foundation-2", Process: ProcessStopped, NoCheckout: true},
+		{Kind: KindChild, Name: "view-foundation-2", Process: ProcessStopped},
 		{Kind: KindAgent, Name: "view-gather", Repo: RepoRebasing, Review: ReviewOpen, Status: StatusThinking},
-		{Kind: KindWorkflow, Name: "weave-bughunt-job", Process: ProcessNone, Scheduled: true, HiddenCount: 5, NoCheckout: true},
+		{Kind: KindWorkflow, Name: "weave-bughunt-job", Process: ProcessNone, Scheduled: true, HiddenCount: 5},
 		{Kind: KindAgent, Name: "iss-641-reviewer", Status: StatusBroken},
 	}
 }
@@ -555,21 +555,21 @@ func drawnColumns(text string) int {
 // canonicalRows is the settled design as a snapshot, every row of it.
 func canonicalRows() []Row {
 	return []Row{
-		{Key: "admin", Kind: KindWorkflow, Name: "admin", Mark: "a", HiddenCount: 2, NoCheckout: true},
+		{Key: "admin", Kind: KindWorkflow, Name: "admin", Mark: "a", HiddenCount: 2},
 		{Kind: KindAgent, Name: "eng-6994-unable-to-create-a-grant", Review: ReviewApproved, Forge: ForgeOpen, Status: StatusThinking},
-		{Kind: KindChild, Name: "eng-6994-reviewer", NoCheckout: true},
+		{Kind: KindChild, Name: "eng-6994-reviewer"},
 		{Kind: KindAgent, Name: "research-identity-assets", Status: StatusThinking},
-		{Kind: KindWorkflow, Name: "ops", Mark: "o", NoCheckout: true},
+		{Kind: KindWorkflow, Name: "ops", Mark: "o"},
 		{Kind: KindAgent, Name: "rds-backup-hardening", Forge: ForgeOpen},
 		{Key: "strip-demo", Kind: KindAgent, Name: "strip-demo", Review: ReviewChangesRequested, Status: StatusWaiting, Held: true},
-		{Kind: KindWorkflow, Name: "weave", Mark: "w", HiddenCount: 3, Scheduled: true, NoCheckout: true},
+		{Kind: KindWorkflow, Name: "weave", Mark: "w", HiddenCount: 3, Scheduled: true},
 		{Kind: KindAgent, Name: "frozen-review-bug", Review: ReviewOpen, Status: StatusWaiting},
 		{Kind: KindAgent, Name: "pr-metadata-fixes", Review: ReviewApproved, Forge: ForgeApproved, Status: StatusWaiting, Held: true, UnreadMail: true},
 		{Kind: KindAgent, Name: "iss-582", Repo: RepoRebasing, Review: ReviewApproved},
 		{Kind: KindAgent, Name: "gone-worktree", Repo: RepoGone, Status: StatusBroken, FailedRun: true},
 		{Kind: KindAgent, Name: "iss-641-reviewer", Forge: ForgeFailing, UnreadMail: true},
 		{Kind: KindAgent, Name: "shipped-yesterday", Forge: ForgeMerged, Process: ProcessStopped},
-		{Kind: KindWorkflow, Name: "weave-bughunt-job", HiddenCount: 5, Scheduled: true, NoCheckout: true, Process: ProcessNone},
+		{Kind: KindWorkflow, Name: "weave-bughunt-job", HiddenCount: 5, Scheduled: true, Process: ProcessNone},
 	}
 }
 
@@ -586,10 +586,10 @@ const drawnArchiveNameColumn = 6
 // workflow still live above the agents archived out of it.
 func archiveRows() []Row {
 	return []Row{
-		{Key: "w:live", Kind: KindWorkflow, Name: "weave", Process: ProcessNone, Scheduled: true, NoCheckout: true},
+		{Key: "w:live", Kind: KindWorkflow, Name: "weave", Process: ProcessNone, Scheduled: true},
 		{Key: "a:one", Kind: KindAgent, Name: "rip-out-old-sidebar", Dim: true, Process: ProcessStopped},
-		{Key: "a:two", Kind: KindChild, Name: "rfc-0065-review", Dim: true, Process: ProcessStopped, NoCheckout: true},
-		{Key: "w:gone", Kind: KindWorkflow, Name: "spike", Dim: true, Process: ProcessNone, NoCheckout: true},
+		{Key: "a:two", Kind: KindChild, Name: "rfc-0065-review", Dim: true, Process: ProcessStopped},
+		{Key: "w:gone", Kind: KindWorkflow, Name: "spike", Dim: true, Process: ProcessNone},
 		{Key: "a:bad", Kind: KindAgent, Name: "failed-teardown", Dim: true, Status: StatusBroken},
 	}
 }

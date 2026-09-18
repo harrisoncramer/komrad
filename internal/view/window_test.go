@@ -16,7 +16,7 @@ import (
 func windowedRows() []Row {
 	rows := make([]Row, 0, 15)
 	for _, workflow := range []string{"alpha", "beta", "gamma"} {
-		rows = append(rows, Row{Key: workflow, Kind: KindWorkflow, Name: workflow, Process: ProcessNone, NoCheckout: true})
+		rows = append(rows, Row{Key: workflow, Kind: KindWorkflow, Name: workflow, Process: ProcessNone})
 		for i := range 4 {
 			name := fmt.Sprintf("%s-%d", workflow, i)
 			rows = append(rows, Row{Key: name, Kind: KindAgent, Name: name})

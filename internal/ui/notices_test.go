@@ -18,8 +18,7 @@ import (
 )
 
 // noticeRow is one agent as the list would hold it, under a workflow that cuts each agent its
-// own checkout, since an agent that owns none has its review and forge columns blanked and so
-// says nothing about them.
+// own checkout.
 func noticeRow(item agentItem) agentRow {
 	return agentRow{
 		item:     item,
@@ -376,9 +375,9 @@ func TestAStoppedRowDrawsABarAndSaysNothing(t *testing.T) {
 	assert.Contains(t, noticeTexts(agentNotices(noticeRow(failed))), failedToCreateNotice)
 }
 
-// TestNoticesReportAPlainWorkflowsDirectory covers the agent weave cut no worktree for: the row
-// it sits on is the only one pointing at its directory, so the record has to carry what happened
-// to that directory.
+// TestNoticesReportAPlainWorkflowsDirectory covers the agent weave cut no worktree for: nothing
+// else in the panel reports the directory it was handed or the review of its work, so its own
+// record has to.
 func TestNoticesReportAPlainWorkflowsDirectory(t *testing.T) {
 	plain := func(agent agentstore.Agent) agentRow {
 		return agentRow{
@@ -390,8 +389,12 @@ func TestNoticesReportAPlainWorkflowsDirectory(t *testing.T) {
 	gone := plain(agentstore.Agent{ID: "a1", Name: "worker", Cwd: "/tmp/somewhere", WorktreeRemoved: true})
 	rebasing := plain(agentstore.Agent{ID: "a1", Name: "worker", Cwd: "/tmp/somewhere", SequenceInProgress: true})
 
+	reviewed := plain(agentstore.Agent{ID: "a1", Name: "worker", Cwd: "/tmp/somewhere"})
+	reviewed.item.inLocalReview = true
+
 	assert.Equal(t, []string{worktreeRemovedNotice}, noticeTexts(agentNotices(gone)))
 	assert.Equal(t, []string{sequenceNotice}, noticeTexts(agentNotices(rebasing)))
+	assert.Equal(t, []string{inLocalReviewNotice}, noticeTexts(agentNotices(reviewed)))
 
 	child := plain(agentstore.Agent{ID: "a2", Name: "reviewer", Cwd: "/tmp/somewhere", WorktreeRemoved: true})
 	child.child = true

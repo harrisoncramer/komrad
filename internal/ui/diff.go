@@ -18,16 +18,11 @@ func (m model) isReviewable(agent agentstore.Agent) bool {
 		return false
 	}
 
-	return ownsWorktree(agent, m.listing.workflows[index])
-}
-
-// ownsWorktree reports whether a checkout is weave's to cut for this agent alone.
-func ownsWorktree(agent agentstore.Agent, workflow workflowstore.Workflow) bool {
 	// A child sits in its parent's checkout, and an agent told to keep the directory it was given
 	// sits in somebody's own.
 	if agent.ParentAgentID != nil || (agent.ProvisionEnabled != nil && !*agent.ProvisionEnabled) {
 		return false
 	}
 
-	return workflow.Worktree.Enabled
+	return m.listing.workflows[index].Worktree.Enabled
 }
