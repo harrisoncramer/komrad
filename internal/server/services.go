@@ -31,6 +31,7 @@ type services struct {
 	marks        *agents.MarkService
 	holder       *agents.Holder
 	rebase       *agents.RebaseService
+	cwdSync      *agents.CwdSyncer
 }
 
 // BuiltinScriptsDir is where the scripts weave ships are installed under a cache directory,
@@ -183,11 +184,18 @@ func buildServices(params NewServerParams, st *stores) (*services, error) {
 	})
 
 	markService := agents.NewMarkService(agents.NewMarkServiceParams{Marks: st.marks, Tx: st.pool})
+	cwdSyncer := agents.NewCwdSyncer(agents.NewCwdSyncerParams{
+		Agents:  st.agents,
+		Heads:   git.NewClient(),
+		Trees:   git.NewClient(),
+		Tallies: st.review,
+	})
 
 	return &services{
 		loadConfig: loadConfig,
 		marks:      markService,
 		rebase:     rebaseService,
+		cwdSync:    cwdSyncer,
 		script:     scriptService,
 		mail:       mailService,
 		review:     reviewService,

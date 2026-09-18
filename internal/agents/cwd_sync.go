@@ -5,10 +5,12 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"sync"
 	"time"
 
 	"weave/internal/git"
 	agentstore "weave/internal/store/agent"
+	reviewstore "weave/internal/store/review"
 	"weave/lib/xptr"
 
 	"github.com/harrisoncramer/streamer"
@@ -34,16 +36,41 @@ type headReader interface {
 	ReadHeadState(ctx context.Context, dir string) git.HeadState
 }
 
+type treeReader interface {
+	HasTreeMoved(ctx context.Context, dir, sha string) (bool, error)
+}
+
+type tallyLister interface {
+	ListTallies(ctx context.Context) ([]reviewstore.Tally, error)
+}
+
 // CwdSyncer keeps what the panel shows of an agent's working directory in step with the
 // directory itself.
 type CwdSyncer struct {
-	agents cwdSetter
-	heads  headReader
+	agents  cwdSetter
+	heads   headReader
+	trees   treeReader
+	tallies tallyLister
+	mu      sync.Mutex
+	moved   map[string]bool
+}
+
+type NewCwdSyncerParams struct {
+	Agents  cwdSetter
+	Heads   headReader
+	Trees   treeReader
+	Tallies tallyLister
 }
 
 // NewCwdSyncer builds a syncer over the agent store.
-func NewCwdSyncer(agents cwdSetter, heads headReader) *CwdSyncer {
-	return &CwdSyncer{agents: agents, heads: heads}
+func NewCwdSyncer(params NewCwdSyncerParams) *CwdSyncer {
+	return &CwdSyncer{
+		agents:  params.Agents,
+		heads:   params.Heads,
+		trees:   params.Trees,
+		tallies: params.Tallies,
+		moved:   map[string]bool{},
+	}
 }
 
 // cwdLook is what one pass found at an agent's directory.
@@ -51,6 +78,15 @@ type cwdLook struct {
 	agent   agentstore.Agent
 	removed bool
 	head    git.HeadState
+	moved   bool
+}
+
+// HasTreeMoved reports whether an agent's worktree has moved since the round its last verdict was given on.
+func (cs *CwdSyncer) HasTreeMoved(agentID string) bool {
+	cs.mu.Lock()
+	defer cs.mu.Unlock()
+
+	return cs.moved[agentID]
 }
 
 // Sync looks at every live agent's cwd once and writes what changed, clearing the branch and
@@ -61,24 +97,43 @@ func (cs *CwdSyncer) Sync(ctx context.Context) error {
 		return fmt.Errorf("failed to list agents for cwd sync: %w", err)
 	}
 
-	looks, err := cs.lookAtAll(ctx, agents)
+	tallied, err := cs.tallies.ListTallies(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to list the review tallies for cwd sync: %w", err)
+	}
+	rounds := map[string]string{}
+	for _, tally := range tallied {
+		if tally.Verdict != nil {
+			rounds[tally.AgentID] = tally.SnapshotSHA
+		}
+	}
+
+	looks, err := cs.lookAtAll(ctx, agents, rounds)
 	if err != nil {
 		return err
 	}
 
+	moved := map[string]bool{}
 	var failures []error
 	for _, look := range looks {
+		if look.moved {
+			moved[look.agent.ID] = true
+		}
 		failures = append(failures, cs.write(ctx, look)...)
 	}
+
+	cs.mu.Lock()
+	cs.moved = moved
+	cs.mu.Unlock()
 
 	return errors.Join(failures...)
 }
 
-func (cs *CwdSyncer) lookAtAll(ctx context.Context, agents []agentstore.Agent) ([]cwdLook, error) {
+func (cs *CwdSyncer) lookAtAll(ctx context.Context, agents []agentstore.Agent, rounds map[string]string) ([]cwdLook, error) {
 	looker, err := streamer.NewStreamer(streamer.NewStreamerParams[agentstore.Agent, cwdLook]{
 		WorkerCount: cwdLookWorkers,
 		Work: func(ctx context.Context, agent agentstore.Agent) (cwdLook, error) {
-			return cs.look(ctx, agent), nil
+			return cs.look(ctx, agent, rounds[agent.ID]), nil
 		},
 	})
 	if err != nil {
@@ -107,13 +162,14 @@ func (cs *CwdSyncer) lookAtAll(ctx context.Context, agents []agentstore.Agent) (
 	return looks, nil
 }
 
-func (cs *CwdSyncer) look(ctx context.Context, agent agentstore.Agent) cwdLook {
+func (cs *CwdSyncer) look(ctx context.Context, agent agentstore.Agent, round string) cwdLook {
 	look := cwdLook{agent: agent, removed: isCwdRemoved(ctx, agent.Cwd)}
 
 	// A directory that is gone has no head, so the git call is skipped rather than
 	// run against it and waited out.
 	if !look.removed {
 		look.head = cs.readHead(ctx, agent.Cwd)
+		look.moved = cs.readTreeMoved(ctx, agent.Cwd, round)
 	}
 
 	return look
@@ -181,4 +237,20 @@ func (cs *CwdSyncer) readHead(ctx context.Context, dir string) git.HeadState {
 	defer cancel()
 
 	return cs.heads.ReadHeadState(ctx, dir)
+}
+
+func (cs *CwdSyncer) readTreeMoved(ctx context.Context, dir, round string) bool {
+	if dir == "" || round == "" {
+		return false
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, cwdLookTimeout)
+	defer cancel()
+
+	moved, err := cs.trees.HasTreeMoved(ctx, dir, round)
+	if err != nil {
+		return false
+	}
+
+	return moved
 }

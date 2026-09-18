@@ -387,6 +387,21 @@ func (c *Client) GetTree(ctx context.Context, dir, sha string) (string, error) {
 	return tree, nil
 }
 
+// HasTreeMoved reports whether the worktree no longer hashes to the tree a snapshot commit holds.
+func (c *Client) HasTreeMoved(ctx context.Context, dir, sha string) (bool, error) {
+	probe, err := c.ProbeTree(ctx, dir)
+	if err != nil {
+		return false, err
+	}
+
+	held, err := c.GetTree(ctx, dir, sha)
+	if err != nil {
+		return false, err
+	}
+
+	return probe != held, nil
+}
+
 // Park records a checkout as it stands, tracked and untracked alike, so a move can be undone.
 func (c *Client) Park(ctx context.Context, dir, ref string) (string, error) {
 	root, err := c.GetRoot(ctx, dir)

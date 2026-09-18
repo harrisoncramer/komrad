@@ -39,12 +39,12 @@ type agentFlags struct {
 	failedRunLog *int32
 	// localRounds is how many rounds of local review this agent's own work has been through.
 	localRounds int32
-	// localVerdict is what the last released local review of this agent's newest round concluded,
-	// empty when that round carries none.
+	// localVerdict is what the last released local review concluded about this agent's work,
+	// empty when none has concluded anything.
 	localVerdict string
-	// inLocalReview reports whether a reviewer child is still owed an answer about this agent's
-	// work.
-	inLocalReview bool
+	// localTreeMoved reports whether the worktree no longer matches the round that verdict was
+	// given on.
+	localTreeMoved bool
 }
 
 // agentOptions is how much of an agent renderAgent draws.
@@ -86,42 +86,42 @@ func renderAgent(stored agentstore.Agent, flags agentFlags, opts ...agentOption)
 
 	return agent{
 		Agent: &agentv1.Agent{
-			Id:                 stored.ID,
-			Name:               stored.Name,
-			Cwd:                stored.Cwd,
-			Flags:              stored.Flags,
-			Prompt:             prompt,
-			PromptTruncated:    promptTruncated,
-			PaneId:             stored.Pane,
-			State:              string(stored.State),
-			Role:               string(stored.Role),
-			SessionId:          stored.SessionID,
-			Harness:            stored.Harness,
-			WorkflowId:         stored.WorkflowID,
-			ScheduleId:         stored.ScheduleID,
-			CreatedAt:          dates.Stamp(stored.CreatedAt),
-			StateChangedAt:     dates.Stamp(stored.StateChangedAt),
-			ReportedReason:     stored.ReportedReason,
-			ArchivedAt:         dates.StampPtr(stored.ArchivedAt),
-			Alive:              flags.alive,
-			UnreadMail:         flags.unreadMail,
-			Mark:               flags.mark,
-			Hidden:             stored.Hidden,
-			Metadata:           metadata,
-			IdempotencyKey:     stored.IdempotencyKey,
-			SpawnedByAgentId:   stored.SpawnedByAgentID,
-			ParentAgentId:      stored.ParentAgentID,
-			Branch:             stored.Branch,
-			RepositoryUrl:      stored.RepositoryURL,
-			WorktreeRemoved:    stored.WorktreeRemoved,
-			SequenceInProgress: stored.SequenceInProgress,
-			Unviewed:           flags.unviewed,
-			FailedRun:          flags.failedRun,
-			FailedRunLog:       flags.failedRunLog,
-			LocalReviewRounds:  flags.localRounds,
-			LocalReviewVerdict: flags.localVerdict,
-			InLocalReview:      flags.inLocalReview,
-			HeldAt:             heldStamp(stored.HeldAt),
+			Id:                   stored.ID,
+			Name:                 stored.Name,
+			Cwd:                  stored.Cwd,
+			Flags:                stored.Flags,
+			Prompt:               prompt,
+			PromptTruncated:      promptTruncated,
+			PaneId:               stored.Pane,
+			State:                string(stored.State),
+			Role:                 string(stored.Role),
+			SessionId:            stored.SessionID,
+			Harness:              stored.Harness,
+			WorkflowId:           stored.WorkflowID,
+			ScheduleId:           stored.ScheduleID,
+			CreatedAt:            dates.Stamp(stored.CreatedAt),
+			StateChangedAt:       dates.Stamp(stored.StateChangedAt),
+			ReportedReason:       stored.ReportedReason,
+			ArchivedAt:           dates.StampPtr(stored.ArchivedAt),
+			Alive:                flags.alive,
+			UnreadMail:           flags.unreadMail,
+			Mark:                 flags.mark,
+			Hidden:               stored.Hidden,
+			Metadata:             metadata,
+			IdempotencyKey:       stored.IdempotencyKey,
+			SpawnedByAgentId:     stored.SpawnedByAgentID,
+			ParentAgentId:        stored.ParentAgentID,
+			Branch:               stored.Branch,
+			RepositoryUrl:        stored.RepositoryURL,
+			WorktreeRemoved:      stored.WorktreeRemoved,
+			SequenceInProgress:   stored.SequenceInProgress,
+			Unviewed:             flags.unviewed,
+			FailedRun:            flags.failedRun,
+			FailedRunLog:         flags.failedRunLog,
+			LocalReviewRounds:    flags.localRounds,
+			LocalReviewVerdict:   flags.localVerdict,
+			LocalReviewTreeMoved: flags.localTreeMoved,
+			HeldAt:               heldStamp(stored.HeldAt),
 		},
 		cursor: agentstore.Cursor{ID: stored.ID},
 	}

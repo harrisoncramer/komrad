@@ -212,22 +212,23 @@ func snapshotRepo(agent agentstore.Agent) view.Repo {
 	return view.RepoClean
 }
 
-// snapshotReview is where the local review of an agent's work stands, a released verdict beating
-// the reviewer still reading since one column carries both.
+// snapshotReview is where the tree on disk stands with the local review of an agent's work, the
+// last conclusion released and whether the worktree still matches the round it was given on.
 func snapshotReview(item agentItem) view.Review {
 	switch reviewstore.Verdict(item.localVerdict) {
 	case reviewstore.VerdictApproved:
+		if item.localTreeMoved {
+			return view.ReviewApprovedMoved
+		}
+
 		return view.ReviewApproved
 	case reviewstore.VerdictChangesRequested:
+		if item.localTreeMoved {
+			return view.ReviewChangesPushed
+		}
+
 		return view.ReviewChangesRequested
 	case reviewstore.VerdictCommented:
-		if !item.inLocalReview {
-			return view.ReviewCommented
-		}
-	}
-
-	if item.inLocalReview {
-		return view.ReviewOpen
 	}
 
 	return view.ReviewNone

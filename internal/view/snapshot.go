@@ -42,15 +42,15 @@ const (
 	RepoEnd
 )
 
-// Review is where the local review of an agent's work stands.
+// Review is where the tree on disk stands with the local review of an agent's work.
 type Review int
 
 const (
 	ReviewNone Review = iota
-	ReviewOpen
 	ReviewApproved
+	ReviewApprovedMoved
 	ReviewChangesRequested
-	ReviewCommented
+	ReviewChangesPushed
 	// ReviewEnd is one past the last state, so a caller walking them all gets a bound that moves
 	// when a state is added.
 	ReviewEnd

@@ -2135,10 +2135,17 @@ func serviceWithLauncher(t *testing.T) (agentv1weave.AgentServiceAdapter, *store
 		Creator:     launcher,
 		Adopter:     launcher,
 		Liveness:    launcher,
+		Trees:       fakeTrees{},
 		Lifecycle:   launcher,
 		Resumer:     launcher,
 	})}, st, launcher
 }
+
+// fakeTrees is where each agent's worktree stands against its last verdict, moved for the ids
+// it holds and not for any other.
+type fakeTrees map[string]bool
+
+func (f fakeTrees) HasTreeMoved(agentID string) bool { return f[agentID] }
 
 // TestEmptyArchiveQueuesTheSweep covers the request coming back once the work is queued, and a
 // queue that refuses saying so rather than reading as a sweep under way.

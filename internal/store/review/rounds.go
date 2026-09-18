@@ -420,9 +420,11 @@ func reviewNotFound(id string) error {
 type Tally struct {
 	AgentID string
 	Rounds  int32
-	// Verdict is what was concluded about the agent's newest round, nil when that round carries
-	// no released review.
+	// Verdict is the last conclusion released about the agent's work, nil when every released
+	// review only commented.
 	Verdict *Verdict
+	// SnapshotSHA is the round that conclusion was given on, empty when there is none.
+	SnapshotSHA string
 }
 
 // ListTallies is where every agent's work stands, leaving out the agents no review has been
@@ -438,6 +440,9 @@ func (s *Store) ListTallies(ctx context.Context) ([]Tally, error) {
 		if row.Verdict.Valid {
 			verdict := Verdict(row.Verdict.ReviewVerdict)
 			tally.Verdict = &verdict
+		}
+		if row.SnapshotSha != nil {
+			tally.SnapshotSHA = *row.SnapshotSha
 		}
 
 		return tally

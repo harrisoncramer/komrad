@@ -486,29 +486,26 @@ WITH released AS (
 concluded AS (
     SELECT DISTINCT ON (v.agent_id)
         v.agent_id,
-        v.verdict
+        v.verdict,
+        n.snapshot_sha
     FROM
         reviews v
         JOIN review_rounds n ON n.id = v.round_id
     WHERE
         v.released_at IS NOT NULL
-        AND n.ordinal =(
-            SELECT
-                MAX(o.ordinal)
-            FROM
-                review_rounds o
-            WHERE
-                o.agent_id = v.agent_id)
-        ORDER BY
-            v.agent_id,
-            v.released_at DESC
+        AND v.verdict IN ('approved', 'changes_requested')
+    ORDER BY
+        v.agent_id,
+        n.ordinal DESC,
+        v.released_at DESC
 )
-    SELECT
-        r.agent_id,
-        r.rounds,
-        c.verdict
-    FROM
-        released r
+SELECT
+    r.agent_id,
+    r.rounds,
+    c.verdict,
+    c.snapshot_sha
+FROM
+    released r
     LEFT JOIN concluded c ON c.agent_id = r.agent_id;
 
 -- name: ListLiveReviewers :many

@@ -131,6 +131,7 @@ func reviewService(t *testing.T) (agentv1weave.AgentServiceAdapter, *storetest.S
 		Runs:     st.Runs,
 		Marks:    markService(st),
 		Liveness: &fakeLauncher{},
+		Trees:    fakeTrees{},
 	})}, st, reviews
 }
 

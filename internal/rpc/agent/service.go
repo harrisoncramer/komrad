@@ -47,6 +47,10 @@ type agentLiveness interface {
 	GetRunningAgents(ctx context.Context, agents []agentstore.Agent) map[string]bool
 }
 
+type treeWatcher interface {
+	HasTreeMoved(agentID string) bool
+}
+
 type agentLifecycle interface {
 	DeleteAgents(ctx context.Context, ids []string) error
 	ArchiveAgents(ctx context.Context, ids []string) error
@@ -101,6 +105,7 @@ type Service struct {
 	creator      agentCreator
 	adopter      agentAdopter
 	liveness     agentLiveness
+	trees        treeWatcher
 	lifecycle    agentLifecycle
 	resumer      agentResumer
 	holder       agentHolder
@@ -120,6 +125,7 @@ type NewServiceParams struct {
 	Creator      agentCreator
 	Adopter      agentAdopter
 	Liveness     agentLiveness
+	Trees        treeWatcher
 	Lifecycle    agentLifecycle
 	Resumer      agentResumer
 	Holder       agentHolder
@@ -142,6 +148,7 @@ func NewService(params NewServiceParams) *Service {
 		creator:      params.Creator,
 		adopter:      params.Adopter,
 		liveness:     params.Liveness,
+		trees:        params.Trees,
 		lifecycle:    params.Lifecycle,
 		resumer:      params.Resumer,
 		holder:       params.Holder,
@@ -253,12 +260,6 @@ func (s *Service) agentFlagsFor(ctx context.Context, listed []agentstore.Agent) 
 	}
 	tallies := xslice.KeyBy(tallied, func(tally reviewstore.Tally) string { return tally.AgentID })
 
-	live, err := s.review.ListLiveReviewers(ctx)
-	if err != nil {
-		return nil, rpcerr.From(err, "failed to list the agents whose work is being reviewed")
-	}
-	reading := xslice.KeyBy(live, func(reviewer reviewstore.LiveReviewer) string { return reviewer.AgentID })
-
 	failures, err := s.runs.ListUnreadFailures(ctx)
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to list the agents holding a failed run")
@@ -282,15 +283,15 @@ func (s *Service) agentFlagsFor(ctx context.Context, listed []agentstore.Agent) 
 		failure, hasFailure := failed[a.ID]
 
 		return agentFlags{
-			mark:          marks[a.ID],
-			alive:         running[a.ID],
-			unreadMail:    hasMail,
-			unviewed:      hasOutput,
-			failedRun:     hasFailure,
-			failedRunLog:  failure.LogNumber,
-			localRounds:   tallies[a.ID].Rounds,
-			localVerdict:  localVerdictOf(tallies[a.ID]),
-			inLocalReview: reading[a.ID].ReviewerID != "",
+			mark:           marks[a.ID],
+			alive:          running[a.ID],
+			unreadMail:     hasMail,
+			unviewed:       hasOutput,
+			failedRun:      hasFailure,
+			failedRunLog:   failure.LogNumber,
+			localRounds:    tallies[a.ID].Rounds,
+			localVerdict:   localVerdictOf(tallies[a.ID]),
+			localTreeMoved: s.trees.HasTreeMoved(a.ID),
 		}
 	}, nil
 }

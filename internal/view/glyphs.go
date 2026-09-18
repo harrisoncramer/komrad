@@ -27,11 +27,13 @@ var glyphNames = []struct {
 	name  string
 }{
 	{GlyphRepo, "repo"},
-	{GlyphReview, "review"},
+	{GlyphUnverified, "unverified"},
 	{GlyphForge, "forge"},
 	{GlyphApproved, "approved"},
 	{GlyphBroken, "broken"},
-	{GlyphChanges, "changes"},
+	{GlyphCheckbox, "checkbox"},
+	{GlyphBell, "bell"},
+	{GlyphHourglass, "hourglass"},
 	{GlyphMerged, "merged"},
 	{GlyphAlert, "alert"},
 	{GlyphMail, "mail"},
