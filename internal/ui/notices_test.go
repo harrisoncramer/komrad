@@ -245,32 +245,10 @@ func TestNoticesLeaveRoomToCountTheFields(t *testing.T) {
 	assert.Contains(t, drawn, "more", "the record still says how many fields it left out")
 }
 
-// octiconSpellings is every glyph the record can draw that the terminal gives two columns and
-// lipgloss gives one.
-func octiconSpellings() []string {
-	spelled := []string{}
-	for _, glyph := range []view.Glyph{view.GlyphMail, view.GlyphAlert, view.GlyphBroken, view.GlyphPaused, view.GlyphRepo, view.GlyphReview, view.GlyphChanges, view.GlyphApproved} {
-		spelled = append(spelled, view.Spell(glyph))
-	}
-
-	return spelled
-}
-
-// noticeColumns is how many columns a drawn stretch really takes, correcting lipgloss for every
-// Octicon in it.
-func noticeColumns(text string) int {
-	columns := lipgloss.Width(text)
-	for _, icon := range octiconSpellings() {
-		columns += strings.Count(text, icon) * (view.GlyphColumns(view.GlyphMail) - 1)
-	}
-
-	return columns
-}
-
-// TestNoticesAlignAgainstTheRowsOwnWidths covers what lipgloss cannot see: internal/view gives an
-// Octicon two columns and a bar one, so the record has to reserve the glyph column rather than
-// assume every icon is one wide, and no notice may run past the pane.
-func TestNoticesAlignAgainstTheRowsOwnWidths(t *testing.T) {
+// TestNoticesAlignAndFitTheColumn covers the layout the block depends on: every glyph the record
+// draws takes one column, so an Octicon notice, a bar notice and an iconless one have to put
+// their sentences in the same place as each other and as their own wrapped continuations.
+func TestNoticesAlignAndFitTheColumn(t *testing.T) {
 	m := detailsModel(&recordingTmux{})
 	m.height, m.width = 40, 60
 
@@ -289,11 +267,25 @@ func TestNoticesAlignAgainstTheRowsOwnWidths(t *testing.T) {
 		bare := ansi.Strip(line)
 		at := strings.Index(bare, wants[i])
 		require.GreaterOrEqual(t, at, 0, "notice %d does not say %q", i, wants[i])
-		starts = append(starts, noticeColumns(bare[:at]))
+		starts = append(starts, lipgloss.Width(bare[:at]))
 	}
 
 	assert.Equal(t, []int{starts[0], starts[0], starts[0]}, starts,
 		"every notice puts its sentence in the same column")
+
+	// A wrapped notice's continuation lines have to land in that same column.
+	long := detailsModel(&recordingTmux{})
+	long.height, long.width = 40, 34
+	long.listing.agents[0].agent.HeldAt = xptr.Ptr(time.Unix(0, 0))
+
+	wrapped := long.detailsNotices(long.hoveredDetails(), long.detailsLines()-3)
+	require.Greater(t, len(wrapped), 1, "the pause sentence has to wrap at this width")
+
+	for _, line := range wrapped[1:] {
+		bare := ansi.Strip(line)
+		assert.Equal(t, starts[0], lipgloss.Width(bare)-lipgloss.Width(strings.TrimLeft(bare, " ")),
+			"a continuation line left the sentence column")
+	}
 
 	for width := 20; width <= 120; width++ {
 		m := detailsModel(&recordingTmux{})
@@ -302,7 +294,7 @@ func TestNoticesAlignAgainstTheRowsOwnWidths(t *testing.T) {
 		m.listing.agents[0].failedRun = true
 
 		for _, line := range m.detailsNotices(m.hoveredDetails(), m.detailsLines()-3) {
-			assert.LessOrEqual(t, noticeColumns(ansi.Strip(line)), width,
+			assert.LessOrEqual(t, lipgloss.Width(ansi.Strip(line)), width,
 				"a notice ran past the column at width %d", width)
 		}
 	}
