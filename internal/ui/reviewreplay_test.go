@@ -237,5 +237,5 @@ func TestTheFirstChapterIsMeasuredFromItsOwnBase(t *testing.T) {
 	assert.Equal(t, 1, m.review.view.Stat().Files)
 
 	shown := ansi.Strip(m.reviewView())
-	assert.Contains(t, shown, "round 1 of 2, reviewed at 6:00AM, on an earlier base")
+	assert.Contains(t, shown, "round 1 of 2, reviewed at "+releasedClock("2026-09-08T10:00:00Z")+", on an earlier base")
 }
