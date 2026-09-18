@@ -114,8 +114,7 @@ func (m model) reviewOwedView(room int) string {
 		return ""
 	}
 
-	palette := m.palette(regionThread)
-	out := palette.Style(reviewOwedTone).Bold(true).Render("Open in your review") +
+	out := paint.Panel.Style(reviewOwedTone).Bold(true).Render("Open in your review") +
 		dimStyle.Render(fmt.Sprintf("  %d", len(owed))) + "\n"
 
 	if room <= 0 {
@@ -152,12 +151,12 @@ func (m model) reviewOwedRow(comment owedComment) string {
 
 	style := dimStyle
 	if m.isReviewCommentNear(comment) {
-		style = m.palette(regionThread).Style(reviewOwedTone).Bold(true)
+		style = paint.Panel.Style(reviewOwedTone).Bold(true)
 	}
 
 	pad := strings.Repeat(" ", max(room-lipgloss.Width(where), 0))
 
-	return m.palette(regionThread).Style(reviewHumanTone).Render(" "+review.OpenMark+" ") +
+	return paint.Panel.Style(reviewHumanTone).Render(" "+review.OpenMark+" ") +
 		style.Render(where) + dimStyle.Render(pad+"  "+said) + "\n"
 }
 

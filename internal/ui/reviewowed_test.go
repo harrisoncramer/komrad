@@ -153,8 +153,8 @@ func TestTheStripSaysWhenACommentIsFoldedAway(t *testing.T) {
 	assert.Contains(t, ansi.Strip(m.reviewSidebarView()), "folded away")
 }
 
-// TestTheStripBrightensWhatIsOnScreen covers a comment in view being drawn heavier than one that
-// is not, which is the weight rather than the colour, since the sidebar is greyed whole.
+// TestTheStripBrightensWhatIsOnScreen covers a comment in view being drawn in the panel's own
+// colour while one that is not stays dim.
 func TestTheStripBrightensWhatIsOnScreen(t *testing.T) {
 	restore := lipgloss.ColorProfile()
 	t.Cleanup(func() { lipgloss.SetColorProfile(restore) })
@@ -166,7 +166,7 @@ func TestTheStripBrightensWhatIsOnScreen(t *testing.T) {
 	require.Len(t, rows, 1)
 	require.True(t, m.isReviewCommentNear(rows[0]), "its line is drawn beside the strip")
 
-	bright := paint.Grey.Style(reviewOwedTone).Bold(true).Render(fakeFile + ":2")
+	bright := paint.Panel.Style(reviewOwedTone).Bold(true).Render(fakeFile + ":2")
 	assert.Contains(t, m.reviewSidebarView(), bright)
 
 	// The reader scrolls past it, which is the only thing that changes.
