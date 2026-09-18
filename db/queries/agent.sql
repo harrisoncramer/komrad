@@ -434,6 +434,14 @@ SET
 WHERE
     id = @id;
 
+-- name: SetAgentRepositoryURLByID :exec
+UPDATE
+    agents
+SET
+    repository_url = sqlc.narg('repository_url')
+WHERE
+    id = @id;
+
 -- name: SetAgentWorktreeRemovedByID :exec
 UPDATE
     agents

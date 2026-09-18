@@ -154,6 +154,20 @@ func (s *Store) SetBranchByID(ctx context.Context, id string, branch *string) er
 	return nil
 }
 
+// SetRepositoryURLByID records the repository an agent's cwd pushes to, or clears it when url
+// is nil, and is written only by the cwd syncer's periodic pass.
+func (s *Store) SetRepositoryURLByID(ctx context.Context, id string, url *string) error {
+	if !store.IsID(id) {
+		return store.ErrNotFound.Saying("no agent with id %q", id)
+	}
+
+	if err := s.queries.SetAgentRepositoryURLByID(ctx, models.SetAgentRepositoryURLByIDParams{ID: id, RepositoryUrl: url}); err != nil {
+		return fmt.Errorf("failed to set the repository url for id %q: %w", id, err)
+	}
+
+	return nil
+}
+
 // SetWorktreeRemovedByID records whether an agent's cwd no longer exists on disk, written
 // only by the cwd syncer's periodic pass.
 func (s *Store) SetWorktreeRemovedByID(ctx context.Context, id string, removed bool) error {

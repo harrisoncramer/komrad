@@ -270,6 +270,8 @@ type Agent struct {
 	NudgeSentAt *time.Time
 	// Whether a merge, a rebase or a cherry-pick is part-way through the agent's checkout and waiting on somebody. Weave reads the checkout every few seconds and writes what it found here, so settling the sequence by hand clears this on its own.
 	SequenceInProgress bool
+	// The canonical web address of the repository the agent's checkout pushes to, such as https://github.com/harrisoncramer/weave. Null when the checkout is gone or its origin is not a forge. The cwd syncer rewrites it on the same pass that rewrites branch.
+	RepositoryUrl *string
 }
 
 // Facts an agent recorded about its own work, such as the pull request it opened.

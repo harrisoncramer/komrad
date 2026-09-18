@@ -2,8 +2,10 @@ package agents
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
 
 	"weave/internal/git"
@@ -105,6 +107,112 @@ func (f fakeHeads) ReadHeadState(_ context.Context, dir string) git.HeadState {
 	return f[dir]
 }
 
+// TestCwdSyncerSyncRecordsTheRepository covers the identity the pull request join sits on: the
+// canonical address git reads for a checkout is written, rewritten when the origin moves, and
+// cleared when the cwd stops naming a forge repository or stops existing at all.
+func TestCwdSyncerSyncRecordsTheRepository(t *testing.T) {
+	const weave = "https://github.com/harrisoncramer/weave"
+	const other = "https://gitlab.com/group/subgroup/repo"
+
+	tests := []struct {
+		name   string
+		before *string
+		cwd    func(t *testing.T) string
+		heads  func(cwd string) fakeHeads
+		want   *string
+	}{
+		{
+			name:  "a checkout with a forge origin records its canonical address",
+			cwd:   fakeCheckout,
+			heads: func(cwd string) fakeHeads { return fakeHeads{cwd: {Branch: "main", RepositoryURL: weave}} },
+			want:  xptr.Ptr(weave),
+		},
+		{
+			name:   "an origin moved under a running agent is rewritten on the next pass",
+			before: xptr.Ptr(weave),
+			cwd:    fakeCheckout,
+			heads:  func(cwd string) fakeHeads { return fakeHeads{cwd: {Branch: "main", RepositoryURL: other}} },
+			want:   xptr.Ptr(other),
+		},
+		{
+			name:   "a checkout whose origin is not a forge clears what an earlier pass wrote",
+			before: xptr.Ptr(weave),
+			cwd:    fakeCheckout,
+			heads:  func(cwd string) fakeHeads { return fakeHeads{cwd: {Branch: "main"}} },
+			want:   nil,
+		},
+		{
+			name:   "a cwd that no longer exists clears the repository",
+			before: xptr.Ptr(weave),
+			cwd:    removedDir,
+			heads:  func(cwd string) fakeHeads { return fakeHeads{cwd: {Branch: "main", RepositoryURL: weave}} },
+			want:   nil,
+		},
+		{
+			name:  "a directory that is not a checkout records no repository",
+			cwd:   func(t *testing.T) string { return t.TempDir() },
+			heads: func(string) fakeHeads { return fakeHeads{} },
+			want:  nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			st := newStore(t)
+			ctx := t.Context()
+
+			workflowID := seedWorkflow(t, st)
+			cwd := tt.cwd(t)
+			require.NoError(t, st.Agents.Create(ctx, agentstore.Agent{
+				Name:       "a",
+				State:      agentstore.StateIdle,
+				WorkflowID: workflowID,
+				Cwd:        cwd,
+			}))
+			created, err := st.Agents.GetInWorkflow(ctx, workflowID, "a")
+			require.NoError(t, err)
+			require.NoError(t, st.Agents.SetRepositoryURLByID(ctx, created.ID, tt.before))
+
+			require.NoError(t, NewCwdSyncer(st.Agents, tt.heads(cwd)).Sync(ctx))
+
+			got, err := st.Agents.GetByID(ctx, created.ID)
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, got.RepositoryURL)
+		})
+	}
+}
+
+// TestCwdSyncerSyncLooksAtEveryAgent covers the fan-out: a pass over more agents than it has
+// workers still reads every directory and writes every row.
+func TestCwdSyncerSyncLooksAtEveryAgent(t *testing.T) {
+	st := newStore(t)
+	ctx := t.Context()
+
+	workflowID := seedWorkflow(t, st)
+	heads := fakeHeads{}
+	count := cwdLookWorkers*2 + 1
+	for i := range count {
+		cwd := fakeCheckout(t)
+		heads[cwd] = git.HeadState{Branch: fmt.Sprintf("b%d", i)}
+		require.NoError(t, st.Agents.Create(ctx, agentstore.Agent{
+			Name:       fmt.Sprintf("a%d", i),
+			State:      agentstore.StateIdle,
+			WorkflowID: workflowID,
+			Cwd:        cwd,
+		}))
+	}
+
+	require.NoError(t, NewCwdSyncer(st.Agents, heads).Sync(ctx))
+
+	agents, err := st.Agents.List(ctx)
+	require.NoError(t, err)
+	require.Len(t, agents, count)
+	for _, agent := range agents {
+		require.NotNil(t, agent.Branch, agent.Name)
+		assert.Equal(t, heads[agent.Cwd].Branch, *agent.Branch)
+	}
+}
+
 // TestCwdSyncerSyncRecordsAStoppedSequence covers the signal the row draws from: a checkout
 // part-way through a rebase says so on the agent, and still names the branch the work is on.
 func TestCwdSyncerSyncRecordsAStoppedSequence(t *testing.T) {
@@ -169,10 +277,13 @@ func TestCwdSyncerSyncSkipsTheGitCallForARemovedCwd(t *testing.T) {
 
 // recordingHeads is a git that answers nothing and remembers what it was asked about.
 type recordingHeads struct {
+	mu   sync.Mutex
 	dirs []string
 }
 
 func (r *recordingHeads) ReadHeadState(_ context.Context, dir string) git.HeadState {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	r.dirs = append(r.dirs, dir)
 
 	return git.HeadState{}

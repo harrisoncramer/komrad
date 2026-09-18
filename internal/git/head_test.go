@@ -22,6 +22,49 @@ func TestReadHeadStateReadsASettledCheckout(t *testing.T) {
 
 	assert.Equal(t, "main", head.Branch)
 	assert.False(t, head.SequenceInProgress)
+	assert.Empty(t, head.RepositoryURL)
+}
+
+// TestReadHeadStateReadsTheRepository covers the identity a checkout carries: the canonical
+// address of its origin, and nothing for an origin that names no forge.
+func TestReadHeadStateReadsTheRepository(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name   string
+		origin string
+		want   string
+	}{
+		{
+			name:   "an scp-like origin reads as its canonical address",
+			origin: "git@github.com:harrisoncramer/weave.git",
+			want:   "https://github.com/harrisoncramer/weave",
+		},
+		{
+			name:   "an https origin reads as its canonical address",
+			origin: "https://github.com/harrisoncramer/weave.git",
+			want:   "https://github.com/harrisoncramer/weave",
+		},
+		{
+			name:   "a local origin reads as no repository",
+			origin: "/tmp/somewhere/else.git",
+			want:   "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			dir := newRepo(t)
+			run(t, dir, "remote", "add", "origin", tt.origin)
+
+			head := client.ReadHeadState(t.Context(), dir)
+
+			assert.Equal(t, "main", head.Branch)
+			assert.Equal(t, tt.want, head.RepositoryURL)
+		})
+	}
 }
 
 // TestReadHeadStateNamesTheBranchAStoppedRebaseBelongsTo covers the case the row draws from,

@@ -17,6 +17,9 @@ type HeadState struct {
 	Branch string
 	// SequenceInProgress is whether a merge, a rebase or a cherry-pick is part-way through.
 	SequenceInProgress bool
+	// RepositoryURL is the canonical address of the repository origin points at, empty when
+	// there is no origin or it names no forge.
+	RepositoryURL string
 }
 
 // ReadHeadState reads a checkout's HEAD, answering empty for a directory git will not speak for.
@@ -36,7 +39,25 @@ func (c *Client) ReadHeadState(ctx context.Context, dir string) HeadState {
 		branch = rebasingBranch(gitDir)
 	}
 
-	return HeadState{Branch: branch, SequenceInProgress: hasSequenceMarker(gitDir)}
+	return HeadState{
+		Branch:             branch,
+		SequenceInProgress: hasSequenceMarker(gitDir),
+		RepositoryURL:      readRepositoryURL(ctx, dir),
+	}
+}
+
+func readRepositoryURL(ctx context.Context, dir string) string {
+	raw, err := Run(ctx, dir, "config", "--get", "remote.origin.url")
+	if err != nil {
+		return ""
+	}
+
+	remote, err := ParseRemoteURL(raw)
+	if err != nil {
+		return ""
+	}
+
+	return remote.Canonical()
 }
 
 // rebasingBranch is the branch a stopped rebase belongs to.

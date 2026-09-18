@@ -132,6 +132,9 @@ type Agent struct {
 	UpdatedAt     time.Time
 	Branch        *string
 
+	// RepositoryURL is the canonical web address of the repository the checkout pushes to.
+	RepositoryURL *string
+
 	// AdoptedBranch is the branch an agent was put on rather than one weave made for it.
 	AdoptedBranch   string
 	WorktreeRemoved bool
@@ -213,6 +216,7 @@ func agentFromRow(agent models.Agent) Agent {
 		CreatedAt:          agent.CreatedAt,
 		UpdatedAt:          agent.UpdatedAt,
 		Branch:             agent.Branch,
+		RepositoryURL:      agent.RepositoryUrl,
 		AdoptedBranch:      agent.AdoptedBranch,
 		WorktreeRemoved:    agent.WorktreeRemoved,
 		InterruptedAt:      agent.InterruptedAt,

@@ -59,6 +59,10 @@ message Agent {
   optional string parent_agent_id = 26;
   // The git branch its worktree is on, unset for an agent that provisions none.
   optional string branch = 22;
+  // The canonical web address of the repository its checkout pushes to, such as
+  // https://github.com/harrisoncramer/weave, unset when the checkout is gone or its origin
+  // is not a forge.
+  optional string repository_url = 37;
   // Whether its checkout has been taken away, which leaves the record and the transcript.
   bool worktree_removed = 23;
   // Whether a merge, a rebase or a cherry-pick is part-way through its checkout, waiting on
