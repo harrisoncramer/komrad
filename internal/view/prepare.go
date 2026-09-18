@@ -2,24 +2,15 @@ package view
 
 import "weave/internal/ui/paint"
 
-const (
-	// agentIndent pushes every row that hangs under a workflow one space across, leaving the
-	// workflow itself opening at the gutter.
-	agentIndent = 1
-	// defaultNameWidth is the column a name is cut to when the snapshot names none.
-	defaultNameWidth = 30
-)
+// nameIndent is the space a name opens in by, which a row carrying a mark gives up to the
+// letter in its gutter.
+const nameIndent = 1
 
 // Prepare turns a snapshot of the agents list into the view model a renderer draws.
 func Prepare(snapshot Snapshot) List {
-	width := snapshot.NameWidth
-	if width <= 0 {
-		width = defaultNameWidth
-	}
-
 	lines := make([]Line, 0, len(snapshot.Rows))
 	for i, row := range snapshot.Rows {
-		lines = append(lines, prepareLine(row, i == snapshot.Cursor, width))
+		lines = append(lines, prepareLine(row, i == snapshot.Cursor, snapshot.NameWidth))
 	}
 
 	return List{Lines: lines}
@@ -34,9 +25,9 @@ func prepareLine(row Row, focused bool, nameWidth int) Line {
 		Review:   reviewCell(row.Review),
 		Forge:    forgeCell(row.Forge),
 		Status:   statusCell(row.Status),
-		Indent:   indentFor(row.Kind),
+		Indent:   indentFor(row.Mark),
 		Rule:     row.Kind == KindChild,
-		Name:     paint.Clip(row.Name, nameWidth),
+		Name:     clipName(row.Name, nameWidth),
 		Weight:   weightFor(row.Kind),
 		Emphasis: emphasisFor(row),
 		Held:     markCell(row.Held, GlyphPaused, paint.ToneWarning),
@@ -153,16 +144,24 @@ func weightFor(kind RowKind) Weight {
 	return WeightRegular
 }
 
-// indentFor is how far across a row's name opens.
-func indentFor(kind RowKind) int {
-	switch kind {
-	case KindWorkflow:
+// indentFor is how far across a row's name opens, the letter in a marked row's gutter standing
+// where that row's indent would be.
+func indentFor(mark string) int {
+	if mark != "" {
 		return 0
-	case KindAgent, KindChild:
-		return agentIndent
 	}
 
-	return agentIndent
+	return nameIndent
+}
+
+// clipName cuts a name to the column it was given, leaving it whole when the snapshot names no
+// column at all.
+func clipName(name string, width int) string {
+	if width <= 0 {
+		return name
+	}
+
+	return paint.Clip(name, width)
 }
 
 // emphasisFor is how brightly a name is drawn, greying beating brightening since a hidden row

@@ -54,7 +54,7 @@ func renderLine(line Line, palette paint.Palette, width int) string {
 		nameStyle(palette, line.Weight, line.Emphasis).Render(line.Name) + drawTrailing(palette, line)
 
 	if line.Selected {
-		return paint.PaintRow(row, width)
+		return paint.PaintRow(row, width-extraColumns(line))
 	}
 
 	return row

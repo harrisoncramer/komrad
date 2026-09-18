@@ -13,3 +13,4 @@
        ▍  gone-worktree 
        │  iss-641-reviewer 
        │  shipped-yesterday
+       │  weave-bughunt-job +5 

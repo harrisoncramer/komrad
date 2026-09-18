@@ -82,9 +82,14 @@ func TestRenderRowShapes(t *testing.T) {
 			row:    Row{Kind: KindChild, Name: "eng-6994-reviewer"},
 		},
 		{
-			name:   "a workflow is bold and opens at the gutter",
+			name:   "a marked workflow is bold and opens where its letter leaves off",
 			golden: "row-workflow",
 			row:    Row{Kind: KindWorkflow, Name: "weave", Mark: "w", HiddenCount: 3, Scheduled: true},
+		},
+		{
+			name:   "an unmarked workflow is bold and opens where an agent does",
+			golden: "row-workflow-unmarked",
+			row:    Row{Kind: KindWorkflow, Name: "weave-bughunt-job", HiddenCount: 5, Scheduled: true},
 		},
 		{
 			name:   "an unviewed agent is brighter rather than bold",
@@ -116,6 +121,38 @@ func TestRenderRowShapes(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			requireGolden(t, tt.golden, renderOne(t, tt.row))
+		})
+	}
+}
+
+// TestNameColumnsTakesTheGutterOffThePane pins the arithmetic a caller sizes a name by, in the
+// columns the font draws rather than the ones Unicode declares.
+func TestNameColumnsTakesTheGutterOffThePane(t *testing.T) {
+	tests := []struct {
+		name string
+		pane int
+		want int
+	}{
+		{
+			name: "a pane narrower than the gutter leaves no column at all",
+			pane: 4,
+			want: 0,
+		},
+		{
+			name: "a pane exactly the gutter leaves no column at all",
+			pane: GutterColumns(),
+			want: 0,
+		},
+		{
+			name: "a wider pane leaves what is left over",
+			pane: GutterColumns() + 24,
+			want: 24,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, NameColumns(tt.pane))
 		})
 	}
 }
@@ -186,5 +223,6 @@ func canonicalRows() []Row {
 		{Kind: KindAgent, Name: "gone-worktree", Repo: RepoGone, Status: StatusBroken, FailedRun: true},
 		{Kind: KindAgent, Name: "iss-641-reviewer", Forge: ForgeFailing, UnreadMail: true},
 		{Kind: KindAgent, Name: "shipped-yesterday", Forge: ForgeMerged},
+		{Kind: KindWorkflow, Name: "weave-bughunt-job", HiddenCount: 5, Scheduled: true},
 	}
 }

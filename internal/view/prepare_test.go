@@ -163,35 +163,31 @@ func TestPrepareForgeColumn(t *testing.T) {
 	}
 }
 
-// TestPrepareWeightAndIndent pins the structure a row carries in its lettering rather than in a glyph.
-func TestPrepareWeightAndIndent(t *testing.T) {
+// TestPrepareWeight pins the structure a row carries in its lettering rather than in a glyph.
+func TestPrepareWeight(t *testing.T) {
 	tests := []struct {
-		name       string
-		kind       RowKind
-		wantWeight Weight
-		wantIndent int
-		wantRule   bool
+		name     string
+		kind     RowKind
+		want     Weight
+		wantRule bool
 	}{
 		{
-			name:       "a child is italic, indented, and hangs off a corner",
-			kind:       KindChild,
-			wantWeight: WeightItalic,
-			wantIndent: agentIndent,
-			wantRule:   true,
+			name:     "a child is italic and hangs off a corner",
+			kind:     KindChild,
+			want:     WeightItalic,
+			wantRule: true,
 		},
 		{
-			name:       "an ordinary agent is regular and indented under its workflow",
-			kind:       KindAgent,
-			wantWeight: WeightRegular,
-			wantIndent: agentIndent,
-			wantRule:   false,
+			name:     "an ordinary agent is regular",
+			kind:     KindAgent,
+			want:     WeightRegular,
+			wantRule: false,
 		},
 		{
-			name:       "a workflow is bold and opens at the gutter",
-			kind:       KindWorkflow,
-			wantWeight: WeightBold,
-			wantIndent: 0,
-			wantRule:   false,
+			name:     "a workflow is bold",
+			kind:     KindWorkflow,
+			want:     WeightBold,
+			wantRule: false,
 		},
 	}
 
@@ -199,9 +195,45 @@ func TestPrepareWeightAndIndent(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			line := prepareOne(t, Row{Kind: tt.kind})
 
-			assert.Equal(t, tt.wantWeight, line.Weight)
-			assert.Equal(t, tt.wantIndent, line.Indent)
+			assert.Equal(t, tt.want, line.Weight)
 			assert.Equal(t, tt.wantRule, line.Rule)
+		})
+	}
+}
+
+// TestPrepareIndent pins that a name opens where its gutter leaves off rather than where its
+// kind puts it.
+func TestPrepareIndent(t *testing.T) {
+	tests := []struct {
+		name string
+		row  Row
+		want int
+	}{
+		{
+			name: "a marked workflow gives its indent up to the letter in its gutter",
+			row:  Row{Kind: KindWorkflow, Mark: "w"},
+			want: 0,
+		},
+		{
+			name: "a marked agent gives it up the same way",
+			row:  Row{Kind: KindAgent, Mark: "a"},
+			want: 0,
+		},
+		{
+			name: "an unmarked workflow opens where an agent does",
+			row:  Row{Kind: KindWorkflow},
+			want: nameIndent,
+		},
+		{
+			name: "an unmarked agent opens one space in",
+			row:  Row{Kind: KindAgent},
+			want: nameIndent,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, prepareOne(t, tt.row).Indent)
 		})
 	}
 }
@@ -410,7 +442,7 @@ func TestPrepareClipsName(t *testing.T) {
 			want:      "iss-582",
 		},
 		{
-			name:      "an unset column falls back to the default rather than cutting to nothing",
+			name:      "no column at all leaves the name whole rather than cutting it to nothing",
 			given:     "research-identity-assets",
 			nameWidth: 0,
 			want:      "research-identity-assets",
