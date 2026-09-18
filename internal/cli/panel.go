@@ -85,7 +85,7 @@ Use ` + "`weave open`" + ` to bring the panel up.`,
 			}
 
 			base := "http://" + addr
-			httpClient := xhttp.NewClient(0)
+			httpClient := xhttp.NewLocalClient()
 			agentClient := agentv1connect.NewAgentServiceClient(httpClient, base)
 			workflowClient := workflowv1connect.NewWorkflowServiceClient(httpClient, base)
 			scheduleClient := schedulev1connect.NewScheduleServiceClient(httpClient, base)

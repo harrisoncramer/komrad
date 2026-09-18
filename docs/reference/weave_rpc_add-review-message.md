@@ -19,7 +19,7 @@ weave rpc add-review-message [flags]
       --request-json string   the whole request as JSON, which the flags above are laid over
       --suggestion strings    string, repeatable
       --thread-id string      string, required
-      --timeout duration      how long to wait for the call (default 30s)
+      --timeout duration      how long to wait for the call (default 11m0s)
 ```
 
 ### Options inherited from parent commands

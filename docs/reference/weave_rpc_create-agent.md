@@ -23,7 +23,7 @@ weave rpc create-agent [flags]
       --prompt string            string, required, at most 50000 characters
       --provision-enabled        bool
       --request-json string      the whole request as JSON, which the flags above are laid over
-      --timeout duration         how long to wait for the call (default 30s)
+      --timeout duration         how long to wait for the call (default 11m0s)
       --title string             string, at most 200 characters
       --workflow-id string       string, required
 ```

@@ -17,7 +17,7 @@ weave rpc delete-agents [flags]
   -h, --help                  help for delete-agents
       --ids strings           string, required, repeatable
       --request-json string   the whole request as JSON, which the flags above are laid over
-      --timeout duration      how long to wait for the call (default 30s)
+      --timeout duration      how long to wait for the call (default 11m0s)
 ```
 
 ### Options inherited from parent commands

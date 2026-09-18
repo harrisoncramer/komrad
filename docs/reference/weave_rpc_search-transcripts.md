@@ -20,7 +20,7 @@ weave rpc search-transcripts [flags]
       --pagination.limit int32     int32
       --query string               string, required, at most 500 characters
       --request-json string        the whole request as JSON, which the flags above are laid over
-      --timeout duration           how long to wait for the call (default 30s)
+      --timeout duration           how long to wait for the call (default 11m0s)
 ```
 
 ### Options inherited from parent commands

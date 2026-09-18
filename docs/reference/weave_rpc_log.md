@@ -19,7 +19,7 @@ weave rpc log [flags]
       --message string        string, required, at most 2048 characters
       --request-json string   the whole request as JSON, which the flags above are laid over
       --script string         string, at most 255 characters
-      --timeout duration      how long to wait for the call (default 30s)
+      --timeout duration      how long to wait for the call (default 11m0s)
 ```
 
 ### Options inherited from parent commands

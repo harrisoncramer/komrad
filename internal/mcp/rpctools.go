@@ -8,7 +8,6 @@ import (
 	"io"
 	"net/http"
 	"strings"
-	"time"
 
 	"weave/lib/xhttp"
 	annotationv1 "weave/proto/gen/annotation/v1"
@@ -20,8 +19,6 @@ import (
 	"weave/internal/rpcapi"
 )
 
-const callTimeout = 30 * time.Second
-
 type rpcTools struct {
 	baseURL string
 	client  *http.Client
@@ -30,7 +27,7 @@ type rpcTools struct {
 func registerRPCTools(server *mcpsdk.Server, baseURL string) error {
 	tools := &rpcTools{
 		baseURL: strings.TrimSuffix(baseURL, "/"),
-		client:  xhttp.NewClientOver(caller.Transport(xhttp.NewTransport()), callTimeout),
+		client:  xhttp.NewClientOver(caller.Transport(xhttp.NewLocalTransport()), 0),
 	}
 
 	for exposed := range rpcapi.GetMethods() {

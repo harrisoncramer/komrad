@@ -18,7 +18,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-const rpcTimeout = 30 * time.Second
+const rpcTimeout = 11 * time.Minute
 
 func rpcCmd(state *app) *cobra.Command {
 	cmd := &cobra.Command{
@@ -140,7 +140,7 @@ func callRPC(ctx context.Context, params callRPCParams) ([]byte, error) {
 
 	params.From.SetHeader(req.Header)
 
-	resp, err := xhttp.NewClient(0).Do(req)
+	resp, err := xhttp.NewLocalClient().Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to reach the server at %s: %w", params.Addr, err)
 	}

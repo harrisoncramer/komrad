@@ -18,7 +18,7 @@ weave rpc set-agent-metadata [flags]
       --id string             string, required
       --key string            string, at most 64 characters
       --request-json string   the whole request as JSON, which the flags above are laid over
-      --timeout duration      how long to wait for the call (default 30s)
+      --timeout duration      how long to wait for the call (default 11m0s)
       --value string          string
 ```
 

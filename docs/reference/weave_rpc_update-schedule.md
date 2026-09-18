@@ -22,7 +22,7 @@ weave rpc update-schedule [flags]
       --name string           string, required, at most 200 characters
       --prompt string         string, required, at most 50000 characters
       --request-json string   the whole request as JSON, which the flags above are laid over
-      --timeout duration      how long to wait for the call (default 30s)
+      --timeout duration      how long to wait for the call (default 11m0s)
       --timezone string       string, at most 100 characters
       --workflow-id string    string, required
 ```

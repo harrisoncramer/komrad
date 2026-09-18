@@ -19,7 +19,7 @@ weave rpc list-workflows [flags]
       --pagination.cursor string   string, at most 2048 characters
       --pagination.limit int32     int32
       --request-json string        the whole request as JSON, which the flags above are laid over
-      --timeout duration           how long to wait for the call (default 30s)
+      --timeout duration           how long to wait for the call (default 11m0s)
       --view string                VIEW_SUMMARY|VIEW_FULL
 ```
 

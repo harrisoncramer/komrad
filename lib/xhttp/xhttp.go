@@ -117,14 +117,24 @@ const responseHeaderTimeout = 30 * time.Second
 // idleConnTimeout is how long a kept-alive connection waits for reuse before it is closed.
 const idleConnTimeout = 90 * time.Second
 
-// NewTransport is the transport every weave client sits on, with the handshake and header
-// waits bounded that the standard library's default leaves open.
+// NewTransport is the transport every client to an outside service sits on, with the
+// handshake and header waits bounded that the standard library's default leaves open.
 func NewTransport() *http.Transport {
+	return newTransport(responseHeaderTimeout)
+}
+
+// NewLocalTransport is the transport a client to weave's own server sits on, with the
+// handshake bounded and the header wait left open.
+func NewLocalTransport() *http.Transport {
+	return newTransport(0)
+}
+
+func newTransport(headerTimeout time.Duration) *http.Transport {
 	return &http.Transport{
 		Proxy:                 http.ProxyFromEnvironment,
 		DialContext:           (&net.Dialer{Timeout: dialTimeout, KeepAlive: 30 * time.Second}).DialContext,
 		TLSHandshakeTimeout:   tlsHandshakeTimeout,
-		ResponseHeaderTimeout: responseHeaderTimeout,
+		ResponseHeaderTimeout: headerTimeout,
 		ExpectContinueTimeout: time.Second,
 		IdleConnTimeout:       idleConnTimeout,
 		MaxIdleConns:          100,
@@ -138,8 +148,13 @@ func NewClient(timeout time.Duration) *http.Client {
 	return NewClientOver(NewTransport(), timeout)
 }
 
-// NewClientOver is a client over a round tripper of the caller's own, which wraps NewTransport
-// underneath, bounded the same way NewClient is.
+// NewLocalClient is a client over NewLocalTransport with no whole-call timeout.
+func NewLocalClient() *http.Client {
+	return NewClientOver(NewLocalTransport(), 0)
+}
+
+// NewClientOver is a client over a round tripper of the caller's own, bounded the same way
+// NewClient is.
 func NewClientOver(transport http.RoundTripper, timeout time.Duration) *http.Client {
 	return &http.Client{Transport: transport, Timeout: timeout}
 }

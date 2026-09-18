@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -101,4 +102,26 @@ func TestJSONReportsAnUnreachableHost(t *testing.T) {
 
 	_, err := JSON(t.Context(), JSONParams{Method: http.MethodGet, URL: "http://127.0.0.1:1/"}, nil)
 	require.Error(t, err)
+}
+
+// TestLocalClientOutwaitsAHandler covers a unary handler on weave's own server holding its
+// response headers past the bound an outside call gets, which the local client waits out.
+func TestLocalClientOutwaitsAHandler(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		select {
+		case <-time.After(responseHeaderTimeout + time.Second):
+			w.WriteHeader(http.StatusOK)
+		case <-r.Context().Done():
+		}
+	}))
+	t.Cleanup(server.Close)
+
+	req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, server.URL, nil)
+	require.NoError(t, err)
+	resp, err := NewLocalClient().Do(req)
+	require.NoError(t, err)
+	_ = resp.Body.Close()
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
 }
