@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-var dim = Colored.Style(ToneMuted)
+var dim = Panel.Style(ToneMuted)
 
 func numbered(n int) []string {
 	rows := make([]string, 0, n)
@@ -162,7 +162,7 @@ func TestPaintRow(t *testing.T) {
 	withColor(t)
 
 	set := BackgroundSequence(SelectionBackground)
-	row := "  " + Colored.Style(ToneAccent).Render("api") + " " + dim.Render("1m")
+	row := "  " + Panel.Style(ToneAccent).Render("api") + " " + dim.Render("1m")
 
 	painted := PaintRow(row, 20)
 

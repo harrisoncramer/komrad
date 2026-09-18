@@ -10,6 +10,7 @@ import (
 	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
 	"weave/internal/ui/layout"
+	"weave/internal/ui/paint"
 	agentv1 "weave/proto/gen/agent/v1"
 
 	"github.com/charmbracelet/lipgloss"
@@ -658,4 +659,12 @@ func stale(item *agentv1.Mail) *agentv1.Mail {
 	item.ExpiresAt = time.Now().Add(-time.Minute).Format(time.RFC3339)
 
 	return item
+}
+
+// TestMailHeadingIsMutedAgainstTheTitle covers the headings splitting the mail an agent was sent
+// from the mail it sent, which are told from the screen's own title by carrying no accent.
+func TestMailHeadingIsMutedAgainstTheTitle(t *testing.T) {
+	assert.Equal(t, paint.Panel.Color(paint.ToneMuted), mailHeaderStyle.GetForeground())
+	assert.NotEqual(t, paint.Panel.Header().GetForeground(), mailHeaderStyle.GetForeground())
+	assert.True(t, mailHeaderStyle.GetBold(), "and by being as bold as the title beside them")
 }

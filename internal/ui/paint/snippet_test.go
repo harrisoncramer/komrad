@@ -64,7 +64,7 @@ func TestClipToMatch(t *testing.T) {
 			assert.Contains(t, out, tt.want, "the match survives the clip")
 
 			if tt.width > 0 {
-				assert.LessOrEqual(t, lipgloss.Width(Colored.RenderSnippet(tt.in, tt.width)), tt.width,
+				assert.LessOrEqual(t, lipgloss.Width(Panel.RenderSnippet(tt.in, tt.width)), tt.width,
 					"the rendered row fits the pane")
 			}
 

@@ -62,10 +62,6 @@ func TestNoticeBlockGolden(t *testing.T) {
 			m := detailsModel(&recordingTmux{})
 			m.height, m.width = 40, 60
 			tt.item(&m.listing.agents[0])
-			// The record is drawn grey while the keys are on the list, which would flatten every
-			// tone the block is here to pin.
-			m = m.toggleDetailsFocus()
-			require.True(t, m.isDetailsFocused())
 
 			requireNoticeGolden(t, tt.name, strings.Join(m.detailsNotices(m.hoveredDetails(), m.detailsLines()-3), "\n"))
 		})

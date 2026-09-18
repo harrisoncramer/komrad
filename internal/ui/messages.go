@@ -236,7 +236,7 @@ func (m model) messagePieceRows(piece messagePiece, hovered, flashed bool) []str
 
 	style := piece.style
 	if flashed {
-		style = flashFieldStyle(m.palette(regionMessages))
+		style = flashFieldStyle(paint.Panel)
 	}
 
 	rows := []string{}
@@ -327,10 +327,10 @@ func (m model) messagesSummaryStyle(held message, taken int, flashed bool) strin
 		style = style.Bold(true)
 	}
 	if flashed || m.messagesPulseOn() {
-		style = flashFieldStyle(m.palette(regionMessages))
+		style = flashFieldStyle(paint.Panel)
 	}
 
-	return m.palette(regionMessages).Style(kindTone(held.kind)).Render(icon) + " " + style.Render(words)
+	return paint.Panel.Style(kindTone(held.kind)).Render(icon) + " " + style.Render(words)
 }
 
 func (m model) messagesHint() string {
@@ -357,7 +357,7 @@ func (m model) messagesTally(taken int) string {
 	pad := max(m.lineWidth()-taken-lipgloss.Width(m.messagesSummaryLine(taken))-len(tally), 1)
 
 	// The tally is where the region says the keys are its own.
-	return strings.Repeat(" ", pad) + m.palette(regionMessages).Header().Render(tally)
+	return strings.Repeat(" ", pad) + paint.Panel.Header().Render(tally)
 }
 
 // pushMessage puts a message at the front of the stack and keeps the reader on whatever they
@@ -660,7 +660,7 @@ var mockMessages = []message{
 // messagesStyleConfig is the markdown a message is drawn in, where the kind colours the icon
 // alone.
 func (m model) messagesStyleConfig() glamouransi.StyleConfig {
-	palette := m.palette(regionMessages)
+	palette := paint.Panel
 
 	style := palette.Stage()
 	style.Strong.Color = nil

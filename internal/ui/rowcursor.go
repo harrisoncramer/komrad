@@ -52,7 +52,7 @@ func (m model) cursorPrefix(focused bool) string {
 		return blankCursor
 	}
 
-	return paint.PaletteFor(focused).Cursor().Render(rowCursorGlyph)
+	return paint.Panel.Cursor().Render(rowCursorGlyph)
 }
 
 func (m model) rowCursorPrefix() string {

@@ -34,12 +34,8 @@ const (
 
 var dimStyle = errui.Dim
 
-func (m model) titleStyle() lipgloss.Style {
-	return m.palette(regionList).Header()
-}
-
 func (m model) rowCursorStyle() lipgloss.Style {
-	return m.palette(regionList).Cursor()
+	return paint.Panel.Cursor()
 }
 
 // Both switches below carry no default, so a state added later fails the exhaustive check here

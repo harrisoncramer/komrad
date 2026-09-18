@@ -32,7 +32,7 @@ func windowed(t *testing.T, focused string, lines int) []string {
 	t.Helper()
 
 	list := Prepare(Snapshot{Rows: windowedRows(), Focused: focused, Pane: canonicalPane})
-	block := Window(WindowParams{List: list, Palette: paint.Colored, Width: canonicalPane, Lines: lines})
+	block := Window(WindowParams{List: list, Palette: paint.Panel, Width: canonicalPane, Lines: lines})
 	require.True(t, strings.HasSuffix(block, "\n"), "a window closes its last row")
 
 	return strings.Split(ansiEscapes.ReplaceAllString(strings.TrimSuffix(block, "\n"), ""), "\n")
@@ -116,7 +116,7 @@ func TestWindowNeverOverrunsThePane(t *testing.T) {
 	list := Prepare(Snapshot{Rows: windowedRows(), Focused: "beta-1", Pane: canonicalPane})
 
 	for lines := 1; lines <= 20; lines++ {
-		block := Window(WindowParams{List: list, Palette: paint.Colored, Width: canonicalPane, Lines: lines})
+		block := Window(WindowParams{List: list, Palette: paint.Panel, Width: canonicalPane, Lines: lines})
 		assert.Equal(t, min(lines, len(list.Lines)), paint.CountLines(block), "a pane of %d lines", lines)
 	}
 }
@@ -155,7 +155,7 @@ func TestWindowKeepsASelectedRowTheWidthOfThePane(t *testing.T) {
 			list := Prepare(Snapshot{Rows: rows, Focused: "beta-1", Pane: tt.pane})
 			require.Equal(t, tt.want, list.Columns, "the pane draws the columns the case is about")
 
-			block := Window(WindowParams{List: list, Palette: paint.Colored, Width: tt.pane, Lines: 6})
+			block := Window(WindowParams{List: list, Palette: paint.Panel, Width: tt.pane, Lines: 6})
 			painted, ok := rowNamed(strings.Split(block, "\n"), "beta-1")
 			require.True(t, ok)
 			assert.Equal(t, tt.pane, drawnColumns(ansiEscapes.ReplaceAllString(painted, "")))
@@ -178,7 +178,7 @@ func rowNamed(rows []string, name string) (string, bool) {
 // short enough to need one, which the agents tab is not today.
 func TestWindowOverTheLivePanel(t *testing.T) {
 	list := Prepare(Snapshot{Rows: livePanelRows(), Focused: "strip-demo", Pane: canonicalPane})
-	block := Window(WindowParams{List: list, Palette: paint.Colored, Width: canonicalPane, Lines: 12})
+	block := Window(WindowParams{List: list, Palette: paint.Panel, Width: canonicalPane, Lines: 12})
 
 	requireGolden(t, "window-live-panel", block)
 }

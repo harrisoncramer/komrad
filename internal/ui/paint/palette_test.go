@@ -38,7 +38,7 @@ func TestStageStyleRendersEveryElement(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			renderer, err := glamour.NewTermRenderer(glamour.WithStyles(Colored.Stage()), glamour.WithWordWrap(60))
+			renderer, err := glamour.NewTermRenderer(glamour.WithStyles(Panel.Stage()), glamour.WithWordWrap(60))
 			require.NoError(t, err)
 
 			got, err := renderer.Render(tt.markdown)
@@ -89,52 +89,38 @@ func TestPaletteFollowsTheTerminal(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := Colored.Style(tt.tone).Render("x")
+			got := Panel.Style(tt.tone).Render("x")
 			assert.True(t, strings.HasPrefix(got, tt.want), "want prefix %q, got %q", tt.want, got)
 		})
 	}
 }
 
-// TestGreyCollapsesEveryTone pins the whole point of the grey palette: a region that does not
-// hold the keys carries no hue at all, whatever part each piece of it plays.
-func TestGreyCollapsesEveryTone(t *testing.T) {
-	tones := []Tone{ToneMuted, ToneAccent, ToneSuccess, ToneWarning, ToneDanger, ToneMark, ToneSelf, ToneOther}
+// TestEveryToneIsItsOwnColour pins that the panel's tones stay told apart.
+func TestEveryToneIsItsOwnColour(t *testing.T) {
+	seen := map[lipgloss.Color]Tone{}
 
-	for _, tone := range tones {
-		assert.Equal(t, Grey.Color(ToneMuted), Grey.Color(tone), "tone %d is grey like the rest", tone)
+	for _, tone := range []Tone{ToneMuted, ToneAccent, ToneSuccess, ToneWarning, ToneDanger, ToneMark, ToneSelf, ToneOther, ToneBright, ToneMerged} {
+		color := Panel.Color(tone)
+		other, taken := seen[color]
+		assert.False(t, taken, "tone %d draws in the same colour as tone %d", tone, other)
+		seen[color] = tone
 	}
-
-	assert.NotEqual(t, Colored.Color(ToneMuted), Colored.Color(ToneAccent), "the coloured palette still tells them apart")
-	assert.NotEqual(t, Colored.Color(ToneSuccess), Colored.Color(ToneDanger))
 }
 
-// TestPaletteForPicksTheRegionsOwn covers the one call every region makes.
-func TestPaletteForPicksTheRegionsOwn(t *testing.T) {
-	assert.Equal(t, Colored, PaletteFor(true))
-	assert.Equal(t, Grey, PaletteFor(false))
-}
+// TestStageCarriesTheTones covers the markdown a block beside a list is drawn in.
+func TestStageCarriesTheTones(t *testing.T) {
+	stage := Panel.Stage()
 
-// TestGreyStageCarriesNoHue covers the markdown a block beside a list is drawn in, which greys
-// with the block rather than keeping its own colours under it.
-func TestGreyStageCarriesNoHue(t *testing.T) {
-	grey := Grey.Stage()
-
-	require.NotNil(t, grey.H1.Color)
-	require.NotNil(t, grey.Item.Color)
-	assert.Equal(t, *grey.H1.Color, *grey.Item.Color, "a heading and a bullet are the same grey")
-	assert.Equal(t, string(muted), *grey.H1.Color)
-
-	colored := Colored.Stage()
-	require.NotNil(t, colored.H1.Color)
-	assert.NotEqual(t, *colored.H1.Color, *grey.H1.Color)
+	require.NotNil(t, stage.H1.Color)
+	require.NotNil(t, stage.Item.Color)
+	assert.Equal(t, string(accent), *stage.H1.Color)
+	assert.Equal(t, string(success), *stage.Item.Color)
 }
 
 // TestMarkTakesItsToneFromThePalette covers the shape every optional mark on a row is drawn in.
 func TestMarkTakesItsToneFromThePalette(t *testing.T) {
 	withColor(t)
 
-	assert.Empty(t, Colored.Mark(false, "✓", ToneSuccess), "a fact that is not true draws nothing")
-	assert.Equal(t, " "+Colored.Style(ToneSuccess).Render("✓"), Colored.Mark(true, "✓", ToneSuccess))
-	assert.Equal(t, " "+Grey.Style(ToneMuted).Render("✓"), Grey.Mark(true, "✓", ToneSuccess),
-		"the same mark is grey in a region that does not hold the keys")
+	assert.Empty(t, Panel.Mark(false, "✓", ToneSuccess), "a fact that is not true draws nothing")
+	assert.Equal(t, " "+Panel.Style(ToneSuccess).Render("✓"), Panel.Mark(true, "✓", ToneSuccess))
 }

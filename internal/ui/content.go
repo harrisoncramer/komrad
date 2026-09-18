@@ -25,7 +25,7 @@ func newTextContent(markdown string) layout.Content {
 		Dir:   homeDir(),
 		Wraps: true,
 		Render: func(target layout.Target) ([]string, bool) {
-			if !writeStageFile(stageTextPath, paint.Colored.Render(markdown, target.Width)) {
+			if !writeStageFile(stageTextPath, paint.Panel.Render(markdown, target.Width)) {
 				return nil, false
 			}
 

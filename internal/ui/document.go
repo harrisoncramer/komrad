@@ -3,6 +3,7 @@ package ui
 import (
 	"fmt"
 	"strings"
+	"weave/internal/ui/paint"
 
 	"github.com/charmbracelet/glamour/ansi"
 )
@@ -74,5 +75,5 @@ func (d docWindow) view(rows int) string {
 
 // columnStyle is the markdown the block beside the list is drawn in.
 func (m model) columnStyle() ansi.StyleConfig {
-	return m.palette(regionColumn).Stage()
+	return paint.Panel.Stage()
 }

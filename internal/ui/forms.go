@@ -331,7 +331,7 @@ func formOf(keys config.FormKeys, fields ...huh.Field) (*huh.Form, []string) {
 	form := huh.NewForm(huh.NewGroup(fields...)).
 		WithShowHelp(true).
 		WithKeyMap(multiFieldKeyMap(keys)).
-		WithTheme(paint.Colored.FormTheme())
+		WithTheme(paint.Panel.FormTheme())
 
 	reached := make([]string, 0, len(fields))
 	for _, field := range fields {
@@ -463,7 +463,7 @@ func confirmFormStartingOn(confirmed bool, title, description, affirmative strin
 				WithButtonAlignment(lipgloss.Left).
 				Value(&confirmed),
 		),
-	).WithShowHelp(true).WithKeyMap(multiFieldKeyMap(keys)).WithTheme(paint.Colored.FormTheme())
+	).WithShowHelp(true).WithKeyMap(multiFieldKeyMap(keys)).WithTheme(paint.Panel.FormTheme())
 
 	return form, &confirmed
 }
@@ -667,7 +667,7 @@ func archiveAgentsForm(agents []agentstore.Agent, children int, keys config.Form
 		)
 
 	form := huh.NewForm(huh.NewGroup(field)).
-		WithShowHelp(true).WithKeyMap(multiFieldKeyMap(keys)).WithTheme(paint.Colored.FormTheme())
+		WithShowHelp(true).WithKeyMap(multiFieldKeyMap(keys)).WithTheme(paint.Panel.FormTheme())
 
 	return form, &choice
 }

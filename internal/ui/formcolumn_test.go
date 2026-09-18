@@ -217,18 +217,19 @@ func TestFormKeepsTheWholePaneOnANarrowWindow(t *testing.T) {
 	assert.Equal(t, m.width, width)
 }
 
-// TestFormBlursTheListBesideIt covers the list a form is opened over being drawn the way it is
-// when the record beside it holds the keys, title and row cursor alike.
-func TestFormBlursTheListBesideIt(t *testing.T) {
+// TestFormStillsTheCursorOnTheListBesideIt covers the list a form is opened over, whose row
+// cursor stops blinking once the form has the keys.
+func TestFormStillsTheCursorOnTheListBesideIt(t *testing.T) {
 	m := formColumnModel(t)
+	m.rowCursor = newRowCursor()
+	m.rowCursor.Blink = true
 	require.True(t, m.isListFocused(), "the list holds the keys to start with")
-	require.Equal(t, paint.Colored.Header(), m.titleStyle())
+	require.Equal(t, blankCursor, m.rowCursorPrefix(), "so its cursor is mid-blink")
 
 	m = openWorkflowForm(t, m)
 
 	assert.False(t, m.isListFocused(), "the form holds them once it is up")
-	assert.Equal(t, paint.Grey.Header(), m.titleStyle(), "so the list's title is drawn blurred")
-	assert.Equal(t, paint.Grey.Cursor().Render(rowCursorGlyph), m.rowCursorPrefix(), "and its cursor stands still")
+	assert.Equal(t, paint.Panel.Cursor().Render(rowCursorGlyph), m.rowCursorPrefix(), "and its cursor stands still")
 }
 
 // TestFormRefusalIsReadableFromInsideTheForm covers reaching the whole reason without leaving

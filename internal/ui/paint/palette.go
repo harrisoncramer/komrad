@@ -26,15 +26,12 @@ const (
 	// merged is the plain magenta, kept off the bright one the other voice in a conversation
 	// wears so retuning the speakers leaves a landed change alone.
 	merged = lipgloss.Color("5")
-	// defaultForeground is whatever the terminal already draws text in.
-	defaultForeground = lipgloss.Color("")
 	// markColor is the plain yellow rather than the bright one a thinking agent is drawn in, so
 	// a mark in the gutter cannot be read as a lifecycle state.
 	markColor = lipgloss.Color("3")
 )
 
-// Tone is the part a piece of the panel plays, which the palette of the region drawing it turns
-// into a colour.
+// Tone is the part a piece of the panel plays, which the palette turns into a colour.
 type Tone int
 
 const (
@@ -51,8 +48,7 @@ const (
 	ToneMerged
 )
 
-// Palette is what one region of the panel draws in, and there are two of them: the colours for
-// the region holding the keys, and grey for every other.
+// Palette is the colours the panel draws in.
 type Palette struct {
 	accent  lipgloss.Color
 	success lipgloss.Color
@@ -65,13 +61,13 @@ type Palette struct {
 	bright  lipgloss.Color
 	merged  lipgloss.Color
 
-	// stage is held behind a pointer, since a palette is copied on every region's lookup and the
-	// config alone is six kilobytes.
+	// stage is held behind a pointer, since a palette is copied on every lookup and the config
+	// alone is six kilobytes.
 	stage *ansi.StyleConfig
 }
 
-// Colored is what the region holding the keys draws in.
-var Colored = withStage(Palette{
+// Panel is the palette the panel draws in.
+var Panel = withStage(Palette{
 	accent:  accent,
 	success: success,
 	warning: warning,
@@ -84,37 +80,12 @@ var Colored = withStage(Palette{
 	merged:  merged,
 })
 
-// Grey is what every region that does not hold the keys draws in, one colour throughout.
-var Grey = withStage(Palette{
-	accent:  muted,
-	success: muted,
-	warning: muted,
-	danger:  muted,
-	muted:   muted,
-	mark:    muted,
-	self:    muted,
-	other:   muted,
-	// Greying a region flattens what it says rather than reversing it, so a brighter foreground
-	// falls back to the ordinary one instead of dropping below it.
-	bright: defaultForeground,
-	merged: muted,
-})
-
 // withStage fills in the markdown styling a palette's own colours make.
 func withStage(palette Palette) Palette {
 	style := stageStyle(palette)
 	palette.stage = &style
 
 	return palette
-}
-
-// PaletteFor is the palette a region draws in, given whether it holds the keys.
-func PaletteFor(focused bool) Palette {
-	if focused {
-		return Colored
-	}
-
-	return Grey
 }
 
 // Color is what a tone looks like in this palette.

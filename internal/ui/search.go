@@ -494,7 +494,7 @@ func (h searchHit) spans(content string) []paint.Span {
 // hitHeader names the agent a run of hits came from, wearing the same marks its row wears on the
 // screen it lives on, in the gutter given.
 func (m model) hitHeader(hit searchHit, gutter string) string {
-	palette := m.palette(regionList)
+	palette := paint.Panel
 
 	name := clipName(hit.name)
 	if hit.section == nameSection {
@@ -544,7 +544,7 @@ func (m model) searchRows() ([]string, int) {
 
 		hovered := i == m.search.cursor
 
-		gutter := m.palette(regionList).MarkGutter(m.listing.marks[agentRowKey(hit.agentID)])
+		gutter := paint.Panel.MarkGutter(m.listing.marks[agentRowKey(hit.agentID)])
 
 		var row string
 		if hit.section == nameSection {
@@ -560,7 +560,7 @@ func (m model) searchRows() ([]string, int) {
 				labelled = hit.agentID
 			}
 
-			row = "  " + m.cursorGap(hovered) + dimStyle.Render(m.palette(regionList).RenderSnippet(hit.snippet, m.paneWidth()-snippetIndent))
+			row = "  " + m.cursorGap(hovered) + dimStyle.Render(paint.Panel.RenderSnippet(hit.snippet, m.paneWidth()-snippetIndent))
 		}
 
 		if hovered {
@@ -597,7 +597,7 @@ func (m model) searchView() string {
 
 // searchSidebarView is the panel's own column: the query and the hits it found.
 func (m model) searchSidebarView() string {
-	palette := m.palette(regionList)
+	palette := paint.Panel
 
 	query := palette.Cursor().Render("/") + " " + m.search.query
 	if m.search.typing {

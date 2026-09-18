@@ -535,7 +535,6 @@ func TestSelectionKeepsItsBarWhileAFormHasTheKeys(t *testing.T) {
 	m.form.form = form
 
 	require.False(t, m.isListFocused(), "and gives them up to the confirm")
-	assert.Equal(t, paint.Grey, m.palette(regionList), "so the row greys")
 	assert.Contains(t, line(t, m.agentsView(), "api"), paint.BackgroundSequence(paint.SelectionBackground),
 		"but the bar under it does not follow the keys")
 }

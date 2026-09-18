@@ -37,7 +37,7 @@ func TestVerdictMarkDrawsOnlyAConclusion(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			mark := localReviewMark(paint.Colored, false, string(tt.verdict))
+			mark := localReviewMark(paint.Panel, false, string(tt.verdict))
 			if tt.icon == "" {
 				assert.Empty(t, mark)
 
@@ -47,25 +47,25 @@ func TestVerdictMarkDrawsOnlyAConclusion(t *testing.T) {
 		})
 	}
 
-	assert.Empty(t, localReviewMark(paint.Colored, false, ""), "work no review has concluded on carries nothing")
+	assert.Empty(t, localReviewMark(paint.Panel, false, ""), "work no review has concluded on carries nothing")
 }
 
 // TestInReviewMarkSaysAReviewerIsOwedAnAnswer pins the glyph that separates work being read from
 // work whose reading is over.
 func TestInReviewMarkSaysAReviewerIsOwedAnAnswer(t *testing.T) {
-	assert.Contains(t, localReviewMark(paint.Colored, true, ""), inLocalReviewIcon)
-	assert.Empty(t, localReviewMark(paint.Colored, false, ""))
+	assert.Contains(t, localReviewMark(paint.Panel, true, ""), inLocalReviewIcon)
+	assert.Empty(t, localReviewMark(paint.Panel, false, ""))
 }
 
 // TestReviewMarkGivesAVerdictTheColumn is why a sent-back round draws one glyph rather than two:
 // a live reviewer is implied by every verdict short of approval, so the pencil beside it said
 // nothing a person could act on.
 func TestReviewMarkGivesAVerdictTheColumn(t *testing.T) {
-	sentBack := localReviewMark(paint.Colored, true, string(reviewstore.VerdictChangesRequested))
+	sentBack := localReviewMark(paint.Panel, true, string(reviewstore.VerdictChangesRequested))
 	assert.Contains(t, sentBack, localChangesRequestedIcon)
 	assert.NotContains(t, sentBack, inLocalReviewIcon)
 
-	noted := localReviewMark(paint.Colored, true, string(reviewstore.VerdictCommented))
+	noted := localReviewMark(paint.Panel, true, string(reviewstore.VerdictCommented))
 	assert.Contains(t, noted, inLocalReviewIcon, "notes without a conclusion leave the reading unfinished")
 
 	notices := agentNotices(noticeRow(agentItem{inLocalReview: true, localVerdict: string(reviewstore.VerdictChangesRequested)}))

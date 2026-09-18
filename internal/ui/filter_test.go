@@ -444,7 +444,7 @@ func TestFilterHighlight(t *testing.T) {
 			var filter filterState
 			filter.setQuery(tt.query)
 
-			got := filter.highlight(paint.Colored, tt.row, lipgloss.NewStyle())
+			got := filter.highlight(paint.Panel, tt.row, lipgloss.NewStyle())
 
 			assert.Equal(t, tt.row, ansi.Strip(got))
 		})
@@ -498,17 +498,17 @@ func TestFilterSlashMarksAStandingSearch(t *testing.T) {
 	m := filterModel()
 
 	assert.Contains(t, m.filterView(), dimStyle.Render("/"), "an idle line is dim")
-	assert.NotContains(t, m.filterView(), paint.Colored.Cursor().Render("/"))
+	assert.NotContains(t, m.filterView(), paint.Panel.Cursor().Render("/"))
 
 	typing := m
 	typing.filter.typing = true
 
-	assert.Contains(t, typing.filterView(), paint.Colored.Cursor().Render("/"), "an open input takes the accent")
+	assert.Contains(t, typing.filterView(), paint.Panel.Cursor().Render("/"), "an open input takes the accent")
 
 	standing := m
 	standing.filter.setQuery("pay")
 
-	assert.Contains(t, standing.filterView(), paint.Colored.Cursor().Render("/"), "and so does a pattern left standing")
+	assert.Contains(t, standing.filterView(), paint.Panel.Cursor().Render("/"), "and so does a pattern left standing")
 }
 
 // typeIntoFilter types a whole pattern at the filter, the way a person does one key at a time.

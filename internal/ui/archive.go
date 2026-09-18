@@ -405,7 +405,7 @@ func (m model) archiveListView() string {
 		return m.listView("Archive", []string{dimStyle.Render("nothing archived")}, 0, below)
 	}
 
-	palette := m.palette(regionList)
+	palette := paint.Panel
 	pane := m.paneWidth()
 
 	list := view.Prepare(m.archiveSnapshot(rows, pane))

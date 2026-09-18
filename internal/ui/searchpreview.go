@@ -54,7 +54,7 @@ func (m *model) drawPreview() {
 		return
 	}
 
-	text, line := m.palette(regionColumn).RenderTranscript(preview.conversation, preview.spans, split.column)
+	text, line := paint.Panel.RenderTranscript(preview.conversation, preview.spans, split.column)
 	preview.doc.rows = strings.Split(strings.TrimRight(text, "\n"), "\n")
 
 	preview.doc.top = 0
@@ -70,7 +70,7 @@ func (m *model) drawPreview() {
 func (m model) searchPreviewView(split columnSplit) string {
 	doc := m.search.preview.doc
 	if len(doc.rows) == 0 {
-		doc = docWindow{rows: m.palette(regionColumn).DocRows(m.searchPreviewNotice(), split.column)}
+		doc = docWindow{rows: paint.Panel.DocRows(m.searchPreviewNotice(), split.column)}
 	}
 
 	return doc.view(split.rows)

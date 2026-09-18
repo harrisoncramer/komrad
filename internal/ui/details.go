@@ -248,7 +248,7 @@ func (m model) noticeLines(n notice, most int) []string {
 	// leaves that column blank.
 	icon := " "
 	if n.icon != "" {
-		icon = m.palette(regionDetails).Style(n.tone).Render(n.icon)
+		icon = paint.Panel.Style(n.tone).Render(n.icon)
 	}
 
 	lines := []string{"  " + icon + " " + dimStyle.Render(text[0])}
@@ -274,7 +274,7 @@ func (m model) detailFieldRows(fields []recordField, cursor int) []string {
 		label := dimStyle.Render(padRight(field.label, labels))
 		value := paint.Clip(field.value, max(m.lineWidth()-labels-gutter-1, 1))
 		if m.details.flashed == i+1 {
-			value = flashFieldStyle(m.palette(regionDetails)).Render(value)
+			value = flashFieldStyle(paint.Panel).Render(value)
 		}
 
 		rows = append(rows, prefix+label+" "+value)

@@ -52,7 +52,7 @@ func newReviewInput(params newReviewInputParams) (reviewInput, tea.Cmd) {
 	form := huh.NewForm(huh.NewGroup(field)).
 		WithShowHelp(false).
 		WithKeyMap(reviewInputKeyMap(params.Keys)).
-		WithTheme(paint.Colored.FormTheme())
+		WithTheme(paint.Panel.FormTheme())
 
 	input := reviewInput{
 		form:        form,

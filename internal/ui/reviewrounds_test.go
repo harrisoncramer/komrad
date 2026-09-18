@@ -12,9 +12,9 @@ import (
 
 // TestReviewRoundsMarkCarriesTheCount pins the number beside the glyph.
 func TestReviewRoundsMarkCarriesTheCount(t *testing.T) {
-	assert.Empty(t, localReviewRoundsMark(paint.Colored, 0), "an agent no review has touched carries nothing")
-	assert.Contains(t, localReviewRoundsMark(paint.Colored, 4), localReviewRoundsIcon)
-	assert.Contains(t, localReviewRoundsMark(paint.Colored, 4), "4")
+	assert.Empty(t, localReviewRoundsMark(paint.Panel, 0), "an agent no review has touched carries nothing")
+	assert.Contains(t, localReviewRoundsMark(paint.Panel, 4), localReviewRoundsIcon)
+	assert.Contains(t, localReviewRoundsMark(paint.Panel, 4), "4")
 }
 
 // TestReviewRoundsNoticeSaysWhatTheGlyphMeans is why the record spells the count out: the glyph

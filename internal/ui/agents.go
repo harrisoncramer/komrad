@@ -8,6 +8,7 @@ import (
 
 	"weave/config"
 	"weave/internal/ui/layout"
+	"weave/internal/ui/paint"
 	"weave/internal/view"
 
 	agentstore "weave/internal/store/agent"
@@ -545,7 +546,7 @@ func (m model) agentsListView() string {
 	record, help := m.detailsView(), m.renderHelp(m.agentHelp())
 	below := record + m.messagesRegion(record, help) + help
 
-	palette := m.palette(regionList)
+	palette := paint.Panel
 	pane := m.paneWidth()
 	rows := m.agentRows()
 
