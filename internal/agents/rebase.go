@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"weave/internal/caller"
 	"weave/internal/fail"
 	"weave/internal/git"
 	"weave/internal/logging"
@@ -31,8 +32,11 @@ var (
 	// ErrRebaseDetached says the checkout is on no branch, so a rebase would move nothing.
 	ErrRebaseDetached = fail.Precondition("the worktree is on no branch, so a rebase would move nothing")
 
-	// ErrRebaseBusy says the agent is part-way through a turn.
+	// ErrRebaseBusy says the agent is not known to have come to rest.
 	ErrRebaseBusy = fail.Precondition("the agent is working, so its files must not move under it")
+
+	// ErrRebaseSelf says an agent asked to rebase the checkout it is working in.
+	ErrRebaseSelf = fail.InvalidArgument("an agent cannot rebase the checkout it is working in")
 
 	// ErrRebaseShallow says the clone cannot answer what the branch and the base share.
 	ErrRebaseShallow = fail.Precondition("the clone is shallow, so what this branch shares with the base cannot be read")
@@ -386,13 +390,18 @@ func (s *RebaseService) eligible(ctx context.Context, agentID string) (*agentsto
 		return nil, fmt.Errorf("%w: %q", ErrAgentArchived, agent.Name)
 	}
 
+	if err := s.refuseTheCaller(ctx, *agent); err != nil {
+		return nil, err
+	}
+
 	// A rebase types at the agent and then rewrites the branch under its checkout, which is the
 	// collision somebody holding that tree stopped it to avoid.
 	if agent.HeldAt != nil {
 		return nil, ErrAgentHeld.Saying("%q is paused, unpause it first", agent.Name)
 	}
-	if agent.State.IsTurnUnfinished() {
-		return nil, fmt.Errorf("%w: %q", ErrRebaseBusy, agent.Name)
+	// A state the pane could not be read for says nothing about whether the agent is working.
+	if !agent.State.IsAtRest() {
+		return nil, fmt.Errorf("%w: %q is %s", ErrRebaseBusy, agent.Name, agent.State)
 	}
 	if agent.AdoptedBranch != "" {
 		return nil, fmt.Errorf("%w: %s", ErrRebaseAdopted, agent.AdoptedBranch)
@@ -418,6 +427,34 @@ func (s *RebaseService) eligible(ctx context.Context, agentID string) (*agentsto
 	}
 
 	return agent, nil
+}
+
+// refuseTheCaller turns down an agent asking for the checkout it is itself working in, which a
+// child shares with its parent.
+func (s *RebaseService) refuseTheCaller(ctx context.Context, agent agentstore.Agent) error {
+	// Explainer: a rebase interrupts the agent it names and then rewrites the branch under the
+	// whole directory, so the harm lands on whoever is working there rather than on whoever the
+	// row belongs to. A person pressing the key carries no agent id and is unaffected.
+	from := caller.From(ctx).AgentID
+	if from == "" {
+		return nil
+	}
+	if from == agent.ID {
+		return fmt.Errorf("%w: %q is the one it is working in", ErrRebaseSelf, agent.Name)
+	}
+
+	asker, err := s.agents.GetByID(ctx, from)
+	if errors.Is(err, store.ErrNotFound) {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("failed to read the agent asking to rebase %q: %w", agent.Name, err)
+	}
+	if asker.Cwd == "" || asker.Cwd != agent.Cwd {
+		return nil
+	}
+
+	return fmt.Errorf("%w: %q sits in %s", ErrRebaseSelf, agent.Name, asker.Cwd)
 }
 
 // refuseTreeState is what the checkout itself has to say before a rebase may start.

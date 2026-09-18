@@ -52,6 +52,20 @@ func (s State) IsTurnUnfinished() bool {
 	return s == StateThinking || s == StateWaiting
 }
 
+// IsAtRest reports whether a state says the agent is doing nothing weave could disturb.
+func (s State) IsAtRest() bool {
+	// Written without a default so an eighth state has to be answered for here rather than
+	// falling in with whichever answer the existing seven happen to share.
+	switch s {
+	case StateIdle, StateFailedToCreate, StateFailedToCleanup:
+		return true
+	case StateThinking, StateWaiting, StateSettingUp, StateUncertain:
+		return false
+	}
+
+	return false
+}
+
 // Role is what an agent was launched to do.
 type Role string
 
