@@ -361,8 +361,6 @@ func TestEveryStateTheBarDrawsBrokenHasASentence(t *testing.T) {
 }
 
 // TestAStoppedRowDrawsABarAndSaysNothing covers the bar a row draws once its process has gone.
-// It is a mark, so the suppression that keeps the record quiet about it is the empty sentence
-// rather than an empty cell, and a failed create has to keep its own sentence alongside.
 func TestAStoppedRowDrawsABarAndSaysNothing(t *testing.T) {
 	stopped := agentItem{agent: agentstore.Agent{State: agentstore.StateIdle}}
 	row := snapshotRow(noticeRow(stopped), snapshotParams{})
