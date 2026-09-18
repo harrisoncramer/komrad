@@ -56,6 +56,7 @@ func snapshotRow(r agentRow, params snapshotParams) view.Row {
 		Key:         key,
 		Mark:        params.marks[key],
 		HiddenCount: standingIn(r.hiddenCount, params.showHidden),
+		NoCheckout:  noCheckout(r),
 	}
 
 	if r.header {
@@ -106,6 +107,12 @@ func standingIn(count int, showHidden bool) int {
 	}
 
 	return count
+}
+
+// noCheckout reports whether a row owns no checkout of its own, which is every workflow header
+// and every agent weave cuts no worktree for.
+func noCheckout(r agentRow) bool {
+	return r.header || !ownsWorktree(r.item.agent, r.workflow)
 }
 
 // snapshotKind is where an agent sits in the tree.

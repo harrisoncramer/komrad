@@ -60,9 +60,9 @@ func prepareLine(params prepareLineParams) Line {
 		Focused:  focused,
 		Focus:    markCell(focused && !params.caretHidden, GlyphFocus, paint.ToneAccent),
 		Mark:     textCell(row.Mark, paint.ToneMark),
-		Repo:     repoCell(row.Repo),
-		Review:   reviewCell(row.Review),
-		Forge:    forgeCell(row.Forge),
+		Repo:     repoCell(row),
+		Review:   reviewCell(row),
+		Forge:    forgeCell(row),
 		Status:   statusCell(row.Status, row.Dormant),
 		Rule:     row.Kind == KindChild,
 		Indent:   indentFor(row.Kind),
@@ -100,10 +100,14 @@ func isFocused(row Row, focused string) bool {
 	return focused != "" && row.Key == focused
 }
 
-// repoCell is where an agent's own checkout stands, always drawn so an untouched one reads as
-// not yet rather than as missing.
-func repoCell(repo Repo) Cell {
-	switch repo {
+// repoCell is where an agent's own checkout stands, greyed while nothing has happened to it and
+// empty on a row that owns no checkout at all.
+func repoCell(row Row) Cell {
+	if row.NoCheckout {
+		return Cell{}
+	}
+
+	switch row.Repo {
 	case RepoClean:
 		return Cell{Glyph: GlyphRepo, Tone: paint.ToneMuted}
 	case RepoRebasing:
@@ -116,8 +120,12 @@ func repoCell(repo Repo) Cell {
 }
 
 // reviewCell is where the local review of an agent's work stands.
-func reviewCell(review Review) Cell {
-	switch review {
+func reviewCell(row Row) Cell {
+	if row.NoCheckout {
+		return Cell{}
+	}
+
+	switch row.Review {
 	case ReviewNone:
 		return Cell{Glyph: GlyphReview, Tone: paint.ToneMuted}
 	case ReviewOpen:
@@ -134,8 +142,12 @@ func reviewCell(review Review) Cell {
 }
 
 // forgeCell is where the pull request opened from an agent's branch stands.
-func forgeCell(forge Forge) Cell {
-	switch forge {
+func forgeCell(row Row) Cell {
+	if row.NoCheckout {
+		return Cell{}
+	}
+
+	switch row.Forge {
 	case ForgeNone:
 		return Cell{Glyph: GlyphForge, Tone: paint.ToneMuted}
 	case ForgeOpen:

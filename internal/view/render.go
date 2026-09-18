@@ -33,7 +33,7 @@ func renderLine(line Line, columns Columns, palette paint.Palette, width int) st
 		drawGutterCell(palette, line.Mark),
 	}
 	for _, cell := range drawnColumnCells(line, columns) {
-		cells = append(cells, drawCell(palette, cell))
+		cells = append(cells, drawGutterCell(palette, cell))
 	}
 
 	gutter := strings.Join(append(cells, drawGutterCell(palette, line.Status)), " ")

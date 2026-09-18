@@ -15,11 +15,17 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// checkoutWorkflow is a workflow weave cuts a worktree from, which is what gives the agents
+// under it a checkout of their own.
+func checkoutWorkflow() workflowstore.Workflow {
+	return workflowstore.Workflow{ID: "w1", Name: "weave", Worktree: workflowstore.WorktreeConfig{Enabled: true}}
+}
+
 // snapshotOne reads one agent row and hands back the single row it made.
 func snapshotOne(t *testing.T, item agentItem) view.Row {
 	t.Helper()
 
-	return snapshotRowOf(t, snapshotParams{rows: []agentRow{{item: item}}})
+	return snapshotRowOf(t, snapshotParams{rows: []agentRow{{item: item, workflow: checkoutWorkflow()}}})
 }
 
 // snapshotRunning reads one row whose agent is running and doing nothing, which is the row every
@@ -378,10 +384,11 @@ func TestSnapshotKinds(t *testing.T) {
 				},
 			},
 			want: view.Row{
-				Key:    "workflow:w1",
-				Kind:   view.KindWorkflow,
-				Name:   "weave",
-				Status: view.StatusThinking,
+				Key:        "workflow:w1",
+				Kind:       view.KindWorkflow,
+				Name:       "weave",
+				Status:     view.StatusThinking,
+				NoCheckout: true,
 			},
 		},
 		{
@@ -391,10 +398,11 @@ func TestSnapshotKinds(t *testing.T) {
 				workflow: workflowstore.Workflow{ID: "w1", Name: "weave"},
 			},
 			want: view.Row{
-				Key:     "workflow:w1",
-				Kind:    view.KindWorkflow,
-				Name:    "weave",
-				Dormant: true,
+				Key:        "workflow:w1",
+				Kind:       view.KindWorkflow,
+				Name:       "weave",
+				Dormant:    true,
+				NoCheckout: true,
 			},
 		},
 		{
@@ -405,10 +413,11 @@ func TestSnapshotKinds(t *testing.T) {
 				orchestrator: &agentItem{agent: agentstore.Agent{ID: "o1", State: agentstore.StateIdle}},
 			},
 			want: view.Row{
-				Key:     "workflow:w1",
-				Kind:    view.KindWorkflow,
-				Name:    "weave",
-				Dormant: true,
+				Key:        "workflow:w1",
+				Kind:       view.KindWorkflow,
+				Name:       "weave",
+				Dormant:    true,
+				NoCheckout: true,
 			},
 		},
 		{
@@ -419,18 +428,22 @@ func TestSnapshotKinds(t *testing.T) {
 			},
 			scheduled: map[string]bool{"w1": true},
 			want: view.Row{
-				Key:       "workflow:w1",
-				Kind:      view.KindWorkflow,
-				Name:      "weave",
-				Dormant:   true,
-				Scheduled: true,
+				Key:        "workflow:w1",
+				Kind:       view.KindWorkflow,
+				Name:       "weave",
+				Dormant:    true,
+				Scheduled:  true,
+				NoCheckout: true,
 			},
 		},
 		{
 			name: "an agent under a scheduled workflow does not inherit its mark",
-			row: agentRow{item: agentItem{
-				agent: agentstore.Agent{ID: "a1", Name: "worker", WorkflowID: "w1", State: agentstore.StateIdle},
-			}},
+			row: agentRow{
+				workflow: checkoutWorkflow(),
+				item: agentItem{
+					agent: agentstore.Agent{ID: "a1", Name: "worker", WorkflowID: "w1", State: agentstore.StateIdle},
+				},
+			},
 			scheduled: map[string]bool{"w1": true},
 			want: view.Row{
 				Key:     "agent:a1",
@@ -442,18 +455,20 @@ func TestSnapshotKinds(t *testing.T) {
 		{
 			name: "a child hangs off the row above it",
 			row: agentRow{
-				item:  agentItem{agent: agentstore.Agent{ID: "a1", Name: "reviewer"}},
-				child: true,
+				workflow: checkoutWorkflow(),
+				item:     agentItem{agent: agentstore.Agent{ID: "a1", Name: "reviewer", ParentAgentID: xptr.Ptr("a0")}},
+				child:    true,
 			},
 			want: view.Row{
-				Key:  "agent:a1",
-				Kind: view.KindChild,
-				Name: "reviewer",
+				Key:        "agent:a1",
+				Kind:       view.KindChild,
+				Name:       "reviewer",
+				NoCheckout: true,
 			},
 		},
 		{
 			name: "an agent of its own is the ordinary row",
-			row:  agentRow{item: agentItem{agent: agentstore.Agent{ID: "a1", Name: "worker"}}},
+			row:  agentRow{workflow: checkoutWorkflow(), item: agentItem{agent: agentstore.Agent{ID: "a1", Name: "worker"}}},
 			want: view.Row{
 				Key:  "agent:a1",
 				Kind: view.KindAgent,
@@ -468,6 +483,57 @@ func TestSnapshotKinds(t *testing.T) {
 				rows:      []agentRow{tt.row},
 				scheduled: tt.scheduled,
 			}))
+		})
+	}
+}
+
+// TestSnapshotCheckout pins which rows own a checkout, which is the whole of what decides
+// whether the three columns are drawn on them at all.
+func TestSnapshotCheckout(t *testing.T) {
+	tests := []struct {
+		name       string
+		row        agentRow
+		noCheckout bool
+	}{
+		{
+			name:       "an agent weave cut a worktree for owns one",
+			row:        agentRow{workflow: checkoutWorkflow(), item: agentItem{agent: agentstore.Agent{ID: "a1", Name: "worker"}}},
+			noCheckout: false,
+		},
+		{
+			name:       "a workflow header owns none",
+			row:        agentRow{header: true, workflow: checkoutWorkflow()},
+			noCheckout: true,
+		},
+		{
+			name: "a child sits in its parent's checkout",
+			row: agentRow{
+				workflow: checkoutWorkflow(),
+				item:     agentItem{agent: agentstore.Agent{ID: "a1", Name: "reviewer", ParentAgentID: xptr.Ptr("a0")}},
+			},
+			noCheckout: true,
+		},
+		{
+			name: "an agent told to keep the directory it was given sits in somebody else's",
+			row: agentRow{
+				workflow: checkoutWorkflow(),
+				item:     agentItem{agent: agentstore.Agent{ID: "a1", Name: "reader", ProvisionEnabled: xptr.Ptr(false)}},
+			},
+			noCheckout: true,
+		},
+		{
+			name: "an agent under a workflow that cuts no worktree owns none either",
+			row: agentRow{
+				workflow: workflowstore.Workflow{ID: "w1", Name: "weave"},
+				item:     agentItem{agent: agentstore.Agent{ID: "a1", Name: "worker"}},
+			},
+			noCheckout: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.noCheckout, snapshotRowOf(t, snapshotParams{rows: []agentRow{tt.row}}).NoCheckout)
 		})
 	}
 }
