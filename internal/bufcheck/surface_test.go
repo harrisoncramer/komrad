@@ -58,8 +58,44 @@ func TestOneSurface(t *testing.T) {
 					EndColumn:   3,
 				},
 			},
+			{
+				RuleID:  bufcheck.OneSurfaceRuleID,
+				Message: namelessMessage("Nameless"),
+				FileLocation: &checktest.ExpectedFileLocation{
+					FileName:    surfaceFile,
+					StartLine:   31,
+					StartColumn: 2,
+					EndLine:     33,
+					EndColumn:   3,
+				},
+			},
+			{
+				RuleID:  bufcheck.OneSurfaceRuleID,
+				Message: wordlessMessage("Wordless"),
+				FileLocation: &checktest.ExpectedFileLocation{
+					FileName:    surfaceFile,
+					StartLine:   34,
+					StartColumn: 2,
+					EndLine:     36,
+					EndColumn:   3,
+				},
+			},
 		},
 	}.Run(t)
+}
+
+func namelessMessage(method string) string {
+	return fmt.Sprintf(
+		"%q declares (annotation.v1.tool) with no tool_name, which is the name both surfaces are generated under, so weave reads it as no annotation at all and serves the method on neither.",
+		method,
+	)
+}
+
+func wordlessMessage(method string) string {
+	return fmt.Sprintf(
+		"%q declares (annotation.v1.tool) with no description. That string is the whole of what a model is told about the call and all the help the CLI prints, so without it the method reaches both surfaces as a name and nothing else.",
+		method,
+	)
 }
 
 func neitherMessage(method string) string {

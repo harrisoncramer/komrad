@@ -36,6 +36,22 @@ func checkOneSurface(
 				method.Name(),
 			),
 		)
+	case tool != nil && tool.GetToolName() == "":
+		responseWriter.AddAnnotation(
+			check.WithDescriptor(method),
+			check.WithMessagef(
+				"%q declares (annotation.v1.tool) with no tool_name, which is the name both surfaces are generated under, so weave reads it as no annotation at all and serves the method on neither.",
+				method.Name(),
+			),
+		)
+	case tool != nil && tool.GetDescription() == "":
+		responseWriter.AddAnnotation(
+			check.WithDescriptor(method),
+			check.WithMessagef(
+				"%q declares (annotation.v1.tool) with no description. That string is the whole of what a model is told about the call and all the help the CLI prints, so without it the method reaches both surfaces as a name and nothing else.",
+				method.Name(),
+			),
+		)
 	case panelOnly != nil && panelOnly.GetReason() == "":
 		responseWriter.AddAnnotation(
 			check.WithDescriptor(method),

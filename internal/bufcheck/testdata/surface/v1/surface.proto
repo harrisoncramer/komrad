@@ -29,4 +29,10 @@ service SurfaceService {
   rpc Silent(Request) returns (Response) {
     option (annotation.v1.panel_only) = {reason: ""};
   }
+  rpc Nameless(Request) returns (Response) {
+    option (annotation.v1.tool) = {description: "Carries everything but the name both surfaces are generated under."};
+  }
+  rpc Wordless(Request) returns (Response) {
+    option (annotation.v1.tool) = {tool_name: "wordless"};
+  }
 }

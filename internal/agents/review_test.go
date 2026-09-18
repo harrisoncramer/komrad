@@ -16,6 +16,7 @@ import (
 	mailstore "weave/internal/store/mail"
 	reviewstore "weave/internal/store/review"
 	workflowstore "weave/internal/store/workflow"
+	"weave/lib/xptr"
 	"weave/lib/xslice"
 
 	"github.com/stretchr/testify/assert"
@@ -849,6 +850,34 @@ func TestAnAgentIsNotToldWhereAnotherReviewWasWritten(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, forHuman, 1)
 	assert.NotEmpty(t, forHuman[0].Path)
+}
+
+// TestAnAgentIsNotShownAReviewNobodyHasReleased pins that an open review is the reviewer's own
+// draft, so the agent it is being written about is not told it exists or how much is in it.
+func TestAnAgentIsNotShownAReviewNobodyHasReleased(t *testing.T) {
+	reviews := newFakeReviewStore()
+	reviews.comments = 1
+	service := reviewService(t, reviews, &fakeNoticeSender{answer: &mailstore.Mail{ID: "mail-1"}})
+
+	_, err := reviews.OpenReview(t.Context(), reviewstore.OpenReviewParams{
+		AgentID:       reviewedAgentID,
+		RoundID:       reviewRoundID,
+		AuthorKind:    reviewstore.AuthorAgent,
+		AuthorAgentID: xptr.Ptr(reviewerAgentID),
+	})
+	require.NoError(t, err)
+
+	forReviewed, err := service.ListReviews(t.Context(), reviewedAgentID, agentAuthor(reviewedAgentID))
+	require.NoError(t, err)
+	assert.Empty(t, forReviewed, "the agent under review is not told a review is open on it")
+
+	forAuthor, err := service.ListReviews(t.Context(), reviewedAgentID, agentAuthor(reviewerAgentID))
+	require.NoError(t, err)
+	assert.Len(t, forAuthor, 1, "but the reviewer sees the draft it is writing")
+
+	forHuman, err := service.ListReviews(t.Context(), reviewedAgentID, humanAuthor())
+	require.NoError(t, err)
+	assert.Len(t, forHuman, 1, "and so does the person, who is drawn it in the panel")
 }
 
 // TestReleasingToAnArchivedAgentIsRefused pins that a review is not stamped as sent to an agent

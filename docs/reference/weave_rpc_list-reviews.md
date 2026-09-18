@@ -4,7 +4,7 @@ Read every review released on an agent, in the order their rounds were taken, ea
 
 ### Synopsis
 
-Read every review released on an agent, in the order their rounds were taken, each with the verdict it carried. This is how you find where a change stands: whether the person reviewing has approved it, asked for changes, or only commented, and how many rounds it took to get there. The findings themselves are in the threads, which list_review_threads reads; this is the verdict on each round rather than the comments under it. agentId names whose reviews to read. The path of the file a review was written out to is dropped for anyone but the agent that wrote that review, so your own reviews come back with their paths and somebody else's do not.
+Read every review released on an agent, in the order their rounds were taken, each with the verdict it carried. This is how you find where a change stands: whether the person reviewing has approved it, asked for changes, or only commented, and how many rounds it took to get there. The findings themselves are in the threads, which list_review_threads reads; this is the verdict on each round rather than the comments under it. agentId names whose reviews to read. The path of the file a review was written out to is dropped for anyone but the agent that wrote that review, so your own reviews come back with their paths and somebody else's do not. A review nobody has released is left out for the same reason, since what is in it is the reviewer's until they let go of it; a person running this from a terminal is drawn the open ones too. You may read your own reviews and those of the agent you are a child of, and anybody else's are refused as permission_denied.
 
 ```
 weave rpc list-reviews [flags]
