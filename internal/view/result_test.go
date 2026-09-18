@@ -67,11 +67,24 @@ func TestRenderTagFollowsTheName(t *testing.T) {
 	drawn := drawResults(canonicalPane)
 	require.Len(t, drawn, 2)
 
-	assert.True(t, strings.HasSuffix(drawn[1], "payouts archived"), "row %q", drawn[1])
+	assert.Equal(t, "┊ payouts archived", strings.TrimSpace(drawn[1]))
 	assert.NotContains(t, drawn[0], "archived", "a row with no tag draws none")
 
 	styled := Render(Prepare(Snapshot{Rows: resultRows(), Dropped: everyColumn(), Pane: canonicalPane}), paint.Panel, 0)
 	assert.Contains(t, styled, paint.Panel.Style(paint.ToneMuted).Render("archived"))
+}
+
+// TestTagStandsBeforeTheMarks pins the tag against the marks after it, which the fixture above
+// cannot say because none of its rows wears one.
+func TestTagStandsBeforeTheMarks(t *testing.T) {
+	row := Row{Key: "one", Kind: KindResult, Name: "payouts", Tag: "archived", UnreadMail: true, Scheduled: true}
+	list := Prepare(Snapshot{Rows: []Row{row}, Dropped: everyColumn(), Pane: canonicalPane})
+
+	drawn := ansiEscapes.ReplaceAllString(Render(list, paint.Panel, 0), "")
+
+	assert.Equal(t,
+		strings.Join([]string{Spell(GlyphQuiet), "payouts", "archived", Spell(GlyphMail), Spell(GlyphSchedule)}, " "),
+		strings.TrimSpace(drawn))
 }
 
 // TestTagCostsTheNameItsColumns pins that a tag is counted into the width like the marks after
