@@ -13,15 +13,16 @@ var ErrNotForgeRemote = fail.InvalidArgument("remote is not a forge repository")
 
 // RemoteURL is a git remote taken apart into the pieces a forge repository is named by.
 type RemoteURL struct {
-	// Raw is the remote exactly as git had it.
+	// Raw is the remote exactly as git had it, such as git@github.com:harrisoncramer/weave.git.
 	Raw string
-	// Scheme is the transport the remote fetches over: ssh, git, http or https.
+	// Scheme is the transport the remote fetches over, one of ssh, git, http or https.
 	Scheme string
-	// Host is the lowercased host with no port.
+	// Host is the lowercased host with no port, such as github.com or ghe.example.com.
 	Host string
-	// Port is the port as spelled, or empty when the remote named none.
+	// Port is the port as spelled, such as 2222, or empty when the remote named none.
 	Port string
-	// Path is the repository path with its .git suffix and surrounding slashes removed.
+	// Path is the repository path with its .git suffix and surrounding slashes removed, such as
+	// harrisoncramer/weave or group/subgroup/repo.
 	Path string
 }
 
