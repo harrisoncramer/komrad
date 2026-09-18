@@ -26,14 +26,15 @@ func (m model) agentsSymbologyView() string {
 	}))
 
 	header := palette.Title("Agents and Workflows") + "\n\n" + m.filterView() + view.Header(palette, list.Columns) + "\n"
+	lines := m.listLines(header, below)
 	window := view.Window(view.WindowParams{
 		List:    list,
 		Palette: palette,
 		Width:   m.width,
-		Lines:   m.listLines(header, below),
+		Lines:   lines,
 	})
 
-	return m.headedBlockView(header, window, below)
+	return m.headedBlockView(header, window, lines, below)
 }
 
 // scheduledWorkflows is the workflows at least one schedule launches into, which is all a

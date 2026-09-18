@@ -65,13 +65,12 @@ func (m model) listView(title string, rows []string, cursor int, help string) st
 func (m model) headedListView(header string, rows []string, cursor int, help string) string {
 	lines := m.listLines(header, help)
 
-	return m.headedBlockView(header, paint.RenderList(rows, cursor, lines, dimStyle), help)
+	return m.headedBlockView(header, paint.RenderList(rows, cursor, lines, dimStyle), lines, help)
 }
 
-// headedBlockView draws a list that has already been fitted to the pane, for a caller that
-// windows its own rows.
-func (m model) headedBlockView(header, block, help string) string {
-	return header + paint.PadRows(block, m.listLines(header, help)) + help
+// headedBlockView draws a list already fitted to the pane.
+func (m model) headedBlockView(header, block string, lines int, help string) string {
+	return header + paint.PadRows(block, lines) + help
 }
 
 func rowAt[T any](rows []T, cursor int) (T, bool) {

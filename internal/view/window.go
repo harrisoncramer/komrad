@@ -20,8 +20,8 @@ func Window(params WindowParams) string {
 	return paint.RenderList(rows, focusIndex(params.List), params.Lines, params.Palette.Style(paint.ToneMuted))
 }
 
-// focusIndex is the row the keyboard stands on, counted off the list at the moment it is
-// windowed so a list re-sorted since it was gathered still scrolls to the row it named.
+// focusIndex is the row the keyboard stands on, counted off the list as it is about to be
+// drawn.
 func focusIndex(list List) int {
 	for i, line := range list.Lines {
 		if line.Focused {

@@ -46,9 +46,8 @@
 // column where the font draws two.
 //
 // Window is that work already done, for a caller that has only to say how many lines it has
-// left. It scrolls to the focused row by resolving the key against the list in front of it, so a
-// list sorted since it was gathered still stops on the row the snapshot named, and a key naming
-// no row at all leaves the list where a fresh one opens.
+// left. It scrolls to the row the snapshot named, and a key naming no row at all leaves the
+// list where a fresh one opens.
 //
 // # Zero values are the ordinary case
 //
