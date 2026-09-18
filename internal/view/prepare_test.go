@@ -465,7 +465,7 @@ func TestPrepareClipsName(t *testing.T) {
 			name:  "a name past the column ends in an ellipsis",
 			given: "eng-6994-unable-to-create",
 			pane:  29,
-			want:  "eng-6994-un…",
+			want:  "eng-6994-unabl…",
 		},
 		{
 			name:  "a name inside the column is left alone",
@@ -565,7 +565,7 @@ func TestPrepareClipsMatchesWithTheName(t *testing.T) {
 			name:    "a match the cut runs through is shortened to what is left",
 			matches: []Span{{Start: 3, End: 14}},
 			pane:    17,
-			want:    []Span{{Start: 3, End: 5}},
+			want:    []Span{{Start: 3, End: 6}},
 		},
 		{
 			name:    "a match before the cut is left alone",
@@ -642,15 +642,15 @@ func TestPrepareGivesTheTallyUpBeforeTheMarks(t *testing.T) {
 		wantTally int
 	}{
 		{
-			name:      "the width Harry runs gives the tally up and spends what it frees on the name",
-			pane:      16,
-			wantName:  "an …",
+			name:      "a pane with nothing left for a name gives the tally up and spends what it frees",
+			pane:      13,
+			wantName:  "an…",
 			wantTally: 0,
 		},
 		{
 			name:      "the default sidebar has room for both",
-			pane:      30,
-			wantName:  "an agen…",
+			pane:      27,
+			wantName:  "an agent…",
 			wantTally: 12,
 		},
 		{
@@ -692,18 +692,18 @@ func TestPrepareShedsMarksOnlyWhereTheMarksAloneWillNotFit(t *testing.T) {
 		want []Glyph
 	}{
 		{
-			name: "the width Harry runs keeps the failed run alone",
-			pane: 16,
+			name: "a pane with room for one mark keeps the failed run alone",
+			pane: 13,
 			want: []Glyph{GlyphAlert},
 		},
 		{
 			name: "a pane two wider keeps the mail as well",
-			pane: 18,
+			pane: 15,
 			want: []Glyph{GlyphMail, GlyphAlert},
 		},
 		{
 			name: "a pane wide enough for the marks keeps every one of them",
-			pane: 30,
+			pane: 27,
 			want: []Glyph{GlyphPaused, GlyphMail, GlyphAlert, GlyphSchedule},
 		},
 	}

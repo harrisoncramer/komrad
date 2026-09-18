@@ -58,9 +58,8 @@
 //
 // Rows hands back one drawn string per row and stops there. Which of them fit the pane, and
 // which the list is scrolled to, is the caller's, since only the caller knows what else it has
-// put above and below them. A caller measuring those rows applies the same correction the
-// selection bar does, because an Octicon sits in the private use area and is measured as one
-// column where the font draws two.
+// put above and below them. A caller measuring those rows measures what lipgloss measures, an
+// Octicon drawing the single column the font gives it.
 //
 // Window is that work already done, for a caller that has only to say how many lines it has
 // left. It scrolls to the row the snapshot named, and a key naming no row at all leaves the

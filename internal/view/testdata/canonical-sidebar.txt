@@ -7,7 +7,7 @@
 ›      ▍   strip-demo 
   w    │ weave +3 
        ▍   frozen-review-bug
-       ▍   pr-metadata-fix…  
+       ▍   pr-metadata-fixes  
        │   iss-582
        ▍   gone-worktree 
        │   iss-641-reviewer 

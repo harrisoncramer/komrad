@@ -7,13 +7,15 @@ import (
 
 	"weave/internal/ui/paint"
 
+	"github.com/charmbracelet/lipgloss"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 // canonicalPane is the sidebar the settled design was drawn in, wide enough for all three
 // columns and the names beside them.
-const canonicalPane = 39
+const canonicalPane = 36
 
 // everyColumn is all three columns, written out here rather than taken from the package so a
 // test measuring the gutter does not borrow the package's own idea of what fills it.
@@ -411,25 +413,25 @@ func TestNarrowSidebarsDropColumnsRatherThanNames(t *testing.T) {
 			name:     "the width Harry's own config sets still draws the checkout, the column never given up",
 			pane:     16,
 			want:     Columns{Repo: true},
-			wantName: 7,
+			wantName: 8,
 		},
 		{
-			name:     "a little wider spends what it gains on the name rather than on a column",
+			name:     "a little wider buys the review back",
 			pane:     20,
-			want:     Columns{Repo: true},
-			wantName: 11,
-		},
-		{
-			name:     "wider still buys back the review, the pull request being the last to come",
-			pane:     24,
 			want:     Columns{Repo: true, Review: true},
-			wantName: 12,
+			wantName: 10,
 		},
 		{
-			name:     "the default sidebar draws all three",
+			name:     "wider still buys the pull request, the last of the three to come",
+			pane:     22,
+			want:     everyColumn(),
+			wantName: 10,
+		},
+		{
+			name:     "the default sidebar draws all three with room to spare",
 			pane:     30,
 			want:     everyColumn(),
-			wantName: 15,
+			wantName: 18,
 		},
 	}
 
@@ -516,7 +518,7 @@ func TestGutterColumnsAgreesWithWhatIsDrawn(t *testing.T) {
 
 // drawnNameColumn is the column the settled design opens a workflow's name at, counted off the
 // drawing by hand rather than from the package's own arithmetic.
-const drawnNameColumn = 15
+const drawnNameColumn = 12
 
 // drawnIndentStep is how far each level of the tree sets its name in, written out here rather
 // than taken from the package so a change to the package's own constant fails these tests.
@@ -536,9 +538,22 @@ func wantNameColumn(kind RowKind) int {
 	return drawnNameColumn
 }
 
+// TestEveryGlyphDrawsOneColumn pins the measurement the whole gutter rests on: an Octicon takes
+// one column, the same as the box-drawing rules beside it.
+func TestEveryGlyphDrawsOneColumn(t *testing.T) {
+	for glyph := GlyphNone; glyph <= GlyphFocus; glyph++ {
+		spelled := spell(glyph)
+		if spelled == "" {
+			continue
+		}
+
+		assert.Equal(t, plainColumns, lipgloss.Width(spelled), "glyph %q", spelled)
+	}
+}
+
 // octiconColumns is how wide an Octicon is drawn, written out here rather than taken from the
 // package so a change to the package's own constant fails this test.
-const octiconColumns = 2
+const octiconColumns = 1
 
 // nameColumnOf is the column a drawn row opens its own name at, past the corner a child hangs
 // off rather than at it.

@@ -137,7 +137,7 @@ func TestWindowKeepsASelectedRowTheWidthOfThePane(t *testing.T) {
 		},
 		{
 			name: "the forge given up",
-			pane: 24,
+			pane: 21,
 			want: Columns{Repo: true, Review: true},
 		},
 		{

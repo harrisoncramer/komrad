@@ -42,7 +42,7 @@ func renderLine(line Line, columns Columns, palette paint.Palette, width int) st
 		drawName(palette, line) + drawTrailing(palette, line)
 
 	if line.Selected {
-		return paint.PaintRow(row, width-extraColumns(line, columns))
+		return paint.PaintRow(row, width)
 	}
 
 	return row
