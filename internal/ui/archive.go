@@ -7,11 +7,16 @@ import (
 	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
 	"weave/internal/ui/paint"
+	"weave/internal/view"
 	"weave/lib/xslice"
 	agentv1 "weave/proto/gen/agent/v1"
 
 	tea "github.com/charmbracelet/bubbletea"
 )
+
+// archiveColumns are the three columns the archive gives up: an archived agent's checkout, its
+// review and its pull request are none of them refreshed once it is put away.
+var archiveColumns = view.Columns{Repo: true, Review: true, Forge: true}
 
 type archiveState struct {
 	agents    []agentstore.Agent
@@ -373,41 +378,46 @@ func (m model) archiveView() string {
 	return m.columnView(model.archiveListView)
 }
 
+// archiveSnapshot is the archive's rows as the plain data the shared drawing reads, which differs
+// from the agents list only in the columns it gives up and in nothing being hidden away inside an
+// archive.
+func (m model) archiveSnapshot(rows []agentRow, pane int) view.Snapshot {
+	return agentsSnapshot(snapshotParams{
+		rows:        rows,
+		marks:       m.listing.marks,
+		selected:    m.archive.selected,
+		scheduled:   m.scheduledWorkflows(),
+		focused:     rowKeyAt(rows, m.archive.cursor),
+		caretHidden: m.cursorBlinkedOut(m.isListFocused()),
+		matcher:     m.filter.pattern,
+		showHidden:  true,
+		pane:        pane,
+		dropped:     archiveColumns,
+	})
+}
+
 func (m model) archiveListView() string {
 	record, help := m.detailsView(), m.renderHelp(m.archiveHelp())
 	below := record + m.messagesRegion(record, help) + help
 
-	all := m.archiveRows()
-	if len(all) == 0 {
+	rows := m.archiveRows()
+	if len(rows) == 0 {
 		return m.listView("Archive", []string{dimStyle.Render("nothing archived")}, 0, below)
 	}
 
 	palette := m.palette(regionList)
+	pane := m.paneWidth()
 
-	rows := make([]string, 0, len(all))
-	for i, r := range all {
-		hovered := i == m.archive.cursor
-		prefix := "  "
-		if hovered {
-			prefix = m.rowCursorPrefix()
-		}
+	list := view.Prepare(m.archiveSnapshot(rows, pane))
 
-		if r.header {
-			label := m.filter.highlight(palette, clipName(r.workflow.Name), m.nameStyle(hovered, false))
-			rows = append(rows, prefix+dimStyle.Render(workflowIcon)+" "+label+archivedTag(palette, r.workflow))
+	header := palette.Title("Archive") + "\n\n" + m.filterView()
+	lines := m.listLines(header, below)
+	window := view.Window(view.WindowParams{
+		List:    list,
+		Palette: palette,
+		Width:   pane,
+		Lines:   lines,
+	})
 
-			continue
-		}
-
-		agent := r.item.agent
-		name := m.filter.highlight(palette, clipName(agent.Name), m.nameStyle(hovered, true))
-		row := prefix + "  " + childMark(r.child) + name + failedMark(palette, agent) + scheduledMark(palette, agent)
-		if m.archive.selected.has(agent.ID) {
-			row = paint.PaintRow(row, m.paneWidth())
-		}
-
-		rows = append(rows, row)
-	}
-
-	return m.listView("Archive", rows, m.archive.cursor, below)
+	return m.headedBlockView(header, window, lines, below)
 }

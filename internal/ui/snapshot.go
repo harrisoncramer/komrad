@@ -28,6 +28,8 @@ type snapshotParams struct {
 	showHidden bool
 	// pane is how many columns the list is drawn in.
 	pane int
+	// dropped are the columns this screen does not draw at all.
+	dropped view.Columns
 }
 
 // agentsSnapshot reads the listing into the plain data the agents list draws itself from.
@@ -42,6 +44,7 @@ func agentsSnapshot(params snapshotParams) view.Snapshot {
 		CaretHidden: params.caretHidden,
 		Focused:     params.focused,
 		Pane:        params.pane,
+		Dropped:     params.dropped,
 	}
 }
 
@@ -60,6 +63,7 @@ func snapshotRow(r agentRow, params snapshotParams) view.Row {
 		row.Name = r.workflow.Name
 		row.Matches = matchesIn(params.matcher, r.workflow.Name)
 		row.Scheduled = params.scheduled[r.workflow.ID]
+		row.Dim = r.workflow.ArchivedAt != nil
 
 		// A workflow's bar is its orchestrator's, and one that has never had an orchestrator has
 		// no more of a process behind it than a dormant one.
@@ -85,7 +89,7 @@ func snapshotRow(r agentRow, params snapshotParams) view.Row {
 	row.Review = snapshotReview(item)
 	row.Selected = params.selected.has(item.agent.ID)
 	row.Unviewed = item.unviewed
-	row.Dim = item.agent.Hidden
+	row.Dim = item.agent.Hidden || item.agent.ArchivedAt != nil
 	row.Held = item.agent.HeldAt != nil
 	row.HeldWorking = row.Held && heldWorking(item)
 	row.UnreadMail = item.unreadMail
