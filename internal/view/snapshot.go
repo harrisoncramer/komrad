@@ -8,6 +8,7 @@ const (
 	KindAgent RowKind = iota
 	KindWorkflow
 	KindChild
+	KindResult
 )
 
 // Process is how much of a process stands behind a row.
@@ -95,6 +96,8 @@ type Row struct {
 	Key  string
 	Kind RowKind
 	Name string
+	// Tag is a word drawn dim after the name, for what the symbology has no glyph for.
+	Tag string
 	// Mark is the letter a person typed onto this row, empty when none is on it.
 	Mark string
 	// Matches are the stretches of the name a search picked out.

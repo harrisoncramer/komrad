@@ -74,6 +74,8 @@ type Line struct {
 	// Indent is how far this row's name is set in from the gutter.
 	Indent int
 	Name   string
+	// Tag is a word drawn dim after the name, for what the symbology has no glyph for.
+	Tag string
 	// Matches are the stretches of the name a search picked out, in bytes of the name as it is
 	// drawn rather than as it was gathered.
 	Matches  []Span

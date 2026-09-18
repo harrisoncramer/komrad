@@ -67,6 +67,7 @@ func prepareLine(params prepareLineParams) Line {
 		Rule:     row.Kind == KindChild,
 		Indent:   indentFor(row.Kind),
 		Name:     row.Name,
+		Tag:      row.Tag,
 		Matches:  row.Matches,
 		Weight:   weightFor(row.Kind),
 		Emphasis: emphasisFor(row, focused),
@@ -226,6 +227,8 @@ func weightFor(kind RowKind) Weight {
 		return WeightRegular
 	case KindChild:
 		return WeightItalic
+	case KindResult:
+		return WeightRegular
 	}
 
 	return WeightRegular
@@ -234,7 +237,7 @@ func weightFor(kind RowKind) Weight {
 // indentFor is how far a row's name is set in from the gutter, an agent under its workflow and
 // a child under its agent.
 func indentFor(kind RowKind) int {
-	if kind == KindWorkflow {
+	if kind == KindWorkflow || kind == KindResult {
 		return 0
 	}
 

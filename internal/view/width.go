@@ -60,6 +60,10 @@ func trailingColumns(line Line) int {
 		columns += plainColumns + len(fmt.Sprintf("+%d", line.Tally))
 	}
 
+	if line.Tag != "" {
+		columns += plainColumns + len([]rune(line.Tag))
+	}
+
 	return columns
 }
 
