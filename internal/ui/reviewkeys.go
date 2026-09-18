@@ -184,10 +184,11 @@ func (m model) refuseReviewViewed() (tea.Model, tea.Cmd) {
 // unanswered, and names both ways out of it.
 func (m model) refuseReviewAwaiting() (tea.Model, tea.Cmd) {
 	summary := reviewOwedSaid(m.reviewOwedComments())
-	detail := "A review is finished when its comments are settled by whoever wrote them. " +
-		keyLabel(m.keys.Review.Resolve) + " settles the one under the cursor, " +
-		keyLabel(m.keys.Review.Compose) + " replies in it, " +
-		keyLabel(m.keys.Review.NextOpenThread) + " walks them."
+	detail := "You may not leave more comments until this review is settled. Reviews are settled " +
+		"when all comments are addressed. Press " + keyLabel(m.keys.Review.NextOpenThread) +
+		" to walk to the next unresolved comment, and reply with " +
+		keyLabel(m.keys.Review.Compose) + " or press " + keyLabel(m.keys.Review.Resolve) +
+		" to resolve it."
 
 	m.reportBrief(summary, detail, nil)
 	m.review.notice = summary
