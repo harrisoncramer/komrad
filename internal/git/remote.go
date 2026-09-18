@@ -31,7 +31,7 @@ func CanonicalRemoteURL(raw string) (string, bool) {
 
 		host = parsed.Hostname()
 		port = parsed.Port()
-		path = parsed.Path
+		path = parsed.EscapedPath()
 	} else {
 		before, after, ok := strings.Cut(raw, ":")
 		if !ok || strings.Contains(before, "/") {
@@ -39,6 +39,9 @@ func CanonicalRemoteURL(raw string) (string, bool) {
 		}
 		if at := strings.LastIndex(before, "@"); at >= 0 {
 			before = before[at+1:]
+		}
+		if len(before) < 2 || strings.ContainsAny(before, "[]") {
+			return "", false
 		}
 
 		host = before
