@@ -203,10 +203,11 @@ message CreateReviewThreadRequest {
   // The diff lines being written about, each keeping its leading marker, so the anchor still
   // says something once the code moves.
   repeated string quoted_lines = 7;
-  // The first thing said, which is the thread's reason for existing.
+  // The first thing said, which is the thread's reason for existing. A comment is a few
+  // sentences, so the ceiling is there to refuse an essay rather than to be written up to.
   string body = 8 [(buf.validate.field).string = {
     min_len: 1
-    max_len: 10000
+    max_len: 1000
   }];
   // Replacement lines proposed for the range, empty for an ordinary comment.
   repeated string suggestion = 9;
@@ -220,10 +221,11 @@ message CreateReviewThreadResponse {
 message AddReviewMessageRequest {
   // Which conversation to say it in.
   string thread_id = 1 [(buf.validate.field).string.min_len = 1];
-  // What to say, which for an agent answering is what it did.
+  // What to say, which for an agent answering is what it did. A comment is a few sentences, so
+  // the ceiling is there to refuse an essay rather than to be written up to.
   string body = 2 [(buf.validate.field).string = {
     min_len: 1
-    max_len: 10000
+    max_len: 1000
   }];
   // Replacement lines proposed for the thread's range, empty for an ordinary message.
   repeated string suggestion = 3;
@@ -237,10 +239,10 @@ message AddReviewMessageResponse {
 message EditReviewMessageRequest {
   // Which message to rewrite.
   string id = 1 [(buf.validate.field).string.min_len = 1];
-  // What it should say instead.
+  // What it should say instead, under the same ceiling the message was written to.
   string body = 2 [(buf.validate.field).string = {
     min_len: 1
-    max_len: 10000
+    max_len: 1000
   }];
   // Replacement lines proposed for the thread's range, empty for an ordinary message.
   repeated string suggestion = 3;
@@ -323,7 +325,7 @@ message ReleaseReviewRequest {
   bool interrupt = 3;
   // What to say about the work as a whole rather than about any one line, which goes at the
   // head of the file the agent reads. Optional: a review of pinned comments alone is complete.
-  string body = 4 [(buf.validate.field).string.max_len = 10000];
+  string body = 4 [(buf.validate.field).string.max_len = 1500];
 }
 
 message ReleaseReviewResponse {
