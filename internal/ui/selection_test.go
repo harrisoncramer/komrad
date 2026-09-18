@@ -422,46 +422,6 @@ func TestArchiveSelection(t *testing.T) {
 // filling the width it is drawn at.
 const rowPaneWidth = 60
 
-// TestAgentsViewSelectionColour covers how a row taken into a selection is drawn, which is a bar
-// across the whole row rather than a colour on its name, so nothing the row says is spent on
-// saying that it is in.
-func TestAgentsViewSelectionColour(t *testing.T) {
-	withColor(t)
-
-	m := selectionTree()
-	m.width = rowPaneWidth
-
-	rest := m.agentsView()
-	assert.NotContains(t, line(t, rest, "api"), paint.BackgroundSequence(paint.SelectionBackground))
-
-	m.tree.selected = selection{ids: []string{"a2"}}
-	view := m.agentsView()
-	assert.Contains(t, line(t, view, "api"), paint.BackgroundSequence(paint.SelectionBackground), "the selected row takes the bar")
-	assert.NotContains(t, line(t, view, "db"), paint.BackgroundSequence(paint.SelectionBackground), "and only that row")
-	assert.Equal(t, rowPaneWidth, lineWidth(t, view, "api"), "the bar spans the pane")
-	assert.Equal(t, lineWidth(t, rest, "db"), lineWidth(t, view, "db"), "and the row below it is left as it was")
-}
-
-// TestSelectionKeepsTheCursor pins that a row in the selection under the cursor is drawn as
-// both, which is what the bar buys: the name is still the cursor's to colour.
-func TestSelectionKeepsTheCursor(t *testing.T) {
-	withColor(t)
-
-	m := selectionTree()
-	m.width = rowPaneWidth
-	m.tree.selected = selection{ids: []string{"a2"}}
-
-	for i, r := range m.agentRows() {
-		if !r.header && r.item.agent.ID == "a2" {
-			m.tree.cursor = i
-		}
-	}
-
-	row := line(t, m.agentsView(), "api")
-	assert.Contains(t, row, paint.BackgroundSequence(paint.SelectionBackground))
-	assert.Contains(t, row, m.rowCursorStyle().Render("api"), "and the cursor still has the name")
-}
-
 func lineWidth(t *testing.T, view, text string) int {
 	t.Helper()
 

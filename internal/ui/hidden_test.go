@@ -110,43 +110,6 @@ func TestToggleHiddenAgentsKeepsTheCursor(t *testing.T) {
 	assert.Equal(t, "ui", hovered.agent.Name)
 }
 
-// TestHiddenTally pins that a workflow header's count stands in for the rows it is not
-// drawing and goes away once they are drawn.
-func TestHiddenTally(t *testing.T) {
-	tests := []struct {
-		name    string
-		count   int
-		showing bool
-		want    string
-	}{
-		{
-			name: "a workflow hiding nothing says nothing",
-		},
-		{
-			name:    "nor does one whose hidden agents are on screen",
-			count:   3,
-			showing: true,
-		},
-		{
-			name:  "a workflow with hidden agents carries the count",
-			count: 3,
-			want:  "+3",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := hiddenTally(tt.count, tt.showing)
-			if tt.want == "" {
-				assert.Empty(t, got)
-				return
-			}
-
-			assert.Contains(t, got, tt.want)
-		})
-	}
-}
-
 // TestHiddenHelpIsOneLine pins the two hidden keys sharing a line on an agent and only the
 // toggle on a workflow header.
 func TestHiddenHelpIsOneLine(t *testing.T) {

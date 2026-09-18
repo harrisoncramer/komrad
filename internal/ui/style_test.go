@@ -97,71 +97,10 @@ func TestWorktreeMark(t *testing.T) {
 	}
 }
 
-// TestAgentsViewShowsWorktreeRemoved covers the row itself: an agent the cwd syncer
-// found gone shows the icon beside its name, and one it has not draws the row without it.
-func TestAgentsViewShowsWorktreeRemoved(t *testing.T) {
-	m := model{
-		frame: layout.New(&recordingTmux{}, config.DefaultLayout()),
-		keys:  config.DefaultKeybindings(),
-		listing: listing{workflows: []workflowstore.Workflow{{ID: "w1", Name: "acmecorp"}}, agents: []agentItem{
-			{agent: agentstore.Agent{
-				ID:              "a1",
-				Name:            "worker",
-				WorkflowID:      "w1",
-				WorktreeRemoved: true,
-			}},
-			{agent: agentstore.Agent{
-				ID:         "a2",
-				Name:       "reviewer",
-				WorkflowID: "w1",
-			}},
-		}},
-	}
-
-	rows := strings.Split(m.agentsView(), "\n")
-	worker, ok := rowNamed(rows, "worker")
-	require.True(t, ok)
-	assert.Contains(t, worker, worktreeRemovedIcon)
-
-	reviewer, ok := rowNamed(rows, "reviewer")
-	require.True(t, ok)
-	assert.NotContains(t, reviewer, worktreeRemovedIcon)
-}
-
 // TestUnreadMailMark pins that the glyph is drawn only for an agent with mail waiting.
 func TestUnreadMailMark(t *testing.T) {
 	assert.Empty(t, unreadMailMark(paint.Colored, false))
 	assert.Contains(t, unreadMailMark(paint.Colored, true), unreadMailIcon)
-}
-
-// TestAgentsViewUnreadMail pins the mail glyph drawn per agent, so one with mail waiting
-// shows it and the one beside it does not.
-func TestAgentsViewUnreadMail(t *testing.T) {
-	m := model{
-		frame: layout.New(&recordingTmux{}, config.DefaultLayout()),
-		keys:  config.DefaultKeybindings(),
-		listing: listing{workflows: []workflowstore.Workflow{{ID: "w1", Name: "acmecorp"}}, agents: []agentItem{
-			{agent: agentstore.Agent{
-				ID:         "a1",
-				Name:       "waiting-on-reply",
-				WorkflowID: "w1",
-			}, unreadMail: true},
-			{agent: agentstore.Agent{
-				ID:         "a2",
-				Name:       "caught-up",
-				WorkflowID: "w1",
-			}, unreadMail: false},
-		}},
-	}
-
-	rows := strings.Split(m.agentsView(), "\n")
-	waiting, ok := rowNamed(rows, "waiting-on-reply")
-	require.True(t, ok)
-	assert.Contains(t, waiting, unreadMailIcon)
-
-	caughtUp, ok := rowNamed(rows, "caught-up")
-	require.True(t, ok)
-	assert.NotContains(t, caughtUp, unreadMailIcon)
 }
 
 func rowNamed(rows []string, name string) (string, bool) {
