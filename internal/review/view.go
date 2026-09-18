@@ -78,7 +78,13 @@ type View struct {
 	// that rebuilding left.
 	threads []*agentv1.ReviewThread
 	search  *search
+	// narrowed says the patch is a slice of the change rather than the whole of it, which is what
+	// tells a comment on a file that has left the change from one merely off screen.
+	narrowed bool
 }
+
+// SetNarrowed says whether the patch on screen is a slice of the change rather than all of it.
+func (v *View) SetNarrowed(narrowed bool) { v.narrowed = narrowed }
 
 // NewView builds the review view over a patch, highlighting each file for the theme the
 // terminal is on.

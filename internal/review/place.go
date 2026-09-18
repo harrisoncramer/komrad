@@ -15,6 +15,10 @@ const changedNotice = "── the code these were about has changed ──"
 // screen.
 const outsideNotice = "── still in the change, outside what is on screen ──"
 
+// goneNotice heads the comments whose file has left the change altogether, which is the whole of
+// why they can hold a review nothing on screen explains.
+const goneNotice = "── these are holding your review, on files that have left the change ──"
+
 // placement is how a thread reached the row it is drawn on, which separates a thread the diff
 // still agrees with from one the agent has written out from under.
 type placement uint8
@@ -224,20 +228,24 @@ func (v *View) appendAdrift(threads []*agentv1.ReviewThread) {
 
 	// A comment loses its line for two unrelated reasons, and reading them in one list is what
 	// makes a narrowed diff look like it has thrown every comment away.
-	var changed, outside []*agentv1.ReviewThread
+	var changed, outside, gone []*agentv1.ReviewThread
+
 	for _, thread := range threads {
 		_, drawn := v.findFile(v.pathOf(thread))
-		if drawn && !v.doesExpandingDraw(thread) {
+
+		switch {
+		case drawn && !v.doesExpandingDraw(thread):
 			changed = append(changed, thread)
-
-			continue
+		case drawn || v.narrowed:
+			outside = append(outside, thread)
+		default:
+			gone = append(gone, thread)
 		}
-
-		outside = append(outside, thread)
 	}
 
 	v.appendFootSection(changedNotice, changed)
 	v.appendFootSection(outsideNotice, outside)
+	v.appendFootSection(goneNotice, gone)
 }
 
 // doesExpandingDraw reports whether a thread stands on a line the reader would see again by

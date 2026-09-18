@@ -397,7 +397,7 @@ func TestWritingIsRefusedWhileAReviewIsOut(t *testing.T) {
 
 	assert.Equal(t, modeWatching, m.review.mode, "the mode did not open")
 	assert.False(t, m.review.composing, "and no editor did either")
-	assert.Contains(t, m.review.notice, "answered")
+	assert.Contains(t, m.review.notice, "still owed an answer")
 	assert.Nil(t, agents.created, "and nothing was written")
 }
 
@@ -434,7 +434,7 @@ func TestSendingIsRefusedWhileAReviewIsOutWithNothingWritten(t *testing.T) {
 	m = next.(model)
 
 	assert.False(t, m.review.releasing, "the verdict panel stays shut")
-	assert.Contains(t, m.review.notice, "answered")
+	assert.Contains(t, m.review.notice, "still owed an answer")
 	assert.Nil(t, agents.released)
 }
 
@@ -1236,7 +1236,7 @@ func TestEditingIsRefusedWhileYourReviewIsOwedAnAnswer(t *testing.T) {
 	assert.Equal(t, modeWatching, written.review.mode, "nothing opened")
 	assert.False(t, written.review.atEditor)
 	assert.Contains(t, written.review.notice, "owed an answer")
-	assert.Contains(t, written.review.notice, "comments left open", "and it names the way to them")
+	assert.Contains(t, written.review.notice, keyLabel(m.keys.Review.Resolve), "and it names the key that settles one")
 }
 
 // TestEditingADormantAgentIsAllowedWhileOwedAnAnswer pins the escape the service has and this

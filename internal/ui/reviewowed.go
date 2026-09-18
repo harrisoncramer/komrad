@@ -89,6 +89,22 @@ func cmp(a, b int) int {
 	return 1
 }
 
+// reviewOwedSaid is how many comments of the reader's are still open, which is what every
+// refusal leads with.
+func reviewOwedSaid(owed []owedComment) string {
+	// The gate is read off the service and the rows off the conversation, so the sentence has to
+	// stand up in the moment before the comments themselves have arrived.
+	if len(owed) == 0 {
+		return "your review is still owed an answer"
+	}
+
+	if len(owed) == 1 {
+		return "1 comment of yours is still open"
+	}
+
+	return fmt.Sprintf("%d comments of yours are still open", len(owed))
+}
+
 // isReviewStripDrawn reports whether the strip has anything to say on the screen as it stands.
 func (m model) isReviewStripDrawn() bool {
 	// A dead agent has the gate lifted for it by the service, and an older round refuses every

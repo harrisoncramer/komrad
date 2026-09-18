@@ -70,8 +70,9 @@ func (m model) reviewWatchingView() string {
 
 	if m.review.isOwedAnAnswer() {
 		return m.reviewBandRow(reviewHeldTone, "watching",
-			"your review is owed an answer · "+keyLabel(m.keys.Review.NextOpenThread)+
-				" for the comments left open, "+keyLabel(m.keys.Review.Compose)+" to reply in one")
+			reviewOwedSaid(m.reviewOwedComments())+" · "+keyLabel(m.keys.Review.NextOpenThread)+
+				" walks them, "+keyLabel(m.keys.Review.Resolve)+" settles one, "+
+				keyLabel(m.keys.Review.Compose)+" replies")
 	}
 
 	return m.reviewBandRow(reviewWatchingTone, "watching",

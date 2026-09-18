@@ -81,3 +81,33 @@ func TestAnAdriftCommentOnAnUndrawnLineReadsAsOffScreen(t *testing.T) {
 	require.Equal(t, adrift, view.placed["t1"], "the patch draws no line eight")
 	assert.Equal(t, outsideNotice, headingAbove(t, view, "t1"))
 }
+
+// Explainer: a comment with no file on screen is two unrelated facts, and the reader can only act
+// on one of them. A file still in the change is reachable by widening the diff back out; a file
+// that has left it is not there at all, and a comment on one can hold a review with nothing on
+// screen to explain it.
+
+// TestACommentOnAFileThatHasLeftTheChangeSaysSo covers the whole-change diff, where a file the
+// patch does not draw is a file that is gone.
+func TestACommentOnAFileThatHasLeftTheChangeSaysSo(t *testing.T) {
+	view := expandableView()
+
+	thread := threadAt("t2", "departed.go", 3, 3, "+gone")
+	view.PinThreads([]*agentv1.ReviewThread{thread})
+
+	require.Equal(t, adrift, view.placed["t2"], "the patch draws no such file")
+	assert.Equal(t, goneNotice, headingAbove(t, view, "t2"))
+}
+
+// TestACommentOutsideANarrowedDiffIsNotGone covers the same comment on a diff that is a slice of
+// the change, where the file may be in the rounds the reader has stepped past.
+func TestACommentOutsideANarrowedDiffIsNotGone(t *testing.T) {
+	view := expandableView()
+	view.SetNarrowed(true)
+
+	thread := threadAt("t1", "departed.go", 3, 3, "+gone")
+	view.PinThreads([]*agentv1.ReviewThread{thread})
+
+	require.Equal(t, adrift, view.placed["t1"])
+	assert.Equal(t, outsideNotice, headingAbove(t, view, "t1"))
+}

@@ -181,13 +181,14 @@ func (m model) refuseReviewViewed() (tea.Model, tea.Cmd) {
 }
 
 // refuseReviewAwaiting says why a write did not happen while the review already sent is still
-// unanswered, and names the key to the comments it can still be answered in.
+// unanswered, and names both ways out of it.
 func (m model) refuseReviewAwaiting() (tea.Model, tea.Cmd) {
-	summary := "your review has not been answered yet"
-	detail := "The agent has written nothing since the review you sent, so a second one would be " +
-		"about the same code and the service refuses it. Replying in a comment it already holds " +
-		"is not a second review: press " + keyLabel(m.keys.Review.NextOpenThread) +
-		" for the comments left open, or " + keyLabel(m.keys.Review.Reload) + " once it has answered."
+	summary := reviewOwedSaid(m.reviewOwedComments())
+	detail := "A review is finished when its comments have been settled by whoever wrote them, " +
+		"so yours holds the next one until you settle them or answer in them. Press " +
+		keyLabel(m.keys.Review.Resolve) + " to settle the comment under the cursor, " +
+		keyLabel(m.keys.Review.Compose) + " to reply in it, or " +
+		keyLabel(m.keys.Review.NextOpenThread) + " to walk them."
 
 	m.reportBrief(summary, detail, nil)
 	m.review.notice = summary

@@ -350,6 +350,7 @@ func (m *model) applyReviewLoaded(msg reviewLoadedMsg) tea.Cmd {
 	m.review.chapters = msg.chapters
 	m.review.root = msg.patch.Root
 	m.review.view = review.NewView(msg.patch, m.isDark)
+	m.review.view.SetNarrowed(m.review.base != "")
 	m.review.view.SetTraced(msg.traced)
 	m.review.view.SetViewed(indexViewedFiles(msg.viewed, msg.patch))
 	m.review.view.SetExpanded(m.review.expanded)
