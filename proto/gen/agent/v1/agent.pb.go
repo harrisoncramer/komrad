@@ -742,8 +742,12 @@ type RequestReviewRequest struct {
 	// A key that makes a retry safe, answering a repeat with the reviewer it already spawned
 	// rather than refusing it.
 	IdempotencyKey *string `protobuf:"bytes,4,opt,name=idempotency_key,json=idempotencyKey,proto3,oneof" json:"idempotency_key,omitempty"`
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+	// Which CLI the reviewer runs, blank to take the workflow's own.
+	Harness string `protobuf:"bytes,5,opt,name=harness,proto3" json:"harness,omitempty"`
+	// Flags for the reviewer's CLI, blank to take the workflow's own.
+	Flags         string `protobuf:"bytes,6,opt,name=flags,proto3" json:"flags,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *RequestReviewRequest) Reset() {
@@ -800,6 +804,20 @@ func (x *RequestReviewRequest) GetTitle() string {
 func (x *RequestReviewRequest) GetIdempotencyKey() string {
 	if x != nil && x.IdempotencyKey != nil {
 		return *x.IdempotencyKey
+	}
+	return ""
+}
+
+func (x *RequestReviewRequest) GetHarness() string {
+	if x != nil {
+		return x.Harness
+	}
+	return ""
+}
+
+func (x *RequestReviewRequest) GetFlags() string {
+	if x != nil {
+		return x.Flags
 	}
 	return ""
 }
@@ -2648,14 +2666,16 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\x10_parent_agent_idJ\x04\b\t\x10\n" +
 	"\"<\n" +
 	"\x13CreateAgentResponse\x12%\n" +
-	"\x05agent\x18\x01 \x01(\v2\x0f.agent.v1.AgentR\x05agent\"\xc8\x02\n" +
+	"\x05agent\x18\x01 \x01(\v2\x0f.agent.v1.AgentR\x05agent\"\x9d\x03\n" +
 	"\x14RequestReviewRequest\x12#\n" +
 	"\x06prompt\x18\x01 \x01(\tB\v\xbaH\br\x06\x10\x01\x18І\x03R\x06prompt\x12'\n" +
 	"\bagent_id\x18\x02 \x01(\tB\a\xbaH\x04r\x02\x10\x01H\x00R\aagentId\x88\x01\x01\x12\x86\x01\n" +
 	"\x05title\x18\x03 \x01(\tBp\xbaHm\xba\x01e\n" +
 	"\x16review.title.printable\x12)title must not contain control characters\x1a !this.matches('[\\x00-\\x1f\\x7f]')r\x03\x18\xc8\x01R\x05title\x128\n" +
 	"\x0fidempotency_key\x18\x04 \x01(\tB\n" +
-	"\xbaH\ar\x05\x10\x01\x18\xc8\x01H\x01R\x0eidempotencyKey\x88\x01\x01B\v\n" +
+	"\xbaH\ar\x05\x10\x01\x18\xc8\x01H\x01R\x0eidempotencyKey\x88\x01\x01\x12/\n" +
+	"\aharness\x18\x05 \x01(\tB\x15\xbaH\x12r\x10\x18(2\f^[a-z0-9-]*$R\aharness\x12\"\n" +
+	"\x05flags\x18\x06 \x01(\tB\f\xbaH\tr\a\xa0\xbb\x18\x01\x18\xf4\x03R\x05flagsB\v\n" +
 	"\t_agent_idB\x12\n" +
 	"\x10_idempotency_key\"`\n" +
 	"\x15RequestReviewResponse\x12+\n" +
@@ -2775,7 +2795,7 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\x12UpdateAgentRequest\x12\x17\n" +
 	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\x12\xfd\x01\n" +
 	"\x04name\x18\x02 \x01(\tB\xe8\x01\xbaH\xe4\x01\xba\x01\xd9\x01\n" +
-	"\rname.storable\x12Jname must not contain spaces, colons, dots, slashes, or control characters\x1a|!this.contains(' ') && !this.contains(':') && !this.contains('.') && !this.contains('/') && !this.matches('[\\x00-\\x1f\\x7f]')r\x05\x10\x01\x18\xc8\x01R\x04name2\xbf\xf9\x01\n" +
+	"\rname.storable\x12Jname must not contain spaces, colons, dots, slashes, or control characters\x1a|!this.contains(' ') && !this.contains(':') && !this.contains('.') && !this.contains('/') && !this.matches('[\\x00-\\x1f\\x7f]')r\x05\x10\x01\x18\xc8\x01R\x04name2\xfc\xfa\x01\n" +
 	"\fAgentService\x12\xc6\x05\n" +
 	"\n" +
 	"ListAgents\x12\x1b.agent.v1.ListAgentsRequest\x1a\x1c.agent.v1.ListAgentsResponse\"\xfc\x04\x9a\xb5\x18\xf4\x04\n" +
@@ -2783,12 +2803,9 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\bGetAgent\x12\x19.agent.v1.GetAgentRequest\x1a\x1a.agent.v1.GetAgentResponse\"\xeb\x01\x9a\xb5\x18\xe3\x01\n" +
 	"\tget_agent\x12\xd5\x01Fetch one agent by id, including whatever metadata it has recorded about its own work. Spans the archived agents too, since an id is the one handle those still answer to. Returns not_found if no agent has that id.\x90\x02\x01\x12\x8c\x10\n" +
 	"\vCreateAgent\x12\x1c.agent.v1.CreateAgentRequest\x1a\x1d.agent.v1.CreateAgentResponse\"\xbf\x0f\x9a\xb5\x18\xba\x0f\n" +
-	"\fcreate_agent\x12\xa7\x0fLaunch a background agent with an opening prompt. Requires an absolute or ~-prefixed directory: this spawns a real agent in a real tmux window, and a relative path would point somewhere unpredictable. Each call spawns another agent, so do not retry a call that may have succeeded. There is a ceiling on how many agents may exist at once, and a call past it is refused as resource_exhausted; that means there is no room rather than something being broken, so stop and tell the user instead of trying again. Set parentAgentId to attach the new agent to an existing one as its child, passing your own id from WEAVE_AGENT_ID, which is the shape for an agent that reads the tree you are in: reach for a child whenever that is what the new agent does, and leave it off when the new agent writes work of its own and so needs a checkout of its own, or when the person asking said they wanted an agent standing on its own. Set provisionEnabled to false to keep the directory you named rather than be given one: that is how an agent reads a checkout somebody else already has open, and it is what the reviewer case wants. Leave it unset to do whatever the workflow does. A child runs in its parent's directory and provisions nothing of its own, so dir and provisionEnabled are both refused rather than quietly overridden, and workflowId is still required but has to be the parent's own. It may only mail its parent and its parent's other children, it goes when the parent goes, and it cannot be restored on its own while the parent stays archived. A child may not have children of its own, and neither may an orchestrator: it is drawn on its workflow's own row rather than a row of its own, so a child of it would be drawn nowhere at all, and a parentAgentId naming one is refused. An orchestrator fans read-only work out as an ordinary agent in its workflow with provisionEnabled false, which gives that agent a row, a mailbox and the workflow's own directory to read. \x00\x12\xc7\v\n" +
-	"\rRequestReview\x12\x1e.agent.v1.RequestReviewRequest\x1a\x1f.agent.v1.RequestReviewResponse\"\xf4\n" +
-	"\x9a\xb5\x18\xef\n" +
-	"\n" +
-	"\x0erequest_review\x12\xda\n" +
-	"Get your own work read before you call it finished, which spawns the reviewer for you and hands you back the rest of the loop. Commit on your branch first, since a review is given against a snapshot of your checkout as it stands. The reviewer is launched as your child, in your checkout, marked as a reviewer so it is briefed to read rather than to write, and named after you unless you pass a title. Your prompt is the whole briefing it gets, so say what the change is meant to do and where you are unsure of it rather than only naming a branch. agentId defaults to your own, which is in the WEAVE_AGENT_ID environment variable. One reviewer reads every round of a change, so call this once: a second ask while that reviewer is still owed an answer is refused as already_exists, and what tells it there is more to read is you answering its threads with add_review_message. Pass idempotencyKey to make a retry safe, since a repeat of the call that spawned the reviewer is answered with that reviewer rather than refused. Once a reviewer has released an approval it is finished, so the next piece of work gets a reviewer of its own. Returns failed_precondition when the agent cannot hold a reviewer, which a child and a reviewer both cannot, and resource_exhausted when the panel has no room for another agent, which means to carry on and say so rather than to try again. \x00\x12\x90\a\n" +
+	"\fcreate_agent\x12\xa7\x0fLaunch a background agent with an opening prompt. Requires an absolute or ~-prefixed directory: this spawns a real agent in a real tmux window, and a relative path would point somewhere unpredictable. Each call spawns another agent, so do not retry a call that may have succeeded. There is a ceiling on how many agents may exist at once, and a call past it is refused as resource_exhausted; that means there is no room rather than something being broken, so stop and tell the user instead of trying again. Set parentAgentId to attach the new agent to an existing one as its child, passing your own id from WEAVE_AGENT_ID, which is the shape for an agent that reads the tree you are in: reach for a child whenever that is what the new agent does, and leave it off when the new agent writes work of its own and so needs a checkout of its own, or when the person asking said they wanted an agent standing on its own. Set provisionEnabled to false to keep the directory you named rather than be given one: that is how an agent reads a checkout somebody else already has open, and it is what the reviewer case wants. Leave it unset to do whatever the workflow does. A child runs in its parent's directory and provisions nothing of its own, so dir and provisionEnabled are both refused rather than quietly overridden, and workflowId is still required but has to be the parent's own. It may only mail its parent and its parent's other children, it goes when the parent goes, and it cannot be restored on its own while the parent stays archived. A child may not have children of its own, and neither may an orchestrator: it is drawn on its workflow's own row rather than a row of its own, so a child of it would be drawn nowhere at all, and a parentAgentId naming one is refused. An orchestrator fans read-only work out as an ordinary agent in its workflow with provisionEnabled false, which gives that agent a row, a mailbox and the workflow's own directory to read. \x00\x12\x84\r\n" +
+	"\rRequestReview\x12\x1e.agent.v1.RequestReviewRequest\x1a\x1f.agent.v1.RequestReviewResponse\"\xb1\f\x9a\xb5\x18\xac\f\n" +
+	"\x0erequest_review\x12\x97\fGet your own work read before you call it finished, which spawns the reviewer for you and hands you back the rest of the loop. Commit on your branch first, since a review is given against a snapshot of your checkout as it stands. The reviewer is launched as your child, in your checkout, marked as a reviewer so it is briefed to read rather than to write, and named after you unless you pass a title. It runs on your workflow's harness unless harness names another CLI weave knows, and takes the workflow's flags unless flags gives its own, which read the same way they do on create_agent. Your prompt is the whole briefing it gets, so say what the change is meant to do and where you are unsure of it rather than only naming a branch. agentId defaults to your own, which is in the WEAVE_AGENT_ID environment variable. One reviewer reads every round of a change, so call this once: a second ask while that reviewer is still owed an answer is refused as already_exists, and what tells it there is more to read is you answering its threads with add_review_message. Pass idempotencyKey to make a retry safe, since a repeat of the call that spawned the reviewer is answered with that reviewer rather than refused. Once a reviewer has released an approval it is finished, so the next piece of work gets a reviewer of its own. Returns failed_precondition when the agent cannot hold a reviewer, which a child and a reviewer both cannot, and resource_exhausted when the panel has no room for another agent, which means to carry on and say so rather than to try again. \x00\x12\x90\a\n" +
 	"\x05Adopt\x12\x16.agent.v1.AdoptRequest\x1a\x17.agent.v1.AdoptResponse\"\xd5\x06\x9a\xb5\x18\xd0\x06\n" +
 	"\x05adopt\x12\xc4\x06Put an agent on work that already exists, naming the branch it is on. A pull request URL or number is refused as invalid_argument, so read the branch off it and name that. The workflow decides the repository, and it has to be one whose agents get a worktree of their own. Weave works out where the agent runs: a worktree on that branch when nothing holds it, or the checkout already holding it when a human made one by hand. The branch is the human's, so nothing here creates it, resets it, or deletes it afterwards. A branch that already has an agent on it is refused as already_exists naming that agent, since git could not check it out twice anyway, so read the refusal rather than retrying. Each call otherwise spawns another agent, and only a repeat carrying the same idempotency_key is answered with the agent it already launched. \x00\x12\xe3\x06\n" +
 	"\aSetMark\x12\x18.agent.v1.SetMarkRequest\x1a\x16.google.protobuf.Empty\"\xa5\x06\x9a\xb5\x18\x9d\x06\n" +

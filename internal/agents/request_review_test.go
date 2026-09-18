@@ -3,10 +3,13 @@ package agents
 import (
 	"testing"
 
+	"weave/internal/harness"
 	agentstore "weave/internal/store/agent"
 	reviewstore "weave/internal/store/review"
+	workflowstore "weave/internal/store/workflow"
 	"weave/lib/xptr"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -365,4 +368,140 @@ func TestRequestReviewRefusesAnOrchestratorBeforeItSpawns(t *testing.T) {
 
 	_, _, err := manager.launch.RequestReview(ctx, RequestReviewParams{AgentID: author.ID, Prompt: "read it"})
 	require.ErrorIs(t, err, ErrReviewNeedsOwnWork)
+}
+
+// TestRequestReviewLandsTheReviewerOnTheHarnessAsked pins which CLI the reviewer runs, taking
+// what the asker named ahead of the workflow's default.
+func TestRequestReviewLandsTheReviewerOnTheHarnessAsked(t *testing.T) {
+	tests := []struct {
+		name      string
+		requested string
+		workflow  string
+		want      string
+	}{
+		{
+			name: "neither the asker nor the workflow names one, so it takes the configured default",
+			want: testHarnessID,
+		},
+		{
+			name:     "the workflow's default when the asker names none",
+			workflow: "codex",
+			want:     "codex",
+		},
+		{
+			name:      "the one asked for, over a workflow that defaults to another",
+			requested: "codex",
+			workflow:  "gemini",
+			want:      "codex",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			st := newStore(t)
+			tmux := newFakeTmux()
+			byID := map[string]*fakeHarness{
+				testHarnessID: {id: testHarnessID},
+				"codex":       {id: "codex", noSession: true},
+				"gemini":      {id: "gemini"},
+			}
+			service := st.agentService(agentServiceOptions{
+				tmux:      tmux,
+				harnesses: fakeHarnesses{byID: byID},
+			})
+			ctx := t.Context()
+
+			created, err := st.Workflows.Create(ctx, workflowstore.Config{
+				Name:    "workflow-" + uuid.NewString(),
+				Harness: tt.workflow,
+			})
+			require.NoError(t, err)
+
+			author, err := service.launch.NewAgent(ctx, NewAgentParams{
+				Title:      "author",
+				Dir:        t.TempDir(),
+				Prompt:     "write the change",
+				Harness:    testHarnessID,
+				WorkflowID: created.ID,
+			})
+			require.NoError(t, err)
+
+			reviewer, _, err := service.launch.RequestReview(ctx, RequestReviewParams{
+				AgentID: author.ID,
+				Prompt:  "read it",
+				Harness: tt.requested,
+			})
+			require.NoError(t, err)
+
+			assert.Equal(t, tt.want, reviewer.Harness)
+			assert.Equal(t, agentstore.RoleReviewer, reviewer.Role, "a different CLI is still a reviewer")
+			require.NotNil(t, reviewer.ParentAgentID)
+			assert.Equal(t, author.ID, *reviewer.ParentAgentID, "and still the asker's child")
+			assert.Equal(t, author.Cwd, reviewer.Cwd, "reading the asker's checkout")
+
+			launches := byID[tt.want].launches
+			require.NotEmpty(t, launches, "the CLI named on the row is the one launched")
+			assert.Contains(t, launches[len(launches)-1].Context, "### When you are the one reviewing")
+		})
+	}
+}
+
+// TestRequestReviewRefusesUnknownHarness pins that a CLI this binary cannot run is refused the
+// way a create is, before a reviewer row is written.
+func TestRequestReviewRefusesUnknownHarness(t *testing.T) {
+	st := newStore(t)
+	tmux := newFakeTmux()
+	service := st.agentService(agentServiceOptions{
+		tmux:      tmux,
+		harnesses: fakeHarnesses{harness: &fakeHarness{}, only: []string{testHarnessID}},
+	})
+	ctx := t.Context()
+
+	author, err := service.launch.NewAgent(ctx, NewAgentParams{
+		Title:      "author",
+		Dir:        t.TempDir(),
+		Prompt:     "write the change",
+		WorkflowID: seedWorkflow(t, st),
+	})
+	require.NoError(t, err)
+
+	_, _, err = service.launch.RequestReview(ctx, RequestReviewParams{
+		AgentID: author.ID,
+		Prompt:  "read it",
+		Harness: "gemini",
+	})
+	require.ErrorIs(t, err, harness.ErrNotRegistered)
+
+	all, err := st.List(ctx)
+	require.NoError(t, err)
+	assert.Len(t, all, 1, "a refused harness records no reviewer")
+	assert.Len(t, tmux.newWindows, 1, "and opens no second window")
+}
+
+// TestRequestReviewFlagsReachTheLaunch pins that the flags an asker gives its reviewer compose
+// the way they do on a create, the user's defaults for the CLI ahead of them.
+func TestRequestReviewFlagsReachTheLaunch(t *testing.T) {
+	tmux := newFakeTmux()
+	st := newStore(t)
+	manager, h := newManagerWithHarness(tmux, st, "--model opus")
+	ctx := t.Context()
+
+	author, err := manager.launch.NewAgent(ctx, NewAgentParams{
+		Title:      "author",
+		Dir:        t.TempDir(),
+		Prompt:     "write the change",
+		WorkflowID: seedWorkflow(t, st),
+	})
+	require.NoError(t, err)
+
+	reviewer, _, err := manager.launch.RequestReview(ctx, RequestReviewParams{
+		AgentID: author.ID,
+		Prompt:  "read it",
+		Flags:   "--effort high",
+	})
+	require.NoError(t, err)
+
+	assert.Equal(t, "--model opus --effort high", reviewer.Flags)
+	require.Len(t, h.launches, 2)
+	assert.Equal(t, "--model opus --effort high", h.launches[1].Flags)
 }

@@ -203,6 +203,8 @@ func (s *Service) RequestReview(ctx context.Context, req *agentv1.RequestReviewR
 		AgentID:        id,
 		Prompt:         req.GetPrompt(),
 		Title:          req.GetTitle(),
+		Harness:        req.GetHarness(),
+		Flags:          req.GetFlags(),
 		IdempotencyKey: req.GetIdempotencyKey(),
 	})
 	if err != nil {
