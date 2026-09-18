@@ -907,20 +907,39 @@ func TestArchivedAgentsSayTheSameOnBothScreens(t *testing.T) {
 	}
 }
 
-// TestArchivedHitIsDimBeforeItsListingLands covers the archived hit the archive listing has not
-// arrived for, whose greying and tag rest on what the server said rather than on a stamp the
-// panel does not hold yet.
-func TestArchivedHitIsDimBeforeItsListingLands(t *testing.T) {
-	m := filterModel()
-	m.screen = screenSearch
-	m.search = searchState{query: "payouts"}
-	m.archive.agents = nil
+// TestArchivedHitGreysOnWhatTheServerSaid covers the two archived hits the panel holds no stamp
+// for, the greying and the tag resting on the flag the search came back with.
+func TestArchivedHitGreysOnWhatTheServerSaid(t *testing.T) {
+	tests := []struct {
+		name   string
+		listed []agentstore.Agent
+	}{
+		{
+			name:   "the archive listing has not arrived",
+			listed: nil,
+		},
+		{
+			// A row archived before the stamp existed carries no ArchivedAt, so the facts read off
+			// it say nothing about being archived.
+			name:   "the listing arrived carrying no stamp",
+			listed: []agentstore.Agent{{ID: "a2", Name: "payouts", WorkflowID: "w1", State: agentstore.StateIdle}},
+		},
+	}
 
-	row := m.searchRow(searchHit{agentID: "gone", name: "payouts", archived: true}, "k")
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m := filterModel()
+			m.screen = screenSearch
+			m.search = searchState{query: "payouts"}
+			m.archive.agents = tt.listed
 
-	assert.True(t, row.Dim, "the server said it is archived, so it greys")
-	assert.Equal(t, archivedTagText, row.Tag)
-	assert.Equal(t, view.ProcessStopped, row.Process, "and it is over, whatever else is unknown")
+			row := m.searchRow(searchHit{agentID: "a2", name: "payouts", archived: true}, "k")
+
+			assert.True(t, row.Dim, "the server said it is archived, so it greys")
+			assert.Equal(t, archivedTagText, row.Tag)
+			assert.Equal(t, view.ProcessStopped, row.Process, "and it is over, whatever else is unknown")
+		})
+	}
 }
 
 // TestArchivedSearchRowKeepsTheDeleteThatFailed is the carve-out the archive already makes and
