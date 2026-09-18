@@ -104,6 +104,9 @@ func (s *ReviewService) OpenRound(ctx context.Context, agentID string, author Re
 	if err != nil {
 		return nil, err
 	}
+	if agent.ParentAgentID != nil {
+		return nil, fmt.Errorf("%w: %q is a child, writing in a checkout it does not own", ErrReviewNeedsOwnWork, agent.Name)
+	}
 	if agent.Cwd == "" {
 		return nil, fmt.Errorf("%w: %q has no directory to take a round of", ErrReviewNoRound, agent.Name)
 	}
