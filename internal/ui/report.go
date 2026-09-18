@@ -30,3 +30,17 @@ func (m *model) report(summary string, err error) {
 		trace:   errui.GetTrace(err),
 	})
 }
+
+// reportDropped names the files a silent release said nothing about.
+func (m *model) reportDropped(dropped []string) {
+	if len(dropped) == 0 {
+		return
+	}
+
+	m.pushMessage(message{
+		kind:    messageWarning,
+		summary: "Let go in silence with files still open",
+		detail: "nothing was typed at the agent, so it does not know about " + joinList(dropped) +
+			". tell it yourself before you trust what it writes next.",
+	})
+}

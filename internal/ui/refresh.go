@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -257,6 +258,10 @@ type writeResult struct {
 	// epoch is the write this result belongs to, which is how a held form tells its own landing
 	// from one an earlier submit is still waiting on.
 	epoch int
+	// released names the agent a landed release let go.
+	released string
+	// dropped is the files a silent release said nothing about.
+	dropped []string
 }
 
 type written struct {
@@ -363,6 +368,32 @@ func (m *model) writeCmd(summary string, write func(api) error) tea.Cmd {
 			summary: summary,
 			err:     write(clients),
 			epoch:   epoch,
+		}
+	}
+}
+
+// releaseCmd lets an agent go, naming the files a reader had open over it.
+func (m *model) releaseCmd(summary string, agent agentstore.Agent, said string) tea.Cmd {
+	return m.releaseWriteCmd(summary, agent, said+touchedSaid(m.edited[agent.ID]), nil)
+}
+
+// releaseInSilenceCmd lets an agent go without typing at it.
+func (m *model) releaseInSilenceCmd(summary string, agent agentstore.Agent) tea.Cmd {
+	return m.releaseWriteCmd(summary, agent, "", slices.Clone(m.edited[agent.ID]))
+}
+
+// releaseWriteCmd is writeCmd for a release, stamped so the landing can forget what it said.
+func (m *model) releaseWriteCmd(summary string, agent agentstore.Agent, said string, dropped []string) tea.Cmd {
+	clients := m.api
+	epoch := m.beginWrite()
+
+	return func() tea.Msg {
+		return writeResult{
+			summary:  summary,
+			err:      clients.release(agent, said),
+			epoch:    epoch,
+			released: agent.ID,
+			dropped:  dropped,
 		}
 	}
 }
@@ -489,6 +520,11 @@ func (m model) applyWrite(result writeResult) (tea.Model, tea.Cmd) {
 	m.pending--
 
 	m.report(result.summary, result.err)
+
+	if result.released != "" && result.err == nil {
+		m.forgetEdited(result.released)
+		m.reportDropped(result.dropped)
+	}
 
 	_, walkedAway := m.detached[result.epoch]
 	delete(m.detached, result.epoch)

@@ -179,9 +179,9 @@ func (m model) endReviewPass(said string) (tea.Model, tea.Cmd) {
 
 	agent, name := item.agent, m.review.agentName
 
-	return m, m.writeCmd("Could not let "+name+" go", func(a api) error {
-		return a.release(agent, said+touchedSaid(touched))
-	})
+	m.rememberEdited(agentID, touched)
+
+	return m, m.releaseCmd("Could not let "+name+" go", agent, said)
 }
 
 // rememberEdited keeps the files a reader opened over a paused agent until whoever holds that
@@ -202,13 +202,9 @@ func (m *model) rememberEdited(agentID string, touched []string) {
 	}
 }
 
-// takeEdited is what a release has to tell an agent about the files under a reader's editor, and
-// forgets them, since one agent hears about them once.
-func (m *model) takeEdited(agentID string) string {
-	touched := m.edited[agentID]
+// forgetEdited drops the files a reader opened over an agent.
+func (m *model) forgetEdited(agentID string) {
 	delete(m.edited, agentID)
-
-	return touchedSaid(touched)
 }
 
 // touchedSaid names the files the reader opened an editor on, since the agent is coming back to a
