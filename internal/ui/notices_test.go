@@ -58,6 +58,7 @@ func TestNoticesCoverEveryOptionalMark(t *testing.T) {
 		{"a stopped rebase", agentItem{agent: agentstore.Agent{SequenceInProgress: true}}, sequenceNotice},
 		{"a hidden row", agentItem{agent: agentstore.Agent{Hidden: true}}, hiddenNotice},
 		{"mail waiting", agentItem{unreadMail: true}, unreadMailNotice},
+		{"output nobody has read", agentItem{unviewed: true}, unreadOutputNotice},
 		{"a failed script", agentItem{failedRun: true}, failedRunNotice},
 	}
 
@@ -83,6 +84,7 @@ func TestNoticesAreOrderedByUrgency(t *testing.T) {
 			Hidden:          true,
 		},
 		unreadMail: true,
+		unviewed:   true,
 		failedRun:  true,
 	}
 
@@ -95,6 +97,7 @@ func TestNoticesAreOrderedByUrgency(t *testing.T) {
 		failedToCleanupNotice,
 		failedRunNotice,
 		unreadMailNotice,
+		unreadOutputNotice,
 		worktreeRemovedNotice,
 		hiddenNotice,
 	}, texts)
@@ -124,6 +127,7 @@ func TestNoticesWearTheGlyphTheRowDraws(t *testing.T) {
 		},
 		alive:          true,
 		unreadMail:     true,
+		unviewed:       true,
 		failedRun:      true,
 		localVerdict:   string(reviewstore.VerdictChangesRequested),
 		localTreeMoved: true,
@@ -134,6 +138,7 @@ func TestNoticesWearTheGlyphTheRowDraws(t *testing.T) {
 	want := map[string]view.Cell{
 		failedRunNotice:          line.Alert,
 		unreadMailNotice:         line.Mail,
+		unreadOutputNotice:       line.Unread,
 		sequenceNotice:           line.Repo,
 		heldPromptedNotice:       line.Held,
 		localChangesPushedNotice: line.Review,
@@ -150,22 +155,22 @@ func TestNoticesWearTheGlyphTheRowDraws(t *testing.T) {
 	}
 }
 
-// TestUnviewedCarriesNoGlyphAndHiddenDoes is why one of the two is said and the other dropped:
-// the row under the cursor wears the cursor's own colour over the brightening, so unviewed has
-// nothing on the row to be said for, while hidden is a mark the row draws whatever the cursor.
-func TestUnviewedCarriesNoGlyphAndHiddenDoes(t *testing.T) {
+// TestUnviewedIsSaidUnderTheMarkTheCursorLeavesAlone covers unviewed surviving the cursor: the
+// row under it keeps the unread mark, so the record has a mark to say it for.
+func TestUnviewedIsSaidUnderTheMarkTheCursorLeavesAlone(t *testing.T) {
 	line := view.Prepare(view.Snapshot{
 		Rows:    []view.Row{{Key: "a", Unviewed: true, Hidden: true}},
 		Focused: "a",
 	}).Lines[0]
 
-	assert.Equal(t, view.EmphasisFocused, line.Emphasis, "the hovered row does not say unviewed")
-	assert.False(t, line.Hidden.IsBlank(), "and still draws the hidden mark")
+	assert.Equal(t, view.EmphasisFocused, line.Emphasis, "the hovered row wears the cursor's colour")
+	assert.False(t, line.Unread.IsBlank(), "and still draws the unread mark")
+	assert.False(t, line.Hidden.IsBlank(), "and the hidden mark")
 
 	notices := agentNotices(noticeRow(agentItem{unviewed: true, agent: agentstore.Agent{Hidden: true}}))
 
-	assert.Equal(t, []string{hiddenNotice}, noticeTexts(notices), "hidden is durable, unviewed goes on a second's dwell")
-	assert.Equal(t, view.Spell(view.GlyphHidden), notices[0].icon, "said under the mark the row draws")
+	assert.Equal(t, []string{unreadOutputNotice, hiddenNotice}, noticeTexts(notices))
+	assert.Equal(t, view.Spell(view.GlyphUnread), notices[0].icon, "said under the mark the row draws")
 }
 
 // TestArchivedNoticesAreOnlyTheFailures covers the archive, whose rows draw one mark of their

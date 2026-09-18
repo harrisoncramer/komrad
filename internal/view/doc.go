@@ -42,6 +42,11 @@
 // pause and the schedule belong to. A hidden agent still running is bright with the mark, a
 // dormant one is dim with the mark, and an archived one is dim without it.
 //
+// Output nobody has read is a mark in the same family rather than a brighter name, since a
+// brighter name loses to the cursor, to dim, and to a theme whose own foreground is near white.
+// It sits beside the mail, the two being what waits to be read, in the quiet tone the rest of
+// the family wears.
+//
 // An indent costs the name the columns it spends, so an agent has less room for its name than a
 // workflow at the same pane, and the narrowing and the mark shedding both read the indent rather
 // than the gutter alone.
@@ -55,7 +60,7 @@
 // mark gutter or the status bar. A row too full for what is left gives up its tally and then its
 // name, a row at a time rather than the whole list, and gives up its marks only where the marks
 // alone would not fit the pane: the schedule first, then the hiding, then the pause, then the
-// mail, and the failed run last.
+// mail, then the output nobody has read, and the failed run last.
 //
 // # A screen may give up a column its rows could never fill
 //

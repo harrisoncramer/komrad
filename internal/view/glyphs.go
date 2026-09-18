@@ -37,6 +37,7 @@ var glyphNames = []struct {
 	{GlyphMerged, "merged"},
 	{GlyphAlert, "alert"},
 	{GlyphMail, "mail"},
+	{GlyphUnread, "unread"},
 	{GlyphPaused, "paused"},
 	{GlyphHidden, "hidden"},
 	{GlyphSchedule, "schedule"},

@@ -47,9 +47,10 @@ func TestDrawingsAgreeWithTheLayout(t *testing.T) {
 	assert.Equal(t, plainColumns, widths["child"])
 }
 
-// TestReviewGlyphsSpellTheirOcticons pins each review mark to its codepoint, since the private
-// use characters are lost in transit and a wrong one draws as a box rather than failing.
-func TestReviewGlyphsSpellTheirOcticons(t *testing.T) {
+// TestGlyphsSpellTheirOcticons pins each mark written from its number to its codepoint, since
+// the private use characters are lost in transit and a wrong one draws as a box rather than
+// failing.
+func TestGlyphsSpellTheirOcticons(t *testing.T) {
 	tests := []struct {
 		glyph Glyph
 		want  string
@@ -59,6 +60,7 @@ func TestReviewGlyphsSpellTheirOcticons(t *testing.T) {
 		{GlyphBell, "f49a"},
 		{GlyphHourglass, "f4e3"},
 		{GlyphApproved, "f42e"},
+		{GlyphUnread, "f52b"},
 	}
 
 	for _, tt := range tests {
