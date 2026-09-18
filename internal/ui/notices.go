@@ -64,8 +64,8 @@ func agentNotices(item agentItem) []notice {
 	notices := failureNotices(state)
 	notices = appendNotice(notices, item.failedRun, failedRunIcon, paint.ToneDanger, failedRunNotice)
 	notices = appendNotice(notices, item.unreadMail, unreadMailIcon, paint.ToneAccent, unreadMailNotice)
-	notices = appendNotice(notices, item.agent.WorktreeRemoved && state != agentstore.StateFailedToCreate, worktreeRemovedIcon, paint.ToneDanger, worktreeRemovedNotice)
-	notices = appendNotice(notices, !item.agent.WorktreeRemoved && item.agent.SequenceInProgress && state != agentstore.StateFailedToCreate, sequenceInProgressIcon, paint.ToneWarning, sequenceNotice)
+	notices = appendNotice(notices, item.agent.WorktreeRemoved, worktreeRemovedIcon, paint.ToneDanger, worktreeRemovedNotice)
+	notices = appendNotice(notices, !item.agent.WorktreeRemoved && item.agent.SequenceInProgress, sequenceInProgressIcon, paint.ToneWarning, sequenceNotice)
 	notices = appendNotice(notices, item.unviewed, unviewedIcon, paint.ToneSuccess, unviewedNotice)
 	if held, ok := heldFact(item); ok {
 		notices = append(notices, held)
