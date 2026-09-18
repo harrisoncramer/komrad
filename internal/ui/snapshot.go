@@ -16,6 +16,8 @@ type snapshotParams struct {
 	selected selection
 	// focused is the key of the row the caret stands on, empty when it stands on none.
 	focused string
+	// scheduled are the workflows at least one schedule launches into, keyed by workflow id.
+	scheduled map[string]bool
 	// showHidden says the hidden rows are drawn alongside the rest, so none is stood in for.
 	showHidden bool
 	// nameWidth is the column names are cut to.
@@ -49,6 +51,7 @@ func snapshotRow(r agentRow, params snapshotParams) view.Row {
 	if r.header {
 		row.Kind = view.KindWorkflow
 		row.Name = r.workflow.Name
+		row.Scheduled = params.scheduled[r.workflow.ID]
 
 		// A workflow's bar is its orchestrator's, and one that has never had an orchestrator has
 		// no more of a process behind it than a dormant one.

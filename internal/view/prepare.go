@@ -23,7 +23,7 @@ func prepareLine(row Row, focused bool, nameWidth int) Line {
 		Forge:    forgeCell(row.Forge),
 		Status:   statusCell(row.Status, row.Dormant),
 		Rule:     row.Kind == KindChild,
-		Name:     clipName(row.Name, nameWidth),
+		Name:     row.Name,
 		Weight:   weightFor(row.Kind),
 		Emphasis: emphasisFor(row),
 		Held:     markCell(row.Held, GlyphPaused, paint.ToneWarning),
@@ -33,6 +33,8 @@ func prepareLine(row Row, focused bool, nameWidth int) Line {
 		Schedule: markCell(row.Scheduled, GlyphSchedule, paint.ToneMuted),
 		Selected: row.Selected,
 	}
+
+	line.Name = clipName(row.Name, nameColumns(line, nameWidth))
 
 	if row.Dim {
 		return greyed(line)

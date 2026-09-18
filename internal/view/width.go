@@ -1,5 +1,7 @@
 package view
 
+import "fmt"
+
 // gutterGlyphColumns is how many columns one Octicon takes, which is what the font draws rather
 // than what Unicode declares.
 const gutterGlyphColumns = 2
@@ -24,6 +26,41 @@ func GutterColumns() int {
 // NameColumns is the column a name has in a pane of the given width.
 func NameColumns(pane int) int {
 	return max(pane-GutterColumns(), 0)
+}
+
+// ruleColumns is the corner a child hangs off its parent by, and the space after it.
+const ruleColumns = 2
+
+// trailingColumns is everything a row draws after its name, each part a space away from what
+// precedes it.
+func trailingColumns(line Line) int {
+	columns := 0
+	for _, cell := range []Cell{line.Held, line.Mail, line.Alert, line.Schedule} {
+		if !cell.IsBlank() {
+			columns += plainColumns + glyphColumns(cell.Glyph)
+		}
+	}
+
+	if line.Tally > 0 {
+		columns += plainColumns + len(fmt.Sprintf("+%d", line.Tally))
+	}
+
+	return columns
+}
+
+// nameColumns is what one row has left for its name once its own corner and the marks after its
+// name have taken theirs, keeping a column for the name however much is spent.
+func nameColumns(line Line, width int) int {
+	if width <= 0 {
+		return width
+	}
+
+	spent := trailingColumns(line)
+	if line.Rule {
+		spent += ruleColumns
+	}
+
+	return max(width-spent, 1)
 }
 
 // extraColumns is how far a drawn row overruns what lipgloss measures of it, since an Octicon

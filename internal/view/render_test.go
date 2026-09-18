@@ -1,6 +1,7 @@
 package view
 
 import (
+	"fmt"
 	"regexp"
 	"strings"
 	"testing"
@@ -314,6 +315,31 @@ func TestRenderDormantRowKeepsTheNameColumn(t *testing.T) {
 
 	for i, line := range list.Lines {
 		assert.Equal(t, drawnNameColumn, nameColumnOf(drawn[i], line), "row %q", drawn[i])
+	}
+}
+
+// TestRenderKeepsTheBusiestRowInsideThePane pins that the marks after a name survive it: the row
+// carrying every one of them, on a child, still draws inside the pane it was sized for.
+func TestRenderKeepsTheBusiestRowInsideThePane(t *testing.T) {
+	busiest := Row{
+		Key:         "busiest",
+		Kind:        KindChild,
+		Name:        "an agent with a very long name indeed that will not fit",
+		Held:        true,
+		UnreadMail:  true,
+		FailedRun:   true,
+		Scheduled:   true,
+		HiddenCount: 12,
+	}
+
+	for _, pane := range []int{40, 60, 120} {
+		t.Run(fmt.Sprintf("pane %d", pane), func(t *testing.T) {
+			list := Prepare(Snapshot{Rows: []Row{busiest}, NameWidth: NameColumns(pane)})
+			drawn := ansiEscapes.ReplaceAllString(Render(list, paint.Colored, 0), "")
+
+			assert.LessOrEqual(t, drawnColumns(drawn), pane, "row %q", drawn)
+			assert.Contains(t, drawn, spell(GlyphSchedule), "the last mark is still drawn")
+		})
 	}
 }
 

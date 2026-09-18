@@ -361,9 +361,10 @@ func TestSnapshotDormant(t *testing.T) {
 // TestSnapshotKinds pins what each row of the tree stands for.
 func TestSnapshotKinds(t *testing.T) {
 	tests := []struct {
-		name string
-		row  agentRow
-		want view.Row
+		name      string
+		row       agentRow
+		scheduled map[string]bool
+		want      view.Row
 	}{
 		{
 			name: "a workflow whose orchestrator is working says so on its own bar",
@@ -410,6 +411,34 @@ func TestSnapshotKinds(t *testing.T) {
 			},
 		},
 		{
+			name: "a workflow a schedule launches into says so",
+			row: agentRow{
+				header:   true,
+				workflow: workflowstore.Workflow{ID: "w1", Name: "weave"},
+			},
+			scheduled: map[string]bool{"w1": true},
+			want: view.Row{
+				Key:       "workflow:w1",
+				Kind:      view.KindWorkflow,
+				Name:      "weave",
+				Dormant:   true,
+				Scheduled: true,
+			},
+		},
+		{
+			name: "an agent under a scheduled workflow does not inherit its mark",
+			row: agentRow{item: agentItem{
+				agent: agentstore.Agent{ID: "a1", Name: "worker", WorkflowID: "w1", State: agentstore.StateIdle},
+			}},
+			scheduled: map[string]bool{"w1": true},
+			want: view.Row{
+				Key:     "agent:a1",
+				Kind:    view.KindAgent,
+				Name:    "worker",
+				Dormant: true,
+			},
+		},
+		{
 			name: "a child hangs off the row above it",
 			row: agentRow{
 				item:  agentItem{agent: agentstore.Agent{ID: "a1", Name: "reviewer"}},
@@ -434,7 +463,10 @@ func TestSnapshotKinds(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, snapshotRowOf(t, snapshotParams{rows: []agentRow{tt.row}}))
+			assert.Equal(t, tt.want, snapshotRowOf(t, snapshotParams{
+				rows:      []agentRow{tt.row},
+				scheduled: tt.scheduled,
+			}))
 		})
 	}
 }
