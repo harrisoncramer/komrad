@@ -271,7 +271,7 @@ func findLandedCutoff(ctx context.Context, dir, ref string, own []string) (int, 
 	// Walked newest first rather than halved, since a squash leaves the intermediate states
 	// holding content the base never took and so reading as unlanded inside a landed run.
 	for i := len(own) - 1; i >= 0; i-- {
-		merged, _, err := readMergedTree(ctx, dir, ref, own[i])
+		merged, _, err := readMergedTree(ctx, readMergedTreeParams{Dir: dir, Left: ref, Right: own[i]})
 		if err != nil {
 			return -1, err
 		}
@@ -285,16 +285,33 @@ func findLandedCutoff(ctx context.Context, dir, ref string, own []string) (int, 
 
 // readConflictPaths test-merges ref into the head and answers with what would not settle.
 func readConflictPaths(ctx context.Context, dir, ref string) ([]string, error) {
-	_, paths, err := readMergedTree(ctx, dir, ref, "HEAD")
+	_, paths, err := readMergedTree(ctx, readMergedTreeParams{Dir: dir, Left: ref, Right: "HEAD"})
 
 	return paths, err
 }
 
+// readMergedTreeParams is one merge done in memory: the two sides and, when it is not to be worked
+// out from their history, the base to merge them from.
+type readMergedTreeParams struct {
+	Dir       string
+	Left      string
+	Right     string
+	MergeBase string
+}
+
 // readMergedTree merges two commits in memory and answers with the tree that would result and
 // the paths that would not settle, without touching the checkout.
-func readMergedTree(ctx context.Context, dir, left, right string) (tree string, conflicts []string, err error) {
+func readMergedTree(ctx context.Context, params readMergedTreeParams) (tree string, conflicts []string, err error) {
+	dir, left, right := params.Dir, params.Left, params.Right
+
+	args := []string{"merge-tree", "--write-tree", "--name-only"}
+	if params.MergeBase != "" {
+		args = append(args, "--merge-base="+params.MergeBase)
+	}
+	args = append(args, left, right)
+
 	// A conflict is reported by exiting 1 with the paths on stdout, so that code is an answer.
-	out, err := runAllowing(ctx, dir, 1, "merge-tree", "--write-tree", "--name-only", left, right)
+	out, err := runAllowing(ctx, dir, 1, args...)
 	if err != nil {
 		return "", nil, fmt.Errorf("failed to test-merge %s into %s in %q: %w", left, right, dir, err)
 	}
@@ -302,10 +319,10 @@ func readMergedTree(ctx context.Context, dir, left, right string) (tree string, 
 	// The first line is the tree the merge wrote, the paths follow it, and a blank line ends
 	// them before the messages git wrote about each one.
 	lines := strings.Split(out, "\n")
-	if len(lines) == 0 {
+	tree = lines[0]
+	if tree == "" {
 		return "", nil, fmt.Errorf("failed to read what merging %s into %s would do in %q", left, right, dir)
 	}
-	tree = lines[0]
 
 	for _, line := range lines[1:] {
 		if strings.TrimSpace(line) == "" {

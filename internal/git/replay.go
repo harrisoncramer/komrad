@@ -3,7 +3,6 @@ package git
 import (
 	"context"
 	"fmt"
-	"strings"
 )
 
 // ReplayParams says which snapshot to carry onto which base.
@@ -38,29 +37,18 @@ func (c *Client) Replay(ctx context.Context, params ReplayParams) (*Replayed, er
 		return nil, err
 	}
 
-	// A conflict is reported by exiting 1 with the paths on stdout, so that code is an answer.
-	out, err := runAllowing(ctx, root, 1,
-		"merge-tree", "--write-tree", "--name-only", "--merge-base="+params.FromBase,
-		params.OntoBase, params.SnapshotSHA)
+	tree, conflicts, err := readMergedTree(ctx, readMergedTreeParams{
+		Dir:       root,
+		Left:      params.OntoBase,
+		Right:     params.SnapshotSHA,
+		MergeBase: params.FromBase,
+	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to replay %s from %s onto %s in %q: %w",
-			params.SnapshotSHA, params.FromBase, params.OntoBase, root, err)
+		return nil, fmt.Errorf("failed to replay %s from %s onto %s: %w",
+			params.SnapshotSHA, params.FromBase, params.OntoBase, err)
 	}
 
-	// The first line is the tree the merge wrote, the paths follow it, and a blank line ends
-	// them before the messages git wrote about each one.
-	lines := strings.Split(out, "\n")
-	replayed := &Replayed{Tree: lines[0]}
-
-	for _, line := range lines[1:] {
-		if strings.TrimSpace(line) == "" {
-			break
-		}
-
-		replayed.Conflicts = append(replayed.Conflicts, line)
-	}
-
-	return replayed, nil
+	return &Replayed{Tree: tree, Conflicts: conflicts}, nil
 }
 
 // IsAncestor reports whether one commit is reachable from another.

@@ -42,7 +42,7 @@ type reviewChapter struct {
 	ToBase string
 	// Rewritten says the base the chapter starts on is not reachable from the one it ends on.
 	Rewritten bool
-	// Replayed says the start was carried onto the end's base, so the two ends compare.
+	// Replayed says the start was carried onto the end's base.
 	Replayed bool
 	// Conflicts is the paths the base rewrote under the agent, which a replay could not settle.
 	Conflicts []string
@@ -258,8 +258,7 @@ type replayChaptersParams struct {
 }
 
 // replayChapters carries the start of every chapter whose base moved onto the base its end
-// stands on, so the two ends compare as the agent's own work, and leaves a chapter the base
-// rewrote under the agent refused as it was.
+// stands on.
 func replayChapters(ctx context.Context, params replayChaptersParams) []reviewChapter {
 	for i := range params.Chapters {
 		chapter := &params.Chapters[i]
@@ -269,8 +268,7 @@ func replayChapters(ctx context.Context, params replayChaptersParams) []reviewCh
 
 		chapter.Rewritten = isBaseRewritten(ctx, params, *chapter)
 
-		// A git too old to replay, or a commit gone, leaves the refusal standing rather than
-		// failing the load.
+		// A git too old to replay, or a commit gone, leaves the refusal standing.
 		replayed, err := params.Git.Replay(ctx, git.ReplayParams{
 			Dir:         params.Dir,
 			FromBase:    chapter.FromBase,
@@ -295,8 +293,8 @@ func replayChapters(ctx context.Context, params replayChaptersParams) []reviewCh
 	return params.Chapters
 }
 
-// isBaseRewritten reports whether a chapter's start sits on a base its end cannot reach, saying
-// no when git cannot answer, which is the weaker of the two claims.
+// isBaseRewritten reports whether a chapter's start sits on a base its end cannot reach, and
+// says no when git cannot answer.
 func isBaseRewritten(ctx context.Context, params replayChaptersParams, chapter reviewChapter) bool {
 	reachable, err := params.Git.IsAncestor(ctx, params.Dir, chapter.FromBase, chapter.ToBase)
 
