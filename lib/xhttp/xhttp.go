@@ -72,7 +72,7 @@ func JSON(ctx context.Context, params JSONParams, out any) (Answer, error) {
 	if req.Header.Get("Accept") == "" {
 		req.Header.Set("Accept", "application/json")
 	}
-	if params.Body != nil {
+	if params.Body != nil && req.Header.Get("Content-Type") == "" {
 		req.Header.Set("Content-Type", "application/json")
 	}
 

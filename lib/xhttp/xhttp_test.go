@@ -19,6 +19,7 @@ func TestJSON(t *testing.T) {
 		Method string          `json:"method"`
 		Auth   string          `json:"auth"`
 		Accept string          `json:"accept"`
+		Type   string          `json:"type"`
 		Body   json.RawMessage `json:"body"`
 	}
 
@@ -38,6 +39,7 @@ func TestJSON(t *testing.T) {
 			Method: r.Method,
 			Auth:   r.Header.Get("Authorization"),
 			Accept: r.Header.Get("Accept"),
+			Type:   r.Header.Get("Content-Type"),
 			Body:   body,
 		})
 	}))
@@ -48,7 +50,7 @@ func TestJSON(t *testing.T) {
 		Client: server.Client(),
 		Method: http.MethodPost,
 		URL:    server.URL + "/ok",
-		Header: http.Header{"Authorization": {"Bearer tok"}},
+		Header: http.Header{"Authorization": {"Bearer tok"}, "Content-Type": {"application/vnd.weave+json"}},
 		Body:   map[string]int{"n": 1},
 	}, &got)
 	require.NoError(t, err)
@@ -57,6 +59,7 @@ func TestJSON(t *testing.T) {
 	assert.Equal(t, "POST", got.Method)
 	assert.Equal(t, "Bearer tok", got.Auth)
 	assert.Equal(t, "application/json", got.Accept)
+	assert.Equal(t, "application/vnd.weave+json", got.Type)
 	assert.JSONEq(t, `{"n":1}`, string(got.Body))
 
 	var ignored echo
