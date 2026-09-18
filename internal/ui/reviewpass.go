@@ -161,25 +161,21 @@ func (m model) endReviewPass(said string) (tea.Model, tea.Cmd) {
 	m.review.touched = nil
 	m.review.pausing = false
 
+	m.rememberEdited(agentID, touched)
+
 	// Explainer: a pause the reader took themselves is theirs to let go, from the screen they took
 	// it on, so the files they opened are left where that release will find them rather than
 	// reaching an agent nobody is letting go yet.
 	if !ours {
-		m.rememberEdited(agentID, touched)
-
 		return m, nil
 	}
 
 	item, ok := m.getReviewAgentItem()
 	if !ok {
-		m.rememberEdited(agentID, touched)
-
 		return m, nil
 	}
 
 	agent, name := item.agent, m.review.agentName
-
-	m.rememberEdited(agentID, touched)
 
 	return m, m.releaseCmd("Could not let "+name+" go", agent, said)
 }
@@ -202,9 +198,19 @@ func (m *model) rememberEdited(agentID string, touched []string) {
 	}
 }
 
-// forgetEdited drops the files a reader opened over an agent.
-func (m *model) forgetEdited(agentID string) {
-	delete(m.edited, agentID)
+// forgetSpoken drops the files a release has named.
+func (m *model) forgetSpoken(agentID string, spoken []string) {
+	kept := slices.DeleteFunc(m.edited[agentID], func(path string) bool {
+		return slices.Contains(spoken, path)
+	})
+
+	if len(kept) == 0 {
+		delete(m.edited, agentID)
+
+		return
+	}
+
+	m.edited[agentID] = kept
 }
 
 // touchedSaid names the files the reader opened an editor on, since the agent is coming back to a

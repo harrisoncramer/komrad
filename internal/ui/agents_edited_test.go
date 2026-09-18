@@ -29,8 +29,7 @@ func (r *refusingHolds) ReleaseAgent(ctx context.Context, req *connect.Request[a
 	return r.recordingHolds.ReleaseAgent(ctx, req)
 }
 
-// TestARefusedUnpauseKeepsTheEditedFiles covers the retry after a refusal, which is the press the
-// panel's own advice asks for.
+// TestARefusedUnpauseKeepsTheEditedFiles covers the retry the panel's own advice asks for.
 func TestARefusedUnpauseKeepsTheEditedFiles(t *testing.T) {
 	at := time.Now()
 	agents := &refusingHolds{refusals: 1}
@@ -53,8 +52,7 @@ func TestARefusedUnpauseKeepsTheEditedFiles(t *testing.T) {
 		"the retry after a refusal still names the edited file")
 }
 
-// TestASilentUnpauseForgetsTheEditedFiles covers the release that says nothing, whose paths belong
-// to a hold that has ended.
+// TestASilentUnpauseForgetsTheEditedFiles covers the release that says nothing.
 func TestASilentUnpauseForgetsTheEditedFiles(t *testing.T) {
 	at := time.Now()
 	agents := &recordingHolds{}
@@ -76,8 +74,25 @@ func TestASilentUnpauseForgetsTheEditedFiles(t *testing.T) {
 		"the person is told what the agent was not")
 }
 
-// TestARefusedEndOfAReviewPassKeepsTheEditedFiles covers the release the review screen sends,
-// whose paths are the reader's own and are gone the moment the write is refused.
+// TestALandedUnpauseForgetsTheEditedFiles covers the release that named the files, which one
+// agent hears about once.
+func TestALandedUnpauseForgetsTheEditedFiles(t *testing.T) {
+	at := time.Now()
+	agents := &recordingHolds{}
+
+	m := heldModel(agents, &at)
+	m.rememberEdited("a1", []string{"internal/agents/hold.go"})
+
+	pressed, cmd := m.Update(keyMsg("p"))
+	got := settle(t, asModel(t, pressed), cmd)
+
+	require.Len(t, agents.released, 1)
+	assert.Contains(t, agents.released[0].GetSaid(), "internal/agents/hold.go")
+	assert.Empty(t, got.edited["a1"], "a release that named the files forgets them")
+}
+
+// TestARefusedEndOfAReviewPassKeepsTheEditedFiles covers the release the review screen sends at
+// the end of a pass.
 func TestARefusedEndOfAReviewPassKeepsTheEditedFiles(t *testing.T) {
 	at := time.Now()
 	agents := &refusingHolds{refusals: 1}

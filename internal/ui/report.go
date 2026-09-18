@@ -32,15 +32,15 @@ func (m *model) report(summary string, err error) {
 }
 
 // reportDropped names the files a silent release said nothing about.
-func (m *model) reportDropped(dropped []string) {
+func (m *model) reportDropped(name string, dropped []string) {
 	if len(dropped) == 0 {
 		return
 	}
 
 	m.pushMessage(message{
 		kind:    messageWarning,
-		summary: "Let go in silence with files still open",
-		detail: "nothing was typed at the agent, so it does not know about " + joinList(dropped) +
-			". tell it yourself before you trust what it writes next.",
+		summary: name + ": let go in silence with files still open",
+		detail: "Nothing was typed at it, so tell it yourself about " + joinList(dropped) +
+			" before you trust what it writes next.",
 	})
 }
