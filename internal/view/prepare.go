@@ -65,6 +65,7 @@ func prepareLine(params prepareLineParams) Line {
 		Forge:    forgeCell(row.Forge),
 		Status:   statusCell(row.Status, row.Dormant),
 		Rule:     row.Kind == KindChild,
+		Indent:   indentFor(row.Kind),
 		Name:     row.Name,
 		Matches:  row.Matches,
 		Weight:   weightFor(row.Kind),
@@ -202,6 +203,16 @@ func weightFor(kind RowKind) Weight {
 	}
 
 	return WeightRegular
+}
+
+// indentFor is how far a row's name is set in from the gutter, an agent under its workflow and
+// a child under its agent.
+func indentFor(kind RowKind) int {
+	if kind == KindWorkflow {
+		return 0
+	}
+
+	return indentColumns
 }
 
 // fitRow gives a row's width up in order: the tally, then the name, and last the marks, which

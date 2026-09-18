@@ -50,6 +50,9 @@ func NameColumns(pane int, columns Columns) int {
 // ruleColumns is the corner a child hangs off its parent by, and the space after it.
 const ruleColumns = 2
 
+// indentColumns is how far a name is set in under the row above it.
+const indentColumns = 2
+
 // trailingColumns is everything a row draws after its name, each part a space away from what
 // precedes it.
 func trailingColumns(line Line) int {
@@ -70,7 +73,7 @@ func trailingColumns(line Line) int {
 // nameColumns is what one row has left for its name once its own corner and the marks after its
 // name have taken theirs, which on a narrow pane is nothing at all.
 func nameColumns(line Line, width int) int {
-	spent := trailingColumns(line)
+	spent := trailingColumns(line) + line.Indent
 	if line.Rule {
 		spent += ruleColumns
 	}
