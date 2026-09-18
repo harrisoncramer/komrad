@@ -397,7 +397,7 @@ func (m *model) releaseInSilenceCmd(summary string, agent agentstore.Agent) tea.
 	}), let)
 }
 
-// stampRelease says on a write's result which agent it let go and which files it named.
+// stampRelease says on a write's result which agent it let go and which files it carried.
 func stampRelease(cmd tea.Cmd, let released) tea.Cmd {
 	return func() tea.Msg {
 		msg := cmd()
