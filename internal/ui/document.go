@@ -3,6 +3,7 @@ package ui
 import (
 	"fmt"
 	"strings"
+
 	"weave/internal/ui/paint"
 
 	"github.com/charmbracelet/glamour/ansi"
