@@ -350,9 +350,9 @@ func TestReleaseKeepsTheHoldWhenTheBoxRefuses(t *testing.T) {
 	assert.True(t, after.HeldMidTurn)
 }
 
-// TestReleasingInSilenceLetsGoOfABoxThatRefuses covers the way out of a box that will never take
-// the words, a release asking for nothing to be said letting go without touching the pane.
-func TestReleasingInSilenceLetsGoOfABoxThatRefuses(t *testing.T) {
+// TestReleasingInSilenceLetsGoOfAnInterruptedAgent covers the way out of a hold whose words have
+// nowhere to go, a release asking for nothing to be said letting go without touching the pane.
+func TestReleasingInSilenceLetsGoOfAnInterruptedAgent(t *testing.T) {
 	st := newStore(t)
 	agent := seed(t, st, "telescope", "%1", agentstore.StateThinking)
 
@@ -362,10 +362,9 @@ func TestReleasingInSilenceLetsGoOfABoxThatRefuses(t *testing.T) {
 		harness.ActivityIdle,
 	}})
 
-	_, err := holder.Hold(t.Context(), agent.ID)
+	held, err := holder.Hold(t.Context(), agent.ID)
 	require.NoError(t, err)
-
-	channel.refuseSend = true
+	require.True(t, held.HeldMidTurn, "so the speaking path is the one being skipped")
 
 	released, err := holder.Release(t.Context(), ReleaseParams{AgentID: agent.ID})
 	require.NoError(t, err)
