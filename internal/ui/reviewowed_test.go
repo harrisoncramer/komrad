@@ -228,3 +228,32 @@ func TestWalkingTheOpenCommentsStopsAtTheEnds(t *testing.T) {
 	assert.Equal(t, last, after, "and nothing is below the last")
 	assert.Contains(t, m.review.notice, "comment", "the notice says what is left")
 }
+
+// TestTheLegendFollowsTheKeysOntoTheThread covers the legend naming the conversation's own keys
+// once the reader has taken the keys onto it, and the diff's again once they hand them back.
+func TestTheLegendFollowsTheKeysOntoTheThread(t *testing.T) {
+	m := owedModel(t, []*agentv1.ReviewThread{owedThread("t1", fakeFile, 2)})
+	m.helpExpanded = true
+
+	m, _ = walkOpen(t, m, "u")
+	require.False(t, m.isReviewThreadFocused(), "the diff holds the keys to start")
+
+	diff := ansi.Strip(m.renderHelp(m.reviewHelp()))
+	assert.NotContains(t, diff, "scroll the thread")
+
+	next, _ := m.updateReview(keyMsg("ctrl+f"))
+	m, ok := next.(model)
+	require.True(t, ok)
+	require.True(t, m.review.threadFocus, "and now the conversation does")
+
+	thread := ansi.Strip(m.renderHelp(m.reviewHelp()))
+	assert.Contains(t, thread, "scroll the thread")
+	assert.Contains(t, thread, "back to the diff")
+	assert.NotEqual(t, diff, thread, "which is a different legend")
+
+	next, _ = m.updateReview(keyMsg("ctrl+f"))
+	m, ok = next.(model)
+	require.True(t, ok)
+
+	assert.Equal(t, diff, ansi.Strip(m.renderHelp(m.reviewHelp())), "and the diff's legend is back")
+}
