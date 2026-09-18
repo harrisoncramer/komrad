@@ -10,8 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// gatedReview is a released review holding one open comment on the line under the cursor, which
-// is the state that refuses the keys that write.
+// gatedReview is a released review holding one open comment on the line under the cursor.
 func gatedReview(t *testing.T, m model, agents *fakeReviewAgents) model {
 	t.Helper()
 
@@ -29,8 +28,7 @@ func gatedReview(t *testing.T, m model, agents *fakeReviewAgents) model {
 	return refreshReview(t, m)
 }
 
-// refreshReview runs the tick the panel runs on its own, which is the only path that moves the
-// flag.
+// refreshReview runs the tick the panel runs on its own.
 func refreshReview(t *testing.T, m model) model {
 	t.Helper()
 
@@ -87,9 +85,8 @@ func TestSettlingTheLastCommentLetsTheNextReviewGo(t *testing.T) {
 	assert.True(t, m.review.releasing, "and the verdict panel opens again")
 }
 
-// TestReplyingLetsTheNextReviewGo is the other way out, which the refusal describes and no test
-// walked: an answer in a comment the review already holds is an unsent comment, and an unsent
-// comment is what the send key asks for.
+// TestReplyingLetsTheNextReviewGo is the other way out: an answer in a comment the review already
+// holds is an unsent comment, and an unsent comment is what the send key asks for.
 func TestReplyingLetsTheNextReviewGo(t *testing.T) {
 	dir := reviewRepo(t)
 	agents := &fakeReviewAgents{}

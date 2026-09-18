@@ -96,9 +96,9 @@ func findLastHumanReview(reviews []*agentv1.Review, ordinal int32) *agentv1.Revi
 // reads the count off the newest released review alone, so reading any other review here would
 // leave the panel refusing keys the service would allow, with nothing on the round to lift it.
 
-// lastOwedReview is the review the person released last while it is still owed an answer, nil
-// once nothing is.
-func lastOwedReview(reviews []*agentv1.Review) *agentv1.Review {
+// findLastOwedReview is the review the person released last while it is still owed an answer,
+// nil once nothing is.
+func findLastOwedReview(reviews []*agentv1.Review) *agentv1.Review {
 	var last *agentv1.Review
 	for _, review := range reviews {
 		if review.GetAuthorKind() != agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_HUMAN {

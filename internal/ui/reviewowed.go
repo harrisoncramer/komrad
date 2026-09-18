@@ -21,7 +21,7 @@ const reviewOwedTone = paint.ToneAccent
 // owedRows is the most comments named before the rest are counted.
 const owedRows = 3
 
-// owedThreadRows is what the conversation below is kept.
+// owedThreadRows is how many rows the conversation below keeps.
 const owedThreadRows = 3
 
 // noRow is the place of a comment the diff draws nowhere, which sorts last.
@@ -32,7 +32,7 @@ type owedComment struct {
 	thread *agentv1.ReviewThread
 	// row is where the diff draws it, noRow for one no row carries.
 	row int
-	// folded says its file has been read and put away, which is why it has no row.
+	// folded says its file has been read and put away.
 	folded bool
 }
 
@@ -52,7 +52,7 @@ func (m model) reviewOwedComments() []owedComment {
 			continue
 		}
 
-		row, drawn := m.review.view.RowOfThread(thread.GetId())
+		row, drawn := m.review.view.GetThreadRow(thread.GetId())
 		if !drawn {
 			row = noRow
 		}
@@ -71,8 +71,7 @@ func (m model) reviewOwedComments() []owedComment {
 	return owed
 }
 
-// reviewOwedSaid is how many comments of the reader's are still open, which is what every
-// refusal leads with.
+// reviewOwedSaid is how many comments of the reader's are still open.
 func reviewOwedSaid(owed []owedComment) string {
 	// The gate is read off the service and the rows off the conversation, so the sentence has to
 	// stand up in the moment before the comments themselves have arrived.
@@ -156,8 +155,7 @@ func (m model) reviewOwedRow(comment owedComment) string {
 		style.Render(where) + dimStyle.Render(pad+"  "+said) + "\n"
 }
 
-// clipToTail cuts a path from its front rather than its back, since the line number a comment
-// stands on is the end of it.
+// clipToTail cuts a path from its front so its line number survives.
 func clipToTail(said string, room int) string {
 	if lipgloss.Width(said) <= room {
 		return said

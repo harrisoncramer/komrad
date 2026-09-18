@@ -346,8 +346,7 @@ func (m model) stepReviewFile(pressed string) (tea.Model, tea.Cmd) {
 	return m.jumpReviewFile(1)
 }
 
-// stepOpenThread walks the comments nobody has settled, which is the walk a person clearing a
-// review makes.
+// stepOpenThread walks the comments nobody has settled.
 func (m model) stepOpenThread(pressed string) (tea.Model, tea.Cmd) {
 	if isBound(pressed, m.keys.Review.PrevOpenThread) {
 		return m.jumpOpenThread(-1)

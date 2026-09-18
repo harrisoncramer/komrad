@@ -30,8 +30,7 @@ func owedThread(id, path string, line int32, messages ...*agentv1.ReviewMessage)
 	}
 }
 
-// agentReply is the agent answering in a thread, which is what settles nothing and says a
-// comment has at least been read.
+// agentReply is the agent answering in a thread without settling it.
 func agentReply() *agentv1.ReviewMessage {
 	return &agentv1.ReviewMessage{
 		Id:         "m-agent",
@@ -60,9 +59,9 @@ func owedModel(t *testing.T, threads []*agentv1.ReviewThread) model {
 	return refreshReview(t, m)
 }
 
-// TestTheStripNamesWhatIsHoldingTheReview covers the whole point of it: what a reader had to walk
+// TestTheOwedListNamesWhatIsHoldingTheReview covers the whole point of it: what a reader had to walk
 // the diff to learn is drawn once, above the conversation.
-func TestTheStripNamesWhatIsHoldingTheReview(t *testing.T) {
+func TestTheOwedListNamesWhatIsHoldingTheReview(t *testing.T) {
 	m := owedModel(t, []*agentv1.ReviewThread{
 		owedThread("t1", "a.txt", 2),
 		owedThread("t2", "b.txt", 5, agentReply()),
@@ -77,8 +76,8 @@ func TestTheStripNamesWhatIsHoldingTheReview(t *testing.T) {
 	assert.Contains(t, shown, "answered")
 }
 
-// TestTheStripCountsItsOwnRows pins the number to the comments drawn and not to the flag.
-func TestTheStripCountsItsOwnRows(t *testing.T) {
+// TestTheOwedListCountsItsOwnRows pins the number to the comments drawn and not to the flag.
+func TestTheOwedListCountsItsOwnRows(t *testing.T) {
 	m := owedModel(t, []*agentv1.ReviewThread{
 		owedThread("t1", "a.txt", 2),
 		owedThread("t2", "b.txt", 5),
@@ -96,9 +95,9 @@ func TestTheStripCountsItsOwnRows(t *testing.T) {
 	assert.NotContains(t, shown, "a.txt:2")
 }
 
-// TestTheStripGoesWhenTheLastCommentIsSettled is the same invariant at zero, where a count over
-// an empty list would be the contradiction the strip exists to end.
-func TestTheStripGoesWhenTheLastCommentIsSettled(t *testing.T) {
+// TestTheOwedListGoesWhenTheLastCommentIsSettled is the same invariant at zero, where a count over
+// an empty list would be the contradiction the list exists to end.
+func TestTheOwedListGoesWhenTheLastCommentIsSettled(t *testing.T) {
 	m := owedModel(t, []*agentv1.ReviewThread{owedThread("t1", "a.txt", 2)})
 
 	require.Contains(t, ansi.Strip(m.reviewSidebarView()), "Open in your review")
@@ -110,8 +109,8 @@ func TestTheStripGoesWhenTheLastCommentIsSettled(t *testing.T) {
 	assert.NotContains(t, ansi.Strip(m.reviewSidebarView()), "Open in your review")
 }
 
-// TestTheStripCountsWhatItCannotDraw covers a sidebar with more comments than rows.
-func TestTheStripCountsWhatItCannotDraw(t *testing.T) {
+// TestTheOwedListCountsWhatItCannotDraw covers a sidebar with more comments than rows.
+func TestTheOwedListCountsWhatItCannotDraw(t *testing.T) {
 	threads := make([]*agentv1.ReviewThread, 0, 6)
 	for i := range 6 {
 		threads = append(threads, owedThread(fmt.Sprintf("t%d", i), fmt.Sprintf("f%d.txt", i), int32(i+1)))
@@ -125,9 +124,9 @@ func TestTheStripCountsWhatItCannotDraw(t *testing.T) {
 	assert.Contains(t, shown, "+ 3 more", "three are drawn and the rest are counted")
 }
 
-// TestTheStripIsNotDrawnOverADeadAgent covers the agent the service lifts the gate for, where a
-// strip saying the review is held would be false.
-func TestTheStripIsNotDrawnOverADeadAgent(t *testing.T) {
+// TestTheOwedListIsNotDrawnOverADeadAgent covers the agent the service lifts the gate for, where a
+// list saying the review is held would be false.
+func TestTheOwedListIsNotDrawnOverADeadAgent(t *testing.T) {
 	m := owedModel(t, []*agentv1.ReviewThread{owedThread("t1", "a.txt", 2)})
 
 	require.Contains(t, ansi.Strip(m.reviewSidebarView()), "Open in your review")
@@ -137,9 +136,9 @@ func TestTheStripIsNotDrawnOverADeadAgent(t *testing.T) {
 	assert.NotContains(t, ansi.Strip(m.reviewSidebarView()), "Open in your review")
 }
 
-// TestTheStripSaysWhenACommentIsFoldedAway covers the comment in a file the reader has put away,
-// which the walk cannot reach and the strip would otherwise name without saying why.
-func TestTheStripSaysWhenACommentIsFoldedAway(t *testing.T) {
+// TestTheOwedListSaysWhenACommentIsFoldedAway covers the comment in a file the reader has put away,
+// which the walk cannot reach and the list would otherwise name without saying why.
+func TestTheOwedListSaysWhenACommentIsFoldedAway(t *testing.T) {
 	m := owedModel(t, []*agentv1.ReviewThread{owedThread("t1", fakeFile, 2)})
 
 	require.Contains(t, ansi.Strip(m.reviewSidebarView()), "no reply")
@@ -151,9 +150,9 @@ func TestTheStripSaysWhenACommentIsFoldedAway(t *testing.T) {
 	assert.Contains(t, ansi.Strip(m.reviewSidebarView()), "folded away")
 }
 
-// TestTheStripBrightensWhatIsOnScreen covers a comment in view being drawn in the panel's own
+// TestTheOwedListBrightensWhatIsOnScreen covers a comment in view being drawn in the panel's own
 // colour while one that is not stays dim.
-func TestTheStripBrightensWhatIsOnScreen(t *testing.T) {
+func TestTheOwedListBrightensWhatIsOnScreen(t *testing.T) {
 	restore := lipgloss.ColorProfile()
 	t.Cleanup(func() { lipgloss.SetColorProfile(restore) })
 	lipgloss.SetColorProfile(termenv.TrueColor)
@@ -162,7 +161,7 @@ func TestTheStripBrightensWhatIsOnScreen(t *testing.T) {
 
 	rows := m.reviewOwedComments()
 	require.Len(t, rows, 1)
-	require.True(t, m.isReviewCommentNear(rows[0]), "its line is drawn beside the strip")
+	require.True(t, m.isReviewCommentNear(rows[0]), "its line is drawn beside the list")
 
 	bright := paint.Panel.Style(reviewOwedTone).Bold(true).Render(fakeFile + ":2")
 	assert.Contains(t, m.reviewSidebarView(), bright)
@@ -172,6 +171,7 @@ func TestTheStripBrightensWhatIsOnScreen(t *testing.T) {
 
 	require.False(t, m.isReviewCommentNear(m.reviewOwedComments()[0]), "and now it is not")
 	assert.NotContains(t, m.reviewSidebarView(), bright)
+	assert.Contains(t, m.reviewSidebarView(), dimStyle.Render(fakeFile+":2"), "the row is still named, dim")
 }
 
 // walkOpen presses a key and gives back the row the cursor landed on.
@@ -205,8 +205,7 @@ func TestWalkingTheOpenCommentsGoesBothWays(t *testing.T) {
 	assert.Equal(t, second, back, "the one above it, not the one a wrap would have reached")
 }
 
-// TestWalkingTheOpenCommentsStopsAtTheEnds covers the walk holding still at either end, which is
-// what the keys that walk every thread do.
+// TestWalkingTheOpenCommentsStopsAtTheEnds covers the walk holding still at either end.
 func TestWalkingTheOpenCommentsStopsAtTheEnds(t *testing.T) {
 	m := owedModel(t, []*agentv1.ReviewThread{
 		owedThread("t1", fakeFile, 2),

@@ -132,6 +132,5 @@ func (r reviewState) doesTakeEveryKey() bool {
 	return r.composing || r.releasing || r.filter.typing
 }
 
-// isOwedAnAnswer reports whether a comment the reader released is still open, which is what
-// refuses a second review.
+// isOwedAnAnswer reports whether a comment the reader released is still open.
 func (r reviewState) isOwedAnAnswer() bool { return r.owed != "" }

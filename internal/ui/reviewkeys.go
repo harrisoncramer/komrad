@@ -244,8 +244,7 @@ func (m model) jumpReviewMatch(direction int) (tea.Model, tea.Cmd) {
 	return m.moveReviewCursor(next)
 }
 
-// jumpOpenThread moves to the next comment nobody has settled, stopping at the ends the way the
-// keys that walk every thread do.
+// jumpOpenThread moves to the next comment nobody has settled, stopping at the ends.
 func (m model) jumpOpenThread(direction int) (tea.Model, tea.Cmd) {
 	next, ok := m.review.view.JumpOpenThread(m.review.cursor, direction)
 	if !ok || next == m.review.cursor {

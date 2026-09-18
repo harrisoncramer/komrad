@@ -90,7 +90,7 @@ func (m model) refreshReviewThreadsCmd() tea.Cmd {
 			if reviews, rerr := call(reviewTimeout, func(ctx context.Context) ([]*agentv1.Review, error) {
 				return listReviews(ctx, agents, agentID)
 			}); rerr == nil {
-				id := lastOwedReview(reviews).GetId()
+				id := findLastOwedReview(reviews).GetId()
 				owed = &id
 			}
 		}

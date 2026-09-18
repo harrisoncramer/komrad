@@ -108,7 +108,7 @@ func (m model) doesReviewFitDetails() bool {
 
 // reviewHeadView is the fixed top of the sidebar: whatever is standing in the way of a review, or
 // the place the cursor is standing when nothing is.
-func (m model) reviewHeadView(stripRoom int) string {
+func (m model) reviewHeadView(owedRoom int) string {
 	switch {
 	case m.review.loading:
 		return dimStyle.Render(reviewLoadingWord) + "\n"
@@ -116,7 +116,7 @@ func (m model) reviewHeadView(stripRoom int) string {
 		return dimStyle.Render(reviewEmptyWord) + "\n"
 	}
 
-	return m.reviewOwedView(stripRoom) + m.reviewAnchorView()
+	return m.reviewOwedView(owedRoom) + m.reviewAnchorView()
 }
 
 // reviewNote is a line of prose under the conversation, wrapped into the sidebar's own column.

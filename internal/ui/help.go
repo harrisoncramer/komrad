@@ -362,8 +362,7 @@ func (m model) reviewHelp() keyMap {
 	}
 }
 
-// isReviewThreadHolding reports whether the reader has taken the keys onto the conversation,
-// which is not the same as the sidebar drawing an input.
+// isReviewThreadHolding reports whether the reader has taken the keys onto the conversation.
 func (m model) isReviewThreadHolding() bool {
 	if m.screen != screenReview || m.review.composing || m.review.releasing {
 		return false
@@ -374,8 +373,7 @@ func (m model) isReviewThreadHolding() bool {
 	return ok && m.review.threadFocus
 }
 
-// reviewThreadHelp is the legend while the conversation holds the keys, which moves inside it
-// and acts on the comment it is drawing.
+// reviewThreadHelp is the legend while the conversation holds the keys.
 func (m model) reviewThreadHelp() keyMap {
 	scroll := binding(concatKeys(m.keys.Nav.Up, m.keys.Nav.Down), "scroll the thread")
 	ends := binding(concatKeys(m.keys.Nav.Top, m.keys.Nav.Bottom), "top/bottom")

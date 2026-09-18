@@ -224,29 +224,18 @@ func (f *fakeReviewAgents) SetReviewThreadResolved(
 	return connect.NewResponse(&agentv1.SetReviewThreadResolvedResponse{}), nil
 }
 
-// countOpenThreads recounts the open threads of every review a thread names.
+// countOpenThreads recounts the open threads of every review, the way ListReviews does.
 func (f *fakeReviewAgents) countOpenThreads() {
-	open := map[string]int32{}
-
-	for _, thread := range f.threads {
-		id := thread.GetReviewId()
-		if id == "" {
-			continue
-		}
-
-		if _, named := open[id]; !named {
-			open[id] = 0
-		}
-
-		if thread.GetResolvedAt() == "" {
-			open[id]++
-		}
-	}
-
 	for _, review := range f.reviews {
-		if count, named := open[review.GetId()]; named {
-			review.OpenThreads = count
+		var open int32
+
+		for _, thread := range f.threads {
+			if thread.GetReviewId() == review.GetId() && thread.GetResolvedAt() == "" {
+				open++
+			}
 		}
+
+		review.OpenThreads = open
 	}
 }
 

@@ -78,8 +78,7 @@ type View struct {
 	// that rebuilding left.
 	threads []*agentv1.ReviewThread
 	search  *search
-	// narrowed says the patch is a slice of the change rather than the whole of it, which is what
-	// tells a comment on a file that has left the change from one merely off screen.
+	// narrowed says the patch is a slice of the change rather than the whole of it.
 	narrowed bool
 }
 
@@ -810,8 +809,8 @@ func (v *View) nearestNewLine(y int) int {
 	return 1
 }
 
-// RowOfThread is the row a thread is drawn on, false for one no row carries.
-func (v *View) RowOfThread(id string) (int, bool) {
+// GetThreadRow is the row a thread is drawn on, false for one no row carries.
+func (v *View) GetThreadRow(id string) (int, bool) {
 	for y, thread := range v.pinned {
 		if thread.GetId() == id {
 			return y, true
