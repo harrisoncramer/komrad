@@ -2,12 +2,11 @@ package view
 
 import "fmt"
 
-// gutterGlyphColumns is how many columns one Octicon takes, which is what the font draws rather
-// than what Unicode declares.
-const gutterGlyphColumns = 2
-
-// plainColumns is how many columns every other glyph takes.
+// plainColumns is how many columns one glyph takes, every glyph the package draws taking one.
 const plainColumns = 1
+
+// spaceColumns is the space a cell carries after its glyph.
+const spaceColumns = 1
 
 // plainCells is the focus, the mark and the bar, which no width gives up.
 const plainCells = 3
@@ -30,11 +29,10 @@ func (c Columns) drawn() int {
 // GutterColumns is how wide everything left of a name is, which is what a caller takes off the
 // pane to reach the column a name has.
 func GutterColumns(columns Columns) int {
+	// Every cell holds one glyph and the space after it, a cell with nothing to draw included.
 	cells := plainCells + columns.drawn()
-	octicons := columns.drawn() * gutterGlyphColumns
-	rest := plainCells * plainColumns
 
-	return octicons + rest + cells
+	return cells * (plainColumns + spaceColumns)
 }
 
 // NameColumns is the column a name has in a pane of the given width.
@@ -54,7 +52,7 @@ func trailingColumns(line Line) int {
 	columns := 0
 	for _, cell := range []Cell{line.Held, line.Mail, line.Alert, line.Schedule} {
 		if !cell.IsBlank() {
-			columns += plainColumns + glyphColumns(cell.Glyph)
+			columns += plainColumns + spaceColumns
 		}
 	}
 
@@ -76,20 +74,6 @@ func nameColumns(line Line, width int) int {
 	return width - spent
 }
 
-// extraColumns is how far a drawn row overruns what lipgloss measures of it, since an Octicon
-// sits in the private use area and is measured as one column there.
-func extraColumns(line Line, columns Columns) int {
-	cells := []Cell{line.Focus, line.Mark, line.Status, line.Held, line.Mail, line.Alert, line.Schedule}
-	cells = append(cells, drawnColumnCells(line, columns)...)
-
-	extra := 0
-	for _, cell := range cells {
-		extra += glyphColumns(cell.Glyph) - plainColumns
-	}
-
-	return extra
-}
-
 // drawnColumnCells is the three columns a list is wide enough to draw, in the order work moves
 // through them.
 func drawnColumnCells(line Line, columns Columns) []Cell {
@@ -105,18 +89,4 @@ func drawnColumnCells(line Line, columns Columns) []Cell {
 	}
 
 	return cells
-}
-
-// glyphColumns is how many columns one glyph takes.
-func glyphColumns(glyph Glyph) int {
-	switch glyph {
-	case GlyphNone:
-		return plainColumns
-	case GlyphBusy, GlyphQuiet, GlyphChild, GlyphFocus:
-		return plainColumns
-	case GlyphRepo, GlyphReview, GlyphForge, GlyphApproved, GlyphBroken, GlyphChanges, GlyphMerged, GlyphAlert, GlyphMail, GlyphPaused, GlyphSchedule:
-		return gutterGlyphColumns
-	}
-
-	return plainColumns
 }

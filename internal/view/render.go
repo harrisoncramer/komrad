@@ -33,7 +33,7 @@ func renderLine(line Line, columns Columns, palette paint.Palette, width int) st
 		drawGutterCell(palette, line.Mark),
 	}
 	for _, cell := range drawnColumnCells(line, columns) {
-		cells = append(cells, drawCell(palette, cell))
+		cells = append(cells, drawGutterCell(palette, cell))
 	}
 
 	gutter := strings.Join(append(cells, drawGutterCell(palette, line.Status)), " ")
@@ -42,7 +42,7 @@ func renderLine(line Line, columns Columns, palette paint.Palette, width int) st
 		drawName(palette, line) + drawTrailing(palette, line)
 
 	if line.Selected {
-		return paint.PaintRow(row, width-extraColumns(line, columns))
+		return paint.PaintRow(row, width)
 	}
 
 	return row
@@ -158,7 +158,7 @@ func nameStyle(palette paint.Palette, weight Weight, emphasis Emphasis) lipgloss
 // box-drawing rule.
 func spell(glyph Glyph) string {
 	switch glyph {
-	case GlyphNone:
+	case GlyphNone, glyphCount:
 		return ""
 	case GlyphRepo:
 		return ""
@@ -186,6 +186,8 @@ func spell(glyph Glyph) string {
 		return "▍"
 	case GlyphQuiet:
 		return "│"
+	case GlyphStopped:
+		return "┊"
 	case GlyphChild:
 		return "└"
 	case GlyphFocus:

@@ -55,15 +55,101 @@ func TestPrepareStatusBar(t *testing.T) {
 	}
 }
 
-// TestPrepareDormantRowDrawsNoBar pins the one cell that says something by drawing nothing: an
-// agent with a process behind it is quiet, and one with none has no channel at all.
-func TestPrepareDormantRowDrawsNoBar(t *testing.T) {
-	quiet := prepareOne(t, Row{Status: StatusIdle})
-	dormant := prepareOne(t, Row{Status: StatusIdle, Dormant: true})
+// TestPrepareBarSaysWhatStandsBehindARow pins the four values the bar takes, blank among them
+// meaning a row that never had a process rather than one whose process has gone.
+func TestPrepareBarSaysWhatStandsBehindARow(t *testing.T) {
+	tests := []struct {
+		name string
+		row  Row
+		want Cell
+	}{
+		{
+			name: "a process sitting quiet is a solid pipe",
+			row:  Row{Status: StatusIdle},
+			want: Cell{Glyph: GlyphQuiet, Tone: paint.ToneMuted},
+		},
+		{
+			name: "a process that has stopped is a dashed pipe",
+			row:  Row{Status: StatusIdle, Process: ProcessStopped},
+			want: Cell{Glyph: GlyphStopped, Tone: paint.ToneMuted},
+		},
+		{
+			name: "a process that stopped mid-thought is dashed rather than busy",
+			row:  Row{Status: StatusThinking, Process: ProcessStopped},
+			want: Cell{Glyph: GlyphStopped, Tone: paint.ToneMuted},
+		},
+		{
+			name: "a row that never had a process draws nothing",
+			row:  Row{Status: StatusIdle, Process: ProcessNone},
+			want: Cell{},
+		},
+	}
 
-	assert.Equal(t, Cell{Glyph: GlyphQuiet, Tone: paint.ToneMuted}, quiet.Status)
-	assert.True(t, dormant.Status.IsBlank())
-	assert.NotEqual(t, quiet.Status, dormant.Status)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, prepareOne(t, tt.row).Status)
+		})
+	}
+}
+
+// TestPrepareBarTellsAStoppedProcessFromNone pins the distinction the fourth value was added for,
+// which one glyph and one blank cell used to carry between them.
+func TestPrepareBarTellsAStoppedProcessFromNone(t *testing.T) {
+	stopped := prepareOne(t, Row{Process: ProcessStopped}).Status
+	none := prepareOne(t, Row{Process: ProcessNone}).Status
+
+	assert.False(t, stopped.IsBlank())
+	assert.True(t, none.IsBlank())
+	assert.NotEqual(t, stopped, none)
+}
+
+// TestPrepareRowWithNoCheckoutDrawsNoColumns pins the difference between a stage that has not
+// happened and one that never can: a row owning no checkout draws all three columns blank where
+// a row owning one draws them greyed.
+func TestPrepareRowWithNoCheckoutDrawsNoColumns(t *testing.T) {
+	owns := prepareOne(t, Row{Name: "worker"})
+	none := prepareOne(t, Row{Name: "reviewer", NoCheckout: true})
+
+	for _, cell := range []Cell{owns.Repo, owns.Review, owns.Forge} {
+		assert.False(t, cell.IsBlank())
+		assert.Equal(t, paint.ToneMuted, cell.Tone)
+	}
+
+	assert.True(t, none.Repo.IsBlank())
+	assert.True(t, none.Review.IsBlank())
+	assert.True(t, none.Forge.IsBlank())
+}
+
+// TestPrepareNoCheckoutBeatsWhatTheColumnsWouldSay pins that a row owning no checkout draws
+// nothing in the three columns whatever the snapshot put in them.
+func TestPrepareNoCheckoutBeatsWhatTheColumnsWouldSay(t *testing.T) {
+	line := prepareOne(t, Row{
+		Name:       "reviewer",
+		NoCheckout: true,
+		Repo:       RepoGone,
+		Review:     ReviewApproved,
+		Forge:      ForgeMerged,
+	})
+
+	assert.True(t, line.Repo.IsBlank())
+	assert.True(t, line.Review.IsBlank())
+	assert.True(t, line.Forge.IsBlank())
+}
+
+// TestPrepareNoCheckoutKeepsEveryOtherCell pins that emptying the three columns takes nothing
+// else off a row.
+func TestPrepareNoCheckoutKeepsEveryOtherCell(t *testing.T) {
+	row := Row{Name: "reviewer", Status: StatusThinking, Held: true, UnreadMail: true, FailedRun: true, Scheduled: true}
+	owns := prepareOne(t, row)
+
+	row.NoCheckout = true
+	none := prepareOne(t, row)
+
+	assert.Equal(t, owns.Status, none.Status)
+	assert.Equal(t, owns.Held, none.Held)
+	assert.Equal(t, owns.Mail, none.Mail)
+	assert.Equal(t, owns.Alert, none.Alert)
+	assert.Equal(t, owns.Schedule, none.Schedule)
 }
 
 // TestPrepareRepoColumn pins where an agent's own checkout stands.
@@ -465,7 +551,7 @@ func TestPrepareClipsName(t *testing.T) {
 			name:  "a name past the column ends in an ellipsis",
 			given: "eng-6994-unable-to-create",
 			pane:  29,
-			want:  "eng-6994-un…",
+			want:  "eng-6994-unabl…",
 		},
 		{
 			name:  "a name inside the column is left alone",
@@ -565,7 +651,7 @@ func TestPrepareClipsMatchesWithTheName(t *testing.T) {
 			name:    "a match the cut runs through is shortened to what is left",
 			matches: []Span{{Start: 3, End: 14}},
 			pane:    17,
-			want:    []Span{{Start: 3, End: 5}},
+			want:    []Span{{Start: 3, End: 6}},
 		},
 		{
 			name:    "a match before the cut is left alone",
@@ -642,15 +728,15 @@ func TestPrepareGivesTheTallyUpBeforeTheMarks(t *testing.T) {
 		wantTally int
 	}{
 		{
-			name:      "the width Harry runs gives the tally up and spends what it frees on the name",
-			pane:      16,
-			wantName:  "an …",
+			name:      "a pane with nothing left for a name gives the tally up and spends what it frees",
+			pane:      13,
+			wantName:  "an…",
 			wantTally: 0,
 		},
 		{
 			name:      "the default sidebar has room for both",
 			pane:      30,
-			wantName:  "an agen…",
+			wantName:  "an agent wi…",
 			wantTally: 12,
 		},
 		{
@@ -692,14 +778,19 @@ func TestPrepareShedsMarksOnlyWhereTheMarksAloneWillNotFit(t *testing.T) {
 		want []Glyph
 	}{
 		{
-			name: "the width Harry runs keeps the failed run alone",
-			pane: 16,
+			name: "a pane with room for one mark keeps the failed run alone",
+			pane: 13,
 			want: []Glyph{GlyphAlert},
 		},
 		{
 			name: "a pane two wider keeps the mail as well",
-			pane: 18,
+			pane: 15,
 			want: []Glyph{GlyphMail, GlyphAlert},
+		},
+		{
+			name: "the width Harry runs keeps every mark but the schedule",
+			pane: 16,
+			want: []Glyph{GlyphPaused, GlyphMail, GlyphAlert},
 		},
 		{
 			name: "a pane wide enough for the marks keeps every one of them",
@@ -770,6 +861,6 @@ func TestDroppedColumnsBuyTheNameTheirRoom(t *testing.T) {
 		Dropped: Columns{Repo: true, Review: true, Forge: true},
 	})
 
-	assert.Equal(t, 9, NameColumns(pane, none.Columns)-NameColumns(pane, every.Columns),
+	assert.Equal(t, 6, NameColumns(pane, none.Columns)-NameColumns(pane, every.Columns),
 		"each of the three costs an Octicon and the space after it")
 }

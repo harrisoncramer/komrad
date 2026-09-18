@@ -1,12 +1,12 @@
 [90m  ↑ 5 more[0m
     [90m[0m [90m[0m [90m[0m [34m▍[0m   research-identity-ass…
-    [90m[0m [90m[0m [90m[0m   [1mdeploy[0m [90m+2[0m
-  [33mo[0m [90m[0m [90m[0m [90m[0m   [1mops[0m
-    [90m[0m [90m[0m [90m[0m     rds-backup-hardening
-    [90m[0m [90m[0m [90m[0m   [1mstrip-demo[0m
+            [1mdeploy[0m [90m+2[0m
+  [33mo[0m         [1mops[0m
+    [90m[0m [90m[0m [90m[0m [90m┊[0m   rds-backup-hardening
+            [1mstrip-demo[0m
 [34m›[0m   [90m[0m [93m[0m [90m[0m [93m▍[0m   [34mstrip-demo[0m
-  [33mw[0m [90m[0m [90m[0m [90m[0m   [1mweave[0m [90m+4[0m
-    [90m[0m [90m[0m [90m[0m     competitive-analys… [93m[0m
-    [90m[0m [90m[0m [90m[0m     [90m└[0m [3mcompetitor-architec…[0m
-    [90m[0m [90m[0m [90m[0m     pr-metadata-fixes [93m[0m
+  [33mw[0m         [1mweave[0m [90m+4[0m
+    [90m[0m [90m[0m [90m[0m [90m┊[0m   competitive-analysis [93m[0m
+          [90m┊[0m   [90m└[0m [3mcompetitor-architec…[0m
+    [90m[0m [90m[0m [90m[0m [90m┊[0m   pr-metadata-fixes [93m[0m
 [90m  ↓ 6 more[0m

@@ -18,10 +18,20 @@
 // again, bold for a workflow and italic for a child, so neither the indent nor the lettering is
 // the only thing saying where a row sits.
 //
-// The status bar is the one cell that draws nothing rather than drawing greyed. A dim pipe says
-// there is a process here and it is quiet, and an empty cell says there is no process at all, so
-// a dormant agent reads as a name with no channel beside it. Blank carries that meaning only
-// because every other cell is always drawn.
+// One rule covers every cell of the row: blank is not applicable, anything drawn is applicable,
+// and the shape says which state it is in. The three columns are blank on a row that can never
+// own a checkout, and the bar is a dim pipe where a process is there and quiet, a dashed pipe
+// where one was there and has stopped, and blank where there is none.
+//
+// The bar reports what stands behind a row now rather than what once did, so a workflow that
+// never had an orchestrator and one whose orchestrator has been archived both draw blank, those
+// being one fact in the present tense.
+//
+// That leaves the bar one uneven seam. An agent whose pane has died draws the dashed pipe, while
+// a workflow whose orchestrator was archived draws blank, though each is a process that was there
+// and has stopped. It shows only when somebody archives an orchestrator, nothing in the store can
+// tell the two apart today, and closing it wants a durable orchestrator id on the workflow rather
+// than a guess in the gather.
 //
 // The old sidebar did offset an agent's name from a workflow's, because agent rows carried a
 // state icon that workflow rows did not. Here the status bar is in the shared gutter on every
@@ -58,9 +68,8 @@
 //
 // Rows hands back one drawn string per row and stops there. Which of them fit the pane, and
 // which the list is scrolled to, is the caller's, since only the caller knows what else it has
-// put above and below them. A caller measuring those rows applies the same correction the
-// selection bar does, because an Octicon sits in the private use area and is measured as one
-// column where the font draws two.
+// put above and below them. A caller measuring those rows measures what lipgloss measures, an
+// Octicon drawing the single column the font gives it.
 //
 // Window is that work already done, for a caller that has only to say how many lines it has
 // left. It scrolls to the row the snapshot named, and a key naming no row at all leaves the

@@ -12,17 +12,22 @@ func (m model) isReviewable(agent agentstore.Agent) bool {
 	if agent.Cwd == "" || agent.WorktreeRemoved {
 		return false
 	}
-	// A child sits in its parent's checkout, and an agent told to keep the directory it was given
-	// sits in somebody's own, so the diff there is that person's work and the review threads on
-	// it belong on their row rather than this one.
-	if agent.ParentAgentID != nil || (agent.ProvisionEnabled != nil && !*agent.ProvisionEnabled) {
-		return false
-	}
 
 	index := slices.IndexFunc(m.listing.workflows, func(w workflowstore.Workflow) bool { return w.ID == agent.WorkflowID })
 	if index < 0 {
 		return false
 	}
 
-	return m.listing.workflows[index].Worktree.Enabled
+	return ownsWorktree(agent, m.listing.workflows[index])
+}
+
+// ownsWorktree reports whether a checkout is weave's to cut for this agent alone.
+func ownsWorktree(agent agentstore.Agent, workflow workflowstore.Workflow) bool {
+	// A child sits in its parent's checkout, and an agent told to keep the directory it was given
+	// sits in somebody's own.
+	if agent.ParentAgentID != nil || (agent.ProvisionEnabled != nil && !*agent.ProvisionEnabled) {
+		return false
+	}
+
+	return workflow.Worktree.Enabled
 }

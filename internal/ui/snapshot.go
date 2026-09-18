@@ -56,6 +56,7 @@ func snapshotRow(r agentRow, params snapshotParams) view.Row {
 		Key:         key,
 		Mark:        params.marks[key],
 		HiddenCount: standingIn(r.hiddenCount, params.showHidden),
+		NoCheckout:  noCheckout(r),
 	}
 
 	if r.header {
@@ -65,16 +66,16 @@ func snapshotRow(r agentRow, params snapshotParams) view.Row {
 		row.Scheduled = params.scheduled[r.workflow.ID]
 		row.Dim = r.workflow.ArchivedAt != nil
 
-		// A workflow's bar is its orchestrator's, and one that has never had an orchestrator has
-		// no more of a process behind it than a dormant one.
+		// A workflow's bar is its orchestrator's, and one standing behind no orchestrator draws
+		// no bar at all.
 		if r.orchestrator == nil {
-			row.Dormant = true
+			row.Process = view.ProcessNone
 
 			return row
 		}
 
 		row.Status = snapshotStatus(*r.orchestrator)
-		row.Dormant = dormant(*r.orchestrator)
+		row.Process = snapshotProcess(*r.orchestrator)
 
 		return row
 	}
@@ -84,7 +85,7 @@ func snapshotRow(r agentRow, params snapshotParams) view.Row {
 	row.Name = item.agent.Name
 	row.Matches = matchesIn(params.matcher, item.agent.Name)
 	row.Status = snapshotStatus(item)
-	row.Dormant = dormant(item)
+	row.Process = snapshotProcess(item)
 	row.Repo = snapshotRepo(item.agent)
 	row.Review = snapshotReview(item)
 	row.Selected = params.selected.has(item.agent.ID)
@@ -106,6 +107,12 @@ func standingIn(count int, showHidden bool) int {
 	}
 
 	return count
+}
+
+// noCheckout reports whether a row owns no checkout of its own, which is every workflow header
+// and every agent weave cuts no worktree for.
+func noCheckout(r agentRow) bool {
+	return r.header || !ownsWorktree(r.item.agent, r.workflow)
 }
 
 // snapshotKind is where an agent sits in the tree.
@@ -177,10 +184,14 @@ func heldWorking(item agentItem) bool {
 	return false
 }
 
-// dormant reports whether nothing is running behind a row, which the state it wears cannot say
-// since an agent whose pane has gone wears the same idle as one sitting quiet.
-func dormant(item agentItem) bool {
-	return !item.alive && item.agent.State.DoesPaneDecide()
+// snapshotProcess reports whether anything is running behind a row, which the state it wears
+// cannot say since an agent whose pane has gone wears the same idle as one sitting quiet.
+func snapshotProcess(item agentItem) view.Process {
+	if !item.alive && item.agent.State.DoesPaneDecide() {
+		return view.ProcessStopped
+	}
+
+	return view.ProcessAlive
 }
 
 // snapshotRepo is where an agent's own checkout stands, a directory that has gone beating a

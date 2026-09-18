@@ -7,13 +7,15 @@ import (
 
 	"weave/internal/ui/paint"
 
+	"github.com/charmbracelet/lipgloss"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 // canonicalPane is the sidebar the settled design was drawn in, wide enough for all three
 // columns and the names beside them.
-const canonicalPane = 39
+const canonicalPane = 36
 
 // everyColumn is all three columns, written out here rather than taken from the package so a
 // test measuring the gutter does not borrow the package's own idea of what fills it.
@@ -86,17 +88,17 @@ func TestRenderRowShapes(t *testing.T) {
 		{
 			name:   "a child is italic and hangs off a corner",
 			golden: "row-child",
-			row:    Row{Kind: KindChild, Name: "eng-6994-reviewer"},
+			row:    Row{Kind: KindChild, Name: "eng-6994-reviewer", NoCheckout: true},
 		},
 		{
 			name:   "a marked workflow is bold and opens where its letter leaves off",
 			golden: "row-workflow",
-			row:    Row{Kind: KindWorkflow, Name: "weave", Mark: "w", HiddenCount: 3, Scheduled: true},
+			row:    Row{Kind: KindWorkflow, Name: "weave", Mark: "w", HiddenCount: 3, Scheduled: true, NoCheckout: true},
 		},
 		{
 			name:   "an unmarked workflow is bold and opens where an agent does",
 			golden: "row-workflow-unmarked",
-			row:    Row{Kind: KindWorkflow, Name: "weave-bughunt-job", HiddenCount: 5, Scheduled: true},
+			row:    Row{Kind: KindWorkflow, Name: "weave-bughunt-job", HiddenCount: 5, Scheduled: true, NoCheckout: true},
 		},
 		{
 			name:   "an unviewed agent is brighter rather than bold",
@@ -296,26 +298,26 @@ func TestRenderCanonicalList(t *testing.T) {
 // that never started.
 func livePanelRows() []Row {
 	return []Row{
-		{Key: "admin", Kind: KindWorkflow, Name: "admin", Mark: "a", Dormant: true},
-		{Kind: KindAgent, Name: "eng-6994-unable-to-create-a-fundraising", Review: ReviewApproved, Dormant: true},
-		{Kind: KindChild, Name: "eng-6994-reviewer", Dormant: true},
-		{Kind: KindWorkflow, Name: "bcs-project", Dormant: true},
-		{Kind: KindAgent, Name: "research-disbursements", Dormant: true},
+		{Key: "admin", Kind: KindWorkflow, Name: "admin", Mark: "a", Process: ProcessNone, NoCheckout: true},
+		{Kind: KindAgent, Name: "eng-6994-unable-to-create-a-fundraising", Review: ReviewApproved, Process: ProcessStopped},
+		{Kind: KindChild, Name: "eng-6994-reviewer", Process: ProcessStopped, NoCheckout: true},
+		{Kind: KindWorkflow, Name: "bcs-project", Process: ProcessNone, NoCheckout: true},
+		{Kind: KindAgent, Name: "research-disbursements", Process: ProcessStopped},
 		{Kind: KindAgent, Name: "research-identity-assets", Status: StatusThinking},
-		{Kind: KindWorkflow, Name: "deploy", Dormant: true, HiddenCount: 2},
-		{Kind: KindWorkflow, Name: "ops", Mark: "o", Dormant: true},
-		{Kind: KindAgent, Name: "rds-backup-hardening", Dormant: true},
-		{Kind: KindWorkflow, Name: "strip-demo", Dormant: true},
+		{Kind: KindWorkflow, Name: "deploy", Process: ProcessNone, HiddenCount: 2, NoCheckout: true},
+		{Kind: KindWorkflow, Name: "ops", Mark: "o", Process: ProcessNone, NoCheckout: true},
+		{Kind: KindAgent, Name: "rds-backup-hardening", Process: ProcessStopped},
+		{Kind: KindWorkflow, Name: "strip-demo", Process: ProcessNone, NoCheckout: true},
 		{Key: "strip-demo", Kind: KindAgent, Name: "strip-demo", Review: ReviewChangesRequested, Status: StatusWaiting},
-		{Kind: KindWorkflow, Name: "weave", Mark: "w", Dormant: true, HiddenCount: 4},
-		{Kind: KindAgent, Name: "competitive-analysis", Dormant: true, Held: true},
-		{Kind: KindChild, Name: "competitor-architecture", Dormant: true},
-		{Kind: KindAgent, Name: "pr-metadata-fixes", Dormant: true, Held: true},
-		{Kind: KindAgent, Name: "frozen-review-bug", Review: ReviewChangesRequested, Dormant: true},
-		{Kind: KindAgent, Name: "view-foundation", Repo: RepoGone, Review: ReviewApproved, Dormant: true},
-		{Kind: KindChild, Name: "view-foundation-2", Dormant: true},
+		{Kind: KindWorkflow, Name: "weave", Mark: "w", Process: ProcessNone, HiddenCount: 4, NoCheckout: true},
+		{Kind: KindAgent, Name: "competitive-analysis", Process: ProcessStopped, Held: true},
+		{Kind: KindChild, Name: "competitor-architecture", Process: ProcessStopped, NoCheckout: true},
+		{Kind: KindAgent, Name: "pr-metadata-fixes", Process: ProcessStopped, Held: true},
+		{Kind: KindAgent, Name: "frozen-review-bug", Review: ReviewChangesRequested, Process: ProcessStopped},
+		{Kind: KindAgent, Name: "view-foundation", Repo: RepoGone, Review: ReviewApproved, Process: ProcessStopped},
+		{Kind: KindChild, Name: "view-foundation-2", Process: ProcessStopped, NoCheckout: true},
 		{Kind: KindAgent, Name: "view-gather", Repo: RepoRebasing, Review: ReviewOpen, Status: StatusThinking},
-		{Kind: KindWorkflow, Name: "weave-bughunt-job", Dormant: true, Scheduled: true, HiddenCount: 5},
+		{Kind: KindWorkflow, Name: "weave-bughunt-job", Process: ProcessNone, Scheduled: true, HiddenCount: 5, NoCheckout: true},
 		{Kind: KindAgent, Name: "iss-641-reviewer", Status: StatusBroken},
 	}
 }
@@ -370,12 +372,12 @@ func TestRenderIndentsEveryKindBesideItsTwin(t *testing.T) {
 	}
 }
 
-// TestRenderDormantRowKeepsTheNameColumn pins that the empty status cell holds its column, so a
+// TestRenderBlankBarKeepsTheNameColumn pins that the empty status cell holds its column, so a
 // row with no bar opens its name where a row of its kind does.
-func TestRenderDormantRowKeepsTheNameColumn(t *testing.T) {
+func TestRenderBlankBarKeepsTheNameColumn(t *testing.T) {
 	rows := []Row{
 		{Key: "quiet", Kind: KindAgent, Name: "quiet"},
-		{Key: "dormant", Kind: KindAgent, Name: "dormant", Dormant: true},
+		{Key: "barless", Kind: KindAgent, Name: "barless", Process: ProcessNone},
 	}
 
 	list := Prepare(Snapshot{Rows: rows})
@@ -411,25 +413,25 @@ func TestNarrowSidebarsDropColumnsRatherThanNames(t *testing.T) {
 			name:     "the width Harry's own config sets still draws the checkout, the column never given up",
 			pane:     16,
 			want:     Columns{Repo: true},
-			wantName: 7,
+			wantName: 8,
 		},
 		{
-			name:     "a little wider spends what it gains on the name rather than on a column",
+			name:     "a little wider buys the review back",
 			pane:     20,
-			want:     Columns{Repo: true},
-			wantName: 11,
-		},
-		{
-			name:     "wider still buys back the review, the pull request being the last to come",
-			pane:     24,
 			want:     Columns{Repo: true, Review: true},
-			wantName: 12,
+			wantName: 10,
 		},
 		{
-			name:     "the default sidebar draws all three",
+			name:     "wider still buys the pull request, the last of the three to come",
+			pane:     22,
+			want:     everyColumn(),
+			wantName: 10,
+		},
+		{
+			name:     "the default sidebar draws all three with room to spare",
 			pane:     30,
 			want:     everyColumn(),
-			wantName: 15,
+			wantName: 18,
 		},
 	}
 
@@ -516,7 +518,7 @@ func TestGutterColumnsAgreesWithWhatIsDrawn(t *testing.T) {
 
 // drawnNameColumn is the column the settled design opens a workflow's name at, counted off the
 // drawing by hand rather than from the package's own arithmetic.
-const drawnNameColumn = 15
+const drawnNameColumn = 12
 
 // drawnIndentStep is how far each level of the tree sets its name in, written out here rather
 // than taken from the package so a change to the package's own constant fails these tests.
@@ -536,9 +538,25 @@ func wantNameColumn(kind RowKind) int {
 	return drawnNameColumn
 }
 
+// TestEveryGlyphDrawsOneColumn pins the measurement the whole gutter rests on: an Octicon takes
+// one column, the same as the box-drawing rules beside it.
+func TestEveryGlyphDrawsOneColumn(t *testing.T) {
+	for glyph := GlyphNone; glyph < glyphCount; glyph++ {
+		spelled := spell(glyph)
+		if glyph == GlyphNone {
+			assert.Empty(t, spelled)
+
+			continue
+		}
+
+		require.NotEmpty(t, spelled, "glyph %d is spelled out nowhere", glyph)
+		assert.Equal(t, plainColumns, lipgloss.Width(spelled), "glyph %q", spelled)
+	}
+}
+
 // octiconColumns is how wide an Octicon is drawn, written out here rather than taken from the
 // package so a change to the package's own constant fails this test.
-const octiconColumns = 2
+const octiconColumns = 1
 
 // nameColumnOf is the column a drawn row opens its own name at, past the corner a child hangs
 // off rather than at it.
@@ -578,21 +596,21 @@ func drawnColumns(text string) int {
 // canonicalRows is the settled design as a snapshot, every row of it.
 func canonicalRows() []Row {
 	return []Row{
-		{Key: "admin", Kind: KindWorkflow, Name: "admin", Mark: "a", HiddenCount: 2},
+		{Key: "admin", Kind: KindWorkflow, Name: "admin", Mark: "a", HiddenCount: 2, NoCheckout: true},
 		{Kind: KindAgent, Name: "eng-6994-unable-to-create-a-grant", Review: ReviewApproved, Forge: ForgeOpen, Status: StatusThinking},
-		{Kind: KindChild, Name: "eng-6994-reviewer"},
+		{Kind: KindChild, Name: "eng-6994-reviewer", NoCheckout: true},
 		{Kind: KindAgent, Name: "research-identity-assets", Status: StatusThinking},
-		{Kind: KindWorkflow, Name: "ops", Mark: "o"},
+		{Kind: KindWorkflow, Name: "ops", Mark: "o", NoCheckout: true},
 		{Kind: KindAgent, Name: "rds-backup-hardening", Forge: ForgeOpen},
 		{Key: "strip-demo", Kind: KindAgent, Name: "strip-demo", Review: ReviewChangesRequested, Status: StatusWaiting, Held: true},
-		{Kind: KindWorkflow, Name: "weave", Mark: "w", HiddenCount: 3, Scheduled: true},
+		{Kind: KindWorkflow, Name: "weave", Mark: "w", HiddenCount: 3, Scheduled: true, NoCheckout: true},
 		{Kind: KindAgent, Name: "frozen-review-bug", Review: ReviewOpen, Status: StatusWaiting},
 		{Kind: KindAgent, Name: "pr-metadata-fixes", Review: ReviewApproved, Forge: ForgeApproved, Status: StatusWaiting, Held: true, UnreadMail: true},
 		{Kind: KindAgent, Name: "iss-582", Repo: RepoRebasing, Review: ReviewApproved},
 		{Kind: KindAgent, Name: "gone-worktree", Repo: RepoGone, Status: StatusBroken, FailedRun: true},
 		{Kind: KindAgent, Name: "iss-641-reviewer", Forge: ForgeFailing, UnreadMail: true},
-		{Kind: KindAgent, Name: "shipped-yesterday", Forge: ForgeMerged},
-		{Kind: KindWorkflow, Name: "weave-bughunt-job", HiddenCount: 5, Scheduled: true},
+		{Kind: KindAgent, Name: "shipped-yesterday", Forge: ForgeMerged, Process: ProcessStopped},
+		{Kind: KindWorkflow, Name: "weave-bughunt-job", HiddenCount: 5, Scheduled: true, NoCheckout: true, Process: ProcessNone},
 	}
 }
 
@@ -609,10 +627,10 @@ const drawnArchiveNameColumn = 6
 // workflow still live above the agents archived out of it.
 func archiveRows() []Row {
 	return []Row{
-		{Key: "w:live", Kind: KindWorkflow, Name: "weave", Dormant: true, Scheduled: true},
-		{Key: "a:one", Kind: KindAgent, Name: "rip-out-old-sidebar", Dim: true, Dormant: true},
-		{Key: "a:two", Kind: KindChild, Name: "rfc-0065-review", Dim: true, Dormant: true},
-		{Key: "w:gone", Kind: KindWorkflow, Name: "spike", Dim: true, Dormant: true},
+		{Key: "w:live", Kind: KindWorkflow, Name: "weave", Process: ProcessNone, Scheduled: true, NoCheckout: true},
+		{Key: "a:one", Kind: KindAgent, Name: "rip-out-old-sidebar", Dim: true, Process: ProcessStopped},
+		{Key: "a:two", Kind: KindChild, Name: "rfc-0065-review", Dim: true, Process: ProcessStopped, NoCheckout: true},
+		{Key: "w:gone", Kind: KindWorkflow, Name: "spike", Dim: true, Process: ProcessNone, NoCheckout: true},
 		{Key: "a:bad", Kind: KindAgent, Name: "failed-teardown", Dim: true, Status: StatusBroken},
 	}
 }

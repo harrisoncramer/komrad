@@ -40,8 +40,8 @@ func TestDrawingsAgreeWithTheLayout(t *testing.T) {
 		widths[drawing.Name] = drawing.Columns
 	}
 
-	assert.Equal(t, gutterGlyphColumns, widths["repo"])
-	assert.Equal(t, gutterGlyphColumns, widths["mail"])
+	assert.Equal(t, plainColumns, widths["repo"])
+	assert.Equal(t, plainColumns, widths["mail"])
 	assert.Equal(t, plainColumns, widths["busy"])
 	assert.Equal(t, plainColumns, widths["child"])
 }

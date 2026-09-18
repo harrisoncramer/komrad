@@ -16,7 +16,7 @@ import (
 func windowedRows() []Row {
 	rows := make([]Row, 0, 15)
 	for _, workflow := range []string{"alpha", "beta", "gamma"} {
-		rows = append(rows, Row{Key: workflow, Kind: KindWorkflow, Name: workflow, Dormant: true})
+		rows = append(rows, Row{Key: workflow, Kind: KindWorkflow, Name: workflow, Process: ProcessNone, NoCheckout: true})
 		for i := range 4 {
 			name := fmt.Sprintf("%s-%d", workflow, i)
 			rows = append(rows, Row{Key: name, Kind: KindAgent, Name: name})
@@ -137,7 +137,7 @@ func TestWindowKeepsASelectedRowTheWidthOfThePane(t *testing.T) {
 		},
 		{
 			name: "the forge given up",
-			pane: 24,
+			pane: 21,
 			want: Columns{Repo: true, Review: true},
 		},
 		{

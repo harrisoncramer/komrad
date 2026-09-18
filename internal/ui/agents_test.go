@@ -15,8 +15,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestAgentsViewRowsOpenAtTheGutter pins how far in a row starts, which is the cursor and the
-// mark column and nothing else.
+// TestAgentsViewRowsOpenAtTheGutter pins how far in a row starts and that the gutter holds its
+// columns on every kind of row, an agent opening on its checkout columns and a workflow, which
+// owns no checkout, on the bar those columns leave room for.
 func TestAgentsViewRowsOpenAtTheGutter(t *testing.T) {
 	m := model{
 		frame:  layout.New(&recordingTmux{}, config.DefaultLayout()),
@@ -24,16 +25,28 @@ func TestAgentsViewRowsOpenAtTheGutter(t *testing.T) {
 		width:  120,
 		height: 40,
 		listing: listing{
-			workflows: []workflowstore.Workflow{{ID: "w1", Name: "weave"}},
-			agents: []agentItem{{
-				agent: agentstore.Agent{
-					ID:         "a1",
-					Name:       "worker",
-					WorkflowID: "w1",
-					State:      agentstore.StateIdle,
+			workflows: []workflowstore.Workflow{{ID: "w1", Name: "weave", Worktree: workflowstore.WorktreeConfig{Enabled: true}}},
+			agents: []agentItem{
+				{
+					agent: agentstore.Agent{
+						ID:         "a1",
+						Name:       "worker",
+						WorkflowID: "w1",
+						State:      agentstore.StateIdle,
+					},
+					alive: true,
 				},
-				alive: true,
-			}},
+				{
+					agent: agentstore.Agent{
+						ID:         "o1",
+						Name:       "orchestrator",
+						WorkflowID: "w1",
+						Role:       agentstore.RoleOrchestrator,
+						State:      agentstore.StateIdle,
+					},
+					alive: true,
+				},
+			},
 		},
 	}
 	m.tree.cursor = -1
@@ -41,12 +54,28 @@ func TestAgentsViewRowsOpenAtTheGutter(t *testing.T) {
 	rows := strings.Split(m.agentsView(), "\n")
 	opening := len(paint.Colored.MarkGutter("")) + 2
 
-	for _, name := range []string{"weave", "worker"} {
-		row, ok := rowNamed(rows, name)
-		require.True(t, ok)
+	agent, ok := rowNamed(rows, "worker")
+	require.True(t, ok)
+	stripped := ansi.Strip(agent)
+	assert.Equal(t, opening, len(stripped)-len(strings.TrimLeft(stripped, " ")),
+		"the worker row opens at the gutter")
 
-		stripped := ansi.Strip(row)
-		assert.Equal(t, opening, len(stripped)-len(strings.TrimLeft(stripped, " ")),
-			"the %s row opens at the gutter", name)
-	}
+	workflow, ok := rowNamed(rows, "weave")
+	require.True(t, ok)
+	assert.Equal(t, barColumn(t, agent), barColumn(t, workflow),
+		"the bar stands in one column whatever the row is")
+}
+
+// quietBar is the bar a running agent with nothing to say draws.
+const quietBar = "│"
+
+// barColumn is how far along a drawn row its status bar stands.
+func barColumn(t *testing.T, row string) int {
+	t.Helper()
+
+	stripped := ansi.Strip(row)
+	at := strings.Index(stripped, quietBar)
+	require.GreaterOrEqual(t, at, 0, "the row draws no bar at all")
+
+	return ansi.StringWidth(stripped[:at])
 }
