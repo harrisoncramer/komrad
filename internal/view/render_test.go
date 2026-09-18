@@ -380,7 +380,7 @@ func TestRenderKeepsTheBusiestRowInsideThePane(t *testing.T) {
 		HiddenCount: 12,
 	}
 
-	for _, pane := range []int{40, 60, 120} {
+	for _, pane := range []int{30, 40, 60, 120} {
 		t.Run(fmt.Sprintf("pane %d", pane), func(t *testing.T) {
 			list := Prepare(Snapshot{Rows: []Row{busiest}, NameWidth: NameColumns(pane)})
 			drawn := ansiEscapes.ReplaceAllString(Render(list, paint.Colored, 0), "")

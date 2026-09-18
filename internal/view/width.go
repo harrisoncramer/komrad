@@ -49,18 +49,14 @@ func trailingColumns(line Line) int {
 }
 
 // nameColumns is what one row has left for its name once its own corner and the marks after its
-// name have taken theirs, keeping a column for the name however much is spent.
+// name have taken theirs, which on a narrow pane is nothing at all.
 func nameColumns(line Line, width int) int {
-	if width <= 0 {
-		return width
-	}
-
 	spent := trailingColumns(line)
 	if line.Rule {
 		spent += ruleColumns
 	}
 
-	return max(width-spent, 1)
+	return width - spent
 }
 
 // extraColumns is how far a drawn row overruns what lipgloss measures of it, since an Octicon

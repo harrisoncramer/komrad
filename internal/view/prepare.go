@@ -39,6 +39,7 @@ func prepareLine(params prepareLineParams) Line {
 		Status:   statusCell(row.Status, row.Dormant),
 		Rule:     row.Kind == KindChild,
 		Name:     row.Name,
+		Matches:  row.Matches,
 		Weight:   weightFor(row.Kind),
 		Emphasis: emphasisFor(row, focused),
 		Held:     heldCell(row),
@@ -49,7 +50,9 @@ func prepareLine(params prepareLineParams) Line {
 		Selected: row.Selected,
 	}
 
-	line.Name, line.Matches = clipName(row.Name, row.Matches, nameColumns(line, params.nameWidth))
+	if params.nameWidth > 0 {
+		line = fitName(line, row, params.nameWidth)
+	}
 
 	if row.Dim {
 		return greyed(line)
@@ -178,10 +181,28 @@ func weightFor(kind RowKind) Weight {
 	return WeightRegular
 }
 
-// clipName cuts a name to the column it was given, along with the matches that survive the cut,
-// leaving both whole when the snapshot names no column at all.
+// fitName gives a name what the row has left, dropping the tally first where there is not even a
+// column for it.
+func fitName(line Line, row Row, width int) Line {
+	// A tally counts rows already out of sight, which is worth less than the marks saying
+	// somebody has to do something, so it is what gives way.
+	if nameColumns(line, width) <= 0 {
+		line.Tally = 0
+	}
+
+	line.Name, line.Matches = clipName(row.Name, row.Matches, nameColumns(line, width))
+
+	return line
+}
+
+// clipName cuts a name to the columns it was left, along with the matches that survive the cut,
+// and to nothing at all where it was left none.
 func clipName(name string, matches []Span, width int) (string, []Span) {
-	if width <= 0 || len([]rune(name)) <= width {
+	if width <= 0 {
+		return "", nil
+	}
+
+	if len([]rune(name)) <= width {
 		return name, matches
 	}
 

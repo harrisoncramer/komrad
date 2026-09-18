@@ -623,3 +623,54 @@ func TestPrepareHeldCell(t *testing.T) {
 		})
 	}
 }
+
+// TestPrepareGivesTheTallyUpBeforeTheMarks pins what a row sheds when its pane is too narrow to
+// hold everything: the name first, then the count of what is out of sight, never a mark.
+func TestPrepareGivesTheTallyUpBeforeTheMarks(t *testing.T) {
+	busiest := Row{
+		Kind:        KindChild,
+		Name:        "an agent with a very long name indeed",
+		Held:        true,
+		UnreadMail:  true,
+		FailedRun:   true,
+		Scheduled:   true,
+		HiddenCount: 12,
+	}
+
+	tests := []struct {
+		name      string
+		width     int
+		wantName  string
+		wantTally int
+	}{
+		{
+			name:      "a pane with no room for either keeps the marks alone",
+			width:     NameColumns(28),
+			wantName:  "",
+			wantTally: 0,
+		},
+		{
+			name:      "a pane with one column left spends it on the name",
+			width:     NameColumns(30),
+			wantName:  "…",
+			wantTally: 0,
+		},
+		{
+			name:      "a pane with room for both keeps the tally",
+			width:     NameColumns(60),
+			wantName:  "an agent with a very long …",
+			wantTally: 12,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			list := Prepare(Snapshot{Rows: []Row{busiest}, NameWidth: tt.width})
+			require.Len(t, list.Lines, 1)
+
+			assert.Equal(t, tt.wantName, list.Lines[0].Name)
+			assert.Equal(t, tt.wantTally, list.Lines[0].Tally)
+			assert.False(t, list.Lines[0].Schedule.IsBlank(), "the marks are never what gives way")
+		})
+	}
+}
