@@ -378,9 +378,7 @@ func (m model) archiveView() string {
 	return m.columnView(model.archiveListView)
 }
 
-// archiveSnapshot is the archive's rows as the plain data the shared drawing reads, which differs
-// from the agents list only in the columns it gives up and in nothing being hidden away inside an
-// archive.
+// archiveSnapshot is the archive's rows as the plain data the shared drawing reads.
 func (m model) archiveSnapshot(rows []agentRow, pane int) view.Snapshot {
 	return agentsSnapshot(snapshotParams{
 		rows:        rows,

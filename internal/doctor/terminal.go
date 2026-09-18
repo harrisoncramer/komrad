@@ -34,7 +34,7 @@ var (
 	}
 	ErrGlyphWidthUnexpected = &ProblemError{
 		Code:    "glyph_width_unexpected",
-		Message: "the terminal advances the cursor a different number of columns for a glyph than the list's layout counts it as",
+		Message: "the terminal advances the cursor a different number of columns for a glyph than the list's layout counts on",
 	}
 	ErrTermUnset = &ProblemError{
 		Code:    "term_unset",
@@ -42,7 +42,7 @@ var (
 	}
 	ErrPaintingTermUnknown = &ProblemError{
 		Code:    "painting_term_unknown",
-		Message: "tmux would not name the terminal it paints to, and the entry it advertises inside itself answers for nothing a person sees",
+		Message: "tmux would not name the terminal it paints to",
 	}
 	ErrTerminfoUnreadable = &ProblemError{
 		Code:    "terminfo_unreadable",
@@ -50,7 +50,7 @@ var (
 	}
 	ErrEmphasisMissing = &ProblemError{
 		Code:    "emphasis_missing",
-		Message: "terminfo names no escape for lettering the list uses to say what a row is",
+		Message: "terminfo names no escape for the lettering that says what a row is",
 	}
 	ErrItalicSubstituted = &ProblemError{
 		Code:    "italic_substituted",

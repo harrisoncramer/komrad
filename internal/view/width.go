@@ -2,7 +2,7 @@ package view
 
 import "fmt"
 
-// plainColumns is how many columns one glyph takes, every glyph the package draws taking one.
+// plainColumns is how many columns one glyph takes.
 const plainColumns = 1
 
 // spaceColumns is the space a cell carries after its glyph.
@@ -35,7 +35,7 @@ func GutterColumns(columns Columns) int {
 	return cells * (plainColumns + spaceColumns)
 }
 
-// NameColumns is the column a name has in a pane of the given width.
+// NameColumns is how many columns a name has in a pane of the given width.
 func NameColumns(pane int, columns Columns) int {
 	return max(pane-GutterColumns(columns), 0)
 }
@@ -63,9 +63,9 @@ func trailingColumns(line Line) int {
 	return columns
 }
 
-// nameColumns is what one row has left for its name once its own corner and the marks after its
-// name have taken theirs, which on a narrow pane is nothing at all.
-func nameColumns(line Line, width int) int {
+// roomForName is what one row has left for its name once its own corner and the marks after its
+// name have taken theirs.
+func roomForName(line Line, width int) int {
 	spent := trailingColumns(line) + line.Indent
 	if line.Rule {
 		spent += ruleColumns
