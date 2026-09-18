@@ -387,11 +387,11 @@ func TestForConnectionRecordsWhereItIsTold(t *testing.T) {
 
 // appServer is a GitHub that mints an installation token and describes the App, counting the
 // mints so a test can say whether the cache was used.
-func appServer(t *testing.T) (*httptest.Server, *int) {
+func appServer(t *testing.T, tls bool) (*httptest.Server, *int) {
 	t.Helper()
 
 	mints := 0
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case strings.HasSuffix(r.URL.Path, "/access_tokens"):
 			mints++
@@ -402,7 +402,12 @@ func appServer(t *testing.T) (*httptest.Server, *int) {
 		default:
 			w.WriteHeader(http.StatusNotFound)
 		}
-	}))
+	})
+
+	server := httptest.NewServer(handler)
+	if tls {
+		server = httptest.NewTLSServer(handler)
+	}
 	t.Cleanup(server.Close)
 
 	return server, &mints
@@ -435,7 +440,7 @@ func withApp(t *testing.T, f *fixture, server *httptest.Server) {
 // credential file is written.
 func TestConnectWithTheApp(t *testing.T) {
 	f := newFixture(t, "", nil)
-	server, mints := appServer(t)
+	server, mints := appServer(t, false)
 	withApp(t, f, server)
 	ctx := t.Context()
 
@@ -469,6 +474,25 @@ func TestConnectWithTheApp(t *testing.T) {
 	assert.Nil(t, cleared.VerifiedAt)
 }
 
+// TestConnectWithTheAppSpeaksToTheEnterpriseHost covers an App row on a GitHub Enterprise
+// host: the mint and the describe go to that host's API, not to api.github.com.
+func TestConnectWithTheAppSpeaksToTheEnterpriseHost(t *testing.T) {
+	f := newFixture(t, "", nil)
+	server, mints := appServer(t, true)
+	withApp(t, f, server)
+	f.service.app.Cache.Identity.API = ""
+
+	_, err := f.service.Connect(t.Context(), ConnectParams{
+		Host:   "ghe.example.com",
+		Kind:   KindGitHub,
+		Method: MethodGitHubApp,
+		APIURL: server.URL,
+	})
+	require.NoError(t, err)
+	assert.Equal(t, 1, *mints, "the mint reached the address the connection names")
+	assert.Equal(t, []string{server.URL}, f.apis)
+}
+
 // TestConnectWithTheAppRefusals covers no App configured, an App on a forge that is not
 // GitHub, and an App installed on nothing, none of which leaves a row.
 func TestConnectWithTheAppRefusals(t *testing.T) {
@@ -481,7 +505,7 @@ func TestConnectWithTheAppRefusals(t *testing.T) {
 
 	t.Run("an app reaching no repository", func(t *testing.T) {
 		f := newFixture(t, "", nil)
-		server, _ := appServer(t)
+		server, _ := appServer(t, false)
 		withApp(t, f, server)
 		f.service.builders[KindGitHub] = func(_ string, auth Authenticator) Forge {
 			return &fakeForge{auth: auth, reaches: 0}

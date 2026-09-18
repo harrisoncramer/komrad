@@ -30,6 +30,15 @@ func (a App) IsConfigured() bool {
 	return a.Cache.Identity.Configured()
 }
 
+// At is the same App speaking to an enterprise host's API, or unchanged when api is empty.
+func (a App) At(api string) App {
+	if api != "" {
+		a.Cache.Identity.API = api
+	}
+
+	return a
+}
+
 func (a App) client() *http.Client {
 	if a.Client != nil {
 		return a.Client

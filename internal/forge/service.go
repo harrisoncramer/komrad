@@ -236,7 +236,8 @@ func (s *Service) proveApp(ctx context.Context, build Builder, kind, apiURL stri
 		return "", ErrNoApp.Saying("set app_id, installation_id and private_key_path under [github_app]")
 	}
 
-	probe, ok := build(apiURL, NewAppCredential(NewAppCredentialParams{App: s.app, Connections: NoRecord{}})).(InstallationVerifier)
+	app := s.app.At(apiURL)
+	probe, ok := build(apiURL, NewAppCredential(NewAppCredentialParams{App: app, Connections: NoRecord{}})).(InstallationVerifier)
 	if !ok {
 		return "", fail.InvalidArgument("this forge cannot check an installation")
 	}
@@ -249,7 +250,7 @@ func (s *Service) proveApp(ctx context.Context, build Builder, kind, apiURL stri
 		return "", ErrAppReachesNothing.Saying("install the app on the repositories your agents work in")
 	}
 
-	return s.app.Slug(ctx)
+	return app.Slug(ctx)
 }
 
 // List is every connection, by host.
@@ -304,7 +305,7 @@ func (s *Service) ForConnection(connection forgestore.Connection) (Forge, error)
 	})
 	if connection.Method == MethodGitHubApp {
 		auth = NewAppCredential(NewAppCredentialParams{
-			App:          s.app,
+			App:          s.app.At(connection.APIURL),
 			ConnectionID: connection.ID,
 			Connections:  s.verified,
 		})
