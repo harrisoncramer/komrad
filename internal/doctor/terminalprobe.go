@@ -17,6 +17,11 @@ import (
 // measurement is given up on, short because a terminal that answers at all answers at once.
 const cursorReplyTimeout = 500 * time.Millisecond
 
+// Explainer: the probe writes to the real stdout rather than to whatever writer a command was
+// given, because a cursor query only means anything if it reaches the terminal itself. It
+// refuses unless both real descriptors are one, so a redirected command measures nothing rather
+// than writing escapes into a file.
+
 // MeasureColumnsOnTTY writes each sample to the controlling terminal and asks where the cursor
 // landed, which is the width that terminal drew it in with the font it is using.
 func MeasureColumnsOnTTY(ctx context.Context, samples []string) ([]int, error) {
@@ -26,7 +31,7 @@ func MeasureColumnsOnTTY(ctx context.Context, samples []string) ([]int, error) {
 
 	state, err := term.MakeRaw(int(os.Stdin.Fd()))
 	if err != nil {
-		return nil, fmt.Errorf("%w: %w", ErrNoTerminal, err)
+		return nil, fmt.Errorf("%w: %w", ErrTerminalWouldNotYield, err)
 	}
 	defer func() { _ = term.Restore(int(os.Stdin.Fd()), state) }() //nolint:errcheck // the terminal is being handed back on the way out of a read-only command
 
@@ -64,9 +69,15 @@ func measureColumns(ctx context.Context, in io.Reader, out io.Writer, samples []
 // macOS will not take a read deadline on, answering SetReadDeadline with "file type does not
 // support deadline". A terminal that never answers can therefore only be given up on from
 // outside the read, which is what the channels below are for.
+//
+// Explainer: that goroutine outlives close on a real terminal. Closing done releases a pump
+// parked on a channel send, which is where it sits when it has read ahead, but a pump parked
+// inside Read is selecting on nothing and stays there until a byte arrives. On the happy path
+// that is exactly where it is left, holding the next keystroke it will hand to a channel nobody
+// reads. A one-shot command is reaped by its own exit, so this is only safe for a caller that
+// exits, and nothing in the package enforces that.
 
-// replyReader reads cursor position reports off a terminal, keeping whatever it read past the
-// end of one reply for the next.
+// replyReader reads cursor position reports off a terminal.
 type replyReader struct {
 	chunks    chan []byte
 	failed    chan error
@@ -109,8 +120,8 @@ func (r *replyReader) pump(in io.Reader) {
 	}
 }
 
-// close lets the reading goroutine go, which is otherwise parked on a read of a terminal
-// nobody is typing at.
+// close releases the reading goroutine if it is parked on a send, and not if it is parked on a
+// read of a terminal nobody is typing at.
 func (r *replyReader) close() { close(r.done) }
 
 // readCursorColumn reads one CSI row;column R reply and returns the column, one-based as the

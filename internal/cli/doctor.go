@@ -60,8 +60,8 @@ doing something that makes no sense.`,
 				return err
 			}
 
-			// Only this command may take the terminal over to measure it: diagnose runs while
-			// the panel is starting, where a cursor query would be read as a keypress.
+			// The terminal is taken over only for the command a person typed, since anything
+			// already drawing reads a cursor query's answer as a keypress.
 			env.MeasureColumns = doctor.MeasureColumnsOnTTY
 
 			report := doctor.Run(cmd.Context(), env, checks)

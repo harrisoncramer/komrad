@@ -20,6 +20,10 @@ var (
 		Code:    "no_terminal",
 		Message: "this is not running on a terminal, so nothing could be asked of one",
 	}
+	ErrTerminalWouldNotYield = &ProblemError{
+		Code:    "terminal_would_not_yield",
+		Message: "the terminal would not be put into raw mode, so its answer could not be read back",
+	}
 	ErrCursorQueryUnanswered = &ProblemError{
 		Code:    "cursor_query_unanswered",
 		Message: "the terminal did not answer a cursor position query, so no width was measured",
@@ -30,7 +34,7 @@ var (
 	}
 	ErrGlyphWidthUnexpected = &ProblemError{
 		Code:    "glyph_width_unexpected",
-		Message: "a glyph is drawn in a different number of columns than the list's layout counts it as",
+		Message: "the terminal advances the cursor a different number of columns for a glyph than the list's layout counts it as",
 	}
 	ErrTermUnset = &ProblemError{
 		Code:    "term_unset",
@@ -186,23 +190,25 @@ func newTerminalColorCheck() Check {
 func textOf(drawn view.Drawn) string { return drawn.Text }
 
 // reportGlyphWidths is the reading turned into a finding, warning rather than failing because a
-// font the terminal lacks degrades the panel without breaking weave.
+// row laid out a column wide is a degraded panel rather than a broken weave.
 func reportGlyphWidths(drawings []view.Drawn, measured []int, insideTmux bool) Result {
-	caveat := ""
+	caveat := "; measured as the cursor's advance rather than the ink, which are the same only where the terminal's width table and the font agree"
 	if insideTmux {
-		caveat = "; measured through tmux, which answers the query from its own grid rather than the terminal's"
+		caveat += "; and answered by tmux from its own grid rather than by the terminal"
 	}
+
+	reading := describeWidths(drawings, measured) + caveat
 
 	mismatch := describeMismatch(drawings, measured)
 	if mismatch == "" {
-		return pass(describeWidths(drawings, measured) + caveat)
+		return pass(reading)
 	}
 
 	return Result{
 		Status: StatusWarn,
-		Detail: describeWidths(drawings, measured) + caveat,
+		Detail: reading,
 		Err:    fmt.Errorf("%w: %s%s", ErrGlyphWidthUnexpected, mismatch, caveat),
-		Fix:    "install a Nerd Font and set your terminal to it, or report these widths so the layout can be corrected",
+		Fix:    "report these widths, since what has to move is the layout's own count rather than anything on this machine",
 	}
 }
 

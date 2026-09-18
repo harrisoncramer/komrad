@@ -3,7 +3,9 @@ package doctor
 import (
 	"context"
 	"errors"
+	"fmt"
 	"slices"
+	"strings"
 	"testing"
 
 	"weave/internal/view"
@@ -65,6 +67,33 @@ func agreeing() Env {
 			return columns, nil
 		},
 	}
+}
+
+// TestGlyphCheckWarnsWhenTheTerminalWouldNotYield covers a real terminal that refused raw mode,
+// which is a person's problem and must not be buried in the same skip as having no terminal.
+func TestGlyphCheckWarnsWhenTheTerminalWouldNotYield(t *testing.T) {
+	env := Env{MeasureColumns: func(context.Context, []string) ([]int, error) {
+		return nil, fmt.Errorf("%w: %w", ErrTerminalWouldNotYield, errors.New("inappropriate ioctl"))
+	}}
+
+	result := newTerminalGlyphCheck().Run(t.Context(), env)
+	require.Equal(t, StatusWarn, result.Status)
+	assert.Contains(t, result.Err.Error(), "inappropriate ioctl")
+}
+
+// TestGlyphCheckSaysItMeasuredAdvanceNotInk covers the limit of the instrument, since a
+// terminal's width table and the font can disagree and only the first is readable here.
+func TestGlyphCheckSaysItMeasuredAdvanceNotInk(t *testing.T) {
+	assert.Contains(t, newTerminalGlyphCheck().Run(t.Context(), agreeing()).Detail, "rather than the ink")
+}
+
+// TestGlyphCheckDoesNotBlameTheFont covers the fix text, since a cursor advance says nothing
+// about whether a glyph is in the font and telling a person to install one would be a guess.
+func TestGlyphCheckDoesNotBlameTheFont(t *testing.T) {
+	result := newTerminalGlyphCheck().Run(t.Context(), measuring(t, 1))
+
+	require.Equal(t, StatusWarn, result.Status)
+	assert.NotContains(t, strings.ToLower(result.Fix), "font")
 }
 
 // TestGlyphCheckPassesWhenTheWidthsAgree covers the ordinary machine, where the constant the
