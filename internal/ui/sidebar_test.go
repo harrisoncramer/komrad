@@ -165,7 +165,7 @@ func TestSymbologyWindowsALongList(t *testing.T) {
 			m := longListModel(tt.cursor)
 			drawn := ansi.Strip(m.agentsListView())
 
-			require.Equal(t, m.height, strings.Count(drawn, "\n"))
+			require.Equal(t, m.height, paint.CountLines(drawn))
 			assert.Contains(t, drawn, tt.want, "the row the cursor stands on is inside the window")
 
 			for _, marker := range []string{"↑", "↓"} {
@@ -208,7 +208,7 @@ func TestSymbologyWindowFillsThePane(t *testing.T) {
 			m := longListModel(20)
 			m.width = width
 
-			assert.Equal(t, m.height, strings.Count(ansi.Strip(m.agentsListView()), "\n"))
+			assert.Equal(t, m.height, paint.CountLines(ansi.Strip(m.agentsListView())))
 		})
 	}
 }
