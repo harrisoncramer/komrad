@@ -225,3 +225,81 @@ func noticeTexts(notices []notice) []string {
 
 	return said
 }
+
+// TestUnpausingInSilenceLetsAGoneBoxGo covers the only way out of a pause whose agent has an
+// input box that will never take the words, which leaves the unpause key refusing forever.
+func TestUnpausingInSilenceLetsAGoneBoxGo(t *testing.T) {
+	tests := []struct {
+		name     string
+		answer   string
+		wantSent int
+	}{
+		{name: "confirming lets it go without saying anything", answer: "y", wantSent: 1},
+		{name: "declining keeps the hold", answer: "n"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			at := time.Now()
+			agents := &recordingHolds{}
+
+			m := heldModel(agents, &at)
+
+			pressed, _ := m.Update(keyMsg("P"))
+			opened, ok := pressed.(model)
+			require.True(t, ok)
+			require.Equal(t, formAgentRelease, opened.form.kind, "the key asks before it drops the words")
+
+			got := answerPrompt(t, opened, tt.answer)
+
+			require.Len(t, agents.released, tt.wantSent)
+			if tt.wantSent > 0 {
+				assert.Equal(t, "a1", agents.released[0].GetId())
+				assert.Empty(t, agents.released[0].GetSaid(), "nothing is typed at an agent let go in silence")
+			}
+
+			assert.False(t, got.form.isActive(), "the prompt is down")
+		})
+	}
+}
+
+// TestUnpausingInSilenceIsOnlyForAHeldAgent covers the key on a row nobody is holding, which has
+// no hold to get out of.
+func TestUnpausingInSilenceIsOnlyForAHeldAgent(t *testing.T) {
+	agents := &recordingHolds{}
+
+	m := heldModel(agents, nil)
+
+	pressed, cmd := m.Update(keyMsg("P"))
+	written, ok := pressed.(model)
+	require.True(t, ok)
+
+	settle(t, written, cmd)
+
+	assert.Equal(t, formNone, written.form.kind)
+	assert.Empty(t, agents.released)
+}
+
+// TestAPausedRowNamesTheWayOutOfThePause covers the legend a person holding only the panel reads
+// to find the release that says nothing, which is the whole recovery from a box that refuses.
+func TestAPausedRowNamesTheWayOutOfThePause(t *testing.T) {
+	at := time.Now()
+
+	m := heldModel(&recordingHolds{}, &at)
+
+	var descs []string
+	for _, b := range m.agentHelp().full {
+		descs = append(descs, b.Help().Key+" "+b.Help().Desc)
+	}
+
+	assert.Contains(t, descs, "P unpause in silence")
+
+	loose := heldModel(&recordingHolds{}, nil)
+
+	var others []string
+	for _, b := range loose.agentHelp().full {
+		others = append(others, b.Help().Desc)
+	}
+
+	assert.NotContains(t, others, "unpause in silence", "a row nobody is holding has no pause to get out of")
+}

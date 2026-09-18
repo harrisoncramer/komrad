@@ -275,6 +275,27 @@ func (m model) pauseAgent(agent agentstore.Agent) (tea.Model, tea.Cmd) {
 	})
 }
 
+// releaseInSilenceConfirm lets an agent go without typing at it, which is the only way out of a
+// pause whose agent has an input box that will never take the words.
+func (m model) releaseInSilenceConfirm(agent agentstore.Agent) (tea.Model, tea.Cmd) {
+	form, confirmed := releaseInSilenceForm(agent.Name, formKeys())
+
+	return m, m.openForm(formState{
+		kind:   formAgentRelease,
+		form:   form,
+		update: model.updateForm,
+		submit: confirmSubmit(func(m model) (model, tea.Cmd) {
+			if !*confirmed {
+				return m, nil
+			}
+
+			return m, m.writeCmd(fmt.Sprintf("Could not unpause agent %q", agent.Name), func(a api) error {
+				return a.release(agent, "")
+			})
+		}),
+	})
+}
+
 func (m model) agentsDetails() details {
 	r, ok := rowAt(m.agentRows(), m.tree.cursor)
 	if !ok {
@@ -478,7 +499,7 @@ func (m model) scheduleName(agent agentstore.Agent) string {
 
 const dormantPlaceholder = "_dormant — not running_\n\nPress open to resume."
 
-const heldPlaceholder = "_paused_\n\nPress unpause to let it carry on."
+const heldPlaceholder = "_paused_\n\nPress unpause to let it carry on, or unpause in silence to let it go without typing at it."
 
 func (m model) noAgentsMarkdown() string {
 	key := "w"

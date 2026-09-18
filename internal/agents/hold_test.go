@@ -349,3 +349,26 @@ func TestReleaseKeepsTheHoldWhenTheBoxRefuses(t *testing.T) {
 	require.NotNil(t, after.HeldAt, "the hold stands, so pressing the key again is the recovery")
 	assert.True(t, after.HeldMidTurn)
 }
+
+// TestReleasingInSilenceLetsGoOfAnInterruptedAgent covers the way out of a hold whose words have
+// nowhere to go, a release asking for nothing to be said letting go without touching the pane.
+func TestReleasingInSilenceLetsGoOfAnInterruptedAgent(t *testing.T) {
+	st := newStore(t)
+	agent := seed(t, st, "telescope", "%1", agentstore.StateThinking)
+
+	channel := &fakeChannel{}
+	holder := holderOver(st, channel, &settlingObserver{readings: []harness.Activity{
+		harness.ActivityWorking,
+		harness.ActivityIdle,
+	}})
+
+	held, err := holder.Hold(t.Context(), agent.ID)
+	require.NoError(t, err)
+	require.True(t, held.HeldMidTurn, "so the speaking path is the one being skipped")
+
+	released, err := holder.Release(t.Context(), ReleaseParams{AgentID: agent.ID})
+	require.NoError(t, err)
+
+	assert.Nil(t, released.HeldAt, "nobody is holding it now")
+	assert.Empty(t, channel.sent)
+}

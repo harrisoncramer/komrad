@@ -56,6 +56,7 @@ const (
 	formAgentArchive
 	formAgentRefresh
 	formAgentRetry
+	formAgentRelease
 	formGit
 	formWorkflow
 	formWorkflowArchive
@@ -119,7 +120,7 @@ func formColumn(kind formKind) (columnSpec, bool) {
 	switch kind {
 	case formAgent, formChild, formAdopt, formRename, formAgentRetry, formWorkflow, formSchedule:
 		return columnSpec{floor: formColumnFloor}, true
-	case formGit, formAgentArchive, formAgentRefresh, formWorkflowArchive, formScheduleArchive,
+	case formGit, formAgentArchive, formAgentRefresh, formAgentRelease, formWorkflowArchive, formScheduleArchive,
 		formArchiveDelete, formArchiveEmpty:
 		return columnSpec{floor: columnFloor}, true
 	case formNone:
@@ -587,6 +588,13 @@ func deleteAgentsForm(agents []agentstore.Agent, children int, keys config.FormK
 	}
 
 	return confirmForm(title, warning, "Delete", keys)
+}
+
+func releaseInSilenceForm(name string, keys config.FormKeys) (*huh.Form, *bool) {
+	title := fmt.Sprintf("Unpause %q without saying anything?", name)
+	warning := "Nothing is typed at it, so an agent whose turn the pause cut short sits where it is until you tell it something yourself. This is the way out when unpausing keeps being refused because its input box will not take the words."
+
+	return confirmFormStartingOn(false, title, warning, "Unpause", keys)
 }
 
 func emptyArchiveForm(count int, keys config.FormKeys) (*huh.Form, *bool) {

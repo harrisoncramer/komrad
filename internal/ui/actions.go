@@ -39,6 +39,7 @@ const (
 	actionAgentArchive
 	actionArchiveSelected
 	actionAgentPause
+	actionAgentReleaseSilently
 	actionAgentHide
 	actionAgentShowHidden
 	actionAgentNew

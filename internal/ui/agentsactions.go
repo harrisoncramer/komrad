@@ -192,6 +192,14 @@ func agentsRowActions() []action {
 			run:  onHoveredAgent(func(m model, item agentItem) (tea.Model, tea.Cmd) { return m.pauseAgent(item.agent) }),
 		},
 		{
+			id:   actionAgentReleaseSilently,
+			keys: func(k config.Keybindings) []string { return k.Agents.ReleaseSilently },
+			when: isHeldAgent,
+			run: onHoveredAgent(func(m model, item agentItem) (tea.Model, tea.Cmd) {
+				return m.releaseInSilenceConfirm(item.agent)
+			}),
+		},
+		{
 			id:   actionAgentHide,
 			keys: func(k config.Keybindings) []string { return k.Agents.Hide },
 			when: isHoveringAgent,
@@ -258,6 +266,13 @@ func isHoveringAgent(m model) bool {
 	_, ok := m.hoveredWorkflow()
 
 	return isBrowsing(m) && !ok
+}
+
+// isHeldAgent reports whether the row under the cursor is an agent somebody has paused.
+func isHeldAgent(m model) bool {
+	item, ok := m.selectedAgent()
+
+	return isHoveringAgent(m) && ok && item.agent.HeldAt != nil
 }
 
 func isRetryableAgent(m model) bool {
@@ -423,6 +438,11 @@ func agentsBrowsingLegend() []legendRow {
 			of:   []actionID{actionAgentMail, actionAgentPause},
 			desc: model.mailAndPauseDesc,
 			show: isHoveringAgent,
+		},
+		{
+			of:   []actionID{actionAgentReleaseSilently},
+			desc: func(model) string { return "unpause in silence" },
+			show: isHeldAgent,
 		},
 		{
 			of:   []actionID{actionMarkSet},
