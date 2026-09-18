@@ -51,7 +51,7 @@ func TestRenderListFits(t *testing.T) {
 		{
 			name:  "a height nothing has measured yet",
 			rows:  numbered(100),
-			lines: 0,
+			lines: Unbounded,
 		},
 	}
 
@@ -65,6 +65,12 @@ func TestRenderListFits(t *testing.T) {
 // TestRenderListEmpty pins that a list with no rows draws nothing rather than a blank line.
 func TestRenderListEmpty(t *testing.T) {
 	assert.Empty(t, RenderList(nil, 0, 10, dim))
+}
+
+// TestRenderListNoRoom pins that a list handed no room draws nothing rather than every row it
+// was given.
+func TestRenderListNoRoom(t *testing.T) {
+	assert.Empty(t, RenderList(numbered(100), 0, 0, dim))
 }
 
 // TestRenderListWindow pins that a clipped list keeps the cursor's row on screen and never grows

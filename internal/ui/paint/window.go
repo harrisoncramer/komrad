@@ -7,14 +7,17 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
+// Unbounded is the room a list is given when the pane it is drawn into has no measured height.
+const Unbounded = -1
+
 // RenderList draws a list of rows into a pane that many lines tall, windowed around the cursor
-// once there are more rows than room.
+// once there are more rows than room, and dropped whole when there is none.
 func RenderList(rows []string, cursor, lines int, style lipgloss.Style) string {
-	if len(rows) == 0 {
+	if len(rows) == 0 || lines == 0 {
 		return ""
 	}
 
-	if lines <= 0 || len(rows) <= lines {
+	if lines < 0 || len(rows) <= lines {
 		return strings.Join(rows, "\n") + "\n"
 	}
 

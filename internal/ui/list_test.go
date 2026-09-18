@@ -10,24 +10,24 @@ import (
 	schedulestore "weave/internal/store/schedule"
 	workflowstore "weave/internal/store/workflow"
 	"weave/internal/ui/layout"
+	"weave/internal/ui/paint"
 
 	"github.com/stretchr/testify/assert"
 )
 
-// TestScreensFitThePane pins the header, the list, and the legend fitting the pane together.
-func TestScreensFitThePane(t *testing.T) {
-	const (
-		// Taller than the tallest legend on purpose.
-		height = 29
-		total  = 40
-	)
+// screensModel is a panel standing on the last row of a list longer than any pane, on every
+// screen that draws one.
+func screensModel() model {
+	const total = 40
 
 	m := model{
-		keys:    config.DefaultKeybindings(),
-		height:  height,
-		frame:   layout.New(&recordingTmux{}, config.DefaultLayout()),
-		listing: listing{workflows: []workflowstore.Workflow{{ID: "w1", Name: "everything"}}},
+		keys:          config.DefaultKeybindings(),
+		width:         80,
+		detailsHeight: config.DefaultDetailsHeight,
+		frame:         layout.New(&recordingTmux{}, config.DefaultLayout()),
+		listing:       listing{workflows: []workflowstore.Workflow{{ID: "w1", Name: "everything"}}},
 	}
+
 	for i := range total {
 		name := fmt.Sprintf("agent%d", i)
 		m.listing.agents = append(m.listing.agents, agentItem{agent: agentstore.Agent{Name: name, WorkflowID: "w1"}})
@@ -38,6 +38,17 @@ func TestScreensFitThePane(t *testing.T) {
 	m.tree.cursor = total
 	m.archive.cursor = total
 	m.schedules.cursor = total - 1
+
+	return m
+}
+
+// TestScreensFitThePane pins the header, the list, and the legend fitting the pane together.
+func TestScreensFitThePane(t *testing.T) {
+	// Taller than the tallest legend on purpose.
+	const height = 29
+
+	m := screensModel()
+	m.height = height
 
 	tests := []struct {
 		name      string
@@ -77,9 +88,11 @@ func TestScreensFitThePane(t *testing.T) {
 	}
 }
 
-// TestListLines pins that the chrome comes off the pane, and that a pane too short to hold even
-// that keeps one line for the hovered row.
+// TestListLines pins that the chrome comes off the pane, and that a pane the chrome fills leaves
+// the list nothing rather than a line the pane does not have.
 func TestListLines(t *testing.T) {
+	const chrome = 6
+
 	header := "Archive\n\n"
 	help := "\nrestore\ndelete\nback\n"
 
@@ -91,17 +104,27 @@ func TestListLines(t *testing.T) {
 		{
 			name:   "an unmeasured pane is unbounded",
 			height: 0,
+			want:   paint.Unbounded,
+		},
+		{
+			name:   "a pane shorter than its chrome keeps no rows",
+			height: chrome - 1,
 			want:   0,
 		},
 		{
-			name:   "a pane shorter than its chrome keeps one row",
-			height: 3,
+			name:   "a pane the chrome fills keeps no rows",
+			height: chrome,
+			want:   0,
+		},
+		{
+			name:   "a pane one line taller than its chrome keeps that line",
+			height: chrome + 1,
 			want:   1,
 		},
 		{
 			name:   "the pane less the chrome around the list",
 			height: 20,
-			want:   14,
+			want:   20 - chrome,
 		},
 	}
 
@@ -110,6 +133,46 @@ func TestListLines(t *testing.T) {
 			m := model{height: tt.height}
 
 			assert.Equal(t, tt.want, m.listLines(header, help))
+		})
+	}
+}
+
+// TestScreensFitATightPane pins that a list handed no room is dropped rather than drawn past the
+// bottom of the pane, from the height each screen first fits at upwards.
+func TestScreensFitATightPane(t *testing.T) {
+	const tall = 40
+
+	base := screensModel()
+
+	// fitsFrom is where the details record stops spilling rather than where the chrome fills the
+	// pane, since the record is drawn from a six-line pane onwards whether the screen has left it
+	// room or not, and the heights under it still overdraw by its rows.
+	tests := []struct {
+		name     string
+		screen   screen
+		expanded bool
+		fitsFrom int
+	}{
+		{name: "the agents tree", screen: screenAgents, fitsFrom: 9},
+		{name: "the agents tree with the help expanded", screen: screenAgents, expanded: true, fitsFrom: 27},
+		{name: "the archive", screen: screenArchive, fitsFrom: 9},
+		{name: "the archive with the help expanded", screen: screenArchive, expanded: true, fitsFrom: 15},
+		{name: "the schedules", screen: screenSchedules, fitsFrom: 9},
+		{name: "the schedules with the help expanded", screen: screenSchedules, expanded: true, fitsFrom: 17},
+		{name: "the mailbox", screen: screenMail, fitsFrom: 6},
+		{name: "the mailbox with the help expanded", screen: screenMail, expanded: true, fitsFrom: 9},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			for height := tt.fitsFrom; height <= tall; height++ {
+				shown := base
+				shown.height = height
+				shown.screen = tt.screen
+				shown.helpExpanded = tt.expanded
+
+				assert.Len(t, lines(shown.View()), height, "a pane %d lines tall", height)
+			}
 		})
 	}
 }
