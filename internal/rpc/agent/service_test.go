@@ -863,6 +863,44 @@ func (f *fakeReconciler) RecordReportedReason(_, reason string) {
 	f.reasons = append(f.reasons, reason)
 }
 
+// TestHoldAgentRefusesHoldingYourself pins that an agent asking to hold itself is turned away
+// before the interrupt, since the turn it would cut short is the one making the call.
+func TestHoldAgentRefusesHoldingYourself(t *testing.T) {
+	svc, st := service(t)
+	holder := &fakeHolder{}
+	svc.Impl.(*Service).holder = holder
+
+	mine := st.SeedAgent(t, agentstore.Agent{Name: "mine", State: agentstore.StateThinking}).ID
+	theirs := st.SeedAgent(t, agentstore.Agent{Name: "theirs", State: agentstore.StateIdle}).ID
+	ctx := caller.With(t.Context(), caller.Caller{AgentID: mine})
+
+	_, err := svc.HoldAgent(ctx, connect.NewRequest(&agentv1.HoldAgentRequest{Id: mine}))
+	assert.Equal(t, connect.CodeInvalidArgument, connect.CodeOf(err))
+	assert.Empty(t, holder.held, "the holder is never reached, so no interrupt is sent")
+
+	_, err = svc.HoldAgent(ctx, connect.NewRequest(&agentv1.HoldAgentRequest{Id: theirs}))
+	require.NoError(t, err, "but holding somebody else is untouched")
+	assert.Equal(t, []string{theirs}, holder.held)
+
+	_, err = svc.HoldAgent(t.Context(), connect.NewRequest(&agentv1.HoldAgentRequest{Id: mine}))
+	require.NoError(t, err, "and a person, who carries no agent id, may hold anything")
+	assert.Equal(t, []string{theirs, mine}, holder.held)
+}
+
+type fakeHolder struct {
+	held []string
+}
+
+func (f *fakeHolder) Hold(_ context.Context, agentID string) (agentstore.Agent, error) {
+	f.held = append(f.held, agentID)
+
+	return agentstore.Agent{ID: agentID, Name: "held"}, nil
+}
+
+func (f *fakeHolder) Release(_ context.Context, params agents.ReleaseParams) (agentstore.Agent, error) {
+	return agentstore.Agent{ID: params.AgentID}, nil
+}
+
 // TestRecordReportRefusesACallerWithNoIdentity pins that a hook that cannot say which agent it
 // speaks for is turned away rather than stamping somebody.
 func TestRecordReportRefusesACallerWithNoIdentity(t *testing.T) {

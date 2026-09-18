@@ -10,6 +10,10 @@ extend google.protobuf.MethodOptions {
   // What a method says about itself as an MCP tool, absent on the methods kept out of a
   // model's reach.
   ToolAnnotation tool = 50003;
+
+  // What a method says about belonging to the panel alone, absent on the methods a model and a
+  // script reach through the tool annotation instead.
+  PanelOnlyAnnotation panel_only = 50004;
 }
 
 message ToolAnnotation {
@@ -25,4 +29,10 @@ message ToolAnnotation {
   // Whether calling twice lands where calling once does, overriding what the method's
   // idempotency_level says.
   optional bool idempotent = 5;
+}
+
+message PanelOnlyAnnotation {
+  // Why the method is kept off both surfaces, in a sentence, so the next reader is told rather
+  // than left to work it out.
+  string reason = 1;
 }

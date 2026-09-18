@@ -176,8 +176,8 @@ func (s *ReviewService) ListLiveReviewers(ctx context.Context) ([]reviewstore.Li
 	return s.reviews.ListLiveReviewers(ctx)
 }
 
-// ListReviews is every review given on an agent, in the order their rounds were taken, with the
-// path of each dropped for anyone but the person reviewing.
+// ListReviews is every review given on an agent, in the order their rounds were taken, keeping
+// another author's unreleased review, and the path of their released one, from an agent caller.
 func (s *ReviewService) ListReviews(
 	ctx context.Context,
 	agentID string,
@@ -195,13 +195,33 @@ func (s *ReviewService) ListReviews(
 		return reviews, nil
 	}
 
-	for i := range reviews {
-		if reviews[i].AuthorAgentID == nil || *reviews[i].AuthorAgentID != *author.AgentID {
-			reviews[i].Path = ""
+	kept := make([]reviewstore.Review, 0, len(reviews))
+	for _, review := range reviews {
+		if doesOwnReviewBatch(author, review) {
+			kept = append(kept, review)
+
+			continue
 		}
+
+		// Explainer: a review nobody has released is the reviewer's own draft, and both its verdict
+		// and how many findings it holds are things the agent being written about is told when the
+		// reviewer lets go of it rather than while it is still being written.
+		if review.ReleasedAt == nil {
+			continue
+		}
+
+		review.Path = ""
+		kept = append(kept, review)
 	}
 
-	return reviews, nil
+	return kept, nil
+}
+
+// doesOwnReviewBatch reports whether the author is the agent that opened the review.
+func doesOwnReviewBatch(author ReviewAuthor, review reviewstore.Review) bool {
+	return author.AgentID != nil &&
+		review.AuthorAgentID != nil &&
+		*review.AuthorAgentID == *author.AgentID
 }
 
 // openReviewForParams says whose work an author is writing about, and from where.

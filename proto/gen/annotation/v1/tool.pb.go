@@ -96,6 +96,52 @@ func (x *ToolAnnotation) GetIdempotent() bool {
 	return false
 }
 
+type PanelOnlyAnnotation struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Why the method is kept off both surfaces, in a sentence, so the next reader is told rather
+	// than left to work it out.
+	Reason        string `protobuf:"bytes,1,opt,name=reason,proto3" json:"reason,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PanelOnlyAnnotation) Reset() {
+	*x = PanelOnlyAnnotation{}
+	mi := &file_annotation_v1_tool_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PanelOnlyAnnotation) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PanelOnlyAnnotation) ProtoMessage() {}
+
+func (x *PanelOnlyAnnotation) ProtoReflect() protoreflect.Message {
+	mi := &file_annotation_v1_tool_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PanelOnlyAnnotation.ProtoReflect.Descriptor instead.
+func (*PanelOnlyAnnotation) Descriptor() ([]byte, []int) {
+	return file_annotation_v1_tool_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *PanelOnlyAnnotation) GetReason() string {
+	if x != nil {
+		return x.Reason
+	}
+	return ""
+}
+
 var file_annotation_v1_tool_proto_extTypes = []protoimpl.ExtensionInfo{
 	{
 		ExtendedType:  (*descriptorpb.MethodOptions)(nil),
@@ -103,6 +149,14 @@ var file_annotation_v1_tool_proto_extTypes = []protoimpl.ExtensionInfo{
 		Field:         50003,
 		Name:          "annotation.v1.tool",
 		Tag:           "bytes,50003,opt,name=tool",
+		Filename:      "annotation/v1/tool.proto",
+	},
+	{
+		ExtendedType:  (*descriptorpb.MethodOptions)(nil),
+		ExtensionType: (*PanelOnlyAnnotation)(nil),
+		Field:         50004,
+		Name:          "annotation.v1.panel_only",
+		Tag:           "bytes,50004,opt,name=panel_only",
 		Filename:      "annotation/v1/tool.proto",
 	},
 }
@@ -114,6 +168,11 @@ var (
 	//
 	// optional annotation.v1.ToolAnnotation tool = 50003;
 	E_Tool = &file_annotation_v1_tool_proto_extTypes[0]
+	// What a method says about belonging to the panel alone, absent on the methods a model and a
+	// script reach through the tool annotation instead.
+	//
+	// optional annotation.v1.PanelOnlyAnnotation panel_only = 50004;
+	E_PanelOnly = &file_annotation_v1_tool_proto_extTypes[1]
 )
 
 var File_annotation_v1_tool_proto protoreflect.FileDescriptor
@@ -129,8 +188,12 @@ const file_annotation_v1_tool_proto_rawDesc = "" +
 	"idempotent\x18\x05 \x01(\bH\x01R\n" +
 	"idempotent\x88\x01\x01B\x0e\n" +
 	"\f_destructiveB\r\n" +
-	"\v_idempotent:S\n" +
-	"\x04tool\x12\x1e.google.protobuf.MethodOptions\x18ӆ\x03 \x01(\v2\x1d.annotation.v1.ToolAnnotationR\x04toolB,Z*weave/proto/gen/annotation/v1;annotationv1b\x06proto3"
+	"\v_idempotent\"-\n" +
+	"\x13PanelOnlyAnnotation\x12\x16\n" +
+	"\x06reason\x18\x01 \x01(\tR\x06reason:S\n" +
+	"\x04tool\x12\x1e.google.protobuf.MethodOptions\x18ӆ\x03 \x01(\v2\x1d.annotation.v1.ToolAnnotationR\x04tool:c\n" +
+	"\n" +
+	"panel_only\x12\x1e.google.protobuf.MethodOptions\x18Ԇ\x03 \x01(\v2\".annotation.v1.PanelOnlyAnnotationR\tpanelOnlyB,Z*weave/proto/gen/annotation/v1;annotationv1b\x06proto3"
 
 var (
 	file_annotation_v1_tool_proto_rawDescOnce sync.Once
@@ -144,18 +207,21 @@ func file_annotation_v1_tool_proto_rawDescGZIP() []byte {
 	return file_annotation_v1_tool_proto_rawDescData
 }
 
-var file_annotation_v1_tool_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
+var file_annotation_v1_tool_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
 var file_annotation_v1_tool_proto_goTypes = []any{
 	(*ToolAnnotation)(nil),             // 0: annotation.v1.ToolAnnotation
-	(*descriptorpb.MethodOptions)(nil), // 1: google.protobuf.MethodOptions
+	(*PanelOnlyAnnotation)(nil),        // 1: annotation.v1.PanelOnlyAnnotation
+	(*descriptorpb.MethodOptions)(nil), // 2: google.protobuf.MethodOptions
 }
 var file_annotation_v1_tool_proto_depIdxs = []int32{
-	1, // 0: annotation.v1.tool:extendee -> google.protobuf.MethodOptions
-	0, // 1: annotation.v1.tool:type_name -> annotation.v1.ToolAnnotation
-	2, // [2:2] is the sub-list for method output_type
-	2, // [2:2] is the sub-list for method input_type
-	1, // [1:2] is the sub-list for extension type_name
-	0, // [0:1] is the sub-list for extension extendee
+	2, // 0: annotation.v1.tool:extendee -> google.protobuf.MethodOptions
+	2, // 1: annotation.v1.panel_only:extendee -> google.protobuf.MethodOptions
+	0, // 2: annotation.v1.tool:type_name -> annotation.v1.ToolAnnotation
+	1, // 3: annotation.v1.panel_only:type_name -> annotation.v1.PanelOnlyAnnotation
+	4, // [4:4] is the sub-list for method output_type
+	4, // [4:4] is the sub-list for method input_type
+	2, // [2:4] is the sub-list for extension type_name
+	0, // [0:2] is the sub-list for extension extendee
 	0, // [0:0] is the sub-list for field type_name
 }
 
@@ -171,8 +237,8 @@ func file_annotation_v1_tool_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_annotation_v1_tool_proto_rawDesc), len(file_annotation_v1_tool_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   1,
-			NumExtensions: 1,
+			NumMessages:   2,
+			NumExtensions: 2,
 			NumServices:   0,
 		},
 		GoTypes:           file_annotation_v1_tool_proto_goTypes,

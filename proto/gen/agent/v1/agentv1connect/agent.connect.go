@@ -167,8 +167,6 @@ type AgentServiceClient interface {
 	DeleteMail(context.Context, *connect.Request[v1.DeleteMailRequest]) (*connect.Response[emptypb.Empty], error)
 	ArchiveAgents(context.Context, *connect.Request[v1.ArchiveAgentsRequest]) (*connect.Response[emptypb.Empty], error)
 	RestoreAgents(context.Context, *connect.Request[v1.RestoreAgentsRequest]) (*connect.Response[v1.RestoreAgentsResponse], error)
-	// Panel only, deliberately carrying no tool annotation: holding an agent is a person taking its
-	// worktree, and an agent that could hold another could stop work nobody asked it to stop.
 	HoldAgent(context.Context, *connect.Request[v1.HoldAgentRequest]) (*connect.Response[v1.HoldAgentResponse], error)
 	ReleaseAgent(context.Context, *connect.Request[v1.ReleaseAgentRequest]) (*connect.Response[v1.ReleaseAgentResponse], error)
 	ResumeAgent(context.Context, *connect.Request[v1.ResumeAgentRequest]) (*connect.Response[v1.ResumeAgentResponse], error)
@@ -185,8 +183,6 @@ type AgentServiceClient interface {
 	CreateReviewThread(context.Context, *connect.Request[v1.CreateReviewThreadRequest]) (*connect.Response[v1.CreateReviewThreadResponse], error)
 	AddReviewMessage(context.Context, *connect.Request[v1.AddReviewMessageRequest]) (*connect.Response[v1.AddReviewMessageResponse], error)
 	EditReviewMessage(context.Context, *connect.Request[v1.EditReviewMessageRequest]) (*connect.Response[v1.EditReviewMessageResponse], error)
-	// Panel only, deliberately carrying no tool annotation: an agent must not rebase or reset
-	// itself or anybody else.
 	PlanRefresh(context.Context, *connect.Request[v1.PlanRefreshRequest]) (*connect.Response[v1.PlanRefreshResponse], error)
 	RebaseWorktree(context.Context, *connect.Request[v1.RebaseWorktreeRequest]) (*connect.Response[v1.RebaseWorktreeResponse], error)
 	StartOrchestrator(context.Context, *connect.Request[v1.StartOrchestratorRequest]) (*connect.Response[v1.StartOrchestratorResponse], error)
@@ -766,8 +762,6 @@ type AgentServiceHandler interface {
 	DeleteMail(context.Context, *connect.Request[v1.DeleteMailRequest]) (*connect.Response[emptypb.Empty], error)
 	ArchiveAgents(context.Context, *connect.Request[v1.ArchiveAgentsRequest]) (*connect.Response[emptypb.Empty], error)
 	RestoreAgents(context.Context, *connect.Request[v1.RestoreAgentsRequest]) (*connect.Response[v1.RestoreAgentsResponse], error)
-	// Panel only, deliberately carrying no tool annotation: holding an agent is a person taking its
-	// worktree, and an agent that could hold another could stop work nobody asked it to stop.
 	HoldAgent(context.Context, *connect.Request[v1.HoldAgentRequest]) (*connect.Response[v1.HoldAgentResponse], error)
 	ReleaseAgent(context.Context, *connect.Request[v1.ReleaseAgentRequest]) (*connect.Response[v1.ReleaseAgentResponse], error)
 	ResumeAgent(context.Context, *connect.Request[v1.ResumeAgentRequest]) (*connect.Response[v1.ResumeAgentResponse], error)
@@ -784,8 +778,6 @@ type AgentServiceHandler interface {
 	CreateReviewThread(context.Context, *connect.Request[v1.CreateReviewThreadRequest]) (*connect.Response[v1.CreateReviewThreadResponse], error)
 	AddReviewMessage(context.Context, *connect.Request[v1.AddReviewMessageRequest]) (*connect.Response[v1.AddReviewMessageResponse], error)
 	EditReviewMessage(context.Context, *connect.Request[v1.EditReviewMessageRequest]) (*connect.Response[v1.EditReviewMessageResponse], error)
-	// Panel only, deliberately carrying no tool annotation: an agent must not rebase or reset
-	// itself or anybody else.
 	PlanRefresh(context.Context, *connect.Request[v1.PlanRefreshRequest]) (*connect.Response[v1.PlanRefreshResponse], error)
 	RebaseWorktree(context.Context, *connect.Request[v1.RebaseWorktreeRequest]) (*connect.Response[v1.RebaseWorktreeResponse], error)
 	StartOrchestrator(context.Context, *connect.Request[v1.StartOrchestratorRequest]) (*connect.Response[v1.StartOrchestratorResponse], error)

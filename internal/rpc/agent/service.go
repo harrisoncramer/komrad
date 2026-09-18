@@ -613,6 +613,13 @@ func (s *Service) RetryAgent(ctx context.Context, req *agentv1.RetryAgentRequest
 // HoldAgent stops an agent so a person may take its worktree, refusing unless it is seen to come
 // to rest.
 func (s *Service) HoldAgent(ctx context.Context, req *agentv1.HoldAgentRequest) (*agentv1.HoldAgentResponse, *fail.Error) {
+	// Explainer: a caller is part-way through a turn by definition, so a hold on itself interrupts
+	// the turn that asked, reads as settled, and is granted, which leaves the agent stopped with
+	// nobody who knows to release it. A person pressing the key carries no agent id and is unaffected.
+	if from := caller.From(ctx).AgentID; from != "" && from == req.GetId() {
+		return nil, agents.ErrHoldSelf
+	}
+
 	held, err := s.holder.Hold(ctx, req.GetId())
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to hold agent")

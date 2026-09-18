@@ -17,6 +17,10 @@ const nestingLimit = 2
 type requestFields struct {
 	bound   []boundField
 	skipped []string
+	// exclusive groups the flags of one oneof, since a request may carry only one of them.
+	exclusive [][]string
+	// groups is where each oneof's flags are being collected, by that oneof's place in the request.
+	groups map[string]int
 }
 
 type boundField struct {
@@ -40,6 +44,10 @@ func (l fieldLocation) descend(field protoreflect.FieldDescriptor) fieldLocation
 func bindRequestFlags(cmd *cobra.Command, message protoreflect.MessageDescriptor) *requestFields {
 	fields := &requestFields{}
 	fields.bind(cmd, message, fieldLocation{})
+
+	for _, group := range fields.exclusive {
+		cmd.MarkFlagsMutuallyExclusive(group...)
+	}
 
 	return fields
 }
@@ -81,7 +89,33 @@ func (f *requestFields) bind(cmd *cobra.Command, message protoreflect.MessageDes
 			path: into.path,
 			read: read,
 		})
+
+		f.recordExclusive(field, at, flag)
 	}
+}
+
+// recordExclusive files a flag under the oneof it belongs to, keyed by that oneof's place in the
+// request rather than by its type, so one message reached twice keeps its two groups apart.
+func (f *requestFields) recordExclusive(field protoreflect.FieldDescriptor, at fieldLocation, flag string) {
+	oneof := field.ContainingOneof()
+	if oneof == nil || oneof.IsSynthetic() {
+		return
+	}
+
+	key := strings.Join(append(append([]string{}, at.name...), string(oneof.Name())), ".")
+	if f.groups == nil {
+		f.groups = map[string]int{}
+	}
+
+	group, ok := f.groups[key]
+	if !ok {
+		f.groups[key] = len(f.exclusive)
+		f.exclusive = append(f.exclusive, []string{flag})
+
+		return
+	}
+
+	f.exclusive[group] = append(f.exclusive[group], flag)
 }
 
 func declareFlag(cmd *cobra.Command, field protoreflect.FieldDescriptor, flag string) func(*pflag.FlagSet) (any, error) {

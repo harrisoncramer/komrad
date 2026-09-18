@@ -24,6 +24,9 @@ var ErrNotHeld = fail.Precondition("nobody is holding this agent")
 // ErrAlreadyHeld is a hold on an agent somebody is already holding.
 var ErrAlreadyHeld = fail.AlreadyExists("this agent is already held")
 
+// ErrHoldSelf is an agent holding itself, which would stop it with nobody who knows to let it go.
+var ErrHoldSelf = fail.InvalidArgument("an agent cannot hold itself")
+
 // ErrAgentHeld is anything else weave was asked to do to an agent a person is holding.
 var ErrAgentHeld = fail.Precondition("this agent is held")
 

@@ -2,6 +2,7 @@ package cli
 
 import (
 	"encoding/json"
+	"io"
 	"strconv"
 	"testing"
 
@@ -26,7 +27,12 @@ func TestEveryMethodsFlagsBuildARequestItsSchemaAccepts(t *testing.T) {
 			fields := bindRequestFlags(cmd, input)
 
 			set := cmd.Flags()
+			excluded := flagsGivenUp(fields)
 			for _, field := range fields.bound {
+				if excluded[field.flag] {
+					continue
+				}
+
 				require.NoError(t, set.Set(field.flag, valueFor(t, input, field.path)),
 					"--%s takes a value of its own kind", field.flag)
 			}
@@ -41,6 +47,45 @@ func TestEveryMethodsFlagsBuildARequestItsSchemaAccepts(t *testing.T) {
 			require.NoError(t, err, "the request the flags built is one the schema reads: %s", encoded)
 		})
 	}
+}
+
+// flagsGivenUp is every flag but the first of each oneof, since filling two members of one sets
+// it twice and the schema reads that as malformed.
+func flagsGivenUp(fields *requestFields) map[string]bool {
+	given := map[string]bool{}
+	for _, group := range fields.exclusive {
+		for _, flag := range group[1:] {
+			given[flag] = true
+		}
+	}
+
+	return given
+}
+
+// TestAOneofsFlagsRefuseEachOther pins that the command turns two members of one oneof away
+// itself, rather than building a request the schema then reads as malformed.
+func TestAOneofsFlagsRefuseEachOther(t *testing.T) {
+	var found bool
+
+	for exposed := range rpcapi.GetMethods() {
+		cmd := &cobra.Command{Use: "x", RunE: func(*cobra.Command, []string) error { return nil }}
+		fields := bindRequestFlags(cmd, exposed.Method.Input())
+
+		for _, group := range fields.exclusive {
+			require.Len(t, group, 2, "this test only knows how to press a pair")
+
+			found = true
+			cmd.SetArgs([]string{"--" + group[0], "a value", "--" + group[1], "another value"})
+			cmd.SetOut(io.Discard)
+			cmd.SetErr(io.Discard)
+
+			err := cmd.Execute()
+			require.Error(t, err, "%s takes only one of --%s and --%s", exposed.Method.Name(), group[0], group[1])
+			assert.Contains(t, err.Error(), "none of the others can be")
+		}
+	}
+
+	require.True(t, found, "some exposed request carries a oneof, or this test is asserting nothing")
 }
 
 // TestNoRequiredFieldIsUnreachableFromTheFlags pins that a field the schema insists on is one
