@@ -65,10 +65,10 @@ func (m model) reviewSidebarView(above ...string) string {
 
 	// The head is pinned and the conversation gives up the room: where the cursor is standing is
 	// what makes the rest of the pane mean anything.
-	head := m.reviewHeadView()
 	record := m.detailsView()
 	messages := m.messagesRegion(record, help)
 	chrome := slices.Concat(above, []string{help, record, messages})
+	head := m.reviewHeadView(reviewStripRoom(m.listLines(chrome...)))
 	rest := m.reviewThreadWindow(m.reviewRestView(), m.listLines(slices.Concat(chrome, []string{head})...))
 
 	return paint.PadRows(head+rest, m.listLines(chrome...)) + record + messages + help
@@ -101,14 +101,14 @@ func (m model) doesReviewFitDetails() bool {
 	// Measured with the keys on the diff, which keeps this out of its own answer.
 	m.details.focused = false
 
-	spare := m.spareLines(m.renderHelp(m.reviewHelp()), m.reviewHeadView())
+	spare := m.spareLines(m.renderHelp(m.reviewHelp()), m.reviewHeadView(stripRows))
 
 	return spare > m.detailsLines()+detailsChromeLines
 }
 
 // reviewHeadView is the fixed top of the sidebar: whatever is standing in the way of a review, or
 // the place the cursor is standing when nothing is.
-func (m model) reviewHeadView() string {
+func (m model) reviewHeadView(stripRoom int) string {
 	switch {
 	case m.review.loading:
 		return dimStyle.Render(reviewLoadingWord) + "\n"
@@ -116,7 +116,7 @@ func (m model) reviewHeadView() string {
 		return dimStyle.Render(reviewEmptyWord) + "\n"
 	}
 
-	return m.reviewAnchorView()
+	return m.reviewStripView(stripRoom) + m.reviewAnchorView()
 }
 
 // reviewNote is a line of prose under the conversation, wrapped into the sidebar's own column.
@@ -367,7 +367,7 @@ func (m model) reviewComposeDesc() string {
 		return "reply in this thread"
 	}
 
-	if m.review.awaiting {
+	if m.review.isOwedAnAnswer() {
 		return "reply in a comment left open"
 	}
 

@@ -796,3 +796,19 @@ func (v *View) nearestNewLine(y int) int {
 
 	return 1
 }
+
+// RowOfThread is the row a thread is drawn on, false for one no row carries.
+func (v *View) RowOfThread(id string) (int, bool) {
+	for y, thread := range v.pinned {
+		if thread.GetId() == id {
+			return y, true
+		}
+	}
+
+	return 0, false
+}
+
+// IsFoldedAway reports whether a thread stands in a file the reader has read and folded away.
+func (v *View) IsFoldedAway(thread *agentv1.ReviewThread) bool {
+	return v.placed[thread.GetId()] == collapsed
+}

@@ -168,7 +168,7 @@ func orRefuseWrite(fn func(model) (tea.Model, tea.Cmd)) func(model, string) (tea
 // pressReviewCompose is the comment key, which refuses a new thread while a review is owed an
 // answer.
 func (m model) pressReviewCompose() (tea.Model, tea.Cmd) {
-	if _, replying := m.reviewThreadAtCursor(); m.review.awaiting && !replying {
+	if _, replying := m.reviewThreadAtCursor(); m.review.isOwedAnAnswer() && !replying {
 		return m.refuseReviewAwaiting()
 	}
 
@@ -178,7 +178,7 @@ func (m model) pressReviewCompose() (tea.Model, tea.Cmd) {
 // pressReviewSend is the send key, which while a review is owed an answer needs replies written
 // to send, a verdict on its own being the second review the wait holds off.
 func (m model) pressReviewSend() (tea.Model, tea.Cmd) {
-	if m.review.awaiting && !m.doesReviewHoldUnsent() {
+	if m.review.isOwedAnAnswer() && !m.doesReviewHoldUnsent() {
 		return m.refuseReviewAwaiting()
 	}
 

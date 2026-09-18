@@ -68,7 +68,7 @@ func (m model) reviewWatchingView() string {
 				keyLabel(m.keys.Review.Compose)+" to carry on")
 	}
 
-	if m.review.awaiting {
+	if m.review.isOwedAnAnswer() {
 		return m.reviewBandRow(reviewHeldTone, "watching",
 			"your review is owed an answer · "+keyLabel(m.keys.Review.NextOpenThread)+
 				" for the comments left open, "+keyLabel(m.keys.Review.Compose)+" to reply in one")

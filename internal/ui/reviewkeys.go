@@ -137,7 +137,8 @@ func (m model) scrollReviewThread(delta int) model {
 
 // reviewThreadMax is how far up the conversation the sidebar can be scrolled.
 func (m model) reviewThreadMax() int {
-	lines := m.listLines(m.renderHelp(m.reviewHelp()), m.detailsView(), m.reviewHeadView())
+	help, record := m.renderHelp(m.reviewHelp()), m.detailsView()
+	lines := m.listLines(help, record, m.reviewHeadView(reviewStripRoom(m.listLines(help, record))))
 
 	return max(paint.CountLines(m.reviewRestView())-max(lines-1, 1), 0)
 }

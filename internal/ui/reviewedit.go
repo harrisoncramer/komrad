@@ -188,7 +188,7 @@ func (m model) editReviewFile() (tea.Model, tea.Cmd) {
 
 // isReviewOwedAnAnswer reports whether comments stand against this work, and what to say about it.
 func (m model) isReviewOwedAnAnswer() (string, bool) {
-	if !m.review.awaiting {
+	if !m.review.isOwedAnAnswer() {
 		return "", false
 	}
 
