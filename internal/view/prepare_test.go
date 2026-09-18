@@ -783,14 +783,14 @@ func TestPrepareShedsMarksOnlyWhereTheMarksAloneWillNotFit(t *testing.T) {
 			want: []Glyph{GlyphAlert},
 		},
 		{
-			name: "the width Harry runs keeps every mark but the schedule",
-			pane: 16,
-			want: []Glyph{GlyphPaused, GlyphMail, GlyphAlert},
-		},
-		{
 			name: "a pane two wider keeps the mail as well",
 			pane: 15,
 			want: []Glyph{GlyphMail, GlyphAlert},
+		},
+		{
+			name: "the width Harry runs keeps every mark but the schedule",
+			pane: 16,
+			want: []Glyph{GlyphPaused, GlyphMail, GlyphAlert},
 		},
 		{
 			name: "a pane wide enough for the marks keeps every one of them",
