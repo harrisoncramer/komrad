@@ -541,14 +541,6 @@ type Layout struct {
 	DetailsHeight float64 `mapstructure:"details_height"`
 }
 
-// Sidebar is how the panel draws its own agents list.
-type Sidebar struct {
-	// Draw the agents list through the newer symbology: one column each for the checkout, the
-	// review and the pull request, a bar for what the agent is doing, and weight rather than a
-	// glyph for where a row sits in the tree. Off, the list is drawn the way it always has been.
-	Symbology bool `mapstructure:"symbology"`
-}
-
 // Harness is how one agent CLI is configured.
 type Harness struct {
 	// Flags appended to every agent's command line for this CLI, ahead of the flags that agent carries itself.
@@ -720,8 +712,6 @@ type Config struct {
 	Harness     Harnesses `mapstructure:"harness"`
 	// Where the panel's sidebar, the stage beside it, and the info pane under the stage sit, and how much of the popup each takes.
 	Layout Layout `mapstructure:"layout"`
-	// How the panel draws its own agents list.
-	Sidebar Sidebar `mapstructure:"sidebar"`
 	// Panel keybindings, scoped to the screen each binding acts in.
 	Keybindings Keybindings `mapstructure:"keybindings"`
 	// Where weave finds the scripts a workflow hangs on a moment in its agents' lives.

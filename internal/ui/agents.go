@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"strings"
 	"time"
-	"weave/internal/ui/paint"
 
 	"weave/config"
 	"weave/internal/ui/layout"
+	"weave/internal/view"
 
 	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
@@ -542,43 +542,45 @@ func (m model) agentsView() string {
 }
 
 func (m model) agentsListView() string {
-	if m.sidebar.Symbology {
-		return m.agentsSymbologyView()
-	}
-
 	record, help := m.detailsView(), m.renderHelp(m.agentHelp())
 	below := record + m.messagesRegion(record, help) + help
 
 	palette := m.palette(regionList)
+	rows := m.agentRows()
 
-	all := m.agentRows()
-	rows := make([]string, 0, len(all))
-	for i, r := range all {
-		hovered := i == m.tree.cursor
-		prefix := "  "
-		if hovered {
-			prefix = m.rowCursorPrefix()
-		}
+	list := view.Prepare(agentsSnapshot(snapshotParams{
+		rows:        rows,
+		marks:       m.listing.marks,
+		selected:    m.tree.selected,
+		scheduled:   m.scheduledWorkflows(),
+		focused:     rowKeyAt(rows, m.tree.cursor),
+		caretHidden: m.cursorBlinkedOut(m.isListFocused()),
+		matcher:     m.filter.pattern,
+		showHidden:  m.tree.showHidden,
+		pane:        m.width,
+	}))
 
-		if r.header {
-			label := m.filter.highlight(palette, clipName(r.workflow.Name), m.nameStyle(hovered, false))
-			header := prefix + palette.MarkGutter(m.listing.marks[rowKey(r)]) + label + orchestratorMark(palette, r) + hiddenTally(r.hiddenCount, m.tree.showHidden)
-			rows = append(rows, header)
+	header := palette.Title("Agents and Workflows") + "\n\n" + m.filterView() + view.Header(palette, list.Columns) + "\n"
+	lines := m.listLines(header, below)
+	window := view.Window(view.WindowParams{
+		List:    list,
+		Palette: palette,
+		Width:   m.width,
+		Lines:   lines,
+	})
 
-			continue
-		}
+	return m.headedBlockView(header, window, lines, below)
+}
 
-		item := r.item
-		name := m.filter.highlight(palette, clipName(item.agent.Name), m.nameStyle(hovered, !item.alive || item.agent.HeldAt != nil))
-		row := prefix + palette.MarkGutter(m.listing.marks[rowKey(r)]) + childMark(r.child) + stateMark(palette, displayState(item)) + " " + name + " " + worktreeMark(palette, item) + heldMark(palette, item.agent) + scheduledMark(palette, item.agent) + hiddenMark(palette, item.agent.Hidden) + unreadMailMark(palette, item.unreadMail) + unviewedMark(palette, item.unviewed) + failedRunMark(palette, item.failedRun) + localReviewRoundsMark(palette, item.localRounds) + localReviewMark(palette, item.inLocalReview, item.localVerdict) + hiddenTally(r.hiddenCount, m.tree.showHidden) + reasonMark(palette, item.agent)
-		if m.tree.selected.has(item.agent.ID) {
-			row = paint.PaintRow(row, m.width)
-		}
-
-		rows = append(rows, row)
+// scheduledWorkflows is the workflows at least one schedule launches into, which is all a
+// workflow row says about them.
+func (m model) scheduledWorkflows() map[string]bool {
+	scheduled := make(map[string]bool, len(m.schedules.items))
+	for _, item := range m.schedules.items {
+		scheduled[item.schedule.WorkflowID] = true
 	}
 
-	return m.listView("Agents and Workflows", rows, m.tree.cursor, below)
+	return scheduled
 }
 
 func (m model) openNewAgent(workflow *workflowstore.Workflow) (tea.Model, tea.Cmd) {
