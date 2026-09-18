@@ -11,8 +11,7 @@ import (
 	"weave/lib/xhttp"
 )
 
-// ErrNotFound says the forge has nothing at the address asked for, which for a repository the
-// credential cannot see is what it answers too.
+// ErrNotFound says the forge has nothing at the address asked for.
 var ErrNotFound = fail.NotFound("the forge has nothing there")
 
 // ErrNotRepository says a repository path is not one the forge can address.

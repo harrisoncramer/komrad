@@ -21,6 +21,7 @@ func TestForgesCheck(t *testing.T) {
 		wantStatus Status
 		wantDetail string
 		wantCode   string
+		wantErr    string
 	}{
 		{
 			name:       "nothing connected",
@@ -40,11 +41,29 @@ func TestForgesCheck(t *testing.T) {
 			name: "one forge refuses",
 			statuses: []ForgeStatus{
 				{Host: "github.com", Login: "harrisoncramer"},
-				{Host: "gitlab.com", Err: errors.New("Bad credentials")},
+				{Host: "gitlab.com", Err: forge.ErrUnauthorized.Saying("Bad credentials")},
 			},
 			wantStatus: StatusWarn,
 			wantDetail: "github.com as harrisoncramer",
 			wantCode:   "forge_refused",
+		},
+		{
+			name: "one forge cannot be reached",
+			statuses: []ForgeStatus{
+				{Host: "ghe.example.com", Err: errors.New("dial tcp: no such host")},
+			},
+			wantStatus: StatusWarn,
+			wantCode:   "forge_unreachable",
+		},
+		{
+			name: "every failing host is named and the refusal sets the code",
+			statuses: []ForgeStatus{
+				{Host: "github.com", Err: forge.ErrNoCredential.Saying("no credential file for github.com; connect it again")},
+				{Host: "gitlab.com", Err: forge.ErrUnauthorized.Saying("Bad credentials")},
+			},
+			wantStatus: StatusWarn,
+			wantCode:   "forge_refused",
+			wantErr:    "no credential file for github.com; connect it again; gitlab.com: Bad credentials",
 		},
 		{
 			name: "one forge has no credential file",
@@ -75,6 +94,9 @@ func TestForgesCheck(t *testing.T) {
 			assert.Equal(t, tt.wantDetail, result.Detail)
 			if tt.wantCode != "" {
 				assert.Equal(t, tt.wantCode, codeOf(result.Err))
+			}
+			if tt.wantErr != "" {
+				assert.Contains(t, result.Err.Error(), tt.wantErr)
 			}
 		})
 	}

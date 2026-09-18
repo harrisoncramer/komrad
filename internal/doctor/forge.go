@@ -24,6 +24,39 @@ var ErrForgeNoCredential = &ProblemError{
 	Message: "a connected forge has no credential on this machine",
 }
 
+var ErrForgeUnreachable = &ProblemError{
+	Code:    "forge_unreachable",
+	Message: "a connected forge could not be reached",
+}
+
+// classifyForgeFailure says which kind of trouble a connection is in.
+func classifyForgeFailure(err error) *ProblemError {
+	switch {
+	case errors.Is(err, forge.ErrNoCredential):
+		return ErrForgeNoCredential
+	case errors.Is(err, forge.ErrUnauthorized), errors.Is(err, forge.ErrAppReachesNothing):
+		return ErrForgeRefused
+	default:
+		return ErrForgeUnreachable
+	}
+}
+
+// forgeProblemRank orders the kinds of trouble, a refusal being the one a person has to act on.
+var forgeProblemRank = map[string]int{
+	ErrForgeUnreachable.Code:  1,
+	ErrForgeNoCredential.Code: 2,
+	ErrForgeRefused.Code:      3,
+}
+
+// worseForgeProblem is whichever of two problems a person has to act on first.
+func worseForgeProblem(current, candidate *ProblemError) *ProblemError {
+	if current == nil || forgeProblemRank[candidate.Code] > forgeProblemRank[current.Code] {
+		return candidate
+	}
+
+	return current
+}
+
 // ForgeStatus is one connected forge and whether it still answers.
 type ForgeStatus struct {
 	Host  string
@@ -52,27 +85,22 @@ func newForgesCheck() Check {
 				return pass("none connected")
 			}
 
-			var lines, refused, missing []string
+			var lines, failed []string
+			var worst *ProblemError
 			for _, status := range statuses {
-				switch {
-				case errors.Is(status.Err, forge.ErrNoCredential):
-					missing = append(missing, status.Err.Error())
-				case status.Err != nil:
-					refused = append(refused, fmt.Sprintf("%s: %v", status.Host, status.Err))
-				default:
+				if status.Err == nil {
 					lines = append(lines, status.Host+" as "+status.Login)
+
+					continue
 				}
+
+				failed = append(failed, fmt.Sprintf("%s: %v", status.Host, status.Err))
+				worst = worseForgeProblem(worst, classifyForgeFailure(status.Err))
 			}
 
-			if len(missing) > 0 {
+			if worst != nil {
 				return warn(
-					fmt.Errorf("%w: %s", ErrForgeNoCredential, strings.Join(missing, "; ")),
-					strings.Join(lines, ", "),
-				)
-			}
-			if len(refused) > 0 {
-				return warn(
-					fmt.Errorf("%w: %s", ErrForgeRefused, strings.Join(refused, "; ")),
+					fmt.Errorf("%w: %s", worst, strings.Join(failed, "; ")),
 					strings.Join(lines, ", "),
 				)
 			}
