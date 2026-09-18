@@ -227,10 +227,14 @@ func (m model) detailsNotices(held details, budget int) []string {
 	return drawn
 }
 
+// noticeGlyphColumns is the glyph column the record reserves, which is the widest internal/view
+// draws a mark in.
+const noticeGlyphColumns = 2
+
 // noticeLines is one notice as it is drawn: the glyph the row carries, then the sentence wrapped
 // under it in the column the glyph left, cut off at a number of lines when given one.
 func (m model) noticeLines(n notice, most int) []string {
-	const indent = "    "
+	const indent = "     "
 
 	// A notice that is going to be cut keeps a cell back for the ellipsis.
 	width := m.lineWidth() - len(indent)
@@ -244,10 +248,11 @@ func (m model) noticeLines(n notice, most int) []string {
 		text[most-1] += "…"
 	}
 
-	// A notice about a fact the row carries with no mark leaves the glyph column blank.
-	icon := " "
+	// A bar is one column and an Octicon two, and a fact the row carries with no mark draws
+	// none, so each is padded out to the column the block reserves.
+	icon := strings.Repeat(" ", max(noticeGlyphColumns-n.columns, 0))
 	if n.icon != "" {
-		icon = m.palette(regionDetails).Style(n.tone).Render(n.icon)
+		icon = m.palette(regionDetails).Style(n.tone).Render(n.icon) + icon
 	}
 
 	lines := []string{"  " + icon + " " + dimStyle.Render(text[0])}

@@ -11,6 +11,7 @@ import (
 	"weave/internal/view"
 
 	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/x/ansi"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -242,4 +243,67 @@ func TestNoticesLeaveRoomToCountTheFields(t *testing.T) {
 
 	assert.Contains(t, drawn, "name")
 	assert.Contains(t, drawn, "more", "the record still says how many fields it left out")
+}
+
+// octiconSpellings is every glyph the record can draw that the terminal gives two columns and
+// lipgloss gives one.
+func octiconSpellings() []string {
+	spelled := []string{}
+	for _, glyph := range []view.Glyph{view.GlyphMail, view.GlyphAlert, view.GlyphBroken, view.GlyphPaused, view.GlyphRepo, view.GlyphReview, view.GlyphChanges, view.GlyphApproved} {
+		spelled = append(spelled, view.Spell(glyph))
+	}
+
+	return spelled
+}
+
+// noticeColumns is how many columns a drawn stretch really takes, correcting lipgloss for every
+// Octicon in it.
+func noticeColumns(text string) int {
+	columns := lipgloss.Width(text)
+	for _, icon := range octiconSpellings() {
+		columns += strings.Count(text, icon) * (view.GlyphColumns(view.GlyphMail) - 1)
+	}
+
+	return columns
+}
+
+// TestNoticesAlignAgainstTheRowsOwnWidths covers what lipgloss cannot see: internal/view gives an
+// Octicon two columns and a bar one, so the record has to reserve the glyph column rather than
+// assume every icon is one wide, and no notice may run past the pane.
+func TestNoticesAlignAgainstTheRowsOwnWidths(t *testing.T) {
+	m := detailsModel(&recordingTmux{})
+	m.height, m.width = 40, 60
+
+	// A bar notice, an Octicon notice and an iconless one, stacked.
+	m.listing.agents[0].agent.State = agentstore.StateFailedToCleanup
+	m.listing.agents[0].agent.WorktreeRemoved = true
+	m.listing.agents[0].localRounds = 2
+
+	drawn := m.detailsNotices(m.hoveredDetails(), m.detailsLines()-3)
+	require.Len(t, drawn, 3, "a bar, an octicon and a blank")
+
+	wants := []string{failedToCleanupNotice, worktreeRemovedNotice, "reviewed 2 times"}
+	starts := make([]int, 0, len(drawn))
+
+	for i, line := range drawn {
+		bare := ansi.Strip(line)
+		at := strings.Index(bare, wants[i])
+		require.GreaterOrEqual(t, at, 0, "notice %d does not say %q", i, wants[i])
+		starts = append(starts, noticeColumns(bare[:at]))
+	}
+
+	assert.Equal(t, []int{starts[0], starts[0], starts[0]}, starts,
+		"every notice puts its sentence in the same column")
+
+	for width := 20; width <= 120; width++ {
+		m := detailsModel(&recordingTmux{})
+		m.height, m.width = 16, width
+		m.listing.agents[0].unreadMail = true
+		m.listing.agents[0].failedRun = true
+
+		for _, line := range m.detailsNotices(m.hoveredDetails(), m.detailsLines()-3) {
+			assert.LessOrEqual(t, noticeColumns(ansi.Strip(line)), width,
+				"a notice ran past the column at width %d", width)
+		}
+	}
 }

@@ -6,14 +6,18 @@ import (
 	agentstore "weave/internal/store/agent"
 	"weave/internal/ui/paint"
 	"weave/internal/view"
+
+	"github.com/charmbracelet/lipgloss"
 )
 
 // notice is one of the marks a row draws said in words, carrying the part it plays rather than a
 // colour, since the region it is drawn in decides that.
 type notice struct {
 	icon string
-	tone paint.Tone
-	text string
+	// columns is how wide the icon is drawn, which lipgloss cannot answer for an Octicon.
+	columns int
+	tone    paint.Tone
+	text    string
 }
 
 const (
@@ -95,10 +99,19 @@ func failureNotices(state agentstore.State) []notice {
 	return appendNotice(notices, state == agentstore.StateFailedToCleanup, stateIcon(state), stateTone(state), failedToCleanupNotice)
 }
 
-// appendCellNotice says in words what a cell of the row stands for, taking the glyph and the tone
-// from that cell, and saying nothing where the row draws nothing or the cell means nothing.
+// appendCellNotice says in words what a cell of the row stands for, taking the glyph, its width
+// and the tone from that cell, and saying nothing where the row draws nothing.
 func appendCellNotice(notices []notice, cell view.Cell, text string) []notice {
-	return appendNotice(notices, !cell.IsBlank() && text != "", view.Spell(cell.Glyph), cell.Tone, text)
+	if cell.IsBlank() || text == "" {
+		return notices
+	}
+
+	return append(notices, notice{
+		icon:    view.Spell(cell.Glyph),
+		columns: view.GlyphColumns(cell.Glyph),
+		tone:    cell.Tone,
+		text:    text,
+	})
 }
 
 func appendNotice(notices []notice, show bool, icon string, tone paint.Tone, text string) []notice {
@@ -107,9 +120,10 @@ func appendNotice(notices []notice, show bool, icon string, tone paint.Tone, tex
 	}
 
 	return append(notices, notice{
-		icon: icon,
-		tone: tone,
-		text: text,
+		icon:    icon,
+		columns: lipgloss.Width(icon),
+		tone:    tone,
+		text:    text,
 	})
 }
 

@@ -24,7 +24,6 @@ const (
 	localChangesRequestedIcon = "↩"
 	worktreeRemovedIcon       = "⊘"
 	sequenceInProgressIcon    = "◑"
-	heldIcon                  = "⏸"
 
 	// noStateIcon fills the column the state icon would take for a row with no live state to
 	// report, keeping the indent every other row has.
