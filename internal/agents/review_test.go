@@ -2555,3 +2555,20 @@ func TestASecondReviewWaitsForTheFirstToBeSettled(t *testing.T) {
 	})
 	require.NoError(t, err, "a settled review is done with, so the next one may start")
 }
+
+// TestARoundIsNotTakenOfAChild pins that a child, which sits in its parent's checkout, has no
+// tree of its own to freeze.
+func TestARoundIsNotTakenOfAChild(t *testing.T) {
+	reviews := newFakeReviewStore()
+	service := reviewService(t, reviews, &fakeNoticeSender{})
+
+	_, err := service.OpenRound(t.Context(), reviewerAgentID, humanAuthor())
+	require.ErrorIs(t, err, ErrReviewNeedsOwnWork)
+
+	_, err = service.OpenRound(t.Context(), reviewerAgentID, agentAuthor(reviewerAgentID))
+	require.ErrorIs(t, err, ErrReviewNeedsOwnWork, "not even by the child itself")
+
+	for _, round := range reviews.rounds {
+		assert.NotEqual(t, reviewerAgentID, round.AgentID, "and nothing was recorded under the child's id")
+	}
+}
