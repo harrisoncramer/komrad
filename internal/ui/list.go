@@ -6,16 +6,17 @@ import (
 	"weave/internal/ui/paint"
 )
 
+// listLines is the room the list has once the chrome around it has taken its share, and is zero
+// when the chrome fills the pane.
 func (m model) listLines(chrome ...string) int {
 	if m.height <= 0 {
-		return 0
+		return paint.Unbounded
 	}
 
-	return max(m.spareLines(chrome...), 1)
+	return max(m.spareLines(chrome...), 0)
 }
 
-// spareLines is what the pane has left once the chrome has taken its share, unclamped, so a
-// section that would not fit is dropped rather than drawn past the bottom of the pane.
+// spareLines is what the pane has left once the chrome has taken its share, unclamped.
 func (m model) spareLines(chrome ...string) int {
 	if m.height <= 0 {
 		return 0
