@@ -9,6 +9,7 @@ import (
 
 	"weave/internal/client"
 	"weave/internal/ui/paint"
+	"weave/internal/view"
 	"weave/lib/xslice"
 	agentv1 "weave/proto/gen/agent/v1"
 	paginationv1 "weave/proto/gen/pagination/v1"
@@ -52,8 +53,11 @@ const (
 	nameSection
 )
 
-// snippetIndent is how far a snippet is drawn in from the row naming the hit it came from.
-const snippetIndent = 4
+// snippetIndent is how far a snippet is drawn in from the row naming the hit it came from,
+// which is the column that row opens its name at.
+func snippetIndent() int {
+	return view.GutterColumns(view.Columns{})
+}
 
 func (s searchSection) label() string {
 	switch s {
@@ -244,19 +248,20 @@ func nameSays(name, query string) bool {
 	return strings.Contains(paint.FoldASCII(name), paint.FoldASCII(query))
 }
 
-// markName marks where in a name the query was found.
-func markName(palette paint.Palette, name, query string) string {
+// nameMatches is where in a name the query was found, in bytes of that name, which the fold
+// keeps where a Unicode one would move them.
+func nameMatches(name, query string) []view.Span {
 	folded := paint.FoldASCII(strings.TrimSpace(query))
 	if folded == "" {
-		return name
+		return nil
 	}
 
 	at := strings.Index(paint.FoldASCII(name), folded)
 	if at < 0 {
-		return name
+		return nil
 	}
 
-	return name[:at] + palette.Match().Render(name[at:at+len(folded)]) + name[at+len(folded):]
+	return []view.Span{{Start: at, End: at + len(folded)}}
 }
 
 func (m *model) applySearch(result searchResult) tea.Cmd {
@@ -491,83 +496,142 @@ func (h searchHit) spans(content string) []paint.Span {
 	return paint.MatchSpans(content, h.offset, h.length, paint.MarkedTerms(h.snippet))
 }
 
-// hitHeader names the agent a run of hits came from, wearing the same marks its row wears on the
-// screen it lives on, in the gutter given.
-func (m model) hitHeader(hit searchHit, gutter string) string {
-	palette := paint.Panel
+// searchDropped are the three columns the search screen gives up: a hit is a pointer into a
+// conversation rather than a piece of work to triage.
+var searchDropped = view.Columns{Repo: true, Review: true, Forge: true}
 
-	name := clipName(hit.name)
-	if hit.section == nameSection {
-		name = markName(palette, name, m.search.query)
+// searchRow reads one hit into the row the agents list draws, keyed only where the cursor can
+// stand on it so a snippet does not light the header above it.
+func (m model) searchRow(hit searchHit, key string) view.Row {
+	row := view.Row{
+		Key:     key,
+		Kind:    view.KindResult,
+		Name:    hit.name,
+		Matches: nameMatches(hit.name, m.search.query),
+		Mark:    m.listing.marks[agentRowKey(hit.agentID)],
+		Process: view.ProcessNone,
 	}
 
 	if hit.archived {
-		row := gutter + noStateMark() + " " + name + dimStyle.Render(" (archived)")
-
-		agent, ok := m.archivedAgent(hit.agentID)
-		if !ok {
-			return row
-		}
-
-		return row + failedMark(palette, agent) + scheduledMark(palette, agent)
+		return m.archivedSearchRow(row, hit.agentID)
 	}
 
 	item, ok := m.liveAgent(hit.agentID)
 	if !ok {
-		return gutter + noStateMark() + " " + name
+		return row
 	}
 
-	return gutter + stateMark(palette, displayState(item)) + " " + name +
-		worktreeMark(palette, item) + scheduledMark(palette, item.agent) + hiddenMark(palette, item.agent.Hidden) +
-		unreadMailMark(palette, item.unreadMail) + unviewedMark(palette, item.unviewed) +
-		failedRunMark(palette, item.failedRun) + localReviewRoundsMark(palette, item.localRounds) +
-		localReviewMark(palette, item.inLocalReview, item.localVerdict)
+	return agentFacts(row, item)
 }
 
-// searchRows lays the hits out as the lines the screen draws, reporting where the cursor's own
-// line landed so the window can be placed on it.
-func (m model) searchRows() ([]string, int) {
+// archivedSearchRow is a hit on an agent nobody can reach any more, read the same way the archive
+// screen reads it so the two cannot say different things about one agent.
+func (m model) archivedSearchRow(row view.Row, id string) view.Row {
+	// Nothing is known about a hit the archive listing has not landed yet, beyond its being over.
+	row.Process = view.ProcessStopped
+
+	if agent, ok := m.archivedAgent(id); ok {
+		row = agentFacts(row, agentItem{agent: agent})
+	}
+
+	// The server said this hit is archived, which holds whether or not the listing carrying the
+	// stamp has arrived.
+	row.Dim = true
+
+	return row
+}
+
+// searchLine is one line of the hits: either a row of the agents list, drawn with the rest so
+// every one of them fits the same gutter, or text already drawn.
+type searchLine struct {
+	header bool
+	row    view.Row
+	text   string
+}
+
+// searchLines lays the hits out, reporting where the cursor's own line landed so the window can
+// be placed on it.
+func (m model) searchLines() ([]searchLine, int) {
 	hits := m.searchHits()
-	rows := make([]string, 0, len(hits)*2)
+	lines := make([]searchLine, 0, len(hits)*2)
 	cursor := 0
 
 	labelled, section := "", searchSection(-1)
 	for i, hit := range hits {
 		if hit.section != section {
-			if len(rows) > 0 {
-				rows = append(rows, "")
+			if len(lines) > 0 {
+				lines = append(lines, searchLine{})
 			}
 
-			rows = append(rows, dimStyle.Render(hit.section.label()))
+			lines = append(lines, searchLine{text: dimStyle.Render(hit.section.label())})
 			section, labelled = hit.section, ""
 		}
 
 		hovered := i == m.search.cursor
-
-		gutter := paint.Panel.MarkGutter(m.listing.marks[agentRowKey(hit.agentID)])
-
-		var row string
-		if hit.section == nameSection {
-			// A name is its own row, so the cursor stands where the header wears its mark.
-			if hovered {
-				gutter = m.rowCursorPrefix()
-			}
-
-			row = m.hitHeader(hit, gutter)
-		} else {
-			if hit.agentID != labelled {
-				rows = append(rows, m.hitHeader(hit, gutter))
-				labelled = hit.agentID
-			}
-
-			row = "  " + m.cursorGap(hovered) + dimStyle.Render(paint.Panel.RenderSnippet(hit.snippet, m.paneWidth()-snippetIndent))
-		}
-
 		if hovered {
-			cursor = len(rows)
+			cursor = len(lines)
 		}
 
-		rows = append(rows, row)
+		// A name is its own row, so the cursor stands on the header rather than under it.
+		if hit.section == nameSection {
+			lines = append(lines, searchLine{header: true, row: m.searchRow(hit, searchHitKey(hit))})
+			continue
+		}
+
+		if hit.agentID != labelled {
+			lines = append(lines, searchLine{header: true, row: m.searchRow(hit, "")})
+			labelled = hit.agentID
+			if hovered {
+				cursor = len(lines)
+			}
+		}
+
+		lines = append(lines, searchLine{text: m.snippetRow(hit, hovered)})
+	}
+
+	return lines, cursor
+}
+
+// snippetRow is one matched turn drawn under the row naming the agent it came from.
+func (m model) snippetRow(hit searchHit, hovered bool) string {
+	indent := strings.Repeat(" ", max(snippetIndent()-len(blankCursor), 0))
+	body := paint.Panel.RenderSnippet(hit.snippet, m.paneWidth()-snippetIndent())
+
+	return indent + m.cursorGap(hovered) + dimStyle.Render(body)
+}
+
+// searchRows draws the hits as the lines the screen holds, reporting where the cursor's own line
+// landed so the window can be placed on it.
+func (m model) searchRows() ([]string, int) {
+	lines, cursor := m.searchLines()
+
+	headers := make([]view.Row, 0, len(lines))
+	for _, line := range lines {
+		if line.header {
+			headers = append(headers, line.row)
+		}
+	}
+
+	palette := paint.Panel
+	drawn := view.Rows(view.Prepare(view.Snapshot{
+		Rows:        headers,
+		Dropped:     searchDropped,
+		CaretHidden: m.cursorBlinkedOut(m.isListFocused()),
+		Focused:     m.hoveredHitKey(),
+		Pane:        m.paneWidth(),
+	}), palette, m.paneWidth())
+
+	rows := make([]string, 0, len(lines))
+	at := 0
+	for _, line := range lines {
+		if !line.header {
+			rows = append(rows, line.text)
+
+			continue
+		}
+
+		rows = append(rows, drawn[at])
+		at++
 	}
 
 	return rows, cursor

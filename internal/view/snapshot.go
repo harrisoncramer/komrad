@@ -8,6 +8,7 @@ const (
 	KindAgent RowKind = iota
 	KindWorkflow
 	KindChild
+	KindResult
 )
 
 // Process is how much of a process stands behind a row.

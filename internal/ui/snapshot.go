@@ -81,14 +81,22 @@ func snapshotRow(r agentRow, params snapshotParams) view.Row {
 	}
 
 	item := r.item
+	row = agentFacts(row, item)
 	row.Kind = snapshotKind(r)
 	row.Name = item.agent.Name
 	row.Matches = matchesIn(params.matcher, item.agent.Name)
-	row.Status = snapshotStatus(item)
-	row.Process = snapshotProcess(item)
 	row.Repo = snapshotRepo(item.agent)
 	row.Review = snapshotReview(item)
 	row.Selected = params.selected.has(item.agent.ID)
+
+	return row
+}
+
+// agentFacts is everything a row says about the agent standing behind it, read in one place so a
+// field added to view.Row cannot reach one screen's drawing and miss another's.
+func agentFacts(row view.Row, item agentItem) view.Row {
+	row.Status = snapshotStatus(item)
+	row.Process = snapshotProcess(item)
 	row.Unviewed = item.unviewed
 	row.Dim = item.agent.Hidden || item.agent.ArchivedAt != nil
 	row.Held = item.agent.HeldAt != nil

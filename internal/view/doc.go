@@ -52,6 +52,13 @@
 // A dropped column buys the name its room, since the gutter arithmetic reads the columns a list
 // ended up with rather than the three it might have had.
 //
+// # A list of results is not a tree
+//
+// A search draws hits rather than a tree, so its rows are KindResult: nothing sits under
+// anything, every name opens at the gutter and no row is lettered for structure. It drops all
+// three columns, because a result is a pointer into a conversation rather than a piece of work
+// to triage, and the life of a change is answered on the screen the hit leads to.
+//
 // # Scrolling belongs to the caller
 //
 // Rows hands back one drawn string per row and stops there. Which of them fit the pane, and

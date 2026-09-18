@@ -492,6 +492,8 @@ func wantNameColumn(kind RowKind) int {
 		return drawnNameColumn + drawnIndentStep
 	case KindChild:
 		return drawnNameColumn + 2*drawnIndentStep
+	case KindResult:
+		return drawnResultNameColumn
 	}
 
 	return drawnNameColumn

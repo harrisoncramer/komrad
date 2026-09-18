@@ -174,9 +174,12 @@ func TestArchivedNoticesAreOnlyTheFailures(t *testing.T) {
 		Hidden:     true,
 	}
 
-	require.Len(t, failureNotices(agent.State), 1)
-	assert.Equal(t, failedToCleanupNotice, failureNotices(agent.State)[0].text)
-	assert.Empty(t, failureNotices(agentstore.StateIdle))
+	failed := failureNotices(noticeRow(agentItem{agent: agent}))
+	require.Len(t, failed, 1)
+	assert.Equal(t, failedToCleanupNotice, failed[0].text)
+	assert.Equal(t, view.Spell(view.GlyphBusy), failed[0].icon, "and wears the bar the row draws for it")
+
+	assert.Empty(t, failureNotices(noticeRow(agentItem{agent: agentstore.Agent{}})))
 }
 
 // TestNoticesKeepTheRecordsHeight covers the share the record is allowed: the notices take their
