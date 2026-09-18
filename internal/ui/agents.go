@@ -546,6 +546,7 @@ func (m model) agentsListView() string {
 	below := record + m.messagesRegion(record, help) + help
 
 	palette := m.palette(regionList)
+	pane := m.paneWidth()
 	rows := m.agentRows()
 
 	list := view.Prepare(agentsSnapshot(snapshotParams{
@@ -557,7 +558,7 @@ func (m model) agentsListView() string {
 		caretHidden: m.cursorBlinkedOut(m.isListFocused()),
 		matcher:     m.filter.pattern,
 		showHidden:  m.tree.showHidden,
-		pane:        m.width,
+		pane:        pane,
 	}))
 
 	header := palette.Title("Agents and Workflows") + "\n\n" + m.filterView()
@@ -565,7 +566,7 @@ func (m model) agentsListView() string {
 	window := view.Window(view.WindowParams{
 		List:    list,
 		Palette: palette,
-		Width:   m.width,
+		Width:   pane,
 		Lines:   lines,
 	})
 
