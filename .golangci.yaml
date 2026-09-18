@@ -201,8 +201,14 @@ linters:
     custom:
       weavelint:
         type: module
-        description: Checks for this repo; a sentinel error must declare the kind of failure it is, a connect handler must hand its strict half to the adapter rather than answering for itself, and a forge Secret gives up its token only where it is sent or kept.
+        description: Checks for this repo; a sentinel error must declare the kind of failure it is, a connect handler must hand its strict half to the adapter rather than answering for itself, a forge Secret gives up its token only where it is sent or kept, and an HTTP client is built by lib/xhttp.
         settings:
+          bare_http:
+            skip: false
+            # Unanchored regexps over the path lint was run from. The one package that builds
+            # the configured client and transport everything else uses.
+            exclude:
+              - ^lib/xhttp/
           secret_expose:
             skip: false
             # Where Expose may be called, spelled as types.Func.FullName spells a function. The

@@ -53,7 +53,7 @@ func New(params NewParams) *Forge {
 
 	return &Forge{
 		api:    strings.TrimRight(api, "/"),
-		client: &http.Client{Transport: forge.NewTransport(params.Auth, params.Next), Timeout: timeout},
+		client: xhttp.NewClientOver(forge.NewTransport(params.Auth, params.Next), timeout),
 	}
 }
 
@@ -73,6 +73,19 @@ func (f *Forge) Verify(ctx context.Context) (string, error) {
 	}
 
 	return user.Login, nil
+}
+
+// VerifyInstallation is how many repositories the installation the credential was minted for
+// can reach.
+func (f *Forge) VerifyInstallation(ctx context.Context) (int, error) {
+	var installation struct {
+		TotalCount int `json:"total_count"`
+	}
+	if err := f.get(ctx, "/installation/repositories?per_page=1", &installation); err != nil {
+		return 0, err
+	}
+
+	return installation.TotalCount, nil
 }
 
 // ListOnBranch is every pull request opened from the named branch of the repository.

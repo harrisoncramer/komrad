@@ -13,6 +13,7 @@ import (
 
 	"weave/internal/caller"
 	"weave/internal/rpcapi"
+	"weave/lib/xhttp"
 
 	"github.com/spf13/cobra"
 )
@@ -139,7 +140,7 @@ func callRPC(ctx context.Context, params callRPCParams) ([]byte, error) {
 
 	params.From.SetHeader(req.Header)
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := xhttp.NewClient(0).Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to reach the server at %s: %w", params.Addr, err)
 	}

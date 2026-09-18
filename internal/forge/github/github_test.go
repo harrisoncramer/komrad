@@ -270,3 +270,21 @@ func TestNotFound(t *testing.T) {
 	require.ErrorIs(t, err, forge.ErrNotFound)
 	assert.Equal(t, 0, auth.invalidated)
 }
+
+// TestVerifyInstallation covers what an installation token can be asked: how many repositories
+// it reaches, and a refusal reaching the Authenticator.
+func TestVerifyInstallation(t *testing.T) {
+	t.Parallel()
+
+	f, _, seen := serve(t, "/installation/repositories", `{"total_count":4,"repositories":[{"full_name":"harrisoncramer/weave"}]}`, http.StatusOK)
+
+	reached, err := f.VerifyInstallation(t.Context())
+	require.NoError(t, err)
+	assert.Equal(t, 4, reached)
+	assert.Equal(t, "1", seen.URL.Query().Get("per_page"))
+
+	refused, auth, _ := serve(t, "/installation/repositories", `{"message":"Bad credentials"}`, http.StatusUnauthorized)
+	_, err = refused.VerifyInstallation(t.Context())
+	require.ErrorIs(t, err, forge.ErrUnauthorized)
+	assert.Equal(t, 1, auth.invalidated)
+}

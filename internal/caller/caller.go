@@ -11,6 +11,8 @@ package caller
 import (
 	"context"
 	"net/http"
+
+	"weave/lib/xhttp"
 )
 
 const (
@@ -58,10 +60,10 @@ func (c Caller) SetHeader(header http.Header) {
 }
 
 // Transport stamps every request a client sends with the identity and trace of the request being
-// served, taking next as the transport underneath or the default one when nil.
+// served, taking next as the transport underneath or xhttp's when nil.
 func Transport(next http.RoundTripper) http.RoundTripper {
 	if next == nil {
-		next = http.DefaultTransport
+		next = xhttp.NewTransport()
 	}
 
 	return forwarding{next: next}

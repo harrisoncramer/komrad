@@ -27,7 +27,7 @@ database records who the forge said the token belongs to.
 ### SEE ALSO
 
 * [weave](weave.md)	 - tmux panel and CLI for background coding agents
-* [weave forge connect](weave_forge_connect.md)	 - Connect a forge with a token read from stdin
+* [weave forge connect](weave_forge_connect.md)	 - Connect a forge with a token read from stdin, or as the engine's GitHub App
 * [weave forge disconnect](weave_forge_disconnect.md)	 - Forget a forge and the token it was connected with
 * [weave forge list](weave_forge_list.md)	 - Show every connected forge and who weave acts as there
 

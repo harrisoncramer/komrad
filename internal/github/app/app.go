@@ -24,6 +24,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"log/slog"
 	"net/http"
 	"os"
@@ -33,6 +34,7 @@ import (
 	"time"
 
 	"weave/internal/logging"
+	"weave/lib/xhttp"
 )
 
 // assertionLife is how far ahead of now the assertion's expiry is set, leaving the span it covers
@@ -66,6 +68,16 @@ type Identity struct {
 	InstallationID string
 	// PrivateKeyPath is the PEM the App was created with.
 	PrivateKeyPath string
+	// API is where GitHub answers, api.github.com when empty.
+	API string
+}
+
+func (a Identity) endpoint() string {
+	if a.API != "" {
+		return strings.TrimRight(a.API, "/")
+	}
+
+	return api
 }
 
 // keyDigest is the key's own bytes hashed.
@@ -101,7 +113,7 @@ func (a Identity) Mint(ctx context.Context, client *http.Client, now time.Time) 
 		return Token{}, err
 	}
 
-	url := fmt.Sprintf("%s/app/installations/%s/access_tokens", api, a.InstallationID)
+	url := fmt.Sprintf("%s/app/installations/%s/access_tokens", a.endpoint(), a.InstallationID)
 
 	request, err := http.NewRequestWithContext(ctx, http.MethodPost, url, http.NoBody)
 	if err != nil {
@@ -139,6 +151,49 @@ func (a Identity) Mint(ctx context.Context, client *http.Client, now time.Time) 
 	}
 
 	return token, nil
+}
+
+// Slug is the name GitHub knows the App by, read as the App itself rather than as an
+// installation.
+func (a Identity) Slug(ctx context.Context, client *http.Client, now time.Time) (string, error) {
+	if !a.Configured() {
+		return "", errors.New("no github app is configured, so there is nothing to ask about")
+	}
+
+	key, err := a.readKey()
+	if err != nil {
+		return "", err
+	}
+
+	assertion, err := signAssertion(a.ID, key, now)
+	if err != nil {
+		return "", err
+	}
+
+	var described struct {
+		Slug string `json:"slug"`
+	}
+	answer, err := xhttp.JSON(ctx, xhttp.JSONParams{
+		Client: client,
+		Method: http.MethodGet,
+		URL:    a.endpoint() + "/app",
+		Header: http.Header{
+			"Authorization":        {"Bearer " + assertion},
+			"Accept":               {"application/vnd.github+json"},
+			"X-GitHub-Api-Version": {"2022-11-28"},
+		},
+	}, &described)
+	if err != nil {
+		return "", err
+	}
+	if !answer.IsSuccess() {
+		return "", fmt.Errorf("github refused to describe app %s: %d: %s", a.ID, answer.Status, strings.TrimSpace(string(answer.Body)))
+	}
+	if described.Slug == "" {
+		return "", errors.New("github described the app with no slug")
+	}
+
+	return described.Slug, nil
 }
 
 func (a Identity) readKey() (*rsa.PrivateKey, error) {
@@ -290,6 +345,19 @@ func (c Cache) Write(token Token) error {
 
 	if err := os.Rename(temporary.Name(), c.Path); err != nil {
 		return fmt.Errorf("failed to record the github token at %s: %w", c.Path, err)
+	}
+
+	return nil
+}
+
+// Forget drops the cached token so the next Fetch mints again.
+func (c Cache) Forget() error {
+	if c.Path == "" {
+		return nil
+	}
+
+	if err := os.Remove(c.Path); err != nil && !errors.Is(err, fs.ErrNotExist) {
+		return fmt.Errorf("failed to drop the cached github token at %s: %w", c.Path, err)
 	}
 
 	return nil

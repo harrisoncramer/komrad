@@ -6,6 +6,16 @@ type Config struct {
 	SentinelKind SentinelKindConfig `json:"sentinel_kind"`
 	HandlerShape HandlerShapeConfig `json:"handler_shape"`
 	SecretExpose SecretExposeConfig `json:"secret_expose"`
+	BareHTTP     BareHTTPConfig     `json:"bare_http"`
+}
+
+// BareHTTPConfig settles where net/http's own clients may be built.
+type BareHTTPConfig struct {
+	// Skip turns the rule off.
+	Skip bool `json:"skip"`
+	// Exclude is unanchored regexps over the file path, for the one package that builds the
+	// configured client everything else uses.
+	Exclude []string `json:"exclude"`
 }
 
 // SecretExposeConfig settles where a forge Secret may give up its token.

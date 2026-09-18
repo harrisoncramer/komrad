@@ -2,11 +2,34 @@
 package forges
 
 import (
+	"strings"
+
+	"weave/config"
 	"weave/internal/forge"
 	"weave/internal/forge/github"
+	githubapp "weave/internal/github/app"
 )
 
 // Builders makes the forge for each kind this build knows.
 var Builders = map[string]forge.Builder{
 	forge.KindGitHub: github.Build,
+}
+
+// AppFrom is the GitHub App the config names, unconfigured when it names none, with its minted
+// tokens kept at cachePath or nowhere when that is empty.
+func AppFrom(cfg config.GitHubApp, cachePath string) (forge.App, error) {
+	identity := githubapp.Identity{
+		ID:             strings.TrimSpace(cfg.AppID),
+		PrivateKeyPath: config.ExpandHome(strings.TrimSpace(cfg.PrivateKeyPath)),
+	}
+	if strings.TrimSpace(cfg.InstallationID) != "" {
+		installation, err := githubapp.InstallationIDFromString(cfg.InstallationID)
+		if err != nil {
+			return forge.App{}, err
+		}
+
+		identity.InstallationID = installation
+	}
+
+	return forge.App{Cache: githubapp.Cache{Path: cachePath, Identity: identity}}, nil
 }

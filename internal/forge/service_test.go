@@ -2,11 +2,21 @@ package forge
 
 import (
 	"context"
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/x509"
+	"encoding/pem"
+	"net/http"
+	"net/http/httptest"
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
 	"weave/internal/dbtest"
 	"weave/internal/git"
+	githubapp "weave/internal/github/app"
 	"weave/internal/store"
 	forgestore "weave/internal/store/forge"
 
@@ -17,9 +27,10 @@ import (
 // fakeForge answers Verify from what it was built with and records the credential it was
 // given.
 type fakeForge struct {
-	auth  Authenticator
-	login string
-	err   error
+	auth    Authenticator
+	login   string
+	reaches int
+	err     error
 }
 
 func (f *fakeForge) Kind() string { return KindGitHub }
@@ -30,6 +41,15 @@ func (f *fakeForge) Verify(ctx context.Context) (string, error) {
 	}
 
 	return f.login, f.err
+}
+
+// VerifyInstallation answers the count it was built with after proving the credential mints.
+func (f *fakeForge) VerifyInstallation(ctx context.Context) (int, error) {
+	if _, err := f.auth.Credential(ctx); err != nil {
+		return 0, err
+	}
+
+	return f.reaches, f.err
 }
 
 func (f *fakeForge) ListOnBranch(context.Context, git.RemoteURL, string) ([]PullRequest, error) {
@@ -64,9 +84,10 @@ func newFixture(t *testing.T, login string, verifyErr error) *fixture {
 				f.apis = append(f.apis, api)
 
 				return &fakeForge{
-					auth:  auth,
-					login: login,
-					err:   verifyErr,
+					auth:    auth,
+					login:   login,
+					reaches: 3,
+					err:     verifyErr,
 				}
 			},
 		},
@@ -362,4 +383,143 @@ func TestForConnectionRecordsWhereItIsTold(t *testing.T) {
 	cleared, err := f.store.Get(ctx, connection.ID)
 	require.NoError(t, err)
 	assert.Nil(t, cleared.VerifiedAt)
+}
+
+// appServer is a GitHub that mints an installation token and describes the App, counting the
+// mints so a test can say whether the cache was used.
+func appServer(t *testing.T, tls bool) (*httptest.Server, *int) {
+	t.Helper()
+
+	mints := 0
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case strings.HasSuffix(r.URL.Path, "/access_tokens"):
+			mints++
+			w.WriteHeader(http.StatusCreated)
+			_, _ = w.Write([]byte(`{"token":"ghs_minted","expires_at":"` + time.Now().Add(time.Hour).UTC().Format(time.RFC3339) + `"}`))
+		case r.URL.Path == "/app":
+			_, _ = w.Write([]byte(`{"slug":"weave-engine"}`))
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	})
+
+	server := httptest.NewServer(handler)
+	if tls {
+		server = httptest.NewTLSServer(handler)
+	}
+	t.Cleanup(server.Close)
+
+	return server, &mints
+}
+
+func withApp(t *testing.T, f *fixture, server *httptest.Server) {
+	t.Helper()
+
+	key, err := rsa.GenerateKey(rand.Reader, 2048)
+	require.NoError(t, err)
+	keyPath := filepath.Join(t.TempDir(), "app.pem")
+	require.NoError(t, os.WriteFile(keyPath, pem.EncodeToMemory(&pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(key)}), 0o600))
+
+	f.service.app = App{
+		Cache: githubapp.Cache{
+			Path: filepath.Join(t.TempDir(), "token"),
+			Identity: githubapp.Identity{
+				ID:             "1",
+				InstallationID: "2",
+				PrivateKeyPath: keyPath,
+				API:            server.URL,
+			},
+		},
+		Client: server.Client(),
+	}
+}
+
+// TestConnectWithTheApp covers the engine's path: no token is pasted, the App mints, the
+// installation is checked to reach something, the row records the App's name, and no
+// credential file is written.
+func TestConnectWithTheApp(t *testing.T) {
+	f := newFixture(t, "", nil)
+	server, mints := appServer(t, false)
+	withApp(t, f, server)
+	ctx := t.Context()
+
+	connection, err := f.service.Connect(ctx, ConnectParams{Host: "github.com", Method: MethodGitHubApp})
+	require.NoError(t, err)
+	assert.Equal(t, MethodGitHubApp, connection.Method)
+	assert.Equal(t, "weave-engine", connection.Login)
+	assert.Equal(t, 1, *mints)
+	require.Len(t, f.seen, 1)
+	assert.Equal(t, "ghs_minted", f.seen[0].Token.Expose())
+	assert.False(t, f.seen[0].ExpiresAt.IsZero())
+
+	_, err = f.credentials.Get(ctx, connection.ID)
+	require.ErrorIs(t, err, ErrNoCredential)
+	held, err := f.service.HasCredential(ctx, *connection)
+	require.NoError(t, err)
+	assert.True(t, held)
+
+	again, err := f.service.ForConnection(*connection)
+	require.NoError(t, err)
+	_, err = again.(*fakeForge).auth.Credential(ctx)
+	require.NoError(t, err)
+	assert.Equal(t, 1, *mints, "the cached token serves the next call")
+
+	require.NoError(t, again.(*fakeForge).auth.Invalidate(ctx))
+	_, err = again.(*fakeForge).auth.Credential(ctx)
+	require.NoError(t, err)
+	assert.Equal(t, 2, *mints, "a refusal drops the cache so the next call mints")
+	cleared, err := f.store.Get(ctx, connection.ID)
+	require.NoError(t, err)
+	assert.Nil(t, cleared.VerifiedAt)
+}
+
+// TestConnectWithTheAppSpeaksToTheEnterpriseHost covers an App row on a GitHub Enterprise
+// host: the mint and the describe go to that host's API, not to api.github.com.
+func TestConnectWithTheAppSpeaksToTheEnterpriseHost(t *testing.T) {
+	f := newFixture(t, "", nil)
+	server, mints := appServer(t, true)
+	withApp(t, f, server)
+	f.service.app.Cache.Identity.API = ""
+
+	_, err := f.service.Connect(t.Context(), ConnectParams{
+		Host:   "ghe.example.com",
+		Kind:   KindGitHub,
+		Method: MethodGitHubApp,
+		APIURL: server.URL,
+	})
+	require.NoError(t, err)
+	assert.Equal(t, 1, *mints, "the mint reached the address the connection names")
+	assert.Equal(t, []string{server.URL}, f.apis)
+}
+
+// TestConnectWithTheAppRefusals covers no App configured, an App on a forge that is not
+// GitHub, and an App installed on nothing, none of which leaves a row.
+func TestConnectWithTheAppRefusals(t *testing.T) {
+	t.Run("no app configured", func(t *testing.T) {
+		f := newFixture(t, "", nil)
+
+		_, err := f.service.Connect(t.Context(), ConnectParams{Host: "github.com", Method: MethodGitHubApp})
+		require.ErrorIs(t, err, ErrNoApp)
+	})
+
+	t.Run("an app reaching no repository", func(t *testing.T) {
+		f := newFixture(t, "", nil)
+		server, _ := appServer(t, false)
+		withApp(t, f, server)
+		f.service.builders[KindGitHub] = func(_ string, auth Authenticator) Forge {
+			return &fakeForge{auth: auth, reaches: 0}
+		}
+
+		_, err := f.service.Connect(t.Context(), ConnectParams{Host: "github.com", Method: MethodGitHubApp})
+		require.ErrorIs(t, err, ErrAppReachesNothing)
+	})
+
+	t.Run("a way to connect that does not exist", func(t *testing.T) {
+		f := newFixture(t, "", nil)
+
+		_, err := f.service.Connect(t.Context(), ConnectParams{Host: "github.com", Method: "oauth"})
+		require.Error(t, err)
+	})
+
 }

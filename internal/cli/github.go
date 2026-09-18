@@ -4,14 +4,15 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
 
-	"weave/config"
+	"weave/internal/forge"
+	"weave/internal/forge/forges"
 	githubapp "weave/internal/github/app"
+	"weave/lib/xhttp"
 
 	"github.com/spf13/cobra"
 )
@@ -118,30 +119,27 @@ Set it up with:
 
 // githubToken is the cached installation token, or a freshly minted one recorded for next time.
 func githubToken(ctx context.Context, state *app) (string, error) {
-	installation, err := githubapp.InstallationIDFromString(state.githubApp.InstallationID)
+	current, err := githubApp(state)
 	if err != nil {
 		return "", err
 	}
 
-	current := githubapp.Identity{
-		ID:             strings.TrimSpace(state.githubApp.AppID),
-		InstallationID: installation,
-		PrivateKeyPath: config.ExpandHome(strings.TrimSpace(state.githubApp.PrivateKeyPath)),
-	}
-
-	if !current.Configured() {
+	if !current.IsConfigured() {
 		return "", fmt.Errorf("no github app is configured: set app_id, installation_id and " +
 			"private_key_path under [github_app] in the config this weave was started with")
 	}
 
-	cache := githubapp.Cache{Path: githubTokenCachePath(state), Identity: current}
-
-	token, err := cache.Fetch(ctx, &http.Client{Timeout: githubTokenTimeout}, time.Now())
+	token, err := current.Cache.Fetch(ctx, xhttp.NewClient(githubTokenTimeout), time.Now())
 	if err != nil {
 		return "", err
 	}
 
 	return token.Value, nil
+}
+
+// githubApp is the App the config names, with its cache where every command shares it.
+func githubApp(state *app) (forge.App, error) {
+	return forges.AppFrom(state.githubApp, githubTokenCachePath(state))
 }
 
 func githubTokenCachePath(state *app) string {
