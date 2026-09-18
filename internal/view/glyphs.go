@@ -13,7 +13,7 @@ func Drawings() []Drawn {
 	for _, named := range glyphNames {
 		drawings = append(drawings, Drawn{
 			Name:    named.name,
-			Text:    spell(named.glyph),
+			Text:    Spell(named.glyph),
 			Columns: plainColumns,
 		})
 	}

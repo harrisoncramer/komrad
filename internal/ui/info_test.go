@@ -286,7 +286,7 @@ func infoModel(tmux *recordingTmux) model {
 		keys:          config.DefaultKeybindings(),
 		screen:        screenAgents,
 		detailsHeight: config.DefaultDetailsHeight,
-		listing: listing{workflows: []workflowstore.Workflow{{ID: "w1", Name: "backend"}}, agents: []agentItem{
+		listing: listing{workflows: []workflowstore.Workflow{{ID: "w1", Name: "backend", Worktree: workflowstore.WorktreeConfig{Enabled: true}}}, agents: []agentItem{
 			{agent: agentstore.Agent{
 				Name:       "auth",
 				Pane:       "%9",

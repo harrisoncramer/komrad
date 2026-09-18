@@ -68,7 +68,7 @@ func TestReviewMarkGivesAVerdictTheColumn(t *testing.T) {
 	noted := localReviewMark(paint.Colored, true, string(reviewstore.VerdictCommented))
 	assert.Contains(t, noted, inLocalReviewIcon, "notes without a conclusion leave the reading unfinished")
 
-	notices := agentNotices(agentItem{inLocalReview: true, localVerdict: string(reviewstore.VerdictChangesRequested)})
+	notices := agentNotices(noticeRow(agentItem{inLocalReview: true, localVerdict: string(reviewstore.VerdictChangesRequested)}))
 	require.Len(t, notices, 1, "the record says it once too")
 	assert.Contains(t, notices[0].text, "asked for changes")
 }
@@ -76,18 +76,18 @@ func TestReviewMarkGivesAVerdictTheColumn(t *testing.T) {
 // TestReviewStateNoticesSayWhatTheGlyphsMean covers the two the record spells out, since a tick
 // beside a name says nothing about what was ticked.
 func TestReviewStateNoticesSayWhatTheGlyphsMean(t *testing.T) {
-	reading := agentNotices(agentItem{inLocalReview: true})
+	reading := agentNotices(noticeRow(agentItem{inLocalReview: true}))
 	require.Len(t, reading, 1)
 	assert.Contains(t, reading[0].text, "in review")
 
-	approved := agentNotices(agentItem{localVerdict: string(reviewstore.VerdictApproved)})
+	approved := agentNotices(noticeRow(agentItem{localVerdict: string(reviewstore.VerdictApproved)}))
 	require.Len(t, approved, 1)
 	assert.Contains(t, approved[0].text, "approved")
 
-	changes := agentNotices(agentItem{localVerdict: string(reviewstore.VerdictChangesRequested)})
+	changes := agentNotices(noticeRow(agentItem{localVerdict: string(reviewstore.VerdictChangesRequested)}))
 	require.Len(t, changes, 1)
 	assert.Contains(t, changes[0].text, "asked for changes")
 
-	assert.Empty(t, agentNotices(agentItem{localVerdict: string(reviewstore.VerdictCommented)}),
+	assert.Empty(t, agentNotices(noticeRow(agentItem{localVerdict: string(reviewstore.VerdictCommented)})),
 		"a review released without a conclusion says nothing")
 }

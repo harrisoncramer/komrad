@@ -315,9 +315,16 @@ func (m model) reviewDetails() details {
 	agent := item.agent
 	fields := agentFields(agent, m.scheduleName(agent), m.parentName(agent))
 
+	// The notices read the row the list would draw, and which columns that row fills depends on
+	// whether the agent owns its checkout, which only its workflow says.
+	row := agentRow{item: item}
+	if workflow := m.workflowByID(agent.WorkflowID); workflow != nil {
+		row.workflow = *workflow
+	}
+
 	return details{
 		id:      agent.ID,
-		notices: agentNotices(item),
+		notices: agentNotices(row),
 		fields:  append(fields, m.reviewFields()...),
 	}
 }

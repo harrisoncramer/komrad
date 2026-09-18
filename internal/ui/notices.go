@@ -64,17 +64,18 @@ var (
 	}
 )
 
-// agentNotices orders the marks by how much each wants a person's attention.
-func agentNotices(item agentItem) []notice {
-	repo, review := snapshotRepo(item.agent), snapshotReview(item)
+// agentNotices orders the marks by how much each wants a person's attention, reading the row the
+// list would draw so a column the row leaves empty is a column the record says nothing about.
+func agentNotices(r agentRow) []notice {
+	item, row := r.item, snapshotRow(r, snapshotParams{})
 
-	notices := appendCellNotice(nil, view.StatusCell(snapshotStatus(item), dormant(item)), failureSaid[displayState(item)])
-	notices = appendCellNotice(notices, view.AlertCell(item.failedRun), failedRunNotice)
-	notices = appendCellNotice(notices, view.MailCell(item.unreadMail), unreadMailNotice)
-	notices = appendCellNotice(notices, view.RepoCell(repo), repoSaid[repo])
-	notices = appendCellNotice(notices, view.HeldCell(item.agent.HeldAt != nil, heldWorking(item)), heldNoticeText(item))
+	notices := appendCellNotice(nil, view.StatusCell(row), failureSaid[displayState(item)])
+	notices = appendCellNotice(notices, view.AlertCell(row), failedRunNotice)
+	notices = appendCellNotice(notices, view.MailCell(row), unreadMailNotice)
+	notices = appendCellNotice(notices, view.RepoCell(row), repoSaid[row.Repo])
+	notices = appendCellNotice(notices, view.HeldCell(row), heldNoticeText(item))
 	notices = appendNotice(notices, item.agent.Hidden, "", paint.ToneMuted, hiddenNotice)
-	notices = appendCellNotice(notices, view.ReviewCell(review), reviewSaid[review])
+	notices = appendCellNotice(notices, view.ReviewCell(row), reviewSaid[row.Review])
 
 	return appendNotice(notices, item.localRounds > 0, "", paint.ToneMuted, localReviewRoundsNotice(item.localRounds))
 }

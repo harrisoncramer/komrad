@@ -8,6 +8,7 @@ import (
 	"weave/lib/xptr"
 
 	agentstore "weave/internal/store/agent"
+	workflowstore "weave/internal/store/workflow"
 	"weave/internal/view"
 
 	"github.com/charmbracelet/lipgloss"
@@ -15,6 +16,16 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+// noticeRow is one agent as the list would hold it, under a workflow that cuts each agent its
+// own checkout, since an agent that owns none has its three columns blanked and so says nothing
+// about them.
+func noticeRow(item agentItem) agentRow {
+	return agentRow{
+		item:     item,
+		workflow: workflowstore.Workflow{Worktree: workflowstore.WorktreeConfig{Enabled: true}},
+	}
+}
 
 // TestNoticesSpellOutTheMarksOnTheRow covers the top of the record: every glyph the hovered row
 // is carrying is said again in words.
@@ -52,14 +63,14 @@ func TestNoticesCoverEveryOptionalMark(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			notices := agentNotices(tt.item)
+			notices := agentNotices(noticeRow(tt.item))
 
 			require.Len(t, notices, 1)
 			assert.Equal(t, tt.want, notices[0].text)
 		})
 	}
 
-	assert.Empty(t, agentNotices(agentItem{alive: true}), "an agent carrying nothing has nothing to say")
+	assert.Empty(t, agentNotices(noticeRow(agentItem{alive: true})), "an agent carrying nothing has nothing to say")
 }
 
 // TestNoticesAreOrderedByUrgency covers what a short pane gives up: the marks a person would
@@ -75,8 +86,8 @@ func TestNoticesAreOrderedByUrgency(t *testing.T) {
 		failedRun:  true,
 	}
 
-	texts := make([]string, 0, len(agentNotices(item)))
-	for _, n := range agentNotices(item) {
+	texts := make([]string, 0, len(agentNotices(noticeRow(item))))
+	for _, n := range agentNotices(noticeRow(item)) {
 		texts = append(texts, n.text)
 	}
 
@@ -94,7 +105,7 @@ func TestNoticesAreOrderedByUrgency(t *testing.T) {
 func TestAFailedCreateSaysWhereItsWorktreeWent(t *testing.T) {
 	item := agentItem{agent: agentstore.Agent{State: agentstore.StateFailedToCreate, WorktreeRemoved: true}}
 
-	notices := agentNotices(item)
+	notices := agentNotices(noticeRow(item))
 
 	require.Len(t, notices, 2)
 	assert.Equal(t, failedToCreateNotice, notices[0].text)
@@ -117,7 +128,7 @@ func TestNoticesWearTheGlyphTheRowDraws(t *testing.T) {
 		inLocalReview: true,
 	}
 
-	line := view.Prepare(view.Snapshot{Rows: []view.Row{snapshotRow(agentRow{item: item}, snapshotParams{})}}).Lines[0]
+	line := view.Prepare(view.Snapshot{Rows: []view.Row{snapshotRow(noticeRow(item), snapshotParams{})}}).Lines[0]
 
 	want := map[string]view.Cell{
 		failedRunNotice:     line.Alert,
@@ -127,7 +138,7 @@ func TestNoticesWearTheGlyphTheRowDraws(t *testing.T) {
 		inLocalReviewNotice: line.Review,
 	}
 
-	notices := agentNotices(item)
+	notices := agentNotices(noticeRow(item))
 	require.Len(t, notices, len(want))
 
 	for _, n := range notices {
@@ -149,7 +160,7 @@ func TestUnviewedAndHiddenCarryNoGlyph(t *testing.T) {
 
 	assert.Equal(t, view.EmphasisFocused, bright.Emphasis, "the hovered row says neither")
 
-	said := noticeTexts(agentNotices(agentItem{unviewed: true, agent: agentstore.Agent{Hidden: true}}))
+	said := noticeTexts(agentNotices(noticeRow(agentItem{unviewed: true, agent: agentstore.Agent{Hidden: true}})))
 
 	assert.Equal(t, []string{hiddenNotice}, said, "hidden is durable, unviewed goes on a second's dwell")
 }
@@ -347,4 +358,22 @@ func TestEveryStateTheBarDrawsBrokenHasASentence(t *testing.T) {
 		require.Equal(t, view.StatusBroken, snapshotStatus(item), "state %q no longer draws a broken bar", state)
 		assert.NotEmpty(t, failureSaid[state], "state %q draws a broken bar with no sentence", state)
 	}
+}
+
+// TestAStoppedRowDrawsABarAndSaysNothing covers the bar a row draws once its process has gone.
+// It is a mark, so the suppression that keeps the record quiet about it is the empty sentence
+// rather than an empty cell, and a failed create has to keep its own sentence alongside.
+func TestAStoppedRowDrawsABarAndSaysNothing(t *testing.T) {
+	stopped := agentItem{agent: agentstore.Agent{State: agentstore.StateIdle}}
+	row := snapshotRow(noticeRow(stopped), snapshotParams{})
+
+	require.Equal(t, view.ProcessStopped, row.Process, "an agent whose pane has gone reads as stopped")
+	require.False(t, view.StatusCell(row).IsBlank(), "and its bar is drawn rather than blank")
+	assert.Empty(t, noticeTexts(agentNotices(noticeRow(stopped))), "the record says nothing about it")
+
+	failed := agentItem{agent: agentstore.Agent{State: agentstore.StateFailedToCreate}}
+
+	require.Equal(t, view.ProcessAlive, snapshotRow(noticeRow(failed), snapshotParams{}).Process,
+		"a failed create is not a stopped process")
+	assert.Contains(t, noticeTexts(agentNotices(noticeRow(failed))), failedToCreateNotice)
 }

@@ -542,7 +542,7 @@ func wantNameColumn(kind RowKind) int {
 // one column, the same as the box-drawing rules beside it.
 func TestEveryGlyphDrawsOneColumn(t *testing.T) {
 	for glyph := GlyphNone; glyph < glyphCount; glyph++ {
-		spelled := spell(glyph)
+		spelled := Spell(glyph)
 		if glyph == GlyphNone {
 			assert.Empty(t, spelled)
 
