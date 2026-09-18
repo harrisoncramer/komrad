@@ -189,13 +189,13 @@ func parseRowColumn(body string) (column int, found bool, err error) {
 	return 0, false, fmt.Errorf("%w: it answered %q", ErrCursorQueryUnanswered, body)
 }
 
-// readTerminfo reads one capability out of the terminfo entry TERM names, an absent string
-// capability coming back empty rather than as an error.
-func readTerminfo(ctx context.Context, capability string) (string, error) {
+// readTerminfo reads one capability out of a named terminfo entry, an absent string capability
+// coming back empty rather than as an error.
+func readTerminfo(ctx context.Context, term, capability string) (string, error) {
 	ctx, cancel := context.WithTimeout(ctx, commandTimeout)
 	defer cancel()
 
-	out, err := exec.CommandContext(ctx, "tput", capability).Output()
+	out, err := exec.CommandContext(ctx, "tput", "-T", term, capability).Output()
 
 	var exitErr *exec.ExitError
 	if errors.As(err, &exitErr) && exitErr.ExitCode() == 1 {

@@ -36,6 +36,10 @@ var (
 		Code:    "term_unset",
 		Message: "TERM names no terminal, so terminfo has nothing to answer about",
 	}
+	ErrPaintingTermUnknown = &ProblemError{
+		Code:    "painting_term_unknown",
+		Message: "tmux would not name the terminal it paints to, and the entry it advertises inside itself answers for nothing a person sees",
+	}
 	ErrTerminfoUnreadable = &ProblemError{
 		Code:    "terminfo_unreadable",
 		Message: "terminfo could not be read, so what this terminal can draw is unknown",
@@ -106,33 +110,34 @@ func newTerminalGlyphCheck() Check {
 	}
 }
 
-// newTerminalEmphasisCheck reports whether terminfo names the bold and italic escapes, which is
-// what tells a workflow row from an agent row and an agent row from a child.
+// newTerminalEmphasisCheck reports whether the terminal that paints honours the bold and italic
+// escapes, which is what tells a workflow row from an agent row and an agent row from a child.
 func newTerminalEmphasisCheck() Check {
 	return Check{
 		Name:        "terminal emphasis",
 		Description: "bold marks a workflow row and italic marks a child",
 		Run: func(ctx context.Context, env Env) Result {
-			if env.Term == "" {
-				return warn(ErrTermUnset, "")
+			painting, err := findPaintingTerm(ctx, env)
+			if err != nil {
+				return Result{Status: StatusSkip, Detail: "not checked, " + err.Error()}
 			}
 
-			missing, losses, err := findMissingEmphasis(ctx, env)
+			missing, losses, err := findMissingEmphasis(ctx, env, painting)
 			if err != nil {
-				return warn(err, env.Term)
+				return warn(err, painting)
 			}
 
 			if len(missing) > 0 {
 				return Result{
 					Status: StatusWarn,
-					Detail: env.Term,
+					Detail: painting,
 					Err: fmt.Errorf("%w: %s names no %s, so %s",
-						ErrEmphasisMissing, env.Term, joinWords(missing), strings.Join(losses, " and ")),
-					Fix: "set TERM to an entry that names them, such as xterm-256color, or tmux-256color inside tmux",
+						ErrEmphasisMissing, painting, joinWords(missing), strings.Join(losses, " and ")),
+					Fix: "set your terminal's TERM to an entry that names them, such as xterm-256color",
 				}
 			}
 
-			return pass(env.Term + " names both bold and italic")
+			return pass(painting + " names both bold and italic")
 		},
 	}
 }
@@ -148,7 +153,7 @@ func newTerminalColorCheck() Check {
 				return warn(ErrTermUnset, "")
 			}
 
-			reported, err := env.ReadTerminfo(ctx, "colors")
+			reported, err := env.ReadTerminfo(ctx, env.Term, "colors")
 			if err != nil {
 				return warn(fmt.Errorf("%w: %w", ErrTerminfoUnreadable, err), env.Term)
 			}
@@ -248,11 +253,39 @@ func count(number int, noun string) string {
 	return strconv.Itoa(number) + " " + noun + "s"
 }
 
+// Explainer: lipgloss emits SGR 1 and SGR 3 from termenv's hardcoded BoldSeq and ItalicSeq
+// without consulting terminfo, so the panel sends both escapes whatever TERM says and the entry
+// TERM names inside tmux gates nothing. What decides whether a person sees italics is the
+// terminal tmux paints to, which converts them to standout when its own entry names no sitm.
+
+// findPaintingTerm is the terminfo entry of the terminal that actually paints the panel, which
+// inside tmux is tmux's own client rather than the entry tmux advertises to what it runs.
+func findPaintingTerm(ctx context.Context, env Env) (string, error) {
+	if env.InsideTmux == "" {
+		if env.Term == "" {
+			return "", ErrTermUnset
+		}
+
+		return env.Term, nil
+	}
+
+	client, err := env.Output(ctx, "tmux", "display-message", "-p", "#{client_termname}")
+	if err != nil {
+		return "", fmt.Errorf("%w: %w", ErrPaintingTermUnknown, err)
+	}
+
+	if strings.TrimSpace(client) == "" {
+		return "", fmt.Errorf("%w: nothing is attached to this session", ErrPaintingTermUnknown)
+	}
+
+	return strings.TrimSpace(client), nil
+}
+
 // findMissingEmphasis reads both escapes out of terminfo and returns the ones the entry does
 // not name, alongside what the list loses without each.
-func findMissingEmphasis(ctx context.Context, env Env) (missing, losses []string, err error) {
+func findMissingEmphasis(ctx context.Context, env Env, term string) (missing, losses []string, err error) {
 	for _, wanted := range emphasis {
-		escape, err := env.ReadTerminfo(ctx, wanted.capability)
+		escape, err := env.ReadTerminfo(ctx, term, wanted.capability)
 		if err != nil {
 			return nil, nil, fmt.Errorf("%w: %w", ErrTerminfoUnreadable, err)
 		}

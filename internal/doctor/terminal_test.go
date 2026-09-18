@@ -139,9 +139,20 @@ func TestGlyphCheckRefusesAShortAnswer(t *testing.T) {
 	assert.ErrorIs(t, result.Err, ErrCursorQueryUnanswered)
 }
 
-func terminfo(answers map[string]string) func(context.Context, string) (string, error) {
-	return func(_ context.Context, capability string) (string, error) {
+func terminfo(answers map[string]string) func(context.Context, string, string) (string, error) {
+	return func(_ context.Context, _, capability string) (string, error) {
 		return answers[capability], nil
+	}
+}
+
+// naming is an env inside tmux whose tmux names the terminal it paints to.
+func naming(client string, answers map[string]string) Env {
+	return Env{
+		Settings:     Settings{Term: "tmux-256color", InsideTmux: "/tmp/tmux-501/default,1,0"},
+		ReadTerminfo: terminfo(answers),
+		Output: func(context.Context, string, ...string) (string, error) {
+			return client, nil
+		},
 	}
 }
 
@@ -163,11 +174,33 @@ func TestEmphasisCheckNamesWhatIsLost(t *testing.T) {
 // TestEmphasisCheckPasses covers the terminal that can letter a row both ways.
 func TestEmphasisCheckPasses(t *testing.T) {
 	env := Env{
-		Settings:     Settings{Term: "tmux-256color"},
+		Settings:     Settings{Term: "xterm-256color"},
 		ReadTerminfo: terminfo(map[string]string{"bold": "\x1b[1m", "sitm": "\x1b[3m"}),
 	}
 
 	assert.Equal(t, StatusOK, newTerminalEmphasisCheck().Run(t.Context(), env).Status)
+}
+
+// TestEmphasisCheckAsksTmuxRatherThanItsOwnTerm covers the environment weave always runs in,
+// where the entry tmux advertises to what it runs answers for nothing a person can see.
+func TestEmphasisCheckAsksTmuxRatherThanItsOwnTerm(t *testing.T) {
+	env := naming("xterm-256color", map[string]string{"bold": "\x1b[1m", "sitm": "\x1b[3m"})
+
+	result := newTerminalEmphasisCheck().Run(t.Context(), env)
+	require.Equal(t, StatusOK, result.Status, result.Detail)
+	assert.Contains(t, result.Detail, "xterm-256color")
+	assert.NotContains(t, result.Detail, "tmux-256color",
+		"tmux-256color is what the panel emits for, not what paints, so quoting it would mislead")
+}
+
+// TestEmphasisCheckSkipsWhenTmuxNamesNoClient covers a detached session, where nothing can be
+// said about the painting terminal and saying it is missing italics would be a lie.
+func TestEmphasisCheckSkipsWhenTmuxNamesNoClient(t *testing.T) {
+	env := naming("", nil)
+
+	result := newTerminalEmphasisCheck().Run(t.Context(), env)
+	require.Equal(t, StatusSkip, result.Status)
+	assert.Contains(t, result.Detail, "nothing is attached to this session")
 }
 
 // TestEmphasisCheckWithoutTerm covers a shell that names no terminal, where terminfo has
@@ -175,16 +208,16 @@ func TestEmphasisCheckPasses(t *testing.T) {
 func TestEmphasisCheckWithoutTerm(t *testing.T) {
 	result := newTerminalEmphasisCheck().Run(t.Context(), Env{})
 
-	assert.Equal(t, StatusWarn, result.Status)
-	assert.ErrorIs(t, result.Err, ErrTermUnset)
+	assert.Equal(t, StatusSkip, result.Status)
+	assert.Contains(t, result.Detail, ErrTermUnset.Message)
 }
 
 // TestEmphasisCheckWhenTerminfoWillNotAnswer covers a machine with no terminfo reader on it,
 // which says nothing about the terminal either way.
 func TestEmphasisCheckWhenTerminfoWillNotAnswer(t *testing.T) {
 	env := Env{
-		Settings: Settings{Term: "tmux-256color"},
-		ReadTerminfo: func(context.Context, string) (string, error) {
+		Settings: Settings{Term: "xterm-256color"},
+		ReadTerminfo: func(context.Context, string, string) (string, error) {
 			return "", errors.New("tput: not found")
 		},
 	}

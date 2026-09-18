@@ -28,7 +28,7 @@ type Env struct {
 	ReadWorktreeOwners    func(ctx context.Context, url string) (WorktreeOwners, error)
 	ProbeServer           func(ctx context.Context) (ServerStatus, error)
 	IsPanelRunning        func(ctx context.Context) bool
-	ReadTerminfo          func(ctx context.Context, capability string) (string, error)
+	ReadTerminfo          func(ctx context.Context, term, capability string) (string, error)
 
 	// MeasureColumns asks the terminal how wide it drew each sample, and is left nil wherever
 	// there is no terminal to take over.
