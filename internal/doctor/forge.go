@@ -41,7 +41,7 @@ func classifyForgeFailure(err error) *ProblemError {
 	}
 }
 
-// forgeProblemRank orders the kinds of trouble, a refusal being the one a person has to act on.
+// forgeProblemRank orders the kinds of trouble, worst last.
 var forgeProblemRank = map[string]int{
 	ErrForgeUnreachable.Code:  1,
 	ErrForgeNoCredential.Code: 2,
