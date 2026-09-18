@@ -197,15 +197,7 @@ func verifyForges(ctx context.Context, url string, appConfig config.GitHubApp) (
 	statuses := make([]ForgeStatus, 0, len(connections))
 	for _, connection := range connections {
 		status := ForgeStatus{Host: connection.Host}
-		f, err := service.ForConnection(connection)
-		if err != nil {
-			status.Err = err
-			statuses = append(statuses, status)
-
-			continue
-		}
-
-		status.Login, status.Err = f.Verify(ctx)
+		status.Login, status.Err = service.Check(ctx, connection)
 		statuses = append(statuses, status)
 	}
 

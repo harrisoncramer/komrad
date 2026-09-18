@@ -146,7 +146,7 @@ func (f *Forge) get(ctx context.Context, path string, into any) error {
 	case answer.Status == http.StatusUnauthorized:
 		return fmt.Errorf("%w: %s", forge.ErrUnauthorized, messageOf(answer.Body))
 	case answer.Status == http.StatusNotFound:
-		return fmt.Errorf("%w: %s", forge.ErrNotFound, path)
+		return fmt.Errorf("%w: github answered 404 for %s, which is also its answer for a repository the credential cannot see", forge.ErrNotFound, path)
 	case !answer.IsSuccess():
 		return fmt.Errorf("github answered %d for %s: %s", answer.Status, path, messageOf(answer.Body))
 	}

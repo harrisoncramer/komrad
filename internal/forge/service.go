@@ -219,8 +219,11 @@ func (s *Service) proveToken(ctx context.Context, build Builder, kind, host, api
 
 	probe := build(apiURL, staticCredential{Header: HeaderFor(kind, MethodToken), Token: token})
 	login, err := probe.Verify(ctx)
-	if err != nil {
+	if errors.Is(err, ErrUnauthorized) {
 		return "", fmt.Errorf("%s did not accept the token: %w", host, err)
+	}
+	if err != nil {
+		return "", err
 	}
 
 	return login, nil
@@ -243,8 +246,11 @@ func (s *Service) proveApp(ctx context.Context, build Builder, kind, apiURL stri
 	}
 
 	reached, err := probe.VerifyInstallation(ctx)
-	if err != nil {
+	if errors.Is(err, ErrUnauthorized) {
 		return "", fmt.Errorf("github did not accept the app's token: %w", err)
+	}
+	if err != nil {
+		return "", err
 	}
 	if reached == 0 {
 		return "", ErrAppReachesNothing.Saying("install the app on the repositories your agents work in")
@@ -270,6 +276,43 @@ func (s *Service) Disconnect(ctx context.Context, host string) error {
 	}
 
 	return s.connections.Delete(ctx, connection.ID)
+}
+
+// Check asks the forge whether a connection still works, the way its method allows: who the
+// token belongs to for a pasted token, and whether the installation still reaches a repository
+// for an App, whose login is the row's own.
+func (s *Service) Check(ctx context.Context, connection forgestore.Connection) (string, error) {
+	held, err := s.HasCredential(ctx, connection)
+	if err != nil {
+		return "", err
+	}
+	if !held {
+		return "", ErrNoCredential.Saying("no credential file for %s; connect it again", connection.Host)
+	}
+
+	f, err := s.ForConnection(connection)
+	if err != nil {
+		return "", err
+	}
+
+	if connection.Method != MethodGitHubApp {
+		return f.Verify(ctx)
+	}
+
+	installation, ok := f.(InstallationVerifier)
+	if !ok {
+		return "", fail.InvalidArgument("this forge cannot check an installation")
+	}
+
+	reached, err := installation.VerifyInstallation(ctx)
+	if err != nil {
+		return "", err
+	}
+	if reached == 0 {
+		return "", ErrAppReachesNothing.Saying("install the app on the repositories your agents work in")
+	}
+
+	return connection.Login, nil
 }
 
 // HasCredential says whether a connection still has what it needs to speak, which for an App

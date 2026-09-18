@@ -36,8 +36,12 @@ type fakeForge struct {
 func (f *fakeForge) Kind() string { return KindGitHub }
 
 func (f *fakeForge) Verify(ctx context.Context) (string, error) {
-	if _, err := f.auth.Credential(ctx); err != nil {
+	credential, err := f.auth.Credential(ctx)
+	if err != nil {
 		return "", err
+	}
+	if !credential.ExpiresAt.IsZero() {
+		return "", ErrUnauthorized.Saying("an installation token is not a user")
 	}
 
 	return f.login, f.err
@@ -522,4 +526,43 @@ func TestConnectWithTheAppRefusals(t *testing.T) {
 		require.Error(t, err)
 	})
 
+}
+
+// TestCheck covers what the doctor reads per row: a token row is asked who it is, an App row
+// is asked what its installation reaches and answers with the login the row holds, a row whose
+// file is gone says so without a request, and an App reaching nothing is refused.
+func TestCheck(t *testing.T) {
+	f := newFixture(t, "harrisoncramer", nil)
+	ctx := t.Context()
+
+	token, err := f.service.Connect(ctx, ConnectParams{Host: "github.com", Token: NewSecret("tok")})
+	require.NoError(t, err)
+	login, err := f.service.Check(ctx, *token)
+	require.NoError(t, err)
+	assert.Equal(t, "harrisoncramer", login)
+
+	require.NoError(t, f.credentials.Delete(ctx, token.ID))
+	_, err = f.service.Check(ctx, *token)
+	require.ErrorIs(t, err, ErrNoCredential)
+	require.NoError(t, f.service.Disconnect(ctx, "github.com"))
+
+	server, _ := appServer(t, false)
+	withApp(t, f, server)
+	app, err := f.service.Connect(ctx, ConnectParams{Host: "github.com", Method: MethodGitHubApp})
+	require.NoError(t, err)
+	seenBefore := len(f.seen)
+	login, err = f.service.Check(ctx, *app)
+	require.NoError(t, err)
+	assert.Equal(t, "weave-engine", login)
+	assert.Len(t, f.seen, seenBefore+1, "the App row is checked through its installation, not /user")
+
+	f.service.builders[KindGitHub] = func(_ string, auth Authenticator) Forge {
+		return &fakeForge{
+			auth:    auth,
+			login:   "should-not-be-read",
+			reaches: 0,
+		}
+	}
+	_, err = f.service.Check(ctx, *app)
+	require.ErrorIs(t, err, ErrAppReachesNothing)
 }
