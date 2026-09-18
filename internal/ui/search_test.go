@@ -1128,11 +1128,11 @@ func TestSearchRowWithoutTheAgent(t *testing.T) {
 	lines, _ := m.searchLines()
 	row := searchRowNamed(t, lines, "billing")
 
-	assert.Equal(t, view.ProcessNone, row.Process, "a hit nothing is known about has no bar to draw")
+	assert.Equal(t, view.ProcessNone, row.Process, "a hit nothing is known about has nothing behind it")
 
 	header := headerLine(t, ansi.Strip(m.searchView()), "billing")
-	assert.Equal(t, strings.Repeat(" ", snippetIndent())+"billing", header,
-		"and still opens its name where every other row does")
+	assert.Equal(t, strings.Repeat(" ", snippetIndent()-2)+view.Spell(view.GlyphQuiet)+" billing", header,
+		"and still draws the quiet bar and opens its name where every other row does")
 }
 
 func headerLine(t *testing.T, view, name string) string {

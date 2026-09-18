@@ -7,9 +7,10 @@ func Prepare(snapshot Snapshot) List {
 	lines := make([]Line, 0, len(snapshot.Rows))
 	for _, row := range snapshot.Rows {
 		lines = append(lines, prepareLine(prepareLineParams{
-			row:         row,
-			focused:     isFocused(row, snapshot.Focused),
-			caretHidden: snapshot.CaretHidden,
+			row:           row,
+			focused:       isFocused(row, snapshot.Focused),
+			caretHidden:   snapshot.CaretHidden,
+			barBlinkedOut: snapshot.BarBlinkedOut,
 		}))
 	}
 
@@ -47,9 +48,10 @@ func fitColumns(pane int, dropped Columns) Columns {
 
 // prepareLineParams is one row and what the list around it says about that row.
 type prepareLineParams struct {
-	row         Row
-	focused     bool
-	caretHidden bool
+	row           Row
+	focused       bool
+	caretHidden   bool
+	barBlinkedOut bool
 }
 
 // prepareLine resolves one row to the glyphs, tones and weight it is drawn in.
@@ -63,7 +65,7 @@ func prepareLine(params prepareLineParams) Line {
 		Repo:     RepoCell(row),
 		Review:   ReviewCell(row),
 		Forge:    forgeCell(row),
-		Status:   StatusCell(row),
+		Status:   blinkBar(StatusCell(row), row, params.barBlinkedOut),
 		Rule:     row.Kind == KindChild,
 		Indent:   indentFor(row.Kind),
 		Name:     row.Name,
@@ -157,10 +159,6 @@ func forgeCell(row Row) Cell {
 // StatusCell is what the agent is doing this second, a bar rather than a glyph so it is noticed
 // rather than decoded.
 func StatusCell(row Row) Cell {
-	if row.Process == ProcessNone {
-		return Cell{}
-	}
-
 	switch row.Status {
 	case StatusIdle:
 		return Cell{Glyph: GlyphQuiet, Tone: paint.ToneMuted}
@@ -175,6 +173,15 @@ func StatusCell(row Row) Cell {
 	return Cell{Glyph: GlyphQuiet, Tone: paint.ToneMuted}
 }
 
+// blinkBar thins a working agent's bar on the off half of the blink.
+func blinkBar(cell Cell, row Row, out bool) Cell {
+	if out && row.Status == StatusThinking && cell.Glyph == GlyphBusy {
+		cell.Glyph = GlyphQuiet
+	}
+
+	return cell
+}
+
 // HiddenCell is the mark a row draws once a person has taken it out of the sidebar.
 func HiddenCell(row Row) Cell {
 	return markCell(row.Hidden, GlyphHidden, paint.ToneMuted)
@@ -182,7 +189,7 @@ func HiddenCell(row Row) Cell {
 
 // MailCell is the mark a row draws for mail its agent has not read.
 func MailCell(row Row) Cell {
-	return markCell(row.UnreadMail, GlyphMail, paint.ToneAccent)
+	return markCell(row.UnreadMail, GlyphMail, paint.ToneMuted)
 }
 
 // AlertCell is the mark a row draws for a script weave fired that failed.

@@ -551,15 +551,16 @@ func (m model) agentsListView() string {
 	rows := m.agentRows()
 
 	list := view.Prepare(agentsSnapshot(snapshotParams{
-		rows:        rows,
-		marks:       m.listing.marks,
-		selected:    m.tree.selected,
-		scheduled:   m.scheduledWorkflows(),
-		focused:     rowKeyAt(rows, m.tree.cursor),
-		caretHidden: m.cursorBlinkedOut(m.isListFocused()),
-		matcher:     m.filter.pattern,
-		showHidden:  m.tree.showHidden,
-		pane:        pane,
+		rows:          rows,
+		marks:         m.listing.marks,
+		selected:      m.tree.selected,
+		scheduled:     m.scheduledWorkflows(),
+		focused:       rowKeyAt(rows, m.tree.cursor),
+		caretHidden:   m.cursorBlinkedOut(m.isListFocused()),
+		barBlinkedOut: m.rowCursor.Blink,
+		matcher:       m.filter.pattern,
+		showHidden:    m.tree.showHidden,
+		pane:          pane,
 	}))
 
 	header := palette.Title("Agents and Workflows") + "\n\n" + m.filterView()

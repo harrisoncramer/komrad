@@ -31,13 +31,12 @@ func renderLine(line Line, columns Columns, palette paint.Palette, width int) st
 	cells := []string{
 		drawGutterCell(palette, line.Focus),
 		drawGutterCell(palette, line.Mark),
-		drawGutterCell(palette, line.Status),
 	}
 	for _, cell := range drawnColumnCells(line, columns) {
 		cells = append(cells, drawGutterCell(palette, cell))
 	}
 
-	gutter := strings.Join(cells, " ")
+	gutter := strings.Join(append(cells, drawGutterCell(palette, line.Status)), " ")
 
 	row := gutter + " " + strings.Repeat(" ", line.Indent) + drawRule(palette, line.Rule) +
 		drawName(palette, line) + drawTrailing(palette, line)
@@ -186,7 +185,7 @@ func Spell(glyph Glyph) string {
 	case GlyphSchedule:
 		return ""
 	case GlyphBusy:
-		return "▍"
+		return "┃"
 	case GlyphQuiet:
 		return "│"
 	case GlyphChild:

@@ -1,6 +1,8 @@
 package ui
 
 import (
+	"time"
+
 	"weave/internal/ui/paint"
 	"weave/internal/view"
 
@@ -19,6 +21,7 @@ var rowCursorGlyph = view.Spell(view.GlyphFocus) + " "
 // ticked yet would sit there dark.
 func newRowCursor() cursor.Model {
 	c := cursor.New()
+	c.BlinkSpeed = 300 * time.Millisecond
 	_ = c.Focus()
 
 	return c

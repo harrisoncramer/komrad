@@ -614,11 +614,12 @@ func (m model) searchRows() ([]string, int) {
 
 	palette := paint.Panel
 	drawn := view.Rows(view.Prepare(view.Snapshot{
-		Rows:        headers,
-		Dropped:     searchDropped,
-		CaretHidden: m.cursorBlinkedOut(m.isListFocused()),
-		Focused:     m.hoveredHitKey(),
-		Pane:        m.paneWidth(),
+		Rows:          headers,
+		Dropped:       searchDropped,
+		CaretHidden:   m.cursorBlinkedOut(m.isListFocused()),
+		BarBlinkedOut: m.rowCursor.Blink,
+		Focused:       m.hoveredHitKey(),
+		Pane:          m.paneWidth(),
 	}), palette, m.paneWidth())
 
 	rows := make([]string, 0, len(lines))

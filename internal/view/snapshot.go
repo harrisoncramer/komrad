@@ -79,6 +79,8 @@ type Snapshot struct {
 	// CaretHidden says the blink has the focus caret out of sight this frame, which the caller
 	// knows and the view would otherwise have to invent.
 	CaretHidden bool
+	// BarBlinkedOut says the blink has a working agent's bar in its thin half this frame.
+	BarBlinkedOut bool
 	// Focused is the key of the row the keyboard is standing on, naming it rather than counting
 	// to it so a list re-sorted after it was gathered still focuses the same row.
 	Focused string

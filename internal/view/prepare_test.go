@@ -55,8 +55,8 @@ func TestPrepareStatusBar(t *testing.T) {
 	}
 }
 
-// TestPrepareBarSaysWhatStandsBehindARow pins the bar drawing on every agent whatever became of
-// its process, and blank only where there never was one.
+// TestPrepareBarSaysWhatStandsBehindARow pins the bar drawing on every row whatever became of
+// its process, so the rail runs unbroken down the list.
 func TestPrepareBarSaysWhatStandsBehindARow(t *testing.T) {
 	tests := []struct {
 		name string
@@ -79,9 +79,9 @@ func TestPrepareBarSaysWhatStandsBehindARow(t *testing.T) {
 			want: Cell{Glyph: GlyphBusy, Tone: paint.ToneAccent},
 		},
 		{
-			name: "a row that never had a process draws nothing",
+			name: "a row that never had a process draws the quiet pipe all the same",
 			row:  Row{Status: StatusIdle, Process: ProcessNone},
-			want: Cell{},
+			want: Cell{Glyph: GlyphQuiet, Tone: paint.ToneMuted},
 		},
 	}
 
@@ -508,9 +508,9 @@ func TestPrepareTrailingMarks(t *testing.T) {
 			want: Line{Alert: Cell{Glyph: GlyphAlert, Tone: paint.ToneDanger}},
 		},
 		{
-			name: "unread mail is the accent envelope",
+			name: "unread mail is the muted envelope",
 			row:  Row{UnreadMail: true},
-			want: Line{Mail: Cell{Glyph: GlyphMail, Tone: paint.ToneAccent}},
+			want: Line{Mail: Cell{Glyph: GlyphMail, Tone: paint.ToneMuted}},
 		},
 		{
 			name: "a paused agent is the warning pause",

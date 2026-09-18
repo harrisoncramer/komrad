@@ -1,12 +1,12 @@
 [90m  ↑ 5 more[0m
-    [34m▍[0m [90m[0m [90m[0m [90m[0m   research-identity-ass…
-            [1mdeploy[0m [90m+2[0m
-  [33mo[0m         [1mops[0m
-    [90m│[0m [90m[0m [90m[0m [90m[0m   [90mrds-backup-hardening[0m
-            [1mstrip-demo[0m
-[34m›[0m   [93m▍[0m [90m[0m [93m[0m [90m[0m   [34mstrip-demo[0m
-  [33mw[0m         [1mweave[0m [90m+4[0m
-    [90m│[0m [90m[0m [90m[0m [90m[0m   [90mcompetitive-analysis[0m [93m[0m
-    [90m│[0m         [90m└[0m [3;90mcompetitor-architec…[0m
-    [90m│[0m [90m[0m [90m[0m [90m[0m   [90mpr-metadata-fixes[0m [93m[0m
+    [90m[0m [90m[0m [90m[0m [34m┃[0m   research-identity-ass…
+          [90m│[0m [1mdeploy[0m [90m+2[0m
+  [33mo[0m       [90m│[0m [1mops[0m
+    [90m[0m [90m[0m [90m[0m [90m│[0m   [90mrds-backup-hardening[0m
+          [90m│[0m [1mstrip-demo[0m
+[34m›[0m   [90m[0m [93m[0m [90m[0m [93m┃[0m   [34mstrip-demo[0m
+  [33mw[0m       [90m│[0m [1mweave[0m [90m+4[0m
+    [90m[0m [90m[0m [90m[0m [90m│[0m   [90mcompetitive-analysis[0m [93m[0m
+          [90m│[0m   [90m└[0m [3;90mcompetitor-architec…[0m
+    [90m[0m [90m[0m [90m[0m [90m│[0m   [90mpr-metadata-fixes[0m [93m[0m
 [90m  ↓ 6 more[0m

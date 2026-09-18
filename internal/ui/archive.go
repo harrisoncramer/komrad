@@ -381,16 +381,17 @@ func (m model) archiveView() string {
 // archiveSnapshot is the archive's rows as the plain data the shared drawing reads.
 func (m model) archiveSnapshot(rows []agentRow, pane int) view.Snapshot {
 	return agentsSnapshot(snapshotParams{
-		rows:        rows,
-		marks:       m.listing.marks,
-		selected:    m.archive.selected,
-		scheduled:   m.scheduledWorkflows(),
-		focused:     rowKeyAt(rows, m.archive.cursor),
-		caretHidden: m.cursorBlinkedOut(m.isListFocused()),
-		matcher:     m.filter.pattern,
-		showHidden:  true,
-		pane:        pane,
-		dropped:     archiveDropped,
+		rows:          rows,
+		marks:         m.listing.marks,
+		selected:      m.archive.selected,
+		scheduled:     m.scheduledWorkflows(),
+		focused:       rowKeyAt(rows, m.archive.cursor),
+		caretHidden:   m.cursorBlinkedOut(m.isListFocused()),
+		barBlinkedOut: m.rowCursor.Blink,
+		matcher:       m.filter.pattern,
+		showHidden:    true,
+		pane:          pane,
+		dropped:       archiveDropped,
 	})
 }
 

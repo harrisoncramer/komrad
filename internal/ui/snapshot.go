@@ -20,6 +20,8 @@ type snapshotParams struct {
 	focused string
 	// caretHidden says the blink has the focus caret out of sight this frame.
 	caretHidden bool
+	// barBlinkedOut says the blink has the working bars in their thin half this frame.
+	barBlinkedOut bool
 	// matcher is the search a person is filtering the list by, nil when they are not.
 	matcher *regexp.Regexp
 	// scheduled are the workflows at least one schedule launches into, keyed by workflow id.
@@ -40,11 +42,12 @@ func agentsSnapshot(params snapshotParams) view.Snapshot {
 	}
 
 	return view.Snapshot{
-		Rows:        rows,
-		CaretHidden: params.caretHidden,
-		Focused:     params.focused,
-		Pane:        params.pane,
-		Dropped:     params.dropped,
+		Rows:          rows,
+		CaretHidden:   params.caretHidden,
+		BarBlinkedOut: params.barBlinkedOut,
+		Focused:       params.focused,
+		Pane:          params.pane,
+		Dropped:       params.dropped,
 	}
 }
 
