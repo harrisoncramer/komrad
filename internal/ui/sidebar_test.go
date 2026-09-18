@@ -108,3 +108,28 @@ func TestSymbologyOnAnEmptyPanel(t *testing.T) {
 		assert.Contains(t, m.agentDoc(), "nothing here yet")
 	}
 }
+
+// TestSymbologyNarrowSidebarSpendsNoLineOnAnEmptyHeader pins a sidebar too narrow for a single
+// column keeping that line for a row instead, which is what the old drawing spends it on.
+func TestSymbologyNarrowSidebarSpendsNoLineOnAnEmptyHeader(t *testing.T) {
+	narrow, wide := symbologyModel(true), symbologyModel(true)
+	narrow.width, wide.width = 16, 120
+
+	assert.Equal(t, rowIndexOfWorker(t, symbologyModel(false)), rowIndexOfWorker(t, narrow))
+	assert.Equal(t, rowIndexOfWorker(t, symbologyModel(false))+1, rowIndexOfWorker(t, wide))
+}
+
+// rowIndexOfWorker is the line the one agent row is drawn on.
+func rowIndexOfWorker(t *testing.T, m model) int {
+	t.Helper()
+
+	for i, row := range strings.Split(ansi.Strip(m.agentsView()), "\n") {
+		if strings.Contains(row, "worker") {
+			return i
+		}
+	}
+
+	t.Fatalf("no row named worker")
+
+	return -1
+}
