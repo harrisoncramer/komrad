@@ -20,6 +20,11 @@ const (
 	muted        = lipgloss.Color("8")
 	speakerSelf  = lipgloss.Color("12")
 	speakerOther = lipgloss.Color("13")
+	// bright is a foreground above the terminal's own default, which is what says a row holds
+	// something nobody has read.
+	bright = lipgloss.Color("15")
+	// merged is the one colour spent on a change that has landed.
+	merged = lipgloss.Color("13")
 	// markColor is the plain yellow rather than the bright one a thinking agent is drawn in, so
 	// a mark in the gutter cannot be read as a lifecycle state.
 	markColor = lipgloss.Color("3")
@@ -39,6 +44,8 @@ const (
 	// ToneSelf and ToneOther are the two voices in a conversation, told apart at a glance.
 	ToneSelf
 	ToneOther
+	ToneBright
+	ToneMerged
 )
 
 // Palette is what one region of the panel draws in, and there are two of them: the colours for
@@ -52,6 +59,8 @@ type Palette struct {
 	mark    lipgloss.Color
 	self    lipgloss.Color
 	other   lipgloss.Color
+	bright  lipgloss.Color
+	merged  lipgloss.Color
 
 	// stage is held behind a pointer, since a palette is copied on every region's lookup and the
 	// config alone is six kilobytes.
@@ -68,6 +77,8 @@ var Colored = withStage(Palette{
 	mark:    markColor,
 	self:    speakerSelf,
 	other:   speakerOther,
+	bright:  bright,
+	merged:  merged,
 })
 
 // Grey is what every region that does not hold the keys draws in, one colour throughout.
@@ -80,6 +91,8 @@ var Grey = withStage(Palette{
 	mark:    muted,
 	self:    muted,
 	other:   muted,
+	bright:  muted,
+	merged:  muted,
 })
 
 // withStage fills in the markdown styling a palette's own colours make.
@@ -118,6 +131,10 @@ func (p Palette) Color(tone Tone) lipgloss.Color {
 		return p.self
 	case ToneOther:
 		return p.other
+	case ToneBright:
+		return p.bright
+	case ToneMerged:
+		return p.merged
 	}
 
 	return p.muted
