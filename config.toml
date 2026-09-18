@@ -214,8 +214,7 @@ next_file        = ["]"]
 next_match       = ["n"]
 # Jump to the next line carrying a review thread.
 next_thread      = ["t"]
-# Move the cursor to the next comment nobody has settled, which is what a review still owes
-# an answer to. It stops on the last one rather than wrapping.
+# Move the cursor to the next comment nobody has settled. It stops on the last one.
 next_open_thread = ["u"]
 # Pan the diff left, for a line wider than the pane.
 pan_left         = ["h", "left"]
@@ -227,8 +226,7 @@ pan_right        = ["l", "right"]
 prev_file        = ["["]
 # Jump to the previous line matching the pattern.
 prev_match       = ["N"]
-# Move the cursor to the previous comment nobody has settled. It stops on the first one
-# rather than wrapping.
+# Move the cursor to the previous comment nobody has settled. It stops on the first one.
 prev_open_thread = ["U"]
 # Jump to the previous line carrying a review thread.
 prev_thread      = ["T"]

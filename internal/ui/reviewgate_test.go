@@ -41,8 +41,7 @@ func refreshReview(t *testing.T, m model) model {
 	return m
 }
 
-// pressReview presses one key and runs whatever it asked for, so a write lands the way it does
-// in the panel rather than being applied by the test.
+// pressReview presses one key and runs whatever it asked for.
 func pressReview(t *testing.T, m model, key tea.KeyMsg) model {
 	t.Helper()
 
@@ -117,7 +116,7 @@ func TestReplyingLetsTheNextReviewGo(t *testing.T) {
 }
 
 // TestTheFlagAndTheThreadsDisagreeUntilTheNextTick pins the window where the conversation is
-// fresh and the flag is not, which anything drawn from both at once would contradict itself in.
+// fresh and the flag is not.
 func TestTheFlagAndTheThreadsDisagreeUntilTheNextTick(t *testing.T) {
 	dir := reviewRepo(t)
 	agents := &fakeReviewAgents{}

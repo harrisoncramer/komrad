@@ -77,8 +77,7 @@ func TestTheStripNamesWhatIsHoldingTheReview(t *testing.T) {
 	assert.Contains(t, shown, "answered")
 }
 
-// TestTheStripCountsItsOwnRows pins the number to the comments it is drawing rather than to the
-// flag, since the two disagree for a tick after a comment is settled.
+// TestTheStripCountsItsOwnRows pins the number to the comments drawn and not to the flag.
 func TestTheStripCountsItsOwnRows(t *testing.T) {
 	m := owedModel(t, []*agentv1.ReviewThread{
 		owedThread("t1", "a.txt", 2),
@@ -111,8 +110,7 @@ func TestTheStripGoesWhenTheLastCommentIsSettled(t *testing.T) {
 	assert.NotContains(t, ansi.Strip(m.reviewSidebarView()), "Open in your review")
 }
 
-// TestTheStripCountsWhatItCannotDraw covers a sidebar with more comments than rows, which says
-// how many are left rather than dropping them.
+// TestTheStripCountsWhatItCannotDraw covers a sidebar with more comments than rows.
 func TestTheStripCountsWhatItCannotDraw(t *testing.T) {
 	threads := make([]*agentv1.ReviewThread, 0, 6)
 	for i := range 6 {
@@ -169,7 +167,7 @@ func TestTheStripBrightensWhatIsOnScreen(t *testing.T) {
 	bright := paint.Panel.Style(reviewOwedTone).Bold(true).Render(fakeFile + ":2")
 	assert.Contains(t, m.reviewSidebarView(), bright)
 
-	// The reader scrolls past it, which is the only thing that changes.
+	// The reader scrolls past it.
 	m.review.top = m.review.view.Len() + 100
 
 	require.False(t, m.isReviewCommentNear(m.reviewOwedComments()[0]), "and now it is not")
@@ -188,7 +186,7 @@ func walkOpen(t *testing.T, m model, key string) (model, int) {
 }
 
 // TestWalkingTheOpenCommentsGoesBothWays covers the backward walk reaching the comment above the
-// cursor, which needs three comments to tell from a forward walk that wrapped.
+// cursor, and needs three comments to tell that from a wrap.
 func TestWalkingTheOpenCommentsGoesBothWays(t *testing.T) {
 	m := owedModel(t, []*agentv1.ReviewThread{
 		owedThread("t1", fakeFile, 2),

@@ -45,8 +45,8 @@ func (m model) reviewOwedComments() []owedComment {
 
 	owed := make([]owedComment, 0, len(m.review.threads))
 
-	// The whole thread list is held unfiltered, so this reads the gating review's own comments
-	// rather than every comment the agent has ever had.
+	// The thread list is every comment the agent has ever had, so this keeps only the gating
+	// review's own.
 	for _, thread := range m.review.threads {
 		if thread.GetReviewId() != m.review.owed || thread.GetResolvedAt() != "" {
 			continue
@@ -87,10 +87,9 @@ func reviewOwedSaid(owed []owedComment) string {
 	return fmt.Sprintf("%d comments of yours are still open", len(owed))
 }
 
-// isReviewOwedDrawn reports whether the strip has anything to say on the screen as it stands.
+// isReviewOwedDrawn reports whether the list has anything to say on the screen as it stands.
 func (m model) isReviewOwedDrawn() bool {
-	// A dead agent has the gate lifted for it by the service, and an older round refuses every
-	// key the strip offers, so a strip naming what is held would be false on both.
+	// The service lifts the gate for a dead agent, and an older round refuses every key offered.
 	if _, dead := m.isReviewReadOnly(); dead {
 		return false
 	}
@@ -102,8 +101,7 @@ func (m model) isReviewOwedDrawn() bool {
 	return m.review.isOwedAnAnswer()
 }
 
-// reviewOwedView is what the reader has not settled, drawn above the conversation and sized to
-// what the sidebar can spare.
+// reviewOwedView is what the reader has not settled, drawn above the conversation.
 func (m model) reviewOwedView(room int) string {
 	if !m.isReviewOwedDrawn() {
 		return ""
@@ -133,15 +131,13 @@ func (m model) reviewOwedView(room int) string {
 	return out
 }
 
-// reviewOwedRoom is how many comments the strip may name once the sidebar's own chrome has
-// taken its share.
+// reviewOwedRoom is how many comments fit once the sidebar's own chrome has taken its share.
 func reviewOwedRoom(spare int) int {
 	// The title row, the line the cursor is standing on, and the conversation's own keep.
 	return min(max(spare-2-owedThreadRows, 0), owedRows)
 }
 
-// reviewOwedRow is one comment: where it stands, and the one word that says what it is waiting
-// for.
+// reviewOwedRow is one comment, where it stands and what it is waiting for.
 func (m model) reviewOwedRow(comment owedComment) string {
 	said := reviewOwedState(comment)
 	where := review.FormatThreadLocation(comment.thread)
@@ -185,8 +181,7 @@ func (m model) isReviewCommentNear(comment owedComment) bool {
 	return comment.row >= m.review.top && comment.row < m.review.top+split.rows
 }
 
-// reviewOwedState is the one word a strip row carries, which is what the comment is waiting for
-// rather than what it says.
+// reviewOwedState is the one word a row carries about what the comment is waiting for.
 func reviewOwedState(comment owedComment) string {
 	if comment.folded {
 		return "folded away"

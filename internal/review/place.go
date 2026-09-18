@@ -15,8 +15,7 @@ const changedNotice = "── the code these were about has changed ──"
 // screen.
 const outsideNotice = "── still in the change, outside what is on screen ──"
 
-// goneNotice heads the comments whose file has left the change altogether, which is the whole of
-// why they can hold a review nothing on screen explains.
+// goneNotice heads the comments whose file has left the change altogether.
 const goneNotice = "── these are holding your review, on files that have left the change ──"
 
 // placement is how a thread reached the row it is drawn on, which separates a thread the diff

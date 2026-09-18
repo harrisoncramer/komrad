@@ -901,8 +901,7 @@ type CreateReviewThreadRequest struct {
 	// The diff lines being written about, each keeping its leading marker, so the anchor still
 	// says something once the code moves.
 	QuotedLines []string `protobuf:"bytes,7,rep,name=quoted_lines,json=quotedLines,proto3" json:"quoted_lines,omitempty"`
-	// The first thing said, which is the thread's reason for existing. A comment is a few
-	// sentences, so the ceiling is there to refuse an essay rather than to be written up to.
+	// The first thing said. The ceiling refuses an essay and is not a length to write up to.
 	Body string `protobuf:"bytes,8,opt,name=body,proto3" json:"body,omitempty"`
 	// Replacement lines proposed for the range, empty for an ordinary comment.
 	Suggestion    []string `protobuf:"bytes,9,rep,name=suggestion,proto3" json:"suggestion,omitempty"`
@@ -1066,8 +1065,7 @@ type AddReviewMessageRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Which conversation to say it in.
 	ThreadId string `protobuf:"bytes,1,opt,name=thread_id,json=threadId,proto3" json:"thread_id,omitempty"`
-	// What to say, which for an agent answering is what it did. A comment is a few sentences, so
-	// the ceiling is there to refuse an essay rather than to be written up to.
+	// What to say. The ceiling refuses an essay and is not a length to write up to.
 	Body string `protobuf:"bytes,2,opt,name=body,proto3" json:"body,omitempty"`
 	// Replacement lines proposed for the thread's range, empty for an ordinary message.
 	Suggestion    []string `protobuf:"bytes,3,rep,name=suggestion,proto3" json:"suggestion,omitempty"`

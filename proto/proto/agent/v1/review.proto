@@ -203,8 +203,7 @@ message CreateReviewThreadRequest {
   // The diff lines being written about, each keeping its leading marker, so the anchor still
   // says something once the code moves.
   repeated string quoted_lines = 7;
-  // The first thing said, which is the thread's reason for existing. A comment is a few
-  // sentences, so the ceiling is there to refuse an essay rather than to be written up to.
+  // The first thing said. The ceiling refuses an essay and is not a length to write up to.
   string body = 8 [(buf.validate.field).string = {
     min_len: 1
     max_len: 1000
@@ -221,8 +220,7 @@ message CreateReviewThreadResponse {
 message AddReviewMessageRequest {
   // Which conversation to say it in.
   string thread_id = 1 [(buf.validate.field).string.min_len = 1];
-  // What to say, which for an agent answering is what it did. A comment is a few sentences, so
-  // the ceiling is there to refuse an essay rather than to be written up to.
+  // What to say. The ceiling refuses an essay and is not a length to write up to.
   string body = 2 [(buf.validate.field).string = {
     min_len: 1
     max_len: 1000
