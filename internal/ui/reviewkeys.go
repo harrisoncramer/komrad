@@ -138,7 +138,7 @@ func (m model) scrollReviewThread(delta int) model {
 // reviewThreadMax is how far up the conversation the sidebar can be scrolled.
 func (m model) reviewThreadMax() int {
 	help, record := m.renderHelp(m.reviewHelp()), m.detailsView()
-	lines := m.listLines(help, record, m.reviewHeadView(reviewStripRoom(m.listLines(help, record))))
+	lines := m.listLines(help, record, m.reviewHeadView(reviewOwedRoom(m.listLines(help, record))))
 
 	return max(paint.CountLines(m.reviewRestView())-max(lines-1, 1), 0)
 }
@@ -244,12 +244,8 @@ func (m model) jumpReviewMatch(direction int) (tea.Model, tea.Cmd) {
 	return m.moveReviewCursor(next)
 }
 
-// Explainer: this stops at the ends rather than wrapping, which is what the keys that walk every
-// thread do. A reader who cannot tell which of the two walks they are on has to learn the diff's
-// shape twice, and the notice says what is left rather than leaving them to work it out.
-
-// jumpOpenThread moves to the next comment nobody has settled, which is how a person clearing a
-// review walks it.
+// jumpOpenThread moves to the next comment nobody has settled, stopping at the ends the way the
+// keys that walk every thread do.
 func (m model) jumpOpenThread(direction int) (tea.Model, tea.Cmd) {
 	next, ok := m.review.view.JumpOpenThread(m.review.cursor, direction)
 	if !ok || next == m.review.cursor {

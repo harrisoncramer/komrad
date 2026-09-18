@@ -1,7 +1,9 @@
 package ui
 
 import (
+	"cmp"
 	"fmt"
+	"math"
 	"slices"
 	"strings"
 
@@ -13,26 +15,22 @@ import (
 	"github.com/charmbracelet/x/ansi"
 )
 
-// Explainer: the sidebar draws the comment under the cursor and nothing else, so what a reader
-// is still holding could only be learned by walking the whole diff. The strip is that fact drawn
-// once, and it is scoped to the review the service reads rather than to every thread the agent
-// has, since two denominators on one screen is what let a panel say a review was owed an answer
-// while the key it named reported everything settled.
-
-// reviewOwedTone is what the strip's title and the comments in view are drawn in.
+// reviewOwedTone is what the title and the comments in view are drawn in.
 const reviewOwedTone = paint.ToneAccent
 
-// stripRows is the most comments the strip names before it counts the rest.
-const stripRows = 3
+// owedRows is the most comments named before the rest are counted.
+const owedRows = 3
 
-// stripThreadRows is what the conversation under the strip is kept, the strip giving up its rows
-// before that does.
-const stripThreadRows = 3
+// owedThreadRows is what the conversation below is kept.
+const owedThreadRows = 3
+
+// noRow is the place of a comment the diff draws nowhere, which sorts last.
+const noRow = math.MaxInt
 
 // owedComment is one comment holding the reader's last review, and where it stands now.
 type owedComment struct {
 	thread *agentv1.ReviewThread
-	// row is where the diff draws it, negative for one no row carries.
+	// row is where the diff draws it, noRow for one no row carries.
 	row int
 	// folded says its file has been read and put away, which is why it has no row.
 	folded bool
@@ -47,6 +45,8 @@ func (m model) reviewOwedComments() []owedComment {
 
 	owed := make([]owedComment, 0, len(m.review.threads))
 
+	// The whole thread list is held unfiltered, so this reads the gating review's own comments
+	// rather than every comment the agent has ever had.
 	for _, thread := range m.review.threads {
 		if thread.GetReviewId() != m.review.owed || thread.GetResolvedAt() != "" {
 			continue
@@ -54,7 +54,7 @@ func (m model) reviewOwedComments() []owedComment {
 
 		row, drawn := m.review.view.RowOfThread(thread.GetId())
 		if !drawn {
-			row = -1
+			row = noRow
 		}
 
 		owed = append(owed, owedComment{
@@ -65,28 +65,10 @@ func (m model) reviewOwedComments() []owedComment {
 	}
 
 	slices.SortFunc(owed, func(a, b owedComment) int {
-		if a.row != b.row {
-			return cmp(a.row, b.row)
-		}
-
-		return strings.Compare(a.thread.GetId(), b.thread.GetId())
+		return cmp.Or(cmp.Compare(a.row, b.row), strings.Compare(a.thread.GetId(), b.thread.GetId()))
 	})
 
 	return owed
-}
-
-// cmp orders two rows, putting a comment with no row after every comment that has one.
-func cmp(a, b int) int {
-	switch {
-	case a < 0:
-		return 1
-	case b < 0:
-		return -1
-	case a < b:
-		return -1
-	}
-
-	return 1
 }
 
 // reviewOwedSaid is how many comments of the reader's are still open, which is what every
@@ -105,8 +87,8 @@ func reviewOwedSaid(owed []owedComment) string {
 	return fmt.Sprintf("%d comments of yours are still open", len(owed))
 }
 
-// isReviewStripDrawn reports whether the strip has anything to say on the screen as it stands.
-func (m model) isReviewStripDrawn() bool {
+// isReviewOwedDrawn reports whether the strip has anything to say on the screen as it stands.
+func (m model) isReviewOwedDrawn() bool {
 	// A dead agent has the gate lifted for it by the service, and an older round refuses every
 	// key the strip offers, so a strip naming what is held would be false on both.
 	if _, dead := m.isReviewReadOnly(); dead {
@@ -120,10 +102,10 @@ func (m model) isReviewStripDrawn() bool {
 	return m.review.isOwedAnAnswer()
 }
 
-// reviewStripView is what the reader has not settled, drawn above the conversation and sized to
+// reviewOwedView is what the reader has not settled, drawn above the conversation and sized to
 // what the sidebar can spare.
-func (m model) reviewStripView(room int) string {
-	if !m.isReviewStripDrawn() {
+func (m model) reviewOwedView(room int) string {
+	if !m.isReviewOwedDrawn() {
 		return ""
 	}
 
@@ -142,7 +124,7 @@ func (m model) reviewStripView(room int) string {
 
 	shown := min(room, len(owed))
 	for _, comment := range owed[:shown] {
-		out += m.reviewStripRow(comment)
+		out += m.reviewOwedRow(comment)
 	}
 
 	if left := len(owed) - shown; left > 0 {
@@ -152,16 +134,16 @@ func (m model) reviewStripView(room int) string {
 	return out
 }
 
-// reviewStripRoom is how many comments the strip may name once the sidebar's own chrome has
+// reviewOwedRoom is how many comments the strip may name once the sidebar's own chrome has
 // taken its share.
-func reviewStripRoom(spare int) int {
+func reviewOwedRoom(spare int) int {
 	// The title row, the line the cursor is standing on, and the conversation's own keep.
-	return min(max(spare-2-stripThreadRows, 0), stripRows)
+	return min(max(spare-2-owedThreadRows, 0), owedRows)
 }
 
-// reviewStripRow is one comment: where it stands, and the one word that says what it is waiting
+// reviewOwedRow is one comment: where it stands, and the one word that says what it is waiting
 // for.
-func (m model) reviewStripRow(comment owedComment) string {
+func (m model) reviewOwedRow(comment owedComment) string {
 	said := reviewOwedState(comment)
 	where := review.FormatThreadLocation(comment.thread)
 
@@ -192,7 +174,7 @@ func clipToTail(said string, room int) string {
 // isReviewCommentNear reports whether a comment's row is one the reader can see from where they
 // are standing.
 func (m model) isReviewCommentNear(comment owedComment) bool {
-	if comment.row < 0 {
+	if comment.row == noRow {
 		return false
 	}
 

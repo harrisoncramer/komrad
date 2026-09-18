@@ -10,11 +10,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// Explainer: the keys that write are refused while the reader's last review is owed an answer,
-// and every test of that refusal sets the flag by hand. So the branches are covered and the two
-// ways out of the wait are not, which is how an agent sat behind a comment nobody could settle
-// for nine rounds with nothing red.
-
 // gatedReview is a released review holding one open comment on the line under the cursor, which
 // is the state that refuses the keys that write.
 func gatedReview(t *testing.T, m model, agents *fakeReviewAgents) model {
@@ -121,12 +116,8 @@ func TestReplyingLetsTheNextReviewGo(t *testing.T) {
 	assert.True(t, m.review.releasing, "and what has been written can go")
 }
 
-// Explainer: the write path reads the conversation back and the flag only moves on the tick, so
-// there is a window where the two say different things. Anything drawn from both at once
-// contradicts itself in it, which is why a strip counting one and listing the other would draw a
-// count over an empty list.
-
-// TestTheFlagAndTheThreadsDisagreeUntilTheNextTick pins that window.
+// TestTheFlagAndTheThreadsDisagreeUntilTheNextTick pins the window where the conversation is
+// fresh and the flag is not, which anything drawn from both at once would contradict itself in.
 func TestTheFlagAndTheThreadsDisagreeUntilTheNextTick(t *testing.T) {
 	dir := reviewRepo(t)
 	agents := &fakeReviewAgents{}

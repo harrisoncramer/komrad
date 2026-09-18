@@ -82,11 +82,6 @@ func TestAnAdriftCommentOnAnUndrawnLineReadsAsOffScreen(t *testing.T) {
 	assert.Equal(t, outsideNotice, headingAbove(t, view, "t1"))
 }
 
-// Explainer: a comment with no file on screen is two unrelated facts, and the reader can only act
-// on one of them. A file still in the change is reachable by widening the diff back out; a file
-// that has left it is not there at all, and a comment on one can hold a review with nothing on
-// screen to explain it.
-
 // TestACommentOnAFileThatHasLeftTheChangeSaysSo covers the whole-change diff, where a file the
 // patch does not draw is a file that is gone.
 func TestACommentOnAFileThatHasLeftTheChangeSaysSo(t *testing.T) {

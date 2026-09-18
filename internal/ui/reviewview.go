@@ -68,7 +68,7 @@ func (m model) reviewSidebarView(above ...string) string {
 	record := m.detailsView()
 	messages := m.messagesRegion(record, help)
 	chrome := slices.Concat(above, []string{help, record, messages})
-	head := m.reviewHeadView(reviewStripRoom(m.listLines(chrome...)))
+	head := m.reviewHeadView(reviewOwedRoom(m.listLines(chrome...)))
 	rest := m.reviewThreadWindow(m.reviewRestView(), m.listLines(slices.Concat(chrome, []string{head})...))
 
 	return paint.PadRows(head+rest, m.listLines(chrome...)) + record + messages + help
@@ -101,7 +101,7 @@ func (m model) doesReviewFitDetails() bool {
 	// Measured with the keys on the diff, which keeps this out of its own answer.
 	m.details.focused = false
 
-	spare := m.spareLines(m.renderHelp(m.reviewHelp()), m.reviewHeadView(stripRows))
+	spare := m.spareLines(m.renderHelp(m.reviewHelp()), m.reviewHeadView(owedRows))
 
 	return spare > m.detailsLines()+detailsChromeLines
 }
@@ -116,7 +116,7 @@ func (m model) reviewHeadView(stripRoom int) string {
 		return dimStyle.Render(reviewEmptyWord) + "\n"
 	}
 
-	return m.reviewStripView(stripRoom) + m.reviewAnchorView()
+	return m.reviewOwedView(stripRoom) + m.reviewAnchorView()
 }
 
 // reviewNote is a line of prose under the conversation, wrapped into the sidebar's own column.

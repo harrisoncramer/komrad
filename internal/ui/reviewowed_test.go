@@ -153,12 +153,8 @@ func TestTheStripSaysWhenACommentIsFoldedAway(t *testing.T) {
 	assert.Contains(t, ansi.Strip(m.reviewSidebarView()), "folded away")
 }
 
-// Explainer: the strip and the diff are one view, so a comment the reader can see from where they
-// are standing is drawn brighter than one they cannot. The sidebar is greyed whole while the diff
-// holds the keys, so what carries that difference is the weight rather than the colour, and the
-// profile has to be forced or nothing renders with either.
-
-// TestTheStripBrightensWhatIsOnScreen covers that link.
+// TestTheStripBrightensWhatIsOnScreen covers a comment in view being drawn heavier than one that
+// is not, which is the weight rather than the colour, since the sidebar is greyed whole.
 func TestTheStripBrightensWhatIsOnScreen(t *testing.T) {
 	restore := lipgloss.ColorProfile()
 	t.Cleanup(func() { lipgloss.SetColorProfile(restore) })
@@ -180,9 +176,6 @@ func TestTheStripBrightensWhatIsOnScreen(t *testing.T) {
 	assert.NotContains(t, m.reviewSidebarView(), bright)
 }
 
-// Explainer: two comments cannot tell a backward walk from a forward one that wrapped, since both
-// land on the same row. Three can, so these use three.
-
 // walkOpen presses a key and gives back the row the cursor landed on.
 func walkOpen(t *testing.T, m model, key string) (model, int) {
 	t.Helper()
@@ -195,7 +188,7 @@ func walkOpen(t *testing.T, m model, key string) (model, int) {
 }
 
 // TestWalkingTheOpenCommentsGoesBothWays covers the backward walk reaching the comment above the
-// cursor rather than lapping the diff to it.
+// cursor, which needs three comments to tell from a forward walk that wrapped.
 func TestWalkingTheOpenCommentsGoesBothWays(t *testing.T) {
 	m := owedModel(t, []*agentv1.ReviewThread{
 		owedThread("t1", fakeFile, 2),
