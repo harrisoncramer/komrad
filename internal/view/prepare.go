@@ -67,7 +67,6 @@ func prepareLine(params prepareLineParams) Line {
 		Rule:     row.Kind == KindChild,
 		Indent:   indentFor(row.Kind),
 		Name:     row.Name,
-		Tag:      row.Tag,
 		Matches:  row.Matches,
 		Weight:   weightFor(row.Kind),
 		Emphasis: emphasisFor(row, focused),

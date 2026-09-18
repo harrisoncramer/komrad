@@ -18,7 +18,7 @@ const drawnResultNameColumn = 6
 func resultRows() []Row {
 	return []Row{
 		{Key: "live", Kind: KindResult, Name: "billing"},
-		{Key: "archived", Kind: KindResult, Name: "payouts", Tag: "archived", Dim: true, Process: ProcessStopped},
+		{Key: "archived", Kind: KindResult, Name: "payouts", Dim: true, Process: ProcessStopped},
 	}
 }
 
@@ -58,58 +58,6 @@ func TestResultRowOpensAtTheGutter(t *testing.T) {
 		assert.Equal(t, 0, line.Indent, "row %q", drawn[i])
 		assert.Equal(t, WeightRegular, line.Weight, "row %q", drawn[i])
 		assert.Equal(t, drawnResultNameColumn, nameColumnOf(drawn[i], line), "row %q", drawn[i])
-	}
-}
-
-// TestRenderTagFollowsTheName pins where a tag is drawn and that it is drawn dim, since it is a
-// word about the row rather than part of what the row is called.
-func TestRenderTagFollowsTheName(t *testing.T) {
-	drawn := drawResults(canonicalPane)
-	require.Len(t, drawn, 2)
-
-	assert.Equal(t, "┊ payouts archived", strings.TrimSpace(drawn[1]))
-	assert.NotContains(t, drawn[0], "archived", "a row with no tag draws none")
-
-	styled := Render(Prepare(Snapshot{Rows: resultRows(), Dropped: everyColumn(), Pane: canonicalPane}), paint.Panel, 0)
-	assert.Contains(t, styled, paint.Panel.Style(paint.ToneMuted).Render("archived"))
-}
-
-// TestTagStandsBeforeTheMarks pins the tag against the marks after it, which the fixture above
-// cannot say because none of its rows wears one.
-func TestTagStandsBeforeTheMarks(t *testing.T) {
-	row := Row{Key: "one", Kind: KindResult, Name: "payouts", Tag: "archived", UnreadMail: true, Scheduled: true}
-	list := Prepare(Snapshot{Rows: []Row{row}, Dropped: everyColumn(), Pane: canonicalPane})
-
-	drawn := ansiEscapes.ReplaceAllString(Render(list, paint.Panel, 0), "")
-
-	assert.Equal(t,
-		strings.Join([]string{Spell(GlyphQuiet), "payouts", "archived", Spell(GlyphMail), Spell(GlyphSchedule)}, " "),
-		strings.TrimSpace(drawn))
-}
-
-// TestTagCostsTheNameItsColumns pins that a tag is counted into the width like the marks after
-// it, so a name is cut to make room for it rather than the row overrunning its pane.
-func TestTagCostsTheNameItsColumns(t *testing.T) {
-	const pane = drawnResultNameColumn + 14
-
-	tagged := Prepare(Snapshot{
-		Rows:    []Row{{Key: "one", Kind: KindResult, Name: "a-long-agent-name", Tag: "archived"}},
-		Dropped: everyColumn(),
-		Pane:    pane,
-	})
-	bare := Prepare(Snapshot{
-		Rows:    []Row{{Key: "one", Kind: KindResult, Name: "a-long-agent-name"}},
-		Dropped: everyColumn(),
-		Pane:    pane,
-	})
-
-	require.Len(t, tagged.Lines, 1)
-	require.Len(t, bare.Lines, 1)
-	assert.Equal(t, "a-lo…", tagged.Lines[0].Name)
-	assert.Equal(t, "a-long-agent-…", bare.Lines[0].Name)
-
-	for _, drawn := range strings.Split(ansiEscapes.ReplaceAllString(Render(tagged, paint.Panel, 0), ""), "\n") {
-		assert.LessOrEqual(t, drawnColumns(drawn), pane, "row %q", drawn)
 	}
 }
 

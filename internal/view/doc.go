@@ -57,8 +57,7 @@
 // A search draws hits rather than a tree, so its rows are KindResult: nothing sits under
 // anything, every name opens at the gutter and no row is lettered for structure. It drops all
 // three columns, because a result is a pointer into a conversation rather than a piece of work
-// to triage, and the life of a change is answered on the screen the hit leads to. A row may
-// carry a Tag, a dim word after its name for what the symbology has no glyph for.
+// to triage, and the life of a change is answered on the screen the hit leads to.
 //
 // # Scrolling belongs to the caller
 //

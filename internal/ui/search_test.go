@@ -818,11 +818,9 @@ func TestSearchRowCarriesTheAgent(t *testing.T) {
 	assert.Equal(t, view.ProcessAlive, live.Process, "and has a process behind it")
 	assert.Equal(t, marked, live.Mark, "the live row wears its mark")
 	assert.True(t, live.UnreadMail, "the live row says mail is waiting")
-	assert.Empty(t, live.Tag)
 
 	archived := searchRowNamed(t, lines, "payouts")
-	assert.Equal(t, archivedTagText, archived.Tag, "the archived row still says so")
-	assert.True(t, archived.Dim)
+	assert.True(t, archived.Dim, "the archived row greys")
 	assert.Equal(t, view.ProcessStopped, archived.Process, "and says a process was there and has stopped")
 
 	// Process decides the bar on its own, so the two rows are compared as they are drawn rather
@@ -837,7 +835,7 @@ func TestSearchRowCarriesTheAgent(t *testing.T) {
 // treeOwned blanks the fields a row carries because of where it sits in a list rather than
 // because of the agent behind it, so what is left is what both screens read off that agent.
 func treeOwned(row view.Row) view.Row {
-	row.Key, row.Kind, row.Name, row.Tag = "", 0, "", ""
+	row.Key, row.Kind, row.Name = "", 0, ""
 	row.Matches, row.Mark = nil, ""
 	row.Repo, row.Review, row.Forge = 0, 0, 0
 	row.Selected, row.NoCheckout, row.HiddenCount = false, false, 0
@@ -936,7 +934,6 @@ func TestArchivedHitGreysOnWhatTheServerSaid(t *testing.T) {
 			row := m.searchRow(searchHit{agentID: "a2", name: "payouts", archived: true}, "k")
 
 			assert.True(t, row.Dim, "the server said it is archived, so it greys")
-			assert.Equal(t, archivedTagText, row.Tag)
 			assert.Equal(t, view.ProcessStopped, row.Process, "and it is over, whatever else is unknown")
 		})
 	}
@@ -1087,7 +1084,6 @@ func TestSearchRowWithoutTheAgent(t *testing.T) {
 	row := searchRowNamed(t, lines, "billing")
 
 	assert.Equal(t, view.ProcessNone, row.Process, "a hit nothing is known about has no bar to draw")
-	assert.Empty(t, row.Tag)
 
 	header := headerLine(t, ansi.Strip(m.searchView()), "billing")
 	assert.Equal(t, strings.Repeat(" ", snippetIndent())+"billing", header,

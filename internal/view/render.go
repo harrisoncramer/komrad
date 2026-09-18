@@ -39,7 +39,7 @@ func renderLine(line Line, columns Columns, palette paint.Palette, width int) st
 	gutter := strings.Join(append(cells, drawGutterCell(palette, line.Status)), " ")
 
 	row := gutter + " " + strings.Repeat(" ", line.Indent) + drawRule(palette, line.Rule) +
-		drawName(palette, line) + drawTag(palette, line.Tag) + drawTrailing(palette, line)
+		drawName(palette, line) + drawTrailing(palette, line)
 
 	if line.Selected {
 		return paint.PaintRow(row, width)
@@ -78,15 +78,6 @@ func writeStyled(b *strings.Builder, style lipgloss.Style, segment string) {
 	}
 
 	b.WriteString(style.Render(segment))
-}
-
-// drawTag is the word after a name saying what the symbology has no glyph for.
-func drawTag(palette paint.Palette, tag string) string {
-	if tag == "" {
-		return ""
-	}
-
-	return " " + palette.Style(paint.ToneMuted).Render(tag)
 }
 
 // drawTrailing is the odds and ends after a name, each one a space away from what precedes it.

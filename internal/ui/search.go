@@ -496,10 +496,6 @@ func (h searchHit) spans(content string) []paint.Span {
 	return paint.MatchSpans(content, h.offset, h.length, paint.MarkedTerms(h.snippet))
 }
 
-// archivedTagText is the word an archived agent's row carries, since the greying alone does not
-// tell it apart from a hidden one.
-const archivedTagText = "(archived)"
-
 // searchDropped are the three columns the search screen gives up: a hit is a pointer into a
 // conversation rather than a piece of work to triage.
 var searchDropped = view.Columns{Repo: true, Review: true, Forge: true}
@@ -541,7 +537,6 @@ func (m model) archivedSearchRow(row view.Row, id string) view.Row {
 	// The server said this hit is archived, which holds whether or not the listing carrying the
 	// stamp has arrived.
 	row.Dim = true
-	row.Tag = archivedTagText
 
 	return row
 }
