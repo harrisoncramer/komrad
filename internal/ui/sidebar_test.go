@@ -175,3 +175,26 @@ func TestSymbologyWindowsALongList(t *testing.T) {
 		})
 	}
 }
+
+// TestSymbologyNarrowSidebarWindowsOneMoreRow pins the line a narrow sidebar saves by drawing no
+// column header going to the list rather than being reserved for a header that is not there.
+func TestSymbologyNarrowSidebarWindowsOneMoreRow(t *testing.T) {
+	narrow, wide := longListModel(20), longListModel(20)
+	narrow.width = 16
+
+	assert.Equal(t, visibleAgentRows(t, wide)+1, visibleAgentRows(t, narrow))
+}
+
+// visibleAgentRows is how many of the agent rows a drawing put on screen.
+func visibleAgentRows(t *testing.T, m model) int {
+	t.Helper()
+
+	count := 0
+	for _, row := range strings.Split(ansi.Strip(m.agentsListView()), "\n") {
+		if strings.Contains(row, "agent-") {
+			count++
+		}
+	}
+
+	return count
+}

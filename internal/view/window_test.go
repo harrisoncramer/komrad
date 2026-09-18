@@ -31,8 +31,8 @@ func windowedRows() []Row {
 func windowed(t *testing.T, focused string, lines int) []string {
 	t.Helper()
 
-	list := Prepare(Snapshot{Rows: windowedRows(), Focused: focused, NameWidth: canonicalNameWidth})
-	block := Window(WindowParams{List: list, Palette: paint.Colored, Width: 40, Lines: lines})
+	list := Prepare(Snapshot{Rows: windowedRows(), Focused: focused, Pane: canonicalPane})
+	block := Window(WindowParams{List: list, Palette: paint.Colored, Width: canonicalPane, Lines: lines})
 	require.True(t, strings.HasSuffix(block, "\n"), "a window closes its last row")
 
 	return strings.Split(ansiEscapes.ReplaceAllString(strings.TrimSuffix(block, "\n"), ""), "\n")
@@ -113,29 +113,59 @@ func TestWindowCountsRowsRatherThanAgents(t *testing.T) {
 // TestWindowNeverOverrunsThePane pins the one thing a caller cannot get wrong: whatever the list
 // and the pane, the block it draws is no taller than the room it was given.
 func TestWindowNeverOverrunsThePane(t *testing.T) {
-	list := Prepare(Snapshot{Rows: windowedRows(), Focused: "beta-1", NameWidth: canonicalNameWidth})
+	list := Prepare(Snapshot{Rows: windowedRows(), Focused: "beta-1", Pane: canonicalPane})
 
 	for lines := 1; lines <= 20; lines++ {
-		block := Window(WindowParams{List: list, Palette: paint.Colored, Width: 40, Lines: lines})
+		block := Window(WindowParams{List: list, Palette: paint.Colored, Width: canonicalPane, Lines: lines})
 		assert.Equal(t, min(lines, len(list.Lines)), paint.CountLines(block), "a pane of %d lines", lines)
 	}
 }
 
-// TestWindowKeepsASelectedRowTheWidthOfThePane pins that the bar under a selected row still
-// reaches the edge once the row is inside a window, in the columns the font draws rather than
-// the ones lipgloss counts.
+// TestWindowKeepsASelectedRowTheWidthOfThePane pins the bar under a selected row reaching the
+// edge at every width, counted in the columns the font draws and against the columns the pane
+// kept rather than the whole gutter.
 func TestWindowKeepsASelectedRowTheWidthOfThePane(t *testing.T) {
-	const pane = 40
+	tests := []struct {
+		name string
+		pane int
+		want Columns
+	}{
+		{
+			name: "every column drawn",
+			pane: 40,
+			want: Columns{Repo: true, Review: true, Forge: true},
+		},
+		{
+			name: "the forge given up",
+			pane: 24,
+			want: Columns{Repo: true, Review: true},
+		},
+		{
+			name: "the review given up too",
+			pane: 20,
+			want: Columns{Repo: true},
+		},
+		{
+			name: "no column left at all",
+			pane: 17,
+			want: Columns{},
+		},
+	}
 
-	rows := windowedRows()
-	rows[7].Selected = true
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			rows := windowedRows()
+			rows[7].Selected = true
 
-	list := Prepare(Snapshot{Rows: rows, Focused: "beta-1", NameWidth: NameColumns(pane)})
-	block := Window(WindowParams{List: list, Palette: paint.Colored, Width: pane, Lines: 6})
+			list := Prepare(Snapshot{Rows: rows, Focused: "beta-1", Pane: tt.pane})
+			require.Equal(t, tt.want, list.Columns, "the pane draws the columns the case is about")
 
-	painted, ok := rowNamed(strings.Split(block, "\n"), "beta-1")
-	require.True(t, ok)
-	assert.Equal(t, pane, drawnColumns(ansiEscapes.ReplaceAllString(painted, "")))
+			block := Window(WindowParams{List: list, Palette: paint.Colored, Width: tt.pane, Lines: 6})
+			painted, ok := rowNamed(strings.Split(block, "\n"), "beta-1")
+			require.True(t, ok)
+			assert.Equal(t, tt.pane, drawnColumns(ansiEscapes.ReplaceAllString(painted, "")))
+		})
+	}
 }
 
 // rowNamed is the drawn row holding a name, once its styling is off.
@@ -152,8 +182,8 @@ func rowNamed(rows []string, name string) (string, bool) {
 // TestWindowOverTheLivePanel draws a window over the listing the panel actually holds, at a pane
 // short enough to need one, which the agents tab is not today.
 func TestWindowOverTheLivePanel(t *testing.T) {
-	list := Prepare(Snapshot{Rows: livePanelRows(), Focused: "strip-demo", NameWidth: canonicalNameWidth})
-	block := Window(WindowParams{List: list, Palette: paint.Colored, Width: 60, Lines: 12})
+	list := Prepare(Snapshot{Rows: livePanelRows(), Focused: "strip-demo", Pane: canonicalPane})
+	block := Window(WindowParams{List: list, Palette: paint.Colored, Width: canonicalPane, Lines: 12})
 
-	requireGolden(t, "window-live-panel", Header(paint.Colored)+"\n"+block)
+	requireGolden(t, "window-live-panel", Header(paint.Colored, list.Columns)+"\n"+block)
 }
