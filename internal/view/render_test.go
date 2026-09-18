@@ -169,6 +169,32 @@ func TestRenderSelectedRowFillsThePane(t *testing.T) {
 	requireGolden(t, "row-selected-filled", Render(list, paint.Colored, 40))
 }
 
+// TestRenderSelectedRowUnderTheCursorKeepsBoth pins the row the two meet on: the bar spans it
+// and the name under that bar still carries the cursor's own colour.
+func TestRenderSelectedRowUnderTheCursorKeepsBoth(t *testing.T) {
+	list := Prepare(Snapshot{
+		Rows:    []Row{{Key: "iss-582", Kind: KindAgent, Name: "iss-582", Selected: true}},
+		Focused: "iss-582",
+		Pane:    canonicalPane,
+	})
+
+	drawn := Render(list, paint.Colored, 40)
+	requireGolden(t, "row-selected-focused", drawn)
+
+	// The golden alone would be satisfied by regenerating it, so the fact it is here for is
+	// asserted against the escape the name itself opens in.
+	assert.Contains(t, drawn, paint.BackgroundSequence(paint.SelectionBackground))
+
+	unfocused := Render(Prepare(Snapshot{
+		Rows: []Row{{Key: "iss-582", Kind: KindAgent, Name: "iss-582", Selected: true}},
+		Pane: canonicalPane,
+	}), paint.Colored, 40)
+
+	assert.Contains(t, unfocused, paint.BackgroundSequence(paint.SelectionBackground))
+	assert.NotEqual(t, styleOfName(unfocused, "iss-582"), styleOfName(drawn, "iss-582"),
+		"the bar flattened the cursor off the name")
+}
+
 // TestRenderFocusedRow draws the row the keyboard is standing on.
 func TestRenderFocusedRow(t *testing.T) {
 	list := Prepare(Snapshot{
