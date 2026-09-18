@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -257,6 +258,17 @@ type writeResult struct {
 	// epoch is the write this result belongs to, which is how a held form tells its own landing
 	// from one an earlier submit is still waiting on.
 	epoch int
+	// released is the agent a landed release let go.
+	released *released
+}
+
+type released struct {
+	id   string
+	name string
+	// files is the files a reader had open over the agent.
+	files []string
+	// silent says the release named none of them.
+	silent bool
 }
 
 type written struct {
@@ -364,6 +376,40 @@ func (m *model) writeCmd(summary string, write func(api) error) tea.Cmd {
 			err:     write(clients),
 			epoch:   epoch,
 		}
+	}
+}
+
+// releaseCmd lets an agent go, naming the files a reader had open over it.
+func (m *model) releaseCmd(summary string, agent agentstore.Agent, said string) tea.Cmd {
+	let := released{id: agent.ID, name: agent.Name, files: slices.Clone(m.edited[agent.ID])}
+
+	return stampRelease(m.writeCmd(summary, func(a api) error {
+		return a.release(agent, said+touchedSaid(let.files))
+	}), let)
+}
+
+// releaseInSilenceCmd lets an agent go without typing at it.
+func (m *model) releaseInSilenceCmd(summary string, agent agentstore.Agent) tea.Cmd {
+	let := released{id: agent.ID, name: agent.Name, files: slices.Clone(m.edited[agent.ID]), silent: true}
+
+	return stampRelease(m.writeCmd(summary, func(a api) error {
+		return a.release(agent, "")
+	}), let)
+}
+
+// stampRelease says on a write's result which agent it let go and which files it carried.
+func stampRelease(cmd tea.Cmd, let released) tea.Cmd {
+	return func() tea.Msg {
+		msg := cmd()
+
+		result, ok := msg.(writeResult)
+		if !ok {
+			return msg
+		}
+
+		result.released = &let
+
+		return result
 	}
 }
 
@@ -489,6 +535,14 @@ func (m model) applyWrite(result writeResult) (tea.Model, tea.Cmd) {
 	m.pending--
 
 	m.report(result.summary, result.err)
+
+	if result.released != nil && result.err == nil {
+		m.forgetSpoken(result.released.id, result.released.files)
+
+		if result.released.silent {
+			m.reportDropped(result.released.name, result.released.files)
+		}
+	}
 
 	_, walkedAway := m.detached[result.epoch]
 	delete(m.detached, result.epoch)
