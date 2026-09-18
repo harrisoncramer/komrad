@@ -52,6 +52,14 @@ var (
 		Code:    "emphasis_missing",
 		Message: "terminfo names no escape for lettering the list uses to say what a row is",
 	}
+	ErrItalicSubstituted = &ProblemError{
+		Code:    "italic_substituted",
+		Message: "tmux will not send italics on and draws them reversed instead",
+	}
+	ErrDefaultTerminalUnknown = &ProblemError{
+		Code:    "default_terminal_unknown",
+		Message: "tmux would not say which entry it advertises, so whether it sends italics is unknown",
+	}
 	ErrColorTooShallow = &ProblemError{
 		Code:    "color_too_shallow",
 		Message: "terminfo reports fewer colours than the palette is written for",
@@ -74,6 +82,13 @@ var emphasis = []struct {
 	{capability: "bold", loss: "a workflow row reads as an ordinary agent"},
 	{capability: "sitm", loss: "a child reads as an ordinary agent"},
 }
+
+// screenEntry and screenEntryPrefix are what tmux refuses to send italics on, drawing them
+// reversed however well the terminal it paints to would have drawn them.
+const (
+	screenEntry       = "screen"
+	screenEntryPrefix = "screen-"
+)
 
 // newTerminalGlyphCheck measures what the terminal draws each of the list's glyphs in, which is
 // the one thing here that is measured rather than inferred.
@@ -131,13 +146,23 @@ func newTerminalEmphasisCheck() Check {
 				return warn(err, painting)
 			}
 
-			if len(missing) > 0 {
+			substituted, err := doesTmuxSubstituteItalics(ctx, env)
+			if err != nil {
+				return Result{Status: StatusSkip, Detail: "not checked, " + err.Error()}
+			}
+
+			faults, fixes := describeEmphasisFaults(painting, missing, losses, substituted)
+			if len(faults) > 0 {
+				problem := ErrItalicSubstituted
+				if len(missing) > 0 {
+					problem = ErrEmphasisMissing
+				}
+
 				return Result{
 					Status: StatusWarn,
 					Detail: painting,
-					Err: fmt.Errorf("%w: %s names no %s, so %s",
-						ErrEmphasisMissing, painting, joinWords(missing), strings.Join(losses, " and ")),
-					Fix: "set your terminal's TERM to an entry that names them, such as xterm-256color",
+					Err:    fmt.Errorf("%w: %s", problem, strings.Join(faults, "; and ")),
+					Fix:    strings.Join(fixes, "; "),
 				}
 			}
 
@@ -287,6 +312,27 @@ func findPaintingTerm(ctx context.Context, env Env) (string, error) {
 	return strings.TrimSpace(client), nil
 }
 
+// reversedChild is what becomes of a child row wherever tmux stands in the way, since tmux
+// substitutes standout rather than dropping the attribute.
+const reversedChild = "a child row is drawn reversed rather than italic"
+
+// describeEmphasisFaults is everything wrong with a row's lettering and what to do about each,
+// since a terminal can carry both faults and hearing about one is not hearing about the other.
+func describeEmphasisFaults(painting string, missing, losses []string, substituted bool) (faults, fixes []string) {
+	if len(missing) > 0 {
+		faults = append(faults, fmt.Sprintf("%s names no %s, so %s",
+			painting, joinWords(missing), strings.Join(losses, " and ")))
+		fixes = append(fixes, "set your terminal's TERM to an entry that names them, such as xterm-256color")
+	}
+
+	if substituted && !slices.Contains(missing, "sitm") {
+		faults = append(faults, "tmux sends standout in place of italics, so "+reversedChild)
+		fixes = append(fixes, "set tmux's default-terminal to tmux-256color rather than a screen entry")
+	}
+
+	return faults, fixes
+}
+
 // findMissingEmphasis reads both escapes out of terminfo and returns the ones the entry does
 // not name, alongside what the list loses without each.
 func findMissingEmphasis(ctx context.Context, env Env, term string) (missing, losses []string, err error) {
@@ -296,11 +342,35 @@ func findMissingEmphasis(ctx context.Context, env Env, term string) (missing, lo
 			return nil, nil, fmt.Errorf("%w: %w", ErrTerminfoUnreadable, err)
 		}
 
-		if escape == "" {
-			missing = append(missing, wanted.capability)
-			losses = append(losses, wanted.loss)
+		if escape != "" {
+			continue
 		}
+
+		loss := wanted.loss
+		if wanted.capability == "sitm" && env.InsideTmux != "" {
+			loss = reversedChild
+		}
+
+		missing = append(missing, wanted.capability)
+		losses = append(losses, loss)
 	}
 
 	return missing, losses, nil
+}
+
+// doesTmuxSubstituteItalics reports whether tmux's own default-terminal is one of the screen
+// entries it refuses to send italics on.
+func doesTmuxSubstituteItalics(ctx context.Context, env Env) (bool, error) {
+	if env.InsideTmux == "" {
+		return false, nil
+	}
+
+	entry, err := env.Output(ctx, "tmux", "show-option", "-gqv", "default-terminal")
+	if err != nil {
+		return false, fmt.Errorf("%w: %w", ErrDefaultTerminalUnknown, err)
+	}
+
+	entry = strings.TrimSpace(entry)
+
+	return entry == screenEntry || strings.HasPrefix(entry, screenEntryPrefix), nil
 }
