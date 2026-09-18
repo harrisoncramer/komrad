@@ -76,13 +76,18 @@ func TestMeasureColumnsGivesUpOnSilence(t *testing.T) {
 	reader, writer := io.Pipe()
 	defer func() { _ = writer.Close() }() //nolint:errcheck // the pipe goes with the test
 
-	started := time.Now()
+	failed := make(chan error, 1)
+	go func() {
+		_, err := measureColumns(context.WithoutCancel(t.Context()), reader, io.Discard, []string{"x"})
+		failed <- err
+	}()
 
-	_, err := measureColumns(t.Context(), reader, io.Discard, []string{"x"})
-	require.ErrorIs(t, err, ErrCursorQueryUnanswered)
-
-	assert.Less(t, time.Since(started), 5*time.Second,
-		"a terminal that will not answer has to be given up on, not waited out")
+	select {
+	case err := <-failed:
+		require.ErrorIs(t, err, ErrCursorQueryUnanswered)
+	case <-time.After(5 * time.Second):
+		t.Fatal("a terminal that will not answer has to be given up on, not waited out")
+	}
 }
 
 // TestMeasureColumnsStopsWhenTheContextDoes covers a cancelled doctor run, which must not be
