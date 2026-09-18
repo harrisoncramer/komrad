@@ -246,6 +246,12 @@ func (i *Instance) Reconcile() {
 	i.runLoop(server.ReconcileLoop)
 }
 
+// SyncCwds runs one pass of the loop that reads each agent's checkout onto its row.
+func (i *Instance) SyncCwds() {
+	i.t.Helper()
+	i.runLoop(server.CwdSyncLoop)
+}
+
 // SyncTranscripts runs one pass of the loop that folds what was said into the search index.
 func (i *Instance) SyncTranscripts() {
 	i.t.Helper()

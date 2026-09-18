@@ -5,3 +5,21 @@ package xptr
 func Ptr[T any](v T) *T {
 	return &v
 }
+
+// NonEmpty returns a pointer to s, or nil for an empty string.
+func NonEmpty(s string) *string {
+	if s == "" {
+		return nil
+	}
+
+	return &s
+}
+
+// Equal reports whether two pointers are both nil or point at equal values.
+func Equal[T comparable](a, b *T) bool {
+	if a == nil || b == nil {
+		return a == b
+	}
+
+	return *a == *b
+}

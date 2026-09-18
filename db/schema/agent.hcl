@@ -546,6 +546,11 @@ table "agents" {
     null = true
     type = text
   }
+  column "repository_url" {
+    null    = true
+    type    = text
+    comment = "The canonical web address of the repository the agent's checkout pushes to, such as https://github.com/harrisoncramer/weave. Null when the checkout is gone or its origin is not a forge. The cwd syncer rewrites it on the same pass that rewrites branch."
+  }
   column "adopted_branch" {
     null    = false
     type    = text
