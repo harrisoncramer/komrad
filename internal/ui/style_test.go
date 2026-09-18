@@ -54,53 +54,6 @@ func TestUncertainStateMark(t *testing.T) {
 	assert.Equal(t, paint.ToneMuted, stateTone(agentstore.StateUncertain), "an unreadable pane is quiet, not an alarm")
 }
 
-// TestWorktreeMark covers the one glyph the row spends on the state of a checkout, which
-// says a cwd is gone, a sequence is stopped in it, or nothing at all.
-func TestWorktreeMark(t *testing.T) {
-	tests := []struct {
-		name    string
-		agent   agentstore.Agent
-		wantOne string
-	}{
-		{
-			name: "a settled checkout is drawn as nothing",
-		},
-		{
-			name:    "a cwd the syncer found gone is drawn with the removed icon",
-			agent:   agentstore.Agent{WorktreeRemoved: true},
-			wantOne: worktreeRemovedIcon,
-		},
-		{
-			name:    "a checkout part-way through a rebase is drawn with the sequence icon",
-			agent:   agentstore.Agent{SequenceInProgress: true},
-			wantOne: sequenceInProgressIcon,
-		},
-		{
-			name:    "a cwd that is gone outranks a sequence nothing can be doing in it",
-			agent:   agentstore.Agent{WorktreeRemoved: true, SequenceInProgress: true},
-			wantOne: worktreeRemovedIcon,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := worktreeMark(paint.Panel, agentItem{agent: tt.agent})
-			if tt.wantOne == "" {
-				assert.Empty(t, got)
-				return
-			}
-
-			assert.Contains(t, got, tt.wantOne)
-		})
-	}
-}
-
-// TestUnreadMailMark pins that the glyph is drawn only for an agent with mail waiting.
-func TestUnreadMailMark(t *testing.T) {
-	assert.Empty(t, unreadMailMark(paint.Panel, false))
-	assert.Contains(t, unreadMailMark(paint.Panel, true), unreadMailIcon)
-}
-
 func rowNamed(rows []string, name string) (string, bool) {
 	for _, row := range rows {
 		if strings.Contains(row, name) {

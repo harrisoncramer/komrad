@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+	"unicode/utf8"
 
 	"weave/config"
 
@@ -13,6 +14,8 @@ import (
 
 	"weave/internal/ui/layout"
 	"weave/internal/ui/paint"
+	"weave/internal/view"
+	"weave/lib/xslice"
 	agentv1 "weave/proto/gen/agent/v1"
 	"weave/proto/gen/agent/v1/agentv1connect"
 
@@ -742,8 +745,24 @@ func TestSearchGroupsByAgent(t *testing.T) {
 	assert.Equal(t, 2, strings.Count(view, "dispatcher"), "one header per agent rather than per name")
 }
 
-// TestSearchHeaderCarriesTheAgent covers a header wearing what the agent's own row wears.
-func TestSearchHeaderCarriesTheAgent(t *testing.T) {
+// searchRowNamed is the row the screen built for the hit on the agent of that name.
+func searchRowNamed(t *testing.T, lines []searchLine, name string) view.Row {
+	t.Helper()
+
+	for _, line := range lines {
+		if line.header && line.row.Name == name {
+			return line.row
+		}
+	}
+
+	t.Fatalf("no row for %q", name)
+
+	return view.Row{}
+}
+
+// TestSearchRowCarriesTheAgent covers a hit's row wearing what the agent's own row wears, which
+// is the whole reason the two screens draw through the same package.
+func TestSearchRowCarriesTheAgent(t *testing.T) {
 	marked := "a"
 
 	m := filterModel()
@@ -789,29 +808,125 @@ func TestSearchHeaderCarriesTheAgent(t *testing.T) {
 		},
 	})
 
-	view := ansi.Strip(m.searchView())
+	lines, _ := m.searchLines()
 
-	live := headerLine(t, view, "billing")
-	assert.Contains(t, live, stateIcon(agentstore.StateThinking), "the live header wears the state it is in")
-	assert.Contains(t, live, marked, "the live header wears its mark")
-	assert.Contains(t, live, unreadMailIcon, "the live header says mail is waiting")
+	live := searchRowNamed(t, lines, "billing")
+	assert.Equal(t, view.StatusThinking, live.Status, "the live row wears the state it is in")
+	assert.Equal(t, view.ProcessAlive, live.Process, "and has a process behind it")
+	assert.Equal(t, marked, live.Mark, "the live row wears its mark")
+	assert.True(t, live.UnreadMail, "the live row says mail is waiting")
+	assert.Empty(t, live.Tag)
 
-	archived := headerLine(t, view, "payouts")
-	assert.Contains(t, archived, "(archived)", "the archived header still says so")
-	assert.Contains(t, archived, stateIcon(agentstore.StateFailedToCleanup), "the archived header wears a failed cleanup")
+	archived := searchRowNamed(t, lines, "payouts")
+	assert.Equal(t, archivedTagText, archived.Tag, "the archived row still says so")
+	assert.True(t, archived.Dim)
+	assert.Equal(t, view.StatusBroken, archived.Status, "an archived agent that died failing keeps its bar")
+	assert.Equal(t, view.ProcessStopped, archived.Process)
+}
 
-	for _, header := range []string{live, archived} {
-		assert.NotEqual(t, snippetIndent, indentOf(header), "a header is not drawn at the indent its snippets are")
+// TestSearchSnippetsHangOffTheirHeader covers the one thing the two kinds of line have to agree
+// about: a snippet is drawn in from the column the row above it opens its name at.
+func TestSearchSnippetsHangOffTheirHeader(t *testing.T) {
+	m := filterModel()
+	m.screen = screenSearch
+	m.width = 80
+	m.search = searchState{query: "ledger"}
+	m.listing.agents = []agentItem{{
+		agent: agentstore.Agent{ID: "a1", Name: "billing", WorkflowID: "w1"},
+		alive: true,
+	}}
+
+	m.applySearch(searchResult{
+		query: "ledger",
+		hits:  []searchHit{{agentID: "a1", name: "billing", snippet: "the ledger balanced"}},
+	})
+
+	rows, _ := m.searchRows()
+
+	drawn := strings.Join(ansiStripped(rows), "\n")
+
+	assert.Equal(t, snippetIndent(), textColumn(t, headerLine(t, drawn, "billing"), "billing"),
+		"a header opens its name at the gutter")
+	assert.Equal(t, snippetIndent(), textColumn(t, headerLine(t, drawn, "balanced"), "the ledger"),
+		"and its snippets open under that name")
+}
+
+// ansiStripped is the drawn rows with their styling taken off.
+func ansiStripped(rows []string) []string {
+	return xslice.Map(rows, ansi.Strip)
+}
+
+// textColumn is the column a drawn row opens the given text at, counted in runes since nothing
+// left of a result's name is drawn as a glyph wider than one.
+func textColumn(t *testing.T, line, text string) int {
+	t.Helper()
+
+	at := strings.Index(line, text)
+	require.GreaterOrEqual(t, at, 0, "no %q in %q", text, line)
+
+	return utf8.RuneCountInString(line[:at])
+}
+
+// TestSearchKeysNameHitsRatherThanAgents covers the same agent standing on several lines at
+// once: the row a name hit draws answers to that hit, while the row heading a run of snippets
+// answers to nothing, so hovering a snippet cannot light the agent named above it.
+func TestSearchKeysNameHitsRatherThanAgents(t *testing.T) {
+	m := filterModel()
+	m.screen = screenSearch
+	m.width = 80
+	m.search = searchState{query: "billing"}
+	m.listing.agents = []agentItem{{
+		agent: agentstore.Agent{ID: "a1", Name: "billing", WorkflowID: "w1"},
+		alive: true,
+	}}
+
+	m.applySearch(searchResult{
+		query: "billing",
+		hits:  []searchHit{{agentID: "a1", name: "billing", snippet: "the billing ledger"}},
+	})
+
+	require.Len(t, m.searchHits(), 2, "one agent, matched by its name and by a turn")
+
+	lines, _ := m.searchLines()
+	keys := make([]string, 0, len(lines))
+	for _, line := range lines {
+		if line.header {
+			keys = append(keys, line.row.Key)
+		}
 	}
+	require.Len(t, keys, 2, "the agent is named once per section")
+	assert.NotEmpty(t, keys[0], "the name hit is a row the cursor can stand on")
+	assert.Empty(t, keys[1], "the row heading a run of snippets is not")
+
+	// The cursor opens on the name hit, so that row wears the caret and nothing else does.
+	rows, cursor := m.searchRows()
+	assert.Equal(t, 1, cursor)
+	assert.Equal(t, 0, caretColumn(rows[1]), "the name hit wears the caret in its focus cell")
+
+	moved, _ := m.moveSearchCursor(1)
+	next, ok := moved.(model)
+	require.True(t, ok)
+
+	rows, cursor = next.searchRows()
+	assert.Equal(t, 5, cursor, "the step lands on the snippet under the heading")
+	assert.Equal(t, snippetIndent()-len(blankCursor), caretColumn(rows[5]), "the snippet wears the caret")
+	assert.Equal(t, -1, caretColumn(rows[4]), "the row naming the agent does not")
+	assert.Equal(t, -1, caretColumn(rows[1]), "and neither does its name hit")
 }
 
-func indentOf(line string) int {
-	return len(line) - len(strings.TrimLeft(line, " "))
+// caretColumn is where a drawn row wears the cursor, or -1 where it wears none.
+func caretColumn(line string) int {
+	at := strings.Index(ansi.Strip(line), strings.TrimSpace(rowCursorGlyph))
+	if at < 0 {
+		return -1
+	}
+
+	return utf8.RuneCountInString(ansi.Strip(line)[:at])
 }
 
-// TestSearchHeaderWithoutTheAgent covers a hit named before its listing has landed, which is
-// what a first paint looks like, and which is only allowed to cost the marks.
-func TestSearchHeaderWithoutTheAgent(t *testing.T) {
+// TestSearchRowWithoutTheAgent covers a hit named before its listing has landed, which is what a
+// first paint looks like, and which is only allowed to cost the marks.
+func TestSearchRowWithoutTheAgent(t *testing.T) {
 	m := filterModel()
 	m.screen = screenSearch
 	m.width = 80
@@ -827,9 +942,15 @@ func TestSearchHeaderWithoutTheAgent(t *testing.T) {
 		}},
 	})
 
-	header := headerLine(t, ansi.Strip(m.searchView()), "billing")
+	lines, _ := m.searchLines()
+	row := searchRowNamed(t, lines, "billing")
 
-	assert.Equal(t, "  "+noStateIcon+" billing", header, "the header keeps the icon column a header sits behind")
+	assert.Equal(t, view.ProcessNone, row.Process, "a hit nothing is known about has no bar to draw")
+	assert.Empty(t, row.Tag)
+
+	header := headerLine(t, ansi.Strip(m.searchView()), "billing")
+	assert.Equal(t, strings.Repeat(" ", snippetIndent())+"billing", header,
+		"and still opens its name where every other row does")
 }
 
 func headerLine(t *testing.T, view, name string) string {
@@ -1092,12 +1213,12 @@ func TestSearchNameHitJumps(t *testing.T) {
 	assert.Equal(t, "payouts", rowNames(landed.agentRows())[landed.tree.cursor])
 }
 
-// TestMarkName covers where a name is marked, which is the query as the name spells it rather
+// TestNameMatches covers where a name is marked, which is the query as the name spells it rather
 // than as it was typed.
-func TestMarkName(t *testing.T) {
-	assert.Equal(t, "bi"+paint.Panel.Match().Render("LL")+"ing", markName(paint.Panel, "biLLing", " bill "))
-	assert.Equal(t, "billing", markName(paint.Panel, "billing", "  "))
-	assert.Equal(t, "billing", markName(paint.Panel, "billing", "payouts"))
+func TestNameMatches(t *testing.T) {
+	assert.Equal(t, []view.Span{{Start: 0, End: 4}}, nameMatches("biLLing", " bill "))
+	assert.Nil(t, nameMatches("billing", "  "))
+	assert.Nil(t, nameMatches("billing", "payouts"))
 }
 
 // TestSearchCursorSurvivesARefresh covers the names among the hits being read off the listings:

@@ -3,7 +3,6 @@ package ui
 import (
 	"testing"
 	"time"
-	"weave/internal/ui/paint"
 
 	"weave/config"
 	agentstore "weave/internal/store/agent"
@@ -184,12 +183,4 @@ func TestToggleViewedLetsGoWhenTheCursorMoves(t *testing.T) {
 
 	_, cmd = m.dwellViewed(at.Add(time.Second).Add(viewedDwell))
 	assert.NotNil(t, cmd)
-}
-
-// TestUnviewedMarkIsItsOwnColumn pins the separation the whole design rests on: the state icon
-// says only what the agent is doing, the mark beside it says only whether there is something to
-// read, and either is true without the other.
-func TestUnviewedMarkIsItsOwnColumn(t *testing.T) {
-	assert.Contains(t, unviewedMark(paint.Panel, true), unviewedIcon)
-	assert.Empty(t, unviewedMark(paint.Panel, false), "and takes no room on a row with nothing to read")
 }
