@@ -4,7 +4,7 @@ Stop an agent and hold it, which is what somebody does before editing the files 
 
 ### Synopsis
 
-Stop an agent and hold it, which is what somebody does before editing the files that agent is working in. The agent's terminal is interrupted and the hold is granted only once the agent is observed to have come to rest, so a turn part-way through is ended rather than waited out. Never call this on yourself: the interrupt would end the very turn that asked for it. A held agent runs nothing until release_agent lets it go, and weave refuses to rebase, archive or otherwise move an agent while it is held. An agent already held is refused as already_exists; one with no pane, one whose terminal could not be read, and one that would not settle within the budget are all refused as failed_precondition.
+Stop an agent and hold it, which is what somebody does before editing the files that agent is working in. The agent's terminal is interrupted and the hold is granted only once the agent is observed to have come to rest, so a turn part-way through is ended rather than waited out. Never call this on yourself: the interrupt would end the very turn that asked for it. A held agent runs nothing until release_agent lets it go, and weave refuses to rebase, archive or otherwise move an agent while it is held. An agent already held is refused as already_exists; one with no pane, one whose terminal could not be read, and one that would not settle within the budget are all refused as failed_precondition. Holding an agent stops work, so hold one because you were asked to and not to get it out of your way.
 
 ```
 weave rpc hold-agent [flags]

@@ -4,7 +4,7 @@ Let an agent that hold_agent stopped carry on, telling it what happened while it
 
 ### Synopsis
 
-Let an agent that hold_agent stopped carry on, telling it what happened while it was held. Whatever you pass as said is typed into the agent as it starts again, which is how it learns that its files moved under it or that the work it was part-way through is no longer wanted; an empty said lets it go in silence, and said is ignored for an agent whose own turn had already ended. Releasing an agent nobody is holding is refused as failed_precondition, and so is one that could not be told to carry on, in which case the hold still stands and the agent is still stopped.
+Let an agent that hold_agent stopped carry on, telling it what happened while it was held. Whatever you pass as said is typed into the agent as it starts again, which is how it learns that its files moved under it or that the work it was part-way through is no longer wanted; an empty said lets it go in silence, and said is ignored for an agent whose own turn had already ended. Releasing an agent nobody is holding is refused as failed_precondition. So is one whose input box would not take the words, in which case the hold still stands and the agent is still stopped: the way out is to call again with said empty, which lets it go without typing at it, rather than to retry the same call.
 
 ```
 weave rpc release-agent [flags]

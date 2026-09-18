@@ -567,7 +567,7 @@ service AgentService {
     option idempotency_level = IDEMPOTENT;
     option (annotation.v1.tool) = {
       tool_name: "set_mark"
-      description: "Put a single lowercase letter on an agent's row or a workflow's row, which is the shorthand a person types in the panel to jump straight to that row. Name exactly one of agentId and workflowId, and leave mark out to take off whatever letter the row already answers to. A letter belongs to one row at a time, so claiming one another row already holds takes it off that row rather than being refused. Your own id is in the WEAVE_AGENT_ID environment variable, so this is how you label your own row while you work on something a person will want to come back to. The mark must be one lowercase character, and a row that is not live is refused as not_found."
+      description: "Put a single lowercase letter on an agent's row or a workflow's row, which is the shorthand a person types in the panel to jump straight to that row. Name exactly one of agentId and workflowId, and leave mark out to take off whatever letter the row already answers to. A letter belongs to one row at a time, so claiming one another row already holds takes it off that row rather than being refused. Your own id is in the WEAVE_AGENT_ID environment variable, so this is how you label your own row while you work on something a person will want to come back to. The mark must be one lowercase character, and a row that is not live is refused as not_found. Which rows carry which letters is the person's own way around their sidebar, so do not move a letter you were not asked to move."
       destructive: false
     };
   }
@@ -645,14 +645,14 @@ service AgentService {
   rpc HoldAgent(HoldAgentRequest) returns (HoldAgentResponse) {
     option (annotation.v1.tool) = {
       tool_name: "hold_agent"
-      description: "Stop an agent and hold it, which is what somebody does before editing the files that agent is working in. The agent's terminal is interrupted and the hold is granted only once the agent is observed to have come to rest, so a turn part-way through is ended rather than waited out. Never call this on yourself: the interrupt would end the very turn that asked for it. A held agent runs nothing until release_agent lets it go, and weave refuses to rebase, archive or otherwise move an agent while it is held. An agent already held is refused as already_exists; one with no pane, one whose terminal could not be read, and one that would not settle within the budget are all refused as failed_precondition."
+      description: "Stop an agent and hold it, which is what somebody does before editing the files that agent is working in. The agent's terminal is interrupted and the hold is granted only once the agent is observed to have come to rest, so a turn part-way through is ended rather than waited out. Never call this on yourself: the interrupt would end the very turn that asked for it. A held agent runs nothing until release_agent lets it go, and weave refuses to rebase, archive or otherwise move an agent while it is held. An agent already held is refused as already_exists; one with no pane, one whose terminal could not be read, and one that would not settle within the budget are all refused as failed_precondition. Holding an agent stops work, so hold one because you were asked to and not to get it out of your way."
       destructive: false
     };
   }
   rpc ReleaseAgent(ReleaseAgentRequest) returns (ReleaseAgentResponse) {
     option (annotation.v1.tool) = {
       tool_name: "release_agent"
-      description: "Let an agent that hold_agent stopped carry on, telling it what happened while it was held. Whatever you pass as said is typed into the agent as it starts again, which is how it learns that its files moved under it or that the work it was part-way through is no longer wanted; an empty said lets it go in silence, and said is ignored for an agent whose own turn had already ended. Releasing an agent nobody is holding is refused as failed_precondition, and so is one that could not be told to carry on, in which case the hold still stands and the agent is still stopped."
+      description: "Let an agent that hold_agent stopped carry on, telling it what happened while it was held. Whatever you pass as said is typed into the agent as it starts again, which is how it learns that its files moved under it or that the work it was part-way through is no longer wanted; an empty said lets it go in silence, and said is ignored for an agent whose own turn had already ended. Releasing an agent nobody is holding is refused as failed_precondition. So is one whose input box would not take the words, in which case the hold still stands and the agent is still stopped: the way out is to call again with said empty, which lets it go without typing at it, rather than to retry the same call."
       destructive: false
     };
   }

@@ -4,7 +4,7 @@ Put a single lowercase letter on an agent's row or a workflow's row, which is th
 
 ### Synopsis
 
-Put a single lowercase letter on an agent's row or a workflow's row, which is the shorthand a person types in the panel to jump straight to that row. Name exactly one of agentId and workflowId, and leave mark out to take off whatever letter the row already answers to. A letter belongs to one row at a time, so claiming one another row already holds takes it off that row rather than being refused. Your own id is in the WEAVE_AGENT_ID environment variable, so this is how you label your own row while you work on something a person will want to come back to. The mark must be one lowercase character, and a row that is not live is refused as not_found.
+Put a single lowercase letter on an agent's row or a workflow's row, which is the shorthand a person types in the panel to jump straight to that row. Name exactly one of agentId and workflowId, and leave mark out to take off whatever letter the row already answers to. A letter belongs to one row at a time, so claiming one another row already holds takes it off that row rather than being refused. Your own id is in the WEAVE_AGENT_ID environment variable, so this is how you label your own row while you work on something a person will want to come back to. The mark must be one lowercase character, and a row that is not live is refused as not_found. Which rows carry which letters is the person's own way around their sidebar, so do not move a letter you were not asked to move.
 
 ```
 weave rpc set-mark [flags]
