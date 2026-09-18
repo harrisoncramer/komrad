@@ -92,7 +92,7 @@ func TestALandedUnpauseForgetsTheEditedFiles(t *testing.T) {
 }
 
 // TestALandedUnpauseKeepsAFileOpenedWhileItFlew covers a path remembered after the release was
-// built, which that release never named.
+// built.
 func TestALandedUnpauseKeepsAFileOpenedWhileItFlew(t *testing.T) {
 	at := time.Now()
 	agents := &recordingHolds{}
