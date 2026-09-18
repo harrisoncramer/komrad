@@ -200,8 +200,7 @@ func visibleAgentRows(t *testing.T, m model) int {
 }
 
 // TestSymbologyWindowFillsThePane pins the list being handed every line the pane has and no
-// more, which the difference between two widths cannot see: budget one line too few and the
-// whole drawing comes up a line short of the pane with nothing else to say so.
+// more.
 func TestSymbologyWindowFillsThePane(t *testing.T) {
 	for _, width := range []int{16, 120} {
 		t.Run(fmt.Sprintf("width %d", width), func(t *testing.T) {
