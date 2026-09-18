@@ -43,6 +43,17 @@
 // alone would not fit the pane: the schedule first, then the pause, then the mail, and the
 // failed run last.
 //
+// # A screen may give up a column its rows could never fill
+//
+// The narrowing above is about room. Dropped is about meaning: a column a screen gives up there
+// is gone at every pane, because its rows will never reach that stage of the work. The archive is
+// the case that asked for it, where an agent has been put away and its checkout, its review and
+// its pull request are none of them looked at again, so a greyed glyph on each would be promising
+// something that will never happen rather than saying not yet.
+//
+// A dropped column buys the name its room, since the gutter arithmetic reads the columns a list
+// ended up with rather than the three it might have had.
+//
 // # Scrolling belongs to the caller
 //
 // Rows hands back one drawn string per row and stops there. Which of them fit the pane, and
