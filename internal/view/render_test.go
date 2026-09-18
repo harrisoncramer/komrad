@@ -279,6 +279,27 @@ func TestRenderKeepsEveryNameOnOneColumn(t *testing.T) {
 	}
 }
 
+// TestRenderOpensEveryKindOnOneColumn pins the case the settled design cannot express on its
+// own: each kind of row beside its marked and unmarked twin, all opening their names together.
+func TestRenderOpensEveryKindOnOneColumn(t *testing.T) {
+	rows := []Row{
+		{Key: "marked-workflow", Kind: KindWorkflow, Name: "marked-workflow", Mark: "m"},
+		{Key: "plain-workflow", Kind: KindWorkflow, Name: "plain-workflow"},
+		{Key: "marked-agent", Kind: KindAgent, Name: "marked-agent", Mark: "a"},
+		{Key: "plain-agent", Kind: KindAgent, Name: "plain-agent"},
+		{Key: "marked-child", Kind: KindChild, Name: "marked-child", Mark: "c"},
+		{Key: "plain-child", Kind: KindChild, Name: "plain-child"},
+	}
+
+	list := Prepare(Snapshot{Rows: rows, Focused: "plain-agent"})
+	drawn := strings.Split(ansiEscapes.ReplaceAllString(Render(list, paint.Colored, 0), ""), "\n")
+	require.Len(t, drawn, len(rows))
+
+	for i, line := range list.Lines {
+		assert.Equal(t, drawnNameColumn, nameColumnOf(drawn[i], line), "row %q", drawn[i])
+	}
+}
+
 // TestGutterColumnsAgreesWithWhatIsDrawn pins the arithmetic a caller sizes a name by against
 // the row the renderer actually draws, so the two cannot drift apart.
 func TestGutterColumnsAgreesWithWhatIsDrawn(t *testing.T) {
