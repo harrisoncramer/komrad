@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -258,21 +257,6 @@ func doesDirExist(dir string) bool {
 	info, err := os.Stat(dir)
 
 	return err == nil && info.IsDir()
-}
-
-// isSameDir compares two paths as the filesystem sees them.
-func isSameDir(a, b string) bool {
-	resolvedA, err := filepath.EvalSymlinks(a)
-	if err != nil {
-		resolvedA = a
-	}
-
-	resolvedB, err := filepath.EvalSymlinks(b)
-	if err != nil {
-		resolvedB = b
-	}
-
-	return filepath.Clean(resolvedA) == filepath.Clean(resolvedB)
 }
 
 func adoptTitle(title, branch string) string {

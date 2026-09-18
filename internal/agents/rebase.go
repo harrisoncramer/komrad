@@ -450,7 +450,7 @@ func (s *RebaseService) refuseTheCaller(ctx context.Context, agent agentstore.Ag
 	if err != nil {
 		return fmt.Errorf("failed to read the agent asking to rebase %q: %w", agent.Name, err)
 	}
-	if asker.Cwd == "" || asker.Cwd != agent.Cwd {
+	if asker.Cwd == "" || !isSameDir(asker.Cwd, agent.Cwd) {
 		return nil
 	}
 

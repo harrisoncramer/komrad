@@ -3,6 +3,8 @@ package agents
 import (
 	"context"
 	"errors"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -642,6 +644,58 @@ func TestRebaseRefusesAnAgentInTheCallersCheckout(t *testing.T) {
 			})
 
 			_, err := service.Rebase(caller.With(t.Context(), tt.from), "a1")
+
+			if tt.wantErr == nil {
+				require.NoError(t, err)
+				assert.Equal(t, []string{"park", "rebase"}, rebaser.calls)
+
+				return
+			}
+
+			require.ErrorIs(t, err, tt.wantErr)
+			assert.Empty(t, rebaser.calls)
+		})
+	}
+}
+
+// TestRebaseRefusesTheCallerWhateverThePathSpelling covers a caller whose directory is the
+// target's spelled another way, which is what an agent pointed at a path by hand holds.
+func TestRebaseRefusesTheCallerWhateverThePathSpelling(t *testing.T) {
+	t.Parallel()
+
+	real := t.TempDir()
+	linked := filepath.Join(t.TempDir(), "link")
+	require.NoError(t, os.Symlink(real, linked))
+
+	for _, tt := range []struct {
+		name      string
+		targetCwd string
+		askerCwd  string
+		wantErr   error
+	}{
+		{name: "a trailing slash", targetCwd: "/tree", askerCwd: "/tree/", wantErr: ErrRebaseSelf},
+		{name: "a dot segment", targetCwd: "/tree", askerCwd: "/tree/./", wantErr: ErrRebaseSelf},
+		{name: "a symlinked prefix", targetCwd: real, askerCwd: linked, wantErr: ErrRebaseSelf},
+		{name: "another directory entirely", targetCwd: "/tree", askerCwd: "/other"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			target := agentstore.Agent{
+				ID: "a1", Name: "auth", WorkflowID: "w1", Cwd: tt.targetCwd, State: agentstore.StateIdle,
+			}
+			asker := agentstore.Agent{
+				ID: "a2", Name: "billing", WorkflowID: "w1", Cwd: tt.askerCwd, State: agentstore.StateThinking,
+			}
+
+			rebaser := &fakeRebaser{state: git.TreeState{Branch: "fix/auth"}}
+			service := NewRebaseService(NewRebaseServiceParams{
+				Agents:    rebaseRoster{"a1": target, "a2": asker},
+				Workflows: fakeRebaseWorkflows{flow: worktreeFlow()},
+				Rebaser:   rebaser,
+			})
+
+			_, err := service.Rebase(caller.With(t.Context(), caller.Caller{AgentID: "a2"}), "a1")
 
 			if tt.wantErr == nil {
 				require.NoError(t, err)
