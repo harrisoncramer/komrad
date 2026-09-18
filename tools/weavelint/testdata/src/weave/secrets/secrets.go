@@ -29,3 +29,9 @@ func laundered(s forge.Secret) string {
 
 	return e.Expose()
 }
+
+var header = forge.NewSecret("x").Expose() // want `Expose gives up the token; weave/secrets is not a place allowed to send or keep it`
+
+var describeLater = func(s forge.Secret) string {
+	return s.Expose() // want `Expose gives up the token; weave/secrets is not a place allowed to send or keep it`
+}

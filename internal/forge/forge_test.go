@@ -101,6 +101,32 @@ func TestTransport(t *testing.T) {
 	}
 }
 
+type failingInvalidate struct{ fakeAuth }
+
+func (f *failingInvalidate) Invalidate(context.Context) error { return errors.New("store down") }
+
+// TestTransportAnswersOneThingOnARefusal covers Invalidate failing on a 401: the error comes
+// back alone, with the response closed rather than handed over beside it.
+func TestTransportAnswersOneThingOnARefusal(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusUnauthorized)
+	}))
+	t.Cleanup(server.Close)
+
+	auth := &failingInvalidate{fakeAuth: fakeAuth{credential: Credential{Header: HeaderBearer, Token: NewSecret("tok")}}}
+	req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, server.URL, nil)
+	require.NoError(t, err)
+
+	resp, err := NewTransport(auth, server.Client().Transport).RoundTrip(req)
+	require.Error(t, err)
+	if resp != nil {
+		require.NoError(t, resp.Body.Close())
+	}
+	assert.Nil(t, resp)
+}
+
 // TestTransportRefusesWithoutACredential covers a connection whose file is gone: the request
 // never leaves.
 func TestTransportRefusesWithoutACredential(t *testing.T) {

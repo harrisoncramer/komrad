@@ -13,7 +13,7 @@ import (
 	"weave/config"
 	"weave/db"
 	"weave/internal/forge"
-	"weave/internal/forge/github"
+	"weave/internal/forge/forges"
 	"weave/internal/store"
 	agentstore "weave/internal/store/agent"
 	forgestore "weave/internal/store/forge"
@@ -181,32 +181,27 @@ func verifyForges(ctx context.Context, url string) ([]ForgeStatus, error) {
 		return nil, err
 	}
 
-	credentials := forge.NewFileStore(stateDir)
+	service := forge.NewService(forge.NewServiceParams{
+		Connections: forgestore.New(pool),
+		Credentials: forge.NewFileStore(stateDir),
+		Builders:    forges.Builders,
+		Verified:    forge.NoRecord{},
+	})
+
 	statuses := make([]ForgeStatus, 0, len(connections))
 	for _, connection := range connections {
 		status := ForgeStatus{Host: connection.Host}
-		build, ok := forgeBuilders[connection.Kind]
-		if !ok {
-			status.Err = fmt.Errorf("no forge of kind %q in this build", connection.Kind)
+		f, err := service.ForConnection(connection)
+		if err != nil {
+			status.Err = err
 			statuses = append(statuses, status)
 
 			continue
 		}
 
-		auth := forge.NewStoredCredential(forge.NewStoredCredentialParams{
-			Store:        credentials,
-			ConnectionID: connection.ID,
-			Header:       forge.HeaderFor(connection.Kind, connection.Method),
-			Connections:  forge.NoRecord{},
-		})
-		status.Login, status.Err = build(connection.APIURL, auth).Verify(ctx)
+		status.Login, status.Err = f.Verify(ctx)
 		statuses = append(statuses, status)
 	}
 
 	return statuses, nil
-}
-
-// forgeBuilders is every forge this build can speak to, by kind.
-var forgeBuilders = map[string]forge.Builder{
-	forge.KindGitHub: github.Build,
 }

@@ -23,8 +23,7 @@ type ForgeStatus struct {
 	Err   error
 }
 
-// newForgesCheck asks every connected forge who weave is there, and warns for each one that
-// refuses, since a refused connection is remade with weave forge connect.
+// newForgesCheck asks every connected forge who weave is there and warns for each one that refuses.
 func newForgesCheck() Check {
 	return Check{
 		Name:        "forges",

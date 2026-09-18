@@ -44,7 +44,7 @@ func (c Credential) HeaderValue() string {
 // Authenticator is where a connection's credential comes from.
 type Authenticator interface {
 	Credential(ctx context.Context) (Credential, error)
-	// Invalidate says the forge refused the credential, so it is not to be trusted again.
+	// Invalidate says the forge refused the credential.
 	Invalidate(ctx context.Context) error
 }
 
@@ -164,7 +164,7 @@ func (s *StoredCredential) Credential(ctx context.Context) (Credential, error) {
 	return Credential{Header: s.header, Token: token}, nil
 }
 
-// Invalidate clears the connection's verified_at so the row says it needs remaking.
+// Invalidate clears the connection's verified_at.
 func (s *StoredCredential) Invalidate(ctx context.Context) error {
 	return s.connections.SetVerifiedAt(ctx, s.connectionID, nil)
 }

@@ -10,17 +10,12 @@ import (
 
 	"weave/config"
 	"weave/internal/forge"
-	"weave/internal/forge/github"
+	"weave/internal/forge/forges"
 	"weave/internal/store"
 	forgestore "weave/internal/store/forge"
 
 	"github.com/spf13/cobra"
 )
-
-// forgeBuilders is every forge this build can connect to, by kind.
-var forgeBuilders = map[string]forge.Builder{
-	forge.KindGitHub: github.Build,
-}
 
 func forgeCmd(state *app) *cobra.Command {
 	cmd := &cobra.Command{
@@ -119,8 +114,16 @@ func forgeListCmd(state *app) *cobra.Command {
 					return err
 				}
 				for _, connection := range connections {
+					held, err := service.HasCredential(ctx, connection)
+					if err != nil {
+						return err
+					}
+
 					verified := "refused"
-					if connection.VerifiedAt != nil {
+					switch {
+					case !held:
+						verified = "no credential"
+					case connection.VerifiedAt != nil:
 						verified = connection.VerifiedAt.Local().Format("2006-01-02 15:04")
 					}
 					if _, err := fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n", connection.Host, connection.Kind, connection.Login, connection.Method, verified); err != nil {
@@ -195,7 +198,7 @@ func withForgeService(ctx context.Context, state *app, run func(context.Context,
 	service := forge.NewService(forge.NewServiceParams{
 		Connections: forgestore.New(pool.GetDB()),
 		Credentials: forge.NewFileStore(stateDir),
-		Builders:    forgeBuilders,
+		Builders:    forges.Builders,
 	})
 
 	return run(ctx, service)

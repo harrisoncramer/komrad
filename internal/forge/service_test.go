@@ -193,25 +193,57 @@ func TestDisconnect(t *testing.T) {
 	require.ErrorIs(t, f.service.Disconnect(ctx, "github.com"), store.ErrNotFound)
 }
 
-// TestVerifyRestoresAndClearsTheStamp covers the doctor's read: a forge that answers stamps
-// the row, and one that refuses through the transport clears it.
-func TestVerifyRestoresAndClearsTheStamp(t *testing.T) {
+// TestHasCredential covers a row whose file is there, and one whose file is gone.
+func TestHasCredential(t *testing.T) {
 	f := newFixture(t, "harrisoncramer", nil)
 	ctx := t.Context()
 
 	connection, err := f.service.Connect(ctx, ConnectParams{Host: "github.com", Token: NewSecret("tok")})
 	require.NoError(t, err)
-	require.NoError(t, f.store.SetVerifiedAt(ctx, connection.ID, nil))
 
-	login, err := f.service.Verify(ctx, *connection)
+	held, err := f.service.HasCredential(ctx, *connection)
 	require.NoError(t, err)
-	assert.Equal(t, "harrisoncramer", login)
-
-	restored, err := f.store.Get(ctx, connection.ID)
-	require.NoError(t, err)
-	assert.NotNil(t, restored.VerifiedAt)
+	assert.True(t, held)
 
 	require.NoError(t, f.credentials.Delete(ctx, connection.ID))
-	_, err = f.service.Verify(ctx, *connection)
+	held, err = f.service.HasCredential(ctx, *connection)
+	require.NoError(t, err)
+	assert.False(t, held)
+
+	f2, err := f.service.ForConnection(*connection)
+	require.NoError(t, err)
+	_, err = f2.Verify(ctx)
 	require.ErrorIs(t, err, ErrNoCredential)
+}
+
+// TestForConnectionRecordsWhereItIsTold covers Verified: a service built with NoRecord leaves
+// the row alone when the forge refuses, and one built without it clears verified_at.
+func TestForConnectionRecordsWhereItIsTold(t *testing.T) {
+	f := newFixture(t, "harrisoncramer", nil)
+	ctx := t.Context()
+
+	connection, err := f.service.Connect(ctx, ConnectParams{Host: "github.com", Token: NewSecret("tok")})
+	require.NoError(t, err)
+
+	reporting := NewService(NewServiceParams{
+		Connections: f.store,
+		Credentials: f.credentials,
+		Builders:    map[string]Builder{KindGitHub: func(_ string, auth Authenticator) Forge { return &fakeForge{auth: auth, err: ErrUnauthorized} }},
+		Verified:    NoRecord{},
+	})
+	reported, err := reporting.ForConnection(*connection)
+	require.NoError(t, err)
+	require.NoError(t, reported.(*fakeForge).auth.Invalidate(ctx))
+
+	untouched, err := f.store.Get(ctx, connection.ID)
+	require.NoError(t, err)
+	assert.NotNil(t, untouched.VerifiedAt)
+
+	recording, err := f.service.ForConnection(*connection)
+	require.NoError(t, err)
+	require.NoError(t, recording.(*fakeForge).auth.Invalidate(ctx))
+
+	cleared, err := f.store.Get(ctx, connection.ID)
+	require.NoError(t, err)
+	assert.Nil(t, cleared.VerifiedAt)
 }

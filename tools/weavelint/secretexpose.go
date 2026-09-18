@@ -46,20 +46,20 @@ func newSecretExpose(settings config.SecretExposeConfig) *analysis.Analyzer {
 	}
 }
 
-// reportExposes reports every Expose on a Secret whose enclosing function is not allowed.
+// reportExposes reports every Expose on a Secret whose enclosing declaration is not allowed,
+// which for a package-level value is the package itself.
 func reportExposes(pass *analysis.Pass, file *ast.File, allowed map[string]struct{}) {
 	for _, decl := range file.Decls {
-		function, ok := decl.(*ast.FuncDecl)
-		if !ok || function.Body == nil {
+		body, name := scopeOf(pass, decl)
+		if body == nil {
 			continue
 		}
 
-		name := fullName(pass, function)
 		if _, ok := allowed[name]; ok {
 			continue
 		}
 
-		ast.Inspect(function.Body, func(node ast.Node) bool {
+		ast.Inspect(body, func(node ast.Node) bool {
 			call, ok := node.(*ast.CallExpr)
 			if !ok || !isSecretExpose(pass, call) {
 				return true
@@ -70,6 +70,24 @@ func reportExposes(pass *analysis.Pass, file *ast.File, allowed map[string]struc
 			return true
 		})
 	}
+}
+
+// scopeOf is what a declaration's Expose calls are judged as, a function by its full name and
+// a package-level value by its package, and nothing for a declaration holding no code.
+func scopeOf(pass *analysis.Pass, decl ast.Decl) (ast.Node, string) {
+	if function, ok := decl.(*ast.FuncDecl); ok {
+		if function.Body == nil {
+			return nil, ""
+		}
+
+		return function.Body, fullName(pass, function)
+	}
+
+	if values, ok := decl.(*ast.GenDecl); ok {
+		return values, pass.Pkg.Path()
+	}
+
+	return nil, ""
 }
 
 // fullName is the function's name as types spells it, such as (*pkg.T).M.

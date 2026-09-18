@@ -19,6 +19,9 @@ import (
 // DefaultAPI is where github.com answers REST calls.
 const DefaultAPI = "https://api.github.com"
 
+// DefaultTimeout bounds one call to GitHub.
+const DefaultTimeout = 30 * time.Second
+
 // NewParams says how the forge reaches the API and as whom.
 type NewParams struct {
 	Auth forge.Authenticator
@@ -26,6 +29,8 @@ type NewParams struct {
 	API string
 	// Next is the round tripper under the credential transport, the default when nil.
 	Next http.RoundTripper
+	// Timeout bounds one call, DefaultTimeout when unset.
+	Timeout time.Duration
 }
 
 // Forge is GitHub, spoken to over its REST API.
@@ -41,9 +46,14 @@ func New(params NewParams) *Forge {
 		api = DefaultAPI
 	}
 
+	timeout := params.Timeout
+	if timeout == 0 {
+		timeout = DefaultTimeout
+	}
+
 	return &Forge{
 		api:    strings.TrimRight(api, "/"),
-		client: &http.Client{Transport: forge.NewTransport(params.Auth, params.Next)},
+		client: &http.Client{Transport: forge.NewTransport(params.Auth, params.Next), Timeout: timeout},
 	}
 }
 

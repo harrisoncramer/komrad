@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"weave/internal/fail"
+	"weave/internal/store"
 	forgestore "weave/internal/store/forge"
 )
 
@@ -36,6 +37,9 @@ type NewServiceParams struct {
 	Connections *forgestore.Store
 	Credentials CredentialStore
 	Builders    map[string]Builder
+	// Verified is what a refusal is recorded on, the connections themselves when unset and
+	// NoRecord for a caller that only reports.
+	Verified verifiedSetter
 	// Now is the clock, time.Now when unset.
 	Now func() time.Time
 }
@@ -45,6 +49,7 @@ type Service struct {
 	connections *forgestore.Store
 	credentials CredentialStore
 	builders    map[string]Builder
+	verified    verifiedSetter
 	now         func() time.Time
 }
 
@@ -54,11 +59,16 @@ func NewService(params NewServiceParams) *Service {
 	if now == nil {
 		now = time.Now
 	}
+	verified := params.Verified
+	if verified == nil {
+		verified = params.Connections
+	}
 
 	return &Service{
 		connections: params.Connections,
 		credentials: params.Credentials,
 		builders:    params.Builders,
+		verified:    verified,
 		now:         now,
 	}
 }
@@ -113,6 +123,8 @@ func (s *Service) Connect(ctx context.Context, params ConnectParams) (*forgestor
 
 	if _, err := s.connections.GetByHost(ctx, host); err == nil {
 		return nil, forgestore.ErrHostTaken.Saying("%s is already connected; disconnect it first", host)
+	} else if !errors.Is(err, store.ErrNotFound) {
+		return nil, err
 	}
 
 	probe := build(params.APIURL, staticCredential{Header: HeaderFor(kind, MethodToken), Token: params.Token})
@@ -159,21 +171,17 @@ func (s *Service) Disconnect(ctx context.Context, host string) error {
 	return s.connections.Delete(ctx, connection.ID)
 }
 
-// Verify asks the forge who a connection is, restoring or clearing verified_at accordingly.
-func (s *Service) Verify(ctx context.Context, connection forgestore.Connection) (string, error) {
-	f, err := s.ForConnection(connection)
+// HasCredential says whether the store still holds a connection's token.
+func (s *Service) HasCredential(ctx context.Context, connection forgestore.Connection) (bool, error) {
+	_, err := s.credentials.Get(ctx, connection.ID)
+	if errors.Is(err, ErrNoCredential) {
+		return false, nil
+	}
 	if err != nil {
-		return "", err
+		return false, err
 	}
 
-	login, err := f.Verify(ctx)
-	if err != nil {
-		return "", err
-	}
-
-	at := s.now()
-
-	return login, s.connections.SetVerifiedAt(ctx, connection.ID, &at)
+	return true, nil
 }
 
 // ForConnection is the forge to speak to as a connection.
@@ -187,7 +195,7 @@ func (s *Service) ForConnection(connection forgestore.Connection) (Forge, error)
 		Store:        s.credentials,
 		ConnectionID: connection.ID,
 		Header:       HeaderFor(connection.Kind, connection.Method),
-		Connections:  s.connections,
+		Connections:  s.verified,
 	})
 
 	return build(connection.APIURL, auth), nil

@@ -111,7 +111,9 @@ func (t *Transport) RoundTrip(req *http.Request) (*http.Response, error) {
 	}
 	if resp.StatusCode == http.StatusUnauthorized {
 		if err := t.auth.Invalidate(req.Context()); err != nil {
-			return resp, fmt.Errorf("failed to record the refusal: %w", err)
+			resp.Body.Close()
+
+			return nil, fmt.Errorf("failed to record the refusal: %w", err)
 		}
 	}
 
