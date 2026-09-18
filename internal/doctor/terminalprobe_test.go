@@ -122,13 +122,42 @@ func TestParseCursorReply(t *testing.T) {
 		found  bool
 		fails  bool
 	}{
-		{name: "a whole reply", buffer: "\x1b[12;34R", column: 34, found: true},
-		{name: "nothing yet", buffer: ""},
-		{name: "half a reply", buffer: "\x1b[12;3"},
-		{name: "a keypress before it", buffer: "q\x1b[1;9R", column: 9, found: true},
-		{name: "another escape before it", buffer: "\x1b[A\x1b[1;9R", column: 9, found: true},
-		{name: "no column in it", buffer: "\x1b[12R", fails: true},
-		{name: "a column of zero", buffer: "\x1b[12;0R", fails: true},
+		{
+			name:   "no column in it",
+			buffer: "\x1b[12R",
+			fails:  true,
+		},
+		{
+			name:   "a column of zero",
+			buffer: "\x1b[12;0R",
+			fails:  true,
+		},
+		{
+			name:   "nothing yet",
+			buffer: "",
+		},
+		{
+			name:   "half a reply",
+			buffer: "\x1b[12;3",
+		},
+		{
+			name:   "a whole reply",
+			buffer: "\x1b[12;34R",
+			column: 34,
+			found:  true,
+		},
+		{
+			name:   "a keypress before it",
+			buffer: "q\x1b[1;9R",
+			column: 9,
+			found:  true,
+		},
+		{
+			name:   "another escape before it",
+			buffer: "\x1b[A\x1b[1;9R",
+			column: 9,
+			found:  true,
+		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			column, found, err := parseCursorReply([]byte(tt.buffer))

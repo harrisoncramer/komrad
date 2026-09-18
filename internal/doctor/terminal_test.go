@@ -3,7 +3,10 @@ package doctor
 import (
 	"context"
 	"errors"
+	"slices"
 	"testing"
+
+	"weave/internal/view"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -16,13 +19,13 @@ func measuring(t *testing.T, glyphColumns int) Env {
 
 	return Env{
 		MeasureColumns: func(_ context.Context, samples []string) ([]int, error) {
-			require.Len(t, samples, len(calibration)+len(panelGlyphs()))
+			require.Len(t, samples, len(calibration)+len(view.Drawings()))
 
 			columns := make([]int, 0, len(samples))
 			for _, drawn := range calibration {
 				columns = append(columns, drawn.Columns)
 			}
-			for range panelGlyphs() {
+			for range view.Drawings() {
 				columns = append(columns, glyphColumns)
 			}
 
@@ -55,7 +58,7 @@ func agreeing() Env {
 	return Env{
 		MeasureColumns: func(_ context.Context, samples []string) ([]int, error) {
 			columns := make([]int, 0, len(samples))
-			for _, drawn := range append(append([]Drawn{}, calibration...), panelGlyphs()...) {
+			for _, drawn := range append(slices.Clone(calibration), view.Drawings()...) {
 				columns = append(columns, drawn.Columns)
 			}
 
@@ -191,10 +194,28 @@ func TestColorCheck(t *testing.T) {
 		status  Status
 		problem *ProblemError
 	}{
-		{name: "deep enough", colors: "256", status: StatusOK},
-		{name: "deeper still", colors: "16777216", status: StatusOK},
-		{name: "too shallow", colors: "8", status: StatusWarn, problem: ErrColorTooShallow},
-		{name: "not a number", colors: "lots", status: StatusWarn, problem: ErrTerminfoUnreadable},
+		{
+			name:    "too shallow",
+			colors:  "8",
+			status:  StatusWarn,
+			problem: ErrColorTooShallow,
+		},
+		{
+			name:    "not a number",
+			colors:  "lots",
+			status:  StatusWarn,
+			problem: ErrTerminfoUnreadable,
+		},
+		{
+			name:   "deep enough",
+			colors: "256",
+			status: StatusOK,
+		},
+		{
+			name:   "deeper still",
+			colors: "16777216",
+			status: StatusOK,
+		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			env := Env{
