@@ -92,8 +92,8 @@ func TestPrepareBarSaysWhatStandsBehindARow(t *testing.T) {
 	}
 }
 
-// TestPrepareBarTellsAStoppedProcessFromNone pins the distinction the fourth value was added for,
-// which one glyph and one blank cell used to carry between them.
+// TestPrepareBarTellsAStoppedProcessFromNone pins a stopped process drawing a mark where a row
+// with no process at all draws none.
 func TestPrepareBarTellsAStoppedProcessFromNone(t *testing.T) {
 	stopped := prepareOne(t, Row{Process: ProcessStopped}).Status
 	none := prepareOne(t, Row{Process: ProcessNone}).Status
@@ -412,17 +412,10 @@ func TestPrepareDimRowKeepsEveryGlyph(t *testing.T) {
 		Scheduled:  true,
 	}
 
-	lit, dimmed := prepareOne(t, row), prepareOne(t, Row{
-		Dim:        true,
-		Status:     row.Status,
-		Repo:       row.Repo,
-		Review:     row.Review,
-		Forge:      row.Forge,
-		Held:       row.Held,
-		UnreadMail: row.UnreadMail,
-		FailedRun:  row.FailedRun,
-		Scheduled:  row.Scheduled,
-	})
+	dim := row
+	dim.Dim = true
+
+	lit, dimmed := prepareOne(t, row), prepareOne(t, dim)
 
 	assert.Equal(t, lit.Status.Glyph, dimmed.Status.Glyph)
 	assert.Equal(t, lit.Repo.Glyph, dimmed.Repo.Glyph)

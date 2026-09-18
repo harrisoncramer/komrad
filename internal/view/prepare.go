@@ -246,11 +246,11 @@ func indentFor(kind RowKind) int {
 func fitRow(line Line, width int) Line {
 	// A tally counts rows already out of sight, which is worth less than the marks saying
 	// somebody has to do something, so it is what gives way first.
-	if nameColumns(line, width) <= 0 {
+	if roomForName(line, width) <= 0 {
 		line.Tally = 0
 	}
 
-	line.Name, line.Matches = clipName(line.Name, line.Matches, nameColumns(line, width))
+	line.Name, line.Matches = clipName(line.Name, line.Matches, roomForName(line, width))
 
 	return shedMarks(line, width)
 }
@@ -261,7 +261,7 @@ func shedMarks(line Line, width int) Line {
 	// The schedule is a standing fact about the row, the pause is one a person took themselves,
 	// and mail goes before the failed run nobody else will mention.
 	for _, shed := range []*Cell{&line.Schedule, &line.Held, &line.Mail, &line.Alert} {
-		if nameColumns(line, width) >= 0 {
+		if roomForName(line, width) >= 0 {
 			return line
 		}
 

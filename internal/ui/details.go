@@ -244,8 +244,6 @@ func (m model) noticeLines(n notice, most int) []string {
 		text[most-1] += "…"
 	}
 
-	// Every glyph the record draws takes one column, and a fact the row carries with no mark
-	// leaves that column blank.
 	icon := " "
 	if n.icon != "" {
 		icon = paint.Panel.Style(n.tone).Render(n.icon)

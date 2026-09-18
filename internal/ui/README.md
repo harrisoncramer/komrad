@@ -144,13 +144,12 @@ Nothing names a colour directly. Each piece of the panel names a paint.Tone, the
 plays, and paint.Panel, the one palette the panel draws in, turns that into a colour. So
 retuning what an accent or a danger looks like is one edit rather than a sweep.
 
-Colour used to say where the keys are as well: a region that did not hold them drew in one
-grey throughout. That went, because the panel carries meaning in colour everywhere and
-flattening a region destroyed what it was saying. What says where the keys are now is the row
-cursor, which blinks on the half holding them and stands still on the other, and the legend
-row, which lists the keys of whatever is being typed at. The review screen has neither, so
-which of its two halves holds the keys is not on the screen at all. A better signal than the
-greying is still to be worked out.
+Colour says nothing about where the keys are. Greying every region but the one holding them
+was tried and taken out, because the panel carries meaning in colour everywhere and flattening
+a region destroyed what it was saying. What says where the keys are is the row cursor, which
+blinks on the half holding them and stands still on the other, and the legend row, which lists
+the keys of whatever is being typed at. The review screen has neither, so which of its two
+halves holds the keys is not on the screen at all. A better signal is still to be worked out.
 
 An agent's own terminal is another process drawing in its own colours, so no palette reaches
 it.

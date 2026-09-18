@@ -24,19 +24,7 @@
 // where one was there and has stopped, and blank where there is none.
 //
 // The bar reports what stands behind a row now rather than what once did, so a workflow that
-// never had an orchestrator and one whose orchestrator has been archived both draw blank, those
-// being one fact in the present tense.
-//
-// That leaves the bar one uneven seam. An agent whose pane has died draws the dashed pipe, while
-// a workflow whose orchestrator was archived draws blank, though each is a process that was there
-// and has stopped. It shows only when somebody archives an orchestrator, nothing in the store can
-// tell the two apart today, and closing it wants a durable orchestrator id on the workflow rather
-// than a guess in the gather.
-//
-// The old sidebar did offset an agent's name from a workflow's, because agent rows carried a
-// state icon that workflow rows did not. Here the status bar is in the shared gutter on every
-// row, so that cause is gone. The indent above is therefore a decision rather than the leftover
-// of one: it was asked for.
+// never had an orchestrator draws no bar at all.
 //
 // An indent costs the name the columns it spends, so an agent has less room for its name than a
 // workflow at the same pane, and the narrowing and the mark shedding both read the indent rather
