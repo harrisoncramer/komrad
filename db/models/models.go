@@ -318,6 +318,24 @@ type AgentTranscriptSession struct {
 	CreatedAt    time.Time
 }
 
+// A forge weave has been connected to, one row per host, holding who the credential was verified as. The credential itself is a file under weave's state directory rather than a column.
+type ForgeConnection struct {
+	ID string
+	// Which forge the host runs: github or gitlab.
+	Kind string
+	// The host agents' remotes name, such as github.com or ghe.example.com. It is unique because one machine acts as one identity on one forge.
+	Host string
+	// Where the forge answers API calls when it is not the public one, such as https://ghe.example.com/api/v3. Empty for github.com and gitlab.com.
+	ApiUrl string
+	// How the credential was obtained: token for one a person supplied, github_app for one minted from the engine's App.
+	Method string
+	// Who the forge said the credential belongs to when it was verified, a user login or an App slug.
+	Login string
+	// When the forge last confirmed the credential. Cleared when the forge refuses it, so the row says the connection needs remaking.
+	VerifiedAt *time.Time
+	CreatedAt  time.Time
+}
+
 // One piece of mail from one agent to another, held until the recipient claims it.
 type Mail struct {
 	ID          string
