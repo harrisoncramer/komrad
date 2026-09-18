@@ -384,11 +384,10 @@ func TestSnapshotKinds(t *testing.T) {
 				},
 			},
 			want: view.Row{
-				Key:        "workflow:w1",
-				Kind:       view.KindWorkflow,
-				Name:       "weave",
-				Status:     view.StatusThinking,
-				NoCheckout: true,
+				Key:    "workflow:w1",
+				Kind:   view.KindWorkflow,
+				Name:   "weave",
+				Status: view.StatusThinking,
 			},
 		},
 		{
@@ -398,11 +397,10 @@ func TestSnapshotKinds(t *testing.T) {
 				workflow: workflowstore.Workflow{ID: "w1", Name: "weave"},
 			},
 			want: view.Row{
-				Key:        "workflow:w1",
-				Kind:       view.KindWorkflow,
-				Name:       "weave",
-				Process:    view.ProcessNone,
-				NoCheckout: true,
+				Key:     "workflow:w1",
+				Kind:    view.KindWorkflow,
+				Name:    "weave",
+				Process: view.ProcessNone,
 			},
 		},
 		{
@@ -413,11 +411,10 @@ func TestSnapshotKinds(t *testing.T) {
 				orchestrator: &agentItem{agent: agentstore.Agent{ID: "o1", State: agentstore.StateIdle}},
 			},
 			want: view.Row{
-				Key:        "workflow:w1",
-				Kind:       view.KindWorkflow,
-				Name:       "weave",
-				Process:    view.ProcessStopped,
-				NoCheckout: true,
+				Key:     "workflow:w1",
+				Kind:    view.KindWorkflow,
+				Name:    "weave",
+				Process: view.ProcessStopped,
 			},
 		},
 		{
@@ -428,12 +425,11 @@ func TestSnapshotKinds(t *testing.T) {
 			},
 			scheduled: map[string]bool{"w1": true},
 			want: view.Row{
-				Key:        "workflow:w1",
-				Kind:       view.KindWorkflow,
-				Name:       "weave",
-				Process:    view.ProcessNone,
-				Scheduled:  true,
-				NoCheckout: true,
+				Key:       "workflow:w1",
+				Kind:      view.KindWorkflow,
+				Name:      "weave",
+				Process:   view.ProcessNone,
+				Scheduled: true,
 			},
 		},
 		{
@@ -460,10 +456,9 @@ func TestSnapshotKinds(t *testing.T) {
 				child:    true,
 			},
 			want: view.Row{
-				Key:        "agent:a1",
-				Kind:       view.KindChild,
-				Name:       "reviewer",
-				NoCheckout: true,
+				Key:  "agent:a1",
+				Kind: view.KindChild,
+				Name: "reviewer",
 			},
 		},
 		{
@@ -487,55 +482,29 @@ func TestSnapshotKinds(t *testing.T) {
 	}
 }
 
-// TestSnapshotCheckout pins which rows own a checkout, which is the whole of what decides
-// whether the three columns are drawn on them at all.
-func TestSnapshotCheckout(t *testing.T) {
-	tests := []struct {
-		name       string
-		row        agentRow
-		noCheckout bool
-	}{
-		{
-			name:       "an agent weave cut a worktree for owns one",
-			row:        agentRow{workflow: checkoutWorkflow(), item: agentItem{agent: agentstore.Agent{ID: "a1", Name: "worker"}}},
-			noCheckout: false,
-		},
-		{
-			name:       "a workflow header owns none",
-			row:        agentRow{header: true, workflow: checkoutWorkflow()},
-			noCheckout: true,
-		},
-		{
-			name: "a child sits in its parent's checkout",
-			row: agentRow{
-				workflow: checkoutWorkflow(),
-				item:     agentItem{agent: agentstore.Agent{ID: "a1", Name: "reviewer", ParentAgentID: xptr.Ptr("a0")}},
+// TestSnapshotPlainWorkflowKeepsItsColumns pins that an agent in a workflow cutting no worktrees
+// still reports the directory it was handed and the review of its work.
+func TestSnapshotPlainWorkflowKeepsItsColumns(t *testing.T) {
+	row := snapshotRowOf(t, snapshotParams{rows: []agentRow{{
+		workflow: workflowstore.Workflow{ID: "w1", Name: "weave"},
+		item: agentItem{
+			alive:         true,
+			inLocalReview: true,
+			agent: agentstore.Agent{
+				ID:              "a1",
+				Name:            "worker",
+				WorkflowID:      "w1",
+				Cwd:             "/tmp/somewhere",
+				State:           agentstore.StateIdle,
+				WorktreeRemoved: true,
 			},
-			noCheckout: true,
 		},
-		{
-			name: "an agent told to keep the directory it was given sits in somebody else's",
-			row: agentRow{
-				workflow: checkoutWorkflow(),
-				item:     agentItem{agent: agentstore.Agent{ID: "a1", Name: "reader", ProvisionEnabled: xptr.Ptr(false)}},
-			},
-			noCheckout: true,
-		},
-		{
-			name: "an agent under a workflow that cuts no worktree owns none either",
-			row: agentRow{
-				workflow: workflowstore.Workflow{ID: "w1", Name: "weave"},
-				item:     agentItem{agent: agentstore.Agent{ID: "a1", Name: "worker"}},
-			},
-			noCheckout: true,
-		},
-	}
+	}}})
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.noCheckout, snapshotRowOf(t, snapshotParams{rows: []agentRow{tt.row}}).NoCheckout)
-		})
-	}
+	assert.Equal(t, view.RepoGone, row.Repo)
+	assert.Equal(t, view.ReviewOpen, row.Review)
+	assert.False(t, view.RepoCell(row).IsBlank())
+	assert.False(t, view.ReviewCell(row).IsBlank())
 }
 
 // TestSnapshotHiddenTally pins the count a row stands in for, which is nothing at all once the

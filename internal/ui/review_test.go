@@ -353,6 +353,19 @@ func TestEnterReviewOpensAnUntrackedFile(t *testing.T) {
 	assert.Contains(t, reviewFrameText(t, m), "new.go")
 }
 
+// TestEnterReviewOpensInAPlainWorkflow covers the agent weave cut no worktree for: it can hold
+// a review, so the key that opens one has to answer on its row.
+func TestEnterReviewOpensInAPlainWorkflow(t *testing.T) {
+	dir := reviewRepo(t)
+	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
+	m.listing.workflows[0].Worktree = workflowstore.WorktreeConfig{}
+
+	m = openReview(t, m)
+
+	assert.Equal(t, screenReview, m.screen)
+	assert.Contains(t, reviewFrameText(t, m), "greet.go")
+}
+
 // TestEnterReviewDrawsTheDiffBesideTheSidebar pins that opening a review moves to the review
 // screen and draws the patch itself, in the panel's own frame rather than in a pane of its own.
 func TestEnterReviewDrawsTheDiffBesideTheSidebar(t *testing.T) {
@@ -521,13 +534,15 @@ func TestReviewSidebarSizesTheDiff(t *testing.T) {
 	assert.Contains(t, shown, "-1")
 }
 
-// TestReviewIsRefusedWithoutAWorktree pins that an agent sharing a checkout has no diff of
-// its own to review, so the screen is left where it was.
-func TestReviewIsRefusedWithoutAWorktree(t *testing.T) {
+// TestReviewIsRefusedWithoutADirectory pins that an agent whose directory has gone has nothing
+// left to read, so the screen is left where it was.
+func TestReviewIsRefusedWithoutADirectory(t *testing.T) {
 	m, tmux := reviewModel(t, &fakeReviewAgents{}, t.TempDir())
-	m.listing.workflows[0].Worktree.Enabled = false
 
-	next, cmd := m.enterReview(reviewAgent(m.listing.agents[0].agent.Cwd))
+	agent := reviewAgent(m.listing.agents[0].agent.Cwd)
+	agent.WorktreeRemoved = true
+
+	next, cmd := m.enterReview(agent)
 
 	assert.Nil(t, cmd)
 	assert.Equal(t, screenAgents, next.(model).screen)

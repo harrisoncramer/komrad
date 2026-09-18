@@ -18,8 +18,7 @@ import (
 )
 
 // noticeRow is one agent as the list would hold it, under a workflow that cuts each agent its
-// own checkout, since an agent that owns none has its three columns blanked and so says nothing
-// about them.
+// own checkout.
 func noticeRow(item agentItem) agentRow {
 	return agentRow{
 		item:     item,
@@ -377,4 +376,32 @@ func TestAStoppedRowDrawsABarAndSaysNothing(t *testing.T) {
 	require.Equal(t, view.ProcessAlive, snapshotRow(noticeRow(failed), snapshotParams{}).Process,
 		"a failed create is not a stopped process")
 	assert.Contains(t, noticeTexts(agentNotices(noticeRow(failed))), failedToCreateNotice)
+}
+
+// TestNoticesReportAPlainWorkflowsDirectory covers the agent weave cut no worktree for: nothing
+// else in the panel reports the directory it was handed or the review of its work, so its own
+// record has to.
+func TestNoticesReportAPlainWorkflowsDirectory(t *testing.T) {
+	plain := func(agent agentstore.Agent) agentRow {
+		return agentRow{
+			workflow: workflowstore.Workflow{ID: "w1", Name: "weave"},
+			item:     agentItem{alive: true, agent: agent},
+		}
+	}
+
+	gone := plain(agentstore.Agent{ID: "a1", Name: "worker", Cwd: "/tmp/somewhere", WorktreeRemoved: true})
+	rebasing := plain(agentstore.Agent{ID: "a1", Name: "worker", Cwd: "/tmp/somewhere", SequenceInProgress: true})
+
+	reviewed := plain(agentstore.Agent{ID: "a1", Name: "worker", Cwd: "/tmp/somewhere"})
+	reviewed.item.inLocalReview = true
+
+	assert.Equal(t, []string{worktreeRemovedNotice}, noticeTexts(agentNotices(gone)))
+	assert.Equal(t, []string{sequenceNotice}, noticeTexts(agentNotices(rebasing)))
+	assert.Equal(t, []string{inLocalReviewNotice}, noticeTexts(agentNotices(reviewed)))
+
+	child := plain(agentstore.Agent{ID: "a2", Name: "reviewer", Cwd: "/tmp/somewhere", WorktreeRemoved: true})
+	child.child = true
+	child.item.agent.ParentAgentID = xptr.Ptr("a1")
+
+	assert.Empty(t, noticeTexts(agentNotices(child)), "its parent's row already says it")
 }

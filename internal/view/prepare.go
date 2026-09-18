@@ -100,10 +100,10 @@ func isFocused(row Row, focused string) bool {
 	return focused != "" && row.Key == focused
 }
 
-// RepoCell is where an agent's own checkout stands, greyed while nothing has happened to it and
-// empty on a row that owns no checkout at all.
+// RepoCell is where the directory an agent sits in stands, greyed while nothing has happened to
+// it and empty on a row that is not an agent's own.
 func RepoCell(row Row) Cell {
-	if row.NoCheckout {
+	if row.Kind != KindAgent {
 		return Cell{}
 	}
 
@@ -121,7 +121,7 @@ func RepoCell(row Row) Cell {
 
 // ReviewCell is where the local review of an agent's work stands.
 func ReviewCell(row Row) Cell {
-	if row.NoCheckout {
+	if row.Kind != KindAgent {
 		return Cell{}
 	}
 
@@ -143,7 +143,7 @@ func ReviewCell(row Row) Cell {
 
 // forgeCell is where the pull request opened from an agent's branch stands.
 func forgeCell(row Row) Cell {
-	if row.NoCheckout {
+	if row.Kind != KindAgent {
 		return Cell{}
 	}
 

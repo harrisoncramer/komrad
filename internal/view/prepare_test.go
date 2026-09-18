@@ -103,53 +103,56 @@ func TestPrepareBarTellsAStoppedProcessFromNone(t *testing.T) {
 	assert.NotEqual(t, stopped, none)
 }
 
-// TestPrepareRowWithNoCheckoutDrawsNoColumns pins the difference between a stage that has not
-// happened and one that never can: a row owning no checkout draws all three columns blank where
-// a row owning one draws them greyed.
-func TestPrepareRowWithNoCheckoutDrawsNoColumns(t *testing.T) {
-	owns := prepareOne(t, Row{Name: "worker"})
-	none := prepareOne(t, Row{Name: "reviewer", NoCheckout: true})
-
-	for _, cell := range []Cell{owns.Repo, owns.Review, owns.Forge} {
-		assert.False(t, cell.IsBlank())
-		assert.Equal(t, paint.ToneMuted, cell.Tone)
+// TestPrepareColumnsFollowTheRowKind pins the difference between a stage that has not happened
+// and one that never can: the three columns beside an agent's own row are drawn greyed, and a
+// row that is not an agent's own draws them blank.
+func TestPrepareColumnsFollowTheRowKind(t *testing.T) {
+	tests := []struct {
+		name  string
+		row   Row
+		blank bool
+	}{
+		{
+			name: "an agent's own row carries all three",
+			row:  Row{Name: "worker", Repo: RepoGone, Review: ReviewApproved, Forge: ForgeMerged},
+		},
+		{
+			name:  "a child leaves them to the row above it",
+			row:   Row{Kind: KindChild, Name: "reviewer", Repo: RepoGone, Review: ReviewApproved, Forge: ForgeMerged},
+			blank: true,
+		},
+		{
+			name:  "a workflow header stands for none of them",
+			row:   Row{Kind: KindWorkflow, Name: "weave", Repo: RepoGone, Review: ReviewApproved, Forge: ForgeMerged},
+			blank: true,
+		},
 	}
 
-	assert.True(t, none.Repo.IsBlank())
-	assert.True(t, none.Review.IsBlank())
-	assert.True(t, none.Forge.IsBlank())
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			line := prepareOne(t, tt.row)
+
+			for _, cell := range []Cell{line.Repo, line.Review, line.Forge} {
+				assert.Equal(t, tt.blank, cell.IsBlank())
+			}
+		})
+	}
 }
 
-// TestPrepareNoCheckoutBeatsWhatTheColumnsWouldSay pins that a row owning no checkout draws
-// nothing in the three columns whatever the snapshot put in them.
-func TestPrepareNoCheckoutBeatsWhatTheColumnsWouldSay(t *testing.T) {
-	line := prepareOne(t, Row{
-		Name:       "reviewer",
-		NoCheckout: true,
-		Repo:       RepoGone,
-		Review:     ReviewApproved,
-		Forge:      ForgeMerged,
-	})
-
-	assert.True(t, line.Repo.IsBlank())
-	assert.True(t, line.Review.IsBlank())
-	assert.True(t, line.Forge.IsBlank())
-}
-
-// TestPrepareNoCheckoutKeepsEveryOtherCell pins that emptying the three columns takes nothing
+// TestPrepareBlankColumnsKeepEveryOtherCell pins that emptying the three columns takes nothing
 // else off a row.
-func TestPrepareNoCheckoutKeepsEveryOtherCell(t *testing.T) {
+func TestPrepareBlankColumnsKeepEveryOtherCell(t *testing.T) {
 	row := Row{Name: "reviewer", Status: StatusThinking, Held: true, UnreadMail: true, FailedRun: true, Scheduled: true}
-	owns := prepareOne(t, row)
+	own := prepareOne(t, row)
 
-	row.NoCheckout = true
-	none := prepareOne(t, row)
+	row.Kind = KindChild
+	child := prepareOne(t, row)
 
-	assert.Equal(t, owns.Status, none.Status)
-	assert.Equal(t, owns.Held, none.Held)
-	assert.Equal(t, owns.Mail, none.Mail)
-	assert.Equal(t, owns.Alert, none.Alert)
-	assert.Equal(t, owns.Schedule, none.Schedule)
+	assert.Equal(t, own.Status, child.Status)
+	assert.Equal(t, own.Held, child.Held)
+	assert.Equal(t, own.Mail, child.Mail)
+	assert.Equal(t, own.Alert, child.Alert)
+	assert.Equal(t, own.Schedule, child.Schedule)
 }
 
 // TestPrepareRepoColumn pins where an agent's own checkout stands.
