@@ -3,6 +3,7 @@ package ui
 import (
 	"strings"
 	"testing"
+	"time"
 
 	"weave/config"
 	agentstore "weave/internal/store/agent"
@@ -290,6 +291,32 @@ func TestNoLegendIsWiderThanThePane(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+// TestAPausedRowsLegendStillDraws sweeps the widths with the row a paused agent adds, since a
+// legend one description too long for the pane blanks whole rather than wrapping.
+func TestAPausedRowsLegendStillDraws(t *testing.T) {
+	at := time.Now()
+
+	for width := 5; width <= 90; width++ {
+		for _, expanded := range []bool{false, true} {
+			m := helpModel()
+			m.listing.agents[0].agent.HeldAt = &at
+			m.helpExpanded = expanded
+			m = m.at(width)
+
+			drawn := ansi.Strip(m.renderHelp(m.agentHelp()))
+			for i, row := range strings.Split(drawn, "\n") {
+				assert.LessOrEqual(t, lipgloss.Width(row), width,
+					"row %d of a paused row's legend is wider than a %d column pane: %q", i, width, row)
+			}
+
+			if width >= 46 && expanded {
+				assert.Contains(t, drawn, "unpause in silence",
+					"the way out of a pause is missing from a %d column legend", width)
+			}
+		}
 	}
 }
 

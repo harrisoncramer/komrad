@@ -349,3 +349,27 @@ func TestReleaseKeepsTheHoldWhenTheBoxRefuses(t *testing.T) {
 	require.NotNil(t, after.HeldAt, "the hold stands, so pressing the key again is the recovery")
 	assert.True(t, after.HeldMidTurn)
 }
+
+// TestReleasingInSilenceLetsGoOfABoxThatRefuses covers the way out of a box that will never take
+// the words, a release asking for nothing to be said letting go without touching the pane.
+func TestReleasingInSilenceLetsGoOfABoxThatRefuses(t *testing.T) {
+	st := newStore(t)
+	agent := seed(t, st, "telescope", "%1", agentstore.StateThinking)
+
+	channel := &fakeChannel{}
+	holder := holderOver(st, channel, &settlingObserver{readings: []harness.Activity{
+		harness.ActivityWorking,
+		harness.ActivityIdle,
+	}})
+
+	_, err := holder.Hold(t.Context(), agent.ID)
+	require.NoError(t, err)
+
+	channel.refuseSend = true
+
+	released, err := holder.Release(t.Context(), ReleaseParams{AgentID: agent.ID})
+	require.NoError(t, err)
+
+	assert.Nil(t, released.HeldAt, "nobody is holding it now")
+	assert.Empty(t, channel.sent)
+}

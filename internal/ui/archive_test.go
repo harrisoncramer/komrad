@@ -501,6 +501,8 @@ func answerEmptyPrompt(t *testing.T, m model, key string) model {
 func answerPrompt(t *testing.T, m model, key string) model {
 	t.Helper()
 
+	kind := m.form.kind
+
 	var msg tea.Msg = keyMsg(key)
 	for range 8 {
 		updated, cmd := m.form.update(m, msg)
@@ -511,14 +513,14 @@ func answerPrompt(t *testing.T, m model, key string) model {
 		if cmd == nil {
 			return m
 		}
-		if m.form.kind != formArchiveDelete {
+		if m.form.kind != kind {
 			return settle(t, m, cmd)
 		}
 
 		msg = cmd()
 	}
 
-	t.Fatal("the delete prompt never closed")
+	t.Fatal("the prompt never closed")
 
 	return m
 }

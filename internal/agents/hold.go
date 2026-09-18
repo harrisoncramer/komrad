@@ -197,11 +197,11 @@ func (h *Holder) Release(ctx context.Context, params ReleaseParams) (agentstore.
 
 		// Explainer: a box that would not take the words leaves an agent that was interrupted with
 		// nothing to carry on from, so letting go here would stop it for good and call that
-		// success. The hold is kept instead, which leaves the key meaning something and makes
-		// pressing it again the whole recovery.
+		// success. The hold is kept instead, and a box that will never take them, such as one
+		// already holding text of its own, is left to a release that asks for silence.
 		if !said {
 			return agentstore.Agent{}, ErrReleaseRefused.Saying(
-				"%q could not be told to carry on, since its input box would not take the words", agent.Name)
+				"%q could not be told to carry on, since its input box would not take the words, so release it with nothing to say to let it go regardless", agent.Name)
 		}
 	}
 
