@@ -55,8 +55,8 @@ func TestPrepareStatusBar(t *testing.T) {
 	}
 }
 
-// TestPrepareBarSaysWhatStandsBehindARow pins the four values the bar takes, blank among them
-// meaning a row that never had a process rather than one whose process has gone.
+// TestPrepareBarSaysWhatStandsBehindARow pins the bar drawing only while a process is there,
+// a stopped one and none at all both leaving the cell blank.
 func TestPrepareBarSaysWhatStandsBehindARow(t *testing.T) {
 	tests := []struct {
 		name string
@@ -69,14 +69,14 @@ func TestPrepareBarSaysWhatStandsBehindARow(t *testing.T) {
 			want: Cell{Glyph: GlyphQuiet, Tone: paint.ToneMuted},
 		},
 		{
-			name: "a process that has stopped is a dashed pipe",
+			name: "a process that has stopped draws nothing",
 			row:  Row{Status: StatusIdle, Process: ProcessStopped},
-			want: Cell{Glyph: GlyphStopped, Tone: paint.ToneMuted},
+			want: Cell{},
 		},
 		{
-			name: "a process that stopped mid-thought is dashed rather than busy",
+			name: "a process that stopped mid-thought draws nothing rather than busy",
 			row:  Row{Status: StatusThinking, Process: ProcessStopped},
-			want: Cell{Glyph: GlyphStopped, Tone: paint.ToneMuted},
+			want: Cell{},
 		},
 		{
 			name: "a row that never had a process draws nothing",
@@ -92,15 +92,87 @@ func TestPrepareBarSaysWhatStandsBehindARow(t *testing.T) {
 	}
 }
 
-// TestPrepareBarTellsAStoppedProcessFromNone pins a stopped process drawing a mark where a row
-// with no process at all draws none.
-func TestPrepareBarTellsAStoppedProcessFromNone(t *testing.T) {
-	stopped := prepareOne(t, Row{Process: ProcessStopped}).Status
-	none := prepareOne(t, Row{Process: ProcessNone}).Status
+// TestPrepareDimMeansTheProcessIsGone pins the one thing that greys a row: its process has
+// stopped or it has been archived, and nothing a person did to it counts.
+func TestPrepareDimMeansTheProcessIsGone(t *testing.T) {
+	tests := []struct {
+		name string
+		row  Row
+		want Emphasis
+	}{
+		{
+			name: "an agent whose process has stopped is dim",
+			row:  Row{Process: ProcessStopped},
+			want: EmphasisDim,
+		},
+		{
+			name: "an archived agent is dim",
+			row:  Row{Archived: true},
+			want: EmphasisDim,
+		},
+		{
+			name: "a hidden agent still running is bright",
+			row:  Row{Hidden: true},
+			want: EmphasisNormal,
+		},
+		{
+			name: "a hidden agent whose process has stopped is dim",
+			row:  Row{Hidden: true, Process: ProcessStopped},
+			want: EmphasisDim,
+		},
+		{
+			name: "an idle agent is alive and stays bright",
+			row:  Row{Status: StatusIdle},
+			want: EmphasisNormal,
+		},
+		{
+			name: "a row with no process behind it is bright",
+			row:  Row{Process: ProcessNone},
+			want: EmphasisNormal,
+		},
+	}
 
-	assert.False(t, stopped.IsBlank())
-	assert.True(t, none.IsBlank())
-	assert.NotEqual(t, stopped, none)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, prepareOne(t, tt.row).Emphasis)
+		})
+	}
+}
+
+// TestPrepareHiddenMark pins the mark a person's hiding a row leaves after its name.
+func TestPrepareHiddenMark(t *testing.T) {
+	tests := []struct {
+		name string
+		row  Row
+		want Cell
+	}{
+		{
+			name: "a hidden row carries the muted mark",
+			row:  Row{Hidden: true},
+			want: Cell{Glyph: GlyphHidden, Tone: paint.ToneMuted},
+		},
+		{
+			name: "a hidden row whose process has gone keeps it",
+			row:  Row{Hidden: true, Process: ProcessStopped},
+			want: Cell{Glyph: GlyphHidden, Tone: paint.ToneMuted},
+		},
+		{
+			name: "an archived row does not carry it",
+			row:  Row{Archived: true},
+			want: Cell{},
+		},
+		{
+			name: "an ordinary row draws nothing",
+			row:  Row{},
+			want: Cell{},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, prepareOne(t, tt.row).Hidden)
+		})
+	}
 }
 
 // TestPrepareColumnsFollowTheRowKind pins the difference between a stage that has not happened
@@ -341,13 +413,13 @@ func TestPrepareEmphasis(t *testing.T) {
 		want Emphasis
 	}{
 		{
-			name: "a hidden row that is also unviewed stays dim, since dim is the stronger fact",
-			row:  Row{Dim: true, Unviewed: true},
+			name: "an archived row that is also unviewed stays dim, since dim is the stronger fact",
+			row:  Row{Archived: true, Unviewed: true},
 			want: EmphasisDim,
 		},
 		{
-			name: "a hidden row is dim",
-			row:  Row{Dim: true},
+			name: "an archived row is dim",
+			row:  Row{Archived: true},
 			want: EmphasisDim,
 		},
 		{
@@ -369,65 +441,53 @@ func TestPrepareEmphasis(t *testing.T) {
 	}
 }
 
-// TestPrepareDimRowGreysEveryCell pins the one rule that reaches across a whole row, so a
-// hidden agent cannot keep a red bar or a green check.
-func TestPrepareDimRowGreysEveryCell(t *testing.T) {
-	line := prepareOne(t, Row{
-		Dim:        true,
+// TestPrepareDimRowKeepsEveryCell pins greying reaching the name and nothing else, so a dormant
+// agent still says in colour where its review and its pull request stand.
+func TestPrepareDimRowKeepsEveryCell(t *testing.T) {
+	row := Row{
+		Key:        "gone",
 		Status:     StatusBroken,
 		Repo:       RepoGone,
 		Review:     ReviewApproved,
 		Forge:      ForgeMerged,
 		Held:       true,
+		Hidden:     true,
 		UnreadMail: true,
 		FailedRun:  true,
 		Scheduled:  true,
-	})
+	}
 
-	for _, cell := range []Cell{line.Mark, line.Status, line.Repo, line.Review, line.Forge, line.Held, line.Mail, line.Alert, line.Schedule} {
-		assert.Equal(t, paint.ToneMuted, cell.Tone)
+	for _, dim := range []func(*Row){
+		func(r *Row) { r.Archived = true },
+		func(r *Row) { r.Process = ProcessStopped },
+	} {
+		dimmed := row
+		dim(&dimmed)
+
+		lit, greyed := prepareOne(t, row), prepareOne(t, dimmed)
+		require.Equal(t, EmphasisDim, greyed.Emphasis)
+
+		assert.Equal(t, lit.Mark, greyed.Mark)
+		assert.Equal(t, lit.Repo, greyed.Repo)
+		assert.Equal(t, lit.Review, greyed.Review)
+		assert.Equal(t, lit.Forge, greyed.Forge)
+		assert.Equal(t, lit.Held, greyed.Held)
+		assert.Equal(t, lit.Hidden, greyed.Hidden)
+		assert.Equal(t, lit.Mail, greyed.Mail)
+		assert.Equal(t, lit.Alert, greyed.Alert)
+		assert.Equal(t, lit.Schedule, greyed.Schedule)
 	}
 }
 
-// TestPrepareDimRowKeepsItsCaret pins the one cell greying leaves alone, since a hidden row the
-// keyboard is standing on still has to say so.
+// TestPrepareDimRowKeepsItsCaret pins a greyed row the keyboard is standing on still saying so.
 func TestPrepareDimRowKeepsItsCaret(t *testing.T) {
 	list := Prepare(Snapshot{
-		Rows:    []Row{{Key: "hidden", Name: "hidden", Dim: true}},
-		Focused: "hidden",
+		Rows:    []Row{{Key: "gone", Name: "gone", Process: ProcessStopped}},
+		Focused: "gone",
 	})
 	require.Len(t, list.Lines, 1)
 
 	assert.Equal(t, Cell{Glyph: GlyphFocus, Tone: paint.ToneAccent}, list.Lines[0].Focus)
-}
-
-// TestPrepareDimRowKeepsEveryGlyph pins that greying a row changes its colour and nothing else,
-// so a hidden agent still says what is wrong with it.
-func TestPrepareDimRowKeepsEveryGlyph(t *testing.T) {
-	row := Row{
-		Status:     StatusBroken,
-		Repo:       RepoGone,
-		Review:     ReviewApproved,
-		Forge:      ForgeMerged,
-		Held:       true,
-		UnreadMail: true,
-		FailedRun:  true,
-		Scheduled:  true,
-	}
-
-	dim := row
-	dim.Dim = true
-
-	lit, dimmed := prepareOne(t, row), prepareOne(t, dim)
-
-	assert.Equal(t, lit.Status.Glyph, dimmed.Status.Glyph)
-	assert.Equal(t, lit.Repo.Glyph, dimmed.Repo.Glyph)
-	assert.Equal(t, lit.Review.Glyph, dimmed.Review.Glyph)
-	assert.Equal(t, lit.Forge.Glyph, dimmed.Forge.Glyph)
-	assert.Equal(t, lit.Held.Glyph, dimmed.Held.Glyph)
-	assert.Equal(t, lit.Mail.Glyph, dimmed.Mail.Glyph)
-	assert.Equal(t, lit.Alert.Glyph, dimmed.Alert.Glyph)
-	assert.Equal(t, lit.Schedule.Glyph, dimmed.Schedule.Glyph)
 }
 
 // TestPrepareTrailingMarks pins the odds and ends drawn after a name.
@@ -458,6 +518,11 @@ func TestPrepareTrailingMarks(t *testing.T) {
 			want: Line{Held: Cell{Glyph: GlyphPaused, Tone: paint.ToneWarning}},
 		},
 		{
+			name: "a hidden agent is the muted closed eye",
+			row:  Row{Hidden: true},
+			want: Line{Hidden: Cell{Glyph: GlyphHidden, Tone: paint.ToneMuted}},
+		},
+		{
 			name: "a schedule targeting the row is the muted calendar",
 			row:  Row{Scheduled: true},
 			want: Line{Schedule: Cell{Glyph: GlyphSchedule, Tone: paint.ToneMuted}},
@@ -474,6 +539,7 @@ func TestPrepareTrailingMarks(t *testing.T) {
 			line := prepareOne(t, tt.row)
 
 			assert.Equal(t, tt.want.Held, line.Held)
+			assert.Equal(t, tt.want.Hidden, line.Hidden)
 			assert.Equal(t, tt.want.Mail, line.Mail)
 			assert.Equal(t, tt.want.Alert, line.Alert)
 			assert.Equal(t, tt.want.Schedule, line.Schedule)
@@ -591,8 +657,8 @@ func TestPrepareFocusOutranksEveryOtherEmphasis(t *testing.T) {
 		want Emphasis
 	}{
 		{
-			name: "a hidden row under the cursor is still the row under the cursor",
-			row:  Row{Key: "one", Dim: true},
+			name: "a greyed row under the cursor is still the row under the cursor",
+			row:  Row{Key: "one", Process: ProcessStopped},
 			want: EmphasisFocused,
 		},
 		{
@@ -756,13 +822,14 @@ func TestPrepareGivesTheTallyUpBeforeTheMarks(t *testing.T) {
 }
 
 // TestPrepareShedsMarksOnlyWhereTheMarksAloneWillNotFit pins the last thing a row gives up, on
-// the worst row a panel can hold: an agent a schedule launched, paused, with unread mail and a
-// failed run nobody has read either.
+// the worst row a panel can hold: an agent a schedule launched, hidden, paused, with unread
+// mail and a failed run nobody has read either.
 func TestPrepareShedsMarksOnlyWhereTheMarksAloneWillNotFit(t *testing.T) {
 	worst := Row{
 		Kind:       KindAgent,
 		Name:       "nightly-bughunt-dispatcher",
 		Scheduled:  true,
+		Hidden:     true,
 		Held:       true,
 		UnreadMail: true,
 		FailedRun:  true,
@@ -784,14 +851,19 @@ func TestPrepareShedsMarksOnlyWhereTheMarksAloneWillNotFit(t *testing.T) {
 			want: []Glyph{GlyphMail, GlyphAlert},
 		},
 		{
-			name: "the width Harry runs keeps every mark but the schedule",
+			name: "the width Harry runs keeps every mark but the schedule and the hiding",
 			pane: 16,
 			want: []Glyph{GlyphPaused, GlyphMail, GlyphAlert},
 		},
 		{
+			name: "two wider still keeps the hiding, which goes before the pause",
+			pane: 18,
+			want: []Glyph{GlyphPaused, GlyphHidden, GlyphMail, GlyphAlert},
+		},
+		{
 			name: "a pane wide enough for the marks keeps every one of them",
 			pane: 30,
-			want: []Glyph{GlyphPaused, GlyphMail, GlyphAlert, GlyphSchedule},
+			want: []Glyph{GlyphPaused, GlyphHidden, GlyphMail, GlyphAlert, GlyphSchedule},
 		},
 	}
 
@@ -800,8 +872,8 @@ func TestPrepareShedsMarksOnlyWhereTheMarksAloneWillNotFit(t *testing.T) {
 			list := Prepare(Snapshot{Rows: []Row{worst}, Pane: tt.pane})
 			require.Len(t, list.Lines, 1)
 
-			drawn := make([]Glyph, 0, 4)
-			for _, cell := range []Cell{list.Lines[0].Held, list.Lines[0].Mail, list.Lines[0].Alert, list.Lines[0].Schedule} {
+			drawn := make([]Glyph, 0, 5)
+			for _, cell := range []Cell{list.Lines[0].Held, list.Lines[0].Hidden, list.Lines[0].Mail, list.Lines[0].Alert, list.Lines[0].Schedule} {
 				if !cell.IsBlank() {
 					drawn = append(drawn, cell.Glyph)
 				}

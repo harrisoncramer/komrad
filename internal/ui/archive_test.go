@@ -1271,10 +1271,10 @@ func TestArchiveGivesUpTheThreeColumns(t *testing.T) {
 		"where the agents list at the same pane draws all three")
 }
 
-// TestArchiveDrawsTheStoppedBarExceptWhereADeleteFailed pins the archive's one state cell: an
-// archived agent is a process that was there and has stopped, and the one a delete could not
-// destroy is broken instead.
-func TestArchiveDrawsTheStoppedBarExceptWhereADeleteFailed(t *testing.T) {
+// TestArchiveDrawsNoBarExceptWhereADeleteFailed pins the archive's one state cell: an archived
+// agent is a process that was there and has stopped, and the one a delete could not destroy is
+// broken instead.
+func TestArchiveDrawsNoBarExceptWhereADeleteFailed(t *testing.T) {
 	m := archiveModel(&fakeArchiveAgents{}, &fakeArchiveWorkflows{}, config.DefaultKeybindings())
 	broken := archivedAgent("a2", "stuck", "w1")
 	broken.State = agentstore.StateFailedToCleanup
@@ -1283,6 +1283,6 @@ func TestArchiveDrawsTheStoppedBarExceptWhereADeleteFailed(t *testing.T) {
 	lines := archiveLines(t, m)
 	require.Len(t, lines, 3)
 
-	assert.Equal(t, view.GlyphStopped, lines[1].Status.Glyph, "an agent merely put away has stopped")
+	assert.True(t, lines[1].Status.IsBlank(), "an agent merely put away draws no bar")
 	assert.Equal(t, view.GlyphBusy, lines[2].Status.Glyph, "and one a delete could not destroy says so")
 }

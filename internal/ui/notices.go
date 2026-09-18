@@ -37,10 +37,9 @@ const (
 )
 
 // Explainer: a notice teaches one mark on the row above it, so it takes its glyph and its tone
-// from the cell that row draws rather than naming either itself. Hidden and unviewed have no
-// mark, and emphasisFor ranks the cursor above both the brightening and the greying, so neither
-// reaches the one row a record is ever drawn for. Hidden is said without a glyph all the same.
-// Unviewed is not, because a second's dwell on the row clears it.
+// from the cell that row draws rather than naming either itself. Unviewed has no mark, and
+// emphasisFor ranks the cursor above the brightening, so it never reaches the one row a record
+// is ever drawn for, and a second's dwell on the row clears it, so it is not said either.
 
 var (
 	// failureSaid is what the status column drawn broken says about how an agent got there.
@@ -74,7 +73,7 @@ func agentNotices(r agentRow) []notice {
 	notices = appendCellNotice(notices, view.MailCell(row), unreadMailNotice)
 	notices = appendCellNotice(notices, view.RepoCell(row), repoSaid[row.Repo])
 	notices = appendCellNotice(notices, view.HeldCell(row), heldNoticeText(item))
-	notices = appendNotice(notices, item.agent.Hidden, "", paint.ToneMuted, hiddenNotice)
+	notices = appendCellNotice(notices, view.HiddenCell(row), hiddenNotice)
 	notices = appendCellNotice(notices, view.ReviewCell(row), reviewSaid[row.Review])
 
 	return appendNotice(notices, item.localRounds > 0, "", paint.ToneMuted, localReviewRoundsNotice(item.localRounds))

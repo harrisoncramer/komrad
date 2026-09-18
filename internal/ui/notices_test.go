@@ -148,20 +148,22 @@ func TestNoticesWearTheGlyphTheRowDraws(t *testing.T) {
 	}
 }
 
-// TestUnviewedAndHiddenCarryNoGlyph is why one of the two was dropped and the other kept: the
-// rebuilt row carries neither fact as a mark, and the row the record is about is the row under
-// the cursor, whose own colour beats both the brightening and the greying.
-func TestUnviewedAndHiddenCarryNoGlyph(t *testing.T) {
-	bright := view.Prepare(view.Snapshot{
-		Rows:    []view.Row{{Key: "a", Unviewed: true, Dim: true}},
+// TestUnviewedCarriesNoGlyphAndHiddenDoes is why one of the two is said and the other dropped:
+// the row under the cursor wears the cursor's own colour over the brightening, so unviewed has
+// nothing on the row to be said for, while hidden is a mark the row draws whatever the cursor.
+func TestUnviewedCarriesNoGlyphAndHiddenDoes(t *testing.T) {
+	line := view.Prepare(view.Snapshot{
+		Rows:    []view.Row{{Key: "a", Unviewed: true, Hidden: true}},
 		Focused: "a",
 	}).Lines[0]
 
-	assert.Equal(t, view.EmphasisFocused, bright.Emphasis, "the hovered row says neither")
+	assert.Equal(t, view.EmphasisFocused, line.Emphasis, "the hovered row does not say unviewed")
+	assert.False(t, line.Hidden.IsBlank(), "and still draws the hidden mark")
 
-	said := noticeTexts(agentNotices(noticeRow(agentItem{unviewed: true, agent: agentstore.Agent{Hidden: true}})))
+	notices := agentNotices(noticeRow(agentItem{unviewed: true, agent: agentstore.Agent{Hidden: true}}))
 
-	assert.Equal(t, []string{hiddenNotice}, said, "hidden is durable, unviewed goes on a second's dwell")
+	assert.Equal(t, []string{hiddenNotice}, noticeTexts(notices), "hidden is durable, unviewed goes on a second's dwell")
+	assert.Equal(t, view.Spell(view.GlyphHidden), notices[0].icon, "said under the mark the row draws")
 }
 
 // TestArchivedNoticesAreOnlyTheFailures covers the archive, whose rows draw one mark of their
@@ -362,13 +364,16 @@ func TestEveryStateTheBarDrawsBrokenHasASentence(t *testing.T) {
 	}
 }
 
-// TestAStoppedRowDrawsABarAndSaysNothing covers the bar a row draws once its process has gone.
-func TestAStoppedRowDrawsABarAndSaysNothing(t *testing.T) {
+// TestAStoppedRowDrawsNoBarAndSaysNothing covers a row whose process has gone: its bar is blank,
+// its name greys, and the record has nothing to add.
+func TestAStoppedRowDrawsNoBarAndSaysNothing(t *testing.T) {
 	stopped := agentItem{agent: agentstore.Agent{State: agentstore.StateIdle}}
 	row := snapshotRow(noticeRow(stopped), snapshotParams{})
 
 	require.Equal(t, view.ProcessStopped, row.Process, "an agent whose pane has gone reads as stopped")
-	require.False(t, view.StatusCell(row).IsBlank(), "and its bar is drawn rather than blank")
+	require.True(t, view.StatusCell(row).IsBlank(), "and its bar is blank")
+	assert.Equal(t, view.EmphasisDim, view.Prepare(view.Snapshot{Rows: []view.Row{row}}).Lines[0].Emphasis,
+		"its name is what says the process has gone")
 	assert.Empty(t, noticeTexts(agentNotices(noticeRow(stopped))), "the record says nothing about it")
 
 	failed := agentItem{agent: agentstore.Agent{State: agentstore.StateFailedToCreate}}

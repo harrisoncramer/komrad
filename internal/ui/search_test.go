@@ -820,16 +820,63 @@ func TestSearchRowCarriesTheAgent(t *testing.T) {
 	assert.True(t, live.UnreadMail, "the live row says mail is waiting")
 
 	archived := searchRowNamed(t, lines, "payouts")
-	assert.True(t, archived.Dim, "the archived row greys")
+	assert.True(t, archived.Archived, "the archived row says so")
 	assert.Equal(t, view.ProcessStopped, archived.Process, "and says a process was there and has stopped")
 
 	// Process decides the bar on its own, so the two rows are compared as they are drawn rather
 	// than by a field the renderer would never read.
 	rows, _ := m.searchRows()
-	assert.Contains(t, ansi.Strip(headerLine(t, strings.Join(ansiStripped(rows), "\n"), "payouts")),
-		view.Spell(view.GlyphStopped), "the archived row draws the stopped bar")
+	for _, bar := range []view.Glyph{view.GlyphQuiet, view.GlyphBusy} {
+		assert.NotContains(t, ansi.Strip(headerLine(t, strings.Join(ansiStripped(rows), "\n"), "payouts")),
+			view.Spell(bar), "the archived row draws no bar")
+	}
 	assert.Contains(t, ansi.Strip(headerLine(t, strings.Join(ansiStripped(rows), "\n"), "billing")),
 		view.Spell(view.GlyphBusy), "while the thinking one draws a live bar")
+}
+
+// TestSearchTellsAHiddenHitFromAnArchivedOne pins the screen where the two used to draw alike:
+// a hidden agent still running is bright with the hidden mark, a dormant hidden one is dim with
+// it, and an archived one is dim without it.
+func TestSearchTellsAHiddenHitFromAnArchivedOne(t *testing.T) {
+	m := filterModel()
+	m.screen = screenSearch
+	m.width = 80
+	m.search = searchState{query: "ledger"}
+	m.listing.agents = []agentItem{
+		{agent: agentstore.Agent{ID: "a1", Name: "running", WorkflowID: "w1", Hidden: true}, alive: true},
+		{agent: agentstore.Agent{ID: "a2", Name: "dormant", WorkflowID: "w1", Hidden: true, State: agentstore.StateIdle}},
+	}
+	m.archive.agents = []agentstore.Agent{
+		{ID: "a3", Name: "put-away", WorkflowID: "w1", ArchivedAt: xptr.Ptr(time.Now())},
+	}
+	m.applySearch(searchResult{
+		query: "ledger",
+		hits: []searchHit{
+			{agentID: "a1", name: "running", snippet: "first"},
+			{agentID: "a2", name: "dormant", snippet: "second"},
+			{agentID: "a3", name: "put-away", archived: true, snippet: "third"},
+		},
+	})
+
+	lines, _ := m.searchLines()
+	rows := make([]view.Row, 0, 3)
+	for _, name := range []string{"running", "dormant", "put-away"} {
+		rows = append(rows, searchRowNamed(t, lines, name))
+	}
+
+	list := view.Prepare(view.Snapshot{Rows: rows, Dropped: searchDropped})
+	require.Len(t, list.Lines, 3)
+
+	running, dormant, archived := list.Lines[0], list.Lines[1], list.Lines[2]
+
+	assert.Equal(t, view.EmphasisNormal, running.Emphasis, "a hidden agent still running is bright")
+	assert.False(t, running.Hidden.IsBlank(), "and carries the hidden mark")
+
+	assert.Equal(t, view.EmphasisDim, dormant.Emphasis, "a hidden agent whose pane has gone is dim")
+	assert.False(t, dormant.Hidden.IsBlank(), "and keeps the hidden mark")
+
+	assert.Equal(t, view.EmphasisDim, archived.Emphasis, "an archived agent is dim")
+	assert.True(t, archived.Hidden.IsBlank(), "and carries no hidden mark")
 }
 
 // treeOwned blanks the fields a row carries because of where it sits in a list rather than
@@ -838,7 +885,7 @@ func treeOwned(row view.Row) view.Row {
 	row.Key, row.Kind, row.Name = "", 0, ""
 	row.Matches, row.Mark = nil, ""
 	row.Repo, row.Review, row.Forge = 0, 0, 0
-	row.Selected, row.NoCheckout, row.HiddenCount = false, false, 0
+	row.Selected, row.HiddenCount = false, 0
 
 	return row
 }
@@ -933,7 +980,7 @@ func TestArchivedHitGreysOnWhatTheServerSaid(t *testing.T) {
 
 			row := m.searchRow(searchHit{agentID: "a2", name: "payouts", archived: true}, "k")
 
-			assert.True(t, row.Dim, "the server said it is archived, so it greys")
+			assert.True(t, row.Archived, "the server said it is archived, so it greys")
 			assert.Equal(t, view.ProcessStopped, row.Process, "and it is over, whatever else is unknown")
 		})
 	}

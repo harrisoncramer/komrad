@@ -101,8 +101,8 @@ type Row struct {
 	// Matches are the stretches of the name a search picked out.
 	Matches []Span
 	Status  Status
-	// Process says whether anything stands behind the row, which the bar draws as a dashed pipe
-	// where a process has stopped and nothing at all where there is none.
+	// Process says whether anything stands behind the row, which the bar draws only while one is
+	// there and the weight greys once one has gone.
 	Process Process
 	Repo    Repo
 	Review  Review
@@ -111,9 +111,11 @@ type Row struct {
 	Selected bool
 	// Unviewed says the row has said something nobody has read.
 	Unviewed bool
-	// Dim says the row is hidden or archived, which greys everything on it.
-	Dim  bool
-	Held bool
+	// Archived says the row has been put away, which greys its name.
+	Archived bool
+	// Hidden says a person took the row out of the sidebar, drawn as a mark after its name.
+	Hidden bool
+	Held   bool
 	// HeldWorking says a paused agent is working anyway, which the hold did not stop.
 	HeldWorking bool
 	UnreadMail  bool

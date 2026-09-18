@@ -282,16 +282,29 @@ func TestSnapshotMarksOnARow(t *testing.T) {
 			},
 		},
 		{
-			name: "a hidden agent is greyed rather than given a glyph of its own",
+			name: "a hidden agent carries the fact as a mark of its own",
 			item: agentItem{agent: agentstore.Agent{
 				ID:     "a1",
 				Name:   "hidden",
 				Hidden: true,
 			}},
 			want: view.Row{
-				Key:  "agent:a1",
-				Name: "hidden",
-				Dim:  true,
+				Key:    "agent:a1",
+				Name:   "hidden",
+				Hidden: true,
+			},
+		},
+		{
+			name: "an archived agent says so rather than being greyed by hand",
+			item: agentItem{agent: agentstore.Agent{
+				ID:         "a1",
+				Name:       "put-away",
+				ArchivedAt: xptr.Ptr(time.Now()),
+			}},
+			want: view.Row{
+				Key:      "agent:a1",
+				Name:     "put-away",
+				Archived: true,
 			},
 		},
 		{
@@ -404,7 +417,7 @@ func TestSnapshotKinds(t *testing.T) {
 			},
 		},
 		{
-			name: "a workflow whose orchestrator has stopped says so on a dashed bar",
+			name: "a workflow whose orchestrator has stopped has nothing running behind it",
 			row: agentRow{
 				header:       true,
 				workflow:     workflowstore.Workflow{ID: "w1", Name: "weave"},
@@ -414,7 +427,21 @@ func TestSnapshotKinds(t *testing.T) {
 				Key:     "workflow:w1",
 				Kind:    view.KindWorkflow,
 				Name:    "weave",
-				Process: view.ProcessStopped,
+				Process: view.ProcessNone,
+			},
+		},
+		{
+			name: "a workflow whose orchestrator failed to start still wears the failure",
+			row: agentRow{
+				header:       true,
+				workflow:     workflowstore.Workflow{ID: "w1", Name: "weave"},
+				orchestrator: &agentItem{agent: agentstore.Agent{ID: "o1", State: agentstore.StateFailedToCreate}},
+			},
+			want: view.Row{
+				Key:    "workflow:w1",
+				Kind:   view.KindWorkflow,
+				Name:   "weave",
+				Status: view.StatusBroken,
 			},
 		},
 		{
