@@ -20,11 +20,29 @@
 //
 // One rule covers every cell of the row: blank is not applicable, anything drawn is applicable,
 // and the shape says which state it is in. The three columns are blank on a row that can never
-// own a checkout, and the bar is a dim pipe where a process is there and quiet, a dashed pipe
-// where one was there and has stopped, and blank where there is none.
+// own a checkout, and the bar is a dim pipe where a process is there and quiet, a busy bar where
+// one is doing something, and blank where none is running.
 //
 // The bar reports what stands behind a row now rather than what once did, so a workflow that
-// never had an orchestrator draws no bar at all.
+// never had an orchestrator draws no bar at all, and neither does one whose orchestrator has
+// stopped.
+//
+// # Dim means the process is gone
+//
+// A name is drawn dim for exactly one reason: nothing runs behind the row any more, because the
+// agent's process has stopped or the row has been archived. Nothing a person did to a row dims
+// it, and an idle agent with a pane of its own is alive and stays bright. Dim reaches the name
+// alone, so a dormant agent still says in colour where its review and its pull request stand.
+//
+// Only an agent's own row is ever ProcessStopped. A workflow is not a process, its orchestrator
+// is, and a workflow whose orchestrator has died still has live agents under it, so its header
+// stays bright with a blank bar, the same as one whose orchestrator was archived or never
+// existed. The sidebar does not tell those apart; an archived orchestrator has a row in the
+// archive, and a stopped one reads the same as none at all.
+//
+// Hidden is a thing a person did to the row, so it is a mark after the name, in the family the
+// pause and the schedule belong to. A hidden agent still running is bright with the mark, a
+// dormant one is dim with the mark, and an archived one is dim without it.
 //
 // An indent costs the name the columns it spends, so an agent has less room for its name than a
 // workflow at the same pane, and the narrowing and the mark shedding both read the indent rather
@@ -38,8 +56,8 @@
 // an agent is one you can work in. Nothing else is given up for width: not the focus caret, the
 // mark gutter or the status bar. A row too full for what is left gives up its tally and then its
 // name, a row at a time rather than the whole list, and gives up its marks only where the marks
-// alone would not fit the pane: the schedule first, then the pause, then the mail, and the
-// failed run last.
+// alone would not fit the pane: the schedule first, then the hiding, then the pause, then the
+// mail, and the failed run last.
 //
 // # A screen may give up a column its rows could never fill
 //

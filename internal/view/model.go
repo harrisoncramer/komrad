@@ -17,10 +17,10 @@ const (
 	GlyphAlert
 	GlyphMail
 	GlyphPaused
+	GlyphHidden
 	GlyphSchedule
 	GlyphBusy
 	GlyphQuiet
-	GlyphStopped
 	GlyphChild
 	GlyphFocus
 	// glyphCount stands one past the last glyph.
@@ -80,6 +80,7 @@ type Line struct {
 	Weight   Weight
 	Emphasis Emphasis
 	Held     Cell
+	Hidden   Cell
 	Mail     Cell
 	Alert    Cell
 	// Tally is how many rows this one stands in for, drawn as a number.

@@ -18,7 +18,7 @@ const drawnResultNameColumn = 6
 func resultRows() []Row {
 	return []Row{
 		{Key: "live", Kind: KindResult, Name: "billing"},
-		{Key: "archived", Kind: KindResult, Name: "payouts", Dim: true, Process: ProcessStopped},
+		{Key: "archived", Kind: KindResult, Name: "payouts", Archived: true, Process: ProcessStopped},
 	}
 }
 

@@ -56,7 +56,7 @@ type prepareLineParams struct {
 func prepareLine(params prepareLineParams) Line {
 	row, focused := params.row, params.focused
 
-	line := Line{
+	return Line{
 		Focused:  focused,
 		Focus:    markCell(focused && !params.caretHidden, GlyphFocus, paint.ToneAccent),
 		Mark:     textCell(row.Mark, paint.ToneMark),
@@ -71,28 +71,19 @@ func prepareLine(params prepareLineParams) Line {
 		Weight:   weightFor(row.Kind),
 		Emphasis: emphasisFor(row, focused),
 		Held:     HeldCell(row),
+		Hidden:   HiddenCell(row),
 		Mail:     MailCell(row),
 		Alert:    AlertCell(row),
 		Tally:    row.HiddenCount,
 		Schedule: markCell(row.Scheduled, GlyphSchedule, paint.ToneMuted),
 		Selected: row.Selected,
 	}
-
-	if row.Dim {
-		return greyed(line)
-	}
-
-	return line
 }
 
-// greyed takes the colour off every cell of a row, leaving the focus caret alone since a hidden
-// row the keyboard is standing on still has to say so.
-func greyed(line Line) Line {
-	for _, cell := range []*Cell{&line.Mark, &line.Repo, &line.Review, &line.Forge, &line.Status, &line.Held, &line.Mail, &line.Alert, &line.Schedule} {
-		cell.Tone = paint.ToneMuted
-	}
-
-	return line
+// isDim reports whether the process behind a row is gone, which is the one thing that greys its
+// name.
+func isDim(row Row) bool {
+	return row.Process == ProcessStopped || row.Archived
 }
 
 // isFocused reports whether a row is the one the snapshot named, an unnamed row never being it.
@@ -167,10 +158,8 @@ func forgeCell(row Row) Cell {
 // rather than decoded.
 func StatusCell(row Row) Cell {
 	switch row.Process {
-	case ProcessNone:
+	case ProcessNone, ProcessStopped:
 		return Cell{}
-	case ProcessStopped:
-		return Cell{Glyph: GlyphStopped, Tone: paint.ToneMuted}
 	case ProcessAlive:
 	}
 
@@ -186,6 +175,11 @@ func StatusCell(row Row) Cell {
 	}
 
 	return Cell{Glyph: GlyphQuiet, Tone: paint.ToneMuted}
+}
+
+// HiddenCell is the mark a row draws once a person has taken it out of the sidebar.
+func HiddenCell(row Row) Cell {
+	return markCell(row.Hidden, GlyphHidden, paint.ToneMuted)
 }
 
 // MailCell is the mark a row draws for mail its agent has not read.
@@ -260,9 +254,9 @@ func fitRow(line Line, width int) Line {
 // shedMarks gives the marks after a name up, in the order of what a person can do without,
 // where even a nameless row will not fit the pane.
 func shedMarks(line Line, width int) Line {
-	// The schedule is a standing fact about the row, the pause is one a person took themselves,
-	// and mail goes before the failed run nobody else will mention.
-	for _, shed := range []*Cell{&line.Schedule, &line.Held, &line.Mail, &line.Alert} {
+	// The schedule is a standing fact about the row, hiding and pausing are things a person did
+	// themselves, and mail goes before the failed run nobody else will mention.
+	for _, shed := range []*Cell{&line.Schedule, &line.Hidden, &line.Held, &line.Mail, &line.Alert} {
 		if roomForName(line, width) >= 0 {
 			return line
 		}
@@ -322,7 +316,7 @@ func emphasisFor(row Row, focused bool) Emphasis {
 	switch {
 	case focused:
 		return EmphasisFocused
-	case row.Dim:
+	case isDim(row):
 		return EmphasisDim
 	case row.Unviewed:
 		return EmphasisBright

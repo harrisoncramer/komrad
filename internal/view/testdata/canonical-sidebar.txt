@@ -8,8 +8,8 @@
   w       │ weave +3 
        ▍   frozen-review-bug
        ▍   pr-metadata-fixes  
-       │   iss-582
+       │   iss-582 
        ▍   gone-worktree 
        │   iss-641-reviewer 
-       ┊   shipped-yesterday
+           shipped-yesterday
             weave-bughunt-job +5 

@@ -81,9 +81,19 @@ func TestRenderRowShapes(t *testing.T) {
 		row    Row
 	}{
 		{
-			name:   "a hidden row is dim throughout, its bar included",
+			name:   "a hidden row still running is bright and carries the mark",
 			golden: "row-hidden",
-			row:    Row{Kind: KindAgent, Name: "gone-worktree", Dim: true, Repo: RepoGone, Status: StatusBroken, FailedRun: true},
+			row:    Row{Kind: KindAgent, Name: "gone-worktree", Hidden: true, Repo: RepoGone, Status: StatusBroken, FailedRun: true},
+		},
+		{
+			name:   "a hidden row whose process has gone is dim throughout and keeps the mark",
+			golden: "row-hidden-dormant",
+			row:    Row{Kind: KindAgent, Name: "gone-worktree", Hidden: true, Process: ProcessStopped, Repo: RepoGone, FailedRun: true},
+		},
+		{
+			name:   "an archived row is dim throughout and carries no mark",
+			golden: "row-archived",
+			row:    Row{Kind: KindAgent, Name: "gone-worktree", Archived: true, Repo: RepoGone, Status: StatusBroken, FailedRun: true},
 		},
 		{
 			name:   "a child is italic and hangs off a corner",
@@ -220,7 +230,7 @@ func emphasisRows() []Row {
 	return []Row{
 		{Kind: KindAgent, Name: "ordinary"},
 		{Kind: KindAgent, Name: "unviewed", Unviewed: true},
-		{Kind: KindAgent, Name: "hidden", Dim: true},
+		{Kind: KindAgent, Name: "dormant", Process: ProcessStopped},
 	}
 }
 
@@ -447,7 +457,7 @@ func reachableRows() []Row {
 
 	var rows []Row
 	for _, kind := range []RowKind{KindWorkflow, KindAgent, KindChild} {
-		for marks := range 16 {
+		for marks := range 32 {
 			row := Row{
 				Kind:       kind,
 				Name:       name,
@@ -455,6 +465,7 @@ func reachableRows() []Row {
 				UnreadMail: marks&2 != 0,
 				FailedRun:  marks&4 != 0,
 				Scheduled:  marks&8 != 0,
+				Hidden:     marks&16 != 0,
 			}
 			if kind == KindChild {
 				row.Scheduled = false
@@ -567,7 +578,7 @@ func canonicalRows() []Row {
 		{Kind: KindWorkflow, Name: "weave", Mark: "w", HiddenCount: 3, Scheduled: true},
 		{Kind: KindAgent, Name: "frozen-review-bug", Review: ReviewOpen, Status: StatusWaiting},
 		{Kind: KindAgent, Name: "pr-metadata-fixes", Review: ReviewApproved, Forge: ForgeApproved, Status: StatusWaiting, Held: true, UnreadMail: true},
-		{Kind: KindAgent, Name: "iss-582", Repo: RepoRebasing, Review: ReviewApproved},
+		{Kind: KindAgent, Name: "iss-582", Repo: RepoRebasing, Review: ReviewApproved, Hidden: true},
 		{Kind: KindAgent, Name: "gone-worktree", Repo: RepoGone, Status: StatusBroken, FailedRun: true},
 		{Kind: KindAgent, Name: "iss-641-reviewer", Forge: ForgeFailing, UnreadMail: true},
 		{Kind: KindAgent, Name: "shipped-yesterday", Forge: ForgeMerged, Process: ProcessStopped},
@@ -589,10 +600,10 @@ const drawnArchiveNameColumn = 6
 func archiveRows() []Row {
 	return []Row{
 		{Key: "w:live", Kind: KindWorkflow, Name: "weave", Process: ProcessNone, Scheduled: true},
-		{Key: "a:one", Kind: KindAgent, Name: "rip-out-old-sidebar", Dim: true, Process: ProcessStopped},
-		{Key: "a:two", Kind: KindChild, Name: "rfc-0065-review", Dim: true, Process: ProcessStopped},
-		{Key: "w:gone", Kind: KindWorkflow, Name: "spike", Dim: true, Process: ProcessNone},
-		{Key: "a:bad", Kind: KindAgent, Name: "failed-teardown", Dim: true, Status: StatusBroken},
+		{Key: "a:one", Kind: KindAgent, Name: "rip-out-old-sidebar", Archived: true, Process: ProcessStopped},
+		{Key: "a:two", Kind: KindChild, Name: "rfc-0065-review", Archived: true, Process: ProcessStopped},
+		{Key: "w:gone", Kind: KindWorkflow, Name: "spike", Archived: true, Process: ProcessNone},
+		{Key: "a:bad", Kind: KindAgent, Name: "failed-teardown", Archived: true, Status: StatusBroken},
 	}
 }
 

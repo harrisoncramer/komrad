@@ -63,18 +63,18 @@ func snapshotRow(r agentRow, params snapshotParams) view.Row {
 		row.Name = r.workflow.Name
 		row.Matches = matchesIn(params.matcher, r.workflow.Name)
 		row.Scheduled = params.scheduled[r.workflow.ID]
-		row.Dim = r.workflow.ArchivedAt != nil
+		row.Archived = r.workflow.ArchivedAt != nil
 
-		// A workflow's bar is its orchestrator's, and one standing behind no orchestrator draws
-		// no bar at all.
-		if r.orchestrator == nil {
+		// A workflow's bar is its orchestrator's, and one with no orchestrator running behind it
+		// draws no bar at all.
+		if r.orchestrator == nil || snapshotProcess(*r.orchestrator) == view.ProcessStopped {
 			row.Process = view.ProcessNone
 
 			return row
 		}
 
 		row.Status = snapshotStatus(*r.orchestrator)
-		row.Process = snapshotProcess(*r.orchestrator)
+		row.Process = view.ProcessAlive
 
 		return row
 	}
@@ -97,7 +97,8 @@ func agentFacts(row view.Row, item agentItem) view.Row {
 	row.Status = snapshotStatus(item)
 	row.Process = snapshotProcess(item)
 	row.Unviewed = item.unviewed
-	row.Dim = item.agent.Hidden || item.agent.ArchivedAt != nil
+	row.Archived = item.agent.ArchivedAt != nil
+	row.Hidden = item.agent.Hidden && !row.Archived
 	row.Held = item.agent.HeldAt != nil
 	row.HeldWorking = row.Held && heldWorking(item)
 	row.UnreadMail = item.unreadMail

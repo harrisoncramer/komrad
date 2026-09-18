@@ -536,7 +536,7 @@ func (m model) archivedSearchRow(row view.Row, id string) view.Row {
 
 	// The server said this hit is archived, which holds whether or not the listing carrying the
 	// stamp has arrived.
-	row.Dim = true
+	row.Archived = true
 
 	return row
 }

@@ -36,10 +36,10 @@ var glyphNames = []struct {
 	{GlyphAlert, "alert"},
 	{GlyphMail, "mail"},
 	{GlyphPaused, "paused"},
+	{GlyphHidden, "hidden"},
 	{GlyphSchedule, "schedule"},
 	{GlyphBusy, "busy"},
 	{GlyphQuiet, "quiet"},
-	{GlyphStopped, "stopped"},
 	{GlyphChild, "child"},
 	{GlyphFocus, "focus"},
 }
