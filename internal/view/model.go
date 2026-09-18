@@ -23,6 +23,8 @@ const (
 	GlyphStopped
 	GlyphChild
 	GlyphFocus
+	// glyphCount stands one past the last glyph.
+	glyphCount
 )
 
 // Weight is the structure a row carries in its own lettering.

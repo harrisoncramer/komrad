@@ -735,8 +735,8 @@ func TestPrepareGivesTheTallyUpBeforeTheMarks(t *testing.T) {
 		},
 		{
 			name:      "the default sidebar has room for both",
-			pane:      27,
-			wantName:  "an agent…",
+			pane:      30,
+			wantName:  "an agent wi…",
 			wantTally: 12,
 		},
 		{
@@ -783,13 +783,18 @@ func TestPrepareShedsMarksOnlyWhereTheMarksAloneWillNotFit(t *testing.T) {
 			want: []Glyph{GlyphAlert},
 		},
 		{
+			name: "the width Harry runs keeps every mark but the schedule",
+			pane: 16,
+			want: []Glyph{GlyphPaused, GlyphMail, GlyphAlert},
+		},
+		{
 			name: "a pane two wider keeps the mail as well",
 			pane: 15,
 			want: []Glyph{GlyphMail, GlyphAlert},
 		},
 		{
 			name: "a pane wide enough for the marks keeps every one of them",
-			pane: 27,
+			pane: 30,
 			want: []Glyph{GlyphPaused, GlyphMail, GlyphAlert, GlyphSchedule},
 		},
 	}

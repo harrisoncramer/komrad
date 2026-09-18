@@ -158,7 +158,7 @@ func nameStyle(palette paint.Palette, weight Weight, emphasis Emphasis) lipgloss
 // box-drawing rule.
 func spell(glyph Glyph) string {
 	switch glyph {
-	case GlyphNone:
+	case GlyphNone, glyphCount:
 		return ""
 	case GlyphRepo:
 		return ""

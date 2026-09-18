@@ -5,6 +5,9 @@ import "fmt"
 // plainColumns is how many columns one glyph takes, every glyph the package draws taking one.
 const plainColumns = 1
 
+// spaceColumns is the space a cell carries after its glyph.
+const spaceColumns = 1
+
 // plainCells is the focus, the mark and the bar, which no width gives up.
 const plainCells = 3
 
@@ -29,7 +32,7 @@ func GutterColumns(columns Columns) int {
 	// Every cell holds one glyph and the space after it, a cell with nothing to draw included.
 	cells := plainCells + columns.drawn()
 
-	return cells * (plainColumns + 1)
+	return cells * (plainColumns + spaceColumns)
 }
 
 // NameColumns is the column a name has in a pane of the given width.
@@ -49,7 +52,7 @@ func trailingColumns(line Line) int {
 	columns := 0
 	for _, cell := range []Cell{line.Held, line.Mail, line.Alert, line.Schedule} {
 		if !cell.IsBlank() {
-			columns += 2 * plainColumns
+			columns += plainColumns + spaceColumns
 		}
 	}
 
