@@ -2,8 +2,11 @@ package doctor
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
+
+	"weave/internal/forge"
 )
 
 var ErrForgesUnreadable = &ProblemError{
@@ -14,6 +17,11 @@ var ErrForgesUnreadable = &ProblemError{
 var ErrForgeRefused = &ProblemError{
 	Code:    "forge_refused",
 	Message: "a connected forge no longer accepts its credential",
+}
+
+var ErrForgeNoCredential = &ProblemError{
+	Code:    "forge_no_credential",
+	Message: "a connected forge has no credential on this machine",
 }
 
 // ForgeStatus is one connected forge and whether it still answers.
@@ -44,17 +52,24 @@ func newForgesCheck() Check {
 				return pass("none connected")
 			}
 
-			var lines, refused []string
+			var lines, refused, missing []string
 			for _, status := range statuses {
-				if status.Err != nil {
+				switch {
+				case errors.Is(status.Err, forge.ErrNoCredential):
+					missing = append(missing, status.Err.Error())
+				case status.Err != nil:
 					refused = append(refused, fmt.Sprintf("%s: %v", status.Host, status.Err))
-
-					continue
+				default:
+					lines = append(lines, status.Host+" as "+status.Login)
 				}
-
-				lines = append(lines, status.Host+" as "+status.Login)
 			}
 
+			if len(missing) > 0 {
+				return warn(
+					fmt.Errorf("%w: %s", ErrForgeNoCredential, strings.Join(missing, "; ")),
+					strings.Join(lines, ", "),
+				)
+			}
 			if len(refused) > 0 {
 				return warn(
 					fmt.Errorf("%w: %s", ErrForgeRefused, strings.Join(refused, "; ")),

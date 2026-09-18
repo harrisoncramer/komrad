@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"weave/config"
+	"weave/internal/forge"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -44,6 +45,14 @@ func TestForgesCheck(t *testing.T) {
 			wantStatus: StatusWarn,
 			wantDetail: "github.com as harrisoncramer",
 			wantCode:   "forge_refused",
+		},
+		{
+			name: "one forge has no credential file",
+			statuses: []ForgeStatus{
+				{Host: "github.com", Err: forge.ErrNoCredential.Saying("no credential file for github.com; connect it again")},
+			},
+			wantStatus: StatusWarn,
+			wantCode:   "forge_no_credential",
 		},
 		{
 			name:       "the connections cannot be read",
