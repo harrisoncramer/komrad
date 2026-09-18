@@ -6,9 +6,6 @@ import (
 	"weave/internal/view"
 )
 
-// pullRequestKey is the metadata key an agent records the pull request it opened under.
-const pullRequestKey = "pr"
-
 // snapshotParams is what the panel already holds about the agents list, handed over as plain
 // data so the reading below needs nothing else.
 type snapshotParams struct {
@@ -65,7 +62,6 @@ func snapshotRow(r agentRow, params snapshotParams) view.Row {
 	row.Status = snapshotStatus(item)
 	row.Repo = snapshotRepo(item.agent)
 	row.Review = snapshotReview(item)
-	row.Forge = snapshotForge(item.agent)
 	row.Selected = params.selected.has(item.agent.ID)
 	row.Unviewed = item.unviewed
 	row.Dim = item.agent.Hidden
@@ -98,14 +94,20 @@ func snapshotKind(r agentRow) view.RowKind {
 // snapshotStatus is what an agent is doing this second, read off the state the row wears rather
 // than the one the store holds, so an agent whose pane has gone reads as idle.
 func snapshotStatus(item agentItem) view.Status {
+	// A pause is something a person did rather than something the agent is doing, so it wants
+	// that person however the agent was left.
+	if item.agent.HeldAt != nil {
+		return view.StatusWaiting
+	}
+
 	switch displayState(item) {
-	case agentstore.StateThinking:
+	case agentstore.StateThinking, agentstore.StateSettingUp:
 		return view.StatusThinking
-	case agentstore.StateWaiting:
+	case agentstore.StateWaiting, agentstore.StateUncertain:
 		return view.StatusWaiting
 	case agentstore.StateFailedToCreate, agentstore.StateFailedToCleanup:
 		return view.StatusBroken
-	case agentstore.StateIdle, agentstore.StateSettingUp, agentstore.StateUncertain:
+	case agentstore.StateIdle:
 		return view.StatusIdle
 	}
 
@@ -141,16 +143,4 @@ func snapshotReview(item agentItem) view.Review {
 	}
 
 	return view.ReviewNone
-}
-
-// snapshotForge is where the pull request opened from an agent's branch stands, which is only
-// ever that one was opened, since nothing weave holds says what has become of it.
-func snapshotForge(agent agentstore.Agent) view.Forge {
-	for _, entry := range agent.Metadata {
-		if entry.Key == pullRequestKey && entry.Value != "" {
-			return view.ForgeOpen
-		}
-	}
-
-	return view.ForgeNone
 }

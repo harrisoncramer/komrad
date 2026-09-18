@@ -31,8 +31,8 @@ func snapshotRowOf(t *testing.T, params snapshotParams) view.Row {
 	return snapshot.Rows[0]
 }
 
-// TestSnapshotStatus pins what an agent is doing this second, a failed create reading as broken
-// rather than as the idle it would otherwise fall to.
+// TestSnapshotStatus pins the bar every state of an agent falls to, all seven of them, a failed
+// create reading as broken rather than as the idle it would otherwise fall to.
 func TestSnapshotStatus(t *testing.T) {
 	tests := []struct {
 		name string
@@ -55,24 +55,37 @@ func TestSnapshotStatus(t *testing.T) {
 			want: view.StatusWaiting,
 		},
 		{
+			name: "a pane nobody can read wants you, since nobody else will look",
+			item: agentItem{agent: agentstore.Agent{State: agentstore.StateUncertain}, alive: true},
+			want: view.StatusWaiting,
+		},
+		{
+			name: "an agent somebody paused wants that person back, whatever it was doing",
+			item: agentItem{
+				agent: agentstore.Agent{State: agentstore.StateThinking, HeldAt: xptr.Ptr(time.Now())},
+				alive: true,
+			},
+			want: view.StatusWaiting,
+		},
+		{
 			name: "an agent whose pane has gone is idle whatever it stopped in",
 			item: agentItem{agent: agentstore.Agent{State: agentstore.StateThinking}},
 			want: view.StatusIdle,
 		},
 		{
-			name: "a pane nobody can read says nothing, so the row stays idle",
-			item: agentItem{agent: agentstore.Agent{State: agentstore.StateUncertain}, alive: true},
-			want: view.StatusIdle,
-		},
-		{
-			name: "an agent still being set up is idle",
+			name: "an agent still being set up is under way, with nobody blocked",
 			item: agentItem{agent: agentstore.Agent{State: agentstore.StateSettingUp}},
-			want: view.StatusIdle,
+			want: view.StatusThinking,
 		},
 		{
 			name: "a running agent is thinking",
 			item: agentItem{agent: agentstore.Agent{State: agentstore.StateThinking}, alive: true},
 			want: view.StatusThinking,
+		},
+		{
+			name: "an agent doing nothing is idle",
+			item: agentItem{agent: agentstore.Agent{State: agentstore.StateIdle}, alive: true},
+			want: view.StatusIdle,
 		},
 	}
 
@@ -181,39 +194,15 @@ func TestSnapshotReview(t *testing.T) {
 	}
 }
 
-// TestSnapshotForge pins the one thing weave knows about a pull request, which is that one was
-// opened.
-func TestSnapshotForge(t *testing.T) {
-	tests := []struct {
-		name  string
-		agent agentstore.Agent
-		want  view.Forge
-	}{
-		{
-			name:  "a key recorded with nothing under it is no pull request",
-			agent: agentstore.Agent{Metadata: []agentstore.Metadata{{Key: pullRequestKey}}},
-			want:  view.ForgeNone,
-		},
-		{
-			name:  "another key on its own is no pull request",
-			agent: agentstore.Agent{Metadata: []agentstore.Metadata{{Key: "branch", Value: "main"}}},
-			want:  view.ForgeNone,
-		},
-		{
-			name: "a recorded pull request is an open one",
-			agent: agentstore.Agent{Metadata: []agentstore.Metadata{
-				{Key: "branch", Value: "main"},
-				{Key: pullRequestKey, Value: "https://example.test/1"},
-			}},
-			want: view.ForgeOpen,
-		},
-	}
+// TestSnapshotForgeIsNotRead pins that nothing fills the pull request column, since nothing
+// weave stores knows about one yet.
+func TestSnapshotForgeIsNotRead(t *testing.T) {
+	item := agentItem{agent: agentstore.Agent{
+		ID:       "a1",
+		Metadata: []agentstore.Metadata{{Key: "pr", Value: "https://example.test/1"}},
+	}}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, snapshotOne(t, agentItem{agent: tt.agent}).Forge)
-		})
-	}
+	assert.Equal(t, view.ForgeNone, snapshotOne(t, item).Forge)
 }
 
 // TestSnapshotMarksOnARow pins the marks a row carries beside its name.
@@ -231,9 +220,10 @@ func TestSnapshotMarksOnARow(t *testing.T) {
 				HeldAt: xptr.Ptr(time.Now()),
 			}},
 			want: view.Row{
-				Key:  "agent:a1",
-				Name: "held",
-				Held: true,
+				Key:    "agent:a1",
+				Name:   "held",
+				Held:   true,
+				Status: view.StatusWaiting,
 			},
 		},
 		{
