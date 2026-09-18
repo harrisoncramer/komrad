@@ -4,6 +4,10 @@ import "path/filepath"
 
 // isSameDir compares two paths as the filesystem sees them.
 func isSameDir(a, b string) bool {
+	if a == b {
+		return true
+	}
+
 	resolvedA, err := filepath.EvalSymlinks(a)
 	if err != nil {
 		resolvedA = a

@@ -140,8 +140,7 @@ func TestRebaseRefusesAnArchivedAgent(t *testing.T) {
 }
 
 // TestRebaseTakesTheTreeLock pins the lock being keyed on the directory rather than the agent,
-// which is what makes it cover a child sharing its parent's checkout and a round being taken of
-// the same tree.
+// which is what makes it cover a child sharing its parent's checkout.
 func TestRebaseTakesTheTreeLock(t *testing.T) {
 	t.Parallel()
 
