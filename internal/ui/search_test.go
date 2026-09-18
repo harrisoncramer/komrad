@@ -820,9 +820,15 @@ func TestSearchRowCarriesTheAgent(t *testing.T) {
 	archived := searchRowNamed(t, lines, "payouts")
 	assert.Equal(t, archivedTagText, archived.Tag, "the archived row still says so")
 	assert.True(t, archived.Dim)
-	assert.Equal(t, view.StatusBroken, archived.Status,
-		"an archived agent that died failing keeps a bar, greyed with the rest of the row")
-	assert.Equal(t, view.ProcessStopped, archived.Process)
+	assert.Equal(t, view.ProcessStopped, archived.Process, "and says a process was there and has stopped")
+
+	// Process decides the bar on its own, so the two rows are compared as they are drawn rather
+	// than by a field the renderer would never read.
+	rows, _ := m.searchRows()
+	assert.Contains(t, ansi.Strip(headerLine(t, strings.Join(ansiStripped(rows), "\n"), "payouts")),
+		view.Spell(view.GlyphStopped), "the archived row draws the stopped bar")
+	assert.Contains(t, ansi.Strip(headerLine(t, strings.Join(ansiStripped(rows), "\n"), "billing")),
+		view.Spell(view.GlyphBusy), "while the thinking one draws a live bar")
 }
 
 // TestSearchSnippetsHangOffTheirHeader covers the one thing the two kinds of line have to agree

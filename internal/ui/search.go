@@ -539,11 +539,12 @@ func (m model) searchRow(hit searchHit, key string) view.Row {
 	return row
 }
 
-// archivedSearchRow is a hit on an agent nobody can reach any more, which keeps its bar only to
-// say it died failing.
+// archivedSearchRow is a hit on an agent nobody can reach any more, whose bar says a process was
+// there and has stopped.
 func (m model) archivedSearchRow(row view.Row, id string) view.Row {
 	row.Dim = true
 	row.Tag = archivedTagText
+	row.Process = view.ProcessStopped
 
 	agent, ok := m.archivedAgent(id)
 	if !ok {
@@ -551,10 +552,6 @@ func (m model) archivedSearchRow(row view.Row, id string) view.Row {
 	}
 
 	row.Scheduled = agent.ScheduleID != nil
-	if agent.State.IsFailed() {
-		row.Status = view.StatusBroken
-		row.Process = view.ProcessStopped
-	}
 
 	return row
 }
