@@ -53,7 +53,7 @@ func (m model) updateRowCursor(msg tea.Msg) (model, tea.Cmd) {
 
 // cursorBlinkedOut reports whether the blink has the row cursor out of sight this frame.
 func (m model) cursorBlinkedOut(focused bool) bool {
-	return focused && !m.blurred && !m.isTyping() && m.rowCursor.Blink
+	return focused && !m.isTyping() && m.rowCursor.Blink
 }
 
 // cursorPrefix is the arrow a list draws on its hovered row, blinking while that list has the

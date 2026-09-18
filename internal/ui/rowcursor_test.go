@@ -26,9 +26,8 @@ func TestRowCursorBlinksWhileFocused(t *testing.T) {
 	assert.Equal(t, lipgloss.Width(rowCursorGlyph), lipgloss.Width(blankCursor), "and leaves the room the arrow took")
 }
 
-// TestRowCursorStandsStillUnfocused covers the two ways a list stops being typed at, the record
-// beside it holding the keys and another pane holding them, neither of which is a cursor to
-// blink.
+// TestRowCursorStandsStillUnfocused covers the record beside the list holding the keys, which
+// is not a cursor to blink, while another pane holding them leaves the blink running.
 func TestRowCursorStandsStillUnfocused(t *testing.T) {
 	m := model{rowCursor: newRowCursor()}
 	m.rowCursor.Blink = true
@@ -37,7 +36,7 @@ func TestRowCursorStandsStillUnfocused(t *testing.T) {
 
 	m.blurred = true
 
-	assert.Equal(t, paint.Panel.Cursor().Render(rowCursorGlyph), m.cursorPrefix(true), "another pane holds them")
+	assert.Equal(t, blankCursor, m.cursorPrefix(true), "another pane holding them does not stop the blink")
 }
 
 // TestRowCursorSolidUnderAKeypress covers moving about: the phase is restarted rather than
@@ -56,18 +55,19 @@ func TestRowCursorSolidUnderAKeypress(t *testing.T) {
 	assert.NotNil(t, cmd, "and a timer carries the blink on from there")
 }
 
-// TestRowCursorFollowsTheKeyboard covers the panel losing and taking back the keyboard, which the
-// bubble is told about so its timer stops for a pane nobody is typing at.
+// TestRowCursorFollowsTheKeyboard covers the panel losing and taking back the keyboard, which
+// the model records while the bubble's timer runs on through both.
 func TestRowCursorFollowsTheKeyboard(t *testing.T) {
 	m := detailsModel(&recordingTmux{})
 	m.rowCursor = newRowCursor()
 
-	left, _ := m.route(tea.BlurMsg{})
+	left, _ := m.Update(tea.BlurMsg{})
 	blurred, ok := left.(model)
 	require.True(t, ok)
 	assert.True(t, blurred.blurred)
+	assert.NotNil(t, blurred.rowCursor.BlinkCmd(), "the bubble keeps its timer through a blur")
 
-	back, _ := blurred.route(tea.FocusMsg{})
+	back, _ := blurred.Update(tea.FocusMsg{})
 	focused, ok := back.(model)
 	require.True(t, ok)
 	assert.False(t, focused.blurred)
