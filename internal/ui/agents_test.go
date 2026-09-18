@@ -17,7 +17,7 @@ import (
 
 // TestAgentsViewRowsOpenAtTheGutter pins how far in a row starts and that the gutter holds its
 // columns on every kind of row, an agent opening on its checkout columns and a workflow, which
-// owns no checkout, on the bar those columns leave room for.
+// owns no checkout, on the three blank cells those columns leave behind.
 func TestAgentsViewRowsOpenAtTheGutter(t *testing.T) {
 	m := model{
 		frame:  layout.New(&recordingTmux{}, config.DefaultLayout()),
@@ -66,7 +66,7 @@ func TestAgentsViewRowsOpenAtTheGutter(t *testing.T) {
 		"the bar stands in one column whatever the row is")
 }
 
-// quietBar is the bar a running agent with nothing to say draws.
+// quietBar is the bar an agent with nothing to say draws.
 const quietBar = "│"
 
 // barColumn is how far along a drawn row its status bar stands.

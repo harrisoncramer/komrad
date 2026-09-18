@@ -263,8 +263,7 @@ func TestRenderCanonicalList(t *testing.T) {
 }
 
 // livePanelRows is the panel as it actually stands, taken off Harry's own listing rather than
-// drawn: mostly dormant agents with no bar at all, two running, one wanting a person and one
-// that never started.
+// drawn: mostly dormant agents, two running, one wanting a person and one that never started.
 func livePanelRows() []Row {
 	return []Row{
 		{Key: "admin", Kind: KindWorkflow, Name: "admin", Mark: "a", Process: ProcessNone},

@@ -157,10 +157,8 @@ func forgeCell(row Row) Cell {
 // StatusCell is what the agent is doing this second, a bar rather than a glyph so it is noticed
 // rather than decoded.
 func StatusCell(row Row) Cell {
-	switch row.Process {
-	case ProcessNone, ProcessStopped:
+	if row.Process == ProcessNone {
 		return Cell{}
-	case ProcessAlive:
 	}
 
 	switch row.Status {

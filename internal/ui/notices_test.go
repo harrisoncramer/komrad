@@ -364,14 +364,14 @@ func TestEveryStateTheBarDrawsBrokenHasASentence(t *testing.T) {
 	}
 }
 
-// TestAStoppedRowDrawsNoBarAndSaysNothing covers a row whose process has gone: its bar is blank,
-// its name greys, and the record has nothing to add.
-func TestAStoppedRowDrawsNoBarAndSaysNothing(t *testing.T) {
+// TestAStoppedRowKeepsItsBarAndSaysNothing covers a row whose process has gone: its bar is the
+// quiet one, its name greys, and the record has nothing to add.
+func TestAStoppedRowKeepsItsBarAndSaysNothing(t *testing.T) {
 	stopped := agentItem{agent: agentstore.Agent{State: agentstore.StateIdle}}
 	row := snapshotRow(noticeRow(stopped), snapshotParams{})
 
 	require.Equal(t, view.ProcessStopped, row.Process, "an agent whose pane has gone reads as stopped")
-	require.True(t, view.StatusCell(row).IsBlank(), "and its bar is blank")
+	require.Equal(t, view.GlyphQuiet, view.StatusCell(row).Glyph, "and its bar is the quiet pipe")
 	assert.Equal(t, view.EmphasisDim, view.Prepare(view.Snapshot{Rows: []view.Row{row}}).Lines[0].Emphasis,
 		"its name is what says the process has gone")
 	assert.Empty(t, noticeTexts(agentNotices(noticeRow(stopped))), "the record says nothing about it")

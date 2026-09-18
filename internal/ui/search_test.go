@@ -826,10 +826,8 @@ func TestSearchRowCarriesTheAgent(t *testing.T) {
 	// Process decides the bar on its own, so the two rows are compared as they are drawn rather
 	// than by a field the renderer would never read.
 	rows, _ := m.searchRows()
-	for _, bar := range []view.Glyph{view.GlyphQuiet, view.GlyphBusy} {
-		assert.NotContains(t, ansi.Strip(headerLine(t, strings.Join(ansiStripped(rows), "\n"), "payouts")),
-			view.Spell(bar), "the archived row draws no bar")
-	}
+	assert.Contains(t, ansi.Strip(headerLine(t, strings.Join(ansiStripped(rows), "\n"), "payouts")),
+		view.Spell(view.GlyphQuiet), "the archived row draws the quiet bar")
 	assert.Contains(t, ansi.Strip(headerLine(t, strings.Join(ansiStripped(rows), "\n"), "billing")),
 		view.Spell(view.GlyphBusy), "while the thinking one draws a live bar")
 }
