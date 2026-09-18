@@ -36,79 +36,47 @@ const (
 	localChangesAskedNotice = "local reviewer asked for changes"
 )
 
-// Explainer: a notice is the record teaching one mark on the row above it, so every one of them
-// takes its glyph and its tone from the cell that row draws rather than naming a glyph of its
-// own. Two facts have no mark at all and are said without one: a row is hidden by being greyed
-// and unviewed by being brightened, and the row the record is about is the row under the cursor,
-// which is drawn in the cursor's own colour instead, so neither reaches the person reading it.
-// Unviewed is left out all the same, because a second's dwell on the row clears it, and a line
-// that comes and goes on its own is worse than no line. Hidden stays, and so does the count of
-// review rounds, which the rebuilt row spends no column on at all.
+// Explainer: a notice teaches one mark on the row above it, so it takes its glyph and its tone
+// from the cell that row draws rather than naming either itself. Hidden and unviewed have no
+// mark, and emphasisFor ranks the cursor above both the brightening and the greying, so neither
+// reaches the one row a record is ever drawn for. Hidden is said without a glyph all the same.
+// Unviewed is not, because a second's dwell on the row clears it.
+
+var (
+	// failureSaid is what the status column drawn broken says about how an agent got there.
+	failureSaid = map[agentstore.State]string{
+		agentstore.StateFailedToCreate:  failedToCreateNotice,
+		agentstore.StateFailedToCleanup: failedToCleanupNotice,
+	}
+
+	// repoSaid is what the repo column says where it stands away from its baseline.
+	repoSaid = map[view.Repo]string{
+		view.RepoGone:     worktreeRemovedNotice,
+		view.RepoRebasing: sequenceNotice,
+	}
+
+	// reviewSaid is what the review column says, a released verdict and a reviewer still
+	// reading sharing the one column.
+	reviewSaid = map[view.Review]string{
+		view.ReviewOpen:             inLocalReviewNotice,
+		view.ReviewApproved:         localApprovedNotice,
+		view.ReviewChangesRequested: localChangesAskedNotice,
+	}
+)
 
 // agentNotices orders the marks by how much each wants a person's attention.
 func agentNotices(item agentItem) []notice {
-	notices := appendCellNotice(nil, view.StatusCell(snapshotStatus(item), dormant(item)), failureNotice(displayState(item)))
+	repo, review := snapshotRepo(item.agent), snapshotReview(item)
+
+	notices := appendCellNotice(nil, view.StatusCell(snapshotStatus(item), dormant(item)), failureSaid[displayState(item)])
 	notices = appendCellNotice(notices, view.AlertCell(item.failedRun), failedRunNotice)
 	notices = appendCellNotice(notices, view.MailCell(item.unreadMail), unreadMailNotice)
-
-	repo := snapshotRepo(item.agent)
-	notices = appendCellNotice(notices, view.RepoCell(repo), repoNotice(repo))
+	notices = appendCellNotice(notices, view.RepoCell(repo), repoSaid[repo])
 	notices = appendCellNotice(notices, view.HeldCell(item.agent.HeldAt != nil, heldWorking(item)), heldNoticeText(item))
-
 	notices = appendNotice(notices, item.agent.Hidden, "", paint.ToneMuted, hiddenNotice)
-
-	review := snapshotReview(item)
-	notices = appendCellNotice(notices, view.ReviewCell(review), reviewNotice(review))
+	notices = appendCellNotice(notices, view.ReviewCell(review), reviewSaid[review])
 
 	return appendNotice(notices, item.localRounds > 0, "", paint.ToneMuted, localReviewRoundsNotice(item.localRounds))
-}
-
-// failureNotice is what the status column drawn broken says, the two failures being the only
-// states that are a fact about the agent rather than about this second.
-func failureNotice(state agentstore.State) string {
-	switch state {
-	case agentstore.StateFailedToCreate:
-		return failedToCreateNotice
-	case agentstore.StateFailedToCleanup:
-		return failedToCleanupNotice
-	case agentstore.StateIdle, agentstore.StateWaiting, agentstore.StateThinking,
-		agentstore.StateUncertain, agentstore.StateSettingUp:
-		return ""
-	}
-
-	return ""
-}
-
-// repoNotice is what the repo column drawn away from its baseline says, and nothing at all while
-// the checkout is somewhere an agent can work.
-func repoNotice(repo view.Repo) string {
-	switch repo {
-	case view.RepoGone:
-		return worktreeRemovedNotice
-	case view.RepoRebasing:
-		return sequenceNotice
-	case view.RepoClean:
-		return ""
-	}
-
-	return ""
-}
-
-// reviewNotice is what the review column says, a released verdict and a reviewer still reading
-// sharing the one column.
-func reviewNotice(review view.Review) string {
-	switch review {
-	case view.ReviewOpen:
-		return inLocalReviewNotice
-	case view.ReviewApproved:
-		return localApprovedNotice
-	case view.ReviewChangesRequested:
-		return localChangesAskedNotice
-	case view.ReviewNone, view.ReviewCommented:
-		return ""
-	}
-
-	return ""
 }
 
 // localReviewRoundsNotice counts against the agent holding the diff.
