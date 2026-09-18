@@ -249,3 +249,42 @@ func TestHiddenChildCountsOnItsParent(t *testing.T) {
 	m.tree.showHidden = true
 	assert.NotContains(t, ansi.Strip(m.agentsView()), "+1")
 }
+
+// TestChildIsNotReviewable pins that the review key answers on the parent's row only.
+func TestChildIsNotReviewable(t *testing.T) {
+	dir := reviewRepo(t)
+	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
+
+	child := agentstore.Agent{
+		ID:            "a3",
+		Name:          "auth-reviewer",
+		Cwd:           dir,
+		WorkflowID:    "w1",
+		ParentAgentID: xptr.Ptr("a1"),
+		Role:          agentstore.RoleReviewer,
+	}
+	assert.False(t, isReviewable(child))
+
+	next, cmd := m.enterReview(child)
+	assert.Nil(t, cmd)
+	assert.NotEqual(t, screenReview, next.(model).screen)
+}
+
+// TestUnprovisionedAgentIsReviewable pins that an agent told to keep the directory it was
+// given still has work of its own to read.
+func TestUnprovisionedAgentIsReviewable(t *testing.T) {
+	dir := reviewRepo(t)
+	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
+
+	adopted := agentstore.Agent{
+		ID:               "a5",
+		Name:             "adopted",
+		Cwd:              dir,
+		WorkflowID:       "w1",
+		ProvisionEnabled: xptr.Ptr(false),
+	}
+	assert.True(t, isReviewable(adopted))
+
+	next, _ := m.enterReview(adopted)
+	assert.Equal(t, screenReview, next.(model).screen)
+}

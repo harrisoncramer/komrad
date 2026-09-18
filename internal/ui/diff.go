@@ -12,6 +12,11 @@ func hasCheckout(agent agentstore.Agent) bool {
 	return agent.Cwd != "" && !agent.WorktreeRemoved
 }
 
+// isReviewable reports whether an agent has work of its own to read.
+func isReviewable(agent agentstore.Agent) bool {
+	return hasCheckout(agent) && agent.ParentAgentID == nil
+}
+
 // isRebaseable reports whether an agent sits in a worktree weave cut for it alone, which is the
 // only checkout weave moves onto a base.
 func (m model) isRebaseable(agent agentstore.Agent) bool {
