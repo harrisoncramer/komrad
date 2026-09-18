@@ -16,6 +16,11 @@
 // is told from an agent by weight and by its bar, and a child by italic and by the corner inside
 // its name cell, never by position.
 //
+// The status bar is the one cell that draws nothing rather than drawing greyed. A dim pipe says
+// there is a process here and it is quiet, and an empty cell says there is no process at all, so
+// a dormant agent reads as a name with no channel beside it. Blank carries that meaning only
+// because every other cell is always drawn.
+//
 // The old sidebar did offset an agent's name from a workflow's, because agent rows carried a
 // state icon that workflow rows did not. Here the status bar is in the shared gutter on every
 // row, so that cause is gone and any offset left over would be decoration rather than

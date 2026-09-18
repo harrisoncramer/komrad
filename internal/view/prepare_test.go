@@ -55,6 +55,17 @@ func TestPrepareStatusBar(t *testing.T) {
 	}
 }
 
+// TestPrepareDormantRowDrawsNoBar pins the one cell that says something by drawing nothing: an
+// agent with a process behind it is quiet, and one with none has no channel at all.
+func TestPrepareDormantRowDrawsNoBar(t *testing.T) {
+	quiet := prepareOne(t, Row{Status: StatusIdle})
+	dormant := prepareOne(t, Row{Status: StatusIdle, Dormant: true})
+
+	assert.Equal(t, Cell{Glyph: GlyphQuiet, Tone: paint.ToneMuted}, quiet.Status)
+	assert.True(t, dormant.Status.IsBlank())
+	assert.NotEqual(t, quiet.Status, dormant.Status)
+}
+
 // TestPrepareRepoColumn pins where an agent's own checkout stands.
 func TestPrepareRepoColumn(t *testing.T) {
 	tests := []struct {

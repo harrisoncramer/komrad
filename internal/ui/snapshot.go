@@ -49,9 +49,17 @@ func snapshotRow(r agentRow, params snapshotParams) view.Row {
 	if r.header {
 		row.Kind = view.KindWorkflow
 		row.Name = r.workflow.Name
-		if r.orchestrator != nil {
-			row.Status = snapshotStatus(*r.orchestrator)
+
+		// A workflow's bar is its orchestrator's, and one that has never had an orchestrator has
+		// no more of a process behind it than a dormant one.
+		if r.orchestrator == nil {
+			row.Dormant = true
+
+			return row
 		}
+
+		row.Status = snapshotStatus(*r.orchestrator)
+		row.Dormant = dormant(*r.orchestrator)
 
 		return row
 	}
@@ -60,6 +68,7 @@ func snapshotRow(r agentRow, params snapshotParams) view.Row {
 	row.Kind = snapshotKind(r)
 	row.Name = item.agent.Name
 	row.Status = snapshotStatus(item)
+	row.Dormant = dormant(item)
 	row.Repo = snapshotRepo(item.agent)
 	row.Review = snapshotReview(item)
 	row.Selected = params.selected.has(item.agent.ID)
@@ -112,6 +121,12 @@ func snapshotStatus(item agentItem) view.Status {
 	}
 
 	return view.StatusIdle
+}
+
+// dormant reports whether nothing is running behind a row, which the state it wears cannot say
+// since an agent whose pane has gone wears the same idle as one sitting quiet.
+func dormant(item agentItem) bool {
+	return !item.alive && item.agent.State.DoesPaneDecide()
 }
 
 // snapshotRepo is where an agent's own checkout stands, a directory that has gone beating a

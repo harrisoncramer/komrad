@@ -21,6 +21,17 @@ func snapshotOne(t *testing.T, item agentItem) view.Row {
 	return snapshotRowOf(t, snapshotParams{rows: []agentRow{{item: item}}})
 }
 
+// snapshotRunning reads one row whose agent is running and doing nothing, which is the row every
+// mark below is hung on.
+func snapshotRunning(t *testing.T, item agentItem) view.Row {
+	t.Helper()
+
+	item.alive = true
+	item.agent.State = agentstore.StateIdle
+
+	return snapshotOne(t, item)
+}
+
 // snapshotRowOf reads a whole listing and hands back the single row it made.
 func snapshotRowOf(t *testing.T, params snapshotParams) view.Row {
 	t.Helper()
@@ -300,7 +311,49 @@ func TestSnapshotMarksOnARow(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, snapshotOne(t, tt.item))
+			assert.Equal(t, tt.want, snapshotRunning(t, tt.item))
+		})
+	}
+}
+
+// TestSnapshotDormant pins the difference between an agent sitting quiet and one with no process
+// behind it at all, which is the one thing the state it wears cannot say.
+func TestSnapshotDormant(t *testing.T) {
+	tests := []struct {
+		name string
+		item agentItem
+		want bool
+	}{
+		{
+			name: "an agent whose pane has gone has nothing behind it",
+			item: agentItem{agent: agentstore.Agent{State: agentstore.StateIdle}},
+			want: true,
+		},
+		{
+			name: "an agent that stopped mid-thought has nothing behind it either",
+			item: agentItem{agent: agentstore.Agent{State: agentstore.StateThinking}},
+			want: true,
+		},
+		{
+			name: "a create that failed is not dormant, since the row still has a failure to report",
+			item: agentItem{agent: agentstore.Agent{State: agentstore.StateFailedToCreate}},
+			want: false,
+		},
+		{
+			name: "an agent still being set up is not dormant, since it is on its way",
+			item: agentItem{agent: agentstore.Agent{State: agentstore.StateSettingUp}},
+			want: false,
+		},
+		{
+			name: "an agent sitting quiet with a pane of its own is not dormant",
+			item: agentItem{agent: agentstore.Agent{State: agentstore.StateIdle}, alive: true},
+			want: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, snapshotOne(t, tt.item).Dormant)
 		})
 	}
 }
@@ -330,15 +383,30 @@ func TestSnapshotKinds(t *testing.T) {
 			},
 		},
 		{
-			name: "a workflow standing behind no orchestrator is quiet",
+			name: "a workflow standing behind no orchestrator has no bar at all",
 			row: agentRow{
 				header:   true,
 				workflow: workflowstore.Workflow{ID: "w1", Name: "weave"},
 			},
 			want: view.Row{
-				Key:  "workflow:w1",
-				Kind: view.KindWorkflow,
-				Name: "weave",
+				Key:     "workflow:w1",
+				Kind:    view.KindWorkflow,
+				Name:    "weave",
+				Dormant: true,
+			},
+		},
+		{
+			name: "a workflow whose orchestrator has stopped has no bar either",
+			row: agentRow{
+				header:       true,
+				workflow:     workflowstore.Workflow{ID: "w1", Name: "weave"},
+				orchestrator: &agentItem{agent: agentstore.Agent{ID: "o1", State: agentstore.StateIdle}},
+			},
+			want: view.Row{
+				Key:     "workflow:w1",
+				Kind:    view.KindWorkflow,
+				Name:    "weave",
+				Dormant: true,
 			},
 		},
 		{

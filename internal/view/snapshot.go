@@ -69,9 +69,12 @@ type Row struct {
 	// Mark is the letter a person typed onto this row, empty when none is on it.
 	Mark   string
 	Status Status
-	Repo   Repo
-	Review Review
-	Forge  Forge
+	// Dormant says there is no process behind the row at all, which is what empties the status
+	// cell rather than quieting it.
+	Dormant bool
+	Repo    Repo
+	Review  Review
+	Forge   Forge
 	// Selected says the row has been taken into a selection several rows wide.
 	Selected bool
 	// Unviewed says the row has said something nobody has read.

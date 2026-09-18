@@ -300,6 +300,23 @@ func TestRenderOpensEveryKindOnOneColumn(t *testing.T) {
 	}
 }
 
+// TestRenderDormantRowKeepsTheNameColumn pins that the empty status cell holds its column, so a
+// row with no bar opens its name where every other row does.
+func TestRenderDormantRowKeepsTheNameColumn(t *testing.T) {
+	rows := []Row{
+		{Key: "quiet", Kind: KindAgent, Name: "quiet"},
+		{Key: "dormant", Kind: KindAgent, Name: "dormant", Dormant: true},
+	}
+
+	list := Prepare(Snapshot{Rows: rows})
+	drawn := strings.Split(ansiEscapes.ReplaceAllString(Render(list, paint.Colored, 0), ""), "\n")
+	require.Len(t, drawn, len(rows))
+
+	for i, line := range list.Lines {
+		assert.Equal(t, drawnNameColumn, nameColumnOf(drawn[i], line), "row %q", drawn[i])
+	}
+}
+
 // TestGutterColumnsAgreesWithWhatIsDrawn pins the arithmetic a caller sizes a name by against
 // the row the renderer actually draws, so the two cannot drift apart.
 func TestGutterColumnsAgreesWithWhatIsDrawn(t *testing.T) {

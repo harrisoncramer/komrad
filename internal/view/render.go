@@ -53,7 +53,7 @@ func renderLine(line Line, palette paint.Palette, width int) string {
 		drawCell(palette, line.Repo),
 		drawCell(palette, line.Review),
 		drawCell(palette, line.Forge),
-		drawCell(palette, line.Status),
+		drawGutterCell(palette, line.Status),
 	}, " ")
 
 	row := gutter + " " + drawRule(palette, line.Rule) +
