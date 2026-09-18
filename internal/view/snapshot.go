@@ -95,7 +95,7 @@ type Row struct {
 	Matches []Span
 	Status  Status
 	// Process says whether anything stands behind the row, which the bar draws as a dashed pipe
-	// where a process has stopped and nothing at all where there has never been one.
+	// where a process has stopped and nothing at all where there is none.
 	Process Process
 	// NoCheckout says the row can own no checkout of its own, which empties the three columns
 	// that report on one.

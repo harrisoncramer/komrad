@@ -21,7 +21,11 @@
 // One rule covers every cell of the row: blank is not applicable, anything drawn is applicable,
 // and the shape says which state it is in. The three columns are blank on a row that can never
 // own a checkout, and the bar is a dim pipe where a process is there and quiet, a dashed pipe
-// where one was there and has stopped, and blank where there has never been one at all.
+// where one was there and has stopped, and blank where there is none.
+//
+// A blank bar on a workflow row means no orchestrator row is in the listing. It does not separate
+// a workflow that never had an orchestrator from one whose orchestrator has been archived, since
+// nothing in the store keeps a trace of one having existed.
 //
 // The old sidebar did offset an agent's name from a workflow's, because agent rows carried a
 // state icon that workflow rows did not. Here the status bar is in the shared gutter on every
