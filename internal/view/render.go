@@ -12,12 +12,16 @@ import (
 // headerGutter is the focus and mark cells the column header has nothing to put in.
 const headerGutter = "    "
 
-// Header is the row of column names standing over the list, greyed throughout.
-func Header(palette paint.Palette) string {
-	cells := []Cell{
-		{Glyph: GlyphRepo, Tone: paint.ToneMuted},
-		{Glyph: GlyphReview, Tone: paint.ToneMuted},
-		{Glyph: GlyphForge, Tone: paint.ToneMuted},
+// Header is the row of column names standing over the list, greyed throughout and naming only
+// the columns the list is wide enough to draw.
+func Header(palette paint.Palette, columns Columns) string {
+	cells := drawnColumnCells(Line{
+		Repo:   Cell{Glyph: GlyphRepo, Tone: paint.ToneMuted},
+		Review: Cell{Glyph: GlyphReview, Tone: paint.ToneMuted},
+		Forge:  Cell{Glyph: GlyphForge, Tone: paint.ToneMuted},
+	}, columns)
+	if len(cells) == 0 {
+		return ""
 	}
 
 	drawn := make([]string, 0, len(cells))
@@ -38,7 +42,7 @@ func Render(list List, palette paint.Palette, width int) string {
 func Rows(list List, palette paint.Palette, width int) []string {
 	rows := make([]string, 0, len(list.Lines))
 	for _, line := range list.Lines {
-		rows = append(rows, renderLine(line, palette, width))
+		rows = append(rows, renderLine(line, list.Columns, palette, width))
 	}
 
 	return rows
@@ -46,21 +50,22 @@ func Rows(list List, palette paint.Palette, width int) []string {
 
 // renderLine spells one prepared row out, painting the selection bar under it last so the
 // colours it already carries read through.
-func renderLine(line Line, palette paint.Palette, width int) string {
-	gutter := strings.Join([]string{
+func renderLine(line Line, columns Columns, palette paint.Palette, width int) string {
+	cells := []string{
 		drawGutterCell(palette, line.Focus),
 		drawGutterCell(palette, line.Mark),
-		drawCell(palette, line.Repo),
-		drawCell(palette, line.Review),
-		drawCell(palette, line.Forge),
-		drawGutterCell(palette, line.Status),
-	}, " ")
+	}
+	for _, cell := range drawnColumnCells(line, columns) {
+		cells = append(cells, drawCell(palette, cell))
+	}
+
+	gutter := strings.Join(append(cells, drawGutterCell(palette, line.Status)), " ")
 
 	row := gutter + " " + drawRule(palette, line.Rule) +
 		drawName(palette, line) + drawTrailing(palette, line)
 
 	if line.Selected {
-		return paint.PaintRow(row, width-extraColumns(line))
+		return paint.PaintRow(row, width-extraColumns(line, columns))
 	}
 
 	return row

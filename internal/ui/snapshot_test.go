@@ -519,16 +519,16 @@ func TestSnapshotListing(t *testing.T) {
 			{item: agentItem{agent: agentstore.Agent{ID: "a1", Name: "picked"}}},
 			{item: agentItem{agent: agentstore.Agent{ID: "a2", Name: "passed over"}}},
 		},
-		marks:     map[string]string{"workflow:w1": "w", "agent:a2": "p"},
-		selected:  selection{ids: []string{"a1"}},
-		focused:   "agent:a1",
-		nameWidth: 12,
+		marks:    map[string]string{"workflow:w1": "w", "agent:a2": "p"},
+		selected: selection{ids: []string{"a1"}},
+		focused:  "agent:a1",
+		pane:     40,
 	}
 
 	snapshot := agentsSnapshot(params)
 
 	assert.Equal(t, "agent:a1", snapshot.Focused)
-	assert.Equal(t, 12, snapshot.NameWidth)
+	assert.Equal(t, 40, snapshot.Pane)
 	require.Len(t, snapshot.Rows, 3)
 	assert.Equal(t, "w", snapshot.Rows[0].Mark)
 	assert.Empty(t, snapshot.Rows[1].Mark)

@@ -26,6 +26,13 @@
 // row, so that cause is gone and any offset left over would be decoration rather than
 // consequence.
 //
+// # A narrow pane gives up columns, not names
+//
+// The three columns drop from the right as the pane narrows, forge first, then review, then
+// repo, and every row of the list drops the same ones so the names stay on one column. Nothing
+// else is given up for width: not the focus caret, the mark gutter, the status bar or the marks
+// after a name. Only once no column is left does a row give up its tally and then its name.
+//
 // # Scrolling belongs to the caller
 //
 // Rows hands back one drawn string per row and stops there. Which of them fit the pane, and

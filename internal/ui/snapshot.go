@@ -26,8 +26,8 @@ type snapshotParams struct {
 	scheduled map[string]bool
 	// showHidden says the hidden rows are drawn alongside the rest, so none is stood in for.
 	showHidden bool
-	// nameWidth is the column names are cut to.
-	nameWidth int
+	// pane is how many columns the list is drawn in.
+	pane int
 }
 
 // agentsSnapshot reads the listing into the plain data the agents list draws itself from.
@@ -41,7 +41,7 @@ func agentsSnapshot(params snapshotParams) view.Snapshot {
 		Rows:        rows,
 		CaretHidden: params.caretHidden,
 		Focused:     params.focused,
-		NameWidth:   params.nameWidth,
+		Pane:        params.pane,
 	}
 }
 

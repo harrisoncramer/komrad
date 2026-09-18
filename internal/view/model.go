@@ -83,7 +83,15 @@ type Line struct {
 	Selected bool
 }
 
+// Columns says which of the three columns a list is wide enough to draw.
+type Columns struct {
+	Repo   bool
+	Review bool
+	Forge  bool
+}
+
 // List is the agents list resolved to glyphs and tones.
 type List struct {
-	Lines []Line
+	Lines   []Line
+	Columns Columns
 }

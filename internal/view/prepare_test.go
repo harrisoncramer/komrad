@@ -456,34 +456,33 @@ func TestPrepareFocusSurvivesAReorder(t *testing.T) {
 // TestPrepareClipsName pins the column a name is cut to.
 func TestPrepareClipsName(t *testing.T) {
 	tests := []struct {
-		name      string
-		given     string
-		nameWidth int
-		want      string
+		name  string
+		given string
+		pane  int
+		want  string
 	}{
 		{
-			name:      "a name past the column ends in an ellipsis",
-			given:     "eng-6994-unable-to-create",
-			nameWidth: 12,
-			want:      "eng-6994-un…",
+			name:  "a name past the column ends in an ellipsis",
+			given: "eng-6994-unable-to-create",
+			pane:  27,
+			want:  "eng-6994-un…",
 		},
 		{
-			name:      "a name inside the column is left alone",
-			given:     "iss-582",
-			nameWidth: 12,
-			want:      "iss-582",
+			name:  "a name inside the column is left alone",
+			given: "iss-582",
+			pane:  27,
+			want:  "iss-582",
 		},
 		{
-			name:      "no column at all leaves the name whole rather than cutting it to nothing",
-			given:     "research-identity-assets",
-			nameWidth: 0,
-			want:      "research-identity-assets",
+			name:  "no pane at all leaves the name whole rather than cutting it to nothing",
+			given: "research-identity-assets",
+			want:  "research-identity-assets",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			list := Prepare(Snapshot{Rows: []Row{{Name: tt.given}}, NameWidth: tt.nameWidth})
+			list := Prepare(Snapshot{Rows: []Row{{Name: tt.given}}, Pane: tt.pane})
 			require.Len(t, list.Lines, 1)
 
 			assert.Equal(t, tt.want, list.Lines[0].Name)
@@ -553,25 +552,25 @@ func TestPrepareClipsMatchesWithTheName(t *testing.T) {
 	tests := []struct {
 		name    string
 		matches []Span
-		width   int
+		pane    int
 		want    []Span
 	}{
 		{
 			name:    "a match wholly past the cut is dropped",
 			matches: []Span{{Start: 10, End: 14}},
-			width:   6,
+			pane:    12,
 			want:    nil,
 		},
 		{
 			name:    "a match the cut runs through is shortened to what is left",
 			matches: []Span{{Start: 3, End: 14}},
-			width:   6,
+			pane:    12,
 			want:    []Span{{Start: 3, End: 5}},
 		},
 		{
 			name:    "a match before the cut is left alone",
 			matches: []Span{{Start: 0, End: 4}},
-			width:   6,
+			pane:    12,
 			want:    []Span{{Start: 0, End: 4}},
 		},
 		{
@@ -584,7 +583,7 @@ func TestPrepareClipsMatchesWithTheName(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			row := Row{Name: "agent-with-a-long-name", Matches: tt.matches}
-			list := Prepare(Snapshot{Rows: []Row{row}, NameWidth: tt.width})
+			list := Prepare(Snapshot{Rows: []Row{row}, Pane: tt.pane})
 			require.Len(t, list.Lines, 1)
 
 			assert.Equal(t, tt.want, list.Lines[0].Matches)
@@ -639,25 +638,25 @@ func TestPrepareGivesTheTallyUpBeforeTheMarks(t *testing.T) {
 
 	tests := []struct {
 		name      string
-		width     int
+		pane      int
 		wantName  string
 		wantTally int
 	}{
 		{
-			name:      "a pane with no room for either keeps the marks alone",
-			width:     NameColumns(28),
-			wantName:  "",
+			name:      "a pane that has already given a column up spends what is left on the name",
+			pane:      28,
+			wantName:  "a…",
 			wantTally: 0,
 		},
 		{
-			name:      "a pane with one column left spends it on the name",
-			width:     NameColumns(30),
+			name:      "the default sidebar keeps all three columns and gives the tally up",
+			pane:      30,
 			wantName:  "…",
 			wantTally: 0,
 		},
 		{
 			name:      "a pane with room for both keeps the tally",
-			width:     NameColumns(60),
+			pane:      60,
 			wantName:  "an agent with a very long …",
 			wantTally: 12,
 		},
@@ -665,7 +664,7 @@ func TestPrepareGivesTheTallyUpBeforeTheMarks(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			list := Prepare(Snapshot{Rows: []Row{busiest}, NameWidth: tt.width})
+			list := Prepare(Snapshot{Rows: []Row{busiest}, Pane: tt.pane})
 			require.Len(t, list.Lines, 1)
 
 			assert.Equal(t, tt.wantName, list.Lines[0].Name)

@@ -66,8 +66,9 @@ type Snapshot struct {
 	// Focused is the key of the row the keyboard is standing on, naming it rather than counting
 	// to it so a list re-sorted after it was gathered still focuses the same row.
 	Focused string
-	// NameWidth is the column names are cut to, leaving them whole when it is unset.
-	NameWidth int
+	// Pane is how many columns the list is drawn in, from which the view works out which columns
+	// fit and what is left for a name, leaving everything whole when it is unset.
+	Pane int
 }
 
 // Row is one line of the agents list as the panel found it.

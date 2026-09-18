@@ -12,8 +12,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// canonicalNameWidth is the column the settled design cuts a name to.
-const canonicalNameWidth = 24
+// canonicalPane is the sidebar the settled design was drawn in, wide enough for all three
+// columns and the names beside them.
+const canonicalPane = 39
 
 // ansiEscapes matches the styling a rendered row carries, so a test about layout can take it
 // off and read the columns alone.
@@ -23,7 +24,7 @@ var ansiEscapes = regexp.MustCompile(`\x1b\[[0-9;]*m`)
 func renderOne(t *testing.T, row Row) string {
 	t.Helper()
 
-	list := Prepare(Snapshot{Rows: []Row{row}, NameWidth: canonicalNameWidth})
+	list := Prepare(Snapshot{Rows: []Row{row}, Pane: canonicalPane})
 	require.Len(t, list.Lines, 1)
 
 	return Render(list, paint.Colored, 0)
@@ -141,19 +142,19 @@ func TestNameColumnsTakesTheGutterOffThePane(t *testing.T) {
 		},
 		{
 			name: "a pane exactly the gutter leaves no column at all",
-			pane: GutterColumns(),
+			pane: GutterColumns(everyColumn()),
 			want: 0,
 		},
 		{
 			name: "a wider pane leaves what is left over",
-			pane: GutterColumns() + 24,
+			pane: GutterColumns(everyColumn()) + 24,
 			want: 24,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, NameColumns(tt.pane))
+			assert.Equal(t, tt.want, NameColumns(tt.pane, everyColumn()))
 		})
 	}
 }
@@ -162,8 +163,8 @@ func TestNameColumnsTakesTheGutterOffThePane(t *testing.T) {
 // width it was given rather than stopping at the text.
 func TestRenderSelectedRowFillsThePane(t *testing.T) {
 	list := Prepare(Snapshot{
-		Rows:      []Row{{Kind: KindAgent, Name: "iss-582", Selected: true}},
-		NameWidth: canonicalNameWidth,
+		Rows: []Row{{Kind: KindAgent, Name: "iss-582", Selected: true}},
+		Pane: canonicalPane,
 	})
 
 	requireGolden(t, "row-selected-filled", Render(list, paint.Colored, 40))
@@ -172,9 +173,9 @@ func TestRenderSelectedRowFillsThePane(t *testing.T) {
 // TestRenderFocusedRow draws the row the keyboard is standing on.
 func TestRenderFocusedRow(t *testing.T) {
 	list := Prepare(Snapshot{
-		Rows:      []Row{{Key: "strip-demo", Kind: KindAgent, Name: "strip-demo", Status: StatusWaiting, Held: true}},
-		Focused:   "strip-demo",
-		NameWidth: canonicalNameWidth,
+		Rows:    []Row{{Key: "strip-demo", Kind: KindAgent, Name: "strip-demo", Status: StatusWaiting, Held: true}},
+		Focused: "strip-demo",
+		Pane:    canonicalPane,
 	})
 
 	requireGolden(t, "row-focused", Render(list, paint.Colored, 0))
@@ -247,16 +248,16 @@ func styleOfName(row, name string) string {
 // TestRenderGreyPaletteTakesEveryColourOff pins that a list drawn where the keys are not carries
 // one colour throughout.
 func TestRenderGreyPaletteTakesEveryColourOff(t *testing.T) {
-	list := Prepare(Snapshot{Rows: canonicalRows(), Focused: "strip-demo", NameWidth: canonicalNameWidth})
+	list := Prepare(Snapshot{Rows: canonicalRows(), Focused: "strip-demo", Pane: canonicalPane})
 
-	requireGolden(t, "list-grey", Header(paint.Grey)+"\n"+Render(list, paint.Grey, 0))
+	requireGolden(t, "list-grey", Header(paint.Grey, everyColumn())+"\n"+Render(list, paint.Grey, 0))
 }
 
 // TestRenderCanonicalList draws the whole settled design.
 func TestRenderCanonicalList(t *testing.T) {
-	list := Prepare(Snapshot{Rows: canonicalRows(), Focused: "strip-demo", NameWidth: canonicalNameWidth})
+	list := Prepare(Snapshot{Rows: canonicalRows(), Focused: "strip-demo", Pane: canonicalPane})
 
-	requireGolden(t, "list-canonical", Header(paint.Colored)+"\n"+Render(list, paint.Colored, 0))
+	requireGolden(t, "list-canonical", Header(paint.Colored, everyColumn())+"\n"+Render(list, paint.Colored, 0))
 }
 
 // livePanelRows is the panel as it actually stands, taken off Harry's own listing rather than
@@ -291,9 +292,9 @@ func livePanelRows() []Row {
 // TestRenderLivePanelShape draws the distribution a panel actually holds, which the settled
 // design does not: it shows every value once, where a real listing is mostly empty bars.
 func TestRenderLivePanelShape(t *testing.T) {
-	list := Prepare(Snapshot{Rows: livePanelRows(), Focused: "strip-demo", NameWidth: canonicalNameWidth})
+	list := Prepare(Snapshot{Rows: livePanelRows(), Focused: "strip-demo", Pane: canonicalPane})
 
-	requireGolden(t, "list-live-panel", Header(paint.Colored)+"\n"+Render(list, paint.Colored, 0))
+	requireGolden(t, "list-live-panel", Header(paint.Colored, everyColumn())+"\n"+Render(list, paint.Colored, 0))
 }
 
 // TestRenderDrawsTheSpecifiedGlyphSequence pins the glyphs of the settled design and the order
@@ -307,7 +308,7 @@ func TestRenderDrawsTheSpecifiedGlyphSequence(t *testing.T) {
 // TestRenderKeepsEveryNameOnOneColumn pins the rule the design is built on: every row, of every
 // kind, marked or not, opens its name at the same column.
 func TestRenderKeepsEveryNameOnOneColumn(t *testing.T) {
-	list := Prepare(Snapshot{Rows: canonicalRows(), Focused: "strip-demo", NameWidth: canonicalNameWidth})
+	list := Prepare(Snapshot{Rows: canonicalRows(), Focused: "strip-demo", Pane: canonicalPane})
 	drawn := strings.Split(drawCanonical(), "\n")
 	require.Len(t, drawn, len(list.Lines)+1)
 
@@ -366,6 +367,56 @@ func TestRenderDrawsASearchMatchInTheMatchColour(t *testing.T) {
 	assert.Contains(t, ansiEscapes.ReplaceAllString(drawn, ""), "view-gather")
 }
 
+// TestNarrowSidebarsDropColumnsRatherThanNames pins what a sidebar gives up as it narrows: the
+// columns go from the right, and a name is only cut once there is no column left to spend.
+func TestNarrowSidebarsDropColumnsRatherThanNames(t *testing.T) {
+	tests := []struct {
+		name     string
+		pane     int
+		want     Columns
+		wantName int
+	}{
+		{
+			name:     "the width Harry's own config sets keeps the bar and the name alone",
+			pane:     16,
+			want:     Columns{},
+			wantName: 10,
+		},
+		{
+			name:     "a little wider buys back the checkout, which is the column that stops work dead",
+			pane:     20,
+			want:     Columns{Repo: true},
+			wantName: 11,
+		},
+		{
+			name:     "wider still buys back the review, the pull request being the one with nothing behind it",
+			pane:     24,
+			want:     Columns{Repo: true, Review: true},
+			wantName: 12,
+		},
+		{
+			name:     "the default sidebar draws all three",
+			pane:     30,
+			want:     everyColumn(),
+			wantName: 15,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			list := Prepare(Snapshot{Rows: livePanelRows(), Focused: "strip-demo", Pane: tt.pane})
+
+			assert.Equal(t, tt.want, list.Columns)
+			assert.Equal(t, tt.wantName, NameColumns(tt.pane, list.Columns))
+
+			for i, drawn := range strings.Split(ansiEscapes.ReplaceAllString(Render(list, paint.Colored, 0), ""), "\n") {
+				assert.LessOrEqual(t, drawnColumns(drawn), tt.pane, "row %q draws past the pane", drawn)
+				assert.NotEmpty(t, list.Lines[i].Name, "row %q lost its name while a column was still drawn", drawn)
+			}
+		})
+	}
+}
+
 // TestRenderKeepsTheBusiestRowInsideThePane pins that the marks after a name survive it: the row
 // carrying every one of them, on a child, still draws inside the pane it was sized for.
 func TestRenderKeepsTheBusiestRowInsideThePane(t *testing.T) {
@@ -382,7 +433,7 @@ func TestRenderKeepsTheBusiestRowInsideThePane(t *testing.T) {
 
 	for _, pane := range []int{30, 40, 60, 120} {
 		t.Run(fmt.Sprintf("pane %d", pane), func(t *testing.T) {
-			list := Prepare(Snapshot{Rows: []Row{busiest}, NameWidth: NameColumns(pane)})
+			list := Prepare(Snapshot{Rows: []Row{busiest}, Pane: pane})
 			drawn := ansiEscapes.ReplaceAllString(Render(list, paint.Colored, 0), "")
 
 			assert.LessOrEqual(t, drawnColumns(drawn), pane, "row %q", drawn)
@@ -394,7 +445,7 @@ func TestRenderKeepsTheBusiestRowInsideThePane(t *testing.T) {
 // TestGutterColumnsAgreesWithWhatIsDrawn pins the arithmetic a caller sizes a name by against
 // the row the renderer actually draws, so the two cannot drift apart.
 func TestGutterColumnsAgreesWithWhatIsDrawn(t *testing.T) {
-	assert.Equal(t, drawnNameColumn, GutterColumns())
+	assert.Equal(t, drawnNameColumn, GutterColumns(everyColumn()))
 }
 
 // drawnNameColumn is the column the settled design opens every name at, counted off the drawing
@@ -423,9 +474,9 @@ func nameColumnOf(drawn string, line Line) int {
 
 // drawCanonical is the settled design as this package draws it, with its styling taken off.
 func drawCanonical() string {
-	list := Prepare(Snapshot{Rows: canonicalRows(), Focused: "strip-demo", NameWidth: canonicalNameWidth})
+	list := Prepare(Snapshot{Rows: canonicalRows(), Focused: "strip-demo", Pane: canonicalPane})
 
-	return ansiEscapes.ReplaceAllString(Header(paint.Colored)+"\n"+Render(list, paint.Colored, 0), "")
+	return ansiEscapes.ReplaceAllString(Header(paint.Colored, everyColumn())+"\n"+Render(list, paint.Colored, 0), "")
 }
 
 // drawnColumns is how wide a stretch of a row is on screen, counting an Octicon as what the font

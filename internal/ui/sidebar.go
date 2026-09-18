@@ -22,10 +22,10 @@ func (m model) agentsSymbologyView() string {
 		caretHidden: m.cursorBlinkedOut(m.isListFocused()),
 		matcher:     m.filter.pattern,
 		showHidden:  m.tree.showHidden,
-		nameWidth:   view.NameColumns(m.width),
+		pane:        m.width,
 	}))
 
-	header := palette.Title("Agents and Workflows") + "\n\n" + m.filterView() + view.Header(palette) + "\n"
+	header := palette.Title("Agents and Workflows") + "\n\n" + m.filterView() + view.Header(palette, list.Columns) + "\n"
 
 	return m.headedListView(header, view.Rows(list, palette, m.width), m.tree.cursor, below)
 }

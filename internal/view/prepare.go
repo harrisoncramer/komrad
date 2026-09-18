@@ -10,11 +10,55 @@ func Prepare(snapshot Snapshot) List {
 			row:         row,
 			focused:     isFocused(row, snapshot.Focused),
 			caretHidden: snapshot.CaretHidden,
-			nameWidth:   snapshot.NameWidth,
 		}))
 	}
 
-	return List{Lines: lines}
+	columns := fitColumns(lines, snapshot.Pane)
+	if snapshot.Pane > 0 {
+		width := NameColumns(snapshot.Pane, columns)
+		for i := range lines {
+			lines[i] = fitName(lines[i], width)
+		}
+	}
+
+	return List{Lines: lines, Columns: columns}
+}
+
+// fitColumns gives the three columns up from the right until the names have room, a column being
+// what a narrow pane spends before it spends a name or a mark.
+func fitColumns(lines []Line, pane int) Columns {
+	columns := everyColumn()
+	if pane <= 0 {
+		return columns
+	}
+
+	for _, give := range []*bool{&columns.Forge, &columns.Review, &columns.Repo} {
+		if roomFor(lines, pane, columns) {
+			return columns
+		}
+
+		*give = false
+	}
+
+	return columns
+}
+
+// roomFor reports whether every row can draw a name of its own at this many columns, once it has
+// given up its tally.
+func roomFor(lines []Line, pane int, columns Columns) bool {
+	width := NameColumns(pane, columns)
+	if width < minNameColumns {
+		return false
+	}
+
+	for _, line := range lines {
+		line.Tally = 0
+		if line.Name != "" && nameColumns(line, width) <= 0 {
+			return false
+		}
+	}
+
+	return true
 }
 
 // prepareLineParams is one row and what the list around it says about that row.
@@ -22,7 +66,6 @@ type prepareLineParams struct {
 	row         Row
 	focused     bool
 	caretHidden bool
-	nameWidth   int
 }
 
 // prepareLine resolves one row to the glyphs, tones and weight it is drawn in.
@@ -48,10 +91,6 @@ func prepareLine(params prepareLineParams) Line {
 		Tally:    row.HiddenCount,
 		Schedule: markCell(row.Scheduled, GlyphSchedule, paint.ToneMuted),
 		Selected: row.Selected,
-	}
-
-	if params.nameWidth > 0 {
-		line = fitName(line, row, params.nameWidth)
 	}
 
 	if row.Dim {
@@ -183,14 +222,14 @@ func weightFor(kind RowKind) Weight {
 
 // fitName gives a name what the row has left, dropping the tally first where there is not even a
 // column for it.
-func fitName(line Line, row Row, width int) Line {
+func fitName(line Line, width int) Line {
 	// A tally counts rows already out of sight, which is worth less than the marks saying
 	// somebody has to do something, so it is what gives way.
 	if nameColumns(line, width) <= 0 {
 		line.Tally = 0
 	}
 
-	line.Name, line.Matches = clipName(row.Name, row.Matches, nameColumns(line, width))
+	line.Name, line.Matches = clipName(line.Name, line.Matches, nameColumns(line, width))
 
 	return line
 }

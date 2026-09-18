@@ -84,7 +84,7 @@ func TestSymbologySwitchPicksThePath(t *testing.T) {
 // TestSymbologyDrawsTheColumnHeader pins the row of column names the newer drawing stands its
 // list under.
 func TestSymbologyDrawsTheColumnHeader(t *testing.T) {
-	header := ansi.Strip(view.Header(paint.Colored))
+	header := ansi.Strip(view.Header(paint.Colored, view.Columns{Repo: true, Review: true, Forge: true}))
 
 	assert.NotContains(t, ansi.Strip(symbologyModel(false).agentsView()), header)
 	assert.Contains(t, ansi.Strip(symbologyModel(true).agentsView()), header)
