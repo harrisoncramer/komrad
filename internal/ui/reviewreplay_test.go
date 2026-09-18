@@ -46,7 +46,7 @@ func reviewAcrossAMovedBase(
 	}}
 
 	// The two snapshots stand on different bases, so their own diff carries the base's move
-	// through greet.go as though the agent had written it.
+	// through the first file as though the agent had written it.
 	repo.wrote(wroteParams{
 		Tree:  secondTree,
 		Whole: fakePatchOfBothFiles,
@@ -164,7 +164,8 @@ func TestAnOldSideCountedInAReplayedTreePinsOnlyThere(t *testing.T) {
 	repo := newFakeRepo(t.TempDir())
 	m := reviewAcrossAMovedBase(t, repo, agents, &git.Replayed{Tree: replayedTree})
 
-	// The chapter draws the agent's own edit of greet.go, whose old side is the replayed tree.
+	// The chapter draws the agent's own edit of the first file, whose old side is the replayed
+	// tree.
 	repo.patches[pairOf(replayedTree, snapshotOf(secondTree))] = fakePatch
 
 	agents.threads = []*agentv1.ReviewThread{{
