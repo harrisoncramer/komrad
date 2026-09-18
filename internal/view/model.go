@@ -20,6 +20,7 @@ const (
 	GlyphSchedule
 	GlyphBusy
 	GlyphQuiet
+	GlyphStopped
 	GlyphChild
 	GlyphFocus
 )

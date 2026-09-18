@@ -298,26 +298,26 @@ func TestRenderCanonicalList(t *testing.T) {
 // that never started.
 func livePanelRows() []Row {
 	return []Row{
-		{Key: "admin", Kind: KindWorkflow, Name: "admin", Mark: "a", Dormant: true, NoCheckout: true},
-		{Kind: KindAgent, Name: "eng-6994-unable-to-create-a-fundraising", Review: ReviewApproved, Dormant: true},
-		{Kind: KindChild, Name: "eng-6994-reviewer", Dormant: true, NoCheckout: true},
-		{Kind: KindWorkflow, Name: "bcs-project", Dormant: true, NoCheckout: true},
-		{Kind: KindAgent, Name: "research-disbursements", Dormant: true},
+		{Key: "admin", Kind: KindWorkflow, Name: "admin", Mark: "a", Process: ProcessNone, NoCheckout: true},
+		{Kind: KindAgent, Name: "eng-6994-unable-to-create-a-fundraising", Review: ReviewApproved, Process: ProcessStopped},
+		{Kind: KindChild, Name: "eng-6994-reviewer", Process: ProcessStopped, NoCheckout: true},
+		{Kind: KindWorkflow, Name: "bcs-project", Process: ProcessNone, NoCheckout: true},
+		{Kind: KindAgent, Name: "research-disbursements", Process: ProcessStopped},
 		{Kind: KindAgent, Name: "research-identity-assets", Status: StatusThinking},
-		{Kind: KindWorkflow, Name: "deploy", Dormant: true, HiddenCount: 2, NoCheckout: true},
-		{Kind: KindWorkflow, Name: "ops", Mark: "o", Dormant: true, NoCheckout: true},
-		{Kind: KindAgent, Name: "rds-backup-hardening", Dormant: true},
-		{Kind: KindWorkflow, Name: "strip-demo", Dormant: true, NoCheckout: true},
+		{Kind: KindWorkflow, Name: "deploy", Process: ProcessNone, HiddenCount: 2, NoCheckout: true},
+		{Kind: KindWorkflow, Name: "ops", Mark: "o", Process: ProcessNone, NoCheckout: true},
+		{Kind: KindAgent, Name: "rds-backup-hardening", Process: ProcessStopped},
+		{Kind: KindWorkflow, Name: "strip-demo", Process: ProcessNone, NoCheckout: true},
 		{Key: "strip-demo", Kind: KindAgent, Name: "strip-demo", Review: ReviewChangesRequested, Status: StatusWaiting},
-		{Kind: KindWorkflow, Name: "weave", Mark: "w", Dormant: true, HiddenCount: 4, NoCheckout: true},
-		{Kind: KindAgent, Name: "competitive-analysis", Dormant: true, Held: true},
-		{Kind: KindChild, Name: "competitor-architecture", Dormant: true, NoCheckout: true},
-		{Kind: KindAgent, Name: "pr-metadata-fixes", Dormant: true, Held: true},
-		{Kind: KindAgent, Name: "frozen-review-bug", Review: ReviewChangesRequested, Dormant: true},
-		{Kind: KindAgent, Name: "view-foundation", Repo: RepoGone, Review: ReviewApproved, Dormant: true},
-		{Kind: KindChild, Name: "view-foundation-2", Dormant: true, NoCheckout: true},
+		{Kind: KindWorkflow, Name: "weave", Mark: "w", Process: ProcessNone, HiddenCount: 4, NoCheckout: true},
+		{Kind: KindAgent, Name: "competitive-analysis", Process: ProcessStopped, Held: true},
+		{Kind: KindChild, Name: "competitor-architecture", Process: ProcessStopped, NoCheckout: true},
+		{Kind: KindAgent, Name: "pr-metadata-fixes", Process: ProcessStopped, Held: true},
+		{Kind: KindAgent, Name: "frozen-review-bug", Review: ReviewChangesRequested, Process: ProcessStopped},
+		{Kind: KindAgent, Name: "view-foundation", Repo: RepoGone, Review: ReviewApproved, Process: ProcessStopped},
+		{Kind: KindChild, Name: "view-foundation-2", Process: ProcessStopped, NoCheckout: true},
 		{Kind: KindAgent, Name: "view-gather", Repo: RepoRebasing, Review: ReviewOpen, Status: StatusThinking},
-		{Kind: KindWorkflow, Name: "weave-bughunt-job", Dormant: true, Scheduled: true, HiddenCount: 5, NoCheckout: true},
+		{Kind: KindWorkflow, Name: "weave-bughunt-job", Process: ProcessNone, Scheduled: true, HiddenCount: 5, NoCheckout: true},
 		{Kind: KindAgent, Name: "iss-641-reviewer", Status: StatusBroken},
 	}
 }
@@ -372,12 +372,12 @@ func TestRenderIndentsEveryKindBesideItsTwin(t *testing.T) {
 	}
 }
 
-// TestRenderDormantRowKeepsTheNameColumn pins that the empty status cell holds its column, so a
+// TestRenderBlankBarKeepsTheNameColumn pins that the empty status cell holds its column, so a
 // row with no bar opens its name where a row of its kind does.
-func TestRenderDormantRowKeepsTheNameColumn(t *testing.T) {
+func TestRenderBlankBarKeepsTheNameColumn(t *testing.T) {
 	rows := []Row{
 		{Key: "quiet", Kind: KindAgent, Name: "quiet"},
-		{Key: "dormant", Kind: KindAgent, Name: "dormant", Dormant: true},
+		{Key: "barless", Kind: KindAgent, Name: "barless", Process: ProcessNone},
 	}
 
 	list := Prepare(Snapshot{Rows: rows})
@@ -606,8 +606,8 @@ func canonicalRows() []Row {
 		{Kind: KindAgent, Name: "iss-582", Repo: RepoRebasing, Review: ReviewApproved},
 		{Kind: KindAgent, Name: "gone-worktree", Repo: RepoGone, Status: StatusBroken, FailedRun: true},
 		{Kind: KindAgent, Name: "iss-641-reviewer", Forge: ForgeFailing, UnreadMail: true},
-		{Kind: KindAgent, Name: "shipped-yesterday", Forge: ForgeMerged},
-		{Kind: KindWorkflow, Name: "weave-bughunt-job", HiddenCount: 5, Scheduled: true, NoCheckout: true},
+		{Kind: KindAgent, Name: "shipped-yesterday", Forge: ForgeMerged, Process: ProcessStopped},
+		{Kind: KindWorkflow, Name: "weave-bughunt-job", HiddenCount: 5, Scheduled: true, NoCheckout: true, Process: ProcessNone},
 	}
 }
 

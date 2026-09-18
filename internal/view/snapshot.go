@@ -10,6 +10,15 @@ const (
 	KindChild
 )
 
+// Process is how much of a process stands behind a row.
+type Process int
+
+const (
+	ProcessAlive Process = iota
+	ProcessStopped
+	ProcessNone
+)
+
 // Status is what an agent is doing this second.
 type Status int
 
@@ -85,9 +94,9 @@ type Row struct {
 	// Matches are the stretches of the name a search picked out.
 	Matches []Span
 	Status  Status
-	// Dormant says there is no process behind the row at all, which is what empties the status
-	// cell rather than quieting it.
-	Dormant bool
+	// Process says whether anything stands behind the row, which the bar draws as a dashed pipe
+	// where a process has stopped and nothing at all where there has never been one.
+	Process Process
 	// NoCheckout says the row can own no checkout of its own, which empties the three columns
 	// that report on one.
 	NoCheckout bool

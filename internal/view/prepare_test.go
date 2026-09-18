@@ -55,15 +55,52 @@ func TestPrepareStatusBar(t *testing.T) {
 	}
 }
 
-// TestPrepareDormantRowDrawsNoBar pins the one cell that says something by drawing nothing: an
-// agent with a process behind it is quiet, and one with none has no channel at all.
-func TestPrepareDormantRowDrawsNoBar(t *testing.T) {
-	quiet := prepareOne(t, Row{Status: StatusIdle})
-	dormant := prepareOne(t, Row{Status: StatusIdle, Dormant: true})
+// TestPrepareBarSaysWhatStandsBehindARow pins the four values the bar takes, blank among them
+// meaning a row that never had a process rather than one whose process has gone.
+func TestPrepareBarSaysWhatStandsBehindARow(t *testing.T) {
+	tests := []struct {
+		name string
+		row  Row
+		want Cell
+	}{
+		{
+			name: "a process sitting quiet is a solid pipe",
+			row:  Row{Status: StatusIdle},
+			want: Cell{Glyph: GlyphQuiet, Tone: paint.ToneMuted},
+		},
+		{
+			name: "a process that has stopped is a dashed pipe",
+			row:  Row{Status: StatusIdle, Process: ProcessStopped},
+			want: Cell{Glyph: GlyphStopped, Tone: paint.ToneMuted},
+		},
+		{
+			name: "a process that stopped mid-thought is dashed rather than busy",
+			row:  Row{Status: StatusThinking, Process: ProcessStopped},
+			want: Cell{Glyph: GlyphStopped, Tone: paint.ToneMuted},
+		},
+		{
+			name: "a row that never had a process draws nothing",
+			row:  Row{Status: StatusIdle, Process: ProcessNone},
+			want: Cell{},
+		},
+	}
 
-	assert.Equal(t, Cell{Glyph: GlyphQuiet, Tone: paint.ToneMuted}, quiet.Status)
-	assert.True(t, dormant.Status.IsBlank())
-	assert.NotEqual(t, quiet.Status, dormant.Status)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, prepareOne(t, tt.row).Status)
+		})
+	}
+}
+
+// TestPrepareBarTellsAStoppedProcessFromNone pins the distinction the fourth value was added for,
+// which one glyph and one blank cell used to carry between them.
+func TestPrepareBarTellsAStoppedProcessFromNone(t *testing.T) {
+	stopped := prepareOne(t, Row{Process: ProcessStopped}).Status
+	none := prepareOne(t, Row{Process: ProcessNone}).Status
+
+	assert.False(t, stopped.IsBlank())
+	assert.True(t, none.IsBlank())
+	assert.NotEqual(t, stopped, none)
 }
 
 // TestPrepareRowWithNoCheckoutDrawsNoColumns pins the difference between a stage that has not

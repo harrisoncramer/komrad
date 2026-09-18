@@ -11,5 +11,5 @@
        │   iss-582
        ▍   gone-worktree 
        │   iss-641-reviewer 
-       │   shipped-yesterday
-          │ weave-bughunt-job +5 
+       ┊   shipped-yesterday
+            weave-bughunt-job +5 

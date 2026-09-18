@@ -63,7 +63,7 @@ func prepareLine(params prepareLineParams) Line {
 		Repo:     repoCell(row),
 		Review:   reviewCell(row),
 		Forge:    forgeCell(row),
-		Status:   statusCell(row.Status, row.Dormant),
+		Status:   statusCell(row),
 		Rule:     row.Kind == KindChild,
 		Indent:   indentFor(row.Kind),
 		Name:     row.Name,
@@ -164,13 +164,17 @@ func forgeCell(row Row) Cell {
 }
 
 // statusCell is what the agent is doing this second, a bar rather than a glyph so it is noticed
-// rather than decoded, and nothing at all where there is no process to report on.
-func statusCell(status Status, dormant bool) Cell {
-	if dormant {
+// rather than decoded.
+func statusCell(row Row) Cell {
+	switch row.Process {
+	case ProcessNone:
 		return Cell{}
+	case ProcessStopped:
+		return Cell{Glyph: GlyphStopped, Tone: paint.ToneMuted}
+	case ProcessAlive:
 	}
 
-	switch status {
+	switch row.Status {
 	case StatusIdle:
 		return Cell{Glyph: GlyphQuiet, Tone: paint.ToneMuted}
 	case StatusThinking:

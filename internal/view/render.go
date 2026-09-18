@@ -186,6 +186,8 @@ func spell(glyph Glyph) string {
 		return "▍"
 	case GlyphQuiet:
 		return "│"
+	case GlyphStopped:
+		return "┊"
 	case GlyphChild:
 		return "└"
 	case GlyphFocus:
