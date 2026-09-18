@@ -836,7 +836,7 @@ func TestSearchRowCarriesTheAgent(t *testing.T) {
 
 // TestSearchTellsAHiddenHitFromAnArchivedOne pins the screen where the two used to draw alike:
 // a hidden agent still running is bright with the hidden mark, a dormant hidden one is dim with
-// it, and an archived one is dim without it, since archiving does not clear the hidden flag.
+// it, and an archived one is dim without it.
 func TestSearchTellsAHiddenHitFromAnArchivedOne(t *testing.T) {
 	m := filterModel()
 	m.screen = screenSearch
