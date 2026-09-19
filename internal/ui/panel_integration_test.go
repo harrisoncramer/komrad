@@ -170,6 +170,7 @@ func newStagedPanel(t *testing.T) *stagedPanel {
 
 	agentPane := instance.GetOwnedPane(created.Msg.GetAgent().GetId())
 	require.NotEmpty(t, agentPane)
+	instance.WaitForHarness(created.Msg.GetAgent().GetId())
 
 	instance.Tmux.NewSession(panelSession)
 	navPane := instance.Tmux.Run("display-message", "-p", "-t", panelSession, "#{pane_id}")
@@ -437,6 +438,7 @@ func TestPanelKeepsTheWindowLeavingARunningAgent(t *testing.T) {
 	}))
 	require.NoError(t, err)
 	require.NotEmpty(t, instance.GetOwnedPane(created.Msg.GetAgent().GetId()))
+	instance.WaitForHarness(created.Msg.GetAgent().GetId())
 
 	instance.Tmux.NewSession(panelSession)
 	sidebar := instance.Tmux.Run("display-message", "-p", "-t", panelSession, "#{pane_id}")
@@ -495,6 +497,7 @@ func TestPanelIsTheSizeOfThePaneItWasGiven(t *testing.T) {
 	}))
 	require.NoError(t, err)
 	require.NotEmpty(t, instance.GetOwnedPane(created.Msg.GetAgent().GetId()))
+	instance.WaitForHarness(created.Msg.GetAgent().GetId())
 
 	instance.Tmux.NewSession(panelSession)
 	sidebar := instance.Tmux.Run("display-message", "-p", "-t", panelSession, "#{pane_id}")

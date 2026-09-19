@@ -321,6 +321,12 @@ func (i *Instance) Settle(agentID string, activity harness.Activity, want agents
 	i.t.Fatalf("agent %s never reached %q", agentID, want)
 }
 
+// WaitForHarness waits until an agent's harness has drawn in its own pane.
+func (i *Instance) WaitForHarness(agentID string) {
+	i.t.Helper()
+	i.WaitForActivity(agentID, harness.ActivityIdle)
+}
+
 // WaitForActivity waits until an agent's own pane says it is doing something, which anything
 // reading a frame would otherwise race against the first render.
 func (i *Instance) WaitForActivity(agentID string, activity harness.Activity) {
