@@ -122,11 +122,7 @@ type Worktree struct {
 	// The agent the directory was made for, unset when no row answers for it.
 	Agent *WorktreeAgent `protobuf:"bytes,5,opt,name=agent,proto3" json:"agent,omitempty"`
 	// The other agents working in this directory, which hold none of their own.
-	Occupants []*WorktreeAgent `protobuf:"bytes,6,rep,name=occupants,proto3" json:"occupants,omitempty"`
-	// How many bytes the directory holds, unset until a count has reached it.
-	SizeBytes *int64 `protobuf:"varint,7,opt,name=size_bytes,json=sizeBytes,proto3,oneof" json:"size_bytes,omitempty"`
-	// When that count was taken, in RFC 3339, unset with the size.
-	SizeCountedAt *string `protobuf:"bytes,8,opt,name=size_counted_at,json=sizeCountedAt,proto3,oneof" json:"size_counted_at,omitempty"`
+	Occupants     []*WorktreeAgent `protobuf:"bytes,6,rep,name=occupants,proto3" json:"occupants,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -201,20 +197,6 @@ func (x *Worktree) GetOccupants() []*WorktreeAgent {
 		return x.Occupants
 	}
 	return nil
-}
-
-func (x *Worktree) GetSizeBytes() int64 {
-	if x != nil && x.SizeBytes != nil {
-		return *x.SizeBytes
-	}
-	return 0
-}
-
-func (x *Worktree) GetSizeCountedAt() string {
-	if x != nil && x.SizeCountedAt != nil {
-		return *x.SizeCountedAt
-	}
-	return ""
 }
 
 type ListWorktreesResponse struct {
@@ -465,8 +447,9 @@ type GetWorktreeResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The directory as list_worktrees reports it.
 	Worktree *Worktree `protobuf:"bytes,1,opt,name=worktree,proto3" json:"worktree,omitempty"`
-	// The top-level entries with their sizes as of the last count, biggest first, empty until a
-	// count has reached the directory.
+	// How many bytes the directory holds, walked for this call.
+	SizeBytes int64 `protobuf:"varint,12,opt,name=size_bytes,json=sizeBytes,proto3" json:"size_bytes,omitempty"`
+	// The top-level entries with their sizes, biggest first, from the same walk.
 	Entries []*Entry `protobuf:"bytes,2,rep,name=entries,proto3" json:"entries,omitempty"`
 	// The paths git tracks that differ from HEAD.
 	Modified []string `protobuf:"bytes,3,rep,name=modified,proto3" json:"modified,omitempty"`
@@ -529,6 +512,13 @@ func (x *GetWorktreeResponse) GetWorktree() *Worktree {
 		return x.Worktree
 	}
 	return nil
+}
+
+func (x *GetWorktreeResponse) GetSizeBytes() int64 {
+	if x != nil {
+		return x.SizeBytes
+	}
+	return 0
 }
 
 func (x *GetWorktreeResponse) GetEntries() []*Entry {
@@ -705,9 +695,7 @@ type RemoveUnownedWorktreesResponse struct {
 	// The directories that went.
 	Removed []string `protobuf:"bytes,1,rep,name=removed,proto3" json:"removed,omitempty"`
 	// The directories that did not, each with the reason.
-	Refused []*Refusal `protobuf:"bytes,2,rep,name=refused,proto3" json:"refused,omitempty"`
-	// How many bytes the removed directories held, by the last count.
-	FreedBytes    int64 `protobuf:"varint,3,opt,name=freed_bytes,json=freedBytes,proto3" json:"freed_bytes,omitempty"`
+	Refused       []*Refusal `protobuf:"bytes,2,rep,name=refused,proto3" json:"refused,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -756,13 +744,6 @@ func (x *RemoveUnownedWorktreesResponse) GetRefused() []*Refusal {
 	return nil
 }
 
-func (x *RemoveUnownedWorktreesResponse) GetFreedBytes() int64 {
-	if x != nil {
-		return x.FreedBytes
-	}
-	return 0
-}
-
 var File_worktree_v1_worktree_proto protoreflect.FileDescriptor
 
 const file_worktree_v1_worktree_proto_rawDesc = "" +
@@ -775,19 +756,14 @@ const file_worktree_v1_worktree_proto_rawDesc = "" +
 	"\varchived_at\x18\x04 \x01(\tH\x00R\n" +
 	"archivedAt\x88\x01\x01\x12\x18\n" +
 	"\aadopted\x18\x05 \x01(\bR\aadoptedB\x0e\n" +
-	"\f_archived_at\"\xcb\x02\n" +
+	"\f_archived_at\"\xd7\x01\n" +
 	"\bWorktree\x12\x10\n" +
 	"\x03dir\x18\x01 \x01(\tR\x03dir\x12\x19\n" +
 	"\brepo_dir\x18\x02 \x01(\tR\arepoDir\x12\x16\n" +
 	"\x06branch\x18\x03 \x01(\tR\x06branch\x12\x1a\n" +
 	"\breadable\x18\x04 \x01(\bR\breadable\x120\n" +
 	"\x05agent\x18\x05 \x01(\v2\x1a.worktree.v1.WorktreeAgentR\x05agent\x128\n" +
-	"\toccupants\x18\x06 \x03(\v2\x1a.worktree.v1.WorktreeAgentR\toccupants\x12\"\n" +
-	"\n" +
-	"size_bytes\x18\a \x01(\x03H\x00R\tsizeBytes\x88\x01\x01\x12+\n" +
-	"\x0fsize_counted_at\x18\b \x01(\tH\x01R\rsizeCountedAt\x88\x01\x01B\r\n" +
-	"\v_size_bytesB\x12\n" +
-	"\x10_size_counted_at\"\x89\x01\n" +
+	"\toccupants\x18\x06 \x03(\v2\x1a.worktree.v1.WorktreeAgentR\toccupants\"\x89\x01\n" +
 	"\x15ListWorktreesResponse\x123\n" +
 	"\tworktrees\x18\x01 \x03(\v2\x15.worktree.v1.WorktreeR\tworktrees\x12\x12\n" +
 	"\x04dirs\x18\x02 \x03(\tR\x04dirs\x12'\n" +
@@ -803,9 +779,11 @@ const file_worktree_v1_worktree_proto_rawDesc = "" +
 	"\x06Commit\x12\x10\n" +
 	"\x03sha\x18\x01 \x01(\tR\x03sha\x12\x18\n" +
 	"\asubject\x18\x02 \x01(\tR\asubject\x12!\n" +
-	"\fcommitted_at\x18\x03 \x01(\tR\vcommittedAt\"\xa4\x03\n" +
+	"\fcommitted_at\x18\x03 \x01(\tR\vcommittedAt\"\xc3\x03\n" +
 	"\x13GetWorktreeResponse\x121\n" +
-	"\bworktree\x18\x01 \x01(\v2\x15.worktree.v1.WorktreeR\bworktree\x12,\n" +
+	"\bworktree\x18\x01 \x01(\v2\x15.worktree.v1.WorktreeR\bworktree\x12\x1d\n" +
+	"\n" +
+	"size_bytes\x18\f \x01(\x03R\tsizeBytes\x12,\n" +
 	"\aentries\x18\x02 \x03(\v2\x12.worktree.v1.EntryR\aentries\x12\x1a\n" +
 	"\bmodified\x18\x03 \x03(\tR\bmodified\x12\x1c\n" +
 	"\tuntracked\x18\x04 \x03(\tR\tuntracked\x12\x19\n" +
@@ -821,15 +799,13 @@ const file_worktree_v1_worktree_proto_rawDesc = "" +
 	"\x04dirs\x18\x01 \x03(\tB\x12\xbaH\x0f\x92\x01\f\b\x01\x10d\x18\x01\"\x04r\x02\x10\x01R\x04dirs\"3\n" +
 	"\aRefusal\x12\x10\n" +
 	"\x03dir\x18\x01 \x01(\tR\x03dir\x12\x16\n" +
-	"\x06reason\x18\x02 \x01(\tR\x06reason\"\x8b\x01\n" +
+	"\x06reason\x18\x02 \x01(\tR\x06reason\"j\n" +
 	"\x1eRemoveUnownedWorktreesResponse\x12\x18\n" +
 	"\aremoved\x18\x01 \x03(\tR\aremoved\x12.\n" +
-	"\arefused\x18\x02 \x03(\v2\x14.worktree.v1.RefusalR\arefused\x12\x1f\n" +
-	"\vfreed_bytes\x18\x03 \x01(\x03R\n" +
-	"freedBytes2\xf7\x10\n" +
-	"\x0fWorktreeService\x12\xaa\x05\n" +
-	"\rListWorktrees\x12\x16.google.protobuf.Empty\x1a\".worktree.v1.ListWorktreesResponse\"\xdc\x04\x9a\xb5\x18\xd4\x04\b\x01\x10\x01\x1a\x0elist_worktrees\"\xbd\x04List every worktree directory weave holds, under the configured worktrees directory and each workflow's own, with the repository it was cut from, its branch, whether git can still read it, the agent it was made for and the other agents working in it, and its size when a count has reached it. A directory with no agent is one whose row was deleted while cleanup did not run, or one a test left behind. This reads the directories and the agent rows and runs no git, so it is cheap to call often; read one directory's contents and standing against its base with get_worktree.\x90\x02\x01\x12\xe6\x04\n" +
-	"\vGetWorktree\x12\x1f.worktree.v1.GetWorktreeRequest\x1a .worktree.v1.GetWorktreeResponse\"\x93\x04\x9a\xb5\x18\x8b\x04\b\x01\x10\x01\x1a\fget_worktree\"\xf6\x03Read one worktree directory: its top-level entries with sizes as of the last count, biggest first, what is uncommitted, the base it is measured against with how far ahead and behind it stands and how many of its commits the base already holds whole, whether deleting its agent would keep the branch, and the commits since the base. The base is read as the clone last fetched it unless fetch is set, which asks origin first. A directory whose registration git cannot read answers with the entries alone.\x90\x02\x01\x12\xcd\x06\n" +
+	"\arefused\x18\x02 \x03(\v2\x14.worktree.v1.RefusalR\arefused2\xdb\x10\n" +
+	"\x0fWorktreeService\x12\x80\x05\n" +
+	"\rListWorktrees\x12\x16.google.protobuf.Empty\x1a\".worktree.v1.ListWorktreesResponse\"\xb2\x04\x9a\xb5\x18\xaa\x04\b\x01\x10\x01\x1a\x0elist_worktrees\"\x93\x04List every worktree directory weave holds, under the configured worktrees directory and each workflow's own, with the repository it was cut from, its branch, whether git can still read it, the agent it was made for and the other agents working in it. A directory with no agent is one whose row was deleted while cleanup did not run, or one a test left behind. This reads the directories and the agent rows and runs no git, so it is cheap to call often; read one directory's contents and standing against its base with get_worktree.\x90\x02\x01\x12\xf4\x04\n" +
+	"\vGetWorktree\x12\x1f.worktree.v1.GetWorktreeRequest\x1a .worktree.v1.GetWorktreeResponse\"\xa1\x04\x9a\xb5\x18\x99\x04\b\x01\x10\x01\x1a\fget_worktree\"\x84\x04Read one worktree directory: its size and its top-level entries with theirs, biggest first, walked for the call, what is uncommitted, the base it is measured against with how far ahead and behind it stands and how many of its commits the base already holds whole, whether deleting its agent would keep the branch, and the commits since the base. The base is read as the clone last fetched it unless fetch is set, which asks origin first. A directory whose registration git cannot read answers with the entries alone.\x90\x02\x01\x12\xcd\x06\n" +
 	"\x16RemoveUnownedWorktrees\x12*.worktree.v1.RemoveUnownedWorktreesRequest\x1a+.worktree.v1.RemoveUnownedWorktreesResponse\"\xd9\x05\x9a\xb5\x18\xd1\x05\b\x01\x10\x01\x1a\x18remove_unowned_worktrees\"\xae\x05Remove worktree directories no agent answers for, which delete_agents cannot reach: a directory under the worktrees directories whose agent row is gone, or whose row is in failed_to_cleanup because git can no longer read the registration. Each directory goes and, where the repository can still be read, git worktree prune runs in it; no branch is ever touched, since without a row nothing says whether the branch was adopted. A directory outside the worktrees directories, or one a live or archived agent still answers for, is refused with the reason and the rest go; delete the agent instead for those. Read list_worktrees first and pass only the directories it reports with no agent.(\x01\x90\x02\x02B(Z&weave/proto/gen/worktree/v1;worktreev1b\x06proto3"
 
 var (
@@ -885,7 +861,6 @@ func file_worktree_v1_worktree_proto_init() {
 		return
 	}
 	file_worktree_v1_worktree_proto_msgTypes[0].OneofWrappers = []any{}
-	file_worktree_v1_worktree_proto_msgTypes[1].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{

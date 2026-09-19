@@ -11,7 +11,6 @@ import (
 	"weave/internal/store"
 	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
-	worktreestore "weave/internal/store/worktree"
 
 	"github.com/stretchr/testify/require"
 )
@@ -22,7 +21,6 @@ type fixture struct {
 	repo   string
 	shared string
 	owners *fakeOwners
-	sizes  *fakeSizes
 	flows  *fakeWorkflows
 	git    *fakeGit
 	lister *Lister
@@ -38,7 +36,6 @@ func newFixture(t *testing.T) *fixture {
 		repo:   filepath.Join(root, "repo"),
 		shared: filepath.Join(root, "trees"),
 		owners: &fakeOwners{},
-		sizes:  &fakeSizes{sizes: map[string]worktreestore.Size{}},
 		flows:  &fakeWorkflows{flows: map[string]*workflowstore.Workflow{}},
 		git:    &fakeGit{},
 	}
@@ -48,7 +45,6 @@ func newFixture(t *testing.T) *fixture {
 		SharedDir: func() (string, error) { return f.shared, nil },
 		Agents:    f.owners,
 		Workflows: f.flows,
-		Sizes:     f.sizes,
 	})
 
 	return f
@@ -85,7 +81,7 @@ func (f *fixture) inspector() *Inspector {
 }
 
 func (f *fixture) remover() *Remover {
-	return NewRemover(NewRemoverParams{Lister: f.lister, Git: f.git, Sizes: f.sizes})
+	return NewRemover(NewRemoverParams{Lister: f.lister, Git: f.git})
 }
 
 type fakeOwners struct {
@@ -111,33 +107,6 @@ func (w *fakeWorkflows) GetIncludingArchived(_ context.Context, id string) (*wor
 	}
 
 	return nil, store.ErrNotFound
-}
-
-type fakeSizes struct {
-	sizes map[string]worktreestore.Size
-}
-
-func (s *fakeSizes) List(context.Context) (map[string]worktreestore.Size, error) {
-	copied := make(map[string]worktreestore.Size, len(s.sizes))
-	for dir, size := range s.sizes {
-		copied[dir] = size
-	}
-
-	return copied, nil
-}
-
-func (s *fakeSizes) Put(_ context.Context, size worktreestore.Size) error {
-	s.sizes[size.Dir] = size
-
-	return nil
-}
-
-func (s *fakeSizes) Delete(_ context.Context, dirs []string) error {
-	for _, dir := range dirs {
-		delete(s.sizes, dir)
-	}
-
-	return nil
 }
 
 // fakeGit answers every question about a checkout with what the test put in it, remembering

@@ -39,7 +39,6 @@ type services struct {
 	worktrees    *worktrees.Lister
 	inspector    *worktrees.Inspector
 	remover      *worktrees.Remover
-	counter      *worktrees.Counter
 }
 
 // BuiltinScriptsDir is where the scripts weave ships are installed under a cache directory,
@@ -223,7 +222,6 @@ func buildServices(params NewServerParams, st *stores) (*services, error) {
 		},
 		Agents:    st.agents,
 		Workflows: st.workflows,
-		Sizes:     st.worktrees,
 	})
 
 	return &services{
@@ -241,12 +239,6 @@ func buildServices(params NewServerParams, st *stores) (*services, error) {
 		remover: worktrees.NewRemover(worktrees.NewRemoverParams{
 			Lister: worktreeLister,
 			Git:    git.NewClient(),
-			Sizes:  st.worktrees,
-		}),
-		counter: worktrees.NewCounter(worktrees.NewCounterParams{
-			Lister:  worktreeLister,
-			Sizes:   st.worktrees,
-			Refresh: WorktreeSizeRefresh,
 		}),
 		script:   scriptService,
 		mail:     mailService,

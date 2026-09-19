@@ -526,15 +526,3 @@ type WorkflowProvisionerConfig struct {
 	WorktreeDiffExclude  []string
 	WorktreeDir          string
 }
-
-// How many bytes each worktree directory held when the service last counted it. A row is dropped when its directory goes.
-type WorktreeSize struct {
-	// The directory, absolute, as the worktree listing spells it.
-	Dir string
-	// The sum of the sizes of every file under the directory, following no symlinks.
-	SizeBytes int64
-	// When the count finished.
-	CountedAt time.Time
-	// The directory's top-level entries as the count passed over them, each with its path, its bytes and whether it is a directory, biggest first.
-	Entries []byte
-}

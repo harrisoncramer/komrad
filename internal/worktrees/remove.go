@@ -21,34 +21,26 @@ type Refusal struct {
 type Removal struct {
 	Removed []string
 	Refused []Refusal
-	// FreedBytes is what the removed directories held by their last count.
-	FreedBytes int64
 }
 
 type pruner interface {
 	PruneWorktrees(ctx context.Context, repo string) error
 }
 
-type sizeDeleter interface {
-	Delete(ctx context.Context, dirs []string) error
-}
-
 // Remover takes away the directories no agent answers for.
 type Remover struct {
 	lister *Lister
 	git    pruner
-	sizes  sizeDeleter
 }
 
 type NewRemoverParams struct {
 	Lister *Lister
 	Git    pruner
-	Sizes  sizeDeleter
 }
 
-// NewRemover builds a remover over the lister, git and the size store.
+// NewRemover builds a remover over the lister and git.
 func NewRemover(params NewRemoverParams) *Remover {
-	return &Remover{lister: params.Lister, git: params.Git, sizes: params.Sizes}
+	return &Remover{lister: params.Lister, git: params.Git}
 }
 
 // Remove takes away each directory nothing answers for, refusing the rest by name.
@@ -83,14 +75,7 @@ func (r *Remover) Remove(ctx context.Context, dirs []string) (Removal, error) {
 			}
 		}
 
-		if worktree.Size != nil {
-			removal.FreedBytes += worktree.Size.Bytes
-		}
 		removal.Removed = append(removal.Removed, dir)
-	}
-
-	if err := r.sizes.Delete(ctx, removal.Removed); err != nil {
-		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "removed worktrees but could not drop their counts", logging.Err(err)...)
 	}
 
 	return removal, nil

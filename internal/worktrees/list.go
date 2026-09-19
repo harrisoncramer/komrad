@@ -9,12 +9,10 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
-	"sync"
 	"time"
 
 	"weave/config"
 	agentstore "weave/internal/store/agent"
-	worktreestore "weave/internal/store/worktree"
 	"weave/lib/xslice"
 )
 
@@ -31,14 +29,6 @@ type Agent struct {
 	WorkflowID      string
 }
 
-// Size is how many bytes a directory held when it was last counted, and what its top-level
-// entries held.
-type Size struct {
-	Bytes     int64
-	CountedAt time.Time
-	Entries   []worktreestore.Entry
-}
-
 // Worktree is one directory under the worktree directories, and what answers for it.
 type Worktree struct {
 	Dir string
@@ -53,7 +43,6 @@ type Worktree struct {
 	Agent *Agent
 	// Occupants are the other rows working in this directory.
 	Occupants []Agent
-	Size      *Size
 }
 
 // Listing is every directory under the worktree directories.
@@ -73,18 +62,11 @@ type worktreeDirLister interface {
 	ListWorktreeDirs(ctx context.Context) ([]string, error)
 }
 
-type sizeLister interface {
-	List(ctx context.Context) (map[string]worktreestore.Size, error)
-}
-
 // Lister reads the worktree directories and the rows that answer for them.
 type Lister struct {
 	shared    func() (string, error)
 	agents    agentDirLister
 	workflows worktreeDirLister
-	sizes     sizeLister
-	mu        sync.Mutex
-	listedAt  time.Time
 }
 
 type NewListerParams struct {
@@ -92,7 +74,6 @@ type NewListerParams struct {
 	SharedDir func() (string, error)
 	Agents    agentDirLister
 	Workflows worktreeDirLister
-	Sizes     sizeLister
 }
 
 // NewLister builds a lister over the stores.
@@ -101,7 +82,6 @@ func NewLister(params NewListerParams) *Lister {
 		shared:    params.SharedDir,
 		agents:    params.Agents,
 		workflows: params.Workflows,
-		sizes:     params.Sizes,
 	}
 }
 
@@ -127,20 +107,8 @@ func (l *Lister) ListDirs(ctx context.Context) ([]string, error) {
 	return xslice.UniqueBy(dirs, func(dir string) string { return dir }), nil
 }
 
-// LastListed is when a listing was last asked for, zero when none has been.
-func (l *Lister) LastListed() time.Time {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-
-	return l.listedAt
-}
-
 // List is every directory under the worktree directories, with what answers for each.
 func (l *Lister) List(ctx context.Context) (Listing, error) {
-	l.mu.Lock()
-	l.listedAt = time.Now()
-	l.mu.Unlock()
-
 	dirs, err := l.ListDirs(ctx)
 	if err != nil {
 		return Listing{}, err
@@ -151,19 +119,11 @@ func (l *Lister) List(ctx context.Context) (Listing, error) {
 		return Listing{}, err
 	}
 
-	sizes, err := l.sizes.List(ctx)
-	if err != nil {
-		return Listing{}, err
-	}
-
 	found := walk(dirs)
 	listing := Listing{Dirs: dirs, UnreadableDirs: found.unreadable}
 	for _, dir := range found.paths {
 		worktree := read(dir)
 		worktree.Agent, worktree.Occupants = owned(dir, owners)
-		if size, ok := sizes[dir]; ok {
-			worktree.Size = &Size{Bytes: size.Bytes, CountedAt: size.CountedAt, Entries: size.Entries}
-		}
 
 		listing.Worktrees = append(listing.Worktrees, worktree)
 	}

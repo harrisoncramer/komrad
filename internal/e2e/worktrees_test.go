@@ -68,7 +68,8 @@ func TestWorktreesAreListedWithTheirAgentAndReadThroughGit(t *testing.T) {
 	assert.True(t, read.Msg.GetKeepsBranch(), "the agent's commit is on no other ref")
 	require.Len(t, read.Msg.GetCommits(), 1)
 	assert.Equal(t, "the agent's work", read.Msg.GetCommits()[0].GetSubject())
-	assert.Empty(t, read.Msg.GetEntries(), "the count has not reached a directory cut after the service started")
+	assert.Positive(t, read.Msg.GetSizeBytes())
+	assert.NotEmpty(t, read.Msg.GetEntries())
 
 	refused, err := instance.Worktrees.RemoveUnownedWorktrees(ctx, connect.NewRequest(&worktreev1.RemoveUnownedWorktreesRequest{Dirs: []string{tree}}))
 	require.NoError(t, err)

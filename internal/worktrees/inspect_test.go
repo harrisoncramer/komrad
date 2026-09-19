@@ -3,13 +3,13 @@ package worktrees
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
 	"weave/internal/git"
 	"weave/internal/store"
 	workflowstore "weave/internal/store/workflow"
-	worktreestore "weave/internal/store/worktree"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -24,7 +24,7 @@ func TestInspectReadsABranchAgainstItsWorkflowsBase(t *testing.T) {
 	f.own("aaaa", "first", nil)
 	f.flows.flows["flow"] = &workflowstore.Workflow{Worktree: workflowstore.WorktreeConfig{BaseBranch: "develop"}}
 	at := time.Date(2026, 9, 19, 12, 0, 0, 0, time.UTC)
-	f.sizes.sizes[dir] = worktreestore.Size{Dir: dir, Bytes: 300, CountedAt: at, Entries: []worktreestore.Entry{{Path: "big", Bytes: 300, Dir: true}}}
+	write(t, dir, "big/one", strings.Repeat("x", 300))
 	f.git.changes = git.Changes{Modified: []string{"own.go"}, Untracked: []string{"scratch.txt"}}
 	f.git.state = git.TreeState{Branch: "agent/aaaa", InProgress: true}
 	f.git.ahead, f.git.behind = 2, 12
@@ -45,7 +45,18 @@ func TestInspectReadsABranchAgainstItsWorkflowsBase(t *testing.T) {
 	assert.True(t, inspection.KeepsBranch)
 	assert.Equal(t, f.git.changes, inspection.Changes)
 	assert.Equal(t, f.git.commits, inspection.Commits)
-	assert.Equal(t, []worktreestore.Entry{{Path: "big", Bytes: 300, Dir: true}}, inspection.Entries)
+	assert.Equal(t, Entry{Path: "big", Bytes: 300, Dir: true}, inspection.Entries[0])
+	assert.Equal(t, held(inspection.Entries), inspection.Bytes)
+}
+
+// held is what the entries add up to.
+func held(entries []Entry) int64 {
+	var total int64
+	for _, entry := range entries {
+		total += entry.Bytes
+	}
+
+	return total
 }
 
 // TestInspectReadsNothingAgainstABaseGitCannotName covers a clone with no origin and no base
@@ -125,7 +136,7 @@ func TestInspectReadsOnlyTheEntriesOfAGoneRegistration(t *testing.T) {
 	f := newFixture(t)
 	dir := filepath.Join(f.shared, "ffff")
 	write(t, dir, ".git", "gitdir: /var/folders/xx/T/repo/.git/worktrees/ffff\n")
-	f.sizes.sizes[dir] = worktreestore.Size{Dir: dir, Bytes: 3, Entries: []worktreestore.Entry{{Path: "left", Bytes: 3}}}
+	write(t, dir, "left", strings.Repeat("x", 100))
 	f.git.commits = []git.Commit{{SHA: "never"}}
 
 	inspection, err := f.inspector().Inspect(t.Context(), dir, false)
@@ -133,7 +144,7 @@ func TestInspectReadsOnlyTheEntriesOfAGoneRegistration(t *testing.T) {
 
 	assert.False(t, inspection.Worktree.Readable)
 	assert.Empty(t, inspection.BaseRef)
-	assert.Len(t, inspection.Entries, 1)
+	assert.Equal(t, Entry{Path: "left", Bytes: 100}, inspection.Entries[0])
 	assert.Empty(t, inspection.Commits)
 }
 

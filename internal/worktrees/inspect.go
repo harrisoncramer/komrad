@@ -9,7 +9,6 @@ import (
 	"weave/internal/git"
 	"weave/internal/store"
 	workflowstore "weave/internal/store/workflow"
-	worktreestore "weave/internal/store/worktree"
 )
 
 // commitLimit is how many of a branch's commits an inspection lists.
@@ -18,8 +17,9 @@ const commitLimit = 50
 // Inspection is one directory read through git.
 type Inspection struct {
 	Worktree Worktree
-	// Entries are the top-level entries as of the last count, biggest first.
-	Entries []worktreestore.Entry
+	// Bytes is what the directory holds, and Entries its top-level entries, biggest first.
+	Bytes   int64
+	Entries []Entry
 	Changes git.Changes
 	// BaseRef is what the branch is measured against, empty when git cannot read the directory
 	// or cannot name a base for it.
@@ -81,8 +81,8 @@ func (i *Inspector) Inspect(ctx context.Context, dir string, fetch bool) (Inspec
 	}
 
 	inspection := Inspection{Worktree: listing.Worktrees[at]}
-	if inspection.Worktree.Size != nil {
-		inspection.Entries = inspection.Worktree.Size.Entries
+	if inspection.Bytes, inspection.Entries, err = measure(ctx, dir); err != nil {
+		return Inspection{}, err
 	}
 	if !inspection.Worktree.Readable {
 		return inspection, nil

@@ -8,7 +8,6 @@ import (
 	"weave/internal/git"
 	"weave/internal/store"
 	agentstore "weave/internal/store/agent"
-	worktreestore "weave/internal/store/worktree"
 	"weave/internal/worktrees"
 	worktreev1 "weave/proto/gen/worktree/v1"
 	worktreev1weave "weave/proto/gen/worktree/v1/worktreev1weave"
@@ -72,12 +71,11 @@ func listed() worktrees.Worktree {
 			Adopted:    true,
 		},
 		Occupants: []worktrees.Agent{{ID: "bbbb", Name: "first-reviewer", State: agentstore.StateThinking}},
-		Size:      &worktrees.Size{Bytes: 4096, CountedAt: archived},
 	}
 }
 
 // TestListWorktrees covers the listing rendered whole: the agent with its stamp, the
-// occupants, the size with when it was counted, and the directories walked.
+// occupants, and the directories walked.
 func TestListWorktrees(t *testing.T) {
 	t.Parallel()
 
@@ -101,12 +99,9 @@ func TestListWorktrees(t *testing.T) {
 	assert.True(t, first.GetAgent().GetAdopted())
 	require.Len(t, first.GetOccupants(), 1)
 	assert.Equal(t, "first-reviewer", first.GetOccupants()[0].GetName())
-	assert.Equal(t, int64(4096), first.GetSizeBytes())
-	assert.Equal(t, "2026-09-19T12:00:00Z", first.GetSizeCountedAt())
 
 	gone := resp.Msg.GetWorktrees()[1]
 	assert.Nil(t, gone.Agent)
-	assert.Nil(t, gone.SizeBytes)
 	assert.False(t, gone.GetReadable())
 
 	assert.Equal(t, []string{"/trees", "/own"}, resp.Msg.GetDirs())
@@ -121,7 +116,8 @@ func TestGetWorktree(t *testing.T) {
 	at := time.Date(2026, 9, 19, 11, 0, 0, 0, time.UTC)
 	fake := &fakeWorktrees{inspection: worktrees.Inspection{
 		Worktree:           listed(),
-		Entries:            []worktreestore.Entry{{Path: "local", Bytes: 40, Dir: true}, {Path: "go.mod", Bytes: 2}},
+		Bytes:              42,
+		Entries:            []worktrees.Entry{{Path: "local", Bytes: 40, Dir: true}, {Path: "go.mod", Bytes: 2}},
 		Changes:            git.Changes{Modified: []string{"a.go"}, Untracked: []string{"b.txt"}},
 		BaseRef:            "origin/main",
 		Ahead:              2,
@@ -138,6 +134,7 @@ func TestGetWorktree(t *testing.T) {
 	assert.Equal(t, "/trees/aaaa", fake.inspected)
 	assert.True(t, fake.fetched)
 	assert.Equal(t, "/trees/aaaa", resp.Msg.GetWorktree().GetDir())
+	assert.Equal(t, int64(42), resp.Msg.GetSizeBytes())
 	require.Len(t, resp.Msg.GetEntries(), 2)
 	assert.Equal(t, "local", resp.Msg.GetEntries()[0].GetPath())
 	assert.True(t, resp.Msg.GetEntries()[0].GetDir())
@@ -170,9 +167,8 @@ func TestRemoveUnownedWorktrees(t *testing.T) {
 	t.Parallel()
 
 	fake := &fakeWorktrees{removal: worktrees.Removal{
-		Removed:    []string{"/trees/gone"},
-		Refused:    []worktrees.Refusal{{Dir: "/trees/aaaa", Reason: "agent first answers for it; delete the agent instead"}},
-		FreedBytes: 4096,
+		Removed: []string{"/trees/gone"},
+		Refused: []worktrees.Refusal{{Dir: "/trees/aaaa", Reason: "agent first answers for it; delete the agent instead"}},
 	}}
 
 	resp, err := newService(fake).RemoveUnownedWorktrees(t.Context(), connect.NewRequest(&worktreev1.RemoveUnownedWorktreesRequest{Dirs: []string{"/trees/gone", "/trees/aaaa"}}))
@@ -183,5 +179,4 @@ func TestRemoveUnownedWorktrees(t *testing.T) {
 	require.Len(t, resp.Msg.GetRefused(), 1)
 	assert.Equal(t, "/trees/aaaa", resp.Msg.GetRefused()[0].GetDir())
 	assert.Contains(t, resp.Msg.GetRefused()[0].GetReason(), "delete the agent instead")
-	assert.Equal(t, int64(4096), resp.Msg.GetFreedBytes())
 }

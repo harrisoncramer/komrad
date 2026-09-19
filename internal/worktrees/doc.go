@@ -1,5 +1,5 @@
-// Package worktrees reads the directories weave cut for its agents, counts what they hold, and
-// removes the ones no agent answers for.
+// Package worktrees reads the directories weave cut for its agents, measures what they hold,
+// and removes the ones no agent answers for.
 //
 // # A listing runs no git
 //
@@ -16,9 +16,9 @@
 // one whose row was deleted while cleanup did not run, or one a test left behind, and those
 // are the only ones Remove will take.
 //
-// # Sizes are counted behind the listing
+// # A size is walked on the get path
 //
-// A count is a walk of every file, fifteen seconds across a few hundred directories, so it is
-// never done on the listing's path. The counter runs in the background, writes each number
-// with when it was taken, and the listing reads those back.
+// Sizing a directory walks every file under it, which runs to seconds for a big checkout and
+// to minutes across a few hundred, so the listing never sizes anything. Inspect walks the one
+// directory it is asked about, and nothing is stored, so a size is always as of the call.
 package worktrees

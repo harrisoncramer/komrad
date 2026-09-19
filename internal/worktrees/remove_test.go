@@ -6,27 +6,23 @@ import (
 	"time"
 
 	agentstore "weave/internal/store/agent"
-	worktreestore "weave/internal/store/worktree"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 // TestRemoveTakesAnUnownedDirectoryAndPrunesIt covers a readable worktree nothing answers
-// for going, its repository pruned, its count dropped and its bytes reported.
+// for going and its repository being pruned.
 func TestRemoveTakesAnUnownedDirectoryAndPrunesIt(t *testing.T) {
 	f := newFixture(t)
 	dir := f.cut(t, "aaaa")
-	f.sizes.sizes[dir] = worktreestore.Size{Dir: dir, Bytes: 77, CountedAt: time.Now()}
 
 	removal, err := f.remover().Remove(t.Context(), []string{dir})
 	require.NoError(t, err)
 
 	assert.Equal(t, []string{dir}, removal.Removed)
 	assert.Empty(t, removal.Refused)
-	assert.Equal(t, int64(77), removal.FreedBytes)
 	assert.NoDirExists(t, dir)
-	assert.NotContains(t, f.sizes.sizes, dir)
 	assert.Equal(t, []string{f.repo}, f.git.pruned)
 }
 

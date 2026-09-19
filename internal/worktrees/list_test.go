@@ -7,7 +7,6 @@ import (
 	"time"
 
 	agentstore "weave/internal/store/agent"
-	worktreestore "weave/internal/store/worktree"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -20,7 +19,6 @@ func TestListReadsADirectoryWithoutGit(t *testing.T) {
 	dir := f.cut(t, "aaaa")
 	archived := time.Date(2026, 9, 19, 12, 0, 0, 0, time.UTC)
 	f.own("aaaa", "first", &archived)
-	f.sizes.sizes[dir] = worktreestore.Size{Dir: dir, Bytes: 42, CountedAt: archived, Entries: []worktreestore.Entry{{Path: "own.go", Bytes: 42}}}
 
 	listing, err := f.lister.List(t.Context())
 	require.NoError(t, err)
@@ -36,9 +34,6 @@ func TestListReadsADirectoryWithoutGit(t *testing.T) {
 	assert.Equal(t, agentstore.StateIdle, tree.Agent.State)
 	assert.Equal(t, &archived, tree.Agent.ArchivedAt)
 	assert.Equal(t, "flow", tree.Agent.WorkflowID)
-	require.NotNil(t, tree.Size)
-	assert.Equal(t, int64(42), tree.Size.Bytes)
-	assert.Equal(t, []worktreestore.Entry{{Path: "own.go", Bytes: 42}}, tree.Size.Entries)
 	assert.Equal(t, []string{f.shared}, listing.Dirs)
 	assert.Empty(t, listing.UnreadableDirs)
 }
@@ -123,18 +118,6 @@ func TestListNamesTheOccupantsOfADirectory(t *testing.T) {
 	require.Len(t, listing.Worktrees[0].Occupants, 2)
 	assert.Equal(t, "amy-alone", listing.Worktrees[0].Occupants[0].Name)
 	assert.Equal(t, "zed-reviewer", listing.Worktrees[0].Occupants[1].Name)
-}
-
-// TestListRecordsWhenItWasAsked covers the stamp the counter reads to know whether anybody has
-// looked since its last pass.
-func TestListRecordsWhenItWasAsked(t *testing.T) {
-	f := newFixture(t)
-	assert.True(t, f.lister.LastListed().IsZero())
-
-	_, err := f.lister.List(t.Context())
-	require.NoError(t, err)
-
-	assert.False(t, f.lister.LastListed().IsZero())
 }
 
 // TestListWalksEachWorkflowsOwnDirectory covers a workflow's own worktree directory being
