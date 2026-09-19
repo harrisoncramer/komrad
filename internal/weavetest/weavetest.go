@@ -43,6 +43,7 @@ import (
 	"weave/proto/gen/agent/v1/agentv1connect"
 	"weave/proto/gen/config/v1/configv1connect"
 	"weave/proto/gen/hook/v1/hookv1connect"
+	"weave/proto/gen/log/v1/logv1connect"
 	"weave/proto/gen/schedule/v1/schedulev1connect"
 	"weave/proto/gen/workflow/v1/workflowv1connect"
 
@@ -58,6 +59,7 @@ type Instance struct {
 	Workflows workflowv1connect.WorkflowServiceClient
 	Schedules schedulev1connect.ScheduleServiceClient
 	Hooks     hookv1connect.HookServiceClient
+	Logs      logv1connect.LogServiceClient
 	Config    configv1connect.ConfigServiceClient
 	Harness   *harnesstest.Harness
 	Tmux      *tmuxtest.Server
@@ -80,6 +82,9 @@ type Params struct {
 	// WorktreesDir replaces the temporary directory the instance would otherwise make its
 	// worktrees in.
 	WorktreesDir string
+	// KeepLog writes the service's log to the file it would write on a real machine, for a
+	// test that reads it back.
+	KeepLog bool
 }
 
 // Start builds the service and returns it running, torn down when the test ends.
@@ -128,16 +133,25 @@ func Start(t *testing.T, p Params) *Instance {
 
 	manager := tmux.NewClient(tmuxServer.Socket())
 
+	env := &config.Environment{
+		DatabaseURL:         stores.URL,
+		ReadOnlyDatabaseURL: stores.ReadOnlyURL,
+		Addr:                addr,
+		TmuxSocket:          tmuxServer.Socket(),
+		CacheDir:            cacheDir,
+	}
+
 	logger := logging.New(io.Discard, slog.LevelError)
+	if p.KeepLog {
+		require.NoError(t, os.MkdirAll(cacheDir, 0o700))
+		logFile, err := os.OpenFile(env.LogPath(), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o600)
+		require.NoError(t, err)
+		t.Cleanup(func() { _ = logFile.Close() })
+		logger = logging.New(logFile, slog.LevelInfo)
+	}
 
 	built, err := server.NewServer(t.Context(), server.NewServerParams{
-		Env: &config.Environment{
-			DatabaseURL:         stores.URL,
-			ReadOnlyDatabaseURL: stores.ReadOnlyURL,
-			Addr:                addr,
-			TmuxSocket:          tmuxServer.Socket(),
-			CacheDir:            cacheDir,
-		},
+		Env:                env,
 		ConfigStack:        config.Stack{Paths: []string{configPath}},
 		Logger:             logger,
 		Addr:               addr,
@@ -162,6 +176,7 @@ func Start(t *testing.T, p Params) *Instance {
 		Workflows:    workflowv1connect.NewWorkflowServiceClient(client, url),
 		Schedules:    schedulev1connect.NewScheduleServiceClient(client, url),
 		Hooks:        hookv1connect.NewHookServiceClient(client, url),
+		Logs:         logv1connect.NewLogServiceClient(client, url),
 		Config:       configv1connect.NewConfigServiceClient(client, url),
 		Harness:      fake,
 		Tmux:         tmuxServer,

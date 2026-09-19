@@ -1,0 +1,79 @@
+syntax = "proto3";
+
+package log.v1;
+
+import "annotation/v1/tool.proto";
+import "buf/validate/validate.proto";
+import "google/protobuf/struct.proto";
+
+option go_package = "weave/proto/gen/log/v1;logv1";
+
+message LogLine {
+  // When the line was written, in RFC 3339.
+  string time = 1;
+  // The severity as the log spells it, such as INFO or ERROR.
+  string level = 2;
+  // What the line says.
+  string message = 3;
+  // Everything else the line carried, keyed as the log keys it.
+  google.protobuf.Struct fields = 4;
+}
+
+message GetLogLinesRequest {
+  // The trace id a failed call answered with, or one list_recent_traces listed.
+  string trace_id = 1 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+}
+
+message GetLogLinesResponse {
+  // Every line written under the trace id, in the order the log holds them.
+  repeated LogLine lines = 1;
+}
+
+message TraceSummary {
+  // The id every line of the trace carries.
+  string trace_id = 1;
+  // When the trace's first line was written, in RFC 3339.
+  string started_at = 2;
+  // What the trace was about: the RPC method, or the loop, when a line said.
+  string what = 3;
+  // How many lines the log holds under it.
+  int32 lines = 4;
+}
+
+message ListRecentTracesRequest {
+  // How many of the newest traces to list, twenty when unset.
+  int32 limit = 1 [(buf.validate.field).int32 = {
+    gte: 0
+    lte: 200
+  }];
+}
+
+message ListRecentTracesResponse {
+  // The traces the log ends with, oldest first.
+  repeated TraceSummary traces = 1;
+}
+
+// LogService reads the service's own log back, by the trace id its lines carry.
+service LogService {
+  rpc GetLogLines(GetLogLinesRequest) returns (GetLogLinesResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+    option (annotation.v1.surfaces) = {
+      cli: true
+      mcp: true
+      name: "get_log_lines"
+      description: "Read every log line the service wrote under one trace id, in order. A trace id covers one request end to end or one pass of a background loop; the service answers it on any call that failed, and it is on every line in the log. This is how to find out what happened behind a failure, on whichever engine the call was made to."
+    };
+  }
+  rpc ListRecentTraces(ListRecentTracesRequest) returns (ListRecentTracesResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+    option (annotation.v1.surfaces) = {
+      cli: true
+      mcp: true
+      name: "list_recent_traces"
+      description: "List the traces the service's log ends with, oldest first, each with when it started, what it was about and how many lines it holds. Start here when you know what you did but not what it was called, then read its lines with get_log_lines."
+    };
+  }
+}

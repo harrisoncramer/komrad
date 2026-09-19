@@ -14,6 +14,7 @@ import (
 	annotationv1 "weave/proto/gen/annotation/v1"
 	configv1 "weave/proto/gen/config/v1"
 	hookv1 "weave/proto/gen/hook/v1"
+	logv1 "weave/proto/gen/log/v1"
 	schedulev1 "weave/proto/gen/schedule/v1"
 	workflowv1 "weave/proto/gen/workflow/v1"
 
@@ -29,6 +30,7 @@ var files = []protoreflect.FileDescriptor{
 	schedulev1.File_schedule_v1_schedule_proto,
 	configv1.File_config_v1_config_proto,
 	hookv1.File_hook_v1_hook_proto,
+	logv1.File_log_v1_log_proto,
 }
 
 type Method struct {

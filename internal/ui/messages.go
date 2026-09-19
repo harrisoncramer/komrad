@@ -211,7 +211,7 @@ func (m model) messagePieces() []messagePiece {
 			style: dimStyle,
 		},
 		{
-			label: "weave trace ",
+			label: "weave log ",
 			text:  held.trace,
 			value: held.trace,
 			style: dimStyle,
@@ -415,7 +415,7 @@ func (m model) messagesDoc() string {
 	fmt.Fprintf(&b, "\n_%s · %s · message %d of %d_\n", kindLabel(held.kind), held.at.Format("3:04pm"), len(m.messages.items)-m.messagesCursor(), len(m.messages.items))
 
 	if held.trace != "" {
-		fmt.Fprintf(&b, "\n```\nweave trace %s\n```\n", held.trace)
+		fmt.Fprintf(&b, "\n```\nweave log %s\n```\n", held.trace)
 	}
 
 	return b.String()

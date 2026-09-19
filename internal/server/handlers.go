@@ -6,10 +6,12 @@ import (
 
 	"weave/internal/interceptors"
 	"weave/internal/jobs"
+	"weave/internal/logread"
 	"weave/internal/mcp"
 	rpcagent "weave/internal/rpc/agent"
 	rpcconfig "weave/internal/rpc/config"
 	rpchook "weave/internal/rpc/hook"
+	rpclog "weave/internal/rpc/log"
 	rpcschedule "weave/internal/rpc/schedule"
 	rpcworkflow "weave/internal/rpc/workflow"
 	"weave/internal/rpccodec"
@@ -19,6 +21,8 @@ import (
 	configv1weave "weave/proto/gen/config/v1/configv1weave"
 	"weave/proto/gen/hook/v1/hookv1connect"
 	hookv1weave "weave/proto/gen/hook/v1/hookv1weave"
+	"weave/proto/gen/log/v1/logv1connect"
+	logv1weave "weave/proto/gen/log/v1/logv1weave"
 	"weave/proto/gen/schedule/v1/schedulev1connect"
 	schedulev1weave "weave/proto/gen/schedule/v1/schedulev1weave"
 	"weave/proto/gen/workflow/v1/workflowv1connect"
@@ -38,6 +42,7 @@ type newMuxParams struct {
 	Jobs          *river.Client[pgx.Tx]
 	ReadOnly      *pgxpool.Pool
 	StopRequested chan struct{}
+	LogPath       string
 }
 
 func newMux(params newMuxParams) (*http.ServeMux, error) {
@@ -88,6 +93,10 @@ func newMux(params newMuxParams) (*http.ServeMux, error) {
 	mux.Handle(hookv1connect.NewHookServiceHandler(
 		hookv1weave.HookServiceAdapter{
 			Impl: rpchook.NewService(params.Services.script),
+		}, options...))
+	mux.Handle(logv1connect.NewLogServiceHandler(
+		logv1weave.LogServiceAdapter{
+			Impl: rpclog.NewService(logread.New(params.LogPath)),
 		}, options...))
 
 	mcpHandler, err := mcp.NewHandler(mcp.NewHandlerParams{DB: params.ReadOnly, BaseURL: "http://" + params.Addr})

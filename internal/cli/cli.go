@@ -159,7 +159,7 @@ the machine, start or stop the service, or call an endpoint from a script.`,
 		readonlyRoleCmd(app),
 		rpcCmd(app),
 		hookCmd(app),
-		traceCmd(app),
+		logCmd(app),
 	)
 
 	return root

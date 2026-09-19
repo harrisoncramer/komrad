@@ -41,6 +41,7 @@ flags, and the response is the API's own JSON on stdout.
 * [weave rpc empty-archive](weave_rpc_empty-archive.md)	 - Permanently delete every archived agent and workflow, tearing down each worktree that is still on disk.
 * [weave rpc get-agent](weave_rpc_get-agent.md)	 - Fetch one agent by id, including whatever metadata it has recorded about its own work.
 * [weave rpc get-config](weave_rpc_get-config.md)	 - Read the panel's configuration as it is currently in force, keyed the same way the user's config file is.
+* [weave rpc get-log-lines](weave_rpc_get-log-lines.md)	 - Read every log line the service wrote under one trace id, in order.
 * [weave rpc get-schedule](weave_rpc_get-schedule.md)	 - Fetch one schedule by id.
 * [weave rpc get-transcript](weave_rpc_get-transcript.md)	 - Fetch one window of an agent's transcript by agent id, not by name.
 * [weave rpc get-workflow](weave_rpc_get-workflow.md)	 - Fetch one workflow by id.
@@ -48,6 +49,7 @@ flags, and the response is the API's own JSON on stdout.
 * [weave rpc list-agents](weave_rpc_list-agents.md)	 - List the agents the panel tracks, live and dormant, with each one's name, state, working directory, flags, and workflow.
 * [weave rpc list-hooks](weave_rpc_list-hooks.md)	 - List the hooks the user has written, which are executable files in their hooks directory.
 * [weave rpc list-mail](weave_rpc_list-mail.md)	 - List the mail addressed to an agent, most recent first, without claiming any of it: unlike read_mail this never empties the mailbox.
+* [weave rpc list-recent-traces](weave_rpc_list-recent-traces.md)	 - List the traces the service's log ends with, oldest first, each with when it started, what it was about and how many lines it holds.
 * [weave rpc list-review-rounds](weave_rpc_list-review-rounds.md)	 - Read the rounds taken of an agent, oldest first.
 * [weave rpc list-review-threads](weave_rpc_list-review-threads.md)	 - Read the review conversations pinned to the lines of a diff.
 * [weave rpc list-reviews](weave_rpc_list-reviews.md)	 - Read every review released on an agent, in the order their rounds were taken, each with the verdict it carried.
