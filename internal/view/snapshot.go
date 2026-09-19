@@ -129,4 +129,6 @@ type Row struct {
 	Scheduled   bool
 	// HiddenCount is how many rows this one stands in for while they are out of sight.
 	HiddenCount int
+	// Trail is text drawn at the right edge of the row, empty on a row that draws none.
+	Trail string
 }
