@@ -44,6 +44,12 @@ func (t *bindingTmux) BindRootKey(key string, command ...string) {
 	t.rootBinds++
 }
 
+func (t *bindingTmux) UnbindKey(key string) {
+	delete(t.bound, key)
+
+	t.unbound = append(t.unbound, key)
+}
+
 func (t *bindingTmux) UnbindRootKey(key string) {
 	delete(t.bound, "root:"+key)
 
@@ -169,6 +175,22 @@ func TestBindHide(t *testing.T) {
 				"the panel key is not bound to hiding the popup")
 		})
 	}
+}
+
+// TestBindHideForgetsTheKeyItBoundLast pins the old hide binding going when the key changes.
+func TestBindHideForgetsTheKeyItBoundLast(t *testing.T) {
+	tmux := &bindingTmux{}
+
+	NewPopupWindow(tmux, "manager").BindHide("w")
+	NewPopupWindow(tmux, "manager").BindHide("j")
+
+	_, bound := tmux.bound["w"]
+	assert.False(t, bound, "the key the last open bound no longer hides the panel")
+	assert.Equal(t, []string{"detach-client", "-s", "manager"}, tmux.bound["j"])
+
+	NewPopupWindow(tmux, "manager").BindHide("j")
+
+	assert.Equal(t, []string{"w"}, tmux.unbound, "a key bound again is left standing")
 }
 
 // TestPanelKey pins the order the key is settled in, which both the binding that opens the panel

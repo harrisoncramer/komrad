@@ -409,6 +409,11 @@ func (c *Client) BindKey(key string, command ...string) {
 	c.run(append([]string{"bind-key", key}, command...)...)
 }
 
+// UnbindKey removes a key from the prefix table.
+func (c *Client) UnbindKey(key string) {
+	c.run("unbind-key", key)
+}
+
 // BindRootKey binds a key outside the prefix table, taking that key away from whatever is
 // running in the panes.
 func (c *Client) BindRootKey(key string, command ...string) {

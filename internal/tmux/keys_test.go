@@ -34,6 +34,10 @@ func TestBindKeyStaysBehindThePrefix(t *testing.T) {
 
 	assert.Contains(t, keyTable(t, client, "prefix"), "F2")
 	assert.NotContains(t, keyTable(t, client, "root"), "F2")
+
+	client.UnbindKey("F2")
+
+	assert.NotContains(t, keyTable(t, client, "prefix"), "F2", "unbinding takes it out of the prefix table")
 }
 
 // TestCheckedBindsReportWhatTmuxSaid pins the refusal reaching the caller.
