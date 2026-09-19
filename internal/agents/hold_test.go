@@ -42,8 +42,7 @@ func holderOver(st *testStore, channel *fakeChannel, observer harness.Observer) 
 	})
 }
 
-// settlerOver builds a settler whose clock walks the budget by itself, so resting between
-// readings costs no real time.
+// settlerOver builds a settler whose clock walks the budget by itself.
 func settlerOver(channel harness.Channel, observer harness.Observer) *Settler {
 	at := time.Now()
 

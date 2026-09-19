@@ -151,10 +151,12 @@ func TestRebaseWaitsForABusyAgentToStop(t *testing.T) {
 
 	const rest = 2 * time.Second
 
+	settled := make(chan error, 1)
 	go func() {
 		time.Sleep(rest)
-		assert.NoError(t, instance.Harness.SetActivity(agentID, harness.ActivityIdle))
+		settled <- instance.Harness.SetActivity(agentID, harness.ActivityIdle)
 	}()
+	t.Cleanup(func() { assert.NoError(t, <-settled) })
 
 	started := time.Now()
 	refreshed, err := instance.Agents.RebaseWorktree(t.Context(), connect.NewRequest(&agentv1.RebaseWorktreeRequest{

@@ -138,6 +138,11 @@ func (s *RebaseService) PlanRebase(ctx context.Context, agentID string) (*Rebase
 		return nil, err
 	}
 
+	return s.plan(ctx, *agent)
+}
+
+// plan reads the checkout and the base and says what a rebase would do to them.
+func (s *RebaseService) plan(ctx context.Context, agent agentstore.Agent) (*RebasePlan, error) {
 	state, err := s.rebaser.ReadTreeState(ctx, agent.Cwd)
 	if err != nil {
 		return nil, err
@@ -193,14 +198,54 @@ func (s *RebaseService) Rebase(ctx context.Context, agentID string) (*RebaseResu
 	}
 	defer unlock()
 
-	// An agent with no pane is skipped rather than refused.
-	if s.settler != nil && agent.Pane != "" {
-		if _, err := s.settler.Settle(ctx, *agent); err != nil {
-			return nil, err
-		}
+	state, err := s.rebaser.ReadTreeState(ctx, agent.Cwd)
+	if err != nil {
+		return nil, err
+	}
+	if err := refuseTreeState(state); err != nil {
+		return nil, err
 	}
 
-	plan, err := s.PlanRebase(ctx, agentID)
+	interrupted, err := s.settle(ctx, *agent)
+	if err != nil {
+		return nil, err
+	}
+
+	result, err := s.rebase(ctx, *agent)
+	if err != nil {
+		if interrupted {
+			s.tellCut(ctx, *agent, err)
+		}
+
+		return nil, err
+	}
+
+	s.tell(ctx, *agent, *result)
+
+	return result, nil
+}
+
+// settle brings the agent to rest before its files move, reporting whether a turn was cut.
+func (s *RebaseService) settle(ctx context.Context, agent agentstore.Agent) (bool, error) {
+	if agent.Pane == "" {
+		return false, nil
+	}
+
+	return s.settler.Settle(ctx, agent)
+}
+
+// rebase plans the move and makes it.
+func (s *RebaseService) rebase(ctx context.Context, agent agentstore.Agent) (*RebaseResult, error) {
+	// Explainer: the row is read again because a hold can land during the seconds the settle
+	// takes, but its state is not judged again. The reconciler stamps that state from a pane
+	// capture every couple of seconds, so a capture taken between the turn starting and the
+	// interrupt landing says thinking, and the pane the settle just read as at rest is the newer
+	// evidence.
+	if _, err := s.read(ctx, agent.ID); err != nil {
+		return nil, err
+	}
+
+	plan, err := s.plan(ctx, agent)
 	if err != nil {
 		return nil, err
 	}
@@ -209,7 +254,7 @@ func (s *RebaseService) Rebase(ctx context.Context, agentID string) (*RebaseResu
 
 	// Parked before anything moves, since a replay from a cutoff drops commits on purpose and
 	// the reflog holds refs rather than the files that were never committed.
-	result.ParkedRef = buildParkRef(agentID)
+	result.ParkedRef = buildParkRef(agent.ID)
 	if _, err := s.rebaser.Park(ctx, agent.Cwd, result.ParkedRef); err != nil {
 		return nil, err
 	}
@@ -218,13 +263,11 @@ func (s *RebaseService) Rebase(ctx context.Context, agentID string) (*RebaseResu
 		return nil, err
 	}
 
-	s.releaseOlderParks(ctx, *agent, result.ParkedRef)
+	s.releaseOlderParks(ctx, agent, result.ParkedRef)
 
 	if result.Conflicted {
-		s.recordStopped(ctx, *agent)
+		s.recordStopped(ctx, agent)
 	}
-
-	s.tell(ctx, *agent, *result)
 
 	return result, nil
 }
@@ -289,6 +332,25 @@ func (s *RebaseService) tell(ctx context.Context, agent agentstore.Agent, result
 		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to tell an agent its worktree was rebased",
 			append([]slog.Attr{slog.String(logging.AgentID, agent.ID)}, logging.Err(err)...)...)
 	}
+}
+
+// tellCut says in the agent's mailbox that its turn was cut for a rebase that then failed.
+func (s *RebaseService) tellCut(ctx context.Context, agent agentstore.Agent, failure error) {
+	if s.notifier == nil {
+		return
+	}
+
+	if _, err := s.notifier.SendSystemMail(ctx, agent.ID, cutMail(failure)); err != nil {
+		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to tell an agent its turn was cut for nothing",
+			append([]slog.Attr{slog.String(logging.AgentID, agent.ID)}, logging.Err(err)...)...)
+	}
+}
+
+// cutMail is what an agent is told when it was stopped for a rebase that did not go through.
+func cutMail(failure error) string {
+	return fmt.Sprintf("Your turn was interrupted so that your worktree could be rebased onto its base, "+
+		"but the rebase failed before it finished: %s\n\n"+
+		"Check git status before carrying on, then pick up where you were.", failure)
 }
 
 // rebaseMail is what the agent is told, which turns on what became of its branch rather than on
@@ -377,27 +439,15 @@ func replayedMail(result RebaseResult) string {
 
 // eligible answers the agent when a rebase is its to have, or the reason it is not.
 func (s *RebaseService) eligible(ctx context.Context, agentID string) (*agentstore.Agent, error) {
-	agent, err := s.agents.GetByID(ctx, agentID)
-	if errors.Is(err, store.ErrNotFound) {
-		return nil, ErrAgentNotFound.Saying("no agent with id %q", agentID)
-	}
+	agent, err := s.read(ctx, agentID)
 	if err != nil {
 		return nil, err
-	}
-
-	if agent.ArchivedAt != nil {
-		return nil, fmt.Errorf("%w: %q", ErrAgentArchived, agent.Name)
 	}
 
 	if err := s.refuseTheCaller(ctx, *agent); err != nil {
 		return nil, err
 	}
 
-	// A rebase types at the agent and then rewrites the branch under its checkout, which is the
-	// collision somebody holding that tree stopped it to avoid.
-	if agent.HeldAt != nil {
-		return nil, ErrAgentHeld.Saying("%q is paused, unpause it first", agent.Name)
-	}
 	// A state the pane could not be read for says nothing about whether the agent is working.
 	if !agent.State.IsAtRest() {
 		return nil, fmt.Errorf("%w: %q is %s", ErrRebaseBusy, agent.Name, agent.State)
@@ -423,6 +473,29 @@ func (s *RebaseService) eligible(ctx context.Context, agentID string) (*agentsto
 	}
 	if !flow.Worktree.Enabled {
 		return nil, fmt.Errorf("%w: its workflow does not make worktrees", ErrRebaseNoWorktree)
+	}
+
+	return agent, nil
+}
+
+// read fetches the row, refusing an agent that is archived or that a person is holding.
+func (s *RebaseService) read(ctx context.Context, agentID string) (*agentstore.Agent, error) {
+	agent, err := s.agents.GetByID(ctx, agentID)
+	if errors.Is(err, store.ErrNotFound) {
+		return nil, ErrAgentNotFound.Saying("no agent with id %q", agentID)
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	if agent.ArchivedAt != nil {
+		return nil, fmt.Errorf("%w: %q", ErrAgentArchived, agent.Name)
+	}
+
+	// A rebase types at the agent and then rewrites the branch under its checkout, which is the
+	// collision somebody holding that tree stopped it to avoid.
+	if agent.HeldAt != nil {
+		return nil, ErrAgentHeld.Saying("%q is paused, unpause it first", agent.Name)
 	}
 
 	return agent, nil
