@@ -28,7 +28,7 @@ func TestAReviewSaysWhereARemovedLineWasCounted(t *testing.T) {
 				OldEnd:   42,
 			},
 			wantHeading: "## greet.go:41-42 (removed)",
-			wantPair:    "`git diff earlier-snapshot-sha snapshot-sha -- greet.go`",
+			wantPair:    "`git diff earlier-snapshot-sha snapshot-sha`",
 		},
 		{
 			name: "a line removed since the round's own base is counted there",
@@ -40,7 +40,7 @@ func TestAReviewSaysWhereARemovedLineWasCounted(t *testing.T) {
 				OldEnd:   41,
 			},
 			wantHeading: "## greet.go:41 (removed)",
-			wantPair:    "`git diff base-sha snapshot-sha -- greet.go`",
+			wantPair:    "`git diff base-sha snapshot-sha`",
 		},
 		{
 			name: "a thread that recorded no base was counted in the round's",
@@ -51,15 +51,19 @@ func TestAReviewSaysWhereARemovedLineWasCounted(t *testing.T) {
 				OldEnd:   41,
 			},
 			wantHeading: "## greet.go:41 (removed)",
-			wantPair:    "`git diff base-sha snapshot-sha -- greet.go`",
+			wantPair:    "`git diff base-sha snapshot-sha`",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			body := renderReview(renderReviewParams{
-				Agent:   agentstore.Agent{ID: reviewedAgentID, Name: "worker"},
-				Round:   reviewstore.Round{Ordinal: 1, BaseSHA: "base-sha", SnapshotSHA: "snapshot-sha"},
+				Agent: agentstore.Agent{ID: reviewedAgentID, Name: "worker"},
+				Round: reviewstore.Round{
+					Ordinal:     1,
+					BaseSHA:     "base-sha",
+					SnapshotSHA: "snapshot-sha",
+				},
 				Verdict: reviewstore.VerdictChangesRequested,
 				Threads: []ReviewThreadWithMessages{{Thread: tt.thread}},
 			})
@@ -72,11 +76,15 @@ func TestAReviewSaysWhereARemovedLineWasCounted(t *testing.T) {
 }
 
 // TestAReviewLeavesALineOnTheNewSideAlone pins that a comment on a line the snapshot holds is
-// headed as it always was, whatever base the thread recorded.
+// headed by its new-side number, whatever base the thread recorded.
 func TestAReviewLeavesALineOnTheNewSideAlone(t *testing.T) {
 	body := renderReview(renderReviewParams{
-		Agent:   agentstore.Agent{ID: reviewedAgentID, Name: "worker"},
-		Round:   reviewstore.Round{Ordinal: 1, BaseSHA: "base-sha", SnapshotSHA: "snapshot-sha"},
+		Agent: agentstore.Agent{ID: reviewedAgentID, Name: "worker"},
+		Round: reviewstore.Round{
+			Ordinal:     1,
+			BaseSHA:     "base-sha",
+			SnapshotSHA: "snapshot-sha",
+		},
 		Verdict: reviewstore.VerdictChangesRequested,
 		Threads: []ReviewThreadWithMessages{{Thread: reviewstore.Thread{
 			ID:       reviewThreadID,

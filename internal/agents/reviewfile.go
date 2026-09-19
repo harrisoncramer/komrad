@@ -173,8 +173,8 @@ func oldSideSentence(thread reviewstore.Thread, round reviewstore.Round) string 
 	}
 
 	return fmt.Sprintf("This thread's line numbers are on the old side, counted in `%s` rather than "+
-		"in the snapshot. To see those lines, run `git diff %s %s -- %s`.",
-		short(base), base, round.SnapshotSHA, thread.FilePath)
+		"in the snapshot. To see those lines, run `git diff %s %s`.",
+		short(base), base, round.SnapshotSHA)
 }
 
 // reviewerName is who gave the review, spelled for somebody reading the file long afterwards,
