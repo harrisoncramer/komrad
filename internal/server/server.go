@@ -22,7 +22,6 @@ import (
 	"weave/internal/jobs"
 	"weave/internal/store"
 	"weave/internal/tmux"
-	"weave/internal/version"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/riverqueue/river"
@@ -43,6 +42,8 @@ type NewServerParams struct {
 	ContextPath        string
 	HookCommand        string
 	FallbackResumeRoot string
+	// Doctor is this machine as the doctor's checks see it, which run_doctor answers with.
+	Doctor doctor.Settings
 }
 
 // mailConfig reads the mail settings fresh on every send, and fails rather than falling back to
@@ -141,11 +142,6 @@ func NewServer(ctx context.Context, params NewServerParams) (*Server, error) {
 	}
 	srv.closers = append(srv.closers, readOnly.Close)
 
-	doctorSettings, err := describeForDoctor(params)
-	if err != nil {
-		return nil, err
-	}
-
 	srv.Mux, err = newMux(newMuxParams{
 		Logger:        params.Logger,
 		Addr:          params.Addr,
@@ -155,7 +151,7 @@ func NewServer(ctx context.Context, params NewServerParams) (*Server, error) {
 		ReadOnly:      readOnly,
 		StopRequested: srv.stopRequested,
 		LogPath:       params.Env.LogPath(),
-		Doctor:        doctorSettings,
+		Doctor:        params.Doctor,
 	})
 	if err != nil {
 		return nil, err
@@ -186,30 +182,4 @@ func (s *Server) Close() {
 	}
 
 	s.closers = nil
-}
-
-// describeForDoctor is this machine as the doctor's checks see it, which the service answers
-// run_doctor with.
-func describeForDoctor(params NewServerParams) (doctor.Settings, error) {
-	harnesses, err := doctor.DescribeHarnesses(params.Harnesses)
-	if err != nil {
-		return doctor.Settings{}, err
-	}
-
-	var sources map[string]config.Source
-	if _, report, err := config.LoadWithReport(params.ConfigStack); err == nil {
-		sources = report.Sources
-	}
-
-	return doctor.Settings{
-		TmuxSocket:          params.Env.TmuxSocket,
-		ConfigStack:         params.ConfigStack,
-		Sources:             sources,
-		Harnesses:           harnesses,
-		DatabaseURL:         params.Env.DatabaseURL,
-		ReadOnlyDatabaseURL: params.Env.ReadOnlyDatabaseURL,
-		Addr:                params.Addr,
-		Version:             version.Version(),
-		Commit:              version.Commit(),
-	}, nil
 }

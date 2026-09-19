@@ -31,6 +31,7 @@ import (
 	"weave/db"
 	"weave/internal/agents"
 	"weave/internal/caller"
+	"weave/internal/doctor"
 	"weave/internal/harness"
 	"weave/internal/harnesstest"
 	"weave/internal/logging"
@@ -157,6 +158,9 @@ func Start(t *testing.T, p Params) *Instance {
 		logger = logging.New(logFile, slog.LevelInfo)
 	}
 
+	describedHarnesses, err := doctor.DescribeHarnesses(harnesses)
+	require.NoError(t, err)
+
 	built, err := server.NewServer(t.Context(), server.NewServerParams{
 		Env:                env,
 		ConfigStack:        config.Stack{Paths: []string{configPath}},
@@ -167,6 +171,14 @@ func Start(t *testing.T, p Params) *Instance {
 		DefaultHarness:     harnesstest.ID,
 		MaxAgents:          p.MaxAgents,
 		FallbackResumeRoot: filepath.Join(root, "restored"),
+		Doctor: doctor.Settings{
+			TmuxSocket:          env.TmuxSocket,
+			ConfigStack:         config.Stack{Paths: []string{configPath}},
+			Harnesses:           describedHarnesses,
+			DatabaseURL:         env.DatabaseURL,
+			ReadOnlyDatabaseURL: env.ReadOnlyDatabaseURL,
+			Addr:                addr,
+		},
 	})
 	require.NoError(t, err)
 	t.Cleanup(built.Close)

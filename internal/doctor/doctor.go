@@ -114,11 +114,10 @@ var ErrEngineUnanswered = &ProblemError{
 
 const engineDescription = "the checks the engine's service makes on its own machine"
 
-// EngineNotChecked stands in for the engine's checks when the server check did not pass, since
-// the service is what makes them.
+// EngineNotChecked stands in for the engine's checks when the server check did not pass.
 func EngineNotChecked() Finding {
 	return Finding{
-		Name:        "engine",
+		Name:        "checks",
 		Description: engineDescription,
 		Status:      StatusSkip,
 		Detail:      "not checked, server has to pass first",
@@ -132,7 +131,7 @@ func EngineUnanswered(err error) Finding {
 	wrapped := fmt.Errorf("%w: %w", ErrEngineUnanswered, err)
 
 	return Finding{
-		Name:        "engine",
+		Name:        "checks",
 		Description: engineDescription,
 		Status:      StatusFail,
 		Code:        codeOf(wrapped),

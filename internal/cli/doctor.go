@@ -96,7 +96,7 @@ doing something that makes no sense.`,
 }
 
 // runDoctor makes the checks about this machine and, when the engine is elsewhere, asks its
-// service for the checks about that one, which only a terminal a person typed at has measured.
+// service for the checks about that one; onTTY is whether a person typed the command.
 func (a *app) runDoctor(ctx context.Context, onTTY bool) (doctor.Report, error) {
 	env, settings, err := a.buildDoctor()
 	if err != nil {
