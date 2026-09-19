@@ -49,6 +49,7 @@ func buildServices(params NewServerParams, st *stores) (*services, error) {
 	mailService := agents.NewMailService(agents.NewMailServiceParams{
 		MailReadWriter: st.mail,
 		Agents:         st.agents,
+		Workflows:      st.workflows,
 		Config:         mailConfig(loadConfig),
 	})
 	stateDir := params.Env.StateDir

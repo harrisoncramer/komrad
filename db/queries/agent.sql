@@ -59,6 +59,17 @@ WHERE
     AND s.archived_at IS NULL
 LIMIT 1;
 
+-- name: ListLiveAgentsNamed :many
+SELECT
+    *
+FROM
+    agents s
+WHERE
+    s.name = @name
+    AND s.archived_at IS NULL
+ORDER BY
+    s.id DESC;
+
 -- name: GetAgentByID :one
 SELECT
     *

@@ -3,6 +3,7 @@ package agents
 import (
 	"context"
 	"fmt"
+	"sort"
 	"testing"
 	"time"
 
@@ -10,6 +11,7 @@ import (
 	"weave/internal/store"
 	agentstore "weave/internal/store/agent"
 	mailstore "weave/internal/store/mail"
+	workflowstore "weave/internal/store/workflow"
 	"weave/lib/xptr"
 	"weave/lib/xslice"
 
@@ -753,6 +755,19 @@ func newFakeDirectory() *fakeDirectory {
 	}
 }
 
+func (f *fakeDirectory) ListLiveNamed(_ context.Context, name string) ([]agentstore.Agent, error) {
+	var named []agentstore.Agent
+	for _, agent := range f.byID {
+		if agent.Name == name && agent.ArchivedAt == nil {
+			named = append(named, agent)
+		}
+	}
+
+	sort.Slice(named, func(i, j int) bool { return named[i].ID > named[j].ID })
+
+	return named, nil
+}
+
 func (f *fakeDirectory) GetByID(_ context.Context, id string) (*agentstore.Agent, error) {
 	found, ok := f.byID[id]
 	if !ok {
@@ -773,4 +788,144 @@ func (f *fakeDirectory) SetViewed(_ context.Context, id string, viewed bool) err
 	f.unviewed[id]++
 
 	return nil
+}
+
+type fakeWorkflowNames map[string]string
+
+func (f fakeWorkflowNames) Get(_ context.Context, id string) (*workflowstore.Workflow, error) {
+	name, ok := f[id]
+	if !ok {
+		return nil, fmt.Errorf("%w: workflow %q", store.ErrNotFound, id)
+	}
+
+	return &workflowstore.Workflow{ID: id, Name: name}, nil
+}
+
+// TestResolveRecipient pins the tiers an address resolves through: an id is taken as it stands
+// and never tried as a name, a name is looked for in the sender's own workflow before every
+// workflow, and a name more than one workflow holds is refused naming each holder.
+func TestResolveRecipient(t *testing.T) {
+	workflowA, workflowB, workflowC := uuid.NewString(), uuid.NewString(), uuid.NewString()
+	workflows := fakeWorkflowNames{workflowA: "chariot", workflowB: "weave", workflowC: "docs"}
+
+	sender := agentstore.Agent{ID: uuid.NewString(), Name: "api", WorkflowID: workflowA}
+	reviewerA := agentstore.Agent{ID: uuid.NewString(), Name: "reviewer", WorkflowID: workflowA}
+	reviewerB := agentstore.Agent{ID: uuid.NewString(), Name: "reviewer", WorkflowID: workflowB}
+	migrations := agentstore.Agent{ID: uuid.NewString(), Name: "migrations", WorkflowID: workflowB}
+	testerB := agentstore.Agent{ID: uuid.NewString(), Name: "tester", WorkflowID: workflowB}
+	testerC := agentstore.Agent{ID: uuid.NewString(), Name: "tester", WorkflowID: workflowC}
+	archivedAt := time.Date(2026, time.August, 4, 9, 0, 0, 0, time.UTC)
+	retired := agentstore.Agent{ID: uuid.NewString(), Name: "retired", WorkflowID: workflowB, ArchivedAt: &archivedAt}
+	unheldID := uuid.NewString()
+	namedLikeAnID := agentstore.Agent{ID: uuid.NewString(), Name: unheldID, WorkflowID: workflowB}
+	namedLikeAnother := agentstore.Agent{ID: uuid.NewString(), Name: reviewerA.ID, WorkflowID: workflowB}
+
+	directory := &fakeDirectory{byID: map[string]agentstore.Agent{}}
+	for _, agent := range []agentstore.Agent{sender, reviewerA, reviewerB, migrations, testerB, testerC, retired, namedLikeAnID, namedLikeAnother} {
+		directory.byID[agent.ID] = agent
+	}
+
+	tests := []struct {
+		name     string
+		from     string
+		to       string
+		want     agentstore.Agent
+		wantErr  error
+		wantSaid []string
+	}{
+		{
+			name: "an id, even when another agent is named that id",
+			from: sender.ID,
+			to:   reviewerA.ID,
+			want: reviewerA,
+		},
+		{
+			name:    "an id nothing holds is not found rather than tried as a name",
+			from:    sender.ID,
+			to:      unheldID,
+			wantErr: ErrRecipientNotFound,
+		},
+		{
+			name: "an archived agent by id, for the send to refuse as archived",
+			from: sender.ID,
+			to:   retired.ID,
+			want: retired,
+		},
+		{
+			name: "a name held in the sender's own workflow and in another",
+			from: sender.ID,
+			to:   "reviewer",
+			want: reviewerA,
+		},
+		{
+			name: "a name held only in another workflow",
+			from: sender.ID,
+			to:   "migrations",
+			want: migrations,
+		},
+		{
+			name:    "a name nobody holds",
+			from:    sender.ID,
+			to:      "nobody",
+			wantErr: ErrRecipientNotFound,
+		},
+		{
+			name:    "a name held only by an archived agent",
+			from:    sender.ID,
+			to:      "retired",
+			wantErr: ErrRecipientNotFound,
+		},
+		{
+			name:     "a name two other workflows hold",
+			from:     sender.ID,
+			to:       "tester",
+			wantErr:  ErrRecipientAmbiguous,
+			wantSaid: []string{testerB.ID + " in workflow \"weave\"", testerC.ID + " in workflow \"docs\""},
+		},
+		{
+			name: "a name from nobody, which has no workflow to look in first",
+			from: "",
+			to:   "migrations",
+			want: migrations,
+		},
+		{
+			name:     "a name two workflows hold, from nobody",
+			from:     "",
+			to:       "reviewer",
+			wantErr:  ErrRecipientAmbiguous,
+			wantSaid: []string{reviewerA.ID + " in workflow \"chariot\"", reviewerB.ID + " in workflow \"weave\""},
+		},
+		{
+			name:    "a name from a sender the panel does not know",
+			from:    uuid.NewString(),
+			to:      "migrations",
+			wantErr: ErrSenderUnknown,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svc := NewMailService(NewMailServiceParams{
+				MailReadWriter: &fakeMailbox{},
+				Agents:         directory,
+				Workflows:      workflows,
+				Config:         fakeMailConfig{maxExchange: config.DefaultMaxExchange},
+			})
+
+			got, err := svc.ResolveRecipient(t.Context(), ResolveRecipientParams{From: tt.from, To: tt.to})
+			if tt.wantErr != nil {
+				require.ErrorIs(t, err, tt.wantErr)
+				assert.Nil(t, got)
+				for _, said := range tt.wantSaid {
+					assert.Contains(t, err.Error(), said)
+				}
+
+				return
+			}
+
+			require.NoError(t, err)
+			require.NotNil(t, got)
+			assert.Equal(t, tt.want.ID, got.ID)
+		})
+	}
 }

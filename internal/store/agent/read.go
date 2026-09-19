@@ -93,6 +93,16 @@ func (s *Store) GetInWorkflow(ctx context.Context, workflowID, name string) (*Ag
 	return s.hydrateMetadataForAgent(ctx, row)
 }
 
+// ListLiveNamed returns the live agents holding a name, across every workflow.
+func (s *Store) ListLiveNamed(ctx context.Context, name string) ([]Agent, error) {
+	rows, err := s.queries.ListLiveAgentsNamed(ctx, name)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list the live agents named %q: %w", name, err)
+	}
+
+	return s.hydrateMetadataForAgents(ctx, rows)
+}
+
 // GetByID returns a live or archived agent by ID.
 func (s *Store) GetByID(ctx context.Context, id string) (*Agent, error) {
 	if !store.IsID(id) {

@@ -261,8 +261,8 @@ func (x *Mail) GetKind() MailKind {
 
 type SendMailRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Who to send to, addressed by id since two workflows may hold agents of one name.
-	ToAgentId string `protobuf:"bytes,1,opt,name=to_agent_id,json=toAgentId,proto3" json:"to_agent_id,omitempty"`
+	// Who to send to: an agent's id, or the name of a live agent.
+	To string `protobuf:"bytes,1,opt,name=to,proto3" json:"to,omitempty"`
 	// What to say, which has to carry who is asking and what is wanted.
 	Body string `protobuf:"bytes,2,opt,name=body,proto3" json:"body,omitempty"`
 	// The mail being answered, so the exchange reads as a thread.
@@ -301,9 +301,9 @@ func (*SendMailRequest) Descriptor() ([]byte, []int) {
 	return file_agent_v1_mail_proto_rawDescGZIP(), []int{1}
 }
 
-func (x *SendMailRequest) GetToAgentId() string {
+func (x *SendMailRequest) GetTo() string {
 	if x != nil {
-		return x.ToAgentId
+		return x.To
 	}
 	return ""
 }
@@ -806,9 +806,9 @@ const file_agent_v1_mail_proto_rawDesc = "" +
 	" \x01(\x0e2\x12.agent.v1.MailKindR\x04kindB\x10\n" +
 	"\x0e_from_agent_idB\v\n" +
 	"\t_reply_toB\r\n" +
-	"\v_claimed_at\"\x90\x01\n" +
-	"\x0fSendMailRequest\x12'\n" +
-	"\vto_agent_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\ttoAgentId\x12\x1e\n" +
+	"\v_claimed_at\"\x80\x01\n" +
+	"\x0fSendMailRequest\x12\x17\n" +
+	"\x02to\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02to\x12\x1e\n" +
 	"\x04body\x18\x02 \x01(\tB\n" +
 	"\xbaH\ar\x05\x10\x01\x18\x90NR\x04body\x12'\n" +
 	"\breply_to\x18\x03 \x01(\tB\a\xbaH\x04r\x02\x10\x01H\x00R\areplyTo\x88\x01\x01B\v\n" +

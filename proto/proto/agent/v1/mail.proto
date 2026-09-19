@@ -53,8 +53,8 @@ message Mail {
 }
 
 message SendMailRequest {
-  // Who to send to, addressed by id since two workflows may hold agents of one name.
-  string to_agent_id = 1 [(buf.validate.field).string.min_len = 1];
+  // Who to send to: an agent's id, or the name of a live agent.
+  string to = 1 [(buf.validate.field).string.min_len = 1];
   // What to say, which has to carry who is asking and what is wanted.
   string body = 2 [(buf.validate.field).string = {
     min_len: 1

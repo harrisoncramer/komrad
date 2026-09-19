@@ -11,12 +11,14 @@ import (
 	"weave/lib/xslice"
 	agentv1 "weave/proto/gen/agent/v1"
 
+	agentstore "weave/internal/store/agent"
 	mailstore "weave/internal/store/mail"
 
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 type mailer interface {
+	ResolveRecipient(ctx context.Context, params agents.ResolveRecipientParams) (*agentstore.Agent, error)
 	SendMail(ctx context.Context, params agents.SendMailParams) (*mailstore.Mail, error)
 	ClaimMail(ctx context.Context, agentID string) ([]mailstore.Mail, error)
 	ListMail(ctx context.Context, params agents.ListMailParams) ([]mailstore.Mail, error)
@@ -26,9 +28,19 @@ type mailer interface {
 
 // SendMail records mail from the calling agent to the recipient the request names.
 func (s *AgentService) SendMail(ctx context.Context, req *agentv1.SendMailRequest) (*agentv1.SendMailResponse, *fail.Error) {
+	from := caller.From(ctx).AgentID
+
+	recipient, err := s.mail.ResolveRecipient(ctx, agents.ResolveRecipientParams{
+		From: from,
+		To:   req.GetTo(),
+	})
+	if err != nil {
+		return nil, rpcerr.From(err, "failed to find the recipient")
+	}
+
 	sent, err := s.mail.SendMail(ctx, agents.SendMailParams{
-		From:      caller.From(ctx).AgentID,
-		ToAgentID: req.GetToAgentId(),
+		From:      from,
+		ToAgentID: recipient.ID,
 		Body:      req.GetBody(),
 		ReplyTo:   req.ReplyTo,
 	})
