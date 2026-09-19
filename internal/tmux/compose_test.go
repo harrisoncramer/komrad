@@ -27,6 +27,73 @@ func TestPasteAndSubmitSendsTheText(t *testing.T) {
 	waitForLine(t, received, "^[[200~read your mail^[[201~^M")
 }
 
+// TestPasteAndSubmitDropsControlCharacters covers a control character in the text never
+// reaching the pane.
+func TestPasteAndSubmitDropsControlCharacters(t *testing.T) {
+	client := testServer(t, "controls")
+	pane, received := rawPane(t, client, "controls")
+
+	require.NoError(t, client.PasteAndSubmit(pane, "read\x1b your\x7f mail\ttoday\nplease"))
+
+	waitForLine(t, received, "^[[200~read your mail\ttoday^Mplease^[[201~^M")
+}
+
+// TestStripControlsKeepsTheText pins which characters go and which stay.
+func TestStripControlsKeepsTheText(t *testing.T) {
+	tests := []struct {
+		name string
+		text string
+		want string
+	}{
+		{
+			name: "plain text",
+			text: "read your mail",
+			want: "read your mail",
+		},
+		{
+			name: "an escape",
+			text: "read\x1b[201~ mail",
+			want: "read[201~ mail",
+		},
+		{
+			name: "a delete",
+			text: "read\x7f mail",
+			want: "read mail",
+		},
+		{
+			name: "a C1 control",
+			text: "read\u0085 mail",
+			want: "read mail",
+		},
+		{
+			name: "a carriage return",
+			text: "read\r\nmail",
+			want: "read\nmail",
+		},
+		{
+			name: "a newline and a tab",
+			text: "read\n\tmail",
+			want: "read\n\tmail",
+		},
+		{
+			name: "text past ASCII",
+			text: "lire le courrier, s'il vous plaît ✉",
+			want: "lire le courrier, s'il vous plaît ✉",
+		},
+		{
+			name: "nothing but controls",
+			text: "\x1b\x07",
+			want: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, stripControls(tt.text))
+		})
+	}
+}
+
 // TestPasteAndSubmitIsOneInvocation covers the paste and Enter riding in a single tmux call
 // so nothing typed at the pane can land between them.
 func TestPasteAndSubmitIsOneInvocation(t *testing.T) {
@@ -90,6 +157,7 @@ func TestComposingRefusesWhatItCannotSend(t *testing.T) {
 
 	require.Error(t, client.PasteAndSubmit("", "text"))
 	require.Error(t, client.PasteAndSubmit("%0", ""))
+	require.Error(t, client.PasteAndSubmit("%0", "\x1b"))
 	require.Error(t, client.CutLine(""))
 	require.Error(t, client.YankLine(""))
 }

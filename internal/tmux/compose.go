@@ -4,7 +4,9 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strings"
 	"sync/atomic"
+	"unicode"
 )
 
 // pasteBufferPrefix opens the name of every buffer a paste is loaded through.
@@ -57,11 +59,26 @@ func (c *Client) paste(target, text string, then ...string) error {
 		return errors.New("refusing to paste nothing")
 	}
 
+	text = stripControls(text)
+	if text == "" {
+		return errors.New("refusing to paste nothing but control characters")
+	}
+
 	if _, err := c.query(pasteArgs(pasteBufferName(), target, text, then...)...); err != nil {
 		return fmt.Errorf("failed to paste into %q: %w", target, err)
 	}
 
 	return nil
+}
+
+func stripControls(text string) string {
+	return strings.Map(func(r rune) rune {
+		if r == '\n' || r == '\t' || !unicode.IsControl(r) {
+			return r
+		}
+
+		return -1
+	}, text)
 }
 
 // pasteBufferName is a buffer name no other paste on this server holds.
