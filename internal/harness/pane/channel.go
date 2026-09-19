@@ -87,6 +87,10 @@ func (p *Pane) Interrupt(_ context.Context, target harness.Target) error {
 
 // planFor reads the pane for what weave may do to the input box it is showing.
 func (p *Pane) planFor(ctx context.Context, target harness.Target) plan {
+	if !p.terminal.IsPaneRunningCLI(target.Pane) {
+		return planRefuse
+	}
+
 	input, err := p.readInput(target)
 	if err != nil {
 		// No frame of an unknown harness can be recognised, so its mail would otherwise never go

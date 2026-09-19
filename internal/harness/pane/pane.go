@@ -25,6 +25,7 @@ const clientPresenceWindow = time.Minute
 type terminal interface {
 	CapturePane(pane string) string
 	IsPaneInMode(pane string) bool
+	IsPaneRunningCLI(pane string) bool
 	IsClientAtPane(pane string, within time.Duration) bool
 	PasteAndSubmit(target, text string) error
 	CutLine(target string) error
