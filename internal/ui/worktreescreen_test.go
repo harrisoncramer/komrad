@@ -140,7 +140,7 @@ func TestEnterOnAWorktreeLandsOnItsAgent(t *testing.T) {
 		m.worktrees.cursor = 3
 		require.Equal(t, "tree:/trees/live", m.hoveredWorktreeKey())
 
-		after, _ := pressWorktrees(t, m, keyMsg("enter"))
+		after, _ := pressWorktrees(t, m, keyMsg("J"))
 
 		assert.Equal(t, screenAgents, after.screen)
 		assert.Equal(t, "agent:live", after.hoveredAgentKey())
@@ -151,7 +151,7 @@ func TestEnterOnAWorktreeLandsOnItsAgent(t *testing.T) {
 		m.worktrees.cursor = 5
 		require.Equal(t, "tree:/trees/archived", m.hoveredWorktreeKey())
 
-		after, _ := pressWorktrees(t, m, keyMsg("enter"))
+		after, _ := pressWorktrees(t, m, keyMsg("J"))
 
 		assert.Equal(t, screenArchive, after.screen)
 		assert.Equal(t, "agent:archived", after.hoveredArchiveKey())
@@ -161,7 +161,7 @@ func TestEnterOnAWorktreeLandsOnItsAgent(t *testing.T) {
 		m := worktreesModel()
 		m.worktrees.cursor = 6
 
-		after, _ := pressWorktrees(t, m, keyMsg("enter"))
+		after, _ := pressWorktrees(t, m, keyMsg("J"))
 
 		assert.Equal(t, screenWorktrees, after.screen)
 		assert.False(t, m.canWorktreeRowOpen())

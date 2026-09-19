@@ -93,8 +93,8 @@ func worktreesTable() []action {
 			run:  func(m model, _ string) (tea.Model, tea.Cmd) { return m.returnToAgents() },
 		},
 		{
-			id:   actionWorktreesEnter,
-			keys: func(k config.Keybindings) []string { return k.Worktrees.Enter },
+			id:   actionWorktreesJumpToAgent,
+			keys: func(k config.Keybindings) []string { return k.Worktrees.JumpToAgent },
 			when: model.canWorktreeRowOpen,
 			run:  func(m model, _ string) (tea.Model, tea.Cmd) { return m.jumpToWorktreeAgent() },
 		},
@@ -140,8 +140,8 @@ func worktreesLegend() []legendRow {
 			show: selecting,
 		},
 		{
-			of:    []actionID{actionWorktreesEnter},
-			desc:  func(model) string { return "open the agent" },
+			of:    []actionID{actionWorktreesJumpToAgent},
+			desc:  func(model) string { return "jump to agent" },
 			show:  model.canWorktreeRowOpen,
 			strip: true,
 		},

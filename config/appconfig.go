@@ -364,11 +364,12 @@ type WorktreesKeys struct {
 	// agent delete, which runs the workflow's hooks and the cleanup; one with a live agent
 	// offers to archive it first; one nothing answers for is removed on its own. It asks first.
 	Delete []string `mapstructure:"delete" default:"d"`
-	// Go to the agent in the directory under the cursor, on the agents list or in the archive.
-	Enter []string `mapstructure:"enter" default:"enter"`
+	// Jump to the agent in the directory under the cursor, on the agents list or in the
+	// archive.
+	JumpToAgent []string `mapstructure:"jump_to_agent" default:"J"`
 	// Open the worktrees screen from the agents list or the archive, landing on the hovered
 	// agent's own directory.
-	Open []string `mapstructure:"open" default:"W"`
+	Open []string `mapstructure:"open" default:"o"`
 	// Quit the panel.
 	Quit []string `mapstructure:"quit" default:"ctrl+c"`
 }

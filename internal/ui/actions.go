@@ -72,7 +72,7 @@ const (
 	actionDeleteSelected
 	actionWorktreesOpen
 	actionWorktreesBack
-	actionWorktreesEnter
+	actionWorktreesJumpToAgent
 	actionWorktreesDelete
 	actionWorktreesClear
 	actionReviewBack
