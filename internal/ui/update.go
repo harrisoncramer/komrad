@@ -280,7 +280,11 @@ func (m model) routeAsyncMessage(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
 
 		return next, cmd, true
 	case stageTickMsg:
-		m.applyStageTick(msg)
+		cmd := m.applyStageTick(msg)
+
+		return m, cmd, true
+	case worktreeInspectedMsg:
+		m.applyWorktreeInspection(msg)
 
 		return m, nil, true
 	case refreshResult:

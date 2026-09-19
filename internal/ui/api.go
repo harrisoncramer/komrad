@@ -14,6 +14,8 @@ import (
 	schedulev1connect "weave/proto/gen/schedule/v1/schedulev1connect"
 	workflowv1 "weave/proto/gen/workflow/v1"
 	"weave/proto/gen/workflow/v1/workflowv1connect"
+	worktreev1 "weave/proto/gen/worktree/v1"
+	"weave/proto/gen/worktree/v1/worktreev1connect"
 
 	agentstore "weave/internal/store/agent"
 	schedulestore "weave/internal/store/schedule"
@@ -33,6 +35,7 @@ type api struct {
 	workflows workflowv1connect.WorkflowServiceClient
 	schedules schedulev1connect.ScheduleServiceClient
 	hooks     hookv1connect.HookServiceClient
+	worktrees worktreev1connect.WorktreeServiceClient
 }
 
 // call runs work under its own deadline.
@@ -469,5 +472,38 @@ func (a api) listHooks() ([]*hookv1.Hook, error) {
 		}
 
 		return resp.Msg.GetHooks(), nil
+	})
+}
+
+func (a api) listWorktrees() (*worktreev1.ListWorktreesResponse, error) {
+	return call(requestTimeout, func(ctx context.Context) (*worktreev1.ListWorktreesResponse, error) {
+		resp, err := a.worktrees.ListWorktrees(ctx, connect.NewRequest(&emptypb.Empty{}))
+		if err != nil {
+			return nil, fmt.Errorf("failed to list worktrees: %w", err)
+		}
+
+		return resp.Msg, nil
+	})
+}
+
+func (a api) getWorktree(dir string) (*worktreev1.GetWorktreeResponse, error) {
+	return call(requestTimeout, func(ctx context.Context) (*worktreev1.GetWorktreeResponse, error) {
+		resp, err := a.worktrees.GetWorktree(ctx, connect.NewRequest(&worktreev1.GetWorktreeRequest{Dir: dir}))
+		if err != nil {
+			return nil, fmt.Errorf("failed to read the worktree at %q: %w", dir, err)
+		}
+
+		return resp.Msg, nil
+	})
+}
+
+func (a api) removeUnownedWorktrees(dirs []string) (*worktreev1.RemoveUnownedWorktreesResponse, error) {
+	return call(requestTimeout, func(ctx context.Context) (*worktreev1.RemoveUnownedWorktreesResponse, error) {
+		resp, err := a.worktrees.RemoveUnownedWorktrees(ctx, connect.NewRequest(&worktreev1.RemoveUnownedWorktreesRequest{Dirs: dirs}))
+		if err != nil {
+			return nil, fmt.Errorf("failed to remove %d worktrees: %w", len(dirs), err)
+		}
+
+		return resp.Msg, nil
 	})
 }

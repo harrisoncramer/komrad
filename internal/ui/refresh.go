@@ -112,6 +112,9 @@ type refreshResult struct {
 	archivedWorkflows    []workflowstore.Workflow
 	archivedWorkflowsErr error
 	archivedListed       bool
+	worktrees            worktreeListing
+	worktreesErr         error
+	worktreesListed      bool
 	agentMarks           map[string]string
 	workflowMarks        map[string]string
 }
@@ -121,13 +124,14 @@ func (m model) refreshCmd() tea.Cmd {
 		return nil
 	}
 
-	clients, epoch, withArchive := m.api, m.epoch, m.screen.spec().needsArchive
+	spec := m.screen.spec()
+	clients, epoch, withArchive, withWorktrees := m.api, m.epoch, spec.needsArchive, spec.needsWorktrees
 
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), agentsTimeout)
 		defer cancel()
 
-		result := refreshResult{epoch: epoch, archivedListed: withArchive}
+		result := refreshResult{epoch: epoch, archivedListed: withArchive, worktreesListed: withWorktrees}
 
 		var wg sync.WaitGroup
 		wg.Go(func() {
@@ -152,6 +156,15 @@ func (m model) refreshCmd() tea.Cmd {
 			wg.Go(func() {
 				listed, err := client.ListAllArchivedWorkflows(ctx, clients.workflows)
 				result.archivedWorkflows, result.archivedWorkflowsErr = workflowsFrom(listed), err
+			})
+		}
+		if withWorktrees {
+			wg.Go(func() {
+				listed, err := clients.listWorktrees()
+				if err == nil {
+					result.worktrees = worktreeListingFrom(listed)
+				}
+				result.worktreesErr = err
 			})
 		}
 		wg.Wait()
@@ -188,6 +201,7 @@ func (m *model) applyRefresh(result refreshResult) tea.Cmd {
 
 	treeRow := rowKeyAt(m.agentRows(), m.tree.cursor)
 	archiveRow := rowKeyAt(m.archiveRows(), m.archive.cursor)
+	worktreeRow := rowKeyAt(m.worktreeRows(), m.worktrees.cursor)
 	searchRow := m.hoveredHitKey()
 
 	before := m.listing
@@ -213,6 +227,9 @@ func (m *model) applyRefresh(result refreshResult) tea.Cmd {
 
 	if result.archivedListed && result.archivedErr == nil && result.archivedWorkflowsErr == nil {
 		m.applyArchive(result.archived, result.archivedWorkflows, archiveRow)
+	}
+	if result.worktreesListed && result.worktreesErr == nil {
+		m.applyWorktrees(result.worktrees, worktreeRow)
 	}
 
 	preview := m.placeSearchHit(searchRow)
@@ -246,8 +263,10 @@ func (r refreshResult) err() error {
 		return r.schedulesErr
 	case r.archivedErr != nil:
 		return r.archivedErr
-	default:
+	case r.archivedWorkflowsErr != nil:
 		return r.archivedWorkflowsErr
+	default:
+		return r.worktreesErr
 	}
 }
 

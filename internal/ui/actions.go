@@ -70,6 +70,11 @@ const (
 	actionArchiveBack
 	actionRestoreSelected
 	actionDeleteSelected
+	actionWorktreesOpen
+	actionWorktreesBack
+	actionWorktreesEnter
+	actionWorktreesDelete
+	actionWorktreesClear
 	actionReviewBack
 	actionReviewScroll
 	actionReviewFile

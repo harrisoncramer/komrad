@@ -156,6 +156,8 @@ type Keybindings struct {
 	Terminal TerminalKeys `mapstructure:"terminal"`
 	// The bindings that create and change workflows, from the agents list.
 	Workflows WorkflowsKeys `mapstructure:"workflows"`
+	// The worktrees screen, which lists every directory weave cut for an agent.
+	Worktrees WorktreesKeys `mapstructure:"worktrees"`
 }
 
 // NavKeys are the shared navigation bindings every menu uses, so movement is the
@@ -347,6 +349,28 @@ type WorkflowsKeys struct {
 	New []string `mapstructure:"new" default:"w"`
 	// Rename the workflow under the cursor.
 	Rename []string `mapstructure:"rename" default:"r"`
+}
+
+// WorktreesKeys are the bindings for the worktrees screen, which lists every directory weave
+// cut for an agent under the repository it was cut from, with its size.
+type WorktreesKeys struct {
+	// Leave the worktrees screen for the agents list.
+	Back []string `mapstructure:"back" default:"esc"`
+	// Delete everything on the screen that can go: every directory whose agent is archived,
+	// through the agent delete and its hooks, and every directory no agent answers for. A
+	// directory with a live agent in it is never taken. It asks first.
+	Clear []string `mapstructure:"clear" default:"D"`
+	// Delete the directory under the cursor. One with an archived agent goes through the
+	// agent delete, which runs the workflow's hooks and the cleanup; one with a live agent
+	// offers to archive it first; one nothing answers for is removed on its own. It asks first.
+	Delete []string `mapstructure:"delete" default:"d"`
+	// Go to the agent in the directory under the cursor, on the agents list or in the archive.
+	Enter []string `mapstructure:"enter" default:"enter"`
+	// Open the worktrees screen from the agents list or the archive, landing on the hovered
+	// agent's own directory.
+	Open []string `mapstructure:"open" default:"W"`
+	// Quit the panel.
+	Quit []string `mapstructure:"quit" default:"ctrl+c"`
 }
 
 // MailKeys are the bindings for the mailbox screen, which draws an agent's mail grouped

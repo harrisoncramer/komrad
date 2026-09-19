@@ -119,6 +119,12 @@ func agentsModeActions() []action {
 			run:  func(m model, _ string) (tea.Model, tea.Cmd) { return m.openArchive() },
 		},
 		{
+			id:   actionWorktreesOpen,
+			keys: func(k config.Keybindings) []string { return k.Worktrees.Open },
+			when: func(m model) bool { return !m.tree.selected.isActive() },
+			run:  func(m model, _ string) (tea.Model, tea.Cmd) { return m.openWorktrees(m.hoveredAgentID()) },
+		},
+		{
 			id:   actionMarkJump,
 			keys: func(k config.Keybindings) []string { return k.Marks.Jump },
 			when: func(m model) bool { return !m.tree.selected.isActive() },
@@ -518,6 +524,11 @@ func agentsBrowsingLegend() []legendRow {
 			show: isBrowsing,
 		},
 		{
+			of:   []actionID{actionWorktreesOpen},
+			desc: func(model) string { return "worktrees" },
+			show: isBrowsing,
+		},
+		{
 			of:   []actionID{actionFilterOpen},
 			desc: model.filterDesc,
 			show: isBrowsing,
@@ -603,4 +614,20 @@ func concatKeys(lists ...[]string) []string {
 	}
 
 	return out
+}
+
+// hoveredAgentID is the agent under the cursor, or the orchestrator behind a hovered workflow,
+// empty when neither.
+func (m model) hoveredAgentID() string {
+	row, ok := m.hoveredRow()
+	if !ok {
+		return ""
+	}
+
+	item, held := row.paneItem()
+	if !held {
+		return ""
+	}
+
+	return item.agent.ID
 }

@@ -64,6 +64,7 @@ const (
 	formScheduleArchive
 	formArchiveDelete
 	formArchiveEmpty
+	formWorktreesDelete
 )
 
 // isActive reports whether a form is up and holding the keys.
@@ -121,7 +122,7 @@ func formColumn(kind formKind) (columnSpec, bool) {
 	case formAgent, formChild, formAdopt, formRename, formAgentRetry, formWorkflow, formSchedule:
 		return columnSpec{floor: formColumnFloor}, true
 	case formGit, formAgentArchive, formAgentRefresh, formAgentRelease, formWorkflowArchive, formScheduleArchive,
-		formArchiveDelete, formArchiveEmpty:
+		formArchiveDelete, formArchiveEmpty, formWorktreesDelete:
 		return columnSpec{floor: columnFloor}, true
 	case formNone:
 		return columnSpec{}, false
@@ -606,6 +607,34 @@ func emptyArchiveForm(count int, keys config.FormKeys) (*huh.Form, *bool) {
 	}
 
 	return confirmFormStartingOn(false, title, warning, "Empty", keys)
+}
+
+// deleteWorktreesForm asks before a deletion, saying what goes through the agent delete, what the
+// remover takes on its own, how much disk that is, and where a lone branch stands.
+func deleteWorktreesForm(deletion worktreeDeletion, keepsBranch *bool, keys config.FormKeys) (*huh.Form, *bool) {
+	count := len(deletion.agents) + len(deletion.unowned)
+	title := fmt.Sprintf("Delete %s, %s?", countWord(count, "worktree", "worktrees"), bytesLabel(deletion.bytes()))
+	if count == 1 {
+		title = fmt.Sprintf("Delete the worktree of %s, %s?", worktreeRow{item: slices.Concat(deletion.agents, deletion.unowned)[0]}.name(), bytesLabel(deletion.bytes()))
+	}
+
+	var lines []string
+	if n := len(deletion.agents); n > 0 {
+		lines = append(lines, fmt.Sprintf("%s go through the agent delete, which runs the workflow's teardown hooks and the cleanup; the agents leave the archive and their transcripts go with them.", countWord(n, "directory", "directories")))
+	}
+	if n := len(deletion.unowned); n > 0 {
+		lines = append(lines, fmt.Sprintf("%s nothing answers for are removed on their own, and no branch is touched.", countWord(n, "directory", "directories")))
+	}
+	switch {
+	case keepsBranch == nil:
+	case *keepsBranch:
+		lines = append(lines, "The branch is kept, since its commits are on no other ref.")
+	default:
+		lines = append(lines, "The branch goes too; every one of its commits is elsewhere.")
+	}
+	lines = append(lines, "Uncommitted changes go with the directories.")
+
+	return confirmFormStartingOn(false, title, strings.Join(lines, " "), "Delete", keys)
 }
 
 func deleteWorkflowForm(workflow workflowstore.Workflow, agentCount int, keys config.FormKeys) (*huh.Form, *bool) {

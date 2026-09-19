@@ -21,7 +21,7 @@ import (
 // added with an arm that answers for nothing fails here the way one added with no arm at all
 // fails the exhaustive check.
 func TestEveryScreenAnswersForItself(t *testing.T) {
-	for s := screenAgents; s <= screenReview; s++ {
+	for s := screenAgents; s <= screenWorktrees; s++ {
 		spec := s.spec()
 
 		require.NotNil(t, spec.key, "screen %d takes no keys", s)
@@ -47,7 +47,7 @@ func TestEveryScreenAnswersForItself(t *testing.T) {
 // TestEveryListingScreenSurvivesARefresh drives the pass applyRefresh runs once a second against
 // each screen the listing feeds.
 func TestEveryListingScreenSurvivesARefresh(t *testing.T) {
-	for s := screenAgents; s <= screenReview; s++ {
+	for s := screenAgents; s <= screenWorktrees; s++ {
 		if !s.spec().fromListing {
 			continue
 		}

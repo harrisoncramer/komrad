@@ -115,6 +115,12 @@ func archiveTable() []action {
 			when: browsing,
 			run:  func(m model, _ string) (tea.Model, tea.Cmd) { return m.emptyArchiveConfirm() },
 		},
+		{
+			id:   actionWorktreesOpen,
+			keys: func(k config.Keybindings) []string { return k.Worktrees.Open },
+			when: browsing,
+			run:  func(m model, _ string) (tea.Model, tea.Cmd) { return m.openWorktrees(m.hoveredArchivedAgentID()) },
+		},
 	}
 }
 
@@ -174,6 +180,11 @@ func archiveLegend() []legendRow {
 			of:   []actionID{actionArchiveEmpty},
 			desc: func(model) string { return "empty the archive" },
 			show: model.doesArchiveHoldAnAgent,
+		},
+		{
+			of:   []actionID{actionWorktreesOpen},
+			desc: func(model) string { return "worktrees" },
+			show: func(m model) bool { return !m.archive.selected.isActive() },
 		},
 		{
 			of:   []actionID{actionFilterOpen},
@@ -328,4 +339,14 @@ func (m model) canArchiveRowOpen() bool {
 	agent, ok := m.selectedArchived()
 
 	return ok && agent.State.DoesPaneDecide()
+}
+
+// hoveredArchivedAgentID is the archived agent under the cursor, empty on a folder.
+func (m model) hoveredArchivedAgentID() string {
+	agent, ok := m.selectedArchived()
+	if !ok {
+		return ""
+	}
+
+	return agent.ID
 }

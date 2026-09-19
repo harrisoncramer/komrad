@@ -167,13 +167,21 @@ func (m model) deferStaging() (model, tea.Cmd) {
 }
 
 // applyStageTick stages what the cursor came to rest on, ignoring a rest the cursor has already
-// moved on from.
-func (m *model) applyStageTick(msg stageTickMsg) {
+// moved on from, and answers with whatever the screen reads for the row it rested on.
+func (m *model) applyStageTick(msg stageTickMsg) tea.Cmd {
 	if msg.move != m.staging {
-		return
+		return nil
+	}
+
+	if m.screen == screenWorktrees {
+		m.stageWorktrees()
+
+		return m.inspectWorktreeCmd()
 	}
 
 	m.stageSelection()
+
+	return nil
 }
 
 // toggleAgentViewed puts an agent's unread mark back by hand, or takes it off, for the times
@@ -334,10 +342,15 @@ func (m model) hasNoAgentPane() bool {
 		return true
 	}
 
-	return !item.alive ||
-		item.agent.HeldAt != nil ||
-		item.agent.State == agentstore.StateSettingUp ||
-		item.agent.State.IsFailed()
+	return !hasPane(item)
+}
+
+// hasPane reports whether an agent has a pane of its own worth putting in the window.
+func hasPane(item agentItem) bool {
+	return item.alive &&
+		item.agent.HeldAt == nil &&
+		item.agent.State != agentstore.StateSettingUp &&
+		!item.agent.State.IsFailed()
 }
 
 // agentDoc is the markdown drawn beside the list for a row with no pane of its own.

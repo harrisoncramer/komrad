@@ -132,3 +132,29 @@ func TestParsePtr(t *testing.T) {
 		assert.Equal(t, time.Date(2026, 9, 5, 14, 30, 0, 0, time.UTC), parsed.UTC())
 	}
 }
+
+// TestAgeAtPicksTheOneUnitThatFits pins the unit chosen at each boundary, and a future time
+// reading as no age at all rather than a negative one.
+func TestAgeAtPicksTheOneUnitThatFits(t *testing.T) {
+	now := time.Date(2026, 9, 19, 12, 0, 0, 0, time.UTC)
+
+	tests := []struct {
+		name string
+		at   time.Time
+		want string
+	}{
+		{name: "seconds", at: now.Add(-40 * time.Second), want: "40s"},
+		{name: "minutes", at: now.Add(-5 * time.Minute), want: "5m"},
+		{name: "hours", at: now.Add(-3 * time.Hour), want: "3h"},
+		{name: "days", at: now.Add(-50 * time.Hour), want: "2d"},
+		{name: "weeks", at: now.Add(-45 * 24 * time.Hour), want: "6w"},
+		{name: "ahead of now", at: now.Add(time.Hour), want: "0s"},
+		{name: "zero", want: ""},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, AgeAt(tt.at, now))
+		})
+	}
+}
