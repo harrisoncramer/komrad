@@ -619,11 +619,17 @@ func deleteWorktreesForm(deletion worktreeDeletion, keepsBranch *bool, keys conf
 	}
 
 	var lines []string
-	if n := len(deletion.agents); n > 0 {
-		lines = append(lines, fmt.Sprintf("%s go through the agent delete, which runs the workflow's teardown hooks and the cleanup; the agents leave the archive and their transcripts go with them.", countWord(n, "directory", "directories")))
+	switch n := len(deletion.agents); {
+	case n == 1:
+		lines = append(lines, "The directory goes through the agent delete, which runs the workflow's teardown hooks and the cleanup; the agent leaves the archive and its transcript goes with it.")
+	case n > 1:
+		lines = append(lines, fmt.Sprintf("%d directories go through the agent delete, which runs the workflow's teardown hooks and the cleanup; the agents leave the archive and their transcripts go with them.", n))
 	}
-	if n := len(deletion.unowned); n > 0 {
-		lines = append(lines, fmt.Sprintf("%s nothing answers for are removed on their own, and no branch is touched.", countWord(n, "directory", "directories")))
+	switch n := len(deletion.unowned); {
+	case n == 1:
+		lines = append(lines, "The directory nothing answers for is removed on its own, and no branch is touched.")
+	case n > 1:
+		lines = append(lines, fmt.Sprintf("%d directories nothing answers for are removed on their own, and no branch is touched.", n))
 	}
 	switch {
 	case keepsBranch == nil:

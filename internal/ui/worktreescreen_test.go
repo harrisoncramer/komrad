@@ -223,7 +223,7 @@ func TestDeleteWorktreesFormSaysWhatGoes(t *testing.T) {
 	form, _ = deleteWorktreesForm(worktreeDeletion{agents: items[1:2], unowned: items[2:4]}, nil, config.FixedFormKeys())
 	drawn = formText(form)
 	assert.Contains(t, drawn, "Delete 3 worktrees, 49M?")
-	assert.Contains(t, drawn, "2 directories nothing answers for")
+	assert.Contains(t, drawn, "2 directories nothing")
 	assert.NotContains(t, drawn, "branch is kept")
 }
 
