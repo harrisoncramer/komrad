@@ -249,13 +249,22 @@ func (m model) schedulesView() string {
 	return m.columnView(model.schedulesListView)
 }
 
+func (m model) schedulesHeader() string {
+	return m.listHeader("Schedules")
+}
+
+func (m model) doesSchedulesFitDetails() bool {
+	return m.doesListFitDetails(m.schedulesHeader(), model.scheduleHelp)
+}
+
 func (m model) schedulesListView() string {
-	record, help := m.detailsView(), m.renderHelp(m.scheduleHelp())
-	below := record + m.messagesRegion(record, help) + help
+	header := m.schedulesHeader()
+	record, help := m.detailsView(), m.renderHelp(m.scheduleHelp(), header)
+	below := record + m.messagesRegion(record, help, header) + help
 
 	all := m.scheduleRows()
 	if len(all) == 0 {
-		return m.listView("Schedules", []string{dimStyle.Render("  no schedules yet")}, 0, below)
+		return m.headedListView(header, []string{dimStyle.Render("  no schedules yet")}, 0, below)
 	}
 
 	rows := make([]string, 0, len(all))
@@ -271,7 +280,7 @@ func (m model) schedulesListView() string {
 		rows = append(rows, prefix+"  "+icon+" "+name+"  "+dimStyle.Render(item.schedule.Cron))
 	}
 
-	return m.listView("Schedules", rows, m.schedules.cursor, below)
+	return m.headedListView(header, rows, m.schedules.cursor, below)
 }
 
 func (m *model) applySchedules(fresh []scheduleItem) {

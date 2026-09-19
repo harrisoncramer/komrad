@@ -66,7 +66,7 @@ func (m model) reviewSidebarView(above ...string) string {
 	// The head is pinned and the conversation gives up the room: where the cursor is standing is
 	// what makes the rest of the pane mean anything.
 	record := m.detailsView()
-	messages := m.messagesRegion(record, help)
+	messages := m.messagesRegion(record, help, above...)
 	chrome := slices.Concat(above, []string{help, record, messages})
 	head := m.reviewHeadView(reviewOwedRoom(m.listLines(chrome...)))
 	rest := m.reviewThreadWindow(m.reviewRestView(), m.listLines(slices.Concat(chrome, []string{head})...))

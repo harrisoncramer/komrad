@@ -22,9 +22,6 @@ const messagesRows = 3
 // messagesRegionRows is what the region costs the pane: its rows and the rule under them.
 const messagesRegionRows = messagesRows + 1
 
-// messagesHeaderRows is what the title, the blank under it, and the filter take above the list.
-const messagesHeaderRows = 3
-
 // messagesListFloor is how many rows the list keeps once the region has taken its own.
 const messagesListFloor = 2
 
@@ -107,9 +104,10 @@ type messagePiece struct {
 }
 
 // messagesRegion is the region as it is drawn under the record, given the record and the legend
-// it sits between so it can tell whether the pane has rows to spare for it.
-func (m model) messagesRegion(record, help string) string {
-	rows, ok := m.messagesFit(record, help)
+// it sits between and whatever stands above them so it can tell whether the pane has rows to
+// spare for it.
+func (m model) messagesRegion(record, help string, above ...string) string {
+	rows, ok := m.messagesFit(record, help, above...)
 	if !ok {
 		return ""
 	}
@@ -132,12 +130,17 @@ func (m model) messagesRegion(record, help string) string {
 
 // messagesFit is how many rows the region takes, refused when they would leave the list too
 // short to be worth reading.
-func (m model) messagesFit(record, help string) (int, bool) {
+func (m model) messagesFit(record, help string, above ...string) (int, bool) {
 	if m.height <= 0 || !m.isMessagesRegion() {
 		return 0, false
 	}
 
-	spare := m.spareLines(record, help) - messagesHeaderRows - messagesRegionRows
+	cost := messagesRegionRows
+	if record == "" {
+		cost++
+	}
+
+	spare := m.spareLines(slices.Concat(above, []string{record, help})...) - cost
 	if spare < messagesListFloor {
 		return 0, false
 	}

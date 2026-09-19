@@ -230,8 +230,7 @@ type model struct {
 	editor        string
 	runLogsDir    string
 	pane          string
-	// paneMeasure is the column a screen is measuring its own chrome in while it works out whether
-	// its split leaves room for it.
+	// paneMeasure is the column one half of a split is laid out in once the split has been chosen.
 	paneMeasure int
 	// shell is what tmux starts a pane's process with, read once.
 	shell string

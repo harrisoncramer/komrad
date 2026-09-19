@@ -133,11 +133,31 @@ func TestARefusedExpansionSaysItShowedNothing(t *testing.T) {
 	assert.NotContains(t, drawn, "hide help", "rather than claiming to have hidden any")
 }
 
+// TestALegendThePaneCannotHoldGivesWay pins the expanded legend standing down to its short form
+// at the height it would leave the list no row under the header, and standing again one row
+// taller.
+func TestALegendThePaneCannotHoldGivesWay(t *testing.T) {
+	m := helpModel()
+	m.helpExpanded = true
+	header := m.agentsHeader()
+	full := m.renderHelp(m.agentHelp())
+	m.height = strings.Count(header, "\n") + strings.Count(full, "\n")
+
+	drawn := ansi.Strip(m.renderHelp(m.agentHelp(), header))
+
+	require.NotContains(t, drawn, "move", "the legend and the header fill the pane between them")
+	assert.Contains(t, drawn, "show help", "so the key says it has help left to show")
+	assert.NotContains(t, drawn, "hide help", "rather than claiming to have hidden any")
+
+	m.height++
+	assert.Equal(t, full, m.renderHelp(m.agentHelp(), header), "one row taller the list keeps a row and the legend is drawn whole")
+}
+
 func helpModel() model {
 	return model{
 		keys:    config.DefaultKeybindings(),
 		frame:   layout.New(&recordingTmux{}, config.DefaultLayout()),
-		height:  24,
+		height:  40,
 		width:   46,
 		listing: listing{workflows: []workflowstore.Workflow{{ID: "w1", Name: "everything"}}, agents: []agentItem{{agent: agentstore.Agent{Name: "api-refactor", WorkflowID: "w1"}}}}, tree: treeState{rowCursor: rowCursor{cursor: 1}},
 	}

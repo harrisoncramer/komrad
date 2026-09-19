@@ -84,10 +84,6 @@ type columnSpec struct {
 	// rows is the row budget the block is actually drawn in, and is nil on a screen with nothing
 	// standing over it.
 	rows func(model, columnSplit) int
-
-	// fits refuses the split when the sidebar cannot hold its own chrome in the narrower column it
-	// is left with, and is nil on a screen that would rather have the block either way.
-	fits func(model, columnSplit) bool
 }
 
 // sidebarColumns is how wide the panel's own list is drawn while it holds the window, and the
@@ -135,17 +131,7 @@ func (m model) columnGeometry() (columnSplit, bool) {
 
 	// The whole height, with the sidebar's chrome drawn inside the sidebar and no rows reserved
 	// here.
-	split, ok := splitOf(m.width, m.height, sidebar, spec.floor)
-	if !ok {
-		return columnSplit{}, false
-	}
-
-	// Asked here rather than in columnSplit, which paneWidth reads.
-	if spec.fits != nil && !spec.fits(m, split) {
-		return columnSplit{}, false
-	}
-
-	return split, true
+	return splitOf(m.width, m.height, sidebar, spec.floor)
 }
 
 // columnSplit is the window the block is actually drawn in, being the geometry with whatever
@@ -240,8 +226,8 @@ func (m model) joinColumns(split columnSplit, sidebar, column string) string {
 // paneWidth is the column the panel draws its own list, record and legend in, which is the whole
 // pane except while it is drawing a block beside them.
 func (m model) paneWidth() int {
-	// A screen working out whether its own split leaves room for its chrome has already chosen
-	// the column, so it is told the answer rather than asked for the split it is still deciding.
+	// A half of a split is laid out at the column already chosen for it rather than asking for the
+	// split again.
 	if m.paneMeasure > 0 {
 		return m.paneMeasure
 	}

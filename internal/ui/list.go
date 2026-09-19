@@ -56,13 +56,12 @@ func (c rowCursor) jump(idx, length int) (rowCursor, bool) {
 	return c, true
 }
 
-func (m model) listView(title string, rows []string, cursor int, help string) string {
-	return m.headedListView(paint.Panel.Title(title)+"\n\n"+m.filterView(), rows, cursor, help)
+func (m model) listHeader(title string) string {
+	return paint.Panel.Title(title) + "\n\n" + m.filterView()
 }
 
-// headedListView draws a list under a header it is handed rather than one built from a title,
-// padded out so the record and the legend under it sit at the bottom of the pane whether the
-// list fills it or not.
+// headedListView draws a list under its header, padded out so the record and the legend under it
+// sit at the bottom of the pane whether the list fills it or not.
 func (m model) headedListView(header string, rows []string, cursor int, help string) string {
 	lines := m.listLines(header, help)
 

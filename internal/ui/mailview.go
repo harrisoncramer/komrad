@@ -210,12 +210,20 @@ func (m model) mailView() string {
 	return m.columnView(model.mailListView)
 }
 
-func (m model) mailListView() string {
-	header := paint.Panel.Title("Mail · "+m.mail.agentName) + "\n" +
+func (m model) mailHeader() string {
+	return paint.Panel.Title("Mail · "+m.mail.agentName) + "\n" +
 		dimStyle.Render(m.mailCountView()) + "\n\n" +
 		m.filterView()
-	record, help := m.detailsView(), m.renderHelp(m.mailHelp())
-	below := record + m.messagesRegion(record, help) + help
+}
+
+func (m model) doesMailFitDetails() bool {
+	return m.doesListFitDetails(m.mailHeader(), model.mailHelp)
+}
+
+func (m model) mailListView() string {
+	header := m.mailHeader()
+	record, help := m.detailsView(), m.renderHelp(m.mailHelp(), header)
+	below := record + m.messagesRegion(record, help, header) + help
 
 	rows := m.mailRowsView()
 	if len(rows) == 0 {
