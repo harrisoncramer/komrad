@@ -94,8 +94,7 @@ func (m model) jumpWorktreeCursor(idx int) (tea.Model, tea.Cmd) {
 	return m.deferStaging()
 }
 
-// stageWorktrees shows the hovered agent's pane where it has one and the document otherwise,
-// and asks for the hovered directory's inspection.
+// stageWorktrees shows the hovered agent's pane where it has one and the document otherwise.
 func (m *model) stageWorktrees() {
 	m.frame.Begin()
 	defer m.afterStaging()
@@ -163,6 +162,24 @@ func (m model) inspectWorktreeCmd() tea.Cmd {
 
 		return worktreeInspectedMsg{dir: dir, inspection: worktreeInspectionFrom(read)}
 	}
+}
+
+// inspectHoveredWorktreeCmd asks for the hovered directory's standing where nothing has been
+// asked for it yet, which is how a row the screen opened on is read without a move.
+func (m model) inspectHoveredWorktreeCmd() tea.Cmd {
+	if m.screen != screenWorktrees {
+		return nil
+	}
+
+	row, ok := m.hoveredWorktree()
+	if !ok || row.occupant != nil {
+		return nil
+	}
+	if _, read := m.worktrees.inspected[row.item.dir]; read {
+		return nil
+	}
+
+	return m.inspectWorktreeCmd()
 }
 
 // worktreeInspectedMsg is one directory's standing come back.

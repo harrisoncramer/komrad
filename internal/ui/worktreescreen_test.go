@@ -337,6 +337,21 @@ func TestStageTickOnTheWorktreesScreenAsksForTheInspection(t *testing.T) {
 	assert.Nil(t, stale, "a rest the cursor moved on from asks for nothing")
 }
 
+// TestRefreshAsksForTheHoveredDirectoryOnce covers a row the screen opened on being read
+// without a move, and not again once it has been.
+func TestRefreshAsksForTheHoveredDirectoryOnce(t *testing.T) {
+	m := worktreesModel()
+	m.worktrees.cursor = 5
+
+	assert.NotNil(t, m.inspectHoveredWorktreeCmd())
+
+	m.applyWorktreeInspection(worktreeInspectedMsg{dir: "/trees/archived", inspection: worktreeInspection{err: errors.New("refused")}})
+	assert.Nil(t, m.inspectHoveredWorktreeCmd(), "an answer, even a refusal, is not asked for again")
+
+	m.screen = screenAgents
+	assert.Nil(t, m.inspectHoveredWorktreeCmd())
+}
+
 // TestLogTargetOnTheWorktreesScreenIsTheHoveredAgent covers the log and terminal keys reading
 // this screen's cursor rather than the agents list's.
 func TestLogTargetOnTheWorktreesScreenIsTheHoveredAgent(t *testing.T) {

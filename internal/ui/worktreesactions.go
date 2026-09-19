@@ -151,9 +151,10 @@ func worktreesLegend() []legendRow {
 			show: model.doesWorktreesHoldARow,
 		},
 		{
-			of:   []actionID{actionWorktreesDelete},
-			desc: model.worktreeDeleteDesc,
-			show: model.doesWorktreesHoldADirectory,
+			of:    []actionID{actionWorktreesDelete},
+			desc:  model.worktreeDeleteDesc,
+			show:  model.doesWorktreesHoldADirectory,
+			strip: true,
 		},
 		{
 			of:   []actionID{actionWorktreesClear},
