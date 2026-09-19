@@ -12,6 +12,7 @@ import (
 	"weave/internal/git"
 	agentstore "weave/internal/store/agent"
 	reviewstore "weave/internal/store/review"
+	workflowstore "weave/internal/store/workflow"
 	"weave/lib/xptr"
 
 	"github.com/stretchr/testify/assert"
@@ -109,6 +110,7 @@ func newCwdSyncer(agents cwdSetter, heads headReader) *CwdSyncer {
 		Heads:   heads,
 		Trees:   fakeTrees{},
 		Tallies: fakeTallies{},
+		Bases:   fakeBases{},
 	})
 }
 
@@ -436,15 +438,28 @@ func removedDir(t *testing.T) string {
 
 // fakeTrees is what git would answer about each directory against the one round it is asked
 // about, and an error for any other.
-type fakeTrees map[string]bool
+type fakeTrees map[string]git.Standing
 
-func (f fakeTrees) HasTreeMoved(_ context.Context, dir, _ string) (bool, error) {
-	moved, ok := f[dir]
+func (f fakeTrees) ReadStanding(_ context.Context, params git.ReadStandingParams) (git.Standing, error) {
+	standing, ok := f[params.Dir]
 	if !ok {
-		return false, errors.New("no round to compare against")
+		return git.StandingSame, errors.New("no round to compare against")
 	}
 
-	return moved, nil
+	return standing, nil
+}
+
+// failingTrees is a git that knows the tree moved but could not finish the landed question.
+type failingTrees struct{}
+
+func (failingTrees) ReadStanding(context.Context, git.ReadStandingParams) (git.Standing, error) {
+	return git.StandingMoved, errors.New("the base could not be merged")
+}
+
+type fakeBases []workflowstore.Workflow
+
+func (f fakeBases) List(context.Context) ([]workflowstore.Workflow, error) {
+	return f, nil
 }
 
 type fakeTallies []reviewstore.Tally
@@ -453,69 +468,139 @@ func (f fakeTallies) ListTallies(context.Context) ([]reviewstore.Tally, error) {
 	return f, nil
 }
 
-// recordingTrees is a git that remembers which directories it was asked to hash.
+// recordingTrees is a git that remembers which directories it was asked to hash, and against
+// which base.
 type recordingTrees struct {
-	mu   sync.Mutex
-	dirs []string
+	mu    sync.Mutex
+	dirs  []string
+	bases []string
 }
 
-func (r *recordingTrees) HasTreeMoved(_ context.Context, dir, _ string) (bool, error) {
+func (r *recordingTrees) ReadStanding(_ context.Context, params git.ReadStandingParams) (git.Standing, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	r.dirs = append(r.dirs, dir)
+	r.dirs = append(r.dirs, params.Dir)
+	r.bases = append(r.bases, params.Base)
 
-	return true, nil
+	return git.StandingMoved, nil
 }
 
-// TestCwdSyncerSyncReadsWhetherTheTreeMoved covers the fact the review column rests on: a
-// worktree that no longer hashes to the round its last verdict was given on is reported moved,
-// and one that still does is not.
-func TestCwdSyncerSyncReadsWhetherTheTreeMoved(t *testing.T) {
+// TestCwdSyncerSyncReadsWhereTheTreeStands pins that a worktree is reported as git finds it
+// against the round of its last verdict, and that nothing is known of any other round.
+func TestCwdSyncerSyncReadsWhereTheTreeStands(t *testing.T) {
 	st := newStore(t)
 	ctx := t.Context()
 
 	workflowID := seedWorkflow(t, st)
-	edited, untouched := fakeCheckout(t), fakeCheckout(t)
-	for name, cwd := range map[string]string{"edited": edited, "untouched": untouched} {
+	dirs := map[string]string{}
+	for _, name := range []string{"edited", "untouched", "landed", "landed-edited"} {
+		dirs[name] = fakeCheckout(t)
 		require.NoError(t, st.Agents.Create(ctx, agentstore.Agent{
 			Name:       name,
 			State:      agentstore.StateIdle,
 			WorkflowID: workflowID,
-			Cwd:        cwd,
+			Cwd:        dirs[name],
 		}))
 	}
-	editedAgent, err := st.Agents.GetInWorkflow(ctx, workflowID, "edited")
-	require.NoError(t, err)
-	untouchedAgent, err := st.Agents.GetInWorkflow(ctx, workflowID, "untouched")
+	ids := map[string]string{}
+	for name := range dirs {
+		agent, err := st.Agents.GetInWorkflow(ctx, workflowID, name)
+		require.NoError(t, err)
+		ids[name] = agent.ID
+	}
+
+	approved := reviewstore.VerdictApproved
+	tallies := fakeTallies{}
+	for name, id := range ids {
+		tallies = append(tallies, reviewstore.Tally{AgentID: id, Verdict: &approved, SnapshotSHA: "snapshot-" + name})
+	}
+	syncer := NewCwdSyncer(NewCwdSyncerParams{
+		Agents: st.Agents,
+		Heads:  fakeHeads{},
+		Trees: fakeTrees{
+			dirs["edited"]:        git.StandingMoved,
+			dirs["untouched"]:     git.StandingSame,
+			dirs["landed"]:        git.StandingLanded,
+			dirs["landed-edited"]: git.StandingLandedMoved,
+		},
+		Tallies: tallies,
+		Bases:   fakeBases{},
+	})
+
+	assert.Equal(t, git.StandingSame, syncer.GetStanding(ids["edited"], "snapshot-edited"), "nothing is known before the first pass")
+
+	require.NoError(t, syncer.Sync(ctx))
+
+	assert.Equal(t, git.StandingMoved, syncer.GetStanding(ids["edited"], "snapshot-edited"))
+	assert.Equal(t, git.StandingSame, syncer.GetStanding(ids["untouched"], "snapshot-untouched"))
+	assert.Equal(t, git.StandingLanded, syncer.GetStanding(ids["landed"], "snapshot-landed"))
+	assert.Equal(t, git.StandingLandedMoved, syncer.GetStanding(ids["landed-edited"], "snapshot-landed-edited"))
+	assert.Equal(t, git.StandingSame, syncer.GetStanding(ids["edited"], "snapshot-newer"),
+		"a verdict on a round the pass has not compared against is not one the tree moved from")
+}
+
+// TestCwdSyncerSyncKeepsAStandingReportedWithAnError pins that a failure after the tree was
+// found to have moved is said, and never demotes the row to unmoved.
+func TestCwdSyncerSyncKeepsAStandingReportedWithAnError(t *testing.T) {
+	st := newStore(t)
+	ctx := t.Context()
+
+	workflowID := seedWorkflow(t, st)
+	require.NoError(t, st.Agents.Create(ctx, agentstore.Agent{
+		Name:       "a",
+		State:      agentstore.StateIdle,
+		WorkflowID: workflowID,
+		Cwd:        fakeCheckout(t),
+	}))
+	created, err := st.Agents.GetInWorkflow(ctx, workflowID, "a")
 	require.NoError(t, err)
 
 	approved := reviewstore.VerdictApproved
 	syncer := NewCwdSyncer(NewCwdSyncerParams{
-		Agents: st.Agents,
-		Heads:  fakeHeads{},
-		Trees:  fakeTrees{edited: true, untouched: false},
-		Tallies: fakeTallies{
-			{
-				AgentID:     editedAgent.ID,
-				Verdict:     &approved,
-				SnapshotSHA: "snapshot-one",
-			},
-			{
-				AgentID:     untouchedAgent.ID,
-				Verdict:     &approved,
-				SnapshotSHA: "snapshot-two",
-			},
-		},
+		Agents:  st.Agents,
+		Heads:   fakeHeads{},
+		Trees:   failingTrees{},
+		Bases:   fakeBases{},
+		Tallies: fakeTallies{{AgentID: created.ID, Verdict: &approved, SnapshotSHA: "snapshot-one"}},
 	})
 
-	assert.False(t, syncer.HasTreeMoved(editedAgent.ID, "snapshot-one"), "nothing is known before the first pass")
+	err = syncer.Sync(ctx)
+	require.Error(t, err)
+	assert.Equal(t, git.StandingMoved, syncer.GetStanding(created.ID, "snapshot-one"))
+}
+
+// TestCwdSyncerSyncMeasuresAgainstTheWorkflowsBase pins that the landed question is asked of
+// the branch the workflow cuts from.
+func TestCwdSyncerSyncMeasuresAgainstTheWorkflowsBase(t *testing.T) {
+	st := newStore(t)
+	ctx := t.Context()
+
+	workflowID := seedWorkflow(t, st)
+	require.NoError(t, st.Agents.Create(ctx, agentstore.Agent{
+		Name:       "reviewed",
+		State:      agentstore.StateIdle,
+		WorkflowID: workflowID,
+		Cwd:        fakeCheckout(t),
+	}))
+	agent, err := st.Agents.GetInWorkflow(ctx, workflowID, "reviewed")
+	require.NoError(t, err)
+
+	approved := reviewstore.VerdictApproved
+	hashed := &recordingTrees{}
+	syncer := NewCwdSyncer(NewCwdSyncerParams{
+		Agents:  st.Agents,
+		Heads:   fakeHeads{},
+		Trees:   hashed,
+		Tallies: fakeTallies{{AgentID: agent.ID, Verdict: &approved, SnapshotSHA: "snapshot-one"}},
+		Bases: fakeBases{{
+			ID:       workflowID,
+			Worktree: workflowstore.WorktreeConfig{BaseBranch: "develop"},
+		}},
+	})
 
 	require.NoError(t, syncer.Sync(ctx))
 
-	assert.True(t, syncer.HasTreeMoved(editedAgent.ID, "snapshot-one"))
-	assert.False(t, syncer.HasTreeMoved(untouchedAgent.ID, "snapshot-two"))
-	assert.False(t, syncer.HasTreeMoved(editedAgent.ID, "snapshot-newer"),
-		"a verdict on a round the pass has not compared against is not one the tree moved from")
+	assert.Equal(t, []string{"develop"}, hashed.bases)
 }
 
 // TestCwdSyncerSyncHashesOnlyAReviewedTree covers the cost the pass keeps down: a worktree with
@@ -552,6 +637,7 @@ func TestCwdSyncerSyncHashesOnlyAReviewedTree(t *testing.T) {
 		Agents: st.Agents,
 		Heads:  fakeHeads{},
 		Trees:  hashed,
+		Bases:  fakeBases{},
 		Tallies: fakeTallies{
 			{
 				AgentID:     reviewedAgent.ID,
@@ -570,8 +656,8 @@ func TestCwdSyncerSyncHashesOnlyAReviewedTree(t *testing.T) {
 	require.NoError(t, syncer.Sync(ctx))
 
 	assert.Equal(t, []string{reviewed}, hashed.dirs)
-	assert.True(t, syncer.HasTreeMoved(reviewedAgent.ID, "snapshot-one"))
-	assert.False(t, syncer.HasTreeMoved(removedAgent.ID, "snapshot-three"))
+	assert.Equal(t, git.StandingMoved, syncer.GetStanding(reviewedAgent.ID, "snapshot-one"))
+	assert.Equal(t, git.StandingSame, syncer.GetStanding(removedAgent.ID, "snapshot-three"))
 }
 
 // TestCwdSyncerSyncForgetsAMoveTheNextPassDoesNotSee pins that each pass replaces the last:
@@ -592,11 +678,12 @@ func TestCwdSyncerSyncForgetsAMoveTheNextPassDoesNotSee(t *testing.T) {
 	require.NoError(t, err)
 
 	approved := reviewstore.VerdictApproved
-	trees := fakeTrees{cwd: true}
+	trees := fakeTrees{cwd: git.StandingMoved}
 	syncer := NewCwdSyncer(NewCwdSyncerParams{
 		Agents: st.Agents,
 		Heads:  fakeHeads{},
 		Trees:  trees,
+		Bases:  fakeBases{},
 		Tallies: fakeTallies{{
 			AgentID:     created.ID,
 			Verdict:     &approved,
@@ -605,11 +692,11 @@ func TestCwdSyncerSyncForgetsAMoveTheNextPassDoesNotSee(t *testing.T) {
 	})
 
 	require.NoError(t, syncer.Sync(ctx))
-	require.True(t, syncer.HasTreeMoved(created.ID, "snapshot-one"))
+	require.Equal(t, git.StandingMoved, syncer.GetStanding(created.ID, "snapshot-one"))
 
-	trees[cwd] = false
+	trees[cwd] = git.StandingSame
 	require.NoError(t, syncer.Sync(ctx))
-	assert.False(t, syncer.HasTreeMoved(created.ID, "snapshot-one"))
+	assert.Equal(t, git.StandingSame, syncer.GetStanding(created.ID, "snapshot-one"))
 }
 
 // TestCwdSyncerSyncReportsAProbeItCouldNotMake pins that a tree the pass cannot hash is said
@@ -634,6 +721,7 @@ func TestCwdSyncerSyncReportsAProbeItCouldNotMake(t *testing.T) {
 		Agents: st.Agents,
 		Heads:  fakeHeads{},
 		Trees:  fakeTrees{},
+		Bases:  fakeBases{},
 		Tallies: fakeTallies{{
 			AgentID:     created.ID,
 			Verdict:     &approved,
@@ -644,5 +732,5 @@ func TestCwdSyncerSyncReportsAProbeItCouldNotMake(t *testing.T) {
 	err = syncer.Sync(ctx)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), `failed to compare the tree of "a"`)
-	assert.False(t, syncer.HasTreeMoved(created.ID, "snapshot-one"))
+	assert.Equal(t, git.StandingSame, syncer.GetStanding(created.ID, "snapshot-one"))
 }

@@ -45,6 +45,19 @@ enum ReviewVerdict {
   REVIEW_VERDICT_COMMENTED = 3;
 }
 
+// ReviewTreeStanding is where an agent's worktree stands against the round its last verdict
+// was given on.
+enum ReviewTreeStanding {
+  // The worktree still hashes to the round.
+  REVIEW_TREE_STANDING_UNSPECIFIED = 0;
+  // The worktree differs from the round and the base does not hold the round.
+  REVIEW_TREE_STANDING_MOVED = 1;
+  // The base holds the round whole and the worktree carries nothing beyond the base.
+  REVIEW_TREE_STANDING_LANDED = 2;
+  // The base holds the round whole and the worktree carries new work on top of the base.
+  REVIEW_TREE_STANDING_LANDED_MOVED = 3;
+}
+
 // ReviewRound is one immutable snapshot of what an agent has written, which is what a review is
 // given against. Nothing a comment is pinned to can move underneath the person reading it,
 // because the snapshot is a commit rather than the worktree.

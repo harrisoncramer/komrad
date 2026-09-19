@@ -11,6 +11,7 @@ import (
 	"weave/internal/agents"
 	"weave/internal/caller"
 	"weave/internal/fail"
+	"weave/internal/git"
 	"weave/internal/logging"
 	"weave/internal/rpcerr"
 	"weave/internal/store"
@@ -48,8 +49,8 @@ type agentLiveness interface {
 	GetRunningAgents(ctx context.Context, agents []agentstore.Agent) map[string]bool
 }
 
-type treeWatcher interface {
-	HasTreeMoved(agentID, snapshotSHA string) bool
+type standingGetter interface {
+	GetStanding(agentID, snapshotSHA string) git.Standing
 }
 
 type agentLifecycle interface {
@@ -106,7 +107,7 @@ type AgentService struct {
 	creator      agentCreator
 	adopter      agentAdopter
 	liveness     agentLiveness
-	trees        treeWatcher
+	trees        standingGetter
 	lifecycle    agentLifecycle
 	resumer      agentResumer
 	holder       agentHolder
@@ -127,7 +128,7 @@ type NewAgentServiceParams struct {
 	Creator      agentCreator
 	Adopter      agentAdopter
 	Liveness     agentLiveness
-	Trees        treeWatcher
+	Trees        standingGetter
 	Lifecycle    agentLifecycle
 	Resumer      agentResumer
 	Holder       agentHolder
@@ -294,15 +295,15 @@ func (s *AgentService) agentFlagsFor(ctx context.Context, listed []agentstore.Ag
 		failure, hasFailure := failed[a.ID]
 
 		return agentFlags{
-			mark:           marks[a.ID],
-			alive:          running[a.ID],
-			unreadMail:     hasMail,
-			unviewed:       hasOutput,
-			failedRun:      hasFailure,
-			failedRunLog:   failure.LogNumber,
-			localRounds:    tallies[a.ID].Rounds,
-			localVerdict:   localVerdictOf(tallies[a.ID]),
-			localTreeMoved: s.trees.HasTreeMoved(a.ID, tallies[a.ID].SnapshotSHA),
+			mark:         marks[a.ID],
+			alive:        running[a.ID],
+			unreadMail:   hasMail,
+			unviewed:     hasOutput,
+			failedRun:    hasFailure,
+			failedRunLog: failure.LogNumber,
+			localRounds:  tallies[a.ID].Rounds,
+			localVerdict: localVerdictOf(tallies[a.ID]),
+			localTree:    s.trees.GetStanding(a.ID, tallies[a.ID].SnapshotSHA),
 		}
 	}, nil
 }

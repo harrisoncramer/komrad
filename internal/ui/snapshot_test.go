@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"weave/internal/git"
 	agentstore "weave/internal/store/agent"
 	reviewstore "weave/internal/store/review"
 	workflowstore "weave/internal/store/workflow"
@@ -175,7 +176,7 @@ func TestSnapshotReview(t *testing.T) {
 		},
 		{
 			name: "an approval the tree has moved past is owed another pass",
-			item: agentItem{localVerdict: string(reviewstore.VerdictApproved), localTreeMoved: true},
+			item: agentItem{localVerdict: string(reviewstore.VerdictApproved), localTree: git.StandingMoved},
 			want: view.ReviewApprovedMoved,
 		},
 		{
@@ -185,8 +186,28 @@ func TestSnapshotReview(t *testing.T) {
 		},
 		{
 			name: "changes requested the tree has moved past are ready to read again",
-			item: agentItem{localVerdict: string(reviewstore.VerdictChangesRequested), localTreeMoved: true},
+			item: agentItem{localVerdict: string(reviewstore.VerdictChangesRequested), localTree: git.StandingMoved},
 			want: view.ReviewChangesPushed,
+		},
+		{
+			name: "an approval the base has taken, with nothing on top, is approved and landed",
+			item: agentItem{localVerdict: string(reviewstore.VerdictApproved), localTree: git.StandingLanded},
+			want: view.ReviewApprovedLanded,
+		},
+		{
+			name: "an approval the base has taken, with new work on top, is never reviewed for that work",
+			item: agentItem{localVerdict: string(reviewstore.VerdictApproved), localTree: git.StandingLandedMoved},
+			want: view.ReviewApprovedLandedMoved,
+		},
+		{
+			name: "changes requested on a tree the base took as it was are finished business",
+			item: agentItem{localVerdict: string(reviewstore.VerdictChangesRequested), localTree: git.StandingLanded},
+			want: view.ReviewChangesLanded,
+		},
+		{
+			name: "changes requested on a landed tree with new work on top are never reviewed for that work",
+			item: agentItem{localVerdict: string(reviewstore.VerdictChangesRequested), localTree: git.StandingLandedMoved},
+			want: view.ReviewChangesLandedMoved,
 		},
 		{
 			name: "notes without a conclusion are no review",

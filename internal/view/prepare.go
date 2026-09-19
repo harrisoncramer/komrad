@@ -124,9 +124,9 @@ func ReviewCell(row Row) Cell {
 	}
 
 	switch row.Review {
-	case ReviewNone:
+	case ReviewNone, ReviewApprovedLandedMoved, ReviewChangesLanded, ReviewChangesLandedMoved:
 		return Cell{Glyph: GlyphUnverified, Tone: paint.ToneMuted}
-	case ReviewApproved:
+	case ReviewApproved, ReviewApprovedLanded:
 		return Cell{Glyph: GlyphApproved, Tone: paint.ToneSuccess}
 	case ReviewApprovedMoved:
 		return Cell{Glyph: GlyphCheckbox, Tone: paint.ToneWarning}

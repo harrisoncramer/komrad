@@ -11,6 +11,7 @@ import (
 	"weave/internal/git"
 	agentstore "weave/internal/store/agent"
 	reviewstore "weave/internal/store/review"
+	workflowstore "weave/internal/store/workflow"
 	"weave/lib/xptr"
 
 	"github.com/harrisoncramer/streamer"
@@ -36,8 +37,12 @@ type headReader interface {
 	ReadHeadState(ctx context.Context, dir string) git.HeadState
 }
 
-type treeReader interface {
-	HasTreeMoved(ctx context.Context, dir, sha string) (bool, error)
+type standingReader interface {
+	ReadStanding(ctx context.Context, params git.ReadStandingParams) (git.Standing, error)
+}
+
+type workflowLister interface {
+	List(ctx context.Context) ([]workflowstore.Workflow, error)
 }
 
 type tallyLister interface {
@@ -47,47 +52,60 @@ type tallyLister interface {
 // CwdSyncer keeps what the panel shows of an agent's working directory in step with the
 // directory itself.
 type CwdSyncer struct {
-	agents  cwdSetter
-	heads   headReader
-	trees   treeReader
-	tallies tallyLister
-	mu      sync.Mutex
-	moved   map[string]string
+	agents    cwdSetter
+	heads     headReader
+	trees     standingReader
+	tallies   tallyLister
+	bases     workflowLister
+	mu        sync.Mutex
+	standings map[string]roundStanding
+}
+
+// roundStanding is where one pass found an agent's worktree against the round it compared it to.
+type roundStanding struct {
+	snapshotSHA string
+	standing    git.Standing
 }
 
 type NewCwdSyncerParams struct {
 	Agents  cwdSetter
 	Heads   headReader
-	Trees   treeReader
+	Trees   standingReader
 	Tallies tallyLister
+	Bases   workflowLister
 }
 
 // NewCwdSyncer builds a syncer over the agent store.
 func NewCwdSyncer(params NewCwdSyncerParams) *CwdSyncer {
 	return &CwdSyncer{
-		agents:  params.Agents,
-		heads:   params.Heads,
-		trees:   params.Trees,
-		tallies: params.Tallies,
-		moved:   map[string]string{},
+		agents:    params.Agents,
+		heads:     params.Heads,
+		trees:     params.Trees,
+		tallies:   params.Tallies,
+		bases:     params.Bases,
+		standings: map[string]roundStanding{},
 	}
 }
 
 // cwdLook is what one pass found at an agent's directory.
 type cwdLook struct {
-	agent   agentstore.Agent
-	removed bool
-	head    git.HeadState
-	moved   bool
-	err     error
+	agent    agentstore.Agent
+	removed  bool
+	head     git.HeadState
+	standing git.Standing
+	err      error
 }
 
-// HasTreeMoved reports whether an agent's worktree was found to have moved from the given round.
-func (cs *CwdSyncer) HasTreeMoved(agentID, snapshotSHA string) bool {
+// GetStanding is where the last pass found an agent's worktree against the given round.
+func (cs *CwdSyncer) GetStanding(agentID, snapshotSHA string) git.Standing {
 	cs.mu.Lock()
 	defer cs.mu.Unlock()
 
-	return snapshotSHA != "" && cs.moved[agentID] == snapshotSHA
+	if found, ok := cs.standings[agentID]; ok && snapshotSHA != "" && found.snapshotSHA == snapshotSHA {
+		return found.standing
+	}
+
+	return git.StandingSame
 }
 
 // Sync looks at every live agent's cwd once and writes what changed, clearing the branch and
@@ -109,16 +127,21 @@ func (cs *CwdSyncer) Sync(ctx context.Context) error {
 		}
 	}
 
-	looks, err := cs.lookAtAll(ctx, agents, rounds)
+	bases, err := cs.listBases(ctx)
 	if err != nil {
 		return err
 	}
 
-	moved := map[string]string{}
+	looks, err := cs.lookAtAll(ctx, agents, rounds, bases)
+	if err != nil {
+		return err
+	}
+
+	standings := map[string]roundStanding{}
 	var failures []error
 	for _, look := range looks {
-		if look.moved {
-			moved[look.agent.ID] = rounds[look.agent.ID]
+		if round := rounds[look.agent.ID]; round != "" {
+			standings[look.agent.ID] = roundStanding{snapshotSHA: round, standing: look.standing}
 		}
 		if look.err != nil {
 			failures = append(failures, look.err)
@@ -127,17 +150,32 @@ func (cs *CwdSyncer) Sync(ctx context.Context) error {
 	}
 
 	cs.mu.Lock()
-	cs.moved = moved
+	cs.standings = standings
 	cs.mu.Unlock()
 
 	return errors.Join(failures...)
 }
 
-func (cs *CwdSyncer) lookAtAll(ctx context.Context, agents []agentstore.Agent, rounds map[string]string) ([]cwdLook, error) {
+// listBases is the branch each workflow cuts its worktrees from, by workflow id.
+func (cs *CwdSyncer) listBases(ctx context.Context) (map[string]string, error) {
+	flows, err := cs.bases.List(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list the workflows for cwd sync: %w", err)
+	}
+
+	bases := map[string]string{}
+	for _, flow := range flows {
+		bases[flow.ID] = flow.Worktree.BaseBranch
+	}
+
+	return bases, nil
+}
+
+func (cs *CwdSyncer) lookAtAll(ctx context.Context, agents []agentstore.Agent, rounds, bases map[string]string) ([]cwdLook, error) {
 	looker, err := streamer.NewStreamer(streamer.NewStreamerParams[agentstore.Agent, cwdLook]{
 		WorkerCount: cwdLookWorkers,
 		Work: func(ctx context.Context, agent agentstore.Agent) (cwdLook, error) {
-			return cs.look(ctx, agent, rounds[agent.ID]), nil
+			return cs.look(ctx, agent, rounds[agent.ID], bases[agent.WorkflowID]), nil
 		},
 	})
 	if err != nil {
@@ -166,14 +204,14 @@ func (cs *CwdSyncer) lookAtAll(ctx context.Context, agents []agentstore.Agent, r
 	return looks, nil
 }
 
-func (cs *CwdSyncer) look(ctx context.Context, agent agentstore.Agent, round string) cwdLook {
+func (cs *CwdSyncer) look(ctx context.Context, agent agentstore.Agent, round, base string) cwdLook {
 	look := cwdLook{agent: agent, removed: isCwdRemoved(ctx, agent.Cwd)}
 
 	// A directory that is gone has no head, so the git call is skipped rather than
 	// run against it and waited out.
 	if !look.removed {
 		look.head = cs.readHead(ctx, agent.Cwd)
-		look.moved, look.err = cs.readTreeMoved(ctx, agent, round)
+		look.standing, look.err = cs.readStanding(ctx, agent, round, base)
 	}
 
 	return look
@@ -243,18 +281,18 @@ func (cs *CwdSyncer) readHead(ctx context.Context, dir string) git.HeadState {
 	return cs.heads.ReadHeadState(ctx, dir)
 }
 
-func (cs *CwdSyncer) readTreeMoved(ctx context.Context, agent agentstore.Agent, round string) (bool, error) {
+func (cs *CwdSyncer) readStanding(ctx context.Context, agent agentstore.Agent, round, base string) (git.Standing, error) {
 	if agent.Cwd == "" || round == "" {
-		return false, nil
+		return git.StandingSame, nil
 	}
 
 	ctx, cancel := context.WithTimeout(ctx, cwdLookTimeout)
 	defer cancel()
 
-	moved, err := cs.trees.HasTreeMoved(ctx, agent.Cwd, round)
+	standing, err := cs.trees.ReadStanding(ctx, git.ReadStandingParams{Dir: agent.Cwd, Base: base, SnapshotSHA: round})
 	if err != nil {
-		return false, fmt.Errorf("failed to compare the tree of %q against its reviewed round: %w", agent.Name, err)
+		return standing, fmt.Errorf("failed to compare the tree of %q against its reviewed round: %w", agent.Name, err)
 	}
 
-	return moved, nil
+	return standing, nil
 }

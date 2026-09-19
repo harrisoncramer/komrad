@@ -51,6 +51,10 @@ const (
 	ReviewApprovedMoved
 	ReviewChangesRequested
 	ReviewChangesPushed
+	ReviewApprovedLanded
+	ReviewApprovedLandedMoved
+	ReviewChangesLanded
+	ReviewChangesLandedMoved
 	// ReviewEnd is one past the last state, so a caller walking them all gets a bound that moves
 	// when a state is added.
 	ReviewEnd

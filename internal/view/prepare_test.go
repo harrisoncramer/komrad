@@ -317,6 +317,26 @@ func TestPrepareReviewColumn(t *testing.T) {
 			review: ReviewChangesPushed,
 			want:   Cell{Glyph: GlyphBell, Tone: paint.ToneWarning},
 		},
+		{
+			name:   "approved and landed gets the check in success, since nothing is owed",
+			review: ReviewApprovedLanded,
+			want:   Cell{Glyph: GlyphApproved, Tone: paint.ToneSuccess},
+		},
+		{
+			name:   "approved and landed with new work since is the unverified mark greyed",
+			review: ReviewApprovedLandedMoved,
+			want:   Cell{Glyph: GlyphUnverified, Tone: paint.ToneMuted},
+		},
+		{
+			name:   "changes requested on a tree that landed as it was is the unverified mark greyed",
+			review: ReviewChangesLanded,
+			want:   Cell{Glyph: GlyphUnverified, Tone: paint.ToneMuted},
+		},
+		{
+			name:   "changes requested on a landed tree with new work since is the unverified mark greyed",
+			review: ReviewChangesLandedMoved,
+			want:   Cell{Glyph: GlyphUnverified, Tone: paint.ToneMuted},
+		},
 	}
 
 	for _, tt := range tests {

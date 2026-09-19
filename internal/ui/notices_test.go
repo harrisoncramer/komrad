@@ -7,6 +7,7 @@ import (
 
 	"weave/lib/xptr"
 
+	"weave/internal/git"
 	agentstore "weave/internal/store/agent"
 	reviewstore "weave/internal/store/review"
 	workflowstore "weave/internal/store/workflow"
@@ -125,12 +126,12 @@ func TestNoticesWearTheGlyphTheRowDraws(t *testing.T) {
 			SequenceInProgress: true,
 			HeldAt:             xptr.Ptr(time.Now()),
 		},
-		alive:          true,
-		unreadMail:     true,
-		unviewed:       true,
-		failedRun:      true,
-		localVerdict:   string(reviewstore.VerdictChangesRequested),
-		localTreeMoved: true,
+		alive:        true,
+		unreadMail:   true,
+		unviewed:     true,
+		failedRun:    true,
+		localVerdict: string(reviewstore.VerdictChangesRequested),
+		localTree:    git.StandingMoved,
 	}
 
 	line := view.Prepare(view.Snapshot{Rows: []view.Row{snapshotRow(noticeRow(item), snapshotParams{})}}).Lines[0]

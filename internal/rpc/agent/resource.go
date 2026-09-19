@@ -3,6 +3,7 @@ package agent
 import (
 	"time"
 
+	"weave/internal/git"
 	"weave/internal/rpc/render"
 	"weave/lib/dates"
 
@@ -42,9 +43,8 @@ type agentFlags struct {
 	// localVerdict is what the last released local review concluded about this agent's work,
 	// empty when none has concluded anything.
 	localVerdict string
-	// localTreeMoved reports whether the worktree no longer matches the round that verdict was
-	// given on.
-	localTreeMoved bool
+	// localTree is where the worktree stands against the round that verdict was given on.
+	localTree git.Standing
 }
 
 // agentOptions is how much of an agent renderAgent draws.
@@ -86,45 +86,60 @@ func renderAgent(stored agentstore.Agent, flags agentFlags, opts ...agentOption)
 
 	return agent{
 		Agent: &agentv1.Agent{
-			Id:                   stored.ID,
-			Name:                 stored.Name,
-			Cwd:                  stored.Cwd,
-			Flags:                stored.Flags,
-			Prompt:               prompt,
-			PromptTruncated:      promptTruncated,
-			PaneId:               stored.Pane,
-			State:                string(stored.State),
-			Role:                 string(stored.Role),
-			SessionId:            stored.SessionID,
-			Harness:              stored.Harness,
-			WorkflowId:           stored.WorkflowID,
-			ScheduleId:           stored.ScheduleID,
-			CreatedAt:            dates.Stamp(stored.CreatedAt),
-			StateChangedAt:       dates.Stamp(stored.StateChangedAt),
-			ReportedReason:       stored.ReportedReason,
-			ArchivedAt:           dates.StampPtr(stored.ArchivedAt),
-			Alive:                flags.alive,
-			UnreadMail:           flags.unreadMail,
-			Mark:                 flags.mark,
-			Hidden:               stored.Hidden,
-			Metadata:             metadata,
-			IdempotencyKey:       stored.IdempotencyKey,
-			SpawnedByAgentId:     stored.SpawnedByAgentID,
-			ParentAgentId:        stored.ParentAgentID,
-			Branch:               stored.Branch,
-			RepositoryUrl:        stored.RepositoryURL,
-			WorktreeRemoved:      stored.WorktreeRemoved,
-			SequenceInProgress:   stored.SequenceInProgress,
-			Unviewed:             flags.unviewed,
-			FailedRun:            flags.failedRun,
-			FailedRunLog:         flags.failedRunLog,
-			LocalReviewRounds:    flags.localRounds,
-			LocalReviewVerdict:   flags.localVerdict,
-			LocalReviewTreeMoved: flags.localTreeMoved,
-			HeldAt:               heldStamp(stored.HeldAt),
+			Id:                 stored.ID,
+			Name:               stored.Name,
+			Cwd:                stored.Cwd,
+			Flags:              stored.Flags,
+			Prompt:             prompt,
+			PromptTruncated:    promptTruncated,
+			PaneId:             stored.Pane,
+			State:              string(stored.State),
+			Role:               string(stored.Role),
+			SessionId:          stored.SessionID,
+			Harness:            stored.Harness,
+			WorkflowId:         stored.WorkflowID,
+			ScheduleId:         stored.ScheduleID,
+			CreatedAt:          dates.Stamp(stored.CreatedAt),
+			StateChangedAt:     dates.Stamp(stored.StateChangedAt),
+			ReportedReason:     stored.ReportedReason,
+			ArchivedAt:         dates.StampPtr(stored.ArchivedAt),
+			Alive:              flags.alive,
+			UnreadMail:         flags.unreadMail,
+			Mark:               flags.mark,
+			Hidden:             stored.Hidden,
+			Metadata:           metadata,
+			IdempotencyKey:     stored.IdempotencyKey,
+			SpawnedByAgentId:   stored.SpawnedByAgentID,
+			ParentAgentId:      stored.ParentAgentID,
+			Branch:             stored.Branch,
+			RepositoryUrl:      stored.RepositoryURL,
+			WorktreeRemoved:    stored.WorktreeRemoved,
+			SequenceInProgress: stored.SequenceInProgress,
+			Unviewed:           flags.unviewed,
+			FailedRun:          flags.failedRun,
+			FailedRunLog:       flags.failedRunLog,
+			LocalReviewRounds:  flags.localRounds,
+			LocalReviewVerdict: flags.localVerdict,
+			LocalReviewTree:    renderStanding(flags.localTree),
+			HeldAt:             heldStamp(stored.HeldAt),
 		},
 		cursor: agentstore.Cursor{ID: stored.ID},
 	}
+}
+
+// renderStanding is a standing as the wire carries it.
+func renderStanding(standing git.Standing) agentv1.ReviewTreeStanding {
+	switch standing {
+	case git.StandingMoved:
+		return agentv1.ReviewTreeStanding_REVIEW_TREE_STANDING_MOVED
+	case git.StandingLanded:
+		return agentv1.ReviewTreeStanding_REVIEW_TREE_STANDING_LANDED
+	case git.StandingLandedMoved:
+		return agentv1.ReviewTreeStanding_REVIEW_TREE_STANDING_LANDED_MOVED
+	case git.StandingSame:
+	}
+
+	return agentv1.ReviewTreeStanding_REVIEW_TREE_STANDING_UNSPECIFIED
 }
 
 func renderMail(stored mailstore.Mail) *agentv1.Mail {

@@ -4,6 +4,7 @@ import (
 	"maps"
 	"strings"
 
+	"weave/internal/git"
 	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
 	"weave/lib/xslice"
@@ -307,9 +308,8 @@ type agentItem struct {
 	// localVerdict is what the last released local review concluded about this agent's work,
 	// empty when none has concluded anything.
 	localVerdict string
-	// localTreeMoved reports whether the worktree no longer matches the round that verdict was
-	// given on.
-	localTreeMoved bool
+	// localTree is where the worktree stands against the round that verdict was given on.
+	localTree git.Standing
 }
 
 // displayState is the state a row wears, which is idle once the pane has gone even though the
