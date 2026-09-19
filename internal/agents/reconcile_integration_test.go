@@ -25,7 +25,7 @@ func TestReconcileAgainstRealTmux(t *testing.T) {
 	ctx := t.Context()
 	rec := NewReconciler(NewReconcilerParams{
 		Panes:    cli,
-		Observer: pane.NewPane(pane.NewPaneParams{Terminal: cli, Harnesses: mustRegistry(t, claude.NewHarness(claude.NewHarnessParams{ProjectsDir: t.TempDir()}))}),
+		Observer: pane.NewPane(pane.NewPaneParams{Terminal: cli, Harnesses: mustRegistry(t, claude.NewHarness(claude.NewHarnessParams{ConfigDir: t.TempDir()}))}),
 		States:   st.Agents,
 	})
 
@@ -87,7 +87,7 @@ func TestExitedCLIStopsBeingANudgeTarget(t *testing.T) {
 	ctx := t.Context()
 	rec := NewReconciler(NewReconcilerParams{
 		Panes:    cli,
-		Observer: pane.NewPane(pane.NewPaneParams{Terminal: cli, Harnesses: mustRegistry(t, claude.NewHarness(claude.NewHarnessParams{ProjectsDir: t.TempDir()}))}),
+		Observer: pane.NewPane(pane.NewPaneParams{Terminal: cli, Harnesses: mustRegistry(t, claude.NewHarness(claude.NewHarnessParams{ConfigDir: t.TempDir()}))}),
 		States:   st.Agents,
 	})
 
@@ -125,7 +125,7 @@ func TestReconcileHoldsAPaneOneListingLeftOut(t *testing.T) {
 	ctx := t.Context()
 	rec := NewReconciler(NewReconcilerParams{
 		Panes:    it.Client(),
-		Observer: pane.NewPane(pane.NewPaneParams{Terminal: it.Client(), Harnesses: mustRegistry(t, claude.NewHarness(claude.NewHarnessParams{ProjectsDir: t.TempDir()}))}),
+		Observer: pane.NewPane(pane.NewPaneParams{Terminal: it.Client(), Harnesses: mustRegistry(t, claude.NewHarness(claude.NewHarnessParams{ConfigDir: t.TempDir()}))}),
 		States:   st.Agents,
 	})
 
@@ -166,7 +166,7 @@ func TestReconcileHoldsAPaneWhateverElseTheListingKept(t *testing.T) {
 	ctx := t.Context()
 	rec := NewReconciler(NewReconcilerParams{
 		Panes:    it.Client(),
-		Observer: pane.NewPane(pane.NewPaneParams{Terminal: it.Client(), Harnesses: mustRegistry(t, claude.NewHarness(claude.NewHarnessParams{ProjectsDir: t.TempDir()}))}),
+		Observer: pane.NewPane(pane.NewPaneParams{Terminal: it.Client(), Harnesses: mustRegistry(t, claude.NewHarness(claude.NewHarnessParams{ConfigDir: t.TempDir()}))}),
 		States:   st.Agents,
 	})
 
@@ -192,7 +192,7 @@ func TestReconcileForgetsAPaneThatStaysGone(t *testing.T) {
 	ctx := t.Context()
 	rec := NewReconciler(NewReconcilerParams{
 		Panes:    it.Client(),
-		Observer: pane.NewPane(pane.NewPaneParams{Terminal: it.Client(), Harnesses: mustRegistry(t, claude.NewHarness(claude.NewHarnessParams{ProjectsDir: t.TempDir()}))}),
+		Observer: pane.NewPane(pane.NewPaneParams{Terminal: it.Client(), Harnesses: mustRegistry(t, claude.NewHarness(claude.NewHarnessParams{ConfigDir: t.TempDir()}))}),
 		States:   st.Agents,
 	})
 
@@ -224,7 +224,7 @@ func TestReconcileReturnsAHoldWhenTheListingComesBack(t *testing.T) {
 	dropping := &listingDroppingPanes{Client: it.Client()}
 	rec := NewReconciler(NewReconcilerParams{
 		Panes:    dropping,
-		Observer: pane.NewPane(pane.NewPaneParams{Terminal: dropping, Harnesses: mustRegistry(t, claude.NewHarness(claude.NewHarnessParams{ProjectsDir: t.TempDir()}))}),
+		Observer: pane.NewPane(pane.NewPaneParams{Terminal: dropping, Harnesses: mustRegistry(t, claude.NewHarness(claude.NewHarnessParams{ConfigDir: t.TempDir()}))}),
 		States:   st.Agents,
 	})
 

@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"weave/config"
 	"weave/internal/harness"
 
 	"github.com/google/uuid"
@@ -15,21 +16,23 @@ import (
 // HarnessID is the id an agent running Claude Code is recorded under.
 const HarnessID = "claude"
 
+const configDirEnv = "CLAUDE_CONFIG_DIR"
+
 type Harness struct {
-	projectsDir string
+	configDir string
 }
 
 var _ harness.Harness = (*Harness)(nil)
 
 type NewHarnessParams struct {
-	ProjectsDir string
+	ConfigDir string
 }
 
-// NewHarness builds a harness reading conversation logs from projectsDir, which is Claude's own
-// location when it is left empty.
+// NewHarness builds a harness that reads conversation logs from configDir, writes its launch
+// files there, and pins every agent it starts to that same directory.
 func NewHarness(params NewHarnessParams) *Harness {
 	return &Harness{
-		projectsDir: params.ProjectsDir,
+		configDir: params.ConfigDir,
 	}
 }
 
@@ -50,13 +53,21 @@ func (h *Harness) MintSessionID() string { return uuid.NewString() }
 // FindSession has nothing to find, Claude being told the id of every conversation it starts.
 func (h *Harness) FindSession(string) (string, error) { return "", nil }
 
-// DefaultProjectsDir is where Claude Code writes its JSONL logs, returning a relative path that
-// matches no logs when the home directory cannot be read.
-func DefaultProjectsDir() string {
+// DefaultConfigDir resolves Claude Code's own directory the way the CLI does, CLAUDE_CONFIG_DIR
+// when it is set and ~/.claude otherwise.
+func DefaultConfigDir() string {
+	if dir, set := config.LookupEnv(configDirEnv); set {
+		return dir
+	}
+
 	home, err := os.UserHomeDir()
 	if err != nil {
 		home = ""
 	}
 
-	return filepath.Join(home, ".claude", "projects")
+	return filepath.Join(home, ".claude")
+}
+
+func (h *Harness) projectsDir() string {
+	return filepath.Join(h.configDir, "projects")
 }

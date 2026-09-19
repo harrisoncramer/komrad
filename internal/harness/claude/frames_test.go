@@ -61,7 +61,7 @@ func TestReadActivityOnCapturedFrames(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			assert.Equal(t, tt.want, NewHarness(NewHarnessParams{ProjectsDir: t.TempDir()}).ReadInput(string(frame)).Activity)
+			assert.Equal(t, tt.want, NewHarness(NewHarnessParams{ConfigDir: t.TempDir()}).ReadInput(string(frame)).Activity)
 		})
 	}
 }

@@ -100,7 +100,7 @@ const claudeHarnessID = "claude"
 func newAgentService(t *testing.T, stores *storetest.Stores) *agents.LaunchService {
 	t.Helper()
 
-	registry, err := harness.NewRegistry(claude.NewHarness(claude.NewHarnessParams{ProjectsDir: t.TempDir()}))
+	registry, err := harness.NewRegistry(claude.NewHarness(claude.NewHarnessParams{ConfigDir: t.TempDir()}))
 	require.NoError(t, err)
 
 	return agents.NewLaunchService(agents.NewLaunchServiceParams{

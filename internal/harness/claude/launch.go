@@ -19,7 +19,7 @@ var deniedAgents = []string{"Agent(general-purpose)", "Agent(claude)"}
 // BuildCommand renders the command line that puts Claude up, quoting everything interpolated
 // since it is written to a script and parsed by the shell weave starts the pane with.
 func (h *Harness) BuildCommand(launch harness.Launch) (string, error) {
-	command := harness.EnvPrefix(launch) + h.Binary()
+	command := harness.EnvPrefix(launch) + configDirEnv + "=" + harness.QuoteArg(h.configDir) + " " + h.Binary()
 
 	if quoted := harness.QuoteFlags(launch.Flags); quoted != "" {
 		command += " " + quoted
@@ -61,13 +61,7 @@ func (h *Harness) BuildCommand(launch harness.Launch) (string, error) {
 }
 
 func (h *Harness) writeSettings(hookCommand string) (string, error) {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return "", fmt.Errorf("failed to get home directory: %w", err)
-	}
-
-	dir := filepath.Join(home, ".claude")
-	if err := os.MkdirAll(dir, 0o755); err != nil {
+	if err := os.MkdirAll(h.configDir, 0o755); err != nil {
 		return "", fmt.Errorf("failed to create the settings dir: %w", err)
 	}
 
@@ -83,7 +77,7 @@ func (h *Harness) writeSettings(hookCommand string) (string, error) {
 		return "", fmt.Errorf("failed to encode the settings: %w", err)
 	}
 
-	path := filepath.Join(dir, "weave-settings.json")
+	path := filepath.Join(h.configDir, "weave-settings.json")
 	if err := os.WriteFile(path, body, 0o644); err != nil {
 		return "", fmt.Errorf("failed to write the settings: %w", err)
 	}
@@ -123,17 +117,11 @@ func hookSettings(hookCommand string) map[string]any {
 }
 
 func (h *Harness) writeMCPConfig(endpoint string) (string, error) {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return "", fmt.Errorf("failed to get home directory: %w", err)
-	}
-
-	dir := filepath.Join(home, ".claude")
-	if err := os.MkdirAll(dir, 0o755); err != nil {
+	if err := os.MkdirAll(h.configDir, 0o755); err != nil {
 		return "", fmt.Errorf("failed to create mcp config dir: %w", err)
 	}
 
-	path := filepath.Join(dir, "weave-mcp.json")
+	path := filepath.Join(h.configDir, "weave-mcp.json")
 	if err := os.WriteFile(path, []byte(fmt.Sprintf(mcpConfigJSON, endpoint)), 0o644); err != nil {
 		return "", fmt.Errorf("failed to write mcp config: %w", err)
 	}

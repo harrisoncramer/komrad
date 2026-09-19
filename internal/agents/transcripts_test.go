@@ -72,19 +72,19 @@ func TestTranscriptSyncer(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			st := newStore(t)
 			ctx := t.Context()
-			projects := t.TempDir()
+			configDir := t.TempDir()
 
 			agent := seedWithSessionID(t, st, testSessionID, "agent")
 
 			var path string
 			if tt.log != "" {
-				path = writeLog(t, projects, tt.log)
+				path = writeLog(t, configDir, tt.log)
 			}
 
 			syncer := NewTranscriptSyncer(NewTranscriptSyncerParams{
 				Agents:      st.Agents,
 				Transcripts: st.Transcripts,
-				Harnesses:   mustRegistry(t, claude.NewHarness(claude.NewHarnessParams{ProjectsDir: projects})),
+				Harnesses:   mustRegistry(t, claude.NewHarness(claude.NewHarnessParams{ConfigDir: configDir})),
 			})
 			require.NoError(t, syncer.Sync(ctx))
 
@@ -135,19 +135,19 @@ func TestTranscriptSyncer(t *testing.T) {
 func TestSyncSurvivesOneUnsyncableAgent(t *testing.T) {
 	st := newStore(t)
 	ctx := t.Context()
-	projects := t.TempDir()
+	configDir := t.TempDir()
 
 	readable := seedWithSessionID(t, st, "claude-readable", "readable")
 	unsyncable := seedWithSessionID(t, st, "claude-unsyncable", "unsyncable")
 
-	writeLogFor(t, projects, "claude-readable", `{"type":"user","message":{"content":"a turn worth keeping"}}`+"\n")
-	writeLogFor(t, projects, "claude-unsyncable", `{"type":"user","message":{"content":"never accepted"}}`+"\n")
+	writeLogFor(t, configDir, "claude-readable", `{"type":"user","message":{"content":"a turn worth keeping"}}`+"\n")
+	writeLogFor(t, configDir, "claude-unsyncable", `{"type":"user","message":{"content":"never accepted"}}`+"\n")
 
 	store := failingTranscripts{transcriptReadWriter: st.Transcripts, failFor: unsyncable.ID}
 	syncer := NewTranscriptSyncer(NewTranscriptSyncerParams{
 		Agents:      st.Agents,
 		Transcripts: store,
-		Harnesses:   mustRegistry(t, claude.NewHarness(claude.NewHarnessParams{ProjectsDir: projects})),
+		Harnesses:   mustRegistry(t, claude.NewHarness(claude.NewHarnessParams{ConfigDir: configDir})),
 	})
 
 	err := syncer.Sync(ctx)
@@ -205,15 +205,15 @@ func seedWithSessionID(t *testing.T, st *testStore, sessionID, name string) agen
 	return *got
 }
 
-func writeLog(t *testing.T, projectsDir, body string) string {
+func writeLog(t *testing.T, configDir, body string) string {
 	t.Helper()
 
-	return writeLogFor(t, projectsDir, testSessionID, body)
+	return writeLogFor(t, configDir, testSessionID, body)
 }
 
-func writeLogFor(t *testing.T, projectsDir, sessionID, body string) string {
+func writeLogFor(t *testing.T, configDir, sessionID, body string) string {
 	t.Helper()
-	dir := filepath.Join(projectsDir, "-some-project")
+	dir := filepath.Join(configDir, "projects", "-some-project")
 	require.NoError(t, os.MkdirAll(dir, 0o755))
 	path := filepath.Join(dir, sessionID+".jsonl")
 	require.NoError(t, os.WriteFile(path, []byte(body), 0o644))
@@ -246,7 +246,7 @@ func TestSyncReportsAnUnknownHarness(t *testing.T) {
 	syncer := NewTranscriptSyncer(NewTranscriptSyncerParams{
 		Agents:      st.Agents,
 		Transcripts: st.Transcripts,
-		Harnesses:   mustRegistry(t, claude.NewHarness(claude.NewHarnessParams{ProjectsDir: t.TempDir()})),
+		Harnesses:   mustRegistry(t, claude.NewHarness(claude.NewHarnessParams{ConfigDir: t.TempDir()})),
 	})
 
 	err := syncer.Sync(ctx)
@@ -352,15 +352,15 @@ func TestSyncAdoptedSessionIsIndexed(t *testing.T) {
 func TestSyncStartsOverOnALogEmptiedBetweenPasses(t *testing.T) {
 	st := newStore(t)
 	ctx := t.Context()
-	projects := t.TempDir()
+	configDir := t.TempDir()
 
 	agent := seedWithSessionID(t, st, testSessionID, "agent")
-	path := writeLog(t, projects, `{"type":"user","message":{"content":"the conversation that was"}}`+"\n")
+	path := writeLog(t, configDir, `{"type":"user","message":{"content":"the conversation that was"}}`+"\n")
 
 	syncer := NewTranscriptSyncer(NewTranscriptSyncerParams{
 		Agents:      st.Agents,
 		Transcripts: st.Transcripts,
-		Harnesses:   mustRegistry(t, claude.NewHarness(claude.NewHarnessParams{ProjectsDir: projects})),
+		Harnesses:   mustRegistry(t, claude.NewHarness(claude.NewHarnessParams{ConfigDir: configDir})),
 	})
 	require.NoError(t, syncer.Sync(ctx))
 
@@ -395,20 +395,20 @@ func TestSyncStartsOverOnALogEmptiedBetweenPasses(t *testing.T) {
 func TestSyncKeepsEarlierConversations(t *testing.T) {
 	st := newStore(t)
 	ctx := t.Context()
-	projects := t.TempDir()
+	configDir := t.TempDir()
 
 	agent := seedWithSessionID(t, st, "claude-first", "agent")
-	writeLogFor(t, projects, "claude-first", `{"type":"user","message":{"content":"what the first conversation said"}}`+"\n")
+	writeLogFor(t, configDir, "claude-first", `{"type":"user","message":{"content":"what the first conversation said"}}`+"\n")
 
 	syncer := NewTranscriptSyncer(NewTranscriptSyncerParams{
 		Agents:      st.Agents,
 		Transcripts: st.Transcripts,
-		Harnesses:   mustRegistry(t, claude.NewHarness(claude.NewHarnessParams{ProjectsDir: projects})),
+		Harnesses:   mustRegistry(t, claude.NewHarness(claude.NewHarnessParams{ConfigDir: configDir})),
 	})
 	require.NoError(t, syncer.Sync(ctx))
 
 	moveToSession(t, st, agent.ID, "claude-second")
-	writeLogFor(t, projects, "claude-second", `{"type":"user","message":{"content":"what the second conversation said"}}`+"\n")
+	writeLogFor(t, configDir, "claude-second", `{"type":"user","message":{"content":"what the second conversation said"}}`+"\n")
 	require.NoError(t, syncer.Sync(ctx))
 
 	stored, err := st.GetTranscript(ctx, agent.ID)
@@ -427,20 +427,20 @@ func TestSyncKeepsEarlierConversations(t *testing.T) {
 func TestSyncStartsOverOnlyWithinOneConversation(t *testing.T) {
 	st := newStore(t)
 	ctx := t.Context()
-	projects := t.TempDir()
+	configDir := t.TempDir()
 
 	agent := seedWithSessionID(t, st, "claude-first", "agent")
-	writeLogFor(t, projects, "claude-first", `{"type":"user","message":{"content":"what the first conversation said"}}`+"\n")
+	writeLogFor(t, configDir, "claude-first", `{"type":"user","message":{"content":"what the first conversation said"}}`+"\n")
 
 	syncer := NewTranscriptSyncer(NewTranscriptSyncerParams{
 		Agents:      st.Agents,
 		Transcripts: st.Transcripts,
-		Harnesses:   mustRegistry(t, claude.NewHarness(claude.NewHarnessParams{ProjectsDir: projects})),
+		Harnesses:   mustRegistry(t, claude.NewHarness(claude.NewHarnessParams{ConfigDir: configDir})),
 	})
 	require.NoError(t, syncer.Sync(ctx))
 
 	moveToSession(t, st, agent.ID, "claude-second")
-	second := writeLogFor(t, projects, "claude-second", `{"type":"user","message":{"content":"a long second conversation"}}`+"\n")
+	second := writeLogFor(t, configDir, "claude-second", `{"type":"user","message":{"content":"a long second conversation"}}`+"\n")
 	require.NoError(t, syncer.Sync(ctx))
 
 	require.NoError(t, os.WriteFile(second, []byte(`{"type":"user","message":{"content":"rewritten"}}`+"\n"), 0o644))
@@ -464,10 +464,10 @@ func moveToSession(t *testing.T, st *testStore, agentID, sessionID string) {
 func TestArchivedAgentSyncsOnceThenFallsOut(t *testing.T) {
 	st := newStore(t)
 	ctx := t.Context()
-	projects := t.TempDir()
+	configDir := t.TempDir()
 
 	agent := seedWithSessionID(t, st, testSessionID, "archived")
-	path := writeLog(t, projects, `{"type":"user","message":{"content":"said before the archive"}}`+"\n")
+	path := writeLog(t, configDir, `{"type":"user","message":{"content":"said before the archive"}}`+"\n")
 
 	_, err := st.Agents.Archive(ctx, []string{agent.ID})
 	require.NoError(t, err)
@@ -475,7 +475,7 @@ func TestArchivedAgentSyncsOnceThenFallsOut(t *testing.T) {
 	syncer := NewTranscriptSyncer(NewTranscriptSyncerParams{
 		Agents:      st.Agents,
 		Transcripts: st.Transcripts,
-		Harnesses:   mustRegistry(t, claude.NewHarness(claude.NewHarnessParams{ProjectsDir: projects})),
+		Harnesses:   mustRegistry(t, claude.NewHarness(claude.NewHarnessParams{ConfigDir: configDir})),
 	})
 
 	require.NoError(t, syncer.Sync(ctx))
@@ -497,15 +497,15 @@ func TestArchivedAgentSyncsOnceThenFallsOut(t *testing.T) {
 func TestArchivedAgentWithNothingNewFallsOut(t *testing.T) {
 	st := newStore(t)
 	ctx := t.Context()
-	projects := t.TempDir()
+	configDir := t.TempDir()
 
 	agent := seedWithSessionID(t, st, testSessionID, "settled")
-	path := writeLog(t, projects, `{"type":"user","message":{"content":"the whole conversation"}}`+"\n")
+	path := writeLog(t, configDir, `{"type":"user","message":{"content":"the whole conversation"}}`+"\n")
 
 	syncer := NewTranscriptSyncer(NewTranscriptSyncerParams{
 		Agents:      st.Agents,
 		Transcripts: st.Transcripts,
-		Harnesses:   mustRegistry(t, claude.NewHarness(claude.NewHarnessParams{ProjectsDir: projects})),
+		Harnesses:   mustRegistry(t, claude.NewHarness(claude.NewHarnessParams{ConfigDir: configDir})),
 	})
 	require.NoError(t, syncer.Sync(ctx))
 
