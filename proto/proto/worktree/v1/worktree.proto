@@ -1,0 +1,165 @@
+syntax = "proto3";
+
+package worktree.v1;
+
+import "annotation/v1/tool.proto";
+import "buf/validate/validate.proto";
+import "google/protobuf/empty.proto";
+
+option go_package = "weave/proto/gen/worktree/v1;worktreev1";
+
+message WorktreeAgent {
+  // The agent's id.
+  string id = 1;
+  // What the panel lists it as.
+  string name = 2;
+  // The agent's state, as the agents listing spells it.
+  string state = 3;
+  // When the agent was put away, in RFC 3339, unset while it is live.
+  optional string archived_at = 4;
+  // Whether the branch was somebody's before the agent was put on it, which cleanup never
+  // deletes.
+  bool adopted = 5;
+}
+
+message Worktree {
+  // The directory, absolute.
+  string dir = 1;
+  // The repository the worktree was cut from, read off the directory's own .git file, which
+  // for a registration git can no longer read is where the repository used to be.
+  string repo_dir = 2;
+  // The branch the directory's HEAD names, empty when it is detached or the registration
+  // cannot be read.
+  string branch = 3;
+  // Whether the gitdir the .git file names is still there, without which git will not answer
+  // for the directory.
+  bool readable = 4;
+  // The agent the directory was made for, unset when no row answers for it.
+  WorktreeAgent agent = 5;
+  // The other agents working in this directory, which hold none of their own.
+  repeated WorktreeAgent occupants = 6;
+}
+
+message ListWorktreesResponse {
+  // Every directory under the worktree directories, in no particular order.
+  repeated Worktree worktrees = 1;
+  // The directories that were walked: the configured one and each workflow's own.
+  repeated string dirs = 2;
+  // Which of those could not be read, so a listing that is short says why.
+  repeated string unreadable_dirs = 3;
+}
+
+message GetWorktreeRequest {
+  // The directory to read, as list_worktrees spelled it.
+  string dir = 1 [(buf.validate.field).string.min_len = 1];
+  // Whether to fetch the base from origin before measuring against it, which is a network
+  // round trip; left off, the base is whatever the clone last fetched.
+  bool fetch = 2;
+}
+
+message Entry {
+  // The path, relative to the directory.
+  string path = 1;
+  // How many bytes it holds, counted through for a directory.
+  int64 size_bytes = 2;
+  // Whether it is a directory.
+  bool dir = 3;
+}
+
+message Commit {
+  // The commit's hash.
+  string sha = 1;
+  // The first line of its message.
+  string subject = 2;
+  // When it was committed, in RFC 3339.
+  string committed_at = 3;
+}
+
+message GetWorktreeResponse {
+  // The directory as list_worktrees reports it.
+  Worktree worktree = 1;
+  // How many bytes the directory holds, walked for this call.
+  int64 size_bytes = 12;
+  // The top-level entries with their sizes, biggest first, from the same walk.
+  repeated Entry entries = 2;
+  // The paths git tracks that differ from HEAD.
+  repeated string modified = 3;
+  // The paths git neither tracks nor ignores.
+  repeated string untracked = 4;
+  // The ref the branch is measured against: the workflow's base branch when a row names a
+  // workflow, otherwise origin's default branch, empty when the repository cannot be read or
+  // names neither, in which case nothing below is measured.
+  string base_ref = 5;
+  // How many of the branch's commits the base does not hold.
+  int32 ahead = 6;
+  // How many of the base's commits the branch does not hold.
+  int32 behind = 7;
+  // How many of the branch's own commits the base already holds whole, which is what a squash
+  // merge leaves behind.
+  int32 landed_commits = 8;
+  // Whether a merge, a rebase or a cherry-pick is part-way through.
+  bool sequence_in_progress = 9;
+  // Whether deleting the agent would keep the branch, which cleanup does for an adopted branch
+  // and for one whose commits are on no other ref.
+  bool keeps_branch = 10;
+  // The branch's commits the base does not hold, newest first, at most fifty.
+  repeated Commit commits = 11;
+}
+
+message RemoveUnownedWorktreesRequest {
+  // The directories to remove, each as list_worktrees spelled it.
+  repeated string dirs = 1 [(buf.validate.field).repeated = {
+    min_items: 1
+    max_items: 100
+    unique: true
+    items: {
+      string: {min_len: 1}
+    }
+  }];
+}
+
+message Refusal {
+  // The directory that was left alone.
+  string dir = 1;
+  // Why, in a sentence.
+  string reason = 2;
+}
+
+message RemoveUnownedWorktreesResponse {
+  // The directories that went.
+  repeated string removed = 1;
+  // The directories that did not, each with the reason.
+  repeated Refusal refused = 2;
+}
+
+// WorktreeService reads and clears the directories weave cut for its agents.
+service WorktreeService {
+  rpc ListWorktrees(google.protobuf.Empty) returns (ListWorktreesResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+    option (annotation.v1.surfaces) = {
+      cli: true
+      mcp: true
+      name: "list_worktrees"
+      description: "List every worktree directory weave holds, under the configured worktrees directory and each workflow's own, with the repository it was cut from, its branch, whether git can still read it, the agent it was made for and the other agents working in it. A directory with no agent is one whose row was deleted while cleanup did not run, or one a test left behind. This reads the directories and the agent rows and runs no git, so it is cheap to call often; read one directory's contents and standing against its base with get_worktree."
+    };
+  }
+  rpc GetWorktree(GetWorktreeRequest) returns (GetWorktreeResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+    option (annotation.v1.surfaces) = {
+      cli: true
+      mcp: true
+      name: "get_worktree"
+      description: "Read one worktree directory: its size and its top-level entries with theirs, biggest first, walked for the call, what is uncommitted, the base it is measured against with how far ahead and behind it stands and how many of its commits the base already holds whole, whether deleting its agent would keep the branch, and the commits since the base. The base is read as the clone last fetched it unless fetch is set, which asks origin first. A directory whose registration git cannot read answers with the entries alone."
+    };
+  }
+  rpc RemoveUnownedWorktrees(RemoveUnownedWorktreesRequest) returns (RemoveUnownedWorktreesResponse) {
+    option idempotency_level = IDEMPOTENT;
+    option (annotation.v1.surfaces) = {
+      cli: true
+      mcp: true
+      name: "remove_unowned_worktrees"
+      description: "Remove worktree directories no agent answers for, which delete_agents cannot reach: a directory under the worktrees directories whose agent row is gone, or whose row is in failed_to_cleanup because git can no longer read the registration. Each directory goes and, where the repository can still be read, git worktree prune runs in it; no branch is ever touched, since without a row nothing says whether the branch was adopted. A directory outside the worktrees directories, one a live or archived agent still answers for, one an agent works in or under, or one holding another worktree is refused with the reason and the rest go; delete the agent instead for those. Read list_worktrees first and pass only the directories it reports with no agent."
+      destructive: true
+    };
+  }
+}

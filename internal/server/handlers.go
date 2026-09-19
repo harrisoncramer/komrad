@@ -18,6 +18,7 @@ import (
 	rpcpullrequest "weave/internal/rpc/pullrequest"
 	rpcschedule "weave/internal/rpc/schedule"
 	rpcworkflow "weave/internal/rpc/workflow"
+	rpcworktree "weave/internal/rpc/worktree"
 	"weave/internal/rpccodec"
 	"weave/proto/gen/agent/v1/agentv1connect"
 	agentv1weave "weave/proto/gen/agent/v1/agentv1weave"
@@ -37,6 +38,8 @@ import (
 	schedulev1weave "weave/proto/gen/schedule/v1/schedulev1weave"
 	"weave/proto/gen/workflow/v1/workflowv1connect"
 	workflowv1weave "weave/proto/gen/workflow/v1/workflowv1weave"
+	"weave/proto/gen/worktree/v1/worktreev1connect"
+	worktreev1weave "weave/proto/gen/worktree/v1/worktreev1weave"
 
 	"connectrpc.com/connect"
 	"github.com/jackc/pgx/v5"
@@ -113,6 +116,14 @@ func newMux(params newMuxParams) (*http.ServeMux, error) {
 	mux.Handle(pullrequestv1connect.NewPullRequestServiceHandler(
 		pullrequestv1weave.PullRequestServiceAdapter{
 			Impl: rpcpullrequest.NewPullRequestService(params.Services.forge),
+		}, options...))
+	mux.Handle(worktreev1connect.NewWorktreeServiceHandler(
+		worktreev1weave.WorktreeServiceAdapter{
+			Impl: rpcworktree.NewWorktreeService(rpcworktree.NewWorktreeServiceParams{
+				Lister:    params.Services.worktrees,
+				Inspector: params.Services.inspector,
+				Remover:   params.Services.remover,
+			}),
 		}, options...))
 	mux.Handle(logv1connect.NewLogServiceHandler(
 		logv1weave.LogServiceAdapter{

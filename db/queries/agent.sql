@@ -950,7 +950,12 @@ ORDER BY
 -- name: ListAgentDirs :many
 SELECT
     id,
-    cwd
+    name,
+    cwd,
+    state,
+    archived_at,
+    adopted_branch,
+    workflow_id
 FROM
     agents;
 

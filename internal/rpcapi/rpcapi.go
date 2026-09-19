@@ -20,6 +20,7 @@ import (
 	pullrequestv1 "weave/proto/gen/pullrequest/v1"
 	schedulev1 "weave/proto/gen/schedule/v1"
 	workflowv1 "weave/proto/gen/workflow/v1"
+	worktreev1 "weave/proto/gen/worktree/v1"
 
 	"buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go/buf/validate"
 	"google.golang.org/protobuf/proto"
@@ -37,6 +38,7 @@ var files = []protoreflect.FileDescriptor{
 	logv1.File_log_v1_log_proto,
 	forgev1.File_forge_v1_forge_proto,
 	pullrequestv1.File_pullrequest_v1_pullrequest_proto,
+	worktreev1.File_worktree_v1_worktree_proto,
 }
 
 type Method struct {
