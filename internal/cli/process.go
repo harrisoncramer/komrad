@@ -22,7 +22,7 @@ import (
 )
 
 const (
-	serveWaitAttempts = 50
+	serveWaitFor      = 15 * time.Second
 	serveWaitInterval = 40 * time.Millisecond
 )
 
@@ -87,7 +87,8 @@ func ensureServer(ctx context.Context, params ensureServerParams) error {
 		close(exited)
 	}()
 
-	for range serveWaitAttempts {
+	deadline := time.Now().Add(serveWaitFor)
+	for time.Now().Before(deadline) {
 		if probeServer(ctx, addr).ready {
 			return nil
 		}
@@ -103,7 +104,7 @@ func ensureServer(ctx context.Context, params ensureServerParams) error {
 		}
 	}
 
-	return fmt.Errorf("the agent server did not become ready at %s, see %s", addr, logPath)
+	return fmt.Errorf("the agent server did not become ready at %s within %s, see %s", addr, serveWaitFor, logPath)
 }
 
 func replaceServer(ctx context.Context, addr, reported string) error {
