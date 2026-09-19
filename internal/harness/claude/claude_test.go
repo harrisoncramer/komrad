@@ -13,11 +13,13 @@ import (
 func TestNamedConfigDir(t *testing.T) {
 	tests := []struct {
 		name  string
+		unset bool
 		value string
 		want  string
 	}{
 		{
-			name: "nothing when the variable is unset",
+			name:  "nothing when the variable is unset",
+			unset: true,
 		},
 		{
 			name:  "nothing when it is set but empty",
@@ -33,6 +35,9 @@ func TestNamedConfigDir(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Setenv(configDirEnv, tt.value)
+			if tt.unset {
+				require.NoError(t, os.Unsetenv(configDirEnv))
+			}
 
 			assert.Equal(t, tt.want, NamedConfigDir())
 		})
