@@ -12,11 +12,15 @@ const managerKeyOption = "@weave_key"
 
 const defaultPanelKey = "g"
 
+const hideKeyOption = "@weave_hide_key"
+
 type popupTmux interface {
+	keyNamer
 	SetGlobal(name, value string)
 	GetSessionClient(session string) string
 	SetSessionOption(target, name, value string)
 	BindKey(key string, command ...string)
+	UnbindKey(key string)
 	BindRootKey(key string, command ...string)
 	UnbindRootKey(key string)
 	DetachSession(name string)
@@ -43,7 +47,12 @@ func (p *PopupWindow) BindHide(key string) {
 		key = defaultPanelKey
 	}
 
+	if last := p.tmux.ShowGlobal(hideKeyOption); last != "" && last != key {
+		p.tmux.UnbindKey(last)
+	}
+
 	p.tmux.BindKey(key, "detach-client", "-s", p.session)
+	p.tmux.SetGlobal(hideKeyOption, key)
 }
 
 // Explainer: the focus key is bound outside the prefix table on weave's own tmux server, which
