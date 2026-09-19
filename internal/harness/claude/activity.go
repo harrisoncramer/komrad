@@ -14,6 +14,16 @@ var (
 
 var waitingFooter = regexp.MustCompile(`(?i)esc to cancel|enter to select`)
 
+// Explainer: the picker ExitPlanMode puts up, read on Claude 2.1.278, offers three numbered
+// options, and 1 is not the plain approve. Launched without --dangerously-skip-permissions it reads
+// "Yes, and use auto mode" and leaves the session in auto mode; launched under that flag it
+// reads "Yes, and switch to BYPASS PERMISSIONS (no further prompts) for this session" and leaves
+// it in bypass. Option 2, "Yes, manually approve edits", is the plain approve, and it drops the
+// session to default mode even when it was launched under bypass, so the next Bash call puts up
+// a permission prompt. Option 3 is "Tell Claude what to change". Nothing in weave presses any of
+// them: an approve that presses 1 widens the agent's permissions, and one that presses 2 for a
+// bypassed agent takes them away.
+
 // optionCursor is the cursor Claude draws beside the chosen answer of a question, indented
 // when a bordered dialog draws it inside its own frame.
 var optionCursor = regexp.MustCompile(`^\s*│?\s*❯\s+\d+\.\s`)

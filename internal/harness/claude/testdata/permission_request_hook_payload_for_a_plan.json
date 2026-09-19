@@ -1,0 +1,17 @@
+{
+  "session_id": "1a42b78e-8aa8-4ee9-9359-3119f65e3064",
+  "transcript_path": "/Users/harrisoncramer/.claude/projects/-private-tmp-claude-501--Users-harrisoncramer--local-state-weave-worktrees-01a0b983-ba98-7947-a030-127b09682205-3c57cb73-8f96-4697-9bc0-6792a625f58d-scratchpad-probe-plan-bypass/1a42b78e-8aa8-4ee9-9359-3119f65e3064.jsonl",
+  "cwd": "/private/tmp/claude-501/-Users-harrisoncramer--local-state-weave-worktrees-01a0b983-ba98-7947-a030-127b09682205/3c57cb73-8f96-4697-9bc0-6792a625f58d/scratchpad/probe/plan/bypass",
+  "scratchpad_dir": "/private/tmp/claude-501/-private-tmp-claude-501--Users-harrisoncramer--local-state-weave-worktrees-01a0b983-ba98-7947-a030-127b09682205-3c57cb73-8f96-4697-9bc0-6792a625f58d-scratchpad-probe-plan-bypass/1a42b78e-8aa8-4ee9-9359-3119f65e3064/scratchpad",
+  "prompt_id": "95a4f989-22fd-4fba-8084-32f901d8f18b",
+  "permission_mode": "plan",
+  "effort": {
+    "level": "xhigh"
+  },
+  "hook_event_name": "PermissionRequest",
+  "tool_name": "ExitPlanMode",
+  "tool_input": {
+    "plan": "# Add hello.sh\n\nCreate `hello.sh` in the working directory with a `#!/usr/bin/env bash` shebang, `set -euo pipefail`, and `echo \"Hello, world!\"`, then `chmod +x` it. Verify by running `./hello.sh` and confirming it prints `Hello, world!`.\n",
+    "planFilePath": "/Users/harrisoncramer/.claude/plans/polished-rolling-starfish.md"
+  }
+}
