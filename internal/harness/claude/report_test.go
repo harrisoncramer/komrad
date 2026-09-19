@@ -110,6 +110,12 @@ func TestReadReportOnCapturedPayloads(t *testing.T) {
 			event: EventPermissionRequest,
 			want:  harness.Report{Reason: "Bash"},
 		},
+		// Claude 2.1.278 fires PermissionRequest for a question under bypassed permissions too, naming the tool.
+		{
+			file:  "permission_request_hook_payload_for_a_question.json",
+			event: EventPermissionRequest,
+			want:  harness.Report{Reason: "AskUserQuestion"},
+		},
 		{
 			file:  "post_tool_use_hook_payload.json",
 			event: EventPostToolUse,
