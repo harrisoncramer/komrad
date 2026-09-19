@@ -30,8 +30,16 @@ func screensModel() model {
 
 	for i := range total {
 		name := fmt.Sprintf("agent%d", i)
-		m.listing.agents = append(m.listing.agents, agentItem{agent: agentstore.Agent{ID: name, Name: name, WorkflowID: "w1"}})
-		m.archive.agents = append(m.archive.agents, agentstore.Agent{ID: name, Name: name, WorkflowID: "w1"})
+		m.listing.agents = append(m.listing.agents, agentItem{agent: agentstore.Agent{
+			ID:         name,
+			Name:       name,
+			WorkflowID: "w1",
+		}})
+		m.archive.agents = append(m.archive.agents, agentstore.Agent{
+			ID:         name,
+			Name:       name,
+			WorkflowID: "w1",
+		})
 		m.schedules.items = append(m.schedules.items, scheduleItem{schedule: schedulestore.Schedule{Name: name}})
 	}
 
@@ -153,14 +161,50 @@ func TestScreensFitATightPane(t *testing.T) {
 		expanded bool
 		fitsFrom int
 	}{
-		{name: "the agents tree", screen: screenAgents, fitsFrom: 9},
-		{name: "the agents tree with the help expanded", screen: screenAgents, expanded: true, fitsFrom: 27},
-		{name: "the archive", screen: screenArchive, fitsFrom: 9},
-		{name: "the archive with the help expanded", screen: screenArchive, expanded: true, fitsFrom: 15},
-		{name: "the schedules", screen: screenSchedules, fitsFrom: 9},
-		{name: "the schedules with the help expanded", screen: screenSchedules, expanded: true, fitsFrom: 17},
-		{name: "the mailbox", screen: screenMail, fitsFrom: 6},
-		{name: "the mailbox with the help expanded", screen: screenMail, expanded: true, fitsFrom: 9},
+		{
+			name:     "the agents tree",
+			screen:   screenAgents,
+			fitsFrom: 9,
+		},
+		{
+			name:     "the agents tree with the help expanded",
+			screen:   screenAgents,
+			expanded: true,
+			fitsFrom: 27,
+		},
+		{
+			name:     "the archive",
+			screen:   screenArchive,
+			fitsFrom: 9,
+		},
+		{
+			name:     "the archive with the help expanded",
+			screen:   screenArchive,
+			expanded: true,
+			fitsFrom: 15,
+		},
+		{
+			name:     "the schedules",
+			screen:   screenSchedules,
+			fitsFrom: 9,
+		},
+		{
+			name:     "the schedules with the help expanded",
+			screen:   screenSchedules,
+			expanded: true,
+			fitsFrom: 17,
+		},
+		{
+			name:     "the mailbox",
+			screen:   screenMail,
+			fitsFrom: 6,
+		},
+		{
+			name:     "the mailbox with the help expanded",
+			screen:   screenMail,
+			expanded: true,
+			fitsFrom: 9,
+		},
 	}
 
 	for _, tt := range tests {

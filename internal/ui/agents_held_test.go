@@ -234,7 +234,11 @@ func TestUnpausingInSilenceLetsAGoneBoxGo(t *testing.T) {
 		answer   string
 		wantSent int
 	}{
-		{name: "confirming lets it go without saying anything", answer: "y", wantSent: 1},
+		{
+			name:     "confirming lets it go without saying anything",
+			answer:   "y",
+			wantSent: 1,
+		},
 		{name: "declining keeps the hold", answer: "n"},
 	}
 

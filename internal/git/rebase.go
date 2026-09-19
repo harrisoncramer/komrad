@@ -271,7 +271,11 @@ func findLandedCutoff(ctx context.Context, dir, ref string, own []string) (int, 
 	// Walked newest first rather than halved, since a squash leaves the intermediate states
 	// holding content the base never took and so reading as unlanded inside a landed run.
 	for i := len(own) - 1; i >= 0; i-- {
-		merged, _, err := readMergedTree(ctx, readMergedTreeParams{Dir: dir, Left: ref, Right: own[i]})
+		merged, _, err := readMergedTree(ctx, readMergedTreeParams{
+			Dir:   dir,
+			Left:  ref,
+			Right: own[i],
+		})
 		if err != nil {
 			return -1, err
 		}
@@ -285,7 +289,11 @@ func findLandedCutoff(ctx context.Context, dir, ref string, own []string) (int, 
 
 // readConflictPaths test-merges ref into the head and answers with what would not settle.
 func readConflictPaths(ctx context.Context, dir, ref string) ([]string, error) {
-	_, paths, err := readMergedTree(ctx, readMergedTreeParams{Dir: dir, Left: ref, Right: "HEAD"})
+	_, paths, err := readMergedTree(ctx, readMergedTreeParams{
+		Dir:   dir,
+		Left:  ref,
+		Right: "HEAD",
+	})
 
 	return paths, err
 }

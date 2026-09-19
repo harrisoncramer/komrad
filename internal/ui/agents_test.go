@@ -25,7 +25,11 @@ func TestAgentsViewRowsOpenAtTheGutter(t *testing.T) {
 		width:  120,
 		height: 40,
 		listing: listing{
-			workflows: []workflowstore.Workflow{{ID: "w1", Name: "weave", Worktree: workflowstore.WorktreeConfig{Enabled: true}}},
+			workflows: []workflowstore.Workflow{{
+				ID:       "w1",
+				Name:     "weave",
+				Worktree: workflowstore.WorktreeConfig{Enabled: true},
+			}},
 			agents: []agentItem{
 				{
 					agent: agentstore.Agent{

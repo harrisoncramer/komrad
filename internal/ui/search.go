@@ -498,7 +498,11 @@ func (h searchHit) spans(content string) []paint.Span {
 
 // searchDropped are the three columns the search screen gives up: a hit is a pointer into a
 // conversation rather than a piece of work to triage.
-var searchDropped = view.Columns{Repo: true, Review: true, Forge: true}
+var searchDropped = view.Columns{
+	Repo:   true,
+	Review: true,
+	Forge:  true,
+}
 
 // searchRow reads one hit into the row the agents list draws, keyed only where the cursor can
 // stand on it so a snippet does not light the header above it.

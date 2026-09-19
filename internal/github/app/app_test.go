@@ -79,11 +79,31 @@ func TestMintExplainsARefusal(t *testing.T) {
 		status      int
 		wantRefused bool
 	}{
-		{name: "a key github cannot check", status: http.StatusUnauthorized, wantRefused: true},
-		{name: "a suspended installation", status: http.StatusForbidden, wantRefused: true},
-		{name: "an installation github does not have", status: http.StatusNotFound, wantRefused: true},
-		{name: "a rate limit", status: http.StatusTooManyRequests, wantRefused: false},
-		{name: "github failing to answer", status: http.StatusBadGateway, wantRefused: false},
+		{
+			name:        "a key github cannot check",
+			status:      http.StatusUnauthorized,
+			wantRefused: true,
+		},
+		{
+			name:        "a suspended installation",
+			status:      http.StatusForbidden,
+			wantRefused: true,
+		},
+		{
+			name:        "an installation github does not have",
+			status:      http.StatusNotFound,
+			wantRefused: true,
+		},
+		{
+			name:        "a rate limit",
+			status:      http.StatusTooManyRequests,
+			wantRefused: false,
+		},
+		{
+			name:        "github failing to answer",
+			status:      http.StatusBadGateway,
+			wantRefused: false,
+		},
 	}
 
 	for _, tt := range tests {

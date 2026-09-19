@@ -69,8 +69,16 @@ var (
 // calibration is characters of undisputed width, measured alongside the glyphs so a terminal
 // answering nonsense is caught before any of its other answers is believed.
 var calibration = []view.Drawn{
-	{Name: "latin x", Text: "x", Columns: 1},
-	{Name: "han character", Text: "漢", Columns: 2},
+	{
+		Name:    "latin x",
+		Text:    "x",
+		Columns: 1,
+	},
+	{
+		Name:    "han character",
+		Text:    "漢",
+		Columns: 2,
+	},
 }
 
 // emphasis is the terminfo name of each escape the list letters a row with, and what is lost

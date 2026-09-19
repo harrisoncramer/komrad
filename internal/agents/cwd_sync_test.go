@@ -495,8 +495,16 @@ func TestCwdSyncerSyncReadsWhetherTheTreeMoved(t *testing.T) {
 		Heads:  fakeHeads{},
 		Trees:  fakeTrees{edited: true, untouched: false},
 		Tallies: fakeTallies{
-			{AgentID: editedAgent.ID, Verdict: &approved, SnapshotSHA: "snapshot-one"},
-			{AgentID: untouchedAgent.ID, Verdict: &approved, SnapshotSHA: "snapshot-two"},
+			{
+				AgentID:     editedAgent.ID,
+				Verdict:     &approved,
+				SnapshotSHA: "snapshot-one",
+			},
+			{
+				AgentID:     untouchedAgent.ID,
+				Verdict:     &approved,
+				SnapshotSHA: "snapshot-two",
+			},
 		},
 	})
 
@@ -545,9 +553,17 @@ func TestCwdSyncerSyncHashesOnlyAReviewedTree(t *testing.T) {
 		Heads:  fakeHeads{},
 		Trees:  hashed,
 		Tallies: fakeTallies{
-			{AgentID: reviewedAgent.ID, Verdict: &approved, SnapshotSHA: "snapshot-one"},
+			{
+				AgentID:     reviewedAgent.ID,
+				Verdict:     &approved,
+				SnapshotSHA: "snapshot-one",
+			},
 			{AgentID: commentedAgent.ID, Rounds: 1},
-			{AgentID: removedAgent.ID, Verdict: &approved, SnapshotSHA: "snapshot-three"},
+			{
+				AgentID:     removedAgent.ID,
+				Verdict:     &approved,
+				SnapshotSHA: "snapshot-three",
+			},
 		},
 	})
 
@@ -578,10 +594,14 @@ func TestCwdSyncerSyncForgetsAMoveTheNextPassDoesNotSee(t *testing.T) {
 	approved := reviewstore.VerdictApproved
 	trees := fakeTrees{cwd: true}
 	syncer := NewCwdSyncer(NewCwdSyncerParams{
-		Agents:  st.Agents,
-		Heads:   fakeHeads{},
-		Trees:   trees,
-		Tallies: fakeTallies{{AgentID: created.ID, Verdict: &approved, SnapshotSHA: "snapshot-one"}},
+		Agents: st.Agents,
+		Heads:  fakeHeads{},
+		Trees:  trees,
+		Tallies: fakeTallies{{
+			AgentID:     created.ID,
+			Verdict:     &approved,
+			SnapshotSHA: "snapshot-one",
+		}},
 	})
 
 	require.NoError(t, syncer.Sync(ctx))
@@ -611,10 +631,14 @@ func TestCwdSyncerSyncReportsAProbeItCouldNotMake(t *testing.T) {
 
 	approved := reviewstore.VerdictApproved
 	syncer := NewCwdSyncer(NewCwdSyncerParams{
-		Agents:  st.Agents,
-		Heads:   fakeHeads{},
-		Trees:   fakeTrees{},
-		Tallies: fakeTallies{{AgentID: created.ID, Verdict: &approved, SnapshotSHA: "snapshot-one"}},
+		Agents: st.Agents,
+		Heads:  fakeHeads{},
+		Trees:  fakeTrees{},
+		Tallies: fakeTallies{{
+			AgentID:     created.ID,
+			Verdict:     &approved,
+			SnapshotSHA: "snapshot-one",
+		}},
 	})
 
 	err = syncer.Sync(ctx)

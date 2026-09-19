@@ -672,10 +672,29 @@ func TestRebaseRefusesTheCallerWhateverThePathSpelling(t *testing.T) {
 		askerCwd  string
 		wantErr   error
 	}{
-		{name: "a trailing slash", targetCwd: "/tree", askerCwd: "/tree/", wantErr: ErrRebaseSelf},
-		{name: "a dot segment", targetCwd: "/tree", askerCwd: "/tree/./", wantErr: ErrRebaseSelf},
-		{name: "a symlinked prefix", targetCwd: real, askerCwd: linked, wantErr: ErrRebaseSelf},
-		{name: "another directory entirely", targetCwd: "/tree", askerCwd: "/other"},
+		{
+			name:      "a trailing slash",
+			targetCwd: "/tree",
+			askerCwd:  "/tree/",
+			wantErr:   ErrRebaseSelf,
+		},
+		{
+			name:      "a dot segment",
+			targetCwd: "/tree",
+			askerCwd:  "/tree/./",
+			wantErr:   ErrRebaseSelf,
+		},
+		{
+			name:      "a symlinked prefix",
+			targetCwd: real,
+			askerCwd:  linked,
+			wantErr:   ErrRebaseSelf,
+		},
+		{
+			name:      "another directory entirely",
+			targetCwd: "/tree",
+			askerCwd:  "/other",
+		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()

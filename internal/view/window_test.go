@@ -16,10 +16,19 @@ import (
 func windowedRows() []Row {
 	rows := make([]Row, 0, 15)
 	for _, workflow := range []string{"alpha", "beta", "gamma"} {
-		rows = append(rows, Row{Key: workflow, Kind: KindWorkflow, Name: workflow, Process: ProcessNone})
+		rows = append(rows, Row{
+			Key:     workflow,
+			Kind:    KindWorkflow,
+			Name:    workflow,
+			Process: ProcessNone,
+		})
 		for i := range 4 {
 			name := fmt.Sprintf("%s-%d", workflow, i)
-			rows = append(rows, Row{Key: name, Kind: KindAgent, Name: name})
+			rows = append(rows, Row{
+				Key:  name,
+				Kind: KindAgent,
+				Name: name,
+			})
 		}
 	}
 
@@ -31,8 +40,17 @@ func windowedRows() []Row {
 func windowed(t *testing.T, focused string, lines int) []string {
 	t.Helper()
 
-	list := Prepare(Snapshot{Rows: windowedRows(), Focused: focused, Pane: canonicalPane})
-	block := Window(WindowParams{List: list, Palette: paint.Panel, Width: canonicalPane, Lines: lines})
+	list := Prepare(Snapshot{
+		Rows:    windowedRows(),
+		Focused: focused,
+		Pane:    canonicalPane,
+	})
+	block := Window(WindowParams{
+		List:    list,
+		Palette: paint.Panel,
+		Width:   canonicalPane,
+		Lines:   lines,
+	})
 	require.True(t, strings.HasSuffix(block, "\n"), "a window closes its last row")
 
 	return strings.Split(ansiEscapes.ReplaceAllString(strings.TrimSuffix(block, "\n"), ""), "\n")
@@ -113,10 +131,19 @@ func TestWindowCountsRowsRatherThanAgents(t *testing.T) {
 // TestWindowNeverOverrunsThePane pins the one thing a caller cannot get wrong: whatever the list
 // and the pane, the block it draws is no taller than the room it was given.
 func TestWindowNeverOverrunsThePane(t *testing.T) {
-	list := Prepare(Snapshot{Rows: windowedRows(), Focused: "beta-1", Pane: canonicalPane})
+	list := Prepare(Snapshot{
+		Rows:    windowedRows(),
+		Focused: "beta-1",
+		Pane:    canonicalPane,
+	})
 
 	for lines := 1; lines <= 20; lines++ {
-		block := Window(WindowParams{List: list, Palette: paint.Panel, Width: canonicalPane, Lines: lines})
+		block := Window(WindowParams{
+			List:    list,
+			Palette: paint.Panel,
+			Width:   canonicalPane,
+			Lines:   lines,
+		})
 		assert.Equal(t, min(lines, len(list.Lines)), paint.CountLines(block), "a pane of %d lines", lines)
 	}
 }
@@ -133,7 +160,11 @@ func TestWindowKeepsASelectedRowTheWidthOfThePane(t *testing.T) {
 		{
 			name: "every column drawn",
 			pane: 40,
-			want: Columns{Repo: true, Review: true, Forge: true},
+			want: Columns{
+				Repo:   true,
+				Review: true,
+				Forge:  true,
+			},
 		},
 		{
 			name: "the forge given up",
@@ -152,10 +183,19 @@ func TestWindowKeepsASelectedRowTheWidthOfThePane(t *testing.T) {
 			rows := windowedRows()
 			rows[7].Selected = true
 
-			list := Prepare(Snapshot{Rows: rows, Focused: "beta-1", Pane: tt.pane})
+			list := Prepare(Snapshot{
+				Rows:    rows,
+				Focused: "beta-1",
+				Pane:    tt.pane,
+			})
 			require.Equal(t, tt.want, list.Columns, "the pane draws the columns the case is about")
 
-			block := Window(WindowParams{List: list, Palette: paint.Panel, Width: tt.pane, Lines: 6})
+			block := Window(WindowParams{
+				List:    list,
+				Palette: paint.Panel,
+				Width:   tt.pane,
+				Lines:   6,
+			})
 			painted, ok := rowNamed(strings.Split(block, "\n"), "beta-1")
 			require.True(t, ok)
 			assert.Equal(t, tt.pane, drawnColumns(ansiEscapes.ReplaceAllString(painted, "")))
@@ -177,8 +217,17 @@ func rowNamed(rows []string, name string) (string, bool) {
 // TestWindowOverTheLivePanel draws a window over the listing the panel actually holds, at a pane
 // short enough to need one, which the agents tab is not today.
 func TestWindowOverTheLivePanel(t *testing.T) {
-	list := Prepare(Snapshot{Rows: livePanelRows(), Focused: "strip-demo", Pane: canonicalPane})
-	block := Window(WindowParams{List: list, Palette: paint.Panel, Width: canonicalPane, Lines: 12})
+	list := Prepare(Snapshot{
+		Rows:    livePanelRows(),
+		Focused: "strip-demo",
+		Pane:    canonicalPane,
+	})
+	block := Window(WindowParams{
+		List:    list,
+		Palette: paint.Panel,
+		Width:   canonicalPane,
+		Lines:   12,
+	})
 
 	requireGolden(t, "window-live-panel", block)
 }
