@@ -14,7 +14,7 @@ const maxPort = 65535
 var (
 	ErrServerStale = &ProblemError{
 		Code:    "server_stale",
-		Message: "the server holding the address is a different build",
+		Message: "build mismatch",
 	}
 	ErrServerNotReady = &ProblemError{
 		Code:    "server_not_ready",
@@ -89,12 +89,12 @@ func newServerCheck() Check {
 
 			case !status.Current:
 				return fail(
-					fmt.Errorf("%w: %s is serving build %s and this is %s",
-						ErrServerStale, env.Addr,
+					fmt.Errorf("%w: %s %s, this weave %s",
+						ErrServerStale, describeStaleSide(env),
 						version.Describe(status.Version, status.Commit),
 						version.Describe(env.Version, env.Commit)),
 					env.Addr,
-					describeStaleServerFix(ctx, env, status.Commit),
+					describeStaleServerFix(ctx, env, status.Version, status.Commit),
 				)
 
 			case !status.Ready:
@@ -141,9 +141,17 @@ func describeTakenAddressFix(env Env) string {
 	return "free the address, or set WEAVE_ADDR to one nothing else is using"
 }
 
-func describeStaleServerFix(ctx context.Context, env Env, engineCommit string) string {
+func describeStaleSide(env Env) string {
 	if env.EngineIsRemote {
-		return StaleEngineFix(engineCommit)
+		return "engine"
+	}
+
+	return "server"
+}
+
+func describeStaleServerFix(ctx context.Context, env Env, engineVersion, engineCommit string) string {
+	if env.EngineIsRemote {
+		return StaleEngineFix(engineVersion, engineCommit)
 	}
 
 	if !env.IsPanelRunning(ctx) {
@@ -154,10 +162,13 @@ func describeStaleServerFix(ctx context.Context, env Env, engineCommit string) s
 }
 
 // StaleEngineFix says how to bring this binary to the build a remote engine is serving.
-func StaleEngineFix(engineCommit string) string {
-	if engineCommit == "" {
-		return "put the dist/weave-panel the deploy left beside it in place of your own weave, since a deploy from a dirty tree names no commit to rebuild from"
+func StaleEngineFix(engineVersion, engineCommit string) string {
+	switch {
+	case engineCommit == "":
+		return "use the dist/weave-panel that deploy built, since it has no commit to build from"
+	case version.IsEngineStamp(engineVersion):
+		return "build weave from " + version.Short(engineCommit) + ", or put this build on the engine with mise run remote:deploy"
+	default:
+		return "install weave " + engineVersion + ", which the engine runs"
 	}
-
-	return "rebuild this panel from the commit the engine is serving, since CI deploys the engine from main"
 }

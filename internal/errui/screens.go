@@ -3,7 +3,7 @@ package errui
 import "errors"
 
 // ErrEngineBuild marks a startup failure that is this binary rather than the engine it dialled.
-var ErrEngineBuild = errors.New("the engine is running code this panel was not built from")
+var ErrEngineBuild = errors.New("engine build mismatch")
 
 type Finding struct {
 	Name   string

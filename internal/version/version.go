@@ -2,7 +2,10 @@
 // failing that, from the module information the toolchain left behind.
 package version
 
-import "runtime/debug"
+import (
+	"runtime/debug"
+	"strings"
+)
 
 var stamped string
 
@@ -11,6 +14,10 @@ var stampedCommit string
 const devel = "devel"
 
 const shortCommit = 7
+
+// engineStampPrefix opens the version a deploy stamps on the engine when no release names
+// the build, followed by the commit it was built from.
+const engineStampPrefix = "v0.0.0-engine."
 
 // Version is which build this binary is.
 func Version() string {
@@ -69,10 +76,16 @@ func Describe(version, commit string) string {
 		return version
 	}
 
-	return version + " (" + short(commit) + ")"
+	return version + " (" + Short(commit) + ")"
 }
 
-func short(commit string) string {
+// IsEngineStamp reports whether a version is a deploy's own stamp rather than a release.
+func IsEngineStamp(version string) bool {
+	return strings.HasPrefix(version, engineStampPrefix)
+}
+
+// Short is the first seven characters of a commit, which is how git shows one.
+func Short(commit string) string {
 	if len(commit) <= shortCommit {
 		return commit
 	}

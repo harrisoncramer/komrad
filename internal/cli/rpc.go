@@ -128,11 +128,11 @@ func requireServer(ctx context.Context, addr, named string) error {
 
 	if probe.version != "" && !probe.current {
 		if named != addr {
-			return fmt.Errorf("%w: it is serving %s and this binary is %s, so %s",
+			return fmt.Errorf("%w: engine %s, this weave %s; %s",
 				errui.ErrEngineBuild,
 				version.Describe(probe.version, probe.commit),
 				version.Describe(version.Version(), version.Commit()),
-				doctor.StaleEngineFix(probe.commit))
+				doctor.StaleEngineFix(probe.version, probe.commit))
 		}
 
 		return fmt.Errorf("%w: server %s, cli %s",
