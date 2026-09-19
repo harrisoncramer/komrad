@@ -81,12 +81,6 @@ func TestGlyphCheckWarnsWhenTheTerminalWouldNotYield(t *testing.T) {
 	assert.Contains(t, result.Err.Error(), "inappropriate ioctl")
 }
 
-// TestGlyphCheckSaysItMeasuredAdvanceNotInk covers the limit of the instrument, since a
-// terminal's width table and the font can disagree and only the first is readable here.
-func TestGlyphCheckSaysItMeasuredAdvanceNotInk(t *testing.T) {
-	assert.Contains(t, newTerminalGlyphCheck().Run(t.Context(), agreeing()).Detail, "rather than the ink")
-}
-
 // TestGlyphCheckDoesNotBlameTheFont covers the fix text, since a cursor advance says nothing
 // about whether a glyph is in the font and telling a person to install one would be a guess.
 func TestGlyphCheckDoesNotBlameTheFont(t *testing.T) {
@@ -101,7 +95,7 @@ func TestGlyphCheckDoesNotBlameTheFont(t *testing.T) {
 func TestGlyphCheckPassesWhenTheWidthsAgree(t *testing.T) {
 	result := newTerminalGlyphCheck().Run(t.Context(), agreeing())
 	require.Equal(t, StatusOK, result.Status, result.Detail)
-	assert.Contains(t, result.Detail, "column")
+	assert.Contains(t, result.Detail, "glyph")
 }
 
 // TestGlyphCheckReportsWidthsThatDisagree covers the whole reason this exists, a terminal

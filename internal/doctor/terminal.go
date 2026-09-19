@@ -217,21 +217,19 @@ func textOf(drawn view.Drawn) string { return drawn.Text }
 // reportGlyphWidths is the reading turned into a finding, warning rather than failing because a
 // row laid out a column wide is a degraded panel rather than a broken weave.
 func reportGlyphWidths(drawings []view.Drawn, measured []int, insideTmux bool) Result {
-	caveat := "; measured as the cursor's advance rather than the ink, which are the same only where the terminal's width table and the font agree"
+	caveat := ""
 	if insideTmux {
-		caveat += "; and answered by tmux from its own grid rather than by the terminal"
+		caveat = ", as tmux counts them"
 	}
-
-	reading := describeWidths(drawings, measured) + caveat
 
 	mismatch := describeMismatch(drawings, measured)
 	if mismatch == "" {
-		return pass(reading)
+		return pass(count(len(drawings), "glyph") + " drawn at the widths the layout counts on" + caveat)
 	}
 
 	return Result{
 		Status: StatusWarn,
-		Detail: reading,
+		Detail: describeWidths(drawings, measured) + caveat,
 		Err:    fmt.Errorf("%w: %s%s", ErrGlyphWidthUnexpected, mismatch, caveat),
 		Fix:    "report these widths, since what has to move is the layout's own count rather than anything on this machine",
 	}
