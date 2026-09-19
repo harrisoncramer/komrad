@@ -165,13 +165,34 @@ func (s *AgentService) GetLastTurns(ctx context.Context, req *agentv1.GetLastTur
 		return nil, agents.ErrAgentNotFound.Saying("no agent with id %q", req.GetAgentId())
 	}
 
-	count := req.GetTurns()
+	turns, failure := s.listLastTurns(ctx, listLastTurnsParams{
+		AgentID:  req.GetAgentId(),
+		Turns:    req.GetTurns(),
+		MaxBytes: req.GetMaxBytes(),
+	})
+	if failure != nil {
+		return nil, failure
+	}
+
+	return &agentv1.GetLastTurnsResponse{Turns: turns}, nil
+}
+
+type listLastTurnsParams struct {
+	AgentID  string
+	Turns    int32
+	MaxBytes int32
+}
+
+// listLastTurns reads an agent's newest turns and the prompts between them, oldest first, each
+// cut from the head to fit the window.
+func (s *AgentService) listLastTurns(ctx context.Context, params listLastTurnsParams) ([]*agentv1.Turn, *fail.Error) {
+	count := params.Turns
 	if count <= 0 {
 		count = 1
 	}
 
 	newest, err := s.transcripts.ListLastTurns(ctx, transcriptstore.ListLastTurnsParams{
-		AgentID: req.GetAgentId(),
+		AgentID: params.AgentID,
 		Role:    assistantRole,
 		Limit:   count,
 	})
@@ -180,7 +201,7 @@ func (s *AgentService) GetLastTurns(ctx context.Context, req *agentv1.GetLastTur
 	}
 
 	limit := maxTranscriptWindow
-	if requested := int(req.GetMaxBytes()); requested > 0 && requested < limit {
+	if requested := int(params.MaxBytes); requested > 0 && requested < limit {
 		limit = requested
 	}
 
@@ -195,7 +216,7 @@ func (s *AgentService) GetLastTurns(ctx context.Context, req *agentv1.GetLastTur
 		})
 	}
 
-	return &agentv1.GetLastTurnsResponse{Turns: turns}, nil
+	return turns, nil
 }
 
 func searchScope(ctx context.Context, requested string) *string {

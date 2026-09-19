@@ -69,6 +69,33 @@ message SendMailResponse {
   Mail mail = 1;
 }
 
+message ForwardLastTurnsRequest {
+  // Whose newest turns to forward.
+  string from_agent_id = 1 [(buf.validate.field).string.min_len = 1];
+  // Who to send them to, addressed by id since two workflows may hold agents of one name.
+  string to_agent_id = 2 [(buf.validate.field).string.min_len = 1];
+  // How many of the source's newest turns to forward, with the prompts between them, or unset
+  // for the last one alone.
+  optional int32 turns = 3 [(buf.validate.field).int32 = {
+    gte: 1
+    lte: 20
+  }];
+  // What to tell the recipient about the forward in the caller's own words, which it reads
+  // before the turns.
+  optional string note = 4 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 10000
+  }];
+  // The most of each turn's text to forward, cut from the head so the end survives, or unset
+  // for the default.
+  optional int32 max_bytes = 5 [(buf.validate.field).int32.gte = 0];
+}
+
+message ForwardLastTurnsResponse {
+  // The mail as recorded, whose id an answer can reply to.
+  Mail mail = 1;
+}
+
 message ReadMailRequest {
   // Whose mailbox to empty, or unset for the caller's own.
   optional string id = 1 [(buf.validate.field).string.min_len = 1];

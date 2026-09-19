@@ -17,6 +17,9 @@ import (
 
 const maxPendingMail = 100
 
+// MaxMailBody is the most characters one piece of mail carries.
+const MaxMailBody = 10000
+
 const maxClaimedMail = 20
 
 const exchangeCappedBody = "weave: %s (%s) wrote to you and the send was refused, because the two of you have now exchanged %d pieces of mail, which is the limit. Nothing further will get through between you, in either direction. Whatever you were waiting on from them is not coming, so do not keep waiting: say where you got to, and tell the person what is unfinished. A row has been marked for attention in the panel so the person knows to look."
