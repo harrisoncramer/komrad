@@ -3,6 +3,7 @@ package agent
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"weave/db"
 	"weave/db/models"
@@ -23,10 +24,17 @@ func (s *Store) List(ctx context.Context) ([]Agent, error) {
 // Cursor pages this listing, which resumes from one row's id.
 type Cursor = store.IDCursor
 
-// AgentDir is the directory one agent holds.
+// AgentDir is the directory one agent holds, with what a listing of directories says about
+// the agent.
 type AgentDir struct {
-	ID  string
-	Cwd string
+	ID            string
+	Name          string
+	Cwd           string
+	State         State
+	ArchivedAt    *time.Time
+	AdoptedBranch string
+	ParentAgentID *string
+	WorkflowID    string
 }
 
 // ListDirs returns the directory every agent holds, archived ones included.
@@ -37,7 +45,16 @@ func (s *Store) ListDirs(ctx context.Context) ([]AgentDir, error) {
 	}
 
 	return xslice.Map(rows, func(row *models.ListAgentDirsRow) AgentDir {
-		return AgentDir{ID: row.ID, Cwd: row.Cwd}
+		return AgentDir{
+			ID:            row.ID,
+			Name:          row.Name,
+			Cwd:           row.Cwd,
+			State:         State(row.State),
+			ArchivedAt:    row.ArchivedAt,
+			AdoptedBranch: row.AdoptedBranch,
+			ParentAgentID: row.ParentAgentID,
+			WorkflowID:    row.WorkflowID,
+		}
 	}), nil
 }
 

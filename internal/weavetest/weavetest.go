@@ -50,6 +50,7 @@ import (
 	"weave/proto/gen/pullrequest/v1/pullrequestv1connect"
 	"weave/proto/gen/schedule/v1/schedulev1connect"
 	"weave/proto/gen/workflow/v1/workflowv1connect"
+	"weave/proto/gen/worktree/v1/worktreev1connect"
 
 	"connectrpc.com/connect"
 	"github.com/stretchr/testify/require"
@@ -67,6 +68,7 @@ type Instance struct {
 	Doctor       doctorv1connect.DoctorServiceClient
 	Forges       forgev1connect.ForgeServiceClient
 	PullRequests pullrequestv1connect.PullRequestServiceClient
+	Worktrees    worktreev1connect.WorktreeServiceClient
 	Config       configv1connect.ConfigServiceClient
 	Harness      *harnesstest.Harness
 	Tmux         *tmuxtest.Server
@@ -199,6 +201,7 @@ func Start(t *testing.T, p Params) *Instance {
 		Doctor:       doctorv1connect.NewDoctorServiceClient(client, url),
 		Forges:       forgev1connect.NewForgeServiceClient(client, url),
 		PullRequests: pullrequestv1connect.NewPullRequestServiceClient(client, url),
+		Worktrees:    worktreev1connect.NewWorktreeServiceClient(client, url),
 		Config:       configv1connect.NewConfigServiceClient(client, url),
 		Harness:      fake,
 		Tmux:         tmuxServer,

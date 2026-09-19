@@ -649,14 +649,26 @@ type InsertTranscriptChunksParams struct {
 const listAgentDirs = `-- name: ListAgentDirs :many
 SELECT
     id,
-    cwd
+    name,
+    cwd,
+    state,
+    archived_at,
+    adopted_branch,
+    parent_agent_id,
+    workflow_id
 FROM
     agents
 `
 
 type ListAgentDirsRow struct {
-	ID  string
-	Cwd string
+	ID            string
+	Name          string
+	Cwd           string
+	State         AgentState
+	ArchivedAt    *time.Time
+	AdoptedBranch string
+	ParentAgentID *string
+	WorkflowID    string
 }
 
 func (q *Queries) ListAgentDirs(ctx context.Context) ([]*ListAgentDirsRow, error) {
@@ -668,7 +680,16 @@ func (q *Queries) ListAgentDirs(ctx context.Context) ([]*ListAgentDirsRow, error
 	var items []*ListAgentDirsRow
 	for rows.Next() {
 		var i ListAgentDirsRow
-		if err := rows.Scan(&i.ID, &i.Cwd); err != nil {
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Cwd,
+			&i.State,
+			&i.ArchivedAt,
+			&i.AdoptedBranch,
+			&i.ParentAgentID,
+			&i.WorkflowID,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, &i)

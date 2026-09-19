@@ -1,4 +1,4 @@
-h1:eshDS4HHgeIqjubRkm1yQAPa/WWhY+5a4EgD4eYyuYE=
+h1:N9zP0SuoExDniii7Z33ymJ4GMRzCLnUSRpAXc47ZXRs=
 20260727000000_initial.sql h1:ubkXyswrZOM0CuuAD9GtwEBRjcnCAl3KY6uamudWwuY=
 20260824163026_state_seen_at.sql h1:wPnZ5xyxQrLBegwX9PP0U6LRh91JcItKfcJz1cQKUU8=
 20260825032556_add_schedule_last_result.sql h1:CpH3A88qiOKXKKb1zefqQlqI/O8DxxNpZjrsQJZ8g5Q=
@@ -53,3 +53,4 @@ h1:eshDS4HHgeIqjubRkm1yQAPa/WWhY+5a4EgD4eYyuYE=
 20260916030718_drop_archive_on_pr_closed.sql h1:vJf4dqN01Uf44HHG4y4BZIDThwyrQppUdjp2rJE1D5E=
 20260918175700_repository_url.sql h1:x/wiaZm933eUtFLGIcZI7RNscOyhw6WNAUXlmnNHWNU=
 20260918190520_forge_connections.sql h1:ihznPHIlsMNf6dMQzbIP5x0eLi6ma1MtE4BAXBAEoMo=
+20260919183316_worktree_sizes.sql h1:IvEIWz46WMwjiHcHAf5Xh/DLnrBcIpd36eeMIBSq7xc=

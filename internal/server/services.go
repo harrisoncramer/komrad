@@ -13,6 +13,7 @@ import (
 	"weave/internal/git"
 	"weave/internal/harness/pane"
 	"weave/internal/scripts"
+	"weave/internal/worktrees"
 )
 
 type services struct {
@@ -35,6 +36,10 @@ type services struct {
 	rebase       *agents.RebaseService
 	cwdSync      *agents.CwdSyncer
 	forge        *forge.ForgeService
+	worktrees    *worktrees.Lister
+	inspector    *worktrees.Inspector
+	remover      *worktrees.Remover
+	counter      *worktrees.Counter
 }
 
 // BuiltinScriptsDir is where the scripts weave ships are installed under a cache directory,
@@ -207,19 +212,49 @@ func buildServices(params NewServerParams, st *stores) (*services, error) {
 		Bases:   st.workflows,
 	})
 
+	worktreeLister := worktrees.NewLister(worktrees.NewListerParams{
+		SharedDir: func() (string, error) {
+			cfg, err := loadConfig()
+			if err != nil {
+				return "", err
+			}
+
+			return cfg.GetWorktreesDir()
+		},
+		Agents:    st.agents,
+		Workflows: st.workflows,
+		Sizes:     st.worktrees,
+	})
+
 	return &services{
 		loadConfig: loadConfig,
 		marks:      markService,
 		rebase:     rebaseService,
 		cwdSync:    cwdSyncer,
 		forge:      forgeService,
-		script:     scriptService,
-		mail:       mailService,
-		review:     reviewService,
-		schedule:   scheduleService,
-		liveness:   paneLiveness,
-		launch:     launchService,
-		resume:     resumeService,
+		worktrees:  worktreeLister,
+		inspector: worktrees.NewInspector(worktrees.NewInspectorParams{
+			Lister:    worktreeLister,
+			Git:       git.NewClient(),
+			Workflows: st.workflows,
+		}),
+		remover: worktrees.NewRemover(worktrees.NewRemoverParams{
+			Lister: worktreeLister,
+			Git:    git.NewClient(),
+			Sizes:  st.worktrees,
+		}),
+		counter: worktrees.NewCounter(worktrees.NewCounterParams{
+			Lister:  worktreeLister,
+			Sizes:   st.worktrees,
+			Refresh: WorktreeSizeRefresh,
+		}),
+		script:   scriptService,
+		mail:     mailService,
+		review:   reviewService,
+		schedule: scheduleService,
+		liveness: paneLiveness,
+		launch:   launchService,
+		resume:   resumeService,
 		holder: agents.NewHolder(agents.NewHolderParams{
 			Agents:  st.agents,
 			Channel: paneChannel,

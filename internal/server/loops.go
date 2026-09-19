@@ -21,12 +21,20 @@ const TranscriptSyncInterval = 15 * time.Second
 
 const CwdSyncInterval = 15 * time.Second
 
+// WorktreeSizeInterval is how often the worktree directories are looked over for a count that
+// is missing or stale.
+const WorktreeSizeInterval = time.Minute
+
+// WorktreeSizeRefresh is how old a count may be before it is taken again.
+const WorktreeSizeRefresh = 10 * time.Minute
+
 const (
 	ScheduleReconcileLoop = "schedule reconcile"
 	ReconcileLoop         = "reconcile"
 	MailDeliveryLoop      = "mail delivery"
 	TranscriptSyncLoop    = "transcript sync"
 	CwdSyncLoop           = "cwd sync"
+	WorktreeSizeLoop      = "worktree sizes"
 )
 
 type buildLoopsParams struct {
@@ -66,6 +74,11 @@ func buildLoops(params buildLoopsParams) []Loop {
 			Name:     CwdSyncLoop,
 			Interval: CwdSyncInterval,
 			Pass:     params.Services.cwdSync.Sync,
+		},
+		{
+			Name:     WorktreeSizeLoop,
+			Interval: WorktreeSizeInterval,
+			Pass:     params.Services.counter.Count,
 		},
 	}
 }

@@ -49,6 +49,7 @@ flags, and the response is the API's own JSON on stdout.
 * [weave rpc get-schedule](weave_rpc_get-schedule.md)	 - Fetch one schedule by id.
 * [weave rpc get-transcript](weave_rpc_get-transcript.md)	 - Fetch one window of an agent's transcript by agent id, not by name.
 * [weave rpc get-workflow](weave_rpc_get-workflow.md)	 - Fetch one workflow by id.
+* [weave rpc get-worktree](weave_rpc_get-worktree.md)	 - Read one worktree directory: its top-level entries with sizes, biggest first, what is uncommitted, the base it is measured against with how far ahead and behind it stands and how many of its commits the base already holds whole, whether deleting its agent would keep the branch, and the commits since the base.
 * [weave rpc hold-agent](weave_rpc_hold-agent.md)	 - Stop an agent and hold it, which is what somebody does before editing the files that agent is working in.
 * [weave rpc list-agents](weave_rpc_list-agents.md)	 - List the agents the panel tracks, live and dormant, with each one's name, state, working directory, flags, and workflow.
 * [weave rpc list-forges](weave_rpc_list-forges.md)	 - List the forges weave is connected to, one per host, with who weave acts as there and when the forge last confirmed it.
@@ -61,6 +62,7 @@ flags, and the response is the API's own JSON on stdout.
 * [weave rpc list-reviews](weave_rpc_list-reviews.md)	 - Read every review released on an agent, in the order their rounds were taken, each with the verdict it carried.
 * [weave rpc list-schedules](weave_rpc_list-schedules.md)	 - List the recurring agent launches, most recently updated first, with each one's cron expression, prompt, workflow, next run time, and the outcome of its last firing.
 * [weave rpc list-workflows](weave_rpc_list-workflows.md)	 - List the workflows agents are grouped into, in alphabetical order, with each one's shared context, the working directory and flags its agents start from, and the scripts hooked to moments in their agents' lives.
+* [weave rpc list-worktrees](weave_rpc_list-worktrees.md)	 - List every worktree directory weave holds, under the configured worktrees directory and each workflow's own, with the repository it was cut from, its branch, whether git can still read it, the agent it was made for and the agents attached to that one, and its size when a count has reached it.
 * [weave rpc log](weave_rpc_log.md)	 - Write one line to weave's log, tagged to an agent.
 * [weave rpc open-review-round](weave_rpc_open-review-round.md)	 - Freeze what an agent has written right now and get back the round to review against, which is a snapshot commit covering its whole worktree, committed and uncommitted alike.
 * [weave rpc plan-rebase](weave_rpc_plan-rebase.md)	 - Read what rebasing an agent's worktree onto its base would do, without moving anything.
@@ -68,6 +70,7 @@ flags, and the response is the API's own JSON on stdout.
 * [weave rpc rebase-worktree](weave_rpc_rebase-worktree.md)	 - Move an agent's branch onto the latest commit of its base, rewriting the branch in the checkout it sits in.
 * [weave rpc release-agent](weave_rpc_release-agent.md)	 - Let an agent that hold_agent stopped carry on, telling it what happened while it was held.
 * [weave rpc release-review](weave_rpc_release-review.md)	 - Let go of the review you have been writing on another agent's diff, which is what sends it.
+* [weave rpc remove-unowned-worktrees](weave_rpc_remove-unowned-worktrees.md)	 - Remove worktree directories no agent answers for, which delete_agents cannot reach: a directory under the worktrees directories whose agent row is gone, or whose row is in failed_to_cleanup because git can no longer read the registration.
 * [weave rpc rename-agent](weave_rpc_rename-agent.md)	 - Rename an agent, keyed by its id rather than its current name.
 * [weave rpc request-review](weave_rpc_request-review.md)	 - Get your own work read before you call it finished, which spawns the reviewer for you and hands you back the rest of the loop.
 * [weave rpc resolve-review-thread](weave_rpc_resolve-review-thread.md)	 - Settle a review thread you wrote, once the answer to it is good enough, or reopen one you settled too early.
