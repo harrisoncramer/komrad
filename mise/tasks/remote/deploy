@@ -61,7 +61,7 @@ gum log --level info "deploying to $INSTANCE in $REGION"
 REVISION="$(git rev-parse --short HEAD)"
 DIRTY=""
 if tree_is_dirty; then
-	DIRTY="+dirty.$(date +%H%M%S)"
+	DIRTY="$(dirty_suffix)"
 fi
 
 # A dirty build carries no commit, so its version string is the only thing anybody has to go on.

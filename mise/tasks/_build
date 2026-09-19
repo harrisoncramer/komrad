@@ -15,6 +15,18 @@ build_commit() {
 	git rev-parse HEAD
 }
 
+dirty_suffix() {
+	echo "+dirty.$(date +%H%M%S)"
+}
+
+local_version() {
+	if ! git rev-parse --git-dir >/dev/null 2>&1 || ! tree_is_dirty; then
+		return 0
+	fi
+
+	echo "v0.0.0-local.$(git rev-parse --short HEAD)$(dirty_suffix)"
+}
+
 go_build_binary() {
 	local os="$1" arch="$2" version="$3" out="$4"
 	local commit
@@ -26,12 +38,13 @@ go_build_binary() {
 		-o "$out" .
 }
 
-# A build for this machine, which takes its version from the toolchain and only its commit
-# from here.
+# A build for this machine, which takes its version from the toolchain unless the tree is
+# dirty, and only its commit from here.
 go_build_local() {
 	local out="$1"
-	local commit
+	local version commit
+	version="$(local_version)"
 	commit="$(build_commit)"
 
-	go build -ldflags "-X weave/internal/version.stampedCommit=$commit" -o "$out" .
+	go build -ldflags "-X weave/internal/version.stamped=$version -X weave/internal/version.stampedCommit=$commit" -o "$out" .
 }
