@@ -167,8 +167,7 @@ type measured struct {
 // measure is the sum of the sizes of every file under a directory and what each top-level entry
 // holds, following no symlink and skipping whatever vanishes while it is walked.
 func measure(ctx context.Context, dir string) (int64, []worktreestore.Entry, error) {
-	// A dead mount hangs inside a syscall where no callback runs, so the walk is abandoned when
-	// the context ends.
+	// A walk stuck in a syscall is abandoned when the context ends.
 	done := make(chan measured, 1)
 	go func() { done <- walkSizes(ctx, dir) }()
 

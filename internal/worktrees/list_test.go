@@ -99,8 +99,19 @@ func TestListNamesTheOccupantsOfADirectory(t *testing.T) {
 	f.own("dddd", "parent", nil)
 	parent := "dddd"
 	f.owners.rows = append(f.owners.rows,
-		agentstore.AgentDir{ID: "zed", Name: "zed-reviewer", Cwd: dir, State: agentstore.StateThinking, ParentAgentID: &parent},
-		agentstore.AgentDir{ID: "amy", Name: "amy-alone", Cwd: dir + string(filepath.Separator), State: agentstore.StateIdle},
+		agentstore.AgentDir{
+			ID:            "zed",
+			Name:          "zed-reviewer",
+			Cwd:           dir,
+			State:         agentstore.StateThinking,
+			ParentAgentID: &parent,
+		},
+		agentstore.AgentDir{
+			ID:    "amy",
+			Name:  "amy-alone",
+			Cwd:   dir + string(filepath.Separator),
+			State: agentstore.StateIdle,
+		},
 	)
 
 	listing, err := f.lister.List(t.Context())

@@ -68,7 +68,8 @@ VALUES (
     $2,
     $3,
     $4)
-ON CONFLICT (dir)
+ON CONFLICT (
+    dir)
     DO UPDATE SET
         size_bytes = EXCLUDED.size_bytes,
         counted_at = EXCLUDED.counted_at,

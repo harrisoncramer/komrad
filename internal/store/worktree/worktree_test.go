@@ -29,9 +29,23 @@ func TestPutReplacesAnEarlierCount(t *testing.T) {
 	first := time.Date(2026, 9, 19, 12, 0, 0, 0, time.UTC)
 
 	entries := []Entry{{Path: "local", Bytes: 8, Dir: true}, {Path: "go.mod", Bytes: 2}}
-	require.NoError(t, st.Put(ctx, Size{Dir: "/trees/a", Bytes: 10, CountedAt: first, Entries: entries}))
-	require.NoError(t, st.Put(ctx, Size{Dir: "/trees/b", Bytes: 20, CountedAt: first}))
-	require.NoError(t, st.Put(ctx, Size{Dir: "/trees/a", Bytes: 30, CountedAt: first.Add(time.Minute), Entries: entries[:1]}))
+	require.NoError(t, st.Put(ctx, Size{
+		Dir:       "/trees/a",
+		Bytes:     10,
+		CountedAt: first,
+		Entries:   entries,
+	}))
+	require.NoError(t, st.Put(ctx, Size{
+		Dir:       "/trees/b",
+		Bytes:     20,
+		CountedAt: first,
+	}))
+	require.NoError(t, st.Put(ctx, Size{
+		Dir:       "/trees/a",
+		Bytes:     30,
+		CountedAt: first.Add(time.Minute),
+		Entries:   entries[:1],
+	}))
 
 	sizes, err := st.List(ctx)
 	require.NoError(t, err)

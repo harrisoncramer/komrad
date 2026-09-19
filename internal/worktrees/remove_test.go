@@ -59,7 +59,12 @@ func TestRemoveRefusesWhatAnAgentAnswersFor(t *testing.T) {
 	f.own("vetoed", "vetoed-agent", nil)
 	f.owners.rows[2].State = agentstore.StateFailedToCleanup
 	shared := f.cut(t, "shared")
-	f.owners.rows = append(f.owners.rows, agentstore.AgentDir{ID: "child", Name: "child-agent", Cwd: shared, State: agentstore.StateIdle})
+	f.owners.rows = append(f.owners.rows, agentstore.AgentDir{
+		ID:    "child",
+		Name:  "child-agent",
+		Cwd:   shared,
+		State: agentstore.StateIdle,
+	})
 	outside := t.TempDir()
 
 	removal, err := f.remover().Remove(t.Context(), []string{live, archived, vetoed, shared, outside, filepath.Join(f.shared, "missing")})

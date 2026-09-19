@@ -9,7 +9,8 @@ VALUES (
     @size_bytes,
     @counted_at,
     @entries)
-ON CONFLICT (dir)
+ON CONFLICT (
+    dir)
     DO UPDATE SET
         size_bytes = EXCLUDED.size_bytes,
         counted_at = EXCLUDED.counted_at,
