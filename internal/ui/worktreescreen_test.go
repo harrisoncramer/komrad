@@ -105,8 +105,8 @@ func TestApplyWorktreesKeepsTheCursorOnItsRow(t *testing.T) {
 	m := worktreesModel()
 	m.worktrees.cursor = 6
 	m.worktrees.inspected = map[string]worktreeInspection{
-		"/trees/orphan": {baseRef: "origin/main"},
-		"/trees/gone":   {baseRef: "origin/main"},
+		"/trees/orphan": {answered: true, baseRef: "origin/main"},
+		"/trees/gone":   {answered: true, baseRef: "origin/main"},
 	}
 	require.Equal(t, "tree:/trees/orphan", m.hoveredWorktreeKey())
 
@@ -227,7 +227,7 @@ func TestClearWorktreesTakesEverythingButTheLive(t *testing.T) {
 	after, _ := pressWorktrees(t, m, keyMsg("D"))
 
 	require.Equal(t, formWorktreesDelete, after.form.kind)
-	assert.Contains(t, formText(after.form.form), "Delete 4 worktrees")
+	assert.Contains(t, formText(after.form.form), "Delete 4 worktrees?")
 }
 
 // TestDeleteChosenWorktreesRefusesALiveRow covers a bulk delete over a selection holding a
@@ -257,9 +257,12 @@ func TestDeleteWorktreesFormSaysWhatGoes(t *testing.T) {
 
 	form, _ = deleteWorktreesForm(worktreeDeletion{agents: items[1:2], unowned: items[2:4]}, nil, config.FixedFormKeys())
 	drawn = formText(form)
-	assert.Contains(t, drawn, "Delete 3 worktrees, 49M?")
+	assert.Contains(t, drawn, "Delete 3 worktrees?", "a set with an uncounted directory names no size")
 	assert.Contains(t, drawn, "2 directories nothing")
 	assert.NotContains(t, drawn, "branch is kept")
+
+	form, _ = deleteWorktreesForm(worktreeDeletion{agents: []worktreeItem{items[1], items[4]}}, nil, config.FixedFormKeys())
+	assert.Contains(t, formText(form), "Delete 2 worktrees, 1.5G?")
 
 	form, _ = deleteWorktreesForm(worktreeDeletion{unowned: items[3:4]}, nil, config.FixedFormKeys())
 	assert.Contains(t, formText(form), "Delete the worktree of broken?", "a directory nobody has counted names no size")
@@ -289,6 +292,7 @@ func TestWorktreeFieldsReadTheListingAndTheInspection(t *testing.T) {
 	assert.NotContains(t, before, "base")
 
 	m.applyWorktreeInspection(worktreeInspectedMsg{dir: "/trees/archived", inspection: worktreeInspection{
+		answered:  true,
 		baseRef:   "origin/main",
 		ahead:     2,
 		behind:    12,
@@ -323,6 +327,7 @@ func TestWorktreeDocDrawsTheInspection(t *testing.T) {
 	assert.Contains(t, m.worktreeDoc(), "reading the directory")
 
 	m.applyWorktreeInspection(worktreeInspectedMsg{dir: "/trees/live", inspection: worktreeInspection{
+		answered: true,
 		entries: []worktreeEntry{
 			{
 				path:  "local",
@@ -350,7 +355,7 @@ func TestWorktreeDocDrawsTheInspection(t *testing.T) {
 	assert.Contains(t, doc, "## Commits since origin/main")
 	assert.Contains(t, doc, "87a3bcc98c47  2h   fix(view): drop the column")
 
-	m.applyWorktreeInspection(worktreeInspectedMsg{dir: "/trees/live", inspection: worktreeInspection{err: errors.New("git exploded")}})
+	m.applyWorktreeInspection(worktreeInspectedMsg{dir: "/trees/live", inspection: worktreeInspection{answered: true, err: errors.New("git exploded")}})
 	assert.Contains(t, m.worktreeDoc(), "git exploded")
 }
 
@@ -398,12 +403,31 @@ func TestRefreshAsksForTheHoveredDirectoryOnce(t *testing.T) {
 	assert.Nil(t, m.inspectWorktreeCmd(), "not even by a rest of the cursor")
 	assert.Contains(t, m.worktreeDoc(), "reading the directory")
 
-	m.applyWorktreeInspection(worktreeInspectedMsg{dir: "/trees/archived", inspection: worktreeInspection{err: errors.New("refused")}})
+	m.applyWorktreeInspection(worktreeInspectedMsg{dir: "/trees/archived", inspection: worktreeInspection{answered: true, err: errors.New("refused")}})
 	assert.Nil(t, m.inspectHoveredWorktreeCmd(), "an answer, even a refusal, is not asked for again")
 	assert.NotNil(t, m.inspectWorktreeCmd(), "a rest of the cursor reads it afresh")
 
 	m.screen = screenAgents
 	assert.Nil(t, m.inspectHoveredWorktreeCmd())
+}
+
+// TestARowReturnedToKeepsItsAnswerWhileItIsReadAgain covers the fresh reading a rest asks for
+// leaving the last answer on the record and the document until it lands.
+func TestARowReturnedToKeepsItsAnswerWhileItIsReadAgain(t *testing.T) {
+	m := worktreesModel()
+	m.worktrees.cursor = 5
+	m.applyWorktreeInspection(worktreeInspectedMsg{dir: "/trees/archived", inspection: worktreeInspection{
+		answered: true,
+		baseRef:  "origin/main",
+		ahead:    2,
+	}})
+
+	require.NotNil(t, m.inspectWorktreeCmd())
+
+	assert.True(t, m.worktrees.inspected["/trees/archived"].pending)
+	assert.Equal(t, "origin/main  ↑2", fieldMap(m.worktreesDetails().fields)["base"])
+	assert.Contains(t, m.worktreeDoc(), "## Commits since origin/main")
+	assert.NotContains(t, m.worktreeDoc(), "reading the directory")
 }
 
 // TestWorktreesTallyHeadsTheList covers the title carrying the count and the total of what has

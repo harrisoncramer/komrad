@@ -210,6 +210,7 @@ func worktreeAgentFrom(a *worktreev1.WorktreeAgent) worktreeAgent {
 
 func worktreeInspectionFrom(read *worktreev1.GetWorktreeResponse) worktreeInspection {
 	return worktreeInspection{
+		answered: true,
 		entries: xslice.Map(read.GetEntries(), func(entry *worktreev1.Entry) worktreeEntry {
 			return worktreeEntry{
 				path:  entry.GetPath(),

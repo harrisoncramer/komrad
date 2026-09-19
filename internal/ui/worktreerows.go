@@ -102,7 +102,11 @@ func worktreeRows(items []worktreeItem) []worktreeRow {
 		for _, item := range members {
 			rows = append(rows, worktreeRow{repo: heading, item: item})
 			for _, occupant := range item.occupants {
-				rows = append(rows, worktreeRow{repo: heading, item: item, occupant: &occupant})
+				rows = append(rows, worktreeRow{
+					repo:     heading,
+					item:     item,
+					occupant: &occupant,
+				})
 			}
 		}
 	}

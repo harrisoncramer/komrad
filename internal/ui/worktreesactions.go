@@ -450,15 +450,18 @@ func (d worktreeDeletion) isEmpty() bool {
 	return len(d.agents)+len(d.unowned) == 0
 }
 
-// bytes is what the deletion's counted directories hold, and whether any has been counted.
+// bytes is what the deletion's directories hold, and whether every one of them has been counted.
 func (d worktreeDeletion) bytes() (int64, bool) {
 	var total int64
-	counted := false
+	counted := true
 	for _, item := range slices.Concat(d.agents, d.unowned) {
-		if item.bytes != nil {
-			total += *item.bytes
-			counted = true
+		if item.bytes == nil {
+			counted = false
+
+			continue
 		}
+
+		total += *item.bytes
 	}
 
 	return total, counted

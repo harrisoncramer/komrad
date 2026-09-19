@@ -41,10 +41,11 @@ type worktreeCommit struct {
 	committedAt time.Time
 }
 
-// worktreeInspection is one directory read through git, why it could not be, or the fact that
-// the reading is still on its way.
+// worktreeInspection is one directory read through git, or why it could not be.
 type worktreeInspection struct {
+	// pending says a fresh reading is on its way, and answered that one has come at all.
 	pending     bool
+	answered    bool
 	entries     []worktreeEntry
 	modified    []string
 	untracked   []string

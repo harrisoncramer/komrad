@@ -152,17 +152,19 @@ func (m *model) inspectWorktreeCmd() tea.Cmd {
 	if !ok || row.occupant != nil {
 		return nil
 	}
-	if read, asked := m.worktrees.inspected[row.item.dir]; asked && read.pending {
+	read, asked := m.worktrees.inspected[row.item.dir]
+	if asked && read.pending {
 		return nil
 	}
 
-	m.applyWorktreeInspection(worktreeInspectedMsg{dir: row.item.dir, inspection: worktreeInspection{pending: true}})
+	read.pending = true
+	m.applyWorktreeInspection(worktreeInspectedMsg{dir: row.item.dir, inspection: read})
 	clients, dir := m.api, row.item.dir
 
 	return func() tea.Msg {
 		read, err := clients.getWorktree(dir)
 		if err != nil {
-			return worktreeInspectedMsg{dir: dir, inspection: worktreeInspection{err: err}}
+			return worktreeInspectedMsg{dir: dir, inspection: worktreeInspection{answered: true, err: err}}
 		}
 
 		return worktreeInspectedMsg{dir: dir, inspection: worktreeInspectionFrom(read)}
@@ -170,7 +172,7 @@ func (m *model) inspectWorktreeCmd() tea.Cmd {
 }
 
 // inspectHoveredWorktreeCmd asks for the hovered directory's standing where nothing has been
-// asked for it yet, which is how a row the screen opened on is read without a move.
+// asked for it yet.
 func (m *model) inspectHoveredWorktreeCmd() tea.Cmd {
 	if m.screen != screenWorktrees {
 		return nil
@@ -214,7 +216,7 @@ func (m model) worktreesView() string {
 }
 
 func (m model) worktreesHeader() string {
-	return m.listHeader("Worktrees" + dimStyle.Render("  "+m.worktreesTally()))
+	return m.talliedHeader("Worktrees", m.worktreesTally())
 }
 
 // worktreesTally is how many directories the listing holds and what the counted ones hold.
@@ -340,7 +342,7 @@ func (m model) worktreeFields(item worktreeItem) []recordField {
 	}
 
 	fields = append(fields, recordField{"branch", orDash(item.branch)})
-	if read, ok := m.worktrees.inspected[item.dir]; ok && !read.pending && read.err == nil {
+	if read, ok := m.worktrees.inspected[item.dir]; ok && read.answered && read.err == nil {
 		fields = append(fields,
 			recordField{"base", baseField(read)},
 			recordField{"changes", changesField(read)},
@@ -440,7 +442,7 @@ func (m model) worktreeDoc() string {
 
 	read, ok := m.worktrees.inspected[row.item.dir]
 	switch {
-	case !ok || read.pending:
+	case !ok || !read.answered:
 		return renderDocument(row.name(), "_"+row.item.dir+"_", "_reading the directory…_", "")
 	case read.err != nil:
 		return renderDocument(row.name(), "_"+row.item.dir+"_", read.err.Error(), "")
