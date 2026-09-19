@@ -72,6 +72,13 @@ func TestSameBuild(t *testing.T) {
 			want:        false,
 		},
 		{
+			name:        "two builds from one dirty tree, told apart by when they were made",
+			body:        server.Health{Version: "v0.0.0-local.c88bd088+dirty.123757"},
+			selfVersion: "v0.0.0-local.c88bd088+dirty.123805",
+			selfCommit:  "",
+			want:        false,
+		},
+		{
 			name:        "an engine deployed from a dirty tree, which names no commit at all",
 			body:        server.Health{Version: "v0.0.0-engine.6da018be+dirty.131311"},
 			selfVersion: "v0.0.0-20260916203018-6da018be0403",
