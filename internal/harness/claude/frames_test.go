@@ -26,6 +26,8 @@ func TestReadActivityOnCapturedFrames(t *testing.T) {
 		{file: "scrolled_away_from_a_live_turn.txt", want: harness.ActivityWorking},
 		{file: "scrolled_away_after_the_turn_ended.txt", want: harness.ActivityIdle},
 		{file: "panel_whose_footer_the_pane_cut_off.txt", want: harness.ActivityWaiting},
+		// Claude 2.1.278 closes the plan picker with the plan's path rather than an Enter to select footer.
+		{file: "a_plan_picker_under_its_path_footer.txt", want: harness.ActivityWaiting},
 		{file: "api_retry_banner.txt", want: harness.ActivityWorking},
 		{file: "api_error_ended_the_turn.txt", want: harness.ActivityIdle},
 		{file: "a_title_on_the_box_above_a_spinner.txt", want: harness.ActivityWorking},

@@ -116,6 +116,12 @@ func TestReadReportOnCapturedPayloads(t *testing.T) {
 			event: EventPermissionRequest,
 			want:  harness.Report{Reason: "AskUserQuestion"},
 		},
+		// Claude 2.1.278 fires PermissionRequest for the plan picker too, naming ExitPlanMode.
+		{
+			file:  "permission_request_hook_payload_for_a_plan.json",
+			event: EventPermissionRequest,
+			want:  harness.Report{Reason: "ExitPlanMode"},
+		},
 		{
 			file:  "post_tool_use_hook_payload.json",
 			event: EventPostToolUse,
