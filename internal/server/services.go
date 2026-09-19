@@ -134,16 +134,16 @@ func buildServices(params NewServerParams, st *stores) (*services, error) {
 			Observer: paneChannel,
 		}),
 	})
+	settler := agents.NewSettler(agents.NewSettlerParams{
+		Channel:  paneChannel,
+		Observer: paneChannel,
+	})
 	rebaseService := agents.NewRebaseService(agents.NewRebaseServiceParams{
 		Agents:    st.agents,
 		Workflows: st.workflows,
+		Settler:   settler,
 		Notifier:  mailService,
 		Rebaser:   git.NewClient(),
-		Interrupter: agents.NewInterrupter(agents.NewInterrupterParams{
-			Agents:   st.agents,
-			Channel:  paneChannel,
-			Observer: paneChannel,
-		}),
 	})
 	adoptService := agents.NewAdoptService(agents.NewAdoptServiceParams{
 		Agents:    st.agents,
@@ -220,9 +220,9 @@ func buildServices(params NewServerParams, st *stores) (*services, error) {
 		launch:     launchService,
 		resume:     resumeService,
 		holder: agents.NewHolder(agents.NewHolderParams{
-			Agents:   st.agents,
-			Channel:  paneChannel,
-			Observer: paneChannel,
+			Agents:  st.agents,
+			Channel: paneChannel,
+			Settler: settler,
 		}),
 		adopt:     adoptService,
 		lifecycle: lifecycleService,

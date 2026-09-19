@@ -35,18 +35,25 @@ func (o *settlingObserver) Observe(_ context.Context, _ harness.Target) (harness
 // holderOver builds a holder over the test store with a clock the test moves itself, so waiting
 // for an agent to settle costs no real time.
 func holderOver(st *testStore, channel *fakeChannel, observer harness.Observer) *Holder {
+	return NewHolder(NewHolderParams{
+		Agents:  st.Agents,
+		Channel: channel,
+		Settler: settlerOver(channel, observer),
+	})
+}
+
+// settlerOver builds a settler whose clock walks the budget by itself.
+func settlerOver(channel harness.Channel, observer harness.Observer) *Settler {
 	at := time.Now()
 
-	return NewHolder(NewHolderParams{
-		Agents:   st.Agents,
+	return NewSettler(NewSettlerParams{
 		Channel:  channel,
 		Observer: observer,
 		Clock: func() time.Time {
-			at = at.Add(holdSettleInterval)
+			at = at.Add(settleInterval)
 
 			return at
 		},
-		// The budget is walked by the clock above, so resting between readings costs no real time.
 		Wait: func(time.Duration) <-chan time.Time {
 			rested := make(chan time.Time, 1)
 			rested <- at
@@ -87,7 +94,7 @@ func TestHoldRefusesAnAgentThatWillNotStop(t *testing.T) {
 	observer := &settlingObserver{readings: []harness.Activity{harness.ActivityWorking}}
 
 	_, err := holderOver(st, &fakeChannel{}, observer).Hold(t.Context(), agent.ID)
-	require.ErrorIs(t, err, ErrHoldRefused)
+	require.ErrorIs(t, err, ErrUnsettled)
 	assert.Contains(t, err.Error(), "had not stopped")
 
 	after := agentByID(t, st, agent.ID)
@@ -103,7 +110,7 @@ func TestHoldRefusesAPaneItCannotRead(t *testing.T) {
 	observer := &settlingObserver{err: errors.New("the pane is gone")}
 
 	_, err := holderOver(st, &fakeChannel{}, observer).Hold(t.Context(), agent.ID)
-	require.ErrorIs(t, err, ErrHoldRefused)
+	require.ErrorIs(t, err, ErrUnsettled)
 	assert.Contains(t, err.Error(), "could not be read")
 
 	after := agentByID(t, st, agent.ID)
@@ -123,7 +130,7 @@ func TestHoldRefusesAFrameItCannotMatchWithoutTypingAtIt(t *testing.T) {
 			observer := &settlingObserver{readings: []harness.Activity{activity}}
 
 			_, err := holderOver(st, channel, observer).Hold(t.Context(), agent.ID)
-			require.ErrorIs(t, err, ErrHoldRefused)
+			require.ErrorIs(t, err, ErrUnsettled)
 			assert.Contains(t, err.Error(), "could not be read")
 
 			assert.Zero(t, channel.interrupts, "nothing said there was a turn to cut")
@@ -277,7 +284,7 @@ func TestHoldRefusesAPromptThatNeverClears(t *testing.T) {
 	observer := &settlingObserver{readings: []harness.Activity{harness.ActivityWaiting}}
 
 	_, err := holderOver(st, &fakeChannel{}, observer).Hold(t.Context(), agent.ID)
-	require.ErrorIs(t, err, ErrHoldRefused)
+	require.ErrorIs(t, err, ErrUnsettled)
 
 	after := agentByID(t, st, agent.ID)
 	assert.Nil(t, after.HeldAt, "the prompt is still there, so nobody has the tree")

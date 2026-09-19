@@ -274,7 +274,7 @@ func (a api) planRefresh(id string) (*agentv1.PlanRefreshResponse, error) {
 }
 
 func (a api) rebaseWorktree(id string) (*agentv1.RebaseWorktreeResponse, error) {
-	return call(requestTimeout, func(ctx context.Context) (*agentv1.RebaseWorktreeResponse, error) {
+	return call(rebaseTimeout, func(ctx context.Context) (*agentv1.RebaseWorktreeResponse, error) {
 		resp, err := a.agents.RebaseWorktree(ctx, connect.NewRequest(&agentv1.RebaseWorktreeRequest{AgentId: id}))
 		if err != nil {
 			return nil, fmt.Errorf("failed to rebase the worktree of agent %q: %w", id, err)

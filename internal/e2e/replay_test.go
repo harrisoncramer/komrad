@@ -61,6 +61,7 @@ func reviewAcrossARebase(t *testing.T, mainsGreet string, wantConflict bool) rou
 
 	agentID, tree := created.Msg.GetAgent().GetId(), created.Msg.GetAgent().GetCwd()
 	require.DirExists(t, tree)
+	instance.WaitForHarness(agentID)
 	runGitIn(t, tree, "config", "user.email", "test@weave.test")
 	runGitIn(t, tree, "config", "user.name", "weave test")
 
