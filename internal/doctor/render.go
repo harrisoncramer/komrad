@@ -50,7 +50,13 @@ func WriteText(out io.Writer, report Report, color bool) error {
 	indent := strings.Repeat(" ", len(gutter)+markerWidth+len(gap)+width+len(nameGap))
 
 	page.WriteString("\n")
+	where := ""
 	for _, finding := range report.Findings {
+		if finding.Where != where {
+			where = finding.Where
+			page.WriteString("\n" + gutter + renderDim("on the "+where, color) + "\n")
+		}
+
 		name := fmt.Sprintf("%-*s", width, finding.Name)
 		page.WriteString(gutter + renderMarker(finding.Status, color) + gap + name + nameGap + describeFinding(finding) + "\n")
 

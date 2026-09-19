@@ -4,12 +4,14 @@ import (
 	"log/slog"
 	"net/http"
 
+	"weave/internal/doctor"
 	"weave/internal/interceptors"
 	"weave/internal/jobs"
 	"weave/internal/logread"
 	"weave/internal/mcp"
 	rpcagent "weave/internal/rpc/agent"
 	rpcconfig "weave/internal/rpc/config"
+	rpcdoctor "weave/internal/rpc/doctor"
 	rpcforge "weave/internal/rpc/forge"
 	rpchook "weave/internal/rpc/hook"
 	rpclog "weave/internal/rpc/log"
@@ -21,6 +23,8 @@ import (
 	agentv1weave "weave/proto/gen/agent/v1/agentv1weave"
 	"weave/proto/gen/config/v1/configv1connect"
 	configv1weave "weave/proto/gen/config/v1/configv1weave"
+	"weave/proto/gen/doctor/v1/doctorv1connect"
+	doctorv1weave "weave/proto/gen/doctor/v1/doctorv1weave"
 	"weave/proto/gen/forge/v1/forgev1connect"
 	forgev1weave "weave/proto/gen/forge/v1/forgev1weave"
 	"weave/proto/gen/hook/v1/hookv1connect"
@@ -49,6 +53,8 @@ type newMuxParams struct {
 	ReadOnly      *pgxpool.Pool
 	StopRequested chan struct{}
 	LogPath       string
+	// Doctor is this machine as the doctor's checks see it.
+	Doctor doctor.Settings
 }
 
 func newMux(params newMuxParams) (*http.ServeMux, error) {
@@ -111,6 +117,13 @@ func newMux(params newMuxParams) (*http.ServeMux, error) {
 	mux.Handle(logv1connect.NewLogServiceHandler(
 		logv1weave.LogServiceAdapter{
 			Impl: rpclog.NewLogService(logread.New(params.LogPath)),
+		}, options...))
+	mux.Handle(doctorv1connect.NewDoctorServiceHandler(
+		doctorv1weave.DoctorServiceAdapter{
+			Impl: rpcdoctor.NewDoctorService(rpcdoctor.NewDoctorServiceParams{
+				Env:    doctor.NewEnv(params.Doctor),
+				Checks: doctor.EngineChecks(params.Doctor),
+			}),
 		}, options...))
 
 	mcpHandler, err := mcp.NewHandler(mcp.NewHandlerParams{DB: params.ReadOnly, BaseURL: "http://" + params.Addr})

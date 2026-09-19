@@ -42,6 +42,7 @@ import (
 	agentv1 "weave/proto/gen/agent/v1"
 	"weave/proto/gen/agent/v1/agentv1connect"
 	"weave/proto/gen/config/v1/configv1connect"
+	"weave/proto/gen/doctor/v1/doctorv1connect"
 	"weave/proto/gen/forge/v1/forgev1connect"
 	"weave/proto/gen/hook/v1/hookv1connect"
 	"weave/proto/gen/log/v1/logv1connect"
@@ -62,6 +63,7 @@ type Instance struct {
 	Schedules    schedulev1connect.ScheduleServiceClient
 	Hooks        hookv1connect.HookServiceClient
 	Logs         logv1connect.LogServiceClient
+	Doctor       doctorv1connect.DoctorServiceClient
 	Forges       forgev1connect.ForgeServiceClient
 	PullRequests pullrequestv1connect.PullRequestServiceClient
 	Config       configv1connect.ConfigServiceClient
@@ -182,6 +184,7 @@ func Start(t *testing.T, p Params) *Instance {
 		Schedules:    schedulev1connect.NewScheduleServiceClient(client, url),
 		Hooks:        hookv1connect.NewHookServiceClient(client, url),
 		Logs:         logv1connect.NewLogServiceClient(client, url),
+		Doctor:       doctorv1connect.NewDoctorServiceClient(client, url),
 		Forges:       forgev1connect.NewForgeServiceClient(client, url),
 		PullRequests: pullrequestv1connect.NewPullRequestServiceClient(client, url),
 		Config:       configv1connect.NewConfigServiceClient(client, url),

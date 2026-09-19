@@ -49,12 +49,14 @@ func codeOf(err error) string {
 	return ""
 }
 
+// Check is one thing the doctor looks at, listed under HereChecks, EngineChecks or both.
 type Check struct {
 	Name        string
 	Description string
-	Needs       []string
-	Engine      bool
-	Run         func(context.Context, Env) Result
+	// Needs names the checks that have to pass first, each listed before this one wherever it
+	// is listed.
+	Needs []string
+	Run   func(context.Context, Env) Result
 }
 
 type Result struct {
@@ -89,10 +91,6 @@ func skip(blocker string) Result {
 	return Result{Status: StatusSkip, Detail: "not checked, " + blocker + " has to pass first"}
 }
 
-func skipRemote() Result {
-	return Result{Status: StatusSkip, Detail: "not checked, the engine is on another machine"}
-}
-
 type Finding struct {
 	Name        string `json:"name"`
 	Description string `json:"description"`
@@ -101,6 +99,62 @@ type Finding struct {
 	Code        string `json:"code,omitempty"`
 	Error       string `json:"error,omitempty"`
 	Fix         string `json:"fix,omitempty"`
+	// Where names the machine the finding is about when it is not the one the doctor ran on.
+	Where string `json:"where,omitempty"`
+}
+
+// WhereEngine is what a finding the engine's service made carries in Where.
+const WhereEngine = "engine"
+
+// ErrEngineUnanswered says the engine's service was asked for its checks and did not answer.
+var ErrEngineUnanswered = &ProblemError{
+	Code:    "engine_unanswered",
+	Message: "the engine did not answer with its checks",
+}
+
+const engineDescription = "the checks the engine's service makes on its own machine"
+
+// EngineNotChecked stands in for the engine's checks when the server check did not pass, since
+// the service is what makes them.
+func EngineNotChecked() Finding {
+	return Finding{
+		Name:        "engine",
+		Description: engineDescription,
+		Status:      StatusSkip,
+		Detail:      "not checked, server has to pass first",
+		Where:       WhereEngine,
+	}
+}
+
+// EngineUnanswered stands in for the engine's checks when the service was asked for them and
+// the call failed.
+func EngineUnanswered(err error) Finding {
+	wrapped := fmt.Errorf("%w: %w", ErrEngineUnanswered, err)
+
+	return Finding{
+		Name:        "engine",
+		Description: engineDescription,
+		Status:      StatusFail,
+		Code:        codeOf(wrapped),
+		Error:       wrapped.Error(),
+		Fix:         "run weave doctor on the engine, or read the service's log there",
+		Where:       WhereEngine,
+	}
+}
+
+// WithEngine is the report with the findings an engine's service made added after the ones
+// made here, each marked as the engine's and counted into the summary.
+func (r Report) WithEngine(findings []Finding) Report {
+	merged := Report{Findings: make([]Finding, 0, len(r.Findings)+len(findings))}
+	merged.Findings = append(merged.Findings, r.Findings...)
+	for _, finding := range findings {
+		finding.Where = WhereEngine
+		merged.Findings = append(merged.Findings, finding)
+	}
+
+	merged.Summary = summarize(merged.Findings)
+
+	return merged
 }
 
 type Report struct {
@@ -155,10 +209,6 @@ func (c conclusions) run(ctx context.Context, env Env, check Check) (result Resu
 			result = fail(fmt.Errorf("%w: %v", ErrCheckPanicked, recovered), "", "")
 		}
 	}()
-
-	if check.Engine && env.EngineIsRemote {
-		return skipRemote()
-	}
 
 	for _, needed := range check.Needs {
 		switch c[needed] {

@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"weave/config"
+	"weave/internal/harness"
 )
 
 const commandTimeout = 5 * time.Second
@@ -39,6 +40,21 @@ type Env struct {
 type HarnessInfo struct {
 	ID     string
 	Binary string
+}
+
+// DescribeHarnesses is the harnesses a registry holds, as the checks name them.
+func DescribeHarnesses(registry *harness.Registry) ([]HarnessInfo, error) {
+	harnesses := make([]HarnessInfo, 0, len(registry.IDs()))
+	for _, id := range registry.IDs() {
+		found, err := registry.GetByID(id)
+		if err != nil {
+			return nil, err
+		}
+
+		harnesses = append(harnesses, HarnessInfo{ID: found.ID(), Binary: found.Binary()})
+	}
+
+	return harnesses, nil
 }
 
 type Settings struct {

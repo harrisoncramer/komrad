@@ -11,7 +11,9 @@ import (
 	"weave/internal/doctor"
 	"weave/internal/errui"
 	"weave/internal/version"
+	"weave/lib/xhttp"
 	"weave/lib/xslice"
+	"weave/proto/gen/doctor/v1/doctorv1connect"
 
 	"connectrpc.com/connect"
 	"github.com/spf13/cobra"
@@ -47,6 +49,11 @@ colour depth out of the entry this process emits for, which is what an entry
 claims rather than what a terminal does. Nothing is asked of a terminal that is
 not there, and whether the font has a glyph at all is not tested.
 
+Pointed at an engine with --engine, the checks about this machine run here and the
+ones about the engine are asked of its service, which makes them on its own
+machine; they are printed under an "on the engine" heading, and marked not checked
+when the service cannot be reached or is running a different build.
+
 The exit status is non-zero when any check failed, so it can gate a script, and
 --json prints the report rather than the summary. Run this first when the panel is
 doing something that makes no sense.`,
@@ -59,16 +66,10 @@ doing something that makes no sense.`,
 				return err
 			}
 
-			env, checks, err := state.buildDoctor()
+			report, err := state.runDoctor(cmd.Context(), true)
 			if err != nil {
 				return err
 			}
-
-			// The terminal is taken over only for the command a person typed, since anything
-			// already drawing reads a cursor query's answer as a keypress.
-			env.MeasureColumns = doctor.MeasureColumnsOnTTY
-
-			report := doctor.Run(cmd.Context(), env, checks)
 
 			if asJSON {
 				err = doctor.WriteJSON(cmd.OutOrStdout(), report)
@@ -93,10 +94,83 @@ doing something that makes no sense.`,
 	return cmd
 }
 
-func (a *app) buildDoctor() (doctor.Env, []doctor.Check, error) {
+// runDoctor makes the checks about this machine and, when the engine is elsewhere, asks its
+// service for the checks about that one, which only a terminal a person typed at has measured.
+func (a *app) runDoctor(ctx context.Context, onTTY bool) (doctor.Report, error) {
+	env, settings, err := a.buildDoctor()
+	if err != nil {
+		return doctor.Report{}, err
+	}
+
+	// The terminal is taken over only for the command a person typed, since anything
+	// already drawing reads a cursor query's answer as a keypress.
+	if onTTY {
+		env.MeasureColumns = doctor.MeasureColumnsOnTTY
+	}
+
+	if !a.engine().IsRemote() {
+		return doctor.Run(ctx, env, doctor.Checks(settings)), nil
+	}
+
+	report := doctor.Run(ctx, env, doctor.HereChecks())
+	if !isServerOK(report) {
+		return report.WithEngine([]doctor.Finding{doctor.EngineNotChecked()}), nil
+	}
+
+	findings, err := a.askEngineDoctor(ctx)
+	if err != nil {
+		return report.WithEngine([]doctor.Finding{doctor.EngineUnanswered(err)}), nil
+	}
+
+	return report.WithEngine(findings), nil
+}
+
+func isServerOK(report doctor.Report) bool {
+	for _, finding := range report.Findings {
+		if finding.Name == "server" {
+			return finding.Status == doctor.StatusOK
+		}
+	}
+
+	return false
+}
+
+// askEngineDoctor is the checks the engine's service made on its own machine, read back into
+// the doctor's own findings.
+func (a *app) askEngineDoctor(ctx context.Context) ([]doctor.Finding, error) {
+	addr, release, err := a.dialAPI(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	defer release()
+
+	client := doctorv1connect.NewDoctorServiceClient(xhttp.NewClient(apiCallTimeout), "http://"+addr)
+	resp, err := client.RunDoctor(ctx, connect.NewRequest(&emptypb.Empty{}))
+	if err != nil {
+		return nil, err
+	}
+
+	findings := make([]doctor.Finding, 0, len(resp.Msg.GetFindings()))
+	for _, finding := range resp.Msg.GetFindings() {
+		findings = append(findings, doctor.Finding{
+			Name:        finding.GetName(),
+			Description: finding.GetDescription(),
+			Status:      doctor.Status(finding.GetStatus()),
+			Detail:      finding.GetDetail(),
+			Code:        finding.GetCode(),
+			Error:       finding.GetError(),
+			Fix:         finding.GetFix(),
+		})
+	}
+
+	return findings, nil
+}
+
+func (a *app) buildDoctor() (doctor.Env, doctor.Settings, error) {
 	settings, err := a.buildDoctorSettings()
 	if err != nil {
-		return doctor.Env{}, nil, err
+		return doctor.Env{}, doctor.Settings{}, err
 	}
 
 	env := doctor.NewEnv(settings)
@@ -150,18 +224,13 @@ func (a *app) buildDoctor() (doctor.Env, []doctor.Check, error) {
 
 	env.IsPanelRunning = func(ctx context.Context) bool { return isPanelRunning(ctx, a) }
 
-	return env, doctor.Checks(settings), nil
+	return env, settings, nil
 }
 
 func (a *app) buildDoctorSettings() (doctor.Settings, error) {
-	harnesses := make([]doctor.HarnessInfo, 0, len(a.harnesses.IDs()))
-	for _, id := range a.harnesses.IDs() {
-		found, err := a.harnesses.GetByID(id)
-		if err != nil {
-			return doctor.Settings{}, err
-		}
-
-		harnesses = append(harnesses, doctor.HarnessInfo{ID: found.ID(), Binary: found.Binary()})
+	harnesses, err := doctor.DescribeHarnesses(a.harnesses)
+	if err != nil {
+		return doctor.Settings{}, err
 	}
 
 	termName, _ := config.LookupEnv("TERM")
@@ -200,20 +269,23 @@ func shouldColorize(mode string, out io.Writer) (bool, error) {
 }
 
 func (a *app) diagnose(ctx context.Context) []errui.Finding {
-	env, checks, err := a.buildDoctor()
+	report, err := a.runDoctor(ctx, false)
 	if err != nil {
 		return nil
 	}
-
-	report := doctor.Run(ctx, env, checks)
 
 	failed := xslice.Filter(report.Findings, func(finding doctor.Finding) bool {
 		return finding.Status == doctor.StatusFail
 	})
 
 	return xslice.Map(failed, func(finding doctor.Finding) errui.Finding {
+		name := finding.Name
+		if finding.Where != "" {
+			name = finding.Where + " " + name
+		}
+
 		return errui.Finding{
-			Name:   finding.Name,
+			Name:   name,
 			Reason: finding.Error,
 			Fix:    finding.Fix,
 		}

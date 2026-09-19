@@ -73,6 +73,7 @@ flags, and the response is the API's own JSON on stdout.
 * [weave rpc restore-workflow](weave_rpc_restore-workflow.md)	 - Take a workflow out of the archive, keyed by id, along with every agent archived inside it.
 * [weave rpc resume-agent](weave_rpc_resume-agent.md)	 - Relaunch an agent's CLI on the same conversation, keyed by id, which is what reaches an agent whose pane has since died.
 * [weave rpc retry-agent](weave_rpc_retry-agent.md)	 - Retry launching an agent that failed to create, keyed by id, optionally with corrected flags, prompt, or harness.
+* [weave rpc run-doctor](weave_rpc_run-doctor.md)	 - Check the machine the service runs on for what its agents need: tmux and its shell, the config, the harness binaries, the hooks and worktree directories, the database and its schema.
 * [weave rpc search-transcripts](weave_rpc_search-transcripts.md)	 - Full-text search over conversations, including archived ones, returning one hit per matching turn with the matched text marked.
 * [weave rpc send-mail](weave_rpc_send-mail.md)	 - Send one piece of mail to another agent, addressed by its id.
 * [weave rpc set-agent-hidden](weave_rpc_set-agent-hidden.md)	 - Hide an agent from the panel's sidebar, keyed by its id, or unhide it by passing hidden false.
