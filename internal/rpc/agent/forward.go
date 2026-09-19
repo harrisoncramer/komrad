@@ -68,12 +68,18 @@ func (s *AgentService) ForwardLastTurns(ctx context.Context, req *agentv1.Forwar
 		return nil, rpcerr.From(err, "failed to send the mail")
 	}
 
+	recipient, err := s.agents.GetByID(ctx, sent.ToAgentID)
+	if err != nil {
+		return nil, rpcerr.From(err, "failed to look up the recipient")
+	}
+
 	return &agentv1.ForwardLastTurnsResponse{
 		MailId:     sent.ID,
 		ToAgentId:  sent.ToAgentID,
 		CreatedAt:  dates.Stamp(sent.CreatedAt),
 		Turns:      int32(len(turns)),
 		Characters: int32(length),
+		Warning:    s.buildDormantWarning(*recipient),
 	}, nil
 }
 

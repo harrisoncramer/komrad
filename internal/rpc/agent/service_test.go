@@ -1153,8 +1153,7 @@ func TestSendMailByName(t *testing.T) {
 	assert.Equal(t, testerDocs.ID, sent.Msg.GetMail().GetToAgentId())
 }
 
-// TestSendMailWarnsOfADormantRecipient pins that a send to an agent nothing runs behind says so,
-// since the mail is kept and only read once that agent is resumed.
+// TestSendMailWarnsOfADormantRecipient pins that a send to an agent nothing runs behind says so.
 func TestSendMailWarnsOfADormantRecipient(t *testing.T) {
 	tests := []struct {
 		name        string

@@ -104,6 +104,8 @@ message ForwardLastTurnsResponse {
   int32 turns = 4;
   // How many characters the whole body came to.
   int32 characters = 5;
+  // Why the recipient will not read this soon, set when nothing runs behind it.
+  optional string warning = 6;
 }
 
 message ReadMailRequest {

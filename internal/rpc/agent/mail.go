@@ -52,12 +52,11 @@ func (s *AgentService) SendMail(ctx context.Context, req *agentv1.SendMailReques
 
 	return &agentv1.SendMailResponse{
 		Mail:    renderMail(*sent),
-		Warning: s.dormantWarning(*recipient),
+		Warning: s.buildDormantWarning(*recipient),
 	}, nil
 }
 
-// dormantWarning says that nothing runs behind the recipient, for an agent whose pane has gone.
-func (s *AgentService) dormantWarning(recipient agentstore.Agent) *string {
+func (s *AgentService) buildDormantWarning(recipient agentstore.Agent) *string {
 	if s.liveness.IsAgentRunning(recipient) || !recipient.State.DoesPaneDecide() {
 		return nil
 	}
