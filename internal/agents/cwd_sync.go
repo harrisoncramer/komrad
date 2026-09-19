@@ -140,7 +140,7 @@ func (cs *CwdSyncer) Sync(ctx context.Context) error {
 	standings := map[string]roundStanding{}
 	var failures []error
 	for _, look := range looks {
-		if round := rounds[look.agent.ID]; round != "" && look.err == nil {
+		if round := rounds[look.agent.ID]; round != "" {
 			standings[look.agent.ID] = roundStanding{snapshotSHA: round, standing: look.standing}
 		}
 		if look.err != nil {
@@ -291,7 +291,7 @@ func (cs *CwdSyncer) readStanding(ctx context.Context, agent agentstore.Agent, r
 
 	standing, err := cs.trees.ReadStanding(ctx, git.ReadStandingParams{Dir: agent.Cwd, Base: base, SnapshotSHA: round})
 	if err != nil {
-		return git.StandingSame, fmt.Errorf("failed to compare the tree of %q against its reviewed round: %w", agent.Name, err)
+		return standing, fmt.Errorf("failed to compare the tree of %q against its reviewed round: %w", agent.Name, err)
 	}
 
 	return standing, nil

@@ -429,41 +429,64 @@ func (c *Client) ReadStanding(ctx context.Context, params ReadStandingParams) (S
 	}
 
 	base := resolveBase(ctx, root, params.Base)
+	if isOwnHead(ctx, root, base) {
+		return StandingMoved, nil
+	}
 
-	landed, err := doesHoldWhole(ctx, root, base, params.SnapshotSHA)
+	baseTree, err := Run(ctx, root, "rev-parse", "--verify", "--quiet", base+"^{tree}")
+	if err != nil {
+		return StandingMoved, nil
+	}
+
+	landed, err := doesHoldWhole(ctx, root, base, baseTree, params.SnapshotSHA)
 	if err != nil || !landed {
 		return StandingMoved, err
 	}
 
-	mergeBase, err := Run(ctx, root, "merge-base", base, "HEAD")
-	if err != nil {
-		return StandingMoved, fmt.Errorf("failed to find where %q left %q: %w", root, base, err)
+	clean, err := isCleanOnto(ctx, root, base, baseTree, probe)
+	if err != nil || !clean {
+		return StandingLandedMoved, err
 	}
 
-	beneath, err := c.GetTree(ctx, root, mergeBase)
-	if err != nil {
-		return StandingMoved, err
-	}
-	if probe == beneath {
-		return StandingLanded, nil
-	}
-
-	return StandingLandedMoved, nil
+	return StandingLanded, nil
 }
 
-// doesHoldWhole reports whether merging a commit into ref would change nothing of ref.
-func doesHoldWhole(ctx context.Context, root, ref, sha string) (bool, error) {
-	base, err := Run(ctx, root, "rev-parse", "--verify", ref+"^{tree}")
-	if err != nil {
-		return false, fmt.Errorf("failed to read the tree of %q: %w", ref, err)
+// isOwnHead reports whether a base names the very branch the worktree is on, which can hold
+// nothing the worktree does not.
+func isOwnHead(ctx context.Context, root, base string) bool {
+	if base == "HEAD" {
+		return true
 	}
 
-	merged, _, err := readMergedTree(ctx, readMergedTreeParams{Dir: root, Left: ref, Right: sha})
+	branch, err := Run(ctx, root, "rev-parse", "--abbrev-ref", "HEAD")
+
+	return err == nil && branch == base
+}
+
+// doesHoldWhole reports whether merging a commit into the base would change nothing of it.
+func doesHoldWhole(ctx context.Context, root, base, baseTree, sha string) (bool, error) {
+	merged, _, err := readMergedTree(ctx, readMergedTreeParams{Dir: root, Left: base, Right: sha})
 	if err != nil {
 		return false, err
 	}
 
-	return merged == base, nil
+	return merged == baseTree, nil
+}
+
+// isCleanOnto reports whether a worktree's tree brings nothing to the base beyond what the base
+// already holds, measured from where the worktree's branch left it.
+func isCleanOnto(ctx context.Context, root, base, baseTree, probe string) (bool, error) {
+	mergeBase, err := Run(ctx, root, "merge-base", base, "HEAD")
+	if err != nil {
+		return false, fmt.Errorf("failed to find where %q left %q: %w", root, base, err)
+	}
+
+	merged, _, err := readMergedTree(ctx, readMergedTreeParams{Dir: root, Left: base, Right: probe, MergeBase: mergeBase})
+	if err != nil {
+		return false, err
+	}
+
+	return merged == baseTree, nil
 }
 
 // Park records a checkout as it stands, tracked and untracked alike, so a move can be undone.

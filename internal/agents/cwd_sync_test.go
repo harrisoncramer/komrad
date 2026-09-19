@@ -449,6 +449,13 @@ func (f fakeTrees) ReadStanding(_ context.Context, params git.ReadStandingParams
 	return standing, nil
 }
 
+// failingTrees is a git that knows the tree moved but could not finish the landed question.
+type failingTrees struct{}
+
+func (failingTrees) ReadStanding(context.Context, git.ReadStandingParams) (git.Standing, error) {
+	return git.StandingMoved, errors.New("the base could not be merged")
+}
+
 type fakeBases []workflowstore.Workflow
 
 func (f fakeBases) List(context.Context) ([]workflowstore.Workflow, error) {
@@ -530,6 +537,36 @@ func TestCwdSyncerSyncReadsWhereTheTreeStands(t *testing.T) {
 	assert.Equal(t, git.StandingLandedMoved, syncer.GetStanding(ids["landed-edited"], "snapshot-landed-edited"))
 	assert.Equal(t, git.StandingSame, syncer.GetStanding(ids["edited"], "snapshot-newer"),
 		"a verdict on a round the pass has not compared against is not one the tree moved from")
+}
+
+// TestCwdSyncerSyncKeepsAStandingReportedWithAnError pins that a failure after the tree was
+// found to have moved is said, and never demotes the row to unmoved.
+func TestCwdSyncerSyncKeepsAStandingReportedWithAnError(t *testing.T) {
+	st := newStore(t)
+	ctx := t.Context()
+
+	workflowID := seedWorkflow(t, st)
+	require.NoError(t, st.Agents.Create(ctx, agentstore.Agent{
+		Name:       "a",
+		State:      agentstore.StateIdle,
+		WorkflowID: workflowID,
+		Cwd:        fakeCheckout(t),
+	}))
+	created, err := st.Agents.GetInWorkflow(ctx, workflowID, "a")
+	require.NoError(t, err)
+
+	approved := reviewstore.VerdictApproved
+	syncer := NewCwdSyncer(NewCwdSyncerParams{
+		Agents:  st.Agents,
+		Heads:   fakeHeads{},
+		Trees:   failingTrees{},
+		Bases:   fakeBases{},
+		Tallies: fakeTallies{{AgentID: created.ID, Verdict: &approved, SnapshotSHA: "snapshot-one"}},
+	})
+
+	err = syncer.Sync(ctx)
+	require.Error(t, err)
+	assert.Equal(t, git.StandingMoved, syncer.GetStanding(created.ID, "snapshot-one"))
 }
 
 // TestCwdSyncerSyncMeasuresAgainstTheWorkflowsBase pins that the landed question is asked of

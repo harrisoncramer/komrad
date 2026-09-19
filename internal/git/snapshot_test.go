@@ -317,9 +317,8 @@ func TestTheTreeStandsUntilTheWorktreeMoves(t *testing.T) {
 	assert.Equal(t, StandingSame, standing(t, root, snapshot.SHA), "a worktree edited back to the round is not a move")
 }
 
-// TestARebaseMovesTheTree pins that the comparison is of the whole tree rather than of the
-// agent's own diff: a rebase that brings in a commit of the base's moves it, and only a base
-// that has taken the round's content reads it as landed.
+// TestARebaseMovesTheTree pins that a rebase bringing in a commit of the base's is a move until
+// the base has taken the round, and that the agent's own commit riding on top is not new work.
 func TestARebaseMovesTheTree(t *testing.T) {
 	root := repo(t)
 	snapshot := topicRound(t, root)
@@ -338,7 +337,39 @@ func TestARebaseMovesTheTree(t *testing.T) {
 
 	landOn(t, root, snapshot.SHA)
 
-	assert.Equal(t, StandingLandedMoved, standing(t, root, snapshot.SHA), "once the base holds the round, the rebased branch still carries its own commit on top")
+	assert.Equal(t, StandingLanded, standing(t, root, snapshot.SHA), "the commit on top is the one the base took, so nothing on disk is unread")
+
+	write(t, root, "later.go", "package main\n")
+
+	assert.Equal(t, StandingLandedMoved, standing(t, root, snapshot.SHA))
+}
+
+// TestAnUnreadableBaseReadsAsMoved pins that a base git cannot find never demotes a moved tree,
+// since the round is not held by a base that is not there.
+func TestAnUnreadableBaseReadsAsMoved(t *testing.T) {
+	root := repo(t)
+	snapshot := topicRound(t, root)
+	write(t, root, "later.go", "package main\n")
+
+	standing, err := client.ReadStanding(t.Context(), ReadStandingParams{Dir: root, Base: "develop", SnapshotSHA: snapshot.SHA})
+	require.NoError(t, err)
+	assert.Equal(t, StandingMoved, standing)
+}
+
+// TestABaseThatIsTheHeadCannotHoldTheRound pins that a base falling through to the branch the
+// agent is on, or to HEAD itself, never reads as having taken the round.
+func TestABaseThatIsTheHeadCannotHoldTheRound(t *testing.T) {
+	root := repo(t)
+	snapshot := topicRound(t, root)
+	write(t, root, "later.go", "package main\n")
+	run(t, root, "add", "-A")
+	run(t, root, "commit", "-m", "later")
+
+	for _, base := range []string{"", "topic", "HEAD"} {
+		standing, err := client.ReadStanding(t.Context(), ReadStandingParams{Dir: root, Base: base, SnapshotSHA: snapshot.SHA})
+		require.NoError(t, err)
+		assert.Equal(t, StandingMoved, standing, "base %q", base)
+	}
 }
 
 // TestALandedRoundWithNothingOnTopIsLanded is the round shipped and the branch reset onto the
