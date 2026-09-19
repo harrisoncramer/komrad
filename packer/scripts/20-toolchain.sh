@@ -7,7 +7,10 @@ sudo -u weave env HOME=/opt/mise/home MISE_INSTALL_PATH=/opt/mise/mise \
 	bash -c 'curl -fsSL https://mise.run | sh'
 ln -sf /opt/mise/mise /usr/local/bin/mise
 
+# activate only sets PATH from the prompt hook, so a shell that never prompts, such as the one
+# a script or a hook runs in, finds no tool through it; the shims are what reach those.
 cat >/etc/profile.d/mise.sh <<'PROFILE'
+export PATH="/opt/mise/data/shims:$PATH"
 eval "$(/usr/local/bin/mise activate bash)"
 PROFILE
 
