@@ -55,6 +55,160 @@ func TestAppendAndGet(t *testing.T) {
 	}
 }
 
+// TestListLastTurns covers reading the newest turns of one role back with the turns between
+// them, which is what answers what an agent last said without assembling its conversation.
+func TestListLastTurns(t *testing.T) {
+	stored := []Turn{
+		{
+			Role:    "user",
+			Content: "alpha question",
+		},
+		{
+			Role:    "assistant",
+			Content: "alpha answer",
+		},
+		{
+			Role:    "assistant",
+			Content: "alpha afterthought",
+		},
+		{
+			Role:    "user",
+			Content: "beta question",
+		},
+		{
+			Role:    "assistant",
+			Content: "beta answer",
+		},
+		{
+			Role:    "user",
+			Content: "gamma question",
+		},
+	}
+
+	tests := []struct {
+		name  string
+		role  string
+		limit int32
+		want  []StoredTurn
+	}{
+		{
+			name:  "the last assistant turn is the newest one alone, whoever spoke after it",
+			role:  "assistant",
+			limit: 1,
+			want: []StoredTurn{
+				{
+					Seq:     4,
+					Role:    "assistant",
+					Content: "beta answer",
+				},
+			},
+		},
+		{
+			name:  "several come back oldest first with the prompts between them and none before",
+			role:  "assistant",
+			limit: 2,
+			want: []StoredTurn{
+				{
+					Seq:     2,
+					Role:    "assistant",
+					Content: "alpha afterthought",
+				},
+				{
+					Seq:     3,
+					Role:    "user",
+					Content: "beta question",
+				},
+				{
+					Seq:     4,
+					Role:    "assistant",
+					Content: "beta answer",
+				},
+			},
+		},
+		{
+			name:  "a limit past what is stored runs from the first turn in that role",
+			role:  "assistant",
+			limit: 10,
+			want: []StoredTurn{
+				{
+					Seq:     1,
+					Role:    "assistant",
+					Content: "alpha answer",
+				},
+				{
+					Seq:     2,
+					Role:    "assistant",
+					Content: "alpha afterthought",
+				},
+				{
+					Seq:     3,
+					Role:    "user",
+					Content: "beta question",
+				},
+				{
+					Seq:     4,
+					Role:    "assistant",
+					Content: "beta answer",
+				},
+			},
+		},
+		{
+			name:  "a role nobody spoke in has no turns",
+			role:  "system",
+			limit: 1,
+			want:  []StoredTurn{},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			st := open(t)
+			id := seedAgent(t, st, "agent")
+			seedTurns(t, st, id, stored)
+
+			got, err := st.ListLastTurns(t.Context(), ListLastTurnsParams{
+				AgentID: id,
+				Role:    tt.role,
+				Limit:   tt.limit,
+			})
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+// TestListLastTurnsOfUnknownID pins that an unused id and a string that is not an id both read
+// as no turns rather than an error.
+func TestListLastTurnsOfUnknownID(t *testing.T) {
+	tests := []struct {
+		name string
+		id   string
+	}{
+		{
+			name: "a malformed id is not an agent",
+			id:   "missing",
+		},
+		{
+			name: "a well-formed id nothing holds",
+			id:   "00000000-0000-7000-8000-000000000000",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			st := open(t)
+
+			got, err := st.ListLastTurns(t.Context(), ListLastTurnsParams{
+				AgentID: tt.id,
+				Role:    "assistant",
+				Limit:   1,
+			})
+			require.NoError(t, err)
+			assert.Empty(t, got)
+		})
+	}
+}
+
 // TestGetOfUnknownID pins that an unused id and a string that is not an id both read as the
 // zero transcript rather than an error.
 func TestGetOfUnknownID(t *testing.T) {

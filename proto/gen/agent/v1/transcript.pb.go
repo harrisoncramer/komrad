@@ -387,6 +387,188 @@ func (x *GetTranscriptResponse) GetNextPageToken() string {
 	return ""
 }
 
+type GetLastTurnsRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Whose conversation to read.
+	AgentId string `protobuf:"bytes,1,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`
+	// How many of the newest assistant turns to return, with the prompts between them, or unset
+	// for the last one alone.
+	Turns *int32 `protobuf:"varint,2,opt,name=turns,proto3,oneof" json:"turns,omitempty"`
+	// The most of each turn's text to return, cut from the head so the end survives, or unset
+	// for the default.
+	MaxBytes      *int32 `protobuf:"varint,3,opt,name=max_bytes,json=maxBytes,proto3,oneof" json:"max_bytes,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetLastTurnsRequest) Reset() {
+	*x = GetLastTurnsRequest{}
+	mi := &file_agent_v1_transcript_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetLastTurnsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetLastTurnsRequest) ProtoMessage() {}
+
+func (x *GetLastTurnsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_agent_v1_transcript_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetLastTurnsRequest.ProtoReflect.Descriptor instead.
+func (*GetLastTurnsRequest) Descriptor() ([]byte, []int) {
+	return file_agent_v1_transcript_proto_rawDescGZIP(), []int{5}
+}
+
+func (x *GetLastTurnsRequest) GetAgentId() string {
+	if x != nil {
+		return x.AgentId
+	}
+	return ""
+}
+
+func (x *GetLastTurnsRequest) GetTurns() int32 {
+	if x != nil && x.Turns != nil {
+		return *x.Turns
+	}
+	return 0
+}
+
+func (x *GetLastTurnsRequest) GetMaxBytes() int32 {
+	if x != nil && x.MaxBytes != nil {
+		return *x.MaxBytes
+	}
+	return 0
+}
+
+type Turn struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Who was speaking, the agent or whoever prompted it.
+	Role string `protobuf:"bytes,1,opt,name=role,proto3" json:"role,omitempty"`
+	// Where the turn sits in the conversation, counting from the first.
+	Seq int32 `protobuf:"varint,2,opt,name=seq,proto3" json:"seq,omitempty"`
+	// The turn's text, or the end of it when the head was cut to fit max_bytes.
+	Content string `protobuf:"bytes,3,opt,name=content,proto3" json:"content,omitempty"`
+	// Whether the head of the text was cut away.
+	Truncated     bool `protobuf:"varint,4,opt,name=truncated,proto3" json:"truncated,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Turn) Reset() {
+	*x = Turn{}
+	mi := &file_agent_v1_transcript_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Turn) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Turn) ProtoMessage() {}
+
+func (x *Turn) ProtoReflect() protoreflect.Message {
+	mi := &file_agent_v1_transcript_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Turn.ProtoReflect.Descriptor instead.
+func (*Turn) Descriptor() ([]byte, []int) {
+	return file_agent_v1_transcript_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *Turn) GetRole() string {
+	if x != nil {
+		return x.Role
+	}
+	return ""
+}
+
+func (x *Turn) GetSeq() int32 {
+	if x != nil {
+		return x.Seq
+	}
+	return 0
+}
+
+func (x *Turn) GetContent() string {
+	if x != nil {
+		return x.Content
+	}
+	return ""
+}
+
+func (x *Turn) GetTruncated() bool {
+	if x != nil {
+		return x.Truncated
+	}
+	return false
+}
+
+type GetLastTurnsResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The newest assistant turns and the prompts between them, oldest first.
+	Turns         []*Turn `protobuf:"bytes,1,rep,name=turns,proto3" json:"turns,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetLastTurnsResponse) Reset() {
+	*x = GetLastTurnsResponse{}
+	mi := &file_agent_v1_transcript_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetLastTurnsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetLastTurnsResponse) ProtoMessage() {}
+
+func (x *GetLastTurnsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_agent_v1_transcript_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetLastTurnsResponse.ProtoReflect.Descriptor instead.
+func (*GetLastTurnsResponse) Descriptor() ([]byte, []int) {
+	return file_agent_v1_transcript_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *GetLastTurnsResponse) GetTurns() []*Turn {
+	if x != nil {
+		return x.Turns
+	}
+	return nil
+}
+
 var File_agent_v1_transcript_proto protoreflect.FileDescriptor
 
 const file_agent_v1_transcript_proto_rawDesc = "" +
@@ -427,7 +609,21 @@ const file_agent_v1_transcript_proto_rawDesc = "" +
 	"\x15GetTranscriptResponse\x12\x18\n" +
 	"\acontent\x18\x01 \x01(\tR\acontent\x12+\n" +
 	"\x0fnext_page_token\x18\x02 \x01(\tH\x00R\rnextPageToken\x88\x01\x01B\x12\n" +
-	"\x10_next_page_tokenB\"Z weave/proto/gen/agent/v1;agentv1b\x06proto3"
+	"\x10_next_page_token\"\xa2\x01\n" +
+	"\x13GetLastTurnsRequest\x12\"\n" +
+	"\bagent_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\aagentId\x12$\n" +
+	"\x05turns\x18\x02 \x01(\x05B\t\xbaH\x06\x1a\x04\x18\x14(\x01H\x00R\x05turns\x88\x01\x01\x12)\n" +
+	"\tmax_bytes\x18\x03 \x01(\x05B\a\xbaH\x04\x1a\x02(\x00H\x01R\bmaxBytes\x88\x01\x01B\b\n" +
+	"\x06_turnsB\f\n" +
+	"\n" +
+	"_max_bytes\"d\n" +
+	"\x04Turn\x12\x12\n" +
+	"\x04role\x18\x01 \x01(\tR\x04role\x12\x10\n" +
+	"\x03seq\x18\x02 \x01(\x05R\x03seq\x12\x18\n" +
+	"\acontent\x18\x03 \x01(\tR\acontent\x12\x1c\n" +
+	"\ttruncated\x18\x04 \x01(\bR\ttruncated\"<\n" +
+	"\x14GetLastTurnsResponse\x12$\n" +
+	"\x05turns\x18\x01 \x03(\v2\x0e.agent.v1.TurnR\x05turnsB\"Z weave/proto/gen/agent/v1;agentv1b\x06proto3"
 
 var (
 	file_agent_v1_transcript_proto_rawDescOnce sync.Once
@@ -441,24 +637,28 @@ func file_agent_v1_transcript_proto_rawDescGZIP() []byte {
 	return file_agent_v1_transcript_proto_rawDescData
 }
 
-var file_agent_v1_transcript_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
+var file_agent_v1_transcript_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
 var file_agent_v1_transcript_proto_goTypes = []any{
 	(*SearchTranscriptsRequest)(nil),  // 0: agent.v1.SearchTranscriptsRequest
 	(*SearchHit)(nil),                 // 1: agent.v1.SearchHit
 	(*SearchTranscriptsResponse)(nil), // 2: agent.v1.SearchTranscriptsResponse
 	(*GetTranscriptRequest)(nil),      // 3: agent.v1.GetTranscriptRequest
 	(*GetTranscriptResponse)(nil),     // 4: agent.v1.GetTranscriptResponse
-	(*v1.Pagination)(nil),             // 5: pagination.v1.Pagination
+	(*GetLastTurnsRequest)(nil),       // 5: agent.v1.GetLastTurnsRequest
+	(*Turn)(nil),                      // 6: agent.v1.Turn
+	(*GetLastTurnsResponse)(nil),      // 7: agent.v1.GetLastTurnsResponse
+	(*v1.Pagination)(nil),             // 8: pagination.v1.Pagination
 }
 var file_agent_v1_transcript_proto_depIdxs = []int32{
-	5, // 0: agent.v1.SearchTranscriptsRequest.pagination:type_name -> pagination.v1.Pagination
+	8, // 0: agent.v1.SearchTranscriptsRequest.pagination:type_name -> pagination.v1.Pagination
 	1, // 1: agent.v1.SearchTranscriptsResponse.matches:type_name -> agent.v1.SearchHit
 	1, // 2: agent.v1.SearchTranscriptsResponse.near:type_name -> agent.v1.SearchHit
-	3, // [3:3] is the sub-list for method output_type
-	3, // [3:3] is the sub-list for method input_type
-	3, // [3:3] is the sub-list for extension type_name
-	3, // [3:3] is the sub-list for extension extendee
-	0, // [0:3] is the sub-list for field type_name
+	6, // 3: agent.v1.GetLastTurnsResponse.turns:type_name -> agent.v1.Turn
+	4, // [4:4] is the sub-list for method output_type
+	4, // [4:4] is the sub-list for method input_type
+	4, // [4:4] is the sub-list for extension type_name
+	4, // [4:4] is the sub-list for extension extendee
+	0, // [0:4] is the sub-list for field type_name
 }
 
 func init() { file_agent_v1_transcript_proto_init() }
@@ -470,13 +670,14 @@ func file_agent_v1_transcript_proto_init() {
 	file_agent_v1_transcript_proto_msgTypes[2].OneofWrappers = []any{}
 	file_agent_v1_transcript_proto_msgTypes[3].OneofWrappers = []any{}
 	file_agent_v1_transcript_proto_msgTypes[4].OneofWrappers = []any{}
+	file_agent_v1_transcript_proto_msgTypes[5].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_agent_v1_transcript_proto_rawDesc), len(file_agent_v1_transcript_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   5,
+			NumMessages:   8,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

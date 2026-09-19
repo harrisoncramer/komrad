@@ -1238,6 +1238,73 @@ func (q *Queries) ListChildAgents(ctx context.Context, parentIds []string) ([]*A
 	return items, nil
 }
 
+const listLastTranscriptTurns = `-- name: ListLastTranscriptTurns :many
+WITH newest AS (
+    SELECT
+        c.seq
+    FROM
+        agent_transcript_chunks c
+    WHERE
+        c.agent_id = $1
+        AND c.role = $2
+    ORDER BY
+        c.seq DESC
+    LIMIT $3
+)
+SELECT
+    c.seq,
+    c.role,
+    c.content
+FROM
+    agent_transcript_chunks c
+WHERE
+    c.agent_id = $1
+    AND c.seq >=(
+        SELECT
+            MIN(seq)
+        FROM
+            newest)
+    AND c.seq <=(
+        SELECT
+            MAX(seq)
+        FROM
+            newest)
+ORDER BY
+    c.seq
+`
+
+type ListLastTranscriptTurnsParams struct {
+	AgentID string
+	Role    string
+	Lim     int32
+}
+
+type ListLastTranscriptTurnsRow struct {
+	Seq     int32
+	Role    string
+	Content string
+}
+
+func (q *Queries) ListLastTranscriptTurns(ctx context.Context, arg ListLastTranscriptTurnsParams) ([]*ListLastTranscriptTurnsRow, error) {
+	rows, err := q.db.Query(ctx, listLastTranscriptTurns, arg.AgentID, arg.Role, arg.Lim)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []*ListLastTranscriptTurnsRow
+	for rows.Next() {
+		var i ListLastTranscriptTurnsRow
+		if err := rows.Scan(&i.Seq, &i.Role, &i.Content); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listLiveWorkflowAgents = `-- name: ListLiveWorkflowAgents :many
 SELECT
     id, name, cwd, flags, prompt, pane_id, state, state_changed_at, harness, session_id, workflow_id, schedule_id, idempotency_key, spawned_by_agent_id, archived_at, is_hidden, nudged_at, branch, worktree_removed, created_at, updated_at, state_seen_at, interrupted_at, adopted_branch, viewed_at, parent_agent_id, turn_ended_at, provision_enabled, reported_reason, role, held_at, held_mid_turn, nudge_sent_at, sequence_in_progress, repository_url

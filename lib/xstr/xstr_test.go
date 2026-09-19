@@ -157,3 +157,58 @@ func TestHead(t *testing.T) {
 		})
 	}
 }
+
+// TestTail covers the cut from the other end, which has to keep the end of the text whole and
+// drop whatever character the limit landed inside.
+func TestTail(t *testing.T) {
+	tests := []struct {
+		name          string
+		s             string
+		limit         int
+		want          string
+		wantTruncated bool
+	}{
+		{
+			name:  "a string inside the limit is untouched",
+			s:     "fix auth",
+			limit: 8,
+			want:  "fix auth",
+		},
+		{
+			name:          "a longer string keeps its end",
+			s:             "fix auth now",
+			limit:         8,
+			want:          "auth now",
+			wantTruncated: true,
+		},
+		{
+			name:          "a cut inside a character moves on to the one after it",
+			s:             "日本語",
+			limit:         7,
+			want:          "本語",
+			wantTruncated: true,
+		},
+		{
+			name:          "a limit inside the last character keeps nothing",
+			s:             "日本語",
+			limit:         2,
+			want:          "",
+			wantTruncated: true,
+		},
+		{
+			name:  "an empty string is not truncated",
+			s:     "",
+			limit: 8,
+			want:  "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, truncated := Tail(tt.s, tt.limit)
+
+			assert.Equal(t, tt.want, got)
+			assert.Equal(t, tt.wantTruncated, truncated)
+		})
+	}
+}

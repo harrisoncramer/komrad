@@ -130,8 +130,17 @@ func (s *Stores) SeedTurnEnded(t *testing.T, agentID string) {
 	require.NoError(t, s.Agents.SetTurnEnded(t.Context(), agentID))
 }
 
-// SeedTranscript stores turns for an agent under a session of its own.
+// SeedTranscript stores prompts for an agent under a session of its own.
 func (s *Stores) SeedTranscript(t *testing.T, agentID string, turns ...string) {
+	t.Helper()
+
+	s.SeedTurns(t, agentID, xslice.Map(turns, func(text string) transcriptstore.Turn {
+		return transcriptstore.Turn{Role: "user", Content: text}
+	})...)
+}
+
+// SeedTurns stores turns for an agent under a session of its own.
+func (s *Stores) SeedTurns(t *testing.T, agentID string, turns ...transcriptstore.Turn) {
 	t.Helper()
 
 	session, err := s.Transcripts.OpenSession(t.Context(), transcriptstore.OpenSessionParams{
@@ -140,14 +149,10 @@ func (s *Stores) SeedTranscript(t *testing.T, agentID string, turns ...string) {
 	})
 	require.NoError(t, err)
 
-	indexed := xslice.Map(turns, func(text string) transcriptstore.Turn {
-		return transcriptstore.Turn{Role: "user", Content: text}
-	})
-
 	require.NoError(t, s.Transcripts.AppendTurns(t.Context(), transcriptstore.AppendTurnsParams{
 		AgentID:   agentID,
 		SessionID: session.ID,
-		Turns:     indexed,
+		Turns:     turns,
 	}))
 }
 

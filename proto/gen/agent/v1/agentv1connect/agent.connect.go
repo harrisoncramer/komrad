@@ -91,6 +91,9 @@ const (
 	// AgentServiceGetTranscriptProcedure is the fully-qualified name of the AgentService's
 	// GetTranscript RPC.
 	AgentServiceGetTranscriptProcedure = "/agent.v1.AgentService/GetTranscript"
+	// AgentServiceGetLastTurnsProcedure is the fully-qualified name of the AgentService's GetLastTurns
+	// RPC.
+	AgentServiceGetLastTurnsProcedure = "/agent.v1.AgentService/GetLastTurns"
 	// AgentServiceEmptyArchiveProcedure is the fully-qualified name of the AgentService's EmptyArchive
 	// RPC.
 	AgentServiceEmptyArchiveProcedure = "/agent.v1.AgentService/EmptyArchive"
@@ -175,6 +178,7 @@ type AgentServiceClient interface {
 	UpdateAgent(context.Context, *connect.Request[v1.UpdateAgentRequest]) (*connect.Response[emptypb.Empty], error)
 	SearchTranscripts(context.Context, *connect.Request[v1.SearchTranscriptsRequest]) (*connect.Response[v1.SearchTranscriptsResponse], error)
 	GetTranscript(context.Context, *connect.Request[v1.GetTranscriptRequest]) (*connect.Response[v1.GetTranscriptResponse], error)
+	GetLastTurns(context.Context, *connect.Request[v1.GetLastTurnsRequest]) (*connect.Response[v1.GetLastTurnsResponse], error)
 	EmptyArchive(context.Context, *connect.Request[emptypb.Empty]) (*connect.Response[emptypb.Empty], error)
 	RecordReport(context.Context, *connect.Request[v1.RecordReportRequest]) (*connect.Response[emptypb.Empty], error)
 	SetAgentViewed(context.Context, *connect.Request[v1.SetAgentViewedRequest]) (*connect.Response[emptypb.Empty], error)
@@ -359,6 +363,13 @@ func NewAgentServiceClient(httpClient connect.HTTPClient, baseURL string, opts .
 			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 			connect.WithClientOptions(opts...),
 		),
+		getLastTurns: connect.NewClient[v1.GetLastTurnsRequest, v1.GetLastTurnsResponse](
+			httpClient,
+			baseURL+AgentServiceGetLastTurnsProcedure,
+			connect.WithSchema(agentServiceMethods.ByName("GetLastTurns")),
+			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+			connect.WithClientOptions(opts...),
+		),
 		emptyArchive: connect.NewClient[emptypb.Empty, emptypb.Empty](
 			httpClient,
 			baseURL+AgentServiceEmptyArchiveProcedure,
@@ -514,6 +525,7 @@ type agentServiceClient struct {
 	updateAgent             *connect.Client[v1.UpdateAgentRequest, emptypb.Empty]
 	searchTranscripts       *connect.Client[v1.SearchTranscriptsRequest, v1.SearchTranscriptsResponse]
 	getTranscript           *connect.Client[v1.GetTranscriptRequest, v1.GetTranscriptResponse]
+	getLastTurns            *connect.Client[v1.GetLastTurnsRequest, v1.GetLastTurnsResponse]
 	emptyArchive            *connect.Client[emptypb.Empty, emptypb.Empty]
 	recordReport            *connect.Client[v1.RecordReportRequest, emptypb.Empty]
 	setAgentViewed          *connect.Client[v1.SetAgentViewedRequest, emptypb.Empty]
@@ -650,6 +662,11 @@ func (c *agentServiceClient) GetTranscript(ctx context.Context, req *connect.Req
 	return c.getTranscript.CallUnary(ctx, req)
 }
 
+// GetLastTurns calls agent.v1.AgentService.GetLastTurns.
+func (c *agentServiceClient) GetLastTurns(ctx context.Context, req *connect.Request[v1.GetLastTurnsRequest]) (*connect.Response[v1.GetLastTurnsResponse], error) {
+	return c.getLastTurns.CallUnary(ctx, req)
+}
+
 // EmptyArchive calls agent.v1.AgentService.EmptyArchive.
 func (c *agentServiceClient) EmptyArchive(ctx context.Context, req *connect.Request[emptypb.Empty]) (*connect.Response[emptypb.Empty], error) {
 	return c.emptyArchive.CallUnary(ctx, req)
@@ -770,6 +787,7 @@ type AgentServiceHandler interface {
 	UpdateAgent(context.Context, *connect.Request[v1.UpdateAgentRequest]) (*connect.Response[emptypb.Empty], error)
 	SearchTranscripts(context.Context, *connect.Request[v1.SearchTranscriptsRequest]) (*connect.Response[v1.SearchTranscriptsResponse], error)
 	GetTranscript(context.Context, *connect.Request[v1.GetTranscriptRequest]) (*connect.Response[v1.GetTranscriptResponse], error)
+	GetLastTurns(context.Context, *connect.Request[v1.GetLastTurnsRequest]) (*connect.Response[v1.GetLastTurnsResponse], error)
 	EmptyArchive(context.Context, *connect.Request[emptypb.Empty]) (*connect.Response[emptypb.Empty], error)
 	RecordReport(context.Context, *connect.Request[v1.RecordReportRequest]) (*connect.Response[emptypb.Empty], error)
 	SetAgentViewed(context.Context, *connect.Request[v1.SetAgentViewedRequest]) (*connect.Response[emptypb.Empty], error)
@@ -950,6 +968,13 @@ func NewAgentServiceHandler(svc AgentServiceHandler, opts ...connect.HandlerOpti
 		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 		connect.WithHandlerOptions(opts...),
 	)
+	agentServiceGetLastTurnsHandler := connect.NewUnaryHandler(
+		AgentServiceGetLastTurnsProcedure,
+		svc.GetLastTurns,
+		connect.WithSchema(agentServiceMethods.ByName("GetLastTurns")),
+		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+		connect.WithHandlerOptions(opts...),
+	)
 	agentServiceEmptyArchiveHandler := connect.NewUnaryHandler(
 		AgentServiceEmptyArchiveProcedure,
 		svc.EmptyArchive,
@@ -1125,6 +1150,8 @@ func NewAgentServiceHandler(svc AgentServiceHandler, opts ...connect.HandlerOpti
 			agentServiceSearchTranscriptsHandler.ServeHTTP(w, r)
 		case AgentServiceGetTranscriptProcedure:
 			agentServiceGetTranscriptHandler.ServeHTTP(w, r)
+		case AgentServiceGetLastTurnsProcedure:
+			agentServiceGetLastTurnsHandler.ServeHTTP(w, r)
 		case AgentServiceEmptyArchiveProcedure:
 			agentServiceEmptyArchiveHandler.ServeHTTP(w, r)
 		case AgentServiceRecordReportProcedure:
@@ -1262,6 +1289,10 @@ func (UnimplementedAgentServiceHandler) SearchTranscripts(context.Context, *conn
 
 func (UnimplementedAgentServiceHandler) GetTranscript(context.Context, *connect.Request[v1.GetTranscriptRequest]) (*connect.Response[v1.GetTranscriptResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("agent.v1.AgentService.GetTranscript is not implemented"))
+}
+
+func (UnimplementedAgentServiceHandler) GetLastTurns(context.Context, *connect.Request[v1.GetLastTurnsRequest]) (*connect.Response[v1.GetLastTurnsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("agent.v1.AgentService.GetLastTurns is not implemented"))
 }
 
 func (UnimplementedAgentServiceHandler) EmptyArchive(context.Context, *connect.Request[emptypb.Empty]) (*connect.Response[emptypb.Empty], error) {
