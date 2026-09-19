@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"time"
 
 	"weave/internal/agents"
 	"weave/internal/caller"
@@ -116,6 +117,7 @@ type AgentService struct {
 	marks        markReadWriter
 	refresher    worktreeRefresher
 	orchestrator orchestratorStarter
+	now          func() time.Time
 }
 
 type NewAgentServiceParams struct {
@@ -136,11 +138,17 @@ type NewAgentServiceParams struct {
 	Marks        markReadWriter
 	Refresher    worktreeRefresher
 	Orchestrator orchestratorStarter
+	Clock        func() time.Time
 }
 
 // NewAgentService constructs the handler from the stores it reads and the services that move agents
 // through their life.
 func NewAgentService(params NewAgentServiceParams) *AgentService {
+	now := params.Clock
+	if now == nil {
+		now = time.Now
+	}
+
 	return &AgentService{
 		agents:       params.Agents,
 		transcripts:  params.Transcripts,
@@ -159,6 +167,7 @@ func NewAgentService(params NewAgentServiceParams) *AgentService {
 		marks:        params.Marks,
 		refresher:    params.Refresher,
 		orchestrator: params.Orchestrator,
+		now:          now,
 	}
 }
 

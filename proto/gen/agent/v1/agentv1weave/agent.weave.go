@@ -26,6 +26,7 @@ type AgentServiceImpl interface {
 	SetMetadata(context.Context, *v1.SetMetadataRequest) (*emptypb.Empty, *fail.Error)
 	Log(context.Context, *v1.LogRequest) (*emptypb.Empty, *fail.Error)
 	SendMail(context.Context, *v1.SendMailRequest) (*v1.SendMailResponse, *fail.Error)
+	ForwardLastTurns(context.Context, *v1.ForwardLastTurnsRequest) (*v1.ForwardLastTurnsResponse, *fail.Error)
 	ReadMail(context.Context, *v1.ReadMailRequest) (*v1.ReadMailResponse, *fail.Error)
 	ListMail(context.Context, *v1.ListMailRequest) (*v1.ListMailResponse, *fail.Error)
 	DeleteMail(context.Context, *v1.DeleteMailRequest) (*emptypb.Empty, *fail.Error)
@@ -115,6 +116,11 @@ func (a AgentServiceAdapter) Log(ctx context.Context, req *connect.Request[v1.Lo
 // SendMail answers the request as connect serves it.
 func (a AgentServiceAdapter) SendMail(ctx context.Context, req *connect.Request[v1.SendMailRequest]) (*connect.Response[v1.SendMailResponse], error) {
 	return rpcerr.Answer(a.Impl.SendMail(ctx, req.Msg))
+}
+
+// ForwardLastTurns answers the request as connect serves it.
+func (a AgentServiceAdapter) ForwardLastTurns(ctx context.Context, req *connect.Request[v1.ForwardLastTurnsRequest]) (*connect.Response[v1.ForwardLastTurnsResponse], error) {
+	return rpcerr.Answer(a.Impl.ForwardLastTurns(ctx, req.Msg))
 }
 
 // ReadMail answers the request as connect serves it.

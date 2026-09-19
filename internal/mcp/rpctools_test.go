@@ -89,6 +89,12 @@ func TestToolHints(t *testing.T) {
 			idempotent: true,
 		},
 		{
+			method:          "ForwardLastTurns",
+			readOnly:        false,
+			idempotent:      false,
+			wantDestructive: xptr.Ptr(false),
+		},
+		{
 			method:          "CreateAgent",
 			readOnly:        false,
 			idempotent:      false,

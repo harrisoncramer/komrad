@@ -41,6 +41,7 @@ flags, and the response is the API's own JSON on stdout.
 * [weave rpc delete-workflow](weave_rpc_delete-workflow.md)	 - Permanently delete an archived workflow along with whatever archived agents are still inside it, reusing the same worktree-removal handling a direct agent delete uses.
 * [weave rpc disconnect-forge](weave_rpc_disconnect-forge.md)	 - Forget a forge and the credential it was connected with.
 * [weave rpc empty-archive](weave_rpc_empty-archive.md)	 - Permanently delete every archived agent and workflow, tearing down each worktree that is still on disk.
+* [weave rpc forward-last-turns](weave_rpc_forward-last-turns.md)	 - Send another agent's newest turns to a third agent as mail weave composes itself, so what that agent concluded reaches the recipient without passing through your own context.
 * [weave rpc get-agent](weave_rpc_get-agent.md)	 - Fetch one agent by id, including whatever metadata it has recorded about its own work.
 * [weave rpc get-config](weave_rpc_get-config.md)	 - Read the panel's configuration as it is currently in force, keyed the same way the user's config file is.
 * [weave rpc get-last-turns](weave_rpc_get-last-turns.md)	 - Fetch the newest turns an agent has said, by agent id rather than name, without paging through its conversation from the start.

@@ -57,6 +57,9 @@ const (
 	AgentServiceLogProcedure = "/agent.v1.AgentService/Log"
 	// AgentServiceSendMailProcedure is the fully-qualified name of the AgentService's SendMail RPC.
 	AgentServiceSendMailProcedure = "/agent.v1.AgentService/SendMail"
+	// AgentServiceForwardLastTurnsProcedure is the fully-qualified name of the AgentService's
+	// ForwardLastTurns RPC.
+	AgentServiceForwardLastTurnsProcedure = "/agent.v1.AgentService/ForwardLastTurns"
 	// AgentServiceReadMailProcedure is the fully-qualified name of the AgentService's ReadMail RPC.
 	AgentServiceReadMailProcedure = "/agent.v1.AgentService/ReadMail"
 	// AgentServiceListMailProcedure is the fully-qualified name of the AgentService's ListMail RPC.
@@ -165,6 +168,7 @@ type AgentServiceClient interface {
 	SetMetadata(context.Context, *connect.Request[v1.SetMetadataRequest]) (*connect.Response[emptypb.Empty], error)
 	Log(context.Context, *connect.Request[v1.LogRequest]) (*connect.Response[emptypb.Empty], error)
 	SendMail(context.Context, *connect.Request[v1.SendMailRequest]) (*connect.Response[v1.SendMailResponse], error)
+	ForwardLastTurns(context.Context, *connect.Request[v1.ForwardLastTurnsRequest]) (*connect.Response[v1.ForwardLastTurnsResponse], error)
 	ReadMail(context.Context, *connect.Request[v1.ReadMailRequest]) (*connect.Response[v1.ReadMailResponse], error)
 	ListMail(context.Context, *connect.Request[v1.ListMailRequest]) (*connect.Response[v1.ListMailResponse], error)
 	DeleteMail(context.Context, *connect.Request[v1.DeleteMailRequest]) (*connect.Response[emptypb.Empty], error)
@@ -274,6 +278,12 @@ func NewAgentServiceClient(httpClient connect.HTTPClient, baseURL string, opts .
 			httpClient,
 			baseURL+AgentServiceSendMailProcedure,
 			connect.WithSchema(agentServiceMethods.ByName("SendMail")),
+			connect.WithClientOptions(opts...),
+		),
+		forwardLastTurns: connect.NewClient[v1.ForwardLastTurnsRequest, v1.ForwardLastTurnsResponse](
+			httpClient,
+			baseURL+AgentServiceForwardLastTurnsProcedure,
+			connect.WithSchema(agentServiceMethods.ByName("ForwardLastTurns")),
 			connect.WithClientOptions(opts...),
 		),
 		readMail: connect.NewClient[v1.ReadMailRequest, v1.ReadMailResponse](
@@ -512,6 +522,7 @@ type agentServiceClient struct {
 	setMetadata             *connect.Client[v1.SetMetadataRequest, emptypb.Empty]
 	log                     *connect.Client[v1.LogRequest, emptypb.Empty]
 	sendMail                *connect.Client[v1.SendMailRequest, v1.SendMailResponse]
+	forwardLastTurns        *connect.Client[v1.ForwardLastTurnsRequest, v1.ForwardLastTurnsResponse]
 	readMail                *connect.Client[v1.ReadMailRequest, v1.ReadMailResponse]
 	listMail                *connect.Client[v1.ListMailRequest, v1.ListMailResponse]
 	deleteMail              *connect.Client[v1.DeleteMailRequest, emptypb.Empty]
@@ -595,6 +606,11 @@ func (c *agentServiceClient) Log(ctx context.Context, req *connect.Request[v1.Lo
 // SendMail calls agent.v1.AgentService.SendMail.
 func (c *agentServiceClient) SendMail(ctx context.Context, req *connect.Request[v1.SendMailRequest]) (*connect.Response[v1.SendMailResponse], error) {
 	return c.sendMail.CallUnary(ctx, req)
+}
+
+// ForwardLastTurns calls agent.v1.AgentService.ForwardLastTurns.
+func (c *agentServiceClient) ForwardLastTurns(ctx context.Context, req *connect.Request[v1.ForwardLastTurnsRequest]) (*connect.Response[v1.ForwardLastTurnsResponse], error) {
+	return c.forwardLastTurns.CallUnary(ctx, req)
 }
 
 // ReadMail calls agent.v1.AgentService.ReadMail.
@@ -774,6 +790,7 @@ type AgentServiceHandler interface {
 	SetMetadata(context.Context, *connect.Request[v1.SetMetadataRequest]) (*connect.Response[emptypb.Empty], error)
 	Log(context.Context, *connect.Request[v1.LogRequest]) (*connect.Response[emptypb.Empty], error)
 	SendMail(context.Context, *connect.Request[v1.SendMailRequest]) (*connect.Response[v1.SendMailResponse], error)
+	ForwardLastTurns(context.Context, *connect.Request[v1.ForwardLastTurnsRequest]) (*connect.Response[v1.ForwardLastTurnsResponse], error)
 	ReadMail(context.Context, *connect.Request[v1.ReadMailRequest]) (*connect.Response[v1.ReadMailResponse], error)
 	ListMail(context.Context, *connect.Request[v1.ListMailRequest]) (*connect.Response[v1.ListMailResponse], error)
 	DeleteMail(context.Context, *connect.Request[v1.DeleteMailRequest]) (*connect.Response[emptypb.Empty], error)
@@ -879,6 +896,12 @@ func NewAgentServiceHandler(svc AgentServiceHandler, opts ...connect.HandlerOpti
 		AgentServiceSendMailProcedure,
 		svc.SendMail,
 		connect.WithSchema(agentServiceMethods.ByName("SendMail")),
+		connect.WithHandlerOptions(opts...),
+	)
+	agentServiceForwardLastTurnsHandler := connect.NewUnaryHandler(
+		AgentServiceForwardLastTurnsProcedure,
+		svc.ForwardLastTurns,
+		connect.WithSchema(agentServiceMethods.ByName("ForwardLastTurns")),
 		connect.WithHandlerOptions(opts...),
 	)
 	agentServiceReadMailHandler := connect.NewUnaryHandler(
@@ -1124,6 +1147,8 @@ func NewAgentServiceHandler(svc AgentServiceHandler, opts ...connect.HandlerOpti
 			agentServiceLogHandler.ServeHTTP(w, r)
 		case AgentServiceSendMailProcedure:
 			agentServiceSendMailHandler.ServeHTTP(w, r)
+		case AgentServiceForwardLastTurnsProcedure:
+			agentServiceForwardLastTurnsHandler.ServeHTTP(w, r)
 		case AgentServiceReadMailProcedure:
 			agentServiceReadMailHandler.ServeHTTP(w, r)
 		case AgentServiceListMailProcedure:
@@ -1237,6 +1262,10 @@ func (UnimplementedAgentServiceHandler) Log(context.Context, *connect.Request[v1
 
 func (UnimplementedAgentServiceHandler) SendMail(context.Context, *connect.Request[v1.SendMailRequest]) (*connect.Response[v1.SendMailResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("agent.v1.AgentService.SendMail is not implemented"))
+}
+
+func (UnimplementedAgentServiceHandler) ForwardLastTurns(context.Context, *connect.Request[v1.ForwardLastTurnsRequest]) (*connect.Response[v1.ForwardLastTurnsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("agent.v1.AgentService.ForwardLastTurns is not implemented"))
 }
 
 func (UnimplementedAgentServiceHandler) ReadMail(context.Context, *connect.Request[v1.ReadMailRequest]) (*connect.Response[v1.ReadMailResponse], error) {
