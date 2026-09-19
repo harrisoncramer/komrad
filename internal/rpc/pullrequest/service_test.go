@@ -27,7 +27,7 @@ func (f *fakeForge) Get(context.Context, string) (forge.PullRequest, error) {
 	return forge.PullRequest{}, nil
 }
 
-func (f *fakeForge) ListOnBranch(_ context.Context, repo git.RemoteURL, branch string) ([]forge.PullRequest, error) {
+func (f *fakeForge) List(_ context.Context, repo git.RemoteURL, branch string) ([]forge.PullRequest, error) {
 	f.repo, f.branch = repo, branch
 
 	return f.pullRequests, nil

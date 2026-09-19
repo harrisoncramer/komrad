@@ -47,7 +47,7 @@ func (s *PullRequestService) ListPullRequests(ctx context.Context, req *pullrequ
 		return nil, rpcerr.From(err, "failed to build the forge")
 	}
 
-	pullRequests, err := f.ListOnBranch(ctx, repo, req.GetBranch())
+	pullRequests, err := f.List(ctx, repo, req.GetBranch())
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to list the pull requests")
 	}

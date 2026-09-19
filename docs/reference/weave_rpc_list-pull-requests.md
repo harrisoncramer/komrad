@@ -1,10 +1,10 @@
 ## weave rpc list-pull-requests
 
-List the pull requests opened from a branch of a repository, read through the forge connection for the repository's host.
+List a repository's pull requests through the forge connection for its host: every one opened from a branch when one is named, whatever its state, or the open ones when none is.
 
 ### Synopsis
 
-List the pull requests opened from a branch of a repository, read through the forge connection for the repository's host. Give the repository as a git remote spells it. A repository the connection's credential cannot see is answered as not found, which is also what a repository that does not exist answers.
+List a repository's pull requests through the forge connection for its host: every one opened from a branch when one is named, whatever its state, or the open ones when none is. Give the repository as a git remote spells it. A repository the connection's credential cannot see is answered as not found, which is also what a repository that does not exist answers.
 
 ```
 weave rpc list-pull-requests [flags]
@@ -13,7 +13,7 @@ weave rpc list-pull-requests [flags]
 ### Options
 
 ```
-      --branch string         string, required, at most 512 characters
+      --branch string         string, at most 512 characters
       --compact               print the response on one line
   -h, --help                  help for list-pull-requests
       --remote-url string     string, required, at most 2048 characters

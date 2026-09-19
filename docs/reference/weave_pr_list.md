@@ -1,21 +1,23 @@
 ## weave pr list
 
-List the pull requests opened from a branch
+List a repository's pull requests, or those opened from one branch
 
 ### Synopsis
 
-List the pull requests opened from a branch, through the forge its host is connected to.
+List a repository's pull requests through the forge its host is connected to.
 
-This is the read the pull request sweep makes, run by hand. Give it a remote as git
-spells it and a branch name:
+Give a remote as git spells it. With a branch, every pull request opened from it is
+listed whatever its state, which is the read the pull request sweep makes; without
+one, the repository's open pull requests are listed.
 
+    weave pr list git@github.com:harrisoncramer/weave.git
     weave pr list git@github.com:harrisoncramer/weave.git agent/some-branch
 
 A repository the credential cannot see answers not found, which is how a token
 without access to a private repository shows up.
 
 ```
-weave pr list <remote-url> <branch> [flags]
+weave pr list <remote-url> [branch] [flags]
 ```
 
 ### Options

@@ -14,11 +14,9 @@ message ListPullRequestsRequest {
     min_len: 1
     max_len: 2048
   }];
-  // The branch the pull requests were opened from.
-  string branch = 2 [(buf.validate.field).string = {
-    min_len: 1
-    max_len: 512
-  }];
+  // The branch the pull requests were opened from, listed whatever their state; left empty,
+  // the repository's open pull requests are listed instead.
+  string branch = 2 [(buf.validate.field).string = {max_len: 512}];
 }
 
 message PullRequest {
@@ -73,7 +71,7 @@ service PullRequestService {
       cli: true
       mcp: true
       name: "list_pull_requests"
-      description: "List the pull requests opened from a branch of a repository, read through the forge connection for the repository's host. Give the repository as a git remote spells it. A repository the connection's credential cannot see is answered as not found, which is also what a repository that does not exist answers."
+      description: "List a repository's pull requests through the forge connection for its host: every one opened from a branch when one is named, whatever its state, or the open ones when none is. Give the repository as a git remote spells it. A repository the connection's credential cannot see is answered as not found, which is also what a repository that does not exist answers."
     };
   }
 }

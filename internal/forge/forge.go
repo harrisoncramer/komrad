@@ -74,8 +74,9 @@ type Forge interface {
 	Kind() string
 	// Verify asks the forge who the credential belongs to.
 	Verify(ctx context.Context) (login string, err error)
-	// ListOnBranch is every pull request whose branch is the named one in the repository.
-	ListOnBranch(ctx context.Context, repo git.RemoteURL, branch string) ([]PullRequest, error)
+	// List is the repository's pull requests: every one from the named branch, whatever its
+	// state, or the open ones when branch is empty.
+	List(ctx context.Context, repo git.RemoteURL, branch string) ([]PullRequest, error)
 	// Get is one pull request by its web address.
 	Get(ctx context.Context, url string) (PullRequest, error)
 }

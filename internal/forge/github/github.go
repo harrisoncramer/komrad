@@ -89,17 +89,18 @@ func (f *Forge) VerifyInstallation(ctx context.Context) (int, error) {
 	return installation.TotalCount, nil
 }
 
-// ListOnBranch is every pull request opened from the named branch of the repository.
-func (f *Forge) ListOnBranch(ctx context.Context, repo git.RemoteURL, branch string) ([]forge.PullRequest, error) {
+// List is the repository's pull requests, every one from the named branch or the open ones
+// when no branch is named.
+func (f *Forge) List(ctx context.Context, repo git.RemoteURL, branch string) ([]forge.PullRequest, error) {
 	owner, name, err := ownerAndName(repo.Path)
 	if err != nil {
 		return nil, err
 	}
 
-	query := url.Values{
-		"state":    {"all"},
-		"head":     {owner + ":" + branch},
-		"per_page": {"100"},
+	query := url.Values{"state": {"open"}, "per_page": {"100"}}
+	if branch != "" {
+		query.Set("state", "all")
+		query.Set("head", owner+":"+branch)
 	}
 	var raws []pullRequest
 	if err := f.get(ctx, fmt.Sprintf("/repos/%s/%s/pulls?%s", owner, name, query.Encode()), &raws); err != nil {

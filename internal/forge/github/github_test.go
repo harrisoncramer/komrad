@@ -123,14 +123,14 @@ var weave = git.RemoteURL{
 	Path:   "harrisoncramer/weave",
 }
 
-// TestListOnBranch covers the list call: the head filter GitHub wants, the token on the
+// TestList covers the list call: the head filter GitHub wants, the token on the
 // request, and every row mapped into the neutral record.
-func TestListOnBranch(t *testing.T) {
+func TestList(t *testing.T) {
 	t.Parallel()
 
 	f, _, seen := serve(t, "/repos/harrisoncramer/weave/pulls", "["+openPull+","+mergedPull+","+forkPull+","+deletedForkPull+"]", http.StatusOK)
 
-	pullRequests, err := f.ListOnBranch(t.Context(), weave, "agent/x")
+	pullRequests, err := f.List(t.Context(), weave, "agent/x")
 	require.NoError(t, err)
 
 	assert.Equal(t, "harrisoncramer:agent/x", seen.URL.Query().Get("head"))
@@ -182,6 +182,19 @@ func TestListOnBranch(t *testing.T) {
 	assert.True(t, pullRequests[3].IsFinished())
 }
 
+// TestListWithoutABranch covers the repository's own listing: open ones only, no head filter.
+func TestListWithoutABranch(t *testing.T) {
+	t.Parallel()
+
+	f, _, seen := serve(t, "/repos/harrisoncramer/weave/pulls", "["+openPull+"]", http.StatusOK)
+
+	pullRequests, err := f.List(t.Context(), weave, "")
+	require.NoError(t, err)
+	require.Len(t, pullRequests, 1)
+	assert.Equal(t, "open", seen.URL.Query().Get("state"))
+	assert.False(t, seen.URL.Query().Has("head"))
+}
+
 // TestGet covers reading one pull request by its web address.
 func TestGet(t *testing.T) {
 	t.Parallel()
@@ -221,13 +234,13 @@ func TestGetRefusesWhatIsNotAPullRequest(t *testing.T) {
 	}
 }
 
-// TestListOnBranchRefusesANestedPath covers a repository path GitHub cannot address.
-func TestListOnBranchRefusesANestedPath(t *testing.T) {
+// TestListRefusesANestedPath covers a repository path GitHub cannot address.
+func TestListRefusesANestedPath(t *testing.T) {
 	t.Parallel()
 
 	f, _, _ := serve(t, "/never", "", http.StatusOK)
 
-	_, err := f.ListOnBranch(t.Context(), git.RemoteURL{Host: "github.com", Path: "group/sub/repo"}, "main")
+	_, err := f.List(t.Context(), git.RemoteURL{Host: "github.com", Path: "group/sub/repo"}, "main")
 	require.ErrorIs(t, err, forge.ErrNotRepository)
 }
 
@@ -238,7 +251,7 @@ func TestUnauthorizedInvalidatesTheCredential(t *testing.T) {
 
 	f, auth, _ := serve(t, "/repos/harrisoncramer/weave/pulls", `{"message":"Bad credentials"}`, http.StatusUnauthorized)
 
-	_, err := f.ListOnBranch(t.Context(), weave, "main")
+	_, err := f.List(t.Context(), weave, "main")
 	require.ErrorIs(t, err, forge.ErrUnauthorized)
 	assert.Equal(t, 1, auth.invalidated)
 }

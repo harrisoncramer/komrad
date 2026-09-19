@@ -28,7 +28,8 @@ type ListPullRequestsRequest struct {
 	// The repository as a git remote spells it, such as git@github.com:owner/repo.git or
 	// https://github.com/owner/repo, whose host picks the forge connection.
 	RemoteUrl string `protobuf:"bytes,1,opt,name=remote_url,json=remoteUrl,proto3" json:"remote_url,omitempty"`
-	// The branch the pull requests were opened from.
+	// The branch the pull requests were opened from, listed whatever their state; left empty,
+	// the repository's open pull requests are listed instead.
 	Branch        string `protobuf:"bytes,2,opt,name=branch,proto3" json:"branch,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -318,13 +319,12 @@ var File_pullrequest_v1_pullrequest_proto protoreflect.FileDescriptor
 
 const file_pullrequest_v1_pullrequest_proto_rawDesc = "" +
 	"\n" +
-	" pullrequest/v1/pullrequest.proto\x12\x0epullrequest.v1\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\"h\n" +
+	" pullrequest/v1/pullrequest.proto\x12\x0epullrequest.v1\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\"f\n" +
 	"\x17ListPullRequestsRequest\x12)\n" +
 	"\n" +
 	"remote_url\x18\x01 \x01(\tB\n" +
-	"\xbaH\ar\x05\x10\x01\x18\x80\x10R\tremoteUrl\x12\"\n" +
-	"\x06branch\x18\x02 \x01(\tB\n" +
-	"\xbaH\ar\x05\x10\x01\x18\x80\x04R\x06branch\"\x9d\x04\n" +
+	"\xbaH\ar\x05\x10\x01\x18\x80\x10R\tremoteUrl\x12 \n" +
+	"\x06branch\x18\x02 \x01(\tB\b\xbaH\x05r\x03\x18\x80\x04R\x06branch\"\x9d\x04\n" +
 	"\vPullRequest\x12\x14\n" +
 	"\x05forge\x18\x01 \x01(\tR\x05forge\x12\x1f\n" +
 	"\vprovider_id\x18\x02 \x01(\tR\n" +
@@ -354,9 +354,9 @@ const file_pullrequest_v1_pullrequest_proto_rawDesc = "" +
 	"\n" +
 	"_closed_at\"\\\n" +
 	"\x18ListPullRequestsResponse\x12@\n" +
-	"\rpull_requests\x18\x01 \x03(\v2\x1b.pullrequest.v1.PullRequestR\fpullRequests2\xd5\x03\n" +
-	"\x12PullRequestService\x12\xbe\x03\n" +
-	"\x10ListPullRequests\x12'.pullrequest.v1.ListPullRequestsRequest\x1a(.pullrequest.v1.ListPullRequestsResponse\"\xd6\x02\x9a\xb5\x18\xce\x02\b\x01\x10\x01\x1a\x12list_pull_requests\"\xb3\x02List the pull requests opened from a branch of a repository, read through the forge connection for the repository's host. Give the repository as a git remote spells it. A repository the connection's credential cannot see is answered as not found, which is also what a repository that does not exist answers.\x90\x02\x01B.Z,weave/proto/gen/pullrequest/v1;pullrequestv1b\x06proto3"
+	"\rpull_requests\x18\x01 \x03(\v2\x1b.pullrequest.v1.PullRequestR\fpullRequests2\x8d\x04\n" +
+	"\x12PullRequestService\x12\xf6\x03\n" +
+	"\x10ListPullRequests\x12'.pullrequest.v1.ListPullRequestsRequest\x1a(.pullrequest.v1.ListPullRequestsResponse\"\x8e\x03\x9a\xb5\x18\x86\x03\b\x01\x10\x01\x1a\x12list_pull_requests\"\xeb\x02List a repository's pull requests through the forge connection for its host: every one opened from a branch when one is named, whatever its state, or the open ones when none is. Give the repository as a git remote spells it. A repository the connection's credential cannot see is answered as not found, which is also what a repository that does not exist answers.\x90\x02\x01B.Z,weave/proto/gen/pullrequest/v1;pullrequestv1b\x06proto3"
 
 var (
 	file_pullrequest_v1_pullrequest_proto_rawDescOnce sync.Once

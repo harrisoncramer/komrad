@@ -18,5 +18,5 @@ Read pull requests through the forges weave is connected to
 ### SEE ALSO
 
 * [weave](weave.md)	 - tmux panel and CLI for background coding agents
-* [weave pr list](weave_pr_list.md)	 - List the pull requests opened from a branch
+* [weave pr list](weave_pr_list.md)	 - List a repository's pull requests, or those opened from one branch
 

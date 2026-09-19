@@ -56,7 +56,7 @@ func (f *fakeForge) VerifyInstallation(ctx context.Context) (int, error) {
 	return f.reaches, f.err
 }
 
-func (f *fakeForge) ListOnBranch(context.Context, git.RemoteURL, string) ([]PullRequest, error) {
+func (f *fakeForge) List(context.Context, git.RemoteURL, string) ([]PullRequest, error) {
 	return nil, nil
 }
 
