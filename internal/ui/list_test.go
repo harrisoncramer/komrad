@@ -193,6 +193,14 @@ func TestScreensFitATightPane(t *testing.T) {
 				m.details.focused = true
 			},
 		},
+		{
+			name:  "with the record focused under the expanded legend at the width its own legend folds",
+			width: 35,
+			prepare: func(m *model) {
+				m.helpExpanded = true
+				m.details.focused = true
+			},
+		},
 	}
 
 	for _, tt := range tests {

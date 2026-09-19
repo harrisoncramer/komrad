@@ -250,7 +250,7 @@ func (m model) detailsBinding() key.Binding {
 
 func (m model) detailsHelp() keyMap {
 	copyField := binding(m.keys.Details.Copy, "copy field")
-	back := m.detailsBinding()
+	back := binding(m.keys.Details.Focus, "back to the list")
 
 	return keyMap{
 		short: []key.Binding{copyField, back, m.helpBinding()},
