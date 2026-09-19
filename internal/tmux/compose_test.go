@@ -45,14 +45,46 @@ func TestStripControlsKeepsTheText(t *testing.T) {
 		text string
 		want string
 	}{
-		{name: "plain text", text: "read your mail", want: "read your mail"},
-		{name: "an escape", text: "read\x1b[201~ mail", want: "read[201~ mail"},
-		{name: "a delete", text: "read\x7f mail", want: "read mail"},
-		{name: "a C1 control", text: "read\u0085 mail", want: "read mail"},
-		{name: "a carriage return", text: "read\r\nmail", want: "read\nmail"},
-		{name: "a newline and a tab", text: "read\n\tmail", want: "read\n\tmail"},
-		{name: "text past ASCII", text: "lire le courrier, s'il vous plaît ✉", want: "lire le courrier, s'il vous plaît ✉"},
-		{name: "nothing but controls", text: "\x1b\x07", want: ""},
+		{
+			name: "plain text",
+			text: "read your mail",
+			want: "read your mail",
+		},
+		{
+			name: "an escape",
+			text: "read\x1b[201~ mail",
+			want: "read[201~ mail",
+		},
+		{
+			name: "a delete",
+			text: "read\x7f mail",
+			want: "read mail",
+		},
+		{
+			name: "a C1 control",
+			text: "read\u0085 mail",
+			want: "read mail",
+		},
+		{
+			name: "a carriage return",
+			text: "read\r\nmail",
+			want: "read\nmail",
+		},
+		{
+			name: "a newline and a tab",
+			text: "read\n\tmail",
+			want: "read\n\tmail",
+		},
+		{
+			name: "text past ASCII",
+			text: "lire le courrier, s'il vous plaît ✉",
+			want: "lire le courrier, s'il vous plaît ✉",
+		},
+		{
+			name: "nothing but controls",
+			text: "\x1b\x07",
+			want: "",
+		},
 	}
 
 	for _, tt := range tests {
