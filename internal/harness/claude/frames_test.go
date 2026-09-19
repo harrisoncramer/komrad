@@ -41,6 +41,7 @@ func TestReadActivityOnCapturedFrames(t *testing.T) {
 		{file: "a_hook_note_inside_the_timer.txt", want: harness.ActivityWorking},
 		{file: "a_prompt_greyed_lighter_than_its_rule.txt", want: harness.ActivityWorking},
 		{file: "an_empty_prompt_under_the_new_greys.txt", want: harness.ActivityIdle},
+		{file: "a_suggestion_in_the_box_after_the_turn_ended.txt", want: harness.ActivityIdle},
 		// Some panes draw Claude's bullet as U+25CF rather than U+23FA.
 		{file: "filled_bullets_while_a_command_runs.txt", want: harness.ActivityWorking},
 		{file: "filled_bullets_after_a_truncated_tool_call.txt", want: harness.ActivityIdle},
