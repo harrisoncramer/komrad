@@ -450,15 +450,18 @@ func (d worktreeDeletion) isEmpty() bool {
 	return len(d.agents)+len(d.unowned) == 0
 }
 
-func (d worktreeDeletion) bytes() int64 {
+// bytes is what the deletion's counted directories hold, and whether any has been counted.
+func (d worktreeDeletion) bytes() (int64, bool) {
 	var total int64
+	counted := false
 	for _, item := range slices.Concat(d.agents, d.unowned) {
 		if item.bytes != nil {
 			total += *item.bytes
+			counted = true
 		}
 	}
 
-	return total
+	return total, counted
 }
 
 func (m model) deleteWorktreesConfirm(deletion worktreeDeletion) (tea.Model, tea.Cmd) {

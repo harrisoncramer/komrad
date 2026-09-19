@@ -225,6 +225,9 @@ func TestDeleteWorktreesFormSaysWhatGoes(t *testing.T) {
 	assert.Contains(t, drawn, "Delete 3 worktrees, 49M?")
 	assert.Contains(t, drawn, "2 directories nothing")
 	assert.NotContains(t, drawn, "branch is kept")
+
+	form, _ = deleteWorktreesForm(worktreeDeletion{unowned: items[3:4]}, nil, config.FixedFormKeys())
+	assert.Contains(t, formText(form), "Delete the worktree of broken?", "a directory nobody has counted names no size")
 }
 
 // formText is a form as it draws once it has been given a window, without the styling.
