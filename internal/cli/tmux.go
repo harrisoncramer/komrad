@@ -23,8 +23,9 @@ its config rather than for the life of the server.
 
 A tmux server has to be running, since binding a key does not start one. The binding
 belongs to the server rather than to a session, so it outlives the session it was
-made from and dies with the server, and running this again only replaces it. Run it
-by hand after changing @weave_key to bind the new one without restarting tmux.`,
+made from and dies with the server. Running this again binds the key as it now
+stands and unbinds the one it bound before, so run it by hand after changing
+@weave_key rather than restarting tmux.`,
 		Args:          cobra.NoArgs,
 		SilenceUsage:  true,
 		SilenceErrors: true,
