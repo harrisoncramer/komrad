@@ -92,8 +92,16 @@ message ForwardLastTurnsRequest {
 }
 
 message ForwardLastTurnsResponse {
-  // The mail as recorded, whose id an answer can reply to.
-  Mail mail = 1;
+  // The id of the mail as recorded, which an answer can reply to.
+  string mail_id = 1;
+  // The agent it is waiting for.
+  string to_agent_id = 2;
+  // When it was sent, in RFC 3339.
+  string created_at = 3;
+  // How many of the source's turns went, prompts included.
+  int32 turns = 4;
+  // How many characters the whole body came to.
+  int32 characters = 5;
 }
 
 message ReadMailRequest {

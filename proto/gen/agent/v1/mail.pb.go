@@ -453,8 +453,16 @@ func (x *ForwardLastTurnsRequest) GetMaxBytes() int32 {
 
 type ForwardLastTurnsResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The mail as recorded, whose id an answer can reply to.
-	Mail          *Mail `protobuf:"bytes,1,opt,name=mail,proto3" json:"mail,omitempty"`
+	// The id of the mail as recorded, which an answer can reply to.
+	MailId string `protobuf:"bytes,1,opt,name=mail_id,json=mailId,proto3" json:"mail_id,omitempty"`
+	// The agent it is waiting for.
+	ToAgentId string `protobuf:"bytes,2,opt,name=to_agent_id,json=toAgentId,proto3" json:"to_agent_id,omitempty"`
+	// When it was sent, in RFC 3339.
+	CreatedAt string `protobuf:"bytes,3,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	// How many of the source's turns went, prompts included.
+	Turns int32 `protobuf:"varint,4,opt,name=turns,proto3" json:"turns,omitempty"`
+	// How many characters the whole body came to.
+	Characters    int32 `protobuf:"varint,5,opt,name=characters,proto3" json:"characters,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -489,11 +497,39 @@ func (*ForwardLastTurnsResponse) Descriptor() ([]byte, []int) {
 	return file_agent_v1_mail_proto_rawDescGZIP(), []int{4}
 }
 
-func (x *ForwardLastTurnsResponse) GetMail() *Mail {
+func (x *ForwardLastTurnsResponse) GetMailId() string {
 	if x != nil {
-		return x.Mail
+		return x.MailId
 	}
-	return nil
+	return ""
+}
+
+func (x *ForwardLastTurnsResponse) GetToAgentId() string {
+	if x != nil {
+		return x.ToAgentId
+	}
+	return ""
+}
+
+func (x *ForwardLastTurnsResponse) GetCreatedAt() string {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return ""
+}
+
+func (x *ForwardLastTurnsResponse) GetTurns() int32 {
+	if x != nil {
+		return x.Turns
+	}
+	return 0
+}
+
+func (x *ForwardLastTurnsResponse) GetCharacters() int32 {
+	if x != nil {
+		return x.Characters
+	}
+	return 0
 }
 
 type ReadMailRequest struct {
@@ -789,9 +825,16 @@ const file_agent_v1_mail_proto_rawDesc = "" +
 	"\x06_turnsB\a\n" +
 	"\x05_noteB\f\n" +
 	"\n" +
-	"_max_bytes\">\n" +
-	"\x18ForwardLastTurnsResponse\x12\"\n" +
-	"\x04mail\x18\x01 \x01(\v2\x0e.agent.v1.MailR\x04mail\"6\n" +
+	"_max_bytes\"\xa8\x01\n" +
+	"\x18ForwardLastTurnsResponse\x12\x17\n" +
+	"\amail_id\x18\x01 \x01(\tR\x06mailId\x12\x1e\n" +
+	"\vto_agent_id\x18\x02 \x01(\tR\ttoAgentId\x12\x1d\n" +
+	"\n" +
+	"created_at\x18\x03 \x01(\tR\tcreatedAt\x12\x14\n" +
+	"\x05turns\x18\x04 \x01(\x05R\x05turns\x12\x1e\n" +
+	"\n" +
+	"characters\x18\x05 \x01(\x05R\n" +
+	"characters\"6\n" +
 	"\x0fReadMailRequest\x12\x1c\n" +
 	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01H\x00R\x02id\x88\x01\x01B\x05\n" +
 	"\x03_id\"6\n" +
@@ -853,16 +896,15 @@ var file_agent_v1_mail_proto_goTypes = []any{
 var file_agent_v1_mail_proto_depIdxs = []int32{
 	0,  // 0: agent.v1.Mail.kind:type_name -> agent.v1.MailKind
 	2,  // 1: agent.v1.SendMailResponse.mail:type_name -> agent.v1.Mail
-	2,  // 2: agent.v1.ForwardLastTurnsResponse.mail:type_name -> agent.v1.Mail
-	2,  // 3: agent.v1.ReadMailResponse.mail:type_name -> agent.v1.Mail
-	12, // 4: agent.v1.ListMailRequest.pagination:type_name -> pagination.v1.Pagination
-	1,  // 5: agent.v1.ListMailRequest.direction:type_name -> agent.v1.MailDirection
-	2,  // 6: agent.v1.ListMailResponse.mail:type_name -> agent.v1.Mail
-	7,  // [7:7] is the sub-list for method output_type
-	7,  // [7:7] is the sub-list for method input_type
-	7,  // [7:7] is the sub-list for extension type_name
-	7,  // [7:7] is the sub-list for extension extendee
-	0,  // [0:7] is the sub-list for field type_name
+	2,  // 2: agent.v1.ReadMailResponse.mail:type_name -> agent.v1.Mail
+	12, // 3: agent.v1.ListMailRequest.pagination:type_name -> pagination.v1.Pagination
+	1,  // 4: agent.v1.ListMailRequest.direction:type_name -> agent.v1.MailDirection
+	2,  // 5: agent.v1.ListMailResponse.mail:type_name -> agent.v1.Mail
+	6,  // [6:6] is the sub-list for method output_type
+	6,  // [6:6] is the sub-list for method input_type
+	6,  // [6:6] is the sub-list for extension type_name
+	6,  // [6:6] is the sub-list for extension extendee
+	0,  // [0:6] is the sub-list for field type_name
 }
 
 func init() { file_agent_v1_mail_proto_init() }
