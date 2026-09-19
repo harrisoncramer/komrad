@@ -138,17 +138,17 @@ The key is fetched from Secrets Manager into `/run` at boot, which is tmpfs, so 
 weave github token
 ```
 
+That prints a token starting `ghs_`. If it errors, the secret name, the App id or the installation id is wrong.
+
+Git gets this token by asking weave every time it needs one, so nothing is stored. The `gh` command cannot ask, because it only reads a token from its own environment at startup. So the image puts a small wrapper ahead of `gh` on the path which fetches a fresh token and then runs the real one. An agent does not have to know about any of this.
+
 Then connect the engine's forge through the App, which can be done from the laptop:
 
 ```
 weave forge connect github.com --method github-app --engine remote
 ```
 
-This stores no token: every request the engine makes to GitHub reuses the App's short-lived one. `weave doctor --engine remote` shows the connection under forges, and [forges](forges.md) says the rest.
-
-That prints a token starting `ghs_`. If it errors, the secret name, the App id or the installation id is wrong.
-
-Git gets this token by asking weave every time it needs one, so nothing is stored. The `gh` command cannot ask, because it only reads a token from its own environment at startup. So the image puts a small wrapper ahead of `gh` on the path which fetches a fresh token and then runs the real one. An agent does not have to know about any of this.
+No token of yours is stored. The service keeps the App's short-lived token in `github-token.json` under its cache directory, readable only by the weave user and worthless an hour after it was minted, and reuses it until then. `weave doctor --engine remote` shows the connection under forges, and [forges](forges.md) says the rest.
 
 ### 7. Clone the repo
 

@@ -113,9 +113,8 @@ func rpcMethodCmd(state *app, exposed rpcapi.Method) *cobra.Command {
 // ErrServerBuild says the server on this machine is running other code than this binary.
 var ErrServerBuild = errors.New("server build mismatch, restart it")
 
-// requireServer refuses to call a server that is not there, or that is running other code
-// than this binary, since a method this build knows may not exist there or may mean something
-// else.
+// requireServer refuses to call a server that is not there or that is running other code
+// than this binary.
 func requireServer(ctx context.Context, addr, named string) error {
 	probe := probeServer(ctx, addr)
 	if !probe.answering {

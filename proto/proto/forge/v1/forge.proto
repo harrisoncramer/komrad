@@ -76,11 +76,9 @@ message ForgeCheck {
 service ForgeService {
   rpc ConnectForge(ConnectForgeRequest) returns (ConnectForgeResponse) {
     option (annotation.v1.surfaces) = {
-      cli: true
+      cli: false
       mcp: false
-      name: "connect_forge"
-      description: "Connect weave to a forge host with a token, or as the GitHub App in the server's config. The credential is proved against the forge before anything is stored."
-      reason: "A token is pasted by a person and travels once; a model handed one would be holding a credential it has no business holding."
+      reason: "weave forge connect is the one caller, reading the token from stdin or a file. A generated command would take it as an argument, which every process on the machine can read, and a model handed one would be holding a credential it has no business holding."
     };
   }
   rpc ListForges(google.protobuf.Empty) returns (ListForgesResponse) {

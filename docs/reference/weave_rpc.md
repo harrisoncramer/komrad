@@ -32,7 +32,6 @@ flags, and the response is the API's own JSON on stdout.
 * [weave rpc archive-schedule](weave_rpc_archive-schedule.md)	 - Hide a schedule from the panel so it stops firing, keeping its record.
 * [weave rpc archive-workflow](weave_rpc_archive-workflow.md)	 - Hide a workflow from the panel, archiving the agents inside it.
 * [weave rpc check-forges](weave_rpc_check-forges.md)	 - Ask every connected forge whether its credential still works, the way its method allows, and record the answer on each connection.
-* [weave rpc connect-forge](weave_rpc_connect-forge.md)	 - Connect weave to a forge host with a token, or as the GitHub App in the server's config.
 * [weave rpc create-agent](weave_rpc_create-agent.md)	 - Launch a background agent with an opening prompt.
 * [weave rpc create-review-thread](weave_rpc_create-review-thread.md)	 - Pin a comment to a place in another agent's diff, which is how you give it a review rather than mailing it prose.
 * [weave rpc create-schedule](weave_rpc_create-schedule.md)	 - Create a recurring agent launch inside a workflow.

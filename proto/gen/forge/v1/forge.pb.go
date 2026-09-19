@@ -502,10 +502,9 @@ const file_forge_v1_forge_proto_rawDesc = "" +
 	"ForgeCheck\x12%\n" +
 	"\x05forge\x18\x01 \x01(\v2\x0f.forge.v1.ForgeR\x05forge\x12\x18\n" +
 	"\aproblem\x18\x02 \x01(\tR\aproblem\x12!\n" +
-	"\fproblem_kind\x18\x03 \x01(\tR\vproblemKind2\x97\n" +
-	"\n" +
-	"\fForgeService\x12\x85\x03\n" +
-	"\fConnectForge\x12\x1d.forge.v1.ConnectForgeRequest\x1a\x1e.forge.v1.ConnectForgeResponse\"\xb5\x02\x9a\xb5\x18\xb0\x02\b\x01\x1a\rconnect_forge\"\x9e\x01Connect weave to a forge host with a token, or as the GitHub App in the server's config. The credential is proved against the forge before anything is stored.:|A token is pasted by a person and travels once; a model handed one would be holding a credential it has no business holding.\x12\xe8\x02\n" +
+	"\fproblem_kind\x18\x03 \x01(\tR\vproblemKind2\xe8\t\n" +
+	"\fForgeService\x12\xd6\x02\n" +
+	"\fConnectForge\x12\x1d.forge.v1.ConnectForgeRequest\x1a\x1e.forge.v1.ConnectForgeResponse\"\x86\x02\x9a\xb5\x18\x81\x02:\xfe\x01weave forge connect is the one caller, reading the token from stdin or a file. A generated command would take it as an argument, which every process on the machine can read, and a model handed one would be holding a credential it has no business holding.\x12\xe8\x02\n" +
 	"\n" +
 	"ListForges\x12\x16.google.protobuf.Empty\x1a\x1c.forge.v1.ListForgesResponse\"\xa3\x02\x9a\xb5\x18\x9b\x02\b\x01\x10\x01\x1a\vlist_forges\"\x87\x02List the forges weave is connected to, one per host, with who weave acts as there and when the forge last confirmed it. The token itself is never returned. A connection is made by a person with weave forge connect and is what the pull request sweep reads through.\x90\x02\x01\x12\xb1\x02\n" +
 	"\vCheckForges\x12\x16.google.protobuf.Empty\x1a\x1d.forge.v1.CheckForgesResponse\"\xea\x01\x9a\xb5\x18\xe5\x01\b\x01\x10\x01\x1a\fcheck_forges\"\xce\x01Ask every connected forge whether its credential still works, the way its method allows, and record the answer on each connection. A refusal marks the connection as refused until a person connects it again.(\x00\x12\xdf\x01\n" +

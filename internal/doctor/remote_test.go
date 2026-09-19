@@ -68,6 +68,37 @@ func TestChecksAboutTheEngineAreSkippedWhenItIsElsewhere(t *testing.T) {
 	}
 }
 
+// TestEngineSideChecksAreTheOnesThatReadTheEngine pins which checks stop being answered, since a
+// check marked wrongly either lies about a remote engine or goes silent on a local one.
+func TestEngineSideChecksAreTheOnesThatReadTheEngine(t *testing.T) {
+	t.Parallel()
+
+	settings := Settings{Harnesses: []HarnessInfo{{ID: "claude", Binary: "claude"}}}
+
+	engineSide := make([]string, 0)
+
+	for _, check := range Checks(settings) {
+		if check.Engine {
+			engineSide = append(engineSide, check.Name)
+		}
+	}
+
+	want := []string{
+		"tmux shell",
+		"default harness",
+		"hooks",
+		"worktrees",
+		"context",
+		"database",
+		"schema",
+		"readonly login",
+		"orphaned worktrees",
+		"claude",
+	}
+
+	assert.Equal(t, want, engineSide)
+}
+
 // TestStaleServerFixDependsOnWhereTheEngineIs covers the advice given when the service is a
 // different build, since restarting tmux here does nothing to a service on another machine.
 func TestStaleServerFixDependsOnWhereTheEngineIs(t *testing.T) {

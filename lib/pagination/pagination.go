@@ -57,7 +57,7 @@ func New[C Cursor, M Cursorable[C]](p *paginationv1.Pagination) (*Paginator[C, M
 }
 
 // Bound is the page size a request asked for, twenty when it asked for none and at most a
-// hundred, for a handler whose pages are not counts of its own records.
+// hundred.
 func Bound(limit int32) int64 {
 	bounded := int64(limit)
 	switch {

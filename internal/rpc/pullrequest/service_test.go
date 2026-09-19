@@ -2,6 +2,7 @@ package pullrequest
 
 import (
 	"context"
+	"encoding/base64"
 	"testing"
 	"time"
 
@@ -94,7 +95,8 @@ func TestListPullRequests(t *testing.T) {
 }
 
 // TestListPullRequestsPages covers the token round trip: a page with more behind it hands
-// back a token, and that token asks the forge for the page after.
+// back a token, and that token asks the forge for the page after at the size the first was
+// cut at, whatever limit travels beside it.
 func TestListPullRequestsPages(t *testing.T) {
 	t.Parallel()
 
@@ -116,14 +118,47 @@ func TestListPullRequestsPages(t *testing.T) {
 	}))
 	require.NoError(t, err)
 	assert.Equal(t, 2, fake.params.Page)
+	assert.Equal(t, 50, fake.params.PerPage, "the token carries the size, so a dropped limit reads the same window")
 	assert.Nil(t, second.Msg.NextPageToken)
+}
 
-	_, err = service.ListPullRequests(t.Context(), connect.NewRequest(&pullrequestv1.ListPullRequestsRequest{
-		RemoteUrl:  "git@github.com:harrisoncramer/weave.git",
-		Pagination: &paginationv1.Pagination{Cursor: xptr.Ptr("not-a-token")},
-	}))
-	require.Error(t, err)
-	assert.Equal(t, connect.CodeInvalidArgument, connect.CodeOf(err))
+// TestListPullRequestsRefusesABadToken covers a cursor that is not one and a cursor nobody
+// could have been handed.
+func TestListPullRequestsRefusesABadToken(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name   string
+		cursor string
+	}{
+		{
+			name:   "not a token",
+			cursor: "not-a-token",
+		},
+		{
+			name:   "a page before the first",
+			cursor: base64.URLEncoding.EncodeToString([]byte(`{"page":0,"per_page":20}`)),
+		},
+		{
+			name:   "a token with no page size",
+			cursor: base64.URLEncoding.EncodeToString([]byte(`{"page":2}`)),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			service := pullrequestv1weave.PullRequestServiceAdapter{Impl: NewPullRequestService(&fakeFinder{forge: &fakeForge{}})}
+
+			_, err := service.ListPullRequests(t.Context(), connect.NewRequest(&pullrequestv1.ListPullRequestsRequest{
+				RemoteUrl:  "git@github.com:harrisoncramer/weave.git",
+				Pagination: &paginationv1.Pagination{Cursor: xptr.Ptr(tt.cursor)},
+			}))
+			require.Error(t, err)
+			assert.Equal(t, connect.CodeInvalidArgument, connect.CodeOf(err))
+		})
+	}
 }
 
 // TestListPullRequestsRefusals covers a remote that is not one, and a host nothing is

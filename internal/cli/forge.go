@@ -9,6 +9,7 @@ import (
 	"text/tabwriter"
 
 	"weave/internal/forge"
+	"weave/lib/dates"
 	"weave/lib/xhttp"
 	forgev1 "weave/proto/gen/forge/v1"
 	"weave/proto/gen/forge/v1/forgev1connect"
@@ -209,7 +210,7 @@ func printForges(out io.Writer, forges []*forgev1.Forge, problems map[string]str
 		case !f.GetHasCredential():
 			verified = "no credential"
 		case f.VerifiedAt != nil:
-			verified = f.GetVerifiedAt()
+			verified = describeVerifiedAt(f.GetVerifiedAt())
 		}
 		if _, err := fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n", f.GetHost(), f.GetKind(), f.GetLogin(), f.GetMethod(), verified); err != nil {
 			return err
@@ -217,6 +218,17 @@ func printForges(out io.Writer, forges []*forgev1.Forge, problems map[string]str
 	}
 
 	return w.Flush()
+}
+
+// describeVerifiedAt is the stamp as a person reads it, in local time, or the wire's own
+// spelling when it will not parse.
+func describeVerifiedAt(stamp string) string {
+	parsed := dates.Parse(stamp)
+	if parsed.IsZero() {
+		return stamp
+	}
+
+	return parsed.Local().Format("2006-01-02 15:04")
 }
 
 // tokenForTheWire is the token as the connect request carries it to the service, which is the

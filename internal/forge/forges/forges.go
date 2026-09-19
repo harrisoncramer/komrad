@@ -17,8 +17,7 @@ var Builders = map[string]forge.Builder{
 	forge.KindGitHub: github.Build,
 }
 
-// TokenCachePath is where the App's minted token is kept under a cache directory, which every
-// command and the service share so one mint serves them all.
+// TokenCachePath is where the App's minted token is kept under a cache directory.
 func TokenCachePath(cacheDir string) string {
 	dir := strings.TrimSpace(cacheDir)
 	if dir == "" {

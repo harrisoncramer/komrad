@@ -19,8 +19,7 @@ func sameBuild(body server.Health, selfVersion, selfCommit string) bool {
 	return body.Version == selfVersion
 }
 
-// requireEngineBuild fails when the engine answering on this address is running other code,
-// and says nothing when nothing answers at all, which the panel reports on its own.
+// requireEngineBuild fails when the engine answering on this address is running other code.
 func requireEngineBuild(ctx context.Context, addr string) error {
 	probe := probeServer(ctx, addr)
 	if !probe.answering || probe.version == "" || probe.current {

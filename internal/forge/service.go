@@ -22,6 +22,9 @@ var ErrInsecureAPI = fail.InvalidArgument("the API address has to be https")
 // ErrNoApp says the App method was asked for on a build with no App configured.
 var ErrNoApp = fail.Precondition("no github app is configured")
 
+// ErrBadApp says the [github_app] section in config cannot be read as an App.
+var ErrBadApp = fail.Precondition("the github app in config is unusable")
+
 // ErrAppReachesNothing says the App is installed on no repository.
 var ErrAppReachesNothing = fail.Precondition("the github app is installed on no repository")
 
@@ -53,8 +56,10 @@ type NewForgeServiceParams struct {
 	// Verified is what a refusal is recorded on, the connections themselves when unset and
 	// NoRecord for a caller that only reports.
 	Verified verifiedSetter
-	// App is the GitHub App this machine can connect as, unconfigured when it has none.
-	App App
+	// LoadApp reads the GitHub App this machine can connect as, on every call that needs it so
+	// a config edit is seen without a restart; unset, or answering an unconfigured App, when
+	// it has none.
+	LoadApp func() (App, error)
 	// Now is the clock, time.Now when unset.
 	Now func() time.Time
 }
@@ -65,7 +70,7 @@ type ForgeService struct {
 	credentials CredentialStore
 	builders    map[string]Builder
 	verified    verifiedSetter
-	app         App
+	loadApp     func() (App, error)
 	now         func() time.Time
 }
 
@@ -79,13 +84,19 @@ func NewForgeService(params NewForgeServiceParams) *ForgeService {
 	if verified == nil {
 		verified = params.Connections
 	}
+	loadApp := params.LoadApp
+	if loadApp == nil {
+		loadApp = func() (App, error) {
+			return App{}, nil
+		}
+	}
 
 	return &ForgeService{
 		connections: params.Connections,
 		credentials: params.Credentials,
 		builders:    params.Builders,
 		verified:    verified,
-		app:         params.App,
+		loadApp:     loadApp,
 		now:         now,
 	}
 }
@@ -235,11 +246,15 @@ func (s *ForgeService) proveApp(ctx context.Context, build Builder, kind, apiURL
 	if kind != KindGitHub {
 		return "", fail.InvalidArgument("a github app connects only to github")
 	}
-	if !s.app.IsConfigured() {
+	app, err := s.loadApp()
+	if err != nil {
+		return "", ErrBadApp.Saying("%v", err)
+	}
+	if !app.IsConfigured() {
 		return "", ErrNoApp.Saying("set app_id, installation_id and private_key_path under [github_app]")
 	}
 
-	app := s.app.At(apiURL)
+	app = app.At(apiURL)
 	probe, ok := build(apiURL, NewAppCredential(NewAppCredentialParams{App: app, Connections: NoRecord{}})).(InstallationVerifier)
 	if !ok {
 		return "", fail.InvalidArgument("this forge cannot check an installation")
@@ -357,8 +372,13 @@ func (s *ForgeService) ForConnection(connection forgestore.Connection) (Forge, e
 		Connections:  s.verified,
 	})
 	if connection.Method == MethodGitHubApp {
+		app, err := s.loadApp()
+		if err != nil {
+			return nil, ErrBadApp.Saying("%v", err)
+		}
+
 		auth = NewAppCredential(NewAppCredentialParams{
-			App:          s.app.At(connection.APIURL),
+			App:          app.At(connection.APIURL),
 			ConnectionID: connection.ID,
 			Connections:  s.verified,
 		})
