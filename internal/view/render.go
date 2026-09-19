@@ -181,7 +181,7 @@ func Spell(glyph Glyph) string {
 	case GlyphMail:
 		return ""
 	case GlyphUnread:
-		return "\uf52b"
+		return "\uf41f"
 	case GlyphPaused:
 		return ""
 	case GlyphHidden:

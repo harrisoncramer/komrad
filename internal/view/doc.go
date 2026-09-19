@@ -45,7 +45,7 @@
 // Output nobody has read is a mark in the same family rather than a brighter name, since a
 // brighter name loses to the cursor, to dim, and to a theme whose own foreground is near white.
 // It sits beside the mail, the two being what waits to be read, in the quiet tone the rest of
-// the family wears.
+// the family wears, and is drawn as a speech bubble so it cannot be taken for the envelope.
 //
 // An indent costs the name the columns it spends, so an agent has less room for its name than a
 // workflow at the same pane, and the narrowing and the mark shedding both read the indent rather
