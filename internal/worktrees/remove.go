@@ -9,6 +9,7 @@ import (
 	"slices"
 	"strings"
 
+	"weave/internal/git"
 	"weave/internal/logging"
 	agentstore "weave/internal/store/agent"
 )
@@ -25,19 +26,20 @@ type Removal struct {
 	Refused []Refusal
 }
 
-type pruner interface {
+type registrar interface {
+	ListWorktrees(ctx context.Context, repo string) ([]git.Worktree, error)
 	PruneWorktrees(ctx context.Context, repo string) error
 }
 
 // Remover takes away the directories no agent answers for.
 type Remover struct {
 	lister *Lister
-	git    pruner
+	git    registrar
 }
 
 type NewRemoverParams struct {
 	Lister *Lister
-	Git    pruner
+	Git    registrar
 }
 
 // NewRemover builds a remover over the lister and git.
@@ -68,6 +70,12 @@ func (r *Remover) Remove(ctx context.Context, dirs []string) (Removal, error) {
 
 		at := slices.IndexFunc(listing.Worktrees, func(w Worktree) bool { return w.Dir == dir })
 		worktree := listing.Worktrees[at]
+
+		if reason := r.refuseRegistered(ctx, worktree); reason != "" {
+			removal.Refused = append(removal.Refused, Refusal{Dir: dir, Reason: reason})
+
+			continue
+		}
 
 		if err := os.RemoveAll(dir); err != nil {
 			removal.Refused = append(removal.Refused, Refusal{Dir: dir, Reason: fmt.Sprintf("could not remove it: %v", err)})
@@ -115,6 +123,24 @@ func refuse(listing Listing, rows []agentstore.AgentDir, dir string) string {
 	}
 	if nested := slices.IndexFunc(listing.Worktrees, func(w Worktree) bool { return isBeneath(dir, w.Dir) }); nested >= 0 {
 		return fmt.Sprintf("it holds the worktree %s; remove that first", listing.Worktrees[nested].Dir)
+	}
+
+	return ""
+}
+
+// refuseRegistered is why a readable directory is not to be taken by what its repository has
+// registered, empty when nothing registered sits inside it.
+func (r *Remover) refuseRegistered(ctx context.Context, worktree Worktree) string {
+	if !worktree.Readable {
+		return ""
+	}
+
+	registered, err := r.git.ListWorktrees(ctx, worktree.RepoDir)
+	if err != nil {
+		return fmt.Sprintf("could not list the worktrees of its repository: %v", err)
+	}
+	if nested := slices.IndexFunc(registered, func(w git.Worktree) bool { return isBeneath(worktree.Dir, w.Dir) }); nested >= 0 {
+		return fmt.Sprintf("it holds the worktree %s; remove that first", registered[nested].Dir)
 	}
 
 	return ""

@@ -126,6 +126,7 @@ type fakeGit struct {
 	fetched    string
 	fetches    int
 	pruned     []string
+	registered []git.Worktree
 }
 
 func (g *fakeGit) ReadChanges(context.Context, string) (git.Changes, error) {
@@ -170,6 +171,10 @@ func (g *fakeGit) IsBranchHeldElsewhere(context.Context, string, string) (bool, 
 
 func (g *fakeGit) ListCommitsSince(context.Context, string, string, int) ([]git.Commit, error) {
 	return g.commits, nil
+}
+
+func (g *fakeGit) ListWorktrees(context.Context, string) ([]git.Worktree, error) {
+	return g.registered, nil
 }
 
 func (g *fakeGit) PruneWorktrees(_ context.Context, repo string) error {

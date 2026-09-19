@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"weave/internal/git"
 	agentstore "weave/internal/store/agent"
 
 	"github.com/stretchr/testify/assert"
@@ -107,21 +108,27 @@ func TestRemoveTakesADirectoryWhoseRowFailedToCleanUp(t *testing.T) {
 	assert.NoDirExists(t, dir)
 }
 
-// TestRemoveRefusesADirectoryHoldingAnotherWorktree covers a directory that is itself a
-// workflow's worktree directory being left alone while a worktree nothing answers for sits
-// inside it, since removing it whole would take that one with it.
+// TestRemoveRefusesADirectoryHoldingAnotherWorktree covers a directory being left alone while
+// a worktree sits inside it, whether the listing found that one under a workflow's directory
+// or only the repository has it registered.
 func TestRemoveRefusesADirectoryHoldingAnotherWorktree(t *testing.T) {
 	f := newFixture(t)
-	outer := f.cut(t, "outer")
-	f.flows.dirs = []string{outer}
-	inner := filepath.Join(outer, "inner")
+	listed := f.cut(t, "listed")
+	f.flows.dirs = []string{listed}
+	inner := filepath.Join(listed, "inner")
 	write(t, inner, ".git", "gitdir: /var/folders/xx/T/repo/.git/worktrees/inner\n")
+	registered := f.cut(t, "registered")
+	byHand := filepath.Join(registered, "by-hand")
+	write(t, byHand, ".git", "gitdir: "+filepath.Join(f.repo, ".git", "worktrees", "by-hand")+"\n")
+	f.git.registered = []git.Worktree{{Dir: f.repo}, {Dir: byHand}}
 
-	removal, err := f.remover().Remove(t.Context(), []string{outer})
+	removal, err := f.remover().Remove(t.Context(), []string{listed, registered})
 	require.NoError(t, err)
 
 	assert.Empty(t, removal.Removed)
-	require.Len(t, removal.Refused, 1)
+	require.Len(t, removal.Refused, 2)
 	assert.Contains(t, removal.Refused[0].Reason, inner)
+	assert.Contains(t, removal.Refused[1].Reason, byHand)
 	assert.DirExists(t, inner)
+	assert.DirExists(t, byHand)
 }
