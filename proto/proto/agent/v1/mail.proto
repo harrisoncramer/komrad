@@ -67,6 +67,8 @@ message SendMailRequest {
 message SendMailResponse {
   // The mail as recorded, whose id an answer can reply to.
   Mail mail = 1;
+  // Why the recipient will not read this soon, set when nothing runs behind it.
+  optional string warning = 2;
 }
 
 message ForwardLastTurnsRequest {

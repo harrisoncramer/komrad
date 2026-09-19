@@ -2,12 +2,14 @@ package agent
 
 import (
 	"context"
+	"fmt"
 
 	"weave/internal/agents"
 	"weave/internal/caller"
 	"weave/internal/fail"
 	"weave/internal/rpcerr"
 	"weave/lib/pagination"
+	"weave/lib/xptr"
 	"weave/lib/xslice"
 	agentv1 "weave/proto/gen/agent/v1"
 
@@ -48,7 +50,19 @@ func (s *AgentService) SendMail(ctx context.Context, req *agentv1.SendMailReques
 		return nil, rpcerr.From(err, "failed to send the mail")
 	}
 
-	return &agentv1.SendMailResponse{Mail: renderMail(*sent)}, nil
+	return &agentv1.SendMailResponse{
+		Mail:    renderMail(*sent),
+		Warning: s.dormantWarning(*recipient),
+	}, nil
+}
+
+// dormantWarning says that nothing runs behind the recipient, for an agent whose pane has gone.
+func (s *AgentService) dormantWarning(recipient agentstore.Agent) *string {
+	if s.liveness.IsAgentRunning(recipient) || !recipient.State.DoesPaneDecide() {
+		return nil
+	}
+
+	return xptr.Ptr(fmt.Sprintf("%s is dormant, nothing runs behind it, so this mail waits until it is resumed", recipient.Name))
 }
 
 // ReadMail claims an agent's waiting mail, defaulting to the caller's own mailbox.

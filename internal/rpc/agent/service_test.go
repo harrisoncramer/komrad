@@ -1153,6 +1153,71 @@ func TestSendMailByName(t *testing.T) {
 	assert.Equal(t, testerDocs.ID, sent.Msg.GetMail().GetToAgentId())
 }
 
+// TestSendMailWarnsOfADormantRecipient pins that a send to an agent nothing runs behind says so,
+// since the mail is kept and only read once that agent is resumed.
+func TestSendMailWarnsOfADormantRecipient(t *testing.T) {
+	tests := []struct {
+		name        string
+		alive       bool
+		state       agentstore.State
+		wantWarning bool
+	}{
+		{
+			name:        "an idle agent whose pane is gone",
+			alive:       false,
+			state:       agentstore.StateIdle,
+			wantWarning: true,
+		},
+		{
+			name:        "an agent still being set up has no pane yet",
+			alive:       false,
+			state:       agentstore.StateSettingUp,
+			wantWarning: false,
+		},
+		{
+			name:        "an idle agent in its pane",
+			alive:       true,
+			state:       agentstore.StateIdle,
+			wantWarning: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svc, st, launcher := serviceWithLauncher(t)
+			launcher.alive = tt.alive
+			alpha := st.SeedAgent(t, agentstore.Agent{
+				Name:  "alpha",
+				Cwd:   "/repo",
+				State: agentstore.StateIdle,
+			})
+			beta := st.SeedAgent(t, agentstore.Agent{
+				Name:  "beta",
+				Cwd:   "/repo",
+				State: tt.state,
+			})
+
+			asAlpha := caller.With(t.Context(), caller.Caller{AgentID: alpha.ID})
+			sent, err := svc.SendMail(asAlpha, connect.NewRequest(&agentv1.SendMailRequest{
+				To:   beta.ID,
+				Body: "which column holds the refund?",
+			}))
+			require.NoError(t, err)
+			assert.Equal(t, beta.ID, sent.Msg.GetMail().GetToAgentId())
+
+			if !tt.wantWarning {
+				assert.Nil(t, sent.Msg.Warning)
+
+				return
+			}
+
+			require.NotNil(t, sent.Msg.Warning)
+			assert.Contains(t, sent.Msg.GetWarning(), "beta")
+			assert.Contains(t, sent.Msg.GetWarning(), "dormant")
+		})
+	}
+}
+
 // TestSendMailPastTheExchangeLimitIsResourceExhausted pins that a pair that has written each
 // other as much as the configured limit allows is refused rather than allowed to keep going.
 func TestSendMailPastTheExchangeLimitIsResourceExhausted(t *testing.T) {
@@ -1166,6 +1231,7 @@ func TestSendMailPastTheExchangeLimitIsResourceExhausted(t *testing.T) {
 		Agents:      st.Agents,
 		Transcripts: st.Transcripts,
 		Mail:        mail,
+		Liveness:    &fakeLauncher{},
 		Runs:        st.Runs,
 		Marks:       markService(st),
 	})}

@@ -325,7 +325,9 @@ func (x *SendMailRequest) GetReplyTo() string {
 type SendMailResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The mail as recorded, whose id an answer can reply to.
-	Mail          *Mail `protobuf:"bytes,1,opt,name=mail,proto3" json:"mail,omitempty"`
+	Mail *Mail `protobuf:"bytes,1,opt,name=mail,proto3" json:"mail,omitempty"`
+	// Why the recipient will not read this soon, set when nothing runs behind it.
+	Warning       *string `protobuf:"bytes,2,opt,name=warning,proto3,oneof" json:"warning,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -365,6 +367,13 @@ func (x *SendMailResponse) GetMail() *Mail {
 		return x.Mail
 	}
 	return nil
+}
+
+func (x *SendMailResponse) GetWarning() string {
+	if x != nil && x.Warning != nil {
+		return *x.Warning
+	}
+	return ""
 }
 
 type ForwardLastTurnsRequest struct {
@@ -812,9 +821,12 @@ const file_agent_v1_mail_proto_rawDesc = "" +
 	"\x04body\x18\x02 \x01(\tB\n" +
 	"\xbaH\ar\x05\x10\x01\x18\x90NR\x04body\x12'\n" +
 	"\breply_to\x18\x03 \x01(\tB\a\xbaH\x04r\x02\x10\x01H\x00R\areplyTo\x88\x01\x01B\v\n" +
-	"\t_reply_to\"6\n" +
+	"\t_reply_to\"a\n" +
 	"\x10SendMailResponse\x12\"\n" +
-	"\x04mail\x18\x01 \x01(\v2\x0e.agent.v1.MailR\x04mail\"\x86\x02\n" +
+	"\x04mail\x18\x01 \x01(\v2\x0e.agent.v1.MailR\x04mail\x12\x1d\n" +
+	"\awarning\x18\x02 \x01(\tH\x00R\awarning\x88\x01\x01B\n" +
+	"\n" +
+	"\b_warning\"\x86\x02\n" +
 	"\x17ForwardLastTurnsRequest\x12+\n" +
 	"\rfrom_agent_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\vfromAgentId\x12'\n" +
 	"\vto_agent_id\x18\x02 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\ttoAgentId\x12$\n" +
@@ -914,6 +926,7 @@ func file_agent_v1_mail_proto_init() {
 	}
 	file_agent_v1_mail_proto_msgTypes[0].OneofWrappers = []any{}
 	file_agent_v1_mail_proto_msgTypes[1].OneofWrappers = []any{}
+	file_agent_v1_mail_proto_msgTypes[2].OneofWrappers = []any{}
 	file_agent_v1_mail_proto_msgTypes[3].OneofWrappers = []any{}
 	file_agent_v1_mail_proto_msgTypes[5].OneofWrappers = []any{}
 	file_agent_v1_mail_proto_msgTypes[7].OneofWrappers = []any{}
