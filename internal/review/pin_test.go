@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"weave/internal/diff"
+	"weave/internal/ui/paint"
 	agentv1 "weave/proto/gen/agent/v1"
 
 	"github.com/stretchr/testify/assert"
@@ -216,12 +217,12 @@ func TestMarkForSaysWhichThreadIsWhich(t *testing.T) {
 
 	mark, style := view.markFor(thread)
 	assert.Equal(t, readMark, mark)
-	assert.Equal(t, humanMarkStyle, style, "a thread the person opened is drawn in their colour")
+	assert.Equal(t, paint.Panel.Style(paint.ToneSelf), style, "a thread the person opened is drawn in their colour")
 
 	thread.ResolvedAt = "2026-08-27T12:00:00Z"
 	mark, style = view.markFor(thread)
 	assert.Equal(t, settledMark, mark)
-	assert.Equal(t, humanMarkStyle, style, "and the check keeps the author's colour")
+	assert.Equal(t, paint.Panel.Style(paint.ToneSelf), style, "and the check keeps the author's colour")
 
 	thread.UnreadByHuman = true
 	mark, _ = view.markFor(thread)
@@ -232,7 +233,7 @@ func TestMarkForSaysWhichThreadIsWhich(t *testing.T) {
 		{AuthorKind: agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_AGENT},
 	}
 	_, style = view.markFor(thread)
-	assert.Equal(t, agentMarkStyle, style, "a thread the agent opened is drawn in its own colour")
+	assert.Equal(t, paint.Panel.Style(paint.ToneOther), style, "a thread the agent opened is drawn in its own colour")
 }
 
 // TestAnAgentsOwnCommentIsNotOwedASettling covers who a settling is from: an agent answers its
