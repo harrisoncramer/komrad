@@ -2,9 +2,12 @@ package ui
 
 import (
 	"fmt"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 )
+
+const rebaseTimeout = 30 * time.Second
 
 // refreshPlan is what a rebase would do, carried from the server to the picker.
 type refreshPlan struct {

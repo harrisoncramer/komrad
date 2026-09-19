@@ -64,22 +64,22 @@ type worktreeRebaser interface {
 }
 
 type NewRebaseServiceParams struct {
-	Agents      rebaseAgentReadWriter
-	Workflows   workflowReader
-	Interrupter agentInterrupter
-	Notifier    systemMailSender
-	Rebaser     worktreeRebaser
-	Locks       *TreeLocks
+	Agents    rebaseAgentReadWriter
+	Workflows workflowReader
+	Settler   *Settler
+	Notifier  systemMailSender
+	Rebaser   worktreeRebaser
+	Locks     *TreeLocks
 }
 
 // RebaseService moves an agent's existing worktree onto the latest base without replacing it.
 type RebaseService struct {
-	agents      rebaseAgentReadWriter
-	workflows   workflowReader
-	interrupter agentInterrupter
-	notifier    systemMailSender
-	rebaser     worktreeRebaser
-	locks       *TreeLocks
+	agents    rebaseAgentReadWriter
+	workflows workflowReader
+	settler   *Settler
+	notifier  systemMailSender
+	rebaser   worktreeRebaser
+	locks     *TreeLocks
 }
 
 // NewRebaseService builds the service from its dependencies.
@@ -90,12 +90,12 @@ func NewRebaseService(params NewRebaseServiceParams) *RebaseService {
 	}
 
 	return &RebaseService{
-		agents:      params.Agents,
-		workflows:   params.Workflows,
-		interrupter: params.Interrupter,
-		notifier:    params.Notifier,
-		rebaser:     params.Rebaser,
-		locks:       locks,
+		agents:    params.Agents,
+		workflows: params.Workflows,
+		settler:   params.Settler,
+		notifier:  params.Notifier,
+		rebaser:   params.Rebaser,
+		locks:     locks,
 	}
 }
 
@@ -193,17 +193,16 @@ func (s *RebaseService) Rebase(ctx context.Context, agentID string) (*RebaseResu
 	}
 	defer unlock()
 
+	// An agent with no pane is skipped rather than refused.
+	if s.settler != nil && agent.Pane != "" {
+		if _, err := s.settler.Settle(ctx, *agent); err != nil {
+			return nil, err
+		}
+	}
+
 	plan, err := s.PlanRebase(ctx, agentID)
 	if err != nil {
 		return nil, err
-	}
-
-	// The interrupt keys are sent before the files move, without waiting for the CLI to read
-	// them, and an agent with no pane is skipped rather than refused.
-	if s.interrupter != nil && agent.Pane != "" {
-		if err := s.interrupter.Interrupt(ctx, agentID); err != nil {
-			return nil, fmt.Errorf("failed to interrupt agent %q before rebasing it: %w", agent.Name, err)
-		}
 	}
 
 	result := &RebaseResult{RebasePlan: *plan}

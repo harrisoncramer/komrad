@@ -6,7 +6,9 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
+	"weave/internal/harness"
 	"weave/internal/weavetest"
 	agentv1 "weave/proto/gen/agent/v1"
 	workflowv1 "weave/proto/gen/workflow/v1"
@@ -46,6 +48,7 @@ func rebaseAgent(t *testing.T, instance *weavetest.Instance, repo string) (agent
 
 	tree = agent.Msg.GetAgent().GetCwd()
 	require.DirExists(t, tree)
+	instance.WaitForHarness(agent.Msg.GetAgent().GetId())
 
 	writeIn(t, tree, "own.txt", "a first draft\n")
 	runGitIn(t, tree, "add", "own.txt")
@@ -130,4 +133,35 @@ func TestRebaseParksTheCheckoutBeforeItMoves(t *testing.T) {
 		"the park stands on the commit the branch was at")
 	assert.Equal(t, "never committed", readGitOutput(t, tree, "show", parked+":uncommitted.txt"),
 		"and holds what was never committed, which the reflog could not")
+}
+
+// TestRebaseWaitsForABusyAgentToStop is the end-to-end anchor for the settle, where the row still
+// says idle from its last reading while the pane itself says a turn is running.
+func TestRebaseWaitsForABusyAgentToStop(t *testing.T) {
+	hermeticGit(t)
+
+	instance := weavetest.Start(t, weavetest.Params{WorktreesDir: t.TempDir()})
+	repo := initGitRepo(t)
+
+	agentID, _ := rebaseAgent(t, instance, repo)
+	landOnTheBase(t, repo)
+
+	require.NoError(t, instance.Harness.SetActivity(agentID, harness.ActivityWorking))
+	instance.WaitForActivity(agentID, harness.ActivityWorking)
+
+	const rest = 2 * time.Second
+
+	go func() {
+		time.Sleep(rest)
+		assert.NoError(t, instance.Harness.SetActivity(agentID, harness.ActivityIdle))
+	}()
+
+	started := time.Now()
+	refreshed, err := instance.Agents.RebaseWorktree(t.Context(), connect.NewRequest(&agentv1.RebaseWorktreeRequest{
+		AgentId: agentID,
+	}))
+	require.NoError(t, err)
+
+	assert.True(t, refreshed.Msg.GetMoved())
+	assert.GreaterOrEqual(t, time.Since(started), rest, "the branch moved while the agent was still working")
 }

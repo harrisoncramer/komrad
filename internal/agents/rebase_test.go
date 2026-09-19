@@ -10,6 +10,7 @@ import (
 
 	"weave/internal/caller"
 	"weave/internal/git"
+	"weave/internal/harness"
 	"weave/internal/store"
 
 	agentstore "weave/internal/store/agent"
@@ -440,6 +441,119 @@ func TestRebaseParksBeforeItAsksGitToMove(t *testing.T) {
 
 	require.Len(t, rebaser.parked, 1)
 	assert.Equal(t, []string{"park", "rebase"}, rebaser.calls)
+}
+
+// TestRebaseSettlesTheAgentBeforeItMoves is the safety argument for the row being a pane reading
+// seconds old: the pane is read as it is now, a turn in flight is cut, and nothing is parked or
+// moved until the agent is seen to have come to rest.
+func TestRebaseSettlesTheAgentBeforeItMoves(t *testing.T) {
+	t.Parallel()
+
+	for _, tt := range []struct {
+		name           string
+		pane           string
+		readings       []harness.Activity
+		observeErr     error
+		wantErr        error
+		wantSaid       string
+		wantInterrupts int
+		wantReads      int
+		wantCalls      []string
+	}{
+		{
+			name:           "an agent that will not stop",
+			pane:           "%1",
+			readings:       []harness.Activity{harness.ActivityWorking},
+			wantErr:        ErrUnsettled,
+			wantSaid:       "had not stopped",
+			wantInterrupts: 1,
+		},
+		{
+			name:       "a pane that could not be read",
+			pane:       "%1",
+			observeErr: errors.New("the pane is gone"),
+			wantErr:    ErrUnsettled,
+			wantSaid:   "could not be read",
+		},
+		{
+			name:     "a frame that matched nothing, which is no evidence of rest",
+			pane:     "%1",
+			readings: []harness.Activity{harness.ActivityUnrecognized},
+			wantErr:  ErrUnsettled,
+			wantSaid: "could not be read",
+		},
+		{
+			name:      "an agent at rest, which is read rather than interrupted",
+			pane:      "%1",
+			readings:  []harness.Activity{harness.ActivityIdle},
+			wantReads: 1,
+			wantCalls: []string{"park", "rebase"},
+		},
+		{
+			name:           "an agent part-way through a turn its row does not show yet",
+			pane:           "%1",
+			readings:       []harness.Activity{harness.ActivityWorking, harness.ActivityWorking, harness.ActivityIdle},
+			wantInterrupts: 1,
+			wantReads:      3,
+			wantCalls:      []string{"park", "rebase"},
+		},
+		{
+			name:      "an agent with no pane, which has nothing running",
+			readings:  []harness.Activity{harness.ActivityWorking},
+			wantCalls: []string{"park", "rebase"},
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			channel := &fakeChannel{}
+			observer := &settlingObserver{readings: tt.readings, err: tt.observeErr}
+			rebaser := &treeReadRecorder{
+				fakeRebaser: &fakeRebaser{state: git.TreeState{Branch: "agent/a1"}},
+				observer:    observer,
+			}
+
+			service := NewRebaseService(NewRebaseServiceParams{
+				Agents: fakeRebaseAgents{agent: agentstore.Agent{
+					ID:         "a1",
+					Name:       "auth",
+					WorkflowID: "w1",
+					Cwd:        "/tree",
+					Pane:       tt.pane,
+					State:      agentstore.StateIdle,
+				}},
+				Workflows: fakeRebaseWorkflows{flow: worktreeFlow()},
+				Settler:   settlerOver(channel, observer),
+				Rebaser:   rebaser,
+			})
+
+			_, err := service.Rebase(t.Context(), "a1")
+			if tt.wantErr != nil {
+				require.ErrorIs(t, err, tt.wantErr)
+				assert.Contains(t, err.Error(), tt.wantSaid)
+			} else {
+				require.NoError(t, err)
+				assert.Equal(t, tt.wantReads, observer.reads)
+				assert.Equal(t, tt.wantReads, rebaser.readsBeforeTree, "the tree is read only once the agent has stopped")
+			}
+
+			assert.Equal(t, tt.wantInterrupts, channel.interrupts)
+			assert.Equal(t, tt.wantCalls, rebaser.calls, "nothing is parked or moved under an agent still working")
+		})
+	}
+}
+
+// treeReadRecorder notes how many pane readings had been taken by the time the tree was read.
+type treeReadRecorder struct {
+	*fakeRebaser
+	observer        *settlingObserver
+	readsBeforeTree int
+}
+
+func (r *treeReadRecorder) ReadTreeState(ctx context.Context, dir string) (git.TreeState, error) {
+	r.readsBeforeTree = r.observer.reads
+
+	return r.fakeRebaser.ReadTreeState(ctx, dir)
 }
 
 // TestRebaseReplaysFromTheCutoffThePlanFound covers the branch a squash merge needs, where
