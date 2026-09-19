@@ -535,7 +535,7 @@ func TestRebaseSettlesTheAgentBeforeItMoves(t *testing.T) {
 			} else {
 				require.NoError(t, err)
 				assert.Equal(t, tt.wantReads, observer.reads)
-				assert.Equal(t, tt.wantReads, rebaser.readsBeforeTree, "the tree is read only once the agent has stopped")
+				assert.Equal(t, tt.wantReads, rebaser.readsBeforeTree, "the plan reads the tree only once the agent has stopped")
 			}
 
 			assert.Equal(t, tt.wantInterrupts, channel.interrupts)
