@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"encoding/pem"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -71,28 +72,41 @@ func TestMintSignsAnAssertionGitHubCanCheck(t *testing.T) {
 		"iat is backdated, so this host's clock running slow does not make the assertion future-dated")
 }
 
-// TestMintExplainsARefusal covers the App id or the installation being wrong, which is the whole
-// failure surface of this setup and is otherwise a bare 404.
+// TestMintExplainsARefusal covers which of GitHub's answers to a mint count as a refusal.
 func TestMintExplainsARefusal(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusNotFound)
-		_, _ = w.Write([]byte(`{"message":"Not Found"}`))
-	}))
-	defer server.Close()
-
-	old := api
-	api = server.URL
-	defer func() { api = old }()
-
-	app := Identity{
-		ID:             "12345",
-		InstallationID: "678",
-		PrivateKeyPath: writeKey(t),
+	tests := []struct {
+		name        string
+		status      int
+		wantRefused bool
+	}{
+		{name: "a key github cannot check", status: http.StatusUnauthorized, wantRefused: true},
+		{name: "a suspended installation", status: http.StatusForbidden, wantRefused: true},
+		{name: "an installation github does not have", status: http.StatusNotFound, wantRefused: true},
+		{name: "a rate limit", status: http.StatusTooManyRequests, wantRefused: false},
+		{name: "github failing to answer", status: http.StatusBadGateway, wantRefused: false},
 	}
-	_, err := app.Mint(t.Context(), server.Client(), time.Now())
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "12345")
-	assert.Contains(t, err.Error(), "678")
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				w.WriteHeader(tt.status)
+				_, _ = w.Write([]byte(`{"message":"` + http.StatusText(tt.status) + `"}`))
+			}))
+			defer server.Close()
+
+			app := Identity{
+				ID:             "12345",
+				InstallationID: "678",
+				PrivateKeyPath: writeKey(t),
+				API:            server.URL,
+			}
+			_, err := app.Mint(t.Context(), server.Client(), time.Now())
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), "12345")
+			assert.Contains(t, err.Error(), "678")
+			assert.Equal(t, tt.wantRefused, errors.Is(err, ErrRefused))
+		})
+	}
 }
 
 // TestFreshRefusesATokenAboutToExpire covers a long push losing its credential partway through.

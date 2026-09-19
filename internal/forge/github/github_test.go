@@ -288,3 +288,24 @@ func TestVerifyInstallation(t *testing.T) {
 	require.ErrorIs(t, err, forge.ErrUnauthorized)
 	assert.Equal(t, 1, auth.invalidated)
 }
+
+type refusingAuth struct{ err error }
+
+func (r refusingAuth) Credential(context.Context) (forge.Credential, error) {
+	return forge.Credential{}, r.err
+}
+
+func (refusingAuth) Invalidate(context.Context) error { return nil }
+
+// TestCredentialFailureIsNotAReachFailure covers the Authenticator refusing before a request
+// leaves: what it said is the answer, without the wording a dial failure gets.
+func TestCredentialFailureIsNotAReachFailure(t *testing.T) {
+	t.Parallel()
+
+	refused := forge.ErrUnauthorized.Saying("github refused to mint an installation token: 401 Unauthorized")
+	f := New(NewParams{Auth: refusingAuth{err: refused}, API: "http://127.0.0.1:1"})
+
+	_, err := f.VerifyInstallation(t.Context())
+	require.ErrorIs(t, err, forge.ErrUnauthorized)
+	assert.Equal(t, refused.Error(), err.Error())
+}
