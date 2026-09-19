@@ -219,7 +219,7 @@ func textOf(drawn view.Drawn) string { return drawn.Text }
 func reportGlyphWidths(drawings []view.Drawn, measured []int, insideTmux bool) Result {
 	caveat := ""
 	if insideTmux {
-		caveat = ", as tmux counts them"
+		caveat = " (as tmux counts them)"
 	}
 
 	mismatch := describeMismatch(drawings, measured)
