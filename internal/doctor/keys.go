@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	"weave/config"
-	"weave/internal/ui"
 )
 
 var (
@@ -58,7 +57,10 @@ func newKeybindingsCheck() Check {
 				return fail(fmt.Errorf("%w: %w", ErrConfigUnreadable, err), "", "")
 			}
 
-			if err := ui.ValidateKeybindings(cfg.Keybindings); err != nil {
+			if env.ValidateKeybindings == nil {
+				return fail(fmt.Errorf("%w: nothing was given to validate the keybindings with", ErrCheckPanicked), "", "")
+			}
+			if err := env.ValidateKeybindings(cfg.Keybindings); err != nil {
 				return fail(
 					fmt.Errorf("%w: %w", ErrKeyOnTwoActions, err),
 					"",
@@ -68,21 +70,21 @@ func newKeybindingsCheck() Check {
 
 			rootKeys := readRootKeys(ctx, env)
 
-			if prefix := readTmuxPrefix(ctx, env); prefix == ui.FocusKey {
+			if prefix := readTmuxPrefix(ctx, env); prefix == env.FocusKey {
 				return fail(
 					fmt.Errorf("%w: %s is your tmux prefix, which tmux reads before the root table",
-						ErrFocusKeyUnavailable, ui.FocusKey),
+						ErrFocusKeyUnavailable, env.FocusKey),
 					"prefix "+prefix,
-					"set-option -g prefix to something other than "+ui.FocusKey,
+					"set-option -g prefix to something other than "+env.FocusKey,
 				)
 			}
 
-			if held, ok := heldByAnythingElse(rootKeys, ui.FocusKey); ok {
+			if held, ok := heldByAnythingElse(rootKeys, env.FocusKey); ok {
 				return fail(
 					fmt.Errorf("%w: %s is bound in your tmux root table to %s",
-						ErrFocusKeyUnavailable, ui.FocusKey, held),
-					ui.FocusKey,
-					"unbind -n "+ui.FocusKey+" in your tmux config",
+						ErrFocusKeyUnavailable, env.FocusKey, held),
+					env.FocusKey,
+					"unbind -n "+env.FocusKey+" in your tmux config",
 				)
 			}
 

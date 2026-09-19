@@ -10,6 +10,7 @@ import (
 	"weave/config"
 	"weave/internal/doctor"
 	"weave/internal/errui"
+	"weave/internal/ui"
 	"weave/internal/version"
 	"weave/lib/xhttp"
 	"weave/lib/xslice"
@@ -223,6 +224,7 @@ func (a *app) buildDoctor() (doctor.Env, doctor.Settings, error) {
 	}
 
 	env.IsPanelRunning = func(ctx context.Context) bool { return isPanelRunning(ctx, a) }
+	env.ValidateKeybindings = ui.ValidateKeybindings
 
 	return env, settings, nil
 }
@@ -245,6 +247,7 @@ func (a *app) buildDoctorSettings() (doctor.Settings, error) {
 		DatabaseURL:         a.env.DatabaseURL,
 		ReadOnlyDatabaseURL: a.env.ReadOnlyDatabaseURL,
 		Addr:                a.env.Addr,
+		FocusKey:            ui.FocusKey,
 		EngineIsRemote:      a.engine().IsRemote(),
 		Version:             version.Version(),
 		Commit:              version.Commit(),
