@@ -35,8 +35,8 @@ func TestAgentsMailEachOther(t *testing.T) {
 
 	t.Run("an agent addresses another by id", func(t *testing.T) {
 		req := connect.NewRequest(&agentv1.SendMailRequest{
-			ToAgentId: migrations.GetId(),
-			Body:      "what is the refund column called?",
+			To:   migrations.GetId(),
+			Body: "what is the refund column called?",
 		})
 		caller.Caller{AgentID: api.GetId()}.SetHeader(req.Header())
 
@@ -66,9 +66,9 @@ func TestAgentsMailEachOther(t *testing.T) {
 
 	t.Run("the answer comes back on the same thread", func(t *testing.T) {
 		req := connect.NewRequest(&agentv1.SendMailRequest{
-			ToAgentId: api.GetId(),
-			Body:      "refunded_cents",
-			ReplyTo:   &sentID,
+			To:      api.GetId(),
+			Body:    "refunded_cents",
+			ReplyTo: &sentID,
 		})
 		caller.Caller{AgentID: migrations.GetId()}.SetHeader(req.Header())
 
@@ -83,7 +83,7 @@ func TestAgentsMailEachOther(t *testing.T) {
 	})
 
 	t.Run("mail dies with the agent it was addressed to", func(t *testing.T) {
-		req := connect.NewRequest(&agentv1.SendMailRequest{ToAgentId: migrations.GetId(), Body: "still there?"})
+		req := connect.NewRequest(&agentv1.SendMailRequest{To: migrations.GetId(), Body: "still there?"})
 		caller.Caller{AgentID: api.GetId()}.SetHeader(req.Header())
 		_, err := instance.Agents.SendMail(ctx, req)
 		require.NoError(t, err)

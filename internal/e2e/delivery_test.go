@@ -38,8 +38,8 @@ func TestMailReachesAnAgentThatHadAlreadyStopped(t *testing.T) {
 
 	t.Run("mail is sent to an agent that has already stopped", func(t *testing.T) {
 		req := connect.NewRequest(&agentv1.SendMailRequest{
-			ToAgentId: migrations.GetId(),
-			Body:      "what is the refund column called?",
+			To:   migrations.GetId(),
+			Body: "what is the refund column called?",
 		})
 		callAs(req, api.GetId())
 
@@ -105,8 +105,8 @@ func TestDeliveryLeavesABusyAgentAlone(t *testing.T) {
 	instance.Settle(migrations.GetId(), harness.ActivityWorking, agentstore.StateThinking)
 
 	req := connect.NewRequest(&agentv1.SendMailRequest{
-		ToAgentId: migrations.GetId(),
-		Body:      "refunded_cents",
+		To:   migrations.GetId(),
+		Body: "refunded_cents",
 	})
 	callAs(req, api.GetId())
 	_, err = instance.Agents.SendMail(ctx, req)
@@ -137,8 +137,8 @@ func TestDeliveryNeverTypesAtAnAgentOnAPrompt(t *testing.T) {
 	instance.Settle(migrations.GetId(), harness.ActivityWaiting, agentstore.StateWaiting)
 
 	req := connect.NewRequest(&agentv1.SendMailRequest{
-		ToAgentId: migrations.GetId(),
-		Body:      "are you stuck?",
+		To:   migrations.GetId(),
+		Body: "are you stuck?",
 	})
 	callAs(req, api.GetId())
 	_, err = instance.Agents.SendMail(ctx, req)
@@ -166,8 +166,8 @@ func TestExpiredMailIsGivenUpOn(t *testing.T) {
 	instance.Settle(migrations.GetId(), harness.ActivityIdle, agentstore.StateIdle)
 
 	req := connect.NewRequest(&agentv1.SendMailRequest{
-		ToAgentId: migrations.GetId(),
-		Body:      "too late",
+		To:   migrations.GetId(),
+		Body: "too late",
 	})
 	callAs(req, api.GetId())
 	_, err = instance.Agents.SendMail(ctx, req)
@@ -196,8 +196,8 @@ func TestDeliveryWaitsForAPaneToDrawItsPrompt(t *testing.T) {
 	instance.Settle(migrations.GetId(), harness.ActivityIdle, agentstore.StateIdle)
 
 	req := connect.NewRequest(&agentv1.SendMailRequest{
-		ToAgentId: migrations.GetId(),
-		Body:      "what is the refund column called?",
+		To:   migrations.GetId(),
+		Body: "what is the refund column called?",
 	})
 	callAs(req, api.GetId())
 	_, err = instance.Agents.SendMail(ctx, req)

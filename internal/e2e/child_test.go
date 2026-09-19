@@ -51,8 +51,8 @@ func TestChildAgent(t *testing.T) {
 		stranger := createAgent(t, instance, workflowID, "unrelated")
 
 		send := connect.NewRequest(&agentv1.SendMailRequest{
-			ToAgentId: stranger.GetId(),
-			Body:      "hello",
+			To:   stranger.GetId(),
+			Body: "hello",
 		})
 		caller.Caller{AgentID: child.GetId()}.SetHeader(send.Header())
 
@@ -61,8 +61,8 @@ func TestChildAgent(t *testing.T) {
 		assert.Equal(t, connect.CodePermissionDenied, connect.CodeOf(err))
 
 		toParent := connect.NewRequest(&agentv1.SendMailRequest{
-			ToAgentId: parent.GetId(),
-			Body:      "the diff reads clean",
+			To:   parent.GetId(),
+			Body: "the diff reads clean",
 		})
 		caller.Caller{AgentID: child.GetId()}.SetHeader(toParent.Header())
 

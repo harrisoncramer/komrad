@@ -77,7 +77,7 @@ flags, and the response is the API's own JSON on stdout.
 * [weave rpc retry-agent](weave_rpc_retry-agent.md)	 - Retry launching an agent that failed to create, keyed by id, optionally with corrected flags, prompt, or harness.
 * [weave rpc run-doctor](weave_rpc_run-doctor.md)	 - Check the machine the service runs on for what its agents need: tmux and its shell, the config, the harness binaries, the hooks and worktree directories, the database and its schema.
 * [weave rpc search-transcripts](weave_rpc_search-transcripts.md)	 - Full-text search over conversations, including archived ones, returning one hit per matching turn with the matched text marked.
-* [weave rpc send-mail](weave_rpc_send-mail.md)	 - Send one piece of mail to another agent, addressed by its id.
+* [weave rpc send-mail](weave_rpc_send-mail.md)	 - Send one piece of mail to another agent, addressed by its id or by its name.
 * [weave rpc set-agent-hidden](weave_rpc_set-agent-hidden.md)	 - Hide an agent from the panel's sidebar, keyed by its id, or unhide it by passing hidden false.
 * [weave rpc set-agent-metadata](weave_rpc_set-agent-metadata.md)	 - Record one fact about an agent's work under a key of your choosing, keyed by the agent's id, or clear that key by omitting the value.
 * [weave rpc set-mark](weave_rpc_set-mark.md)	 - Put a single lowercase letter on an agent's row or a workflow's row, which is the shorthand a person types in the panel to jump straight to that row.

@@ -77,6 +77,7 @@ func TestWrapCodes(t *testing.T) {
 		{agents.ErrParentIsChild, connect.CodeInvalidArgument},
 		{agents.ErrChildOwnsLaunch, connect.CodeInvalidArgument},
 		{agents.ErrSelfAddressed, connect.CodeInvalidArgument},
+		{agents.ErrRecipientAmbiguous, connect.CodeInvalidArgument},
 		{agents.ErrSenderUnknown, connect.CodeInvalidArgument},
 		{agents.ErrReplyToNotFound, connect.CodeInvalidArgument},
 		{agents.ErrWorktreeNeedsCwd, connect.CodeInvalidArgument},

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"strings"
 	"time"
 
 	"weave/internal/fail"
@@ -24,7 +25,9 @@ const maxClaimedMail = 20
 
 const exchangeCappedBody = "weave: %s (%s) wrote to you and the send was refused, because the two of you have now exchanged %d pieces of mail, which is the limit. Nothing further will get through between you, in either direction. Whatever you were waiting on from them is not coming, so do not keep waiting: say where you got to, and tell the person what is unfinished. A row has been marked for attention in the panel so the person knows to look."
 
-var ErrRecipientNotFound = fail.NotFound("no agent holds that id")
+var ErrRecipientNotFound = fail.NotFound("no agent answers to that address")
+
+var ErrRecipientAmbiguous = fail.InvalidArgument("more than one live agent holds that name")
 
 var ErrSenderUnknown = fail.InvalidArgument("the sender is not an agent this panel knows")
 
@@ -58,6 +61,7 @@ type mailReadWriter interface {
 
 type mailAgentReadWriter interface {
 	agentGetter
+	ListLiveNamed(ctx context.Context, name string) ([]agentstore.Agent, error)
 	SetViewed(ctx context.Context, id string, viewed bool) error
 }
 
@@ -69,12 +73,14 @@ type mailConfigReader interface {
 type MailService struct {
 	mailReadWriter mailReadWriter
 	agents         mailAgentReadWriter
+	workflows      workflowGetter
 	config         mailConfigReader
 }
 
 type NewMailServiceParams struct {
 	MailReadWriter mailReadWriter
 	Agents         mailAgentReadWriter
+	Workflows      workflowGetter
 	Config         mailConfigReader
 }
 
@@ -84,8 +90,71 @@ func NewMailService(params NewMailServiceParams) *MailService {
 	return &MailService{
 		mailReadWriter: params.MailReadWriter,
 		agents:         params.Agents,
+		workflows:      params.Workflows,
 		config:         params.Config,
 	}
+}
+
+type ResolveRecipientParams struct {
+	From string
+	To   string
+}
+
+// ResolveRecipient turns an address into the agent it names: an id as it stands, or else the
+// name of a live agent, looked for in the sender's own workflow before every workflow.
+func (s *MailService) ResolveRecipient(ctx context.Context, params ResolveRecipientParams) (*agentstore.Agent, error) {
+	if store.IsID(params.To) {
+		recipient, err := s.agents.GetByID(ctx, params.To)
+		if errors.Is(err, store.ErrNotFound) {
+			return nil, ErrRecipientNotFound.Saying("no agent holds the id %q", params.To)
+		}
+		if err != nil {
+			return nil, err
+		}
+
+		return recipient, nil
+	}
+
+	named, err := s.agents.ListLiveNamed(ctx, params.To)
+	if err != nil {
+		return nil, err
+	}
+
+	if params.From != "" {
+		sender, err := s.findSender(ctx, params.From)
+		if err != nil {
+			return nil, err
+		}
+
+		nearby := xslice.Filter(named, func(agent agentstore.Agent) bool {
+			return agent.WorkflowID == sender.WorkflowID
+		})
+		if len(nearby) == 1 {
+			return &nearby[0], nil
+		}
+	}
+
+	switch len(named) {
+	case 0:
+		return nil, ErrRecipientNotFound.Saying("no live agent is named %q", params.To)
+	case 1:
+		return &named[0], nil
+	}
+
+	return nil, ErrRecipientAmbiguous.Saying("%d live agents are named %q, so address one of them by id: %s", len(named), params.To, s.describeHolders(ctx, named))
+}
+
+func (s *MailService) describeHolders(ctx context.Context, holders []agentstore.Agent) string {
+	described := xslice.Map(holders, func(agent agentstore.Agent) string {
+		workflow, err := s.workflows.Get(ctx, agent.WorkflowID)
+		if err != nil {
+			return fmt.Sprintf("%s in workflow %s", agent.ID, agent.WorkflowID)
+		}
+
+		return fmt.Sprintf("%s in workflow %q", agent.ID, workflow.Name)
+	})
+
+	return strings.Join(described, ", ")
 }
 
 type SendMailParams struct {

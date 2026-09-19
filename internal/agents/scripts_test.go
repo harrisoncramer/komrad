@@ -1513,6 +1513,10 @@ func (f fakeAgentReaderFunc) GetByID(ctx context.Context, id string) (*agentstor
 
 func (fakeAgentReaderFunc) SetViewed(context.Context, string, bool) error { return nil }
 
+func (fakeAgentReaderFunc) ListLiveNamed(context.Context, string) ([]agentstore.Agent, error) {
+	return nil, nil
+}
+
 func (fakeAgentReaderFunc) ListChildren(context.Context, []string) ([]agentstore.Agent, error) {
 	return nil, nil
 }

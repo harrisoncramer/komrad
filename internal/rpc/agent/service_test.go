@@ -294,8 +294,8 @@ func TestListAgentsReportsUnreadMail(t *testing.T) {
 	})
 
 	_, err := svc.SendMail(t.Context(), connect.NewRequest(&agentv1.SendMailRequest{
-		ToAgentId: beta.ID,
-		Body:      "refunded_cents",
+		To:   beta.ID,
+		Body: "refunded_cents",
 	}))
 	require.NoError(t, err)
 
@@ -387,8 +387,8 @@ func TestGetAgentReportsUnreadMail(t *testing.T) {
 	})
 
 	_, err := svc.SendMail(t.Context(), connect.NewRequest(&agentv1.SendMailRequest{
-		ToAgentId: beta.ID,
-		Body:      "refunded_cents",
+		To:   beta.ID,
+		Body: "refunded_cents",
 	}))
 	require.NoError(t, err)
 
@@ -989,8 +989,8 @@ func TestRecordReportKeepsTheReasonWithoutEndingTheTurn(t *testing.T) {
 	assert.Empty(t, cleared.Msg.GetAgent().GetReportedReason(), "a turn ending leaves nothing to say the agent is doing")
 }
 
-// TestSendMail pins the code each way of addressing mail wrongly is answered with, a name in
-// place of an id included.
+// TestSendMail pins the code each way of addressing mail wrongly is answered with, and that a
+// name reaches its holder as an id does.
 func TestSendMail(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -1001,12 +1001,6 @@ func TestSendMail(t *testing.T) {
 		{
 			name:     "an id no agent holds",
 			to:       missingID,
-			callerIs: "alpha",
-			wantCode: connect.CodeNotFound,
-		},
-		{
-			name:     "a name rather than an id",
-			to:       "beta",
 			callerIs: "alpha",
 			wantCode: connect.CodeNotFound,
 		},
@@ -1025,6 +1019,11 @@ func TestSendMail(t *testing.T) {
 		{
 			name:     "an agent messaging another by id",
 			to:       "beta-id",
+			callerIs: "alpha",
+		},
+		{
+			name:     "an agent messaging another by name",
+			to:       "beta",
 			callerIs: "alpha",
 		},
 		{
@@ -1065,8 +1064,8 @@ func TestSendMail(t *testing.T) {
 			}
 
 			sent, err := svc.SendMail(ctx, connect.NewRequest(&agentv1.SendMailRequest{
-				ToAgentId: to,
-				Body:      "which column holds the refund?",
+				To:   to,
+				Body: "which column holds the refund?",
 			}))
 			if tt.wantCode != 0 {
 				assert.Equal(t, tt.wantCode, connect.CodeOf(err))
@@ -1088,6 +1087,69 @@ func TestSendMail(t *testing.T) {
 			assert.Empty(t, sent.Msg.GetMail().GetFromAgentId())
 		})
 	}
+}
+
+// TestSendMailByName pins that a name is looked for in the sender's own workflow before every
+// workflow, and that one held by two other workflows is refused naming both holders.
+func TestSendMailByName(t *testing.T) {
+	svc, st := service(t)
+	chariot := st.SeedWorkflow(t, workflowstore.Config{Name: "chariot"})
+	weave := st.SeedWorkflow(t, workflowstore.Config{Name: "weave"})
+	docs := st.SeedWorkflow(t, workflowstore.Config{Name: "docs"})
+
+	alpha := st.SeedAgent(t, agentstore.Agent{
+		Name:       "alpha",
+		Cwd:        "/repo",
+		WorkflowID: chariot.ID,
+	})
+	reviewerHere := st.SeedAgent(t, agentstore.Agent{
+		Name:       "reviewer",
+		Cwd:        "/repo",
+		WorkflowID: chariot.ID,
+	})
+	st.SeedAgent(t, agentstore.Agent{
+		Name:       "reviewer",
+		Cwd:        "/repo",
+		WorkflowID: weave.ID,
+	})
+	testerWeave := st.SeedAgent(t, agentstore.Agent{
+		Name:       "tester",
+		Cwd:        "/repo",
+		WorkflowID: weave.ID,
+	})
+	testerDocs := st.SeedAgent(t, agentstore.Agent{
+		Name:       "tester",
+		Cwd:        "/repo",
+		WorkflowID: docs.ID,
+	})
+
+	asAlpha := caller.With(t.Context(), caller.Caller{AgentID: alpha.ID})
+
+	sent, err := svc.SendMail(asAlpha, connect.NewRequest(&agentv1.SendMailRequest{
+		To:   "reviewer",
+		Body: "which column holds the refund?",
+	}))
+	require.NoError(t, err)
+	assert.Equal(t, reviewerHere.ID, sent.Msg.GetMail().GetToAgentId())
+
+	_, err = svc.SendMail(asAlpha, connect.NewRequest(&agentv1.SendMailRequest{
+		To:   "tester",
+		Body: "does the suite pass?",
+	}))
+	require.Error(t, err)
+	assert.Equal(t, connect.CodeInvalidArgument, connect.CodeOf(err))
+	assert.Contains(t, err.Error(), testerWeave.ID+" in workflow \"weave\"")
+	assert.Contains(t, err.Error(), testerDocs.ID+" in workflow \"docs\"")
+
+	_, err = st.Agents.Archive(t.Context(), []string{testerWeave.ID})
+	require.NoError(t, err)
+
+	sent, err = svc.SendMail(asAlpha, connect.NewRequest(&agentv1.SendMailRequest{
+		To:   "tester",
+		Body: "does the suite pass?",
+	}))
+	require.NoError(t, err)
+	assert.Equal(t, testerDocs.ID, sent.Msg.GetMail().GetToAgentId())
 }
 
 // TestSendMailPastTheExchangeLimitIsResourceExhausted pins that a pair that has written each
@@ -1120,17 +1182,17 @@ func TestSendMailPastTheExchangeLimitIsResourceExhausted(t *testing.T) {
 
 	asAlpha := caller.With(t.Context(), caller.Caller{AgentID: alpha.ID})
 	first, err := svc.SendMail(asAlpha, connect.NewRequest(&agentv1.SendMailRequest{
-		ToAgentId: beta.ID,
-		Body:      "which column?",
+		To:   beta.ID,
+		Body: "which column?",
 	}))
 	require.NoError(t, err)
 
 	asBeta := caller.With(t.Context(), caller.Caller{AgentID: beta.ID})
 	replyTo := first.Msg.GetMail().GetId()
 	_, err = svc.SendMail(asBeta, connect.NewRequest(&agentv1.SendMailRequest{
-		ToAgentId: alpha.ID,
-		Body:      "refunded_cents",
-		ReplyTo:   &replyTo,
+		To:      alpha.ID,
+		Body:    "refunded_cents",
+		ReplyTo: &replyTo,
 	}))
 	require.Error(t, err)
 	assert.Equal(t, connect.CodeResourceExhausted, connect.CodeOf(err))
@@ -1153,8 +1215,8 @@ func TestReadMail(t *testing.T) {
 
 	asAlpha := caller.With(t.Context(), caller.Caller{AgentID: alpha.ID})
 	_, err := svc.SendMail(asAlpha, connect.NewRequest(&agentv1.SendMailRequest{
-		ToAgentId: beta.ID,
-		Body:      "refunded_cents",
+		To:   beta.ID,
+		Body: "refunded_cents",
 	}))
 	require.NoError(t, err)
 
@@ -1270,8 +1332,8 @@ func TestListMail(t *testing.T) {
 
 	asAlpha := caller.With(t.Context(), caller.Caller{AgentID: alpha.ID})
 	_, err := svc.SendMail(asAlpha, connect.NewRequest(&agentv1.SendMailRequest{
-		ToAgentId: beta.ID,
-		Body:      "refunded_cents",
+		To:   beta.ID,
+		Body: "refunded_cents",
 	}))
 	require.NoError(t, err)
 
@@ -1304,15 +1366,15 @@ func TestListMailDirection(t *testing.T) {
 
 	asAlpha := caller.With(t.Context(), caller.Caller{AgentID: alpha.ID})
 	_, err := svc.SendMail(asAlpha, connect.NewRequest(&agentv1.SendMailRequest{
-		ToAgentId: beta.ID,
-		Body:      "what alpha said",
+		To:   beta.ID,
+		Body: "what alpha said",
 	}))
 	require.NoError(t, err)
 
 	asBeta := caller.With(t.Context(), caller.Caller{AgentID: beta.ID})
 	_, err = svc.SendMail(asBeta, connect.NewRequest(&agentv1.SendMailRequest{
-		ToAgentId: alpha.ID,
-		Body:      "what beta said",
+		To:   alpha.ID,
+		Body: "what beta said",
 	}))
 	require.NoError(t, err)
 
@@ -1449,8 +1511,8 @@ func TestDeleteMail(t *testing.T) {
 
 	asAlpha := caller.With(t.Context(), caller.Caller{AgentID: alpha.ID})
 	sent, err := svc.SendMail(asAlpha, connect.NewRequest(&agentv1.SendMailRequest{
-		ToAgentId: beta.ID,
-		Body:      "refunded_cents",
+		To:   beta.ID,
+		Body: "refunded_cents",
 	}))
 	require.NoError(t, err)
 
@@ -2139,6 +2201,7 @@ func serviceWithLauncher(t *testing.T) (agentv1weave.AgentServiceAdapter, *store
 	mail := agents.NewMailService(agents.NewMailServiceParams{
 		MailReadWriter: st.Mail,
 		Agents:         st.Agents,
+		Workflows:      st.Workflows,
 		Config:         fakeMailConfig(config.DefaultMaxExchange),
 	})
 

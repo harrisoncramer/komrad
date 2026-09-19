@@ -116,7 +116,7 @@ func TestListMailDirectionOverJSON(t *testing.T) {
 func sendMail(t *testing.T, instance *weavetest.Instance, fromID, toID, body string) {
 	t.Helper()
 
-	req := connect.NewRequest(&agentv1.SendMailRequest{ToAgentId: toID, Body: body})
+	req := connect.NewRequest(&agentv1.SendMailRequest{To: toID, Body: body})
 	caller.Caller{AgentID: fromID}.SetHeader(req.Header())
 
 	_, err := instance.Agents.SendMail(t.Context(), req)
