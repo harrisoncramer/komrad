@@ -44,6 +44,9 @@ func TestReadActivityOnCapturedFrames(t *testing.T) {
 		// Some panes draw Claude's bullet as U+25CF rather than U+23FA.
 		{file: "filled_bullets_while_a_command_runs.txt", want: harness.ActivityWorking},
 		{file: "filled_bullets_after_a_truncated_tool_call.txt", want: harness.ActivityIdle},
+		{file: "a_lead_at_its_prompt_over_a_background_agent.txt", want: harness.ActivityWorking},
+		{file: "a_lead_at_its_prompt_over_two_background_agents.txt", want: harness.ActivityWorking},
+		{file: "a_finished_agent_under_its_waiting_line.txt", want: harness.ActivityIdle},
 		{file: "a_screen_no_pattern_matches.txt", want: harness.ActivityUnrecognized},
 		// Every agent draws this for a few seconds after the panel restarts, so the panel
 		// showing a wave of uncertain rows on startup is this frame rather than a fault.

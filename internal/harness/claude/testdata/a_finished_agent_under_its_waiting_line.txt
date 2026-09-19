@@ -1,0 +1,45 @@
+
+[38;5;231m⏺[39m Second agent done. Foreground [38;5;153msleep 200[39m blocked by harness: "Blocked: standalone sleep 200." Agent skipped sleep, ran [38;5;153mls[39m anyway. Output:
+
+  README.md
+
+  First agent (background sleep 150) still pending, no [38;5;153mls[39m result from it yet.
+
+[38;5;246m✻[39m [38;5;246mBaked for 24s · done 8:36 AM[39m
+
+[38;5;114m⏺[39m Agent "Sleep then list files" finished[38;5;246m · 2m 43s[39m
+
+[38;5;231m⏺[39m First agent done now. [38;5;153msleep 150[39m finished, [38;5;153mls[39m printed:
+
+  README.md
+
+  Exit code 0. Both agents report same single file.
+
+[38;5;246m✻[39m [38;5;246mSautéed for 2s · done 8:38 AM[39m
+
+[38;5;239m[48;5;237m❯ [38;5;231me the Agent tool once more with subagent_type Explore and this prompt: "Run exactly this shell command in the foreground and wait for it:[39m
+  [38;5;231mpython3 -c \"import time; time.sleep(240); print(42)\". Then report what it printed." Do not wait for it and do not poll: the moment the[39m
+  [38;5;231mAgent call returns, reply with the single word LAUNCHED and end your turn.[39m
+
+[38;5;114m[49m⏺[39m [1mExplore[0m(Foreground python sleep)
+[38;5;246m  ⎿  [39mBackgrounded agent[38;5;246m (↓ to manage · ctrl+o to expand)[39m
+
+[38;5;231m⏺[39m LAUNCHED
+
+[38;5;246m✻[39m [38;5;246mWaiting for [1m1[0m[38;5;246m background agent to finish[39m
+
+[38;5;114m⏺[39m Agent "Foreground python sleep" finished[38;5;246m · 4m 7s[39m
+
+[38;5;231m⏺[39m Third agent done. Python foreground sleep 240 ran fine (not blocked like bare [38;5;153msleep[39m). Printed:
+
+  42
+
+  Took ~247s wall clock.
+
+[38;5;246m✻[39m [38;5;246mCogitated for 4m 12s · done 8:43 AM[39m
+
+[38;5;244m────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+[39m❯ 
+[38;5;244m────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+[39m  [38;5;246m-- INSERT --[39m [38;5;211m⏵⏵ bypass permissions on[38;5;246m (shift+tab to cycle) · ← 3 agents[39m

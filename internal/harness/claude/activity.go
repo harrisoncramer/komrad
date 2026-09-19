@@ -8,8 +8,9 @@ import (
 )
 
 var (
-	workingLine  = regexp.MustCompile(`^\s*[^\s\p{L}⎿❯│─╭╮╰╯-]\s+\p{L}.*…(\s*·.*)?\s*$`)
-	workingTimer = regexp.MustCompile(`…\s*\(([^)]*·\s*)?\d+m?\s*\d*\s*s`)
+	workingLine     = regexp.MustCompile(`^\s*[^\s\p{L}⎿❯│─╭╮╰╯-]\s+\p{L}.*…(\s*·.*)?\s*$`)
+	workingTimer    = regexp.MustCompile(`…\s*\(([^)]*·\s*)?\d+m?\s*\d*\s*s`)
+	waitingOnAgents = regexp.MustCompile(`^\s*[^\s\p{L}⎿❯│─╭╮╰╯-]\s+Waiting for \d+ background agents? to finish\s*$`)
 )
 
 var waitingFooter = regexp.MustCompile(`(?i)esc to cancel|enter to select`)
@@ -172,7 +173,7 @@ func readOpeningMarker(line string) (string, bool) {
 // doesFrameShowWork reads only the lines between the box and the conversation above it.
 func doesFrameShowWork(lines []string, box inputBox, boxed bool) bool {
 	for _, line := range statusRegion(lines, box, boxed) {
-		if workingLine.MatchString(line) || workingTimer.MatchString(line) {
+		if workingLine.MatchString(line) || workingTimer.MatchString(line) || waitingOnAgents.MatchString(line) {
 			return true
 		}
 	}
