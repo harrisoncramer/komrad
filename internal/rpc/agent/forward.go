@@ -59,9 +59,17 @@ func (s *AgentService) ForwardLastTurns(ctx context.Context, req *agentv1.Forwar
 		return nil, errForwardTooLong.Saying("the forward would run to %d characters and mail holds at most %d; pass a smaller maxBytes or fewer turns", length, agents.MaxMailBody)
 	}
 
+	recipient, err := s.agents.GetByID(ctx, req.GetToAgentId())
+	if errors.Is(err, store.ErrNotFound) {
+		return nil, agents.ErrRecipientNotFound.Saying("no agent with id %q", req.GetToAgentId())
+	}
+	if err != nil {
+		return nil, rpcerr.From(err, "failed to look up the recipient")
+	}
+
 	sent, err := s.mail.SendMail(ctx, agents.SendMailParams{
 		From:      caller.From(ctx).AgentID,
-		ToAgentID: req.GetToAgentId(),
+		ToAgentID: recipient.ID,
 		Body:      body,
 	})
 	if err != nil {
@@ -74,6 +82,7 @@ func (s *AgentService) ForwardLastTurns(ctx context.Context, req *agentv1.Forwar
 		CreatedAt:  dates.Stamp(sent.CreatedAt),
 		Turns:      int32(len(turns)),
 		Characters: int32(length),
+		Warning:    s.buildDormantWarning(*recipient),
 	}, nil
 }
 

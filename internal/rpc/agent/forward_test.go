@@ -315,7 +315,7 @@ func TestForwardLastTurnsRefusesAnArchivedRecipient(t *testing.T) {
 // the way a send does.
 func TestForwardLastTurnsCountsTowardTheExchange(t *testing.T) {
 	st := storetest.Open(t)
-	svc := forwardServiceOver(st, 1)
+	svc := forwardServiceOver(st, 1, &fakeLauncher{alive: true})
 
 	alpha := st.SeedAgent(t, agentstore.Agent{Name: "alpha", State: agentstore.StateIdle})
 	beta := st.SeedAgent(t, agentstore.Agent{Name: "beta", State: agentstore.StateIdle})
@@ -335,6 +335,56 @@ func TestForwardLastTurnsCountsTowardTheExchange(t *testing.T) {
 	}))
 	assert.Equal(t, connect.CodeResourceExhausted, connect.CodeOf(err))
 	require.ErrorIs(t, err, agents.ErrExchangeCapped)
+}
+
+// TestForwardLastTurnsWarnsOfADormantRecipient covers a forward to an agent nothing runs behind
+// saying so, the way a send does.
+func TestForwardLastTurnsWarnsOfADormantRecipient(t *testing.T) {
+	tests := []struct {
+		name        string
+		alive       bool
+		wantWarning bool
+	}{
+		{
+			name:        "an idle agent whose pane is gone",
+			alive:       false,
+			wantWarning: true,
+		},
+		{
+			name:        "an idle agent in its pane",
+			alive:       true,
+			wantWarning: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			st := storetest.Open(t)
+			svc := forwardServiceOver(st, config.DefaultMaxExchange, &fakeLauncher{alive: tt.alive})
+
+			alpha := st.SeedAgent(t, agentstore.Agent{Name: "alpha", State: agentstore.StateIdle})
+			beta := st.SeedAgent(t, agentstore.Agent{Name: "beta", State: agentstore.StateIdle})
+			gamma := st.SeedAgent(t, agentstore.Agent{Name: "gamma", State: agentstore.StateIdle})
+			st.SeedTurns(t, alpha.ID, transcriptstore.Turn{Role: "assistant", Content: "then the conclusion"})
+
+			sent, err := svc.ForwardLastTurns(caller.With(t.Context(), caller.Caller{AgentID: gamma.ID}), connect.NewRequest(&agentv1.ForwardLastTurnsRequest{
+				FromAgentId: alpha.ID,
+				ToAgentId:   beta.ID,
+			}))
+			require.NoError(t, err)
+			assert.Equal(t, beta.ID, sent.Msg.GetToAgentId())
+
+			if !tt.wantWarning {
+				assert.Nil(t, sent.Msg.Warning)
+
+				return
+			}
+
+			require.NotNil(t, sent.Msg.Warning)
+			assert.Contains(t, sent.Msg.GetWarning(), "beta")
+			assert.Contains(t, sent.Msg.GetWarning(), "dormant")
+		})
+	}
 }
 
 // TestForwardLastTurnsRecordsTheRead covers a forward leaving the line a read of somebody else's
@@ -379,10 +429,10 @@ func forwardService(t *testing.T) (agentv1weave.AgentServiceAdapter, *storetest.
 
 	st := storetest.Open(t)
 
-	return forwardServiceOver(st, config.DefaultMaxExchange), st
+	return forwardServiceOver(st, config.DefaultMaxExchange, &fakeLauncher{alive: true}), st
 }
 
-func forwardServiceOver(st *storetest.Stores, maxExchange int) agentv1weave.AgentServiceAdapter {
+func forwardServiceOver(st *storetest.Stores, maxExchange int, liveness *fakeLauncher) agentv1weave.AgentServiceAdapter {
 	mail := agents.NewMailService(agents.NewMailServiceParams{
 		MailReadWriter: st.Mail,
 		Agents:         st.Agents,
@@ -393,6 +443,7 @@ func forwardServiceOver(st *storetest.Stores, maxExchange int) agentv1weave.Agen
 		Agents:      st.Agents,
 		Transcripts: st.Transcripts,
 		Mail:        mail,
+		Liveness:    liveness,
 		Runs:        st.Runs,
 		Marks:       markService(st),
 		Clock:       func() time.Time { return forwardedAt },
