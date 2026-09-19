@@ -1,6 +1,7 @@
 package git
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"strconv"
@@ -25,38 +26,36 @@ type Commit struct {
 
 // ReadChanges is every uncommitted path in a checkout, split by whether git tracks it.
 func (c *Client) ReadChanges(ctx context.Context, dir string) (Changes, error) {
-	out, err := RunBytes(ctx, dir, "status", "--porcelain", "--untracked-files=all", "-z")
+	refreshIndex(ctx, dir)
+
+	modified, err := pathList(ctx, dir, "diff-index", "--name-only", "-z", "HEAD", "--")
 	if err != nil {
 		return Changes{}, fmt.Errorf("failed to read what %q has changed: %w", dir, err)
 	}
 
-	return parseChanges(string(out)), nil
+	untracked, err := pathList(ctx, dir, "ls-files", "--others", "--exclude-standard", "-z")
+	if err != nil {
+		return Changes{}, fmt.Errorf("failed to read what %q has added: %w", dir, err)
+	}
+
+	return Changes{Modified: modified, Untracked: untracked}, nil
 }
 
-// parseChanges reads the NUL-separated porcelain, where a rename carries its old path as one
-// more record after the new one.
-func parseChanges(out string) Changes {
-	changes := Changes{}
-	records := strings.Split(out, "\x00")
-	for i := 0; i < len(records); i++ {
-		record := records[i]
-		if len(record) < 4 {
-			continue
-		}
+// pathList runs a git command that prints NUL-separated paths.
+func pathList(ctx context.Context, dir string, args ...string) ([]string, error) {
+	out, err := RunBytes(ctx, dir, args...)
+	if err != nil {
+		return nil, err
+	}
 
-		status, path := record[:2], record[3:]
-		if status[0] == 'R' || status[0] == 'C' || status[1] == 'R' || status[1] == 'C' {
-			i++
-		}
-
-		if status == "??" {
-			changes.Untracked = append(changes.Untracked, path)
-		} else {
-			changes.Modified = append(changes.Modified, path)
+	var paths []string
+	for path := range bytes.SplitSeq(bytes.TrimSuffix(out, []byte{0}), []byte{0}) {
+		if len(path) > 0 {
+			paths = append(paths, string(path))
 		}
 	}
 
-	return changes
+	return paths, nil
 }
 
 // CountAheadBehind is how many commits HEAD holds that ref does not, and the other way round.

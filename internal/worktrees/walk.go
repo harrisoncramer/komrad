@@ -18,29 +18,9 @@ type Entry struct {
 	Dir   bool
 }
 
-// measured is what one walk of a directory found.
-type measured struct {
-	total   int64
-	entries []Entry
-	err     error
-}
-
 // measure is the sum of the sizes of every file under a directory and what each top-level entry
 // holds, following no symlink and skipping whatever vanishes while it is walked.
 func measure(ctx context.Context, dir string) (int64, []Entry, error) {
-	// A walk stuck in a syscall is abandoned when the context ends.
-	done := make(chan measured, 1)
-	go func() { done <- walkSizes(ctx, dir) }()
-
-	select {
-	case result := <-done:
-		return result.total, result.entries, result.err
-	case <-ctx.Done():
-		return 0, nil, ctx.Err()
-	}
-}
-
-func walkSizes(ctx context.Context, dir string) measured {
 	byEntry := map[string]*Entry{}
 	var order []string
 	var total int64
@@ -86,7 +66,7 @@ func walkSizes(ctx context.Context, dir string) measured {
 		return nil
 	})
 	if err != nil {
-		return measured{err: err}
+		return 0, nil, err
 	}
 
 	entries := make([]Entry, 0, len(order))
@@ -95,5 +75,5 @@ func walkSizes(ctx context.Context, dir string) measured {
 	}
 	slices.SortStableFunc(entries, func(a, b Entry) int { return cmp.Compare(b.Bytes, a.Bytes) })
 
-	return measured{total: total, entries: entries}
+	return total, entries, nil
 }

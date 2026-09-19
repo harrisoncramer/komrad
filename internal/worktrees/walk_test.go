@@ -32,8 +32,7 @@ func TestMeasureSumsEveryFileUnderADirectory(t *testing.T) {
 	}, entries)
 }
 
-// TestMeasureGivesUpWhenTheContextEnds covers a walk that hangs being abandoned rather than
-// waited out.
+// TestMeasureGivesUpWhenTheContextEnds covers the walk stopping once the context has ended.
 func TestMeasureGivesUpWhenTheContextEnds(t *testing.T) {
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()

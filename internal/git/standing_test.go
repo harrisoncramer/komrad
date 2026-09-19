@@ -11,37 +11,33 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestParseChangesSplitsTrackedFromUntracked pins the porcelain being read record by record,
-// with a rename's old path skipped rather than listed as a change of its own.
-func TestParseChangesSplitsTrackedFromUntracked(t *testing.T) {
-	out := " M a.go\x00A  b.go\x00R  new.go\x00old.go\x00?? notes.md\x00D  gone.go\x00"
-
-	changes := parseChanges(out)
-
-	assert.Equal(t, []string{"a.go", "b.go", "new.go", "gone.go"}, changes.Modified)
-	assert.Equal(t, []string{"notes.md"}, changes.Untracked)
-}
-
-// TestParseChangesOfACleanTree pins an empty listing reading as nothing rather than as one
-// empty path.
-func TestParseChangesOfACleanTree(t *testing.T) {
-	changes := parseChanges("")
-
-	assert.Empty(t, changes.Modified)
-	assert.Empty(t, changes.Untracked)
-}
-
-// TestReadChangesReadsTheCheckout covers the tracked and untracked halves against a real tree.
+// TestReadChangesReadsTheCheckout covers the tracked and untracked halves against a real tree:
+// a file edited in place, one staged, one deleted and one git ignores.
 func TestReadChangesReadsTheCheckout(t *testing.T) {
 	root := repo(t)
 	write(t, root, "kept.go", "package main\n\nvar changed = true\n")
+	write(t, root, "staged.go", "package main\n")
+	run(t, root, "add", "staged.go")
+	require.NoError(t, os.Remove(filepath.Join(root, "proto/gen/api.pb.go")))
 	write(t, root, "scratch.txt", "untracked\n")
+	write(t, root, ".gitignore", "ignored.txt\n")
+	write(t, root, "ignored.txt", "ignored\n")
 
 	changes, err := client.ReadChanges(t.Context(), root)
 	require.NoError(t, err)
 
-	assert.Equal(t, []string{"kept.go"}, changes.Modified)
-	assert.Equal(t, []string{"scratch.txt"}, changes.Untracked)
+	assert.Equal(t, []string{"kept.go", "proto/gen/api.pb.go", "staged.go"}, changes.Modified)
+	assert.Equal(t, []string{".gitignore", "scratch.txt"}, changes.Untracked)
+}
+
+// TestReadChangesOfACleanTree pins an empty listing reading as nothing rather than as one
+// empty path.
+func TestReadChangesOfACleanTree(t *testing.T) {
+	changes, err := client.ReadChanges(t.Context(), repo(t))
+	require.NoError(t, err)
+
+	assert.Empty(t, changes.Modified)
+	assert.Empty(t, changes.Untracked)
 }
 
 // TestCountAheadBehind covers a branch two commits past a base that has itself moved one.
