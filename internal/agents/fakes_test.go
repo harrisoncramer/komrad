@@ -249,7 +249,9 @@ func (f *fakeTmux) IsPaneRunningCLI(pane string) bool {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
-	return !tmux.PaneStatus{Command: f.commands[pane]}.IsRunningShell()
+	command := f.commands[pane]
+
+	return command != "" && !tmux.PaneStatus{Command: command}.IsRunningShell()
 }
 
 func (f *fakeTmux) IsClientAtPane(string, time.Duration) bool { return false }
