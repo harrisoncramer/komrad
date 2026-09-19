@@ -764,9 +764,11 @@ service AgentService {
   rpc EmptyArchive(google.protobuf.Empty) returns (google.protobuf.Empty) {
     option idempotency_level = IDEMPOTENT;
     option (annotation.v1.surfaces) = {
-      cli: false
+      cli: true
       mcp: false
-      reason: "Emptying the archive names nothing, tears down every worktree in it and cannot be undone, so it stays a key a person presses rather than a call a model could reach for on its own reading of an instruction to tidy up."
+      name: "empty_archive"
+      description: "Permanently delete every archived agent and workflow, tearing down each worktree that is still on disk. It names nothing and cannot be undone, so read the archive first."
+      reason: "Emptying the archive names nothing and cannot be undone, so it stays a key a person presses or a command a script runs on purpose, rather than a call a model could reach for on its own reading of an instruction to tidy up."
     };
   }
   rpc RecordReport(RecordReportRequest) returns (google.protobuf.Empty) {
