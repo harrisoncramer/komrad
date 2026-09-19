@@ -7,6 +7,8 @@ import (
 
 	"weave/config"
 	"weave/internal/agents"
+	"weave/internal/forge"
+	"weave/internal/forge/forges"
 	"weave/internal/frames"
 	"weave/internal/git"
 	"weave/internal/harness/pane"
@@ -32,6 +34,7 @@ type services struct {
 	holder       *agents.Holder
 	rebase       *agents.RebaseService
 	cwdSync      *agents.CwdSyncer
+	forge        *forge.ForgeService
 }
 
 // BuiltinScriptsDir is where the scripts weave ships are installed under a cache directory,
@@ -48,11 +51,7 @@ func buildServices(params NewServerParams, st *stores) (*services, error) {
 		Agents:         st.agents,
 		Config:         mailConfig(loadConfig),
 	})
-	stateDir, err := config.GetStateDir()
-	if err != nil {
-		return nil, err
-	}
-
+	stateDir := params.Env.StateDir
 	scheduleService := agents.NewScheduleService(agents.NewScheduleServiceParams{
 		Schedules: st.schedules,
 		Workflows: st.workflows,
@@ -184,6 +183,21 @@ func buildServices(params NewServerParams, st *stores) (*services, error) {
 	})
 
 	markService := agents.NewMarkService(agents.NewMarkServiceParams{Marks: st.marks, Tx: st.pool})
+
+	cfg, err := loadConfig()
+	if err != nil {
+		return nil, err
+	}
+	app, err := forges.AppFrom(cfg.GitHubApp, forges.TokenCachePath(params.Env.CacheDir))
+	if err != nil {
+		return nil, err
+	}
+	forgeService := forge.NewForgeService(forge.NewForgeServiceParams{
+		Connections: st.forges,
+		Credentials: forge.NewFileStore(stateDir),
+		Builders:    forges.Builders,
+		App:         app,
+	})
 	cwdSyncer := agents.NewCwdSyncer(agents.NewCwdSyncerParams{
 		Agents:  st.agents,
 		Heads:   git.NewClient(),
@@ -196,6 +210,7 @@ func buildServices(params NewServerParams, st *stores) (*services, error) {
 		marks:      markService,
 		rebase:     rebaseService,
 		cwdSync:    cwdSyncer,
+		forge:      forgeService,
 		script:     scriptService,
 		mail:       mailService,
 		review:     reviewService,

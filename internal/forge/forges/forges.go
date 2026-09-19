@@ -2,6 +2,8 @@
 package forges
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 
 	"weave/config"
@@ -13,6 +15,21 @@ import (
 // Builders makes the forge for each kind this build knows.
 var Builders = map[string]forge.Builder{
 	forge.KindGitHub: github.Build,
+}
+
+// TokenCachePath is where the App's minted token is kept under a cache directory, which every
+// command and the service share so one mint serves them all.
+func TokenCachePath(cacheDir string) string {
+	dir := strings.TrimSpace(cacheDir)
+	if dir == "" {
+		return ""
+	}
+
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		return ""
+	}
+
+	return filepath.Join(dir, "github-token.json")
 }
 
 // AppFrom is the GitHub App the config names, unconfigured when it names none, with its minted

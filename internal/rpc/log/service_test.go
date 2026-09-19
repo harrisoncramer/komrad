@@ -30,7 +30,7 @@ func (f *fakeLog) RecentTraces(limit int) ([]logread.Summary, error) {
 func TestGetLogLines(t *testing.T) {
 	t.Parallel()
 
-	service := NewService(&fakeLog{lines: []logread.Line{{
+	service := NewLogService(&fakeLog{lines: []logread.Line{{
 		Time:    "2026-08-06T22:47:32.293Z",
 		Level:   "ERROR",
 		Message: "rpc failed",
@@ -62,7 +62,7 @@ func TestGetLogLines(t *testing.T) {
 func TestGetLogLinesReportsWhatTheReaderSaid(t *testing.T) {
 	t.Parallel()
 
-	service := NewService(&fakeLog{err: logread.ErrNoSuchTrace.Saying("nothing under trace-nine")})
+	service := NewLogService(&fakeLog{err: logread.ErrNoSuchTrace.Saying("nothing under trace-nine")})
 
 	_, failure := service.GetLogLines(t.Context(), &logv1.GetLogLinesRequest{TraceId: "trace-nine"})
 	require.NotNil(t, failure)
@@ -79,7 +79,7 @@ func TestListRecentTraces(t *testing.T) {
 		What:      "ArchiveAgents",
 		Lines:     2,
 	}}}
-	service := NewService(log)
+	service := NewLogService(log)
 
 	resp, failure := service.ListRecentTraces(t.Context(), &logv1.ListRecentTracesRequest{Limit: 5})
 	require.Nil(t, failure)

@@ -21,17 +21,21 @@ type Environment struct {
 	Addr                string
 	TmuxSocket          string
 	CacheDir            string
-	SSH                 string
-	EngineTmuxSocket    string
-	PanelKey            string
-	Exec                []string
-	Forward             []string
-	EngineUser          string
-	Tmux                string
-	TmuxPane            string
-	AgentID             string
-	SessionID           string
-	Editor              string
+	// StateDir is where weave keeps its own files about agents, such as worktrees, released
+	// reviews and forge credentials, and is the user's state directory unless a test says
+	// otherwise.
+	StateDir         string
+	SSH              string
+	EngineTmuxSocket string
+	PanelKey         string
+	Exec             []string
+	Forward          []string
+	EngineUser       string
+	Tmux             string
+	TmuxPane         string
+	AgentID          string
+	SessionID        string
+	Editor           string
 }
 
 // LayerPaths returns the config stack named by WEAVE_CONFIG using the platform's path-list separator, the same convention used by PATH.
@@ -49,10 +53,19 @@ func LayerPaths() []string {
 }
 
 // LoadEnvironment adds transient process context to connection values Viper has already resolved.
-func LoadEnvironment(connection Environment) *Environment {
+func LoadEnvironment(connection Environment) (*Environment, error) {
 	editor := os.Getenv("EDITOR")
 	if editor == "" {
 		editor = "vi"
+	}
+
+	if connection.StateDir == "" {
+		stateDir, err := GetStateDir()
+		if err != nil {
+			return nil, err
+		}
+
+		connection.StateDir = stateDir
 	}
 
 	connection.Tmux = os.Getenv("TMUX")
@@ -61,7 +74,7 @@ func LoadEnvironment(connection Environment) *Environment {
 	connection.SessionID = os.Getenv("WEAVE_SESSION_ID")
 	connection.Editor = editor
 
-	return &connection
+	return &connection, nil
 }
 
 // LookupEnv reports an environment value and whether it is non-empty.

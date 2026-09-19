@@ -7,9 +7,10 @@ Connect weave to the services pull requests live on
 Connect weave to the services pull requests live on.
 
 Weave reads the pull requests its agents open through a connection to each forge,
-made once with a token and kept until it is disconnected. The token is held in a
-file under weave's state directory that only your user can read, and the row in the
-database records who the forge said the token belongs to.
+made once and kept until it is disconnected. The service holds the connection: a
+token lives in a file under its state directory that only its user can read, and
+the row in its database records who the forge said the credential belongs to.
+Every command here talks to the service, so with --engine it connects the engine.
 
 ### Options
 
@@ -27,6 +28,7 @@ database records who the forge said the token belongs to.
 ### SEE ALSO
 
 * [weave](weave.md)	 - tmux panel and CLI for background coding agents
+* [weave forge check](weave_forge_check.md)	 - Ask every connected forge whether its credential still works
 * [weave forge connect](weave_forge_connect.md)	 - Connect a forge with a token read from stdin, or as the engine's GitHub App
 * [weave forge disconnect](weave_forge_disconnect.md)	 - Forget a forge and the token it was connected with
 * [weave forge list](weave_forge_list.md)	 - Show every connected forge and who weave acts as there

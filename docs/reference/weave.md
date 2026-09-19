@@ -35,6 +35,7 @@ the machine, start or stop the service, or call an endpoint from a script.
 * [weave migrate](weave_migrate.md)	 - Apply any pending database migrations
 * [weave open](weave_open.md)	 - Open the panel popup, creating or attaching its persistent session
 * [weave panel](weave_panel.md)	 - Run the panel itself, as the manager session's own command
+* [weave pr](weave_pr.md)	 - Read pull requests through the forges weave is connected to
 * [weave readonly-role](weave_readonly-role.md)	 - Create the least-privilege role the MCP query tools connect as
 * [weave rpc](weave_rpc.md)	 - Call the service's endpoints, one subcommand per RPC
 * [weave serve](weave_serve.md)	 - Run the weave service in the foreground

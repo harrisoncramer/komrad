@@ -16,7 +16,7 @@ type worktreeRefresher interface {
 }
 
 // PlanRefresh reads what a rebase would do without doing it.
-func (s *Service) PlanRefresh(ctx context.Context, req *agentv1.PlanRefreshRequest) (*agentv1.PlanRefreshResponse, *fail.Error) {
+func (s *AgentService) PlanRefresh(ctx context.Context, req *agentv1.PlanRefreshRequest) (*agentv1.PlanRefreshResponse, *fail.Error) {
 	plan, err := s.refresher.PlanRebase(ctx, req.GetAgentId())
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to work out what a rebase would do")
@@ -35,7 +35,7 @@ func (s *Service) PlanRefresh(ctx context.Context, req *agentv1.PlanRefreshReque
 }
 
 // RebaseWorktree moves the agent's branch onto the latest base in place.
-func (s *Service) RebaseWorktree(ctx context.Context, req *agentv1.RebaseWorktreeRequest) (*agentv1.RebaseWorktreeResponse, *fail.Error) {
+func (s *AgentService) RebaseWorktree(ctx context.Context, req *agentv1.RebaseWorktreeRequest) (*agentv1.RebaseWorktreeResponse, *fail.Error) {
 	result, err := s.refresher.Rebase(ctx, req.GetAgentId())
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to rebase the worktree")

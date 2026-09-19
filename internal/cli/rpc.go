@@ -94,7 +94,7 @@ func rpcMethodCmd(state *app, exposed rpcapi.Method) *cobra.Command {
 		payload, err := callRPC(ctx, callRPCParams{
 			Addr:    addr,
 			Path:    exposed.GetPath(),
-			From:    caller.Caller{AgentID: state.env.AgentID, SessionID: state.env.SessionID},
+			From:    state.caller(),
 			Request: request,
 		})
 		if err != nil {

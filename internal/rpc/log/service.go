@@ -18,17 +18,17 @@ type logReader interface {
 	RecentTraces(limit int) ([]logread.Summary, error)
 }
 
-type Service struct {
+type LogService struct {
 	log logReader
 }
 
-// NewService constructs the handler over the log reader.
-func NewService(log logReader) *Service {
-	return &Service{log: log}
+// NewLogService constructs the handler over the log reader.
+func NewLogService(log logReader) *LogService {
+	return &LogService{log: log}
 }
 
 // GetLogLines is every line written under one trace id.
-func (s *Service) GetLogLines(_ context.Context, req *logv1.GetLogLinesRequest) (*logv1.GetLogLinesResponse, *fail.Error) {
+func (s *LogService) GetLogLines(_ context.Context, req *logv1.GetLogLinesRequest) (*logv1.GetLogLinesResponse, *fail.Error) {
 	lines, err := s.log.Lines(req.GetTraceId())
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to read the log")
@@ -53,7 +53,7 @@ func (s *Service) GetLogLines(_ context.Context, req *logv1.GetLogLinesRequest) 
 }
 
 // ListRecentTraces is the trace ids the log ends with.
-func (s *Service) ListRecentTraces(_ context.Context, req *logv1.ListRecentTracesRequest) (*logv1.ListRecentTracesResponse, *fail.Error) {
+func (s *LogService) ListRecentTraces(_ context.Context, req *logv1.ListRecentTracesRequest) (*logv1.ListRecentTracesResponse, *fail.Error) {
 	summaries, err := s.log.RecentTraces(int(req.GetLimit()))
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to list the traces")

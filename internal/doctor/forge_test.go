@@ -5,9 +5,6 @@ import (
 	"errors"
 	"testing"
 
-	"weave/config"
-	"weave/internal/forge"
-
 	"github.com/stretchr/testify/assert"
 )
 
@@ -42,7 +39,11 @@ func TestForgesCheck(t *testing.T) {
 			name: "one forge refuses",
 			statuses: []ForgeStatus{
 				{Host: "github.com", Login: "harrisoncramer"},
-				{Host: "gitlab.com", Err: forge.ErrUnauthorized.Saying("Bad credentials")},
+				{
+					Host:        "gitlab.com",
+					Problem:     "Bad credentials",
+					ProblemKind: "refused",
+				},
 			},
 			wantStatus: StatusWarn,
 			wantDetail: "github.com as harrisoncramer",
@@ -51,7 +52,11 @@ func TestForgesCheck(t *testing.T) {
 		{
 			name: "one forge cannot be reached",
 			statuses: []ForgeStatus{
-				{Host: "ghe.example.com", Err: errors.New("dial tcp: no such host")},
+				{
+					Host:        "ghe.example.com",
+					Problem:     "dial tcp: no such host",
+					ProblemKind: "unreachable",
+				},
 			},
 			wantStatus: StatusWarn,
 			wantCode:   "forge_unreachable",
@@ -59,17 +64,29 @@ func TestForgesCheck(t *testing.T) {
 		{
 			name: "every failing host is named and the refusal sets the code",
 			statuses: []ForgeStatus{
-				{Host: "github.com", Err: forge.ErrNoCredential.Saying("no credential file for github.com; connect it again")},
-				{Host: "gitlab.com", Err: forge.ErrUnauthorized.Saying("Bad credentials")},
+				{
+					Host:        "github.com",
+					Problem:     "no credential file for github.com; connect it again",
+					ProblemKind: "no_credential",
+				},
+				{
+					Host:        "gitlab.com",
+					Problem:     "Bad credentials",
+					ProblemKind: "refused",
+				},
 			},
 			wantStatus: StatusWarn,
 			wantCode:   "forge_refused",
-			wantErr:    "no credential file for github.com; connect it again; gitlab.com: Bad credentials",
+			wantErr:    "github.com: no credential file for github.com; connect it again; gitlab.com: Bad credentials",
 		},
 		{
 			name: "one forge has no credential file",
 			statuses: []ForgeStatus{
-				{Host: "github.com", Err: forge.ErrNoCredential.Saying("no credential file for github.com; connect it again")},
+				{
+					Host:        "github.com",
+					Problem:     "no credential file for github.com; connect it again",
+					ProblemKind: "no_credential",
+				},
 			},
 			wantStatus: StatusWarn,
 			wantCode:   "forge_no_credential",
@@ -85,8 +102,7 @@ func TestForgesCheck(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := newForgesCheck().Run(t.Context(), Env{
-				LoadConfig: func() (*config.Config, error) { return &config.Config{}, nil },
-				VerifyForges: func(context.Context, string, config.GitHubApp) ([]ForgeStatus, error) {
+				CheckForges: func(context.Context) ([]ForgeStatus, error) {
 					return tt.statuses, tt.err
 				},
 			})

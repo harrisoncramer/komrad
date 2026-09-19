@@ -63,7 +63,7 @@ func (f *fakeForge) ListOnBranch(context.Context, git.RemoteURL, string) ([]Pull
 func (f *fakeForge) Get(context.Context, string) (PullRequest, error) { return PullRequest{}, nil }
 
 type fixture struct {
-	service     *Service
+	service     *ForgeService
 	store       *forgestore.Store
 	credentials *FileStore
 	seen        []Credential
@@ -78,7 +78,7 @@ func newFixture(t *testing.T, login string, verifyErr error) *fixture {
 	t.Cleanup(func() { _ = pool.Close() })
 
 	f := &fixture{store: forgestore.New(pool.GetDB()), credentials: NewFileStore(t.TempDir())}
-	f.service = NewService(NewServiceParams{
+	f.service = NewForgeService(NewForgeServiceParams{
 		Connections: f.store,
 		Credentials: f.credentials,
 		Builders: map[string]Builder{
@@ -366,7 +366,7 @@ func TestForConnectionRecordsWhereItIsTold(t *testing.T) {
 	connection, err := f.service.Connect(ctx, ConnectParams{Host: "github.com", Token: NewSecret("tok")})
 	require.NoError(t, err)
 
-	reporting := NewService(NewServiceParams{
+	reporting := NewForgeService(NewForgeServiceParams{
 		Connections: f.store,
 		Credentials: f.credentials,
 		Builders:    map[string]Builder{KindGitHub: func(_ string, auth Authenticator) Forge { return &fakeForge{auth: auth, err: ErrUnauthorized} }},

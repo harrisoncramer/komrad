@@ -97,7 +97,7 @@ func hookClient(t *testing.T, p hookClientParams) hookv1connect.HookServiceClien
 
 	mux := http.NewServeMux()
 	mux.Handle(hookv1connect.NewHookServiceHandler(
-		hookv1weave.HookServiceAdapter{Impl: NewService(service)},
+		hookv1weave.HookServiceAdapter{Impl: NewHookService(service)},
 		connect.WithInterceptors(validation),
 	))
 

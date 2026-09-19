@@ -36,16 +36,16 @@ type workflowLister interface {
 	ListPage(ctx context.Context, limit int64, cursor *workflowstore.Cursor, archived bool) ([]workflowstore.Workflow, error)
 }
 
-type Service struct {
+type WorkflowService struct {
 	lister    workflowLister
 	workflows workflowReadWriter
 	marks     markReader
 }
 
-// NewService constructs the handler from the store it lists through, the service that owns the
+// NewWorkflowService constructs the handler from the store it lists through, the service that owns the
 // rules, and the marks a workflow header draws.
-func NewService(lister workflowLister, workflows workflowReadWriter, marks markReader) *Service {
-	return &Service{
+func NewWorkflowService(lister workflowLister, workflows workflowReadWriter, marks markReader) *WorkflowService {
+	return &WorkflowService{
 		lister:    lister,
 		workflows: workflows,
 		marks:     marks,
@@ -53,7 +53,7 @@ func NewService(lister workflowLister, workflows workflowReadWriter, marks markR
 }
 
 // ListWorkflows returns one page of workflows, by name.
-func (s *Service) ListWorkflows(ctx context.Context, req *workflowv1.ListWorkflowsRequest) (*workflowv1.ListWorkflowsResponse, *fail.Error) {
+func (s *WorkflowService) ListWorkflows(ctx context.Context, req *workflowv1.ListWorkflowsRequest) (*workflowv1.ListWorkflowsResponse, *fail.Error) {
 	paginator, err := pagination.New[workflowstore.Cursor, workflow](req.GetPagination())
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to read the pagination")
@@ -84,7 +84,7 @@ func (s *Service) ListWorkflows(ctx context.Context, req *workflowv1.ListWorkflo
 }
 
 // GetWorkflow returns one workflow by id.
-func (s *Service) GetWorkflow(ctx context.Context, req *workflowv1.GetWorkflowRequest) (*workflowv1.GetWorkflowResponse, *fail.Error) {
+func (s *WorkflowService) GetWorkflow(ctx context.Context, req *workflowv1.GetWorkflowRequest) (*workflowv1.GetWorkflowResponse, *fail.Error) {
 	found, err := s.workflows.GetWorkflow(ctx, req.GetId())
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to get workflow")
@@ -99,7 +99,7 @@ func (s *Service) GetWorkflow(ctx context.Context, req *workflowv1.GetWorkflowRe
 }
 
 // CreateWorkflow adds a workflow and returns it as stored.
-func (s *Service) CreateWorkflow(ctx context.Context, req *workflowv1.CreateWorkflowRequest) (*workflowv1.CreateWorkflowResponse, *fail.Error) {
+func (s *WorkflowService) CreateWorkflow(ctx context.Context, req *workflowv1.CreateWorkflowRequest) (*workflowv1.CreateWorkflowResponse, *fail.Error) {
 	created, err := s.workflows.NewWorkflow(ctx, workflowstore.Config{
 		Name:     req.GetName(),
 		Context:  req.GetContext(),
@@ -117,7 +117,7 @@ func (s *Service) CreateWorkflow(ctx context.Context, req *workflowv1.CreateWork
 }
 
 // UpdateWorkflow replaces a workflow's editable fields.
-func (s *Service) UpdateWorkflow(ctx context.Context, req *workflowv1.UpdateWorkflowRequest) (*emptypb.Empty, *fail.Error) {
+func (s *WorkflowService) UpdateWorkflow(ctx context.Context, req *workflowv1.UpdateWorkflowRequest) (*emptypb.Empty, *fail.Error) {
 	err := s.workflows.UpdateWorkflow(ctx, req.GetId(), workflowstore.Config{
 		Name:     req.GetName(),
 		Context:  req.GetContext(),
@@ -152,7 +152,7 @@ func worktreeConfigFromProto(w *workflowv1.WorktreeConfig) workflowstore.Worktre
 }
 
 // ArchiveWorkflow hides a workflow and archives the agents inside it.
-func (s *Service) ArchiveWorkflow(ctx context.Context, req *workflowv1.ArchiveWorkflowRequest) (*emptypb.Empty, *fail.Error) {
+func (s *WorkflowService) ArchiveWorkflow(ctx context.Context, req *workflowv1.ArchiveWorkflowRequest) (*emptypb.Empty, *fail.Error) {
 	if err := s.workflows.ArchiveWorkflow(ctx, req.GetId()); err != nil {
 		return nil, rpcerr.From(err, "failed to archive workflow")
 	}
@@ -161,7 +161,7 @@ func (s *Service) ArchiveWorkflow(ctx context.Context, req *workflowv1.ArchiveWo
 }
 
 // RestoreWorkflow brings a workflow back with the agents archived inside it.
-func (s *Service) RestoreWorkflow(ctx context.Context, req *workflowv1.RestoreWorkflowRequest) (*workflowv1.RestoreWorkflowResponse, *fail.Error) {
+func (s *WorkflowService) RestoreWorkflow(ctx context.Context, req *workflowv1.RestoreWorkflowRequest) (*workflowv1.RestoreWorkflowResponse, *fail.Error) {
 	restored, err := s.workflows.RestoreWorkflow(ctx, req.GetId())
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to restore workflow")
@@ -172,7 +172,7 @@ func (s *Service) RestoreWorkflow(ctx context.Context, req *workflowv1.RestoreWo
 
 // DeleteWorkflow permanently removes an archived workflow, the archived agents still inside
 // it, and the archived schedules that launched into it.
-func (s *Service) DeleteWorkflow(ctx context.Context, req *workflowv1.DeleteWorkflowRequest) (*emptypb.Empty, *fail.Error) {
+func (s *WorkflowService) DeleteWorkflow(ctx context.Context, req *workflowv1.DeleteWorkflowRequest) (*emptypb.Empty, *fail.Error) {
 	if err := s.workflows.DeleteWorkflow(ctx, req.GetId()); err != nil {
 		return nil, rpcerr.From(err, "failed to delete workflow")
 	}
@@ -181,7 +181,7 @@ func (s *Service) DeleteWorkflow(ctx context.Context, req *workflowv1.DeleteWork
 }
 
 // marksByWorkflow is the letter each workflow answers to, keyed by its id.
-func (s *Service) marksByWorkflow(ctx context.Context) (map[string]*string, *fail.Error) {
+func (s *WorkflowService) marksByWorkflow(ctx context.Context) (map[string]*string, *fail.Error) {
 	listed, err := s.marks.ListMarks(ctx)
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to list the marks")
@@ -198,7 +198,7 @@ func (s *Service) marksByWorkflow(ctx context.Context) (map[string]*string, *fai
 }
 
 // markOf is the letter one workflow answers to, or nothing when it holds none.
-func (s *Service) markOf(ctx context.Context, id string) (*string, *fail.Error) {
+func (s *WorkflowService) markOf(ctx context.Context, id string) (*string, *fail.Error) {
 	by, failure := s.marksByWorkflow(ctx)
 	if failure != nil {
 		return nil, failure

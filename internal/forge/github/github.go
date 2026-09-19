@@ -101,17 +101,17 @@ func (f *Forge) ListOnBranch(ctx context.Context, repo git.RemoteURL, branch str
 		"head":     {owner + ":" + branch},
 		"per_page": {"100"},
 	}
-	var raws []pull
+	var raws []pullRequest
 	if err := f.get(ctx, fmt.Sprintf("/repos/%s/%s/pulls?%s", owner, name, query.Encode()), &raws); err != nil {
 		return nil, err
 	}
 
-	pulls := make([]forge.PullRequest, 0, len(raws))
+	pullRequests := make([]forge.PullRequest, 0, len(raws))
 	for _, raw := range raws {
-		pulls = append(pulls, raw.toPullRequest())
+		pullRequests = append(pullRequests, raw.toPullRequest())
 	}
 
-	return pulls, nil
+	return pullRequests, nil
 }
 
 // Get is one pull request by its web address.
@@ -121,7 +121,7 @@ func (f *Forge) Get(ctx context.Context, address string) (forge.PullRequest, err
 		return forge.PullRequest{}, err
 	}
 
-	var raw pull
+	var raw pullRequest
 	if err := f.get(ctx, fmt.Sprintf("/repos/%s/%s/pulls/%d", owner, name, number), &raw); err != nil {
 		return forge.PullRequest{}, err
 	}
@@ -201,8 +201,8 @@ func parsePullURL(address string) (owner, name string, number int, err error) {
 	return segments[0], segments[1], number, nil
 }
 
-// pull is the slice of GitHub's pull request payload the record is built from.
-type pull struct {
+// pullRequest is the slice of GitHub's pull request payload the record is built from.
+type pullRequest struct {
 	NodeID    string     `json:"node_id"`
 	HTMLURL   string     `json:"html_url"`
 	Number    int        `json:"number"`
@@ -227,7 +227,7 @@ type repo struct {
 	HTMLURL string `json:"html_url"`
 }
 
-func (p pull) toPullRequest() forge.PullRequest {
+func (p pullRequest) toPullRequest() forge.PullRequest {
 	return forge.PullRequest{
 		Forge:      forge.KindGitHub,
 		ProviderID: p.NodeID,

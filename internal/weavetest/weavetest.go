@@ -42,8 +42,10 @@ import (
 	agentv1 "weave/proto/gen/agent/v1"
 	"weave/proto/gen/agent/v1/agentv1connect"
 	"weave/proto/gen/config/v1/configv1connect"
+	"weave/proto/gen/forge/v1/forgev1connect"
 	"weave/proto/gen/hook/v1/hookv1connect"
 	"weave/proto/gen/log/v1/logv1connect"
+	"weave/proto/gen/pullrequest/v1/pullrequestv1connect"
 	"weave/proto/gen/schedule/v1/schedulev1connect"
 	"weave/proto/gen/workflow/v1/workflowv1connect"
 
@@ -54,16 +56,18 @@ import (
 const settleTimeout = 10 * time.Second
 
 type Instance struct {
-	t         *testing.T
-	Agents    agentv1connect.AgentServiceClient
-	Workflows workflowv1connect.WorkflowServiceClient
-	Schedules schedulev1connect.ScheduleServiceClient
-	Hooks     hookv1connect.HookServiceClient
-	Logs      logv1connect.LogServiceClient
-	Config    configv1connect.ConfigServiceClient
-	Harness   *harnesstest.Harness
-	Tmux      *tmuxtest.Server
-	Stores    *storetest.Stores
+	t            *testing.T
+	Agents       agentv1connect.AgentServiceClient
+	Workflows    workflowv1connect.WorkflowServiceClient
+	Schedules    schedulev1connect.ScheduleServiceClient
+	Hooks        hookv1connect.HookServiceClient
+	Logs         logv1connect.LogServiceClient
+	Forges       forgev1connect.ForgeServiceClient
+	PullRequests pullrequestv1connect.PullRequestServiceClient
+	Config       configv1connect.ConfigServiceClient
+	Harness      *harnesstest.Harness
+	Tmux         *tmuxtest.Server
+	Stores       *storetest.Stores
 	// HooksDir is where a test writes the hooks a workflow can hang on a moment.
 	HooksDir string
 	// BuiltinDir is where the server installed the scripts weave ships, which a test overwrites
@@ -139,6 +143,7 @@ func Start(t *testing.T, p Params) *Instance {
 		Addr:                addr,
 		TmuxSocket:          tmuxServer.Socket(),
 		CacheDir:            cacheDir,
+		StateDir:            filepath.Join(root, "state"),
 	}
 
 	logger := logging.New(io.Discard, slog.LevelError)
@@ -177,6 +182,8 @@ func Start(t *testing.T, p Params) *Instance {
 		Schedules:    schedulev1connect.NewScheduleServiceClient(client, url),
 		Hooks:        hookv1connect.NewHookServiceClient(client, url),
 		Logs:         logv1connect.NewLogServiceClient(client, url),
+		Forges:       forgev1connect.NewForgeServiceClient(client, url),
+		PullRequests: pullrequestv1connect.NewPullRequestServiceClient(client, url),
 		Config:       configv1connect.NewConfigServiceClient(client, url),
 		Harness:      fake,
 		Tmux:         tmuxServer,

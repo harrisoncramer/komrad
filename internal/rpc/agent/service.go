@@ -98,7 +98,7 @@ type archiveEmptier interface {
 	EmptyArchive(ctx context.Context) error
 }
 
-type Service struct {
+type AgentService struct {
 	agents       agentReadWriter
 	transcripts  transcriptReader
 	mail         mailer
@@ -118,7 +118,7 @@ type Service struct {
 	orchestrator orchestratorStarter
 }
 
-type NewServiceParams struct {
+type NewAgentServiceParams struct {
 	Agents       agentReadWriter
 	Transcripts  transcriptReader
 	Mail         mailer
@@ -138,10 +138,10 @@ type NewServiceParams struct {
 	Orchestrator orchestratorStarter
 }
 
-// NewService constructs the handler from the stores it reads and the services that move agents
+// NewAgentService constructs the handler from the stores it reads and the services that move agents
 // through their life.
-func NewService(params NewServiceParams) *Service {
-	return &Service{
+func NewAgentService(params NewAgentServiceParams) *AgentService {
+	return &AgentService{
 		agents:       params.Agents,
 		transcripts:  params.Transcripts,
 		mail:         params.Mail,
@@ -170,7 +170,7 @@ var errCallerHasNoAgent = fail.InvalidArgument("the caller has no agent id of it
 var errNoIDToFallBackOn = fail.InvalidArgument("no id given, and the caller has none of its own to fall back to")
 
 // CreateAgent launches a background agent and returns it as stored.
-func (s *Service) CreateAgent(ctx context.Context, req *agentv1.CreateAgentRequest) (*agentv1.CreateAgentResponse, *fail.Error) {
+func (s *AgentService) CreateAgent(ctx context.Context, req *agentv1.CreateAgentRequest) (*agentv1.CreateAgentResponse, *fail.Error) {
 	created, err := s.creator.NewAgent(ctx, agents.NewAgentParams{
 		Title:            req.GetTitle(),
 		Dir:              req.GetDir(),
@@ -193,7 +193,7 @@ func (s *Service) CreateAgent(ctx context.Context, req *agentv1.CreateAgentReque
 
 // RequestReview spawns the reviewer for the calling agent's own work and answers with the half
 // of the review briefing it was not launched with.
-func (s *Service) RequestReview(ctx context.Context, req *agentv1.RequestReviewRequest) (*agentv1.RequestReviewResponse, *fail.Error) {
+func (s *AgentService) RequestReview(ctx context.Context, req *agentv1.RequestReviewRequest) (*agentv1.RequestReviewResponse, *fail.Error) {
 	id, failure := scopedAgentID(ctx, req.GetAgentId())
 	if failure != nil {
 		return nil, failure
@@ -218,7 +218,7 @@ func (s *Service) RequestReview(ctx context.Context, req *agentv1.RequestReviewR
 }
 
 // Adopt puts an agent on a branch or pull request that already exists.
-func (s *Service) Adopt(ctx context.Context, req *agentv1.AdoptRequest) (*agentv1.AdoptResponse, *fail.Error) {
+func (s *AgentService) Adopt(ctx context.Context, req *agentv1.AdoptRequest) (*agentv1.AdoptResponse, *fail.Error) {
 	created, err := s.adopter.Adopt(ctx, agents.AdoptParams{
 		Ref:            req.GetRef(),
 		Title:          req.GetTitle(),
@@ -241,7 +241,7 @@ func (s *Service) Adopt(ctx context.Context, req *agentv1.AdoptRequest) (*agentv
 
 // agentFlagsFor gathers the facts about a set of agents that are not on their own rows, asking
 // for each once rather than once per agent.
-func (s *Service) agentFlagsFor(ctx context.Context, listed []agentstore.Agent) (func(agentstore.Agent) agentFlags, *fail.Error) {
+func (s *AgentService) agentFlagsFor(ctx context.Context, listed []agentstore.Agent) (func(agentstore.Agent) agentFlags, *fail.Error) {
 	running := s.liveness.GetRunningAgents(ctx, listed)
 
 	mailboxes, err := s.mail.ListUnreadMailboxes(ctx)
@@ -309,7 +309,7 @@ func localVerdictOf(tally reviewstore.Tally) string {
 }
 
 // ListAgents returns one page of stored agents, newest first.
-func (s *Service) ListAgents(ctx context.Context, req *agentv1.ListAgentsRequest) (*agentv1.ListAgentsResponse, *fail.Error) {
+func (s *AgentService) ListAgents(ctx context.Context, req *agentv1.ListAgentsRequest) (*agentv1.ListAgentsResponse, *fail.Error) {
 	paginator, err := pagination.New[agentstore.Cursor, agent](req.GetPagination())
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to read the pagination")
@@ -340,7 +340,7 @@ func (s *Service) ListAgents(ctx context.Context, req *agentv1.ListAgentsRequest
 }
 
 // renderOneAgent gathers the facts an agent's row does not hold and renders it.
-func (s *Service) renderOneAgent(ctx context.Context, stored agentstore.Agent) (*agentv1.Agent, *fail.Error) {
+func (s *AgentService) renderOneAgent(ctx context.Context, stored agentstore.Agent) (*agentv1.Agent, *fail.Error) {
 	flags, failure := s.agentFlagsFor(ctx, []agentstore.Agent{stored})
 	if failure != nil {
 		return nil, failure
@@ -350,7 +350,7 @@ func (s *Service) renderOneAgent(ctx context.Context, stored agentstore.Agent) (
 }
 
 // GetAgent returns one agent by id, archived or not.
-func (s *Service) GetAgent(ctx context.Context, req *agentv1.GetAgentRequest) (*agentv1.GetAgentResponse, *fail.Error) {
+func (s *AgentService) GetAgent(ctx context.Context, req *agentv1.GetAgentRequest) (*agentv1.GetAgentResponse, *fail.Error) {
 	agent, err := s.agents.GetByID(ctx, req.GetId())
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to get agent")
@@ -366,7 +366,7 @@ func (s *Service) GetAgent(ctx context.Context, req *agentv1.GetAgentRequest) (*
 
 // SetMark puts a letter on an agent or a workflow, taking it off whichever row held it, and
 // carries no tool annotation because a mark is the person's own.
-func (s *Service) SetMark(ctx context.Context, req *agentv1.SetMarkRequest) (*emptypb.Empty, *fail.Error) {
+func (s *AgentService) SetMark(ctx context.Context, req *agentv1.SetMarkRequest) (*emptypb.Empty, *fail.Error) {
 	target := markstore.Target{}
 	switch {
 	case req.GetAgentId() != "":
@@ -395,7 +395,7 @@ func (s *Service) SetMark(ctx context.Context, req *agentv1.SetMarkRequest) (*em
 }
 
 // SetHidden hides an agent from the panel's sidebar or brings it back.
-func (s *Service) SetHidden(ctx context.Context, req *agentv1.SetHiddenRequest) (*emptypb.Empty, *fail.Error) {
+func (s *AgentService) SetHidden(ctx context.Context, req *agentv1.SetHiddenRequest) (*emptypb.Empty, *fail.Error) {
 	changed, err := s.agents.SetHidden(ctx, req.GetId(), req.GetHidden())
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to hide the agent")
@@ -409,7 +409,7 @@ func (s *Service) SetHidden(ctx context.Context, req *agentv1.SetHiddenRequest) 
 
 // SetAgentViewed claims whatever the agent has finished up to now, or puts the mark back, and
 // carries no tool annotation because an agent must not move the marks on the user's screen.
-func (s *Service) SetAgentViewed(ctx context.Context, req *agentv1.SetAgentViewedRequest) (*emptypb.Empty, *fail.Error) {
+func (s *AgentService) SetAgentViewed(ctx context.Context, req *agentv1.SetAgentViewedRequest) (*emptypb.Empty, *fail.Error) {
 	if err := s.agents.SetViewed(ctx, req.GetId(), req.GetViewed()); err != nil {
 		return nil, rpcerr.From(err, "failed to set whether the agent was viewed")
 	}
@@ -419,7 +419,7 @@ func (s *Service) SetAgentViewed(ctx context.Context, req *agentv1.SetAgentViewe
 
 // MarkRunsRead claims the failed runs an agent is holding, and carries no tool annotation
 // because an agent must not move the marks on the user's screen.
-func (s *Service) MarkRunsRead(ctx context.Context, req *agentv1.MarkRunsReadRequest) (*emptypb.Empty, *fail.Error) {
+func (s *AgentService) MarkRunsRead(ctx context.Context, req *agentv1.MarkRunsReadRequest) (*emptypb.Empty, *fail.Error) {
 	if err := s.runs.MarkRead(ctx, req.GetId()); err != nil {
 		return nil, rpcerr.From(err, "failed to claim the agent's failed runs")
 	}
@@ -429,7 +429,7 @@ func (s *Service) MarkRunsRead(ctx context.Context, req *agentv1.MarkRunsReadReq
 
 // SetMetadata records one fact an agent found out about its own work, or clears the key
 // when the value is unset.
-func (s *Service) SetMetadata(ctx context.Context, req *agentv1.SetMetadataRequest) (*emptypb.Empty, *fail.Error) {
+func (s *AgentService) SetMetadata(ctx context.Context, req *agentv1.SetMetadataRequest) (*emptypb.Empty, *fail.Error) {
 	changed, err := s.agents.SetMetadata(ctx, agentstore.SetMetadataParams{
 		ID:    req.GetId(),
 		Key:   req.GetKey(),
@@ -448,7 +448,7 @@ func (s *Service) SetMetadata(ctx context.Context, req *agentv1.SetMetadataReque
 
 // Log writes one line to weave's log for an agent, which is how a running script whose stdout
 // goes nowhere says what it did.
-func (s *Service) Log(ctx context.Context, req *agentv1.LogRequest) (*emptypb.Empty, *fail.Error) {
+func (s *AgentService) Log(ctx context.Context, req *agentv1.LogRequest) (*emptypb.Empty, *fail.Error) {
 	id, failure := scopedAgentID(ctx, req.GetId())
 	if failure != nil {
 		return nil, failure
@@ -475,7 +475,7 @@ func (s *Service) Log(ctx context.Context, req *agentv1.LogRequest) (*emptypb.Em
 
 // RecordReport takes what the calling agent's own CLI read out of one of its hook payloads,
 // putting the reason beside the state the pane decided and stamping a reported turn end.
-func (s *Service) RecordReport(ctx context.Context, req *agentv1.RecordReportRequest) (*emptypb.Empty, *fail.Error) {
+func (s *AgentService) RecordReport(ctx context.Context, req *agentv1.RecordReportRequest) (*emptypb.Empty, *fail.Error) {
 	id := caller.From(ctx).AgentID
 	if id == "" {
 		return nil, errCallerHasNoAgent
@@ -532,7 +532,7 @@ func logCrossAgentRead(ctx context.Context, target, message string) {
 }
 
 // DeleteAgents stops agents and removes them with their configs and transcripts.
-func (s *Service) DeleteAgents(ctx context.Context, req *agentv1.DeleteAgentsRequest) (*emptypb.Empty, *fail.Error) {
+func (s *AgentService) DeleteAgents(ctx context.Context, req *agentv1.DeleteAgentsRequest) (*emptypb.Empty, *fail.Error) {
 	if err := s.lifecycle.DeleteAgents(ctx, req.GetIds()); err != nil {
 		return nil, rpcerr.From(err, "failed to delete agents")
 	}
@@ -541,7 +541,7 @@ func (s *Service) DeleteAgents(ctx context.Context, req *agentv1.DeleteAgentsReq
 }
 
 // ArchiveAgents stops agents and hides them, keeping the records and transcripts.
-func (s *Service) ArchiveAgents(ctx context.Context, req *agentv1.ArchiveAgentsRequest) (*emptypb.Empty, *fail.Error) {
+func (s *AgentService) ArchiveAgents(ctx context.Context, req *agentv1.ArchiveAgentsRequest) (*emptypb.Empty, *fail.Error) {
 	if err := s.lifecycle.ArchiveAgents(ctx, req.GetIds()); err != nil {
 		return nil, rpcerr.From(err, "failed to archive agents")
 	}
@@ -550,7 +550,7 @@ func (s *Service) ArchiveAgents(ctx context.Context, req *agentv1.ArchiveAgentsR
 }
 
 // RestoreAgents takes agents out of the archive and returns them as stored, dormant.
-func (s *Service) RestoreAgents(ctx context.Context, req *agentv1.RestoreAgentsRequest) (*agentv1.RestoreAgentsResponse, *fail.Error) {
+func (s *AgentService) RestoreAgents(ctx context.Context, req *agentv1.RestoreAgentsRequest) (*agentv1.RestoreAgentsResponse, *fail.Error) {
 	restored, err := s.lifecycle.RestoreAgents(ctx, req.GetIds())
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to restore agents")
@@ -570,7 +570,7 @@ func (s *Service) RestoreAgents(ctx context.Context, req *agentv1.RestoreAgentsR
 
 // EmptyArchive queues the sweep that deletes the whole archive as a background job, every agent
 // in it running its own deprovisioner.
-func (s *Service) EmptyArchive(ctx context.Context, _ *emptypb.Empty) (*emptypb.Empty, *fail.Error) {
+func (s *AgentService) EmptyArchive(ctx context.Context, _ *emptypb.Empty) (*emptypb.Empty, *fail.Error) {
 	if err := s.archive.EmptyArchive(ctx); err != nil {
 		return nil, rpcerr.From(err, "failed to empty the archive")
 	}
@@ -579,7 +579,7 @@ func (s *Service) EmptyArchive(ctx context.Context, _ *emptypb.Empty) (*emptypb.
 }
 
 // ResumeAgent relaunches an agent's CLI on its conversation and returns it as stored.
-func (s *Service) ResumeAgent(ctx context.Context, req *agentv1.ResumeAgentRequest) (*agentv1.ResumeAgentResponse, *fail.Error) {
+func (s *AgentService) ResumeAgent(ctx context.Context, req *agentv1.ResumeAgentRequest) (*agentv1.ResumeAgentResponse, *fail.Error) {
 	resumed, err := s.resumer.ResumeAgent(ctx, req.GetId())
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to resume agent")
@@ -594,7 +594,7 @@ func (s *Service) ResumeAgent(ctx context.Context, req *agentv1.ResumeAgentReque
 }
 
 // RetryAgent relaunches an agent that failed to create, optionally with corrected flags.
-func (s *Service) RetryAgent(ctx context.Context, req *agentv1.RetryAgentRequest) (*agentv1.RetryAgentResponse, *fail.Error) {
+func (s *AgentService) RetryAgent(ctx context.Context, req *agentv1.RetryAgentRequest) (*agentv1.RetryAgentResponse, *fail.Error) {
 	retried, err := s.creator.RetryCreate(ctx, agents.RetryCreateParams{
 		ID:      req.GetId(),
 		Flags:   req.GetFlags(),
@@ -615,7 +615,7 @@ func (s *Service) RetryAgent(ctx context.Context, req *agentv1.RetryAgentRequest
 
 // HoldAgent stops an agent so a person may take its worktree, refusing unless it is seen to come
 // to rest.
-func (s *Service) HoldAgent(ctx context.Context, req *agentv1.HoldAgentRequest) (*agentv1.HoldAgentResponse, *fail.Error) {
+func (s *AgentService) HoldAgent(ctx context.Context, req *agentv1.HoldAgentRequest) (*agentv1.HoldAgentResponse, *fail.Error) {
 	// Explainer: a caller is part-way through a turn by definition, so a hold on itself interrupts
 	// the turn that asked, reads as settled, and is granted, which leaves the agent stopped with
 	// nobody who knows to release it. A person pressing the key carries no agent id and is unaffected.
@@ -637,7 +637,7 @@ func (s *Service) HoldAgent(ctx context.Context, req *agentv1.HoldAgentRequest) 
 }
 
 // ReleaseAgent lets go of a held agent, telling it what changed while it was held.
-func (s *Service) ReleaseAgent(ctx context.Context, req *agentv1.ReleaseAgentRequest) (*agentv1.ReleaseAgentResponse, *fail.Error) {
+func (s *AgentService) ReleaseAgent(ctx context.Context, req *agentv1.ReleaseAgentRequest) (*agentv1.ReleaseAgentResponse, *fail.Error) {
 	released, err := s.holder.Release(ctx, agents.ReleaseParams{
 		AgentID: req.GetId(),
 		Said:    req.GetSaid(),
@@ -656,7 +656,7 @@ func (s *Service) ReleaseAgent(ctx context.Context, req *agentv1.ReleaseAgentReq
 
 // UpdateAgent renames the agent with the given id, reporting a name another agent holds as a
 // conflict rather than leaking the database's own refusal.
-func (s *Service) UpdateAgent(ctx context.Context, req *agentv1.UpdateAgentRequest) (*emptypb.Empty, *fail.Error) {
+func (s *AgentService) UpdateAgent(ctx context.Context, req *agentv1.UpdateAgentRequest) (*emptypb.Empty, *fail.Error) {
 	renamed, err := s.agents.Rename(ctx, req.GetId(), req.GetName())
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to update agent")

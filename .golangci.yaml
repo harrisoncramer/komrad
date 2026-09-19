@@ -216,6 +216,7 @@ linters:
             allow:
               - (weave/internal/forge.Credential).HeaderValue
               - (*weave/internal/forge.FileStore).Set
+              - weave/internal/cli.tokenForTheWire
           handler_shape:
             skip: false
             # Unanchored regexps over the path lint was run from. The adapter's own signature is

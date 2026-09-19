@@ -13,8 +13,10 @@ import (
 	"weave/internal/version"
 	"weave/lib/xslice"
 
+	"connectrpc.com/connect"
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 var ErrReported = errors.New("reported")
@@ -118,6 +120,32 @@ func (a *app) buildDoctor() (doctor.Env, []doctor.Check, error) {
 			Commit:    found.commit,
 			Current:   found.current,
 		}, nil
+	}
+
+	env.CheckForges = func(ctx context.Context) ([]doctor.ForgeStatus, error) {
+		addr, release, err := a.dialAPI(ctx)
+		if err != nil {
+			return nil, err
+		}
+
+		defer release()
+
+		resp, err := forgeClient("http://"+addr).CheckForges(ctx, connect.NewRequest(&emptypb.Empty{}))
+		if err != nil {
+			return nil, err
+		}
+
+		statuses := make([]doctor.ForgeStatus, 0, len(resp.Msg.GetChecks()))
+		for _, check := range resp.Msg.GetChecks() {
+			statuses = append(statuses, doctor.ForgeStatus{
+				Host:        check.GetForge().GetHost(),
+				Login:       check.GetForge().GetLogin(),
+				Problem:     check.GetProblem(),
+				ProblemKind: check.GetProblemKind(),
+			})
+		}
+
+		return statuses, nil
 	}
 
 	env.IsPanelRunning = func(ctx context.Context) bool { return isPanelRunning(ctx, a) }

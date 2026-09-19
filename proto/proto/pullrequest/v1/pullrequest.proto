@@ -1,0 +1,79 @@
+syntax = "proto3";
+
+package pullrequest.v1;
+
+import "annotation/v1/tool.proto";
+import "buf/validate/validate.proto";
+
+option go_package = "weave/proto/gen/pullrequest/v1;pullrequestv1";
+
+message ListPullRequestsRequest {
+  // The repository as a git remote spells it, such as git@github.com:owner/repo.git or
+  // https://github.com/owner/repo, whose host picks the forge connection.
+  string remote_url = 1 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 2048
+  }];
+  // The branch the pull requests were opened from.
+  string branch = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 512
+  }];
+}
+
+message PullRequest {
+  // Which forge it lives on, such as github.
+  string forge = 1;
+  // The forge's own stable identifier, such as GitHub's node_id.
+  string provider_id = 2;
+  // The web address a person opens.
+  string url = 3;
+  // The canonical address of the repository it targets.
+  string repository_url = 4;
+  // The canonical address of the repository its branch lives in, empty when the forge no
+  // longer has it.
+  string head_repository_url = 5;
+  // The number the forge shows a person, which is per repository.
+  int32 number = 6;
+  // The title as the forge has it.
+  string title = 7;
+  // The branch the pull request was opened from.
+  string head_branch = 8;
+  // The commit at the tip of that branch when last read.
+  string head_sha = 9;
+  // The branch it targets.
+  string base_branch = 10;
+  // The commit the target branch was at when last read.
+  string base_sha = 11;
+  // Whether the forge marks it a draft.
+  bool draft = 12;
+  // The forge's own word for where it stands, kept verbatim; read merged_at and closed_at for
+  // whether it is finished.
+  string state = 13;
+  // When it was opened on the forge, in RFC 3339.
+  string created_at = 14;
+  // When the forge last saw it change, in RFC 3339.
+  string updated_at = 15;
+  // When it merged, in RFC 3339, unset while it has not.
+  optional string merged_at = 16;
+  // When it closed, in RFC 3339, unset while it is open; a merged one carries this too.
+  optional string closed_at = 17;
+}
+
+message ListPullRequestsResponse {
+  // Every pull request opened from the branch, as the forge orders them.
+  repeated PullRequest pull_requests = 1;
+}
+
+// PullRequestService reads pull requests through the forge connections weave holds.
+service PullRequestService {
+  rpc ListPullRequests(ListPullRequestsRequest) returns (ListPullRequestsResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+    option (annotation.v1.surfaces) = {
+      cli: true
+      mcp: true
+      name: "list_pull_requests"
+      description: "List the pull requests opened from a branch of a repository, read through the forge connection for the repository's host. Give the repository as a git remote spells it. A repository the connection's credential cannot see is answered as not found, which is also what a repository that does not exist answers."
+    };
+  }
+}

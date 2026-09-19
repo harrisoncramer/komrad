@@ -21,7 +21,8 @@ func TestLoadAddsProcessEnvironment(t *testing.T) {
 
 	connection := Environment{Addr: "127.0.0.1:9999", CacheDir: "/tmp/weave-cache"}
 
-	got := LoadEnvironment(connection)
+	got, err := LoadEnvironment(connection)
+	require.NoError(t, err)
 
 	assert.Equal(t, connection.Addr, got.Addr)
 	assert.Equal(t, connection.CacheDir, got.CacheDir)
@@ -31,13 +32,26 @@ func TestLoadAddsProcessEnvironment(t *testing.T) {
 	assert.Equal(t, "agent-1", got.AgentID)
 	assert.Equal(t, "session-1", got.SessionID)
 	assert.Equal(t, "/tmp/weave-cache/weave.log", got.LogPath())
+	assert.NotEmpty(t, got.StateDir, "the state directory is filled in when the caller names none")
+}
+
+// TestLoadKeepsAStateDirItWasGiven covers a test instance pointing the service at a state
+// directory of its own rather than the user's.
+func TestLoadKeepsAStateDirItWasGiven(t *testing.T) {
+	t.Setenv("EDITOR", "")
+
+	got, err := LoadEnvironment(Environment{StateDir: "/tmp/weave-state"})
+	require.NoError(t, err)
+	assert.Equal(t, "/tmp/weave-state", got.StateDir)
 }
 
 // TestLoadDefaultsEditor pins the editor used when the process names none.
 func TestLoadDefaultsEditor(t *testing.T) {
 	t.Setenv("EDITOR", "")
 
-	assert.Equal(t, "vi", LoadEnvironment(Environment{}).Editor)
+	got, err := LoadEnvironment(Environment{})
+	require.NoError(t, err)
+	assert.Equal(t, "vi", got.Editor)
 }
 
 // TestLayerPathsUsesPlatformPathList pins that several config paths are separated the way the
