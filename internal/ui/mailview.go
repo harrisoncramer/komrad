@@ -223,7 +223,7 @@ func (m model) doesMailFitDetails() bool {
 func (m model) mailListView() string {
 	header := m.mailHeader()
 	record, help := m.detailsView(), m.renderHelp(m.mailHelp(), header)
-	below := record + m.messagesRegion(record, help) + help
+	below := record + m.messagesRegion(record, help, header) + help
 
 	rows := m.mailRowsView()
 	if len(rows) == 0 {

@@ -404,7 +404,7 @@ func (m model) doesArchiveFitDetails() bool {
 func (m model) archiveListView() string {
 	header := m.archiveHeader()
 	record, help := m.detailsView(), m.renderHelp(m.archiveHelp(), header)
-	below := record + m.messagesRegion(record, help) + help
+	below := record + m.messagesRegion(record, help, header) + help
 
 	rows := m.archiveRows()
 	if len(rows) == 0 {

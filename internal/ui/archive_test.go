@@ -1111,9 +1111,8 @@ func TestArchiveKeepsTheOffsetWhenARowSlides(t *testing.T) {
 	assert.Zero(t, m.column.top, "landing on another row does start that one at its top")
 }
 
-// TestArchiveKeepsTheSplitInAShortPane covers the legend, which gives up its columns as the
-// sidebar narrows and stands taller for it: in a short window it gives up its expansion instead,
-// so the list stays inside its column and the document is drawn beside it.
+// TestArchiveKeepsTheSplitInAShortPane pins the legend giving up its expansion in a short window
+// so the list stays in its column beside the document.
 func TestArchiveKeepsTheSplitInAShortPane(t *testing.T) {
 	m := splitArchiveModel(t)
 	m.width, m.height = 120, 10

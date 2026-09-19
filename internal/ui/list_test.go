@@ -149,96 +149,75 @@ func TestListLines(t *testing.T) {
 
 // TestScreensFitATightPane pins that a list handed no room is dropped rather than drawn past the
 // bottom of the pane, from the height each screen first fits at upwards, and that the hovered row
-// is on screen from the height above that.
+// is on screen from the height above that, whatever else is standing in the pane with the list.
 func TestScreensFitATightPane(t *testing.T) {
 	const tall = 40
 
-	base := screensModel()
-
 	tests := []struct {
-		name     string
-		screen   screen
-		expanded bool
-		fitsFrom int
-		hovered  string
+		name    string
+		width   int
+		prepare func(*model)
 	}{
 		{
-			name:     "the agents tree",
-			screen:   screenAgents,
-			fitsFrom: 5,
-			hovered:  "agent39",
+			name:    "plain",
+			width:   80,
+			prepare: func(*model) {},
 		},
 		{
-			name:     "the agents tree with the help expanded",
-			screen:   screenAgents,
-			expanded: true,
-			fitsFrom: 5,
-			hovered:  "agent39",
+			name:  "with the help expanded",
+			width: 80,
+			prepare: func(m *model) {
+				m.helpExpanded = true
+			},
 		},
 		{
-			name:     "the archive",
-			screen:   screenArchive,
-			fitsFrom: 5,
-			hovered:  "agent39",
+			name:  "with a message in the stack",
+			width: 80,
+			prepare: func(m *model) {
+				m.pushMessage(message{kind: messageError, summary: "boom", detail: "it broke"})
+			},
 		},
 		{
-			name:     "the archive with the help expanded",
-			screen:   screenArchive,
-			expanded: true,
-			fitsFrom: 5,
-			hovered:  "agent39",
+			name:  "with the region holding a message",
+			width: 80,
+			prepare: func(m *model) {
+				m.pushMessage(message{kind: messageError, summary: "boom", detail: "it broke"})
+				m.messages.focused = true
+			},
 		},
 		{
-			name:     "the schedules",
-			screen:   screenSchedules,
-			fitsFrom: 5,
-			hovered:  "agent39",
-		},
-		{
-			name:     "the schedules with the help expanded",
-			screen:   screenSchedules,
-			expanded: true,
-			fitsFrom: 5,
-			hovered:  "agent39",
-		},
-		{
-			name:     "the mailbox",
-			screen:   screenMail,
-			fitsFrom: 6,
-		},
-		{
-			name:     "the mailbox with the help expanded",
-			screen:   screenMail,
-			expanded: true,
-			fitsFrom: 6,
-		},
-		{
-			name:     "the search",
-			screen:   screenSearch,
-			fitsFrom: 5,
-			hovered:  "agent39",
-		},
-		{
-			name:     "the search with the help expanded",
-			screen:   screenSearch,
-			expanded: true,
-			fitsFrom: 5,
-			hovered:  "agent39",
+			name:  "with the record focused under the expanded legend",
+			width: 30,
+			prepare: func(m *model) {
+				m.helpExpanded = true
+				m.details.focused = true
+			},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			for height := tt.fitsFrom; height <= tall; height++ {
-				shown := base
-				shown.height = height
-				shown.screen = tt.screen
-				shown.helpExpanded = tt.expanded
+			for s := screenAgents; s <= screenMail; s++ {
+				if s == screenReview {
+					continue
+				}
 
-				assert.Len(t, lines(shown.View()), height, "a pane %d lines tall", height)
+				fixture, fitsFrom, hovered := screensModel, 5, "agent39"
+				if s == screenMail {
+					fixture, fitsFrom, hovered = loadedMailModel, 6, "vim wins"
+				}
 
-				if tt.hovered != "" && height > tt.fitsFrom {
-					assert.Contains(t, outsideTheRecord(shown), tt.hovered, "the hovered row is on screen in a pane %d lines tall", height)
+				for height := fitsFrom; height <= tall; height++ {
+					shown := fixture()
+					shown.width, shown.height = tt.width, height
+					shown.screen = s
+					tt.prepare(&shown)
+
+					assert.Len(t, lines(shown.View()), height, "screen %d in a pane %d lines tall", s, height)
+
+					if height > fitsFrom {
+						assert.Contains(t, outsideTheRecord(shown), hovered, "screen %d keeps the hovered row on screen in a pane %d lines tall", s, height)
+					}
 				}
 			}
 		})

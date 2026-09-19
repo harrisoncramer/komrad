@@ -553,7 +553,7 @@ func (m model) doesAgentsFitDetails() bool {
 func (m model) agentsListView() string {
 	header := m.agentsHeader()
 	record, help := m.detailsView(), m.renderHelp(m.agentHelp(), header)
-	below := record + m.messagesRegion(record, help) + help
+	below := record + m.messagesRegion(record, help, header) + help
 
 	palette := paint.Panel
 	pane := m.paneWidth()

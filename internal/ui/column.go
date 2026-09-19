@@ -226,8 +226,8 @@ func (m model) joinColumns(split columnSplit, sidebar, column string) string {
 // paneWidth is the column the panel draws its own list, record and legend in, which is the whole
 // pane except while it is drawing a block beside them.
 func (m model) paneWidth() int {
-	// A screen working out whether its own split leaves room for its chrome has already chosen
-	// the column, so it is told the answer rather than asked for the split it is still deciding.
+	// A half of a split is laid out at the column already chosen for it rather than asking for the
+	// split again.
 	if m.paneMeasure > 0 {
 		return m.paneMeasure
 	}

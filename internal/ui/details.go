@@ -64,7 +64,12 @@ func (m model) isDetailsDrawn(held details) bool {
 func (m model) doesListFitDetails(header string, help func(model) keyMap) bool {
 	m.details.focused = false
 
-	return m.spareLines(header, m.renderHelp(help(m), header)) > m.detailsLines()+detailsChromeLines
+	legend := m.renderHelp(help(m), header)
+	if focused := m.renderHelp(m.detailsHelp(), header); strings.Count(focused, "\n") > strings.Count(legend, "\n") {
+		legend = focused
+	}
+
+	return m.spareLines(header, legend) > m.detailsLines()+detailsChromeLines
 }
 
 func (m model) isDetailsFocused() bool {

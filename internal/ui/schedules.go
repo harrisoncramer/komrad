@@ -260,7 +260,7 @@ func (m model) doesSchedulesFitDetails() bool {
 func (m model) schedulesListView() string {
 	header := m.schedulesHeader()
 	record, help := m.detailsView(), m.renderHelp(m.scheduleHelp(), header)
-	below := record + m.messagesRegion(record, help) + help
+	below := record + m.messagesRegion(record, help, header) + help
 
 	all := m.scheduleRows()
 	if len(all) == 0 {
