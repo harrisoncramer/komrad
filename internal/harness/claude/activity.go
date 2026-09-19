@@ -34,9 +34,6 @@ var dialogBorder = regexp.MustCompile(`^[╭╮╰╯│]`)
 // hintLine is the note Claude draws under a status line.
 var hintLine = regexp.MustCompile(`^\s*⎿`)
 
-// queuedHint is the note Claude draws under a message queued behind the running turn.
-var queuedHint = regexp.MustCompile(`^\s*ctrl\+\S+( ctrl\+\S+)? to send now\s*$`)
-
 // queuedPlaceholder is what the box says while a message waits behind the running turn.
 const queuedPlaceholder = "Press up to edit queued messages"
 
@@ -186,27 +183,9 @@ func isPromptGreyed(colours []string, box inputBox, boxed bool) bool {
 	return colours[box.Rule] != "" && colours[box.Rule+1] != ""
 }
 
-// isMessageQueued reports whether a message waits behind the running turn, which the pane says
-// under the message when it shows it and in the box when it has scrolled away.
+// isMessageQueued reports whether the box says a message waits behind the running turn.
 func isMessageQueued(lines []string, box inputBox, boxed bool) bool {
-	if !boxed {
-		return false
-	}
-
-	if strings.Contains(lines[box.Rule+1], queuedPlaceholder) {
-		return true
-	}
-
-	for i := box.Rule - 1; i >= 0; i-- {
-		switch {
-		case queuedHint.MatchString(lines[i]):
-			return true
-		case transcriptMarker.MatchString(lines[i]), boxRule.MatchString(lines[i]):
-			return false
-		}
-	}
-
-	return false
+	return boxed && strings.Contains(lines[box.Rule+1], queuedPlaceholder)
 }
 
 // statusRegion is the lines between the box and the conversation above it, taking only the first

@@ -255,11 +255,6 @@ func TestReadActivity(t *testing.T) {
 			want:  harness.ActivityWorking,
 		},
 		{
-			name:  "a message queued behind the turn, with the status line scrolled off",
-			frame: "❯ ok\n  ctrl+x ctrl+s to send now\n───────────────\n❯ half a reply\n───────────────\n  -- INSERT --",
-			want:  harness.ActivityWorking,
-		},
-		{
 			name:  "the box saying a message is queued, with the queue scrolled off",
 			frame: "  the tail of some reply\n───────────────\n❯ \x1b[2mPress up to edit queued messages\x1b[0m\n───────────────\n  -- INSERT --",
 			want:  harness.ActivityWorking,
