@@ -62,5 +62,5 @@ func unquoteKey(token string) string {
 		return token[1 : len(token)-1]
 	}
 
-	return token
+	return strings.ReplaceAll(token, `\\`, `\`)
 }

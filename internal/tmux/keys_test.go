@@ -41,29 +41,94 @@ func TestBindKeyStaysBehindThePrefix(t *testing.T) {
 }
 
 // TestGetPrefixKeysReadsBackWhatWasBound pins that every key the listing names is handed back
-// as tmux takes it, the ones list-keys escapes included.
+// as tmux takes it, the ones list-keys escapes or respells included, and pins how a command
+// holding a space is printed.
 func TestGetPrefixKeysReadsBackWhatWasBound(t *testing.T) {
 	client := testServer(t, "keys")
 
-	keys := []string{"F7", "C-Space", `"`, "'", "#", "~", "M-'", "M-#"}
-	for _, key := range keys {
-		client.BindKey(key, "display-message", "bound")
+	keys := []struct {
+		typed  string
+		listed string
+	}{
+		{
+			typed:  "F7",
+			listed: "F7",
+		},
+		{
+			typed:  "c-space",
+			listed: "C-Space",
+		},
+		{
+			typed:  "f8",
+			listed: "F8",
+		},
+		{
+			typed:  `"`,
+			listed: `"`,
+		},
+		{
+			typed:  "'",
+			listed: "'",
+		},
+		{
+			typed:  "#",
+			listed: "#",
+		},
+		{
+			typed:  "~",
+			listed: "~",
+		},
+		{
+			typed:  `\`,
+			listed: `\`,
+		},
+		{
+			typed:  `C-\`,
+			listed: `C-\`,
+		},
+		{
+			typed:  `M-\`,
+			listed: `M-\`,
+		},
+		{
+			typed:  "M-'",
+			listed: "M-'",
+		},
+		{
+			typed:  "M-#",
+			listed: "M-#",
+		},
 	}
+
+	for _, tt := range keys {
+		client.BindKey(tt.typed, "display-message", "bound")
+	}
+
+	client.BindKey("F9", "if-shell", "/usr/local/bin/weave shown --config /etc/weave.toml",
+		"run-shell -b 'hide'", "display-popup -T ' weave ' -EE 'open'")
 
 	bound, err := client.GetPrefixKeys()
 	require.NoError(t, err)
 
-	for _, key := range keys {
-		assert.Equal(t, "display-message bound", bound[key], key)
+	for _, tt := range keys {
+		assert.Equal(t, "display-message bound", bound[tt.listed], tt.typed)
+	}
 
-		client.UnbindKey(key)
+	assert.Equal(t, `if-shell "/usr/local/bin/weave shown --config /etc/weave.toml" `+
+		`"run-shell -b 'hide'" "display-popup -T ' weave ' -EE 'open'"`, bound["F9"],
+		"an argument holding a space is printed in double quotes")
+
+	for listed, command := range bound {
+		if command == "display-message bound" {
+			client.UnbindKey(listed)
+		}
 	}
 
 	bound, err = client.GetPrefixKeys()
 	require.NoError(t, err)
 
-	for _, key := range keys {
-		assert.NotContains(t, bound, key, "the key the listing named is the one unbind-key takes")
+	for _, tt := range keys {
+		assert.NotContains(t, bound, tt.listed, "the key the listing named is the one unbind-key takes")
 	}
 }
 

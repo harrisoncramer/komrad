@@ -148,22 +148,18 @@ func BindPanelKey(t panelKeyTmux, params BindPanelKeyParams) error {
 	open := fmt.Sprintf("display-popup -w 100%% -h 100%% -x C -y C -T ' weave ' -EE '%s'",
 		panelCommand(params, "open"))
 
-	if err := t.BindKeyChecked(key, "if-shell", shown, hide, open); err != nil {
-		return err
-	}
-
 	bound, err := t.GetPrefixKeys()
 	if err != nil {
 		return err
 	}
 
 	for other, command := range bound {
-		if other != key && strings.HasPrefix(command, `if-shell "`+shown+`" `) {
+		if strings.HasPrefix(command, `if-shell "`+shown+`" `) {
 			t.UnbindKey(other)
 		}
 	}
 
-	return nil
+	return t.BindKeyChecked(key, "if-shell", shown, hide, open)
 }
 
 func panelCommand(params BindPanelKeyParams, subcommand string) string {

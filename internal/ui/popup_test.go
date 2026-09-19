@@ -59,11 +59,16 @@ func (t *bindingTmux) UnbindRootKey(key string) {
 
 type panelKeyRecorder struct {
 	bindingTmux
-	table map[string]string
-	err   error
+	spellings map[string]string
+	table     map[string]string
+	err       error
 }
 
 func (t *panelKeyRecorder) BindKeyChecked(key string, command ...string) error {
+	if listed, respelled := t.spellings[key]; respelled {
+		key = listed
+	}
+
 	t.BindKey(key, command...)
 
 	if t.table == nil {
@@ -147,7 +152,7 @@ func TestBindPanelKey(t *testing.T) {
 }
 
 // TestBindPanelKeyTakesBackTheKeyItBoundLast pins the binding a run before it made going when
-// the key changes, and only that one.
+// the key changes, and only that one, whatever spelling the key was written in.
 func TestBindPanelKeyTakesBackTheKeyItBoundLast(t *testing.T) {
 	local := BindPanelKeyParams{Self: "/usr/local/bin/weave", ConfigArgs: []string{"--config", "/etc/weave.toml"}}
 	remote := BindPanelKeyParams{
@@ -156,23 +161,24 @@ func TestBindPanelKeyTakesBackTheKeyItBoundLast(t *testing.T) {
 		Key:        "G",
 	}
 
-	tmux := &panelKeyRecorder{}
-	tmux.SetGlobal(managerKeyOption, "w")
+	tmux := &panelKeyRecorder{spellings: map[string]string{"c-g": "C-g"}}
+	tmux.SetGlobal(managerKeyOption, "c-g")
 	require.NoError(t, tmux.BindKeyChecked("s", "split-window"))
 	require.NoError(t, BindPanelKey(tmux, remote))
 	require.NoError(t, BindPanelKey(tmux, local))
+	require.NoError(t, BindPanelKey(tmux, local))
+
+	assert.Contains(t, tmux.bound, "C-g", "a key bound again is bound as tmux spells it, not taken for a stale one")
+	assert.Equal(t, []string{"C-g"}, tmux.unbound, "and the run before it is what was taken back")
 
 	tmux.SetGlobal(managerKeyOption, "j")
 	require.NoError(t, BindPanelKey(tmux, local))
 
-	assert.Equal(t, []string{"w"}, tmux.unbound, "the key this weave bound before is the only one taken back")
+	assert.Equal(t, []string{"C-g", "C-g"}, tmux.unbound, "the key this weave bound before is the only one taken back")
+	assert.NotContains(t, tmux.bound, "C-g")
 	assert.Contains(t, tmux.bound, "j")
 	assert.Contains(t, tmux.bound, "G", "the other engine's key, whose command this one's is a prefix of, stands")
 	assert.Contains(t, tmux.bound, "s", "and so does a binding that is not weave's")
-
-	require.NoError(t, BindPanelKey(tmux, local))
-
-	assert.Equal(t, []string{"w"}, tmux.unbound, "a key bound again is left standing")
 }
 
 // TestBindPanelKeyReportsRefusal pins the refusal reaching the person who asked for it.
