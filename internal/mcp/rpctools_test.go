@@ -84,6 +84,11 @@ func TestToolHints(t *testing.T) {
 			idempotent: true,
 		},
 		{
+			method:     "GetLastTurns",
+			readOnly:   true,
+			idempotent: true,
+		},
+		{
 			method:          "CreateAgent",
 			readOnly:        false,
 			idempotent:      false,

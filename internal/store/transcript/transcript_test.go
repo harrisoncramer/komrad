@@ -55,6 +55,92 @@ func TestAppendAndGet(t *testing.T) {
 	}
 }
 
+// TestLastTurns covers reading the newest turns of one role back, which is what answers what an
+// agent last said without assembling its conversation.
+func TestLastTurns(t *testing.T) {
+	stored := []Turn{
+		{Role: "user", Content: "alpha question"},
+		{Role: "assistant", Content: "alpha answer"},
+		{Role: "assistant", Content: "alpha afterthought"},
+		{Role: "user", Content: "beta question"},
+		{Role: "assistant", Content: "beta answer"},
+		{Role: "user", Content: "gamma question"},
+	}
+
+	tests := []struct {
+		name  string
+		role  string
+		limit int32
+		want  []StoredTurn
+	}{
+		{
+			name:  "the last assistant turn is the newest one, whoever spoke after it",
+			role:  "assistant",
+			limit: 1,
+			want:  []StoredTurn{{Seq: 4, Role: "assistant", Content: "beta answer"}},
+		},
+		{
+			name:  "several come back newest first, skipping the other role",
+			role:  "assistant",
+			limit: 2,
+			want: []StoredTurn{
+				{Seq: 4, Role: "assistant", Content: "beta answer"},
+				{Seq: 2, Role: "assistant", Content: "alpha afterthought"},
+			},
+		},
+		{
+			name:  "a limit past what is stored returns everything in that role",
+			role:  "user",
+			limit: 10,
+			want: []StoredTurn{
+				{Seq: 5, Role: "user", Content: "gamma question"},
+				{Seq: 3, Role: "user", Content: "beta question"},
+				{Seq: 0, Role: "user", Content: "alpha question"},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			st := open(t)
+			id := seedAgent(t, st, "agent")
+			seedTurns(t, st, id, stored)
+
+			got, err := st.LastTurns(t.Context(), LastTurnsParams{AgentID: id, Role: tt.role, Limit: tt.limit})
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+// TestLastTurnsOfUnknownID pins that an unused id and a string that is not an id both read as
+// no turns rather than an error.
+func TestLastTurnsOfUnknownID(t *testing.T) {
+	tests := []struct {
+		name string
+		id   string
+	}{
+		{
+			name: "a malformed id is not an agent",
+			id:   "missing",
+		},
+		{
+			name: "a well-formed id nothing holds",
+			id:   "00000000-0000-7000-8000-000000000000",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			st := open(t)
+
+			got, err := st.LastTurns(t.Context(), LastTurnsParams{AgentID: tt.id, Role: "assistant", Limit: 1})
+			require.NoError(t, err)
+			assert.Empty(t, got)
+		})
+	}
+}
+
 // TestGetOfUnknownID pins that an unused id and a string that is not an id both read as the
 // zero transcript rather than an error.
 func TestGetOfUnknownID(t *testing.T) {

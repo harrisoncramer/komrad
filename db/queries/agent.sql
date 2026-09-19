@@ -688,6 +688,20 @@ FROM
 WHERE
     agent_id = @agent_id;
 
+-- name: LastTranscriptTurns :many
+SELECT
+    c.seq,
+    c.role,
+    c.content
+FROM
+    agent_transcript_chunks c
+WHERE
+    c.agent_id = @agent_id
+    AND c.role = @role
+ORDER BY
+    c.seq DESC
+LIMIT @lim;
+
 -- name: OpenTranscriptSession :one
 INSERT INTO agent_transcript_sessions(
     id,

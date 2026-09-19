@@ -646,6 +646,53 @@ type InsertTranscriptChunksParams struct {
 	ContentOffset int64
 }
 
+const lastTranscriptTurns = `-- name: LastTranscriptTurns :many
+SELECT
+    c.seq,
+    c.role,
+    c.content
+FROM
+    agent_transcript_chunks c
+WHERE
+    c.agent_id = $1
+    AND c.role = $2
+ORDER BY
+    c.seq DESC
+LIMIT $3
+`
+
+type LastTranscriptTurnsParams struct {
+	AgentID string
+	Role    string
+	Lim     int32
+}
+
+type LastTranscriptTurnsRow struct {
+	Seq     int32
+	Role    string
+	Content string
+}
+
+func (q *Queries) LastTranscriptTurns(ctx context.Context, arg LastTranscriptTurnsParams) ([]*LastTranscriptTurnsRow, error) {
+	rows, err := q.db.Query(ctx, lastTranscriptTurns, arg.AgentID, arg.Role, arg.Lim)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []*LastTranscriptTurnsRow
+	for rows.Next() {
+		var i LastTranscriptTurnsRow
+		if err := rows.Scan(&i.Seq, &i.Role, &i.Content); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listAgentDirs = `-- name: ListAgentDirs :many
 SELECT
     id,

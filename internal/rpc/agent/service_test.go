@@ -1774,6 +1774,16 @@ func TestCrossAgentReadIsRecorded(t *testing.T) {
 			wantRecord: true,
 		},
 		{
+			name:     "an agent fetching another agent's last turns",
+			callerIs: "alpha",
+			read: func(t *testing.T, svc agentv1weave.AgentServiceAdapter, ctx context.Context, target string) {
+				t.Helper()
+				_, err := svc.GetLastTurns(ctx, connect.NewRequest(&agentv1.GetLastTurnsRequest{AgentId: target}))
+				require.NoError(t, err)
+			},
+			wantRecord: true,
+		},
+		{
 			name:     "an agent searching itself",
 			callerIs: "beta",
 			read: func(t *testing.T, svc agentv1weave.AgentServiceAdapter, ctx context.Context, _ string) {

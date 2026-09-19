@@ -39,6 +39,7 @@ type AgentServiceImpl interface {
 	UpdateAgent(context.Context, *v1.UpdateAgentRequest) (*emptypb.Empty, *fail.Error)
 	SearchTranscripts(context.Context, *v1.SearchTranscriptsRequest) (*v1.SearchTranscriptsResponse, *fail.Error)
 	GetTranscript(context.Context, *v1.GetTranscriptRequest) (*v1.GetTranscriptResponse, *fail.Error)
+	GetLastTurns(context.Context, *v1.GetLastTurnsRequest) (*v1.GetLastTurnsResponse, *fail.Error)
 	EmptyArchive(context.Context, *emptypb.Empty) (*emptypb.Empty, *fail.Error)
 	RecordReport(context.Context, *v1.RecordReportRequest) (*emptypb.Empty, *fail.Error)
 	SetAgentViewed(context.Context, *v1.SetAgentViewedRequest) (*emptypb.Empty, *fail.Error)
@@ -179,6 +180,11 @@ func (a AgentServiceAdapter) SearchTranscripts(ctx context.Context, req *connect
 // GetTranscript answers the request as connect serves it.
 func (a AgentServiceAdapter) GetTranscript(ctx context.Context, req *connect.Request[v1.GetTranscriptRequest]) (*connect.Response[v1.GetTranscriptResponse], error) {
 	return rpcerr.Answer(a.Impl.GetTranscript(ctx, req.Msg))
+}
+
+// GetLastTurns answers the request as connect serves it.
+func (a AgentServiceAdapter) GetLastTurns(ctx context.Context, req *connect.Request[v1.GetLastTurnsRequest]) (*connect.Response[v1.GetLastTurnsResponse], error) {
+	return rpcerr.Answer(a.Impl.GetLastTurns(ctx, req.Msg))
 }
 
 // EmptyArchive answers the request as connect serves it.

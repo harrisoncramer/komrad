@@ -68,3 +68,32 @@ message GetTranscriptResponse {
   // Pass this back as the cursor for the next window, absent once there is no more to read.
   optional string next_page_token = 2;
 }
+
+message GetLastTurnsRequest {
+  // Whose conversation to read.
+  string agent_id = 1 [(buf.validate.field).string.min_len = 1];
+  // How many of the newest assistant turns to return, or unset for the last one alone.
+  optional int32 turns = 2 [(buf.validate.field).int32 = {
+    gte: 1
+    lte: 20
+  }];
+  // The most of each turn's text to return, cut from the head so the end survives, or unset
+  // for the default.
+  optional int32 max_bytes = 3 [(buf.validate.field).int32.gte = 0];
+}
+
+message Turn {
+  // Who was speaking, the agent or whoever prompted it.
+  string role = 1;
+  // Where the turn sits in the conversation, counting from the first.
+  int32 seq = 2;
+  // The turn's text, or the end of it when the head was cut to fit max_bytes.
+  string content = 3;
+  // Whether the head of the text was cut away.
+  bool truncated = 4;
+}
+
+message GetLastTurnsResponse {
+  // The newest assistant turns, oldest first.
+  repeated Turn turns = 1;
+}

@@ -52,3 +52,18 @@ func Head(s string, limit int) (string, bool) {
 
 	return cut, true
 }
+
+// Tail returns the last limit bytes of s and whether anything was cut, moving the cut forward a
+// byte at a time so it never lands inside a rune.
+func Tail(s string, limit int) (string, bool) {
+	if len(s) <= limit {
+		return s, false
+	}
+
+	cut := s[len(s)-limit:]
+	for len(cut) > 0 && !utf8.RuneStart(cut[0]) {
+		cut = cut[1:]
+	}
+
+	return cut, true
+}

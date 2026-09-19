@@ -5,12 +5,14 @@ import (
 	"testing"
 
 	"weave/internal/rpcerr"
+	"weave/internal/storetest"
 	"weave/lib/pagination"
 	agentv1 "weave/proto/gen/agent/v1"
 
 	transcriptstore "weave/internal/store/transcript"
 
 	"connectrpc.com/connect"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
@@ -182,4 +184,120 @@ func TestGetTranscriptRefusesACursorItNeverHandedOut(t *testing.T) {
 	}))
 
 	assert.Equal(t, connect.CodeInvalidArgument, connect.CodeOf(err))
+}
+
+type lastTurn struct {
+	role      string
+	seq       int32
+	content   string
+	truncated bool
+}
+
+// TestGetLastTurns covers what an agent's newest turns read back as, which is only what it said
+// itself, oldest first, with the end of each kept when the window cuts it.
+func TestGetLastTurns(t *testing.T) {
+	stored := []transcriptstore.Turn{
+		{Role: "user", Content: "opening question"},
+		{Role: "assistant", Content: "a first reading of the problem"},
+		{Role: "assistant", Content: "then the conclusion"},
+		{Role: "user", Content: "a follow-up nobody has answered"},
+	}
+
+	tests := []struct {
+		name     string
+		agentID  string
+		turns    []transcriptstore.Turn
+		req      *agentv1.GetLastTurnsRequest
+		wantCode connect.Code
+		want     []lastTurn
+	}{
+		{
+			name:     "an id no agent holds is refused",
+			agentID:  uuid.NewString(),
+			req:      &agentv1.GetLastTurnsRequest{},
+			wantCode: connect.CodeNotFound,
+		},
+		{
+			name: "an agent with nothing synced yet has no turns rather than being missing",
+			req:  &agentv1.GetLastTurnsRequest{},
+			want: []lastTurn{},
+		},
+		{
+			name:  "the default is the last thing the agent said, whatever was asked since",
+			turns: stored,
+			req:   &agentv1.GetLastTurnsRequest{},
+			want:  []lastTurn{{role: "assistant", seq: 2, content: "then the conclusion"}},
+		},
+		{
+			name:  "more turns come back oldest first and are the agent's own",
+			turns: stored,
+			req:   &agentv1.GetLastTurnsRequest{Turns: proto.Int32(3)},
+			want: []lastTurn{
+				{role: "assistant", seq: 1, content: "a first reading of the problem"},
+				{role: "assistant", seq: 2, content: "then the conclusion"},
+			},
+		},
+		{
+			name:  "a window cuts the head of a turn and says so, leaving a shorter one whole",
+			turns: stored,
+			req:   &agentv1.GetLastTurnsRequest{Turns: proto.Int32(2), MaxBytes: proto.Int32(22)},
+			want: []lastTurn{
+				{role: "assistant", seq: 1, content: "reading of the problem", truncated: true},
+				{role: "assistant", seq: 2, content: "then the conclusion"},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svc, st := service(t)
+
+			agent := st.SeedAgent(t, agentstore.Agent{Name: "alpha", State: agentstore.StateThinking})
+			seedTurns(t, st, agent.ID, tt.turns)
+
+			tt.req.AgentId = tt.agentID
+			if tt.req.AgentId == "" {
+				tt.req.AgentId = agent.ID
+			}
+
+			got, err := svc.GetLastTurns(t.Context(), connect.NewRequest(tt.req))
+			if tt.wantCode != 0 {
+				assert.Equal(t, tt.wantCode, connect.CodeOf(err))
+				return
+			}
+
+			require.NoError(t, err)
+
+			read := make([]lastTurn, 0, len(got.Msg.GetTurns()))
+			for _, turn := range got.Msg.GetTurns() {
+				read = append(read, lastTurn{
+					role:      turn.GetRole(),
+					seq:       turn.GetSeq(),
+					content:   turn.GetContent(),
+					truncated: turn.GetTruncated(),
+				})
+			}
+			assert.Equal(t, tt.want, read)
+		})
+	}
+}
+
+func seedTurns(t *testing.T, st *storetest.Stores, agentID string, turns []transcriptstore.Turn) {
+	t.Helper()
+
+	if len(turns) == 0 {
+		return
+	}
+
+	session, err := st.Transcripts.OpenSession(t.Context(), transcriptstore.OpenSessionParams{
+		AgentID:   agentID,
+		SessionID: "session-" + agentID,
+	})
+	require.NoError(t, err)
+
+	require.NoError(t, st.Transcripts.AppendTurns(t.Context(), transcriptstore.AppendTurnsParams{
+		AgentID:   agentID,
+		SessionID: session.ID,
+		Turns:     turns,
+	}))
 }
