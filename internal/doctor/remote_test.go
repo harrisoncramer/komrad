@@ -9,94 +9,52 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestChecksAboutTheEngineAreSkippedWhenItIsElsewhere covers the checks that describe the engine,
-// since answering them from this machine reports the wrong box as though it were the right one.
-func TestChecksAboutTheEngineAreSkippedWhenItIsElsewhere(t *testing.T) {
+// TestWithEngineMarksAndCountsTheEngineFindings covers the report the doctor prints for a
+// remote engine: what the service answered comes after what was made here, marked as the
+// engine's, and the summary counts both.
+func TestWithEngineMarksAndCountsTheEngineFindings(t *testing.T) {
 	t.Parallel()
 
-	tests := []struct {
-		name       string
-		engineSide bool
-		isRemote   bool
-		wantStatus Status
-		wantDetail string
-	}{
+	here := Run(t.Context(), Env{}, []Check{stub("tmux", pass("3.5a"))})
+
+	report := here.WithEngine([]Finding{
 		{
-			name:       "a check about the engine is not answered from here",
-			engineSide: true,
-			isRemote:   true,
-			wantStatus: StatusSkip,
-			wantDetail: "not checked, the engine is on another machine",
+			Name:   "tmux",
+			Status: StatusOK,
+			Detail: "3.4",
 		},
 		{
-			name:       "a check about the engine is answered when the engine is this machine",
-			engineSide: true,
-			isRemote:   false,
-			wantStatus: StatusOK,
-			wantDetail: "ran",
+			Name:   "database",
+			Status: StatusFail,
+			Error:  "refused",
 		},
-		{
-			name:       "a check about this machine is answered wherever the engine is",
-			engineSide: false,
-			isRemote:   true,
-			wantStatus: StatusOK,
-			wantDetail: "ran",
-		},
-	}
+	})
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-
-			check := Check{
-				Name:        "subject",
-				Description: "the check under test",
-				Engine:      tt.engineSide,
-				Run: func(context.Context, Env) Result {
-					return pass("ran")
-				},
-			}
-
-			env := Env{Settings: Settings{EngineIsRemote: tt.isRemote}}
-
-			report := Run(t.Context(), env, []Check{check})
-
-			require.Len(t, report.Findings, 1)
-			assert.Equal(t, tt.wantStatus, report.Findings[0].Status)
-			assert.Equal(t, tt.wantDetail, report.Findings[0].Detail)
-		})
-	}
+	require.Len(t, report.Findings, 3)
+	assert.Empty(t, report.Findings[0].Where)
+	assert.Equal(t, WhereEngine, report.Findings[1].Where)
+	assert.Equal(t, WhereEngine, report.Findings[2].Where)
+	assert.Equal(t, 3, report.Summary.Total)
+	assert.Equal(t, 1, report.Summary.Fail)
+	assert.False(t, report.Summary.Healthy)
+	assert.True(t, here.Summary.Healthy, "the report made here is left as it was")
 }
 
-// TestEngineSideChecksAreTheOnesThatReadTheEngine pins which checks stop being answered, since a
-// check marked wrongly either lies about a remote engine or goes silent on a local one.
-func TestEngineSideChecksAreTheOnesThatReadTheEngine(t *testing.T) {
+// TestEngineStandIns covers the one finding that takes the engine's place when its checks
+// could not be had, whose reason is the server check or the call itself.
+func TestEngineStandIns(t *testing.T) {
 	t.Parallel()
 
-	settings := Settings{Harnesses: []HarnessInfo{{ID: "claude", Binary: "claude"}}}
+	notChecked := EngineNotChecked()
+	assert.Equal(t, StatusSkip, notChecked.Status)
+	assert.Equal(t, WhereEngine, notChecked.Where)
+	assert.Contains(t, notChecked.Detail, "server has to pass first")
 
-	engineSide := make([]string, 0)
-
-	for _, check := range Checks(settings) {
-		if check.Engine {
-			engineSide = append(engineSide, check.Name)
-		}
-	}
-
-	want := []string{
-		"tmux shell",
-		"default harness",
-		"hooks",
-		"worktrees",
-		"context",
-		"database",
-		"schema",
-		"readonly login",
-		"orphaned worktrees",
-		"claude",
-	}
-
-	assert.Equal(t, want, engineSide)
+	unanswered := EngineUnanswered(errors.New("connection reset"))
+	assert.Equal(t, StatusFail, unanswered.Status)
+	assert.Equal(t, WhereEngine, unanswered.Where)
+	assert.Equal(t, "engine_unanswered", unanswered.Code)
+	assert.Contains(t, unanswered.Error, "connection reset")
 }
 
 // TestStaleServerFixDependsOnWhereTheEngineIs covers the advice given when the service is a

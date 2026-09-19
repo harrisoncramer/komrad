@@ -16,6 +16,7 @@ import (
 	"weave/config"
 	"weave/db"
 	"weave/internal/agents"
+	"weave/internal/doctor"
 	"weave/internal/harness"
 	"weave/internal/interceptors"
 	"weave/internal/jobs"
@@ -41,6 +42,8 @@ type NewServerParams struct {
 	ContextPath        string
 	HookCommand        string
 	FallbackResumeRoot string
+	// Doctor is this machine as the doctor's checks see it, which run_doctor answers with.
+	Doctor doctor.Settings
 }
 
 // mailConfig reads the mail settings fresh on every send, and fails rather than falling back to
@@ -148,6 +151,7 @@ func NewServer(ctx context.Context, params NewServerParams) (*Server, error) {
 		ReadOnly:      readOnly,
 		StopRequested: srv.stopRequested,
 		LogPath:       params.Env.LogPath(),
+		Doctor:        params.Doctor,
 	})
 	if err != nil {
 		return nil, err

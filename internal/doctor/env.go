@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"weave/config"
+	"weave/internal/harness"
 )
 
 const commandTimeout = 5 * time.Second
@@ -20,6 +21,7 @@ type Env struct {
 	Output                func(ctx context.Context, name string, args ...string) (string, error)
 	LoadConfig            func() (*config.Config, error)
 	DoesLayerExist        func(path string) bool
+	ValidateKeybindings   func(keys config.Keybindings) error
 	InspectDir            func(path string) (DirState, error)
 	ReadFile              func(path string) ([]byte, error)
 	PingDatabase          func(ctx context.Context, url string) error
@@ -41,6 +43,21 @@ type HarnessInfo struct {
 	Binary string
 }
 
+// DescribeHarnesses is the harnesses a registry holds, as the checks name them.
+func DescribeHarnesses(registry *harness.Registry) ([]HarnessInfo, error) {
+	harnesses := make([]HarnessInfo, 0, len(registry.IDs()))
+	for _, id := range registry.IDs() {
+		found, err := registry.GetByID(id)
+		if err != nil {
+			return nil, err
+		}
+
+		harnesses = append(harnesses, HarnessInfo{ID: found.ID(), Binary: found.Binary()})
+	}
+
+	return harnesses, nil
+}
+
 type Settings struct {
 	TmuxSocket          string
 	InsideTmux          string
@@ -51,11 +68,14 @@ type Settings struct {
 	DatabaseURL         string
 	ReadOnlyDatabaseURL string
 	Addr                string
-	EngineIsRemote      bool
-	Version             string
-	Commit              string
-	Term                string
-	ColorTerm           string
+	// FocusKey is the key the panel binds in tmux's root table to take focus, which the
+	// keybindings check keeps free for it.
+	FocusKey       string
+	EngineIsRemote bool
+	Version        string
+	Commit         string
+	Term           string
+	ColorTerm      string
 }
 
 // NewEnv is the env pointed at the machine this is running on.

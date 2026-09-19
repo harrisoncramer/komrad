@@ -7,33 +7,90 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestChecksAreWellFormed covers the wiring of the list rather than any one assertion: a
-// typo in a dependency name would silently run a check meant to be skipped, and a duplicate
-// name would read the wrong check's conclusion, neither of which shows up at runtime as
-// more than a confusing report.
+// TestChecksAreWellFormed covers the wiring of each list rather than any one assertion: a
+// typo in a dependency name would silently run a check meant to be skipped, a duplicate
+// name would read the wrong check's conclusion, and a dependency listed only on the other
+// machine would skip a check the service makes on its own; none of which shows up at runtime
+// as more than a confusing report.
 func TestChecksAreWellFormed(t *testing.T) {
-	checks := Checks(Settings{Harnesses: []HarnessInfo{
+	settings := Settings{Harnesses: []HarnessInfo{
 		{ID: "claude", Binary: "claude"},
 		{ID: "codex", Binary: "codex"},
-	}})
-	require.NotEmpty(t, checks)
+	}}
 
-	seen := make(map[string]bool, len(checks))
-	for _, check := range checks {
-		assert.NotEmpty(t, check.Name)
-		assert.NotEmpty(t, check.Description, "%s says what it is for", check.Name)
-		assert.NotNil(t, check.Run, "%s has something to run", check.Name)
-
-		assert.False(t, seen[check.Name], "no two checks answer to %q", check.Name)
-		seen[check.Name] = true
+	tests := []struct {
+		name   string
+		checks []Check
+	}{
+		{
+			name:   "here",
+			checks: HereChecks(),
+		},
+		{
+			name:   "engine",
+			checks: EngineChecks(settings),
+		},
+		{
+			name:   "both, when the engine is this machine",
+			checks: Checks(settings),
+		},
 	}
 
-	concluded := make(map[string]bool, len(checks))
-	for _, check := range checks {
-		for _, needed := range check.Needs {
-			assert.True(t, concluded[needed],
-				"%q needs %q, which has to be a check listed before it", check.Name, needed)
-		}
-		concluded[check.Name] = true
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			require.NotEmpty(t, tt.checks)
+
+			seen := make(map[string]bool, len(tt.checks))
+			for _, check := range tt.checks {
+				assert.NotEmpty(t, check.Name)
+				assert.NotEmpty(t, check.Description, "%s says what it is for", check.Name)
+				assert.NotNil(t, check.Run, "%s has something to run", check.Name)
+
+				assert.False(t, seen[check.Name], "no two checks answer to %q", check.Name)
+				seen[check.Name] = true
+			}
+
+			concluded := make(map[string]bool, len(tt.checks))
+			for _, check := range tt.checks {
+				for _, needed := range check.Needs {
+					assert.True(t, concluded[needed],
+						"%q needs %q, which has to be a check listed before it in the same list", check.Name, needed)
+				}
+				concluded[check.Name] = true
+			}
+		})
 	}
+}
+
+// TestChecksMakesEveryCheckOnce covers the doctor on a machine that is its own engine: the
+// checks both lists hold are made once, and the engine's come after the ones about here.
+func TestChecksMakesEveryCheckOnce(t *testing.T) {
+	settings := Settings{Harnesses: []HarnessInfo{{ID: "claude", Binary: "claude"}}}
+
+	names := make([]string, 0)
+	for _, check := range Checks(settings) {
+		names = append(names, check.Name)
+	}
+
+	assert.Equal(t, []string{
+		"tmux",
+		"tmux version",
+		"config",
+		"keybindings",
+		"server",
+		"forges",
+		"terminal glyphs",
+		"terminal emphasis",
+		"terminal color",
+		"tmux shell",
+		"default harness",
+		"hooks",
+		"worktrees",
+		"context",
+		"database",
+		"schema",
+		"readonly login",
+		"orphaned worktrees",
+		"claude",
+	}, names)
 }

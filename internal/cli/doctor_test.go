@@ -115,8 +115,9 @@ func TestDoctorAdviceReadsThePanelsOwnPane(t *testing.T) {
 	staleFix := func(t *testing.T) string {
 		t.Helper()
 
-		env, checks, err := state.buildDoctor()
+		env, settings, err := state.buildDoctor()
 		require.NoError(t, err)
+		checks := doctor.Checks(settings)
 
 		env.ProbeServer = func(context.Context) (doctor.ServerStatus, error) {
 			return doctor.ServerStatus{

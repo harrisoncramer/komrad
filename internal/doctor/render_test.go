@@ -80,6 +80,31 @@ func TestWriteTextCarriesAFixOnlyWhereThereIsSomethingToDo(t *testing.T) {
 	assert.Contains(t, out.String(), "fix: upgrade tmux")
 }
 
+// TestWriteTextHeadsTheEngineFindings covers the report for a remote engine, where the same
+// check name can appear twice and the reader has to know which machine each line is about.
+func TestWriteTextHeadsTheEngineFindings(t *testing.T) {
+	report := sample().WithEngine([]Finding{{
+		Name:   "tmux",
+		Status: StatusOK,
+		Detail: "tmux 3.4",
+	}})
+
+	var out strings.Builder
+	require.NoError(t, WriteText(&out, report, false))
+
+	lines := strings.Split(strings.TrimSpace(out.String()), "\n")
+	heading := -1
+	for i, line := range lines {
+		if strings.TrimSpace(line) == "on the engine" {
+			heading = i
+		}
+	}
+	require.NotEqual(t, -1, heading, "the engine's findings are headed")
+	assert.Empty(t, strings.TrimSpace(lines[heading-1]), "a blank line sets the engine apart")
+	assert.Contains(t, lines[heading+1], "tmux 3.4")
+	assert.Equal(t, 1, strings.Count(out.String(), "on the engine"))
+}
+
 // TestWriteTextSaysWhatFailed covers the last line, which is what a reader takes away when
 // they do not read the list.
 func TestWriteTextSaysWhatFailed(t *testing.T) {

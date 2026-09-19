@@ -77,6 +77,12 @@ _Do not skip the trust question. Agents run in worktrees cut from this checkout 
 
 Weave's home is on the data volume, so both survive a new image.
 
+## Checking the engine from here
+
+`weave doctor --engine remote` reports on both machines in one run. The checks about your own machine run here: tmux for the panel, your config layers, the terminal, and the service as it is reached through the forward. The checks about the engine are asked of its service, which makes them on its own machine and answers with the findings: its tmux and shell, its config, the harness binaries, the hooks and worktree directories, the database and its schema. They are printed under an `on the engine` heading after the ones made here. When the service cannot be reached, or is running a different build, the report says so once under `server` and the engine's checks are marked not checked.
+
+The same checks are what `weave doctor` makes when the engine is the machine it runs on, and what `weave rpc run-doctor` asks any service for.
+
 ## Keeping the two builds in step
 
 The panel refuses to talk to an engine running other code, and it decides that on the commit each binary was built from rather than on the version each prints. So your own weave and the engine's have to come from the same place: install both from the same release, or build yours from the commit the engine was deployed from. `weave version` and `weave doctor` show both builds, the engine as its release tag or `v0.0.0-engine.<commit>` and your own as whatever it was built as.

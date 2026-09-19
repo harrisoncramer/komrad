@@ -11,6 +11,7 @@ ConditionPathIsMountPoint=/var/lib/weave
 Type=simple
 User=weave
 Group=weave
+Environment=PATH=/opt/mise/data/shims:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin
 EnvironmentFile=-/etc/weave/weave.env
 EnvironmentFile=/etc/weave/database.env
 ExecStart=/usr/local/bin/weave serve

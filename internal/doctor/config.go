@@ -91,7 +91,6 @@ func newDefaultHarnessCheck() Check {
 		Name:        "default harness",
 		Description: "the agent CLI a new agent runs when nothing names one",
 		Needs:       []string{"config"},
-		Engine:      true,
 		Run: func(_ context.Context, env Env) Result {
 			cfg, err := env.LoadConfig()
 			if err != nil {
@@ -120,7 +119,6 @@ func newHarnessBinaryCheck(agent HarnessInfo) Check {
 	return Check{
 		Name:        agent.ID,
 		Description: "agents on the " + agent.ID + " harness run this command",
-		Engine:      true,
 		Run: func(_ context.Context, env Env) Result {
 			path, lookErr := env.LookPath(agent.Binary)
 			if lookErr == nil {

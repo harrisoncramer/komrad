@@ -13,6 +13,7 @@ import (
 	agentv1 "weave/proto/gen/agent/v1"
 	annotationv1 "weave/proto/gen/annotation/v1"
 	configv1 "weave/proto/gen/config/v1"
+	doctorv1 "weave/proto/gen/doctor/v1"
 	forgev1 "weave/proto/gen/forge/v1"
 	hookv1 "weave/proto/gen/hook/v1"
 	logv1 "weave/proto/gen/log/v1"
@@ -31,6 +32,7 @@ var files = []protoreflect.FileDescriptor{
 	workflowv1.File_workflow_v1_workflow_proto,
 	schedulev1.File_schedule_v1_schedule_proto,
 	configv1.File_config_v1_config_proto,
+	doctorv1.File_doctor_v1_doctor_proto,
 	hookv1.File_hook_v1_hook_proto,
 	logv1.File_log_v1_log_proto,
 	forgev1.File_forge_v1_forge_proto,

@@ -35,7 +35,6 @@ func newContextCheck() Check {
 		Name:        "context",
 		Description: "the standing text every agent is started with, whatever workflow it is in",
 		Needs:       []string{"config"},
-		Engine:      true,
 		Run: func(_ context.Context, env Env) Result {
 			cfg, err := env.LoadConfig()
 			if err != nil {

@@ -152,6 +152,11 @@ func getHookBinaryPath(ctx context.Context) string {
 func serve(ctx context.Context, params serveParams) error {
 	state, logger, addr := params.App, params.Logger, params.Addr
 
+	doctorSettings, err := state.buildDoctorSettings()
+	if err != nil {
+		return err
+	}
+
 	server, err := serverPkg.NewServer(ctx, serverPkg.NewServerParams{
 		Env:            state.env,
 		ConfigStack:    state.configStack,
@@ -165,6 +170,7 @@ func serve(ctx context.Context, params serveParams) error {
 		MaxChildren:    state.maxChildren,
 		ContextPath:    state.contextPath,
 		HookCommand:    getHookBinaryPath(ctx),
+		Doctor:         doctorSettings,
 	})
 	if err != nil {
 		return err

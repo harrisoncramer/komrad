@@ -1,0 +1,60 @@
+syntax = "proto3";
+
+package doctor.v1;
+
+import "annotation/v1/tool.proto";
+import "google/protobuf/empty.proto";
+
+option go_package = "weave/proto/gen/doctor/v1;doctorv1";
+
+message Finding {
+  // Which check this is, such as database or tmux shell.
+  string name = 1;
+  // What the check is for, in a sentence.
+  string description = 2;
+  // How it came out: ok, warn, fail or skip.
+  string status = 3;
+  // What was found, such as the version read or the path checked, when there is something to say.
+  string detail = 4;
+  // A stable code for what went wrong, such as db_unreachable, empty when nothing did.
+  string code = 5;
+  // What went wrong, as the check worded it, empty when nothing did.
+  string error = 6;
+  // What to do about it, empty when there is nothing to do.
+  string fix = 7;
+}
+
+message Summary {
+  // How many checks passed.
+  int32 ok = 1;
+  // How many passed with something worth a look.
+  int32 warn = 2;
+  // How many failed.
+  int32 fail = 3;
+  // How many were not made because one they need did not pass.
+  int32 skip = 4;
+  // How many checks there were.
+  int32 total = 5;
+  // Whether nothing failed.
+  bool healthy = 6;
+}
+
+message RunDoctorResponse {
+  // Every check the service made, in the order it made them.
+  repeated Finding findings = 1;
+  // The findings counted up.
+  Summary summary = 2;
+}
+
+// DoctorService makes the checks the doctor makes, on the machine the service runs on.
+service DoctorService {
+  rpc RunDoctor(google.protobuf.Empty) returns (RunDoctorResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+    option (annotation.v1.surfaces) = {
+      cli: true
+      mcp: true
+      name: "run_doctor"
+      description: "Check the machine the service runs on for what its agents need: tmux and its shell, the config, the harness binaries, the hooks and worktree directories, the database and its schema. Each check answers ok, warn, fail or skip with what was found and what to do about it. This is what weave doctor asks an engine for, and it is how to find out whether an engine is fit to run agents without a shell on it."
+    };
+  }
+}
