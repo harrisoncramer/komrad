@@ -688,7 +688,19 @@ FROM
 WHERE
     agent_id = @agent_id;
 
--- name: LastTranscriptTurns :many
+-- name: ListLastTranscriptTurns :many
+WITH newest AS (
+    SELECT
+        c.seq
+    FROM
+        agent_transcript_chunks c
+    WHERE
+        c.agent_id = @agent_id
+        AND c.role = @role
+    ORDER BY
+        c.seq DESC
+    LIMIT @lim
+)
 SELECT
     c.seq,
     c.role,
@@ -697,10 +709,18 @@ FROM
     agent_transcript_chunks c
 WHERE
     c.agent_id = @agent_id
-    AND c.role = @role
+    AND c.seq >=(
+        SELECT
+            MIN(seq)
+        FROM
+            newest)
+    AND c.seq <=(
+        SELECT
+            MAX(seq)
+        FROM
+            newest)
 ORDER BY
-    c.seq DESC
-LIMIT @lim;
+    c.seq;
 
 -- name: OpenTranscriptSession :one
 INSERT INTO agent_transcript_sessions(

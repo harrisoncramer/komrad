@@ -79,29 +79,34 @@ type StoredTurn struct {
 	Content string
 }
 
-type LastTurnsParams struct {
+type ListLastTurnsParams struct {
 	AgentID string
 	Role    string
 	Limit   int32
 }
 
-// LastTurns returns the newest turns spoken in one role, newest first.
-func (s *Store) LastTurns(ctx context.Context, params LastTurnsParams) ([]StoredTurn, error) {
+// ListLastTurns returns the newest turns spoken in one role and every turn between them, oldest
+// first.
+func (s *Store) ListLastTurns(ctx context.Context, params ListLastTurnsParams) ([]StoredTurn, error) {
 	if !store.IsID(params.AgentID) {
 		return nil, nil
 	}
 
-	rows, err := s.queries.LastTranscriptTurns(ctx, models.LastTranscriptTurnsParams{
+	rows, err := s.queries.ListLastTranscriptTurns(ctx, models.ListLastTranscriptTurnsParams{
 		AgentID: params.AgentID,
 		Role:    params.Role,
 		Lim:     params.Limit,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to read the last turns of %q: %w", params.AgentID, err)
+		return nil, fmt.Errorf("failed to list the last turns of %q: %w", params.AgentID, err)
 	}
 
-	return xslice.Map(rows, func(row *models.LastTranscriptTurnsRow) StoredTurn {
-		return StoredTurn{Seq: row.Seq, Role: row.Role, Content: row.Content}
+	return xslice.Map(rows, func(row *models.ListLastTranscriptTurnsRow) StoredTurn {
+		return StoredTurn{
+			Seq:     row.Seq,
+			Role:    row.Role,
+			Content: row.Content,
+		}
 	}), nil
 }
 

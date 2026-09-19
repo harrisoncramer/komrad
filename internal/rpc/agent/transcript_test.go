@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"weave/internal/rpcerr"
-	"weave/internal/storetest"
 	"weave/lib/pagination"
 	agentv1 "weave/proto/gen/agent/v1"
 
@@ -193,14 +192,30 @@ type lastTurn struct {
 	truncated bool
 }
 
-// TestGetLastTurns covers what an agent's newest turns read back as, which is only what it said
-// itself, oldest first, with the end of each kept when the window cuts it.
+// TestGetLastTurns covers what an agent's newest turns read back as, which is what it said and
+// the prompts between, oldest first, with the end of each kept when the window cuts it.
 func TestGetLastTurns(t *testing.T) {
 	stored := []transcriptstore.Turn{
-		{Role: "user", Content: "opening question"},
-		{Role: "assistant", Content: "a first reading of the problem"},
-		{Role: "assistant", Content: "then the conclusion"},
-		{Role: "user", Content: "a follow-up nobody has answered"},
+		{
+			Role:    "user",
+			Content: "opening question",
+		},
+		{
+			Role:    "assistant",
+			Content: "a first reading of the problem",
+		},
+		{
+			Role:    "user",
+			Content: "a nudge",
+		},
+		{
+			Role:    "assistant",
+			Content: "then the conclusion",
+		},
+		{
+			Role:    "user",
+			Content: "a follow-up nobody has answered",
+		},
 	}
 
 	tests := []struct {
@@ -226,24 +241,60 @@ func TestGetLastTurns(t *testing.T) {
 			name:  "the default is the last thing the agent said, whatever was asked since",
 			turns: stored,
 			req:   &agentv1.GetLastTurnsRequest{},
-			want:  []lastTurn{{role: "assistant", seq: 2, content: "then the conclusion"}},
+			want: []lastTurn{
+				{
+					role:    "assistant",
+					seq:     3,
+					content: "then the conclusion",
+				},
+			},
 		},
 		{
-			name:  "more turns come back oldest first and are the agent's own",
+			name:  "more turns come back oldest first with the prompts between them and none before",
 			turns: stored,
 			req:   &agentv1.GetLastTurnsRequest{Turns: proto.Int32(3)},
 			want: []lastTurn{
-				{role: "assistant", seq: 1, content: "a first reading of the problem"},
-				{role: "assistant", seq: 2, content: "then the conclusion"},
+				{
+					role:    "assistant",
+					seq:     1,
+					content: "a first reading of the problem",
+				},
+				{
+					role:    "user",
+					seq:     2,
+					content: "a nudge",
+				},
+				{
+					role:    "assistant",
+					seq:     3,
+					content: "then the conclusion",
+				},
 			},
 		},
 		{
 			name:  "a window cuts the head of a turn and says so, leaving a shorter one whole",
 			turns: stored,
-			req:   &agentv1.GetLastTurnsRequest{Turns: proto.Int32(2), MaxBytes: proto.Int32(22)},
+			req: &agentv1.GetLastTurnsRequest{
+				Turns:    proto.Int32(2),
+				MaxBytes: proto.Int32(22),
+			},
 			want: []lastTurn{
-				{role: "assistant", seq: 1, content: "reading of the problem", truncated: true},
-				{role: "assistant", seq: 2, content: "then the conclusion"},
+				{
+					role:      "assistant",
+					seq:       1,
+					content:   "reading of the problem",
+					truncated: true,
+				},
+				{
+					role:    "user",
+					seq:     2,
+					content: "a nudge",
+				},
+				{
+					role:    "assistant",
+					seq:     3,
+					content: "then the conclusion",
+				},
 			},
 		},
 	}
@@ -253,7 +304,7 @@ func TestGetLastTurns(t *testing.T) {
 			svc, st := service(t)
 
 			agent := st.SeedAgent(t, agentstore.Agent{Name: "alpha", State: agentstore.StateThinking})
-			seedTurns(t, st, agent.ID, tt.turns)
+			st.SeedTurns(t, agent.ID, tt.turns...)
 
 			tt.req.AgentId = tt.agentID
 			if tt.req.AgentId == "" {
@@ -280,24 +331,4 @@ func TestGetLastTurns(t *testing.T) {
 			assert.Equal(t, tt.want, read)
 		})
 	}
-}
-
-func seedTurns(t *testing.T, st *storetest.Stores, agentID string, turns []transcriptstore.Turn) {
-	t.Helper()
-
-	if len(turns) == 0 {
-		return
-	}
-
-	session, err := st.Transcripts.OpenSession(t.Context(), transcriptstore.OpenSessionParams{
-		AgentID:   agentID,
-		SessionID: "session-" + agentID,
-	})
-	require.NoError(t, err)
-
-	require.NoError(t, st.Transcripts.AppendTurns(t.Context(), transcriptstore.AppendTurnsParams{
-		AgentID:   agentID,
-		SessionID: session.ID,
-		Turns:     turns,
-	}))
 }

@@ -646,53 +646,6 @@ type InsertTranscriptChunksParams struct {
 	ContentOffset int64
 }
 
-const lastTranscriptTurns = `-- name: LastTranscriptTurns :many
-SELECT
-    c.seq,
-    c.role,
-    c.content
-FROM
-    agent_transcript_chunks c
-WHERE
-    c.agent_id = $1
-    AND c.role = $2
-ORDER BY
-    c.seq DESC
-LIMIT $3
-`
-
-type LastTranscriptTurnsParams struct {
-	AgentID string
-	Role    string
-	Lim     int32
-}
-
-type LastTranscriptTurnsRow struct {
-	Seq     int32
-	Role    string
-	Content string
-}
-
-func (q *Queries) LastTranscriptTurns(ctx context.Context, arg LastTranscriptTurnsParams) ([]*LastTranscriptTurnsRow, error) {
-	rows, err := q.db.Query(ctx, lastTranscriptTurns, arg.AgentID, arg.Role, arg.Lim)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []*LastTranscriptTurnsRow
-	for rows.Next() {
-		var i LastTranscriptTurnsRow
-		if err := rows.Scan(&i.Seq, &i.Role, &i.Content); err != nil {
-			return nil, err
-		}
-		items = append(items, &i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const listAgentDirs = `-- name: ListAgentDirs :many
 SELECT
     id,
@@ -1275,6 +1228,73 @@ func (q *Queries) ListChildAgents(ctx context.Context, parentIds []string) ([]*A
 			&i.SequenceInProgress,
 			&i.RepositoryUrl,
 		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listLastTranscriptTurns = `-- name: ListLastTranscriptTurns :many
+WITH newest AS (
+    SELECT
+        c.seq
+    FROM
+        agent_transcript_chunks c
+    WHERE
+        c.agent_id = $1
+        AND c.role = $2
+    ORDER BY
+        c.seq DESC
+    LIMIT $3
+)
+SELECT
+    c.seq,
+    c.role,
+    c.content
+FROM
+    agent_transcript_chunks c
+WHERE
+    c.agent_id = $1
+    AND c.seq >=(
+        SELECT
+            MIN(seq)
+        FROM
+            newest)
+    AND c.seq <=(
+        SELECT
+            MAX(seq)
+        FROM
+            newest)
+ORDER BY
+    c.seq
+`
+
+type ListLastTranscriptTurnsParams struct {
+	AgentID string
+	Role    string
+	Lim     int32
+}
+
+type ListLastTranscriptTurnsRow struct {
+	Seq     int32
+	Role    string
+	Content string
+}
+
+func (q *Queries) ListLastTranscriptTurns(ctx context.Context, arg ListLastTranscriptTurnsParams) ([]*ListLastTranscriptTurnsRow, error) {
+	rows, err := q.db.Query(ctx, listLastTranscriptTurns, arg.AgentID, arg.Role, arg.Lim)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []*ListLastTranscriptTurnsRow
+	for rows.Next() {
+		var i ListLastTranscriptTurnsRow
+		if err := rows.Scan(&i.Seq, &i.Role, &i.Content); err != nil {
 			return nil, err
 		}
 		items = append(items, &i)

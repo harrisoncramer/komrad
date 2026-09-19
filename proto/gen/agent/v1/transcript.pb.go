@@ -391,7 +391,8 @@ type GetLastTurnsRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Whose conversation to read.
 	AgentId string `protobuf:"bytes,1,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`
-	// How many of the newest assistant turns to return, or unset for the last one alone.
+	// How many of the newest assistant turns to return, with the prompts between them, or unset
+	// for the last one alone.
 	Turns *int32 `protobuf:"varint,2,opt,name=turns,proto3,oneof" json:"turns,omitempty"`
 	// The most of each turn's text to return, cut from the head so the end survives, or unset
 	// for the default.
@@ -525,7 +526,7 @@ func (x *Turn) GetTruncated() bool {
 
 type GetLastTurnsResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The newest assistant turns, oldest first.
+	// The newest assistant turns and the prompts between them, oldest first.
 	Turns         []*Turn `protobuf:"bytes,1,rep,name=turns,proto3" json:"turns,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache

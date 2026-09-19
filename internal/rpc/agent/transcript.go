@@ -2,7 +2,6 @@ package agent
 
 import (
 	"context"
-	"slices"
 	"unicode/utf8"
 
 	"weave/internal/agents"
@@ -19,7 +18,7 @@ import (
 
 type transcriptReader interface {
 	Get(ctx context.Context, agentID string) (string, error)
-	LastTurns(ctx context.Context, params transcriptstore.LastTurnsParams) ([]transcriptstore.StoredTurn, error)
+	ListLastTurns(ctx context.Context, params transcriptstore.ListLastTurnsParams) ([]transcriptstore.StoredTurn, error)
 	Search(ctx context.Context, params transcriptstore.SearchParams) (transcriptstore.Results, error)
 }
 
@@ -153,8 +152,8 @@ func transcriptWindow(content string, cursor *transcriptstore.ContentCursor, req
 
 const assistantRole = "assistant"
 
-// GetLastTurns returns the newest turns an agent wrote, oldest first, each cut from the head to
-// fit the window asked for.
+// GetLastTurns returns the newest turns an agent wrote and the prompts between them, oldest
+// first, each cut from the head to fit the window asked for.
 func (s *AgentService) GetLastTurns(ctx context.Context, req *agentv1.GetLastTurnsRequest) (*agentv1.GetLastTurnsResponse, *fail.Error) {
 	logCrossAgentRead(ctx, req.GetAgentId(), "agent read another agent's transcript")
 
@@ -171,13 +170,13 @@ func (s *AgentService) GetLastTurns(ctx context.Context, req *agentv1.GetLastTur
 		count = 1
 	}
 
-	newest, err := s.transcripts.LastTurns(ctx, transcriptstore.LastTurnsParams{
+	newest, err := s.transcripts.ListLastTurns(ctx, transcriptstore.ListLastTurnsParams{
 		AgentID: req.GetAgentId(),
 		Role:    assistantRole,
 		Limit:   count,
 	})
 	if err != nil {
-		return nil, rpcerr.From(err, "failed to read the last turns")
+		return nil, rpcerr.From(err, "failed to list the last turns")
 	}
 
 	limit := maxTranscriptWindow
@@ -186,7 +185,7 @@ func (s *AgentService) GetLastTurns(ctx context.Context, req *agentv1.GetLastTur
 	}
 
 	turns := make([]*agentv1.Turn, 0, len(newest))
-	for _, turn := range slices.Backward(newest) {
+	for _, turn := range newest {
 		content, truncated := xstr.Tail(turn.Content, limit)
 		turns = append(turns, &agentv1.Turn{
 			Role:      turn.Role,

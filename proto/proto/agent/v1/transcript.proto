@@ -72,7 +72,8 @@ message GetTranscriptResponse {
 message GetLastTurnsRequest {
   // Whose conversation to read.
   string agent_id = 1 [(buf.validate.field).string.min_len = 1];
-  // How many of the newest assistant turns to return, or unset for the last one alone.
+  // How many of the newest assistant turns to return, with the prompts between them, or unset
+  // for the last one alone.
   optional int32 turns = 2 [(buf.validate.field).int32 = {
     gte: 1
     lte: 20
@@ -94,6 +95,6 @@ message Turn {
 }
 
 message GetLastTurnsResponse {
-  // The newest assistant turns, oldest first.
+  // The newest assistant turns and the prompts between them, oldest first.
   repeated Turn turns = 1;
 }
