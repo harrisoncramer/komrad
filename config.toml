@@ -30,7 +30,7 @@ flags             = ""
 # before launching it. Codex asks whether a directory is trusted the first
 # time it runs there and waits for an answer, which it reads only from that
 # file, so an agent in a fresh worktree otherwise starts blocked and shows
-# here as waiting. Turning this on edits ~/.codex/config.toml on your behalf.
+# here as waiting. Turning this on edits that file on your behalf.
 trust_launch_dirs = false
 
 # Where the panel's sidebar, the stage beside it, and the info pane under the stage sit, and how much of the popup each takes.

@@ -318,7 +318,7 @@ func hookHarnesses(t *testing.T) *harness.Registry {
 
 	registry, err := harness.NewRegistry(
 		claude.NewHarness(claude.NewHarnessParams{ConfigDir: t.TempDir()}),
-		codex.NewHarness(codex.NewHarnessParams{SessionsDir: t.TempDir()}),
+		codex.NewHarness(codex.NewHarnessParams{Home: t.TempDir()}),
 	)
 	require.NoError(t, err)
 

@@ -8,25 +8,29 @@ import (
 	"github.com/pelletier/go-toml/v2"
 )
 
-// defaultConfigPath is the config file Codex reads, which is also the only place it records
-// which directories are trusted.
-func defaultConfigPath() string {
-	home, err := os.UserHomeDir()
+// resolveConfigPath names the file Codex keeps its trusted directories in.
+func (h *Harness) resolveConfigPath() (string, error) {
+	home, err := h.resolveHome()
 	if err != nil {
-		home = ""
+		return "", err
 	}
 
-	return filepath.Join(home, ".codex", "config.toml")
+	return filepath.Join(home, "config.toml"), nil
 }
 
 func (h *Harness) trustDir(dir string) error {
-	if !h.trustLaunchDirs || dir == "" || h.configPath == "" {
+	if !h.trustLaunchDirs || dir == "" {
 		return nil
 	}
 
-	current, err := os.ReadFile(h.configPath)
+	configPath, err := h.resolveConfigPath()
+	if err != nil {
+		return err
+	}
+
+	current, err := os.ReadFile(configPath)
 	if err != nil && !os.IsNotExist(err) {
-		return fmt.Errorf("failed to read the codex config %q: %w", h.configPath, err)
+		return fmt.Errorf("failed to read the codex config %q: %w", configPath, err)
 	}
 
 	trusted, err := isDirListed(current, dir)
@@ -44,12 +48,12 @@ func (h *Harness) trustDir(dir string) error {
 		return fmt.Errorf("refusing to write a codex config that would not parse: %w", err)
 	}
 
-	if err := os.MkdirAll(filepath.Dir(h.configPath), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(configPath), 0o755); err != nil {
 		return fmt.Errorf("failed to create the codex config dir: %w", err)
 	}
 
-	if err := os.WriteFile(h.configPath, []byte(grown), 0o644); err != nil {
-		return fmt.Errorf("failed to write the codex config %q: %w", h.configPath, err)
+	if err := os.WriteFile(configPath, []byte(grown), 0o644); err != nil {
+		return fmt.Errorf("failed to write the codex config %q: %w", configPath, err)
 	}
 
 	return nil

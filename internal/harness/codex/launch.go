@@ -15,7 +15,7 @@ func (h *Harness) BuildCommand(launch harness.Launch) (string, error) {
 		return "", err
 	}
 
-	command := harness.EnvPrefix(launch) + originatorPrefix(launch.AgentID) + binary
+	command := harness.EnvPrefix(launch) + h.homePrefix() + originatorPrefix(launch.AgentID) + binary
 
 	resuming := launch.Resume && launch.SessionID != ""
 	if resuming {

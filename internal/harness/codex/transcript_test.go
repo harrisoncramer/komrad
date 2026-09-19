@@ -157,7 +157,7 @@ func TestReadLog(t *testing.T) {
 				require.NoError(t, os.WriteFile(path, []byte(tt.body), 0o600))
 			}
 
-			read, err := NewHarness(NewHarnessParams{SessionsDir: t.TempDir()}).ReadLog(path, tt.offset)
+			read, err := NewHarness(NewHarnessParams{Home: t.TempDir()}).ReadLog(path, tt.offset)
 			require.NoError(t, err)
 
 			assert.Equal(t, tt.wantTurns, read.Turns)
@@ -170,21 +170,21 @@ func TestReadLog(t *testing.T) {
 // TestLogPath covers finding a conversation by globbing the id inside the filename, so
 // nothing here depends on the SQLite index schema.
 func TestLogPath(t *testing.T) {
-	sessions := t.TempDir()
+	home := t.TempDir()
 	const id = "019fb3e7-2cb6-7ab3-86a0-51a670a33140"
 
-	path := writeRollout(t, sessions, "2026-07-30T12-41-39", id, metaRecord+"\n")
+	path := writeRollout(t, home, "2026-07-30T12-41-39", id, metaRecord+"\n")
 
-	harnessUnderTest := NewHarness(NewHarnessParams{SessionsDir: sessions})
+	harnessUnderTest := NewHarness(NewHarnessParams{Home: home})
 	assert.Equal(t, path, harnessUnderTest.LogPath(id))
 	assert.Empty(t, harnessUnderTest.LogPath("019fb3e7-0000-0000-0000-000000000000"), "an id with no rollout has no path")
 	assert.Empty(t, harnessUnderTest.LogPath(""), "and neither does an agent with no session")
 }
 
-func writeRollout(t *testing.T, sessionsDir, stamp, sessionID, body string) string {
+func writeRollout(t *testing.T, home, stamp, sessionID, body string) string {
 	t.Helper()
 
-	dir := filepath.Join(sessionsDir, "2026", "07", "30")
+	dir := filepath.Join(home, "sessions", "2026", "07", "30")
 	require.NoError(t, os.MkdirAll(dir, 0o755))
 
 	path := filepath.Join(dir, fmt.Sprintf("rollout-%s-%s.jsonl", stamp, sessionID))

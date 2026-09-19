@@ -310,7 +310,7 @@ func TestReadActivity(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, NewHarness(NewHarnessParams{SessionsDir: t.TempDir()}).ReadInput(tt.frame).Activity)
+			assert.Equal(t, tt.want, NewHarness(NewHarnessParams{Home: t.TempDir()}).ReadInput(tt.frame).Activity)
 		})
 	}
 }
@@ -338,7 +338,7 @@ func TestReadActivityIgnoresTranscriptProse(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, harness.ActivityIdle, NewHarness(NewHarnessParams{SessionsDir: t.TempDir()}).ReadInput(tt.frame).Activity,
+			assert.Equal(t, harness.ActivityIdle, NewHarness(NewHarnessParams{Home: t.TempDir()}).ReadInput(tt.frame).Activity,
 				"prose must not read as a live prompt or as work")
 		})
 	}
@@ -349,7 +349,7 @@ func TestReadActivityIgnoresTranscriptProse(t *testing.T) {
 func TestReadActivityStripsANSI(t *testing.T) {
 	frame := "\x1b[38;5;39m•\x1b[39m \x1b[1mWorking\x1b[0m \x1b[2m(7s • esc to interrupt)\x1b[0m"
 
-	assert.Equal(t, harness.ActivityWorking, NewHarness(NewHarnessParams{SessionsDir: t.TempDir()}).ReadInput(frame).Activity)
+	assert.Equal(t, harness.ActivityWorking, NewHarness(NewHarnessParams{Home: t.TempDir()}).ReadInput(frame).Activity)
 }
 
 // TestReadActivityWithoutComposer covers a pane whose Codex has not drawn its input box, where
@@ -379,7 +379,7 @@ func TestReadActivityWithoutComposer(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, harness.ActivityUnrecognized, NewHarness(NewHarnessParams{SessionsDir: t.TempDir()}).ReadInput(tt.frame).Activity)
+			assert.Equal(t, harness.ActivityUnrecognized, NewHarness(NewHarnessParams{Home: t.TempDir()}).ReadInput(tt.frame).Activity)
 		})
 	}
 }
@@ -394,7 +394,7 @@ func TestReadComposerEndingInAMenuHint(t *testing.T) {
 		"\n" +
 		"  enter insert · esc close · arrows switch search modes"
 
-	input := NewHarness(NewHarnessParams{SessionsDir: t.TempDir()}).ReadInput(frame)
+	input := NewHarness(NewHarnessParams{Home: t.TempDir()}).ReadInput(frame)
 
 	assert.Equal(t, harness.ActivityComposing, input.Activity)
 	assert.Equal(t, []string{" paste of codex keys:", ""}, input.Held)

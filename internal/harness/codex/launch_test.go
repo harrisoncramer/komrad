@@ -2,6 +2,7 @@ package codex
 
 import (
 	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"testing"
@@ -96,7 +97,7 @@ func TestBuildCommand(t *testing.T) {
 			launch := tt.launch
 			launch.CacheDir = t.TempDir()
 
-			command, err := NewHarness(NewHarnessParams{SessionsDir: t.TempDir()}).BuildCommand(launch)
+			command, err := NewHarness(NewHarnessParams{}).BuildCommand(launch)
 			require.NoError(t, err)
 
 			for _, want := range tt.wantContain {
@@ -105,6 +106,63 @@ func TestBuildCommand(t *testing.T) {
 			for _, absent := range tt.wantAbsent {
 				assert.NotContains(t, command, absent)
 			}
+		})
+	}
+}
+
+var homeRef = regexp.MustCompile(`CODEX_HOME='([^']+)' `)
+
+// TestBuildCommandPinsTheHome covers the launch carrying the directory weave reads its rollout
+// from.
+func TestBuildCommandPinsTheHome(t *testing.T) {
+	tests := []struct {
+		name    string
+		home    string
+		launch  harness.Launch
+		wantPin bool
+	}{
+		{
+			name:    "on a fresh launch",
+			home:    "work login",
+			launch:  harness.Launch{AgentID: "agent-1"},
+			wantPin: true,
+		},
+		{
+			name:    "and on a resume",
+			home:    "work login",
+			launch:  harness.Launch{AgentID: "agent-1", SessionID: "sess", Resume: true},
+			wantPin: true,
+		},
+		{
+			name:   "not at all when the CLI is left to its default",
+			launch: harness.Launch{AgentID: "agent-1"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			home := ""
+			if tt.home != "" {
+				home = filepath.Join(t.TempDir(), tt.home)
+			}
+
+			launch := tt.launch
+			launch.CacheDir = t.TempDir()
+
+			command, err := NewHarness(NewHarnessParams{Home: home}).BuildCommand(launch)
+			require.NoError(t, err)
+
+			if !tt.wantPin {
+				assert.NotContains(t, command, homeEnv+"=")
+
+				return
+			}
+
+			match := homeRef.FindStringSubmatch(command)
+			require.Len(t, match, 2, "the launch carries the home")
+			assert.Equal(t, home, match[1])
+			assert.Less(t, strings.Index(command, homeEnv+"="), strings.Index(command, " codex"),
+				"the assignment leads the command so it reaches codex's environment")
 		})
 	}
 }
@@ -127,7 +185,7 @@ func TestBuildCommandRegistersMCPServer(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			command, err := NewHarness(NewHarnessParams{SessionsDir: t.TempDir()}).BuildCommand(harness.Launch{
+			command, err := NewHarness(NewHarnessParams{Home: t.TempDir()}).BuildCommand(harness.Launch{
 				CacheDir:    t.TempDir(),
 				SessionID:   "sess",
 				MCPEndpoint: "127.0.0.1:9999",
@@ -166,7 +224,7 @@ func TestBuildCommandQuotesFlags(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			command, err := NewHarness(NewHarnessParams{SessionsDir: t.TempDir()}).BuildCommand(harness.Launch{
+			command, err := NewHarness(NewHarnessParams{Home: t.TempDir()}).BuildCommand(harness.Launch{
 				Flags:    tt.flags,
 				Prompt:   "go",
 				CacheDir: t.TempDir(),
@@ -206,7 +264,7 @@ func TestOpeningPrompt(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			harnessUnderTest := NewHarness(NewHarnessParams{SessionsDir: t.TempDir()})
+			harnessUnderTest := NewHarness(NewHarnessParams{Home: t.TempDir()})
 			assert.Equal(t, tt.want, harnessUnderTest.openingPrompt(tt.launch))
 
 			launch := tt.launch

@@ -13,12 +13,15 @@ import (
 	"path/filepath"
 	"slices"
 
+	"weave/config"
 	"weave/internal/harness"
 )
 
 const binary = "codex"
 
 const originatorEnv = "CODEX_INTERNAL_ORIGINATOR_OVERRIDE"
+
+const homeEnv = "CODEX_HOME"
 
 func originator(agentID string) string { return "weave-" + agentID }
 
@@ -31,29 +34,19 @@ func originatorPrefix(agentID string) string {
 }
 
 type Harness struct {
-	sessionsDir     string
-	configPath      string
+	home            string
 	trustLaunchDirs bool
 }
 
 type NewHarnessParams struct {
-	SessionsDir     string
-	ConfigPath      string
+	Home            string
 	TrustLaunchDirs bool
 }
 
 // NewHarness builds a harness from opts.
 func NewHarness(params NewHarnessParams) *Harness {
-	if params.SessionsDir == "" {
-		params.SessionsDir = defaultSessionsDir()
-	}
-	if params.ConfigPath == "" {
-		params.ConfigPath = defaultConfigPath()
-	}
-
 	return &Harness{
-		sessionsDir:     params.SessionsDir,
-		configPath:      params.ConfigPath,
+		home:            params.Home,
 		trustLaunchDirs: params.TrustLaunchDirs,
 	}
 }
@@ -74,15 +67,42 @@ func (h *Harness) InterruptKeys() []string { return []string{"Escape"} }
 // conversation itself.
 func (h *Harness) MintSessionID() string { return "" }
 
-// defaultSessionsDir is where Codex records its rollouts, returning a relative path that matches
-// no rollouts when the home directory cannot be read.
-func defaultSessionsDir() string {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		home = ""
+// NamedHome reads the directory the environment names in place of ~/.codex, empty when it
+// names none.
+func NamedHome() string {
+	dir, _ := config.LookupEnv(homeEnv)
+
+	return dir
+}
+
+func (h *Harness) homePrefix() string {
+	if h.home == "" {
+		return ""
 	}
 
-	return filepath.Join(home, ".codex", "sessions")
+	return homeEnv + "=" + harness.QuoteArg(h.home) + " "
+}
+
+func (h *Harness) resolveHome() (string, error) {
+	if h.home != "" {
+		return h.home, nil
+	}
+
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("failed to get home directory: %w", err)
+	}
+
+	return filepath.Join(home, ".codex"), nil
+}
+
+func (h *Harness) resolveSessionsDir() (string, error) {
+	home, err := h.resolveHome()
+	if err != nil {
+		return "", err
+	}
+
+	return filepath.Join(home, "sessions"), nil
 }
 
 type sessionMeta struct {
@@ -97,7 +117,12 @@ func (h *Harness) FindSession(agentID string) (string, error) {
 		return "", nil
 	}
 
-	paths, err := filepath.Glob(filepath.Join(h.sessionsDir, "*", "*", "*", "rollout-*.jsonl"))
+	sessionsDir, err := h.resolveSessionsDir()
+	if err != nil {
+		return "", err
+	}
+
+	paths, err := filepath.Glob(filepath.Join(sessionsDir, "*", "*", "*", "rollout-*.jsonl"))
 	if err != nil {
 		return "", fmt.Errorf("failed to list codex rollouts: %w", err)
 	}
