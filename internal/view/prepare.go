@@ -29,8 +29,7 @@ func Prepare(snapshot Snapshot) List {
 	return List{Lines: lines, Columns: columns}
 }
 
-// holdsTrails reports whether a list drawn in the given name columns keeps its trails, read off
-// the pane alone so a list does not change shape when one row's name grows.
+// holdsTrails reports whether a list drawn in the given name columns keeps its trails.
 func holdsTrails(width int) bool {
 	return width-indentColumns-trailBudget >= minNameColumns
 }

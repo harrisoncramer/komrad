@@ -12,7 +12,6 @@ type worktreeAgent struct {
 	name       string
 	state      agentstore.State
 	archivedAt *time.Time
-	adopted    bool
 }
 
 // worktreeItem is one directory as the listing reported it.
@@ -25,8 +24,7 @@ type worktreeItem struct {
 	// occupants are the other agents working in the directory.
 	occupants []worktreeAgent
 	// bytes is the last count, nil until one has reached the directory.
-	bytes         *int64
-	sizeCountedAt time.Time
+	bytes *int64
 }
 
 // worktreeEntry is one top-level entry of a directory as of its last count.
@@ -43,19 +41,19 @@ type worktreeCommit struct {
 	committedAt time.Time
 }
 
-// worktreeInspection is one directory read through git, or why it could not be.
+// worktreeInspection is one directory read through git, why it could not be, or the fact that
+// the reading is still on its way.
 type worktreeInspection struct {
-	entries            []worktreeEntry
-	modified           []string
-	untracked          []string
-	baseRef            string
-	ahead              int
-	behind             int
-	landed             int
-	sequenceInProgress bool
-	keepsBranch        bool
-	commits            []worktreeCommit
-	err                error
+	pending     bool
+	entries     []worktreeEntry
+	modified    []string
+	untracked   []string
+	baseRef     string
+	ahead       int
+	behind      int
+	keepsBranch bool
+	commits     []worktreeCommit
+	err         error
 }
 
 type worktreesState struct {
@@ -64,23 +62,13 @@ type worktreesState struct {
 	// inspected is what get_worktree answered for each directory, kept until the directory
 	// leaves the listing.
 	inspected map[string]worktreeInspection
-	// dirs is every directory the listing walked, and unreadable those of them it could not.
-	dirs       []string
-	unreadable []string
 }
 
-// worktreeListing is what one refresh brought back of the worktree directories.
-type worktreeListing struct {
-	items      []worktreeItem
-	dirs       []string
-	unreadable []string
-}
+func (m *model) applyWorktrees(items []worktreeItem, hovered string) {
+	m.worktrees.items = items
 
-func (m *model) applyWorktrees(listed worktreeListing, hovered string) {
-	m.worktrees.items, m.worktrees.dirs, m.worktrees.unreadable = listed.items, listed.dirs, listed.unreadable
-
-	listedDirs := make(map[string]bool, len(listed.items))
-	for _, item := range listed.items {
+	listedDirs := make(map[string]bool, len(items))
+	for _, item := range items {
 		listedDirs[item.dir] = true
 	}
 	for dir := range m.worktrees.inspected {
@@ -109,8 +97,7 @@ func (m *model) applyWorktrees(listed worktreeListing, hovered string) {
 	m.landWorktreeCursor(rows, clampCursor(m.worktrees.cursor, len(rows)))
 }
 
-// landWorktreeCursor puts the cursor on a row by index, naming the row to the column so its
-// own offset is kept.
+// landWorktreeCursor puts the cursor on a row by index and names the row to the column.
 func (m *model) landWorktreeCursor(rows []worktreeRow, idx int) {
 	m.worktrees.cursor = idx
 	m.placeColumn(screenWorktrees, rowKeyAt(rows, idx))

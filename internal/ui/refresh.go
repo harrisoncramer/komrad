@@ -112,7 +112,7 @@ type refreshResult struct {
 	archivedWorkflows    []workflowstore.Workflow
 	archivedWorkflowsErr error
 	archivedListed       bool
-	worktrees            worktreeListing
+	worktrees            []worktreeItem
 	worktreesErr         error
 	worktreesListed      bool
 	agentMarks           map[string]string
@@ -162,7 +162,7 @@ func (m model) refreshCmd() tea.Cmd {
 			wg.Go(func() {
 				listed, err := clients.listWorktrees()
 				if err == nil {
-					result.worktrees = worktreeListingFrom(listed)
+					result.worktrees = worktreeItemsFrom(listed)
 				}
 				result.worktreesErr = err
 			})

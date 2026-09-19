@@ -26,10 +26,16 @@ func worktreeFixture() []worktreeItem {
 			repoDir:  "/home/h/weave",
 			branch:   "agent/live",
 			readable: true,
-			agent:    &worktreeAgent{id: "live", name: "worktree-view", state: agentstore.StateThinking},
-			occupants: []worktreeAgent{
-				{id: "occ", name: "review-607", state: agentstore.StateIdle},
+			agent: &worktreeAgent{
+				id:    "live",
+				name:  "worktree-view",
+				state: agentstore.StateThinking,
 			},
+			occupants: []worktreeAgent{{
+				id:    "occ",
+				name:  "review-607",
+				state: agentstore.StateIdle,
+			}},
 			bytes: bytesOf(49 * 1024 * 1024),
 		},
 		{
@@ -37,8 +43,13 @@ func worktreeFixture() []worktreeItem {
 			repoDir:  "/home/h/weave",
 			branch:   "agent/archived",
 			readable: true,
-			agent:    &worktreeAgent{id: "archived", name: "review-column", state: agentstore.StateIdle, archivedAt: &archived},
-			bytes:    bytesOf(49 * 1024 * 1024),
+			agent: &worktreeAgent{
+				id:         "archived",
+				name:       "review-column",
+				state:      agentstore.StateIdle,
+				archivedAt: &archived,
+			},
+			bytes: bytesOf(49 * 1024 * 1024),
 		},
 		{
 			dir:      "/trees/orphan",
@@ -55,8 +66,13 @@ func worktreeFixture() []worktreeItem {
 			repoDir:  "/home/h/chariot/admin",
 			branch:   "agent/admin",
 			readable: true,
-			agent:    &worktreeAgent{id: "admin", name: "custom-cargo-fixes", state: agentstore.StateIdle, archivedAt: &archived},
-			bytes:    bytesOf(1536 * 1024 * 1024),
+			agent: &worktreeAgent{
+				id:         "admin",
+				name:       "custom-cargo-fixes",
+				state:      agentstore.StateIdle,
+				archivedAt: &archived,
+			},
+			bytes: bytesOf(1536 * 1024 * 1024),
 		},
 	}
 }
@@ -137,7 +153,11 @@ func TestWorktreesSnapshotReadsEveryRow(t *testing.T) {
 		selected: selection{keys: []string{"tree:/trees/orphan"}},
 		focused:  "tree:/trees/live",
 		live: []agentItem{{
-			agent:      agentstore.Agent{ID: "live", Name: "worktree-view", State: agentstore.StateWaiting},
+			agent: agentstore.Agent{
+				ID:    "live",
+				Name:  "worktree-view",
+				State: agentstore.StateWaiting,
+			},
 			alive:      true,
 			unreadMail: true,
 		}},
@@ -205,7 +225,8 @@ func TestWorktreeStatusReadsTheListingsState(t *testing.T) {
 	}
 }
 
-// TestBytesLabel covers the unit and the precision at each size.
+// TestBytesLabel covers the unit and the precision at each size, and the roll into the next
+// unit where the rounded value would run to five characters.
 func TestBytesLabel(t *testing.T) {
 	tests := []struct {
 		bytes int64
@@ -213,17 +234,29 @@ func TestBytesLabel(t *testing.T) {
 	}{
 		{bytes: 0, want: "0B"},
 		{bytes: 512, want: "512B"},
+		{bytes: 999, want: "999B"},
+		{bytes: 1000, want: "1.0K"},
+		{bytes: 1023, want: "1.0K"},
+		{bytes: 10240, want: "10K"},
 		{bytes: 848 * 1024, want: "848K"},
 		{bytes: 9*1024*1024 + 200*1024, want: "9.2M"},
+		{bytes: 1048063, want: "1.0M"},
 		{bytes: 49 * 1024 * 1024, want: "49M"},
 		{bytes: 1536 * 1024 * 1024, want: "1.5G"},
 		{bytes: 24 * 1024 * 1024 * 1024, want: "24G"},
+		{bytes: 1024*1024*1024*1024 - 1, want: "1.0T"},
 		{bytes: 3 * 1024 * 1024 * 1024 * 1024, want: "3.0T"},
+		{bytes: 2048 * 1024 * 1024 * 1024 * 1024, want: "2048T"},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.want, func(t *testing.T) {
-			assert.Equal(t, tt.want, bytesLabel(tt.bytes))
+			label := bytesLabel(tt.bytes)
+
+			assert.Equal(t, tt.want, label)
+			if tt.bytes < 1000*1024*1024*1024*1024 {
+				assert.LessOrEqual(t, len(label), 4)
+			}
 		})
 	}
 }

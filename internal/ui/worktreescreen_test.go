@@ -10,6 +10,7 @@ import (
 	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
 	"weave/internal/ui/layout"
+	"weave/lib/dates"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/huh"
@@ -30,17 +31,47 @@ func worktreesModel() model {
 		detailsHeight: config.DefaultDetailsHeight,
 		listing: listing{
 			workflows: []workflowstore.Workflow{{ID: "w1", Name: "weave"}},
-			agents: []agentItem{{
-				agent: agentstore.Agent{ID: "live", Name: "worktree-view", WorkflowID: "w1", Harness: "claude", State: agentstore.StateThinking, Cwd: "/trees/live"},
-				alive: true,
-			}, {
-				agent: agentstore.Agent{ID: "occ", Name: "review-607", WorkflowID: "w1", Harness: "claude", Cwd: "/trees/live"},
-				alive: true,
-			}},
+			agents: []agentItem{
+				{
+					agent: agentstore.Agent{
+						ID:         "live",
+						Name:       "worktree-view",
+						WorkflowID: "w1",
+						Harness:    "claude",
+						State:      agentstore.StateThinking,
+						Cwd:        "/trees/live",
+					},
+					alive: true,
+				},
+				{
+					agent: agentstore.Agent{
+						ID:         "occ",
+						Name:       "review-607",
+						WorkflowID: "w1",
+						Harness:    "claude",
+						Cwd:        "/trees/live",
+					},
+					alive: true,
+				},
+			},
 		},
 		archive: archiveState{agents: []agentstore.Agent{
-			{ID: "archived", Name: "review-column", WorkflowID: "w1", Harness: "claude", ArchivedAt: &archived, Cwd: "/trees/archived"},
-			{ID: "admin", Name: "custom-cargo-fixes", WorkflowID: "w1", Harness: "claude", ArchivedAt: &archived, Cwd: "/trees/admin"},
+			{
+				ID:         "archived",
+				Name:       "review-column",
+				WorkflowID: "w1",
+				Harness:    "claude",
+				ArchivedAt: &archived,
+				Cwd:        "/trees/archived",
+			},
+			{
+				ID:         "admin",
+				Name:       "custom-cargo-fixes",
+				WorkflowID: "w1",
+				Harness:    "claude",
+				ArchivedAt: &archived,
+				Cwd:        "/trees/admin",
+			},
 		}},
 		worktrees: worktreesState{items: worktreeFixture()},
 	}
@@ -62,7 +93,7 @@ func TestApplyWorktreesSpendsTheFocusOnTheAgentsRow(t *testing.T) {
 	m := worktreesModel()
 	m.worktrees.focus = "occ"
 
-	m.applyWorktrees(worktreeListing{items: worktreeFixture()}, "")
+	m.applyWorktrees(worktreeFixture(), "")
 
 	assert.Equal(t, "agent:occ", m.hoveredWorktreeKey())
 	assert.Empty(t, m.worktrees.focus)
@@ -80,7 +111,7 @@ func TestApplyWorktreesKeepsTheCursorOnItsRow(t *testing.T) {
 	require.Equal(t, "tree:/trees/orphan", m.hoveredWorktreeKey())
 
 	fresh := worktreeFixture()[1:]
-	m.applyWorktrees(worktreeListing{items: fresh}, m.hoveredWorktreeKey())
+	m.applyWorktrees(fresh, m.hoveredWorktreeKey())
 
 	assert.Equal(t, "tree:/trees/orphan", m.hoveredWorktreeKey())
 	assert.Contains(t, m.worktrees.inspected, "/trees/orphan")
@@ -149,7 +180,11 @@ func TestWorktreeFateDecidesTheDeletePath(t *testing.T) {
 	assert.Equal(t, fateUnowned, m.worktreeFate(items[3]))
 
 	stuck := items[0]
-	stuck.agent = &worktreeAgent{id: "stuck", name: "stuck", state: agentstore.StateFailedToCleanup}
+	stuck.agent = &worktreeAgent{
+		id:    "stuck",
+		name:  "stuck",
+		state: agentstore.StateFailedToCleanup,
+	}
 	assert.Equal(t, fateLive, m.worktreeFate(stuck), "a readable directory is its agent's however the cleanup went")
 	stuck.readable = false
 	assert.Equal(t, fateUnowned, m.worktreeFate(stuck))
@@ -249,7 +284,7 @@ func TestWorktreeFieldsReadTheListingAndTheInspection(t *testing.T) {
 	assert.Equal(t, "review-column", before["name"])
 	assert.Equal(t, "49M", before["size"])
 	assert.Equal(t, "agent/archived", before["branch"])
-	assert.Equal(t, "claude, archived Sep 17 at 8:00am", before["agent"])
+	assert.Equal(t, "claude, archived "+dates.Day(time.Date(2026, 9, 17, 12, 0, 0, 0, time.UTC)), before["agent"])
 	assert.Equal(t, "weave", before["workflow"])
 	assert.NotContains(t, before, "base")
 
@@ -288,11 +323,22 @@ func TestWorktreeDocDrawsTheInspection(t *testing.T) {
 	assert.Contains(t, m.worktreeDoc(), "reading the directory")
 
 	m.applyWorktreeInspection(worktreeInspectedMsg{dir: "/trees/live", inspection: worktreeInspection{
-		entries:   []worktreeEntry{{path: "local", bytes: 40 * 1024 * 1024, dir: true}, {path: "go.mod", bytes: 2048}},
+		entries: []worktreeEntry{
+			{
+				path:  "local",
+				bytes: 40 * 1024 * 1024,
+				dir:   true,
+			},
+			{path: "go.mod", bytes: 2048},
+		},
 		modified:  []string{"a.go"},
 		untracked: []string{"b.txt"},
 		baseRef:   "origin/main",
-		commits:   []worktreeCommit{{sha: "87a3bcc98c47", subject: "fix(view): drop the column", committedAt: time.Now().Add(-2 * time.Hour)}},
+		commits: []worktreeCommit{{
+			sha:         "87a3bcc98c47",
+			subject:     "fix(view): drop the column",
+			committedAt: time.Now().Add(-2 * time.Hour),
+		}},
 	}})
 
 	doc := m.worktreeDoc()
@@ -341,18 +387,33 @@ func TestStageTickOnTheWorktreesScreenAsksForTheInspection(t *testing.T) {
 }
 
 // TestRefreshAsksForTheHoveredDirectoryOnce covers a row the screen opened on being read
-// without a move, and not again once it has been.
+// without a move, and not again while the answer is on its way or once it has come.
 func TestRefreshAsksForTheHoveredDirectoryOnce(t *testing.T) {
 	m := worktreesModel()
 	m.worktrees.cursor = 5
 
-	assert.NotNil(t, m.inspectHoveredWorktreeCmd())
+	require.NotNil(t, m.inspectHoveredWorktreeCmd())
+	assert.True(t, m.worktrees.inspected["/trees/archived"].pending)
+	assert.Nil(t, m.inspectHoveredWorktreeCmd(), "an answer on its way is not asked for again")
+	assert.Nil(t, m.inspectWorktreeCmd(), "not even by a rest of the cursor")
+	assert.Contains(t, m.worktreeDoc(), "reading the directory")
 
 	m.applyWorktreeInspection(worktreeInspectedMsg{dir: "/trees/archived", inspection: worktreeInspection{err: errors.New("refused")}})
 	assert.Nil(t, m.inspectHoveredWorktreeCmd(), "an answer, even a refusal, is not asked for again")
+	assert.NotNil(t, m.inspectWorktreeCmd(), "a rest of the cursor reads it afresh")
 
 	m.screen = screenAgents
 	assert.Nil(t, m.inspectHoveredWorktreeCmd())
+}
+
+// TestWorktreesTallyHeadsTheList covers the title carrying the count and the total of what has
+// been counted, and a dash while nothing has.
+func TestWorktreesTallyHeadsTheList(t *testing.T) {
+	m := worktreesModel()
+	assert.Equal(t, "5 · 1.6G", m.worktreesTally())
+
+	m.worktrees.items = worktreeFixture()[2:4]
+	assert.Equal(t, "2 · —", m.worktreesTally())
 }
 
 // TestLogTargetOnTheWorktreesScreenIsTheHoveredAgent covers the log and terminal keys reading

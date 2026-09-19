@@ -131,7 +131,11 @@ func (m model) worktreeRows() []worktreeRow {
 // repository.
 func worktreeRefs(rows []worktreeRow) []rowRef {
 	return xslice.Map(rows, func(row worktreeRow) rowRef {
-		return rowRef{key: row.key(), header: row.header, group: repoRowKey(row.repo)}
+		return rowRef{
+			key:    row.key(),
+			header: row.header,
+			group:  repoRowKey(row.repo),
+		}
 	})
 }
 
@@ -305,16 +309,18 @@ func bytesLabel(bytes int64) string {
 	const unit = 1024
 
 	value := float64(bytes)
-	for _, suffix := range []string{"B", "K", "M", "G", "T"} {
-		if value < unit || suffix == "T" {
-			if value < 10 && suffix != "B" {
-				return fmt.Sprintf("%.1f%s", value, suffix)
-			}
+	suffixes := []string{"B", "K", "M", "G", "T"}
+	for i, suffix := range suffixes {
+		if value >= 999.5 && i < len(suffixes)-1 {
+			value /= unit
 
-			return fmt.Sprintf("%.0f%s", value, suffix)
+			continue
+		}
+		if value < 9.95 && suffix != "B" {
+			return fmt.Sprintf("%.1f%s", value, suffix)
 		}
 
-		value /= unit
+		return fmt.Sprintf("%.0f%s", value, suffix)
 	}
 
 	return ""

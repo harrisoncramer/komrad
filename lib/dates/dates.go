@@ -105,3 +105,13 @@ func AgeAt(t, now time.Time) string {
 
 	return strconv.Itoa(int(since.Hours()/(24*7))) + "w"
 }
+
+// Day is the day a time fell on in the viewer's local time zone, "Sep 17", or nothing for a
+// zero time.
+func Day(t time.Time) string {
+	if t.IsZero() {
+		return ""
+	}
+
+	return t.Local().Format("Jan 2")
+}

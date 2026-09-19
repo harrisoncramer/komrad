@@ -50,8 +50,16 @@ func TestPrepareKeepsTheTrailOnlyWhereTheListHasRoom(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			list := Prepare(Snapshot{
 				Rows: []Row{
-					{Kind: KindWorkflow, Name: "~/weave", Trail: "49M"},
-					{Kind: KindAgent, Name: "a", Trail: "49M"},
+					{
+						Kind:  KindWorkflow,
+						Name:  "~/weave",
+						Trail: "49M",
+					},
+					{
+						Kind:  KindAgent,
+						Name:  "a",
+						Trail: "49M",
+					},
 				},
 				Pane:    tt.pane,
 				Dropped: sizedColumns(),
@@ -65,10 +73,26 @@ func TestPrepareKeepsTheTrailOnlyWhereTheListHasRoom(t *testing.T) {
 }
 
 // TestPrepareClipsTheNameAroundTheTrail covers the trail and its space coming out of the name's
-// room rather than pushing the row past the pane.
+// room rather than pushing the row past the pane, a dash costing one column like any other.
 func TestPrepareClipsTheNameAroundTheTrail(t *testing.T) {
+	dashed := Prepare(Snapshot{
+		Rows: []Row{{
+			Kind:  KindAgent,
+			Name:  "issue-607-panel-key-binding",
+			Trail: "—",
+		}},
+		Pane:    30,
+		Dropped: sizedColumns(),
+	})
+	require.Len(t, dashed.Lines, 1)
+	assert.Equal(t, "issue-607-panel-k…", dashed.Lines[0].Name)
+
 	list := Prepare(Snapshot{
-		Rows:    []Row{{Kind: KindAgent, Name: "issue-607-panel-key-binding", Trail: "49M"}},
+		Rows: []Row{{
+			Kind:  KindAgent,
+			Name:  "issue-607-panel-key-binding",
+			Trail: "49M",
+		}},
 		Pane:    30,
 		Dropped: sizedColumns(),
 	})
@@ -84,11 +108,29 @@ func TestPrepareClipsTheNameAroundTheTrail(t *testing.T) {
 func TestRenderTrailSitsAtTheRightEdge(t *testing.T) {
 	list := Prepare(Snapshot{
 		Rows: []Row{
-			{Kind: KindWorkflow, Name: "~/weave", Trail: "24G"},
-			{Kind: KindAgent, Name: "worktree-view", Trail: "49M"},
-			{Kind: KindAgent, Name: "issue-607-panel-key-binding", Trail: "9.2M"},
+			{
+				Kind:  KindWorkflow,
+				Name:  "~/weave",
+				Trail: "24G",
+			},
+			{
+				Kind:  KindAgent,
+				Name:  "worktree-view",
+				Trail: "49M",
+			},
+			{
+				Kind:  KindAgent,
+				Name:  "issue-607-panel-key-binding",
+				Trail: "9.2M",
+			},
 			{Kind: KindChild, Name: "review-607"},
-			{Kind: KindAgent, Name: "gone", Repo: RepoGone, Process: ProcessStopped, Trail: "—"},
+			{
+				Kind:    KindAgent,
+				Name:    "gone",
+				Repo:    RepoGone,
+				Process: ProcessStopped,
+				Trail:   "—",
+			},
 		},
 		Pane:    30,
 		Dropped: sizedColumns(),

@@ -175,12 +175,8 @@ func marksFromWorkflows(listed []*workflowv1.Workflow) map[string]string {
 	return marks
 }
 
-func worktreeListingFrom(listed *worktreev1.ListWorktreesResponse) worktreeListing {
-	return worktreeListing{
-		items:      xslice.Map(listed.GetWorktrees(), worktreeItemFrom),
-		dirs:       listed.GetDirs(),
-		unreadable: listed.GetUnreadableDirs(),
-	}
+func worktreeItemsFrom(listed *worktreev1.ListWorktreesResponse) []worktreeItem {
+	return xslice.Map(listed.GetWorktrees(), worktreeItemFrom)
 }
 
 func worktreeItemFrom(w *worktreev1.Worktree) worktreeItem {
@@ -198,7 +194,6 @@ func worktreeItemFrom(w *worktreev1.Worktree) worktreeItem {
 	if w.SizeBytes != nil {
 		bytes := w.GetSizeBytes()
 		item.bytes = &bytes
-		item.sizeCountedAt = dates.Parse(w.GetSizeCountedAt())
 	}
 
 	return item
@@ -210,25 +205,30 @@ func worktreeAgentFrom(a *worktreev1.WorktreeAgent) worktreeAgent {
 		name:       a.GetName(),
 		state:      agentstore.State(a.GetState()),
 		archivedAt: dates.ParsePtr(a.GetArchivedAt()),
-		adopted:    a.GetAdopted(),
 	}
 }
 
 func worktreeInspectionFrom(read *worktreev1.GetWorktreeResponse) worktreeInspection {
 	return worktreeInspection{
 		entries: xslice.Map(read.GetEntries(), func(entry *worktreev1.Entry) worktreeEntry {
-			return worktreeEntry{path: entry.GetPath(), bytes: entry.GetSizeBytes(), dir: entry.GetDir()}
+			return worktreeEntry{
+				path:  entry.GetPath(),
+				bytes: entry.GetSizeBytes(),
+				dir:   entry.GetDir(),
+			}
 		}),
-		modified:           read.GetModified(),
-		untracked:          read.GetUntracked(),
-		baseRef:            read.GetBaseRef(),
-		ahead:              int(read.GetAhead()),
-		behind:             int(read.GetBehind()),
-		landed:             int(read.GetLandedCommits()),
-		sequenceInProgress: read.GetSequenceInProgress(),
-		keepsBranch:        read.GetKeepsBranch(),
+		modified:    read.GetModified(),
+		untracked:   read.GetUntracked(),
+		baseRef:     read.GetBaseRef(),
+		ahead:       int(read.GetAhead()),
+		behind:      int(read.GetBehind()),
+		keepsBranch: read.GetKeepsBranch(),
 		commits: xslice.Map(read.GetCommits(), func(commit *worktreev1.Commit) worktreeCommit {
-			return worktreeCommit{sha: commit.GetSha(), subject: commit.GetSubject(), committedAt: dates.Parse(commit.GetCommittedAt())}
+			return worktreeCommit{
+				sha:         commit.GetSha(),
+				subject:     commit.GetSubject(),
+				committedAt: dates.Parse(commit.GetCommittedAt()),
+			}
 		}),
 	}
 }

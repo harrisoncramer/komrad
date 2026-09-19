@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 
 	"weave/internal/ui/layout"
@@ -137,7 +138,7 @@ func (m model) hoveredWorktreePane() (agentItem, bool) {
 }
 
 // hasNoWorktreePane reports whether the hovered row has no pane of its own to stand in the
-// window, which leaves it to the document.
+// window.
 func (m model) hasNoWorktreePane() bool {
 	_, held := m.hoveredWorktreePane()
 
@@ -145,13 +146,17 @@ func (m model) hasNoWorktreePane() bool {
 }
 
 // inspectWorktreeCmd asks the service for the hovered directory's standing, answered under the
-// directory's own name so the answer lands whatever the cursor is on by then.
-func (m model) inspectWorktreeCmd() tea.Cmd {
+// directory's own name, and asks nothing while an answer for it is still on its way.
+func (m *model) inspectWorktreeCmd() tea.Cmd {
 	row, ok := m.hoveredWorktree()
 	if !ok || row.occupant != nil {
 		return nil
 	}
+	if read, asked := m.worktrees.inspected[row.item.dir]; asked && read.pending {
+		return nil
+	}
 
+	m.applyWorktreeInspection(worktreeInspectedMsg{dir: row.item.dir, inspection: worktreeInspection{pending: true}})
 	clients, dir := m.api, row.item.dir
 
 	return func() tea.Msg {
@@ -166,7 +171,7 @@ func (m model) inspectWorktreeCmd() tea.Cmd {
 
 // inspectHoveredWorktreeCmd asks for the hovered directory's standing where nothing has been
 // asked for it yet, which is how a row the screen opened on is read without a move.
-func (m model) inspectHoveredWorktreeCmd() tea.Cmd {
+func (m *model) inspectHoveredWorktreeCmd() tea.Cmd {
 	if m.screen != screenWorktrees {
 		return nil
 	}
@@ -175,7 +180,7 @@ func (m model) inspectHoveredWorktreeCmd() tea.Cmd {
 	if !ok || row.occupant != nil {
 		return nil
 	}
-	if _, read := m.worktrees.inspected[row.item.dir]; read {
+	if _, asked := m.worktrees.inspected[row.item.dir]; asked {
 		return nil
 	}
 
@@ -209,7 +214,26 @@ func (m model) worktreesView() string {
 }
 
 func (m model) worktreesHeader() string {
-	return m.listHeader("Worktrees")
+	return m.listHeader("Worktrees" + dimStyle.Render("  "+m.worktreesTally()))
+}
+
+// worktreesTally is how many directories the listing holds and what the counted ones hold.
+func (m model) worktreesTally() string {
+	var total int64
+	counted := false
+	for _, item := range m.worktrees.items {
+		if item.bytes != nil {
+			total += *item.bytes
+			counted = true
+		}
+	}
+
+	size := "—"
+	if counted {
+		size = bytesLabel(total)
+	}
+
+	return fmt.Sprintf("%d · %s", len(m.worktrees.items), size)
 }
 
 func (m model) doesWorktreesFitDetails() bool {
@@ -316,7 +340,7 @@ func (m model) worktreeFields(item worktreeItem) []recordField {
 	}
 
 	fields = append(fields, recordField{"branch", orDash(item.branch)})
-	if read, ok := m.worktrees.inspected[item.dir]; ok && read.err == nil {
+	if read, ok := m.worktrees.inspected[item.dir]; ok && !read.pending && read.err == nil {
 		fields = append(fields,
 			recordField{"base", baseField(read)},
 			recordField{"changes", changesField(read)},
@@ -371,10 +395,10 @@ func (m model) worktreeAgentField(item worktreeItem) string {
 		return live.agent.Harness + ", " + string(displayState(live))
 	}
 	if archived, ok := m.archivedAgent(item.agent.id); ok && archived.ArchivedAt != nil {
-		return archived.Harness + ", archived " + dates.Friendly(*archived.ArchivedAt)
+		return archived.Harness + ", archived " + dates.Day(*archived.ArchivedAt)
 	}
 	if item.agent.archivedAt != nil {
-		return "archived " + dates.Friendly(*item.agent.archivedAt)
+		return "archived " + dates.Day(*item.agent.archivedAt)
 	}
 
 	return string(item.agent.state)
@@ -392,7 +416,7 @@ func (m model) worktreeWorkflowField(item worktreeItem) string {
 		workflowID = archived.WorkflowID
 	}
 
-	for _, w := range append(m.listing.workflows, m.archive.workflows...) {
+	for _, w := range slices.Concat(m.listing.workflows, m.archive.workflows) {
 		if w.ID == workflowID {
 			return w.Name
 		}
@@ -416,7 +440,7 @@ func (m model) worktreeDoc() string {
 
 	read, ok := m.worktrees.inspected[row.item.dir]
 	switch {
-	case !ok:
+	case !ok || read.pending:
 		return renderDocument(row.name(), "_"+row.item.dir+"_", "_reading the directory…_", "")
 	case read.err != nil:
 		return renderDocument(row.name(), "_"+row.item.dir+"_", read.err.Error(), "")
@@ -425,7 +449,7 @@ func (m model) worktreeDoc() string {
 	return renderDocument(row.name(), "_"+row.item.dir+"_", worktreeProse(row.item, read), "")
 }
 
-// worktreeProse is the three blocks the document draws, fenced so their columns line up.
+// worktreeProse is the three blocks the document draws, each fenced.
 func worktreeProse(item worktreeItem, read worktreeInspection) string {
 	var b strings.Builder
 

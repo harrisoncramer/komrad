@@ -64,7 +64,7 @@ func trailingColumns(line Line) int {
 	}
 
 	if line.Trail != "" {
-		columns += spaceColumns + len(line.Trail)
+		columns += spaceColumns + len([]rune(line.Trail))
 	}
 
 	return columns
