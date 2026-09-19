@@ -9,7 +9,7 @@ import (
 
 var (
 	workingLine  = regexp.MustCompile(`^\s*[^\s\p{L}⎿❯│─╭╮╰╯-]\s+\p{L}.*…(\s*·.*)?\s*$`)
-	workingTimer = regexp.MustCompile(`…\s*\(\s*\d+m?\s*\d*\s*s`)
+	workingTimer = regexp.MustCompile(`…\s*\(([^)]*·\s*)?\d+m?\s*\d*\s*s`)
 )
 
 var waitingFooter = regexp.MustCompile(`(?i)esc to cancel|enter to select`)
@@ -33,6 +33,9 @@ var dialogBorder = regexp.MustCompile(`^[╭╮╰╯│]`)
 
 // hintLine is the note Claude draws under a status line.
 var hintLine = regexp.MustCompile(`^\s*⎿`)
+
+// queuedPlaceholder is what the box says while a message waits behind the running turn.
+const queuedPlaceholder = "Press up to edit queued messages"
 
 // The markers opening the line the box holds, the second being the box in shell mode.
 const (
@@ -68,7 +71,7 @@ func (h *Harness) ReadInput(frame string) harness.Input {
 	box, boxed := findInputBox(lines, held)
 
 	switch {
-	case doesFrameShowWork(lines, box, boxed), isPromptGreyed(colours, box, boxed):
+	case doesFrameShowWork(lines, box, boxed), isPromptGreyed(colours, box, boxed), isMessageQueued(lines, box, boxed):
 		return harness.Input{Activity: harness.ActivityWorking}
 	case doesFrameShowWaiting(lines, boxed):
 		return harness.Input{Activity: harness.ActivityWaiting}
@@ -167,8 +170,8 @@ func doesFrameShowWork(lines []string, box inputBox, boxed bool) bool {
 	return false
 }
 
-// isPromptGreyed reports whether the box draws its prompt marker in the colour of the rule
-// above it rather than in the terminal's own, which is Claude greying the box out for a turn.
+// isPromptGreyed reports whether the box draws its prompt marker in a colour of Claude's own
+// rather than in the terminal's, which is Claude greying the box out for a turn.
 func isPromptGreyed(colours []string, box inputBox, boxed bool) bool {
 	// Shell mode draws the whole box in one colour, marker included.
 	if !boxed || box.Marker != chatPrompt {
@@ -176,10 +179,13 @@ func isPromptGreyed(colours []string, box inputBox, boxed bool) bool {
 	}
 
 	// A box with no colour on it at all says nothing either way, which is what a capture taken
-	// without the colours looks like, so the rule has to carry a colour for the marker to match.
-	rule := colours[box.Rule]
+	// without the colours looks like, so the rule has to carry a colour for the marker to count.
+	return colours[box.Rule] != "" && colours[box.Rule+1] != ""
+}
 
-	return rule != "" && rule == colours[box.Rule+1]
+// isMessageQueued reports whether the box says a message waits behind the running turn.
+func isMessageQueued(lines []string, box inputBox, boxed bool) bool {
+	return boxed && strings.Contains(lines[box.Rule+1], queuedPlaceholder)
 }
 
 // statusRegion is the lines between the box and the conversation above it, taking only the first

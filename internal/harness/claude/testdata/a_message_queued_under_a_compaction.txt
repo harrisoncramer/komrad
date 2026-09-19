@@ -1,0 +1,65 @@
+[2m[38;5;231m 106 [0m[38;5;231m         }[39m
+     [2m[38;5;231m 107 [0m[38;5;231m         [38;5;197mif[38;5;231m params.Branch != [38;5;186m""[38;5;231m {[39m
+
+[38;5;114m⏺[39m [1mBash[0m(sed -n 78,90p internal/rpc/pullrequest/service_test.go; goimports -w internal/forge/service_test.go; go vet ./internal/forge 2>&1 | grep -v "^#" | head -2)
+[38;5;246m  ⎿  [39m   resp, failure := service.ListPullRequests(t.Context(), &pullrequestv1.ListPullRequestsRequest{
+                RemoteUrl: "git@github.com:harrisoncramer/weave.git",
+                Branch:    "agent/x",
+     [2m… +10 lines[0m
+[38;5;246m  ⎿  [39mUpdated [1minternal/forge/service_test.go[0m [38;5;246m(+0 -1)[39m
+     [2m[38;5;231m 15 [0m[38;5;231m         [38;5;186m"time"[39m
+     [2m[38;5;231m 16 [0m[38;5;231m [39m
+     [2m[38;5;231m 17 [0m[38;5;231m         [38;5;186m"weave/internal/dbtest"[39m
+     [38;5;167m[48;5;52m 18 -[38;5;231m        "weave/internal/git"                                                                                                                                                                                                                                                                         [39m[49m
+     [2m[38;5;231m 18 [0m[38;5;231m         githubapp [38;5;186m"weave/internal/github/app"[39m
+     [2m[38;5;231m 19 [0m[38;5;231m         [38;5;186m"weave/internal/store"[39m
+     [2m[38;5;231m 20 [0m[38;5;231m         forgestore [38;5;186m"weave/internal/store/forge"[39m
+
+[38;5;114m⏺[39m [1mBash[0m(python3 - <<'EOF'
+      p='internal/rpc/pullrequest/service_test.go'…)
+[38;5;246m  ⎿  [39m134:       service := NewPullRequestService(&fakeFinder{forge: &fakeForge{}})
+     136:       _, failure := service.ListPullRequests(t.Context(), &pullrequestv1.ListPullRequestsRequest{RemoteUrl: "/local/path", Branch: "main"})
+     ok         weave/internal/forge    1.263s
+     [2m… +2 lines[0m
+
+
+[38;5;246m  ⎿  [39mUpdated [1minternal/rpc/pullrequest/service_test.go[0m [38;5;246m(+6 -6)[39m
+     [2m[38;5;231m 73 [0m[38;5;231m                 MergedAt:   &merged,[39m
+     [2m[38;5;231m 74 [0m[38;5;231m                 ClosedAt:   &merged,[39m
+     [2m[38;5;231m 75 [0m[38;5;231m         }}}[39m
+     [38;5;167m[48;5;52m 76 -[38;5;231m        service := NewPullRequestService(&fakeFinder{forge: fake})                                                                                                                                                                                                                                   [39m[49m
+     [38;5;77m[48;5;22m 76 +[38;5;231m        service := [48;5;28mpullrequestv1weave.PullRequestServiceAdapter{Impl: [48;5;22mNewPullRequestService(&fakeFinder{forge: fake})[48;5;28m}[48;5;22m                                                                                                                                                                               [39m[49m
+     [2m[38;5;231m 77 [0m[38;5;231m [39m
+     [38;5;167m[48;5;52m 78 -[38;5;231m        resp, failure := service.ListPullRequests(t.Context(), &pullrequestv1.ListPullRequestsRequest{                                                                                                                                                                                               [39m[49m
+     [38;5;77m[48;5;22m 78 +[38;5;231m        resp, [48;5;28merr[48;5;22m := service.ListPullRequests(t.Context(), [48;5;28mconnect.NewRequest([48;5;22m&pullrequestv1.ListPullRequestsRequest{                                                                                                                                                                                [39m[49m
+     [2m[38;5;231m 79 [0m[38;5;231m                 RemoteUrl: [38;5;186m"git@github.com:harrisoncramer/weave.git"[38;5;231m,[39m
+     [2m[38;5;231m 80 [0m[38;5;231m                 Branch:    [38;5;186m"agent/x"[38;5;231m,[39m
+     [38;5;167m[48;5;52m 81 -[38;5;231m        })                                                                                                                                                                                                                                                                                           [39m[49m
+     [38;5;167m[48;5;52m 82 -[38;5;231m        require.Nil(t, failure)                                                                                                                                                                                                                                                                      [39m[49m
+     [38;5;77m[48;5;22m 81 +[38;5;231m        })[48;5;28m)[48;5;22m                                                                                                                                                                                                                                                                                          [39m[49m
+     [38;5;77m[48;5;22m 82 +[38;5;231m        require.NoError(t, err)                                                                                                                                                                                                                                                                      [39m[49m
+     [2m[38;5;231m 83 [0m[38;5;231m         assert.Equal(t, [38;5;186m"harrisoncramer/weave"[38;5;231m, fake.params.Repo.Path)[39m
+     [2m[38;5;231m 84 [0m[38;5;231m         assert.Equal(t, [38;5;186m"agent/x"[38;5;231m, fake.params.Branch)[39m
+     [2m[38;5;231m 85 [0m[38;5;231m         assert.Equal(t, [38;5;141m1[38;5;231m, fake.params.Page)[39m
+     [2m[38;5;231m 86 [0m[38;5;231m         assert.Equal(t, [38;5;141m20[38;5;231m, fake.params.PerPage, [38;5;186m"twenty to a page when the caller says nothing"[38;5;231m)[39m
+     [2m[38;5;231m 87 [0m[38;5;231m         assert.Nil(t, resp.Msg.NextPageToken, [38;5;186m"the only page carries no token"[38;5;231m)[39m
+     [38;5;167m[48;5;52m 88 -[38;5;231m        require.Len(t, resp.GetPullRequests(), 1)                                                                                                                                                                                                                                                    [39m[49m
+     [38;5;77m[48;5;22m 88 +[38;5;231m        require.Len(t, resp.[48;5;28mMsg.[48;5;22mGetPullRequests(), [38;5;141m1[38;5;231m)                                                                                                                                                                                                                                                [39m[49m
+     [2m[38;5;231m 89 [0m[38;5;231m [39m
+     [38;5;167m[48;5;52m 90 -[38;5;231m        pullRequest := resp.GetPullRequests()[0]                                                                                                                                                                                                                                                     [39m[49m
+     [38;5;77m[48;5;22m 90 +[38;5;231m        pullRequest := resp.[48;5;28mMsg.[48;5;22mGetPullRequests()[[38;5;141m0[38;5;231m]                                                                                                                                                                                                                                                 [39m[49m
+     [2m[38;5;231m 91 [0m[38;5;231m         assert.Equal(t, [38;5;186m"https://github.com/harrisoncramer/weave"[38;5;231m, pullRequest.GetRepositoryUrl())[39m
+     [2m[38;5;231m 92 [0m[38;5;231m         assert.Empty(t, pullRequest.GetHeadRepositoryUrl(), [38;5;186m"a head the forge no longer has is empty rather than https:///"[38;5;231m)[39m
+     [2m[38;5;231m 93 [0m[38;5;231m         assert.NotNil(t, pullRequest.MergedAt)[39m
+
+[38;5;147m✶[39m [38;5;153mCompacting conversation…[38;5;147m [38;5;246m(2m 9s · ↓[39m [38;5;246m2.9k tokens)[39m
+  ▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰[38;5;246m▱▱▱▱▱▱▱▱▱▱▱▱▱▱▱▱[39m [38;5;246m60%[39m
+
+[38;5;239m[48;5;237m❯ [38;5;246mok[39m
+[49m  [38;5;246mctrl+x ctrl+s to send now[39m
+                                                                                                                                                                                                                                                                                               [38;5;246m0% until auto-compact[39m
+[38;5;244m──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+[38;5;246m❯ [2m[39mPress up to edit queued messages[0m
+[38;5;244m──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+[39m  [38;5;246m-- INSERT --[39m [38;5;211m⏵⏵ bypass permissions on[38;5;246m (shift+tab to cycle) · ← 3 agents[39m

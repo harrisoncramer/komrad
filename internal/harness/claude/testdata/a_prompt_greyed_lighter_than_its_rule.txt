@@ -1,0 +1,63 @@
+[38;5;246mRan [1m3[0m[38;5;246m shell commands [39m
+
+[38;5;231m⏺[39m Now auth/forge, readonly-role, migrate, install docs, app.go, docker.
+
+  [38;5;246mRead [1m1[0m[38;5;246m file, called weave, ran [1m8[0m[38;5;246m shell commands [39m
+
+[38;5;231m⏺[39m Survey done. No code written. Map below.
+
+  [1mWhat exists today[0m
+
+  Install path ([38;5;153mdocs/install.md[39m): download binary, add [38;5;153mrun-shell 'weave tmux'[39m to [38;5;153m~/.tmux.conf[39m, export [38;5;153mWEAVE_DATABASE_URL[39m, run [38;5;153mweave readonly-role[39m, run [38;5;153mweave doctor[39m. All by hand. RFC 0009 already says install is dominated by Postgres.
+
+  Config ([38;5;153mconfig/appconfig.go[39m): loaded via viper stack, default path [38;5;153m~/.config/weave/config.toml[39m, absent file is fine. Env [38;5;153mWEAVE_*[39m beats file. [38;5;153mDefaultDatabaseURL[39m is checkout docker port 5460, so installed binary must set it. [38;5;153mRenderConfigTOML[39m renders full defaults doc only, preamble says "do not copy this file". No
+  minimal config writer exists anywhere.
+
+  Postgres: [38;5;153mstore.Open[39m migrates on open (AGENTS.md), [38;5;153mdb.MigrateRiver[39m for queue, [38;5;153mdb.GrantReadOnlyRole[39m creates read-only login. [38;5;153mmigrate[39m and [38;5;153mreadonly-role[39m commands both [38;5;153mHidden: true[39m. Read-only URL derived from writable URL ([38;5;153mweave_readonly:weave_readonly[39m, same host/db) when not set. [38;5;153mdocker-compose.yml[39m is checkout-only,
+  not shipped. No docker check in doctor.
+
+  Auth: two separate things.
+  - [38;5;153mweave forge connect <host>[39m reads token from stdin, verifies against forge, stores in state dir file store + DB row. Needs DB up first. [38;5;153mwithForgeService[39m in [38;5;153minternal/cli/forge.go[39m is unexported.
+  - [38;5;153m[github_app][39m config is engine-side App identity, separate concern, probably skip in wizard.
+
+  tmux: [38;5;153mweave tmux[39m binds key, needs running server. Nothing edits [38;5;153m~/.tmux.conf[39m.
+
+  Harness: registry [38;5;153mclaude[39m/[38;5;153mcodex[39m, doctor checks binaries on PATH.
+
+  Server: [38;5;153mensureServer[39m in [38;5;153mprocess.go[39m starts it; [38;5;153mprobeServer[39m reads version.
+
+  [1mDoctor as it stands[0m
+
+  [38;5;153minternal/doctor[39m: [38;5;153mChecks(settings) []Check[39m, [38;5;153mRun(ctx, env, checks) Report[39m. Each [38;5;153mCheck[39m has [38;5;153mName[39m, [38;5;153mNeeds[39m, [38;5;153mEngine[39m, [38;5;153mRun[39m. Each [38;5;153mFinding[39m carries stable [38;5;153mCode[39m from [38;5;153mProblemError[39m sentinels ([38;5;153mdatabase_unreachable[39m, [38;5;153mdatabase_missing[39m, [38;5;153mschema_behind[39m, [38;5;153mreadonly_login_unusable[39m, [38;5;153mtmux_missing[39m, [38;5;153mconfig_unreadable[39m, etc). [38;5;153mEnv[39m is a struct of
+  func fields, all fakeable. Precedent for programmatic use already: [38;5;153mapp.diagnose[39m in [38;5;153minternal/cli/doctor.go[39m maps failures into [38;5;153merrui.Finding[39m.
+
+  Subset runs already work: [38;5;153mconclusions.run[39m on a [38;5;153mNeeds[39m name absent from the slice falls through switch and runs anyway.
+
+  [1mGaps a wizard hits in doctor[0m
+
+  1. No selection by name. [38;5;153mChecks()[39m returns anonymous slice, constructors unexported. Need [38;5;153mdoctor.Select(checks, names...)[39m or exported name constants.
+  2. Settings/Env built from [38;5;153mapp[39m state after [38;5;153mPersistentPreRunE[39m, i.e. from config already on disk. Wizard needs env for candidate config in memory (URL user just typed, not yet written). [38;5;153mbuildDoctorSettings[39m is on [38;5;153mapp[39m; needs variant taking [38;5;153m*config.Config[39m + [38;5;153mReport[39m. [38;5;153mNewEnv.LoadConfig[39m reloads from stack; for candidate it
+     should return the in-memory config. [38;5;153mSettings.configLayers[39m is unexported and set inside [38;5;153mNewEnv[39m.
+  3. [38;5;153mProbeServer[39m and [38;5;153mIsPanelRunning[39m wired in [38;5;153minternal/cli/buildDoctor[39m, not [38;5;153mNewEnv[39m. Fine if wizard lives in [38;5;153minternal/cli[39m, else must export.
+  4. Doctor repairs nothing by design. [38;5;153mFix[39m is prose only. Wizard is repair layer, maps [38;5;153mCode[39m to action. Codes exist, so branching is hookable already. Missing codes: none for docker.
+  5. Terminal checks ([38;5;153mMeasureColumnsOnTTY[39m) take over TTY. Cannot run while huh form is drawing. Run before/after forms or skip.
+  6. [38;5;153mcommandsSurvivingBadConfig[39m gate: wizard command must be listed, it runs before any config exists.
+
+  [1mWizard shape, rough[0m
+
+  Steps, each = doctor subset, then repair on failure, then re-run:
+  - tmux binary/version/shell. Offer to append [38;5;153mrun-shell 'weave tmux'[39m to tmux.conf.
+  - Harness: check claude/codex on PATH, pick [38;5;153mdefault_harness[39m.
+  - Postgres: ask URL, or if [38;5;153mdocker[39m on PATH offer [38;5;153mdocker run postgres:18[39m on a port. Run [38;5;153mdatabase[39m check on candidate URL. [38;5;153mdatabase_missing[39m → createdb. Then migrate, then [38;5;153mGrantReadOnlyRole[39m, re-run [38;5;153mschema[39m + [38;5;153mreadonly login[39m.
+  - Write [38;5;153m~/.config/weave/config.toml[39m holding only what changed (new minimal writer).
+  - Forge: optional, offer [38;5;153mgh auth token[39m pipe if [38;5;153mgh[39m present, else paste. Reuse forge service.
+  - Start server via [38;5;153mensureServer[39m, run full [38;5;153mdoctor.Run[39m, print report.
+
+  "Own CLI program": separate binary cannot reuse [38;5;153mapp[39m, [38;5;153mwithForgeService[39m, [38;5;153mensureServer[39m, harness registry, all unexported in [38;5;153minternal/cli[39m. Recommend [38;5;153mweave setup[39m subcommand instead. If separate binary required, those need exporting to a shared package first. Flag for decision.
+
+
+[38;5;244m───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+[38;5;246m❯ [39m
+[38;5;244m───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+[39m  [38;5;246m-- INSERT --[39m [38;5;211m⏵⏵ bypass permissions on[38;5;246m (shift+tab to cycle) · ← 4 agents[39m
