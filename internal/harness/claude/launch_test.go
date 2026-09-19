@@ -287,26 +287,40 @@ func stripGeneratedFlags(command string) string {
 	return settingsRef.ReplaceAllString(mcpConfigRef.ReplaceAllString(command, ""), "")
 }
 
-// TestBuildCommandPinsTheConfigDir covers the launched CLI being told the directory weave reads
-// its log from, so a shell exporting a different one cannot send the transcript elsewhere.
+// TestBuildCommandPinsTheConfigDir covers the launch carrying the directory weave reads its log from.
 func TestBuildCommandPinsTheConfigDir(t *testing.T) {
 	tests := []struct {
-		name   string
-		launch harness.Launch
+		name      string
+		configDir string
+		launch    harness.Launch
+		wantPin   bool
 	}{
 		{
-			name:   "on a fresh launch",
-			launch: harness.Launch{SessionID: "sess"},
+			name:      "on a fresh launch",
+			configDir: "work login",
+			launch:    harness.Launch{SessionID: "sess"},
+			wantPin:   true,
 		},
 		{
-			name:   "and on a resume",
-			launch: harness.Launch{SessionID: "sess", Resume: true},
+			name:      "and on a resume",
+			configDir: "work login",
+			launch:    harness.Launch{SessionID: "sess", Resume: true},
+			wantPin:   true,
+		},
+		{
+			name:   "not at all when the CLI is left to its default",
+			launch: harness.Launch{SessionID: "sess"},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			configDir := filepath.Join(t.TempDir(), "work login")
+			t.Setenv("HOME", t.TempDir())
+
+			configDir := ""
+			if tt.configDir != "" {
+				configDir = filepath.Join(t.TempDir(), tt.configDir)
+			}
 
 			launch := tt.launch
 			launch.CacheDir = t.TempDir()
@@ -314,10 +328,16 @@ func TestBuildCommandPinsTheConfigDir(t *testing.T) {
 			command, err := NewHarness(NewHarnessParams{ConfigDir: configDir}).BuildCommand(launch)
 			require.NoError(t, err)
 
+			if !tt.wantPin {
+				assert.NotContains(t, command, configDirEnv+"=")
+
+				return
+			}
+
 			match := configDirRef.FindStringSubmatch(command)
 			require.Len(t, match, 2, "the launch carries the config dir")
 			assert.Equal(t, configDir, match[1])
-			assert.Less(t, strings.Index(command, "CLAUDE_CONFIG_DIR="), strings.Index(command, " claude"),
+			assert.Less(t, strings.Index(command, configDirEnv+"="), strings.Index(command, " claude"),
 				"the assignment leads the command so it reaches claude's environment")
 		})
 	}
@@ -341,9 +361,10 @@ func appendedPrompt(t *testing.T, command string) string {
 // TestMCPConfigCarriesTheAgentsIdentity covers the headers naming the agent behind a call back
 // to the panel, written as variables Claude expands so every agent can share one config file.
 func TestMCPConfigCarriesTheAgentsIdentity(t *testing.T) {
-	configDir := t.TempDir()
+	home := t.TempDir()
+	t.Setenv("HOME", home)
 
-	command, err := NewHarness(NewHarnessParams{ConfigDir: configDir}).BuildCommand(harness.Launch{
+	command, err := NewHarness(NewHarnessParams{}).BuildCommand(harness.Launch{
 		CacheDir:    t.TempDir(),
 		AgentID:     "agent-1",
 		SessionID:   "sess-1",
@@ -353,7 +374,7 @@ func TestMCPConfigCarriesTheAgentsIdentity(t *testing.T) {
 
 	match := mcpConfigRef.FindStringSubmatch(command)
 	require.Len(t, match, 2)
-	assert.Equal(t, filepath.Join(configDir, "weave-mcp.json"), match[1],
+	assert.Equal(t, filepath.Join(home, ".claude", "weave-mcp.json"), match[1],
 		"one file for every agent, since the headers name no agent")
 
 	raw, err := os.ReadFile(match[1])

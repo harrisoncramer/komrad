@@ -93,7 +93,7 @@ the machine, start or stop the service, or call an endpoint from a script.`,
 				TrustLaunchDirs: cfg.Harness.Codex.TrustLaunchDirs,
 			})
 			claudeHarness := claude.NewHarness(claude.NewHarnessParams{
-				ConfigDir: claude.DefaultConfigDir(),
+				ConfigDir: claude.NamedConfigDir(),
 			})
 
 			harnessRegistry, err := harness.NewRegistry(claudeHarness, codexHarness)

@@ -4,6 +4,7 @@
 package claude
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 
@@ -25,11 +26,12 @@ type Harness struct {
 var _ harness.Harness = (*Harness)(nil)
 
 type NewHarnessParams struct {
+	// ConfigDir is the directory named in place of ~/.claude, empty when the CLI is left to
+	// its default.
 	ConfigDir string
 }
 
-// NewHarness builds a harness that reads conversation logs from configDir, writes its launch
-// files there, and pins every agent it starts to that same directory.
+// NewHarness builds a harness rooted at configDir.
 func NewHarness(params NewHarnessParams) *Harness {
 	return &Harness{
 		configDir: params.ConfigDir,
@@ -53,21 +55,23 @@ func (h *Harness) MintSessionID() string { return uuid.NewString() }
 // FindSession has nothing to find, Claude being told the id of every conversation it starts.
 func (h *Harness) FindSession(string) (string, error) { return "", nil }
 
-// DefaultConfigDir resolves Claude Code's own directory the way the CLI does, CLAUDE_CONFIG_DIR
-// when it is set and ~/.claude otherwise.
-func DefaultConfigDir() string {
-	if dir, set := config.LookupEnv(configDirEnv); set {
-		return dir
+// NamedConfigDir reads the directory the environment names in place of ~/.claude, empty when
+// it names none.
+func NamedConfigDir() string {
+	dir, _ := config.LookupEnv(configDirEnv)
+
+	return dir
+}
+
+func (h *Harness) resolveConfigDir() (string, error) {
+	if h.configDir != "" {
+		return h.configDir, nil
 	}
 
 	home, err := os.UserHomeDir()
 	if err != nil {
-		home = ""
+		return "", fmt.Errorf("failed to get home directory: %w", err)
 	}
 
-	return filepath.Join(home, ".claude")
-}
-
-func (h *Harness) projectsDir() string {
-	return filepath.Join(h.configDir, "projects")
+	return filepath.Join(home, ".claude"), nil
 }
