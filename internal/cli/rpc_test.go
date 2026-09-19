@@ -202,7 +202,7 @@ func TestRequireServerRefusesAnotherBuild(t *testing.T) {
 	err := requireServer(t.Context(), addr, addr)
 	require.ErrorIs(t, err, ErrServerBuild)
 	assert.Contains(t, err.Error(), "0123456", "the build that is serving is named")
-	assert.Contains(t, err.Error(), "weave stop", "a local server is restarted")
+	assert.Contains(t, err.Error(), "weave stop && weave start", "a local server is restarted")
 
 	err = requireServer(t.Context(), addr, "127.0.0.1:8787")
 	require.ErrorIs(t, err, errui.ErrEngineBuild, "a forwarded engine is somebody else's build to match")

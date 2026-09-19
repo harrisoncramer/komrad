@@ -111,7 +111,7 @@ func rpcMethodCmd(state *app, exposed rpcapi.Method) *cobra.Command {
 }
 
 // ErrServerBuild says the server on this machine is running other code than this binary.
-var ErrServerBuild = errors.New("the server is running code this binary was not built from")
+var ErrServerBuild = errors.New("server build differs")
 
 // requireServer refuses to call a server that is not there, or that is running other code
 // than this binary, since a method this build knows may not exist there or may mean something
@@ -135,8 +135,8 @@ func requireServer(ctx context.Context, addr, named string) error {
 				doctor.StaleEngineFix(probe.commit))
 		}
 
-		return fmt.Errorf("%w: %s is serving %s and this binary is %s, so restart it with weave stop and weave start",
-			ErrServerBuild, named,
+		return fmt.Errorf("%w: server %s, binary %s; run weave stop && weave start",
+			ErrServerBuild,
 			version.Describe(probe.version, probe.commit),
 			version.Describe(version.Version(), version.Commit()))
 	}
