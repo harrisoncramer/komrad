@@ -54,7 +54,12 @@ func renderReview(params renderReviewParams) string {
 
 	out.WriteString("\n")
 	for _, thread := range threads {
-		writeThread(&out, thread, source[thread.Thread.FilePath], params.Author == "")
+		writeThread(&out, writeThreadParams{
+			Thread:  thread,
+			Round:   round,
+			Lines:   source[thread.Thread.FilePath],
+			ByHuman: params.Author == "",
+		})
 	}
 
 	out.WriteString("Answer by writing in each thread, naming its id.\n")
@@ -62,25 +67,38 @@ func renderReview(params renderReviewParams) string {
 	return out.String()
 }
 
-func writeThread(out *strings.Builder, thread ReviewThreadWithMessages, lines []string, byHuman bool) {
-	fmt.Fprintf(out, "## %s\n\n", anchorOf(thread.Thread))
-	fmt.Fprintf(out, "Thread `%s`\n\n", thread.Thread.ID)
+type writeThreadParams struct {
+	Thread  ReviewThreadWithMessages
+	Round   reviewstore.Round
+	Lines   []string
+	ByHuman bool
+}
 
-	if !writeContext(out, thread.Thread, lines) && len(thread.Thread.QuotedLines) > 0 {
+func writeThread(out *strings.Builder, params writeThreadParams) {
+	thread := params.Thread.Thread
+
+	fmt.Fprintf(out, "## %s\n\n", anchorOf(thread))
+	fmt.Fprintf(out, "Thread `%s`\n\n", thread.ID)
+
+	if isOnOldSide(thread) {
+		fmt.Fprintf(out, "%s\n\n", oldSideSentence(thread, params.Round))
+	}
+
+	if !writeContext(out, thread, params.Lines) && len(thread.QuotedLines) > 0 {
 		out.WriteString("```diff\n")
-		for _, line := range thread.Thread.QuotedLines {
+		for _, line := range thread.QuotedLines {
 			out.WriteString(line)
 			out.WriteString("\n")
 		}
 		out.WriteString("```\n\n")
 	}
 
-	for _, message := range thread.Messages {
+	for _, message := range params.Thread.Messages {
 		out.WriteString(strings.TrimSpace(message.Body))
 		out.WriteString("\n\n")
 
 		if len(message.Suggestion) > 0 {
-			out.WriteString(suggestionLead(byHuman))
+			out.WriteString(suggestionLead(params.ByHuman))
 			out.WriteString("\n\n```\n")
 			for _, line := range message.Suggestion {
 				out.WriteString(line)
@@ -132,16 +150,31 @@ func writeContext(out *strings.Builder, thread reviewstore.Thread, lines []strin
 
 // anchorOf names where a thread is pinned in the terms the diff uses, preferring the new side.
 func anchorOf(thread reviewstore.Thread) string {
-	start, end := thread.NewStart, thread.NewEnd
-	if start == 0 {
-		start, end = thread.OldStart, thread.OldEnd
+	start, end, side := thread.NewStart, thread.NewEnd, ""
+	if isOnOldSide(thread) {
+		start, end, side = thread.OldStart, thread.OldEnd, " (removed)"
 	}
 
 	if end > start {
-		return fmt.Sprintf("%s:%d-%d", thread.FilePath, start, end)
+		return fmt.Sprintf("%s:%d-%d%s", thread.FilePath, start, end, side)
 	}
 
-	return fmt.Sprintf("%s:%d", thread.FilePath, start)
+	return fmt.Sprintf("%s:%d%s", thread.FilePath, start, side)
+}
+
+func isOnOldSide(thread reviewstore.Thread) bool {
+	return thread.NewStart == 0 && thread.OldStart > 0
+}
+
+func oldSideSentence(thread reviewstore.Thread, round reviewstore.Round) string {
+	base := thread.BaseSHA
+	if base == "" {
+		base = round.BaseSHA
+	}
+
+	return fmt.Sprintf("This thread's line numbers are on the old side, counted in `%s` rather than "+
+		"in the snapshot. To see those lines, run `git diff %s %s -- %s`.",
+		short(base), base, round.SnapshotSHA, thread.FilePath)
 }
 
 // reviewerName is who gave the review, spelled for somebody reading the file long afterwards,
