@@ -654,7 +654,6 @@ SELECT
     state,
     archived_at,
     adopted_branch,
-    parent_agent_id,
     workflow_id
 FROM
     agents
@@ -667,7 +666,6 @@ type ListAgentDirsRow struct {
 	State         AgentState
 	ArchivedAt    *time.Time
 	AdoptedBranch string
-	ParentAgentID *string
 	WorkflowID    string
 }
 
@@ -687,7 +685,6 @@ func (q *Queries) ListAgentDirs(ctx context.Context) ([]*ListAgentDirsRow, error
 			&i.State,
 			&i.ArchivedAt,
 			&i.AdoptedBranch,
-			&i.ParentAgentID,
 			&i.WorkflowID,
 		); err != nil {
 			return nil, err

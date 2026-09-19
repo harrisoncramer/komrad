@@ -33,7 +33,6 @@ type AgentDir struct {
 	State         State
 	ArchivedAt    *time.Time
 	AdoptedBranch string
-	ParentAgentID *string
 	WorkflowID    string
 }
 
@@ -52,7 +51,6 @@ func (s *Store) ListDirs(ctx context.Context) ([]AgentDir, error) {
 			State:         State(row.State),
 			ArchivedAt:    row.ArchivedAt,
 			AdoptedBranch: row.AdoptedBranch,
-			ParentAgentID: row.ParentAgentID,
 			WorkflowID:    row.WorkflowID,
 		}
 	}), nil

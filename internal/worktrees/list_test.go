@@ -85,21 +85,18 @@ func TestListReadsADirectoryWithNoGitFile(t *testing.T) {
 	assert.False(t, listing.Worktrees[0].Readable)
 }
 
-// TestListNamesTheOccupantsOfADirectory covers every row whose cwd is the directory, with or
-// without a parent and however the path is spelled, being listed beside the row it was cut
-// for, sorted by name.
+// TestListNamesTheOccupantsOfADirectory covers every row whose cwd is the directory, however
+// the path is spelled, being listed beside the row it was cut for, sorted by name.
 func TestListNamesTheOccupantsOfADirectory(t *testing.T) {
 	f := newFixture(t)
 	dir := f.cut(t, "dddd")
 	f.own("dddd", "parent", nil)
-	parent := "dddd"
 	f.owners.rows = append(f.owners.rows,
 		agentstore.AgentDir{
-			ID:            "zed",
-			Name:          "zed-reviewer",
-			Cwd:           dir,
-			State:         agentstore.StateThinking,
-			ParentAgentID: &parent,
+			ID:    "zed",
+			Name:  "zed-reviewer",
+			Cwd:   dir,
+			State: agentstore.StateThinking,
 		},
 		agentstore.AgentDir{
 			ID:    "amy",

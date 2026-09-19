@@ -43,7 +43,8 @@ func TestRemoveTakesAGoneRegistrationWithoutPruning(t *testing.T) {
 
 // TestRemoveRefusesWhatAnAgentAnswersFor covers the refusals: a live row, an archived row, a
 // row whose cleanup failed while git can still read the directory, an agent working in the
-// directory, a path outside the worktree directories, and one that is not there at all.
+// directory, an agent working somewhere under it, a path outside the worktree directories,
+// and one that is not there at all.
 func TestRemoveRefusesWhatAnAgentAnswersFor(t *testing.T) {
 	f := newFixture(t)
 	live := f.cut(t, "live")
@@ -61,23 +62,32 @@ func TestRemoveRefusesWhatAnAgentAnswersFor(t *testing.T) {
 		Cwd:   shared,
 		State: agentstore.StateIdle,
 	})
+	deep := f.cut(t, "deep")
+	f.owners.rows = append(f.owners.rows, agentstore.AgentDir{
+		ID:    "under",
+		Name:  "under-agent",
+		Cwd:   filepath.Join(deep, "packages", "api"),
+		State: agentstore.StateIdle,
+	})
 	outside := t.TempDir()
 
-	removal, err := f.remover().Remove(t.Context(), []string{live, archived, vetoed, shared, outside, filepath.Join(f.shared, "missing")})
+	removal, err := f.remover().Remove(t.Context(), []string{live, archived, vetoed, shared, deep, outside, filepath.Join(f.shared, "missing")})
 	require.NoError(t, err)
 
 	assert.Empty(t, removal.Removed)
-	require.Len(t, removal.Refused, 6)
+	require.Len(t, removal.Refused, 7)
 	assert.Contains(t, removal.Refused[0].Reason, "live-agent")
 	assert.Contains(t, removal.Refused[1].Reason, "archived-agent")
 	assert.Contains(t, removal.Refused[2].Reason, "vetoed-agent")
 	assert.Contains(t, removal.Refused[3].Reason, "child-agent")
-	assert.Contains(t, removal.Refused[4].Reason, "not under the worktree directories")
-	assert.Contains(t, removal.Refused[5].Reason, "failed to resolve")
+	assert.Contains(t, removal.Refused[4].Reason, "under-agent")
+	assert.Contains(t, removal.Refused[5].Reason, "not under the worktree directories")
+	assert.Contains(t, removal.Refused[6].Reason, "failed to resolve")
 	assert.DirExists(t, live)
 	assert.DirExists(t, archived)
 	assert.DirExists(t, vetoed)
 	assert.DirExists(t, shared)
+	assert.DirExists(t, deep)
 	assert.Empty(t, f.git.pruned)
 }
 
@@ -95,4 +105,23 @@ func TestRemoveTakesADirectoryWhoseRowFailedToCleanUp(t *testing.T) {
 
 	assert.Equal(t, []string{dir}, removal.Removed)
 	assert.NoDirExists(t, dir)
+}
+
+// TestRemoveRefusesADirectoryHoldingAnotherWorktree covers a directory that is itself a
+// workflow's worktree directory being left alone while a worktree nothing answers for sits
+// inside it, since removing it whole would take that one with it.
+func TestRemoveRefusesADirectoryHoldingAnotherWorktree(t *testing.T) {
+	f := newFixture(t)
+	outer := f.cut(t, "outer")
+	f.flows.dirs = []string{outer}
+	inner := filepath.Join(outer, "inner")
+	write(t, inner, ".git", "gitdir: /var/folders/xx/T/repo/.git/worktrees/inner\n")
+
+	removal, err := f.remover().Remove(t.Context(), []string{outer})
+	require.NoError(t, err)
+
+	assert.Empty(t, removal.Removed)
+	require.Len(t, removal.Refused, 1)
+	assert.Contains(t, removal.Refused[0].Reason, inner)
+	assert.DirExists(t, inner)
 }

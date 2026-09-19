@@ -955,7 +955,6 @@ SELECT
     state,
     archived_at,
     adopted_branch,
-    parent_agent_id,
     workflow_id
 FROM
     agents;

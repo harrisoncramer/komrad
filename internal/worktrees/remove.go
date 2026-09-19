@@ -7,8 +7,10 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 
 	"weave/internal/logging"
+	agentstore "weave/internal/store/agent"
 )
 
 // Refusal is a directory a removal left alone, and why.
@@ -50,10 +52,15 @@ func (r *Remover) Remove(ctx context.Context, dirs []string) (Removal, error) {
 		return Removal{}, err
 	}
 
+	rows, err := r.lister.agents.ListDirs(ctx)
+	if err != nil {
+		return Removal{}, err
+	}
+
 	removal := Removal{}
 	for _, dir := range dirs {
 		dir = filepath.Clean(dir)
-		if reason := r.refuse(listing, dir); reason != "" {
+		if reason := refuse(listing, rows, dir); reason != "" {
 			removal.Refused = append(removal.Refused, Refusal{Dir: dir, Reason: reason})
 
 			continue
@@ -82,7 +89,7 @@ func (r *Remover) Remove(ctx context.Context, dirs []string) (Removal, error) {
 }
 
 // refuse is why a directory is not this remover's to take, empty when it is.
-func (r *Remover) refuse(listing Listing, dir string) string {
+func refuse(listing Listing, rows []agentstore.AgentDir, dir string) string {
 	inside, err := isUnder(listing.Dirs, dir)
 	if err != nil {
 		return err.Error()
@@ -103,8 +110,19 @@ func (r *Remover) refuse(listing Listing, dir string) string {
 	if len(worktree.Occupants) > 0 {
 		return fmt.Sprintf("agent %s is working in it; delete the agent instead", worktree.Occupants[0].Name)
 	}
+	if under := slices.IndexFunc(rows, func(row agentstore.AgentDir) bool { return isBeneath(dir, row.Cwd) }); under >= 0 {
+		return fmt.Sprintf("agent %s is working under it; delete the agent instead", rows[under].Name)
+	}
+	if nested := slices.IndexFunc(listing.Worktrees, func(w Worktree) bool { return isBeneath(dir, w.Dir) }); nested >= 0 {
+		return fmt.Sprintf("it holds the worktree %s; remove that first", listing.Worktrees[nested].Dir)
+	}
 
 	return ""
+}
+
+// isBeneath reports whether a path is somewhere inside a directory.
+func isBeneath(dir, path string) bool {
+	return strings.HasPrefix(filepath.Clean(path), dir+string(filepath.Separator))
 }
 
 // isStuck reports whether the row's own delete failed on a registration git cannot read.
