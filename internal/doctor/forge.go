@@ -24,6 +24,11 @@ var ErrForgeNoCredential = &ProblemError{
 	Message: "a connected forge has no credential on this machine",
 }
 
+var ErrNoForges = &ProblemError{
+	Code:    "no_forges",
+	Message: "no forge is connected, so pull requests cannot be read",
+}
+
 var ErrForgeUnreachable = &ProblemError{
 	Code:    "forge_unreachable",
 	Message: "a connected forge could not be reached",
@@ -82,7 +87,7 @@ func newForgesCheck() Check {
 				return warn(fmt.Errorf("%w: %w", ErrForgesUnreadable, err), "")
 			}
 			if len(statuses) == 0 {
-				return pass("none connected")
+				return warn(ErrNoForges, "gh auth token | weave forge connect github.com")
 			}
 
 			var lines, failed []string

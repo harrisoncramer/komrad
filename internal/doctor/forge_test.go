@@ -25,8 +25,9 @@ func TestForgesCheck(t *testing.T) {
 	}{
 		{
 			name:       "nothing connected",
-			wantStatus: StatusOK,
-			wantDetail: "none connected",
+			wantStatus: StatusWarn,
+			wantDetail: "gh auth token | weave forge connect github.com",
+			wantCode:   "no_forges",
 		},
 		{
 			name: "every forge answers",
