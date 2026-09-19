@@ -16,7 +16,7 @@ type orchestratorStarter interface {
 
 // StartOrchestrator returns a workflow's orchestrator with a pane to talk to, starting the one
 // it has never had.
-func (s *Service) StartOrchestrator(
+func (s *AgentService) StartOrchestrator(
 	ctx context.Context,
 	req *agentv1.StartOrchestratorRequest,
 ) (*agentv1.StartOrchestratorResponse, *fail.Error) {

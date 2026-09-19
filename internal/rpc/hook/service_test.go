@@ -34,7 +34,7 @@ func TestListHooks(t *testing.T) {
 		},
 	}}
 
-	resp, err := hookv1weave.HookServiceAdapter{Impl: NewService(manager)}.ListHooks(t.Context(), connect.NewRequest(&emptypb.Empty{}))
+	resp, err := hookv1weave.HookServiceAdapter{Impl: NewHookService(manager)}.ListHooks(t.Context(), connect.NewRequest(&emptypb.Empty{}))
 	require.NoError(t, err)
 
 	listed := resp.Msg.GetHooks()
@@ -54,7 +54,7 @@ func TestListHooks(t *testing.T) {
 // problem rather than the caller's.
 func TestListHooksFailure(t *testing.T) {
 	failing := &fakeHooks{listErr: errors.New("permission denied")}
-	service := hookv1weave.HookServiceAdapter{Impl: NewService(failing)}
+	service := hookv1weave.HookServiceAdapter{Impl: NewHookService(failing)}
 
 	_, err := service.ListHooks(t.Context(), connect.NewRequest(&emptypb.Empty{}))
 

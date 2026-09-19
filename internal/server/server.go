@@ -147,6 +147,7 @@ func NewServer(ctx context.Context, params NewServerParams) (*Server, error) {
 		Jobs:          srv.Jobs,
 		ReadOnly:      readOnly,
 		StopRequested: srv.stopRequested,
+		LogPath:       params.Env.LogPath(),
 	})
 	if err != nil {
 		return nil, err

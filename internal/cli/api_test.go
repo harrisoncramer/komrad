@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"weave/config"
+	"weave/internal/caller"
 	"weave/internal/engine"
 
 	"github.com/stretchr/testify/assert"
@@ -68,4 +69,20 @@ func listenOnTunnelPort(t *testing.T, remote engine.Remote, engineAddr string) s
 	t.Cleanup(func() { _ = listener.Close() })
 
 	return addr
+}
+
+// TestCallerIsDroppedForAnotherEngine covers an agent's own id travelling to its own panel and
+// not to an engine that has no such agent.
+func TestCallerIsDroppedForAnotherEngine(t *testing.T) {
+	t.Parallel()
+
+	local := &app{env: &config.Environment{AgentID: "a1", SessionID: "s1"}}
+	assert.Equal(t, caller.Caller{AgentID: "a1", SessionID: "s1"}, local.caller())
+
+	remote := &app{env: &config.Environment{
+		AgentID:   "a1",
+		SessionID: "s1",
+		SSH:       "user@engine",
+	}}
+	assert.Equal(t, caller.Caller{}, remote.caller())
 }

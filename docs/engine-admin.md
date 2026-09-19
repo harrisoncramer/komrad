@@ -142,6 +142,14 @@ That prints a token starting `ghs_`. If it errors, the secret name, the App id o
 
 Git gets this token by asking weave every time it needs one, so nothing is stored. The `gh` command cannot ask, because it only reads a token from its own environment at startup. So the image puts a small wrapper ahead of `gh` on the path which fetches a fresh token and then runs the real one. An agent does not have to know about any of this.
 
+Then connect the engine's forge through the App, which can be done from the laptop:
+
+```
+weave forge connect github.com --method github-app --engine remote
+```
+
+No token of yours is stored. The service keeps the App's short-lived token in `github-token.json` under its cache directory, readable only by the weave user and worthless an hour after it was minted, and reuses it until then. `weave doctor --engine remote` shows the connection under forges, and [forges](forges.md) says the rest.
+
 ### 7. Clone the repo
 
 Put the checkout on the data volume so it survives an instance replacement.

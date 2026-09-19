@@ -12,7 +12,10 @@ import (
 	"time"
 
 	"weave/internal/caller"
+	"weave/internal/doctor"
+	"weave/internal/errui"
 	"weave/internal/rpcapi"
+	"weave/internal/version"
 	"weave/lib/xhttp"
 
 	"github.com/spf13/cobra"
@@ -48,12 +51,12 @@ func rpcMethodCmd(state *app, exposed rpcapi.Method) *cobra.Command {
 		timeout     time.Duration
 	)
 
-	name := strings.ReplaceAll(exposed.Annotation.GetToolName(), "_", "-")
-	description := strings.Join(strings.Fields(exposed.Annotation.GetDescription()), " ")
+	name := strings.ReplaceAll(exposed.Surfaces.GetName(), "_", "-")
+	description := strings.Join(strings.Fields(exposed.Surfaces.GetDescription()), " ")
 
 	cmd := &cobra.Command{
 		Use:           name,
-		Aliases:       []string{exposed.Annotation.GetToolName()},
+		Aliases:       []string{exposed.Surfaces.GetName()},
 		Short:         takeFirstSentence(description),
 		Long:          description,
 		Args:          cobra.NoArgs,
@@ -94,7 +97,7 @@ func rpcMethodCmd(state *app, exposed rpcapi.Method) *cobra.Command {
 		payload, err := callRPC(ctx, callRPCParams{
 			Addr:    addr,
 			Path:    exposed.GetPath(),
-			From:    caller.Caller{AgentID: state.env.AgentID, SessionID: state.env.SessionID},
+			From:    state.caller(),
 			Request: request,
 		})
 		if err != nil {
@@ -107,16 +110,37 @@ func rpcMethodCmd(state *app, exposed rpcapi.Method) *cobra.Command {
 	return cmd
 }
 
+// ErrServerBuild says the server on this machine is running other code than this binary.
+var ErrServerBuild = errors.New("server build mismatch, restart it")
+
+// requireServer refuses to call a server that is not there or that is running other code
+// than this binary.
 func requireServer(ctx context.Context, addr, named string) error {
-	if probeServer(ctx, addr).answering {
-		return nil
+	probe := probeServer(ctx, addr)
+	if !probe.answering {
+		if named != addr {
+			return fmt.Errorf("the engine reached through %s is not serving at %s", addr, named)
+		}
+
+		return fmt.Errorf("nothing is serving at %s, run weave start first", named)
 	}
 
-	if named != addr {
-		return fmt.Errorf("the engine reached through %s is not serving at %s", addr, named)
+	if probe.version != "" && !probe.current {
+		if named != addr {
+			return fmt.Errorf("%w: engine %s, this weave %s; %s",
+				errui.ErrEngineBuild,
+				version.Describe(probe.version, probe.commit),
+				version.Describe(version.Version(), version.Commit()),
+				doctor.StaleEngineFix(probe.version, probe.commit))
+		}
+
+		return fmt.Errorf("%w: server %s, cli %s",
+			ErrServerBuild,
+			version.Describe(probe.version, probe.commit),
+			version.Describe(version.Version(), version.Commit()))
 	}
 
-	return fmt.Errorf("nothing is serving at %s, run weave start first", named)
+	return nil
 }
 
 type callRPCParams struct {

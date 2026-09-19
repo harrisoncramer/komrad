@@ -381,7 +381,11 @@ func (m *model) writeCmd(summary string, write func(api) error) tea.Cmd {
 
 // releaseCmd lets an agent go, naming the files a reader had open over it.
 func (m *model) releaseCmd(summary string, agent agentstore.Agent, said string) tea.Cmd {
-	let := released{id: agent.ID, name: agent.Name, files: slices.Clone(m.edited[agent.ID])}
+	let := released{
+		id:    agent.ID,
+		name:  agent.Name,
+		files: slices.Clone(m.edited[agent.ID]),
+	}
 
 	return stampRelease(m.writeCmd(summary, func(a api) error {
 		return a.release(agent, said+touchedSaid(let.files))
@@ -390,7 +394,12 @@ func (m *model) releaseCmd(summary string, agent agentstore.Agent, said string) 
 
 // releaseInSilenceCmd lets an agent go without typing at it.
 func (m *model) releaseInSilenceCmd(summary string, agent agentstore.Agent) tea.Cmd {
-	let := released{id: agent.ID, name: agent.Name, files: slices.Clone(m.edited[agent.ID]), silent: true}
+	let := released{
+		id:     agent.ID,
+		name:   agent.Name,
+		files:  slices.Clone(m.edited[agent.ID]),
+		silent: true,
+	}
 
 	return stampRelease(m.writeCmd(summary, func(a api) error {
 		return a.release(agent, "")

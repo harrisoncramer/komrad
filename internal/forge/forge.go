@@ -74,10 +74,28 @@ type Forge interface {
 	Kind() string
 	// Verify asks the forge who the credential belongs to.
 	Verify(ctx context.Context) (login string, err error)
-	// ListOnBranch is every pull request whose branch is the named one in the repository.
-	ListOnBranch(ctx context.Context, repo git.RemoteURL, branch string) ([]PullRequest, error)
+	// List is one page of the repository's pull requests: every one from the named branch,
+	// whatever its state, or the open ones when the branch is empty.
+	List(ctx context.Context, params ListParams) (*ListResult, error)
 	// Get is one pull request by its web address.
 	Get(ctx context.Context, url string) (PullRequest, error)
+}
+
+// ListParams says which pull requests to list and which page of them.
+type ListParams struct {
+	Repo git.RemoteURL
+	// Branch narrows the listing to pull requests opened from it, whatever their state; empty
+	// lists the open ones.
+	Branch string
+	// Page is which page to read, from 1, and PerPage how many a page holds.
+	Page    int
+	PerPage int
+}
+
+// ListResult is one page of pull requests and whether another follows.
+type ListResult struct {
+	PullRequests []PullRequest
+	HasMore      bool
 }
 
 // InstallationVerifier is a forge that can say what an installation token reaches.

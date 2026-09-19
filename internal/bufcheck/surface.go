@@ -11,52 +11,69 @@ import (
 	"google.golang.org/protobuf/types/descriptorpb"
 )
 
-func checkOneSurface(
+// checkSurfaces holds every method to the one way of saying who reaches it: the annotation is
+// present, a tool never lacks a command, a surface that is on has a name and a description,
+// and a surface that is off has a reason.
+func checkSurfaces(
 	_ context.Context,
 	responseWriter check.ResponseWriter,
 	_ check.Request,
 	method protoreflect.MethodDescriptor,
 ) error {
-	tool, panelOnly := surfaces(method)
+	surfaces := readSurfaces(method)
+	if surfaces == nil {
+		responseWriter.AddAnnotation(
+			check.WithDescriptor(method),
+			check.WithMessagef(
+				"%q declares no (annotation.v1.surfaces), so nothing says who reaches it: the CLI and the MCP server are both generated from that annotation, and a method carrying none is served for the panel alone without saying so. Declare it, with cli and mcp each true or false.",
+				method.Name(),
+			),
+		)
+
+		return nil
+	}
+
+	on := surfaces.GetCli() || surfaces.GetMcp()
+	off := !surfaces.GetCli() || !surfaces.GetMcp()
 
 	switch {
-	case tool == nil && panelOnly == nil:
+	case surfaces.GetMcp() && !surfaces.GetCli():
 		responseWriter.AddAnnotation(
 			check.WithDescriptor(method),
 			check.WithMessagef(
-				"%q declares neither (annotation.v1.tool) nor (annotation.v1.panel_only), so it is served and reachable from nothing: the CLI and the MCP server are both generated from the tool annotation, and a method carrying none exists for no caller. Give it a tool annotation, or say with panel_only why the panel is to keep it.",
+				"%q is offered to a model as a tool but not to a script as a command. A tool is a command a model runs, so mcp implies cli; turn cli on or mcp off.",
 				method.Name(),
 			),
 		)
-	case tool != nil && panelOnly != nil:
+	case on && surfaces.GetName() == "":
 		responseWriter.AddAnnotation(
 			check.WithDescriptor(method),
 			check.WithMessagef(
-				"%q declares both (annotation.v1.tool) and (annotation.v1.panel_only), which say opposite things about the same method. Drop whichever of the two is wrong.",
+				"%q is on a surface with no name, which is what the command and the tool are both generated under, so weave serves it on neither.",
 				method.Name(),
 			),
 		)
-	case tool != nil && tool.GetToolName() == "":
+	case on && surfaces.GetDescription() == "":
 		responseWriter.AddAnnotation(
 			check.WithDescriptor(method),
 			check.WithMessagef(
-				"%q declares (annotation.v1.tool) with no tool_name, which is the name both surfaces are generated under, so weave reads it as no annotation at all and serves the method on neither.",
+				"%q is on a surface with no description. That string is the whole of what a model is told about the call and all the help the CLI prints, so without it the method reaches its callers as a name and nothing else.",
 				method.Name(),
 			),
 		)
-	case tool != nil && tool.GetDescription() == "":
+	case off && surfaces.GetReason() == "":
 		responseWriter.AddAnnotation(
 			check.WithDescriptor(method),
 			check.WithMessagef(
-				"%q declares (annotation.v1.tool) with no description. That string is the whole of what a model is told about the call and all the help the CLI prints, so without it the method reaches both surfaces as a name and nothing else.",
+				"%q leaves a surface off with no reason. The reason is what tells the next reader a deliberate omission from an oversight.",
 				method.Name(),
 			),
 		)
-	case panelOnly != nil && panelOnly.GetReason() == "":
+	case !off && surfaces.GetReason() != "":
 		responseWriter.AddAnnotation(
 			check.WithDescriptor(method),
 			check.WithMessagef(
-				"%q declares (annotation.v1.panel_only) with no reason. The reason is the whole of what the annotation records, so without it the next reader cannot tell a deliberate omission from an oversight.",
+				"%q is on every surface and yet gives a reason, which explains an omission that is not there. Drop the reason, or turn a surface off.",
 				method.Name(),
 			),
 		)
@@ -65,25 +82,14 @@ func checkOneSurface(
 	return nil
 }
 
-// surfaces reads the two annotations a method may declare, each nil when it carries none.
-func surfaces(method protoreflect.MethodDescriptor) (*annotationv1.ToolAnnotation, *annotationv1.PanelOnlyAnnotation) {
+// readSurfaces reads the annotation, nil when the method carries none.
+func readSurfaces(method protoreflect.MethodDescriptor) *annotationv1.Surfaces {
 	opts, ok := method.Options().(*descriptorpb.MethodOptions)
-	if !ok {
-		return nil, nil
+	if !ok || !proto.HasExtension(opts, annotationv1.E_Surfaces) {
+		return nil
 	}
 
-	var (
-		tool      *annotationv1.ToolAnnotation
-		panelOnly *annotationv1.PanelOnlyAnnotation
-	)
+	surfaces, _ := proto.GetExtension(opts, annotationv1.E_Surfaces).(*annotationv1.Surfaces)
 
-	if proto.HasExtension(opts, annotationv1.E_Tool) {
-		tool, _ = proto.GetExtension(opts, annotationv1.E_Tool).(*annotationv1.ToolAnnotation)
-	}
-
-	if proto.HasExtension(opts, annotationv1.E_PanelOnly) {
-		panelOnly, _ = proto.GetExtension(opts, annotationv1.E_PanelOnly).(*annotationv1.PanelOnlyAnnotation)
-	}
-
-	return tool, panelOnly
+	return surfaces
 }

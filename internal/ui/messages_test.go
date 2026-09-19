@@ -99,7 +99,7 @@ func TestMessagesFocusTakesTheBlock(t *testing.T) {
 	doc := focused.messagesDoc()
 	assert.Contains(t, doc, "Nothing to review in fix-ci")
 	assert.Contains(t, doc, "the worktree holds no change against the base")
-	assert.Contains(t, doc, "weave trace 7c1f2a94")
+	assert.Contains(t, doc, "weave log 7c1f2a94")
 
 	spec, ok := focused.columnOf()
 	require.True(t, ok, "the region takes the block beside the list")
@@ -238,7 +238,7 @@ func TestMessagesRegionExpandsWhenFocused(t *testing.T) {
 	assert.Contains(t, region, "1 of 1", "the tally is on the summary row")
 	assert.Contains(t, region, "connect: connection refused")
 	assert.Contains(t, region, "Start it with: weave serve")
-	assert.Contains(t, region, "weave trace 7c1f2a94")
+	assert.Contains(t, region, "weave log 7c1f2a94")
 	assert.Contains(t, region, "error ·", "the footer says what kind of message this is")
 
 	assert.Contains(t, ansi.Strip(focused.View()), "Agents and Workflows", "the list is still above it")

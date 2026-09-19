@@ -13,15 +13,16 @@ visible to every process on the machine. Pipe it in:
     gh auth token | weave forge connect github.com
     op read op://vault/github/token | weave forge connect github.com
 
-With --method github-app nothing is read. Weave mints a token from the App named
-under [github_app], checks the installation reaches at least one repository, and
-records the App's own name as the login. That is the engine's path, where nobody
-is there to paste a token and the App's key is already on the machine.
+With --method github-app nothing is read. The service mints a token from the App
+named under [github_app] in its own config, checks the installation reaches at
+least one repository, and records the App's own name as the login. That is the
+engine's path, where nobody is there to paste a token and the App's key is already
+on the machine: weave forge connect github.com --method github-app --engine remote.
 
-Weave asks the forge who the token belongs to before storing anything, so a token
-that is wrong or expired is refused here rather than found out later. That proves
-the token is real, not that it can read your repositories: a token with no
-permissions answers the same question, and shows up later as a repository the
+The service asks the forge who the credential belongs to before storing anything,
+so a token that is wrong or expired is refused here rather than found out later.
+That proves the token is real, not that it can read your repositories: a token with
+no permissions answers the same question, and shows up later as a repository the
 forge says it cannot find. github.com and gitlab.com say which forge they run; any
 other host needs --kind, and --api-url when the API is not at https://<host>/api/v3
 for GitHub or /api/v4 for GitLab. The address has to be https.
@@ -36,7 +37,7 @@ weave forge connect <host> [flags]
       --api-url string      where the forge answers API calls, for an enterprise host
   -h, --help                help for connect
       --kind string         which forge the host runs, github or gitlab, when the host does not say
-      --method string       how the credential comes: token from stdin, or github-app from the App in config (default "token")
+      --method string       how the credential comes: token from stdin, or github-app from the App in the service's config (default "token")
       --token-file string   read the token from this file instead of stdin
 ```
 

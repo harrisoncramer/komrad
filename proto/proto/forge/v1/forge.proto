@@ -1,0 +1,111 @@
+syntax = "proto3";
+
+package forge.v1;
+
+import "annotation/v1/tool.proto";
+import "google/protobuf/empty.proto";
+
+option go_package = "weave/proto/gen/forge/v1;forgev1";
+
+message Forge {
+  // The connection's own id.
+  string id = 1;
+  // Which forge the host runs, github or gitlab.
+  string kind = 2;
+  // The host agents' remotes name, such as github.com.
+  string host = 3;
+  // Where an enterprise host answers API calls, empty for the public forge.
+  string api_url = 4;
+  // How the credential was obtained, token or github_app.
+  string method = 5;
+  // Who the forge said the credential belongs to, a user login or an App's name.
+  string login = 6;
+  // When the forge last confirmed the credential, in RFC 3339, unset once it refused.
+  optional string verified_at = 7;
+  // Whether this machine still holds what the connection needs to speak, which for a token is
+  // its file and for an App is always so.
+  bool has_credential = 8;
+  // When the connection was made, in RFC 3339.
+  string created_at = 9;
+}
+
+message ConnectForgeRequest {
+  // The host agents' remotes name, such as github.com.
+  string host = 1;
+  // Which forge it runs, worked out from the host when empty, and needed for any host that is
+  // not github.com or gitlab.com.
+  string kind = 2;
+  // Where the forge answers API calls, for an enterprise host, which has to be https.
+  string api_url = 3;
+  // How the credential comes: token, or github_app for the App in the server's config.
+  string method = 4;
+  // The token, for the token method, which travels once and is never returned.
+  string token = 5;
+}
+
+message ConnectForgeResponse {
+  // The connection.
+  Forge forge = 1;
+}
+
+message ListForgesResponse {
+  // Every connection, by host.
+  repeated Forge forges = 1;
+}
+
+message DisconnectForgeRequest {
+  // The host to forget.
+  string host = 1;
+}
+
+message CheckForgesResponse {
+  // One entry per connection, in the order list_forges gives them.
+  repeated ForgeCheck checks = 1;
+}
+
+message ForgeCheck {
+  // The connection.
+  Forge forge = 1;
+  // What the forge answered, empty when it accepted the credential.
+  string problem = 2;
+  // Which kind of trouble it is when problem is set: refused, no_credential or unreachable.
+  string problem_kind = 3;
+}
+
+// ForgeService connects weave to the services pull requests live on.
+service ForgeService {
+  rpc ConnectForge(ConnectForgeRequest) returns (ConnectForgeResponse) {
+    option (annotation.v1.surfaces) = {
+      cli: false
+      mcp: false
+      reason: "weave forge connect is the one caller, reading the token from stdin or a file. A generated command would take it as an argument, which every process on the machine can read, and a model handed one would be holding a credential it has no business holding."
+    };
+  }
+  rpc ListForges(google.protobuf.Empty) returns (ListForgesResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+    option (annotation.v1.surfaces) = {
+      cli: true
+      mcp: true
+      name: "list_forges"
+      description: "List the forges weave is connected to, one per host, with who weave acts as there and when the forge last confirmed it. The token itself is never returned. A connection is made by a person with weave forge connect and is what the pull request sweep reads through."
+    };
+  }
+  rpc CheckForges(google.protobuf.Empty) returns (CheckForgesResponse) {
+    option (annotation.v1.surfaces) = {
+      cli: true
+      mcp: true
+      name: "check_forges"
+      description: "Ask every connected forge whether its credential still works, the way its method allows, and record the answer on each connection. A refusal marks the connection as refused until a person connects it again."
+      destructive: false
+    };
+  }
+  rpc DisconnectForge(DisconnectForgeRequest) returns (google.protobuf.Empty) {
+    option (annotation.v1.surfaces) = {
+      cli: true
+      mcp: false
+      name: "disconnect_forge"
+      description: "Forget a forge and the credential it was connected with."
+      reason: "A person gave the credential and is the one to take it away."
+    };
+  }
+}

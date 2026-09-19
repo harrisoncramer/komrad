@@ -34,30 +34,34 @@ func registerRPCTools(server *mcpsdk.Server, baseURL string) error {
 	}
 
 	for exposed := range rpcapi.GetMethods() {
+		if !exposed.Surfaces.GetMcp() {
+			continue
+		}
+
 		schema, err := inputSchema(exposed.Method.Input())
 		if err != nil {
 			return fmt.Errorf("failed to build input schema for %s: %w", exposed.Method.Name(), err)
 		}
 
 		mcpsdk.AddTool(server, &mcpsdk.Tool{
-			Name:        exposed.Annotation.GetToolName(),
-			Description: exposed.Annotation.GetDescription(),
+			Name:        exposed.Surfaces.GetName(),
+			Description: exposed.Surfaces.GetDescription(),
 			InputSchema: schema,
-			Annotations: toolHints(exposed.Method, exposed.Annotation),
+			Annotations: toolHints(exposed.Method, exposed.Surfaces),
 		}, tools.handler(string(exposed.Service.FullName()), string(exposed.Method.Name())))
 	}
 
 	return nil
 }
 
-func toolHints(method protoreflect.MethodDescriptor, annotation *annotationv1.ToolAnnotation) *mcpsdk.ToolAnnotations {
+func toolHints(method protoreflect.MethodDescriptor, surfaces *annotationv1.Surfaces) *mcpsdk.ToolAnnotations {
 	readOnly := rpcapi.IsReadOnly(method)
 
-	hints := &mcpsdk.ToolAnnotations{ReadOnlyHint: readOnly, IdempotentHint: rpcapi.IsIdempotent(method, annotation)}
+	hints := &mcpsdk.ToolAnnotations{ReadOnlyHint: readOnly, IdempotentHint: rpcapi.IsIdempotent(method, surfaces)}
 	if !readOnly {
 		destructive := true
-		if annotation.Destructive != nil {
-			destructive = annotation.GetDestructive()
+		if surfaces.Destructive != nil {
+			destructive = surfaces.GetDestructive()
 		}
 		hints.DestructiveHint = &destructive
 	}

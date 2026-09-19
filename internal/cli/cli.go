@@ -72,7 +72,7 @@ the machine, start or stop the service, or call an endpoint from a script.`,
 				report = &config.Report{Sources: map[string]config.Source{}}
 			}
 
-			env := config.LoadEnvironment(config.Environment{
+			env, err := config.LoadEnvironment(config.Environment{
 				DatabaseURL:         cfg.Connection.DatabaseURL,
 				ReadOnlyDatabaseURL: cfg.Connection.ReadOnlyDatabaseURL,
 				Addr:                cfg.Connection.Addr,
@@ -85,6 +85,9 @@ the machine, start or stop the service, or call an endpoint from a script.`,
 				Forward:             cfg.Connection.Forward,
 				EngineUser:          cfg.Connection.EngineUser,
 			})
+			if err != nil {
+				return err
+			}
 
 			codexHarness := codex.NewHarness(codex.NewHarnessParams{
 				TrustLaunchDirs: cfg.Harness.Codex.TrustLaunchDirs,
@@ -151,6 +154,7 @@ the machine, start or stop the service, or call an endpoint from a script.`,
 		tmuxCmd(app),
 		githubCmd(app),
 		forgeCmd(app),
+		prCmd(app),
 		serveCmd(app),
 		startCmd(app),
 		stopCmd(app),
@@ -159,7 +163,7 @@ the machine, start or stop the service, or call an endpoint from a script.`,
 		readonlyRoleCmd(app),
 		rpcCmd(app),
 		hookCmd(app),
-		traceCmd(app),
+		logCmd(app),
 	)
 
 	return root

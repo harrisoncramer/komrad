@@ -26,9 +26,9 @@ func requireEngineBuild(ctx context.Context, addr string) error {
 		return nil
 	}
 
-	return fmt.Errorf("%w: it is serving %s and this panel is %s, so %s",
+	return fmt.Errorf("%w: engine %s, this weave %s; %s",
 		errui.ErrEngineBuild,
 		version.Describe(probe.version, probe.commit),
 		version.Describe(version.Version(), version.Commit()),
-		doctor.StaleEngineFix(probe.commit))
+		doctor.StaleEngineFix(probe.version, probe.commit))
 }

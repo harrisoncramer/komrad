@@ -4,8 +4,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -143,14 +141,5 @@ func githubApp(state *app) (forge.App, error) {
 }
 
 func githubTokenCachePath(state *app) string {
-	dir := strings.TrimSpace(state.env.CacheDir)
-	if dir == "" {
-		return ""
-	}
-
-	if err := os.MkdirAll(dir, 0o700); err != nil {
-		return ""
-	}
-
-	return filepath.Join(dir, "github-token.json")
+	return forges.TokenCachePath(state.env.CacheDir)
 }

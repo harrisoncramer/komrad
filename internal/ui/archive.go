@@ -16,7 +16,11 @@ import (
 
 // archiveDropped are the three columns the archive gives up: an archived agent's checkout, its
 // review and its pull request are none of them refreshed once it is put away.
-var archiveDropped = view.Columns{Repo: true, Review: true, Forge: true}
+var archiveDropped = view.Columns{
+	Repo:   true,
+	Review: true,
+	Forge:  true,
+}
 
 type archiveState struct {
 	agents    []agentstore.Agent

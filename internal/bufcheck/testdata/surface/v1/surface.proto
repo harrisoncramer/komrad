@@ -9,30 +9,67 @@ message Request {}
 message Response {}
 
 service SurfaceService {
-  rpc Tooled(Request) returns (Response) {
-    option (annotation.v1.tool) = {
-      tool_name: "tooled"
+  rpc Everyone(Request) returns (Response) {
+    option (annotation.v1.surfaces) = {
+      cli: true
+      mcp: true
+      name: "everyone"
       description: "Reachable from a model and from a script."
+    };
+  }
+  rpc ScriptOnly(Request) returns (Response) {
+    option (annotation.v1.surfaces) = {
+      cli: true
+      mcp: false
+      name: "script_only"
+      description: "Reachable from a script but not offered to a model."
+      reason: "A model has no business with it."
     };
   }
   rpc PanelKept(Request) returns (Response) {
-    option (annotation.v1.panel_only) = {reason: "The panel keeps this one."};
-  }
-  rpc Neither(Request) returns (Response) {}
-  rpc Both(Request) returns (Response) {
-    option (annotation.v1.tool) = {
-      tool_name: "both"
-      description: "Reachable from a model and from a script."
+    option (annotation.v1.surfaces) = {
+      cli: false
+      mcp: false
+      reason: "The panel keeps this one."
     };
-    option (annotation.v1.panel_only) = {reason: "The panel keeps this one."};
   }
-  rpc Silent(Request) returns (Response) {
-    option (annotation.v1.panel_only) = {reason: ""};
+  rpc Undeclared(Request) returns (Response) {}
+  rpc ModelOnly(Request) returns (Response) {
+    option (annotation.v1.surfaces) = {
+      cli: false
+      mcp: true
+      name: "model_only"
+      description: "A tool with no command."
+      reason: "Nobody wants this."
+    };
   }
   rpc Nameless(Request) returns (Response) {
-    option (annotation.v1.tool) = {description: "Carries everything but the name both surfaces are generated under."};
+    option (annotation.v1.surfaces) = {
+      cli: true
+      mcp: true
+      description: "Carries everything but the name both surfaces are generated under."
+    };
   }
   rpc Wordless(Request) returns (Response) {
-    option (annotation.v1.tool) = {tool_name: "wordless"};
+    option (annotation.v1.surfaces) = {
+      cli: true
+      mcp: true
+      name: "wordless"
+    };
+  }
+  rpc Silent(Request) returns (Response) {
+    option (annotation.v1.surfaces) = {
+      cli: false
+      mcp: false
+    };
+  }
+  rpc Apologetic(Request) returns (Response) {
+    option (annotation.v1.surfaces) = {
+      cli: true
+      mcp: true
+      name: "apologetic"
+      description: "On every surface."
+      reason: "Explains an omission that is not there."
+    };
   }
 }

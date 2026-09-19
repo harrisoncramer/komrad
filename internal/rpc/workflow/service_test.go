@@ -610,7 +610,7 @@ func service(t *testing.T) (workflowv1weave.WorkflowServiceAdapter, *storetest.S
 
 	marks := agents.NewMarkService(agents.NewMarkServiceParams{Marks: st.Marks, Tx: st.Pool})
 
-	return workflowv1weave.WorkflowServiceAdapter{Impl: NewService(st.Workflows, manager, marks)}, st
+	return workflowv1weave.WorkflowServiceAdapter{Impl: NewWorkflowService(st.Workflows, manager, marks)}, st
 }
 
 func createWorkflow(t *testing.T, svc workflowv1weave.WorkflowServiceAdapter, name string) string {

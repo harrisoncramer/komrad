@@ -124,7 +124,7 @@ func reviewService(t *testing.T) (agentv1weave.AgentServiceAdapter, *storetest.S
 		Mailer:    mail,
 	})
 
-	return agentv1weave.AgentServiceAdapter{Impl: NewService(NewServiceParams{
+	return agentv1weave.AgentServiceAdapter{Impl: NewAgentService(NewAgentServiceParams{
 		Agents:   st.Agents,
 		Mail:     mail,
 		Review:   review,

@@ -26,7 +26,9 @@ For instance, telling weave to archive an agent is a keypress in the manager pan
 
 The `weave rpc` subcommand is a wrapper around those APIs, with one subcommand per RPC method. The MCP tools are generated from the same list.
 
-The practical consequence of this, is that adding an endpoint gives you a CLI command and an MCP tool for free, every time.
+Every method says who reaches it, in a `surfaces` annotation on the proto: whether `weave rpc` gets a command for it, and whether the MCP server offers it as a tool. Most methods are on both. A few are on neither and belong to the panel alone, such as emptying the archive, and a few are a command but not a tool, such as connecting a forge with a token a model should never hold. A surface that is off carries the reason, and a lint check refuses a method that says nothing.
+
+The practical consequence of this, is that adding an endpoint gives you a CLI command and an MCP tool for free, every time, and taking one away is a deliberate line rather than an omission.
 
 ## The server architecture
 

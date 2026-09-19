@@ -6,6 +6,7 @@ import (
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/pem"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -15,7 +16,6 @@ import (
 	"time"
 
 	"weave/internal/dbtest"
-	"weave/internal/git"
 	githubapp "weave/internal/github/app"
 	"weave/internal/store"
 	forgestore "weave/internal/store/forge"
@@ -56,18 +56,21 @@ func (f *fakeForge) VerifyInstallation(ctx context.Context) (int, error) {
 	return f.reaches, f.err
 }
 
-func (f *fakeForge) ListOnBranch(context.Context, git.RemoteURL, string) ([]PullRequest, error) {
-	return nil, nil
+func (f *fakeForge) List(context.Context, ListParams) (*ListResult, error) {
+	return &ListResult{}, nil
 }
 
 func (f *fakeForge) Get(context.Context, string) (PullRequest, error) { return PullRequest{}, nil }
 
 type fixture struct {
-	service     *Service
+	service     *ForgeService
 	store       *forgestore.Store
 	credentials *FileStore
 	seen        []Credential
 	apis        []string
+	// app is what the service reads on each call that needs the App, so a test can move it
+	// between calls the way a config edit would.
+	app App
 }
 
 func newFixture(t *testing.T, login string, verifyErr error) *fixture {
@@ -78,7 +81,7 @@ func newFixture(t *testing.T, login string, verifyErr error) *fixture {
 	t.Cleanup(func() { _ = pool.Close() })
 
 	f := &fixture{store: forgestore.New(pool.GetDB()), credentials: NewFileStore(t.TempDir())}
-	f.service = NewService(NewServiceParams{
+	f.service = NewForgeService(NewForgeServiceParams{
 		Connections: f.store,
 		Credentials: f.credentials,
 		Builders: map[string]Builder{
@@ -366,7 +369,7 @@ func TestForConnectionRecordsWhereItIsTold(t *testing.T) {
 	connection, err := f.service.Connect(ctx, ConnectParams{Host: "github.com", Token: NewSecret("tok")})
 	require.NoError(t, err)
 
-	reporting := NewService(NewServiceParams{
+	reporting := NewForgeService(NewForgeServiceParams{
 		Connections: f.store,
 		Credentials: f.credentials,
 		Builders:    map[string]Builder{KindGitHub: func(_ string, auth Authenticator) Forge { return &fakeForge{auth: auth, err: ErrUnauthorized} }},
@@ -425,7 +428,7 @@ func withApp(t *testing.T, f *fixture, server *httptest.Server) {
 	keyPath := filepath.Join(t.TempDir(), "app.pem")
 	require.NoError(t, os.WriteFile(keyPath, pem.EncodeToMemory(&pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(key)}), 0o600))
 
-	f.service.app = App{
+	f.app = App{
 		Cache: githubapp.Cache{
 			Path: filepath.Join(t.TempDir(), "token"),
 			Identity: githubapp.Identity{
@@ -436,6 +439,9 @@ func withApp(t *testing.T, f *fixture, server *httptest.Server) {
 			},
 		},
 		Client: server.Client(),
+	}
+	f.service.loadApp = func() (App, error) {
+		return f.app, nil
 	}
 }
 
@@ -484,7 +490,7 @@ func TestConnectWithTheAppSpeaksToTheEnterpriseHost(t *testing.T) {
 	f := newFixture(t, "", nil)
 	server, mints := appServer(t, true)
 	withApp(t, f, server)
-	f.service.app.Cache.Identity.API = ""
+	f.app.Cache.Identity.API = ""
 
 	_, err := f.service.Connect(t.Context(), ConnectParams{
 		Host:   "ghe.example.com",
@@ -497,14 +503,26 @@ func TestConnectWithTheAppSpeaksToTheEnterpriseHost(t *testing.T) {
 	assert.Equal(t, []string{server.URL}, f.apis)
 }
 
-// TestConnectWithTheAppRefusals covers no App configured, an App on a forge that is not
-// GitHub, and an App installed on nothing, none of which leaves a row.
+// TestConnectWithTheAppRefusals covers no App configured, an App the config cannot be read
+// as, an App on a forge that is not GitHub, and an App installed on nothing, none of which
+// leaves a row.
 func TestConnectWithTheAppRefusals(t *testing.T) {
 	t.Run("no app configured", func(t *testing.T) {
 		f := newFixture(t, "", nil)
 
 		_, err := f.service.Connect(t.Context(), ConnectParams{Host: "github.com", Method: MethodGitHubApp})
 		require.ErrorIs(t, err, ErrNoApp)
+	})
+
+	t.Run("an app the config cannot be read as", func(t *testing.T) {
+		f := newFixture(t, "", nil)
+		f.service.loadApp = func() (App, error) {
+			return App{}, errors.New("installation_id: not a number")
+		}
+
+		_, err := f.service.Connect(t.Context(), ConnectParams{Host: "github.com", Method: MethodGitHubApp})
+		require.ErrorIs(t, err, ErrBadApp)
+		assert.Contains(t, err.Error(), "installation_id")
 	})
 
 	t.Run("an app reaching no repository", func(t *testing.T) {
@@ -588,8 +606,8 @@ func TestCheckReportsARefusedMint(t *testing.T) {
 				_, _ = w.Write([]byte(`{"message":"A JSON web token could not be decoded"}`))
 			}))
 			t.Cleanup(refusing.Close)
-			f.service.app.Cache.Identity.API = refusing.URL
-			require.NoError(t, f.service.app.Cache.Forget())
+			f.app.Cache.Identity.API = refusing.URL
+			require.NoError(t, f.app.Cache.Forget())
 
 			_, err = f.service.Check(ctx, *app)
 			require.ErrorIs(t, err, ErrUnauthorized)
@@ -617,8 +635,8 @@ func TestCheckPassesAMintOutageThrough(t *testing.T) {
 		w.WriteHeader(http.StatusBadGateway)
 	}))
 	t.Cleanup(down.Close)
-	f.service.app.Cache.Identity.API = down.URL
-	require.NoError(t, f.service.app.Cache.Forget())
+	f.app.Cache.Identity.API = down.URL
+	require.NoError(t, f.app.Cache.Forget())
 
 	_, err = f.service.Check(ctx, *app)
 	require.Error(t, err)

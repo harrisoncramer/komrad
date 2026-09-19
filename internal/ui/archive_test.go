@@ -1267,7 +1267,11 @@ func TestArchiveGivesUpTheThreeColumns(t *testing.T) {
 		"a pane wide enough for all three still draws none of them")
 
 	live := view.Prepare(agentsSnapshot(snapshotParams{rows: m.agentRows(), pane: 200}))
-	assert.Equal(t, view.Columns{Repo: true, Review: true, Forge: true}, live.Columns,
+	assert.Equal(t, view.Columns{
+		Repo:   true,
+		Review: true,
+		Forge:  true,
+	}, live.Columns,
 		"where the agents list at the same pane draws all three")
 }
 

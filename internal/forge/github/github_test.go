@@ -123,20 +123,29 @@ var weave = git.RemoteURL{
 	Path:   "harrisoncramer/weave",
 }
 
-// TestListOnBranch covers the list call: the head filter GitHub wants, the token on the
+// TestList covers the list call: the head filter GitHub wants, the token on the
 // request, and every row mapped into the neutral record.
-func TestListOnBranch(t *testing.T) {
+func TestList(t *testing.T) {
 	t.Parallel()
 
 	f, _, seen := serve(t, "/repos/harrisoncramer/weave/pulls", "["+openPull+","+mergedPull+","+forkPull+","+deletedForkPull+"]", http.StatusOK)
 
-	pulls, err := f.ListOnBranch(t.Context(), weave, "agent/x")
+	listed, err := f.List(t.Context(), forge.ListParams{
+		Repo:    weave,
+		Branch:  "agent/x",
+		Page:    2,
+		PerPage: 50,
+	})
 	require.NoError(t, err)
 
 	assert.Equal(t, "harrisoncramer:agent/x", seen.URL.Query().Get("head"))
 	assert.Equal(t, "all", seen.URL.Query().Get("state"))
+	assert.Equal(t, "2", seen.URL.Query().Get("page"))
+	assert.Equal(t, "50", seen.URL.Query().Get("per_page"))
 	assert.Equal(t, "Bearer secret", seen.Header.Get("Authorization"))
-	require.Len(t, pulls, 4)
+	assert.False(t, listed.HasMore)
+	pullRequests := listed.PullRequests
+	require.Len(t, pullRequests, 4)
 
 	stamp := time.Date(2026, 9, 18, 12, 0, 0, 0, time.UTC)
 	assert.Equal(t, forge.PullRequest{
@@ -165,21 +174,55 @@ func TestListOnBranch(t *testing.T) {
 		State:      "open",
 		CreatedAt:  time.Date(2026, 9, 18, 10, 0, 0, 0, time.UTC),
 		UpdatedAt:  time.Date(2026, 9, 18, 11, 0, 0, 0, time.UTC),
-	}, pulls[0])
-	assert.False(t, pulls[0].IsFinished())
-	assert.False(t, pulls[0].IsCrossRepository())
+	}, pullRequests[0])
+	assert.False(t, pullRequests[0].IsFinished())
+	assert.False(t, pullRequests[0].IsCrossRepository())
 
-	assert.Equal(t, "PR_merged", pulls[1].ProviderID)
-	assert.Equal(t, &stamp, pulls[1].MergedAt)
-	assert.Equal(t, &stamp, pulls[1].ClosedAt)
-	assert.True(t, pulls[1].IsFinished())
+	assert.Equal(t, "PR_merged", pullRequests[1].ProviderID)
+	assert.Equal(t, &stamp, pullRequests[1].MergedAt)
+	assert.Equal(t, &stamp, pullRequests[1].ClosedAt)
+	assert.True(t, pullRequests[1].IsFinished())
 
-	assert.Equal(t, "someone/weave", pulls[2].Head.Path)
-	assert.True(t, pulls[2].IsCrossRepository())
+	assert.Equal(t, "someone/weave", pullRequests[2].Head.Path)
+	assert.True(t, pullRequests[2].IsCrossRepository())
 
-	assert.True(t, pulls[3].Head.IsZero())
-	assert.True(t, pulls[3].IsCrossRepository())
-	assert.True(t, pulls[3].IsFinished())
+	assert.True(t, pullRequests[3].Head.IsZero())
+	assert.True(t, pullRequests[3].IsCrossRepository())
+	assert.True(t, pullRequests[3].IsFinished())
+}
+
+// TestListWithoutABranch covers the repository's own listing: open ones only, no head filter.
+func TestListWithoutABranch(t *testing.T) {
+	t.Parallel()
+
+	f, _, seen := serve(t, "/repos/harrisoncramer/weave/pulls", "["+openPull+"]", http.StatusOK)
+
+	listed, err := f.List(t.Context(), forge.ListParams{Repo: weave})
+	require.NoError(t, err)
+	require.Len(t, listed.PullRequests, 1)
+	assert.Equal(t, "open", seen.URL.Query().Get("state"))
+	assert.Equal(t, "1", seen.URL.Query().Get("page"))
+	assert.False(t, seen.URL.Query().Has("head"))
+}
+
+// TestListReadsTheNextPageFromLink covers GitHub saying another page follows.
+func TestListReadsTheNextPageFromLink(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Link", `<https://api.github.com/repos/harrisoncramer/weave/pulls?page=2>; rel="next", <https://api.github.com/repos/harrisoncramer/weave/pulls?page=9>; rel="last"`)
+		_, _ = w.Write([]byte("[" + openPull + "]"))
+	}))
+	t.Cleanup(server.Close)
+
+	f := New(NewParams{
+		Auth: &fakeAuth{token: "secret"},
+		API:  server.URL,
+		Next: server.Client().Transport,
+	})
+	listed, err := f.List(t.Context(), forge.ListParams{Repo: weave})
+	require.NoError(t, err)
+	assert.True(t, listed.HasMore)
 }
 
 // TestGet covers reading one pull request by its web address.
@@ -188,10 +231,10 @@ func TestGet(t *testing.T) {
 
 	f, _, _ := serve(t, "/repos/harrisoncramer/weave/pulls/680", mergedPull, http.StatusOK)
 
-	pull, err := f.Get(t.Context(), "https://github.com/harrisoncramer/weave/pull/680")
+	pullRequest, err := f.Get(t.Context(), "https://github.com/harrisoncramer/weave/pull/680")
 	require.NoError(t, err)
-	assert.Equal(t, 680, pull.Number)
-	assert.Equal(t, "merged one", pull.Title)
+	assert.Equal(t, 680, pullRequest.Number)
+	assert.Equal(t, "merged one", pullRequest.Title)
 }
 
 // TestGetRefusesWhatIsNotAPullRequest covers the addresses Get will not ask GitHub about.
@@ -221,13 +264,13 @@ func TestGetRefusesWhatIsNotAPullRequest(t *testing.T) {
 	}
 }
 
-// TestListOnBranchRefusesANestedPath covers a repository path GitHub cannot address.
-func TestListOnBranchRefusesANestedPath(t *testing.T) {
+// TestListRefusesANestedPath covers a repository path GitHub cannot address.
+func TestListRefusesANestedPath(t *testing.T) {
 	t.Parallel()
 
 	f, _, _ := serve(t, "/never", "", http.StatusOK)
 
-	_, err := f.ListOnBranch(t.Context(), git.RemoteURL{Host: "github.com", Path: "group/sub/repo"}, "main")
+	_, err := f.List(t.Context(), forge.ListParams{Repo: git.RemoteURL{Host: "github.com", Path: "group/sub/repo"}, Branch: "main"})
 	require.ErrorIs(t, err, forge.ErrNotRepository)
 }
 
@@ -238,7 +281,7 @@ func TestUnauthorizedInvalidatesTheCredential(t *testing.T) {
 
 	f, auth, _ := serve(t, "/repos/harrisoncramer/weave/pulls", `{"message":"Bad credentials"}`, http.StatusUnauthorized)
 
-	_, err := f.ListOnBranch(t.Context(), weave, "main")
+	_, err := f.List(t.Context(), forge.ListParams{Repo: weave, Branch: "main"})
 	require.ErrorIs(t, err, forge.ErrUnauthorized)
 	assert.Equal(t, 1, auth.invalidated)
 }

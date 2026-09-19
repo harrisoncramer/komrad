@@ -18,7 +18,11 @@ import (
 // checkoutWorkflow is a workflow weave cuts a worktree from, which is what gives the agents
 // under it a checkout of their own.
 func checkoutWorkflow() workflowstore.Workflow {
-	return workflowstore.Workflow{ID: "w1", Name: "weave", Worktree: workflowstore.WorktreeConfig{Enabled: true}}
+	return workflowstore.Workflow{
+		ID:       "w1",
+		Name:     "weave",
+		Worktree: workflowstore.WorktreeConfig{Enabled: true},
+	}
 }
 
 // snapshotOne reads one agent row and hands back the single row it made.
@@ -455,7 +459,12 @@ func TestSnapshotKinds(t *testing.T) {
 			row: agentRow{
 				workflow: checkoutWorkflow(),
 				item: agentItem{
-					agent: agentstore.Agent{ID: "a1", Name: "worker", WorkflowID: "w1", State: agentstore.StateIdle},
+					agent: agentstore.Agent{
+						ID:         "a1",
+						Name:       "worker",
+						WorkflowID: "w1",
+						State:      agentstore.StateIdle,
+					},
 				},
 			},
 			scheduled: map[string]bool{"w1": true},
@@ -470,8 +479,12 @@ func TestSnapshotKinds(t *testing.T) {
 			name: "a child hangs off the row above it",
 			row: agentRow{
 				workflow: checkoutWorkflow(),
-				item:     agentItem{agent: agentstore.Agent{ID: "a1", Name: "reviewer", ParentAgentID: xptr.Ptr("a0")}},
-				child:    true,
+				item: agentItem{agent: agentstore.Agent{
+					ID:            "a1",
+					Name:          "reviewer",
+					ParentAgentID: xptr.Ptr("a0"),
+				}},
+				child: true,
 			},
 			want: view.Row{
 				Key:  "agent:a1",
@@ -697,7 +710,11 @@ func TestSnapshotHeldWorking(t *testing.T) {
 func TestSnapshotCarriesTheBlink(t *testing.T) {
 	rows := []agentRow{{item: agentItem{agent: agentstore.Agent{ID: "a1", Name: "worker"}}}}
 
-	hidden := agentsSnapshot(snapshotParams{rows: rows, focused: "agent:a1", caretHidden: true})
+	hidden := agentsSnapshot(snapshotParams{
+		rows:        rows,
+		focused:     "agent:a1",
+		caretHidden: true,
+	})
 	shown := agentsSnapshot(snapshotParams{rows: rows, focused: "agent:a1"})
 
 	assert.True(t, hidden.CaretHidden)
@@ -715,7 +732,11 @@ func TestSnapshotOfAnEmptyPanelIsEmpty(t *testing.T) {
 // TestReportedReasonSurvivesInTheRecord pins the one thing the new row drops that nothing else
 // was showing: what the agent's own CLI last said it was doing.
 func TestReportedReasonSurvivesInTheRecord(t *testing.T) {
-	agent := agentstore.Agent{ID: "a1", Name: "worker", ReportedReason: "reading internal/view"}
+	agent := agentstore.Agent{
+		ID:             "a1",
+		Name:           "worker",
+		ReportedReason: "reading internal/view",
+	}
 
 	fields := agentFields(agent, "", "")
 
@@ -727,7 +748,12 @@ func TestReportedReasonSurvivesInTheRecord(t *testing.T) {
 // narrower than the busiest row the model can express: a hidden child is counted on the parent
 // drawn above it, so a child row never stands in for anything.
 func TestSnapshotChildRowCarriesNoTally(t *testing.T) {
-	parent := agentstore.Agent{ID: "a1", Name: "parent", WorkflowID: "w1", State: agentstore.StateIdle}
+	parent := agentstore.Agent{
+		ID:         "a1",
+		Name:       "parent",
+		WorkflowID: "w1",
+		State:      agentstore.StateIdle,
+	}
 	child := agentstore.Agent{
 		ID:            "a2",
 		Name:          "child",

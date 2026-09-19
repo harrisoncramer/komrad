@@ -22,36 +22,46 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-type ToolAnnotation struct {
+type Surfaces struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// What the MCP tool is called, which is what a model types rather than the method name.
-	ToolName string `protobuf:"bytes,1,opt,name=tool_name,json=toolName,proto3" json:"tool_name,omitempty"`
-	// Everything a model is told about the call, since it has nothing else to go on.
-	Description string `protobuf:"bytes,2,opt,name=description,proto3" json:"description,omitempty"`
+	// Whether weave rpc gets a subcommand for the method, which is what a script runs.
+	Cli bool `protobuf:"varint,1,opt,name=cli,proto3" json:"cli,omitempty"`
+	// Whether the MCP server offers the method as a tool, which is what a model calls. A tool
+	// without a CLI command makes no sense, so mcp implies cli.
+	Mcp bool `protobuf:"varint,2,opt,name=mcp,proto3" json:"mcp,omitempty"`
+	// What both generated callers call the method, which is what a model types rather than the
+	// method name. Required when either surface is on.
+	Name string `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`
+	// Everything a model is told about the call and all the help the CLI prints. Required with
+	// name.
+	Description string `protobuf:"bytes,4,opt,name=description,proto3" json:"description,omitempty"`
 	// Whether the call can take something away, which decides whether a client asks before making
 	// it. True unless the method only reads.
-	Destructive *bool `protobuf:"varint,4,opt,name=destructive,proto3,oneof" json:"destructive,omitempty"`
+	Destructive *bool `protobuf:"varint,5,opt,name=destructive,proto3,oneof" json:"destructive,omitempty"`
 	// Whether calling twice lands where calling once does, overriding what the method's
 	// idempotency_level says.
-	Idempotent    *bool `protobuf:"varint,5,opt,name=idempotent,proto3,oneof" json:"idempotent,omitempty"`
+	Idempotent *bool `protobuf:"varint,6,opt,name=idempotent,proto3,oneof" json:"idempotent,omitempty"`
+	// Why a surface is left off, in a sentence, so the next reader is told rather than left to
+	// work it out. Required when either surface is off.
+	Reason        string `protobuf:"bytes,7,opt,name=reason,proto3" json:"reason,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *ToolAnnotation) Reset() {
-	*x = ToolAnnotation{}
+func (x *Surfaces) Reset() {
+	*x = Surfaces{}
 	mi := &file_annotation_v1_tool_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *ToolAnnotation) String() string {
+func (x *Surfaces) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*ToolAnnotation) ProtoMessage() {}
+func (*Surfaces) ProtoMessage() {}
 
-func (x *ToolAnnotation) ProtoReflect() protoreflect.Message {
+func (x *Surfaces) ProtoReflect() protoreflect.Message {
 	mi := &file_annotation_v1_tool_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -63,79 +73,54 @@ func (x *ToolAnnotation) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use ToolAnnotation.ProtoReflect.Descriptor instead.
-func (*ToolAnnotation) Descriptor() ([]byte, []int) {
+// Deprecated: Use Surfaces.ProtoReflect.Descriptor instead.
+func (*Surfaces) Descriptor() ([]byte, []int) {
 	return file_annotation_v1_tool_proto_rawDescGZIP(), []int{0}
 }
 
-func (x *ToolAnnotation) GetToolName() string {
+func (x *Surfaces) GetCli() bool {
 	if x != nil {
-		return x.ToolName
+		return x.Cli
+	}
+	return false
+}
+
+func (x *Surfaces) GetMcp() bool {
+	if x != nil {
+		return x.Mcp
+	}
+	return false
+}
+
+func (x *Surfaces) GetName() string {
+	if x != nil {
+		return x.Name
 	}
 	return ""
 }
 
-func (x *ToolAnnotation) GetDescription() string {
+func (x *Surfaces) GetDescription() string {
 	if x != nil {
 		return x.Description
 	}
 	return ""
 }
 
-func (x *ToolAnnotation) GetDestructive() bool {
+func (x *Surfaces) GetDestructive() bool {
 	if x != nil && x.Destructive != nil {
 		return *x.Destructive
 	}
 	return false
 }
 
-func (x *ToolAnnotation) GetIdempotent() bool {
+func (x *Surfaces) GetIdempotent() bool {
 	if x != nil && x.Idempotent != nil {
 		return *x.Idempotent
 	}
 	return false
 }
 
-type PanelOnlyAnnotation struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// Why the method is kept off both surfaces, in a sentence, so the next reader is told rather
-	// than left to work it out.
-	Reason        string `protobuf:"bytes,1,opt,name=reason,proto3" json:"reason,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *PanelOnlyAnnotation) Reset() {
-	*x = PanelOnlyAnnotation{}
-	mi := &file_annotation_v1_tool_proto_msgTypes[1]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *PanelOnlyAnnotation) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*PanelOnlyAnnotation) ProtoMessage() {}
-
-func (x *PanelOnlyAnnotation) ProtoReflect() protoreflect.Message {
-	mi := &file_annotation_v1_tool_proto_msgTypes[1]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use PanelOnlyAnnotation.ProtoReflect.Descriptor instead.
-func (*PanelOnlyAnnotation) Descriptor() ([]byte, []int) {
-	return file_annotation_v1_tool_proto_rawDescGZIP(), []int{1}
-}
-
-func (x *PanelOnlyAnnotation) GetReason() string {
+func (x *Surfaces) GetReason() string {
 	if x != nil {
 		return x.Reason
 	}
@@ -145,55 +130,41 @@ func (x *PanelOnlyAnnotation) GetReason() string {
 var file_annotation_v1_tool_proto_extTypes = []protoimpl.ExtensionInfo{
 	{
 		ExtendedType:  (*descriptorpb.MethodOptions)(nil),
-		ExtensionType: (*ToolAnnotation)(nil),
+		ExtensionType: (*Surfaces)(nil),
 		Field:         50003,
-		Name:          "annotation.v1.tool",
-		Tag:           "bytes,50003,opt,name=tool",
-		Filename:      "annotation/v1/tool.proto",
-	},
-	{
-		ExtendedType:  (*descriptorpb.MethodOptions)(nil),
-		ExtensionType: (*PanelOnlyAnnotation)(nil),
-		Field:         50004,
-		Name:          "annotation.v1.panel_only",
-		Tag:           "bytes,50004,opt,name=panel_only",
+		Name:          "annotation.v1.surfaces",
+		Tag:           "bytes,50003,opt,name=surfaces",
 		Filename:      "annotation/v1/tool.proto",
 	},
 }
 
 // Extension fields to descriptorpb.MethodOptions.
 var (
-	// What a method says about itself as an MCP tool, absent on the methods kept out of a
-	// model's reach.
+	// Which of the generated callers reach the method. Every method declares it. The panel is
+	// not one of them: it is written by hand and calls whatever it needs.
 	//
-	// optional annotation.v1.ToolAnnotation tool = 50003;
-	E_Tool = &file_annotation_v1_tool_proto_extTypes[0]
-	// What a method says about belonging to the panel alone, absent on the methods a model and a
-	// script reach through the tool annotation instead.
-	//
-	// optional annotation.v1.PanelOnlyAnnotation panel_only = 50004;
-	E_PanelOnly = &file_annotation_v1_tool_proto_extTypes[1]
+	// optional annotation.v1.Surfaces surfaces = 50003;
+	E_Surfaces = &file_annotation_v1_tool_proto_extTypes[0]
 )
 
 var File_annotation_v1_tool_proto protoreflect.FileDescriptor
 
 const file_annotation_v1_tool_proto_rawDesc = "" +
 	"\n" +
-	"\x18annotation/v1/tool.proto\x12\rannotation.v1\x1a google/protobuf/descriptor.proto\"\xba\x01\n" +
-	"\x0eToolAnnotation\x12\x1b\n" +
-	"\ttool_name\x18\x01 \x01(\tR\btoolName\x12 \n" +
-	"\vdescription\x18\x02 \x01(\tR\vdescription\x12%\n" +
-	"\vdestructive\x18\x04 \x01(\bH\x00R\vdestructive\x88\x01\x01\x12#\n" +
+	"\x18annotation/v1/tool.proto\x12\rannotation.v1\x1a google/protobuf/descriptor.proto\"\xe7\x01\n" +
+	"\bSurfaces\x12\x10\n" +
+	"\x03cli\x18\x01 \x01(\bR\x03cli\x12\x10\n" +
+	"\x03mcp\x18\x02 \x01(\bR\x03mcp\x12\x12\n" +
+	"\x04name\x18\x03 \x01(\tR\x04name\x12 \n" +
+	"\vdescription\x18\x04 \x01(\tR\vdescription\x12%\n" +
+	"\vdestructive\x18\x05 \x01(\bH\x00R\vdestructive\x88\x01\x01\x12#\n" +
 	"\n" +
-	"idempotent\x18\x05 \x01(\bH\x01R\n" +
-	"idempotent\x88\x01\x01B\x0e\n" +
+	"idempotent\x18\x06 \x01(\bH\x01R\n" +
+	"idempotent\x88\x01\x01\x12\x16\n" +
+	"\x06reason\x18\a \x01(\tR\x06reasonB\x0e\n" +
 	"\f_destructiveB\r\n" +
-	"\v_idempotent\"-\n" +
-	"\x13PanelOnlyAnnotation\x12\x16\n" +
-	"\x06reason\x18\x01 \x01(\tR\x06reason:S\n" +
-	"\x04tool\x12\x1e.google.protobuf.MethodOptions\x18ӆ\x03 \x01(\v2\x1d.annotation.v1.ToolAnnotationR\x04tool:c\n" +
-	"\n" +
-	"panel_only\x12\x1e.google.protobuf.MethodOptions\x18Ԇ\x03 \x01(\v2\".annotation.v1.PanelOnlyAnnotationR\tpanelOnlyB,Z*weave/proto/gen/annotation/v1;annotationv1b\x06proto3"
+	"\v_idempotent:U\n" +
+	"\bsurfaces\x12\x1e.google.protobuf.MethodOptions\x18ӆ\x03 \x01(\v2\x17.annotation.v1.SurfacesR\bsurfacesB,Z*weave/proto/gen/annotation/v1;annotationv1b\x06proto3"
 
 var (
 	file_annotation_v1_tool_proto_rawDescOnce sync.Once
@@ -207,21 +178,18 @@ func file_annotation_v1_tool_proto_rawDescGZIP() []byte {
 	return file_annotation_v1_tool_proto_rawDescData
 }
 
-var file_annotation_v1_tool_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
+var file_annotation_v1_tool_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_annotation_v1_tool_proto_goTypes = []any{
-	(*ToolAnnotation)(nil),             // 0: annotation.v1.ToolAnnotation
-	(*PanelOnlyAnnotation)(nil),        // 1: annotation.v1.PanelOnlyAnnotation
-	(*descriptorpb.MethodOptions)(nil), // 2: google.protobuf.MethodOptions
+	(*Surfaces)(nil),                   // 0: annotation.v1.Surfaces
+	(*descriptorpb.MethodOptions)(nil), // 1: google.protobuf.MethodOptions
 }
 var file_annotation_v1_tool_proto_depIdxs = []int32{
-	2, // 0: annotation.v1.tool:extendee -> google.protobuf.MethodOptions
-	2, // 1: annotation.v1.panel_only:extendee -> google.protobuf.MethodOptions
-	0, // 2: annotation.v1.tool:type_name -> annotation.v1.ToolAnnotation
-	1, // 3: annotation.v1.panel_only:type_name -> annotation.v1.PanelOnlyAnnotation
-	4, // [4:4] is the sub-list for method output_type
-	4, // [4:4] is the sub-list for method input_type
-	2, // [2:4] is the sub-list for extension type_name
-	0, // [0:2] is the sub-list for extension extendee
+	1, // 0: annotation.v1.surfaces:extendee -> google.protobuf.MethodOptions
+	0, // 1: annotation.v1.surfaces:type_name -> annotation.v1.Surfaces
+	2, // [2:2] is the sub-list for method output_type
+	2, // [2:2] is the sub-list for method input_type
+	1, // [1:2] is the sub-list for extension type_name
+	0, // [0:1] is the sub-list for extension extendee
 	0, // [0:0] is the sub-list for field type_name
 }
 
@@ -237,8 +205,8 @@ func file_annotation_v1_tool_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_annotation_v1_tool_proto_rawDesc), len(file_annotation_v1_tool_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   2,
-			NumExtensions: 2,
+			NumMessages:   1,
+			NumExtensions: 1,
 			NumServices:   0,
 		},
 		GoTypes:           file_annotation_v1_tool_proto_goTypes,

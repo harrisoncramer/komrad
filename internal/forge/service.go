@@ -22,6 +22,9 @@ var ErrInsecureAPI = fail.InvalidArgument("the API address has to be https")
 // ErrNoApp says the App method was asked for on a build with no App configured.
 var ErrNoApp = fail.Precondition("no github app is configured")
 
+// ErrBadApp says the [github_app] section in config cannot be read as an App.
+var ErrBadApp = fail.Precondition("the github app in config is unusable")
+
 // ErrAppReachesNothing says the App is installed on no repository.
 var ErrAppReachesNothing = fail.Precondition("the github app is installed on no repository")
 
@@ -45,32 +48,33 @@ type ConnectParams struct {
 	Token Secret
 }
 
-// NewServiceParams says what the service writes to and which forges it can build.
-type NewServiceParams struct {
+// NewForgeServiceParams says what the service writes to and which forges it can build.
+type NewForgeServiceParams struct {
 	Connections *forgestore.Store
 	Credentials CredentialStore
 	Builders    map[string]Builder
 	// Verified is what a refusal is recorded on, the connections themselves when unset and
 	// NoRecord for a caller that only reports.
 	Verified verifiedSetter
-	// App is the GitHub App this machine can connect as, unconfigured when it has none.
-	App App
+	// LoadApp reads the GitHub App this machine can connect as, on every call that needs it,
+	// and is unset or answers an unconfigured App when it has none.
+	LoadApp func() (App, error)
 	// Now is the clock, time.Now when unset.
 	Now func() time.Time
 }
 
-// Service connects and disconnects forges, and builds one to speak to for a connection.
-type Service struct {
+// ForgeService connects and disconnects forges, and builds one to speak to for a connection.
+type ForgeService struct {
 	connections *forgestore.Store
 	credentials CredentialStore
 	builders    map[string]Builder
 	verified    verifiedSetter
-	app         App
+	loadApp     func() (App, error)
 	now         func() time.Time
 }
 
-// NewService builds the service.
-func NewService(params NewServiceParams) *Service {
+// NewForgeService builds the service.
+func NewForgeService(params NewForgeServiceParams) *ForgeService {
 	now := params.Now
 	if now == nil {
 		now = time.Now
@@ -79,13 +83,19 @@ func NewService(params NewServiceParams) *Service {
 	if verified == nil {
 		verified = params.Connections
 	}
+	loadApp := params.LoadApp
+	if loadApp == nil {
+		loadApp = func() (App, error) {
+			return App{}, nil
+		}
+	}
 
-	return &Service{
+	return &ForgeService{
 		connections: params.Connections,
 		credentials: params.Credentials,
 		builders:    params.Builders,
 		verified:    verified,
-		app:         params.App,
+		loadApp:     loadApp,
 		now:         now,
 	}
 }
@@ -140,7 +150,7 @@ func HeaderFor(kind, method string) string {
 
 // Connect proves a credential against the forge and records the connection, refusing a host
 // that is already connected and a credential the forge does not accept.
-func (s *Service) Connect(ctx context.Context, params ConnectParams) (*forgestore.Connection, error) {
+func (s *ForgeService) Connect(ctx context.Context, params ConnectParams) (*forgestore.Connection, error) {
 	host := strings.ToLower(strings.TrimSpace(params.Host))
 	if host == "" {
 		return nil, fail.InvalidArgument("a host is needed")
@@ -212,7 +222,7 @@ func (s *Service) Connect(ctx context.Context, params ConnectParams) (*forgestor
 }
 
 // proveToken asks the forge who a pasted token belongs to.
-func (s *Service) proveToken(ctx context.Context, build Builder, kind, host, apiURL string, token Secret) (string, error) {
+func (s *ForgeService) proveToken(ctx context.Context, build Builder, kind, host, apiURL string, token Secret) (string, error) {
 	if token.IsZero() {
 		return "", fail.InvalidArgument("a token is needed")
 	}
@@ -231,15 +241,19 @@ func (s *Service) proveToken(ctx context.Context, build Builder, kind, host, api
 
 // proveApp mints from the App, checks its installation reaches a repository, and answers with
 // the App's own name.
-func (s *Service) proveApp(ctx context.Context, build Builder, kind, apiURL string) (string, error) {
+func (s *ForgeService) proveApp(ctx context.Context, build Builder, kind, apiURL string) (string, error) {
 	if kind != KindGitHub {
 		return "", fail.InvalidArgument("a github app connects only to github")
 	}
-	if !s.app.IsConfigured() {
+	app, err := s.loadApp()
+	if err != nil {
+		return "", ErrBadApp.Saying("%v", err)
+	}
+	if !app.IsConfigured() {
 		return "", ErrNoApp.Saying("set app_id, installation_id and private_key_path under [github_app]")
 	}
 
-	app := s.app.At(apiURL)
+	app = app.At(apiURL)
 	probe, ok := build(apiURL, NewAppCredential(NewAppCredentialParams{App: app, Connections: NoRecord{}})).(InstallationVerifier)
 	if !ok {
 		return "", fail.InvalidArgument("this forge cannot check an installation")
@@ -260,12 +274,12 @@ func (s *Service) proveApp(ctx context.Context, build Builder, kind, apiURL stri
 }
 
 // List is every connection, by host.
-func (s *Service) List(ctx context.Context) ([]forgestore.Connection, error) {
+func (s *ForgeService) List(ctx context.Context) ([]forgestore.Connection, error) {
 	return s.connections.List(ctx)
 }
 
 // Disconnect removes a connection and the credential beside it.
-func (s *Service) Disconnect(ctx context.Context, host string) error {
+func (s *ForgeService) Disconnect(ctx context.Context, host string) error {
 	connection, err := s.connections.GetByHost(ctx, strings.ToLower(strings.TrimSpace(host)))
 	if err != nil {
 		return err
@@ -281,7 +295,7 @@ func (s *Service) Disconnect(ctx context.Context, host string) error {
 // Check asks the forge whether a connection still works, the way its method allows: who the
 // token belongs to for a pasted token, and whether the installation still reaches a repository
 // for an App, whose login is the row's own.
-func (s *Service) Check(ctx context.Context, connection forgestore.Connection) (string, error) {
+func (s *ForgeService) Check(ctx context.Context, connection forgestore.Connection) (string, error) {
 	held, err := s.HasCredential(ctx, connection)
 	if err != nil {
 		return "", err
@@ -315,9 +329,19 @@ func (s *Service) Check(ctx context.Context, connection forgestore.Connection) (
 	return connection.Login, nil
 }
 
+// ConnectionFor is the connection a host has, or ErrNotFound.
+func (s *ForgeService) ConnectionFor(ctx context.Context, host string) (*forgestore.Connection, error) {
+	return s.connections.GetByHost(ctx, strings.ToLower(host))
+}
+
+// SetVerifiedAt records when a forge last confirmed a connection, or clears it.
+func (s *ForgeService) SetVerifiedAt(ctx context.Context, id string, at *time.Time) error {
+	return s.connections.SetVerifiedAt(ctx, id, at)
+}
+
 // HasCredential says whether a connection still has what it needs to speak, which for an App
 // row is always so.
-func (s *Service) HasCredential(ctx context.Context, connection forgestore.Connection) (bool, error) {
+func (s *ForgeService) HasCredential(ctx context.Context, connection forgestore.Connection) (bool, error) {
 	if connection.Method == MethodGitHubApp {
 		return true, nil
 	}
@@ -334,7 +358,7 @@ func (s *Service) HasCredential(ctx context.Context, connection forgestore.Conne
 }
 
 // ForConnection is the forge to speak to as a connection.
-func (s *Service) ForConnection(connection forgestore.Connection) (Forge, error) {
+func (s *ForgeService) ForConnection(connection forgestore.Connection) (Forge, error) {
 	build, ok := s.builders[connection.Kind]
 	if !ok {
 		return nil, ErrUnknownKind.Saying("%q is not a forge this build knows", connection.Kind)
@@ -347,8 +371,13 @@ func (s *Service) ForConnection(connection forgestore.Connection) (Forge, error)
 		Connections:  s.verified,
 	})
 	if connection.Method == MethodGitHubApp {
+		app, err := s.loadApp()
+		if err != nil {
+			return nil, ErrBadApp.Saying("%v", err)
+		}
+
 		auth = NewAppCredential(NewAppCredentialParams{
-			App:          s.app.At(connection.APIURL),
+			App:          app.At(connection.APIURL),
 			ConnectionID: connection.ID,
 			Connections:  s.verified,
 		})

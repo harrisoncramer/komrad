@@ -218,53 +218,67 @@ message DeleteWorkflowRequest {
 service WorkflowService {
   rpc ListWorkflows(ListWorkflowsRequest) returns (ListWorkflowsResponse) {
     option idempotency_level = NO_SIDE_EFFECTS;
-    option (annotation.v1.tool) = {
-      tool_name: "list_workflows"
+    option (annotation.v1.surfaces) = {
+      cli: true
+      mcp: true
+      name: "list_workflows"
       description: "List the workflows agents are grouped into, in alphabetical order, with each one\x27s shared context, the working directory and flags its agents start from, and the scripts hooked to moments in their agents\x27 lives. Archived workflows are excluded unless archived is set, which lists those and only those. Returns one page; pass the response\x27s nextPageToken back as pagination.cursor for the next. The summary this returns by default holds only the opening of each workflow\x27s context, marked by contextTruncated; get_workflow returns one whole, and view VIEW_FULL returns every context on the page."
     };
   }
   rpc GetWorkflow(GetWorkflowRequest) returns (GetWorkflowResponse) {
     option idempotency_level = NO_SIDE_EFFECTS;
-    option (annotation.v1.tool) = {
-      tool_name: "get_workflow"
+    option (annotation.v1.surfaces) = {
+      cli: true
+      mcp: true
+      name: "get_workflow"
       description: "Fetch one workflow by id. Returns not_found if no workflow has that id."
     };
   }
   rpc CreateWorkflow(CreateWorkflowRequest) returns (CreateWorkflowResponse) {
-    option (annotation.v1.tool) = {
-      tool_name: "create_workflow"
+    option (annotation.v1.surfaces) = {
+      cli: true
+      mcp: true
+      name: "create_workflow"
       description: "Create a workflow to group agents under. Nothing runs as a result; this is organisation. The cwd and flags become the defaults prefilled when an agent is created inside it, and the context is appended to those agents\x27 system prompts. worktree.enabled gives every agent a git worktree of its own, cut from cwd, which weave makes before the agent starts and removes when it is deleted; left off, agents run in the directory they are given and weave provisions nothing. hooks hang your own scripts on a moment in those agents\x27 lives, one per moment, each naming a hook from list_hooks and one of pre-launch, post-launch, post-resume, post-restore or pre-teardown; weave waits for pre-launch and pre-teardown and not the others, so a pre-launch that fails abandons the create and a pre-teardown that fails stops the delete and leaves the directory alone. worktree.dir names the parent new worktrees are made in, blank meaning the one every workflow shares. worktree.diffExclude drops paths from the diff the panel draws, as paths or globs relative to the checkout such as proto/gen or *.pb.go. docs/workflows.md says why each is there."
       destructive: false
     };
   }
   rpc UpdateWorkflow(UpdateWorkflowRequest) returns (google.protobuf.Empty) {
     option idempotency_level = IDEMPOTENT;
-    option (annotation.v1.tool) = {
-      tool_name: "update_workflow"
+    option (annotation.v1.surfaces) = {
+      cli: true
+      mcp: true
+      name: "update_workflow"
       description: "Replace a workflow\x27s name, context, directory, flags, worktree config and hooks. Every field is written, so read the workflow first and send back the ones you are not changing, the hooks list included. Editing the context reaches only agents spawned afterwards, since existing agents took a snapshot at launch, while worktree.enabled reaches agents already running, since whether weave removes an agent\x27s directory is read when the agent is deleted. worktree.dir names the parent new worktrees are made in, blank meaning the one every workflow shares. worktree.diffExclude drops paths from the diff the panel draws, as paths or globs relative to the checkout such as proto/gen or *.pb.go. docs/workflows.md says why each is there."
       destructive: false
     };
   }
   rpc ArchiveWorkflow(ArchiveWorkflowRequest) returns (google.protobuf.Empty) {
     option idempotency_level = IDEMPOTENT;
-    option (annotation.v1.tool) = {
-      tool_name: "archive_workflow"
+    option (annotation.v1.surfaces) = {
+      cli: true
+      mcp: true
+      name: "archive_workflow"
       description: "Hide a workflow from the panel, archiving the agents inside it. Nothing is destroyed: the agents stay findable through search_transcripts and no transcript goes with them. Refused while any schedule still launches into the workflow, since those would have nowhere to run."
       destructive: false
     };
   }
   rpc RestoreWorkflow(RestoreWorkflowRequest) returns (RestoreWorkflowResponse) {
     option idempotency_level = IDEMPOTENT;
-    option (annotation.v1.tool) = {
-      tool_name: "restore_workflow"
+    option (annotation.v1.surfaces) = {
+      cli: true
+      mcp: true
+      name: "restore_workflow"
       description: "Take a workflow out of the archive, keyed by id, along with every agent archived inside it. The agents come back as dormant rows, so call resume_agent on the ones whose conversations you want in a pane. Returns not_found if the workflow is not archived. It is refused whole rather than in part, either because its agents would not fit under the number the panel is configured to hold, or because live agents have taken their names, which the error lists for you to rename."
       destructive: false
     };
   }
   rpc DeleteWorkflow(DeleteWorkflowRequest) returns (google.protobuf.Empty) {
     option idempotency_level = IDEMPOTENT;
-    option (annotation.v1.tool) = {
-      tool_name: "delete_workflow"
+    option (annotation.v1.surfaces) = {
+      cli: true
+      mcp: true
+      name: "delete_workflow"
       description: "Permanently delete an archived workflow along with whatever archived agents are still inside it, reusing the same worktree-removal handling a direct agent delete uses. The archived schedules that launched into it go too, since nothing else ever removes them and they would keep the workflow alive. Returns not_found if the workflow does not exist or is not archived, and failed_precondition if a schedule inside it was moved from another workflow whose agents still hold it. An agent whose worktree is still being removed, or whose removal failed, is left behind rather than blocking the call, so the workflow can stay archived and be tried again."
       destructive: true
     };

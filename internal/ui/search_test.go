@@ -841,18 +841,48 @@ func TestSearchTellsAHiddenHitFromAnArchivedOne(t *testing.T) {
 	m.width = 80
 	m.search = searchState{query: "ledger"}
 	m.listing.agents = []agentItem{
-		{agent: agentstore.Agent{ID: "a1", Name: "running", WorkflowID: "w1", Hidden: true}, alive: true},
-		{agent: agentstore.Agent{ID: "a2", Name: "dormant", WorkflowID: "w1", Hidden: true, State: agentstore.StateIdle}},
+		{agent: agentstore.Agent{
+			ID:         "a1",
+			Name:       "running",
+			WorkflowID: "w1",
+			Hidden:     true,
+		}, alive: true},
+		{agent: agentstore.Agent{
+			ID:         "a2",
+			Name:       "dormant",
+			WorkflowID: "w1",
+			Hidden:     true,
+			State:      agentstore.StateIdle,
+		}},
 	}
 	m.archive.agents = []agentstore.Agent{
-		{ID: "a3", Name: "put-away", WorkflowID: "w1", Hidden: true, ArchivedAt: xptr.Ptr(time.Now())},
+		{
+			ID:         "a3",
+			Name:       "put-away",
+			WorkflowID: "w1",
+			Hidden:     true,
+			ArchivedAt: xptr.Ptr(time.Now()),
+		},
 	}
 	m.applySearch(searchResult{
 		query: "ledger",
 		hits: []searchHit{
-			{agentID: "a1", name: "running", snippet: "first"},
-			{agentID: "a2", name: "dormant", snippet: "second"},
-			{agentID: "a3", name: "put-away", archived: true, snippet: "third"},
+			{
+				agentID: "a1",
+				name:    "running",
+				snippet: "first",
+			},
+			{
+				agentID: "a2",
+				name:    "dormant",
+				snippet: "second",
+			},
+			{
+				agentID:  "a3",
+				name:     "put-away",
+				archived: true,
+				snippet:  "third",
+			},
 		},
 	})
 
@@ -943,7 +973,11 @@ func TestArchivedAgentsSayTheSameOnBothScreens(t *testing.T) {
 			m.archive.agents = []agentstore.Agent{agent}
 
 			archive := view.StatusCell(snapshotRow(agentRow{item: agentItem{agent: agent}}, snapshotParams{}))
-			search := view.StatusCell(m.searchRow(searchHit{agentID: "a2", name: "payouts", archived: true}, "k"))
+			search := view.StatusCell(m.searchRow(searchHit{
+				agentID:  "a2",
+				name:     "payouts",
+				archived: true,
+			}, "k"))
 
 			assert.Equal(t, archive, search, "the two screens draw one agent the same")
 		})
@@ -964,8 +998,13 @@ func TestArchivedHitGreysOnWhatTheServerSaid(t *testing.T) {
 		{
 			// A row archived before the stamp existed carries no ArchivedAt, so the facts read off
 			// it say nothing about being archived.
-			name:   "the listing arrived carrying no stamp",
-			listed: []agentstore.Agent{{ID: "a2", Name: "payouts", WorkflowID: "w1", State: agentstore.StateIdle}},
+			name: "the listing arrived carrying no stamp",
+			listed: []agentstore.Agent{{
+				ID:         "a2",
+				Name:       "payouts",
+				WorkflowID: "w1",
+				State:      agentstore.StateIdle,
+			}},
 		},
 	}
 
@@ -976,7 +1015,11 @@ func TestArchivedHitGreysOnWhatTheServerSaid(t *testing.T) {
 			m.search = searchState{query: "payouts"}
 			m.archive.agents = tt.listed
 
-			row := m.searchRow(searchHit{agentID: "a2", name: "payouts", archived: true}, "k")
+			row := m.searchRow(searchHit{
+				agentID:  "a2",
+				name:     "payouts",
+				archived: true,
+			}, "k")
 
 			assert.True(t, row.Archived, "the server said it is archived, so it greys")
 			assert.Equal(t, view.ProcessStopped, row.Process, "and it is over, whatever else is unknown")
@@ -1001,7 +1044,11 @@ func TestArchivedSearchRowKeepsTheDeleteThatFailed(t *testing.T) {
 	m.search = searchState{query: "stuck"}
 	m.archive.agents = []agentstore.Agent{agent}
 
-	cell := view.StatusCell(m.searchRow(searchHit{agentID: "a2", name: "stuck", archived: true}, "k"))
+	cell := view.StatusCell(m.searchRow(searchHit{
+		agentID:  "a2",
+		name:     "stuck",
+		archived: true,
+	}, "k"))
 
 	assert.Equal(t, view.GlyphBusy, cell.Glyph, "a failed delete is not quietened by being archived")
 	assert.Equal(t, paint.ToneDanger, cell.Tone)
@@ -1015,13 +1062,21 @@ func TestSearchSnippetsHangOffTheirHeader(t *testing.T) {
 	m.width = 80
 	m.search = searchState{query: "ledger"}
 	m.listing.agents = []agentItem{{
-		agent: agentstore.Agent{ID: "a1", Name: "billing", WorkflowID: "w1"},
+		agent: agentstore.Agent{
+			ID:         "a1",
+			Name:       "billing",
+			WorkflowID: "w1",
+		},
 		alive: true,
 	}}
 
 	m.applySearch(searchResult{
 		query: "ledger",
-		hits:  []searchHit{{agentID: "a1", name: "billing", snippet: "the ledger balanced"}},
+		hits: []searchHit{{
+			agentID: "a1",
+			name:    "billing",
+			snippet: "the ledger balanced",
+		}},
 	})
 
 	rows, _ := m.searchRows()
@@ -1059,13 +1114,21 @@ func TestSearchKeysNameHitsRatherThanAgents(t *testing.T) {
 	m.width = 80
 	m.search = searchState{query: "billing"}
 	m.listing.agents = []agentItem{{
-		agent: agentstore.Agent{ID: "a1", Name: "billing", WorkflowID: "w1"},
+		agent: agentstore.Agent{
+			ID:         "a1",
+			Name:       "billing",
+			WorkflowID: "w1",
+		},
 		alive: true,
 	}}
 
 	m.applySearch(searchResult{
 		query: "billing",
-		hits:  []searchHit{{agentID: "a1", name: "billing", snippet: "the billing ledger"}},
+		hits: []searchHit{{
+			agentID: "a1",
+			name:    "billing",
+			snippet: "the billing ledger",
+		}},
 	})
 
 	require.Len(t, m.searchHits(), 2, "one agent, matched by its name and by a turn")

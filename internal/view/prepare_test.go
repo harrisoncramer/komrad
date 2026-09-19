@@ -186,16 +186,33 @@ func TestPrepareColumnsFollowTheRowKind(t *testing.T) {
 	}{
 		{
 			name: "an agent's own row carries all three",
-			row:  Row{Name: "worker", Repo: RepoGone, Review: ReviewApproved, Forge: ForgeMerged},
+			row: Row{
+				Name:   "worker",
+				Repo:   RepoGone,
+				Review: ReviewApproved,
+				Forge:  ForgeMerged,
+			},
 		},
 		{
-			name:  "a child leaves them to the row above it",
-			row:   Row{Kind: KindChild, Name: "reviewer", Repo: RepoGone, Review: ReviewApproved, Forge: ForgeMerged},
+			name: "a child leaves them to the row above it",
+			row: Row{
+				Kind:   KindChild,
+				Name:   "reviewer",
+				Repo:   RepoGone,
+				Review: ReviewApproved,
+				Forge:  ForgeMerged,
+			},
 			blank: true,
 		},
 		{
-			name:  "a workflow header stands for none of them",
-			row:   Row{Kind: KindWorkflow, Name: "weave", Repo: RepoGone, Review: ReviewApproved, Forge: ForgeMerged},
+			name: "a workflow header stands for none of them",
+			row: Row{
+				Kind:   KindWorkflow,
+				Name:   "weave",
+				Repo:   RepoGone,
+				Review: ReviewApproved,
+				Forge:  ForgeMerged,
+			},
 			blank: true,
 		},
 	}
@@ -214,7 +231,15 @@ func TestPrepareColumnsFollowTheRowKind(t *testing.T) {
 // TestPrepareBlankColumnsKeepEveryOtherCell pins that emptying the three columns takes nothing
 // else off a row.
 func TestPrepareBlankColumnsKeepEveryOtherCell(t *testing.T) {
-	row := Row{Name: "reviewer", Status: StatusThinking, Held: true, UnreadMail: true, Unviewed: true, FailedRun: true, Scheduled: true}
+	row := Row{
+		Name:       "reviewer",
+		Status:     StatusThinking,
+		Held:       true,
+		UnreadMail: true,
+		Unviewed:   true,
+		FailedRun:  true,
+		Scheduled:  true,
+	}
 	own := prepareOne(t, row)
 
 	row.Kind = KindChild
@@ -486,7 +511,11 @@ func TestPrepareDimRowKeepsEveryCell(t *testing.T) {
 // TestPrepareDimRowKeepsItsCaret pins a greyed row the keyboard is standing on still saying so.
 func TestPrepareDimRowKeepsItsCaret(t *testing.T) {
 	list := Prepare(Snapshot{
-		Rows:    []Row{{Key: "gone", Name: "gone", Process: ProcessStopped}},
+		Rows: []Row{{
+			Key:     "gone",
+			Name:    "gone",
+			Process: ProcessStopped,
+		}},
 		Focused: "gone",
 	})
 	require.Len(t, list.Lines, 1)
@@ -650,7 +679,11 @@ func TestPrepareClipsName(t *testing.T) {
 // TestPrepareCarriesRowFacts pins the fields Prepare passes through untouched, which nothing
 // else in the package decides.
 func TestPrepareCarriesRowFacts(t *testing.T) {
-	line := prepareOne(t, Row{Name: "strip-demo", Mark: "a", Selected: true})
+	line := prepareOne(t, Row{
+		Name:     "strip-demo",
+		Mark:     "a",
+		Selected: true,
+	})
 
 	assert.Equal(t, "strip-demo", line.Name)
 	assert.Equal(t, "a", line.Mark.Text)
@@ -695,7 +728,11 @@ func TestPrepareFocusOutranksEveryOtherEmphasis(t *testing.T) {
 // TestPrepareHiddenCaretKeepsTheRowFocused pins the blink taking the caret off without taking
 // the focus with it, so a row stays lit while the caret is dark.
 func TestPrepareHiddenCaretKeepsTheRowFocused(t *testing.T) {
-	list := Prepare(Snapshot{Rows: []Row{{Key: "one", Name: "one"}}, Focused: "one", CaretHidden: true})
+	list := Prepare(Snapshot{
+		Rows:        []Row{{Key: "one", Name: "one"}},
+		Focused:     "one",
+		CaretHidden: true,
+	})
 	require.Len(t, list.Lines, 1)
 
 	assert.True(t, list.Lines[0].Focus.IsBlank())
@@ -909,11 +946,19 @@ func TestPrepareDropsColumnsAScreenDoesNotDraw(t *testing.T) {
 	}{
 		{
 			name: "a screen dropping nothing draws all three",
-			want: Columns{Repo: true, Review: true, Forge: true},
+			want: Columns{
+				Repo:   true,
+				Review: true,
+				Forge:  true,
+			},
 		},
 		{
-			name:    "the archive gives up all three",
-			dropped: Columns{Repo: true, Review: true, Forge: true},
+			name: "the archive gives up all three",
+			dropped: Columns{
+				Repo:   true,
+				Review: true,
+				Forge:  true,
+			},
 		},
 		{
 			name:    "a screen may give up one and keep the rest",
@@ -925,7 +970,11 @@ func TestPrepareDropsColumnsAScreenDoesNotDraw(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// A pane far wider than the three columns need, so nothing here is the narrowing.
-			list := Prepare(Snapshot{Rows: []Row{{Name: "iss-582"}}, Pane: 200, Dropped: tt.dropped})
+			list := Prepare(Snapshot{
+				Rows:    []Row{{Name: "iss-582"}},
+				Pane:    200,
+				Dropped: tt.dropped,
+			})
 
 			assert.Equal(t, tt.want, list.Columns)
 		})
@@ -939,9 +988,13 @@ func TestDroppedColumnsBuyTheNameTheirRoom(t *testing.T) {
 
 	every := Prepare(Snapshot{Rows: []Row{{Name: "iss-582"}}, Pane: pane})
 	none := Prepare(Snapshot{
-		Rows:    []Row{{Name: "iss-582"}},
-		Pane:    pane,
-		Dropped: Columns{Repo: true, Review: true, Forge: true},
+		Rows: []Row{{Name: "iss-582"}},
+		Pane: pane,
+		Dropped: Columns{
+			Repo:   true,
+			Review: true,
+			Forge:  true,
+		},
 	})
 
 	assert.Equal(t, 6, NameColumns(pane, none.Columns)-NameColumns(pane, every.Columns),

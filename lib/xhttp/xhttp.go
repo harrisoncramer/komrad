@@ -32,6 +32,7 @@ type JSONParams struct {
 // Answer is what came back, with the body read out and closed.
 type Answer struct {
 	Status int
+	Header http.Header
 	Body   []byte
 }
 
@@ -89,7 +90,11 @@ func JSON(ctx context.Context, params JSONParams, out any) (Answer, error) {
 		return Answer{}, fmt.Errorf("failed to read the answer from %s: %w", params.URL, err)
 	}
 
-	answer := Answer{Status: resp.StatusCode, Body: body}
+	answer := Answer{
+		Status: resp.StatusCode,
+		Header: resp.Header,
+		Body:   body,
+	}
 	if !answer.IsSuccess() || out == nil {
 		return answer, nil
 	}

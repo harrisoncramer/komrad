@@ -24,7 +24,11 @@ type answering struct {
 func newAnswering(replies ...string) *answering {
 	reader, writer := io.Pipe()
 
-	return &answering{replies: replies, pending: writer, reader: reader}
+	return &answering{
+		replies: replies,
+		pending: writer,
+		reader:  reader,
+	}
 }
 
 // Write takes what the probe drew and answers the cursor query inside it.

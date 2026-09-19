@@ -53,15 +53,21 @@ func New[C Cursor, M Cursorable[C]](p *paginationv1.Pagination) (*Paginator[C, M
 		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid pagination cursor: %w", err))
 	}
 
-	limit := int64(p.GetLimit())
-	switch {
-	case limit <= 0:
-		limit = defaultLimit
-	case limit > maxLimit:
-		limit = maxLimit
-	}
+	return &Paginator[C, M]{limit: Bound(p.GetLimit()), cursor: cursor}, nil
+}
 
-	return &Paginator[C, M]{limit: limit, cursor: cursor}, nil
+// Bound is the page size a request asked for, twenty when it asked for none and at most a
+// hundred.
+func Bound(limit int32) int64 {
+	bounded := int64(limit)
+	switch {
+	case bounded <= 0:
+		return defaultLimit
+	case bounded > maxLimit:
+		return maxLimit
+	default:
+		return bounded
+	}
 }
 
 // Limit is how many records the query should fetch.

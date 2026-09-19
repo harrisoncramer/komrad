@@ -31,9 +31,11 @@ the machine, start or stop the service, or call an endpoint from a script.
 * [weave github](weave_github.md)	 - Reach GitHub as the engine's own App
 * [weave hide](weave_hide.md)	 - Hide the panel popup without stopping anything
 * [weave hook](weave_hook.md)	 - Run one of the agent CLI hooks weave installs
+* [weave log](weave_log.md)	 - Show the log lines the service wrote under one trace id
 * [weave migrate](weave_migrate.md)	 - Apply any pending database migrations
 * [weave open](weave_open.md)	 - Open the panel popup, creating or attaching its persistent session
 * [weave panel](weave_panel.md)	 - Run the panel itself, as the manager session's own command
+* [weave pr](weave_pr.md)	 - Read pull requests through the forges weave is connected to
 * [weave readonly-role](weave_readonly-role.md)	 - Create the least-privilege role the MCP query tools connect as
 * [weave rpc](weave_rpc.md)	 - Call the service's endpoints, one subcommand per RPC
 * [weave serve](weave_serve.md)	 - Run the weave service in the foreground
@@ -41,6 +43,5 @@ the machine, start or stop the service, or call an endpoint from a script.
 * [weave start](weave_start.md)	 - Start the service in the background if it is not already running
 * [weave stop](weave_stop.md)	 - Ask the running service to stop, and wait until it is gone
 * [weave tmux](weave_tmux.md)	 - Bind the panel key on your tmux server
-* [weave trace](weave_trace.md)	 - Show every log line written under one trace id
 * [weave version](weave_version.md)	 - Print which build this binary is, and which one is serving
 

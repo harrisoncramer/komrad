@@ -8,13 +8,15 @@ import (
 	"strings"
 	"text/tabwriter"
 
-	"weave/config"
 	"weave/internal/forge"
-	"weave/internal/forge/forges"
-	"weave/internal/store"
-	forgestore "weave/internal/store/forge"
+	"weave/lib/dates"
+	"weave/lib/xhttp"
+	forgev1 "weave/proto/gen/forge/v1"
+	"weave/proto/gen/forge/v1/forgev1connect"
 
+	"connectrpc.com/connect"
 	"github.com/spf13/cobra"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 func forgeCmd(state *app) *cobra.Command {
@@ -24,15 +26,16 @@ func forgeCmd(state *app) *cobra.Command {
 		Long: `Connect weave to the services pull requests live on.
 
 Weave reads the pull requests its agents open through a connection to each forge,
-made once with a token and kept until it is disconnected. The token is held in a
-file under weave's state directory that only your user can read, and the row in the
-database records who the forge said the token belongs to.`,
+made once and kept until it is disconnected. The service holds the connection: a
+token lives in a file under its state directory that only its user can read, and
+the row in its database records who the forge said the credential belongs to.
+Every command here talks to the service, so with --engine it connects the engine.`,
 		Args:          cobra.NoArgs,
 		SilenceUsage:  true,
 		SilenceErrors: true,
 	}
 
-	cmd.AddCommand(forgeConnectCmd(state), forgeListCmd(state), forgeDisconnectCmd(state))
+	cmd.AddCommand(forgeConnectCmd(state), forgeListCmd(state), forgeCheckCmd(state), forgeDisconnectCmd(state))
 
 	return cmd
 }
@@ -52,15 +55,16 @@ visible to every process on the machine. Pipe it in:
     gh auth token | weave forge connect github.com
     op read op://vault/github/token | weave forge connect github.com
 
-With --method github-app nothing is read. Weave mints a token from the App named
-under [github_app], checks the installation reaches at least one repository, and
-records the App's own name as the login. That is the engine's path, where nobody
-is there to paste a token and the App's key is already on the machine.
+With --method github-app nothing is read. The service mints a token from the App
+named under [github_app] in its own config, checks the installation reaches at
+least one repository, and records the App's own name as the login. That is the
+engine's path, where nobody is there to paste a token and the App's key is already
+on the machine: weave forge connect github.com --method github-app --engine remote.
 
-Weave asks the forge who the token belongs to before storing anything, so a token
-that is wrong or expired is refused here rather than found out later. That proves
-the token is real, not that it can read your repositories: a token with no
-permissions answers the same question, and shows up later as a repository the
+The service asks the forge who the credential belongs to before storing anything,
+so a token that is wrong or expired is refused here rather than found out later.
+That proves the token is real, not that it can read your repositories: a token with
+no permissions answers the same question, and shows up later as a repository the
 forge says it cannot find. github.com and gitlab.com say which forge they run; any
 other host needs --kind, and --api-url when the API is not at https://<host>/api/v3
 for GitHub or /api/v4 for GitLab. The address has to be https.`,
@@ -68,10 +72,10 @@ for GitHub or /api/v4 for GitLab. The address has to be https.`,
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			params := forge.ConnectParams{
+			req := &forgev1.ConnectForgeRequest{
 				Host:   args[0],
 				Kind:   kind,
-				APIURL: apiURL,
+				ApiUrl: apiURL,
 			}
 			switch method {
 			case "token", "":
@@ -80,20 +84,20 @@ for GitHub or /api/v4 for GitLab. The address has to be https.`,
 					return err
 				}
 
-				params.Method, params.Token = forge.MethodToken, token
+				req.Method, req.Token = forge.MethodToken, tokenForTheWire(token)
 			case "github-app":
-				params.Method = forge.MethodGitHubApp
+				req.Method = forge.MethodGitHubApp
 			default:
 				return fmt.Errorf("--method is token or github-app, not %q", method)
 			}
 
-			return withForgeService(cmd.Context(), state, func(ctx context.Context, service *forge.Service) error {
-				connection, err := service.Connect(ctx, params)
+			return state.withAPI(cmd.Context(), func(ctx context.Context, base string) error {
+				resp, err := forgeClient(base).ConnectForge(ctx, connect.NewRequest(req))
 				if err != nil {
 					return err
 				}
 
-				cmd.Printf("connected %s as %s\n", connection.Host, connection.Login)
+				cmd.Printf("connected %s as %s\n", resp.Msg.GetForge().GetHost(), resp.Msg.GetForge().GetLogin())
 
 				return nil
 			})
@@ -103,7 +107,7 @@ for GitHub or /api/v4 for GitLab. The address has to be https.`,
 	cmd.Flags().StringVar(&kind, "kind", "", "which forge the host runs, github or gitlab, when the host does not say")
 	cmd.Flags().StringVar(&apiURL, "api-url", "", "where the forge answers API calls, for an enterprise host")
 	cmd.Flags().StringVar(&tokenFile, "token-file", "", "read the token from this file instead of stdin")
-	cmd.Flags().StringVar(&method, "method", "token", "how the credential comes: token from stdin, or github-app from the App in config")
+	cmd.Flags().StringVar(&method, "method", "token", "how the credential comes: token from stdin, or github-app from the App in the service's config")
 
 	return cmd
 }
@@ -116,40 +120,45 @@ func forgeListCmd(state *app) *cobra.Command {
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			return withForgeService(cmd.Context(), state, func(ctx context.Context, service *forge.Service) error {
-				connections, err := service.List(ctx)
+			return state.withAPI(cmd.Context(), func(ctx context.Context, base string) error {
+				resp, err := forgeClient(base).ListForges(ctx, connect.NewRequest(&emptypb.Empty{}))
 				if err != nil {
 					return err
 				}
-				if len(connections) == 0 {
-					cmd.Println("no forges are connected")
 
-					return nil
-				}
+				return printForges(cmd.OutOrStdout(), resp.Msg.GetForges(), nil)
+			})
+		},
+	}
+}
 
-				w := tabwriter.NewWriter(cmd.OutOrStdout(), 0, 0, 2, ' ', 0)
-				if _, err := fmt.Fprintln(w, "HOST\tKIND\tLOGIN\tMETHOD\tVERIFIED"); err != nil {
+func forgeCheckCmd(state *app) *cobra.Command {
+	return &cobra.Command{
+		Use:   "check",
+		Short: "Ask every connected forge whether its credential still works",
+		Long: `Ask every connected forge whether its credential still works, the way its method
+allows, and record the answer on each connection. A refusal marks the connection
+until it is connected again.`,
+		Args:          cobra.NoArgs,
+		SilenceUsage:  true,
+		SilenceErrors: true,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			return state.withAPI(cmd.Context(), func(ctx context.Context, base string) error {
+				resp, err := forgeClient(base).CheckForges(ctx, connect.NewRequest(&emptypb.Empty{}))
+				if err != nil {
 					return err
 				}
-				for _, connection := range connections {
-					held, err := service.HasCredential(ctx, connection)
-					if err != nil {
-						return err
-					}
 
-					verified := "refused"
-					switch {
-					case !held:
-						verified = "no credential"
-					case connection.VerifiedAt != nil:
-						verified = connection.VerifiedAt.Local().Format("2006-01-02 15:04")
-					}
-					if _, err := fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n", connection.Host, connection.Kind, connection.Login, connection.Method, verified); err != nil {
-						return err
+				forges := make([]*forgev1.Forge, 0, len(resp.Msg.GetChecks()))
+				problems := make(map[string]string, len(resp.Msg.GetChecks()))
+				for _, check := range resp.Msg.GetChecks() {
+					forges = append(forges, check.GetForge())
+					if check.GetProblem() != "" {
+						problems[check.GetForge().GetHost()] = check.GetProblem()
 					}
 				}
 
-				return w.Flush()
+				return printForges(cmd.OutOrStdout(), forges, problems)
 			})
 		},
 	}
@@ -163,8 +172,8 @@ func forgeDisconnectCmd(state *app) *cobra.Command {
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return withForgeService(cmd.Context(), state, func(ctx context.Context, service *forge.Service) error {
-				if err := service.Disconnect(ctx, args[0]); err != nil {
+			return state.withAPI(cmd.Context(), func(ctx context.Context, base string) error {
+				if _, err := forgeClient(base).DisconnectForge(ctx, connect.NewRequest(&forgev1.DisconnectForgeRequest{Host: args[0]})); err != nil {
 					return err
 				}
 
@@ -174,6 +183,58 @@ func forgeDisconnectCmd(state *app) *cobra.Command {
 			})
 		},
 	}
+}
+
+func forgeClient(base string) forgev1connect.ForgeServiceClient {
+	return forgev1connect.NewForgeServiceClient(xhttp.NewClient(apiCallTimeout), base)
+}
+
+// printForges writes the table forge list and forge check share, with the problem a check
+// found in place of the verified stamp.
+func printForges(out io.Writer, forges []*forgev1.Forge, problems map[string]string) error {
+	if len(forges) == 0 {
+		_, err := fmt.Fprintln(out, "no forges are connected")
+
+		return err
+	}
+
+	w := tabwriter.NewWriter(out, 0, 0, 2, ' ', 0)
+	if _, err := fmt.Fprintln(w, "HOST\tKIND\tLOGIN\tMETHOD\tVERIFIED"); err != nil {
+		return err
+	}
+	for _, f := range forges {
+		verified := "refused"
+		switch {
+		case problems[f.GetHost()] != "":
+			verified = problems[f.GetHost()]
+		case !f.GetHasCredential():
+			verified = "no credential"
+		case f.VerifiedAt != nil:
+			verified = describeVerifiedAt(f.GetVerifiedAt())
+		}
+		if _, err := fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n", f.GetHost(), f.GetKind(), f.GetLogin(), f.GetMethod(), verified); err != nil {
+			return err
+		}
+	}
+
+	return w.Flush()
+}
+
+// describeVerifiedAt is the stamp as a person reads it, in local time, or the wire's own
+// spelling when it will not parse.
+func describeVerifiedAt(stamp string) string {
+	parsed := dates.Parse(stamp)
+	if parsed.IsZero() {
+		return stamp
+	}
+
+	return parsed.Local().Format("2006-01-02 15:04")
+}
+
+// tokenForTheWire is the token as the connect request carries it to the service, which is the
+// one place in the CLI the token leaves the Secret.
+func tokenForTheWire(token forge.Secret) string {
+	return token.Expose()
 }
 
 // readToken is the token from a file when one is named, and otherwise from stdin.
@@ -199,31 +260,4 @@ func readToken(stdin io.Reader, tokenFile string) (forge.Secret, error) {
 	}
 
 	return token, nil
-}
-
-func withForgeService(ctx context.Context, state *app, run func(context.Context, *forge.Service) error) error {
-	pool, err := store.Open(ctx, state.env.DatabaseURL)
-	if err != nil {
-		return err
-	}
-	defer func() { _ = pool.Close() }()
-
-	stateDir, err := config.GetStateDir()
-	if err != nil {
-		return err
-	}
-
-	app, err := githubApp(state)
-	if err != nil {
-		return err
-	}
-
-	service := forge.NewService(forge.NewServiceParams{
-		Connections: forgestore.New(pool.GetDB()),
-		Credentials: forge.NewFileStore(stateDir),
-		Builders:    forges.Builders,
-		App:         app,
-	})
-
-	return run(ctx, service)
 }

@@ -159,7 +159,11 @@ func TestNoticesWearTheGlyphTheRowDraws(t *testing.T) {
 // row under it keeps the unread mark, so the record has a mark to say it for.
 func TestUnviewedIsSaidUnderTheMarkTheCursorLeavesAlone(t *testing.T) {
 	line := view.Prepare(view.Snapshot{
-		Rows:    []view.Row{{Key: "a", Unviewed: true, Hidden: true}},
+		Rows: []view.Row{{
+			Key:      "a",
+			Unviewed: true,
+			Hidden:   true,
+		}},
 		Focused: "a",
 	}).Lines[0]
 
@@ -400,17 +404,36 @@ func TestNoticesReportAPlainWorkflowsDirectory(t *testing.T) {
 		}
 	}
 
-	gone := plain(agentstore.Agent{ID: "a1", Name: "worker", Cwd: "/tmp/somewhere", WorktreeRemoved: true})
-	rebasing := plain(agentstore.Agent{ID: "a1", Name: "worker", Cwd: "/tmp/somewhere", SequenceInProgress: true})
+	gone := plain(agentstore.Agent{
+		ID:              "a1",
+		Name:            "worker",
+		Cwd:             "/tmp/somewhere",
+		WorktreeRemoved: true,
+	})
+	rebasing := plain(agentstore.Agent{
+		ID:                 "a1",
+		Name:               "worker",
+		Cwd:                "/tmp/somewhere",
+		SequenceInProgress: true,
+	})
 
-	reviewed := plain(agentstore.Agent{ID: "a1", Name: "worker", Cwd: "/tmp/somewhere"})
+	reviewed := plain(agentstore.Agent{
+		ID:   "a1",
+		Name: "worker",
+		Cwd:  "/tmp/somewhere",
+	})
 	reviewed.item.localVerdict = string(reviewstore.VerdictApproved)
 
 	assert.Equal(t, []string{worktreeRemovedNotice}, noticeTexts(agentNotices(gone)))
 	assert.Equal(t, []string{sequenceNotice}, noticeTexts(agentNotices(rebasing)))
 	assert.Equal(t, []string{localApprovedNotice}, noticeTexts(agentNotices(reviewed)))
 
-	child := plain(agentstore.Agent{ID: "a2", Name: "reviewer", Cwd: "/tmp/somewhere", WorktreeRemoved: true})
+	child := plain(agentstore.Agent{
+		ID:              "a2",
+		Name:            "reviewer",
+		Cwd:             "/tmp/somewhere",
+		WorktreeRemoved: true,
+	})
 	child.child = true
 	child.item.agent.ParentAgentID = xptr.Ptr("a1")
 

@@ -715,8 +715,16 @@ func TestScheduleFormOffersEveryWorkflow(t *testing.T) {
 	}
 
 	form, _ := scheduleForm(&values, []workflowstore.Workflow{
-		{ID: "w1", Name: "bughunt", Cwd: "/repos/weave"},
-		{ID: "w2", Name: "weave", Cwd: "/repos/weave"},
+		{
+			ID:   "w1",
+			Name: "bughunt",
+			Cwd:  "/repos/weave",
+		},
+		{
+			ID:   "w2",
+			Name: "weave",
+			Cwd:  "/repos/weave",
+		},
 	}, config.FixedFormKeys())
 	form.Init()
 	form.Update(tea.WindowSizeMsg{Width: 80, Height: 60})

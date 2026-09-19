@@ -68,49 +68,6 @@ func TestChecksAboutTheEngineAreSkippedWhenItIsElsewhere(t *testing.T) {
 	}
 }
 
-// TestStaleServerFixDependsOnWhereTheEngineIs covers the advice given when the service is a
-// different build, since restarting tmux here does nothing to a service on another machine.
-func TestStaleServerFixDependsOnWhereTheEngineIs(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name         string
-		isRemote     bool
-		engineCommit string
-		want         string
-	}{
-		{
-			name:         "the engine is elsewhere, where CI keeps it on main",
-			isRemote:     true,
-			engineCommit: "4b1db3cfa7f3eb6f9f5f4de5b4ba5f5e12f5a0c1",
-			want:         "rebuild this panel from the commit the engine is serving, since CI deploys the engine from main",
-		},
-		{
-			name:     "the engine was deployed from a dirty tree, so it names no commit to rebuild from",
-			isRemote: true,
-			want:     "put the dist/weave-panel the deploy left beside it in place of your own weave, since a deploy from a dirty tree names no commit to rebuild from",
-		},
-		{
-			name:     "the engine is this machine, so its server is restarted here",
-			isRemote: false,
-			want:     "tmux -L weave kill-server, then reopen the panel, which also restarts every agent",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-
-			env := Env{
-				Settings:       Settings{TmuxSocket: "weave", EngineIsRemote: tt.isRemote},
-				IsPanelRunning: func(context.Context) bool { return true },
-			}
-
-			assert.Equal(t, tt.want, describeStaleServerFix(t.Context(), env, tt.engineCommit))
-		})
-	}
-}
-
 // TestEngineSideChecksAreTheOnesThatReadTheEngine pins which checks stop being answered, since a
 // check marked wrongly either lies about a remote engine or goes silent on a local one.
 func TestEngineSideChecksAreTheOnesThatReadTheEngine(t *testing.T) {
@@ -136,11 +93,64 @@ func TestEngineSideChecksAreTheOnesThatReadTheEngine(t *testing.T) {
 		"schema",
 		"readonly login",
 		"orphaned worktrees",
-		"forges",
 		"claude",
 	}
 
 	assert.Equal(t, want, engineSide)
+}
+
+// TestStaleServerFixDependsOnWhereTheEngineIs covers the advice given when the service is a
+// different build, since restarting tmux here does nothing to a service on another machine.
+func TestStaleServerFixDependsOnWhereTheEngineIs(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name          string
+		isRemote      bool
+		engineVersion string
+		engineCommit  string
+		want          string
+	}{
+		{
+			name:          "the engine was deployed from a dirty tree, so it names no commit to build from",
+			isRemote:      true,
+			engineVersion: "v0.0.0-engine.4b1db3cf+dirty.131311",
+			want:          "use the dist/weave-panel that deploy built, since it has no commit to build from",
+		},
+		{
+			name:          "the engine was deployed by hand from a commit",
+			isRemote:      true,
+			engineVersion: "v0.0.0-engine.4b1db3cf",
+			engineCommit:  "4b1db3cfa7f3eb6f9f5f4de5b4ba5f5e12f5a0c1",
+			want:          "build weave from 4b1db3c, or put this build on the engine with mise run remote:deploy",
+		},
+		{
+			name:          "the engine runs a release, which is installed rather than built",
+			isRemote:      true,
+			engineVersion: "v0.4.0",
+			engineCommit:  "4b1db3cfa7f3eb6f9f5f4de5b4ba5f5e12f5a0c1",
+			want:          "install weave v0.4.0, which the engine runs",
+		},
+		{
+			name:          "the engine is this machine, so its server is restarted here",
+			isRemote:      false,
+			engineVersion: "v0.4.0",
+			want:          "tmux -L weave kill-server, then reopen the panel, which also restarts every agent",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			env := Env{
+				Settings:       Settings{TmuxSocket: "weave", EngineIsRemote: tt.isRemote},
+				IsPanelRunning: func(context.Context) bool { return true },
+			}
+
+			assert.Equal(t, tt.want, describeStaleServerFix(t.Context(), env, tt.engineVersion, tt.engineCommit))
+		})
+	}
 }
 
 // TestServerCheckOnARemoteEngine covers the arms whose wording and advice only make sense about

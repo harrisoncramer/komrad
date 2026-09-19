@@ -7,32 +7,33 @@ import "google/protobuf/descriptor.proto";
 option go_package = "weave/proto/gen/annotation/v1;annotationv1";
 
 extend google.protobuf.MethodOptions {
-  // What a method says about itself as an MCP tool, absent on the methods kept out of a
-  // model's reach.
-  ToolAnnotation tool = 50003;
-
-  // What a method says about belonging to the panel alone, absent on the methods a model and a
-  // script reach through the tool annotation instead.
-  PanelOnlyAnnotation panel_only = 50004;
+  // Which of the generated callers reach the method. Every method declares it. The panel is
+  // not one of them: it is written by hand and calls whatever it needs.
+  Surfaces surfaces = 50003;
 }
 
-message ToolAnnotation {
-  // What the MCP tool is called, which is what a model types rather than the method name.
-  string tool_name = 1;
+message Surfaces {
+  // Whether weave rpc gets a subcommand for the method, which is what a script runs.
+  bool cli = 1;
+  // Whether the MCP server offers the method as a tool, which is what a model calls. A tool
+  // without a CLI command makes no sense, so mcp implies cli.
+  bool mcp = 2;
 
-  // Everything a model is told about the call, since it has nothing else to go on.
-  string description = 2;
+  // What both generated callers call the method, which is what a model types rather than the
+  // method name. Required when either surface is on.
+  string name = 3;
+  // Everything a model is told about the call and all the help the CLI prints. Required with
+  // name.
+  string description = 4;
 
   // Whether the call can take something away, which decides whether a client asks before making
   // it. True unless the method only reads.
-  optional bool destructive = 4;
+  optional bool destructive = 5;
   // Whether calling twice lands where calling once does, overriding what the method's
   // idempotency_level says.
-  optional bool idempotent = 5;
-}
+  optional bool idempotent = 6;
 
-message PanelOnlyAnnotation {
-  // Why the method is kept off both surfaces, in a sentence, so the next reader is told rather
-  // than left to work it out.
-  string reason = 1;
+  // Why a surface is left off, in a sentence, so the next reader is told rather than left to
+  // work it out. Required when either surface is off.
+  string reason = 7;
 }

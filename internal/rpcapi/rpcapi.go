@@ -13,7 +13,10 @@ import (
 	agentv1 "weave/proto/gen/agent/v1"
 	annotationv1 "weave/proto/gen/annotation/v1"
 	configv1 "weave/proto/gen/config/v1"
+	forgev1 "weave/proto/gen/forge/v1"
 	hookv1 "weave/proto/gen/hook/v1"
+	logv1 "weave/proto/gen/log/v1"
+	pullrequestv1 "weave/proto/gen/pullrequest/v1"
 	schedulev1 "weave/proto/gen/schedule/v1"
 	workflowv1 "weave/proto/gen/workflow/v1"
 
@@ -29,12 +32,15 @@ var files = []protoreflect.FileDescriptor{
 	schedulev1.File_schedule_v1_schedule_proto,
 	configv1.File_config_v1_config_proto,
 	hookv1.File_hook_v1_hook_proto,
+	logv1.File_log_v1_log_proto,
+	forgev1.File_forge_v1_forge_proto,
+	pullrequestv1.File_pullrequest_v1_pullrequest_proto,
 }
 
 type Method struct {
-	Service    protoreflect.ServiceDescriptor
-	Method     protoreflect.MethodDescriptor
-	Annotation *annotationv1.ToolAnnotation
+	Service  protoreflect.ServiceDescriptor
+	Method   protoreflect.MethodDescriptor
+	Surfaces *annotationv1.Surfaces
 }
 
 // GetPath returns where the method is served, which for a unary call is its Connect route.
@@ -42,8 +48,8 @@ func (m Method) GetPath() string {
 	return "/" + string(m.Service.FullName()) + "/" + string(m.Method.Name())
 }
 
-// GetMethods iterates every annotated method across every served service, in the order the
-// protos declare them.
+// GetMethods iterates every method the CLI reaches across every served service, in the order
+// the protos declare them.
 func GetMethods() iter.Seq[Method] {
 	return func(yield func(Method) bool) {
 		for _, file := range files {
@@ -53,15 +59,15 @@ func GetMethods() iter.Seq[Method] {
 				for m := range service.Methods().Len() {
 					method := service.Methods().Get(m)
 
-					annotation := GetToolAnnotation(method)
-					if annotation == nil {
+					surfaces := GetSurfaces(method)
+					if !surfaces.GetCli() || surfaces.GetName() == "" {
 						continue
 					}
 
 					if !yield(Method{
-						Service:    service,
-						Method:     method,
-						Annotation: annotation,
+						Service:  service,
+						Method:   method,
+						Surfaces: surfaces,
 					}) {
 						return
 					}
@@ -71,36 +77,19 @@ func GetMethods() iter.Seq[Method] {
 	}
 }
 
-// GetToolAnnotation returns the method's tool annotation, nil when it has none and so is not
-// exposed.
-func GetToolAnnotation(method protoreflect.MethodDescriptor) *annotationv1.ToolAnnotation {
+// GetSurfaces returns which generated callers reach the method, nil when it declares none.
+func GetSurfaces(method protoreflect.MethodDescriptor) *annotationv1.Surfaces {
 	opts, ok := method.Options().(*descriptorpb.MethodOptions)
-	if !ok || !proto.HasExtension(opts, annotationv1.E_Tool) {
+	if !ok || !proto.HasExtension(opts, annotationv1.E_Surfaces) {
 		return nil
 	}
 
-	annotation, ok := proto.GetExtension(opts, annotationv1.E_Tool).(*annotationv1.ToolAnnotation)
-	if !ok || annotation.GetToolName() == "" {
-		return nil
-	}
-
-	return annotation
-}
-
-// GetPanelOnlyAnnotation returns the method's panel-only annotation, nil when it has none and so
-// is meant to be exposed.
-func GetPanelOnlyAnnotation(method protoreflect.MethodDescriptor) *annotationv1.PanelOnlyAnnotation {
-	opts, ok := method.Options().(*descriptorpb.MethodOptions)
-	if !ok || !proto.HasExtension(opts, annotationv1.E_PanelOnly) {
-		return nil
-	}
-
-	annotation, ok := proto.GetExtension(opts, annotationv1.E_PanelOnly).(*annotationv1.PanelOnlyAnnotation)
+	surfaces, ok := proto.GetExtension(opts, annotationv1.E_Surfaces).(*annotationv1.Surfaces)
 	if !ok {
 		return nil
 	}
 
-	return annotation
+	return surfaces
 }
 
 // GetRules returns the validation rules declared on a field, nil when it carries none.
@@ -125,9 +114,9 @@ func IsReadOnly(method protoreflect.MethodDescriptor) bool {
 
 // IsIdempotent reports whether calling the method twice lands where calling it once does,
 // taking the annotation's override when it carries one.
-func IsIdempotent(method protoreflect.MethodDescriptor, annotation *annotationv1.ToolAnnotation) bool {
-	if annotation != nil && annotation.Idempotent != nil {
-		return annotation.GetIdempotent()
+func IsIdempotent(method protoreflect.MethodDescriptor, surfaces *annotationv1.Surfaces) bool {
+	if surfaces != nil && surfaces.Idempotent != nil {
+		return surfaces.GetIdempotent()
 	}
 
 	level := getIdempotencyLevel(method)

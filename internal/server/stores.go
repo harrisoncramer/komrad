@@ -5,6 +5,7 @@ import (
 
 	"weave/internal/store"
 	agentstore "weave/internal/store/agent"
+	forgestore "weave/internal/store/forge"
 	mailstore "weave/internal/store/mail"
 	markstore "weave/internal/store/mark"
 	reviewstore "weave/internal/store/review"
@@ -24,6 +25,7 @@ type stores struct {
 	review      *reviewstore.Store
 	runs        *runstore.Store
 	marks       *markstore.Store
+	forges      *forgestore.Store
 }
 
 func openStores(ctx context.Context, databaseURL string) (*stores, error) {
@@ -44,5 +46,6 @@ func openStores(ctx context.Context, databaseURL string) (*stores, error) {
 		review:      reviewstore.New(db),
 		runs:        runstore.New(db),
 		marks:       markstore.New(db),
+		forges:      forgestore.New(db),
 	}, nil
 }

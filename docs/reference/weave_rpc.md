@@ -31,6 +31,7 @@ flags, and the response is the API's own JSON on stdout.
 * [weave rpc archive-agents](weave_rpc_archive-agents.md)	 - Stop a list of agents and hide them from the panel, keyed by id, keeping their records and transcripts.
 * [weave rpc archive-schedule](weave_rpc_archive-schedule.md)	 - Hide a schedule from the panel so it stops firing, keeping its record.
 * [weave rpc archive-workflow](weave_rpc_archive-workflow.md)	 - Hide a workflow from the panel, archiving the agents inside it.
+* [weave rpc check-forges](weave_rpc_check-forges.md)	 - Ask every connected forge whether its credential still works, the way its method allows, and record the answer on each connection.
 * [weave rpc create-agent](weave_rpc_create-agent.md)	 - Launch a background agent with an opening prompt.
 * [weave rpc create-review-thread](weave_rpc_create-review-thread.md)	 - Pin a comment to a place in another agent's diff, which is how you give it a review rather than mailing it prose.
 * [weave rpc create-schedule](weave_rpc_create-schedule.md)	 - Create a recurring agent launch inside a workflow.
@@ -38,15 +39,21 @@ flags, and the response is the API's own JSON on stdout.
 * [weave rpc delete-agents](weave_rpc_delete-agents.md)	 - Permanently remove a list of agents, keyed by id.
 * [weave rpc delete-mail](weave_rpc_delete-mail.md)	 - Permanently remove a list of mail, keyed by id.
 * [weave rpc delete-workflow](weave_rpc_delete-workflow.md)	 - Permanently delete an archived workflow along with whatever archived agents are still inside it, reusing the same worktree-removal handling a direct agent delete uses.
+* [weave rpc disconnect-forge](weave_rpc_disconnect-forge.md)	 - Forget a forge and the credential it was connected with.
+* [weave rpc empty-archive](weave_rpc_empty-archive.md)	 - Permanently delete every archived agent and workflow, tearing down each worktree that is still on disk.
 * [weave rpc get-agent](weave_rpc_get-agent.md)	 - Fetch one agent by id, including whatever metadata it has recorded about its own work.
 * [weave rpc get-config](weave_rpc_get-config.md)	 - Read the panel's configuration as it is currently in force, keyed the same way the user's config file is.
+* [weave rpc get-log-lines](weave_rpc_get-log-lines.md)	 - Read every log line the service wrote under one trace id, in order.
 * [weave rpc get-schedule](weave_rpc_get-schedule.md)	 - Fetch one schedule by id.
 * [weave rpc get-transcript](weave_rpc_get-transcript.md)	 - Fetch one window of an agent's transcript by agent id, not by name.
 * [weave rpc get-workflow](weave_rpc_get-workflow.md)	 - Fetch one workflow by id.
 * [weave rpc hold-agent](weave_rpc_hold-agent.md)	 - Stop an agent and hold it, which is what somebody does before editing the files that agent is working in.
 * [weave rpc list-agents](weave_rpc_list-agents.md)	 - List the agents the panel tracks, live and dormant, with each one's name, state, working directory, flags, and workflow.
+* [weave rpc list-forges](weave_rpc_list-forges.md)	 - List the forges weave is connected to, one per host, with who weave acts as there and when the forge last confirmed it.
 * [weave rpc list-hooks](weave_rpc_list-hooks.md)	 - List the hooks the user has written, which are executable files in their hooks directory.
 * [weave rpc list-mail](weave_rpc_list-mail.md)	 - List the mail addressed to an agent, most recent first, without claiming any of it: unlike read_mail this never empties the mailbox.
+* [weave rpc list-pull-requests](weave_rpc_list-pull-requests.md)	 - List a repository's pull requests through the forge connection for its host, a page at a time: every one opened from a branch when one is named, whatever its state, or the open ones when none is.
+* [weave rpc list-recent-traces](weave_rpc_list-recent-traces.md)	 - List the traces the service's log ends with, oldest first, each with when it started, what it was about and how many lines it holds.
 * [weave rpc list-review-rounds](weave_rpc_list-review-rounds.md)	 - Read the rounds taken of an agent, oldest first.
 * [weave rpc list-review-threads](weave_rpc_list-review-threads.md)	 - Read the review conversations pinned to the lines of a diff.
 * [weave rpc list-reviews](weave_rpc_list-reviews.md)	 - Read every review released on an agent, in the order their rounds were taken, each with the verdict it carried.

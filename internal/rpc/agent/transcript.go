@@ -23,7 +23,7 @@ type transcriptReader interface {
 
 // SearchTranscripts runs a search over stored transcripts and returns one page of the turns
 // that say the words, and one of the turns that only carry the letters.
-func (s *Service) SearchTranscripts(ctx context.Context, req *agentv1.SearchTranscriptsRequest) (*agentv1.SearchTranscriptsResponse, *fail.Error) {
+func (s *AgentService) SearchTranscripts(ctx context.Context, req *agentv1.SearchTranscriptsRequest) (*agentv1.SearchTranscriptsResponse, *fail.Error) {
 	paginator, err := pagination.New[transcriptstore.Cursor, searchPage](req.GetPagination())
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to read the pagination")
@@ -73,7 +73,7 @@ var errWindowTooSmall = fail.InvalidArgument("the window is too small to hold th
 const maxTranscriptWindow = 32 * 1024
 
 // GetTranscript returns one window of an agent's stored transcript by id.
-func (s *Service) GetTranscript(ctx context.Context, req *agentv1.GetTranscriptRequest) (*agentv1.GetTranscriptResponse, *fail.Error) {
+func (s *AgentService) GetTranscript(ctx context.Context, req *agentv1.GetTranscriptRequest) (*agentv1.GetTranscriptResponse, *fail.Error) {
 	logCrossAgentRead(ctx, req.GetAgentId(), "agent read another agent's transcript")
 
 	cursor, err := pagination.Decode[transcriptstore.ContentCursor](req.GetCursor())

@@ -17,14 +17,29 @@ const drawnResultNameColumn = 6
 // resultRows are the rows a list of search hits is made of.
 func resultRows() []Row {
 	return []Row{
-		{Key: "live", Kind: KindResult, Name: "billing"},
-		{Key: "archived", Kind: KindResult, Name: "payouts", Archived: true, Process: ProcessStopped},
+		{
+			Key:  "live",
+			Kind: KindResult,
+			Name: "billing",
+		},
+		{
+			Key:      "archived",
+			Kind:     KindResult,
+			Name:     "payouts",
+			Archived: true,
+			Process:  ProcessStopped,
+		},
 	}
 }
 
 // drawResults is a result list with its styling taken off.
 func drawResults(pane int) []string {
-	list := Prepare(Snapshot{Rows: resultRows(), Dropped: everyColumn(), Focused: "live", Pane: pane})
+	list := Prepare(Snapshot{
+		Rows:    resultRows(),
+		Dropped: everyColumn(),
+		Focused: "live",
+		Pane:    pane,
+	})
 
 	return strings.Split(ansiEscapes.ReplaceAllString(Render(list, paint.Panel, 0), ""), "\n")
 }
@@ -32,7 +47,11 @@ func drawResults(pane int) []string {
 // TestPrepareResultsDropEveryColumn pins what a list of results asks for: the three columns are
 // gone whatever the pane, rather than narrowed away.
 func TestPrepareResultsDropEveryColumn(t *testing.T) {
-	wide := Prepare(Snapshot{Rows: resultRows(), Dropped: everyColumn(), Pane: 200})
+	wide := Prepare(Snapshot{
+		Rows:    resultRows(),
+		Dropped: everyColumn(),
+		Pane:    200,
+	})
 
 	assert.Equal(t, Columns{}, wide.Columns)
 	assert.Equal(t, everyColumn(), Prepare(Snapshot{Rows: resultRows(), Pane: 200}).Columns,
@@ -50,7 +69,11 @@ func TestDroppedColumnsGiveTheirRoomToTheName(t *testing.T) {
 // indented under, so its name opens where a workflow's would and it is lettered as an ordinary
 // row.
 func TestResultRowOpensAtTheGutter(t *testing.T) {
-	list := Prepare(Snapshot{Rows: resultRows(), Dropped: everyColumn(), Pane: canonicalPane})
+	list := Prepare(Snapshot{
+		Rows:    resultRows(),
+		Dropped: everyColumn(),
+		Pane:    canonicalPane,
+	})
 	drawn := drawResults(canonicalPane)
 	require.Len(t, drawn, len(list.Lines))
 
@@ -63,7 +86,12 @@ func TestResultRowOpensAtTheGutter(t *testing.T) {
 
 // TestRenderResultList draws a result list whole.
 func TestRenderResultList(t *testing.T) {
-	list := Prepare(Snapshot{Rows: resultRows(), Dropped: everyColumn(), Focused: "live", Pane: canonicalPane})
+	list := Prepare(Snapshot{
+		Rows:    resultRows(),
+		Dropped: everyColumn(),
+		Focused: "live",
+		Pane:    canonicalPane,
+	})
 
 	requireGolden(t, "list-results", Render(list, paint.Panel, canonicalPane))
 }

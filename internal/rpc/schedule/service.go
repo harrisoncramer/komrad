@@ -29,19 +29,19 @@ type scheduleLister interface {
 	ListPage(ctx context.Context, limit int64, cursor *schedulestore.Cursor) ([]schedulestore.Schedule, error)
 }
 
-type Service struct {
+type ScheduleService struct {
 	lister    scheduleLister
 	schedules scheduleReadWriter
 }
 
-// NewService constructs the handler from the store it lists through and the service that owns
+// NewScheduleService constructs the handler from the store it lists through and the service that owns
 // the rules.
-func NewService(lister scheduleLister, schedules scheduleReadWriter) *Service {
-	return &Service{lister: lister, schedules: schedules}
+func NewScheduleService(lister scheduleLister, schedules scheduleReadWriter) *ScheduleService {
+	return &ScheduleService{lister: lister, schedules: schedules}
 }
 
 // ListSchedules returns one page of schedules, newest first.
-func (s *Service) ListSchedules(ctx context.Context, req *schedulev1.ListSchedulesRequest) (*schedulev1.ListSchedulesResponse, *fail.Error) {
+func (s *ScheduleService) ListSchedules(ctx context.Context, req *schedulev1.ListSchedulesRequest) (*schedulev1.ListSchedulesResponse, *fail.Error) {
 	paginator, err := pagination.New[schedulestore.Cursor, schedule](req.GetPagination())
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to read the pagination")
@@ -69,7 +69,7 @@ func (s *Service) ListSchedules(ctx context.Context, req *schedulev1.ListSchedul
 }
 
 // GetSchedule returns one schedule by id.
-func (s *Service) GetSchedule(ctx context.Context, req *schedulev1.GetScheduleRequest) (*schedulev1.GetScheduleResponse, *fail.Error) {
+func (s *ScheduleService) GetSchedule(ctx context.Context, req *schedulev1.GetScheduleRequest) (*schedulev1.GetScheduleResponse, *fail.Error) {
 	found, err := s.schedules.GetSchedule(ctx, req.GetId())
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to get schedule")
@@ -81,7 +81,7 @@ func (s *Service) GetSchedule(ctx context.Context, req *schedulev1.GetScheduleRe
 }
 
 // CreateSchedule records a recurring launch and returns it as stored.
-func (s *Service) CreateSchedule(ctx context.Context, req *schedulev1.CreateScheduleRequest) (*schedulev1.CreateScheduleResponse, *fail.Error) {
+func (s *ScheduleService) CreateSchedule(ctx context.Context, req *schedulev1.CreateScheduleRequest) (*schedulev1.CreateScheduleResponse, *fail.Error) {
 	created, err := s.schedules.NewSchedule(ctx, configFrom(req))
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to create schedule")
@@ -93,7 +93,7 @@ func (s *Service) CreateSchedule(ctx context.Context, req *schedulev1.CreateSche
 }
 
 // UpdateSchedule replaces a schedule's editable fields.
-func (s *Service) UpdateSchedule(ctx context.Context, req *schedulev1.UpdateScheduleRequest) (*emptypb.Empty, *fail.Error) {
+func (s *ScheduleService) UpdateSchedule(ctx context.Context, req *schedulev1.UpdateScheduleRequest) (*emptypb.Empty, *fail.Error) {
 	err := s.schedules.UpdateSchedule(ctx, req.GetId(), schedulestore.Config{
 		Name:       req.GetName(),
 		Cron:       req.GetCron(),
@@ -111,7 +111,7 @@ func (s *Service) UpdateSchedule(ctx context.Context, req *schedulev1.UpdateSche
 }
 
 // SetScheduleEnabled pauses or resumes a schedule.
-func (s *Service) SetScheduleEnabled(ctx context.Context, req *schedulev1.SetScheduleEnabledRequest) (*emptypb.Empty, *fail.Error) {
+func (s *ScheduleService) SetScheduleEnabled(ctx context.Context, req *schedulev1.SetScheduleEnabledRequest) (*emptypb.Empty, *fail.Error) {
 	if err := s.schedules.SetScheduleEnabled(ctx, req.GetId(), req.GetEnabled()); err != nil {
 		return nil, rpcerr.From(err, "failed to set schedule enabled")
 	}
@@ -120,7 +120,7 @@ func (s *Service) SetScheduleEnabled(ctx context.Context, req *schedulev1.SetSch
 }
 
 // ArchiveSchedule stops a schedule from firing again.
-func (s *Service) ArchiveSchedule(ctx context.Context, req *schedulev1.ArchiveScheduleRequest) (*emptypb.Empty, *fail.Error) {
+func (s *ScheduleService) ArchiveSchedule(ctx context.Context, req *schedulev1.ArchiveScheduleRequest) (*emptypb.Empty, *fail.Error) {
 	if err := s.schedules.ArchiveSchedule(ctx, req.GetId()); err != nil {
 		return nil, rpcerr.From(err, "failed to archive schedule")
 	}
