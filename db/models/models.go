@@ -535,4 +535,6 @@ type WorktreeSize struct {
 	SizeBytes int64
 	// When the count finished.
 	CountedAt time.Time
+	// The directory's top-level entries as the count passed over them, each with its path, its bytes and whether it is a directory, biggest first.
+	Entries []byte
 }

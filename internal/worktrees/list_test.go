@@ -20,7 +20,7 @@ func TestListReadsADirectoryWithoutGit(t *testing.T) {
 	dir := f.cut(t, "aaaa")
 	archived := time.Date(2026, 9, 19, 12, 0, 0, 0, time.UTC)
 	f.own("aaaa", "first", &archived)
-	f.sizes.sizes[dir] = worktreestore.Size{Dir: dir, Bytes: 42, CountedAt: archived}
+	f.sizes.sizes[dir] = worktreestore.Size{Dir: dir, Bytes: 42, CountedAt: archived, Entries: []worktreestore.Entry{{Path: "own.go", Bytes: 42}}}
 
 	listing, err := f.lister.List(t.Context())
 	require.NoError(t, err)
@@ -38,6 +38,7 @@ func TestListReadsADirectoryWithoutGit(t *testing.T) {
 	assert.Equal(t, "flow", tree.Agent.WorkflowID)
 	require.NotNil(t, tree.Size)
 	assert.Equal(t, int64(42), tree.Size.Bytes)
+	assert.Equal(t, []worktreestore.Entry{{Path: "own.go", Bytes: 42}}, tree.Size.Entries)
 	assert.Equal(t, []string{f.shared}, listing.Dirs)
 	assert.Empty(t, listing.UnreadableDirs)
 }
@@ -75,7 +76,7 @@ func TestListReadsAGoneRegistration(t *testing.T) {
 }
 
 // TestListReadsADirectoryWithNoGitFile covers a directory that is not a worktree at all
-// still being listed, since it is taking the disk either way, and a file beside it not.
+// still being listed, and a file beside it not.
 func TestListReadsADirectoryWithNoGitFile(t *testing.T) {
 	f := newFixture(t)
 	require.NoError(t, os.MkdirAll(filepath.Join(f.shared, "cccc"), 0o755))
@@ -89,22 +90,18 @@ func TestListReadsADirectoryWithNoGitFile(t *testing.T) {
 	assert.False(t, listing.Worktrees[0].Readable)
 }
 
-// TestListNamesTheChildrenWorkingInADirectory covers a child row keyed on its cwd being listed
-// under the row the directory was cut for, and sorted by name.
-func TestListNamesTheChildrenWorkingInADirectory(t *testing.T) {
+// TestListNamesTheOccupantsOfADirectory covers every row whose cwd is the directory, with or
+// without a parent and however the path is spelled, being listed beside the row it was cut
+// for, sorted by name.
+func TestListNamesTheOccupantsOfADirectory(t *testing.T) {
 	f := newFixture(t)
 	dir := f.cut(t, "dddd")
 	f.own("dddd", "parent", nil)
 	parent := "dddd"
-	for _, name := range []string{"zed-reviewer", "amy-reviewer"} {
-		f.owners.rows = append(f.owners.rows, agentstore.AgentDir{
-			ID:            name,
-			Name:          name,
-			Cwd:           dir,
-			State:         agentstore.StateThinking,
-			ParentAgentID: &parent,
-		})
-	}
+	f.owners.rows = append(f.owners.rows,
+		agentstore.AgentDir{ID: "zed", Name: "zed-reviewer", Cwd: dir, State: agentstore.StateThinking, ParentAgentID: &parent},
+		agentstore.AgentDir{ID: "amy", Name: "amy-alone", Cwd: dir + string(filepath.Separator), State: agentstore.StateIdle},
+	)
 
 	listing, err := f.lister.List(t.Context())
 	require.NoError(t, err)
@@ -112,9 +109,21 @@ func TestListNamesTheChildrenWorkingInADirectory(t *testing.T) {
 	require.Len(t, listing.Worktrees, 1)
 	require.NotNil(t, listing.Worktrees[0].Agent)
 	assert.Equal(t, "parent", listing.Worktrees[0].Agent.Name)
-	require.Len(t, listing.Worktrees[0].Children, 2)
-	assert.Equal(t, "amy-reviewer", listing.Worktrees[0].Children[0].Name)
-	assert.Equal(t, "zed-reviewer", listing.Worktrees[0].Children[1].Name)
+	require.Len(t, listing.Worktrees[0].Occupants, 2)
+	assert.Equal(t, "amy-alone", listing.Worktrees[0].Occupants[0].Name)
+	assert.Equal(t, "zed-reviewer", listing.Worktrees[0].Occupants[1].Name)
+}
+
+// TestListRecordsWhenItWasAsked covers the stamp the counter reads to know whether anybody has
+// looked since its last pass.
+func TestListRecordsWhenItWasAsked(t *testing.T) {
+	f := newFixture(t)
+	assert.True(t, f.lister.LastListed().IsZero())
+
+	_, err := f.lister.List(t.Context())
+	require.NoError(t, err)
+
+	assert.False(t, f.lister.LastListed().IsZero())
 }
 
 // TestListWalksEachWorkflowsOwnDirectory covers a workflow's own worktree directory being

@@ -3,6 +3,7 @@ package worktree
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -10,11 +11,20 @@ import (
 	"weave/internal/store"
 )
 
+// Entry is one top-level entry of a directory as the count passed over it.
+type Entry struct {
+	Path  string `json:"path"`
+	Bytes int64  `json:"bytes"`
+	Dir   bool   `json:"dir"`
+}
+
 // Size is one directory's count.
 type Size struct {
 	Dir       string
 	Bytes     int64
 	CountedAt time.Time
+	// Entries are the top-level entries, biggest first.
+	Entries []Entry
 }
 
 type Store struct {
@@ -28,10 +38,16 @@ func New(db store.DBTX) *Store {
 
 // Put records a directory's count, replacing an earlier one.
 func (s *Store) Put(ctx context.Context, size Size) error {
-	err := s.queries.UpsertWorktreeSize(ctx, models.UpsertWorktreeSizeParams{
+	entries, err := json.Marshal(size.Entries)
+	if err != nil {
+		return fmt.Errorf("failed to encode the entries of %q: %w", size.Dir, err)
+	}
+
+	err = s.queries.UpsertWorktreeSize(ctx, models.UpsertWorktreeSizeParams{
 		Dir:       size.Dir,
 		SizeBytes: size.Bytes,
 		CountedAt: size.CountedAt,
+		Entries:   entries,
 	})
 	if err != nil {
 		return fmt.Errorf("failed to record the size of %q: %w", size.Dir, err)
@@ -49,7 +65,12 @@ func (s *Store) List(ctx context.Context) (map[string]Size, error) {
 
 	sizes := make(map[string]Size, len(rows))
 	for _, row := range rows {
-		sizes[row.Dir] = Size{Dir: row.Dir, Bytes: row.SizeBytes, CountedAt: row.CountedAt}
+		size := Size{Dir: row.Dir, Bytes: row.SizeBytes, CountedAt: row.CountedAt}
+		if err := json.Unmarshal(row.Entries, &size.Entries); err != nil {
+			return nil, fmt.Errorf("failed to read the entries of %q: %w", row.Dir, err)
+		}
+
+		sizes[row.Dir] = size
 	}
 
 	return sizes, nil

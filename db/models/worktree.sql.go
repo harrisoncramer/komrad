@@ -24,7 +24,8 @@ const listWorktreeSizes = `-- name: ListWorktreeSizes :many
 SELECT
     dir,
     size_bytes,
-    counted_at
+    counted_at,
+    entries
 FROM
     worktree_sizes
 ORDER BY
@@ -40,7 +41,12 @@ func (q *Queries) ListWorktreeSizes(ctx context.Context) ([]*WorktreeSize, error
 	var items []*WorktreeSize
 	for rows.Next() {
 		var i WorktreeSize
-		if err := rows.Scan(&i.Dir, &i.SizeBytes, &i.CountedAt); err != nil {
+		if err := rows.Scan(
+			&i.Dir,
+			&i.SizeBytes,
+			&i.CountedAt,
+			&i.Entries,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, &i)
@@ -55,24 +61,33 @@ const upsertWorktreeSize = `-- name: UpsertWorktreeSize :exec
 INSERT INTO worktree_sizes(
     dir,
     size_bytes,
-    counted_at)
+    counted_at,
+    entries)
 VALUES (
     $1,
     $2,
-    $3)
+    $3,
+    $4)
 ON CONFLICT (dir)
     DO UPDATE SET
         size_bytes = EXCLUDED.size_bytes,
-        counted_at = EXCLUDED.counted_at
+        counted_at = EXCLUDED.counted_at,
+        entries = EXCLUDED.entries
 `
 
 type UpsertWorktreeSizeParams struct {
 	Dir       string
 	SizeBytes int64
 	CountedAt time.Time
+	Entries   []byte
 }
 
 func (q *Queries) UpsertWorktreeSize(ctx context.Context, arg UpsertWorktreeSizeParams) error {
-	_, err := q.db.Exec(ctx, upsertWorktreeSize, arg.Dir, arg.SizeBytes, arg.CountedAt)
+	_, err := q.db.Exec(ctx, upsertWorktreeSize,
+		arg.Dir,
+		arg.SizeBytes,
+		arg.CountedAt,
+		arg.Entries,
+	)
 	return err
 }

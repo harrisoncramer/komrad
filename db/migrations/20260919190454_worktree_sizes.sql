@@ -3,6 +3,7 @@ CREATE TABLE "worktree_sizes" (
   "dir" text NOT NULL,
   "size_bytes" bigint NOT NULL,
   "counted_at" timestamptz NOT NULL,
+  "entries" jsonb NOT NULL DEFAULT '[]',
   PRIMARY KEY ("dir")
 );
 -- Set comment to table: "worktree_sizes"
@@ -13,3 +14,5 @@ COMMENT ON COLUMN "worktree_sizes"."dir" IS 'The directory, absolute, as the wor
 COMMENT ON COLUMN "worktree_sizes"."size_bytes" IS 'The sum of the sizes of every file under the directory, following no symlinks.';
 -- Set comment to column: "counted_at" on table: "worktree_sizes"
 COMMENT ON COLUMN "worktree_sizes"."counted_at" IS 'When the count finished.';
+-- Set comment to column: "entries" on table: "worktree_sizes"
+COMMENT ON COLUMN "worktree_sizes"."entries" IS 'The directory''s top-level entries as the count passed over them, each with its path, its bytes and whether it is a directory, biggest first.';

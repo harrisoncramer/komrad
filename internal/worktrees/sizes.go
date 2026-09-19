@@ -1,12 +1,15 @@
 package worktrees
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
+	"slices"
+	"strings"
 	"time"
 
 	worktreestore "weave/internal/store/worktree"
@@ -17,8 +20,7 @@ import (
 // countWorkers is how many directories are counted together.
 const countWorkers = 4
 
-// countTimeout bounds one directory's count, since a dead network mount hangs rather than
-// failing.
+// countTimeout bounds one directory's count.
 const countTimeout = 2 * time.Minute
 
 type sizeStore interface {
@@ -29,10 +31,11 @@ type sizeStore interface {
 
 // Counter walks the worktree directories and records how many bytes each holds.
 type Counter struct {
-	lister  *Lister
-	sizes   sizeStore
-	refresh time.Duration
-	now     func() time.Time
+	lister   *Lister
+	sizes    sizeStore
+	refresh  time.Duration
+	now      func() time.Time
+	lastPass time.Time
 }
 
 type NewCounterParams struct {
@@ -52,10 +55,10 @@ func NewCounter(params NewCounterParams) *Counter {
 	}
 }
 
-// Count takes the directories whose count is missing or stale, and drops the counts of
-// directories that are gone.
+// Count takes the directories that have no count, takes the stale ones again when a listing has
+// been asked for since the last pass, and drops the counts of directories that are gone.
 func (c *Counter) Count(ctx context.Context) error {
-	dirs, err := c.lister.Dirs(ctx)
+	dirs, err := c.lister.ListDirs(ctx)
 	if err != nil {
 		return err
 	}
@@ -65,18 +68,22 @@ func (c *Counter) Count(ctx context.Context) error {
 		return err
 	}
 
+	found := walk(dirs)
+	refreshing := c.lister.LastListed().After(c.lastPass)
+
 	present := map[string]bool{}
 	var due []string
-	for _, dir := range walk(dirs).paths {
+	for _, dir := range found.paths {
 		present[dir] = true
-		if size, ok := known[dir]; !ok || c.now().Sub(size.CountedAt) >= c.refresh {
+		size, ok := known[dir]
+		if !ok || (refreshing && c.now().Sub(size.CountedAt) >= c.refresh) {
 			due = append(due, dir)
 		}
 	}
 
 	var gone []string
 	for dir := range known {
-		if !present[dir] {
+		if !present[dir] && !underAny(found.unreadable, dir) {
 			gone = append(gone, dir)
 		}
 	}
@@ -84,7 +91,14 @@ func (c *Counter) Count(ctx context.Context) error {
 		return err
 	}
 
+	c.lastPass = c.now()
+
 	return c.countAll(ctx, due)
+}
+
+// underAny reports whether a path sits immediately under one of the directories.
+func underAny(dirs []string, path string) bool {
+	return slices.Contains(dirs, filepath.Dir(path))
 }
 
 // counted is one directory's count, or why it has none.
@@ -132,7 +146,7 @@ func (c *Counter) count(ctx context.Context, dir string) error {
 	ctx, cancel := context.WithTimeout(ctx, countTimeout)
 	defer cancel()
 
-	size, err := measure(ctx, dir)
+	total, entries, err := measure(ctx, dir)
 	if errors.Is(err, os.ErrNotExist) {
 		return nil
 	}
@@ -140,13 +154,37 @@ func (c *Counter) count(ctx context.Context, dir string) error {
 		return fmt.Errorf("failed to count %q: %w", dir, err)
 	}
 
-	return c.sizes.Put(ctx, worktreestore.Size{Dir: dir, Bytes: size, CountedAt: c.now()})
+	return c.sizes.Put(ctx, worktreestore.Size{Dir: dir, Bytes: total, CountedAt: c.now(), Entries: entries})
 }
 
-// measure is the sum of the sizes of every file under a directory, following no symlinks and
-// skipping whatever vanishes while it is walked.
-func measure(ctx context.Context, dir string) (int64, error) {
+// measured is what one walk of a directory found.
+type measured struct {
+	total   int64
+	entries []worktreestore.Entry
+	err     error
+}
+
+// measure is the sum of the sizes of every file under a directory and what each top-level entry
+// holds, following no symlink and skipping whatever vanishes while it is walked.
+func measure(ctx context.Context, dir string) (int64, []worktreestore.Entry, error) {
+	// A dead mount hangs inside a syscall where no callback runs, so the walk is abandoned when
+	// the context ends.
+	done := make(chan measured, 1)
+	go func() { done <- walkSizes(ctx, dir) }()
+
+	select {
+	case result := <-done:
+		return result.total, result.entries, result.err
+	case <-ctx.Done():
+		return 0, nil, ctx.Err()
+	}
+}
+
+func walkSizes(ctx context.Context, dir string) measured {
+	byEntry := map[string]*worktreestore.Entry{}
+	var order []string
 	var total int64
+
 	err := filepath.WalkDir(dir, func(path string, entry fs.DirEntry, err error) error {
 		if ctx.Err() != nil {
 			return ctx.Err()
@@ -156,6 +194,21 @@ func measure(ctx context.Context, dir string) (int64, error) {
 		}
 		if err != nil {
 			return err
+		}
+		if path == dir {
+			return nil
+		}
+
+		rel, err := filepath.Rel(dir, path)
+		if err != nil {
+			return err
+		}
+		head, _, _ := strings.Cut(rel, string(filepath.Separator))
+		top, ok := byEntry[head]
+		if !ok {
+			top = &worktreestore.Entry{Path: head, Dir: entry.IsDir()}
+			byEntry[head] = top
+			order = append(order, head)
 		}
 
 		info, err := entry.Info()
@@ -167,13 +220,20 @@ func measure(ctx context.Context, dir string) (int64, error) {
 		}
 		if info.Mode().IsRegular() {
 			total += info.Size()
+			top.Bytes += info.Size()
 		}
 
 		return nil
 	})
 	if err != nil {
-		return 0, err
+		return measured{err: err}
 	}
 
-	return total, nil
+	entries := make([]worktreestore.Entry, 0, len(order))
+	for _, head := range order {
+		entries = append(entries, *byEntry[head])
+	}
+	slices.SortStableFunc(entries, func(a, b worktreestore.Entry) int { return cmp.Compare(b.Bytes, a.Bytes) })
+
+	return measured{total: total, entries: entries}
 }

@@ -35,9 +35,9 @@ message Worktree {
   // for the directory.
   bool readable = 4;
   // The agent the directory was made for, unset when no row answers for it.
-  optional WorktreeAgent agent = 5;
-  // The agents attached to that one, which work in this directory and hold none of their own.
-  repeated WorktreeAgent children = 6;
+  WorktreeAgent agent = 5;
+  // The other agents working in this directory, which hold none of their own.
+  repeated WorktreeAgent occupants = 6;
   // How many bytes the directory holds, unset until a count has reached it.
   optional int64 size_bytes = 7;
   // When that count was taken, in RFC 3339, unset with the size.
@@ -82,14 +82,16 @@ message Commit {
 message GetWorktreeResponse {
   // The directory as list_worktrees reports it.
   Worktree worktree = 1;
-  // The top-level entries with their sizes, biggest first.
+  // The top-level entries with their sizes as of the last count, biggest first, empty until a
+  // count has reached the directory.
   repeated Entry entries = 2;
   // The paths git tracks that differ from HEAD.
   repeated string modified = 3;
   // The paths git neither tracks nor ignores.
   repeated string untracked = 4;
   // The ref the branch is measured against: the workflow's base branch when a row names a
-  // workflow, otherwise origin's default branch, empty when the repository cannot be read.
+  // workflow, otherwise origin's default branch, empty when the repository cannot be read or
+  // names neither, in which case nothing below is measured.
   string base_ref = 5;
   // How many of the branch's commits the base does not hold.
   int32 ahead = 6;
@@ -143,7 +145,7 @@ service WorktreeService {
       cli: true
       mcp: true
       name: "list_worktrees"
-      description: "List every worktree directory weave holds, under the configured worktrees directory and each workflow's own, with the repository it was cut from, its branch, whether git can still read it, the agent it was made for and the agents attached to that one, and its size when a count has reached it. A directory with no agent is one whose row was deleted while cleanup did not run, or one a test left behind. This reads the directories and the agent rows and runs no git, so it is cheap to call often; read one directory's contents and standing against its base with get_worktree."
+      description: "List every worktree directory weave holds, under the configured worktrees directory and each workflow's own, with the repository it was cut from, its branch, whether git can still read it, the agent it was made for and the other agents working in it, and its size when a count has reached it. A directory with no agent is one whose row was deleted while cleanup did not run, or one a test left behind. This reads the directories and the agent rows and runs no git, so it is cheap to call often; read one directory's contents and standing against its base with get_worktree."
     };
   }
   rpc GetWorktree(GetWorktreeRequest) returns (GetWorktreeResponse) {
@@ -152,7 +154,7 @@ service WorktreeService {
       cli: true
       mcp: true
       name: "get_worktree"
-      description: "Read one worktree directory: its top-level entries with sizes, biggest first, what is uncommitted, the base it is measured against with how far ahead and behind it stands and how many of its commits the base already holds whole, whether deleting its agent would keep the branch, and the commits since the base. The base is read as the clone last fetched it unless fetch is set, which asks origin first. A directory whose registration git cannot read answers with the entries alone."
+      description: "Read one worktree directory: its top-level entries with sizes as of the last count, biggest first, what is uncommitted, the base it is measured against with how far ahead and behind it stands and how many of its commits the base already holds whole, whether deleting its agent would keep the branch, and the commits since the base. The base is read as the clone last fetched it unless fetch is set, which asks origin first. A directory whose registration git cannot read answers with the entries alone."
     };
   }
   rpc RemoveUnownedWorktrees(RemoveUnownedWorktreesRequest) returns (RemoveUnownedWorktreesResponse) {

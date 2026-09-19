@@ -3,13 +3,13 @@ package worktrees
 import (
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 	"time"
 
 	"weave/internal/git"
 	"weave/internal/store"
 	workflowstore "weave/internal/store/workflow"
+	worktreestore "weave/internal/store/worktree"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -23,8 +23,8 @@ func TestInspectReadsABranchAgainstItsWorkflowsBase(t *testing.T) {
 	dir := f.cut(t, "aaaa")
 	f.own("aaaa", "first", nil)
 	f.flows.flows["flow"] = &workflowstore.Workflow{Worktree: workflowstore.WorktreeConfig{BaseBranch: "develop"}}
-	write(t, dir, "big/blob", strings.Repeat("x", 300))
 	at := time.Date(2026, 9, 19, 12, 0, 0, 0, time.UTC)
+	f.sizes.sizes[dir] = worktreestore.Size{Dir: dir, Bytes: 300, CountedAt: at, Entries: []worktreestore.Entry{{Path: "big", Bytes: 300, Dir: true}}}
 	f.git.changes = git.Changes{Modified: []string{"own.go"}, Untracked: []string{"scratch.txt"}}
 	f.git.state = git.TreeState{Branch: "agent/aaaa", InProgress: true}
 	f.git.ahead, f.git.behind = 2, 12
@@ -45,10 +45,23 @@ func TestInspectReadsABranchAgainstItsWorkflowsBase(t *testing.T) {
 	assert.True(t, inspection.KeepsBranch)
 	assert.Equal(t, f.git.changes, inspection.Changes)
 	assert.Equal(t, f.git.commits, inspection.Commits)
-	require.NotEmpty(t, inspection.Entries)
-	assert.Equal(t, "big", inspection.Entries[0].Path)
-	assert.True(t, inspection.Entries[0].Dir)
-	assert.Equal(t, int64(300), inspection.Entries[0].Bytes)
+	assert.Equal(t, []worktreestore.Entry{{Path: "big", Bytes: 300, Dir: true}}, inspection.Entries)
+}
+
+// TestInspectReadsNothingAgainstABaseGitCannotName covers a clone with no origin and no base
+// answering with no base and no standing rather than a standing against HEAD.
+func TestInspectReadsNothingAgainstABaseGitCannotName(t *testing.T) {
+	f := newFixture(t)
+	dir := f.cut(t, "hhhh")
+	f.git.unresolved = true
+	f.git.commits = []git.Commit{{SHA: "never"}}
+
+	inspection, err := f.inspector().Inspect(t.Context(), dir, false)
+	require.NoError(t, err)
+
+	assert.Empty(t, inspection.BaseRef)
+	assert.Empty(t, inspection.Commits)
+	assert.False(t, inspection.KeepsBranch)
 }
 
 // TestInspectFetchesWhenAsked covers the fetch flag going to git's fetch rather than its
@@ -112,7 +125,7 @@ func TestInspectReadsOnlyTheEntriesOfAGoneRegistration(t *testing.T) {
 	f := newFixture(t)
 	dir := filepath.Join(f.shared, "ffff")
 	write(t, dir, ".git", "gitdir: /var/folders/xx/T/repo/.git/worktrees/ffff\n")
-	write(t, dir, "left", "xxx")
+	f.sizes.sizes[dir] = worktreestore.Size{Dir: dir, Bytes: 3, Entries: []worktreestore.Entry{{Path: "left", Bytes: 3}}}
 	f.git.commits = []git.Commit{{SHA: "never"}}
 
 	inspection, err := f.inspector().Inspect(t.Context(), dir, false)
@@ -120,7 +133,7 @@ func TestInspectReadsOnlyTheEntriesOfAGoneRegistration(t *testing.T) {
 
 	assert.False(t, inspection.Worktree.Readable)
 	assert.Empty(t, inspection.BaseRef)
-	assert.Len(t, inspection.Entries, 2)
+	assert.Len(t, inspection.Entries, 1)
 	assert.Empty(t, inspection.Commits)
 }
 

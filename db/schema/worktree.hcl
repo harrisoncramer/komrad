@@ -16,6 +16,12 @@ table "worktree_sizes" {
     type    = timestamptz
     comment = "When the count finished."
   }
+  column "entries" {
+    null    = false
+    type    = jsonb
+    default = "[]"
+    comment = "The directory's top-level entries as the count passed over them, each with its path, its bytes and whether it is a directory, biggest first."
+  }
   primary_key {
     columns = [column.dir]
   }

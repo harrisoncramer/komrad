@@ -7,6 +7,7 @@ import (
 	"weave/internal/fail"
 	"weave/internal/git"
 	"weave/internal/rpcerr"
+	worktreestore "weave/internal/store/worktree"
 	"weave/internal/worktrees"
 	"weave/lib/dates"
 	"weave/lib/xslice"
@@ -67,7 +68,7 @@ func (s *WorktreeService) GetWorktree(ctx context.Context, req *worktreev1.GetWo
 
 	return &worktreev1.GetWorktreeResponse{
 		Worktree: renderWorktree(inspection.Worktree),
-		Entries: xslice.Map(inspection.Entries, func(entry worktrees.Entry) *worktreev1.Entry {
+		Entries: xslice.Map(inspection.Entries, func(entry worktreestore.Entry) *worktreev1.Entry {
 			return &worktreev1.Entry{Path: entry.Path, SizeBytes: entry.Bytes, Dir: entry.Dir}
 		}),
 		Modified:           inspection.Changes.Modified,
@@ -102,11 +103,11 @@ func (s *WorktreeService) RemoveUnownedWorktrees(ctx context.Context, req *workt
 
 func renderWorktree(worktree worktrees.Worktree) *worktreev1.Worktree {
 	rendered := &worktreev1.Worktree{
-		Dir:      worktree.Dir,
-		RepoDir:  worktree.RepoDir,
-		Branch:   worktree.Branch,
-		Readable: worktree.Readable,
-		Children: xslice.Map(worktree.Children, renderAgent),
+		Dir:       worktree.Dir,
+		RepoDir:   worktree.RepoDir,
+		Branch:    worktree.Branch,
+		Readable:  worktree.Readable,
+		Occupants: xslice.Map(worktree.Occupants, renderAgent),
 	}
 	if worktree.Agent != nil {
 		rendered.Agent = renderAgent(*worktree.Agent)

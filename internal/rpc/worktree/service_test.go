@@ -8,6 +8,7 @@ import (
 	"weave/internal/git"
 	"weave/internal/store"
 	agentstore "weave/internal/store/agent"
+	worktreestore "weave/internal/store/worktree"
 	"weave/internal/worktrees"
 	worktreev1 "weave/proto/gen/worktree/v1"
 	worktreev1weave "weave/proto/gen/worktree/v1/worktreev1weave"
@@ -70,13 +71,13 @@ func listed() worktrees.Worktree {
 			ArchivedAt: &archived,
 			Adopted:    true,
 		},
-		Children: []worktrees.Agent{{ID: "bbbb", Name: "first-reviewer", State: agentstore.StateThinking}},
-		Size:     &worktrees.Size{Bytes: 4096, CountedAt: archived},
+		Occupants: []worktrees.Agent{{ID: "bbbb", Name: "first-reviewer", State: agentstore.StateThinking}},
+		Size:      &worktrees.Size{Bytes: 4096, CountedAt: archived},
 	}
 }
 
 // TestListWorktrees covers the listing rendered whole: the agent with its stamp, the
-// children, the size with when it was counted, and the directories walked.
+// occupants, the size with when it was counted, and the directories walked.
 func TestListWorktrees(t *testing.T) {
 	t.Parallel()
 
@@ -98,8 +99,8 @@ func TestListWorktrees(t *testing.T) {
 	assert.Equal(t, "idle", first.GetAgent().GetState())
 	assert.Equal(t, "2026-09-19T12:00:00Z", first.GetAgent().GetArchivedAt())
 	assert.True(t, first.GetAgent().GetAdopted())
-	require.Len(t, first.GetChildren(), 1)
-	assert.Equal(t, "first-reviewer", first.GetChildren()[0].GetName())
+	require.Len(t, first.GetOccupants(), 1)
+	assert.Equal(t, "first-reviewer", first.GetOccupants()[0].GetName())
 	assert.Equal(t, int64(4096), first.GetSizeBytes())
 	assert.Equal(t, "2026-09-19T12:00:00Z", first.GetSizeCountedAt())
 
@@ -120,7 +121,7 @@ func TestGetWorktree(t *testing.T) {
 	at := time.Date(2026, 9, 19, 11, 0, 0, 0, time.UTC)
 	fake := &fakeWorktrees{inspection: worktrees.Inspection{
 		Worktree:           listed(),
-		Entries:            []worktrees.Entry{{Path: "local", Bytes: 40, Dir: true}, {Path: "go.mod", Bytes: 2}},
+		Entries:            []worktreestore.Entry{{Path: "local", Bytes: 40, Dir: true}, {Path: "go.mod", Bytes: 2}},
 		Changes:            git.Changes{Modified: []string{"a.go"}, Untracked: []string{"b.txt"}},
 		BaseRef:            "origin/main",
 		Ahead:              2,

@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"sync"
 	"time"
 
 	"weave/config"
@@ -30,10 +31,12 @@ type Agent struct {
 	WorkflowID      string
 }
 
-// Size is how many bytes a directory held when it was last counted.
+// Size is how many bytes a directory held when it was last counted, and what its top-level
+// entries held.
 type Size struct {
 	Bytes     int64
 	CountedAt time.Time
+	Entries   []worktreestore.Entry
 }
 
 // Worktree is one directory under the worktree directories, and what answers for it.
@@ -48,9 +51,9 @@ type Worktree struct {
 	Readable bool
 	// Agent is the row the directory was made for, nil when none answers.
 	Agent *Agent
-	// Children are the rows attached to that one, working in this directory.
-	Children []Agent
-	Size     *Size
+	// Occupants are the other rows working in this directory.
+	Occupants []Agent
+	Size      *Size
 }
 
 // Listing is every directory under the worktree directories.
@@ -62,11 +65,11 @@ type Listing struct {
 	UnreadableDirs []string
 }
 
-type ownerLister interface {
+type agentDirLister interface {
 	ListDirs(ctx context.Context) ([]agentstore.AgentDir, error)
 }
 
-type dirLister interface {
+type worktreeDirLister interface {
 	ListWorktreeDirs(ctx context.Context) ([]string, error)
 }
 
@@ -77,16 +80,18 @@ type sizeLister interface {
 // Lister reads the worktree directories and the rows that answer for them.
 type Lister struct {
 	shared    func() (string, error)
-	agents    ownerLister
-	workflows dirLister
+	agents    agentDirLister
+	workflows worktreeDirLister
 	sizes     sizeLister
+	mu        sync.Mutex
+	listedAt  time.Time
 }
 
 type NewListerParams struct {
 	// SharedDir reads the configured worktrees directory, resolved.
 	SharedDir func() (string, error)
-	Agents    ownerLister
-	Workflows dirLister
+	Agents    agentDirLister
+	Workflows worktreeDirLister
 	Sizes     sizeLister
 }
 
@@ -100,8 +105,8 @@ func NewLister(params NewListerParams) *Lister {
 	}
 }
 
-// Dirs is every directory worktrees are cut into: the shared one and each workflow's own.
-func (l *Lister) Dirs(ctx context.Context) ([]string, error) {
+// ListDirs is every directory worktrees are cut into, the shared one and each workflow's own.
+func (l *Lister) ListDirs(ctx context.Context) ([]string, error) {
 	shared, err := l.shared()
 	if err != nil {
 		return nil, err
@@ -122,9 +127,21 @@ func (l *Lister) Dirs(ctx context.Context) ([]string, error) {
 	return xslice.UniqueBy(dirs, func(dir string) string { return dir }), nil
 }
 
+// LastListed is when a listing was last asked for, zero when none has been.
+func (l *Lister) LastListed() time.Time {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	return l.listedAt
+}
+
 // List is every directory under the worktree directories, with what answers for each.
 func (l *Lister) List(ctx context.Context) (Listing, error) {
-	dirs, err := l.Dirs(ctx)
+	l.mu.Lock()
+	l.listedAt = time.Now()
+	l.mu.Unlock()
+
+	dirs, err := l.ListDirs(ctx)
 	if err != nil {
 		return Listing{}, err
 	}
@@ -143,9 +160,9 @@ func (l *Lister) List(ctx context.Context) (Listing, error) {
 	listing := Listing{Dirs: dirs, UnreadableDirs: found.unreadable}
 	for _, dir := range found.paths {
 		worktree := read(dir)
-		worktree.Agent, worktree.Children = owned(dir, owners)
+		worktree.Agent, worktree.Occupants = owned(dir, owners)
 		if size, ok := sizes[dir]; ok {
-			worktree.Size = &Size{Bytes: size.Bytes, CountedAt: size.CountedAt}
+			worktree.Size = &Size{Bytes: size.Bytes, CountedAt: size.CountedAt, Entries: size.Entries}
 		}
 
 		listing.Worktrees = append(listing.Worktrees, worktree)
@@ -241,24 +258,24 @@ func readBranch(gitdir string) string {
 	return ref
 }
 
-// owned is the row a directory was made for, and the rows working in it under that one.
+// owned is the row a directory was made for, and every other row working in it.
 func owned(dir string, owners []agentstore.AgentDir) (*Agent, []Agent) {
 	var owner *Agent
-	var children []Agent
+	var occupants []Agent
 
 	name := filepath.Base(dir)
 	for _, row := range owners {
 		switch {
 		case row.ID == name:
 			owner = describe(row)
-		case row.Cwd == dir && row.ParentAgentID != nil:
-			children = append(children, *describe(row))
+		case filepath.Clean(row.Cwd) == dir:
+			occupants = append(occupants, *describe(row))
 		}
 	}
 
-	slices.SortFunc(children, func(a, b Agent) int { return strings.Compare(a.Name, b.Name) })
+	slices.SortFunc(occupants, func(a, b Agent) int { return strings.Compare(a.Name, b.Name) })
 
-	return owner, children
+	return owner, occupants
 }
 
 func describe(row agentstore.AgentDir) *Agent {
@@ -273,9 +290,9 @@ func describe(row agentstore.AgentDir) *Agent {
 	}
 }
 
-// contains reports whether a path is a directory immediately under one of the worktree
+// isUnder reports whether a path is a directory immediately under one of the worktree
 // directories, comparing the two with their symlinks resolved.
-func contains(dirs []string, path string) (bool, error) {
+func isUnder(dirs []string, path string) (bool, error) {
 	resolved, err := filepath.EvalSymlinks(path)
 	if err != nil {
 		return false, fmt.Errorf("failed to resolve %q: %w", path, err)

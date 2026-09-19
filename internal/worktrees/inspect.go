@@ -1,43 +1,35 @@
 package worktrees
 
 import (
-	"cmp"
 	"context"
 	"errors"
-	"os"
 	"path/filepath"
 	"slices"
 
 	"weave/internal/git"
 	"weave/internal/store"
 	workflowstore "weave/internal/store/workflow"
+	worktreestore "weave/internal/store/worktree"
 )
 
 // commitLimit is how many of a branch's commits an inspection lists.
 const commitLimit = 50
 
-// Entry is one top-level entry of a directory with what it holds.
-type Entry struct {
-	Path  string
-	Bytes int64
-	Dir   bool
-}
-
 // Inspection is one directory read through git.
 type Inspection struct {
 	Worktree Worktree
-	// Entries are the top-level entries, biggest first.
-	Entries []Entry
+	// Entries are the top-level entries as of the last count, biggest first.
+	Entries []worktreestore.Entry
 	Changes git.Changes
-	// BaseRef is what the branch is measured against, empty when git cannot read the directory.
+	// BaseRef is what the branch is measured against, empty when git cannot read the directory
+	// or cannot name a base for it.
 	BaseRef string
 	Ahead   int
 	Behind  int
 	// Landed is how many of the branch's own commits the base already holds whole.
 	Landed             int
 	SequenceInProgress bool
-	// KeepsBranch says deleting the agent would leave the branch behind, which cleanup does
-	// for an adopted branch and for one whose commits are on no other ref.
+	// KeepsBranch says deleting the agent would leave the branch behind.
 	KeepsBranch bool
 	Commits     []git.Commit
 }
@@ -45,7 +37,7 @@ type Inspection struct {
 type gitReader interface {
 	ReadChanges(ctx context.Context, dir string) (git.Changes, error)
 	ReadTreeState(ctx context.Context, dir string) (git.TreeState, error)
-	ResolveBase(ctx context.Context, dir, base string) string
+	ResolveBase(ctx context.Context, dir, base string) (string, bool)
 	FetchBase(ctx context.Context, dir, base string) (ref, sha string, err error)
 	CountAheadBehind(ctx context.Context, dir, ref string) (ahead, behind int, err error)
 	PredictRebase(ctx context.Context, dir, ref string) (git.Prediction, error)
@@ -89,9 +81,8 @@ func (i *Inspector) Inspect(ctx context.Context, dir string, fetch bool) (Inspec
 	}
 
 	inspection := Inspection{Worktree: listing.Worktrees[at]}
-	inspection.Entries, err = readEntries(ctx, dir)
-	if err != nil {
-		return Inspection{}, err
+	if inspection.Worktree.Size != nil {
+		inspection.Entries = inspection.Worktree.Size.Entries
 	}
 	if !inspection.Worktree.Readable {
 		return inspection, nil
@@ -101,19 +92,40 @@ func (i *Inspector) Inspect(ctx context.Context, dir string, fetch bool) (Inspec
 	if err != nil {
 		return Inspection{}, err
 	}
-	if fetch {
-		if inspection.BaseRef, _, err = i.git.FetchBase(ctx, dir, base); err != nil {
-			return Inspection{}, err
-		}
-	} else {
-		inspection.BaseRef = i.git.ResolveBase(ctx, dir, base)
+
+	ref, ok, err := i.nameBase(ctx, dir, base, fetch)
+	if err != nil {
+		return Inspection{}, err
 	}
+	if !ok {
+		return inspection, nil
+	}
+	inspection.BaseRef = ref
 
 	if err := i.readStanding(ctx, &inspection); err != nil {
 		return Inspection{}, err
 	}
 
 	return inspection, nil
+}
+
+// nameBase is the ref the branch is measured against, and whether git could name one.
+func (i *Inspector) nameBase(ctx context.Context, dir, base string, fetch bool) (string, bool, error) {
+	if !fetch {
+		ref, ok := i.git.ResolveBase(ctx, dir, base)
+
+		return ref, ok, nil
+	}
+
+	ref, _, err := i.git.FetchBase(ctx, dir, base)
+	if errors.Is(err, git.ErrBaseUnresolved) {
+		return "", false, nil
+	}
+	if err != nil {
+		return "", false, err
+	}
+
+	return ref, true, nil
 }
 
 // baseOf is the base branch the directory's workflow names, empty when no row names one.
@@ -165,8 +177,7 @@ func (i *Inspector) readStanding(ctx context.Context, inspection *Inspection) er
 	return err
 }
 
-// keepsBranch answers the cleanup script's own question: an adopted branch is always kept,
-// and any other is kept when no other ref reaches its tip.
+// keepsBranch says whether an adopted branch, or one no other ref reaches, would be kept.
 func (i *Inspector) keepsBranch(ctx context.Context, worktree Worktree) (bool, error) {
 	if worktree.Branch == "" {
 		return false, nil
@@ -178,31 +189,4 @@ func (i *Inspector) keepsBranch(ctx context.Context, worktree Worktree) (bool, e
 	held, err := i.git.IsBranchHeldElsewhere(ctx, worktree.Dir, worktree.Branch)
 
 	return !held, err
-}
-
-// readEntries is a directory's top-level entries with what each holds, biggest first.
-func readEntries(ctx context.Context, dir string) ([]Entry, error) {
-	listed, err := os.ReadDir(dir)
-	if err != nil {
-		return nil, err
-	}
-
-	entries := make([]Entry, 0, len(listed))
-	for _, item := range listed {
-		entry := Entry{Path: item.Name(), Dir: item.IsDir()}
-		if item.IsDir() {
-			entry.Bytes, err = measure(ctx, filepath.Join(dir, item.Name()))
-			if err != nil {
-				return nil, err
-			}
-		} else if info, err := item.Info(); err == nil && info.Mode().IsRegular() {
-			entry.Bytes = info.Size()
-		}
-
-		entries = append(entries, entry)
-	}
-
-	slices.SortStableFunc(entries, func(a, b Entry) int { return cmp.Compare(b.Bytes, a.Bytes) })
-
-	return entries, nil
 }

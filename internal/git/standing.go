@@ -84,8 +84,7 @@ func (c *Client) CountAheadBehind(ctx context.Context, dir, ref string) (ahead, 
 	return ahead, behind, nil
 }
 
-// IsBranchHeldElsewhere reports whether some other ref reaches the branch's tip, which is
-// what lets a branch be deleted without losing its commits.
+// IsBranchHeldElsewhere reports whether some other ref reaches the branch's tip.
 func (c *Client) IsBranchHeldElsewhere(ctx context.Context, dir, branch string) (bool, error) {
 	own := "refs/heads/" + branch
 	out, err := Run(ctx, dir, "for-each-ref", "--format=%(refname)", "--contains", own)
@@ -135,10 +134,12 @@ func parseCommits(out string) ([]Commit, error) {
 	return commits, nil
 }
 
-// ResolveBase is the ref a checkout is measured against: origin's copy of the base when it has
-// one, origin's default branch when no base is named, and HEAD when it has neither.
-func (c *Client) ResolveBase(ctx context.Context, dir, base string) string {
-	return resolveBase(ctx, dir, base)
+// ResolveBase is the ref a checkout is measured against, origin's copy of the base when it has
+// one and origin's default branch when no base is named, and false when it has neither.
+func (c *Client) ResolveBase(ctx context.Context, dir, base string) (string, bool) {
+	ref := resolveBase(ctx, dir, base)
+
+	return ref, ref != "HEAD"
 }
 
 // PruneWorktrees drops the registrations of checkouts whose directories are gone.

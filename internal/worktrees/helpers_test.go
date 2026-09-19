@@ -150,6 +150,7 @@ type fakeGit struct {
 	prediction git.Prediction
 	predictErr error
 	held       bool
+	unresolved bool
 	commits    []git.Commit
 	resolved   string
 	resolves   int
@@ -166,14 +167,17 @@ func (g *fakeGit) ReadTreeState(context.Context, string) (git.TreeState, error) 
 	return g.state, nil
 }
 
-func (g *fakeGit) ResolveBase(_ context.Context, _, base string) string {
+func (g *fakeGit) ResolveBase(_ context.Context, _, base string) (string, bool) {
 	g.resolved = base
 	g.resolves++
+	if g.unresolved {
+		return "HEAD", false
+	}
 	if base == "" {
-		return "origin/HEAD"
+		return "origin/HEAD", true
 	}
 
-	return "origin/" + base
+	return "origin/" + base, true
 }
 
 func (g *fakeGit) FetchBase(_ context.Context, _, base string) (string, string, error) {

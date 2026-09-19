@@ -90,7 +90,7 @@ func (r *Remover) Remove(ctx context.Context, dirs []string) (Removal, error) {
 	}
 
 	if err := r.sizes.Delete(ctx, removal.Removed); err != nil {
-		return Removal{}, err
+		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "removed worktrees but could not drop their counts", logging.Err(err)...)
 	}
 
 	return removal, nil
@@ -98,7 +98,7 @@ func (r *Remover) Remove(ctx context.Context, dirs []string) (Removal, error) {
 
 // refuse is why a directory is not this remover's to take, empty when it is.
 func (r *Remover) refuse(listing Listing, dir string) string {
-	inside, err := contains(listing.Dirs, dir)
+	inside, err := isUnder(listing.Dirs, dir)
 	if err != nil {
 		return err.Error()
 	}
@@ -112,12 +112,17 @@ func (r *Remover) refuse(listing Listing, dir string) string {
 	}
 
 	worktree := listing.Worktrees[at]
-	if worktree.Agent != nil && !worktree.Agent.FailedToCleanup {
+	if worktree.Agent != nil && !isStuck(worktree) {
 		return fmt.Sprintf("agent %s answers for it; delete the agent instead", worktree.Agent.Name)
 	}
-	if len(worktree.Children) > 0 {
-		return fmt.Sprintf("agent %s is working in it; delete the agent instead", worktree.Children[0].Name)
+	if len(worktree.Occupants) > 0 {
+		return fmt.Sprintf("agent %s is working in it; delete the agent instead", worktree.Occupants[0].Name)
 	}
 
 	return ""
+}
+
+// isStuck reports whether the row's own delete failed on a registration git cannot read.
+func isStuck(worktree Worktree) bool {
+	return worktree.Agent.FailedToCleanup && !worktree.Readable
 }
