@@ -15,7 +15,12 @@ func (h *Harness) LogPath(sessionID string) string {
 		return ""
 	}
 
-	matches, err := filepath.Glob(filepath.Join(h.projectsDir, "*", sessionID+".jsonl"))
+	configDir, err := h.resolveConfigDir()
+	if err != nil {
+		return ""
+	}
+
+	matches, err := filepath.Glob(filepath.Join(configDir, "projects", "*", sessionID+".jsonl"))
 	if err != nil || len(matches) == 0 {
 		return ""
 	}

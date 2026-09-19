@@ -72,7 +72,7 @@ func TestReadReport(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			report, err := NewHarness(NewHarnessParams{ProjectsDir: t.TempDir()}).ReadReport(tt.event, []byte(tt.payload))
+			report, err := NewHarness(NewHarnessParams{ConfigDir: t.TempDir()}).ReadReport(tt.event, []byte(tt.payload))
 			if tt.wantErr {
 				require.Error(t, err, "an event with no case here would otherwise clear the reason on the row")
 				assert.Equal(t, harness.Report{}, report)
@@ -134,7 +134,7 @@ func TestReadReportOnCapturedPayloads(t *testing.T) {
 			payload, err := os.ReadFile(filepath.Join("testdata", tt.file))
 			require.NoError(t, err)
 
-			report, err := NewHarness(NewHarnessParams{ProjectsDir: t.TempDir()}).ReadReport(tt.event, payload)
+			report, err := NewHarness(NewHarnessParams{ConfigDir: t.TempDir()}).ReadReport(tt.event, payload)
 			require.NoError(t, err)
 			assert.Equal(t, tt.want, report)
 		})
@@ -144,7 +144,7 @@ func TestReadReportOnCapturedPayloads(t *testing.T) {
 // TestEveryInstalledHookIsRead pins the direction the subcommand test cannot cover: an event
 // weave installs but takes no reading from would fire on every occurrence and be refused.
 func TestEveryInstalledHookIsRead(t *testing.T) {
-	hn := NewHarness(NewHarnessParams{ProjectsDir: t.TempDir()})
+	hn := NewHarness(NewHarnessParams{ConfigDir: t.TempDir()})
 
 	for event := range InstalledHooks {
 		_, err := hn.ReadReport(event, []byte(`{}`))

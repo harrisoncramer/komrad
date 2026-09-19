@@ -51,7 +51,7 @@ func TestDoctorReadsTheConfigTheUserNamed(t *testing.T) {
 			require.NoError(t, os.MkdirAll(engines, 0o755))
 			require.NoError(t, os.WriteFile(filepath.Join(engines, "remote.toml"), []byte(""), 0o600))
 
-			registry, err := harness.NewRegistry(claude.NewHarness(claude.NewHarnessParams{ProjectsDir: t.TempDir()}))
+			registry, err := harness.NewRegistry(claude.NewHarness(claude.NewHarnessParams{ConfigDir: t.TempDir()}))
 			require.NoError(t, err)
 
 			state := &app{
@@ -82,7 +82,7 @@ func TestDoctorReadsTheConfigTheUserNamed(t *testing.T) {
 func TestDoctorSurvivesAnEmptyLayerElement(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 
-	registry, err := harness.NewRegistry(claude.NewHarness(claude.NewHarnessParams{ProjectsDir: t.TempDir()}))
+	registry, err := harness.NewRegistry(claude.NewHarness(claude.NewHarnessParams{ConfigDir: t.TempDir()}))
 	require.NoError(t, err)
 
 	state := &app{
@@ -105,7 +105,7 @@ func TestDoctorAdviceReadsThePanelsOwnPane(t *testing.T) {
 	socket := throwawaySocket(t)
 	panelSession(t, socket)
 
-	registry, err := harness.NewRegistry(claude.NewHarness(claude.NewHarnessParams{ProjectsDir: t.TempDir()}))
+	registry, err := harness.NewRegistry(claude.NewHarness(claude.NewHarnessParams{ConfigDir: t.TempDir()}))
 	require.NoError(t, err)
 
 	state := hideState(socket, "")

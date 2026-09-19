@@ -59,7 +59,7 @@ func TestBuildCommand(t *testing.T) {
 			launch := tt.launch
 			launch.CacheDir = t.TempDir()
 
-			command, err := NewHarness(NewHarnessParams{ProjectsDir: t.TempDir()}).BuildCommand(launch)
+			command, err := NewHarness(NewHarnessParams{ConfigDir: t.TempDir()}).BuildCommand(launch)
 			require.NoError(t, err)
 
 			assert.True(t, strings.HasPrefix(stripGeneratedFlags(command), tt.wantCommand),
@@ -97,7 +97,7 @@ func TestBuildCommandFailsWhenThePromptCannotBeWritten(t *testing.T) {
 			launch := tt.launch
 			launch.CacheDir = filepath.Join(blocked, "cache")
 
-			_, err := NewHarness(NewHarnessParams{ProjectsDir: t.TempDir()}).BuildCommand(launch)
+			_, err := NewHarness(NewHarnessParams{ConfigDir: t.TempDir()}).BuildCommand(launch)
 			require.Error(t, err)
 		})
 	}
@@ -128,7 +128,7 @@ func TestBuildCommandQuotesFlags(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			command, err := NewHarness(NewHarnessParams{ProjectsDir: t.TempDir()}).BuildCommand(harness.Launch{
+			command, err := NewHarness(NewHarnessParams{ConfigDir: t.TempDir()}).BuildCommand(harness.Launch{
 				Flags:     tt.flags,
 				SessionID: "sess",
 				CacheDir:  t.TempDir(),
@@ -186,7 +186,7 @@ func TestBuildCommandPassesTextThroughTempFiles(t *testing.T) {
 			launch := tt.launch
 			launch.CacheDir = t.TempDir()
 
-			command, err := NewHarness(NewHarnessParams{ProjectsDir: t.TempDir()}).BuildCommand(launch)
+			command, err := NewHarness(NewHarnessParams{ConfigDir: t.TempDir()}).BuildCommand(launch)
 			require.NoError(t, err)
 
 			for _, want := range tt.wantContain {
@@ -209,7 +209,7 @@ func TestBuildCommandPassesTextThroughTempFiles(t *testing.T) {
 func TestBuildCommandStagesTextUnderTheCacheDir(t *testing.T) {
 	cache := t.TempDir()
 
-	_, err := NewHarness(NewHarnessParams{ProjectsDir: t.TempDir()}).BuildCommand(harness.Launch{
+	_, err := NewHarness(NewHarnessParams{ConfigDir: t.TempDir()}).BuildCommand(harness.Launch{
 		SessionID: "sess",
 		Context:   "the buildBriefing",
 		Prompt:    "do the thing",
@@ -240,10 +240,9 @@ func TestBuildCommandRegistersMCPServer(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			home := t.TempDir()
-			t.Setenv("HOME", home)
+			configDir := t.TempDir()
 
-			command, err := NewHarness(NewHarnessParams{ProjectsDir: t.TempDir()}).BuildCommand(harness.Launch{
+			command, err := NewHarness(NewHarnessParams{ConfigDir: configDir}).BuildCommand(harness.Launch{
 				CacheDir:    t.TempDir(),
 				SessionID:   "sess",
 				MCPEndpoint: "127.0.0.1:9999",
@@ -255,7 +254,7 @@ func TestBuildCommandRegistersMCPServer(t *testing.T) {
 
 			match := mcpConfigRef.FindStringSubmatch(command)
 			require.Len(t, match, 2, "the launch carries a config path")
-			assert.Equal(t, filepath.Join(home, ".claude", "weave-mcp.json"), match[1])
+			assert.Equal(t, filepath.Join(configDir, "weave-mcp.json"), match[1])
 
 			raw, err := os.ReadFile(match[1])
 			require.NoError(t, err)
@@ -280,8 +279,68 @@ func TestBuildCommandRegistersMCPServer(t *testing.T) {
 
 var mcpConfigRef = regexp.MustCompile(` --mcp-config '([^']+)'`)
 
+var configDirRef = regexp.MustCompile(`CLAUDE_CONFIG_DIR='([^']+)' `)
+
 func stripGeneratedFlags(command string) string {
+	command = configDirRef.ReplaceAllString(command, "")
+
 	return settingsRef.ReplaceAllString(mcpConfigRef.ReplaceAllString(command, ""), "")
+}
+
+// TestBuildCommandPinsTheConfigDir covers the launch carrying the directory weave reads its log from.
+func TestBuildCommandPinsTheConfigDir(t *testing.T) {
+	tests := []struct {
+		name      string
+		configDir string
+		launch    harness.Launch
+		wantPin   bool
+	}{
+		{
+			name:      "on a fresh launch",
+			configDir: "work login",
+			launch:    harness.Launch{SessionID: "sess"},
+			wantPin:   true,
+		},
+		{
+			name:      "and on a resume",
+			configDir: "work login",
+			launch:    harness.Launch{SessionID: "sess", Resume: true},
+			wantPin:   true,
+		},
+		{
+			name:   "not at all when the CLI is left to its default",
+			launch: harness.Launch{SessionID: "sess"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Setenv("HOME", t.TempDir())
+
+			configDir := ""
+			if tt.configDir != "" {
+				configDir = filepath.Join(t.TempDir(), tt.configDir)
+			}
+
+			launch := tt.launch
+			launch.CacheDir = t.TempDir()
+
+			command, err := NewHarness(NewHarnessParams{ConfigDir: configDir}).BuildCommand(launch)
+			require.NoError(t, err)
+
+			if !tt.wantPin {
+				assert.NotContains(t, command, configDirEnv+"=")
+
+				return
+			}
+
+			match := configDirRef.FindStringSubmatch(command)
+			require.Len(t, match, 2, "the launch carries the config dir")
+			assert.Equal(t, configDir, match[1])
+			assert.Less(t, strings.Index(command, configDirEnv+"="), strings.Index(command, " claude"),
+				"the assignment leads the command so it reaches claude's environment")
+		})
+	}
 }
 
 var appendedPromptRef = regexp.MustCompile(`--append-system-prompt "\$\(cat '([^']+)'`)
@@ -305,7 +364,7 @@ func TestMCPConfigCarriesTheAgentsIdentity(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 
-	command, err := NewHarness(NewHarnessParams{ProjectsDir: t.TempDir()}).BuildCommand(harness.Launch{
+	command, err := NewHarness(NewHarnessParams{}).BuildCommand(harness.Launch{
 		CacheDir:    t.TempDir(),
 		AgentID:     "agent-1",
 		SessionID:   "sess-1",
@@ -364,10 +423,9 @@ func TestBuildCommandRegistersTheStopHook(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			home := t.TempDir()
-			t.Setenv("HOME", home)
+			configDir := t.TempDir()
 
-			command, err := NewHarness(NewHarnessParams{ProjectsDir: t.TempDir()}).BuildCommand(harness.Launch{
+			command, err := NewHarness(NewHarnessParams{ConfigDir: configDir}).BuildCommand(harness.Launch{
 				CacheDir:    t.TempDir(),
 				SessionID:   "sess",
 				HookCommand: tt.hookCommand,
@@ -376,7 +434,7 @@ func TestBuildCommandRegistersTheStopHook(t *testing.T) {
 			require.NoError(t, err)
 
 			settings := readSettings(t, command)
-			assert.Equal(t, filepath.Join(home, ".claude", "weave-settings.json"), settingsPath(t, command))
+			assert.Equal(t, filepath.Join(configDir, "weave-settings.json"), settingsPath(t, command))
 
 			if !tt.wantHook {
 				assert.Empty(t, settings.Hooks, "no hook is registered")
@@ -422,9 +480,7 @@ func TestBuildCommandDeniesSubagents(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			t.Setenv("HOME", t.TempDir())
-
-			command, err := NewHarness(NewHarnessParams{ProjectsDir: t.TempDir()}).BuildCommand(harness.Launch{
+			command, err := NewHarness(NewHarnessParams{ConfigDir: t.TempDir()}).BuildCommand(harness.Launch{
 				CacheDir:    t.TempDir(),
 				SessionID:   "sess",
 				HookCommand: tt.hookCommand,
