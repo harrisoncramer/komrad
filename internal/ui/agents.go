@@ -242,7 +242,7 @@ func (m model) toggleHiddenAgents() (tea.Model, tea.Cmd) {
 	} else {
 		m.tree.cursor = clampCursor(m.tree.cursor, len(rows))
 	}
-	m.tree.selected = m.tree.selected.pruned(m.agentRows())
+	m.tree.selected = m.tree.selected.pruned(refsOf(m.agentRows()))
 	m.stageSelection()
 
 	return m, nil

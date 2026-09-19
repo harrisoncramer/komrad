@@ -340,7 +340,7 @@ func (m model) clearAgentSelection(string) (tea.Model, tea.Cmd) {
 }
 
 func (m model) toggleAgentSelection(string) (tea.Model, tea.Cmd) {
-	m.tree.selected = m.tree.selected.toggle(m.agentRows(), m.tree.cursor)
+	m.tree.selected = m.tree.selected.toggle(refsOf(m.agentRows()), m.tree.cursor)
 
 	return m, nil
 }
@@ -350,7 +350,7 @@ func (m model) extendAgentSelection(string) (tea.Model, tea.Cmd) {
 		return m.toggleAgentSelection("")
 	}
 
-	m.tree.selected = m.tree.selected.extend(m.agentRows(), m.tree.cursor)
+	m.tree.selected = m.tree.selected.extend(refsOf(m.agentRows()), m.tree.cursor)
 
 	return m, nil
 }
@@ -549,7 +549,7 @@ func (m model) selectionToggleDesc() string {
 	switch {
 	case hovered.header:
 		return "select folder"
-	case m.tree.selected.has(hovered.item.agent.ID):
+	case m.tree.selected.has(rowKey(hovered)):
 		return "deselect"
 	}
 
@@ -557,7 +557,7 @@ func (m model) selectionToggleDesc() string {
 }
 
 func (m model) selectionClearDesc() string {
-	return fmt.Sprintf("clear %d selected", len(m.tree.selected.ids))
+	return fmt.Sprintf("clear %d selected", len(m.tree.selected.keys))
 }
 
 func (m model) showHiddenDescOf() string {

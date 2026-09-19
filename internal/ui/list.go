@@ -73,6 +73,34 @@ func (m model) headedBlockView(header, block string, lines int, help string) str
 	return header + paint.PadRows(block, lines) + help
 }
 
+// keyed is a row the cursor can be put back on by name once the list has changed under it.
+type keyed interface {
+	key() string
+}
+
+func rowKeyAt[T keyed](rows []T, cursor int) string {
+	row, ok := rowAt(rows, cursor)
+	if !ok {
+		return ""
+	}
+
+	return row.key()
+}
+
+func rowIndexOfKey[T keyed](rows []T, key string) int {
+	if key == "" {
+		return -1
+	}
+
+	for i, r := range rows {
+		if r.key() == key {
+			return i
+		}
+	}
+
+	return -1
+}
+
 func rowAt[T any](rows []T, cursor int) (T, bool) {
 	if cursor < 0 || cursor >= len(rows) {
 		var zero T

@@ -248,26 +248,8 @@ func workflowRowKey(id string) string {
 	return "workflow:" + id
 }
 
-func rowKeyAt(rows []agentRow, cursor int) string {
-	if cursor < 0 || cursor >= len(rows) {
-		return ""
-	}
-
-	return rowKey(rows[cursor])
-}
-
-func rowIndexOfKey(rows []agentRow, key string) int {
-	if key == "" {
-		return -1
-	}
-
-	for i, r := range rows {
-		if rowKey(r) == key {
-			return i
-		}
-	}
-
-	return -1
+func (r agentRow) key() string {
+	return rowKey(r)
 }
 
 // unnamedChildren counts the children the named agents hold that are not among them, taking the
@@ -397,7 +379,7 @@ func (m *model) placeTreeCursor(selected string) {
 	}
 
 	m.tree.placed = true
-	m.tree.selected = m.tree.selected.pruned(m.agentRows())
+	m.tree.selected = m.tree.selected.pruned(refsOf(m.agentRows()))
 }
 
 type listing struct {

@@ -90,7 +90,7 @@ func snapshotRow(r agentRow, params snapshotParams) view.Row {
 	row.Matches = matchesIn(params.matcher, item.agent.Name)
 	row.Repo = snapshotRepo(item.agent)
 	row.Review = snapshotReview(item)
-	row.Selected = params.selected.has(item.agent.ID)
+	row.Selected = params.selected.has(key)
 
 	return row
 }

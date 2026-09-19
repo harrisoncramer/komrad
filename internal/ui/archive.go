@@ -112,7 +112,7 @@ func (m *model) landArchiveCursor(rows []agentRow, idx int) {
 func (m *model) applyArchive(agents []agentstore.Agent, workflows []workflowstore.Workflow, selected string) {
 	m.archive.agents, m.archive.workflows = agents, workflows
 
-	m.archive.selected = m.archive.selected.pruned(m.archiveRows())
+	m.archive.selected = m.archive.selected.pruned(refsOf(m.archiveRows()))
 
 	focus := m.archive.focus
 	m.archive.focus = ""

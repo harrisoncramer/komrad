@@ -522,7 +522,7 @@ func TestASplitAgentsListIsLaidOutAgainstItsOwnColumn(t *testing.T) {
 		State:      agentstore.StateIdle,
 		ScheduleID: xptr.Ptr("s1"),
 	}}}
-	m.tree.selected = selection{ids: []string{"a1"}}
+	m.tree.selected = selectAgents([]string{"a1"}...)
 
 	split, ok := m.screenColumnSplit()
 	require.True(t, ok, "the hovered header has no pane, so the panel draws a document beside its list")

@@ -261,7 +261,7 @@ func (m model) clearArchiveSelection(string) (tea.Model, tea.Cmd) {
 }
 
 func (m model) toggleArchiveSelection(string) (tea.Model, tea.Cmd) {
-	m.archive.selected = m.archive.selected.toggle(m.archiveRows(), m.archive.cursor)
+	m.archive.selected = m.archive.selected.toggle(refsOf(m.archiveRows()), m.archive.cursor)
 
 	return m, nil
 }
@@ -271,7 +271,7 @@ func (m model) extendArchiveSelection(string) (tea.Model, tea.Cmd) {
 		return m.toggleArchiveSelection("")
 	}
 
-	m.archive.selected = m.archive.selected.extend(m.archiveRows(), m.archive.cursor)
+	m.archive.selected = m.archive.selected.extend(refsOf(m.archiveRows()), m.archive.cursor)
 
 	return m, nil
 }
@@ -303,7 +303,7 @@ func (m model) archiveToggleDesc() string {
 	switch {
 	case hovered.header:
 		return "select folder"
-	case m.archive.selected.has(hovered.item.agent.ID):
+	case m.archive.selected.has(rowKey(hovered)):
 		return "deselect"
 	}
 
@@ -311,7 +311,7 @@ func (m model) archiveToggleDesc() string {
 }
 
 func (m model) archiveClearDesc() string {
-	return fmt.Sprintf("clear %d selected", len(m.archive.selected.ids))
+	return fmt.Sprintf("clear %d selected", len(m.archive.selected.keys))
 }
 
 func (m model) archiveRestoreDesc() string {
