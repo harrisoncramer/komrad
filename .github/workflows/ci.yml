@@ -251,8 +251,10 @@ jobs:
       - name: Cache the custom linter
         uses: actions/cache@v4
         with:
-          path: local/custom-gcl
-          key: custom-gcl-${{ runner.os }}-${{ hashFiles('.custom-gcl.yml', 'tools/weavelint/**') }}
+          path: |
+            local/custom-gcl
+            local/custom-gcl.sum
+          key: custom-gcl-v2-${{ runner.os }}-${{ hashFiles('.custom-gcl.yml', 'tools/weavelint/**') }}
 
       - name: Check the formatting
         run: mise run go:fmt --check
