@@ -824,7 +824,7 @@ func TestDeliverDefersToARealHarnessStillComingUp(t *testing.T) {
 		harness harness.Harness
 	}{
 		{name: "claude", harness: claude.NewHarness(claude.NewHarnessParams{})},
-		{name: "codex", harness: codex.NewHarness(codex.NewHarnessParams{SessionsDir: t.TempDir()})},
+		{name: "codex", harness: codex.NewHarness(codex.NewHarnessParams{Home: t.TempDir()})},
 	}
 
 	for _, tt := range tests {

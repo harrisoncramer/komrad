@@ -309,7 +309,7 @@ func TestSyncAdoptsSessions(t *testing.T) {
 func TestSyncAdoptedSessionIsIndexed(t *testing.T) {
 	st := newStore(t)
 	ctx := t.Context()
-	sessions := t.TempDir()
+	codexHome := t.TempDir()
 	cwd := t.TempDir()
 
 	const sessionID = "019fb3e7-2cb6-7ab3-86a0-51a670a33140"
@@ -321,7 +321,7 @@ func TestSyncAdoptedSessionIsIndexed(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, created)
 
-	dir := filepath.Join(sessions, "2026", "07", "30")
+	dir := filepath.Join(codexHome, "sessions", "2026", "07", "30")
 	require.NoError(t, os.MkdirAll(dir, 0o755))
 	rollout := filepath.Join(dir, "rollout-2026-07-30T12-41-39-"+sessionID+".jsonl")
 	require.NoError(t, os.WriteFile(rollout,
@@ -332,7 +332,7 @@ func TestSyncAdoptedSessionIsIndexed(t *testing.T) {
 	syncer := NewTranscriptSyncer(NewTranscriptSyncerParams{
 		Agents:      st.Agents,
 		Transcripts: st.Transcripts,
-		Harnesses:   mustRegistry(t, codex.NewHarness(codex.NewHarnessParams{SessionsDir: sessions})),
+		Harnesses:   mustRegistry(t, codex.NewHarness(codex.NewHarnessParams{Home: codexHome})),
 	})
 
 	require.NoError(t, syncer.Sync(ctx))

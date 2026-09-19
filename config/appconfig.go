@@ -557,7 +557,7 @@ type Codex struct {
 	// before launching it. Codex asks whether a directory is trusted the first
 	// time it runs there and waits for an answer, which it reads only from that
 	// file, so an agent in a fresh worktree otherwise starts blocked and shows
-	// here as waiting. Turning this on edits ~/.codex/config.toml on your behalf.
+	// here as waiting. Turning this on edits that file on your behalf.
 	TrustLaunchDirs bool `mapstructure:"trust_launch_dirs"`
 }
 

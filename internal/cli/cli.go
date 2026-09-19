@@ -90,6 +90,7 @@ the machine, start or stop the service, or call an endpoint from a script.`,
 			}
 
 			codexHarness := codex.NewHarness(codex.NewHarnessParams{
+				Home:            codex.NamedHome(),
 				TrustLaunchDirs: cfg.Harness.Codex.TrustLaunchDirs,
 			})
 			claudeHarness := claude.NewHarness(claude.NewHarnessParams{

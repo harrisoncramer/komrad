@@ -84,7 +84,7 @@ func TestReadActivityOnCapturedFrames(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			input := NewHarness(NewHarnessParams{SessionsDir: t.TempDir()}).ReadInput(string(frame))
+			input := NewHarness(NewHarnessParams{Home: t.TempDir()}).ReadInput(string(frame))
 
 			assert.Equal(t, tt.want, input.Activity)
 			assert.Equal(t, tt.held, input.Held)

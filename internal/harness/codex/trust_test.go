@@ -75,14 +75,14 @@ func TestTrustLaunchDirs(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			path := filepath.Join(t.TempDir(), "config.toml")
+			home := t.TempDir()
+			path := filepath.Join(home, "config.toml")
 			if tt.existing != "" {
 				require.NoError(t, os.WriteFile(path, []byte(tt.existing), 0o600))
 			}
 
 			harnessUnderTest := NewHarness(NewHarnessParams{
-				SessionsDir:     t.TempDir(),
-				ConfigPath:      path,
+				Home:            home,
 				TrustLaunchDirs: tt.enabled,
 			})
 
