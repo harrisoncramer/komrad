@@ -35,6 +35,7 @@ func TestDeliver(t *testing.T) {
 		agent     *agentstore.Agent
 		pending   int64
 		alive     bool
+		shell     bool
 		inMode    bool
 		frame     string
 		claimed   bool
@@ -135,6 +136,18 @@ func TestDeliver(t *testing.T) {
 			name:    "an agent whose pane is gone",
 			agent:   &agentstore.Agent{ID: "agent-a", State: agentstore.StateIdle},
 			pending: 1,
+			want:    DeliveryLater,
+		},
+		{
+			name: "an agent whose CLI has exited with its pane still stamped as its own",
+			agent: &agentstore.Agent{
+				ID:    "agent-a",
+				Pane:  "%1",
+				State: agentstore.StateIdle,
+			},
+			pending: 1,
+			alive:   true,
+			shell:   true,
 			want:    DeliveryLater,
 		},
 		{
@@ -244,6 +257,7 @@ func TestDeliver(t *testing.T) {
 			agents := &fakeAgents{agent: tt.agent, claimed: tt.claimed}
 			panes := &fakePanes{
 				alive:  tt.alive,
+				shell:  tt.shell,
 				inMode: tt.inMode,
 				frame:  frame,
 			}
@@ -498,6 +512,7 @@ func (f *fakeAgents) SetNudgeSent(_ context.Context, _ string) error {
 // the frame after it once it has.
 type fakePanes struct {
 	alive    bool
+	shell    bool
 	inMode   bool
 	clientAt bool
 	frame    string
@@ -528,6 +543,8 @@ func (f *fakePanes) IsAgentRunning(agentstore.Agent) bool { return f.alive }
 func (f *fakePanes) SendKeys(string, ...string) error { return nil }
 
 func (f *fakePanes) IsPaneInMode(string) bool { return f.inMode }
+
+func (f *fakePanes) IsPaneRunningCLI(string) bool { return !f.shell }
 
 func (f *fakePanes) CapturePane(string) string {
 	f.captures++

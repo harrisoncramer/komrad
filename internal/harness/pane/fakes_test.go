@@ -37,6 +37,7 @@ type fakeTerminal struct {
 	inMode   bool
 	clientAt bool
 	frame    string
+	shell    bool
 
 	// afterCut is the frame the pane shows once its line has been cut, an empty box unless a
 	// test says otherwise.
@@ -66,6 +67,8 @@ func (f *fakeTerminal) SendKeys(_ string, keys ...string) error {
 }
 
 func (f *fakeTerminal) IsPaneInMode(string) bool { return f.inMode }
+
+func (f *fakeTerminal) IsPaneRunningCLI(string) bool { return !f.shell }
 
 func (f *fakeTerminal) CapturePane(string) string {
 	f.captures++

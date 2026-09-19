@@ -245,6 +245,15 @@ func (f *fakeTmux) KillPane(pane string) {
 
 func (f *fakeTmux) IsPaneInMode(string) bool { return false }
 
+func (f *fakeTmux) IsPaneRunningCLI(pane string) bool {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	command := f.commands[pane]
+
+	return command != "" && !tmux.PaneStatus{Command: command}.IsRunningShell()
+}
+
 func (f *fakeTmux) IsClientAtPane(string, time.Duration) bool { return false }
 
 func (f *fakeTmux) PasteAndSubmit(target, text string) error {

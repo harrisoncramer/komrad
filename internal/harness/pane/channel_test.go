@@ -17,6 +17,7 @@ func TestReadyRefusesAPaneThatIsNotListening(t *testing.T) {
 		name   string
 		frame  string
 		inMode bool
+		shell  bool
 		want   bool
 	}{
 		{
@@ -27,6 +28,11 @@ func TestReadyRefusesAPaneThatIsNotListening(t *testing.T) {
 			name:   "a pane sitting in one of tmux's own modes",
 			frame:  idleFrame,
 			inMode: true,
+		},
+		{
+			name:  "an input box left on screen by a CLI that has exited",
+			frame: idleFrame,
+			shell: true,
 		},
 		{
 			name:  "a pane showing nothing weave can read",
@@ -41,7 +47,7 @@ func TestReadyRefusesAPaneThatIsNotListening(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			terminal := &fakeTerminal{frame: tt.frame, inMode: tt.inMode}
+			terminal := &fakeTerminal{frame: tt.frame, inMode: tt.inMode, shell: tt.shell}
 			p := NewPane(NewPaneParams{Terminal: terminal, Harnesses: fakeHarnesses{harness: &fakeHarness{}}})
 
 			ready, err := p.Ready(t.Context(), target)
@@ -62,6 +68,36 @@ func TestSendPastesIntoAnEmptyBox(t *testing.T) {
 	assert.True(t, sent)
 	assert.Equal(t, []string{"paste"}, terminal.actions, "an empty box needs no cut")
 	assert.Equal(t, []string{"weave: read_mail"}, terminal.pasted)
+}
+
+// TestSendRefusesAPaneWhoseCLIHasExited pins that a pane whose foreground program is a shell is
+// never written into, whatever its frame still shows.
+func TestSendRefusesAPaneWhoseCLIHasExited(t *testing.T) {
+	tests := []struct {
+		name      string
+		harnesses harnessGetter
+	}{
+		{
+			name:      "an input box the dead CLI left drawn",
+			harnesses: fakeHarnesses{harness: &fakeHarness{}},
+		},
+		{
+			name:      "a frame no harness can read",
+			harnesses: fakeHarnesses{},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			terminal := &fakeTerminal{frame: idleFrame, shell: true}
+			p := NewPane(NewPaneParams{Terminal: terminal, Harnesses: tt.harnesses})
+
+			sent, err := p.Send(t.Context(), target, "weave: read_mail")
+			require.NoError(t, err)
+			assert.False(t, sent)
+			assert.Empty(t, terminal.actions)
+		})
+	}
 }
 
 // TestSendToAnUnknownHarnessPastesAnyway pins that a frame nothing can read is written to
