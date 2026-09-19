@@ -49,11 +49,13 @@ go_build_local() {
 	go build -ldflags "-X weave/internal/version.stamped=$version -X weave/internal/version.stampedCommit=$commit" -o "$out" .
 }
 
-custom_gcl_rules() {
-	find tools/weavelint .custom-gcl.yml -type f -print0 | sort -z | xargs -0 git hash-object | git hash-object --stdin
+custom_gcl_sum() {
+	find tools/weavelint .custom-gcl.yml -type f -print0 | LC_ALL=C sort -z | xargs -0 git hash-object | git hash-object --stdin
 }
 
 build_custom_gcl() {
+	local sum
+	sum="$(custom_gcl_sum)"
 	golangci-lint custom
-	custom_gcl_rules >local/custom-gcl.sum
+	echo "$sum" >local/custom-gcl.sum
 }

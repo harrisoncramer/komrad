@@ -39,9 +39,9 @@ if [ ! -x "$BIN_PATH" ]; then
 	echo "==> custom-gcl missing, building it"
 	build_custom_gcl
 elif [ ! -f "$SUM_PATH" ]; then
-	echo "==> custom-gcl has no record of the rules it was built from, rebuilding it"
+	echo "==> custom-gcl.sum missing, rebuilding custom-gcl"
 	build_custom_gcl
-elif [ "$(cat "$SUM_PATH")" != "$(custom_gcl_rules)" ]; then
+elif [ "$(cat "$SUM_PATH")" != "$(custom_gcl_sum)" ]; then
 	echo "==> rules changed since custom-gcl was built, rebuilding it"
 	build_custom_gcl
 fi
