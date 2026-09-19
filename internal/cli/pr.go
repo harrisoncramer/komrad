@@ -6,12 +6,18 @@ import (
 	"text/tabwriter"
 
 	"weave/lib/xhttp"
+	"weave/lib/xptr"
+	paginationv1 "weave/proto/gen/pagination/v1"
 	pullrequestv1 "weave/proto/gen/pullrequest/v1"
 	"weave/proto/gen/pullrequest/v1/pullrequestv1connect"
 
 	"connectrpc.com/connect"
 	"github.com/spf13/cobra"
 )
+
+// pullRequestPageSize is the most the endpoint hands over in one call, which is also what a
+// forge will.
+const pullRequestPageSize = 100
 
 func prCmd(state *app) *cobra.Command {
 	cmd := &cobra.Command{
@@ -40,6 +46,10 @@ one, the repository's open pull requests are listed.
     weave pr list git@github.com:harrisoncramer/weave.git
     weave pr list git@github.com:harrisoncramer/weave.git agent/some-branch
 
+The forge hands them over a hundred at a time and this follows every page, so the
+list is whole; to read one page at a time, call the endpoint through weave rpc
+with a limit and the cursor it answers.
+
 A repository the credential cannot see answers not found, which is how a token
 without access to a private repository shows up.`,
 		Args:          cobra.RangeArgs(1, 2),
@@ -53,12 +63,11 @@ without access to a private repository shows up.`,
 					branch = args[1]
 				}
 
-				resp, err := client.ListPullRequests(ctx, connect.NewRequest(&pullrequestv1.ListPullRequestsRequest{RemoteUrl: args[0], Branch: branch}))
+				pullRequests, err := listEveryPullRequest(ctx, client, args[0], branch)
 				if err != nil {
 					return err
 				}
 
-				pullRequests := resp.Msg.GetPullRequests()
 				if len(pullRequests) == 0 {
 					cmd.Println("no pull requests")
 
@@ -78,6 +87,32 @@ without access to a private repository shows up.`,
 				return w.Flush()
 			})
 		},
+	}
+}
+
+// listEveryPullRequest follows the endpoint's pages at the largest size it takes until it
+// answers no next page token.
+func listEveryPullRequest(ctx context.Context, client pullrequestv1connect.PullRequestServiceClient, remoteURL, branch string) ([]*pullrequestv1.PullRequest, error) {
+	var (
+		pullRequests []*pullrequestv1.PullRequest
+		cursor       *string
+	)
+	for {
+		resp, err := client.ListPullRequests(ctx, connect.NewRequest(&pullrequestv1.ListPullRequestsRequest{
+			RemoteUrl:  remoteURL,
+			Branch:     branch,
+			Pagination: &paginationv1.Pagination{Limit: xptr.Ptr(int32(pullRequestPageSize)), Cursor: cursor},
+		}))
+		if err != nil {
+			return nil, err
+		}
+
+		pullRequests = append(pullRequests, resp.Msg.GetPullRequests()...)
+		if resp.Msg.NextPageToken == nil {
+			return pullRequests, nil
+		}
+
+		cursor = resp.Msg.NextPageToken
 	}
 }
 

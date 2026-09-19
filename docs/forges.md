@@ -22,9 +22,24 @@ To see your current forges:
 weave forge list
 ```
 
-This shows every connected forge, who weave acts as there, and when the forge last confirmed it. You can use `weave forge disconnect github.com` to forget a forge, and `weave doctor` asks every connected forge again and warns for any that refuses.
+This shows every connected forge, who weave acts as there, and when the forge last confirmed it. `weave forge check` asks every connected forge again and records the answer, which is what `weave doctor` runs. You can use `weave forge disconnect github.com` to forget a forge.
+
+Every one of these commands is a client of the running service, which is what holds the connections. Add `--engine <name>` to run one against an engine instead of the laptop.
 
 `github.com` and `gitlab.com` say which forge they run. Any other host needs `--kind`, and weave then looks for its API at `https://<host>/api/v3` for GitHub or `/api/v4` for GitLab, which `--api-url` overrides. The address has to be https, since the token travels in every request to it.
+
+## Reading pull requests
+
+```bash
+weave pr list git@github.com:owner/repo.git
+weave pr list git@github.com:owner/repo.git some-branch
+```
+
+Give the repository the way a git remote spells it, since the host is what picks the connection. Without a branch, this lists the repository's open pull requests. With one, it lists every pull request opened from that branch whatever its state, which is the question the pull request sweep will ask.
+
+The forge answers a hundred at a time, so the endpoint pages: `list_pull_requests` takes a limit of at most a hundred, twenty when unset, and answers a `next_page_token` to pass back as the cursor. The command follows every page itself.
+
+A repository the credential cannot see answers not found, the same as one that does not exist, since the forge does not tell the two apart.
 
 ## Where authentication state lives
 
@@ -42,4 +57,4 @@ However, personal tokens do not expire by default with Weave. Weave will notice 
 
 ## Remote (Engine) Security Posture
 
-When running weave remotely, I recommend using a GitHub App identity to mint a token which dies in an hour, described in [administering the engine](engine-admin.md). Connecting an engine's forge through that App is the next piece of this work.
+When running weave remotely, I recommend using a GitHub App identity to mint a token which dies in an hour, described in [administering the engine](engine-admin.md). With the App configured, `weave forge connect github.com --method github-app` connects the engine's forge through it: nothing is written to disk, since every request mints or reuses the App's short-lived token, and the login recorded is the App's own name.

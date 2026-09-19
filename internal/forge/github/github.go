@@ -23,6 +23,9 @@ const DefaultAPI = "https://api.github.com"
 // DefaultTimeout bounds one call to GitHub.
 const DefaultTimeout = 30 * time.Second
 
+// MaxPerPage is the most GitHub hands over in one page, above which it silently trims.
+const MaxPerPage = 100
+
 // NewParams says how the forge reaches the API and as whom.
 type NewParams struct {
 	Auth forge.Authenticator
@@ -66,7 +69,7 @@ func (f *Forge) Verify(ctx context.Context) (string, error) {
 	var user struct {
 		Login string `json:"login"`
 	}
-	if err := f.get(ctx, "/user", &user); err != nil {
+	if _, err := f.get(ctx, "/user", &user); err != nil {
 		return "", err
 	}
 	if user.Login == "" {
@@ -82,28 +85,34 @@ func (f *Forge) VerifyInstallation(ctx context.Context) (int, error) {
 	var installation struct {
 		TotalCount int `json:"total_count"`
 	}
-	if err := f.get(ctx, "/installation/repositories?per_page=1", &installation); err != nil {
+	if _, err := f.get(ctx, "/installation/repositories?per_page=1", &installation); err != nil {
 		return 0, err
 	}
 
 	return installation.TotalCount, nil
 }
 
-// List is the repository's pull requests, every one from the named branch or the open ones
-// when no branch is named.
-func (f *Forge) List(ctx context.Context, repo git.RemoteURL, branch string) ([]forge.PullRequest, error) {
-	owner, name, err := ownerAndName(repo.Path)
+// List is one page of the repository's pull requests, every one from the named branch or
+// the open ones when no branch is named, and whether GitHub has another page.
+func (f *Forge) List(ctx context.Context, params forge.ListParams) (*forge.ListResult, error) {
+	owner, name, err := ownerAndName(params.Repo.Path)
 	if err != nil {
 		return nil, err
 	}
 
-	query := url.Values{"state": {"open"}, "per_page": {"100"}}
-	if branch != "" {
-		query.Set("state", "all")
-		query.Set("head", owner+":"+branch)
+	query := url.Values{
+		"state":    {"open"},
+		"per_page": {strconv.Itoa(min(max(params.PerPage, 1), MaxPerPage))},
+		"page":     {strconv.Itoa(max(params.Page, 1))},
 	}
+	if params.Branch != "" {
+		query.Set("state", "all")
+		query.Set("head", owner+":"+params.Branch)
+	}
+
 	var raws []pullRequest
-	if err := f.get(ctx, fmt.Sprintf("/repos/%s/%s/pulls?%s", owner, name, query.Encode()), &raws); err != nil {
+	answer, err := f.get(ctx, fmt.Sprintf("/repos/%s/%s/pulls?%s", owner, name, query.Encode()), &raws)
+	if err != nil {
 		return nil, err
 	}
 
@@ -112,7 +121,18 @@ func (f *Forge) List(ctx context.Context, repo git.RemoteURL, branch string) ([]
 		pullRequests = append(pullRequests, raw.toPullRequest())
 	}
 
-	return pullRequests, nil
+	return &forge.ListResult{PullRequests: pullRequests, HasMore: hasNextPage(answer.Header)}, nil
+}
+
+// hasNextPage reads GitHub's Link header for a page after this one.
+func hasNextPage(header http.Header) bool {
+	for _, link := range header.Values("Link") {
+		if strings.Contains(link, `rel="next"`) {
+			return true
+		}
+	}
+
+	return false
 }
 
 // Get is one pull request by its web address.
@@ -123,14 +143,14 @@ func (f *Forge) Get(ctx context.Context, address string) (forge.PullRequest, err
 	}
 
 	var raw pullRequest
-	if err := f.get(ctx, fmt.Sprintf("/repos/%s/%s/pulls/%d", owner, name, number), &raw); err != nil {
+	if _, err := f.get(ctx, fmt.Sprintf("/repos/%s/%s/pulls/%d", owner, name, number), &raw); err != nil {
 		return forge.PullRequest{}, err
 	}
 
 	return raw.toPullRequest(), nil
 }
 
-func (f *Forge) get(ctx context.Context, path string, into any) error {
+func (f *Forge) get(ctx context.Context, path string, into any) (xhttp.Answer, error) {
 	answer, err := xhttp.JSON(ctx, xhttp.JSONParams{
 		Client: f.client,
 		Method: http.MethodGet,
@@ -142,22 +162,22 @@ func (f *Forge) get(ctx context.Context, path string, into any) error {
 	}, into)
 	if err != nil {
 		if failure := fail.Of(err); failure != nil {
-			return failure
+			return xhttp.Answer{}, failure
 		}
 
-		return err
+		return xhttp.Answer{}, err
 	}
 
 	switch {
 	case answer.Status == http.StatusUnauthorized:
-		return fmt.Errorf("%w: %s", forge.ErrUnauthorized, messageOf(answer.Body))
+		return answer, fmt.Errorf("%w: %s", forge.ErrUnauthorized, messageOf(answer.Body))
 	case answer.Status == http.StatusNotFound:
-		return fmt.Errorf("%w: github answered 404 for %s, which is also its answer for a repository the credential cannot see", forge.ErrNotFound, path)
+		return answer, fmt.Errorf("%w: github answered 404 for %s, which is also its answer for a repository the credential cannot see", forge.ErrNotFound, path)
 	case !answer.IsSuccess():
-		return fmt.Errorf("github answered %d for %s: %s", answer.Status, path, messageOf(answer.Body))
+		return answer, fmt.Errorf("github answered %d for %s: %s", answer.Status, path, messageOf(answer.Body))
 	}
 
-	return nil
+	return answer, nil
 }
 
 // messageOf is what GitHub said went wrong, which its error bodies carry as message.

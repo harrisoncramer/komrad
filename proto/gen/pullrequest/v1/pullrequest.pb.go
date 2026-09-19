@@ -14,6 +14,7 @@ import (
 	sync "sync"
 	unsafe "unsafe"
 	_ "weave/proto/gen/annotation/v1"
+	v1 "weave/proto/gen/pagination/v1"
 )
 
 const (
@@ -30,7 +31,10 @@ type ListPullRequestsRequest struct {
 	RemoteUrl string `protobuf:"bytes,1,opt,name=remote_url,json=remoteUrl,proto3" json:"remote_url,omitempty"`
 	// The branch the pull requests were opened from, listed whatever their state; left empty,
 	// the repository's open pull requests are listed instead.
-	Branch        string `protobuf:"bytes,2,opt,name=branch,proto3" json:"branch,omitempty"`
+	Branch string `protobuf:"bytes,2,opt,name=branch,proto3" json:"branch,omitempty"`
+	// Which page to read and how many to a page, twenty when unset and at most a hundred, which
+	// is what the forge will hand over in one call.
+	Pagination    *v1.Pagination `protobuf:"bytes,3,opt,name=pagination,proto3,oneof" json:"pagination,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -77,6 +81,13 @@ func (x *ListPullRequestsRequest) GetBranch() string {
 		return x.Branch
 	}
 	return ""
+}
+
+func (x *ListPullRequestsRequest) GetPagination() *v1.Pagination {
+	if x != nil {
+		return x.Pagination
+	}
+	return nil
 }
 
 type PullRequest struct {
@@ -272,8 +283,10 @@ func (x *PullRequest) GetClosedAt() string {
 
 type ListPullRequestsResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Every pull request opened from the branch, as the forge orders them.
-	PullRequests  []*PullRequest `protobuf:"bytes,1,rep,name=pull_requests,json=pullRequests,proto3" json:"pull_requests,omitempty"`
+	// One page of pull requests, as the forge orders them.
+	PullRequests []*PullRequest `protobuf:"bytes,1,rep,name=pull_requests,json=pullRequests,proto3" json:"pull_requests,omitempty"`
+	// The token for the page after this one, unset on the last.
+	NextPageToken *string `protobuf:"bytes,2,opt,name=next_page_token,json=nextPageToken,proto3,oneof" json:"next_page_token,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -315,16 +328,27 @@ func (x *ListPullRequestsResponse) GetPullRequests() []*PullRequest {
 	return nil
 }
 
+func (x *ListPullRequestsResponse) GetNextPageToken() string {
+	if x != nil && x.NextPageToken != nil {
+		return *x.NextPageToken
+	}
+	return ""
+}
+
 var File_pullrequest_v1_pullrequest_proto protoreflect.FileDescriptor
 
 const file_pullrequest_v1_pullrequest_proto_rawDesc = "" +
 	"\n" +
-	" pullrequest/v1/pullrequest.proto\x12\x0epullrequest.v1\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\"f\n" +
+	" pullrequest/v1/pullrequest.proto\x12\x0epullrequest.v1\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1epagination/v1/pagination.proto\"\xb5\x01\n" +
 	"\x17ListPullRequestsRequest\x12)\n" +
 	"\n" +
 	"remote_url\x18\x01 \x01(\tB\n" +
 	"\xbaH\ar\x05\x10\x01\x18\x80\x10R\tremoteUrl\x12 \n" +
-	"\x06branch\x18\x02 \x01(\tB\b\xbaH\x05r\x03\x18\x80\x04R\x06branch\"\x9d\x04\n" +
+	"\x06branch\x18\x02 \x01(\tB\b\xbaH\x05r\x03\x18\x80\x04R\x06branch\x12>\n" +
+	"\n" +
+	"pagination\x18\x03 \x01(\v2\x19.pagination.v1.PaginationH\x00R\n" +
+	"pagination\x88\x01\x01B\r\n" +
+	"\v_pagination\"\x9d\x04\n" +
 	"\vPullRequest\x12\x14\n" +
 	"\x05forge\x18\x01 \x01(\tR\x05forge\x12\x1f\n" +
 	"\vprovider_id\x18\x02 \x01(\tR\n" +
@@ -352,11 +376,13 @@ const file_pullrequest_v1_pullrequest_proto_rawDesc = "" +
 	"\n" +
 	"_merged_atB\f\n" +
 	"\n" +
-	"_closed_at\"\\\n" +
+	"_closed_at\"\x9d\x01\n" +
 	"\x18ListPullRequestsResponse\x12@\n" +
-	"\rpull_requests\x18\x01 \x03(\v2\x1b.pullrequest.v1.PullRequestR\fpullRequests2\x8d\x04\n" +
-	"\x12PullRequestService\x12\xf6\x03\n" +
-	"\x10ListPullRequests\x12'.pullrequest.v1.ListPullRequestsRequest\x1a(.pullrequest.v1.ListPullRequestsResponse\"\x8e\x03\x9a\xb5\x18\x86\x03\b\x01\x10\x01\x1a\x12list_pull_requests\"\xeb\x02List a repository's pull requests through the forge connection for its host: every one opened from a branch when one is named, whatever its state, or the open ones when none is. Give the repository as a git remote spells it. A repository the connection's credential cannot see is answered as not found, which is also what a repository that does not exist answers.\x90\x02\x01B.Z,weave/proto/gen/pullrequest/v1;pullrequestv1b\x06proto3"
+	"\rpull_requests\x18\x01 \x03(\v2\x1b.pullrequest.v1.PullRequestR\fpullRequests\x12+\n" +
+	"\x0fnext_page_token\x18\x02 \x01(\tH\x00R\rnextPageToken\x88\x01\x01B\x12\n" +
+	"\x10_next_page_token2\xe9\x04\n" +
+	"\x12PullRequestService\x12\xd2\x04\n" +
+	"\x10ListPullRequests\x12'.pullrequest.v1.ListPullRequestsRequest\x1a(.pullrequest.v1.ListPullRequestsResponse\"\xea\x03\x9a\xb5\x18\xe2\x03\b\x01\x10\x01\x1a\x12list_pull_requests\"\xc7\x03List a repository's pull requests through the forge connection for its host, a page at a time: every one opened from a branch when one is named, whatever its state, or the open ones when none is. Give the repository as a git remote spells it, and pass the next_page_token back as pagination.cursor for the next page. A repository the connection's credential cannot see is answered as not found, which is also what a repository that does not exist answers.\x90\x02\x01B.Z,weave/proto/gen/pullrequest/v1;pullrequestv1b\x06proto3"
 
 var (
 	file_pullrequest_v1_pullrequest_proto_rawDescOnce sync.Once
@@ -375,16 +401,18 @@ var file_pullrequest_v1_pullrequest_proto_goTypes = []any{
 	(*ListPullRequestsRequest)(nil),  // 0: pullrequest.v1.ListPullRequestsRequest
 	(*PullRequest)(nil),              // 1: pullrequest.v1.PullRequest
 	(*ListPullRequestsResponse)(nil), // 2: pullrequest.v1.ListPullRequestsResponse
+	(*v1.Pagination)(nil),            // 3: pagination.v1.Pagination
 }
 var file_pullrequest_v1_pullrequest_proto_depIdxs = []int32{
-	1, // 0: pullrequest.v1.ListPullRequestsResponse.pull_requests:type_name -> pullrequest.v1.PullRequest
-	0, // 1: pullrequest.v1.PullRequestService.ListPullRequests:input_type -> pullrequest.v1.ListPullRequestsRequest
-	2, // 2: pullrequest.v1.PullRequestService.ListPullRequests:output_type -> pullrequest.v1.ListPullRequestsResponse
-	2, // [2:3] is the sub-list for method output_type
-	1, // [1:2] is the sub-list for method input_type
-	1, // [1:1] is the sub-list for extension type_name
-	1, // [1:1] is the sub-list for extension extendee
-	0, // [0:1] is the sub-list for field type_name
+	3, // 0: pullrequest.v1.ListPullRequestsRequest.pagination:type_name -> pagination.v1.Pagination
+	1, // 1: pullrequest.v1.ListPullRequestsResponse.pull_requests:type_name -> pullrequest.v1.PullRequest
+	0, // 2: pullrequest.v1.PullRequestService.ListPullRequests:input_type -> pullrequest.v1.ListPullRequestsRequest
+	2, // 3: pullrequest.v1.PullRequestService.ListPullRequests:output_type -> pullrequest.v1.ListPullRequestsResponse
+	3, // [3:4] is the sub-list for method output_type
+	2, // [2:3] is the sub-list for method input_type
+	2, // [2:2] is the sub-list for extension type_name
+	2, // [2:2] is the sub-list for extension extendee
+	0, // [0:2] is the sub-list for field type_name
 }
 
 func init() { file_pullrequest_v1_pullrequest_proto_init() }
@@ -392,7 +420,9 @@ func file_pullrequest_v1_pullrequest_proto_init() {
 	if File_pullrequest_v1_pullrequest_proto != nil {
 		return
 	}
+	file_pullrequest_v1_pullrequest_proto_msgTypes[0].OneofWrappers = []any{}
 	file_pullrequest_v1_pullrequest_proto_msgTypes[1].OneofWrappers = []any{}
+	file_pullrequest_v1_pullrequest_proto_msgTypes[2].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{

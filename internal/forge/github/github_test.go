@@ -130,12 +130,21 @@ func TestList(t *testing.T) {
 
 	f, _, seen := serve(t, "/repos/harrisoncramer/weave/pulls", "["+openPull+","+mergedPull+","+forkPull+","+deletedForkPull+"]", http.StatusOK)
 
-	pullRequests, err := f.List(t.Context(), weave, "agent/x")
+	listed, err := f.List(t.Context(), forge.ListParams{
+		Repo:    weave,
+		Branch:  "agent/x",
+		Page:    2,
+		PerPage: 50,
+	})
 	require.NoError(t, err)
 
 	assert.Equal(t, "harrisoncramer:agent/x", seen.URL.Query().Get("head"))
 	assert.Equal(t, "all", seen.URL.Query().Get("state"))
+	assert.Equal(t, "2", seen.URL.Query().Get("page"))
+	assert.Equal(t, "50", seen.URL.Query().Get("per_page"))
 	assert.Equal(t, "Bearer secret", seen.Header.Get("Authorization"))
+	assert.False(t, listed.HasMore)
+	pullRequests := listed.PullRequests
 	require.Len(t, pullRequests, 4)
 
 	stamp := time.Date(2026, 9, 18, 12, 0, 0, 0, time.UTC)
@@ -188,11 +197,32 @@ func TestListWithoutABranch(t *testing.T) {
 
 	f, _, seen := serve(t, "/repos/harrisoncramer/weave/pulls", "["+openPull+"]", http.StatusOK)
 
-	pullRequests, err := f.List(t.Context(), weave, "")
+	listed, err := f.List(t.Context(), forge.ListParams{Repo: weave})
 	require.NoError(t, err)
-	require.Len(t, pullRequests, 1)
+	require.Len(t, listed.PullRequests, 1)
 	assert.Equal(t, "open", seen.URL.Query().Get("state"))
+	assert.Equal(t, "1", seen.URL.Query().Get("page"))
 	assert.False(t, seen.URL.Query().Has("head"))
+}
+
+// TestListReadsTheNextPageFromLink covers GitHub saying another page follows.
+func TestListReadsTheNextPageFromLink(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Link", `<https://api.github.com/repos/harrisoncramer/weave/pulls?page=2>; rel="next", <https://api.github.com/repos/harrisoncramer/weave/pulls?page=9>; rel="last"`)
+		_, _ = w.Write([]byte("[" + openPull + "]"))
+	}))
+	t.Cleanup(server.Close)
+
+	f := New(NewParams{
+		Auth: &fakeAuth{token: "secret"},
+		API:  server.URL,
+		Next: server.Client().Transport,
+	})
+	listed, err := f.List(t.Context(), forge.ListParams{Repo: weave})
+	require.NoError(t, err)
+	assert.True(t, listed.HasMore)
 }
 
 // TestGet covers reading one pull request by its web address.
@@ -240,7 +270,7 @@ func TestListRefusesANestedPath(t *testing.T) {
 
 	f, _, _ := serve(t, "/never", "", http.StatusOK)
 
-	_, err := f.List(t.Context(), git.RemoteURL{Host: "github.com", Path: "group/sub/repo"}, "main")
+	_, err := f.List(t.Context(), forge.ListParams{Repo: git.RemoteURL{Host: "github.com", Path: "group/sub/repo"}, Branch: "main"})
 	require.ErrorIs(t, err, forge.ErrNotRepository)
 }
 
@@ -251,7 +281,7 @@ func TestUnauthorizedInvalidatesTheCredential(t *testing.T) {
 
 	f, auth, _ := serve(t, "/repos/harrisoncramer/weave/pulls", `{"message":"Bad credentials"}`, http.StatusUnauthorized)
 
-	_, err := f.List(t.Context(), weave, "main")
+	_, err := f.List(t.Context(), forge.ListParams{Repo: weave, Branch: "main"})
 	require.ErrorIs(t, err, forge.ErrUnauthorized)
 	assert.Equal(t, 1, auth.invalidated)
 }

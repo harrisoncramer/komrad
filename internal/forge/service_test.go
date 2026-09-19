@@ -15,7 +15,6 @@ import (
 	"time"
 
 	"weave/internal/dbtest"
-	"weave/internal/git"
 	githubapp "weave/internal/github/app"
 	"weave/internal/store"
 	forgestore "weave/internal/store/forge"
@@ -56,8 +55,8 @@ func (f *fakeForge) VerifyInstallation(ctx context.Context) (int, error) {
 	return f.reaches, f.err
 }
 
-func (f *fakeForge) List(context.Context, git.RemoteURL, string) ([]PullRequest, error) {
-	return nil, nil
+func (f *fakeForge) List(context.Context, ListParams) (*ListResult, error) {
+	return &ListResult{}, nil
 }
 
 func (f *fakeForge) Get(context.Context, string) (PullRequest, error) { return PullRequest{}, nil }

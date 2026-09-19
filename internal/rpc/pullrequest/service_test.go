@@ -9,16 +9,20 @@ import (
 	"weave/internal/git"
 	"weave/internal/store"
 	forgestore "weave/internal/store/forge"
+	"weave/lib/xptr"
+	paginationv1 "weave/proto/gen/pagination/v1"
 	pullrequestv1 "weave/proto/gen/pullrequest/v1"
+	"weave/proto/gen/pullrequest/v1/pullrequestv1weave"
 
+	"connectrpc.com/connect"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 type fakeForge struct {
 	pullRequests []forge.PullRequest
-	repo         git.RemoteURL
-	branch       string
+	hasMore      bool
+	params       forge.ListParams
 }
 
 func (f *fakeForge) Kind() string                           { return forge.KindGitHub }
@@ -27,10 +31,10 @@ func (f *fakeForge) Get(context.Context, string) (forge.PullRequest, error) {
 	return forge.PullRequest{}, nil
 }
 
-func (f *fakeForge) List(_ context.Context, repo git.RemoteURL, branch string) ([]forge.PullRequest, error) {
-	f.repo, f.branch = repo, branch
+func (f *fakeForge) List(_ context.Context, params forge.ListParams) (*forge.ListResult, error) {
+	f.params = params
 
-	return f.pullRequests, nil
+	return &forge.ListResult{PullRequests: f.pullRequests, HasMore: f.hasMore}, nil
 }
 
 type fakeFinder struct {
@@ -69,21 +73,57 @@ func TestListPullRequests(t *testing.T) {
 		MergedAt:   &merged,
 		ClosedAt:   &merged,
 	}}}
-	service := NewPullRequestService(&fakeFinder{forge: fake})
+	service := pullrequestv1weave.PullRequestServiceAdapter{Impl: NewPullRequestService(&fakeFinder{forge: fake})}
 
-	resp, failure := service.ListPullRequests(t.Context(), &pullrequestv1.ListPullRequestsRequest{
+	resp, err := service.ListPullRequests(t.Context(), connect.NewRequest(&pullrequestv1.ListPullRequestsRequest{
 		RemoteUrl: "git@github.com:harrisoncramer/weave.git",
 		Branch:    "agent/x",
-	})
-	require.Nil(t, failure)
-	assert.Equal(t, "harrisoncramer/weave", fake.repo.Path)
-	assert.Equal(t, "agent/x", fake.branch)
-	require.Len(t, resp.GetPullRequests(), 1)
+	}))
+	require.NoError(t, err)
+	assert.Equal(t, "harrisoncramer/weave", fake.params.Repo.Path)
+	assert.Equal(t, "agent/x", fake.params.Branch)
+	assert.Equal(t, 1, fake.params.Page)
+	assert.Equal(t, 20, fake.params.PerPage, "twenty to a page when the caller says nothing")
+	assert.Nil(t, resp.Msg.NextPageToken, "the only page carries no token")
+	require.Len(t, resp.Msg.GetPullRequests(), 1)
 
-	pullRequest := resp.GetPullRequests()[0]
+	pullRequest := resp.Msg.GetPullRequests()[0]
 	assert.Equal(t, "https://github.com/harrisoncramer/weave", pullRequest.GetRepositoryUrl())
 	assert.Empty(t, pullRequest.GetHeadRepositoryUrl(), "a head the forge no longer has is empty rather than https:///")
 	assert.NotNil(t, pullRequest.MergedAt)
+}
+
+// TestListPullRequestsPages covers the token round trip: a page with more behind it hands
+// back a token, and that token asks the forge for the page after.
+func TestListPullRequestsPages(t *testing.T) {
+	t.Parallel()
+
+	fake := &fakeForge{hasMore: true}
+	service := pullrequestv1weave.PullRequestServiceAdapter{Impl: NewPullRequestService(&fakeFinder{forge: fake})}
+
+	first, err := service.ListPullRequests(t.Context(), connect.NewRequest(&pullrequestv1.ListPullRequestsRequest{
+		RemoteUrl:  "git@github.com:harrisoncramer/weave.git",
+		Pagination: &paginationv1.Pagination{Limit: xptr.Ptr(int32(50))},
+	}))
+	require.NoError(t, err)
+	require.NotNil(t, first.Msg.NextPageToken)
+	assert.Equal(t, 50, fake.params.PerPage)
+
+	fake.hasMore = false
+	second, err := service.ListPullRequests(t.Context(), connect.NewRequest(&pullrequestv1.ListPullRequestsRequest{
+		RemoteUrl:  "git@github.com:harrisoncramer/weave.git",
+		Pagination: &paginationv1.Pagination{Cursor: first.Msg.NextPageToken},
+	}))
+	require.NoError(t, err)
+	assert.Equal(t, 2, fake.params.Page)
+	assert.Nil(t, second.Msg.NextPageToken)
+
+	_, err = service.ListPullRequests(t.Context(), connect.NewRequest(&pullrequestv1.ListPullRequestsRequest{
+		RemoteUrl:  "git@github.com:harrisoncramer/weave.git",
+		Pagination: &paginationv1.Pagination{Cursor: xptr.Ptr("not-a-token")},
+	}))
+	require.Error(t, err)
+	assert.Equal(t, connect.CodeInvalidArgument, connect.CodeOf(err))
 }
 
 // TestListPullRequestsRefusals covers a remote that is not one, and a host nothing is

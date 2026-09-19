@@ -1,10 +1,10 @@
 ## weave rpc list-pull-requests
 
-List a repository's pull requests through the forge connection for its host: every one opened from a branch when one is named, whatever its state, or the open ones when none is.
+List a repository's pull requests through the forge connection for its host, a page at a time: every one opened from a branch when one is named, whatever its state, or the open ones when none is.
 
 ### Synopsis
 
-List a repository's pull requests through the forge connection for its host: every one opened from a branch when one is named, whatever its state, or the open ones when none is. Give the repository as a git remote spells it. A repository the connection's credential cannot see is answered as not found, which is also what a repository that does not exist answers.
+List a repository's pull requests through the forge connection for its host, a page at a time: every one opened from a branch when one is named, whatever its state, or the open ones when none is. Give the repository as a git remote spells it, and pass the next_page_token back as pagination.cursor for the next page. A repository the connection's credential cannot see is answered as not found, which is also what a repository that does not exist answers.
 
 ```
 weave rpc list-pull-requests [flags]
@@ -13,12 +13,14 @@ weave rpc list-pull-requests [flags]
 ### Options
 
 ```
-      --branch string         string, at most 512 characters
-      --compact               print the response on one line
-  -h, --help                  help for list-pull-requests
-      --remote-url string     string, required, at most 2048 characters
-      --request-json string   the whole request as JSON, which the flags above are laid over
-      --timeout duration      how long to wait for the call (default 30s)
+      --branch string              string, at most 512 characters
+      --compact                    print the response on one line
+  -h, --help                       help for list-pull-requests
+      --pagination.cursor string   string, at most 2048 characters
+      --pagination.limit int32     int32
+      --remote-url string          string, required, at most 2048 characters
+      --request-json string        the whole request as JSON, which the flags above are laid over
+      --timeout duration           how long to wait for the call (default 30s)
 ```
 
 ### Options inherited from parent commands

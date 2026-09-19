@@ -3,6 +3,7 @@ package pullrequest
 
 import (
 	"context"
+	"fmt"
 
 	"weave/internal/fail"
 	"weave/internal/forge"
@@ -10,6 +11,7 @@ import (
 	"weave/internal/rpcerr"
 	forgestore "weave/internal/store/forge"
 	"weave/lib/dates"
+	"weave/lib/pagination"
 	pullrequestv1 "weave/proto/gen/pullrequest/v1"
 )
 
@@ -29,12 +31,34 @@ func NewPullRequestService(forges forgeFinder) *PullRequestService {
 	return &PullRequestService{forges: forges}
 }
 
-// ListPullRequests is every pull request opened from a branch, read through the connection for
-// the repository's host.
+// pageCursor is where a listing left off, which for a forge that pages by number is the
+// number of the page to read next.
+type pageCursor struct {
+	Page int `json:"page"`
+}
+
+// Validate refuses a page nobody could have been handed.
+func (c pageCursor) Validate() error {
+	if c.Page < 1 {
+		return fmt.Errorf("page %d is before the first", c.Page)
+	}
+
+	return nil
+}
+
+// ListPullRequests is one page of a repository's pull requests, read through the connection
+// for the repository's host.
 func (s *PullRequestService) ListPullRequests(ctx context.Context, req *pullrequestv1.ListPullRequestsRequest) (*pullrequestv1.ListPullRequestsResponse, *fail.Error) {
 	repo, err := git.ParseRemoteURL(req.GetRemoteUrl())
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to read the remote")
+	}
+
+	page := 1
+	if cursor, err := pagination.Decode[pageCursor](req.GetPagination().GetCursor()); err != nil {
+		return nil, rpcerr.From(err, "failed to read the page token")
+	} else if cursor != nil {
+		page = cursor.Page
 	}
 
 	connection, err := s.forges.ConnectionFor(ctx, repo.Host)
@@ -47,17 +71,32 @@ func (s *PullRequestService) ListPullRequests(ctx context.Context, req *pullrequ
 		return nil, rpcerr.From(err, "failed to build the forge")
 	}
 
-	pullRequests, err := f.List(ctx, repo, req.GetBranch())
+	listed, err := f.List(ctx, forge.ListParams{
+		Repo:    repo,
+		Branch:  req.GetBranch(),
+		Page:    page,
+		PerPage: int(pagination.Bound(req.GetPagination().GetLimit())),
+	})
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to list the pull requests")
 	}
 
-	resources := make([]*pullrequestv1.PullRequest, 0, len(pullRequests))
-	for _, pullRequest := range pullRequests {
+	resources := make([]*pullrequestv1.PullRequest, 0, len(listed.PullRequests))
+	for _, pullRequest := range listed.PullRequests {
 		resources = append(resources, renderPullRequest(pullRequest))
 	}
 
-	return &pullrequestv1.ListPullRequestsResponse{PullRequests: resources}, nil
+	response := &pullrequestv1.ListPullRequestsResponse{PullRequests: resources}
+	if listed.HasMore {
+		next, err := pagination.Token(pageCursor{Page: page + 1})
+		if err != nil {
+			return nil, rpcerr.From(err, "failed to build the next page token")
+		}
+
+		response.NextPageToken = next
+	}
+
+	return response, nil
 }
 
 func renderPullRequest(pullRequest forge.PullRequest) *pullrequestv1.PullRequest {

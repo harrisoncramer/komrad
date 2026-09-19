@@ -13,6 +13,10 @@ one, the repository's open pull requests are listed.
     weave pr list git@github.com:harrisoncramer/weave.git
     weave pr list git@github.com:harrisoncramer/weave.git agent/some-branch
 
+The forge hands them over a hundred at a time and this follows every page, so the
+list is whole; to read one page at a time, call the endpoint through weave rpc
+with a limit and the cursor it answers.
+
 A repository the credential cannot see answers not found, which is how a token
 without access to a private repository shows up.
 

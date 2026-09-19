@@ -4,6 +4,7 @@ package pullrequest.v1;
 
 import "annotation/v1/tool.proto";
 import "buf/validate/validate.proto";
+import "pagination/v1/pagination.proto";
 
 option go_package = "weave/proto/gen/pullrequest/v1;pullrequestv1";
 
@@ -17,6 +18,9 @@ message ListPullRequestsRequest {
   // The branch the pull requests were opened from, listed whatever their state; left empty,
   // the repository's open pull requests are listed instead.
   string branch = 2 [(buf.validate.field).string = {max_len: 512}];
+  // Which page to read and how many to a page, twenty when unset and at most a hundred, which
+  // is what the forge will hand over in one call.
+  optional pagination.v1.Pagination pagination = 3;
 }
 
 message PullRequest {
@@ -59,8 +63,10 @@ message PullRequest {
 }
 
 message ListPullRequestsResponse {
-  // Every pull request opened from the branch, as the forge orders them.
+  // One page of pull requests, as the forge orders them.
   repeated PullRequest pull_requests = 1;
+  // The token for the page after this one, unset on the last.
+  optional string next_page_token = 2;
 }
 
 // PullRequestService reads pull requests through the forge connections weave holds.
@@ -71,7 +77,7 @@ service PullRequestService {
       cli: true
       mcp: true
       name: "list_pull_requests"
-      description: "List a repository's pull requests through the forge connection for its host: every one opened from a branch when one is named, whatever its state, or the open ones when none is. Give the repository as a git remote spells it. A repository the connection's credential cannot see is answered as not found, which is also what a repository that does not exist answers."
+      description: "List a repository's pull requests through the forge connection for its host, a page at a time: every one opened from a branch when one is named, whatever its state, or the open ones when none is. Give the repository as a git remote spells it, and pass the next_page_token back as pagination.cursor for the next page. A repository the connection's credential cannot see is answered as not found, which is also what a repository that does not exist answers."
     };
   }
 }
