@@ -376,10 +376,10 @@ func TestRequireEngineBuild(t *testing.T) {
 			serve:   true,
 			body:    healthWithCommit(t, "v0.0.0-engine.4b1db3cf", engineCommit),
 			want:    "v0.0.0-engine.4b1db3cf (4b1db3c)",
-			wantFix: "rebuild this panel from the commit",
+			wantFix: "build weave from 4b1db3c",
 		},
 		{
-			name:    "an engine deployed from a dirty tree, which has no commit to rebuild from",
+			name:    "an engine deployed from a dirty tree, which has no commit to build from",
 			serve:   true,
 			body:    healthJSON(t, "v0.0.0-engine.4b1db3cf+dirty.131311"),
 			want:    "v0.0.0-engine.4b1db3cf+dirty.131311",
