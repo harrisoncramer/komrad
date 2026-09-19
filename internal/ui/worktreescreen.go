@@ -3,6 +3,7 @@ package ui
 import (
 	"fmt"
 	"slices"
+	"strconv"
 	"strings"
 
 	"weave/internal/ui/layout"
@@ -219,23 +220,9 @@ func (m model) worktreesHeader() string {
 	return m.talliedHeader("Worktrees", m.worktreesTally())
 }
 
-// worktreesTally is how many directories the listing holds and what the counted ones hold.
+// worktreesTally is how many directories the listing holds.
 func (m model) worktreesTally() string {
-	var total int64
-	counted := false
-	for _, item := range m.worktrees.items {
-		if item.bytes != nil {
-			total += *item.bytes
-			counted = true
-		}
-	}
-
-	size := "—"
-	if counted {
-		size = bytesLabel(total)
-	}
-
-	return fmt.Sprintf("%d · %s", len(m.worktrees.items), size)
+	return strconv.Itoa(len(m.worktrees.items))
 }
 
 func (m model) doesWorktreesFitDetails() bool {
@@ -331,7 +318,7 @@ func (m model) worktreeFields(item worktreeItem) []recordField {
 	fields := []recordField{
 		{"name", worktreeRow{item: item}.name()},
 		{"directory", item.dir},
-		{"size", sizeTrail(item)},
+		{"size", m.worktreeSizeField(item)},
 	}
 
 	if !item.readable {
@@ -350,6 +337,16 @@ func (m model) worktreeFields(item worktreeItem) []recordField {
 	}
 
 	return append(fields, recordField{"agent", m.worktreeAgentField(item)}, recordField{"workflow", m.worktreeWorkflowField(item)})
+}
+
+// worktreeSizeField is what the directory held when it was last read, a dash until it has been.
+func (m model) worktreeSizeField(item worktreeItem) string {
+	read, ok := m.worktrees.inspected[item.dir]
+	if !ok || !read.answered || read.err != nil {
+		return orDash("")
+	}
+
+	return bytesLabel(read.bytes)
 }
 
 // baseField spells where the branch stands against its base, or a dash when git names none.
@@ -456,11 +453,7 @@ func worktreeProse(item worktreeItem, read worktreeInspection) string {
 	var b strings.Builder
 
 	b.WriteString("## Contents\n\n")
-	if item.bytes == nil {
-		b.WriteString("_not counted yet_\n")
-	} else {
-		fenced(&b, entryLines(read.entries))
-	}
+	fenced(&b, entryLines(read.entries))
 
 	if !item.readable {
 		b.WriteString("\n_git cannot read this directory; its registration names a repository that is gone_\n")

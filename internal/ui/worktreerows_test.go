@@ -11,10 +11,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func bytesOf(n int64) *int64 {
-	return &n
-}
-
 // worktreeFixture is two repositories' worth of directories: a live agent, an archived one, a
 // directory nothing answers for, an unreadable one, and an occupant working in the live one.
 func worktreeFixture() []worktreeItem {
@@ -36,7 +32,6 @@ func worktreeFixture() []worktreeItem {
 				name:  "review-607",
 				state: agentstore.StateIdle,
 			}},
-			bytes: bytesOf(49 * 1024 * 1024),
 		},
 		{
 			dir:      "/trees/archived",
@@ -49,7 +44,6 @@ func worktreeFixture() []worktreeItem {
 				state:      agentstore.StateIdle,
 				archivedAt: &archived,
 			},
-			bytes: bytesOf(49 * 1024 * 1024),
 		},
 		{
 			dir:      "/trees/orphan",
@@ -72,7 +66,6 @@ func worktreeFixture() []worktreeItem {
 				state:      agentstore.StateIdle,
 				archivedAt: &archived,
 			},
-			bytes: bytesOf(1536 * 1024 * 1024),
 		},
 	}
 }
@@ -144,8 +137,8 @@ func TestRowIndexOfWorktreeAgent(t *testing.T) {
 	assert.Equal(t, -1, rowIndexOfWorktreeAgent(rows, ""))
 }
 
-// TestWorktreesSnapshotReadsEveryRow covers the kind, the process, the status, the repo glyph
-// and the trail each kind of row carries, with the header's trail summing the counted rows.
+// TestWorktreesSnapshotReadsEveryRow covers the kind, the process, the status and the repo
+// glyph each kind of row carries.
 func TestWorktreesSnapshotReadsEveryRow(t *testing.T) {
 	rows := worktreeRows(worktreeFixture())
 	snapshot := worktreesSnapshot(worktreesSnapshotParams{
@@ -171,7 +164,6 @@ func TestWorktreesSnapshotReadsEveryRow(t *testing.T) {
 	weave := byKey["repo:/home/h/weave"]
 	assert.Equal(t, view.KindWorkflow, weave.Kind)
 	assert.Equal(t, view.ProcessNone, weave.Process)
-	assert.Equal(t, "98M", weave.Trail)
 
 	live := byKey["tree:/trees/live"]
 	assert.Equal(t, view.KindAgent, live.Kind)
@@ -179,12 +171,10 @@ func TestWorktreesSnapshotReadsEveryRow(t *testing.T) {
 	assert.Equal(t, view.StatusWaiting, live.Status, "the agents listing's state wins over the worktree listing's")
 	assert.True(t, live.UnreadMail, "the marks come off the agents listing")
 	assert.Equal(t, view.RepoClean, live.Repo)
-	assert.Equal(t, "49M", live.Trail)
 
 	occupant := byKey["agent:occ"]
 	assert.Equal(t, view.KindChild, occupant.Kind)
 	assert.Equal(t, view.ProcessAlive, occupant.Process)
-	assert.Empty(t, occupant.Trail)
 
 	archived := byKey["tree:/trees/archived"]
 	assert.Equal(t, view.ProcessStopped, archived.Process)
@@ -193,11 +183,9 @@ func TestWorktreesSnapshotReadsEveryRow(t *testing.T) {
 	orphan := byKey["tree:/trees/orphan"]
 	assert.Equal(t, view.ProcessStopped, orphan.Process)
 	assert.True(t, orphan.Selected)
-	assert.Equal(t, "—", orphan.Trail)
 
 	broken := byKey["tree:/trees/broken"]
 	assert.Equal(t, view.RepoGone, broken.Repo)
-	assert.Equal(t, "—", byKey["repo:/var/folders/T/repo"].Trail)
 
 	assert.Equal(t, worktreesDropped, snapshot.Dropped)
 	assert.Equal(t, "tree:/trees/live", snapshot.Focused)

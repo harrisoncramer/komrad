@@ -196,7 +196,7 @@ func worktreesSnapshot(params worktreesSnapshotParams) view.Snapshot {
 	live := xslice.KeyBy(params.live, func(item agentItem) string { return item.agent.ID })
 
 	rows := make([]view.Row, 0, len(params.rows))
-	for i, r := range params.rows {
+	for _, r := range params.rows {
 		row := view.Row{
 			Key:     r.key(),
 			Name:    r.name(),
@@ -207,14 +207,12 @@ func worktreesSnapshot(params worktreesSnapshotParams) view.Snapshot {
 		case r.header:
 			row.Kind = view.KindWorkflow
 			row.Process = view.ProcessNone
-			row.Trail = groupTrail(params.rows[i+1:], r.repo)
 		case r.occupant != nil:
 			row.Kind = view.KindChild
 			row = worktreeAgentFacts(row, *r.occupant, live)
 		default:
 			row.Kind = view.KindAgent
 			row.Repo = repoStanding(r.item)
-			row.Trail = sizeTrail(r.item)
 			if r.item.agent != nil {
 				row = worktreeAgentFacts(row, *r.item.agent, live)
 			} else {
@@ -276,36 +274,6 @@ func repoStanding(item worktreeItem) view.Repo {
 	}
 
 	return view.RepoClean
-}
-
-// sizeTrail is a directory's size at the right edge, a dash until a count has reached it.
-func sizeTrail(item worktreeItem) string {
-	if item.bytes == nil {
-		return "—"
-	}
-
-	return bytesLabel(*item.bytes)
-}
-
-// groupTrail is the total of the counted directories under a header.
-func groupTrail(rest []worktreeRow, repo string) string {
-	var total int64
-	counted := false
-	for _, r := range rest {
-		if r.header || r.repo != repo {
-			break
-		}
-		if r.occupant == nil && r.item.bytes != nil {
-			total += *r.item.bytes
-			counted = true
-		}
-	}
-
-	if !counted {
-		return "—"
-	}
-
-	return bytesLabel(total)
 }
 
 // bytesLabel spells a byte count the way du does, at most four characters wide.

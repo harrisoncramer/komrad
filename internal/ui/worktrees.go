@@ -23,11 +23,9 @@ type worktreeItem struct {
 	agent    *worktreeAgent
 	// occupants are the other agents working in the directory.
 	occupants []worktreeAgent
-	// bytes is the last count, nil until one has reached the directory.
-	bytes *int64
 }
 
-// worktreeEntry is one top-level entry of a directory as of its last count.
+// worktreeEntry is one top-level entry of a directory.
 type worktreeEntry struct {
 	path  string
 	bytes int64
@@ -46,6 +44,7 @@ type worktreeInspection struct {
 	// pending says a fresh reading is on its way, and answered that one has come at all.
 	pending     bool
 	answered    bool
+	bytes       int64
 	entries     []worktreeEntry
 	modified    []string
 	untracked   []string

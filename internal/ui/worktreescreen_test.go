@@ -244,7 +244,7 @@ func TestDeleteChosenWorktreesRefusesALiveRow(t *testing.T) {
 	assert.Contains(t, after.messages.items[0].summary, "live agent")
 }
 
-// TestDeleteWorktreesFormSaysWhatGoes covers the title counting the directories and the size,
+// TestDeleteWorktreesFormSaysWhatGoes covers the title naming one directory or counting them,
 // and the branch line following the inspection.
 func TestDeleteWorktreesFormSaysWhatGoes(t *testing.T) {
 	items := worktreeFixture()
@@ -252,20 +252,17 @@ func TestDeleteWorktreesFormSaysWhatGoes(t *testing.T) {
 
 	form, _ := deleteWorktreesForm(worktreeDeletion{agents: items[1:2]}, &kept, config.FixedFormKeys())
 	drawn := formText(form)
-	assert.Contains(t, drawn, "Delete the worktree of review-column, 49M?")
+	assert.Contains(t, drawn, "Delete the worktree of review-column?")
 	assert.Contains(t, drawn, "The branch is kept")
 
 	form, _ = deleteWorktreesForm(worktreeDeletion{agents: items[1:2], unowned: items[2:4]}, nil, config.FixedFormKeys())
 	drawn = formText(form)
-	assert.Contains(t, drawn, "Delete 3 worktrees?", "a set with an uncounted directory names no size")
+	assert.Contains(t, drawn, "Delete 3 worktrees?")
 	assert.Contains(t, drawn, "2 directories nothing")
 	assert.NotContains(t, drawn, "branch is kept")
 
-	form, _ = deleteWorktreesForm(worktreeDeletion{agents: []worktreeItem{items[1], items[4]}}, nil, config.FixedFormKeys())
-	assert.Contains(t, formText(form), "Delete 2 worktrees, 1.5G?")
-
 	form, _ = deleteWorktreesForm(worktreeDeletion{unowned: items[3:4]}, nil, config.FixedFormKeys())
-	assert.Contains(t, formText(form), "Delete the worktree of broken?", "a directory nobody has counted names no size")
+	assert.Contains(t, formText(form), "Delete the worktree of broken?")
 }
 
 // formText is a form as it draws once it has been given a window, without the styling.
@@ -285,7 +282,7 @@ func TestWorktreeFieldsReadTheListingAndTheInspection(t *testing.T) {
 
 	before := fieldMap(m.worktreesDetails().fields)
 	assert.Equal(t, "review-column", before["name"])
-	assert.Equal(t, "49M", before["size"])
+	assert.Equal(t, "—", before["size"])
 	assert.Equal(t, "agent/archived", before["branch"])
 	assert.Equal(t, "claude, archived "+dates.Day(time.Date(2026, 9, 17, 12, 0, 0, 0, time.UTC)), before["agent"])
 	assert.Equal(t, "weave", before["workflow"])
@@ -293,6 +290,7 @@ func TestWorktreeFieldsReadTheListingAndTheInspection(t *testing.T) {
 
 	m.applyWorktreeInspection(worktreeInspectedMsg{dir: "/trees/archived", inspection: worktreeInspection{
 		answered:  true,
+		bytes:     49 * 1024 * 1024,
 		baseRef:   "origin/main",
 		ahead:     2,
 		behind:    12,
@@ -301,6 +299,7 @@ func TestWorktreeFieldsReadTheListingAndTheInspection(t *testing.T) {
 	}})
 
 	after := fieldMap(m.worktreesDetails().fields)
+	assert.Equal(t, "49M", after["size"])
 	assert.Equal(t, "origin/main  ↑2 ↓12", after["base"])
 	assert.Equal(t, "1 modified, 2 untracked", after["changes"])
 }
@@ -430,14 +429,13 @@ func TestARowReturnedToKeepsItsAnswerWhileItIsReadAgain(t *testing.T) {
 	assert.NotContains(t, m.worktreeDoc(), "reading the directory")
 }
 
-// TestWorktreesTallyHeadsTheList covers the title carrying the count and the total of what has
-// been counted, and a dash while nothing has.
+// TestWorktreesTallyHeadsTheList covers the title carrying the count.
 func TestWorktreesTallyHeadsTheList(t *testing.T) {
 	m := worktreesModel()
-	assert.Equal(t, "5 · 1.6G", m.worktreesTally())
+	assert.Equal(t, "5", m.worktreesTally())
 
 	m.worktrees.items = worktreeFixture()[2:4]
-	assert.Equal(t, "2 · —", m.worktreesTally())
+	assert.Equal(t, "2", m.worktreesTally())
 }
 
 // TestLogTargetOnTheWorktreesScreenIsTheHoveredAgent covers the log and terminal keys reading

@@ -610,7 +610,7 @@ func emptyArchiveForm(count int, keys config.FormKeys) (*huh.Form, *bool) {
 }
 
 // deleteWorktreesForm asks before a deletion, saying what goes through the agent delete, what the
-// remover takes on its own, how much disk that is, and where a lone branch stands.
+// remover takes on its own, and where a lone branch stands.
 func deleteWorktreesForm(deletion worktreeDeletion, keepsBranch *bool, keys config.FormKeys) (*huh.Form, *bool) {
 	count := len(deletion.agents) + len(deletion.unowned)
 	subject := countWord(count, "worktree", "worktrees")
@@ -618,9 +618,6 @@ func deleteWorktreesForm(deletion worktreeDeletion, keepsBranch *bool, keys conf
 		subject = "the worktree of " + worktreeRow{item: slices.Concat(deletion.agents, deletion.unowned)[0]}.name()
 	}
 	title := fmt.Sprintf("Delete %s?", subject)
-	if total, counted := deletion.bytes(); counted {
-		title = fmt.Sprintf("Delete %s, %s?", subject, bytesLabel(total))
-	}
 
 	var lines []string
 	switch n := len(deletion.agents); {

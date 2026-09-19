@@ -191,10 +191,6 @@ func worktreeItemFrom(w *worktreev1.Worktree) worktreeItem {
 		agent := worktreeAgentFrom(w.GetAgent())
 		item.agent = &agent
 	}
-	if w.SizeBytes != nil {
-		bytes := w.GetSizeBytes()
-		item.bytes = &bytes
-	}
 
 	return item
 }
@@ -211,6 +207,7 @@ func worktreeAgentFrom(a *worktreev1.WorktreeAgent) worktreeAgent {
 func worktreeInspectionFrom(read *worktreev1.GetWorktreeResponse) worktreeInspection {
 	return worktreeInspection{
 		answered: true,
+		bytes:    read.GetSizeBytes(),
 		entries: xslice.Map(read.GetEntries(), func(entry *worktreev1.Entry) worktreeEntry {
 			return worktreeEntry{
 				path:  entry.GetPath(),

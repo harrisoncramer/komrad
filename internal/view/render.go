@@ -40,7 +40,6 @@ func renderLine(line Line, columns Columns, palette paint.Palette, width int) st
 
 	row := gutter + " " + strings.Repeat(" ", line.Indent) + drawRule(palette, line.Rule) +
 		drawName(palette, line) + drawTrailing(palette, line)
-	row += drawTrail(palette, line, width-lipgloss.Width(row))
 
 	if line.Selected {
 		return paint.PaintRow(row, width)
@@ -99,18 +98,6 @@ func drawTrailing(palette paint.Palette, line Line) string {
 	}
 
 	return b.String()
-}
-
-// drawTrail is the text at the right edge, padded across the columns left after what precedes
-// it.
-func drawTrail(palette paint.Palette, line Line, left int) string {
-	if line.Trail == "" {
-		return ""
-	}
-
-	pad := max(left-lipgloss.Width(line.Trail), spaceColumns)
-
-	return strings.Repeat(" ", pad) + palette.Style(paint.ToneMuted).Render(line.Trail)
 }
 
 // drawGutterCell is a cell that holds its column whether or not it has anything to draw.
