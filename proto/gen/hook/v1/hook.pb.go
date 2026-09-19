@@ -166,11 +166,10 @@ const file_hook_v1_hook_proto_rawDesc = "" +
 	"\n" +
 	"\b_timeout\"8\n" +
 	"\x11ListHooksResponse\x12#\n" +
-	"\x05hooks\x18\x01 \x03(\v2\r.hook.v1.HookR\x05hooks2\xe0\x04\n" +
-	"\vHookService\x12\xd0\x04\n" +
-	"\tListHooks\x12\x16.google.protobuf.Empty\x1a\x1a.hook.v1.ListHooksResponse\"\x8e\x04\x9a\xb5\x18\x86\x04\n" +
-	"\n" +
-	"list_hooks\x12\xf7\x03List the hooks the user has written, which are executable files in their hooks directory. A hook is a script or program that takes one agent as its input, and a workflow names one against a moment in its agents' lives, such as pre-launch or post-resume. The name is what create_workflow and update_workflow take in a hook's script field. A file listed with executable false cannot be run until the user chmods it, and the description and timeout are what the file's own header comments declare about it.\x90\x02\x01B Z\x1eweave/proto/gen/hook/v1;hookv1b\x06proto3"
+	"\x05hooks\x18\x01 \x03(\v2\r.hook.v1.HookR\x05hooks2\xe4\x04\n" +
+	"\vHookService\x12\xd4\x04\n" +
+	"\tListHooks\x12\x16.google.protobuf.Empty\x1a\x1a.hook.v1.ListHooksResponse\"\x92\x04\x9a\xb5\x18\x8a\x04\b\x01\x10\x01\x1a\n" +
+	"list_hooks\"\xf7\x03List the hooks the user has written, which are executable files in their hooks directory. A hook is a script or program that takes one agent as its input, and a workflow names one against a moment in its agents' lives, such as pre-launch or post-resume. The name is what create_workflow and update_workflow take in a hook's script field. A file listed with executable false cannot be run until the user chmods it, and the description and timeout are what the file's own header comments declare about it.\x90\x02\x01B Z\x1eweave/proto/gen/hook/v1;hookv1b\x06proto3"
 
 var (
 	file_hook_v1_hook_proto_rawDescOnce sync.Once

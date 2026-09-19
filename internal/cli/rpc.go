@@ -48,12 +48,12 @@ func rpcMethodCmd(state *app, exposed rpcapi.Method) *cobra.Command {
 		timeout     time.Duration
 	)
 
-	name := strings.ReplaceAll(exposed.Annotation.GetToolName(), "_", "-")
-	description := strings.Join(strings.Fields(exposed.Annotation.GetDescription()), " ")
+	name := strings.ReplaceAll(exposed.Surfaces.GetName(), "_", "-")
+	description := strings.Join(strings.Fields(exposed.Surfaces.GetDescription()), " ")
 
 	cmd := &cobra.Command{
 		Use:           name,
-		Aliases:       []string{exposed.Annotation.GetToolName()},
+		Aliases:       []string{exposed.Surfaces.GetName()},
 		Short:         takeFirstSentence(description),
 		Long:          description,
 		Args:          cobra.NoArgs,

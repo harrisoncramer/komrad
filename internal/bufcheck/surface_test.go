@@ -11,9 +11,24 @@ import (
 
 const surfaceFile = "surface/v1/surface.proto"
 
-// TestOneSurface runs the methods declaring one surface alongside those declaring none or both.
-func TestOneSurface(t *testing.T) {
+// TestSurfaces runs the methods declaring their surfaces consistently alongside each way of
+// getting it wrong.
+func TestSurfaces(t *testing.T) {
 	t.Parallel()
+
+	expect := func(_ string, message string, start, end int) checktest.ExpectedAnnotation {
+		return checktest.ExpectedAnnotation{
+			RuleID:  bufcheck.SurfacesRuleID,
+			Message: message,
+			FileLocation: &checktest.ExpectedFileLocation{
+				FileName:    surfaceFile,
+				StartLine:   start,
+				StartColumn: 2,
+				EndLine:     end,
+				EndColumn:   endColumnOf(start, end),
+			},
+		}
+	}
 
 	checktest.CheckTest{
 		Request: &checktest.RequestSpec{
@@ -21,100 +36,68 @@ func TestOneSurface(t *testing.T) {
 				DirPaths:  []string{"testdata", "../../proto/proto"},
 				FilePaths: []string{surfaceFile},
 			},
-			RuleIDs: []string{bufcheck.OneSurfaceRuleID},
+			RuleIDs: []string{bufcheck.SurfacesRuleID},
 		},
 		Spec: bufcheck.Spec,
 		ExpectedAnnotations: []checktest.ExpectedAnnotation{
-			{
-				RuleID:  bufcheck.OneSurfaceRuleID,
-				Message: neitherMessage("Neither"),
-				FileLocation: &checktest.ExpectedFileLocation{
-					FileName:    surfaceFile,
-					StartLine:   20,
-					StartColumn: 2,
-					EndLine:     20,
-					EndColumn:   44,
-				},
-			},
-			{
-				RuleID:  bufcheck.OneSurfaceRuleID,
-				Message: bothMessage("Both"),
-				FileLocation: &checktest.ExpectedFileLocation{
-					FileName:    surfaceFile,
-					StartLine:   21,
-					StartColumn: 2,
-					EndLine:     27,
-					EndColumn:   3,
-				},
-			},
-			{
-				RuleID:  bufcheck.OneSurfaceRuleID,
-				Message: silentMessage("Silent"),
-				FileLocation: &checktest.ExpectedFileLocation{
-					FileName:    surfaceFile,
-					StartLine:   28,
-					StartColumn: 2,
-					EndLine:     30,
-					EndColumn:   3,
-				},
-			},
-			{
-				RuleID:  bufcheck.OneSurfaceRuleID,
-				Message: namelessMessage("Nameless"),
-				FileLocation: &checktest.ExpectedFileLocation{
-					FileName:    surfaceFile,
-					StartLine:   31,
-					StartColumn: 2,
-					EndLine:     33,
-					EndColumn:   3,
-				},
-			},
-			{
-				RuleID:  bufcheck.OneSurfaceRuleID,
-				Message: wordlessMessage("Wordless"),
-				FileLocation: &checktest.ExpectedFileLocation{
-					FileName:    surfaceFile,
-					StartLine:   34,
-					StartColumn: 2,
-					EndLine:     36,
-					EndColumn:   3,
-				},
-			},
+			expect("Undeclared", undeclaredMessage("Undeclared"), 35, 35),
+			expect("ModelOnly", modelOnlyMessage("ModelOnly"), 36, 44),
+			expect("Nameless", namelessMessage("Nameless"), 45, 51),
+			expect("Wordless", wordlessMessage("Wordless"), 52, 58),
+			expect("Silent", silentMessage("Silent"), 59, 64),
+			expect("Apologetic", apologeticMessage("Apologetic"), 65, 73),
 		},
 	}.Run(t)
 }
 
+// endColumnOf is where a method's declaration ends: the closing brace of a body, or the end of
+// the one-line form.
+func endColumnOf(start, end int) int {
+	if start == end {
+		return 47
+	}
+
+	return 3
+}
+
+func undeclaredMessage(method string) string {
+	return fmt.Sprintf(
+		"%q declares no (annotation.v1.surfaces), so nothing says who reaches it: the CLI and the MCP server are both generated from that annotation, and a method carrying none is served for the panel alone without saying so. Declare it, with cli and mcp each true or false.",
+		method,
+	)
+}
+
+func modelOnlyMessage(method string) string {
+	return fmt.Sprintf(
+		"%q is offered to a model as a tool but not to a script as a command. A tool is a command a model runs, so mcp implies cli; turn cli on or mcp off.",
+		method,
+	)
+}
+
 func namelessMessage(method string) string {
 	return fmt.Sprintf(
-		"%q declares (annotation.v1.tool) with no tool_name, which is the name both surfaces are generated under, so weave reads it as no annotation at all and serves the method on neither.",
+		"%q is on a surface with no name, which is what the command and the tool are both generated under, so weave serves it on neither.",
 		method,
 	)
 }
 
 func wordlessMessage(method string) string {
 	return fmt.Sprintf(
-		"%q declares (annotation.v1.tool) with no description. That string is the whole of what a model is told about the call and all the help the CLI prints, so without it the method reaches both surfaces as a name and nothing else.",
-		method,
-	)
-}
-
-func neitherMessage(method string) string {
-	return fmt.Sprintf(
-		"%q declares neither (annotation.v1.tool) nor (annotation.v1.panel_only), so it is served and reachable from nothing: the CLI and the MCP server are both generated from the tool annotation, and a method carrying none exists for no caller. Give it a tool annotation, or say with panel_only why the panel is to keep it.",
-		method,
-	)
-}
-
-func bothMessage(method string) string {
-	return fmt.Sprintf(
-		"%q declares both (annotation.v1.tool) and (annotation.v1.panel_only), which say opposite things about the same method. Drop whichever of the two is wrong.",
+		"%q is on a surface with no description. That string is the whole of what a model is told about the call and all the help the CLI prints, so without it the method reaches its callers as a name and nothing else.",
 		method,
 	)
 }
 
 func silentMessage(method string) string {
 	return fmt.Sprintf(
-		"%q declares (annotation.v1.panel_only) with no reason. The reason is the whole of what the annotation records, so without it the next reader cannot tell a deliberate omission from an oversight.",
+		"%q leaves a surface off with no reason. The reason is what tells the next reader a deliberate omission from an oversight.",
+		method,
+	)
+}
+
+func apologeticMessage(method string) string {
+	return fmt.Sprintf(
+		"%q is on every surface and yet gives a reason, which explains an omission that is not there. Drop the reason, or turn a surface off.",
 		method,
 	)
 }

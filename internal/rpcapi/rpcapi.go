@@ -32,9 +32,9 @@ var files = []protoreflect.FileDescriptor{
 }
 
 type Method struct {
-	Service    protoreflect.ServiceDescriptor
-	Method     protoreflect.MethodDescriptor
-	Annotation *annotationv1.ToolAnnotation
+	Service  protoreflect.ServiceDescriptor
+	Method   protoreflect.MethodDescriptor
+	Surfaces *annotationv1.Surfaces
 }
 
 // GetPath returns where the method is served, which for a unary call is its Connect route.
@@ -42,8 +42,8 @@ func (m Method) GetPath() string {
 	return "/" + string(m.Service.FullName()) + "/" + string(m.Method.Name())
 }
 
-// GetMethods iterates every annotated method across every served service, in the order the
-// protos declare them.
+// GetMethods iterates every method the CLI reaches across every served service, in the order
+// the protos declare them.
 func GetMethods() iter.Seq[Method] {
 	return func(yield func(Method) bool) {
 		for _, file := range files {
@@ -53,15 +53,15 @@ func GetMethods() iter.Seq[Method] {
 				for m := range service.Methods().Len() {
 					method := service.Methods().Get(m)
 
-					annotation := GetToolAnnotation(method)
-					if annotation == nil {
+					surfaces := GetSurfaces(method)
+					if !surfaces.GetCli() || surfaces.GetName() == "" {
 						continue
 					}
 
 					if !yield(Method{
-						Service:    service,
-						Method:     method,
-						Annotation: annotation,
+						Service:  service,
+						Method:   method,
+						Surfaces: surfaces,
 					}) {
 						return
 					}
@@ -71,36 +71,19 @@ func GetMethods() iter.Seq[Method] {
 	}
 }
 
-// GetToolAnnotation returns the method's tool annotation, nil when it has none and so is not
-// exposed.
-func GetToolAnnotation(method protoreflect.MethodDescriptor) *annotationv1.ToolAnnotation {
+// GetSurfaces returns which generated callers reach the method, nil when it declares none.
+func GetSurfaces(method protoreflect.MethodDescriptor) *annotationv1.Surfaces {
 	opts, ok := method.Options().(*descriptorpb.MethodOptions)
-	if !ok || !proto.HasExtension(opts, annotationv1.E_Tool) {
+	if !ok || !proto.HasExtension(opts, annotationv1.E_Surfaces) {
 		return nil
 	}
 
-	annotation, ok := proto.GetExtension(opts, annotationv1.E_Tool).(*annotationv1.ToolAnnotation)
-	if !ok || annotation.GetToolName() == "" {
-		return nil
-	}
-
-	return annotation
-}
-
-// GetPanelOnlyAnnotation returns the method's panel-only annotation, nil when it has none and so
-// is meant to be exposed.
-func GetPanelOnlyAnnotation(method protoreflect.MethodDescriptor) *annotationv1.PanelOnlyAnnotation {
-	opts, ok := method.Options().(*descriptorpb.MethodOptions)
-	if !ok || !proto.HasExtension(opts, annotationv1.E_PanelOnly) {
-		return nil
-	}
-
-	annotation, ok := proto.GetExtension(opts, annotationv1.E_PanelOnly).(*annotationv1.PanelOnlyAnnotation)
+	surfaces, ok := proto.GetExtension(opts, annotationv1.E_Surfaces).(*annotationv1.Surfaces)
 	if !ok {
 		return nil
 	}
 
-	return annotation
+	return surfaces
 }
 
 // GetRules returns the validation rules declared on a field, nil when it carries none.
@@ -125,9 +108,9 @@ func IsReadOnly(method protoreflect.MethodDescriptor) bool {
 
 // IsIdempotent reports whether calling the method twice lands where calling it once does,
 // taking the annotation's override when it carries one.
-func IsIdempotent(method protoreflect.MethodDescriptor, annotation *annotationv1.ToolAnnotation) bool {
-	if annotation != nil && annotation.Idempotent != nil {
-		return annotation.GetIdempotent()
+func IsIdempotent(method protoreflect.MethodDescriptor, surfaces *annotationv1.Surfaces) bool {
+	if surfaces != nil && surfaces.Idempotent != nil {
+		return surfaces.GetIdempotent()
 	}
 
 	level := getIdempotencyLevel(method)

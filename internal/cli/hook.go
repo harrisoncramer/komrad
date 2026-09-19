@@ -379,7 +379,7 @@ func recordDelivery(ctx context.Context, state *app, mail []mailItem) error {
 
 func toolPath(tool string) (string, error) {
 	for exposed := range rpcapi.GetMethods() {
-		if exposed.Annotation.GetToolName() == tool {
+		if exposed.Surfaces.GetName() == tool {
 			return exposed.GetPath(), nil
 		}
 	}

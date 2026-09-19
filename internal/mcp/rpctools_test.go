@@ -37,19 +37,18 @@ func TestEveryMethodDeclaresOneSurface(t *testing.T) {
 
 			for i := range service.Methods().Len() {
 				method := service.Methods().Get(i)
-				tool := rpcapi.GetToolAnnotation(method)
-				panelOnly := rpcapi.GetPanelOnlyAnnotation(method)
+				surfaces := rpcapi.GetSurfaces(method)
+				require.NotNil(t, surfaces, "method %s says nothing about who reaches it", method.Name())
 
-				if panelOnly != nil {
-					assert.Nil(t, tool, "method %s declares both surfaces", method.Name())
-					assert.NotEmpty(t, panelOnly.GetReason(), "method %s is panel only for no stated reason", method.Name())
+				if !surfaces.GetCli() && !surfaces.GetMcp() {
+					assert.NotEmpty(t, surfaces.GetReason(), "method %s is kept off both surfaces for no stated reason", method.Name())
 
 					continue
 				}
 
-				require.NotNil(t, tool, "method %s declares neither surface", method.Name())
-				assert.NotEmpty(t, tool.GetToolName(), "method %s has a tool annotation with no name", method.Name())
-				assert.NotEmpty(t, tool.GetDescription(), "tool %s needs a description", tool.GetToolName())
+				assert.True(t, surfaces.GetCli(), "method %s is a tool without a command", method.Name())
+				assert.NotEmpty(t, surfaces.GetName(), "method %s is on a surface with no name", method.Name())
+				assert.NotEmpty(t, surfaces.GetDescription(), "tool %s needs a description", surfaces.GetName())
 			}
 		})
 	}
@@ -120,7 +119,7 @@ func TestToolHints(t *testing.T) {
 			method := service.Methods().ByName(protoreflect.Name(tt.method))
 			require.NotNil(t, method)
 
-			hints := toolHints(method, rpcapi.GetToolAnnotation(method))
+			hints := toolHints(method, rpcapi.GetSurfaces(method))
 			assert.Equal(t, tt.readOnly, hints.ReadOnlyHint)
 			assert.Equal(t, tt.idempotent, hints.IdempotentHint)
 

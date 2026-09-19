@@ -30,8 +30,10 @@ message ListHooksResponse {
 service HookService {
   rpc ListHooks(google.protobuf.Empty) returns (ListHooksResponse) {
     option idempotency_level = NO_SIDE_EFFECTS;
-    option (annotation.v1.tool) = {
-      tool_name: "list_hooks"
+    option (annotation.v1.surfaces) = {
+      cli: true
+      mcp: true
+      name: "list_hooks"
       description: "List the hooks the user has written, which are executable files in their hooks directory. A hook is a script or program that takes one agent as its input, and a workflow names one against a moment in its agents' lives, such as pre-launch or post-resume. The name is what create_workflow and update_workflow take in a hook's script field. A file listed with executable false cannot be run until the user chmods it, and the description and timeout are what the file's own header comments declare about it."
     };
   }

@@ -26,8 +26,8 @@ const (
 	RequestEnumRuleID = "RPC_REQUEST_ENUM_DEFINED_ONLY"
 	// OneServiceRuleID is the rule giving each service a file of its own.
 	OneServiceRuleID = "SERVICE_ONE_PER_FILE"
-	// OneSurfaceRuleID is the rule requiring a method to say which surface it belongs to.
-	OneSurfaceRuleID = "RPC_DECLARES_ONE_SURFACE"
+	// SurfacesRuleID is the rule requiring a method to say who reaches it, consistently.
+	SurfacesRuleID = "RPC_DECLARES_SURFACES"
 )
 
 var (
@@ -66,11 +66,11 @@ var (
 				Handler: checkutil.NewMethodRuleHandler(checkRequestEnums, checkutil.WithoutImports()),
 			},
 			{
-				ID:      OneSurfaceRuleID,
+				ID:      SurfacesRuleID,
 				Default: true,
-				Purpose: "Checks that a method declares exactly one of (annotation.v1.tool) and (annotation.v1.panel_only).",
+				Purpose: "Checks that a method declares (annotation.v1.surfaces) and that what it declares is consistent: a tool has a command, a surface that is on has a name and a description, and a surface that is off has a reason.",
 				Type:    check.RuleTypeLint,
-				Handler: checkutil.NewMethodRuleHandler(checkOneSurface, checkutil.WithoutImports()),
+				Handler: checkutil.NewMethodRuleHandler(checkSurfaces, checkutil.WithoutImports()),
 			},
 			{
 				ID:      OneServiceRuleID,

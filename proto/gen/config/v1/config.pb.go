@@ -98,11 +98,10 @@ const file_config_v1_config_proto_rawDesc = "" +
 	"\x06config\x18\x01 \x01(\v2\x17.google.protobuf.StructR\x06config\x12&\n" +
 	"\fconfig_error\x18\x02 \x01(\tH\x00R\vconfigError\x88\x01\x01\x12\x18\n" +
 	"\aversion\x18\x03 \x01(\tR\aversionB\x0f\n" +
-	"\r_config_error2\xae\x05\n" +
-	"\rConfigService\x12\x9c\x05\n" +
-	"\tGetConfig\x12\x16.google.protobuf.Empty\x1a\x1c.config.v1.GetConfigResponse\"\xd8\x04\x9a\xb5\x18\xd0\x04\n" +
-	"\n" +
-	"get_config\x12\xc1\x04Read the panel's configuration as it is currently in force, keyed the same way the user's config file is. Covers the default flags every new agent inherits and the keybindings for each of the panel's screens. Anything the user left out of their file reads back as the built-in default. A configError in the response means their file would not parse, in which case the configuration returned is the defaults the panel is running on instead. The version is the build the server answering you is running, which is worth quoting in a bug report about behaviour that makes no sense.\x90\x02\x01B$Z\"weave/proto/gen/config/v1;configv1b\x06proto3"
+	"\r_config_error2\xb2\x05\n" +
+	"\rConfigService\x12\xa0\x05\n" +
+	"\tGetConfig\x12\x16.google.protobuf.Empty\x1a\x1c.config.v1.GetConfigResponse\"\xdc\x04\x9a\xb5\x18\xd4\x04\b\x01\x10\x01\x1a\n" +
+	"get_config\"\xc1\x04Read the panel's configuration as it is currently in force, keyed the same way the user's config file is. Covers the default flags every new agent inherits and the keybindings for each of the panel's screens. Anything the user left out of their file reads back as the built-in default. A configError in the response means their file would not parse, in which case the configuration returned is the defaults the panel is running on instead. The version is the build the server answering you is running, which is worth quoting in a bug report about behaviour that makes no sense.\x90\x02\x01B$Z\"weave/proto/gen/config/v1;configv1b\x06proto3"
 
 var (
 	file_config_v1_config_proto_rawDescOnce sync.Once
