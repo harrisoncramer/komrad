@@ -113,6 +113,8 @@ func PanelKey(namer keyNamer, configured string) string {
 type panelKeyTmux interface {
 	keyNamer
 	BindKeyChecked(key string, command ...string) error
+	UnbindKey(key string)
+	GetPrefixKeys() (map[string]string, error)
 }
 
 type BindPanelKeyParams struct {
@@ -134,17 +136,34 @@ type BindPanelKeyParams struct {
 // flag this server keeps, so a press can never read back a stale answer and refuse to open: an
 // answer weave cannot give reads as hidden, and hidden opens the popup.
 
-// BindPanelKey binds the panel key on the user's own tmux server, where it is pressed.
+// BindPanelKey binds the panel key on the user's own tmux server, where it is pressed, and
+// takes back any other key it bound there before.
 func BindPanelKey(t panelKeyTmux, params BindPanelKeyParams) error {
 	// A weave that names its own key can be bound beside another one, which is how a panel for a
 	// remote engine and a panel for a local one both answer from the same tmux.
 	key := PanelKey(t, params.Key)
 
+	shown := panelCommand(params, "shown")
 	hide := fmt.Sprintf("run-shell -b '%s'", panelCommand(params, "hide"))
 	open := fmt.Sprintf("display-popup -w 100%% -h 100%% -x C -y C -T ' weave ' -EE '%s'",
 		panelCommand(params, "open"))
 
-	return t.BindKeyChecked(key, "if-shell", panelCommand(params, "shown"), hide, open)
+	if err := t.BindKeyChecked(key, "if-shell", shown, hide, open); err != nil {
+		return err
+	}
+
+	bound, err := t.GetPrefixKeys()
+	if err != nil {
+		return err
+	}
+
+	for other, command := range bound {
+		if other != key && strings.HasPrefix(command, `if-shell "`+shown+`" `) {
+			t.UnbindKey(other)
+		}
+	}
+
+	return nil
 }
 
 func panelCommand(params BindPanelKeyParams, subcommand string) string {

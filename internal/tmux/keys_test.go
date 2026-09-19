@@ -40,6 +40,33 @@ func TestBindKeyStaysBehindThePrefix(t *testing.T) {
 	assert.NotContains(t, keyTable(t, client, "prefix"), "F2", "unbinding takes it out of the prefix table")
 }
 
+// TestGetPrefixKeysReadsBackWhatWasBound pins that every key the listing names is handed back
+// as tmux takes it, the ones list-keys escapes included.
+func TestGetPrefixKeysReadsBackWhatWasBound(t *testing.T) {
+	client := testServer(t, "keys")
+
+	keys := []string{"F7", "C-Space", `"`, "'", "#", "~", "M-'", "M-#"}
+	for _, key := range keys {
+		client.BindKey(key, "display-message", "bound")
+	}
+
+	bound, err := client.GetPrefixKeys()
+	require.NoError(t, err)
+
+	for _, key := range keys {
+		assert.Equal(t, "display-message bound", bound[key], key)
+
+		client.UnbindKey(key)
+	}
+
+	bound, err = client.GetPrefixKeys()
+	require.NoError(t, err)
+
+	for _, key := range keys {
+		assert.NotContains(t, bound, key, "the key the listing named is the one unbind-key takes")
+	}
+}
+
 // TestCheckedBindsReportWhatTmuxSaid pins the refusal reaching the caller.
 func TestCheckedBindsReportWhatTmuxSaid(t *testing.T) {
 	client := testServer(t, "keys")
