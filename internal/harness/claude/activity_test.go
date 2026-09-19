@@ -249,6 +249,31 @@ func TestReadActivity(t *testing.T) {
 			frame: "✻ Compacting conversation… (30s)\n───────────────\n  Ctrl+C to stop",
 			want:  harness.ActivityWorking,
 		},
+		{
+			name:  "a hook named inside the timer",
+			frame: "· Canoodling… (running PostToolUse hook · 3m 12s · ↓ 5.1k tokens)",
+			want:  harness.ActivityWorking,
+		},
+		{
+			name:  "a message queued behind the turn, with the status line scrolled off",
+			frame: "❯ ok\n  ctrl+x ctrl+s to send now\n───────────────\n❯ half a reply\n───────────────\n  -- INSERT --",
+			want:  harness.ActivityWorking,
+		},
+		{
+			name:  "the box saying a message is queued, with the queue scrolled off",
+			frame: "  the tail of some reply\n───────────────\n❯ \x1b[2mPress up to edit queued messages\x1b[0m\n───────────────\n  -- INSERT --",
+			want:  harness.ActivityWorking,
+		},
+		{
+			name:  "a marker greyed in a colour other than the rule's",
+			frame: "\x1b[38;5;244m───────────────\n\x1b[38;5;246m❯ \x1b[39m\n\x1b[38;5;244m───────────────\n  -- INSERT --",
+			want:  harness.ActivityWorking,
+		},
+		{
+			name:  "a marker in the terminal's own colour under a coloured rule",
+			frame: "\x1b[38;5;244m───────────────\n\x1b[39m❯ \n\x1b[38;5;244m───────────────\n  -- INSERT --",
+			want:  harness.ActivityIdle,
+		},
 	}
 
 	for _, tt := range tests {
