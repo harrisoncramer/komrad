@@ -542,8 +542,17 @@ func (m model) agentsView() string {
 	return m.columnView(model.agentsListView)
 }
 
+func (m model) agentsHeader() string {
+	return m.listHeader("Agents and Workflows")
+}
+
+func (m model) doesAgentsFitDetails() bool {
+	return m.doesListFitDetails(m.agentsHeader(), model.agentHelp)
+}
+
 func (m model) agentsListView() string {
-	record, help := m.detailsView(), m.renderHelp(m.agentHelp())
+	header := m.agentsHeader()
+	record, help := m.detailsView(), m.renderHelp(m.agentHelp(), header)
 	below := record + m.messagesRegion(record, help) + help
 
 	palette := paint.Panel
@@ -563,7 +572,6 @@ func (m model) agentsListView() string {
 		pane:          pane,
 	}))
 
-	header := palette.Title("Agents and Workflows") + "\n\n" + m.filterView()
 	lines := m.listLines(header, below)
 	window := view.Window(view.WindowParams{
 		List:    list,

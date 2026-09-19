@@ -29,7 +29,7 @@ func byLabel(bindings []key.Binding) []key.Binding {
 	return sorted
 }
 
-func (m model) renderHelp(k keyMap) string {
+func (m model) renderHelp(k keyMap, above ...string) string {
 	if m.isReviewThreadHolding() {
 		k = m.reviewThreadHelp()
 	}
@@ -55,11 +55,20 @@ func (m model) renderHelp(k keyMap) string {
 	// cannot hold gives way to its short form, a width of zero being a panel that has not been
 	// told how wide it is and which bubbles reads as no limit.
 	columns := helpColumns(byLabel(k.full), width)
-	if width > 0 && helpWidth(columns) > width {
+	full := fitLegend(view.FullHelpView(columns), width) + "\n"
+	if (width > 0 && helpWidth(columns) > width) || !m.doesLegendLeaveARow(full, above) {
 		return fitLegend(view.ShortHelpView(m.refusedExpansion(byLabel(k.short))), width) + "\n"
 	}
 
-	return fitLegend(view.FullHelpView(columns), width) + "\n"
+	return full
+}
+
+func (m model) doesLegendLeaveARow(legend string, above []string) bool {
+	if m.height <= 0 || len(above) == 0 {
+		return true
+	}
+
+	return m.spareLines(slices.Concat(above, []string{legend})...) >= 1
 }
 
 // refusedExpansion re-labels the legend's own key for the short form drawn in place of an

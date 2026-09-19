@@ -61,6 +61,12 @@ func (m model) isDetailsDrawn(held details) bool {
 	return spec.fits(m)
 }
 
+func (m model) doesListFitDetails(header string, help func(model) keyMap) bool {
+	m.details.focused = false
+
+	return m.spareLines(header, m.renderHelp(help(m), header)) > m.detailsLines()+detailsChromeLines
+}
+
 func (m model) isDetailsFocused() bool {
 	return m.details.focused && m.isDetailsDrawn(m.hoveredDetails())
 }

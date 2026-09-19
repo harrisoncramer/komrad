@@ -11,6 +11,7 @@ import (
 	workflowstore "weave/internal/store/workflow"
 	"weave/internal/ui/layout"
 	"weave/internal/ui/paint"
+	agentv1 "weave/proto/gen/agent/v1"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -26,6 +27,7 @@ func screensModel() model {
 		detailsHeight: config.DefaultDetailsHeight,
 		frame:         layout.New(&recordingTmux{}, config.DefaultLayout()),
 		listing:       listing{workflows: []workflowstore.Workflow{{ID: "w1", Name: "everything"}}},
+		search:        searchState{query: "agent39", turns: hits("agent39")},
 	}
 
 	for i := range total {
@@ -146,53 +148,58 @@ func TestListLines(t *testing.T) {
 }
 
 // TestScreensFitATightPane pins that a list handed no room is dropped rather than drawn past the
-// bottom of the pane, from the height each screen first fits at upwards.
+// bottom of the pane, from the height each screen first fits at upwards, and that the hovered row
+// is on screen from the height above that.
 func TestScreensFitATightPane(t *testing.T) {
 	const tall = 40
 
 	base := screensModel()
 
-	// fitsFrom is where the details record stops spilling rather than where the chrome fills the
-	// pane, since the record is drawn from a six-line pane onwards whether the screen has left it
-	// room or not, and the heights under it still overdraw by its rows.
 	tests := []struct {
 		name     string
 		screen   screen
 		expanded bool
 		fitsFrom int
+		hovered  string
 	}{
 		{
 			name:     "the agents tree",
 			screen:   screenAgents,
-			fitsFrom: 9,
+			fitsFrom: 5,
+			hovered:  "agent39",
 		},
 		{
 			name:     "the agents tree with the help expanded",
 			screen:   screenAgents,
 			expanded: true,
-			fitsFrom: 27,
+			fitsFrom: 5,
+			hovered:  "agent39",
 		},
 		{
 			name:     "the archive",
 			screen:   screenArchive,
-			fitsFrom: 9,
+			fitsFrom: 5,
+			hovered:  "agent39",
 		},
 		{
 			name:     "the archive with the help expanded",
 			screen:   screenArchive,
 			expanded: true,
-			fitsFrom: 15,
+			fitsFrom: 5,
+			hovered:  "agent39",
 		},
 		{
 			name:     "the schedules",
 			screen:   screenSchedules,
-			fitsFrom: 9,
+			fitsFrom: 5,
+			hovered:  "agent39",
 		},
 		{
 			name:     "the schedules with the help expanded",
 			screen:   screenSchedules,
 			expanded: true,
-			fitsFrom: 17,
+			fitsFrom: 5,
+			hovered:  "agent39",
 		},
 		{
 			name:     "the mailbox",
@@ -203,7 +210,20 @@ func TestScreensFitATightPane(t *testing.T) {
 			name:     "the mailbox with the help expanded",
 			screen:   screenMail,
 			expanded: true,
-			fitsFrom: 9,
+			fitsFrom: 6,
+		},
+		{
+			name:     "the search",
+			screen:   screenSearch,
+			fitsFrom: 5,
+			hovered:  "agent39",
+		},
+		{
+			name:     "the search with the help expanded",
+			screen:   screenSearch,
+			expanded: true,
+			fitsFrom: 5,
+			hovered:  "agent39",
 		},
 	}
 
@@ -216,9 +236,86 @@ func TestScreensFitATightPane(t *testing.T) {
 				shown.helpExpanded = tt.expanded
 
 				assert.Len(t, lines(shown.View()), height, "a pane %d lines tall", height)
+
+				if tt.hovered != "" && height > tt.fitsFrom {
+					assert.Contains(t, outsideTheRecord(shown), tt.hovered, "the hovered row is on screen in a pane %d lines tall", height)
+				}
 			}
 		})
 	}
+}
+
+// TestTheRecordGivesWayToTheList pins the record standing down on every list screen at the
+// height it would leave the list no row, and standing again one row taller.
+func TestTheRecordGivesWayToTheList(t *testing.T) {
+	tests := []struct {
+		name    string
+		screen  screen
+		model   func() model
+		fills   int
+		hovered string
+	}{
+		{
+			name:    "the agents tree",
+			screen:  screenAgents,
+			model:   screensModel,
+			fills:   10,
+			hovered: "agent39",
+		},
+		{
+			name:    "the archive",
+			screen:  screenArchive,
+			model:   screensModel,
+			fills:   10,
+			hovered: "agent39",
+		},
+		{
+			name:    "the schedules",
+			screen:  screenSchedules,
+			model:   screensModel,
+			fills:   10,
+			hovered: "agent39",
+		},
+		{
+			name:    "the mailbox",
+			screen:  screenMail,
+			model:   loadedMailModel,
+			fills:   12,
+			hovered: "vim wins",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			shown := tt.model()
+			shown.screen = tt.screen
+
+			shown.height = tt.fills
+			assert.Empty(t, shown.detailsView(), "the record gives up its rows")
+			assert.Contains(t, shown.View(), tt.hovered, "to the row the cursor stands on")
+
+			shown.height = tt.fills + 1
+			assert.NotEmpty(t, shown.detailsView(), "the record is drawn once the list keeps a row beside it")
+			assert.Contains(t, outsideTheRecord(shown), tt.hovered, "and the row the cursor stands on is still on screen")
+		})
+	}
+}
+
+func loadedMailModel() model {
+	m := mailModel(config.DefaultKeybindings())
+	m.width, m.detailsHeight = 80, config.DefaultDetailsHeight
+	m.applyMailLoaded(mailLoadedMsg{agentID: "a1", inbox: []*agentv1.Mail{received("m1", "neovim-fan", "vim wins")}})
+
+	return m
+}
+
+func outsideTheRecord(m model) string {
+	record := m.detailsView()
+	if record == "" {
+		return m.View()
+	}
+
+	return strings.Replace(m.View(), record, "", 1)
 }
 
 func lines(rendered string) []string {

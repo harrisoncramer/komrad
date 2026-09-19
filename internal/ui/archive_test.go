@@ -1111,25 +1111,22 @@ func TestArchiveKeepsTheOffsetWhenARowSlides(t *testing.T) {
 	assert.Zero(t, m.column.top, "landing on another row does start that one at its top")
 }
 
-// TestArchiveGivesUpTheSplitWhenTheListWillNotFit covers the legend, which gives up its columns as
-// the sidebar narrows and stands taller for it: a short window that held the list whole cannot
-// hold it once the document has taken half, so the document waits rather than the list running off
-// the bottom of the pane.
-func TestArchiveGivesUpTheSplitWhenTheListWillNotFit(t *testing.T) {
+// TestArchiveKeepsTheSplitInAShortPane covers the legend, which gives up its columns as the
+// sidebar narrows and stands taller for it: in a short window it gives up its expansion instead,
+// so the list stays inside its column and the document is drawn beside it.
+func TestArchiveKeepsTheSplitInAShortPane(t *testing.T) {
 	m := splitArchiveModel(t)
 	m.width, m.height = 120, 10
 	m.helpExpanded = true
 
-	_, ok := m.screenColumnSplit()
-	assert.False(t, ok, "ten rows cannot hold the list beside the document")
-	assert.Equal(t, m.width, m.paneWidth(), "so the list is drawn in the whole of the pane")
-	assert.LessOrEqual(t, paint.CountLines(m.View()), m.height, "and stays inside it")
-
-	m.height = 24
 	split, ok := m.screenColumnSplit()
-	require.True(t, ok, "a taller window holds both halves")
-	assert.Equal(t, split.sidebar, m.paneWidth(), "and the list is laid out against its own column")
-	assert.LessOrEqual(t, paint.CountLines(m.View()), m.height)
+	require.True(t, ok, "ten rows hold the list beside the document")
+	assert.Equal(t, split.sidebar, m.paneWidth(), "with the list laid out against its own column")
+	assert.Equal(t, m.height, paint.CountLines(m.View()), "and the view is exactly the pane")
+
+	drawn := ansi.Strip(m.View())
+	assert.Contains(t, drawn, "show help", "the legend gave up its expansion for the rows")
+	assert.NotContains(t, drawn, "hide help")
 }
 
 // TestArchiveDocViewFillsItsColumn covers the document's own column standing exactly as tall as

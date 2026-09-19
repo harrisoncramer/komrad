@@ -673,7 +673,7 @@ func (m model) searchSidebarView() string {
 		query += palette.Cursor().Render("▏")
 	}
 	header := palette.Title("Search") + "\n\n" + query + "\n\n"
-	help := m.renderHelp(m.searchHelp())
+	help := m.renderHelp(m.searchHelp(), header)
 
 	switch {
 	case strings.TrimSpace(m.search.query) == "":

@@ -369,12 +369,6 @@ func archiveColumn() columnSpec {
 	return columnSpec{
 		floor: columnFloor,
 		doc:   model.archiveDoc,
-		fits: func(m model, split columnSplit) bool {
-			// The legend gives up its columns as the sidebar narrows and stands taller for it, so a
-			// window the list fitted whole may not hold it once the document has taken half, and
-			// the list is worth more whole at the full width than halved and running off the bottom.
-			return paint.CountLines(m.at(split.sidebar).archiveListView()) <= split.rows
-		},
 	}
 }
 
@@ -399,13 +393,22 @@ func (m model) archiveSnapshot(rows []agentRow, pane int) view.Snapshot {
 	})
 }
 
+func (m model) archiveHeader() string {
+	return m.listHeader("Archive")
+}
+
+func (m model) doesArchiveFitDetails() bool {
+	return m.doesListFitDetails(m.archiveHeader(), model.archiveHelp)
+}
+
 func (m model) archiveListView() string {
-	record, help := m.detailsView(), m.renderHelp(m.archiveHelp())
+	header := m.archiveHeader()
+	record, help := m.detailsView(), m.renderHelp(m.archiveHelp(), header)
 	below := record + m.messagesRegion(record, help) + help
 
 	rows := m.archiveRows()
 	if len(rows) == 0 {
-		return m.listView("Archive", []string{dimStyle.Render("nothing archived")}, 0, below)
+		return m.headedListView(header, []string{dimStyle.Render("nothing archived")}, 0, below)
 	}
 
 	palette := paint.Panel
@@ -413,7 +416,6 @@ func (m model) archiveListView() string {
 
 	list := view.Prepare(m.archiveSnapshot(rows, pane))
 
-	header := palette.Title("Archive") + "\n\n" + m.filterView()
 	lines := m.listLines(header, below)
 	window := view.Window(view.WindowParams{
 		List:    list,
