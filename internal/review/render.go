@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"weave/internal/diff"
+	"weave/internal/ui/paint"
 	"weave/lib/xstr"
 	agentv1 "weave/proto/gen/agent/v1"
 
@@ -54,8 +55,8 @@ var (
 	fileStyle           = lipgloss.NewStyle().Bold(true)
 	metadataStyle       = lipgloss.NewStyle().Faint(true)
 	hunkStyle           = lipgloss.NewStyle().Foreground(lipgloss.Color("5"))
-	agentMarkStyle      = lipgloss.NewStyle().Foreground(lipgloss.Color("13"))
-	humanMarkStyle      = lipgloss.NewStyle().Foreground(lipgloss.Color("12"))
+	agentMarkStyle      = paint.Panel.Style(paint.ToneOther)
+	humanMarkStyle      = paint.Panel.Style(paint.ToneSelf)
 )
 
 // RenderRow draws one row of the diff at the width it is shown at, taking the cursor as an
