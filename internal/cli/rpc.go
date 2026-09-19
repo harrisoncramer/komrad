@@ -12,7 +12,10 @@ import (
 	"time"
 
 	"weave/internal/caller"
+	"weave/internal/doctor"
+	"weave/internal/errui"
 	"weave/internal/rpcapi"
+	"weave/internal/version"
 	"weave/lib/xhttp"
 
 	"github.com/spf13/cobra"
@@ -107,16 +110,38 @@ func rpcMethodCmd(state *app, exposed rpcapi.Method) *cobra.Command {
 	return cmd
 }
 
+// ErrServerBuild says the server on this machine is running other code than this binary.
+var ErrServerBuild = errors.New("the server is running code this binary was not built from")
+
+// requireServer refuses to call a server that is not there, or that is running other code
+// than this binary, since a method this build knows may not exist there or may mean something
+// else.
 func requireServer(ctx context.Context, addr, named string) error {
-	if probeServer(ctx, addr).answering {
-		return nil
+	probe := probeServer(ctx, addr)
+	if !probe.answering {
+		if named != addr {
+			return fmt.Errorf("the engine reached through %s is not serving at %s", addr, named)
+		}
+
+		return fmt.Errorf("nothing is serving at %s, run weave start first", named)
 	}
 
-	if named != addr {
-		return fmt.Errorf("the engine reached through %s is not serving at %s", addr, named)
+	if probe.version != "" && !probe.current {
+		if named != addr {
+			return fmt.Errorf("%w: it is serving %s and this binary is %s, so %s",
+				errui.ErrEngineBuild,
+				version.Describe(probe.version, probe.commit),
+				version.Describe(version.Version(), version.Commit()),
+				doctor.StaleEngineFix(probe.commit))
+		}
+
+		return fmt.Errorf("%w: %s is serving %s and this binary is %s, so restart it with weave stop and weave start",
+			ErrServerBuild, named,
+			version.Describe(probe.version, probe.commit),
+			version.Describe(version.Version(), version.Commit()))
 	}
 
-	return fmt.Errorf("nothing is serving at %s, run weave start first", named)
+	return nil
 }
 
 type callRPCParams struct {

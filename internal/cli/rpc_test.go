@@ -13,6 +13,7 @@ import (
 
 	"weave/config"
 	"weave/internal/caller"
+	"weave/internal/errui"
 	"weave/internal/server"
 	"weave/internal/version"
 
@@ -187,6 +188,24 @@ func TestRequireServerSaysHowToStartOne(t *testing.T) {
 	err = requireServer(t.Context(), dead, "127.0.0.1:8787")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "127.0.0.1:8787", "a forwarded engine is named by the address it was configured with")
+}
+
+// TestRequireServerRefusesAnotherBuild covers a server left running from an older build, which
+// would answer a call this binary makes with unimplemented or, worse, with something else.
+func TestRequireServerRefusesAnotherBuild(t *testing.T) {
+	stale := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`{"version":"v0.0.0-20260101000000-0123456789ab","commit":"0123456"}`))
+	}))
+	t.Cleanup(stale.Close)
+
+	addr := strings.TrimPrefix(stale.URL, "http://")
+	err := requireServer(t.Context(), addr, addr)
+	require.ErrorIs(t, err, ErrServerBuild)
+	assert.Contains(t, err.Error(), "0123456", "the build that is serving is named")
+	assert.Contains(t, err.Error(), "weave stop", "a local server is restarted")
+
+	err = requireServer(t.Context(), addr, "127.0.0.1:8787")
+	require.ErrorIs(t, err, errui.ErrEngineBuild, "a forwarded engine is somebody else's build to match")
 	assert.NotContains(t, err.Error(), "weave start", "starting a server here would not be the engine")
 }
 
