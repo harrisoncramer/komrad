@@ -989,8 +989,8 @@ func TestRecordReportKeepsTheReasonWithoutEndingTheTurn(t *testing.T) {
 	assert.Empty(t, cleared.Msg.GetAgent().GetReportedReason(), "a turn ending leaves nothing to say the agent is doing")
 }
 
-// TestSendMail pins the code each way of addressing mail wrongly is answered with, a name in
-// place of an id included.
+// TestSendMail pins the code each way of addressing mail wrongly is answered with, and that a
+// name reaches its holder as an id does.
 func TestSendMail(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -1003,11 +1003,6 @@ func TestSendMail(t *testing.T) {
 			to:       missingID,
 			callerIs: "alpha",
 			wantCode: connect.CodeNotFound,
-		},
-		{
-			name:     "a name rather than an id",
-			to:       "beta",
-			callerIs: "alpha",
 		},
 		{
 			name:     "an agent addressing itself",
@@ -1024,6 +1019,11 @@ func TestSendMail(t *testing.T) {
 		{
 			name:     "an agent messaging another by id",
 			to:       "beta-id",
+			callerIs: "alpha",
+		},
+		{
+			name:     "an agent messaging another by name",
+			to:       "beta",
 			callerIs: "alpha",
 		},
 		{
@@ -1097,11 +1097,31 @@ func TestSendMailByName(t *testing.T) {
 	weave := st.SeedWorkflow(t, workflowstore.Config{Name: "weave"})
 	docs := st.SeedWorkflow(t, workflowstore.Config{Name: "docs"})
 
-	alpha := st.SeedAgent(t, agentstore.Agent{Name: "alpha", Cwd: "/repo", WorkflowID: chariot.ID})
-	reviewerHere := st.SeedAgent(t, agentstore.Agent{Name: "reviewer", Cwd: "/repo", WorkflowID: chariot.ID})
-	st.SeedAgent(t, agentstore.Agent{Name: "reviewer", Cwd: "/repo", WorkflowID: weave.ID})
-	testerWeave := st.SeedAgent(t, agentstore.Agent{Name: "tester", Cwd: "/repo", WorkflowID: weave.ID})
-	testerDocs := st.SeedAgent(t, agentstore.Agent{Name: "tester", Cwd: "/repo", WorkflowID: docs.ID})
+	alpha := st.SeedAgent(t, agentstore.Agent{
+		Name:       "alpha",
+		Cwd:        "/repo",
+		WorkflowID: chariot.ID,
+	})
+	reviewerHere := st.SeedAgent(t, agentstore.Agent{
+		Name:       "reviewer",
+		Cwd:        "/repo",
+		WorkflowID: chariot.ID,
+	})
+	st.SeedAgent(t, agentstore.Agent{
+		Name:       "reviewer",
+		Cwd:        "/repo",
+		WorkflowID: weave.ID,
+	})
+	testerWeave := st.SeedAgent(t, agentstore.Agent{
+		Name:       "tester",
+		Cwd:        "/repo",
+		WorkflowID: weave.ID,
+	})
+	testerDocs := st.SeedAgent(t, agentstore.Agent{
+		Name:       "tester",
+		Cwd:        "/repo",
+		WorkflowID: docs.ID,
+	})
 
 	asAlpha := caller.With(t.Context(), caller.Caller{AgentID: alpha.ID})
 
@@ -1120,6 +1140,16 @@ func TestSendMailByName(t *testing.T) {
 	assert.Equal(t, connect.CodeInvalidArgument, connect.CodeOf(err))
 	assert.Contains(t, err.Error(), testerWeave.ID+" in workflow \"weave\"")
 	assert.Contains(t, err.Error(), testerDocs.ID+" in workflow \"docs\"")
+
+	_, err = st.Agents.Archive(t.Context(), []string{testerWeave.ID})
+	require.NoError(t, err)
+
+	sent, err = svc.SendMail(asAlpha, connect.NewRequest(&agentv1.SendMailRequest{
+		To:   "tester",
+		Body: "does the suite pass?",
+	}))
+	require.NoError(t, err)
+	assert.Equal(t, testerDocs.ID, sent.Msg.GetMail().GetToAgentId())
 }
 
 // TestSendMailPastTheExchangeLimitIsResourceExhausted pins that a pair that has written each

@@ -3,7 +3,6 @@ package agents
 import (
 	"context"
 	"fmt"
-	"sort"
 	"testing"
 	"time"
 
@@ -763,8 +762,6 @@ func (f *fakeDirectory) ListLiveNamed(_ context.Context, name string) ([]agentst
 		}
 	}
 
-	sort.Slice(named, func(i, j int) bool { return named[i].ID > named[j].ID })
-
 	return named, nil
 }
 
@@ -806,19 +803,60 @@ func (f fakeWorkflowNames) Get(_ context.Context, id string) (*workflowstore.Wor
 // workflow, and a name more than one workflow holds is refused naming each holder.
 func TestResolveRecipient(t *testing.T) {
 	workflowA, workflowB, workflowC := uuid.NewString(), uuid.NewString(), uuid.NewString()
-	workflows := fakeWorkflowNames{workflowA: "chariot", workflowB: "weave", workflowC: "docs"}
+	workflows := fakeWorkflowNames{
+		workflowA: "chariot",
+		workflowB: "weave",
+		workflowC: "docs",
+	}
 
-	sender := agentstore.Agent{ID: uuid.NewString(), Name: "api", WorkflowID: workflowA}
-	reviewerA := agentstore.Agent{ID: uuid.NewString(), Name: "reviewer", WorkflowID: workflowA}
-	reviewerB := agentstore.Agent{ID: uuid.NewString(), Name: "reviewer", WorkflowID: workflowB}
-	migrations := agentstore.Agent{ID: uuid.NewString(), Name: "migrations", WorkflowID: workflowB}
-	testerB := agentstore.Agent{ID: uuid.NewString(), Name: "tester", WorkflowID: workflowB}
-	testerC := agentstore.Agent{ID: uuid.NewString(), Name: "tester", WorkflowID: workflowC}
+	sender := agentstore.Agent{
+		ID:         uuid.NewString(),
+		Name:       "api",
+		WorkflowID: workflowA,
+	}
+	reviewerA := agentstore.Agent{
+		ID:         uuid.NewString(),
+		Name:       "reviewer",
+		WorkflowID: workflowA,
+	}
+	reviewerB := agentstore.Agent{
+		ID:         uuid.NewString(),
+		Name:       "reviewer",
+		WorkflowID: workflowB,
+	}
+	migrations := agentstore.Agent{
+		ID:         uuid.NewString(),
+		Name:       "migrations",
+		WorkflowID: workflowB,
+	}
+	testerB := agentstore.Agent{
+		ID:         uuid.NewString(),
+		Name:       "tester",
+		WorkflowID: workflowB,
+	}
+	testerC := agentstore.Agent{
+		ID:         uuid.NewString(),
+		Name:       "tester",
+		WorkflowID: workflowC,
+	}
 	archivedAt := time.Date(2026, time.August, 4, 9, 0, 0, 0, time.UTC)
-	retired := agentstore.Agent{ID: uuid.NewString(), Name: "retired", WorkflowID: workflowB, ArchivedAt: &archivedAt}
+	retired := agentstore.Agent{
+		ID:         uuid.NewString(),
+		Name:       "retired",
+		WorkflowID: workflowB,
+		ArchivedAt: &archivedAt,
+	}
 	unheldID := uuid.NewString()
-	namedLikeAnID := agentstore.Agent{ID: uuid.NewString(), Name: unheldID, WorkflowID: workflowB}
-	namedLikeAnother := agentstore.Agent{ID: uuid.NewString(), Name: reviewerA.ID, WorkflowID: workflowB}
+	namedLikeAnID := agentstore.Agent{
+		ID:         uuid.NewString(),
+		Name:       unheldID,
+		WorkflowID: workflowB,
+	}
+	namedLikeAnother := agentstore.Agent{
+		ID:         uuid.NewString(),
+		Name:       reviewerA.ID,
+		WorkflowID: workflowB,
+	}
 
 	directory := &fakeDirectory{byID: map[string]agentstore.Agent{}}
 	for _, agent := range []agentstore.Agent{sender, reviewerA, reviewerB, migrations, testerB, testerC, retired, namedLikeAnID, namedLikeAnother} {
