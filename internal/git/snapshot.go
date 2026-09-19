@@ -387,19 +387,83 @@ func (c *Client) GetTree(ctx context.Context, dir, sha string) (string, error) {
 	return tree, nil
 }
 
-// HasTreeMoved reports whether the worktree no longer hashes to the tree a snapshot commit holds.
-func (c *Client) HasTreeMoved(ctx context.Context, dir, sha string) (bool, error) {
-	probe, err := c.ProbeTree(ctx, dir)
+// Standing is where a worktree stands against the round a verdict was given on.
+type Standing int
+
+const (
+	// StandingSame is a worktree that still hashes to the round.
+	StandingSame Standing = iota
+	// StandingMoved is a worktree that differs from a round the base does not hold.
+	StandingMoved
+	// StandingLanded is a worktree carrying nothing beyond a base that holds the round whole.
+	StandingLanded
+	// StandingLandedMoved is a worktree carrying new work over a base that holds the round whole.
+	StandingLandedMoved
+)
+
+// ReadStandingParams names the worktree, the base it is measured against, and the round.
+type ReadStandingParams struct {
+	Dir         string
+	Base        string
+	SnapshotSHA string
+}
+
+// ReadStanding is where a worktree stands against the round a verdict was given on.
+func (c *Client) ReadStanding(ctx context.Context, params ReadStandingParams) (Standing, error) {
+	root, err := c.GetRoot(ctx, params.Dir)
+	if err != nil {
+		return StandingSame, err
+	}
+
+	probe, err := writeTree(ctx, root)
+	if err != nil {
+		return StandingSame, err
+	}
+
+	held, err := c.GetTree(ctx, root, params.SnapshotSHA)
+	if err != nil {
+		return StandingSame, err
+	}
+	if probe == held {
+		return StandingSame, nil
+	}
+
+	base := resolveBase(ctx, root, params.Base)
+
+	landed, err := doesHoldWhole(ctx, root, base, params.SnapshotSHA)
+	if err != nil || !landed {
+		return StandingMoved, err
+	}
+
+	mergeBase, err := Run(ctx, root, "merge-base", base, "HEAD")
+	if err != nil {
+		return StandingMoved, fmt.Errorf("failed to find where %q left %q: %w", root, base, err)
+	}
+
+	beneath, err := c.GetTree(ctx, root, mergeBase)
+	if err != nil {
+		return StandingMoved, err
+	}
+	if probe == beneath {
+		return StandingLanded, nil
+	}
+
+	return StandingLandedMoved, nil
+}
+
+// doesHoldWhole reports whether merging a commit into ref would change nothing of ref.
+func doesHoldWhole(ctx context.Context, root, ref, sha string) (bool, error) {
+	base, err := Run(ctx, root, "rev-parse", "--verify", ref+"^{tree}")
+	if err != nil {
+		return false, fmt.Errorf("failed to read the tree of %q: %w", ref, err)
+	}
+
+	merged, _, err := readMergedTree(ctx, readMergedTreeParams{Dir: root, Left: ref, Right: sha})
 	if err != nil {
 		return false, err
 	}
 
-	held, err := c.GetTree(ctx, dir, sha)
-	if err != nil {
-		return false, err
-	}
-
-	return probe != held, nil
+	return merged == base, nil
 }
 
 // Park records a checkout as it stands, tracked and untracked alike, so a move can be undone.

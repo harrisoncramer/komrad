@@ -204,6 +204,7 @@ func buildServices(params NewServerParams, st *stores) (*services, error) {
 		Heads:   git.NewClient(),
 		Trees:   git.NewClient(),
 		Tallies: st.review,
+		Bases:   st.workflows,
 	})
 
 	return &services{

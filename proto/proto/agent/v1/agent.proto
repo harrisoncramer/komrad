@@ -89,8 +89,8 @@ message Agent {
   // What the last released local review concluded about the agent's own work, empty when
   // none has concluded anything.
   string local_review_verdict = 33;
-  // Whether the agent's worktree no longer matches the round that verdict was given on.
-  bool local_review_tree_moved = 34;
+  // Where the agent's worktree stands against the round that verdict was given on.
+  ReviewTreeStanding local_review_tree = 34;
   // When a person stopped this agent and took its worktree, empty while nobody is holding it.
   string held_at = 35;
 }

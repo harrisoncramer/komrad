@@ -104,6 +104,13 @@ func TestListReviewThreadsAnswersTheCallerItHas(t *testing.T) {
 func reviewService(t *testing.T) (agentv1weave.AgentServiceAdapter, *storetest.Stores, *reviewstore.Store) {
 	t.Helper()
 
+	return reviewServiceOver(t, fakeTrees{})
+}
+
+// reviewServiceOver is the service over a git that answers the given standings.
+func reviewServiceOver(t *testing.T, trees fakeTrees) (agentv1weave.AgentServiceAdapter, *storetest.Stores, *reviewstore.Store) {
+	t.Helper()
+
 	st := storetest.Open(t)
 	reviews := reviewstore.New(st.Pool.GetDB())
 	mail := agents.NewMailService(agents.NewMailServiceParams{
@@ -131,7 +138,7 @@ func reviewService(t *testing.T) (agentv1weave.AgentServiceAdapter, *storetest.S
 		Runs:     st.Runs,
 		Marks:    markService(st),
 		Liveness: &fakeLauncher{},
-		Trees:    fakeTrees{},
+		Trees:    trees,
 	})}, st, reviews
 }
 
@@ -149,6 +156,56 @@ func (fakeSnapshotter) ReleaseRef(context.Context, string, string) error { retur
 
 func (fakeSnapshotter) ReadFileLines(context.Context, string, string, string) ([]string, error) {
 	return nil, nil
+}
+
+// TestListedAgentsCarryWhereTheirTreeStands pins that the standing the cwd pass found against
+// the round of the last verdict rides the row.
+func TestListedAgentsCarryWhereTheirTreeStands(t *testing.T) {
+	trees := fakeTrees{}
+	svc, st, _ := reviewServiceOver(t, trees)
+	worker := st.SeedAgent(t, agentstore.Agent{
+		Name:  "worker",
+		Cwd:   "/repo",
+		State: agentstore.StateIdle,
+	})
+	reviewer := st.SeedAgent(t, agentstore.Agent{
+		Name:          "reviewer",
+		Cwd:           "/repo",
+		State:         agentstore.StateIdle,
+		Role:          agentstore.RoleReviewer,
+		ParentAgentID: &worker.ID,
+	})
+	trees[worker.ID] = standingAt{snapshotSHA: "snapshot-sha", standing: git.StandingLandedMoved}
+
+	asReviewer := caller.With(t.Context(), caller.Caller{AgentID: reviewer.ID})
+	_, err := svc.OpenReviewRound(asReviewer, connect.NewRequest(&agentv1.OpenReviewRoundRequest{
+		AgentId: worker.ID,
+	}))
+	require.NoError(t, err)
+
+	standing := func() agentv1.ReviewTreeStanding {
+		listed, err := svc.ListAgents(t.Context(), connect.NewRequest(&agentv1.ListAgentsRequest{}))
+		require.NoError(t, err)
+
+		for _, agent := range listed.Msg.GetAgents() {
+			if agent.GetName() == "worker" {
+				return agent.GetLocalReviewTree()
+			}
+		}
+
+		return agentv1.ReviewTreeStanding_REVIEW_TREE_STANDING_UNSPECIFIED
+	}
+
+	assert.Equal(t, agentv1.ReviewTreeStanding_REVIEW_TREE_STANDING_UNSPECIFIED, standing(),
+		"a round nobody has concluded on is nothing to stand against")
+
+	_, err = svc.ReleaseReview(asReviewer, connect.NewRequest(&agentv1.ReleaseReviewRequest{
+		AgentId: worker.ID,
+		Verdict: agentv1.ReviewVerdict_REVIEW_VERDICT_APPROVED,
+	}))
+	require.NoError(t, err)
+
+	assert.Equal(t, agentv1.ReviewTreeStanding_REVIEW_TREE_STANDING_LANDED_MOVED, standing())
 }
 
 // TestListedAgentsCarryTheirReviewRounds is the wiring the panel draws its loop mark from: a

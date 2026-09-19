@@ -14,6 +14,7 @@ import (
 	"weave/config"
 	"weave/internal/agents"
 	"weave/internal/caller"
+	"weave/internal/git"
 	"weave/internal/logging"
 	"weave/internal/logtest"
 	"weave/internal/rpc/render"
@@ -2235,11 +2236,22 @@ func serviceWithLauncher(t *testing.T) (agentv1weave.AgentServiceAdapter, *store
 	})}, st, launcher
 }
 
-// fakeTrees is where each agent's worktree stands against its last verdict, moved for the ids
-// it holds and not for any other.
-type fakeTrees map[string]bool
+// fakeTrees is where each agent's worktree stands against the one round it was compared to,
+// and unmoved against any other.
+type fakeTrees map[string]standingAt
 
-func (f fakeTrees) HasTreeMoved(agentID, _ string) bool { return f[agentID] }
+type standingAt struct {
+	snapshotSHA string
+	standing    git.Standing
+}
+
+func (f fakeTrees) GetStanding(agentID, snapshotSHA string) git.Standing {
+	if at, ok := f[agentID]; ok && at.snapshotSHA == snapshotSHA {
+		return at.standing
+	}
+
+	return git.StandingSame
+}
 
 // TestEmptyArchiveQueuesTheSweep covers the request coming back once the work is queued, and a
 // queue that refuses saying so rather than reading as a sweep under way.

@@ -8,6 +8,7 @@ import (
 	schedulev1 "weave/proto/gen/schedule/v1"
 	workflowv1 "weave/proto/gen/workflow/v1"
 
+	"weave/internal/git"
 	agentstore "weave/internal/store/agent"
 	schedulestore "weave/internal/store/schedule"
 	workflowstore "weave/internal/store/workflow"
@@ -50,17 +51,32 @@ func protoToAgent(s *agentv1.Agent) agentstore.Agent {
 func agentItemsFrom(listed []*agentv1.Agent) []agentItem {
 	return xslice.Map(listed, func(agent *agentv1.Agent) agentItem {
 		return agentItem{
-			agent:          protoToAgent(agent),
-			alive:          agent.GetAlive(),
-			unreadMail:     agent.GetUnreadMail(),
-			unviewed:       agent.GetUnviewed(),
-			failedRun:      agent.GetFailedRun(),
-			failedRunLog:   agent.FailedRunLog,
-			localRounds:    agent.GetLocalReviewRounds(),
-			localVerdict:   agent.GetLocalReviewVerdict(),
-			localTreeMoved: agent.GetLocalReviewTreeMoved(),
+			agent:        protoToAgent(agent),
+			alive:        agent.GetAlive(),
+			unreadMail:   agent.GetUnreadMail(),
+			unviewed:     agent.GetUnviewed(),
+			failedRun:    agent.GetFailedRun(),
+			failedRunLog: agent.FailedRunLog,
+			localRounds:  agent.GetLocalReviewRounds(),
+			localVerdict: agent.GetLocalReviewVerdict(),
+			localTree:    standingFrom(agent.GetLocalReviewTree()),
 		}
 	})
+}
+
+// standingFrom is a standing as the wire carries it.
+func standingFrom(standing agentv1.ReviewTreeStanding) git.Standing {
+	switch standing {
+	case agentv1.ReviewTreeStanding_REVIEW_TREE_STANDING_MOVED:
+		return git.StandingMoved
+	case agentv1.ReviewTreeStanding_REVIEW_TREE_STANDING_LANDED:
+		return git.StandingLanded
+	case agentv1.ReviewTreeStanding_REVIEW_TREE_STANDING_LANDED_MOVED:
+		return git.StandingLandedMoved
+	case agentv1.ReviewTreeStanding_REVIEW_TREE_STANDING_UNSPECIFIED:
+	}
+
+	return git.StandingSame
 }
 
 func workflowsFrom(listed []*workflowv1.Workflow) []workflowstore.Workflow {

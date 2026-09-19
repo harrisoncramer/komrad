@@ -306,28 +306,129 @@ func TestTheTreeStandsUntilTheWorktreeMoves(t *testing.T) {
 	snapshot, err := client.TakeSnapshot(t.Context(), TakeSnapshotParams{Dir: root, Base: "main"})
 	require.NoError(t, err)
 
-	moved, err := client.HasTreeMoved(t.Context(), root, snapshot.SHA)
-	require.NoError(t, err)
-	assert.False(t, moved, "nothing has been written since the round was taken")
+	assert.Equal(t, StandingSame, standing(t, root, snapshot.SHA), "nothing has been written since the round was taken")
 
 	write(t, root, "loose.go", "package main\n\nfunc Later() {}\n")
 
-	moved, err = client.HasTreeMoved(t.Context(), root, snapshot.SHA)
-	require.NoError(t, err)
-	assert.True(t, moved, "an edit to a file the round holds is a move")
+	assert.Equal(t, StandingMoved, standing(t, root, snapshot.SHA), "an edit to a file the round holds is a move")
 
 	write(t, root, "loose.go", "package main\n")
 
-	moved, err = client.HasTreeMoved(t.Context(), root, snapshot.SHA)
-	require.NoError(t, err)
-	assert.False(t, moved, "a worktree edited back to the round is not a move")
+	assert.Equal(t, StandingSame, standing(t, root, snapshot.SHA), "a worktree edited back to the round is not a move")
 }
 
 // TestARebaseMovesTheTree pins that the comparison is of the whole tree rather than of the
-// agent's own diff: a rebase that brings in a commit of the base's moves it, which is the first
-// cut the column ships with.
+// agent's own diff: a rebase that brings in a commit of the base's moves it, and only a base
+// that has taken the round's content reads it as landed.
 func TestARebaseMovesTheTree(t *testing.T) {
 	root := repo(t)
+	snapshot := topicRound(t, root)
+
+	run(t, root, "checkout", "main")
+	write(t, root, "landed.go", "package main\n")
+	run(t, root, "add", "-A")
+	run(t, root, "commit", "-m", "landed")
+	run(t, root, "checkout", "topic")
+
+	assert.Equal(t, StandingSame, standing(t, root, snapshot.SHA), "the base moving on its own changes nothing in the agent's checkout")
+
+	run(t, root, "rebase", "main")
+
+	assert.Equal(t, StandingMoved, standing(t, root, snapshot.SHA), "the base does not hold the round, so the rebase is a move and nothing more")
+
+	landOn(t, root, snapshot.SHA)
+
+	assert.Equal(t, StandingLandedMoved, standing(t, root, snapshot.SHA), "once the base holds the round, the rebased branch still carries its own commit on top")
+}
+
+// TestALandedRoundWithNothingOnTopIsLanded is the round shipped and the branch reset onto the
+// base that took it.
+func TestALandedRoundWithNothingOnTopIsLanded(t *testing.T) {
+	root := repo(t)
+	snapshot := topicRound(t, root)
+	moveOn(t, root)
+	landOn(t, root, snapshot.SHA)
+
+	run(t, root, "reset", "--hard", "main")
+
+	assert.Equal(t, StandingLanded, standing(t, root, snapshot.SHA))
+}
+
+// TestALandedRoundWithNewWorkOnTopIsLandedAndMoved is the round shipped and the agent writing
+// more since.
+func TestALandedRoundWithNewWorkOnTopIsLandedAndMoved(t *testing.T) {
+	root := repo(t)
+	snapshot := topicRound(t, root)
+	moveOn(t, root)
+	landOn(t, root, snapshot.SHA)
+
+	run(t, root, "reset", "--hard", "main")
+	write(t, root, "later.go", "package main\n")
+
+	assert.Equal(t, StandingLandedMoved, standing(t, root, snapshot.SHA), "an uncommitted file is new work as much as a commit is")
+
+	run(t, root, "add", "-A")
+	run(t, root, "commit", "-m", "later")
+
+	assert.Equal(t, StandingLandedMoved, standing(t, root, snapshot.SHA))
+}
+
+// TestABranchBehindTheBaseTipIsStillClean pins that an agent sitting on an older base with
+// nothing of its own is clean however far the base has moved on.
+func TestABranchBehindTheBaseTipIsStillClean(t *testing.T) {
+	root := repo(t)
+	snapshot := topicRound(t, root)
+	moveOn(t, root)
+	landOn(t, root, snapshot.SHA)
+	run(t, root, "reset", "--hard", "main")
+	moveOn(t, root)
+
+	assert.Equal(t, StandingLanded, standing(t, root, snapshot.SHA))
+}
+
+// TestAStaleBaseReadsAsMovedNeverAsLanded pins that a base nobody has fetched errs toward a
+// pass owed and never toward green.
+func TestAStaleBaseReadsAsMovedNeverAsLanded(t *testing.T) {
+	root := repo(t)
+	snapshot := topicRound(t, root)
+	moveOn(t, root)
+	landOn(t, root, snapshot.SHA)
+	run(t, root, "reset", "--hard", "main")
+
+	run(t, root, "branch", "-f", "main", "main~1")
+
+	assert.Equal(t, StandingMoved, standing(t, root, snapshot.SHA))
+}
+
+// TestAnEditedRoundThatLandedIsNotLanded pins that landed means the base took the round itself
+// rather than a later state of the same branch.
+func TestAnEditedRoundThatLandedIsNotLanded(t *testing.T) {
+	root := repo(t)
+	snapshot := topicRound(t, root)
+
+	write(t, root, "topic.go", "package main\n\nfunc Changed() {}\n")
+	run(t, root, "add", "-A")
+	run(t, root, "commit", "-m", "changed after the round")
+	run(t, root, "checkout", "main")
+	run(t, root, "merge", "--ff-only", "topic")
+	run(t, root, "checkout", "topic")
+
+	assert.Equal(t, StandingMoved, standing(t, root, snapshot.SHA), "the base holds something other than the round that was approved")
+}
+
+func standing(t *testing.T, root, sha string) Standing {
+	t.Helper()
+
+	standing, err := client.ReadStanding(t.Context(), ReadStandingParams{Dir: root, Base: "main", SnapshotSHA: sha})
+	require.NoError(t, err)
+
+	return standing
+}
+
+// topicRound commits one change on a topic branch and takes a round of it.
+func topicRound(t *testing.T, root string) *Snapshot {
+	t.Helper()
+
 	run(t, root, "checkout", "-b", "topic")
 	write(t, root, "topic.go", "package main\n")
 	run(t, root, "add", "-A")
@@ -336,19 +437,29 @@ func TestARebaseMovesTheTree(t *testing.T) {
 	snapshot, err := client.TakeSnapshot(t.Context(), TakeSnapshotParams{Dir: root, Base: "main"})
 	require.NoError(t, err)
 
+	return snapshot
+}
+
+// moveOn puts a commit of somebody else's on main, leaving the checkout where it was.
+func moveOn(t *testing.T, root string) {
+	t.Helper()
+
+	was := capture(t, root, "rev-parse", "--abbrev-ref", "HEAD")
 	run(t, root, "checkout", "main")
-	write(t, root, "landed.go", "package main\n")
+	write(t, root, "other-"+capture(t, root, "rev-parse", "--short", "HEAD")+".go", "package main\n")
 	run(t, root, "add", "-A")
-	run(t, root, "commit", "-m", "landed")
-	run(t, root, "checkout", "topic")
+	run(t, root, "commit", "-m", "somebody else's")
+	run(t, root, "checkout", was)
+}
 
-	moved, err := client.HasTreeMoved(t.Context(), root, snapshot.SHA)
-	require.NoError(t, err)
-	assert.False(t, moved, "the base moving on its own changes nothing in the agent's checkout")
+// landOn squashes a round's content onto main the way a merge on the forge would, leaving the
+// checkout on the branch it was on.
+func landOn(t *testing.T, root, sha string) {
+	t.Helper()
 
-	run(t, root, "rebase", "main")
-
-	moved, err = client.HasTreeMoved(t.Context(), root, snapshot.SHA)
-	require.NoError(t, err)
-	assert.True(t, moved)
+	was := capture(t, root, "rev-parse", "--abbrev-ref", "HEAD")
+	run(t, root, "checkout", "main")
+	run(t, root, "merge", "--squash", sha)
+	run(t, root, "commit", "-m", "landed the round")
+	run(t, root, "checkout", was)
 }

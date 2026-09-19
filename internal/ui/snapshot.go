@@ -3,6 +3,7 @@ package ui
 import (
 	"regexp"
 
+	"weave/internal/git"
 	agentstore "weave/internal/store/agent"
 	reviewstore "weave/internal/store/review"
 	"weave/internal/view"
@@ -217,14 +218,26 @@ func snapshotRepo(agent agentstore.Agent) view.Repo {
 func snapshotReview(item agentItem) view.Review {
 	switch reviewstore.Verdict(item.localVerdict) {
 	case reviewstore.VerdictApproved:
-		if item.localTreeMoved {
+		switch item.localTree {
+		case git.StandingMoved:
 			return view.ReviewApprovedMoved
+		case git.StandingLanded:
+			return view.ReviewApprovedLanded
+		case git.StandingLandedMoved:
+			return view.ReviewApprovedLandedMoved
+		case git.StandingSame:
 		}
 
 		return view.ReviewApproved
 	case reviewstore.VerdictChangesRequested:
-		if item.localTreeMoved {
+		switch item.localTree {
+		case git.StandingMoved:
 			return view.ReviewChangesPushed
+		case git.StandingLanded:
+			return view.ReviewChangesLanded
+		case git.StandingLandedMoved:
+			return view.ReviewChangesLandedMoved
+		case git.StandingSame:
 		}
 
 		return view.ReviewChangesRequested
