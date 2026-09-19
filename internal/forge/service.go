@@ -56,9 +56,8 @@ type NewForgeServiceParams struct {
 	// Verified is what a refusal is recorded on, the connections themselves when unset and
 	// NoRecord for a caller that only reports.
 	Verified verifiedSetter
-	// LoadApp reads the GitHub App this machine can connect as, on every call that needs it so
-	// a config edit is seen without a restart; unset, or answering an unconfigured App, when
-	// it has none.
+	// LoadApp reads the GitHub App this machine can connect as, on every call that needs it,
+	// and is unset or answers an unconfigured App when it has none.
 	LoadApp func() (App, error)
 	// Now is the clock, time.Now when unset.
 	Now func() time.Time

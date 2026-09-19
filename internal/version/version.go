@@ -84,7 +84,7 @@ func IsEngineStamp(version string) bool {
 	return strings.HasPrefix(version, engineStampPrefix)
 }
 
-// Short is the first seven characters of a commit, which is how git shows one.
+// Short is the first seven characters of a commit.
 func Short(commit string) string {
 	if len(commit) <= shortCommit {
 		return commit
