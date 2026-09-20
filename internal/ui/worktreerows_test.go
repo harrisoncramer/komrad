@@ -11,8 +11,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// worktreeFixture is two repositories' worth of directories: a live agent, an archived one, a
-// directory nothing answers for, an unreadable one, and an occupant working in the live one.
+// worktreeFixture is two repositories' worth of directories: a live agent, one archived mid-turn
+// with the state it stopped in still stored, a directory nothing answers for, an unreadable one,
+// and an occupant working in the live one.
 func worktreeFixture() []worktreeItem {
 	archived := time.Date(2026, 9, 17, 12, 0, 0, 0, time.UTC)
 
@@ -41,7 +42,7 @@ func worktreeFixture() []worktreeItem {
 			agent: &worktreeAgent{
 				id:         "archived",
 				name:       "review-column",
-				state:      agentstore.StateIdle,
+				state:      agentstore.StateThinking,
 				archivedAt: &archived,
 			},
 		},
@@ -201,6 +202,7 @@ func TestWorktreesSnapshotReadsEveryRow(t *testing.T) {
 
 	archived := byKey["tree:/trees/archived"]
 	assert.Equal(t, view.ProcessStopped, archived.Process)
+	assert.Equal(t, view.StatusIdle, archived.Status, "a stored thinking on an agent with no pane reads as idle")
 	assert.True(t, archived.Archived)
 
 	orphan := byKey["tree:/trees/orphan"]
@@ -214,24 +216,73 @@ func TestWorktreesSnapshotReadsEveryRow(t *testing.T) {
 	assert.Equal(t, "tree:/trees/live", snapshot.Focused)
 }
 
-// TestWorktreeStatusReadsTheListingsState covers the mapping a row falls back on while the
-// agents listing does not hold its agent.
-func TestWorktreeStatusReadsTheListingsState(t *testing.T) {
+// TestWorktreeAgentFactsOffTheWorktreeListing covers an agent the agents listing does not hold
+// reading the same as it would on the archive: nothing runs behind it, so a state the pane
+// decided is idle and only a failure keeps its bar.
+func TestWorktreeAgentFactsOffTheWorktreeListing(t *testing.T) {
+	archived := time.Date(2026, 9, 17, 12, 0, 0, 0, time.UTC)
+
 	tests := []struct {
-		state agentstore.State
-		want  view.Status
+		name        string
+		state       agentstore.State
+		archivedAt  *time.Time
+		wantStatus  view.Status
+		wantProcess view.Process
 	}{
-		{state: agentstore.StateThinking, want: view.StatusThinking},
-		{state: agentstore.StateSettingUp, want: view.StatusThinking},
-		{state: agentstore.StateWaiting, want: view.StatusWaiting},
-		{state: agentstore.StateUncertain, want: view.StatusWaiting},
-		{state: agentstore.StateFailedToCleanup, want: view.StatusBroken},
-		{state: agentstore.StateIdle, want: view.StatusIdle},
+		{
+			name:        "archived mid-turn",
+			state:       agentstore.StateThinking,
+			archivedAt:  &archived,
+			wantStatus:  view.StatusIdle,
+			wantProcess: view.ProcessStopped,
+		},
+		{
+			name:        "archived while waiting",
+			state:       agentstore.StateWaiting,
+			archivedAt:  &archived,
+			wantStatus:  view.StatusIdle,
+			wantProcess: view.ProcessStopped,
+		},
+		{
+			name:        "archived while unreadable",
+			state:       agentstore.StateUncertain,
+			archivedAt:  &archived,
+			wantStatus:  view.StatusIdle,
+			wantProcess: view.ProcessStopped,
+		},
+		{
+			name:        "archived idle",
+			state:       agentstore.StateIdle,
+			archivedAt:  &archived,
+			wantStatus:  view.StatusIdle,
+			wantProcess: view.ProcessStopped,
+		},
+		{
+			name:        "left behind by a failed cleanup",
+			state:       agentstore.StateFailedToCleanup,
+			archivedAt:  &archived,
+			wantStatus:  view.StatusBroken,
+			wantProcess: view.ProcessAlive,
+		},
+		{
+			name:        "not yet in the agents listing",
+			state:       agentstore.StateThinking,
+			wantStatus:  view.StatusIdle,
+			wantProcess: view.ProcessStopped,
+		},
 	}
 
 	for _, tt := range tests {
-		t.Run(string(tt.state), func(t *testing.T) {
-			assert.Equal(t, tt.want, worktreeStatus(tt.state))
+		t.Run(tt.name, func(t *testing.T) {
+			row := worktreeAgentFacts(view.Row{}, worktreeAgent{
+				id:         "gone",
+				state:      tt.state,
+				archivedAt: tt.archivedAt,
+			}, map[string]agentItem{})
+
+			assert.Equal(t, tt.wantStatus, row.Status)
+			assert.Equal(t, tt.wantProcess, row.Process)
+			assert.Equal(t, tt.archivedAt != nil, row.Archived)
 		})
 	}
 }
