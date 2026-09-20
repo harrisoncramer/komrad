@@ -1,6 +1,8 @@
 package worktrees
 
 import (
+	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -110,4 +112,83 @@ func TestMeasureForgetsADirectoryThatHasGone(t *testing.T) {
 	assert.Equal(t, []string{gone}, f.sizes.deleted)
 	assert.Contains(t, f.sizes.stored, kept)
 	assert.NotContains(t, f.sizes.stored, gone)
+}
+
+// TestMeasureCarriesOnPastADirectoryItCannotRecord covers one refused write neither stopping
+// the pass nor hiding the failure: the directories after it are still walked and the error
+// comes back.
+func TestMeasureCarriesOnPastADirectoryItCannotRecord(t *testing.T) {
+	f := newFixture(t)
+	refused := f.cut(t, "aaaa")
+	after := f.cut(t, "bbbb")
+	f.sizes.refused = map[string]error{refused: errors.New("invalid byte sequence for encoding \"UTF8\"")}
+
+	err := f.measurer().Measure(t.Context())
+
+	require.ErrorContains(t, err, "invalid byte sequence")
+	assert.Equal(t, []string{after}, f.sizes.written)
+	assert.Positive(t, f.sizes.stored[after].Bytes)
+}
+
+// fakePaths lists whatever directories the test names, on disk or not.
+type fakePaths struct {
+	paths []string
+}
+
+func (p *fakePaths) ListPaths(context.Context) (Paths, error) {
+	return Paths{Paths: p.paths}, nil
+}
+
+// TestMeasureForgetsADirectoryThatVanishesMidPass covers a directory the listing named that is
+// gone by the time it is walked: its row is deleted and no error is recorded for it.
+func TestMeasureForgetsADirectoryThatVanishesMidPass(t *testing.T) {
+	f := newFixture(t)
+	vanished := filepath.Join(f.shared, "vanished")
+	f.sizes.stored[vanished] = worktreestore.Size{
+		Dir:        vanished,
+		Bytes:      1,
+		MeasuredAt: f.now.Add(-2 * time.Hour),
+	}
+	measurer := NewMeasurer(NewMeasurerParams{
+		Lister: &fakePaths{paths: []string{vanished}},
+		Sizes:  f.sizes,
+		Now:    func() time.Time { return f.now },
+	})
+
+	require.NoError(t, measurer.Measure(t.Context()))
+
+	assert.Equal(t, []string{vanished}, f.sizes.deleted)
+	assert.Empty(t, f.sizes.written)
+	assert.NotContains(t, f.sizes.stored, vanished)
+}
+
+// TestStorableText covers a NUL and a half rune being taken out of an error's text.
+func TestStorableText(t *testing.T) {
+	tests := []struct {
+		name string
+		text string
+		want string
+	}{
+		{
+			name: "a NUL is dropped",
+			text: "read a\x00b: denied",
+			want: "read ab: denied",
+		},
+		{
+			name: "a half rune is dropped",
+			text: "read /trees/\xff: denied",
+			want: "read /trees/: denied",
+		},
+		{
+			name: "clean text is left alone",
+			text: "read /trees/é: denied",
+			want: "read /trees/é: denied",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, storableText(tt.text))
+		})
+	}
 }

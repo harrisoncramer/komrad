@@ -112,11 +112,13 @@ func (o *fakeOwners) ListDirs(context.Context) ([]agentstore.AgentDir, error) {
 	return o.rows, nil
 }
 
-// fakeSizes holds measurements by directory, remembering the order they were written in.
+// fakeSizes holds measurements by directory, remembering the order they were written in and
+// refusing the directories the test names.
 type fakeSizes struct {
 	stored  map[string]worktreestore.Size
 	written []string
 	deleted []string
+	refused map[string]error
 }
 
 func (s *fakeSizes) ListSizes(context.Context) ([]worktreestore.Size, error) {
@@ -129,6 +131,10 @@ func (s *fakeSizes) ListSizes(context.Context) ([]worktreestore.Size, error) {
 }
 
 func (s *fakeSizes) Upsert(_ context.Context, size worktreestore.Size) error {
+	if err, ok := s.refused[size.Dir]; ok {
+		return err
+	}
+
 	s.stored[size.Dir] = size
 	s.written = append(s.written, size.Dir)
 

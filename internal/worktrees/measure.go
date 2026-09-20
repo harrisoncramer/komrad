@@ -6,6 +6,7 @@ import (
 	"errors"
 	"os"
 	"slices"
+	"strings"
 	"time"
 
 	worktreestore "weave/internal/store/worktree"
@@ -59,7 +60,7 @@ func NewMeasurer(params NewMeasurerParams) *Measurer {
 }
 
 // Measure forgets the directories that have gone, then walks the ones never measured and the
-// ones measured longest ago, at most a few per pass.
+// ones measured longest ago, at most a few per pass, carrying on past one it cannot record.
 func (m *Measurer) Measure(ctx context.Context) error {
 	found, err := m.lister.ListPaths(ctx)
 	if err != nil {
@@ -82,13 +83,18 @@ func (m *Measurer) Measure(ctx context.Context) error {
 		}
 	}
 
+	var failed []error
 	for _, dir := range choose(found.Paths, stored, m.now()) {
 		if err := m.measure(ctx, dir); err != nil {
-			return err
+			if ctx.Err() != nil {
+				return err
+			}
+
+			failed = append(failed, err)
 		}
 	}
 
-	return nil
+	return errors.Join(failed...)
 }
 
 // measure walks one directory under the deadline and records the size or the failure, or
@@ -107,12 +113,17 @@ func (m *Measurer) measure(ctx context.Context, dir string) error {
 
 	size := worktreestore.Size{Dir: dir, MeasuredAt: m.now()}
 	if err != nil {
-		size.Error = err.Error()
+		size.Error = storableText(err.Error())
 	} else {
 		size.Bytes = bytes
 	}
 
 	return m.sizes.Upsert(ctx, size)
+}
+
+// storableText is an error's text as a text column will take it, without NULs or half runes.
+func storableText(text string) string {
+	return strings.ToValidUTF8(strings.ReplaceAll(text, "\x00", ""), "")
 }
 
 // gone is every stored directory the listing no longer holds.

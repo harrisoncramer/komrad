@@ -17,7 +17,7 @@ func Prepare(snapshot Snapshot) List {
 	columns := fitColumns(snapshot.Pane, snapshot.Dropped)
 	if snapshot.Pane > 0 {
 		width := NameColumns(snapshot.Pane, columns)
-		trailed := holdsTrails(width)
+		trailed := hasRoomForTrails(width)
 		for i := range lines {
 			if !trailed {
 				lines[i].Trail = ""
@@ -29,8 +29,8 @@ func Prepare(snapshot Snapshot) List {
 	return List{Lines: lines, Columns: columns}
 }
 
-// holdsTrails reports whether a list drawn in the given name columns keeps its trails.
-func holdsTrails(width int) bool {
+// hasRoomForTrails reports whether a list drawn in the given name columns keeps its trails.
+func hasRoomForTrails(width int) bool {
 	return width-indentColumns-trailBudget >= minNameColumns
 }
 
