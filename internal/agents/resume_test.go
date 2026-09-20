@@ -259,7 +259,7 @@ func TestATurnCutOffWithNoTmuxServerIsAskedForAgain(t *testing.T) {
 	assert.Equal(t, interruptedPrompt, h.launches[0].Prompt)
 
 	stored = agentByID(t, st, agent.ID)
-	require.NoError(t, tmux.ClearPaneOwner(stored.Pane))
+	tmux.KillPane(stored.Pane)
 
 	_, err = service.resume.ResumeAgent(t.Context(), agent.ID)
 	require.NoError(t, err)
@@ -446,7 +446,7 @@ func TestAResumeIsClaimableAgainAfterOneFinishes(t *testing.T) {
 	_, err := manager.resume.ResumeAgent(ctx, agent.ID)
 	require.NoError(t, err)
 
-	require.NoError(t, tmux.ClearPaneOwner(agentByID(t, st, agent.ID).Pane))
+	tmux.KillPane(agentByID(t, st, agent.ID).Pane)
 
 	_, err = manager.resume.ResumeAgent(ctx, agent.ID)
 	require.NoError(t, err, "the claim goes with the resume that took it")

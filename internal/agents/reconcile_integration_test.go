@@ -74,8 +74,7 @@ func TestReconcileAgainstRealTmux(t *testing.T) {
 
 	assert.Equal(t, agentstore.StateIdle, stateOf(t, st, "exited"), "the agent whose CLI exited")
 	assert.Empty(t, agentByID(t, st, exited.ID).Pane, "the agent whose CLI exited forgets its pane")
-	assert.Empty(t, cli.GetPaneOwner(exitedPane), "the abandoned pane's stamp is cleared")
-	assert.True(t, cli.IsPaneAlive(exitedPane), "the shell's pane is left standing")
+	assert.False(t, cli.IsPaneAlive(exitedPane), "the shell's pane is closed")
 }
 
 // TestExitedCLIStopsBeingANudgeTarget pins that mail is not typed at an agent whose CLI has

@@ -151,19 +151,6 @@ func (c *Client) IsPaneInMode(pane string) bool {
 	return c.value("display-message", "-p", "-t", pane, "#{pane_in_mode}") == "1"
 }
 
-// ClearPaneOwner takes weave's stamp off a pane.
-func (c *Client) ClearPaneOwner(pane string) error {
-	if pane == "" {
-		return errors.New("refusing to unstamp an empty pane")
-	}
-
-	if _, err := c.query("set-option", "-p", "-u", "-t", pane, paneOwnerOption); err != nil {
-		return fmt.Errorf("failed to unstamp pane %q: %w", pane, err)
-	}
-
-	return nil
-}
-
 type PaneStatus struct {
 	Owner   string
 	Command string
