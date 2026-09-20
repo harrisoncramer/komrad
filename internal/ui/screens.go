@@ -101,8 +101,7 @@ type filterSpec struct {
 	// allows.
 	place func(*model, string)
 
-	// rows is every row on screen with the text a search reads, in the order they are drawn, and is
-	// left unset by a screen whose search narrows instead.
+	// rows is every row on screen with the text a search reads, in the order they are drawn.
 	rows func(model) []filterRow
 }
 
@@ -149,6 +148,7 @@ func (s screen) spec() screenSpec {
 			filter: &filterSpec{
 				hovered: model.hoveredScheduleKey,
 				place:   (*model).placeScheduleCursor,
+				rows:    model.scheduleFilterRows,
 			},
 			column: schedulesColumn,
 		}

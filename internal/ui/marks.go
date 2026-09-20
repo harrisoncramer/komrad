@@ -164,11 +164,18 @@ func (m model) jumpToRow(key string) (model, tea.Cmd, bool) {
 	origin := rowKeyAt(m.agentRows(), m.tree.cursor)
 
 	revealed := m
-	// A hidden row would make the jump quietly do nothing, so it is revealed on a copy the caller
-	// drops when the row is out of reach for some other reason, and a search is left alone
-	// throughout since a search never took a row off the screen to begin with.
+	// A hidden row, or one a filter took off the screen, would make the jump quietly do nothing,
+	// so each is revealed on a copy the caller drops when the row is out of reach for some other
+	// reason.
 	if rowIndexOfKey(revealed.agentRows(), key) < 0 {
+		revealed.filter.mode = filterModeSearch
+	}
+	if rowIndexOfKey(revealed.agentRows(), key) < 0 {
+		revealed.filter.mode = m.filter.mode
 		revealed.tree.showHidden = true
+	}
+	if rowIndexOfKey(revealed.agentRows(), key) < 0 {
+		revealed.filter.mode = filterModeSearch
 	}
 
 	idx := rowIndexOfKey(revealed.agentRows(), key)

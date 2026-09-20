@@ -146,11 +146,21 @@ func treeRows(params treeRowsParams) []agentRow {
 }
 
 func (m model) agentRows() []agentRow {
-	return treeRows(treeRowsParams{
+	rows := treeRows(treeRowsParams{
 		workflows:         m.listing.workflows,
 		agents:            m.listing.agents,
 		showHidden:        m.tree.showHidden,
 		foldOrchestrators: true,
+	})
+
+	return narrowedAgentRows(m.filter, rows)
+}
+
+func narrowedAgentRows(filter filterState, rows []agentRow) []agentRow {
+	return narrowed(filter, narrowedParams[agentRow]{
+		rows:  rows,
+		depth: agentRowDepth,
+		name:  agentRowName,
 	})
 }
 

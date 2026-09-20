@@ -26,6 +26,8 @@ func (m model) enterWorktrees() (tea.Model, tea.Cmd) {
 
 // openWorktrees is the key's own way onto the screen, landing on the hovered agent's directory.
 func (m model) openWorktrees(agentID string) (tea.Model, tea.Cmd) {
+	m.enterScreen(screenWorktrees)
+
 	m.worktrees.focus = agentID
 	if idx := rowIndexOfWorktreeAgent(m.worktreeRows(), agentID); idx >= 0 {
 		m.worktrees.cursor = idx
@@ -172,7 +174,7 @@ func (m model) worktreesView() string {
 
 func worktreesTabs() tabStrip {
 	return tabStrip{
-		title:  "⇅",
+		title:  "↑↓",
 		legend: "sort",
 		options: []tabOption{
 			{id: "size", label: "size"},
@@ -206,7 +208,7 @@ func (m model) worktreesListView() string {
 
 	rows := m.worktreeRows()
 	if len(rows) == 0 {
-		return m.headedListView(header, []string{dimStyle.Render("no worktrees")}, 0, below)
+		return m.headedListView(header, []string{dimStyle.Render(m.emptyListLine("no worktrees"))}, 0, below)
 	}
 
 	pane := m.paneWidth()
@@ -226,6 +228,7 @@ func (m model) worktreesListView() string {
 func (m model) worktreesSnapshot(rows []worktreeRow, pane int) view.Snapshot {
 	return worktreesSnapshot(worktreesSnapshotParams{
 		rows:          rows,
+		items:         m.worktrees.items,
 		selected:      m.worktrees.selected,
 		focused:       rowKeyAt(rows, m.worktrees.cursor),
 		live:          m.listing.agents,
@@ -254,14 +257,7 @@ func (m model) worktreesDetails() details {
 }
 
 func (m model) countUnder(repo string) int {
-	count := 0
-	for _, row := range m.worktreeRows() {
-		if !row.header && row.repo == repo {
-			count++
-		}
-	}
-
-	return count
+	return len(itemsUnder(m.worktrees.items, repo))
 }
 
 func (m model) worktreeFields(item worktreeItem, now time.Time) []recordField {

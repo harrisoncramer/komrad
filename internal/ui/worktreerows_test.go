@@ -309,9 +309,11 @@ func measuredFixture(now time.Time) []worktreeItem {
 // summing the measured directories under it over the size column.
 func TestWorktreesSnapshotTrailsSizeThenAge(t *testing.T) {
 	now := time.Date(2026, 9, 20, 12, 0, 0, 0, time.UTC)
+	items := measuredFixture(now)
 	snapshot := worktreesSnapshot(worktreesSnapshotParams{
-		rows: worktreeRows(measuredFixture(now)),
-		now:  now,
+		rows:  worktreeRows(items),
+		items: items,
+		now:   now,
 	})
 
 	trails := map[string]string{}

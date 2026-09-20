@@ -22,6 +22,12 @@ func schedulesActions() actionSpec {
 				run:  func(m model, _ string) (tea.Model, tea.Cmd) { return m, m.hide() },
 			},
 			{
+				id:   actionFilterMatch,
+				keys: func(k config.Keybindings) []string { return concatKeys(k.Filter.NextMatch, k.Filter.PrevMatch) },
+				when: func(m model) bool { return m.filter.isStanding() },
+				run:  model.jumpScheduleMatch,
+			},
+			{
 				id:   actionFilterClear,
 				keys: func(k config.Keybindings) []string { return k.Schedules.Back },
 				when: func(m model) bool { return m.filter.isStanding() },
@@ -81,6 +87,10 @@ func schedulesActions() actionSpec {
 				desc: model.filterDesc,
 			},
 			{
+				of:   []actionID{actionFilterMatch},
+				desc: func(model) string { return "next/prev match" },
+			},
+			{
 				of:    []actionID{actionMove},
 				desc:  func(model) string { return "move" },
 				label: moveLabel,
@@ -91,11 +101,19 @@ func schedulesActions() actionSpec {
 			},
 			{
 				of:    []actionID{actionFilterClear},
-				desc:  func(model) string { return "clear search" },
+				desc:  model.filterClearDesc,
 				strip: true,
 			},
 		},
 	}
+}
+
+func (m model) jumpScheduleMatch(pressed string) (tea.Model, tea.Cmd) {
+	if isBound(pressed, m.keys.Filter.PrevMatch) {
+		return m.jumpMatch(-1)
+	}
+
+	return m.jumpMatch(1)
 }
 
 func (m model) moveSchedules(pressed string) (tea.Model, tea.Cmd) {

@@ -522,7 +522,7 @@ func agentsBrowsingLegend() []legendRow {
 		},
 		{
 			of:   []actionID{actionFilterClear},
-			desc: func(model) string { return "clear search" },
+			desc: model.filterClearDesc,
 		},
 		{
 			of:    []actionID{actionMove},
@@ -578,10 +578,14 @@ func (m model) hideDesc() string {
 
 func (m model) filterDesc() string {
 	if m.filter.isStanding() {
-		return "search: " + m.filter.query
+		return m.filter.mode.String() + ": " + m.filter.query
 	}
 
 	return "search"
+}
+
+func (m model) filterClearDesc() string {
+	return "clear " + m.filter.mode.String()
 }
 
 func concatKeys(lists ...[]string) []string {
