@@ -5,75 +5,38 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
 	"weave/internal/forge"
 	"weave/internal/git"
+	"weave/lib/xptr"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-const openPull = `{
-  "node_id": "PR_open",
-  "html_url": "https://github.com/harrisoncramer/weave/pull/700",
-  "number": 700,
-  "title": "open one",
-  "state": "open",
-  "draft": true,
-  "created_at": "2026-09-18T10:00:00Z",
-  "updated_at": "2026-09-18T11:00:00Z",
-  "merged_at": null,
-  "closed_at": null,
-  "head": {"ref": "agent/x", "sha": "aaa", "repo": {"html_url": "https://github.com/harrisoncramer/weave"}},
-  "base": {"ref": "main", "sha": "bbb", "repo": {"html_url": "https://github.com/harrisoncramer/weave"}}
-}`
+// The fixtures are what GitHub answered on 20 September 2026, recorded with gh auth token:
+// weave-forge-fixture#1 open, weave#742 merged, kubernetes#55 from a fork, kubernetes#13 from a
+// fork since deleted, go#81544 a draft, a search page over two repositories, and a batch of
+// decisions with one number GitHub does not have.
 
-const mergedPull = `{
-  "node_id": "PR_merged",
-  "html_url": "https://github.com/harrisoncramer/weave/pull/680",
-  "number": 680,
-  "title": "merged one",
-  "state": "closed",
-  "draft": false,
-  "created_at": "2026-09-18T10:00:00Z",
-  "updated_at": "2026-09-18T12:00:00Z",
-  "merged_at": "2026-09-18T12:00:00Z",
-  "closed_at": "2026-09-18T12:00:00Z",
-  "head": {"ref": "agent/x", "sha": "ccc", "repo": {"html_url": "https://github.com/harrisoncramer/weave"}},
-  "base": {"ref": "main", "sha": "ddd", "repo": {"html_url": "https://github.com/harrisoncramer/weave"}}
-}`
+const openPull = `{"id":"PR_kwDOUgkrbM8AAAABEIdmHw","number":1,"title":"fixture: open","url":"https://github.com/harrisoncramer/weave-forge-fixture/pull/1","state":"OPEN","isDraft":false,"createdAt":"2026-09-18T19:14:17Z","updatedAt":"2026-09-18T19:14:17Z","mergedAt":null,"closedAt":null,"headRefName":"fixture/open","headRefOid":"acc6d4fd6caf3511c998a673406e6fed2df7a28b","baseRefName":"main","baseRefOid":"8b32d7985e62febbf494e815545c22b446276b5d","headRepository":{"url":"https://github.com/harrisoncramer/weave-forge-fixture"},"baseRepository":{"url":"https://github.com/harrisoncramer/weave-forge-fixture"}}`
 
-const forkPull = `{
-  "node_id": "PR_fork",
-  "html_url": "https://github.com/harrisoncramer/weave/pull/701",
-  "number": 701,
-  "title": "from a fork",
-  "state": "open",
-  "draft": false,
-  "created_at": "2026-09-18T10:00:00Z",
-  "updated_at": "2026-09-18T10:00:00Z",
-  "merged_at": null,
-  "closed_at": null,
-  "head": {"ref": "fix", "sha": "eee", "repo": {"html_url": "https://github.com/someone/weave"}},
-  "base": {"ref": "main", "sha": "fff", "repo": {"html_url": "https://github.com/harrisoncramer/weave"}}
-}`
+const mergedPull = `{"id":"PR_kwDOTgPfPc8AAAABEU5L_Q","number":742,"title":"feat(pullrequest): draw pull request marks in the panel","url":"https://github.com/harrisoncramer/weave/pull/742","state":"MERGED","isDraft":false,"createdAt":"2026-09-20T17:57:28Z","updatedAt":"2026-09-20T18:00:07Z","mergedAt":"2026-09-20T18:00:07Z","closedAt":"2026-09-20T18:00:07Z","headRefName":"agent/01a0bea9-02d2-7ce0-bbb4-1fbfc3e74198","headRefOid":"70b1d987cdd21940203ca3fbc5b3a7998a47c830","baseRefName":"main","baseRefOid":"79a1ad8fe89cca4494a40c5c5015f46458ddc121","headRepository":{"url":"https://github.com/harrisoncramer/weave"},"baseRepository":{"url":"https://github.com/harrisoncramer/weave"}}`
 
-const deletedForkPull = `{
-  "node_id": "PR_gone",
-  "html_url": "https://github.com/harrisoncramer/weave/pull/702",
-  "number": 702,
-  "title": "fork deleted",
-  "state": "closed",
-  "draft": false,
-  "created_at": "2026-09-18T10:00:00Z",
-  "updated_at": "2026-09-18T10:00:00Z",
-  "merged_at": null,
-  "closed_at": "2026-09-18T13:00:00Z",
-  "head": {"ref": "fix", "sha": "ggg", "repo": null},
-  "base": {"ref": "main", "sha": "hhh", "repo": {"html_url": "https://github.com/harrisoncramer/weave"}}
-}`
+const forkPull = `{"id":"MDExOlB1bGxSZXF1ZXN0MTY5Nzk2NTU=","number":55,"title":"Typo correction","url":"https://github.com/kubernetes/kubernetes/pull/55","state":"CLOSED","isDraft":false,"createdAt":"2014-06-11T05:07:11Z","updatedAt":"2014-06-13T12:41:36Z","mergedAt":null,"closedAt":"2014-06-11T05:07:37Z","headRefName":"patch-1","headRefOid":"7a97b155f47ac6fc34eaa630d96ba9caf244d80c","baseRefName":"master","baseRefOid":"fd5d98f21b5008f27513d52ac2faa78292a8a3a8","headRepository":{"url":"https://github.com/jkassemi/kubernetes"},"baseRepository":{"url":"https://github.com/kubernetes/kubernetes"}}`
+
+const deletedForkPull = `{"id":"MDExOlB1bGxSZXF1ZXN0MTY4NTM3MTI=","number":13,"title":"client: add service and requests test","url":"https://github.com/kubernetes/kubernetes/pull/13","state":"CLOSED","isDraft":false,"createdAt":"2014-06-07T11:41:26Z","updatedAt":"2014-06-20T06:20:42Z","mergedAt":null,"closedAt":"2014-06-20T06:20:42Z","headRefName":"client-coverage","headRefOid":"2c8de7699fd79407246011a82201718588a06a08","baseRefName":"master","baseRefOid":"ba7fe835ce990977997bfc6b6c914d235d9ae72f","headRepository":null,"baseRepository":{"url":"https://github.com/kubernetes/kubernetes"}}`
+
+const draftPull = `{"id":"PR_kwDOAWBuf88AAAABDpsz2A","number":81544,"title":"unicode: widen typePair members to uint32","url":"https://github.com/golang/go/pull/81544","state":"OPEN","isDraft":true,"createdAt":"2026-09-15T17:53:12Z","updatedAt":"2026-09-15T18:47:47Z","mergedAt":null,"closedAt":null,"headRefName":"unicode18","headRefOid":"695f59abb90db534d1ce005c6b2fc1779728d2b1","baseRefName":"master","baseRefOid":"d90cb4e010dbbf7f39b993db5e64e2904c74e4a4","headRepository":{"url":"https://github.com/clin1234/go"},"baseRepository":{"url":"https://github.com/golang/go"}}`
+
+const searchPage = `{"data":{"search":{"issueCount":159,"pageInfo":{"hasNextPage":true,"endCursor":"Y3Vyc29yOjM="},"nodes":[{"id":"PR_kwDOTgPfPc8AAAABEU9Z2Q","number":744,"title":"feat(ui): one row per directory on the worktrees screen","url":"https://github.com/harrisoncramer/weave/pull/744","state":"MERGED","isDraft":false,"reviewDecision":null,"createdAt":"2026-09-20T18:14:43Z","updatedAt":"2026-09-20T18:17:01Z","mergedAt":"2026-09-20T18:17:01Z","closedAt":"2026-09-20T18:17:01Z","headRefName":"agent/01a0bff6-3c6d-7a9e-b497-e76334bd2ab6","headRefOid":"152131741f12434145b7c8df8652140c218ac0bc","baseRefName":"main","baseRefOid":"0710f696842e4640b08afad7ca4c70cccb8312e6","headRepository":{"url":"https://github.com/harrisoncramer/weave"},"baseRepository":{"url":"https://github.com/harrisoncramer/weave"}},{"id":"PR_kwDOTgPfPc8AAAABEU8L2A","number":743,"title":"perf(worktrees): measure a directory in parallel and by its blocks","url":"https://github.com/harrisoncramer/weave/pull/743","state":"MERGED","isDraft":false,"reviewDecision":null,"createdAt":"2026-09-20T18:09:36Z","updatedAt":"2026-09-20T18:12:58Z","mergedAt":"2026-09-20T18:12:58Z","closedAt":"2026-09-20T18:12:58Z","headRefName":"agent/01a0bec8-14fa-7849-a8fa-f31b25f92847","headRefOid":"fa7b9bd985d17396ddbb416d6599efd5b0054e2f","baseRefName":"main","baseRefOid":"3ff2a452603547ebe7d438ea54ecff19550fb6fa","headRepository":{"url":"https://github.com/harrisoncramer/weave"},"baseRepository":{"url":"https://github.com/harrisoncramer/weave"}},{"id":"PR_kwDOTgPfPc8AAAABEU5L_Q","number":742,"title":"feat(pullrequest): draw pull request marks in the panel","url":"https://github.com/harrisoncramer/weave/pull/742","state":"MERGED","isDraft":false,"reviewDecision":null,"createdAt":"2026-09-20T17:57:28Z","updatedAt":"2026-09-20T18:00:07Z","mergedAt":"2026-09-20T18:00:07Z","closedAt":"2026-09-20T18:00:07Z","headRefName":"agent/01a0bea9-02d2-7ce0-bbb4-1fbfc3e74198","headRefOid":"70b1d987cdd21940203ca3fbc5b3a7998a47c830","baseRefName":"main","baseRefOid":"79a1ad8fe89cca4494a40c5c5015f46458ddc121","headRepository":{"url":"https://github.com/harrisoncramer/weave"},"baseRepository":{"url":"https://github.com/harrisoncramer/weave"}}]}}}`
+
+const searchApproved = `{"data":{"search":{"issueCount":2,"pageInfo":{"hasNextPage":false,"endCursor":"Y3Vyc29yOjI="},"nodes":[{"id":"PR_kwDOIGmk9s8AAAABESZ58w","number":11158,"title":"Eng Metrics Production Image Update","url":"https://github.com/chariot-giving/deploy/pull/11158","state":"MERGED","isDraft":false,"reviewDecision":"APPROVED","createdAt":"2026-09-20T06:24:15Z","updatedAt":"2026-09-20T06:24:26Z","mergedAt":"2026-09-20T06:24:26Z","closedAt":"2026-09-20T06:24:26Z","headRefName":"update-eng-metrics-prod-images","headRefOid":"41fdd966bfbce0757b89b100efa46f8e28d02218","baseRefName":"main","baseRefOid":"94475aebe2d459bf41137bf67d767023dde7baa3","headRepository":{"url":"https://github.com/chariot-giving/deploy"},"baseRepository":{"url":"https://github.com/chariot-giving/deploy"}},{"id":"PR_kwDOIGmk9s8AAAABEQX0JA","number":11157,"title":"Admin Production Image Update","url":"https://github.com/chariot-giving/deploy/pull/11157","state":"MERGED","isDraft":false,"reviewDecision":"APPROVED","createdAt":"2026-09-19T21:14:05Z","updatedAt":"2026-09-19T21:14:18Z","mergedAt":"2026-09-19T21:14:17Z","closedAt":"2026-09-19T21:14:17Z","headRefName":"update-admin-prod-images","headRefOid":"583d259df0d2f141345f659491de89462a0de6cc","baseRefName":"main","baseRefOid":"24235336d21888966f294aea6434aa64a16cb004","headRepository":{"url":"https://github.com/chariot-giving/deploy"},"baseRepository":{"url":"https://github.com/chariot-giving/deploy"}}]}}}`
+
+const decisionsBatch = `{"data":{"repository":{"p13705":{"reviewDecision":"CHANGES_REQUESTED"},"p13948":{"reviewDecision":"REVIEW_REQUIRED"},"p13900":{"reviewDecision":"APPROVED"},"p1":{"reviewDecision":null},"p9999999":null}},"errors":[{"type":"NOT_FOUND","path":["repository","p9999999"],"locations":[{"line":7,"column":5}],"message":"Could not resolve to a PullRequest with the number of 9999999."}]}`
 
 type fakeAuth struct {
 	token       string
@@ -90,22 +53,74 @@ func (f *fakeAuth) Invalidate(context.Context) error {
 	return nil
 }
 
-// serve is a GitHub that answers one path with one body, recording the request it saw.
-func serve(t *testing.T, path, body string, status int) (*Forge, *fakeAuth, *http.Request) {
+// call is one request the fake GitHub saw.
+type call struct {
+	Path      string
+	Operation string
+	Query     string
+	Variables map[string]any
+	Header    http.Header
+}
+
+// answer is what the fake GitHub says to one operation or REST path.
+type answer struct {
+	status int
+	header map[string]string
+	body   string
+}
+
+// fakeGitHub answers each named GraphQL operation, and each REST path, with one body, and
+// records every request it saw.
+type fakeGitHub struct {
+	answers map[string]answer
+	calls   []call
+}
+
+func (g *fakeGitHub) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	seen := call{Path: r.URL.Path, Header: r.Header}
+	key := r.URL.Path
+	if r.URL.Path == "/graphql" {
+		var posted struct {
+			Query     string         `json:"query"`
+			Variables map[string]any `json:"variables"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&posted)
+		seen.Operation = operationOf(posted.Query)
+		seen.Query = posted.Query
+		seen.Variables = posted.Variables
+		key = seen.Operation
+	}
+	g.calls = append(g.calls, seen)
+
+	reply, ok := g.answers[key]
+	if !ok {
+		http.NotFound(w, r)
+
+		return
+	}
+	for name, value := range reply.header {
+		w.Header().Set(name, value)
+	}
+	if reply.status != 0 {
+		w.WriteHeader(reply.status)
+	}
+	_, _ = w.Write([]byte(reply.body))
+}
+
+// last is the most recent request the fake saw.
+func (g *fakeGitHub) last(t *testing.T) call {
+	t.Helper()
+	require.NotEmpty(t, g.calls)
+
+	return g.calls[len(g.calls)-1]
+}
+
+// serve is a GitHub answering each operation with one body, recording the requests it saw.
+func serve(t *testing.T, answers map[string]answer) (*Forge, *fakeAuth, *fakeGitHub) {
 	t.Helper()
 
-	var seen http.Request
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		seen = *r
-		if r.URL.Path != path {
-			http.NotFound(w, r)
-
-			return
-		}
-
-		w.WriteHeader(status)
-		_, _ = w.Write([]byte(body))
-	}))
+	fake := &fakeGitHub{answers: answers}
+	server := httptest.NewServer(fake)
 	t.Cleanup(server.Close)
 
 	auth := &fakeAuth{token: "secret"}
@@ -114,7 +129,30 @@ func serve(t *testing.T, path, body string, status int) (*Forge, *fakeAuth, *htt
 		Auth: auth,
 		API:  server.URL,
 		Next: server.Client().Transport,
-	}), auth, &seen
+		Now: func() time.Time {
+			return time.Date(2026, 9, 20, 12, 0, 0, 0, time.UTC)
+		},
+	}), auth, fake
+}
+
+// data wraps nodes into the data envelope GitHub answers.
+func data(body string) string {
+	return `{"data":` + body + `}`
+}
+
+// listing is a page of a repository's pullRequests connection holding the nodes.
+func listing(hasNextPage bool, cursor string, nodes ...string) string {
+	page := `{"pageInfo":{"hasNextPage":` + boolOf(hasNextPage) + `,"endCursor":"` + cursor + `"},"nodes":[` + strings.Join(nodes, ",") + `]}`
+
+	return data(`{"repository":{"pullRequests":` + page + `}}`)
+}
+
+func boolOf(value bool) string {
+	if value {
+		return "true"
+	}
+
+	return "false"
 }
 
 var weave = git.RemoteURL{
@@ -124,125 +162,207 @@ var weave = git.RemoteURL{
 	Path:   "harrisoncramer/weave",
 }
 
-// TestList covers the list call: the head filter GitHub wants, the token on the
-// request, and every row mapped into the neutral record.
+var fixture = git.RemoteURL{
+	Raw:    "https://github.com/harrisoncramer/weave-forge-fixture",
+	Scheme: "https",
+	Host:   "github.com",
+	Path:   "harrisoncramer/weave-forge-fixture",
+}
+
+// TestList covers the branch listing: the variables GitHub wants, the token on the request,
+// and every row mapped into the neutral record, a fork and a deleted fork included.
 func TestList(t *testing.T) {
 	t.Parallel()
 
-	f, _, seen := serve(t, "/repos/harrisoncramer/weave/pulls", "["+openPull+","+mergedPull+","+forkPull+","+deletedForkPull+"]", http.StatusOK)
+	f, _, fake := serve(t, map[string]answer{
+		"List": {body: listing(false, "end", openPull, mergedPull, forkPull, deletedForkPull, draftPull)},
+	})
 
 	listed, err := f.List(t.Context(), forge.ListParams{
-		Repo:    weave,
-		Branch:  "agent/x",
-		Page:    2,
+		Repo:    fixture,
+		Branch:  "fixture/open",
+		Cursor:  "c2",
 		PerPage: 50,
 	})
 	require.NoError(t, err)
 
-	assert.Equal(t, "harrisoncramer:agent/x", seen.URL.Query().Get("head"))
-	assert.Equal(t, "all", seen.URL.Query().Get("state"))
-	assert.Equal(t, "2", seen.URL.Query().Get("page"))
-	assert.Equal(t, "50", seen.URL.Query().Get("per_page"))
+	seen := fake.last(t)
+	assert.Equal(t, "/graphql", seen.Path)
+	assert.Equal(t, "List", seen.Operation)
+	assert.Equal(t, listQuery, seen.Query)
+	assert.Equal(t, map[string]any{
+		"owner":  "harrisoncramer",
+		"name":   "weave-forge-fixture",
+		"first":  float64(50),
+		"after":  "c2",
+		"branch": "fixture/open",
+		"states": []any{"OPEN", "CLOSED", "MERGED"},
+	}, seen.Variables)
 	assert.Equal(t, "Bearer secret", seen.Header.Get("Authorization"))
 	assert.False(t, listed.HasMore)
+	assert.Equal(t, "end", listed.Cursor)
 	pullRequests := listed.PullRequests
-	require.Len(t, pullRequests, 4)
+	require.Len(t, pullRequests, 5)
 
-	stamp := time.Date(2026, 9, 18, 12, 0, 0, 0, time.UTC)
+	repository := git.RemoteURL{
+		Raw:    "https://github.com/harrisoncramer/weave-forge-fixture",
+		Scheme: "https",
+		Host:   "github.com",
+		Path:   "harrisoncramer/weave-forge-fixture",
+	}
 	assert.Equal(t, forge.PullRequest{
 		Forge:      forge.KindGitHub,
-		ProviderID: "PR_open",
-		URL:        "https://github.com/harrisoncramer/weave/pull/700",
-		Repository: git.RemoteURL{
-			Raw:    "https://github.com/harrisoncramer/weave",
-			Scheme: "https",
-			Host:   "github.com",
-			Path:   "harrisoncramer/weave",
-		},
-		Head: git.RemoteURL{
-			Raw:    "https://github.com/harrisoncramer/weave",
-			Scheme: "https",
-			Host:   "github.com",
-			Path:   "harrisoncramer/weave",
-		},
-		Number:     700,
-		Title:      "open one",
-		HeadBranch: "agent/x",
-		HeadSHA:    "aaa",
+		ProviderID: "PR_kwDOUgkrbM8AAAABEIdmHw",
+		URL:        "https://github.com/harrisoncramer/weave-forge-fixture/pull/1",
+		Repository: repository,
+		Head:       repository,
+		Number:     1,
+		Title:      "fixture: open",
+		HeadBranch: "fixture/open",
+		HeadSHA:    "acc6d4fd6caf3511c998a673406e6fed2df7a28b",
 		BaseBranch: "main",
-		BaseSHA:    "bbb",
-		Draft:      true,
-		State:      "open",
-		CreatedAt:  time.Date(2026, 9, 18, 10, 0, 0, 0, time.UTC),
-		UpdatedAt:  time.Date(2026, 9, 18, 11, 0, 0, 0, time.UTC),
+		BaseSHA:    "8b32d7985e62febbf494e815545c22b446276b5d",
+		State:      "OPEN",
+		CreatedAt:  time.Date(2026, 9, 18, 19, 14, 17, 0, time.UTC),
+		UpdatedAt:  time.Date(2026, 9, 18, 19, 14, 17, 0, time.UTC),
 	}, pullRequests[0])
 	assert.False(t, pullRequests[0].IsFinished())
 	assert.False(t, pullRequests[0].IsCrossRepository())
+	assert.Nil(t, pullRequests[0].Decision, "a listing does not ask for the decision")
 
-	assert.Equal(t, "PR_merged", pullRequests[1].ProviderID)
+	stamp := time.Date(2026, 9, 20, 18, 0, 7, 0, time.UTC)
+	assert.Equal(t, "PR_kwDOTgPfPc8AAAABEU5L_Q", pullRequests[1].ProviderID)
+	assert.Equal(t, "MERGED", pullRequests[1].State)
 	assert.Equal(t, &stamp, pullRequests[1].MergedAt)
 	assert.Equal(t, &stamp, pullRequests[1].ClosedAt)
 	assert.True(t, pullRequests[1].IsFinished())
 
-	assert.Equal(t, "someone/weave", pullRequests[2].Head.Path)
+	assert.Equal(t, "jkassemi/kubernetes", pullRequests[2].Head.Path)
 	assert.True(t, pullRequests[2].IsCrossRepository())
 
 	assert.True(t, pullRequests[3].Head.IsZero())
 	assert.True(t, pullRequests[3].IsCrossRepository())
 	assert.True(t, pullRequests[3].IsFinished())
+
+	assert.True(t, pullRequests[4].Draft)
 }
 
-// TestListWithoutABranch covers the repository's own listing: open ones only, no head filter.
+// TestListWithoutABranch covers the repository's own listing: open ones only, no branch.
 func TestListWithoutABranch(t *testing.T) {
 	t.Parallel()
 
-	f, _, seen := serve(t, "/repos/harrisoncramer/weave/pulls", "["+openPull+"]", http.StatusOK)
+	f, _, fake := serve(t, map[string]answer{"List": {body: listing(false, "", openPull)}})
 
-	listed, err := f.List(t.Context(), forge.ListParams{Repo: weave})
+	listed, err := f.List(t.Context(), forge.ListParams{Repo: fixture})
 	require.NoError(t, err)
 	require.Len(t, listed.PullRequests, 1)
-	assert.Equal(t, "open", seen.URL.Query().Get("state"))
-	assert.Equal(t, "1", seen.URL.Query().Get("page"))
-	assert.False(t, seen.URL.Query().Has("head"))
+	seen := fake.last(t)
+	assert.Equal(t, []any{"OPEN"}, seen.Variables["states"])
+	assert.Nil(t, seen.Variables["after"], "the first page names no cursor")
+	assert.NotContains(t, seen.Variables, "branch")
+	assert.InDelta(t, 1, seen.Variables["first"], 0)
 }
 
-// TestListReadsTheNextPageFromLink covers GitHub saying another page follows.
-func TestListReadsTheNextPageFromLink(t *testing.T) {
+// TestListReadsTheNextPage covers GitHub saying another page follows, and where it starts.
+func TestListReadsTheNextPage(t *testing.T) {
 	t.Parallel()
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.Header().Set("Link", `<https://api.github.com/repos/harrisoncramer/weave/pulls?page=2>; rel="next", <https://api.github.com/repos/harrisoncramer/weave/pulls?page=9>; rel="last"`)
-		_, _ = w.Write([]byte("[" + openPull + "]"))
-	}))
-	t.Cleanup(server.Close)
+	f, _, _ := serve(t, map[string]answer{"List": {body: listing(true, "Y3Vyc29yOnYyOpK0", openPull)}})
 
-	f := New(NewParams{
-		Auth: &fakeAuth{token: "secret"},
-		API:  server.URL,
-		Next: server.Client().Transport,
-	})
-	listed, err := f.List(t.Context(), forge.ListParams{Repo: weave})
+	listed, err := f.List(t.Context(), forge.ListParams{Repo: fixture})
 	require.NoError(t, err)
 	assert.True(t, listed.HasMore)
+	assert.Equal(t, "Y3Vyc29yOnYyOpK0", listed.Cursor)
+}
+
+// TestListUpdated covers the sweep's request: every state by last change, the largest page,
+// the cursor carried in and out, and the rate limit read off the headers.
+func TestListUpdated(t *testing.T) {
+	t.Parallel()
+
+	f, _, fake := serve(t, map[string]answer{"ListUpdated": {
+		header: map[string]string{"X-RateLimit-Remaining": "4321", "X-RateLimit-Reset": "1789900000"},
+		body:   listing(true, "Y3Vyc29yOnYyOpK0MjAyNi0wOS0yMFQxMjoxODozN1rPAAAAARE3rZU=", mergedPull, openPull),
+	}})
+
+	listed, err := f.ListUpdated(t.Context(), forge.ListUpdatedParams{Repo: weave, Cursor: "old"})
+	require.NoError(t, err)
+	seen := fake.last(t)
+	assert.Equal(t, "ListUpdated", seen.Operation)
+	assert.Equal(t, listUpdatedQuery, seen.Query)
+	assert.Equal(t, map[string]any{
+		"owner": "harrisoncramer",
+		"name":  "weave",
+		"first": float64(100),
+		"after": "old",
+	}, seen.Variables)
+	assert.Len(t, listed.PullRequests, 2)
+	assert.True(t, listed.HasMore)
+	assert.Equal(t, "Y3Vyc29yOnYyOpK0MjAyNi0wOS0yMFQxMjoxODozN1rPAAAAARE3rZU=", listed.Cursor)
+	assert.True(t, listed.RateLimit.Known)
+	assert.Equal(t, 4321, listed.RateLimit.Remaining)
+	assert.Equal(t, time.Unix(1789900000, 0).UTC(), listed.RateLimit.ResetAt.UTC())
+}
+
+// TestListChanged covers the search: the query string over every repository since the
+// moment given, the page and cursor, and each row carrying its decision.
+func TestListChanged(t *testing.T) {
+	t.Parallel()
+
+	f, _, fake := serve(t, map[string]answer{"ListChanged": {body: searchPage}})
+
+	since := time.Date(2026, 9, 18, 12, 0, 0, 0, time.UTC)
+	listed, err := f.ListChanged(t.Context(), forge.ListChangedParams{
+		Repos: []git.RemoteURL{{Host: "github.com", Path: "chariot-giving/chariot"}, weave},
+		Since: since,
+	})
+	require.NoError(t, err)
+	seen := fake.last(t)
+	assert.Equal(t, "ListChanged", seen.Operation)
+	assert.Equal(t, listChangedQuery, seen.Query)
+	assert.Equal(t, map[string]any{
+		"query": "is:pr repo:chariot-giving/chariot repo:harrisoncramer/weave updated:>=2026-09-18T12:00:00Z sort:updated-desc",
+		"first": float64(100),
+		"after": nil,
+	}, seen.Variables)
+	assert.True(t, listed.HasMore)
+	assert.Equal(t, "Y3Vyc29yOjM=", listed.Cursor)
+	require.Len(t, listed.PullRequests, 3)
+	assert.Equal(t, []int{744, 743, 742}, []int{listed.PullRequests[0].Number, listed.PullRequests[1].Number, listed.PullRequests[2].Number})
+	assert.Equal(t, xptr.Ptr(forge.ReviewDecisionNone), listed.PullRequests[0].Decision, "a null decision is still an answer")
+	assert.Equal(t, "https://github.com/harrisoncramer/weave", listed.PullRequests[0].Repository.Canonical())
+
+	f, _, fake = serve(t, map[string]answer{"ListChanged": {body: searchApproved}})
+	listed, err = f.ListChanged(t.Context(), forge.ListChangedParams{
+		Repos:  []git.RemoteURL{{Host: "github.com", Path: "chariot-giving/deploy"}},
+		Since:  since,
+		Cursor: "Y3Vyc29yOjM=",
+	})
+	require.NoError(t, err)
+	assert.Equal(t, "Y3Vyc29yOjM=", fake.last(t).Variables["after"])
+	assert.False(t, listed.HasMore)
+	require.Len(t, listed.PullRequests, 2)
+	assert.Equal(t, xptr.Ptr(forge.ReviewDecisionApproved), listed.PullRequests[0].Decision)
 }
 
 // TestGet covers reading one pull request by its web address.
 func TestGet(t *testing.T) {
 	t.Parallel()
 
-	f, _, _ := serve(t, "/repos/harrisoncramer/weave/pulls/680", mergedPull, http.StatusOK)
+	f, _, fake := serve(t, map[string]answer{"Get": {body: data(`{"repository":{"pullRequest":` + mergedPull + `}}`)}})
 
-	pullRequest, err := f.Get(t.Context(), "https://github.com/harrisoncramer/weave/pull/680")
+	pullRequest, err := f.Get(t.Context(), "https://github.com/harrisoncramer/weave/pull/742")
 	require.NoError(t, err)
-	assert.Equal(t, 680, pullRequest.Number)
-	assert.Equal(t, "merged one", pullRequest.Title)
+	assert.Equal(t, 742, pullRequest.Number)
+	assert.Equal(t, "feat(pullrequest): draw pull request marks in the panel", pullRequest.Title)
+	assert.Equal(t, map[string]any{"owner": "harrisoncramer", "name": "weave", "number": float64(742)}, fake.last(t).Variables)
 }
 
 // TestGetRefusesWhatIsNotAPullRequest covers the addresses Get will not ask GitHub about.
 func TestGetRefusesWhatIsNotAPullRequest(t *testing.T) {
 	t.Parallel()
 
-	f, _, _ := serve(t, "/never", "", http.StatusOK)
+	f, _, fake := serve(t, nil)
 
 	tests := []struct {
 		name    string
@@ -257,22 +377,25 @@ func TestGetRefusesWhatIsNotAPullRequest(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-
 			_, err := f.Get(t.Context(), tt.address)
 			require.ErrorIs(t, err, forge.ErrNotPullRequest)
 		})
 	}
+
+	assert.Empty(t, fake.calls)
 }
 
 // TestListRefusesANestedPath covers a repository path GitHub cannot address.
 func TestListRefusesANestedPath(t *testing.T) {
 	t.Parallel()
 
-	f, _, _ := serve(t, "/never", "", http.StatusOK)
+	f, _, fake := serve(t, nil)
 
 	_, err := f.List(t.Context(), forge.ListParams{Repo: git.RemoteURL{Host: "github.com", Path: "group/sub/repo"}, Branch: "main"})
 	require.ErrorIs(t, err, forge.ErrNotRepository)
+	_, err = f.ListChanged(t.Context(), forge.ListChangedParams{Repos: []git.RemoteURL{weave, {Host: "github.com", Path: "group/sub/repo"}}})
+	require.ErrorIs(t, err, forge.ErrNotRepository)
+	assert.Empty(t, fake.calls)
 }
 
 // TestUnauthorizedInvalidatesTheCredential covers a refused token: GitHub's 401 reaches the
@@ -280,7 +403,7 @@ func TestListRefusesANestedPath(t *testing.T) {
 func TestUnauthorizedInvalidatesTheCredential(t *testing.T) {
 	t.Parallel()
 
-	f, auth, _ := serve(t, "/repos/harrisoncramer/weave/pulls", `{"message":"Bad credentials"}`, http.StatusUnauthorized)
+	f, auth, _ := serve(t, map[string]answer{"List": {status: http.StatusUnauthorized, body: `{"message":"Bad credentials"}`}})
 
 	_, err := f.List(t.Context(), forge.ListParams{Repo: weave, Branch: "main"})
 	require.ErrorIs(t, err, forge.ErrUnauthorized)
@@ -291,46 +414,97 @@ func TestUnauthorizedInvalidatesTheCredential(t *testing.T) {
 func TestVerify(t *testing.T) {
 	t.Parallel()
 
-	f, _, seen := serve(t, "/user", `{"login":"harrisoncramer"}`, http.StatusOK)
+	f, _, fake := serve(t, map[string]answer{"Verify": {body: `{"data":{"viewer":{"login":"harrisoncramer"}}}`}})
 
 	login, err := f.Verify(t.Context())
 	require.NoError(t, err)
 	assert.Equal(t, "harrisoncramer", login)
+	seen := fake.last(t)
+	assert.Equal(t, verifyQuery, seen.Query)
 	assert.Equal(t, "Bearer secret", seen.Header.Get("Authorization"))
 
-	refused, auth, _ := serve(t, "/user", `{"message":"Bad credentials"}`, http.StatusUnauthorized)
+	refused, auth, _ := serve(t, map[string]answer{"Verify": {status: http.StatusUnauthorized, body: `{"message":"Bad credentials"}`}})
 	_, err = refused.Verify(t.Context())
 	require.ErrorIs(t, err, forge.ErrUnauthorized)
 	assert.Equal(t, 1, auth.invalidated)
 }
 
-// TestNotFound covers a repository or pull request GitHub does not have, or will not show.
+// TestNotFound covers what GitHub answers for a repository or pull request it does not have,
+// or will not show, and a host whose GraphQL is somewhere else, which is not that.
 func TestNotFound(t *testing.T) {
 	t.Parallel()
 
-	f, auth, _ := serve(t, "/never", "", http.StatusOK)
+	tests := []struct {
+		name string
+		body string
+		call func(f *Forge) error
+	}{
+		{
+			name: "a repository github does not have",
+			body: `{"data":{"repository":null},"errors":[{"type":"NOT_FOUND","path":["repository"],"locations":[{"line":2,"column":3}],"message":"Could not resolve to a Repository with the name 'harrisoncramer/no-such-repository-xyz'."}]}`,
+			call: func(f *Forge) error {
+				_, err := f.Get(t.Context(), "https://github.com/harrisoncramer/no-such-repository-xyz/pull/1")
 
-	_, err := f.Get(t.Context(), "https://github.com/harrisoncramer/weave/pull/1")
-	require.ErrorIs(t, err, forge.ErrNotFound)
-	assert.Equal(t, 0, auth.invalidated)
+				return err
+			},
+		},
+		{
+			name: "a pull request github does not have",
+			body: `{"data":{"repository":{"pullRequest":null}},"errors":[{"type":"NOT_FOUND","path":["repository","pullRequest"],"locations":[{"line":3,"column":5}],"message":"Could not resolve to a PullRequest with the number of 999."}]}`,
+			call: func(f *Forge) error {
+				_, err := f.Get(t.Context(), "https://github.com/harrisoncramer/weave-forge-fixture/pull/999")
+
+				return err
+			},
+		},
+		{
+			name: "a repository the listing cannot see",
+			body: `{"data":{"repository":null},"errors":[{"type":"NOT_FOUND","path":["repository"],"locations":[{"line":2,"column":3}],"message":"Could not resolve to a Repository with the name 'harrisoncramer/no-such-repository-xyz'."}]}`,
+			call: func(f *Forge) error {
+				_, err := f.ListUpdated(t.Context(), forge.ListUpdatedParams{Repo: weave})
+
+				return err
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			f, auth, _ := serve(t, map[string]answer{"Get": {body: tt.body}, "ListUpdated": {body: tt.body}})
+			require.ErrorIs(t, tt.call(f), forge.ErrNotFound)
+			assert.Equal(t, 0, auth.invalidated)
+		})
+	}
+
+	misrouted, _, _ := serve(t, nil)
+	_, err := misrouted.Get(t.Context(), "https://github.com/harrisoncramer/weave/pull/1")
+	require.Error(t, err)
+	require.NotErrorIs(t, err, forge.ErrNotFound)
+	assert.Contains(t, err.Error(), "/graphql")
 }
 
-// TestVerifyInstallation covers what an installation token can be asked: how many repositories
-// it reaches, and a refusal reaching the Authenticator.
+// TestVerifyInstallation covers the one REST call: how many repositories an installation
+// token reaches, and a refusal reaching the Authenticator.
 func TestVerifyInstallation(t *testing.T) {
 	t.Parallel()
 
-	f, _, seen := serve(t, "/installation/repositories", `{"total_count":4,"repositories":[{"full_name":"harrisoncramer/weave"}]}`, http.StatusOK)
+	f, _, fake := serve(t, map[string]answer{"/installation/repositories": {body: `{"total_count":4,"repositories":[{"full_name":"harrisoncramer/weave"}]}`}})
 
 	reached, err := f.VerifyInstallation(t.Context())
 	require.NoError(t, err)
 	assert.Equal(t, 4, reached)
-	assert.Equal(t, "1", seen.URL.Query().Get("per_page"))
+	assert.Equal(t, "/installation/repositories", fake.last(t).Path)
 
-	refused, auth, _ := serve(t, "/installation/repositories", `{"message":"Bad credentials"}`, http.StatusUnauthorized)
+	refused, auth, _ := serve(t, map[string]answer{"/installation/repositories": {status: http.StatusUnauthorized, body: `{"message":"Bad credentials"}`}})
 	_, err = refused.VerifyInstallation(t.Context())
 	require.ErrorIs(t, err, forge.ErrUnauthorized)
 	assert.Equal(t, 1, auth.invalidated)
+
+	missing, _, _ := serve(t, nil)
+	_, err = missing.VerifyInstallation(t.Context())
+	require.ErrorIs(t, err, forge.ErrNotFound)
 }
 
 type refusingAuth struct{ err error }
@@ -354,144 +528,62 @@ func TestCredentialFailureIsNotAReachFailure(t *testing.T) {
 	assert.Equal(t, refused.Error(), err.Error())
 }
 
-// listUpdatedServer answers the sync's listing with whatever the handler writes.
-func listUpdatedServer(t *testing.T, handle func(w http.ResponseWriter, r *http.Request)) *Forge {
-	t.Helper()
-
-	server := httptest.NewServer(http.HandlerFunc(handle))
-	t.Cleanup(server.Close)
-
-	f := New(NewParams{
-		Auth: &fakeAuth{token: "secret"},
-		API:  server.URL,
-		Next: server.Client().Transport,
-		Now: func() time.Time {
-			return time.Date(2026, 9, 20, 12, 0, 0, 0, time.UTC)
-		},
-	})
-
-	return f
-}
-
-// TestListUpdated covers the sync's request: every state by last change, the largest page,
-// the ETag carried in and out, the rate limit read off the headers, and the next page from
-// Link.
-func TestListUpdated(t *testing.T) {
-	t.Parallel()
-
-	var seen *http.Request
-	f := listUpdatedServer(t, func(w http.ResponseWriter, r *http.Request) {
-		seen = r
-		w.Header().Set("ETag", `W/"abc"`)
-		w.Header().Set("Link", `<https://api.github.com/repos/harrisoncramer/weave/pulls?page=3>; rel="next"`)
-		w.Header().Set("X-RateLimit-Remaining", "4321")
-		w.Header().Set("X-RateLimit-Reset", "1789900000")
-		_, _ = w.Write([]byte("[" + openPull + "," + mergedPull + "]"))
-	})
-
-	listed, err := f.ListUpdated(t.Context(), forge.ListUpdatedParams{
-		Repo: weave,
-		Page: 2,
-		ETag: `W/"old"`,
-	})
-	require.NoError(t, err)
-	require.NotNil(t, seen)
-	assert.Equal(t, "/repos/harrisoncramer/weave/pulls", seen.URL.Path)
-	assert.Equal(t, "all", seen.URL.Query().Get("state"))
-	assert.Equal(t, "updated", seen.URL.Query().Get("sort"))
-	assert.Equal(t, "desc", seen.URL.Query().Get("direction"))
-	assert.Equal(t, "100", seen.URL.Query().Get("per_page"))
-	assert.Equal(t, "2", seen.URL.Query().Get("page"))
-	assert.Equal(t, `W/"old"`, seen.Header.Get("If-None-Match"))
-	assert.False(t, listed.NotModified)
-	assert.Len(t, listed.PullRequests, 2)
-	assert.True(t, listed.HasMore)
-	assert.Equal(t, `W/"abc"`, listed.ETag)
-	assert.True(t, listed.RateLimit.Known)
-	assert.Equal(t, 4321, listed.RateLimit.Remaining)
-	assert.Equal(t, time.Unix(1789900000, 0).UTC(), listed.RateLimit.ResetAt.UTC())
-}
-
-// TestListUpdatedNotModified covers a 304, which comes back as such with no rows and no error,
-// and a request with no ETag sending no condition.
-func TestListUpdatedNotModified(t *testing.T) {
-	t.Parallel()
-
-	var seen *http.Request
-	f := listUpdatedServer(t, func(w http.ResponseWriter, r *http.Request) {
-		seen = r
-		w.Header().Set("ETag", `W/"abc"`)
-		w.WriteHeader(http.StatusNotModified)
-	})
-
-	listed, err := f.ListUpdated(t.Context(), forge.ListUpdatedParams{
-		Repo: weave,
-		Page: 1,
-		ETag: `W/"abc"`,
-	})
-	require.NoError(t, err)
-	assert.True(t, listed.NotModified)
-	assert.Empty(t, listed.PullRequests)
-	assert.False(t, listed.HasMore)
-	assert.Equal(t, `W/"abc"`, listed.ETag)
-
-	f = listUpdatedServer(t, func(w http.ResponseWriter, r *http.Request) {
-		seen = r
-		_, _ = w.Write([]byte("[]"))
-	})
-	_, err = f.ListUpdated(t.Context(), forge.ListUpdatedParams{Repo: weave, Page: 1})
-	require.NoError(t, err)
-	assert.Empty(t, seen.Header.Values("If-None-Match"))
-}
-
-// TestRateLimitRefusals covers the three ways GitHub says to wait and the one 403 that is not
-// a rate limit at all.
+// TestRateLimitRefusals covers the ways GitHub says to wait, a primary refusal arriving as a
+// 200 among them, and the one 403 that is not a rate limit at all.
 func TestRateLimitRefusals(t *testing.T) {
 	t.Parallel()
 
 	now := time.Date(2026, 9, 20, 12, 0, 0, 0, time.UTC)
 
 	tests := []struct {
-		name        string
-		status      int
-		header      map[string]string
-		body        string
-		wantThrottl bool
-		wantRetryAt time.Time
+		name          string
+		status        int
+		header        map[string]string
+		body          string
+		wantThrottled bool
+		wantRetryAt   time.Time
 	}{
 		{
-			name:        "a bare 403 is a permission answer",
-			status:      http.StatusForbidden,
-			body:        `{"message":"Resource not accessible by integration"}`,
-			wantThrottl: false,
+			name:          "a bare 403 is a permission answer",
+			status:        http.StatusForbidden,
+			body:          `{"message":"Resource not accessible by integration"}`,
+			wantThrottled: false,
 		},
 		{
-			name:        "retry-after says how long",
-			status:      http.StatusForbidden,
-			header:      map[string]string{"Retry-After": "30"},
-			body:        `{"message":"You have exceeded a secondary rate limit"}`,
-			wantThrottl: true,
-			wantRetryAt: now.Add(30 * time.Second),
+			name:          "retry-after says how long",
+			status:        http.StatusForbidden,
+			header:        map[string]string{"Retry-After": "30"},
+			body:          `{"message":"You have exceeded a secondary rate limit"}`,
+			wantThrottled: true,
+			wantRetryAt:   now.Add(30 * time.Second),
 		},
 		{
-			name:        "a spent primary budget says when it resets",
-			status:      http.StatusForbidden,
-			header:      map[string]string{"X-RateLimit-Remaining": "0", "X-RateLimit-Reset": "1789900000"},
-			body:        `{"message":"API rate limit exceeded"}`,
-			wantThrottl: true,
-			wantRetryAt: time.Unix(1789900000, 0),
+			name:          "a spent primary budget refused on the status says when it resets",
+			status:        http.StatusForbidden,
+			header:        map[string]string{"X-RateLimit-Remaining": "0", "X-RateLimit-Reset": "1789900000"},
+			body:          `{"message":"API rate limit exceeded"}`,
+			wantThrottled: true,
+			wantRetryAt:   time.Unix(1789900000, 0),
 		},
 		{
-			name:        "a 429 with nothing else is a refusal with no time",
-			status:      http.StatusTooManyRequests,
-			body:        `{"message":"slow down"}`,
-			wantThrottl: true,
+			name:          "a spent primary budget refused in the errors says when it resets",
+			status:        http.StatusOK,
+			header:        map[string]string{"X-RateLimit-Remaining": "0", "X-RateLimit-Reset": "1789900000"},
+			body:          `{"data":null,"errors":[{"type":"RATE_LIMITED","message":"API rate limit exceeded for user ID 12345."}]}`,
+			wantThrottled: true,
+			wantRetryAt:   time.Unix(1789900000, 0),
 		},
 		{
-			name:        "the secondary limit body with no header is a refusal with no time",
-			status:      http.StatusForbidden,
-			body:        `{"message":"You have triggered an abuse detection mechanism"}`,
-			wantThrottl: true,
+			name:          "a 429 with nothing else is a refusal with no time",
+			status:        http.StatusTooManyRequests,
+			body:          `{"message":"slow down"}`,
+			wantThrottled: true,
+		},
+		{
+			name:          "the secondary limit body with no header is a refusal with no time",
+			status:        http.StatusForbidden,
+			body:          `{"message":"You have triggered an abuse detection mechanism"}`,
+			wantThrottled: true,
 		},
 	}
 
@@ -499,19 +591,17 @@ func TestRateLimitRefusals(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			f := listUpdatedServer(t, func(w http.ResponseWriter, _ *http.Request) {
-				for key, value := range tt.header {
-					w.Header().Set(key, value)
-				}
-				w.WriteHeader(tt.status)
-				_, _ = w.Write([]byte(tt.body))
-			})
+			f, _, _ := serve(t, map[string]answer{"ListUpdated": {
+				status: tt.status,
+				header: tt.header,
+				body:   tt.body,
+			}})
 
-			_, err := f.ListUpdated(t.Context(), forge.ListUpdatedParams{Repo: weave, Page: 1})
+			_, err := f.ListUpdated(t.Context(), forge.ListUpdatedParams{Repo: weave})
 			require.Error(t, err)
 
 			var throttled *forge.ThrottledError
-			if !tt.wantThrottl {
+			if !tt.wantThrottled {
 				assert.NotErrorAs(t, err, &throttled, "a permission answer is not a throttle")
 				assert.NotErrorIs(t, err, forge.ErrThrottled)
 
@@ -525,113 +615,51 @@ func TestRateLimitRefusals(t *testing.T) {
 	}
 }
 
-// TestGetReviewDecision covers the one GraphQL call: the query and its variables as GitHub
-// wants them, every decision GitHub answers, a null decision, a pull request GitHub does not
-// have, and the refusals the REST calls already turn into weave's.
-func TestGetReviewDecision(t *testing.T) {
+// TestReviewDecisions covers the batch: one query aliasing every number, each decision GitHub
+// answers in weave's words, a null decision as none, and a number GitHub does not have left
+// out rather than failing the rest.
+func TestReviewDecisions(t *testing.T) {
 	t.Parallel()
 
-	tests := []struct {
-		name    string
-		status  int
-		body    string
-		want    forge.ReviewDecision
-		wantErr error
-	}{
-		{
-			name:    "a refused credential",
-			status:  http.StatusUnauthorized,
-			body:    `{"message":"Bad credentials"}`,
-			wantErr: forge.ErrUnauthorized,
-		},
-		{
-			name:    "a spent rate limit",
-			status:  http.StatusTooManyRequests,
-			body:    `{"message":"slow down"}`,
-			wantErr: forge.ErrThrottled,
-		},
-		{
-			name:    "a pull request github does not have answers in the errors list",
-			status:  http.StatusOK,
-			body:    `{"data":{"repository":{"pullRequest":null}},"errors":[{"type":"NOT_FOUND","path":["repository","pullRequest"],"message":"Could not resolve to a PullRequest with the number of 999."}]}`,
-			wantErr: forge.ErrNotFound,
-		},
-		{
-			name:    "a repository github does not have answers null",
-			status:  http.StatusOK,
-			body:    `{"data":{"repository":null}}`,
-			wantErr: forge.ErrNotFound,
-		},
-		{
-			name:   "approved",
-			status: http.StatusOK,
-			body:   `{"data":{"repository":{"pullRequest":{"reviewDecision":"APPROVED"}}}}`,
-			want:   forge.ReviewDecisionApproved,
-		},
-		{
-			name:   "changes requested",
-			status: http.StatusOK,
-			body:   `{"data":{"repository":{"pullRequest":{"reviewDecision":"CHANGES_REQUESTED"}}}}`,
-			want:   forge.ReviewDecisionChangesRequested,
-		},
-		{
-			name:   "review required is pending",
-			status: http.StatusOK,
-			body:   `{"data":{"repository":{"pullRequest":{"reviewDecision":"REVIEW_REQUIRED"}}}}`,
-			want:   forge.ReviewDecisionPending,
-		},
-		{
-			name:   "nothing said is none",
-			status: http.StatusOK,
-			body:   `{"data":{"repository":{"pullRequest":{"reviewDecision":null}}}}`,
-			want:   forge.ReviewDecisionNone,
-		},
-	}
+	f, _, fake := serve(t, map[string]answer{"ReviewDecisions": {body: decisionsBatch}})
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
+	decisions, err := f.ReviewDecisions(t.Context(), git.RemoteURL{Host: "github.com", Path: "chariot-giving/chariot"}, []int{13705, 13948, 13900, 1, 9999999})
+	require.NoError(t, err)
+	assert.Equal(t, map[int]forge.ReviewDecision{
+		13705: forge.ReviewDecisionChangesRequested,
+		13948: forge.ReviewDecisionPending,
+		13900: forge.ReviewDecisionApproved,
+		1:     forge.ReviewDecisionNone,
+	}, decisions)
 
-			var seen *http.Request
-			var sent map[string]any
-			f := listUpdatedServer(t, func(w http.ResponseWriter, r *http.Request) {
-				seen = r
-				_ = json.NewDecoder(r.Body).Decode(&sent)
-				w.WriteHeader(tt.status)
-				_, _ = w.Write([]byte(tt.body))
-			})
-
-			got, err := f.GetReviewDecisionByNumber(t.Context(), weave, 740)
-			if tt.wantErr != nil {
-				require.ErrorIs(t, err, tt.wantErr)
-			} else {
-				require.NoError(t, err)
-				assert.Equal(t, tt.want, got)
-			}
-
-			require.NotNil(t, seen)
-			assert.Equal(t, http.MethodPost, seen.Method)
-			assert.Equal(t, "/graphql", seen.URL.Path)
-			assert.Equal(t, "Bearer secret", seen.Header.Get("Authorization"))
-			assert.Equal(t, reviewDecisionQuery, sent["query"])
-			assert.Equal(t, map[string]any{"owner": "harrisoncramer", "name": "weave", "number": float64(740)}, sent["variables"])
-		})
-	}
+	seen := fake.last(t)
+	assert.Equal(t, "ReviewDecisions", seen.Operation)
+	assert.Equal(t, map[string]any{"owner": "chariot-giving", "name": "chariot"}, seen.Variables)
+	assert.Contains(t, seen.Query, `p13705: pullRequest(number: 13705) { reviewDecision }`)
+	assert.Contains(t, seen.Query, `p9999999: pullRequest(number: 9999999) { reviewDecision }`)
+	assert.Equal(t, 5, strings.Count(seen.Query, "pullRequest(number:"))
 }
 
-// TestGetReviewDecisionTransport404IsNotTheForgeSayingNotFound covers a host whose GraphQL is
-// somewhere else, which is a misrouted call rather than a pull request GitHub does not have.
-func TestGetReviewDecisionTransport404IsNotTheForgeSayingNotFound(t *testing.T) {
+// TestReviewDecisionsRefusals covers a repository GitHub does not have, a path it cannot
+// address, and more numbers than one call takes, the last two costing no request.
+func TestReviewDecisionsRefusals(t *testing.T) {
 	t.Parallel()
 
-	f := listUpdatedServer(t, func(w http.ResponseWriter, r *http.Request) {
-		http.NotFound(w, r)
-	})
+	missing, _, _ := serve(t, map[string]answer{"ReviewDecisions": {body: `{"data":{"repository":null},"errors":[{"type":"NOT_FOUND","path":["repository"],"locations":[{"line":2,"column":3}],"message":"Could not resolve to a Repository with the name 'harrisoncramer/gone'."}]}`}})
+	_, err := missing.ReviewDecisions(t.Context(), git.RemoteURL{Host: "github.com", Path: "harrisoncramer/gone"}, []int{1})
+	require.ErrorIs(t, err, forge.ErrNotFound)
 
-	_, err := f.GetReviewDecisionByNumber(t.Context(), weave, 740)
+	f, _, fake := serve(t, nil)
+	_, err = f.ReviewDecisions(t.Context(), git.RemoteURL{Host: "github.com", Path: "group/sub/repo"}, []int{1})
+	require.ErrorIs(t, err, forge.ErrNotRepository)
+
+	numbers := make([]int, forge.MaxReviewDecisions+1)
+	for i := range numbers {
+		numbers[i] = i + 1
+	}
+	_, err = f.ReviewDecisions(t.Context(), weave, numbers)
 	require.Error(t, err)
-	require.NotErrorIs(t, err, forge.ErrNotFound)
-	assert.Contains(t, err.Error(), "/graphql")
+	assert.Empty(t, fake.calls)
 }
 
 // TestGraphQLURLSitsBesideTheRESTBase covers github.com and an enterprise host, whose GraphQL
@@ -664,15 +692,4 @@ func TestGraphQLURLSitsBesideTheRESTBase(t *testing.T) {
 			assert.Equal(t, tt.want, f.graphqlURL())
 		})
 	}
-}
-
-// TestGetReviewDecisionRefusesANestedPath covers a repository path GitHub cannot address, which
-// costs no request.
-func TestGetReviewDecisionRefusesANestedPath(t *testing.T) {
-	t.Parallel()
-
-	f, _, _ := serve(t, "/never", "", http.StatusOK)
-
-	_, err := f.GetReviewDecisionByNumber(t.Context(), git.RemoteURL{Host: "github.com", Path: "group/sub/repo"}, 1)
-	require.ErrorIs(t, err, forge.ErrNotRepository)
 }

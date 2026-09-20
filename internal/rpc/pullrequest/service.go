@@ -58,17 +58,17 @@ func NewPullRequestService(params NewPullRequestServiceParams) *PullRequestServi
 	}
 }
 
-// pageCursor is where a listing left off, which for a forge that pages by number is the
-// number of the page to read next and the size the pages before it were cut at.
+// pageCursor is where a listing left off, the forge's cursor for the next page and the size
+// the pages before it were cut at.
 type pageCursor struct {
-	Page    int `json:"page"`
-	PerPage int `json:"per_page"`
+	Cursor  string `json:"cursor"`
+	PerPage int    `json:"per_page"`
 }
 
 // Validate refuses a page nobody could have been handed.
 func (c pageCursor) Validate() error {
-	if c.Page < 1 {
-		return fmt.Errorf("page %d is before the first", c.Page)
+	if c.Cursor == "" {
+		return fmt.Errorf("a page token names no cursor")
 	}
 	if c.PerPage < 1 {
 		return fmt.Errorf("%d to a page is no page", c.PerPage)
@@ -85,7 +85,7 @@ func (s *PullRequestService) ListPullRequests(ctx context.Context, req *pullrequ
 		return nil, rpcerr.From(err, "failed to read the remote")
 	}
 
-	window := pageCursor{Page: 1, PerPage: int(pagination.Bound(req.GetPagination().GetLimit()))}
+	window := pageCursor{PerPage: int(pagination.Bound(req.GetPagination().GetLimit()))}
 	if cursor, err := pagination.Decode[pageCursor](req.GetPagination().GetCursor()); err != nil {
 		return nil, rpcerr.From(err, "failed to read the page token")
 	} else if cursor != nil {
@@ -105,7 +105,7 @@ func (s *PullRequestService) ListPullRequests(ctx context.Context, req *pullrequ
 	listed, err := f.List(ctx, forge.ListParams{
 		Repo:    repo,
 		Branch:  req.GetBranch(),
-		Page:    window.Page,
+		Cursor:  window.Cursor,
 		PerPage: window.PerPage,
 	})
 	if err != nil {
@@ -119,7 +119,7 @@ func (s *PullRequestService) ListPullRequests(ctx context.Context, req *pullrequ
 
 	response := &pullrequestv1.ListPullRequestsResponse{PullRequests: resources}
 	if listed.HasMore {
-		next, err := pagination.Token(pageCursor{Page: window.Page + 1, PerPage: window.PerPage})
+		next, err := pagination.Token(pageCursor{Cursor: listed.Cursor, PerPage: window.PerPage})
 		if err != nil {
 			return nil, rpcerr.From(err, "failed to build the next page token")
 		}

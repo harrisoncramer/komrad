@@ -103,12 +103,14 @@ type PullRequest struct {
 	BaseBranch string
 	BaseSHA    string
 	Draft      bool
-	// State is the forge's own word for where the pull request stands, kept verbatim.
+	// State is where the forge says the pull request stands, as OPEN, CLOSED or MERGED.
 	State     string
 	CreatedAt time.Time
 	UpdatedAt time.Time
 	MergedAt  *time.Time
 	ClosedAt  *time.Time
+	// Decision is where the reviews stand, nil when the call did not ask.
+	Decision *ReviewDecision
 }
 
 // IsFinished says whether the pull request has merged or closed.
@@ -130,52 +132,77 @@ type Forge interface {
 	// whatever its state, or the open ones when the branch is empty.
 	List(ctx context.Context, params ListParams) (*ListResult, error)
 	// ListUpdated is one page of every pull request in the repository, whatever its state,
-	// newest change first, which is what the sync pages by.
+	// newest change first.
 	ListUpdated(ctx context.Context, params ListUpdatedParams) (*ListUpdatedResult, error)
+	// ListChanged is one page of every pull request across the repositories changed at or
+	// after a moment, newest first, each carrying its review decision.
+	ListChanged(ctx context.Context, params ListChangedParams) (*ListChangedResult, error)
 	// Get is one pull request by its web address.
 	Get(ctx context.Context, url string) (PullRequest, error)
-	// GetReviewDecisionByNumber is where the forge says a pull request's reviews stand.
-	GetReviewDecisionByNumber(ctx context.Context, repo git.RemoteURL, pullRequestNumber int) (ReviewDecision, error)
+	// ReviewDecisions is where the forge says the reviews of up to fifty pull requests stand,
+	// by number, leaving out any the forge does not have.
+	ReviewDecisions(ctx context.Context, repo git.RemoteURL, numbers []int) (map[int]ReviewDecision, error)
 }
 
-// ListParams says which pull requests to list and which page of them.
+// MaxReviewDecisions is the most pull requests one ReviewDecisions call asks about.
+const MaxReviewDecisions = 50
+
+// ListParams says which pull requests to list and where in them to start.
 type ListParams struct {
 	Repo git.RemoteURL
 	// Branch narrows the listing to pull requests opened from it, whatever their state; empty
 	// lists the open ones.
 	Branch string
-	// Page is which page to read, from 1, and PerPage how many a page holds.
-	Page    int
+	// Cursor is where a previous page ended, empty for the first, and PerPage how many a page
+	// holds.
+	Cursor  string
 	PerPage int
 }
 
-// ListResult is one page of pull requests and whether another follows.
+// ListResult is one page of pull requests and where the next one starts.
 type ListResult struct {
 	PullRequests []PullRequest
 	HasMore      bool
-	RateLimit    RateLimit
+	// Cursor is where this page ended, to send back for the next.
+	Cursor    string
+	RateLimit RateLimit
 }
 
-// ListUpdatedParams says which page of a repository's pull requests to read, and the ETag the
-// forge answered the same page with last time, sent so an unchanged page costs no body.
+// ListUpdatedParams says which page of a repository's pull requests by last change to read.
 type ListUpdatedParams struct {
 	Repo git.RemoteURL
-	// Page is which page to read, from 1; the page size is the most the forge allows.
-	Page int
-	ETag string
+	// Cursor is where a previous page ended, empty for the first; the page size is the most
+	// the forge allows.
+	Cursor string
 }
 
-// ListUpdatedResult is one page of pull requests by last change, or the forge saying the page
-// has not changed since the ETag it was given.
+// ListUpdatedResult is one page of pull requests by last change and where the next starts.
 type ListUpdatedResult struct {
 	PullRequests []PullRequest
 	HasMore      bool
-	// ETag is what the forge answered the page with, to send back next time.
-	ETag string
-	// NotModified says the forge answered 304 to the ETag it was sent, and PullRequests is
-	// empty.
-	NotModified bool
-	RateLimit   RateLimit
+	// Cursor is where this page ended, to send back for the next.
+	Cursor    string
+	RateLimit RateLimit
+}
+
+// ListChangedParams says which repositories to read the changes of, and since when.
+type ListChangedParams struct {
+	// Repos are the repositories, every one on the forge's own host.
+	Repos []git.RemoteURL
+	// Since is the moment at or after which a pull request must have changed to be answered.
+	Since time.Time
+	// Cursor is where a previous page ended, empty for the first.
+	Cursor string
+}
+
+// ListChangedResult is one page of changed pull requests, each with its decision, and where
+// the next page starts.
+type ListChangedResult struct {
+	PullRequests []PullRequest
+	HasMore      bool
+	// Cursor is where this page ended, to send back for the next.
+	Cursor    string
+	RateLimit RateLimit
 }
 
 // InstallationVerifier is a forge that can say what an installation token reaches.

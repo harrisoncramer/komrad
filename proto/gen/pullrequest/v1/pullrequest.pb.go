@@ -195,7 +195,7 @@ type PullRequest struct {
 	BaseSha string `protobuf:"bytes,11,opt,name=base_sha,json=baseSha,proto3" json:"base_sha,omitempty"`
 	// Whether the forge marks it a draft.
 	Draft bool `protobuf:"varint,12,opt,name=draft,proto3" json:"draft,omitempty"`
-	// The forge's own word for where it stands, kept verbatim; read merged_at and closed_at for
+	// Where the forge says it stands, as OPEN, CLOSED or MERGED; read merged_at and closed_at for
 	// whether it is finished.
 	State string `protobuf:"bytes,13,opt,name=state,proto3" json:"state,omitempty"`
 	// When it was opened on the forge, in RFC 3339.

@@ -38,7 +38,7 @@ type PullRequest struct {
 	BaseBranch string
 	BaseSHA    string
 	Draft      bool
-	// State is the forge's own word, kept verbatim.
+	// State is where the forge says it stands, as OPEN, CLOSED or MERGED.
 	State string
 	// OpenedAt is when the forge says it was opened.
 	OpenedAt time.Time
@@ -108,35 +108,39 @@ type Observation struct {
 // Sync is where the sync is for one repository.
 type Sync struct {
 	RepositoryURL string
-	// UpdatedThrough is the newest forge changed_at the last completed sweep covered.
+	// UpdatedThrough is the newest forge changed_at the changes have been read through, nil
+	// until the first sweep has completed.
 	UpdatedThrough *time.Time
-	// ETag is what page one answered on the last completed sweep.
-	ETag string
-	// ValidatedAt is the last time page one was read without an ETag and answered with a body.
-	ValidatedAt *time.Time
-	// SweepNextPage is the next page a sweep in progress has not yet written, nil between sweeps.
-	SweepNextPage *int
-	// SweepNewest is the changed_at of the first pull request on page one of the sweep in progress.
+	// ListedAt is the last time page one of the repository's own listing was read and written.
+	ListedAt *time.Time
+	// SweepCursor is where the first sweep in progress reads its next page from, empty for
+	// page one and nil between sweeps.
+	SweepCursor *string
+	// SweepNewest is the moment the sweep in progress covers up to, which becomes the mark when
+	// it completes.
 	SweepNewest *time.Time
-	// SweepETag is what page one answered for the sweep in progress.
-	SweepETag *string
 	// ReadAt is the last time any request was made for the repository.
 	ReadAt *time.Time
 	// Calls is how many requests the most recent pass made for the repository.
 	Calls int
 }
 
-// IsSweeping says whether a sweep is in progress.
+// IsSweeping says whether a first sweep is in progress.
 func (s Sync) IsSweeping() bool {
-	return s.SweepNextPage != nil
+	return s.SweepCursor != nil
+}
+
+// IsSwept says whether a first sweep has completed.
+func (s Sync) IsSwept() bool {
+	return s.UpdatedThrough != nil
 }
 
 // BranchScan is where the one-time listing of a branch's pull requests is.
 type BranchScan struct {
 	RepositoryURL string
 	Branch        string
-	// NextPage is the next page not yet written.
-	NextPage int
+	// NextCursor is where the listing reads its next page from, empty for the first.
+	NextCursor string
 	// CompletedAt is when the listing answered its last page, nil while it has not.
 	CompletedAt *time.Time
 }
@@ -253,7 +257,7 @@ func (s *Store) ListStaleDecisions(ctx context.Context, repositoryURL string) ([
 }
 
 // SetReviewDecision records where the forge said a pull request's reviews stand, read for the
-// change the row holds now.
+// change the row holds now, leaving a row that already says so untouched.
 func (s *Store) SetReviewDecision(ctx context.Context, id string, decision forge.ReviewDecision) error {
 	var stored *string
 	if decision != forge.ReviewDecisionNone {
@@ -378,18 +382,18 @@ func (s *Store) GetBranchScan(ctx context.Context, repositoryURL, branch string)
 	return &BranchScan{
 		RepositoryURL: row.RepositoryUrl,
 		Branch:        row.Branch,
-		NextPage:      int(row.NextPage),
+		NextCursor:    row.NextCursor,
 		CompletedAt:   row.CompletedAt,
 	}, nil
 }
 
-// SetBranchScanNextPage records the next page of a branch's listing still to write, starting
-// the scan when it has not.
-func (s *Store) SetBranchScanNextPage(ctx context.Context, repositoryURL, branch string, nextPage int) error {
-	err := s.queries.SetBranchScanNextPage(ctx, models.SetBranchScanNextPageParams{
+// SetBranchScanCursor records where a branch's listing reads its next page from, starting the
+// scan when it has not.
+func (s *Store) SetBranchScanCursor(ctx context.Context, repositoryURL, branch, cursor string) error {
+	err := s.queries.SetBranchScanCursor(ctx, models.SetBranchScanCursorParams{
 		RepositoryUrl: repositoryURL,
 		Branch:        branch,
-		NextPage:      int32(nextPage),
+		NextCursor:    cursor,
 	})
 	if err != nil {
 		return fmt.Errorf("failed to advance the scan of %s of %s: %w", branch, repositoryURL, err)
@@ -399,11 +403,11 @@ func (s *Store) SetBranchScanNextPage(ctx context.Context, repositoryURL, branch
 }
 
 // CompleteBranchScan records that a branch's listing answered its last page.
-func (s *Store) CompleteBranchScan(ctx context.Context, repositoryURL, branch string, nextPage int) error {
+func (s *Store) CompleteBranchScan(ctx context.Context, repositoryURL, branch, cursor string) error {
 	err := s.queries.CompleteBranchScan(ctx, models.CompleteBranchScanParams{
 		RepositoryUrl: repositoryURL,
 		Branch:        branch,
-		NextPage:      int32(nextPage),
+		NextCursor:    cursor,
 	})
 	if err != nil {
 		return fmt.Errorf("failed to complete the scan of %s of %s: %w", branch, repositoryURL, err)
@@ -431,22 +435,15 @@ func (s *Store) GetSync(ctx context.Context, repositoryURL string) (*Sync, error
 		return nil, fmt.Errorf("failed to get the sync row for %s: %w", repositoryURL, err)
 	}
 
-	sync := Sync{
+	return &Sync{
 		RepositoryURL:  row.RepositoryUrl,
 		UpdatedThrough: row.UpdatedThrough,
-		ETag:           row.Etag,
-		ValidatedAt:    row.ValidatedAt,
+		ListedAt:       row.ListedAt,
+		SweepCursor:    row.SweepCursor,
 		SweepNewest:    row.SweepNewest,
-		SweepETag:      row.SweepEtag,
 		ReadAt:         row.ReadAt,
 		Calls:          int(row.Calls),
-	}
-	if row.SweepNextPage != nil {
-		next := int(*row.SweepNextPage)
-		sync.SweepNextPage = &next
-	}
-
-	return &sync, nil
+	}, nil
 }
 
 // ResetSyncCalls starts a pass's count of requests for a repository at zero.
@@ -467,27 +464,22 @@ func (s *Store) RecordSyncRequest(ctx context.Context, repositoryURL string) err
 	return nil
 }
 
-// StartSweepParams is what page one of a sweep answered with.
+// StartSweepParams is what page one of a first sweep answered with, and when.
 type StartSweepParams struct {
 	RepositoryURL string
-	// Newest is the changed_at of the first pull request on page one.
+	// Newest is the moment the sweep covers up to, when page one was read or its first row's
+	// stamp when the forge's clock is ahead.
 	Newest time.Time
-	// ETag is what page one answered.
-	ETag string
-	// ValidatedAt is when page one was read without an ETag and answered with a body, nil when
-	// it was read with one.
-	ValidatedAt *time.Time
+	// ListedAt is when page one was read.
+	ListedAt time.Time
 }
 
-// StartSweep records a sweep beginning at page one.
+// StartSweep records a first sweep beginning at page one.
 func (s *Store) StartSweep(ctx context.Context, params StartSweepParams) error {
-	newest := params.Newest
-	etag := params.ETag
 	err := s.queries.StartPullRequestSweep(ctx, models.StartPullRequestSweepParams{
 		RepositoryUrl: params.RepositoryURL,
-		SweepNewest:   &newest,
-		SweepEtag:     &etag,
-		ValidatedAt:   params.ValidatedAt,
+		SweepNewest:   xptr.Ptr(params.Newest),
+		ListedAt:      xptr.Ptr(params.ListedAt),
 	})
 	if err != nil {
 		return fmt.Errorf("failed to start a sweep of %s: %w", params.RepositoryURL, err)
@@ -496,12 +488,11 @@ func (s *Store) StartSweep(ctx context.Context, params StartSweepParams) error {
 	return nil
 }
 
-// AdvanceSweep records the next page of a sweep still to write.
-func (s *Store) AdvanceSweep(ctx context.Context, repositoryURL string, nextPage int) error {
-	next := int32(nextPage)
+// AdvanceSweep records where the sweep in progress reads its next page from.
+func (s *Store) AdvanceSweep(ctx context.Context, repositoryURL, cursor string) error {
 	err := s.queries.AdvancePullRequestSweep(ctx, models.AdvancePullRequestSweepParams{
 		RepositoryUrl: repositoryURL,
-		SweepNextPage: &next,
+		SweepCursor:   xptr.Ptr(cursor),
 	})
 	if err != nil {
 		return fmt.Errorf("failed to advance the sweep of %s: %w", repositoryURL, err)
@@ -511,11 +502,47 @@ func (s *Store) AdvanceSweep(ctx context.Context, repositoryURL string, nextPage
 }
 
 // CompleteSweep promotes the sweep in progress: the high-water mark moves to its newest stamp
-// unless the mark is already newer, its ETag becomes the repository's, and the sweep columns
-// clear.
+// unless the mark is already newer, and the sweep columns clear.
 func (s *Store) CompleteSweep(ctx context.Context, repositoryURL string) error {
 	if err := s.queries.CompletePullRequestSweep(ctx, repositoryURL); err != nil {
 		return fmt.Errorf("failed to complete the sweep of %s: %w", repositoryURL, err)
+	}
+
+	return nil
+}
+
+// ResetSweeps hands repositories back to a first sweep, clearing their high-water marks and
+// any sweep in progress.
+func (s *Store) ResetSweeps(ctx context.Context, repositoryURLs []string) error {
+	if err := s.queries.ResetPullRequestSweep(ctx, repositoryURLs); err != nil {
+		return fmt.Errorf("failed to reset the sweeps of %v: %w", repositoryURLs, err)
+	}
+
+	return nil
+}
+
+// AdvanceMark moves a repository's high-water mark to a moment the changes have been read
+// through, unless the mark is already newer.
+func (s *Store) AdvanceMark(ctx context.Context, repositoryURL string, through time.Time) error {
+	err := s.queries.AdvancePullRequestSyncMark(ctx, models.AdvancePullRequestSyncMarkParams{
+		RepositoryUrl:  repositoryURL,
+		UpdatedThrough: through,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to advance the mark of %s: %w", repositoryURL, err)
+	}
+
+	return nil
+}
+
+// MarkListed records when page one of a repository's own listing was last read and written.
+func (s *Store) MarkListed(ctx context.Context, repositoryURL string, at time.Time) error {
+	err := s.queries.MarkPullRequestSyncListed(ctx, models.MarkPullRequestSyncListedParams{
+		RepositoryUrl: repositoryURL,
+		ListedAt:      xptr.Ptr(at),
+	})
+	if err != nil {
+		return fmt.Errorf("failed to record the listing of %s: %w", repositoryURL, err)
 	}
 
 	return nil

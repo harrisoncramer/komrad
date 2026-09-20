@@ -39,14 +39,22 @@ func (f *fakeForge) ListUpdated(context.Context, forge.ListUpdatedParams) (*forg
 	return &forge.ListUpdatedResult{}, nil
 }
 
-func (f *fakeForge) GetReviewDecisionByNumber(context.Context, git.RemoteURL, int) (forge.ReviewDecision, error) {
-	return forge.ReviewDecisionNone, nil
+func (f *fakeForge) ListChanged(context.Context, forge.ListChangedParams) (*forge.ListChangedResult, error) {
+	return &forge.ListChangedResult{}, nil
+}
+
+func (f *fakeForge) ReviewDecisions(context.Context, git.RemoteURL, []int) (map[int]forge.ReviewDecision, error) {
+	return map[int]forge.ReviewDecision{}, nil
 }
 
 func (f *fakeForge) List(_ context.Context, params forge.ListParams) (*forge.ListResult, error) {
 	f.params = params
 
-	return &forge.ListResult{PullRequests: f.pullRequests, HasMore: f.hasMore}, nil
+	return &forge.ListResult{
+		PullRequests: f.pullRequests,
+		HasMore:      f.hasMore,
+		Cursor:       "end-of-page",
+	}, nil
 }
 
 type fakeFinder struct {
@@ -94,7 +102,7 @@ func TestListPullRequests(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "harrisoncramer/weave", fake.params.Repo.Path)
 	assert.Equal(t, "agent/x", fake.params.Branch)
-	assert.Equal(t, 1, fake.params.Page)
+	assert.Empty(t, fake.params.Cursor)
 	assert.Equal(t, 20, fake.params.PerPage, "twenty to a page when the caller says nothing")
 	assert.Nil(t, resp.Msg.NextPageToken, "the only page carries no token")
 	require.Len(t, resp.Msg.GetPullRequests(), 1)
@@ -106,8 +114,8 @@ func TestListPullRequests(t *testing.T) {
 }
 
 // TestListPullRequestsPages covers the token round trip: a page with more behind it hands
-// back a token, and that token asks the forge for the page after at the size the first was
-// cut at, whatever limit travels beside it.
+// back a token carrying the forge's cursor, and that token asks the forge for the page after
+// at the size the first was cut at, whatever limit travels beside it.
 func TestListPullRequestsPages(t *testing.T) {
 	t.Parallel()
 
@@ -128,7 +136,7 @@ func TestListPullRequestsPages(t *testing.T) {
 		Pagination: &paginationv1.Pagination{Cursor: first.Msg.NextPageToken},
 	}))
 	require.NoError(t, err)
-	assert.Equal(t, 2, fake.params.Page)
+	assert.Equal(t, "end-of-page", fake.params.Cursor)
 	assert.Equal(t, 50, fake.params.PerPage, "the token carries the size, so a dropped limit reads the same window")
 	assert.Nil(t, second.Msg.NextPageToken)
 }
@@ -147,12 +155,12 @@ func TestListPullRequestsRefusesABadToken(t *testing.T) {
 			cursor: "not-a-token",
 		},
 		{
-			name:   "a page before the first",
-			cursor: base64.URLEncoding.EncodeToString([]byte(`{"page":0,"per_page":20}`)),
+			name:   "a token with no cursor",
+			cursor: base64.URLEncoding.EncodeToString([]byte(`{"per_page":20}`)),
 		},
 		{
 			name:   "a token with no page size",
-			cursor: base64.URLEncoding.EncodeToString([]byte(`{"page":2}`)),
+			cursor: base64.URLEncoding.EncodeToString([]byte(`{"cursor":"Y3Vyc29yOjM="}`)),
 		},
 	}
 

@@ -216,37 +216,37 @@ WHERE
     repository_url = @repository_url
     AND branch = @branch;
 
--- name: SetBranchScanNextPage :exec
+-- name: SetBranchScanCursor :exec
 INSERT INTO branch_scans(
     repository_url,
     branch,
-    next_page)
+    next_cursor)
 VALUES (
     @repository_url,
     @branch,
-    @next_page)
+    @next_cursor)
 ON CONFLICT (
     repository_url,
     branch)
     DO UPDATE SET
-        next_page = EXCLUDED.next_page;
+        next_cursor = EXCLUDED.next_cursor;
 
 -- name: CompleteBranchScan :exec
 INSERT INTO branch_scans(
     repository_url,
     branch,
-    next_page,
+    next_cursor,
     completed_at)
 VALUES (
     @repository_url,
     @branch,
-    @next_page,
+    @next_cursor,
     NOW())
 ON CONFLICT (
     repository_url,
     branch)
     DO UPDATE SET
-        next_page = EXCLUDED.next_page,
+        next_cursor = EXCLUDED.next_cursor,
         completed_at = NOW();
 
 -- name: EnsurePullRequestSync :exec
@@ -287,10 +287,9 @@ WHERE
 UPDATE
     pull_request_syncs
 SET
-    sweep_next_page = 1,
+    sweep_cursor = '',
     sweep_newest = @sweep_newest,
-    sweep_etag = @sweep_etag,
-    validated_at = COALESCE(sqlc.narg('validated_at'), validated_at)
+    listed_at = @listed_at
 WHERE
     repository_url = @repository_url;
 
@@ -298,7 +297,7 @@ WHERE
 UPDATE
     pull_request_syncs
 SET
-    sweep_next_page = @sweep_next_page
+    sweep_cursor = @sweep_cursor
 WHERE
     repository_url = @repository_url;
 
@@ -307,10 +306,34 @@ UPDATE
     pull_request_syncs
 SET
     updated_through = GREATEST(updated_through, sweep_newest),
-    etag = COALESCE(sweep_etag, ''),
-    sweep_next_page = NULL,
-    sweep_newest = NULL,
-    sweep_etag = NULL
+    sweep_cursor = NULL,
+    sweep_newest = NULL
+WHERE
+    repository_url = @repository_url;
+
+-- name: ResetPullRequestSweep :exec
+UPDATE
+    pull_request_syncs
+SET
+    updated_through = NULL,
+    sweep_cursor = NULL,
+    sweep_newest = NULL
+WHERE
+    repository_url = ANY (@repository_urls::text[]);
+
+-- name: AdvancePullRequestSyncMark :exec
+UPDATE
+    pull_request_syncs
+SET
+    updated_through = GREATEST(updated_through, @updated_through::timestamptz)
+WHERE
+    repository_url = @repository_url;
+
+-- name: MarkPullRequestSyncListed :exec
+UPDATE
+    pull_request_syncs
+SET
+    listed_at = @listed_at
 WHERE
     repository_url = @repository_url;
 
@@ -346,7 +369,10 @@ SET
     review_decision = sqlc.narg('review_decision'),
     decision_changed_at = changed_at
 WHERE
-    id = @id;
+    id = @id
+    AND (review_decision,
+        decision_changed_at) IS DISTINCT FROM (sqlc.narg('review_decision'),
+        changed_at);
 
 -- name: ListCurrentPullRequests :many
 SELECT DISTINCT ON (a.id)
