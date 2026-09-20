@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"weave/internal/review"
+	"weave/internal/ui/paint/label"
 	agentv1 "weave/proto/gen/agent/v1"
 
 	"connectrpc.com/connect"
@@ -116,7 +117,7 @@ func (m model) leaveReviewWriting() (tea.Model, tea.Cmd) {
 	// Comments already written are held by the panel rather than by the pass, so leaving keeps
 	// them and says so, which is the difference between putting a review down and losing it.
 	if m.doesReviewHoldUnsent() {
-		m.review.notice = counted(m.reviewUnsentCount(), "comment") + " kept, still unsent"
+		m.review.notice = label.Counted(m.reviewUnsentCount(), "comment") + " kept, still unsent"
 	}
 
 	return m.endReviewPass(abandonedSaid)
@@ -461,7 +462,7 @@ func (m model) closeReviewRelease() model {
 
 // releasedNotice says what went.
 func releasedNotice(verdict agentv1.ReviewVerdict, count int32, interrupt bool) string {
-	sent := ", " + counted(int(count), "comment") + " sent"
+	sent := ", " + label.Counted(int(count), "comment") + " sent"
 	if interrupt {
 		sent += " and the agent stopped to read them"
 	}

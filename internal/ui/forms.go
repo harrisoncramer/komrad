@@ -12,6 +12,7 @@ import (
 	schedulestore "weave/internal/store/schedule"
 	workflowstore "weave/internal/store/workflow"
 	"weave/internal/ui/paint"
+	"weave/internal/ui/paint/label"
 
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
@@ -384,7 +385,7 @@ func childAgentForm(keys config.FormKeys, values *agentFormValues, parent agents
 		textField("prompt").Title(fmt.Sprintf("Child of %q", parent.Name)).
 			Description(fmt.Sprintf("%s opens $EDITOR; %s submits", keyLabel(keys.Editor), keyLabel(keys.Submit))).Value(&values.Prompt),
 		huh.NewInput().Key("title").Title("Title").Value(&values.Title),
-		huh.NewInput().Key("harness").Title("Agent").Placeholder(orDash(parent.Harness)).Value(&values.Harness),
+		huh.NewInput().Key("harness").Title("Agent").Placeholder(label.OrDash(parent.Harness)).Value(&values.Harness),
 		huh.NewInput().Key("flags").Title("Flags").Placeholder("--model opus").Value(&values.Flags),
 		huh.NewNote().Description(fmt.Sprintf(
 			"Runs in %s, the parent's own checkout. No worktree, nothing provisioned, archived when the parent is.", parent.Cwd)),
@@ -613,7 +614,7 @@ func emptyArchiveForm(count int, keys config.FormKeys) (*huh.Form, *bool) {
 // remover takes on its own, and where a lone branch stands.
 func deleteWorktreesForm(deletion worktreeDeletion, keepsBranch *bool, keys config.FormKeys) (*huh.Form, *bool) {
 	count := len(deletion.agents) + len(deletion.unowned)
-	subject := countWord(count, "worktree", "worktrees")
+	subject := label.Count(count, "worktree", "worktrees")
 	if count == 1 {
 		subject = "the worktree of " + worktreeRow{item: slices.Concat(deletion.agents, deletion.unowned)[0]}.name()
 	}
@@ -730,10 +731,10 @@ func refreshDescription(plan refreshPlan) string {
 		lines = append(lines, fmt.Sprintf("This branch has no commits of its own. It will be moved to %s.", plan.baseRef))
 	case plan.replay == 0:
 		lines = append(lines, fmt.Sprintf("The base already holds every commit on this branch. It will be moved to %s, "+
-			"and %s will leave the branch.", plan.baseRef, countWord(plan.landed, "commit", "commits")))
+			"and %s will leave the branch.", plan.baseRef, label.Count(plan.landed, "commit", "commits")))
 	default:
 		lines = append(lines, fmt.Sprintf("%s of its own will be replayed onto %s.",
-			countWord(plan.replay, "commit", "commits"), plan.baseRef))
+			label.Count(plan.replay, "commit", "commits"), plan.baseRef))
 		if plan.landed > 0 {
 			lines = append(lines, fmt.Sprintf("Another %d the base already holds will leave the branch.", plan.landed))
 		}
@@ -768,7 +769,7 @@ func refreshWarning(plan refreshPlan) string {
 	// what becomes of them, which is more use than saying they would collide.
 	if plan.merges > 0 {
 		warnings = append(warnings, fmt.Sprintf("A rebase throws away %s and replays what they settled.",
-			countWord(plan.merges, "merge commit", "merge commits")))
+			label.Count(plan.merges, "merge commit", "merge commits")))
 	}
 	if len(plan.conflictPaths) > 0 {
 		warnings = append(warnings, "Both sides changed "+namedPaths(plan.conflictPaths, 3)+".")
@@ -785,34 +786,6 @@ func namedPaths(paths []string, most int) string {
 	}
 
 	return fmt.Sprintf("%s and %d more", strings.Join(paths[:most], ", "), len(paths)-most)
-}
-
-// counted is how many of something there are, taking -es after an ending a bare s will not sit
-// on.
-func counted(count int, word string) string {
-	if count == 1 {
-		return "1 " + word
-	}
-
-	suffix := "s"
-	for _, ending := range []string{"ch", "sh", "s", "x", "z"} {
-		if strings.HasSuffix(word, ending) {
-			suffix = "es"
-
-			break
-		}
-	}
-
-	return fmt.Sprintf("%d %s%s", count, word, suffix)
-}
-
-// countWord is a number with its noun, so a confirmation reads as a sentence.
-func countWord(n int, singular, plural string) string {
-	if n == 1 {
-		return fmt.Sprintf("%d %s", n, singular)
-	}
-
-	return fmt.Sprintf("%d %s", n, plural)
 }
 
 func workflowForm(title string, values *workflowFormValues, keys config.FormKeys) (*huh.Form, []string) {
@@ -1010,7 +983,7 @@ func archiveWorkflowForm(name string, keys config.FormKeys) (*huh.Form, *bool) {
 func scheduleForm(values *schedulestore.Config, workflows []workflowstore.Workflow, keys config.FormKeys) (*huh.Form, []string) {
 	options := make([]huh.Option[string], 0, len(workflows)+1)
 	for _, w := range workflows {
-		options = append(options, huh.NewOption(w.Name+"  "+orDash(w.Cwd), w.ID))
+		options = append(options, huh.NewOption(w.Name+"  "+label.OrDash(w.Cwd), w.ID))
 	}
 
 	// A select whose value names none of its options selects the first one and writes it back,

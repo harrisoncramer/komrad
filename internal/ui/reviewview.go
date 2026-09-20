@@ -8,6 +8,7 @@ import (
 
 	"weave/internal/review"
 	"weave/internal/ui/paint"
+	"weave/internal/ui/paint/label"
 	agentv1 "weave/proto/gen/agent/v1"
 
 	"github.com/charmbracelet/lipgloss"
@@ -333,8 +334,8 @@ func (m model) reviewDetails() details {
 // hold: what it was measured against and what was kept out of it.
 func (m model) reviewFields() []recordField {
 	fields := []recordField{
-		{"base", orDash(shortSHA(m.review.round.GetBaseSha()))},
-		{"snapshot", orDash(shortSHA(m.review.round.GetSnapshotSha()))},
+		{"base", label.OrDash(label.ShortSHA(m.review.round.GetBaseSha()))},
+		{"snapshot", label.OrDash(label.ShortSHA(m.review.round.GetSnapshotSha()))},
 	}
 	if len(m.review.exclude) > 0 {
 		fields = append(fields, recordField{"excludes", strings.Join(m.review.exclude, ", ")})
@@ -395,16 +396,6 @@ func (m model) reviewReloadDesc() string {
 	}
 
 	return "read the diff again"
-}
-
-// shortSHA is how a commit is named in the record, where the whole of it would take the column
-// and say no more than its first few characters do.
-func shortSHA(sha string) string {
-	if len(sha) <= 12 {
-		return sha
-	}
-
-	return sha[:12]
 }
 
 // reviewResolveDesc says which way the settle key would go where the cursor is standing.

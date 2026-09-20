@@ -6,6 +6,7 @@ import (
 
 	"weave/config"
 	agentstore "weave/internal/store/agent"
+	"weave/internal/ui/paint/label"
 	"weave/lib/xslice"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -463,7 +464,7 @@ func (m model) keepsBranch(deletion worktreeDeletion) *bool {
 // deleteWorktreesCmd queues the deletion as one background job.
 func (m *model) deleteWorktreesCmd(deletion worktreeDeletion) tea.Cmd {
 	dirs := xslice.Map(slices.Concat(deletion.agents, deletion.unowned), func(item worktreeItem) string { return item.dir })
-	subject := countWord(len(dirs), "worktree", "worktrees")
+	subject := label.Count(len(dirs), "worktree", "worktrees")
 
 	return m.queuedCmd(
 		"Could not delete "+subject,

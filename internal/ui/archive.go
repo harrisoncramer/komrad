@@ -7,6 +7,7 @@ import (
 	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
 	"weave/internal/ui/paint"
+	"weave/internal/ui/paint/label"
 	"weave/internal/view"
 	"weave/lib/xslice"
 	agentv1 "weave/proto/gen/agent/v1"
@@ -308,7 +309,7 @@ func (m model) emptyArchiveConfirm() (tea.Model, tea.Cmd) {
 				message{
 					kind:    messageInfo,
 					summary: "Emptying the archive",
-					detail:  fmt.Sprintf("A background job is deleting %s, each with its worktree. The rows leave the archive as it goes.", countWord(len(m.archive.agents), "archived agent", "archived agents")),
+					detail:  fmt.Sprintf("A background job is deleting %s, each with its worktree. The rows leave the archive as it goes.", label.Count(len(m.archive.agents), "archived agent", "archived agents")),
 				},
 				func(a api) error { return a.emptyArchive() },
 			)

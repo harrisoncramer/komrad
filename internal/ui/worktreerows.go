@@ -1,7 +1,6 @@
 package ui
 
 import (
-	"fmt"
 	"path/filepath"
 	"regexp"
 	"slices"
@@ -9,6 +8,7 @@ import (
 	"time"
 
 	agentstore "weave/internal/store/agent"
+	"weave/internal/ui/paint/label"
 	"weave/internal/view"
 	"weave/lib/dates"
 	"weave/lib/xslice"
@@ -32,12 +32,6 @@ var worktreesDropped = view.Columns{
 
 // noRepository heads the directories whose .git file names nothing.
 const noRepository = "no repository"
-
-// sizeColumns and ageColumns are the widest a size and an age are spelled on a trail.
-const (
-	sizeColumns = 4
-	ageColumns  = 3
-)
 
 func (r worktreeRow) key() string {
 	if r.header {
@@ -247,7 +241,7 @@ func repoStanding(item worktreeItem) view.Repo {
 
 // rowTrail is a directory's size then its age, the size a dash until it has been measured.
 func rowTrail(item worktreeItem, now time.Time) string {
-	return trail(sizeLabel(item), dates.AgeAt(item.lastActiveAt, now))
+	return view.Trail(sizeLabel(item), dates.AgeAt(item.lastActiveAt, now))
 }
 
 // groupTrail is the total of the measured directories under a header, over the size column.
@@ -261,21 +255,17 @@ func groupTrail(rest []worktreeRow, repo string) string {
 		under = append(under, r.item)
 	}
 
-	return trail(totalLabel(under), "")
-}
-
-func trail(size, age string) string {
-	return fmt.Sprintf("%*s %*s", sizeColumns, size, ageColumns, age)
+	return view.Trail(totalLabel(under), "")
 }
 
 // sizeLabel is what a directory takes, a dash until it has been measured or while its last
 // walk failed.
 func sizeLabel(item worktreeItem) string {
 	if item.size == nil || item.size.err != "" {
-		return "—"
+		return label.Dash
 	}
 
-	return bytesLabel(item.size.bytes)
+	return label.Bytes(item.size.bytes)
 }
 
 // totalLabel is what the measured directories take together, a dash while none is.
@@ -292,32 +282,10 @@ func totalLabel(items []worktreeItem) string {
 	}
 
 	if !measured {
-		return "—"
+		return label.Dash
 	}
 
-	return bytesLabel(total)
-}
-
-// bytesLabel spells a byte count the way du does, at most four characters wide.
-func bytesLabel(bytes int64) string {
-	const unit = 1024
-
-	value := float64(bytes)
-	suffixes := []string{"B", "K", "M", "G", "T"}
-	for i, suffix := range suffixes {
-		if value >= 999.5 && i < len(suffixes)-1 {
-			value /= unit
-
-			continue
-		}
-		if value < 9.95 && suffix != "B" {
-			return fmt.Sprintf("%.1f%s", value, suffix)
-		}
-
-		return fmt.Sprintf("%.0f%s", value, suffix)
-	}
-
-	return ""
+	return label.Bytes(total)
 }
 
 // shortenHome spells a path under the home directory with a tilde.

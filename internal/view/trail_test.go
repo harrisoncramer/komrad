@@ -17,6 +17,55 @@ func trailedColumns() Columns {
 	return Columns{Review: true, Forge: true}
 }
 
+// TestTrailLaysItsCellsOutInColumns covers the amount and the age each right-aligned in its own
+// cell, either one blank, and nothing at all when both are.
+func TestTrailLaysItsCellsOutInColumns(t *testing.T) {
+	tests := []struct {
+		name   string
+		amount string
+		age    string
+		want   string
+	}{
+		{
+			name: "both blank is no trail",
+			want: "",
+		},
+		{
+			name:   "an amount alone sits over the amount cell",
+			amount: "24G",
+			want:   " 24G    ",
+		},
+		{
+			name: "an age alone sits in the age cell",
+			age:  "4d",
+			want: "      4d",
+		},
+		{
+			name:   "both fill their cells",
+			amount: "9.2M",
+			age:    "12h",
+			want:   "9.2M 12h",
+		},
+		{
+			name:   "a dash costs one column like any other",
+			amount: "—",
+			age:    "2w",
+			want:   "   —  2w",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := Trail(tt.amount, tt.age)
+
+			assert.Equal(t, tt.want, got)
+			if got != "" {
+				assert.Equal(t, trailBudget-spaceColumns, lipgloss.Width(got), "a trail fills its budget exactly")
+			}
+		})
+	}
+}
+
 // TestPrepareKeepsTheTrailOnlyWhereTheListHasRoom covers the whole trail being given up
 // list-wide, on the pane alone, rather than row by row or one part at a time.
 func TestPrepareKeepsTheTrailOnlyWhereTheListHasRoom(t *testing.T) {

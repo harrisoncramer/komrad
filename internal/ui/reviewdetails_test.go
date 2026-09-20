@@ -6,6 +6,7 @@ import (
 
 	"weave/config"
 	"weave/internal/ui/layout"
+	"weave/internal/ui/paint/label"
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
@@ -43,8 +44,8 @@ func TestReviewRecordNamesWhatTheDiffIsAgainst(t *testing.T) {
 	require.NotNil(t, m.review.view)
 	require.NotNil(t, m.review.round)
 
-	assert.Equal(t, shortSHA(m.review.round.GetBaseSha()), fieldValue(t, m.reviewDetails(), "base"))
-	assert.Equal(t, shortSHA(m.review.round.GetSnapshotSha()), fieldValue(t, m.reviewDetails(), "snapshot"))
+	assert.Equal(t, label.ShortSHA(m.review.round.GetBaseSha()), fieldValue(t, m.reviewDetails(), "base"))
+	assert.Equal(t, label.ShortSHA(m.review.round.GetSnapshotSha()), fieldValue(t, m.reviewDetails(), "snapshot"))
 
 	for _, field := range m.reviewDetails().fields {
 		assert.NotEqual(t, "round", field.label, "the reader is never shown weave's numbering")
