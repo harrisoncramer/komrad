@@ -24,6 +24,7 @@ type fakeWorktrees struct {
 	removeErr error
 	refused   []worktrees.Refusal
 	deleted   [][]string
+	released  [][]string
 	removed   [][]string
 }
 
@@ -35,6 +36,12 @@ func (f *fakeWorktrees) DeleteAgents(_ context.Context, ids []string) error {
 	f.deleted = append(f.deleted, ids)
 
 	return f.deleteErr
+}
+
+func (f *fakeWorktrees) ClearDeleting(_ context.Context, ids []string) error {
+	f.released = append(f.released, ids)
+
+	return nil
 }
 
 func (f *fakeWorktrees) Remove(_ context.Context, dirs []string) (worktrees.Removal, error) {
@@ -50,6 +57,7 @@ func newDeleteWorktreesWorker(fake *fakeWorktrees) *DeleteWorktreesWorker {
 	return NewDeleteWorktreesWorker(NewDeleteWorktreesWorkerParams{
 		Worktrees: fake,
 		Deleter:   fake,
+		Releaser:  fake,
 		Remover:   fake,
 	})
 }
@@ -70,17 +78,18 @@ func archivedWorktree(dir, id string) worktrees.Worktree {
 // goes, and what the job answers River with.
 func TestDeleteWorktreesSendsEachDirectoryDownItsPath(t *testing.T) {
 	tests := []struct {
-		name        string
-		listing     []worktrees.Worktree
-		dirs        []string
-		refused     []worktrees.Refusal
-		deleteErr   error
-		removeErr   error
-		wantDeleted [][]string
-		wantRemoved [][]string
-		wantErr     bool
-		wantCancel  bool
-		wantSaid    string
+		name         string
+		listing      []worktrees.Worktree
+		dirs         []string
+		refused      []worktrees.Refusal
+		deleteErr    error
+		removeErr    error
+		wantDeleted  [][]string
+		wantReleased [][]string
+		wantRemoved  [][]string
+		wantErr      bool
+		wantCancel   bool
+		wantSaid     string
 	}{
 		{
 			name:    "a directory the listing no longer holds is skipped",
@@ -133,11 +142,12 @@ func TestDeleteWorktreesSendsEachDirectoryDownItsPath(t *testing.T) {
 				archivedWorktree("/trees/a", "a"),
 				{Dir: "/trees/live", Readable: true, Agent: &worktrees.Agent{ID: "live", Name: "worktree-view"}},
 			},
-			dirs:        []string{"/trees/a", "/trees/live"},
-			deleteErr:   errors.New("the store is away"),
-			wantDeleted: [][]string{{"a"}},
-			wantErr:     true,
-			wantSaid:    "agent worktree-view is live",
+			dirs:         []string{"/trees/a", "/trees/live"},
+			deleteErr:    errors.New("the store is away"),
+			wantDeleted:  [][]string{{"a"}},
+			wantReleased: [][]string{{"a"}},
+			wantErr:      true,
+			wantSaid:     "agent worktree-view is live",
 		},
 		{
 			name:        "an archived agent's directory goes through the agent delete",
@@ -189,13 +199,14 @@ func TestDeleteWorktreesSendsEachDirectoryDownItsPath(t *testing.T) {
 				{Dir: "/trees/outer", Readable: true},
 				archivedWorktree("/trees/outer/inner", "inner"),
 			},
-			dirs:        []string{"/trees/outer", "/trees/outer/inner"},
-			deleteErr:   errors.New("the store is away"),
-			refused:     []worktrees.Refusal{{Dir: "/trees/outer", Reason: "it holds the worktree /trees/outer/inner; remove that first"}},
-			wantDeleted: [][]string{{"inner"}},
-			wantRemoved: [][]string{{"/trees/outer"}},
-			wantErr:     true,
-			wantSaid:    "/trees/outer was left alone: it holds the worktree",
+			dirs:         []string{"/trees/outer", "/trees/outer/inner"},
+			deleteErr:    errors.New("the store is away"),
+			refused:      []worktrees.Refusal{{Dir: "/trees/outer", Reason: "it holds the worktree /trees/outer/inner; remove that first"}},
+			wantDeleted:  [][]string{{"inner"}},
+			wantReleased: [][]string{{"inner"}},
+			wantRemoved:  [][]string{{"/trees/outer"}},
+			wantErr:      true,
+			wantSaid:     "/trees/outer was left alone: it holds the worktree",
 		},
 		{
 			name: "a directory goes before the one holding it, each depth its own call",
@@ -236,6 +247,7 @@ func TestDeleteWorktreesSendsEachDirectoryDownItsPath(t *testing.T) {
 			}
 
 			assert.Equal(t, tt.wantDeleted, fake.deleted, "what the agent delete was asked")
+			assert.Equal(t, tt.wantReleased, fake.released, "the agents a refused delete let back into the listings")
 			assert.Equal(t, tt.wantRemoved, fake.removed, "what the remover was asked")
 		})
 	}

@@ -31,8 +31,13 @@ type AgentDeleter interface {
 }
 
 type ArchivedAgentLister interface {
-	ListPage(ctx context.Context, limit int64, cursor *agentstore.Cursor, archived bool) ([]agentstore.Agent, error)
+	ListArchiveSweepPage(ctx context.Context, limit int64, cursor *agentstore.Cursor) ([]agentstore.Agent, error)
 	ListByID(ctx context.Context, ids []string) ([]agentstore.Agent, error)
+}
+
+// DeletionReleaser takes a delete's claim off agents it could not take.
+type DeletionReleaser interface {
+	ClearDeleting(ctx context.Context, ids []string) error
 }
 
 type RunningAgentCounter interface {

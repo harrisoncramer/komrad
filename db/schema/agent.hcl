@@ -525,6 +525,11 @@ table "agents" {
     null = true
     type = timestamptz
   }
+  column "deleting_at" {
+    null    = true
+    type    = timestamptz
+    comment = "When a delete claimed the row. A claimed row is left out of every listing until the delete either removes it or fails, and a failure clears the claim as it records itself. The server clears every claim when it starts, since nothing survives a restart to finish one."
+  }
   column "is_hidden" {
     null    = false
     type    = boolean

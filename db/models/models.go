@@ -271,6 +271,8 @@ type Agent struct {
 	SequenceInProgress bool
 	// The canonical web address of the repository the agent's checkout pushes to, such as https://github.com/harrisoncramer/weave. Null when the checkout is gone or its origin is not a forge. The cwd syncer rewrites it on the same pass that rewrites branch.
 	RepositoryUrl *string
+	// When a delete claimed the row. A claimed row is left out of every listing until the delete either removes it or fails, and a failure clears the claim as it records itself. The server clears every claim when it starts, since nothing survives a restart to finish one.
+	DeletingAt *time.Time
 }
 
 // Facts an agent recorded about its own work, such as the pull request it opened.

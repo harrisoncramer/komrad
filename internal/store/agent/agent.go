@@ -113,6 +113,7 @@ type Agent struct {
 	ScheduleID     *string
 	IdempotencyKey *string
 	ArchivedAt     *time.Time
+	DeletingAt     *time.Time
 	NudgedAt       *time.Time
 
 	// NudgeSentAt is when an agent was last told about its mail, which a claimed nudge that
@@ -204,6 +205,7 @@ func agentFromRow(agent models.Agent) Agent {
 		ScheduleID:         agent.ScheduleID,
 		IdempotencyKey:     agent.IdempotencyKey,
 		ArchivedAt:         agent.ArchivedAt,
+		DeletingAt:         agent.DeletingAt,
 		NudgedAt:           agent.NudgedAt,
 		NudgeSentAt:        agent.NudgeSentAt,
 		Hidden:             agent.IsHidden,

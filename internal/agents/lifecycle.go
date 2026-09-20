@@ -33,6 +33,8 @@ type lifecycleAgentReadWriter interface {
 	Archive(ctx context.Context, ids []string) ([]agentstore.AgentPane, error)
 	ArchiveIfUnchanged(ctx context.Context, params agentstore.ArchiveIfUnchangedParams) (bool, error)
 	RestampArchived(ctx context.Context, ids []string) error
+	MarkDeleting(ctx context.Context, ids []string) error
+	ClearDeleting(ctx context.Context, ids []string) error
 }
 
 // emptyWorkflowDeleter permanently removes a workflow left with nothing archived inside it.
@@ -103,6 +105,10 @@ func (s *LifecycleService) DeleteAgents(ctx context.Context, ids []string) error
 
 	agents, err := s.withChildren(ctx, named)
 	if err != nil {
+		return err
+	}
+
+	if err := s.agents.MarkDeleting(ctx, agentIDs(agents)); err != nil {
 		return err
 	}
 
@@ -223,6 +229,11 @@ func (s *LifecycleService) finishDelete(ctx context.Context, agent agentstore.Ag
 
 func (s *LifecycleService) failCleanup(ctx context.Context, agent agentstore.Agent, cause error) {
 	failAs(ctx, s.agents, agent, agentstore.StateFailedToCleanup, "cleanup", cause)
+
+	if err := s.agents.ClearDeleting(ctx, []string{agent.ID}); err != nil {
+		logging.From(ctx).LogAttrs(ctx, slog.LevelError, "failed to release an agent whose cleanup failed",
+			append([]slog.Attr{slog.String(logging.AgentID, agent.ID)}, logging.Err(err)...)...)
+	}
 }
 
 // cleanupEmptyWorkflows deletes each workflow among removed's that now holds nothing archived

@@ -14,11 +14,70 @@ SELECT
 FROM
     agents s
 WHERE (@archived::boolean) =(s.archived_at IS NOT NULL)
+    AND s.deleting_at IS NULL
     AND (sqlc.narg('cursor_id')::uuid IS NULL
         OR s.id < sqlc.narg('cursor_id'))
 ORDER BY
     s.id DESC
 LIMIT @lim;
+
+-- name: ListArchiveSweepPage :many
+SELECT
+    *
+FROM
+    agents s
+WHERE
+    s.archived_at IS NOT NULL
+    AND (sqlc.narg('cursor_id')::uuid IS NULL
+        OR s.id < sqlc.narg('cursor_id'))
+ORDER BY
+    s.id DESC
+LIMIT @lim;
+
+-- name: MarkAgentsDeleting :exec
+UPDATE
+    agents
+SET
+    deleting_at = NOW()
+WHERE (id = ANY (@ids::uuid[])
+    OR parent_agent_id = ANY (@ids::uuid[]))
+AND deleting_at IS NULL;
+
+-- name: MarkArchivedAgentsDeleting :exec
+UPDATE
+    agents
+SET
+    deleting_at = NOW()
+WHERE
+    archived_at IS NOT NULL
+    AND deleting_at IS NULL;
+
+-- name: MarkArchivedAgentsDeletingByID :exec
+UPDATE
+    agents
+SET
+    deleting_at = NOW()
+WHERE (id = ANY (@ids::uuid[])
+    OR parent_agent_id = ANY (@ids::uuid[]))
+AND archived_at IS NOT NULL
+AND deleting_at IS NULL;
+
+-- name: ClearAgentsDeleting :exec
+UPDATE
+    agents
+SET
+    deleting_at = NULL
+WHERE
+    id = ANY (@ids::uuid[])
+    OR parent_agent_id = ANY (@ids::uuid[]);
+
+-- name: ClearAllAgentsDeleting :exec
+UPDATE
+    agents
+SET
+    deleting_at = NULL
+WHERE
+    deleting_at IS NOT NULL;
 
 -- name: ListAllAgents :many
 SELECT
@@ -1013,6 +1072,7 @@ SELECT
     state,
     state_changed_at,
     archived_at,
+    deleting_at,
     adopted_branch,
     workflow_id
 FROM

@@ -123,12 +123,17 @@ func NewServer(ctx context.Context, params NewServerParams) (*Server, error) {
 		return nil, err
 	}
 
+	if err := st.agents.ClearAllDeleting(ctx); err != nil {
+		return nil, err
+	}
+
 	srv.Jobs, err = jobs.NewClient(jobs.NewClientParams{
 		Pool:      st.pool.GetRawPool(),
 		Schedules: st.schedules,
 		Results:   st.schedules,
 		Launcher:  svc.launch,
 		Deleter:   svc.lifecycle,
+		Releaser:  st.agents,
 		Archived:  st.agents,
 		Running:   st.agents,
 		Worktrees: svc.worktrees,

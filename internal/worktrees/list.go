@@ -28,7 +28,9 @@ type Agent struct {
 	Adopted bool
 	// FailedToCleanup says the agent's own delete refused the directory.
 	FailedToCleanup bool
-	WorkflowID      string
+	// Deleting says a delete has claimed the agent and not yet taken it.
+	Deleting   bool
+	WorkflowID string
 }
 
 // Worktree is one directory under the worktree directories, and what answers for it.
@@ -308,6 +310,7 @@ func describe(row agentstore.AgentDir) *Agent {
 		ArchivedAt:      row.ArchivedAt,
 		Adopted:         row.AdoptedBranch != "",
 		FailedToCleanup: row.State == agentstore.StateFailedToCleanup,
+		Deleting:        row.DeletingAt != nil,
 		WorkflowID:      row.WorkflowID,
 	}
 }

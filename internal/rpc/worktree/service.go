@@ -31,11 +31,16 @@ type deleter interface {
 	DeleteWorktrees(ctx context.Context, dirs []string) error
 }
 
+type claimedDirLister interface {
+	ListClaimedDirs(ctx context.Context) ([]string, error)
+}
+
 type WorktreeService struct {
 	lister    lister
 	inspector inspector
 	remover   remover
 	deleter   deleter
+	claimed   claimedDirLister
 }
 
 type NewWorktreeServiceParams struct {
@@ -43,28 +48,35 @@ type NewWorktreeServiceParams struct {
 	Inspector inspector
 	Remover   remover
 	Deleter   deleter
+	Claimed   claimedDirLister
 }
 
-// NewWorktreeService constructs the handler over the worktree readers, the remover and the
-// queue the bulk delete goes to.
+// NewWorktreeService constructs the handler over the worktree readers, the remover, the queue
+// the bulk delete goes to and the reader of what that queue still holds.
 func NewWorktreeService(params NewWorktreeServiceParams) *WorktreeService {
 	return &WorktreeService{
 		lister:    params.Lister,
 		inspector: params.Inspector,
 		remover:   params.Remover,
 		deleter:   params.Deleter,
+		claimed:   params.Claimed,
 	}
 }
 
-// ListWorktrees is every directory under the worktree directories.
+// ListWorktrees is every directory under the worktree directories that no delete has claimed.
 func (s *WorktreeService) ListWorktrees(ctx context.Context, _ *emptypb.Empty) (*worktreev1.ListWorktreesResponse, *fail.Error) {
 	listing, err := s.lister.List(ctx)
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to list worktrees")
 	}
 
+	claimed, err := s.claimed.ListClaimedDirs(ctx)
+	if err != nil {
+		return nil, rpcerr.From(err, "failed to list worktrees")
+	}
+
 	return &worktreev1.ListWorktreesResponse{
-		Worktrees:      xslice.Map(listing.Worktrees, renderWorktree),
+		Worktrees:      xslice.Map(unclaimed(listing.Worktrees, claimed), renderWorktree),
 		Dirs:           listing.Dirs,
 		UnreadableDirs: listing.UnreadableDirs,
 	}, nil
@@ -119,6 +131,26 @@ func (s *WorktreeService) DeleteWorktrees(ctx context.Context, req *worktreev1.D
 	}
 
 	return &emptypb.Empty{}, nil
+}
+
+// unclaimed drops the directories a delete has claimed: those whose agent is being deleted, and
+// those nothing answers for that an unfinished delete names.
+func unclaimed(listing []worktrees.Worktree, claimed []string) []worktrees.Worktree {
+	named := make(map[string]bool, len(claimed))
+	for _, dir := range claimed {
+		named[dir] = true
+	}
+
+	return xslice.Filter(listing, func(worktree worktrees.Worktree) bool {
+		switch {
+		case worktree.Agent != nil && worktree.Agent.Deleting:
+			return false
+		case worktree.Agent == nil || worktree.IsStuck():
+			return !named[worktree.Dir]
+		}
+
+		return true
+	})
 }
 
 func renderWorktree(worktree worktrees.Worktree) *worktreev1.Worktree {

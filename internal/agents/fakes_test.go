@@ -675,6 +675,8 @@ type fakeLifecycle struct {
 	deprovisionStartErr      error
 	deprovisionRunErr        error
 	deprovisionRunErrByAgent map[string]error
+	holdDeprovision          bool
+	held                     []func(error)
 	hookErrs                 map[string]error
 	hooksMu                  sync.Mutex
 	hooks                    []ranHook
@@ -739,6 +741,11 @@ func (f *fakeLifecycle) RunDeprovision(ctx context.Context, agent agentstore.Age
 		runErr := f.deprovisionRunErr
 		if byAgent, ok := f.deprovisionRunErrByAgent[agent.ID]; ok {
 			runErr = byAgent
+		}
+		if f.holdDeprovision {
+			f.held = append(f.held, done)
+
+			return nil
 		}
 		done(runErr)
 	}

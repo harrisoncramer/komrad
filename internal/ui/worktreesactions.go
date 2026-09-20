@@ -487,7 +487,7 @@ func (m *model) deleteWorktreesCmd(deletion worktreeDeletion) tea.Cmd {
 		message{
 			kind:    messageInfo,
 			summary: "Deleting " + subject,
-			detail:  "A background job is taking the directories. The rows leave the list as it goes, and one it refuses stays, with the reason in the log.",
+			detail:  "A background job is taking the directories. The rows are out of the list now, and one it refuses comes back, with the reason in the log.",
 		},
 		func(a api) error { return a.deleteWorktrees(dirs) },
 	)

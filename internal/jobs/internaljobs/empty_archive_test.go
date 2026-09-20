@@ -19,12 +19,13 @@ import (
 // TestEmptyArchiveSweepsEveryPage covers the walk by cursor.
 func TestEmptyArchiveSweepsEveryPage(t *testing.T) {
 	tests := []struct {
-		name        string
-		archived    int
-		failOn      int
-		keepRows    bool
-		wantDeleted int
-		wantErr     bool
+		name         string
+		archived     int
+		failOn       int
+		keepRows     bool
+		wantDeleted  int
+		wantReleased [][]string
+		wantErr      bool
 	}{
 		{
 			name:        "an archive smaller than a page",
@@ -47,11 +48,12 @@ func TestEmptyArchiveSweepsEveryPage(t *testing.T) {
 			wantDeleted: emptyArchiveBatch*2 + 4,
 		},
 		{
-			name:        "a page that will not go leaves the rest of the sweep alone",
-			archived:    emptyArchiveBatch * 3,
-			failOn:      2,
-			wantDeleted: emptyArchiveBatch * 2,
-			wantErr:     true,
+			name:         "a page that will not go leaves the rest of the sweep alone",
+			archived:     emptyArchiveBatch * 3,
+			failOn:       2,
+			wantDeleted:  emptyArchiveBatch * 2,
+			wantReleased: [][]string{pageIDs(emptyArchiveBatch*3, 2)},
+			wantErr:      true,
 		},
 	}
 
@@ -60,7 +62,7 @@ func TestEmptyArchiveSweepsEveryPage(t *testing.T) {
 			archive := newFakeArchive(tt.archived)
 			archive.failOn = tt.failOn
 			archive.keepRows = tt.keepRows
-			worker := NewEmptyArchiveWorker(archive, archive)
+			worker := newEmptyArchiveWorker(archive)
 
 			err := worker.Work(t.Context(), &river.Job[EmptyArchiveArgs]{Args: EmptyArchiveArgs{}})
 
@@ -71,14 +73,36 @@ func TestEmptyArchiveSweepsEveryPage(t *testing.T) {
 			}
 
 			assert.Equal(t, tt.wantDeleted, archive.deleted, "how many archived agents the sweep deleted")
+			assert.Equal(t, tt.wantReleased, archive.released, "the page the delete refused is let back into the listings")
 		})
 	}
+}
+
+func newEmptyArchiveWorker(archive *fakeArchive) *EmptyArchiveWorker {
+	return NewEmptyArchiveWorker(NewEmptyArchiveWorkerParams{
+		Archived: archive,
+		Deleter:  archive,
+		Releaser: archive,
+	})
+}
+
+// pageIDs is the ids one page of a fake archive holds, newest first, counting pages from one.
+func pageIDs(total, page int) []string {
+	var ids []string
+	for i := total - (page-1)*emptyArchiveBatch; i > max(total-page*emptyArchiveBatch, 0); i-- {
+		ids = append(ids, fmt.Sprintf("%06d", i))
+	}
+
+	return ids
 }
 
 type fakeArchive struct {
 	agents  []agentstore.Agent
 	deleted int
 	pages   int
+
+	// released is the ids each refused delete let go of.
+	released [][]string
 
 	// live is the agents outside the archive, which the sweep never pages through but does ask
 	// about when a child on a page names one as its parent.
@@ -114,11 +138,7 @@ func archivedRow(agent agentstore.Agent) agentstore.Agent {
 	return agent
 }
 
-func (f *fakeArchive) ListPage(_ context.Context, limit int64, cursor *agentstore.Cursor, archived bool) ([]agentstore.Agent, error) {
-	if !archived {
-		return nil, errors.New("the sweep reads the archive, not the live agents")
-	}
-
+func (f *fakeArchive) ListArchiveSweepPage(_ context.Context, limit int64, cursor *agentstore.Cursor) ([]agentstore.Agent, error) {
 	page := make([]agentstore.Agent, 0, limit)
 	for _, agent := range f.agents {
 		if cursor != nil && agent.ID >= cursor.ID {
@@ -149,6 +169,12 @@ func (f *fakeArchive) ListByID(_ context.Context, ids []string) ([]agentstore.Ag
 	}
 
 	return found, nil
+}
+
+func (f *fakeArchive) ClearDeleting(_ context.Context, ids []string) error {
+	f.released = append(f.released, ids)
+
+	return nil
 }
 
 func (f *fakeArchive) DeleteAgents(_ context.Context, ids []string) error {
@@ -195,7 +221,7 @@ func TestEmptyArchiveAsksForTheParents(t *testing.T) {
 		archivedRow(agentstore.Agent{ID: "000002", ParentAgentID: xptr.Ptr("000001")}),
 		archivedRow(agentstore.Agent{ID: "000001"}),
 	}
-	worker := NewEmptyArchiveWorker(archive, archive)
+	worker := newEmptyArchiveWorker(archive)
 
 	require.NoError(t, worker.Work(t.Context(), &river.Job[EmptyArchiveArgs]{Args: EmptyArchiveArgs{}}))
 
@@ -209,7 +235,7 @@ func TestEmptyArchiveTakesAChildWhoseParentIsLive(t *testing.T) {
 	archive := newFakeArchive(0)
 	archive.agents = []agentstore.Agent{archivedRow(agentstore.Agent{ID: "000002", ParentAgentID: xptr.Ptr("000001")})}
 	archive.live = []agentstore.Agent{{ID: "000001"}}
-	worker := NewEmptyArchiveWorker(archive, archive)
+	worker := newEmptyArchiveWorker(archive)
 
 	require.NoError(t, worker.Work(t.Context(), &river.Job[EmptyArchiveArgs]{Args: EmptyArchiveArgs{}}))
 
