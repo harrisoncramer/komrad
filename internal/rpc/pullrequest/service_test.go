@@ -32,6 +32,10 @@ func (f *fakeForge) Get(context.Context, string) (forge.PullRequest, error) {
 	return forge.PullRequest{}, nil
 }
 
+func (f *fakeForge) ListUpdated(context.Context, forge.ListUpdatedParams) (*forge.ListUpdatedResult, error) {
+	return &forge.ListUpdatedResult{}, nil
+}
+
 func (f *fakeForge) List(_ context.Context, params forge.ListParams) (*forge.ListResult, error) {
 	f.params = params
 

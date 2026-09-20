@@ -56,6 +56,10 @@ func (f *fakeForge) VerifyInstallation(ctx context.Context) (int, error) {
 	return f.reaches, f.err
 }
 
+func (f *fakeForge) ListUpdated(context.Context, ListUpdatedParams) (*ListUpdatedResult, error) {
+	return &ListUpdatedResult{}, nil
+}
+
 func (f *fakeForge) List(context.Context, ListParams) (*ListResult, error) {
 	return &ListResult{}, nil
 }

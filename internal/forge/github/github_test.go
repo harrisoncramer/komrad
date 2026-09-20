@@ -352,3 +352,174 @@ func TestCredentialFailureIsNotAReachFailure(t *testing.T) {
 	require.ErrorIs(t, err, forge.ErrUnauthorized)
 	assert.Equal(t, refused.Error(), err.Error())
 }
+
+// listUpdatedServer answers the sync's listing with whatever the handler writes.
+func listUpdatedServer(t *testing.T, handle func(w http.ResponseWriter, r *http.Request)) *Forge {
+	t.Helper()
+
+	server := httptest.NewServer(http.HandlerFunc(handle))
+	t.Cleanup(server.Close)
+
+	f := New(NewParams{
+		Auth: &fakeAuth{token: "secret"},
+		API:  server.URL,
+		Next: server.Client().Transport,
+		Now: func() time.Time {
+			return time.Date(2026, 9, 20, 12, 0, 0, 0, time.UTC)
+		},
+	})
+
+	return f
+}
+
+// TestListUpdated covers the sync's request: every state by last change, the largest page,
+// the ETag carried in and out, the rate limit read off the headers, and the next page from
+// Link.
+func TestListUpdated(t *testing.T) {
+	t.Parallel()
+
+	var seen *http.Request
+	f := listUpdatedServer(t, func(w http.ResponseWriter, r *http.Request) {
+		seen = r
+		w.Header().Set("ETag", `W/"abc"`)
+		w.Header().Set("Link", `<https://api.github.com/repos/harrisoncramer/weave/pulls?page=3>; rel="next"`)
+		w.Header().Set("X-RateLimit-Remaining", "4321")
+		w.Header().Set("X-RateLimit-Reset", "1789900000")
+		_, _ = w.Write([]byte("[" + openPull + "," + mergedPull + "]"))
+	})
+
+	listed, err := f.ListUpdated(t.Context(), forge.ListUpdatedParams{
+		Repo: weave,
+		Page: 2,
+		ETag: `W/"old"`,
+	})
+	require.NoError(t, err)
+	require.NotNil(t, seen)
+	assert.Equal(t, "/repos/harrisoncramer/weave/pulls", seen.URL.Path)
+	assert.Equal(t, "all", seen.URL.Query().Get("state"))
+	assert.Equal(t, "updated", seen.URL.Query().Get("sort"))
+	assert.Equal(t, "desc", seen.URL.Query().Get("direction"))
+	assert.Equal(t, "100", seen.URL.Query().Get("per_page"))
+	assert.Equal(t, "2", seen.URL.Query().Get("page"))
+	assert.Equal(t, `W/"old"`, seen.Header.Get("If-None-Match"))
+	assert.False(t, listed.NotModified)
+	assert.Len(t, listed.PullRequests, 2)
+	assert.True(t, listed.HasMore)
+	assert.Equal(t, `W/"abc"`, listed.ETag)
+	assert.True(t, listed.RateLimit.Known)
+	assert.Equal(t, 4321, listed.RateLimit.Remaining)
+	assert.Equal(t, time.Unix(1789900000, 0).UTC(), listed.RateLimit.ResetAt.UTC())
+}
+
+// TestListUpdatedNotModified covers a 304, which comes back as such with no rows and no error,
+// and a request with no ETag sending no condition.
+func TestListUpdatedNotModified(t *testing.T) {
+	t.Parallel()
+
+	var seen *http.Request
+	f := listUpdatedServer(t, func(w http.ResponseWriter, r *http.Request) {
+		seen = r
+		w.Header().Set("ETag", `W/"abc"`)
+		w.WriteHeader(http.StatusNotModified)
+	})
+
+	listed, err := f.ListUpdated(t.Context(), forge.ListUpdatedParams{
+		Repo: weave,
+		Page: 1,
+		ETag: `W/"abc"`,
+	})
+	require.NoError(t, err)
+	assert.True(t, listed.NotModified)
+	assert.Empty(t, listed.PullRequests)
+	assert.False(t, listed.HasMore)
+	assert.Equal(t, `W/"abc"`, listed.ETag)
+
+	f = listUpdatedServer(t, func(w http.ResponseWriter, r *http.Request) {
+		seen = r
+		_, _ = w.Write([]byte("[]"))
+	})
+	_, err = f.ListUpdated(t.Context(), forge.ListUpdatedParams{Repo: weave, Page: 1})
+	require.NoError(t, err)
+	assert.Empty(t, seen.Header.Values("If-None-Match"))
+}
+
+// TestRateLimitRefusals covers the three ways GitHub says to wait and the one 403 that is not
+// a rate limit at all.
+func TestRateLimitRefusals(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, 9, 20, 12, 0, 0, 0, time.UTC)
+
+	tests := []struct {
+		name        string
+		status      int
+		header      map[string]string
+		body        string
+		wantThrottl bool
+		wantRetryAt time.Time
+	}{
+		{
+			name:        "a bare 403 is a permission answer",
+			status:      http.StatusForbidden,
+			body:        `{"message":"Resource not accessible by integration"}`,
+			wantThrottl: false,
+		},
+		{
+			name:        "retry-after says how long",
+			status:      http.StatusForbidden,
+			header:      map[string]string{"Retry-After": "30"},
+			body:        `{"message":"You have exceeded a secondary rate limit"}`,
+			wantThrottl: true,
+			wantRetryAt: now.Add(30 * time.Second),
+		},
+		{
+			name:        "a spent primary budget says when it resets",
+			status:      http.StatusForbidden,
+			header:      map[string]string{"X-RateLimit-Remaining": "0", "X-RateLimit-Reset": "1789900000"},
+			body:        `{"message":"API rate limit exceeded"}`,
+			wantThrottl: true,
+			wantRetryAt: time.Unix(1789900000, 0),
+		},
+		{
+			name:        "a 429 with nothing else is a refusal with no time",
+			status:      http.StatusTooManyRequests,
+			body:        `{"message":"slow down"}`,
+			wantThrottl: true,
+		},
+		{
+			name:        "the secondary limit body with no header is a refusal with no time",
+			status:      http.StatusForbidden,
+			body:        `{"message":"You have triggered an abuse detection mechanism"}`,
+			wantThrottl: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			f := listUpdatedServer(t, func(w http.ResponseWriter, _ *http.Request) {
+				for key, value := range tt.header {
+					w.Header().Set(key, value)
+				}
+				w.WriteHeader(tt.status)
+				_, _ = w.Write([]byte(tt.body))
+			})
+
+			_, err := f.ListUpdated(t.Context(), forge.ListUpdatedParams{Repo: weave, Page: 1})
+			require.Error(t, err)
+
+			var throttled *forge.ThrottledError
+			if !tt.wantThrottl {
+				assert.NotErrorAs(t, err, &throttled, "a permission answer is not a throttle")
+				assert.NotErrorIs(t, err, forge.ErrThrottled)
+
+				return
+			}
+
+			require.ErrorAs(t, err, &throttled)
+			require.ErrorIs(t, err, forge.ErrThrottled)
+			assert.True(t, throttled.RetryAt.Equal(tt.wantRetryAt), "retry at %s, want %s", throttled.RetryAt, tt.wantRetryAt)
+		})
+	}
+}

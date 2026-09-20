@@ -21,12 +21,17 @@ const TranscriptSyncInterval = 15 * time.Second
 
 const CwdSyncInterval = 15 * time.Second
 
+// PullRequestSyncInterval is how often the forges are asked what changed, which costs a request
+// per repository live agents sit on and is what makes a pull request appear without a nudge.
+const PullRequestSyncInterval = time.Minute
+
 const (
 	ScheduleReconcileLoop = "schedule reconcile"
 	ReconcileLoop         = "reconcile"
 	MailDeliveryLoop      = "mail delivery"
 	TranscriptSyncLoop    = "transcript sync"
 	CwdSyncLoop           = "cwd sync"
+	PullRequestSyncLoop   = "pull request sync"
 )
 
 type buildLoopsParams struct {
@@ -66,6 +71,11 @@ func buildLoops(params buildLoopsParams) []Loop {
 			Name:     CwdSyncLoop,
 			Interval: CwdSyncInterval,
 			Pass:     params.Services.cwdSync.Sync,
+		},
+		{
+			Name:     PullRequestSyncLoop,
+			Interval: PullRequestSyncInterval,
+			Pass:     params.Services.pullRequestSync.Sync,
 		},
 	}
 }

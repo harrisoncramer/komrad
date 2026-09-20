@@ -23,6 +23,44 @@ var ErrNotPullRequest = fail.InvalidArgument("not a pull request on this forge")
 // ErrUnauthorized says the forge refused the credential.
 var ErrUnauthorized = fail.Denied("the forge refused the credential")
 
+// ErrThrottled says the forge refused for its rate limit rather than for anything about the
+// request.
+var ErrThrottled = fail.Exhausted("the forge is rate limiting this credential")
+
+// ThrottledError is a rate limit refusal with when the forge said to try again, which is zero
+// when it said nothing.
+type ThrottledError struct {
+	RetryAt time.Time
+}
+
+// Error names the refusal and when to try again.
+func (t *ThrottledError) Error() string {
+	if t.RetryAt.IsZero() {
+		return ErrThrottled.Error()
+	}
+
+	return fmt.Sprintf("%s until %s", ErrThrottled.Error(), t.RetryAt.UTC().Format(time.RFC3339))
+}
+
+// Unwrap is ErrThrottled, so errors.Is and fail.Of both see the refusal.
+func (t *ThrottledError) Unwrap() error {
+	return ErrThrottled
+}
+
+// RateLimit is what a forge's headers said about the credential's remaining budget on one
+// answer, Known false when the headers were absent.
+type RateLimit struct {
+	Known     bool
+	Remaining int
+	// ResetAt is when the budget comes back, zero when the headers did not say.
+	ResetAt time.Time
+}
+
+// IsExhausted says the budget is spent and ResetAt is when it comes back.
+func (r RateLimit) IsExhausted() bool {
+	return r.Known && r.Remaining == 0
+}
+
 // KindGitHub is the kind a GitHub host records.
 const KindGitHub = "github"
 
@@ -77,6 +115,9 @@ type Forge interface {
 	// List is one page of the repository's pull requests: every one from the named branch,
 	// whatever its state, or the open ones when the branch is empty.
 	List(ctx context.Context, params ListParams) (*ListResult, error)
+	// ListUpdated is one page of every pull request in the repository, whatever its state,
+	// newest change first, which is what the sync pages by.
+	ListUpdated(ctx context.Context, params ListUpdatedParams) (*ListUpdatedResult, error)
 	// Get is one pull request by its web address.
 	Get(ctx context.Context, url string) (PullRequest, error)
 }
@@ -96,6 +137,29 @@ type ListParams struct {
 type ListResult struct {
 	PullRequests []PullRequest
 	HasMore      bool
+	RateLimit    RateLimit
+}
+
+// ListUpdatedParams says which page of a repository's pull requests to read, and the ETag the
+// forge answered the same page with last time, sent so an unchanged page costs no body.
+type ListUpdatedParams struct {
+	Repo git.RemoteURL
+	// Page is which page to read, from 1; the page size is the most the forge allows.
+	Page int
+	ETag string
+}
+
+// ListUpdatedResult is one page of pull requests by last change, or the forge saying the page
+// has not changed since the ETag it was given.
+type ListUpdatedResult struct {
+	PullRequests []PullRequest
+	HasMore      bool
+	// ETag is what the forge answered the page with, to send back next time.
+	ETag string
+	// NotModified says the forge answered 304 to the ETag it was sent, and PullRequests is
+	// empty.
+	NotModified bool
+	RateLimit   RateLimit
 }
 
 // InstallationVerifier is a forge that can say what an installation token reaches.

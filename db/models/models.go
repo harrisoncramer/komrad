@@ -283,6 +283,15 @@ type AgentMetadatum struct {
 	UpdatedAt time.Time
 }
 
+// Which agents were seen with which pull requests, one row per pair, never deleted or re-pointed. It is history rather than ownership: the live view derives the association from the branch and never reads this, and the archive reads nothing else.
+type AgentPullRequest struct {
+	AgentID       string
+	PullRequestID string
+	FirstSeenAt   time.Time
+	// When the pair was last seen together, moved at most once an hour.
+	LastSeenAt time.Time
+}
+
 // One run of a script weave fired for an agent. The output stays on disk and this row says where to find it.
 type AgentRun struct {
 	ID         string
@@ -318,6 +327,16 @@ type AgentTranscriptSession struct {
 	CreatedAt    time.Time
 }
 
+// A branch weave has listed the pull requests of on purpose, once, which is what finds a pull request older than the sync's horizon on a branch an agent adopted.
+type BranchScan struct {
+	RepositoryUrl string
+	Branch        string
+	// The next page not yet written.
+	NextPage int32
+	// When the listing answered its last page, after which the branch is never scanned again.
+	CompletedAt *time.Time
+}
+
 // A forge weave has been connected to, one row per host, holding who the credential was verified as. The credential itself is a file under weave's state directory rather than a column.
 type ForgeConnection struct {
 	ID string
@@ -334,6 +353,8 @@ type ForgeConnection struct {
 	// When the forge last confirmed the credential. Cleared when the forge refuses it, so the row says the connection needs remaking.
 	VerifiedAt *time.Time
 	CreatedAt  time.Time
+	// When the forge said this credential's rate limit resets, after a refusal or a response whose remaining budget was zero. The pull request sync makes no request through the connection until it passes.
+	ThrottledUntil *time.Time
 }
 
 // One piece of mail from one agent to another, held until the recipient claims it.
@@ -361,6 +382,62 @@ type Mark struct {
 	AgentID    *string
 	WorkflowID *string
 	CreatedAt  time.Time
+}
+
+// A pull request weave has read from a forge, one row per forge identity and none owned by an agent. Finished is derived: merged when merged_at is set, closed when closed_at is set and merged_at is not, open otherwise.
+type PullRequest struct {
+	ID string
+	// The forge host the repository lives on, such as github.com, taken from the repository URL. Two installations of one forge hand out overlapping identifiers, so the host is part of the identity.
+	Host string
+	// Which kind of forge the host runs: github or gitlab.
+	Forge string
+	// The forge's own stable identifier: GitHub's node_id, GitLab's global id. A rename on the forge changes the URL and not this.
+	ProviderID string
+	// The web address a person opens. Unique, and a locator rather than the identity.
+	Url string
+	// The canonical URL of the repository the pull request targets.
+	RepositoryUrl string
+	// The canonical URL of the repository the branch lives in. Empty when the forge no longer has it, which GitHub answers after a fork is deleted.
+	HeadRepositoryUrl string
+	// The per-repository number a person sees: GitHub's number, GitLab's iid.
+	Number     int32
+	Title      string
+	HeadBranch string
+	HeadSha    string
+	BaseBranch string
+	BaseSha    string
+	Draft      bool
+	// The forge's own word for where it stands, kept verbatim as a cross-check on the timestamps.
+	State string
+	// When the forge says it was opened, which is what orders the pull requests on one branch.
+	OpenedAt time.Time
+	// The forge's own last-change stamp, which is what the sync pages by. It is the forge's clock and not weave's, so it is not named updated_at and carries no trigger.
+	ChangedAt time.Time
+	MergedAt  *time.Time
+	ClosedAt  *time.Time
+	// When weave first inserted the row.
+	FirstSeenAt time.Time
+}
+
+// Where the pull request sync is for one repository: the high-water mark of the last completed sweep, the sweep in progress if one is, and what the last pass cost.
+type PullRequestSync struct {
+	RepositoryUrl string
+	// The newest forge updated_at the last completed sweep covered. Null until one has.
+	UpdatedThrough *time.Time
+	// The ETag page one answered on the last completed sweep, for the exact query the sync trusts. Empty for a forge that sends none.
+	Etag string
+	// The last time page one was read without an ETag and answered with a body, which is the clock for the hourly unconditional re-read. A 304 does not touch it.
+	ValidatedAt *time.Time
+	// The next page a sweep in progress has not yet written, null between sweeps.
+	SweepNextPage *int32
+	// The updated_at of the first pull request on page one of the sweep in progress, which becomes updated_through when it completes.
+	SweepNewest *time.Time
+	// The ETag page one answered for the sweep in progress, promoted to etag when it completes.
+	SweepEtag *string
+	// The last time any request was made for this repository, whatever it answered.
+	ReadAt *time.Time
+	// How many requests the most recent pass made for this repository.
+	Calls int32
 }
 
 // One reviewer's batch of comments on one round. Nobody else sees it while it is being written, and it is released all at once.

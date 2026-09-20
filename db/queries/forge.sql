@@ -21,7 +21,8 @@ RETURNING
     method,
     login,
     verified_at,
-    created_at;
+    created_at,
+    throttled_until;
 
 -- name: GetForgeConnection :one
 SELECT
@@ -32,7 +33,8 @@ SELECT
     method,
     login,
     verified_at,
-    created_at
+    created_at,
+    throttled_until
 FROM
     forge_connections
 WHERE
@@ -47,7 +49,8 @@ SELECT
     method,
     login,
     verified_at,
-    created_at
+    created_at,
+    throttled_until
 FROM
     forge_connections
 WHERE
@@ -62,7 +65,8 @@ SELECT
     method,
     login,
     verified_at,
-    created_at
+    created_at,
+    throttled_until
 FROM
     forge_connections
 ORDER BY
@@ -79,3 +83,11 @@ WHERE
 -- name: DeleteForgeConnection :execrows
 DELETE FROM forge_connections
 WHERE id = @id;
+
+-- name: SetForgeConnectionThrottledUntil :execrows
+UPDATE
+    forge_connections
+SET
+    throttled_until = sqlc.narg('throttled_until')
+WHERE
+    id = @id;

@@ -17,28 +17,29 @@ import (
 )
 
 type services struct {
-	loadConfig   func() (*config.Config, error)
-	script       *agents.ScriptService
-	mail         *agents.MailService
-	review       *agents.ReviewService
-	schedule     *agents.ScheduleService
-	liveness     *agents.PaneLiveness
-	launch       *agents.LaunchService
-	resume       *agents.ResumeService
-	adopt        *agents.AdoptService
-	lifecycle    *agents.LifecycleService
-	orchestrator *agents.OrchestratorService
-	workflow     *agents.WorkflowService
-	delivery     *agents.DeliveryService
-	reconciler   *agents.Reconciler
-	marks        *agents.MarkService
-	holder       *agents.Holder
-	rebase       *agents.RebaseService
-	cwdSync      *agents.CwdSyncer
-	forge        *forge.ForgeService
-	worktrees    *worktrees.Lister
-	inspector    *worktrees.Inspector
-	remover      *worktrees.Remover
+	loadConfig      func() (*config.Config, error)
+	script          *agents.ScriptService
+	mail            *agents.MailService
+	review          *agents.ReviewService
+	schedule        *agents.ScheduleService
+	liveness        *agents.PaneLiveness
+	launch          *agents.LaunchService
+	resume          *agents.ResumeService
+	adopt           *agents.AdoptService
+	lifecycle       *agents.LifecycleService
+	orchestrator    *agents.OrchestratorService
+	workflow        *agents.WorkflowService
+	delivery        *agents.DeliveryService
+	reconciler      *agents.Reconciler
+	marks           *agents.MarkService
+	holder          *agents.Holder
+	rebase          *agents.RebaseService
+	cwdSync         *agents.CwdSyncer
+	forge           *forge.ForgeService
+	pullRequestSync *agents.PullRequestSyncer
+	worktrees       *worktrees.Lister
+	inspector       *worktrees.Inspector
+	remover         *worktrees.Remover
 }
 
 // BuiltinScriptsDir is where the scripts weave ships are installed under a cache directory,
@@ -203,6 +204,11 @@ func buildServices(params NewServerParams, st *stores) (*services, error) {
 			return forges.AppFrom(cfg.GitHubApp, tokenCachePath)
 		},
 	})
+	pullRequestSyncer := agents.NewPullRequestSyncer(agents.NewPullRequestSyncerParams{
+		Forges:       forgeService,
+		PullRequests: st.pullRequests,
+		Tx:           st.pool,
+	})
 	cwdSyncer := agents.NewCwdSyncer(agents.NewCwdSyncerParams{
 		Agents:  st.agents,
 		Heads:   git.NewClient(),
@@ -225,12 +231,13 @@ func buildServices(params NewServerParams, st *stores) (*services, error) {
 	})
 
 	return &services{
-		loadConfig: loadConfig,
-		marks:      markService,
-		rebase:     rebaseService,
-		cwdSync:    cwdSyncer,
-		forge:      forgeService,
-		worktrees:  worktreeLister,
+		loadConfig:      loadConfig,
+		marks:           markService,
+		rebase:          rebaseService,
+		cwdSync:         cwdSyncer,
+		forge:           forgeService,
+		pullRequestSync: pullRequestSyncer,
+		worktrees:       worktreeLister,
 		inspector: worktrees.NewInspector(worktrees.NewInspectorParams{
 			Lister:    worktreeLister,
 			Git:       git.NewClient(),
