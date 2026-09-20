@@ -121,7 +121,7 @@ func (q *Queries) GetBranchScan(ctx context.Context, arg GetBranchScanParams) (*
 
 const getPullRequestByIdentity = `-- name: GetPullRequestByIdentity :one
 SELECT
-    id, host, forge, provider_id, url, repository_url, head_repository_url, number, title, head_branch, head_sha, base_branch, base_sha, draft, state, opened_at, changed_at, merged_at, closed_at, first_seen_at
+    id, host, forge, provider_id, url, repository_url, head_repository_url, number, title, head_branch, head_sha, base_branch, base_sha, draft, state, opened_at, changed_at, merged_at, closed_at, first_seen_at, review_decision, decision_changed_at
 FROM
     pull_requests
 WHERE
@@ -158,6 +158,8 @@ func (q *Queries) GetPullRequestByIdentity(ctx context.Context, arg GetPullReque
 		&i.MergedAt,
 		&i.ClosedAt,
 		&i.FirstSeenAt,
+		&i.ReviewDecision,
+		&i.DecisionChangedAt,
 	)
 	return &i, err
 }
@@ -188,6 +190,68 @@ func (q *Queries) GetPullRequestSync(ctx context.Context, repositoryUrl string) 
 	return &i, err
 }
 
+const listAgentBranchPullRequests = `-- name: ListAgentBranchPullRequests :many
+SELECT
+    p.id, p.host, p.forge, p.provider_id, p.url, p.repository_url, p.head_repository_url, p.number, p.title, p.head_branch, p.head_sha, p.base_branch, p.base_sha, p.draft, p.state, p.opened_at, p.changed_at, p.merged_at, p.closed_at, p.first_seen_at, p.review_decision, p.decision_changed_at
+FROM
+    agents a
+    JOIN pull_requests p ON p.repository_url = a.repository_url
+        AND p.head_repository_url = a.repository_url
+        AND p.head_branch = a.branch
+    JOIN workflows w ON w.id = a.workflow_id
+    LEFT JOIN workflow_provisioner_configs c ON c.id = w.provisioner_config_id
+WHERE
+    a.id = $1
+    AND (c.worktree_base_branch IS NULL
+        OR c.worktree_base_branch = ''
+        OR a.branch <> c.worktree_base_branch)
+ORDER BY
+    p.opened_at DESC
+`
+
+func (q *Queries) ListAgentBranchPullRequests(ctx context.Context, agentID string) ([]*PullRequest, error) {
+	rows, err := q.db.Query(ctx, listAgentBranchPullRequests, agentID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []*PullRequest
+	for rows.Next() {
+		var i PullRequest
+		if err := rows.Scan(
+			&i.ID,
+			&i.Host,
+			&i.Forge,
+			&i.ProviderID,
+			&i.Url,
+			&i.RepositoryUrl,
+			&i.HeadRepositoryUrl,
+			&i.Number,
+			&i.Title,
+			&i.HeadBranch,
+			&i.HeadSha,
+			&i.BaseBranch,
+			&i.BaseSha,
+			&i.Draft,
+			&i.State,
+			&i.OpenedAt,
+			&i.ChangedAt,
+			&i.MergedAt,
+			&i.ClosedAt,
+			&i.FirstSeenAt,
+			&i.ReviewDecision,
+			&i.DecisionChangedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listAgentPullRequests = `-- name: ListAgentPullRequests :many
 SELECT
     o.agent_id,
@@ -216,6 +280,77 @@ func (q *Queries) ListAgentPullRequests(ctx context.Context, agentID string) ([]
 			&i.PullRequestID,
 			&i.FirstSeenAt,
 			&i.LastSeenAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listCurrentPullRequests = `-- name: ListCurrentPullRequests :many
+SELECT DISTINCT ON (a.id)
+    a.id AS agent_id,
+    p.id, p.host, p.forge, p.provider_id, p.url, p.repository_url, p.head_repository_url, p.number, p.title, p.head_branch, p.head_sha, p.base_branch, p.base_sha, p.draft, p.state, p.opened_at, p.changed_at, p.merged_at, p.closed_at, p.first_seen_at, p.review_decision, p.decision_changed_at
+FROM
+    agents a
+    JOIN pull_requests p ON p.repository_url = a.repository_url
+        AND p.head_repository_url = a.repository_url
+        AND p.head_branch = a.branch
+    JOIN workflows w ON w.id = a.workflow_id
+    LEFT JOIN workflow_provisioner_configs c ON c.id = w.provisioner_config_id
+WHERE
+    a.archived_at IS NULL
+    AND (c.worktree_base_branch IS NULL
+        OR c.worktree_base_branch = ''
+        OR a.branch <> c.worktree_base_branch)
+ORDER BY
+    a.id,
+    COALESCE(p.merged_at, p.closed_at) IS NOT NULL,
+    p.opened_at DESC
+`
+
+type ListCurrentPullRequestsRow struct {
+	AgentID     string
+	PullRequest PullRequest
+}
+
+func (q *Queries) ListCurrentPullRequests(ctx context.Context) ([]*ListCurrentPullRequestsRow, error) {
+	rows, err := q.db.Query(ctx, listCurrentPullRequests)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []*ListCurrentPullRequestsRow
+	for rows.Next() {
+		var i ListCurrentPullRequestsRow
+		if err := rows.Scan(
+			&i.AgentID,
+			&i.PullRequest.ID,
+			&i.PullRequest.Host,
+			&i.PullRequest.Forge,
+			&i.PullRequest.ProviderID,
+			&i.PullRequest.Url,
+			&i.PullRequest.RepositoryUrl,
+			&i.PullRequest.HeadRepositoryUrl,
+			&i.PullRequest.Number,
+			&i.PullRequest.Title,
+			&i.PullRequest.HeadBranch,
+			&i.PullRequest.HeadSha,
+			&i.PullRequest.BaseBranch,
+			&i.PullRequest.BaseSha,
+			&i.PullRequest.Draft,
+			&i.PullRequest.State,
+			&i.PullRequest.OpenedAt,
+			&i.PullRequest.ChangedAt,
+			&i.PullRequest.MergedAt,
+			&i.PullRequest.ClosedAt,
+			&i.PullRequest.FirstSeenAt,
+			&i.PullRequest.ReviewDecision,
+			&i.PullRequest.DecisionChangedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -262,7 +397,7 @@ func (q *Queries) ListLiveRepositories(ctx context.Context) ([]*string, error) {
 
 const listPullRequestsOnBranch = `-- name: ListPullRequestsOnBranch :many
 SELECT
-    id, host, forge, provider_id, url, repository_url, head_repository_url, number, title, head_branch, head_sha, base_branch, base_sha, draft, state, opened_at, changed_at, merged_at, closed_at, first_seen_at
+    id, host, forge, provider_id, url, repository_url, head_repository_url, number, title, head_branch, head_sha, base_branch, base_sha, draft, state, opened_at, changed_at, merged_at, closed_at, first_seen_at, review_decision, decision_changed_at
 FROM
     pull_requests
 WHERE
@@ -307,6 +442,108 @@ func (q *Queries) ListPullRequestsOnBranch(ctx context.Context, arg ListPullRequ
 			&i.MergedAt,
 			&i.ClosedAt,
 			&i.FirstSeenAt,
+			&i.ReviewDecision,
+			&i.DecisionChangedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listReadRepositories = `-- name: ListReadRepositories :many
+SELECT
+    repository_url
+FROM
+    pull_request_syncs
+WHERE
+    read_at IS NOT NULL
+ORDER BY
+    repository_url
+`
+
+func (q *Queries) ListReadRepositories(ctx context.Context) ([]string, error) {
+	rows, err := q.db.Query(ctx, listReadRepositories)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var repository_url string
+		if err := rows.Scan(&repository_url); err != nil {
+			return nil, err
+		}
+		items = append(items, repository_url)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listStaleDecisions = `-- name: ListStaleDecisions :many
+SELECT
+    p.id, p.host, p.forge, p.provider_id, p.url, p.repository_url, p.head_repository_url, p.number, p.title, p.head_branch, p.head_sha, p.base_branch, p.base_sha, p.draft, p.state, p.opened_at, p.changed_at, p.merged_at, p.closed_at, p.first_seen_at, p.review_decision, p.decision_changed_at
+FROM
+    pull_requests p
+WHERE
+    p.repository_url = $1
+    AND p.head_repository_url = p.repository_url
+    AND p.merged_at IS NULL
+    AND p.closed_at IS NULL
+    AND NOT p.draft
+    AND (p.decision_changed_at IS NULL
+        OR p.decision_changed_at < p.changed_at)
+    AND EXISTS (
+        SELECT
+            1
+        FROM
+            agents a
+        WHERE
+            a.archived_at IS NULL
+            AND a.repository_url = p.repository_url
+            AND a.branch = p.head_branch)
+ORDER BY
+    p.changed_at DESC
+`
+
+func (q *Queries) ListStaleDecisions(ctx context.Context, repositoryUrl string) ([]*PullRequest, error) {
+	rows, err := q.db.Query(ctx, listStaleDecisions, repositoryUrl)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []*PullRequest
+	for rows.Next() {
+		var i PullRequest
+		if err := rows.Scan(
+			&i.ID,
+			&i.Host,
+			&i.Forge,
+			&i.ProviderID,
+			&i.Url,
+			&i.RepositoryUrl,
+			&i.HeadRepositoryUrl,
+			&i.Number,
+			&i.Title,
+			&i.HeadBranch,
+			&i.HeadSha,
+			&i.BaseBranch,
+			&i.BaseSha,
+			&i.Draft,
+			&i.State,
+			&i.OpenedAt,
+			&i.ChangedAt,
+			&i.MergedAt,
+			&i.ClosedAt,
+			&i.FirstSeenAt,
+			&i.ReviewDecision,
+			&i.DecisionChangedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -450,6 +687,26 @@ type SetBranchScanNextPageParams struct {
 
 func (q *Queries) SetBranchScanNextPage(ctx context.Context, arg SetBranchScanNextPageParams) error {
 	_, err := q.db.Exec(ctx, setBranchScanNextPage, arg.RepositoryUrl, arg.Branch, arg.NextPage)
+	return err
+}
+
+const setReviewDecision = `-- name: SetReviewDecision :exec
+UPDATE
+    pull_requests
+SET
+    review_decision = $1,
+    decision_changed_at = changed_at
+WHERE
+    id = $2
+`
+
+type SetReviewDecisionParams struct {
+	ReviewDecision *string
+	ID             string
+}
+
+func (q *Queries) SetReviewDecision(ctx context.Context, arg SetReviewDecisionParams) error {
+	_, err := q.db.Exec(ctx, setReviewDecision, arg.ReviewDecision, arg.ID)
 	return err
 }
 

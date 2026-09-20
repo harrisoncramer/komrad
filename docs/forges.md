@@ -41,6 +41,8 @@ The forge answers a hundred at a time, so the endpoint pages: `list_pull_request
 
 A repository the credential cannot see answers not found, the same as one that does not exist, since the forge does not tell the two apart.
 
+The service also reads pull requests on its own, once a minute, for every repository a live agent sits on: what changed since the last pass, the branches agents sit on that it has not listed yet, and for each open pull request on one of those branches that changed, where the forge says its reviews stand. That is what fills the pull request glyph on each agent's row and the `pull request` rows in the details, described in [agents](agents.md#pull-requests). A pass makes at most ten requests per repository, and a repository that has not changed costs one that the forge does not count. GitHub and GitLab are both read, a GitLab merge request being a pull request to weave.
+
 ## Where authentication state lives
 
 The database holds non-sensitive information: the host, which forge it runs, the login the forge answered with, and when that was last confirmed.

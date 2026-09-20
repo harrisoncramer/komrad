@@ -2,6 +2,7 @@ package github
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -522,4 +523,156 @@ func TestRateLimitRefusals(t *testing.T) {
 			assert.True(t, throttled.RetryAt.Equal(tt.wantRetryAt), "retry at %s, want %s", throttled.RetryAt, tt.wantRetryAt)
 		})
 	}
+}
+
+// TestGetReviewDecision covers the one GraphQL call: the query and its variables as GitHub
+// wants them, every decision GitHub answers, a null decision, a pull request GitHub does not
+// have, and the refusals the REST calls already turn into weave's.
+func TestGetReviewDecision(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		status  int
+		body    string
+		want    forge.ReviewDecision
+		wantErr error
+	}{
+		{
+			name:    "a refused credential",
+			status:  http.StatusUnauthorized,
+			body:    `{"message":"Bad credentials"}`,
+			wantErr: forge.ErrUnauthorized,
+		},
+		{
+			name:    "a spent rate limit",
+			status:  http.StatusTooManyRequests,
+			body:    `{"message":"slow down"}`,
+			wantErr: forge.ErrThrottled,
+		},
+		{
+			name:    "a pull request github does not have answers in the errors list",
+			status:  http.StatusOK,
+			body:    `{"data":{"repository":{"pullRequest":null}},"errors":[{"type":"NOT_FOUND","path":["repository","pullRequest"],"message":"Could not resolve to a PullRequest with the number of 999."}]}`,
+			wantErr: forge.ErrNotFound,
+		},
+		{
+			name:    "a repository github does not have answers null",
+			status:  http.StatusOK,
+			body:    `{"data":{"repository":null}}`,
+			wantErr: forge.ErrNotFound,
+		},
+		{
+			name:   "approved",
+			status: http.StatusOK,
+			body:   `{"data":{"repository":{"pullRequest":{"reviewDecision":"APPROVED"}}}}`,
+			want:   forge.ReviewDecisionApproved,
+		},
+		{
+			name:   "changes requested",
+			status: http.StatusOK,
+			body:   `{"data":{"repository":{"pullRequest":{"reviewDecision":"CHANGES_REQUESTED"}}}}`,
+			want:   forge.ReviewDecisionChangesRequested,
+		},
+		{
+			name:   "review required is pending",
+			status: http.StatusOK,
+			body:   `{"data":{"repository":{"pullRequest":{"reviewDecision":"REVIEW_REQUIRED"}}}}`,
+			want:   forge.ReviewDecisionPending,
+		},
+		{
+			name:   "nothing said is none",
+			status: http.StatusOK,
+			body:   `{"data":{"repository":{"pullRequest":{"reviewDecision":null}}}}`,
+			want:   forge.ReviewDecisionNone,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			var seen *http.Request
+			var sent map[string]any
+			f := listUpdatedServer(t, func(w http.ResponseWriter, r *http.Request) {
+				seen = r
+				_ = json.NewDecoder(r.Body).Decode(&sent)
+				w.WriteHeader(tt.status)
+				_, _ = w.Write([]byte(tt.body))
+			})
+
+			got, err := f.GetReviewDecisionByNumber(t.Context(), weave, 740)
+			if tt.wantErr != nil {
+				require.ErrorIs(t, err, tt.wantErr)
+			} else {
+				require.NoError(t, err)
+				assert.Equal(t, tt.want, got)
+			}
+
+			require.NotNil(t, seen)
+			assert.Equal(t, http.MethodPost, seen.Method)
+			assert.Equal(t, "/graphql", seen.URL.Path)
+			assert.Equal(t, "Bearer secret", seen.Header.Get("Authorization"))
+			assert.Equal(t, reviewDecisionQuery, sent["query"])
+			assert.Equal(t, map[string]any{"owner": "harrisoncramer", "name": "weave", "number": float64(740)}, sent["variables"])
+		})
+	}
+}
+
+// TestGetReviewDecisionTransport404IsNotTheForgeSayingNotFound covers a host whose GraphQL is
+// somewhere else, which is a misrouted call rather than a pull request GitHub does not have.
+func TestGetReviewDecisionTransport404IsNotTheForgeSayingNotFound(t *testing.T) {
+	t.Parallel()
+
+	f := listUpdatedServer(t, func(w http.ResponseWriter, r *http.Request) {
+		http.NotFound(w, r)
+	})
+
+	_, err := f.GetReviewDecisionByNumber(t.Context(), weave, 740)
+	require.Error(t, err)
+	require.NotErrorIs(t, err, forge.ErrNotFound)
+	assert.Contains(t, err.Error(), "/graphql")
+}
+
+// TestGraphQLURLSitsBesideTheRESTBase covers github.com and an enterprise host, whose GraphQL
+// endpoint is not under its v3 REST path.
+func TestGraphQLURLSitsBesideTheRESTBase(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		api  string
+		want string
+	}{
+		{
+			name: "github.com",
+			api:  "",
+			want: "https://api.github.com/graphql",
+		},
+		{
+			name: "an enterprise host",
+			api:  "https://ghe.example.com/api/v3",
+			want: "https://ghe.example.com/api/graphql",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			f := New(NewParams{Auth: &fakeAuth{}, API: tt.api})
+			assert.Equal(t, tt.want, f.graphqlURL())
+		})
+	}
+}
+
+// TestGetReviewDecisionRefusesANestedPath covers a repository path GitHub cannot address, which
+// costs no request.
+func TestGetReviewDecisionRefusesANestedPath(t *testing.T) {
+	t.Parallel()
+
+	f, _, _ := serve(t, "/never", "", http.StatusOK)
+
+	_, err := f.GetReviewDecisionByNumber(t.Context(), git.RemoteURL{Host: "github.com", Path: "group/sub/repo"}, 1)
+	require.ErrorIs(t, err, forge.ErrNotRepository)
 }

@@ -11,6 +11,7 @@ import (
 	workflowstore "weave/internal/store/workflow"
 	"weave/internal/view"
 	"weave/lib/xptr"
+	pullrequestv1 "weave/proto/gen/pullrequest/v1"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -228,15 +229,76 @@ func TestSnapshotReview(t *testing.T) {
 	}
 }
 
-// TestSnapshotForgeIsNotRead pins that nothing fills the pull request column, since nothing
-// weave stores knows about one yet.
-func TestSnapshotForgeIsNotRead(t *testing.T) {
-	item := agentItem{agent: agentstore.Agent{
-		ID:       "a1",
-		Metadata: []agentstore.Metadata{{Key: "pr", Value: "https://example.test/1"}},
-	}}
+// TestSnapshotForge pins the pull request column reading the standing the listing carries and
+// nothing else, every wire state mapped to its own mark and a recorded pr key ignored.
+func TestSnapshotForge(t *testing.T) {
+	tests := []struct {
+		name  string
+		state pullrequestv1.PullRequestState
+		want  view.Forge
+	}{
+		{
+			name:  "nothing decided is unread",
+			state: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_UNSPECIFIED,
+			want:  view.ForgeUnread,
+		},
+		{
+			name:  "unread",
+			state: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_UNREAD,
+			want:  view.ForgeUnread,
+		},
+		{
+			name:  "none",
+			state: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_NONE,
+			want:  view.ForgeNone,
+		},
+		{
+			name:  "open",
+			state: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_OPEN,
+			want:  view.ForgeOpen,
+		},
+		{
+			name:  "approved",
+			state: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_APPROVED,
+			want:  view.ForgeApproved,
+		},
+		{
+			name:  "changes requested",
+			state: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CHANGES_REQUESTED,
+			want:  view.ForgeChangesRequested,
+		},
+		{
+			name:  "draft",
+			state: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_DRAFT,
+			want:  view.ForgeDraft,
+		},
+		{
+			name:  "merged",
+			state: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_MERGED,
+			want:  view.ForgeMerged,
+		},
+		{
+			name:  "closed",
+			state: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CLOSED,
+			want:  view.ForgeClosed,
+		},
+	}
 
-	assert.Equal(t, view.ForgeNone, snapshotOne(t, item).Forge)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			item := agentItem{
+				agent: agentstore.Agent{
+					ID:       "a1",
+					Metadata: []agentstore.Metadata{{Key: "pr", Value: "https://example.test/1"}},
+				},
+				pullRequest: pullRequestStanding{state: tt.state},
+			}
+
+			assert.Equal(t, tt.want, snapshotOne(t, item).Forge)
+		})
+	}
+
+	assert.Len(t, tests, len(pullrequestv1.PullRequestState_name), "every wire state is pinned")
 }
 
 // TestSnapshotMarksOnARow pins the marks a row carries beside its name.
@@ -759,10 +821,10 @@ func TestReportedReasonSurvivesInTheRecord(t *testing.T) {
 		ReportedReason: "reading internal/view",
 	}
 
-	fields := agentFields(agent, "", "")
+	fields := agentFields(agentFieldsParams{agent: agent})
 
 	assert.Contains(t, fields, recordField{"doing", "reading internal/view"})
-	assert.NotContains(t, agentFields(agentstore.Agent{ID: "a1"}, "", ""), recordField{"doing", ""})
+	assert.NotContains(t, agentFields(agentFieldsParams{agent: agentstore.Agent{ID: "a1"}}), recordField{"doing", ""})
 }
 
 // TestSnapshotChildRowCarriesNoTally pins half of why the busiest row a panel can draw is

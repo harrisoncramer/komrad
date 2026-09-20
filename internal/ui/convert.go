@@ -5,6 +5,7 @@ import (
 	"time"
 
 	agentv1 "weave/proto/gen/agent/v1"
+	pullrequestv1 "weave/proto/gen/pullrequest/v1"
 	schedulev1 "weave/proto/gen/schedule/v1"
 	workflowv1 "weave/proto/gen/workflow/v1"
 	worktreev1 "weave/proto/gen/worktree/v1"
@@ -61,8 +62,41 @@ func agentItemsFrom(listed []*agentv1.Agent) []agentItem {
 			localRounds:  agent.GetLocalReviewRounds(),
 			localVerdict: agent.GetLocalReviewVerdict(),
 			localTree:    standingFrom(agent.GetLocalReviewTree()),
+			pullRequest:  pullRequestStandingFrom(agent.GetPullRequest()),
 		}
 	})
+}
+
+// pullRequestStandingFrom is the standing as the wire carries it.
+func pullRequestStandingFrom(standing *agentv1.PullRequestStanding) pullRequestStanding {
+	return pullRequestStanding{
+		state:  standing.GetState(),
+		number: standing.GetNumber(),
+		url:    standing.GetUrl(),
+		title:  standing.GetTitle(),
+	}
+}
+
+func agentPullRequestsFrom(listed *pullrequestv1.ListAgentPullRequestsResponse) agentPullRequests {
+	read := agentPullRequests{
+		answered: true,
+		readAt:   dates.ParsePtr(listed.GetRepositoryReadAt()),
+		items:    make([]agentPullRequest, 0, len(listed.GetPullRequests())),
+	}
+	for _, pullRequest := range listed.GetPullRequests() {
+		read.items = append(read.items, agentPullRequest{
+			number:   pullRequest.GetNumber(),
+			url:      pullRequest.GetUrl(),
+			title:    pullRequest.GetTitle(),
+			state:    pullRequest.GetState(),
+			current:  pullRequest.GetCurrent(),
+			openedAt: dates.Parse(pullRequest.GetOpenedAt()),
+			mergedAt: dates.ParsePtr(pullRequest.GetMergedAt()),
+			closedAt: dates.ParsePtr(pullRequest.GetClosedAt()),
+		})
+	}
+
+	return read
 }
 
 // standingFrom is a standing as the wire carries it.

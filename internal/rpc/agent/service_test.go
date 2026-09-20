@@ -740,14 +740,27 @@ func TestSetMetadata(t *testing.T) {
 	}{
 		{
 			name:     "an id nobody holds is not a quiet success",
+			key:      "linear_issue",
+			value:    xptr.Ptr("https://linear.app/x/issue/ENG-1"),
+			wantCode: connect.CodeNotFound,
+		},
+		{
+			name:     "the pull request key is refused, since the forge fills it",
+			seed:     true,
 			key:      "pr",
 			value:    xptr.Ptr("https://github.com/o/r/pull/1"),
-			wantCode: connect.CodeNotFound,
+			wantCode: connect.CodeInvalidArgument,
+		},
+		{
+			name:     "clearing the pull request key is refused too",
+			seed:     true,
+			key:      "pr",
+			wantCode: connect.CodeInvalidArgument,
 		},
 		{
 			name: "clearing a key nothing held is served, not refused",
 			seed: true,
-			key:  "pr",
+			key:  "linear_issue",
 		},
 		{
 			name:  "an agent records a fact",
@@ -1227,12 +1240,13 @@ func TestSendMailPastTheExchangeLimitIsResourceExhausted(t *testing.T) {
 		Config:         fakeMailConfig(1),
 	})
 	svc := agentv1weave.AgentServiceAdapter{Impl: NewAgentService(NewAgentServiceParams{
-		Agents:      st.Agents,
-		Transcripts: st.Transcripts,
-		Mail:        mail,
-		Liveness:    &fakeLauncher{},
-		Runs:        st.Runs,
-		Marks:       markService(st),
+		Agents:       st.Agents,
+		Transcripts:  st.Transcripts,
+		Mail:         mail,
+		Liveness:     &fakeLauncher{},
+		Runs:         st.Runs,
+		Marks:        markService(st),
+		PullRequests: st.PullRequests,
 	})}
 
 	alpha := st.SeedAgent(t, agentstore.Agent{
@@ -2286,18 +2300,19 @@ func serviceWithLauncher(t *testing.T) (agentv1weave.AgentServiceAdapter, *store
 	})
 
 	return agentv1weave.AgentServiceAdapter{Impl: NewAgentService(NewAgentServiceParams{
-		Agents:      st.Agents,
-		Transcripts: st.Transcripts,
-		Mail:        mail,
-		Review:      review,
-		Runs:        st.Runs,
-		Marks:       markService(st),
-		Creator:     launcher,
-		Adopter:     launcher,
-		Liveness:    launcher,
-		Trees:       fakeTrees{},
-		Lifecycle:   launcher,
-		Resumer:     launcher,
+		Agents:       st.Agents,
+		Transcripts:  st.Transcripts,
+		Mail:         mail,
+		Review:       review,
+		Runs:         st.Runs,
+		Marks:        markService(st),
+		PullRequests: st.PullRequests,
+		Creator:      launcher,
+		Adopter:      launcher,
+		Liveness:     launcher,
+		Trees:        fakeTrees{},
+		Lifecycle:    launcher,
+		Resumer:      launcher,
 	})}, st, launcher
 }
 

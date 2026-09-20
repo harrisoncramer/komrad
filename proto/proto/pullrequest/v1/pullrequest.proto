@@ -69,6 +69,62 @@ message ListPullRequestsResponse {
   optional string next_page_token = 2;
 }
 
+// PullRequestState is where a stored pull request stands, decided on the server from its stamps,
+// its draft flag and the forge's review decision, finished first.
+enum PullRequestState {
+  // No state was decided.
+  PULL_REQUEST_STATE_UNSPECIFIED = 0;
+  // The repository has not been read, so nothing is known.
+  PULL_REQUEST_STATE_UNREAD = 1;
+  // The repository has been read and nothing was opened from the branch.
+  PULL_REQUEST_STATE_NONE = 2;
+  // Open with no review decision that settles it.
+  PULL_REQUEST_STATE_OPEN = 3;
+  // Open and approved on the forge.
+  PULL_REQUEST_STATE_APPROVED = 4;
+  // Open with a reviewer asking for changes.
+  PULL_REQUEST_STATE_CHANGES_REQUESTED = 5;
+  // Still a draft, whatever its reviews say.
+  PULL_REQUEST_STATE_DRAFT = 6;
+  // Merged.
+  PULL_REQUEST_STATE_MERGED = 7;
+  // Closed without merging.
+  PULL_REQUEST_STATE_CLOSED = 8;
+}
+
+message ListAgentPullRequestsRequest {
+  // Which agent's branch to list the pull requests of.
+  string agent_id = 1 [(buf.validate.field).string.min_len = 1];
+}
+
+message AgentPullRequest {
+  // The number the forge shows a person, which is per repository.
+  int32 number = 1;
+  // The web address a person opens.
+  string url = 2;
+  // The title as the forge has it.
+  string title = 3;
+  // Where it stands, decided from the stored row.
+  PullRequestState state = 4;
+  // Whether this is the one the agent's row stands for: the newest opened that is not finished,
+  // else the newest opened of the finished.
+  bool current = 5;
+  // When it was opened on the forge, in RFC 3339.
+  string opened_at = 6;
+  // When it merged, in RFC 3339, unset while it has not.
+  optional string merged_at = 7;
+  // When it closed, in RFC 3339, unset while it is open; a merged one carries this too.
+  optional string closed_at = 8;
+}
+
+message ListAgentPullRequestsResponse {
+  // Every pull request opened from the agent's branch in its repository, newest opened first,
+  // read from what the sync has stored rather than from the forge.
+  repeated AgentPullRequest pull_requests = 1;
+  // When the sync last made a request for the repository, in RFC 3339, unset while it never has.
+  optional string repository_read_at = 2;
+}
+
 // PullRequestService reads pull requests through the forge connections weave holds.
 service PullRequestService {
   rpc ListPullRequests(ListPullRequestsRequest) returns (ListPullRequestsResponse) {
@@ -78,6 +134,15 @@ service PullRequestService {
       mcp: true
       name: "list_pull_requests"
       description: "List a repository's pull requests through the forge connection for its host, a page at a time: every one opened from a branch when one is named, whatever its state, or the open ones when none is. Give the repository as a git remote spells it, and pass the next_page_token back as pagination.cursor for the next page. A repository the connection's credential cannot see is answered as not found, which is also what a repository that does not exist answers."
+    };
+  }
+  rpc ListAgentPullRequests(ListAgentPullRequestsRequest) returns (ListAgentPullRequestsResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+    option (annotation.v1.surfaces) = {
+      cli: true
+      mcp: true
+      name: "list_agent_pull_requests"
+      description: "List the pull requests opened from an agent's branch in its repository, newest opened first, each with where it stands: open, approved, changes requested, draft, merged or closed. The one marked current is what the agent's row in the panel shows. This reads what the pull request sync has stored rather than asking the forge, so repository_read_at says how fresh it is, and an unset repository_read_at means the repository has not been read at all yet. An agent whose checkout is not on a forge repository answers an empty list."
     };
   }
 }

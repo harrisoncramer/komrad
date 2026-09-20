@@ -64,11 +64,18 @@ const (
 type Forge int
 
 const (
-	ForgeNone Forge = iota
+	ForgeUnread Forge = iota
+	ForgeNone
 	ForgeOpen
 	ForgeApproved
+	ForgeChangesRequested
+	ForgeDraft
 	ForgeFailing
 	ForgeMerged
+	ForgeClosed
+	// ForgeEnd is one past the last state, so a caller walking them all gets a bound that moves
+	// when a state is added.
+	ForgeEnd
 )
 
 // Span is a stretch of a name a search matched, in bytes of that name.

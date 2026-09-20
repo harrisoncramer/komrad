@@ -9,7 +9,9 @@ import (
 
 	"weave/db"
 	"weave/db/models"
+	"weave/internal/forge"
 	"weave/internal/store"
+	"weave/lib/xptr"
 )
 
 // PullRequest is one pull request as the forge last described it, owned by nobody.
@@ -45,11 +47,22 @@ type PullRequest struct {
 	MergedAt    *time.Time
 	ClosedAt    *time.Time
 	FirstSeenAt time.Time
+	// ReviewDecision is where the forge says the reviews stand, nil while it has said nothing.
+	ReviewDecision *forge.ReviewDecision
+	// DecisionChangedAt is the ChangedAt the decision was read for, nil while it never has been.
+	DecisionChangedAt *time.Time
 }
 
 // IsFinished says whether the pull request merged or closed.
 func (p PullRequest) IsFinished() bool {
 	return p.MergedAt != nil || p.ClosedAt != nil
+}
+
+// Current is the pull request an agent's row stands for: the newest opened from its branch that
+// is not finished, else the newest opened of the finished.
+type Current struct {
+	AgentID     string
+	PullRequest PullRequest
 }
 
 // UpsertParams is a pull request as the forge describes it, which is every column but the id
@@ -200,6 +213,85 @@ func (s *Store) ListOnBranch(ctx context.Context, repositoryURL, branch string) 
 	}
 
 	return pullRequests, nil
+}
+
+// ListForAgent is every pull request opened from an agent's branch in its repository, newest
+// opened first, on the same terms the agent's row is attributed by.
+func (s *Store) ListForAgent(ctx context.Context, agentID string) ([]PullRequest, error) {
+	if !store.IsID(agentID) {
+		return nil, store.ErrNotFound.Saying("no agent with id %q", agentID)
+	}
+
+	rows, err := s.queries.ListAgentBranchPullRequests(ctx, agentID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list the pull requests of agent %q: %w", agentID, err)
+	}
+
+	pullRequests := make([]PullRequest, 0, len(rows))
+	for _, row := range rows {
+		pullRequests = append(pullRequests, fromRow(row))
+	}
+
+	return pullRequests, nil
+}
+
+// ListStaleDecisions is every open pull request on a branch a live agent sits on in a
+// repository whose review decision has not been read since it last changed, newest change
+// first.
+func (s *Store) ListStaleDecisions(ctx context.Context, repositoryURL string) ([]PullRequest, error) {
+	rows, err := s.queries.ListStaleDecisions(ctx, repositoryURL)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list the stale review decisions of %s: %w", repositoryURL, err)
+	}
+
+	pullRequests := make([]PullRequest, 0, len(rows))
+	for _, row := range rows {
+		pullRequests = append(pullRequests, fromRow(row))
+	}
+
+	return pullRequests, nil
+}
+
+// SetReviewDecision records where the forge said a pull request's reviews stand, read for the
+// change the row holds now.
+func (s *Store) SetReviewDecision(ctx context.Context, id string, decision forge.ReviewDecision) error {
+	var stored *string
+	if decision != forge.ReviewDecisionNone {
+		stored = xptr.Ptr(string(decision))
+	}
+
+	err := s.queries.SetReviewDecision(ctx, models.SetReviewDecisionParams{ID: id, ReviewDecision: stored})
+	if err != nil {
+		return fmt.Errorf("failed to record the review decision of pull request %s: %w", id, err)
+	}
+
+	return nil
+}
+
+// ListCurrentPullRequests is the pull request each live agent's row stands for, leaving out the
+// agents whose branch has none.
+func (s *Store) ListCurrentPullRequests(ctx context.Context) ([]Current, error) {
+	rows, err := s.queries.ListCurrentPullRequests(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list the current pull requests: %w", err)
+	}
+
+	current := make([]Current, 0, len(rows))
+	for _, row := range rows {
+		current = append(current, Current{AgentID: row.AgentID, PullRequest: fromRow(&row.PullRequest)})
+	}
+
+	return current, nil
+}
+
+// ListReadRepositories is every repository the sync has made at least one request for.
+func (s *Store) ListReadRepositories(ctx context.Context) ([]string, error) {
+	rows, err := s.queries.ListReadRepositories(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list the repositories the sync has read: %w", err)
+	}
+
+	return rows, nil
 }
 
 // Observe records every live agent beside every stored pull request opened from its branch in
@@ -451,5 +543,15 @@ func fromRow(row *models.PullRequest) PullRequest {
 		MergedAt:          row.MergedAt,
 		ClosedAt:          row.ClosedAt,
 		FirstSeenAt:       row.FirstSeenAt,
+		ReviewDecision:    reviewDecisionOf(row.ReviewDecision),
+		DecisionChangedAt: row.DecisionChangedAt,
 	}
+}
+
+func reviewDecisionOf(stored *string) *forge.ReviewDecision {
+	if stored == nil {
+		return nil
+	}
+
+	return xptr.Ptr(forge.ReviewDecision(*stored))
 }

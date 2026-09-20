@@ -15,12 +15,15 @@ type gitChoice int
 
 const (
 	gitChoiceRebase gitChoice = iota
+	gitChoiceOpenPullRequest
 	gitChoiceCancel
 )
 
 var (
-	errNoWorktree = errors.New("this agent has no worktree of its own, so there is no base to move it onto")
-	errAgentGone  = errors.New("the agent the menu was opened on has left the list")
+	errNoWorktree         = errors.New("this agent has no worktree of its own, so there is no base to move it onto")
+	errAgentGone          = errors.New("the agent the menu was opened on has left the list")
+	errNoPullRequest      = errors.New("weave has read the repository and nothing has been opened from this branch")
+	errPullRequestsUnread = errors.New("weave has not read this agent's repository yet, or its checkout is not on a forge")
 )
 
 // openGitMenu draws the git actions beside the list, for the agent the cursor is on.
@@ -32,8 +35,9 @@ func (m model) openGitMenu() (tea.Model, tea.Cmd) {
 
 	agent := item.agent
 	form, choice := gitMenuForm(gitMenu{
-		name:       agent.Name,
-		rebaseable: m.isRebaseable(agent),
+		name:           agent.Name,
+		rebaseable:     m.isRebaseable(agent),
+		hasPullRequest: item.pullRequest.url != "",
 	}, m.keys.Git, formKeys())
 
 	agentID := agent.ID
@@ -49,8 +53,9 @@ func (m model) openGitMenu() (tea.Model, tea.Cmd) {
 // gitMenu is what the menu is drawn from: who it is about, and which of its entries would do
 // anything.
 type gitMenu struct {
-	name       string
-	rebaseable bool
+	name           string
+	rebaseable     bool
+	hasPullRequest bool
 }
 
 func gitMenuForm(menu gitMenu, keys config.GitKeys, form config.FormKeys) (*huh.Form, *gitChoice) {
@@ -68,6 +73,12 @@ func gitMenuForm(menu gitMenu, keys config.GitKeys, form config.FormKeys) (*huh.
 				refusal: "no worktree of its own",
 				held:    menu.rebaseable,
 			}), gitChoiceRebase),
+			huh.NewOption(gitEntryLabel(gitEntry{
+				name:    "Open the pull request",
+				keys:    keys.OpenPullRequest,
+				refusal: "none from this branch",
+				held:    menu.hasPullRequest,
+			}), gitChoiceOpenPullRequest),
 			huh.NewOption("Cancel", gitChoiceCancel),
 		)
 
@@ -118,6 +129,10 @@ func (m model) updateGitMenu(msg tea.Msg, choice *gitChoice) (tea.Model, tea.Cmd
 		*choice = gitChoiceRebase
 
 		return m.answerForm()
+	case isBound(k, m.keys.Git.OpenPullRequest):
+		*choice = gitChoiceOpenPullRequest
+
+		return m.answerForm()
 	default:
 		return m.updateForm(msg)
 	}
@@ -144,6 +159,8 @@ func (m model) runGitChoice(agentID string, choice gitChoice) (model, tea.Cmd) {
 		}
 
 		return m, m.planRefreshCmd(agent.ID, agent.Name)
+	case gitChoiceOpenPullRequest:
+		return m.openPullRequest(item)
 	case gitChoiceCancel:
 		return m, nil
 	}

@@ -1,10 +1,13 @@
 package ui
 
 import (
+	"context"
+	"errors"
 	"testing"
 
 	"weave/config"
 	workflowstore "weave/internal/store/workflow"
+	pullrequestv1 "weave/proto/gen/pullrequest/v1"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -63,20 +66,118 @@ func TestGitMenuEntriesAnswerTheirOwnKeys(t *testing.T) {
 	assert.Empty(t, picked.messages.items, "the entry answered rather than saying why it could not")
 }
 
-// TestGitMenuSaysWhyAnEntryWouldDoNothing covers an agent the entry cannot act on, where the
+// TestGitMenuSaysWhyAnEntryWouldDoNothing covers an agent an entry cannot act on, where the
 // menu is still drawn and the reason is read rather than the press being swallowed.
 func TestGitMenuSaysWhyAnEntryWouldDoNothing(t *testing.T) {
-	m := gitModel(t)
-	m.listing.workflows[0].Worktree.Enabled = false
+	tests := []struct {
+		name     string
+		pressed  string
+		standing pullRequestStanding
+		want     string
+	}{
+		{
+			name:    "the rebase",
+			pressed: "r",
+			want:    errNoWorktree.Error(),
+		},
+		{
+			name:     "the pull request of a repository not read yet",
+			pressed:  "o",
+			standing: pullRequestStanding{state: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_UNREAD},
+			want:     errPullRequestsUnread.Error(),
+		},
+		{
+			name:     "the pull request of a branch with none",
+			pressed:  "o",
+			standing: pullRequestStanding{state: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_NONE},
+			want:     errNoPullRequest.Error(),
+		},
+	}
 
-	opened := routeKey(t, m, "b")
-	require.Equal(t, formGit, opened.form.kind)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m := gitModel(t)
+			m.listing.workflows[0].Worktree.Enabled = false
+			m.listing.agents[0].pullRequest = tt.standing
 
-	picked := routeKey(t, opened, "r")
+			opened := routeKey(t, m, "b")
+			require.Equal(t, formGit, opened.form.kind)
 
-	assert.Equal(t, formNone, picked.form.kind)
-	require.Len(t, picked.messages.items, 1)
-	assert.Contains(t, picked.messages.items[0].detail, errNoWorktree.Error())
+			picked := routeKey(t, opened, tt.pressed)
+
+			assert.Equal(t, formNone, picked.form.kind)
+			require.Len(t, picked.messages.items, 1)
+			assert.Contains(t, picked.messages.items[0].detail, tt.want)
+		})
+	}
+}
+
+// TestGitMenuOpensTheCurrentPullRequest covers the entry handing the browser the address the
+// listing carries for the agent the cursor was on, and saying so when the browser refuses.
+func TestGitMenuOpensTheCurrentPullRequest(t *testing.T) {
+	tests := []struct {
+		name    string
+		refuse  error
+		wantErr bool
+	}{
+		{
+			name:    "a browser that refuses is reported",
+			refuse:  errors.New("no application knows how to open it"),
+			wantErr: true,
+		},
+		{
+			name: "the address is handed over",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			opener := &recordingOpener{err: tt.refuse}
+			m := gitModel(t)
+			m.browser = opener
+			m.listing.agents[0].pullRequest = pullRequestStanding{
+				state:  pullrequestv1.PullRequestState_PULL_REQUEST_STATE_APPROVED,
+				number: 740,
+				url:    "https://github.com/harrisoncramer/weave/pull/740",
+			}
+
+			opened := routeKey(t, m, "b")
+			require.Equal(t, formGit, opened.form.kind)
+
+			next, cmd := opened.route(keyMsgOf(t, "o"))
+			picked, ok := next.(model)
+			require.True(t, ok)
+			assert.Equal(t, formNone, picked.form.kind)
+			require.NotNil(t, cmd, "the browser is asked off the update")
+
+			for _, msg := range produced(cmd) {
+				updated, _ := picked.Update(msg)
+				picked, ok = updated.(model)
+				require.True(t, ok)
+			}
+
+			assert.Equal(t, []string{"https://github.com/harrisoncramer/weave/pull/740"}, opener.targets)
+			if tt.wantErr {
+				require.Len(t, picked.messages.items, 1)
+				assert.Contains(t, picked.messages.items[0].summary, "Could not open")
+
+				return
+			}
+			assert.Empty(t, picked.messages.items)
+		})
+	}
+}
+
+// recordingOpener stands in for the desktop, holding what it was asked to open.
+type recordingOpener struct {
+	targets []string
+	err     error
+}
+
+func (r *recordingOpener) OpenURL(_ context.Context, target string) error {
+	r.targets = append(r.targets, target)
+
+	return r.err
 }
 
 // TestGitMenuEntriesNameTheirKeysAndTheirRefusals covers the labels, which carry both the letter
@@ -107,6 +208,7 @@ func TestGitMenuDrawsEveryEntry(t *testing.T) {
 	drawn := routeKey(t, m, "b").View()
 
 	assert.Contains(t, drawn, "Rebase onto the base")
+	assert.Contains(t, drawn, "Open the pull request")
 	assert.Contains(t, drawn, "Cancel")
 }
 

@@ -321,6 +321,10 @@ type MarksKeys struct {
 type GitKeys struct {
 	// Open the git menu on the hovered agent.
 	Open []string `mapstructure:"open" default:"b"`
+	// Open the hovered agent's current pull request in your browser: the newest one opened from
+	// its branch that is not finished, else the newest finished one. The entry says so rather
+	// than acting on an agent with none.
+	OpenPullRequest []string `mapstructure:"open_pull_request" default:"o"`
 	// Bring the hovered agent's worktree up to date on the latest base, which asks first and
 	// says what it would do to the branch and to the files.
 	Rebase []string `mapstructure:"rebase" default:"r"`

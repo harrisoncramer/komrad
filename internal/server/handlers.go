@@ -94,6 +94,7 @@ func newMux(params newMuxParams) (*http.ServeMux, error) {
 			Marks:        params.Services.marks,
 			Refresher:    params.Services.rebase,
 			Orchestrator: params.Services.orchestrator,
+			PullRequests: params.Stores.pullRequests,
 		})}, options...))
 	mux.Handle(workflowv1connect.NewWorkflowServiceHandler(
 		workflowv1weave.WorkflowServiceAdapter{
@@ -115,7 +116,11 @@ func newMux(params newMuxParams) (*http.ServeMux, error) {
 		}, options...))
 	mux.Handle(pullrequestv1connect.NewPullRequestServiceHandler(
 		pullrequestv1weave.PullRequestServiceAdapter{
-			Impl: rpcpullrequest.NewPullRequestService(params.Services.forge),
+			Impl: rpcpullrequest.NewPullRequestService(rpcpullrequest.NewPullRequestServiceParams{
+				Forges:       params.Services.forge,
+				Agents:       params.Stores.agents,
+				PullRequests: params.Stores.pullRequests,
+			}),
 		}, options...))
 	mux.Handle(worktreev1connect.NewWorktreeServiceHandler(
 		worktreev1weave.WorktreeServiceAdapter{

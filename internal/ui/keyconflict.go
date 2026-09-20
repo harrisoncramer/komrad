@@ -95,10 +95,21 @@ func gitMenuReserved() map[string]string {
 func validateGitMenuKeys(keys config.GitKeys) error {
 	reserved := gitMenuReserved()
 
-	for _, k := range keys.Rebase {
-		if taken, ok := reserved[k]; ok {
-			return fmt.Errorf("keybindings: the git menu's rebase is bound to %q, which is %s, and the menu answers it first",
-				k, taken)
+	entries := []struct {
+		name string
+		keys []string
+	}{
+		{name: "rebase", keys: keys.Rebase},
+		{name: "open_pull_request", keys: keys.OpenPullRequest},
+	}
+	for _, entry := range entries {
+		for _, k := range entry.keys {
+			if taken, ok := reserved[k]; ok {
+				return fmt.Errorf("keybindings: the git menu's %s is bound to %q, which is %s, and the menu answers it first",
+					entry.name, k, taken)
+			}
+
+			reserved[k] = "the menu's " + entry.name + " entry"
 		}
 	}
 

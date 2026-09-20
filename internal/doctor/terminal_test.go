@@ -106,7 +106,7 @@ func TestGlyphCheckReportsWidthsThatDisagree(t *testing.T) {
 	require.Equal(t, StatusWarn, result.Status,
 		"a font the terminal lacks is a degraded panel rather than a broken weave")
 	require.ErrorIs(t, result.Err, ErrGlyphWidthUnexpected)
-	assert.Contains(t, result.Err.Error(), "19 glyphs drew in 2 columns where the layout counts them as 1")
+	assert.Contains(t, result.Err.Error(), "21 glyphs drew in 2 columns where the layout counts them as 1")
 	assert.NotEmpty(t, result.Fix)
 }
 

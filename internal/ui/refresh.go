@@ -126,7 +126,11 @@ func (m model) refreshCmd() tea.Cmd {
 		ctx, cancel := context.WithTimeout(context.Background(), agentsTimeout)
 		defer cancel()
 
-		result := refreshResult{epoch: epoch, archivedListed: withArchive, worktreesListed: withWorktrees}
+		result := refreshResult{
+			epoch:           epoch,
+			archivedListed:  withArchive,
+			worktreesListed: withWorktrees,
+		}
 
 		var wg sync.WaitGroup
 		wg.Go(func() {
@@ -229,6 +233,7 @@ func (m *model) applyRefresh(result refreshResult) tea.Cmd {
 
 	preview := m.placeSearchHit(searchRow)
 	inspect := m.inspectHoveredWorktreeCmd()
+	pullRequests := m.listHoveredPullRequestsCmd()
 
 	// A form draws its options from the listing it was built over, so it is drawn again when
 	// that listing moves under it.
@@ -246,7 +251,7 @@ func (m *model) applyRefresh(result refreshResult) tea.Cmd {
 		spec.stage(m)
 	}
 
-	return tea.Batch(preview, redrawn, inspect)
+	return tea.Batch(preview, redrawn, inspect, pullRequests)
 }
 
 func (r refreshResult) err() error {

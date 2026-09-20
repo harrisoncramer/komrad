@@ -346,13 +346,44 @@ func TestPrepareReviewColumn(t *testing.T) {
 	}
 }
 
-// TestPrepareForgeColumn pins where a pull request opened from the branch stands.
+// TestPrepareForgeColumn pins where a pull request opened from the branch stands, every state
+// of it, with nothing drawn while nothing is known or nothing was opened.
 func TestPrepareForgeColumn(t *testing.T) {
 	tests := []struct {
 		name  string
 		forge Forge
 		want  Cell
 	}{
+		{
+			name:  "a repository not read yet draws nothing",
+			forge: ForgeUnread,
+			want:  Cell{},
+		},
+		{
+			name:  "no pull request from the branch draws nothing either",
+			forge: ForgeNone,
+			want:  Cell{},
+		},
+		{
+			name:  "an open pull request is the pull request glyph greyed",
+			forge: ForgeOpen,
+			want:  Cell{Glyph: GlyphForge, Tone: paint.ToneMuted},
+		},
+		{
+			name:  "approved gets the check in success",
+			forge: ForgeApproved,
+			want:  Cell{Glyph: GlyphApproved, Tone: paint.ToneSuccess},
+		},
+		{
+			name:  "changes requested is the pull request glyph in warning",
+			forge: ForgeChangesRequested,
+			want:  Cell{Glyph: GlyphForge, Tone: paint.ToneWarning},
+		},
+		{
+			name:  "a draft has its own glyph greyed",
+			forge: ForgeDraft,
+			want:  Cell{Glyph: GlyphDraft, Tone: paint.ToneMuted},
+		},
 		{
 			name:  "failing checks get the broken glyph in danger",
 			forge: ForgeFailing,
@@ -364,19 +395,9 @@ func TestPrepareForgeColumn(t *testing.T) {
 			want:  Cell{Glyph: GlyphMerged, Tone: paint.ToneMerged},
 		},
 		{
-			name:  "approved gets the check in success",
-			forge: ForgeApproved,
-			want:  Cell{Glyph: GlyphApproved, Tone: paint.ToneSuccess},
-		},
-		{
-			name:  "an open pull request keeps the glyph and takes the accent tone",
-			forge: ForgeOpen,
-			want:  Cell{Glyph: GlyphForge, Tone: paint.ToneAccent},
-		},
-		{
-			name:  "no pull request at all is drawn greyed rather than left out",
-			forge: ForgeNone,
-			want:  Cell{Glyph: GlyphForge, Tone: paint.ToneMuted},
+			name:  "closed without merging has its own glyph in danger",
+			forge: ForgeClosed,
+			want:  Cell{Glyph: GlyphClosed, Tone: paint.ToneDanger},
 		},
 	}
 
@@ -385,6 +406,8 @@ func TestPrepareForgeColumn(t *testing.T) {
 			assert.Equal(t, tt.want, prepareOne(t, Row{Forge: tt.forge}).Forge)
 		})
 	}
+
+	assert.Len(t, tests, int(ForgeEnd), "every state is pinned")
 }
 
 // TestPrepareWeight pins the structure a row carries in its lettering rather than in a glyph.

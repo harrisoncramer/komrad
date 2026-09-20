@@ -16,6 +16,7 @@ import (
 // of failure they are rather than leaving it to be decided later.
 type PullRequestServiceImpl interface {
 	ListPullRequests(context.Context, *v1.ListPullRequestsRequest) (*v1.ListPullRequestsResponse, *fail.Error)
+	ListAgentPullRequests(context.Context, *v1.ListAgentPullRequestsRequest) (*v1.ListAgentPullRequestsResponse, *fail.Error)
 }
 
 // PullRequestServiceAdapter carries what the implementation returned across to the signature
@@ -27,4 +28,9 @@ type PullRequestServiceAdapter struct {
 // ListPullRequests answers the request as connect serves it.
 func (a PullRequestServiceAdapter) ListPullRequests(ctx context.Context, req *connect.Request[v1.ListPullRequestsRequest]) (*connect.Response[v1.ListPullRequestsResponse], error) {
 	return rpcerr.Answer(a.Impl.ListPullRequests(ctx, req.Msg))
+}
+
+// ListAgentPullRequests answers the request as connect serves it.
+func (a PullRequestServiceAdapter) ListAgentPullRequests(ctx context.Context, req *connect.Request[v1.ListAgentPullRequestsRequest]) (*connect.Response[v1.ListAgentPullRequestsResponse], error) {
+	return rpcerr.Answer(a.Impl.ListAgentPullRequests(ctx, req.Msg))
 }

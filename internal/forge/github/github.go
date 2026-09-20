@@ -4,6 +4,7 @@ package github
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -264,23 +265,123 @@ func (f *Forge) Get(ctx context.Context, address string) (forge.PullRequest, err
 	return raw.toPullRequest(), nil
 }
 
+// GetReviewDecisionByNumber reads GitHub's computed reviewDecision for one pull request over
+// GraphQL, which is what its own page shows and already folds in dismissed and stale reviews.
+func (f *Forge) GetReviewDecisionByNumber(ctx context.Context, repo git.RemoteURL, pullRequestNumber int) (forge.ReviewDecision, error) {
+	owner, name, err := ownerAndName(repo.Path)
+	if err != nil {
+		return forge.ReviewDecisionNone, err
+	}
+
+	var answer reviewDecisionAnswer
+	err = f.call(ctx, http.MethodPost, f.graphqlURL(), map[string]any{
+		"query":     reviewDecisionQuery,
+		"variables": map[string]any{"owner": owner, "name": name, "number": pullRequestNumber},
+	}, &answer)
+	if errors.Is(err, forge.ErrNotFound) {
+		return forge.ReviewDecisionNone, fmt.Errorf("github answered 404 at %s, which is not where its GraphQL lives", f.graphqlURL())
+	}
+	if err != nil {
+		return forge.ReviewDecisionNone, err
+	}
+
+	if len(answer.Errors) > 0 {
+		failure := answer.Errors[0]
+		if failure.Type == "NOT_FOUND" {
+			return forge.ReviewDecisionNone, fmt.Errorf("%w: github has no pull request %d in %s/%s, which is also its answer for a repository the credential cannot see", forge.ErrNotFound, pullRequestNumber, owner, name)
+		}
+
+		return forge.ReviewDecisionNone, fmt.Errorf("github refused the review decision of %s/%s#%d: %s", owner, name, pullRequestNumber, failure.Message)
+	}
+
+	repository := answer.Data.Repository
+	if repository == nil || repository.PullRequest == nil {
+		return forge.ReviewDecisionNone, fmt.Errorf("%w: github has no pull request %d in %s/%s", forge.ErrNotFound, pullRequestNumber, owner, name)
+	}
+	if repository.PullRequest.ReviewDecision == nil {
+		return forge.ReviewDecisionNone, nil
+	}
+
+	return reviewDecisionOf(*repository.PullRequest.ReviewDecision), nil
+}
+
+// reviewDecisionOf is GitHub's reviewDecision in weave's words.
+func reviewDecisionOf(decision string) forge.ReviewDecision {
+	switch decision {
+	case "APPROVED":
+		return forge.ReviewDecisionApproved
+	case "CHANGES_REQUESTED":
+		return forge.ReviewDecisionChangesRequested
+	case "REVIEW_REQUIRED":
+		return forge.ReviewDecisionPending
+	}
+
+	return forge.ReviewDecisionNone
+}
+
+// reviewDecisionAnswer is the slice of GitHub's GraphQL answer the decision is read from.
+type reviewDecisionAnswer struct {
+	Data struct {
+		Repository *struct {
+			PullRequest *struct {
+				ReviewDecision *string `json:"reviewDecision"`
+			} `json:"pullRequest"`
+		} `json:"repository"`
+	} `json:"data"`
+	Errors []struct {
+		Type    string `json:"type"`
+		Message string `json:"message"`
+	} `json:"errors"`
+}
+
+// reviewDecisionQuery asks for one pull request's computed decision and nothing else.
+const reviewDecisionQuery = `query($owner: String!, $name: String!, $number: Int!) {
+  repository(owner: $owner, name: $name) { pullRequest(number: $number) { reviewDecision } }
+}`
+
+// graphqlURL is where the host answers GraphQL, beside the REST base rather than under it.
+func (f *Forge) graphqlURL() string {
+	return strings.TrimSuffix(f.api, "/v3") + "/graphql"
+}
+
 // get reads one path, with any headers the call adds to the ones every GitHub call carries,
 // and turns GitHub's refusals into weave's; a 304 comes back as an answer with no body.
 func (f *Forge) get(ctx context.Context, path string, extra http.Header, into any) (xhttp.Answer, error) {
-	header := http.Header{
-		"Accept":               {"application/vnd.github+json"},
-		"X-GitHub-Api-Version": {"2022-11-28"},
-	}
+	header := http.Header{}
 	for key, values := range extra {
 		header[key] = values
 	}
 
-	answer, err := xhttp.JSON(ctx, xhttp.JSONParams{
-		Client: f.client,
+	return f.send(ctx, xhttp.JSONParams{
 		Method: http.MethodGet,
 		URL:    f.api + path,
 		Header: header,
 	}, into)
+}
+
+// call sends one request with a body to an address, which is how GraphQL is reached.
+func (f *Forge) call(ctx context.Context, method, address string, body, into any) error {
+	_, err := f.send(ctx, xhttp.JSONParams{
+		Method: method,
+		URL:    address,
+		Body:   body,
+	}, into)
+
+	return err
+}
+
+// send makes one call with the headers every GitHub call carries and turns GitHub's refusals
+// into weave's; a 304 comes back as an answer with no body.
+func (f *Forge) send(ctx context.Context, params xhttp.JSONParams, into any) (xhttp.Answer, error) {
+	if params.Header == nil {
+		params.Header = http.Header{}
+	}
+	params.Header.Set("Accept", "application/vnd.github+json")
+	params.Header.Set("X-GitHub-Api-Version", "2022-11-28")
+	params.Client = f.client
+	path := strings.TrimPrefix(params.URL, f.api)
+
+	answer, err := xhttp.JSON(ctx, params, into)
 	if err != nil {
 		if failure := fail.Of(err); failure != nil {
 			return xhttp.Answer{}, failure

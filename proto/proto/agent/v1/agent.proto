@@ -9,6 +9,7 @@ import "annotation/v1/tool.proto";
 import "buf/validate/validate.proto";
 import "google/protobuf/empty.proto";
 import "pagination/v1/pagination.proto";
+import "pullrequest/v1/pullrequest.proto";
 import "rules/v1/rules.proto";
 import "view/v1/view.proto";
 
@@ -49,7 +50,7 @@ message Agent {
   optional string mark = 14;
   // Whether the panel draws a row for it, which changes nothing about the agent itself.
   bool hidden = 15;
-  // Facts it has recorded about its own work, such as the pull request it opened.
+  // Facts it has recorded about its own work, such as the ticket it is implementing.
   repeated AgentMetadata metadata = 16;
   // The key a retry of its create carried, which is what answers a repeat with this agent.
   optional string idempotency_key = 17;
@@ -93,6 +94,20 @@ message Agent {
   ReviewTreeStanding local_review_tree = 34;
   // When a person stopped this agent and took its worktree, empty while nobody is holding it.
   string held_at = 35;
+  // Where the pull request opened from its branch stands.
+  PullRequestStanding pull_request = 38;
+}
+
+message PullRequestStanding {
+  // Where the current pull request stands: UNREAD when the repository has not been read, NONE
+  // when it has and nothing was opened from the branch, else the state of the current one.
+  pullrequest.v1.PullRequestState state = 1;
+  // The number of the current pull request, unset for UNREAD and NONE.
+  optional int32 number = 2;
+  // The web address of the current pull request, unset for UNREAD and NONE.
+  optional string url = 3;
+  // The title of the current pull request, unset for UNREAD and NONE.
+  optional string title = 4;
 }
 
 message AgentMetadata {
@@ -613,7 +628,7 @@ service AgentService {
       cli: true
       mcp: true
       name: "set_agent_metadata"
-      description: "Record one fact about an agent's work under a key of your choosing, keyed by the agent's id, or clear that key by omitting the value. Use this on yourself as you work, whenever you learn something a person would want to jump to later: the Linear issue you are implementing, the pull request you opened, the branch you are on. Your own id is in the WEAVE_AGENT_ID environment variable. Store the full URL rather than a bare number, since the panel shows the value as it is. Keys are lowercase letters, digits, underscores, and dashes; call this once per key, which leaves every other key on the agent untouched. Do not record what the agent is currently doing, which is already its state, and do not paste findings here, which belong in your reply."
+      description: "Record one fact about an agent's work under a key of your choosing, keyed by the agent's id, or clear that key by omitting the value. Use this on yourself as you work, whenever you learn something a person would want to jump to later: the Linear issue you are implementing, the branch you are on. Your own id is in the WEAVE_AGENT_ID environment variable. Store the full URL rather than a bare number, since the panel shows the value as it is. Keys are lowercase letters, digits, underscores, and dashes; call this once per key, which leaves every other key on the agent untouched. The key pr is refused: pull requests are read from the forge and shown on the row, so there is nothing to record. Do not record what the agent is currently doing, which is already its state, and do not paste findings here, which belong in your reply."
       destructive: false
     };
   }

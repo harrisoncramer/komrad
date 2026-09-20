@@ -378,8 +378,8 @@ func TestRequestValidation(t *testing.T) {
 			call: func(t *testing.T, c agentv1connect.AgentServiceClient) error {
 				_, err := c.SetMetadata(t.Context(), connect.NewRequest(&agentv1.SetMetadataRequest{
 					Id:    uuid.NewString(),
-					Key:   "pr",
-					Value: xptr.Ptr("https://github.com/o/r/pull/1\nand another"),
+					Key:   "linear_issue",
+					Value: xptr.Ptr("https://linear.app/x/issue/ENG-1\nand another"),
 				}))
 
 				return err
@@ -407,7 +407,7 @@ func TestRequestValidation(t *testing.T) {
 			call: func(t *testing.T, c agentv1connect.AgentServiceClient) error {
 				_, err := c.SetMetadata(t.Context(), connect.NewRequest(&agentv1.SetMetadataRequest{
 					Id:  uuid.NewString(),
-					Key: "pr",
+					Key: "linear_issue",
 				}))
 
 				return err

@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"weave/internal/dbtest"
+	"weave/internal/git"
 	githubapp "weave/internal/github/app"
 	"weave/internal/store"
 	forgestore "weave/internal/store/forge"
@@ -65,6 +66,10 @@ func (f *fakeForge) List(context.Context, ListParams) (*ListResult, error) {
 }
 
 func (f *fakeForge) Get(context.Context, string) (PullRequest, error) { return PullRequest{}, nil }
+
+func (f *fakeForge) GetReviewDecisionByNumber(context.Context, git.RemoteURL, int) (ReviewDecision, error) {
+	return ReviewDecisionNone, nil
+}
 
 type fixture struct {
 	service     *ForgeService

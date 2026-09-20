@@ -87,7 +87,20 @@ func workflowProse(w workflowstore.Workflow) string {
 	return w.Context
 }
 
-func agentFields(agent agentstore.Agent, schedule, parent string) []recordField {
+// agentFieldsParams is an agent and what the record says about it that is not on its row: the
+// names of what launched it and what it hangs off, and the pull requests from its branch.
+type agentFieldsParams struct {
+	agent    agentstore.Agent
+	schedule string
+	parent   string
+	standing pullRequestStanding
+	// listed is what the service has answered about the branch's pull requests, unanswered
+	// while it has not.
+	listed agentPullRequests
+}
+
+func agentFields(params agentFieldsParams) []recordField {
+	agent, schedule, parent := params.agent, params.schedule, params.parent
 	fields := []recordField{{"name", orDash(agent.Name)}}
 	// What a child is attached to comes early, and for a reviewer that same row is whose work it
 	// is reading.
@@ -108,6 +121,7 @@ func agentFields(agent agentstore.Agent, schedule, parent string) []recordField 
 	readBranch := agent.Branch != nil
 	if readBranch {
 		fields = append(fields, recordField{branchFieldKey, *agent.Branch})
+		fields = append(fields, pullRequestFields(params.standing, params.listed)...)
 	}
 
 	fields = append(fields,

@@ -151,6 +151,16 @@ table "pull_requests" {
     default = sql("now()")
     comment = "When weave first inserted the row."
   }
+  column "review_decision" {
+    null    = true
+    type    = text
+    comment = "Where the forge says the reviews stand, in weave's own words: pending, approved or changes_requested, null while it has said nothing."
+  }
+  column "decision_changed_at" {
+    null    = true
+    type    = timestamptz
+    comment = "The changed_at the review decision was read for, stale once changed_at has moved past it."
+  }
   primary_key {
     columns = [column.id]
   }

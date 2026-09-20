@@ -9,12 +9,14 @@ import (
 	"weave/config"
 	"weave/internal/forge"
 	"weave/internal/forge/github"
+	"weave/internal/forge/gitlab"
 	githubapp "weave/internal/github/app"
 )
 
 // Builders makes the forge for each kind this build knows.
 var Builders = map[string]forge.Builder{
 	forge.KindGitHub: github.Build,
+	forge.KindGitLab: gitlab.Build,
 }
 
 // TokenCachePath is where the App's minted token is kept under a cache directory.
