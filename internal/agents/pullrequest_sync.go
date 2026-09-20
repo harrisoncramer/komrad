@@ -158,7 +158,12 @@ func (s *PullRequestSyncer) syncRepository(ctx context.Context, repositoryURL st
 	}
 
 	pass := &repositoryPass{budget: pullRequestSyncBudget}
-	err = s.readRepository(ctx, remote, connection, f, pass)
+	err = s.readRepository(ctx, repositoryRead{
+		remote:     remote,
+		connection: connection,
+		forge:      f,
+		pass:       pass,
+	})
 	var throttled *forge.ThrottledError
 	switch {
 	case err == nil:
@@ -186,10 +191,19 @@ func (s *PullRequestSyncer) syncRepository(ctx context.Context, repositoryURL st
 	)
 }
 
+// repositoryRead is one repository being read in a pass: where it is, the connection and forge
+// it is read through, and what the pass has done for it so far.
+type repositoryRead struct {
+	remote     git.RemoteURL
+	connection *forgestore.Connection
+	forge      forge.Forge
+	pass       *repositoryPass
+}
+
 // readRepository runs the sweep, then the branch scans, then the review decisions for one
 // repository within the pass's budget, and answers the error that stopped it, if one did.
-func (s *PullRequestSyncer) readRepository(ctx context.Context, remote git.RemoteURL, connection *forgestore.Connection, f forge.Forge, pass *repositoryPass) error {
-	repositoryURL := remote.Canonical()
+func (s *PullRequestSyncer) readRepository(ctx context.Context, read repositoryRead) error {
+	repositoryURL := read.remote.Canonical()
 	if err := s.pullRequests.EnsureSync(ctx, repositoryURL); err != nil {
 		return err
 	}
@@ -197,23 +211,20 @@ func (s *PullRequestSyncer) readRepository(ctx context.Context, remote git.Remot
 		return err
 	}
 
-	if err := s.sweep(ctx, remote, connection, f, pass); err != nil {
+	if err := s.sweep(ctx, read); err != nil {
 		return err
 	}
-	if err := s.scanBranches(ctx, remote, connection, f, pass); err != nil {
+	if err := s.scanBranches(ctx, read); err != nil {
 		return err
 	}
 
-	return s.readDecisions(ctx, readDecisionsParams{
-		Remote: remote,
-		Forge:  f,
-		Pass:   pass,
-	})
+	return s.readDecisions(ctx, read)
 }
 
 // sweep reads the repository's listing by last change from where the cursor row says, page by
 // page, until it reaches what it already holds or the budget runs out.
-func (s *PullRequestSyncer) sweep(ctx context.Context, remote git.RemoteURL, connection *forgestore.Connection, f forge.Forge, pass *repositoryPass) error {
+func (s *PullRequestSyncer) sweep(ctx context.Context, read repositoryRead) error {
+	remote, pass := read.remote, read.pass
 	repositoryURL := remote.Canonical()
 	sync, err := s.pullRequests.GetSync(ctx, repositoryURL)
 	if err != nil {
@@ -234,14 +245,14 @@ func (s *PullRequestSyncer) sweep(ctx context.Context, remote git.RemoteURL, con
 			params.ETag = sync.ETag
 		}
 
-		listed, err := f.ListUpdated(ctx, params)
+		listed, err := read.forge.ListUpdated(ctx, params)
 		if recordErr := s.pullRequests.RecordSyncRequest(ctx, repositoryURL); recordErr != nil {
 			return recordErr
 		}
 		if err != nil {
 			return err
 		}
-		spent := s.noteRateLimit(ctx, remote.Host, connection.ID, listed.RateLimit)
+		spent := s.noteRateLimit(ctx, remote.Host, read.connection.ID, listed.RateLimit)
 
 		if listed.NotModified {
 			pass.notModified = true
@@ -309,7 +320,8 @@ func (s *PullRequestSyncer) reachesStop(pullRequests []forge.PullRequest, update
 
 // scanBranches reads, once, the pull requests of every branch a live agent sits on that the
 // sweep's horizon may have missed.
-func (s *PullRequestSyncer) scanBranches(ctx context.Context, remote git.RemoteURL, connection *forgestore.Connection, f forge.Forge, pass *repositoryPass) error {
+func (s *PullRequestSyncer) scanBranches(ctx context.Context, read repositoryRead) error {
+	remote, pass := read.remote, read.pass
 	repositoryURL := remote.Canonical()
 	branches, err := s.pullRequests.ListUnscannedBranches(ctx, repositoryURL)
 	if err != nil {
@@ -329,7 +341,7 @@ func (s *PullRequestSyncer) scanBranches(ctx context.Context, remote git.RemoteU
 		for pass.budget > 0 {
 			pass.budget--
 
-			listed, err := f.List(ctx, forge.ListParams{
+			listed, err := read.forge.List(ctx, forge.ListParams{
 				Repo:    remote,
 				Branch:  branch,
 				Page:    page,
@@ -341,7 +353,7 @@ func (s *PullRequestSyncer) scanBranches(ctx context.Context, remote git.RemoteU
 			if err != nil {
 				return err
 			}
-			spent := s.noteRateLimit(ctx, remote.Host, connection.ID, listed.RateLimit)
+			spent := s.noteRateLimit(ctx, remote.Host, read.connection.ID, listed.RateLimit)
 
 			if err := s.writePage(ctx, listed.PullRequests, pass, func(st *pullrequeststore.Store) error {
 				if listed.HasMore {
@@ -366,28 +378,22 @@ func (s *PullRequestSyncer) scanBranches(ctx context.Context, remote git.RemoteU
 	return nil
 }
 
-type readDecisionsParams struct {
-	Remote git.RemoteURL
-	Forge  forge.Forge
-	Pass   *repositoryPass
-}
-
 // readDecisions reads the review decision of every open pull request on a live branch that
 // changed since its decision was last read, newest change first, until the budget runs out.
-func (s *PullRequestSyncer) readDecisions(ctx context.Context, params readDecisionsParams) error {
-	repositoryURL := params.Remote.Canonical()
+func (s *PullRequestSyncer) readDecisions(ctx context.Context, read repositoryRead) error {
+	repositoryURL := read.remote.Canonical()
 	stale, err := s.pullRequests.ListStaleDecisions(ctx, repositoryURL)
 	if err != nil {
 		return err
 	}
 
 	for _, pullRequest := range stale {
-		if params.Pass.budget <= 0 {
+		if read.pass.budget <= 0 {
 			return nil
 		}
-		params.Pass.budget--
+		read.pass.budget--
 
-		decision, err := params.Forge.GetReviewDecisionByNumber(ctx, params.Remote, pullRequest.Number)
+		decision, err := read.forge.GetReviewDecisionByNumber(ctx, read.remote, pullRequest.Number)
 		if recordErr := s.pullRequests.RecordSyncRequest(ctx, repositoryURL); recordErr != nil {
 			return recordErr
 		}
@@ -398,7 +404,7 @@ func (s *PullRequestSyncer) readDecisions(ctx context.Context, params readDecisi
 		if err := s.pullRequests.SetReviewDecision(ctx, pullRequest.ID, decision); err != nil {
 			return err
 		}
-		params.Pass.decisions++
+		read.pass.decisions++
 	}
 
 	return nil
