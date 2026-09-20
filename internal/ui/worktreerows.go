@@ -176,8 +176,7 @@ type worktreesSnapshotParams struct {
 	barBlinkedOut bool
 	matcher       *regexp.Regexp
 	pane          int
-	// now is the moment each row's age is measured from.
-	now time.Time
+	now           time.Time
 }
 
 // worktreesSnapshot reads the rows into the plain data the list draws itself from.
@@ -246,8 +245,7 @@ func repoStanding(item worktreeItem) view.Repo {
 	return view.RepoClean
 }
 
-// rowTrail is a directory's size then its age at the right edge, the size a dash until the
-// directory has been measured.
+// rowTrail is a directory's size then its age, the size a dash until it has been measured.
 func rowTrail(item worktreeItem, now time.Time) string {
 	return trail(sizeLabel(item), dates.AgeAt(item.lastActiveAt, now))
 }

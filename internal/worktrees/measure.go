@@ -136,12 +136,12 @@ func gone(paths []string, stored map[string]worktreestore.Size) []string {
 // choose is the directories a pass walks: the unmeasured first, in listing order, then the
 // stale ones oldest first, cut to what one pass takes.
 func choose(paths []string, stored map[string]worktreestore.Size, now time.Time) []string {
-	var fresh, stale []string
+	var unmeasured, stale []string
 	for _, dir := range paths {
 		size, ok := stored[dir]
 		switch {
 		case !ok:
-			fresh = append(fresh, dir)
+			unmeasured = append(unmeasured, dir)
 		case now.Sub(size.MeasuredAt) >= measureStaleAfter:
 			stale = append(stale, dir)
 		}
@@ -150,7 +150,7 @@ func choose(paths []string, stored map[string]worktreestore.Size, now time.Time)
 		return cmp.Compare(stored[a].MeasuredAt.UnixNano(), stored[b].MeasuredAt.UnixNano())
 	})
 
-	chosen := slices.Concat(fresh, stale)
+	chosen := slices.Concat(unmeasured, stale)
 
 	return chosen[:min(len(chosen), measuresPerPass)]
 }

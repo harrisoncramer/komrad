@@ -47,8 +47,8 @@ type Worktree struct {
 	Occupants []Agent
 	// Size is the directory's last measurement, nil until the loop has been round.
 	Size *worktreestore.Size
-	// LastActiveAt is the later of the agent's state change and its archiving when one answers,
-	// else when git last wrote the directory's .git file, else the directory's own mtime.
+	// LastActiveAt is when the directory was last touched, read off its agent when one answers
+	// and off the filesystem otherwise.
 	LastActiveAt time.Time
 }
 
@@ -174,7 +174,7 @@ func (l *Lister) List(ctx context.Context) (Listing, error) {
 // Paths is every directory found immediately under the worktree directories.
 type Paths struct {
 	Paths []string
-	// Unreadable are the worktree directories that could not be read, whose contents are unknown.
+	// Unreadable are the worktree directories that could not be read.
 	Unreadable []string
 }
 

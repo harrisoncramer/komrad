@@ -283,8 +283,7 @@ func occupantsField(item worktreeItem) string {
 	return strings.Join(xslice.Map(item.occupants, func(occupant worktreeAgent) string { return occupant.name }), ", ")
 }
 
-// sizeField is what the directory takes and when that was measured, a dash until it has been,
-// and why the last walk failed when it did.
+// sizeField is what the directory takes and when that was measured, or why it could not be.
 func sizeField(item worktreeItem, now time.Time) string {
 	switch {
 	case item.size == nil:
