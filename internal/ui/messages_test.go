@@ -429,43 +429,76 @@ func TestMessagesRefuseFocusWithNothingToRead(t *testing.T) {
 	assert.False(t, m.toggleMessagesFocus().isMessagesFocused())
 }
 
-// TestMessagesPulseBlinksWhatJustLanded covers a message blinking five times as it lands and
-// leaving the row as it found it.
+// TestMessagesPulseBlinksWhatJustLanded covers a message blinking twice as it lands, its words
+// taking the kind's own colour on each lit half, and leaving the row as it found it.
 func TestMessagesPulseBlinksWhatJustLanded(t *testing.T) {
 	restore := lipgloss.ColorProfile()
 	t.Cleanup(func() { lipgloss.SetColorProfile(restore) })
 	lipgloss.SetColorProfile(termenv.TrueColor)
 
-	lit, _, _ := strings.Cut(flashFieldStyle(paint.Panel).Render("x"), "x")
-	require.NotEmpty(t, lit)
+	const summary = "Nothing to review in fix-ci"
 
-	m := detailsModel(&recordingTmux{})
-	m.height, m.width = 40, 120
-	m.pushMessage(message{
-		kind:    messageError,
-		summary: "Nothing to review in fix-ci",
-		detail:  "no change against the base",
-	})
-
-	settled := m.messagesSlot()[0]
-	assert.NotContains(t, settled, lit)
-
-	m, cmd := m.pulseMessages(m.messages.landed - 1)
-	require.NotNil(t, cmd)
-
-	blinks := 0
-	for {
-		if strings.Contains(m.messagesSlot()[0], lit) {
-			blinks++
-		}
-
-		if m.advancePulses() == nil {
-			break
-		}
+	tests := []struct {
+		name string
+		kind messageKind
+		tone paint.Tone
+	}{
+		{
+			name: "an error blinks red",
+			kind: messageError,
+			tone: paint.ToneDanger,
+		},
+		{
+			name: "a success blinks green",
+			kind: messageSuccess,
+			tone: paint.ToneSuccess,
+		},
+		{
+			name: "an info message blinks the accent over its muted icon",
+			kind: messageInfo,
+			tone: paint.ToneAccent,
+		},
 	}
 
-	assert.Equal(t, messagesPulseBlinks, blinks)
-	assert.Equal(t, settled, m.messagesSlot()[0])
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			lit := paint.Panel.Style(tt.tone).Render(summary)
+
+			m := detailsModel(&recordingTmux{})
+			m.height, m.width = 40, 120
+			m.pushMessage(message{
+				kind:    tt.kind,
+				summary: summary,
+				detail:  "no change against the base",
+			})
+
+			settled := m.messagesSlot()[0]
+			assert.NotContains(t, settled, lit)
+			assert.Contains(t, settled, " "+summary, "the words sit in the plain foreground")
+			assert.NotContains(t, settled, flashFieldStyle(paint.Panel).Render(summary))
+
+			m, cmd := m.pulseMessages(m.messages.landed - 1)
+			require.NotNil(t, cmd)
+
+			blinks := 0
+			for {
+				row := m.messagesSlot()[0]
+				assert.NotContains(t, row, flashFieldStyle(paint.Panel).Render(summary), "the blink never paints a background")
+				if strings.Contains(row, lit) {
+					blinks++
+				} else {
+					assert.Equal(t, settled, row, "the dark half is the row as it settles")
+				}
+
+				if m.advancePulses() == nil {
+					break
+				}
+			}
+
+			assert.Equal(t, 2, blinks)
+			assert.Equal(t, settled, m.messagesSlot()[0])
+		})
+	}
 }
 
 // TestMessagesPulseHoldsStillOnAnOlderMessage covers a message landing while the reader is back
