@@ -236,19 +236,13 @@ func TestResizeWindowRefusesASizeThatIsNotOne(t *testing.T) {
 	assert.Equal(t, 100, client.GetPaneWidth(pane), "a window nobody named is not resized")
 }
 
-// TestPaneOwnerIsStampedAndGivenBack pins the round trip the reconciler reads panes by, and the
-// refusal to unstamp nothing, which would otherwise clear the option on the pane in view.
-func TestPaneOwnerIsStampedAndGivenBack(t *testing.T) {
+// TestPaneOwnerIsStamped pins the round trip the reconciler reads panes by.
+func TestPaneOwnerIsStamped(t *testing.T) {
 	client := testServer(t, "owner")
 	pane := paneAt(t, client, "owner", 0)
 
 	require.NoError(t, client.SetPaneOwner(pane, "agent-one"))
 	assert.Equal(t, "agent-one", client.GetPaneOwner(pane))
-
-	require.NoError(t, client.ClearPaneOwner(pane))
-	assert.Empty(t, client.GetPaneOwner(pane), "the pane is nobody's again")
-
-	require.Error(t, client.ClearPaneOwner(""), "a pane nobody named is not one to unstamp")
 }
 
 // TestPaneRunningCLIReadsTheForegroundProgram pins what says the harness weave typed has started,

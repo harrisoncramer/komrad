@@ -241,25 +241,28 @@ func TestReconcileWithoutARecorderRecordsNothing(t *testing.T) {
 	require.NoError(t, rec.Reconcile(t.Context()))
 }
 
-// TestReconcileForgetsAnAbandonedPane pins that a dormant agent drops its pane id, which it
-// would otherwise be typed at through and could not be resumed from.
+// TestReconcileForgetsAnAbandonedPane pins that a dormant agent drops its pane id and that the
+// shell its CLI left behind is closed.
 func TestReconcileForgetsAnAbandonedPane(t *testing.T) {
 	tests := []struct {
-		name      string
-		mine      bool
-		command   string
-		wantStamp string
+		name       string
+		mine       bool
+		command    string
+		wantStamp  string
+		wantKilled []string
 	}{
 		{
-			name:      "a pane whose CLI exited is unstamped as well as forgotten",
-			mine:      true,
-			command:   "-zsh",
-			wantStamp: "",
+			name:       "a pane whose CLI exited is killed as well as forgotten",
+			mine:       true,
+			command:    "-zsh",
+			wantStamp:  "",
+			wantKilled: []string{"%1"},
 		},
 		{
-			name:      "a pane that belongs to another agent keeps its stamp",
-			command:   "2.1.241",
-			wantStamp: "other-agent",
+			name:       "a pane that belongs to another agent is left alone",
+			command:    "2.1.241",
+			wantStamp:  "other-agent",
+			wantKilled: nil,
 		},
 	}
 
@@ -290,6 +293,7 @@ func TestReconcileForgetsAnAbandonedPane(t *testing.T) {
 			assert.Equal(t, agentstore.StateIdle, after.State)
 			assert.Empty(t, after.Pane, "the agent stops claiming a pane it is not running in")
 			assert.Equal(t, tt.wantStamp, tmux.owners["%1"])
+			assert.Equal(t, tt.wantKilled, tmux.killedPanes)
 		})
 	}
 }
@@ -799,12 +803,12 @@ func TestReconcileCoalescesTheConfirmationStamp(t *testing.T) {
 // resumeAfterSnapshot is a pane probe that moves the world on once a pass has read the panes,
 // which is the last moment before the walk and the window a resume lands in.
 type resumeAfterSnapshot struct {
-	paneObserver
+	paneKiller
 	resume func()
 }
 
 func (p *resumeAfterSnapshot) GetPanes() (map[string]tmux.PaneStatus, error) {
-	panes, err := p.paneObserver.GetPanes()
+	panes, err := p.paneKiller.GetPanes()
 	if err != nil {
 		return nil, err
 	}
@@ -843,7 +847,7 @@ func TestReconcileLeavesARowAResumeHasMovedOn(t *testing.T) {
 			resumed.Pane = tt.pane
 			resumed.State = agentstore.StateIdle
 
-			observer := &resumeAfterSnapshot{paneObserver: tmux, resume: func() {
+			observer := &resumeAfterSnapshot{paneKiller: tmux, resume: func() {
 				require.NoError(t, tmux.SetPaneOwner(tt.pane, agent.ID))
 				require.NoError(t, st.Agents.Update(ctx, resumed))
 			}}

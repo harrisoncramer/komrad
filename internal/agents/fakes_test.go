@@ -45,7 +45,6 @@ type fakeTmux struct {
 	setOwnerErr     error
 	sendKeysErr     error
 	paneOwnersErr   error
-	clearOwnerErr   error
 	respawnErr      error
 	shell           string
 	respawned       map[string][]respawn
@@ -124,18 +123,6 @@ func (f *fakeTmux) GetPanes() (map[string]tmux.PaneStatus, error) {
 	}
 
 	return panes, nil
-}
-
-func (f *fakeTmux) ClearPaneOwner(pane string) error {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-
-	if f.clearOwnerErr != nil {
-		return f.clearOwnerErr
-	}
-	delete(f.owners, pane)
-
-	return nil
 }
 
 func (f *fakeTmux) SetSessionOption(target, name, value string) {

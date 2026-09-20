@@ -20,11 +20,6 @@ const stateSeenCoalesce = 30 * time.Second
 
 const stateSeenBound = 2 * time.Minute
 
-type paneObserver interface {
-	GetPanes() (map[string]tmux.PaneStatus, error)
-	ClearPaneOwner(pane string) error
-}
-
 // frameRecorder keeps the pane capture behind a reading.
 type frameRecorder interface {
 	Record(params frames.RecordParams) error
@@ -42,7 +37,7 @@ type agentStateReadWriter interface {
 // Reconciler treats the pane as the only authority on an agent's state, letting any other
 // signal only hurry along a transition the pane would reach anyway.
 type Reconciler struct {
-	tmux     paneObserver
+	tmux     paneKiller
 	observer harness.Observer
 	store    agentStateReadWriter
 	frames   frameRecorder
@@ -56,7 +51,7 @@ type Reconciler struct {
 // NewReconcilerParams is what a Reconciler is built over: a tmux probe for who owns a pane,
 // an observer for what each agent is doing, and the state store.
 type NewReconcilerParams struct {
-	Panes    paneObserver
+	Panes    paneKiller
 	Observer harness.Observer
 	States   agentStateReadWriter
 }
@@ -283,10 +278,7 @@ func (r *Reconciler) forget(ctx context.Context, agent agentstore.Agent, mine bo
 	}
 
 	if mine {
-		if err := r.tmux.ClearPaneOwner(agent.Pane); err != nil {
-			logging.From(ctx).LogAttrs(ctx, slog.LevelError, "failed to unstamp an abandoned pane",
-				append([]slog.Attr{slog.String(logging.AgentID, agent.ID)}, logging.Err(err)...)...)
-		}
+		r.tmux.KillPane(agent.Pane)
 	}
 
 	// A pane that goes part-way through a turn took that turn with it, and nothing brings it

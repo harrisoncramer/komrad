@@ -146,8 +146,6 @@ func (s *fakeTmux) SetPaneOwner(string, string) error { return nil }
 
 func (s *fakeTmux) GetPaneOwner(string) string { return "" }
 
-func (s *fakeTmux) ClearPaneOwner(string) error { return nil }
-
 func (s *fakeTmux) GetPanes() (map[string]tmux.PaneStatus, error) {
 	return map[string]tmux.PaneStatus{}, nil
 }
