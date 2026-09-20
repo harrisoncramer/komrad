@@ -125,7 +125,7 @@ table "pull_requests" {
   column "state" {
     null    = false
     type    = text
-    comment = "The forge's own word for where it stands, kept verbatim as a cross-check on the timestamps."
+    comment = "Where the forge says it stands, as OPEN, CLOSED or MERGED, a cross-check on the timestamps."
   }
   column "opened_at" {
     null    = false
@@ -223,7 +223,7 @@ table "agent_pull_requests" {
 
 table "pull_request_syncs" {
   schema  = schema.public
-  comment = "Where the pull request sync is for one repository: the high-water mark of the last completed sweep, the sweep in progress if one is, and what the last pass cost."
+  comment = "Where the pull request sync is for one repository: the high-water mark the changes have been read through, the first sweep in progress if one is, and what the last pass cost."
   column "repository_url" {
     null = false
     type = text
@@ -231,33 +231,22 @@ table "pull_request_syncs" {
   column "updated_through" {
     null    = true
     type    = timestamptz
-    comment = "The newest forge updated_at the last completed sweep covered. Null until one has."
+    comment = "The newest forge updated_at the changes have been read through, by the first sweep and then by every search since. Null until the first sweep has completed."
   }
-  column "etag" {
-    null    = false
-    type    = text
-    default = ""
-    comment = "The ETag page one answered on the last completed sweep, for the exact query the sync trusts. Empty for a forge that sends none."
-  }
-  column "validated_at" {
+  column "listed_at" {
     null    = true
     type    = timestamptz
-    comment = "The last time page one was read without an ETag and answered with a body, which is the clock for the hourly unconditional re-read. A 304 does not touch it."
+    comment = "The last time page one of the repository's own listing was read and written, which is the clock for the hourly listing behind the search."
   }
-  column "sweep_next_page" {
+  column "sweep_cursor" {
     null    = true
-    type    = integer
-    comment = "The next page a sweep in progress has not yet written, null between sweeps."
+    type    = text
+    comment = "Where the first sweep in progress reads its next page from, empty for page one and null between sweeps."
   }
   column "sweep_newest" {
     null    = true
     type    = timestamptz
     comment = "The updated_at of the first pull request on page one of the sweep in progress, which becomes updated_through when it completes."
-  }
-  column "sweep_etag" {
-    null    = true
-    type    = text
-    comment = "The ETag page one answered for the sweep in progress, promoted to etag when it completes."
   }
   column "read_at" {
     null    = true
@@ -286,11 +275,11 @@ table "branch_scans" {
     null = false
     type = text
   }
-  column "next_page" {
+  column "next_cursor" {
     null    = false
-    type    = integer
-    default = 1
-    comment = "The next page not yet written."
+    type    = text
+    default = ""
+    comment = "Where the listing reads its next page from, empty for the first."
   }
   column "completed_at" {
     null    = true

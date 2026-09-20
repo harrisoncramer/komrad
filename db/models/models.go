@@ -331,8 +331,8 @@ type AgentTranscriptSession struct {
 type BranchScan struct {
 	RepositoryUrl string
 	Branch        string
-	// The next page not yet written.
-	NextPage int32
+	// Where the listing reads its next page from, empty for the first.
+	NextCursor string
 	// When the listing answered its last page, after which the branch is never scanned again.
 	CompletedAt *time.Time
 }
@@ -407,7 +407,7 @@ type PullRequest struct {
 	BaseBranch string
 	BaseSha    string
 	Draft      bool
-	// The forge's own word for where it stands, kept verbatim as a cross-check on the timestamps.
+	// Where the forge says it stands, as OPEN, CLOSED or MERGED, a cross-check on the timestamps.
 	State string
 	// When the forge says it was opened, which is what orders the pull requests on one branch.
 	OpenedAt time.Time
@@ -423,21 +423,17 @@ type PullRequest struct {
 	DecisionChangedAt *time.Time
 }
 
-// Where the pull request sync is for one repository: the high-water mark of the last completed sweep, the sweep in progress if one is, and what the last pass cost.
+// Where the pull request sync is for one repository: the high-water mark the changes have been read through, the first sweep in progress if one is, and what the last pass cost.
 type PullRequestSync struct {
 	RepositoryUrl string
-	// The newest forge updated_at the last completed sweep covered. Null until one has.
+	// The newest forge updated_at the changes have been read through, by the first sweep and then by every search since. Null until the first sweep has completed.
 	UpdatedThrough *time.Time
-	// The ETag page one answered on the last completed sweep, for the exact query the sync trusts. Empty for a forge that sends none.
-	Etag string
-	// The last time page one was read without an ETag and answered with a body, which is the clock for the hourly unconditional re-read. A 304 does not touch it.
-	ValidatedAt *time.Time
-	// The next page a sweep in progress has not yet written, null between sweeps.
-	SweepNextPage *int32
+	// The last time page one of the repository's own listing was read and written, which is the clock for the hourly listing behind the search.
+	ListedAt *time.Time
+	// Where the first sweep in progress reads its next page from, empty for page one and null between sweeps.
+	SweepCursor *string
 	// The updated_at of the first pull request on page one of the sweep in progress, which becomes updated_through when it completes.
 	SweepNewest *time.Time
-	// The ETag page one answered for the sweep in progress, promoted to etag when it completes.
-	SweepEtag *string
 	// The last time any request was made for this repository, whatever it answered.
 	ReadAt *time.Time
 	// How many requests the most recent pass made for this repository.

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -138,13 +139,40 @@ func TestPullRequestsReachTheRowFromEachForge(t *testing.T) {
 	}
 }
 
-// fakeGitHub answers GitHub's REST listing and GraphQL decision for two pull requests from
-// feature/widgets of acme/widgets: #12 open and approved, #9 merged.
+// operationOf is the name a posted GraphQL query was written with.
+func operationOf(r *http.Request) string {
+	var posted struct {
+		Query string `json:"query"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&posted); err != nil {
+		return ""
+	}
+
+	name, _, _ := strings.Cut(strings.TrimPrefix(posted.Query, "query "), "(")
+	name, _, _ = strings.Cut(name, " ")
+
+	return name
+}
+
+// connection is a page of nodes as either forge's GraphQL answers it.
+func connection(nodes ...map[string]any) map[string]any {
+	if nodes == nil {
+		nodes = []map[string]any{}
+	}
+
+	return map[string]any{
+		"pageInfo": map[string]any{"hasNextPage": false, "endCursor": ""},
+		"nodes":    nodes,
+	}
+}
+
+// fakeGitHub answers GitHub's GraphQL for two pull requests from feature/widgets of
+// acme/widgets: #12 open and approved, #9 merged, and a search that never answers.
 func fakeGitHub(t *testing.T) *fakeForge {
 	t.Helper()
 
 	fake := &fakeForge{}
-	repository := map[string]any{"html_url": "https://github.com/acme/widgets"}
+	repository := map[string]any{"url": "https://github.com/acme/widgets"}
 	pullRequest := func(number int, title, state string, merged bool) map[string]any {
 		var mergedAt, closedAt any
 		if merged {
@@ -152,34 +180,46 @@ func fakeGitHub(t *testing.T) *fakeForge {
 		}
 
 		return map[string]any{
-			"node_id":    fmt.Sprintf("PR_%d", number),
-			"html_url":   fmt.Sprintf("https://github.com/acme/widgets/pull/%d", number),
-			"number":     number,
-			"title":      title,
-			"state":      state,
-			"draft":      false,
-			"created_at": fmt.Sprintf("2026-09-%02dT10:00:00Z", number),
-			"updated_at": fmt.Sprintf("2026-09-%02dT11:00:00Z", number),
-			"merged_at":  mergedAt,
-			"closed_at":  closedAt,
-			"head":       map[string]any{"ref": "feature/widgets", "sha": "aaa", "repo": repository},
-			"base":       map[string]any{"ref": "main", "sha": "bbb", "repo": repository},
+			"id":             fmt.Sprintf("PR_%d", number),
+			"url":            fmt.Sprintf("https://github.com/acme/widgets/pull/%d", number),
+			"number":         number,
+			"title":          title,
+			"state":          state,
+			"isDraft":        false,
+			"createdAt":      fmt.Sprintf("2026-09-%02dT10:00:00Z", number),
+			"updatedAt":      fmt.Sprintf("2026-09-%02dT11:00:00Z", number),
+			"mergedAt":       mergedAt,
+			"closedAt":       closedAt,
+			"headRefName":    "feature/widgets",
+			"headRefOid":     "aaa",
+			"baseRefName":    "main",
+			"baseRefOid":     "bbb",
+			"headRepository": repository,
+			"baseRepository": repository,
 		}
 	}
-	listing := []map[string]any{
-		pullRequest(12, "ship the widgets", "open", false),
-		pullRequest(9, "first cut", "closed", true),
-	}
+	listing := connection(
+		pullRequest(12, "ship the widgets", "OPEN", false),
+		pullRequest(9, "first cut", "MERGED", true),
+	)
 
 	fake.server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		switch r.URL.Path {
-		case "/user":
-			writeJSON(t, w, map[string]any{"login": "harrisoncramer"})
-		case "/repos/acme/widgets/pulls":
-			writeJSON(t, w, listing)
-		case "/graphql":
+		if r.URL.Path != "/graphql" {
+			http.NotFound(w, r)
+
+			return
+		}
+
+		switch operationOf(r) {
+		case "Verify":
+			writeJSON(t, w, map[string]any{"data": map[string]any{"viewer": map[string]any{"login": "harrisoncramer"}}})
+		case "ListUpdated", "List":
+			writeJSON(t, w, map[string]any{"data": map[string]any{"repository": map[string]any{"pullRequests": listing}}})
+		case "ListChanged":
+			writeJSON(t, w, map[string]any{"data": map[string]any{"search": connection()}})
+		case "ReviewDecisions":
 			fake.decisions.Add(1)
-			writeJSON(t, w, map[string]any{"data": map[string]any{"repository": map[string]any{"pullRequest": map[string]any{"reviewDecision": "APPROVED"}}}})
+			writeJSON(t, w, map[string]any{"data": map[string]any{"repository": map[string]any{"p12": map[string]any{"reviewDecision": "APPROVED"}}}})
 		default:
 			http.NotFound(w, r)
 		}
@@ -189,12 +229,13 @@ func fakeGitHub(t *testing.T) *fakeForge {
 	return fake
 }
 
-// fakeGitLab answers GitLab's REST listing, reviewers and approvals for two merge requests
-// from feature/widgets of acme/widgets: !12 open and approved, !9 merged.
+// fakeGitLab answers GitLab's GraphQL for two merge requests from feature/widgets of
+// acme/widgets: !12 open and approved, !9 merged, and no changes since.
 func fakeGitLab(t *testing.T) *fakeForge {
 	t.Helper()
 
 	fake := &fakeForge{}
+	project := map[string]any{"webUrl": "https://gitlab.com/acme/widgets"}
 	mergeRequest := func(iid int, title, state string, merged bool) map[string]any {
 		var mergedAt any
 		if merged {
@@ -202,40 +243,58 @@ func fakeGitLab(t *testing.T) *fakeForge {
 		}
 
 		return map[string]any{
-			"id":                9000 + iid,
-			"iid":               iid,
-			"web_url":           fmt.Sprintf("https://gitlab.com/acme/widgets/-/merge_requests/%d", iid),
-			"title":             title,
-			"state":             state,
-			"draft":             false,
-			"created_at":        fmt.Sprintf("2026-09-%02dT10:00:00Z", iid),
-			"updated_at":        fmt.Sprintf("2026-09-%02dT11:00:00Z", iid),
-			"merged_at":         mergedAt,
-			"closed_at":         nil,
-			"source_branch":     "feature/widgets",
-			"target_branch":     "main",
-			"sha":               "aaa",
-			"source_project_id": 42,
-			"target_project_id": 42,
+			"id":            fmt.Sprintf("gid://gitlab/MergeRequest/%d", 9000+iid),
+			"iid":           strconv.Itoa(iid),
+			"webUrl":        fmt.Sprintf("https://gitlab.com/acme/widgets/-/merge_requests/%d", iid),
+			"title":         title,
+			"state":         state,
+			"draft":         false,
+			"createdAt":     fmt.Sprintf("2026-09-%02dT10:00:00Z", iid),
+			"updatedAt":     fmt.Sprintf("2026-09-%02dT11:00:00Z", iid),
+			"mergedAt":      mergedAt,
+			"closedAt":      nil,
+			"sourceBranch":  "feature/widgets",
+			"targetBranch":  "main",
+			"diffHeadSha":   "aaa",
+			"sourceProject": project,
+			"targetProject": project,
+			"diffRefs":      map[string]any{"baseSha": "bbb"},
 		}
 	}
-	listing := []map[string]any{
+	listing := connection(
 		mergeRequest(12, "ship the widgets", "opened", false),
 		mergeRequest(9, "first cut", "merged", true),
+	)
+	approved := map[string]any{
+		"approvalsRequired": 1,
+		"approvalsLeft":     0,
+		"approvedBy":        map[string]any{"count": 1},
+		"reviewers":         map[string]any{"nodes": []map[string]any{{"mergeRequestInteraction": map[string]any{"reviewState": "APPROVED"}}}},
 	}
 
 	fake.server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		path := r.URL.EscapedPath()
-		switch {
-		case path == "/user":
-			writeJSON(t, w, map[string]any{"username": "harrisoncramer"})
-		case path == "/projects/acme%2Fwidgets/merge_requests":
-			writeJSON(t, w, listing)
-		case strings.HasSuffix(path, "/merge_requests/12/reviewers"):
+		if r.URL.Path != "/graphql" {
+			http.NotFound(w, r)
+
+			return
+		}
+
+		switch operationOf(r) {
+		case "Verify":
+			writeJSON(t, w, map[string]any{"data": map[string]any{"currentUser": map[string]any{"username": "harrisoncramer"}}})
+		case "ListUpdated", "List":
+			writeJSON(t, w, map[string]any{"data": map[string]any{"project": map[string]any{"mergeRequests": listing}}})
+		case "ListChanged":
+			writeJSON(t, w, map[string]any{"data": map[string]any{
+				"r0":              map[string]any{"mergeRequests": connection()},
+				"queryComplexity": map[string]any{"score": 52, "limit": 200},
+			}})
+		case "ReviewDecisions":
 			fake.decisions.Add(1)
-			writeJSON(t, w, []map[string]any{{"user": map[string]any{"id": 1}, "state": "approved"}})
-		case strings.HasSuffix(path, "/merge_requests/12/approvals"):
-			writeJSON(t, w, map[string]any{"approvals_required": 1, "approvals_left": 0, "approved_by": []map[string]any{{"user": map[string]any{"id": 1}}}})
+			writeJSON(t, w, map[string]any{"data": map[string]any{
+				"project":         map[string]any{"m12": approved},
+				"queryComplexity": map[string]any{"score": 20, "limit": 200},
+			}})
 		default:
 			http.NotFound(w, r)
 		}

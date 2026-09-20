@@ -14,18 +14,37 @@ const advancePullRequestSweep = `-- name: AdvancePullRequestSweep :exec
 UPDATE
     pull_request_syncs
 SET
-    sweep_next_page = $1
+    sweep_cursor = $1
 WHERE
     repository_url = $2
 `
 
 type AdvancePullRequestSweepParams struct {
-	SweepNextPage *int32
+	SweepCursor   *string
 	RepositoryUrl string
 }
 
 func (q *Queries) AdvancePullRequestSweep(ctx context.Context, arg AdvancePullRequestSweepParams) error {
-	_, err := q.db.Exec(ctx, advancePullRequestSweep, arg.SweepNextPage, arg.RepositoryUrl)
+	_, err := q.db.Exec(ctx, advancePullRequestSweep, arg.SweepCursor, arg.RepositoryUrl)
+	return err
+}
+
+const advancePullRequestSyncMark = `-- name: AdvancePullRequestSyncMark :exec
+UPDATE
+    pull_request_syncs
+SET
+    updated_through = GREATEST(updated_through, $1::timestamptz)
+WHERE
+    repository_url = $2
+`
+
+type AdvancePullRequestSyncMarkParams struct {
+	UpdatedThrough time.Time
+	RepositoryUrl  string
+}
+
+func (q *Queries) AdvancePullRequestSyncMark(ctx context.Context, arg AdvancePullRequestSyncMarkParams) error {
+	_, err := q.db.Exec(ctx, advancePullRequestSyncMark, arg.UpdatedThrough, arg.RepositoryUrl)
 	return err
 }
 
@@ -33,7 +52,7 @@ const completeBranchScan = `-- name: CompleteBranchScan :exec
 INSERT INTO branch_scans(
     repository_url,
     branch,
-    next_page,
+    next_cursor,
     completed_at)
 VALUES (
     $1,
@@ -44,18 +63,18 @@ ON CONFLICT (
     repository_url,
     branch)
     DO UPDATE SET
-        next_page = EXCLUDED.next_page,
+        next_cursor = EXCLUDED.next_cursor,
         completed_at = NOW()
 `
 
 type CompleteBranchScanParams struct {
 	RepositoryUrl string
 	Branch        string
-	NextPage      int32
+	NextCursor    string
 }
 
 func (q *Queries) CompleteBranchScan(ctx context.Context, arg CompleteBranchScanParams) error {
-	_, err := q.db.Exec(ctx, completeBranchScan, arg.RepositoryUrl, arg.Branch, arg.NextPage)
+	_, err := q.db.Exec(ctx, completeBranchScan, arg.RepositoryUrl, arg.Branch, arg.NextCursor)
 	return err
 }
 
@@ -64,10 +83,8 @@ UPDATE
     pull_request_syncs
 SET
     updated_through = GREATEST(updated_through, sweep_newest),
-    etag = COALESCE(sweep_etag, ''),
-    sweep_next_page = NULL,
-    sweep_newest = NULL,
-    sweep_etag = NULL
+    sweep_cursor = NULL,
+    sweep_newest = NULL
 WHERE
     repository_url = $1
 `
@@ -94,7 +111,7 @@ func (q *Queries) EnsurePullRequestSync(ctx context.Context, repositoryUrl strin
 
 const getBranchScan = `-- name: GetBranchScan :one
 SELECT
-    repository_url, branch, next_page, completed_at
+    repository_url, branch, next_cursor, completed_at
 FROM
     branch_scans
 WHERE
@@ -113,7 +130,7 @@ func (q *Queries) GetBranchScan(ctx context.Context, arg GetBranchScanParams) (*
 	err := row.Scan(
 		&i.RepositoryUrl,
 		&i.Branch,
-		&i.NextPage,
+		&i.NextCursor,
 		&i.CompletedAt,
 	)
 	return &i, err
@@ -166,7 +183,7 @@ func (q *Queries) GetPullRequestByIdentity(ctx context.Context, arg GetPullReque
 
 const getPullRequestSync = `-- name: GetPullRequestSync :one
 SELECT
-    repository_url, updated_through, etag, validated_at, sweep_next_page, sweep_newest, sweep_etag, read_at, calls
+    repository_url, updated_through, listed_at, sweep_cursor, sweep_newest, read_at, calls
 FROM
     pull_request_syncs
 WHERE
@@ -179,11 +196,9 @@ func (q *Queries) GetPullRequestSync(ctx context.Context, repositoryUrl string) 
 	err := row.Scan(
 		&i.RepositoryUrl,
 		&i.UpdatedThrough,
-		&i.Etag,
-		&i.ValidatedAt,
-		&i.SweepNextPage,
+		&i.ListedAt,
+		&i.SweepCursor,
 		&i.SweepNewest,
-		&i.SweepEtag,
 		&i.ReadAt,
 		&i.Calls,
 	)
@@ -592,6 +607,25 @@ func (q *Queries) ListUnscannedBranches(ctx context.Context, repositoryUrl *stri
 	return items, nil
 }
 
+const markPullRequestSyncListed = `-- name: MarkPullRequestSyncListed :exec
+UPDATE
+    pull_request_syncs
+SET
+    listed_at = $1
+WHERE
+    repository_url = $2
+`
+
+type MarkPullRequestSyncListedParams struct {
+	ListedAt      *time.Time
+	RepositoryUrl string
+}
+
+func (q *Queries) MarkPullRequestSyncListed(ctx context.Context, arg MarkPullRequestSyncListedParams) error {
+	_, err := q.db.Exec(ctx, markPullRequestSyncListed, arg.ListedAt, arg.RepositoryUrl)
+	return err
+}
+
 const observeAgentPullRequests = `-- name: ObserveAgentPullRequests :execrows
 INSERT INTO agent_pull_requests(
     agent_id,
@@ -649,6 +683,22 @@ func (q *Queries) RecordPullRequestSyncRequest(ctx context.Context, repositoryUr
 	return err
 }
 
+const resetPullRequestSweep = `-- name: ResetPullRequestSweep :exec
+UPDATE
+    pull_request_syncs
+SET
+    updated_through = NULL,
+    sweep_cursor = NULL,
+    sweep_newest = NULL
+WHERE
+    repository_url = ANY ($1::text[])
+`
+
+func (q *Queries) ResetPullRequestSweep(ctx context.Context, repositoryUrls []string) error {
+	_, err := q.db.Exec(ctx, resetPullRequestSweep, repositoryUrls)
+	return err
+}
+
 const resetPullRequestSyncCalls = `-- name: ResetPullRequestSyncCalls :exec
 UPDATE
     pull_request_syncs
@@ -663,11 +713,11 @@ func (q *Queries) ResetPullRequestSyncCalls(ctx context.Context, repositoryUrl s
 	return err
 }
 
-const setBranchScanNextPage = `-- name: SetBranchScanNextPage :exec
+const setBranchScanCursor = `-- name: SetBranchScanCursor :exec
 INSERT INTO branch_scans(
     repository_url,
     branch,
-    next_page)
+    next_cursor)
 VALUES (
     $1,
     $2,
@@ -676,17 +726,17 @@ ON CONFLICT (
     repository_url,
     branch)
     DO UPDATE SET
-        next_page = EXCLUDED.next_page
+        next_cursor = EXCLUDED.next_cursor
 `
 
-type SetBranchScanNextPageParams struct {
+type SetBranchScanCursorParams struct {
 	RepositoryUrl string
 	Branch        string
-	NextPage      int32
+	NextCursor    string
 }
 
-func (q *Queries) SetBranchScanNextPage(ctx context.Context, arg SetBranchScanNextPageParams) error {
-	_, err := q.db.Exec(ctx, setBranchScanNextPage, arg.RepositoryUrl, arg.Branch, arg.NextPage)
+func (q *Queries) SetBranchScanCursor(ctx context.Context, arg SetBranchScanCursorParams) error {
+	_, err := q.db.Exec(ctx, setBranchScanCursor, arg.RepositoryUrl, arg.Branch, arg.NextCursor)
 	return err
 }
 
@@ -698,6 +748,9 @@ SET
     decision_changed_at = changed_at
 WHERE
     id = $2
+    AND (review_decision,
+        decision_changed_at) IS DISTINCT FROM ($1,
+        changed_at)
 `
 
 type SetReviewDecisionParams struct {
@@ -714,28 +767,21 @@ const startPullRequestSweep = `-- name: StartPullRequestSweep :exec
 UPDATE
     pull_request_syncs
 SET
-    sweep_next_page = 1,
+    sweep_cursor = '',
     sweep_newest = $1,
-    sweep_etag = $2,
-    validated_at = COALESCE($3, validated_at)
+    listed_at = $2
 WHERE
-    repository_url = $4
+    repository_url = $3
 `
 
 type StartPullRequestSweepParams struct {
 	SweepNewest   *time.Time
-	SweepEtag     *string
-	ValidatedAt   *time.Time
+	ListedAt      *time.Time
 	RepositoryUrl string
 }
 
 func (q *Queries) StartPullRequestSweep(ctx context.Context, arg StartPullRequestSweepParams) error {
-	_, err := q.db.Exec(ctx, startPullRequestSweep,
-		arg.SweepNewest,
-		arg.SweepEtag,
-		arg.ValidatedAt,
-		arg.RepositoryUrl,
-	)
+	_, err := q.db.Exec(ctx, startPullRequestSweep, arg.SweepNewest, arg.ListedAt, arg.RepositoryUrl)
 	return err
 }
 

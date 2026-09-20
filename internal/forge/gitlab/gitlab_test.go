@@ -2,72 +2,38 @@ package gitlab
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
+	"strings"
 	"testing"
 	"time"
 
 	"weave/internal/forge"
 	"weave/internal/git"
+	"weave/lib/xptr"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-const openMergeRequest = `{
-  "id": 9001,
-  "iid": 7,
-  "web_url": "https://gitlab.com/harrisoncramer/weave/-/merge_requests/7",
-  "title": "open one",
-  "state": "opened",
-  "draft": true,
-  "created_at": "2026-09-18T10:00:00Z",
-  "updated_at": "2026-09-18T11:00:00Z",
-  "merged_at": null,
-  "closed_at": null,
-  "source_branch": "agent/x",
-  "target_branch": "main",
-  "sha": "aaa",
-  "source_project_id": 42,
-  "target_project_id": 42,
-  "diff_refs": {"base_sha": "bbb", "head_sha": "aaa", "start_sha": "bbb"}
-}`
+// The fixtures are what gitlab.com answered anonymously on 20 September 2026 for
+// gitlab-org/gitlab: !256538 open, !254619 a draft, !256531 merged, !256485 closed from a fork,
+// a batch of decisions with one iid GitLab does not have, and the refusal three projects at a
+// hundred rows each draw.
 
-const mergedMergeRequest = `{
-  "id": 9002,
-  "iid": 6,
-  "web_url": "https://gitlab.com/harrisoncramer/weave/-/merge_requests/6",
-  "title": "merged one",
-  "state": "merged",
-  "draft": false,
-  "created_at": "2026-09-18T10:00:00Z",
-  "updated_at": "2026-09-18T12:00:00Z",
-  "merged_at": "2026-09-18T12:00:00Z",
-  "closed_at": null,
-  "source_branch": "agent/x",
-  "target_branch": "main",
-  "sha": "ccc",
-  "source_project_id": 42,
-  "target_project_id": 42
-}`
+const openMergeRequest = `{"id":"gid://gitlab/MergeRequest/535736457","iid":"256538","title":"Strip undeclared keys from application_settings.zoekt_settings","webUrl":"https://gitlab.com/gitlab-org/gitlab/-/merge_requests/256538","state":"opened","draft":false,"createdAt":"2026-09-20T08:58:11Z","updatedAt":"2026-09-20T17:54:15Z","mergedAt":null,"closedAt":null,"sourceBranch":"jmason-w2116-zoekt-settings-cleanup","targetBranch":"master","diffHeadSha":"14a5732c18c7186fb0b34d469255b9609e4d11f2","sourceProject":{"webUrl":"https://gitlab.com/gitlab-org/gitlab"},"targetProject":{"webUrl":"https://gitlab.com/gitlab-org/gitlab"},"diffRefs":{"baseSha":"4aabd419a0202362695a5e4147df061fbf976c9f"},"approvalsRequired":4,"approvalsLeft":4,"approvedBy":{"count":0},"reviewers":{"nodes":[{"mergeRequestInteraction":{"reviewState":"REVIEWED"}},{"mergeRequestInteraction":{"reviewState":"UNREVIEWED"}}]}}`
 
-const forkMergeRequest = `{
-  "id": 9003,
-  "iid": 8,
-  "web_url": "https://gitlab.com/harrisoncramer/weave/-/merge_requests/8",
-  "title": "from a fork",
-  "state": "opened",
-  "draft": false,
-  "created_at": "2026-09-18T10:00:00Z",
-  "updated_at": "2026-09-18T10:00:00Z",
-  "merged_at": null,
-  "closed_at": null,
-  "source_branch": "fix",
-  "target_branch": "main",
-  "sha": "eee",
-  "source_project_id": 77,
-  "target_project_id": 42
-}`
+const draftMergeRequest = `{"id":"gid://gitlab/MergeRequest/530185576","iid":"254619","title":"Draft: Define command palette AI answer lifecycle events and their join key","webUrl":"https://gitlab.com/gitlab-org/gitlab/-/merge_requests/254619","state":"opened","draft":true,"createdAt":"2026-09-09T22:53:57Z","updatedAt":"2026-09-20T17:55:51Z","mergedAt":null,"closedAt":null,"sourceBranch":"jmason-w150-palette-answer-events","targetBranch":"master","diffHeadSha":"b39c0f269434b23d22d29a74d6a45e749de60368","sourceProject":{"webUrl":"https://gitlab.com/gitlab-org/gitlab"},"targetProject":{"webUrl":"https://gitlab.com/gitlab-org/gitlab"},"diffRefs":{"baseSha":"70c3fc3551da5b2cc071a20f516ce336128c199b"},"approvalsRequired":4,"approvalsLeft":4,"approvedBy":{"count":0},"reviewers":{"nodes":[{"mergeRequestInteraction":{"reviewState":"REVIEWED"}},{"mergeRequestInteraction":{"reviewState":"UNREVIEWED"}}]}}`
+
+const mergedMergeRequest = `{"id":"gid://gitlab/MergeRequest/535718519","iid":"256531","title":"Update knapsack runtime data for E2E tests","webUrl":"https://gitlab.com/gitlab-org/gitlab/-/merge_requests/256531","state":"merged","draft":false,"createdAt":"2026-09-20T05:24:39Z","updatedAt":"2026-09-20T06:24:05Z","mergedAt":"2026-09-20T06:24:05Z","closedAt":null,"sourceBranch":"qa-knapsack-master-report-update","targetBranch":"master","diffHeadSha":"f7ae81a86c306ee75b2703ea62137b787950f3f2","sourceProject":{"webUrl":"https://gitlab.com/gitlab-org/gitlab"},"targetProject":{"webUrl":"https://gitlab.com/gitlab-org/gitlab"},"diffRefs":{"baseSha":"fb3b0f26554913f30d92e12c39b1814eda5b9a63"}}`
+
+const forkMergeRequest = `{"id":"gid://gitlab/MergeRequest/535500829","iid":"256485","title":"Draft: feat(mr_reports): refactor blockers_page from CE/EE dual template to ee_component","webUrl":"https://gitlab.com/gitlab-org/gitlab/-/merge_requests/256485","state":"closed","draft":true,"createdAt":"2026-09-18T21:41:21Z","updatedAt":"2026-09-20T17:09:26Z","mergedAt":null,"closedAt":"2026-09-19T20:09:45Z","sourceBranch":"kkier/blockers-page-single-template","targetBranch":"master","diffHeadSha":"d636bcb279bab23588cf8973100bc7e6387e9b54","sourceProject":{"webUrl":"https://gitlab.com/gitlab-community/gitlab-org/gitlab"},"targetProject":{"webUrl":"https://gitlab.com/gitlab-org/gitlab"},"diffRefs":{"baseSha":"859512950cbe65e422c71a10bdcbfd9c929769aa"}}`
+
+const decisionsBatch = `{"data":{"project":{"m256540":{"approvalsRequired":2,"approvalsLeft":2,"approvedBy":{"count":0},"reviewers":{"nodes":[]}},"m256541":{"approvalsRequired":0,"approvalsLeft":0,"approvedBy":{"count":0},"reviewers":{"nodes":[{"mergeRequestInteraction":{"reviewState":"REVIEWED"}}]}},"m256542":{"approvalsRequired":5,"approvalsLeft":5,"approvedBy":{"count":0},"reviewers":{"nodes":[{"mergeRequestInteraction":{"reviewState":"REVIEWED"}}]}},"m256543":{"approvalsRequired":3,"approvalsLeft":3,"approvedBy":{"count":0},"reviewers":{"nodes":[{"mergeRequestInteraction":{"reviewState":"REVIEWED"}}]}},"m256544":{"approvalsRequired":0,"approvalsLeft":0,"approvedBy":{"count":0},"reviewers":{"nodes":[{"mergeRequestInteraction":{"reviewState":"REVIEWED"}}]}},"m256545":{"approvalsRequired":2,"approvalsLeft":2,"approvedBy":{"count":0},"reviewers":{"nodes":[{"mergeRequestInteraction":{"reviewState":"REVIEWED"}}]}},"m256546":{"approvalsRequired":4,"approvalsLeft":4,"approvedBy":{"count":0},"reviewers":{"nodes":[{"mergeRequestInteraction":{"reviewState":"REVIEWED"}},{"mergeRequestInteraction":{"reviewState":"UNREVIEWED"}}]}},"m256547":{"approvalsRequired":2,"approvalsLeft":2,"approvedBy":{"count":0},"reviewers":{"nodes":[]}},"m256548":{"approvalsRequired":3,"approvalsLeft":3,"approvedBy":{"count":0},"reviewers":{"nodes":[{"mergeRequestInteraction":{"reviewState":"UNREVIEWED"}},{"mergeRequestInteraction":{"reviewState":"UNREVIEWED"}},{"mergeRequestInteraction":{"reviewState":"REVIEWED"}}]}},"m256549":{"approvalsRequired":0,"approvalsLeft":0,"approvedBy":{"count":0},"reviewers":{"nodes":[]}},"m999999999":null},"queryComplexity":{"score":169,"limit":200}}}`
+
+const tooComplex = `{"errors":[{"message":"Query has complexity of 294, which exceeds max complexity of 200"}]}`
 
 type fakeAuth struct {
 	token       string
@@ -84,31 +50,76 @@ func (f *fakeAuth) Invalidate(context.Context) error {
 	return nil
 }
 
-// serve is a GitLab that answers one path with one body, recording the request it saw.
-func serve(t *testing.T, path, body string, status int) (*Forge, *fakeAuth, *http.Request) {
-	t.Helper()
-
-	return serveWith(t, func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.EscapedPath() != path {
-			http.NotFound(w, r)
-
-			return
-		}
-
-		w.WriteHeader(status)
-		_, _ = w.Write([]byte(body))
-	})
+// call is one request the fake GitLab saw.
+type call struct {
+	Path      string
+	Operation string
+	Query     string
+	Variables map[string]any
+	Header    http.Header
 }
 
-// serveWith is a GitLab answering however the handler says, recording the last request.
-func serveWith(t *testing.T, handle http.HandlerFunc) (*Forge, *fakeAuth, *http.Request) {
+// answer is what the fake GitLab says to one operation.
+type answer struct {
+	status int
+	header map[string]string
+	body   string
+}
+
+// fakeGitLab answers each named GraphQL operation with one body, or whatever handle says when
+// it is set, and records every request it saw.
+type fakeGitLab struct {
+	answers map[string]answer
+	handle  func(seen call) (answer, bool)
+	calls   []call
+}
+
+func (g *fakeGitLab) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	seen := call{Path: r.URL.Path, Header: r.Header}
+	if r.URL.Path == "/graphql" {
+		var posted struct {
+			Query     string         `json:"query"`
+			Variables map[string]any `json:"variables"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&posted)
+		seen.Operation = operationOf(posted.Query)
+		seen.Query = posted.Query
+		seen.Variables = posted.Variables
+	}
+	g.calls = append(g.calls, seen)
+
+	reply, ok := g.answers[seen.Operation]
+	if g.handle != nil {
+		reply, ok = g.handle(seen)
+	}
+	if !ok || seen.Path != "/graphql" {
+		http.NotFound(w, r)
+
+		return
+	}
+	for name, value := range reply.header {
+		w.Header().Set(name, value)
+	}
+	if reply.status != 0 {
+		w.WriteHeader(reply.status)
+	}
+	_, _ = w.Write([]byte(reply.body))
+}
+
+// last is the most recent request the fake saw.
+func (g *fakeGitLab) last(t *testing.T) call {
+	t.Helper()
+	require.NotEmpty(t, g.calls)
+
+	return g.calls[len(g.calls)-1]
+}
+
+// serve is a GitLab answering each operation with one body, recording the requests it saw.
+func serve(t *testing.T, answers map[string]answer) (*Forge, *fakeAuth, *fakeGitLab) {
 	t.Helper()
 
-	var seen http.Request
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		seen = *r
-		handle(w, r)
-	}))
+	fake := &fakeGitLab{answers: answers}
+	server := httptest.NewServer(fake)
 	t.Cleanup(server.Close)
 
 	auth := &fakeAuth{token: "secret"}
@@ -120,7 +131,21 @@ func serveWith(t *testing.T, handle http.HandlerFunc) (*Forge, *fakeAuth, *http.
 		Now: func() time.Time {
 			return time.Date(2026, 9, 20, 12, 0, 0, 0, time.UTC)
 		},
-	}), auth, &seen
+	}), auth, fake
+}
+
+// listing is a page of a project's mergeRequests connection holding the nodes.
+func listing(hasNextPage bool, cursor string, nodes ...string) string {
+	return `{"data":{"project":{"mergeRequests":` + page(hasNextPage, cursor, nodes...) + `}}}`
+}
+
+func page(hasNextPage bool, cursor string, nodes ...string) string {
+	next := "false"
+	if hasNextPage {
+		next = "true"
+	}
+
+	return `{"pageInfo":{"hasNextPage":` + next + `,"endCursor":"` + cursor + `"},"nodes":[` + strings.Join(nodes, ",") + `]}`
 }
 
 var weave = git.RemoteURL{
@@ -130,182 +155,262 @@ var weave = git.RemoteURL{
 	Path:   "harrisoncramer/weave",
 }
 
-// TestList covers the list call: the project addressed as one escaped segment, the source
-// branch filter, the token in GitLab's own header, and every row mapped into the neutral
-// record with a fork's head left unknown.
+var gitlabOrg = git.RemoteURL{
+	Raw:    "https://gitlab.com/gitlab-org/gitlab",
+	Scheme: "https",
+	Host:   "gitlab.com",
+	Path:   "gitlab-org/gitlab",
+}
+
+// TestList covers the branch listing: the project by its full path, the source branch filter
+// with no state, the token in GitLab's own header, and every row mapped into the neutral record
+// with the global id cut to its number and a fork's project named.
 func TestList(t *testing.T) {
 	t.Parallel()
 
-	f, _, seen := serve(t, "/projects/harrisoncramer%2Fweave/merge_requests", "["+openMergeRequest+","+mergedMergeRequest+","+forkMergeRequest+"]", http.StatusOK)
+	f, _, fake := serve(t, map[string]answer{
+		"List": {body: listing(false, "end", openMergeRequest, mergedMergeRequest, forkMergeRequest, draftMergeRequest)},
+	})
 
 	listed, err := f.List(t.Context(), forge.ListParams{
-		Repo:    weave,
-		Branch:  "agent/x",
-		Page:    2,
+		Repo:    gitlabOrg,
+		Branch:  "jmason-w2116-zoekt-settings-cleanup",
+		Cursor:  "c2",
 		PerPage: 50,
 	})
 	require.NoError(t, err)
 
-	assert.Equal(t, "agent/x", seen.URL.Query().Get("source_branch"))
-	assert.Equal(t, "all", seen.URL.Query().Get("state"))
-	assert.Equal(t, "2", seen.URL.Query().Get("page"))
-	assert.Equal(t, "50", seen.URL.Query().Get("per_page"))
+	seen := fake.last(t)
+	assert.Equal(t, "List", seen.Operation)
+	assert.Equal(t, listQuery, seen.Query)
+	assert.Equal(t, map[string]any{
+		"path":     "gitlab-org/gitlab",
+		"first":    float64(50),
+		"after":    "c2",
+		"branches": []any{"jmason-w2116-zoekt-settings-cleanup"},
+	}, seen.Variables)
 	assert.Equal(t, "secret", seen.Header.Get("PRIVATE-TOKEN"))
 	assert.False(t, listed.HasMore)
+	assert.Equal(t, "end", listed.Cursor)
 	pullRequests := listed.PullRequests
-	require.Len(t, pullRequests, 3)
+	require.Len(t, pullRequests, 4)
 
-	repository := git.RemoteURL{
-		Raw:    "https://gitlab.com/harrisoncramer/weave",
-		Scheme: "https",
-		Host:   "gitlab.com",
-		Path:   "harrisoncramer/weave",
-	}
 	assert.Equal(t, forge.PullRequest{
 		Forge:      forge.KindGitLab,
-		ProviderID: "9001",
-		URL:        "https://gitlab.com/harrisoncramer/weave/-/merge_requests/7",
-		Repository: repository,
-		Head:       repository,
-		Number:     7,
-		Title:      "open one",
-		HeadBranch: "agent/x",
-		HeadSHA:    "aaa",
-		BaseBranch: "main",
-		BaseSHA:    "bbb",
-		Draft:      true,
-		State:      "opened",
-		CreatedAt:  time.Date(2026, 9, 18, 10, 0, 0, 0, time.UTC),
-		UpdatedAt:  time.Date(2026, 9, 18, 11, 0, 0, 0, time.UTC),
+		ProviderID: "535736457",
+		URL:        "https://gitlab.com/gitlab-org/gitlab/-/merge_requests/256538",
+		Repository: gitlabOrg,
+		Head:       gitlabOrg,
+		Number:     256538,
+		Title:      "Strip undeclared keys from application_settings.zoekt_settings",
+		HeadBranch: "jmason-w2116-zoekt-settings-cleanup",
+		HeadSHA:    "14a5732c18c7186fb0b34d469255b9609e4d11f2",
+		BaseBranch: "master",
+		BaseSHA:    "4aabd419a0202362695a5e4147df061fbf976c9f",
+		State:      "OPEN",
+		CreatedAt:  time.Date(2026, 9, 20, 8, 58, 11, 0, time.UTC),
+		UpdatedAt:  time.Date(2026, 9, 20, 17, 54, 15, 0, time.UTC),
 	}, pullRequests[0])
 	assert.False(t, pullRequests[0].IsCrossRepository())
+	assert.Nil(t, pullRequests[0].Decision, "a listing does not ask for the decision")
 
-	stamp := time.Date(2026, 9, 18, 12, 0, 0, 0, time.UTC)
-	assert.Equal(t, "9002", pullRequests[1].ProviderID)
+	stamp := time.Date(2026, 9, 20, 6, 24, 5, 0, time.UTC)
+	assert.Equal(t, "535718519", pullRequests[1].ProviderID)
+	assert.Equal(t, "MERGED", pullRequests[1].State)
 	assert.Equal(t, &stamp, pullRequests[1].MergedAt)
 	assert.Equal(t, &stamp, pullRequests[1].ClosedAt, "a merge closes the merge request too")
-	assert.Empty(t, pullRequests[1].BaseSHA, "a listing without diff refs names no base")
 	assert.True(t, pullRequests[1].IsFinished())
 
-	assert.True(t, pullRequests[2].Head.IsZero(), "a fork's project is not in the payload")
+	assert.Equal(t, "CLOSED", pullRequests[2].State)
+	assert.Equal(t, "gitlab-community/gitlab-org/gitlab", pullRequests[2].Head.Path)
 	assert.True(t, pullRequests[2].IsCrossRepository())
+	assert.True(t, pullRequests[2].IsFinished())
+
+	assert.True(t, pullRequests[3].Draft)
 }
 
 // TestListWithoutABranch covers the project's own listing: open ones only, no branch filter.
 func TestListWithoutABranch(t *testing.T) {
 	t.Parallel()
 
-	f, _, seen := serve(t, "/projects/harrisoncramer%2Fweave/merge_requests", "["+openMergeRequest+"]", http.StatusOK)
+	f, _, fake := serve(t, map[string]answer{"List": {body: listing(false, "", openMergeRequest)}})
 
 	_, err := f.List(t.Context(), forge.ListParams{Repo: weave, PerPage: 20})
 	require.NoError(t, err)
 
-	assert.Equal(t, "opened", seen.URL.Query().Get("state"))
-	assert.Empty(t, seen.URL.Query().Get("source_branch"))
+	seen := fake.last(t)
+	assert.Equal(t, "opened", seen.Variables["state"])
+	assert.NotContains(t, seen.Variables, "branches")
+	assert.Nil(t, seen.Variables["after"])
 }
 
-// TestListReadsTheNextPageFromTheHeader covers GitLab naming the page after this one.
-func TestListReadsTheNextPageFromTheHeader(t *testing.T) {
+// TestListReadsTheNextPage covers GitLab saying another page follows, and where it starts.
+func TestListReadsTheNextPage(t *testing.T) {
 	t.Parallel()
 
-	f, _, _ := serveWith(t, func(w http.ResponseWriter, _ *http.Request) {
-		w.Header().Set("X-Next-Page", "3")
-		_, _ = w.Write([]byte("[" + openMergeRequest + "]"))
-	})
+	f, _, _ := serve(t, map[string]answer{"List": {body: listing(true, "eyJjcmVhdGVk", openMergeRequest)}})
 
 	listed, err := f.List(t.Context(), forge.ListParams{
 		Repo:    weave,
 		Branch:  "agent/x",
-		Page:    2,
 		PerPage: 1,
 	})
 	require.NoError(t, err)
 	assert.True(t, listed.HasMore)
+	assert.Equal(t, "eyJjcmVhdGVk", listed.Cursor)
 }
 
-// TestListAddressesANestedGroup covers a project under a subgroup, which is one escaped path
-// segment to GitLab.
+// TestListAddressesANestedGroup covers a project under a subgroup, which GraphQL takes as its
+// full path.
 func TestListAddressesANestedGroup(t *testing.T) {
 	t.Parallel()
 
-	f, _, seen := serve(t, "/projects/group%2Fsub%2Frepo/merge_requests", "[]", http.StatusOK)
+	f, _, fake := serve(t, map[string]answer{"List": {body: listing(false, "")}})
 
 	_, err := f.List(t.Context(), forge.ListParams{Repo: git.RemoteURL{Host: "gitlab.com", Path: "group/sub/repo"}, Branch: "main"})
 	require.NoError(t, err)
-	assert.Equal(t, "/projects/group%2Fsub%2Frepo/merge_requests", seen.URL.EscapedPath())
+	assert.Equal(t, "group/sub/repo", fake.last(t).Variables["path"])
 }
 
-// TestListUpdated covers the sync's request: every state by last change, the largest page,
-// the ETag carried in and out, and the rate limit read off GitLab's headers.
+// TestListUpdated covers the sweep's request: every state by last change, the largest page,
+// the cursor carried in and out, and the rate limit read off GitLab's headers.
 func TestListUpdated(t *testing.T) {
 	t.Parallel()
 
-	f, _, seen := serveWith(t, func(w http.ResponseWriter, _ *http.Request) {
-		w.Header().Set("ETag", `W/"abc"`)
-		w.Header().Set("X-Next-Page", "3")
-		w.Header().Set("RateLimit-Remaining", "1999")
-		w.Header().Set("RateLimit-Reset", "1789900000")
-		_, _ = w.Write([]byte("[" + openMergeRequest + "," + mergedMergeRequest + "]"))
-	})
+	f, _, fake := serve(t, map[string]answer{"ListUpdated": {
+		header: map[string]string{"RateLimit-Remaining": "1999", "RateLimit-Reset": "1789900000"},
+		body:   listing(true, "eyJ1cGRhdGVk", openMergeRequest, mergedMergeRequest),
+	}})
 
-	listed, err := f.ListUpdated(t.Context(), forge.ListUpdatedParams{
-		Repo: weave,
-		Page: 2,
-		ETag: `W/"old"`,
-	})
+	listed, err := f.ListUpdated(t.Context(), forge.ListUpdatedParams{Repo: weave, Cursor: "old"})
 	require.NoError(t, err)
-	assert.Equal(t, "all", seen.URL.Query().Get("state"))
-	assert.Equal(t, "updated_at", seen.URL.Query().Get("order_by"))
-	assert.Equal(t, "desc", seen.URL.Query().Get("sort"))
-	assert.Equal(t, "100", seen.URL.Query().Get("per_page"))
-	assert.Equal(t, "2", seen.URL.Query().Get("page"))
-	assert.Equal(t, `W/"old"`, seen.Header.Get("If-None-Match"))
-	assert.False(t, listed.NotModified)
+	seen := fake.last(t)
+	assert.Equal(t, "ListUpdated", seen.Operation)
+	assert.Equal(t, listUpdatedQuery, seen.Query)
+	assert.Equal(t, map[string]any{
+		"path":  "harrisoncramer/weave",
+		"first": float64(100),
+		"after": "old",
+	}, seen.Variables)
 	assert.Len(t, listed.PullRequests, 2)
 	assert.True(t, listed.HasMore)
-	assert.Equal(t, `W/"abc"`, listed.ETag)
+	assert.Equal(t, "eyJ1cGRhdGVk", listed.Cursor)
 	assert.True(t, listed.RateLimit.Known)
 	assert.Equal(t, 1999, listed.RateLimit.Remaining)
 	assert.Equal(t, time.Unix(1789900000, 0).UTC(), listed.RateLimit.ResetAt.UTC())
 }
 
-// TestListUpdatedNotModified covers a 304, which comes back as such with no rows and no error.
-func TestListUpdatedNotModified(t *testing.T) {
+// TestListChanged covers the aliased query: every project in one request with its own
+// cursor, the rows of each with their decisions, a project GitLab has nothing for skipped, and
+// the cursor carrying only the projects with a page left.
+func TestListChanged(t *testing.T) {
 	t.Parallel()
 
-	f, _, _ := serveWith(t, func(w http.ResponseWriter, _ *http.Request) {
-		w.Header().Set("ETag", `W/"abc"`)
-		w.WriteHeader(http.StatusNotModified)
-	})
+	f, _, fake := serve(t, map[string]answer{"ListChanged": {body: `{"data":{` +
+		`"r0":{"mergeRequests":` + page(true, "eyJ1cGRhdGVk", openMergeRequest) + `},` +
+		`"r1":null,` +
+		`"queryComplexity":{"score":100,"limit":200}}}`}})
 
-	listed, err := f.ListUpdated(t.Context(), forge.ListUpdatedParams{
-		Repo: weave,
-		Page: 1,
-		ETag: `W/"abc"`,
+	since := time.Date(2026, 9, 20, 17, 0, 0, 0, time.UTC)
+	listed, err := f.ListChanged(t.Context(), forge.ListChangedParams{
+		Repos: []git.RemoteURL{weave, gitlabOrg},
+		Since: since,
 	})
 	require.NoError(t, err)
-	assert.True(t, listed.NotModified)
-	assert.Empty(t, listed.PullRequests)
-	assert.Equal(t, `W/"abc"`, listed.ETag)
+	seen := fake.last(t)
+	assert.Equal(t, "ListChanged", seen.Operation)
+	assert.Equal(t, map[string]any{
+		"since": "2026-09-20T17:00:00Z",
+		"first": float64(100),
+		"p0":    "gitlab-org/gitlab",
+		"a0":    nil,
+		"p1":    "harrisoncramer/weave",
+		"a1":    nil,
+	}, seen.Variables)
+	assert.Contains(t, seen.Query, "r0: project(fullPath: $p0) { mergeRequests(updatedAfter: $since, sort: UPDATED_DESC, first: $first, after: $a0)")
+	assert.Contains(t, seen.Query, "queryComplexity { score limit }")
+	assert.Contains(t, seen.Query, approvalFields)
+	require.Len(t, listed.PullRequests, 1)
+	assert.Equal(t, 256538, listed.PullRequests[0].Number)
+	assert.Equal(t, xptr.Ptr(forge.ReviewDecisionPending), listed.PullRequests[0].Decision, "four approvals owed is pending")
+	assert.True(t, listed.HasMore)
+	assert.JSONEq(t, `{"gitlab-org/gitlab":"eyJ1cGRhdGVk"}`, listed.Cursor)
+
+	f, _, fake = serve(t, map[string]answer{"ListChanged": {body: `{"data":{"r0":{"mergeRequests":` + page(false, "", mergedMergeRequest) + `},"queryComplexity":{"score":52,"limit":200}}}`}})
+	listed, err = f.ListChanged(t.Context(), forge.ListChangedParams{
+		Repos:  []git.RemoteURL{weave, gitlabOrg},
+		Since:  since,
+		Cursor: `{"gitlab-org/gitlab":"eyJ1cGRhdGVk"}`,
+	})
+	require.NoError(t, err)
+	seen = fake.last(t)
+	assert.Equal(t, "gitlab-org/gitlab", seen.Variables["p0"])
+	assert.Equal(t, "eyJ1cGRhdGVk", seen.Variables["a0"])
+	assert.NotContains(t, seen.Variables, "p1", "only the project with a page left is asked again")
+	assert.False(t, listed.HasMore)
+	assert.Empty(t, listed.Cursor)
+	require.Len(t, listed.PullRequests, 1)
+	assert.Equal(t, xptr.Ptr(forge.ReviewDecisionNone), listed.PullRequests[0].Decision)
+}
+
+// TestListChangedSplitsOnComplexity covers GitLab refusing too many projects in one query: the
+// batch is halved until it fits, and what fits sizes the batches after it.
+func TestListChangedSplitsOnComplexity(t *testing.T) {
+	t.Parallel()
+
+	f, _, fake := serve(t, nil)
+	fake.handle = func(seen call) (answer, bool) {
+		projects := strings.Count(seen.Query, "project(fullPath:")
+		if projects > 1 {
+			return answer{body: tooComplex}, true
+		}
+
+		return answer{body: `{"data":{"r0":{"mergeRequests":` + page(false, "", openMergeRequest) + `},"queryComplexity":{"score":100,"limit":100}}}`}, true
+	}
+
+	listed, err := f.ListChanged(t.Context(), forge.ListChangedParams{
+		Repos: []git.RemoteURL{{Host: "gitlab.com", Path: "a/one"}, {Host: "gitlab.com", Path: "a/two"}, {Host: "gitlab.com", Path: "a/three"}},
+		Since: time.Date(2026, 9, 20, 17, 0, 0, 0, time.UTC),
+	})
+	require.NoError(t, err)
+	assert.Len(t, listed.PullRequests, 3, "every project is read once the batch fits")
+
+	var batches []int
+	for _, seen := range fake.calls {
+		batches = append(batches, strings.Count(seen.Query, "project(fullPath:"))
+	}
+	assert.Equal(t, []int{2, 1, 1, 1}, batches, "two are refused, then one at a time since one filled the limit")
+}
+
+// TestListChangedRefusesABadCursor covers a cursor this forge did not hand out.
+func TestListChangedRefusesABadCursor(t *testing.T) {
+	t.Parallel()
+
+	f, _, fake := serve(t, nil)
+
+	_, err := f.ListChanged(t.Context(), forge.ListChangedParams{Repos: []git.RemoteURL{weave}, Cursor: "Y3Vyc29yOjM="})
+	require.Error(t, err)
+	assert.Empty(t, fake.calls)
 }
 
 // TestGet covers one merge request by its web address.
 func TestGet(t *testing.T) {
 	t.Parallel()
 
-	f, _, _ := serve(t, "/projects/harrisoncramer%2Fweave/merge_requests/6", mergedMergeRequest, http.StatusOK)
+	f, _, fake := serve(t, map[string]answer{"Get": {body: `{"data":{"project":{"mergeRequest":` + forkMergeRequest + `}}}`}})
 
-	pullRequest, err := f.Get(t.Context(), "https://gitlab.com/harrisoncramer/weave/-/merge_requests/6")
+	pullRequest, err := f.Get(t.Context(), "https://gitlab.com/gitlab-org/gitlab/-/merge_requests/256485")
 	require.NoError(t, err)
-	assert.Equal(t, 6, pullRequest.Number)
-	assert.Equal(t, "merged one", pullRequest.Title)
+	assert.Equal(t, 256485, pullRequest.Number)
+	assert.Equal(t, "Draft: feat(mr_reports): refactor blockers_page from CE/EE dual template to ee_component", pullRequest.Title)
+	assert.Equal(t, map[string]any{"path": "gitlab-org/gitlab", "iid": "256485"}, fake.last(t).Variables)
 }
 
 // TestGetRefusesWhatIsNotAMergeRequest covers the addresses Get will not ask GitLab about.
 func TestGetRefusesWhatIsNotAMergeRequest(t *testing.T) {
 	t.Parallel()
 
-	f, _, _ := serve(t, "/never", "", http.StatusOK)
+	f, _, fake := serve(t, nil)
 
 	tests := []struct {
 		name    string
@@ -320,50 +425,77 @@ func TestGetRefusesWhatIsNotAMergeRequest(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-
 			_, err := f.Get(t.Context(), tt.address)
 			require.ErrorIs(t, err, forge.ErrNotPullRequest)
 		})
 	}
+
+	assert.Empty(t, fake.calls)
 }
 
 // TestListRefusesABarePath covers a repository path GitLab cannot address.
 func TestListRefusesABarePath(t *testing.T) {
 	t.Parallel()
 
-	f, _, _ := serve(t, "/never", "", http.StatusOK)
+	f, _, fake := serve(t, nil)
 
 	_, err := f.List(t.Context(), forge.ListParams{Repo: git.RemoteURL{Host: "gitlab.com", Path: "repo"}, Branch: "main"})
 	require.ErrorIs(t, err, forge.ErrNotRepository)
+	_, err = f.ListChanged(t.Context(), forge.ListChangedParams{Repos: []git.RemoteURL{weave, {Host: "gitlab.com", Path: "repo"}}})
+	require.ErrorIs(t, err, forge.ErrNotRepository)
+	assert.Empty(t, fake.calls)
 }
 
-// TestVerify covers asking GitLab who the credential is, and a token GitLab refuses reaching
-// the Authenticator.
+// TestVerify covers asking GitLab who the credential is, a token GitLab refuses reaching the
+// Authenticator, and a token that reaches nobody.
 func TestVerify(t *testing.T) {
 	t.Parallel()
 
-	f, _, _ := serve(t, "/user", `{"id":1,"username":"harrisoncramer"}`, http.StatusOK)
+	f, _, fake := serve(t, map[string]answer{"Verify": {body: `{"data":{"currentUser":{"username":"harrisoncramer"}}}`}})
 
 	login, err := f.Verify(t.Context())
 	require.NoError(t, err)
 	assert.Equal(t, "harrisoncramer", login)
+	assert.Equal(t, verifyQuery, fake.last(t).Query)
 
-	refused, auth, _ := serve(t, "/user", `{"message":"401 Unauthorized"}`, http.StatusUnauthorized)
+	refused, auth, _ := serve(t, map[string]answer{"Verify": {status: http.StatusUnauthorized, body: `{"message":"401 Unauthorized"}`}})
 	_, err = refused.Verify(t.Context())
 	require.ErrorIs(t, err, forge.ErrUnauthorized)
 	assert.Equal(t, 1, auth.invalidated)
+
+	nobody, _, _ := serve(t, map[string]answer{"Verify": {body: `{"data":{"currentUser":null}}`}})
+	_, err = nobody.Verify(t.Context())
+	require.ErrorIs(t, err, forge.ErrUnauthorized)
 }
 
-// TestNotFound covers a project or merge request GitLab does not have, or will not show.
+// TestNotFound covers a project or merge request GitLab does not have, or will not show, which
+// it answers as null with no error, and a host whose GraphQL is somewhere else.
 func TestNotFound(t *testing.T) {
 	t.Parallel()
 
-	f, auth, _ := serve(t, "/never", "", http.StatusOK)
+	f, auth, _ := serve(t, map[string]answer{
+		"Get":             {body: `{"data":{"project":null}}`},
+		"ListUpdated":     {body: `{"data":{"project":null}}`},
+		"ReviewDecisions": {body: `{"data":{"project":null}}`},
+	})
 
-	_, err := f.Get(t.Context(), "https://gitlab.com/harrisoncramer/weave/-/merge_requests/1")
+	_, err := f.Get(t.Context(), "https://gitlab.com/gitlab-org/no-such-project-xyz/-/merge_requests/1")
+	require.ErrorIs(t, err, forge.ErrNotFound)
+	_, err = f.ListUpdated(t.Context(), forge.ListUpdatedParams{Repo: weave})
+	require.ErrorIs(t, err, forge.ErrNotFound)
+	_, err = f.ReviewDecisions(t.Context(), weave, []int{1})
 	require.ErrorIs(t, err, forge.ErrNotFound)
 	assert.Equal(t, 0, auth.invalidated)
+
+	gone, _, _ := serve(t, map[string]answer{"Get": {body: `{"data":{"project":{"mergeRequest":null}}}`}})
+	_, err = gone.Get(t.Context(), "https://gitlab.com/gitlab-org/gitlab/-/merge_requests/999999999")
+	require.ErrorIs(t, err, forge.ErrNotFound)
+
+	misrouted, _, _ := serve(t, nil)
+	_, err = misrouted.Get(t.Context(), "https://gitlab.com/gitlab-org/gitlab/-/merge_requests/1")
+	require.Error(t, err)
+	require.NotErrorIs(t, err, forge.ErrNotFound)
+	assert.Contains(t, err.Error(), "/graphql")
 }
 
 // TestRateLimitRefusals covers a 429 with and without a time to wait, and a 403 that is a
@@ -409,15 +541,13 @@ func TestRateLimitRefusals(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			f, _, _ := serveWith(t, func(w http.ResponseWriter, _ *http.Request) {
-				for key, value := range tt.header {
-					w.Header().Set(key, value)
-				}
-				w.WriteHeader(tt.status)
-				_, _ = w.Write([]byte(`{"message":"refused"}`))
-			})
+			f, _, _ := serve(t, map[string]answer{"ListUpdated": {
+				status: tt.status,
+				header: tt.header,
+				body:   `{"message":"refused"}`,
+			}})
 
-			_, err := f.ListUpdated(t.Context(), forge.ListUpdatedParams{Repo: weave, Page: 1})
+			_, err := f.ListUpdated(t.Context(), forge.ListUpdatedParams{Repo: weave})
 			require.Error(t, err)
 
 			var throttled *forge.ThrottledError
@@ -433,40 +563,124 @@ func TestRateLimitRefusals(t *testing.T) {
 	}
 }
 
-// TestGetReviewDecisionByNumber covers the two reads behind a decision: a reviewer asking for
-// changes settles it, then the approvals say whether the rules are met or still owed.
-func TestGetReviewDecisionByNumber(t *testing.T) {
+// TestReviewDecisions covers the batch: one query aliasing every iid, each folded into weave's
+// word, and an iid GitLab does not have left out rather than failing the rest.
+func TestReviewDecisions(t *testing.T) {
+	t.Parallel()
+
+	f, _, fake := serve(t, map[string]answer{"ReviewDecisions": {body: decisionsBatch}})
+
+	numbers := []int{256540, 256541, 256542, 256543, 256544, 256545, 256546, 256547, 256548, 256549, 999999999}
+	decisions, err := f.ReviewDecisions(t.Context(), gitlabOrg, numbers)
+	require.NoError(t, err)
+	assert.Equal(t, map[int]forge.ReviewDecision{
+		256540: forge.ReviewDecisionPending,
+		256541: forge.ReviewDecisionNone,
+		256542: forge.ReviewDecisionPending,
+		256543: forge.ReviewDecisionPending,
+		256544: forge.ReviewDecisionNone,
+		256545: forge.ReviewDecisionPending,
+		256546: forge.ReviewDecisionPending,
+		256547: forge.ReviewDecisionPending,
+		256548: forge.ReviewDecisionPending,
+		256549: forge.ReviewDecisionNone,
+	}, decisions)
+
+	seen := fake.last(t)
+	assert.Equal(t, "ReviewDecisions", seen.Operation)
+	assert.Equal(t, map[string]any{"path": "gitlab-org/gitlab"}, seen.Variables)
+	assert.Contains(t, seen.Query, `m256540: mergeRequest(iid: "256540") { `+approvalFields+` }`)
+	assert.Contains(t, seen.Query, "queryComplexity { score limit }")
+	assert.Equal(t, 11, strings.Count(seen.Query, "mergeRequest(iid:"))
+}
+
+// TestReviewDecisionsSplitsOnComplexity covers more numbers than one query takes against a
+// GitLab whose limit is lower than the measured fit: a refused batch is halved and never asked
+// at that size again, and the score a batch answers sizes the next up to that ceiling.
+func TestReviewDecisionsSplitsOnComplexity(t *testing.T) {
+	t.Parallel()
+
+	f, _, fake := serve(t, nil)
+	fake.handle = func(seen call) (answer, bool) {
+		count := strings.Count(seen.Query, "mergeRequest(iid:")
+		if count > 10 {
+			return answer{body: tooComplex}, true
+		}
+
+		var fields []string
+		for _, line := range strings.Split(seen.Query, "\n") {
+			alias, _, ok := strings.Cut(strings.TrimSpace(line), ":")
+			if ok && strings.HasPrefix(alias, "m") {
+				fields = append(fields, `"`+alias+`":{"approvalsRequired":1,"approvalsLeft":0,"approvedBy":{"count":1},"reviewers":{"nodes":[]}}`)
+			}
+		}
+
+		return answer{body: `{"data":{"project":{` + strings.Join(fields, ",") + `},"queryComplexity":{"score":` + strconv.Itoa(15*count) + `,"limit":200}}}`}, true
+	}
+
+	numbers := make([]int, 0, forge.MaxReviewDecisions)
+	for i := range forge.MaxReviewDecisions {
+		numbers = append(numbers, i+1)
+	}
+	decisions, err := f.ReviewDecisions(t.Context(), gitlabOrg, numbers)
+	require.NoError(t, err)
+	assert.Len(t, decisions, forge.MaxReviewDecisions)
+	assert.Equal(t, forge.ReviewDecisionApproved, decisions[50])
+
+	var batches []int
+	for _, seen := range fake.calls {
+		batches = append(batches, strings.Count(seen.Query, "mergeRequest(iid:"))
+	}
+	assert.Equal(t, []int{13, 6, 12, 6, 11, 5, 10, 10, 10, 3}, batches, "each refusal lowers the ceiling the score may grow the batch back to")
+}
+
+// TestReviewDecisionsRefusesTooMany covers more numbers than one call takes, and a path
+// GitLab cannot address, neither costing a request.
+func TestReviewDecisionsRefusesTooMany(t *testing.T) {
+	t.Parallel()
+
+	f, _, fake := serve(t, nil)
+
+	numbers := make([]int, forge.MaxReviewDecisions+1)
+	for i := range numbers {
+		numbers[i] = i + 1
+	}
+	_, err := f.ReviewDecisions(t.Context(), weave, numbers)
+	require.Error(t, err)
+	_, err = f.ReviewDecisions(t.Context(), git.RemoteURL{Host: "gitlab.com", Path: "repo"}, []int{1})
+	require.ErrorIs(t, err, forge.ErrNotRepository)
+	assert.Empty(t, fake.calls)
+}
+
+// TestDecisionFolds covers how the approvals become weave's word: a reviewer asking for
+// changes first, then approvals still owed, then anybody having approved, else nothing.
+func TestDecisionFolds(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name      string
-		reviewers string
-		approvals string
-		want      forge.ReviewDecision
+		name string
+		node string
+		want forge.ReviewDecision
 	}{
 		{
-			name:      "a reviewer asking for changes",
-			reviewers: `[{"user":{"id":1},"state":"requested_changes"},{"user":{"id":2},"state":"approved"}]`,
-			approvals: `{"approvals_required":1,"approvals_left":0,"approved_by":[{"user":{"id":2}}]}`,
-			want:      forge.ReviewDecisionChangesRequested,
+			name: "a reviewer asking for changes beats an approval",
+			node: `{"approvalsRequired":1,"approvalsLeft":0,"approvedBy":{"count":1},"reviewers":{"nodes":[{"mergeRequestInteraction":{"reviewState":"REQUESTED_CHANGES"}},{"mergeRequestInteraction":{"reviewState":"APPROVED"}}]}}`,
+			want: forge.ReviewDecisionChangesRequested,
 		},
 		{
-			name:      "approvals still owed",
-			reviewers: `[{"user":{"id":1},"state":"unreviewed"}]`,
-			approvals: `{"approvals_required":2,"approvals_left":1,"approved_by":[{"user":{"id":2}}]}`,
-			want:      forge.ReviewDecisionPending,
+			name: "approvals still owed are pending whoever has approved",
+			node: `{"approvalsRequired":2,"approvalsLeft":2,"approvedBy":{"count":1},"reviewers":{"nodes":[{"mergeRequestInteraction":{"reviewState":"UNAPPROVED"}},{"mergeRequestInteraction":{"reviewState":"APPROVED"}},{"mergeRequestInteraction":{"reviewState":"REVIEWED"}}]}}`,
+			want: forge.ReviewDecisionPending,
 		},
 		{
-			name:      "approved",
-			reviewers: `[]`,
-			approvals: `{"approvals_required":1,"approvals_left":0,"approved_by":[{"user":{"id":2}}]}`,
-			want:      forge.ReviewDecisionApproved,
+			name: "approved",
+			node: `{"approvalsRequired":1,"approvalsLeft":0,"approvedBy":{"count":1},"reviewers":{"nodes":[{"mergeRequestInteraction":{"reviewState":"APPROVED"}}]}}`,
+			want: forge.ReviewDecisionApproved,
 		},
 		{
-			name:      "no rule and nobody has said anything",
-			reviewers: `[]`,
-			approvals: `{"approvals_required":0,"approvals_left":0,"approved_by":[]}`,
-			want:      forge.ReviewDecisionNone,
+			name: "no rule and nobody has approved is nothing, whatever the reviewers did",
+			node: `{"approvalsRequired":0,"approvalsLeft":0,"approvedBy":{"count":0},"reviewers":{"nodes":[{"mergeRequestInteraction":{"reviewState":"REVIEWED"}}]}}`,
+			want: forge.ReviewDecisionNone,
 		},
 	}
 
@@ -474,38 +688,9 @@ func TestGetReviewDecisionByNumber(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			var paths []string
-			f, _, _ := serveWith(t, func(w http.ResponseWriter, r *http.Request) {
-				paths = append(paths, r.URL.EscapedPath())
-				switch r.URL.Path {
-				case "/projects/harrisoncramer/weave/merge_requests/7/reviewers":
-					_, _ = w.Write([]byte(tt.reviewers))
-				case "/projects/harrisoncramer/weave/merge_requests/7/approvals":
-					_, _ = w.Write([]byte(tt.approvals))
-				default:
-					http.NotFound(w, r)
-				}
-			})
-
-			got, err := f.GetReviewDecisionByNumber(t.Context(), weave, 7)
-			require.NoError(t, err)
-			assert.Equal(t, tt.want, got)
-			assert.Equal(t, "/projects/harrisoncramer%2Fweave/merge_requests/7/reviewers", paths[0])
+			var node approvalNode
+			require.NoError(t, json.Unmarshal([]byte(tt.node), &node))
+			assert.Equal(t, tt.want, node.decision())
 		})
 	}
-}
-
-// TestGetReviewDecisionByNumberRefusals covers a merge request GitLab does not have and a
-// refused credential.
-func TestGetReviewDecisionByNumberRefusals(t *testing.T) {
-	t.Parallel()
-
-	missing, _, _ := serve(t, "/never", "", http.StatusOK)
-	_, err := missing.GetReviewDecisionByNumber(t.Context(), weave, 7)
-	require.ErrorIs(t, err, forge.ErrNotFound)
-
-	refused, auth, _ := serve(t, "/projects/harrisoncramer%2Fweave/merge_requests/7/reviewers", `{"message":"401 Unauthorized"}`, http.StatusUnauthorized)
-	_, err = refused.GetReviewDecisionByNumber(t.Context(), weave, 7)
-	require.ErrorIs(t, err, forge.ErrUnauthorized)
-	assert.Equal(t, 1, auth.invalidated)
 }

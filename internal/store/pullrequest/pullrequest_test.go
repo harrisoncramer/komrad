@@ -88,7 +88,7 @@ func openPullRequest(providerID string, number int, branch string) UpsertParams 
 		HeadSHA:           "abc",
 		BaseBranch:        "main",
 		BaseSHA:           "def",
-		State:             "open",
+		State:             "OPEN",
 		OpenedAt:          opened,
 		ChangedAt:         opened.Add(time.Hour),
 	}
@@ -116,7 +116,7 @@ func TestUpsertSaysWhatItDid(t *testing.T) {
 	mergedAt := merged.ChangedAt.Add(time.Hour)
 	merged.MergedAt = &mergedAt
 	merged.ClosedAt = &mergedAt
-	merged.State = "closed"
+	merged.State = "MERGED"
 	merged.ChangedAt = mergedAt
 	moved, err := h.Upsert(ctx, merged)
 	require.NoError(t, err)
@@ -256,17 +256,17 @@ func TestLiveRepositoriesAndUnscannedBranches(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, []string{"agent/x", "agent/y"}, branches)
 
-	require.NoError(t, h.SetBranchScanNextPage(ctx, weave, "agent/x", 2))
+	require.NoError(t, h.SetBranchScanCursor(ctx, weave, "agent/x", "c2"))
 	scan, err := h.GetBranchScan(ctx, weave, "agent/x")
 	require.NoError(t, err)
-	assert.Equal(t, 2, scan.NextPage)
+	assert.Equal(t, "c2", scan.NextCursor)
 	assert.Nil(t, scan.CompletedAt)
 
 	branches, err = h.ListUnscannedBranches(ctx, weave)
 	require.NoError(t, err)
 	assert.Equal(t, []string{"agent/x", "agent/y"}, branches, "a scan in progress is still unscanned")
 
-	require.NoError(t, h.CompleteBranchScan(ctx, weave, "agent/x", 3))
+	require.NoError(t, h.CompleteBranchScan(ctx, weave, "agent/x", "c3"))
 	branches, err = h.ListUnscannedBranches(ctx, weave)
 	require.NoError(t, err)
 	assert.Equal(t, []string{"agent/y"}, branches)
@@ -275,9 +275,11 @@ func TestLiveRepositoriesAndUnscannedBranches(t *testing.T) {
 	require.ErrorIs(t, err, store.ErrNotFound)
 }
 
-// TestSyncRowRoundTrip covers the cursor row through a sweep: requests are counted as they are
-// made, a sweep holds its columns until it completes, completion promotes the newest stamp and
-// the ETag and never regresses the mark, and the validation clock moves only when asked.
+// TestSyncRowRoundTrip covers the cursor row through a first sweep and the passes after it:
+// requests are counted as they are made, a sweep holds its cursor until it completes,
+// completion promotes the newest stamp and never regresses the mark, the search moves the mark
+// forward only, the listing clock moves only when asked, and a reset hands the repository back
+// to a first sweep.
 func TestSyncRowRoundTrip(t *testing.T) {
 	h := open(t)
 	ctx := t.Context()
@@ -291,6 +293,7 @@ func TestSyncRowRoundTrip(t *testing.T) {
 	require.NoError(t, err)
 	assert.Nil(t, sync.UpdatedThrough)
 	assert.False(t, sync.IsSweeping())
+	assert.False(t, sync.IsSwept())
 	assert.Zero(t, sync.Calls)
 
 	require.NoError(t, h.RecordSyncRequest(ctx, weave))
@@ -299,50 +302,82 @@ func TestSyncRowRoundTrip(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 2, sync.Calls)
 	assert.NotNil(t, sync.ReadAt)
-	assert.Nil(t, sync.ValidatedAt, "a request alone does not validate")
+	assert.Nil(t, sync.ListedAt, "a request alone is not a listing")
 
 	newest := time.Date(2026, 9, 19, 10, 0, 0, 0, time.UTC)
+	listed := newest.Add(time.Minute)
 	require.NoError(t, h.StartSweep(ctx, StartSweepParams{
 		RepositoryURL: weave,
 		Newest:        newest,
-		ETag:          `"a"`,
-		ValidatedAt:   &newest,
+		ListedAt:      listed,
 	}))
-	require.NoError(t, h.AdvanceSweep(ctx, weave, 3))
 	sync, err = h.GetSync(ctx, weave)
 	require.NoError(t, err)
 	require.True(t, sync.IsSweeping())
-	assert.Equal(t, 3, *sync.SweepNextPage)
+	assert.Empty(t, *sync.SweepCursor, "page one has no cursor")
+
+	require.NoError(t, h.AdvanceSweep(ctx, weave, "c3"))
+	sync, err = h.GetSync(ctx, weave)
+	require.NoError(t, err)
+	require.True(t, sync.IsSweeping())
+	assert.Equal(t, "c3", *sync.SweepCursor)
 	assert.True(t, sync.SweepNewest.Equal(newest))
-	assert.Equal(t, `"a"`, *sync.SweepETag)
-	require.NotNil(t, sync.ValidatedAt)
-	assert.True(t, sync.ValidatedAt.Equal(newest), "validated when the caller says, not when the database does")
+	require.NotNil(t, sync.ListedAt)
+	assert.True(t, sync.ListedAt.Equal(listed), "listed when the caller says, not when the database does")
 	assert.Nil(t, sync.UpdatedThrough, "the mark does not move until the sweep completes")
 
 	require.NoError(t, h.CompleteSweep(ctx, weave))
 	sync, err = h.GetSync(ctx, weave)
 	require.NoError(t, err)
 	assert.False(t, sync.IsSweeping())
+	assert.True(t, sync.IsSwept())
 	require.NotNil(t, sync.UpdatedThrough)
 	assert.True(t, sync.UpdatedThrough.Equal(newest))
-	assert.Equal(t, `"a"`, sync.ETag)
 
 	older := newest.Add(-time.Hour)
 	require.NoError(t, h.StartSweep(ctx, StartSweepParams{
 		RepositoryURL: weave,
 		Newest:        older,
-		ETag:          `"b"`,
+		ListedAt:      listed,
 	}))
 	require.NoError(t, h.CompleteSweep(ctx, weave))
 	sync, err = h.GetSync(ctx, weave)
 	require.NoError(t, err)
 	assert.True(t, sync.UpdatedThrough.Equal(newest), "an older page one never regresses the mark")
-	assert.Equal(t, `"b"`, sync.ETag, "the ETag is always the latest page one's")
+
+	require.NoError(t, h.AdvanceMark(ctx, weave, older))
+	sync, err = h.GetSync(ctx, weave)
+	require.NoError(t, err)
+	assert.True(t, sync.UpdatedThrough.Equal(newest), "an older search never regresses the mark")
+
+	later := newest.Add(time.Hour)
+	require.NoError(t, h.AdvanceMark(ctx, weave, later))
+	sync, err = h.GetSync(ctx, weave)
+	require.NoError(t, err)
+	assert.True(t, sync.UpdatedThrough.Equal(later))
+
+	relisted := later.Add(time.Hour)
+	require.NoError(t, h.MarkListed(ctx, weave, relisted))
+	sync, err = h.GetSync(ctx, weave)
+	require.NoError(t, err)
+	assert.True(t, sync.ListedAt.Equal(relisted))
+	assert.True(t, sync.UpdatedThrough.Equal(later), "a listing does not move the mark")
 
 	require.NoError(t, h.ResetSyncCalls(ctx, weave))
 	sync, err = h.GetSync(ctx, weave)
 	require.NoError(t, err)
 	assert.Zero(t, sync.Calls)
+
+	require.NoError(t, h.EnsureSync(ctx, fixture))
+	require.NoError(t, h.AdvanceSweep(ctx, fixture, "c9"))
+	require.NoError(t, h.ResetSweeps(ctx, []string{weave, fixture}))
+	for _, repository := range []string{weave, fixture} {
+		sync, err = h.GetSync(ctx, repository)
+		require.NoError(t, err)
+		assert.False(t, sync.IsSwept(), "%s is back to a first sweep", repository)
+		assert.False(t, sync.IsSweeping())
+		assert.Nil(t, sync.SweepNewest)
+	}
 }
 
 // TestListOnBranchIsNewestFirst covers the read the future readers make: pull requests from one
@@ -373,7 +408,7 @@ func finishedPullRequest(providerID string, number int, branch string) UpsertPar
 	mergedAt := params.ChangedAt.Add(time.Hour)
 	params.MergedAt = &mergedAt
 	params.ClosedAt = &mergedAt
-	params.State = "closed"
+	params.State = "MERGED"
 	params.ChangedAt = mergedAt
 
 	return params
@@ -520,6 +555,15 @@ func TestSetReviewDecisionStampsTheRead(t *testing.T) {
 	require.NoError(t, err)
 	assert.Nil(t, stored.ReviewDecision)
 	assert.NotNil(t, stored.DecisionChangedAt)
+
+	changed := openPullRequest("PR_1", 1, "agent/x")
+	changed.ChangedAt = changed.ChangedAt.Add(time.Hour)
+	_, err = h.Upsert(ctx, changed)
+	require.NoError(t, err)
+	require.NoError(t, h.SetReviewDecision(ctx, written.ID, forge.ReviewDecisionNone))
+	stored, err = h.GetByIdentity(ctx, "github.com", "PR_1")
+	require.NoError(t, err)
+	assert.True(t, stored.DecisionChangedAt.Equal(changed.ChangedAt), "the same decision for a later change is still a read")
 }
 
 // TestListForAgentIsTheBranchNewestFirst covers the listing the details pane reads: every pull

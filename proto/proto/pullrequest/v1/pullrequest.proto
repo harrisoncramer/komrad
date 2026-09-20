@@ -49,7 +49,7 @@ message PullRequest {
   string base_sha = 11;
   // Whether the forge marks it a draft.
   bool draft = 12;
-  // The forge's own word for where it stands, kept verbatim; read merged_at and closed_at for
+  // Where the forge says it stands, as OPEN, CLOSED or MERGED; read merged_at and closed_at for
   // whether it is finished.
   string state = 13;
   // When it was opened on the forge, in RFC 3339.
