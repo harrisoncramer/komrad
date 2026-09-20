@@ -321,7 +321,8 @@ type Entry struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The path, relative to the directory.
 	Path string `protobuf:"bytes,1,opt,name=path,proto3" json:"path,omitempty"`
-	// How many bytes it holds, counted through for a directory.
+	// The disk it takes, in bytes, counted through for a directory: blocks rather than length,
+	// with a file that is hard linked counted once.
 	SizeBytes int64 `protobuf:"varint,2,opt,name=size_bytes,json=sizeBytes,proto3" json:"size_bytes,omitempty"`
 	// Whether it is a directory.
 	Dir           bool `protobuf:"varint,3,opt,name=dir,proto3" json:"dir,omitempty"`
@@ -447,9 +448,9 @@ type GetWorktreeResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The directory as list_worktrees reports it.
 	Worktree *Worktree `protobuf:"bytes,1,opt,name=worktree,proto3" json:"worktree,omitempty"`
-	// How many bytes the directory holds, walked for this call.
+	// The disk the directory takes, in bytes, walked for this call.
 	SizeBytes int64 `protobuf:"varint,12,opt,name=size_bytes,json=sizeBytes,proto3" json:"size_bytes,omitempty"`
-	// The top-level entries with their sizes, biggest first, from the same walk.
+	// The top-level entries with the disk each takes, biggest first, from the same walk.
 	Entries []*Entry `protobuf:"bytes,2,rep,name=entries,proto3" json:"entries,omitempty"`
 	// The paths git tracks that differ from HEAD.
 	Modified []string `protobuf:"bytes,3,rep,name=modified,proto3" json:"modified,omitempty"`

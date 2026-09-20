@@ -4,12 +4,23 @@ import (
 	"cmp"
 	"context"
 	"errors"
+	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
 	"slices"
-	"strings"
+	"sync"
+	"sync/atomic"
+	"syscall"
+
+	"golang.org/x/sync/errgroup"
 )
+
+// workers is how many directories a walk reads at once.
+const workers = 8
+
+// blockSize is the unit st_blocks counts in.
+const blockSize = 512
 
 // Entry is one top-level entry of a directory with what it holds.
 type Entry struct {
@@ -18,62 +29,130 @@ type Entry struct {
 	Dir   bool
 }
 
-// measure is the sum of the sizes of every file under a directory and what each top-level entry
-// holds, following no symlink and skipping whatever vanishes while it is walked.
+// inode names one file across the links that share it.
+type inode struct {
+	dev uint64
+	ino uint64
+}
+
+// walker sums the disk under one top-level entry, reading its directories on a pool of its own.
+type walker struct {
+	group *errgroup.Group
+	seen  *sync.Map
+	sum   *atomic.Int64
+}
+
+// measure is the disk taken by every file under a directory and by each top-level entry,
+// following no symlink and skipping whatever vanishes while it is walked.
 func measure(ctx context.Context, dir string) (int64, []Entry, error) {
-	byEntry := map[string]*Entry{}
-	var order []string
-	var total int64
-
-	err := filepath.WalkDir(dir, func(path string, entry fs.DirEntry, err error) error {
-		if ctx.Err() != nil {
-			return ctx.Err()
-		}
-		if errors.Is(err, os.ErrNotExist) && path != dir {
-			return nil
-		}
-		if err != nil {
-			return err
-		}
-		if path == dir {
-			return nil
-		}
-
-		rel, err := filepath.Rel(dir, path)
-		if err != nil {
-			return err
-		}
-		head, _, _ := strings.Cut(rel, string(filepath.Separator))
-		top, ok := byEntry[head]
-		if !ok {
-			top = &Entry{Path: head, Dir: entry.IsDir()}
-			byEntry[head] = top
-			order = append(order, head)
-		}
-
-		info, err := entry.Info()
-		if errors.Is(err, os.ErrNotExist) {
-			return nil
-		}
-		if err != nil {
-			return err
-		}
-		if info.Mode().IsRegular() {
-			total += info.Size()
-			top.Bytes += info.Size()
-		}
-
-		return nil
-	})
+	tops, err := readDir(ctx, dir)
 	if err != nil {
 		return 0, nil, err
 	}
 
-	entries := make([]Entry, 0, len(order))
-	for _, head := range order {
-		entries = append(entries, *byEntry[head])
+	var seen sync.Map
+	var total int64
+	entries := make([]Entry, 0, len(tops))
+	for _, top := range tops {
+		var sum atomic.Int64
+		w := walker{seen: &seen, sum: &sum}
+		if err := w.walkTop(ctx, filepath.Join(dir, top.Name()), top); err != nil {
+			return 0, nil, err
+		}
+		total += sum.Load()
+		entries = append(entries, Entry{
+			Path:  top.Name(),
+			Bytes: sum.Load(),
+			Dir:   top.IsDir(),
+		})
 	}
-	slices.SortStableFunc(entries, func(a, b Entry) int { return cmp.Compare(b.Bytes, a.Bytes) })
+	slices.SortStableFunc(entries, func(a, b Entry) int {
+		return cmp.Compare(b.Bytes, a.Bytes)
+	})
 
 	return total, entries, nil
+}
+
+// walkTop counts a top-level file, or reads a top-level directory to the end on a fresh pool.
+func (w walker) walkTop(ctx context.Context, path string, entry fs.DirEntry) error {
+	if !entry.IsDir() {
+		return w.count(entry)
+	}
+
+	group, ctx := errgroup.WithContext(ctx)
+	group.SetLimit(workers)
+	w.group = group
+	group.Go(func() error {
+		return w.walk(ctx, path)
+	})
+
+	return group.Wait()
+}
+
+// enter counts a file, or walks a directory on a free worker, or on the caller when none is free.
+func (w walker) enter(ctx context.Context, path string, entry fs.DirEntry) error {
+	if !entry.IsDir() {
+		return w.count(entry)
+	}
+	if w.group.TryGo(func() error {
+		return w.walk(ctx, path)
+	}) {
+		return nil
+	}
+
+	return w.walk(ctx, path)
+}
+
+func (w walker) walk(ctx context.Context, path string) error {
+	entries, err := readDir(ctx, path)
+	if errors.Is(err, os.ErrNotExist) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+
+	for _, entry := range entries {
+		if err := w.enter(ctx, filepath.Join(path, entry.Name()), entry); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// count adds a regular file's blocks to the sum, once across the links that share it.
+func (w walker) count(entry fs.DirEntry) error {
+	info, err := entry.Info()
+	if errors.Is(err, os.ErrNotExist) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	if !info.Mode().IsRegular() {
+		return nil
+	}
+
+	stat, ok := info.Sys().(*syscall.Stat_t)
+	if !ok {
+		return fmt.Errorf("stat %s: no stat_t behind %T", entry.Name(), info.Sys())
+	}
+	if stat.Nlink > 1 {
+		if _, dup := w.seen.LoadOrStore(inode{dev: uint64(stat.Dev), ino: stat.Ino}, struct{}{}); dup {
+			return nil
+		}
+	}
+	w.sum.Add(stat.Blocks * blockSize)
+
+	return nil
+}
+
+// readDir lists a directory unless the context has ended.
+func readDir(ctx context.Context, path string) ([]fs.DirEntry, error) {
+	if ctx.Err() != nil {
+		return nil, ctx.Err()
+	}
+
+	return os.ReadDir(path)
 }
