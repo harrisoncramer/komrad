@@ -40,6 +40,12 @@ func TestEveryScreenAnswersForItself(t *testing.T) {
 			assert.NotNil(t, spec.filter.hovered, "screen %d filters with no cursor to keep", s)
 			assert.NotNil(t, spec.filter.place, "screen %d filters without placing its cursor again", s)
 		}
+
+		if spec.tabs != nil {
+			assert.NotEmpty(t, spec.tabs.strip.options, "screen %d draws a strip with no tabs", s)
+			assert.NotNil(t, spec.tabs.state, "screen %d draws a strip with nowhere to keep its choice", s)
+			assert.NotNil(t, spec.tabs.fits, "screen %d draws a strip with no room rule", s)
+		}
 	}
 }
 

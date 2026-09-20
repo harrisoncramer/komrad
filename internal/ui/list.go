@@ -62,12 +62,16 @@ func (m model) listHeader(title string) string {
 
 // talliedHeader is a list's header with a muted tally after its title.
 func (m model) talliedHeader(title, tally string) string {
+	return m.headerLines(title, tally, "")
+}
+
+func (m model) headerLines(title, tally, tabs string) string {
 	header := paint.Panel.Title(title)
 	if tally != "" {
 		header += dimStyle.Render("  " + tally)
 	}
 
-	return header + "\n\n" + m.filterView()
+	return header + "\n\n" + m.filter.line(paint.Panel) + "\n" + tabs + "\n"
 }
 
 // headedListView draws a list under its header, padded out so the record and the legend under it

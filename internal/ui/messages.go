@@ -473,6 +473,7 @@ func (m model) toggleMessagesFocus() model {
 	entering := !m.messages.focused
 	m.messages.focused = !m.messages.focused
 	m.details.focused = false
+	m.blurTabs()
 
 	if entering {
 		m.messages.savedColumnTop = m.column.top

@@ -172,6 +172,10 @@ func (m model) resizeTo(size tea.WindowSizeMsg) model {
 	m.width = size.Width
 	m.awaitingSize = false
 
+	if !m.isTabsDrawn() {
+		m.blurTabs()
+	}
+
 	// A drag and a zoom both change the panel's own pane and leave the window around it alone.
 	window := m.frame.WindowCols()
 	if window != m.windowCols && m.windowCols > 0 {
@@ -228,6 +232,17 @@ func (m model) routeGlobalKey(key tea.KeyMsg) (tea.Model, tea.Cmd, bool) {
 
 	if m.isMessagesRegion() && key.String() == messagesMockKey {
 		return m.pushMockMessage(), nil, true
+	}
+
+	if m.tabsSpec() != nil {
+		if m.isTabsFocused() {
+			next, cmd := m.updateTabs(key)
+
+			return next, cmd, true
+		}
+		if isBound(key.String(), m.keys.Tabs.Focus) {
+			return m.toggleTabsFocus(), nil, true
+		}
 	}
 
 	if m.isDetailsScreen() {

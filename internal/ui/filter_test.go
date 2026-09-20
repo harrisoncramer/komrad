@@ -483,7 +483,7 @@ func TestFilterViewLine(t *testing.T) {
 			m.filter.setQuery(tt.query)
 			m.filter.typing = tt.typing
 
-			assert.Equal(t, tt.want, strings.TrimSpace(ansi.Strip(m.filterView())))
+			assert.Equal(t, tt.want, strings.TrimSpace(ansi.Strip(m.filter.line(paint.Panel))))
 		})
 	}
 }
@@ -497,18 +497,18 @@ func TestFilterSlashMarksAStandingSearch(t *testing.T) {
 
 	m := filterModel()
 
-	assert.Contains(t, m.filterView(), dimStyle.Render("/"), "an idle line is dim")
-	assert.NotContains(t, m.filterView(), paint.Panel.Cursor().Render("/"))
+	assert.Contains(t, m.filter.line(paint.Panel), dimStyle.Render("/"), "an idle line is dim")
+	assert.NotContains(t, m.filter.line(paint.Panel), paint.Panel.Cursor().Render("/"))
 
 	typing := m
 	typing.filter.typing = true
 
-	assert.Contains(t, typing.filterView(), paint.Panel.Cursor().Render("/"), "an open input takes the accent")
+	assert.Contains(t, typing.filter.line(paint.Panel), paint.Panel.Cursor().Render("/"), "an open input takes the accent")
 
 	standing := m
 	standing.filter.setQuery("pay")
 
-	assert.Contains(t, standing.filterView(), paint.Panel.Cursor().Render("/"), "and so does a pattern left standing")
+	assert.Contains(t, standing.filter.line(paint.Panel), paint.Panel.Cursor().Render("/"), "and so does a pattern left standing")
 }
 
 // typeIntoFilter types a whole pattern at the filter, the way a person does one key at a time.

@@ -149,6 +149,8 @@ type Keybindings struct {
 	Schedules SchedulesKeys `mapstructure:"schedules"`
 	// Choosing several agents at once, shared by the two screens that draw a tree.
 	Selection SelectionKeys `mapstructure:"selection"`
+	// The row of tabs a screen draws over its list, and the key that hands it the cursor.
+	Tabs TabsKeys `mapstructure:"tabs"`
 	// The key that opens a shell in the hovered agent's directory, shared by every
 	// screen that lists agents.
 	Terminal TerminalKeys `mapstructure:"terminal"`
@@ -224,6 +226,12 @@ type SelectionKeys struct {
 	Range []string `mapstructure:"range" default:"V"`
 	// Take the row under the cursor into the selection, or back out of it.
 	Toggle []string `mapstructure:"toggle" default:"v"`
+}
+
+// TabsKeys is the binding for the row of tabs a screen draws over its list.
+type TabsKeys struct {
+	// Move the cursor between the list on screen and the row of tabs over it.
+	Focus []string `mapstructure:"focus" default:"f"`
 }
 
 // TerminalKeys is the binding that opens a shell in the info pane, rooted at the hovered

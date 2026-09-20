@@ -18,8 +18,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// updateNotices rewrites the golden files holding the drawn record.
-var updateNotices = flag.Bool("update", false, "rewrite the golden files")
+// updateGoldens rewrites the golden files.
+var updateGoldens = flag.Bool("update", false, "rewrite the golden files")
 
 // TestNoticeBlockGolden draws the record's notice block whole, which is where a glyph gone wrong
 // shows up as itself rather than as a name in an assertion.
@@ -74,8 +74,16 @@ func TestNoticeBlockGolden(t *testing.T) {
 func requireNoticeGolden(t *testing.T, name, got string) {
 	t.Helper()
 
-	path := filepath.Join("testdata", "notices-"+name+".golden")
-	if *updateNotices {
+	requireGolden(t, "notices-"+name, got)
+}
+
+// requireGolden compares a drawn block against the file named for it under testdata, writing
+// that file instead when the suite was run to update them.
+func requireGolden(t *testing.T, name, got string) {
+	t.Helper()
+
+	path := filepath.Join("testdata", name+".golden")
+	if *updateGoldens {
 		require.NoError(t, os.MkdirAll("testdata", 0o750))
 		require.NoError(t, os.WriteFile(path, []byte(got), 0o600))
 

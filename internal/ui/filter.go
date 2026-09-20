@@ -225,12 +225,12 @@ func placeCursor(found, cursor, length int) int {
 	return clampCursor(cursor, length)
 }
 
-func (m model) filterView() string {
-	return m.filter.view(paint.Panel)
-}
-
 // view draws the search line whether or not there is a search.
 func (f filterState) view(palette paint.Palette) string {
+	return f.line(palette) + "\n\n"
+}
+
+func (f filterState) line(palette paint.Palette) string {
 	query := f.query
 	if f.broken {
 		query = palette.Broken().Render(query)
@@ -246,7 +246,7 @@ func (f filterState) view(palette paint.Palette) string {
 		line += palette.Cursor().Render("▏")
 	}
 
-	return line + "\n\n"
+	return line
 }
 
 // matchAt is the row a search lands on, counted from the row given: zero is the first match at
