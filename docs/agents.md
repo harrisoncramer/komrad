@@ -48,13 +48,19 @@ Because they all edit the one checkout, one agent may hold only a few children a
 
 Metadata is how an agent records what a person would want to open later. It is a set of key/value rows on the agent, written by the agent.
 
-The panel shows those in the details under the list, after what the agent was launched with, and agents write them with `set_agent_metadata`, keyed on their own id from `WEAVE_AGENT_ID` environment variable.
+The panel shows those in the details under the list, after what the agent was launched with, and agents write them with `set_agent_metadata`, keyed on their own id from `WEAVE_AGENT_ID` environment variable. The key `pr` is refused: a pull request is read from the forge and shown on the row on its own, so there is nothing for an agent to record.
+
+## Pull requests
+
+The third glyph on an agent's row is the pull request opened from its branch, read from the forge by the [pull request sync](forges.md#reading-pull-requests). The row shows one, the current one: the newest opened that is not finished, else the newest opened of the finished. Open is the pull request glyph greyed, approved is a green check, changes requested is the pull request glyph in yellow, a draft has its own glyph greyed, merged is purple, and closed without merging is red. Nothing is drawn while the repository has not been read yet, or once it has and nothing was opened from the branch; the details under the list say which.
+
+The details carry a `pull request` row for the current one, "#740 merged 2h ago", and a `pull requests` row listing the rest when the branch holds more than one. `list_agent_pull_requests` over [MCP](mcp.md) answers the same listing.
 
 ## The git menu
 
-`b`, for branch, draws the git actions beside the list: `r` rebases the hovered agent's worktree onto the latest base. It is picked with its own letter or with the cursor, and `esc` leaves without doing anything.
+`b`, for branch, draws the git actions beside the list: `r` rebases the hovered agent's worktree onto the latest base, and `o` opens the current pull request in your browser. An entry is picked with its own letter or with the cursor, and `esc` leaves without doing anything.
 
-An entry that would do nothing on this agent says so in the menu rather than leaving the key dead. An agent whose workflow makes no worktrees has no base to rebase onto.
+An entry that would do nothing on this agent says so in the menu rather than leaving the key dead. An agent whose workflow makes no worktrees has no base to rebase onto, and one whose branch has no pull request has none to open.
 
 ## Marks
 
