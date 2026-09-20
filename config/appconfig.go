@@ -267,7 +267,7 @@ func FixedFormKeys() FormKeys {
 		Editor:  []string{"ctrl+e"},
 		Quit:    []string{"ctrl+c"},
 		Submit:  []string{"ctrl+s"},
-		SendNow: []string{"ctrl+n"},
+		SendNow: []string{"ctrl+x"},
 	}
 }
 
