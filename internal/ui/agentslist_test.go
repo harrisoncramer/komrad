@@ -2,8 +2,8 @@ package ui
 
 import (
 	"fmt"
+	"regexp"
 	"slices"
-	"strings"
 	"testing"
 
 	"weave/config"
@@ -115,7 +115,7 @@ func TestAgentsListWindowsALongList(t *testing.T) {
 			assert.Contains(t, drawn, tt.want, "the row the cursor stands on is inside the window")
 
 			for _, marker := range []string{"↑", "↓"} {
-				assert.Equal(t, slices.Contains(tt.markers, marker), strings.Contains(drawn, marker),
+				assert.Equal(t, slices.Contains(tt.markers, marker), regexp.MustCompile(marker+` \d+ more`).MatchString(drawn),
 					"the %q marker", marker)
 			}
 		})

@@ -1,0 +1,28 @@
+[1;34mAgents and Workflows[0m
+
+[90m/[0m 
+[90m↑↓[0m   ↓ created  [90mactivity[0m  [90mname[0m
+
+          [90m│[0m [1mweave[0m
+[34m›[0m   [90m[0m [90m[0m   [97m┃[0m   [34mworktree-view[0m
+    [90m[0m [90m[0m   [90m│[0m   review-607
+
+
+
+
+
+[90m────────────────────────────────────────────[0m
+[1;34m› [0m[90mname      [0m worktree-view
+  [90magent     [0m claude
+  [90mdirectory [0m /trees/live
+  [90mflags     [0m —
+  [90magent_id  [0m live
+  [90msession_id[0m —
+
+
+
+[90m────────────────────────────────────────────[0m
+[92m✔[0m No messages
+[90m  Weave is running normally[0m
+[90m────────────────────────────────────────────[0m
+[90menter[0m [90mopen[0m[90m • [0m[90m?[0m [90mshow help[0m

@@ -304,7 +304,7 @@ func TestDetailsNeedsRoomForChromeAndAField(t *testing.T) {
 	m.height = 4
 	assert.Empty(t, m.detailsView(), "half the pane cannot fit the chrome, let alone a field beside it")
 
-	m.height = 11
+	m.height = 13
 	assert.NotEmpty(t, m.detailsView(), "half the pane now fits the chrome and one field, with a row left for the list")
 }
 

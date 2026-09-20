@@ -193,7 +193,7 @@ func TestNoticesKeepTheRecordsHeight(t *testing.T) {
 // not fit are dropped, and the fields keep a line.
 func TestNoticesGiveUpBeforeTheFields(t *testing.T) {
 	m := detailsModel(&recordingTmux{})
-	m.height, m.width = 12, 40
+	m.height, m.width = 13, 40
 	m.listing.agents[0].agent.WorktreeRemoved = true
 	m.listing.agents[0].unreadMail = true
 	m.listing.agents[0].failedRun = true
@@ -209,7 +209,7 @@ func TestNoticesGiveUpBeforeTheFields(t *testing.T) {
 // notice is drawn as far as it goes and says so.
 func TestNoticesCutTheFirstOneShort(t *testing.T) {
 	m := detailsModel(&recordingTmux{})
-	m.height, m.width = 12, 24
+	m.height, m.width = 13, 24
 	m.listing.agents[0].failedRun = true
 
 	drawn := m.detailsView()

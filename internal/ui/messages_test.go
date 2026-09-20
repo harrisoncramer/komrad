@@ -60,9 +60,9 @@ func TestMessagesRegionFitsTheMessage(t *testing.T) {
 // dropped rather than drawn past the bottom of the list.
 func TestMessagesRegionGivesUpAShortPane(t *testing.T) {
 	m := detailsModel(&recordingTmux{})
-	m.height, m.width = 12, 60
+	m.height, m.width = 13, 60
 
-	assert.Empty(t, m.messagesRegion(m.detailsView(), m.renderHelp(m.agentHelp())))
+	assert.Empty(t, m.messagesRegion(m.detailsView(), m.renderHelp(m.agentHelp()), m.agentsHeader()))
 }
 
 // TestMessagesStackKeepsWhatCameBefore covers the stack: a second failure does not erase the
