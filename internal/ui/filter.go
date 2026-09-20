@@ -359,9 +359,6 @@ func (f filterState) line(palette paint.Palette) string {
 	}
 
 	slash := palette.Cursor()
-	if f.mode == filterModeFilter {
-		slash = palette.Match()
-	}
 	if !f.typing && !f.isStanding() {
 		slash = dimStyle
 	}

@@ -179,9 +179,9 @@ func TestFilterEscapeDropsTheMode(t *testing.T) {
 	}
 }
 
-// TestFilterGlyphTakesTheMatchColour covers the funnel drawn in the colour the matches are lit
-// in, which is the second thing besides its shape that says the list is narrowed.
-func TestFilterGlyphTakesTheMatchColour(t *testing.T) {
+// TestFilterGlyphTakesTheCursorColour covers the funnel drawn in the cursor's colour like the
+// slash, so its shape alone says the list is narrowed.
+func TestFilterGlyphTakesTheCursorColour(t *testing.T) {
 	restore := lipgloss.ColorProfile()
 	lipgloss.SetColorProfile(termenv.TrueColor)
 	t.Cleanup(func() { lipgloss.SetColorProfile(restore) })
@@ -190,8 +190,8 @@ func TestFilterGlyphTakesTheMatchColour(t *testing.T) {
 	m.filter.typing = true
 	m.filter.mode = filterModeFilter
 
-	assert.Contains(t, m.filter.line(paint.Panel), paint.Panel.Match().Render("▽"))
-	assert.NotContains(t, m.filter.line(paint.Panel), paint.Panel.Cursor().Render("▽"))
+	assert.Contains(t, m.filter.line(paint.Panel), paint.Panel.Cursor().Render("▽"))
+	assert.NotContains(t, m.filter.line(paint.Panel), paint.Panel.Match().Render("▽"))
 }
 
 // TestFilterHelpNamesTheOtherMode covers the legend under the input saying what tab would

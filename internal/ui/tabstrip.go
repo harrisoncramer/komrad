@@ -86,6 +86,8 @@ func (s tabStrip) view(state tabsState, palette paint.Palette, width int) string
 		text := state.direction.glyph() + " " + option.label
 		if state.focused {
 			text = palette.Cursor().Render(text)
+		} else {
+			text = muted.Render(text)
 		}
 		parts = append(parts, text)
 	}

@@ -36,8 +36,8 @@ func withANSI(t *testing.T) {
 }
 
 // TestTabStripDrawsTheChosenTabInTheTonesOfItsFocus covers the title always muted, the chosen tab
-// carrying its arrow and drawn plain while the list holds the keys and in the cursor's accent
-// while the strip does, and every other tab muted.
+// carrying its arrow and muted like the rest while the list holds the keys, and drawn in the
+// cursor's accent while the strip does.
 func TestTabStripDrawsTheChosenTabInTheTonesOfItsFocus(t *testing.T) {
 	withANSI(t)
 
@@ -52,12 +52,12 @@ func TestTabStripDrawsTheChosenTabInTheTonesOfItsFocus(t *testing.T) {
 		{
 			name:  "the zero state is the fallback with its arrow down, on the list's keys",
 			state: tabsState{},
-			want:  " " + muted.Render("↑↓") + "   ↓ size  " + muted.Render("age") + "  " + muted.Render("name"),
+			want:  " " + muted.Render("↑↓") + "   " + muted.Render("↓ size") + "  " + muted.Render("age") + "  " + muted.Render("name"),
 		},
 		{
 			name:  "a chosen tab keeps its arrow when the list holds the keys",
 			state: tabsState{chosen: "age", direction: tabUp},
-			want:  " " + muted.Render("↑↓") + "   " + muted.Render("size") + "  ↑ age  " + muted.Render("name"),
+			want:  " " + muted.Render("↑↓") + "   " + muted.Render("size") + "  " + muted.Render("↑ age") + "  " + muted.Render("name"),
 		},
 		{
 			name:  "the strip holding the keys draws the chosen tab in the accent",
@@ -67,7 +67,7 @@ func TestTabStripDrawsTheChosenTabInTheTonesOfItsFocus(t *testing.T) {
 		{
 			name:  "a choice the strip does not hold falls back",
 			state: tabsState{chosen: "gone"},
-			want:  " " + muted.Render("↑↓") + "   ↓ size  " + muted.Render("age") + "  " + muted.Render("name"),
+			want:  " " + muted.Render("↑↓") + "   " + muted.Render("↓ size") + "  " + muted.Render("age") + "  " + muted.Render("name"),
 		},
 	}
 
