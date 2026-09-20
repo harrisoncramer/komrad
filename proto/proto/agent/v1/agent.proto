@@ -9,6 +9,7 @@ import "annotation/v1/tool.proto";
 import "buf/validate/validate.proto";
 import "google/protobuf/empty.proto";
 import "pagination/v1/pagination.proto";
+import "pullrequest/v1/pullrequest.proto";
 import "rules/v1/rules.proto";
 import "view/v1/view.proto";
 
@@ -93,6 +94,21 @@ message Agent {
   ReviewTreeStanding local_review_tree = 34;
   // When a person stopped this agent and took its worktree, empty while nobody is holding it.
   string held_at = 35;
+  // Where the pull request opened from its branch stands, which is what the panel's forge
+  // column draws.
+  PullRequestStanding pull_request = 38;
+}
+
+message PullRequestStanding {
+  // Where the current pull request stands: UNREAD when the repository has not been read, NONE
+  // when it has and nothing was opened from the branch, else the state of the current one.
+  pullrequest.v1.PullRequestState state = 1;
+  // The number of the current pull request, unset for UNREAD and NONE.
+  optional int32 number = 2;
+  // The web address of the current pull request, unset for UNREAD and NONE.
+  optional string url = 3;
+  // The title of the current pull request, unset for UNREAD and NONE.
+  optional string title = 4;
 }
 
 message AgentMetadata {

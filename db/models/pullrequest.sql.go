@@ -190,6 +190,68 @@ func (q *Queries) GetPullRequestSync(ctx context.Context, repositoryUrl string) 
 	return &i, err
 }
 
+const listAgentBranchPullRequests = `-- name: ListAgentBranchPullRequests :many
+SELECT
+    p.id, p.host, p.forge, p.provider_id, p.url, p.repository_url, p.head_repository_url, p.number, p.title, p.head_branch, p.head_sha, p.base_branch, p.base_sha, p.draft, p.state, p.opened_at, p.changed_at, p.merged_at, p.closed_at, p.first_seen_at, p.review_decision, p.decision_read_at
+FROM
+    agents a
+    JOIN pull_requests p ON p.repository_url = a.repository_url
+        AND p.head_repository_url = a.repository_url
+        AND p.head_branch = a.branch
+    JOIN workflows w ON w.id = a.workflow_id
+    LEFT JOIN workflow_provisioner_configs c ON c.id = w.provisioner_config_id
+WHERE
+    a.id = $1
+    AND (c.worktree_base_branch IS NULL
+        OR c.worktree_base_branch = ''
+        OR a.branch <> c.worktree_base_branch)
+ORDER BY
+    p.opened_at DESC
+`
+
+func (q *Queries) ListAgentBranchPullRequests(ctx context.Context, agentID string) ([]*PullRequest, error) {
+	rows, err := q.db.Query(ctx, listAgentBranchPullRequests, agentID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []*PullRequest
+	for rows.Next() {
+		var i PullRequest
+		if err := rows.Scan(
+			&i.ID,
+			&i.Host,
+			&i.Forge,
+			&i.ProviderID,
+			&i.Url,
+			&i.RepositoryUrl,
+			&i.HeadRepositoryUrl,
+			&i.Number,
+			&i.Title,
+			&i.HeadBranch,
+			&i.HeadSha,
+			&i.BaseBranch,
+			&i.BaseSha,
+			&i.Draft,
+			&i.State,
+			&i.OpenedAt,
+			&i.ChangedAt,
+			&i.MergedAt,
+			&i.ClosedAt,
+			&i.FirstSeenAt,
+			&i.ReviewDecision,
+			&i.DecisionReadAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listAgentPullRequests = `-- name: ListAgentPullRequests :many
 SELECT
     o.agent_id,
