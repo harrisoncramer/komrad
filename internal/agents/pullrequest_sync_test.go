@@ -909,6 +909,44 @@ func TestSyncSaysAMissingRepositoryOnce(t *testing.T) {
 	assert.Equal(t, 2, strings.Count(logged.String(), "the forge has no such repository"), "a repository found and lost again is said again")
 }
 
+// TestSyncSkipsARefusedCredential covers the forge refusing the credential: the pass stops
+// asking the host, the refusal is said once, a connection the forge has refused is not asked
+// at all until it is verified again, and it is said again after a later refusal.
+func TestSyncSkipsARefusedCredential(t *testing.T) {
+	f, _ := sweptFixture(t)
+	f.agentIn(t, "b", otherRepository, "agent/y")
+	f.forge.refuse = fmt.Errorf("%w: bad credentials", forge.ErrUnauthorized)
+	var logged bytes.Buffer
+	ctx := logging.WithLogger(t.Context(), slog.New(slog.NewTextHandler(&logged, nil)))
+
+	f.now = syncNow.Add(time.Minute)
+	f.forge.requests = nil
+	require.NoError(t, f.syncer.Sync(ctx))
+
+	assert.Len(t, f.forge.requests, 1, "the first refusal stops the host for the pass")
+	assert.Equal(t, 1, strings.Count(logged.String(), "the forge refused the connection's credential"))
+
+	connection, err := f.connections.GetByHost(ctx, "github.com")
+	require.NoError(t, err)
+	require.NoError(t, f.connections.SetVerifiedAt(ctx, connection.ID, nil))
+	f.forge.requests = nil
+	require.NoError(t, f.syncer.Sync(ctx))
+	require.NoError(t, f.syncer.Sync(ctx))
+
+	assert.Empty(t, f.forge.requests, "an unverified connection is not asked")
+	assert.Equal(t, 1, strings.Count(logged.String(), "the forge refused the connection's credential"))
+
+	f.forge.refuse = nil
+	verified := f.now
+	require.NoError(t, f.connections.SetVerifiedAt(ctx, connection.ID, &verified))
+	require.NoError(t, f.syncer.Sync(ctx))
+	assert.NotEmpty(t, f.forge.requests, "a verified connection is read again")
+
+	f.forge.refuse = fmt.Errorf("%w: bad credentials", forge.ErrUnauthorized)
+	require.NoError(t, f.syncer.Sync(ctx))
+	assert.Equal(t, 2, strings.Count(logged.String(), "the forge refused the connection's credential"), "a later refusal is said again")
+}
+
 // TestSyncSkipsARepositoryWithNoConnection covers a host nobody connected: nothing is asked and
 // nothing is written.
 func TestSyncSkipsARepositoryWithNoConnection(t *testing.T) {
