@@ -132,6 +132,28 @@ func TestAnInterruptedTurnIsAskedForAgain(t *testing.T) {
 			"an unanswered tool call is no more finished than a turn still being thought about")
 	})
 
+	t.Run("an agent archived mid-turn is settled by the archive and asked again once restored", func(t *testing.T) {
+		st := newStore(t)
+		tmux := newFakeTmux()
+		agent := seedRunning(t, st, tmux, "cut", "%1", agentstore.StateThinking)
+		require.NoError(t, st.Agents.SetSessionID(t.Context(), agent.ID, sessionID))
+		service, h := newManagerWithHarness(tmux, st, "")
+
+		require.NoError(t, service.lifecycle.ArchiveAgents(t.Context(), []string{agent.ID}))
+		archived := agentByID(t, st, agent.ID)
+		assert.Equal(t, agentstore.StateIdle, archived.State, "no reconcile pass visits an archived row, so the archive settles it")
+		require.NotNil(t, archived.InterruptedAt)
+
+		_, err := service.lifecycle.RestoreAgents(t.Context(), []string{agent.ID})
+		require.NoError(t, err)
+		assert.Equal(t, agentstore.StateIdle, agentByID(t, st, agent.ID).State, "the restore brings back a settled row")
+
+		_, err = service.resume.ResumeAgent(t.Context(), agent.ID)
+		require.NoError(t, err)
+		require.Len(t, h.launches, 1)
+		assert.Equal(t, interruptedPrompt, h.launches[0].Prompt)
+	})
+
 	// What `mise run restart` does: the tmux server goes whole and weave's own server goes
 	// with it, so no reconcile pass ever watches the panes go and the store is left holding
 	// a turn that is already over.

@@ -105,7 +105,7 @@ func TestArchiveAndReuse(t *testing.T) {
 			require.NoError(t, err)
 			for _, agent := range all {
 				if agent.ID == first.ID {
-					assert.Equal(t, StateThinking, agent.State, "the archived row is left frozen")
+					assert.Equal(t, StateIdle, agent.State, "the archived row is settled, not written to")
 				}
 			}
 		})
@@ -133,6 +133,123 @@ func TestArchiveClearsPane(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, archived)
 	assert.Empty(t, archived.Pane, "an archived agent claims no pane")
+}
+
+// TestArchiveSettlesTheState covers each archive write leaving the row as the reconciler would
+// have once it saw the pane gone, with a setup the archive cut short settled the same way and
+// a failure kept.
+func TestArchiveSettlesTheState(t *testing.T) {
+	writes := map[string]func(ctx context.Context, st *fixture, agent Agent) error{
+		"by id": func(ctx context.Context, st *fixture, agent Agent) error {
+			_, err := st.Archive(ctx, []string{agent.ID})
+
+			return err
+		},
+		"by workflow": func(ctx context.Context, st *fixture, agent Agent) error {
+			_, err := st.ArchiveWorkflowAgents(ctx, agent.WorkflowID)
+
+			return err
+		},
+		"if unchanged": func(ctx context.Context, st *fixture, agent Agent) error {
+			_, err := st.ArchiveIfUnchanged(ctx, ArchiveIfUnchangedParams{ID: agent.ID, UpdatedAt: agent.UpdatedAt})
+
+			return err
+		},
+	}
+
+	tests := []struct {
+		name            string
+		state           State
+		wantState       State
+		wantInterrupted bool
+		wantReason      string
+	}{
+		{
+			name:            "thinking is a turn cut part-way",
+			state:           StateThinking,
+			wantState:       StateIdle,
+			wantInterrupted: true,
+			wantReason:      "",
+		},
+		{
+			name:            "waiting is a turn cut part-way",
+			state:           StateWaiting,
+			wantState:       StateIdle,
+			wantInterrupted: true,
+			wantReason:      "",
+		},
+		{
+			name:            "uncertain settles with no turn to ask for again",
+			state:           StateUncertain,
+			wantState:       StateIdle,
+			wantInterrupted: false,
+			wantReason:      "",
+		},
+		{
+			name:            "setting up settles with no turn to ask for again",
+			state:           StateSettingUp,
+			wantState:       StateIdle,
+			wantInterrupted: false,
+			wantReason:      "",
+		},
+		{
+			name:            "idle stays as it was",
+			state:           StateIdle,
+			wantState:       StateIdle,
+			wantInterrupted: false,
+			wantReason:      "reading",
+		},
+		{
+			name:            "a failed create keeps its failure",
+			state:           StateFailedToCreate,
+			wantState:       StateFailedToCreate,
+			wantInterrupted: false,
+			wantReason:      "reading",
+		},
+	}
+
+	for via, archive := range writes {
+		t.Run(via, func(t *testing.T) {
+			for _, tt := range tests {
+				t.Run(tt.name, func(t *testing.T) {
+					st := open(t)
+					ctx := t.Context()
+
+					require.NoError(t, st.Create(ctx, Agent{
+						Name:  "agent",
+						Pane:  "%1",
+						State: tt.state,
+					}))
+					created, err := st.Get(ctx, "agent")
+					require.NoError(t, err)
+					require.NotNil(t, created)
+					require.NoError(t, st.SetReportedReason(ctx, created.ID, "reading"))
+
+					before, err := st.GetByID(ctx, created.ID)
+					require.NoError(t, err)
+					require.NotNil(t, before)
+
+					require.NoError(t, archive(ctx, st, *before))
+
+					archived, err := st.GetByID(ctx, created.ID)
+					require.NoError(t, err)
+					require.NotNil(t, archived)
+					require.NotNil(t, archived.ArchivedAt)
+
+					assert.Equal(t, tt.wantState, archived.State)
+					assert.Equal(t, tt.wantReason, archived.ReportedReason)
+					assert.Equal(t, tt.wantInterrupted, archived.InterruptedAt != nil)
+					if tt.wantState != tt.state {
+						assert.True(t, archived.StateChangedAt.After(before.StateChangedAt), "a settled state moves the change stamp")
+						assert.True(t, archived.StateSeenAt.After(before.StateSeenAt), "a settled state is a fresh reading")
+					} else {
+						assert.Equal(t, before.StateChangedAt, archived.StateChangedAt, "a state left alone keeps its change stamp")
+						assert.Equal(t, before.StateSeenAt, archived.StateSeenAt, "a state left alone keeps its reading")
+					}
+				})
+			}
+		})
+	}
 }
 
 // TestRestore pins that undeleting by id and then upserting the same id neither collides on

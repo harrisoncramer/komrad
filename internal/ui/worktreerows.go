@@ -213,35 +213,17 @@ func worktreesSnapshot(params worktreesSnapshotParams) view.Snapshot {
 // worktreeAgentFacts is what a row says about the agent behind it, read off the agents listing
 // where it holds the agent and off the worktree listing where it does not yet.
 func worktreeAgentFacts(row view.Row, agent worktreeAgent, live map[string]agentItem) view.Row {
-	if item, ok := live[agent.id]; ok {
-		return agentFacts(row, item)
+	item, ok := live[agent.id]
+	if !ok {
+		item = agentItem{agent: agentstore.Agent{
+			ID:         agent.id,
+			Name:       agent.name,
+			State:      agent.state,
+			ArchivedAt: agent.archivedAt,
+		}}
 	}
 
-	row.Archived = agent.archivedAt != nil
-	row.Status = worktreeStatus(agent.state)
-	row.Process = view.ProcessStopped
-	if !row.Archived && agent.state != agentstore.StateFailedToCleanup {
-		row.Process = view.ProcessAlive
-	}
-
-	return row
-}
-
-// worktreeStatus is what an agent the agents listing does not hold is doing, read off the
-// state the worktree listing carried.
-func worktreeStatus(state agentstore.State) view.Status {
-	switch state {
-	case agentstore.StateThinking, agentstore.StateSettingUp:
-		return view.StatusThinking
-	case agentstore.StateWaiting, agentstore.StateUncertain:
-		return view.StatusWaiting
-	case agentstore.StateFailedToCreate, agentstore.StateFailedToCleanup:
-		return view.StatusBroken
-	case agentstore.StateIdle:
-		return view.StatusIdle
-	}
-
-	return view.StatusIdle
+	return agentFacts(row, item)
 }
 
 func repoStanding(item worktreeItem) view.Repo {
