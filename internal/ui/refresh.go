@@ -280,6 +280,8 @@ type writeResult struct {
 	epoch int
 	// released is the agent a landed release let go.
 	released *released
+	// queued is what to say once a write that queues a background job has landed.
+	queued *message
 }
 
 type released struct {
@@ -426,6 +428,24 @@ func (m *model) releaseInSilenceCmd(summary string, agent agentstore.Agent) tea.
 	}), let)
 }
 
+// queuedCmd runs a write that queues a background job and says so once it has landed.
+func (m *model) queuedCmd(summary string, queued message, write func(api) error) tea.Cmd {
+	cmd := m.writeCmd(summary, write)
+
+	return func() tea.Msg {
+		msg := cmd()
+
+		result, ok := msg.(writeResult)
+		if !ok {
+			return msg
+		}
+
+		result.queued = &queued
+
+		return result
+	}
+}
+
 // stampRelease says on a write's result which agent it let go and which files it carried.
 func stampRelease(cmd tea.Cmd, let released) tea.Cmd {
 	return func() tea.Msg {
@@ -564,6 +584,10 @@ func (m model) applyWrite(result writeResult) (tea.Model, tea.Cmd) {
 	m.pending--
 
 	m.report(result.summary, result.err)
+
+	if result.queued != nil && result.err == nil {
+		m.pushMessage(*result.queued)
+	}
 
 	if result.released != nil && result.err == nil {
 		m.forgetSpoken(result.released.id, result.released.files)

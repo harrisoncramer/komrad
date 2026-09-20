@@ -270,8 +270,8 @@ func (r *recordingWorktrees) DeleteWorktrees(_ context.Context, req *connect.Req
 }
 
 // TestConfirmingAWorktreeDeleteQueuesOneJob covers the clear key's prompt sending every
-// directory that can go as one call, the archived and the unowned alike, and a refusal
-// landing in the message region.
+// directory that can go as one call, the archived and the unowned alike, the queued job being
+// announced, and a refusal landing in the message region.
 func TestConfirmingAWorktreeDeleteQueuesOneJob(t *testing.T) {
 	tests := []struct {
 		name       string
@@ -327,13 +327,18 @@ func TestConfirmingAWorktreeDeleteQueuesOneJob(t *testing.T) {
 
 			assert.Equal(t, tt.wantQueued, client.queued)
 			assert.False(t, got.form.isActive(), "the prompt is down")
-			if tt.wantErr {
+			switch {
+			case tt.wantErr:
 				require.NotEmpty(t, got.messages.items)
+				assert.Equal(t, messageError, got.messages.items[0].kind)
 				assert.Contains(t, got.messages.items[0].summary, "Could not delete 4 worktrees")
-
-				return
+			case tt.wantQueued != nil:
+				require.NotEmpty(t, got.messages.items, "the queued delete is announced")
+				assert.Equal(t, messageInfo, got.messages.items[0].kind)
+				assert.Equal(t, "Deleting 4 worktrees", got.messages.items[0].summary)
+			default:
+				assert.Empty(t, got.messages.items)
 			}
-			assert.Empty(t, got.messages.items)
 		})
 	}
 }

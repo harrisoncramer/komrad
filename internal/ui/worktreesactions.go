@@ -483,12 +483,15 @@ func (m model) keepsBranch(deletion worktreeDeletion) *bool {
 // deleteWorktreesCmd queues the deletion as one background job.
 func (m *model) deleteWorktreesCmd(deletion worktreeDeletion) tea.Cmd {
 	dirs := xslice.Map(slices.Concat(deletion.agents, deletion.unowned), func(item worktreeItem) string { return item.dir })
+	subject := countWord(len(dirs), "worktree", "worktrees")
 
-	return m.writeCmd(describeDeletion(deletion), func(a api) error {
-		return a.deleteWorktrees(dirs)
-	})
-}
-
-func describeDeletion(deletion worktreeDeletion) string {
-	return fmt.Sprintf("Could not delete %s", countWord(len(deletion.agents)+len(deletion.unowned), "worktree", "worktrees"))
+	return m.queuedCmd(
+		"Could not delete "+subject,
+		message{
+			kind:    messageInfo,
+			summary: "Deleting " + subject,
+			detail:  "A background job is taking the directories. The rows leave the list as it goes, and one it refuses stays, with the reason in the log.",
+		},
+		func(a api) error { return a.deleteWorktrees(dirs) },
+	)
 }

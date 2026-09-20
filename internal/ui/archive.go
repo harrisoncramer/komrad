@@ -303,8 +303,13 @@ func (m model) emptyArchiveConfirm() (tea.Model, tea.Cmd) {
 				return m, nil
 			}
 
-			return m, m.writeCmd(
+			return m, m.queuedCmd(
 				"Could not empty the archive",
+				message{
+					kind:    messageInfo,
+					summary: "Emptying the archive",
+					detail:  fmt.Sprintf("A background job is deleting %s, each with its worktree. The rows leave the archive as it goes.", countWord(len(m.archive.agents), "archived agent", "archived agents")),
+				},
 				func(a api) error { return a.emptyArchive() },
 			)
 		}),
