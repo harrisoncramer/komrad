@@ -808,8 +808,11 @@ func TestSyncThrottlesTheConnection(t *testing.T) {
 	f := newSyncFixture(t)
 	f.agentOn(t, "a", "agent/x")
 	f.forge.refuse = &forge.ThrottledError{}
+	var logged bytes.Buffer
+	ctx := logging.WithLogger(t.Context(), slog.New(slog.NewTextHandler(&logged, nil)))
 
-	f.sync(t)
+	require.NoError(t, f.syncer.Sync(ctx))
+	assert.Equal(t, 1, strings.Count(logged.String(), "the forge is rate limiting the connection"))
 
 	connection, err := f.connections.GetByHost(t.Context(), "github.com")
 	require.NoError(t, err)
@@ -995,6 +998,7 @@ func TestSyncBacksOffARefusedCredential(t *testing.T) {
 	f.now = f.now.Add(time.Minute)
 	require.NoError(t, f.syncer.Sync(ctx))
 	assert.Equal(t, 2, strings.Count(logged.String(), "the forge refused the connection's credential"), "a later refusal is said again")
+	assert.NotContains(t, logged.String(), "rate limiting", "a refused credential is never called a rate limit")
 }
 
 // TestSyncSkipsARepositoryWithNoConnection covers a host nobody connected: nothing is asked and

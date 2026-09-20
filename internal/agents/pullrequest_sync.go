@@ -272,8 +272,7 @@ func (s *PullRequestSyncer) step(ctx context.Context, host *hostRead, read *repo
 	case errors.Is(err, errRateLimitSpent):
 		host.throttled = true
 	case errors.As(err, &throttled):
-		host.throttled = true
-		s.recordThrottle(ctx, host.host, host.connection.ID, throttled.RetryAt)
+		s.throttleHost(ctx, host, throttled.RetryAt)
 	case errors.Is(err, forge.ErrUnauthorized):
 		s.refuseHost(ctx, host, err)
 	case errors.Is(err, forge.ErrNotFound):
@@ -288,6 +287,20 @@ func (s *PullRequestSyncer) step(ctx context.Context, host *hostRead, read *repo
 		logging.From(ctx).LogAttrs(ctx, slog.LevelError, "failed to sync the repository's pull requests",
 			append([]slog.Attr{slog.String(logging.RepositoryURL, repositoryURL)}, logging.Err(err)...)...)
 	}
+}
+
+// throttleHost stops a host for the pass after a rate limit refusal, records when to try it
+// again, and says so.
+func (s *PullRequestSyncer) throttleHost(ctx context.Context, host *hostRead, retryAt time.Time) {
+	host.throttled = true
+	until := s.recordThrottle(ctx, host.host, host.connection.ID, retryAt)
+	if until.IsZero() {
+		return
+	}
+
+	logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "the forge is rate limiting the connection",
+		slog.String(logging.ForgeHost, host.host),
+		slog.Time(logging.ThrottledUntil, until))
 }
 
 // refuseHost stops a host for the pass after the forge refused its credential, backs off the
@@ -462,8 +475,7 @@ func (s *PullRequestSyncer) search(ctx context.Context, host *hostRead) {
 	case errors.Is(err, errRateLimitSpent):
 		host.throttled = true
 	case errors.As(err, &throttled):
-		host.throttled = true
-		s.recordThrottle(ctx, host.host, host.connection.ID, throttled.RetryAt)
+		s.throttleHost(ctx, host, throttled.RetryAt)
 	case errors.Is(err, forge.ErrUnauthorized):
 		s.refuseHost(ctx, host, err)
 	default:
@@ -803,14 +815,15 @@ func (s *PullRequestSyncer) noteRateLimit(ctx context.Context, host *hostRead, l
 		return false
 	}
 
-	s.recordThrottle(ctx, host.host, host.connection.ID, limit.ResetAt)
+	s.throttleHost(ctx, host, limit.ResetAt)
 
 	return true
 }
 
 // recordThrottle writes when to try the host again, which is what the forge said or, when it
-// said nothing, a wait that doubles with every refusal in a row.
-func (s *PullRequestSyncer) recordThrottle(ctx context.Context, host, connectionID string, retryAt time.Time) {
+// said nothing, a wait that doubles with every refusal in a row, and answers it, zero when
+// the write failed.
+func (s *PullRequestSyncer) recordThrottle(ctx context.Context, host, connectionID string, retryAt time.Time) time.Time {
 	until := retryAt
 	if until.IsZero() {
 		wait := pullRequestThrottleFloor
@@ -824,12 +837,10 @@ func (s *PullRequestSyncer) recordThrottle(ctx context.Context, host, connection
 	if err := s.forges.SetThrottledUntil(ctx, connectionID, &until); err != nil {
 		logging.From(ctx).LogAttrs(ctx, slog.LevelError, "failed to record the forge's rate limit", logging.Err(err)...)
 
-		return
+		return time.Time{}
 	}
 
-	logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "the forge is rate limiting the connection",
-		slog.String(logging.ForgeHost, host),
-		slog.Time(logging.ThrottledUntil, until))
+	return until
 }
 
 // toUpsert is a pull request as the forge described it, in the store's terms.
