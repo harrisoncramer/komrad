@@ -88,8 +88,8 @@ func openPullRequest(providerID string, number int, branch string) UpsertParams 
 		BaseBranch:        "main",
 		BaseSHA:           "def",
 		State:             "open",
-		CreatedAt:         opened,
-		UpdatedAt:         opened.Add(time.Hour),
+		OpenedAt:          opened,
+		ChangedAt:         opened.Add(time.Hour),
 	}
 }
 
@@ -112,11 +112,11 @@ func TestUpsertSaysWhatItDid(t *testing.T) {
 	assert.False(t, again.Changed, "the same row again is not written")
 
 	merged := openPullRequest("PR_1", 1, "agent/x")
-	mergedAt := merged.UpdatedAt.Add(time.Hour)
+	mergedAt := merged.ChangedAt.Add(time.Hour)
 	merged.MergedAt = &mergedAt
 	merged.ClosedAt = &mergedAt
 	merged.State = "closed"
-	merged.UpdatedAt = mergedAt
+	merged.ChangedAt = mergedAt
 	moved, err := h.Upsert(ctx, merged)
 	require.NoError(t, err)
 	assert.Equal(t, first.ID, moved.ID)
@@ -352,7 +352,7 @@ func TestListOnBranchIsNewestFirst(t *testing.T) {
 
 	first := openPullRequest("PR_1", 1, "agent/x")
 	second := openPullRequest("PR_2", 2, "agent/x")
-	second.CreatedAt = first.CreatedAt.Add(time.Hour)
+	second.OpenedAt = first.OpenedAt.Add(time.Hour)
 	second.URL = "https://github.com/harrisoncramer/weave/pull/2"
 	for _, params := range []UpsertParams{first, second} {
 		_, err := h.Upsert(ctx, params)

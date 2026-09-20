@@ -121,7 +121,7 @@ func (q *Queries) GetBranchScan(ctx context.Context, arg GetBranchScanParams) (*
 
 const getPullRequestByIdentity = `-- name: GetPullRequestByIdentity :one
 SELECT
-    id, host, forge, provider_id, url, repository_url, head_repository_url, number, title, head_branch, head_sha, base_branch, base_sha, draft, state, created_at, updated_at, merged_at, closed_at, first_seen_at
+    id, host, forge, provider_id, url, repository_url, head_repository_url, number, title, head_branch, head_sha, base_branch, base_sha, draft, state, opened_at, changed_at, merged_at, closed_at, first_seen_at
 FROM
     pull_requests
 WHERE
@@ -153,8 +153,8 @@ func (q *Queries) GetPullRequestByIdentity(ctx context.Context, arg GetPullReque
 		&i.BaseSha,
 		&i.Draft,
 		&i.State,
-		&i.CreatedAt,
-		&i.UpdatedAt,
+		&i.OpenedAt,
+		&i.ChangedAt,
 		&i.MergedAt,
 		&i.ClosedAt,
 		&i.FirstSeenAt,
@@ -262,14 +262,14 @@ func (q *Queries) ListLiveRepositories(ctx context.Context) ([]*string, error) {
 
 const listPullRequestsOnBranch = `-- name: ListPullRequestsOnBranch :many
 SELECT
-    id, host, forge, provider_id, url, repository_url, head_repository_url, number, title, head_branch, head_sha, base_branch, base_sha, draft, state, created_at, updated_at, merged_at, closed_at, first_seen_at
+    id, host, forge, provider_id, url, repository_url, head_repository_url, number, title, head_branch, head_sha, base_branch, base_sha, draft, state, opened_at, changed_at, merged_at, closed_at, first_seen_at
 FROM
     pull_requests
 WHERE
     repository_url = $1
     AND head_branch = $2
 ORDER BY
-    created_at DESC
+    opened_at DESC
 `
 
 type ListPullRequestsOnBranchParams struct {
@@ -302,8 +302,8 @@ func (q *Queries) ListPullRequestsOnBranch(ctx context.Context, arg ListPullRequ
 			&i.BaseSha,
 			&i.Draft,
 			&i.State,
-			&i.CreatedAt,
-			&i.UpdatedAt,
+			&i.OpenedAt,
+			&i.ChangedAt,
 			&i.MergedAt,
 			&i.ClosedAt,
 			&i.FirstSeenAt,
@@ -499,8 +499,8 @@ WITH written AS (
         base_sha,
         draft,
         state,
-        created_at,
-        updated_at,
+        opened_at,
+        changed_at,
         merged_at,
         closed_at)
     VALUES (
@@ -537,8 +537,8 @@ ON CONFLICT (
         base_sha = EXCLUDED.base_sha,
         draft = EXCLUDED.draft,
         state = EXCLUDED.state,
-        created_at = EXCLUDED.created_at,
-        updated_at = EXCLUDED.updated_at,
+        opened_at = EXCLUDED.opened_at,
+        changed_at = EXCLUDED.changed_at,
         merged_at = EXCLUDED.merged_at,
         closed_at = EXCLUDED.closed_at
     WHERE (
@@ -553,8 +553,8 @@ ON CONFLICT (
         pull_requests.base_sha,
         pull_requests.draft,
         pull_requests.state,
-        pull_requests.created_at,
-        pull_requests.updated_at,
+        pull_requests.opened_at,
+        pull_requests.changed_at,
         pull_requests.merged_at,
         pull_requests.closed_at) IS DISTINCT FROM (
         EXCLUDED.url,
@@ -568,8 +568,8 @@ ON CONFLICT (
         EXCLUDED.base_sha,
         EXCLUDED.draft,
         EXCLUDED.state,
-        EXCLUDED.created_at,
-        EXCLUDED.updated_at,
+        EXCLUDED.opened_at,
+        EXCLUDED.changed_at,
         EXCLUDED.merged_at,
         EXCLUDED.closed_at)
 RETURNING
@@ -613,8 +613,8 @@ type UpsertPullRequestParams struct {
 	BaseSha           string
 	Draft             bool
 	State             string
-	CreatedAt         time.Time
-	UpdatedAt         time.Time
+	OpenedAt          time.Time
+	ChangedAt         time.Time
 	MergedAt          *time.Time
 	ClosedAt          *time.Time
 }
@@ -641,8 +641,8 @@ func (q *Queries) UpsertPullRequest(ctx context.Context, arg UpsertPullRequestPa
 		arg.BaseSha,
 		arg.Draft,
 		arg.State,
-		arg.CreatedAt,
-		arg.UpdatedAt,
+		arg.OpenedAt,
+		arg.ChangedAt,
 		arg.MergedAt,
 		arg.ClosedAt,
 	)

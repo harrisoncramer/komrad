@@ -452,8 +452,8 @@ func toUpsert(pullRequest forge.PullRequest) pullrequeststore.UpsertParams {
 		BaseSHA:           pullRequest.BaseSHA,
 		Draft:             pullRequest.Draft,
 		State:             pullRequest.State,
-		CreatedAt:         pullRequest.CreatedAt,
-		UpdatedAt:         pullRequest.UpdatedAt,
+		OpenedAt:          pullRequest.CreatedAt,
+		ChangedAt:         pullRequest.UpdatedAt,
 		MergedAt:          pullRequest.MergedAt,
 		ClosedAt:          pullRequest.ClosedAt,
 	}

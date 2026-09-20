@@ -38,10 +38,10 @@ type PullRequest struct {
 	Draft      bool
 	// State is the forge's own word, kept verbatim.
 	State string
-	// CreatedAt is when the forge says it was opened.
-	CreatedAt time.Time
-	// UpdatedAt is the forge's last-change stamp.
-	UpdatedAt   time.Time
+	// OpenedAt is when the forge says it was opened.
+	OpenedAt time.Time
+	// ChangedAt is the forge's last-change stamp.
+	ChangedAt   time.Time
 	MergedAt    *time.Time
 	ClosedAt    *time.Time
 	FirstSeenAt time.Time
@@ -69,8 +69,8 @@ type UpsertParams struct {
 	BaseSHA           string
 	Draft             bool
 	State             string
-	CreatedAt         time.Time
-	UpdatedAt         time.Time
+	OpenedAt          time.Time
+	ChangedAt         time.Time
 	MergedAt          *time.Time
 	ClosedAt          *time.Time
 }
@@ -95,7 +95,7 @@ type Observation struct {
 // Sync is where the sync is for one repository.
 type Sync struct {
 	RepositoryURL string
-	// UpdatedThrough is the newest forge updated_at the last completed sweep covered.
+	// UpdatedThrough is the newest forge changed_at the last completed sweep covered.
 	UpdatedThrough *time.Time
 	// ETag is what page one answered on the last completed sweep.
 	ETag string
@@ -103,7 +103,7 @@ type Sync struct {
 	ValidatedAt *time.Time
 	// SweepNextPage is the next page a sweep in progress has not yet written, nil between sweeps.
 	SweepNextPage *int
-	// SweepNewest is the updated_at of the first pull request on page one of the sweep in progress.
+	// SweepNewest is the changed_at of the first pull request on page one of the sweep in progress.
 	SweepNewest *time.Time
 	// SweepETag is what page one answered for the sweep in progress.
 	SweepETag *string
@@ -155,8 +155,8 @@ func (s *Store) Upsert(ctx context.Context, params UpsertParams) (*Outcome, erro
 		BaseSha:           params.BaseSHA,
 		Draft:             params.Draft,
 		State:             params.State,
-		CreatedAt:         params.CreatedAt,
-		UpdatedAt:         params.UpdatedAt,
+		OpenedAt:          params.OpenedAt,
+		ChangedAt:         params.ChangedAt,
 		MergedAt:          params.MergedAt,
 		ClosedAt:          params.ClosedAt,
 	})
@@ -378,7 +378,7 @@ func (s *Store) RecordSyncRequest(ctx context.Context, repositoryURL string) err
 // StartSweepParams is what page one of a sweep answered with.
 type StartSweepParams struct {
 	RepositoryURL string
-	// Newest is the updated_at of the first pull request on page one.
+	// Newest is the changed_at of the first pull request on page one.
 	Newest time.Time
 	// ETag is what page one answered.
 	ETag string
@@ -446,8 +446,8 @@ func fromRow(row *models.PullRequest) PullRequest {
 		BaseSHA:           row.BaseSha,
 		Draft:             row.Draft,
 		State:             row.State,
-		CreatedAt:         row.CreatedAt,
-		UpdatedAt:         row.UpdatedAt,
+		OpenedAt:          row.OpenedAt,
+		ChangedAt:         row.ChangedAt,
 		MergedAt:          row.MergedAt,
 		ClosedAt:          row.ClosedAt,
 		FirstSeenAt:       row.FirstSeenAt,

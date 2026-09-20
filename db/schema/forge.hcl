@@ -127,15 +127,15 @@ table "pull_requests" {
     type    = text
     comment = "The forge's own word for where it stands, kept verbatim as a cross-check on the timestamps."
   }
-  column "created_at" {
+  column "opened_at" {
     null    = false
     type    = timestamptz
     comment = "When the forge says it was opened, which is what orders the pull requests on one branch."
   }
-  column "updated_at" {
+  column "changed_at" {
     null    = false
     type    = timestamptz
-    comment = "The forge's last-change stamp, which is what the sync pages by."
+    comment = "The forge's own last-change stamp, which is what the sync pages by. It is the forge's clock and not weave's, so it is not named updated_at and carries no trigger."
   }
   column "merged_at" {
     null = true

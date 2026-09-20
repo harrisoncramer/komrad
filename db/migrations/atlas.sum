@@ -1,4 +1,4 @@
-h1:8TvjCiHV6KiqsUDDg8w4CCUPmxYYTjz223kAkr9gcz0=
+h1:36JWwpw/l3dHEQrPQLplSlh9lP/cHZsXusC2XqO+IKg=
 20260727000000_initial.sql h1:ubkXyswrZOM0CuuAD9GtwEBRjcnCAl3KY6uamudWwuY=
 20260824163026_state_seen_at.sql h1:wPnZ5xyxQrLBegwX9PP0U6LRh91JcItKfcJz1cQKUU8=
 20260825032556_add_schedule_last_result.sql h1:CpH3A88qiOKXKKb1zefqQlqI/O8DxxNpZjrsQJZ8g5Q=
@@ -53,4 +53,4 @@ h1:8TvjCiHV6KiqsUDDg8w4CCUPmxYYTjz223kAkr9gcz0=
 20260916030718_drop_archive_on_pr_closed.sql h1:vJf4dqN01Uf44HHG4y4BZIDThwyrQppUdjp2rJE1D5E=
 20260918175700_repository_url.sql h1:x/wiaZm933eUtFLGIcZI7RNscOyhw6WNAUXlmnNHWNU=
 20260918190520_forge_connections.sql h1:ihznPHIlsMNf6dMQzbIP5x0eLi6ma1MtE4BAXBAEoMo=
-20260920045344_pull_request_sync.sql h1:ghkO4aXj3PwzgvGlEiKFpwruXwxY54oJdS7UBnXCmtY=
+20260920045344_pull_request_sync.sql h1:pzA3dlXJibCEi2KwYiKqEivAPeOLnWJfLkC0H9kFhXk=

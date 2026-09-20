@@ -410,9 +410,9 @@ type PullRequest struct {
 	// The forge's own word for where it stands, kept verbatim as a cross-check on the timestamps.
 	State string
 	// When the forge says it was opened, which is what orders the pull requests on one branch.
-	CreatedAt time.Time
-	// The forge's last-change stamp, which is what the sync pages by.
-	UpdatedAt time.Time
+	OpenedAt time.Time
+	// The forge's own last-change stamp, which is what the sync pages by. It is the forge's clock and not weave's, so it is not named updated_at and carries no trigger.
+	ChangedAt time.Time
 	MergedAt  *time.Time
 	ClosedAt  *time.Time
 	// When weave first inserted the row.

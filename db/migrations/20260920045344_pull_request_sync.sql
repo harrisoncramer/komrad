@@ -64,8 +64,8 @@ CREATE TABLE "pull_requests" (
   "base_sha" text NOT NULL,
   "draft" boolean NOT NULL,
   "state" text NOT NULL,
-  "created_at" timestamptz NOT NULL,
-  "updated_at" timestamptz NOT NULL,
+  "opened_at" timestamptz NOT NULL,
+  "changed_at" timestamptz NOT NULL,
   "merged_at" timestamptz NULL,
   "closed_at" timestamptz NULL,
   "first_seen_at" timestamptz NOT NULL DEFAULT now(),
@@ -96,9 +96,9 @@ COMMENT ON COLUMN "pull_requests"."number" IS 'The per-repository number a perso
 -- Set comment to column: "state" on table: "pull_requests"
 COMMENT ON COLUMN "pull_requests"."state" IS 'The forge''s own word for where it stands, kept verbatim as a cross-check on the timestamps.';
 -- Set comment to column: "created_at" on table: "pull_requests"
-COMMENT ON COLUMN "pull_requests"."created_at" IS 'When the forge says it was opened, which is what orders the pull requests on one branch.';
+COMMENT ON COLUMN "pull_requests"."opened_at" IS 'When the forge says it was opened, which is what orders the pull requests on one branch.';
 -- Set comment to column: "updated_at" on table: "pull_requests"
-COMMENT ON COLUMN "pull_requests"."updated_at" IS 'The forge''s last-change stamp, which is what the sync pages by.';
+COMMENT ON COLUMN "pull_requests"."changed_at" IS 'The forge''s own last-change stamp, which is what the sync pages by. It is the forge''s clock and not weave''s, so it is not named updated_at and carries no trigger.';
 -- Set comment to column: "first_seen_at" on table: "pull_requests"
 COMMENT ON COLUMN "pull_requests"."first_seen_at" IS 'When weave first inserted the row.';
 -- Create "agent_pull_requests" table

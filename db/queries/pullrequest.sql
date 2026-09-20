@@ -15,8 +15,8 @@ WITH written AS (
         base_sha,
         draft,
         state,
-        created_at,
-        updated_at,
+        opened_at,
+        changed_at,
         merged_at,
         closed_at)
     VALUES (
@@ -34,8 +34,8 @@ WITH written AS (
         @base_sha,
         @draft,
         @state,
-        @created_at,
-        @updated_at,
+        @opened_at,
+        @changed_at,
         sqlc.narg('merged_at'),
         sqlc.narg('closed_at'))
 ON CONFLICT (
@@ -53,8 +53,8 @@ ON CONFLICT (
         base_sha = EXCLUDED.base_sha,
         draft = EXCLUDED.draft,
         state = EXCLUDED.state,
-        created_at = EXCLUDED.created_at,
-        updated_at = EXCLUDED.updated_at,
+        opened_at = EXCLUDED.opened_at,
+        changed_at = EXCLUDED.changed_at,
         merged_at = EXCLUDED.merged_at,
         closed_at = EXCLUDED.closed_at
     WHERE (
@@ -69,8 +69,8 @@ ON CONFLICT (
         pull_requests.base_sha,
         pull_requests.draft,
         pull_requests.state,
-        pull_requests.created_at,
-        pull_requests.updated_at,
+        pull_requests.opened_at,
+        pull_requests.changed_at,
         pull_requests.merged_at,
         pull_requests.closed_at) IS DISTINCT FROM (
         EXCLUDED.url,
@@ -84,8 +84,8 @@ ON CONFLICT (
         EXCLUDED.base_sha,
         EXCLUDED.draft,
         EXCLUDED.state,
-        EXCLUDED.created_at,
-        EXCLUDED.updated_at,
+        EXCLUDED.opened_at,
+        EXCLUDED.changed_at,
         EXCLUDED.merged_at,
         EXCLUDED.closed_at)
 RETURNING
@@ -131,7 +131,7 @@ WHERE
     repository_url = @repository_url
     AND head_branch = @head_branch
 ORDER BY
-    created_at DESC;
+    opened_at DESC;
 
 -- name: ObserveAgentPullRequests :execrows
 INSERT INTO agent_pull_requests(
