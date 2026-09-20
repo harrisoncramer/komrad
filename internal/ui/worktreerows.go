@@ -6,9 +6,11 @@ import (
 	"regexp"
 	"slices"
 	"strings"
+	"time"
 
 	agentstore "weave/internal/store/agent"
 	"weave/internal/view"
+	"weave/lib/dates"
 	"weave/lib/xslice"
 )
 
@@ -30,6 +32,12 @@ var worktreesDropped = view.Columns{
 
 // noRepository heads the directories whose .git file names nothing.
 const noRepository = "no repository"
+
+// sizeColumns and ageColumns are the widest a size and an age are spelled on a trail.
+const (
+	sizeColumns = 4
+	ageColumns  = 3
+)
 
 func (r worktreeRow) key() string {
 	if r.header {
@@ -168,6 +176,8 @@ type worktreesSnapshotParams struct {
 	barBlinkedOut bool
 	matcher       *regexp.Regexp
 	pane          int
+	// now is the moment each row's age is measured from.
+	now time.Time
 }
 
 // worktreesSnapshot reads the rows into the plain data the list draws itself from.
@@ -175,7 +185,7 @@ func worktreesSnapshot(params worktreesSnapshotParams) view.Snapshot {
 	live := xslice.KeyBy(params.live, func(item agentItem) string { return item.agent.ID })
 
 	rows := make([]view.Row, 0, len(params.rows))
-	for _, r := range params.rows {
+	for i, r := range params.rows {
 		row := view.Row{
 			Key:     r.key(),
 			Name:    r.name(),
@@ -186,9 +196,11 @@ func worktreesSnapshot(params worktreesSnapshotParams) view.Snapshot {
 		case r.header:
 			row.Kind = view.KindWorkflow
 			row.Process = view.ProcessNone
+			row.Trail = groupTrail(params.rows[i+1:], r.repo)
 		default:
 			row.Kind = view.KindAgent
 			row.Repo = repoStanding(r.item)
+			row.Trail = rowTrail(r.item, params.now)
 			if r.item.agent != nil {
 				row = worktreeAgentFacts(row, *r.item.agent, live)
 			} else {
@@ -232,6 +244,60 @@ func repoStanding(item worktreeItem) view.Repo {
 	}
 
 	return view.RepoClean
+}
+
+// rowTrail is a directory's size then its age at the right edge, the size a dash until the
+// directory has been measured.
+func rowTrail(item worktreeItem, now time.Time) string {
+	return trail(sizeLabel(item), dates.AgeAt(item.lastActiveAt, now))
+}
+
+// groupTrail is the total of the measured directories under a header, over the size column.
+func groupTrail(rest []worktreeRow, repo string) string {
+	var under []worktreeItem
+	for _, r := range rest {
+		if r.header || r.repo != repo {
+			break
+		}
+
+		under = append(under, r.item)
+	}
+
+	return trail(totalLabel(under), "")
+}
+
+func trail(size, age string) string {
+	return fmt.Sprintf("%*s %*s", sizeColumns, size, ageColumns, age)
+}
+
+// sizeLabel is what a directory takes, a dash until it has been measured or while its last
+// walk failed.
+func sizeLabel(item worktreeItem) string {
+	if item.size == nil || item.size.err != "" {
+		return "—"
+	}
+
+	return bytesLabel(item.size.bytes)
+}
+
+// totalLabel is what the measured directories take together, a dash while none is.
+func totalLabel(items []worktreeItem) string {
+	var total int64
+	measured := false
+	for _, item := range items {
+		if item.size == nil || item.size.err != "" {
+			continue
+		}
+
+		total += item.size.bytes
+		measured = true
+	}
+
+	if !measured {
+		return "—"
+	}
+
+	return bytesLabel(total)
 }
 
 // bytesLabel spells a byte count the way du does, at most four characters wide.

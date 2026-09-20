@@ -3,8 +3,8 @@ package ui
 import (
 	"fmt"
 	"slices"
-	"strconv"
 	"strings"
+	"time"
 
 	"weave/internal/ui/paint"
 	"weave/internal/view"
@@ -174,9 +174,9 @@ func (m model) worktreesHeader() string {
 	return m.talliedHeader("Worktrees", m.worktreesTally())
 }
 
-// worktreesTally is how many directories the listing holds.
+// worktreesTally is how many directories the listing holds and what the measured ones take.
 func (m model) worktreesTally() string {
-	return strconv.Itoa(len(m.worktrees.items))
+	return fmt.Sprintf("%d · %s", len(m.worktrees.items), totalLabel(m.worktrees.items))
 }
 
 func (m model) doesWorktreesFitDetails() bool {
@@ -217,6 +217,7 @@ func (m model) worktreesSnapshot(rows []worktreeRow, pane int) view.Snapshot {
 		barBlinkedOut: m.rowCursor.Blink,
 		matcher:       m.filter.pattern,
 		pane:          pane,
+		now:           time.Now(),
 	})
 }
 
@@ -233,7 +234,7 @@ func (m model) worktreesDetails() details {
 		}
 	}
 
-	return details{id: row.key(), fields: m.worktreeFields(row.item)}
+	return details{id: row.key(), fields: m.worktreeFields(row.item, time.Now())}
 }
 
 func (m model) countUnder(repo string) int {
@@ -247,11 +248,12 @@ func (m model) countUnder(repo string) int {
 	return count
 }
 
-func (m model) worktreeFields(item worktreeItem) []recordField {
+func (m model) worktreeFields(item worktreeItem, now time.Time) []recordField {
 	fields := []recordField{
 		{"name", worktreeRow{item: item}.name()},
 		{"directory", item.dir},
-		{"size", m.worktreeSizeField(item)},
+		{"size", sizeField(item, now)},
+		{"last active", lastActiveField(item, now)},
 	}
 
 	if !item.readable {
@@ -281,14 +283,32 @@ func occupantsField(item worktreeItem) string {
 	return strings.Join(xslice.Map(item.occupants, func(occupant worktreeAgent) string { return occupant.name }), ", ")
 }
 
-// worktreeSizeField is what the directory held when it was last read, a dash until it has been.
-func (m model) worktreeSizeField(item worktreeItem) string {
-	read, ok := m.worktrees.inspected[item.dir]
-	if !ok || !read.answered || read.err != nil {
+// sizeField is what the directory takes and when that was measured, a dash until it has been,
+// and why the last walk failed when it did.
+func sizeField(item worktreeItem, now time.Time) string {
+	switch {
+	case item.size == nil:
+		return orDash("")
+	case item.size.err != "":
+		return fmt.Sprintf("—, could not measure: %s", item.size.err)
+	}
+
+	return fmt.Sprintf("%s, measured %s ago", bytesLabel(item.size.bytes), dates.AgeAt(item.size.measuredAt, now))
+}
+
+// lastActiveField is how long ago the directory was last touched, and whether its agent has
+// been put away.
+func lastActiveField(item worktreeItem, now time.Time) string {
+	if item.lastActiveAt.IsZero() {
 		return orDash("")
 	}
 
-	return bytesLabel(read.bytes)
+	field := dates.AgeAt(item.lastActiveAt, now) + " ago"
+	if item.agent != nil && item.agent.archivedAt != nil {
+		field += ", archived"
+	}
+
+	return field
 }
 
 // baseField spells where the branch stands against its base, or a dash when git names none.

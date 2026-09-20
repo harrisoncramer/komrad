@@ -215,15 +215,23 @@ func worktreeItemsFrom(listed *worktreev1.ListWorktreesResponse) []worktreeItem 
 
 func worktreeItemFrom(w *worktreev1.Worktree) worktreeItem {
 	item := worktreeItem{
-		dir:       w.GetDir(),
-		repoDir:   w.GetRepoDir(),
-		branch:    w.GetBranch(),
-		readable:  w.GetReadable(),
-		occupants: xslice.Map(w.GetOccupants(), worktreeAgentFrom),
+		dir:          w.GetDir(),
+		repoDir:      w.GetRepoDir(),
+		branch:       w.GetBranch(),
+		readable:     w.GetReadable(),
+		occupants:    xslice.Map(w.GetOccupants(), worktreeAgentFrom),
+		lastActiveAt: dates.Parse(w.GetLastActiveAt()),
 	}
 	if w.Agent != nil {
 		agent := worktreeAgentFrom(w.GetAgent())
 		item.agent = &agent
+	}
+	if w.MeasuredAt != nil {
+		item.size = &worktreeSize{
+			bytes:      w.GetSizeBytes(),
+			measuredAt: dates.Parse(w.GetMeasuredAt()),
+			err:        w.GetSizeError(),
+		}
 	}
 
 	return item
@@ -241,7 +249,6 @@ func worktreeAgentFrom(a *worktreev1.WorktreeAgent) worktreeAgent {
 func worktreeInspectionFrom(read *worktreev1.GetWorktreeResponse) worktreeInspection {
 	return worktreeInspection{
 		answered: true,
-		bytes:    read.GetSizeBytes(),
 		entries: xslice.Map(read.GetEntries(), func(entry *worktreev1.Entry) worktreeEntry {
 			return worktreeEntry{
 				path:  entry.GetPath(),
