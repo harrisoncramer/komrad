@@ -132,7 +132,7 @@ type Forge interface {
 	// whatever its state, or the open ones when the branch is empty.
 	List(ctx context.Context, params ListParams) (*ListResult, error)
 	// ListUpdated is one page of every pull request in the repository, whatever its state,
-	// newest change first, which is what a first sweep and the hourly listing read.
+	// newest change first.
 	ListUpdated(ctx context.Context, params ListUpdatedParams) (*ListUpdatedResult, error)
 	// ListChanged is one page of every pull request across the repositories changed at or
 	// after a moment, newest first, each carrying its review decision.

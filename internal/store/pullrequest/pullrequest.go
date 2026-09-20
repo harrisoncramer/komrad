@@ -129,7 +129,7 @@ func (s Sync) IsSweeping() bool {
 	return s.SweepCursor != nil
 }
 
-// IsSwept says whether a first sweep has completed, after which the search carries the changes.
+// IsSwept says whether a first sweep has completed.
 func (s Sync) IsSwept() bool {
 	return s.UpdatedThrough != nil
 }

@@ -137,7 +137,7 @@ func (f *Forge) Verify(ctx context.Context) (string, error) {
 }
 
 // VerifyInstallation is how many repositories the installation the credential was minted for
-// can reach, over REST, which is the one call GitHub has no GraphQL field for.
+// can reach, over REST, the one call GitHub has no GraphQL field for.
 func (f *Forge) VerifyInstallation(ctx context.Context) (int, error) {
 	var installation struct {
 		TotalCount int `json:"total_count"`
@@ -400,8 +400,7 @@ func (a *graphqlAnswer) failure() error {
 	return a.failureOutside("")
 }
 
-// failureOutside is failure with a NOT_FOUND under the named field forgiven, which is how a
-// query by alias reports one alias GitHub has nothing for.
+// failureOutside is failure with a NOT_FOUND under one alias of the named field forgiven.
 func (a *graphqlAnswer) failureOutside(field string) error {
 	for _, failure := range a.errors {
 		if failure.Type == "NOT_FOUND" {
@@ -419,7 +418,7 @@ func (a *graphqlAnswer) failureOutside(field string) error {
 }
 
 // query sends one named operation to GitHub's GraphQL endpoint, decodes its data, and turns
-// GitHub's refusals into weave's, leaving the errors beside the data for the caller to read.
+// GitHub's refusals into weave's.
 func (f *Forge) query(ctx context.Context, operation string, variables map[string]any, into any) (*graphqlAnswer, error) {
 	var envelope struct {
 		Data   json.RawMessage `json:"data"`
@@ -462,7 +461,7 @@ func operationOf(operation string) string {
 }
 
 // send makes one call with the headers every GitHub call carries and turns GitHub's refusals
-// into weave's, leaving a 404 to the caller since the two APIs mean different things by it.
+// into weave's, a 404 aside.
 func (f *Forge) send(ctx context.Context, params xhttp.JSONParams, into any) (xhttp.Answer, error) {
 	if params.Header == nil {
 		params.Header = http.Header{}

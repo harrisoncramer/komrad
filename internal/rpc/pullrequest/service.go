@@ -58,8 +58,8 @@ func NewPullRequestService(params NewPullRequestServiceParams) *PullRequestServi
 	}
 }
 
-// pageCursor is where a listing left off: the forge's own cursor for the page to read next
-// and the size the pages before it were cut at.
+// pageCursor is where a listing left off, the forge's cursor for the next page and the size
+// the pages before it were cut at.
 type pageCursor struct {
 	Cursor  string `json:"cursor"`
 	PerPage int    `json:"per_page"`

@@ -30,12 +30,12 @@ const DefaultTimeout = 30 * time.Second
 // MaxPerPage is the most GitLab hands over in one page, above which it silently trims.
 const MaxPerPage = 100
 
-// changedProjectsPerQuery is how many projects the first ListChanged query aliases, which is
-// what fits under GitLab's complexity limit at a hundred rows each.
+// changedProjectsPerQuery is how many projects the first ListChanged query aliases, the
+// measured fit under GitLab's complexity limit at a hundred rows each.
 const changedProjectsPerQuery = 2
 
-// decisionsPerQuery is how many merge requests the first ReviewDecisions query aliases, which
-// is what fits under GitLab's complexity limit.
+// decisionsPerQuery is how many merge requests the first ReviewDecisions query aliases, the
+// measured fit under GitLab's complexity limit.
 const decisionsPerQuery = 13
 
 // reviewStateRequestedChanges is the reviewer state GitLab records when one asks for changes.
@@ -77,7 +77,7 @@ const listUpdatedQuery = `query ListUpdated($path: ID!, $first: Int!, $after: St
 }
 ` + mergeRequestFragment
 
-// errTooComplex is GitLab refusing a query for its complexity, which a smaller one answers.
+// errTooComplex is GitLab refusing a query for its complexity.
 var errTooComplex = fail.Exhausted("gitlab refused the query for its complexity")
 
 // NewParams says how the forge reaches the API and as whom.
@@ -494,7 +494,7 @@ func (f *Forge) graphqlURL() string {
 }
 
 // query sends one named operation to GitLab's GraphQL endpoint, decodes its data, and turns
-// GitLab's refusals into weave's, leaving the errors beside the data for the caller to read.
+// GitLab's refusals into weave's.
 func (f *Forge) query(ctx context.Context, operation string, variables map[string]any, into any) (*graphqlAnswer, error) {
 	var envelope struct {
 		Data   json.RawMessage `json:"data"`
@@ -588,8 +588,7 @@ func messageOf(body []byte) string {
 	return strings.TrimSpace(string(body))
 }
 
-// projectPath is the full path a project is addressed by, which may run through nested
-// groups.
+// projectPath is the full path a project is addressed by.
 func projectPath(path string) (string, error) {
 	if path == "" || !strings.Contains(path, "/") || strings.HasPrefix(path, "/") || strings.HasSuffix(path, "/") {
 		return "", fmt.Errorf("%w: %q is not group/project", forge.ErrNotRepository, path)
@@ -680,8 +679,8 @@ type approvalNode struct {
 	} `json:"reviewers"`
 }
 
-// decision folds the approvals into weave's word: a reviewer asking for changes first, then
-// whether approvals are still owed, then whether anybody has approved.
+// decision folds the approvals into weave's word, a change request first, then approvals
+// still owed, then an approval given.
 func (n approvalNode) decision() forge.ReviewDecision {
 	for _, reviewer := range n.Reviewers.Nodes {
 		if reviewer.MergeRequestInteraction != nil && reviewer.MergeRequestInteraction.ReviewState == reviewStateRequestedChanges {
@@ -732,7 +731,7 @@ func (n mergeRequestNode) toPullRequest(withDecision bool) forge.PullRequest {
 	return pullRequest
 }
 
-// numberOf is the iid as a number, which GitLab's GraphQL spells as a string.
+// numberOf is the iid as a number.
 func numberOf(iid string) int {
 	number, err := strconv.Atoi(iid)
 	if err != nil {
@@ -752,8 +751,7 @@ func (n mergeRequestNode) closedAt() *time.Time {
 	return n.MergedAt
 }
 
-// stateOf is GitLab's state in the words GitHub's enum uses, so one column reads the same for
-// both.
+// stateOf is GitLab's state in the words GitHub's enum uses.
 func stateOf(state string) string {
 	if state == "opened" {
 		return "OPEN"

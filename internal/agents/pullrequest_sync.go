@@ -20,12 +20,11 @@ import (
 // may read for one host.
 const pullRequestSyncBudget = 10
 
-// pullRequestSyncOverlap is how far below the high-water mark a search reads, which is what
-// catches a second pull request sharing the mark's second and a search index running late.
+// pullRequestSyncOverlap is how far below the high-water mark a search reads.
 const pullRequestSyncOverlap = 15 * time.Minute
 
 // pullRequestSyncListing is how often page one of a repository's own listing is read behind
-// the search, which is what surfaces a repository the search has gone quiet on.
+// the search.
 const pullRequestSyncListing = time.Hour
 
 // pullRequestSyncHorizon is how far back a repository's first sweep reads.
@@ -116,19 +115,19 @@ func (s *PullRequestSyncer) Sync(ctx context.Context) error {
 	return nil
 }
 
-// hostRead is one forge host being read in a pass: the connection and forge it is read
-// through, and the repositories live agents sit on there.
+// hostRead is one forge host being read in a pass, with the connection and forge it is read
+// through and the repositories live agents sit on there.
 type hostRead struct {
 	host         string
 	connection   *forgestore.Connection
 	forge        forge.Forge
 	repositories []*repositoryRead
-	// throttled says the host's budget is spent for this pass, so nothing more is asked of it.
+	// throttled says nothing more is asked of the host this pass.
 	throttled bool
 }
 
-// repositoryRead is one repository being read in a pass: where it is, what the pass has done
-// for it so far, and the error that stopped it, if one did.
+// repositoryRead is one repository being read in a pass, with what the pass has done for it
+// and the error that stopped it.
 type repositoryRead struct {
 	remote git.RemoteURL
 	tally  *passCount
@@ -214,9 +213,8 @@ func (s *PullRequestSyncer) openHost(ctx context.Context, hostname, repositoryUR
 	}
 }
 
-// syncHost reads one host in the pass's order: a first sweep for each repository that has
-// not had one, one search over the rest, then each repository's hourly listing, branch scans
-// and decisions.
+// syncHost reads one host in the pass's order, the first sweeps, then the search, then each
+// repository's hourly listing, branch scans and decisions.
 func (s *PullRequestSyncer) syncHost(ctx context.Context, host *hostRead) {
 	for _, read := range host.repositories {
 		s.step(ctx, host, read, s.prepare)
@@ -367,9 +365,9 @@ func (s *PullRequestSyncer) reachesHorizon(pullRequests []forge.PullRequest) boo
 	return false
 }
 
-// search reads, in one listing per page, every pull request that changed across the host's
-// swept repositories since the oldest of their marks less the overlap, writes each with its
-// decision, and moves each repository's mark to what the search covered for it.
+// search reads every pull request that changed across the host's swept repositories since the
+// oldest of their marks less the overlap, writes each with its decision, and moves each
+// repository's mark to what the search covered for it.
 func (s *PullRequestSyncer) search(ctx context.Context, host *hostRead) {
 	if host.throttled {
 		return
@@ -380,85 +378,22 @@ func (s *PullRequestSyncer) search(ctx context.Context, host *hostRead) {
 		return
 	}
 
-	repos := make([]git.RemoteURL, 0, len(searched))
-	urls := make([]string, 0, len(searched))
-	since := time.Time{}
+	pass := &searchPass{
+		searchedAt: s.now(),
+		counts:     &passCount{},
+		newest:     map[string]time.Time{},
+	}
 	for _, read := range searched {
-		repos = append(repos, read.remote)
-		urls = append(urls, read.remote.Canonical())
-		if since.IsZero() || read.mark.Before(since) {
-			since = read.mark
+		pass.repos = append(pass.repos, read.remote)
+		pass.urls = append(pass.urls, read.remote.Canonical())
+		if pass.since.IsZero() || read.mark.Before(pass.since) {
+			pass.since = read.mark
 		}
 	}
-	since = since.Add(-pullRequestSyncOverlap)
+	pass.since = pass.since.Add(-pullRequestSyncOverlap)
 
-	searchedAt := s.now()
-	counts := &passCount{}
-	newest := map[string]time.Time{}
-	rows, cursor, capped := 0, "", false
 	logger := logging.From(ctx).With(slog.String(logging.ForgeHost, host.host))
-	err := func() error {
-		for page := 1; page <= pullRequestSyncBudget; page++ {
-			listed, err := host.forge.ListChanged(ctx, forge.ListChangedParams{
-				Repos:  repos,
-				Since:  since,
-				Cursor: cursor,
-			})
-			for _, repositoryURL := range urls {
-				if recordErr := s.pullRequests.RecordSyncRequest(ctx, repositoryURL); recordErr != nil {
-					return recordErr
-				}
-			}
-			if err != nil {
-				return err
-			}
-			spent := s.noteRateLimit(ctx, host, listed.RateLimit)
-
-			rows += len(listed.PullRequests)
-			for _, pullRequest := range listed.PullRequests {
-				repositoryURL := pullRequest.Repository.Canonical()
-				if pullRequest.UpdatedAt.After(newest[repositoryURL]) {
-					newest[repositoryURL] = pullRequest.UpdatedAt
-				}
-			}
-
-			final := !listed.HasMore || page == pullRequestSyncBudget
-			capped = rows >= pullRequestSearchCap || (final && listed.HasMore)
-			if err := s.writePage(ctx, listed.PullRequests, counts, func(st *pullrequeststore.Store) error {
-				switch {
-				case !final:
-					return nil
-				case capped:
-					return st.ResetSweeps(ctx, urls)
-				}
-
-				for _, repositoryURL := range urls {
-					through := searchedAt
-					if answered, ok := newest[repositoryURL]; ok {
-						through = answered
-					}
-					if err := st.AdvanceMark(ctx, repositoryURL, through); err != nil {
-						return err
-					}
-				}
-
-				return nil
-			}); err != nil {
-				return err
-			}
-			if final {
-				return nil
-			}
-			if spent {
-				return errRateLimitSpent
-			}
-
-			cursor = listed.Cursor
-		}
-
-		return nil
-	}()
-
+	err := s.searchPages(ctx, host, pass)
 	var throttled *forge.ThrottledError
 	switch {
 	case err == nil:
@@ -472,12 +407,98 @@ func (s *PullRequestSyncer) search(ctx context.Context, host *hostRead) {
 	}
 
 	logger.LogAttrs(ctx, slog.LevelInfo, "pull request search",
-		slog.Int(logging.Repositories, len(urls)),
-		slog.Int(logging.RowsInserted, counts.inserted),
-		slog.Int(logging.RowsUpdated, counts.updated),
-		slog.Int(logging.RowsListed, rows),
-		slog.Bool(logging.SearchCapped, capped),
+		slog.Int(logging.Repositories, len(pass.urls)),
+		slog.Int(logging.RowsInserted, pass.counts.inserted),
+		slog.Int(logging.RowsUpdated, pass.counts.updated),
+		slog.Int(logging.RowsListed, pass.rows),
+		slog.Bool(logging.SearchCapped, pass.capped),
 	)
+}
+
+// searchPass is one search over a host's swept repositories, and what it has answered so far.
+type searchPass struct {
+	repos      []git.RemoteURL
+	urls       []string
+	since      time.Time
+	searchedAt time.Time
+	counts     *passCount
+	// newest is the newest change the search answered for each repository.
+	newest map[string]time.Time
+	rows   int
+	// capped says the search reached the forge's cap.
+	capped bool
+}
+
+// searchPages reads the search page by page, writing each, and in the last page's commit moves
+// the marks, or hands the repositories back to a first sweep when the search was capped.
+func (s *PullRequestSyncer) searchPages(ctx context.Context, host *hostRead, pass *searchPass) error {
+	cursor := ""
+	for page := 1; page <= pullRequestSyncBudget; page++ {
+		listed, err := host.forge.ListChanged(ctx, forge.ListChangedParams{
+			Repos:  pass.repos,
+			Since:  pass.since,
+			Cursor: cursor,
+		})
+		for _, repositoryURL := range pass.urls {
+			if recordErr := s.pullRequests.RecordSyncRequest(ctx, repositoryURL); recordErr != nil {
+				return recordErr
+			}
+		}
+		if err != nil {
+			return err
+		}
+		spent := s.noteRateLimit(ctx, host, listed.RateLimit)
+
+		pass.rows += len(listed.PullRequests)
+		for _, pullRequest := range listed.PullRequests {
+			repositoryURL := pullRequest.Repository.Canonical()
+			if pullRequest.UpdatedAt.After(pass.newest[repositoryURL]) {
+				pass.newest[repositoryURL] = pullRequest.UpdatedAt
+			}
+		}
+
+		final := !listed.HasMore || page == pullRequestSyncBudget
+		pass.capped = pass.rows >= pullRequestSearchCap || (final && listed.HasMore)
+		if err := s.writePage(ctx, listed.PullRequests, pass.counts, func(st *pullrequeststore.Store) error {
+			if !final {
+				return nil
+			}
+
+			return pass.settle(ctx, st)
+		}); err != nil {
+			return err
+		}
+		if final {
+			return nil
+		}
+		if spent {
+			return errRateLimitSpent
+		}
+
+		cursor = listed.Cursor
+	}
+
+	return nil
+}
+
+// settle moves each repository's mark to what the search covered for it, or hands them all
+// back to a first sweep when the search was capped.
+func (p *searchPass) settle(ctx context.Context, st *pullrequeststore.Store) error {
+	if p.capped {
+		return st.ResetSweeps(ctx, p.urls)
+	}
+
+	for _, repositoryURL := range p.urls {
+		through := p.searchedAt
+		if answered, ok := p.newest[repositoryURL]; ok {
+			through = answered
+		}
+		if err := st.AdvanceMark(ctx, repositoryURL, through); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // sweptRead is a repository whose first sweep has completed, with its high-water mark.
@@ -506,8 +527,7 @@ func (s *PullRequestSyncer) pickSwept(ctx context.Context, host *hostRead) []swe
 	return swept
 }
 
-// list reads page one of a swept repository's own listing once an hour, which is what finds a
-// change the search never answered and a repository the credential lost.
+// list reads page one of a swept repository's own listing once an hour.
 func (s *PullRequestSyncer) list(ctx context.Context, host *hostRead, read *repositoryRead) error {
 	remote, counts := read.remote, read.tally
 	repositoryURL := remote.Canonical()
@@ -653,8 +673,7 @@ func (s *PullRequestSyncer) readDecisions(ctx context.Context, host *hostRead, r
 }
 
 // writePage upserts a page's pull requests, the decision of each that carries one, and the
-// position after it in one transaction, so a page that fails part way is written again from
-// the start.
+// position after it in one transaction.
 func (s *PullRequestSyncer) writePage(ctx context.Context, pullRequests []forge.PullRequest, counts *passCount, advance func(*pullrequeststore.Store) error) error {
 	inserted, updated := 0, 0
 	err := s.tx.InTx(ctx, func(db store.DBTX) error {
