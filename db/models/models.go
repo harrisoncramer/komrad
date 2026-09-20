@@ -417,6 +417,10 @@ type PullRequest struct {
 	ClosedAt  *time.Time
 	// When weave first inserted the row.
 	FirstSeenAt time.Time
+	// GitHub's own computed reviewDecision, APPROVED, CHANGES_REQUESTED or REVIEW_REQUIRED, null while the forge has said nothing.
+	ReviewDecision *string
+	// When the review decision was last read, stale once it is older than changed_at.
+	DecisionReadAt *time.Time
 }
 
 // Where the pull request sync is for one repository: the high-water mark of the last completed sweep, the sweep in progress if one is, and what the last pass cost.

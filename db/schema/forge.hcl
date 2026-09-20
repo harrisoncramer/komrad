@@ -151,6 +151,16 @@ table "pull_requests" {
     default = sql("now()")
     comment = "When weave first inserted the row."
   }
+  column "review_decision" {
+    null    = true
+    type    = text
+    comment = "GitHub's own computed reviewDecision, APPROVED, CHANGES_REQUESTED or REVIEW_REQUIRED, null while the forge has said nothing."
+  }
+  column "decision_read_at" {
+    null    = true
+    type    = timestamptz
+    comment = "When the review decision was last read, stale once it is older than changed_at."
+  }
   primary_key {
     columns = [column.id]
   }

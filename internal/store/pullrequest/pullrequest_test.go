@@ -365,3 +365,157 @@ func TestListOnBranchIsNewestFirst(t *testing.T) {
 	assert.Equal(t, 2, listed[0].Number)
 	assert.Equal(t, 1, listed[1].Number)
 }
+
+// finishedPullRequest is openPullRequest merged an hour after it changed.
+func finishedPullRequest(providerID string, number int, branch string) UpsertParams {
+	params := openPullRequest(providerID, number, branch)
+	mergedAt := params.ChangedAt.Add(time.Hour)
+	params.MergedAt = &mergedAt
+	params.ClosedAt = &mergedAt
+	params.State = "closed"
+	params.ChangedAt = mergedAt
+
+	return params
+}
+
+// TestListCurrentPullRequestsPicksOnePerAgent covers the choice the row stands for: the newest
+// unfinished pull request beats a newer finished one, an agent whose branch holds only finished
+// ones gets the newest of those, and an agent whose branch holds none is left out.
+func TestListCurrentPullRequestsPicksOnePerAgent(t *testing.T) {
+	h := open(t)
+	ctx := t.Context()
+
+	workflow := h.createWorkflow(t, "weave", "main")
+	unfinished := h.createAgent(t, workflow, "unfinished", weave, "agent/x")
+	finished := h.createAgent(t, workflow, "finished", weave, "agent/y")
+	h.createAgent(t, workflow, "none", weave, "agent/z")
+	h.createAgent(t, workflow, "on-main", weave, "main")
+
+	older := openPullRequest("PR_1", 1, "agent/x")
+	newerMerged := finishedPullRequest("PR_2", 2, "agent/x")
+	newerMerged.OpenedAt = older.OpenedAt.Add(time.Hour)
+	oldMerged := finishedPullRequest("PR_3", 3, "agent/y")
+	newMerged := finishedPullRequest("PR_4", 4, "agent/y")
+	newMerged.OpenedAt = oldMerged.OpenedAt.Add(time.Hour)
+	onMain := openPullRequest("PR_5", 5, "main")
+	fork := openPullRequest("PR_6", 6, "agent/z")
+	fork.HeadRepositoryURL = "https://github.com/someone/weave"
+	for _, params := range []UpsertParams{older, newerMerged, oldMerged, newMerged, onMain, fork} {
+		params.URL = "https://github.com/harrisoncramer/weave/pull/" + params.ProviderID
+		_, err := h.Upsert(ctx, params)
+		require.NoError(t, err)
+	}
+
+	current, err := h.ListCurrentPullRequests(ctx)
+	require.NoError(t, err)
+
+	byAgent := map[string]int{}
+	for _, entry := range current {
+		byAgent[entry.AgentID] = entry.PullRequest.Number
+	}
+	assert.Equal(t, map[string]int{unfinished: 1, finished: 4}, byAgent)
+}
+
+// TestListCurrentPullRequestsSkipsArchivedAgents covers that only live rows are answered.
+func TestListCurrentPullRequestsSkipsArchivedAgents(t *testing.T) {
+	h := open(t)
+	ctx := t.Context()
+
+	workflow := h.createWorkflow(t, "weave", "main")
+	archived := h.createAgent(t, workflow, "archived", weave, "agent/x")
+	_, err := h.agents.Archive(ctx, []string{archived})
+	require.NoError(t, err)
+	_, err = h.Upsert(ctx, openPullRequest("PR_1", 1, "agent/x"))
+	require.NoError(t, err)
+
+	current, err := h.ListCurrentPullRequests(ctx)
+	require.NoError(t, err)
+	assert.Empty(t, current)
+}
+
+// TestListReadRepositories covers the sync rows that tell an unread repository from one read
+// and found empty.
+func TestListReadRepositories(t *testing.T) {
+	h := open(t)
+	ctx := t.Context()
+
+	require.NoError(t, h.EnsureSync(ctx, weave))
+	require.NoError(t, h.EnsureSync(ctx, fixture))
+	require.NoError(t, h.RecordSyncRequest(ctx, fixture))
+
+	read, err := h.ListReadRepositories(ctx)
+	require.NoError(t, err)
+	assert.Equal(t, []string{fixture}, read)
+}
+
+// TestListStaleDecisionsAnswersOpenRowsOnLiveBranches covers which pull requests cost a
+// decision read: open and not draft, on a branch a live agent sits on, and never read or read
+// before the last change.
+func TestListStaleDecisionsAnswersOpenRowsOnLiveBranches(t *testing.T) {
+	h := open(t)
+	ctx := t.Context()
+
+	workflow := h.createWorkflow(t, "weave", "main")
+	h.createAgent(t, workflow, "a", weave, "agent/x")
+	archived := h.createAgent(t, workflow, "b", weave, "agent/archived")
+	_, err := h.agents.Archive(ctx, []string{archived})
+	require.NoError(t, err)
+
+	unread := openPullRequest("PR_1", 1, "agent/x")
+	readSince := openPullRequest("PR_2", 2, "agent/x")
+	changedSince := openPullRequest("PR_3", 3, "agent/x")
+	draft := openPullRequest("PR_4", 4, "agent/x")
+	draft.Draft = true
+	merged := finishedPullRequest("PR_5", 5, "agent/x")
+	noAgent := openPullRequest("PR_6", 6, "agent/nobody")
+	onArchived := openPullRequest("PR_7", 7, "agent/archived")
+	fork := openPullRequest("PR_8", 8, "agent/x")
+	fork.HeadRepositoryURL = "https://github.com/someone/weave"
+	for _, params := range []UpsertParams{unread, readSince, changedSince, draft, merged, noAgent, onArchived, fork} {
+		params.URL = "https://github.com/harrisoncramer/weave/pull/" + params.ProviderID
+		_, err := h.Upsert(ctx, params)
+		require.NoError(t, err)
+	}
+
+	for _, providerID := range []string{"PR_2", "PR_3"} {
+		stored, err := h.GetByIdentity(ctx, "github.com", providerID)
+		require.NoError(t, err)
+		require.NoError(t, h.SetReviewDecision(ctx, stored.ID, "APPROVED"))
+	}
+	changedSince.ChangedAt = time.Now().Add(time.Hour)
+	changedSince.URL = "https://github.com/harrisoncramer/weave/pull/PR_3"
+	_, err = h.Upsert(ctx, changedSince)
+	require.NoError(t, err)
+
+	stale, err := h.ListStaleDecisions(ctx, weave)
+	require.NoError(t, err)
+
+	numbers := make([]int, 0, len(stale))
+	for _, pullRequest := range stale {
+		numbers = append(numbers, pullRequest.Number)
+	}
+	assert.Equal(t, []int{3, 1}, numbers, "newest change first")
+}
+
+// TestSetReviewDecisionStampsTheRead covers the decision round trip, an empty decision
+// clearing the column while still counting as read.
+func TestSetReviewDecisionStampsTheRead(t *testing.T) {
+	h := open(t)
+	ctx := t.Context()
+
+	written, err := h.Upsert(ctx, openPullRequest("PR_1", 1, "agent/x"))
+	require.NoError(t, err)
+
+	require.NoError(t, h.SetReviewDecision(ctx, written.ID, "CHANGES_REQUESTED"))
+	stored, err := h.GetByIdentity(ctx, "github.com", "PR_1")
+	require.NoError(t, err)
+	require.NotNil(t, stored.ReviewDecision)
+	assert.Equal(t, "CHANGES_REQUESTED", *stored.ReviewDecision)
+	require.NotNil(t, stored.DecisionReadAt)
+
+	require.NoError(t, h.SetReviewDecision(ctx, written.ID, ""))
+	stored, err = h.GetByIdentity(ctx, "github.com", "PR_1")
+	require.NoError(t, err)
+	assert.Nil(t, stored.ReviewDecision)
+	assert.NotNil(t, stored.DecisionReadAt)
+}
