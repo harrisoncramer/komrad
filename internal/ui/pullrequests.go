@@ -250,7 +250,10 @@ func (m *model) openURLCmd(target string) tea.Cmd {
 	opener := m.browser
 
 	return func() tea.Msg {
-		return urlOpenedMsg{target: target, err: opener.OpenURL(context.Background(), target)}
+		ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
+		defer cancel()
+
+		return urlOpenedMsg{target: target, err: opener.OpenURL(ctx, target)}
 	}
 }
 

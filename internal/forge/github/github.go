@@ -281,7 +281,8 @@ func (f *Forge) GetReviewDecisionByNumber(ctx context.Context, repo git.RemoteUR
 		return forge.ReviewDecisionNone, err
 	}
 
-	for _, failure := range answer.Errors {
+	if len(answer.Errors) > 0 {
+		failure := answer.Errors[0]
 		if failure.Type == "NOT_FOUND" {
 			return forge.ReviewDecisionNone, fmt.Errorf("%w: github has no pull request %d in %s/%s, which is also its answer for a repository the credential cannot see", forge.ErrNotFound, pullRequestNumber, owner, name)
 		}

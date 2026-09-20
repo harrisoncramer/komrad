@@ -214,7 +214,7 @@ func (f *syncFixture) getSync(t *testing.T) *pullrequeststore.Sync {
 // numberOf is the number a scripted pull request goes by: the digits its provider id ends in,
 // or its length when it ends in none.
 func numberOf(providerID string) int {
-	digits := strings.TrimLeft(providerID, "PR_ABCDEFGHIJKLMNOPQRSTUVWXYZ")
+	digits := strings.TrimLeft(providerID, "_ABCDEFGHIJKLMNOPQRSTUVWXYZ")
 	if number, err := strconv.Atoi(digits); err == nil {
 		return number
 	}

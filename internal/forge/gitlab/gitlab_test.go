@@ -478,10 +478,10 @@ func TestGetReviewDecisionByNumber(t *testing.T) {
 			var paths []string
 			f, _, _ := serveWith(t, func(w http.ResponseWriter, r *http.Request) {
 				paths = append(paths, r.URL.EscapedPath())
-				switch {
-				case r.URL.Path == "/projects/harrisoncramer/weave/merge_requests/7/reviewers":
+				switch r.URL.Path {
+				case "/projects/harrisoncramer/weave/merge_requests/7/reviewers":
 					_, _ = w.Write([]byte(tt.reviewers))
-				case r.URL.Path == "/projects/harrisoncramer/weave/merge_requests/7/approvals":
+				case "/projects/harrisoncramer/weave/merge_requests/7/approvals":
 					_, _ = w.Write([]byte(tt.approvals))
 				default:
 					http.NotFound(w, r)

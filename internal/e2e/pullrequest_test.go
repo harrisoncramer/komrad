@@ -172,12 +172,12 @@ func fakeGitHub(t *testing.T) *fakeForge {
 	}
 
 	fake.server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		switch {
-		case r.URL.Path == "/user":
+		switch r.URL.Path {
+		case "/user":
 			writeJSON(t, w, map[string]any{"login": "harrisoncramer"})
-		case r.URL.Path == "/repos/acme/widgets/pulls":
+		case "/repos/acme/widgets/pulls":
 			writeJSON(t, w, listing)
-		case r.URL.Path == "/graphql":
+		case "/graphql":
 			fake.decisions.Add(1)
 			writeJSON(t, w, map[string]any{"data": map[string]any{"repository": map[string]any{"pullRequest": map[string]any{"reviewDecision": "APPROVED"}}}})
 		default:
