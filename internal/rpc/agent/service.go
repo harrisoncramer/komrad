@@ -74,10 +74,8 @@ type agentReadWriter interface {
 	GetByID(ctx context.Context, id string) (*agentstore.Agent, error)
 	Exists(ctx context.Context, id string) (bool, error)
 	SetHidden(ctx context.Context, id string, hidden bool) (bool, error)
-	SetViewed(ctx context.Context, id string, viewed bool) error
 	SetTurnEnded(ctx context.Context, id string) error
 	SetReportedReason(ctx context.Context, id, reason string) error
-	ListUnseenTurns(ctx context.Context) ([]string, error)
 	SetMetadata(ctx context.Context, params agentstore.SetMetadataParams) (bool, error)
 	Rename(ctx context.Context, id, name string) (bool, error)
 }
@@ -277,12 +275,6 @@ func (s *AgentService) agentFlagsFor(ctx context.Context, listed []agentstore.Ag
 	}
 	waiting := xslice.KeyBy(mailboxes, func(id string) string { return id })
 
-	unseen, err := s.agents.ListUnseenTurns(ctx)
-	if err != nil {
-		return nil, rpcerr.From(err, "failed to list the agents holding unseen turns")
-	}
-	unviewed := xslice.KeyBy(unseen, func(id string) string { return id })
-
 	tallied, err := s.review.ListTallies(ctx)
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to count the rounds of review the agents have been through")
@@ -320,7 +312,6 @@ func (s *AgentService) agentFlagsFor(ctx context.Context, listed []agentstore.Ag
 
 	return func(a agentstore.Agent) agentFlags {
 		_, hasMail := waiting[a.ID]
-		_, hasOutput := unviewed[a.ID]
 		failure, hasFailure := failed[a.ID]
 		repositoryRead := false
 		if a.RepositoryURL != nil {
@@ -331,7 +322,6 @@ func (s *AgentService) agentFlagsFor(ctx context.Context, listed []agentstore.Ag
 			mark:           marks[a.ID],
 			alive:          running[a.ID],
 			unreadMail:     hasMail,
-			unviewed:       hasOutput,
 			failedRun:      hasFailure,
 			failedRunLog:   failure.LogNumber,
 			localRounds:    tallies[a.ID].Rounds,
@@ -451,16 +441,6 @@ func (s *AgentService) SetHidden(ctx context.Context, req *agentv1.SetHiddenRequ
 	}
 	if !changed {
 		return nil, agents.ErrAgentNotFound.Saying("no agent with id %q", req.GetId())
-	}
-
-	return &emptypb.Empty{}, nil
-}
-
-// SetAgentViewed claims whatever the agent has finished up to now, or puts the mark back, and
-// carries no tool annotation because an agent must not move the marks on the user's screen.
-func (s *AgentService) SetAgentViewed(ctx context.Context, req *agentv1.SetAgentViewedRequest) (*emptypb.Empty, *fail.Error) {
-	if err := s.agents.SetViewed(ctx, req.GetId(), req.GetViewed()); err != nil {
-		return nil, rpcerr.From(err, "failed to set whether the agent was viewed")
 	}
 
 	return &emptypb.Empty{}, nil

@@ -100,9 +100,6 @@ type Agent struct {
 	State          State
 	StateChangedAt time.Time
 	StateSeenAt    time.Time
-	// ViewedAt is how much of an agent's conversation the person has read, measured by the last
-	// turn weave watched end.
-	ViewedAt *time.Time
 	// TurnEndedAt is when a turn of the agent's last ended, reported by its own CLI or, when
 	// nothing reported one, settled off the pane by the reconciler.
 	TurnEndedAt *time.Time
@@ -199,7 +196,6 @@ func agentFromRow(agent models.Agent) Agent {
 		State:              State(agent.State),
 		StateChangedAt:     agent.StateChangedAt,
 		StateSeenAt:        agent.StateSeenAt,
-		ViewedAt:           agent.ViewedAt,
 		TurnEndedAt:        agent.TurnEndedAt,
 		ReportedReason:     agent.ReportedReason,
 		Harness:            agent.Harness,

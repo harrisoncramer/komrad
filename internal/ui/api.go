@@ -71,13 +71,6 @@ func (a api) renameAgent(agent agentstore.Agent, name string) error {
 	})
 }
 
-// setViewed claims whatever the agent has finished up to now, or puts the mark back.
-func (a api) setViewed(id string, viewed bool) error {
-	return mutate(func(ctx context.Context) (any, error) {
-		return a.agents.SetAgentViewed(ctx, connect.NewRequest(&agentv1.SetAgentViewedRequest{Id: id, Viewed: viewed}))
-	})
-}
-
 // markRunsRead claims the failed runs an agent is holding, which opening its run log counts as.
 func (a api) markRunsRead(id string) error {
 	return mutate(func(ctx context.Context) (any, error) {

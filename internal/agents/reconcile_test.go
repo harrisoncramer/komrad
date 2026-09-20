@@ -952,7 +952,7 @@ func TestReconcileLeavesAnAgentAloneWhenTheObserverFails(t *testing.T) {
 	assert.Equal(t, agentstore.StateThinking, stateOf(t, st, "agent"))
 }
 
-// TestReconcileStampsTheTurnItSettled pins that the pane raises the unread mark when no hook
+// TestReconcileStampsTheTurnItSettled pins that the pane stamps the turn end when no hook
 // reported the boundary.
 func TestReconcileStampsTheTurnItSettled(t *testing.T) {
 	st := newStore(t)
@@ -974,12 +974,12 @@ func TestReconcileStampsTheTurnItSettled(t *testing.T) {
 	}
 
 	require.Equal(t, agentstore.StateIdle, stateOf(t, st, "agent"))
-	assert.NotNil(t, agentByID(t, st, agent.ID).TurnEndedAt, "the settled turn is what the mark is measured against")
+	assert.NotNil(t, agentByID(t, st, agent.ID).TurnEndedAt, "the settled turn is stamped")
 }
 
 // TestReconcileLeavesTheStampToTheHookWhenItReported pins that a boundary the CLI reported
-// settles the agent without the reconciler stamping, so the pane stays the floor under the
-// mark rather than a second writer racing the hook for it.
+// settles the agent without the reconciler stamping, so the hook is the only writer of a
+// reported turn.
 func TestReconcileLeavesTheStampToTheHookWhenItReported(t *testing.T) {
 	st := newStore(t)
 	ctx := t.Context()

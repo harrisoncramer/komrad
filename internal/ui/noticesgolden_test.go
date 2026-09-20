@@ -36,7 +36,6 @@ func TestNoticeBlockGolden(t *testing.T) {
 			name: "marks-beside-the-name",
 			item: func(item *agentItem) {
 				item.unreadMail = true
-				item.unviewed = true
 				item.failedRun = true
 				item.agent.HeldAt = xptr.Ptr(time.Unix(0, 0))
 			},

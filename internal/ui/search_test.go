@@ -938,7 +938,6 @@ func TestSearchRowSaysWhatTheAgentsListSays(t *testing.T) {
 			ScheduleID: xptr.Ptr("s1"),
 		},
 		alive:      true,
-		unviewed:   true,
 		unreadMail: true,
 		failedRun:  true,
 	}

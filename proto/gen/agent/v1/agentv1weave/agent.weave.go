@@ -43,7 +43,6 @@ type AgentServiceImpl interface {
 	GetLastTurns(context.Context, *v1.GetLastTurnsRequest) (*v1.GetLastTurnsResponse, *fail.Error)
 	EmptyArchive(context.Context, *emptypb.Empty) (*emptypb.Empty, *fail.Error)
 	RecordReport(context.Context, *v1.RecordReportRequest) (*emptypb.Empty, *fail.Error)
-	SetAgentViewed(context.Context, *v1.SetAgentViewedRequest) (*emptypb.Empty, *fail.Error)
 	MarkRunsRead(context.Context, *v1.MarkRunsReadRequest) (*emptypb.Empty, *fail.Error)
 	ListReviewThreads(context.Context, *v1.ListReviewThreadsRequest) (*v1.ListReviewThreadsResponse, *fail.Error)
 	CreateReviewThread(context.Context, *v1.CreateReviewThreadRequest) (*v1.CreateReviewThreadResponse, *fail.Error)
@@ -201,11 +200,6 @@ func (a AgentServiceAdapter) EmptyArchive(ctx context.Context, req *connect.Requ
 // RecordReport answers the request as connect serves it.
 func (a AgentServiceAdapter) RecordReport(ctx context.Context, req *connect.Request[v1.RecordReportRequest]) (*connect.Response[emptypb.Empty], error) {
 	return rpcerr.Answer(a.Impl.RecordReport(ctx, req.Msg))
-}
-
-// SetAgentViewed answers the request as connect serves it.
-func (a AgentServiceAdapter) SetAgentViewed(ctx context.Context, req *connect.Request[v1.SetAgentViewedRequest]) (*connect.Response[emptypb.Empty], error) {
-	return rpcerr.Answer(a.Impl.SetAgentViewed(ctx, req.Msg))
 }
 
 // MarkRunsRead answers the request as connect serves it.

@@ -625,34 +625,6 @@ func TestSetHidden(t *testing.T) {
 	}
 }
 
-// TestSetAgentViewed covers the mark over the wire in both directions, where the answer the
-// panel reads back is the unviewed flag on the agent rather than anything the call returns.
-func TestSetAgentViewed(t *testing.T) {
-	svc, st := service(t)
-	ctx := t.Context()
-
-	id := st.SeedAgent(t, agentstore.Agent{Name: "alpha", State: agentstore.StateIdle}).ID
-	st.SeedTurnEnded(t, id)
-
-	before, err := svc.GetAgent(ctx, connect.NewRequest(&agentv1.GetAgentRequest{Id: id}))
-	require.NoError(t, err)
-	require.True(t, before.Msg.GetAgent().GetUnviewed())
-
-	_, err = svc.SetAgentViewed(ctx, connect.NewRequest(&agentv1.SetAgentViewedRequest{Id: id, Viewed: true}))
-	require.NoError(t, err)
-
-	after, err := svc.GetAgent(ctx, connect.NewRequest(&agentv1.GetAgentRequest{Id: id}))
-	require.NoError(t, err)
-	assert.False(t, after.Msg.GetAgent().GetUnviewed())
-
-	_, err = svc.SetAgentViewed(ctx, connect.NewRequest(&agentv1.SetAgentViewedRequest{Id: id}))
-	require.NoError(t, err)
-
-	back, err := svc.GetAgent(ctx, connect.NewRequest(&agentv1.GetAgentRequest{Id: id}))
-	require.NoError(t, err)
-	assert.True(t, back.Msg.GetAgent().GetUnviewed(), "and the person can put the mark back")
-}
-
 // TestSetMark covers the mark over the wire, across both kinds of row, where a call that
 // reached nothing live is refused and one that took the letter off another row is not.
 func TestSetMark(t *testing.T) {
@@ -949,30 +921,25 @@ func TestRecordReportRefusesACallerWithNoIdentity(t *testing.T) {
 	assert.Empty(t, reconciler.reasons)
 }
 
-// TestRecordReportMarksTheAgentUnviewed pins the three things one reported turn end does: the
-// reconciler hears about the boundary, the reason lands on the row, and the row is stamped so
-// the panel says the agent has finished something nobody has read.
-func TestRecordReportMarksTheAgentUnviewed(t *testing.T) {
+// TestRecordReportTellsTheReconcilerAboutTheTurn pins the two things one reported turn end does:
+// the reconciler hears about the boundary, and the reason lands on the row.
+func TestRecordReportTellsTheReconcilerAboutTheTurn(t *testing.T) {
 	svc, st := service(t)
 	reconciler := &fakeReconciler{}
 	svc.Impl.(*AgentService).reconciler = reconciler
 
 	id := st.SeedAgent(t, agentstore.Agent{Name: "alpha", State: agentstore.StateIdle}).ID
 
-	before, err := svc.GetAgent(t.Context(), connect.NewRequest(&agentv1.GetAgentRequest{Id: id}))
-	require.NoError(t, err)
-	require.False(t, before.Msg.GetAgent().GetUnviewed(), "an agent that has ended no turn is not unread")
-
 	ctx := caller.With(t.Context(), caller.Caller{AgentID: id})
-	_, err = svc.RecordReport(ctx, connect.NewRequest(&agentv1.RecordReportRequest{TurnEnded: true}))
+	_, err := svc.RecordReport(ctx, connect.NewRequest(&agentv1.RecordReportRequest{TurnEnded: true}))
 	require.NoError(t, err)
 
 	assert.Equal(t, []string{id}, reconciler.recorded)
 	assert.Equal(t, []string{""}, reconciler.reasons)
 
-	after, err := svc.GetAgent(t.Context(), connect.NewRequest(&agentv1.GetAgentRequest{Id: id}))
+	stamped, err := st.Agents.GetByID(t.Context(), id)
 	require.NoError(t, err)
-	assert.True(t, after.Msg.GetAgent().GetUnviewed())
+	assert.NotNil(t, stamped.TurnEndedAt)
 }
 
 // TestRecordReportKeepsTheReasonWithoutEndingTheTurn covers the tier every event but a turn end
@@ -991,9 +958,12 @@ func TestRecordReportKeepsTheReasonWithoutEndingTheTurn(t *testing.T) {
 	reported, err := svc.GetAgent(t.Context(), connect.NewRequest(&agentv1.GetAgentRequest{Id: id}))
 	require.NoError(t, err)
 	assert.Equal(t, "Bash", reported.Msg.GetAgent().GetReportedReason())
-	assert.False(t, reported.Msg.GetAgent().GetUnviewed(), "nothing reported a turn ending")
 	assert.Empty(t, reconciler.recorded)
 	assert.Equal(t, []string{"Bash"}, reconciler.reasons)
+
+	unstamped, err := st.Agents.GetByID(t.Context(), id)
+	require.NoError(t, err)
+	assert.Nil(t, unstamped.TurnEndedAt, "nothing reported a turn ending")
 
 	_, err = svc.RecordReport(ctx, connect.NewRequest(&agentv1.RecordReportRequest{TurnEnded: true}))
 	require.NoError(t, err)

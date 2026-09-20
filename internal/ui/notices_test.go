@@ -84,7 +84,6 @@ func TestNoticesAreOrderedByUrgency(t *testing.T) {
 			Hidden:          true,
 		},
 		unreadMail: true,
-		unviewed:   true,
 		failedRun:  true,
 	}
 
@@ -126,7 +125,6 @@ func TestNoticesWearTheGlyphTheRowDraws(t *testing.T) {
 		},
 		alive:        true,
 		unreadMail:   true,
-		unviewed:     true,
 		failedRun:    true,
 		localVerdict: string(reviewstore.VerdictChangesRequested),
 		localTree:    git.StandingMoved,
