@@ -476,7 +476,7 @@ SELECT
 FROM
     pull_request_syncs
 WHERE
-    read_at IS NOT NULL
+    updated_through IS NOT NULL
 ORDER BY
     repository_url
 `

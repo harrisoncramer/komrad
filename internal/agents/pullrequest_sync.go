@@ -65,6 +65,8 @@ type PullRequestSyncer struct {
 	refusals map[string]int
 	// unconnected holds the repositories already logged as having no connection.
 	unconnected map[string]bool
+	// missing holds the repositories already logged as ones the forge does not have.
+	missing map[string]bool
 }
 
 type NewPullRequestSyncerParams struct {
@@ -89,6 +91,7 @@ func NewPullRequestSyncer(params NewPullRequestSyncerParams) *PullRequestSyncer 
 		now:          now,
 		refusals:     map[string]int{},
 		unconnected:  map[string]bool{},
+		missing:      map[string]bool{},
 	}
 }
 
@@ -217,7 +220,14 @@ func (s *PullRequestSyncer) openHost(ctx context.Context, hostname, repositoryUR
 // repository's hourly listing, branch scans and decisions.
 func (s *PullRequestSyncer) syncHost(ctx context.Context, host *hostRead) {
 	for _, read := range host.repositories {
-		s.step(ctx, host, read, s.prepare)
+		if err := s.prepare(ctx, read); err != nil {
+			read.err = err
+			logging.From(ctx).LogAttrs(ctx, slog.LevelError, "failed to prepare the repository's sync row",
+				append([]slog.Attr{slog.String(logging.RepositoryURL, read.remote.Canonical())}, logging.Err(err)...)...)
+
+			continue
+		}
+
 		s.step(ctx, host, read, s.sweep)
 	}
 
@@ -238,24 +248,33 @@ func (s *PullRequestSyncer) step(ctx context.Context, host *hostRead, read *repo
 		return
 	}
 
+	repositoryURL := read.remote.Canonical()
 	err := run(ctx, host, read)
 	var throttled *forge.ThrottledError
 	switch {
 	case err == nil:
+		delete(s.missing, repositoryURL)
 	case errors.Is(err, errRateLimitSpent):
 		host.throttled = true
 	case errors.As(err, &throttled):
 		host.throttled = true
 		s.recordThrottle(ctx, host.host, host.connection.ID, throttled.RetryAt)
+	case errors.Is(err, forge.ErrNotFound):
+		read.err = err
+		if !s.missing[repositoryURL] {
+			s.missing[repositoryURL] = true
+			logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "the forge has no such repository, so its pull requests are not read until it does",
+				append([]slog.Attr{slog.String(logging.RepositoryURL, repositoryURL)}, logging.Err(err)...)...)
+		}
 	default:
 		read.err = err
 		logging.From(ctx).LogAttrs(ctx, slog.LevelError, "failed to sync the repository's pull requests",
-			append([]slog.Attr{slog.String(logging.RepositoryURL, read.remote.Canonical())}, logging.Err(err)...)...)
+			append([]slog.Attr{slog.String(logging.RepositoryURL, repositoryURL)}, logging.Err(err)...)...)
 	}
 }
 
 // prepare makes sure the repository has a sync row and starts its count of requests at zero.
-func (s *PullRequestSyncer) prepare(ctx context.Context, _ *hostRead, read *repositoryRead) error {
+func (s *PullRequestSyncer) prepare(ctx context.Context, read *repositoryRead) error {
 	repositoryURL := read.remote.Canonical()
 	if err := s.pullRequests.EnsureSync(ctx, repositoryURL); err != nil {
 		return err

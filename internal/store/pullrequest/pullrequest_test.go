@@ -470,16 +470,28 @@ func TestListCurrentPullRequestsSkipsArchivedAgents(t *testing.T) {
 }
 
 // TestListReadRepositories covers the sync rows that tell an unread repository from one read
-// and found empty.
+// and found empty, which is one whose first sweep completed rather than one merely asked about.
 func TestListReadRepositories(t *testing.T) {
 	h := open(t)
 	ctx := t.Context()
 
 	require.NoError(t, h.EnsureSync(ctx, weave))
 	require.NoError(t, h.EnsureSync(ctx, fixture))
+	require.NoError(t, h.RecordSyncRequest(ctx, weave))
 	require.NoError(t, h.RecordSyncRequest(ctx, fixture))
+	listed := time.Date(2026, 9, 19, 10, 0, 0, 0, time.UTC)
+	require.NoError(t, h.StartSweep(ctx, StartSweepParams{
+		RepositoryURL: fixture,
+		Newest:        listed,
+		ListedAt:      listed,
+	}))
 
 	read, err := h.ListReadRepositories(ctx)
+	require.NoError(t, err)
+	assert.Empty(t, read, "a request alone, or a sweep in progress, is not a read")
+
+	require.NoError(t, h.CompleteSweep(ctx, fixture))
+	read, err = h.ListReadRepositories(ctx)
 	require.NoError(t, err)
 	assert.Equal(t, []string{fixture}, read)
 }

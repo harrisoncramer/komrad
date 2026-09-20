@@ -74,9 +74,9 @@ message ListPullRequestsResponse {
 enum PullRequestState {
   // No state was decided.
   PULL_REQUEST_STATE_UNSPECIFIED = 0;
-  // The repository has not been read, so nothing is known.
+  // The repository's first sweep has not completed, so nothing is known.
   PULL_REQUEST_STATE_UNREAD = 1;
-  // The repository has been read and nothing was opened from the branch.
+  // The repository has been swept and nothing was opened from the branch.
   PULL_REQUEST_STATE_NONE = 2;
   // Open with no review decision that settles it.
   PULL_REQUEST_STATE_OPEN = 3;
@@ -121,7 +121,8 @@ message ListAgentPullRequestsResponse {
   // Every pull request opened from the agent's branch in its repository, newest opened first,
   // read from what the sync has stored rather than from the forge.
   repeated AgentPullRequest pull_requests = 1;
-  // When the sync last made a request for the repository, in RFC 3339, unset while it never has.
+  // When the sync last made a request for the repository, in RFC 3339, unset until its first
+  // sweep has completed.
   optional string repository_read_at = 2;
 }
 
@@ -142,7 +143,7 @@ service PullRequestService {
       cli: true
       mcp: true
       name: "list_agent_pull_requests"
-      description: "List the pull requests opened from an agent's branch in its repository, newest opened first, each with where it stands: open, approved, changes requested, draft, merged or closed. The one marked current is what the agent's row in the panel shows. This reads what the pull request sync has stored rather than asking the forge, so repository_read_at says how fresh it is, and an unset repository_read_at means the repository has not been read at all yet. An agent whose checkout is not on a forge repository answers an empty list."
+      description: "List the pull requests opened from an agent's branch in its repository, newest opened first, each with where it stands: open, approved, changes requested, draft, merged or closed. The one marked current is what the agent's row in the panel shows. This reads what the pull request sync has stored rather than asking the forge, so repository_read_at says how fresh it is, and an unset repository_read_at means the repository's first sweep has not completed. An agent whose checkout is not on a forge repository answers an empty list."
     };
   }
 }

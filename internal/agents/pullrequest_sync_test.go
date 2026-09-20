@@ -1,9 +1,11 @@
 package agents
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"strconv"
 	"strings"
 	"testing"
@@ -12,6 +14,7 @@ import (
 	"weave/internal/dbtest"
 	"weave/internal/forge"
 	"weave/internal/git"
+	"weave/internal/logging"
 	"weave/internal/store"
 	agentstore "weave/internal/store/agent"
 	forgestore "weave/internal/store/forge"
@@ -835,6 +838,35 @@ func TestSyncStopsWhenTheBudgetHeaderIsSpent(t *testing.T) {
 	require.NotNil(t, connection.ThrottledUntil)
 	assert.True(t, connection.ThrottledUntil.Equal(reset))
 	assert.True(t, f.getSync(t).IsSweeping())
+}
+
+// TestSyncSaysAMissingRepositoryOnce covers a repository the forge does not have: it is said
+// once as a warning rather than as an error every pass, asked about again each pass, and said
+// again only once it has been found and lost again.
+func TestSyncSaysAMissingRepositoryOnce(t *testing.T) {
+	f := newSyncFixture(t)
+	f.agentOn(t, "a", "agent/x")
+	f.forge.refuse = fmt.Errorf("%w: gone", forge.ErrNotFound)
+	var logged bytes.Buffer
+	ctx := logging.WithLogger(t.Context(), slog.New(slog.NewTextHandler(&logged, nil)))
+
+	for range 3 {
+		require.NoError(t, f.syncer.Sync(ctx))
+	}
+
+	assert.Len(t, f.forge.requests, 3, "the repository is still asked about each pass")
+	assert.Equal(t, 1, strings.Count(logged.String(), "the forge has no such repository"))
+	assert.NotContains(t, logged.String(), "failed to sync the repository")
+	assert.False(t, f.getSync(t).IsSwept())
+
+	f.forge.refuse = nil
+	f.forge.updated[""] = &forge.ListUpdatedResult{}
+	require.NoError(t, f.syncer.Sync(ctx))
+	f.agentOn(t, "b", "agent/y")
+	f.forge.refuse = fmt.Errorf("%w: gone again", forge.ErrNotFound)
+	require.NoError(t, f.syncer.Sync(ctx))
+
+	assert.Equal(t, 2, strings.Count(logged.String(), "the forge has no such repository"), "a repository found and lost again is said again")
 }
 
 // TestSyncSkipsARepositoryWithNoConnection covers a host nobody connected: nothing is asked and

@@ -32,7 +32,12 @@ func TestListedAgentsCarryWhereTheirPullRequestStands(t *testing.T) {
 	local := st.SeedAgent(t, agentstore.Agent{Name: "local"})
 
 	require.NoError(t, st.PullRequests.EnsureSync(ctx, weaveRepository))
-	require.NoError(t, st.PullRequests.RecordSyncRequest(ctx, weaveRepository))
+	require.NoError(t, st.PullRequests.StartSweep(ctx, pullrequeststore.StartSweepParams{
+		RepositoryURL: weaveRepository,
+		Newest:        time.Date(2026, 9, 18, 12, 0, 0, 0, time.UTC),
+		ListedAt:      time.Date(2026, 9, 18, 12, 0, 0, 0, time.UTC),
+	}))
+	require.NoError(t, st.PullRequests.CompleteSweep(ctx, weaveRepository))
 
 	openedAt := time.Date(2026, 9, 18, 12, 0, 0, 0, time.UTC)
 	written, err := st.PullRequests.Upsert(ctx, pullrequeststore.UpsertParams{
