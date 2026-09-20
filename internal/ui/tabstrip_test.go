@@ -257,6 +257,9 @@ func TestTabsStandDownOnAShortPane(t *testing.T) {
 	assert.False(t, refused.isTabsFocused(), "a strip that is not drawn takes no keys")
 	assert.True(t, refused.isListFocused())
 
+	refused.height = 7
+	assert.False(t, refused.isTabsFocused(), "and the refused press does not wake once the pane grows")
+
 	m.height = 7
 	require.Contains(t, m.worktreesHeader(), "⇅", "the strip is drawn once the list keeps a row beside it")
 	assert.Contains(t, m.View(), "agent39")
