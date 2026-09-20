@@ -351,10 +351,10 @@ func TestEveryTabbedScreenTakesTheStrip(t *testing.T) {
 			m := screensModel()
 			m.screen, m.height = tt.screen, 40
 
-			header := strings.Split(strings.TrimSuffix(m.screen.spec().view(m), "\n"), "\n")
-			assert.Contains(t, header[2], "/")
-			assert.Contains(t, header[3], "↑↓")
-			assert.Empty(t, header[4])
+			drawn := lines(m.screen.spec().view(m))
+			assert.Contains(t, drawn[2], "/")
+			assert.Contains(t, drawn[3], "↑↓")
+			assert.Empty(t, drawn[4])
 
 			focused := send(t, m, "f")
 			require.True(t, focused.isTabsFocused())
