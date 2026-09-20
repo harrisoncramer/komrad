@@ -55,10 +55,6 @@ type tabsSpec struct {
 	fits  func(model) bool
 }
 
-func (s tabStrip) selected(state tabsState) (tabOption, tabDirection) {
-	return s.options[s.indexOf(state)], state.direction
-}
-
 func (s tabStrip) indexOf(state tabsState) int {
 	at := slices.IndexFunc(s.options, func(option tabOption) bool { return option.id == state.chosen })
 	if at < 0 {

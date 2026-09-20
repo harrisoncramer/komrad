@@ -172,6 +172,10 @@ func (m model) resizeTo(size tea.WindowSizeMsg) model {
 	m.width = size.Width
 	m.awaitingSize = false
 
+	if !m.isTabsDrawn() {
+		m.blurTabs()
+	}
+
 	// A drag and a zoom both change the panel's own pane and leave the window around it alone.
 	window := m.frame.WindowCols()
 	if window != m.windowCols && m.windowCols > 0 {

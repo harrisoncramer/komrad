@@ -128,8 +128,7 @@ func TestTabStripStepsAndWraps(t *testing.T) {
 
 			strip.step(&state, tt.delta)
 
-			chosen, _ := strip.selected(state)
-			assert.Equal(t, tt.want, chosen.id)
+			assert.Equal(t, tt.want, state.chosen)
 		})
 	}
 }
@@ -154,23 +153,19 @@ func TestTabsFocusTakesTheKeys(t *testing.T) {
 	assert.False(t, focused.isListFocused(), "the row caret stands still")
 
 	tabbed := send(t, focused, "tab")
-	chosen, direction := worktreesTabs().selected(tabbed.worktrees.sort)
-	assert.Equal(t, "last-accessed", chosen.id)
-	assert.Equal(t, tabDown, direction)
+	assert.Equal(t, "last-accessed", tabbed.worktrees.sort.chosen)
+	assert.Equal(t, tabDown, tabbed.worktrees.sort.direction)
 
 	turned := send(t, tabbed, "k")
-	_, direction = worktreesTabs().selected(turned.worktrees.sort)
-	assert.Equal(t, tabUp, direction)
+	assert.Equal(t, tabUp, turned.worktrees.sort.direction)
 	assert.Equal(t, 3, turned.worktrees.cursor, "the list cursor does not move")
 
 	turned = send(t, turned, "j")
-	_, direction = worktreesTabs().selected(turned.worktrees.sort)
-	assert.Equal(t, tabDown, direction)
+	assert.Equal(t, tabDown, turned.worktrees.sort.direction)
 
 	back := send(t, turned, "f")
 	require.False(t, back.isTabsFocused())
-	chosen, _ = worktreesTabs().selected(back.worktrees.sort)
-	assert.Equal(t, "last-accessed", chosen.id, "the choice is kept")
+	assert.Equal(t, "last-accessed", back.worktrees.sort.chosen, "the choice is kept")
 	assert.True(t, back.isListFocused())
 
 	moved := send(t, back, "j")
@@ -184,9 +179,7 @@ func TestEscapeLeavesTheTabsAndResetsThem(t *testing.T) {
 	m := sortedWorktreesModel()
 
 	turned := send(t, send(t, send(t, m, "f"), "shift+tab"), "k")
-	chosen, direction := worktreesTabs().selected(turned.worktrees.sort)
-	require.Equal(t, "last-accessed", chosen.id)
-	require.Equal(t, tabUp, direction)
+	require.Equal(t, tabsState{chosen: "last-accessed", direction: tabUp, focused: true}, turned.worktrees.sort)
 
 	left := send(t, turned, "esc")
 
@@ -261,6 +254,10 @@ func TestTabsStandDownOnAShortPane(t *testing.T) {
 	shrunk := asModel(t, resize(focused, 80, 6))
 	assert.False(t, shrunk.isTabsFocused(), "the keys go back to the list with the strip")
 	assert.True(t, shrunk.isListFocused())
+
+	grown := asModel(t, resize(shrunk, 80, 7))
+	assert.False(t, grown.isTabsFocused(), "and stay there once the pane grows back")
+	assert.Equal(t, 39, send(t, grown, "k").worktrees.cursor, "so the next press moves the list")
 }
 
 // TestTabsTakeOneRowOffTheList covers the list window shrinking by the strip's row and no more.

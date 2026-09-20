@@ -228,11 +228,7 @@ type SelectionKeys struct {
 	Toggle []string `mapstructure:"toggle" default:"v"`
 }
 
-// TabsKeys is the binding for the row of tabs a screen draws over its list, which the worktrees
-// screen uses to choose what its rows are sorted by. Focus moves the cursor between the list and
-// the row; while the row holds it, tab and shift+tab step through the tabs, the shared navigation
-// keys turn the chosen one's arrow, the focus key hands the cursor back with the choice kept, and
-// escape hands it back with the choice reset.
+// TabsKeys is the binding for the row of tabs a screen draws over its list.
 type TabsKeys struct {
 	// Move the cursor between the list on screen and the row of tabs over it.
 	Focus []string `mapstructure:"focus" default:"f"`
