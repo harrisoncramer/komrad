@@ -1194,7 +1194,7 @@ func TestArchiveOpensOnTheSearch(t *testing.T) {
 		archived: true,
 	}}}
 
-	jumped, _ := jumping.jumpToSearchHit()
+	jumped, _ := jumping.jumpToSearchAgent()
 	landed, ok := jumped.(model)
 	require.True(t, ok)
 	assert.Equal(t, screenArchive, landed.screen)

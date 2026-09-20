@@ -12,7 +12,7 @@ import (
 // hit was found on is read in what was being said around it.
 const transcriptPreviewBefore = 12
 
-// searchPreview is the transcript standing beside the hits: what it was drawn from, the rows it
+// searchPreview is the transcript standing beside the list: what it was drawn from, the rows it
 // drew to, and where in them the words the hit matched on landed.
 type searchPreview struct {
 	// conversation is the markdown the rows are drawn from, held rather than only the rows, since
@@ -22,14 +22,14 @@ type searchPreview struct {
 	doc          docWindow
 }
 
-// searchColumn is the transcript drawn beside the hits, which stands whether or not anything has
+// searchColumn is the transcript drawn beside the list, which stands whether or not anything has
 // been fetched for it.
 func searchColumn() columnSpec {
 	return columnSpec{floor: columnFloor}
 }
 
-// holdPreview takes the transcript a hit was fetched for and draws it at the width it will be
-// read in, opening it on the match.
+// holdPreview takes the transcript an agent was fetched for and draws it at the width it will be
+// read in, opening it on the first match.
 func (m *model) holdPreview(conversation string, spans []paint.Span) {
 	if strings.TrimSpace(conversation) == "" {
 		conversation, spans = noTranscriptMarkdown, nil
@@ -65,7 +65,7 @@ func (m *model) drawPreview() {
 	preview.doc.top = preview.doc.clamp(preview.doc.top, split.rows)
 }
 
-// searchPreviewView is the screenful of the transcript beside the hits, drawn without the
+// searchPreviewView is the screenful of the transcript beside the list, drawn without the
 // markers the archive's document carries.
 func (m model) searchPreviewView(split columnSplit) string {
 	doc := m.search.preview.doc
@@ -81,14 +81,14 @@ func (m model) searchPreviewNotice() string {
 	switch {
 	case strings.TrimSpace(m.search.query) == "":
 		return searchWaitingMarkdown
-	case len(m.searchHits()) == 0:
+	case len(m.searchAgents()) == 0:
 		return noSearchHitsMarkdown
 	default:
 		return searchLoadingMarkdown
 	}
 }
 
-// scrollPreview moves the transcript under the hits.
+// scrollPreview moves the transcript beside the list.
 func (m model) scrollPreview(delta int) (tea.Model, tea.Cmd) {
 	split, ok := m.screenColumnSplit()
 	if !ok {
