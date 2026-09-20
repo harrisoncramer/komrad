@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"weave/internal/agents"
+	"weave/internal/browser"
 	"weave/internal/errui"
 	"weave/internal/git"
 	"weave/internal/logging"
@@ -12,6 +13,7 @@ import (
 	"weave/lib/xhttp"
 	"weave/proto/gen/agent/v1/agentv1connect"
 	"weave/proto/gen/hook/v1/hookv1connect"
+	"weave/proto/gen/pullrequest/v1/pullrequestv1connect"
 	"weave/proto/gen/schedule/v1/schedulev1connect"
 	"weave/proto/gen/workflow/v1/workflowv1connect"
 	"weave/proto/gen/worktree/v1/worktreev1connect"
@@ -92,6 +94,7 @@ Use ` + "`weave open`" + ` to bring the panel up.`,
 			scheduleClient := schedulev1connect.NewScheduleServiceClient(httpClient, base)
 			hookClient := hookv1connect.NewHookServiceClient(httpClient, base)
 			worktreeClient := worktreev1connect.NewWorktreeServiceClient(httpClient, base)
+			pullRequestClient := pullrequestv1connect.NewPullRequestServiceClient(httpClient, base)
 
 			state.popup.SilenceStatus(agents.ManagerSession)
 			state.tmux.EnableFocusEvents()
@@ -100,6 +103,7 @@ Use ` + "`weave open`" + ` to bring the panel up.`,
 				PopupWindow:     state.popup,
 				Tmux:            state.tmux,
 				Git:             git.NewClient(),
+				Browser:         browser.NewDesktop(),
 				HarnessFrames:   paneFrameReader{panes: state.tmux, harnesses: state.harnesses},
 				Agents:          agentClient,
 				Workflows:       workflowClient,
@@ -107,6 +111,7 @@ Use ` + "`weave open`" + ` to bring the panel up.`,
 				Keys:            state.keys,
 				Hooks:           hookClient,
 				Worktrees:       worktreeClient,
+				PullRequests:    pullRequestClient,
 				Layout:          state.layout,
 				Engine:          remote,
 				Addr:            addr,

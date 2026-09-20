@@ -7,6 +7,7 @@ import (
 	agentstore "weave/internal/store/agent"
 	reviewstore "weave/internal/store/review"
 	"weave/internal/view"
+	pullrequestv1 "weave/proto/gen/pullrequest/v1"
 )
 
 // snapshotParams is what the panel already holds about the agents list, handed over as plain
@@ -90,6 +91,7 @@ func snapshotRow(r agentRow, params snapshotParams) view.Row {
 	row.Matches = matchesIn(params.matcher, item.agent.Name)
 	row.Repo = snapshotRepo(item.agent)
 	row.Review = snapshotReview(item)
+	row.Forge = snapshotForge(item)
 	row.Selected = params.selected.has(key)
 
 	return row
@@ -245,4 +247,28 @@ func snapshotReview(item agentItem) view.Review {
 	}
 
 	return view.ReviewNone
+}
+
+// snapshotForge is where the pull request opened from an agent's branch stands, as the forge
+// column draws it.
+func snapshotForge(item agentItem) view.Forge {
+	switch item.pullRequest.state {
+	case pullrequestv1.PullRequestState_PULL_REQUEST_STATE_NONE:
+		return view.ForgeNone
+	case pullrequestv1.PullRequestState_PULL_REQUEST_STATE_OPEN:
+		return view.ForgeOpen
+	case pullrequestv1.PullRequestState_PULL_REQUEST_STATE_APPROVED:
+		return view.ForgeApproved
+	case pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CHANGES_REQUESTED:
+		return view.ForgeChangesRequested
+	case pullrequestv1.PullRequestState_PULL_REQUEST_STATE_DRAFT:
+		return view.ForgeDraft
+	case pullrequestv1.PullRequestState_PULL_REQUEST_STATE_MERGED:
+		return view.ForgeMerged
+	case pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CLOSED:
+		return view.ForgeClosed
+	case pullrequestv1.PullRequestState_PULL_REQUEST_STATE_UNSPECIFIED, pullrequestv1.PullRequestState_PULL_REQUEST_STATE_UNREAD:
+	}
+
+	return view.ForgeUnread
 }

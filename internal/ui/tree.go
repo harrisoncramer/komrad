@@ -292,6 +292,8 @@ type agentItem struct {
 	localVerdict string
 	// localTree is where the worktree stands against the round that verdict was given on.
 	localTree git.Standing
+	// pullRequest is where the pull request opened from its branch stands.
+	pullRequest pullRequestStanding
 }
 
 // displayState is the state a row wears, which is idle once the pane has gone even though the
@@ -321,6 +323,7 @@ func (m *model) applyWorkflows(fresh []workflowstore.Workflow) {
 
 func (m *model) applyAgents(fresh []agentItem) {
 	m.listing.agents = fresh
+	m.forgetUnlistedPullRequests(fresh)
 }
 
 // applyMarks takes the letters off both listings at once.

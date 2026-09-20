@@ -181,7 +181,7 @@ func (m *model) applyStageTick(msg stageTickMsg) tea.Cmd {
 
 	m.stageSelection()
 
-	return nil
+	return m.listPullRequestsCmd()
 }
 
 // openHovered attaches to whatever the cursor is on, which for a workflow is the orchestrator
@@ -295,8 +295,20 @@ func (m model) agentsDetails() details {
 	return details{
 		id:      r.item.agent.ID,
 		notices: agentNotices(r),
-		fields:  agentFields(r.item.agent, m.scheduleName(r.item.agent), m.parentName(r.item.agent)),
+		fields:  m.agentDetailFields(r.item),
 	}
+}
+
+// agentDetailFields is the record for an agent as the listing holds it, with the names the
+// record needs looked up and what the service has answered about its pull requests.
+func (m model) agentDetailFields(item agentItem) []recordField {
+	return agentFields(agentFieldsParams{
+		agent:    item.agent,
+		schedule: m.scheduleName(item.agent),
+		parent:   m.parentName(item.agent),
+		standing: item.pullRequest,
+		listed:   m.pullRequests.listed[item.agent.ID],
+	})
 }
 
 // agentsColumn is what stands where a running agent's own pane would: a folder's shared notes, or

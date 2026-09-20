@@ -254,7 +254,7 @@ func (m model) countUnder(repo string) int {
 // directory, where the listing holds it, and the little the worktree listing says otherwise.
 func (m model) occupantDetails(row worktreeRow) details {
 	if item, ok := m.liveAgent(row.occupant.id); ok {
-		return details{id: row.key(), fields: agentFields(item.agent, m.scheduleName(item.agent), m.parentName(item.agent))}
+		return details{id: row.key(), fields: m.agentDetailFields(item)}
 	}
 	if agent, ok := m.archivedAgent(row.occupant.id); ok {
 		return details{id: row.key(), fields: archiveFields(agent, m.scheduleName(agent))}

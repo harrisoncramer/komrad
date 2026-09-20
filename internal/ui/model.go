@@ -15,6 +15,7 @@ import (
 	"sync"
 
 	"weave/config"
+	"weave/internal/browser"
 	"weave/internal/engine"
 	"weave/internal/errui"
 	"weave/internal/git"
@@ -22,6 +23,7 @@ import (
 	"weave/internal/ui/layout"
 	"weave/proto/gen/agent/v1/agentv1connect"
 	"weave/proto/gen/hook/v1/hookv1connect"
+	"weave/proto/gen/pullrequest/v1/pullrequestv1connect"
 	schedulev1connect "weave/proto/gen/schedule/v1/schedulev1connect"
 	"weave/proto/gen/workflow/v1/workflowv1connect"
 	"weave/proto/gen/worktree/v1/worktreev1connect"
@@ -150,12 +152,14 @@ type Deps struct {
 	PopupWindow     *PopupWindow
 	Tmux            uiTmux
 	Git             uiGit
+	Browser         browser.Opener
 	HarnessFrames   harnessFrameReader
 	Agents          agentv1connect.AgentServiceClient
 	Workflows       workflowv1connect.WorkflowServiceClient
 	Schedules       schedulev1connect.ScheduleServiceClient
 	Hooks           hookv1connect.HookServiceClient
 	Worktrees       worktreev1connect.WorktreeServiceClient
+	PullRequests    pullrequestv1connect.PullRequestServiceClient
 	Keys            config.Keybindings
 	Layout          config.Layout
 	Engine          engine.Remote
@@ -176,6 +180,7 @@ type model struct {
 	api             api
 	tmux            uiTmux
 	git             uiGit
+	browser         browser.Opener
 	harnessFrames   harnessFrameReader
 	frame           *layout.Frame
 	addr            string
@@ -203,6 +208,7 @@ type model struct {
 	schedules     scheduleState
 	archive       archiveState
 	worktrees     worktreesState
+	pullRequests  pullRequestsState
 	search        searchState
 	review        reviewState
 	filter        filterState
@@ -283,16 +289,18 @@ func newModel(deps Deps, isDark bool, post *postbox) model {
 		post:   post,
 		drawn:  &lastFrame{},
 		api: api{
-			agents:    deps.Agents,
-			workflows: deps.Workflows,
-			schedules: deps.Schedules,
-			hooks:     deps.Hooks,
-			worktrees: deps.Worktrees,
+			agents:       deps.Agents,
+			workflows:    deps.Workflows,
+			schedules:    deps.Schedules,
+			hooks:        deps.Hooks,
+			worktrees:    deps.Worktrees,
+			pullRequests: deps.PullRequests,
 		},
 		popup:           deps.PopupWindow,
 		clip:            systemClipboard{},
 		tmux:            deps.Tmux,
 		git:             deps.Git,
+		browser:         deps.Browser,
 		harnessFrames:   deps.HarnessFrames,
 		frame:           layout.New(deps.Tmux, deps.Layout, layout.WithEngine(deps.Engine)),
 		detailsHeight:   deps.Layout.DetailsHeight,

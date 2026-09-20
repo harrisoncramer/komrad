@@ -10,6 +10,8 @@ import (
 	"weave/proto/gen/agent/v1/agentv1connect"
 	hookv1 "weave/proto/gen/hook/v1"
 	"weave/proto/gen/hook/v1/hookv1connect"
+	pullrequestv1 "weave/proto/gen/pullrequest/v1"
+	"weave/proto/gen/pullrequest/v1/pullrequestv1connect"
 	schedulev1 "weave/proto/gen/schedule/v1"
 	schedulev1connect "weave/proto/gen/schedule/v1/schedulev1connect"
 	workflowv1 "weave/proto/gen/workflow/v1"
@@ -31,11 +33,12 @@ const requestTimeout = 10 * time.Second
 const createAgentTimeout = 11 * time.Minute
 
 type api struct {
-	agents    agentv1connect.AgentServiceClient
-	workflows workflowv1connect.WorkflowServiceClient
-	schedules schedulev1connect.ScheduleServiceClient
-	hooks     hookv1connect.HookServiceClient
-	worktrees worktreev1connect.WorktreeServiceClient
+	agents       agentv1connect.AgentServiceClient
+	workflows    workflowv1connect.WorkflowServiceClient
+	schedules    schedulev1connect.ScheduleServiceClient
+	hooks        hookv1connect.HookServiceClient
+	worktrees    worktreev1connect.WorktreeServiceClient
+	pullRequests pullrequestv1connect.PullRequestServiceClient
 }
 
 // call runs work under its own deadline.
@@ -500,5 +503,16 @@ func (a api) getWorktree(dir string) (*worktreev1.GetWorktreeResponse, error) {
 func (a api) deleteWorktrees(dirs []string) error {
 	return mutate(func(ctx context.Context) (any, error) {
 		return a.worktrees.DeleteWorktrees(ctx, connect.NewRequest(&worktreev1.DeleteWorktreesRequest{Dirs: dirs}))
+	})
+}
+
+func (a api) listAgentPullRequests(agentID string) (*pullrequestv1.ListAgentPullRequestsResponse, error) {
+	return call(requestTimeout, func(ctx context.Context) (*pullrequestv1.ListAgentPullRequestsResponse, error) {
+		resp, err := a.pullRequests.ListAgentPullRequests(ctx, connect.NewRequest(&pullrequestv1.ListAgentPullRequestsRequest{AgentId: agentID}))
+		if err != nil {
+			return nil, fmt.Errorf("failed to list the pull requests of agent %q: %w", agentID, err)
+		}
+
+		return resp.Msg, nil
 	})
 }
