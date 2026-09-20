@@ -1286,24 +1286,3 @@ func TestArchiveDrawsTheQuietBarExceptWhereADeleteFailed(t *testing.T) {
 	assert.Equal(t, view.GlyphQuiet, lines[1].Status.Glyph, "an agent merely put away is quiet")
 	assert.Equal(t, view.GlyphBusy, lines[2].Status.Glyph, "and one a delete could not destroy says so")
 }
-
-// TestArchiveSearchEscapeLeaves pins escape over the archive's search input going back to the
-// agents tree, where the same key over the tree's own search only closes the input.
-func TestArchiveSearchEscapeLeaves(t *testing.T) {
-	m := archiveModel(&fakeArchiveAgents{}, &fakeArchiveWorkflows{}, config.DefaultKeybindings())
-	m.screen = screenAgents
-
-	opened, _ := m.openArchive()
-	typed := pressMark(t, opened.(model), "a", "p")
-	require.Equal(t, screenArchive, typed.screen)
-	require.True(t, typed.filter.typing)
-
-	left := pressMark(t, typed, "esc")
-	assert.Equal(t, screenAgents, left.screen, "escape over the input leaves the archive")
-	assert.False(t, left.filter.isStanding(), "and takes the search with it")
-
-	kept := pressMark(t, typed, "enter")
-	assert.Equal(t, screenArchive, kept.screen, "enter keeps the reader on the list")
-	assert.False(t, kept.filter.typing, "with the input closed")
-	assert.True(t, kept.filter.isStanding(), "and the search standing")
-}

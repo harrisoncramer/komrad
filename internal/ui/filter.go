@@ -175,10 +175,6 @@ func (m model) updateFilterInput(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.placeFilteredCursor(m.filter.origin)
 		m.filter.origin = ""
 
-		if m.screen == screenArchive {
-			return m.returnToAgents()
-		}
-
 		return m, nil
 	}
 
