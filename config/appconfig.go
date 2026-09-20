@@ -291,9 +291,6 @@ type AgentsKeys struct {
 	// Attach to the hovered agent, or to the workflow's own orchestrator when the cursor is on a
 	// workflow. Either one is started first if it is not running.
 	Open []string `mapstructure:"open" default:"enter"`
-	// Open the hovered agent's current pull request in your browser: the newest one opened from
-	// its branch that is not finished, else the newest finished one. With none it says so.
-	PullRequest []string `mapstructure:"pull_request" default:"o"`
 	// Quit the panel.
 	Quit []string `mapstructure:"quit" default:"ctrl+c"`
 	// Rename the hovered agent.
@@ -324,6 +321,10 @@ type MarksKeys struct {
 type GitKeys struct {
 	// Open the git menu on the hovered agent.
 	Open []string `mapstructure:"open" default:"b"`
+	// Open the hovered agent's current pull request in your browser: the newest one opened from
+	// its branch that is not finished, else the newest finished one. The entry says so rather
+	// than acting on an agent with none.
+	OpenPullRequest []string `mapstructure:"open_pull_request" default:"o"`
 	// Bring the hovered agent's worktree up to date on the latest base, which asks first and
 	// says what it would do to the branch and to the files.
 	Rebase []string `mapstructure:"rebase" default:"r"`

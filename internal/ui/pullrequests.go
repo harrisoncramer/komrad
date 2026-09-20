@@ -221,35 +221,21 @@ func pullRequestStateWord(state pullrequestv1.PullRequestState) string {
 	return ""
 }
 
-// openPullRequest hands the hovered agent's current pull request to the browser, or says why
-// there is none to open.
-func (m model) openPullRequest(item agentItem) (tea.Model, tea.Cmd) {
+// openPullRequest hands the agent's current pull request to the browser, or says why there is
+// none to open.
+func (m model) openPullRequest(item agentItem) (model, tea.Cmd) {
 	standing := item.pullRequest
 	if standing.url == "" {
-		m.pushMessage(message{
-			kind:    messageInfo,
-			summary: item.agent.Name + ": no pull request to open",
-			detail:  noPullRequestSaid(item),
-		})
+		refusal := errPullRequestsUnread
+		if standing.state == pullrequestv1.PullRequestState_PULL_REQUEST_STATE_NONE {
+			refusal = errNoPullRequest
+		}
+		m.report("Could not open the pull request of "+item.agent.Name, refusal)
 
 		return m, nil
 	}
 
 	return m, m.openURLCmd(standing.url)
-}
-
-// noPullRequestSaid is why the key had nothing to open.
-func noPullRequestSaid(item agentItem) string {
-	if item.pullRequest.state == pullrequestv1.PullRequestState_PULL_REQUEST_STATE_NONE {
-		branch := ""
-		if item.agent.Branch != nil {
-			branch = *item.agent.Branch
-		}
-
-		return "Weave has read the repository and nothing has been opened from " + orDash(branch) + "."
-	}
-
-	return "Weave has not read this agent's repository yet, or its checkout is not on a forge."
 }
 
 // urlOpenedMsg is the browser having been asked to open an address.

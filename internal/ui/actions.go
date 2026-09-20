@@ -30,7 +30,6 @@ const (
 	actionQuit
 	actionAgentsBack
 	actionAgentOpen
-	actionAgentPullRequest
 	actionAgentReview
 	actionGitMenu
 	actionAgentChild

@@ -186,12 +186,6 @@ func agentsRowActions() []action {
 			run:  func(m model, _ string) (tea.Model, tea.Cmd) { return m.openHovered() },
 		},
 		{
-			id:   actionAgentPullRequest,
-			keys: func(k config.Keybindings) []string { return k.Agents.PullRequest },
-			when: isHoveringAgent,
-			run:  onHoveredAgent(model.openPullRequest),
-		},
-		{
 			id:   actionAgentPause,
 			keys: func(k config.Keybindings) []string { return k.Agents.Pause },
 			when: isHoveringAgent,
@@ -432,11 +426,6 @@ func agentsBrowsingLegend() []legendRow {
 		{
 			of:   []actionID{actionAgentReview},
 			desc: func(model) string { return "review diff" },
-			show: isHoveringAgent,
-		},
-		{
-			of:   []actionID{actionAgentPullRequest},
-			desc: func(model) string { return "open pull request" },
 			show: isHoveringAgent,
 		},
 		{
