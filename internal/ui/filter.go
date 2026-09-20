@@ -225,10 +225,6 @@ func placeCursor(found, cursor, length int) int {
 	return clampCursor(cursor, length)
 }
 
-func (m model) filterView() string {
-	return m.filter.view(paint.Panel)
-}
-
 // view draws the search line whether or not there is a search.
 func (f filterState) view(palette paint.Palette) string {
 	return f.line(palette) + "\n\n"

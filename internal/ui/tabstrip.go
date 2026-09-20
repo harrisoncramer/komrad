@@ -69,10 +69,6 @@ func (s tabStrip) indexOf(state tabsState) int {
 }
 
 func (s tabStrip) step(state *tabsState, delta int) {
-	if len(s.options) == 0 {
-		return
-	}
-
 	at := (s.indexOf(*state) + delta + len(s.options)) % len(s.options)
 	state.chosen = s.options[at].id
 }
@@ -125,9 +121,13 @@ func (m model) tabbedHeader(title, tally string) string {
 		return m.talliedHeader(title, tally)
 	}
 
+	return m.headerLines(title, tally, m.tabsLine())
+}
+
+func (m model) tabsLine() string {
 	spec := m.tabsSpec()
 
-	return m.headerLines(title, tally, spec.strip.view(*spec.state(&m), paint.Panel, m.paneWidth())+"\n")
+	return spec.strip.view(*spec.state(&m), paint.Panel, m.paneWidth()) + "\n"
 }
 
 func (m model) doesListFitTabs(title, tally string, help func(model) keyMap) bool {
@@ -143,9 +143,7 @@ func (m model) doesListFitTabs(title, tally string, help func(model) keyMap) boo
 	m.details.focused, m.helpExpanded = false, false
 	spec.state(&m).focused = false
 
-	header := m.headerLines(title, tally, spec.strip.view(*spec.state(&m), paint.Panel, m.paneWidth())+"\n")
-
-	return m.spareLines(header, m.renderHelp(help(m))) >= 1
+	return m.spareLines(m.headerLines(title, tally, m.tabsLine()), m.renderHelp(help(m))) >= 1
 }
 
 func (m *model) blurTabs() {

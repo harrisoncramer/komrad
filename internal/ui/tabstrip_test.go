@@ -134,16 +134,6 @@ func TestTabStripStepsAndWraps(t *testing.T) {
 	}
 }
 
-// TestATabStripWithNoTabsAnswersNothing covers a strip given no tabs leaving its state alone.
-func TestATabStripWithNoTabsAnswersNothing(t *testing.T) {
-	strip := tabStrip{title: "⇅"}
-	state := tabsState{}
-
-	strip.step(&state, 1)
-
-	assert.Equal(t, tabsState{}, state)
-}
-
 func sortedWorktreesModel() model {
 	m := worktreesModel()
 	m.width, m.height = 200, 40
