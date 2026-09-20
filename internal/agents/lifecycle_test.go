@@ -361,6 +361,10 @@ func TestArchiveAgent(t *testing.T) {
 
 			_, err = st.Get(t.Context(), tt.seed)
 			require.ErrorIs(t, err, store.ErrNotFound, "the agent is hidden from listings")
+
+			archived := agentByID(t, st, target)
+			assert.Equal(t, agentstore.StateIdle, archived.State, "the state settles with the pane")
+			assert.NotNil(t, archived.InterruptedAt, "the turn the kill cut is written down for the resume")
 		})
 	}
 }

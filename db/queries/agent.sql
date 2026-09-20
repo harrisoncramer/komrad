@@ -243,7 +243,9 @@ RETURNING
 WITH prior AS (
     SELECT
         id,
-        pane_id
+        pane_id,
+        state IN ('thinking', 'waiting', 'uncertain') AS unsettled,
+        state IN ('thinking', 'waiting') AS unfinished
     FROM
         agents
     WHERE
@@ -262,7 +264,32 @@ UPDATE
     agents a
 SET
     archived_at = NOW(),
-    pane_id = ''
+    pane_id = '',
+    state = CASE WHEN prior.unsettled THEN
+        'idle'
+    ELSE
+        a.state
+    END,
+    state_changed_at = CASE WHEN prior.unsettled THEN
+        NOW()
+    ELSE
+        a.state_changed_at
+    END,
+    state_seen_at = CASE WHEN prior.unsettled THEN
+        NOW()
+    ELSE
+        a.state_seen_at
+    END,
+    reported_reason = CASE WHEN prior.unsettled THEN
+        ''
+    ELSE
+        a.reported_reason
+    END,
+    interrupted_at = CASE WHEN prior.unfinished THEN
+        NOW()
+    ELSE
+        a.interrupted_at
+    END
 FROM
     prior
 WHERE
@@ -623,7 +650,9 @@ WHERE
 WITH prior AS (
     SELECT
         id,
-        pane_id
+        pane_id,
+        state IN ('thinking', 'waiting', 'uncertain') AS unsettled,
+        state IN ('thinking', 'waiting') AS unfinished
     FROM
         agents
     WHERE
@@ -642,7 +671,32 @@ UPDATE
     agents a
 SET
     archived_at = NOW(),
-    pane_id = ''
+    pane_id = '',
+    state = CASE WHEN prior.unsettled THEN
+        'idle'
+    ELSE
+        a.state
+    END,
+    state_changed_at = CASE WHEN prior.unsettled THEN
+        NOW()
+    ELSE
+        a.state_changed_at
+    END,
+    state_seen_at = CASE WHEN prior.unsettled THEN
+        NOW()
+    ELSE
+        a.state_seen_at
+    END,
+    reported_reason = CASE WHEN prior.unsettled THEN
+        ''
+    ELSE
+        a.reported_reason
+    END,
+    interrupted_at = CASE WHEN prior.unfinished THEN
+        NOW()
+    ELSE
+        a.interrupted_at
+    END
 FROM
     prior
 WHERE
@@ -654,7 +708,9 @@ RETURNING
 -- name: MarkAgentArchivedIfUnchanged :many
 WITH prior AS (
     SELECT
-        agents.id
+        agents.id,
+        agents.state IN ('thinking', 'waiting', 'uncertain') AS unsettled,
+        agents.state IN ('thinking', 'waiting') AS unfinished
     FROM
         agents
     WHERE
@@ -674,7 +730,32 @@ UPDATE
     agents a
 SET
     archived_at = NOW(),
-    pane_id = ''
+    pane_id = '',
+    state = CASE WHEN prior.unsettled THEN
+        'idle'
+    ELSE
+        a.state
+    END,
+    state_changed_at = CASE WHEN prior.unsettled THEN
+        NOW()
+    ELSE
+        a.state_changed_at
+    END,
+    state_seen_at = CASE WHEN prior.unsettled THEN
+        NOW()
+    ELSE
+        a.state_seen_at
+    END,
+    reported_reason = CASE WHEN prior.unsettled THEN
+        ''
+    ELSE
+        a.reported_reason
+    END,
+    interrupted_at = CASE WHEN prior.unfinished THEN
+        NOW()
+    ELSE
+        a.interrupted_at
+    END
 FROM
     prior
 WHERE
