@@ -5,7 +5,6 @@ import (
 	"strings"
 
 	"weave/internal/ui/paint/label"
-	"weave/lib/dates"
 
 	agentstore "weave/internal/store/agent"
 	schedulestore "weave/internal/store/schedule"
@@ -126,7 +125,7 @@ func agentFields(params agentFieldsParams) []recordField {
 	if schedule != "" {
 		fields = append(fields, recordField{"launched by", schedule})
 	}
-	if created := dates.Friendly(agent.CreatedAt); created != "" {
+	if created := label.Friendly(agent.CreatedAt); created != "" {
 		fields = append(fields, recordField{"created", created})
 	}
 	for _, entry := range agent.Metadata {
@@ -190,7 +189,7 @@ func scheduleMarkdown(item scheduleItem) string {
 
 	notice := "_paused — will not run_"
 	if sched.Enabled {
-		notice = fmt.Sprintf("_next run %s_", label.OrDash(dates.Friendly(item.nextRun)))
+		notice = fmt.Sprintf("_next run %s_", label.OrDash(label.Friendly(item.nextRun)))
 	}
 	if result := lastResultNotice(sched); result != "" {
 		notice += "\n" + result
@@ -214,7 +213,7 @@ func lastResultNotice(sched schedulestore.Schedule) string {
 		return ""
 	}
 
-	notice := fmt.Sprintf("_last result %s: %s_", dates.Friendly(*sched.LastResultAt), sched.LastResultStatus)
+	notice := fmt.Sprintf("_last result %s: %s_", label.Friendly(*sched.LastResultAt), sched.LastResultStatus)
 	if sched.LastResultMessage != "" {
 		notice += ", " + sched.LastResultMessage
 	}
@@ -241,11 +240,11 @@ func archiveFields(agent agentstore.Agent, schedule string) []recordField {
 	if schedule != "" {
 		fields = append(fields, recordField{"launched by", schedule})
 	}
-	if created := dates.Friendly(agent.CreatedAt); created != "" {
+	if created := label.Friendly(agent.CreatedAt); created != "" {
 		fields = append(fields, recordField{"created", created})
 	}
 	if agent.ArchivedAt != nil {
-		if archived := dates.Friendly(*agent.ArchivedAt); archived != "" {
+		if archived := label.Friendly(*agent.ArchivedAt); archived != "" {
 			fields = append(fields, recordField{"archived", archived})
 		}
 	}

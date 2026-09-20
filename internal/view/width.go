@@ -1,6 +1,10 @@
 package view
 
-import "fmt"
+import (
+	"fmt"
+
+	"weave/internal/ui/paint/label"
+)
 
 // plainColumns is how many columns one glyph takes.
 const plainColumns = 1
@@ -76,7 +80,7 @@ func trailingColumns(line Line) int {
 	}
 
 	if line.Tally > 0 {
-		columns += plainColumns + len(fmt.Sprintf("+%d", line.Tally))
+		columns += plainColumns + len(label.Tally(line.Tally))
 	}
 
 	if line.Trail != "" {

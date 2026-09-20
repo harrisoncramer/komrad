@@ -9,7 +9,6 @@ import (
 	"weave/internal/ui/paint"
 	"weave/internal/ui/paint/label"
 	"weave/internal/view"
-	"weave/lib/dates"
 	"weave/lib/xslice"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -293,7 +292,7 @@ func sizeField(item worktreeItem, now time.Time) string {
 		return label.Dash + ", could not measure: " + item.size.err
 	}
 
-	return fmt.Sprintf("%s, measured %s ago", label.Bytes(item.size.bytes), dates.AgeAt(item.size.measuredAt, now))
+	return fmt.Sprintf("%s, measured %s ago", label.Bytes(item.size.bytes), label.AgeAt(item.size.measuredAt, now))
 }
 
 // lastActiveField is how long ago the directory was last touched, and whether its agent has
@@ -303,7 +302,7 @@ func lastActiveField(item worktreeItem, now time.Time) string {
 		return label.Dash
 	}
 
-	field := dates.AgeAt(item.lastActiveAt, now) + " ago"
+	field := label.AgeAt(item.lastActiveAt, now) + " ago"
 	if item.agent != nil && item.agent.archivedAt != nil {
 		field += ", archived"
 	}
@@ -356,10 +355,10 @@ func (m model) worktreeAgentField(item worktreeItem) string {
 		return live.agent.Harness + ", " + string(displayState(live))
 	}
 	if archived, ok := m.archivedAgent(item.agent.id); ok && archived.ArchivedAt != nil {
-		return archived.Harness + ", archived " + dates.Day(*archived.ArchivedAt)
+		return archived.Harness + ", archived " + label.Day(*archived.ArchivedAt)
 	}
 	if item.agent.archivedAt != nil {
-		return "archived " + dates.Day(*item.agent.archivedAt)
+		return "archived " + label.Day(*item.agent.archivedAt)
 	}
 
 	return string(item.agent.state)
@@ -394,7 +393,7 @@ func (m model) worktreeDoc() string {
 	case !ok:
 		return renderDocument("Worktrees", "_no worktrees_", "", "")
 	case row.header:
-		return renderDocument(shortenHome(row.repo), fmt.Sprintf("_%s_", label.Count(m.countUnder(row.repo), "worktree", "worktrees")), "", "")
+		return renderDocument(label.Path(row.repo, homeDir()), fmt.Sprintf("_%s_", label.Count(m.countUnder(row.repo), "worktree", "worktrees")), "", "")
 	}
 
 	read, ok := m.worktrees.inspected[row.item.dir]
@@ -500,7 +499,7 @@ func changeLines(read worktreeInspection) []string {
 func commitLines(commits []worktreeCommit) []string {
 	var lines []string
 	for _, commit := range commits {
-		lines = append(lines, fmt.Sprintf("%s  %-4s %s", label.ShortSHA(commit.sha), dates.Age(commit.committedAt), commit.subject))
+		lines = append(lines, fmt.Sprintf("%s  %-4s %s", label.ShortSHA(commit.sha), label.Age(commit.committedAt), commit.subject))
 	}
 
 	return lines

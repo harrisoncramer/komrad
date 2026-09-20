@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"weave/internal/ui/paint"
-	"weave/lib/dates"
+	"weave/internal/ui/paint/label"
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
@@ -335,7 +335,7 @@ func TestMessagesPiecesAreCopied(t *testing.T) {
 		"git rev-parse --show-toplevel: exit status 128",
 		"The worktree is gone.",
 		"7c1f2a94",
-		dates.Friendly(m.messages.items[0].at),
+		label.Friendly(m.messages.items[0].at),
 	}
 
 	for i, value := range want {

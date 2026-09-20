@@ -181,7 +181,7 @@ func (m model) reviewMatchCount() string {
 
 	where := label.Counted(m.review.view.MatchCount(), "match")
 	if at, ok := m.review.view.MatchNumber(m.review.cursor); ok {
-		where = fmt.Sprintf("%d of %d", at, m.review.view.MatchCount())
+		where = label.OfCount(at, m.review.view.MatchCount())
 	}
 
 	// A match inside a file folded away is on no row, so stepping through the matches never

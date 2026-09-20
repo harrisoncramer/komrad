@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"weave/internal/ui/paint"
-	"weave/lib/dates"
+	"weave/internal/ui/paint/label"
 
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
@@ -193,7 +193,7 @@ func (m model) messagePieces() []messagePiece {
 	}
 
 	held := m.messages.items[m.messagesCursor()]
-	landed := dates.Friendly(held.at)
+	landed := label.Friendly(held.at)
 
 	// The reason is the one thing here somebody has to read, so it is drawn in the plain
 	// foreground and everything around it is dim.
@@ -348,11 +348,11 @@ func (m model) messagesTally(taken int) string {
 		return ""
 	}
 
-	tally := fmt.Sprintf("+%d", count-1)
+	tally := label.Tally(count - 1)
 	if m.messages.focused {
 		// Counted from the oldest, so the newest message is the last of them rather than the
 		// first: the stack itself is held newest first.
-		tally = fmt.Sprintf("%d of %d", count-m.messagesCursor(), count)
+		tally = label.OfCount(count-m.messagesCursor(), count)
 	} else if count < 2 {
 		return ""
 	}

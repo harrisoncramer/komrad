@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"weave/lib/dates"
+	"weave/internal/ui/paint/label"
 	pullrequestv1 "weave/proto/gen/pullrequest/v1"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -186,12 +186,12 @@ func currentPullRequestField(pullRequest agentPullRequest) string {
 	word := pullRequestStateWord(pullRequest.state)
 	switch {
 	case pullRequest.mergedAt != nil:
-		return fmt.Sprintf("#%d %s %s ago", pullRequest.number, word, dates.Age(*pullRequest.mergedAt))
+		return fmt.Sprintf("#%d %s %s ago", pullRequest.number, word, label.Age(*pullRequest.mergedAt))
 	case pullRequest.closedAt != nil:
-		return fmt.Sprintf("#%d %s %s ago", pullRequest.number, word, dates.Age(*pullRequest.closedAt))
+		return fmt.Sprintf("#%d %s %s ago", pullRequest.number, word, label.Age(*pullRequest.closedAt))
 	}
 
-	return fmt.Sprintf("#%d %s, opened %s ago", pullRequest.number, word, dates.Age(pullRequest.openedAt))
+	return fmt.Sprintf("#%d %s, opened %s ago", pullRequest.number, word, label.Age(pullRequest.openedAt))
 }
 
 // pullRequestFieldKey labels the pull request an agent's row stands for.

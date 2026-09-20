@@ -101,6 +101,11 @@ func TestCounted(t *testing.T) {
 	}
 }
 
+// TestOfCount covers where one stands in a run of things.
+func TestOfCount(t *testing.T) {
+	assert.Equal(t, "3 of 7", OfCount(3, 7))
+}
+
 // TestOrDash covers blank and whitespace reading as a dash and anything else as itself.
 func TestOrDash(t *testing.T) {
 	tests := []struct {
@@ -135,4 +140,9 @@ func TestShortSHA(t *testing.T) {
 			assert.Equal(t, tt.want, ShortSHA(tt.sha))
 		})
 	}
+}
+
+// TestTally covers how many more sit behind the one shown.
+func TestTally(t *testing.T) {
+	assert.Equal(t, "+4", Tally(4))
 }
