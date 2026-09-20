@@ -68,7 +68,7 @@ func prepareLine(params prepareLineParams) Line {
 		Mark:     textCell(row.Mark, paint.ToneMuted),
 		Repo:     RepoCell(row),
 		Review:   ReviewCell(row),
-		Forge:    forgeCell(row),
+		Forge:    ForgeCell(row),
 		Status:   blinkBar(StatusCell(row), row, params.barBlinkedOut),
 		Rule:     row.Kind == KindChild,
 		Indent:   indentFor(row.Kind),
@@ -139,26 +139,33 @@ func ReviewCell(row Row) Cell {
 	return Cell{Glyph: GlyphUnverified, Tone: paint.ToneMuted}
 }
 
-// forgeCell is where the pull request opened from an agent's branch stands.
-func forgeCell(row Row) Cell {
+// ForgeCell is where the pull request opened from an agent's branch stands, blank while
+// nothing is known or nothing was opened, and empty on a row that is not an agent's own.
+func ForgeCell(row Row) Cell {
 	if row.Kind != KindAgent {
 		return Cell{}
 	}
 
 	switch row.Forge {
-	case ForgeNone:
-		return Cell{Glyph: GlyphForge, Tone: paint.ToneMuted}
+	case ForgeUnread, ForgeNone, ForgeEnd:
+		return Cell{}
 	case ForgeOpen:
-		return Cell{Glyph: GlyphForge, Tone: paint.ToneAccent}
+		return Cell{Glyph: GlyphForge, Tone: paint.ToneMuted}
 	case ForgeApproved:
 		return Cell{Glyph: GlyphApproved, Tone: paint.ToneSuccess}
+	case ForgeChangesRequested:
+		return Cell{Glyph: GlyphForge, Tone: paint.ToneWarning}
+	case ForgeDraft:
+		return Cell{Glyph: GlyphDraft, Tone: paint.ToneMuted}
 	case ForgeFailing:
 		return Cell{Glyph: GlyphBroken, Tone: paint.ToneDanger}
 	case ForgeMerged:
 		return Cell{Glyph: GlyphMerged, Tone: paint.ToneMerged}
+	case ForgeClosed:
+		return Cell{Glyph: GlyphClosed, Tone: paint.ToneDanger}
 	}
 
-	return Cell{Glyph: GlyphForge, Tone: paint.ToneMuted}
+	return Cell{}
 }
 
 // StatusCell is what the agent is doing this second, a bar rather than a glyph so it is noticed

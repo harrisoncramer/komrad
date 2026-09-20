@@ -16,6 +16,8 @@ const (
 	GlyphBell
 	GlyphHourglass
 	GlyphMerged
+	GlyphDraft
+	GlyphClosed
 	GlyphAlert
 	GlyphMail
 	GlyphUnread

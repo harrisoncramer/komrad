@@ -176,6 +176,10 @@ func Spell(glyph Glyph) string {
 		return "\uf4e3"
 	case GlyphMerged:
 		return ""
+	case GlyphDraft:
+		return "\uf4dd"
+	case GlyphClosed:
+		return "\uf4dc"
 	case GlyphAlert:
 		return ""
 	case GlyphMail:
