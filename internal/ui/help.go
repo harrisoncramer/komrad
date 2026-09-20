@@ -170,6 +170,15 @@ func (m model) jumpBinding() key.Binding {
 	)
 }
 
+func (m model) navPageBinding() key.Binding {
+	keys := slices.Concat(m.keys.Nav.PageUp, m.keys.Nav.PageDown)
+
+	return key.NewBinding(
+		key.WithKeys(keys...),
+		key.WithHelp(navPageLabel(m.keys), "page"),
+	)
+}
+
 func doubledLabel(keys []string) string {
 	pairs := make([]string, len(keys))
 	for i, k := range keys {
@@ -356,6 +365,7 @@ func (m model) searchHelp() keyMap {
 				edit,
 				m.moveBinding(),
 				m.jumpBinding(),
+				m.navPageBinding(),
 				m.columnScrollBinding("the transcript"),
 			},
 			m.globalHelp(),

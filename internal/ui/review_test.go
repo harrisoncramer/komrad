@@ -587,23 +587,23 @@ func TestReviewIsRefusedWithoutADirectory(t *testing.T) {
 	assert.Empty(t, tmux.respawns)
 }
 
-// TestReviewScrollsOnCtrlNAndCtrlP covers the readline pair, which moves a few lines at a time
-// and settles on a row the cursor is allowed to hold rather than on a file or hunk header.
-func TestReviewScrollsOnCtrlNAndCtrlP(t *testing.T) {
+// TestReviewPagesOnThePageKeys covers the shared pair, which moves a few lines at a time and
+// settles on a row the cursor is allowed to hold rather than on a file or hunk header.
+func TestReviewPagesOnThePageKeys(t *testing.T) {
 	dir := reviewRepo(t)
 	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
 	m = openReview(t, m)
 
 	first := m.review.cursor
 
-	next, _ := m.updateReview(tea.KeyMsg{Type: tea.KeyCtrlN})
+	next, _ := m.updateReview(tea.KeyMsg{Type: tea.KeyCtrlD})
 	m = next.(model)
 
 	assert.Greater(t, m.review.cursor, first)
 	_, ok := m.review.view.GetAnchor(m.review.cursor)
 	assert.True(t, ok)
 
-	next, _ = m.updateReview(tea.KeyMsg{Type: tea.KeyCtrlP})
+	next, _ = m.updateReview(tea.KeyMsg{Type: tea.KeyCtrlU})
 	m = next.(model)
 
 	assert.Equal(t, first, m.review.cursor)
@@ -851,7 +851,7 @@ func TestReviewThreadCursorMoveDropsTheScroll(t *testing.T) {
 	m = next.(model)
 	require.Positive(t, m.review.threadScroll)
 
-	next, _ = m.updateReview(tea.KeyMsg{Type: tea.KeyCtrlN})
+	next, _ = m.updateReview(tea.KeyMsg{Type: tea.KeyCtrlD})
 	m = next.(model)
 
 	assert.Zero(t, m.review.threadScroll)

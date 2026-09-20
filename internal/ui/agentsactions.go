@@ -66,6 +66,11 @@ func agentsModeActions() []action {
 			run:  model.moveAgentCursor,
 		},
 		{
+			id:   actionNavPage,
+			keys: func(k config.Keybindings) []string { return concatKeys(k.Nav.PageUp, k.Nav.PageDown) },
+			run:  model.pageAgents,
+		},
+		{
 			id:   actionQuit,
 			keys: func(k config.Keybindings) []string { return k.Agents.Quit },
 			run:  func(m model, _ string) (tea.Model, tea.Cmd) { return m, m.hide() },
@@ -307,6 +312,12 @@ func (m model) jumpAgents(pressed string) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
+func (m model) pageAgents(pressed string) (tea.Model, tea.Cmd) {
+	next, cmd := m.jumpCursor(m.tree.cursor + m.navPageDelta(pressed))
+
+	return next, cmd
+}
+
 func (m model) moveAgentCursor(pressed string) (tea.Model, tea.Cmd) {
 	if isBound(pressed, m.keys.Nav.Down) {
 		next, cmd := m.moveCursor(1)
@@ -533,6 +544,11 @@ func agentsBrowsingLegend() []legendRow {
 			of:    []actionID{actionJump},
 			desc:  func(model) string { return "top/bottom" },
 			label: func(k config.Keybindings) string { return doubledLabel(k.Nav.Top) + "/" + keyLabel(k.Nav.Bottom) },
+		},
+		{
+			of:    []actionID{actionNavPage},
+			desc:  func(model) string { return "page" },
+			label: navPageLabel,
 		},
 	}
 }

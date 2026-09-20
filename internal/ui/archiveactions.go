@@ -68,6 +68,11 @@ func archiveTable() []action {
 			run:  model.moveArchive,
 		},
 		{
+			id:   actionNavPage,
+			keys: func(k config.Keybindings) []string { return concatKeys(k.Nav.PageUp, k.Nav.PageDown) },
+			run:  model.pageArchive,
+		},
+		{
 			id:   actionFilterOpen,
 			keys: func(k config.Keybindings) []string { return k.Filter.Open },
 			when: browsing,
@@ -201,6 +206,11 @@ func archiveLegend() []legendRow {
 			label: jumpLabel,
 		},
 		{
+			of:    []actionID{actionNavPage},
+			desc:  func(model) string { return "page" },
+			label: navPageLabel,
+		},
+		{
 			of:   []actionID{actionArchiveBack},
 			desc: func(model) string { return "back" },
 		},
@@ -247,6 +257,10 @@ func (m model) jumpArchive(pressed string) (tea.Model, tea.Cmd) {
 	}
 
 	return m, nil
+}
+
+func (m model) pageArchive(pressed string) (tea.Model, tea.Cmd) {
+	return m.jumpArchiveCursor(m.archive.cursor + m.navPageDelta(pressed)), nil
 }
 
 func (m model) moveArchive(pressed string) (tea.Model, tea.Cmd) {

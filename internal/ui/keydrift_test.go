@@ -153,11 +153,13 @@ func keyMsgOf(t *testing.T, pressed string) tea.KeyMsg {
 		"right":  tea.KeyRight,
 		"tab":    tea.KeyTab,
 		"ctrl+c": tea.KeyCtrlC,
+		"ctrl+d": tea.KeyCtrlD,
 		"ctrl+g": tea.KeyCtrlG,
 		"ctrl+n": tea.KeyCtrlN,
 		"ctrl+p": tea.KeyCtrlP,
 		"ctrl+s": tea.KeyCtrlS,
 		"ctrl+t": tea.KeyCtrlT,
+		"ctrl+u": tea.KeyCtrlU,
 	}
 
 	msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(pressed)}

@@ -360,6 +360,8 @@ func (m model) updateSearchList(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.moveSearchCursor(1)
 	case isBound(k, m.keys.Nav.Bottom):
 		return m.jumpSearchCursor(len(m.searchAgents()) - 1)
+	case isBound(k, m.keys.Nav.PageUp), isBound(k, m.keys.Nav.PageDown):
+		return m.jumpSearchCursor(m.search.cursor + m.navPageDelta(k))
 	case isBound(k, m.keys.Column.ScrollDown):
 		return m.scrollPreview(docScrollStep)
 	case isBound(k, m.keys.Column.ScrollUp):

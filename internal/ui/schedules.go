@@ -40,6 +40,15 @@ func (m model) moveScheduleCursor(delta int) model {
 	return m
 }
 
+func (m model) jumpScheduleCursor(idx int) model {
+	rows := m.scheduleRows()
+	if next, ok := landCursor(idx, len(rows)); ok {
+		m.landScheduleCursor(rows, next)
+	}
+
+	return m
+}
+
 func (m model) scheduleRows() []scheduleItem {
 	return narrowed(m.filter, narrowedParams[scheduleItem]{
 		rows:  m.schedules.items,

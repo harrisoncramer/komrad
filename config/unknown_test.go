@@ -122,7 +122,7 @@ func TestListKnownKeys(t *testing.T) {
 		{
 			name:  "a table two levels down",
 			table: "keybindings.nav",
-			want:  []string{"bottom", "down", "top", "up"},
+			want:  []string{"bottom", "down", "page_down", "page_up", "top", "up"},
 		},
 	}
 

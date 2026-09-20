@@ -64,6 +64,11 @@ func worktreesTable() []action {
 			run:  model.moveWorktrees,
 		},
 		{
+			id:   actionNavPage,
+			keys: func(k config.Keybindings) []string { return concatKeys(k.Nav.PageUp, k.Nav.PageDown) },
+			run:  model.pageWorktrees,
+		},
+		{
 			id:   actionFilterOpen,
 			keys: func(k config.Keybindings) []string { return k.Filter.Open },
 			when: browsing,
@@ -171,6 +176,11 @@ func worktreesLegend() []legendRow {
 			label: jumpLabel,
 		},
 		{
+			of:    []actionID{actionNavPage},
+			desc:  func(model) string { return "page" },
+			label: navPageLabel,
+		},
+		{
 			of:   []actionID{actionWorktreesBack},
 			desc: func(model) string { return "back" },
 		},
@@ -226,6 +236,10 @@ func (m model) jumpWorktrees(pressed string) (tea.Model, tea.Cmd) {
 	}
 
 	return m, nil
+}
+
+func (m model) pageWorktrees(pressed string) (tea.Model, tea.Cmd) {
+	return m.jumpWorktreeCursor(m.worktrees.cursor + m.navPageDelta(pressed))
 }
 
 func (m model) moveWorktrees(pressed string) (tea.Model, tea.Cmd) {
