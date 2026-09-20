@@ -335,8 +335,7 @@ type GitKeys struct {
 	Rebase []string `mapstructure:"rebase" default:"r"`
 }
 
-// WorkflowsKeys are the bindings that act on a workflow. New is global. Rename,
-// edit, and archive apply while the cursor is on a workflow header.
+// WorkflowsKeys are the bindings that act on a workflow.
 type WorkflowsKeys struct {
 	// Put an agent on a branch that already exists, in the workflow under the
 	// cursor.
@@ -351,14 +350,13 @@ type WorkflowsKeys struct {
 	Rename []string `mapstructure:"rename" default:"r"`
 }
 
-// WorktreesKeys are the bindings for the worktrees screen, which lists every directory weave
-// cut for an agent under the repository it was cut from, with its size.
+// WorktreesKeys are the bindings for the worktrees screen.
 type WorktreesKeys struct {
 	// Leave the worktrees screen for the agents list.
 	Back []string `mapstructure:"back" default:"esc"`
 	// Delete everything on the screen that can go: every directory whose agent is archived,
-	// through the agent delete and its hooks, and every directory no agent answers for. A
-	// directory with a live agent in it is never taken. It asks first.
+	// through the agent delete and its hooks, and every directory no agent answers for.
+	// directory with a live agent in it is never deleted.
 	Clear []string `mapstructure:"clear" default:"D"`
 	// Delete the directory under the cursor. One with an archived agent goes through the
 	// agent delete, which runs the workflow's hooks and the cleanup; one with a live agent
