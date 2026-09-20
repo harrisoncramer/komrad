@@ -560,9 +560,13 @@ func (m model) agentsListView() string {
 	record, help := m.detailsView(), m.renderHelp(m.agentHelp(), header)
 	below := record + m.messagesRegion(record, help, header) + help
 
+	rows := m.agentRows()
+	if len(rows) == 0 && m.filter.isNarrowing() {
+		return m.headedListView(header, []string{dimStyle.Render(m.emptyListLine(""))}, 0, below)
+	}
+
 	palette := paint.Panel
 	pane := m.paneWidth()
-	rows := m.agentRows()
 
 	list := view.Prepare(agentsSnapshot(snapshotParams{
 		rows:          rows,

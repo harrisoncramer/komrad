@@ -41,12 +41,17 @@ func (m model) moveScheduleCursor(delta int) model {
 }
 
 func (m model) scheduleRows() []scheduleItem {
-	if m.filter.pattern == nil {
-		return m.schedules.items
-	}
+	return narrowed(m.filter, narrowedParams[scheduleItem]{
+		rows:  m.schedules.items,
+		depth: func(scheduleItem) int { return 0 },
+		name:  func(item scheduleItem) string { return item.schedule.Name },
+	})
+}
 
-	return xslice.Filter(m.schedules.items, func(item scheduleItem) bool {
-		return m.filter.doesMatch(item.schedule.Name)
+// scheduleFilterRows is the list's own rows with the name a search reads each by.
+func (m model) scheduleFilterRows() []filterRow {
+	return xslice.Map(m.scheduleRows(), func(item scheduleItem) filterRow {
+		return filterRow{key: item.schedule.ID, name: item.schedule.Name}
 	})
 }
 
@@ -264,7 +269,7 @@ func (m model) schedulesListView() string {
 
 	all := m.scheduleRows()
 	if len(all) == 0 {
-		return m.headedListView(header, []string{dimStyle.Render("  no schedules yet")}, 0, below)
+		return m.headedListView(header, []string{dimStyle.Render("  " + m.emptyListLine("no schedules yet"))}, 0, below)
 	}
 
 	rows := make([]string, 0, len(all))

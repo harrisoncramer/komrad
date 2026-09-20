@@ -82,6 +82,15 @@ func (m model) headedListView(header string, rows []string, cursor int, help str
 	return m.headedBlockView(header, paint.RenderList(rows, cursor, lines, dimStyle), lines, help)
 }
 
+// emptyListLine is what a screen says over no rows: its own line, or that the filter left none.
+func (m model) emptyListLine(idle string) string {
+	if m.filter.isNarrowing() {
+		return "nothing matches"
+	}
+
+	return idle
+}
+
 // headedBlockView draws a list already fitted to the pane.
 func (m model) headedBlockView(header, block string, lines int, help string) string {
 	return header + paint.PadRows(block, lines) + help

@@ -206,7 +206,7 @@ func archiveLegend() []legendRow {
 		},
 		{
 			of:    []actionID{actionFilterClear},
-			desc:  func(model) string { return "clear search" },
+			desc:  model.filterClearDesc,
 			strip: true,
 		},
 		{

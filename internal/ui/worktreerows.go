@@ -79,13 +79,10 @@ func worktreeRows(items []worktreeItem) []worktreeRow {
 
 	var rows []worktreeRow
 	for _, repo := range repos {
-		heading := repo
-		if heading == "" {
-			heading = noRepository
-		}
+		members := byRepo[repo]
+		heading := repoHeading(members[0])
 		rows = append(rows, worktreeRow{header: true, repo: heading})
 
-		members := byRepo[repo]
 		slices.SortStableFunc(members, func(a, b worktreeItem) int {
 			if by := standingRank(a) - standingRank(b); by != 0 {
 				return by
@@ -115,7 +112,34 @@ func standingRank(item worktreeItem) int {
 }
 
 func (m model) worktreeRows() []worktreeRow {
-	return worktreeRows(m.worktrees.items)
+	return narrowed(m.filter, narrowedParams[worktreeRow]{
+		rows:  worktreeRows(m.worktrees.items),
+		depth: worktreeRowDepth,
+		name:  worktreeRow.name,
+	})
+}
+
+func worktreeRowDepth(row worktreeRow) int {
+	if row.header {
+		return 0
+	}
+
+	return 1
+}
+
+// itemsUnder is the directories a repository heads, read off the whole listing.
+func itemsUnder(items []worktreeItem, repo string) []worktreeItem {
+	return xslice.Filter(items, func(item worktreeItem) bool {
+		return repoHeading(item) == repo
+	})
+}
+
+func repoHeading(item worktreeItem) string {
+	if item.repoDir == "" {
+		return noRepository
+	}
+
+	return item.repoDir
 }
 
 // worktreeRefs is the worktrees list as the selection sees it, each row grouped under its
@@ -160,7 +184,9 @@ func worktreeFilterRows(rows []worktreeRow) []filterRow {
 
 // worktreesSnapshotParams is what the panel holds about the worktrees list, as plain data.
 type worktreesSnapshotParams struct {
-	rows     []worktreeRow
+	rows []worktreeRow
+	// items is the whole listing, which is what a repository's own figures are read off.
+	items    []worktreeItem
 	selected selection
 	focused  string
 	// live are the agents the agents listing holds, whose marks a row with one of them draws.
@@ -177,7 +203,7 @@ func worktreesSnapshot(params worktreesSnapshotParams) view.Snapshot {
 	live := xslice.KeyBy(params.live, func(item agentItem) string { return item.agent.ID })
 
 	rows := make([]view.Row, 0, len(params.rows))
-	for i, r := range params.rows {
+	for _, r := range params.rows {
 		row := view.Row{
 			Key:     r.key(),
 			Name:    r.name(),
@@ -188,7 +214,7 @@ func worktreesSnapshot(params worktreesSnapshotParams) view.Snapshot {
 		case r.header:
 			row.Kind = view.KindWorkflow
 			row.Process = view.ProcessNone
-			row.Trail = groupTrail(params.rows[i+1:], r.repo)
+			row.Trail = groupTrail(params.items, r.repo)
 		default:
 			row.Kind = view.KindAgent
 			row.Repo = repoStanding(r.item)
@@ -244,17 +270,8 @@ func rowTrail(item worktreeItem, now time.Time) string {
 }
 
 // groupTrail is the total of the measured directories under a header, over the size column.
-func groupTrail(rest []worktreeRow, repo string) string {
-	var under []worktreeItem
-	for _, r := range rest {
-		if r.header || r.repo != repo {
-			break
-		}
-
-		under = append(under, r.item)
-	}
-
-	return view.Trail(totalLabel(under), "")
+func groupTrail(items []worktreeItem, repo string) string {
+	return view.Trail(totalLabel(itemsUnder(items, repo)), "")
 }
 
 // sizeLabel is what a directory takes, a dash until it has been measured or while its last

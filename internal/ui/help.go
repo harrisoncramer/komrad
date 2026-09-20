@@ -43,7 +43,7 @@ func (m model) renderHelp(k keyMap, above ...string) string {
 		k = m.messagesHelp()
 	}
 	if m.filter.typing {
-		k = filterHelp()
+		k = filterHelp(m.filter.mode)
 	}
 
 	width := m.paneWidth()
@@ -180,11 +180,12 @@ func doubledLabel(keys []string) string {
 	return strings.Join(pairs, "/")
 }
 
-func filterHelp() keyMap {
+func filterHelp(mode filterMode) keyMap {
 	done := binding([]string{"enter"}, "keep it, then act on what is left")
+	flip := binding([]string{"tab"}, mode.flipped().String()+" instead")
 	drop := binding([]string{"esc"}, "cancel")
 
-	return keyMap{short: []key.Binding{done, drop}, full: []key.Binding{done, drop}}
+	return keyMap{short: []key.Binding{done, flip, drop}, full: []key.Binding{done, flip, drop}}
 }
 
 // infoPaneHelp is the keys that fill the pane beside the panel, drawn off the same question the

@@ -176,7 +176,7 @@ func worktreesLegend() []legendRow {
 		},
 		{
 			of:    []actionID{actionFilterClear},
-			desc:  func(model) string { return "clear search" },
+			desc:  model.filterClearDesc,
 			strip: true,
 		},
 		{
@@ -343,6 +343,8 @@ func (m model) jumpToWorktreeAgent() (tea.Model, tea.Cmd) {
 
 		return m, nil
 	}
+
+	m.enterScreen(screenArchive)
 
 	m.archive.focus = id
 	if idx := rowIndexOfAgentID(m.archiveRows(), id); idx >= 0 {

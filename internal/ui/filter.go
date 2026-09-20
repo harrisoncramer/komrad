@@ -11,17 +11,57 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
+// filterMode is what a pattern does to the rows it does not match: search leaves them where
+// they are and lights the ones it does, filter takes them off the screen.
+type filterMode int
+
+const (
+	filterModeSearch filterMode = iota
+	filterModeFilter
+)
+
+func (mode filterMode) flipped() filterMode {
+	if mode == filterModeFilter {
+		return filterModeSearch
+	}
+
+	return filterModeFilter
+}
+
+// glyph is the character the prompt opens with, which is how a person tells the two modes apart.
+func (mode filterMode) glyph() string {
+	if mode == filterModeFilter {
+		return "▽"
+	}
+
+	return "/"
+}
+
+func (mode filterMode) String() string {
+	if mode == filterModeFilter {
+		return "filter"
+	}
+
+	return "search"
+}
+
 type filterState struct {
 	typing  bool
 	query   string
 	pattern *regexp.Regexp
 	broken  bool
+	mode    filterMode
 	// origin is the row the cursor sat on when the search opened, which abandoning it returns to.
 	origin string
 }
 
 func (f filterState) isStanding() bool {
 	return f.query != ""
+}
+
+// isNarrowing reports whether the pattern is taking rows off the screen.
+func (f filterState) isNarrowing() bool {
+	return f.mode == filterModeFilter && f.pattern != nil
 }
 
 func (f *filterState) setQuery(query string) {
@@ -97,6 +137,7 @@ func (m *model) beginFilter() {
 	origin := m.hoveredFilterKey()
 
 	m.filter.typing = true
+	m.filter.mode = filterModeSearch
 	m.filter.setQuery("")
 	m.filter.origin = origin
 	m.placeFilteredCursor(origin)
@@ -146,6 +187,7 @@ func (f *filterState) takeKey(key tea.KeyMsg) bool {
 // back out rather than a way of keeping what you typed.
 func (f *filterState) abandon() {
 	f.typing = false
+	f.mode = filterModeSearch
 	f.setQuery("")
 }
 
@@ -167,7 +209,10 @@ func (m model) updateFilterInput(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	abandoning := key.String() == "esc"
 
 	hovered := m.hoveredFilterKey()
-	if !m.filter.takeKey(key) {
+	switch {
+	case key.String() == "tab":
+		m.filter.mode = m.filter.mode.flipped()
+	case !m.filter.takeKey(key):
 		return m, nil
 	}
 
@@ -208,13 +253,87 @@ func (m *model) placeFilteredCursor(hovered string) {
 
 func filterRows(rows []agentRow) []filterRow {
 	return xslice.Map(rows, func(row agentRow) filterRow {
-		name := row.item.agent.Name
-		if row.header {
-			name = row.workflow.Name
+		return filterRow{key: rowKey(row), name: agentRowName(row)}
+	})
+}
+
+// agentRowName is the text a search reads a row of the tree by: the workflow's own name on a
+// header, the agent's on a row.
+func agentRowName(row agentRow) string {
+	if row.header {
+		return row.workflow.Name
+	}
+
+	return row.item.agent.Name
+}
+
+// agentRowDepth is how far a row of the tree is indented: a header, an agent under it, or a
+// child under that.
+func agentRowDepth(row agentRow) int {
+	switch {
+	case row.header:
+		return 0
+	case row.child:
+		return 2
+	}
+
+	return 1
+}
+
+type narrowedParams[T any] struct {
+	rows []T
+	// depth is how far a row is indented, which is what says which rows sit under which.
+	depth func(T) int
+	name  func(T) string
+}
+
+// narrowed is the rows a filter leaves on screen: each one the pattern matches, the rows above
+// it, and the rows under it.
+func narrowed[T any](filter filterState, params narrowedParams[T]) []T {
+	if !filter.isNarrowing() {
+		return params.rows
+	}
+
+	rows := params.rows
+	matched := make([]bool, len(rows))
+	for i, row := range rows {
+		matched[i] = filter.doesMatch(params.name(row))
+	}
+
+	keep := make([]bool, len(rows))
+
+	// The stack holds the rows the one being read sits under, and lit counts how many of those
+	// the pattern matched, so a row under a match is kept without walking the stack again.
+	var stack []int
+	lit := 0
+	for i, row := range rows {
+		depth := params.depth(row)
+		for len(stack) > 0 && params.depth(rows[stack[len(stack)-1]]) >= depth {
+			if matched[stack[len(stack)-1]] {
+				lit--
+			}
+			stack = stack[:len(stack)-1]
 		}
 
-		return filterRow{key: rowKey(row), name: name}
-	})
+		keep[i] = matched[i] || lit > 0
+		if matched[i] {
+			for _, above := range stack {
+				keep[above] = true
+			}
+			lit++
+		}
+
+		stack = append(stack, i)
+	}
+
+	kept := make([]T, 0, len(rows))
+	for i, row := range rows {
+		if keep[i] {
+			kept = append(kept, row)
+		}
+	}
+
+	return kept
 }
 
 func placeCursor(found, cursor, length int) int {
@@ -236,12 +355,17 @@ func (f filterState) line(palette paint.Palette) string {
 		query = palette.Broken().Render(query)
 	}
 
+	// A filter's glyph takes the colour the matches are lit in, so the prompt says the rows
+	// left are the matches and nothing else.
 	slash := palette.Cursor()
+	if f.mode == filterModeFilter {
+		slash = palette.Match()
+	}
 	if !f.typing && !f.isStanding() {
 		slash = dimStyle
 	}
 
-	line := slash.Render("/") + " " + query
+	line := slash.Render(f.mode.glyph()) + " " + query
 	if f.typing {
 		line += palette.Cursor().Render("▏")
 	}
