@@ -27,21 +27,33 @@ type remover interface {
 	Remove(ctx context.Context, dirs []string) (worktrees.Removal, error)
 }
 
+type deleter interface {
+	DeleteWorktrees(ctx context.Context, dirs []string) error
+}
+
 type WorktreeService struct {
 	lister    lister
 	inspector inspector
 	remover   remover
+	deleter   deleter
 }
 
 type NewWorktreeServiceParams struct {
 	Lister    lister
 	Inspector inspector
 	Remover   remover
+	Deleter   deleter
 }
 
-// NewWorktreeService constructs the handler over the worktree readers and the remover.
+// NewWorktreeService constructs the handler over the worktree readers, the remover and the
+// queue the bulk delete goes to.
 func NewWorktreeService(params NewWorktreeServiceParams) *WorktreeService {
-	return &WorktreeService{lister: params.Lister, inspector: params.Inspector, remover: params.Remover}
+	return &WorktreeService{
+		lister:    params.Lister,
+		inspector: params.Inspector,
+		remover:   params.Remover,
+		deleter:   params.Deleter,
+	}
 }
 
 // ListWorktrees is every directory under the worktree directories.
@@ -98,6 +110,15 @@ func (s *WorktreeService) RemoveUnownedWorktrees(ctx context.Context, req *workt
 			return &worktreev1.Refusal{Dir: refusal.Dir, Reason: refusal.Reason}
 		}),
 	}, nil
+}
+
+// DeleteWorktrees queues the delete of the directories named as one background job.
+func (s *WorktreeService) DeleteWorktrees(ctx context.Context, req *worktreev1.DeleteWorktreesRequest) (*emptypb.Empty, *fail.Error) {
+	if err := s.deleter.DeleteWorktrees(ctx, req.GetDirs()); err != nil {
+		return nil, rpcerr.From(err, "failed to queue the delete")
+	}
+
+	return &emptypb.Empty{}, nil
 }
 
 func renderWorktree(worktree worktrees.Worktree) *worktreev1.Worktree {

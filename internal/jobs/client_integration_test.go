@@ -166,6 +166,24 @@ func TestEmptyArchiveIsQueuedAgainOnceTheSweepFinishes(t *testing.T) {
 	assert.False(t, second.UniqueSkippedAsDuplicate, "a finished sweep is not the one that runs next")
 }
 
+// TestDeleteWorktreesIsQueuedOncePerSet covers a second press naming the same directories
+// collapsing into the job already queued, while a different set is a job of its own.
+func TestDeleteWorktreesIsQueuedOncePerSet(t *testing.T) {
+	client := newRiverClient(t)
+
+	first, err := client.Insert(t.Context(), internaljobs.DeleteWorktreesArgs{Dirs: []string{"/trees/a", "/trees/b"}}, nil)
+	require.NoError(t, err)
+	require.False(t, first.UniqueSkippedAsDuplicate)
+
+	again, err := client.Insert(t.Context(), internaljobs.DeleteWorktreesArgs{Dirs: []string{"/trees/a", "/trees/b"}}, nil)
+	require.NoError(t, err)
+	assert.True(t, again.UniqueSkippedAsDuplicate, "the same directories are the job already queued")
+
+	other, err := client.Insert(t.Context(), internaljobs.DeleteWorktreesArgs{Dirs: []string{"/trees/c"}}, nil)
+	require.NoError(t, err)
+	assert.False(t, other.UniqueSkippedAsDuplicate, "a different set is its own job")
+}
+
 // TestPeriodicRegistrationIsKeyedByItsId covers the id River files a registration under, which
 // the scheduler takes one off by.
 func TestPeriodicRegistrationIsKeyedByItsId(t *testing.T) {

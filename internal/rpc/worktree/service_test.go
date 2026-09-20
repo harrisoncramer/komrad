@@ -18,7 +18,8 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-// fakeWorktrees answers as the three readers with one directory, remembering what it was asked.
+// fakeWorktrees answers as the three readers and the queue with one directory, remembering what
+// it was asked.
 type fakeWorktrees struct {
 	listing    worktrees.Listing
 	inspection worktrees.Inspection
@@ -26,6 +27,7 @@ type fakeWorktrees struct {
 	inspected  string
 	fetched    bool
 	removed    []string
+	queued     []string
 }
 
 func (f *fakeWorktrees) List(context.Context) (worktrees.Listing, error) {
@@ -47,11 +49,18 @@ func (f *fakeWorktrees) Remove(_ context.Context, dirs []string) (worktrees.Remo
 	return f.removal, nil
 }
 
+func (f *fakeWorktrees) DeleteWorktrees(_ context.Context, dirs []string) error {
+	f.queued = dirs
+
+	return nil
+}
+
 func newService(fake *fakeWorktrees) worktreev1weave.WorktreeServiceAdapter {
 	return worktreev1weave.WorktreeServiceAdapter{Impl: NewWorktreeService(NewWorktreeServiceParams{
 		Lister:    fake,
 		Inspector: fake,
 		Remover:   fake,
+		Deleter:   fake,
 	})}
 }
 
@@ -179,4 +188,18 @@ func TestRemoveUnownedWorktrees(t *testing.T) {
 	require.Len(t, resp.Msg.GetRefused(), 1)
 	assert.Equal(t, "/trees/aaaa", resp.Msg.GetRefused()[0].GetDir())
 	assert.Contains(t, resp.Msg.GetRefused()[0].GetReason(), "delete the agent instead")
+}
+
+// TestDeleteWorktrees covers the directories reaching the queue as one job and nothing being
+// removed on the call.
+func TestDeleteWorktrees(t *testing.T) {
+	t.Parallel()
+
+	fake := &fakeWorktrees{}
+
+	_, err := newService(fake).DeleteWorktrees(t.Context(), connect.NewRequest(&worktreev1.DeleteWorktreesRequest{Dirs: []string{"/trees/gone", "/trees/aaaa"}}))
+	require.NoError(t, err)
+
+	assert.Equal(t, []string{"/trees/gone", "/trees/aaaa"}, fake.queued)
+	assert.Empty(t, fake.removed, "the call queues the job and removes nothing itself")
 }

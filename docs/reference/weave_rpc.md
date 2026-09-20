@@ -39,6 +39,7 @@ flags, and the response is the API's own JSON on stdout.
 * [weave rpc delete-agents](weave_rpc_delete-agents.md)	 - Permanently remove a list of agents, keyed by id.
 * [weave rpc delete-mail](weave_rpc_delete-mail.md)	 - Permanently remove a list of mail, keyed by id.
 * [weave rpc delete-workflow](weave_rpc_delete-workflow.md)	 - Permanently delete an archived workflow along with whatever archived agents are still inside it, reusing the same worktree-removal handling a direct agent delete uses.
+* [weave rpc delete-worktrees](weave_rpc_delete-worktrees.md)	 - Queue one background job that deletes worktree directories, each by the path its row decides.
 * [weave rpc disconnect-forge](weave_rpc_disconnect-forge.md)	 - Forget a forge and the credential it was connected with.
 * [weave rpc empty-archive](weave_rpc_empty-archive.md)	 - Permanently delete every archived agent and workflow, tearing down each worktree that is still on disk.
 * [weave rpc forward-last-turns](weave_rpc_forward-last-turns.md)	 - Send another agent's newest turns to a third agent as mail weave composes itself, so what that agent concluded reaches the recipient without passing through your own context.

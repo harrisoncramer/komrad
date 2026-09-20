@@ -123,6 +123,7 @@ func newMux(params newMuxParams) (*http.ServeMux, error) {
 				Lister:    params.Services.worktrees,
 				Inspector: params.Services.inspector,
 				Remover:   params.Services.remover,
+				Deleter:   jobs.NewEnqueuer(params.Jobs),
 			}),
 		}, options...))
 	mux.Handle(logv1connect.NewLogServiceHandler(

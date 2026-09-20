@@ -112,7 +112,7 @@ func refuse(listing Listing, rows []agentstore.AgentDir, dir string) string {
 	}
 
 	worktree := listing.Worktrees[at]
-	if worktree.Agent != nil && !isStuck(worktree) {
+	if worktree.Agent != nil && !worktree.IsStuck() {
 		return fmt.Sprintf("agent %s answers for it; delete the agent instead", worktree.Agent.Name)
 	}
 	if len(worktree.Occupants) > 0 {
@@ -149,9 +149,4 @@ func (r *Remover) refuseRegistered(ctx context.Context, worktree Worktree) strin
 // isBeneath reports whether a path is somewhere inside a directory.
 func isBeneath(dir, path string) bool {
 	return strings.HasPrefix(filepath.Clean(path), dir+string(filepath.Separator))
-}
-
-// isStuck reports whether the row's own delete failed on a registration git cannot read.
-func isStuck(worktree Worktree) bool {
-	return worktree.Agent.FailedToCleanup && !worktree.Readable
 }

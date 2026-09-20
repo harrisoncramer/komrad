@@ -128,6 +128,8 @@ func NewServer(ctx context.Context, params NewServerParams) (*Server, error) {
 		Deleter:   svc.lifecycle,
 		Archived:  st.agents,
 		Running:   st.agents,
+		Worktrees: svc.worktrees,
+		Remover:   svc.remover,
 		Logger:    params.Logger,
 	})
 	if err != nil {
