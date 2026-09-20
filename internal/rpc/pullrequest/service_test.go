@@ -237,6 +237,19 @@ func TestListAgentPullRequests(t *testing.T) {
 			},
 		},
 		{
+			name: "a repository asked about but never swept has no read stamp",
+			seed: func(t *testing.T, st *storetest.Stores, pullRequests *pullrequeststore.Store) string {
+				t.Helper()
+				ctx := t.Context()
+
+				id := seedAgentOn(t, st, "missing", "agent/missing")
+				require.NoError(t, pullRequests.EnsureSync(ctx, weaveRepository))
+				require.NoError(t, pullRequests.RecordSyncRequest(ctx, weaveRepository))
+
+				return id
+			},
+		},
+		{
 			name: "the branch's pull requests, newest opened first, with the current one marked",
 			seed: func(t *testing.T, st *storetest.Stores, pullRequests *pullrequeststore.Store) string {
 				t.Helper()
@@ -245,6 +258,12 @@ func TestListAgentPullRequests(t *testing.T) {
 				id := seedAgentOn(t, st, "on-branch", "agent/x")
 				require.NoError(t, pullRequests.EnsureSync(ctx, weaveRepository))
 				require.NoError(t, pullRequests.RecordSyncRequest(ctx, weaveRepository))
+				require.NoError(t, pullRequests.StartSweep(ctx, pullrequeststore.StartSweepParams{
+					RepositoryURL: weaveRepository,
+					Newest:        opened,
+					ListedAt:      opened,
+				}))
+				require.NoError(t, pullRequests.CompleteSweep(ctx, weaveRepository))
 
 				mergedAt := opened.Add(2 * time.Hour)
 				for _, params := range []pullrequeststore.UpsertParams{

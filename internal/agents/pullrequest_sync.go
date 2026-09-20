@@ -30,6 +30,10 @@ const pullRequestSyncListing = time.Hour
 // pullRequestSyncHorizon is how far back a repository's first sweep reads.
 const pullRequestSyncHorizon = 30 * 24 * time.Hour
 
+// pullRequestSyncStale is how far behind a repository's mark may fall before it is swept again
+// rather than searched.
+const pullRequestSyncStale = 24 * time.Hour
+
 // pullRequestSearchCap is the most rows a forge's search answers, at which the repositories
 // searched go back to a first sweep.
 const pullRequestSearchCap = 1000
@@ -65,6 +69,12 @@ type PullRequestSyncer struct {
 	refusals map[string]int
 	// unconnected holds the repositories already logged as having no connection.
 	unconnected map[string]bool
+	// missing holds the repositories already logged as ones the forge does not have.
+	missing map[string]bool
+	// refused holds the hosts already logged as refusing their credential.
+	refused map[string]bool
+	// renamed holds the repositories already logged as known to the forge by another name.
+	renamed map[string]bool
 }
 
 type NewPullRequestSyncerParams struct {
@@ -89,6 +99,9 @@ func NewPullRequestSyncer(params NewPullRequestSyncerParams) *PullRequestSyncer 
 		now:          now,
 		refusals:     map[string]int{},
 		unconnected:  map[string]bool{},
+		missing:      map[string]bool{},
+		refused:      map[string]bool{},
+		renamed:      map[string]bool{},
 	}
 }
 
@@ -217,7 +230,14 @@ func (s *PullRequestSyncer) openHost(ctx context.Context, hostname, repositoryUR
 // repository's hourly listing, branch scans and decisions.
 func (s *PullRequestSyncer) syncHost(ctx context.Context, host *hostRead) {
 	for _, read := range host.repositories {
-		s.step(ctx, host, read, s.prepare)
+		if err := s.prepare(ctx, read); err != nil {
+			read.err = err
+			logging.From(ctx).LogAttrs(ctx, slog.LevelError, "failed to prepare the repository's sync row",
+				append([]slog.Attr{slog.String(logging.RepositoryURL, read.remote.Canonical())}, logging.Err(err)...)...)
+
+			continue
+		}
+
 		s.step(ctx, host, read, s.sweep)
 	}
 
@@ -227,7 +247,13 @@ func (s *PullRequestSyncer) syncHost(ctx context.Context, host *hostRead) {
 		s.step(ctx, host, read, s.list)
 		s.step(ctx, host, read, s.scanBranches)
 		s.step(ctx, host, read, s.readDecisions)
+		if read.err == nil {
+			delete(s.missing, read.remote.Canonical())
+		}
 		s.logRepository(ctx, read)
+	}
+	if !host.throttled {
+		delete(s.refused, host.host)
 	}
 }
 
@@ -238,6 +264,7 @@ func (s *PullRequestSyncer) step(ctx context.Context, host *hostRead, read *repo
 		return
 	}
 
+	repositoryURL := read.remote.Canonical()
 	err := run(ctx, host, read)
 	var throttled *forge.ThrottledError
 	switch {
@@ -245,17 +272,53 @@ func (s *PullRequestSyncer) step(ctx context.Context, host *hostRead, read *repo
 	case errors.Is(err, errRateLimitSpent):
 		host.throttled = true
 	case errors.As(err, &throttled):
-		host.throttled = true
-		s.recordThrottle(ctx, host.host, host.connection.ID, throttled.RetryAt)
+		s.throttleHost(ctx, host, throttled.RetryAt)
+	case errors.Is(err, forge.ErrUnauthorized):
+		s.refuseHost(ctx, host, err)
+	case errors.Is(err, forge.ErrNotFound):
+		read.err = err
+		if !s.missing[repositoryURL] {
+			s.missing[repositoryURL] = true
+			logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "the forge has no such repository, so its pull requests are not read until it does",
+				append([]slog.Attr{slog.String(logging.RepositoryURL, repositoryURL)}, logging.Err(err)...)...)
+		}
 	default:
 		read.err = err
 		logging.From(ctx).LogAttrs(ctx, slog.LevelError, "failed to sync the repository's pull requests",
-			append([]slog.Attr{slog.String(logging.RepositoryURL, read.remote.Canonical())}, logging.Err(err)...)...)
+			append([]slog.Attr{slog.String(logging.RepositoryURL, repositoryURL)}, logging.Err(err)...)...)
 	}
 }
 
+// throttleHost stops a host for the pass after a rate limit refusal, records when to try it
+// again, and says so.
+func (s *PullRequestSyncer) throttleHost(ctx context.Context, host *hostRead, retryAt time.Time) {
+	host.throttled = true
+	until := s.recordThrottle(ctx, host.host, host.connection.ID, retryAt)
+	if until.IsZero() {
+		return
+	}
+
+	logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "the forge is rate limiting the connection",
+		slog.String(logging.ForgeHost, host.host),
+		slog.Time(logging.ThrottledUntil, until))
+}
+
+// refuseHost stops a host for the pass after the forge refused its credential, backs off the
+// way a rate limit refusal that named no time does, and says so once per host.
+func (s *PullRequestSyncer) refuseHost(ctx context.Context, host *hostRead, err error) {
+	host.throttled = true
+	s.recordThrottle(ctx, host.host, host.connection.ID, time.Time{})
+	if s.refused[host.host] {
+		return
+	}
+
+	s.refused[host.host] = true
+	logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "the forge refused the connection's credential, so its pull requests wait for it to be accepted again",
+		append([]slog.Attr{slog.String(logging.ForgeHost, host.host)}, logging.Err(err)...)...)
+}
+
 // prepare makes sure the repository has a sync row and starts its count of requests at zero.
-func (s *PullRequestSyncer) prepare(ctx context.Context, _ *hostRead, read *repositoryRead) error {
+func (s *PullRequestSyncer) prepare(ctx context.Context, read *repositoryRead) error {
 	repositoryURL := read.remote.Canonical()
 	if err := s.pullRequests.EnsureSync(ctx, repositoryURL); err != nil {
 		return err
@@ -281,9 +344,9 @@ func (s *PullRequestSyncer) logRepository(ctx context.Context, read *repositoryR
 	)
 }
 
-// sweep reads a repository that has had no first sweep by its listing, newest change first,
-// page by page from where the cursor row says, until it reaches the horizon or the budget runs
-// out.
+// sweep reads a repository that has had no first sweep, or whose mark has fallen a day behind,
+// by its listing, newest change first, page by page from where the cursor row says, until it
+// reaches the horizon or the budget runs out.
 func (s *PullRequestSyncer) sweep(ctx context.Context, host *hostRead, read *repositoryRead) error {
 	remote, counts := read.remote, read.tally
 	repositoryURL := remote.Canonical()
@@ -292,7 +355,18 @@ func (s *PullRequestSyncer) sweep(ctx context.Context, host *hostRead, read *rep
 		return err
 	}
 	if sync.IsSwept() {
-		return nil
+		if s.now().Sub(*sync.UpdatedThrough) < pullRequestSyncStale {
+			return nil
+		}
+
+		logging.From(ctx).LogAttrs(ctx, slog.LevelInfo, "the repository's mark is more than a day behind, so it is swept again rather than searched",
+			slog.String(logging.RepositoryURL, repositoryURL),
+			slog.Time(logging.UpdatedThrough, *sync.UpdatedThrough))
+		if err := s.pullRequests.ResetSweeps(ctx, []string{repositoryURL}); err != nil {
+			return err
+		}
+
+		sync.SweepCursor = nil
 	}
 
 	cursor := ""
@@ -313,6 +387,7 @@ func (s *PullRequestSyncer) sweep(ctx context.Context, host *hostRead, read *rep
 			return err
 		}
 		spent := s.noteRateLimit(ctx, host, listed.RateLimit)
+		s.noteRename(ctx, repositoryURL, listed.PullRequests)
 
 		if !started {
 			newest := listedAt
@@ -400,8 +475,9 @@ func (s *PullRequestSyncer) search(ctx context.Context, host *hostRead) {
 	case errors.Is(err, errRateLimitSpent):
 		host.throttled = true
 	case errors.As(err, &throttled):
-		host.throttled = true
-		s.recordThrottle(ctx, host.host, host.connection.ID, throttled.RetryAt)
+		s.throttleHost(ctx, host, throttled.RetryAt)
+	case errors.Is(err, forge.ErrUnauthorized):
+		s.refuseHost(ctx, host, err)
 	default:
 		logger.LogAttrs(ctx, slog.LevelError, "failed to search the host's pull requests", logging.Err(err)...)
 	}
@@ -481,8 +557,9 @@ func (s *PullRequestSyncer) searchPages(ctx context.Context, host *hostRead, pas
 	return nil
 }
 
-// settle moves each repository's mark to what the search covered for it, or hands them all
-// back to a first sweep when the search was capped.
+// settle moves each repository's mark to the moment of the search, or to the newest change it
+// answered when the forge's clock is ahead, or hands them all back to a first sweep when the
+// search was capped.
 func (p *searchPass) settle(ctx context.Context, st *pullrequeststore.Store) error {
 	if p.capped {
 		return st.ResetSweeps(ctx, p.urls)
@@ -490,7 +567,7 @@ func (p *searchPass) settle(ctx context.Context, st *pullrequeststore.Store) err
 
 	for _, repositoryURL := range p.urls {
 		through := p.searchedAt
-		if answered, ok := p.newest[repositoryURL]; ok {
+		if answered, ok := p.newest[repositoryURL]; ok && answered.After(through) {
 			through = answered
 		}
 		if err := st.AdvanceMark(ctx, repositoryURL, through); err != nil {
@@ -552,6 +629,7 @@ func (s *PullRequestSyncer) list(ctx context.Context, host *hostRead, read *repo
 		return err
 	}
 	spent := s.noteRateLimit(ctx, host, listed.RateLimit)
+	s.noteRename(ctx, repositoryURL, listed.PullRequests)
 
 	if err := s.writePage(ctx, listed.PullRequests, counts, func(st *pullrequeststore.Store) error {
 		return st.MarkListed(ctx, repositoryURL, listedAt)
@@ -563,6 +641,24 @@ func (s *PullRequestSyncer) list(ctx context.Context, host *hostRead, read *repo
 	}
 
 	return nil
+}
+
+// noteRename says once, per repository, that the forge answered its listing under another
+// name.
+func (s *PullRequestSyncer) noteRename(ctx context.Context, repositoryURL string, pullRequests []forge.PullRequest) {
+	if s.renamed[repositoryURL] || len(pullRequests) == 0 {
+		return
+	}
+
+	answered := pullRequests[0].Repository.Canonical()
+	if pullRequests[0].Repository.IsZero() || answered == repositoryURL {
+		return
+	}
+
+	s.renamed[repositoryURL] = true
+	logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "the forge now answers the repository under another name, so its pull requests are stored under that one and the search misses it until the checkout's remote is updated",
+		slog.String(logging.RepositoryURL, repositoryURL),
+		slog.String(logging.RenamedRepositoryURL, answered))
 }
 
 // scanBranches reads, once, the pull requests of every branch a live agent sits on that the
@@ -719,14 +815,15 @@ func (s *PullRequestSyncer) noteRateLimit(ctx context.Context, host *hostRead, l
 		return false
 	}
 
-	s.recordThrottle(ctx, host.host, host.connection.ID, limit.ResetAt)
+	s.throttleHost(ctx, host, limit.ResetAt)
 
 	return true
 }
 
 // recordThrottle writes when to try the host again, which is what the forge said or, when it
-// said nothing, a wait that doubles with every refusal in a row.
-func (s *PullRequestSyncer) recordThrottle(ctx context.Context, host, connectionID string, retryAt time.Time) {
+// said nothing, a wait that doubles with every refusal in a row, and answers it, zero when
+// the write failed.
+func (s *PullRequestSyncer) recordThrottle(ctx context.Context, host, connectionID string, retryAt time.Time) time.Time {
 	until := retryAt
 	if until.IsZero() {
 		wait := pullRequestThrottleFloor
@@ -740,12 +837,10 @@ func (s *PullRequestSyncer) recordThrottle(ctx context.Context, host, connection
 	if err := s.forges.SetThrottledUntil(ctx, connectionID, &until); err != nil {
 		logging.From(ctx).LogAttrs(ctx, slog.LevelError, "failed to record the forge's rate limit", logging.Err(err)...)
 
-		return
+		return time.Time{}
 	}
 
-	logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "the forge is rate limiting the connection",
-		slog.String(logging.ForgeHost, host),
-		slog.Time(logging.ThrottledUntil, until))
+	return until
 }
 
 // toUpsert is a pull request as the forge described it, in the store's terms.

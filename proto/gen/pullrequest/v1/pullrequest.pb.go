@@ -31,9 +31,9 @@ type PullRequestState int32
 const (
 	// No state was decided.
 	PullRequestState_PULL_REQUEST_STATE_UNSPECIFIED PullRequestState = 0
-	// The repository has not been read, so nothing is known.
+	// The repository's first sweep has not completed, so nothing is known.
 	PullRequestState_PULL_REQUEST_STATE_UNREAD PullRequestState = 1
-	// The repository has been read and nothing was opened from the branch.
+	// The repository has been swept and nothing was opened from the branch.
 	PullRequestState_PULL_REQUEST_STATE_NONE PullRequestState = 2
 	// Open with no review decision that settles it.
 	PullRequestState_PULL_REQUEST_STATE_OPEN PullRequestState = 3
@@ -572,7 +572,8 @@ type ListAgentPullRequestsResponse struct {
 	// Every pull request opened from the agent's branch in its repository, newest opened first,
 	// read from what the sync has stored rather than from the forge.
 	PullRequests []*AgentPullRequest `protobuf:"bytes,1,rep,name=pull_requests,json=pullRequests,proto3" json:"pull_requests,omitempty"`
-	// When the sync last made a request for the repository, in RFC 3339, unset while it never has.
+	// When the sync last made a request for the repository, in RFC 3339, unset until its first
+	// sweep has completed.
 	RepositoryReadAt *string `protobuf:"bytes,2,opt,name=repository_read_at,json=repositoryReadAt,proto3,oneof" json:"repository_read_at,omitempty"`
 	unknownFields    protoimpl.UnknownFields
 	sizeCache        protoimpl.SizeCache
@@ -696,11 +697,11 @@ const file_pullrequest_v1_pullrequest_proto_rawDesc = "" +
 	"$PULL_REQUEST_STATE_CHANGES_REQUESTED\x10\x05\x12\x1c\n" +
 	"\x18PULL_REQUEST_STATE_DRAFT\x10\x06\x12\x1d\n" +
 	"\x19PULL_REQUEST_STATE_MERGED\x10\a\x12\x1d\n" +
-	"\x19PULL_REQUEST_STATE_CLOSED\x10\b2\x9c\n" +
+	"\x19PULL_REQUEST_STATE_CLOSED\x10\b2\x9f\n" +
 	"\n" +
 	"\x12PullRequestService\x12\xd2\x04\n" +
-	"\x10ListPullRequests\x12'.pullrequest.v1.ListPullRequestsRequest\x1a(.pullrequest.v1.ListPullRequestsResponse\"\xea\x03\x9a\xb5\x18\xe2\x03\b\x01\x10\x01\x1a\x12list_pull_requests\"\xc7\x03List a repository's pull requests through the forge connection for its host, a page at a time: every one opened from a branch when one is named, whatever its state, or the open ones when none is. Give the repository as a git remote spells it, and pass the next_page_token back as pagination.cursor for the next page. A repository the connection's credential cannot see is answered as not found, which is also what a repository that does not exist answers.\x90\x02\x01\x12\xb0\x05\n" +
-	"\x15ListAgentPullRequests\x12,.pullrequest.v1.ListAgentPullRequestsRequest\x1a-.pullrequest.v1.ListAgentPullRequestsResponse\"\xb9\x04\x9a\xb5\x18\xb1\x04\b\x01\x10\x01\x1a\x18list_agent_pull_requests\"\x90\x04List the pull requests opened from an agent's branch in its repository, newest opened first, each with where it stands: open, approved, changes requested, draft, merged or closed. The one marked current is what the agent's row in the panel shows. This reads what the pull request sync has stored rather than asking the forge, so repository_read_at says how fresh it is, and an unset repository_read_at means the repository has not been read at all yet. An agent whose checkout is not on a forge repository answers an empty list.\x90\x02\x01B.Z,weave/proto/gen/pullrequest/v1;pullrequestv1b\x06proto3"
+	"\x10ListPullRequests\x12'.pullrequest.v1.ListPullRequestsRequest\x1a(.pullrequest.v1.ListPullRequestsResponse\"\xea\x03\x9a\xb5\x18\xe2\x03\b\x01\x10\x01\x1a\x12list_pull_requests\"\xc7\x03List a repository's pull requests through the forge connection for its host, a page at a time: every one opened from a branch when one is named, whatever its state, or the open ones when none is. Give the repository as a git remote spells it, and pass the next_page_token back as pagination.cursor for the next page. A repository the connection's credential cannot see is answered as not found, which is also what a repository that does not exist answers.\x90\x02\x01\x12\xb3\x05\n" +
+	"\x15ListAgentPullRequests\x12,.pullrequest.v1.ListAgentPullRequestsRequest\x1a-.pullrequest.v1.ListAgentPullRequestsResponse\"\xbc\x04\x9a\xb5\x18\xb4\x04\b\x01\x10\x01\x1a\x18list_agent_pull_requests\"\x93\x04List the pull requests opened from an agent's branch in its repository, newest opened first, each with where it stands: open, approved, changes requested, draft, merged or closed. The one marked current is what the agent's row in the panel shows. This reads what the pull request sync has stored rather than asking the forge, so repository_read_at says how fresh it is, and an unset repository_read_at means the repository's first sweep has not completed. An agent whose checkout is not on a forge repository answers an empty list.\x90\x02\x01B.Z,weave/proto/gen/pullrequest/v1;pullrequestv1b\x06proto3"
 
 var (
 	file_pullrequest_v1_pullrequest_proto_rawDescOnce sync.Once

@@ -288,7 +288,7 @@ func (s *Store) ListCurrentPullRequests(ctx context.Context) ([]Current, error) 
 	return current, nil
 }
 
-// ListReadRepositories is every repository the sync has made at least one request for.
+// ListReadRepositories is every repository whose first sweep has completed.
 func (s *Store) ListReadRepositories(ctx context.Context) ([]string, error) {
 	rows, err := s.queries.ListReadRepositories(ctx)
 	if err != nil {

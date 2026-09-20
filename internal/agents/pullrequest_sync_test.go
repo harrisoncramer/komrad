@@ -1,9 +1,11 @@
 package agents
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"strconv"
 	"strings"
 	"testing"
@@ -12,6 +14,7 @@ import (
 	"weave/internal/dbtest"
 	"weave/internal/forge"
 	"weave/internal/git"
+	"weave/internal/logging"
 	"weave/internal/store"
 	agentstore "weave/internal/store/agent"
 	forgestore "weave/internal/store/forge"
@@ -44,9 +47,10 @@ type scriptedForge struct {
 	// when a number is not here, and unknown the numbers the forge has no pull request for.
 	decisions map[int]forge.ReviewDecision
 	unknown   map[int]bool
-	// refuse is answered instead of any listing while set, and refuseDecisions instead of
-	// any batch of decisions.
+	// refuse is answered instead of any listing while set, refuseUpdated instead of the
+	// repository's own listing alone, and refuseDecisions instead of any batch of decisions.
 	refuse          error
+	refuseUpdated   error
 	refuseDecisions error
 	// requests is every request in order, spelled "updated:<cursor>", "branch:<name>:<cursor>",
 	// "changed:<since>:<cursor>" or "decisions:<numbers>".
@@ -67,6 +71,9 @@ func (f *scriptedForge) ListUpdated(_ context.Context, params forge.ListUpdatedP
 	f.requests = append(f.requests, "updated:"+params.Cursor)
 	if f.refuse != nil {
 		return nil, f.refuse
+	}
+	if f.refuseUpdated != nil {
+		return nil, f.refuseUpdated
 	}
 
 	pages := f.updated
@@ -390,7 +397,7 @@ func TestSyncFirstSweepStopsAtTheHorizon(t *testing.T) {
 
 // TestSyncSearchWritesOnlyChangedRows covers the pass after the first sweep: one search from
 // the mark less the overlap, its rows written with their decisions and nothing else touched,
-// the mark moved to the newest change it answered, and no decision read for a row the search
+// the mark moved to the moment of the search, and no decision read for a row the search
 // already decided.
 func TestSyncSearchWritesOnlyChangedRows(t *testing.T) {
 	f, mark := sweptFixture(t)
@@ -410,12 +417,13 @@ func TestSyncSearchWritesOnlyChangedRows(t *testing.T) {
 	assert.True(t, written.DecisionChangedAt.Equal(changedAt))
 	assert.Equal(t, before, f.stored(t, "PR_1"), "a row the search did not answer is not touched")
 	sync := f.getSync(t)
-	assert.True(t, sync.UpdatedThrough.Equal(changedAt), "the mark is the newest change the search answered")
+	assert.True(t, sync.UpdatedThrough.Equal(syncNow.Add(time.Minute)), "the mark is the moment of the search, which covered up to then")
 	assert.Equal(t, 1, sync.Calls)
 }
 
-// TestSyncSearchMovesTheMarkToTheSearchTime covers a search that answers nothing for a
-// repository: its mark moves to the moment of the search, which the search covered.
+// TestSyncSearchMovesTheMarkToTheSearchTime covers the mark after a search: it moves to the
+// moment of the search whether the search answered nothing or only rows older than that, and
+// past the search time only when the forge's clock is ahead.
 func TestSyncSearchMovesTheMarkToTheSearchTime(t *testing.T) {
 	f, mark := sweptFixture(t)
 
@@ -425,8 +433,45 @@ func TestSyncSearchMovesTheMarkToTheSearchTime(t *testing.T) {
 	assert.Equal(t, []string{search(mark)}, f.forge.requests)
 	assert.True(t, f.getSync(t).UpdatedThrough.Equal(later))
 
+	f.forge.changed[""] = &forge.ListChangedResult{PullRequests: []forge.PullRequest{
+		decided(pullRequestAt("PR_2", "agent/x", later.Add(-5*time.Minute)), forge.ReviewDecisionNone),
+	}}
 	f.pass(t, later.Add(time.Minute))
 	assert.Equal(t, []string{search(later)}, f.forge.requests, "the next search starts from the moved mark")
+	assert.True(t, f.getSync(t).UpdatedThrough.Equal(later.Add(time.Minute)), "an answered row older than the search does not hold the mark back")
+
+	ahead := later.Add(10 * time.Minute)
+	f.forge.changed[""] = &forge.ListChangedResult{PullRequests: []forge.PullRequest{
+		decided(pullRequestAt("PR_3", "agent/x", ahead), forge.ReviewDecisionNone),
+	}}
+	f.pass(t, later.Add(2*time.Minute))
+	assert.True(t, f.getSync(t).UpdatedThrough.Equal(ahead), "a row stamped ahead of the search moves the mark to it")
+}
+
+// TestSyncStaleMarkGoesBackToAFirstSweep covers a repository whose mark has fallen more than a
+// day behind, which is swept again from page one.
+func TestSyncStaleMarkGoesBackToAFirstSweep(t *testing.T) {
+	f, _ := sweptFixture(t)
+	f.agentIn(t, "b", otherRepository, "agent/y")
+	other := git.RemoteURL{
+		Scheme: "https",
+		Host:   "github.com",
+		Path:   "harrisoncramer/weave-forge-fixture",
+	}
+	f.forge.elsewhere[other.Path] = map[string]*forge.ListUpdatedResult{"": {}}
+	f.pass(t, syncNow.Add(time.Minute))
+	require.True(t, f.getSyncOf(t, otherRepository).IsSwept())
+
+	f.forge.updated[""] = &forge.ListUpdatedResult{PullRequests: []forge.PullRequest{pullRequestAt("PR_1", "agent/x", syncNow.Add(-time.Hour))}}
+	later := syncNow.Add(25 * time.Hour)
+	f.pass(t, later)
+
+	assert.Equal(t, "updated:", f.forge.requests[0], "the stale repository is swept again before the search")
+	require.NotEmpty(t, f.forge.searches)
+	last := f.forge.searches[len(f.forge.searches)-1]
+	assert.Len(t, last.Repos, 2)
+	assert.True(t, last.Since.Equal(later.Add(-pullRequestSyncOverlap)), "the search starts from the pass, not a day back")
+	assert.True(t, f.getSync(t).UpdatedThrough.Equal(later))
 }
 
 // TestSyncSearchPagesAndMovesTheMarkOnlyAtTheEnd covers a search with more than one page:
@@ -453,7 +498,7 @@ func TestSyncSearchPagesAndMovesTheMarkOnlyAtTheEnd(t *testing.T) {
 	f.pass(t, syncNow.Add(2*time.Minute))
 
 	f.stored(t, "PR_4")
-	assert.True(t, f.getSync(t).UpdatedThrough.Equal(newest), "the mark is the newest change once every page is written")
+	assert.True(t, f.getSync(t).UpdatedThrough.Equal(syncNow.Add(2*time.Minute)), "the mark is the moment of the search once every page is written")
 	assert.Equal(t, 2, f.getSync(t).Calls, "each page counts against the repository")
 }
 
@@ -763,8 +808,11 @@ func TestSyncThrottlesTheConnection(t *testing.T) {
 	f := newSyncFixture(t)
 	f.agentOn(t, "a", "agent/x")
 	f.forge.refuse = &forge.ThrottledError{}
+	var logged bytes.Buffer
+	ctx := logging.WithLogger(t.Context(), slog.New(slog.NewTextHandler(&logged, nil)))
 
-	f.sync(t)
+	require.NoError(t, f.syncer.Sync(ctx))
+	assert.Equal(t, 1, strings.Count(logged.String(), "the forge is rate limiting the connection"))
 
 	connection, err := f.connections.GetByHost(t.Context(), "github.com")
 	require.NoError(t, err)
@@ -835,6 +883,122 @@ func TestSyncStopsWhenTheBudgetHeaderIsSpent(t *testing.T) {
 	require.NotNil(t, connection.ThrottledUntil)
 	assert.True(t, connection.ThrottledUntil.Equal(reset))
 	assert.True(t, f.getSync(t).IsSweeping())
+}
+
+// TestSyncSaysAMissingRepositoryOnce covers a repository the forge does not have: it is said
+// once as a warning rather than as an error every pass, asked about again each pass, and said
+// again only once it has been found and lost again.
+func TestSyncSaysAMissingRepositoryOnce(t *testing.T) {
+	f := newSyncFixture(t)
+	f.agentOn(t, "a", "agent/x")
+	f.forge.refuse = fmt.Errorf("%w: gone", forge.ErrNotFound)
+	var logged bytes.Buffer
+	ctx := logging.WithLogger(t.Context(), slog.New(slog.NewTextHandler(&logged, nil)))
+
+	for range 3 {
+		require.NoError(t, f.syncer.Sync(ctx))
+	}
+
+	assert.Len(t, f.forge.requests, 3, "the repository is still asked about each pass")
+	assert.Equal(t, 1, strings.Count(logged.String(), "the forge has no such repository"))
+	assert.NotContains(t, logged.String(), "failed to sync the repository")
+	assert.False(t, f.getSync(t).IsSwept())
+
+	f.forge.refuse = nil
+	f.forge.updated[""] = &forge.ListUpdatedResult{}
+	require.NoError(t, f.syncer.Sync(ctx))
+	f.agentOn(t, "b", "agent/y")
+	f.forge.refuse = fmt.Errorf("%w: gone again", forge.ErrNotFound)
+	require.NoError(t, f.syncer.Sync(ctx))
+
+	assert.Equal(t, 2, strings.Count(logged.String(), "the forge has no such repository"), "a repository found and lost again is said again")
+}
+
+// TestSyncSaysASweptRepositoryThatGoesMissingOnce covers a repository lost after its first
+// sweep, where only its hourly listing meets the refusal: it is still said once.
+func TestSyncSaysASweptRepositoryThatGoesMissingOnce(t *testing.T) {
+	f, _ := sweptFixture(t)
+	f.forge.refuseUpdated = fmt.Errorf("%w: gone", forge.ErrNotFound)
+	f.forge.requests = nil
+	var logged bytes.Buffer
+	ctx := logging.WithLogger(t.Context(), slog.New(slog.NewTextHandler(&logged, nil)))
+
+	for minute := 61; minute <= 63; minute++ {
+		f.now = syncNow.Add(time.Duration(minute) * time.Minute)
+		require.NoError(t, f.syncer.Sync(ctx))
+	}
+
+	assert.Equal(t, 3, strings.Count(strings.Join(f.forge.requests, " "), "updated:"), "the listing is due every pass while it keeps failing")
+	assert.Equal(t, 1, strings.Count(logged.String(), "the forge has no such repository"))
+}
+
+// TestSyncSaysARenamedRepositoryOnce covers a listing answered under another name: the rows
+// are stored as the forge names them and the rename is said once.
+func TestSyncSaysARenamedRepositoryOnce(t *testing.T) {
+	f := newSyncFixture(t)
+	f.agentOn(t, "a", "agent/x")
+	renamed := git.RemoteURL{
+		Scheme: "https",
+		Host:   "github.com",
+		Path:   "harrisoncramer/weave-renamed",
+	}
+	f.forge.updated[""] = &forge.ListUpdatedResult{PullRequests: []forge.PullRequest{pullRequestIn(renamed, "PR_1", "agent/x", syncNow.Add(-time.Hour))}}
+	var logged bytes.Buffer
+	ctx := logging.WithLogger(t.Context(), slog.New(slog.NewTextHandler(&logged, nil)))
+
+	require.NoError(t, f.syncer.Sync(ctx))
+	f.now = syncNow.Add(61 * time.Minute)
+	require.NoError(t, f.syncer.Sync(ctx))
+
+	assert.Equal(t, 1, strings.Count(logged.String(), "under another name"), "the sweep says it, the hourly listing does not repeat it")
+	assert.Equal(t, renamed.Canonical(), f.stored(t, "PR_1").RepositoryURL)
+}
+
+// TestSyncBacksOffARefusedCredential covers the forge refusing the credential: the pass stops
+// asking the host, the connection waits the way a rate limit refusal with no time makes it
+// wait, the refusal is said once, and it is said again after a later refusal.
+func TestSyncBacksOffARefusedCredential(t *testing.T) {
+	f, _ := sweptFixture(t)
+	f.agentIn(t, "b", otherRepository, "agent/y")
+	f.forge.refuse = fmt.Errorf("%w: bad credentials", forge.ErrUnauthorized)
+	var logged bytes.Buffer
+	ctx := logging.WithLogger(t.Context(), slog.New(slog.NewTextHandler(&logged, nil)))
+
+	f.now = syncNow.Add(time.Minute)
+	f.forge.requests = nil
+	require.NoError(t, f.syncer.Sync(ctx))
+
+	assert.Len(t, f.forge.requests, 1, "the first refusal stops the host for the pass")
+	assert.Equal(t, 1, strings.Count(logged.String(), "the forge refused the connection's credential"))
+	connection, err := f.connections.GetByHost(ctx, "github.com")
+	require.NoError(t, err)
+	require.NotNil(t, connection.ThrottledUntil)
+	assert.True(t, connection.ThrottledUntil.Equal(f.now.Add(time.Minute)))
+
+	f.now = f.now.Add(30 * time.Second)
+	f.forge.requests = nil
+	require.NoError(t, f.syncer.Sync(ctx))
+	assert.Empty(t, f.forge.requests, "nothing is asked while the connection waits")
+
+	f.now = f.now.Add(time.Minute)
+	require.NoError(t, f.syncer.Sync(ctx))
+	assert.Len(t, f.forge.requests, 1, "the host is asked again once the wait is over")
+	assert.Equal(t, 1, strings.Count(logged.String(), "the forge refused the connection's credential"), "a refusal in a row is not said again")
+	connection, err = f.connections.GetByHost(ctx, "github.com")
+	require.NoError(t, err)
+	assert.True(t, connection.ThrottledUntil.Equal(f.now.Add(2*time.Minute)), "the wait doubles")
+
+	f.forge.refuse = nil
+	f.now = f.now.Add(3 * time.Minute)
+	f.forge.requests = nil
+	require.NoError(t, f.syncer.Sync(ctx))
+	assert.NotEmpty(t, f.forge.requests, "an accepted credential is read again")
+
+	f.forge.refuse = fmt.Errorf("%w: bad credentials", forge.ErrUnauthorized)
+	f.now = f.now.Add(time.Minute)
+	require.NoError(t, f.syncer.Sync(ctx))
+	assert.Equal(t, 2, strings.Count(logged.String(), "the forge refused the connection's credential"), "a later refusal is said again")
+	assert.NotContains(t, logged.String(), "rate limiting", "a refused credential is never called a rate limit")
 }
 
 // TestSyncSkipsARepositoryWithNoConnection covers a host nobody connected: nothing is asked and

@@ -147,7 +147,7 @@ func (s *PullRequestService) ListAgentPullRequests(ctx context.Context, req *pul
 	if err != nil && !errors.Is(err, store.ErrNotFound) {
 		return nil, rpcerr.From(err, "failed to read where the sync is for the repository")
 	}
-	if sync != nil {
+	if sync != nil && sync.IsSwept() {
 		response.RepositoryReadAt = dates.StampPtr(sync.ReadAt)
 	}
 
