@@ -67,7 +67,7 @@ func (f *fakeForge) List(context.Context, ListParams) (*ListResult, error) {
 
 func (f *fakeForge) Get(context.Context, string) (PullRequest, error) { return PullRequest{}, nil }
 
-func (f *fakeForge) GetReviewDecision(context.Context, git.RemoteURL, int) (string, error) {
+func (f *fakeForge) GetReviewDecisionByNumber(context.Context, git.RemoteURL, int) (string, error) {
 	return "", nil
 }
 

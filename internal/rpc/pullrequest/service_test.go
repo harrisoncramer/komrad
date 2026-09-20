@@ -36,7 +36,7 @@ func (f *fakeForge) ListUpdated(context.Context, forge.ListUpdatedParams) (*forg
 	return &forge.ListUpdatedResult{}, nil
 }
 
-func (f *fakeForge) GetReviewDecision(context.Context, git.RemoteURL, int) (string, error) {
+func (f *fakeForge) GetReviewDecisionByNumber(context.Context, git.RemoteURL, int) (string, error) {
 	return "", nil
 }
 

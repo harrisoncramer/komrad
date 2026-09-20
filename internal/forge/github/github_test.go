@@ -601,7 +601,7 @@ func TestGetReviewDecision(t *testing.T) {
 				_, _ = w.Write([]byte(tt.body))
 			})
 
-			got, err := f.GetReviewDecision(t.Context(), weave, 740)
+			got, err := f.GetReviewDecisionByNumber(t.Context(), weave, 740)
 			if tt.wantErr != nil {
 				require.ErrorIs(t, err, tt.wantErr)
 			} else {
@@ -658,6 +658,6 @@ func TestGetReviewDecisionRefusesANestedPath(t *testing.T) {
 
 	f, _, _ := serve(t, "/never", "", http.StatusOK)
 
-	_, err := f.GetReviewDecision(t.Context(), git.RemoteURL{Host: "github.com", Path: "group/sub/repo"}, 1)
+	_, err := f.GetReviewDecisionByNumber(t.Context(), git.RemoteURL{Host: "github.com", Path: "group/sub/repo"}, 1)
 	require.ErrorIs(t, err, forge.ErrNotRepository)
 }

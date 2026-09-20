@@ -204,7 +204,11 @@ func (s *PullRequestSyncer) readRepository(ctx context.Context, remote git.Remot
 		return err
 	}
 
-	return s.readDecisions(ctx, remote, f, pass)
+	return s.readDecisions(ctx, readDecisionsParams{
+		Remote: remote,
+		Forge:  f,
+		Pass:   pass,
+	})
 }
 
 // sweep reads the repository's listing by last change from where the cursor row says, page by
@@ -362,22 +366,28 @@ func (s *PullRequestSyncer) scanBranches(ctx context.Context, remote git.RemoteU
 	return nil
 }
 
+type readDecisionsParams struct {
+	Remote git.RemoteURL
+	Forge  forge.Forge
+	Pass   *repositoryPass
+}
+
 // readDecisions reads the review decision of every open pull request on a live branch that
 // changed since its decision was last read, newest change first, until the budget runs out.
-func (s *PullRequestSyncer) readDecisions(ctx context.Context, remote git.RemoteURL, f forge.Forge, pass *repositoryPass) error {
-	repositoryURL := remote.Canonical()
+func (s *PullRequestSyncer) readDecisions(ctx context.Context, params readDecisionsParams) error {
+	repositoryURL := params.Remote.Canonical()
 	stale, err := s.pullRequests.ListStaleDecisions(ctx, repositoryURL)
 	if err != nil {
 		return err
 	}
 
 	for _, pullRequest := range stale {
-		if pass.budget <= 0 {
+		if params.Pass.budget <= 0 {
 			return nil
 		}
-		pass.budget--
+		params.Pass.budget--
 
-		decision, err := f.GetReviewDecision(ctx, remote, pullRequest.Number)
+		decision, err := params.Forge.GetReviewDecisionByNumber(ctx, params.Remote, pullRequest.Number)
 		if recordErr := s.pullRequests.RecordSyncRequest(ctx, repositoryURL); recordErr != nil {
 			return recordErr
 		}
@@ -388,7 +398,7 @@ func (s *PullRequestSyncer) readDecisions(ctx context.Context, remote git.Remote
 		if err := s.pullRequests.SetReviewDecision(ctx, pullRequest.ID, decision); err != nil {
 			return err
 		}
-		pass.decisions++
+		params.Pass.decisions++
 	}
 
 	return nil

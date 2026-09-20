@@ -264,9 +264,9 @@ func (f *Forge) Get(ctx context.Context, address string) (forge.PullRequest, err
 	return raw.toPullRequest(), nil
 }
 
-// GetReviewDecision reads GitHub's computed reviewDecision for one pull request over GraphQL,
-// which is what its own page shows and already folds in dismissed and stale reviews.
-func (f *Forge) GetReviewDecision(ctx context.Context, repo git.RemoteURL, number int) (string, error) {
+// GetReviewDecisionByNumber reads GitHub's computed reviewDecision for one pull request over
+// GraphQL, which is what its own page shows and already folds in dismissed and stale reviews.
+func (f *Forge) GetReviewDecisionByNumber(ctx context.Context, repo git.RemoteURL, pullRequestNumber int) (string, error) {
 	owner, name, err := ownerAndName(repo.Path)
 	if err != nil {
 		return "", err
@@ -275,7 +275,7 @@ func (f *Forge) GetReviewDecision(ctx context.Context, repo git.RemoteURL, numbe
 	var answer reviewDecisionAnswer
 	err = f.call(ctx, http.MethodPost, f.graphqlURL(), map[string]any{
 		"query":     reviewDecisionQuery,
-		"variables": map[string]any{"owner": owner, "name": name, "number": number},
+		"variables": map[string]any{"owner": owner, "name": name, "number": pullRequestNumber},
 	}, &answer)
 	if err != nil {
 		return "", err
@@ -283,15 +283,15 @@ func (f *Forge) GetReviewDecision(ctx context.Context, repo git.RemoteURL, numbe
 
 	for _, failure := range answer.Errors {
 		if failure.Type == "NOT_FOUND" {
-			return "", fmt.Errorf("%w: github has no pull request %d in %s/%s, which is also its answer for a repository the credential cannot see", forge.ErrNotFound, number, owner, name)
+			return "", fmt.Errorf("%w: github has no pull request %d in %s/%s, which is also its answer for a repository the credential cannot see", forge.ErrNotFound, pullRequestNumber, owner, name)
 		}
 
-		return "", fmt.Errorf("github refused the review decision of %s/%s#%d: %s", owner, name, number, failure.Message)
+		return "", fmt.Errorf("github refused the review decision of %s/%s#%d: %s", owner, name, pullRequestNumber, failure.Message)
 	}
 
 	repository := answer.Data.Repository
 	if repository == nil || repository.PullRequest == nil {
-		return "", fmt.Errorf("%w: github has no pull request %d in %s/%s", forge.ErrNotFound, number, owner, name)
+		return "", fmt.Errorf("%w: github has no pull request %d in %s/%s", forge.ErrNotFound, pullRequestNumber, owner, name)
 	}
 	if repository.PullRequest.ReviewDecision == nil {
 		return "", nil

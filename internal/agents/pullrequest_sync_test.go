@@ -73,16 +73,16 @@ func (f *scriptedForge) ListUpdated(_ context.Context, params forge.ListUpdatedP
 	return &copied, nil
 }
 
-func (f *scriptedForge) GetReviewDecision(_ context.Context, _ git.RemoteURL, number int) (string, error) {
-	f.requests = append(f.requests, fmt.Sprintf("decision:%d", number))
+func (f *scriptedForge) GetReviewDecisionByNumber(_ context.Context, _ git.RemoteURL, pullRequestNumber int) (string, error) {
+	f.requests = append(f.requests, fmt.Sprintf("decision:%d", pullRequestNumber))
 	if f.refuse != nil {
 		return "", f.refuse
 	}
-	if err := f.decisionErrors[number]; err != nil {
+	if err := f.decisionErrors[pullRequestNumber]; err != nil {
 		return "", err
 	}
 
-	return f.decisions[number], nil
+	return f.decisions[pullRequestNumber], nil
 }
 
 func (f *scriptedForge) List(_ context.Context, params forge.ListParams) (*forge.ListResult, error) {
