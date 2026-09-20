@@ -6,6 +6,9 @@ import (
 	"weave/internal/ui/paint"
 )
 
+// navPageStep is how many rows a page key moves the cursor.
+const navPageStep = 10
+
 // listLines is the room the list has once the chrome around it has taken its share, and is zero
 // when the chrome fills the pane.
 func (m model) listLines(chrome ...string) int {
@@ -132,6 +135,15 @@ func rowAt[T any](rows []T, cursor int) (T, bool) {
 	}
 
 	return rows[cursor], true
+}
+
+// navPageDelta is how far a page key moves the cursor, signed by which of the two it is.
+func (m model) navPageDelta(pressed string) int {
+	if isBound(pressed, m.keys.Nav.PageUp) {
+		return -navPageStep
+	}
+
+	return navPageStep
 }
 
 func stepCursor(cursor, delta, length int) (int, bool) {

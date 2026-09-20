@@ -166,13 +166,17 @@ jump = ["'"]
 # Navigation, shared by every menu so movement is the same everywhere.
 [keybindings.nav]
 # Jump to the last row.
-bottom = ["G"]
+bottom    = ["G"]
 # Move the cursor down.
-down   = ["j"]
+down      = ["j"]
+# Move the cursor down a chunk of rows, stopping on the last one.
+page_down = ["ctrl+d"]
+# Move the cursor up a chunk of rows, stopping on the first one.
+page_up   = ["ctrl+u"]
 # Jump to the first row, pressed twice the way vim's gg is.
-top    = ["g"]
+top       = ["g"]
 # Move the cursor up.
-up     = ["k"]
+up        = ["k"]
 
 # The review screen, which draws an agent's diff in the stage and its review
 # threads in the sidebar.
@@ -220,10 +224,6 @@ prev_match       = ["N"]
 prev_open_thread = ["U"]
 # Jump to the previous line carrying a review thread.
 prev_thread      = ["T"]
-# Scroll down a few lines.
-scroll_down      = ["ctrl+n"]
-# Scroll up a few lines.
-scroll_up        = ["ctrl+p"]
 # Quit the panel.
 quit             = ["ctrl+c"]
 # Catch up with the agent, once the band says it has written since you opened the

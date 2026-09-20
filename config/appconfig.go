@@ -167,6 +167,10 @@ type NavKeys struct {
 	Bottom []string `mapstructure:"bottom" default:"G"`
 	// Move the cursor down.
 	Down []string `mapstructure:"down" default:"j"`
+	// Move the cursor down a chunk of rows, stopping on the last one.
+	PageDown []string `mapstructure:"page_down" default:"ctrl+d"`
+	// Move the cursor up a chunk of rows, stopping on the first one.
+	PageUp []string `mapstructure:"page_up" default:"ctrl+u"`
 	// Jump to the first row, pressed twice the way vim's gg is.
 	Top []string `mapstructure:"top" default:"g"`
 	// Move the cursor up.
@@ -267,7 +271,7 @@ func FixedFormKeys() FormKeys {
 		Editor:  []string{"ctrl+e"},
 		Quit:    []string{"ctrl+c"},
 		Submit:  []string{"ctrl+s"},
-		SendNow: []string{"ctrl+n"},
+		SendNow: []string{"ctrl+x"},
 	}
 }
 
@@ -424,10 +428,6 @@ type ReviewKeys struct {
 	PrevOpenThread []string `mapstructure:"prev_open_thread" default:"U"`
 	// Jump to the previous line carrying a review thread.
 	PrevThread []string `mapstructure:"prev_thread" default:"T"`
-	// Scroll down a few lines.
-	ScrollDown []string `mapstructure:"scroll_down" default:"ctrl+n"`
-	// Scroll up a few lines.
-	ScrollUp []string `mapstructure:"scroll_up" default:"ctrl+p"`
 	// Quit the panel.
 	Quit []string `mapstructure:"quit" default:"ctrl+c"`
 	// Catch up with the agent, once the band says it has written since you opened the

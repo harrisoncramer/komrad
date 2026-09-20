@@ -18,6 +18,7 @@ const (
 	actionHelp
 	actionMove
 	actionJump
+	actionNavPage
 	actionColumnScroll
 	actionDetails
 	actionMessages
@@ -73,7 +74,6 @@ const (
 	actionWorktreesDelete
 	actionWorktreesClear
 	actionReviewBack
-	actionReviewScroll
 	actionReviewFile
 	actionReviewThread
 	actionReviewOpenThread

@@ -182,6 +182,7 @@ func TestLegendOrderIsPinned(t *testing.T) {
 				"esc// edit the query",
 				"k/j move",
 				"gg/G top/bottom",
+				"C-u/C-d page",
 				"C-n/C-p scroll the transcript",
 				"? show help",
 			},

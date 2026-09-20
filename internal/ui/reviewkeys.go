@@ -12,10 +12,6 @@ import (
 // reviewPanStep is the smallest sideways jump, used until the pane has been measured.
 const reviewPanStep = 8
 
-// reviewScrollStep is how far a scroll key moves, kept small so the code under the cursor stays
-// in view.
-const reviewScrollStep = 15
-
 // reviewScrollMargin is how close to the edge of the pane the cursor gets before the diff
 // scrolls under it.
 const reviewScrollMargin = 4
@@ -390,7 +386,7 @@ func (m model) moveReviewCursor(next int) (tea.Model, tea.Cmd) {
 
 func (m model) scrollReview(direction int) (tea.Model, tea.Cmd) {
 	cursor := m.review.cursor
-	for range reviewScrollStep {
+	for range navPageStep {
 		cursor = m.review.view.Move(cursor, direction)
 	}
 

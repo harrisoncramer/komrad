@@ -46,9 +46,9 @@ func reviewTable() []action {
 			run:  model.jumpReview,
 		},
 		{
-			id:   actionReviewScroll,
-			keys: func(k config.Keybindings) []string { return concatKeys(k.Review.ScrollDown, k.Review.ScrollUp) },
-			run:  model.scrollReviewBy,
+			id:   actionNavPage,
+			keys: func(k config.Keybindings) []string { return concatKeys(k.Nav.PageUp, k.Nav.PageDown) },
+			run:  model.pageReview,
 		},
 		{
 			id:   actionReviewFile,
@@ -212,11 +212,9 @@ func reviewLegend() []legendRow {
 			strip: true,
 		},
 		{
-			of:   []actionID{actionReviewScroll},
-			desc: func(model) string { return "scroll" },
-			label: func(k config.Keybindings) string {
-				return headLabel(k.Review.ScrollDown) + "/" + headLabel(k.Review.ScrollUp)
-			},
+			of:    []actionID{actionNavPage},
+			desc:  func(model) string { return "page" },
+			label: navPageLabel,
 		},
 		{
 			of:   []actionID{actionReviewFile},
@@ -330,8 +328,8 @@ func (m model) jumpReview(pressed string) (tea.Model, tea.Cmd) {
 	return m.moveReviewCursor(m.review.view.GetFirstRow())
 }
 
-func (m model) scrollReviewBy(pressed string) (tea.Model, tea.Cmd) {
-	if isBound(pressed, m.keys.Review.ScrollUp) {
+func (m model) pageReview(pressed string) (tea.Model, tea.Cmd) {
+	if isBound(pressed, m.keys.Nav.PageUp) {
 		return m.scrollReview(-1)
 	}
 

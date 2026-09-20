@@ -44,6 +44,11 @@ func schedulesActions() actionSpec {
 				run:  model.moveSchedules,
 			},
 			{
+				id:   actionNavPage,
+				keys: func(k config.Keybindings) []string { return concatKeys(k.Nav.PageUp, k.Nav.PageDown) },
+				run:  model.pageSchedules,
+			},
+			{
 				id:   actionScheduleNew,
 				keys: func(k config.Keybindings) []string { return k.Schedules.New },
 				run:  func(m model, _ string) (tea.Model, tea.Cmd) { return m.newScheduleForm() },
@@ -96,6 +101,11 @@ func schedulesActions() actionSpec {
 				label: moveLabel,
 			},
 			{
+				of:    []actionID{actionNavPage},
+				desc:  func(model) string { return "page" },
+				label: navPageLabel,
+			},
+			{
 				of:   []actionID{actionScheduleBack},
 				desc: func(model) string { return "back" },
 			},
@@ -114,6 +124,10 @@ func (m model) jumpScheduleMatch(pressed string) (tea.Model, tea.Cmd) {
 	}
 
 	return m.jumpMatch(1)
+}
+
+func (m model) pageSchedules(pressed string) (tea.Model, tea.Cmd) {
+	return m.jumpScheduleCursor(m.schedules.cursor + m.navPageDelta(pressed)), nil
 }
 
 func (m model) moveSchedules(pressed string) (tea.Model, tea.Cmd) {
@@ -138,4 +152,8 @@ func jumpLabel(k config.Keybindings) string {
 
 func moveLabel(k config.Keybindings) string {
 	return keyLabel(k.Nav.Up) + "/" + keyLabel(k.Nav.Down)
+}
+
+func navPageLabel(k config.Keybindings) string {
+	return keyLabel(k.Nav.PageUp) + "/" + keyLabel(k.Nav.PageDown)
 }
