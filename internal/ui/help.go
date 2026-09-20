@@ -181,7 +181,7 @@ func doubledLabel(keys []string) string {
 }
 
 func filterHelp(mode filterMode) keyMap {
-	done := binding([]string{"enter"}, "keep it, then act on what is left")
+	done := binding([]string{"enter"}, "keep filter")
 	flip := binding([]string{"tab"}, mode.flipped().String()+" instead")
 	drop := binding([]string{"esc"}, "cancel")
 
