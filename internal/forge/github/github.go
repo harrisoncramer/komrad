@@ -264,23 +264,105 @@ func (f *Forge) Get(ctx context.Context, address string) (forge.PullRequest, err
 	return raw.toPullRequest(), nil
 }
 
+// GetReviewDecision reads GitHub's computed reviewDecision for one pull request over GraphQL,
+// which is what its own page shows and already folds in dismissed and stale reviews.
+func (f *Forge) GetReviewDecision(ctx context.Context, repo git.RemoteURL, number int) (string, error) {
+	owner, name, err := ownerAndName(repo.Path)
+	if err != nil {
+		return "", err
+	}
+
+	var answer reviewDecisionAnswer
+	err = f.call(ctx, http.MethodPost, f.graphqlURL(), map[string]any{
+		"query":     reviewDecisionQuery,
+		"variables": map[string]any{"owner": owner, "name": name, "number": number},
+	}, &answer)
+	if err != nil {
+		return "", err
+	}
+
+	for _, failure := range answer.Errors {
+		if failure.Type == "NOT_FOUND" {
+			return "", fmt.Errorf("%w: github has no pull request %d in %s/%s, which is also its answer for a repository the credential cannot see", forge.ErrNotFound, number, owner, name)
+		}
+
+		return "", fmt.Errorf("github refused the review decision of %s/%s#%d: %s", owner, name, number, failure.Message)
+	}
+
+	repository := answer.Data.Repository
+	if repository == nil || repository.PullRequest == nil {
+		return "", fmt.Errorf("%w: github has no pull request %d in %s/%s", forge.ErrNotFound, number, owner, name)
+	}
+	if repository.PullRequest.ReviewDecision == nil {
+		return "", nil
+	}
+
+	return *repository.PullRequest.ReviewDecision, nil
+}
+
+// reviewDecisionAnswer is the slice of GitHub's GraphQL answer the decision is read from.
+type reviewDecisionAnswer struct {
+	Data struct {
+		Repository *struct {
+			PullRequest *struct {
+				ReviewDecision *string `json:"reviewDecision"`
+			} `json:"pullRequest"`
+		} `json:"repository"`
+	} `json:"data"`
+	Errors []struct {
+		Type    string `json:"type"`
+		Message string `json:"message"`
+	} `json:"errors"`
+}
+
+// reviewDecisionQuery asks for one pull request's computed decision and nothing else.
+const reviewDecisionQuery = `query($owner: String!, $name: String!, $number: Int!) {
+  repository(owner: $owner, name: $name) { pullRequest(number: $number) { reviewDecision } }
+}`
+
+// graphqlURL is where the host answers GraphQL, beside the REST base rather than under it.
+func (f *Forge) graphqlURL() string {
+	return strings.TrimSuffix(f.api, "/v3") + "/graphql"
+}
+
 // get reads one path, with any headers the call adds to the ones every GitHub call carries,
 // and turns GitHub's refusals into weave's; a 304 comes back as an answer with no body.
 func (f *Forge) get(ctx context.Context, path string, extra http.Header, into any) (xhttp.Answer, error) {
-	header := http.Header{
-		"Accept":               {"application/vnd.github+json"},
-		"X-GitHub-Api-Version": {"2022-11-28"},
-	}
+	header := http.Header{}
 	for key, values := range extra {
 		header[key] = values
 	}
 
-	answer, err := xhttp.JSON(ctx, xhttp.JSONParams{
-		Client: f.client,
+	return f.send(ctx, xhttp.JSONParams{
 		Method: http.MethodGet,
 		URL:    f.api + path,
 		Header: header,
 	}, into)
+}
+
+// call sends one request with a body to an address, which is how GraphQL is reached.
+func (f *Forge) call(ctx context.Context, method, address string, body, into any) error {
+	_, err := f.send(ctx, xhttp.JSONParams{
+		Method: method,
+		URL:    address,
+		Body:   body,
+	}, into)
+
+	return err
+}
+
+// send makes one call with the headers every GitHub call carries and turns GitHub's refusals
+// into weave's; a 304 comes back as an answer with no body.
+func (f *Forge) send(ctx context.Context, params xhttp.JSONParams, into any) (xhttp.Answer, error) {
+	if params.Header == nil {
+		params.Header = http.Header{}
+	}
+	params.Header.Set("Accept", "application/vnd.github+json")
+	params.Header.Set("X-GitHub-Api-Version", "2022-11-28")
+	params.Client = f.client
+	path := strings.TrimPrefix(params.URL, f.api)
+
+	answer, err := xhttp.JSON(ctx, params, into)
 	if err != nil {
 		if failure := fail.Of(err); failure != nil {
 			return xhttp.Answer{}, failure

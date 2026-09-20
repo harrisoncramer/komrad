@@ -29,9 +29,12 @@ var syncNow = time.Date(2026, 9, 20, 12, 0, 0, 0, time.UTC)
 type scriptedForge struct {
 	updated  map[int]*forge.ListUpdatedResult
 	branches map[string]map[int]*forge.ListResult
+	// decisions is what the forge says about each pull request's reviews, by number.
+	decisions map[int]string
 	// refuse is answered instead of any page while set.
 	refuse error
-	// requests is every request in order, spelled "updated:<page>:<etag>" or "branch:<name>:<page>".
+	// requests is every request in order, spelled "updated:<page>:<etag>",
+	// "branch:<name>:<page>" or "decision:<number>".
 	requests []string
 }
 
@@ -64,6 +67,15 @@ func (f *scriptedForge) ListUpdated(_ context.Context, params forge.ListUpdatedP
 	copied := *page
 
 	return &copied, nil
+}
+
+func (f *scriptedForge) GetReviewDecision(_ context.Context, _ git.RemoteURL, number int) (string, error) {
+	f.requests = append(f.requests, fmt.Sprintf("decision:%d", number))
+	if f.refuse != nil {
+		return "", f.refuse
+	}
+
+	return f.decisions[number], nil
 }
 
 func (f *scriptedForge) List(_ context.Context, params forge.ListParams) (*forge.ListResult, error) {
@@ -136,8 +148,9 @@ func newSyncFixture(t *testing.T) *syncFixture {
 	require.NoError(t, err)
 
 	scripted := &scriptedForge{
-		updated:  map[int]*forge.ListUpdatedResult{},
-		branches: map[string]map[int]*forge.ListResult{},
+		updated:   map[int]*forge.ListUpdatedResult{},
+		branches:  map[string]map[int]*forge.ListResult{},
+		decisions: map[int]string{},
 	}
 	f := &syncFixture{
 		forge:        scripted,

@@ -120,6 +120,9 @@ type Forge interface {
 	ListUpdated(ctx context.Context, params ListUpdatedParams) (*ListUpdatedResult, error)
 	// Get is one pull request by its web address.
 	Get(ctx context.Context, url string) (PullRequest, error)
+	// GetReviewDecision is the forge's own word on where a pull request's reviews stand, such
+	// as APPROVED or CHANGES_REQUESTED, empty when it has said nothing.
+	GetReviewDecision(ctx context.Context, repo git.RemoteURL, number int) (string, error)
 }
 
 // ListParams says which pull requests to list and which page of them.

@@ -36,6 +36,10 @@ func (f *fakeForge) ListUpdated(context.Context, forge.ListUpdatedParams) (*forg
 	return &forge.ListUpdatedResult{}, nil
 }
 
+func (f *fakeForge) GetReviewDecision(context.Context, git.RemoteURL, int) (string, error) {
+	return "", nil
+}
+
 func (f *fakeForge) List(_ context.Context, params forge.ListParams) (*forge.ListResult, error) {
 	f.params = params
 
