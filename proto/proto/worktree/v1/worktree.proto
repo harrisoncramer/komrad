@@ -60,7 +60,8 @@ message GetWorktreeRequest {
 message Entry {
   // The path, relative to the directory.
   string path = 1;
-  // How many bytes it holds, counted through for a directory.
+  // The disk it takes, in bytes, counted through for a directory: blocks rather than length,
+  // with a file that is hard linked counted once.
   int64 size_bytes = 2;
   // Whether it is a directory.
   bool dir = 3;
@@ -78,9 +79,9 @@ message Commit {
 message GetWorktreeResponse {
   // The directory as list_worktrees reports it.
   Worktree worktree = 1;
-  // How many bytes the directory holds, walked for this call.
+  // The disk the directory takes, in bytes, walked for this call.
   int64 size_bytes = 12;
-  // The top-level entries with their sizes, biggest first, from the same walk.
+  // The top-level entries with the disk each takes, biggest first, from the same walk.
   repeated Entry entries = 2;
   // The paths git tracks that differ from HEAD.
   repeated string modified = 3;

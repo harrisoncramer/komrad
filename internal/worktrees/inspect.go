@@ -17,7 +17,7 @@ const commitLimit = 50
 // Inspection is one directory read through git.
 type Inspection struct {
 	Worktree Worktree
-	// Bytes is what the directory holds, and Entries its top-level entries, biggest first.
+	// Bytes is the disk the directory takes, and Entries its top-level entries, biggest first.
 	Bytes   int64
 	Entries []Entry
 	Changes git.Changes
@@ -64,7 +64,11 @@ type NewInspectorParams struct {
 
 // NewInspector builds an inspector over the lister and git.
 func NewInspector(params NewInspectorParams) *Inspector {
-	return &Inspector{lister: params.Lister, git: params.Git, workflows: params.Workflows}
+	return &Inspector{
+		lister:    params.Lister,
+		git:       params.Git,
+		workflows: params.Workflows,
+	}
 }
 
 // Inspect reads a directory the listing holds, fetching the base first when asked to.
