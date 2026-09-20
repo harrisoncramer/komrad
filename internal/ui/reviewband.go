@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"weave/internal/ui/paint"
+	"weave/internal/ui/paint/label"
 
 	"github.com/charmbracelet/glamour/ansi"
 	"github.com/charmbracelet/lipgloss"
@@ -123,7 +124,7 @@ func (m model) reviewStatView() string {
 		return ""
 	}
 
-	out := dimStyle.Render(counted(stat.Files, "file")+", ") +
+	out := dimStyle.Render(label.Counted(stat.Files, "file")+", ") +
 		paint.Panel.Style(reviewAddedTone).Render(fmt.Sprintf("+%d", stat.Added)) + " " +
 		paint.Panel.Style(reviewRemovedTone).Render(fmt.Sprintf("-%d", stat.Removed))
 
@@ -178,7 +179,7 @@ func (m model) reviewMatchCount() string {
 		return ""
 	}
 
-	where := counted(m.review.view.MatchCount(), "match")
+	where := label.Counted(m.review.view.MatchCount(), "match")
 	if at, ok := m.review.view.MatchNumber(m.review.cursor); ok {
 		where = fmt.Sprintf("%d of %d", at, m.review.view.MatchCount())
 	}

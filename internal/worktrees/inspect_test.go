@@ -10,6 +10,7 @@ import (
 	"weave/internal/git"
 	"weave/internal/store"
 	workflowstore "weave/internal/store/workflow"
+	worktreestore "weave/internal/store/worktree"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -165,4 +166,29 @@ func TestInspectRefusesADirectoryTheListingDoesNotHold(t *testing.T) {
 	_, err := f.inspector().Inspect(t.Context(), f.repo, false)
 
 	require.ErrorIs(t, err, store.ErrNotFound)
+}
+
+// TestInspectRecordsTheSizeItWalked covers the walk's total being written to the size store
+// under the time of the call and carried back on the worktree, over whatever was stored.
+func TestInspectRecordsTheSizeItWalked(t *testing.T) {
+	f := newFixture(t)
+	dir := f.cut(t, "aaaa")
+	f.sizes.stored[dir] = worktreestore.Size{
+		Dir:        dir,
+		MeasuredAt: f.now.Add(-time.Hour),
+		Error:      "permission denied",
+	}
+
+	inspection, err := f.inspector().Inspect(t.Context(), dir, false)
+	require.NoError(t, err)
+
+	assert.Positive(t, inspection.Bytes)
+	assert.Equal(t, []string{dir}, f.sizes.written)
+	assert.Equal(t, worktreestore.Size{
+		Dir:        dir,
+		Bytes:      inspection.Bytes,
+		MeasuredAt: f.now,
+	}, f.sizes.stored[dir])
+	require.NotNil(t, inspection.Worktree.Size)
+	assert.Equal(t, f.sizes.stored[dir], *inspection.Worktree.Size)
 }

@@ -9,6 +9,7 @@ import (
 	"weave/internal/review"
 	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
+	"weave/internal/ui/paint/label"
 	agentv1 "weave/proto/gen/agent/v1"
 
 	"connectrpc.com/connect"
@@ -295,7 +296,7 @@ func changedSinceLastReview(ctx context.Context, params changedSinceLastReviewPa
 		return ""
 	}
 
-	return counted(changed, "file") + " changed since you last reviewed"
+	return label.Counted(changed, "file") + " changed since you last reviewed"
 }
 
 func (m *model) applyReviewLoaded(msg reviewLoadedMsg) tea.Cmd {

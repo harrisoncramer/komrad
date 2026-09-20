@@ -14,6 +14,25 @@ const plainCells = 3
 // minNameColumns is the narrowest a name is squeezed to before a column gives way instead.
 const minNameColumns = 10
 
+// trailAmountColumns and trailAgeColumns are the two cells a trail is laid out in.
+const (
+	trailAmountColumns = 4
+	trailAgeColumns    = 3
+)
+
+// trailBudget is the columns a list keeps for a trail and the space before it.
+const trailBudget = spaceColumns + trailAmountColumns + spaceColumns + trailAgeColumns
+
+// Trail lays an amount and an age out in the two right-aligned cells every trail shares, and is
+// nothing at all when both are blank.
+func Trail(amount, age string) string {
+	if amount == "" && age == "" {
+		return ""
+	}
+
+	return fmt.Sprintf("%*s %*s", trailAmountColumns, amount, trailAgeColumns, age)
+}
+
 // drawn is how many of the three columns a list draws.
 func (c Columns) drawn() int {
 	count := 0
@@ -58,6 +77,10 @@ func trailingColumns(line Line) int {
 
 	if line.Tally > 0 {
 		columns += plainColumns + len(fmt.Sprintf("+%d", line.Tally))
+	}
+
+	if line.Trail != "" {
+		columns += spaceColumns + len([]rune(line.Trail))
 	}
 
 	return columns

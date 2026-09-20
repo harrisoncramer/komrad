@@ -8,6 +8,7 @@ import (
 	"weave/internal/git"
 	"weave/internal/store"
 	agentstore "weave/internal/store/agent"
+	worktreestore "weave/internal/store/worktree"
 	"weave/internal/worktrees"
 	worktreev1 "weave/proto/gen/worktree/v1"
 	worktreev1weave "weave/proto/gen/worktree/v1/worktreev1weave"
@@ -80,16 +81,38 @@ func listed() worktrees.Worktree {
 			Adopted:    true,
 		},
 		Occupants: []worktrees.Agent{{ID: "bbbb", Name: "first-reviewer", State: agentstore.StateThinking}},
+		Size: &worktreestore.Size{
+			Dir:        "/trees/aaaa",
+			Bytes:      49 * 1024 * 1024,
+			MeasuredAt: archived.Add(time.Hour),
+		},
+		LastActiveAt: archived,
 	}
 }
 
 // TestListWorktrees covers the listing rendered whole: the agent with its stamp, the
-// occupants, and the directories walked.
+// occupants, the size and when it was measured, the last activity, a failed measurement
+// carrying its error and no size, an unmeasured directory carrying neither, and the
+// directories walked.
 func TestListWorktrees(t *testing.T) {
 	t.Parallel()
 
+	failed := time.Date(2026, 9, 20, 9, 0, 0, 0, time.UTC)
 	fake := &fakeWorktrees{listing: worktrees.Listing{
-		Worktrees:      []worktrees.Worktree{listed(), {Dir: "/trees/gone", RepoDir: "/was"}},
+		Worktrees: []worktrees.Worktree{
+			listed(),
+			{
+				Dir:          "/trees/gone",
+				RepoDir:      "/was",
+				LastActiveAt: failed.Add(-time.Hour),
+				Size: &worktreestore.Size{
+					Dir:        "/trees/gone",
+					MeasuredAt: failed,
+					Error:      "permission denied",
+				},
+			},
+			{Dir: "/trees/new", RepoDir: "/repo"},
+		},
 		Dirs:           []string{"/trees", "/own"},
 		UnreadableDirs: []string{"/own"},
 	}}
@@ -97,7 +120,7 @@ func TestListWorktrees(t *testing.T) {
 	resp, err := newService(fake).ListWorktrees(t.Context(), connect.NewRequest(&emptypb.Empty{}))
 	require.NoError(t, err)
 
-	require.Len(t, resp.Msg.GetWorktrees(), 2)
+	require.Len(t, resp.Msg.GetWorktrees(), 3)
 	first := resp.Msg.GetWorktrees()[0]
 	assert.Equal(t, "/trees/aaaa", first.GetDir())
 	assert.Equal(t, "agent/aaaa", first.GetBranch())
@@ -108,10 +131,24 @@ func TestListWorktrees(t *testing.T) {
 	assert.True(t, first.GetAgent().GetAdopted())
 	require.Len(t, first.GetOccupants(), 1)
 	assert.Equal(t, "first-reviewer", first.GetOccupants()[0].GetName())
+	require.NotNil(t, first.SizeBytes)
+	assert.Equal(t, int64(49*1024*1024), first.GetSizeBytes())
+	assert.Equal(t, "2026-09-19T13:00:00Z", first.GetMeasuredAt())
+	assert.Empty(t, first.GetSizeError())
+	assert.Equal(t, "2026-09-19T12:00:00Z", first.GetLastActiveAt())
 
 	gone := resp.Msg.GetWorktrees()[1]
 	assert.Nil(t, gone.Agent)
 	assert.False(t, gone.GetReadable())
+	assert.Nil(t, gone.SizeBytes, "a failed measurement carries no size")
+	assert.Equal(t, "2026-09-20T09:00:00Z", gone.GetMeasuredAt())
+	assert.Equal(t, "permission denied", gone.GetSizeError())
+	assert.Equal(t, "2026-09-20T08:00:00Z", gone.GetLastActiveAt())
+
+	unmeasured := resp.Msg.GetWorktrees()[2]
+	assert.Nil(t, unmeasured.SizeBytes)
+	assert.Nil(t, unmeasured.MeasuredAt)
+	assert.Empty(t, unmeasured.GetLastActiveAt())
 
 	assert.Equal(t, []string{"/trees", "/own"}, resp.Msg.GetDirs())
 	assert.Equal(t, []string{"/own"}, resp.Msg.GetUnreadableDirs())

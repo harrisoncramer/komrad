@@ -286,38 +286,47 @@ func TestWorktreeAgentFactsOffTheWorktreeListing(t *testing.T) {
 	}
 }
 
-// TestBytesLabel covers the unit and the precision at each size, and the roll into the next
-// unit where the rounded value would run to five characters.
-func TestBytesLabel(t *testing.T) {
-	tests := []struct {
-		bytes int64
-		want  string
-	}{
-		{bytes: 0, want: "0B"},
-		{bytes: 512, want: "512B"},
-		{bytes: 999, want: "999B"},
-		{bytes: 1000, want: "1.0K"},
-		{bytes: 1023, want: "1.0K"},
-		{bytes: 10240, want: "10K"},
-		{bytes: 848 * 1024, want: "848K"},
-		{bytes: 9*1024*1024 + 200*1024, want: "9.2M"},
-		{bytes: 1048063, want: "1.0M"},
-		{bytes: 49 * 1024 * 1024, want: "49M"},
-		{bytes: 1536 * 1024 * 1024, want: "1.5G"},
-		{bytes: 24 * 1024 * 1024 * 1024, want: "24G"},
-		{bytes: 1024*1024*1024*1024 - 1, want: "1.0T"},
-		{bytes: 3 * 1024 * 1024 * 1024 * 1024, want: "3.0T"},
-		{bytes: 2048 * 1024 * 1024 * 1024 * 1024, want: "2048T"},
+// measuredFixture is the fixture with the loop having been round: the live and archived
+// directories under weave measured, the orphan's walk failed, the admin one measured under its
+// own repository, and each with a last activity behind the given moment.
+func measuredFixture(now time.Time) []worktreeItem {
+	items := worktreeFixture()
+	items[0].size = &worktreeSize{bytes: 49 * 1024 * 1024, measuredAt: now.Add(-time.Minute)}
+	items[0].lastActiveAt = now.Add(-30 * time.Second)
+	items[1].size = &worktreeSize{bytes: 49 * 1024 * 1024, measuredAt: now.Add(-time.Hour)}
+	items[1].lastActiveAt = now.Add(-4 * 24 * time.Hour)
+	items[2].size = &worktreeSize{measuredAt: now.Add(-time.Hour), err: "permission denied"}
+	items[2].lastActiveAt = now.Add(-3 * time.Hour)
+	items[3].lastActiveAt = now.Add(-2 * 7 * 24 * time.Hour)
+	items[4].size = &worktreeSize{bytes: 1536 * 1024 * 1024, measuredAt: now.Add(-time.Hour)}
+	items[4].lastActiveAt = now.Add(-12 * time.Hour)
+
+	return items
+}
+
+// TestWorktreesSnapshotTrailsSizeThenAge covers every row's trail: the size then the age on a
+// directory, a dash for the size until it is measured or while its walk fails, and the header
+// summing the measured directories under it over the size column.
+func TestWorktreesSnapshotTrailsSizeThenAge(t *testing.T) {
+	now := time.Date(2026, 9, 20, 12, 0, 0, 0, time.UTC)
+	snapshot := worktreesSnapshot(worktreesSnapshotParams{
+		rows: worktreeRows(measuredFixture(now)),
+		now:  now,
+	})
+
+	trails := map[string]string{}
+	for _, row := range snapshot.Rows {
+		trails[row.Key] = row.Trail
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.want, func(t *testing.T) {
-			label := bytesLabel(tt.bytes)
-
-			assert.Equal(t, tt.want, label)
-			if tt.bytes < 1000*1024*1024*1024*1024 {
-				assert.LessOrEqual(t, len(label), 4)
-			}
-		})
-	}
+	assert.Equal(t, map[string]string{
+		"repo:/home/h/chariot/admin": "1.5G    ",
+		"tree:/trees/admin":          "1.5G 12h",
+		"repo:/home/h/weave":         " 98M    ",
+		"tree:/trees/live":           " 49M 30s",
+		"tree:/trees/archived":       " 49M  4d",
+		"tree:/trees/orphan":         "   —  3h",
+		"repo:/var/folders/T/repo":   "   —    ",
+		"tree:/trees/broken":         "   —  2w",
+	}, trails)
 }

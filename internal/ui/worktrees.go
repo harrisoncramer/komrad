@@ -14,6 +14,14 @@ type worktreeAgent struct {
 	archivedAt *time.Time
 }
 
+// worktreeSize is what a directory took when it was last walked, or why the walk failed.
+type worktreeSize struct {
+	bytes      int64
+	measuredAt time.Time
+	// err is why the last walk failed, empty when it did not.
+	err string
+}
+
 // worktreeItem is one directory as the listing reported it.
 type worktreeItem struct {
 	dir      string
@@ -23,6 +31,9 @@ type worktreeItem struct {
 	agent    *worktreeAgent
 	// occupants are the other agents working in the directory.
 	occupants []worktreeAgent
+	// size is the last measurement, nil until the loop has reached the directory.
+	size         *worktreeSize
+	lastActiveAt time.Time
 }
 
 // worktreeEntry is one top-level entry of a directory.
@@ -44,7 +55,6 @@ type worktreeInspection struct {
 	// pending says a fresh reading is on its way, and answered that one has come at all.
 	pending     bool
 	answered    bool
-	bytes       int64
 	entries     []worktreeEntry
 	modified    []string
 	untracked   []string

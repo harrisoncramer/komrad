@@ -652,6 +652,7 @@ SELECT
     name,
     cwd,
     state,
+    state_changed_at,
     archived_at,
     adopted_branch,
     workflow_id
@@ -660,13 +661,14 @@ FROM
 `
 
 type ListAgentDirsRow struct {
-	ID            string
-	Name          string
-	Cwd           string
-	State         AgentState
-	ArchivedAt    *time.Time
-	AdoptedBranch string
-	WorkflowID    string
+	ID             string
+	Name           string
+	Cwd            string
+	State          AgentState
+	StateChangedAt time.Time
+	ArchivedAt     *time.Time
+	AdoptedBranch  string
+	WorkflowID     string
 }
 
 func (q *Queries) ListAgentDirs(ctx context.Context) ([]*ListAgentDirsRow, error) {
@@ -683,6 +685,7 @@ func (q *Queries) ListAgentDirs(ctx context.Context) ([]*ListAgentDirsRow, error
 			&i.Name,
 			&i.Cwd,
 			&i.State,
+			&i.StateChangedAt,
 			&i.ArchivedAt,
 			&i.AdoptedBranch,
 			&i.WorkflowID,

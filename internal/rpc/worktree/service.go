@@ -123,14 +123,22 @@ func (s *WorktreeService) DeleteWorktrees(ctx context.Context, req *worktreev1.D
 
 func renderWorktree(worktree worktrees.Worktree) *worktreev1.Worktree {
 	rendered := &worktreev1.Worktree{
-		Dir:       worktree.Dir,
-		RepoDir:   worktree.RepoDir,
-		Branch:    worktree.Branch,
-		Readable:  worktree.Readable,
-		Occupants: xslice.Map(worktree.Occupants, renderAgent),
+		Dir:          worktree.Dir,
+		RepoDir:      worktree.RepoDir,
+		Branch:       worktree.Branch,
+		Readable:     worktree.Readable,
+		Occupants:    xslice.Map(worktree.Occupants, renderAgent),
+		LastActiveAt: dates.Stamp(worktree.LastActiveAt),
 	}
 	if worktree.Agent != nil {
 		rendered.Agent = renderAgent(*worktree.Agent)
+	}
+	if size := worktree.Size; size != nil {
+		rendered.MeasuredAt = dates.StampPtr(&size.MeasuredAt)
+		rendered.SizeError = size.Error
+		if size.Error == "" {
+			rendered.SizeBytes = &size.Bytes
+		}
 	}
 
 	return rendered

@@ -14,6 +14,7 @@ import (
 	schedulestore "weave/internal/store/schedule"
 	transcriptstore "weave/internal/store/transcript"
 	workflowstore "weave/internal/store/workflow"
+	worktreestore "weave/internal/store/worktree"
 )
 
 type stores struct {
@@ -28,6 +29,7 @@ type stores struct {
 	marks        *markstore.Store
 	forges       *forgestore.Store
 	pullRequests *pullrequeststore.Store
+	sizes        *worktreestore.WorktreeStore
 }
 
 func openStores(ctx context.Context, databaseURL string) (*stores, error) {
@@ -50,5 +52,6 @@ func openStores(ctx context.Context, databaseURL string) (*stores, error) {
 		marks:        markstore.New(db),
 		forges:       forgestore.New(db),
 		pullRequests: pullrequeststore.New(db),
+		sizes:        worktreestore.NewWorktreeStore(db),
 	}, nil
 }

@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"weave/internal/ui/paint"
+	"weave/internal/ui/paint/label"
 	agentv1 "weave/proto/gen/agent/v1"
 )
 
@@ -58,7 +59,7 @@ func (m model) reviewWatchingView() string {
 
 	if m.doesReviewHoldUnsent() {
 		return m.reviewBandRow(reviewHeldTone, "watching",
-			counted(m.reviewUnsentCount(), "comment")+" not sent · "+
+			label.Counted(m.reviewUnsentCount(), "comment")+" not sent · "+
 				keyLabel(m.keys.Review.Compose)+" to carry on")
 	}
 

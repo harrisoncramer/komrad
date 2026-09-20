@@ -386,6 +386,7 @@ func TestWorktreeFieldsReadTheListingAndTheInspection(t *testing.T) {
 	before := fieldMap(m.worktreesDetails().fields)
 	assert.Equal(t, "review-column", before["name"])
 	assert.Equal(t, "—", before["size"])
+	assert.Equal(t, "—", before["last active"])
 	assert.Equal(t, "agent/archived", before["branch"])
 	assert.Equal(t, "claude, archived "+dates.Day(time.Date(2026, 9, 17, 12, 0, 0, 0, time.UTC)), before["agent"])
 	assert.Equal(t, "weave", before["workflow"])
@@ -393,7 +394,6 @@ func TestWorktreeFieldsReadTheListingAndTheInspection(t *testing.T) {
 
 	m.applyWorktreeInspection(worktreeInspectedMsg{dir: "/trees/archived", inspection: worktreeInspection{
 		answered:  true,
-		bytes:     49 * 1024 * 1024,
 		baseRef:   "origin/main",
 		ahead:     2,
 		behind:    12,
@@ -402,9 +402,73 @@ func TestWorktreeFieldsReadTheListingAndTheInspection(t *testing.T) {
 	}})
 
 	after := fieldMap(m.worktreesDetails().fields)
-	assert.Equal(t, "49M", after["size"])
 	assert.Equal(t, "origin/main  ↑2 ↓12", after["base"])
 	assert.Equal(t, "1 modified, 2 untracked", after["changes"])
+}
+
+// TestWorktreeFieldsSayWhatTheDirectoryTakesAndWhenItWasActive covers the size line carrying the
+// measurement and its age, explaining a failed walk, and the last active line carrying the age
+// and whether the agent was put away.
+func TestWorktreeFieldsSayWhatTheDirectoryTakesAndWhenItWasActive(t *testing.T) {
+	now := time.Date(2026, 9, 20, 12, 0, 0, 0, time.UTC)
+	archived := now.Add(-4 * 24 * time.Hour)
+	items := worktreeFixture()
+
+	tests := []struct {
+		name           string
+		item           worktreeItem
+		wantSize       string
+		wantLastActive string
+	}{
+		{
+			name:           "nothing measured and nothing touched",
+			item:           items[2],
+			wantSize:       "—",
+			wantLastActive: "—",
+		},
+		{
+			name: "a failed walk",
+			item: worktreeItem{
+				dir:          "/trees/orphan",
+				readable:     true,
+				lastActiveAt: now.Add(-90 * time.Minute),
+				size: &worktreeSize{
+					measuredAt: now.Add(-5 * time.Minute),
+					err:        "permission denied",
+				},
+			},
+			wantSize:       "—, could not measure: permission denied",
+			wantLastActive: "1h ago",
+		},
+		{
+			name: "a measured directory whose agent was put away",
+			item: worktreeItem{
+				dir:      "/trees/archived",
+				readable: true,
+				agent: &worktreeAgent{
+					id:         "archived",
+					name:       "review-column",
+					archivedAt: &archived,
+				},
+				lastActiveAt: archived,
+				size: &worktreeSize{
+					bytes:      49 * 1024 * 1024,
+					measuredAt: now.Add(-5 * time.Minute),
+				},
+			},
+			wantSize:       "49M, measured 5m ago",
+			wantLastActive: "4d ago, archived",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fields := fieldMap(worktreesModel().worktreeFields(tt.item, now))
+
+			assert.Equal(t, tt.wantSize, fields["size"])
+			assert.Equal(t, tt.wantLastActive, fields["last active"])
+		})
+	}
 }
 
 // TestWorktreeFieldsNameTheOccupants covers the record naming the other agents working in a
@@ -423,14 +487,14 @@ func TestWorktreeFieldsNameTheOccupants(t *testing.T) {
 			item:       worktreeFixture()[0],
 			occupants:  nil,
 			want:       "",
-			wantLabels: []string{"name", "directory", "size", "branch", "agent", "workflow"},
+			wantLabels: []string{"name", "directory", "size", "last active", "branch", "agent", "workflow"},
 		},
 		{
 			name:       "one is named",
 			item:       worktreeFixture()[0],
 			occupants:  []worktreeAgent{{id: "occ", name: "review-607"}},
 			want:       "review-607",
-			wantLabels: []string{"name", "directory", "size", "branch", "also here", "agent", "workflow"},
+			wantLabels: []string{"name", "directory", "size", "last active", "branch", "also here", "agent", "workflow"},
 		},
 		{
 			name: "two are named in the listing's order",
@@ -440,14 +504,14 @@ func TestWorktreeFieldsNameTheOccupants(t *testing.T) {
 				{id: "reader", name: "second-reader"},
 			},
 			want:       "review-607, second-reader",
-			wantLabels: []string{"name", "directory", "size", "branch", "also here", "agent", "workflow"},
+			wantLabels: []string{"name", "directory", "size", "last active", "branch", "also here", "agent", "workflow"},
 		},
 		{
 			name:       "an unreadable directory names them after its repository",
 			item:       worktreeFixture()[3],
 			occupants:  []worktreeAgent{{id: "occ", name: "review-607"}},
 			want:       "review-607",
-			wantLabels: []string{"name", "directory", "size", "repository", "also here", "agent"},
+			wantLabels: []string{"name", "directory", "size", "last active", "repository", "also here", "agent"},
 		},
 	}
 
@@ -457,7 +521,7 @@ func TestWorktreeFieldsNameTheOccupants(t *testing.T) {
 			item := tt.item
 			item.occupants = tt.occupants
 
-			fields := m.worktreeFields(item)
+			fields := m.worktreeFields(item, time.Now())
 
 			assert.Equal(t, tt.want, fieldMap(fields)["also here"])
 			assert.Equal(t, tt.wantLabels, xslice.Map(fields, func(field recordField) string { return field.label }))
@@ -590,13 +654,14 @@ func TestARowReturnedToKeepsItsAnswerWhileItIsReadAgain(t *testing.T) {
 	assert.NotContains(t, m.worktreeDoc(), "reading the directory")
 }
 
-// TestWorktreesTallyHeadsTheList covers the title carrying the count.
+// TestWorktreesTallyHeadsTheList covers the title carrying the count and the total of what has
+// been measured across every group, and a dash while nothing has.
 func TestWorktreesTallyHeadsTheList(t *testing.T) {
 	m := worktreesModel()
-	assert.Equal(t, "5", m.worktreesTally())
+	assert.Equal(t, "5 · —", m.worktreesTally())
 
-	m.worktrees.items = worktreeFixture()[2:4]
-	assert.Equal(t, "2", m.worktreesTally())
+	m.worktrees.items = measuredFixture(time.Date(2026, 9, 20, 12, 0, 0, 0, time.UTC))
+	assert.Equal(t, "5 · 1.6G", m.worktreesTally())
 }
 
 func fieldMap(fields []recordField) map[string]string {

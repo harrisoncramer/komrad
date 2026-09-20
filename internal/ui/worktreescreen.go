@@ -3,10 +3,11 @@ package ui
 import (
 	"fmt"
 	"slices"
-	"strconv"
 	"strings"
+	"time"
 
 	"weave/internal/ui/paint"
+	"weave/internal/ui/paint/label"
 	"weave/internal/view"
 	"weave/lib/dates"
 	"weave/lib/xslice"
@@ -174,9 +175,9 @@ func (m model) worktreesHeader() string {
 	return m.talliedHeader("Worktrees", m.worktreesTally())
 }
 
-// worktreesTally is how many directories the listing holds.
+// worktreesTally is how many directories the listing holds and what the measured ones take.
 func (m model) worktreesTally() string {
-	return strconv.Itoa(len(m.worktrees.items))
+	return fmt.Sprintf("%d · %s", len(m.worktrees.items), totalLabel(m.worktrees.items))
 }
 
 func (m model) doesWorktreesFitDetails() bool {
@@ -217,6 +218,7 @@ func (m model) worktreesSnapshot(rows []worktreeRow, pane int) view.Snapshot {
 		barBlinkedOut: m.rowCursor.Blink,
 		matcher:       m.filter.pattern,
 		pane:          pane,
+		now:           time.Now(),
 	})
 }
 
@@ -233,7 +235,7 @@ func (m model) worktreesDetails() details {
 		}
 	}
 
-	return details{id: row.key(), fields: m.worktreeFields(row.item)}
+	return details{id: row.key(), fields: m.worktreeFields(row.item, time.Now())}
 }
 
 func (m model) countUnder(repo string) int {
@@ -247,15 +249,16 @@ func (m model) countUnder(repo string) int {
 	return count
 }
 
-func (m model) worktreeFields(item worktreeItem) []recordField {
+func (m model) worktreeFields(item worktreeItem, now time.Time) []recordField {
 	fields := []recordField{
 		{"name", worktreeRow{item: item}.name()},
 		{"directory", item.dir},
-		{"size", m.worktreeSizeField(item)},
+		{"size", sizeField(item, now)},
+		{"last active", lastActiveField(item, now)},
 	}
 
 	if !item.readable {
-		fields = append(fields, recordField{"repository", orDash(item.repoDir)})
+		fields = append(fields, recordField{"repository", label.OrDash(item.repoDir)})
 		if len(item.occupants) > 0 {
 			fields = append(fields, recordField{"also here", occupantsField(item)})
 		}
@@ -263,7 +266,7 @@ func (m model) worktreeFields(item worktreeItem) []recordField {
 		return append(fields, recordField{"agent", m.worktreeAgentField(item)})
 	}
 
-	fields = append(fields, recordField{"branch", orDash(item.branch)})
+	fields = append(fields, recordField{"branch", label.OrDash(item.branch)})
 	if len(item.occupants) > 0 {
 		fields = append(fields, recordField{"also here", occupantsField(item)})
 	}
@@ -281,20 +284,37 @@ func occupantsField(item worktreeItem) string {
 	return strings.Join(xslice.Map(item.occupants, func(occupant worktreeAgent) string { return occupant.name }), ", ")
 }
 
-// worktreeSizeField is what the directory held when it was last read, a dash until it has been.
-func (m model) worktreeSizeField(item worktreeItem) string {
-	read, ok := m.worktrees.inspected[item.dir]
-	if !ok || !read.answered || read.err != nil {
-		return orDash("")
+// sizeField is what the directory takes and when that was measured, or why it could not be.
+func sizeField(item worktreeItem, now time.Time) string {
+	switch {
+	case item.size == nil:
+		return label.Dash
+	case item.size.err != "":
+		return label.Dash + ", could not measure: " + item.size.err
 	}
 
-	return bytesLabel(read.bytes)
+	return fmt.Sprintf("%s, measured %s ago", label.Bytes(item.size.bytes), dates.AgeAt(item.size.measuredAt, now))
+}
+
+// lastActiveField is how long ago the directory was last touched, and whether its agent has
+// been put away.
+func lastActiveField(item worktreeItem, now time.Time) string {
+	if item.lastActiveAt.IsZero() {
+		return label.Dash
+	}
+
+	field := dates.AgeAt(item.lastActiveAt, now) + " ago"
+	if item.agent != nil && item.agent.archivedAt != nil {
+		field += ", archived"
+	}
+
+	return field
 }
 
 // baseField spells where the branch stands against its base, or a dash when git names none.
 func baseField(read worktreeInspection) string {
 	if read.baseRef == "" {
-		return orDash("")
+		return label.Dash
 	}
 
 	var parts []string
@@ -314,10 +334,10 @@ func baseField(read worktreeInspection) string {
 func changesField(read worktreeInspection) string {
 	var parts []string
 	if n := len(read.modified); n > 0 {
-		parts = append(parts, countWord(n, "modified", "modified"))
+		parts = append(parts, label.Count(n, "modified", "modified"))
 	}
 	if n := len(read.untracked); n > 0 {
-		parts = append(parts, countWord(n, "untracked", "untracked"))
+		parts = append(parts, label.Count(n, "untracked", "untracked"))
 	}
 	if len(parts) == 0 {
 		return "none"
@@ -347,7 +367,7 @@ func (m model) worktreeAgentField(item worktreeItem) string {
 
 func (m model) worktreeWorkflowField(item worktreeItem) string {
 	if item.agent == nil {
-		return orDash("")
+		return label.Dash
 	}
 
 	workflowID := ""
@@ -363,7 +383,7 @@ func (m model) worktreeWorkflowField(item worktreeItem) string {
 		}
 	}
 
-	return orDash("")
+	return label.Dash
 }
 
 // worktreeDoc is the markdown drawn beside the list: what the hovered directory holds and how
@@ -374,7 +394,7 @@ func (m model) worktreeDoc() string {
 	case !ok:
 		return renderDocument("Worktrees", "_no worktrees_", "", "")
 	case row.header:
-		return renderDocument(shortenHome(row.repo), fmt.Sprintf("_%s_", countWord(m.countUnder(row.repo), "worktree", "worktrees")), "", "")
+		return renderDocument(shortenHome(row.repo), fmt.Sprintf("_%s_", label.Count(m.countUnder(row.repo), "worktree", "worktrees")), "", "")
 	}
 
 	read, ok := m.worktrees.inspected[row.item.dir]
@@ -448,10 +468,10 @@ func entryLines(entries []worktreeEntry) []string {
 			continue
 		}
 
-		lines = append(lines, fmt.Sprintf("%-*s  %5s", width, entryName(entry), bytesLabel(entry.bytes)))
+		lines = append(lines, fmt.Sprintf("%-*s  %5s", width, entryName(entry), label.Bytes(entry.bytes)))
 	}
 	if len(entries) > entriesShown {
-		lines = append(lines, fmt.Sprintf("%-*s  %5s", width, fmt.Sprintf("+ %d more", len(entries)-entriesShown), bytesLabel(rest)))
+		lines = append(lines, fmt.Sprintf("%-*s  %5s", width, fmt.Sprintf("+ %d more", len(entries)-entriesShown), label.Bytes(rest)))
 	}
 
 	return lines
@@ -480,7 +500,7 @@ func changeLines(read worktreeInspection) []string {
 func commitLines(commits []worktreeCommit) []string {
 	var lines []string
 	for _, commit := range commits {
-		lines = append(lines, fmt.Sprintf("%s  %-4s %s", shortSHA(commit.sha), dates.Age(commit.committedAt), commit.subject))
+		lines = append(lines, fmt.Sprintf("%s  %-4s %s", label.ShortSHA(commit.sha), dates.Age(commit.committedAt), commit.subject))
 	}
 
 	return lines

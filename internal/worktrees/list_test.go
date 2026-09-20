@@ -7,6 +7,7 @@ import (
 	"time"
 
 	agentstore "weave/internal/store/agent"
+	worktreestore "weave/internal/store/worktree"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -147,4 +148,112 @@ func TestListNamesADirectoryItCannotRead(t *testing.T) {
 
 	assert.Empty(t, listing.Worktrees)
 	assert.Equal(t, []string{unreadable}, listing.UnreadableDirs)
+}
+
+// TestListJoinsTheStoredSize covers a directory carrying the measurement stored for it, and one
+// the loop has not reached carrying none.
+func TestListJoinsTheStoredSize(t *testing.T) {
+	f := newFixture(t)
+	measured := f.cut(t, "aaaa")
+	f.cut(t, "bbbb")
+	f.sizes.stored[measured] = worktreestore.Size{
+		Dir:        measured,
+		Bytes:      4096,
+		MeasuredAt: f.now,
+	}
+
+	listing, err := f.lister.List(t.Context())
+	require.NoError(t, err)
+
+	require.Len(t, listing.Worktrees, 2)
+	require.NotNil(t, listing.Worktrees[0].Size)
+	assert.Equal(t, int64(4096), listing.Worktrees[0].Size.Bytes)
+	assert.Equal(t, f.now, listing.Worktrees[0].Size.MeasuredAt)
+	assert.Nil(t, listing.Worktrees[1].Size)
+}
+
+// TestListReadsWhenADirectoryWasLastActive covers each rule for the last activity: the later
+// of an agent's state change and its archiving, else the .git file's mtime, else the
+// directory's own.
+func TestListReadsWhenADirectoryWasLastActive(t *testing.T) {
+	changed := time.Date(2026, 9, 18, 12, 0, 0, 0, time.UTC)
+	archived := time.Date(2026, 9, 19, 12, 0, 0, 0, time.UTC)
+	gitTouched := time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC)
+	dirTouched := time.Date(2026, 9, 12, 12, 0, 0, 0, time.UTC)
+
+	tests := []struct {
+		name string
+		lay  func(t *testing.T, f *fixture) string
+		want time.Time
+	}{
+		{
+			name: "an agent archived after its last state change",
+			lay: func(t *testing.T, f *fixture) string {
+				dir := f.cut(t, "aaaa")
+				f.own("aaaa", "first", &archived)
+				f.owners.rows[0].StateChangedAt = changed
+
+				return dir
+			},
+			want: archived,
+		},
+		{
+			name: "an agent whose state changed after it was archived",
+			lay: func(t *testing.T, f *fixture) string {
+				dir := f.cut(t, "aaaa")
+				f.own("aaaa", "first", &changed)
+				f.owners.rows[0].StateChangedAt = archived
+
+				return dir
+			},
+			want: archived,
+		},
+		{
+			name: "a live agent reads its state change",
+			lay: func(t *testing.T, f *fixture) string {
+				dir := f.cut(t, "aaaa")
+				f.own("aaaa", "first", nil)
+				f.owners.rows[0].StateChangedAt = changed
+
+				return dir
+			},
+			want: changed,
+		},
+		{
+			name: "no agent reads the .git file",
+			lay: func(t *testing.T, f *fixture) string {
+				dir := f.cut(t, "aaaa")
+				require.NoError(t, os.Chtimes(filepath.Join(dir, ".git"), gitTouched, gitTouched))
+				require.NoError(t, os.Chtimes(dir, dirTouched, dirTouched))
+
+				return dir
+			},
+			want: gitTouched,
+		},
+		{
+			name: "no .git file reads the directory",
+			lay: func(t *testing.T, f *fixture) string {
+				dir := filepath.Join(f.shared, "cccc")
+				require.NoError(t, os.MkdirAll(dir, 0o755))
+				require.NoError(t, os.Chtimes(dir, dirTouched, dirTouched))
+
+				return dir
+			},
+			want: dirTouched,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f := newFixture(t)
+			dir := tt.lay(t, f)
+
+			listing, err := f.lister.List(t.Context())
+			require.NoError(t, err)
+
+			require.Len(t, listing.Worktrees, 1)
+			assert.Equal(t, dir, listing.Worktrees[0].Dir)
+			assert.True(t, listing.Worktrees[0].LastActiveAt.Equal(tt.want), "got %s, want %s", listing.Worktrees[0].LastActiveAt, tt.want)
+		})
+	}
 }

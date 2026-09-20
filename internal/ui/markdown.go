@@ -4,20 +4,13 @@ import (
 	"fmt"
 	"strings"
 
+	"weave/internal/ui/paint/label"
 	"weave/lib/dates"
 
 	agentstore "weave/internal/store/agent"
 	schedulestore "weave/internal/store/schedule"
 	workflowstore "weave/internal/store/workflow"
 )
-
-func orDash(v string) string {
-	if strings.TrimSpace(v) == "" {
-		return "—"
-	}
-
-	return v
-}
 
 type recordField struct {
 	label string
@@ -42,19 +35,19 @@ func renderDocument(title, notice, prose, footer string) string {
 
 func workflowFields(w workflowstore.Workflow, agentCount int) []recordField {
 	fields := []recordField{
-		{"name", orDash(w.Name)},
+		{"name", label.OrDash(w.Name)},
 		{"agents", fmt.Sprintf("%d", agentCount)},
 	}
 	fields = append(fields, workflowConfigFields(w)...)
 
-	return append(fields, recordField{"workflow_id", orDash(w.ID)})
+	return append(fields, recordField{"workflow_id", label.OrDash(w.ID)})
 }
 
 func workflowConfigFields(w workflowstore.Workflow) []recordField {
 	fields := []recordField{
-		{"default agent", orDash(w.Harness)},
-		{"directory", orDash(w.Cwd)},
-		{"flags", orDash(w.Flags)},
+		{"default agent", label.OrDash(w.Harness)},
+		{"directory", label.OrDash(w.Cwd)},
+		{"flags", label.OrDash(w.Flags)},
 	}
 
 	if !w.Worktree.Enabled {
@@ -63,7 +56,7 @@ func workflowConfigFields(w workflowstore.Workflow) []recordField {
 
 	fields = append(fields,
 		recordField{"worktree", "on"},
-		recordField{"base branch", orDash(w.Worktree.BaseBranch)},
+		recordField{"base branch", label.OrDash(w.Worktree.BaseBranch)},
 	)
 	if len(w.Worktree.CopyPaths) > 0 {
 		fields = append(fields, recordField{"copy", strings.Join(w.Worktree.CopyPaths, ", ")})
@@ -101,17 +94,17 @@ type agentFieldsParams struct {
 
 func agentFields(params agentFieldsParams) []recordField {
 	agent, schedule, parent := params.agent, params.schedule, params.parent
-	fields := []recordField{{"name", orDash(agent.Name)}}
+	fields := []recordField{{"name", label.OrDash(agent.Name)}}
 	// What a child is attached to comes early, and for a reviewer that same row is whose work it
 	// is reading.
 	reviewingDrawn := agent.ParentAgentID != nil && agent.Role == agentstore.RoleReviewer
 	if agent.ParentAgentID != nil {
-		fields = append(fields, recordField{attachmentFieldKey(agent.Role), orDash(parent)})
+		fields = append(fields, recordField{attachmentFieldKey(agent.Role), label.OrDash(parent)})
 	}
 
 	fields = append(fields,
-		recordField{"agent", orDash(agent.Harness)},
-		recordField{"directory", orDash(agent.Cwd)},
+		recordField{"agent", label.OrDash(agent.Harness)},
+		recordField{"directory", label.OrDash(agent.Cwd)},
 	)
 
 	if agent.ReportedReason != "" {
@@ -125,10 +118,10 @@ func agentFields(params agentFieldsParams) []recordField {
 	}
 
 	fields = append(fields,
-		recordField{"flags", orDash(agent.Flags)},
+		recordField{"flags", label.OrDash(agent.Flags)},
 
-		recordField{"agent_id", orDash(agent.ID)},
-		recordField{"session_id", orDash(agent.SessionID)},
+		recordField{"agent_id", label.OrDash(agent.ID)},
+		recordField{"session_id", label.OrDash(agent.SessionID)},
 	)
 	if schedule != "" {
 		fields = append(fields, recordField{"launched by", schedule})
@@ -178,9 +171,9 @@ Press the new key to write one.
 
 func scheduleFields(sched schedulestore.Schedule, workflow *workflowstore.Workflow) []recordField {
 	fields := []recordField{
-		{"name", orDash(sched.Name)},
-		{"cron", orDash(sched.Cron)},
-		{"timezone", orDash(sched.Timezone)},
+		{"name", label.OrDash(sched.Name)},
+		{"cron", label.OrDash(sched.Cron)},
+		{"timezone", label.OrDash(sched.Timezone)},
 	}
 
 	if workflow == nil {
@@ -197,7 +190,7 @@ func scheduleMarkdown(item scheduleItem) string {
 
 	notice := "_paused — will not run_"
 	if sched.Enabled {
-		notice = fmt.Sprintf("_next run %s_", orDash(dates.Friendly(item.nextRun)))
+		notice = fmt.Sprintf("_next run %s_", label.OrDash(dates.Friendly(item.nextRun)))
 	}
 	if result := lastResultNotice(sched); result != "" {
 		notice += "\n" + result
@@ -238,12 +231,12 @@ func archiveMarkdown(agent agentstore.Agent) string {
 
 func archiveFields(agent agentstore.Agent, schedule string) []recordField {
 	fields := []recordField{
-		{"name", orDash(agent.Name)},
-		{"agent", orDash(agent.Harness)},
-		{"directory", orDash(agent.Cwd)},
-		{"flags", orDash(agent.Flags)},
-		{"agent_id", orDash(agent.ID)},
-		{"session_id", orDash(agent.SessionID)},
+		{"name", label.OrDash(agent.Name)},
+		{"agent", label.OrDash(agent.Harness)},
+		{"directory", label.OrDash(agent.Cwd)},
+		{"flags", label.OrDash(agent.Flags)},
+		{"agent_id", label.OrDash(agent.ID)},
+		{"session_id", label.OrDash(agent.SessionID)},
 	}
 	if schedule != "" {
 		fields = append(fields, recordField{"launched by", schedule})
