@@ -113,6 +113,7 @@ type repositoryPass struct {
 	budget      int
 	inserted    int
 	updated     int
+	decisions   int
 	notModified bool
 }
 
@@ -179,13 +180,14 @@ func (s *PullRequestSyncer) syncRepository(ctx context.Context, repositoryURL st
 		slog.Int(logging.ForgeCalls, sync.Calls),
 		slog.Int(logging.RowsInserted, pass.inserted),
 		slog.Int(logging.RowsUpdated, pass.updated),
+		slog.Int(logging.DecisionsRead, pass.decisions),
 		slog.Bool(logging.NotModified, pass.notModified),
 		slog.Bool(logging.SweepInProgress, sync.IsSweeping()),
 	)
 }
 
-// readRepository runs the sweep and then the branch scans for one repository within the pass's
-// budget, and answers the error that stopped it, if one did.
+// readRepository runs the sweep, then the branch scans, then the review decisions for one
+// repository within the pass's budget, and answers the error that stopped it, if one did.
 func (s *PullRequestSyncer) readRepository(ctx context.Context, remote git.RemoteURL, connection *forgestore.Connection, f forge.Forge, pass *repositoryPass) error {
 	repositoryURL := remote.Canonical()
 	if err := s.pullRequests.EnsureSync(ctx, repositoryURL); err != nil {
@@ -198,8 +200,11 @@ func (s *PullRequestSyncer) readRepository(ctx context.Context, remote git.Remot
 	if err := s.sweep(ctx, remote, connection, f, pass); err != nil {
 		return err
 	}
+	if err := s.scanBranches(ctx, remote, connection, f, pass); err != nil {
+		return err
+	}
 
-	return s.scanBranches(ctx, remote, connection, f, pass)
+	return s.readDecisions(ctx, remote, f, pass)
 }
 
 // sweep reads the repository's listing by last change from where the cursor row says, page by
@@ -352,6 +357,38 @@ func (s *PullRequestSyncer) scanBranches(ctx context.Context, remote git.RemoteU
 
 			page++
 		}
+	}
+
+	return nil
+}
+
+// readDecisions reads the review decision of every open pull request on a live branch that
+// changed since its decision was last read, newest change first, until the budget runs out.
+func (s *PullRequestSyncer) readDecisions(ctx context.Context, remote git.RemoteURL, f forge.Forge, pass *repositoryPass) error {
+	repositoryURL := remote.Canonical()
+	stale, err := s.pullRequests.ListStaleDecisions(ctx, repositoryURL)
+	if err != nil {
+		return err
+	}
+
+	for _, pullRequest := range stale {
+		if pass.budget <= 0 {
+			return nil
+		}
+		pass.budget--
+
+		decision, err := f.GetReviewDecision(ctx, remote, pullRequest.Number)
+		if recordErr := s.pullRequests.RecordSyncRequest(ctx, repositoryURL); recordErr != nil {
+			return recordErr
+		}
+		if err != nil && !errors.Is(err, forge.ErrNotFound) {
+			return err
+		}
+
+		if err := s.pullRequests.SetReviewDecision(ctx, pullRequest.ID, decision); err != nil {
+			return err
+		}
+		pass.decisions++
 	}
 
 	return nil

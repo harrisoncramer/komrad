@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -29,8 +31,10 @@ var syncNow = time.Date(2026, 9, 20, 12, 0, 0, 0, time.UTC)
 type scriptedForge struct {
 	updated  map[int]*forge.ListUpdatedResult
 	branches map[string]map[int]*forge.ListResult
-	// decisions is what the forge says about each pull request's reviews, by number.
-	decisions map[int]string
+	// decisions is what the forge says about each pull request's reviews, by number, and
+	// decisionErrors what it refuses instead.
+	decisions      map[int]string
+	decisionErrors map[int]error
 	// refuse is answered instead of any page while set.
 	refuse error
 	// requests is every request in order, spelled "updated:<page>:<etag>",
@@ -73,6 +77,9 @@ func (f *scriptedForge) GetReviewDecision(_ context.Context, _ git.RemoteURL, nu
 	f.requests = append(f.requests, fmt.Sprintf("decision:%d", number))
 	if f.refuse != nil {
 		return "", f.refuse
+	}
+	if err := f.decisionErrors[number]; err != nil {
+		return "", err
 	}
 
 	return f.decisions[number], nil
@@ -148,9 +155,10 @@ func newSyncFixture(t *testing.T) *syncFixture {
 	require.NoError(t, err)
 
 	scripted := &scriptedForge{
-		updated:   map[int]*forge.ListUpdatedResult{},
-		branches:  map[string]map[int]*forge.ListResult{},
-		decisions: map[int]string{},
+		updated:        map[int]*forge.ListUpdatedResult{},
+		branches:       map[string]map[int]*forge.ListResult{},
+		decisions:      map[int]string{},
+		decisionErrors: map[int]error{},
 	}
 	f := &syncFixture{
 		forge:        scripted,
@@ -203,6 +211,17 @@ func (f *syncFixture) getSync(t *testing.T) *pullrequeststore.Sync {
 	return sync
 }
 
+// numberOf is the number a scripted pull request goes by: the digits its provider id ends in,
+// or its length when it ends in none.
+func numberOf(providerID string) int {
+	digits := strings.TrimLeft(providerID, "PR_ABCDEFGHIJKLMNOPQRSTUVWXYZ")
+	if number, err := strconv.Atoi(digits); err == nil {
+		return number
+	}
+
+	return len(providerID)
+}
+
 // pullRequestAt is a forge pull request from the sync repository's branch, last changed then.
 func pullRequestAt(providerID, branch string, updatedAt time.Time) forge.PullRequest {
 	repository := git.RemoteURL{
@@ -217,7 +236,7 @@ func pullRequestAt(providerID, branch string, updatedAt time.Time) forge.PullReq
 		URL:        "https://github.com/harrisoncramer/weave/pull/" + providerID,
 		Repository: repository,
 		Head:       repository,
-		Number:     len(providerID),
+		Number:     numberOf(providerID),
 		Title:      providerID,
 		HeadBranch: branch,
 		HeadSHA:    "abc",
@@ -256,14 +275,14 @@ func TestSyncFirstSweepStopsAtTheHorizon(t *testing.T) {
 
 	f.sync(t)
 
-	assert.Equal(t, []string{"updated:1:", "branch:agent/x:1"}, f.forge.requests, "page two is never asked for, and the agent's branch is scanned")
+	assert.Equal(t, []string{"updated:1:", "branch:agent/x:1", "decision:3"}, f.forge.requests, "page two is never asked for, the agent's branch is scanned, and only its open pull request costs a decision")
 	sync := f.getSync(t)
 	assert.False(t, sync.IsSweeping())
 	require.NotNil(t, sync.UpdatedThrough)
 	assert.True(t, sync.UpdatedThrough.Equal(syncNow.Add(-time.Hour)), "the mark is page one's newest stamp")
 	assert.Equal(t, `"one"`, sync.ETag)
 	assert.NotNil(t, sync.ValidatedAt)
-	assert.Equal(t, 2, sync.Calls)
+	assert.Equal(t, 3, sync.Calls)
 	f.stored(t, "PR_1")
 	_, err := f.pullRequests.GetByIdentity(t.Context(), "github.com", "PR_0")
 	require.ErrorIs(t, err, store.ErrNotFound)
@@ -340,7 +359,7 @@ func TestSyncIncrementalSweepStopsAtTheMarkLessTheOverlap(t *testing.T) {
 	f.forge.requests = nil
 	f.sync(t)
 
-	assert.Equal(t, []string{`updated:1:"one"`}, f.forge.requests)
+	assert.Equal(t, []string{`updated:1:"one"`, "decision:3", "decision:2"}, f.forge.requests, "the two new pull requests cost a decision each and the re-read one does not")
 	f.stored(t, "PR_2")
 	f.stored(t, "PR_3")
 	sync := f.getSync(t)
@@ -378,7 +397,10 @@ func TestSyncBudgetPausesAndResumes(t *testing.T) {
 	f.forge.requests = nil
 	f.sync(t)
 
-	assert.Equal(t, []string{"updated:11:", "updated:12:", "branch:agent/x:1"}, f.forge.requests)
+	assert.Equal(t, []string{
+		"updated:11:", "updated:12:", "branch:agent/x:1",
+		"decision:1", "decision:2", "decision:3", "decision:4", "decision:5", "decision:6", "decision:7",
+	}, f.forge.requests, "the decisions take what is left of the budget, newest change first")
 	sync = f.getSync(t)
 	assert.False(t, sync.IsSweeping())
 	assert.True(t, sync.UpdatedThrough.Equal(syncNow.Add(-time.Minute)))
@@ -438,7 +460,7 @@ func TestSyncScansANewBranchOnceAndAttributesLocally(t *testing.T) {
 
 	f.sync(t)
 
-	assert.Equal(t, []string{"updated:1:", "branch:agent/old:1", "branch:agent/old:2"}, f.forge.requests)
+	assert.Equal(t, []string{"updated:1:", "branch:agent/old:1", "branch:agent/old:2", "decision:6", "decision:8"}, f.forge.requests)
 	scan, err := f.pullRequests.GetBranchScan(t.Context(), syncRepository, "agent/old")
 	require.NoError(t, err)
 	assert.NotNil(t, scan.CompletedAt)
@@ -539,4 +561,135 @@ func TestSyncSkipsARepositoryWithNoConnection(t *testing.T) {
 	}
 	_, err := f.pullRequests.GetSync(t.Context(), elsewhere)
 	require.ErrorIs(t, err, store.ErrNotFound)
+}
+
+// TestSyncReadsTheDecisionOfAChangedOpenPullRequest covers which pull requests cost a decision
+// read: an open one on a live branch when it lands, and again only once it changes; never a
+// draft, a finished one, or one on a branch no live agent sits on.
+func TestSyncReadsTheDecisionOfAChangedOpenPullRequest(t *testing.T) {
+	f := newSyncFixture(t)
+	f.agentOn(t, "a", "agent/x")
+	open := pullRequestAt("PR_1", "agent/x", syncNow.Add(-time.Hour))
+	draft := pullRequestAt("PR_2", "agent/x", syncNow.Add(-2*time.Hour))
+	draft.Draft = true
+	merged := pullRequestAt("PR_3", "agent/x", syncNow.Add(-3*time.Hour))
+	mergedAt := syncNow.Add(-3 * time.Hour)
+	merged.MergedAt = &mergedAt
+	merged.ClosedAt = &mergedAt
+	elsewhere := pullRequestAt("PR_4", "agent/nobody", syncNow.Add(-4*time.Hour))
+	f.forge.updated[1] = &forge.ListUpdatedResult{
+		PullRequests: []forge.PullRequest{open, draft, merged, elsewhere},
+		ETag:         `"one"`,
+	}
+	f.forge.decisions[1] = "APPROVED"
+
+	f.sync(t)
+
+	assert.Equal(t, []string{"updated:1:", "branch:agent/x:1", "decision:1"}, f.forge.requests)
+	stored := f.stored(t, "PR_1")
+	require.NotNil(t, stored.ReviewDecision)
+	assert.Equal(t, "APPROVED", *stored.ReviewDecision)
+	assert.NotNil(t, stored.DecisionReadAt)
+	for _, providerID := range []string{"PR_2", "PR_3", "PR_4"} {
+		assert.Nil(t, f.stored(t, providerID).DecisionReadAt, "%s costs no decision read", providerID)
+	}
+
+	f.now = syncNow.Add(time.Minute)
+	f.forge.requests = nil
+	f.sync(t)
+
+	assert.Equal(t, []string{`updated:1:"one"`}, f.forge.requests, "a decision read since the last change is not read again")
+
+	f.now = syncNow.Add(2 * time.Minute)
+	changed := open
+	changed.UpdatedAt = time.Now().Add(time.Hour)
+	f.forge.updated[1] = &forge.ListUpdatedResult{
+		PullRequests: []forge.PullRequest{changed},
+		ETag:         `"two"`,
+	}
+	f.forge.decisions[1] = "CHANGES_REQUESTED"
+	f.forge.requests = nil
+	f.sync(t)
+
+	assert.Equal(t, []string{`updated:1:"one"`, "decision:1"}, f.forge.requests, "a change to the pull request makes its decision stale")
+	stored = f.stored(t, "PR_1")
+	require.NotNil(t, stored.ReviewDecision)
+	assert.Equal(t, "CHANGES_REQUESTED", *stored.ReviewDecision)
+}
+
+// TestSyncDecisionsWaitForTheBudget covers more stale decisions than the budget has room for:
+// the newest changes are read first, the rest stay stale, and the next pass reads them.
+func TestSyncDecisionsWaitForTheBudget(t *testing.T) {
+	f := newSyncFixture(t)
+	f.agentOn(t, "a", "agent/x")
+	var pullRequests []forge.PullRequest
+	for number := 1; number <= 12; number++ {
+		pullRequests = append(pullRequests, pullRequestAt(fmt.Sprintf("PR_%d", number), "agent/x", syncNow.Add(-time.Duration(number)*time.Minute)))
+	}
+	f.forge.updated[1] = &forge.ListUpdatedResult{PullRequests: pullRequests, ETag: `"one"`}
+
+	f.sync(t)
+
+	assert.Equal(t, []string{
+		"updated:1:", "branch:agent/x:1",
+		"decision:1", "decision:2", "decision:3", "decision:4", "decision:5", "decision:6", "decision:7", "decision:8",
+	}, f.forge.requests)
+	assert.Equal(t, 10, f.getSync(t).Calls)
+	assert.Nil(t, f.stored(t, "PR_9").DecisionReadAt)
+
+	f.now = syncNow.Add(time.Minute)
+	f.forge.requests = nil
+	f.sync(t)
+
+	assert.Equal(t, []string{`updated:1:"one"`, "decision:9", "decision:10", "decision:11", "decision:12"}, f.forge.requests)
+	assert.NotNil(t, f.stored(t, "PR_12").DecisionReadAt)
+}
+
+// TestSyncDecisionTheForgeDoesNotHaveIsRead covers a pull request GitHub answers not found
+// for, which is stamped as read with nothing said rather than asked for again every pass.
+func TestSyncDecisionTheForgeDoesNotHaveIsRead(t *testing.T) {
+	f := newSyncFixture(t)
+	f.agentOn(t, "a", "agent/x")
+	f.forge.updated[1] = &forge.ListUpdatedResult{
+		PullRequests: []forge.PullRequest{pullRequestAt("PR_1", "agent/x", syncNow.Add(-time.Hour))},
+		ETag:         `"one"`,
+	}
+	f.forge.decisionErrors[1] = forge.ErrNotFound
+
+	f.sync(t)
+
+	stored := f.stored(t, "PR_1")
+	assert.Nil(t, stored.ReviewDecision)
+	assert.NotNil(t, stored.DecisionReadAt)
+
+	f.now = syncNow.Add(time.Minute)
+	f.forge.requests = nil
+	f.sync(t)
+
+	assert.Equal(t, []string{`updated:1:"one"`}, f.forge.requests)
+}
+
+// TestSyncDecisionRefusalStopsTheRepository covers any other refusal, which is reported and
+// leaves the decision stale for the next pass.
+func TestSyncDecisionRefusalStopsTheRepository(t *testing.T) {
+	f := newSyncFixture(t)
+	f.agentOn(t, "a", "agent/x")
+	f.forge.updated[1] = &forge.ListUpdatedResult{
+		PullRequests: []forge.PullRequest{pullRequestAt("PR_1", "agent/x", syncNow.Add(-time.Hour))},
+		ETag:         `"one"`,
+	}
+	f.forge.decisionErrors[1] = errors.New("github answered 502")
+
+	f.sync(t)
+
+	assert.Nil(t, f.stored(t, "PR_1").DecisionReadAt)
+	assert.Equal(t, 3, f.getSync(t).Calls, "the refused request is still counted")
+
+	delete(f.forge.decisionErrors, 1)
+	f.now = syncNow.Add(time.Minute)
+	f.forge.requests = nil
+	f.sync(t)
+
+	assert.Equal(t, []string{`updated:1:"one"`, "decision:1"}, f.forge.requests)
+	assert.NotNil(t, f.stored(t, "PR_1").DecisionReadAt)
 }

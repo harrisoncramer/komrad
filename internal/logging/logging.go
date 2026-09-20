@@ -57,6 +57,7 @@ const (
 	RowsUpdated            = "weave.rows.updated"
 	Observations           = "weave.pull_request.observations"
 	SweepInProgress        = "weave.pull_request.sweep_in_progress"
+	DecisionsRead          = "weave.pull_request.decisions_read"
 	NotModified            = "weave.forge.not_modified"
 	ThrottledUntil         = "weave.forge.throttled_until"
 	Repeats                = "repeats"
