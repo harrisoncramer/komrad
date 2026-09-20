@@ -909,6 +909,28 @@ func TestSyncSaysAMissingRepositoryOnce(t *testing.T) {
 	assert.Equal(t, 2, strings.Count(logged.String(), "the forge has no such repository"), "a repository found and lost again is said again")
 }
 
+// TestSyncSaysARenamedRepositoryOnce covers a listing answered under another name: the rows
+// are stored as the forge names them and the rename is said once.
+func TestSyncSaysARenamedRepositoryOnce(t *testing.T) {
+	f := newSyncFixture(t)
+	f.agentOn(t, "a", "agent/x")
+	renamed := git.RemoteURL{
+		Scheme: "https",
+		Host:   "github.com",
+		Path:   "harrisoncramer/weave-renamed",
+	}
+	f.forge.updated[""] = &forge.ListUpdatedResult{PullRequests: []forge.PullRequest{pullRequestIn(renamed, "PR_1", "agent/x", syncNow.Add(-time.Hour))}}
+	var logged bytes.Buffer
+	ctx := logging.WithLogger(t.Context(), slog.New(slog.NewTextHandler(&logged, nil)))
+
+	require.NoError(t, f.syncer.Sync(ctx))
+	f.now = syncNow.Add(61 * time.Minute)
+	require.NoError(t, f.syncer.Sync(ctx))
+
+	assert.Equal(t, 1, strings.Count(logged.String(), "under another name"), "the sweep says it, the hourly listing does not repeat it")
+	assert.Equal(t, renamed.Canonical(), f.stored(t, "PR_1").RepositoryURL)
+}
+
 // TestSyncSkipsARefusedCredential covers the forge refusing the credential: the pass stops
 // asking the host, the refusal is said once, a connection the forge has refused is not asked
 // at all until it is verified again, and it is said again after a later refusal.

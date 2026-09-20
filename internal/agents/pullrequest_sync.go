@@ -73,6 +73,8 @@ type PullRequestSyncer struct {
 	missing map[string]bool
 	// refused holds the hosts already logged as refusing their credential.
 	refused map[string]bool
+	// renamed holds the repositories already logged as known to the forge by another name.
+	renamed map[string]bool
 }
 
 type NewPullRequestSyncerParams struct {
@@ -99,6 +101,7 @@ func NewPullRequestSyncer(params NewPullRequestSyncerParams) *PullRequestSyncer 
 		unconnected:  map[string]bool{},
 		missing:      map[string]bool{},
 		refused:      map[string]bool{},
+		renamed:      map[string]bool{},
 	}
 }
 
@@ -374,6 +377,7 @@ func (s *PullRequestSyncer) sweep(ctx context.Context, host *hostRead, read *rep
 			return err
 		}
 		spent := s.noteRateLimit(ctx, host, listed.RateLimit)
+		s.noteRename(ctx, repositoryURL, listed.PullRequests)
 
 		if !started {
 			newest := listedAt
@@ -617,6 +621,7 @@ func (s *PullRequestSyncer) list(ctx context.Context, host *hostRead, read *repo
 		return err
 	}
 	spent := s.noteRateLimit(ctx, host, listed.RateLimit)
+	s.noteRename(ctx, repositoryURL, listed.PullRequests)
 
 	if err := s.writePage(ctx, listed.PullRequests, counts, func(st *pullrequeststore.Store) error {
 		return st.MarkListed(ctx, repositoryURL, listedAt)
@@ -628,6 +633,24 @@ func (s *PullRequestSyncer) list(ctx context.Context, host *hostRead, read *repo
 	}
 
 	return nil
+}
+
+// noteRename says once, per repository, that the forge answered its listing under another
+// name, which is what a rename looks like from a checkout whose remote still says the old one.
+func (s *PullRequestSyncer) noteRename(ctx context.Context, repositoryURL string, pullRequests []forge.PullRequest) {
+	if s.renamed[repositoryURL] || len(pullRequests) == 0 {
+		return
+	}
+
+	answered := pullRequests[0].Repository.Canonical()
+	if pullRequests[0].Repository.IsZero() || answered == repositoryURL {
+		return
+	}
+
+	s.renamed[repositoryURL] = true
+	logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "the forge now answers the repository under another name, so its pull requests are stored under that one and the search misses it until the checkout's remote is updated",
+		slog.String(logging.RepositoryURL, repositoryURL),
+		slog.String(logging.RenamedRepositoryURL, answered))
 }
 
 // scanBranches reads, once, the pull requests of every branch a live agent sits on that the
