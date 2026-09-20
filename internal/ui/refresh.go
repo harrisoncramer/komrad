@@ -201,7 +201,7 @@ func (m *model) applyRefresh(result refreshResult) tea.Cmd {
 	treeRow := rowKeyAt(m.agentRows(), m.tree.cursor)
 	archiveRow := rowKeyAt(m.archiveRows(), m.archive.cursor)
 	worktreeRow := rowKeyAt(m.worktreeRows(), m.worktrees.cursor)
-	searchRow := m.hoveredHitKey()
+	searchRow := m.hoveredSearchID()
 
 	before := m.listing
 
@@ -231,7 +231,7 @@ func (m *model) applyRefresh(result refreshResult) tea.Cmd {
 		m.applyWorktrees(result.worktrees, worktreeRow)
 	}
 
-	preview := m.placeSearchHit(searchRow)
+	preview := m.placeSearchAgent(searchRow)
 	inspect := m.inspectHoveredWorktreeCmd()
 	pullRequests := m.listHoveredPullRequestsCmd()
 
