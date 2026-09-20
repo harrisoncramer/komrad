@@ -15,7 +15,7 @@ import (
 
 func stripFixture() tabStrip {
 	return tabStrip{
-		title:  "⇅",
+		title:  "↑↓",
 		legend: "sort",
 		options: []tabOption{
 			{id: "size", label: "size"},
@@ -51,22 +51,22 @@ func TestTabStripDrawsTheChosenTabInTheTonesOfItsFocus(t *testing.T) {
 		{
 			name:  "the zero state is the fallback with its arrow down, on the list's keys",
 			state: tabsState{},
-			want:  muted.Render("⇅") + " ↓ size  " + muted.Render("age") + "  " + muted.Render("name"),
+			want:  muted.Render("↑↓") + "   ↓ size  " + muted.Render("age") + "  " + muted.Render("name"),
 		},
 		{
 			name:  "a chosen tab keeps its arrow when the list holds the keys",
 			state: tabsState{chosen: "age", direction: tabUp},
-			want:  muted.Render("⇅") + " " + muted.Render("size") + "  ↑ age  " + muted.Render("name"),
+			want:  muted.Render("↑↓") + "   " + muted.Render("size") + "  ↑ age  " + muted.Render("name"),
 		},
 		{
 			name:  "the strip holding the keys draws the chosen tab in the accent",
 			state: tabsState{chosen: "age", focused: true},
-			want:  muted.Render("⇅") + " " + muted.Render("size") + "  " + accent.Render("↓ age") + "  " + muted.Render("name"),
+			want:  muted.Render("↑↓") + "   " + muted.Render("size") + "  " + accent.Render("↓ age") + "  " + muted.Render("name"),
 		},
 		{
 			name:  "a choice the strip does not hold falls back",
 			state: tabsState{chosen: "gone"},
-			want:  muted.Render("⇅") + " ↓ size  " + muted.Render("age") + "  " + muted.Render("name"),
+			want:  muted.Render("↑↓") + "   ↓ size  " + muted.Render("age") + "  " + muted.Render("name"),
 		},
 	}
 
@@ -233,7 +233,7 @@ func TestTabsStandDownOnAShortPane(t *testing.T) {
 	m.screen = screenWorktrees
 
 	m.height = 6
-	require.NotContains(t, m.worktreesHeader(), "⇅", "the strip gives up its row")
+	require.NotContains(t, m.worktreesHeader(), "↑↓", "the strip gives up its row")
 	assert.Contains(t, m.View(), "agent39", "to the row the cursor stands on")
 
 	refused := send(t, m, "f")
@@ -244,7 +244,7 @@ func TestTabsStandDownOnAShortPane(t *testing.T) {
 	assert.False(t, refused.isTabsFocused(), "and the refused press does not wake once the pane grows")
 
 	m.height = 7
-	require.Contains(t, m.worktreesHeader(), "⇅", "the strip is drawn once the list keeps a row beside it")
+	require.Contains(t, m.worktreesHeader(), "↑↓", "the strip is drawn once the list keeps a row beside it")
 	assert.Contains(t, m.View(), "agent39")
 	assert.Len(t, lines(m.View()), 7)
 
@@ -280,7 +280,7 @@ func TestTabsSitUnderTheFilterLine(t *testing.T) {
 
 	require.Len(t, header, 5)
 	assert.Contains(t, header[2], "/")
-	assert.Contains(t, header[3], "⇅")
+	assert.Contains(t, header[3], "↑↓")
 	assert.Empty(t, header[4])
 }
 
