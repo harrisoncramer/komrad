@@ -1035,6 +1035,7 @@ SELECT
     name,
     cwd,
     state,
+    state_changed_at,
     archived_at,
     adopted_branch,
     workflow_id

@@ -27,13 +27,14 @@ type Cursor = store.IDCursor
 // AgentDir is the directory one agent holds, with what a listing of directories says about
 // the agent.
 type AgentDir struct {
-	ID            string
-	Name          string
-	Cwd           string
-	State         State
-	ArchivedAt    *time.Time
-	AdoptedBranch string
-	WorkflowID    string
+	ID             string
+	Name           string
+	Cwd            string
+	State          State
+	StateChangedAt time.Time
+	ArchivedAt     *time.Time
+	AdoptedBranch  string
+	WorkflowID     string
 }
 
 // ListDirs returns the directory every agent holds, archived ones included.
@@ -45,13 +46,14 @@ func (s *Store) ListDirs(ctx context.Context) ([]AgentDir, error) {
 
 	return xslice.Map(rows, func(row *models.ListAgentDirsRow) AgentDir {
 		return AgentDir{
-			ID:            row.ID,
-			Name:          row.Name,
-			Cwd:           row.Cwd,
-			State:         State(row.State),
-			ArchivedAt:    row.ArchivedAt,
-			AdoptedBranch: row.AdoptedBranch,
-			WorkflowID:    row.WorkflowID,
+			ID:             row.ID,
+			Name:           row.Name,
+			Cwd:            row.Cwd,
+			State:          State(row.State),
+			StateChangedAt: row.StateChangedAt,
+			ArchivedAt:     row.ArchivedAt,
+			AdoptedBranch:  row.AdoptedBranch,
+			WorkflowID:     row.WorkflowID,
 		}
 	}), nil
 }

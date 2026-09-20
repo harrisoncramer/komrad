@@ -603,3 +603,14 @@ type WorkflowProvisionerConfig struct {
 	WorktreeDiffExclude  []string
 	WorktreeDir          string
 }
+
+// The disk one worktree directory takes, as the size loop or get_worktree last measured it. Keyed by the directory rather than an agent, since a directory outlives its row and one nobody answers for is what the worktrees screen is for.
+type WorktreeSize struct {
+	Dir string
+	// Blocks taken rather than length, a hard linked file counted once. Zero while error is set.
+	SizeBytes int64
+	// When the walk last finished, whether or not it succeeded, so a failed directory is not walked again on every pass.
+	MeasuredAt time.Time
+	// Why the last walk failed, null when it did not.
+	Error *string
+}

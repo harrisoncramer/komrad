@@ -13,15 +13,17 @@ import (
 
 	"weave/config"
 	agentstore "weave/internal/store/agent"
+	worktreestore "weave/internal/store/worktree"
 	"weave/lib/xslice"
 )
 
 // Agent is what a listing says about an agent that holds a directory.
 type Agent struct {
-	ID         string
-	Name       string
-	State      agentstore.State
-	ArchivedAt *time.Time
+	ID             string
+	Name           string
+	State          agentstore.State
+	StateChangedAt time.Time
+	ArchivedAt     *time.Time
 	// Adopted says the branch was somebody's before the agent was put on it.
 	Adopted bool
 	// FailedToCleanup says the agent's own delete refused the directory.
@@ -43,6 +45,11 @@ type Worktree struct {
 	Agent *Agent
 	// Occupants are the other rows working in this directory.
 	Occupants []Agent
+	// Size is the directory's last measurement, nil until the loop has been round.
+	Size *worktreestore.Size
+	// LastActiveAt is the later of the agent's state change and its archiving when one answers,
+	// else when git last wrote the directory's .git file, else the directory's own mtime.
+	LastActiveAt time.Time
 }
 
 // IsStuck reports whether the row's own delete failed on a registration git cannot read.
@@ -67,11 +74,16 @@ type worktreeDirLister interface {
 	ListWorktreeDirs(ctx context.Context) ([]string, error)
 }
 
+type sizeLister interface {
+	ListSizes(ctx context.Context) ([]worktreestore.Size, error)
+}
+
 // Lister reads the worktree directories and the rows that answer for them.
 type Lister struct {
 	shared    func() (string, error)
 	agents    agentDirLister
 	workflows worktreeDirLister
+	sizes     sizeLister
 }
 
 type NewListerParams struct {
@@ -79,6 +91,7 @@ type NewListerParams struct {
 	SharedDir func() (string, error)
 	Agents    agentDirLister
 	Workflows worktreeDirLister
+	Sizes     sizeLister
 }
 
 // NewLister builds a lister over the stores.
@@ -87,6 +100,7 @@ func NewLister(params NewListerParams) *Lister {
 		shared:    params.SharedDir,
 		agents:    params.Agents,
 		workflows: params.Workflows,
+		sizes:     params.Sizes,
 	}
 }
 
@@ -112,6 +126,17 @@ func (l *Lister) ListDirs(ctx context.Context) ([]string, error) {
 	return xslice.UniqueBy(dirs, func(dir string) string { return dir }), nil
 }
 
+// ListPaths is every directory immediately under the worktree directories, and which of those
+// directories could not be read.
+func (l *Lister) ListPaths(ctx context.Context) (Paths, error) {
+	dirs, err := l.ListDirs(ctx)
+	if err != nil {
+		return Paths{}, err
+	}
+
+	return walk(dirs), nil
+}
+
 // List is every directory under the worktree directories, with what answers for each.
 func (l *Lister) List(ctx context.Context) (Listing, error) {
 	dirs, err := l.ListDirs(ctx)
@@ -124,11 +149,21 @@ func (l *Lister) List(ctx context.Context) (Listing, error) {
 		return Listing{}, err
 	}
 
+	sizes, err := l.sizes.ListSizes(ctx)
+	if err != nil {
+		return Listing{}, err
+	}
+	sized := xslice.KeyBy(sizes, func(size worktreestore.Size) string { return size.Dir })
+
 	found := walk(dirs)
-	listing := Listing{Dirs: dirs, UnreadableDirs: found.unreadable}
-	for _, dir := range found.paths {
+	listing := Listing{Dirs: dirs, UnreadableDirs: found.Unreadable}
+	for _, dir := range found.Paths {
 		worktree := read(dir)
 		worktree.Agent, worktree.Occupants = owned(dir, owners)
+		if size, ok := sized[dir]; ok {
+			worktree.Size = &size
+		}
+		worktree.LastActiveAt = lastActive(dir, worktree.Agent)
 
 		listing.Worktrees = append(listing.Worktrees, worktree)
 	}
@@ -136,33 +171,54 @@ func (l *Lister) List(ctx context.Context) (Listing, error) {
 	return listing, nil
 }
 
-// walked is every directory found immediately under the worktree directories.
-type walked struct {
-	paths      []string
-	unreadable []string
+// Paths is every directory found immediately under the worktree directories.
+type Paths struct {
+	Paths []string
+	// Unreadable are the worktree directories that could not be read, whose contents are unknown.
+	Unreadable []string
 }
 
-func walk(dirs []string) walked {
-	found := walked{}
+func walk(dirs []string) Paths {
+	found := Paths{}
 	for _, dir := range dirs {
 		entries, err := os.ReadDir(dir)
 		if errors.Is(err, os.ErrNotExist) {
 			continue
 		}
 		if err != nil {
-			found.unreadable = append(found.unreadable, dir)
+			found.Unreadable = append(found.Unreadable, dir)
 
 			continue
 		}
 
 		for _, entry := range entries {
 			if entry.IsDir() {
-				found.paths = append(found.paths, filepath.Join(dir, entry.Name()))
+				found.Paths = append(found.Paths, filepath.Join(dir, entry.Name()))
 			}
 		}
 	}
 
 	return found
+}
+
+// lastActive is when a directory was last touched: the agent's latest state change or
+// archiving when one answers, else the mtime of its .git file, else its own.
+func lastActive(dir string, agent *Agent) time.Time {
+	if agent != nil {
+		if agent.ArchivedAt != nil && agent.ArchivedAt.After(agent.StateChangedAt) {
+			return *agent.ArchivedAt
+		}
+
+		return agent.StateChangedAt
+	}
+
+	for _, path := range []string{filepath.Join(dir, ".git"), dir} {
+		if info, err := os.Lstat(path); err == nil {
+			return info.ModTime()
+		}
+	}
+
+	return time.Time{}
 }
 
 // read is what a directory says about itself without asking git.
@@ -248,6 +304,7 @@ func describe(row agentstore.AgentDir) *Agent {
 		ID:              row.ID,
 		Name:            row.Name,
 		State:           row.State,
+		StateChangedAt:  row.StateChangedAt,
 		ArchivedAt:      row.ArchivedAt,
 		Adopted:         row.AdoptedBranch != "",
 		FailedToCleanup: row.State == agentstore.StateFailedToCleanup,

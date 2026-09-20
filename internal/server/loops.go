@@ -25,6 +25,9 @@ const CwdSyncInterval = 15 * time.Second
 // per repository live agents sit on and is what makes a pull request appear without a nudge.
 const PullRequestSyncInterval = time.Minute
 
+// WorktreeSizeInterval is how often a few worktree directories are walked for their size.
+const WorktreeSizeInterval = 30 * time.Second
+
 const (
 	ScheduleReconcileLoop = "schedule reconcile"
 	ReconcileLoop         = "reconcile"
@@ -32,6 +35,7 @@ const (
 	TranscriptSyncLoop    = "transcript sync"
 	CwdSyncLoop           = "cwd sync"
 	PullRequestSyncLoop   = "pull request sync"
+	WorktreeSizeLoop      = "worktree sizes"
 )
 
 type buildLoopsParams struct {
@@ -76,6 +80,11 @@ func buildLoops(params buildLoopsParams) []Loop {
 			Name:     PullRequestSyncLoop,
 			Interval: PullRequestSyncInterval,
 			Pass:     params.Services.pullRequestSync.Sync,
+		},
+		{
+			Name:     WorktreeSizeLoop,
+			Interval: WorktreeSizeInterval,
+			Pass:     params.Services.measurer.Measure,
 		},
 	}
 }

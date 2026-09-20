@@ -5,10 +5,12 @@ import (
 	"errors"
 	"path/filepath"
 	"slices"
+	"time"
 
 	"weave/internal/git"
 	"weave/internal/store"
 	workflowstore "weave/internal/store/workflow"
+	worktreestore "weave/internal/store/worktree"
 )
 
 // commitLimit is how many of a branch's commits an inspection lists.
@@ -49,25 +51,41 @@ type workflowReader interface {
 	GetIncludingArchived(ctx context.Context, id string) (*workflowstore.Workflow, error)
 }
 
+type sizeUpserter interface {
+	Upsert(ctx context.Context, size worktreestore.Size) error
+}
+
 // Inspector reads one directory through git.
 type Inspector struct {
 	lister    *Lister
 	git       gitReader
 	workflows workflowReader
+	sizes     sizeUpserter
+	now       func() time.Time
 }
 
 type NewInspectorParams struct {
 	Lister    *Lister
 	Git       gitReader
 	Workflows workflowReader
+	Sizes     sizeUpserter
+	// Now is the clock, time.Now when unset.
+	Now func() time.Time
 }
 
-// NewInspector builds an inspector over the lister and git.
+// NewInspector builds an inspector over the lister, git and the size store.
 func NewInspector(params NewInspectorParams) *Inspector {
+	now := params.Now
+	if now == nil {
+		now = time.Now
+	}
+
 	return &Inspector{
 		lister:    params.Lister,
 		git:       params.Git,
 		workflows: params.Workflows,
+		sizes:     params.Sizes,
+		now:       now,
 	}
 }
 
@@ -88,6 +106,17 @@ func (i *Inspector) Inspect(ctx context.Context, dir string, fetch bool) (Inspec
 	if inspection.Bytes, inspection.Entries, err = measure(ctx, dir); err != nil {
 		return Inspection{}, err
 	}
+
+	size := worktreestore.Size{
+		Dir:        dir,
+		Bytes:      inspection.Bytes,
+		MeasuredAt: i.now(),
+	}
+	if err := i.sizes.Upsert(ctx, size); err != nil {
+		return Inspection{}, err
+	}
+	inspection.Worktree.Size = &size
+
 	if !inspection.Worktree.Readable {
 		return inspection, nil
 	}

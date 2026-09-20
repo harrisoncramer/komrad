@@ -308,6 +308,12 @@ func (i *Instance) SyncTranscripts() {
 	i.runLoop(server.TranscriptSyncLoop)
 }
 
+// MeasureWorktrees runs one pass of the loop that walks worktree directories for their size.
+func (i *Instance) MeasureWorktrees() {
+	i.t.Helper()
+	i.runLoop(server.WorktreeSizeLoop)
+}
+
 // Settle moves an agent to an activity and reconciles until the store agrees, so a test says
 // where an agent ends up rather than how many passes that takes.
 func (i *Instance) Settle(agentID string, activity harness.Activity, want agentstore.State) {

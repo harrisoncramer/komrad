@@ -122,7 +122,20 @@ type Worktree struct {
 	// The agent the directory was made for, unset when no row answers for it.
 	Agent *WorktreeAgent `protobuf:"bytes,5,opt,name=agent,proto3" json:"agent,omitempty"`
 	// The other agents working in this directory, which hold none of their own.
-	Occupants     []*WorktreeAgent `protobuf:"bytes,6,rep,name=occupants,proto3" json:"occupants,omitempty"`
+	Occupants []*WorktreeAgent `protobuf:"bytes,6,rep,name=occupants,proto3" json:"occupants,omitempty"`
+	// The disk the directory takes, in bytes, as it was last measured in the background or by
+	// get_worktree: blocks rather than length, a hard linked file counted once. Unset until it has
+	// been measured, and while the last walk failed.
+	SizeBytes *int64 `protobuf:"varint,7,opt,name=size_bytes,json=sizeBytes,proto3,oneof" json:"size_bytes,omitempty"`
+	// When the size was last measured, or last failed to be, in RFC 3339. Unset until the
+	// background loop has reached the directory.
+	MeasuredAt *string `protobuf:"bytes,8,opt,name=measured_at,json=measuredAt,proto3,oneof" json:"measured_at,omitempty"`
+	// Why the last walk failed, empty when it did not.
+	SizeError string `protobuf:"bytes,9,opt,name=size_error,json=sizeError,proto3" json:"size_error,omitempty"`
+	// When the directory was last active, in RFC 3339: the later of its agent's last state change
+	// and its archiving when an agent answers for it, else when git last wrote the directory's
+	// .git file, else the directory's own modification time.
+	LastActiveAt  string `protobuf:"bytes,10,opt,name=last_active_at,json=lastActiveAt,proto3" json:"last_active_at,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -197,6 +210,34 @@ func (x *Worktree) GetOccupants() []*WorktreeAgent {
 		return x.Occupants
 	}
 	return nil
+}
+
+func (x *Worktree) GetSizeBytes() int64 {
+	if x != nil && x.SizeBytes != nil {
+		return *x.SizeBytes
+	}
+	return 0
+}
+
+func (x *Worktree) GetMeasuredAt() string {
+	if x != nil && x.MeasuredAt != nil {
+		return *x.MeasuredAt
+	}
+	return ""
+}
+
+func (x *Worktree) GetSizeError() string {
+	if x != nil {
+		return x.SizeError
+	}
+	return ""
+}
+
+func (x *Worktree) GetLastActiveAt() string {
+	if x != nil {
+		return x.LastActiveAt
+	}
+	return ""
 }
 
 type ListWorktreesResponse struct {
@@ -802,14 +843,24 @@ const file_worktree_v1_worktree_proto_rawDesc = "" +
 	"\varchived_at\x18\x04 \x01(\tH\x00R\n" +
 	"archivedAt\x88\x01\x01\x12\x18\n" +
 	"\aadopted\x18\x05 \x01(\bR\aadoptedB\x0e\n" +
-	"\f_archived_at\"\xd7\x01\n" +
+	"\f_archived_at\"\x85\x03\n" +
 	"\bWorktree\x12\x10\n" +
 	"\x03dir\x18\x01 \x01(\tR\x03dir\x12\x19\n" +
 	"\brepo_dir\x18\x02 \x01(\tR\arepoDir\x12\x16\n" +
 	"\x06branch\x18\x03 \x01(\tR\x06branch\x12\x1a\n" +
 	"\breadable\x18\x04 \x01(\bR\breadable\x120\n" +
 	"\x05agent\x18\x05 \x01(\v2\x1a.worktree.v1.WorktreeAgentR\x05agent\x128\n" +
-	"\toccupants\x18\x06 \x03(\v2\x1a.worktree.v1.WorktreeAgentR\toccupants\"\x89\x01\n" +
+	"\toccupants\x18\x06 \x03(\v2\x1a.worktree.v1.WorktreeAgentR\toccupants\x12\"\n" +
+	"\n" +
+	"size_bytes\x18\a \x01(\x03H\x00R\tsizeBytes\x88\x01\x01\x12$\n" +
+	"\vmeasured_at\x18\b \x01(\tH\x01R\n" +
+	"measuredAt\x88\x01\x01\x12\x1d\n" +
+	"\n" +
+	"size_error\x18\t \x01(\tR\tsizeError\x12$\n" +
+	"\x0elast_active_at\x18\n" +
+	" \x01(\tR\flastActiveAtB\r\n" +
+	"\v_size_bytesB\x0e\n" +
+	"\f_measured_at\"\x89\x01\n" +
 	"\x15ListWorktreesResponse\x123\n" +
 	"\tworktrees\x18\x01 \x03(\v2\x15.worktree.v1.WorktreeR\tworktrees\x12\x12\n" +
 	"\x04dirs\x18\x02 \x03(\tR\x04dirs\x12'\n" +
@@ -851,10 +902,10 @@ const file_worktree_v1_worktree_proto_rawDesc = "" +
 	"\arefused\x18\x02 \x03(\v2\x14.worktree.v1.RefusalR\arefused\">\n" +
 	"\x16DeleteWorktreesRequest\x12$\n" +
 	"\x04dirs\x18\x01 \x03(\tB\x10\xbaH\r\x92\x01\n" +
-	"\b\x01\x18\x01\"\x04r\x02\x10\x01R\x04dirs2\xbc\x19\n" +
-	"\x0fWorktreeService\x12\x80\x05\n" +
-	"\rListWorktrees\x12\x16.google.protobuf.Empty\x1a\".worktree.v1.ListWorktreesResponse\"\xb2\x04\x9a\xb5\x18\xaa\x04\b\x01\x10\x01\x1a\x0elist_worktrees\"\x93\x04List every worktree directory weave holds, under the configured worktrees directory and each workflow's own, with the repository it was cut from, its branch, whether git can still read it, the agent it was made for and the other agents working in it. A directory with no agent is one whose row was deleted while cleanup did not run, or one a test left behind. This reads the directories and the agent rows and runs no git, so it is cheap to call often; read one directory's contents and standing against its base with get_worktree.\x90\x02\x01\x12\xf4\x04\n" +
-	"\vGetWorktree\x12\x1f.worktree.v1.GetWorktreeRequest\x1a .worktree.v1.GetWorktreeResponse\"\xa1\x04\x9a\xb5\x18\x99\x04\b\x01\x10\x01\x1a\fget_worktree\"\x84\x04Read one worktree directory: its size and its top-level entries with theirs, biggest first, walked for the call, what is uncommitted, the base it is measured against with how far ahead and behind it stands and how many of its commits the base already holds whole, whether deleting its agent would keep the branch, and the commits since the base. The base is read as the clone last fetched it unless fetch is set, which asks origin first. A directory whose registration git cannot read answers with the entries alone.\x90\x02\x01\x12\x8a\a\n" +
+	"\b\x01\x18\x01\"\x04r\x02\x10\x01R\x04dirs2\xe6\x1b\n" +
+	"\x0fWorktreeService\x12\xf2\x06\n" +
+	"\rListWorktrees\x12\x16.google.protobuf.Empty\x1a\".worktree.v1.ListWorktreesResponse\"\xa4\x06\x9a\xb5\x18\x9c\x06\b\x01\x10\x01\x1a\x0elist_worktrees\"\x85\x06List every worktree directory weave holds, under the configured worktrees directory and each workflow's own, with the repository it was cut from, its branch, whether git can still read it, the agent it was made for, the other agents working in it, the disk it takes as it was last measured, and when it was last active. A directory with no agent is one whose row was deleted while cleanup did not run, or one a test left behind. Sizes are measured in the background a few directories at a time, so a directory the loop has not reached yet carries none. This reads the directories, the agent rows and the stored sizes and runs no git, so it is cheap to call often; read one directory's contents and standing against its base with get_worktree, which also measures it afresh.\x90\x02\x01\x12\xac\x05\n" +
+	"\vGetWorktree\x12\x1f.worktree.v1.GetWorktreeRequest\x1a .worktree.v1.GetWorktreeResponse\"\xd9\x04\x9a\xb5\x18\xd1\x04\b\x01\x10\x01\x1a\fget_worktree\"\xbc\x04Read one worktree directory: its size and its top-level entries with theirs, biggest first, walked for the call and recorded so list_worktrees carries the fresh number, what is uncommitted, the base it is measured against with how far ahead and behind it stands and how many of its commits the base already holds whole, whether deleting its agent would keep the branch, and the commits since the base. The base is read as the clone last fetched it unless fetch is set, which asks origin first. A directory whose registration git cannot read answers with the entries alone.\x90\x02\x01\x12\x8a\a\n" +
 	"\x16RemoveUnownedWorktrees\x12*.worktree.v1.RemoveUnownedWorktreesRequest\x1a+.worktree.v1.RemoveUnownedWorktreesResponse\"\x96\x06\x9a\xb5\x18\x8e\x06\b\x01\x10\x01\x1a\x18remove_unowned_worktrees\"\xeb\x05Remove worktree directories no agent answers for, which delete_agents cannot reach: a directory under the worktrees directories whose agent row is gone, or whose row is in failed_to_cleanup because git can no longer read the registration. Each directory goes and, where the repository can still be read, git worktree prune runs in it; no branch is ever touched, since without a row nothing says whether the branch was adopted. A directory outside the worktrees directories, one a live or archived agent still answers for, one an agent works in or under, or one holding another worktree is refused with the reason and the rest go; delete the agent instead for those. Read list_worktrees first and pass only the directories it reports with no agent.(\x01\x90\x02\x02\x12\xa1\b\n" +
 	"\x0fDeleteWorktrees\x12#.worktree.v1.DeleteWorktreesRequest\x1a\x16.google.protobuf.Empty\"\xd0\a\x9a\xb5\x18\xc8\a\b\x01\x1a\x10delete_worktrees\"\x9b\x05Queue one background job that deletes worktree directories, each by the path its row decides. A directory whose agent is archived goes through delete_agents, which runs the workflow's teardown hooks and the cleanup and takes the agent's children with it; one nothing answers for, or whose agent's own delete failed on a registration git cannot read, goes through remove_unowned_worktrees; one whose agent is live is left alone. It answers once the job is recorded, before anything has gone. A directory the listing no longer holds is skipped, so a retried job takes only what is left, and one that is refused stays listed by list_worktrees with the reason in the log.(\x01:\x91\x02A model already has delete_agents and remove_unowned_worktrees, which answer with what went and what was refused. This one answers nothing, being the panel's queued form of the two, so offering it as well would only give a model a way to delete without reading the outcome.\x90\x02\x02B(Z&weave/proto/gen/worktree/v1;worktreev1b\x06proto3"
 
@@ -914,6 +965,7 @@ func file_worktree_v1_worktree_proto_init() {
 		return
 	}
 	file_worktree_v1_worktree_proto_msgTypes[0].OneofWrappers = []any{}
+	file_worktree_v1_worktree_proto_msgTypes[1].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{

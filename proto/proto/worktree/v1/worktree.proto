@@ -38,6 +38,19 @@ message Worktree {
   WorktreeAgent agent = 5;
   // The other agents working in this directory, which hold none of their own.
   repeated WorktreeAgent occupants = 6;
+  // The disk the directory takes, in bytes, as it was last measured in the background or by
+  // get_worktree: blocks rather than length, a hard linked file counted once. Unset until it has
+  // been measured, and while the last walk failed.
+  optional int64 size_bytes = 7;
+  // When the size was last measured, or last failed to be, in RFC 3339. Unset until the
+  // background loop has reached the directory.
+  optional string measured_at = 8;
+  // Why the last walk failed, empty when it did not.
+  string size_error = 9;
+  // When the directory was last active, in RFC 3339: the later of its agent's last state change
+  // and its archiving when an agent answers for it, else when git last wrote the directory's
+  // .git file, else the directory's own modification time.
+  string last_active_at = 10;
 }
 
 message ListWorktreesResponse {
@@ -152,7 +165,7 @@ service WorktreeService {
       cli: true
       mcp: true
       name: "list_worktrees"
-      description: "List every worktree directory weave holds, under the configured worktrees directory and each workflow's own, with the repository it was cut from, its branch, whether git can still read it, the agent it was made for and the other agents working in it. A directory with no agent is one whose row was deleted while cleanup did not run, or one a test left behind. This reads the directories and the agent rows and runs no git, so it is cheap to call often; read one directory's contents and standing against its base with get_worktree."
+      description: "List every worktree directory weave holds, under the configured worktrees directory and each workflow's own, with the repository it was cut from, its branch, whether git can still read it, the agent it was made for, the other agents working in it, the disk it takes as it was last measured, and when it was last active. A directory with no agent is one whose row was deleted while cleanup did not run, or one a test left behind. Sizes are measured in the background a few directories at a time, so a directory the loop has not reached yet carries none. This reads the directories, the agent rows and the stored sizes and runs no git, so it is cheap to call often; read one directory's contents and standing against its base with get_worktree, which also measures it afresh."
     };
   }
   rpc GetWorktree(GetWorktreeRequest) returns (GetWorktreeResponse) {
@@ -161,7 +174,7 @@ service WorktreeService {
       cli: true
       mcp: true
       name: "get_worktree"
-      description: "Read one worktree directory: its size and its top-level entries with theirs, biggest first, walked for the call, what is uncommitted, the base it is measured against with how far ahead and behind it stands and how many of its commits the base already holds whole, whether deleting its agent would keep the branch, and the commits since the base. The base is read as the clone last fetched it unless fetch is set, which asks origin first. A directory whose registration git cannot read answers with the entries alone."
+      description: "Read one worktree directory: its size and its top-level entries with theirs, biggest first, walked for the call and recorded so list_worktrees carries the fresh number, what is uncommitted, the base it is measured against with how far ahead and behind it stands and how many of its commits the base already holds whole, whether deleting its agent would keep the branch, and the commits since the base. The base is read as the clone last fetched it unless fetch is set, which asks origin first. A directory whose registration git cannot read answers with the entries alone."
     };
   }
   rpc RemoveUnownedWorktrees(RemoveUnownedWorktreesRequest) returns (RemoveUnownedWorktreesResponse) {

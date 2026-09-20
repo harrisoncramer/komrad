@@ -11,6 +11,7 @@ import (
 	"weave/internal/store"
 	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
+	worktreestore "weave/internal/store/worktree"
 
 	"github.com/stretchr/testify/require"
 )
@@ -23,7 +24,9 @@ type fixture struct {
 	owners *fakeOwners
 	flows  *fakeWorkflows
 	git    *fakeGit
+	sizes  *fakeSizes
 	lister *Lister
+	now    time.Time
 }
 
 func newFixture(t *testing.T) *fixture {
@@ -38,6 +41,8 @@ func newFixture(t *testing.T) *fixture {
 		owners: &fakeOwners{},
 		flows:  &fakeWorkflows{flows: map[string]*workflowstore.Workflow{}},
 		git:    &fakeGit{},
+		sizes:  &fakeSizes{stored: map[string]worktreestore.Size{}},
+		now:    time.Date(2026, 9, 20, 12, 0, 0, 0, time.UTC),
 	}
 	require.NoError(t, os.MkdirAll(filepath.Join(f.repo, ".git", "worktrees"), 0o755))
 	require.NoError(t, os.MkdirAll(f.shared, 0o755))
@@ -45,6 +50,7 @@ func newFixture(t *testing.T) *fixture {
 		SharedDir: func() (string, error) { return f.shared, nil },
 		Agents:    f.owners,
 		Workflows: f.flows,
+		Sizes:     f.sizes,
 	})
 
 	return f
@@ -77,7 +83,21 @@ func (f *fixture) own(id, name string, archivedAt *time.Time) {
 }
 
 func (f *fixture) inspector() *Inspector {
-	return NewInspector(NewInspectorParams{Lister: f.lister, Git: f.git, Workflows: f.flows})
+	return NewInspector(NewInspectorParams{
+		Lister:    f.lister,
+		Git:       f.git,
+		Workflows: f.flows,
+		Sizes:     f.sizes,
+		Now:       func() time.Time { return f.now },
+	})
+}
+
+func (f *fixture) measurer() *Measurer {
+	return NewMeasurer(NewMeasurerParams{
+		Lister: f.lister,
+		Sizes:  f.sizes,
+		Now:    func() time.Time { return f.now },
+	})
 }
 
 func (f *fixture) remover() *Remover {
@@ -90,6 +110,38 @@ type fakeOwners struct {
 
 func (o *fakeOwners) ListDirs(context.Context) ([]agentstore.AgentDir, error) {
 	return o.rows, nil
+}
+
+// fakeSizes holds measurements by directory, remembering the order they were written in.
+type fakeSizes struct {
+	stored  map[string]worktreestore.Size
+	written []string
+	deleted []string
+}
+
+func (s *fakeSizes) ListSizes(context.Context) ([]worktreestore.Size, error) {
+	sizes := make([]worktreestore.Size, 0, len(s.stored))
+	for _, size := range s.stored {
+		sizes = append(sizes, size)
+	}
+
+	return sizes, nil
+}
+
+func (s *fakeSizes) Upsert(_ context.Context, size worktreestore.Size) error {
+	s.stored[size.Dir] = size
+	s.written = append(s.written, size.Dir)
+
+	return nil
+}
+
+func (s *fakeSizes) Delete(_ context.Context, dirs []string) error {
+	for _, dir := range dirs {
+		delete(s.stored, dir)
+	}
+	s.deleted = append(s.deleted, dirs...)
+
+	return nil
 }
 
 type fakeWorkflows struct {
