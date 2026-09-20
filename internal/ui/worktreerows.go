@@ -12,15 +12,13 @@ import (
 	"weave/lib/xslice"
 )
 
-// worktreeRow is one line of the worktrees list: a repository heading its directories, a
-// directory, or an agent working in the directory above it.
+// worktreeRow is one line of the worktrees list: a repository heading its directories, or a
+// directory.
 type worktreeRow struct {
 	header bool
 	// repo is the repository the row sits under, which is the header's own name.
 	repo string
 	item worktreeItem
-	// occupant is set on a row drawn under a directory for an agent working in it.
-	occupant *worktreeAgent
 }
 
 // worktreesDropped are the two columns the worktrees list gives up: the verdict rides the live
@@ -34,11 +32,8 @@ var worktreesDropped = view.Columns{
 const noRepository = "no repository"
 
 func (r worktreeRow) key() string {
-	switch {
-	case r.header:
+	if r.header {
 		return repoRowKey(r.repo)
-	case r.occupant != nil:
-		return agentRowKey(r.occupant.id)
 	}
 
 	return treeRowKey(r.item.dir)
@@ -58,8 +53,6 @@ func (r worktreeRow) name() string {
 	switch {
 	case r.header:
 		return shortenHome(r.repo)
-	case r.occupant != nil:
-		return r.occupant.name
 	case r.item.agent != nil:
 		return r.item.agent.name
 	case r.item.branch != "":
@@ -101,13 +94,6 @@ func worktreeRows(items []worktreeItem) []worktreeRow {
 		})
 		for _, item := range members {
 			rows = append(rows, worktreeRow{repo: heading, item: item})
-			for _, occupant := range item.occupants {
-				rows = append(rows, worktreeRow{
-					repo:     heading,
-					item:     item,
-					occupant: &occupant,
-				})
-			}
 		}
 	}
 
@@ -143,32 +129,25 @@ func worktreeRefs(rows []worktreeRow) []rowRef {
 	})
 }
 
-// rowIndexOfWorktreeAgent is the row an agent is drawn on, the directory it was cut for or the
-// occupant row it works from.
+// rowIndexOfWorktreeAgent is the row of the directory an agent was cut for or works in.
 func rowIndexOfWorktreeAgent(rows []worktreeRow, id string) int {
 	if id == "" {
 		return -1
 	}
 
 	for i, r := range rows {
-		if agent := r.agentOn(); agent != nil && agent.id == id {
+		if r.header {
+			continue
+		}
+		if agent := r.item.agent; agent != nil && agent.id == id {
+			return i
+		}
+		if slices.ContainsFunc(r.item.occupants, func(occupant worktreeAgent) bool { return occupant.id == id }) {
 			return i
 		}
 	}
 
 	return -1
-}
-
-// agentOn is the agent a row stands for, nil on a header and on a directory nothing answers for.
-func (r worktreeRow) agentOn() *worktreeAgent {
-	if r.header {
-		return nil
-	}
-	if r.occupant != nil {
-		return r.occupant
-	}
-
-	return r.item.agent
 }
 
 // worktreeFilterRows is the list's own rows with the name a search reads each by.
@@ -207,9 +186,6 @@ func worktreesSnapshot(params worktreesSnapshotParams) view.Snapshot {
 		case r.header:
 			row.Kind = view.KindWorkflow
 			row.Process = view.ProcessNone
-		case r.occupant != nil:
-			row.Kind = view.KindChild
-			row = worktreeAgentFacts(row, *r.occupant, live)
 		default:
 			row.Kind = view.KindAgent
 			row.Repo = repoStanding(r.item)

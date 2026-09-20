@@ -71,8 +71,8 @@ func worktreeFixture() []worktreeItem {
 }
 
 // TestWorktreeRowsGroupByRepositoryAndStanding covers the headers in path order, the live row
-// first under its repository, then the archived, then the one nothing answers for, with the
-// occupant drawn under its directory.
+// first under its repository, then the archived, then the one nothing answers for, with no row
+// for the occupant of the live one.
 func TestWorktreeRowsGroupByRepositoryAndStanding(t *testing.T) {
 	rows := worktreeRows(worktreeFixture())
 
@@ -86,7 +86,6 @@ func TestWorktreeRowsGroupByRepositoryAndStanding(t *testing.T) {
 		"tree:/trees/admin",
 		"repo:/home/h/weave",
 		"tree:/trees/live",
-		"agent:occ",
 		"tree:/trees/archived",
 		"tree:/trees/orphan",
 		"repo:/var/folders/T/repo",
@@ -108,7 +107,6 @@ func TestWorktreeRowNames(t *testing.T) {
 		"custom-cargo-fixes",
 		"/home/h/weave",
 		"worktree-view",
-		"review-607",
 		"review-column",
 		"agent/orphan",
 		"/var/folders/T/repo",
@@ -126,15 +124,43 @@ func TestWorktreeRowsHeadTheDirectoriesWithNoRepository(t *testing.T) {
 	assert.Equal(t, "stray", rows[1].name())
 }
 
-// TestRowIndexOfWorktreeAgent covers the owner landing on its directory and an occupant on its
-// own row, and an agent with no directory landing nowhere.
+// TestRowIndexOfWorktreeAgent covers the owner and an occupant both landing on the directory,
+// and an agent with no directory landing nowhere.
 func TestRowIndexOfWorktreeAgent(t *testing.T) {
 	rows := worktreeRows(worktreeFixture())
 
-	assert.Equal(t, 3, rowIndexOfWorktreeAgent(rows, "live"))
-	assert.Equal(t, 4, rowIndexOfWorktreeAgent(rows, "occ"))
-	assert.Equal(t, -1, rowIndexOfWorktreeAgent(rows, "elsewhere"))
-	assert.Equal(t, -1, rowIndexOfWorktreeAgent(rows, ""))
+	tests := []struct {
+		name string
+		id   string
+		want int
+	}{
+		{
+			name: "no id lands nowhere",
+			id:   "",
+			want: -1,
+		},
+		{
+			name: "an agent with no directory lands nowhere",
+			id:   "elsewhere",
+			want: -1,
+		},
+		{
+			name: "the owner lands on its directory",
+			id:   "live",
+			want: 3,
+		},
+		{
+			name: "an occupant lands on the directory it works in",
+			id:   "occ",
+			want: 3,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, rowIndexOfWorktreeAgent(rows, tt.id))
+		})
+	}
 }
 
 // TestWorktreesSnapshotReadsEveryRow covers the kind, the process, the status and the repo
@@ -171,10 +197,7 @@ func TestWorktreesSnapshotReadsEveryRow(t *testing.T) {
 	assert.Equal(t, view.StatusWaiting, live.Status, "the agents listing's state wins over the worktree listing's")
 	assert.True(t, live.UnreadMail, "the marks come off the agents listing")
 	assert.Equal(t, view.RepoClean, live.Repo)
-
-	occupant := byKey["agent:occ"]
-	assert.Equal(t, view.KindChild, occupant.Kind)
-	assert.Equal(t, view.ProcessAlive, occupant.Process)
+	assert.NotContains(t, byKey, "agent:occ", "an occupant is no row of its own")
 
 	archived := byKey["tree:/trees/archived"]
 	assert.Equal(t, view.ProcessStopped, archived.Process)

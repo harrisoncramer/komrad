@@ -12,6 +12,7 @@ import (
 	workflowstore "weave/internal/store/workflow"
 	"weave/internal/ui/layout"
 	"weave/lib/dates"
+	"weave/lib/xslice"
 	worktreev1 "weave/proto/gen/worktree/v1"
 	"weave/proto/gen/worktree/v1/worktreev1connect"
 
@@ -93,14 +94,15 @@ func pressWorktrees(t *testing.T, m model, key tea.KeyMsg) (model, tea.Cmd) {
 }
 
 // TestApplyWorktreesSpendsTheFocusOnTheAgentsRow covers a focus set by the key that opened the
-// screen landing the cursor on that agent's row, an occupant included, and being spent once.
+// screen landing the cursor on that agent's directory, an occupant's included, and being spent
+// once.
 func TestApplyWorktreesSpendsTheFocusOnTheAgentsRow(t *testing.T) {
 	m := worktreesModel()
 	m.worktrees.focus = "occ"
 
 	m.applyWorktrees(worktreeFixture(), "")
 
-	assert.Equal(t, "agent:occ", m.hoveredWorktreeKey())
+	assert.Equal(t, "tree:/trees/live", m.hoveredWorktreeKey())
 	assert.Empty(t, m.worktrees.focus)
 }
 
@@ -108,7 +110,7 @@ func TestApplyWorktreesSpendsTheFocusOnTheAgentsRow(t *testing.T) {
 // changes under it, and the inspections of directories that left the listing being dropped.
 func TestApplyWorktreesKeepsTheCursorOnItsRow(t *testing.T) {
 	m := worktreesModel()
-	m.worktrees.cursor = 6
+	m.worktrees.cursor = 5
 	m.worktrees.inspected = map[string]worktreeInspection{
 		"/trees/orphan": {answered: true, baseRef: "origin/main"},
 		"/trees/gone":   {answered: true, baseRef: "origin/main"},
@@ -153,7 +155,7 @@ func TestEnterOnAWorktreeLandsOnItsAgent(t *testing.T) {
 
 	t.Run("archived", func(t *testing.T) {
 		m := worktreesModel()
-		m.worktrees.cursor = 5
+		m.worktrees.cursor = 4
 		require.Equal(t, "tree:/trees/archived", m.hoveredWorktreeKey())
 
 		after, _ := pressWorktrees(t, m, keyMsg("J"))
@@ -164,7 +166,8 @@ func TestEnterOnAWorktreeLandsOnItsAgent(t *testing.T) {
 
 	t.Run("nobody's", func(t *testing.T) {
 		m := worktreesModel()
-		m.worktrees.cursor = 6
+		m.worktrees.cursor = 5
+		require.Equal(t, "tree:/trees/orphan", m.hoveredWorktreeKey())
 
 		after, _ := pressWorktrees(t, m, keyMsg("J"))
 
@@ -206,8 +209,8 @@ func TestDeleteOnAWorktreeOpensTheFormItsFateNames(t *testing.T) {
 	}{
 		{name: "a header opens nothing", cursor: 2, kind: formNone},
 		{name: "a live agent is offered the archive", cursor: 3, kind: formAgentArchive},
-		{name: "an archived agent is offered the delete", cursor: 5, kind: formWorktreesDelete},
-		{name: "nobody's directory is offered the delete", cursor: 6, kind: formWorktreesDelete},
+		{name: "an archived agent is offered the delete", cursor: 4, kind: formWorktreesDelete},
+		{name: "nobody's directory is offered the delete", cursor: 5, kind: formWorktreesDelete},
 	}
 
 	for _, tt := range tests {
@@ -377,7 +380,8 @@ func formText(form *huh.Form) string {
 // that holds it.
 func TestWorktreeFieldsReadTheListingAndTheInspection(t *testing.T) {
 	m := worktreesModel()
-	m.worktrees.cursor = 5
+	m.worktrees.cursor = 4
+	require.Equal(t, "tree:/trees/archived", m.hoveredWorktreeKey())
 
 	before := fieldMap(m.worktreesDetails().fields)
 	assert.Equal(t, "review-column", before["name"])
@@ -403,11 +407,69 @@ func TestWorktreeFieldsReadTheListingAndTheInspection(t *testing.T) {
 	assert.Equal(t, "1 modified, 2 untracked", after["changes"])
 }
 
+// TestWorktreeFieldsNameTheOccupants covers the record naming the other agents working in a
+// directory after its branch, or after its repository where git cannot read it, and saying
+// nothing where there are none.
+func TestWorktreeFieldsNameTheOccupants(t *testing.T) {
+	tests := []struct {
+		name       string
+		item       worktreeItem
+		occupants  []worktreeAgent
+		want       string
+		wantLabels []string
+	}{
+		{
+			name:       "none is left out",
+			item:       worktreeFixture()[0],
+			occupants:  nil,
+			want:       "",
+			wantLabels: []string{"name", "directory", "size", "branch", "agent", "workflow"},
+		},
+		{
+			name:       "one is named",
+			item:       worktreeFixture()[0],
+			occupants:  []worktreeAgent{{id: "occ", name: "review-607"}},
+			want:       "review-607",
+			wantLabels: []string{"name", "directory", "size", "branch", "also here", "agent", "workflow"},
+		},
+		{
+			name: "two are named in the listing's order",
+			item: worktreeFixture()[0],
+			occupants: []worktreeAgent{
+				{id: "occ", name: "review-607"},
+				{id: "reader", name: "second-reader"},
+			},
+			want:       "review-607, second-reader",
+			wantLabels: []string{"name", "directory", "size", "branch", "also here", "agent", "workflow"},
+		},
+		{
+			name:       "an unreadable directory names them after its repository",
+			item:       worktreeFixture()[3],
+			occupants:  []worktreeAgent{{id: "occ", name: "review-607"}},
+			want:       "review-607",
+			wantLabels: []string{"name", "directory", "size", "repository", "also here", "agent"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m := worktreesModel()
+			item := tt.item
+			item.occupants = tt.occupants
+
+			fields := m.worktreeFields(item)
+
+			assert.Equal(t, tt.want, fieldMap(fields)["also here"])
+			assert.Equal(t, tt.wantLabels, xslice.Map(fields, func(field recordField) string { return field.label }))
+		})
+	}
+}
+
 // TestWorktreeFieldsOfAnUnreadableDirectory covers the short record for a registration git
 // cannot read.
 func TestWorktreeFieldsOfAnUnreadableDirectory(t *testing.T) {
 	m := worktreesModel()
-	m.worktrees.cursor = 8
+	m.worktrees.cursor = 7
 	require.Equal(t, "tree:/trees/broken", m.hoveredWorktreeKey())
 
 	fields := fieldMap(m.worktreesDetails().fields)
@@ -476,7 +538,7 @@ func TestEntryLinesCutTheListAndCountTheRest(t *testing.T) {
 // what sends get_worktree, not the move itself.
 func TestStageTickOnTheWorktreesScreenAsksForTheInspection(t *testing.T) {
 	m := worktreesModel()
-	m.worktrees.cursor = 5
+	m.worktrees.cursor = 4
 
 	moved, cmd := pressWorktrees(t, m, keyMsg("j"))
 	require.NotNil(t, cmd, "a move schedules a rest")
@@ -493,7 +555,7 @@ func TestStageTickOnTheWorktreesScreenAsksForTheInspection(t *testing.T) {
 // without a move, and not again while the answer is on its way or once it has come.
 func TestRefreshAsksForTheHoveredDirectoryOnce(t *testing.T) {
 	m := worktreesModel()
-	m.worktrees.cursor = 5
+	m.worktrees.cursor = 4
 
 	require.NotNil(t, m.inspectHoveredWorktreeCmd())
 	assert.True(t, m.worktrees.inspected["/trees/archived"].pending)
@@ -513,7 +575,7 @@ func TestRefreshAsksForTheHoveredDirectoryOnce(t *testing.T) {
 // leaving the last answer on the record and the document until it lands.
 func TestARowReturnedToKeepsItsAnswerWhileItIsReadAgain(t *testing.T) {
 	m := worktreesModel()
-	m.worktrees.cursor = 5
+	m.worktrees.cursor = 4
 	m.applyWorktreeInspection(worktreeInspectedMsg{dir: "/trees/archived", inspection: worktreeInspection{
 		answered: true,
 		baseRef:  "origin/main",
