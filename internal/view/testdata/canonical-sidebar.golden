@@ -1,15 +1,15 @@
   a       │ admin +2
        ┃   eng-6994-unable-to-cr…
           │   └ eng-6994-reviewer
-        ┃   research-identity-ass…
+         ┃   research-identity-ass…
   o       │ ops
-       │   rds-backup-hardening
+        │   rds-backup-hardening
 ›       ┃   strip-demo 
   w       │ weave +3 
         ┃   frozen-review-bug
        ┃   pr-metadata-fixes  
         │   iss-582 
-        ┃   gone-worktree 
-       │   iss-641-reviewer 
-       │   shipped-yesterday
+         ┃   gone-worktree 
+        │   iss-641-reviewer 
+        │   shipped-yesterday
           │ weave-bughunt-job +5 

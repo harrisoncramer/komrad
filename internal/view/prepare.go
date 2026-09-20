@@ -133,7 +133,9 @@ func ReviewCell(row Row) Cell {
 	}
 
 	switch row.Review {
-	case ReviewNone, ReviewApprovedLandedMoved, ReviewChangesLanded, ReviewChangesLandedMoved:
+	case ReviewNone:
+		return Cell{}
+	case ReviewApprovedLandedMoved, ReviewChangesLanded, ReviewChangesLandedMoved:
 		return Cell{Glyph: GlyphUnverified, Tone: paint.ToneMuted}
 	case ReviewApproved, ReviewApprovedLanded:
 		return Cell{Glyph: GlyphApproved, Tone: paint.ToneSuccess}
@@ -145,7 +147,7 @@ func ReviewCell(row Row) Cell {
 		return Cell{Glyph: GlyphBell, Tone: paint.ToneWarning}
 	}
 
-	return Cell{Glyph: GlyphUnverified, Tone: paint.ToneMuted}
+	return Cell{}
 }
 
 // ForgeCell is where the pull request opened from an agent's branch stands, blank while

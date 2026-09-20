@@ -18,9 +18,11 @@
 // again, bold for a workflow and italic for a child, so neither the indent nor the lettering is
 // the only thing saying where a row sits.
 //
-// One rule covers every cell of the row: blank is not applicable, anything drawn is applicable,
+// One rule covers every cell of the row: blank is nothing to say, anything drawn is applicable,
 // and the shape says which state it is in. The three columns are blank on a row that can never
-// own a checkout. The bar is the exception: it is drawn on every row, a thin pipe where nothing
+// own a checkout, and the review column is blank as well on a branch no review has been released
+// on, since a mark on every unread row would say nothing. The bar is the exception: it is drawn
+// on every row, a thin pipe where nothing
 // is happening and a heavy one where an agent is thinking, waiting or broken, so it runs as one
 // rail down the list. A thinking agent's bar pulses between the two on the cursor's blink.
 // Whether a process is still there is the weight's to say, not the bar's.

@@ -291,9 +291,9 @@ func TestPrepareReviewColumn(t *testing.T) {
 		want   Cell
 	}{
 		{
-			name:   "never reviewed is the unverified mark greyed",
+			name:   "never reviewed draws nothing",
 			review: ReviewNone,
-			want:   Cell{Glyph: GlyphUnverified, Tone: paint.ToneMuted},
+			want:   Cell{},
 		},
 		{
 			name:   "approved on this tree gets the check in success",
