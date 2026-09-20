@@ -144,7 +144,7 @@ func TestOpenWorktreesLandsOnTheHoveredAgent(t *testing.T) {
 func TestEnterOnAWorktreeLandsOnItsAgent(t *testing.T) {
 	t.Run("live", func(t *testing.T) {
 		m := worktreesModel()
-		m.worktrees.cursor = 3
+		m.worktrees.cursor = 4
 		require.Equal(t, "tree:/trees/live", m.hoveredWorktreeKey())
 
 		after, _ := pressWorktrees(t, m, keyMsg("J"))
@@ -155,7 +155,7 @@ func TestEnterOnAWorktreeLandsOnItsAgent(t *testing.T) {
 
 	t.Run("archived", func(t *testing.T) {
 		m := worktreesModel()
-		m.worktrees.cursor = 4
+		m.worktrees.cursor = 3
 		require.Equal(t, "tree:/trees/archived", m.hoveredWorktreeKey())
 
 		after, _ := pressWorktrees(t, m, keyMsg("J"))
@@ -208,8 +208,8 @@ func TestDeleteOnAWorktreeOpensTheFormItsFateNames(t *testing.T) {
 		kind   formKind
 	}{
 		{name: "a header opens nothing", cursor: 2, kind: formNone},
-		{name: "a live agent is offered the archive", cursor: 3, kind: formAgentArchive},
-		{name: "an archived agent is offered the delete", cursor: 4, kind: formWorktreesDelete},
+		{name: "a live agent is offered the archive", cursor: 4, kind: formAgentArchive},
+		{name: "an archived agent is offered the delete", cursor: 3, kind: formWorktreesDelete},
 		{name: "nobody's directory is offered the delete", cursor: 5, kind: formWorktreesDelete},
 	}
 
@@ -380,7 +380,7 @@ func formText(form *huh.Form) string {
 // that holds it.
 func TestWorktreeFieldsReadTheListingAndTheInspection(t *testing.T) {
 	m := worktreesModel()
-	m.worktrees.cursor = 4
+	m.worktrees.cursor = 3
 	require.Equal(t, "tree:/trees/archived", m.hoveredWorktreeKey())
 
 	before := fieldMap(m.worktreesDetails().fields)
@@ -546,7 +546,8 @@ func TestWorktreeFieldsOfAnUnreadableDirectory(t *testing.T) {
 // inspection lands, and an error being drawn rather than asked again.
 func TestWorktreeDocDrawsTheInspection(t *testing.T) {
 	m := worktreesModel()
-	m.worktrees.cursor = 3
+	m.worktrees.cursor = 4
+	require.Equal(t, "tree:/trees/live", m.hoveredWorktreeKey())
 
 	assert.Contains(t, m.worktreeDoc(), "reading the directory")
 
@@ -619,7 +620,8 @@ func TestStageTickOnTheWorktreesScreenAsksForTheInspection(t *testing.T) {
 // without a move, and not again while the answer is on its way or once it has come.
 func TestRefreshAsksForTheHoveredDirectoryOnce(t *testing.T) {
 	m := worktreesModel()
-	m.worktrees.cursor = 4
+	m.worktrees.cursor = 3
+	require.Equal(t, "tree:/trees/archived", m.hoveredWorktreeKey())
 
 	require.NotNil(t, m.inspectHoveredWorktreeCmd())
 	assert.True(t, m.worktrees.inspected["/trees/archived"].pending)
@@ -639,7 +641,8 @@ func TestRefreshAsksForTheHoveredDirectoryOnce(t *testing.T) {
 // leaving the last answer on the record and the document until it lands.
 func TestARowReturnedToKeepsItsAnswerWhileItIsReadAgain(t *testing.T) {
 	m := worktreesModel()
-	m.worktrees.cursor = 4
+	m.worktrees.cursor = 3
+	require.Equal(t, "tree:/trees/archived", m.hoveredWorktreeKey())
 	m.applyWorktreeInspection(worktreeInspectedMsg{dir: "/trees/archived", inspection: worktreeInspection{
 		answered: true,
 		baseRef:  "origin/main",
@@ -687,7 +690,7 @@ func TestWorktreesScreenHoldsTheWindow(t *testing.T) {
 	m, ok := entered.(model)
 	require.True(t, ok)
 
-	assert.Equal(t, 3, m.worktrees.cursor, "the cursor lands on the live agent's row")
+	assert.Equal(t, 4, m.worktrees.cursor, "the cursor lands on the live agent's row")
 	assert.True(t, m.frame.IsSolo(), "the panel draws both halves itself")
 	assert.Empty(t, m.frame.GuestPane(), "no agent pane is put on the stage")
 	assert.False(t, screenWorktrees.opensInfoPane(), "and the log and terminal keys do not act here")

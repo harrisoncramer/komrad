@@ -174,12 +174,9 @@ func (m model) worktreesView() string {
 
 func worktreesTabs() tabStrip {
 	return tabStrip{
-		title:  "↑↓",
-		legend: "sort",
-		options: []tabOption{
-			{id: "size", label: "size"},
-			{id: "last-accessed", label: "last-accessed"},
-		},
+		title:    "↑↓",
+		legend:   "sort",
+		options:  tabOptionsOf(worktreeSorts),
 		fallback: "size",
 	}
 }

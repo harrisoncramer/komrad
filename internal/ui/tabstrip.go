@@ -171,6 +171,7 @@ func (m model) updateTabs(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	spec := m.tabsSpec()
 	state := spec.state(&m)
 	k := key.String()
+	hovered := m.hoveredFilterKey()
 
 	switch {
 	case k == tabNextKey:
@@ -188,6 +189,8 @@ func (m model) updateTabs(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case isBound(k, m.quitKeys()):
 		return m, m.hide()
 	}
+
+	m.placeFilteredCursor(hovered)
 
 	return m, nil
 }
