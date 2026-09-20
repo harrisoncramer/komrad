@@ -17,12 +17,21 @@ func Prepare(snapshot Snapshot) List {
 	columns := fitColumns(snapshot.Pane, snapshot.Dropped)
 	if snapshot.Pane > 0 {
 		width := NameColumns(snapshot.Pane, columns)
+		trailed := holdsTrails(width)
 		for i := range lines {
+			if !trailed {
+				lines[i].Trail = ""
+			}
 			lines[i] = fitRow(lines[i], width)
 		}
 	}
 
 	return List{Lines: lines, Columns: columns}
+}
+
+// holdsTrails reports whether a list drawn in the given name columns keeps its trails.
+func holdsTrails(width int) bool {
+	return width-indentColumns-trailBudget >= minNameColumns
 }
 
 // fitColumns gives the columns up from the right as the pane narrows, reading the pane alone so
@@ -84,6 +93,7 @@ func prepareLine(params prepareLineParams) Line {
 		Tally:    row.HiddenCount,
 		Schedule: markCell(row.Scheduled, GlyphSchedule, paint.ToneMuted),
 		Selected: row.Selected,
+		Trail:    row.Trail,
 	}
 }
 

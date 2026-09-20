@@ -92,6 +92,8 @@ type Line struct {
 	Tally    int
 	Schedule Cell
 	Selected bool
+	// Trail is text drawn at the right edge, a space away from whatever precedes it.
+	Trail string
 }
 
 // Columns says which of the three columns a list is wide enough to draw.

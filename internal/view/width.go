@@ -14,6 +14,10 @@ const plainCells = 3
 // minNameColumns is the narrowest a name is squeezed to before a column gives way instead.
 const minNameColumns = 10
 
+// trailBudget is the columns a list keeps for a trail, a size then an age, and the space before
+// it.
+const trailBudget = 9
+
 // drawn is how many of the three columns a list draws.
 func (c Columns) drawn() int {
 	count := 0
@@ -58,6 +62,10 @@ func trailingColumns(line Line) int {
 
 	if line.Tally > 0 {
 		columns += plainColumns + len(fmt.Sprintf("+%d", line.Tally))
+	}
+
+	if line.Trail != "" {
+		columns += spaceColumns + len([]rune(line.Trail))
 	}
 
 	return columns
