@@ -21,9 +21,9 @@ const (
 // which a screen drawing the whole window itself says no to.
 func (s screen) opensInfoPane() bool {
 	switch s {
-	case screenAgents, screenSchedules, screenWorktrees:
+	case screenAgents, screenSchedules:
 		return true
-	case screenArchive, screenSearch, screenReview:
+	case screenArchive, screenSearch, screenReview, screenWorktrees:
 		return false
 	}
 

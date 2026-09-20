@@ -43,7 +43,6 @@ var takenAndUndrawn = map[screen][]undrawn{
 	screenWorktrees: {
 		{key: "ctrl+c", reason: "quit is not worth a row on any screen"},
 		{key: "V", reason: "select to nearest is named once the selection it needs is standing"},
-		{key: "L", reason: "the earlier run is named only while the pane is showing one"},
 	},
 }
 
