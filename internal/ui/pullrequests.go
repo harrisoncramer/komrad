@@ -39,8 +39,7 @@ type agentPullRequests struct {
 	// pending says a fresh answer is on its way, and answered that one has come at all.
 	pending  bool
 	answered bool
-	// standing is what the listing said when the answer was asked for, so a row whose standing
-	// has moved since is asked again.
+	// standing is what the listing said when the answer was asked for.
 	standing pullRequestStanding
 	readAt   *time.Time
 	items    []agentPullRequest

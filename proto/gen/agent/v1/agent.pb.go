@@ -108,8 +108,7 @@ type Agent struct {
 	LocalReviewTree ReviewTreeStanding `protobuf:"varint,34,opt,name=local_review_tree,json=localReviewTree,proto3,enum=agent.v1.ReviewTreeStanding" json:"local_review_tree,omitempty"`
 	// When a person stopped this agent and took its worktree, empty while nobody is holding it.
 	HeldAt string `protobuf:"bytes,35,opt,name=held_at,json=heldAt,proto3" json:"held_at,omitempty"`
-	// Where the pull request opened from its branch stands, which is what the panel's forge
-	// column draws.
+	// Where the pull request opened from its branch stands.
 	PullRequest   *PullRequestStanding `protobuf:"bytes,38,opt,name=pull_request,json=pullRequest,proto3" json:"pull_request,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache

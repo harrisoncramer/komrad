@@ -51,8 +51,7 @@ type agentFlags struct {
 	// pullRequest is the one the agent's row stands for, nil when none was opened from its
 	// branch.
 	pullRequest *pullrequeststore.PullRequest
-	// repositoryRead says the sync has read the agent's repository at least once, which is what
-	// tells no pull request from nothing known.
+	// repositoryRead says the sync has read the agent's repository at least once.
 	repositoryRead bool
 }
 

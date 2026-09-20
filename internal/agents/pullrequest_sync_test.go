@@ -645,7 +645,7 @@ func TestSyncDecisionsWaitForTheBudget(t *testing.T) {
 	assert.NotNil(t, f.stored(t, "PR_12").DecisionReadAt)
 }
 
-// TestSyncDecisionTheForgeDoesNotHaveIsRead covers a pull request GitHub answers not found
+// TestSyncDecisionTheForgeDoesNotHaveIsRead covers a pull request the forge answers not found
 // for, which is stamped as read with nothing said rather than asked for again every pass.
 func TestSyncDecisionTheForgeDoesNotHaveIsRead(t *testing.T) {
 	f := newSyncFixture(t)
@@ -678,7 +678,7 @@ func TestSyncDecisionRefusalStopsTheRepository(t *testing.T) {
 		PullRequests: []forge.PullRequest{pullRequestAt("PR_1", "agent/x", syncNow.Add(-time.Hour))},
 		ETag:         `"one"`,
 	}
-	f.forge.decisionErrors[1] = errors.New("github answered 502")
+	f.forge.decisionErrors[1] = errors.New("the forge answered 502")
 
 	f.sync(t)
 

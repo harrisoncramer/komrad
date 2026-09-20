@@ -95,8 +95,7 @@ type Params struct {
 	// KeepLog writes the service's log to the file it would write on a real machine, for a
 	// test that reads it back.
 	KeepLog bool
-	// ForgeBuilders replaces the forges the instance speaks to, which is how a test points a
-	// kind at a server of its own.
+	// ForgeBuilders replaces the forges the instance speaks to.
 	ForgeBuilders map[string]forge.Builder
 }
 
