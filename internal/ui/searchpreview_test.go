@@ -7,6 +7,7 @@ import (
 
 	"weave/config"
 	"weave/internal/ui/layout"
+	"weave/internal/view"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -191,7 +192,7 @@ func TestSearchPutsTheHitsWhereTheLayoutAsks(t *testing.T) {
 		{
 			name: "the default puts the hits on the left",
 			side: config.SidebarSideLeft,
-			want: "Search",
+			want: view.Spell(view.GlyphSearch) + " Search",
 		},
 		{
 			name: "and the transcript takes that side when it is asked to",

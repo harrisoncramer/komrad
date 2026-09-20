@@ -23,6 +23,9 @@ const (
 	GlyphPaused
 	GlyphHidden
 	GlyphSchedule
+	GlyphWorkflow
+	GlyphArchive
+	GlyphSearch
 	GlyphBusy
 	GlyphQuiet
 	GlyphChild

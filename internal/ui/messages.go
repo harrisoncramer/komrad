@@ -43,7 +43,7 @@ const messagesMockKey = "M"
 const messagesCap = 50
 
 // messagesPulseBlinks is how many times the summary of a message blinks as it lands.
-const messagesPulseBlinks = 5
+const messagesPulseBlinks = 2
 
 type messageKind int
 
@@ -320,7 +320,8 @@ func (m model) messagesSummaryLine(taken int) string {
 	return paint.Clip(kindIcon(held.kind)+" "+held.summary, max(m.lineWidth()-taken-messagesTallyWidth, 1))
 }
 
-// messagesSummaryStyle is the summary row drawn with the kind on the icon alone.
+// messagesSummaryStyle is the summary row drawn with the kind on the icon alone, spreading to
+// the words on the lit half of a blink.
 func (m model) messagesSummaryStyle(held message, taken int, flashed bool) string {
 	line := m.messagesSummaryLine(taken)
 	icon, words, _ := strings.Cut(line, " ")
@@ -329,8 +330,11 @@ func (m model) messagesSummaryStyle(held message, taken int, flashed bool) strin
 	if m.messages.focused {
 		style = style.Bold(true)
 	}
-	if flashed || m.messagesPulseOn() {
+	switch {
+	case flashed:
 		style = flashFieldStyle(paint.Panel)
+	case m.messagesPulseOn():
+		style = style.Foreground(paint.Panel.Color(pulseTone(held.kind)))
 	}
 
 	return paint.Panel.Style(kindTone(held.kind)).Render(icon) + " " + style.Render(words)
@@ -349,10 +353,12 @@ func (m model) messagesTally(taken int) string {
 	}
 
 	tally := label.Tally(count - 1)
+	style := dimStyle
 	if m.messages.focused {
 		// Counted from the oldest, so the newest message is the last of them rather than the
 		// first: the stack itself is held newest first.
 		tally = label.OfCount(count-m.messagesCursor(), count)
+		style = paint.Panel.Header()
 	} else if count < 2 {
 		return ""
 	}
@@ -360,7 +366,7 @@ func (m model) messagesTally(taken int) string {
 	pad := max(m.lineWidth()-taken-lipgloss.Width(m.messagesSummaryLine(taken))-len(tally), 1)
 
 	// The tally is where the region says the keys are its own.
-	return strings.Repeat(" ", pad) + paint.Panel.Header().Render(tally)
+	return strings.Repeat(" ", pad) + style.Render(tally)
 }
 
 // pushMessage puts a message at the front of the stack and keeps the reader on whatever they
@@ -631,6 +637,15 @@ func kindTone(kind messageKind) paint.Tone {
 	}
 
 	return paint.ToneMuted
+}
+
+// pulseTone is the colour a landing message's words blink in.
+func pulseTone(kind messageKind) paint.Tone {
+	if kind == messageInfo {
+		return paint.ToneAccent
+	}
+
+	return kindTone(kind)
 }
 
 // mockMessages are the fixtures the region is drawn from while nothing real reports through it,

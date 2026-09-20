@@ -7,6 +7,7 @@ import (
 	schedulestore "weave/internal/store/schedule"
 	workflowstore "weave/internal/store/workflow"
 	"weave/internal/ui/paint"
+	"weave/internal/view"
 	"weave/lib/xslice"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -264,7 +265,7 @@ func (m model) schedulesView() string {
 }
 
 func (m model) schedulesHeader() string {
-	return m.listHeader("Schedules")
+	return m.listHeader(screenTitle(view.GlyphSchedule, "Schedules"))
 }
 
 func (m model) doesSchedulesFitDetails() bool {

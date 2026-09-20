@@ -53,7 +53,7 @@ func TestAgentsListOnAnEmptyPanel(t *testing.T) {
 	m.tree.cursor = -1
 
 	assert.NotPanics(t, func() { m.agentsView() })
-	assert.Contains(t, ansi.Strip(m.agentsView()), "Agents and Workflows")
+	assert.Contains(t, ansi.Strip(m.agentsView()), "Agents & Workflows")
 	assert.Contains(t, m.agentDoc(), "nothing here yet")
 }
 

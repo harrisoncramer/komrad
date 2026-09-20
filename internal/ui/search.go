@@ -527,7 +527,7 @@ func (m model) searchSidebarView() string {
 	if m.search.typing {
 		query += palette.Cursor().Render("▏")
 	}
-	header := palette.Title("Search") + "\n\n" + query + "\n\n"
+	header := screenTitle(view.GlyphSearch, "Search") + "\n\n  " + query + "\n\n"
 	help := m.renderHelp(m.searchHelp(), header)
 
 	agents := m.searchAgents()

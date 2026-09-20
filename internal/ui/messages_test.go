@@ -164,12 +164,23 @@ func TestMessagesTallySaysWhereTheKeysAre(t *testing.T) {
 		detail:  "no change",
 	})
 
+	alone := m.messagesTally(0)
+	assert.Empty(t, ansi.Strip(alone), "one message on its own counts nothing while it is unread")
+
+	m.pushMessage(message{
+		kind:    messageInfo,
+		summary: "Archived 4 agents",
+		detail:  "hidden from the sidebar",
+	})
+
 	blurred := m.messagesTally(0)
-	assert.Empty(t, ansi.Strip(blurred), "one message on its own counts nothing while it is unread")
+	assert.Contains(t, ansi.Strip(blurred), "+1")
+	assert.Contains(t, blurred, dimStyle.Render("+1"), "the count behind the summary is muted while the list has the keys")
+	assert.NotContains(t, blurred, "\x1b[1;34m")
 
 	focused := m.toggleMessagesFocus().messagesTally(0)
 
-	assert.Contains(t, ansi.Strip(focused), "1 of 1")
+	assert.Contains(t, ansi.Strip(focused), "2 of 2")
 	assert.Contains(t, focused, "\x1b[1;34m", "the accent says the region holds the keys")
 }
 
@@ -241,7 +252,7 @@ func TestMessagesRegionExpandsWhenFocused(t *testing.T) {
 	assert.Contains(t, region, "weave log 7c1f2a94")
 	assert.Contains(t, region, "error ·", "the footer says what kind of message this is")
 
-	assert.Contains(t, ansi.Strip(focused.View()), "Agents and Workflows", "the list is still above it")
+	assert.Contains(t, ansi.Strip(focused.View()), "Agents & Workflows", "the list is still above it")
 }
 
 // TestMessagesRegionLeavesTheReasonPlain covers the reason being the one part of an expanded
@@ -418,43 +429,76 @@ func TestMessagesRefuseFocusWithNothingToRead(t *testing.T) {
 	assert.False(t, m.toggleMessagesFocus().isMessagesFocused())
 }
 
-// TestMessagesPulseBlinksWhatJustLanded covers a message blinking five times as it lands and
-// leaving the row as it found it.
+// TestMessagesPulseBlinksWhatJustLanded covers a message blinking twice as it lands, its words
+// taking the kind's own colour on each lit half, and leaving the row as it found it.
 func TestMessagesPulseBlinksWhatJustLanded(t *testing.T) {
 	restore := lipgloss.ColorProfile()
 	t.Cleanup(func() { lipgloss.SetColorProfile(restore) })
 	lipgloss.SetColorProfile(termenv.TrueColor)
 
-	lit, _, _ := strings.Cut(flashFieldStyle(paint.Panel).Render("x"), "x")
-	require.NotEmpty(t, lit)
+	const summary = "Nothing to review in fix-ci"
 
-	m := detailsModel(&recordingTmux{})
-	m.height, m.width = 40, 120
-	m.pushMessage(message{
-		kind:    messageError,
-		summary: "Nothing to review in fix-ci",
-		detail:  "no change against the base",
-	})
-
-	settled := m.messagesSlot()[0]
-	assert.NotContains(t, settled, lit)
-
-	m, cmd := m.pulseMessages(m.messages.landed - 1)
-	require.NotNil(t, cmd)
-
-	blinks := 0
-	for {
-		if strings.Contains(m.messagesSlot()[0], lit) {
-			blinks++
-		}
-
-		if m.advancePulses() == nil {
-			break
-		}
+	tests := []struct {
+		name string
+		kind messageKind
+		tone paint.Tone
+	}{
+		{
+			name: "an error blinks red",
+			kind: messageError,
+			tone: paint.ToneDanger,
+		},
+		{
+			name: "a success blinks green",
+			kind: messageSuccess,
+			tone: paint.ToneSuccess,
+		},
+		{
+			name: "an info message blinks the accent over its muted icon",
+			kind: messageInfo,
+			tone: paint.ToneAccent,
+		},
 	}
 
-	assert.Equal(t, messagesPulseBlinks, blinks)
-	assert.Equal(t, settled, m.messagesSlot()[0])
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			lit := paint.Panel.Style(tt.tone).Render(summary)
+
+			m := detailsModel(&recordingTmux{})
+			m.height, m.width = 40, 120
+			m.pushMessage(message{
+				kind:    tt.kind,
+				summary: summary,
+				detail:  "no change against the base",
+			})
+
+			settled := m.messagesSlot()[0]
+			assert.NotContains(t, settled, lit)
+			assert.Contains(t, settled, " "+summary, "the words sit in the plain foreground")
+			assert.NotContains(t, settled, flashFieldStyle(paint.Panel).Render(summary))
+
+			m, cmd := m.pulseMessages(m.messages.landed - 1)
+			require.NotNil(t, cmd)
+
+			blinks := 0
+			for {
+				row := m.messagesSlot()[0]
+				assert.NotContains(t, row, flashFieldStyle(paint.Panel).Render(summary), "the blink never paints a background")
+				if strings.Contains(row, lit) {
+					blinks++
+				} else {
+					assert.Equal(t, settled, row, "the dark half is the row as it settles")
+				}
+
+				if m.advancePulses() == nil {
+					break
+				}
+			}
+
+			assert.Equal(t, 2, blinks)
+			assert.Equal(t, settled, m.messagesSlot()[0])
+		})
+	}
 }
 
 // TestMessagesPulseHoldsStillOnAnOlderMessage covers a message landing while the reader is back

@@ -64,6 +64,9 @@ func TestGlyphsSpellTheirOcticons(t *testing.T) {
 		{GlyphMerged, "f419"},
 		{GlyphDraft, "f4dd"},
 		{GlyphClosed, "f4dc"},
+		{GlyphWorkflow, "f52e"},
+		{GlyphArchive, "f411"},
+		{GlyphSearch, "f422"},
 	}
 
 	for _, tt := range tests {
