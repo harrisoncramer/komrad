@@ -45,7 +45,7 @@ type Launch struct {
 	CacheDir    string
 	Dir         string
 	// HookCommand is the weave binary a harness points its own hooks at, a harness that wires none
-	// leaving the unread mark to the reconciler.
+	// leaving the turn end to the reconciler.
 	HookCommand string
 	Resume      bool
 }

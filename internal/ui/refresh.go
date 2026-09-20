@@ -32,8 +32,7 @@ func refreshTick() tea.Cmd {
 	return tea.Tick(refreshInterval, func(at time.Time) tea.Msg { return refreshTickMsg{at: at} })
 }
 
-// viewedDwell is how long the cursor has to stay on one agent before the panel counts the pane
-// it stages as read, which keeps the rows a person travels over from being cleared.
+// viewedDwell is how long a failed run's log has to be on screen before the panel counts it as read.
 const viewedDwell = time.Second
 
 // hoverState is the agent the cursor is sitting on and when it arrived.

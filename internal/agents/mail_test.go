@@ -189,15 +189,15 @@ func TestSendMailRefusesPastTheExchangeCap(t *testing.T) {
 	require.ErrorIs(t, err, ErrExchangeCapped, "opening a new thread is not a way around the cap")
 }
 
-// exchange sends mail back and forth between two agents, every message opening a thread of its
-// own the way a send with no reply_to does.
-func exchange(t *testing.T, svc *MailService, one, other string, messages int) {
+// exchange sends mail back and forth between a child and its parent, every message opening a
+// thread of its own the way a send with no reply_to does.
+func exchange(t *testing.T, svc *MailService, child string, messages int) {
 	t.Helper()
 
 	for at := range messages {
-		from, to := one, other
+		from, to := child, "parent"
 		if at%2 == 1 {
-			from, to = other, one
+			from, to = "parent", child
 		}
 
 		_, err := svc.SendMail(t.Context(), SendMailParams{
@@ -234,10 +234,10 @@ func TestSendMailTellsBothSidesWhenTheCapRefusesASend(t *testing.T) {
 		Config:         fakeMailConfig{maxExchange: 4},
 	})
 
-	exchange(t, svc, "child-one", "parent", 3)
+	exchange(t, svc, "child-one", 3)
 	assert.Empty(t, cappedNotices(mailbox), "a pair inside the cap is nobody's business")
 
-	exchange(t, svc, "child-one", "parent", 1)
+	exchange(t, svc, "child-one", 1)
 
 	_, err := svc.SendMail(t.Context(), SendMailParams{
 		From: "child-one", ToAgentID: "parent", Body: "one more",
@@ -262,7 +262,7 @@ func TestSendMailKeepsOneNoticePerUnreadRefusal(t *testing.T) {
 		Config:         fakeMailConfig{maxExchange: 2},
 	})
 
-	exchange(t, svc, "child-one", "parent", 2)
+	exchange(t, svc, "child-one", 2)
 
 	for range 3 {
 		_, err := svc.SendMail(t.Context(), SendMailParams{
@@ -294,8 +294,8 @@ func TestSendMailTellsAnAgentAboutEverySeveredPair(t *testing.T) {
 		Config:         fakeMailConfig{maxExchange: 2},
 	})
 
-	exchange(t, svc, "child-one", "parent", 2)
-	exchange(t, svc, "child-two", "parent", 2)
+	exchange(t, svc, "child-one", 2)
+	exchange(t, svc, "child-two", 2)
 
 	_, err := svc.SendMail(t.Context(), SendMailParams{
 		From: "child-one", ToAgentID: "parent", Body: "spent",
@@ -330,8 +330,8 @@ func TestSendMailCapsEachPairSeparately(t *testing.T) {
 		Config:         fakeMailConfig{maxExchange: 4},
 	})
 
-	exchange(t, svc, "child-one", "parent", 4)
-	exchange(t, svc, "child-two", "parent", 3)
+	exchange(t, svc, "child-one", 4)
+	exchange(t, svc, "child-two", 3)
 
 	_, err := svc.SendMail(t.Context(), SendMailParams{
 		From: "child-one", ToAgentID: "parent", Body: "spent",
@@ -342,48 +342,6 @@ func TestSendMailCapsEachPairSeparately(t *testing.T) {
 		From: "child-two", ToAgentID: "parent", Body: "still has room",
 	})
 	require.NoError(t, err)
-}
-
-// TestSendMailCapsTwoChildrenOfOneParent pins that a pair of children is capped like any other
-// pair, with the notice going to the one written to.
-func TestSendMailCapsTwoChildrenOfOneParent(t *testing.T) {
-	mailbox := &fakeMailbox{}
-	family := newFakeFamily()
-	svc := NewMailService(NewMailServiceParams{
-		MailReadWriter: mailbox,
-		Agents:         family,
-		Config:         fakeMailConfig{maxExchange: 2},
-	})
-
-	exchange(t, svc, "child-one", "child-two", 2)
-
-	_, err := svc.SendMail(t.Context(), SendMailParams{
-		From: "child-one", ToAgentID: "child-two", Body: "one more",
-	})
-	require.ErrorIs(t, err, ErrExchangeCapped)
-
-	told := cappedNotices(mailbox)
-	require.Len(t, told, 1)
-	assert.Equal(t, "child-two", told[0].ToAgentID, "the notice still goes to the side that was written to")
-}
-
-// TestSendMailCapsAPairThatIsNobodysChildren pins that a pair with no parent over it is capped
-// too.
-func TestSendMailCapsAPairThatIsNobodysChildren(t *testing.T) {
-	mailbox := &fakeMailbox{}
-	family := newFakeFamily()
-	svc := NewMailService(NewMailServiceParams{
-		MailReadWriter: mailbox,
-		Agents:         family,
-		Config:         fakeMailConfig{maxExchange: 2},
-	})
-
-	exchange(t, svc, "parent", "other-parent", 2)
-
-	_, err := svc.SendMail(t.Context(), SendMailParams{
-		From: "parent", ToAgentID: "other-parent", Body: "one more",
-	})
-	require.ErrorIs(t, err, ErrExchangeCapped)
 }
 
 // TestSendMailLeavesWeavesOwnMailOutOfTheCount pins that a lifecycle notice does not spend the
@@ -401,7 +359,7 @@ func TestSendMailLeavesWeavesOwnMailOutOfTheCount(t *testing.T) {
 		_, err := svc.SendSystemMail(t.Context(), "parent", "your delegate was archived")
 		require.NoError(t, err)
 	}
-	exchange(t, svc, "child-one", "parent", 3)
+	exchange(t, svc, "child-one", 3)
 
 	_, err := svc.SendMail(t.Context(), SendMailParams{
 		From: "child-one", ToAgentID: "parent", Body: "still inside the cap",

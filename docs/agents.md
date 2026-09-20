@@ -12,8 +12,6 @@ Press `c` in the sidebar. If you don't specify the agent, weave will use the def
 
 Agents can be thinking (generating or running a tool); waiting (blocked on a human confirmation or other interactive prompt); idle (sitting with nothing to do); or uncertain, drawn as a grey `?`, which is a pane weave captured but could not read. An uncertain agent is not a finished one: weave leaves it out of the auto-archive sweep and holds a schedule back for it, because the screen it could not read may be a question waiting on you. Its mail waits as well, since weave only types at a pane it recognises, and goes as soon as the pane reads again.
 
-An agent that finishes a turn while you are looking somewhere else carries a `●` at the end of its row until you have looked at it. The turn end comes from the agent's own CLI saying so, through the hook weave installs, and from weave watching the pane settle, so a CLI that drops its end-of-turn event cannot swallow the mark. An agent that is still working carries nothing either way. An agent that goes again after finishing, because mail woke it or somebody typed at it, drops the mark for as long as it works and takes a new one when that turn ends. Hovering a running agent puts its own pane in the stage, so hovering is how one is read, and the mark clears once the cursor has been sitting on it for a second rather than the moment it arrives. Press `u` to put that mark back, or take it off, by hand. A working agent has no mark to move, so `u` on one does nothing until its turn ends.
-
 Separately from state, an agent is either running or dormant. Dormant agents' panes are closed because the CLI has exited, but can be restored, by resuming the session.
 
 ## Adopting work that already exists

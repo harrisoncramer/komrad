@@ -936,6 +936,10 @@ func TestRecordReportTellsTheReconcilerAboutTheTurn(t *testing.T) {
 
 	assert.Equal(t, []string{id}, reconciler.recorded)
 	assert.Equal(t, []string{""}, reconciler.reasons)
+
+	stamped, err := st.Agents.GetByID(t.Context(), id)
+	require.NoError(t, err)
+	assert.NotNil(t, stamped.TurnEndedAt)
 }
 
 // TestRecordReportKeepsTheReasonWithoutEndingTheTurn covers the tier every event but a turn end
@@ -956,6 +960,10 @@ func TestRecordReportKeepsTheReasonWithoutEndingTheTurn(t *testing.T) {
 	assert.Equal(t, "Bash", reported.Msg.GetAgent().GetReportedReason())
 	assert.Empty(t, reconciler.recorded)
 	assert.Equal(t, []string{"Bash"}, reconciler.reasons)
+
+	unstamped, err := st.Agents.GetByID(t.Context(), id)
+	require.NoError(t, err)
+	assert.Nil(t, unstamped.TurnEndedAt, "nothing reported a turn ending")
 
 	_, err = svc.RecordReport(ctx, connect.NewRequest(&agentv1.RecordReportRequest{TurnEnded: true}))
 	require.NoError(t, err)

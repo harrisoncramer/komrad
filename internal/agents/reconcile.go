@@ -230,15 +230,13 @@ func (r *Reconciler) settle(ctx context.Context, agent agentstore.Agent, state a
 		return
 	}
 
-	// The unread mark says an agent finished a turn, which a frame weave could not read is no
-	// evidence of.
+	// A frame weave could not read is no evidence that a turn ended.
 	if state == agentstore.StateIdle {
 		r.stampTurnEnd(ctx, agent)
 	}
 }
 
-// stampTurnEnd raises the unread mark for a turn the pane watched stop while nothing reported
-// it.
+// stampTurnEnd records a turn the pane watched stop while nothing reported it.
 func (r *Reconciler) stampTurnEnd(ctx context.Context, agent agentstore.Agent) {
 	if err := r.store.SetTurnEnded(ctx, agent.ID); err != nil {
 		logging.From(ctx).LogAttrs(ctx, slog.LevelError, "failed to stamp a turn the pane settled",
