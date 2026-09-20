@@ -60,8 +60,7 @@ const (
 	ReviewEnd
 )
 
-// Forge is where the pull request opened from an agent's branch stands, unread leading so a row
-// that says nothing draws nothing.
+// Forge is where the pull request opened from an agent's branch stands.
 type Forge int
 
 const (

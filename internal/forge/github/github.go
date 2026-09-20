@@ -4,6 +4,7 @@ package github
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -277,6 +278,9 @@ func (f *Forge) GetReviewDecisionByNumber(ctx context.Context, repo git.RemoteUR
 		"query":     reviewDecisionQuery,
 		"variables": map[string]any{"owner": owner, "name": name, "number": pullRequestNumber},
 	}, &answer)
+	if errors.Is(err, forge.ErrNotFound) {
+		return forge.ReviewDecisionNone, fmt.Errorf("github answered 404 at %s, which is not where its GraphQL lives", f.graphqlURL())
+	}
 	if err != nil {
 		return forge.ReviewDecisionNone, err
 	}

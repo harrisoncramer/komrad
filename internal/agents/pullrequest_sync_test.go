@@ -589,9 +589,9 @@ func TestSyncReadsTheDecisionOfAChangedOpenPullRequest(t *testing.T) {
 	stored := f.stored(t, "PR_1")
 	require.NotNil(t, stored.ReviewDecision)
 	assert.Equal(t, forge.ReviewDecisionApproved, *stored.ReviewDecision)
-	assert.NotNil(t, stored.DecisionReadAt)
+	assert.NotNil(t, stored.DecisionChangedAt)
 	for _, providerID := range []string{"PR_2", "PR_3", "PR_4"} {
-		assert.Nil(t, f.stored(t, providerID).DecisionReadAt, "%s costs no decision read", providerID)
+		assert.Nil(t, f.stored(t, providerID).DecisionChangedAt, "%s costs no decision read", providerID)
 	}
 
 	f.now = syncNow.Add(time.Minute)
@@ -602,7 +602,7 @@ func TestSyncReadsTheDecisionOfAChangedOpenPullRequest(t *testing.T) {
 
 	f.now = syncNow.Add(2 * time.Minute)
 	changed := open
-	changed.UpdatedAt = time.Now().Add(time.Hour)
+	changed.UpdatedAt = syncNow.Add(time.Minute)
 	f.forge.updated[1] = &forge.ListUpdatedResult{
 		PullRequests: []forge.PullRequest{changed},
 		ETag:         `"two"`,
@@ -635,14 +635,14 @@ func TestSyncDecisionsWaitForTheBudget(t *testing.T) {
 		"decision:1", "decision:2", "decision:3", "decision:4", "decision:5", "decision:6", "decision:7", "decision:8",
 	}, f.forge.requests)
 	assert.Equal(t, 10, f.getSync(t).Calls)
-	assert.Nil(t, f.stored(t, "PR_9").DecisionReadAt)
+	assert.Nil(t, f.stored(t, "PR_9").DecisionChangedAt)
 
 	f.now = syncNow.Add(time.Minute)
 	f.forge.requests = nil
 	f.sync(t)
 
 	assert.Equal(t, []string{`updated:1:"one"`, "decision:9", "decision:10", "decision:11", "decision:12"}, f.forge.requests)
-	assert.NotNil(t, f.stored(t, "PR_12").DecisionReadAt)
+	assert.NotNil(t, f.stored(t, "PR_12").DecisionChangedAt)
 }
 
 // TestSyncDecisionTheForgeDoesNotHaveIsRead covers a pull request the forge answers not found
@@ -660,7 +660,7 @@ func TestSyncDecisionTheForgeDoesNotHaveIsRead(t *testing.T) {
 
 	stored := f.stored(t, "PR_1")
 	assert.Nil(t, stored.ReviewDecision)
-	assert.NotNil(t, stored.DecisionReadAt)
+	assert.NotNil(t, stored.DecisionChangedAt)
 
 	f.now = syncNow.Add(time.Minute)
 	f.forge.requests = nil
@@ -682,7 +682,7 @@ func TestSyncDecisionRefusalStopsTheRepository(t *testing.T) {
 
 	f.sync(t)
 
-	assert.Nil(t, f.stored(t, "PR_1").DecisionReadAt)
+	assert.Nil(t, f.stored(t, "PR_1").DecisionChangedAt)
 	assert.Equal(t, 3, f.getSync(t).Calls, "the refused request is still counted")
 
 	delete(f.forge.decisionErrors, 1)
@@ -691,5 +691,5 @@ func TestSyncDecisionRefusalStopsTheRepository(t *testing.T) {
 	f.sync(t)
 
 	assert.Equal(t, []string{`updated:1:"one"`, "decision:1"}, f.forge.requests)
-	assert.NotNil(t, f.stored(t, "PR_1").DecisionReadAt)
+	assert.NotNil(t, f.stored(t, "PR_1").DecisionChangedAt)
 }

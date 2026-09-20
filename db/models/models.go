@@ -419,8 +419,8 @@ type PullRequest struct {
 	FirstSeenAt time.Time
 	// Where the forge says the reviews stand, in weave's own words: pending, approved or changes_requested, null while it has said nothing.
 	ReviewDecision *string
-	// When the review decision was last read, stale once it is older than changed_at.
-	DecisionReadAt *time.Time
+	// The changed_at the review decision was read for, stale once changed_at has moved past it.
+	DecisionChangedAt *time.Time
 }
 
 // Where the pull request sync is for one repository: the high-water mark of the last completed sweep, the sweep in progress if one is, and what the last pass cost.

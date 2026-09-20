@@ -108,6 +108,8 @@ func validateGitMenuKeys(keys config.GitKeys) error {
 				return fmt.Errorf("keybindings: the git menu's %s is bound to %q, which is %s, and the menu answers it first",
 					entry.name, k, taken)
 			}
+
+			reserved[k] = "the menu's " + entry.name + " entry"
 		}
 	}
 

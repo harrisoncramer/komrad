@@ -483,7 +483,7 @@ func TestListStaleDecisionsAnswersOpenRowsOnLiveBranches(t *testing.T) {
 		require.NoError(t, err)
 		require.NoError(t, h.SetReviewDecision(ctx, stored.ID, forge.ReviewDecisionApproved))
 	}
-	changedSince.ChangedAt = time.Now().Add(time.Hour)
+	changedSince.ChangedAt = changedSince.ChangedAt.Add(time.Hour)
 	changedSince.URL = "https://github.com/harrisoncramer/weave/pull/PR_3"
 	_, err = h.Upsert(ctx, changedSince)
 	require.NoError(t, err)
@@ -512,13 +512,14 @@ func TestSetReviewDecisionStampsTheRead(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, stored.ReviewDecision)
 	assert.Equal(t, forge.ReviewDecisionChangesRequested, *stored.ReviewDecision)
-	require.NotNil(t, stored.DecisionReadAt)
+	require.NotNil(t, stored.DecisionChangedAt)
+	assert.True(t, stored.DecisionChangedAt.Equal(stored.ChangedAt), "the read is stamped with the change it was for")
 
 	require.NoError(t, h.SetReviewDecision(ctx, written.ID, forge.ReviewDecisionNone))
 	stored, err = h.GetByIdentity(ctx, "github.com", "PR_1")
 	require.NoError(t, err)
 	assert.Nil(t, stored.ReviewDecision)
-	assert.NotNil(t, stored.DecisionReadAt)
+	assert.NotNil(t, stored.DecisionChangedAt)
 }
 
 // TestListForAgentIsTheBranchNewestFirst covers the listing the details pane reads: every pull

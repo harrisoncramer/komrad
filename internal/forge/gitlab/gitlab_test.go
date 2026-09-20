@@ -443,7 +443,6 @@ func TestGetReviewDecisionByNumber(t *testing.T) {
 		reviewers string
 		approvals string
 		want      forge.ReviewDecision
-		wantErr   error
 	}{
 		{
 			name:      "a reviewer asking for changes",

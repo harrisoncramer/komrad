@@ -49,8 +49,8 @@ type PullRequest struct {
 	FirstSeenAt time.Time
 	// ReviewDecision is where the forge says the reviews stand, nil while it has said nothing.
 	ReviewDecision *forge.ReviewDecision
-	// DecisionReadAt is when the decision was last read, nil while it never has been.
-	DecisionReadAt *time.Time
+	// DecisionChangedAt is the ChangedAt the decision was read for, nil while it never has been.
+	DecisionChangedAt *time.Time
 }
 
 // IsFinished says whether the pull request merged or closed.
@@ -252,8 +252,8 @@ func (s *Store) ListStaleDecisions(ctx context.Context, repositoryURL string) ([
 	return pullRequests, nil
 }
 
-// SetReviewDecision records where the forge said a pull request's reviews stand, and stamps
-// when it was read.
+// SetReviewDecision records where the forge said a pull request's reviews stand, read for the
+// change the row holds now.
 func (s *Store) SetReviewDecision(ctx context.Context, id string, decision forge.ReviewDecision) error {
 	var stored *string
 	if decision != forge.ReviewDecisionNone {
@@ -544,7 +544,7 @@ func fromRow(row *models.PullRequest) PullRequest {
 		ClosedAt:          row.ClosedAt,
 		FirstSeenAt:       row.FirstSeenAt,
 		ReviewDecision:    reviewDecisionOf(row.ReviewDecision),
-		DecisionReadAt:    row.DecisionReadAt,
+		DecisionChangedAt: row.DecisionChangedAt,
 	}
 }
 

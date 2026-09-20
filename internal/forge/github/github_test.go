@@ -619,6 +619,21 @@ func TestGetReviewDecision(t *testing.T) {
 	}
 }
 
+// TestGetReviewDecisionTransport404IsNotTheForgeSayingNotFound covers a host whose GraphQL is
+// somewhere else, which is a misrouted call rather than a pull request GitHub does not have.
+func TestGetReviewDecisionTransport404IsNotTheForgeSayingNotFound(t *testing.T) {
+	t.Parallel()
+
+	f := listUpdatedServer(t, func(w http.ResponseWriter, r *http.Request) {
+		http.NotFound(w, r)
+	})
+
+	_, err := f.GetReviewDecisionByNumber(t.Context(), weave, 740)
+	require.Error(t, err)
+	require.NotErrorIs(t, err, forge.ErrNotFound)
+	assert.Contains(t, err.Error(), "/graphql")
+}
+
 // TestGraphQLURLSitsBesideTheRESTBase covers github.com and an enterprise host, whose GraphQL
 // endpoint is not under its v3 REST path.
 func TestGraphQLURLSitsBesideTheRESTBase(t *testing.T) {

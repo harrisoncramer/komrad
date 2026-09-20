@@ -325,8 +325,8 @@ WHERE
     AND p.merged_at IS NULL
     AND p.closed_at IS NULL
     AND NOT p.draft
-    AND (p.decision_read_at IS NULL
-        OR p.decision_read_at < p.changed_at)
+    AND (p.decision_changed_at IS NULL
+        OR p.decision_changed_at < p.changed_at)
     AND EXISTS (
         SELECT
             1
@@ -344,7 +344,7 @@ UPDATE
     pull_requests
 SET
     review_decision = sqlc.narg('review_decision'),
-    decision_read_at = NOW()
+    decision_changed_at = changed_at
 WHERE
     id = @id;
 

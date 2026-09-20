@@ -243,8 +243,7 @@ type urlOpenedMsg struct {
 	err    error
 }
 
-// openURLCmd hands an address to the browser off the update, so a slow opener does not hold the
-// panel.
+// openURLCmd hands an address to the browser off the update.
 func (m *model) openURLCmd(target string) tea.Cmd {
 	opener := m.browser
 

@@ -397,7 +397,11 @@ func (s *PullRequestSyncer) readDecisions(ctx context.Context, read repositoryRe
 		if recordErr := s.pullRequests.RecordSyncRequest(ctx, repositoryURL); recordErr != nil {
 			return recordErr
 		}
-		if err != nil && !errors.Is(err, forge.ErrNotFound) {
+		switch {
+		case errors.Is(err, forge.ErrNotFound):
+			logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "the forge has no pull request to read a decision for, so none is recorded until it changes",
+				append([]slog.Attr{slog.Int(logging.PullRequestNumber, pullRequest.Number)}, logging.Err(err)...)...)
+		case err != nil:
 			return err
 		}
 
