@@ -469,8 +469,8 @@ func TestListCurrentPullRequestsSkipsArchivedAgents(t *testing.T) {
 	assert.Empty(t, current)
 }
 
-// TestListReadRepositories covers the sync rows that tell an unread repository from one read
-// and found empty, which is one whose first sweep completed rather than one merely asked about.
+// TestListReadRepositories covers the sync rows that tell an unread repository from one whose
+// first sweep completed and found nothing.
 func TestListReadRepositories(t *testing.T) {
 	h := open(t)
 	ctx := t.Context()

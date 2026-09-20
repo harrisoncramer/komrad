@@ -47,9 +47,10 @@ type scriptedForge struct {
 	// when a number is not here, and unknown the numbers the forge has no pull request for.
 	decisions map[int]forge.ReviewDecision
 	unknown   map[int]bool
-	// refuse is answered instead of any listing while set, and refuseDecisions instead of
-	// any batch of decisions.
+	// refuse is answered instead of any listing while set, refuseUpdated instead of the
+	// repository's own listing alone, and refuseDecisions instead of any batch of decisions.
 	refuse          error
+	refuseUpdated   error
 	refuseDecisions error
 	// requests is every request in order, spelled "updated:<cursor>", "branch:<name>:<cursor>",
 	// "changed:<since>:<cursor>" or "decisions:<numbers>".
@@ -70,6 +71,9 @@ func (f *scriptedForge) ListUpdated(_ context.Context, params forge.ListUpdatedP
 	f.requests = append(f.requests, "updated:"+params.Cursor)
 	if f.refuse != nil {
 		return nil, f.refuse
+	}
+	if f.refuseUpdated != nil {
+		return nil, f.refuseUpdated
 	}
 
 	pages := f.updated
@@ -418,9 +422,8 @@ func TestSyncSearchWritesOnlyChangedRows(t *testing.T) {
 }
 
 // TestSyncSearchMovesTheMarkToTheSearchTime covers the mark after a search: it moves to the
-// moment of the search whether the search answered nothing or only rows older than that, so a
-// quiet repository's window closes rather than pinning at its last change, and past the search
-// time only when the forge's clock is ahead.
+// moment of the search whether the search answered nothing or only rows older than that, and
+// past the search time only when the forge's clock is ahead.
 func TestSyncSearchMovesTheMarkToTheSearchTime(t *testing.T) {
 	f, mark := sweptFixture(t)
 
@@ -446,8 +449,7 @@ func TestSyncSearchMovesTheMarkToTheSearchTime(t *testing.T) {
 }
 
 // TestSyncStaleMarkGoesBackToAFirstSweep covers a repository whose mark has fallen more than a
-// day behind, which is swept again from page one rather than dragging the host's search back
-// a day.
+// day behind, which is swept again from page one.
 func TestSyncStaleMarkGoesBackToAFirstSweep(t *testing.T) {
 	f, _ := sweptFixture(t)
 	f.agentIn(t, "b", otherRepository, "agent/y")
@@ -909,6 +911,24 @@ func TestSyncSaysAMissingRepositoryOnce(t *testing.T) {
 	assert.Equal(t, 2, strings.Count(logged.String(), "the forge has no such repository"), "a repository found and lost again is said again")
 }
 
+// TestSyncSaysASweptRepositoryThatGoesMissingOnce covers a repository lost after its first
+// sweep, where only its hourly listing meets the refusal: it is still said once.
+func TestSyncSaysASweptRepositoryThatGoesMissingOnce(t *testing.T) {
+	f, _ := sweptFixture(t)
+	f.forge.refuseUpdated = fmt.Errorf("%w: gone", forge.ErrNotFound)
+	f.forge.requests = nil
+	var logged bytes.Buffer
+	ctx := logging.WithLogger(t.Context(), slog.New(slog.NewTextHandler(&logged, nil)))
+
+	for minute := 61; minute <= 63; minute++ {
+		f.now = syncNow.Add(time.Duration(minute) * time.Minute)
+		require.NoError(t, f.syncer.Sync(ctx))
+	}
+
+	assert.Equal(t, 3, strings.Count(strings.Join(f.forge.requests, " "), "updated:"), "the listing is due every pass while it keeps failing")
+	assert.Equal(t, 1, strings.Count(logged.String(), "the forge has no such repository"))
+}
+
 // TestSyncSaysARenamedRepositoryOnce covers a listing answered under another name: the rows
 // are stored as the forge names them and the rename is said once.
 func TestSyncSaysARenamedRepositoryOnce(t *testing.T) {
@@ -931,10 +951,10 @@ func TestSyncSaysARenamedRepositoryOnce(t *testing.T) {
 	assert.Equal(t, renamed.Canonical(), f.stored(t, "PR_1").RepositoryURL)
 }
 
-// TestSyncSkipsARefusedCredential covers the forge refusing the credential: the pass stops
-// asking the host, the refusal is said once, a connection the forge has refused is not asked
-// at all until it is verified again, and it is said again after a later refusal.
-func TestSyncSkipsARefusedCredential(t *testing.T) {
+// TestSyncBacksOffARefusedCredential covers the forge refusing the credential: the pass stops
+// asking the host, the connection waits the way a rate limit refusal with no time makes it
+// wait, the refusal is said once, and it is said again after a later refusal.
+func TestSyncBacksOffARefusedCredential(t *testing.T) {
 	f, _ := sweptFixture(t)
 	f.agentIn(t, "b", otherRepository, "agent/y")
 	f.forge.refuse = fmt.Errorf("%w: bad credentials", forge.ErrUnauthorized)
@@ -947,24 +967,32 @@ func TestSyncSkipsARefusedCredential(t *testing.T) {
 
 	assert.Len(t, f.forge.requests, 1, "the first refusal stops the host for the pass")
 	assert.Equal(t, 1, strings.Count(logged.String(), "the forge refused the connection's credential"))
-
 	connection, err := f.connections.GetByHost(ctx, "github.com")
 	require.NoError(t, err)
-	require.NoError(t, f.connections.SetVerifiedAt(ctx, connection.ID, nil))
+	require.NotNil(t, connection.ThrottledUntil)
+	assert.True(t, connection.ThrottledUntil.Equal(f.now.Add(time.Minute)))
+
+	f.now = f.now.Add(30 * time.Second)
 	f.forge.requests = nil
 	require.NoError(t, f.syncer.Sync(ctx))
-	require.NoError(t, f.syncer.Sync(ctx))
+	assert.Empty(t, f.forge.requests, "nothing is asked while the connection waits")
 
-	assert.Empty(t, f.forge.requests, "an unverified connection is not asked")
-	assert.Equal(t, 1, strings.Count(logged.String(), "the forge refused the connection's credential"))
+	f.now = f.now.Add(time.Minute)
+	require.NoError(t, f.syncer.Sync(ctx))
+	assert.Len(t, f.forge.requests, 1, "the host is asked again once the wait is over")
+	assert.Equal(t, 1, strings.Count(logged.String(), "the forge refused the connection's credential"), "a refusal in a row is not said again")
+	connection, err = f.connections.GetByHost(ctx, "github.com")
+	require.NoError(t, err)
+	assert.True(t, connection.ThrottledUntil.Equal(f.now.Add(2*time.Minute)), "the wait doubles")
 
 	f.forge.refuse = nil
-	verified := f.now
-	require.NoError(t, f.connections.SetVerifiedAt(ctx, connection.ID, &verified))
+	f.now = f.now.Add(3 * time.Minute)
+	f.forge.requests = nil
 	require.NoError(t, f.syncer.Sync(ctx))
-	assert.NotEmpty(t, f.forge.requests, "a verified connection is read again")
+	assert.NotEmpty(t, f.forge.requests, "an accepted credential is read again")
 
 	f.forge.refuse = fmt.Errorf("%w: bad credentials", forge.ErrUnauthorized)
+	f.now = f.now.Add(time.Minute)
 	require.NoError(t, f.syncer.Sync(ctx))
 	assert.Equal(t, 2, strings.Count(logged.String(), "the forge refused the connection's credential"), "a later refusal is said again")
 }

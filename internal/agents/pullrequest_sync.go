@@ -211,12 +211,6 @@ func (s *PullRequestSyncer) openHost(ctx context.Context, hostname, repositoryUR
 	if connection.ThrottledUntil != nil && connection.ThrottledUntil.After(s.now()) {
 		return nil
 	}
-	if connection.VerifiedAt == nil {
-		s.noteRefusal(ctx, hostname, nil)
-
-		return nil
-	}
-	delete(s.refused, hostname)
 
 	f, err := s.forges.ForConnection(*connection)
 	if err != nil {
@@ -253,7 +247,13 @@ func (s *PullRequestSyncer) syncHost(ctx context.Context, host *hostRead) {
 		s.step(ctx, host, read, s.list)
 		s.step(ctx, host, read, s.scanBranches)
 		s.step(ctx, host, read, s.readDecisions)
+		if read.err == nil {
+			delete(s.missing, read.remote.Canonical())
+		}
 		s.logRepository(ctx, read)
+	}
+	if !host.throttled {
+		delete(s.refused, host.host)
 	}
 }
 
@@ -269,15 +269,13 @@ func (s *PullRequestSyncer) step(ctx context.Context, host *hostRead, read *repo
 	var throttled *forge.ThrottledError
 	switch {
 	case err == nil:
-		delete(s.missing, repositoryURL)
 	case errors.Is(err, errRateLimitSpent):
 		host.throttled = true
 	case errors.As(err, &throttled):
 		host.throttled = true
 		s.recordThrottle(ctx, host.host, host.connection.ID, throttled.RetryAt)
 	case errors.Is(err, forge.ErrUnauthorized):
-		host.throttled = true
-		s.noteRefusal(ctx, host.host, err)
+		s.refuseHost(ctx, host, err)
 	case errors.Is(err, forge.ErrNotFound):
 		read.err = err
 		if !s.missing[repositoryURL] {
@@ -292,18 +290,18 @@ func (s *PullRequestSyncer) step(ctx context.Context, host *hostRead, read *repo
 	}
 }
 
-// noteRefusal says once, per host, that the forge refused the credential.
-func (s *PullRequestSyncer) noteRefusal(ctx context.Context, hostname string, err error) {
-	if s.refused[hostname] {
+// refuseHost stops a host for the pass after the forge refused its credential, backs off the
+// way a rate limit refusal that named no time does, and says so once per host.
+func (s *PullRequestSyncer) refuseHost(ctx context.Context, host *hostRead, err error) {
+	host.throttled = true
+	s.recordThrottle(ctx, host.host, host.connection.ID, time.Time{})
+	if s.refused[host.host] {
 		return
 	}
 
-	s.refused[hostname] = true
-	attrs := []slog.Attr{slog.String(logging.ForgeHost, hostname)}
-	if err != nil {
-		attrs = append(attrs, logging.Err(err)...)
-	}
-	logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "the forge refused the connection's credential, so its pull requests are not read until it is connected again", attrs...)
+	s.refused[host.host] = true
+	logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "the forge refused the connection's credential, so its pull requests wait for it to be accepted again",
+		append([]slog.Attr{slog.String(logging.ForgeHost, host.host)}, logging.Err(err)...)...)
 }
 
 // prepare makes sure the repository has a sync row and starts its count of requests at zero.
@@ -467,8 +465,7 @@ func (s *PullRequestSyncer) search(ctx context.Context, host *hostRead) {
 		host.throttled = true
 		s.recordThrottle(ctx, host.host, host.connection.ID, throttled.RetryAt)
 	case errors.Is(err, forge.ErrUnauthorized):
-		host.throttled = true
-		s.noteRefusal(ctx, host.host, err)
+		s.refuseHost(ctx, host, err)
 	default:
 		logger.LogAttrs(ctx, slog.LevelError, "failed to search the host's pull requests", logging.Err(err)...)
 	}
