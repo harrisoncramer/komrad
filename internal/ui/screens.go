@@ -132,6 +132,11 @@ func (s screen) spec() screenSpec {
 				place:   (*model).placeAgentCursor,
 				rows:    model.agentFilterRows,
 			},
+			tabs: &tabsSpec{
+				strip: agentsTabs(),
+				state: func(m *model) *tabsState { return &m.tree.sort },
+				fits:  model.doesAgentsFitTabs,
+			},
 			column: agentsColumn,
 		}
 	case screenSchedules:
@@ -169,6 +174,11 @@ func (s screen) spec() screenSpec {
 				hovered: model.hoveredArchiveKey,
 				place:   (*model).placeArchiveCursor,
 				rows:    model.archiveFilterRows,
+			},
+			tabs: &tabsSpec{
+				strip: archiveTabs(),
+				state: func(m *model) *tabsState { return &m.archive.sort },
+				fits:  model.doesArchiveFitTabs,
 			},
 			column: archiveColumn,
 		}

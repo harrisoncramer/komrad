@@ -253,14 +253,14 @@ func TestTheRecordGivesWayToTheList(t *testing.T) {
 			name:    "the agents tree",
 			screen:  screenAgents,
 			model:   screensModel,
-			fills:   10,
+			fills:   12,
 			hovered: "agent39",
 		},
 		{
 			name:    "the archive",
 			screen:  screenArchive,
 			model:   screensModel,
-			fills:   10,
+			fills:   12,
 			hovered: "agent39",
 		},
 		{

@@ -1006,20 +1006,20 @@ func TestArchiveScrollsTheDocument(t *testing.T) {
 	require.Greater(t, len(paint.Panel.DocRows(m.archiveDoc(), split.column)), split.rows, "the document runs past the window")
 
 	top := ansi.Strip(m.View())
-	assert.NotContains(t, top, "↑", "nothing is above the first screenful")
-	assert.Contains(t, top, "↓", "and the reader is told the document goes on")
+	assert.NotRegexp(t, `↑ \d+ more`, top, "nothing is above the first screenful")
+	assert.Regexp(t, `↓ \d+ more`, top, "and the reader is told the document goes on")
 
 	m = m.scrollColumn(1)
 	assert.Equal(t, docScrollStep, m.column.top)
-	assert.Contains(t, ansi.Strip(m.View()), "↑", "the reader is told what they scrolled past")
+	assert.Regexp(t, `↑ \d+ more`, ansi.Strip(m.View()), "the reader is told what they scrolled past")
 
 	for range 100 {
 		m = m.scrollColumn(1)
 	}
 
 	bottom := ansi.Strip(m.View())
-	assert.NotContains(t, bottom, "↓", "the last row of the document is reachable")
-	assert.Contains(t, bottom, "↑")
+	assert.NotRegexp(t, `↓ \d+ more`, bottom, "the last row of the document is reachable")
+	assert.Regexp(t, `↑ \d+ more`, bottom)
 
 	for range 100 {
 		m = m.scrollColumn(-1)

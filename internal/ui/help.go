@@ -232,6 +232,7 @@ func (m model) agentHelp() keyMap {
 	full := slices.Concat(
 		own.full,
 		[]key.Binding{
+			m.tabsBinding(),
 			m.detailsBinding(),
 			m.messagesBinding(),
 		},
@@ -296,6 +297,7 @@ func (m model) archiveHelp() keyMap {
 		full: slices.Concat(
 			own.full,
 			[]key.Binding{
+				m.tabsBinding(),
 				m.detailsBinding(),
 				m.messagesBinding(),
 				m.columnScrollBinding("the notes"),

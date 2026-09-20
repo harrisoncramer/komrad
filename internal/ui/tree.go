@@ -14,6 +14,7 @@ type treeState struct {
 	rowCursor
 	placed     bool
 	showHidden bool
+	sort       tabsState
 }
 
 type agentRow struct {

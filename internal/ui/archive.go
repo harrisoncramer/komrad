@@ -26,6 +26,7 @@ var archiveDropped = view.Columns{
 type archiveState struct {
 	agents    []agentstore.Agent
 	workflows []workflowstore.Workflow
+	sort      tabsState
 	// top is how far the document beside the list has been scrolled, held here rather than
 	rowCursor
 }
@@ -401,8 +402,24 @@ func (m model) archiveSnapshot(rows []agentRow, pane int) view.Snapshot {
 	})
 }
 
+func archiveTabs() tabStrip {
+	return tabStrip{
+		title:  "↑↓",
+		legend: "sort",
+		options: []tabOption{
+			{id: "archived", label: "archived"},
+			{id: "name", label: "name"},
+		},
+		fallback: "archived",
+	}
+}
+
 func (m model) archiveHeader() string {
-	return m.listHeader("Archive")
+	return m.tabbedHeader("Archive", "")
+}
+
+func (m model) doesArchiveFitTabs() bool {
+	return m.doesListFitTabs("Archive", "", model.archiveHelp)
 }
 
 func (m model) doesArchiveFitDetails() bool {

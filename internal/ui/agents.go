@@ -547,8 +547,25 @@ func (m model) agentsView() string {
 	return m.columnView(model.agentsListView)
 }
 
+func agentsTabs() tabStrip {
+	return tabStrip{
+		title:  "↑↓",
+		legend: "sort",
+		options: []tabOption{
+			{id: "created", label: "created"},
+			{id: "activity", label: "activity"},
+			{id: "name", label: "name"},
+		},
+		fallback: "created",
+	}
+}
+
 func (m model) agentsHeader() string {
-	return m.listHeader("Agents and Workflows")
+	return m.tabbedHeader("Agents and Workflows", "")
+}
+
+func (m model) doesAgentsFitTabs() bool {
+	return m.doesListFitTabs("Agents and Workflows", "", model.agentHelp)
 }
 
 func (m model) doesAgentsFitDetails() bool {

@@ -315,3 +315,105 @@ func TestWorktreesScreenGolden(t *testing.T) {
 		})
 	}
 }
+
+// TestEveryTabbedScreenTakesTheStrip covers the three list screens that draw a strip taking the
+// same keys: the focus key, tab onto the next tab, k turning the arrow, escape resetting, and the
+// strip sitting straight under the filter line on each.
+func TestEveryTabbedScreenTakesTheStrip(t *testing.T) {
+	tests := []struct {
+		name   string
+		screen screen
+		state  func(*model) *tabsState
+		second string
+	}{
+		{
+			name:   "the agents tree",
+			screen: screenAgents,
+			state:  func(m *model) *tabsState { return &m.tree.sort },
+			second: "activity",
+		},
+		{
+			name:   "the archive",
+			screen: screenArchive,
+			state:  func(m *model) *tabsState { return &m.archive.sort },
+			second: "name",
+		},
+		{
+			name:   "the worktrees",
+			screen: screenWorktrees,
+			state:  func(m *model) *tabsState { return &m.worktrees.sort },
+			second: "last-accessed",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m := screensModel()
+			m.screen, m.height = tt.screen, 40
+
+			header := strings.Split(strings.TrimSuffix(m.screen.spec().view(m), "\n"), "\n")
+			assert.Contains(t, header[2], "/")
+			assert.Contains(t, header[3], "↑↓")
+			assert.Empty(t, header[4])
+
+			focused := send(t, m, "f")
+			require.True(t, focused.isTabsFocused())
+			assert.False(t, focused.isListFocused())
+
+			turned := send(t, send(t, focused, "tab"), "k")
+			assert.Equal(t, tabsState{chosen: tt.second, direction: tabUp, focused: true}, *tt.state(&turned))
+			assert.Contains(t, turned.screen.spec().view(turned), "↑ "+tt.second)
+
+			left := send(t, turned, "esc")
+			assert.Equal(t, tabsState{}, *tt.state(&left))
+			assert.Equal(t, tt.screen, left.screen)
+			assert.True(t, left.isListFocused())
+		})
+	}
+}
+
+// TestAgentsAndArchiveScreenGolden draws the two sidebars whole with their strips, on the list's
+// keys and on their own.
+func TestAgentsAndArchiveScreenGolden(t *testing.T) {
+	withANSI(t)
+
+	tests := []struct {
+		name   string
+		screen screen
+		state  tabsState
+	}{
+		{
+			name:   "agents-sort-strip",
+			screen: screenAgents,
+			state:  tabsState{},
+		},
+		{
+			name:   "agents-sort-strip-focused",
+			screen: screenAgents,
+			state:  tabsState{chosen: "activity", focused: true},
+		},
+		{
+			name:   "archive-sort-strip",
+			screen: screenArchive,
+			state:  tabsState{},
+		},
+		{
+			name:   "archive-sort-strip-focused",
+			screen: screenArchive,
+			state:  tabsState{chosen: "name", direction: tabUp, focused: true},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m := worktreesModel()
+			m.width, m.height = 44, 28
+			m = m.at(44)
+			m.screen = tt.screen
+			m.tree.cursor = 1
+			m.tree.sort, m.archive.sort = tt.state, tt.state
+
+			requireGolden(t, tt.name, m.screen.spec().view(m))
+		})
+	}
+}
