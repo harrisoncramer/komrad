@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -18,18 +19,54 @@ func TestMeasureSumsEveryFileUnderADirectory(t *testing.T) {
 	dir := filepath.Join(f.shared, "aaaa")
 	write(t, dir, "one", strings.Repeat("x", 100))
 	write(t, dir, "deep/two", strings.Repeat("x", 50))
-	write(t, dir, "deep/three", strings.Repeat("x", 75))
+	write(t, dir, "deep/down/three", strings.Repeat("x", 75))
+	write(t, dir, "empty", "")
 	require.NoError(t, os.Symlink(f.repo, filepath.Join(dir, "linked")))
+	one := usage(t, filepath.Join(dir, "one"))
+	deep := usage(t, filepath.Join(dir, "deep/two")) + usage(t, filepath.Join(dir, "deep/down/three"))
+	require.Positive(t, one)
 
 	total, entries, err := measure(t.Context(), dir)
 	require.NoError(t, err)
 
-	assert.Equal(t, int64(225), total)
+	assert.Equal(t, one+deep, total)
 	assert.Equal(t, []Entry{
-		{Path: "deep", Bytes: 125, Dir: true},
-		{Path: "one", Bytes: 100},
+		{Path: "deep", Bytes: deep, Dir: true},
+		{Path: "one", Bytes: one},
+		{Path: "empty", Bytes: 0},
 		{Path: "linked", Bytes: 0},
 	}, entries)
+}
+
+// TestMeasureCountsBlocksRatherThanApparentSize covers a sparse file, whose apparent size is a
+// megabyte and whose blocks are none.
+func TestMeasureCountsBlocksRatherThanApparentSize(t *testing.T) {
+	dir := t.TempDir()
+	write(t, dir, "sparse", "")
+	require.NoError(t, os.Truncate(filepath.Join(dir, "sparse"), 1<<20))
+
+	total, entries, err := measure(t.Context(), dir)
+	require.NoError(t, err)
+
+	assert.Less(t, total, int64(1<<20))
+	assert.Equal(t, []Entry{{Path: "sparse", Bytes: total}}, entries)
+}
+
+// TestMeasureCountsAHardLinkedFileOnce covers two links to one file adding up to one file,
+// whichever top-level entries hold them.
+func TestMeasureCountsAHardLinkedFileOnce(t *testing.T) {
+	dir := t.TempDir()
+	write(t, dir, "a/shared", strings.Repeat("x", 100))
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, "b"), 0o755))
+	require.NoError(t, os.Link(filepath.Join(dir, "a/shared"), filepath.Join(dir, "b/shared")))
+	shared := usage(t, filepath.Join(dir, "a/shared"))
+
+	total, entries, err := measure(t.Context(), dir)
+	require.NoError(t, err)
+
+	assert.Equal(t, shared, total)
+	require.Len(t, entries, 2)
+	assert.Equal(t, shared, entries[0].Bytes+entries[1].Bytes)
 }
 
 // TestMeasureGivesUpWhenTheContextEnds covers the walk stopping once the context has ended.
@@ -50,8 +87,20 @@ func TestMeasureReportsADirectoryThatIsNotThere(t *testing.T) {
 
 	size, _, err := measure(t.Context(), dir)
 	require.NoError(t, err)
-	assert.Equal(t, int64(2), size)
+	assert.Equal(t, usage(t, filepath.Join(dir, "kept")), size)
 
 	_, _, err = measure(t.Context(), filepath.Join(dir, "never"))
 	require.ErrorIs(t, err, os.ErrNotExist)
+}
+
+// usage is the disk one file takes, read off its blocks the way the walk reads them.
+func usage(t *testing.T, path string) int64 {
+	t.Helper()
+
+	info, err := os.Lstat(path)
+	require.NoError(t, err)
+	stat, ok := info.Sys().(*syscall.Stat_t)
+	require.True(t, ok)
+
+	return stat.Blocks * blockSize
 }

@@ -17,7 +17,7 @@ const commitLimit = 50
 // Inspection is one directory read through git.
 type Inspection struct {
 	Worktree Worktree
-	// Bytes is what the directory holds, and Entries its top-level entries, biggest first.
+	// Bytes is the disk the directory takes, and Entries its top-level entries, biggest first.
 	Bytes   int64
 	Entries []Entry
 	Changes git.Changes
