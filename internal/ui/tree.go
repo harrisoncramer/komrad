@@ -292,7 +292,6 @@ type agentItem struct {
 	agent      agentstore.Agent
 	alive      bool
 	unreadMail bool
-	unviewed   bool
 	failedRun  bool
 	// failedRunLog is the run its unread failure was written to, so the pane opens on that one.
 	failedRunLog *int32

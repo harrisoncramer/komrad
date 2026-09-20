@@ -103,9 +103,6 @@ const (
 	// AgentServiceRecordReportProcedure is the fully-qualified name of the AgentService's RecordReport
 	// RPC.
 	AgentServiceRecordReportProcedure = "/agent.v1.AgentService/RecordReport"
-	// AgentServiceSetAgentViewedProcedure is the fully-qualified name of the AgentService's
-	// SetAgentViewed RPC.
-	AgentServiceSetAgentViewedProcedure = "/agent.v1.AgentService/SetAgentViewed"
 	// AgentServiceMarkRunsReadProcedure is the fully-qualified name of the AgentService's MarkRunsRead
 	// RPC.
 	AgentServiceMarkRunsReadProcedure = "/agent.v1.AgentService/MarkRunsRead"
@@ -185,7 +182,6 @@ type AgentServiceClient interface {
 	GetLastTurns(context.Context, *connect.Request[v1.GetLastTurnsRequest]) (*connect.Response[v1.GetLastTurnsResponse], error)
 	EmptyArchive(context.Context, *connect.Request[emptypb.Empty]) (*connect.Response[emptypb.Empty], error)
 	RecordReport(context.Context, *connect.Request[v1.RecordReportRequest]) (*connect.Response[emptypb.Empty], error)
-	SetAgentViewed(context.Context, *connect.Request[v1.SetAgentViewedRequest]) (*connect.Response[emptypb.Empty], error)
 	MarkRunsRead(context.Context, *connect.Request[v1.MarkRunsReadRequest]) (*connect.Response[emptypb.Empty], error)
 	ListReviewThreads(context.Context, *connect.Request[v1.ListReviewThreadsRequest]) (*connect.Response[v1.ListReviewThreadsResponse], error)
 	CreateReviewThread(context.Context, *connect.Request[v1.CreateReviewThreadRequest]) (*connect.Response[v1.CreateReviewThreadResponse], error)
@@ -394,13 +390,6 @@ func NewAgentServiceClient(httpClient connect.HTTPClient, baseURL string, opts .
 			connect.WithIdempotency(connect.IdempotencyIdempotent),
 			connect.WithClientOptions(opts...),
 		),
-		setAgentViewed: connect.NewClient[v1.SetAgentViewedRequest, emptypb.Empty](
-			httpClient,
-			baseURL+AgentServiceSetAgentViewedProcedure,
-			connect.WithSchema(agentServiceMethods.ByName("SetAgentViewed")),
-			connect.WithIdempotency(connect.IdempotencyIdempotent),
-			connect.WithClientOptions(opts...),
-		),
 		markRunsRead: connect.NewClient[v1.MarkRunsReadRequest, emptypb.Empty](
 			httpClient,
 			baseURL+AgentServiceMarkRunsReadProcedure,
@@ -539,7 +528,6 @@ type agentServiceClient struct {
 	getLastTurns            *connect.Client[v1.GetLastTurnsRequest, v1.GetLastTurnsResponse]
 	emptyArchive            *connect.Client[emptypb.Empty, emptypb.Empty]
 	recordReport            *connect.Client[v1.RecordReportRequest, emptypb.Empty]
-	setAgentViewed          *connect.Client[v1.SetAgentViewedRequest, emptypb.Empty]
 	markRunsRead            *connect.Client[v1.MarkRunsReadRequest, emptypb.Empty]
 	listReviewThreads       *connect.Client[v1.ListReviewThreadsRequest, v1.ListReviewThreadsResponse]
 	createReviewThread      *connect.Client[v1.CreateReviewThreadRequest, v1.CreateReviewThreadResponse]
@@ -693,11 +681,6 @@ func (c *agentServiceClient) RecordReport(ctx context.Context, req *connect.Requ
 	return c.recordReport.CallUnary(ctx, req)
 }
 
-// SetAgentViewed calls agent.v1.AgentService.SetAgentViewed.
-func (c *agentServiceClient) SetAgentViewed(ctx context.Context, req *connect.Request[v1.SetAgentViewedRequest]) (*connect.Response[emptypb.Empty], error) {
-	return c.setAgentViewed.CallUnary(ctx, req)
-}
-
 // MarkRunsRead calls agent.v1.AgentService.MarkRunsRead.
 func (c *agentServiceClient) MarkRunsRead(ctx context.Context, req *connect.Request[v1.MarkRunsReadRequest]) (*connect.Response[emptypb.Empty], error) {
 	return c.markRunsRead.CallUnary(ctx, req)
@@ -807,7 +790,6 @@ type AgentServiceHandler interface {
 	GetLastTurns(context.Context, *connect.Request[v1.GetLastTurnsRequest]) (*connect.Response[v1.GetLastTurnsResponse], error)
 	EmptyArchive(context.Context, *connect.Request[emptypb.Empty]) (*connect.Response[emptypb.Empty], error)
 	RecordReport(context.Context, *connect.Request[v1.RecordReportRequest]) (*connect.Response[emptypb.Empty], error)
-	SetAgentViewed(context.Context, *connect.Request[v1.SetAgentViewedRequest]) (*connect.Response[emptypb.Empty], error)
 	MarkRunsRead(context.Context, *connect.Request[v1.MarkRunsReadRequest]) (*connect.Response[emptypb.Empty], error)
 	ListReviewThreads(context.Context, *connect.Request[v1.ListReviewThreadsRequest]) (*connect.Response[v1.ListReviewThreadsResponse], error)
 	CreateReviewThread(context.Context, *connect.Request[v1.CreateReviewThreadRequest]) (*connect.Response[v1.CreateReviewThreadResponse], error)
@@ -1012,13 +994,6 @@ func NewAgentServiceHandler(svc AgentServiceHandler, opts ...connect.HandlerOpti
 		connect.WithIdempotency(connect.IdempotencyIdempotent),
 		connect.WithHandlerOptions(opts...),
 	)
-	agentServiceSetAgentViewedHandler := connect.NewUnaryHandler(
-		AgentServiceSetAgentViewedProcedure,
-		svc.SetAgentViewed,
-		connect.WithSchema(agentServiceMethods.ByName("SetAgentViewed")),
-		connect.WithIdempotency(connect.IdempotencyIdempotent),
-		connect.WithHandlerOptions(opts...),
-	)
 	agentServiceMarkRunsReadHandler := connect.NewUnaryHandler(
 		AgentServiceMarkRunsReadProcedure,
 		svc.MarkRunsRead,
@@ -1181,8 +1156,6 @@ func NewAgentServiceHandler(svc AgentServiceHandler, opts ...connect.HandlerOpti
 			agentServiceEmptyArchiveHandler.ServeHTTP(w, r)
 		case AgentServiceRecordReportProcedure:
 			agentServiceRecordReportHandler.ServeHTTP(w, r)
-		case AgentServiceSetAgentViewedProcedure:
-			agentServiceSetAgentViewedHandler.ServeHTTP(w, r)
 		case AgentServiceMarkRunsReadProcedure:
 			agentServiceMarkRunsReadHandler.ServeHTTP(w, r)
 		case AgentServiceListReviewThreadsProcedure:
@@ -1330,10 +1303,6 @@ func (UnimplementedAgentServiceHandler) EmptyArchive(context.Context, *connect.R
 
 func (UnimplementedAgentServiceHandler) RecordReport(context.Context, *connect.Request[v1.RecordReportRequest]) (*connect.Response[emptypb.Empty], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("agent.v1.AgentService.RecordReport is not implemented"))
-}
-
-func (UnimplementedAgentServiceHandler) SetAgentViewed(context.Context, *connect.Request[v1.SetAgentViewedRequest]) (*connect.Response[emptypb.Empty], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("agent.v1.AgentService.SetAgentViewed is not implemented"))
 }
 
 func (UnimplementedAgentServiceHandler) MarkRunsRead(context.Context, *connect.Request[v1.MarkRunsReadRequest]) (*connect.Response[emptypb.Empty], error) {

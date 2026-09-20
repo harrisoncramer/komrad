@@ -56,20 +56,6 @@ func (s *Store) SetStateByID(ctx context.Context, id string, state State) error 
 	return nil
 }
 
-// SetViewed claims an agent's conversation as read up to the last turn weave watched end, or
-// puts the mark back when viewed is unset.
-func (s *Store) SetViewed(ctx context.Context, id string, viewed bool) error {
-	if !store.IsID(id) {
-		return store.ErrNotFound.Saying("no agent with id %q", id)
-	}
-
-	if err := s.queries.SetAgentViewedByID(ctx, models.SetAgentViewedByIDParams{ID: id, Viewed: viewed}); err != nil {
-		return fmt.Errorf("failed to set viewed for id %q: %w", id, err)
-	}
-
-	return nil
-}
-
 // SetTurnEnded records that a turn of an agent's ended, written either from the agent's own CLI
 // reporting it or, when nothing did, from the reconciler watching the pane stop working.
 func (s *Store) SetTurnEnded(ctx context.Context, id string) error {
@@ -97,17 +83,6 @@ func (s *Store) SetReportedReason(ctx context.Context, id, reason string) error 
 	}
 
 	return nil
-}
-
-// ListUnseenTurns reports the agents that have ended a turn the person has not looked at since,
-// leaving off one that has gone back to work.
-func (s *Store) ListUnseenTurns(ctx context.Context) ([]string, error) {
-	rows, err := s.queries.ListAgentsWithUnseenTurns(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to list the agents holding unseen turns: %w", err)
-	}
-
-	return rows, nil
 }
 
 // MarkSettingUpIfLive says a resume is in flight on one agent and reports whether it did,

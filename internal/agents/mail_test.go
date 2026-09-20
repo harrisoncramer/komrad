@@ -223,8 +223,8 @@ func cappedNotices(mailbox *fakeMailbox) []mailstore.Mail {
 }
 
 // TestSendMailTellsBothSidesWhenTheCapRefusesASend covers what keeps a refusal from stranding
-// the work: the sender gets the error, the recipient is told mail meant for it was stopped so it
-// is not left waiting on a reply, and a row is marked so the person hears about it.
+// the work: the sender gets the error, and the recipient is told mail meant for it was stopped so
+// it is not left waiting on a reply.
 func TestSendMailTellsBothSidesWhenTheCapRefusesASend(t *testing.T) {
 	mailbox := &fakeMailbox{}
 	family := newFakeFamily()
@@ -235,8 +235,7 @@ func TestSendMailTellsBothSidesWhenTheCapRefusesASend(t *testing.T) {
 	})
 
 	exchange(t, svc, "child-one", "parent", 3)
-	assert.Empty(t, family.unviewed, "a pair inside the cap is nobody's business")
-	assert.Empty(t, cappedNotices(mailbox))
+	assert.Empty(t, cappedNotices(mailbox), "a pair inside the cap is nobody's business")
 
 	exchange(t, svc, "child-one", "parent", 1)
 
@@ -244,7 +243,6 @@ func TestSendMailTellsBothSidesWhenTheCapRefusesASend(t *testing.T) {
 		From: "child-one", ToAgentID: "parent", Body: "one more",
 	})
 	require.ErrorIs(t, err, ErrExchangeCapped)
-	assert.Equal(t, 1, family.unviewed["parent"], "the parent's row is the one marked")
 
 	told := cappedNotices(mailbox)
 	require.Len(t, told, 1)
@@ -253,9 +251,8 @@ func TestSendMailTellsBothSidesWhenTheCapRefusesASend(t *testing.T) {
 	assert.Contains(t, told[0].Body, "child-one", "the id, since two workflows may hold one name")
 }
 
-// TestSendMailKeepsOneNoticePerUnreadRefusal pins what a retry past the cap costs: the mark goes
-// back up, an unread notice stands in for the refusals behind it, and one already read is
-// replaced.
+// TestSendMailKeepsOneNoticePerUnreadRefusal pins what a retry past the cap costs: an unread
+// notice stands in for the refusals behind it, and one already read is replaced.
 func TestSendMailKeepsOneNoticePerUnreadRefusal(t *testing.T) {
 	mailbox := &fakeMailbox{}
 	family := newFakeFamily()
@@ -274,7 +271,6 @@ func TestSendMailKeepsOneNoticePerUnreadRefusal(t *testing.T) {
 		require.ErrorIs(t, err, ErrExchangeCapped)
 	}
 
-	assert.Equal(t, 3, family.unviewed["parent"], "every refusal puts the mark back")
 	assert.Len(t, cappedNotices(mailbox), 1, "the unread notice stands for the refusals behind it")
 
 	mailbox.claimHeld()
@@ -348,9 +344,9 @@ func TestSendMailCapsEachPairSeparately(t *testing.T) {
 	require.NoError(t, err)
 }
 
-// TestSendMailMarksTheParentOfTwoChildrenThatSpendTheCap pins that the mark reaches the parent
-// of a pair it is not itself half of.
-func TestSendMailMarksTheParentOfTwoChildrenThatSpendTheCap(t *testing.T) {
+// TestSendMailCapsTwoChildrenOfOneParent pins that a pair of children is capped like any other
+// pair, with the notice going to the one written to.
+func TestSendMailCapsTwoChildrenOfOneParent(t *testing.T) {
 	mailbox := &fakeMailbox{}
 	family := newFakeFamily()
 	svc := NewMailService(NewMailServiceParams{
@@ -366,15 +362,13 @@ func TestSendMailMarksTheParentOfTwoChildrenThatSpendTheCap(t *testing.T) {
 	})
 	require.ErrorIs(t, err, ErrExchangeCapped)
 
-	assert.Equal(t, 1, family.unviewed["parent"])
-
 	told := cappedNotices(mailbox)
 	require.Len(t, told, 1)
 	assert.Equal(t, "child-two", told[0].ToAgentID, "the notice still goes to the side that was written to")
 }
 
 // TestSendMailCapsAPairThatIsNobodysChildren pins that a pair with no parent over it is capped
-// too, marking whichever of the two sent.
+// too.
 func TestSendMailCapsAPairThatIsNobodysChildren(t *testing.T) {
 	mailbox := &fakeMailbox{}
 	family := newFakeFamily()
@@ -390,8 +384,6 @@ func TestSendMailCapsAPairThatIsNobodysChildren(t *testing.T) {
 		From: "parent", ToAgentID: "other-parent", Body: "one more",
 	})
 	require.ErrorIs(t, err, ErrExchangeCapped)
-
-	assert.Equal(t, 1, family.unviewed["parent"], "the sender, since there is no parent over it")
 }
 
 // TestSendMailLeavesWeavesOwnMailOutOfTheCount pins that a lifecycle notice does not spend the
@@ -415,7 +407,6 @@ func TestSendMailLeavesWeavesOwnMailOutOfTheCount(t *testing.T) {
 		From: "child-one", ToAgentID: "parent", Body: "still inside the cap",
 	})
 	require.NoError(t, err)
-	assert.Empty(t, family.unviewed)
 }
 
 // TestSendMailSystemNoticeIsNeverRefusedByTheCap proves weave can always reach an agent, a
@@ -730,9 +721,6 @@ func TestDeleteMailDeletesEveryIDGiven(t *testing.T) {
 
 type fakeDirectory struct {
 	byID map[string]agentstore.Agent
-	// unviewed is the agents whose attention mark has been raised, counted rather than set so
-	// a test can tell one raise from several.
-	unviewed map[string]int
 }
 
 func newFakeDirectory() *fakeDirectory {
@@ -772,19 +760,6 @@ func (f *fakeDirectory) GetByID(_ context.Context, id string) (*agentstore.Agent
 	}
 
 	return &found, nil
-}
-
-func (f *fakeDirectory) SetViewed(_ context.Context, id string, viewed bool) error {
-	if viewed {
-		return nil
-	}
-
-	if f.unviewed == nil {
-		f.unviewed = map[string]int{}
-	}
-	f.unviewed[id]++
-
-	return nil
 }
 
 type fakeWorkflowNames map[string]string

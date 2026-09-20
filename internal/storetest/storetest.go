@@ -125,14 +125,6 @@ func (s *Stores) LiveAgentByName(ctx context.Context, name string) (*agentstore.
 	return nil, fmt.Errorf("%w: no live agent named %q", store.ErrNotFound, name)
 }
 
-// SeedTurnEnded records a turn of an agent's ending, which is how a test makes one look like
-// it has finished something nobody has read since.
-func (s *Stores) SeedTurnEnded(t *testing.T, agentID string) {
-	t.Helper()
-
-	require.NoError(t, s.Agents.SetTurnEnded(t.Context(), agentID))
-}
-
 // SeedTranscript stores prompts for an agent under a session of its own.
 func (s *Stores) SeedTranscript(t *testing.T, agentID string, turns ...string) {
 	t.Helper()

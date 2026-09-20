@@ -392,18 +392,6 @@ WHERE
     id = @id
     AND archived_at IS NULL;
 
--- name: SetAgentViewedByID :exec
-UPDATE
-    agents
-SET
-    viewed_at = CASE WHEN @viewed::boolean THEN
-        turn_ended_at
-    ELSE
-        NULL
-    END
-WHERE
-    id = @id;
-
 -- name: SetAgentTurnEndedByID :exec
 UPDATE
     agents
@@ -419,18 +407,6 @@ SET
     reported_reason = @reported_reason
 WHERE
     id = @id;
-
--- name: ListAgentsWithUnseenTurns :many
-SELECT
-    a.id
-FROM
-    agents a
-WHERE
-    a.archived_at IS NULL
-    AND a.state <> 'thinking'
-    AND a.turn_ended_at IS NOT NULL
-    AND (a.viewed_at IS NULL
-        OR a.turn_ended_at > a.viewed_at);
 
 -- name: MarkAgentSettingUpIfLive :many
 UPDATE

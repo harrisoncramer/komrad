@@ -255,7 +255,6 @@ type Agent struct {
 	StateSeenAt      time.Time
 	InterruptedAt    *time.Time
 	AdoptedBranch    string
-	ViewedAt         *time.Time
 	ParentAgentID    *string
 	TurnEndedAt      *time.Time
 	ProvisionEnabled *bool

@@ -386,17 +386,6 @@ func TestSnapshotMarksOnARow(t *testing.T) {
 			},
 		},
 		{
-			name: "output nobody has read leaves the row as it is",
-			item: agentItem{
-				agent:    agentstore.Agent{ID: "a1", Name: "unread"},
-				unviewed: true,
-			},
-			want: view.Row{
-				Key:  "agent:a1",
-				Name: "unread",
-			},
-		},
-		{
 			name: "an ordinary agent carries nothing at all",
 			item: agentItem{agent: agentstore.Agent{ID: "a1", Name: "ordinary"}},
 			want: view.Row{

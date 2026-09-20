@@ -69,8 +69,6 @@ message Agent {
   // Whether a merge, a rebase or a cherry-pick is part-way through its checkout, waiting on
   // somebody to settle it.
   bool sequence_in_progress = 36;
-  // Whether the agent has finished a turn the person has not looked at since.
-  bool unviewed = 24;
   // Whether a script weave fired for the agent failed and nobody has looked at it since.
   bool failed_run = 27;
   // The run log that failure was written to, which is the run the panel opens on.
@@ -380,16 +378,8 @@ message RecordReportRequest {
       expression: "!this.matches('[\\x00-\\x1f\\x7f]')"
     }
   ];
-  // Whether the CLI has finished a turn, which is what leaves the agent unviewed.
+  // Whether the CLI has finished a turn.
   bool turn_ended = 2;
-}
-
-message SetAgentViewedRequest {
-  // Which agent the person has caught up on.
-  string id = 1 [(buf.validate.field).string.min_len = 1];
-  // Whether the person has read what the agent finished. Unsetting it puts the mark back, which
-  // is what the toggle does on its way out.
-  bool viewed = 2;
 }
 
 message MarkRunsReadRequest {
@@ -811,14 +801,6 @@ service AgentService {
       cli: false
       mcp: false
       reason: "Weave's own hook binary is the only caller, relaying what an agent's CLI said about itself, and an agent that could call it directly could tell the reconciler its turn had ended when it had not."
-    };
-  }
-  rpc SetAgentViewed(SetAgentViewedRequest) returns (google.protobuf.Empty) {
-    option idempotency_level = IDEMPOTENT;
-    option (annotation.v1.surfaces) = {
-      cli: false
-      mcp: false
-      reason: "Whether a person has caught up on what an agent finished is that person's own reading, which no agent can claim on their behalf."
     };
   }
   rpc MarkRunsRead(MarkRunsReadRequest) returns (google.protobuf.Empty) {

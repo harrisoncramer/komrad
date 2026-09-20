@@ -29,12 +29,11 @@ func (s agent) Cursor() (agentstore.Cursor, error) {
 	return s.cursor, nil
 }
 
-// agentFlags are the facts about an agent that are not on its own row: whether it is running,
-// whether it has mail it has not read, and whether it has said anything the person has not.
+// agentFlags are the facts about an agent that are not on its own row: whether it is running
+// and whether it has mail it has not read.
 type agentFlags struct {
 	alive      bool
 	unreadMail bool
-	unviewed   bool
 	failedRun  bool
 	// mark is the letter a person types to jump to this row, which lives beside the agent rather
 	// than on it.
@@ -123,7 +122,6 @@ func renderAgent(stored agentstore.Agent, flags agentFlags, opts ...agentOption)
 			RepositoryUrl:      stored.RepositoryURL,
 			WorktreeRemoved:    stored.WorktreeRemoved,
 			SequenceInProgress: stored.SequenceInProgress,
-			Unviewed:           flags.unviewed,
 			FailedRun:          flags.failedRun,
 			FailedRunLog:       flags.failedRunLog,
 			LocalReviewRounds:  flags.localRounds,

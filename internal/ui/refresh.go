@@ -36,62 +36,10 @@ func refreshTick() tea.Cmd {
 // it stages as read, which keeps the rows a person travels over from being cleared.
 const viewedDwell = time.Second
 
-// hoverState is the agent the cursor is sitting on, when it arrived, and whether the person has
-// set that row's mark by hand and does not want the dwell moving it back.
+// hoverState is the agent the cursor is sitting on and when it arrived.
 type hoverState struct {
 	agentID string
 	since   time.Time
-}
-
-// dwellViewed claims the hovered agent once the cursor has been on it long enough to have read
-// what it said, counting only a live row and writing only an unviewed one.
-func (m model) dwellViewed(now time.Time) (model, tea.Cmd) {
-	item, ok := m.dwelledAgent()
-	if !ok {
-		m.hover = hoverState{}
-
-		return m, nil
-	}
-
-	// The row is tracked whether or not it is unviewed.
-	if m.hover.agentID != item.agent.ID {
-		m.hover = hoverState{agentID: item.agent.ID, since: now}
-	}
-
-	// A row with nothing to read keeps restarting the dwell, so the turn that lands next has to be
-	// looked at for a second of its own rather than claimed on arrival by a cursor already parked
-	// there.
-	if !item.unviewed {
-		m.hover.since = now
-
-		return m, nil
-	}
-
-	if now.Sub(m.hover.since) < viewedDwell {
-		return m, nil
-	}
-
-	// Asked only here rather than every tick.
-	if !m.popup.IsShown() {
-		m.hover.since = now
-
-		return m, nil
-	}
-
-	return m, m.markViewedCmd(item.agent.ID)
-}
-
-func (m model) dwelledAgent() (agentItem, bool) {
-	if m.screen != screenAgents || m.form.form != nil {
-		return agentItem{}, false
-	}
-
-	item, ok := m.selectedAgent()
-	if !ok || !item.alive {
-		return agentItem{}, false
-	}
-
-	return item, true
 }
 
 type refreshResult struct {
@@ -301,19 +249,8 @@ type written struct {
 	focus bool
 }
 
-// markViewedCmd claims what an agent has finished without going through the write path.
-func (m model) markViewedCmd(id string) tea.Cmd {
-	clients := m.api
-
-	return func() tea.Msg {
-		_ = clients.setViewed(id, true) //nolint:errcheck // the next tick makes the mark again
-
-		return nil
-	}
-}
-
 // dwellRunsRead claims an agent's failed runs once its run log has been on screen long enough to
-// have been read, on the same terms the transcript's own mark is claimed under.
+// have been read.
 func (m model) dwellRunsRead(now time.Time) (model, tea.Cmd) {
 	agent, ok := m.runLogTarget()
 	if !ok {

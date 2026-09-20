@@ -268,12 +268,11 @@ func (m model) routeAsyncMessage(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
 	case refreshTickMsg:
 
 		m.awaitingSize = false
-		next, viewed := m.dwellViewed(msg.at)
-		next, readRuns := next.dwellRunsRead(msg.at)
+		next, readRuns := m.dwellRunsRead(msg.at)
 		reviewing := next.refreshReviewCmd(msg.at)
 		next, edited := next.reconcileEditor()
 
-		return next, tea.Batch(next.refreshCmd(), refreshTick(), viewed, reviewing, readRuns, edited), true
+		return next, tea.Batch(next.refreshCmd(), refreshTick(), reviewing, readRuns, edited), true
 	case tea.BlurMsg:
 		m.blurred = true
 		m.syncKeys()

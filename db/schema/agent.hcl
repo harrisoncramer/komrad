@@ -481,10 +481,6 @@ table "agents" {
     type    = timestamptz
     default = sql("now()")
   }
-  column "viewed_at" {
-    null = true
-    type = timestamptz
-  }
   column "turn_ended_at" {
     null = true
     type = timestamptz

@@ -62,7 +62,6 @@ type mailReadWriter interface {
 type mailAgentReadWriter interface {
 	agentGetter
 	ListLiveNamed(ctx context.Context, name string) ([]agentstore.Agent, error)
-	SetViewed(ctx context.Context, id string, viewed bool) error
 }
 
 type mailConfigReader interface {
@@ -356,20 +355,12 @@ func (s *MailService) holdToTheExchangeCap(ctx context.Context, sender, recipien
 	return fmt.Errorf("%w: you and %q have exchanged %d pieces of mail, which is the limit, so nothing further will get through between you; say where you got to and tell the person what is unfinished", ErrExchangeCapped, recipient.Name, exchanged)
 }
 
-// tellTheCapWasReached marks a row for the person to look at and tells the recipient that mail
-// meant for it was refused.
+// tellTheCapWasReached tells the recipient that mail meant for it was refused.
 func (s *MailService) tellTheCapWasReached(ctx context.Context, sender, recipient agentstore.Agent, exchanged int64) {
-	// The mark goes on the family's parent, which for an agent that is nobody's child is itself.
-	marked := familyID(sender)
 	attrs := []slog.Attr{
-		slog.String(logging.AgentID, marked),
+		slog.String(logging.AgentID, sender.ID),
 		slog.String(logging.TargetAgentID, recipient.ID),
 		slog.Int64(logging.ExchangedMail, exchanged),
-	}
-
-	if err := s.agents.SetViewed(ctx, marked, false); err != nil {
-		logging.From(ctx).LogAttrs(ctx, slog.LevelError, "failed to mark an agent for attention over a capped exchange",
-			append(attrs, logging.Err(err)...)...)
 	}
 
 	body := fmt.Sprintf(exchangeCappedBody, sender.Name, sender.ID, exchanged)
