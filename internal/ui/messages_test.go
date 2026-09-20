@@ -164,12 +164,23 @@ func TestMessagesTallySaysWhereTheKeysAre(t *testing.T) {
 		detail:  "no change",
 	})
 
+	alone := m.messagesTally(0)
+	assert.Empty(t, ansi.Strip(alone), "one message on its own counts nothing while it is unread")
+
+	m.pushMessage(message{
+		kind:    messageInfo,
+		summary: "Archived 4 agents",
+		detail:  "hidden from the sidebar",
+	})
+
 	blurred := m.messagesTally(0)
-	assert.Empty(t, ansi.Strip(blurred), "one message on its own counts nothing while it is unread")
+	assert.Contains(t, ansi.Strip(blurred), "+1")
+	assert.Contains(t, blurred, dimStyle.Render("+1"), "the count behind the summary is muted while the list has the keys")
+	assert.NotContains(t, blurred, "\x1b[1;34m")
 
 	focused := m.toggleMessagesFocus().messagesTally(0)
 
-	assert.Contains(t, ansi.Strip(focused), "1 of 1")
+	assert.Contains(t, ansi.Strip(focused), "2 of 2")
 	assert.Contains(t, focused, "\x1b[1;34m", "the accent says the region holds the keys")
 }
 

@@ -349,10 +349,12 @@ func (m model) messagesTally(taken int) string {
 	}
 
 	tally := label.Tally(count - 1)
+	style := dimStyle
 	if m.messages.focused {
 		// Counted from the oldest, so the newest message is the last of them rather than the
 		// first: the stack itself is held newest first.
 		tally = label.OfCount(count-m.messagesCursor(), count)
+		style = paint.Panel.Header()
 	} else if count < 2 {
 		return ""
 	}
@@ -360,7 +362,7 @@ func (m model) messagesTally(taken int) string {
 	pad := max(m.lineWidth()-taken-lipgloss.Width(m.messagesSummaryLine(taken))-len(tally), 1)
 
 	// The tally is where the region says the keys are its own.
-	return strings.Repeat(" ", pad) + paint.Panel.Header().Render(tally)
+	return strings.Repeat(" ", pad) + style.Render(tally)
 }
 
 // pushMessage puts a message at the front of the stack and keeps the reader on whatever they
