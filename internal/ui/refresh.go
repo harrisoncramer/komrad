@@ -41,7 +41,6 @@ const viewedDwell = time.Second
 type hoverState struct {
 	agentID string
 	since   time.Time
-	held    bool
 }
 
 // dwellViewed claims the hovered agent once the cursor has been on it long enough to have read
@@ -65,10 +64,6 @@ func (m model) dwellViewed(now time.Time) (model, tea.Cmd) {
 	if !item.unviewed {
 		m.hover.since = now
 
-		return m, nil
-	}
-
-	if m.hover.held {
 		return m, nil
 	}
 

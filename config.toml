@@ -73,10 +73,6 @@ new              = ["c"]
 # Attach a child agent to the hovered agent, which runs in that agent's own checkout
 # with no worktree of its own and is archived along with it.
 child            = ["C"]
-# Put the hovered agent's unread mark back, or take it off, for the times weave's own
-# guess about what you have read is wrong. The mark you set by hand stands until you
-# move the cursor off the row.
-toggle_viewed    = ["u"]
 # Attach to the hovered agent, or to the workflow's own orchestrator when the cursor is on a
 # workflow. Either one is started first if it is not running.
 open             = ["enter"]

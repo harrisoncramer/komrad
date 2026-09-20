@@ -186,12 +186,6 @@ func agentsRowActions() []action {
 			run:  func(m model, _ string) (tea.Model, tea.Cmd) { return m.openHovered() },
 		},
 		{
-			id:   actionAgentToggleViewed,
-			keys: func(k config.Keybindings) []string { return k.Agents.ToggleViewed },
-			when: isHoveringAgent,
-			run:  onHoveredAgent(model.toggleAgentViewed),
-		},
-		{
 			id:   actionAgentPause,
 			keys: func(k config.Keybindings) []string { return k.Agents.Pause },
 			when: isHoveringAgent,
@@ -491,11 +485,6 @@ func agentsBrowsingLegend() []legendRow {
 		{
 			of:   []actionID{actionWorkflowEdit},
 			desc: func(model) string { return "edit" },
-		},
-		{
-			of:   []actionID{actionAgentToggleViewed},
-			desc: func(model) string { return "mark read/unread" },
-			show: isHoveringAgent,
 		},
 		{
 			of:   []actionID{actionWorkflowArchive, actionArchiveOpen},

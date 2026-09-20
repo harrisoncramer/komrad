@@ -288,10 +288,6 @@ type AgentsKeys struct {
 	// Attach a child agent to the hovered agent, which runs in that agent's own checkout
 	// with no worktree of its own and is archived along with it.
 	Child []string `mapstructure:"child" default:"C"`
-	// Put the hovered agent's unread mark back, or take it off, for the times weave's own
-	// guess about what you have read is wrong. The mark you set by hand stands until you
-	// move the cursor off the row.
-	ToggleViewed []string `mapstructure:"toggle_viewed" default:"u"`
 	// Attach to the hovered agent, or to the workflow's own orchestrator when the cursor is on a
 	// workflow. Either one is started first if it is not running.
 	Open []string `mapstructure:"open" default:"enter"`

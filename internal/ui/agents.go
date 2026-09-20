@@ -184,26 +184,6 @@ func (m *model) applyStageTick(msg stageTickMsg) tea.Cmd {
 	return nil
 }
 
-// toggleAgentViewed puts an agent's unread mark back by hand, or takes it off, for the times
-// weave's own reading of the pane is wrong about what happened.
-func (m model) toggleAgentViewed(item agentItem) (tea.Model, tea.Cmd) {
-	viewed := item.unviewed
-
-	// A mark set by hand is held against the dwell until the cursor leaves the row.
-	m.hover = hoverState{
-		agentID: item.agent.ID,
-		since:   time.Now(),
-		held:    !viewed,
-	}
-
-	summary := fmt.Sprintf("Could not mark agent %q unread", item.agent.Name)
-	if viewed {
-		summary = fmt.Sprintf("Could not mark agent %q read", item.agent.Name)
-	}
-
-	return m, m.writeCmd(summary, func(a api) error { return a.setViewed(item.agent.ID, viewed) })
-}
-
 // openHovered attaches to whatever the cursor is on, which for a workflow is the orchestrator
 // standing behind it.
 func (m model) openHovered() (tea.Model, tea.Cmd) {

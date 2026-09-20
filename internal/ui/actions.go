@@ -34,7 +34,6 @@ const (
 	actionGitMenu
 	actionAgentChild
 	actionAgentRename
-	actionAgentToggleViewed
 	actionAgentArchive
 	actionArchiveSelected
 	actionAgentPause
