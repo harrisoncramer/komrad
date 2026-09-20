@@ -18,6 +18,8 @@ import (
 type Refusal struct {
 	Dir    string
 	Reason string
+	// Failed says a step broke rather than the directory being one the remover will not take.
+	Failed bool
 }
 
 // Removal is what one call took and what it left.
@@ -71,14 +73,18 @@ func (r *Remover) Remove(ctx context.Context, dirs []string) (Removal, error) {
 		at := slices.IndexFunc(listing.Worktrees, func(w Worktree) bool { return w.Dir == dir })
 		worktree := listing.Worktrees[at]
 
-		if reason := r.refuseRegistered(ctx, worktree); reason != "" {
-			removal.Refused = append(removal.Refused, Refusal{Dir: dir, Reason: reason})
+		if refusal, refused := r.refuseRegistered(ctx, worktree); refused {
+			removal.Refused = append(removal.Refused, refusal)
 
 			continue
 		}
 
 		if err := os.RemoveAll(dir); err != nil {
-			removal.Refused = append(removal.Refused, Refusal{Dir: dir, Reason: fmt.Sprintf("could not remove it: %v", err)})
+			removal.Refused = append(removal.Refused, Refusal{
+				Dir:    dir,
+				Reason: fmt.Sprintf("could not remove it: %v", err),
+				Failed: true,
+			})
 
 			continue
 		}
@@ -128,22 +134,29 @@ func refuse(listing Listing, rows []agentstore.AgentDir, dir string) string {
 	return ""
 }
 
-// refuseRegistered is why a readable directory is not to be taken by what its repository has
-// registered, empty when nothing registered sits inside it.
-func (r *Remover) refuseRegistered(ctx context.Context, worktree Worktree) string {
+// refuseRegistered is what keeps a readable directory from being taken by what its repository
+// has registered, false when nothing registered sits inside it.
+func (r *Remover) refuseRegistered(ctx context.Context, worktree Worktree) (Refusal, bool) {
 	if !worktree.Readable {
-		return ""
+		return Refusal{}, false
 	}
 
 	registered, err := r.git.ListWorktrees(ctx, worktree.RepoDir)
 	if err != nil {
-		return fmt.Sprintf("could not list the worktrees of its repository: %v", err)
+		return Refusal{
+			Dir:    worktree.Dir,
+			Reason: fmt.Sprintf("could not list the worktrees of its repository: %v", err),
+			Failed: true,
+		}, true
 	}
 	if nested := slices.IndexFunc(registered, func(w git.Worktree) bool { return isBeneath(worktree.Dir, w.Dir) }); nested >= 0 {
-		return fmt.Sprintf("it holds the worktree %s; remove that first", registered[nested].Dir)
+		return Refusal{
+			Dir:    worktree.Dir,
+			Reason: fmt.Sprintf("it holds the worktree %s; remove that first", registered[nested].Dir),
+		}, true
 	}
 
-	return ""
+	return Refusal{}, false
 }
 
 // isBeneath reports whether a path is somewhere inside a directory.

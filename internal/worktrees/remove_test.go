@@ -1,6 +1,8 @@
 package worktrees
 
 import (
+	"errors"
+	"os"
 	"path/filepath"
 	"testing"
 	"time"
@@ -129,6 +131,37 @@ func TestRemoveRefusesADirectoryHoldingAnotherWorktree(t *testing.T) {
 	require.Len(t, removal.Refused, 2)
 	assert.Contains(t, removal.Refused[0].Reason, inner)
 	assert.Contains(t, removal.Refused[1].Reason, byHand)
+	assert.False(t, removal.Refused[0].Failed, "a verdict about the directory, not a step that broke")
+	assert.False(t, removal.Refused[1].Failed)
 	assert.DirExists(t, inner)
 	assert.DirExists(t, byHand)
+}
+
+// TestRemoveMarksAStepThatBroke covers the two refusals that are not verdicts about the
+// directory: the repository's registrations could not be read, and the directory could not be
+// removed.
+func TestRemoveMarksAStepThatBroke(t *testing.T) {
+	f := newFixture(t)
+	unlisted := f.cut(t, "unlisted")
+	f.git.listErr = errors.New("git is not on the path")
+
+	removal, err := f.remover().Remove(t.Context(), []string{unlisted})
+	require.NoError(t, err)
+
+	require.Len(t, removal.Refused, 1)
+	assert.Contains(t, removal.Refused[0].Reason, "could not list the worktrees")
+	assert.True(t, removal.Refused[0].Failed)
+	assert.DirExists(t, unlisted)
+
+	f.git.listErr = nil
+	held := f.cut(t, "held")
+	require.NoError(t, os.Chmod(f.shared, 0o500))
+	t.Cleanup(func() { assert.NoError(t, os.Chmod(f.shared, 0o700)) })
+
+	removal, err = f.remover().Remove(t.Context(), []string{held})
+	require.NoError(t, err)
+
+	require.Len(t, removal.Refused, 1)
+	assert.Contains(t, removal.Refused[0].Reason, "could not remove it")
+	assert.True(t, removal.Refused[0].Failed)
 }

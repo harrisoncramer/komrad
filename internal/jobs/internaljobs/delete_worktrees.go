@@ -6,7 +6,9 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"path/filepath"
 	"slices"
+	"strings"
 
 	"weave/internal/logging"
 	"weave/internal/worktrees"
@@ -25,8 +27,7 @@ type DeleteWorktreesArgs struct {
 // Kind is the River job kind.
 func (DeleteWorktreesArgs) Kind() string { return "delete_worktrees" }
 
-// InsertOpts keeps one job per set of directories in flight, using River's default states
-// without completed so a finished delete does not swallow a later press naming the same rows.
+// InsertOpts keeps one job per set of directories in flight.
 func (DeleteWorktreesArgs) InsertOpts() river.InsertOpts {
 	return river.InsertOpts{
 		UniqueOpts: river.UniqueOpts{
@@ -77,7 +78,7 @@ func NewDeleteWorktreesWorker(params NewDeleteWorktreesWorkerParams) *DeleteWork
 }
 
 // Work sends each directory the listing still holds down the path its row decides, and
-// cancels rather than retries when a refusal is all that went wrong.
+// cancels rather than retries when a refusal is all that stands.
 func (w *DeleteWorktreesWorker) Work(ctx context.Context, job *river.Job[DeleteWorktreesArgs]) error {
 	listing, err := w.worktrees.List(ctx)
 	if err != nil {
@@ -110,12 +111,21 @@ func (w *DeleteWorktreesWorker) Work(ctx context.Context, job *river.Job[DeleteW
 		}
 	}
 
-	if len(dirs) > 0 {
-		removal, err := w.remover.Remove(ctx, dirs)
+	for _, level := range deepestFirst(dirs) {
+		removal, err := w.remover.Remove(ctx, level)
 		if err != nil {
-			failed = append(failed, fmt.Errorf("failed to remove %d directories: %w", len(dirs), err))
+			failed = append(failed, fmt.Errorf("failed to remove %d directories: %w", len(level), err))
+
+			continue
 		}
-		refused = append(refused, removal.Refused...)
+		for _, refusal := range removal.Refused {
+			if refusal.Failed {
+				failed = append(failed, fmt.Errorf("%s: %s", refusal.Dir, refusal.Reason))
+
+				continue
+			}
+			refused = append(refused, refusal)
+		}
 	}
 
 	left := make([]error, 0, len(refused))
@@ -133,4 +143,23 @@ func (w *DeleteWorktreesWorker) Work(ctx context.Context, job *river.Job[DeleteW
 	}
 
 	return nil
+}
+
+// deepestFirst groups the directories by depth with the deepest group first, which puts a
+// directory ahead of whatever holds it.
+func deepestFirst(dirs []string) [][]string {
+	depth := func(dir string) int { return strings.Count(dir, string(filepath.Separator)) }
+	sorted := slices.SortedStableFunc(slices.Values(dirs), func(a, b string) int { return depth(b) - depth(a) })
+
+	var groups [][]string
+	for _, dir := range sorted {
+		if last := len(groups) - 1; last >= 0 && depth(groups[last][0]) == depth(dir) {
+			groups[last] = append(groups[last], dir)
+
+			continue
+		}
+		groups = append(groups, []string{dir})
+	}
+
+	return groups
 }

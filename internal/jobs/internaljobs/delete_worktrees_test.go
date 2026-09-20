@@ -24,7 +24,7 @@ type fakeWorktrees struct {
 	removeErr error
 	refused   []worktrees.Refusal
 	deleted   [][]string
-	removed   []string
+	removed   [][]string
 }
 
 func (f *fakeWorktrees) List(context.Context) (worktrees.Listing, error) {
@@ -38,7 +38,7 @@ func (f *fakeWorktrees) DeleteAgents(_ context.Context, ids []string) error {
 }
 
 func (f *fakeWorktrees) Remove(_ context.Context, dirs []string) (worktrees.Removal, error) {
-	f.removed = dirs
+	f.removed = append(f.removed, dirs)
 	if f.removeErr != nil {
 		return worktrees.Removal{}, f.removeErr
 	}
@@ -75,8 +75,9 @@ func TestDeleteWorktreesSendsEachDirectoryDownItsPath(t *testing.T) {
 		dirs        []string
 		refused     []worktrees.Refusal
 		deleteErr   error
+		removeErr   error
 		wantDeleted [][]string
-		wantRemoved []string
+		wantRemoved [][]string
 		wantErr     bool
 		wantCancel  bool
 		wantSaid    string
@@ -101,9 +102,30 @@ func TestDeleteWorktreesSendsEachDirectoryDownItsPath(t *testing.T) {
 			listing:     []worktrees.Worktree{{Dir: "/trees/orphan", Readable: true}},
 			dirs:        []string{"/trees/orphan"},
 			refused:     []worktrees.Refusal{{Dir: "/trees/orphan", Reason: "it holds the worktree /trees/orphan/nested; remove that first"}},
-			wantRemoved: []string{"/trees/orphan"},
+			wantRemoved: [][]string{{"/trees/orphan"}},
 			wantCancel:  true,
 			wantSaid:    "/trees/orphan was left alone: it holds the worktree",
+		},
+		{
+			name:    "a step that broke is retried rather than cancelled",
+			listing: []worktrees.Worktree{{Dir: "/trees/orphan", Readable: true}},
+			dirs:    []string{"/trees/orphan"},
+			refused: []worktrees.Refusal{{
+				Dir:    "/trees/orphan",
+				Reason: "could not remove it: permission denied",
+				Failed: true,
+			}},
+			wantRemoved: [][]string{{"/trees/orphan"}},
+			wantErr:     true,
+			wantSaid:    "/trees/orphan: could not remove it",
+		},
+		{
+			name:        "a remover that cannot read the listing is retried",
+			listing:     []worktrees.Worktree{{Dir: "/trees/orphan", Readable: true}},
+			dirs:        []string{"/trees/orphan"},
+			removeErr:   errors.New("the worktrees directory is unreadable"),
+			wantRemoved: [][]string{{"/trees/orphan"}},
+			wantErr:     true,
 		},
 		{
 			name: "a delete that fails is retried, the refusals riding along in the error",
@@ -127,7 +149,7 @@ func TestDeleteWorktreesSendsEachDirectoryDownItsPath(t *testing.T) {
 			name:        "a directory nothing answers for goes to the remover",
 			listing:     []worktrees.Worktree{{Dir: "/trees/orphan", Readable: true}},
 			dirs:        []string{"/trees/orphan"},
-			wantRemoved: []string{"/trees/orphan"},
+			wantRemoved: [][]string{{"/trees/orphan"}},
 		},
 		{
 			name: "a row whose own delete failed on a registration git cannot read goes to the remover",
@@ -136,7 +158,7 @@ func TestDeleteWorktreesSendsEachDirectoryDownItsPath(t *testing.T) {
 				Agent: &worktrees.Agent{ID: "stuck", Name: "stuck", FailedToCleanup: true},
 			}},
 			dirs:        []string{"/trees/stuck"},
-			wantRemoved: []string{"/trees/stuck"},
+			wantRemoved: [][]string{{"/trees/stuck"}},
 		},
 		{
 			name: "both paths in one job",
@@ -146,7 +168,17 @@ func TestDeleteWorktreesSendsEachDirectoryDownItsPath(t *testing.T) {
 			},
 			dirs:        []string{"/trees/orphan", "/trees/a"},
 			wantDeleted: [][]string{{"a"}},
-			wantRemoved: []string{"/trees/orphan"},
+			wantRemoved: [][]string{{"/trees/orphan"}},
+		},
+		{
+			name: "a directory goes before the one holding it, each depth its own call",
+			listing: []worktrees.Worktree{
+				{Dir: "/trees/outer", Readable: true},
+				{Dir: "/trees/outer/inner", Readable: true},
+				{Dir: "/trees/other", Readable: true},
+			},
+			dirs:        []string{"/trees/outer", "/trees/other", "/trees/outer/inner"},
+			wantRemoved: [][]string{{"/trees/outer/inner"}, {"/trees/outer", "/trees/other"}},
 		},
 	}
 
@@ -156,6 +188,7 @@ func TestDeleteWorktreesSendsEachDirectoryDownItsPath(t *testing.T) {
 				listing:   worktrees.Listing{Worktrees: tt.listing},
 				refused:   tt.refused,
 				deleteErr: tt.deleteErr,
+				removeErr: tt.removeErr,
 			}
 			worker := newDeleteWorktreesWorker(fake)
 
