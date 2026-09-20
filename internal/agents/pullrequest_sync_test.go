@@ -393,7 +393,7 @@ func TestSyncFirstSweepStopsAtTheHorizon(t *testing.T) {
 
 // TestSyncSearchWritesOnlyChangedRows covers the pass after the first sweep: one search from
 // the mark less the overlap, its rows written with their decisions and nothing else touched,
-// the mark moved to the newest change it answered, and no decision read for a row the search
+// the mark moved to the moment of the search, and no decision read for a row the search
 // already decided.
 func TestSyncSearchWritesOnlyChangedRows(t *testing.T) {
 	f, mark := sweptFixture(t)
@@ -413,12 +413,14 @@ func TestSyncSearchWritesOnlyChangedRows(t *testing.T) {
 	assert.True(t, written.DecisionChangedAt.Equal(changedAt))
 	assert.Equal(t, before, f.stored(t, "PR_1"), "a row the search did not answer is not touched")
 	sync := f.getSync(t)
-	assert.True(t, sync.UpdatedThrough.Equal(changedAt), "the mark is the newest change the search answered")
+	assert.True(t, sync.UpdatedThrough.Equal(syncNow.Add(time.Minute)), "the mark is the moment of the search, which covered up to then")
 	assert.Equal(t, 1, sync.Calls)
 }
 
-// TestSyncSearchMovesTheMarkToTheSearchTime covers a search that answers nothing for a
-// repository: its mark moves to the moment of the search, which the search covered.
+// TestSyncSearchMovesTheMarkToTheSearchTime covers the mark after a search: it moves to the
+// moment of the search whether the search answered nothing or only rows older than that, so a
+// quiet repository's window closes rather than pinning at its last change, and past the search
+// time only when the forge's clock is ahead.
 func TestSyncSearchMovesTheMarkToTheSearchTime(t *testing.T) {
 	f, mark := sweptFixture(t)
 
@@ -428,8 +430,46 @@ func TestSyncSearchMovesTheMarkToTheSearchTime(t *testing.T) {
 	assert.Equal(t, []string{search(mark)}, f.forge.requests)
 	assert.True(t, f.getSync(t).UpdatedThrough.Equal(later))
 
+	f.forge.changed[""] = &forge.ListChangedResult{PullRequests: []forge.PullRequest{
+		decided(pullRequestAt("PR_2", "agent/x", later.Add(-5*time.Minute)), forge.ReviewDecisionNone),
+	}}
 	f.pass(t, later.Add(time.Minute))
 	assert.Equal(t, []string{search(later)}, f.forge.requests, "the next search starts from the moved mark")
+	assert.True(t, f.getSync(t).UpdatedThrough.Equal(later.Add(time.Minute)), "an answered row older than the search does not hold the mark back")
+
+	ahead := later.Add(10 * time.Minute)
+	f.forge.changed[""] = &forge.ListChangedResult{PullRequests: []forge.PullRequest{
+		decided(pullRequestAt("PR_3", "agent/x", ahead), forge.ReviewDecisionNone),
+	}}
+	f.pass(t, later.Add(2*time.Minute))
+	assert.True(t, f.getSync(t).UpdatedThrough.Equal(ahead), "a row stamped ahead of the search moves the mark to it")
+}
+
+// TestSyncStaleMarkGoesBackToAFirstSweep covers a repository whose mark has fallen more than a
+// day behind, which is swept again from page one rather than dragging the host's search back
+// a day.
+func TestSyncStaleMarkGoesBackToAFirstSweep(t *testing.T) {
+	f, _ := sweptFixture(t)
+	f.agentIn(t, "b", otherRepository, "agent/y")
+	other := git.RemoteURL{
+		Scheme: "https",
+		Host:   "github.com",
+		Path:   "harrisoncramer/weave-forge-fixture",
+	}
+	f.forge.elsewhere[other.Path] = map[string]*forge.ListUpdatedResult{"": {}}
+	f.pass(t, syncNow.Add(time.Minute))
+	require.True(t, f.getSyncOf(t, otherRepository).IsSwept())
+
+	f.forge.updated[""] = &forge.ListUpdatedResult{PullRequests: []forge.PullRequest{pullRequestAt("PR_1", "agent/x", syncNow.Add(-time.Hour))}}
+	later := syncNow.Add(25 * time.Hour)
+	f.pass(t, later)
+
+	assert.Equal(t, "updated:", f.forge.requests[0], "the stale repository is swept again before the search")
+	require.NotEmpty(t, f.forge.searches)
+	last := f.forge.searches[len(f.forge.searches)-1]
+	assert.Len(t, last.Repos, 2)
+	assert.True(t, last.Since.Equal(later.Add(-pullRequestSyncOverlap)), "the search starts from the pass, not a day back")
+	assert.True(t, f.getSync(t).UpdatedThrough.Equal(later))
 }
 
 // TestSyncSearchPagesAndMovesTheMarkOnlyAtTheEnd covers a search with more than one page:
@@ -456,7 +496,7 @@ func TestSyncSearchPagesAndMovesTheMarkOnlyAtTheEnd(t *testing.T) {
 	f.pass(t, syncNow.Add(2*time.Minute))
 
 	f.stored(t, "PR_4")
-	assert.True(t, f.getSync(t).UpdatedThrough.Equal(newest), "the mark is the newest change once every page is written")
+	assert.True(t, f.getSync(t).UpdatedThrough.Equal(syncNow.Add(2*time.Minute)), "the mark is the moment of the search once every page is written")
 	assert.Equal(t, 2, f.getSync(t).Calls, "each page counts against the repository")
 }
 

@@ -62,6 +62,7 @@ const (
 	Repositories           = "weave.repositories"
 	RowsListed             = "weave.rows.listed"
 	SearchCapped           = "weave.pull_request.search_capped"
+	UpdatedThrough         = "weave.pull_request.updated_through"
 	ThrottledUntil         = "weave.forge.throttled_until"
 	Repeats                = "repeats"
 	Handle                 = "handle"

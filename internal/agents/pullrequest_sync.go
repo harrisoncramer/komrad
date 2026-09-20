@@ -30,6 +30,10 @@ const pullRequestSyncListing = time.Hour
 // pullRequestSyncHorizon is how far back a repository's first sweep reads.
 const pullRequestSyncHorizon = 30 * 24 * time.Hour
 
+// pullRequestSyncStale is how far behind a repository's mark may fall before it is swept again
+// rather than searched.
+const pullRequestSyncStale = 24 * time.Hour
+
 // pullRequestSearchCap is the most rows a forge's search answers, at which the repositories
 // searched go back to a first sweep.
 const pullRequestSearchCap = 1000
@@ -300,9 +304,9 @@ func (s *PullRequestSyncer) logRepository(ctx context.Context, read *repositoryR
 	)
 }
 
-// sweep reads a repository that has had no first sweep by its listing, newest change first,
-// page by page from where the cursor row says, until it reaches the horizon or the budget runs
-// out.
+// sweep reads a repository that has had no first sweep, or whose mark has fallen a day behind,
+// by its listing, newest change first, page by page from where the cursor row says, until it
+// reaches the horizon or the budget runs out.
 func (s *PullRequestSyncer) sweep(ctx context.Context, host *hostRead, read *repositoryRead) error {
 	remote, counts := read.remote, read.tally
 	repositoryURL := remote.Canonical()
@@ -311,7 +315,18 @@ func (s *PullRequestSyncer) sweep(ctx context.Context, host *hostRead, read *rep
 		return err
 	}
 	if sync.IsSwept() {
-		return nil
+		if s.now().Sub(*sync.UpdatedThrough) < pullRequestSyncStale {
+			return nil
+		}
+
+		logging.From(ctx).LogAttrs(ctx, slog.LevelInfo, "the repository's mark is more than a day behind, so it is swept again rather than searched",
+			slog.String(logging.RepositoryURL, repositoryURL),
+			slog.Time(logging.UpdatedThrough, *sync.UpdatedThrough))
+		if err := s.pullRequests.ResetSweeps(ctx, []string{repositoryURL}); err != nil {
+			return err
+		}
+
+		sync.SweepCursor = nil
 	}
 
 	cursor := ""
@@ -500,8 +515,9 @@ func (s *PullRequestSyncer) searchPages(ctx context.Context, host *hostRead, pas
 	return nil
 }
 
-// settle moves each repository's mark to what the search covered for it, or hands them all
-// back to a first sweep when the search was capped.
+// settle moves each repository's mark to the moment of the search, or to the newest change it
+// answered when the forge's clock is ahead, or hands them all back to a first sweep when the
+// search was capped.
 func (p *searchPass) settle(ctx context.Context, st *pullrequeststore.Store) error {
 	if p.capped {
 		return st.ResetSweeps(ctx, p.urls)
@@ -509,7 +525,7 @@ func (p *searchPass) settle(ctx context.Context, st *pullrequeststore.Store) err
 
 	for _, repositoryURL := range p.urls {
 		through := p.searchedAt
-		if answered, ok := p.newest[repositoryURL]; ok {
+		if answered, ok := p.newest[repositoryURL]; ok && answered.After(through) {
 			through = answered
 		}
 		if err := st.AdvanceMark(ctx, repositoryURL, through); err != nil {
