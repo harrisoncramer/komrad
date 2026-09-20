@@ -13,6 +13,7 @@ import (
 	workflowstore "weave/internal/store/workflow"
 	"weave/internal/ui/layout"
 	"weave/internal/ui/paint"
+	"weave/lib/xslice"
 
 	"connectrpc.com/connect"
 	tea "github.com/charmbracelet/bubbletea"
@@ -125,9 +126,9 @@ func TestToggleSelection(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			m := selectionTree()
 			m.tree.cursor = tt.cursor
-			m.tree.selected = selection{ids: tt.start}
+			m.tree.selected = selectAgents(tt.start...)
 
-			assert.Equal(t, tt.want, press(t, m, keyMsg("v")).tree.selected.ids)
+			assert.Equal(t, tt.want, selectedIDs(press(t, m, keyMsg("v")).tree.selected))
 		})
 	}
 }
@@ -140,7 +141,7 @@ func TestToggleSelectionEmptyFolder(t *testing.T) {
 	m.tree.cursor = len(m.agentRows()) - 1
 
 	after := press(t, m, keyMsg("v"))
-	assert.Empty(t, after.tree.selected.ids)
+	assert.Empty(t, selectedIDs(after.tree.selected))
 	assert.False(t, after.tree.selected.isActive())
 }
 
@@ -199,9 +200,9 @@ func TestSelectRange(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			m := selectionTree()
 			m.tree.cursor = tt.cursor
-			m.tree.selected = selection{ids: tt.start}
+			m.tree.selected = selectAgents(tt.start...)
 
-			assert.Equal(t, tt.want, press(t, m, keyMsg("V")).tree.selected.ids)
+			assert.Equal(t, tt.want, selectedIDs(press(t, m, keyMsg("V")).tree.selected))
 		})
 	}
 }
@@ -211,7 +212,7 @@ func TestSelectRange(t *testing.T) {
 func TestSelectionKeysStandDown(t *testing.T) {
 	m := selectionTree()
 	m.tree.cursor = 1
-	m.tree.selected = selection{ids: []string{"a1"}}
+	m.tree.selected = selectAgents([]string{"a1"}...)
 
 	renamed := press(t, m, keyMsg("r"))
 	assert.Equal(t, screenAgents, renamed.screen, "rename does not open its form")
@@ -221,7 +222,7 @@ func TestSelectionKeysStandDown(t *testing.T) {
 	assert.Equal(t, 2, moved.tree.cursor, "the cursor still moves")
 
 	cleared := press(t, m, keyMsg("esc"))
-	assert.Empty(t, cleared.tree.selected.ids)
+	assert.Empty(t, selectedIDs(cleared.tree.selected))
 	assert.False(t, cleared.tree.selected.isActive())
 }
 
@@ -231,7 +232,7 @@ func TestPruneSelection(t *testing.T) {
 	t.Run("an agent gone from the listing drops", func(t *testing.T) {
 		m := selectionTree()
 		m.tree.placed = true
-		m.tree.selected = selection{ids: []string{"a1", "a4"}}
+		m.tree.selected = selectAgents([]string{"a1", "a4"}...)
 
 		m.applyAgents([]agentItem{{agent: agentstore.Agent{
 			ID:         "a4",
@@ -240,16 +241,16 @@ func TestPruneSelection(t *testing.T) {
 		}}})
 		m.placeTreeCursor("")
 
-		assert.Equal(t, []string{"a4"}, m.tree.selected.ids)
+		assert.Equal(t, []string{"a4"}, selectedIDs(m.tree.selected))
 	})
 
 	t.Run("so does one the hidden toggle puts away", func(t *testing.T) {
 		m := selectionTree()
 		m.tree.showHidden = true
-		m.tree.selected = selection{ids: []string{"a1", "a5"}}
+		m.tree.selected = selectAgents([]string{"a1", "a5"}...)
 
 		away := press(t, m, keyMsg("H"))
-		assert.Equal(t, []string{"a1"}, away.tree.selected.ids)
+		assert.Equal(t, []string{"a1"}, selectedIDs(away.tree.selected))
 	})
 }
 
@@ -299,24 +300,24 @@ func TestArchiveSelection(t *testing.T) {
 		m.archive.cursor = 2
 
 		after := pressArchive(t, m, keyMsg("v"))
-		assert.Equal(t, []string{"a2"}, after.archive.selected.ids)
-		assert.Empty(t, after.tree.selected.ids, "the agents tree is left alone")
+		assert.Equal(t, []string{"a2"}, selectedIDs(after.archive.selected))
+		assert.Empty(t, selectedIDs(after.tree.selected), "the agents tree is left alone")
 	})
 
 	t.Run("a header takes its whole folder", func(t *testing.T) {
 		m := archiveSelectionTree()
 
 		after := pressArchive(t, m, keyMsg("v"))
-		assert.Equal(t, []string{"a1", "a2", "a3"}, after.archive.selected.ids)
+		assert.Equal(t, []string{"a1", "a2", "a3"}, selectedIDs(after.archive.selected))
 	})
 
 	t.Run("the range key reaches back to the nearest selection", func(t *testing.T) {
 		m := archiveSelectionTree()
 		m.archive.cursor = 3
-		m.archive.selected = selection{ids: []string{"a1"}}
+		m.archive.selected = selectAgents([]string{"a1"}...)
 
 		after := pressArchive(t, m, keyMsg("V"))
-		assert.Equal(t, []string{"a1", "a2", "a3"}, after.archive.selected.ids)
+		assert.Equal(t, []string{"a1", "a2", "a3"}, selectedIDs(after.archive.selected))
 	})
 
 	t.Run("restore takes the whole selection rather than the hovered row", func(t *testing.T) {
@@ -324,7 +325,7 @@ func TestArchiveSelection(t *testing.T) {
 		m := archiveSelectionTree()
 		m.api = api{agents: agents}
 		m.archive.cursor = 3
-		m.archive.selected = selection{ids: []string{"a1", "a2"}}
+		m.archive.selected = selectAgents([]string{"a1", "a2"}...)
 
 		next, cmd := m.updateArchive(keyMsg("r"))
 		require.NotNil(t, cmd)
@@ -334,7 +335,7 @@ func TestArchiveSelection(t *testing.T) {
 
 		after, ok := next.(model)
 		require.True(t, ok)
-		assert.Equal(t, []string{"a1", "a2"}, after.archive.selected.ids, "the selection outlives a refusal")
+		assert.Equal(t, []string{"a1", "a2"}, selectedIDs(after.archive.selected), "the selection outlives a refusal")
 	})
 
 	t.Run("delete opens the prompt on the whole selection", func(t *testing.T) {
@@ -342,7 +343,7 @@ func TestArchiveSelection(t *testing.T) {
 		m := archiveSelectionTree()
 		m.api = api{agents: agents}
 		m.archive.cursor = 3
-		m.archive.selected = selection{ids: []string{"a1", "a2"}}
+		m.archive.selected = selectAgents([]string{"a1", "a2"}...)
 
 		opened := pressArchive(t, m, keyMsg("d"))
 		assert.Equal(t, formArchiveDelete, opened.form.kind)
@@ -362,7 +363,7 @@ func TestArchiveSelection(t *testing.T) {
 		m.listing.workflows = nil
 		m.archive.workflows = []workflowstore.Workflow{archivedWorkflow("w1", "backend")}
 		m.archive.cursor = 0
-		m.archive.selected = selection{ids: []string{"a1"}}
+		m.archive.selected = selectAgents([]string{"a1"}...)
 
 		_, cmd := m.updateArchive(keyMsg("r"))
 		require.NotNil(t, cmd)
@@ -373,10 +374,10 @@ func TestArchiveSelection(t *testing.T) {
 
 	t.Run("esc clears the selection rather than leaving the screen", func(t *testing.T) {
 		m := archiveSelectionTree()
-		m.archive.selected = selection{ids: []string{"a1"}}
+		m.archive.selected = selectAgents([]string{"a1"}...)
 
 		cleared := pressArchive(t, m, keyMsg("esc"))
-		assert.Empty(t, cleared.archive.selected.ids)
+		assert.Empty(t, selectedIDs(cleared.archive.selected))
 		assert.Equal(t, screenArchive, cleared.screen)
 
 		left := pressArchive(t, cleared, keyMsg("esc"))
@@ -385,7 +386,7 @@ func TestArchiveSelection(t *testing.T) {
 
 	t.Run("an agent gone from the listing drops", func(t *testing.T) {
 		m := archiveSelectionTree()
-		m.archive.selected = selection{ids: []string{"a1", "a3"}}
+		m.archive.selected = selectAgents([]string{"a1", "a3"}...)
 
 		m.applyArchive(
 			[]agentstore.Agent{{
@@ -397,7 +398,7 @@ func TestArchiveSelection(t *testing.T) {
 			"",
 		)
 
-		assert.Equal(t, []string{"a3"}, m.archive.selected.ids)
+		assert.Equal(t, []string{"a3"}, selectedIDs(m.archive.selected))
 	})
 
 	t.Run("a chosen row takes the bar", func(t *testing.T) {
@@ -409,7 +410,7 @@ func TestArchiveSelection(t *testing.T) {
 		rest := m.archiveView()
 		assert.NotContains(t, line(t, rest, "api"), paint.BackgroundSequence(paint.SelectionBackground))
 
-		m.archive.selected = selection{ids: []string{"a2"}}
+		m.archive.selected = selectAgents([]string{"a2"}...)
 		view := m.archiveView()
 		assert.Contains(t, line(t, view, "api"), paint.BackgroundSequence(paint.SelectionBackground))
 		assert.NotContains(t, line(t, view, "db"), paint.BackgroundSequence(paint.SelectionBackground), "and only that row")
@@ -479,7 +480,7 @@ func TestArchiveSelectionFromTheTree(t *testing.T) {
 			m.frame = layout.New(stage, config.DefaultLayout())
 			m.api = api{agents: agents}
 			m.tree.cursor = tt.cursor
-			m.tree.selected = selection{ids: tt.selected}
+			m.tree.selected = selectAgents(tt.selected...)
 
 			for i := range m.listing.agents {
 				m.listing.agents[i].agent.Pane = "%" + m.listing.agents[i].agent.ID
@@ -501,7 +502,7 @@ func TestArchiveSelectionFromTheTree(t *testing.T) {
 
 			after, ok := next.(model)
 			require.True(t, ok)
-			assert.Equal(t, tt.selected, after.tree.selected.ids,
+			assert.Equal(t, tt.selected, selectedIDs(after.tree.selected),
 				"the rows come off the selection on the next listing rather than on the keypress")
 		})
 	}
@@ -526,7 +527,7 @@ func TestSelectionKeepsItsBarWhileAFormHasTheKeys(t *testing.T) {
 
 	m := selectionTree()
 	m.width = rowPaneWidth
-	m.tree.selected = selection{ids: []string{"a2"}}
+	m.tree.selected = selectAgents([]string{"a2"}...)
 
 	require.True(t, m.isListFocused(), "the list has the keys to begin with")
 	require.Contains(t, line(t, m.agentsView(), "api"), paint.BackgroundSequence(paint.SelectionBackground))
@@ -537,4 +538,18 @@ func TestSelectionKeepsItsBarWhileAFormHasTheKeys(t *testing.T) {
 	require.False(t, m.isListFocused(), "and gives them up to the confirm")
 	assert.Contains(t, line(t, m.agentsView(), "api"), paint.BackgroundSequence(paint.SelectionBackground),
 		"but the bar under it does not follow the keys")
+}
+
+// selectAgents is a selection holding the named agents, spelled by id as the tables read.
+func selectAgents(ids ...string) selection {
+	return selection{keys: xslice.Map(ids, agentRowKey)}
+}
+
+// selectedIDs is the agents a selection holds, by id.
+func selectedIDs(sel selection) []string {
+	if len(sel.keys) == 0 {
+		return nil
+	}
+
+	return xslice.Map(sel.keys, func(key string) string { return strings.TrimPrefix(key, "agent:") })
 }

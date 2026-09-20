@@ -135,8 +135,6 @@ type Keybindings struct {
 	// The key that pages the service's log, shared by every screen since the log is
 	// about the service rather than about anything a screen lists.
 	Logs LogsKeys `mapstructure:"logs"`
-	// The mailbox of one agent, and the key that opens it from the agents list.
-	Mail MailKeys `mapstructure:"mail"`
 	// The marks a person puts on rows to jump between them, as vim's own marks work.
 	Marks MarksKeys `mapstructure:"marks"`
 	// Navigation, shared by every menu so movement is the same everywhere.
@@ -156,6 +154,8 @@ type Keybindings struct {
 	Terminal TerminalKeys `mapstructure:"terminal"`
 	// The bindings that create and change workflows, from the agents list.
 	Workflows WorkflowsKeys `mapstructure:"workflows"`
+	// The worktrees screen, which lists every directory weave cut for an agent.
+	Worktrees WorktreesKeys `mapstructure:"worktrees"`
 }
 
 // NavKeys are the shared navigation bindings every menu uses, so movement is the
@@ -292,9 +292,6 @@ type AgentsKeys struct {
 	// guess about what you have read is wrong. The mark you set by hand stands until you
 	// move the cursor off the row.
 	ToggleViewed []string `mapstructure:"toggle_viewed" default:"u"`
-	// Read the mail the hovered agent has sent and been sent, with the mailbox in the
-	// sidebar and the message under the cursor in the stage.
-	Mail []string `mapstructure:"mail" default:"m"`
 	// Attach to the hovered agent, or to the workflow's own orchestrator when the cursor is on a
 	// workflow. Either one is started first if it is not running.
 	Open []string `mapstructure:"open" default:"enter"`
@@ -317,7 +314,7 @@ type AgentsKeys struct {
 type MarksKeys struct {
 	// Set a mark on the row under the cursor, agent or workflow, then the letter to set, or
 	// the letter it already holds to take the mark off it.
-	Set []string `mapstructure:"set" default:"t"`
+	Set []string `mapstructure:"set" default:"m"`
 	// Jump the cursor to a marked row, then the letter to jump to, or the jump key again to
 	// go back to where the last jump left from.
 	Jump []string `mapstructure:"jump" default:"'"`
@@ -333,8 +330,7 @@ type GitKeys struct {
 	Rebase []string `mapstructure:"rebase" default:"r"`
 }
 
-// WorkflowsKeys are the bindings that act on a workflow. New is global. Rename,
-// edit, and archive apply while the cursor is on a workflow header.
+// WorkflowsKeys are the bindings that act on a workflow.
 type WorkflowsKeys struct {
 	// Put an agent on a branch that already exists, in the workflow under the
 	// cursor.
@@ -349,11 +345,24 @@ type WorkflowsKeys struct {
 	Rename []string `mapstructure:"rename" default:"r"`
 }
 
-// MailKeys are the bindings for the mailbox screen, which draws an agent's mail grouped
-// into threads in the sidebar, and the message the cursor is standing on in the stage.
-type MailKeys struct {
-	// Leave the mailbox for the agents list.
+// WorktreesKeys are the bindings for the worktrees screen.
+type WorktreesKeys struct {
+	// Leave the worktrees screen for the agents list.
 	Back []string `mapstructure:"back" default:"esc"`
+	// Delete everything on the screen that can go: every directory whose agent is archived,
+	// through the agent delete and its hooks, and every directory no agent answers for. A
+	// directory with a live agent in it is never deleted.
+	Clear []string `mapstructure:"clear" default:"D"`
+	// Delete the directory under the cursor. One with an archived agent goes through the
+	// agent delete, which runs the workflow's hooks and the cleanup; one with a live agent
+	// offers to archive it first; one nothing answers for is removed on its own. It asks first.
+	Delete []string `mapstructure:"delete" default:"d"`
+	// Jump to the agent in the directory under the cursor, on the agents list or in the
+	// archive.
+	JumpToAgent []string `mapstructure:"jump_to_agent" default:"J"`
+	// Open the worktrees screen from the agents list or the archive, landing on the hovered
+	// agent's own directory.
+	Open []string `mapstructure:"open" default:"t"`
 	// Quit the panel.
 	Quit []string `mapstructure:"quit" default:"ctrl+c"`
 }

@@ -607,7 +607,7 @@ func TestSnapshotListing(t *testing.T) {
 			{item: agentItem{agent: agentstore.Agent{ID: "a2", Name: "passed over"}}},
 		},
 		marks:    map[string]string{"workflow:w1": "w", "agent:a2": "p"},
-		selected: selection{ids: []string{"a1"}},
+		selected: selectAgents([]string{"a1"}...),
 		focused:  "agent:a1",
 		pane:     40,
 	}

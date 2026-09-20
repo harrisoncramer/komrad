@@ -205,8 +205,8 @@ func (m model) routeGlobalKey(key tea.KeyMsg) (tea.Model, tea.Cmd, bool) {
 	}
 
 	// Whether these keys act is a policy about the keys rather than the geometry holdsWindow
-	// answers, and the two do not line up in either direction: the mail screen holds no window and
-	// takes them, while the archive and the review draw the whole window and refuse them.
+	// answers, and the two do not line up: the archive and the review draw the whole window and
+	// refuse them.
 	if m.screen.opensInfoPane() {
 		switch {
 		case isBound(key.String(), m.keys.Logs.Open):
@@ -256,10 +256,9 @@ func (m model) routeAsyncMessage(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
 		next, viewed := m.dwellViewed(msg.at)
 		next, readRuns := next.dwellRunsRead(msg.at)
 		reviewing := next.refreshReviewCmd(msg.at)
-		mailing := next.refreshMailCmd()
 		next, edited := next.reconcileEditor()
 
-		return next, tea.Batch(next.refreshCmd(), refreshTick(), viewed, reviewing, readRuns, mailing, edited), true
+		return next, tea.Batch(next.refreshCmd(), refreshTick(), viewed, reviewing, readRuns, edited), true
 	case tea.BlurMsg:
 		m.blurred = true
 		m.syncKeys()
@@ -280,7 +279,11 @@ func (m model) routeAsyncMessage(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
 
 		return next, cmd, true
 	case stageTickMsg:
-		m.applyStageTick(msg)
+		cmd := m.applyStageTick(msg)
+
+		return m, cmd, true
+	case worktreeInspectedMsg:
+		m.applyWorktreeInspection(msg)
 
 		return m, nil, true
 	case refreshResult:
@@ -297,10 +300,6 @@ func (m model) routeAsyncMessage(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
 		return next, cmd, true
 	case rebasedMsg:
 		return m.applyRebased(msg), nil, true
-	case mailLoadedMsg:
-		m.applyMailLoaded(msg)
-
-		return m, nil, true
 	case reviewLoadedMsg:
 		return m, m.applyReviewLoaded(msg), true
 	case reviewPausedMsg:

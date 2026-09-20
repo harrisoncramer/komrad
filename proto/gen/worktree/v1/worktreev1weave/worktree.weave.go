@@ -19,6 +19,7 @@ type WorktreeServiceImpl interface {
 	ListWorktrees(context.Context, *emptypb.Empty) (*v1.ListWorktreesResponse, *fail.Error)
 	GetWorktree(context.Context, *v1.GetWorktreeRequest) (*v1.GetWorktreeResponse, *fail.Error)
 	RemoveUnownedWorktrees(context.Context, *v1.RemoveUnownedWorktreesRequest) (*v1.RemoveUnownedWorktreesResponse, *fail.Error)
+	DeleteWorktrees(context.Context, *v1.DeleteWorktreesRequest) (*emptypb.Empty, *fail.Error)
 }
 
 // WorktreeServiceAdapter carries what the implementation returned across to the signature
@@ -40,4 +41,9 @@ func (a WorktreeServiceAdapter) GetWorktree(ctx context.Context, req *connect.Re
 // RemoveUnownedWorktrees answers the request as connect serves it.
 func (a WorktreeServiceAdapter) RemoveUnownedWorktrees(ctx context.Context, req *connect.Request[v1.RemoveUnownedWorktreesRequest]) (*connect.Response[v1.RemoveUnownedWorktreesResponse], error) {
 	return rpcerr.Answer(a.Impl.RemoveUnownedWorktrees(ctx, req.Msg))
+}
+
+// DeleteWorktrees answers the request as connect serves it.
+func (a WorktreeServiceAdapter) DeleteWorktrees(ctx context.Context, req *connect.Request[v1.DeleteWorktreesRequest]) (*connect.Response[emptypb.Empty], error) {
+	return rpcerr.Answer(a.Impl.DeleteWorktrees(ctx, req.Msg))
 }

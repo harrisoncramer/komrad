@@ -7,6 +7,7 @@ import (
 	agentv1 "weave/proto/gen/agent/v1"
 	schedulev1 "weave/proto/gen/schedule/v1"
 	workflowv1 "weave/proto/gen/workflow/v1"
+	worktreev1 "weave/proto/gen/worktree/v1"
 
 	"weave/internal/git"
 	agentstore "weave/internal/store/agent"
@@ -172,4 +173,60 @@ func marksFromWorkflows(listed []*workflowv1.Workflow) map[string]string {
 	}
 
 	return marks
+}
+
+func worktreeItemsFrom(listed *worktreev1.ListWorktreesResponse) []worktreeItem {
+	return xslice.Map(listed.GetWorktrees(), worktreeItemFrom)
+}
+
+func worktreeItemFrom(w *worktreev1.Worktree) worktreeItem {
+	item := worktreeItem{
+		dir:       w.GetDir(),
+		repoDir:   w.GetRepoDir(),
+		branch:    w.GetBranch(),
+		readable:  w.GetReadable(),
+		occupants: xslice.Map(w.GetOccupants(), worktreeAgentFrom),
+	}
+	if w.Agent != nil {
+		agent := worktreeAgentFrom(w.GetAgent())
+		item.agent = &agent
+	}
+
+	return item
+}
+
+func worktreeAgentFrom(a *worktreev1.WorktreeAgent) worktreeAgent {
+	return worktreeAgent{
+		id:         a.GetId(),
+		name:       a.GetName(),
+		state:      agentstore.State(a.GetState()),
+		archivedAt: dates.ParsePtr(a.GetArchivedAt()),
+	}
+}
+
+func worktreeInspectionFrom(read *worktreev1.GetWorktreeResponse) worktreeInspection {
+	return worktreeInspection{
+		answered: true,
+		bytes:    read.GetSizeBytes(),
+		entries: xslice.Map(read.GetEntries(), func(entry *worktreev1.Entry) worktreeEntry {
+			return worktreeEntry{
+				path:  entry.GetPath(),
+				bytes: entry.GetSizeBytes(),
+				dir:   entry.GetDir(),
+			}
+		}),
+		modified:    read.GetModified(),
+		untracked:   read.GetUntracked(),
+		baseRef:     read.GetBaseRef(),
+		ahead:       int(read.GetAhead()),
+		behind:      int(read.GetBehind()),
+		keepsBranch: read.GetKeepsBranch(),
+		commits: xslice.Map(read.GetCommits(), func(commit *worktreev1.Commit) worktreeCommit {
+			return worktreeCommit{
+				sha:         commit.GetSha(),
+				subject:     commit.GetSubject(),
+				committedAt: dates.Parse(commit.GetCommittedAt()),
+			}
+		}),
+	}
 }

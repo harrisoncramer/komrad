@@ -14,6 +14,7 @@ import (
 	"weave/proto/gen/hook/v1/hookv1connect"
 	"weave/proto/gen/schedule/v1/schedulev1connect"
 	"weave/proto/gen/workflow/v1/workflowv1connect"
+	"weave/proto/gen/worktree/v1/worktreev1connect"
 
 	"github.com/spf13/cobra"
 )
@@ -90,6 +91,7 @@ Use ` + "`weave open`" + ` to bring the panel up.`,
 			workflowClient := workflowv1connect.NewWorkflowServiceClient(httpClient, base)
 			scheduleClient := schedulev1connect.NewScheduleServiceClient(httpClient, base)
 			hookClient := hookv1connect.NewHookServiceClient(httpClient, base)
+			worktreeClient := worktreev1connect.NewWorktreeServiceClient(httpClient, base)
 
 			state.popup.SilenceStatus(agents.ManagerSession)
 			state.tmux.EnableFocusEvents()
@@ -104,6 +106,7 @@ Use ` + "`weave open`" + ` to bring the panel up.`,
 				Schedules:       scheduleClient,
 				Keys:            state.keys,
 				Hooks:           hookClient,
+				Worktrees:       worktreeClient,
 				Layout:          state.layout,
 				Engine:          remote,
 				Addr:            addr,

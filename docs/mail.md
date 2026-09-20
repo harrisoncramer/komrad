@@ -28,9 +28,8 @@ A prompt already holding text is left alone, because the newline that submits th
 
 ## Reading a mailbox
 
-Press `m` on an agent in the panel to read its mail. The sidebar groups the messages into
-threads, the thread something last happened in at the top, and inside each thread the newest
-message first.
+The panel has no mailbox screen. Read an agent's mail with `weave rpc list-mail`, or with the
+list_mail tool over MCP, either of which lists it without claiming it.
 
 ## The exchange limit
 

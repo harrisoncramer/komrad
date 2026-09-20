@@ -64,6 +64,7 @@ const (
 	formScheduleArchive
 	formArchiveDelete
 	formArchiveEmpty
+	formWorktreesDelete
 )
 
 // isActive reports whether a form is up and holding the keys.
@@ -121,7 +122,7 @@ func formColumn(kind formKind) (columnSpec, bool) {
 	case formAgent, formChild, formAdopt, formRename, formAgentRetry, formWorkflow, formSchedule:
 		return columnSpec{floor: formColumnFloor}, true
 	case formGit, formAgentArchive, formAgentRefresh, formAgentRelease, formWorkflowArchive, formScheduleArchive,
-		formArchiveDelete, formArchiveEmpty:
+		formArchiveDelete, formArchiveEmpty, formWorktreesDelete:
 		return columnSpec{floor: columnFloor}, true
 	case formNone:
 		return columnSpec{}, false
@@ -608,6 +609,41 @@ func emptyArchiveForm(count int, keys config.FormKeys) (*huh.Form, *bool) {
 	return confirmFormStartingOn(false, title, warning, "Empty", keys)
 }
 
+// deleteWorktreesForm asks before a deletion, saying what goes through the agent delete, what the
+// remover takes on its own, and where a lone branch stands.
+func deleteWorktreesForm(deletion worktreeDeletion, keepsBranch *bool, keys config.FormKeys) (*huh.Form, *bool) {
+	count := len(deletion.agents) + len(deletion.unowned)
+	subject := countWord(count, "worktree", "worktrees")
+	if count == 1 {
+		subject = "the worktree of " + worktreeRow{item: slices.Concat(deletion.agents, deletion.unowned)[0]}.name()
+	}
+	title := fmt.Sprintf("Delete %s?", subject)
+
+	var lines []string
+	switch n := len(deletion.agents); {
+	case n == 1:
+		lines = append(lines, "The directory goes through the agent delete, which runs the workflow's teardown hooks and the cleanup; the agent leaves the archive and its transcript goes with it.")
+	case n > 1:
+		lines = append(lines, fmt.Sprintf("%d directories go through the agent delete, which runs the workflow's teardown hooks and the cleanup; the agents leave the archive and their transcripts go with them.", n))
+	}
+	switch n := len(deletion.unowned); {
+	case n == 1:
+		lines = append(lines, "The directory nothing answers for is removed on its own, and no branch is touched.")
+	case n > 1:
+		lines = append(lines, fmt.Sprintf("%d directories nothing answers for are removed on their own, and no branch is touched.", n))
+	}
+	switch {
+	case keepsBranch == nil:
+	case *keepsBranch:
+		lines = append(lines, "The branch is kept, since its commits are on no other ref.")
+	default:
+		lines = append(lines, "The branch goes too; every one of its commits is elsewhere.")
+	}
+	lines = append(lines, "Uncommitted changes go with the directories.")
+
+	return confirmFormStartingOn(false, title, strings.Join(lines, " "), "Delete", keys)
+}
+
 func deleteWorkflowForm(workflow workflowstore.Workflow, agentCount int, keys config.FormKeys) (*huh.Form, *bool) {
 	title := fmt.Sprintf("Permanently delete workflow %q?", workflow.Name)
 
@@ -749,6 +785,25 @@ func namedPaths(paths []string, most int) string {
 	}
 
 	return fmt.Sprintf("%s and %d more", strings.Join(paths[:most], ", "), len(paths)-most)
+}
+
+// counted is how many of something there are, taking -es after an ending a bare s will not sit
+// on.
+func counted(count int, word string) string {
+	if count == 1 {
+		return "1 " + word
+	}
+
+	suffix := "s"
+	for _, ending := range []string{"ch", "sh", "s", "x", "z"} {
+		if strings.HasSuffix(word, ending) {
+			suffix = "es"
+
+			break
+		}
+	}
+
+	return fmt.Sprintf("%d %s%s", count, word, suffix)
 }
 
 // countWord is a number with its noun, so a confirmation reads as a sentence.

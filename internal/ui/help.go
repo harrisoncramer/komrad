@@ -284,24 +284,6 @@ func (m model) scheduleHelp() keyMap {
 	}
 }
 
-func (m model) mailHelp() keyMap {
-	own := mailActions().help(m)
-
-	return keyMap{
-		short: slices.Concat(own.short, m.globalHelp()),
-		full: slices.Concat(
-			own.full,
-			[]key.Binding{
-				m.detailsBinding(),
-				m.messagesBinding(),
-			},
-			m.infoPaneHelp(),
-			[]key.Binding{m.columnScrollBinding("the message")},
-			m.globalHelp(),
-		),
-	}
-}
-
 func (m model) archiveHelp() keyMap {
 	own := archiveActions().help(m)
 
@@ -314,6 +296,24 @@ func (m model) archiveHelp() keyMap {
 				m.messagesBinding(),
 				m.columnScrollBinding("the notes"),
 			},
+			m.globalHelp(),
+		),
+	}
+}
+
+func (m model) worktreesHelp() keyMap {
+	own := worktreesActions().help(m)
+
+	return keyMap{
+		short: slices.Concat(own.short, m.globalHelp()),
+		full: slices.Concat(
+			own.full,
+			[]key.Binding{
+				m.detailsBinding(),
+				m.messagesBinding(),
+			},
+			m.infoPaneHelp(),
+			[]key.Binding{m.columnScrollBinding("the directory")},
 			m.globalHelp(),
 		),
 	}

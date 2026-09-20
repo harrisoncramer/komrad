@@ -28,3 +28,13 @@ func (e *Enqueuer) EmptyArchive(ctx context.Context) error {
 
 	return nil
 }
+
+// DeleteWorktrees queues one delete of the directories named and returns once the job is
+// recorded.
+func (e *Enqueuer) DeleteWorktrees(ctx context.Context, dirs []string) error {
+	if _, err := e.client.Insert(ctx, internaljobs.DeleteWorktreesArgs{Dirs: dirs}, nil); err != nil {
+		return fmt.Errorf("failed to queue deleting %d worktrees: %w", len(dirs), err)
+	}
+
+	return nil
+}

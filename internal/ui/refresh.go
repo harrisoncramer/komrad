@@ -112,6 +112,9 @@ type refreshResult struct {
 	archivedWorkflows    []workflowstore.Workflow
 	archivedWorkflowsErr error
 	archivedListed       bool
+	worktrees            []worktreeItem
+	worktreesErr         error
+	worktreesListed      bool
 	agentMarks           map[string]string
 	workflowMarks        map[string]string
 }
@@ -121,13 +124,14 @@ func (m model) refreshCmd() tea.Cmd {
 		return nil
 	}
 
-	clients, epoch, withArchive := m.api, m.epoch, m.screen.spec().needsArchive
+	spec := m.screen.spec()
+	clients, epoch, withArchive, withWorktrees := m.api, m.epoch, spec.needsArchive, spec.needsWorktrees
 
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), agentsTimeout)
 		defer cancel()
 
-		result := refreshResult{epoch: epoch, archivedListed: withArchive}
+		result := refreshResult{epoch: epoch, archivedListed: withArchive, worktreesListed: withWorktrees}
 
 		var wg sync.WaitGroup
 		wg.Go(func() {
@@ -152,6 +156,15 @@ func (m model) refreshCmd() tea.Cmd {
 			wg.Go(func() {
 				listed, err := client.ListAllArchivedWorkflows(ctx, clients.workflows)
 				result.archivedWorkflows, result.archivedWorkflowsErr = workflowsFrom(listed), err
+			})
+		}
+		if withWorktrees {
+			wg.Go(func() {
+				listed, err := clients.listWorktrees()
+				if err == nil {
+					result.worktrees = worktreeItemsFrom(listed)
+				}
+				result.worktreesErr = err
 			})
 		}
 		wg.Wait()
@@ -188,6 +201,7 @@ func (m *model) applyRefresh(result refreshResult) tea.Cmd {
 
 	treeRow := rowKeyAt(m.agentRows(), m.tree.cursor)
 	archiveRow := rowKeyAt(m.archiveRows(), m.archive.cursor)
+	worktreeRow := rowKeyAt(m.worktreeRows(), m.worktrees.cursor)
 	searchRow := m.hoveredHitKey()
 
 	before := m.listing
@@ -214,8 +228,12 @@ func (m *model) applyRefresh(result refreshResult) tea.Cmd {
 	if result.archivedListed && result.archivedErr == nil && result.archivedWorkflowsErr == nil {
 		m.applyArchive(result.archived, result.archivedWorkflows, archiveRow)
 	}
+	if result.worktreesListed && result.worktreesErr == nil {
+		m.applyWorktrees(result.worktrees, worktreeRow)
+	}
 
 	preview := m.placeSearchHit(searchRow)
+	inspect := m.inspectHoveredWorktreeCmd()
 
 	// A form draws its options from the listing it was built over, so it is drawn again when
 	// that listing moves under it.
@@ -233,7 +251,7 @@ func (m *model) applyRefresh(result refreshResult) tea.Cmd {
 		spec.stage(m)
 	}
 
-	return tea.Batch(preview, redrawn)
+	return tea.Batch(preview, redrawn, inspect)
 }
 
 func (r refreshResult) err() error {
@@ -246,8 +264,10 @@ func (r refreshResult) err() error {
 		return r.schedulesErr
 	case r.archivedErr != nil:
 		return r.archivedErr
-	default:
+	case r.archivedWorkflowsErr != nil:
 		return r.archivedWorkflowsErr
+	default:
+		return r.worktreesErr
 	}
 }
 
@@ -260,6 +280,8 @@ type writeResult struct {
 	epoch int
 	// released is the agent a landed release let go.
 	released *released
+	// queued is what to say once a write that queues a background job has landed.
+	queued *message
 }
 
 type released struct {
@@ -406,6 +428,24 @@ func (m *model) releaseInSilenceCmd(summary string, agent agentstore.Agent) tea.
 	}), let)
 }
 
+// queuedCmd runs a write that queues a background job and says so once it has landed.
+func (m *model) queuedCmd(summary string, queued message, write func(api) error) tea.Cmd {
+	cmd := m.writeCmd(summary, write)
+
+	return func() tea.Msg {
+		msg := cmd()
+
+		result, ok := msg.(writeResult)
+		if !ok {
+			return msg
+		}
+
+		result.queued = &queued
+
+		return result
+	}
+}
+
 // stampRelease says on a write's result which agent it let go and which files it carried.
 func stampRelease(cmd tea.Cmd, let released) tea.Cmd {
 	return func() tea.Msg {
@@ -544,6 +584,10 @@ func (m model) applyWrite(result writeResult) (tea.Model, tea.Cmd) {
 	m.pending--
 
 	m.report(result.summary, result.err)
+
+	if result.queued != nil && result.err == nil {
+		m.pushMessage(*result.queued)
+	}
 
 	if result.released != nil && result.err == nil {
 		m.forgetSpoken(result.released.id, result.released.files)

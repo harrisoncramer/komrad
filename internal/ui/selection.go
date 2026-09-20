@@ -8,81 +8,89 @@ import (
 	"weave/lib/xslice"
 )
 
+// rowRef is what the selection knows of a row: the key it answers to, whether it heads a group,
+// and the key of the group it sits in.
+type rowRef struct {
+	key    string
+	header bool
+	group  string
+}
+
 type selection struct {
-	ids []string
+	keys []string
 }
 
 func (s selection) isActive() bool {
-	return len(s.ids) > 0
+	return len(s.keys) > 0
 }
 
-func (s selection) has(id string) bool {
-	return slices.Contains(s.ids, id)
+func (s selection) has(key string) bool {
+	return slices.Contains(s.keys, key)
 }
 
-func (s selection) toggle(rows []agentRow, cursor int) selection {
-	row, ok := rowAt(rows, cursor)
+func (s selection) toggle(refs []rowRef, cursor int) selection {
+	ref, ok := rowAt(refs, cursor)
 	if !ok {
 		return s
 	}
 
-	if !row.header {
-		if s.has(row.item.agent.ID) {
-			return s.without(row.item.agent.ID)
+	if !ref.header {
+		if s.has(ref.key) {
+			return s.without(ref.key)
 		}
 
-		return s.with(row.item.agent.ID)
+		return s.with(ref.key)
 	}
 
-	ids := workflowAgentIDs(rows, row.workflow.ID)
-	if len(ids) == 0 {
+	keys := groupKeys(refs, ref.group)
+	if len(keys) == 0 {
 		return s
 	}
 
-	if s.hasAll(ids) {
-		return s.without(ids...)
+	if s.hasAll(keys) {
+		return s.without(keys...)
 	}
 
-	return s.with(ids...)
+	return s.with(keys...)
 }
 
-func (s selection) extend(rows []agentRow, cursor int) selection {
-	if row, ok := rowAt(rows, cursor); !ok || row.header {
+func (s selection) extend(refs []rowRef, cursor int) selection {
+	if ref, ok := rowAt(refs, cursor); !ok || ref.header {
 		return s
 	}
 
 	first, last := cursor, cursor
-	if anchor := s.nearest(rows, cursor); anchor >= 0 {
+	if anchor := s.nearest(refs, cursor); anchor >= 0 {
 		first, last = min(anchor, cursor), max(anchor, cursor)
 	}
 
-	unheadered := xslice.Filter(rows[first:last+1], func(r agentRow) bool { return !r.header })
-	ids := xslice.Map(unheadered, func(r agentRow) string { return r.item.agent.ID })
+	unheadered := xslice.Filter(refs[first:last+1], func(r rowRef) bool { return !r.header })
+	keys := xslice.Map(unheadered, func(r rowRef) string { return r.key })
 
-	return s.with(ids...)
+	return s.with(keys...)
 }
 
-func (s selection) pruned(rows []agentRow) selection {
+func (s selection) pruned(refs []rowRef) selection {
 	if !s.isActive() {
 		return s
 	}
 
-	onScreen := make(map[string]bool, len(rows))
-	for _, r := range rows {
+	onScreen := make(map[string]bool, len(refs))
+	for _, r := range refs {
 		if !r.header {
-			onScreen[r.item.agent.ID] = true
+			onScreen[r.key] = true
 		}
 	}
 
-	kept := xslice.Filter(s.ids, func(id string) bool { return onScreen[id] })
+	kept := xslice.Filter(s.keys, func(key string) bool { return onScreen[key] })
 
-	return selection{ids: kept}
+	return selection{keys: kept}
 }
 
-func (s selection) nearest(rows []agentRow, cursor int) int {
+func (s selection) nearest(refs []rowRef, cursor int) int {
 	closest := -1
-	for i, r := range rows {
-		if r.header || !s.has(r.item.agent.ID) {
+	for i, r := range refs {
+		if r.header || !s.has(r.key) {
 			continue
 		}
 		if closest < 0 || rowDistance(i, cursor) < rowDistance(closest, cursor) {
@@ -93,9 +101,9 @@ func (s selection) nearest(rows []agentRow, cursor int) int {
 	return closest
 }
 
-func (s selection) hasAll(ids []string) bool {
-	for _, id := range ids {
-		if !s.has(id) {
+func (s selection) hasAll(keys []string) bool {
+	for _, key := range keys {
+		if !s.has(key) {
 			return false
 		}
 	}
@@ -103,29 +111,52 @@ func (s selection) hasAll(ids []string) bool {
 	return true
 }
 
-func (s selection) with(ids ...string) selection {
-	next := slices.Clone(s.ids)
-	for _, id := range ids {
-		if !slices.Contains(next, id) {
-			next = append(next, id)
+func (s selection) with(keys ...string) selection {
+	next := slices.Clone(s.keys)
+	for _, key := range keys {
+		if !slices.Contains(next, key) {
+			next = append(next, key)
 		}
 	}
 	slices.Sort(next)
 
-	return selection{ids: next}
+	return selection{keys: next}
 }
 
-func (s selection) without(ids ...string) selection {
-	next := slices.DeleteFunc(slices.Clone(s.ids), func(id string) bool {
-		return slices.Contains(ids, id)
+func (s selection) without(keys ...string) selection {
+	next := slices.DeleteFunc(slices.Clone(s.keys), func(key string) bool {
+		return slices.Contains(keys, key)
 	})
 
-	return selection{ids: next}
+	return selection{keys: next}
+}
+
+// groupKeys is every row under one header.
+func groupKeys(refs []rowRef, group string) []string {
+	var keys []string
+	for _, r := range refs {
+		if !r.header && r.group == group {
+			keys = append(keys, r.key)
+		}
+	}
+
+	return keys
+}
+
+// refsOf is the tree as the selection sees it, each agent grouped under its workflow.
+func refsOf(rows []agentRow) []rowRef {
+	return xslice.Map(rows, func(row agentRow) rowRef {
+		return rowRef{
+			key:    rowKey(row),
+			header: row.header,
+			group:  workflowRowKey(row.workflow.ID),
+		}
+	})
 }
 
 func chosenAgents(sel selection, rows []agentRow) []agentstore.Agent {
 	chosen := xslice.Filter(rows, func(row agentRow) bool {
-		return !row.header && sel.has(row.item.agent.ID)
+		return !row.header && sel.has(rowKey(row))
 	})
 
 	return xslice.Map(chosen, func(row agentRow) agentstore.Agent { return row.item.agent })
@@ -141,17 +172,6 @@ func describeAgents(agents []agentstore.Agent) string {
 	}
 
 	return fmt.Sprintf("%d agents", len(agents))
-}
-
-func workflowAgentIDs(rows []agentRow, workflowID string) []string {
-	var ids []string
-	for _, r := range rows {
-		if !r.header && r.workflow.ID == workflowID {
-			ids = append(ids, r.item.agent.ID)
-		}
-	}
-
-	return ids
 }
 
 func rowDistance(a, b int) int {

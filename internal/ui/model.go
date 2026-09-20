@@ -24,6 +24,7 @@ import (
 	"weave/proto/gen/hook/v1/hookv1connect"
 	schedulev1connect "weave/proto/gen/schedule/v1/schedulev1connect"
 	"weave/proto/gen/workflow/v1/workflowv1connect"
+	"weave/proto/gen/worktree/v1/worktreev1connect"
 
 	"github.com/charmbracelet/bubbles/cursor"
 	tea "github.com/charmbracelet/bubbletea"
@@ -154,6 +155,7 @@ type Deps struct {
 	Workflows       workflowv1connect.WorkflowServiceClient
 	Schedules       schedulev1connect.ScheduleServiceClient
 	Hooks           hookv1connect.HookServiceClient
+	Worktrees       worktreev1connect.WorktreeServiceClient
 	Keys            config.Keybindings
 	Layout          config.Layout
 	Engine          engine.Remote
@@ -200,9 +202,9 @@ type model struct {
 	runHover      hoverState
 	schedules     scheduleState
 	archive       archiveState
+	worktrees     worktreesState
 	search        searchState
 	review        reviewState
-	mail          mailState
 	filter        filterState
 	rowCursor     cursor.Model
 	column        columnState
@@ -285,6 +287,7 @@ func newModel(deps Deps, isDark bool, post *postbox) model {
 			workflows: deps.Workflows,
 			schedules: deps.Schedules,
 			hooks:     deps.Hooks,
+			worktrees: deps.Worktrees,
 		},
 		popup:           deps.PopupWindow,
 		clip:            systemClipboard{},

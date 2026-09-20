@@ -127,6 +127,7 @@ type fakeGit struct {
 	fetches    int
 	pruned     []string
 	registered []git.Worktree
+	listErr    error
 }
 
 func (g *fakeGit) ReadChanges(context.Context, string) (git.Changes, error) {
@@ -174,7 +175,7 @@ func (g *fakeGit) ListCommitsSince(context.Context, string, string, int) ([]git.
 }
 
 func (g *fakeGit) ListWorktrees(context.Context, string) ([]git.Worktree, error) {
-	return g.registered, nil
+	return g.registered, g.listErr
 }
 
 func (g *fakeGit) PruneWorktrees(_ context.Context, repo string) error {

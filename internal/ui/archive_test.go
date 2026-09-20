@@ -453,6 +453,13 @@ func TestArchiveEmptyConfirm(t *testing.T) {
 			assert.Equal(t, tt.wantEmptied, client.emptied)
 			assert.Equal(t, screenArchive, got.screen, "the prompt returns to the archive it was opened from")
 			assert.False(t, got.form.isActive(), "the prompt is down")
+			if tt.confirm {
+				require.NotEmpty(t, got.messages.items, "the queued sweep is announced")
+				assert.Equal(t, messageInfo, got.messages.items[0].kind)
+				assert.Equal(t, "Emptying the archive", got.messages.items[0].summary)
+			} else {
+				assert.Empty(t, got.messages.items)
+			}
 		})
 	}
 }

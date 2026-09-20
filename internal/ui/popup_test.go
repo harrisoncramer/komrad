@@ -383,7 +383,7 @@ func TestFocusKeyHeldOnlyOverAStagedAgent(t *testing.T) {
 		"select-pane -t %9", "select-pane -t %3",
 	}, command)
 
-	m.screen = screenMail
+	m.screen = screenWorktrees
 	m.holdFocusKey()
 
 	_, bound = binds.bound["root:C-a"]

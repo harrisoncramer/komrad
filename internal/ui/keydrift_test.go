@@ -36,13 +36,14 @@ var takenAndUndrawn = map[screen][]undrawn{
 		{key: "ctrl+c", reason: "quit is not worth a row on any screen"},
 		{key: "V", reason: "select to nearest is named once the selection it needs is standing"},
 	},
-	screenMail: {
-		{key: "ctrl+c", reason: "quit is not worth a row on any screen"},
-		{key: "L", reason: "the earlier run is named only while the pane is showing one"},
-	},
 	screenSearch: {},
 	screenReview: {
 		{key: "ctrl+c", reason: "quit is not worth a row on any screen"},
+	},
+	screenWorktrees: {
+		{key: "ctrl+c", reason: "quit is not worth a row on any screen"},
+		{key: "V", reason: "select to nearest is named once the selection it needs is standing"},
+		{key: "L", reason: "the earlier run is named only while the pane is showing one"},
 	},
 }
 
@@ -54,8 +55,8 @@ func TestEveryKeyTakenIsDrawn(t *testing.T) {
 		screenSchedules: model.scheduleHelp,
 		screenArchive:   model.archiveHelp,
 		screenSearch:    model.searchHelp,
-		screenMail:      model.mailHelp,
 		screenReview:    model.reviewHelp,
+		screenWorktrees: model.worktreesHelp,
 	}
 
 	pressable := configuredKeys(t, config.DefaultKeybindings())
@@ -192,6 +193,12 @@ func driftModel(t *testing.T, s screen) model {
 			State:      agentstore.StateIdle,
 		}}
 		m.archive.cursor = 1
+	}
+
+	// So does the worktrees screen.
+	if s == screenWorktrees {
+		m.worktrees.items = worktreeFixture()
+		m.worktrees.cursor = 1
 	}
 
 	return m

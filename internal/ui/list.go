@@ -57,7 +57,17 @@ func (c rowCursor) jump(idx, length int) (rowCursor, bool) {
 }
 
 func (m model) listHeader(title string) string {
-	return paint.Panel.Title(title) + "\n\n" + m.filterView()
+	return m.talliedHeader(title, "")
+}
+
+// talliedHeader is a list's header with a muted tally after its title.
+func (m model) talliedHeader(title, tally string) string {
+	header := paint.Panel.Title(title)
+	if tally != "" {
+		header += dimStyle.Render("  " + tally)
+	}
+
+	return header + "\n\n" + m.filterView()
 }
 
 // headedListView draws a list under its header, padded out so the record and the legend under it
@@ -71,6 +81,34 @@ func (m model) headedListView(header string, rows []string, cursor int, help str
 // headedBlockView draws a list already fitted to the pane.
 func (m model) headedBlockView(header, block string, lines int, help string) string {
 	return header + paint.PadRows(block, lines) + help
+}
+
+// keyed is a row the cursor can be put back on by name once the list has changed under it.
+type keyed interface {
+	key() string
+}
+
+func rowKeyAt[T keyed](rows []T, cursor int) string {
+	row, ok := rowAt(rows, cursor)
+	if !ok {
+		return ""
+	}
+
+	return row.key()
+}
+
+func rowIndexOfKey[T keyed](rows []T, key string) int {
+	if key == "" {
+		return -1
+	}
+
+	for i, r := range rows {
+		if r.key() == key {
+			return i
+		}
+	}
+
+	return -1
 }
 
 func rowAt[T any](rows []T, cursor int) (T, bool) {

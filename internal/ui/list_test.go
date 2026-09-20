@@ -11,7 +11,6 @@ import (
 	workflowstore "weave/internal/store/workflow"
 	"weave/internal/ui/layout"
 	"weave/internal/ui/paint"
-	agentv1 "weave/proto/gen/agent/v1"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -48,6 +47,17 @@ func screensModel() model {
 	m.tree.cursor = total
 	m.archive.cursor = total
 	m.schedules.cursor = total - 1
+	for i := range total {
+		name := fmt.Sprintf("agent%02d", i)
+		m.worktrees.items = append(m.worktrees.items, worktreeItem{
+			dir:      "/trees/" + name,
+			repoDir:  "/home/h/weave",
+			branch:   "agent/" + name,
+			readable: true,
+			agent:    &worktreeAgent{id: name, name: name},
+		})
+	}
+	m.worktrees.cursor = total
 
 	return m
 }
@@ -205,15 +215,12 @@ func TestScreensFitATightPane(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			for s := screenAgents; s <= screenMail; s++ {
+			for s := screenAgents; s <= screenWorktrees; s++ {
 				if s == screenReview {
 					continue
 				}
 
 				fixture, fitsFrom, hovered := screensModel, 5, "agent39"
-				if s == screenMail {
-					fixture, fitsFrom, hovered = loadedMailModel, 6, "vim wins"
-				}
 
 				for height := fitsFrom; height <= tall; height++ {
 					shown := fixture()
@@ -263,13 +270,6 @@ func TestTheRecordGivesWayToTheList(t *testing.T) {
 			fills:   10,
 			hovered: "agent39",
 		},
-		{
-			name:    "the mailbox",
-			screen:  screenMail,
-			model:   loadedMailModel,
-			fills:   12,
-			hovered: "vim wins",
-		},
 	}
 
 	for _, tt := range tests {
@@ -286,14 +286,6 @@ func TestTheRecordGivesWayToTheList(t *testing.T) {
 			assert.Contains(t, outsideTheRecord(shown), tt.hovered, "and the row the cursor stands on is still on screen")
 		})
 	}
-}
-
-func loadedMailModel() model {
-	m := mailModel(config.DefaultKeybindings())
-	m.width, m.detailsHeight = 80, config.DefaultDetailsHeight
-	m.applyMailLoaded(mailLoadedMsg{agentID: "a1", inbox: []*agentv1.Mail{received("m1", "neovim-fan", "vim wins")}})
-
-	return m
 }
 
 func outsideTheRecord(m model) string {

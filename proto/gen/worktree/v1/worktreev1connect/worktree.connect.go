@@ -43,6 +43,9 @@ const (
 	// WorktreeServiceRemoveUnownedWorktreesProcedure is the fully-qualified name of the
 	// WorktreeService's RemoveUnownedWorktrees RPC.
 	WorktreeServiceRemoveUnownedWorktreesProcedure = "/worktree.v1.WorktreeService/RemoveUnownedWorktrees"
+	// WorktreeServiceDeleteWorktreesProcedure is the fully-qualified name of the WorktreeService's
+	// DeleteWorktrees RPC.
+	WorktreeServiceDeleteWorktreesProcedure = "/worktree.v1.WorktreeService/DeleteWorktrees"
 )
 
 // WorktreeServiceClient is a client for the worktree.v1.WorktreeService service.
@@ -50,6 +53,7 @@ type WorktreeServiceClient interface {
 	ListWorktrees(context.Context, *connect.Request[emptypb.Empty]) (*connect.Response[v1.ListWorktreesResponse], error)
 	GetWorktree(context.Context, *connect.Request[v1.GetWorktreeRequest]) (*connect.Response[v1.GetWorktreeResponse], error)
 	RemoveUnownedWorktrees(context.Context, *connect.Request[v1.RemoveUnownedWorktreesRequest]) (*connect.Response[v1.RemoveUnownedWorktreesResponse], error)
+	DeleteWorktrees(context.Context, *connect.Request[v1.DeleteWorktreesRequest]) (*connect.Response[emptypb.Empty], error)
 }
 
 // NewWorktreeServiceClient constructs a client for the worktree.v1.WorktreeService service. By
@@ -84,6 +88,13 @@ func NewWorktreeServiceClient(httpClient connect.HTTPClient, baseURL string, opt
 			connect.WithIdempotency(connect.IdempotencyIdempotent),
 			connect.WithClientOptions(opts...),
 		),
+		deleteWorktrees: connect.NewClient[v1.DeleteWorktreesRequest, emptypb.Empty](
+			httpClient,
+			baseURL+WorktreeServiceDeleteWorktreesProcedure,
+			connect.WithSchema(worktreeServiceMethods.ByName("DeleteWorktrees")),
+			connect.WithIdempotency(connect.IdempotencyIdempotent),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -92,6 +103,7 @@ type worktreeServiceClient struct {
 	listWorktrees          *connect.Client[emptypb.Empty, v1.ListWorktreesResponse]
 	getWorktree            *connect.Client[v1.GetWorktreeRequest, v1.GetWorktreeResponse]
 	removeUnownedWorktrees *connect.Client[v1.RemoveUnownedWorktreesRequest, v1.RemoveUnownedWorktreesResponse]
+	deleteWorktrees        *connect.Client[v1.DeleteWorktreesRequest, emptypb.Empty]
 }
 
 // ListWorktrees calls worktree.v1.WorktreeService.ListWorktrees.
@@ -109,11 +121,17 @@ func (c *worktreeServiceClient) RemoveUnownedWorktrees(ctx context.Context, req 
 	return c.removeUnownedWorktrees.CallUnary(ctx, req)
 }
 
+// DeleteWorktrees calls worktree.v1.WorktreeService.DeleteWorktrees.
+func (c *worktreeServiceClient) DeleteWorktrees(ctx context.Context, req *connect.Request[v1.DeleteWorktreesRequest]) (*connect.Response[emptypb.Empty], error) {
+	return c.deleteWorktrees.CallUnary(ctx, req)
+}
+
 // WorktreeServiceHandler is an implementation of the worktree.v1.WorktreeService service.
 type WorktreeServiceHandler interface {
 	ListWorktrees(context.Context, *connect.Request[emptypb.Empty]) (*connect.Response[v1.ListWorktreesResponse], error)
 	GetWorktree(context.Context, *connect.Request[v1.GetWorktreeRequest]) (*connect.Response[v1.GetWorktreeResponse], error)
 	RemoveUnownedWorktrees(context.Context, *connect.Request[v1.RemoveUnownedWorktreesRequest]) (*connect.Response[v1.RemoveUnownedWorktreesResponse], error)
+	DeleteWorktrees(context.Context, *connect.Request[v1.DeleteWorktreesRequest]) (*connect.Response[emptypb.Empty], error)
 }
 
 // NewWorktreeServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -144,6 +162,13 @@ func NewWorktreeServiceHandler(svc WorktreeServiceHandler, opts ...connect.Handl
 		connect.WithIdempotency(connect.IdempotencyIdempotent),
 		connect.WithHandlerOptions(opts...),
 	)
+	worktreeServiceDeleteWorktreesHandler := connect.NewUnaryHandler(
+		WorktreeServiceDeleteWorktreesProcedure,
+		svc.DeleteWorktrees,
+		connect.WithSchema(worktreeServiceMethods.ByName("DeleteWorktrees")),
+		connect.WithIdempotency(connect.IdempotencyIdempotent),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/worktree.v1.WorktreeService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case WorktreeServiceListWorktreesProcedure:
@@ -152,6 +177,8 @@ func NewWorktreeServiceHandler(svc WorktreeServiceHandler, opts ...connect.Handl
 			worktreeServiceGetWorktreeHandler.ServeHTTP(w, r)
 		case WorktreeServiceRemoveUnownedWorktreesProcedure:
 			worktreeServiceRemoveUnownedWorktreesHandler.ServeHTTP(w, r)
+		case WorktreeServiceDeleteWorktreesProcedure:
+			worktreeServiceDeleteWorktreesHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -171,4 +198,8 @@ func (UnimplementedWorktreeServiceHandler) GetWorktree(context.Context, *connect
 
 func (UnimplementedWorktreeServiceHandler) RemoveUnownedWorktrees(context.Context, *connect.Request[v1.RemoveUnownedWorktreesRequest]) (*connect.Response[v1.RemoveUnownedWorktreesResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("worktree.v1.WorktreeService.RemoveUnownedWorktrees is not implemented"))
+}
+
+func (UnimplementedWorktreeServiceHandler) DeleteWorktrees(context.Context, *connect.Request[v1.DeleteWorktreesRequest]) (*connect.Response[emptypb.Empty], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("worktree.v1.WorktreeService.DeleteWorktrees is not implemented"))
 }

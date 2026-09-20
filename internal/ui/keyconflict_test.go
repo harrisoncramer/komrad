@@ -85,7 +85,7 @@ func TestValidateKeybindingsReadsTheGlobalKeys(t *testing.T) {
 		},
 		{
 			name:   "the key that pushes a fixture into the messages",
-			rebind: func(k *config.Keybindings) { k.Agents.Mail = []string{messagesMockKey} },
+			rebind: func(k *config.Keybindings) { k.Agents.Pause = []string{messagesMockKey} },
 			names:  "the key that pushes a fixture into the messages",
 		},
 	}
@@ -137,7 +137,7 @@ func TestGlobalArmsAnswerForEveryKeyTheRouterTakes(t *testing.T) {
 	keys := config.DefaultKeybindings()
 	pressable := configuredKeys(t, keys)
 
-	for _, s := range []screen{screenAgents, screenSchedules, screenArchive, screenMail, screenReview} {
+	for _, s := range []screen{screenAgents, screenSchedules, screenArchive, screenReview, screenWorktrees} {
 		t.Run(screenNames[s], func(t *testing.T) {
 			var modelled []string
 			for _, arm := range globalArms(s, keys) {

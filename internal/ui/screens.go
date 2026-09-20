@@ -14,14 +14,14 @@ const (
 	screenArchive
 	screenSearch
 	screenReview
-	screenMail
+	screenWorktrees
 )
 
 // opensInfoPane reports whether the keys that draw a pane beside the panel act on a screen,
 // which a screen drawing the whole window itself says no to.
 func (s screen) opensInfoPane() bool {
 	switch s {
-	case screenAgents, screenSchedules, screenMail:
+	case screenAgents, screenSchedules, screenWorktrees:
 		return true
 	case screenArchive, screenSearch, screenReview:
 		return false
@@ -52,6 +52,9 @@ type screenSpec struct {
 	// needsArchive is whether the refresh has to list the archived agents too, a call the screens
 	// that never name an archived agent do not pay.
 	needsArchive bool
+
+	// needsWorktrees is whether the refresh has to list the worktree directories too.
+	needsWorktrees bool
 
 	// reenter comes back to the screen with its cursor and stage put right, and is nil on a screen
 	// nothing is ever drawn over.
@@ -176,22 +179,26 @@ func (s screen) spec() screenSpec {
 			typing:       func(m model) bool { return m.search.typing },
 			column:       searchColumn,
 		}
-	case screenMail:
+	case screenWorktrees:
 		return screenSpec{
-			key:          model.updateMail,
-			view:         model.mailView,
-			stage:        (*model).stageMail,
-			needsArchive: true,
+			key:            model.updateWorktrees,
+			view:           model.worktreesView,
+			stage:          (*model).stageWorktrees,
+			fromListing:    true,
+			needsArchive:   true,
+			needsWorktrees: true,
+			reenter:        model.enterWorktrees,
 			details: &detailsSpec{
-				hovered: model.mailDetails,
-				quit:    func(keys config.Keybindings) []string { return keys.Mail.Quit },
-				fits:    model.doesMailFitDetails,
+				hovered: model.worktreesDetails,
+				quit:    func(keys config.Keybindings) []string { return keys.Worktrees.Quit },
+				fits:    model.doesWorktreesFitDetails,
 			},
 			filter: &filterSpec{
-				hovered: model.hoveredMailKey,
-				place:   (*model).placeMailCursor,
+				hovered: model.hoveredWorktreeKey,
+				place:   (*model).placeWorktreeCursor,
+				rows:    model.worktreeFilterRows,
 			},
-			column: mailColumn,
+			column: worktreesColumn,
 		}
 	case screenReview:
 		return screenSpec{

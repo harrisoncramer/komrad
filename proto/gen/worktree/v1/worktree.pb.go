@@ -744,6 +744,51 @@ func (x *RemoveUnownedWorktreesResponse) GetRefused() []*Refusal {
 	return nil
 }
 
+type DeleteWorktreesRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The directories to delete, each as list_worktrees spelled it.
+	Dirs          []string `protobuf:"bytes,1,rep,name=dirs,proto3" json:"dirs,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeleteWorktreesRequest) Reset() {
+	*x = DeleteWorktreesRequest{}
+	mi := &file_worktree_v1_worktree_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteWorktreesRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteWorktreesRequest) ProtoMessage() {}
+
+func (x *DeleteWorktreesRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_worktree_v1_worktree_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteWorktreesRequest.ProtoReflect.Descriptor instead.
+func (*DeleteWorktreesRequest) Descriptor() ([]byte, []int) {
+	return file_worktree_v1_worktree_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *DeleteWorktreesRequest) GetDirs() []string {
+	if x != nil {
+		return x.Dirs
+	}
+	return nil
+}
+
 var File_worktree_v1_worktree_proto protoreflect.FileDescriptor
 
 const file_worktree_v1_worktree_proto_rawDesc = "" +
@@ -802,11 +847,15 @@ const file_worktree_v1_worktree_proto_rawDesc = "" +
 	"\x06reason\x18\x02 \x01(\tR\x06reason\"j\n" +
 	"\x1eRemoveUnownedWorktreesResponse\x12\x18\n" +
 	"\aremoved\x18\x01 \x03(\tR\aremoved\x12.\n" +
-	"\arefused\x18\x02 \x03(\v2\x14.worktree.v1.RefusalR\arefused2\x98\x11\n" +
+	"\arefused\x18\x02 \x03(\v2\x14.worktree.v1.RefusalR\arefused\">\n" +
+	"\x16DeleteWorktreesRequest\x12$\n" +
+	"\x04dirs\x18\x01 \x03(\tB\x10\xbaH\r\x92\x01\n" +
+	"\b\x01\x18\x01\"\x04r\x02\x10\x01R\x04dirs2\xbc\x19\n" +
 	"\x0fWorktreeService\x12\x80\x05\n" +
 	"\rListWorktrees\x12\x16.google.protobuf.Empty\x1a\".worktree.v1.ListWorktreesResponse\"\xb2\x04\x9a\xb5\x18\xaa\x04\b\x01\x10\x01\x1a\x0elist_worktrees\"\x93\x04List every worktree directory weave holds, under the configured worktrees directory and each workflow's own, with the repository it was cut from, its branch, whether git can still read it, the agent it was made for and the other agents working in it. A directory with no agent is one whose row was deleted while cleanup did not run, or one a test left behind. This reads the directories and the agent rows and runs no git, so it is cheap to call often; read one directory's contents and standing against its base with get_worktree.\x90\x02\x01\x12\xf4\x04\n" +
 	"\vGetWorktree\x12\x1f.worktree.v1.GetWorktreeRequest\x1a .worktree.v1.GetWorktreeResponse\"\xa1\x04\x9a\xb5\x18\x99\x04\b\x01\x10\x01\x1a\fget_worktree\"\x84\x04Read one worktree directory: its size and its top-level entries with theirs, biggest first, walked for the call, what is uncommitted, the base it is measured against with how far ahead and behind it stands and how many of its commits the base already holds whole, whether deleting its agent would keep the branch, and the commits since the base. The base is read as the clone last fetched it unless fetch is set, which asks origin first. A directory whose registration git cannot read answers with the entries alone.\x90\x02\x01\x12\x8a\a\n" +
-	"\x16RemoveUnownedWorktrees\x12*.worktree.v1.RemoveUnownedWorktreesRequest\x1a+.worktree.v1.RemoveUnownedWorktreesResponse\"\x96\x06\x9a\xb5\x18\x8e\x06\b\x01\x10\x01\x1a\x18remove_unowned_worktrees\"\xeb\x05Remove worktree directories no agent answers for, which delete_agents cannot reach: a directory under the worktrees directories whose agent row is gone, or whose row is in failed_to_cleanup because git can no longer read the registration. Each directory goes and, where the repository can still be read, git worktree prune runs in it; no branch is ever touched, since without a row nothing says whether the branch was adopted. A directory outside the worktrees directories, one a live or archived agent still answers for, one an agent works in or under, or one holding another worktree is refused with the reason and the rest go; delete the agent instead for those. Read list_worktrees first and pass only the directories it reports with no agent.(\x01\x90\x02\x02B(Z&weave/proto/gen/worktree/v1;worktreev1b\x06proto3"
+	"\x16RemoveUnownedWorktrees\x12*.worktree.v1.RemoveUnownedWorktreesRequest\x1a+.worktree.v1.RemoveUnownedWorktreesResponse\"\x96\x06\x9a\xb5\x18\x8e\x06\b\x01\x10\x01\x1a\x18remove_unowned_worktrees\"\xeb\x05Remove worktree directories no agent answers for, which delete_agents cannot reach: a directory under the worktrees directories whose agent row is gone, or whose row is in failed_to_cleanup because git can no longer read the registration. Each directory goes and, where the repository can still be read, git worktree prune runs in it; no branch is ever touched, since without a row nothing says whether the branch was adopted. A directory outside the worktrees directories, one a live or archived agent still answers for, one an agent works in or under, or one holding another worktree is refused with the reason and the rest go; delete the agent instead for those. Read list_worktrees first and pass only the directories it reports with no agent.(\x01\x90\x02\x02\x12\xa1\b\n" +
+	"\x0fDeleteWorktrees\x12#.worktree.v1.DeleteWorktreesRequest\x1a\x16.google.protobuf.Empty\"\xd0\a\x9a\xb5\x18\xc8\a\b\x01\x1a\x10delete_worktrees\"\x9b\x05Queue one background job that deletes worktree directories, each by the path its row decides. A directory whose agent is archived goes through delete_agents, which runs the workflow's teardown hooks and the cleanup and takes the agent's children with it; one nothing answers for, or whose agent's own delete failed on a registration git cannot read, goes through remove_unowned_worktrees; one whose agent is live is left alone. It answers once the job is recorded, before anything has gone. A directory the listing no longer holds is skipped, so a retried job takes only what is left, and one that is refused stays listed by list_worktrees with the reason in the log.(\x01:\x91\x02A model already has delete_agents and remove_unowned_worktrees, which answer with what went and what was refused. This one answers nothing, being the panel's queued form of the two, so offering it as well would only give a model a way to delete without reading the outcome.\x90\x02\x02B(Z&weave/proto/gen/worktree/v1;worktreev1b\x06proto3"
 
 var (
 	file_worktree_v1_worktree_proto_rawDescOnce sync.Once
@@ -820,7 +869,7 @@ func file_worktree_v1_worktree_proto_rawDescGZIP() []byte {
 	return file_worktree_v1_worktree_proto_rawDescData
 }
 
-var file_worktree_v1_worktree_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
+var file_worktree_v1_worktree_proto_msgTypes = make([]protoimpl.MessageInfo, 11)
 var file_worktree_v1_worktree_proto_goTypes = []any{
 	(*WorktreeAgent)(nil),                  // 0: worktree.v1.WorktreeAgent
 	(*Worktree)(nil),                       // 1: worktree.v1.Worktree
@@ -832,7 +881,8 @@ var file_worktree_v1_worktree_proto_goTypes = []any{
 	(*RemoveUnownedWorktreesRequest)(nil),  // 7: worktree.v1.RemoveUnownedWorktreesRequest
 	(*Refusal)(nil),                        // 8: worktree.v1.Refusal
 	(*RemoveUnownedWorktreesResponse)(nil), // 9: worktree.v1.RemoveUnownedWorktreesResponse
-	(*emptypb.Empty)(nil),                  // 10: google.protobuf.Empty
+	(*DeleteWorktreesRequest)(nil),         // 10: worktree.v1.DeleteWorktreesRequest
+	(*emptypb.Empty)(nil),                  // 11: google.protobuf.Empty
 }
 var file_worktree_v1_worktree_proto_depIdxs = []int32{
 	0,  // 0: worktree.v1.Worktree.agent:type_name -> worktree.v1.WorktreeAgent
@@ -842,14 +892,16 @@ var file_worktree_v1_worktree_proto_depIdxs = []int32{
 	4,  // 4: worktree.v1.GetWorktreeResponse.entries:type_name -> worktree.v1.Entry
 	5,  // 5: worktree.v1.GetWorktreeResponse.commits:type_name -> worktree.v1.Commit
 	8,  // 6: worktree.v1.RemoveUnownedWorktreesResponse.refused:type_name -> worktree.v1.Refusal
-	10, // 7: worktree.v1.WorktreeService.ListWorktrees:input_type -> google.protobuf.Empty
+	11, // 7: worktree.v1.WorktreeService.ListWorktrees:input_type -> google.protobuf.Empty
 	3,  // 8: worktree.v1.WorktreeService.GetWorktree:input_type -> worktree.v1.GetWorktreeRequest
 	7,  // 9: worktree.v1.WorktreeService.RemoveUnownedWorktrees:input_type -> worktree.v1.RemoveUnownedWorktreesRequest
-	2,  // 10: worktree.v1.WorktreeService.ListWorktrees:output_type -> worktree.v1.ListWorktreesResponse
-	6,  // 11: worktree.v1.WorktreeService.GetWorktree:output_type -> worktree.v1.GetWorktreeResponse
-	9,  // 12: worktree.v1.WorktreeService.RemoveUnownedWorktrees:output_type -> worktree.v1.RemoveUnownedWorktreesResponse
-	10, // [10:13] is the sub-list for method output_type
-	7,  // [7:10] is the sub-list for method input_type
+	10, // 10: worktree.v1.WorktreeService.DeleteWorktrees:input_type -> worktree.v1.DeleteWorktreesRequest
+	2,  // 11: worktree.v1.WorktreeService.ListWorktrees:output_type -> worktree.v1.ListWorktreesResponse
+	6,  // 12: worktree.v1.WorktreeService.GetWorktree:output_type -> worktree.v1.GetWorktreeResponse
+	9,  // 13: worktree.v1.WorktreeService.RemoveUnownedWorktrees:output_type -> worktree.v1.RemoveUnownedWorktreesResponse
+	11, // 14: worktree.v1.WorktreeService.DeleteWorktrees:output_type -> google.protobuf.Empty
+	11, // [11:15] is the sub-list for method output_type
+	7,  // [7:11] is the sub-list for method input_type
 	7,  // [7:7] is the sub-list for extension type_name
 	7,  // [7:7] is the sub-list for extension extendee
 	0,  // [0:7] is the sub-list for field type_name
@@ -867,7 +919,7 @@ func file_worktree_v1_worktree_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_worktree_v1_worktree_proto_rawDesc), len(file_worktree_v1_worktree_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   10,
+			NumMessages:   11,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

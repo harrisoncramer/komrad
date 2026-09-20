@@ -132,6 +132,17 @@ message RemoveUnownedWorktreesResponse {
   repeated Refusal refused = 2;
 }
 
+message DeleteWorktreesRequest {
+  // The directories to delete, each as list_worktrees spelled it.
+  repeated string dirs = 1 [(buf.validate.field).repeated = {
+    min_items: 1
+    unique: true
+    items: {
+      string: {min_len: 1}
+    }
+  }];
+}
+
 // WorktreeService reads and clears the directories weave cut for its agents.
 service WorktreeService {
   rpc ListWorktrees(google.protobuf.Empty) returns (ListWorktreesResponse) {
@@ -159,6 +170,17 @@ service WorktreeService {
       mcp: true
       name: "remove_unowned_worktrees"
       description: "Remove worktree directories no agent answers for, which delete_agents cannot reach: a directory under the worktrees directories whose agent row is gone, or whose row is in failed_to_cleanup because git can no longer read the registration. Each directory goes and, where the repository can still be read, git worktree prune runs in it; no branch is ever touched, since without a row nothing says whether the branch was adopted. A directory outside the worktrees directories, one a live or archived agent still answers for, one an agent works in or under, or one holding another worktree is refused with the reason and the rest go; delete the agent instead for those. Read list_worktrees first and pass only the directories it reports with no agent."
+      destructive: true
+    };
+  }
+  rpc DeleteWorktrees(DeleteWorktreesRequest) returns (google.protobuf.Empty) {
+    option idempotency_level = IDEMPOTENT;
+    option (annotation.v1.surfaces) = {
+      cli: true
+      mcp: false
+      name: "delete_worktrees"
+      description: "Queue one background job that deletes worktree directories, each by the path its row decides. A directory whose agent is archived goes through delete_agents, which runs the workflow's teardown hooks and the cleanup and takes the agent's children with it; one nothing answers for, or whose agent's own delete failed on a registration git cannot read, goes through remove_unowned_worktrees; one whose agent is live is left alone. It answers once the job is recorded, before anything has gone. A directory the listing no longer holds is skipped, so a retried job takes only what is left, and one that is refused stays listed by list_worktrees with the reason in the log."
+      reason: "A model already has delete_agents and remove_unowned_worktrees, which answer with what went and what was refused. This one answers nothing, being the panel's queued form of the two, so offering it as well would only give a model a way to delete without reading the outcome."
       destructive: true
     };
   }

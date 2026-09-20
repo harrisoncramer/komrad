@@ -385,7 +385,7 @@ func TestFilterCursor(t *testing.T) {
 // TestFilterKeepsSelection covers a selection surviving a search.
 func TestFilterKeepsSelection(t *testing.T) {
 	m := filterModel()
-	m.tree.selected = selection{ids: []string{"a1", "a2"}}
+	m.tree.selected = selectAgents([]string{"a1", "a2"}...)
 
 	whole := rowNames(m.agentRows())
 	got := typeIntoFilter(m, "payouts")

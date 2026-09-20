@@ -119,6 +119,12 @@ func agentsModeActions() []action {
 			run:  func(m model, _ string) (tea.Model, tea.Cmd) { return m.openArchive() },
 		},
 		{
+			id:   actionWorktreesOpen,
+			keys: func(k config.Keybindings) []string { return k.Worktrees.Open },
+			when: func(m model) bool { return !m.tree.selected.isActive() },
+			run:  func(m model, _ string) (tea.Model, tea.Cmd) { return m.openWorktrees(m.hoveredAgentID()) },
+		},
+		{
 			id:   actionMarkJump,
 			keys: func(k config.Keybindings) []string { return k.Marks.Jump },
 			when: func(m model) bool { return !m.tree.selected.isActive() },
@@ -216,12 +222,6 @@ func agentsRowActions() []action {
 			keys: func(k config.Keybindings) []string { return k.Agents.Review },
 			when: isHoveringAgent,
 			run:  onHoveredAgent(func(m model, item agentItem) (tea.Model, tea.Cmd) { return m.enterReview(item.agent) }),
-		},
-		{
-			id:   actionAgentMail,
-			keys: func(k config.Keybindings) []string { return k.Agents.Mail },
-			when: isHoveringAgent,
-			run:  onHoveredAgent(func(m model, item agentItem) (tea.Model, tea.Cmd) { return m.enterMail(item.agent) }),
 		},
 		{
 			id:   actionAgentChild,
@@ -340,7 +340,7 @@ func (m model) clearAgentSelection(string) (tea.Model, tea.Cmd) {
 }
 
 func (m model) toggleAgentSelection(string) (tea.Model, tea.Cmd) {
-	m.tree.selected = m.tree.selected.toggle(m.agentRows(), m.tree.cursor)
+	m.tree.selected = m.tree.selected.toggle(refsOf(m.agentRows()), m.tree.cursor)
 
 	return m, nil
 }
@@ -350,7 +350,7 @@ func (m model) extendAgentSelection(string) (tea.Model, tea.Cmd) {
 		return m.toggleAgentSelection("")
 	}
 
-	m.tree.selected = m.tree.selected.extend(m.agentRows(), m.tree.cursor)
+	m.tree.selected = m.tree.selected.extend(refsOf(m.agentRows()), m.tree.cursor)
 
 	return m, nil
 }
@@ -435,8 +435,8 @@ func agentsBrowsingLegend() []legendRow {
 			show: isHoveringAgent,
 		},
 		{
-			of:   []actionID{actionAgentMail, actionAgentPause},
-			desc: model.mailAndPauseDesc,
+			of:   []actionID{actionAgentPause},
+			desc: model.pauseDesc,
 			show: isHoveringAgent,
 		},
 		{
@@ -518,6 +518,11 @@ func agentsBrowsingLegend() []legendRow {
 			show: isBrowsing,
 		},
 		{
+			of:   []actionID{actionWorktreesOpen},
+			desc: func(model) string { return "worktrees" },
+			show: isBrowsing,
+		},
+		{
 			of:   []actionID{actionFilterOpen},
 			desc: model.filterDesc,
 			show: isBrowsing,
@@ -549,7 +554,7 @@ func (m model) selectionToggleDesc() string {
 	switch {
 	case hovered.header:
 		return "select folder"
-	case m.tree.selected.has(hovered.item.agent.ID):
+	case m.tree.selected.has(rowKey(hovered)):
 		return "deselect"
 	}
 
@@ -557,17 +562,11 @@ func (m model) selectionToggleDesc() string {
 }
 
 func (m model) selectionClearDesc() string {
-	return fmt.Sprintf("clear %d selected", len(m.tree.selected.ids))
+	return fmt.Sprintf("clear %d selected", len(m.tree.selected.keys))
 }
 
 func (m model) showHiddenDescOf() string {
 	return m.showHiddenDesc()
-}
-
-// mailAndPauseDesc names the two keys that share a legend row, which is what keeps the expanded
-// legend inside a pane that already fits.
-func (m model) mailAndPauseDesc() string {
-	return "mailbox, " + m.pauseDesc()
 }
 
 // pauseDesc names the pause key for what pressing it would do to the row under the cursor.
@@ -603,4 +602,20 @@ func concatKeys(lists ...[]string) []string {
 	}
 
 	return out
+}
+
+// hoveredAgentID is the agent under the cursor, or the orchestrator behind a hovered workflow,
+// empty when neither.
+func (m model) hoveredAgentID() string {
+	row, ok := m.hoveredRow()
+	if !ok {
+		return ""
+	}
+
+	item, held := row.paneItem()
+	if !held {
+		return ""
+	}
+
+	return item.agent.ID
 }

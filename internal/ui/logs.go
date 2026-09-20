@@ -57,6 +57,10 @@ func (m model) logsDesc() string {
 
 // logTarget is the agent the log keys read.
 func (m model) logTarget() (agentstore.Agent, bool) {
+	if m.screen == screenWorktrees {
+		return m.hoveredWorktreeAgent()
+	}
+
 	item, ok := m.selectedAgent()
 	if !ok {
 		return agentstore.Agent{}, false

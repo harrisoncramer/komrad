@@ -45,6 +45,11 @@ type Worktree struct {
 	Occupants []Agent
 }
 
+// IsStuck reports whether the row's own delete failed on a registration git cannot read.
+func (w Worktree) IsStuck() bool {
+	return w.Agent != nil && w.Agent.FailedToCleanup && !w.Readable
+}
+
 // Listing is every directory under the worktree directories.
 type Listing struct {
 	Worktrees []Worktree

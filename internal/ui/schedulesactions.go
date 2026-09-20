@@ -114,6 +114,10 @@ func (m model) scheduleToggleDesc() string {
 	return "pause"
 }
 
+func jumpLabel(k config.Keybindings) string {
+	return doubledLabel(k.Nav.Top) + "/" + keyLabel(k.Nav.Bottom)
+}
+
 func moveLabel(k config.Keybindings) string {
 	return keyLabel(k.Nav.Up) + "/" + keyLabel(k.Nav.Down)
 }
