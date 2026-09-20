@@ -5,11 +5,7 @@ import (
 	"time"
 )
 
-const (
-	friendlyLayout = "Jan 2 at 3:04pm"
-	clockLayout    = "3:04pm"
-	dayLayout      = "Jan 2 3:04pm"
-)
+const friendlyLayout = "Jan 2 at 3:04pm"
 
 // Friendly renders a stored UTC timestamp in the viewer's local time zone as
 // "Jul 2 at 2:30pm", or an empty string when the time is zero.
@@ -19,21 +15,6 @@ func Friendly(t time.Time) string {
 	}
 
 	return t.Local().Format(friendlyLayout)
-}
-
-// Clock is the short label a list row gets: the time of day for something that happened today,
-// and the day with the time for anything older.
-func Clock(t time.Time) string {
-	if t.IsZero() {
-		return ""
-	}
-
-	local := t.Local()
-	if now := time.Now().Local(); local.YearDay() == now.YearDay() && local.Year() == now.Year() {
-		return local.Format(clockLayout)
-	}
-
-	return local.Format(dayLayout)
 }
 
 // Age is how long ago a time was, in the one unit that fits it: 40s, 5m, 3h, 2d or 6w.

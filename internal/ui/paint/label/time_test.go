@@ -48,52 +48,6 @@ func TestFriendly(t *testing.T) {
 // something about the conversion rather than about the machine's zone.
 var utcAfternoon = time.Date(2024, time.July, 2, 14, 30, 0, 0, time.UTC)
 
-// TestClock pins the two shapes a row label takes, today and last week not reading the same.
-func TestClock(t *testing.T) {
-	now := time.Now().Local()
-
-	tests := []struct {
-		name string
-		in   time.Time
-		want string
-	}{
-		{
-			name: "a zero time renders empty",
-			in:   time.Time{},
-			want: "",
-		},
-		{
-			name: "something today is the time of day",
-			in:   time.Date(now.Year(), now.Month(), now.Day(), 14, 30, 0, 0, time.Local),
-			want: "2:30pm",
-		},
-		{
-			name: "something older is the day it happened and the time it happened at",
-			in:   now.AddDate(0, 0, -8),
-			want: now.AddDate(0, 0, -8).Format("Jan 2 3:04pm"),
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, Clock(tt.in))
-		})
-	}
-}
-
-// TestClockReadsAnInstantInLocalTime pins the conversion against a zone of its own, on an instant
-// late enough in the UTC day that the two zones disagree about which day it is.
-func TestClockReadsAnInstantInLocalTime(t *testing.T) {
-	here := time.Local
-	t.Cleanup(func() { time.Local = here })
-
-	// 23:30 UTC on the second is already the third in this zone, which is the whole of what the
-	// case is asking.
-	time.Local = time.FixedZone("test/+12", 12*60*60)
-
-	assert.Equal(t, "Jul 3 11:30am", Clock(time.Date(2024, time.July, 2, 23, 30, 0, 0, time.UTC)))
-}
-
 // TestAgeAtPicksTheOneUnitThatFits pins the unit chosen at each boundary, and a future time
 // reading as no age at all rather than a negative one.
 func TestAgeAtPicksTheOneUnitThatFits(t *testing.T) {
