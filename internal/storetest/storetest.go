@@ -15,6 +15,7 @@ import (
 	agentstore "weave/internal/store/agent"
 	mailstore "weave/internal/store/mail"
 	markstore "weave/internal/store/mark"
+	pullrequeststore "weave/internal/store/pullrequest"
 	runstore "weave/internal/store/run"
 	schedulestore "weave/internal/store/schedule"
 	transcriptstore "weave/internal/store/transcript"
@@ -26,16 +27,17 @@ import (
 )
 
 type Stores struct {
-	URL         string
-	ReadOnlyURL string
-	Pool        *store.Pool
-	Agents      *agentstore.Store
-	Workflows   *workflowstore.Store
-	Schedules   *schedulestore.Store
-	Transcripts *transcriptstore.Store
-	Mail        *mailstore.Store
-	Runs        *runstore.Store
-	Marks       *markstore.Store
+	URL          string
+	ReadOnlyURL  string
+	Pool         *store.Pool
+	Agents       *agentstore.Store
+	Workflows    *workflowstore.Store
+	Schedules    *schedulestore.Store
+	Transcripts  *transcriptstore.Store
+	Mail         *mailstore.Store
+	Runs         *runstore.Store
+	Marks        *markstore.Store
+	PullRequests *pullrequeststore.Store
 }
 
 // Open builds the stores over a database of this test's own, closed when the
@@ -50,16 +52,17 @@ func Open(t *testing.T) *Stores {
 	t.Cleanup(func() { _ = pool.Close() })
 
 	return &Stores{
-		URL:         dbURL,
-		ReadOnlyURL: grantReadOnly(t, pool, dbURL),
-		Pool:        pool,
-		Agents:      agentstore.New(pool.GetDB()),
-		Workflows:   workflowstore.New(pool.GetDB()),
-		Schedules:   schedulestore.New(pool.GetDB()),
-		Transcripts: transcriptstore.New(pool.GetDB()),
-		Mail:        mailstore.New(pool.GetDB()),
-		Runs:        runstore.New(pool.GetDB()),
-		Marks:       markstore.New(pool.GetDB()),
+		URL:          dbURL,
+		ReadOnlyURL:  grantReadOnly(t, pool, dbURL),
+		Pool:         pool,
+		Agents:       agentstore.New(pool.GetDB()),
+		Workflows:    workflowstore.New(pool.GetDB()),
+		Schedules:    schedulestore.New(pool.GetDB()),
+		Transcripts:  transcriptstore.New(pool.GetDB()),
+		Mail:         mailstore.New(pool.GetDB()),
+		Runs:         runstore.New(pool.GetDB()),
+		Marks:        markstore.New(pool.GetDB()),
+		PullRequests: pullrequeststore.New(pool.GetDB()),
 	}
 }
 

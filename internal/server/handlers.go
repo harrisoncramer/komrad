@@ -94,6 +94,7 @@ func newMux(params newMuxParams) (*http.ServeMux, error) {
 			Marks:        params.Services.marks,
 			Refresher:    params.Services.rebase,
 			Orchestrator: params.Services.orchestrator,
+			PullRequests: params.Stores.pullRequests,
 		})}, options...))
 	mux.Handle(workflowv1connect.NewWorkflowServiceHandler(
 		workflowv1weave.WorkflowServiceAdapter{

@@ -21,6 +21,7 @@ import (
 
 	agentstore "weave/internal/store/agent"
 	markstore "weave/internal/store/mark"
+	pullrequeststore "weave/internal/store/pullrequest"
 	reviewstore "weave/internal/store/review"
 	runstore "weave/internal/store/run"
 
@@ -100,6 +101,13 @@ type archiveEmptier interface {
 	EmptyArchive(ctx context.Context) error
 }
 
+// currentPullRequestReader is what the listing reads to say where each agent's pull request
+// stands.
+type currentPullRequestReader interface {
+	ListCurrentPullRequests(ctx context.Context) ([]pullrequeststore.Current, error)
+	ListReadRepositories(ctx context.Context) ([]string, error)
+}
+
 type AgentService struct {
 	agents       agentReadWriter
 	transcripts  transcriptReader
@@ -118,6 +126,7 @@ type AgentService struct {
 	marks        markReadWriter
 	refresher    worktreeRefresher
 	orchestrator orchestratorStarter
+	pullRequests currentPullRequestReader
 	now          func() time.Time
 }
 
@@ -139,6 +148,7 @@ type NewAgentServiceParams struct {
 	Marks        markReadWriter
 	Refresher    worktreeRefresher
 	Orchestrator orchestratorStarter
+	PullRequests currentPullRequestReader
 	Clock        func() time.Time
 }
 
@@ -168,6 +178,7 @@ func NewAgentService(params NewAgentServiceParams) *AgentService {
 		marks:        params.Marks,
 		refresher:    params.Refresher,
 		orchestrator: params.Orchestrator,
+		pullRequests: params.PullRequests,
 		now:          now,
 	}
 }
@@ -178,6 +189,12 @@ var errCallerHasNoAgent = fail.InvalidArgument("the caller has no agent id of it
 
 // errNoIDToFallBackOn is a request naming no agent, made by something that is not one.
 var errNoIDToFallBackOn = fail.InvalidArgument("no id given, and the caller has none of its own to fall back to")
+
+// errPullRequestKey is a metadata write under the key the forge now fills.
+var errPullRequestKey = fail.InvalidArgument("pull requests are read from the forge and shown on the row; nothing needs recording here")
+
+// pullRequestMetadataKey is the key agents used to record the pull request they opened.
+const pullRequestMetadataKey = "pr"
 
 // CreateAgent launches a background agent and returns it as stored.
 func (s *AgentService) CreateAgent(ctx context.Context, req *agentv1.CreateAgentRequest) (*agentv1.CreateAgentResponse, *fail.Error) {
@@ -289,22 +306,44 @@ func (s *AgentService) agentFlagsFor(ctx context.Context, listed []agentstore.Ag
 		}
 	}
 
+	listedCurrent, err := s.pullRequests.ListCurrentPullRequests(ctx)
+	if err != nil {
+		return nil, rpcerr.From(err, "failed to list the agents' current pull requests")
+	}
+	current := xslice.KeyBy(listedCurrent, func(entry pullrequeststore.Current) string { return entry.AgentID })
+
+	readRepositories, err := s.pullRequests.ListReadRepositories(ctx)
+	if err != nil {
+		return nil, rpcerr.From(err, "failed to list the repositories the sync has read")
+	}
+	read := xslice.KeyBy(readRepositories, func(repositoryURL string) string { return repositoryURL })
+
 	return func(a agentstore.Agent) agentFlags {
 		_, hasMail := waiting[a.ID]
 		_, hasOutput := unviewed[a.ID]
 		failure, hasFailure := failed[a.ID]
-
-		return agentFlags{
-			mark:         marks[a.ID],
-			alive:        running[a.ID],
-			unreadMail:   hasMail,
-			unviewed:     hasOutput,
-			failedRun:    hasFailure,
-			failedRunLog: failure.LogNumber,
-			localRounds:  tallies[a.ID].Rounds,
-			localVerdict: localVerdictOf(tallies[a.ID]),
-			localTree:    s.trees.GetStanding(a.ID, tallies[a.ID].SnapshotSHA),
+		repositoryRead := false
+		if a.RepositoryURL != nil {
+			_, repositoryRead = read[*a.RepositoryURL]
 		}
+
+		flags := agentFlags{
+			mark:           marks[a.ID],
+			alive:          running[a.ID],
+			unreadMail:     hasMail,
+			unviewed:       hasOutput,
+			failedRun:      hasFailure,
+			failedRunLog:   failure.LogNumber,
+			localRounds:    tallies[a.ID].Rounds,
+			localVerdict:   localVerdictOf(tallies[a.ID]),
+			localTree:      s.trees.GetStanding(a.ID, tallies[a.ID].SnapshotSHA),
+			repositoryRead: repositoryRead,
+		}
+		if entry, ok := current[a.ID]; ok {
+			flags.pullRequest = &entry.PullRequest
+		}
+
+		return flags
 	}, nil
 }
 
@@ -438,8 +477,12 @@ func (s *AgentService) MarkRunsRead(ctx context.Context, req *agentv1.MarkRunsRe
 }
 
 // SetMetadata records one fact an agent found out about its own work, or clears the key
-// when the value is unset.
+// when the value is unset, refusing the key the forge fills on its own.
 func (s *AgentService) SetMetadata(ctx context.Context, req *agentv1.SetMetadataRequest) (*emptypb.Empty, *fail.Error) {
+	if req.GetKey() == pullRequestMetadataKey {
+		return nil, errPullRequestKey
+	}
+
 	changed, err := s.agents.SetMetadata(ctx, agentstore.SetMetadataParams{
 		ID:    req.GetId(),
 		Key:   req.GetKey(),

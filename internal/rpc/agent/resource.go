@@ -9,10 +9,13 @@ import (
 
 	agentstore "weave/internal/store/agent"
 	mailstore "weave/internal/store/mail"
+	pullrequeststore "weave/internal/store/pullrequest"
 	transcriptstore "weave/internal/store/transcript"
+	"weave/lib/xptr"
 	"weave/lib/xslice"
 	"weave/lib/xstr"
 	agentv1 "weave/proto/gen/agent/v1"
+	pullrequestv1 "weave/proto/gen/pullrequest/v1"
 	viewv1 "weave/proto/gen/view/v1"
 )
 
@@ -45,6 +48,12 @@ type agentFlags struct {
 	localVerdict string
 	// localTree is where the worktree stands against the round that verdict was given on.
 	localTree git.Standing
+	// pullRequest is the one the agent's row stands for, nil when none was opened from its
+	// branch.
+	pullRequest *pullrequeststore.PullRequest
+	// repositoryRead says the sync has read the agent's repository at least once, which is what
+	// tells no pull request from nothing known.
+	repositoryRead bool
 }
 
 // agentOptions is how much of an agent renderAgent draws.
@@ -122,8 +131,30 @@ func renderAgent(stored agentstore.Agent, flags agentFlags, opts ...agentOption)
 			LocalReviewVerdict: flags.localVerdict,
 			LocalReviewTree:    renderStanding(flags.localTree),
 			HeldAt:             heldStamp(stored.HeldAt),
+			PullRequest:        renderPullRequestStanding(flags),
 		},
 		cursor: agentstore.Cursor{ID: stored.ID},
+	}
+}
+
+// renderPullRequestStanding is where the agent's pull request stands as the wire carries it:
+// unread until the sync has looked at the repository, none when it has and found nothing on
+// the branch, else the current one and its state.
+func renderPullRequestStanding(flags agentFlags) *agentv1.PullRequestStanding {
+	if flags.pullRequest == nil {
+		state := pullrequestv1.PullRequestState_PULL_REQUEST_STATE_UNREAD
+		if flags.repositoryRead {
+			state = pullrequestv1.PullRequestState_PULL_REQUEST_STATE_NONE
+		}
+
+		return &agentv1.PullRequestStanding{State: state}
+	}
+
+	return &agentv1.PullRequestStanding{
+		State:  render.PullRequestStateOf(*flags.pullRequest),
+		Number: xptr.Ptr(int32(flags.pullRequest.Number)),
+		Url:    xptr.Ptr(flags.pullRequest.URL),
+		Title:  xptr.Ptr(flags.pullRequest.Title),
 	}
 }
 
