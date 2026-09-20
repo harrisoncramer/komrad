@@ -203,6 +203,12 @@ func Spell(glyph Glyph) string {
 		return ""
 	case GlyphSchedule:
 		return ""
+	case GlyphWorkflow:
+		return "\uf52e"
+	case GlyphArchive:
+		return "\uf411"
+	case GlyphSearch:
+		return "\uf422"
 	case GlyphBusy:
 		return "┃"
 	case GlyphQuiet:

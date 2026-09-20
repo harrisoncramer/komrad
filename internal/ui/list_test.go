@@ -11,8 +11,11 @@ import (
 	workflowstore "weave/internal/store/workflow"
 	"weave/internal/ui/layout"
 	"weave/internal/ui/paint"
+	"weave/internal/view"
 
+	"github.com/charmbracelet/x/ansi"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // screensModel is a panel standing on the last row of a list longer than any pane, on every
@@ -78,7 +81,7 @@ func TestScreensFitThePane(t *testing.T) {
 		{
 			name:      "the agents tree",
 			screen:    screenAgents,
-			wantTitle: "Agents and Workflows",
+			wantTitle: "Agents & Workflows",
 		},
 		{
 			name:      "the archive",
@@ -104,6 +107,62 @@ func TestScreensFitThePane(t *testing.T) {
 			assert.Contains(t, view, "agent39", "the hovered row is on screen")
 			assert.Contains(t, view, "hide help", "the legend is on screen")
 			assert.Contains(t, view, tt.wantTitle, "the title is on screen")
+		})
+	}
+}
+
+// TestScreenTitlesOpenWithTheirIcon covers every listing's title drawn two columns in behind
+// the icon that says what the screen is, in the plain foreground rather than the accent.
+func TestScreenTitlesOpenWithTheirIcon(t *testing.T) {
+	withANSI(t)
+
+	tests := []struct {
+		name   string
+		screen screen
+		icon   view.Glyph
+		title  string
+	}{
+		{
+			name:   "the agents tree",
+			screen: screenAgents,
+			icon:   view.GlyphWorkflow,
+			title:  "Agents & Workflows",
+		},
+		{
+			name:   "the schedules",
+			screen: screenSchedules,
+			icon:   view.GlyphSchedule,
+			title:  "Schedules",
+		},
+		{
+			name:   "the archive",
+			screen: screenArchive,
+			icon:   view.GlyphArchive,
+			title:  "Archive",
+		},
+		{
+			name:   "the worktrees",
+			screen: screenWorktrees,
+			icon:   view.GlyphRepo,
+			title:  "Worktrees",
+		},
+		{
+			name:   "the search",
+			screen: screenSearch,
+			icon:   view.GlyphSearch,
+			title:  "Search",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			shown := screensModel()
+			shown.height = 29
+			shown.screen = tt.screen
+
+			first, _, _ := strings.Cut(shown.View(), "\n")
+			require.True(t, strings.HasPrefix(first, "  "+view.Spell(tt.icon)+" "+tt.title), "the title opens the frame: %q", ansi.Strip(first))
+			assert.NotContains(t, first, paint.Panel.Title(tt.title), "and is drawn plain")
 		})
 	}
 }

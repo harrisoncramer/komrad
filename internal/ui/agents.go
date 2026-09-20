@@ -561,11 +561,11 @@ func agentsTabs() tabStrip {
 }
 
 func (m model) agentsHeader() string {
-	return m.tabbedHeader("Agents and Workflows", "")
+	return m.tabbedHeader(screenTitle(view.GlyphWorkflow, "Agents & Workflows"), "")
 }
 
 func (m model) doesAgentsFitTabs() bool {
-	return m.doesListFitTabs("Agents and Workflows", "", model.agentHelp)
+	return m.doesListFitTabs(screenTitle(view.GlyphWorkflow, "Agents & Workflows"), "", model.agentHelp)
 }
 
 func (m model) doesAgentsFitDetails() bool {

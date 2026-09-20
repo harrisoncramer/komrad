@@ -185,11 +185,11 @@ func worktreesTabs() tabStrip {
 }
 
 func (m model) worktreesHeader() string {
-	return m.tabbedHeader("Worktrees", m.worktreesTally())
+	return m.tabbedHeader(screenTitle(view.GlyphRepo, "Worktrees"), m.worktreesTally())
 }
 
 func (m model) doesWorktreesFitTabs() bool {
-	return m.doesListFitTabs("Worktrees", m.worktreesTally(), model.worktreesHelp)
+	return m.doesListFitTabs(screenTitle(view.GlyphRepo, "Worktrees"), m.worktreesTally(), model.worktreesHelp)
 }
 
 // worktreesTally is how many directories the listing holds and what the measured ones take.

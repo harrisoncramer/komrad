@@ -415,11 +415,11 @@ func archiveTabs() tabStrip {
 }
 
 func (m model) archiveHeader() string {
-	return m.tabbedHeader("Archive", "")
+	return m.tabbedHeader(screenTitle(view.GlyphArchive, "Archive"), "")
 }
 
 func (m model) doesArchiveFitTabs() bool {
-	return m.doesListFitTabs("Archive", "", model.archiveHelp)
+	return m.doesListFitTabs(screenTitle(view.GlyphArchive, "Archive"), "", model.archiveHelp)
 }
 
 func (m model) doesArchiveFitDetails() bool {

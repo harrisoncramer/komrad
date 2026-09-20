@@ -4,6 +4,9 @@ import (
 	"strings"
 
 	"weave/internal/ui/paint"
+	"weave/internal/view"
+
+	"github.com/charmbracelet/x/ansi"
 )
 
 // listLines is the room the list has once the chrome around it has taken its share, and is zero
@@ -60,15 +63,23 @@ func (m model) listHeader(title string) string {
 	return m.talliedHeader(title, "")
 }
 
+// screenTitle is a listing's title: its icon and its name, set in from the pane's edge.
+func screenTitle(icon view.Glyph, name string) string {
+	return "  " + view.Spell(icon) + " " + name
+}
+
 // talliedHeader is a list's header with a muted tally after its title.
 func (m model) talliedHeader(title, tally string) string {
 	return m.headerLines(title, tally, "")
 }
 
 func (m model) headerLines(title, tally, tabs string) string {
-	header := paint.Panel.Title(title)
+	header := title
 	if tally != "" {
 		header += dimStyle.Render("  " + tally)
+	}
+	if width := m.paneWidth(); width > 0 {
+		header = ansi.Truncate(header, width, "…")
 	}
 
 	return header + "\n\n" + m.filter.line(paint.Panel) + "\n" + tabs + "\n"

@@ -241,7 +241,7 @@ func TestMessagesRegionExpandsWhenFocused(t *testing.T) {
 	assert.Contains(t, region, "weave log 7c1f2a94")
 	assert.Contains(t, region, "error ·", "the footer says what kind of message this is")
 
-	assert.Contains(t, ansi.Strip(focused.View()), "Agents and Workflows", "the list is still above it")
+	assert.Contains(t, ansi.Strip(focused.View()), "Agents & Workflows", "the list is still above it")
 }
 
 // TestMessagesRegionLeavesTheReasonPlain covers the reason being the one part of an expanded
