@@ -9,6 +9,7 @@ import (
 	"weave/internal/ui/paint"
 	"weave/internal/view"
 	"weave/lib/dates"
+	"weave/lib/xslice"
 
 	tea "github.com/charmbracelet/bubbletea"
 )
@@ -104,7 +105,7 @@ func (m *model) stageWorktrees() {
 // directory's own name, and asks nothing while an answer for it is still on its way.
 func (m *model) inspectWorktreeCmd() tea.Cmd {
 	row, ok := m.hoveredWorktree()
-	if !ok || row.occupant != nil {
+	if !ok {
 		return nil
 	}
 	read, asked := m.worktrees.inspected[row.item.dir]
@@ -134,7 +135,7 @@ func (m *model) inspectHoveredWorktreeCmd() tea.Cmd {
 	}
 
 	row, ok := m.hoveredWorktree()
-	if !ok || row.occupant != nil {
+	if !ok {
 		return nil
 	}
 	if _, asked := m.worktrees.inspected[row.item.dir]; asked {
@@ -232,39 +233,18 @@ func (m model) worktreesDetails() details {
 		}
 	}
 
-	if row.occupant != nil {
-		return m.occupantDetails(row)
-	}
-
 	return details{id: row.key(), fields: m.worktreeFields(row.item)}
 }
 
 func (m model) countUnder(repo string) int {
 	count := 0
 	for _, row := range m.worktreeRows() {
-		if !row.header && row.occupant == nil && row.repo == repo {
+		if !row.header && row.repo == repo {
 			count++
 		}
 	}
 
 	return count
-}
-
-// occupantDetails is the agents list's own record for an agent working in somebody else's
-// directory, where the listing holds it, and the little the worktree listing says otherwise.
-func (m model) occupantDetails(row worktreeRow) details {
-	if item, ok := m.liveAgent(row.occupant.id); ok {
-		return details{id: row.key(), fields: m.agentDetailFields(item)}
-	}
-	if agent, ok := m.archivedAgent(row.occupant.id); ok {
-		return details{id: row.key(), fields: archiveFields(agent, m.scheduleName(agent))}
-	}
-
-	return details{id: row.key(), fields: []recordField{
-		{"name", row.occupant.name},
-		{"directory", row.item.dir},
-		{"agent_id", row.occupant.id},
-	}}
 }
 
 func (m model) worktreeFields(item worktreeItem) []recordField {
@@ -275,13 +255,18 @@ func (m model) worktreeFields(item worktreeItem) []recordField {
 	}
 
 	if !item.readable {
-		return append(fields,
-			recordField{"repository", orDash(item.repoDir)},
-			recordField{"agent", m.worktreeAgentField(item)},
-		)
+		fields = append(fields, recordField{"repository", orDash(item.repoDir)})
+		if len(item.occupants) > 0 {
+			fields = append(fields, recordField{"also here", occupantsField(item)})
+		}
+
+		return append(fields, recordField{"agent", m.worktreeAgentField(item)})
 	}
 
 	fields = append(fields, recordField{"branch", orDash(item.branch)})
+	if len(item.occupants) > 0 {
+		fields = append(fields, recordField{"also here", occupantsField(item)})
+	}
 	if read, ok := m.worktrees.inspected[item.dir]; ok && read.answered && read.err == nil {
 		fields = append(fields,
 			recordField{"base", baseField(read)},
@@ -290,6 +275,10 @@ func (m model) worktreeFields(item worktreeItem) []recordField {
 	}
 
 	return append(fields, recordField{"agent", m.worktreeAgentField(item)}, recordField{"workflow", m.worktreeWorkflowField(item)})
+}
+
+func occupantsField(item worktreeItem) string {
+	return strings.Join(xslice.Map(item.occupants, func(occupant worktreeAgent) string { return occupant.name }), ", ")
 }
 
 // worktreeSizeField is what the directory held when it was last read, a dash until it has been.
@@ -386,8 +375,6 @@ func (m model) worktreeDoc() string {
 		return renderDocument("Worktrees", "_no worktrees_", "", "")
 	case row.header:
 		return renderDocument(shortenHome(row.repo), fmt.Sprintf("_%s_", countWord(m.countUnder(row.repo), "worktree", "worktrees")), "", "")
-	case row.occupant != nil:
-		return renderDocument(row.occupant.name, fmt.Sprintf("_working in %s_", row.item.dir), "", "")
 	}
 
 	read, ok := m.worktrees.inspected[row.item.dir]

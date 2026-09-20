@@ -197,15 +197,15 @@ func (m model) doesWorktreesHoldARow() bool {
 }
 
 // doesWorktreesHoldADirectory reports whether the cursor is on a directory rather than on a
-// repository or an agent working in somebody else's.
+// repository.
 func (m model) doesWorktreesHoldADirectory() bool {
 	if m.worktrees.selected.isActive() {
 		return false
 	}
 
-	row, ok := m.hoveredWorktree()
+	_, ok := m.hoveredWorktree()
 
-	return ok && row.occupant == nil
+	return ok
 }
 
 // canWorktreeRowOpen reports whether the hovered row has an agent the panel can land on.
@@ -216,7 +216,7 @@ func (m model) canWorktreeRowOpen() bool {
 
 	row, ok := m.hoveredWorktree()
 
-	return ok && row.agentOn() != nil
+	return ok && row.item.agent != nil
 }
 
 func (m model) jumpWorktrees(pressed string) (tea.Model, tea.Cmd) {
@@ -330,11 +330,11 @@ func (m model) worktreeFate(item worktreeItem) worktreeFate {
 // jumpToWorktreeAgent lands the agents list or the archive on the hovered row's agent.
 func (m model) jumpToWorktreeAgent() (tea.Model, tea.Cmd) {
 	row, ok := m.hoveredWorktree()
-	if !ok || row.agentOn() == nil {
+	if !ok || row.item.agent == nil {
 		return m, nil
 	}
 
-	id := row.agentOn().id
+	id := row.item.agent.id
 	if _, live := m.liveAgent(id); live {
 		m.enterScreen(screenAgents)
 		m.revealAgent(id)
@@ -353,7 +353,7 @@ func (m model) jumpToWorktreeAgent() (tea.Model, tea.Cmd) {
 
 func (m model) deleteHoveredWorktree(string) (tea.Model, tea.Cmd) {
 	row, ok := m.hoveredWorktree()
-	if !ok || row.occupant != nil {
+	if !ok {
 		return m, nil
 	}
 
@@ -374,7 +374,7 @@ func (m model) deleteHoveredWorktree(string) (tea.Model, tea.Cmd) {
 func (m model) deleteChosenWorktrees(string) (tea.Model, tea.Cmd) {
 	deletion := worktreeDeletion{}
 	for _, row := range m.worktreeRows() {
-		if row.header || row.occupant != nil || !m.worktrees.selected.has(row.key()) {
+		if row.header || !m.worktrees.selected.has(row.key()) {
 			continue
 		}
 
@@ -397,7 +397,7 @@ func (m model) deleteChosenWorktrees(string) (tea.Model, tea.Cmd) {
 func (m model) clearWorktreesConfirm() (tea.Model, tea.Cmd) {
 	deletion := worktreeDeletion{}
 	for _, row := range m.worktreeRows() {
-		if row.header || row.occupant != nil {
+		if row.header {
 			continue
 		}
 
