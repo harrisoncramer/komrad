@@ -125,7 +125,7 @@ type Keybindings struct {
 	// cursor, and the key that copies the field it lands on.
 	Details DetailsKeys `mapstructure:"details"`
 	// The filter over whichever list is on screen, shared by every screen that
-	// draws one.
+	// draws one. The key that opens it is "/" and is not configured.
 	Filter FilterKeys `mapstructure:"filter"`
 	// The key that draws the legend under a list, shared by every screen for the
 	// same reason navigation is.
@@ -207,12 +207,10 @@ type LogsKeys struct {
 }
 
 // FilterKeys are the bindings for the search over the list on screen. It is its own group rather
-// than one of a screen's, since it acts the same on all of them. While the input is open every
-// other key types into the pattern, so the keys that close it are fixed rather than configured,
-// and the keys that walk the matches answer only once the search stands.
+// than one of a screen's, since it acts the same on all of them. The key that opens it is fixed,
+// as are the keys that close it, since while the input is open every other key types into the
+// pattern, and the keys that walk the matches answer only once the search stands.
 type FilterKeys struct {
-	// Search the list on screen for what you type, as a regular expression.
-	Open []string `mapstructure:"open" default:"/"`
 	// Move the cursor to the next row matching the search, wrapping at the end of the list.
 	NextMatch []string `mapstructure:"next_match" default:"n"`
 	// Move the cursor to the previous row matching the search.

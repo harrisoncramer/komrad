@@ -75,7 +75,7 @@ func TestValidateKeybindingsReadsTheGlobalKeys(t *testing.T) {
 		},
 		{
 			name:   "the details focus taking the filter key",
-			rebind: func(k *config.Keybindings) { k.Filter.Open = []string{"ctrl+t"} },
+			rebind: func(k *config.Keybindings) { k.Details.Focus = []string{filterOpenKey} },
 			names:  "the details focus",
 		},
 		{

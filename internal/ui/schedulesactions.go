@@ -13,7 +13,7 @@ func schedulesActions() actionSpec {
 		table: []action{
 			{
 				id:   actionFilterOpen,
-				keys: func(k config.Keybindings) []string { return k.Filter.Open },
+				keys: func(config.Keybindings) []string { return []string{filterOpenKey} },
 				run:  func(m model, _ string) (tea.Model, tea.Cmd) { return m.openFilter() },
 			},
 			{

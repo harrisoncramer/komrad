@@ -350,7 +350,7 @@ func (m model) updateSearchList(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	}
 
 	switch {
-	case k == "esc", isBound(k, m.keys.Filter.Open):
+	case k == "esc", k == filterOpenKey:
 		return m.openSearchInput()
 	case k == "ctrl+c":
 		return m, m.hide()

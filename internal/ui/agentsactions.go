@@ -77,7 +77,7 @@ func agentsModeActions() []action {
 		},
 		{
 			id:   actionFilterOpen,
-			keys: func(k config.Keybindings) []string { return k.Filter.Open },
+			keys: func(config.Keybindings) []string { return []string{filterOpenKey} },
 			when: func(m model) bool { return !m.tree.selected.isActive() },
 			run:  func(m model, _ string) (tea.Model, tea.Cmd) { return m.openFilter() },
 		},

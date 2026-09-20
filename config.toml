@@ -119,10 +119,8 @@ copy  = ["y"]
 focus = ["ctrl+t"]
 
 # The filter over whichever list is on screen, shared by every screen that
-# draws one.
+# draws one. The key that opens it is "/" and is not configured.
 [keybindings.filter]
-# Search the list on screen for what you type, as a regular expression.
-open       = ["/"]
 # Move the cursor to the next row matching the search, wrapping at the end of the list.
 next_match = ["n"]
 # Move the cursor to the previous row matching the search.

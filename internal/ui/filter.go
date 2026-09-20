@@ -11,6 +11,9 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
+// filterOpenKey opens the filter on every screen that draws one.
+const filterOpenKey = "/"
+
 // filterMode is what a pattern does to the rows it does not match: search leaves them where
 // they are and lights the ones it does, filter takes them off the screen.
 type filterMode int

@@ -355,7 +355,7 @@ func (m model) searchHelp() keyMap {
 	}
 
 	open := binding([]string{"enter"}, "go to it")
-	edit := binding(slices.Concat([]string{"esc"}, m.keys.Filter.Open), "edit the query")
+	edit := binding([]string{"esc", filterOpenKey}, "edit the query")
 
 	return keyMap{
 		short: []key.Binding{open, edit, m.helpBinding()},

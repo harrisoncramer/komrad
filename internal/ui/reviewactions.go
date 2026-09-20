@@ -69,7 +69,7 @@ func reviewTable() []action {
 		},
 		{
 			id:   actionFilterOpen,
-			keys: func(k config.Keybindings) []string { return k.Filter.Open },
+			keys: func(config.Keybindings) []string { return []string{filterOpenKey} },
 			run:  model.openReviewFilter,
 		},
 		{
