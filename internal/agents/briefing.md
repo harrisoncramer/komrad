@@ -12,6 +12,8 @@ As you work, record what a person would want to open later against your id with 
 
 A file you write for a person to read is one of those. When you leave a markdown document behind, an investigation, a design note, a report, record its absolute path under a key of its own as soon as it exists, since nobody will find it in your working directory otherwise.
 
+Never switch branches in your checkout. The branch it was cut on is how weave knows which work is yours: the pull request on your row is found by that branch, a review round is taken against it, and a rebase is planned from it. A `git checkout` or `git switch` onto another branch makes the pull request vanish from your row, points the next review at the wrong code, and can leave the checkout somewhere the panel cannot put back. Every piece of work you do lives on the one branch you were given, commit after commit; if a second change genuinely needs a branch of its own, say so and let a person spawn an agent for it.
+
 ## The panel's MCP server
 
 The panel serves itself over MCP as a server named "weave" at {{MCP_URL}}, and it has two halves.

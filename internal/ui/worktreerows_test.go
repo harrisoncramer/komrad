@@ -6,6 +6,7 @@ import (
 
 	agentstore "weave/internal/store/agent"
 	"weave/internal/view"
+	"weave/lib/xslice"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -71,32 +72,127 @@ func worktreeFixture() []worktreeItem {
 	}
 }
 
-// TestWorktreeRowsGroupByRepositoryAndStanding covers the headers in path order, the live row
-// first under its repository, then the archived, then the one nothing answers for, with no row
-// for the occupant of the live one.
-func TestWorktreeRowsGroupByRepositoryAndStanding(t *testing.T) {
-	rows := worktreeRows(worktreeFixture())
+// worktreesOrder is the order the strip names for a state.
+func worktreesOrder(state tabsState) sortOrder {
+	return worktreesTabs().order(state)
+}
 
-	keys := make([]string, 0, len(rows))
-	for _, row := range rows {
-		keys = append(keys, row.key())
+// TestWorktreeRowsOrderEachGroupByTheColumn covers the headers staying in path order under
+// every sort, the rows under each ordered by the chosen column in the arrow's direction with
+// the rows that lack the value at the bottom, and the directory name settling a tie.
+func TestWorktreeRowsOrderEachGroupByTheColumn(t *testing.T) {
+	now := time.Date(2026, 9, 20, 12, 0, 0, 0, time.UTC)
+	items := measuredFixture(now)
+	items[0].size.bytes = 60 * 1024 * 1024
+
+	tests := []struct {
+		name  string
+		items []worktreeItem
+		state tabsState
+		want  []string
+	}{
+		{
+			name:  "nothing measured falls to the directory name",
+			items: worktreeFixture(),
+			state: tabsState{chosen: "size", direction: tabUp},
+			want: []string{
+				"repo:/home/h/chariot/admin",
+				"tree:/trees/admin",
+				"repo:/home/h/weave",
+				"tree:/trees/archived",
+				"tree:/trees/live",
+				"tree:/trees/orphan",
+				"repo:/var/folders/T/repo",
+				"tree:/trees/broken",
+			},
+		},
+		{
+			name:  "size down is the fallback, largest first and the failed walk last",
+			items: items,
+			state: tabsState{},
+			want: []string{
+				"repo:/home/h/chariot/admin",
+				"tree:/trees/admin",
+				"repo:/home/h/weave",
+				"tree:/trees/live",
+				"tree:/trees/archived",
+				"tree:/trees/orphan",
+				"repo:/var/folders/T/repo",
+				"tree:/trees/broken",
+			},
+		},
+		{
+			name:  "size up is smallest first with the failed walk still last",
+			items: items,
+			state: tabsState{chosen: "size", direction: tabUp},
+			want: []string{
+				"repo:/home/h/chariot/admin",
+				"tree:/trees/admin",
+				"repo:/home/h/weave",
+				"tree:/trees/archived",
+				"tree:/trees/live",
+				"tree:/trees/orphan",
+				"repo:/var/folders/T/repo",
+				"tree:/trees/broken",
+			},
+		},
+		{
+			name:  "last-accessed down is the most recent first, the failed walk placed by its own activity",
+			items: items,
+			state: tabsState{chosen: "last-accessed", direction: tabDown},
+			want: []string{
+				"repo:/home/h/chariot/admin",
+				"tree:/trees/admin",
+				"repo:/home/h/weave",
+				"tree:/trees/live",
+				"tree:/trees/orphan",
+				"tree:/trees/archived",
+				"repo:/var/folders/T/repo",
+				"tree:/trees/broken",
+			},
+		},
+		{
+			name:  "last-accessed up is the coldest first",
+			items: items,
+			state: tabsState{chosen: "last-accessed", direction: tabUp},
+			want: []string{
+				"repo:/home/h/chariot/admin",
+				"tree:/trees/admin",
+				"repo:/home/h/weave",
+				"tree:/trees/archived",
+				"tree:/trees/orphan",
+				"tree:/trees/live",
+				"repo:/var/folders/T/repo",
+				"tree:/trees/broken",
+			},
+		},
 	}
 
-	assert.Equal(t, []string{
-		"repo:/home/h/chariot/admin",
-		"tree:/trees/admin",
-		"repo:/home/h/weave",
-		"tree:/trees/live",
-		"tree:/trees/archived",
-		"tree:/trees/orphan",
-		"repo:/var/folders/T/repo",
-		"tree:/trees/broken",
-	}, keys)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			rows := worktreeRows(tt.items, worktreesOrder(tt.state))
+
+			assert.Equal(t, tt.want, xslice.Map(rows, worktreeRow.key))
+		})
+	}
+}
+
+// TestWorktreeRowsLeaveTheOccupantOffTheList covers an agent working in another's directory
+// getting no row of its own.
+func TestWorktreeRowsLeaveTheOccupantOffTheList(t *testing.T) {
+	rows := worktreeRows(worktreeFixture(), worktreesOrder(tabsState{}))
+
+	assert.Len(t, rows, 8)
+	for _, row := range rows {
+		if row.item.agent != nil {
+			assert.NotEqual(t, "occ", row.item.agent.id)
+		}
+	}
 }
 
 // TestWorktreeRowNames covers the name falling from the agent to the branch to the directory.
 func TestWorktreeRowNames(t *testing.T) {
-	rows := worktreeRows(worktreeFixture())
+	rows := worktreeRows(worktreeFixture(), worktreesOrder(tabsState{}))
 
 	names := make([]string, 0, len(rows))
 	for _, row := range rows {
@@ -107,8 +203,8 @@ func TestWorktreeRowNames(t *testing.T) {
 		"/home/h/chariot/admin",
 		"custom-cargo-fixes",
 		"/home/h/weave",
-		"worktree-view",
 		"review-column",
+		"worktree-view",
 		"agent/orphan",
 		"/var/folders/T/repo",
 		"broken",
@@ -118,7 +214,7 @@ func TestWorktreeRowNames(t *testing.T) {
 // TestWorktreeRowsHeadTheDirectoriesWithNoRepository covers a directory whose .git file names
 // nothing sitting under a heading of its own.
 func TestWorktreeRowsHeadTheDirectoriesWithNoRepository(t *testing.T) {
-	rows := worktreeRows([]worktreeItem{{dir: "/trees/stray"}})
+	rows := worktreeRows([]worktreeItem{{dir: "/trees/stray"}}, worktreesOrder(tabsState{}))
 
 	require.Len(t, rows, 2)
 	assert.Equal(t, noRepository, rows[0].name())
@@ -128,7 +224,7 @@ func TestWorktreeRowsHeadTheDirectoriesWithNoRepository(t *testing.T) {
 // TestRowIndexOfWorktreeAgent covers the owner and an occupant both landing on the directory,
 // and an agent with no directory landing nowhere.
 func TestRowIndexOfWorktreeAgent(t *testing.T) {
-	rows := worktreeRows(worktreeFixture())
+	rows := worktreeRows(worktreeFixture(), worktreesOrder(tabsState{}))
 
 	tests := []struct {
 		name string
@@ -148,12 +244,12 @@ func TestRowIndexOfWorktreeAgent(t *testing.T) {
 		{
 			name: "the owner lands on its directory",
 			id:   "live",
-			want: 3,
+			want: 4,
 		},
 		{
 			name: "an occupant lands on the directory it works in",
 			id:   "occ",
-			want: 3,
+			want: 4,
 		},
 	}
 
@@ -167,7 +263,7 @@ func TestRowIndexOfWorktreeAgent(t *testing.T) {
 // TestWorktreesSnapshotReadsEveryRow covers the kind, the process, the status and the repo
 // glyph each kind of row carries.
 func TestWorktreesSnapshotReadsEveryRow(t *testing.T) {
-	rows := worktreeRows(worktreeFixture())
+	rows := worktreeRows(worktreeFixture(), worktreesOrder(tabsState{}))
 	snapshot := worktreesSnapshot(worktreesSnapshotParams{
 		rows:     rows,
 		selected: selection{keys: []string{"tree:/trees/orphan"}},
@@ -311,7 +407,7 @@ func TestWorktreesSnapshotTrailsSizeThenAge(t *testing.T) {
 	now := time.Date(2026, 9, 20, 12, 0, 0, 0, time.UTC)
 	items := measuredFixture(now)
 	snapshot := worktreesSnapshot(worktreesSnapshotParams{
-		rows:  worktreeRows(items),
+		rows:  worktreeRows(items, worktreesOrder(tabsState{})),
 		items: items,
 		now:   now,
 	})

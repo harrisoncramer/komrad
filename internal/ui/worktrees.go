@@ -36,6 +36,11 @@ type worktreeItem struct {
 	lastActiveAt time.Time
 }
 
+// isMeasured reports whether the directory carries a size.
+func (item worktreeItem) isMeasured() bool {
+	return item.size != nil && item.size.err == ""
+}
+
 // worktreeEntry is one top-level entry of a directory.
 type worktreeEntry struct {
 	path  string

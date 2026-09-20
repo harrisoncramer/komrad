@@ -3,6 +3,7 @@ package ui
 import (
 	"strings"
 	"testing"
+	"time"
 
 	"weave/internal/ui/paint"
 	"weave/lib/xslice"
@@ -133,19 +134,24 @@ func TestTabStripStepsAndWraps(t *testing.T) {
 	}
 }
 
+// sortedWorktreesModel is the worktrees screen over the measured fixture, with the cursor on
+// the live agent's directory.
 func sortedWorktreesModel() model {
 	m := worktreesModel()
 	m.width, m.height = 200, 40
-	m.worktrees.cursor = 3
+	m.worktrees.items = measuredFixture(time.Date(2026, 9, 20, 12, 0, 0, 0, time.UTC))
+	m.worktrees.cursor = 4
 
 	return m
 }
 
 // TestTabsFocusTakesTheKeys covers the focus key handing the keys to the strip, where tab and
-// shift+tab move the choice and the navigation keys turn its arrow while the list's own cursor
-// stays put, and the focus key handing them back with the choice kept.
+// shift+tab move the choice and the navigation keys turn its arrow, the rows reordering under
+// the cursor and the cursor staying on its row, and the focus key handing them back with the
+// choice kept.
 func TestTabsFocusTakesTheKeys(t *testing.T) {
 	m := sortedWorktreesModel()
+	require.Equal(t, "tree:/trees/live", m.hoveredWorktreeKey())
 	before := xslice.Map(m.worktreeRows(), worktreeRow.key)
 
 	focused := send(t, m, "f")
@@ -155,13 +161,18 @@ func TestTabsFocusTakesTheKeys(t *testing.T) {
 	tabbed := send(t, focused, "tab")
 	assert.Equal(t, "last-accessed", tabbed.worktrees.sort.chosen)
 	assert.Equal(t, tabDown, tabbed.worktrees.sort.direction)
+	assert.NotEqual(t, before, xslice.Map(tabbed.worktreeRows(), worktreeRow.key), "the rows take the order the tab names")
+	assert.Equal(t, "tree:/trees/live", tabbed.hoveredWorktreeKey(), "the cursor stays on its row")
+	assert.Equal(t, 3, tabbed.worktrees.cursor, "at the index the row moved to")
 
 	turned := send(t, tabbed, "k")
 	assert.Equal(t, tabUp, turned.worktrees.sort.direction)
-	assert.Equal(t, 3, turned.worktrees.cursor, "the list cursor does not move")
+	assert.Equal(t, "tree:/trees/live", turned.hoveredWorktreeKey(), "the cursor follows its row as the arrow turns")
+	assert.Equal(t, 5, turned.worktrees.cursor)
 
 	turned = send(t, turned, "j")
 	assert.Equal(t, tabDown, turned.worktrees.sort.direction)
+	assert.Equal(t, 3, turned.worktrees.cursor)
 
 	back := send(t, turned, "f")
 	require.False(t, back.isTabsFocused())
@@ -170,22 +181,26 @@ func TestTabsFocusTakesTheKeys(t *testing.T) {
 
 	moved := send(t, back, "j")
 	assert.Equal(t, 4, moved.worktrees.cursor, "the list has the keys again")
-	assert.Equal(t, before, xslice.Map(moved.worktreeRows(), worktreeRow.key), "the rows keep their order whatever is chosen")
+	assert.Equal(t, "tree:/trees/orphan", moved.hoveredWorktreeKey())
 }
 
 // TestEscapeLeavesTheTabsAndResetsThem covers escape handing the keys back with the fallback
-// chosen and its arrow down again, and doing so from a choice that was wrapped to.
+// chosen and its arrow down again, doing so from a choice that was wrapped to, and the cursor
+// staying on its row through the reset.
 func TestEscapeLeavesTheTabsAndResetsThem(t *testing.T) {
 	m := sortedWorktreesModel()
 
 	turned := send(t, send(t, send(t, m, "f"), "shift+tab"), "k")
 	require.Equal(t, tabsState{chosen: "last-accessed", direction: tabUp, focused: true}, turned.worktrees.sort)
+	require.Equal(t, 5, turned.worktrees.cursor, "the sort has moved the row")
 
 	left := send(t, turned, "esc")
 
 	assert.False(t, left.isTabsFocused())
 	assert.Equal(t, tabsState{}, left.worktrees.sort)
 	assert.Equal(t, screenWorktrees, left.screen, "the press is spent on the strip rather than on the screen's back key")
+	assert.Equal(t, "tree:/trees/live", left.hoveredWorktreeKey(), "the cursor stays on its row")
+	assert.Equal(t, 4, left.worktrees.cursor)
 }
 
 // TestTabsFocusAndTheRecordTakeTurns covers the record's focus key letting the strip go and the
@@ -308,7 +323,7 @@ func TestWorktreesScreenGolden(t *testing.T) {
 			m := worktreesModel()
 			m.width, m.height = 44, 28
 			m = m.at(44)
-			m.worktrees.cursor = 3
+			m.worktrees.cursor = 4
 			m.worktrees.sort = tt.state
 
 			requireGolden(t, tt.name, m.worktreesListView())

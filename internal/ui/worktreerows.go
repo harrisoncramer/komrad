@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"cmp"
 	"path/filepath"
 	"regexp"
 	"slices"
@@ -63,9 +64,31 @@ func (r worktreeRow) name() string {
 	return filepath.Base(r.item.dir)
 }
 
-// worktreeRows groups the listing under its repositories, each group holding its live rows
-// first, then the archived, then the directories nothing answers for.
-func worktreeRows(items []worktreeItem) []worktreeRow {
+// worktreeSorts is every column the worktrees list can be ordered by.
+var worktreeSorts = []sortColumn[worktreeItem]{
+	{
+		id:    "size",
+		label: "size",
+		has:   worktreeItem.isMeasured,
+		compare: func(a, b worktreeItem) int {
+			return cmp.Compare(a.size.bytes, b.size.bytes)
+		},
+	},
+	{
+		id:    "last-accessed",
+		label: "last-accessed",
+		has: func(item worktreeItem) bool {
+			return !item.lastActiveAt.IsZero()
+		},
+		compare: func(a, b worktreeItem) int {
+			return a.lastActiveAt.Compare(b.lastActiveAt)
+		},
+	},
+}
+
+// worktreeRows groups the listing under its repositories in path order, each group holding
+// its directories in the order given, the directory name settling a tie.
+func worktreeRows(items []worktreeItem, order sortOrder) []worktreeRow {
 	byRepo := map[string][]worktreeItem{}
 	for _, item := range items {
 		byRepo[item.repoDir] = append(byRepo[item.repoDir], item)
@@ -83,12 +106,13 @@ func worktreeRows(items []worktreeItem) []worktreeRow {
 		heading := repoHeading(members[0])
 		rows = append(rows, worktreeRow{header: true, repo: heading})
 
-		slices.SortStableFunc(members, func(a, b worktreeItem) int {
-			if by := standingRank(a) - standingRank(b); by != 0 {
-				return by
-			}
-
-			return strings.Compare(worktreeRow{item: a}.name(), worktreeRow{item: b}.name())
+		sortRows(sortRowsParams[worktreeItem]{
+			rows:    members,
+			columns: worktreeSorts,
+			order:   order,
+			tiebreak: func(a, b worktreeItem) int {
+				return strings.Compare(a.dir, b.dir)
+			},
 		})
 		for _, item := range members {
 			rows = append(rows, worktreeRow{repo: heading, item: item})
@@ -98,22 +122,9 @@ func worktreeRows(items []worktreeItem) []worktreeRow {
 	return rows
 }
 
-// standingRank orders a group: a directory with a live agent, then one whose agent is put
-// away, then one nothing answers for.
-func standingRank(item worktreeItem) int {
-	switch {
-	case item.agent == nil:
-		return 2
-	case item.agent.archivedAt != nil:
-		return 1
-	}
-
-	return 0
-}
-
 func (m model) worktreeRows() []worktreeRow {
 	return narrowed(m.filter, narrowedParams[worktreeRow]{
-		rows:  worktreeRows(m.worktrees.items),
+		rows:  worktreeRows(m.worktrees.items, worktreesTabs().order(m.worktrees.sort)),
 		depth: worktreeRowDepth,
 		name:  worktreeRow.name,
 	})
@@ -277,7 +288,7 @@ func groupTrail(items []worktreeItem, repo string) string {
 // sizeLabel is what a directory takes, a dash until it has been measured or while its last
 // walk failed.
 func sizeLabel(item worktreeItem) string {
-	if item.size == nil || item.size.err != "" {
+	if !item.isMeasured() {
 		return label.Dash
 	}
 
@@ -289,7 +300,7 @@ func totalLabel(items []worktreeItem) string {
 	var total int64
 	measured := false
 	for _, item := range items {
-		if item.size == nil || item.size.err != "" {
+		if !item.isMeasured() {
 			continue
 		}
 
