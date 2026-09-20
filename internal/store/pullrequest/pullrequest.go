@@ -116,7 +116,8 @@ type Sync struct {
 	// SweepCursor is where the first sweep in progress reads its next page from, empty for
 	// page one and nil between sweeps.
 	SweepCursor *string
-	// SweepNewest is the changed_at of the first pull request on page one of the sweep in progress.
+	// SweepNewest is the moment the sweep in progress covers up to, which becomes the mark when
+	// it completes.
 	SweepNewest *time.Time
 	// ReadAt is the last time any request was made for the repository.
 	ReadAt *time.Time
@@ -466,7 +467,8 @@ func (s *Store) RecordSyncRequest(ctx context.Context, repositoryURL string) err
 // StartSweepParams is what page one of a first sweep answered with, and when.
 type StartSweepParams struct {
 	RepositoryURL string
-	// Newest is the changed_at of the first pull request on page one.
+	// Newest is the moment the sweep covers up to, when page one was read or its first row's
+	// stamp when the forge's clock is ahead.
 	Newest time.Time
 	// ListedAt is when page one was read.
 	ListedAt time.Time

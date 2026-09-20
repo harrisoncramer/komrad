@@ -16,6 +16,8 @@ COMMENT ON TABLE "pull_request_syncs" IS 'Where the pull request sync is for one
 COMMENT ON COLUMN "pull_request_syncs"."updated_through" IS 'The newest forge updated_at the changes have been read through, by the first sweep and then by every search since. Null until the first sweep has completed.';
 -- Set comment to column: "listed_at" on table: "pull_request_syncs"
 COMMENT ON COLUMN "pull_request_syncs"."listed_at" IS 'The last time page one of the repository''s own listing was read and written, which is the clock for the hourly listing behind the search.';
+-- Set comment to column: "sweep_newest" on table: "pull_request_syncs"
+COMMENT ON COLUMN "pull_request_syncs"."sweep_newest" IS 'The moment the sweep in progress covers up to, when its page one was read or the newest row''s stamp when the forge''s clock is ahead, which becomes updated_through when it completes.';
 -- Set comment to column: "sweep_cursor" on table: "pull_request_syncs"
 COMMENT ON COLUMN "pull_request_syncs"."sweep_cursor" IS 'Where the first sweep in progress reads its next page from, empty for page one and null between sweeps.';
 -- Modify "pull_requests" table

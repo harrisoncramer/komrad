@@ -348,7 +348,7 @@ func sweptFixture(t *testing.T) (*syncFixture, time.Time) {
 	f.forge.decisions[1] = forge.ReviewDecisionPending
 	f.sync(t)
 
-	require.Equal(t, []string{"updated:", search(changed), "branch:agent/x:", "decisions:1"}, f.forge.requests)
+	require.Equal(t, []string{"updated:", search(syncNow), "branch:agent/x:", "decisions:1"}, f.forge.requests)
 	require.True(t, f.getSync(t).UpdatedThrough.Equal(syncNow))
 
 	return f, syncNow
@@ -356,8 +356,8 @@ func sweptFixture(t *testing.T) (*syncFixture, time.Time) {
 
 // TestSyncFirstSweepStopsAtTheHorizon covers a repository never read before: page one is
 // read, every row is written, a row older than the horizon ends the sweep on that page, the
-// page that stopped is the one that promoted the mark, and the repository joins the search in
-// the same pass from that mark.
+// page that stopped is the one that promoted the mark to the moment page one was read, and the
+// repository joins the search in the same pass from that mark.
 func TestSyncFirstSweepStopsAtTheHorizon(t *testing.T) {
 	f := newSyncFixture(t)
 	f.agentOn(t, "a", "agent/x")
@@ -375,7 +375,7 @@ func TestSyncFirstSweepStopsAtTheHorizon(t *testing.T) {
 
 	f.sync(t)
 
-	assert.Equal(t, []string{"updated:", search(newest), "branch:agent/x:", "decisions:3"}, f.forge.requests, "page two is never asked for, the search starts from page one's newest stamp, the agent's branch is scanned, and only its open pull request costs a decision")
+	assert.Equal(t, []string{"updated:", search(syncNow), "branch:agent/x:", "decisions:3"}, f.forge.requests, "page two is never asked for, the search starts from when page one was read, the agent's branch is scanned, and only its open pull request costs a decision")
 	sync := f.getSync(t)
 	assert.False(t, sync.IsSweeping())
 	require.True(t, sync.IsSwept())
@@ -493,7 +493,34 @@ func TestSyncSearchLeavesOutAnUnsweptRepository(t *testing.T) {
 
 	require.Len(t, f.forge.searches, 3)
 	assert.Len(t, f.forge.searches[2].Repos, 2, "once swept, the repository joins the search")
-	assert.True(t, f.forge.searches[2].Since.Equal(syncNow.Add(-time.Minute).Add(-pullRequestSyncOverlap)), "the search starts from the oldest mark, which is the new repository's page one")
+	assert.True(t, f.forge.searches[2].Since.Equal(syncNow.Add(time.Minute).Add(-pullRequestSyncOverlap)), "the search starts from the oldest mark, which both repositories reached in the pass before")
+}
+
+// TestSyncQuietRepositoryDoesNotDragTheSearchBack covers a repository whose newest pull
+// request is older than the horizon beside a busy one: its mark is the moment its page one was
+// read rather than that row's stamp, so the host's search starts from the pass and not from
+// forty days back.
+func TestSyncQuietRepositoryDoesNotDragTheSearchBack(t *testing.T) {
+	f := newSyncFixture(t)
+	f.agentOn(t, "a", "agent/x")
+	f.agentIn(t, "b", otherRepository, "agent/y")
+	other := git.RemoteURL{
+		Scheme: "https",
+		Host:   "github.com",
+		Path:   "harrisoncramer/weave-forge-fixture",
+	}
+	f.forge.updated[""] = &forge.ListUpdatedResult{PullRequests: []forge.PullRequest{pullRequestAt("PR_1", "agent/x", syncNow.Add(-time.Hour))}}
+	f.forge.elsewhere[other.Path] = map[string]*forge.ListUpdatedResult{"": {
+		PullRequests: []forge.PullRequest{pullRequestIn(other, "PR_2", "agent/y", syncNow.Add(-40*24*time.Hour))},
+	}}
+
+	f.sync(t)
+
+	require.Len(t, f.forge.searches, 1)
+	assert.Len(t, f.forge.searches[0].Repos, 2)
+	assert.True(t, f.forge.searches[0].Since.Equal(syncNow.Add(-pullRequestSyncOverlap)), "the quiet repository's mark is when it was listed, not its forty day old row")
+	assert.True(t, f.getSync(t).IsSwept())
+	assert.True(t, f.getSyncOf(t, otherRepository).IsSwept())
 }
 
 // TestSyncSearchCapHandsBackToAFirstSweep covers a search that reaches the forge's cap: what
@@ -580,8 +607,8 @@ func TestSyncListsPageOneHourly(t *testing.T) {
 }
 
 // TestSyncBudgetPausesAndResumes covers a first sweep longer than one pass: ten pages are
-// read, the cursor and page one's stamp are held, the mark does not move, nothing else is
-// asked, and the next pass carries on from the cursor and completes.
+// read, the cursor and the moment page one was read are held, the mark does not move, nothing
+// else is asked, and the next pass carries on from the cursor and completes.
 func TestSyncBudgetPausesAndResumes(t *testing.T) {
 	f := newSyncFixture(t)
 	for page := 1; page <= 12; page++ {
@@ -604,7 +631,7 @@ func TestSyncBudgetPausesAndResumes(t *testing.T) {
 	require.True(t, sync.IsSweeping())
 	assert.Equal(t, "c11", *sync.SweepCursor)
 	assert.Nil(t, sync.UpdatedThrough)
-	assert.True(t, sync.SweepNewest.Equal(syncNow.Add(-time.Minute)))
+	assert.True(t, sync.SweepNewest.Equal(syncNow), "page one's newest is the moment it was read, its rows being older")
 	assert.Equal(t, 10, sync.Calls)
 	assert.Len(t, f.forge.requests, 10, "the search, the branch scan and the decisions wait for the sweep")
 	assert.Equal(t, "updated:c10", f.forge.requests[9])
@@ -612,9 +639,9 @@ func TestSyncBudgetPausesAndResumes(t *testing.T) {
 	f.pass(t, syncNow.Add(time.Minute))
 
 	assert.Equal(t, []string{
-		"updated:c11", "updated:c12", search(syncNow.Add(-time.Minute)), "branch:agent/x:",
+		"updated:c11", "updated:c12", search(syncNow), "branch:agent/x:",
 		"decisions:1,2,3,4,5,6,7,8,9,10,11,12",
-	}, f.forge.requests, "the decisions go in one request, newest change first")
+	}, f.forge.requests, "the decisions go in one request, newest change first, and the search starts from when page one was read")
 	sync = f.getSync(t)
 	assert.False(t, sync.IsSweeping())
 	assert.True(t, sync.UpdatedThrough.Equal(syncNow.Add(time.Minute)), "the sweep promoted the mark and the empty search moved it on")
@@ -853,7 +880,7 @@ func TestSyncReadsTheDecisionOfAChangedOpenPullRequest(t *testing.T) {
 
 	f.sync(t)
 
-	assert.Equal(t, []string{"updated:", search(open.UpdatedAt), "branch:agent/x:", "decisions:1"}, f.forge.requests)
+	assert.Equal(t, []string{"updated:", search(syncNow), "branch:agent/x:", "decisions:1"}, f.forge.requests)
 	stored := f.stored(t, "PR_1")
 	require.NotNil(t, stored.ReviewDecision)
 	assert.Equal(t, forge.ReviewDecisionApproved, *stored.ReviewDecision)

@@ -316,7 +316,7 @@ func (s *PullRequestSyncer) sweep(ctx context.Context, host *hostRead, read *rep
 
 		if !started {
 			newest := listedAt
-			if len(listed.PullRequests) > 0 {
+			if len(listed.PullRequests) > 0 && listed.PullRequests[0].UpdatedAt.After(listedAt) {
 				newest = listed.PullRequests[0].UpdatedAt
 			}
 			if err := s.pullRequests.StartSweep(ctx, pullrequeststore.StartSweepParams{

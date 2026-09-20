@@ -432,7 +432,7 @@ type PullRequestSync struct {
 	ListedAt *time.Time
 	// Where the first sweep in progress reads its next page from, empty for page one and null between sweeps.
 	SweepCursor *string
-	// The updated_at of the first pull request on page one of the sweep in progress, which becomes updated_through when it completes.
+	// The moment the sweep in progress covers up to, when its page one was read or the newest row's stamp when the forge's clock is ahead, which becomes updated_through when it completes.
 	SweepNewest *time.Time
 	// The last time any request was made for this repository, whatever it answered.
 	ReadAt *time.Time
