@@ -37,6 +37,11 @@ table "forge_connections" {
     type    = timestamptz
     comment = "When the forge last confirmed the credential. Cleared when the forge refuses it, so the row says the connection needs remaking."
   }
+  column "throttled_until" {
+    null    = true
+    type    = timestamptz
+    comment = "When the forge said this credential's rate limit resets, after a refusal or a response whose remaining budget was zero. The pull request sync makes no request through the connection until it passes."
+  }
   column "created_at" {
     null    = false
     type    = timestamptz
@@ -47,5 +52,242 @@ table "forge_connections" {
   }
   unique "forge_connections_host_key" {
     columns = [column.host]
+  }
+}
+
+table "pull_requests" {
+  schema  = schema.public
+  comment = "A pull request weave has read from a forge, one row per forge identity and none owned by an agent. Finished is derived: merged when merged_at is set, closed when closed_at is set and merged_at is not, open otherwise."
+  column "id" {
+    null    = false
+    type    = uuid
+    default = sql("uuidv7()")
+  }
+  column "host" {
+    null    = false
+    type    = text
+    comment = "The forge host the repository lives on, such as github.com, taken from the repository URL. Two installations of one forge hand out overlapping identifiers, so the host is part of the identity."
+  }
+  column "forge" {
+    null    = false
+    type    = text
+    comment = "Which kind of forge the host runs: github or gitlab."
+  }
+  column "provider_id" {
+    null    = false
+    type    = text
+    comment = "The forge's own stable identifier: GitHub's node_id, GitLab's global id. A rename on the forge changes the URL and not this."
+  }
+  column "url" {
+    null    = false
+    type    = text
+    comment = "The web address a person opens. Unique, and a locator rather than the identity."
+  }
+  column "repository_url" {
+    null    = false
+    type    = text
+    comment = "The canonical URL of the repository the pull request targets."
+  }
+  column "head_repository_url" {
+    null    = false
+    type    = text
+    comment = "The canonical URL of the repository the branch lives in. Empty when the forge no longer has it, which GitHub answers after a fork is deleted."
+  }
+  column "number" {
+    null    = false
+    type    = integer
+    comment = "The per-repository number a person sees: GitHub's number, GitLab's iid."
+  }
+  column "title" {
+    null = false
+    type = text
+  }
+  column "head_branch" {
+    null = false
+    type = text
+  }
+  column "head_sha" {
+    null = false
+    type = text
+  }
+  column "base_branch" {
+    null = false
+    type = text
+  }
+  column "base_sha" {
+    null = false
+    type = text
+  }
+  column "draft" {
+    null = false
+    type = boolean
+  }
+  column "state" {
+    null    = false
+    type    = text
+    comment = "The forge's own word for where it stands, kept verbatim as a cross-check on the timestamps."
+  }
+  column "created_at" {
+    null    = false
+    type    = timestamptz
+    comment = "When the forge says it was opened, which is what orders the pull requests on one branch."
+  }
+  column "updated_at" {
+    null    = false
+    type    = timestamptz
+    comment = "The forge's last-change stamp, which is what the sync pages by."
+  }
+  column "merged_at" {
+    null = true
+    type = timestamptz
+  }
+  column "closed_at" {
+    null = true
+    type = timestamptz
+  }
+  column "first_seen_at" {
+    null    = false
+    type    = timestamptz
+    default = sql("now()")
+    comment = "When weave first inserted the row."
+  }
+  primary_key {
+    columns = [column.id]
+  }
+  unique "pull_requests_host_provider_id_key" {
+    columns = [column.host, column.provider_id]
+  }
+  unique "pull_requests_url_key" {
+    columns = [column.url]
+  }
+  index "pull_requests_unfinished_head" {
+    columns = [column.repository_url, column.head_branch]
+    where   = "merged_at IS NULL AND closed_at IS NULL"
+  }
+  index "pull_requests_attribution" {
+    columns = [column.repository_url, column.head_repository_url, column.head_branch]
+  }
+}
+
+table "agent_pull_requests" {
+  schema  = schema.public
+  comment = "Which agents were seen with which pull requests, one row per pair, never deleted or re-pointed. It is history rather than ownership: the live view derives the association from the branch and never reads this, and the archive reads nothing else."
+  column "agent_id" {
+    null = false
+    type = uuid
+  }
+  column "pull_request_id" {
+    null = false
+    type = uuid
+  }
+  column "first_seen_at" {
+    null    = false
+    type    = timestamptz
+    default = sql("now()")
+  }
+  column "last_seen_at" {
+    null    = false
+    type    = timestamptz
+    default = sql("now()")
+    comment = "When the pair was last seen together, moved at most once an hour."
+  }
+  primary_key {
+    columns = [column.agent_id, column.pull_request_id]
+  }
+  foreign_key "agent_pull_requests_agent_id_fkey" {
+    columns     = [column.agent_id]
+    ref_columns = [table.agents.column.id]
+    on_delete   = CASCADE
+    on_update   = NO_ACTION
+  }
+  foreign_key "agent_pull_requests_pull_request_id_fkey" {
+    columns     = [column.pull_request_id]
+    ref_columns = [table.pull_requests.column.id]
+    on_delete   = CASCADE
+    on_update   = NO_ACTION
+  }
+  index "agent_pull_requests_pull_request_id" {
+    columns = [column.pull_request_id]
+  }
+}
+
+table "pull_request_syncs" {
+  schema  = schema.public
+  comment = "Where the pull request sync is for one repository: the high-water mark of the last completed sweep, the sweep in progress if one is, and what the last pass cost."
+  column "repository_url" {
+    null = false
+    type = text
+  }
+  column "updated_through" {
+    null    = true
+    type    = timestamptz
+    comment = "The newest forge updated_at the last completed sweep covered. Null until one has."
+  }
+  column "etag" {
+    null    = false
+    type    = text
+    default = ""
+    comment = "The ETag page one answered on the last completed sweep, for the exact query the sync trusts. Empty for a forge that sends none."
+  }
+  column "validated_at" {
+    null    = true
+    type    = timestamptz
+    comment = "The last time page one was read without an ETag and answered with a body, which is the clock for the hourly unconditional re-read. A 304 does not touch it."
+  }
+  column "sweep_next_page" {
+    null    = true
+    type    = integer
+    comment = "The next page a sweep in progress has not yet written, null between sweeps."
+  }
+  column "sweep_newest" {
+    null    = true
+    type    = timestamptz
+    comment = "The updated_at of the first pull request on page one of the sweep in progress, which becomes updated_through when it completes."
+  }
+  column "sweep_etag" {
+    null    = true
+    type    = text
+    comment = "The ETag page one answered for the sweep in progress, promoted to etag when it completes."
+  }
+  column "read_at" {
+    null    = true
+    type    = timestamptz
+    comment = "The last time any request was made for this repository, whatever it answered."
+  }
+  column "calls" {
+    null    = false
+    type    = integer
+    default = 0
+    comment = "How many requests the most recent pass made for this repository."
+  }
+  primary_key {
+    columns = [column.repository_url]
+  }
+}
+
+table "branch_scans" {
+  schema  = schema.public
+  comment = "A branch weave has listed the pull requests of on purpose, once, which is what finds a pull request older than the sync's horizon on a branch an agent adopted."
+  column "repository_url" {
+    null = false
+    type = text
+  }
+  column "branch" {
+    null = false
+    type = text
+  }
+  column "next_page" {
+    null    = false
+    type    = integer
+    default = 1
+    comment = "The next page not yet written."
+  }
+  column "completed_at" {
+    null    = true
+    type    = timestamptz
+    comment = "When the listing answered its last page, after which the branch is never scanned again."
+  }
+  primary_key {
+    columns = [column.repository_url, column.branch]
   }
 }

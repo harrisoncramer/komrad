@@ -33,7 +33,8 @@ RETURNING
     method,
     login,
     verified_at,
-    created_at
+    created_at,
+    throttled_until
 `
 
 type CreateForgeConnectionParams struct {
@@ -64,6 +65,7 @@ func (q *Queries) CreateForgeConnection(ctx context.Context, arg CreateForgeConn
 		&i.Login,
 		&i.VerifiedAt,
 		&i.CreatedAt,
+		&i.ThrottledUntil,
 	)
 	return &i, err
 }
@@ -90,7 +92,8 @@ SELECT
     method,
     login,
     verified_at,
-    created_at
+    created_at,
+    throttled_until
 FROM
     forge_connections
 WHERE
@@ -109,6 +112,7 @@ func (q *Queries) GetForgeConnection(ctx context.Context, id string) (*ForgeConn
 		&i.Login,
 		&i.VerifiedAt,
 		&i.CreatedAt,
+		&i.ThrottledUntil,
 	)
 	return &i, err
 }
@@ -122,7 +126,8 @@ SELECT
     method,
     login,
     verified_at,
-    created_at
+    created_at,
+    throttled_until
 FROM
     forge_connections
 WHERE
@@ -141,6 +146,7 @@ func (q *Queries) GetForgeConnectionByHost(ctx context.Context, host string) (*F
 		&i.Login,
 		&i.VerifiedAt,
 		&i.CreatedAt,
+		&i.ThrottledUntil,
 	)
 	return &i, err
 }
@@ -154,7 +160,8 @@ SELECT
     method,
     login,
     verified_at,
-    created_at
+    created_at,
+    throttled_until
 FROM
     forge_connections
 ORDER BY
@@ -179,6 +186,7 @@ func (q *Queries) ListForgeConnections(ctx context.Context) ([]*ForgeConnection,
 			&i.Login,
 			&i.VerifiedAt,
 			&i.CreatedAt,
+			&i.ThrottledUntil,
 		); err != nil {
 			return nil, err
 		}
@@ -188,6 +196,28 @@ func (q *Queries) ListForgeConnections(ctx context.Context) ([]*ForgeConnection,
 		return nil, err
 	}
 	return items, nil
+}
+
+const setForgeConnectionThrottledUntil = `-- name: SetForgeConnectionThrottledUntil :execrows
+UPDATE
+    forge_connections
+SET
+    throttled_until = $1
+WHERE
+    id = $2
+`
+
+type SetForgeConnectionThrottledUntilParams struct {
+	ThrottledUntil *time.Time
+	ID             string
+}
+
+func (q *Queries) SetForgeConnectionThrottledUntil(ctx context.Context, arg SetForgeConnectionThrottledUntilParams) (int64, error) {
+	result, err := q.db.Exec(ctx, setForgeConnectionThrottledUntil, arg.ThrottledUntil, arg.ID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const setForgeConnectionVerifiedAt = `-- name: SetForgeConnectionVerifiedAt :execrows

@@ -1,0 +1,366 @@
+package pullrequest
+
+import (
+	"testing"
+	"time"
+
+	"weave/internal/dbtest"
+	"weave/internal/store"
+	agentstore "weave/internal/store/agent"
+	workflowstore "weave/internal/store/workflow"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+)
+
+const (
+	weave   = "https://github.com/harrisoncramer/weave"
+	fixture = "https://github.com/harrisoncramer/weave-forge-fixture"
+)
+
+type harness struct {
+	*Store
+	pool      *store.Pool
+	agents    *agentstore.Store
+	workflows *workflowstore.Store
+}
+
+func open(t *testing.T) *harness {
+	t.Helper()
+
+	pool, err := store.Open(t.Context(), dbtest.URL(t))
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = pool.Close() })
+
+	return &harness{
+		Store:     New(pool.GetDB()),
+		pool:      pool,
+		agents:    agentstore.New(pool.GetDB()),
+		workflows: workflowstore.New(pool.GetDB()),
+	}
+}
+
+// createAgent puts a live agent on a branch of a repository in a workflow.
+func (h *harness) createAgent(t *testing.T, workflowID, name, repositoryURL, branch string) string {
+	t.Helper()
+	ctx := t.Context()
+
+	require.NoError(t, h.agents.Create(ctx, agentstore.Agent{
+		Name:       name,
+		Pane:       "%1",
+		State:      agentstore.StateIdle,
+		WorkflowID: workflowID,
+	}))
+	created, err := h.agents.GetInWorkflow(ctx, workflowID, name)
+	require.NoError(t, err)
+	require.NoError(t, h.agents.SetRepositoryURLByID(ctx, created.ID, &repositoryURL))
+	require.NoError(t, h.agents.SetBranchByID(ctx, created.ID, &branch))
+
+	return created.ID
+}
+
+func (h *harness) createWorkflow(t *testing.T, name, baseBranch string) string {
+	t.Helper()
+
+	created, err := h.workflows.Create(t.Context(), workflowstore.Config{
+		Name:     name,
+		Worktree: workflowstore.WorktreeConfig{Enabled: baseBranch != "", BaseBranch: baseBranch},
+	})
+	require.NoError(t, err)
+
+	return created.ID
+}
+
+func openPullRequest(providerID string, number int, branch string) UpsertParams {
+	opened := time.Date(2026, 9, 18, 12, 0, 0, 0, time.UTC)
+
+	return UpsertParams{
+		Host:              "github.com",
+		Forge:             "github",
+		ProviderID:        providerID,
+		URL:               "https://github.com/harrisoncramer/weave/pull/" + providerID,
+		RepositoryURL:     weave,
+		HeadRepositoryURL: weave,
+		Number:            number,
+		Title:             "one",
+		HeadBranch:        branch,
+		HeadSHA:           "abc",
+		BaseBranch:        "main",
+		BaseSHA:           "def",
+		State:             "open",
+		CreatedAt:         opened,
+		UpdatedAt:         opened.Add(time.Hour),
+	}
+}
+
+// TestUpsertSaysWhatItDid covers the guarded write: a new row is inserted, the same row again is
+// left alone, and a row whose forge-owned columns moved is updated, with merged_at read back
+// as finished.
+func TestUpsertSaysWhatItDid(t *testing.T) {
+	h := open(t)
+	ctx := t.Context()
+
+	first, err := h.Upsert(ctx, openPullRequest("PR_1", 1, "agent/x"))
+	require.NoError(t, err)
+	assert.True(t, first.Inserted)
+	assert.True(t, first.Changed)
+
+	again, err := h.Upsert(ctx, openPullRequest("PR_1", 1, "agent/x"))
+	require.NoError(t, err)
+	assert.Equal(t, first.ID, again.ID)
+	assert.False(t, again.Inserted)
+	assert.False(t, again.Changed, "the same row again is not written")
+
+	merged := openPullRequest("PR_1", 1, "agent/x")
+	mergedAt := merged.UpdatedAt.Add(time.Hour)
+	merged.MergedAt = &mergedAt
+	merged.ClosedAt = &mergedAt
+	merged.State = "closed"
+	merged.UpdatedAt = mergedAt
+	moved, err := h.Upsert(ctx, merged)
+	require.NoError(t, err)
+	assert.Equal(t, first.ID, moved.ID)
+	assert.False(t, moved.Inserted)
+	assert.True(t, moved.Changed)
+
+	stored, err := h.GetByIdentity(ctx, "github.com", "PR_1")
+	require.NoError(t, err)
+	assert.True(t, stored.IsFinished())
+	require.NotNil(t, stored.MergedAt)
+	assert.True(t, stored.MergedAt.Equal(mergedAt))
+}
+
+// TestIdentityIsPerHost covers github.com and an enterprise host handing out one node id for
+// two different pull requests, which the host keeps apart.
+func TestIdentityIsPerHost(t *testing.T) {
+	h := open(t)
+	ctx := t.Context()
+
+	public, err := h.Upsert(ctx, openPullRequest("PR_1", 1, "agent/x"))
+	require.NoError(t, err)
+
+	enterprise := openPullRequest("PR_1", 7, "agent/y")
+	enterprise.Host = "ghe.example.com"
+	enterprise.URL = "https://ghe.example.com/team/repo/pull/7"
+	enterprise.RepositoryURL = "https://ghe.example.com/team/repo"
+	enterprise.HeadRepositoryURL = enterprise.RepositoryURL
+	private, err := h.Upsert(ctx, enterprise)
+	require.NoError(t, err)
+	assert.True(t, private.Inserted)
+	assert.NotEqual(t, public.ID, private.ID)
+
+	_, err = h.GetByIdentity(ctx, "gitlab.com", "PR_1")
+	require.ErrorIs(t, err, store.ErrNotFound)
+}
+
+// TestObserveJoinsLiveAgentsToTheirBranches covers attribution: an agent on the branch a pull
+// request came from is recorded beside it, one on another branch or on the workflow's base
+// branch is not, a fork's pull request is attributed to nobody, and a second pass inside the
+// hour writes nothing.
+func TestObserveJoinsLiveAgentsToTheirBranches(t *testing.T) {
+	h := open(t)
+	ctx := t.Context()
+
+	workflow := h.createWorkflow(t, "weave", "main")
+	onBranch := h.createAgent(t, workflow, "on-branch", weave, "agent/x")
+	other := h.createAgent(t, workflow, "elsewhere", weave, "agent/y")
+	onMain := h.createAgent(t, workflow, "on-main", weave, "main")
+
+	_, err := h.Upsert(ctx, openPullRequest("PR_1", 1, "agent/x"))
+	require.NoError(t, err)
+	_, err = h.Upsert(ctx, openPullRequest("PR_2", 2, "main"))
+	require.NoError(t, err)
+	fork := openPullRequest("PR_3", 3, "agent/x")
+	fork.HeadRepositoryURL = "https://github.com/someone/weave"
+	fork.URL = "https://github.com/harrisoncramer/weave/pull/3"
+	_, err = h.Upsert(ctx, fork)
+	require.NoError(t, err)
+
+	written, err := h.Observe(ctx)
+	require.NoError(t, err)
+	assert.Equal(t, int64(1), written)
+
+	seen, err := h.ListObservations(ctx, onBranch)
+	require.NoError(t, err)
+	require.Len(t, seen, 1)
+	assert.Equal(t, seen[0].FirstSeenAt, seen[0].LastSeenAt)
+
+	for _, id := range []string{other, onMain} {
+		none, err := h.ListObservations(ctx, id)
+		require.NoError(t, err)
+		assert.Empty(t, none)
+	}
+
+	again, err := h.Observe(ctx)
+	require.NoError(t, err)
+	assert.Zero(t, again, "a pair seen within the hour is not written again")
+}
+
+// TestObserveReachesAnAgentWithNoBaseBranchOnMain covers a workflow that names no base branch,
+// where nothing is excluded.
+func TestObserveReachesAnAgentWithNoBaseBranchOnMain(t *testing.T) {
+	h := open(t)
+	ctx := t.Context()
+
+	workflow := h.createWorkflow(t, "plain", "")
+	onMain := h.createAgent(t, workflow, "on-main", weave, "main")
+	_, err := h.Upsert(ctx, openPullRequest("PR_2", 2, "main"))
+	require.NoError(t, err)
+
+	written, err := h.Observe(ctx)
+	require.NoError(t, err)
+	assert.Equal(t, int64(1), written)
+
+	seen, err := h.ListObservations(ctx, onMain)
+	require.NoError(t, err)
+	assert.Len(t, seen, 1)
+}
+
+// TestObserveSkipsArchivedAgents covers that only live agents are attributed.
+func TestObserveSkipsArchivedAgents(t *testing.T) {
+	h := open(t)
+	ctx := t.Context()
+
+	workflow := h.createWorkflow(t, "weave", "main")
+	archived := h.createAgent(t, workflow, "archived", weave, "agent/x")
+	_, err := h.agents.Archive(ctx, []string{archived})
+	require.NoError(t, err)
+	_, err = h.Upsert(ctx, openPullRequest("PR_1", 1, "agent/x"))
+	require.NoError(t, err)
+
+	written, err := h.Observe(ctx)
+	require.NoError(t, err)
+	assert.Zero(t, written)
+}
+
+// TestLiveRepositoriesAndUnscannedBranches covers the two listings the pass starts from: the
+// repositories live agents sit on, and the branches of one whose scan has not completed.
+func TestLiveRepositoriesAndUnscannedBranches(t *testing.T) {
+	h := open(t)
+	ctx := t.Context()
+
+	workflow := h.createWorkflow(t, "weave", "main")
+	h.createAgent(t, workflow, "a", weave, "agent/x")
+	h.createAgent(t, workflow, "b", weave, "agent/y")
+	h.createAgent(t, workflow, "c", fixture, "fixture/open")
+	archived := h.createAgent(t, workflow, "d", "https://github.com/harrisoncramer/gone", "agent/z")
+	_, err := h.agents.Archive(ctx, []string{archived})
+	require.NoError(t, err)
+
+	repositories, err := h.ListLiveRepositories(ctx)
+	require.NoError(t, err)
+	assert.Equal(t, []string{weave, fixture}, repositories)
+
+	branches, err := h.ListUnscannedBranches(ctx, weave)
+	require.NoError(t, err)
+	assert.Equal(t, []string{"agent/x", "agent/y"}, branches)
+
+	require.NoError(t, h.SetBranchScanNextPage(ctx, weave, "agent/x", 2))
+	scan, err := h.GetBranchScan(ctx, weave, "agent/x")
+	require.NoError(t, err)
+	assert.Equal(t, 2, scan.NextPage)
+	assert.Nil(t, scan.CompletedAt)
+
+	branches, err = h.ListUnscannedBranches(ctx, weave)
+	require.NoError(t, err)
+	assert.Equal(t, []string{"agent/x", "agent/y"}, branches, "a scan in progress is still unscanned")
+
+	require.NoError(t, h.CompleteBranchScan(ctx, weave, "agent/x", 3))
+	branches, err = h.ListUnscannedBranches(ctx, weave)
+	require.NoError(t, err)
+	assert.Equal(t, []string{"agent/y"}, branches)
+
+	_, err = h.GetBranchScan(ctx, weave, "agent/q")
+	require.ErrorIs(t, err, store.ErrNotFound)
+}
+
+// TestSyncRowRoundTrip covers the cursor row through a sweep: requests are counted as they are
+// made, a sweep holds its columns until it completes, completion promotes the newest stamp and
+// the ETag and never regresses the mark, and the validation clock moves only when asked.
+func TestSyncRowRoundTrip(t *testing.T) {
+	h := open(t)
+	ctx := t.Context()
+
+	_, err := h.GetSync(ctx, weave)
+	require.ErrorIs(t, err, store.ErrNotFound)
+
+	require.NoError(t, h.EnsureSync(ctx, weave))
+	require.NoError(t, h.EnsureSync(ctx, weave))
+	sync, err := h.GetSync(ctx, weave)
+	require.NoError(t, err)
+	assert.Nil(t, sync.UpdatedThrough)
+	assert.False(t, sync.IsSweeping())
+	assert.Zero(t, sync.Calls)
+
+	require.NoError(t, h.RecordSyncRequest(ctx, weave))
+	require.NoError(t, h.RecordSyncRequest(ctx, weave))
+	sync, err = h.GetSync(ctx, weave)
+	require.NoError(t, err)
+	assert.Equal(t, 2, sync.Calls)
+	assert.NotNil(t, sync.ReadAt)
+	assert.Nil(t, sync.ValidatedAt, "a request alone does not validate")
+
+	newest := time.Date(2026, 9, 19, 10, 0, 0, 0, time.UTC)
+	require.NoError(t, h.StartSweep(ctx, StartSweepParams{
+		RepositoryURL: weave,
+		Newest:        newest,
+		ETag:          `"a"`,
+		Validated:     true,
+	}))
+	require.NoError(t, h.AdvanceSweep(ctx, weave, 3))
+	sync, err = h.GetSync(ctx, weave)
+	require.NoError(t, err)
+	require.True(t, sync.IsSweeping())
+	assert.Equal(t, 3, *sync.SweepNextPage)
+	assert.True(t, sync.SweepNewest.Equal(newest))
+	assert.Equal(t, `"a"`, *sync.SweepETag)
+	assert.NotNil(t, sync.ValidatedAt)
+	assert.Nil(t, sync.UpdatedThrough, "the mark does not move until the sweep completes")
+
+	require.NoError(t, h.CompleteSweep(ctx, weave))
+	sync, err = h.GetSync(ctx, weave)
+	require.NoError(t, err)
+	assert.False(t, sync.IsSweeping())
+	require.NotNil(t, sync.UpdatedThrough)
+	assert.True(t, sync.UpdatedThrough.Equal(newest))
+	assert.Equal(t, `"a"`, sync.ETag)
+
+	older := newest.Add(-time.Hour)
+	require.NoError(t, h.StartSweep(ctx, StartSweepParams{
+		RepositoryURL: weave,
+		Newest:        older,
+		ETag:          `"b"`,
+	}))
+	require.NoError(t, h.CompleteSweep(ctx, weave))
+	sync, err = h.GetSync(ctx, weave)
+	require.NoError(t, err)
+	assert.True(t, sync.UpdatedThrough.Equal(newest), "an older page one never regresses the mark")
+	assert.Equal(t, `"b"`, sync.ETag, "the ETag is always the latest page one's")
+
+	require.NoError(t, h.ResetSyncCalls(ctx, weave))
+	sync, err = h.GetSync(ctx, weave)
+	require.NoError(t, err)
+	assert.Zero(t, sync.Calls)
+}
+
+// TestListOnBranchIsNewestFirst covers the read the future readers make: pull requests from one
+// branch ordered by when the forge opened them.
+func TestListOnBranchIsNewestFirst(t *testing.T) {
+	h := open(t)
+	ctx := t.Context()
+
+	first := openPullRequest("PR_1", 1, "agent/x")
+	second := openPullRequest("PR_2", 2, "agent/x")
+	second.CreatedAt = first.CreatedAt.Add(time.Hour)
+	second.URL = "https://github.com/harrisoncramer/weave/pull/2"
+	for _, params := range []UpsertParams{first, second} {
+		_, err := h.Upsert(ctx, params)
+		require.NoError(t, err)
+	}
+
+	listed, err := h.ListOnBranch(ctx, weave, "agent/x")
+	require.NoError(t, err)
+	require.Len(t, listed, 2)
+	assert.Equal(t, 2, listed[0].Number)
+	assert.Equal(t, 1, listed[1].Number)
+}

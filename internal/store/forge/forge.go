@@ -30,7 +30,10 @@ type Connection struct {
 	Login string
 	// VerifiedAt is when the forge last confirmed the credential, nil once it refused.
 	VerifiedAt *time.Time
-	CreatedAt  time.Time
+	// ThrottledUntil is when the forge said the credential's rate limit resets, nil when it
+	// has not said so.
+	ThrottledUntil *time.Time
+	CreatedAt      time.Time
 }
 
 // CreateParams is what a connection is created from.
@@ -141,6 +144,23 @@ func (s *Store) SetVerifiedAt(ctx context.Context, id string, at *time.Time) err
 	return nil
 }
 
+// SetThrottledUntil records when the forge said the credential's rate limit resets, or clears it.
+func (s *Store) SetThrottledUntil(ctx context.Context, id string, until *time.Time) error {
+	if !store.IsID(id) {
+		return store.ErrNotFound.Saying("no connection with id %q", id)
+	}
+
+	updated, err := s.queries.SetForgeConnectionThrottledUntil(ctx, models.SetForgeConnectionThrottledUntilParams{ID: id, ThrottledUntil: until})
+	if err != nil {
+		return fmt.Errorf("failed to set throttled_until on connection %q: %w", id, err)
+	}
+	if updated == 0 {
+		return store.ErrNotFound.Saying("no connection with id %q", id)
+	}
+
+	return nil
+}
+
 // Delete removes a connection, or ErrNotFound.
 func (s *Store) Delete(ctx context.Context, id string) error {
 	if !store.IsID(id) {
@@ -160,13 +180,14 @@ func (s *Store) Delete(ctx context.Context, id string) error {
 
 func fromRow(row *models.ForgeConnection) Connection {
 	return Connection{
-		ID:         row.ID,
-		Kind:       row.Kind,
-		Host:       row.Host,
-		APIURL:     row.ApiUrl,
-		Method:     row.Method,
-		Login:      row.Login,
-		VerifiedAt: row.VerifiedAt,
-		CreatedAt:  row.CreatedAt,
+		ID:             row.ID,
+		Kind:           row.Kind,
+		Host:           row.Host,
+		APIURL:         row.ApiUrl,
+		Method:         row.Method,
+		Login:          row.Login,
+		VerifiedAt:     row.VerifiedAt,
+		ThrottledUntil: row.ThrottledUntil,
+		CreatedAt:      row.CreatedAt,
 	}
 }
