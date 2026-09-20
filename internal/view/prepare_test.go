@@ -481,7 +481,7 @@ func TestPrepareEmphasis(t *testing.T) {
 		want Emphasis
 	}{
 		{
-			name: "an archived row that is also unviewed stays dim, since dim is the stronger fact",
+			name: "an archived row with unread mail stays dim, since dim is the stronger fact",
 			row:  Row{Archived: true, UnreadMail: true},
 			want: EmphasisDim,
 		},
@@ -491,7 +491,7 @@ func TestPrepareEmphasis(t *testing.T) {
 			want: EmphasisDim,
 		},
 		{
-			name: "an unviewed row is not brightened, since the mark after its name says it",
+			name: "a row with unread mail is not brightened, since the envelope says it",
 			row:  Row{UnreadMail: true},
 			want: EmphasisNormal,
 		},
@@ -583,9 +583,6 @@ func TestPrepareTrailingMarks(t *testing.T) {
 			name: "unread mail is the muted envelope",
 			row:  Row{UnreadMail: true},
 			want: Line{Mail: Cell{Glyph: GlyphMail, Tone: paint.ToneMuted}},
-		},
-		{
-			name: "output nobody has read is the muted unread mark",
 		},
 		{
 			name: "a paused agent is the muted pause",

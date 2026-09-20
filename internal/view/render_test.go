@@ -291,8 +291,7 @@ func TestRenderFocusedRow(t *testing.T) {
 	requireGolden(t, "row-focused", Render(list, paint.Panel, 0))
 }
 
-// emphasisRows is a list built to put the emphases beside each other, with an unviewed row to
-// say the mark after its name is the whole of what unviewed changes.
+// emphasisRows is a list built to put the emphases beside each other.
 func emphasisRows() []Row {
 	return []Row{
 		{Kind: KindAgent, Name: "ordinary"},
