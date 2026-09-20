@@ -11,6 +11,8 @@ import (
 type sortColumn[T any] struct {
 	id    string
 	label string
+	// direction is the way the arrow points when the column is stepped onto.
+	direction tabDirection
 	// has reports whether a row carries the value at all, nil on a column every row has.
 	has func(T) bool
 	// compare orders two rows that both carry the value, ascending.
@@ -61,7 +63,11 @@ func (s tabStrip) order(state tabsState) sortOrder {
 
 func tabOptionsOf[T any](columns []sortColumn[T]) []tabOption {
 	return xslice.Map(columns, func(column sortColumn[T]) tabOption {
-		return tabOption{id: column.id, label: column.label}
+		return tabOption{
+			id:        column.id,
+			label:     column.label,
+			direction: column.direction,
+		}
 	})
 }
 

@@ -14,6 +14,7 @@ import (
 	"weave/internal/ui/layout"
 	"weave/internal/ui/paint"
 	"weave/internal/view"
+	"weave/lib/xslice"
 	agentv1 "weave/proto/gen/agent/v1"
 	"weave/proto/gen/agent/v1/agentv1connect"
 	workflowv1 "weave/proto/gen/workflow/v1"
@@ -719,47 +720,99 @@ func TestArchiveFields(t *testing.T) {
 	assert.Contains(t, labels, "archived", "the record says when it was put away")
 }
 
-// TestArchiveIsOrderedByWhenAgentsWereArchived covers the archive being ordered by when each
-// agent was archived and not by when it was created.
-func TestArchiveIsOrderedByWhenAgentsWereArchived(t *testing.T) {
-	tests := []struct {
-		name      string
-		listed    []*agentv1.Agent
-		wantNames []string
-	}{
+// archiveSortModel is the archive over one workflow holding an agent archived at nine, one at
+// noon, and one put away before the time was recorded.
+func archiveSortModel() model {
+	nine := time.Date(2026, time.July, 30, 9, 0, 0, 0, time.UTC)
+	noon := time.Date(2026, time.July, 30, 12, 0, 0, 0, time.UTC)
+
+	m := worktreesModel()
+	m.screen = screenArchive
+	m.width, m.height = 200, 40
+	m.archive.agents = []agentstore.Agent{
 		{
-			name: "the most recently archived agent is first",
-			listed: []*agentv1.Agent{
-				archivedProtoAgent("archived-at-nine", "2026-07-30T09:00:00Z"),
-				archivedProtoAgent("archived-at-noon", "2026-07-30T12:00:00Z"),
-			},
-			wantNames: []string{"archived-at-noon", "archived-at-nine"},
+			ID:         "zeta",
+			Name:       "zeta",
+			WorkflowID: "w1",
+			ArchivedAt: &noon,
 		},
 		{
-			name: "a row archived before the time was recorded sits below the ones that carry it",
-			listed: []*agentv1.Agent{
-				{Name: "unstamped"},
-				archivedProtoAgent("stamped", "2026-07-30T09:00:00Z"),
-			},
-			wantNames: []string{"stamped", "unstamped"},
+			ID:         "mid",
+			Name:       "mid",
+			WorkflowID: "w1",
+		},
+		{
+			ID:         "alpha",
+			Name:       "alpha",
+			WorkflowID: "w1",
+			ArchivedAt: &nine,
+		},
+	}
+
+	return m
+}
+
+// TestArchiveRowsOrderByTheColumn covers the archive ordered by when each agent was put away
+// rather than by the listing, a row archived before the time was recorded sitting below the
+// ones that carry it whichever way the arrow points, and the name column ordering every row.
+func TestArchiveRowsOrderByTheColumn(t *testing.T) {
+	tests := []struct {
+		name  string
+		state tabsState
+		want  []string
+	}{
+		{
+			name:  "archived down is the fallback, the most recently archived first",
+			state: tabsState{},
+			want:  []string{"workflow:w1", "agent:zeta", "agent:alpha", "agent:mid"},
+		},
+		{
+			name:  "archived up is the oldest first with the unstamped row still last",
+			state: tabsState{chosen: "archived", direction: tabUp},
+			want:  []string{"workflow:w1", "agent:alpha", "agent:zeta", "agent:mid"},
+		},
+		{
+			name:  "name up takes every row",
+			state: tabsState{chosen: "name", direction: tabUp},
+			want:  []string{"workflow:w1", "agent:alpha", "agent:mid", "agent:zeta"},
+		},
+		{
+			name:  "name down",
+			state: tabsState{chosen: "name", direction: tabDown},
+			want:  []string{"workflow:w1", "agent:zeta", "agent:mid", "agent:alpha"},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := archivedAgentsFrom(tt.listed)
+			m := archiveSortModel()
+			m.archive.sort = tt.state
 
-			names := make([]string, 0, len(got))
-			for _, agent := range got {
-				names = append(names, agent.Name)
-			}
-			assert.Equal(t, tt.wantNames, names)
+			assert.Equal(t, tt.want, xslice.Map(m.archiveRows(), agentRow.key))
 		})
 	}
 }
 
-func archivedProtoAgent(name, archivedAt string) *agentv1.Agent {
-	return &agentv1.Agent{Name: name, ArchivedAt: &archivedAt}
+// TestArchiveTabsKeepTheCursorOnItsRow covers the cursor following its row as the archive is
+// reordered under it, and the name tab opening with its arrow up.
+func TestArchiveTabsKeepTheCursorOnItsRow(t *testing.T) {
+	m := archiveSortModel()
+	m.archive.cursor = 2
+	require.Equal(t, "agent:alpha", m.hoveredArchiveKey())
+
+	tabbed := send(t, send(t, m, "f"), "tab")
+	assert.Equal(t, tabsState{chosen: "name", direction: tabUp, focused: true}, tabbed.archive.sort)
+	assert.Equal(t, "agent:alpha", tabbed.hoveredArchiveKey())
+	assert.Equal(t, 1, tabbed.archive.cursor)
+
+	turned := send(t, tabbed, "j")
+	assert.Equal(t, "agent:alpha", turned.hoveredArchiveKey())
+	assert.Equal(t, 3, turned.archive.cursor)
+
+	left := send(t, turned, "esc")
+	assert.Equal(t, tabsState{}, left.archive.sort)
+	assert.Equal(t, "agent:alpha", left.hoveredArchiveKey())
+	assert.Equal(t, 2, left.archive.cursor)
 }
 
 func archivedProtoWorkflow(id, name, archivedAt string) *workflowv1.Workflow {

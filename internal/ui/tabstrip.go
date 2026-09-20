@@ -34,6 +34,8 @@ func (d tabDirection) glyph() string {
 type tabOption struct {
 	id    string
 	label string
+	// direction is the way the arrow points when the tab is stepped onto.
+	direction tabDirection
 }
 
 type tabStrip struct {
@@ -66,7 +68,7 @@ func (s tabStrip) indexOf(state tabsState) int {
 
 func (s tabStrip) step(state *tabsState, delta int) {
 	at := (s.indexOf(*state) + delta + len(s.options)) % len(s.options)
-	state.chosen = s.options[at].id
+	state.chosen, state.direction = s.options[at].id, s.options[at].direction
 }
 
 func (s tabStrip) view(state tabsState, palette paint.Palette, width int) string {

@@ -88,48 +88,55 @@ func TestTabStripIsCutToThePane(t *testing.T) {
 }
 
 // TestTabStripStepsAndWraps covers tab and shift+tab walking the tabs and wrapping at both ends,
-// and the choice being what selected reports.
+// and each tab opening with the direction it carries, whichever way the arrow pointed before.
 func TestTabStripStepsAndWraps(t *testing.T) {
 	tests := []struct {
-		name  string
-		from  string
-		delta int
-		want  string
+		name          string
+		from          tabsState
+		delta         int
+		want          string
+		wantDirection tabDirection
 	}{
 		{
-			name:  "back from the first wraps to the last",
-			from:  "size",
-			delta: -1,
-			want:  "name",
+			name:          "back from the first wraps to the last, which opens up",
+			from:          tabsState{chosen: "size"},
+			delta:         -1,
+			want:          "name",
+			wantDirection: tabUp,
 		},
 		{
-			name:  "forward from the last wraps to the first",
-			from:  "name",
-			delta: 1,
-			want:  "size",
+			name:          "forward from the last wraps to the first, which opens down again",
+			from:          tabsState{chosen: "name", direction: tabUp},
+			delta:         1,
+			want:          "size",
+			wantDirection: tabDown,
 		},
 		{
-			name:  "forward steps to the next",
-			from:  "size",
-			delta: 1,
-			want:  "age",
+			name:          "forward steps to the next and drops a turned arrow",
+			from:          tabsState{chosen: "size", direction: tabUp},
+			delta:         1,
+			want:          "age",
+			wantDirection: tabDown,
 		},
 		{
-			name:  "back steps to the previous",
-			from:  "name",
-			delta: -1,
-			want:  "age",
+			name:          "back steps to the previous",
+			from:          tabsState{chosen: "name", direction: tabDown},
+			delta:         -1,
+			want:          "age",
+			wantDirection: tabDown,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			strip := stripFixture()
-			state := tabsState{chosen: tt.from}
+			strip.options[2].direction = tabUp
+			state := tt.from
 
 			strip.step(&state, tt.delta)
 
 			assert.Equal(t, tt.want, state.chosen)
+			assert.Equal(t, tt.wantDirection, state.direction)
 		})
 	}
 }
@@ -375,7 +382,7 @@ func TestEveryTabbedScreenTakesTheStrip(t *testing.T) {
 			require.True(t, focused.isTabsFocused())
 			assert.False(t, focused.isListFocused())
 
-			turned := send(t, send(t, focused, "tab"), "k")
+			turned := send(t, send(t, send(t, focused, "tab"), "j"), "k")
 			assert.Equal(t, tabsState{chosen: tt.second, direction: tabUp, focused: true}, *tt.state(&turned))
 			assert.Contains(t, turned.screen.spec().view(turned), "↑ "+tt.second)
 

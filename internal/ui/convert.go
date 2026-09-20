@@ -1,9 +1,6 @@
 package ui
 
 import (
-	"slices"
-	"time"
-
 	agentv1 "weave/proto/gen/agent/v1"
 	pullrequestv1 "weave/proto/gen/pullrequest/v1"
 	schedulev1 "weave/proto/gen/schedule/v1"
@@ -134,21 +131,7 @@ func workflowFrom(w *workflowv1.Workflow) workflowstore.Workflow {
 }
 
 func archivedAgentsFrom(listed []*agentv1.Agent) []agentstore.Agent {
-	agents := xslice.Map(listed, protoToAgent)
-
-	archivedAt := func(agent agentstore.Agent) time.Time {
-		if agent.ArchivedAt == nil {
-			return time.Time{}
-		}
-
-		return *agent.ArchivedAt
-	}
-
-	slices.SortStableFunc(agents, func(a, b agentstore.Agent) int {
-		return archivedAt(b).Compare(archivedAt(a))
-	})
-
-	return agents
+	return xslice.Map(listed, protoToAgent)
 }
 
 func scheduleItemsFrom(listed []*schedulev1.Schedule) []scheduleItem {
