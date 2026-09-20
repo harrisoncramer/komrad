@@ -8,6 +8,7 @@ import (
 	forgestore "weave/internal/store/forge"
 	mailstore "weave/internal/store/mail"
 	markstore "weave/internal/store/mark"
+	pullrequeststore "weave/internal/store/pullrequest"
 	reviewstore "weave/internal/store/review"
 	runstore "weave/internal/store/run"
 	schedulestore "weave/internal/store/schedule"
@@ -16,16 +17,17 @@ import (
 )
 
 type stores struct {
-	pool        *store.Pool
-	agents      *agentstore.Store
-	workflows   *workflowstore.Store
-	schedules   *schedulestore.Store
-	transcripts *transcriptstore.Store
-	mail        *mailstore.Store
-	review      *reviewstore.Store
-	runs        *runstore.Store
-	marks       *markstore.Store
-	forges      *forgestore.Store
+	pool         *store.Pool
+	agents       *agentstore.Store
+	workflows    *workflowstore.Store
+	schedules    *schedulestore.Store
+	transcripts  *transcriptstore.Store
+	mail         *mailstore.Store
+	review       *reviewstore.Store
+	runs         *runstore.Store
+	marks        *markstore.Store
+	forges       *forgestore.Store
+	pullRequests *pullrequeststore.Store
 }
 
 func openStores(ctx context.Context, databaseURL string) (*stores, error) {
@@ -37,15 +39,16 @@ func openStores(ctx context.Context, databaseURL string) (*stores, error) {
 	db := pool.GetDB()
 
 	return &stores{
-		pool:        pool,
-		agents:      agentstore.New(db),
-		workflows:   workflowstore.New(db),
-		schedules:   schedulestore.New(db),
-		transcripts: transcriptstore.New(db),
-		mail:        mailstore.New(db),
-		review:      reviewstore.New(db),
-		runs:        runstore.New(db),
-		marks:       markstore.New(db),
-		forges:      forgestore.New(db),
+		pool:         pool,
+		agents:       agentstore.New(db),
+		workflows:    workflowstore.New(db),
+		schedules:    schedulestore.New(db),
+		transcripts:  transcriptstore.New(db),
+		mail:         mailstore.New(db),
+		review:       reviewstore.New(db),
+		runs:         runstore.New(db),
+		marks:        markstore.New(db),
+		forges:       forgestore.New(db),
+		pullRequests: pullrequeststore.New(db),
 	}, nil
 }
