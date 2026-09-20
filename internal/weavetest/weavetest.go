@@ -32,6 +32,7 @@ import (
 	"weave/internal/agents"
 	"weave/internal/caller"
 	"weave/internal/doctor"
+	"weave/internal/forge"
 	"weave/internal/harness"
 	"weave/internal/harnesstest"
 	"weave/internal/logging"
@@ -94,6 +95,9 @@ type Params struct {
 	// KeepLog writes the service's log to the file it would write on a real machine, for a
 	// test that reads it back.
 	KeepLog bool
+	// ForgeBuilders replaces the forges the instance speaks to, which is how a test points a
+	// kind at a server of its own.
+	ForgeBuilders map[string]forge.Builder
 }
 
 // Start builds the service and returns it running, torn down when the test ends.
@@ -173,6 +177,7 @@ func Start(t *testing.T, p Params) *Instance {
 		DefaultHarness:     harnesstest.ID,
 		MaxAgents:          p.MaxAgents,
 		FallbackResumeRoot: filepath.Join(root, "restored"),
+		ForgeBuilders:      p.ForgeBuilders,
 		Doctor: doctor.Settings{
 			TmuxSocket:          env.TmuxSocket,
 			ConfigStack:         config.Stack{Paths: []string{configPath}},
@@ -290,6 +295,12 @@ func (i *Instance) Reconcile() {
 func (i *Instance) SyncCwds() {
 	i.t.Helper()
 	i.runLoop(server.CwdSyncLoop)
+}
+
+// SyncPullRequests runs one pass of the loop that reads the forges' pull requests.
+func (i *Instance) SyncPullRequests() {
+	i.t.Helper()
+	i.runLoop(server.PullRequestSyncLoop)
 }
 
 // SyncTranscripts runs one pass of the loop that folds what was said into the search index.

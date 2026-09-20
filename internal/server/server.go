@@ -17,6 +17,7 @@ import (
 	"weave/db"
 	"weave/internal/agents"
 	"weave/internal/doctor"
+	"weave/internal/forge"
 	"weave/internal/harness"
 	"weave/internal/interceptors"
 	"weave/internal/jobs"
@@ -44,6 +45,8 @@ type NewServerParams struct {
 	FallbackResumeRoot string
 	// Doctor is this machine as the doctor's checks see it, which run_doctor answers with.
 	Doctor doctor.Settings
+	// ForgeBuilders makes the forge for each kind, every kind this build knows when nil.
+	ForgeBuilders map[string]forge.Builder
 }
 
 // mailConfig reads the mail settings fresh on every send, and fails rather than falling back to

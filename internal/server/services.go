@@ -190,11 +190,15 @@ func buildServices(params NewServerParams, st *stores) (*services, error) {
 
 	markService := agents.NewMarkService(agents.NewMarkServiceParams{Marks: st.marks, Tx: st.pool})
 
+	builders := params.ForgeBuilders
+	if builders == nil {
+		builders = forges.Builders
+	}
 	tokenCachePath := forges.TokenCachePath(params.Env.CacheDir)
 	forgeService := forge.NewForgeService(forge.NewForgeServiceParams{
 		Connections: st.forges,
 		Credentials: forge.NewFileStore(stateDir),
-		Builders:    forges.Builders,
+		Builders:    builders,
 		LoadApp: func() (forge.App, error) {
 			cfg, err := loadConfig()
 			if err != nil {
