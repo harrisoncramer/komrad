@@ -192,7 +192,7 @@ func TestSearchPutsTheHitsWhereTheLayoutAsks(t *testing.T) {
 		{
 			name: "the default puts the hits on the left",
 			side: config.SidebarSideLeft,
-			want: view.Spell(view.GlyphSearch) + " Search",
+			want: view.Spell(view.GlyphSearch) + "  Search",
 		},
 		{
 			name: "and the transcript takes that side when it is asked to",

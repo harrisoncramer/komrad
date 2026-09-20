@@ -52,22 +52,22 @@ func TestTabStripDrawsTheChosenTabInTheTonesOfItsFocus(t *testing.T) {
 		{
 			name:  "the zero state is the fallback with its arrow down, on the list's keys",
 			state: tabsState{},
-			want:  muted.Render("↑↓") + "   ↓ size  " + muted.Render("age") + "  " + muted.Render("name"),
+			want:  " " + muted.Render("↑↓") + "   ↓ size  " + muted.Render("age") + "  " + muted.Render("name"),
 		},
 		{
 			name:  "a chosen tab keeps its arrow when the list holds the keys",
 			state: tabsState{chosen: "age", direction: tabUp},
-			want:  muted.Render("↑↓") + "   " + muted.Render("size") + "  ↑ age  " + muted.Render("name"),
+			want:  " " + muted.Render("↑↓") + "   " + muted.Render("size") + "  ↑ age  " + muted.Render("name"),
 		},
 		{
 			name:  "the strip holding the keys draws the chosen tab in the accent",
 			state: tabsState{chosen: "age", focused: true},
-			want:  muted.Render("↑↓") + "   " + muted.Render("size") + "  " + accent.Render("↓ age") + "  " + muted.Render("name"),
+			want:  " " + muted.Render("↑↓") + "   " + muted.Render("size") + "  " + accent.Render("↓ age") + "  " + muted.Render("name"),
 		},
 		{
 			name:  "a choice the strip does not hold falls back",
 			state: tabsState{chosen: "gone"},
-			want:  muted.Render("↑↓") + "   ↓ size  " + muted.Render("age") + "  " + muted.Render("name"),
+			want:  " " + muted.Render("↑↓") + "   ↓ size  " + muted.Render("age") + "  " + muted.Render("name"),
 		},
 	}
 

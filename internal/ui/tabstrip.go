@@ -88,7 +88,7 @@ func (s tabStrip) view(state tabsState, palette paint.Palette, width int) string
 		parts = append(parts, text)
 	}
 
-	line := muted.Render(s.title) + "   " + strings.Join(parts, "  ")
+	line := " " + muted.Render(s.title) + "   " + strings.Join(parts, "  ")
 	if width > 0 {
 		line = ansi.Truncate(line, width, "…")
 	}

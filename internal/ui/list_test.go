@@ -111,7 +111,7 @@ func TestScreensFitThePane(t *testing.T) {
 	}
 }
 
-// TestScreenTitlesOpenWithTheirIcon covers every listing's title drawn two columns in behind
+// TestScreenTitlesOpenWithTheirIcon covers every listing's title drawn one column in behind
 // the icon that says what the screen is, in the plain foreground rather than the accent.
 func TestScreenTitlesOpenWithTheirIcon(t *testing.T) {
 	withANSI(t)
@@ -161,13 +161,13 @@ func TestScreenTitlesOpenWithTheirIcon(t *testing.T) {
 			shown.screen = tt.screen
 
 			first, _, _ := strings.Cut(shown.View(), "\n")
-			require.True(t, strings.HasPrefix(first, "  "+view.Spell(tt.icon)+" "+tt.title), "the title opens the frame: %q", ansi.Strip(first))
+			require.True(t, strings.HasPrefix(first, " "+view.Spell(tt.icon)+"  "+tt.title), "the title opens the frame: %q", ansi.Strip(first))
 			assert.NotContains(t, first, paint.Panel.Title(tt.title), "and is drawn plain")
 		})
 	}
 }
 
-// TestSearchPromptSitsUnderTheTitle covers the prompt set in the same two columns as the title
+// TestSearchPromptSitsUnderTheTitle covers the prompt set in the same column as the title
 // above it, whichever glyph opens it.
 func TestSearchPromptSitsUnderTheTitle(t *testing.T) {
 	tests := []struct {
@@ -180,24 +180,24 @@ func TestSearchPromptSitsUnderTheTitle(t *testing.T) {
 			name:   "a search on the agents tree",
 			screen: screenAgents,
 			mode:   filterModeSearch,
-			want:   "  / db",
+			want:   " / db",
 		},
 		{
 			name:   "a filter on the agents tree",
 			screen: screenAgents,
 			mode:   filterModeFilter,
-			want:   "  ▽ db",
+			want:   " ▽ db",
 		},
 		{
 			name:   "a search on the worktrees",
 			screen: screenWorktrees,
 			mode:   filterModeSearch,
-			want:   "  / db",
+			want:   " / db",
 		},
 		{
 			name:   "the transcript search",
 			screen: screenSearch,
-			want:   "  / agent39",
+			want:   " / agent39",
 		},
 	}
 
