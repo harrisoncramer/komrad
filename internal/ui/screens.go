@@ -14,7 +14,6 @@ const (
 	screenArchive
 	screenSearch
 	screenReview
-	screenMail
 	screenWorktrees
 )
 
@@ -22,7 +21,7 @@ const (
 // which a screen drawing the whole window itself says no to.
 func (s screen) opensInfoPane() bool {
 	switch s {
-	case screenAgents, screenSchedules, screenMail, screenWorktrees:
+	case screenAgents, screenSchedules, screenWorktrees:
 		return true
 	case screenArchive, screenSearch, screenReview:
 		return false
@@ -179,23 +178,6 @@ func (s screen) spec() screenSpec {
 			needsArchive: true,
 			typing:       func(m model) bool { return m.search.typing },
 			column:       searchColumn,
-		}
-	case screenMail:
-		return screenSpec{
-			key:          model.updateMail,
-			view:         model.mailView,
-			stage:        (*model).stageMail,
-			needsArchive: true,
-			details: &detailsSpec{
-				hovered: model.mailDetails,
-				quit:    func(keys config.Keybindings) []string { return keys.Mail.Quit },
-				fits:    model.doesMailFitDetails,
-			},
-			filter: &filterSpec{
-				hovered: model.hoveredMailKey,
-				place:   (*model).placeMailCursor,
-			},
-			column: mailColumn,
 		}
 	case screenWorktrees:
 		return screenSpec{

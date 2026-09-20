@@ -9,7 +9,6 @@ import (
 	workflowstore "weave/internal/store/workflow"
 	"weave/internal/ui/layout"
 	"weave/lib/xptr"
-	agentv1 "weave/proto/gen/agent/v1"
 
 	tea "github.com/charmbracelet/bubbletea"
 
@@ -149,27 +148,6 @@ func TestSchedulesDrawTheHoveredRecord(t *testing.T) {
 	view := ansi.Strip(m.View())
 	assert.Contains(t, view, "morning-ci", "the list names the schedule")
 	assert.Contains(t, view, "0 9 * * 1-5", "and the record beside it spells out when it fires")
-	assert.Empty(t, tmux.respawns, "nothing is pushed into a pane to put it there")
-}
-
-// TestMailDrawsTheHoveredMessage covers the body of a message being drawn beside the threads,
-// which is what the stage pane was reading out of a file until now.
-func TestMailDrawsTheHoveredMessage(t *testing.T) {
-	m := mailModel(config.DefaultKeybindings())
-	tmux, ok := m.tmux.(*recordingTmux)
-	require.True(t, ok)
-	m = sizedTo(m, tmux)
-	// The model is built on the screen rather than navigated onto it, so nothing has asked for
-	// the window yet.
-	m.reconcileSolo()
-
-	m.applyMailLoaded(mailLoadedMsg{
-		agentID: "a1",
-		inbox:   []*agentv1.Mail{received("1", "emacs-fan", "the linter is unhappy about the new file")},
-	})
-
-	require.True(t, m.frame.IsSolo(), "the mail screen draws both halves itself")
-	assert.Contains(t, ansi.Strip(m.View()), "the linter is unhappy", "the message body stands beside the threads")
 	assert.Empty(t, tmux.respawns, "nothing is pushed into a pane to put it there")
 }
 

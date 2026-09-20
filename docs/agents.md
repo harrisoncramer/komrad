@@ -58,11 +58,11 @@ An entry that would do nothing on this agent says so in the menu rather than lea
 
 ## Marks
 
-A mark is a letter you put on a row so you can jump straight back to it, the way marks work in vim. Press `f` and then a letter to mark whatever the cursor is on, and press `'` and then that letter from anywhere in the list to put the cursor back on it. The letter is drawn in the gutter down the left of the list, so the rows you have named read as a column rather than something to hunt for along a row.
+A mark is a letter you put on a row so you can jump straight back to it, the way marks work in vim. Press `m` and then a letter to mark whatever the cursor is on, and press `'` and then that letter from anywhere in the list to put the cursor back on it. The letter is drawn in the gutter down the left of the list, so the rows you have named read as a column rather than something to hunt for along a row.
 
 Agents and workflows are marked the same way and share the same letters, since a letter names one place. `'a` is one row, never a choice between two.
 
-A letter is held by one row at a time. Marking a row with a letter another row already holds moves the mark rather than refusing it. Pressing `f` and then the letter a row already holds takes the mark off it, which is how a mark is cleared.
+A letter is held by one row at a time. Marking a row with a letter another row already holds moves the mark rather than refusing it. Pressing `m` and then the letter a row already holds takes the mark off it, which is how a mark is cleared.
 
 `'` pressed twice goes back to wherever the cursor was before the last jump, so looking at a marked row and getting back to what you were reading are the same gesture. A jump always lands: if the marked row is hidden, the jump reveals it rather than doing nothing.
 

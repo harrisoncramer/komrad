@@ -9,7 +9,6 @@ import (
 	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
 	"weave/internal/ui/layout"
-	agentv1 "weave/proto/gen/agent/v1"
 
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
@@ -93,8 +92,8 @@ func TestNoLegendIsDrawnAsAnEllipsis(t *testing.T) {
 		screenSchedules: model.scheduleHelp,
 		screenArchive:   model.archiveHelp,
 		screenSearch:    model.searchHelp,
-		screenMail:      model.mailHelp,
 		screenReview:    model.reviewHelp,
+		screenWorktrees: model.worktreesHelp,
 	}
 
 	for s, legend := range legends {
@@ -213,7 +212,6 @@ func legendLabels(bindings []key.Binding) []string {
 // TestNoScreenBindsOneKeyTwice pins that every legend a screen draws names each key once.
 func TestNoScreenBindsOneKeyTwice(t *testing.T) {
 	base := helpModel()
-	base.mail.inbox = []*agentv1.Mail{{Id: "m1"}}
 	base.schedules.items = []scheduleItem{{}}
 
 	tests := []struct {
@@ -235,11 +233,6 @@ func TestNoScreenBindsOneKeyTwice(t *testing.T) {
 			name:   "the schedules",
 			screen: screenSchedules,
 			legend: model.scheduleHelp,
-		},
-		{
-			name:   "the mailbox",
-			screen: screenMail,
-			legend: model.mailHelp,
 		},
 		{
 			name:   "the search",
@@ -289,8 +282,8 @@ func TestNoLegendIsWiderThanThePane(t *testing.T) {
 		"the schedules":   model.scheduleHelp,
 		"the archive":     model.archiveHelp,
 		"the search":      model.searchHelp,
-		"the mailbox":     model.mailHelp,
 		"the review":      model.reviewHelp,
+		"the worktrees":   model.worktreesHelp,
 		"the details":     model.detailsHelp,
 		"the messages":    model.messagesHelp,
 	}

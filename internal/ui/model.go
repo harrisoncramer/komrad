@@ -205,7 +205,6 @@ type model struct {
 	worktrees     worktreesState
 	search        searchState
 	review        reviewState
-	mail          mailState
 	filter        filterState
 	rowCursor     cursor.Model
 	column        columnState

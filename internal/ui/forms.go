@@ -787,6 +787,25 @@ func namedPaths(paths []string, most int) string {
 	return fmt.Sprintf("%s and %d more", strings.Join(paths[:most], ", "), len(paths)-most)
 }
 
+// counted is how many of something there are, taking -es after an ending a bare s will not sit
+// on.
+func counted(count int, word string) string {
+	if count == 1 {
+		return "1 " + word
+	}
+
+	suffix := "s"
+	for _, ending := range []string{"ch", "sh", "s", "x", "z"} {
+		if strings.HasSuffix(word, ending) {
+			suffix = "es"
+
+			break
+		}
+	}
+
+	return fmt.Sprintf("%d %s%s", count, word, suffix)
+}
+
 // countWord is a number with its noun, so a confirmation reads as a sentence.
 func countWord(n int, singular, plural string) string {
 	if n == 1 {

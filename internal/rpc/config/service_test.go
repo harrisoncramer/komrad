@@ -31,7 +31,7 @@ func TestGetConfig(t *testing.T) {
 			file: `bogus = true`,
 			check: func(t *testing.T, resp *configv1.GetConfigResponse) {
 				assert.Contains(t, resp.GetConfigError(), "failed to parse config")
-				assert.Equal(t, []any{"t"}, binding(t, resp, "marks", "set"))
+				assert.Equal(t, []any{"m"}, binding(t, resp, "marks", "set"))
 			},
 		},
 		{

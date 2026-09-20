@@ -32,7 +32,6 @@ const (
 	actionAgentOpen
 	actionAgentReview
 	actionGitMenu
-	actionAgentMail
 	actionAgentChild
 	actionAgentRename
 	actionAgentToggleViewed
@@ -62,7 +61,6 @@ const (
 	actionScheduleToggle
 	actionScheduleArchive
 	actionScheduleBack
-	actionMailBack
 	actionArchiveRestore
 	actionArchiveRestoreOpen
 	actionArchiveDelete

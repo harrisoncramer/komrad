@@ -10,7 +10,6 @@ import (
 	schedulestore "weave/internal/store/schedule"
 	workflowstore "weave/internal/store/workflow"
 	"weave/internal/ui/layout"
-	agentv1 "weave/proto/gen/agent/v1"
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/stretchr/testify/assert"
@@ -95,7 +94,7 @@ const paneFloor = 38
 func TestNoScreenOutgrowsThePaneItWasGiven(t *testing.T) {
 	widths := []int{paneFloor, 39, 40, 41, 42, 44, 46, 50, 60, 80, 120, 200}
 
-	for s := screenAgents; s <= screenMail; s++ {
+	for s := screenAgents; s <= screenWorktrees; s++ {
 		for _, width := range widths {
 			for _, height := range []int{28, 60} {
 				name := fmt.Sprintf("%d at %dx%d", s, width, height)
@@ -226,10 +225,6 @@ func crowdedModel(t *testing.T) model {
 		})
 		m.schedules.items = append(m.schedules.items, scheduleItem{
 			schedule: schedulestore.Schedule{ID: fmt.Sprintf("s%d", i), Name: name},
-		})
-		m.mail.inbox = append(m.mail.inbox, &agentv1.Mail{
-			Id:   fmt.Sprintf("m%d", i),
-			Body: strings.Repeat("a message long enough to want wrapping ", 3),
 		})
 		m.search.turns = append(m.search.turns, searchHit{
 			agentID: fmt.Sprintf("a%d", i),
