@@ -52,13 +52,33 @@ func (m model) archiveFilterRows() []filterRow {
 	return filterRows(m.archiveRows())
 }
 
+// archiveSorts is every column the archive can be ordered by.
+var archiveSorts = []sortColumn[agentItem]{
+	{
+		id:    "archived",
+		label: "archived",
+		has: func(item agentItem) bool {
+			return item.agent.ArchivedAt != nil
+		},
+		compare: func(a, b agentItem) int {
+			return a.agent.ArchivedAt.Compare(*b.agent.ArchivedAt)
+		},
+	},
+	{
+		id:        "name",
+		label:     "name",
+		direction: tabUp,
+		compare:   byAgentName,
+	},
+}
+
 func (m model) archiveRows() []agentRow {
 	items := xslice.Map(m.archive.agents, func(agent agentstore.Agent) agentItem { return agentItem{agent: agent} })
 
 	// The archive draws an archived orchestrator as a row of its own.
 	rows := treeRows(treeRowsParams{
 		workflows:  m.archiveHeaders(),
-		agents:     items,
+		agents:     sortedAgents(items, archiveSorts, archiveTabs().order(m.archive.sort)),
 		showHidden: true,
 	})
 
@@ -404,12 +424,9 @@ func (m model) archiveSnapshot(rows []agentRow, pane int) view.Snapshot {
 
 func archiveTabs() tabStrip {
 	return tabStrip{
-		title:  "↑↓",
-		legend: "sort",
-		options: []tabOption{
-			{id: "archived", label: "archived"},
-			{id: "name", label: "name"},
-		},
+		title:    "↑↓",
+		legend:   "sort",
+		options:  tabOptionsOf(archiveSorts),
 		fallback: "archived",
 	}
 }

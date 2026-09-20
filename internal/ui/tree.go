@@ -2,6 +2,7 @@ package ui
 
 import (
 	"maps"
+	"slices"
 	"strings"
 
 	"weave/internal/git"
@@ -146,10 +147,53 @@ func treeRows(params treeRowsParams) []agentRow {
 	return rows
 }
 
+// agentSorts is every column the agents list can be ordered by.
+var agentSorts = []sortColumn[agentItem]{
+	{
+		id:    "created",
+		label: "created",
+		compare: func(a, b agentItem) int {
+			return a.agent.CreatedAt.Compare(b.agent.CreatedAt)
+		},
+	},
+	{
+		id:    "activity",
+		label: "activity",
+		compare: func(a, b agentItem) int {
+			return a.agent.StateChangedAt.Compare(b.agent.StateChangedAt)
+		},
+	},
+	{
+		id:        "name",
+		label:     "name",
+		direction: tabUp,
+		compare:   byAgentName,
+	},
+}
+
+func byAgentName(a, b agentItem) int {
+	return strings.Compare(strings.ToLower(a.agent.Name), strings.ToLower(b.agent.Name))
+}
+
+// sortedAgents is the listing in the order given, the newest agent settling a tie.
+func sortedAgents(items []agentItem, columns []sortColumn[agentItem], order sortOrder) []agentItem {
+	sorted := slices.Clone(items)
+	sortRows(sortRowsParams[agentItem]{
+		rows:    sorted,
+		columns: columns,
+		order:   order,
+		tiebreak: func(a, b agentItem) int {
+			return b.agent.CreatedAt.Compare(a.agent.CreatedAt)
+		},
+	})
+
+	return sorted
+}
+
 func (m model) agentRows() []agentRow {
 	rows := treeRows(treeRowsParams{
 		workflows:         m.listing.workflows,
-		agents:            m.listing.agents,
+		agents:            sortedAgents(m.listing.agents, agentSorts, agentsTabs().order(m.tree.sort)),
 		showHidden:        m.tree.showHidden,
 		foldOrchestrators: true,
 	})

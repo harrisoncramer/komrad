@@ -232,7 +232,7 @@ type SelectionKeys struct {
 
 // TabsKeys is the binding for the row of tabs a screen draws over its list.
 type TabsKeys struct {
-	// Move the cursor between the list on screen and the row of tabs over it.
+	// Hand the keys to the row of tabs over the list; escape hands them back.
 	Focus []string `mapstructure:"focus" default:"f"`
 }
 

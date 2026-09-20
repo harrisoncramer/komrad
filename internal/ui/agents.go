@@ -549,13 +549,9 @@ func (m model) agentsView() string {
 
 func agentsTabs() tabStrip {
 	return tabStrip{
-		title:  "↑↓",
-		legend: "sort",
-		options: []tabOption{
-			{id: "created", label: "created"},
-			{id: "activity", label: "activity"},
-			{id: "name", label: "name"},
-		},
+		title:    "↑↓",
+		legend:   "sort",
+		options:  tabOptionsOf(agentSorts),
 		fallback: "created",
 	}
 }

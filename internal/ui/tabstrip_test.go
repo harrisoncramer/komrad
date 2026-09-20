@@ -88,48 +88,55 @@ func TestTabStripIsCutToThePane(t *testing.T) {
 }
 
 // TestTabStripStepsAndWraps covers tab and shift+tab walking the tabs and wrapping at both ends,
-// and the choice being what selected reports.
+// and each tab opening with the direction it carries, whichever way the arrow pointed before.
 func TestTabStripStepsAndWraps(t *testing.T) {
 	tests := []struct {
-		name  string
-		from  string
-		delta int
-		want  string
+		name          string
+		from          tabsState
+		delta         int
+		want          string
+		wantDirection tabDirection
 	}{
 		{
-			name:  "back from the first wraps to the last",
-			from:  "size",
-			delta: -1,
-			want:  "name",
+			name:          "back from the first wraps to the last, which opens up",
+			from:          tabsState{chosen: "size"},
+			delta:         -1,
+			want:          "name",
+			wantDirection: tabUp,
 		},
 		{
-			name:  "forward from the last wraps to the first",
-			from:  "name",
-			delta: 1,
-			want:  "size",
+			name:          "forward from the last wraps to the first, which opens down again",
+			from:          tabsState{chosen: "name", direction: tabUp},
+			delta:         1,
+			want:          "size",
+			wantDirection: tabDown,
 		},
 		{
-			name:  "forward steps to the next",
-			from:  "size",
-			delta: 1,
-			want:  "age",
+			name:          "forward steps to the next and drops a turned arrow",
+			from:          tabsState{chosen: "size", direction: tabUp},
+			delta:         1,
+			want:          "age",
+			wantDirection: tabDown,
 		},
 		{
-			name:  "back steps to the previous",
-			from:  "name",
-			delta: -1,
-			want:  "age",
+			name:          "back steps to the previous",
+			from:          tabsState{chosen: "name", direction: tabDown},
+			delta:         -1,
+			want:          "age",
+			wantDirection: tabDown,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			strip := stripFixture()
-			state := tabsState{chosen: tt.from}
+			strip.options[2].direction = tabUp
+			state := tt.from
 
 			strip.step(&state, tt.delta)
 
 			assert.Equal(t, tt.want, state.chosen)
+			assert.Equal(t, tt.wantDirection, state.direction)
 		})
 	}
 }
@@ -147,8 +154,8 @@ func sortedWorktreesModel() model {
 
 // TestTabsFocusTakesTheKeys covers the focus key handing the keys to the strip, where tab and
 // shift+tab move the choice and the navigation keys turn its arrow, the rows reordering under
-// the cursor and the cursor staying on its row, and the focus key handing them back with the
-// choice kept.
+// the cursor and the cursor staying on its row, the focus key doing nothing more once the strip
+// has the keys, and escape handing them back with the choice kept.
 func TestTabsFocusTakesTheKeys(t *testing.T) {
 	m := sortedWorktreesModel()
 	require.Equal(t, "tree:/trees/live", m.hoveredWorktreeKey())
@@ -174,9 +181,13 @@ func TestTabsFocusTakesTheKeys(t *testing.T) {
 	assert.Equal(t, tabDown, turned.worktrees.sort.direction)
 	assert.Equal(t, 3, turned.worktrees.cursor)
 
-	back := send(t, turned, "f")
+	pressed := send(t, turned, "f")
+	require.True(t, pressed.isTabsFocused(), "the focus key is not the way back")
+	assert.Equal(t, "last-accessed", pressed.worktrees.sort.chosen)
+
+	back := send(t, pressed, "esc")
 	require.False(t, back.isTabsFocused())
-	assert.Equal(t, "last-accessed", back.worktrees.sort.chosen, "the choice is kept")
+	assert.Equal(t, tabsState{chosen: "last-accessed", direction: tabDown}, back.worktrees.sort, "the choice is kept")
 	assert.True(t, back.isListFocused())
 
 	moved := send(t, back, "j")
@@ -184,23 +195,25 @@ func TestTabsFocusTakesTheKeys(t *testing.T) {
 	assert.Equal(t, "tree:/trees/orphan", moved.hoveredWorktreeKey())
 }
 
-// TestEscapeLeavesTheTabsAndResetsThem covers escape handing the keys back with the fallback
-// chosen and its arrow down again, doing so from a choice that was wrapped to, and the cursor
-// staying on its row through the reset.
-func TestEscapeLeavesTheTabsAndResetsThem(t *testing.T) {
+// TestEscapeLeavesTheTabsAndKeepsTheSort covers escape handing the keys back with the chosen
+// column and its arrow as they were, from a choice that was wrapped to, the rows staying in
+// that order and the cursor on its row.
+func TestEscapeLeavesTheTabsAndKeepsTheSort(t *testing.T) {
 	m := sortedWorktreesModel()
 
 	turned := send(t, send(t, send(t, m, "f"), "shift+tab"), "k")
 	require.Equal(t, tabsState{chosen: "last-accessed", direction: tabUp, focused: true}, turned.worktrees.sort)
 	require.Equal(t, 5, turned.worktrees.cursor, "the sort has moved the row")
+	order := xslice.Map(turned.worktreeRows(), worktreeRow.key)
 
 	left := send(t, turned, "esc")
 
 	assert.False(t, left.isTabsFocused())
-	assert.Equal(t, tabsState{}, left.worktrees.sort)
+	assert.Equal(t, tabsState{chosen: "last-accessed", direction: tabUp}, left.worktrees.sort)
+	assert.Equal(t, order, xslice.Map(left.worktreeRows(), worktreeRow.key), "the rows keep the order the strip named")
 	assert.Equal(t, screenWorktrees, left.screen, "the press is spent on the strip rather than on the screen's back key")
 	assert.Equal(t, "tree:/trees/live", left.hoveredWorktreeKey(), "the cursor stays on its row")
-	assert.Equal(t, 4, left.worktrees.cursor)
+	assert.Equal(t, 5, left.worktrees.cursor)
 }
 
 // TestTabsFocusAndTheRecordTakeTurns covers the record's focus key letting the strip go and the
@@ -215,7 +228,7 @@ func TestTabsFocusAndTheRecordTakeTurns(t *testing.T) {
 	assert.True(t, onTabs.isTabsFocused())
 	assert.False(t, onTabs.isDetailsFocused())
 
-	backOnRecord := send(t, send(t, onTabs, "f"), "ctrl+t")
+	backOnRecord := send(t, send(t, onTabs, "esc"), "ctrl+t")
 	assert.True(t, backOnRecord.isDetailsFocused())
 	assert.False(t, backOnRecord.isTabsFocused())
 }
@@ -332,8 +345,8 @@ func TestWorktreesScreenGolden(t *testing.T) {
 }
 
 // TestEveryTabbedScreenTakesTheStrip covers the three list screens that draw a strip taking the
-// same keys: the focus key, tab onto the next tab, k turning the arrow, escape resetting, and the
-// strip sitting straight under the filter line on each.
+// same keys: the focus key, tab onto the next tab, k turning the arrow, escape handing the keys
+// back with the choice kept, and the strip sitting straight under the filter line on each.
 func TestEveryTabbedScreenTakesTheStrip(t *testing.T) {
 	tests := []struct {
 		name   string
@@ -375,12 +388,12 @@ func TestEveryTabbedScreenTakesTheStrip(t *testing.T) {
 			require.True(t, focused.isTabsFocused())
 			assert.False(t, focused.isListFocused())
 
-			turned := send(t, send(t, focused, "tab"), "k")
+			turned := send(t, send(t, send(t, focused, "tab"), "j"), "k")
 			assert.Equal(t, tabsState{chosen: tt.second, direction: tabUp, focused: true}, *tt.state(&turned))
 			assert.Contains(t, turned.screen.spec().view(turned), "↑ "+tt.second)
 
 			left := send(t, turned, "esc")
-			assert.Equal(t, tabsState{}, *tt.state(&left))
+			assert.Equal(t, tabsState{chosen: tt.second, direction: tabUp}, *tt.state(&left))
 			assert.Equal(t, tt.screen, left.screen)
 			assert.True(t, left.isListFocused())
 		})

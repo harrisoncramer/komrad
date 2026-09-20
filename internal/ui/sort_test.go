@@ -139,12 +139,15 @@ func TestSortRowsIsStable(t *testing.T) {
 }
 
 // TestTabOptionsOfKeepsTheTable covers the strip's tabs coming out of the column table in its
-// order, with its ids and labels.
+// order, with its ids, labels and the direction each opens with.
 func TestTabOptionsOfKeepsTheTable(t *testing.T) {
+	columns := sortFixtureColumns()
+	columns[1].direction = tabUp
+
 	assert.Equal(t, []tabOption{
 		{id: "value", label: "value"},
-		{id: "name", label: "name"},
-	}, tabOptionsOf(sortFixtureColumns()))
+		{id: "name", label: "name", direction: tabUp},
+	}, tabOptionsOf(columns))
 }
 
 // TestStripOrderReadsTheState covers the order naming the chosen column and its direction, and
@@ -187,6 +190,16 @@ func TestEveryStripIsBuiltFromItsTable(t *testing.T) {
 		strip tabStrip
 		table []tabOption
 	}{
+		{
+			name:  "the agents tree",
+			strip: agentsTabs(),
+			table: tabOptionsOf(agentSorts),
+		},
+		{
+			name:  "the archive",
+			strip: archiveTabs(),
+			table: tabOptionsOf(archiveSorts),
+		},
 		{
 			name:  "the worktrees",
 			strip: worktreesTabs(),
