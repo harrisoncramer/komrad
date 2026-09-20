@@ -8,7 +8,7 @@ import (
 
 // specPath is the settled design as plain text, kept beside the package since the RFC it was
 // drawn in is not tracked.
-const specPath = "testdata/canonical-sidebar.txt"
+const specPath = "testdata/canonical-sidebar.golden"
 
 // readSpec is the lines of the settled design, as columns with no styling on them.
 func readSpec() ([]string, error) {
