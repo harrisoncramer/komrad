@@ -154,7 +154,7 @@ table "pull_requests" {
   column "review_decision" {
     null    = true
     type    = text
-    comment = "GitHub's own computed reviewDecision, APPROVED, CHANGES_REQUESTED or REVIEW_REQUIRED, null while the forge has said nothing."
+    comment = "Where the forge says the reviews stand, in weave's own words: pending, approved or changes_requested, null while it has said nothing."
   }
   column "decision_read_at" {
     null    = true

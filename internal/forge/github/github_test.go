@@ -535,7 +535,7 @@ func TestGetReviewDecision(t *testing.T) {
 		name    string
 		status  int
 		body    string
-		want    string
+		want    forge.ReviewDecision
 		wantErr error
 	}{
 		{
@@ -566,25 +566,25 @@ func TestGetReviewDecision(t *testing.T) {
 			name:   "approved",
 			status: http.StatusOK,
 			body:   `{"data":{"repository":{"pullRequest":{"reviewDecision":"APPROVED"}}}}`,
-			want:   "APPROVED",
+			want:   forge.ReviewDecisionApproved,
 		},
 		{
 			name:   "changes requested",
 			status: http.StatusOK,
 			body:   `{"data":{"repository":{"pullRequest":{"reviewDecision":"CHANGES_REQUESTED"}}}}`,
-			want:   "CHANGES_REQUESTED",
+			want:   forge.ReviewDecisionChangesRequested,
 		},
 		{
-			name:   "review required",
+			name:   "review required is pending",
 			status: http.StatusOK,
 			body:   `{"data":{"repository":{"pullRequest":{"reviewDecision":"REVIEW_REQUIRED"}}}}`,
-			want:   "REVIEW_REQUIRED",
+			want:   forge.ReviewDecisionPending,
 		},
 		{
-			name:   "nothing said is empty",
+			name:   "nothing said is none",
 			status: http.StatusOK,
 			body:   `{"data":{"repository":{"pullRequest":{"reviewDecision":null}}}}`,
-			want:   "",
+			want:   forge.ReviewDecisionNone,
 		},
 	}
 

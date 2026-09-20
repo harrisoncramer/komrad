@@ -33,7 +33,7 @@ type scriptedForge struct {
 	branches map[string]map[int]*forge.ListResult
 	// decisions is what the forge says about each pull request's reviews, by number, and
 	// decisionErrors what it refuses instead.
-	decisions      map[int]string
+	decisions      map[int]forge.ReviewDecision
 	decisionErrors map[int]error
 	// refuse is answered instead of any page while set.
 	refuse error
@@ -73,13 +73,13 @@ func (f *scriptedForge) ListUpdated(_ context.Context, params forge.ListUpdatedP
 	return &copied, nil
 }
 
-func (f *scriptedForge) GetReviewDecisionByNumber(_ context.Context, _ git.RemoteURL, pullRequestNumber int) (string, error) {
+func (f *scriptedForge) GetReviewDecisionByNumber(_ context.Context, _ git.RemoteURL, pullRequestNumber int) (forge.ReviewDecision, error) {
 	f.requests = append(f.requests, fmt.Sprintf("decision:%d", pullRequestNumber))
 	if f.refuse != nil {
-		return "", f.refuse
+		return forge.ReviewDecisionNone, f.refuse
 	}
 	if err := f.decisionErrors[pullRequestNumber]; err != nil {
-		return "", err
+		return forge.ReviewDecisionNone, err
 	}
 
 	return f.decisions[pullRequestNumber], nil
@@ -157,7 +157,7 @@ func newSyncFixture(t *testing.T) *syncFixture {
 	scripted := &scriptedForge{
 		updated:        map[int]*forge.ListUpdatedResult{},
 		branches:       map[string]map[int]*forge.ListResult{},
-		decisions:      map[int]string{},
+		decisions:      map[int]forge.ReviewDecision{},
 		decisionErrors: map[int]error{},
 	}
 	f := &syncFixture{
@@ -581,14 +581,14 @@ func TestSyncReadsTheDecisionOfAChangedOpenPullRequest(t *testing.T) {
 		PullRequests: []forge.PullRequest{open, draft, merged, elsewhere},
 		ETag:         `"one"`,
 	}
-	f.forge.decisions[1] = "APPROVED"
+	f.forge.decisions[1] = forge.ReviewDecisionApproved
 
 	f.sync(t)
 
 	assert.Equal(t, []string{"updated:1:", "branch:agent/x:1", "decision:1"}, f.forge.requests)
 	stored := f.stored(t, "PR_1")
 	require.NotNil(t, stored.ReviewDecision)
-	assert.Equal(t, "APPROVED", *stored.ReviewDecision)
+	assert.Equal(t, forge.ReviewDecisionApproved, *stored.ReviewDecision)
 	assert.NotNil(t, stored.DecisionReadAt)
 	for _, providerID := range []string{"PR_2", "PR_3", "PR_4"} {
 		assert.Nil(t, f.stored(t, providerID).DecisionReadAt, "%s costs no decision read", providerID)
@@ -607,14 +607,14 @@ func TestSyncReadsTheDecisionOfAChangedOpenPullRequest(t *testing.T) {
 		PullRequests: []forge.PullRequest{changed},
 		ETag:         `"two"`,
 	}
-	f.forge.decisions[1] = "CHANGES_REQUESTED"
+	f.forge.decisions[1] = forge.ReviewDecisionChangesRequested
 	f.forge.requests = nil
 	f.sync(t)
 
 	assert.Equal(t, []string{`updated:1:"one"`, "decision:1"}, f.forge.requests, "a change to the pull request makes its decision stale")
 	stored = f.stored(t, "PR_1")
 	require.NotNil(t, stored.ReviewDecision)
-	assert.Equal(t, "CHANGES_REQUESTED", *stored.ReviewDecision)
+	assert.Equal(t, forge.ReviewDecisionChangesRequested, *stored.ReviewDecision)
 }
 
 // TestSyncDecisionsWaitForTheBudget covers more stale decisions than the budget has room for:

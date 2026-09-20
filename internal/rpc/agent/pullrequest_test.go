@@ -4,6 +4,7 @@ import (
 	"testing"
 	"time"
 
+	"weave/internal/forge"
 	agentstore "weave/internal/store/agent"
 	pullrequeststore "weave/internal/store/pullrequest"
 	"weave/internal/storetest"
@@ -52,7 +53,7 @@ func TestListedAgentsCarryWhereTheirPullRequestStands(t *testing.T) {
 		ChangedAt:         openedAt,
 	})
 	require.NoError(t, err)
-	require.NoError(t, st.PullRequests.SetReviewDecision(ctx, written.ID, "CHANGES_REQUESTED"))
+	require.NoError(t, st.PullRequests.SetReviewDecision(ctx, written.ID, forge.ReviewDecisionChangesRequested))
 
 	listed, err := svc.ListAgents(ctx, connect.NewRequest(&agentv1.ListAgentsRequest{}))
 	require.NoError(t, err)

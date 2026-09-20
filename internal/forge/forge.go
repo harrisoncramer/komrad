@@ -70,6 +70,20 @@ const KindGitLab = "gitlab"
 // MethodToken is the method for a credential a person supplied.
 const MethodToken = "token"
 
+// ReviewDecision is where a forge says a pull request's reviews stand, in weave's own words.
+type ReviewDecision string
+
+const (
+	// ReviewDecisionNone is a forge that has said nothing about the reviews.
+	ReviewDecisionNone ReviewDecision = ""
+	// ReviewDecisionPending is a review the forge requires that nobody has given.
+	ReviewDecisionPending ReviewDecision = "pending"
+	// ReviewDecisionApproved is the forge counting the pull request as approved.
+	ReviewDecisionApproved ReviewDecision = "approved"
+	// ReviewDecisionChangesRequested is a reviewer asking for changes.
+	ReviewDecisionChangesRequested ReviewDecision = "changes_requested"
+)
+
 // PullRequest is one pull request as every forge describes it.
 type PullRequest struct {
 	// Forge is the kind of forge the pull request lives on, such as github.
@@ -120,9 +134,8 @@ type Forge interface {
 	ListUpdated(ctx context.Context, params ListUpdatedParams) (*ListUpdatedResult, error)
 	// Get is one pull request by its web address.
 	Get(ctx context.Context, url string) (PullRequest, error)
-	// GetReviewDecisionByNumber is the forge's own word on where a pull request's reviews
-	// stand, such as APPROVED or CHANGES_REQUESTED, empty when it has said nothing.
-	GetReviewDecisionByNumber(ctx context.Context, repo git.RemoteURL, pullRequestNumber int) (string, error)
+	// GetReviewDecisionByNumber is where the forge says a pull request's reviews stand.
+	GetReviewDecisionByNumber(ctx context.Context, repo git.RemoteURL, pullRequestNumber int) (ReviewDecision, error)
 }
 
 // ListParams says which pull requests to list and which page of them.

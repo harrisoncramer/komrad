@@ -67,8 +67,8 @@ func (f *fakeForge) List(context.Context, ListParams) (*ListResult, error) {
 
 func (f *fakeForge) Get(context.Context, string) (PullRequest, error) { return PullRequest{}, nil }
 
-func (f *fakeForge) GetReviewDecisionByNumber(context.Context, git.RemoteURL, int) (string, error) {
-	return "", nil
+func (f *fakeForge) GetReviewDecisionByNumber(context.Context, git.RemoteURL, int) (ReviewDecision, error) {
+	return ReviewDecisionNone, nil
 }
 
 type fixture struct {

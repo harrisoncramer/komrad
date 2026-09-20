@@ -9,7 +9,9 @@ import (
 
 	"weave/db"
 	"weave/db/models"
+	"weave/internal/forge"
 	"weave/internal/store"
+	"weave/lib/xptr"
 )
 
 // PullRequest is one pull request as the forge last described it, owned by nobody.
@@ -45,8 +47,8 @@ type PullRequest struct {
 	MergedAt    *time.Time
 	ClosedAt    *time.Time
 	FirstSeenAt time.Time
-	// ReviewDecision is the forge's own computed decision, nil while it has said nothing.
-	ReviewDecision *string
+	// ReviewDecision is where the forge says the reviews stand, nil while it has said nothing.
+	ReviewDecision *forge.ReviewDecision
 	// DecisionReadAt is when the decision was last read, nil while it never has been.
 	DecisionReadAt *time.Time
 }
@@ -250,12 +252,12 @@ func (s *Store) ListStaleDecisions(ctx context.Context, repositoryURL string) ([
 	return pullRequests, nil
 }
 
-// SetReviewDecision records what the forge said about a pull request's reviews, empty for
-// nothing, and stamps when it was read.
-func (s *Store) SetReviewDecision(ctx context.Context, id, decision string) error {
+// SetReviewDecision records where the forge said a pull request's reviews stand, and stamps
+// when it was read.
+func (s *Store) SetReviewDecision(ctx context.Context, id string, decision forge.ReviewDecision) error {
 	var stored *string
-	if decision != "" {
-		stored = &decision
+	if decision != forge.ReviewDecisionNone {
+		stored = xptr.Ptr(string(decision))
 	}
 
 	err := s.queries.SetReviewDecision(ctx, models.SetReviewDecisionParams{ID: id, ReviewDecision: stored})
@@ -541,7 +543,15 @@ func fromRow(row *models.PullRequest) PullRequest {
 		MergedAt:          row.MergedAt,
 		ClosedAt:          row.ClosedAt,
 		FirstSeenAt:       row.FirstSeenAt,
-		ReviewDecision:    row.ReviewDecision,
+		ReviewDecision:    reviewDecisionOf(row.ReviewDecision),
 		DecisionReadAt:    row.DecisionReadAt,
 	}
+}
+
+func reviewDecisionOf(stored *string) *forge.ReviewDecision {
+	if stored == nil {
+		return nil
+	}
+
+	return xptr.Ptr(forge.ReviewDecision(*stored))
 }

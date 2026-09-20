@@ -39,8 +39,8 @@ func (f *fakeForge) ListUpdated(context.Context, forge.ListUpdatedParams) (*forg
 	return &forge.ListUpdatedResult{}, nil
 }
 
-func (f *fakeForge) GetReviewDecisionByNumber(context.Context, git.RemoteURL, int) (string, error) {
-	return "", nil
+func (f *fakeForge) GetReviewDecisionByNumber(context.Context, git.RemoteURL, int) (forge.ReviewDecision, error) {
+	return forge.ReviewDecisionNone, nil
 }
 
 func (f *fakeForge) List(_ context.Context, params forge.ListParams) (*forge.ListResult, error) {
@@ -249,7 +249,7 @@ func TestListAgentPullRequests(t *testing.T) {
 				}
 				approved, err := pullRequests.GetByIdentity(ctx, "github.com", "PR_2")
 				require.NoError(t, err)
-				require.NoError(t, pullRequests.SetReviewDecision(ctx, approved.ID, "APPROVED"))
+				require.NoError(t, pullRequests.SetReviewDecision(ctx, approved.ID, forge.ReviewDecisionApproved))
 
 				return id
 			},

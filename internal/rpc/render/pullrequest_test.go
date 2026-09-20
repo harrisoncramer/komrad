@@ -4,6 +4,7 @@ import (
 	"testing"
 	"time"
 
+	"weave/internal/forge"
 	pullrequeststore "weave/internal/store/pullrequest"
 	"weave/lib/xptr"
 	pullrequestv1 "weave/proto/gen/pullrequest/v1"
@@ -27,7 +28,7 @@ func TestPullRequestStateOf(t *testing.T) {
 				MergedAt:       &stamp,
 				ClosedAt:       &stamp,
 				Draft:          true,
-				ReviewDecision: xptr.Ptr(DecisionChangesRequested),
+				ReviewDecision: xptr.Ptr(forge.ReviewDecisionChangesRequested),
 			},
 			want: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_MERGED,
 		},
@@ -36,7 +37,7 @@ func TestPullRequestStateOf(t *testing.T) {
 			pullRequest: pullrequeststore.PullRequest{
 				ClosedAt:       &stamp,
 				Draft:          true,
-				ReviewDecision: xptr.Ptr(DecisionApproved),
+				ReviewDecision: xptr.Ptr(forge.ReviewDecisionApproved),
 			},
 			want: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CLOSED,
 		},
@@ -44,23 +45,23 @@ func TestPullRequestStateOf(t *testing.T) {
 			name: "a draft beats its decision",
 			pullRequest: pullrequeststore.PullRequest{
 				Draft:          true,
-				ReviewDecision: xptr.Ptr(DecisionApproved),
+				ReviewDecision: xptr.Ptr(forge.ReviewDecisionApproved),
 			},
 			want: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_DRAFT,
 		},
 		{
 			name:        "approved",
-			pullRequest: pullrequeststore.PullRequest{ReviewDecision: xptr.Ptr(DecisionApproved)},
+			pullRequest: pullrequeststore.PullRequest{ReviewDecision: xptr.Ptr(forge.ReviewDecisionApproved)},
 			want:        pullrequestv1.PullRequestState_PULL_REQUEST_STATE_APPROVED,
 		},
 		{
 			name:        "changes requested",
-			pullRequest: pullrequeststore.PullRequest{ReviewDecision: xptr.Ptr(DecisionChangesRequested)},
+			pullRequest: pullrequeststore.PullRequest{ReviewDecision: xptr.Ptr(forge.ReviewDecisionChangesRequested)},
 			want:        pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CHANGES_REQUESTED,
 		},
 		{
-			name:        "review required is open",
-			pullRequest: pullrequeststore.PullRequest{ReviewDecision: xptr.Ptr("REVIEW_REQUIRED")},
+			name:        "a pending review is open",
+			pullRequest: pullrequeststore.PullRequest{ReviewDecision: xptr.Ptr(forge.ReviewDecisionPending)},
 			want:        pullrequestv1.PullRequestState_PULL_REQUEST_STATE_OPEN,
 		},
 		{

@@ -266,10 +266,10 @@ func (f *Forge) Get(ctx context.Context, address string) (forge.PullRequest, err
 
 // GetReviewDecisionByNumber reads GitHub's computed reviewDecision for one pull request over
 // GraphQL, which is what its own page shows and already folds in dismissed and stale reviews.
-func (f *Forge) GetReviewDecisionByNumber(ctx context.Context, repo git.RemoteURL, pullRequestNumber int) (string, error) {
+func (f *Forge) GetReviewDecisionByNumber(ctx context.Context, repo git.RemoteURL, pullRequestNumber int) (forge.ReviewDecision, error) {
 	owner, name, err := ownerAndName(repo.Path)
 	if err != nil {
-		return "", err
+		return forge.ReviewDecisionNone, err
 	}
 
 	var answer reviewDecisionAnswer
@@ -278,26 +278,40 @@ func (f *Forge) GetReviewDecisionByNumber(ctx context.Context, repo git.RemoteUR
 		"variables": map[string]any{"owner": owner, "name": name, "number": pullRequestNumber},
 	}, &answer)
 	if err != nil {
-		return "", err
+		return forge.ReviewDecisionNone, err
 	}
 
 	for _, failure := range answer.Errors {
 		if failure.Type == "NOT_FOUND" {
-			return "", fmt.Errorf("%w: github has no pull request %d in %s/%s, which is also its answer for a repository the credential cannot see", forge.ErrNotFound, pullRequestNumber, owner, name)
+			return forge.ReviewDecisionNone, fmt.Errorf("%w: github has no pull request %d in %s/%s, which is also its answer for a repository the credential cannot see", forge.ErrNotFound, pullRequestNumber, owner, name)
 		}
 
-		return "", fmt.Errorf("github refused the review decision of %s/%s#%d: %s", owner, name, pullRequestNumber, failure.Message)
+		return forge.ReviewDecisionNone, fmt.Errorf("github refused the review decision of %s/%s#%d: %s", owner, name, pullRequestNumber, failure.Message)
 	}
 
 	repository := answer.Data.Repository
 	if repository == nil || repository.PullRequest == nil {
-		return "", fmt.Errorf("%w: github has no pull request %d in %s/%s", forge.ErrNotFound, pullRequestNumber, owner, name)
+		return forge.ReviewDecisionNone, fmt.Errorf("%w: github has no pull request %d in %s/%s", forge.ErrNotFound, pullRequestNumber, owner, name)
 	}
 	if repository.PullRequest.ReviewDecision == nil {
-		return "", nil
+		return forge.ReviewDecisionNone, nil
 	}
 
-	return *repository.PullRequest.ReviewDecision, nil
+	return reviewDecisionOf(*repository.PullRequest.ReviewDecision), nil
+}
+
+// reviewDecisionOf is GitHub's reviewDecision in weave's words.
+func reviewDecisionOf(decision string) forge.ReviewDecision {
+	switch decision {
+	case "APPROVED":
+		return forge.ReviewDecisionApproved
+	case "CHANGES_REQUESTED":
+		return forge.ReviewDecisionChangesRequested
+	case "REVIEW_REQUIRED":
+		return forge.ReviewDecisionPending
+	}
+
+	return forge.ReviewDecisionNone
 }
 
 // reviewDecisionAnswer is the slice of GitHub's GraphQL answer the decision is read from.

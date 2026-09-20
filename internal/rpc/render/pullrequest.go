@@ -1,15 +1,9 @@
 package render
 
 import (
+	"weave/internal/forge"
 	pullrequeststore "weave/internal/store/pullrequest"
 	pullrequestv1 "weave/proto/gen/pullrequest/v1"
-)
-
-// DecisionApproved and DecisionChangesRequested are the two review decisions that settle where
-// an open pull request stands.
-const (
-	DecisionApproved         = "APPROVED"
-	DecisionChangesRequested = "CHANGES_REQUESTED"
 )
 
 // PullRequestStateOf decides where a stored pull request stands: finished by its two stamps
@@ -29,10 +23,11 @@ func PullRequestStateOf(pullRequest pullrequeststore.PullRequest) pullrequestv1.
 	}
 
 	switch *pullRequest.ReviewDecision {
-	case DecisionApproved:
+	case forge.ReviewDecisionApproved:
 		return pullrequestv1.PullRequestState_PULL_REQUEST_STATE_APPROVED
-	case DecisionChangesRequested:
+	case forge.ReviewDecisionChangesRequested:
 		return pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CHANGES_REQUESTED
+	case forge.ReviewDecisionNone, forge.ReviewDecisionPending:
 	}
 
 	return pullrequestv1.PullRequestState_PULL_REQUEST_STATE_OPEN

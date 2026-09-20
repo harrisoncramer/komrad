@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"weave/internal/dbtest"
+	"weave/internal/forge"
 	"weave/internal/store"
 	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
@@ -480,7 +481,7 @@ func TestListStaleDecisionsAnswersOpenRowsOnLiveBranches(t *testing.T) {
 	for _, providerID := range []string{"PR_2", "PR_3"} {
 		stored, err := h.GetByIdentity(ctx, "github.com", providerID)
 		require.NoError(t, err)
-		require.NoError(t, h.SetReviewDecision(ctx, stored.ID, "APPROVED"))
+		require.NoError(t, h.SetReviewDecision(ctx, stored.ID, forge.ReviewDecisionApproved))
 	}
 	changedSince.ChangedAt = time.Now().Add(time.Hour)
 	changedSince.URL = "https://github.com/harrisoncramer/weave/pull/PR_3"
@@ -506,14 +507,14 @@ func TestSetReviewDecisionStampsTheRead(t *testing.T) {
 	written, err := h.Upsert(ctx, openPullRequest("PR_1", 1, "agent/x"))
 	require.NoError(t, err)
 
-	require.NoError(t, h.SetReviewDecision(ctx, written.ID, "CHANGES_REQUESTED"))
+	require.NoError(t, h.SetReviewDecision(ctx, written.ID, forge.ReviewDecisionChangesRequested))
 	stored, err := h.GetByIdentity(ctx, "github.com", "PR_1")
 	require.NoError(t, err)
 	require.NotNil(t, stored.ReviewDecision)
-	assert.Equal(t, "CHANGES_REQUESTED", *stored.ReviewDecision)
+	assert.Equal(t, forge.ReviewDecisionChangesRequested, *stored.ReviewDecision)
 	require.NotNil(t, stored.DecisionReadAt)
 
-	require.NoError(t, h.SetReviewDecision(ctx, written.ID, ""))
+	require.NoError(t, h.SetReviewDecision(ctx, written.ID, forge.ReviewDecisionNone))
 	stored, err = h.GetByIdentity(ctx, "github.com", "PR_1")
 	require.NoError(t, err)
 	assert.Nil(t, stored.ReviewDecision)

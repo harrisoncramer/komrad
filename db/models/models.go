@@ -417,7 +417,7 @@ type PullRequest struct {
 	ClosedAt  *time.Time
 	// When weave first inserted the row.
 	FirstSeenAt time.Time
-	// GitHub's own computed reviewDecision, APPROVED, CHANGES_REQUESTED or REVIEW_REQUIRED, null while the forge has said nothing.
+	// Where the forge says the reviews stand, in weave's own words: pending, approved or changes_requested, null while it has said nothing.
 	ReviewDecision *string
 	// When the review decision was last read, stale once it is older than changed_at.
 	DecisionReadAt *time.Time
