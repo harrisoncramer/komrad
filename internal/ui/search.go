@@ -50,6 +50,10 @@ type searchAgent struct {
 	turns    []searchHit
 }
 
+func (a searchAgent) key() string {
+	return a.id
+}
+
 type searchSettledMsg struct {
 	query string
 }
@@ -142,12 +146,7 @@ func renderHit(h *agentv1.SearchHit) searchHit {
 // hoveredSearchID names the agent the cursor is standing on, read before a refresh moves the
 // rows under it.
 func (m model) hoveredSearchID() string {
-	agent, ok := m.hoveredSearchAgent()
-	if !ok {
-		return ""
-	}
-
-	return agent.id
+	return rowKeyAt(m.searchAgents(), m.search.cursor)
 }
 
 // placeSearchAgent puts the cursor back on the agent it was standing on before a refresh moved
@@ -161,7 +160,7 @@ func (m *model) placeSearchAgent(was string) tea.Cmd {
 		return nil
 	}
 
-	at := slices.IndexFunc(agents, func(agent searchAgent) bool { return agent.id == was })
+	at := rowIndexOfKey(agents, was)
 	m.search.cursor = placeCursor(at, m.search.cursor, len(agents))
 	if at >= 0 {
 		return nil
@@ -445,8 +444,7 @@ func (h searchHit) spans(content string) []paint.Span {
 	return paint.MatchSpans(content, h.offset, h.length, paint.MarkedTerms(h.snippet))
 }
 
-// searchDropped are the three columns the search screen gives up: a result is a pointer into a
-// conversation rather than a piece of work to triage.
+// searchDropped are the three columns the search screen gives up.
 var searchDropped = view.Columns{
 	Repo:   true,
 	Review: true,
@@ -476,8 +474,8 @@ func (m model) searchRow(agent searchAgent) view.Row {
 	return agentFacts(row, item)
 }
 
-// archivedSearchRow is a result on an agent nobody can reach any more, read the same way the
-// archive screen reads it so the two cannot say different things about one agent.
+// archivedSearchRow is a result on an agent nobody can reach any more, read the way the archive
+// screen reads it.
 func (m model) archivedSearchRow(row view.Row, id string) view.Row {
 	// Nothing is known about a result the archive listing has not landed yet, beyond its being
 	// over.
@@ -501,7 +499,7 @@ func (m model) searchSnapshot(agents []searchAgent, pane int) view.Snapshot {
 		Dropped:       searchDropped,
 		CaretHidden:   m.cursorBlinkedOut(m.isListFocused()),
 		BarBlinkedOut: m.rowCursor.Blink,
-		Focused:       m.hoveredSearchID(),
+		Focused:       rowKeyAt(agents, m.search.cursor),
 		Pane:          pane,
 	}
 }
