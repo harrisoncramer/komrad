@@ -28,7 +28,7 @@ func (mode filterMode) flipped() filterMode {
 	return filterModeFilter
 }
 
-// glyph is the character the prompt opens with, which is how a person tells the two modes apart.
+// glyph is the character the prompt opens with.
 func (mode filterMode) glyph() string {
 	if mode == filterModeFilter {
 		return "▽"
@@ -282,7 +282,7 @@ func agentRowDepth(row agentRow) int {
 
 type narrowedParams[T any] struct {
 	rows []T
-	// depth is how far a row is indented, which is what says which rows sit under which.
+	// depth is how far a row is indented.
 	depth func(T) int
 	name  func(T) string
 }
@@ -303,7 +303,7 @@ func narrowed[T any](filter filterState, params narrowedParams[T]) []T {
 	keep := make([]bool, len(rows))
 
 	// The stack holds the rows the one being read sits under, and lit counts how many of those
-	// the pattern matched, so a row under a match is kept without walking the stack again.
+	// the pattern matched.
 	var stack []int
 	lit := 0
 	for i, row := range rows {
@@ -355,8 +355,6 @@ func (f filterState) line(palette paint.Palette) string {
 		query = palette.Broken().Render(query)
 	}
 
-	// A filter's glyph takes the colour the matches are lit in, so the prompt says the rows
-	// left are the matches and nothing else.
 	slash := palette.Cursor()
 	if f.mode == filterModeFilter {
 		slash = palette.Match()

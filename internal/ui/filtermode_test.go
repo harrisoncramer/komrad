@@ -258,7 +258,47 @@ func TestJumpMarkThroughAFilter(t *testing.T) {
 
 	assert.Equal(t, filterModeSearch, jumped.filter.mode, "the filter is put back to a search")
 	assert.Equal(t, "auth", jumped.filter.query, "and the pattern still stands")
+	assert.False(t, jumped.tree.showHidden, "the hidden rows stay hidden")
 	assert.Equal(t, agentRowKey("a4"), rowKeyAt(jumped.agentRows(), jumped.tree.cursor))
+}
+
+// TestJumpMarkThroughAFilterToAHiddenRow covers a row both hidden and filtered out needing both
+// reveals, and one only hidden leaving the filter alone.
+func TestJumpMarkThroughAFilterToAHiddenRow(t *testing.T) {
+	tests := []struct {
+		name           string
+		query          string
+		wantMode       filterMode
+		wantShowHidden bool
+	}{
+		{
+			name:           "a hidden row the filter keeps is revealed with the filter standing",
+			query:          "sweep",
+			wantMode:       filterModeFilter,
+			wantShowHidden: true,
+		},
+		{
+			name:           "a hidden row the filter drops needs both reveals",
+			query:          "auth",
+			wantMode:       filterModeSearch,
+			wantShowHidden: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m := markTree()
+			markRow(&m, agentRowKey("a5"))
+			m.filter.mode = filterModeFilter
+			m.filter.setQuery(tt.query)
+
+			jumped := pressMark(t, m, m.keys.Marks.Jump[0], "c")
+
+			assert.Equal(t, tt.wantMode, jumped.filter.mode)
+			assert.Equal(t, tt.wantShowHidden, jumped.tree.showHidden)
+			assert.Equal(t, agentRowKey("a5"), rowKeyAt(jumped.agentRows(), jumped.tree.cursor))
+		})
+	}
 }
 
 // TestSchedulesSearchWalksAndNarrows covers the schedules screen getting the same two modes as

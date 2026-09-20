@@ -168,6 +168,10 @@ func (m model) jumpToRow(key string) (model, tea.Cmd, bool) {
 	// so each is revealed on a copy the caller drops when the row is out of reach for some other
 	// reason.
 	if rowIndexOfKey(revealed.agentRows(), key) < 0 {
+		revealed.filter.mode = filterModeSearch
+	}
+	if rowIndexOfKey(revealed.agentRows(), key) < 0 {
+		revealed.filter.mode = m.filter.mode
 		revealed.tree.showHidden = true
 	}
 	if rowIndexOfKey(revealed.agentRows(), key) < 0 {
