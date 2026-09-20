@@ -382,8 +382,9 @@ type StartSweepParams struct {
 	Newest time.Time
 	// ETag is what page one answered.
 	ETag string
-	// Validated says page one was read without an ETag and answered with a body.
-	Validated bool
+	// ValidatedAt is when page one was read without an ETag and answered with a body, nil when
+	// it was read with one.
+	ValidatedAt *time.Time
 }
 
 // StartSweep records a sweep beginning at page one.
@@ -394,7 +395,7 @@ func (s *Store) StartSweep(ctx context.Context, params StartSweepParams) error {
 		RepositoryUrl: params.RepositoryURL,
 		SweepNewest:   &newest,
 		SweepEtag:     &etag,
-		Validated:     params.Validated,
+		ValidatedAt:   params.ValidatedAt,
 	})
 	if err != nil {
 		return fmt.Errorf("failed to start a sweep of %s: %w", params.RepositoryURL, err)
@@ -423,15 +424,6 @@ func (s *Store) AdvanceSweep(ctx context.Context, repositoryURL string, nextPage
 func (s *Store) CompleteSweep(ctx context.Context, repositoryURL string) error {
 	if err := s.queries.CompletePullRequestSweep(ctx, repositoryURL); err != nil {
 		return fmt.Errorf("failed to complete the sweep of %s: %w", repositoryURL, err)
-	}
-
-	return nil
-}
-
-// MarkSyncValidated records that page one was read without an ETag and answered with a body.
-func (s *Store) MarkSyncValidated(ctx context.Context, repositoryURL string) error {
-	if err := s.queries.MarkPullRequestSyncValidated(ctx, repositoryURL); err != nil {
-		return fmt.Errorf("failed to mark %s validated: %w", repositoryURL, err)
 	}
 
 	return nil

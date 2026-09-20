@@ -357,6 +357,11 @@ func (s *ForgeService) HasCredential(ctx context.Context, connection forgestore.
 	return true, nil
 }
 
+// SetThrottledUntil records when a connection's forge said its rate limit resets, or clears it.
+func (s *ForgeService) SetThrottledUntil(ctx context.Context, id string, until *time.Time) error {
+	return s.connections.SetThrottledUntil(ctx, id, until)
+}
+
 // ForConnection is the forge to speak to as a connection.
 func (s *ForgeService) ForConnection(connection forgestore.Connection) (Forge, error) {
 	build, ok := s.builders[connection.Kind]

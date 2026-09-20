@@ -355,20 +355,6 @@ func (q *Queries) ListUnscannedBranches(ctx context.Context, repositoryUrl *stri
 	return items, nil
 }
 
-const markPullRequestSyncValidated = `-- name: MarkPullRequestSyncValidated :exec
-UPDATE
-    pull_request_syncs
-SET
-    validated_at = NOW()
-WHERE
-    repository_url = $1
-`
-
-func (q *Queries) MarkPullRequestSyncValidated(ctx context.Context, repositoryUrl string) error {
-	_, err := q.db.Exec(ctx, markPullRequestSyncValidated, repositoryUrl)
-	return err
-}
-
 const observeAgentPullRequests = `-- name: ObserveAgentPullRequests :execrows
 INSERT INTO agent_pull_requests(
     agent_id,
@@ -474,11 +460,7 @@ SET
     sweep_next_page = 1,
     sweep_newest = $1,
     sweep_etag = $2,
-    validated_at = CASE WHEN $3::boolean THEN
-        NOW()
-    ELSE
-        validated_at
-    END
+    validated_at = COALESCE($3, validated_at)
 WHERE
     repository_url = $4
 `
@@ -486,7 +468,7 @@ WHERE
 type StartPullRequestSweepParams struct {
 	SweepNewest   *time.Time
 	SweepEtag     *string
-	Validated     bool
+	ValidatedAt   *time.Time
 	RepositoryUrl string
 }
 
@@ -494,7 +476,7 @@ func (q *Queries) StartPullRequestSweep(ctx context.Context, arg StartPullReques
 	_, err := q.db.Exec(ctx, startPullRequestSweep,
 		arg.SweepNewest,
 		arg.SweepEtag,
-		arg.Validated,
+		arg.ValidatedAt,
 		arg.RepositoryUrl,
 	)
 	return err

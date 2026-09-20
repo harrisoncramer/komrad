@@ -305,7 +305,7 @@ func TestSyncRowRoundTrip(t *testing.T) {
 		RepositoryURL: weave,
 		Newest:        newest,
 		ETag:          `"a"`,
-		Validated:     true,
+		ValidatedAt:   &newest,
 	}))
 	require.NoError(t, h.AdvanceSweep(ctx, weave, 3))
 	sync, err = h.GetSync(ctx, weave)
@@ -314,7 +314,8 @@ func TestSyncRowRoundTrip(t *testing.T) {
 	assert.Equal(t, 3, *sync.SweepNextPage)
 	assert.True(t, sync.SweepNewest.Equal(newest))
 	assert.Equal(t, `"a"`, *sync.SweepETag)
-	assert.NotNil(t, sync.ValidatedAt)
+	require.NotNil(t, sync.ValidatedAt)
+	assert.True(t, sync.ValidatedAt.Equal(newest), "validated when the caller says, not when the database does")
 	assert.Nil(t, sync.UpdatedThrough, "the mark does not move until the sweep completes")
 
 	require.NoError(t, h.CompleteSweep(ctx, weave))

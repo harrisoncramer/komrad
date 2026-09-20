@@ -290,11 +290,7 @@ SET
     sweep_next_page = 1,
     sweep_newest = @sweep_newest,
     sweep_etag = @sweep_etag,
-    validated_at = CASE WHEN @validated::boolean THEN
-        NOW()
-    ELSE
-        validated_at
-    END
+    validated_at = COALESCE(sqlc.narg('validated_at'), validated_at)
 WHERE
     repository_url = @repository_url;
 
@@ -315,13 +311,5 @@ SET
     sweep_next_page = NULL,
     sweep_newest = NULL,
     sweep_etag = NULL
-WHERE
-    repository_url = @repository_url;
-
--- name: MarkPullRequestSyncValidated :exec
-UPDATE
-    pull_request_syncs
-SET
-    validated_at = NOW()
 WHERE
     repository_url = @repository_url;
