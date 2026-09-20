@@ -20,7 +20,6 @@ const (
 	GlyphClosed
 	GlyphAlert
 	GlyphMail
-	GlyphUnread
 	GlyphPaused
 	GlyphHidden
 	GlyphSchedule
@@ -86,7 +85,6 @@ type Line struct {
 	Held     Cell
 	Hidden   Cell
 	Mail     Cell
-	Unread   Cell
 	Alert    Cell
 	// Tally is how many rows this one stands in for, drawn as a number.
 	Tally    int

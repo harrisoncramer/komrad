@@ -122,8 +122,6 @@ type Row struct {
 	Forge   Forge
 	// Selected says the row has been taken into a selection several rows wide.
 	Selected bool
-	// Unviewed says the row has said something nobody has read.
-	Unviewed bool
 	// Archived says the row has been put away, which greys its name.
 	Archived bool
 	// Hidden says a person took the row out of the sidebar, drawn as a mark after its name.

@@ -147,16 +147,6 @@ func TestRenderRowShapes(t *testing.T) {
 			},
 		},
 		{
-			name:   "an unviewed agent carries the unread mark after its name",
-			golden: "row-unviewed",
-			row: Row{
-				Kind:     KindAgent,
-				Name:     "frozen-review-bug",
-				Unviewed: true,
-				Status:   StatusWaiting,
-			},
-		},
-		{
 			name:   "a review verdict and a pull request stand in their own columns",
 			golden: "row-reviewed",
 			row: Row{
@@ -307,11 +297,6 @@ func emphasisRows() []Row {
 	return []Row{
 		{Kind: KindAgent, Name: "ordinary"},
 		{
-			Kind:     KindAgent,
-			Name:     "unviewed",
-			Unviewed: true,
-		},
-		{
 			Kind:    KindAgent,
 			Name:    "dormant",
 			Process: ProcessStopped,
@@ -322,17 +307,6 @@ func emphasisRows() []Row {
 // TestRenderEmphasis draws the emphases together.
 func TestRenderEmphasis(t *testing.T) {
 	requireGolden(t, "list-emphasis", Render(Prepare(Snapshot{Rows: emphasisRows()}), paint.Panel, 0))
-}
-
-// TestRenderUnviewedIsAMarkNotALighterName pins the golden's reason: an unviewed name opens in
-// the same lettering as an ordinary one, and the difference is the mark after it.
-func TestRenderUnviewedIsAMarkNotALighterName(t *testing.T) {
-	rows := Rows(Prepare(Snapshot{Rows: emphasisRows()}), paint.Panel, 0)
-	require.Len(t, rows, 3)
-
-	assert.Equal(t, styleOfName(rows[0], "ordinary"), styleOfName(rows[1], "unviewed"))
-	assert.NotContains(t, rows[0], Spell(GlyphUnread))
-	assert.Contains(t, rows[1], Spell(GlyphUnread))
 }
 
 // styleOfName is the escape a drawn row opens its name with, empty when the name is drawn in

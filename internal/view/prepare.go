@@ -88,7 +88,6 @@ func prepareLine(params prepareLineParams) Line {
 		Held:     HeldCell(row),
 		Hidden:   HiddenCell(row),
 		Mail:     MailCell(row),
-		Unread:   UnreadCell(row),
 		Alert:    AlertCell(row),
 		Tally:    row.HiddenCount,
 		Schedule: markCell(row.Scheduled, GlyphSchedule, paint.ToneMuted),
@@ -214,11 +213,6 @@ func MailCell(row Row) Cell {
 	return markCell(row.UnreadMail, GlyphMail, paint.ToneMuted)
 }
 
-// UnreadCell is the mark a row draws for output its agent wrote that nobody has read.
-func UnreadCell(row Row) Cell {
-	return markCell(row.Unviewed, GlyphUnread, paint.ToneMuted)
-}
-
 // AlertCell is the mark a row draws for a script weave fired that failed.
 func AlertCell(row Row) Cell {
 	return markCell(row.FailedRun, GlyphAlert, paint.ToneDanger)
@@ -289,7 +283,7 @@ func shedMarks(line Line, width int) Line {
 	// The schedule is a standing fact about the row, hiding and pausing are things a person did
 	// themselves, mail goes before the output nobody has read, which asks the person to look, and
 	// the failed run nobody else will mention goes last.
-	for _, shed := range []*Cell{&line.Schedule, &line.Hidden, &line.Held, &line.Mail, &line.Unread, &line.Alert} {
+	for _, shed := range []*Cell{&line.Schedule, &line.Hidden, &line.Held, &line.Mail, &line.Alert} {
 		if roomForName(line, width) >= 0 {
 			return line
 		}

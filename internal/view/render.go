@@ -84,7 +84,7 @@ func writeStyled(b *strings.Builder, style lipgloss.Style, segment string) {
 // drawTrailing is the odds and ends after a name, each one a space away from what precedes it.
 func drawTrailing(palette paint.Palette, line Line) string {
 	var b strings.Builder
-	for _, cell := range []Cell{line.Held, line.Hidden, line.Mail, line.Unread, line.Alert} {
+	for _, cell := range []Cell{line.Held, line.Hidden, line.Mail, line.Alert} {
 		if !cell.IsBlank() {
 			b.WriteString(" " + drawCell(palette, cell))
 		}
@@ -197,8 +197,6 @@ func Spell(glyph Glyph) string {
 		return ""
 	case GlyphMail:
 		return ""
-	case GlyphUnread:
-		return "\uf41f"
 	case GlyphPaused:
 		return ""
 	case GlyphHidden:

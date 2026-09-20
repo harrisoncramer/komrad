@@ -60,7 +60,6 @@ func TestGlyphsSpellTheirOcticons(t *testing.T) {
 		{GlyphBell, "f49a"},
 		{GlyphHourglass, "f4e3"},
 		{GlyphApproved, "f42e"},
-		{GlyphUnread, "f41f"},
 		{GlyphForge, "f407"},
 		{GlyphMerged, "f419"},
 		{GlyphDraft, "f4dd"},

@@ -21,7 +21,6 @@ const (
 	failedToCleanupNotice = "teardown failed, its directory is still there"
 	failedRunNotice       = "a script weave fired failed, log unread"
 	unreadMailNotice      = "mail waiting, it has not read it"
-	unreadOutputNotice    = "it has said something you have not read"
 	worktreeRemovedNotice = "its directory no longer exists"
 	sequenceNotice        = "a rebase is stopped part way in it"
 	hiddenNotice          = "hidden from the sidebar"
@@ -43,8 +42,7 @@ const (
 )
 
 // Explainer: a notice teaches one mark on the row above it, so it takes its glyph and its tone
-// from the cell that row draws rather than naming either itself. Unviewed is a mark like the
-// rest, said in words while it lasts, and a second's dwell on the row clears it.
+// from the cell that row draws rather than naming either itself.
 
 var (
 	// failureSaid is what the status column drawn broken says about how an agent got there.
@@ -81,7 +79,6 @@ func agentNotices(r agentRow) []notice {
 	notices := appendCellNotice(nil, view.StatusCell(row), failureSaid[displayState(item)])
 	notices = appendCellNotice(notices, view.AlertCell(row), failedRunNotice)
 	notices = appendCellNotice(notices, view.MailCell(row), unreadMailNotice)
-	notices = appendCellNotice(notices, view.UnreadCell(row), unreadOutputNotice)
 	notices = appendCellNotice(notices, view.RepoCell(row), repoSaid[row.Repo])
 	notices = appendCellNotice(notices, view.HeldCell(row), heldNoticeText(item))
 	notices = appendCellNotice(notices, view.HiddenCell(row), hiddenNotice)

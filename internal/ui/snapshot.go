@@ -102,7 +102,6 @@ func snapshotRow(r agentRow, params snapshotParams) view.Row {
 func agentFacts(row view.Row, item agentItem) view.Row {
 	row.Status = snapshotStatus(item)
 	row.Process = snapshotProcess(item)
-	row.Unviewed = item.unviewed
 	row.Archived = item.agent.ArchivedAt != nil
 	row.Hidden = item.agent.Hidden && !row.Archived
 	row.Held = item.agent.HeldAt != nil

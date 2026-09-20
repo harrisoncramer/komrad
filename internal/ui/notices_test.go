@@ -59,7 +59,6 @@ func TestNoticesCoverEveryOptionalMark(t *testing.T) {
 		{"a stopped rebase", agentItem{agent: agentstore.Agent{SequenceInProgress: true}}, sequenceNotice},
 		{"a hidden row", agentItem{agent: agentstore.Agent{Hidden: true}}, hiddenNotice},
 		{"mail waiting", agentItem{unreadMail: true}, unreadMailNotice},
-		{"output nobody has read", agentItem{unviewed: true}, unreadOutputNotice},
 		{"a failed script", agentItem{failedRun: true}, failedRunNotice},
 	}
 
@@ -98,7 +97,6 @@ func TestNoticesAreOrderedByUrgency(t *testing.T) {
 		failedToCleanupNotice,
 		failedRunNotice,
 		unreadMailNotice,
-		unreadOutputNotice,
 		worktreeRemovedNotice,
 		hiddenNotice,
 	}, texts)
@@ -139,7 +137,6 @@ func TestNoticesWearTheGlyphTheRowDraws(t *testing.T) {
 	want := map[string]view.Cell{
 		failedRunNotice:          line.Alert,
 		unreadMailNotice:         line.Mail,
-		unreadOutputNotice:       line.Unread,
 		sequenceNotice:           line.Repo,
 		heldPromptedNotice:       line.Held,
 		localChangesPushedNotice: line.Review,
@@ -154,28 +151,6 @@ func TestNoticesWearTheGlyphTheRowDraws(t *testing.T) {
 		assert.Equal(t, view.Spell(cell.Glyph), n.icon, "the glyph beside %q", n.text)
 		assert.Equal(t, cell.Tone, n.tone, "the tone beside %q", n.text)
 	}
-}
-
-// TestUnviewedIsSaidUnderTheMarkTheCursorLeavesAlone covers unviewed surviving the cursor: the
-// row under it keeps the unread mark, so the record has a mark to say it for.
-func TestUnviewedIsSaidUnderTheMarkTheCursorLeavesAlone(t *testing.T) {
-	line := view.Prepare(view.Snapshot{
-		Rows: []view.Row{{
-			Key:      "a",
-			Unviewed: true,
-			Hidden:   true,
-		}},
-		Focused: "a",
-	}).Lines[0]
-
-	assert.Equal(t, view.EmphasisFocused, line.Emphasis, "the hovered row wears the cursor's colour")
-	assert.False(t, line.Unread.IsBlank(), "and still draws the unread mark")
-	assert.False(t, line.Hidden.IsBlank(), "and the hidden mark")
-
-	notices := agentNotices(noticeRow(agentItem{unviewed: true, agent: agentstore.Agent{Hidden: true}}))
-
-	assert.Equal(t, []string{unreadOutputNotice, hiddenNotice}, noticeTexts(notices))
-	assert.Equal(t, view.Spell(view.GlyphUnread), notices[0].icon, "said under the mark the row draws")
 }
 
 // TestArchivedNoticesAreOnlyTheFailures covers the archive, whose rows draw one mark of their
