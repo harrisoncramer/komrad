@@ -35,12 +35,15 @@ type NewParams struct {
 	Next http.RoundTripper
 	// Timeout bounds one call, DefaultTimeout when unset.
 	Timeout time.Duration
+	// Now is the clock a Retry-After is counted from, time.Now when unset.
+	Now func() time.Time
 }
 
 // Forge is GitHub, spoken to over its REST API.
 type Forge struct {
 	api    string
 	client *http.Client
+	now    func() time.Time
 }
 
 // New builds the forge.
@@ -55,9 +58,15 @@ func New(params NewParams) *Forge {
 		timeout = DefaultTimeout
 	}
 
+	now := params.Now
+	if now == nil {
+		now = time.Now
+	}
+
 	return &Forge{
 		api:    strings.TrimRight(api, "/"),
 		client: xhttp.NewClientOver(forge.NewTransport(params.Auth, params.Next), timeout),
+		now:    now,
 	}
 }
 
@@ -69,7 +78,7 @@ func (f *Forge) Verify(ctx context.Context) (string, error) {
 	var user struct {
 		Login string `json:"login"`
 	}
-	if _, err := f.get(ctx, "/user", &user); err != nil {
+	if _, err := f.get(ctx, "/user", nil, &user); err != nil {
 		return "", err
 	}
 	if user.Login == "" {
@@ -85,7 +94,7 @@ func (f *Forge) VerifyInstallation(ctx context.Context) (int, error) {
 	var installation struct {
 		TotalCount int `json:"total_count"`
 	}
-	if _, err := f.get(ctx, "/installation/repositories?per_page=1", &installation); err != nil {
+	if _, err := f.get(ctx, "/installation/repositories?per_page=1", nil, &installation); err != nil {
 		return 0, err
 	}
 
@@ -111,17 +120,122 @@ func (f *Forge) List(ctx context.Context, params forge.ListParams) (*forge.ListR
 	}
 
 	var raws []pullRequest
-	answer, err := f.get(ctx, fmt.Sprintf("/repos/%s/%s/pulls?%s", owner, name, query.Encode()), &raws)
+	answer, err := f.get(ctx, fmt.Sprintf("/repos/%s/%s/pulls?%s", owner, name, query.Encode()), nil, &raws)
 	if err != nil {
 		return nil, err
 	}
 
+	return &forge.ListResult{
+		PullRequests: toPullRequests(raws),
+		HasMore:      hasNextPage(answer.Header),
+		RateLimit:    readRateLimit(answer.Header),
+	}, nil
+}
+
+// ListUpdated is one page of every pull request in the repository, newest change first, or
+// GitHub saying the page is unchanged since the ETag it was sent.
+func (f *Forge) ListUpdated(ctx context.Context, params forge.ListUpdatedParams) (*forge.ListUpdatedResult, error) {
+	owner, name, err := ownerAndName(params.Repo.Path)
+	if err != nil {
+		return nil, err
+	}
+
+	query := url.Values{
+		"state":     {"all"},
+		"sort":      {"updated"},
+		"direction": {"desc"},
+		"per_page":  {strconv.Itoa(MaxPerPage)},
+		"page":      {strconv.Itoa(max(params.Page, 1))},
+	}
+	var conditional http.Header
+	if params.ETag != "" {
+		conditional = http.Header{"If-None-Match": {params.ETag}}
+	}
+
+	var raws []pullRequest
+	answer, err := f.get(ctx, fmt.Sprintf("/repos/%s/%s/pulls?%s", owner, name, query.Encode()), conditional, &raws)
+	if err != nil {
+		return nil, err
+	}
+
+	result := &forge.ListUpdatedResult{
+		ETag:      answer.Header.Get("ETag"),
+		RateLimit: readRateLimit(answer.Header),
+	}
+	if answer.Status == http.StatusNotModified {
+		result.NotModified = true
+
+		return result, nil
+	}
+
+	result.PullRequests = toPullRequests(raws)
+	result.HasMore = hasNextPage(answer.Header)
+
+	return result, nil
+}
+
+func toPullRequests(raws []pullRequest) []forge.PullRequest {
 	pullRequests := make([]forge.PullRequest, 0, len(raws))
 	for _, raw := range raws {
 		pullRequests = append(pullRequests, raw.toPullRequest())
 	}
 
-	return &forge.ListResult{PullRequests: pullRequests, HasMore: hasNextPage(answer.Header)}, nil
+	return pullRequests
+}
+
+// readRateLimit is what GitHub's headers said about the credential's budget.
+func readRateLimit(header http.Header) forge.RateLimit {
+	remaining, err := strconv.Atoi(header.Get("X-RateLimit-Remaining"))
+	if err != nil {
+		return forge.RateLimit{}
+	}
+
+	limit := forge.RateLimit{Known: true, Remaining: remaining}
+	if reset, err := strconv.ParseInt(header.Get("X-RateLimit-Reset"), 10, 64); err == nil {
+		limit.ResetAt = time.Unix(reset, 0)
+	}
+
+	return limit
+}
+
+// throttleOf is the refusal a 403 or 429 is when it is GitHub's rate limit rather than a
+// permission answer, nil otherwise.
+func throttleOf(answer xhttp.Answer, now time.Time) *forge.ThrottledError {
+	retryAfter, hasRetryAfter := readRetryAfter(answer.Header)
+	limit := readRateLimit(answer.Header)
+	throttled := answer.Status == http.StatusTooManyRequests ||
+		hasRetryAfter ||
+		limit.IsExhausted() ||
+		isSecondaryLimitMessage(messageOf(answer.Body))
+	if !throttled {
+		return nil
+	}
+
+	switch {
+	case hasRetryAfter:
+		return &forge.ThrottledError{RetryAt: now.Add(retryAfter)}
+	case limit.IsExhausted() && !limit.ResetAt.IsZero():
+		return &forge.ThrottledError{RetryAt: limit.ResetAt}
+	default:
+		return &forge.ThrottledError{}
+	}
+}
+
+func readRetryAfter(header http.Header) (time.Duration, bool) {
+	seconds, err := strconv.Atoi(header.Get("Retry-After"))
+	if err != nil || seconds < 0 {
+		return 0, false
+	}
+
+	return time.Duration(seconds) * time.Second, true
+}
+
+// isSecondaryLimitMessage recognises the body GitHub sends for its secondary limit, which can
+// come with neither rate limit header.
+func isSecondaryLimitMessage(message string) bool {
+	lowered := strings.ToLower(message)
+
+	return strings.Contains(lowered, "secondary rate limit") || strings.Contains(lowered, "abuse detection")
 }
 
 // hasNextPage reads GitHub's Link header for a page after this one.
@@ -143,22 +257,29 @@ func (f *Forge) Get(ctx context.Context, address string) (forge.PullRequest, err
 	}
 
 	var raw pullRequest
-	if _, err := f.get(ctx, fmt.Sprintf("/repos/%s/%s/pulls/%d", owner, name, number), &raw); err != nil {
+	if _, err := f.get(ctx, fmt.Sprintf("/repos/%s/%s/pulls/%d", owner, name, number), nil, &raw); err != nil {
 		return forge.PullRequest{}, err
 	}
 
 	return raw.toPullRequest(), nil
 }
 
-func (f *Forge) get(ctx context.Context, path string, into any) (xhttp.Answer, error) {
+// get reads one path, with any headers the call adds to the ones every GitHub call carries,
+// and turns GitHub's refusals into weave's; a 304 comes back as an answer with no body.
+func (f *Forge) get(ctx context.Context, path string, extra http.Header, into any) (xhttp.Answer, error) {
+	header := http.Header{
+		"Accept":               {"application/vnd.github+json"},
+		"X-GitHub-Api-Version": {"2022-11-28"},
+	}
+	for key, values := range extra {
+		header[key] = values
+	}
+
 	answer, err := xhttp.JSON(ctx, xhttp.JSONParams{
 		Client: f.client,
 		Method: http.MethodGet,
 		URL:    f.api + path,
-		Header: http.Header{
-			"Accept":               {"application/vnd.github+json"},
-			"X-GitHub-Api-Version": {"2022-11-28"},
-		},
+		Header: header,
 	}, into)
 	if err != nil {
 		if failure := fail.Of(err); failure != nil {
@@ -169,10 +290,18 @@ func (f *Forge) get(ctx context.Context, path string, into any) (xhttp.Answer, e
 	}
 
 	switch {
+	case answer.Status == http.StatusNotModified:
+		return answer, nil
 	case answer.Status == http.StatusUnauthorized:
 		return answer, fmt.Errorf("%w: %s", forge.ErrUnauthorized, messageOf(answer.Body))
 	case answer.Status == http.StatusNotFound:
 		return answer, fmt.Errorf("%w: github answered 404 for %s, which is also its answer for a repository the credential cannot see", forge.ErrNotFound, path)
+	case answer.Status == http.StatusForbidden || answer.Status == http.StatusTooManyRequests:
+		if throttled := throttleOf(answer, f.now()); throttled != nil {
+			return answer, throttled
+		}
+
+		return answer, fmt.Errorf("github answered %d for %s: %s", answer.Status, path, messageOf(answer.Body))
 	case !answer.IsSuccess():
 		return answer, fmt.Errorf("github answered %d for %s: %s", answer.Status, path, messageOf(answer.Body))
 	}
