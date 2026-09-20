@@ -292,8 +292,7 @@ func (s *PullRequestSyncer) step(ctx context.Context, host *hostRead, read *repo
 	}
 }
 
-// noteRefusal says once, per host, that the forge refused the credential and the connection
-// wants remaking, quietly after that until the credential is verified again.
+// noteRefusal says once, per host, that the forge refused the credential.
 func (s *PullRequestSyncer) noteRefusal(ctx context.Context, hostname string, err error) {
 	if s.refused[hostname] {
 		return
@@ -636,7 +635,7 @@ func (s *PullRequestSyncer) list(ctx context.Context, host *hostRead, read *repo
 }
 
 // noteRename says once, per repository, that the forge answered its listing under another
-// name, which is what a rename looks like from a checkout whose remote still says the old one.
+// name.
 func (s *PullRequestSyncer) noteRename(ctx context.Context, repositoryURL string, pullRequests []forge.PullRequest) {
 	if s.renamed[repositoryURL] || len(pullRequests) == 0 {
 		return
