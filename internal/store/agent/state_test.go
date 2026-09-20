@@ -12,27 +12,41 @@ import (
 )
 
 // TestSetStateByID pins that a state write finds nothing rather than putting back a row the
-// reconciler named after it was deleted.
+// reconciler named after it was deleted, and leaves an archived row as the archive settled it.
 func TestSetStateByID(t *testing.T) {
 	tests := []struct {
 		name      string
 		target    string
+		archived  bool
 		wantErr   error
 		wantState State
 	}{
 		{
 			name:      "an id no agent holds",
 			target:    "00000000-0000-0000-0000-0000000000ff",
+			archived:  false,
+			wantErr:   nil,
 			wantState: StateIdle,
 		},
 		{
 			name:      "an id that is not an id",
 			target:    "not-a-uuid",
+			archived:  false,
 			wantErr:   store.ErrNotFound,
 			wantState: StateIdle,
 		},
 		{
+			name:      "an archived agent",
+			target:    "",
+			archived:  true,
+			wantErr:   nil,
+			wantState: StateIdle,
+		},
+		{
 			name:      "the agent's own id",
+			target:    "",
+			archived:  false,
+			wantErr:   nil,
 			wantState: StateThinking,
 		},
 	}
@@ -46,6 +60,9 @@ func TestSetStateByID(t *testing.T) {
 			created, err := st.Get(ctx, "agent")
 			require.NoError(t, err)
 			require.NotNil(t, created)
+			if tt.archived {
+				require.NoError(t, st.archiveByName(ctx, "agent"))
+			}
 
 			target := tt.target
 			if target == "" {

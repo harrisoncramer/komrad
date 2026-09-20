@@ -244,7 +244,7 @@ WITH prior AS (
     SELECT
         id,
         pane_id,
-        state IN ('thinking', 'waiting', 'uncertain') AS unsettled,
+        state IN ('thinking', 'waiting', 'uncertain', 'setting_up') AS unsettled,
         state IN ('thinking', 'waiting') AS unfinished
     FROM
         agents
@@ -389,7 +389,8 @@ SET
     END,
     state_seen_at = NOW()
 WHERE
-    id = @id;
+    id = @id
+    AND archived_at IS NULL;
 
 -- name: SetAgentViewedByID :exec
 UPDATE
@@ -651,7 +652,7 @@ WITH prior AS (
     SELECT
         id,
         pane_id,
-        state IN ('thinking', 'waiting', 'uncertain') AS unsettled,
+        state IN ('thinking', 'waiting', 'uncertain', 'setting_up') AS unsettled,
         state IN ('thinking', 'waiting') AS unfinished
     FROM
         agents
@@ -709,7 +710,7 @@ RETURNING
 WITH prior AS (
     SELECT
         agents.id,
-        agents.state IN ('thinking', 'waiting', 'uncertain') AS unsettled,
+        agents.state IN ('thinking', 'waiting', 'uncertain', 'setting_up') AS unsettled,
         agents.state IN ('thinking', 'waiting') AS unfinished
     FROM
         agents

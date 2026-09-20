@@ -217,8 +217,7 @@ func TestWorktreesSnapshotReadsEveryRow(t *testing.T) {
 }
 
 // TestWorktreeAgentFactsOffTheWorktreeListing covers an agent the agents listing does not hold
-// reading the same as it would on the archive: nothing runs behind it, so a state the pane
-// decided is idle and only a failure keeps its bar.
+// reading the same as it would on the archive.
 func TestWorktreeAgentFactsOffTheWorktreeListing(t *testing.T) {
 	archived := time.Date(2026, 9, 17, 12, 0, 0, 0, time.UTC)
 

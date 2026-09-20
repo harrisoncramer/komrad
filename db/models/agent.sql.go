@@ -1520,7 +1520,7 @@ const markAgentArchivedIfUnchanged = `-- name: MarkAgentArchivedIfUnchanged :man
 WITH prior AS (
     SELECT
         agents.id,
-        agents.state IN ('thinking', 'waiting', 'uncertain') AS unsettled,
+        agents.state IN ('thinking', 'waiting', 'uncertain', 'setting_up') AS unsettled,
         agents.state IN ('thinking', 'waiting') AS unfinished
     FROM
         agents
@@ -1680,7 +1680,7 @@ WITH prior AS (
     SELECT
         id,
         pane_id,
-        state IN ('thinking', 'waiting', 'uncertain') AS unsettled,
+        state IN ('thinking', 'waiting', 'uncertain', 'setting_up') AS unsettled,
         state IN ('thinking', 'waiting') AS unfinished
     FROM
         agents
@@ -1765,7 +1765,7 @@ WITH prior AS (
     SELECT
         id,
         pane_id,
-        state IN ('thinking', 'waiting', 'uncertain') AS unsettled,
+        state IN ('thinking', 'waiting', 'uncertain', 'setting_up') AS unsettled,
         state IN ('thinking', 'waiting') AS unfinished
     FROM
         agents
@@ -2578,6 +2578,7 @@ SET
     state_seen_at = NOW()
 WHERE
     id = $2
+    AND archived_at IS NULL
 `
 
 type SetAgentStateByIDParams struct {

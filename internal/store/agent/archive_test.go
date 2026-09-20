@@ -135,10 +135,10 @@ func TestArchiveClearsPane(t *testing.T) {
 	assert.Empty(t, archived.Pane, "an archived agent claims no pane")
 }
 
-// TestArchiveSettlesTheStateThePaneDecided covers each archive write leaving the row as the
-// reconciler would have once it saw the pane gone: a state the pane decided is idle, a turn cut
-// part-way is stamped, and a state nothing but weave moves is left alone.
-func TestArchiveSettlesTheStateThePaneDecided(t *testing.T) {
+// TestArchiveSettlesTheState covers each archive write leaving the row as the reconciler would
+// have once it saw the pane gone, with a setup the archive cut short settled the same way and
+// a failure kept.
+func TestArchiveSettlesTheState(t *testing.T) {
 	writes := map[string]func(ctx context.Context, st *fixture, agent Agent) error{
 		"by id": func(ctx context.Context, st *fixture, agent Agent) error {
 			_, err := st.Archive(ctx, []string{agent.ID})
@@ -169,36 +169,42 @@ func TestArchiveSettlesTheStateThePaneDecided(t *testing.T) {
 			state:           StateThinking,
 			wantState:       StateIdle,
 			wantInterrupted: true,
+			wantReason:      "",
 		},
 		{
 			name:            "waiting is a turn cut part-way",
 			state:           StateWaiting,
 			wantState:       StateIdle,
 			wantInterrupted: true,
+			wantReason:      "",
 		},
 		{
-			name:       "uncertain settles with no turn to ask for again",
-			state:      StateUncertain,
-			wantState:  StateIdle,
-			wantReason: "",
+			name:            "uncertain settles with no turn to ask for again",
+			state:           StateUncertain,
+			wantState:       StateIdle,
+			wantInterrupted: false,
+			wantReason:      "",
 		},
 		{
-			name:       "idle stays as it was",
-			state:      StateIdle,
-			wantState:  StateIdle,
-			wantReason: "reading",
+			name:            "setting up settles with no turn to ask for again",
+			state:           StateSettingUp,
+			wantState:       StateIdle,
+			wantInterrupted: false,
+			wantReason:      "",
 		},
 		{
-			name:       "setting up is not the pane's to decide",
-			state:      StateSettingUp,
-			wantState:  StateSettingUp,
-			wantReason: "reading",
+			name:            "idle stays as it was",
+			state:           StateIdle,
+			wantState:       StateIdle,
+			wantInterrupted: false,
+			wantReason:      "reading",
 		},
 		{
-			name:       "a failed create is not the pane's to decide",
-			state:      StateFailedToCreate,
-			wantState:  StateFailedToCreate,
-			wantReason: "reading",
+			name:            "a failed create keeps its failure",
+			state:           StateFailedToCreate,
+			wantState:       StateFailedToCreate,
+			wantInterrupted: false,
+			wantReason:      "reading",
 		},
 	}
 
