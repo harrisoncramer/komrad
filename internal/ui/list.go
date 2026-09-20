@@ -82,7 +82,7 @@ func (m model) headerLines(title, tally, tabs string) string {
 		header = ansi.Truncate(header, width, "…")
 	}
 
-	return header + "\n\n" + m.filter.line(paint.Panel) + "\n" + tabs + "\n"
+	return header + "\n\n  " + m.filter.line(paint.Panel) + "\n" + tabs + "\n"
 }
 
 // headedListView draws a list under its header, padded out so the record and the legend under it

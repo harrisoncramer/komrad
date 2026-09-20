@@ -167,6 +167,55 @@ func TestScreenTitlesOpenWithTheirIcon(t *testing.T) {
 	}
 }
 
+// TestSearchPromptSitsUnderTheTitle covers the prompt set in the same two columns as the title
+// above it, whichever glyph opens it.
+func TestSearchPromptSitsUnderTheTitle(t *testing.T) {
+	tests := []struct {
+		name   string
+		screen screen
+		mode   filterMode
+		want   string
+	}{
+		{
+			name:   "a search on the agents tree",
+			screen: screenAgents,
+			mode:   filterModeSearch,
+			want:   "  / db",
+		},
+		{
+			name:   "a filter on the agents tree",
+			screen: screenAgents,
+			mode:   filterModeFilter,
+			want:   "  ▽ db",
+		},
+		{
+			name:   "a search on the worktrees",
+			screen: screenWorktrees,
+			mode:   filterModeSearch,
+			want:   "  / db",
+		},
+		{
+			name:   "the transcript search",
+			screen: screenSearch,
+			want:   "  / agent39",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			shown := screensModel()
+			shown.height = 29
+			shown.screen = tt.screen
+			shown.filter.mode = tt.mode
+			shown.filter.setQuery("db")
+
+			rows := lines(ansi.Strip(shown.View()))
+			require.Greater(t, len(rows), 2)
+			assert.True(t, strings.HasPrefix(rows[2], tt.want), "the prompt is the third row: %q", rows[2])
+		})
+	}
+}
+
 // TestListLines pins that the chrome comes off the pane, and that a pane the chrome fills leaves
 // the list nothing rather than a line the pane does not have.
 func TestListLines(t *testing.T) {
