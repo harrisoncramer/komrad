@@ -168,7 +168,7 @@ quit = ["ctrl+c"]
 [keybindings.marks]
 # Set a mark on the row under the cursor, agent or workflow, then the letter to set, or
 # the letter it already holds to take the mark off it.
-set  = ["t"]
+set  = ["f"]
 # Jump the cursor to a marked row, then the letter to jump to, or the jump key again to
 # go back to where the last jump left from.
 jump = ["'"]
@@ -312,7 +312,7 @@ rename  = ["r"]
 back          = ["esc"]
 # Delete everything on the screen that can go: every directory whose agent is archived,
 # through the agent delete and its hooks, and every directory no agent answers for. A
-# directory with a live agent in it is never taken. It asks first.
+# directory with a live agent in it is never deleted.
 clear         = ["D"]
 # Delete the directory under the cursor. One with an archived agent goes through the
 # agent delete, which runs the workflow's hooks and the cleanup; one with a live agent
@@ -323,7 +323,7 @@ delete        = ["d"]
 jump_to_agent = ["J"]
 # Open the worktrees screen from the agents list or the archive, landing on the hovered
 # agent's own directory.
-open          = ["o"]
+open          = ["t"]
 # Quit the panel.
 quit          = ["ctrl+c"]
 

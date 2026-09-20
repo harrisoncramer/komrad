@@ -319,7 +319,7 @@ type AgentsKeys struct {
 type MarksKeys struct {
 	// Set a mark on the row under the cursor, agent or workflow, then the letter to set, or
 	// the letter it already holds to take the mark off it.
-	Set []string `mapstructure:"set" default:"t"`
+	Set []string `mapstructure:"set" default:"f"`
 	// Jump the cursor to a marked row, then the letter to jump to, or the jump key again to
 	// go back to where the last jump left from.
 	Jump []string `mapstructure:"jump" default:"'"`
@@ -355,7 +355,7 @@ type WorktreesKeys struct {
 	// Leave the worktrees screen for the agents list.
 	Back []string `mapstructure:"back" default:"esc"`
 	// Delete everything on the screen that can go: every directory whose agent is archived,
-	// through the agent delete and its hooks, and every directory no agent answers for.
+	// through the agent delete and its hooks, and every directory no agent answers for. A
 	// directory with a live agent in it is never deleted.
 	Clear []string `mapstructure:"clear" default:"D"`
 	// Delete the directory under the cursor. One with an archived agent goes through the
@@ -367,7 +367,7 @@ type WorktreesKeys struct {
 	JumpToAgent []string `mapstructure:"jump_to_agent" default:"J"`
 	// Open the worktrees screen from the agents list or the archive, landing on the hovered
 	// agent's own directory.
-	Open []string `mapstructure:"open" default:"o"`
+	Open []string `mapstructure:"open" default:"t"`
 	// Quit the panel.
 	Quit []string `mapstructure:"quit" default:"ctrl+c"`
 }
