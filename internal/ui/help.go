@@ -311,9 +311,8 @@ func (m model) worktreesHelp() keyMap {
 			[]key.Binding{
 				m.detailsBinding(),
 				m.messagesBinding(),
+				m.columnScrollBinding("the directory"),
 			},
-			m.infoPaneHelp(),
-			[]key.Binding{m.columnScrollBinding("the directory")},
 			m.globalHelp(),
 		),
 	}
