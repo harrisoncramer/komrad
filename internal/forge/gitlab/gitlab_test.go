@@ -213,7 +213,12 @@ func TestListReadsTheNextPageFromTheHeader(t *testing.T) {
 		_, _ = w.Write([]byte("[" + openMergeRequest + "]"))
 	})
 
-	listed, err := f.List(t.Context(), forge.ListParams{Repo: weave, Branch: "agent/x", Page: 2, PerPage: 1})
+	listed, err := f.List(t.Context(), forge.ListParams{
+		Repo:    weave,
+		Branch:  "agent/x",
+		Page:    2,
+		PerPage: 1,
+	})
 	require.NoError(t, err)
 	assert.True(t, listed.HasMore)
 }
@@ -273,7 +278,11 @@ func TestListUpdatedNotModified(t *testing.T) {
 		w.WriteHeader(http.StatusNotModified)
 	})
 
-	listed, err := f.ListUpdated(t.Context(), forge.ListUpdatedParams{Repo: weave, Page: 1, ETag: `W/"abc"`})
+	listed, err := f.ListUpdated(t.Context(), forge.ListUpdatedParams{
+		Repo: weave,
+		Page: 1,
+		ETag: `W/"abc"`,
+	})
 	require.NoError(t, err)
 	assert.True(t, listed.NotModified)
 	assert.Empty(t, listed.PullRequests)

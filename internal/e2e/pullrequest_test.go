@@ -51,7 +51,11 @@ func TestPullRequestsReachTheRowFromEachForge(t *testing.T) {
 			fake:   fakeGitHub,
 			build: func(server *httptest.Server) forge.Builder {
 				return func(_ string, auth forge.Authenticator) forge.Forge {
-					return github.New(github.NewParams{Auth: auth, API: server.URL, Next: server.Client().Transport})
+					return github.New(github.NewParams{
+						Auth: auth,
+						API:  server.URL,
+						Next: server.Client().Transport,
+					})
 				}
 			},
 		},
@@ -62,7 +66,11 @@ func TestPullRequestsReachTheRowFromEachForge(t *testing.T) {
 			fake:   fakeGitLab,
 			build: func(server *httptest.Server) forge.Builder {
 				return func(_ string, auth forge.Authenticator) forge.Forge {
-					return gitlab.New(gitlab.NewParams{Auth: auth, API: server.URL, Next: server.Client().Transport})
+					return gitlab.New(gitlab.NewParams{
+						Auth: auth,
+						API:  server.URL,
+						Next: server.Client().Transport,
+					})
 				}
 			},
 		},

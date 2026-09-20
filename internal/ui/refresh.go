@@ -126,7 +126,11 @@ func (m model) refreshCmd() tea.Cmd {
 		ctx, cancel := context.WithTimeout(context.Background(), agentsTimeout)
 		defer cancel()
 
-		result := refreshResult{epoch: epoch, archivedListed: withArchive, worktreesListed: withWorktrees}
+		result := refreshResult{
+			epoch:           epoch,
+			archivedListed:  withArchive,
+			worktreesListed: withWorktrees,
+		}
 
 		var wg sync.WaitGroup
 		wg.Go(func() {
