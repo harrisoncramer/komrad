@@ -64,8 +64,8 @@ func (r *Remover) Remove(ctx context.Context, dirs []string) (Removal, error) {
 	removal := Removal{}
 	for _, dir := range dirs {
 		dir = filepath.Clean(dir)
-		if reason := refuse(listing, rows, dir); reason != "" {
-			removal.Refused = append(removal.Refused, Refusal{Dir: dir, Reason: reason})
+		if refusal, refused := refuse(listing, rows, dir); refused {
+			removal.Refused = append(removal.Refused, refusal)
 
 			continue
 		}
@@ -102,36 +102,36 @@ func (r *Remover) Remove(ctx context.Context, dirs []string) (Removal, error) {
 	return removal, nil
 }
 
-// refuse is why a directory is not this remover's to take, empty when it is.
-func refuse(listing Listing, rows []agentstore.AgentDir, dir string) string {
+// refuse is what keeps a directory from being this remover's to take, false when it is.
+func refuse(listing Listing, rows []agentstore.AgentDir, dir string) (Refusal, bool) {
 	inside, err := isUnder(listing.Dirs, dir)
 	if err != nil {
-		return err.Error()
+		return Refusal{Dir: dir, Reason: err.Error(), Failed: true}, true
 	}
 	if !inside {
-		return "it is not under the worktree directories"
+		return Refusal{Dir: dir, Reason: "it is not under the worktree directories"}, true
 	}
 
 	at := slices.IndexFunc(listing.Worktrees, func(w Worktree) bool { return w.Dir == dir })
 	if at < 0 {
-		return "the listing does not hold it"
+		return Refusal{Dir: dir, Reason: "the listing does not hold it"}, true
 	}
 
 	worktree := listing.Worktrees[at]
 	if worktree.Agent != nil && !worktree.IsStuck() {
-		return fmt.Sprintf("agent %s answers for it; delete the agent instead", worktree.Agent.Name)
+		return Refusal{Dir: dir, Reason: fmt.Sprintf("agent %s answers for it; delete the agent instead", worktree.Agent.Name)}, true
 	}
 	if len(worktree.Occupants) > 0 {
-		return fmt.Sprintf("agent %s is working in it; delete the agent instead", worktree.Occupants[0].Name)
+		return Refusal{Dir: dir, Reason: fmt.Sprintf("agent %s is working in it; delete the agent instead", worktree.Occupants[0].Name)}, true
 	}
 	if under := slices.IndexFunc(rows, func(row agentstore.AgentDir) bool { return isBeneath(dir, row.Cwd) }); under >= 0 {
-		return fmt.Sprintf("agent %s is working under it; delete the agent instead", rows[under].Name)
+		return Refusal{Dir: dir, Reason: fmt.Sprintf("agent %s is working under it; delete the agent instead", rows[under].Name)}, true
 	}
 	if nested := slices.IndexFunc(listing.Worktrees, func(w Worktree) bool { return isBeneath(dir, w.Dir) }); nested >= 0 {
-		return fmt.Sprintf("it holds the worktree %s; remove that first", listing.Worktrees[nested].Dir)
+		return Refusal{Dir: dir, Reason: fmt.Sprintf("it holds the worktree %s; remove that first", listing.Worktrees[nested].Dir)}, true
 	}
 
-	return ""
+	return Refusal{}, false
 }
 
 // refuseRegistered is what keeps a readable directory from being taken by what its repository

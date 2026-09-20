@@ -12,6 +12,7 @@ import (
 
 	"weave/internal/logging"
 	"weave/internal/worktrees"
+	"weave/lib/xslice"
 
 	"github.com/riverqueue/river"
 	"github.com/riverqueue/river/rivertype"
@@ -85,7 +86,8 @@ func (w *DeleteWorktreesWorker) Work(ctx context.Context, job *river.Job[DeleteW
 		return fmt.Errorf("failed to list the worktrees: %w", err)
 	}
 
-	var ids, dirs []string
+	var owned []worktrees.Worktree
+	var dirs []string
 	var refused []worktrees.Refusal
 	for _, dir := range job.Args.Dirs {
 		at := slices.IndexFunc(listing.Worktrees, func(worktree worktrees.Worktree) bool { return worktree.Dir == dir })
@@ -98,17 +100,22 @@ func (w *DeleteWorktreesWorker) Work(ctx context.Context, job *river.Job[DeleteW
 		case worktree.Agent == nil || worktree.IsStuck():
 			dirs = append(dirs, dir)
 		case worktree.Agent.ArchivedAt != nil:
-			ids = append(ids, worktree.Agent.ID)
+			owned = append(owned, worktree)
 		default:
 			refused = append(refused, worktrees.Refusal{Dir: dir, Reason: fmt.Sprintf("agent %s is live; archive it first", worktree.Agent.Name)})
 		}
 	}
 
 	var failed []error
-	for batch := range slices.Chunk(ids, deleteWorktreesBatch) {
-		if err := w.deleter.DeleteAgents(ctx, batch); err != nil {
+	var tearing []string
+	for batch := range slices.Chunk(owned, deleteWorktreesBatch) {
+		ids := xslice.Map(batch, func(worktree worktrees.Worktree) string { return worktree.Agent.ID })
+		if err := w.deleter.DeleteAgents(ctx, ids); err != nil {
 			failed = append(failed, fmt.Errorf("failed to delete %d agents: %w", len(batch), err))
+
+			continue
 		}
+		tearing = append(tearing, xslice.Map(batch, func(worktree worktrees.Worktree) string { return worktree.Dir })...)
 	}
 
 	for _, level := range deepestFirst(dirs) {
@@ -119,12 +126,14 @@ func (w *DeleteWorktreesWorker) Work(ctx context.Context, job *river.Job[DeleteW
 			continue
 		}
 		for _, refusal := range removal.Refused {
-			if refusal.Failed {
+			switch {
+			case refusal.Failed:
 				failed = append(failed, fmt.Errorf("%s: %s", refusal.Dir, refusal.Reason))
-
-				continue
+			case holdsAny(refusal.Dir, tearing):
+				failed = append(failed, fmt.Errorf("%s: %s; an agent's teardown is still running under it", refusal.Dir, refusal.Reason))
+			default:
+				refused = append(refused, refusal)
 			}
-			refused = append(refused, refusal)
 		}
 	}
 
@@ -145,8 +154,7 @@ func (w *DeleteWorktreesWorker) Work(ctx context.Context, job *river.Job[DeleteW
 	return nil
 }
 
-// deepestFirst groups the directories by depth with the deepest group first, which puts a
-// directory ahead of whatever holds it.
+// deepestFirst groups the directories by depth with the deepest group first.
 func deepestFirst(dirs []string) [][]string {
 	depth := func(dir string) int { return strings.Count(dir, string(filepath.Separator)) }
 	sorted := slices.SortedStableFunc(slices.Values(dirs), func(a, b string) int { return depth(b) - depth(a) })
@@ -162,4 +170,11 @@ func deepestFirst(dirs []string) [][]string {
 	}
 
 	return groups
+}
+
+// holdsAny reports whether any of the paths sits inside the directory.
+func holdsAny(dir string, paths []string) bool {
+	return slices.ContainsFunc(paths, func(path string) bool {
+		return strings.HasPrefix(filepath.Clean(path), dir+string(filepath.Separator))
+	})
 }

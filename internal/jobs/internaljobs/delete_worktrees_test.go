@@ -171,6 +171,33 @@ func TestDeleteWorktreesSendsEachDirectoryDownItsPath(t *testing.T) {
 			wantRemoved: [][]string{{"/trees/orphan"}},
 		},
 		{
+			name: "a directory refused over an agent whose teardown this run started is retried",
+			listing: []worktrees.Worktree{
+				{Dir: "/trees/outer", Readable: true},
+				archivedWorktree("/trees/outer/inner", "inner"),
+			},
+			dirs:        []string{"/trees/outer", "/trees/outer/inner"},
+			refused:     []worktrees.Refusal{{Dir: "/trees/outer", Reason: "it holds the worktree /trees/outer/inner; remove that first"}},
+			wantDeleted: [][]string{{"inner"}},
+			wantRemoved: [][]string{{"/trees/outer"}},
+			wantErr:     true,
+			wantSaid:    "an agent's teardown is still running under it",
+		},
+		{
+			name: "a directory refused over an agent whose delete failed is a verdict",
+			listing: []worktrees.Worktree{
+				{Dir: "/trees/outer", Readable: true},
+				archivedWorktree("/trees/outer/inner", "inner"),
+			},
+			dirs:        []string{"/trees/outer", "/trees/outer/inner"},
+			deleteErr:   errors.New("the store is away"),
+			refused:     []worktrees.Refusal{{Dir: "/trees/outer", Reason: "it holds the worktree /trees/outer/inner; remove that first"}},
+			wantDeleted: [][]string{{"inner"}},
+			wantRemoved: [][]string{{"/trees/outer"}},
+			wantErr:     true,
+			wantSaid:    "/trees/outer was left alone: it holds the worktree",
+		},
+		{
 			name: "a directory goes before the one holding it, each depth its own call",
 			listing: []worktrees.Worktree{
 				{Dir: "/trees/outer", Readable: true},
