@@ -64,7 +64,11 @@ type NewInspectorParams struct {
 
 // NewInspector builds an inspector over the lister and git.
 func NewInspector(params NewInspectorParams) *Inspector {
-	return &Inspector{lister: params.Lister, git: params.Git, workflows: params.Workflows}
+	return &Inspector{
+		lister:    params.Lister,
+		git:       params.Git,
+		workflows: params.Workflows,
+	}
 }
 
 // Inspect reads a directory the listing holds, fetching the base first when asked to.

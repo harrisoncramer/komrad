@@ -29,7 +29,11 @@ func TestInspectReadsABranchAgainstItsWorkflowsBase(t *testing.T) {
 	f.git.state = git.TreeState{Branch: "agent/aaaa", InProgress: true}
 	f.git.ahead, f.git.behind = 2, 12
 	f.git.prediction = git.Prediction{Landed: 1, Replay: 1}
-	f.git.commits = []git.Commit{{SHA: "abc", Subject: "own work", CommittedAt: at}}
+	f.git.commits = []git.Commit{{
+		SHA:         "abc",
+		Subject:     "own work",
+		CommittedAt: at,
+	}}
 
 	inspection, err := f.inspector().Inspect(t.Context(), dir, false)
 	require.NoError(t, err)
@@ -45,7 +49,11 @@ func TestInspectReadsABranchAgainstItsWorkflowsBase(t *testing.T) {
 	assert.True(t, inspection.KeepsBranch)
 	assert.Equal(t, f.git.changes, inspection.Changes)
 	assert.Equal(t, f.git.commits, inspection.Commits)
-	assert.Equal(t, Entry{Path: "big", Bytes: usage(t, filepath.Join(dir, "big/one")), Dir: true}, inspection.Entries[0])
+	assert.Equal(t, Entry{
+		Path:  "big",
+		Bytes: usage(t, filepath.Join(dir, "big/one")),
+		Dir:   true,
+	}, inspection.Entries[0])
 	assert.Equal(t, held(inspection.Entries), inspection.Bytes)
 }
 

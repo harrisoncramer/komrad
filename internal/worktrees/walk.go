@@ -35,7 +35,7 @@ type inode struct {
 	ino uint64
 }
 
-// walker sums the disk under one top-level entry, reading directories on a shared pool.
+// walker sums the disk under one top-level entry, reading its directories on a pool of its own.
 type walker struct {
 	group *errgroup.Group
 	seen  *sync.Map
@@ -50,29 +50,21 @@ func measure(ctx context.Context, dir string) (int64, []Entry, error) {
 		return 0, nil, err
 	}
 
-	group, ctx := errgroup.WithContext(ctx)
-	group.SetLimit(workers)
 	var seen sync.Map
-	sums := make([]atomic.Int64, len(tops))
-	group.Go(func() error {
-		for i, top := range tops {
-			w := walker{group: group, seen: &seen, sum: &sums[i]}
-			if err := w.enter(ctx, filepath.Join(dir, top.Name()), top); err != nil {
-				return err
-			}
-		}
-
-		return nil
-	})
-	if err := group.Wait(); err != nil {
-		return 0, nil, err
-	}
-
 	var total int64
 	entries := make([]Entry, 0, len(tops))
-	for i, top := range tops {
-		total += sums[i].Load()
-		entries = append(entries, Entry{Path: top.Name(), Bytes: sums[i].Load(), Dir: top.IsDir()})
+	for _, top := range tops {
+		var sum atomic.Int64
+		w := walker{seen: &seen, sum: &sum}
+		if err := w.walkTop(ctx, filepath.Join(dir, top.Name()), top); err != nil {
+			return 0, nil, err
+		}
+		total += sum.Load()
+		entries = append(entries, Entry{
+			Path:  top.Name(),
+			Bytes: sum.Load(),
+			Dir:   top.IsDir(),
+		})
 	}
 	slices.SortStableFunc(entries, func(a, b Entry) int {
 		return cmp.Compare(b.Bytes, a.Bytes)
@@ -81,7 +73,23 @@ func measure(ctx context.Context, dir string) (int64, []Entry, error) {
 	return total, entries, nil
 }
 
-// enter counts a file, or walks a directory on a free worker and on the caller when none is free.
+// walkTop counts a top-level file, or reads a top-level directory to the end on a fresh pool.
+func (w walker) walkTop(ctx context.Context, path string, entry fs.DirEntry) error {
+	if !entry.IsDir() {
+		return w.count(entry)
+	}
+
+	group, ctx := errgroup.WithContext(ctx)
+	group.SetLimit(workers)
+	w.group = group
+	group.Go(func() error {
+		return w.walk(ctx, path)
+	})
+
+	return group.Wait()
+}
+
+// enter counts a file, or walks a directory on a free worker, or on the caller when none is free.
 func (w walker) enter(ctx context.Context, path string, entry fs.DirEntry) error {
 	if !entry.IsDir() {
 		return w.count(entry)

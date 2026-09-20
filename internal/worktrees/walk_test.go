@@ -31,7 +31,11 @@ func TestMeasureSumsEveryFileUnderADirectory(t *testing.T) {
 
 	assert.Equal(t, one+deep, total)
 	assert.Equal(t, []Entry{
-		{Path: "deep", Bytes: deep, Dir: true},
+		{
+			Path:  "deep",
+			Bytes: deep,
+			Dir:   true,
+		},
 		{Path: "one", Bytes: one},
 		{Path: "empty", Bytes: 0},
 		{Path: "linked", Bytes: 0},
@@ -53,20 +57,30 @@ func TestMeasureCountsBlocksRatherThanApparentSize(t *testing.T) {
 }
 
 // TestMeasureCountsAHardLinkedFileOnce covers two links to one file adding up to one file,
-// whichever top-level entries hold them.
+// charged to the first top-level entry in name order.
 func TestMeasureCountsAHardLinkedFileOnce(t *testing.T) {
 	dir := t.TempDir()
-	write(t, dir, "a/shared", strings.Repeat("x", 100))
-	require.NoError(t, os.MkdirAll(filepath.Join(dir, "b"), 0o755))
-	require.NoError(t, os.Link(filepath.Join(dir, "a/shared"), filepath.Join(dir, "b/shared")))
-	shared := usage(t, filepath.Join(dir, "a/shared"))
+	write(t, dir, "b/shared", strings.Repeat("x", 100))
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, "a"), 0o755))
+	require.NoError(t, os.Link(filepath.Join(dir, "b/shared"), filepath.Join(dir, "a/shared")))
+	shared := usage(t, filepath.Join(dir, "b/shared"))
 
 	total, entries, err := measure(t.Context(), dir)
 	require.NoError(t, err)
 
 	assert.Equal(t, shared, total)
-	require.Len(t, entries, 2)
-	assert.Equal(t, shared, entries[0].Bytes+entries[1].Bytes)
+	assert.Equal(t, []Entry{
+		{
+			Path:  "a",
+			Bytes: shared,
+			Dir:   true,
+		},
+		{
+			Path:  "b",
+			Bytes: 0,
+			Dir:   true,
+		},
+	}, entries)
 }
 
 // TestMeasureGivesUpWhenTheContextEnds covers the walk stopping once the context has ended.
