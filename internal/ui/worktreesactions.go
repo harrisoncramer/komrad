@@ -11,12 +11,6 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-// deleteAgentsBatch is how many ids one delete_agents call takes.
-const deleteAgentsBatch = 25
-
-// removeWorktreesBatch is how many directories one remove_unowned_worktrees call takes.
-const removeWorktreesBatch = 100
-
 // worktreesActions is the worktrees screen as one table, walked in precedence order by the
 // dispatch and named in reading order by a legend of the same ids.
 func worktreesActions() actionSpec {
@@ -486,28 +480,12 @@ func (m model) keepsBranch(deletion worktreeDeletion) *bool {
 	return &read.keepsBranch
 }
 
-// deleteWorktreesCmd runs the two paths a deletion takes, each in the batches its call allows.
+// deleteWorktreesCmd queues the deletion as one background job.
 func (m *model) deleteWorktreesCmd(deletion worktreeDeletion) tea.Cmd {
-	ids := xslice.Map(deletion.agents, func(item worktreeItem) string { return item.agent.id })
-	dirs := xslice.Map(deletion.unowned, func(item worktreeItem) string { return item.dir })
+	dirs := xslice.Map(slices.Concat(deletion.agents, deletion.unowned), func(item worktreeItem) string { return item.dir })
 
 	return m.writeCmd(describeDeletion(deletion), func(a api) error {
-		for batch := range slices.Chunk(ids, deleteAgentsBatch) {
-			if err := a.deleteAgents(batch); err != nil {
-				return err
-			}
-		}
-		for batch := range slices.Chunk(dirs, removeWorktreesBatch) {
-			removed, err := a.removeUnownedWorktrees(batch)
-			if err != nil {
-				return err
-			}
-			if refused := removed.GetRefused(); len(refused) > 0 {
-				return fmt.Errorf("%s was left alone: %s", refused[0].GetDir(), refused[0].GetReason())
-			}
-		}
-
-		return nil
+		return a.deleteWorktrees(dirs)
 	})
 }
 

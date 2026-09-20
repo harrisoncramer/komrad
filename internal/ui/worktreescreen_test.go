@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"context"
 	"errors"
 	"strings"
 	"testing"
@@ -11,12 +12,16 @@ import (
 	workflowstore "weave/internal/store/workflow"
 	"weave/internal/ui/layout"
 	"weave/lib/dates"
+	worktreev1 "weave/proto/gen/worktree/v1"
+	"weave/proto/gen/worktree/v1/worktreev1connect"
 
+	"connectrpc.com/connect"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/x/ansi"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 // worktreesModel is the worktrees screen over the fixture listing, with the live agent on the
@@ -242,6 +247,95 @@ func TestDeleteChosenWorktreesRefusesALiveRow(t *testing.T) {
 	assert.Equal(t, formNone, after.form.kind)
 	require.NotEmpty(t, after.messages.items)
 	assert.Contains(t, after.messages.items[0].summary, "live agent")
+}
+
+// recordingWorktrees answers the queued delete and keeps the directories the panel named.
+type recordingWorktrees struct {
+	worktreev1connect.WorktreeServiceClient
+	queued [][]string
+	err    error
+}
+
+func (r *recordingWorktrees) ListWorktrees(context.Context, *connect.Request[emptypb.Empty]) (*connect.Response[worktreev1.ListWorktreesResponse], error) {
+	return connect.NewResponse(&worktreev1.ListWorktreesResponse{}), nil
+}
+
+func (r *recordingWorktrees) DeleteWorktrees(_ context.Context, req *connect.Request[worktreev1.DeleteWorktreesRequest]) (*connect.Response[emptypb.Empty], error) {
+	r.queued = append(r.queued, req.Msg.GetDirs())
+	if r.err != nil {
+		return nil, r.err
+	}
+
+	return connect.NewResponse(&emptypb.Empty{}), nil
+}
+
+// TestConfirmingAWorktreeDeleteQueuesOneJob covers the clear key's prompt sending every
+// directory that can go as one call, the archived and the unowned alike, and a refusal
+// landing in the message region.
+func TestConfirmingAWorktreeDeleteQueuesOneJob(t *testing.T) {
+	tests := []struct {
+		name       string
+		answer     string
+		err        error
+		wantQueued [][]string
+		wantErr    bool
+	}{
+		{
+			name:    "a queue that refuses is reported",
+			answer:  "y",
+			err:     errors.New("the queue is away"),
+			wantErr: true,
+			wantQueued: [][]string{{
+				"/trees/admin",
+				"/trees/archived",
+				"/trees/orphan",
+				"/trees/broken",
+			}},
+		},
+		{
+			name:   "declining queues nothing",
+			answer: "n",
+		},
+		{
+			name:   "confirming queues the directories in one call",
+			answer: "y",
+			wantQueued: [][]string{{
+				"/trees/admin",
+				"/trees/archived",
+				"/trees/orphan",
+				"/trees/broken",
+			}},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			client := &recordingWorktrees{err: tt.err}
+			m := worktreesModel()
+			m.width, m.height = 200, 40
+			m.api = api{
+				agents:    emptyLists{},
+				workflows: emptyLists{},
+				schedules: emptyLists{},
+				worktrees: client,
+			}
+
+			opened, _ := pressWorktrees(t, m, keyMsg("D"))
+			require.Equal(t, formWorktreesDelete, opened.form.kind)
+
+			got := answerPrompt(t, opened, tt.answer)
+
+			assert.Equal(t, tt.wantQueued, client.queued)
+			assert.False(t, got.form.isActive(), "the prompt is down")
+			if tt.wantErr {
+				require.NotEmpty(t, got.messages.items)
+				assert.Contains(t, got.messages.items[0].summary, "Could not delete 4 worktrees")
+
+				return
+			}
+			assert.Empty(t, got.messages.items)
+		})
+	}
 }
 
 // TestDeleteWorktreesFormSaysWhatGoes covers the title naming one directory or counting them,

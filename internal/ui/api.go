@@ -497,13 +497,8 @@ func (a api) getWorktree(dir string) (*worktreev1.GetWorktreeResponse, error) {
 	})
 }
 
-func (a api) removeUnownedWorktrees(dirs []string) (*worktreev1.RemoveUnownedWorktreesResponse, error) {
-	return call(requestTimeout, func(ctx context.Context) (*worktreev1.RemoveUnownedWorktreesResponse, error) {
-		resp, err := a.worktrees.RemoveUnownedWorktrees(ctx, connect.NewRequest(&worktreev1.RemoveUnownedWorktreesRequest{Dirs: dirs}))
-		if err != nil {
-			return nil, fmt.Errorf("failed to remove %d worktrees: %w", len(dirs), err)
-		}
-
-		return resp.Msg, nil
+func (a api) deleteWorktrees(dirs []string) error {
+	return mutate(func(ctx context.Context) (any, error) {
+		return a.worktrees.DeleteWorktrees(ctx, connect.NewRequest(&worktreev1.DeleteWorktreesRequest{Dirs: dirs}))
 	})
 }
