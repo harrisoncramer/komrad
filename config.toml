@@ -276,7 +276,7 @@ toggle = ["v"]
 
 # The row of tabs a screen draws over its list, and the key that hands it the cursor.
 [keybindings.tabs]
-# Move the cursor between the list on screen and the row of tabs over it.
+# Hand the keys to the row of tabs over the list; escape hands them back.
 focus = ["f"]
 
 # The key that opens a shell in the hovered agent's directory, shared by every

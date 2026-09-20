@@ -197,8 +197,8 @@ func TestAgentRowsOrderFamiliesByTheColumn(t *testing.T) {
 }
 
 // TestAgentsTabsKeepTheCursorOnItsRow covers the cursor following its row as the tree is
-// reordered under it, the name tab opening with its arrow up, and escape putting the listing's
-// order back with the cursor still on its row.
+// reordered under it, the name tab opening with its arrow up, and escape leaving the order
+// standing with the cursor still on its row.
 func TestAgentsTabsKeepTheCursorOnItsRow(t *testing.T) {
 	m := agentsSortModel()
 	m.tree.cursor = 3
@@ -215,7 +215,7 @@ func TestAgentsTabsKeepTheCursorOnItsRow(t *testing.T) {
 	assert.Equal(t, 1, named.tree.cursor)
 
 	left := send(t, named, "esc")
-	assert.Equal(t, tabsState{}, left.tree.sort)
+	assert.Equal(t, tabsState{chosen: "name", direction: tabUp}, left.tree.sort)
 	assert.Equal(t, "agent:alpha", left.hoveredAgentKey())
-	assert.Equal(t, 3, left.tree.cursor)
+	assert.Equal(t, 1, left.tree.cursor)
 }

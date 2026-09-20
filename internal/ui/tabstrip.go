@@ -150,20 +150,13 @@ func (m *model) blurTabs() {
 	}
 }
 
-func (m model) toggleTabsFocus() model {
+func (m model) focusTabs() model {
 	spec := m.tabsSpec()
 	if spec == nil || !spec.fits(m) {
 		return m
 	}
 
-	state := spec.state(&m)
-	if state.focused {
-		state.focused = false
-
-		return m
-	}
-
-	state.focused = true
+	spec.state(&m).focused = true
 	m.details.focused = false
 
 	return m
@@ -184,10 +177,8 @@ func (m model) updateTabs(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		state.direction = tabDown
 	case isBound(k, m.keys.Nav.Up):
 		state.direction = tabUp
-	case isBound(k, m.keys.Tabs.Focus):
-		state.focused = false
 	case k == "esc":
-		*state = tabsState{}
+		state.focused = false
 	case isBound(k, m.quitKeys()):
 		return m, m.hide()
 	}
@@ -203,18 +194,13 @@ func (m model) tabsBinding() key.Binding {
 		return key.Binding{}
 	}
 
-	desc := spec.strip.legend
-	if m.isTabsFocused() {
-		desc = "back to the list"
-	}
-
-	return binding(m.keys.Tabs.Focus, desc)
+	return binding(m.keys.Tabs.Focus, spec.strip.legend)
 }
 
 func (m model) tabsHelp() keyMap {
 	column := key.NewBinding(key.WithKeys(tabNextKey, tabPrevKey), key.WithHelp("tab/S-tab", "column"))
 	direction := binding(concatKeys(m.keys.Nav.Down, m.keys.Nav.Up), "direction")
-	back := binding(m.keys.Tabs.Focus, "back to the list")
+	back := binding([]string{"esc"}, "back to the list")
 
 	return keyMap{
 		short: []key.Binding{column, direction, back, m.helpBinding()},

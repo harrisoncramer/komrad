@@ -810,9 +810,9 @@ func TestArchiveTabsKeepTheCursorOnItsRow(t *testing.T) {
 	assert.Equal(t, 3, turned.archive.cursor)
 
 	left := send(t, turned, "esc")
-	assert.Equal(t, tabsState{}, left.archive.sort)
+	assert.Equal(t, tabsState{chosen: "name", direction: tabDown}, left.archive.sort)
 	assert.Equal(t, "agent:alpha", left.hoveredArchiveKey())
-	assert.Equal(t, 2, left.archive.cursor)
+	assert.Equal(t, 3, left.archive.cursor)
 }
 
 func archivedProtoWorkflow(id, name, archivedAt string) *workflowv1.Workflow {

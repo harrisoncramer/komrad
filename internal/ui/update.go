@@ -241,7 +241,7 @@ func (m model) routeGlobalKey(key tea.KeyMsg) (tea.Model, tea.Cmd, bool) {
 			return next, cmd, true
 		}
 		if isBound(key.String(), m.keys.Tabs.Focus) {
-			return m.toggleTabsFocus(), nil, true
+			return m.focusTabs(), nil, true
 		}
 	}
 
