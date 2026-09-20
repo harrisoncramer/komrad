@@ -537,21 +537,6 @@ func TestWorktreesTallyHeadsTheList(t *testing.T) {
 	assert.Equal(t, "2", m.worktreesTally())
 }
 
-// TestLogTargetOnTheWorktreesScreenIsTheHoveredAgent covers the log and terminal keys reading
-// this screen's cursor rather than the agents list's.
-func TestLogTargetOnTheWorktreesScreenIsTheHoveredAgent(t *testing.T) {
-	m := worktreesModel()
-	m.worktrees.cursor = 5
-
-	agent, ok := m.logTarget()
-	require.True(t, ok)
-	assert.Equal(t, "archived", agent.ID)
-
-	m.worktrees.cursor = 6
-	_, ok = m.logTarget()
-	assert.False(t, ok)
-}
-
 func fieldMap(fields []recordField) map[string]string {
 	byKey := map[string]string{}
 	for _, field := range fields {
@@ -559,4 +544,24 @@ func fieldMap(fields []recordField) map[string]string {
 	}
 
 	return byKey
+}
+
+// TestWorktreesScreenHoldsTheWindow covers the panel keeping the whole window on this screen,
+// a live agent's pane included, the way the archive does.
+func TestWorktreesScreenHoldsTheWindow(t *testing.T) {
+	tmux := &recordingTmux{}
+	m := worktreesModel()
+	m.screen = screenAgents
+	m.tmux, m.frame = tmux, layout.New(tmux, config.DefaultLayout())
+	m = sizedTo(m, tmux)
+	m.listing.agents[0].agent.Pane = "%7"
+
+	entered, _ := m.openWorktrees("live")
+	m, ok := entered.(model)
+	require.True(t, ok)
+
+	assert.Equal(t, 3, m.worktrees.cursor, "the cursor lands on the live agent's row")
+	assert.True(t, m.frame.IsSolo(), "the panel draws both halves itself")
+	assert.Empty(t, m.frame.GuestPane(), "no agent pane is put on the stage")
+	assert.False(t, screenWorktrees.opensInfoPane(), "and the log and terminal keys do not act here")
 }

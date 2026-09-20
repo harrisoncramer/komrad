@@ -6,7 +6,6 @@ import (
 	"strconv"
 	"strings"
 
-	"weave/internal/ui/layout"
 	"weave/internal/ui/paint"
 	"weave/internal/view"
 	"weave/lib/dates"
@@ -96,54 +95,9 @@ func (m model) jumpWorktreeCursor(idx int) (tea.Model, tea.Cmd) {
 	return m.deferStaging()
 }
 
-// stageWorktrees shows the hovered agent's pane where it has one and the document otherwise.
 func (m *model) stageWorktrees() {
-	m.frame.Begin()
-	defer m.afterStaging()
-
-	rows := m.worktreeRows()
-	m.placeColumn(screenWorktrees, rowKeyAt(rows, m.worktrees.cursor))
-	m.reconcileSolo()
-
-	item, held := m.hoveredWorktreePane()
-	switch {
-	case held && m.isPaneStageable(item.agent.Pane, item.agent.Harness):
-		m.sizeGuestWindow(item.agent.Pane)
-		m.frame.ShowGuest(item.agent.Pane)
-	case m.frame.IsSolo() && m.isGuestLive():
-	default:
-		m.frame.Show(layout.RegionStage, newBlankContent())
-	}
-
+	m.placeColumn(screenWorktrees, rowKeyAt(m.worktreeRows(), m.worktrees.cursor))
 	m.stageInfo()
-}
-
-// hoveredWorktreePane is the live agent whose pane the hovered row shows, if the row has one.
-func (m model) hoveredWorktreePane() (agentItem, bool) {
-	row, ok := m.hoveredWorktree()
-	if !ok {
-		return agentItem{}, false
-	}
-
-	agent := row.agentOn()
-	if agent == nil {
-		return agentItem{}, false
-	}
-
-	item, ok := m.liveAgent(agent.id)
-	if !ok || !hasPane(item) {
-		return agentItem{}, false
-	}
-
-	return item, true
-}
-
-// hasNoWorktreePane reports whether the hovered row has no pane of its own to stand in the
-// window.
-func (m model) hasNoWorktreePane() bool {
-	_, held := m.hoveredWorktreePane()
-
-	return !held
 }
 
 // inspectWorktreeCmd asks the service for the hovered directory's standing, answered under the
@@ -208,7 +162,6 @@ func worktreesColumn() columnSpec {
 	return columnSpec{
 		floor: columnFloor,
 		doc:   model.worktreeDoc,
-		holds: model.hasNoWorktreePane,
 	}
 }
 

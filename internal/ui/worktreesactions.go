@@ -327,26 +327,6 @@ func (m model) worktreeFate(item worktreeItem) worktreeFate {
 	return fateLive
 }
 
-// hoveredWorktreeAgent is the agent the hovered row stands for, as the listing that holds it
-// knows it.
-func (m model) hoveredWorktreeAgent() (agentstore.Agent, bool) {
-	row, ok := m.hoveredWorktree()
-	if !ok {
-		return agentstore.Agent{}, false
-	}
-
-	agent := row.agentOn()
-	if agent == nil {
-		return agentstore.Agent{}, false
-	}
-
-	if item, ok := m.liveAgent(agent.id); ok {
-		return item.agent, true
-	}
-
-	return m.archivedAgent(agent.id)
-}
-
 // jumpToWorktreeAgent lands the agents list or the archive on the hovered row's agent.
 func (m model) jumpToWorktreeAgent() (tea.Model, tea.Cmd) {
 	row, ok := m.hoveredWorktree()
