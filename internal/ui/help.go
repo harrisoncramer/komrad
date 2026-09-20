@@ -36,6 +36,9 @@ func (m model) renderHelp(k keyMap, above ...string) string {
 	if m.isDetailsFocused() {
 		k = m.detailsHelp()
 	}
+	if m.isTabsFocused() {
+		k = m.tabsHelp()
+	}
 	if m.isMessagesFocused() {
 		k = m.messagesHelp()
 	}
@@ -309,6 +312,7 @@ func (m model) worktreesHelp() keyMap {
 		full: slices.Concat(
 			own.full,
 			[]key.Binding{
+				m.tabsBinding(),
 				m.detailsBinding(),
 				m.messagesBinding(),
 				m.columnScrollBinding("the directory"),

@@ -65,6 +65,7 @@ type screenSpec struct {
 	typing  func(model) bool
 	details *detailsSpec
 	filter  *filterSpec
+	tabs    *tabsSpec
 
 	// column is the block the screen draws beside its own list, left nil by a screen that draws
 	// none, in which case the panel keeps the share of the window the frame gave it.
@@ -197,6 +198,11 @@ func (s screen) spec() screenSpec {
 				hovered: model.hoveredWorktreeKey,
 				place:   (*model).placeWorktreeCursor,
 				rows:    model.worktreeFilterRows,
+			},
+			tabs: &tabsSpec{
+				strip: worktreesTabs(),
+				state: func(m *model) *tabsState { return &m.worktrees.sort },
+				fits:  model.doesWorktreesFitTabs,
 			},
 			column: worktreesColumn,
 		}

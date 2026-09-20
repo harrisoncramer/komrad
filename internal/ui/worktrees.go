@@ -69,6 +69,7 @@ type worktreeInspection struct {
 type worktreesState struct {
 	rowCursor
 	items []worktreeItem
+	sort  tabsState
 	// inspected is what get_worktree answered for each directory, kept until the directory
 	// leaves the listing.
 	inspected map[string]worktreeInspection

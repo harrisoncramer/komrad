@@ -276,6 +276,11 @@ range  = ["V"]
 # Take the row under the cursor into the selection, or back out of it.
 toggle = ["v"]
 
+# The row of tabs a screen draws over its list, and the key that hands it the cursor.
+[keybindings.tabs]
+# Move the cursor between the list on screen and the row of tabs over it.
+focus = ["f"]
+
 # The key that opens a shell in the hovered agent's directory, shared by every
 # screen that lists agents.
 [keybindings.terminal]

@@ -593,8 +593,10 @@ func keyMsg(key string) tea.KeyMsg {
 }
 
 var namedKeys = map[string]tea.KeyType{
-	"esc":    tea.KeyEsc,
-	"ctrl+t": tea.KeyCtrlT,
+	"esc":       tea.KeyEsc,
+	"ctrl+t":    tea.KeyCtrlT,
+	"tab":       tea.KeyTab,
+	"shift+tab": tea.KeyShiftTab,
 }
 
 // TestScheduleName covers matching the schedule an agent came from against the list

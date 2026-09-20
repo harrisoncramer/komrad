@@ -89,6 +89,7 @@ func (m model) toggleDetailsFocus() model {
 	}
 
 	m.details.focused = true
+	m.blurTabs()
 	if m.details.row != held.id {
 		m.details.cursor = 0
 	}

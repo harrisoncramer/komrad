@@ -73,7 +73,7 @@ func (m model) rowCursorPrefix() string {
 // isListFocused reports whether the keys are the list's rather than another pane's, the record
 // beside it or a form standing over it.
 func (m model) isListFocused() bool {
-	return !m.keysElsewhere && !m.isDetailsFocused() && !m.isMessagesFocused() && !m.form.isActive()
+	return !m.keysElsewhere && !m.isDetailsFocused() && !m.isTabsFocused() && !m.isMessagesFocused() && !m.form.isActive()
 }
 
 // isColumnFocused reports whether the block beside the list holds the keys, which it does with

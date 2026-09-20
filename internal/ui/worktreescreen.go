@@ -171,8 +171,24 @@ func (m model) worktreesView() string {
 	return m.columnView(model.worktreesListView)
 }
 
+func worktreesTabs() tabStrip {
+	return tabStrip{
+		title:  "⇅",
+		legend: "sort",
+		options: []tabOption{
+			{id: "size", label: "size"},
+			{id: "last-accessed", label: "last-accessed"},
+		},
+		fallback: "size",
+	}
+}
+
 func (m model) worktreesHeader() string {
-	return m.talliedHeader("Worktrees", m.worktreesTally())
+	return m.tabbedHeader("Worktrees", m.worktreesTally())
+}
+
+func (m model) doesWorktreesFitTabs() bool {
+	return m.doesListFitTabs("Worktrees", m.worktreesTally(), model.worktreesHelp)
 }
 
 // worktreesTally is how many directories the listing holds and what the measured ones take.

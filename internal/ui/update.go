@@ -230,6 +230,17 @@ func (m model) routeGlobalKey(key tea.KeyMsg) (tea.Model, tea.Cmd, bool) {
 		return m.pushMockMessage(), nil, true
 	}
 
+	if m.tabsSpec() != nil {
+		if m.isTabsFocused() {
+			next, cmd := m.updateTabs(key)
+
+			return next, cmd, true
+		}
+		if isBound(key.String(), m.keys.Tabs.Focus) {
+			return m.toggleTabsFocus(), nil, true
+		}
+	}
+
 	if m.isDetailsScreen() {
 		if m.isDetailsFocused() {
 			next, cmd := m.updateDetails(key)

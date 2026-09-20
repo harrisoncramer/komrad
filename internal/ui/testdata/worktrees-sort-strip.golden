@@ -1,0 +1,28 @@
+[1;34mWorktrees[0m[90m  5 · —[0m
+
+[90m/[0m 
+[90m⇅[0m ↓ size  [90mlast-accessed[0m
+
+      [90m│[0m [1m/home/h/chariot/admin[0m       [90m   —    [0m
+    [90m[0m [90m│[0m   [90mcustom-cargo-fixes[0m        [90m   —    [0m
+      [90m│[0m [1m/home/h/weave[0m               [90m   —    [0m
+[34m›[0m   [90m[0m [97m┃[0m   [34mworktree-view[0m             [90m   —    [0m
+    [90m[0m [90m│[0m   [90mreview-column[0m             [90m   —    [0m
+    [90m[0m [90m│[0m   [90magent/orphan[0m              [90m   —    [0m
+      [90m│[0m [1m/var/folders/T/repo[0m         [90m   —    [0m
+    [91m[0m [90m│[0m   [90mbroken[0m                    [90m   —    [0m
+[90m────────────────────────────────────────────[0m
+[1;34m› [0m[90mname       [0m worktree-view
+  [90mdirectory  [0m /trees/live
+  [90msize       [0m —
+  [90mlast active[0m —
+  [90mbranch     [0m agent/live
+  [90malso here  [0m review-607
+  [90magent      [0m claude, thinking
+  [90mworkflow   [0m weave
+
+[90m────────────────────────────────────────────[0m
+[92m✔[0m No messages
+[90m  Weave is running normally[0m
+[90m────────────────────────────────────────────[0m
+[90md[0m [90marchive the agent[0m[90m • [0m[90mJ[0m [90mjump to agent[0m [90m…[0m
