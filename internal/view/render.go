@@ -1,10 +1,10 @@
 package view
 
 import (
-	"fmt"
 	"strings"
 
 	"weave/internal/ui/paint"
+	"weave/internal/ui/paint/label"
 
 	"github.com/charmbracelet/lipgloss"
 )
@@ -91,7 +91,7 @@ func drawTrailing(palette paint.Palette, line Line) string {
 	}
 
 	if line.Tally > 0 {
-		b.WriteString(" " + palette.Style(paint.ToneMuted).Render(fmt.Sprintf("+%d", line.Tally)))
+		b.WriteString(" " + palette.Style(paint.ToneMuted).Render(label.Tally(line.Tally)))
 	}
 
 	if !line.Schedule.IsBlank() {

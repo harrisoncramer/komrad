@@ -136,3 +136,13 @@ func TestShortSHA(t *testing.T) {
 		})
 	}
 }
+
+// TestOfCount covers where one stands in a run of things.
+func TestOfCount(t *testing.T) {
+	assert.Equal(t, "3 of 7", OfCount(3, 7))
+}
+
+// TestTally covers how many more sit behind the one shown.
+func TestTally(t *testing.T) {
+	assert.Equal(t, "+4", Tally(4))
+}

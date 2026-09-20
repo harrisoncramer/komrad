@@ -1,4 +1,5 @@
-// Package label turns a number, a hash or a blank into the short text a row or a record shows.
+// Package label turns a number, a time, a path, a hash or a blank into the short text a row or a
+// record shows.
 package label
 
 import (
@@ -62,6 +63,11 @@ func Counted(n int, word string) string {
 	return fmt.Sprintf("%d %s%s", n, word, suffix)
 }
 
+// OfCount is where in a run of things one stands, "3 of 7".
+func OfCount(at, total int) string {
+	return fmt.Sprintf("%d of %d", at, total)
+}
+
 // OrDash is the text as given, or a dash where it is blank.
 func OrDash(text string) string {
 	if strings.TrimSpace(text) == "" {
@@ -78,4 +84,9 @@ func ShortSHA(sha string) string {
 	}
 
 	return sha[:shortSHALength]
+}
+
+// Tally is how many more sit behind the one shown, "+4".
+func Tally(n int) string {
+	return fmt.Sprintf("+%d", n)
 }

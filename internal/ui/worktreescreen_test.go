@@ -11,7 +11,7 @@ import (
 	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
 	"weave/internal/ui/layout"
-	"weave/lib/dates"
+	"weave/internal/ui/paint/label"
 	"weave/lib/xslice"
 	worktreev1 "weave/proto/gen/worktree/v1"
 	"weave/proto/gen/worktree/v1/worktreev1connect"
@@ -388,7 +388,7 @@ func TestWorktreeFieldsReadTheListingAndTheInspection(t *testing.T) {
 	assert.Equal(t, "—", before["size"])
 	assert.Equal(t, "—", before["last active"])
 	assert.Equal(t, "agent/archived", before["branch"])
-	assert.Equal(t, "claude, archived "+dates.Day(time.Date(2026, 9, 17, 12, 0, 0, 0, time.UTC)), before["agent"])
+	assert.Equal(t, "claude, archived "+label.Day(time.Date(2026, 9, 17, 12, 0, 0, 0, time.UTC)), before["agent"])
 	assert.Equal(t, "weave", before["workflow"])
 	assert.NotContains(t, before, "base")
 

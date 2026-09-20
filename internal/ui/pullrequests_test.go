@@ -7,7 +7,7 @@ import (
 	"time"
 
 	agentstore "weave/internal/store/agent"
-	"weave/lib/dates"
+	"weave/internal/ui/paint/label"
 	"weave/lib/xptr"
 	pullrequestv1 "weave/proto/gen/pullrequest/v1"
 	"weave/proto/gen/pullrequest/v1/pullrequestv1connect"
@@ -272,5 +272,5 @@ func ageOf(t *testing.T, stamp string) string {
 	parsed, err := time.Parse(time.RFC3339, stamp)
 	require.NoError(t, err)
 
-	return dates.Age(parsed)
+	return label.Age(parsed)
 }

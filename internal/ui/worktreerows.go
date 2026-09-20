@@ -10,7 +10,6 @@ import (
 	agentstore "weave/internal/store/agent"
 	"weave/internal/ui/paint/label"
 	"weave/internal/view"
-	"weave/lib/dates"
 	"weave/lib/xslice"
 )
 
@@ -54,7 +53,7 @@ func treeRowKey(dir string) string {
 func (r worktreeRow) name() string {
 	switch {
 	case r.header:
-		return shortenHome(r.repo)
+		return label.Path(r.repo, homeDir())
 	case r.item.agent != nil:
 		return r.item.agent.name
 	case r.item.branch != "":
@@ -241,7 +240,7 @@ func repoStanding(item worktreeItem) view.Repo {
 
 // rowTrail is a directory's size then its age, the size a dash until it has been measured.
 func rowTrail(item worktreeItem, now time.Time) string {
-	return view.Trail(sizeLabel(item), dates.AgeAt(item.lastActiveAt, now))
+	return view.Trail(sizeLabel(item), label.AgeAt(item.lastActiveAt, now))
 }
 
 // groupTrail is the total of the measured directories under a header, over the size column.
@@ -286,20 +285,4 @@ func totalLabel(items []worktreeItem) string {
 	}
 
 	return label.Bytes(total)
-}
-
-// shortenHome spells a path under the home directory with a tilde.
-func shortenHome(path string) string {
-	home := homeDir()
-	if home == "" || path == "" {
-		return path
-	}
-	if path == home {
-		return "~"
-	}
-	if rel, ok := strings.CutPrefix(path, home+string(filepath.Separator)); ok {
-		return "~" + string(filepath.Separator) + rel
-	}
-
-	return path
 }
