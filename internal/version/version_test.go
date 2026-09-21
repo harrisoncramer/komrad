@@ -130,10 +130,10 @@ func TestFindNotedBuildID(t *testing.T) {
 	const id = "Dg7XN2bd6cklxz4Lz8Q_/zVN9yjIwSr8KpmxcG6QG/3j2z3IK9mDgx9R_yP3FH/zGcGo0vHRRzr0braXzqy"
 
 	note := func(nameLen, descLen uint32, body string) []byte {
-		header := make([]byte, noteHeaderLen)
-		binary.LittleEndian.PutUint32(header[0:4], nameLen)
-		binary.LittleEndian.PutUint32(header[4:8], descLen)
-		binary.LittleEndian.PutUint32(header[8:12], 4)
+		header := make([]byte, 0, noteHeaderLen+len(body))
+		header = binary.LittleEndian.AppendUint32(header, nameLen)
+		header = binary.LittleEndian.AppendUint32(header, descLen)
+		header = binary.LittleEndian.AppendUint32(header, 4)
 
 		return append(header, body...)
 	}
