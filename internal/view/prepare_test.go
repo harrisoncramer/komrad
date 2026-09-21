@@ -403,6 +403,11 @@ func TestPrepareForgeColumn(t *testing.T) {
 			want:  Cell{Glyph: GlyphFailing, Tone: paint.ToneDanger},
 		},
 		{
+			name:  "a conflict with the base gets the conflicting glyph in danger",
+			forge: ForgeConflicting,
+			want:  Cell{Glyph: GlyphConflicting, Tone: paint.ToneDanger},
+		},
+		{
 			name:  "a merged change gets its own glyph and its own tone",
 			forge: ForgeMerged,
 			want:  Cell{Glyph: GlyphMerged, Tone: paint.ToneMerged},

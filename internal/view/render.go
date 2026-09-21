@@ -187,6 +187,8 @@ func Spell(glyph Glyph) string {
 		return "›"
 	case GlyphFailing:
 		return "\uf467"
+	case GlyphConflicting:
+		return "\uf46e"
 	}
 
 	return ""

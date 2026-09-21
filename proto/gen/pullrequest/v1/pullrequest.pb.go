@@ -52,8 +52,10 @@ const (
 	// Open with a failing check on its head, whatever its reviews say.
 	PullRequestState_PULL_REQUEST_STATE_FAILING PullRequestState = 9
 	// Approved on the forge but not yet mergeable: its checks are still running, its branch is
-	// behind or conflicting, or a branch rule is unmet.
+	// behind, or a branch rule is unmet.
 	PullRequestState_PULL_REQUEST_STATE_APPROVED_WAITING PullRequestState = 10
+	// Open and no longer merging cleanly into its base, whatever its reviews say.
+	PullRequestState_PULL_REQUEST_STATE_CONFLICTING PullRequestState = 11
 )
 
 // Enum value maps for PullRequestState.
@@ -70,6 +72,7 @@ var (
 		8:  "PULL_REQUEST_STATE_CLOSED",
 		9:  "PULL_REQUEST_STATE_FAILING",
 		10: "PULL_REQUEST_STATE_APPROVED_WAITING",
+		11: "PULL_REQUEST_STATE_CONFLICTING",
 	}
 	PullRequestState_value = map[string]int32{
 		"PULL_REQUEST_STATE_UNSPECIFIED":       0,
@@ -83,6 +86,7 @@ var (
 		"PULL_REQUEST_STATE_CLOSED":            8,
 		"PULL_REQUEST_STATE_FAILING":           9,
 		"PULL_REQUEST_STATE_APPROVED_WAITING":  10,
+		"PULL_REQUEST_STATE_CONFLICTING":       11,
 	}
 )
 
@@ -851,7 +855,7 @@ const file_pullrequest_v1_pullrequest_proto_rawDesc = "" +
 	"\x1dListAgentPullRequestsResponse\x12E\n" +
 	"\rpull_requests\x18\x01 \x03(\v2 .pullrequest.v1.AgentPullRequestR\fpullRequests\x121\n" +
 	"\x12repository_read_at\x18\x02 \x01(\tH\x00R\x10repositoryReadAt\x88\x01\x01B\x15\n" +
-	"\x13_repository_read_at*\xff\x02\n" +
+	"\x13_repository_read_at*\xa3\x03\n" +
 	"\x10PullRequestState\x12\"\n" +
 	"\x1ePULL_REQUEST_STATE_UNSPECIFIED\x10\x00\x12\x1d\n" +
 	"\x19PULL_REQUEST_STATE_UNREAD\x10\x01\x12\x1b\n" +
@@ -864,7 +868,8 @@ const file_pullrequest_v1_pullrequest_proto_rawDesc = "" +
 	"\x19PULL_REQUEST_STATE_CLOSED\x10\b\x12\x1e\n" +
 	"\x1aPULL_REQUEST_STATE_FAILING\x10\t\x12'\n" +
 	"#PULL_REQUEST_STATE_APPROVED_WAITING\x10\n" +
-	"*\xca\x01\n" +
+	"\x12\"\n" +
+	"\x1ePULL_REQUEST_STATE_CONFLICTING\x10\v*\xca\x01\n" +
 	"\fMergeability\x12\x1c\n" +
 	"\x18MERGEABILITY_UNSPECIFIED\x10\x00\x12\x18\n" +
 	"\x14MERGEABILITY_UNKNOWN\x10\x01\x12\x16\n" +

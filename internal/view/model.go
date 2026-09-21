@@ -31,6 +31,7 @@ const (
 	GlyphChild
 	GlyphFocus
 	GlyphFailing
+	GlyphConflicting
 	// glyphCount stands one past the last glyph.
 	glyphCount
 )

@@ -178,6 +178,8 @@ func ForgeCell(row Row) Cell {
 		return Cell{Glyph: GlyphDraft, Tone: paint.ToneMuted}
 	case ForgeFailing:
 		return Cell{Glyph: GlyphFailing, Tone: paint.ToneDanger}
+	case ForgeConflicting:
+		return Cell{Glyph: GlyphConflicting, Tone: paint.ToneDanger}
 	case ForgeMerged:
 		return Cell{Glyph: GlyphMerged, Tone: paint.ToneMerged}
 	case ForgeClosed:

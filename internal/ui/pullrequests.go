@@ -166,6 +166,7 @@ func pullRequestFields(standing pullRequestStanding, listed agentPullRequests) [
 		pullrequestv1.PullRequestState_PULL_REQUEST_STATE_MERGED,
 		pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CLOSED,
 		pullrequestv1.PullRequestState_PULL_REQUEST_STATE_FAILING,
+		pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CONFLICTING,
 		pullrequestv1.PullRequestState_PULL_REQUEST_STATE_APPROVED_WAITING:
 	}
 
@@ -209,7 +210,7 @@ func currentPullRequestField(pullRequest agentPullRequest) string {
 const pullRequestFieldKey = "pull request"
 
 // pullRequestWords is the state word with what is still in the way beside it: a run in
-// flight, a branch behind or conflicting, or a rule an approval is waiting on.
+// flight, a branch behind, or a rule an approval is waiting on.
 func pullRequestWords(state pullrequestv1.PullRequestState, checks pullrequestv1.Checks, mergeability pullrequestv1.Mergeability) string {
 	word := pullRequestStateWord(state)
 	switch state {
@@ -222,14 +223,13 @@ func pullRequestWords(state pullrequestv1.PullRequestState, checks pullrequestv1
 		pullrequestv1.PullRequestState_PULL_REQUEST_STATE_NONE,
 		pullrequestv1.PullRequestState_PULL_REQUEST_STATE_APPROVED,
 		pullrequestv1.PullRequestState_PULL_REQUEST_STATE_FAILING,
+		pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CONFLICTING,
 		pullrequestv1.PullRequestState_PULL_REQUEST_STATE_MERGED,
 		pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CLOSED:
 		return word
 	}
 
 	switch {
-	case mergeability == pullrequestv1.Mergeability_MERGEABILITY_CONFLICTING:
-		return word + ", conflicts with the base"
 	case mergeability == pullrequestv1.Mergeability_MERGEABILITY_BEHIND:
 		return word + ", behind the base"
 	case checks == pullrequestv1.Checks_CHECKS_PENDING:
@@ -250,6 +250,8 @@ func pullRequestStateWord(state pullrequestv1.PullRequestState) string {
 		return "open"
 	case pullrequestv1.PullRequestState_PULL_REQUEST_STATE_FAILING:
 		return "checks failing"
+	case pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CONFLICTING:
+		return "conflicts with the base"
 	case pullrequestv1.PullRequestState_PULL_REQUEST_STATE_APPROVED_WAITING:
 		return "approved"
 	case pullrequestv1.PullRequestState_PULL_REQUEST_STATE_APPROVED:

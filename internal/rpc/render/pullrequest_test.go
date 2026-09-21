@@ -127,12 +127,36 @@ func TestPullRequestStateOf(t *testing.T) {
 			want: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_APPROVED_WAITING,
 		},
 		{
-			name: "approved and conflicting is waiting",
+			name: "a conflict beats an approval",
 			pullRequest: pullrequeststore.Summary{
 				ReviewDecision: xptr.Ptr(forge.ReviewDecisionApproved),
 				Mergeability:   xptr.Ptr(forge.MergeabilityConflicting),
 			},
-			want: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_APPROVED_WAITING,
+			want: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CONFLICTING,
+		},
+		{
+			name: "a conflict beats a change request",
+			pullRequest: pullrequeststore.Summary{
+				ReviewDecision: xptr.Ptr(forge.ReviewDecisionChangesRequested),
+				Mergeability:   xptr.Ptr(forge.MergeabilityConflicting),
+			},
+			want: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CONFLICTING,
+		},
+		{
+			name: "failing checks beat a conflict",
+			pullRequest: pullrequeststore.Summary{
+				Checks:       xptr.Ptr(forge.ChecksFailing),
+				Mergeability: xptr.Ptr(forge.MergeabilityConflicting),
+			},
+			want: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_FAILING,
+		},
+		{
+			name: "a draft beats a conflict",
+			pullRequest: pullrequeststore.Summary{
+				Draft:        true,
+				Mergeability: xptr.Ptr(forge.MergeabilityConflicting),
+			},
+			want: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_DRAFT,
 		},
 		{
 			name: "failing checks beat a clean mergeability",
@@ -168,11 +192,11 @@ func TestPullRequestStateOf(t *testing.T) {
 			want: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CHANGES_REQUESTED,
 		},
 		{
-			name: "conflicting with no decision is open",
+			name: "conflicting with no decision",
 			pullRequest: pullrequeststore.Summary{
 				Mergeability: xptr.Ptr(forge.MergeabilityConflicting),
 			},
-			want: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_OPEN,
+			want: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CONFLICTING,
 		},
 		{
 			name: "a change request stands while checks run",
