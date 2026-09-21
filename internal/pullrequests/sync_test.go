@@ -1165,3 +1165,29 @@ func TestSyncDecisionRefusalStopsTheRepository(t *testing.T) {
 	assert.Equal(t, []string{search(syncNow), "decisions:1"}, f.forge.requests)
 	assert.NotNil(t, f.stored(t, "PR_1").DecisionChangedAt)
 }
+
+// TestSyncMatchesARemoteSpelledWithCapitals covers a checkout whose remote spells the
+// repository with capitals: the forge answers in its own spelling and the agent's row still
+// shows the pull request from its branch.
+func TestSyncMatchesARemoteSpelledWithCapitals(t *testing.T) {
+	f := newSyncFixture(t)
+	spelled, err := git.ParseRemoteURL("git@github.com:HarrisonCramer/Weave.git")
+	require.NoError(t, err)
+	agent := f.agentIn(t, "a", spelled.Canonical(), "agent/x")
+	page := map[string]*forge.Page{"": {PullRequests: []forge.PullRequest{pullRequestAt("PR_1", "agent/x", syncNow.Add(-time.Hour))}}}
+	f.forge.elsewhere[spelled.Path] = page
+	f.forge.branches["agent/x"] = page
+	var logged bytes.Buffer
+	ctx := logging.WithLogger(t.Context(), slog.New(slog.NewTextHandler(&logged, nil)))
+
+	require.NoError(t, f.syncer.Sync(ctx))
+
+	assert.True(t, f.getSyncOf(t, spelled.Canonical()).IsSwept())
+	listed, err := f.pullRequests.ListForAgent(t.Context(), agent)
+	require.NoError(t, err)
+	assert.Len(t, listed, 1, "the agent's row shows the pull request from its branch")
+	seen, err := f.pullRequests.ListObservations(t.Context(), agent)
+	require.NoError(t, err)
+	assert.Len(t, seen, 1, "the agent is observed beside its pull request")
+	assert.NotContains(t, logged.String(), "under another name")
+}

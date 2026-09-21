@@ -21,8 +21,8 @@ type RemoteURL struct {
 	Host string
 	// Port is the port as spelled, such as 2222, or empty when the remote named none.
 	Port string
-	// Path is the repository path with its .git suffix and surrounding slashes removed, such as
-	// harrisoncramer/weave or group/subgroup/repo.
+	// Path is the lowercased repository path with its .git suffix and surrounding slashes
+	// removed, such as harrisoncramer/weave or group/subgroup/repo.
 	Path string
 }
 
@@ -99,7 +99,7 @@ func ParseRemoteURL(raw string) (RemoteURL, error) {
 		remote.Host = "github.com"
 	}
 
-	path := strings.Trim(remote.Path, "/")
+	path := strings.ToLower(strings.Trim(remote.Path, "/"))
 	path = strings.TrimSuffix(path, ".git")
 	path = strings.TrimRight(path, "/")
 	if strings.HasPrefix(path, "~") {
