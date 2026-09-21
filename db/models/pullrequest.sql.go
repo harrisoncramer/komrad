@@ -410,66 +410,6 @@ func (q *Queries) ListLiveRepositories(ctx context.Context) ([]*string, error) {
 	return items, nil
 }
 
-const listPullRequestsOnBranch = `-- name: ListPullRequestsOnBranch :many
-SELECT
-    id, host, forge, provider_id, url, repository_url, head_repository_url, number, title, head_branch, head_sha, base_branch, base_sha, draft, state, opened_at, changed_at, merged_at, closed_at, first_seen_at, review_decision, decision_changed_at
-FROM
-    pull_requests
-WHERE
-    repository_url = $1
-    AND head_branch = $2
-ORDER BY
-    opened_at DESC
-`
-
-type ListPullRequestsOnBranchParams struct {
-	RepositoryUrl string
-	HeadBranch    string
-}
-
-func (q *Queries) ListPullRequestsOnBranch(ctx context.Context, arg ListPullRequestsOnBranchParams) ([]*PullRequest, error) {
-	rows, err := q.db.Query(ctx, listPullRequestsOnBranch, arg.RepositoryUrl, arg.HeadBranch)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []*PullRequest
-	for rows.Next() {
-		var i PullRequest
-		if err := rows.Scan(
-			&i.ID,
-			&i.Host,
-			&i.Forge,
-			&i.ProviderID,
-			&i.Url,
-			&i.RepositoryUrl,
-			&i.HeadRepositoryUrl,
-			&i.Number,
-			&i.Title,
-			&i.HeadBranch,
-			&i.HeadSha,
-			&i.BaseBranch,
-			&i.BaseSha,
-			&i.Draft,
-			&i.State,
-			&i.OpenedAt,
-			&i.ChangedAt,
-			&i.MergedAt,
-			&i.ClosedAt,
-			&i.FirstSeenAt,
-			&i.ReviewDecision,
-			&i.DecisionChangedAt,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, &i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const listReadRepositories = `-- name: ListReadRepositories :many
 SELECT
     repository_url

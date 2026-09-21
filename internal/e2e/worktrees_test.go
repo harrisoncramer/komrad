@@ -200,7 +200,7 @@ func TestWorktreeSizesAreMeasuredInTheBackground(t *testing.T) {
 	require.NoError(t, os.RemoveAll(orphan))
 	instance.MeasureWorktrees()
 
-	stored, err := worktreestore.NewWorktreeStore(instance.Stores.Pool.GetDB()).ListSizes(ctx)
+	stored, err := worktreestore.New(instance.Stores.Pool.GetDB()).ListSizes(ctx)
 	require.NoError(t, err)
 	require.Len(t, stored, 1)
 	assert.Equal(t, tree, stored[0].Dir)
