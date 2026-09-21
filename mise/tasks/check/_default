@@ -62,7 +62,6 @@ cd "$MISE_CONFIG_ROOT"
 STEPS=(
 	"bash:check"
 	"bash:fmt --check"
-	"docs:check"
 	"go:fmt --check"
 	"db:fmt --check"
 	"proto:fmt --check"

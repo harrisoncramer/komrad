@@ -94,14 +94,7 @@ func isTest(pass *analysis.Pass, file *ast.File) bool {
 
 // isUnder says whether a file's path matches any of the patterns.
 func isUnder(pass *analysis.Pass, file *ast.File, patterns []*regexp.Regexp) bool {
-	path := repoRelative(pass.Fset.Position(file.Pos()).Filename)
-	for _, pattern := range patterns {
-		if pattern.MatchString(path) {
-			return true
-		}
-	}
-
-	return false
+	return isPathUnder(repoRelative(pass.Fset.Position(file.Pos()).Filename), patterns)
 }
 
 // repoRelative is the path the patterns are written against.

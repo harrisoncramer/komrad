@@ -7,6 +7,9 @@ run:
 issues:
   max-issues-per-linter: 0
   max-same-issues: 0
+  # The rule against naming mise pins every page finding to the root package's first line,
+  # so two pages would otherwise collapse into one.
+  uniq-by-line: false
 linters:
   enable:
     - bodyclose
@@ -262,7 +265,7 @@ linters:
     custom:
       weavelint:
         type: module
-        description: Checks for this repo; a sentinel error must declare the kind of failure it is and be declared at package scope, a message wrapping another error opens with "failed to " or with the error itself, a connect handler must hand its strict half to the adapter rather than answering for itself, a forge Secret gives up its token only where it is sent or kept, an HTTP client is built by lib/xhttp, a declared function spans more than one line, a proto converter is named for its direction, a comment carries no justification clause, a loop that only maps a slice is xslice.Map, and no source names mise.
+        description: Checks for this repo; a sentinel error must declare the kind of failure it is and be declared at package scope, a message wrapping another error opens with "failed to " or with the error itself, a connect handler must hand its strict half to the adapter rather than answering for itself, a forge Secret gives up its token only where it is sent or kept, an HTTP client is built by lib/xhttp, a declared function spans more than one line, a proto converter is named for its direction, a comment carries no justification clause, a loop that only maps a slice is xslice.Map, and neither the source nor a page a user reads names mise.
         settings:
           sentinel_inline:
             skip: false
@@ -321,11 +324,12 @@ linters:
               - ^internal/rpcerr/
           no_mise:
             skip: false
-            # Unanchored regexps over the path lint was run from. The rule's own source and
-            # the settings block that names it.
+            # Unanchored regexps over the path lint was run from. The rule's own source, the
+            # settings block that names it, and the pages for whoever runs weave itself.
             exclude:
               - (^|/)nomise\.go$
               - ^config/config\.go$
+              - ^docs/internal/
           sentinel_kind:
             skip: false
             # Unanchored regexps over the path lint was run from. Nothing a caller reaches

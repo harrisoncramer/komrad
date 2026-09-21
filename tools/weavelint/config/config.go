@@ -20,7 +20,8 @@ type Config struct {
 type NoMiseConfig struct {
 	// Skip turns the rule off.
 	Skip bool `json:"skip"`
-	// Exclude is unanchored regexps over the file path.
+	// Exclude is unanchored regexps over the file path, for Go files and for the pages the root
+	// package's directory holds alike.
 	Exclude []string `json:"exclude"`
 }
 
