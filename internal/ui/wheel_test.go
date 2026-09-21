@@ -74,9 +74,9 @@ func TestScrollKeysMoveTheListARow(t *testing.T) {
 	}
 }
 
-// TestScrollKeysKeepTheFocusedRecord pins a turn up on the first field staying in the record,
-// where the move key walks back out into the list.
-func TestScrollKeysKeepTheFocusedRecord(t *testing.T) {
+// TestScrollKeysWalkOutOfTheFocusedRecord pins a turn up on the first field walking back out
+// into the list, the way a turn down at the bottom of the list walked in.
+func TestScrollKeysWalkOutOfTheFocusedRecord(t *testing.T) {
 	m := screensModel()
 	m.height = 30
 	m.applyWorktreeInspection(worktreeInspectedMsg{dir: "", inspection: readWorktree(time.Now())})
@@ -88,9 +88,9 @@ func TestScrollKeysKeepTheFocusedRecord(t *testing.T) {
 	down := send(t, focused, "ctrl+n")
 	assert.Equal(t, 1, down.detailsCursor(down.hoveredDetails()), "a turn down is a field")
 
-	up := send(t, send(t, down, "ctrl+p"), "ctrl+p")
-	assert.True(t, up.isDetailsFocused(), "a turn up past the first field keeps the record")
+	up := send(t, down, "ctrl+p")
+	assert.True(t, up.isDetailsFocused(), "a turn up onto the first field keeps the record")
 	assert.Equal(t, 0, up.detailsCursor(up.hoveredDetails()))
 
-	assert.False(t, send(t, up, "k").isDetailsFocused(), "where the move key walks out")
+	assert.False(t, send(t, up, "ctrl+p").isDetailsFocused(), "and a turn up past it walks out")
 }

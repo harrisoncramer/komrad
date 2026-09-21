@@ -228,7 +228,7 @@ func detailsActions() actionSpec {
 			{
 				id:   actionColumnScroll,
 				keys: func(k config.Keybindings) []string { return concatKeys(k.Column.ScrollDown, k.Column.ScrollUp) },
-				run:  model.scrollDetailsCursor,
+				run:  model.moveDetailsCursor,
 			},
 			{
 				id:   actionFilterOpen,
@@ -328,23 +328,12 @@ func (detailsFilter) filterRows(m model) []filterRow {
 	})
 }
 
-// scrollDetailsCursor steps the field cursor and stops at the first field.
-func (m model) scrollDetailsCursor(pressed string) (tea.Model, tea.Cmd) {
-	held := m.hoveredDetails()
-	cursor := m.detailsCursor(held)
-	if isBound(pressed, m.keys.Column.ScrollDown) {
-		return m.setDetailsCursor(held, cursor+1), nil
-	}
-
-	return m.setDetailsCursor(held, cursor-1), nil
-}
-
 // moveDetailsCursor steps the field cursor, and an up press on the first field walks back out
 // into the list.
 func (m model) moveDetailsCursor(pressed string) (tea.Model, tea.Cmd) {
 	held := m.hoveredDetails()
 	cursor := m.detailsCursor(held)
-	if isBound(pressed, m.keys.Nav.Down) {
+	if isBound(pressed, m.keys.Nav.Down) || isBound(pressed, m.keys.Column.ScrollDown) {
 		return m.setDetailsCursor(held, cursor+1), nil
 	}
 
