@@ -23,13 +23,6 @@ type archiveScreen struct {
 	rows []agentRow
 }
 
-// enterArchive is another screen's way onto the archive.
-func (m model) enterArchive() (tea.Model, tea.Cmd) {
-	cmd := m.enter(screenArchive, screenTarget{})
-
-	return m, cmd
-}
-
 // enter lands on the agent the target names, remembering it as the focus for the listing the
 // refresh brings back.
 func (a *archiveScreen) enter(h host, s panelShared, target screenTarget) tea.Cmd {

@@ -1,436 +1,440 @@
 package ui
 
 import (
+	"slices"
+
 	"weave/config"
 	"weave/internal/ui/panel"
 
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-// agentsActions is the agents list as one table and the legend that names it.
-func agentsActions() actionSpec {
-	return actionSpec{
-		table:  agentsTable(),
-		legend: agentsLegend(),
+// actions is the agents list as one table and the legend that names it.
+func (a *agentsScreen) actions() screenActionSpec {
+	return screenActionSpec{
+		table:  a.table(),
+		legend: a.legend(),
 	}
 }
 
-func agentsTable() []action {
-	return append(agentsModeActions(), agentsRowActions()...)
+func (a *agentsScreen) table() []screenAction {
+	return append(a.modeActions(), a.rowActions()...)
 }
 
-// agentsModeActions are the keys that answer whatever the cursor is on.
-func agentsModeActions() []action {
-	list := agentsList()
+// modeActions are the keys that answer whatever the cursor is on.
+func (a *agentsScreen) modeActions() []screenAction {
+	list := a.list()
 
 	return append(list.actions(),
-		action{
+		screenAction{
 			id:   actionArchiveSelected,
 			keys: func(k config.Keybindings) []string { return k.Agents.Archive },
 			when: list.isSelecting,
-			run:  model.archiveChosenAgents,
+			run:  a.archiveChosen,
 		},
-		action{
+		screenAction{
 			id:   actionAgentShowHidden,
 			keys: func(k config.Keybindings) []string { return k.Agents.ShowHidden },
-			run:  func(m model, _ string) (tea.Model, tea.Cmd) { return m.toggleHiddenAgents() },
+			run:  a.toggleHidden,
 		},
-		action{
+		screenAction{
 			id:   actionAgentsBack,
 			keys: func(k config.Keybindings) []string { return k.Agents.Back },
-			when: isBrowsing,
-			run:  func(m model, _ string) (tea.Model, tea.Cmd) { return m, m.hide() },
+			when: list.isBrowsing,
+			run:  func(h host, _ panelShared, _ string) tea.Cmd { return h.hide() },
 		},
-		action{
+		screenAction{
 			id:   actionWorkflowNew,
 			keys: func(k config.Keybindings) []string { return k.Workflows.New },
-			when: isBrowsing,
-			run:  func(m model, _ string) (tea.Model, tea.Cmd) { return m.newWorkflowForm() },
+			when: list.isBrowsing,
+			run:  func(h host, _ panelShared, _ string) tea.Cmd { return newWorkflowForm(h) },
 		},
-		action{
+		screenAction{
 			id:   actionAgentSearch,
 			keys: func(k config.Keybindings) []string { return k.Agents.Search },
-			when: isBrowsing,
-			run:  func(m model, _ string) (tea.Model, tea.Cmd) { return m.enterSearch() },
+			when: list.isBrowsing,
+			run:  func(h host, _ panelShared, _ string) tea.Cmd { return h.enter(screenSearch, screenTarget{}) },
 		},
-		action{
+		screenAction{
 			id:   actionSchedulesOpen,
 			keys: func(k config.Keybindings) []string { return k.Schedules.Open },
-			when: isBrowsing,
-			run:  func(m model, _ string) (tea.Model, tea.Cmd) { return m, m.enter(screenSchedules, screenTarget{}) },
+			when: list.isBrowsing,
+			run:  func(h host, _ panelShared, _ string) tea.Cmd { return h.enter(screenSchedules, screenTarget{}) },
 		},
-		action{
+		screenAction{
 			id:   actionArchiveOpen,
 			keys: func(k config.Keybindings) []string { return k.Archive.Open },
-			when: isBrowsing,
-			run:  func(m model, _ string) (tea.Model, tea.Cmd) { return m.enterArchive() },
+			when: list.isBrowsing,
+			run:  func(h host, _ panelShared, _ string) tea.Cmd { return h.enter(screenArchive, screenTarget{}) },
 		},
-		action{
+		screenAction{
 			id:   actionWorktreesOpen,
 			keys: func(k config.Keybindings) []string { return k.Worktrees.Open },
-			when: isBrowsing,
-			run:  func(m model, _ string) (tea.Model, tea.Cmd) { return m.openWorktrees(m.hoveredAgentID()) },
+			when: list.isBrowsing,
+			run: func(h host, s panelShared, _ string) tea.Cmd {
+				return h.enter(screenWorktrees, screenTarget{agentID: a.hoveredAgentID(s)})
+			},
 		},
-		action{
+		screenAction{
 			id:   actionMarkJump,
 			keys: func(k config.Keybindings) []string { return k.Marks.Jump },
-			when: isBrowsing,
-			run:  func(m model, _ string) (tea.Model, tea.Cmd) { return m.beginMark(markPendingJump) },
+			when: list.isBrowsing,
+			run:  func(host, panelShared, string) tea.Cmd { return a.beginMark(markPendingJump) },
 		},
-		action{
+		screenAction{
 			id:   actionMarkSet,
 			keys: func(k config.Keybindings) []string { return k.Marks.Set },
-			when: isBrowsing,
-			run:  func(m model, _ string) (tea.Model, tea.Cmd) { return m.beginMark(markPendingSet) },
+			when: list.isBrowsing,
+			run:  func(host, panelShared, string) tea.Cmd { return a.beginMark(markPendingSet) },
 		},
 	)
 }
 
-// agentsRowActions are the keys that act on the row the cursor is on, a workflow or an agent and
-// never both.
-func agentsRowActions() []action {
-	return []action{
+// rowActions are the keys that act on the row the cursor is on, a workflow or an agent and never
+// both.
+func (a *agentsScreen) rowActions() []screenAction {
+	list := a.list()
+
+	return []screenAction{
 		{
 			id:   actionAgentNew,
 			keys: func(k config.Keybindings) []string { return k.Agents.New },
-			when: isBrowsing,
-			run: func(m model, _ string) (tea.Model, tea.Cmd) {
-				if workflow, ok := m.hoveredWorkflow(); ok {
-					return m.openNewAgent(&workflow)
+			when: list.isBrowsing,
+			run: func(h host, s panelShared, _ string) tea.Cmd {
+				if workflow, ok := a.hoveredWorkflow(s); ok {
+					return openNewAgent(h, &workflow)
 				}
 
-				return m.openNewAgent(m.enclosingWorkflow())
+				return openNewAgent(h, a.enclosingWorkflow(s))
 			},
 		},
 		{
 			id:   actionWorkflowAdopt,
 			keys: func(k config.Keybindings) []string { return k.Workflows.Adopt },
-			when: isHoveringWorkflow,
-			run:  onHoveredWorkflow(model.openAdoptOf),
+			when: a.isHoveringWorkflow,
+			run:  a.onHoveredWorkflow(func(h host, workflow panel.Workflow) tea.Cmd { return openAdopt(h, &workflow) }),
 		},
 		{
 			id:   actionWorkflowRename,
 			keys: func(k config.Keybindings) []string { return k.Workflows.Rename },
-			when: isHoveringWorkflow,
-			run:  onHoveredWorkflow(model.renameWorkflowForm),
+			when: a.isHoveringWorkflow,
+			run:  a.onHoveredWorkflow(renameWorkflowForm),
 		},
 		{
 			id:   actionWorkflowEdit,
 			keys: func(k config.Keybindings) []string { return k.Workflows.Edit },
-			when: isHoveringWorkflow,
-			run:  onHoveredWorkflow(model.editWorkflowForm),
+			when: a.isHoveringWorkflow,
+			run:  a.onHoveredWorkflow(editWorkflowForm),
 		},
 		{
 			id:   actionWorkflowArchive,
 			keys: func(k config.Keybindings) []string { return k.Workflows.Archive },
-			when: isHoveringWorkflow,
-			run:  onHoveredWorkflow(model.archiveWorkflowConfirm),
+			when: a.isHoveringWorkflow,
+			run:  a.onHoveredWorkflow(archiveWorkflowConfirm),
 		},
 		{
 			id:   actionAgentOpen,
 			keys: func(k config.Keybindings) []string { return k.Agents.Open },
-			when: isBrowsing,
-			run:  func(m model, _ string) (tea.Model, tea.Cmd) { return m.openHovered() },
+			when: list.isBrowsing,
+			run:  func(h host, s panelShared, _ string) tea.Cmd { return a.openHovered(h, s) },
 		},
 		{
 			id:   actionAgentPause,
 			keys: func(k config.Keybindings) []string { return k.Agents.Pause },
-			when: isHoveringAgent,
-			run:  onHoveredAgent(func(m model, item agentItem) (tea.Model, tea.Cmd) { return m.pauseAgent(item.agent) }),
+			when: a.isHoveringAgent,
+			run:  a.onHoveredAgent(func(h host, item agentItem) tea.Cmd { return pauseAgent(h, item.agent) }),
 		},
 		{
 			id:   actionAgentReleaseSilently,
 			keys: func(k config.Keybindings) []string { return k.Agents.ReleaseSilently },
-			when: isHeldAgent,
-			run: onHoveredAgent(func(m model, item agentItem) (tea.Model, tea.Cmd) {
-				return m.releaseInSilenceConfirm(item.agent)
-			}),
+			when: a.isHeldAgent,
+			run:  a.onHoveredAgent(func(h host, item agentItem) tea.Cmd { return releaseInSilenceConfirm(h, item.agent) }),
 		},
 		{
 			id:   actionAgentHide,
 			keys: func(k config.Keybindings) []string { return k.Agents.Hide },
-			when: isHoveringAgent,
-			run:  onHoveredAgent(func(m model, item agentItem) (tea.Model, tea.Cmd) { return m.hideAgent(item.agent) }),
+			when: a.isHoveringAgent,
+			run:  a.onHoveredAgent(func(h host, item agentItem) tea.Cmd { return hideAgent(h, item.agent) }),
 		},
 		{
 			id:   actionGitMenu,
 			keys: func(k config.Keybindings) []string { return k.Git.Open },
-			when: isHoveringAgent,
-			run:  func(m model, _ string) (tea.Model, tea.Cmd) { return m.openGitMenu() },
+			when: a.isHoveringAgent,
+			run:  a.onHoveredAgentIn(openGitMenu),
 		},
 		{
 			id:   actionAgentReview,
 			keys: func(k config.Keybindings) []string { return k.Agents.Review },
-			when: isHoveringAgent,
-			run:  onHoveredAgent(func(m model, item agentItem) (tea.Model, tea.Cmd) { return m.enterReview(item.agent) }),
+			when: a.isHoveringAgent,
+			run: a.onHoveredAgent(func(h host, item agentItem) tea.Cmd {
+				return h.enter(screenReview, screenTarget{agentID: item.agent.ID})
+			}),
 		},
 		{
 			id:   actionAgentChild,
 			keys: func(k config.Keybindings) []string { return k.Agents.Child },
-			when: isHoveringAgent,
-			run:  onHoveredAgent(func(m model, item agentItem) (tea.Model, tea.Cmd) { return m.openNewChild(item.agent) }),
+			when: a.isHoveringAgent,
+			run:  a.onHoveredAgent(func(h host, item agentItem) tea.Cmd { return openNewChild(h, item.agent) }),
 		},
 		{
 			id:   actionAgentRename,
 			keys: func(k config.Keybindings) []string { return k.Agents.Rename },
-			when: isHoveringAgent,
-			run:  onHoveredAgent(func(m model, item agentItem) (tea.Model, tea.Cmd) { return m.openRename(item.agent) }),
+			when: a.isHoveringAgent,
+			run:  a.onHoveredAgent(func(h host, item agentItem) tea.Cmd { return openRename(h, item.agent) }),
 		},
 		{
 			id:   actionAgentRetry,
 			keys: func(k config.Keybindings) []string { return k.Agents.Retry },
-			when: isRetryableAgent,
-			run:  onHoveredAgent(func(m model, item agentItem) (tea.Model, tea.Cmd) { return m.openRetryForm(item.agent) }),
+			when: a.isRetryableAgent,
+			run:  a.onHoveredAgent(func(h host, item agentItem) tea.Cmd { return openRetryForm(h, item.agent) }),
 		},
 		{
 			id:   actionAgentArchive,
 			keys: func(k config.Keybindings) []string { return k.Agents.Archive },
-			when: isHoveringAgent,
-			run: onHoveredAgent(func(m model, item agentItem) (tea.Model, tea.Cmd) {
-				return m.archiveAgentsConfirm([]panel.Agent{item.agent})
+			when: a.isHoveringAgent,
+			run: a.onHoveredAgentIn(func(h host, s panelShared, item agentItem) tea.Cmd {
+				return confirmArchiveAgents(h, s.listing.liveAgents(), []panel.Agent{item.agent})
 			}),
 		},
 	}
 }
 
-func isBrowsing(m model) bool {
-	return agentsList().isBrowsing(m)
+func (a *agentsScreen) isBrowsing(s panelShared) bool {
+	return a.list().isBrowsing(s)
 }
 
-func isHoveringWorkflow(m model) bool {
-	_, ok := m.hoveredWorkflow()
+func (a *agentsScreen) isHoveringWorkflow(s panelShared) bool {
+	_, ok := a.hoveredWorkflow(s)
 
-	return isBrowsing(m) && ok
+	return a.isBrowsing(s) && ok
 }
 
-func isHoveringAgent(m model) bool {
-	_, ok := m.hoveredWorkflow()
+func (a *agentsScreen) isHoveringAgent(s panelShared) bool {
+	_, ok := a.hoveredWorkflow(s)
 
-	return isBrowsing(m) && !ok
+	return a.isBrowsing(s) && !ok
 }
 
 // isHeldAgent reports whether the row under the cursor is an agent somebody has paused.
-func isHeldAgent(m model) bool {
-	item, ok := m.selectedAgent()
+func (a *agentsScreen) isHeldAgent(s panelShared) bool {
+	item, ok := a.selectedAgent(s)
 
-	return isHoveringAgent(m) && ok && item.agent.HeldAt != nil
+	return a.isHoveringAgent(s) && ok && item.agent.HeldAt != nil
 }
 
-func isRetryableAgent(m model) bool {
-	item, ok := m.selectedAgent()
+func (a *agentsScreen) isRetryableAgent(s panelShared) bool {
+	item, ok := a.selectedAgent(s)
 
-	return isHoveringAgent(m) && ok && item.agent.State == panel.StateFailedToCreate
+	return a.isHoveringAgent(s) && ok && item.agent.State == panel.StateFailedToCreate
 }
 
 // onHoveredWorkflow hands an arm the workflow under the cursor.
-func onHoveredWorkflow(fn func(model, panel.Workflow) (tea.Model, tea.Cmd)) func(model, string) (tea.Model, tea.Cmd) {
-	return func(m model, _ string) (tea.Model, tea.Cmd) {
-		workflow, ok := m.hoveredWorkflow()
+func (a *agentsScreen) onHoveredWorkflow(fn func(host, panel.Workflow) tea.Cmd) func(host, panelShared, string) tea.Cmd {
+	return func(h host, s panelShared, _ string) tea.Cmd {
+		workflow, ok := a.hoveredWorkflow(s)
 		if !ok {
-			return m, nil
+			return nil
 		}
 
-		return fn(m, workflow)
+		return fn(h, workflow)
 	}
 }
 
 // onHoveredAgent hands an arm the agent under the cursor.
-func onHoveredAgent(fn func(model, agentItem) (tea.Model, tea.Cmd)) func(model, string) (tea.Model, tea.Cmd) {
-	return func(m model, _ string) (tea.Model, tea.Cmd) {
-		return m.withSelectedAgent(func(item agentItem) (tea.Model, tea.Cmd) { return fn(m, item) })
+func (a *agentsScreen) onHoveredAgent(fn func(host, agentItem) tea.Cmd) func(host, panelShared, string) tea.Cmd {
+	return a.onHoveredAgentIn(func(h host, _ panelShared, item agentItem) tea.Cmd { return fn(h, item) })
+}
+
+// onHoveredAgentIn hands an arm the agent under the cursor and the listing it stands in.
+func (a *agentsScreen) onHoveredAgentIn(fn func(host, panelShared, agentItem) tea.Cmd) func(host, panelShared, string) tea.Cmd {
+	return func(h host, s panelShared, _ string) tea.Cmd {
+		item, ok := a.selectedAgent(s)
+		if !ok {
+			return nil
+		}
+
+		return fn(h, s, item)
 	}
 }
 
-func (m model) archiveChosenAgents(string) (tea.Model, tea.Cmd) {
-	return m.archiveAgentsConfirm(chosenAgents(m.tree.selected, m.agentRows()))
+func (a *agentsScreen) legend() []screenLegendRow {
+	return append(a.selectionLegend(), a.browsingLegend()...)
 }
 
-func (m model) openAdoptOf(workflow panel.Workflow) (tea.Model, tea.Cmd) {
-	return m.openAdopt(&workflow)
-}
-
-func agentsLegend() []legendRow {
-	return append(agentsSelectionLegend(), agentsBrowsingLegend()...)
-}
-
-// agentsSelectionLegend is what the screen names while a selection stands.
-func agentsSelectionLegend() []legendRow {
-	list := agentsList()
+// selectionLegend is what the screen names while a selection stands.
+func (a *agentsScreen) selectionLegend() []screenLegendRow {
+	list := a.list()
 
 	return append(list.selectionLegend(),
-		legendRow{
+		screenLegendRow{
 			of:   []actionID{actionArchiveSelected},
-			desc: func(model) string { return "archive all" },
+			desc: func(panelShared) string { return "archive all" },
 			show: list.isSelecting,
 		},
-		legendRow{
+		screenLegendRow{
 			of:   []actionID{actionAgentShowHidden},
-			desc: model.showHiddenDescOf,
+			desc: a.showHiddenDescOf,
 			show: list.isSelecting,
 		},
 	)
 }
 
-// agentsBrowsingLegend is the ordinary legend, in reading order.
-func agentsBrowsingLegend() []legendRow {
-	return append([]legendRow{
+// browsingLegend is the ordinary legend, in reading order.
+func (a *agentsScreen) browsingLegend() []screenLegendRow {
+	return slices.Concat([]screenLegendRow{
 		{
 			of:    []actionID{actionAgentOpen},
-			desc:  func(model) string { return "open" },
-			show:  isBrowsing,
+			desc:  func(panelShared) string { return "open" },
+			show:  a.isBrowsing,
 			strip: true,
 		},
 		{
 			of:   []actionID{actionWorkflowAdopt},
-			desc: func(model) string { return "adopt a branch or pr" },
+			desc: func(panelShared) string { return "adopt a branch or pr" },
 		},
 		{
 			of:   []actionID{actionSelectToggle},
-			desc: agentsList().toggleDesc,
-			show: isBrowsing,
+			desc: a.list().toggleDesc,
+			show: a.isBrowsing,
 		},
 		{
 			of:   []actionID{actionGitMenu},
-			desc: func(model) string { return "git actions" },
-			show: isHoveringAgent,
+			desc: func(panelShared) string { return "git actions" },
+			show: a.isHoveringAgent,
 		},
 		// The review key is drawn for every agent, whether or not it answers for the one hovered.
 		{
 			of:   []actionID{actionAgentReview},
-			desc: func(model) string { return "review diff" },
-			show: isHoveringAgent,
+			desc: func(panelShared) string { return "review diff" },
+			show: a.isHoveringAgent,
 		},
 		{
 			of:   []actionID{actionAgentPause},
-			desc: model.pauseDesc,
-			show: isHoveringAgent,
+			desc: a.pauseDesc,
+			show: a.isHoveringAgent,
 		},
 		{
 			of:   []actionID{actionAgentReleaseSilently},
-			desc: func(model) string { return "unpause in silence" },
-			show: isHeldAgent,
+			desc: func(panelShared) string { return "unpause in silence" },
+			show: a.isHeldAgent,
 		},
 		{
 			of:   []actionID{actionMarkSet},
-			desc: func(model) string { return "set mark" },
-			show: isBrowsing,
+			desc: func(panelShared) string { return "set mark" },
+			show: a.isBrowsing,
 		},
 		{
 			of:   []actionID{actionMarkJump},
-			desc: func(model) string { return "jump to mark" },
-			show: isBrowsing,
+			desc: func(panelShared) string { return "jump to mark" },
+			show: a.isBrowsing,
 		},
 		{
 			of:   []actionID{actionAgentHide, actionAgentShowHidden},
-			desc: model.hideDesc,
-			show: isHoveringAgent,
+			desc: a.hideDesc,
+			show: a.isHoveringAgent,
 		},
 		{
 			of:   []actionID{actionAgentShowHidden},
-			desc: model.showHiddenDescOf,
-			show: isHoveringWorkflow,
+			desc: a.showHiddenDescOf,
+			show: a.isHoveringWorkflow,
 		},
 		{
 			of:   []actionID{actionAgentNew, actionWorkflowNew},
-			desc: func(model) string { return "new agent/workflow" },
-			show: isBrowsing,
+			desc: func(panelShared) string { return "new agent/workflow" },
+			show: a.isBrowsing,
 		},
 		{
 			of:   []actionID{actionAgentRetry},
-			desc: func(model) string { return "retry launch" },
-			show: isRetryableAgent,
+			desc: func(panelShared) string { return "retry launch" },
+			show: a.isRetryableAgent,
 		},
 		{
 			of:   []actionID{actionAgentChild},
-			desc: func(model) string { return "attach child" },
-			show: isHoveringAgent,
+			desc: func(panelShared) string { return "attach child" },
+			show: a.isHoveringAgent,
 		},
 		{
 			of:   []actionID{actionWorkflowRename},
-			desc: func(model) string { return "rename" },
+			desc: func(panelShared) string { return "rename" },
 		},
 		{
 			of:   []actionID{actionAgentRename},
-			desc: func(model) string { return "rename" },
-			show: isHoveringAgent,
+			desc: func(panelShared) string { return "rename" },
+			show: a.isHoveringAgent,
 		},
 		{
 			of:   []actionID{actionWorkflowEdit},
-			desc: func(model) string { return "edit" },
+			desc: func(panelShared) string { return "edit" },
 		},
 		{
 			of:   []actionID{actionWorkflowArchive, actionArchiveOpen},
-			desc: func(model) string { return "archive/archived agents" },
-			show: isHoveringWorkflow,
+			desc: func(panelShared) string { return "archive/archived agents" },
+			show: a.isHoveringWorkflow,
 		},
 		{
 			of:   []actionID{actionAgentArchive, actionArchiveOpen},
-			desc: func(model) string { return "archive/archived agents" },
-			show: isHoveringAgent,
+			desc: func(panelShared) string { return "archive/archived agents" },
+			show: a.isHoveringAgent,
 		},
 		{
 			of:   []actionID{actionAgentSearch},
-			desc: func(model) string { return "search" },
-			show: isBrowsing,
+			desc: func(panelShared) string { return "search" },
+			show: a.isBrowsing,
 		},
 		{
 			of:   []actionID{actionSchedulesOpen},
-			desc: func(model) string { return "schedules" },
-			show: isBrowsing,
+			desc: func(panelShared) string { return "schedules" },
+			show: a.isBrowsing,
 		},
 		{
 			of:   []actionID{actionWorktreesOpen},
-			desc: func(model) string { return "worktrees" },
-			show: isBrowsing,
+			desc: func(panelShared) string { return "worktrees" },
+			show: a.isBrowsing,
 		},
 		{
 			of:   []actionID{actionFilterOpen},
-			desc: model.filterDesc,
-			show: isBrowsing,
+			desc: filterDescOf,
+			show: a.isBrowsing,
 		},
 		{
 			of:   []actionID{actionFilterMatch},
-			desc: func(model) string { return "next/prev match" },
+			desc: func(panelShared) string { return "next/prev match" },
 		},
 		{
 			of:   []actionID{actionFilterClear},
-			desc: model.filterClearDesc,
+			desc: filterClearDescOf,
 		},
-	}, navLegend()...)
+	}, screenNavLegend())
 }
 
-func (m model) showHiddenDescOf() string {
-	return m.showHiddenDesc()
+func (a *agentsScreen) showHiddenDescOf(panelShared) string {
+	return a.showHiddenDesc()
+}
+
+func (a *agentsScreen) showHiddenDesc() string {
+	if a.showHidden {
+		return "put hidden away"
+	}
+
+	return "show hidden"
 }
 
 // pauseDesc names the pause key for what pressing it would do to the row under the cursor.
-func (m model) pauseDesc() string {
-	if item, ok := m.selectedAgent(); ok && item.agent.HeldAt != nil {
+func (a *agentsScreen) pauseDesc(s panelShared) string {
+	if item, ok := a.selectedAgent(s); ok && item.agent.HeldAt != nil {
 		return "unpause it"
 	}
 
 	return "pause it"
 }
 
-func (m model) hideDesc() string {
+func (a *agentsScreen) hideDesc(s panelShared) string {
 	hide := "hide"
-	if item, ok := m.selectedAgent(); ok && item.agent.Hidden {
+	if item, ok := a.selectedAgent(s); ok && item.agent.Hidden {
 		hide = "unhide"
 	}
 
-	return hide + "/" + m.showHiddenDesc()
-}
-
-func (m model) filterDesc() string {
-	if m.filter.isStanding() {
-		return m.filter.mode.String() + ": " + m.filter.query
-	}
-
-	return "search"
-}
-
-func (m model) filterClearDesc() string {
-	return "clear " + m.filter.mode.String()
+	return hide + "/" + a.showHiddenDesc()
 }
 
 func concatKeys(lists ...[]string) []string {
@@ -440,19 +444,4 @@ func concatKeys(lists ...[]string) []string {
 	}
 
 	return out
-}
-
-// hoveredAgentID is the agent under the cursor, or the orchestrator behind a hovered workflow.
-func (m model) hoveredAgentID() string {
-	row, ok := m.hoveredRow()
-	if !ok {
-		return ""
-	}
-
-	item, held := row.paneItem()
-	if !held {
-		return ""
-	}
-
-	return item.agent.ID
 }

@@ -85,13 +85,8 @@ func (m *model) openForm(f formState) tea.Cmd {
 	return tea.Batch(m.form.form.Init(), formResized())
 }
 
-// openRedrawnForm puts up a form the panel can draw again from one builder.
-func (m model) openRedrawnForm(params openRedrawnFormParams) (tea.Model, tea.Cmd) {
-	return m, m.openForm(redrawnForm(params))
-}
-
 // redrawnForm is a form the panel can draw again from one builder.
-func redrawnForm(params openRedrawnFormParams) formState {
+func redrawnForm(params redrawnFormParams) formState {
 	return formState{
 		kind:     params.Kind,
 		update:   model.updateForm,
@@ -101,8 +96,8 @@ func redrawnForm(params openRedrawnFormParams) formState {
 	}
 }
 
-// openRedrawnFormParams is what a redrawn form is opened from.
-type openRedrawnFormParams struct {
+// redrawnFormParams is what a redrawn form is opened from.
+type redrawnFormParams struct {
 	Kind     formKind
 	Build    func(model) (*huh.Form, []string)
 	Editable []editableText

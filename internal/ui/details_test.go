@@ -66,7 +66,7 @@ func TestDetailsDrawTheHoveredRow(t *testing.T) {
 	assert.Contains(t, m.detailsView(), "pr")
 	assert.Contains(t, m.detailsView(), "https://github.com/o/r/pu")
 
-	m.tree.cursor = 0
+	m.agents.cursor = 0
 
 	header := m.detailsView()
 
@@ -82,7 +82,7 @@ func TestDetailsNameWhatItIsAbout(t *testing.T) {
 
 	assert.Equal(t, "auth", fieldValue(t, m.hoveredDetails(), "name"))
 
-	m.tree.cursor = 0
+	m.agents.cursor = 0
 
 	assert.Equal(t, "backend", fieldValue(t, m.hoveredDetails(), "name"))
 }
@@ -93,7 +93,8 @@ func TestDetailsFollowTheCursor(t *testing.T) {
 	m := detailsModel(&recordingTmux{})
 	m.details.row, m.details.cursor = m.hoveredDetails().id, 3
 
-	moved, _ := agentsList().move(m, -1)
+	moved := m
+	moved.agents.list().move(&moved, moved.shared(), -1)
 
 	assert.Equal(t, 0, moved.detailsCursor(moved.hoveredDetails()))
 }
@@ -109,14 +110,14 @@ func TestDetailsFocusTakesTheKeys(t *testing.T) {
 	moved := send(t, focused, "j")
 
 	assert.Equal(t, 1, moved.details.cursor)
-	assert.Equal(t, 1, moved.tree.cursor, "the row under the list cursor does not move")
+	assert.Equal(t, 1, moved.agents.cursor, "the row under the list cursor does not move")
 
 	back := send(t, moved, "ctrl+t")
 	require.False(t, back.details.focused)
 
 	listMoved := send(t, back, "k")
 
-	assert.Equal(t, 0, listMoved.tree.cursor, "the list has the keys again")
+	assert.Equal(t, 0, listMoved.agents.cursor, "the list has the keys again")
 }
 
 // TestDetailsCopyTheFieldUnderTheCursor covers the copy key, which takes the value rather
@@ -160,7 +161,7 @@ func TestDetailsKeysStandDownForTheRow(t *testing.T) {
 func TestDetailsFocusNeedsFieldsToPointAt(t *testing.T) {
 	m := detailsModel(&recordingTmux{})
 	m.listing = listing{}
-	m.tree = treeState{}
+	m.agents = agentsScreen{}
 
 	focused := send(t, m, "ctrl+t")
 
@@ -193,7 +194,7 @@ func TestDetailsKeysActOnTheFieldOnScreen(t *testing.T) {
 	clip := &fakeClipboard{}
 	m := detailsModel(&recordingTmux{})
 	m.clip = clip
-	m.tree.placed = true
+	m.agents.placed = true
 
 	focused := send(t, m, "ctrl+t")
 	down := send(t, send(t, send(t, focused, "j"), "j"), "j")
@@ -469,7 +470,7 @@ func assertKeysWithTheList(t *testing.T, m model) {
 
 	moved := send(t, m, "j")
 
-	assert.Equal(t, 2, moved.tree.cursor, "the list answers movement")
+	assert.Equal(t, 2, moved.agents.cursor, "the list answers movement")
 	assert.Equal(t, m.details.cursor, moved.details.cursor, "no cursor runs down fields that are not drawn")
 	assert.NotContains(t, m.renderHelp(m.agentHelp()), "back to the list", "and the legend is its own")
 }
@@ -518,7 +519,7 @@ func TestDetailsFocusStaysWithTheListAfterAShrink(t *testing.T) {
 
 	moved := send(t, grown, "j")
 
-	assert.Equal(t, 2, moved.tree.cursor, "the keys are still on the list")
+	assert.Equal(t, 2, moved.agents.cursor, "the keys are still on the list")
 
 	back := send(t, moved, "ctrl+t")
 	assert.True(t, back.isDetailsFocused())

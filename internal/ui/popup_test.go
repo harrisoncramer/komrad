@@ -458,7 +458,7 @@ func TestFocusKeyGivenBackByAForm(t *testing.T) {
 
 	m.holdFocusKey()
 
-	opened, _ := m.openRename(m.listing.agents[0].agent)
+	opened := m.openRename(m.listing.agents[0].agent)
 	m = asModel(t, opened)
 	m.holdFocusKey()
 
@@ -482,7 +482,7 @@ func TestFocusKeyGivenBackByAHeaderRow(t *testing.T) {
 
 	m.holdFocusKey()
 
-	m.tree.cursor = 0
+	m.agents.cursor = 0
 	m.stageSelection()
 	require.True(t, m.frame.IsSolo(), "a header row takes the window")
 	require.Equal(t, "%9", m.frame.GuestPane(), "with the agent's pane left parked behind it")

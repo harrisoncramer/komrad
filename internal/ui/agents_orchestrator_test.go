@@ -131,7 +131,7 @@ func TestOrchestratorIsNotARowOfItsOwn(t *testing.T) {
 			}, alive: true}
 
 			m := orchestratorModel(&recordingOrchestrators{}, orchestratorItem(), worker)
-			m.tree.showHidden = tt.showHidden
+			m.agents.showHidden = tt.showHidden
 
 			rows := m.agentRows()
 			require.Len(t, rows, 2, "the workflow header and the one agent under it")
@@ -184,7 +184,7 @@ func TestWorkflowRowShowsItsOrchestrator(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			m := orchestratorModel(&recordingOrchestrators{}, tt.items...)
-			m.tree.cursor = 0
+			m.agents.cursor = 0
 
 			wantDoc := tt.wantDoc
 			if wantDoc == failedOrchestratorDoc {
@@ -220,7 +220,7 @@ func TestTalkingToAWorkflowStartsItsOrchestrator(t *testing.T) {
 	agents := &recordingOrchestrators{}
 
 	m := orchestratorModel(agents)
-	m.tree.cursor = 0
+	m.agents.cursor = 0
 
 	pressed, cmd := m.Update(keyMsg("enter"))
 	written, ok := pressed.(model)
@@ -237,7 +237,7 @@ func TestFocusAloneStartsNothing(t *testing.T) {
 	agents := &recordingOrchestrators{}
 
 	m := orchestratorModel(agents)
-	m.tree.cursor = 1
+	m.agents.cursor = 1
 
 	// A cursor move driven the same way the key is, so a start hiding behind focus would be
 	// collected and sent rather than dropped.
@@ -247,7 +247,7 @@ func TestFocusAloneStartsNothing(t *testing.T) {
 
 	settle(t, written, cmd)
 
-	assert.Zero(t, written.tree.cursor, "the cursor did land on the workflow row")
+	assert.Zero(t, written.agents.cursor, "the cursor did land on the workflow row")
 	assert.Empty(t, agents.started)
 }
 
@@ -258,13 +258,13 @@ func TestASearchHitLandsOnTheWorkflowRow(t *testing.T) {
 	}, alive: true}
 
 	m := orchestratorModel(&recordingOrchestrators{}, worker, orchestratorItem())
-	m.tree.cursor = 1
+	m.agents.cursor = 1
 
-	m.revealAgent("o1")
+	m.agents.revealAgent(m.shared(), "o1")
 
 	rows := m.agentRows()
-	require.True(t, rows[m.tree.cursor].header, "the cursor lands on the workflow it stands behind")
-	assert.Equal(t, "w1", rows[m.tree.cursor].workflow.ID)
+	require.True(t, rows[m.agents.cursor].header, "the cursor lands on the workflow it stands behind")
+	assert.Equal(t, "w1", rows[m.agents.cursor].workflow.ID)
 }
 
 // TestFlatTreeLeavesAFoldedOrchestratorOut covers a flat list drawing no row for the
@@ -307,7 +307,7 @@ func TestArchiveDrawsAnOrchestratorOfItsOwn(t *testing.T) {
 // both read, which a header row used to answer with nothing.
 func TestTheWorkflowRowNamesItsOrchestratorsPane(t *testing.T) {
 	m := orchestratorModel(&recordingOrchestrators{}, orchestratorItem())
-	m.tree.cursor = 0
+	m.agents.cursor = 0
 
 	pane, harness := m.selectedAgentPane()
 	assert.Equal(t, "%9", pane)
@@ -362,5 +362,5 @@ func TestAnOrchestratorsChildStandsOnItsOwn(t *testing.T) {
 	require.Len(t, rows, 2, "the workflow header and the child standing under it")
 	assert.Equal(t, "a1", rows[1].item.agent.ID)
 	assert.False(t, rows[1].child, "it hangs off no row above it, since its parent draws none")
-	assert.Equal(t, 1, m.agentCount("w1"), "and the header counts the row it drew")
+	assert.Equal(t, 1, m.listing.agentCount("w1"), "and the header counts the row it drew")
 }

@@ -93,8 +93,10 @@ func (m model) route(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	// A mark binding owns the key after it, whatever that key is otherwise bound to.
-	if isKey && m.marks.pending != markPendingNone {
-		return m.readMark(key)
+	if isKey && m.agents.isMarkPending() {
+		cmd := m.agents.readMark(&m, m.shared(), key)
+
+		return m, cmd
 	}
 
 	if next, cmd, handled := m.routeAsyncMessage(msg); handled {

@@ -147,7 +147,17 @@ func (reviewAdapter) needs() screenNeeds {
 	return screenNeeds{}
 }
 
+// open reviews the agent the target names, or leaves the review as it stands.
 func (reviewAdapter) open(m model, target screenTarget) (tea.Model, tea.Cmd) {
+	if target.agentID != "" {
+		item, ok := m.listing.liveAgent(target.agentID)
+		if !ok {
+			return m, nil
+		}
+
+		return m.enterReview(item.agent)
+	}
+
 	m.enterScreen(screenReview)
 	cmd := m.review.enter(&m, m.shared(), target)
 

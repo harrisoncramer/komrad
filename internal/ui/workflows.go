@@ -13,30 +13,22 @@ import (
 	"github.com/charmbracelet/huh"
 )
 
-func (m model) returnToAgents() (tea.Model, tea.Cmd) {
-	m.enterScreen(screenAgents)
-	m.tree.cursor = clampCursor(m.tree.cursor, len(m.agentRows()))
-	m.stageSelection()
-
-	return m, nil
-}
-
-func (m model) newWorkflowForm() (tea.Model, tea.Cmd) {
+func newWorkflowForm(h host) tea.Cmd {
 	values := workflowFormValues{}
 
-	return m.openWorkflowConfigForm(&values, nil)
+	return openWorkflowConfigForm(h, &values, nil)
 }
 
-func (m model) renameWorkflowForm(workflow panel.Workflow) (tea.Model, tea.Cmd) {
+func renameWorkflowForm(h host, workflow panel.Workflow) tea.Cmd {
 	values := workflowFormValues{}
 
-	return m.openWorkflowRename(workflow, &values)
+	return openWorkflowRename(h, workflow, &values)
 }
 
-func (m model) openWorkflowRename(workflow panel.Workflow, values *workflowFormValues) (tea.Model, tea.Cmd) {
+func openWorkflowRename(h host, workflow panel.Workflow, values *workflowFormValues) tea.Cmd {
 	title := fmt.Sprintf("Rename %q to", workflow.Name)
 
-	return m.openRedrawnForm(openRedrawnFormParams{
+	return h.openForm(redrawnForm(redrawnFormParams{
 		Kind:  formWorkflow,
 		Build: func(m model) (*huh.Form, []string) { return workflowForm(title, values, formKeys()) },
 		Submit: func(m model) (tea.Model, tea.Cmd) {
@@ -55,22 +47,22 @@ func (m model) openWorkflowRename(workflow panel.Workflow, values *workflowFormV
 
 			return m, tea.Batch(cmd, m.holdForm())
 		},
-	})
+	}))
 }
 
-func (m model) editWorkflowForm(workflow panel.Workflow) (tea.Model, tea.Cmd) {
-	if fresh, err := m.api.getWorkflow(workflow.ID); err == nil && fresh != nil {
+func editWorkflowForm(h host, workflow panel.Workflow) tea.Cmd {
+	if fresh, err := h.client().getWorkflow(workflow.ID); err == nil && fresh != nil {
 		workflow = *fresh
 	}
 
 	values := workflowFormValuesFrom(workflow.Config())
 
-	return m.openWorkflowConfigForm(&values, &workflow)
+	return openWorkflowConfigForm(h, &values, &workflow)
 }
 
 // openWorkflowConfigForm puts up the form for a workflow's whole configuration, creating one
 // when target is nil and saving over the workflow it names otherwise.
-func (m model) openWorkflowConfigForm(values *workflowFormValues, target *panel.Workflow) (tea.Model, tea.Cmd) {
+func openWorkflowConfigForm(h host, values *workflowFormValues, target *panel.Workflow) tea.Cmd {
 	title := "New workflow name"
 	if target != nil {
 		title = "Workflow name"
@@ -86,7 +78,7 @@ func (m model) openWorkflowConfigForm(values *workflowFormValues, target *panel.
 		})
 	}
 
-	return m, m.openForm(formState{
+	return h.openForm(formState{
 		kind: formWorkflow,
 		update: func(m model, msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m.updateWorkflowForm(msg, values, build)
@@ -145,10 +137,10 @@ func (m model) getAvailableHooks() []hookChoice {
 	})
 }
 
-func (m model) archiveWorkflowConfirm(workflow panel.Workflow) (tea.Model, tea.Cmd) {
+func archiveWorkflowConfirm(h host, workflow panel.Workflow) tea.Cmd {
 	form, confirmed := archiveWorkflowForm(workflow.Name, formKeys())
 
-	return m, m.openForm(formState{
+	return h.openForm(formState{
 		kind:   formWorkflowArchive,
 		form:   form,
 		update: model.updateForm,
@@ -157,7 +149,7 @@ func (m model) archiveWorkflowConfirm(workflow panel.Workflow) (tea.Model, tea.C
 				return m, nil
 			}
 
-			m.releasePanes(m.agentsOf(workflow.ID))
+			m.releasePanes(m.listing.agentsOf(workflow.ID))
 
 			return m, m.writeCmd(
 				fmt.Sprintf("Could not archive workflow %q", workflow.Name),
@@ -168,9 +160,9 @@ func (m model) archiveWorkflowConfirm(workflow panel.Workflow) (tea.Model, tea.C
 }
 
 // agentsOf is the agents the last listing found inside a workflow.
-func (m model) agentsOf(workflowID string) []panel.Agent {
+func (l listing) agentsOf(workflowID string) []panel.Agent {
 	var held []panel.Agent
-	for _, item := range m.listing.agents {
+	for _, item := range l.agents {
 		if item.agent.WorkflowID == workflowID {
 			held = append(held, item.agent)
 		}

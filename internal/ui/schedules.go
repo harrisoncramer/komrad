@@ -152,7 +152,7 @@ func (w *schedulesScreen) newForm(h host, s panelShared) tea.Cmd {
 // openForm puts up the schedule form, creating a schedule when target is nil and saving over the
 // one it names otherwise.
 func (w *schedulesScreen) openForm(h host, values *panel.ScheduleConfig, target *panel.Schedule) tea.Cmd {
-	return h.openForm(redrawnForm(openRedrawnFormParams{
+	return h.openForm(redrawnForm(redrawnFormParams{
 		Kind: formSchedule,
 		Build: func(m model) (*huh.Form, []string) {
 			return scheduleForm(values, m.listing.workflows, formKeys())

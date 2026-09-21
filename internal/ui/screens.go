@@ -137,7 +137,7 @@ func (m model) active() screenModel {
 func (s screen) adapter() screenModel {
 	switch s {
 	case screenAgents:
-		return agentsScreen{}
+		return agentsAdapter{}
 	case screenSchedules:
 		return schedulesAdapter{}
 	case screenArchive:
@@ -155,19 +155,10 @@ func (s screen) adapter() screenModel {
 	return nil
 }
 
-// onKey hands a keypress to a handler still on the root and leaves every other message alone.
-func onKey(m model, msg tea.Msg, handle func(model, tea.KeyMsg) (tea.Model, tea.Cmd)) (tea.Model, tea.Cmd) {
-	key, ok := msg.(tea.KeyMsg)
-	if !ok {
-		return m, nil
-	}
-
-	return handle(m, key)
-}
-
 // host is what a screen asks of the root.
 type host interface {
 	writeCmd(summary string, write func(api) error) tea.Cmd
+	rowWriteCmd(summary string, write func(api) (written, error)) tea.Cmd
 	openingWriteCmd(summary string, write func(api) (*agentv1.Agent, error)) tea.Cmd
 	queuedCmd(summary string, queued message, write func(api) error) tea.Cmd
 	report(summary string, err error)
@@ -190,6 +181,13 @@ type host interface {
 	stageEditor(content layout.Content) string
 	unstageEditor()
 	isPaneAlive(pane string) bool
+
+	// The pane on the stage is the agents cursor's, wherever that cursor is asked for.
+	stageSelection()
+	selectGuest(pane string)
+
+	// A jump onto a row a filter took off the screen has the filter widened into a search.
+	widenFilter()
 
 	// The keys every list shares are the root's to answer.
 	takeTopPress(pressed string) bool
@@ -233,6 +231,18 @@ func (m *model) unstageEditor() {
 
 func (m *model) isPaneAlive(pane string) bool {
 	return m.tmux.IsPaneAlive(pane)
+}
+
+// selectGuest hands the keyboard to the pane on the stage when it is the one named.
+func (m *model) selectGuest(pane string) {
+	if guest := m.frame.GuestPane(); guest != "" && guest == pane {
+		m.tmux.SelectPane(pane)
+	}
+}
+
+// widenFilter turns a standing filter into a search, putting every row back on screen.
+func (m *model) widenFilter() {
+	m.filter.mode = filterModeSearch
 }
 
 // enter leaves whichever screen is up for the next, landing it on the target.
@@ -288,12 +298,19 @@ type chromeState struct {
 
 // shared is the root as a screen is allowed to see it.
 func (m *model) shared() panelShared {
+	s := m.unmeasured()
+	s.pane = m.paneWidth()
+
+	return s
+}
+
+// unmeasured is the root as a screen sees it before the column has been measured.
+func (m *model) unmeasured() panelShared {
 	return panelShared{
 		listing: m.listing,
 		keys:    m.keys,
 		width:   m.width,
 		height:  m.height,
-		pane:    m.paneWidth(),
 		chrome: chromeState{
 			details:      m.details,
 			filter:       m.filter,

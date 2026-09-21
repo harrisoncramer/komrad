@@ -1560,8 +1560,8 @@ func TestReviewSearchLeavesTheAgentsListAlone(t *testing.T) {
 	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
 	m = openReview(t, m)
 
-	m.tree.cursor = 1
-	m.tree.placed = true
+	m.agents.cursor = 1
+	m.agents.placed = true
 
 	m = typeReview(t, m, "/")
 	m = typeReview(t, m, "goodbye")
@@ -1570,8 +1570,8 @@ func TestReviewSearchLeavesTheAgentsListAlone(t *testing.T) {
 	assert.Empty(t, m.filter.query, "the pattern is the review's, not the panel's")
 	require.Len(t, m.agentRows(), 2, "so the agents list is still whole behind it")
 
-	m.placeTreeCursor(rowKeyAt(m.agentRows(), m.tree.cursor))
-	assert.Equal(t, 1, m.tree.cursor, "and a refresh leaves the cursor where it was")
+	m.placeTreeCursor(rowKeyAt(m.agentRows(), m.agents.cursor))
+	assert.Equal(t, 1, m.agents.cursor, "and a refresh leaves the cursor where it was")
 
 	// Enter puts the prompt away and keeps the pattern.
 	next, _ := m.route(tea.KeyMsg{Type: tea.KeyEnter})
@@ -1583,7 +1583,7 @@ func TestReviewSearchLeavesTheAgentsListAlone(t *testing.T) {
 	m = next.(model)
 
 	assert.Equal(t, screenAgents, m.screen)
-	assert.Equal(t, 1, m.tree.cursor, "so esc lands back on the row it came from")
+	assert.Equal(t, 1, m.agents.cursor, "so esc lands back on the row it came from")
 }
 
 // TestMarkingAFileViewedFoldsItAway covers the toggle itself: the file goes down to its header,

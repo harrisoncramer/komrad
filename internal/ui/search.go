@@ -218,13 +218,6 @@ type previewResult struct {
 	content string
 }
 
-// enterSearch is the agents screen's way onto the search.
-func (m model) enterSearch() (tea.Model, tea.Cmd) {
-	cmd := m.enter(screenSearch, screenTarget{})
-
-	return m, cmd
-}
-
 // enter opens the search fresh, with the query line taking the keys.
 func (w *searchScreen) enter(h host, _ panelShared, _ screenTarget) tea.Cmd {
 	*w = searchScreen{typing: true}

@@ -174,17 +174,12 @@ func (m model) applyWarmupTick() (model, tea.Cmd) {
 // selectedAgentPane is the pane of the row the cursor is standing on, empty when that row has
 // none to give the stage.
 func (m model) selectedAgentPane() (pane, harnessID string) {
-	if m.screen != screenAgents || m.hasNoAgentPane() {
+	if m.screen != screenAgents {
 		return "", ""
 	}
 
-	r, ok := rowAt(m.agentRows(), m.tree.cursor)
+	item, ok := m.agents.hoveredPane(m.shared())
 	if !ok {
-		return "", ""
-	}
-
-	item, held := r.paneItem()
-	if !held {
 		return "", ""
 	}
 

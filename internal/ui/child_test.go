@@ -81,7 +81,7 @@ func TestHiddenParentTakesItsChildren(t *testing.T) {
 	assert.Equal(t, []string{"header:weave", "agent:fix-gutter"}, describeRows(rows))
 	assert.Equal(t, 3, rows[0].hiddenCount, "the tally stands in for the whole family")
 
-	m.tree.showHidden = true
+	m.agents.showHidden = true
 	assert.Equal(t, []string{
 		"header:weave",
 		"agent:author",
@@ -119,7 +119,7 @@ func TestChildIsNotRebaseable(t *testing.T) {
 // TestChildDetailsLeadWithTheParent pins the details naming the parent a child belongs to.
 func TestChildDetailsLeadWithTheParent(t *testing.T) {
 	m := familyTree()
-	m.tree.cursor = 2
+	m.agents.cursor = 2
 
 	held := m.agentsDetails()
 	require.Greater(t, len(held.fields), 1)
@@ -182,7 +182,7 @@ func TestDeletePromptSaysWhatGoesWithIt(t *testing.T) {
 // TestUnnamedChildren pins the count the prompt is given, which leaves out a child the caller
 // already named and another parent's children entirely.
 func TestUnnamedChildren(t *testing.T) {
-	pool := familyTree().liveAgents()
+	pool := familyTree().listing.liveAgents()
 
 	assert.Equal(t, 2, unnamedChildren(pool, []panel.Agent{{ID: "a1"}}))
 	assert.Equal(t, 1, unnamedChildren(pool, []panel.Agent{{ID: "a1"}, {ID: "a3", ParentAgentID: xptr.Ptr("a1")}}))
@@ -202,7 +202,7 @@ func TestUnnamedChildrenReadsTheArchivesOwnRows(t *testing.T) {
 	}
 
 	assert.Equal(t, 1, unnamedChildren(archived, []panel.Agent{{ID: "b1"}}))
-	assert.Equal(t, 0, unnamedChildren(familyTree().liveAgents(), []panel.Agent{{ID: "b1"}}),
+	assert.Equal(t, 0, unnamedChildren(familyTree().listing.liveAgents(), []panel.Agent{{ID: "b1"}}),
 		"the live listing knows nothing about them")
 }
 
@@ -244,7 +244,7 @@ func TestHiddenChildCountsOnItsParent(t *testing.T) {
 		}
 	}
 
-	m.tree.showHidden = true
+	m.agents.showHidden = true
 	assert.NotContains(t, ansi.Strip(m.agentsView()), "+1")
 }
 

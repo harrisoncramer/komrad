@@ -60,7 +60,7 @@ func heldModel(agents agentv1connect.AgentServiceClient, held *time.Time) model 
 			}, alive: true}},
 		},
 	}
-	m.tree.cursor = firstAgentRowIndex(m.agentRows())
+	m.agents.cursor = firstAgentRowIndex(m.agentRows())
 
 	return m
 }
@@ -130,7 +130,7 @@ func TestOpenKeyDoesNothingForHeldAgent(t *testing.T) {
 			}},
 		},
 	}
-	m.tree.cursor = firstAgentRowIndex(m.agentRows())
+	m.agents.cursor = firstAgentRowIndex(m.agentRows())
 	m.frame.Attach("%3")
 
 	pressed, _ := m.openAgent()

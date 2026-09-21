@@ -53,7 +53,7 @@ func TestAgentsDrawTheHoveredRowsNotes(t *testing.T) {
 	}}
 
 	// The folder header, which has no pane and never did.
-	m.tree.cursor = 0
+	m.agents.cursor = 0
 	m.stageSelection()
 
 	assert.True(t, m.frame.IsSolo(), "the panel takes the window when there is no pane to show")
@@ -72,12 +72,12 @@ func TestAgentsGiveTheWindowToARunningAgent(t *testing.T) {
 	tmux := &recordingTmux{}
 	m := sizedTo(infoModel(tmux), tmux)
 
-	m.tree.cursor = 0
+	m.agents.cursor = 0
 	m.stageSelection()
 	require.True(t, m.frame.IsSolo(), "the folder header has no pane")
 
 	// infoModel's one agent is alive with a pane of its own.
-	m.tree.cursor = 1
+	m.agents.cursor = 1
 	m.stageSelection()
 
 	assert.False(t, m.frame.IsSolo(), "a running agent's own pane gets the window back")
@@ -96,7 +96,7 @@ func TestAgentsSayWhyADormantAgentHasNoPane(t *testing.T) {
 		WorkflowID: "w1",
 	}}}
 
-	m.tree.cursor = 1
+	m.agents.cursor = 1
 	m.stageSelection()
 
 	assert.True(t, m.frame.IsSolo(), "a dormant agent has no pane, so the panel keeps the window")
@@ -109,11 +109,11 @@ func TestLeavingARunningAgentKeepsTheWindow(t *testing.T) {
 	tmux := &recordingTmux{}
 	m := sizedTo(infoModel(tmux), tmux)
 
-	m.tree.cursor = 1
+	m.agents.cursor = 1
 	m.stageSelection()
 	require.False(t, tmux.zoomed, "the agent's own pane has the stage to itself")
 
-	m.tree.cursor = 0
+	m.agents.cursor = 0
 	m.stageSelection()
 
 	assert.True(t, m.frame.IsSolo(), "the panel means to hold the window on a row with no pane")
@@ -127,7 +127,7 @@ func TestTheFrameCoversThePane(t *testing.T) {
 	m := sizedTo(infoModel(tmux), tmux)
 
 	// The running agent, whose own pane takes the window back.
-	m.tree.cursor = 1
+	m.agents.cursor = 1
 	m.stageSelection()
 
 	assert.Len(t, strings.Split(m.View(), "\n"), m.height, "the frame is as tall as the pane it is painted into")
@@ -162,7 +162,7 @@ func paneless(t *testing.T) (model, *recordingTmux) {
 		Name:    "backend",
 		Context: "notes",
 	}}
-	m.tree.cursor = 0
+	m.agents.cursor = 0
 	m.stageSelection()
 
 	require.True(t, m.frame.IsSolo(), "the folder header has no pane, so the panel holds the window")
@@ -510,7 +510,7 @@ func TestASplitAgentsListIsLaidOutAgainstItsOwnColumn(t *testing.T) {
 		State:      panel.StateIdle,
 		ScheduleID: xptr.Ptr("s1"),
 	}}}
-	m.tree.selected = selectAgents([]string{"a1"}...)
+	m.agents.selected = selectAgents([]string{"a1"}...)
 
 	split, ok := m.screenColumnSplit()
 	require.True(t, ok, "the hovered header has no pane, so the panel draws a document beside its list")

@@ -539,7 +539,7 @@ func TestEveryTabbedScreenTakesTheStrip(t *testing.T) {
 		{
 			name:   "the agents tree",
 			screen: screenAgents,
-			state:  func(m *model) *tabsState { return &m.tree.sort },
+			state:  func(m *model) *tabsState { return &m.agents.sort },
 			second: "activity",
 		},
 		{
@@ -630,8 +630,8 @@ func TestAgentsAndArchiveScreenGolden(t *testing.T) {
 			m.width, m.height = 44, 28
 			m = m.measuredAt(44)
 			m.screen = tt.screen
-			m.tree.cursor = 1
-			m.tree.sort, m.archive.sort = tt.state, tt.state
+			m.agents.cursor = 1
+			m.agents.sort, m.archive.sort = tt.state, tt.state
 
 			requireGolden(t, tt.name, m.active().view(m))
 		})

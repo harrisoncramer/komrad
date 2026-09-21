@@ -63,7 +63,7 @@ func TestPanelArchivesThroughTheService(t *testing.T) {
 	shown = settle(t, shown, shown.refreshCmd())
 	require.Equal(t, []string{"header:backend", "agent:login"}, describeRows(shown.agentRows()))
 
-	shown.tree.cursor = 1
+	shown.agents.cursor = 1
 
 	updated, _ := shown.Update(keyMsg(keys.Agents.Archive[0]))
 	pressed, ok := updated.(model)
@@ -120,8 +120,8 @@ func TestArchivingAWorkflowSendsItsPanesBack(t *testing.T) {
 	dragged := width(staged.agentPane)
 	require.NotEqual(t, configured, dragged, "the drag moved the divider off the configured width")
 
-	shown.tree.cursor = 0
-	require.True(t, isHoveringWorkflow(shown), "the cursor is on the folder the agent is in")
+	shown.agents.cursor = 0
+	require.True(t, shown.agents.isHoveringWorkflow(shown.shared()), "the cursor is on the folder the agent is in")
 
 	updated, _ := shown.Update(keyMsg(shown.keys.Workflows.Archive[0]))
 	pressed, ok := updated.(model)
@@ -194,7 +194,7 @@ func newStagedPanel(t *testing.T) *stagedPanel {
 	shown = settle(t, shown, shown.refreshCmd())
 	require.Equal(t, []string{"header:backend", "agent:login"}, describeRows(shown.agentRows()))
 
-	shown.tree.cursor = 1
+	shown.agents.cursor = 1
 	shown.stageSelection()
 	require.Equal(t, agentPane, frame.GuestPane(), "the agent's own pane is swapped into the slot")
 	require.Contains(t, panesInPanel(t, instance), agentPane)
@@ -267,11 +267,11 @@ func TestPanelKeepsTheWindowLeavingARunningAgent(t *testing.T) {
 		return instance.Tmux.Run("display-message", "-p", "-t", sidebar, "#{window_zoomed_flag}")
 	}
 
-	shown.tree.cursor = 1
+	shown.agents.cursor = 1
 	shown.stageSelection()
 	require.Equal(t, "0", zoomed(), "the agent's own pane has the stage to itself")
 
-	shown.tree.cursor = 0
+	shown.agents.cursor = 0
 	shown.stageSelection()
 
 	assert.True(t, shown.frame.IsSolo(), "the shown means to hold the window on its folder row")
@@ -342,7 +342,7 @@ func TestPanelIsTheSizeOfThePaneItWasGiven(t *testing.T) {
 
 	held := shown.View()
 
-	shown.tree.cursor = 0
+	shown.agents.cursor = 0
 	shown.stageSelection()
 
 	require.Equal(t, 341, paneWidth(), "the folder row takes the window")
@@ -354,7 +354,7 @@ func TestPanelIsTheSizeOfThePaneItWasGiven(t *testing.T) {
 	assert.Equal(t, paneWidth(), shown.width, "and once the report lands it is the size of the pane it now has")
 	assert.Equal(t, 341, lipgloss.Width(shown.View()), "so the frame covers it")
 
-	shown.tree.cursor = 1
+	shown.agents.cursor = 1
 	shown.stageSelection()
 
 	require.Equal(t, share, paneWidth(), "the agent's own pane takes it back")

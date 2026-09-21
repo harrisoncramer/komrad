@@ -1145,7 +1145,7 @@ func TestArchiveHandsTheWindowBack(t *testing.T) {
 		Pane:       "%9",
 		WorkflowID: "w1",
 	}, alive: true}}
-	m.tree.cursor = 1
+	m.agents.cursor = 1
 
 	left, _ := archiveAdapter{}.update(m, keyMsg("esc"))
 	m, ok = left.(model)

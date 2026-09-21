@@ -82,7 +82,7 @@ func TestFormHandsTheWindowBackOnClose(t *testing.T) {
 func TestConfirmDrawsBesideTheList(t *testing.T) {
 	m := formColumnModel(t)
 
-	opened, _ := m.archiveWorkflowConfirm(panel.Workflow{ID: "w1", Name: "backend"})
+	opened := m.archiveWorkflowConfirm(panel.Workflow{ID: "w1", Name: "backend"})
 	m = asModel(t, opened)
 
 	require.True(t, m.form.isActive())
@@ -102,7 +102,7 @@ func TestConfirmDrawsBesideTheList(t *testing.T) {
 func TestConfirmKeepsTheWholePaneOnANarrowWindow(t *testing.T) {
 	m := resizedTo(t, formColumnModel(t), nameWidth+columnFloor-1, 40)
 
-	opened, _ := m.archiveWorkflowConfirm(panel.Workflow{ID: "w1", Name: "backend"})
+	opened := m.archiveWorkflowConfirm(panel.Workflow{ID: "w1", Name: "backend"})
 	m = asModel(t, opened)
 
 	_, ok := m.columnSplit()
@@ -267,7 +267,7 @@ func TestFormRefusalIsReadableFromInsideTheForm(t *testing.T) {
 func TestRenameDrawsBesideTheList(t *testing.T) {
 	m := formColumnModel(t)
 
-	opened, _ := m.openRename(panel.Agent{ID: "a1", Name: "api-refactor"})
+	opened := m.openRename(panel.Agent{ID: "a1", Name: "api-refactor"})
 	m = asModel(t, opened)
 
 	require.True(t, m.form.isActive())

@@ -537,7 +537,7 @@ func TestJumpToSearchHit(t *testing.T) {
 			assert.Nil(t, client.restored, "nothing is taken out of the archive")
 			assert.Nil(t, client.resumed, "nothing is put back in a pane")
 
-			rows, cursor := got.agentRows(), got.tree.cursor
+			rows, cursor := got.agentRows(), got.agents.cursor
 			if got.screen == screenArchive {
 				got.applyArchive(got.listing.archivedAgents, nil, "")
 				rows, cursor = got.archive.listRows(got.shared()), got.archive.cursor
@@ -1426,8 +1426,8 @@ func TestSearchNameHitJumps(t *testing.T) {
 	landed := m
 
 	assert.Equal(t, screenAgents, landed.screen)
-	require.Less(t, landed.tree.cursor, len(rowNames(landed.agentRows())))
-	assert.Equal(t, "payouts", rowNames(landed.agentRows())[landed.tree.cursor])
+	require.Less(t, landed.agents.cursor, len(rowNames(landed.agentRows())))
+	assert.Equal(t, "payouts", rowNames(landed.agentRows())[landed.agents.cursor])
 }
 
 // TestNameMatches covers where a name is marked, which is the query as the name spells it rather

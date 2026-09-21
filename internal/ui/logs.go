@@ -57,7 +57,7 @@ func (m model) logsDesc() string {
 
 // logTarget is the agent the log keys read.
 func (m model) logTarget() (panel.Agent, bool) {
-	item, ok := m.selectedAgent()
+	item, ok := m.agents.selectedAgent(m.shared())
 	if !ok {
 		return panel.Agent{}, false
 	}

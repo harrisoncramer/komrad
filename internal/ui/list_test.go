@@ -45,7 +45,7 @@ func screensModel() model {
 		m.listing.schedules = append(m.listing.schedules, scheduleItem{schedule: panel.Schedule{Name: name}})
 	}
 
-	m.tree.cursor = total
+	m.agents.cursor = total
 	m.archive.cursor = total
 	m.schedules.cursor = total - 1
 	for i := range total {

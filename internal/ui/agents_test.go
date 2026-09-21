@@ -10,6 +10,7 @@ import (
 	"weave/internal/ui/panel"
 	"weave/lib/xslice"
 
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/x/ansi"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -53,7 +54,7 @@ func TestAgentsViewRowsOpenAtTheGutter(t *testing.T) {
 			},
 		},
 	}
-	m.tree.cursor = -1
+	m.agents.cursor = -1
 
 	rows := strings.Split(m.agentsView(), "\n")
 	// The focus and mark gutter cells, each a blank column and its separator.
@@ -188,7 +189,7 @@ func TestAgentRowsOrderFamiliesByTheColumn(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			m := agentsSortModel()
-			m.tree.sort = tt.state
+			m.agents.sort = tt.state
 
 			assert.Equal(t, tt.want, xslice.Map(m.agentRows(), agentRow.key))
 		})
@@ -224,7 +225,7 @@ func TestAgentRowsFlatOrderTheFamiliesAcrossWorkflows(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			m := agentsSortModel()
-			m.tree.sort = tt.state
+			m.agents.sort = tt.state
 
 			rows := m.agentRows()
 			assert.Equal(t, tt.want, xslice.Map(rows, agentRow.key))
@@ -242,19 +243,19 @@ func TestAgentRowsFlatOrderTheFamiliesAcrossWorkflows(t *testing.T) {
 // workflow while there is no header to hover.
 func TestFlatAgentsCursorKeepsItsRowAcrossTheFlip(t *testing.T) {
 	m := agentsSortModel()
-	m.tree.cursor = 7
-	require.Equal(t, "agent:echo", agentsList().hovered(m))
+	m.agents.cursor = 7
+	require.Equal(t, "agent:echo", m.agents.list().hovered(m.shared()))
 
 	flat := send(t, send(t, send(t, m, "f"), "shift+tab"), "j")
-	require.Equal(t, tabsState{focused: true, onGroup: true, flat: true}, flat.tree.sort, "the created order is untouched by the walk")
-	assert.Equal(t, "agent:echo", agentsList().hovered(flat))
-	assert.Equal(t, 5, flat.tree.cursor)
-	assert.False(t, isHoveringWorkflow(flat))
-	assert.Equal(t, "w2", flat.enclosingWorkflow().ID)
+	require.Equal(t, tabsState{focused: true, onGroup: true, flat: true}, flat.agents.sort, "the created order is untouched by the walk")
+	assert.Equal(t, "agent:echo", flat.agents.list().hovered(flat.shared()))
+	assert.Equal(t, 5, flat.agents.cursor)
+	assert.False(t, flat.agents.isHoveringWorkflow(flat.shared()))
+	assert.Equal(t, "w2", flat.agents.enclosingWorkflow(flat.shared()).ID)
 
 	grouped := send(t, flat, "k")
-	assert.Equal(t, "agent:echo", agentsList().hovered(grouped))
-	assert.Equal(t, 7, grouped.tree.cursor)
+	assert.Equal(t, "agent:echo", grouped.agents.list().hovered(grouped.shared()))
+	assert.Equal(t, 7, grouped.agents.cursor)
 }
 
 // TestAgentsTabsKeepTheCursorOnItsRow covers the cursor following its row as the tree is
@@ -262,25 +263,194 @@ func TestFlatAgentsCursorKeepsItsRowAcrossTheFlip(t *testing.T) {
 // and escape leaving the order standing with the cursor still on its row.
 func TestAgentsTabsKeepTheCursorOnItsRow(t *testing.T) {
 	m := agentsSortModel()
-	m.tree.cursor = 3
-	require.Equal(t, "agent:alpha", agentsList().hovered(m))
+	m.agents.cursor = 3
+	require.Equal(t, "agent:alpha", m.agents.list().hovered(m.shared()))
 
 	walked := send(t, send(t, m, "f"), "tab")
-	assert.Equal(t, tabsState{focused: true, focus: "activity"}, walked.tree.sort)
-	assert.Equal(t, 3, walked.tree.cursor)
+	assert.Equal(t, tabsState{focused: true, focus: "activity"}, walked.agents.sort)
+	assert.Equal(t, 3, walked.agents.cursor)
 
 	tabbed := send(t, walked, "j")
-	assert.Equal(t, tabsState{chosen: "activity", focused: true}, tabbed.tree.sort)
-	assert.Equal(t, "agent:alpha", agentsList().hovered(tabbed))
-	assert.Equal(t, 2, tabbed.tree.cursor)
+	assert.Equal(t, tabsState{chosen: "activity", focused: true}, tabbed.agents.sort)
+	assert.Equal(t, "agent:alpha", tabbed.agents.list().hovered(tabbed.shared()))
+	assert.Equal(t, 2, tabbed.agents.cursor)
 
 	named := send(t, send(t, tabbed, "tab"), "k")
-	assert.Equal(t, tabsState{chosen: "name", direction: tabUp, focused: true}, named.tree.sort)
-	assert.Equal(t, "agent:alpha", agentsList().hovered(named))
-	assert.Equal(t, 1, named.tree.cursor)
+	assert.Equal(t, tabsState{chosen: "name", direction: tabUp, focused: true}, named.agents.sort)
+	assert.Equal(t, "agent:alpha", named.agents.list().hovered(named.shared()))
+	assert.Equal(t, 1, named.agents.cursor)
 
 	left := send(t, named, "esc")
-	assert.Equal(t, tabsState{chosen: "name", direction: tabUp}, left.tree.sort)
-	assert.Equal(t, "agent:alpha", agentsList().hovered(left))
-	assert.Equal(t, 1, left.tree.cursor)
+	assert.Equal(t, tabsState{chosen: "name", direction: tabUp}, left.agents.sort)
+	assert.Equal(t, "agent:alpha", left.agents.list().hovered(left.shared()))
+	assert.Equal(t, 1, left.agents.cursor)
+}
+
+// agentRows is the tree as the agents screen would draw it.
+func (m model) agentRows() []agentRow {
+	return m.agents.rows(m.shared())
+}
+
+// updateAgents presses one key on the agents screen through the panel's door.
+func (m model) updateAgents(key tea.KeyMsg) (tea.Model, tea.Cmd) {
+	return agentsAdapter{}.update(m, key)
+}
+
+// agentHelp is the agents legend as the frame draws it.
+func (m model) agentHelp() keyMap {
+	return m.listHelp(m.agents.help(m.shared()), "the notes")
+}
+
+func (m model) agentsView() string {
+	return m.agents.view(m.shared())
+}
+
+func (m model) agentDoc() string {
+	return m.agents.doc(m.shared())
+}
+
+func (m model) hasNoAgentPane() bool {
+	return m.agents.hasNoAgentPane(m.shared())
+}
+
+func (m model) selectedAgent() (agentItem, bool) {
+	return m.agents.selectedAgent(m.shared())
+}
+
+func (m model) hoveredWorkflow() (panel.Workflow, bool) {
+	return m.agents.hoveredWorkflow(m.shared())
+}
+
+// placeTreeCursor is the agents screen taking the listing as it stands.
+func (m *model) placeTreeCursor(selected string) {
+	m.agents.apply(m.shared(), selected)
+}
+
+// agentsHeader is the list's header as the frame draws it.
+func (m model) agentsHeader() string {
+	return m.listChromeOf(m.agents.listParams(m.shared())).header(m)
+}
+
+func (m model) agentsListView() string {
+	return m.screenListView(m.agents.listParams(m.shared()))
+}
+
+func (m model) agentsDetails() details {
+	return m.agents.details(m.shared())
+}
+
+func (m model) deferStaging() (model, tea.Cmd) {
+	cmd := m.waitToStage()
+
+	return m, cmd
+}
+
+func (m model) readMark(key tea.KeyMsg) (tea.Model, tea.Cmd) {
+	cmd := m.agents.readMark(&m, m.shared(), key)
+
+	return m, cmd
+}
+
+func (m model) openAgent() (tea.Model, tea.Cmd) {
+	cmd := m.agents.openAgent(&m, m.shared())
+
+	return m, cmd
+}
+
+func (m model) toggleHiddenAgents() (tea.Model, tea.Cmd) {
+	cmd := m.agents.toggleHidden(&m, m.shared(), "")
+
+	return m, cmd
+}
+
+func (m model) enterArchive() (tea.Model, tea.Cmd) {
+	cmd := m.enter(screenArchive, screenTarget{})
+
+	return m, cmd
+}
+
+func (m model) enterSearch() (tea.Model, tea.Cmd) {
+	cmd := m.enter(screenSearch, screenTarget{})
+
+	return m, cmd
+}
+
+func (m model) openWorktrees(agentID string) model {
+	m.enter(screenWorktrees, screenTarget{agentID: agentID})
+
+	return m
+}
+
+// The forms the agents screen opens, each reached through the root as the tests here open them.
+
+func (m model) openAgentForm(workflow panel.Workflow, values *agentFormValues) model {
+	openAgentForm(&m, workflow, values)
+
+	return m
+}
+
+func (m model) openNewChild(parent panel.Agent) (tea.Model, tea.Cmd) {
+	cmd := openNewChild(&m, parent)
+
+	return m, cmd
+}
+
+func (m model) openChildForm(parent panel.Agent, values *agentFormValues) (tea.Model, tea.Cmd) {
+	cmd := openChildForm(&m, parent, values)
+
+	return m, cmd
+}
+
+func (m model) openRename(agent panel.Agent) model {
+	openRename(&m, agent)
+
+	return m
+}
+
+func (m model) openRenameForm(agent panel.Agent, name *string) model {
+	openRenameForm(&m, agent, name)
+
+	return m
+}
+
+func (m model) openAdoptForm(workflow panel.Workflow, values *adoptFormValues) (tea.Model, tea.Cmd) {
+	cmd := openAdoptForm(&m, workflow, values)
+
+	return m, cmd
+}
+
+func (m model) archiveAgentsConfirm(agents []panel.Agent) (tea.Model, tea.Cmd) {
+	cmd := confirmArchiveAgents(&m, m.listing.liveAgents(), agents)
+
+	return m, cmd
+}
+
+func (m model) newWorkflowForm() (tea.Model, tea.Cmd) {
+	cmd := newWorkflowForm(&m)
+
+	return m, cmd
+}
+
+func (m model) editWorkflowForm(workflow panel.Workflow) (tea.Model, tea.Cmd) {
+	cmd := editWorkflowForm(&m, workflow)
+
+	return m, cmd
+}
+
+func (m model) openWorkflowRename(workflow panel.Workflow, values *workflowFormValues) model {
+	openWorkflowRename(&m, workflow, values)
+
+	return m
+}
+
+func (m model) openWorkflowConfigForm(values *workflowFormValues, target *panel.Workflow) model {
+	openWorkflowConfigForm(&m, values, target)
+
+	return m
+}
+
+func (m model) archiveWorkflowConfirm(workflow panel.Workflow) model {
+	archiveWorkflowConfirm(&m, workflow)
+
+	return m
 }

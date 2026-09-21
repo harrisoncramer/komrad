@@ -35,12 +35,6 @@ type stageTickMsg struct {
 	move int
 }
 
-func (m model) deferStaging() (model, tea.Cmd) {
-	cmd := m.waitToStage()
-
-	return m, cmd
-}
-
 // waitToStage waits for the cursor to come to rest before the panes are moved.
 func (m *model) waitToStage() tea.Cmd {
 	m.staging++
@@ -101,20 +95,19 @@ func (m *model) sizeAgentWindows() {
 	}
 }
 
-// stageSelection puts the pane of whatever the cursor is standing on beside the list.
+// stageSelection puts the pane of whatever the agents cursor is standing on beside the list.
 func (m *model) stageSelection() {
 	m.frame.Begin()
 	defer m.afterStaging()
 
-	rows := m.agentRows()
-	m.placeColumn(screenAgents, rowKeyAt(rows, m.tree.cursor))
+	s := m.shared()
+	m.placeColumn(screenAgents, m.agents.list().hovered(s))
 	m.reconcileSolo()
 
-	r, ok := rowAt(rows, m.tree.cursor)
-	staged, held := r.paneItem()
+	staged, ok := m.agents.hoveredPane(s)
 
 	switch {
-	case ok && held && !m.hasNoAgentPane() && m.isPaneStageable(staged.agent.Pane, staged.agent.Harness):
+	case ok && m.isPaneStageable(staged.agent.Pane, staged.agent.Harness):
 		m.sizeGuestWindow(staged.agent.Pane)
 		m.frame.ShowGuest(staged.agent.Pane)
 	case m.frame.IsSolo() && m.isGuestLive():

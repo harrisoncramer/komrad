@@ -151,7 +151,7 @@ func (m *model) applyRefresh(result refreshResult) tea.Cmd {
 
 	m.reportUnreachable(result.err())
 
-	treeRow := rowKeyAt(m.agentRows(), m.tree.cursor)
+	treeRow := m.agents.list().hovered(m.shared())
 	archiveRow := m.archive.list().hovered(m.shared())
 	worktreeRow := m.worktrees.list().hovered(m.shared())
 	searchRow := m.search.list().hovered(m.shared())
@@ -168,7 +168,7 @@ func (m *model) applyRefresh(result refreshResult) tea.Cmd {
 		m.applyMarks(result.agentMarks, result.workflowMarks)
 	}
 	if result.workflowsErr == nil || result.agentsErr == nil {
-		m.placeTreeCursor(treeRow)
+		m.agents.apply(m.shared(), treeRow)
 	}
 	if result.schedulesErr == nil {
 		m.applySchedules(result.schedules)
@@ -432,11 +432,6 @@ func stampRelease(cmd tea.Cmd, let released) tea.Cmd {
 	}
 }
 
-type resumeParams struct {
-	summary string
-	id      string
-}
-
 // rowWriteCmd sends a write whose landing takes the panel to the row it made, and stamps the
 // result with the epoch so a held form knows whether the landing is the one it is waiting on.
 func (m *model) rowWriteCmd(summary string, write func(api) (written, error)) tea.Cmd {
@@ -486,12 +481,6 @@ func (m *model) paneWriteCmd(summary string, focus bool, write func(api) (*agent
 			harness: agent.GetHarness(),
 			focus:   focus,
 		}, nil
-	})
-}
-
-func (m *model) resumeCmd(params resumeParams) tea.Cmd {
-	return m.openingWriteCmd(params.summary, func(clients api) (*agentv1.Agent, error) {
-		return clients.resumeAgent(params.id)
 	})
 }
 
@@ -573,7 +562,7 @@ func (m model) applyWrite(result writeResult) (tea.Model, tea.Cmd) {
 	if result.written != nil && !walkedAway {
 		m.enterScreen(screenAgents)
 
-		m.tree.focus = result.written.row
+		m.agents.focusOn(result.written.row)
 		if result.written.pane != "" {
 			// The cursor only catches up on the next listing, so the window is given up on the
 			// strength of the pane itself rather than left zoomed over the thing being shown.

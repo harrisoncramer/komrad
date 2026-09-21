@@ -211,25 +211,6 @@ func (m model) globalHelp() []key.Binding {
 	return []key.Binding{m.helpBinding()}
 }
 
-func (m model) agentHelp() keyMap {
-	own := agentsActions().help(m)
-
-	// The keys every screen shares are appended rather than written into each screen's table.
-	full := slices.Concat(
-		own.full,
-		[]key.Binding{
-			m.tabsBinding(),
-			m.detailsBinding(),
-			m.messagesBinding(),
-		},
-		m.infoPaneHelp(),
-		[]key.Binding{m.columnScrollBinding("the notes")},
-		m.globalHelp(),
-	)
-
-	return keyMap{short: slices.Concat(own.short, m.globalHelp()), full: full}
-}
-
 func (m model) detailsBinding() key.Binding {
 	desc := "details"
 	if m.isDetailsFocused() {
@@ -237,14 +218,6 @@ func (m model) detailsBinding() key.Binding {
 	}
 
 	return binding(m.keys.Details.Focus, desc)
-}
-
-func (m model) showHiddenDesc() string {
-	if m.tree.showHidden {
-		return "put hidden away"
-	}
-
-	return "show hidden"
 }
 
 // columnScrollBinding is the pair that moves the block beside the list, drawn as one row since

@@ -12,7 +12,9 @@ lives on weave's own tmux server, so it does not show up in `tmux ls`.
 
 With engine files under the config's engines directory and no --engine given, it
 first asks which weave to open, this machine or one of them, and runs itself again
-on the one chosen. An engine running other code than this weave cannot be chosen.
+on the one chosen. Closing that panel comes back to the question, and closing the
+question closes the popup. An engine running other code than this weave cannot be
+chosen.
 
 The tmux plugin runs this as the popup's command, so it blocks until the client
 detaches, which is what closes the popup. Pressing the panel key again runs

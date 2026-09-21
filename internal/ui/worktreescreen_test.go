@@ -132,9 +132,7 @@ func TestOpenWorktreesLandsOnTheHoveredAgent(t *testing.T) {
 	m := worktreesModel()
 	m.screen = screenAgents
 
-	next, _ := m.openWorktrees("archived")
-	opened, ok := next.(model)
-	require.True(t, ok)
+	opened := m.openWorktrees("archived")
 
 	assert.Equal(t, screenWorktrees, opened.screen)
 	assert.Equal(t, "tree:/trees/archived", opened.worktrees.list().hovered(opened.shared()))
@@ -151,7 +149,7 @@ func TestEnterOnAWorktreeLandsOnItsAgent(t *testing.T) {
 		after, _ := pressWorktrees(t, m, keyMsg("J"))
 
 		assert.Equal(t, screenAgents, after.screen)
-		assert.Equal(t, "agent:live", agentsList().hovered(after))
+		assert.Equal(t, "agent:live", after.agents.list().hovered(after.shared()))
 	})
 
 	t.Run("archived", func(t *testing.T) {
@@ -680,9 +678,7 @@ func TestWorktreesScreenHoldsTheWindow(t *testing.T) {
 	m = sizedTo(m, tmux)
 	m.listing.agents[0].agent.Pane = "%7"
 
-	entered, _ := m.openWorktrees("live")
-	m, ok := entered.(model)
-	require.True(t, ok)
+	m = m.openWorktrees("live")
 
 	assert.Equal(t, 4, m.worktrees.cursor, "the cursor lands on the live agent's row")
 	assert.True(t, m.frame.IsSolo(), "the panel draws both halves itself")

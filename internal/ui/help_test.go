@@ -134,7 +134,7 @@ func TestARefusedExpansionSaysItShowedNothing(t *testing.T) {
 func TestALegendThePaneCannotHoldGivesWay(t *testing.T) {
 	m := helpModel()
 	m.helpExpanded = true
-	header := agentsChrome().header(m)
+	header := m.agentsHeader()
 	full := m.renderHelp(m.agentHelp())
 	m.height = strings.Count(header, "\n") + strings.Count(full, "\n")
 
@@ -154,7 +154,7 @@ func helpModel() model {
 		frame:   layout.New(&recordingTmux{}, config.DefaultLayout()),
 		height:  40,
 		width:   46,
-		listing: listing{workflows: []panel.Workflow{{ID: "w1", Name: "everything"}}, agents: []agentItem{{agent: panel.Agent{Name: "api-refactor", WorkflowID: "w1"}}}}, tree: treeState{rowCursor: rowCursor{cursor: 1}},
+		listing: listing{workflows: []panel.Workflow{{ID: "w1", Name: "everything"}}, agents: []agentItem{{agent: panel.Agent{Name: "api-refactor", WorkflowID: "w1"}}}}, agents: agentsScreen{rowCursor: rowCursor{cursor: 1}},
 	}
 }
 

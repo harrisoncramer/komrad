@@ -484,3 +484,12 @@ func (m model) matchAt(delta int) (string, bool) {
 
 	return "", false
 }
+
+// filterDesc names the filter key by the search standing in the list.
+func (m model) filterDesc() string {
+	return filterDescOf(m.shared())
+}
+
+func (m model) filterClearDesc() string {
+	return filterClearDescOf(m.shared())
+}
