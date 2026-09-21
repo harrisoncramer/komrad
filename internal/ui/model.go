@@ -13,6 +13,7 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"time"
 
 	"weave/config"
 	"weave/internal/browser"
@@ -25,6 +26,7 @@ import (
 	"weave/proto/gen/hook/v1/hookv1connect"
 	"weave/proto/gen/pullrequest/v1/pullrequestv1connect"
 	schedulev1connect "weave/proto/gen/schedule/v1/schedulev1connect"
+	"weave/proto/gen/watch/v1/watchv1connect"
 	"weave/proto/gen/workflow/v1/workflowv1connect"
 	"weave/proto/gen/worktree/v1/worktreev1connect"
 
@@ -34,7 +36,7 @@ import (
 )
 
 // Run launches the panel and blocks for the life of the persistent manager tmux session.
-func Run(deps Deps) error {
+func Run(ctx context.Context, deps Deps) error {
 	// Asking writes an OSC query to the tty and blocks on the reply with no deadline, so the
 	// answer is settled and pinned here before bubbletea owns the input and reads that reply.
 	isDark := lipgloss.HasDarkBackground()
@@ -45,11 +47,19 @@ func Run(deps Deps) error {
 	// it runs can reach it.
 	post := newPostbox()
 
-	program := tea.NewProgram(newModel(deps, isDark, post), tea.WithAltScreen(), tea.WithReportFocus())
+	m := newModel(deps, isDark, post)
+	program := tea.NewProgram(m, tea.WithAltScreen(), tea.WithReportFocus())
 	post.attach(program)
 
 	defer post.close()
 	defer deps.PopupWindow.ReleaseFocusKey()
+
+	if deps.Watch != nil && m.fatal() == nil {
+		watching, stop := context.WithCancel(ctx)
+		defer stop()
+
+		go watchListings(watching, deps.Watch, post)
+	}
 
 	if _, err := program.Run(); err != nil {
 		return fmt.Errorf("failed to run panel: %w", err)
@@ -101,6 +111,11 @@ func (p *postbox) resize(width, height int) {
 	case p.wake <- struct{}{}:
 	default:
 	}
+}
+
+// send hands the program a message from off its own loop.
+func (p *postbox) send(msg tea.Msg) {
+	p.program.Send(msg)
 }
 
 // deliver hands the newest size to the program, off the update the size was read in, which would
@@ -178,6 +193,7 @@ type Deps struct {
 	Hooks           hookv1connect.HookServiceClient
 	Worktrees       worktreev1connect.WorktreeServiceClient
 	PullRequests    pullrequestv1connect.PullRequestServiceClient
+	Watch           watchv1connect.WatchServiceClient
 	Keys            config.Keybindings
 	Layout          config.Layout
 	Engine          engine.Remote
@@ -189,18 +205,24 @@ type Deps struct {
 }
 
 type model struct {
-	popup           *PopupWindow
-	api             api
-	tmux            uiTmux
-	git             ReviewGit
-	browser         browser.Opener
-	harnessFrames   harnessFrameReader
-	binary          BinaryWatcher
-	frame           *layout.Frame
-	settings        PanelSettings
-	unreachable     error
-	epoch           int
-	pending         int
+	popup         *PopupWindow
+	api           api
+	tmux          uiTmux
+	git           ReviewGit
+	browser       browser.Opener
+	harnessFrames harnessFrameReader
+	binary        BinaryWatcher
+	frame         *layout.Frame
+	settings      PanelSettings
+	unreachable   error
+	epoch         int
+	pending       int
+	// watching says the watch has delivered a listing and the stream behind it is still open.
+	watching bool
+	// polledEpoch is the epoch of the last polled listing to land.
+	polledEpoch int
+	// polledAt is when the tick last listed everything.
+	polledAt        time.Time
 	configErr       error
 	startupErr      error
 	startupFindings []errui.Finding

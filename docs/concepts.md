@@ -68,6 +68,6 @@ The handler then translates that request into a call on the agents service, whic
 
 The store then writes the rows, inside one transaction if more than one domain is involved. The service also kills the panes through the tmux adapter.
 
-The store tells the watch broker which rows moved, and the broker streams each one, rendered as the listing would render it, to every panel holding the watch open. A panel that is not yet on the watch learns about it on its next refresh, up to a second later. If the call failed, the error is reported on the panel's screen and nothing was written.
+The service publishes the rows it moved, and the panel, which holds a watch stream open, replaces them in the listing it draws from. Every fifteen seconds it lists everything anyway, as a check on the watch. If the call failed, the error is reported on the panel's screen and nothing was written.
 
 The process is similar for an agent doing the same thing: the call may come over MCP, but eventually it still reaches the same validators, services logic, and database transaction code.

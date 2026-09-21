@@ -76,19 +76,28 @@ the keybindings, the dimensions of its own pane.
 
 ## How data arrives
 
-The panel polls. Every second a refresh fires, lists agents, workflows, and schedules
-concurrently, and hands the results back as one message. Nothing pushes to the panel and
-nothing about an agent is discovered here: the service watches the panes and writes what it
-saw, and the panel reads rows like any other client.
+The panel is told, and it also asks. It holds the service's watch stream open for its whole
+life: the stream opens with a snapshot of the agents, workflows and schedules, then carries one
+row per change, and the client in internal/client keeps the three listings up to date from it
+and hands them over, whole, as the same message a poll produces. A stream that closes or goes
+quiet is opened again and the next snapshot replaces what the last stream built. A tick fires
+every second regardless, and it lists everything on every tick until the watch has delivered,
+every fifteen seconds while it does, and on every tick on a screen whose listing the watch does
+not carry, which the archive and the worktrees are. Where a poll disagrees with what the watch
+had built it says so at debug level. Nothing about an agent is discovered here: the service
+watches the panes and writes what it saw, and the panel takes rows like any other client.
 
 Two guards keep that from fighting with what the user is doing.
 
-Each write bumps an epoch, and a listing carries the epoch it was requested under. A pass
-that read the store before a write landed is dropped whole rather than putting the write's
-effect back on screen.
+Each write bumps an epoch, and a polled listing carries the epoch it was requested under. A
+pass that read the store before a write landed is dropped whole rather than putting the
+write's effect back on screen. A listing the watch built is as fresh as the last event on the
+stream, so it takes the epoch it lands under instead.
 
-While any write is in flight the periodic refresh stands down, since it would read rows the
-write is about to replace, and a write re-lists as it lands anyway.
+While any write is in flight the poll stands down, since it would read rows the write is about
+to replace, and a write re-lists as it lands anyway. The watch's listings are left unapplied
+from the write until that re-list has landed, since one built before the write committed can
+arrive after the write's own result.
 
 Cursors are read off the trees still on screen before new rows are applied, then placed again
 by the row they were on rather than the index that row happened to be drawn at. Either

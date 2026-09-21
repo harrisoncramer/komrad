@@ -40,7 +40,9 @@ type hoverState struct {
 }
 
 type refreshResult struct {
-	epoch                int
+	epoch int
+	// watched says the watch built this listing rather than the poll.
+	watched              bool
 	agents               []agentItem
 	agentsErr            error
 	workflows            []panel.Workflow
