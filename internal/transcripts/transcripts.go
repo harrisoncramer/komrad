@@ -1,4 +1,4 @@
-package agents
+package transcripts
 
 import (
 	"context"
@@ -21,6 +21,10 @@ type transcriptReadWriter interface {
 type agentSessionReadWriter interface {
 	ListForTranscriptSync(ctx context.Context) ([]agentstore.Agent, error)
 	SetSessionID(ctx context.Context, id, sessionID string) error
+}
+
+type harnessGetter interface {
+	GetByID(id string) (harness.Harness, error)
 }
 
 type TranscriptSyncer struct {

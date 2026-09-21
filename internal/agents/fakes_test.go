@@ -292,7 +292,6 @@ type fakeHarness struct {
 	mu         sync.Mutex
 	launches   []harness.Launch
 	commandErr error
-	found      string
 	id         string
 
 	// noSession stands in for Codex, which takes no session id on the command line.
@@ -363,9 +362,7 @@ func composingLines(held string) []string {
 
 func (f *fakeHarness) LogPath(string) string { return "" }
 
-func (f *fakeHarness) FindSession(string) (string, error) {
-	return f.found, nil
-}
+func (f *fakeHarness) FindSession(string) (string, error) { return "", nil }
 
 func (f *fakeHarness) ReadLog(string, int64) (harness.LogRead, error) {
 	return harness.LogRead{}, nil

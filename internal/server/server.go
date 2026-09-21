@@ -171,10 +171,9 @@ func NewServer(ctx context.Context, params NewServerParams) (*Server, error) {
 
 	srv.Periodic = jobs.NewRiverPeriodic(srv.Jobs.PeriodicJobs())
 	srv.Loops = buildLoops(buildLoopsParams{
-		Harnesses: params.Harnesses,
-		Stores:    st,
-		Services:  svc,
-		Periodic:  srv.Periodic,
+		Stores:   st,
+		Services: svc,
+		Periodic: srv.Periodic,
 	})
 
 	built = true

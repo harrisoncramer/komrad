@@ -1,5 +1,5 @@
 // Package agents holds weave's business logic: what it means to launch an agent, archive one,
-// deliver mail, fire a script, run a schedule, or fold a conversation into the search index.
+// deliver mail, or fire a script.
 //
 // It sits between the handlers, which only parse and translate, and the stores, which only
 // read and write rows. The rules that need more than one of those live here. Launching an

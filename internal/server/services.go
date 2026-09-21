@@ -15,6 +15,7 @@ import (
 	"weave/internal/marks"
 	"weave/internal/schedules"
 	"weave/internal/scripts"
+	"weave/internal/transcripts"
 	"weave/internal/worktrees"
 )
 
@@ -37,6 +38,7 @@ type services struct {
 	holder          *agents.Holder
 	rebase          *agents.RebaseService
 	cwdSync         *agents.CwdSyncer
+	transcriptSync  *transcripts.TranscriptSyncer
 	forge           *forge.ForgeService
 	pullRequestSync *agents.PullRequestSyncer
 	worktrees       *worktrees.Lister
@@ -225,6 +227,12 @@ func buildServices(params NewServerParams, st *stores) (*services, error) {
 		Bases:   st.workflows,
 	})
 
+	transcriptSyncer := transcripts.NewTranscriptSyncer(transcripts.NewTranscriptSyncerParams{
+		Agents:      st.agents,
+		Transcripts: st.transcripts,
+		Harnesses:   params.Harnesses,
+	})
+
 	worktreeLister := worktrees.NewLister(worktrees.NewListerParams{
 		SharedDir: func() (string, error) {
 			cfg, err := loadConfig()
@@ -244,6 +252,7 @@ func buildServices(params NewServerParams, st *stores) (*services, error) {
 		marks:           markService,
 		rebase:          rebaseService,
 		cwdSync:         cwdSyncer,
+		transcriptSync:  transcriptSyncer,
 		forge:           forgeService,
 		pullRequestSync: pullRequestSyncer,
 		worktrees:       worktreeLister,
