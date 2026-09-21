@@ -72,6 +72,16 @@ func TestParseRemoteURL(t *testing.T) {
 			canonical: weave,
 		},
 		{
+			name: "scp-like path is lowercased",
+			raw:  "git@github.com:HarrisonCramer/Weave.git",
+			want: RemoteURL{
+				Scheme: "ssh",
+				Host:   "github.com",
+				Path:   "harrisoncramer/weave",
+			},
+			canonical: weave,
+		},
+		{
 			name: "scp-like has no port so the number is a path segment",
 			raw:  "git@github.com:9999/user/repo.git",
 			want: RemoteURL{
@@ -327,14 +337,14 @@ func TestParseRemoteURL(t *testing.T) {
 			canonical: "https://ghe.example.com:8443/owner/repo",
 		},
 		{
-			name: "https keeps path case",
+			name: "https lowercases the path",
 			raw:  "https://github.com/HarrisonCramer/Weave",
 			want: RemoteURL{
 				Scheme: "https",
 				Host:   "github.com",
-				Path:   "HarrisonCramer/Weave",
+				Path:   "harrisoncramer/weave",
 			},
-			canonical: "https://github.com/HarrisonCramer/Weave",
+			canonical: weave,
 		},
 		{
 			name: "https keeps a nested path whole",
@@ -352,9 +362,9 @@ func TestParseRemoteURL(t *testing.T) {
 			want: RemoteURL{
 				Scheme: "https",
 				Host:   "github.com",
-				Path:   "owner/repo%2Fsub",
+				Path:   "owner/repo%2fsub",
 			},
-			canonical: "https://github.com/owner/repo%2Fsub",
+			canonical: "https://github.com/owner/repo%2fsub",
 		},
 		{
 			name: "https keeps an encoded space encoded",
