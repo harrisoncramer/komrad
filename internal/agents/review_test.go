@@ -1848,6 +1848,52 @@ func TestReleasingAReviewCostsTheMailboxOneNotice(t *testing.T) {
 	}
 }
 
+// TestEveryReleaseRingsItsOwnDoorbell pins that a review released while an earlier notice is
+// still unread is announced on its own.
+func TestEveryReleaseRingsItsOwnDoorbell(t *testing.T) {
+	tests := []struct {
+		name    string
+		authors []ReviewAuthor
+	}{
+		{
+			name:    "the person after a reviewer",
+			authors: []ReviewAuthor{agentAuthor(reviewerAgentID), humanAuthor()},
+		},
+		{
+			name:    "the person after their own approval",
+			authors: []ReviewAuthor{humanAuthor(), humanAuthor()},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			reviews := newFakeReviewStore()
+			reviews.thread.ResolvedAt = &settledAt
+			mailbox := &countingMailbox{}
+			service := reviewServiceWithRealMail(t, reviews, mailbox)
+
+			verdicts := []reviewstore.Verdict{reviewstore.VerdictApproved, reviewstore.VerdictChangesRequested}
+			released := make([]reviewstore.Review, 0, len(tt.authors))
+			for i, author := range tt.authors {
+				result, err := service.ReleaseReview(t.Context(), ReleaseReviewParams{
+					AgentID: reviewedAgentID,
+					Verdict: verdicts[i],
+					Author:  author,
+				})
+				require.NoError(t, err)
+				released = append(released, result.Review)
+			}
+
+			assert.Equal(t, len(tt.authors), mailbox.pendingCount(), "one unread notice per release")
+			for _, review := range released {
+				require.NotNil(t, review.DoorbellMailID)
+				doorbell, err := mailbox.GetByID(t.Context(), *review.DoorbellMailID)
+				require.NoError(t, err)
+				assert.Contains(t, doorbell.Body, review.Path, "the doorbell names the review it was rung for")
+			}
+		})
+	}
+}
+
 // TestAReleasedReviewLeavesRoomForPeerMail pins that a release does not crowd out the mail other
 // agents send.
 func TestAReleasedReviewLeavesRoomForPeerMail(t *testing.T) {

@@ -189,24 +189,26 @@ type SendNoticeParams struct {
 	Body      string
 	// Kind is what the notice is about, which is how the panel tells it from mail an agent wrote.
 	Kind mailstore.Kind
-	// About is the other agent the notice concerns, so a notice about one exchange never stands
-	// in for a notice about another.
+	// About is the other agent the notice concerns, and a further notice about the same agent
+	// joins the one still unread rather than being sent again.
 	About *string
 }
 
-// SendNotice hands back the notice of that kind the agent is already holding unread and sends
-// one as weave itself only when it holds none.
+// SendNotice sends a notice as weave itself, handing back the unread notice about the same
+// agent instead when the recipient is still holding one.
 func (s *MailService) SendNotice(ctx context.Context, params SendNoticeParams) (*mailstore.Mail, error) {
 	if params.Kind == "" || params.Kind == mailstore.KindPlain {
 		return nil, fmt.Errorf("%w: a notice needs a kind of its own to be told apart by", ErrNoticeKindMissing)
 	}
 
-	waiting, err := s.mailReadWriter.GetPendingOfKind(ctx, params.ToAgentID, params.Kind, params.About)
-	if err != nil && !errors.Is(err, store.ErrNotFound) {
-		return nil, err
-	}
-	if waiting != nil {
-		return waiting, nil
+	if params.About != nil {
+		waiting, err := s.mailReadWriter.GetPendingOfKind(ctx, params.ToAgentID, params.Kind, params.About)
+		if err != nil && !errors.Is(err, store.ErrNotFound) {
+			return nil, err
+		}
+		if waiting != nil {
+			return waiting, nil
+		}
 	}
 
 	return s.send(ctx, sendParams{
