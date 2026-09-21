@@ -245,10 +245,10 @@ func TestFlatAgentsCursorKeepsItsRowAcrossTheFlip(t *testing.T) {
 	m.tree.cursor = 7
 	require.Equal(t, "agent:echo", agentsList().hovered(m))
 
-	flat := send(t, send(t, send(t, send(t, send(t, m, "f"), "tab"), "tab"), "tab"), "j")
-	require.Equal(t, tabsState{chosen: "name", direction: tabUp, focused: true, onGroup: true, flat: true}, flat.tree.sort)
+	flat := send(t, send(t, send(t, m, "f"), "shift+tab"), "j")
+	require.Equal(t, tabsState{focused: true, onGroup: true, flat: true}, flat.tree.sort, "the created order is untouched by the walk")
 	assert.Equal(t, "agent:echo", agentsList().hovered(flat))
-	assert.Equal(t, 4, flat.tree.cursor)
+	assert.Equal(t, 5, flat.tree.cursor)
 	assert.False(t, isHoveringWorkflow(flat))
 	assert.Equal(t, "w2", flat.enclosingWorkflow().ID)
 
@@ -258,19 +258,23 @@ func TestFlatAgentsCursorKeepsItsRowAcrossTheFlip(t *testing.T) {
 }
 
 // TestAgentsTabsKeepTheCursorOnItsRow covers the cursor following its row as the tree is
-// reordered under it, the name tab opening with its arrow up, and escape leaving the order
-// standing with the cursor still on its row.
+// reordered under it, the walk to a tab reordering nothing until a direction key chooses it,
+// and escape leaving the order standing with the cursor still on its row.
 func TestAgentsTabsKeepTheCursorOnItsRow(t *testing.T) {
 	m := agentsSortModel()
 	m.tree.cursor = 3
 	require.Equal(t, "agent:alpha", agentsList().hovered(m))
 
-	tabbed := send(t, send(t, m, "f"), "tab")
+	walked := send(t, send(t, m, "f"), "tab")
+	assert.Equal(t, tabsState{focused: true, focus: "activity"}, walked.tree.sort)
+	assert.Equal(t, 3, walked.tree.cursor)
+
+	tabbed := send(t, walked, "j")
 	assert.Equal(t, tabsState{chosen: "activity", focused: true}, tabbed.tree.sort)
 	assert.Equal(t, "agent:alpha", agentsList().hovered(tabbed))
 	assert.Equal(t, 2, tabbed.tree.cursor)
 
-	named := send(t, tabbed, "tab")
+	named := send(t, send(t, tabbed, "tab"), "k")
 	assert.Equal(t, tabsState{chosen: "name", direction: tabUp, focused: true}, named.tree.sort)
 	assert.Equal(t, "agent:alpha", agentsList().hovered(named))
 	assert.Equal(t, 1, named.tree.cursor)

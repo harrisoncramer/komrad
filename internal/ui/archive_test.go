@@ -793,13 +793,13 @@ func TestArchiveRowsOrderByTheColumn(t *testing.T) {
 }
 
 // TestArchiveTabsKeepTheCursorOnItsRow covers the cursor following its row as the archive is
-// reordered under it, and the name tab opening with its arrow up.
+// reordered under it, the name tab chosen upwards by k.
 func TestArchiveTabsKeepTheCursorOnItsRow(t *testing.T) {
 	m := archiveSortModel()
 	m.archive.cursor = 2
 	require.Equal(t, "agent:alpha", archiveList().hovered(m))
 
-	tabbed := send(t, send(t, m, "f"), "tab")
+	tabbed := send(t, send(t, send(t, m, "f"), "tab"), "k")
 	assert.Equal(t, tabsState{chosen: "name", direction: tabUp, focused: true}, tabbed.archive.sort)
 	assert.Equal(t, "agent:alpha", archiveList().hovered(tabbed))
 	assert.Equal(t, 1, tabbed.archive.cursor)

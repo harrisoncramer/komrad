@@ -76,10 +76,9 @@ var archiveSorts = []sortColumn[agentItem]{
 		},
 	},
 	{
-		id:        "name",
-		label:     "name",
-		direction: tabUp,
-		compare:   byAgentName,
+		id:      "name",
+		label:   "name",
+		compare: byAgentName,
 	},
 }
 
