@@ -6,7 +6,6 @@ import (
 	"weave/internal/caller"
 	"weave/internal/fail"
 	"weave/internal/reviews"
-	"weave/internal/rpc/render"
 	"weave/internal/rpcerr"
 	reviewstore "weave/internal/store/review"
 	"weave/lib/dates"
@@ -385,7 +384,7 @@ func renderReview(review reviewstore.Review) *agentv1.Review {
 	}
 
 	if review.Verdict != nil {
-		answered.Verdict = render.ReviewVerdictOf(*review.Verdict)
+		answered.Verdict = renderReviewVerdict(*review.Verdict)
 	}
 	if at := review.ReleasedAt; at != nil {
 		answered.ReleasedAt = dates.Stamp(*at)
@@ -395,6 +394,19 @@ func renderReview(review reviewstore.Review) *agentv1.Review {
 	}
 
 	return answered
+}
+
+func renderReviewVerdict(verdict reviewstore.Verdict) agentv1.ReviewVerdict {
+	switch verdict {
+	case reviewstore.VerdictApproved:
+		return agentv1.ReviewVerdict_REVIEW_VERDICT_APPROVED
+	case reviewstore.VerdictChangesRequested:
+		return agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED
+	case reviewstore.VerdictCommented:
+		return agentv1.ReviewVerdict_REVIEW_VERDICT_COMMENTED
+	default:
+		return agentv1.ReviewVerdict_REVIEW_VERDICT_UNSPECIFIED
+	}
 }
 
 func fromReviewVerdict(verdict agentv1.ReviewVerdict) reviewstore.Verdict {

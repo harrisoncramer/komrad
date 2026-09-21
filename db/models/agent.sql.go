@@ -898,22 +898,18 @@ SELECT
         LEFT JOIN opened p ON p.agent_id = s.id
     WHERE ($1::uuid[] IS NULL
         OR s.id = ANY ($1::uuid[]))
-    AND (NOT $2::boolean
-        OR (s.archived_at IS NULL
-            AND s.deleting_at IS NULL))
     AND ($1::uuid[] IS NOT NULL
-        OR (($3::boolean) =(s.archived_at IS NOT NULL)
+        OR (($2::boolean) =(s.archived_at IS NOT NULL)
             AND s.deleting_at IS NULL
-            AND ($4::uuid IS NULL
-                OR s.id < $4)))
+            AND ($3::uuid IS NULL
+                OR s.id < $3)))
 ORDER BY
     s.id DESC
-LIMIT $5
+LIMIT $4
 `
 
 type ListAgentRowsParams struct {
 	Ids      []string
-	LiveOnly bool
 	Archived bool
 	CursorID *string
 	Lim      int32
@@ -943,7 +939,6 @@ type ListAgentRowsRow struct {
 func (q *Queries) ListAgentRows(ctx context.Context, arg ListAgentRowsParams) ([]*ListAgentRowsRow, error) {
 	rows, err := q.db.Query(ctx, listAgentRows,
 		arg.Ids,
-		arg.LiveOnly,
 		arg.Archived,
 		arg.CursorID,
 		arg.Lim,

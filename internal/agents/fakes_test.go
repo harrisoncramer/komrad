@@ -25,7 +25,6 @@ import (
 	workflowstore "weave/internal/store/workflow"
 	"weave/internal/storetest"
 	"weave/internal/tmux"
-	"weave/internal/watchtest"
 	"weave/lib/xptr"
 
 	"github.com/google/uuid"
@@ -480,8 +479,6 @@ type testAgents struct {
 	emptied      *EmptyWorkflowDeleter
 	orchestrator *OrchestratorService
 	snapshots    *recordingSnapshots
-	// watch records every row the services said moved.
-	watch *watchtest.Recorder
 }
 
 type agentServiceOptions struct {
@@ -510,13 +507,11 @@ func (s *testStore) agentService(options agentServiceOptions) *testAgents {
 		tx = s.Pool
 	}
 
-	watch := watchtest.NewRecorder()
 	launcher := NewLauncher(NewLauncherParams{Tmux: options.tmux, Addr: options.addr})
 	emptied := NewEmptyWorkflowDeleter(NewEmptyWorkflowDeleterParams{
 		Workflows: s.Workflows,
 		Agents:    s.Agents,
 		Schedules: s.Schedules,
-		Watch:     watch,
 	})
 
 	launch := NewLaunchService(NewLaunchServiceParams{
@@ -528,7 +523,6 @@ func (s *testStore) agentService(options agentServiceOptions) *testAgents {
 		Launcher:           launcher,
 		Harnesses:          options.harnesses,
 		Scripts:            options.lifecycle,
-		Watch:              watch,
 		UserDefaultHarness: testHarnessID,
 		UserDefaultFlags:   map[string]string{testHarnessID: options.flags},
 		MaxAgents:          options.maxAgents,
@@ -540,7 +534,6 @@ func (s *testStore) agentService(options agentServiceOptions) *testAgents {
 	built := &testAgents{
 		launch:    launch,
 		snapshots: snapshots,
-		watch:     watch,
 		resume: NewResumeService(NewResumeServiceParams{
 			Tmux:      options.tmux,
 			Agents:    agents,
@@ -548,7 +541,6 @@ func (s *testStore) agentService(options agentServiceOptions) *testAgents {
 			Launcher:  launcher,
 			Harnesses: options.harnesses,
 			Scripts:   options.lifecycle,
-			Watch:     watch,
 		}),
 		adopt: NewAdoptService(NewAdoptServiceParams{
 			Agents:    agents,
@@ -565,7 +557,6 @@ func (s *testStore) agentService(options agentServiceOptions) *testAgents {
 			Scripts:        options.lifecycle,
 			Reviews:        reviewstore.New(s.Pool.GetDB()),
 			Snapshots:      snapshots,
-			Watch:          watch,
 			LogsDir:        options.logsDir,
 			FramesDir:      options.framesDir,
 			MaxAgents:      options.maxAgents,
@@ -760,14 +751,6 @@ type workflowServiceOptions struct {
 }
 
 func (s *testStore) workflowService(options workflowServiceOptions) *WorkflowService {
-	service, _ := s.workflowServiceWatched(options)
-
-	return service
-}
-
-// workflowServiceWatched is the workflow service with the recorder every service under it
-// publishes to.
-func (s *testStore) workflowServiceWatched(options workflowServiceOptions) (*WorkflowService, *watchtest.Recorder) {
 	deleter := s.agentService(agentServiceOptions{
 		tmux:      options.tmux,
 		harnesses: fakeHarnesses{harness: &fakeHarness{}},
@@ -783,10 +766,9 @@ func (s *testStore) workflowServiceWatched(options workflowServiceOptions) (*Wor
 		Tmux:         options.tmux,
 		Tx:           s.Pool,
 		Scripts:      options.lifecycle,
-		Watch:        deleter.watch,
 		MaxAgents:    options.maxAgents,
 		MaxChildren:  options.maxChildren,
-	}), deleter.watch
+	})
 }
 
 func seed(t *testing.T, st *testStore, name, pane string, state agentstore.State) agentstore.Agent {

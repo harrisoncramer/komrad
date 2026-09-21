@@ -1,7 +1,6 @@
 package reviews
 
 import (
-	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -19,7 +18,6 @@ import (
 	mailstore "weave/internal/store/mail"
 	reviewstore "weave/internal/store/review"
 	workflowstore "weave/internal/store/workflow"
-	"weave/internal/watch"
 	"weave/lib/xslice"
 )
 
@@ -122,8 +120,6 @@ type NewReviewServiceParams struct {
 	Mailer      reviewNoticeSender
 	Resumer     reviewerResumer
 	Interrupter agentInterrupter
-	// Watch is told whose row a verdict moved, watch.Discard when unset.
-	Watch watch.Publisher
 	// StateDir is where weave keeps its own files.
 	StateDir string
 	// NoticeDebounce overrides how long a reviewer's notice waits for another answer from the
@@ -145,7 +141,6 @@ type ReviewService struct {
 	mailer         reviewNoticeSender
 	resumer        reviewerResumer
 	interrupter    agentInterrupter
-	watch          watch.Publisher
 	stateDir       string
 	noticeDebounce time.Duration
 	noticesMu      sync.Mutex
@@ -171,7 +166,6 @@ func NewReviewService(params NewReviewServiceParams) *ReviewService {
 		mailer:         params.Mailer,
 		resumer:        params.Resumer,
 		interrupter:    params.Interrupter,
-		watch:          cmp.Or(params.Watch, watch.Discard),
 		stateDir:       params.StateDir,
 		noticeDebounce: debounce,
 		notices:        map[string]*pendingReviewerNotice{},

@@ -73,21 +73,12 @@ func (s *Store) ListPage(ctx context.Context, page Page) ([]Row, error) {
 
 // ListByID returns the live and archived rows of the given agents, newest first.
 func (s *Store) ListByID(ctx context.Context, ids []string) ([]Row, error) {
-	return s.listByID(ctx, ids, false)
-}
-
-// ListLiveByID returns the rows of the given agents that the live listing holds, newest first.
-func (s *Store) ListLiveByID(ctx context.Context, ids []string) ([]Row, error) {
-	return s.listByID(ctx, ids, true)
-}
-
-func (s *Store) listByID(ctx context.Context, ids []string, liveOnly bool) ([]Row, error) {
 	storable := store.KeepIDs(ids)
 	if len(storable) == 0 {
 		return nil, nil
 	}
 
-	rows, err := s.queries.ListAgentRows(ctx, models.ListAgentRowsParams{Ids: storable, LiveOnly: liveOnly, Lim: int32(len(storable))})
+	rows, err := s.queries.ListAgentRows(ctx, models.ListAgentRowsParams{Ids: storable, Lim: int32(len(storable))})
 	if err != nil {
 		return nil, fmt.Errorf("failed to get the rows of %d agents: %w", len(storable), err)
 	}

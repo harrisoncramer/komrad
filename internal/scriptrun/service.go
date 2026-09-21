@@ -1,12 +1,10 @@
 package scriptrun
 
 import (
-	"cmp"
 	"context"
 	"sync"
 
 	"weave/config"
-	"weave/internal/watch"
 
 	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
@@ -40,7 +38,6 @@ type ScriptService struct {
 	tmux       tmuxReadWriter
 	runner     scriptRunner
 	runs       runRecorder
-	watch      watch.Publisher
 	load       configLoader
 	addr       string
 	socket     string
@@ -54,13 +51,11 @@ type ScriptService struct {
 }
 
 type NewScriptServiceParams struct {
-	Agents    agentGetter
-	Workflows workflowReader
-	Tmux      tmuxReadWriter
-	Runner    scriptRunner
-	Runs      runRecorder
-	// Watch is told whose row a run moved, watch.Discard when unset.
-	Watch      watch.Publisher
+	Agents     agentGetter
+	Workflows  workflowReader
+	Tmux       tmuxReadWriter
+	Runner     scriptRunner
+	Runs       runRecorder
 	Load       configLoader
 	Addr       string
 	Socket     string
@@ -88,7 +83,6 @@ func NewScriptService(params NewScriptServiceParams) *ScriptService {
 		tmux:       params.Tmux,
 		runner:     params.Runner,
 		runs:       params.Runs,
-		watch:      cmp.Or(params.Watch, watch.Discard),
 		load:       params.Load,
 		addr:       params.Addr,
 		socket:     params.Socket,

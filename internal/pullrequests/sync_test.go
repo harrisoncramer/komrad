@@ -20,7 +20,6 @@ import (
 	forgestore "weave/internal/store/forge"
 	pullrequeststore "weave/internal/store/pullrequest"
 	workflowstore "weave/internal/store/workflow"
-	"weave/internal/watchtest"
 	"weave/lib/xptr"
 	"weave/lib/xslice"
 
@@ -186,7 +185,6 @@ type syncFixture struct {
 	agents       *agentstore.Store
 	workflow     string
 	now          time.Time
-	watch        *watchtest.Recorder
 }
 
 func newSyncFixture(t *testing.T) *syncFixture {
@@ -230,14 +228,12 @@ func newSyncFixture(t *testing.T) *syncFixture {
 		agents:       agentstore.New(pool.GetDB()),
 		workflow:     created.ID,
 		now:          syncNow,
-		watch:        watchtest.NewRecorder(),
 	}
 	f.syncer = NewPullRequestSyncer(NewPullRequestSyncerParams{
 		Forges:       &scriptedFinder{connections: connections, forge: scripted},
 		PullRequests: f.pullRequests,
 		Syncs:        f.syncs,
 		Tx:           pool,
-		Watch:        f.watch,
 		Now:          func() time.Time { return f.now },
 	})
 
@@ -429,21 +425,6 @@ func TestSyncFirstSweepStopsAtTheHorizon(t *testing.T) {
 	f.stored(t, "PR_1")
 	_, err := f.pullRequests.GetByIdentity(t.Context(), "github.com", "PR_0")
 	require.ErrorIs(t, err, store.ErrNotFound)
-}
-
-// TestSyncPublishesEveryAgentOnARepositoryItRead pins that a pass says every agent whose row
-// carries a repository it wrote a sync row for, and none on a host nobody connected.
-func TestSyncPublishesEveryAgentOnARepositoryItRead(t *testing.T) {
-	f := newSyncFixture(t)
-	read := f.agentOn(t, "a", "agent/x")
-	alsoRead := f.agentOn(t, "b", "agent/y")
-	unconnected := f.agentIn(t, "c", "https://gitlab.com/harrisoncramer/elsewhere", "agent/z")
-	f.forge.updated[""] = &forge.Page{}
-
-	f.sync(t)
-
-	assert.ElementsMatch(t, []string{read, alsoRead}, f.watch.Agents())
-	assert.NotContains(t, f.watch.Agents(), unconnected)
 }
 
 // TestSyncSearchWritesOnlyChangedRows covers the pass after the first sweep: one search from

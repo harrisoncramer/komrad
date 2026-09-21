@@ -230,29 +230,6 @@ func TestListPageArchived(t *testing.T) {
 	}
 }
 
-// TestListLiveByID pins the read the watch renders from: a workflow the live listing holds
-// answers with its hooks, and one archived or being deleted does not.
-func TestListLiveByID(t *testing.T) {
-	st := open(t)
-	ctx := t.Context()
-
-	live, err := st.Create(ctx, Config{Name: "live", Worktree: WorktreeConfig{BaseBranch: "main"}, Hooks: []Hook{{Event: HookPreLaunch, Script: "greet"}}})
-	require.NoError(t, err)
-	gone, err := st.Create(ctx, Config{Name: "archived", Worktree: WorktreeConfig{BaseBranch: "main"}})
-	require.NoError(t, err)
-	require.NoError(t, st.Archive(ctx, gone.ID))
-
-	listed, err := st.ListLiveByID(ctx, []string{live.ID, gone.ID, missingID, "not-an-id"})
-	require.NoError(t, err)
-	require.Len(t, listed, 1)
-	assert.Equal(t, live.ID, listed[0].ID)
-	assert.Equal(t, []Hook{{Event: HookPreLaunch, Script: "greet"}}, listed[0].Hooks)
-
-	listed, err = st.ListLiveByID(ctx, nil)
-	require.NoError(t, err)
-	assert.Empty(t, listed)
-}
-
 // TestListPageIsAlphabetical covers the order the panel reads workflows in across a page
 // boundary, where the id keeps two workflows sharing a name from serving the same row twice.
 func TestListPageIsAlphabetical(t *testing.T) {

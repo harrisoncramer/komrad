@@ -1,7 +1,6 @@
 package agents
 
 import (
-	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -17,7 +16,6 @@ import (
 	"weave/internal/store"
 	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
-	"weave/internal/watch"
 )
 
 // interruptedPrompt is what a resumed agent is asked on the way back in.
@@ -43,7 +41,6 @@ type ResumeService struct {
 	launcher           *Launcher
 	harnesses          harnessGetter
 	scripts            agentScriptRunner
-	watch              watch.Publisher
 	fallbackResumeRoot string
 	// inFlight holds the agents this panel is part-way through resuming.
 	inFlight   map[string]struct{}
@@ -51,14 +48,12 @@ type ResumeService struct {
 }
 
 type NewResumeServiceParams struct {
-	Tmux      paneController
-	Agents    resumeAgentReadWriter
-	Workflows workflowReader
-	Launcher  *Launcher
-	Harnesses harnessGetter
-	Scripts   agentScriptRunner
-	// Watch is told which rows moved, watch.Discard when unset.
-	Watch              watch.Publisher
+	Tmux               paneController
+	Agents             resumeAgentReadWriter
+	Workflows          workflowReader
+	Launcher           *Launcher
+	Harnesses          harnessGetter
+	Scripts            agentScriptRunner
 	FallbackResumeRoot string
 }
 
@@ -75,7 +70,6 @@ func NewResumeService(params NewResumeServiceParams) *ResumeService {
 		launcher:           params.Launcher,
 		harnesses:          params.Harnesses,
 		scripts:            params.Scripts,
-		watch:              cmp.Or(params.Watch, watch.Discard),
 		fallbackResumeRoot: params.FallbackResumeRoot,
 		inFlight:           map[string]struct{}{},
 	}
@@ -160,7 +154,6 @@ func (s *ResumeService) resume(ctx context.Context, agent agentstore.Agent) erro
 	if !live {
 		return fmt.Errorf("%w: %q was archived while it was being resumed, restore it first", ErrAgentArchived, agent.Name)
 	}
-	s.watch.TouchAgents(agent.ID)
 
 	// Read before the resume starts overwriting the copy it was handed, which the restore below
 	// puts back.
@@ -187,7 +180,6 @@ func (s *ResumeService) resume(ctx context.Context, agent agentstore.Agent) erro
 			logging.From(restore).LogAttrs(restore, slog.LevelError, "failed to put back the state of an agent whose resume gave up",
 				append([]slog.Attr{slog.String(logging.AgentID, agent.ID)}, logging.Err(err)...)...)
 		}
-		s.watch.TouchAgents(agent.ID)
 	}()
 
 	named, err := s.runResumeSetup(ctx, agent)
@@ -235,7 +227,6 @@ func (s *ResumeService) resume(ctx context.Context, agent agentstore.Agent) erro
 	if !written {
 		return fmt.Errorf("%w: %q was archived or deleted while it was being resumed", ErrAgentArchived, agent.Name)
 	}
-	s.watch.TouchAgents(agent.ID)
 
 	// Codex takes no session id on the command line, so an agent may have none and its relaunch is
 	// a fresh conversation with no turn to read back over.

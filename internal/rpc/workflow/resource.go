@@ -4,6 +4,9 @@ import (
 	"weave/internal/rpc/render"
 
 	workflowstore "weave/internal/store/workflow"
+	"weave/lib/dates"
+	"weave/lib/xslice"
+	"weave/lib/xstr"
 	viewv1 "weave/proto/gen/view/v1"
 	workflowv1 "weave/proto/gen/workflow/v1"
 )
@@ -45,8 +48,27 @@ func renderWorkflow(w workflowstore.Workflow, mark *string, opts ...workflowOpti
 		opt(&options)
 	}
 
+	sharedContext, contextTruncated := w.Context, false
+	if options.contextHead > 0 {
+		sharedContext, contextTruncated = xstr.Head(w.Context, options.contextHead)
+	}
+
 	return workflow{
-		Workflow: render.Workflow(w, mark, render.WorkflowOptions{ContextHead: options.contextHead}),
-		cursor:   workflowstore.Cursor{Name: w.Name, ID: w.ID},
+		Workflow: &workflowv1.Workflow{
+			Id:               w.ID,
+			Name:             w.Name,
+			Context:          sharedContext,
+			Harness:          w.Harness,
+			Cwd:              w.Cwd,
+			Flags:            w.Flags,
+			Mark:             mark,
+			ArchivedAt:       dates.StampPtr(w.ArchivedAt),
+			ContextTruncated: contextTruncated,
+			Worktree:         render.WorktreeConfigToProto(w.Worktree),
+			Hooks: xslice.Map(w.Hooks, func(hook workflowstore.Hook) *workflowv1.WorkflowHook {
+				return &workflowv1.WorkflowHook{Event: hook.Event, Script: hook.Script}
+			}),
+		},
+		cursor: workflowstore.Cursor{Name: w.Name, ID: w.ID},
 	}
 }

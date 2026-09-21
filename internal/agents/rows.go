@@ -22,7 +22,6 @@ type Row struct {
 type rowLister interface {
 	ListPage(ctx context.Context, page rowstore.Page) ([]rowstore.Row, error)
 	ListByID(ctx context.Context, ids []string) ([]rowstore.Row, error)
-	ListLiveByID(ctx context.Context, ids []string) ([]rowstore.Row, error)
 }
 
 type runningReader interface {
@@ -75,21 +74,6 @@ func (r *RowReader) ListRowsByID(ctx context.Context, ids []string) ([]Row, erro
 		return nil, fmt.Errorf("failed to get agent rows: %w", err)
 	}
 
-	return r.fill(ctx, orderByID(stored, ids)), nil
-}
-
-// ListLiveRowsByID returns the rows of the given agents that the live listing holds, in the
-// order asked.
-func (r *RowReader) ListLiveRowsByID(ctx context.Context, ids []string) ([]Row, error) {
-	stored, err := r.rows.ListLiveByID(ctx, ids)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get live agent rows: %w", err)
-	}
-
-	return r.fill(ctx, orderByID(stored, ids)), nil
-}
-
-func orderByID(stored []rowstore.Row, ids []string) []rowstore.Row {
 	byID := xslice.KeyBy(stored, func(row rowstore.Row) string { return row.ID })
 	ordered := make([]rowstore.Row, 0, len(stored))
 	for _, id := range ids {
@@ -98,7 +82,7 @@ func orderByID(stored []rowstore.Row, ids []string) []rowstore.Row {
 		}
 	}
 
-	return ordered
+	return r.fill(ctx, ordered), nil
 }
 
 // GetRow returns one agent's row, archived or not.
