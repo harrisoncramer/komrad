@@ -17,9 +17,20 @@ import (
 )
 
 // pullRequestSyncBudget is how many requests one pass may make for one repository, its first
-// sweep, hourly listing, branch scans and decisions together, and how many pages one search
+// sweep, hourly listing, branch scans and standings together, and how many pages one search
 // may read for one host.
 const pullRequestSyncBudget = 10
+
+// checksPendingAfter is how long a read of a pending run is trusted before it is read again.
+const checksPendingAfter = time.Minute
+
+// checksSettleWithin is how long after a change a head with no checks is read again, in case
+// the forge had not started them.
+const checksSettleWithin = 10 * time.Minute
+
+// checksSettledAfter is how long a read of a run that passed or failed is trusted before it is
+// read again for a re-run.
+const checksSettledAfter = 10 * time.Minute
 
 // pullRequestSyncOverlap is how far below the high-water mark a search reads.
 const pullRequestSyncOverlap = 15 * time.Minute
@@ -179,7 +190,7 @@ type passCount struct {
 	budget    int
 	inserted  int
 	updated   int
-	decisions int
+	standings int
 }
 
 // groupByHost resolves the connection and forge for each host the repositories live on,
@@ -272,7 +283,7 @@ func (s *PullRequestSyncer) syncHost(ctx context.Context, host *hostRead) {
 	for _, read := range host.repositories {
 		s.step(ctx, host, read, s.list)
 		s.step(ctx, host, read, s.scanBranches)
-		s.step(ctx, host, read, s.readDecisions)
+		s.step(ctx, host, read, s.readStandings)
 		if read.err == nil {
 			s.said.forget(saidMissing, read.remote.Canonical())
 		}
@@ -375,7 +386,7 @@ func (s *PullRequestSyncer) logRepository(ctx context.Context, read *repositoryR
 		slog.Int(logging.ForgeCalls, sync.Calls),
 		slog.Int(logging.RowsInserted, read.tally.inserted),
 		slog.Int(logging.RowsUpdated, read.tally.updated),
-		slog.Int(logging.DecisionsRead, read.tally.decisions),
+		slog.Int(logging.StandingsRead, read.tally.standings),
 		slog.Bool(logging.SweepInProgress, sync.IsSweeping()),
 	)
 }
@@ -703,13 +714,20 @@ func (s *PullRequestSyncer) scanBranches(ctx context.Context, host *hostRead, re
 	return nil
 }
 
-// readDecisions reads the review decision of every open pull request on a live branch that
-// changed since its decision was last read, newest change first and fifty to a request, until
-// the budget runs out.
-func (s *PullRequestSyncer) readDecisions(ctx context.Context, host *hostRead, read *repositoryRead) error {
+// readStandings reads the review decision and checks of every open pull request on a live
+// branch whose decision is stale or whose checks were read for another head or too long ago,
+// newest change first and fifty to a request, until the budget runs out.
+func (s *PullRequestSyncer) readStandings(ctx context.Context, host *hostRead, read *repositoryRead) error {
 	remote, counts := read.remote, read.tally
 	repositoryURL := remote.Canonical()
-	stale, err := s.syncs.ListStaleDecisions(ctx, repositoryURL)
+	now := s.now()
+	stale, err := s.syncs.ListStaleStandings(ctx, pullrequeststore.ListStaleStandingsParams{
+		RepositoryURL: repositoryURL,
+		Now:           now,
+		PendingAfter:  checksPendingAfter,
+		SettleWithin:  checksSettleWithin,
+		SettledAfter:  checksSettledAfter,
+	})
 	if err != nil {
 		return err
 	}
@@ -717,13 +735,13 @@ func (s *PullRequestSyncer) readDecisions(ctx context.Context, host *hostRead, r
 	for len(stale) > 0 && counts.budget > 0 {
 		counts.budget--
 
-		batch := stale[:min(len(stale), forge.MaxReviewDecisions)]
+		batch := stale[:min(len(stale), forge.MaxStandings)]
 		stale = stale[len(batch):]
 		numbers := xslice.Map(batch, func(pullRequest pullrequeststore.PullRequest) int {
 			return pullRequest.Number
 		})
 
-		decisions, err := host.forge.ReviewDecisions(ctx, remote, numbers)
+		standings, err := host.forge.Standings(ctx, remote, numbers)
 		if recordErr := s.syncs.RecordSyncRequest(ctx, repositoryURL); recordErr != nil {
 			return recordErr
 		}
@@ -732,17 +750,18 @@ func (s *PullRequestSyncer) readDecisions(ctx context.Context, host *hostRead, r
 		}
 
 		for _, pullRequest := range batch {
-			decision, answered := decisions[pullRequest.Number]
+			standing, answered := standings[pullRequest.Number]
 			if !answered {
-				logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "the forge has no pull request to read a decision for, so none is recorded until it changes",
+				logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "the forge has no pull request to read a standing for, so none is recorded until it changes",
 					slog.String(logging.RepositoryURL, repositoryURL),
 					slog.Int(logging.PullRequestNumber, pullRequest.Number))
+				standing = forge.Standing{HeadSHA: pullRequest.HeadSHA}
 			}
 
-			if err := s.pullRequests.SetReviewDecision(ctx, pullRequest.ID, decision); err != nil {
+			if err := s.pullRequests.SetStanding(ctx, pullRequest.ID, standing, now); err != nil {
 				return err
 			}
-			counts.decisions++
+			counts.standings++
 		}
 	}
 
@@ -804,7 +823,7 @@ func (s *PullRequestSyncer) pages(ctx context.Context, host *hostRead, params pa
 	return nil
 }
 
-// writePage upserts a page's pull requests, the decision of each that carries one, and the
+// writePage upserts a page's pull requests, the standing of each that carries one, and the
 // position after it in one transaction.
 func (s *PullRequestSyncer) writePage(ctx context.Context, pullRequests []forge.PullRequest, counts *passCount, advance func(*pullrequeststore.SyncStore) error) error {
 	inserted, updated := 0, 0
@@ -823,7 +842,11 @@ func (s *PullRequestSyncer) writePage(ctx context.Context, pullRequests []forge.
 			}
 
 			if pullRequest.Decision != nil {
-				if err := st.SetReviewDecision(ctx, outcome.ID, *pullRequest.Decision); err != nil {
+				standing := forge.Standing{Decision: *pullRequest.Decision, HeadSHA: pullRequest.HeadSHA}
+				if pullRequest.Checks != nil {
+					standing.Checks = *pullRequest.Checks
+				}
+				if err := st.SetStanding(ctx, outcome.ID, standing, s.now()); err != nil {
 					return err
 				}
 			}

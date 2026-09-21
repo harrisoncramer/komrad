@@ -138,6 +138,8 @@ message PullRequestStanding {
   optional string url = 3;
   // The title of the current pull request, unset for UNREAD and NONE.
   optional string title = 4;
+  // Where the checks on the current pull request's head stand, UNSPECIFIED for UNREAD and NONE.
+  pullrequest.v1.Checks checks = 5;
 }
 
 message AgentMetadata {

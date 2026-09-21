@@ -73,8 +73,8 @@ func (f *fakeForge) ListChanged(context.Context, ListChangedParams) (*Page, erro
 
 func (f *fakeForge) Get(context.Context, string) (PullRequest, error) { return PullRequest{}, nil }
 
-func (f *fakeForge) ReviewDecisions(context.Context, git.RemoteURL, []int) (map[int]ReviewDecision, error) {
-	return map[int]ReviewDecision{}, nil
+func (f *fakeForge) Standings(context.Context, git.RemoteURL, []int) (map[int]Standing, error) {
+	return map[int]Standing{}, nil
 }
 
 type fixture struct {

@@ -70,7 +70,7 @@ message ListPullRequestsResponse {
 }
 
 // PullRequestState is where a stored pull request stands, decided on the server from its stamps,
-// its draft flag and the forge's review decision, finished first.
+// its draft flag, the checks on its head and the forge's review decision, finished first.
 enum PullRequestState {
   // No state was decided.
   PULL_REQUEST_STATE_UNSPECIFIED = 0;
@@ -78,9 +78,10 @@ enum PullRequestState {
   PULL_REQUEST_STATE_UNREAD = 1;
   // The repository has been swept and nothing was opened from the branch.
   PULL_REQUEST_STATE_NONE = 2;
-  // Open with no review decision that settles it.
+  // Open with no review decision that settles it, or approved while its checks are still
+  // running.
   PULL_REQUEST_STATE_OPEN = 3;
-  // Open and approved on the forge.
+  // Open and approved on the forge, with its checks passing or none to run.
   PULL_REQUEST_STATE_APPROVED = 4;
   // Open with a reviewer asking for changes.
   PULL_REQUEST_STATE_CHANGES_REQUESTED = 5;
@@ -90,6 +91,23 @@ enum PullRequestState {
   PULL_REQUEST_STATE_MERGED = 7;
   // Closed without merging.
   PULL_REQUEST_STATE_CLOSED = 8;
+  // Open with a failing check on its head, whatever its reviews say.
+  PULL_REQUEST_STATE_FAILING = 9;
+}
+
+// Checks is where the checks on a pull request's head commit stand, as the forge last reported
+// them.
+enum Checks {
+  // The checks have not been read.
+  CHECKS_UNSPECIFIED = 0;
+  // The forge reports no checks on the head.
+  CHECKS_NONE = 1;
+  // A run is still in flight.
+  CHECKS_PENDING = 2;
+  // Every check passed.
+  CHECKS_PASSING = 3;
+  // At least one check failed.
+  CHECKS_FAILING = 4;
 }
 
 message ListAgentPullRequestsRequest {
@@ -106,6 +124,8 @@ message AgentPullRequest {
   string title = 3;
   // Where it stands, decided from the stored row.
   PullRequestState state = 4;
+  // Where the checks on its head stand.
+  Checks checks = 9;
   // Whether this is the one the agent's row stands for: the newest opened that is not finished,
   // else the newest opened of the finished.
   bool current = 5;

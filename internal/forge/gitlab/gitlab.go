@@ -31,9 +31,9 @@ const MaxPerPage = 100
 // measured fit under GitLab's complexity limit at a hundred rows each.
 const changedProjectsPerQuery = 2
 
-// decisionsPerQuery is how many merge requests the first ReviewDecisions query aliases, the
+// standingsPerQuery is how many merge requests the first Standings query aliases, the
 // measured fit under GitLab's complexity limit.
-const decisionsPerQuery = 13
+const standingsPerQuery = 10
 
 // reviewStateRequestedChanges is the reviewer state GitLab records when one asks for changes.
 const reviewStateRequestedChanges = "REQUESTED_CHANGES"
@@ -44,8 +44,9 @@ const mergeRequestFragment = `fragment mergeRequestFields on MergeRequest {
   sourceBranch targetBranch diffHeadSha sourceProject { webUrl } targetProject { webUrl } diffRefs { baseSha }
 }`
 
-// approvalFields is what the decision of a merge request is folded from.
-const approvalFields = `approvalsRequired approvalsLeft approvedBy { count } reviewers { nodes { mergeRequestInteraction { reviewState } } }`
+// standingFields is what the decision and checks of a merge request are folded from: its
+// approvals, its reviewers' states and the status of the pipeline on its head.
+const standingFields = `approvalsRequired approvalsLeft approvedBy { count } reviewers { nodes { mergeRequestInteraction { reviewState } } } headPipeline { status }`
 
 const verifyQuery = `query Verify { currentUser { username } }`
 
@@ -272,7 +273,7 @@ func (f *Forge) listChangedBatch(ctx context.Context, params listChangedBatchPar
 	variables := map[string]any{"since": params.since.UTC().Format(time.RFC3339), "first": MaxPerPage}
 	for i, path := range params.paths {
 		fmt.Fprintf(&declared, ", $p%d: ID!, $a%d: String", i, i)
-		fmt.Fprintf(&fields, "\n  r%d: project(fullPath: $p%d) { mergeRequests(updatedAfter: $since, sort: UPDATED_DESC, first: $first, after: $a%d) { pageInfo { hasNextPage endCursor } nodes { ...mergeRequestFields "+approvalFields+" } } }", i, i, i)
+		fmt.Fprintf(&fields, "\n  r%d: project(fullPath: $p%d) { mergeRequests(updatedAfter: $since, sort: UPDATED_DESC, first: $first, after: $a%d) { pageInfo { hasNextPage endCursor } nodes { ...mergeRequestFields "+standingFields+" } } }", i, i, i)
 		variables["p"+strconv.Itoa(i)] = path
 		variables["a"+strconv.Itoa(i)] = graphql.CursorOf(params.after[path])
 	}
@@ -333,27 +334,28 @@ func (f *Forge) Get(ctx context.Context, address string) (forge.PullRequest, err
 	return data.Project.MergeRequest.toPullRequest(false), nil
 }
 
-// ReviewDecisions reads where the reviews of up to fifty merge requests stand, aliased into as
-// few queries as GitLab's complexity limit allows, leaving out any GitLab does not have.
-func (f *Forge) ReviewDecisions(ctx context.Context, repo git.RemoteURL, numbers []int) (map[int]forge.ReviewDecision, error) {
+// Standings reads where the reviews and the head pipeline of up to fifty merge requests stand,
+// aliased into as few queries as GitLab's complexity limit allows, leaving out any GitLab does
+// not have.
+func (f *Forge) Standings(ctx context.Context, repo git.RemoteURL, numbers []int) (map[int]forge.Standing, error) {
 	path, err := projectPath(repo.Path)
 	if err != nil {
 		return nil, err
 	}
-	if len(numbers) > forge.MaxReviewDecisions {
-		return nil, forge.ErrTooManyDecisions.Saying("at most %d review decisions can be read in one call, not %d", forge.MaxReviewDecisions, len(numbers))
+	if len(numbers) > forge.MaxStandings {
+		return nil, forge.ErrTooManyStandings.Saying("at most %d standings can be read in one call, not %d", forge.MaxStandings, len(numbers))
 	}
 
-	decisions := make(map[int]forge.ReviewDecision, len(numbers))
-	err = sendInBatches(ctx, numbers, decisionsPerQuery, func(ctx context.Context, batch []int) (complexity, error) {
+	standings := make(map[int]forge.Standing, len(numbers))
+	err = sendInBatches(ctx, numbers, standingsPerQuery, func(ctx context.Context, batch []int) (complexity, error) {
 		var fields strings.Builder
 		for _, number := range batch {
-			fmt.Fprintf(&fields, "\n    m%d: mergeRequest(iid: \"%d\") { %s }", number, number, approvalFields)
+			fmt.Fprintf(&fields, "\n    m%d: mergeRequest(iid: \"%d\") { diffHeadSha %s }", number, number, standingFields)
 		}
-		operation := "query ReviewDecisions($path: ID!) {\n  project(fullPath: $path) {" + fields.String() + "\n  }\n  queryComplexity { score limit }\n}"
+		operation := "query Standings($path: ID!) {\n  project(fullPath: $path) {" + fields.String() + "\n  }\n  queryComplexity { score limit }\n}"
 
 		var data struct {
-			Project         map[string]*approvalNode `json:"project"`
+			Project         map[string]*standingNode `json:"project"`
 			QueryComplexity complexity               `json:"queryComplexity"`
 		}
 		answer, err := f.client.Query(ctx, operation, map[string]any{"path": path}, &data)
@@ -373,7 +375,7 @@ func (f *Forge) ReviewDecisions(ctx context.Context, repo git.RemoteURL, numbers
 				continue
 			}
 
-			decisions[number] = node.decision()
+			standings[number] = node.standing()
 		}
 
 		return data.QueryComplexity, nil
@@ -382,7 +384,7 @@ func (f *Forge) ReviewDecisions(ctx context.Context, repo git.RemoteURL, numbers
 		return nil, err
 	}
 
-	return decisions, nil
+	return standings, nil
 }
 
 // listMergeRequests reads one page of a project's mergeRequests connection, whichever query
@@ -407,10 +409,10 @@ func (f *Forge) listMergeRequests(ctx context.Context, operation string, variabl
 	return pageOf(&data.Project.MergeRequests, answer.RateLimit, false), nil
 }
 
-// pageOf is a connection as one page of pull requests, each with its decision when asked for.
-func pageOf(c *connection, limit forge.RateLimit, withDecision bool) *forge.Page {
+// pageOf is a connection as one page of pull requests, each with its standing when asked for.
+func pageOf(c *connection, limit forge.RateLimit, withStanding bool) *forge.Page {
 	return graphql.PageOf(c, limit, func(node mergeRequestNode) forge.PullRequest {
-		return node.toPullRequest(withDecision)
+		return node.toPullRequest(withStanding)
 	})
 }
 
@@ -506,7 +508,7 @@ type connection = graphql.Connection[mergeRequestNode]
 
 // mergeRequestNode is the slice of GitLab's merge request node the record is built from.
 type mergeRequestNode struct {
-	approvalNode
+	standingNode
 	ID            string       `json:"id"`
 	IID           string       `json:"iid"`
 	Title         string       `json:"title"`
@@ -519,7 +521,6 @@ type mergeRequestNode struct {
 	ClosedAt      *time.Time   `json:"closedAt"`
 	SourceBranch  string       `json:"sourceBranch"`
 	TargetBranch  string       `json:"targetBranch"`
-	DiffHeadSha   string       `json:"diffHeadSha"`
 	SourceProject *projectNode `json:"sourceProject"`
 	TargetProject *projectNode `json:"targetProject"`
 	DiffRefs      *struct {
@@ -540,10 +541,12 @@ func (n *projectNode) remote() git.RemoteURL {
 	return graphql.RemoteOf(n.WebURL)
 }
 
-// approvalNode is what GitLab says about a merge request's reviews.
-type approvalNode struct {
-	ApprovalsRequired int `json:"approvalsRequired"`
-	ApprovalsLeft     int `json:"approvalsLeft"`
+// standingNode is what GitLab says about a merge request's reviews and the pipeline on its
+// head.
+type standingNode struct {
+	DiffHeadSha       string `json:"diffHeadSha"`
+	ApprovalsRequired int    `json:"approvalsRequired"`
+	ApprovalsLeft     int    `json:"approvalsLeft"`
 	ApprovedBy        struct {
 		Count int `json:"count"`
 	} `json:"approvedBy"`
@@ -554,11 +557,38 @@ type approvalNode struct {
 			} `json:"mergeRequestInteraction"`
 		} `json:"nodes"`
 	} `json:"reviewers"`
+	HeadPipeline *struct {
+		Status string `json:"status"`
+	} `json:"headPipeline"`
+}
+
+// standing is the node's decision and checks with the head they were read for.
+func (n standingNode) standing() forge.Standing {
+	return forge.Standing{Decision: n.decision(), Checks: n.checks(), HeadSHA: n.DiffHeadSha}
+}
+
+// checks is the head pipeline's status in weave's words: a cancelled pipeline blocks the merge
+// the way a failed one does, and a skipped or manual one says nothing about the branch.
+func (n standingNode) checks() forge.Checks {
+	if n.HeadPipeline == nil {
+		return forge.ChecksNone
+	}
+
+	switch n.HeadPipeline.Status {
+	case "SUCCESS":
+		return forge.ChecksPassing
+	case "FAILED", "CANCELED", "CANCELING":
+		return forge.ChecksFailing
+	case "CREATED", "WAITING_FOR_RESOURCE", "PREPARING", "WAITING_FOR_CALLBACK", "PENDING", "RUNNING", "SCHEDULED":
+		return forge.ChecksPending
+	}
+
+	return forge.ChecksNone
 }
 
 // decision folds the approvals into weave's word, a change request first, then approvals
 // still owed, then an approval given.
-func (n approvalNode) decision() forge.ReviewDecision {
+func (n standingNode) decision() forge.ReviewDecision {
 	for _, reviewer := range n.Reviewers.Nodes {
 		if reviewer.MergeRequestInteraction != nil && reviewer.MergeRequestInteraction.ReviewState == reviewStateRequestedChanges {
 			return forge.ReviewDecisionChangesRequested
@@ -575,8 +605,9 @@ func (n approvalNode) decision() forge.ReviewDecision {
 	return forge.ReviewDecisionNone
 }
 
-// toPullRequest is the node as the record, carrying its decision when the query asked for one.
-func (n mergeRequestNode) toPullRequest(withDecision bool) forge.PullRequest {
+// toPullRequest is the node as the record, carrying its decision and checks when the query
+// asked for them.
+func (n mergeRequestNode) toPullRequest(withStanding bool) forge.PullRequest {
 	baseSHA := ""
 	if n.DiffRefs != nil {
 		baseSHA = n.DiffRefs.BaseSha
@@ -601,8 +632,9 @@ func (n mergeRequestNode) toPullRequest(withDecision bool) forge.PullRequest {
 		MergedAt:   n.MergedAt,
 		ClosedAt:   n.closedAt(),
 	}
-	if withDecision {
+	if withStanding {
 		pullRequest.Decision = xptr.Ptr(n.decision())
+		pullRequest.Checks = xptr.Ptr(n.checks())
 	}
 
 	return pullRequest

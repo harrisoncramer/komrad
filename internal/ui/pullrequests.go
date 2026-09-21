@@ -13,10 +13,11 @@ import (
 )
 
 // pullRequestStanding is where the pull request opened from an agent's branch stands, as the
-// listing carries it: the state, and the current one's number, address and title when there is
-// one.
+// listing carries it: the state, the checks on its head, and the current one's number, address
+// and title when there is one.
 type pullRequestStanding struct {
 	state  pullrequestv1.PullRequestState
+	checks pullrequestv1.Checks
 	number int32
 	url    string
 	title  string
@@ -28,6 +29,7 @@ type agentPullRequest struct {
 	url      string
 	title    string
 	state    pullrequestv1.PullRequestState
+	checks   pullrequestv1.Checks
 	current  bool
 	openedAt time.Time
 	mergedAt *time.Time
@@ -155,11 +157,12 @@ func pullRequestFields(standing pullRequestStanding, listed agentPullRequests) [
 		pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CHANGES_REQUESTED,
 		pullrequestv1.PullRequestState_PULL_REQUEST_STATE_DRAFT,
 		pullrequestv1.PullRequestState_PULL_REQUEST_STATE_MERGED,
-		pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CLOSED:
+		pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CLOSED,
+		pullrequestv1.PullRequestState_PULL_REQUEST_STATE_FAILING:
 	}
 
 	if !listed.answered || listed.err != nil || len(listed.items) == 0 {
-		return []recordField{{pullRequestFieldKey, fmt.Sprintf("#%d %s", standing.number, pullRequestStateWord(standing.state))}}
+		return []recordField{{pullRequestFieldKey, fmt.Sprintf("#%d %s", standing.number, pullRequestWords(standing.state, standing.checks))}}
 	}
 
 	fields := make([]recordField, 0, 2)
@@ -171,7 +174,7 @@ func pullRequestFields(standing pullRequestStanding, listed agentPullRequests) [
 			continue
 		}
 
-		rest = append(rest, fmt.Sprintf("#%d %s", pullRequest.number, pullRequestStateWord(pullRequest.state)))
+		rest = append(rest, fmt.Sprintf("#%d %s", pullRequest.number, pullRequestWords(pullRequest.state, pullRequest.checks)))
 	}
 	if len(rest) > 0 {
 		fields = append(fields, recordField{"pull requests", strings.Join(rest, ", ")})
@@ -183,7 +186,7 @@ func pullRequestFields(standing pullRequestStanding, listed agentPullRequests) [
 // currentPullRequestField is the current pull request with how long ago it reached where it
 // stands: when it finished for a finished one, when it was opened otherwise.
 func currentPullRequestField(pullRequest agentPullRequest) string {
-	word := pullRequestStateWord(pullRequest.state)
+	word := pullRequestWords(pullRequest.state, pullRequest.checks)
 	switch {
 	case pullRequest.mergedAt != nil:
 		return fmt.Sprintf("#%d %s %s ago", pullRequest.number, word, label.Age(*pullRequest.mergedAt))
@@ -197,11 +200,24 @@ func currentPullRequestField(pullRequest agentPullRequest) string {
 // pullRequestFieldKey labels the pull request an agent's row stands for.
 const pullRequestFieldKey = "pull request"
 
+// pullRequestWords is the state word with the checks beside it while a run is in flight,
+// which is what tells an open row with an approval waiting on its checks from a bare one.
+func pullRequestWords(state pullrequestv1.PullRequestState, checks pullrequestv1.Checks) string {
+	word := pullRequestStateWord(state)
+	if checks == pullrequestv1.Checks_CHECKS_PENDING && state != pullrequestv1.PullRequestState_PULL_REQUEST_STATE_FAILING {
+		return word + ", checks running"
+	}
+
+	return word
+}
+
 // pullRequestStateWord is the one word the record uses for a state.
 func pullRequestStateWord(state pullrequestv1.PullRequestState) string {
 	switch state {
 	case pullrequestv1.PullRequestState_PULL_REQUEST_STATE_OPEN:
 		return "open"
+	case pullrequestv1.PullRequestState_PULL_REQUEST_STATE_FAILING:
+		return "checks failing"
 	case pullrequestv1.PullRequestState_PULL_REQUEST_STATE_APPROVED:
 		return "approved"
 	case pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CHANGES_REQUESTED:

@@ -326,7 +326,7 @@ SET
 WHERE
     repository_url = @repository_url;
 
--- name: ListStaleDecisions :many
+-- name: ListStaleStandings :many
 SELECT
     p.*
 FROM
@@ -338,7 +338,15 @@ WHERE
     AND p.closed_at IS NULL
     AND NOT p.draft
     AND (p.decision_changed_at IS NULL
-        OR p.decision_changed_at < p.changed_at)
+        OR p.decision_changed_at < p.changed_at
+        OR p.checks_sha IS DISTINCT FROM p.head_sha
+        OR (p.checks = 'pending'
+            AND p.checks_read_at < @pending_before::timestamptz)
+        OR (p.checks IS NULL
+            AND p.changed_at > @settled_after::timestamptz
+            AND p.checks_read_at < @pending_before::timestamptz)
+        OR (p.checks IN ('passing', 'failing')
+            AND p.checks_read_at < @settled_before::timestamptz))
     AND EXISTS (
         SELECT
             1
@@ -351,17 +359,17 @@ WHERE
 ORDER BY
     p.changed_at DESC;
 
--- name: SetReviewDecision :exec
+-- name: SetStanding :exec
 UPDATE
     pull_requests
 SET
     review_decision = sqlc.narg('review_decision'),
-    decision_changed_at = changed_at
+    decision_changed_at = changed_at,
+    checks = sqlc.narg('checks'),
+    checks_sha = @checks_sha::text,
+    checks_read_at = @checks_read_at::timestamptz
 WHERE
-    id = @id
-    AND (review_decision,
-        decision_changed_at) IS DISTINCT FROM (sqlc.narg('review_decision'),
-        changed_at);
+    id = @id;
 
 -- name: ListAgentBranchPullRequests :many
 SELECT

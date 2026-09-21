@@ -103,6 +103,7 @@ func agentItemsFrom(listed []*agentv1.Agent) []agentItem {
 func pullRequestStandingFrom(standing *agentv1.PullRequestStanding) pullRequestStanding {
 	return pullRequestStanding{
 		state:  standing.GetState(),
+		checks: standing.GetChecks(),
 		number: standing.GetNumber(),
 		url:    standing.GetUrl(),
 		title:  standing.GetTitle(),
@@ -119,6 +120,7 @@ func agentPullRequestsFrom(listed *pullrequestv1.ListAgentPullRequestsResponse) 
 				url:      pullRequest.GetUrl(),
 				title:    pullRequest.GetTitle(),
 				state:    pullRequest.GetState(),
+				checks:   pullRequest.GetChecks(),
 				current:  pullRequest.GetCurrent(),
 				openedAt: dates.Parse(pullRequest.GetOpenedAt()),
 				mergedAt: dates.ParsePtr(pullRequest.GetMergedAt()),

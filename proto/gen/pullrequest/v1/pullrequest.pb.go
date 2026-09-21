@@ -25,7 +25,7 @@ const (
 )
 
 // PullRequestState is where a stored pull request stands, decided on the server from its stamps,
-// its draft flag and the forge's review decision, finished first.
+// its draft flag, the checks on its head and the forge's review decision, finished first.
 type PullRequestState int32
 
 const (
@@ -35,9 +35,10 @@ const (
 	PullRequestState_PULL_REQUEST_STATE_UNREAD PullRequestState = 1
 	// The repository has been swept and nothing was opened from the branch.
 	PullRequestState_PULL_REQUEST_STATE_NONE PullRequestState = 2
-	// Open with no review decision that settles it.
+	// Open with no review decision that settles it, or approved while its checks are still
+	// running.
 	PullRequestState_PULL_REQUEST_STATE_OPEN PullRequestState = 3
-	// Open and approved on the forge.
+	// Open and approved on the forge, with its checks passing or none to run.
 	PullRequestState_PULL_REQUEST_STATE_APPROVED PullRequestState = 4
 	// Open with a reviewer asking for changes.
 	PullRequestState_PULL_REQUEST_STATE_CHANGES_REQUESTED PullRequestState = 5
@@ -47,6 +48,8 @@ const (
 	PullRequestState_PULL_REQUEST_STATE_MERGED PullRequestState = 7
 	// Closed without merging.
 	PullRequestState_PULL_REQUEST_STATE_CLOSED PullRequestState = 8
+	// Open with a failing check on its head, whatever its reviews say.
+	PullRequestState_PULL_REQUEST_STATE_FAILING PullRequestState = 9
 )
 
 // Enum value maps for PullRequestState.
@@ -61,6 +64,7 @@ var (
 		6: "PULL_REQUEST_STATE_DRAFT",
 		7: "PULL_REQUEST_STATE_MERGED",
 		8: "PULL_REQUEST_STATE_CLOSED",
+		9: "PULL_REQUEST_STATE_FAILING",
 	}
 	PullRequestState_value = map[string]int32{
 		"PULL_REQUEST_STATE_UNSPECIFIED":       0,
@@ -72,6 +76,7 @@ var (
 		"PULL_REQUEST_STATE_DRAFT":             6,
 		"PULL_REQUEST_STATE_MERGED":            7,
 		"PULL_REQUEST_STATE_CLOSED":            8,
+		"PULL_REQUEST_STATE_FAILING":           9,
 	}
 )
 
@@ -100,6 +105,68 @@ func (x PullRequestState) Number() protoreflect.EnumNumber {
 // Deprecated: Use PullRequestState.Descriptor instead.
 func (PullRequestState) EnumDescriptor() ([]byte, []int) {
 	return file_pullrequest_v1_pullrequest_proto_rawDescGZIP(), []int{0}
+}
+
+// Checks is where the checks on a pull request's head commit stand, as the forge last reported
+// them.
+type Checks int32
+
+const (
+	// The checks have not been read.
+	Checks_CHECKS_UNSPECIFIED Checks = 0
+	// The forge reports no checks on the head.
+	Checks_CHECKS_NONE Checks = 1
+	// A run is still in flight.
+	Checks_CHECKS_PENDING Checks = 2
+	// Every check passed.
+	Checks_CHECKS_PASSING Checks = 3
+	// At least one check failed.
+	Checks_CHECKS_FAILING Checks = 4
+)
+
+// Enum value maps for Checks.
+var (
+	Checks_name = map[int32]string{
+		0: "CHECKS_UNSPECIFIED",
+		1: "CHECKS_NONE",
+		2: "CHECKS_PENDING",
+		3: "CHECKS_PASSING",
+		4: "CHECKS_FAILING",
+	}
+	Checks_value = map[string]int32{
+		"CHECKS_UNSPECIFIED": 0,
+		"CHECKS_NONE":        1,
+		"CHECKS_PENDING":     2,
+		"CHECKS_PASSING":     3,
+		"CHECKS_FAILING":     4,
+	}
+)
+
+func (x Checks) Enum() *Checks {
+	p := new(Checks)
+	*p = x
+	return p
+}
+
+func (x Checks) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (Checks) Descriptor() protoreflect.EnumDescriptor {
+	return file_pullrequest_v1_pullrequest_proto_enumTypes[1].Descriptor()
+}
+
+func (Checks) Type() protoreflect.EnumType {
+	return &file_pullrequest_v1_pullrequest_proto_enumTypes[1]
+}
+
+func (x Checks) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use Checks.Descriptor instead.
+func (Checks) EnumDescriptor() ([]byte, []int) {
+	return file_pullrequest_v1_pullrequest_proto_rawDescGZIP(), []int{1}
 }
 
 type ListPullRequestsRequest struct {
@@ -468,6 +535,8 @@ type AgentPullRequest struct {
 	Title string `protobuf:"bytes,3,opt,name=title,proto3" json:"title,omitempty"`
 	// Where it stands, decided from the stored row.
 	State PullRequestState `protobuf:"varint,4,opt,name=state,proto3,enum=pullrequest.v1.PullRequestState" json:"state,omitempty"`
+	// Where the checks on its head stand.
+	Checks Checks `protobuf:"varint,9,opt,name=checks,proto3,enum=pullrequest.v1.Checks" json:"checks,omitempty"`
 	// Whether this is the one the agent's row stands for: the newest opened that is not finished,
 	// else the newest opened of the finished.
 	Current bool `protobuf:"varint,5,opt,name=current,proto3" json:"current,omitempty"`
@@ -537,6 +606,13 @@ func (x *AgentPullRequest) GetState() PullRequestState {
 		return x.State
 	}
 	return PullRequestState_PULL_REQUEST_STATE_UNSPECIFIED
+}
+
+func (x *AgentPullRequest) GetChecks() Checks {
+	if x != nil {
+		return x.Checks
+	}
+	return Checks_CHECKS_UNSPECIFIED
 }
 
 func (x *AgentPullRequest) GetCurrent() bool {
@@ -670,12 +746,13 @@ const file_pullrequest_v1_pullrequest_proto_rawDesc = "" +
 	"\x0fnext_page_token\x18\x02 \x01(\tH\x00R\rnextPageToken\x88\x01\x01B\x12\n" +
 	"\x10_next_page_token\"B\n" +
 	"\x1cListAgentPullRequestsRequest\x12\"\n" +
-	"\bagent_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\aagentId\"\xa1\x02\n" +
+	"\bagent_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\aagentId\"\xd1\x02\n" +
 	"\x10AgentPullRequest\x12\x16\n" +
 	"\x06number\x18\x01 \x01(\x05R\x06number\x12\x10\n" +
 	"\x03url\x18\x02 \x01(\tR\x03url\x12\x14\n" +
 	"\x05title\x18\x03 \x01(\tR\x05title\x126\n" +
-	"\x05state\x18\x04 \x01(\x0e2 .pullrequest.v1.PullRequestStateR\x05state\x12\x18\n" +
+	"\x05state\x18\x04 \x01(\x0e2 .pullrequest.v1.PullRequestStateR\x05state\x12.\n" +
+	"\x06checks\x18\t \x01(\x0e2\x16.pullrequest.v1.ChecksR\x06checks\x12\x18\n" +
 	"\acurrent\x18\x05 \x01(\bR\acurrent\x12\x1b\n" +
 	"\topened_at\x18\x06 \x01(\tR\bopenedAt\x12 \n" +
 	"\tmerged_at\x18\a \x01(\tH\x00R\bmergedAt\x88\x01\x01\x12 \n" +
@@ -687,7 +764,7 @@ const file_pullrequest_v1_pullrequest_proto_rawDesc = "" +
 	"\x1dListAgentPullRequestsResponse\x12E\n" +
 	"\rpull_requests\x18\x01 \x03(\v2 .pullrequest.v1.AgentPullRequestR\fpullRequests\x121\n" +
 	"\x12repository_read_at\x18\x02 \x01(\tH\x00R\x10repositoryReadAt\x88\x01\x01B\x15\n" +
-	"\x13_repository_read_at*\xb6\x02\n" +
+	"\x13_repository_read_at*\xd6\x02\n" +
 	"\x10PullRequestState\x12\"\n" +
 	"\x1ePULL_REQUEST_STATE_UNSPECIFIED\x10\x00\x12\x1d\n" +
 	"\x19PULL_REQUEST_STATE_UNREAD\x10\x01\x12\x1b\n" +
@@ -697,7 +774,14 @@ const file_pullrequest_v1_pullrequest_proto_rawDesc = "" +
 	"$PULL_REQUEST_STATE_CHANGES_REQUESTED\x10\x05\x12\x1c\n" +
 	"\x18PULL_REQUEST_STATE_DRAFT\x10\x06\x12\x1d\n" +
 	"\x19PULL_REQUEST_STATE_MERGED\x10\a\x12\x1d\n" +
-	"\x19PULL_REQUEST_STATE_CLOSED\x10\b2\x9f\n" +
+	"\x19PULL_REQUEST_STATE_CLOSED\x10\b\x12\x1e\n" +
+	"\x1aPULL_REQUEST_STATE_FAILING\x10\t*m\n" +
+	"\x06Checks\x12\x16\n" +
+	"\x12CHECKS_UNSPECIFIED\x10\x00\x12\x0f\n" +
+	"\vCHECKS_NONE\x10\x01\x12\x12\n" +
+	"\x0eCHECKS_PENDING\x10\x02\x12\x12\n" +
+	"\x0eCHECKS_PASSING\x10\x03\x12\x12\n" +
+	"\x0eCHECKS_FAILING\x10\x042\x9f\n" +
 	"\n" +
 	"\x12PullRequestService\x12\xd2\x04\n" +
 	"\x10ListPullRequests\x12'.pullrequest.v1.ListPullRequestsRequest\x1a(.pullrequest.v1.ListPullRequestsResponse\"\xea\x03\x9a\xb5\x18\xe2\x03\b\x01\x10\x01\x1a\x12list_pull_requests\"\xc7\x03List a repository's pull requests through the forge connection for its host, a page at a time: every one opened from a branch when one is named, whatever its state, or the open ones when none is. Give the repository as a git remote spells it, and pass the next_page_token back as pagination.cursor for the next page. A repository the connection's credential cannot see is answered as not found, which is also what a repository that does not exist answers.\x90\x02\x01\x12\xb3\x05\n" +
@@ -715,32 +799,34 @@ func file_pullrequest_v1_pullrequest_proto_rawDescGZIP() []byte {
 	return file_pullrequest_v1_pullrequest_proto_rawDescData
 }
 
-var file_pullrequest_v1_pullrequest_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
+var file_pullrequest_v1_pullrequest_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
 var file_pullrequest_v1_pullrequest_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
 var file_pullrequest_v1_pullrequest_proto_goTypes = []any{
 	(PullRequestState)(0),                 // 0: pullrequest.v1.PullRequestState
-	(*ListPullRequestsRequest)(nil),       // 1: pullrequest.v1.ListPullRequestsRequest
-	(*PullRequest)(nil),                   // 2: pullrequest.v1.PullRequest
-	(*ListPullRequestsResponse)(nil),      // 3: pullrequest.v1.ListPullRequestsResponse
-	(*ListAgentPullRequestsRequest)(nil),  // 4: pullrequest.v1.ListAgentPullRequestsRequest
-	(*AgentPullRequest)(nil),              // 5: pullrequest.v1.AgentPullRequest
-	(*ListAgentPullRequestsResponse)(nil), // 6: pullrequest.v1.ListAgentPullRequestsResponse
-	(*v1.Pagination)(nil),                 // 7: pagination.v1.Pagination
+	(Checks)(0),                           // 1: pullrequest.v1.Checks
+	(*ListPullRequestsRequest)(nil),       // 2: pullrequest.v1.ListPullRequestsRequest
+	(*PullRequest)(nil),                   // 3: pullrequest.v1.PullRequest
+	(*ListPullRequestsResponse)(nil),      // 4: pullrequest.v1.ListPullRequestsResponse
+	(*ListAgentPullRequestsRequest)(nil),  // 5: pullrequest.v1.ListAgentPullRequestsRequest
+	(*AgentPullRequest)(nil),              // 6: pullrequest.v1.AgentPullRequest
+	(*ListAgentPullRequestsResponse)(nil), // 7: pullrequest.v1.ListAgentPullRequestsResponse
+	(*v1.Pagination)(nil),                 // 8: pagination.v1.Pagination
 }
 var file_pullrequest_v1_pullrequest_proto_depIdxs = []int32{
-	7, // 0: pullrequest.v1.ListPullRequestsRequest.pagination:type_name -> pagination.v1.Pagination
-	2, // 1: pullrequest.v1.ListPullRequestsResponse.pull_requests:type_name -> pullrequest.v1.PullRequest
+	8, // 0: pullrequest.v1.ListPullRequestsRequest.pagination:type_name -> pagination.v1.Pagination
+	3, // 1: pullrequest.v1.ListPullRequestsResponse.pull_requests:type_name -> pullrequest.v1.PullRequest
 	0, // 2: pullrequest.v1.AgentPullRequest.state:type_name -> pullrequest.v1.PullRequestState
-	5, // 3: pullrequest.v1.ListAgentPullRequestsResponse.pull_requests:type_name -> pullrequest.v1.AgentPullRequest
-	1, // 4: pullrequest.v1.PullRequestService.ListPullRequests:input_type -> pullrequest.v1.ListPullRequestsRequest
-	4, // 5: pullrequest.v1.PullRequestService.ListAgentPullRequests:input_type -> pullrequest.v1.ListAgentPullRequestsRequest
-	3, // 6: pullrequest.v1.PullRequestService.ListPullRequests:output_type -> pullrequest.v1.ListPullRequestsResponse
-	6, // 7: pullrequest.v1.PullRequestService.ListAgentPullRequests:output_type -> pullrequest.v1.ListAgentPullRequestsResponse
-	6, // [6:8] is the sub-list for method output_type
-	4, // [4:6] is the sub-list for method input_type
-	4, // [4:4] is the sub-list for extension type_name
-	4, // [4:4] is the sub-list for extension extendee
-	0, // [0:4] is the sub-list for field type_name
+	1, // 3: pullrequest.v1.AgentPullRequest.checks:type_name -> pullrequest.v1.Checks
+	6, // 4: pullrequest.v1.ListAgentPullRequestsResponse.pull_requests:type_name -> pullrequest.v1.AgentPullRequest
+	2, // 5: pullrequest.v1.PullRequestService.ListPullRequests:input_type -> pullrequest.v1.ListPullRequestsRequest
+	5, // 6: pullrequest.v1.PullRequestService.ListAgentPullRequests:input_type -> pullrequest.v1.ListAgentPullRequestsRequest
+	4, // 7: pullrequest.v1.PullRequestService.ListPullRequests:output_type -> pullrequest.v1.ListPullRequestsResponse
+	7, // 8: pullrequest.v1.PullRequestService.ListAgentPullRequests:output_type -> pullrequest.v1.ListAgentPullRequestsResponse
+	7, // [7:9] is the sub-list for method output_type
+	5, // [5:7] is the sub-list for method input_type
+	5, // [5:5] is the sub-list for extension type_name
+	5, // [5:5] is the sub-list for extension extendee
+	0, // [0:5] is the sub-list for field type_name
 }
 
 func init() { file_pullrequest_v1_pullrequest_proto_init() }
@@ -758,7 +844,7 @@ func file_pullrequest_v1_pullrequest_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_pullrequest_v1_pullrequest_proto_rawDesc), len(file_pullrequest_v1_pullrequest_proto_rawDesc)),
-			NumEnums:      1,
+			NumEnums:      2,
 			NumMessages:   6,
 			NumExtensions: 0,
 			NumServices:   1,

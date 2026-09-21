@@ -43,8 +43,8 @@ func (f *fakeForge) ListChanged(context.Context, forge.ListChangedParams) (*forg
 	return &forge.Page{}, nil
 }
 
-func (f *fakeForge) ReviewDecisions(context.Context, git.RemoteURL, []int) (map[int]forge.ReviewDecision, error) {
-	return map[int]forge.ReviewDecision{}, nil
+func (f *fakeForge) Standings(context.Context, git.RemoteURL, []int) (map[int]forge.Standing, error) {
+	return map[int]forge.Standing{}, nil
 }
 
 func (f *fakeForge) List(_ context.Context, params forge.ListParams) (*forge.Page, error) {
@@ -276,7 +276,7 @@ func TestListAgentPullRequests(t *testing.T) {
 				}
 				approved, err := st.PullRequests.GetByIdentity(ctx, "github.com", "PR_2")
 				require.NoError(t, err)
-				require.NoError(t, st.PullRequests.SetReviewDecision(ctx, approved.ID, forge.ReviewDecisionApproved))
+				require.NoError(t, st.PullRequests.SetStanding(ctx, approved.ID, forge.Standing{Decision: forge.ReviewDecisionApproved}, time.Now()))
 
 				return id
 			},

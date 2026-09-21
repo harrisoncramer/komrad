@@ -161,6 +161,21 @@ table "pull_requests" {
     type    = timestamptz
     comment = "The changed_at the review decision was read for, stale once changed_at has moved past it."
   }
+  column "checks" {
+    null    = true
+    type    = text
+    comment = "Where the forge says the checks on the head commit stand, in weave's own words: pending, passing or failing, null while it reports none. A check finishing does not move changed_at, so the checks are kept fresh by checks_sha and checks_read_at rather than by the change stamp."
+  }
+  column "checks_sha" {
+    null    = true
+    type    = text
+    comment = "The head commit the checks were read for, stale once head_sha has moved past it."
+  }
+  column "checks_read_at" {
+    null    = true
+    type    = timestamptz
+    comment = "When the checks were last read, which is what paces the re-read of a pending or failing run."
+  }
   primary_key {
     columns = [column.id]
   }

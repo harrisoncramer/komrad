@@ -422,6 +422,12 @@ type PullRequest struct {
 	ReviewDecision *string
 	// The changed_at the review decision was read for, stale once changed_at has moved past it.
 	DecisionChangedAt *time.Time
+	// Where the forge says the checks on the head commit stand, in weave's own words: pending, passing or failing, null while it reports none. A check finishing does not move changed_at, so the checks are kept fresh by checks_sha and checks_read_at rather than by the change stamp.
+	Checks *string
+	// The head commit the checks were read for, stale once head_sha has moved past it.
+	ChecksSha *string
+	// When the checks were last read, which is what paces the re-read of a pending or failing run.
+	ChecksReadAt *time.Time
 }
 
 // Where the pull request sync is for one repository: the high-water mark the changes have been read through, the first sweep in progress if one is, and what the last pass cost.

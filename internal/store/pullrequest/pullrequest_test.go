@@ -394,10 +394,11 @@ func finishedPullRequest(providerID string, number int, branch string) UpsertPar
 	return params
 }
 
-// TestListStaleDecisionsAnswersOpenRowsOnLiveBranches covers which pull requests cost a
-// decision read: open and not draft, on a branch a live agent sits on, and never read or read
-// before the last change.
-func TestListStaleDecisionsAnswersOpenRowsOnLiveBranches(t *testing.T) {
+// TestListStaleStandingsAnswersOpenRowsOnLiveBranches covers which pull requests cost a
+// standing read: open and not draft, on a branch a live agent sits on, and never read, read
+// before the last change, read for another head, or read as pending, as none right after a
+// change, or as settled longer ago than the params trust.
+func TestListStaleStandingsAnswersOpenRowsOnLiveBranches(t *testing.T) {
 	h := open(t)
 	ctx := t.Context()
 
@@ -417,59 +418,96 @@ func TestListStaleDecisionsAnswersOpenRowsOnLiveBranches(t *testing.T) {
 	onArchived := openPullRequest("PR_7", 7, "agent/archived")
 	fork := openPullRequest("PR_8", 8, "agent/x")
 	fork.HeadRepositoryURL = "https://github.com/someone/weave"
-	for _, params := range []UpsertParams{unread, readSince, changedSince, draft, merged, noAgent, onArchived, fork} {
-		params.URL = "https://github.com/harrisoncramer/weave/pull/" + params.ProviderID
+	pushed := openPullRequest("PR_9", 9, "agent/x")
+	pending := openPullRequest("PR_10", 10, "agent/x")
+	failing := openPullRequest("PR_11", 11, "agent/x")
+	now := time.Now()
+	settling := openPullRequest("PR_12", 12, "agent/x")
+	settling.ChangedAt = now
+	settled := openPullRequest("PR_13", 13, "agent/x")
+	for _, params := range []UpsertParams{unread, readSince, changedSince, draft, merged, noAgent, onArchived, fork, pushed, pending, failing, settling, settled} {
 		_, err := h.Upsert(ctx, params)
 		require.NoError(t, err)
 	}
 
-	for _, providerID := range []string{"PR_2", "PR_3"} {
+	set := func(providerID string, standing forge.Standing) {
+		t.Helper()
 		stored, err := h.GetByIdentity(ctx, "github.com", providerID)
 		require.NoError(t, err)
-		require.NoError(t, h.SetReviewDecision(ctx, stored.ID, forge.ReviewDecisionApproved))
+		require.NoError(t, h.SetStanding(ctx, stored.ID, standing, now))
 	}
+	set("PR_2", forge.Standing{Decision: forge.ReviewDecisionApproved, Checks: forge.ChecksPassing, HeadSHA: "abc"})
+	set("PR_3", forge.Standing{Decision: forge.ReviewDecisionApproved, Checks: forge.ChecksPassing, HeadSHA: "abc"})
+	set("PR_9", forge.Standing{Checks: forge.ChecksPassing, HeadSHA: "before-the-push"})
+	set("PR_10", forge.Standing{Checks: forge.ChecksPending, HeadSHA: "abc"})
+	set("PR_11", forge.Standing{Checks: forge.ChecksFailing, HeadSHA: "abc"})
+	set("PR_12", forge.Standing{HeadSHA: "abc"})
+	set("PR_13", forge.Standing{HeadSHA: "abc"})
 	changedSince.ChangedAt = changedSince.ChangedAt.Add(time.Hour)
-	changedSince.URL = "https://github.com/harrisoncramer/weave/pull/PR_3"
 	_, err = h.Upsert(ctx, changedSince)
 	require.NoError(t, err)
 
-	stale, err := h.syncs.ListStaleDecisions(ctx, weave)
-	require.NoError(t, err)
+	list := func(now time.Time) []int {
+		t.Helper()
+		stale, err := h.syncs.ListStaleStandings(ctx, ListStaleStandingsParams{
+			RepositoryURL: weave,
+			Now:           now,
+			PendingAfter:  time.Minute,
+			SettleWithin:  10 * time.Minute,
+			SettledAfter:  10 * time.Minute,
+		})
+		require.NoError(t, err)
 
-	numbers := xslice.Map(stale, func(pullRequest PullRequest) int {
-		return pullRequest.Number
-	})
-	assert.Equal(t, []int{3, 1}, numbers, "newest change first")
+		return xslice.Map(stale, func(pullRequest PullRequest) int {
+			return pullRequest.Number
+		})
+	}
+
+	assert.ElementsMatch(t, []int{1, 3, 9}, list(now), "never read, changed since, and pushed since are stale the moment they are written")
+	assert.ElementsMatch(t, []int{1, 3, 9, 10, 12}, list(now.Add(2*time.Minute)), "a pending run and a fresh change with no checks are read again after a minute")
+	assert.ElementsMatch(t, []int{1, 2, 3, 9, 10, 11}, list(now.Add(11*time.Minute)), "a run that passed or failed is read again after ten minutes, and a change that old with no checks is settled")
+	assert.Equal(t, 3, list(now)[0], "newest change first")
 }
 
-// TestSetReviewDecisionStampsTheRead covers the decision round trip, an empty decision
-// clearing the column while still counting as read.
-func TestSetReviewDecisionStampsTheRead(t *testing.T) {
+// TestSetStandingStampsTheRead covers the standing round trip, none for the decision and the
+// checks clearing their columns while still counting as read, and the read stamp moving on
+// every write.
+func TestSetStandingStampsTheRead(t *testing.T) {
 	h := open(t)
 	ctx := t.Context()
+	readAt := time.Date(2026, 9, 21, 12, 0, 0, 0, time.UTC)
 
 	written, err := h.Upsert(ctx, openPullRequest("PR_1", 1, "agent/x"))
 	require.NoError(t, err)
 
-	require.NoError(t, h.SetReviewDecision(ctx, written.ID, forge.ReviewDecisionChangesRequested))
+	require.NoError(t, h.SetStanding(ctx, written.ID, forge.Standing{Decision: forge.ReviewDecisionChangesRequested, Checks: forge.ChecksFailing, HeadSHA: "abc"}, readAt))
 	stored, err := h.GetByIdentity(ctx, "github.com", "PR_1")
 	require.NoError(t, err)
 	require.NotNil(t, stored.ReviewDecision)
 	assert.Equal(t, forge.ReviewDecisionChangesRequested, *stored.ReviewDecision)
 	require.NotNil(t, stored.DecisionChangedAt)
 	assert.True(t, stored.DecisionChangedAt.Equal(stored.ChangedAt), "the read is stamped with the change it was for")
+	require.NotNil(t, stored.Checks)
+	assert.Equal(t, forge.ChecksFailing, *stored.Checks)
+	assert.Equal(t, "abc", stored.ChecksSHA)
+	require.NotNil(t, stored.ChecksReadAt)
+	assert.True(t, stored.ChecksReadAt.Equal(readAt))
 
-	require.NoError(t, h.SetReviewDecision(ctx, written.ID, forge.ReviewDecisionNone))
+	readAt = readAt.Add(time.Minute)
+	require.NoError(t, h.SetStanding(ctx, written.ID, forge.Standing{HeadSHA: "abc"}, readAt))
 	stored, err = h.GetByIdentity(ctx, "github.com", "PR_1")
 	require.NoError(t, err)
 	assert.Nil(t, stored.ReviewDecision)
 	assert.NotNil(t, stored.DecisionChangedAt)
+	assert.Nil(t, stored.Checks)
+	assert.Equal(t, "abc", stored.ChecksSHA)
+	assert.True(t, stored.ChecksReadAt.Equal(readAt), "the read stamp moves on a write that says nothing new")
 
 	changed := openPullRequest("PR_1", 1, "agent/x")
 	changed.ChangedAt = changed.ChangedAt.Add(time.Hour)
 	_, err = h.Upsert(ctx, changed)
 	require.NoError(t, err)
-	require.NoError(t, h.SetReviewDecision(ctx, written.ID, forge.ReviewDecisionNone))
+	require.NoError(t, h.SetStanding(ctx, written.ID, forge.Standing{HeadSHA: "abc"}, readAt))
 	stored, err = h.GetByIdentity(ctx, "github.com", "PR_1")
 	require.NoError(t, err)
 	assert.True(t, stored.DecisionChangedAt.Equal(changed.ChangedAt), "the same decision for a later change is still a read")

@@ -130,6 +130,7 @@ func fromRow(row *models.ListAgentRowsRow) Row {
 		if row.PullRequestReviewDecision != nil {
 			listed.PullRequest.ReviewDecision = xptr.Ptr(forge.ReviewDecision(*row.PullRequestReviewDecision))
 		}
+		listed.PullRequest.Checks = pullrequeststore.StoredChecks(row.PullRequestChecks)
 	}
 
 	return listed

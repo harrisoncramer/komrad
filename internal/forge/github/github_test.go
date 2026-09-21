@@ -19,7 +19,7 @@ import (
 )
 
 // The fixtures are what GitHub answered on 20 September 2026, recorded with gh auth token:
-// weave-forge-fixture#1 open, weave#742 merged, kubernetes#55 from a fork, kubernetes#13 from a
+// weave-forge-fixture#1 open, weave#742 merged, widgets#55 from a fork, widgets#13 from a
 // fork since deleted, go#81544 a draft, a search page over two repositories, and a batch of
 // decisions with one number GitHub does not have.
 
@@ -27,17 +27,24 @@ const openPull = `{"id":"PR_kwDOUgkrbM8AAAABEIdmHw","number":1,"title":"fixture:
 
 const mergedPull = `{"id":"PR_kwDOTgPfPc8AAAABEU5L_Q","number":742,"title":"feat(pullrequest): draw pull request marks in the panel","url":"https://github.com/harrisoncramer/weave/pull/742","state":"MERGED","isDraft":false,"createdAt":"2026-09-20T17:57:28Z","updatedAt":"2026-09-20T18:00:07Z","mergedAt":"2026-09-20T18:00:07Z","closedAt":"2026-09-20T18:00:07Z","headRefName":"agent/01a0bea9-02d2-7ce0-bbb4-1fbfc3e74198","headRefOid":"70b1d987cdd21940203ca3fbc5b3a7998a47c830","baseRefName":"main","baseRefOid":"79a1ad8fe89cca4494a40c5c5015f46458ddc121","headRepository":{"url":"https://github.com/harrisoncramer/weave"},"baseRepository":{"url":"https://github.com/harrisoncramer/weave"}}`
 
-const forkPull = `{"id":"MDExOlB1bGxSZXF1ZXN0MTY5Nzk2NTU=","number":55,"title":"Typo correction","url":"https://github.com/kubernetes/kubernetes/pull/55","state":"CLOSED","isDraft":false,"createdAt":"2014-06-11T05:07:11Z","updatedAt":"2014-06-13T12:41:36Z","mergedAt":null,"closedAt":"2014-06-11T05:07:37Z","headRefName":"patch-1","headRefOid":"7a97b155f47ac6fc34eaa630d96ba9caf244d80c","baseRefName":"master","baseRefOid":"fd5d98f21b5008f27513d52ac2faa78292a8a3a8","headRepository":{"url":"https://github.com/jkassemi/kubernetes"},"baseRepository":{"url":"https://github.com/kubernetes/kubernetes"}}`
+const forkPull = `{"id":"MDExOlB1bGxSZXF1ZXN0MTY5Nzk2NTU=","number":55,"title":"Typo correction","url":"https://github.com/acme/widgets/pull/55","state":"CLOSED","isDraft":false,"createdAt":"2014-06-11T05:07:11Z","updatedAt":"2014-06-13T12:41:36Z","mergedAt":null,"closedAt":"2014-06-11T05:07:37Z","headRefName":"patch-1","headRefOid":"7a97b155f47ac6fc34eaa630d96ba9caf244d80c","baseRefName":"master","baseRefOid":"fd5d98f21b5008f27513d52ac2faa78292a8a3a8","headRepository":{"url":"https://github.com/someone/widgets"},"baseRepository":{"url":"https://github.com/acme/widgets"}}`
 
-const deletedForkPull = `{"id":"MDExOlB1bGxSZXF1ZXN0MTY4NTM3MTI=","number":13,"title":"client: add service and requests test","url":"https://github.com/kubernetes/kubernetes/pull/13","state":"CLOSED","isDraft":false,"createdAt":"2014-06-07T11:41:26Z","updatedAt":"2014-06-20T06:20:42Z","mergedAt":null,"closedAt":"2014-06-20T06:20:42Z","headRefName":"client-coverage","headRefOid":"2c8de7699fd79407246011a82201718588a06a08","baseRefName":"master","baseRefOid":"ba7fe835ce990977997bfc6b6c914d235d9ae72f","headRepository":null,"baseRepository":{"url":"https://github.com/kubernetes/kubernetes"}}`
+const deletedForkPull = `{"id":"MDExOlB1bGxSZXF1ZXN0MTY4NTM3MTI=","number":13,"title":"client: add the service tests","url":"https://github.com/acme/widgets/pull/13","state":"CLOSED","isDraft":false,"createdAt":"2014-06-07T11:41:26Z","updatedAt":"2014-06-20T06:20:42Z","mergedAt":null,"closedAt":"2014-06-20T06:20:42Z","headRefName":"client-coverage","headRefOid":"2c8de7699fd79407246011a82201718588a06a08","baseRefName":"master","baseRefOid":"ba7fe835ce990977997bfc6b6c914d235d9ae72f","headRepository":null,"baseRepository":{"url":"https://github.com/acme/widgets"}}`
 
-const draftPull = `{"id":"PR_kwDOAWBuf88AAAABDpsz2A","number":81544,"title":"unicode: widen typePair members to uint32","url":"https://github.com/golang/go/pull/81544","state":"OPEN","isDraft":true,"createdAt":"2026-09-15T17:53:12Z","updatedAt":"2026-09-15T18:47:47Z","mergedAt":null,"closedAt":null,"headRefName":"unicode18","headRefOid":"695f59abb90db534d1ce005c6b2fc1779728d2b1","baseRefName":"master","baseRefOid":"d90cb4e010dbbf7f39b993db5e64e2904c74e4a4","headRepository":{"url":"https://github.com/clin1234/go"},"baseRepository":{"url":"https://github.com/golang/go"}}`
+const draftPull = `{"id":"PR_kwDOAWBuf88AAAABDpsz2A","number":81544,"title":"unicode: widen the pair members","url":"https://github.com/acme/widgets/pull/81544","state":"OPEN","isDraft":true,"createdAt":"2026-09-15T17:53:12Z","updatedAt":"2026-09-15T18:47:47Z","mergedAt":null,"closedAt":null,"headRefName":"unicode18","headRefOid":"695f59abb90db534d1ce005c6b2fc1779728d2b1","baseRefName":"master","baseRefOid":"d90cb4e010dbbf7f39b993db5e64e2904c74e4a4","headRepository":{"url":"https://github.com/someone/widgets"},"baseRepository":{"url":"https://github.com/acme/widgets"}}`
 
 const searchPage = `{"data":{"search":{"issueCount":159,"pageInfo":{"hasNextPage":true,"endCursor":"Y3Vyc29yOjM="},"nodes":[{"id":"PR_kwDOTgPfPc8AAAABEU9Z2Q","number":744,"title":"feat(ui): one row per directory on the worktrees screen","url":"https://github.com/harrisoncramer/weave/pull/744","state":"MERGED","isDraft":false,"reviewDecision":null,"createdAt":"2026-09-20T18:14:43Z","updatedAt":"2026-09-20T18:17:01Z","mergedAt":"2026-09-20T18:17:01Z","closedAt":"2026-09-20T18:17:01Z","headRefName":"agent/01a0bff6-3c6d-7a9e-b497-e76334bd2ab6","headRefOid":"152131741f12434145b7c8df8652140c218ac0bc","baseRefName":"main","baseRefOid":"0710f696842e4640b08afad7ca4c70cccb8312e6","headRepository":{"url":"https://github.com/harrisoncramer/weave"},"baseRepository":{"url":"https://github.com/harrisoncramer/weave"}},{"id":"PR_kwDOTgPfPc8AAAABEU8L2A","number":743,"title":"perf(worktrees): measure a directory in parallel and by its blocks","url":"https://github.com/harrisoncramer/weave/pull/743","state":"MERGED","isDraft":false,"reviewDecision":null,"createdAt":"2026-09-20T18:09:36Z","updatedAt":"2026-09-20T18:12:58Z","mergedAt":"2026-09-20T18:12:58Z","closedAt":"2026-09-20T18:12:58Z","headRefName":"agent/01a0bec8-14fa-7849-a8fa-f31b25f92847","headRefOid":"fa7b9bd985d17396ddbb416d6599efd5b0054e2f","baseRefName":"main","baseRefOid":"3ff2a452603547ebe7d438ea54ecff19550fb6fa","headRepository":{"url":"https://github.com/harrisoncramer/weave"},"baseRepository":{"url":"https://github.com/harrisoncramer/weave"}},{"id":"PR_kwDOTgPfPc8AAAABEU5L_Q","number":742,"title":"feat(pullrequest): draw pull request marks in the panel","url":"https://github.com/harrisoncramer/weave/pull/742","state":"MERGED","isDraft":false,"reviewDecision":null,"createdAt":"2026-09-20T17:57:28Z","updatedAt":"2026-09-20T18:00:07Z","mergedAt":"2026-09-20T18:00:07Z","closedAt":"2026-09-20T18:00:07Z","headRefName":"agent/01a0bea9-02d2-7ce0-bbb4-1fbfc3e74198","headRefOid":"70b1d987cdd21940203ca3fbc5b3a7998a47c830","baseRefName":"main","baseRefOid":"79a1ad8fe89cca4494a40c5c5015f46458ddc121","headRepository":{"url":"https://github.com/harrisoncramer/weave"},"baseRepository":{"url":"https://github.com/harrisoncramer/weave"}}]}}}`
 
-const searchApproved = `{"data":{"search":{"issueCount":2,"pageInfo":{"hasNextPage":false,"endCursor":"Y3Vyc29yOjI="},"nodes":[{"id":"PR_kwDOIGmk9s8AAAABESZ58w","number":11158,"title":"Eng Metrics Production Image Update","url":"https://github.com/chariot-giving/deploy/pull/11158","state":"MERGED","isDraft":false,"reviewDecision":"APPROVED","createdAt":"2026-09-20T06:24:15Z","updatedAt":"2026-09-20T06:24:26Z","mergedAt":"2026-09-20T06:24:26Z","closedAt":"2026-09-20T06:24:26Z","headRefName":"update-eng-metrics-prod-images","headRefOid":"41fdd966bfbce0757b89b100efa46f8e28d02218","baseRefName":"main","baseRefOid":"94475aebe2d459bf41137bf67d767023dde7baa3","headRepository":{"url":"https://github.com/chariot-giving/deploy"},"baseRepository":{"url":"https://github.com/chariot-giving/deploy"}},{"id":"PR_kwDOIGmk9s8AAAABEQX0JA","number":11157,"title":"Admin Production Image Update","url":"https://github.com/chariot-giving/deploy/pull/11157","state":"MERGED","isDraft":false,"reviewDecision":"APPROVED","createdAt":"2026-09-19T21:14:05Z","updatedAt":"2026-09-19T21:14:18Z","mergedAt":"2026-09-19T21:14:17Z","closedAt":"2026-09-19T21:14:17Z","headRefName":"update-admin-prod-images","headRefOid":"583d259df0d2f141345f659491de89462a0de6cc","baseRefName":"main","baseRefOid":"24235336d21888966f294aea6434aa64a16cb004","headRepository":{"url":"https://github.com/chariot-giving/deploy"},"baseRepository":{"url":"https://github.com/chariot-giving/deploy"}}]}}}`
+// searchFailing is one search row as GitHub answers the standings fields on it, the recorded
+// shape with the row made up.
+const searchFailing = `{"data":{"search":{"issueCount":7,"pageInfo":{"hasNextPage":true,"endCursor":"Y3Vyc29yOjE="},"nodes":[{"id":"PR_kwDOTgPfPc8AAAABEU9Z9Z","number":804,"title":"feat(panel): a row for the checks","url":"https://github.com/harrisoncramer/weave/pull/804","state":"OPEN","isDraft":false,"createdAt":"2026-09-17T22:22:25Z","updatedAt":"2026-09-18T21:44:51Z","mergedAt":null,"closedAt":null,"headRefName":"agent/01a0c3e6-8a93-7441-a4c4-32e36761bb27","headRefOid":"4444444444444444444444444444444444444444","baseRefName":"main","baseRefOid":"06cdb987a45779a11be2fc920da62a489c0c1b71","headRepository":{"url":"https://github.com/harrisoncramer/weave"},"baseRepository":{"url":"https://github.com/harrisoncramer/weave"},"reviewDecision":"REVIEW_REQUIRED","commits":{"nodes":[{"commit":{"statusCheckRollup":{"state":"FAILURE"}}}]}}]}}}`
 
-const decisionsBatch = `{"data":{"repository":{"p13705":{"reviewDecision":"CHANGES_REQUESTED"},"p13948":{"reviewDecision":"REVIEW_REQUIRED"},"p13900":{"reviewDecision":"APPROVED"},"p1":{"reviewDecision":null},"p9999999":null}},"errors":[{"type":"NOT_FOUND","path":["repository","p9999999"],"locations":[{"line":7,"column":5}],"message":"Could not resolve to a PullRequest with the number of 9999999."}]}`
+const searchApproved = `{"data":{"search":{"issueCount":2,"pageInfo":{"hasNextPage":false,"endCursor":"Y3Vyc29yOjI="},"nodes":[{"id":"PR_kwDOIGmk9s8AAAABESZ58w","number":11158,"title":"Metrics production image update","url":"https://github.com/acme/deploy/pull/11158","state":"MERGED","isDraft":false,"reviewDecision":"APPROVED","createdAt":"2026-09-20T06:24:15Z","updatedAt":"2026-09-20T06:24:26Z","mergedAt":"2026-09-20T06:24:26Z","closedAt":"2026-09-20T06:24:26Z","headRefName":"update-metrics-images","headRefOid":"41fdd966bfbce0757b89b100efa46f8e28d02218","baseRefName":"main","baseRefOid":"94475aebe2d459bf41137bf67d767023dde7baa3","headRepository":{"url":"https://github.com/acme/deploy"},"baseRepository":{"url":"https://github.com/acme/deploy"}},{"id":"PR_kwDOIGmk9s8AAAABEQX0JA","number":11157,"title":"Admin production image update","url":"https://github.com/acme/deploy/pull/11157","state":"MERGED","isDraft":false,"reviewDecision":"APPROVED","createdAt":"2026-09-19T21:14:05Z","updatedAt":"2026-09-19T21:14:18Z","mergedAt":"2026-09-19T21:14:17Z","closedAt":"2026-09-19T21:14:17Z","headRefName":"update-admin-images","headRefOid":"583d259df0d2f141345f659491de89462a0de6cc","baseRefName":"main","baseRefOid":"24235336d21888966f294aea6434aa64a16cb004","headRepository":{"url":"https://github.com/acme/deploy"},"baseRepository":{"url":"https://github.com/acme/deploy"}}]}}}`
+
+// standingsBatch is the shape GitHub answers the aliased standings query with, the recorded
+// shape with the rows made up: a failing head, a pending one, an approved one whose checks
+// passed, one with no rollup, and a number GitHub does not have.
+const standingsBatch = `{"data":{"repository":{"p801":{"headRefOid":"1111111111111111111111111111111111111111","reviewDecision":"CHANGES_REQUESTED","commits":{"nodes":[{"commit":{"statusCheckRollup":{"state":"FAILURE"}}}]}},"p802":{"headRefOid":"2222222222222222222222222222222222222222","reviewDecision":"REVIEW_REQUIRED","commits":{"nodes":[{"commit":{"statusCheckRollup":{"state":"PENDING"}}}]}},"p803":{"headRefOid":"3333333333333333333333333333333333333333","reviewDecision":"APPROVED","commits":{"nodes":[{"commit":{"statusCheckRollup":{"state":"SUCCESS"}}}]}},"p1":{"headRefOid":"c744e226f1248223edd7aa77a7874aba2eec3b16","reviewDecision":null,"commits":{"nodes":[{"commit":{"statusCheckRollup":null}}]}},"p9999999":null}},"errors":[{"type":"NOT_FOUND","path":["repository","p9999999"],"locations":[{"line":7,"column":5}],"message":"Could not resolve to a PullRequest with the number of 9999999."}]}`
 
 type fakeAuth struct {
 	token       string
@@ -237,7 +244,7 @@ func TestList(t *testing.T) {
 	assert.Equal(t, &stamp, pullRequests[1].ClosedAt)
 	assert.True(t, pullRequests[1].IsFinished())
 
-	assert.Equal(t, "jkassemi/kubernetes", pullRequests[2].Head.Path)
+	assert.Equal(t, "someone/widgets", pullRequests[2].Head.Path)
 
 	assert.True(t, pullRequests[3].Head.IsZero())
 	assert.True(t, pullRequests[3].IsFinished())
@@ -303,7 +310,7 @@ func TestListUpdated(t *testing.T) {
 }
 
 // TestListChanged covers the search: the query string over every repository since the
-// moment given, the page and cursor, and each row carrying its decision.
+// moment given, the page and cursor, and each row carrying its decision and checks.
 func TestListChanged(t *testing.T) {
 	t.Parallel()
 
@@ -311,7 +318,7 @@ func TestListChanged(t *testing.T) {
 
 	since := time.Date(2026, 9, 18, 12, 0, 0, 0, time.UTC)
 	listed, err := f.ListChanged(t.Context(), forge.ListChangedParams{
-		Repos: []git.RemoteURL{{Host: "github.com", Path: "chariot-giving/chariot"}, weave},
+		Repos: []git.RemoteURL{{Host: "github.com", Path: "acme/widgets"}, weave},
 		Since: since,
 	})
 	require.NoError(t, err)
@@ -319,7 +326,7 @@ func TestListChanged(t *testing.T) {
 	assert.Equal(t, "ListChanged", seen.Operation)
 	assert.Equal(t, listChangedQuery, seen.Query)
 	assert.Equal(t, map[string]any{
-		"query": "is:pr repo:chariot-giving/chariot repo:harrisoncramer/weave updated:>=2026-09-18T12:00:00Z sort:updated-desc",
+		"query": "is:pr repo:acme/widgets repo:harrisoncramer/weave updated:>=2026-09-18T12:00:00Z sort:updated-desc",
 		"first": float64(100),
 		"after": nil,
 	}, seen.Variables)
@@ -328,11 +335,22 @@ func TestListChanged(t *testing.T) {
 	require.Len(t, listed.PullRequests, 3)
 	assert.Equal(t, []int{744, 743, 742}, []int{listed.PullRequests[0].Number, listed.PullRequests[1].Number, listed.PullRequests[2].Number})
 	assert.Equal(t, xptr.Ptr(forge.ReviewDecisionNone), listed.PullRequests[0].Decision, "a null decision is still an answer")
+	assert.Equal(t, xptr.Ptr(forge.ChecksNone), listed.PullRequests[0].Checks, "a row with no commits carries none")
 	assert.Equal(t, "https://github.com/harrisoncramer/weave", listed.PullRequests[0].Repository.Canonical())
+
+	f, _, _ = serve(t, map[string]answer{"ListChanged": {body: searchFailing}})
+	listed, err = f.ListChanged(t.Context(), forge.ListChangedParams{
+		Repos: []git.RemoteURL{weave},
+		Since: since,
+	})
+	require.NoError(t, err)
+	require.Len(t, listed.PullRequests, 1)
+	assert.Equal(t, xptr.Ptr(forge.ReviewDecisionPending), listed.PullRequests[0].Decision)
+	assert.Equal(t, xptr.Ptr(forge.ChecksFailing), listed.PullRequests[0].Checks)
 
 	f, _, fake = serve(t, map[string]answer{"ListChanged": {body: searchApproved}})
 	listed, err = f.ListChanged(t.Context(), forge.ListChangedParams{
-		Repos:  []git.RemoteURL{{Host: "github.com", Path: "chariot-giving/deploy"}},
+		Repos:  []git.RemoteURL{{Host: "github.com", Path: "acme/deploy"}},
 		Since:  since,
 		Cursor: "Y3Vyc29yOjM=",
 	})
@@ -614,49 +632,75 @@ func TestRateLimitRefusals(t *testing.T) {
 	}
 }
 
-// TestReviewDecisions covers the batch: one query aliasing every number, each decision GitHub
-// answers in weave's words, a null decision as none, and a number GitHub does not have left
-// out rather than failing the rest.
-func TestReviewDecisions(t *testing.T) {
+// TestStandings covers the batch: one query aliasing every number, each decision and rollup
+// GitHub answers in weave's words with the head they were read for, a null decision and a
+// null rollup as none, and a number GitHub does not have left out rather than failing the rest.
+func TestStandings(t *testing.T) {
 	t.Parallel()
 
-	f, _, fake := serve(t, map[string]answer{"ReviewDecisions": {body: decisionsBatch}})
+	f, _, fake := serve(t, map[string]answer{"Standings": {body: standingsBatch}})
 
-	decisions, err := f.ReviewDecisions(t.Context(), git.RemoteURL{Host: "github.com", Path: "chariot-giving/chariot"}, []int{13705, 13948, 13900, 1, 9999999})
+	standings, err := f.Standings(t.Context(), weave, []int{801, 802, 803, 1, 9999999})
 	require.NoError(t, err)
-	assert.Equal(t, map[int]forge.ReviewDecision{
-		13705: forge.ReviewDecisionChangesRequested,
-		13948: forge.ReviewDecisionPending,
-		13900: forge.ReviewDecisionApproved,
-		1:     forge.ReviewDecisionNone,
-	}, decisions)
+	assert.Equal(t, map[int]forge.Standing{
+		801: {Decision: forge.ReviewDecisionChangesRequested, Checks: forge.ChecksFailing, HeadSHA: "1111111111111111111111111111111111111111"},
+		802: {Decision: forge.ReviewDecisionPending, Checks: forge.ChecksPending, HeadSHA: "2222222222222222222222222222222222222222"},
+		803: {Decision: forge.ReviewDecisionApproved, Checks: forge.ChecksPassing, HeadSHA: "3333333333333333333333333333333333333333"},
+		1:   {Decision: forge.ReviewDecisionNone, Checks: forge.ChecksNone, HeadSHA: "c744e226f1248223edd7aa77a7874aba2eec3b16"},
+	}, standings)
 
 	seen := fake.last(t)
-	assert.Equal(t, "ReviewDecisions", seen.Operation)
-	assert.Equal(t, map[string]any{"owner": "chariot-giving", "name": "chariot"}, seen.Variables)
-	assert.Contains(t, seen.Query, `p13705: pullRequest(number: 13705) { reviewDecision }`)
-	assert.Contains(t, seen.Query, `p9999999: pullRequest(number: 9999999) { reviewDecision }`)
+	assert.Equal(t, "Standings", seen.Operation)
+	assert.Equal(t, map[string]any{"owner": "harrisoncramer", "name": "weave"}, seen.Variables)
+	assert.Contains(t, seen.Query, `p801: pullRequest(number: 801) { headRefOid reviewDecision commits(last: 1) { nodes { commit { statusCheckRollup { state } } } } }`)
+	assert.Contains(t, seen.Query, `p9999999: pullRequest(number: 9999999) { headRefOid `)
 	assert.Equal(t, 5, strings.Count(seen.Query, "pullRequest(number:"))
 }
 
-// TestReviewDecisionsRefusals covers a repository GitHub does not have, a path it cannot
-// address, and more numbers than one call takes, the last two costing no request.
-func TestReviewDecisionsRefusals(t *testing.T) {
+// TestChecksOf covers every rollup state GitHub documents, and a rollup absent from the answer.
+func TestChecksOf(t *testing.T) {
 	t.Parallel()
 
-	missing, _, _ := serve(t, map[string]answer{"ReviewDecisions": {body: `{"data":{"repository":null},"errors":[{"type":"NOT_FOUND","path":["repository"],"locations":[{"line":2,"column":3}],"message":"Could not resolve to a Repository with the name 'harrisoncramer/gone'."}]}`}})
-	_, err := missing.ReviewDecisions(t.Context(), git.RemoteURL{Host: "github.com", Path: "harrisoncramer/gone"}, []int{1})
+	tests := []struct {
+		name   string
+		rollup *rollupNode
+		want   forge.Checks
+	}{
+		{name: "success is passing", rollup: &rollupNode{State: "SUCCESS"}, want: forge.ChecksPassing},
+		{name: "failure is failing", rollup: &rollupNode{State: "FAILURE"}, want: forge.ChecksFailing},
+		{name: "error is failing", rollup: &rollupNode{State: "ERROR"}, want: forge.ChecksFailing},
+		{name: "pending is pending", rollup: &rollupNode{State: "PENDING"}, want: forge.ChecksPending},
+		{name: "expected is pending", rollup: &rollupNode{State: "EXPECTED"}, want: forge.ChecksPending},
+		{name: "no rollup is none", rollup: nil, want: forge.ChecksNone},
+		{name: "a state weave does not know is none", rollup: &rollupNode{State: "SOMETHING_NEW"}, want: forge.ChecksNone},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			assert.Equal(t, tt.want, checksOf(tt.rollup))
+		})
+	}
+}
+
+// TestStandingsRefusals covers a repository GitHub does not have, a path it cannot address, and
+// more numbers than one call takes, the last two costing no request.
+func TestStandingsRefusals(t *testing.T) {
+	t.Parallel()
+
+	missing, _, _ := serve(t, map[string]answer{"Standings": {body: `{"data":{"repository":null},"errors":[{"type":"NOT_FOUND","path":["repository"],"locations":[{"line":2,"column":3}],"message":"Could not resolve to a Repository with the name 'harrisoncramer/gone'."}]}`}})
+	_, err := missing.Standings(t.Context(), git.RemoteURL{Host: "github.com", Path: "harrisoncramer/gone"}, []int{1})
 	require.ErrorIs(t, err, forge.ErrNotFound)
 
 	f, _, fake := serve(t, nil)
-	_, err = f.ReviewDecisions(t.Context(), git.RemoteURL{Host: "github.com", Path: "group/sub/repo"}, []int{1})
+	_, err = f.Standings(t.Context(), git.RemoteURL{Host: "github.com", Path: "group/sub/repo"}, []int{1})
 	require.ErrorIs(t, err, forge.ErrNotRepository)
 
-	numbers := make([]int, forge.MaxReviewDecisions+1)
+	numbers := make([]int, forge.MaxStandings+1)
 	for i := range numbers {
 		numbers[i] = i + 1
 	}
-	_, err = f.ReviewDecisions(t.Context(), weave, numbers)
+	_, err = f.Standings(t.Context(), weave, numbers)
 	require.Error(t, err)
 	assert.Empty(t, fake.calls)
 }

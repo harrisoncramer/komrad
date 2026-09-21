@@ -138,6 +138,7 @@ func renderPullRequestStanding(row agents.Row) *agentv1.PullRequestStanding {
 		Number: xptr.Ptr(int32(row.PullRequest.Number)),
 		Url:    xptr.Ptr(row.PullRequest.URL),
 		Title:  xptr.Ptr(row.PullRequest.Title),
+		Checks: render.ChecksOf(row.PullRequest.Checks),
 	}
 }
 

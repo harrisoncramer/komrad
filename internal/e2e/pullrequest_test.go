@@ -30,7 +30,7 @@ import (
 // repository, counting how often it was asked for the open one's review decision.
 type fakeForge struct {
 	server    *httptest.Server
-	decisions atomic.Int32
+	standings atomic.Int32
 }
 
 // TestPullRequestsReachTheRowFromEachForge covers the whole road from a forge to the panel
@@ -134,7 +134,7 @@ func TestPullRequestsReachTheRowFromEachForge(t *testing.T) {
 			assert.False(t, pullRequests.Msg.GetPullRequests()[1].GetCurrent())
 
 			instance.SyncPullRequests()
-			assert.Equal(t, int32(1), fake.decisions.Load(), "a decision read since the last change is not read again")
+			assert.Equal(t, int32(1), fake.standings.Load(), "a standing read since the last change is not read again")
 		})
 	}
 }
@@ -217,9 +217,13 @@ func fakeGitHub(t *testing.T) *fakeForge {
 			writeJSON(t, w, map[string]any{"data": map[string]any{"repository": map[string]any{"pullRequests": listing}}})
 		case "ListChanged":
 			writeJSON(t, w, map[string]any{"data": map[string]any{"search": connection()}})
-		case "ReviewDecisions":
-			fake.decisions.Add(1)
-			writeJSON(t, w, map[string]any{"data": map[string]any{"repository": map[string]any{"p12": map[string]any{"reviewDecision": "APPROVED"}}}})
+		case "Standings":
+			fake.standings.Add(1)
+			writeJSON(t, w, map[string]any{"data": map[string]any{"repository": map[string]any{"p12": map[string]any{
+				"headRefOid":     "aaa",
+				"reviewDecision": "APPROVED",
+				"commits":        map[string]any{"nodes": []any{map[string]any{"commit": map[string]any{"statusCheckRollup": map[string]any{"state": "SUCCESS"}}}}},
+			}}}})
 		default:
 			http.NotFound(w, r)
 		}
@@ -270,6 +274,8 @@ func fakeGitLab(t *testing.T) *fakeForge {
 		"approvalsLeft":     0,
 		"approvedBy":        map[string]any{"count": 1},
 		"reviewers":         map[string]any{"nodes": []map[string]any{{"mergeRequestInteraction": map[string]any{"reviewState": "APPROVED"}}}},
+		"diffHeadSha":       "aaa",
+		"headPipeline":      map[string]any{"status": "SUCCESS"},
 	}
 
 	fake.server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -289,8 +295,8 @@ func fakeGitLab(t *testing.T) *fakeForge {
 				"r0":              map[string]any{"mergeRequests": connection()},
 				"queryComplexity": map[string]any{"score": 52, "limit": 200},
 			}})
-		case "ReviewDecisions":
-			fake.decisions.Add(1)
+		case "Standings":
+			fake.standings.Add(1)
 			writeJSON(t, w, map[string]any{"data": map[string]any{
 				"project":         map[string]any{"m12": approved},
 				"queryComplexity": map[string]any{"score": 20, "limit": 200},

@@ -837,7 +837,8 @@ opened AS (
         p.draft,
         p.merged_at,
         p.closed_at,
-        p.review_decision
+        p.review_decision,
+        p.checks
     FROM
         agents a
         JOIN pull_requests p ON p.repository_url = a.repository_url
@@ -879,6 +880,7 @@ SELECT
         p.merged_at AS pull_request_merged_at,
         p.closed_at AS pull_request_closed_at,
         p.review_decision AS pull_request_review_decision,
+        p.checks AS pull_request_checks,
         EXISTS (
             SELECT
                 1
@@ -929,6 +931,7 @@ type ListAgentRowsRow struct {
 	PullRequestMergedAt       *time.Time
 	PullRequestClosedAt       *time.Time
 	PullRequestReviewDecision *string
+	PullRequestChecks         *string
 	RepositoryRead            bool
 }
 
@@ -996,6 +999,7 @@ func (q *Queries) ListAgentRows(ctx context.Context, arg ListAgentRowsParams) ([
 			&i.PullRequestMergedAt,
 			&i.PullRequestClosedAt,
 			&i.PullRequestReviewDecision,
+			&i.PullRequestChecks,
 			&i.RepositoryRead,
 		); err != nil {
 			return nil, err

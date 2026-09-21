@@ -60,6 +60,24 @@ func TestPullRequestFields(t *testing.T) {
 			want:   []recordField{{"pull request", "#741 draft"}},
 		},
 		{
+			name: "an approval waiting on its checks reads as open with the run beside it",
+			standing: pullRequestStanding{
+				state:  pullrequestv1.PullRequestState_PULL_REQUEST_STATE_OPEN,
+				checks: pullrequestv1.Checks_CHECKS_PENDING,
+				number: 741,
+			},
+			want: []recordField{{"pull request", "#741 open, checks running"}},
+		},
+		{
+			name: "a failing run names itself once",
+			standing: pullRequestStanding{
+				state:  pullrequestv1.PullRequestState_PULL_REQUEST_STATE_FAILING,
+				checks: pullrequestv1.Checks_CHECKS_FAILING,
+				number: 741,
+			},
+			want: []recordField{{"pull request", "#741 checks failing"}},
+		},
+		{
 			name: "one pull request with how long ago it merged",
 			standing: pullRequestStanding{
 				state:  pullrequestv1.PullRequestState_PULL_REQUEST_STATE_MERGED,

@@ -279,6 +279,11 @@ func TestSnapshotForge(t *testing.T) {
 			state: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CLOSED,
 			want:  view.ForgeClosed,
 		},
+		{
+			name:  "failing",
+			state: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_FAILING,
+			want:  view.ForgeFailing,
+		},
 	}
 
 	for _, tt := range tests {

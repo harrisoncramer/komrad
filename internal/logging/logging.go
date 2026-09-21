@@ -57,7 +57,7 @@ const (
 	RowsUpdated            = "weave.rows.updated"
 	Observations           = "weave.pull_request.observations"
 	SweepInProgress        = "weave.pull_request.sweep_in_progress"
-	DecisionsRead          = "weave.pull_request.decisions_read"
+	StandingsRead          = "weave.pull_request.standings_read"
 	PullRequestNumber      = "weave.pull_request.number"
 	Repositories           = "weave.repositories"
 	RowsListed             = "weave.rows.listed"

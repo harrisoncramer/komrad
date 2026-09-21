@@ -23,3 +23,14 @@ func Equal[T comparable](a, b *T) bool {
 
 	return *a == *b
 }
+
+// Deref returns the value p points at, or the zero value for nil.
+func Deref[T any](p *T) T {
+	if p == nil {
+		var zero T
+
+		return zero
+	}
+
+	return *p
+}
