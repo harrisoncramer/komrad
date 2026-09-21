@@ -5,14 +5,12 @@ import (
 	"time"
 )
 
-// executableWatch is the file this process was started from, as it stood at start.
 type executableWatch struct {
 	path    string
 	size    int64
 	modTime time.Time
 }
 
-// watchExecutable takes down the identity of this process's own binary, nil when it cannot be read.
 func watchExecutable() *executableWatch {
 	path, err := os.Executable()
 	if err != nil {

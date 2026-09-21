@@ -91,3 +91,5 @@ mise install
 mise run go:build
 mise run docker:up
 ```
+
+The panel key runs whichever binary bound it, so `mise run go:build` and `mise run restart` end by binding the key again from the build they just made, for the local panel and for every engine under `~/.config/weave/engines`. A panel that is running when its binary changes closes itself on its next refresh, and the key opens one from the new build.

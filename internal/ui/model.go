@@ -189,14 +189,13 @@ type Deps struct {
 }
 
 type model struct {
-	popup         *PopupWindow
-	api           api
-	tmux          uiTmux
-	git           ReviewGit
-	browser       browser.Opener
-	harnessFrames harnessFrameReader
-	binary        BinaryWatcher
-	// rebuilt says the binary has been seen to change, and the panel is on its way out.
+	popup           *PopupWindow
+	api             api
+	tmux            uiTmux
+	git             ReviewGit
+	browser         browser.Opener
+	harnessFrames   harnessFrameReader
+	binary          BinaryWatcher
 	rebuilt         bool
 	frame           *layout.Frame
 	settings        PanelSettings

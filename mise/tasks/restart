@@ -30,4 +30,6 @@ if ! "$weave" open --detach; then
 	exit 1
 fi
 
+bind_panel_key "$weave"
+
 echo "killed $agents panes and restarted the server; press prefix+g for the panel"

@@ -24,10 +24,8 @@ const shortCommit = 7
 // the build, followed by the commit it was built from.
 const engineStampPrefix = "v0.0.0-engine."
 
-// buildIDMarker opens the build ID the linker writes near the start of every Go binary.
 const buildIDMarker = "\xff Go build ID: \""
 
-// buildIDWithin is how far into the binary the linker keeps that marker.
 const buildIDWithin = 32 * 1024
 
 const shortBuildID = 8
@@ -139,7 +137,6 @@ func readSelfBuildID() string {
 	return findBuildID(head[:read])
 }
 
-// findBuildID is the content hash the linker closed a binary's build ID with, shortened.
 func findBuildID(head []byte) string {
 	start := bytes.Index(head, []byte(buildIDMarker))
 	if start < 0 {
