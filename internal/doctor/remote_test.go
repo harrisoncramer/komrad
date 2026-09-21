@@ -80,7 +80,7 @@ func TestStaleServerFixDependsOnWhereTheEngineIs(t *testing.T) {
 			isRemote:      true,
 			engineVersion: "v0.0.0-engine.4b1db3cf",
 			engineCommit:  "4b1db3cfa7f3eb6f9f5f4de5b4ba5f5e12f5a0c1",
-			want:          "build weave from 4b1db3c, or put this build on the engine with mise run remote:deploy",
+			want:          "build weave from 4b1db3c, or put this local build on the engine",
 		},
 		{
 			name:          "the engine runs a release, which is installed rather than built",
