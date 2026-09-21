@@ -85,7 +85,7 @@ func TestEditorOpensAtTheRepositoryRoot(t *testing.T) {
 	require.Equal(t, dir, m.review.root)
 
 	written := pressEdit(t, m)
-	require.True(t, written.review.atEditor, "the edit key opened an editor")
+	require.True(t, written.review.pass.atEditor, "the edit key opened an editor")
 
 	require.NotEmpty(t, tmux.respawnDirs)
 	assert.Equal(t, dir, tmux.respawnDirs[0], "the editor is opened at the root the paths are named from")

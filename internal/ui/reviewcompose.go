@@ -26,7 +26,7 @@ var reviewVerdicts = []agentv1.ReviewVerdict{
 // composeReview opens the editor on the line under the cursor, replying in the thread already
 // there or opening a new one, writing prose alone rather than editing the round.
 func (m model) composeReview() (tea.Model, tea.Cmd) {
-	if m.review.mode != modeReviewing {
+	if m.review.pass.mode != modeReviewing {
 		return m.enterReviewWriting(intentComment)
 	}
 

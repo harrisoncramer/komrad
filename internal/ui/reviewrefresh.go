@@ -231,7 +231,7 @@ func (m *model) applyReviewDiffPolled(msg reviewDiffPolledMsg) tea.Cmd {
 
 // doesReviewFollowLive reports whether the diff on screen is meant to keep up with the agent.
 func (m model) doesReviewFollowLive() bool {
-	if m.review.mode != modeWatching || m.review.diff.view == nil || m.review.loading {
+	if m.review.pass.mode != modeWatching || m.review.diff.view == nil || m.review.loading {
 		return false
 	}
 

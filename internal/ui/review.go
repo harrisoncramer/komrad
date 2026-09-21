@@ -25,24 +25,8 @@ type reviewState struct {
 	// threads is the conversation in the sidebar and what the reader is writing into it.
 	threads reviewThreads
 
-	// atEditor says your own editor holds the stage, so the panel draws its sidebar alone.
-	atEditor    bool
-	editingPath string
-	// editorPane is the pane the editor was given, empty where the split was refused, which is
-	// what says whether a pane going away is the editor being closed.
-	editorPane string
-	// mode is which of the two things the screen is doing: watching the work, or making a pass
-	// over it in which both writing keys are available.
-	mode reviewMode
-	// paused says the agent is stopped for the pass, whoever stopped it.
-	paused bool
-	// pausing is set while the panel is asking for the agent to stop.
-	pausing bool
-	// ourPause says this pass is what stopped the agent, so ending the pass is what lets it go.
-	ourPause bool
-	// touched are the files the reader opened an editor on during the pass, oldest first, which
-	// is what the agent is told about when it is let go.
-	touched []string
+	// pass is the reader's own pass over the work, and the editor it may hold open.
+	pass reviewPass
 }
 
 // doesTakeEveryKey reports whether the review is mid-input, in which case a key bound elsewhere

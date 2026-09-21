@@ -377,9 +377,9 @@ func (r reviewState) composeDesc() string {
 	return "comment on this line"
 }
 
-// reviewBackDesc says which of the two things the back key leaves.
-func (m model) reviewBackDesc() string {
-	if m.review.mode == modeReviewing {
+// backDesc says which of the two things the back key leaves.
+func (p reviewPass) backDesc() string {
+	if p.mode == modeReviewing {
 		return "stop reviewing"
 	}
 

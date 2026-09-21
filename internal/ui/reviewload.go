@@ -492,12 +492,12 @@ func (m model) reloadReview() (model, tea.Cmd) {
 		Exclude: m.review.exclude,
 		Base:    m.review.diff.base,
 		Head:    m.review.diff.head,
-		Fresh:   m.review.mode == modeReviewing,
+		Fresh:   m.review.pass.mode == modeReviewing,
 	})
 }
 
 func (m model) leaveReview() (tea.Model, tea.Cmd) {
-	if m.review.atEditor {
+	if m.review.pass.atEditor {
 		return m.closeReviewEdit()
 	}
 

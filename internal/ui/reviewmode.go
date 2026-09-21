@@ -29,16 +29,16 @@ const (
 
 // reviewModeView says which of the two the screen is in, and what to press next.
 func (m model) reviewModeView() string {
-	if m.review.mode == modeReviewing {
-		return m.reviewBandRow(reviewWritingTone, m.reviewPassLabel(), m.reviewWritingSaid())
+	if m.review.pass.mode == modeReviewing {
+		return m.reviewBandRow(reviewWritingTone, m.review.pass.label(), m.reviewWritingSaid())
 	}
 
 	return m.reviewWatchingView()
 }
 
-// reviewPassLabel is what the band calls the pass, which says the editor is up while it is.
-func (m model) reviewPassLabel() string {
-	if m.review.atEditor {
+// label is what the band calls the pass, which says the editor is up while it is.
+func (p reviewPass) label() string {
+	if p.atEditor {
 		return "reviewing · editing"
 	}
 
@@ -71,29 +71,29 @@ func (m model) reviewWatchingView() string {
 // reviewWritingSaid is what the pass offers: what is happening to the agent, the file under your
 // editor while one is open, and the way out or the way to send.
 func (m model) reviewWritingSaid() string {
-	if m.review.atEditor {
-		return m.review.editingPath + " · " + keyLabel(m.keys.Review.EditFile) + " to come back"
+	if m.review.pass.atEditor {
+		return m.review.pass.editingPath + " · " + keyLabel(m.keys.Review.EditFile) + " to come back"
 	}
 
-	if m.review.pausing {
+	if m.review.pass.pausing {
 		return "stopping the agent · the pass starts once it has"
 	}
 
 	if !m.review.threads.holdsUnsent() {
-		return m.reviewPausedSaid() + keyLabel(m.keys.Review.Back) + " to let it go"
+		return m.review.pass.pausedSaid() + keyLabel(m.keys.Review.Back) + " to let it go"
 	}
 
 	if m.review.diff.pinned {
-		return m.reviewPausedSaid() + "the code as it was when you started · " +
+		return m.review.pass.pausedSaid() + "the code as it was when you started · " +
 			keyLabel(formKeys().Submit) + " sends it"
 	}
 
-	return m.reviewPausedSaid() + keyLabel(formKeys().Submit) + " sends it to the agent"
+	return m.review.pass.pausedSaid() + keyLabel(formKeys().Submit) + " sends it to the agent"
 }
 
-// reviewPausedSaid opens what the band says with the state of the agent.
-func (m model) reviewPausedSaid() string {
-	if !m.review.paused {
+// pausedSaid opens what the band says with the state of the agent.
+func (p reviewPass) pausedSaid() string {
+	if !p.paused {
 		return ""
 	}
 
@@ -146,8 +146,8 @@ func (r reviewState) isHistory() (string, bool) {
 	return fmt.Sprintf("round %d of %d", at+1, len(r.diff.chapters)), true
 }
 
-// doesReviewWalk says whether the round keys have anywhere to go, which watching has and the two
-// modes that hold the tree do not.
-func (m model) doesReviewWalk() bool {
-	return m.review.mode == modeWatching && len(m.review.diff.chapters) > 0
+// doesWalk says whether the round keys have anywhere to go, which watching has and a pass that
+// holds the tree does not.
+func (r reviewState) doesWalk() bool {
+	return r.pass.mode == modeWatching && len(r.diff.chapters) > 0
 }

@@ -27,16 +27,16 @@ func TestACommentOpensWhileTheAgentIsStillStopping(t *testing.T) {
 	m, ok := next.(model)
 	require.True(t, ok)
 
-	assert.Equal(t, modeReviewing, m.review.mode)
+	assert.Equal(t, modeReviewing, m.review.pass.mode)
 	assert.True(t, m.review.threads.composing, "the composer is up before the agent has stopped")
-	assert.True(t, m.review.pausing)
-	assert.False(t, m.review.paused)
+	assert.True(t, m.review.pass.pausing)
+	assert.False(t, m.review.pass.paused)
 
 	require.NotNil(t, cmd)
 	m = settlePauseBatch(t, m, cmd)
 
 	require.NotNil(t, agents.held, "and the agent is stopped all the same")
-	assert.True(t, m.review.paused)
+	assert.True(t, m.review.pass.paused)
 	assert.True(t, m.review.threads.composing, "with what was being typed left alone")
 }
 
@@ -55,9 +55,9 @@ func TestAPassThatCannotStopTheAgentTakesTheComposerWithIt(t *testing.T) {
 
 	m = settlePauseBatch(t, m, cmd)
 
-	assert.Equal(t, modeWatching, m.review.mode)
+	assert.Equal(t, modeWatching, m.review.pass.mode)
 	assert.False(t, m.review.threads.composing, "the composer goes with the pass")
-	assert.False(t, m.review.paused)
+	assert.False(t, m.review.pass.paused)
 }
 
 // TestLeavingAPassLetsTheAgentGo pins the other end of it.
@@ -69,7 +69,7 @@ func TestLeavingAPassLetsTheAgentGo(t *testing.T) {
 
 	m.review.diff.cursor = reviewRowWithAnEditTarget(t, m)
 	m = pressEdit(t, m)
-	require.True(t, m.review.paused)
+	require.True(t, m.review.pass.paused)
 
 	next, _ := m.closeReviewEdit()
 	m, ok := next.(model)
@@ -79,8 +79,8 @@ func TestLeavingAPassLetsTheAgentGo(t *testing.T) {
 	m, ok = next.(model)
 	require.True(t, ok)
 
-	assert.Equal(t, modeWatching, m.review.mode)
-	assert.False(t, m.review.paused)
+	assert.Equal(t, modeWatching, m.review.pass.mode)
+	assert.False(t, m.review.pass.paused)
 
 	runReviewCmd(t, cmd)
 
@@ -109,8 +109,8 @@ func TestAPauseTheReaderTookThemselvesIsNotThePassToLetGo(t *testing.T) {
 	m = pressEdit(t, m)
 
 	assert.Nil(t, agents.held, "an agent already stopped is not stopped again")
-	require.True(t, m.review.paused)
-	require.False(t, m.review.ourPause)
+	require.True(t, m.review.pass.paused)
+	require.False(t, m.review.pass.ourPause)
 
 	next, cmd := m.leaveReviewWriting()
 	m, _ = next.(model)
@@ -136,9 +136,9 @@ func TestAnEditOnADormantAgentPausesNothing(t *testing.T) {
 	m.review.diff.cursor = reviewRowWithAnEditTarget(t, m)
 	m = pressEdit(t, m)
 
-	assert.Equal(t, modeReviewing, m.review.mode)
-	assert.True(t, m.review.atEditor, "the editor opens on the worktree it left behind")
-	assert.False(t, m.review.paused)
+	assert.Equal(t, modeReviewing, m.review.pass.mode)
+	assert.True(t, m.review.pass.atEditor, "the editor opens on the worktree it left behind")
+	assert.False(t, m.review.pass.paused)
 	assert.Nil(t, agents.held)
 }
 
@@ -156,7 +156,7 @@ func TestAnUnreadablePaneIsNotStopped(t *testing.T) {
 	m, ok := next.(model)
 	require.True(t, ok)
 
-	assert.Equal(t, modeWatching, m.review.mode)
+	assert.Equal(t, modeWatching, m.review.pass.mode)
 	assert.Nil(t, agents.held, "nothing asks a pane weave cannot read to stop")
 	assert.Contains(t, m.review.notice, "look at the pane")
 }
@@ -175,13 +175,13 @@ func TestAPassGivenUpBeforeTheAgentStopsLetsItGo(t *testing.T) {
 	next, cmd := m.updateReview(editorKey())
 	m, ok := next.(model)
 	require.True(t, ok)
-	require.True(t, m.review.pausing)
+	require.True(t, m.review.pass.pausing)
 
 	next, _ = m.updateReview(tea.KeyMsg{Type: tea.KeyEsc})
 	m, ok = next.(model)
 	require.True(t, ok)
-	require.Equal(t, modeWatching, m.review.mode, "the reader gave the pass up")
-	require.False(t, m.review.pausing)
+	require.Equal(t, modeWatching, m.review.pass.mode, "the reader gave the pass up")
+	require.False(t, m.review.pass.pausing)
 
 	paused, ok := cmd().(reviewPausedMsg)
 	require.True(t, ok)
@@ -190,8 +190,8 @@ func TestAPassGivenUpBeforeTheAgentStopsLetsItGo(t *testing.T) {
 	m, ok = next.(model)
 	require.True(t, ok)
 
-	assert.False(t, m.review.atEditor, "nothing opens onto a screen that went back to watching")
-	assert.Equal(t, modeWatching, m.review.mode)
+	assert.False(t, m.review.pass.atEditor, "nothing opens onto a screen that went back to watching")
+	assert.Equal(t, modeWatching, m.review.pass.mode)
 
 	runReviewCmd(t, letGo)
 
@@ -213,17 +213,17 @@ func TestASecondEditPressWaitsRatherThanOpening(t *testing.T) {
 	next, cmd := m.updateReview(editorKey())
 	m, ok := next.(model)
 	require.True(t, ok)
-	require.True(t, m.review.pausing)
+	require.True(t, m.review.pass.pausing)
 
 	next, _ = m.updateReview(editorKey())
 	m, ok = next.(model)
 	require.True(t, ok)
 
-	assert.False(t, m.review.atEditor, "the second press is the wait, not a second thing to do")
+	assert.False(t, m.review.pass.atEditor, "the second press is the wait, not a second thing to do")
 	assert.Contains(t, m.review.notice, "still stopping")
 
 	m = settlePause(t, m, cmd)
-	assert.True(t, m.review.atEditor, "and the editor opens once, when the agent has stopped")
+	assert.True(t, m.review.pass.atEditor, "and the editor opens once, when the agent has stopped")
 }
 
 // TestADiffThatStopsBeingReadableLetsTheAgentGo covers the ways off this screen nobody chose,
@@ -239,7 +239,7 @@ func TestADiffThatStopsBeingReadableLetsTheAgentGo(t *testing.T) {
 	next, _ := m.closeReviewEdit()
 	m, ok := next.(model)
 	require.True(t, ok)
-	require.True(t, m.review.paused)
+	require.True(t, m.review.pass.paused)
 
 	letGo := m.abandonReview(errors.New("the worktree could not be read"))
 
@@ -336,7 +336,7 @@ func TestAPassRedrawsTheReadersOwnEdits(t *testing.T) {
 	m, ok := next.(model)
 	require.True(t, ok)
 	m = settlePauseBatch(t, m, cmd)
-	require.True(t, m.review.paused)
+	require.True(t, m.review.pass.paused)
 
 	agents.reviews = []*agentv1.Review{{
 		Id:         "v1",

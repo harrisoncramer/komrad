@@ -23,7 +23,7 @@ func reviewTable() []action {
 			// Writing is a mode inside the screen, so the back key gives up the mode before it
 			// gives up the screen.
 			run: func(m model, _ string) (tea.Model, tea.Cmd) {
-				if m.review.mode == modeReviewing {
+				if m.review.pass.mode == modeReviewing {
 					return m.leaveReviewWriting()
 				}
 
@@ -90,13 +90,13 @@ func reviewTable() []action {
 		{
 			id:   actionReviewBase,
 			keys: func(k config.Keybindings) []string { return k.Review.Base },
-			when: model.doesReviewWalk,
+			when: func(m model) bool { return m.review.doesWalk() },
 			run:  func(m model, _ string) (tea.Model, tea.Cmd) { return m.stepReviewBase() },
 		},
 		{
 			id:   actionReviewBaseForward,
 			keys: func(k config.Keybindings) []string { return k.Review.BaseForward },
-			when: model.doesReviewWalk,
+			when: func(m model) bool { return m.review.doesWalk() },
 			run:  func(m model, _ string) (tea.Model, tea.Cmd) { return m.stepReviewBaseForward() },
 		},
 		{
@@ -257,7 +257,7 @@ func reviewLegend() []legendRow {
 		},
 		{
 			of:   []actionID{actionReviewEdit},
-			desc: model.reviewEditorDesc,
+			desc: func(m model) string { return m.review.pass.editorDesc() },
 			// The one thing standing in the way of editing is an earlier round, whose line numbers
 			// name a file the worktree no longer holds.
 			show: func(m model) bool {
@@ -307,7 +307,7 @@ func reviewLegend() []legendRow {
 		},
 		{
 			of:   []actionID{actionReviewBack},
-			desc: model.reviewBackDesc,
+			desc: func(m model) string { return m.review.pass.backDesc() },
 		},
 	}
 }

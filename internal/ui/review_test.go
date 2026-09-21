@@ -1841,12 +1841,12 @@ func TestWritingIsRefusedOnAFinishedRound(t *testing.T) {
 
 	next, _ := m.updateReview(keyMsg("c"))
 	m = next.(model)
-	assert.Equal(t, modeReviewing, m.review.mode, "so the key opens the mode that writes")
+	assert.Equal(t, modeReviewing, m.review.pass.mode, "so the key opens the mode that writes")
 	assert.True(t, m.review.threads.composing, "on the line it was pressed on")
 
 	// An older round is a different matter, and the same key refuses rather than moving anybody.
 	m.review.threads.composing = false
-	m.review.mode = modeWatching
+	m.review.pass.mode = modeWatching
 	m = standOnAFinishedRound(m)
 
 	said, history := m.review.isHistory()
@@ -1856,7 +1856,7 @@ func TestWritingIsRefusedOnAFinishedRound(t *testing.T) {
 	next, _ = m.updateReview(keyMsg("c"))
 	m = next.(model)
 
-	assert.Equal(t, modeWatching, m.review.mode, "the mode did not open")
+	assert.Equal(t, modeWatching, m.review.pass.mode, "the mode did not open")
 	assert.False(t, m.review.threads.composing, "and no editor did either")
 	assert.Contains(t, m.review.notice, "round 1 of 2 is finished")
 	assert.Nil(t, agents.created, "and nothing was written")

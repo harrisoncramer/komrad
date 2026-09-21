@@ -11,6 +11,61 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
+// reviewPass is a pass over the work: whether one is under way, what it did to the agent, and
+// the editor it holds open.
+type reviewPass struct {
+	// mode is which of the two things the screen is doing: watching the work, or making a pass
+	// over it in which both writing keys are available.
+	mode reviewMode
+	// paused says the agent is stopped for the pass, whoever stopped it.
+	paused bool
+	// pausing is set while the panel is asking for the agent to stop.
+	pausing bool
+	// ourPause says this pass is what stopped the agent, so ending the pass is what lets it go.
+	ourPause bool
+	// touched are the files the reader opened an editor on during the pass, oldest first, which
+	// is what the agent is told about when it is let go.
+	touched []string
+
+	// atEditor says your own editor holds the stage, so the panel draws its sidebar alone.
+	atEditor    bool
+	editingPath string
+	// editorPane is the pane the editor was given, empty where the split was refused, which is
+	// what says whether a pane going away is the editor being closed.
+	editorPane string
+}
+
+// end puts the pass down, leaving an editor it holds open where it is, and says whether it was
+// this pass that stopped the agent and which files the reader opened while it was.
+func (p *reviewPass) end() (bool, []string) {
+	ours, touched := p.ourPause, p.touched
+
+	p.mode = modeWatching
+	p.paused = false
+	p.pausing = false
+	p.ourPause = false
+	p.touched = nil
+
+	return ours, touched
+}
+
+// openEditor records the editor holding the stage on one file, in the pane the split gave it.
+func (p *reviewPass) openEditor(path, pane string) {
+	p.atEditor = true
+	p.editingPath = path
+	p.editorPane = pane
+	if !slices.Contains(p.touched, path) {
+		p.touched = append(p.touched, path)
+	}
+}
+
+// closeEditor gives the stage back, staying in the pass.
+func (p *reviewPass) closeEditor() {
+	p.atEditor = false
+	p.editingPath = ""
+	p.editorPane = ""
+}
+
 // passIntent is what the reader pressed.
 type passIntent uint8
 
@@ -32,7 +87,7 @@ type reviewPausedMsg struct {
 // for a pass already under way.
 func (m model) startReviewPass(intent passIntent) (tea.Model, tea.Cmd) {
 	if _, dead := m.isReviewReadOnly(); dead {
-		m.review.mode = modeReviewing
+		m.review.pass.mode = modeReviewing
 
 		return m.openReviewPass(intent)
 	}
@@ -40,15 +95,15 @@ func (m model) startReviewPass(intent passIntent) (tea.Model, tea.Cmd) {
 	// An agent the person stopped themselves is already where the pass needs it, and letting it
 	// go at the end of the pass is not this screen's to do.
 	if item, ok := m.getReviewAgentItem(); ok && item.agent.HeldAt != nil {
-		m.review.mode = modeReviewing
-		m.review.paused = true
-		m.review.ourPause = false
+		m.review.pass.mode = modeReviewing
+		m.review.pass.paused = true
+		m.review.pass.ourPause = false
 
 		return m.openReviewPass(intent)
 	}
 
-	m.review.mode = modeReviewing
-	m.review.pausing = true
+	m.review.pass.mode = modeReviewing
+	m.review.pass.pausing = true
 
 	stopping := m.holdReviewAgentCmd(intent)
 
@@ -87,15 +142,15 @@ func (m model) applyReviewPaused(msg reviewPausedMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	m.review.pausing = false
+	m.review.pass.pausing = false
 
-	if m.review.mode != modeReviewing {
+	if m.review.pass.mode != modeReviewing {
 		if msg.err != nil {
 			return m, nil
 		}
 
-		m.review.paused = true
-		m.review.ourPause = true
+		m.review.pass.paused = true
+		m.review.pass.ourPause = true
 
 		return m.endReviewPass(abandonedSaid)
 	}
@@ -105,14 +160,14 @@ func (m model) applyReviewPaused(msg reviewPausedMsg) (tea.Model, tea.Cmd) {
 		// the pass exists to prevent, so the composer goes with the pass rather than standing on
 		// without one.
 		m.review.threads.cancelMessage()
-		m.review.mode = modeWatching
+		m.review.pass.mode = modeWatching
 		m.report("Could not pause "+m.review.agentName, msg.err)
 
 		return m, nil
 	}
 
-	m.review.paused = true
-	m.review.ourPause = true
+	m.review.pass.paused = true
+	m.review.pass.ourPause = true
 
 	// The composer was opened when the key was pressed, so there is nothing left to open here.
 	if msg.intent == intentComment {
@@ -136,14 +191,8 @@ func (m model) openReviewPass(intent passIntent) (tea.Model, tea.Cmd) {
 // endReviewPass goes back to watching and lets the agent go, telling it what the reader did while
 // it was stopped.
 func (m model) endReviewPass(said string) (tea.Model, tea.Cmd) {
-	ours, touched := m.review.ourPause, slices.Clone(m.review.touched)
 	agentID := m.review.agentID
-
-	m.review.mode = modeWatching
-	m.review.paused = false
-	m.review.ourPause = false
-	m.review.touched = nil
-	m.review.pausing = false
+	ours, touched := m.review.pass.end()
 
 	m.rememberEdited(agentID, touched)
 

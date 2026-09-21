@@ -73,7 +73,7 @@ func reviewColumn() columnSpec {
 		floor: reviewDiffFloor,
 		// The editor is another process holding the stage, so the panel owns the window only while
 		// there is none.
-		holds: func(m model) bool { return !m.review.atEditor },
+		holds: func(m model) bool { return !m.review.pass.atEditor },
 		rows: func(m model, split columnSplit) int {
 			// The band stands on the diff's own rows rather than the window's, so what is left is
 			// what the patch is drawn in and what the cursor is scrolled against.

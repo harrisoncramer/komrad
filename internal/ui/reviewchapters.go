@@ -181,7 +181,7 @@ func (m model) doesReviewFitBaseLegend() bool {
 		return false
 	}
 
-	return m.doesReviewWalk()
+	return m.review.doesWalk()
 }
 
 // cutChaptersParams is everything the chapters are cut from, kept apart from the calls that read
