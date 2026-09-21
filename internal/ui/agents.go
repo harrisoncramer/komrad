@@ -492,7 +492,6 @@ func (agentsAdapter) column() columnSpec {
 	return columnSpec{
 		floor: columnFloor,
 		doc:   func(m model) string { return m.agents.doc(m.shared()) },
-		// The block's width is what this decides, so it is asked before the column is measured.
 		holds: func(m model) bool { return m.agents.hasNoAgentPane(m.unmeasured()) },
 	}
 }
