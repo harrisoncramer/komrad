@@ -173,10 +173,11 @@ type host interface {
 	refreshCmd() tea.Cmd
 	hide() tea.Cmd
 
-	// The stage and the info pane are the root's, and the archive and worktrees screens put
-	// the info pane on the stage.
-	stageInfo()
+	// The stage is the root's, and every list screen waits for its cursor to rest before staging.
 	waitToStage() tea.Cmd
+
+	// The info pane is the root's, and the archive and worktrees screens put it on the stage.
+	stageInfo()
 
 	// The files a reader opened over a stopped agent are the root's, noted by the review and
 	// carried by a release from the review or the agents screen.
