@@ -37,7 +37,7 @@ type agentOptions struct {
 
 type agentOption = render.LoadOption[agentOptions]
 
-// SetPromptHead is how much of the prompt is drawn.
+// SetPromptHead sets how much of the prompt is drawn.
 func (o *agentOptions) SetPromptHead(limit int) { o.promptHead = limit }
 
 // agentViewOptions turns the view a request asked for into rendering options.
