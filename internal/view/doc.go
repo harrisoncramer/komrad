@@ -71,7 +71,8 @@
 //
 // A search draws the agents it found rather than a tree, so its rows are KindResult: nothing
 // sits under anything, every name opens at the gutter and no row is lettered for structure. It
-// drops all three columns, and the life of a change is answered on the screen the row leads to.
+// drops all three columns: a result is a pointer into a conversation, not a piece of work to
+// triage.
 //
 // # Scrolling belongs to the caller
 //

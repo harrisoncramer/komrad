@@ -179,8 +179,7 @@ func isPromptGreyed(colours []string, box inputBox, boxed bool) bool {
 		return false
 	}
 
-	// A box with no colour on it at all says nothing either way, so the rule has to carry a
-	// colour for the marker to count.
+	// The rule has to carry a colour for the marker to count.
 	return colours[box.Rule] != "" && colours[box.Rule+1] != ""
 }
 

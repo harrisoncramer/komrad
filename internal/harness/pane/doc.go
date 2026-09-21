@@ -10,6 +10,6 @@
 // It sits behind harness.Channel and harness.Observer so a CLI offering something better is a
 // second implementation rather than a rewrite of the delivery service. That seam is about
 // messaging and state and nothing else. An agent reached over a socket would still run in a
-// pane, so a person can attach to it and take it over, and launching, liveness and attaching
-// stay where they are.
+// pane a person can attach to and take over, so launching, liveness and attaching stay where
+// they are.
 package pane

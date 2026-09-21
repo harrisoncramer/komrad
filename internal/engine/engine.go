@@ -2,9 +2,9 @@
 //
 // An agent's terminal belongs to the tmux server the engine runs on. When that is this machine
 // the panel shows it by moving the pane itself into the stage with swap-pane, which the rest of
-// the layout code assumes. When the engine is somewhere else a pane cannot cross tmux servers,
-// so the stage instead runs a command that attaches to the engine's tmux over ssh and lets the
-// local server draw what comes back.
+// the layout code assumes. When the engine is somewhere else the pane cannot be moved, so the
+// stage instead runs a command that attaches to the engine's tmux over ssh and lets the local
+// server draw what comes back.
 package engine
 
 import (

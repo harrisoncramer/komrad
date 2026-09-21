@@ -306,7 +306,7 @@ func TestCreatingAWorkflowStartsItsOrchestrator(t *testing.T) {
 }
 
 // TestCreatingAWorkflowStandsWhenItsOrchestratorWillNot pins that a refused orchestrator leaves the
-// workflow.
+// workflow standing.
 func TestCreatingAWorkflowStandsWhenItsOrchestratorWillNot(t *testing.T) {
 	agents := &recordingOrchestrators{err: errors.New("the person refused the directory")}
 

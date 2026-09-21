@@ -33,8 +33,7 @@ func withContextHead(limit int) workflowOption {
 	return func(o *workflowOptions) { o.contextHead = limit }
 }
 
-// workflowViewOptions turns the view a request asked for into rendering options, so the enum
-// stops at the handler.
+// workflowViewOptions turns the view a request asked for into rendering options.
 func workflowViewOptions(view viewv1.View) []workflowOption {
 	if view == viewv1.View_VIEW_FULL {
 		return nil

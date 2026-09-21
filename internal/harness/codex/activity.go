@@ -89,8 +89,7 @@ func doesFrameShowWork(frame string) bool {
 // doesFrameOfferInterrupt reads the live line offering to interrupt the turn, whose timer has to
 // be in the line as drawn and gone from the same line less the dim.
 func doesFrameOfferInterrupt(frame string) bool {
-	// Codex draws that timer dim and a message quoting the words does not, so the pattern is
-	// loose enough to take a label as well as a verb.
+	// The pattern is loose enough to take a label as well as a verb.
 	drawn := strings.Split(strings.TrimRight(frame, "\n"), "\n")
 	if len(drawn) > liveRegionLines {
 		drawn = drawn[len(drawn)-liveRegionLines:]
