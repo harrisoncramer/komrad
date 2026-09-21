@@ -126,8 +126,8 @@ it, split into the diff on screen, the threads pinned to it, and the pass over t
 rows it draws come from internal/ui/diffview. Each screen's forms sit beside it in a file of
 their own: agentforms.go, workflowforms.go, scheduleforms.go, worktreeforms.go and
 archiveforms.go, with forms.go holding only the machinery they share. Each screen's keys are
-an actionSpec in a file of their own, agentsactions.go and the rest, and the four lists draw
-through one listSpec in list.go.
+an actionSpec in a file of their own, agentsactions.go and the rest, except search, whose keys
+sit in search.go; the four lists draw through one listSpec in list.go.
 
 Shared concerns: api.go, actions.go, column.go, details.go, document.go, filter.go, forms.go,
 help.go, info.go, logs.go, refresh.go, keys.go, clipboard.go, report.go, convert.go.
