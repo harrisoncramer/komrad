@@ -4,7 +4,7 @@
 
 A workflow's `worktree.baseBranch` is optional. When it is blank, every place that needs a base works one out for itself, and each does it differently. The one they mostly agree on is the clone's `refs/remotes/origin/HEAD`, which is a symbolic ref `git clone` writes once and nothing else maintains. A clone made by `git init` and `git fetch`, a clone whose remote head was deleted, or a clone whose forge has since renamed its default branch does not have it, or has it wrong.
 
-Last night the engine's clone had no `origin/HEAD`. `plan_rebase` refused every agent in the workflow with `the base branch does not resolve to a remote-tracking ref: resolved to "HEAD"`, and the orchestrator repaired it by hand with `git remote set-head origin -a`. Nothing in the panel said which workflow setting was missing, because none was: the setting was blank, as it is allowed to be.
+On 20 September 2026 the engine's clone had no `origin/HEAD`. `plan_rebase` refused every agent in the workflow with `the base branch does not resolve to a remote-tracking ref: resolved to "HEAD"`, and the orchestrator repaired it by hand with `git remote set-head origin -a`. Nothing in the panel said which workflow setting was missing, because none was: the setting was blank, as it is allowed to be.
 
 ### Where a base is resolved today
 
@@ -50,23 +50,23 @@ A workflow always names its base branch. The name is chosen once, when the workf
 
 **Choosing the name.** `create_workflow` and the panel form take a base branch. When it is left blank the server fills it in, once, in this order, and the response and the form say which was used:
 
-1. `git ls-remote --symref origin HEAD` in the workflow's `cwd`, which asks the forge what the default branch is right now.
-2. The branch `cwd` is on, when it has no `origin` to ask.
-3. `main`, when `cwd` is not a repository or the remote did not answer.
+1. The clone's own `origin/HEAD`, when `cwd` has one.
+2. The branch `cwd` is on.
+3. `main`, when `cwd` is not a repository.
 
-The answer is stored in `worktree_base_branch` and never re-read from git. There is no config key for it: a default in `config.toml` would be one answer for every repository on the machine, and a repository whose default is `master` or `trunk` would be wrong from then on with nothing saying so. `update_workflow` writes every field, so a blank base there is `invalid_argument`.
+No network: creation is the one moment this RFC allows a guess, the person sees the answer, and what the clone already holds is a better guess than what a remote that may not answer would say. Reading `origin/HEAD` once here is not the fallback the Problem section is about, which is reading it on every pass and never being told when it is missing. The answer is stored in `worktree_base_branch` and never re-read from git. There is no config key for it: a default in `config.toml` would be one answer for every repository on the machine, and a repository whose default is `master` or `trunk` would be wrong from then on with nothing saying so. `update_workflow` writes every field, so a blank base there is `invalid_argument`.
 
-**Resolving it.** `resolveBase` takes a name and answers `origin/<name>` when the clone has that remote-tracking ref, `refs/heads/<name>` when the clone has no `origin` at all, and otherwise a new `ErrBaseMissing` saying `origin has no branch named <name>; set the workflow's base branch to one it has`. The `HEAD` arm goes. `ResolveBase` returns the error instead of a boolean, and `FetchBase` fetches `origin <name>` by name every time, so a fetch that fails because origin has no such branch is the same error one step earlier.
+**Resolving it.** `resolveBase` takes a name and answers `origin/<name>` when the clone has that remote-tracking ref, `refs/heads/<name>` when the clone has no `origin` at all, and otherwise a new `ErrBaseMissing` saying `the clone has no origin/<name>; fetch it or set the workflow's base branch to one it has`. A blank name is `ErrBaseMissing` too: `OpenRound` in `internal/reviews/rounds.go` still passes `""` when `workflows.Get` fails and `baseOf` in `inspect.go` still answers `""` for a missing row, and neither gets a guess. The `HEAD` arm goes. `ResolveBase` returns the error instead of a boolean, and `FetchBase` fetches `origin <name>` by name every time. The message names the clone rather than origin on purpose: a single-branch clone fetches a branch its refspec does not cover without writing `origin/<name>`, which is why the setup script stages one under `refs/weave/base/<agent>`.
 
 **Each caller.** The rebase, inspector, cwd sync and review round paths change only in what they do with `ErrBaseMissing`: `plan_rebase` and `rebase_worktree` refuse with it, `get_worktree` and the worktrees screen show it in place of the standing, cwd sync records it as the agent's standing error the way it already records a tree it could not read, and `open_review_round` refuses with it rather than taking a round whose base is the branch's own tip. The `_worktree_setup` script loses the guessing block, `origin_head` and `record_head`: a blank `WEAVE_WORKTREE_BASE_BRANCH` exits 1 saying the workflow names no base, and the rest of the script, which fetches a named base and stages it under `refs/weave/base/<agent>` for single-branch clones, stays as it is. The pull request query drops its blank arm.
 
 **`FetchBase`'s repair.** Not needed anywhere. Nothing reads `origin/HEAD` after this change, so whether a fetch writes it back is of no interest, and `git remote set-head` disappears from the tree.
 
-**`weave doctor`.** A new `bases` check on the engine, after `database`: for every live workflow whose `cwd` is a repository with an `origin`, `origin/<base>` is a ref the clone holds. A missing one warns, naming the workflow and the branch, with the advice to fetch or to update the workflow. No network: the check reads the clone the way `ResolveBase` does, so what it reports is what the panel would refuse.
+**`weave doctor`.** A new `bases` check on the engine, after `database`: for every live workflow whose `cwd` is a repository, `ResolveBase` answers for its stored base. An `ErrBaseMissing` warns, naming the workflow and the branch, with the advice to fetch or to update the workflow. No network, and no `origin` condition: a never-pushed repository on `trunk` that the migration backfilled as `main` is exactly the row this check exists to name.
 
-**MCP and the form.** `create_workflow`'s `worktree.baseBranch` description says the branch worktrees are cut from and every agent's work is measured against, filled in from the remote when left blank. The panel form makes the field required on edit and prefills it on create with the resolved name, and the placeholder `repo's default branch` goes with the behaviour it described. The proto comment is corrected to match.
+**MCP and the form.** `create_workflow`'s `worktree.baseBranch` description says the branch worktrees are cut from and every agent's work is measured against, filled in from the clone when left blank, and the response carries the stored name. The panel form makes the field required on edit, leaves it optional on create, and shows the stored name once the workflow exists, the same way the MCP response does; there is no call to resolve a base for a workflow that does not exist yet. The placeholder `repo's default branch` goes with the behaviour it described. The proto comment is corrected to match.
 
-**Tests.** `TestFetchBaseRepairsAMissingOriginHead` is deleted, since the behaviour it pins is gone. `TestFetchBaseRefusesABaseThatResolvesToHead` becomes a test that a base origin does not have is refused with `ErrBaseMissing`. `TestFetchBaseFetchesWhenNoBaseIsNamed` becomes the named-base case it already nearly is. The script tests that cover guessing (`TestBuiltinWorktreeSetupBaseBranch`'s blank case, the `set-head` cases and `TestBuiltinWorktreeSetupRefusesRatherThanGuessingTheBase`) are replaced by one that a blank base is refused. One new test covers `create_workflow` filling the base in from `ls-remote`, against a bare origin the way `newClonePair` builds one.
+**Tests.** `TestFetchBaseRepairsAMissingOriginHead` is deleted, since the behaviour it pins is gone. `TestFetchBaseRefusesABaseThatResolvesToHead` becomes a test that a base origin does not have is refused with `ErrBaseMissing`. `TestFetchBaseFetchesWhenNoBaseIsNamed` becomes the named-base case it already nearly is. The script tests that cover guessing (`TestBuiltinWorktreeSetupBaseBranch`'s blank case, the `set-head` cases and `TestBuiltinWorktreeSetupRefusesRatherThanGuessingTheBase`) are replaced by one that a blank base is refused. One new test covers `create_workflow` filling the base in from the clone's `origin/HEAD`, against a clone the way `newClonePair` builds one, and one that a `cwd` with no `origin` stores the branch it is on.
 
 ## Alternatives
 
@@ -80,22 +80,19 @@ The answer is stored in `worktree_base_branch` and never re-read from git. There
 
 ## Migration
 
-One migration in `db/migrations`:
+The schema is `db/schema/agent.hcl`, and a migration is what `mise run db:migrate` has atlas diff out of it. The change there is on the `worktree_base_branch` column: `default = ""` goes and a `check` block says `worktree_base_branch <> ''`. The generated file gets one line inserted ahead of the constraint, the way `20260907001412_thread_round_and_harvested.sql` carries its backfill:
 
 ```sql
-UPDATE workflow_provisioner_configs SET worktree_base_branch = 'main' WHERE worktree_base_branch = '';
-ALTER TABLE workflow_provisioner_configs
-    ALTER COLUMN worktree_base_branch DROP DEFAULT,
-    ADD CONSTRAINT worktree_base_branch_named CHECK (worktree_base_branch <> '');
+UPDATE "workflow_provisioner_configs" SET "worktree_base_branch" = 'main' WHERE "worktree_base_branch" = '';
 ```
 
-The column is already `NOT NULL`, so the constraint is that it is not blank. A backfill from each workflow's own `origin/HEAD` would be better than `main`, but a migration cannot run git, and a one-off pass at server start is more machinery than the rows deserve: weave has no users, and the `bases` doctor check names any row the backfill got wrong. `mise run gen` regenerates `db/models` and the `pullrequest.sql` query is edited with it.
+The column is already `NOT NULL`, so the constraint is that it is not blank. A backfill from each workflow's own `origin/HEAD` would be better than `main`, but a migration cannot run git, and a one-off pass at server start is more machinery than the rows deserve: weave has no users, and the `bases` doctor check names any row the backfill got wrong. `mise run gen` regenerates `db/models`. The `= ''` arm goes from the query in `pullrequest.sql` and from the one at `agent.sql` line 72 that carries the same clause; the `IS NULL` arm stays, since `c` comes off a `LEFT JOIN`.
 
 ## Risks and open questions
 
-- **A workflow whose `cwd` has no `origin`.** Step 2 stores the local branch, and `resolveBase` measures against `refs/heads/<name>`. That is what `client.Rebase(ctx, repo, "main")` already does in the tests, and it is the right answer for a repository that has never been pushed.
+- **A workflow whose `cwd` has no `origin`.** Step 2 stores the branch it is on, and `resolveBase` measures against `refs/heads/<name>`. That is what `client.Rebase(ctx, repo, "main")` already does in the tests, and it is the right answer for a repository that has never been pushed.
 - **The forge renames its default branch.** The stored name goes stale and the next fetch reports it. That is the intended behaviour: a person updates the workflow, once, and the panel says so until they do. The old script noticed the rename and guessed the new name; this proposal chooses telling over guessing.
-- **`ls-remote` at creation needs credentials.** A remote that refuses or hangs falls through to step 3 and the response says `main` was assumed. The form can be corrected on the spot.
+- **The clone's `origin/HEAD` is itself stale at creation.** The stored name is wrong from the start, and the first fetch of it says so. The person sees the name in the response and in the form and corrects it once.
 - **Workflows whose `cwd` is not a repository** carry a base nobody reads. That is a stored string, and cheaper than a nullable column every reader has to check.
 - **Open:** should `update_workflow` changing the base of a workflow with live agents warn that their standings will be re-read against a different branch on the next pass? Probably as a line in the response rather than a refusal.
 
