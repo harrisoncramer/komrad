@@ -6,27 +6,27 @@ import (
 	"strings"
 )
 
-var ErrForgesUnreadable = &ProblemError{
+var errForgesUnreadable = &ProblemError{
 	Code:    "forges_unreadable",
 	Message: "the service could not check its forges",
 }
 
-var ErrForgeRefused = &ProblemError{
+var errForgeRefused = &ProblemError{
 	Code:    "forge_refused",
 	Message: "a connected forge no longer accepts its credential",
 }
 
-var ErrForgeNoCredential = &ProblemError{
+var errForgeNoCredential = &ProblemError{
 	Code:    "forge_no_credential",
 	Message: "a connected forge has no credential on this machine",
 }
 
-var ErrNoForges = &ProblemError{
+var errNoForges = &ProblemError{
 	Code:    "no_forges",
 	Message: "no forge is connected, so pull requests cannot be read",
 }
 
-var ErrForgeUnreachable = &ProblemError{
+var errForgeUnreachable = &ProblemError{
 	Code:    "forge_unreachable",
 	Message: "a connected forge could not be reached",
 }
@@ -35,19 +35,19 @@ var ErrForgeUnreachable = &ProblemError{
 func classifyForgeProblem(kind string) *ProblemError {
 	switch kind {
 	case "no_credential":
-		return ErrForgeNoCredential
+		return errForgeNoCredential
 	case "refused":
-		return ErrForgeRefused
+		return errForgeRefused
 	default:
-		return ErrForgeUnreachable
+		return errForgeUnreachable
 	}
 }
 
 // forgeProblemRank orders the kinds of trouble, worst last.
 var forgeProblemRank = map[string]int{
-	ErrForgeUnreachable.Code:  1,
-	ErrForgeNoCredential.Code: 2,
-	ErrForgeRefused.Code:      3,
+	errForgeUnreachable.Code:  1,
+	errForgeNoCredential.Code: 2,
+	errForgeRefused.Code:      3,
 }
 
 // worseForgeProblem is whichever of two problems a person has to act on first.
@@ -79,10 +79,10 @@ func newForgesCheck() Check {
 		Run: func(ctx context.Context, env Env) Result {
 			statuses, err := env.CheckForges(ctx)
 			if err != nil {
-				return warn(fmt.Errorf("%w: %w", ErrForgesUnreadable, err), "")
+				return warn(fmt.Errorf("%w: %w", errForgesUnreadable, err), "")
 			}
 			if len(statuses) == 0 {
-				return warn(ErrNoForges, "gh auth token | weave forge connect github.com")
+				return warn(errNoForges, "gh auth token | weave forge connect github.com")
 			}
 
 			var lines, failed []string

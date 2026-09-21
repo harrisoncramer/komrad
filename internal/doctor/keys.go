@@ -9,15 +9,15 @@ import (
 )
 
 var (
-	ErrKeyHeldByTmux = &ProblemError{
+	errKeyHeldByTmux = &ProblemError{
 		Code:    "key_held_by_tmux",
 		Message: "tmux answers a key the panel is bound to, so the panel never sees the press",
 	}
-	ErrKeyOnTwoActions = &ProblemError{
+	errKeyOnTwoActions = &ProblemError{
 		Code:    "key_on_two_actions",
 		Message: "one key is bound to two actions a screen answers, so the panel would refuse to draw",
 	}
-	ErrFocusKeyUnavailable = &ProblemError{
+	errFocusKeyUnavailable = &ProblemError{
 		Code:    "focus_key_unavailable",
 		Message: "the key that moves focus between the panel and an agent's pane cannot be bound",
 	}
@@ -32,15 +32,15 @@ func newKeybindingsCheck() Check {
 		Run: func(ctx context.Context, env Env) Result {
 			cfg, err := env.LoadConfig()
 			if err != nil {
-				return fail(fmt.Errorf("%w: %w", ErrConfigUnreadable, err), "", "")
+				return fail(fmt.Errorf("%w: %w", errConfigUnreadable, err), "", "")
 			}
 
 			if env.ValidateKeybindings == nil {
-				return fail(fmt.Errorf("%w: nothing was given to validate the keybindings with", ErrCheckPanicked), "", "")
+				return fail(fmt.Errorf("%w: nothing was given to validate the keybindings with", errCheckPanicked), "", "")
 			}
 			if err := env.ValidateKeybindings(cfg.Keybindings); err != nil {
 				return fail(
-					fmt.Errorf("%w: %w", ErrKeyOnTwoActions, err),
+					fmt.Errorf("%w: %w", errKeyOnTwoActions, err),
 					"",
 					"give one of the two actions a key of its own",
 				)
@@ -51,7 +51,7 @@ func newKeybindingsCheck() Check {
 			if prefix := readTmuxPrefix(ctx, env); prefix == env.FocusKey {
 				return fail(
 					fmt.Errorf("%w: %s is your tmux prefix, which tmux reads before the root table",
-						ErrFocusKeyUnavailable, env.FocusKey),
+						errFocusKeyUnavailable, env.FocusKey),
 					"prefix "+prefix,
 					"set-option -g prefix to something other than "+env.FocusKey,
 				)
@@ -60,7 +60,7 @@ func newKeybindingsCheck() Check {
 			if held, ok := heldByAnythingElse(rootKeys, env.FocusKey); ok {
 				return fail(
 					fmt.Errorf("%w: %s is bound in your tmux root table to %s",
-						ErrFocusKeyUnavailable, env.FocusKey, held),
+						errFocusKeyUnavailable, env.FocusKey, held),
 					env.FocusKey,
 					"unbind -n "+env.FocusKey+" in your tmux config",
 				)
@@ -84,7 +84,7 @@ func newKeybindingsCheck() Check {
 
 				return fail(
 					fmt.Errorf("%w: %q is %s to tmux, bound in the root table to %s",
-						ErrKeyHeldByTmux, key, spelled, held),
+						errKeyHeldByTmux, key, spelled, held),
 					key,
 					"reopen the panel, which takes "+spelled+" back; if it stays with tmux, read the panel log or unbind -n "+spelled+" in your tmux config",
 				)

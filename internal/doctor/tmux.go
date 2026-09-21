@@ -10,27 +10,27 @@ import (
 )
 
 var (
-	ErrTmuxMissing = &ProblemError{
+	errTmuxMissing = &ProblemError{
 		Code:    "tmux_missing",
 		Message: "tmux is not on PATH",
 	}
-	ErrTmuxNotRunnable = &ProblemError{
+	errTmuxNotRunnable = &ProblemError{
 		Code:    "tmux_not_runnable",
 		Message: "tmux is on PATH but would not run",
 	}
-	ErrTmuxTooOld = &ProblemError{
+	errTmuxTooOld = &ProblemError{
 		Code:    "tmux_too_old",
 		Message: "tmux is too old for the panel's key binding",
 	}
-	ErrTmuxVersionUnreadable = &ProblemError{
+	errTmuxVersionUnreadable = &ProblemError{
 		Code:    "tmux_version_unreadable",
 		Message: "tmux did not report a version this understands",
 	}
-	ErrTmuxShellUnsupported = &ProblemError{
+	errTmuxShellUnsupported = &ProblemError{
 		Code:    "tmux_shell_unsupported",
 		Message: "tmux would start agent panes in a shell that cannot run an agent",
 	}
-	ErrTmuxNoServer = &ProblemError{
+	errTmuxNoServer = &ProblemError{
 		Code:    "tmux_no_server",
 		Message: "no tmux server is running to read the option from",
 	}
@@ -46,7 +46,7 @@ func newTmuxBinaryCheck() Check {
 		Run: func(_ context.Context, env Env) Result {
 			path, err := env.LookPath("tmux")
 			if err != nil {
-				return fail(ErrTmuxMissing, "", "install tmux "+minTmux.String()+" or newer")
+				return fail(errTmuxMissing, "", "install tmux "+minTmux.String()+" or newer")
 			}
 
 			return pass(path)
@@ -65,7 +65,7 @@ func newTmuxVersionCheck() Check {
 			reported, err := env.Output(ctx, "tmux", "-V")
 			if err != nil {
 				return fail(
-					fmt.Errorf("%w: %w", ErrTmuxNotRunnable, err),
+					fmt.Errorf("%w: %w", errTmuxNotRunnable, err),
 					"",
 					"reinstall tmux",
 				)
@@ -73,12 +73,12 @@ func newTmuxVersionCheck() Check {
 
 			version, err := parseTmuxVersion(reported)
 			if err != nil {
-				return warn(fmt.Errorf("%w: %w", ErrTmuxVersionUnreadable, err), reported)
+				return warn(fmt.Errorf("%w: %w", errTmuxVersionUnreadable, err), reported)
 			}
 
 			if !version.isAtLeast(minTmux) {
 				return fail(
-					fmt.Errorf("%w: found %s, need %s or newer", ErrTmuxTooOld, reported, minTmux),
+					fmt.Errorf("%w: found %s, need %s or newer", errTmuxTooOld, reported, minTmux),
 					reported,
 					"upgrade tmux to "+minTmux.String()+" or newer",
 				)
@@ -155,7 +155,7 @@ func newTmuxShellCheck() Check {
 
 			if err := harness.RequirePOSIXShell(shell); err != nil {
 				return fail(
-					fmt.Errorf("%w: %s is not one an agent can be launched from", ErrTmuxShellUnsupported, shell),
+					fmt.Errorf("%w: %s is not one an agent can be launched from", errTmuxShellUnsupported, shell),
 					shell,
 					"set-option -g default-shell /bin/sh in your tmux config",
 				)
@@ -191,5 +191,5 @@ func readTmuxDefaultShell(ctx context.Context, env Env) (shell, from string, err
 		return out, server.name, nil
 	}
 
-	return "", "", fmt.Errorf("%w, so the shell agents would run in is unknown", ErrTmuxNoServer)
+	return "", "", fmt.Errorf("%w, so the shell agents would run in is unknown", errTmuxNoServer)
 }

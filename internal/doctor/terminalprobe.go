@@ -21,12 +21,12 @@ const cursorReplyTimeout = 500 * time.Millisecond
 // landed.
 func MeasureColumnsOnTTY(ctx context.Context, samples []string) ([]int, error) {
 	if !term.IsTerminal(int(os.Stdin.Fd())) || !term.IsTerminal(int(os.Stdout.Fd())) {
-		return nil, ErrNoTerminal
+		return nil, errNoTerminal
 	}
 
 	state, err := term.MakeRaw(int(os.Stdin.Fd()))
 	if err != nil {
-		return nil, fmt.Errorf("%w: %w", ErrTerminalWouldNotYield, err)
+		return nil, fmt.Errorf("%w: %w", errTerminalWouldNotYield, err)
 	}
 	defer func() { _ = term.Restore(int(os.Stdin.Fd()), state) }() //nolint:errcheck // the terminal is being handed back on the way out of a read-only command
 
@@ -130,11 +130,11 @@ func (r *replyReader) readCursorColumn(ctx context.Context) (int, error) {
 		case chunk := <-r.chunks:
 			r.remaining = append(r.remaining, chunk...)
 		case err := <-r.failed:
-			return 0, fmt.Errorf("%w: %w", ErrCursorQueryUnanswered, err)
+			return 0, fmt.Errorf("%w: %w", errCursorQueryUnanswered, err)
 		case <-timeout.C:
-			return 0, fmt.Errorf("%w: nothing came back within %s", ErrCursorQueryUnanswered, cursorReplyTimeout)
+			return 0, fmt.Errorf("%w: nothing came back within %s", errCursorQueryUnanswered, cursorReplyTimeout)
 		case <-ctx.Done():
-			return 0, fmt.Errorf("%w: %w", ErrCursorQueryUnanswered, ctx.Err())
+			return 0, fmt.Errorf("%w: %w", errCursorQueryUnanswered, ctx.Err())
 		}
 	}
 }
@@ -176,13 +176,13 @@ func parseRowColumn(body string) (column int, found bool, err error) {
 
 		parsed, err := strconv.Atoi(body[index+1:])
 		if err != nil || parsed < 1 {
-			return 0, false, fmt.Errorf("%w: it answered %q", ErrCursorQueryUnanswered, body)
+			return 0, false, fmt.Errorf("%w: it answered %q", errCursorQueryUnanswered, body)
 		}
 
 		return parsed, true, nil
 	}
 
-	return 0, false, fmt.Errorf("%w: it answered %q", ErrCursorQueryUnanswered, body)
+	return 0, false, fmt.Errorf("%w: it answered %q", errCursorQueryUnanswered, body)
 }
 
 // readTerminfo reads one capability out of a named terminfo entry, an absent string capability

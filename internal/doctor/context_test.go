@@ -37,7 +37,7 @@ func TestContextCheck(t *testing.T) {
 			file:    "/home/u/notes/context.md",
 			readErr: fs.ErrNotExist,
 			want:    StatusFail,
-			code:    ErrContextFileAbsent.Code,
+			code:    errContextFileAbsent.Code,
 		},
 		{
 			name: "a named path that is a directory",
@@ -48,14 +48,14 @@ func TestContextCheck(t *testing.T) {
 				Err:  syscall.EISDIR,
 			},
 			want: StatusFail,
-			code: ErrContextFileNotAFile.Code,
+			code: errContextFileNotAFile.Code,
 		},
 		{
 			name:    "a file that is there and cannot be read, which presence alone would pass",
 			file:    "/home/u/notes/context.md",
 			readErr: fs.ErrPermission,
 			want:    StatusFail,
-			code:    ErrContextFileUnreadable.Code,
+			code:    errContextFileUnreadable.Code,
 		},
 		{
 			name:    "no file named and none at the default path",

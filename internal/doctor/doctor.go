@@ -16,7 +16,7 @@ import (
 	"fmt"
 )
 
-var ErrCheckPanicked = &ProblemError{
+var errCheckPanicked = &ProblemError{
 	Code:    "check_panicked",
 	Message: "this check could not be made because it failed on its own",
 }
@@ -108,8 +108,7 @@ type Finding struct {
 // WhereEngine is what a finding the engine's service made carries in Where.
 const WhereEngine = "engine"
 
-// ErrEngineUnanswered says the engine's service was asked for its checks and did not answer.
-var ErrEngineUnanswered = &ProblemError{
+var errEngineUnanswered = &ProblemError{
 	Code:    "engine_unanswered",
 	Message: "the engine did not answer with its checks",
 }
@@ -130,7 +129,7 @@ func EngineNotChecked() Finding {
 // EngineUnanswered stands in for the engine's checks when the service was asked for them and
 // the call failed.
 func EngineUnanswered(err error) Finding {
-	wrapped := fmt.Errorf("%w: %w", ErrEngineUnanswered, err)
+	wrapped := fmt.Errorf("%w: %w", errEngineUnanswered, err)
 
 	return Finding{
 		Name:        "checks",
@@ -207,7 +206,7 @@ type conclusions map[string]Status
 func (c conclusions) run(ctx context.Context, env Env, check Check) (result Result) {
 	defer func() {
 		if recovered := recover(); recovered != nil {
-			result = fail(fmt.Errorf("%w: %v", ErrCheckPanicked, recovered), "", "")
+			result = fail(fmt.Errorf("%w: %v", errCheckPanicked, recovered), "", "")
 		}
 	}()
 

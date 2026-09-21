@@ -19,43 +19,43 @@ const (
 )
 
 var (
-	ErrDatabaseURLInvalid = &ProblemError{
+	errDatabaseURLInvalid = &ProblemError{
 		Code:    "database_url_invalid",
 		Message: "the database url is not a connection string Postgres accepts",
 	}
-	ErrDatabaseUnreachable = &ProblemError{
+	errDatabaseUnreachable = &ProblemError{
 		Code:    "database_unreachable",
 		Message: "nothing answered",
 	}
-	ErrDatabaseAuthFailed = &ProblemError{
+	errDatabaseAuthFailed = &ProblemError{
 		Code:    "database_auth_failed",
 		Message: "the database refused the user or password in the database url",
 	}
-	ErrDatabaseMissing = &ProblemError{
+	errDatabaseMissing = &ProblemError{
 		Code:    "database_missing",
 		Message: "the Postgres server is running but has no database of that name",
 	}
-	ErrSchemaBehind = &ProblemError{
+	errSchemaBehind = &ProblemError{
 		Code:    "schema_behind",
 		Message: "the database is missing migrations this build ships",
 	}
-	ErrSchemaUnreadable = &ProblemError{
+	errSchemaUnreadable = &ProblemError{
 		Code:    "schema_unreadable",
 		Message: "the applied migrations could not be read",
 	}
-	ErrReadOnlyLoginShared = &ProblemError{
+	errReadOnlyLoginShared = &ProblemError{
 		Code:    "readonly_login_shared",
 		Message: "WEAVE_READONLY_DATABASE_URL names the same login as DATABASE_URL",
 	}
-	ErrReadOnlyLoginUnset = &ProblemError{
+	errReadOnlyLoginUnset = &ProblemError{
 		Code:    "readonly_login_unset",
 		Message: "there is no read-only login, and the database url is not one it can be derived from",
 	}
-	ErrReadOnlyLoginElsewhere = &ProblemError{
+	errReadOnlyLoginElsewhere = &ProblemError{
 		Code:    "readonly_login_elsewhere",
 		Message: "the MCP query tools read a different database than the panel writes to",
 	}
-	ErrReadOnlyLoginUnusable = &ProblemError{
+	errReadOnlyLoginUnusable = &ProblemError{
 		Code:    "readonly_login_unusable",
 		Message: "the least-privilege login the MCP tools connect as does not work",
 	}
@@ -69,7 +69,7 @@ func newDatabaseCheck() Check {
 		Run: func(ctx context.Context, env Env) Result {
 			if _, err := pgconn.ParseConfig(env.DatabaseURL); err != nil {
 				return fail(
-					fmt.Errorf("%w: %w", ErrDatabaseURLInvalid, err),
+					fmt.Errorf("%w: %w", errDatabaseURLInvalid, err),
 					"",
 					"set connection.database_url, or WEAVE_DATABASE_URL, to a postgres:// url",
 				)
@@ -96,12 +96,12 @@ func newSchemaCheck() Check {
 		Run: func(ctx context.Context, env Env) Result {
 			pending, err := env.ReadPendingMigrations(ctx, env.DatabaseURL)
 			if err != nil {
-				return fail(fmt.Errorf("%w: %w", ErrSchemaUnreadable, err), "", "weave migrate")
+				return fail(fmt.Errorf("%w: %w", errSchemaUnreadable, err), "", "weave migrate")
 			}
 
 			if len(pending) > 0 {
 				return warn(
-					fmt.Errorf("%w: %s not applied yet", ErrSchemaBehind, describeMigrationCount(len(pending))),
+					fmt.Errorf("%w: %s not applied yet", errSchemaBehind, describeMigrationCount(len(pending))),
 					"",
 				)
 			}
@@ -121,7 +121,7 @@ func newReadOnlyLoginCheck() Check {
 		Run: func(ctx context.Context, env Env) Result {
 			if env.ReadOnlyDatabaseURL == "" {
 				return fail(
-					ErrReadOnlyLoginUnset,
+					errReadOnlyLoginUnset,
 					"",
 					"set WEAVE_READONLY_DATABASE_URL to a postgres:// url, then run weave readonly-role",
 				)
@@ -129,7 +129,7 @@ func newReadOnlyLoginCheck() Check {
 
 			if env.ReadOnlyDatabaseURL == env.DatabaseURL {
 				return fail(
-					ErrReadOnlyLoginShared,
+					errReadOnlyLoginShared,
 					dsn.Redact(env.ReadOnlyDatabaseURL),
 					"point WEAVE_READONLY_DATABASE_URL at its own login, then run weave readonly-role",
 				)
@@ -137,7 +137,7 @@ func newReadOnlyLoginCheck() Check {
 
 			if err := env.ConnectReadOnly(ctx, env.ReadOnlyDatabaseURL); err != nil {
 				return fail(
-					fmt.Errorf("%w: %s", ErrReadOnlyLoginUnusable, describeDatabaseReason(err)),
+					fmt.Errorf("%w: %s", errReadOnlyLoginUnusable, describeDatabaseReason(err)),
 					dsn.Redact(env.ReadOnlyDatabaseURL),
 					"weave readonly-role",
 				)
@@ -145,7 +145,7 @@ func newReadOnlyLoginCheck() Check {
 
 			if where := describeStoreMismatch(env.DatabaseURL, env.ReadOnlyDatabaseURL); where != "" {
 				return warn(
-					fmt.Errorf("%w: %s", ErrReadOnlyLoginElsewhere, where),
+					fmt.Errorf("%w: %s", errReadOnlyLoginElsewhere, where),
 					dsn.Redact(env.ReadOnlyDatabaseURL),
 				)
 			}
@@ -160,16 +160,16 @@ func classifyDatabaseFailure(err error, url, detail string) Result {
 	if errors.As(err, &pgErr) {
 		switch pgErr.Code {
 		case pgAuthFailed, pgAuthUnspecified:
-			return fail(fmt.Errorf("%w: %s", ErrDatabaseAuthFailed, pgErr.Message), detail,
+			return fail(fmt.Errorf("%w: %s", errDatabaseAuthFailed, pgErr.Message), detail,
 				"check the user and password in the database url")
 		case pgDatabaseMissing:
-			return fail(fmt.Errorf("%w: %s", ErrDatabaseMissing, pgErr.Message), detail,
+			return fail(fmt.Errorf("%w: %s", errDatabaseMissing, pgErr.Message), detail,
 				"createdb "+readDatabaseName(url)+", or point the database url at one that exists")
 		}
 	}
 
 	return fail(
-		fmt.Errorf("%w %s: %s", ErrDatabaseUnreachable, describeHostPort(url), describeNetworkReason(err)),
+		fmt.Errorf("%w %s: %s", errDatabaseUnreachable, describeHostPort(url), describeNetworkReason(err)),
 		detail,
 		"start Postgres "+describeHostPort(url)+", or point the database url at one that is running",
 	)

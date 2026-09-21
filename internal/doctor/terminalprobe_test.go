@@ -87,7 +87,7 @@ func TestMeasureColumnsGivesUpOnSilence(t *testing.T) {
 
 	select {
 	case err := <-failed:
-		require.ErrorIs(t, err, ErrCursorQueryUnanswered)
+		require.ErrorIs(t, err, errCursorQueryUnanswered)
 	case <-time.After(5 * time.Second):
 		t.Fatal("a terminal that will not answer has to be given up on, not waited out")
 	}
@@ -103,7 +103,7 @@ func TestMeasureColumnsStopsWhenTheContextDoes(t *testing.T) {
 	cancel()
 
 	_, err := measureColumns(ctx, reader, io.Discard, []string{"x"})
-	assert.ErrorIs(t, err, ErrCursorQueryUnanswered)
+	assert.ErrorIs(t, err, errCursorQueryUnanswered)
 }
 
 // TestMeasureColumnsRefusesAnAnswerItCannotRead covers a reply that is shaped like one and is
@@ -112,7 +112,7 @@ func TestMeasureColumnsRefusesAnAnswerItCannotRead(t *testing.T) {
 	terminal := newAnswering("\x1b[7R")
 
 	_, err := measureColumns(t.Context(), terminal.reader, terminal, []string{"x"})
-	assert.ErrorIs(t, err, ErrCursorQueryUnanswered)
+	assert.ErrorIs(t, err, errCursorQueryUnanswered)
 }
 
 // TestParseCursorReply covers the shapes a reply arrives in.
