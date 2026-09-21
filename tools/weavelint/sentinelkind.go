@@ -32,7 +32,7 @@ func newSentinelKind(settings config.SentinelKindConfig) (*analysis.Analyzer, er
 			}
 
 			for _, file := range pass.Files {
-				if isTest(pass, file) || isExcluded(pass, file, excluded) {
+				if isTest(pass, file) || isUnder(pass, file, excluded) {
 					continue
 				}
 
@@ -90,11 +90,6 @@ func isErrorsNew(expression ast.Expr) bool {
 // isTest says whether a file is a test, whose errors answer nobody.
 func isTest(pass *analysis.Pass, file *ast.File) bool {
 	return strings.HasSuffix(pass.Fset.Position(file.Pos()).Filename, "_test.go")
-}
-
-// isExcluded says whether a file sits in a package the rule does not hold.
-func isExcluded(pass *analysis.Pass, file *ast.File, excluded []*regexp.Regexp) bool {
-	return isUnder(pass, file, excluded)
 }
 
 // isUnder says whether a file's path matches any of the patterns.

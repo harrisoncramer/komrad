@@ -111,9 +111,14 @@ func reportProtoNames(pass *analysis.Pass, file *ast.File) {
 	}
 }
 
+// toPrefix matches the name shape the render rule strips before it hints.
+var toPrefix = regexp.MustCompile(`^to[A-Z]`)
+
 // renderedName is the name a converter carries after render, its first letter raised.
 func renderedName(name string) string {
-	name = strings.TrimPrefix(name, "to")
+	if toPrefix.MatchString(name) {
+		name = strings.TrimPrefix(name, "to")
+	}
 
 	return strings.ToUpper(name[:1]) + name[1:]
 }

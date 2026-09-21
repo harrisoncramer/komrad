@@ -36,3 +36,7 @@ type service struct{}
 func (service) agent(a agent) *agentv1.Agent {
 	return renderAgent(a)
 }
+
+func tokenFor(a agent) *agentv1.Agent { // want `tokenFor builds a proto message: name it renderTokenFor`
+	return &agentv1.Agent{Id: a.id}
+}

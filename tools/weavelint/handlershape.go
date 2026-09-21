@@ -30,7 +30,7 @@ func newHandlerShape(settings config.HandlerShapeConfig) (*analysis.Analyzer, er
 			}
 
 			for _, file := range pass.Files {
-				if isTest(pass, file) || isExcluded(pass, file, excluded) {
+				if isTest(pass, file) || isUnder(pass, file, excluded) {
 					continue
 				}
 

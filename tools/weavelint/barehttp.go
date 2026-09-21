@@ -28,7 +28,7 @@ func newBareHTTP(settings config.BareHTTPConfig) (*analysis.Analyzer, error) {
 			}
 
 			for _, file := range pass.Files {
-				if isTest(pass, file) || isExcluded(pass, file, excluded) {
+				if isTest(pass, file) || isUnder(pass, file, excluded) {
 					continue
 				}
 
