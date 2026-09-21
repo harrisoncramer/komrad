@@ -58,7 +58,7 @@ You hear about it as ordinary mail naming a file. Read that file: it holds the w
 
 Those line numbers are true of the snapshot rather than of your files now, so once you have edited, search for the quoted text rather than trusting the number. Answer in the threads with add_review_message, naming the thread id, and say what you did.
 
-The verdict says where you stand. Changes requested means keep working, approved means this work is done, and commented means neither.
+The verdict says where you stand. Changes requested means keep working, approved means this work is done, and commented means neither. Every release is its own mail, so read every file your mail names before deciding where you stand: an approval from one reader does not settle another's changes requested.
 
 ## Where things live
 

@@ -644,9 +644,8 @@ func TestDelete(t *testing.T) {
 	require.ErrorIs(t, err, store.ErrNotFound, "deleted mail is gone, not just claimed")
 }
 
-// doorbell is what a review doorbell says, which is that there is review to read and nothing
-// of the review itself.
-const doorbell = "weave: there is review on your diff you have not read, call list_review_threads"
+// answerNotice is what the notice to a reviewer says.
+const answerNotice = "weave: worker answered your review, read the threads with list_review_threads"
 
 type fixture struct {
 	*Store
@@ -708,39 +707,24 @@ func TestPendingNoticeOfKindIsToldApartByWhatItIsAbout(t *testing.T) {
 	require.NotNil(t, sent.AboutAgentID)
 	assert.Equal(t, one, *sent.AboutAgentID, "the subject round-trips")
 
-	found, err := st.GetPendingOfKind(ctx, recipient, KindExchangeCapped, &one)
+	found, err := st.GetPendingOfKind(ctx, recipient, KindExchangeCapped, one)
 	require.NoError(t, err)
 	assert.Equal(t, sent.ID, found.ID, "a lookup naming that partner finds it")
 
-	_, err = st.GetPendingOfKind(ctx, recipient, KindExchangeCapped, &other)
+	_, err = st.GetPendingOfKind(ctx, recipient, KindExchangeCapped, other)
 	require.ErrorIs(t, err, store.ErrNotFound, "a notice about one partner does not stand in for another")
-
-	_, err = st.GetPendingOfKind(ctx, recipient, KindExchangeCapped, nil)
-	require.ErrorIs(t, err, store.ErrNotFound, "nor does it answer a lookup for a notice about nobody")
-
-	doorbell, err := st.Send(ctx, SendParams{
-		ToAgentID: recipient,
-		Body:      "review activity",
-		Kind:      KindReviewActivity,
-		Deadline:  time.Hour,
-	})
-	require.NoError(t, err)
-
-	reused, err := st.GetPendingOfKind(ctx, recipient, KindReviewActivity, nil)
-	require.NoError(t, err)
-	assert.Equal(t, doorbell.ID, reused.ID, "a notice about nobody is still found by a lookup for one")
 }
 
-// TestPendingNoticeOfKindIsTheOneWaiting pins the lookup a caller reuses a doorbell through,
-// which finds only a notice of that kind the agent can still read, so a claimed or expired one
-// does not stand in for a doorbell that needs raising.
+// TestPendingNoticeOfKindIsTheOneWaiting pins that the lookup finds only a notice the agent can
+// still read, never one it has claimed or one that ran out of time.
 func TestPendingNoticeOfKindIsTheOneWaiting(t *testing.T) {
 	st := open(t)
 	ctx := t.Context()
 	recipient := seedAgent(t, st, "recipient")
+	author := seedAgent(t, st, "author")
 
-	_, err := st.GetPendingOfKind(ctx, recipient, KindReviewActivity, nil)
-	require.ErrorIs(t, err, store.ErrNotFound, "an agent holding nothing has no doorbell to reuse")
+	_, err := st.GetPendingOfKind(ctx, recipient, KindReviewActivity, author)
+	require.ErrorIs(t, err, store.ErrNotFound, "an agent holding nothing has no notice waiting")
 
 	_, err = st.Send(ctx, SendParams{
 		ToAgentID: recipient,
@@ -750,35 +734,37 @@ func TestPendingNoticeOfKindIsTheOneWaiting(t *testing.T) {
 	require.NoError(t, err)
 
 	stale, err := st.Send(ctx, SendParams{
-		ToAgentID: recipient,
-		Body:      doorbell,
-		Kind:      KindReviewActivity,
-		Deadline:  -time.Hour,
+		ToAgentID:    recipient,
+		Body:         answerNotice,
+		Kind:         KindReviewActivity,
+		AboutAgentID: &author,
+		Deadline:     -time.Hour,
 	})
 	require.NoError(t, err)
 
-	_, err = st.GetPendingOfKind(ctx, recipient, KindReviewActivity, nil)
-	require.ErrorIs(t, err, store.ErrNotFound, "a doorbell nobody claimed in time is not one the agent can still read")
+	_, err = st.GetPendingOfKind(ctx, recipient, KindReviewActivity, author)
+	require.ErrorIs(t, err, store.ErrNotFound, "a notice nobody claimed in time is not one the agent can still read")
 
 	live, err := st.Send(ctx, SendParams{
-		ToAgentID: recipient,
-		Body:      doorbell,
-		Kind:      KindReviewActivity,
-		Deadline:  time.Hour,
+		ToAgentID:    recipient,
+		Body:         answerNotice,
+		Kind:         KindReviewActivity,
+		AboutAgentID: &author,
+		Deadline:     time.Hour,
 	})
 	require.NoError(t, err)
 
-	waiting, err := st.GetPendingOfKind(ctx, recipient, KindReviewActivity, nil)
+	waiting, err := st.GetPendingOfKind(ctx, recipient, KindReviewActivity, author)
 	require.NoError(t, err)
 	require.NotNil(t, waiting)
-	assert.Equal(t, live.ID, waiting.ID, "the doorbell to reuse is the deliverable one")
+	assert.Equal(t, live.ID, waiting.ID, "the notice found is the deliverable one")
 	assert.NotEqual(t, stale.ID, waiting.ID)
 
 	_, err = st.Claim(ctx, recipient, 10)
 	require.NoError(t, err)
 
-	_, err = st.GetPendingOfKind(ctx, recipient, KindReviewActivity, nil)
-	require.ErrorIs(t, err, store.ErrNotFound, "once the agent has taken it, the next release raises its own")
+	_, err = st.GetPendingOfKind(ctx, recipient, KindReviewActivity, author)
+	require.ErrorIs(t, err, store.ErrNotFound, "once the agent has taken it, nothing is waiting")
 }
 
 // TestOrdinaryMailIsNeverDeduplicated pins that the dedupe covers only notices weave raises.

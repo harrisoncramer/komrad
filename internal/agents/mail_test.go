@@ -517,10 +517,9 @@ func (f *fakeMailbox) CountPending(context.Context, string) (int64, error) {
 	return f.pending, nil
 }
 
-func (f *fakeMailbox) GetPendingOfKind(_ context.Context, toAgentID string, kind mailstore.Kind, about *string) (*mailstore.Mail, error) {
+func (f *fakeMailbox) GetPendingOfKind(_ context.Context, toAgentID string, kind mailstore.Kind, about string) (*mailstore.Mail, error) {
 	for _, held := range f.byID {
-		sameSubject := held.AboutAgentID == nil && about == nil ||
-			held.AboutAgentID != nil && about != nil && *held.AboutAgentID == *about
+		sameSubject := held.AboutAgentID != nil && *held.AboutAgentID == about
 		if held.ToAgentID == toAgentID && held.Kind == kind && sameSubject && held.ClaimedAt == nil {
 			return &held, nil
 		}

@@ -168,7 +168,7 @@ FROM
 WHERE
     m.to_agent_id = $1
     AND m.kind = $2
-    AND m.about_agent_id IS NOT DISTINCT FROM $3
+    AND m.about_agent_id = $3::uuid
     AND m.claimed_at IS NULL
     AND m.expires_at > NOW()
 ORDER BY
@@ -179,7 +179,7 @@ LIMIT 1
 type GetPendingMailOfKindParams struct {
 	ToAgentID    string
 	Kind         MailKind
-	AboutAgentID *string
+	AboutAgentID string
 }
 
 func (q *Queries) GetPendingMailOfKind(ctx context.Context, arg GetPendingMailOfKindParams) (*Mail, error) {

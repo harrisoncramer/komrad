@@ -96,8 +96,8 @@ func (s *Store) Send(ctx context.Context, params SendParams) (*Mail, error) {
 
 // GetPendingOfKind is the notice of a kind, about the same agent, that its recipient is already
 // holding unread, ErrNotFound when it holds none.
-func (s *Store) GetPendingOfKind(ctx context.Context, toAgentID string, kind Kind, about *string) (*Mail, error) {
-	if !store.IsID(toAgentID) {
+func (s *Store) GetPendingOfKind(ctx context.Context, toAgentID string, kind Kind, about string) (*Mail, error) {
+	if !store.IsID(toAgentID) || !store.IsID(about) {
 		return nil, noPendingOfKind(toAgentID, kind)
 	}
 
