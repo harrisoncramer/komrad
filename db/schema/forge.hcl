@@ -174,7 +174,7 @@ table "pull_requests" {
   column "checks_read_at" {
     null    = true
     type    = timestamptz
-    comment = "When the checks and mergeability were last read, which is what paces the re-read of a pending or failing run."
+    comment = "When the checks and mergeability were last read, which is what paces every re-read."
   }
   column "mergeability" {
     null    = true

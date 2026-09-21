@@ -8,7 +8,7 @@ import (
 
 // PullRequestStateOf decides where a stored pull request stands: finished by its two stamps
 // first, then draft, then a failing check, then the forge's review decision, with an approval
-// held at waiting until the forge would merge it.
+// held at waiting until the forge says it would merge it.
 func PullRequestStateOf(pullRequest pullrequeststore.Summary) pullrequestv1.PullRequestState {
 	checks := forge.ChecksNone
 	if pullRequest.Checks != nil {
@@ -32,7 +32,7 @@ func PullRequestStateOf(pullRequest pullrequeststore.Summary) pullrequestv1.Pull
 
 	switch *pullRequest.ReviewDecision {
 	case forge.ReviewDecisionApproved:
-		if approvedIsReady(checks, pullRequest.Mergeability) {
+		if pullRequest.Mergeability != nil && *pullRequest.Mergeability == forge.MergeabilityClean {
 			return pullrequestv1.PullRequestState_PULL_REQUEST_STATE_APPROVED
 		}
 
@@ -43,16 +43,6 @@ func PullRequestStateOf(pullRequest pullrequeststore.Summary) pullrequestv1.Pull
 	}
 
 	return pullrequestv1.PullRequestState_PULL_REQUEST_STATE_OPEN
-}
-
-// approvedIsReady says whether an approved pull request is ready to merge: the forge says so
-// when it has computed the answer, else the checks are not still running.
-func approvedIsReady(checks forge.Checks, mergeability *forge.Mergeability) bool {
-	if mergeability != nil {
-		return *mergeability == forge.MergeabilityClean
-	}
-
-	return checks != forge.ChecksPending
 }
 
 // ChecksOf is the stored checks as the wire carries them, NONE for a row the forge reports no

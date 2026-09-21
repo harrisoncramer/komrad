@@ -218,7 +218,7 @@ func TestPullRequest(t *testing.T) {
 	}
 	approved, err := st.PullRequests.Upsert(ctx, older)
 	require.NoError(t, err)
-	require.NoError(t, st.PullRequests.SetStanding(ctx, approved.ID, forge.Standing{Decision: forge.ReviewDecisionApproved}, time.Now()))
+	require.NoError(t, st.PullRequests.SetStanding(ctx, approved.ID, forge.Standing{Decision: forge.ReviewDecisionApproved, Mergeability: forge.MergeabilityClean}, time.Now()))
 
 	assert.Equal(t, &pullrequeststore.Summary{
 		Number:         1,

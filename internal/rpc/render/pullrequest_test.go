@@ -80,17 +80,17 @@ func TestPullRequestStateOf(t *testing.T) {
 			want:        pullrequestv1.PullRequestState_PULL_REQUEST_STATE_FAILING,
 		},
 		{
-			name:        "approved",
+			name:        "approved before the forge has computed the mergeability is waiting",
 			pullRequest: pullrequeststore.Summary{ReviewDecision: xptr.Ptr(forge.ReviewDecisionApproved)},
-			want:        pullrequestv1.PullRequestState_PULL_REQUEST_STATE_APPROVED,
+			want:        pullrequestv1.PullRequestState_PULL_REQUEST_STATE_APPROVED_WAITING,
 		},
 		{
-			name: "approved with passing checks",
+			name: "approved with passing checks and no mergeability is still waiting",
 			pullRequest: pullrequeststore.Summary{
 				ReviewDecision: xptr.Ptr(forge.ReviewDecisionApproved),
 				Checks:         xptr.Ptr(forge.ChecksPassing),
 			},
-			want: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_APPROVED,
+			want: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_APPROVED_WAITING,
 		},
 		{
 			name: "approved with checks still running and no mergeability is waiting",
