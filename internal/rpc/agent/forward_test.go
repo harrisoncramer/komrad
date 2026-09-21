@@ -443,7 +443,6 @@ func forwardServiceOver(st *storetest.Stores, maxExchange int, liveness *fakeLau
 		Transcripts: st.Transcripts,
 		Mail:        mailer,
 		Liveness:    liveness,
-		Runs:        st.Runs,
 		Marks:       markService(st),
 		Clock:       func() time.Time { return forwardedAt },
 	})}

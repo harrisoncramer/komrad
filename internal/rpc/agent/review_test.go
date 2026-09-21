@@ -138,7 +138,6 @@ func reviewServiceOver(t *testing.T, trees fakeTrees) (agentv1weave.AgentService
 		Rows:     rowReaderOver(st, liveness, trees),
 		Mail:     mailer,
 		Review:   review,
-		Runs:     st.Runs,
 		Marks:    markService(st),
 		Liveness: liveness,
 	})}, st, reviews

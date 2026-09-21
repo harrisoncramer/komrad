@@ -81,6 +81,7 @@ func newMux(params newMuxParams) (*http.ServeMux, error) {
 		agentv1weave.AgentServiceAdapter{Impl: rpcagent.NewAgentService(rpcagent.NewAgentServiceParams{
 			Agents:       params.Stores.agents,
 			Rows:         params.Services.rows,
+			Writer:       params.Services.rowWriter,
 			Transcripts:  params.Stores.transcripts,
 			Mail:         params.Services.mail,
 			Creator:      params.Services.launch,
@@ -89,10 +90,8 @@ func newMux(params newMuxParams) (*http.ServeMux, error) {
 			Lifecycle:    params.Services.lifecycle,
 			Resumer:      params.Services.resume,
 			Holder:       params.Services.holder,
-			Reconciler:   params.Services.reconciler,
 			Archive:      jobs.NewArchiveSweep(queue),
 			Review:       params.Services.review,
-			Runs:         params.Stores.runs,
 			Marks:        params.Services.marks,
 			Rebaser:      params.Services.rebase,
 			Orchestrator: params.Services.orchestrator,

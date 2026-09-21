@@ -25,13 +25,6 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-// reportRecorder is where what an agent's own CLI reports about itself reaches the reconcile
-// loop.
-type reportRecorder interface {
-	RecordTurnBoundary(agentID string)
-	RecordReportedReason(agentID, reason string)
-}
-
 type agentCreator interface {
 	NewAgent(ctx context.Context, p agents.NewAgentParams) (*agentstore.Agent, error)
 	RequestReview(ctx context.Context, p agents.RequestReviewParams) (*agentstore.Agent, string, error)
@@ -68,14 +61,18 @@ type agentHolder interface {
 	Release(ctx context.Context, params agents.ReleaseParams) (*agentstore.Agent, error)
 }
 
-type agentReadWriter interface {
+type agentReader interface {
 	GetByID(ctx context.Context, id string) (*agentstore.Agent, error)
 	Exists(ctx context.Context, id string) (bool, error)
-	SetHidden(ctx context.Context, id string, hidden bool) (bool, error)
-	SetTurnEnded(ctx context.Context, id string) error
-	SetReportedReason(ctx context.Context, id, reason string) error
-	SetMetadata(ctx context.Context, params agentstore.SetMetadataParams) (bool, error)
-	Rename(ctx context.Context, id, name string) (bool, error)
+}
+
+// rowWriter changes what an agent's row says.
+type rowWriter interface {
+	SetHidden(ctx context.Context, id string, hidden bool) error
+	SetMetadata(ctx context.Context, params agents.SetMetadataParams) error
+	Rename(ctx context.Context, id, name string) error
+	MarkRunsRead(ctx context.Context, id string) error
+	RecordReport(ctx context.Context, params agents.RecordReportParams) error
 }
 
 // markReadWriter owns the letters a person types to jump to a row, which span agents and
@@ -86,18 +83,14 @@ type markReadWriter interface {
 	ClearMark(ctx context.Context, target markstore.Target) (bool, error)
 }
 
-// runReadWriter is the record of the scripts weave fired.
-type runReadWriter interface {
-	MarkRead(ctx context.Context, agentID string) error
-}
-
 type archiveEmptier interface {
 	EmptyArchive(ctx context.Context) error
 }
 
 type AgentService struct {
-	agents       agentReadWriter
+	agents       agentReader
 	rows         rowReader
+	writer       rowWriter
 	transcripts  transcriptReader
 	mail         mailer
 	creator      agentCreator
@@ -106,10 +99,8 @@ type AgentService struct {
 	lifecycle    agentLifecycle
 	resumer      agentResumer
 	holder       agentHolder
-	reconciler   reportRecorder
 	archive      archiveEmptier
 	review       reviewConversation
-	runs         runReadWriter
 	marks        markReadWriter
 	rebaser      worktreeRebaser
 	orchestrator orchestratorStarter
@@ -117,8 +108,9 @@ type AgentService struct {
 }
 
 type NewAgentServiceParams struct {
-	Agents       agentReadWriter
+	Agents       agentReader
 	Rows         rowReader
+	Writer       rowWriter
 	Transcripts  transcriptReader
 	Mail         mailer
 	Creator      agentCreator
@@ -127,10 +119,8 @@ type NewAgentServiceParams struct {
 	Lifecycle    agentLifecycle
 	Resumer      agentResumer
 	Holder       agentHolder
-	Reconciler   reportRecorder
 	Archive      archiveEmptier
 	Review       reviewConversation
-	Runs         runReadWriter
 	Marks        markReadWriter
 	Rebaser      worktreeRebaser
 	Orchestrator orchestratorStarter
@@ -148,6 +138,7 @@ func NewAgentService(params NewAgentServiceParams) *AgentService {
 	return &AgentService{
 		agents:       params.Agents,
 		rows:         params.Rows,
+		writer:       params.Writer,
 		transcripts:  params.Transcripts,
 		mail:         params.Mail,
 		creator:      params.Creator,
@@ -156,10 +147,8 @@ func NewAgentService(params NewAgentServiceParams) *AgentService {
 		lifecycle:    params.Lifecycle,
 		resumer:      params.Resumer,
 		holder:       params.Holder,
-		reconciler:   params.Reconciler,
 		archive:      params.Archive,
 		review:       params.Review,
-		runs:         params.Runs,
 		marks:        params.Marks,
 		rebaser:      params.Rebaser,
 		orchestrator: params.Orchestrator,
@@ -173,12 +162,6 @@ var errCallerHasNoAgent = fail.InvalidArgument("the caller has no agent id of it
 
 // errNoIDToFallBackOn is a request naming no agent, made by something that is not one.
 var errNoIDToFallBackOn = fail.InvalidArgument("no id given, and the caller has none of its own to fall back to")
-
-// errPullRequestKey is a metadata write under the key the forge now fills.
-var errPullRequestKey = fail.InvalidArgument("pull requests are read from the forge and shown on the row; nothing needs recording here")
-
-// pullRequestMetadataKey is the key agents used to record the pull request they opened.
-const pullRequestMetadataKey = "pr"
 
 // CreateAgent launches a background agent and returns it as stored.
 func (s *AgentService) CreateAgent(ctx context.Context, req *agentv1.CreateAgentRequest) (*agentv1.CreateAgentResponse, *fail.Error) {
@@ -344,12 +327,8 @@ func (s *AgentService) SetMark(ctx context.Context, req *agentv1.SetMarkRequest)
 
 // SetHidden hides an agent from the panel's sidebar or brings it back.
 func (s *AgentService) SetHidden(ctx context.Context, req *agentv1.SetHiddenRequest) (*emptypb.Empty, *fail.Error) {
-	changed, err := s.agents.SetHidden(ctx, req.GetId(), req.GetHidden())
-	if err != nil {
+	if err := s.writer.SetHidden(ctx, req.GetId(), req.GetHidden()); err != nil {
 		return nil, rpcerr.From(err, "failed to hide the agent")
-	}
-	if !changed {
-		return nil, agents.ErrAgentNotFound.Saying("no agent with id %q", req.GetId())
 	}
 
 	return &emptypb.Empty{}, nil
@@ -358,7 +337,7 @@ func (s *AgentService) SetHidden(ctx context.Context, req *agentv1.SetHiddenRequ
 // MarkRunsRead claims the failed runs an agent is holding, and carries no tool annotation
 // because an agent must not move the marks on the user's screen.
 func (s *AgentService) MarkRunsRead(ctx context.Context, req *agentv1.MarkRunsReadRequest) (*emptypb.Empty, *fail.Error) {
-	if err := s.runs.MarkRead(ctx, req.GetId()); err != nil {
+	if err := s.writer.MarkRunsRead(ctx, req.GetId()); err != nil {
 		return nil, rpcerr.From(err, "failed to claim the agent's failed runs")
 	}
 
@@ -366,23 +345,15 @@ func (s *AgentService) MarkRunsRead(ctx context.Context, req *agentv1.MarkRunsRe
 }
 
 // SetMetadata records one fact an agent found out about its own work, or clears the key
-// when the value is unset, refusing the key the forge fills on its own.
+// when the value is unset.
 func (s *AgentService) SetMetadata(ctx context.Context, req *agentv1.SetMetadataRequest) (*emptypb.Empty, *fail.Error) {
-	if req.GetKey() == pullRequestMetadataKey {
-		return nil, errPullRequestKey
-	}
-
-	changed, err := s.agents.SetMetadata(ctx, agentstore.SetMetadataParams{
-		ID:    req.GetId(),
-		Key:   req.GetKey(),
-		Value: req.Value,
+	err := s.writer.SetMetadata(ctx, agents.SetMetadataParams{
+		AgentID: req.GetId(),
+		Key:     req.GetKey(),
+		Value:   req.Value,
 	})
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to set the metadata")
-	}
-	// Clearing a key nothing held is not an error.
-	if !changed && req.Value != nil {
-		return nil, agents.ErrAgentNotFound.Saying("no agent with id %q", req.GetId())
 	}
 
 	return &emptypb.Empty{}, nil
@@ -414,33 +385,20 @@ func (s *AgentService) Log(ctx context.Context, req *agentv1.LogRequest) (*empty
 	return &emptypb.Empty{}, nil
 }
 
-// RecordReport takes what the calling agent's own CLI read out of one of its hook payloads,
-// putting the reason beside the state the pane decided and stamping a reported turn end.
+// RecordReport takes what the calling agent's own CLI read out of one of its hook payloads.
 func (s *AgentService) RecordReport(ctx context.Context, req *agentv1.RecordReportRequest) (*emptypb.Empty, *fail.Error) {
 	id := caller.From(ctx).AgentID
 	if id == "" {
 		return nil, errCallerHasNoAgent
 	}
 
-	// Both stamps are taken before either write, so a store that is down costs the flags it
-	// would have raised rather than also costing the reconciler its shortcut to idle.
-	reason := req.GetReason()
-	s.reconciler.RecordReportedReason(id, reason)
-	turnEnded := req.GetTurnEnded()
-	if turnEnded {
-		s.reconciler.RecordTurnBoundary(id)
-	}
-
-	if err := s.agents.SetReportedReason(ctx, id, reason); err != nil {
-		return nil, rpcerr.From(err, "failed to record what the agent reported it was doing")
-	}
-
-	if !turnEnded {
-		return &emptypb.Empty{}, nil
-	}
-
-	if err := s.agents.SetTurnEnded(ctx, id); err != nil {
-		return nil, rpcerr.From(err, "failed to record the turn end")
+	err := s.writer.RecordReport(ctx, agents.RecordReportParams{
+		AgentID:   id,
+		Reason:    req.GetReason(),
+		TurnEnded: req.GetTurnEnded(),
+	})
+	if err != nil {
+		return nil, rpcerr.From(err, "failed to record what the agent reported")
 	}
 
 	return &emptypb.Empty{}, nil
@@ -590,15 +548,10 @@ func (s *AgentService) ReleaseAgent(ctx context.Context, req *agentv1.ReleaseAge
 	return &agentv1.ReleaseAgentResponse{Agent: rendered}, nil
 }
 
-// UpdateAgent renames the agent with the given id, reporting a name another agent holds as a
-// conflict rather than leaking the database's own refusal.
+// UpdateAgent renames the agent with the given id.
 func (s *AgentService) UpdateAgent(ctx context.Context, req *agentv1.UpdateAgentRequest) (*emptypb.Empty, *fail.Error) {
-	renamed, err := s.agents.Rename(ctx, req.GetId(), req.GetName())
-	if err != nil {
+	if err := s.writer.Rename(ctx, req.GetId(), req.GetName()); err != nil {
 		return nil, rpcerr.From(err, "failed to update agent")
-	}
-	if !renamed {
-		return nil, agents.ErrAgentNotFound.Saying("no agent with id %q", req.GetId())
 	}
 
 	return &emptypb.Empty{}, nil
