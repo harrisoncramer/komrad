@@ -23,7 +23,6 @@ import (
 	"weave/internal/mail"
 	"weave/internal/store"
 	"weave/internal/tmux"
-	"weave/internal/watch"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/riverqueue/river"
@@ -73,14 +72,12 @@ func (c mailConfig) GetMaxExchange() (int, error) {
 }
 
 type Server struct {
-	Mux      *http.ServeMux
-	Jobs     *river.Client[pgx.Tx]
-	Periodic *jobs.RiverPeriodic
-	Pool     *store.Pool
-	Delivery *mail.DeliveryService
-	Loops    []Loop
-	// Watch is where every writer says which rows moved.
-	Watch         *watch.Broker
+	Mux           *http.ServeMux
+	Jobs          *river.Client[pgx.Tx]
+	Periodic      *jobs.RiverPeriodic
+	Pool          *store.Pool
+	Delivery      *mail.DeliveryService
+	Loops         []Loop
 	logger        *slog.Logger
 	stopRequested chan struct{}
 	background    *backgroundWork
@@ -101,7 +98,6 @@ func NewServer(ctx context.Context, params NewServerParams) (*Server, error) {
 
 	srv := &Server{
 		Pool:          st.pool,
-		Watch:         watch.NewBroker(watch.NewBrokerParams{Logger: params.Logger}),
 		logger:        params.Logger,
 		stopRequested: make(chan struct{}, 1),
 	}
@@ -116,7 +112,7 @@ func NewServer(ctx context.Context, params NewServerParams) (*Server, error) {
 		}
 	}()
 
-	svc, err := buildServices(params, st, srv.Watch)
+	svc, err := buildServices(params, st)
 	if err != nil {
 		return nil, err
 	}
@@ -144,7 +140,6 @@ func NewServer(ctx context.Context, params NewServerParams) (*Server, error) {
 		Running:   st.agents,
 		Worktrees: svc.worktreeLister,
 		Remover:   svc.remover,
-		Watch:     srv.Watch,
 		Logger:    params.Logger,
 	})
 	if err != nil {
@@ -169,7 +164,6 @@ func NewServer(ctx context.Context, params NewServerParams) (*Server, error) {
 		StopRequested: srv.stopRequested,
 		LogPath:       params.Env.LogPath(),
 		Doctor:        params.Doctor,
-		Watch:         srv.Watch,
 	})
 	if err != nil {
 		return nil, err
@@ -182,17 +176,9 @@ func NewServer(ctx context.Context, params NewServerParams) (*Server, error) {
 		Periodic: srv.Periodic,
 	})
 
-	srv.Watch.Start(svc.watchRows)
-	srv.closers = append(srv.closers, srv.Watch.Close)
-
 	built = true
 
 	return srv, nil
-}
-
-// CloseWatch ends every watch stream, which an HTTP drain would otherwise wait on.
-func (s *Server) CloseWatch() {
-	s.Watch.Close()
 }
 
 // Handler is the mux behind the guard that refuses anything not from this machine.

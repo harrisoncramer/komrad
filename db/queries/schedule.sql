@@ -21,17 +21,6 @@ WHERE
 ORDER BY
     s.id DESC;
 
--- name: ListLiveSchedulesByID :many
-SELECT
-    sqlc.embed(s)
-FROM
-    schedules s
-WHERE
-    s.id = ANY (@ids::uuid[])
-    AND s.archived_at IS NULL
-ORDER BY
-    s.id DESC;
-
 -- name: GetSchedule :one
 SELECT
     sqlc.embed(s)

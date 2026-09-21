@@ -10,7 +10,6 @@ import (
 
 	"weave/db"
 	"weave/internal/jobs/internaljobs"
-	"weave/internal/watch"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -32,23 +31,14 @@ type NewClientParams struct {
 	Running   internaljobs.RunningAgentCounter
 	Worktrees internaljobs.WorktreeLister
 	Remover   internaljobs.WorktreeRemover
-	// Watch is told which rows the jobs moved, watch.Discard when unset.
-	Watch  watch.Publisher
-	Logger *slog.Logger
+	Logger    *slog.Logger
 }
 
 // NewClient builds the River client with the workers registered, leaving the periodic jobs to
 // the reconciler that reads them out of the schedules table.
 func NewClient(params NewClientParams) (*river.Client[pgx.Tx], error) {
 	workers := river.NewWorkers()
-	river.AddWorker(workers, internaljobs.NewLaunchAgentWorker(internaljobs.NewLaunchAgentWorkerParams{
-		Schedules: params.Schedules,
-		Launcher:  params.Launcher,
-		Running:   params.Running,
-		Results:   params.Results,
-		Watch:     params.Watch,
-		Logger:    params.Logger,
-	}))
+	river.AddWorker(workers, internaljobs.NewLaunchAgentWorker(params.Schedules, params.Launcher, params.Running, params.Results, params.Logger))
 	river.AddWorker(workers, internaljobs.NewEmptyArchiveWorker(params.Archived, params.Deleter))
 	river.AddWorker(workers, internaljobs.NewDeleteWorktreesWorker(internaljobs.NewDeleteWorktreesWorkerParams{
 		Worktrees: params.Worktrees,

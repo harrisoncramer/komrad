@@ -11,7 +11,6 @@ import (
 	"weave/internal/store"
 	agentstore "weave/internal/store/agent"
 	schedulestore "weave/internal/store/schedule"
-	"weave/internal/watchtest"
 
 	"github.com/riverqueue/river"
 	"github.com/riverqueue/river/rivertype"
@@ -155,7 +154,7 @@ func TestLaunchAgentWorker(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			schedules := &fakeSchedules{schedule: tt.schedule}
 			launcher := &fakeLauncher{err: tt.launchErr}
-			worker := NewLaunchAgentWorker(NewLaunchAgentWorkerParams{Schedules: schedules, Launcher: launcher, Running: &fakeRunning{count: tt.running}, Results: schedules})
+			worker := NewLaunchAgentWorker(schedules, launcher, &fakeRunning{count: tt.running}, schedules, nil)
 
 			job := &river.Job[LaunchAgentArgs]{
 				Args: LaunchAgentArgs{ScheduleID: "s1", ScheduledFor: occurrence},
@@ -233,14 +232,11 @@ func TestLaunchAgentParams(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			launcher := &fakeLauncher{}
 			schedules := &fakeSchedules{schedule: &tt.schedule}
-			watch := watchtest.NewRecorder()
-			worker := NewLaunchAgentWorker(NewLaunchAgentWorkerParams{Schedules: schedules, Launcher: launcher, Running: &fakeRunning{}, Results: schedules, Watch: watch})
+			worker := NewLaunchAgentWorker(schedules, launcher, &fakeRunning{}, schedules, nil)
 
 			require.NoError(t, worker.Work(t.Context(), &river.Job[LaunchAgentArgs]{
 				Args: LaunchAgentArgs{ScheduleID: tt.schedule.ID, ScheduledFor: occurrence},
 			}))
-
-			assert.Equal(t, []string{tt.schedule.ID}, watch.Schedules(), "the launch result is on the schedule's row")
 
 			got := launcher.got
 			assert.Equal(t, tt.want.Title, got.Title)

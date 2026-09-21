@@ -7,7 +7,6 @@ import (
 	schedulestore "weave/internal/store/schedule"
 	workflowstore "weave/internal/store/workflow"
 	"weave/internal/storetest"
-	"weave/internal/watchtest"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -351,20 +350,3 @@ func TestScheduleNotFound(t *testing.T) {
 }
 
 const missingScheduleID = "00000000-0000-0000-0000-000000000000"
-
-// TestScheduleWritesPublishTheSchedule pins that every write says which schedule moved.
-func TestScheduleWritesPublishTheSchedule(t *testing.T) {
-	st := storetest.Open(t)
-	ctx := t.Context()
-	watch := watchtest.NewRecorder()
-	svc := NewScheduleService(NewScheduleServiceParams{Schedules: st.Schedules, Workflows: st.Workflows, Watch: watch})
-	workflowID := st.SeedWorkflow(t, workflowstore.Config{Name: "backend"}).ID
-
-	created, err := svc.NewSchedule(ctx, schedulestore.Config{Name: "nightly", Cron: "0 2 * * *", Prompt: "sweep", WorkflowID: workflowID})
-	require.NoError(t, err)
-	require.NoError(t, svc.UpdateSchedule(ctx, created.ID, schedulestore.Config{Name: "hourly", Cron: "0 * * * *", Prompt: "sweep", WorkflowID: workflowID}))
-	require.NoError(t, svc.SetScheduleEnabled(ctx, created.ID, true))
-	require.NoError(t, svc.ArchiveSchedule(ctx, created.ID))
-
-	assert.Equal(t, []string{created.ID, created.ID, created.ID, created.ID}, watch.Schedules())
-}

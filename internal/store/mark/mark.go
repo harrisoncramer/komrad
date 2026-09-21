@@ -45,21 +45,18 @@ func (s *Store) List(ctx context.Context) ([]Mark, error) {
 	return marks, nil
 }
 
-// ClearConflicts frees the letter and whatever the row already answered to, and returns the
-// rows freed.
-func (s *Store) ClearConflicts(ctx context.Context, mark string, target Target) ([]Target, error) {
-	freed, err := s.queries.ClearMarkConflicts(ctx, models.ClearMarkConflictsParams{
+// ClearConflicts frees the letter and whatever the row already answered to.
+func (s *Store) ClearConflicts(ctx context.Context, mark string, target Target) error {
+	err := s.queries.ClearMarkConflicts(ctx, models.ClearMarkConflictsParams{
 		Mark:       mark,
 		AgentID:    target.AgentID,
 		WorkflowID: target.WorkflowID,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to clear mark %q: %w", mark, err)
+		return fmt.Errorf("failed to clear mark %q: %w", mark, err)
 	}
 
-	return xslice.Map(freed, func(row *models.ClearMarkConflictsRow) Target {
-		return Target{AgentID: row.AgentID, WorkflowID: row.WorkflowID}
-	}), nil
+	return nil
 }
 
 // Clear takes whatever letter a row answers to off it, and reports whether it held one.

@@ -15,7 +15,6 @@ import (
 	agentstore "weave/internal/store/agent"
 	mailstore "weave/internal/store/mail"
 	"weave/internal/storetest"
-	"weave/internal/watchtest"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -447,43 +446,6 @@ func TestDeliverReportsExpiredMail(t *testing.T) {
 	assert.Equal(t, DeliveryDone, got)
 	assert.True(t, mailbox.readExpired, "an empty mailbox is checked for mail that ran out of time")
 	assert.Empty(t, panes.pasted)
-}
-
-// TestDeliverPublishesTheMailboxItMoved pins the two things a pass says: a nudge landed, and
-// mail ran out of time, which empties a mailbox with nothing written.
-func TestDeliverPublishesTheMailboxItMoved(t *testing.T) {
-	agents := &fakeAgents{claimed: true, agent: &agentstore.Agent{
-		ID:    "agent-a",
-		Pane:  "%1",
-		State: agentstore.StateIdle,
-	}}
-	mailbox := &fakeMailboxReader{pending: 1}
-	watch := watchtest.NewRecorder()
-
-	svc := NewDeliveryService(NewDeliveryServiceParams{
-		MailboxReader: mailbox,
-		NudgeClaimer:  agents,
-		PaneReader:    &fakePanes{alive: true, frame: idleFrame},
-		Channel:       &fakeChannel{},
-		Watch:         watch,
-	})
-
-	got, err := svc.Deliver(t.Context(), "agent-a")
-	require.NoError(t, err)
-	require.Equal(t, DeliverySoon, got)
-	assert.Equal(t, []string{"agent-a"}, watch.Agents(), "the nudge is on the row")
-
-	watch.Reset()
-	mailbox.pending = 0
-	got, err = svc.Deliver(t.Context(), "agent-a")
-	require.NoError(t, err)
-	require.Equal(t, DeliveryDone, got)
-	assert.Empty(t, watch.Agents(), "an empty mailbox with nothing expired moved nothing")
-
-	mailbox.expired = []mailstore.Mail{{ID: "mail-1"}}
-	_, err = svc.Deliver(t.Context(), "agent-a")
-	require.NoError(t, err)
-	assert.Equal(t, []string{"agent-a"}, watch.Agents(), "expired mail is an unread mark that went out on its own")
 }
 
 type fakeMailboxReader struct {

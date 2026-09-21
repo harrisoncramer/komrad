@@ -14,7 +14,6 @@ import (
 	reviewstore "weave/internal/store/review"
 	workflowstore "weave/internal/store/workflow"
 	"weave/internal/storetest"
-	"weave/internal/watchtest"
 	"weave/lib/xptr"
 
 	"github.com/stretchr/testify/assert"
@@ -735,44 +734,4 @@ func TestCwdSyncerSyncReportsAProbeItCouldNotMake(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), `failed to compare the tree of "a"`)
 	assert.Equal(t, git.StandingSame, syncer.GetStanding(created.ID, "snapshot-one"))
-}
-
-// TestCwdSyncerSyncPublishesWhatMoved pins that a pass says which rows it wrote and which
-// worktrees it found standing somewhere new, and nothing on a pass that found nothing.
-func TestCwdSyncerSyncPublishesWhatMoved(t *testing.T) {
-	st := storetest.Open(t)
-	ctx := t.Context()
-
-	workflowID := seedWorkflow(t, st)
-	moved, still := fakeCheckout(t), fakeCheckout(t)
-	for name, dir := range map[string]string{"moved": moved, "still": still} {
-		require.NoError(t, st.Agents.Create(ctx, agentstore.Agent{Name: name, State: agentstore.StateIdle, WorkflowID: workflowID, Cwd: dir}))
-	}
-	movedAgent, err := st.Agents.GetInWorkflow(ctx, workflowID, "moved")
-	require.NoError(t, err)
-	stillAgent, err := st.Agents.GetInWorkflow(ctx, workflowID, "still")
-	require.NoError(t, err)
-
-	approved := reviewstore.VerdictApproved
-	trees := fakeTrees{moved: git.StandingSame, still: git.StandingSame}
-	watch := watchtest.NewRecorder()
-	syncer := NewCwdSyncer(NewCwdSyncerParams{
-		Agents:  st.Agents,
-		Heads:   fakeHeads{moved: {Branch: "feature/x"}, still: {Branch: "main"}},
-		Trees:   trees,
-		Tallies: fakeTallies{{AgentID: movedAgent.ID, Verdict: &approved, SnapshotSHA: "snapshot-moved"}},
-		Bases:   fakeBases{},
-		Watch:   watch,
-	})
-
-	require.NoError(t, syncer.Sync(ctx))
-	assert.ElementsMatch(t, []string{movedAgent.ID, stillAgent.ID}, watch.Agents(), "the first pass writes both branches")
-
-	watch.Reset()
-	require.NoError(t, syncer.Sync(ctx))
-	assert.Empty(t, watch.Agents(), "a pass that finds nothing new says nothing")
-
-	trees[moved] = git.StandingMoved
-	require.NoError(t, syncer.Sync(ctx))
-	assert.Equal(t, []string{movedAgent.ID}, watch.Agents(), "a worktree that moved against its round is on the row")
 }

@@ -214,9 +214,6 @@ func serve(ctx context.Context, params serveParams) error {
 	drain, cancelDrain := context.WithTimeout(context.WithoutCancel(ctx), httpDrainTimeout)
 	defer cancelDrain()
 
-	// A stream returns only when its subscription closes, so the streams go before the drain
-	// waits on them.
-	server.CloseWatch()
 	if err := httpServer.Shutdown(drain); err != nil {
 		logger.LogAttrs(ctx, slog.LevelError, "the server would not shut down cleanly", logging.Err(err)...)
 	}

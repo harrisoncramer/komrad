@@ -179,17 +179,6 @@ WHERE
 ORDER BY
     repository_url;
 
--- name: ListLiveAgentsOnRepositories :many
-SELECT
-    id
-FROM
-    agents
-WHERE
-    archived_at IS NULL
-    AND repository_url = ANY (@urls::text[])
-ORDER BY
-    id;
-
 -- name: ListUnscannedBranches :many
 SELECT DISTINCT
     a.branch

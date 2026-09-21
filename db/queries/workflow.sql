@@ -37,22 +37,6 @@ ORDER BY
     COLLATE "C" ASC,
     w.id ASC;
 
--- name: ListLiveWorkflowsByID :many
-SELECT
-    sqlc.embed(w),
-    sqlc.embed(wc),
-    sqlc.embed(pc)
-FROM
-    workflows w
-    JOIN workflow_configs wc ON wc.id = w.workflow_config_id
-    JOIN workflow_provisioner_configs pc ON pc.id = w.provisioner_config_id
-WHERE
-    w.id = ANY (@ids::uuid[])
-    AND w.archived_at IS NULL
-    AND w.deleting_at IS NULL
-ORDER BY
-    w.id ASC;
-
 -- name: GetWorkflow :one
 SELECT
     sqlc.embed(w),

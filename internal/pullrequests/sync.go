@@ -1,7 +1,6 @@
 package pullrequests
 
 import (
-	"cmp"
 	"context"
 	"errors"
 	"log/slog"
@@ -14,7 +13,6 @@ import (
 	"weave/internal/store"
 	forgestore "weave/internal/store/forge"
 	pullrequeststore "weave/internal/store/pullrequest"
-	"weave/internal/watch"
 	"weave/lib/xslice"
 )
 
@@ -83,7 +81,6 @@ type PullRequestSyncer struct {
 	pullRequests *pullrequeststore.Store
 	syncs        *pullrequeststore.SyncStore
 	tx           txRunner
-	watch        watch.Publisher
 	now          func() time.Time
 	// refusals counts rate limit refusals in a row per host that named no time to wait.
 	refusals map[string]int
@@ -124,8 +121,6 @@ type NewPullRequestSyncerParams struct {
 	PullRequests *pullrequeststore.Store
 	Syncs        *pullrequeststore.SyncStore
 	Tx           txRunner
-	// Watch is told which rows moved, watch.Discard when unset.
-	Watch watch.Publisher
 	// Now is the clock, time.Now when unset.
 	Now func() time.Time
 }
@@ -142,7 +137,6 @@ func NewPullRequestSyncer(params NewPullRequestSyncerParams) *PullRequestSyncer 
 		pullRequests: params.PullRequests,
 		syncs:        params.Syncs,
 		tx:           params.Tx,
-		watch:        cmp.Or(params.Watch, watch.Discard),
 		now:          now,
 		refusals:     map[string]int{},
 		said:         onceLog{},
@@ -157,23 +151,14 @@ func (s *PullRequestSyncer) Sync(ctx context.Context) error {
 		return err
 	}
 
-	var read []string
 	for _, host := range s.groupByHost(ctx, repositories) {
 		s.syncHost(ctx, host)
-		read = append(read, xslice.Map(host.repositories, func(repository *repositoryRead) string { return repository.remote.Canonical() })...)
 	}
 
 	observed, err := s.pullRequests.Observe(ctx)
 	if err != nil {
 		return err
 	}
-
-	// A pass writes the sync row of every repository it reads, which is on every agent's row.
-	agents, err := s.pullRequests.ListLiveAgentsOnRepositories(ctx, read)
-	if err != nil {
-		return err
-	}
-	s.watch.TouchAgents(agents...)
 
 	logging.From(ctx).LogAttrs(ctx, slog.LevelDebug, "pull request sync pass",
 		slog.Int(logging.Observations, int(observed)))

@@ -30,7 +30,6 @@ type runRecorder interface {
 type runRecord struct {
 	logPath string
 	id      string
-	agentID string
 }
 
 // claimRunLog names the file one run writes to and creates it empty, taking the number under
@@ -91,7 +90,7 @@ func (s *ScriptService) claimRunLog(ctx context.Context, agentID, trigger, name 
 // beginRun claims a run's log file and opens the row that indexes it.
 func (s *ScriptService) beginRun(ctx context.Context, agentID, trigger, name string) runRecord {
 	path, number := s.claimRunLog(ctx, agentID, trigger, name)
-	record := runRecord{logPath: path, agentID: agentID}
+	record := runRecord{logPath: path}
 
 	if s.runs == nil || agentID == "" {
 		return record
@@ -125,7 +124,6 @@ func (s *ScriptService) beginRun(ctx context.Context, agentID, trigger, name str
 		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to prune an agent's runs",
 			append([]slog.Attr{slog.String(logging.AgentID, agentID)}, logging.Err(err)...)...)
 	}
-	s.watch.TouchAgents(agentID)
 
 	return record
 }
@@ -150,10 +148,7 @@ func (s *ScriptService) finishRun(ctx context.Context, record runRecord, result 
 	}); err != nil {
 		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to close the record of a run",
 			append([]slog.Attr{slog.String(logging.RunID, record.id)}, logging.Err(err)...)...)
-
-		return
 	}
-	s.watch.TouchAgents(record.agentID)
 }
 
 // abandonRun drops the row of a run that never started, alongside the empty log it claimed.
@@ -165,10 +160,7 @@ func (s *ScriptService) abandonRun(ctx context.Context, record runRecord) {
 	if err := s.runs.Abandon(ctx, record.id); err != nil {
 		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to drop the record of a run that never started",
 			append([]slog.Attr{slog.String(logging.RunID, record.id)}, logging.Err(err)...)...)
-
-		return
 	}
-	s.watch.TouchAgents(record.agentID)
 }
 
 func runExitCode(result scripts.Result) *int32 {

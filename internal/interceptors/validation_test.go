@@ -11,7 +11,6 @@ import (
 	"connectrpc.com/connect"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"google.golang.org/protobuf/proto"
 )
 
 // TestValidationRefusesControlCharacters covers the fields that become a tmux window name,
@@ -133,36 +132,4 @@ func TestValidationRefusesAnUndeclaredEnumNumber(t *testing.T) {
 			require.NoError(t, err)
 		})
 	}
-}
-
-// receivingConn hands a stream's handler one fixed message.
-type receivingConn struct {
-	connect.StreamingHandlerConn
-	message proto.Message
-}
-
-func (c receivingConn) Receive(msg any) error {
-	proto.Merge(msg.(proto.Message), c.message)
-
-	return nil
-}
-
-// TestValidationRefusesAStreamsBadRequest pins the streaming arm: the message a handler reads
-// off the stream is held to the same rules a unary request is.
-func TestValidationRefusesAStreamsBadRequest(t *testing.T) {
-	interceptor, err := NewValidation()
-	require.NoError(t, err)
-
-	var received error
-	next := func(_ context.Context, conn connect.StreamingHandlerConn) error {
-		received = conn.Receive(&agentv1.GetAgentRequest{})
-
-		return nil
-	}
-
-	require.NoError(t, interceptor.WrapStreamingHandler(next)(t.Context(), receivingConn{message: &agentv1.GetAgentRequest{}}))
-	assert.Equal(t, connect.CodeInvalidArgument, connect.CodeOf(received), "an empty id is refused as it is read")
-
-	require.NoError(t, interceptor.WrapStreamingHandler(next)(t.Context(), receivingConn{message: &agentv1.GetAgentRequest{Id: "a1"}}))
-	require.NoError(t, received)
 }

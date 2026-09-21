@@ -1,14 +1,12 @@
 package agents
 
 import (
-	"cmp"
 	"context"
 	"errors"
 	"fmt"
 	"strings"
 
 	"weave/internal/store"
-	"weave/internal/watch"
 
 	agentstore "weave/internal/store/agent"
 	schedulestore "weave/internal/store/schedule"
@@ -36,15 +34,12 @@ type EmptyWorkflowDeleter struct {
 	workflows emptyWorkflowGetDeleter
 	agents    workflowResidentLister
 	schedules workflowScheduleListDeleter
-	watch     watch.Publisher
 }
 
 type NewEmptyWorkflowDeleterParams struct {
 	Workflows emptyWorkflowGetDeleter
 	Agents    workflowResidentLister
 	Schedules workflowScheduleListDeleter
-	// Watch is told which rows moved, watch.Discard when unset.
-	Watch watch.Publisher
 }
 
 // NewEmptyWorkflowDeleter builds the deleter over the three stores a workflow's removal touches.
@@ -53,7 +48,6 @@ func NewEmptyWorkflowDeleter(params NewEmptyWorkflowDeleterParams) *EmptyWorkflo
 		workflows: params.Workflows,
 		agents:    params.Agents,
 		schedules: params.Schedules,
-		watch:     cmp.Or(params.Watch, watch.Discard),
 	}
 }
 
@@ -116,13 +110,11 @@ func (d *EmptyWorkflowDeleter) deleteWithSchedules(ctx context.Context, existing
 		if err := d.schedules.Delete(ctx, schedule.ID); err != nil {
 			return err
 		}
-		d.watch.TouchSchedules(schedule.ID)
 	}
 
 	if err := d.workflows.Delete(ctx, existing.ID); err != nil {
 		return fmt.Errorf("failed to delete workflow %q: %w", existing.Name, err)
 	}
-	d.watch.TouchWorkflows(existing.ID)
 
 	return nil
 }

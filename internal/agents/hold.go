@@ -1,7 +1,6 @@
 package agents
 
 import (
-	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -11,7 +10,6 @@ import (
 	"weave/internal/harness"
 	"weave/internal/store"
 	agentstore "weave/internal/store/agent"
-	"weave/internal/watch"
 )
 
 // ErrReleaseRefused is a release that could not tell the agent to carry on, so the hold stands.
@@ -41,8 +39,6 @@ type NewHolderParams struct {
 	Channel harness.Channel
 	Settler *Settler
 	Clock   func() time.Time
-	// Watch is told which rows moved, watch.Discard when unset.
-	Watch watch.Publisher
 }
 
 // Holder stops an agent on a person's behalf and lets it go again.
@@ -51,7 +47,6 @@ type Holder struct {
 	channel harness.Channel
 	settler *Settler
 	now     func() time.Time
-	watch   watch.Publisher
 }
 
 // NewHolder builds the holder over the store, the channel that reaches an agent and the settler
@@ -67,7 +62,6 @@ func NewHolder(params NewHolderParams) *Holder {
 		channel: params.Channel,
 		settler: params.Settler,
 		now:     now,
-		watch:   cmp.Or(params.Watch, watch.Discard),
 	}
 }
 
@@ -103,7 +97,6 @@ func (h *Holder) Hold(ctx context.Context, agentID string) (*agentstore.Agent, e
 	if !held {
 		return nil, ErrAlreadyHeld.Saying("%q is already paused", agent.Name)
 	}
-	h.watch.TouchAgents(agent.ID)
 
 	return h.get(ctx, agentID)
 }
@@ -145,7 +138,6 @@ func (h *Holder) Release(ctx context.Context, params ReleaseParams) (*agentstore
 	if !released {
 		return nil, ErrNotHeld.Saying("nobody is holding %q", agent.Name)
 	}
-	h.watch.TouchAgents(agent.ID)
 
 	return h.get(ctx, params.AgentID)
 }

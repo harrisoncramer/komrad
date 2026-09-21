@@ -88,29 +88,6 @@ func (s *Store) ListPage(ctx context.Context, limit int64, cursor *Cursor, archi
 	}), nil
 }
 
-// ListLiveByID returns the workflows among the given ids that the live listing holds, with
-// their hooks.
-func (s *Store) ListLiveByID(ctx context.Context, ids []string) ([]Workflow, error) {
-	storable := store.KeepIDs(ids)
-	if len(storable) == 0 {
-		return nil, nil
-	}
-
-	rows, err := s.queries.ListLiveWorkflowsByID(ctx, storable)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get %d workflows: %w", len(storable), err)
-	}
-
-	hooks, err := s.hooksForWorkflows(ctx, xslice.Map(rows, func(row *models.ListLiveWorkflowsByIDRow) string { return row.Workflow.ID }))
-	if err != nil {
-		return nil, err
-	}
-
-	return xslice.Map(rows, func(row *models.ListLiveWorkflowsByIDRow) Workflow {
-		return workflowFromRow(row.Workflow, row.WorkflowConfig, row.WorkflowProvisionerConfig, hooks[row.Workflow.ID])
-	}), nil
-}
-
 // Get returns a live workflow by id, or ErrNotFound when none has that id.
 func (s *Store) Get(ctx context.Context, id string) (*Workflow, error) {
 	return s.get(ctx, id, false)

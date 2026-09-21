@@ -1,12 +1,10 @@
 package agents
 
 import (
-	"cmp"
 	"context"
 	"fmt"
 
 	"weave/internal/fail"
-	"weave/internal/watch"
 
 	agentstore "weave/internal/store/agent"
 )
@@ -40,8 +38,6 @@ type NewRowWriterParams struct {
 	Agents     rowWriteStore
 	Runs       runMarker
 	Reconciler turnRecorder
-	// Watch is told which rows moved, watch.Discard when unset.
-	Watch watch.Publisher
 }
 
 // RowWriter changes what an agent's row says without moving the agent through its life.
@@ -49,7 +45,6 @@ type RowWriter struct {
 	agents     rowWriteStore
 	runs       runMarker
 	reconciler turnRecorder
-	watch      watch.Publisher
 }
 
 // NewRowWriter builds the writer over the store, the record of runs and the reconciler.
@@ -58,7 +53,6 @@ func NewRowWriter(params NewRowWriterParams) *RowWriter {
 		agents:     params.Agents,
 		runs:       params.Runs,
 		reconciler: params.Reconciler,
-		watch:      cmp.Or(params.Watch, watch.Discard),
 	}
 }
 
@@ -71,7 +65,6 @@ func (w *RowWriter) SetHidden(ctx context.Context, id string, hidden bool) error
 	if !changed {
 		return ErrAgentNotFound.Saying("no agent with id %q", id)
 	}
-	w.watch.TouchAgents(id)
 
 	return nil
 }
@@ -102,9 +95,6 @@ func (w *RowWriter) SetMetadata(ctx context.Context, params SetMetadataParams) e
 	if !changed && params.Value != nil {
 		return ErrAgentNotFound.Saying("no agent with id %q", params.AgentID)
 	}
-	if changed {
-		w.watch.TouchAgents(params.AgentID)
-	}
 
 	return nil
 }
@@ -118,7 +108,6 @@ func (w *RowWriter) Rename(ctx context.Context, id, name string) error {
 	if !renamed {
 		return ErrAgentNotFound.Saying("no agent with id %q", id)
 	}
-	w.watch.TouchAgents(id)
 
 	return nil
 }
@@ -128,7 +117,6 @@ func (w *RowWriter) MarkRunsRead(ctx context.Context, id string) error {
 	if err := w.runs.MarkRead(ctx, id); err != nil {
 		return fmt.Errorf("failed to claim the failed runs of agent %q: %w", id, err)
 	}
-	w.watch.TouchAgents(id)
 
 	return nil
 }
@@ -153,7 +141,6 @@ func (w *RowWriter) RecordReport(ctx context.Context, params RecordReportParams)
 	if err := w.agents.SetReportedReason(ctx, params.AgentID, params.Reason); err != nil {
 		return fmt.Errorf("failed to record what agent %q reported it was doing: %w", params.AgentID, err)
 	}
-	w.watch.TouchAgents(params.AgentID)
 
 	if !params.TurnEnded {
 		return nil
@@ -162,7 +149,6 @@ func (w *RowWriter) RecordReport(ctx context.Context, params RecordReportParams)
 	if err := w.agents.SetTurnEnded(ctx, params.AgentID); err != nil {
 		return fmt.Errorf("failed to record the turn end of agent %q: %w", params.AgentID, err)
 	}
-	w.watch.TouchAgents(params.AgentID)
 
 	return nil
 }

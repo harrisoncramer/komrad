@@ -38,37 +38,11 @@ func (v *validationInterceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryF
 	}
 }
 
-// WrapStreamingClient passes through on a service that opens no streams of its own.
+// WrapStreamingClient passes through on a unary-only service.
 func (v *validationInterceptor) WrapStreamingClient(next connect.StreamingClientFunc) connect.StreamingClientFunc {
 	return next
 }
 
-// WrapStreamingHandler validates each message a stream receives as the handler reads it.
 func (v *validationInterceptor) WrapStreamingHandler(next connect.StreamingHandlerFunc) connect.StreamingHandlerFunc {
-	return func(ctx context.Context, conn connect.StreamingHandlerConn) error {
-		return next(ctx, &validatingConn{StreamingHandlerConn: conn, validator: v.validator})
-	}
-}
-
-// validatingConn refuses a received message that breaks a constraint before the handler sees it.
-type validatingConn struct {
-	connect.StreamingHandlerConn
-	validator protovalidate.Validator
-}
-
-func (c *validatingConn) Receive(msg any) error {
-	if err := c.StreamingHandlerConn.Receive(msg); err != nil {
-		return err
-	}
-
-	message, ok := msg.(proto.Message)
-	if !ok {
-		return nil
-	}
-
-	if err := c.validator.Validate(message); err != nil {
-		return connect.NewError(connect.CodeInvalidArgument, err)
-	}
-
-	return nil
+	return next
 }

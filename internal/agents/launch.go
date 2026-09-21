@@ -1,7 +1,6 @@
 package agents
 
 import (
-	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -18,7 +17,6 @@ import (
 	"weave/internal/store"
 	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
-	"weave/internal/watch"
 	"weave/lib/xptr"
 	"weave/lib/xslice"
 	"weave/lib/xstr"
@@ -73,7 +71,6 @@ type LaunchService struct {
 	launcher           *Launcher
 	harnesses          harnessGetter
 	scripts            agentScriptRunner
-	watch              watch.Publisher
 	userDefaultHarness string
 	userDefaultFlags   map[string]string
 	maxAgents          int
@@ -81,16 +78,14 @@ type LaunchService struct {
 }
 
 type NewLaunchServiceParams struct {
-	Tmux      paneController
-	Agents    launchAgentReadWriter
-	Reviews   liveReviewerFinder
-	Workflows workflowReader
-	Tx        txRunner
-	Launcher  *Launcher
-	Harnesses harnessGetter
-	Scripts   agentScriptRunner
-	// Watch is told which rows moved, watch.Discard when unset.
-	Watch              watch.Publisher
+	Tmux               paneController
+	Agents             launchAgentReadWriter
+	Reviews            liveReviewerFinder
+	Workflows          workflowReader
+	Tx                 txRunner
+	Launcher           *Launcher
+	Harnesses          harnessGetter
+	Scripts            agentScriptRunner
 	UserDefaultHarness string
 	UserDefaultFlags   map[string]string
 	MaxAgents          int
@@ -108,7 +103,6 @@ func NewLaunchService(params NewLaunchServiceParams) *LaunchService {
 		launcher:           params.Launcher,
 		harnesses:          params.Harnesses,
 		scripts:            params.Scripts,
-		watch:              cmp.Or(params.Watch, watch.Discard),
 		userDefaultHarness: params.UserDefaultHarness,
 		userDefaultFlags:   params.UserDefaultFlags,
 		maxAgents:          params.MaxAgents,
@@ -193,12 +187,7 @@ func (s *LaunchService) releaseFailedLaunch(ctx context.Context, existing agents
 
 	// The row is left where it stands rather than relaunched into, its id naming the worktree and
 	// branch the deprovisioner is still tearing down.
-	released, err := s.agents.ReleaseIdempotencyKey(ctx, key)
-	if released {
-		s.watch.TouchAgents(existing.ID)
-	}
-
-	return released, err
+	return s.agents.ReleaseIdempotencyKey(ctx, key)
 }
 
 // requireOwnWorkflow holds an orchestrator to the workflow it stands behind.
@@ -430,7 +419,6 @@ func (s *LaunchService) launchAgent(ctx context.Context, params NewAgentParams, 
 	if err := s.createUnderCeiling(ctx, agent, parent); err != nil {
 		return nil, err
 	}
-	s.watch.TouchAgents(agent.ID)
 
 	return s.startInPane(ctx, agent, resolvedLaunch{
 		harness:         plan.harness,
@@ -514,7 +502,6 @@ func (s *LaunchService) startInPane(ctx context.Context, agent agentstore.Agent,
 	if err := s.agents.Update(ctx, agent); err != nil {
 		return nil, fmt.Errorf("failed to record agent %q: %w", agent.Name, err)
 	}
-	s.watch.TouchAgents(agent.ID)
 
 	launch := launchParams{
 		Pane:            pane,
@@ -562,7 +549,6 @@ const teardownTimeout = 30 * time.Second
 
 func (s *LaunchService) failCreate(ctx context.Context, agent agentstore.Agent, cause error) {
 	failAs(ctx, s.agents, agent, agentstore.StateFailedToCreate, "create", cause)
-	s.watch.TouchAgents(agent.ID)
 }
 
 // awaitDeprovision runs a deprovisioner and waits for it, so a create that failed gives back
