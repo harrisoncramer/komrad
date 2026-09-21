@@ -157,3 +157,28 @@ func TestRecordPagesItsFields(t *testing.T) {
 	assert.Equal(t, len(held.fields)-1, bottom.detailsCursor(held), "a page past the end stays on the last field")
 	assert.True(t, bottom.isDetailsFocused(), "and keeps the keys")
 }
+
+// TestMatchKeysWalkAcrossTheSections covers n and N running one sequence over the list's rows
+// and then the hovered record's: past the list's last match the keys go into the record, past
+// the record's last match they come round to the list's first, and N walks it backwards.
+func TestMatchKeysWalkAcrossTheSections(t *testing.T) {
+	m := detailsModel(&recordingTmux{})
+	m.tree.cursor = 0
+
+	standing := pressMark(t, m, "/", "b", "a", "c", "k", "enter")
+	require.Equal(t, 0, standing.tree.cursor, "the header backend is the list's only match")
+	require.False(t, standing.isDetailsFocused())
+
+	into := send(t, standing, "n")
+	require.True(t, into.isDetailsFocused(), "the next match is in the record")
+	held := into.hoveredDetails()
+	assert.Equal(t, "backend", held.fields[into.detailsCursor(held)].value)
+
+	round := send(t, into, "n")
+	assert.False(t, round.isDetailsFocused(), "past the record's last match the keys come round to the list")
+	assert.Equal(t, 0, round.tree.cursor)
+
+	back := send(t, round, "N")
+	assert.True(t, back.isDetailsFocused(), "N walks the same sequence the other way")
+	assert.Equal(t, "backend", held.fields[back.detailsCursor(held)].value)
+}
