@@ -83,6 +83,7 @@ type agentFieldsParams struct {
 	agent    panel.Agent
 	schedule string
 	parent   string
+	workflow string
 	standing pullRequestStanding
 	// listed is what the service has answered about the branch's pull requests, unanswered
 	// while it has not.
@@ -106,6 +107,7 @@ func agentFields(params agentFieldsParams) []recordField {
 
 	fields = append(fields,
 		recordField{"agent", label.OrDash(agent.Harness)},
+		recordField{"workflow", label.OrDash(params.workflow)},
 		recordField{"directory", label.OrDash(agent.Cwd)},
 	)
 
@@ -237,10 +239,11 @@ func archiveMarkdown(agent panel.Agent) string {
 		"Restore brings it back and picks the conversation up where it stopped.")
 }
 
-func archiveFields(agent panel.Agent, schedule string) []recordField {
+func archiveFields(agent panel.Agent, workflow, schedule string) []recordField {
 	fields := []recordField{
 		{"name", label.OrDash(agent.Name)},
 		{"agent", label.OrDash(agent.Harness)},
+		{"workflow", label.OrDash(workflow)},
 		{"directory", label.OrDash(agent.Cwd)},
 		{"flags", label.OrDash(agent.Flags)},
 		{"agent_id", label.OrDash(agent.ID)},

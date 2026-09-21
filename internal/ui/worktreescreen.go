@@ -362,8 +362,13 @@ func (m model) worktreeWorkflowField(item worktreeItem) string {
 		workflowID = archived.WorkflowID
 	}
 
+	return m.workflowName(workflowID)
+}
+
+// workflowName is what a workflow is called, live or archived, or a dash when none has the id.
+func (m model) workflowName(id string) string {
 	for _, w := range slices.Concat(m.listing.workflows, m.listing.archivedWorkflows) {
-		if w.ID == workflowID {
+		if w.ID == id {
 			return w.Name
 		}
 	}

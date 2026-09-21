@@ -3,11 +3,11 @@
  [90m/[0m 
  [90m↑↓[0m   [90m↓ size[0m  [90mlast-accessed[0m  [90m·[0m  [90mflat[0m
 
-      [90m│[0m [90mcustom-cargo-fixes[0m          [90m   —    [0m
-      [90m│[0m [90mreview-column[0m               [90m   —    [0m
-      [90m│[0m [90mbroken[0m                      [90m   —    [0m
-[34m›[0m     [97m┃[0m [34mworktree-view[0m               [90m   —    [0m
-      [90m│[0m [90magent/orphan[0m                [90m   —    [0m
+    [90m[0m [90m│[0m [90mcustom-cargo-fixes[0m          [90m   —    [0m
+    [90m[0m [90m│[0m [90mreview-column[0m               [90m   —    [0m
+    [91m[0m [90m│[0m [90mbroken[0m                      [90m   —    [0m
+[34m›[0m   [90m[0m [97m┃[0m [34mworktree-view[0m               [90m   —    [0m
+    [90m[0m [90m│[0m [90magent/orphan[0m                [90m   —    [0m
 
 
 

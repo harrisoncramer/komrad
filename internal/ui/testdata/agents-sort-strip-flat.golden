@@ -3,8 +3,8 @@
  [90m/[0m 
  [90m↑↓[0m   [90mcreated[0m  [90m↓ activity[0m  [90mname[0m  [90m·[0m  [90mflat[0m
 
-          [97m┃[0m worktree-view
-[34m›[0m         [90m│[0m [34mreview-607[0m
+    [90m[0m     [97m┃[0m worktree-view
+[34m›[0m   [90m[0m     [90m│[0m [34mreview-607[0m
 
 
 
@@ -14,11 +14,11 @@
 [90m────────────────────────────────────────────[0m
 [1;34m› [0m[90mname      [0m review-607
   [90magent     [0m claude
+  [90mworkflow  [0m weave
   [90mdirectory [0m /trees/live
   [90mflags     [0m —
   [90magent_id  [0m occ
   [90msession_id[0m —
-
 
 
 [90m────────────────────────────────────────────[0m

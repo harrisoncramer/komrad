@@ -176,8 +176,8 @@ func TestPrepareHiddenMark(t *testing.T) {
 }
 
 // TestPrepareColumnsFollowTheRowKind pins the difference between a stage that has not happened
-// and one that never can: the three columns beside an agent's own row are drawn greyed, and a
-// row that is not an agent's own draws them blank.
+// and one that never can: the three columns beside an agent's own row, under a heading or in a
+// flat list, are drawn greyed, and a row that is not an agent's own draws them blank.
 func TestPrepareColumnsFollowTheRowKind(t *testing.T) {
 	tests := []struct {
 		name  string
@@ -187,6 +187,16 @@ func TestPrepareColumnsFollowTheRowKind(t *testing.T) {
 		{
 			name: "an agent's own row carries all three",
 			row: Row{
+				Name:   "worker",
+				Repo:   RepoGone,
+				Review: ReviewApproved,
+				Forge:  ForgeMerged,
+			},
+		},
+		{
+			name: "a result is an agent's own row with no tree over it",
+			row: Row{
+				Kind:   KindResult,
 				Name:   "worker",
 				Repo:   RepoGone,
 				Review: ReviewApproved,

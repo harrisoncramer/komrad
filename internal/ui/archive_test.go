@@ -705,8 +705,9 @@ func TestArchiveFields(t *testing.T) {
 		Flags:      "--model opus",
 		SessionID:  "sess-1",
 		ArchivedAt: &archivedAt,
-	}, "nightly")
+	}, "weave", "nightly")
 
+	assert.Contains(t, fields, recordField{"workflow", "weave"})
 	assert.Contains(t, fields, recordField{"directory", "/work/api"})
 	assert.Contains(t, fields, recordField{"flags", "--model opus"})
 	assert.Contains(t, fields, recordField{"session_id", "sess-1"})

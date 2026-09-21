@@ -322,7 +322,7 @@ func (m model) archiveDetails() details {
 	return details{
 		id:      r.item.agent.ID,
 		notices: failureNotices(r),
-		fields:  archiveFields(r.item.agent, m.scheduleName(r.item.agent)),
+		fields:  archiveFields(r.item.agent, m.workflowName(r.item.agent.WorkflowID), m.scheduleName(r.item.agent)),
 	}
 }
 

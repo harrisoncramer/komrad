@@ -108,10 +108,15 @@ func isFocused(row Row, focused string) bool {
 	return focused != "" && row.Key == focused
 }
 
+// isOwn reports whether a row is an agent's own rather than a header's or a child's.
+func isOwn(row Row) bool {
+	return row.Kind == KindAgent || row.Kind == KindResult
+}
+
 // RepoCell is where the directory an agent sits in stands, greyed while nothing has happened to
 // it and empty on a row that is not an agent's own.
 func RepoCell(row Row) Cell {
-	if row.Kind != KindAgent {
+	if !isOwn(row) {
 		return Cell{}
 	}
 
@@ -129,7 +134,7 @@ func RepoCell(row Row) Cell {
 
 // ReviewCell is where the tree on disk stands with the local review of an agent's work.
 func ReviewCell(row Row) Cell {
-	if row.Kind != KindAgent {
+	if !isOwn(row) {
 		return Cell{}
 	}
 
@@ -154,7 +159,7 @@ func ReviewCell(row Row) Cell {
 // ForgeCell is where the pull request opened from an agent's branch stands, blank while
 // nothing is known or nothing was opened, and empty on a row that is not an agent's own.
 func ForgeCell(row Row) Cell {
-	if row.Kind != KindAgent {
+	if !isOwn(row) {
 		return Cell{}
 	}
 

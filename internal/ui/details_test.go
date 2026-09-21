@@ -285,7 +285,7 @@ func TestDetailsHeightLeavesTheListRoom(t *testing.T) {
 // it does not reflow as the cursor moves between records with different field counts.
 func TestDetailsPadsToItsShare(t *testing.T) {
 	m := detailsModel(&recordingTmux{})
-	m.detailsHeight = 8
+	m.detailsHeight = 9
 	held := m.hoveredDetails()
 
 	require.Less(t, len(held.fields), m.detailsLines(), "the record must be shorter than the share for this to prove anything")
