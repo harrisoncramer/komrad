@@ -1,7 +1,7 @@
    Archive
 
  [90m/[0m 
- [90m↑↓[0m   [90marchived[0m  [1;34m↑ name[0m
+ [90m↑↓[0m   [90marchived[0m  [1;34m↑ name[0m  [90m·[0m  [90mworkflow[0m
 
 [34m›[0m   [90m│[0m [1;34mweave[0m
     [90m│[0m   [90mcustom-cargo-fixes[0m
@@ -25,4 +25,4 @@
 [92m✔[0m No messages
 [90m  Weave is running normally[0m
 [90m────────────────────────────────────────────[0m
-[90mesc[0m [90mback to the list[0m[90m • [0m[90mtab/S-tab[0m [90mcolumn[0m [90m…[0m
+[90mesc[0m [90mback to the list[0m[90m • [0m[90mtab/S-tab[0m [90mmove[0m [90m…[0m

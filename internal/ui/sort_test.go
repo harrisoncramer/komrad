@@ -139,15 +139,12 @@ func TestSortRowsIsStable(t *testing.T) {
 }
 
 // TestTabOptionsOfKeepsTheTable covers the strip's tabs coming out of the column table in its
-// order, with its ids, labels and the direction each opens with.
+// order, with its ids and labels.
 func TestTabOptionsOfKeepsTheTable(t *testing.T) {
-	columns := sortFixtureColumns()
-	columns[1].direction = tabUp
-
 	assert.Equal(t, []tabOption{
 		{id: "value", label: "value"},
-		{id: "name", label: "name", direction: tabUp},
-	}, tabOptionsOf(columns))
+		{id: "name", label: "name"},
+	}, tabOptionsOf(sortFixtureColumns()))
 }
 
 // TestStripOrderReadsTheState covers the order naming the chosen column and its direction, and

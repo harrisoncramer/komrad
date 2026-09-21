@@ -130,6 +130,31 @@ func TestJumpMarkReachesAWorkflow(t *testing.T) {
 	assert.Equal(t, workflowRowKey("w2"), rowKeyAt(jumped.agentRows(), jumped.tree.cursor))
 }
 
+// TestJumpMarkReachesAWorkflowThroughAFlatList covers a flat list, which draws no workflow row,
+// being put back under its headers by a jump to a workflow's mark, and left flat by a jump that
+// lands on an agent.
+func TestJumpMarkReachesAWorkflowThroughAFlatList(t *testing.T) {
+	m := markTree()
+	m.tree.sort.flat = true
+	markRow(&m, workflowRowKey("w2"))
+	m.tree.cursor = rowIndexOfKey(m.agentRows(), agentRowKey("a1"))
+	require.Negative(t, rowIndexOfKey(m.agentRows(), workflowRowKey("w2")), "the flat list draws no workflow")
+
+	jumped := pressMark(t, m, m.keys.Marks.Jump[0], "c")
+	assert.Empty(t, jumped.messages.items)
+	assert.False(t, jumped.tree.sort.flat)
+	assert.Equal(t, workflowRowKey("w2"), rowKeyAt(jumped.agentRows(), jumped.tree.cursor))
+
+	onAgent := markTree()
+	onAgent.tree.sort.flat = true
+	markAgent(&onAgent, "a1")
+	onAgent.tree.cursor = 0
+
+	landed := pressMark(t, onAgent, onAgent.keys.Marks.Jump[0], "c")
+	assert.True(t, landed.tree.sort.flat, "an agent is on the flat list, so nothing is put back")
+	assert.Equal(t, agentRowKey("a1"), rowKeyAt(landed.agentRows(), landed.tree.cursor))
+}
+
 // TestSetMarkRefusesWhatIsNotALetter pins a stray key aborting the mark rather than being
 // taken as one.
 func TestSetMarkRefusesWhatIsNotALetter(t *testing.T) {

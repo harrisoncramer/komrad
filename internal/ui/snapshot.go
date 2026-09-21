@@ -31,6 +31,8 @@ type snapshotParams struct {
 	scheduled map[string]bool
 	// showHidden says the hidden rows are drawn alongside the rest, so none is stood in for.
 	showHidden bool
+	// flat says no workflow header is drawn over the rows.
+	flat bool
 	// pane is how many columns the list is drawn in.
 	pane int
 	// dropped are the columns this screen does not draw at all.
@@ -86,7 +88,7 @@ func snapshotRow(r agentRow, params snapshotParams) view.Row {
 
 	item := r.item
 	row = agentFacts(row, item)
-	row.Kind = snapshotKind(r)
+	row.Kind = snapshotKind(r, params.flat)
 	row.Name = item.agent.Name
 	row.Matches = matchesIn(params.matcher, item.agent.Name)
 	row.Repo = snapshotRepo(item.agent)
@@ -122,9 +124,12 @@ func standingIn(count int, showHidden bool) int {
 }
 
 // snapshotKind is where an agent sits in the tree.
-func snapshotKind(r agentRow) view.RowKind {
-	if r.child {
+func snapshotKind(r agentRow, flat bool) view.RowKind {
+	switch {
+	case r.child:
 		return view.KindChild
+	case flat:
+		return view.KindResult
 	}
 
 	return view.KindAgent

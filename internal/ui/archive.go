@@ -76,10 +76,9 @@ var archiveSorts = []sortColumn[agentItem]{
 		},
 	},
 	{
-		id:        "name",
-		label:     "name",
-		direction: tabUp,
-		compare:   byAgentName,
+		id:      "name",
+		label:   "name",
+		compare: byAgentName,
 	},
 }
 
@@ -99,6 +98,7 @@ func (m model) buildArchiveRows() []agentRow {
 		workflows:  m.archiveHeaders(),
 		agents:     sortedAgents(items, archiveSorts, archiveTabs().order(m.archive.sort)),
 		showHidden: true,
+		flat:       m.archive.sort.flat,
 	})
 
 	return narrowedAgentRows(m.filter, rows)
@@ -321,7 +321,7 @@ func (m model) archiveDetails() details {
 	return details{
 		id:      r.item.agent.ID,
 		notices: failureNotices(r),
-		fields:  archiveFields(r.item.agent, m.scheduleName(r.item.agent)),
+		fields:  archiveFields(r.item.agent, m.workflowName(r.item.agent.WorkflowID), m.scheduleName(r.item.agent)),
 	}
 }
 
@@ -394,6 +394,7 @@ func (m model) archiveSnapshot(pane int) view.Snapshot {
 		barBlinkedOut: m.rowCursor.Blink,
 		matcher:       m.filter.pattern,
 		showHidden:    true,
+		flat:          m.archive.sort.flat,
 		pane:          pane,
 		dropped:       archiveDropped,
 	})
@@ -405,5 +406,6 @@ func archiveTabs() tabStrip {
 		legend:   "sort",
 		options:  tabOptionsOf(archiveSorts),
 		fallback: "archived",
+		grouped:  "workflow",
 	}
 }

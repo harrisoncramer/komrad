@@ -195,20 +195,86 @@ func TestAgentRowsOrderFamiliesByTheColumn(t *testing.T) {
 	}
 }
 
+// TestAgentRowsFlatOrderTheFamiliesAcrossWorkflows covers the headers going and the families
+// walked in the order the sort gave their heads across every workflow, each child still under
+// its head with its child flag, and every row still naming its workflow.
+func TestAgentRowsFlatOrderTheFamiliesAcrossWorkflows(t *testing.T) {
+	tests := []struct {
+		name  string
+		state tabsState
+		want  []string
+	}{
+		{
+			name:  "created down",
+			state: tabsState{flat: true},
+			want:  []string{"agent:delta", "agent:zulu", "agent:alpha", "agent:charlie", "agent:bob", "agent:echo"},
+		},
+		{
+			name:  "activity down puts the other workflow's agent first",
+			state: tabsState{chosen: "activity", flat: true},
+			want:  []string{"agent:echo", "agent:zulu", "agent:alpha", "agent:bob", "agent:charlie", "agent:delta"},
+		},
+		{
+			name:  "name up",
+			state: tabsState{chosen: "name", direction: tabUp, flat: true},
+			want:  []string{"agent:alpha", "agent:bob", "agent:charlie", "agent:delta", "agent:echo", "agent:zulu"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m := agentsSortModel()
+			m.tree.sort = tt.state
+
+			rows := m.agentRows()
+			assert.Equal(t, tt.want, xslice.Map(rows, agentRow.key))
+			for _, row := range rows {
+				assert.False(t, row.header)
+				assert.Equal(t, row.item.agent.WorkflowID, row.workflow.ID)
+				assert.Equal(t, row.item.agent.ParentAgentID != nil, row.child)
+			}
+		})
+	}
+}
+
+// TestFlatAgentsCursorKeepsItsRowAcrossTheFlip covers the cursor staying on its agent as the
+// headers go and come back, and the new agent key still opening under the hovered row's
+// workflow while there is no header to hover.
+func TestFlatAgentsCursorKeepsItsRowAcrossTheFlip(t *testing.T) {
+	m := agentsSortModel()
+	m.tree.cursor = 7
+	require.Equal(t, "agent:echo", agentsList().hovered(m))
+
+	flat := send(t, send(t, send(t, m, "f"), "shift+tab"), "j")
+	require.Equal(t, tabsState{focused: true, onGroup: true, flat: true}, flat.tree.sort, "the created order is untouched by the walk")
+	assert.Equal(t, "agent:echo", agentsList().hovered(flat))
+	assert.Equal(t, 5, flat.tree.cursor)
+	assert.False(t, isHoveringWorkflow(flat))
+	assert.Equal(t, "w2", flat.enclosingWorkflow().ID)
+
+	grouped := send(t, flat, "k")
+	assert.Equal(t, "agent:echo", agentsList().hovered(grouped))
+	assert.Equal(t, 7, grouped.tree.cursor)
+}
+
 // TestAgentsTabsKeepTheCursorOnItsRow covers the cursor following its row as the tree is
-// reordered under it, the name tab opening with its arrow up, and escape leaving the order
-// standing with the cursor still on its row.
+// reordered under it, the walk to a tab reordering nothing until a direction key chooses it,
+// and escape leaving the order standing with the cursor still on its row.
 func TestAgentsTabsKeepTheCursorOnItsRow(t *testing.T) {
 	m := agentsSortModel()
 	m.tree.cursor = 3
 	require.Equal(t, "agent:alpha", agentsList().hovered(m))
 
-	tabbed := send(t, send(t, m, "f"), "tab")
+	walked := send(t, send(t, m, "f"), "tab")
+	assert.Equal(t, tabsState{focused: true, focus: "activity"}, walked.tree.sort)
+	assert.Equal(t, 3, walked.tree.cursor)
+
+	tabbed := send(t, walked, "j")
 	assert.Equal(t, tabsState{chosen: "activity", focused: true}, tabbed.tree.sort)
 	assert.Equal(t, "agent:alpha", agentsList().hovered(tabbed))
 	assert.Equal(t, 2, tabbed.tree.cursor)
 
-	named := send(t, tabbed, "tab")
+	named := send(t, send(t, tabbed, "tab"), "k")
 	assert.Equal(t, tabsState{chosen: "name", direction: tabUp, focused: true}, named.tree.sort)
 	assert.Equal(t, "agent:alpha", agentsList().hovered(named))
 	assert.Equal(t, 1, named.tree.cursor)

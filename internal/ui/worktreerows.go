@@ -84,8 +84,25 @@ var worktreeSorts = []sortColumn[worktreeItem]{
 	},
 }
 
-// worktreeRows groups the listing under its repositories in path order.
-func worktreeRows(items []worktreeItem, order sortOrder) []worktreeRow {
+type worktreeRowsParams struct {
+	items []worktreeItem
+	order sortOrder
+	// flat orders the whole listing as one list.
+	flat bool
+}
+
+// worktreeRows groups the listing under its repositories in path order, or orders it whole.
+func worktreeRows(params worktreeRowsParams) []worktreeRow {
+	items, order := params.items, params.order
+	if params.flat {
+		members := slices.Clone(items)
+		sortWorktreeItems(members, order)
+
+		return xslice.Map(members, func(item worktreeItem) worktreeRow {
+			return worktreeRow{item: item}
+		})
+	}
+
 	byRepo := map[string][]worktreeItem{}
 	for _, item := range items {
 		byRepo[item.repoDir] = append(byRepo[item.repoDir], item)
@@ -103,20 +120,25 @@ func worktreeRows(items []worktreeItem, order sortOrder) []worktreeRow {
 		heading := repoHeading(members[0])
 		rows = append(rows, worktreeRow{header: true, repo: heading})
 
-		sortRows(sortRowsParams[worktreeItem]{
-			rows:    members,
-			columns: worktreeSorts,
-			order:   order,
-			tiebreak: func(a, b worktreeItem) int {
-				return strings.Compare(a.dir, b.dir)
-			},
-		})
+		sortWorktreeItems(members, order)
 		rows = append(rows, xslice.Map(members, func(item worktreeItem) worktreeRow {
 			return worktreeRow{repo: heading, item: item}
 		})...)
 	}
 
 	return rows
+}
+
+// sortWorktreeItems orders the directories by the column, the path settling a tie.
+func sortWorktreeItems(items []worktreeItem, order sortOrder) {
+	sortRows(sortRowsParams[worktreeItem]{
+		rows:    items,
+		columns: worktreeSorts,
+		order:   order,
+		tiebreak: func(a, b worktreeItem) int {
+			return strings.Compare(a.dir, b.dir)
+		},
+	})
 }
 
 func (m model) worktreeRows() []worktreeRow {
@@ -129,7 +151,11 @@ func (m model) worktreeRows() []worktreeRow {
 
 func (m model) buildWorktreeRows() []worktreeRow {
 	return narrowed(m.filter, narrowedParams[worktreeRow]{
-		rows:  worktreeRows(m.worktrees.items, worktreesTabs().order(m.worktrees.sort)),
+		rows: worktreeRows(worktreeRowsParams{
+			items: m.worktrees.items,
+			order: worktreesTabs().order(m.worktrees.sort),
+			flat:  m.worktrees.sort.flat,
+		}),
 		depth: worktreeRowDepth,
 		name:  worktreeRow.name,
 	})
@@ -198,7 +224,9 @@ type worktreesSnapshotParams struct {
 	selected selection
 	focused  string
 	// live are the agents the agents listing holds, whose marks a row with one of them draws.
-	live          []agentItem
+	live []agentItem
+	// flat draws every directory at the heading indent.
+	flat          bool
 	caretHidden   bool
 	barBlinkedOut bool
 	matcher       *regexp.Regexp
@@ -225,6 +253,9 @@ func worktreesSnapshot(params worktreesSnapshotParams) view.Snapshot {
 			row.Trail = groupTrail(params.items, r.repo)
 		default:
 			row.Kind = view.KindAgent
+			if params.flat {
+				row.Kind = view.KindResult
+			}
 			row.Repo = repoStanding(r.item)
 			row.Trail = rowTrail(r.item, params.now)
 			if r.item.agent != nil {

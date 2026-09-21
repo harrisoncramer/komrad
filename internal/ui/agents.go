@@ -227,6 +227,7 @@ func (m model) agentDetailFields(item agentItem) []recordField {
 		agent:    item.agent,
 		schedule: m.scheduleName(item.agent),
 		parent:   m.parentName(item.agent),
+		workflow: m.workflowName(item.agent.WorkflowID),
 		standing: item.pullRequest,
 		listed:   m.pullRequests.listed[item.agent.ID],
 		worktree: worktree,
@@ -372,6 +373,7 @@ func agentsTabs() tabStrip {
 		legend:   "sort",
 		options:  tabOptionsOf(agentSorts),
 		fallback: "created",
+		grouped:  "workflow",
 	}
 }
 
@@ -396,6 +398,7 @@ func (m model) agentsSnapshot(pane int) view.Snapshot {
 		barBlinkedOut: m.rowCursor.Blink,
 		matcher:       m.filter.pattern,
 		showHidden:    m.tree.showHidden,
+		flat:          m.tree.sort.flat,
 		pane:          pane,
 	})
 }
