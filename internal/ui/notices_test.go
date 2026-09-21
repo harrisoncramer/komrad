@@ -9,9 +9,9 @@ import (
 
 	"weave/internal/git"
 	agentstore "weave/internal/store/agent"
-	reviewstore "weave/internal/store/review"
 	workflowstore "weave/internal/store/workflow"
 	"weave/internal/view"
+	agentv1 "weave/proto/gen/agent/v1"
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
@@ -126,7 +126,7 @@ func TestNoticesWearTheGlyphTheRowDraws(t *testing.T) {
 		alive:        true,
 		unreadMail:   true,
 		failedRun:    true,
-		localVerdict: string(reviewstore.VerdictChangesRequested),
+		localVerdict: agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED,
 		localTree:    git.StandingMoved,
 	}
 
@@ -385,7 +385,7 @@ func TestNoticesReportAPlainWorkflowsDirectory(t *testing.T) {
 		Name: "worker",
 		Cwd:  "/tmp/somewhere",
 	})
-	reviewed.item.localVerdict = string(reviewstore.VerdictApproved)
+	reviewed.item.localVerdict = agentv1.ReviewVerdict_REVIEW_VERDICT_APPROVED
 
 	assert.Equal(t, []string{worktreeRemovedNotice}, noticeTexts(agentNotices(gone)))
 	assert.Equal(t, []string{sequenceNotice}, noticeTexts(agentNotices(rebasing)))

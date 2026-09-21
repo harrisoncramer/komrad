@@ -9,6 +9,7 @@ import (
 	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
 	"weave/lib/xslice"
+	agentv1 "weave/proto/gen/agent/v1"
 )
 
 type treeState struct {
@@ -351,8 +352,8 @@ type agentItem struct {
 	// localRounds is how many rounds of local review this agent's own work has been through.
 	localRounds int32
 	// localVerdict is what the last released local review concluded about this agent's work,
-	// empty when none has concluded anything.
-	localVerdict string
+	// UNSPECIFIED when none has concluded anything.
+	localVerdict agentv1.ReviewVerdict
 	// localTree is where the worktree stands against the round that verdict was given on.
 	localTree git.Standing
 	// pullRequest is where the pull request opened from its branch stands.

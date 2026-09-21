@@ -332,7 +332,7 @@ func (s *AgentService) agentFlagsFor(ctx context.Context, listed []agentstore.Ag
 			failedRun:      hasFailure,
 			failedRunLog:   failure.LogNumber,
 			localRounds:    tallies[a.ID].Rounds,
-			localVerdict:   localVerdictOf(tallies[a.ID]),
+			localVerdict:   tallies[a.ID].Verdict,
 			localTree:      s.trees.GetStanding(a.ID, tallies[a.ID].SnapshotSHA),
 			repositoryRead: repositoryRead,
 		}
@@ -342,16 +342,6 @@ func (s *AgentService) agentFlagsFor(ctx context.Context, listed []agentstore.Ag
 
 		return flags
 	}, nil
-}
-
-// localVerdictOf is the tally's verdict as the wire carries it, empty for an agent whose work no
-// review has concluded on.
-func localVerdictOf(tally reviewstore.Tally) string {
-	if tally.Verdict == nil {
-		return ""
-	}
-
-	return string(*tally.Verdict)
 }
 
 // ListAgents returns one page of stored agents, newest first.

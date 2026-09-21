@@ -72,7 +72,7 @@ flags, and the response is the API's own JSON on stdout.
 * [weave rpc rebase-worktree](weave_rpc_rebase-worktree.md)	 - Move an agent's branch onto the latest commit of its base, rewriting the branch in the checkout it sits in.
 * [weave rpc release-agent](weave_rpc_release-agent.md)	 - Let an agent that hold_agent stopped carry on, telling it what happened while it was held.
 * [weave rpc release-review](weave_rpc_release-review.md)	 - Let go of the review you have been writing on another agent's diff, which is what sends it.
-* [weave rpc remove-unowned-worktrees](weave_rpc_remove-unowned-worktrees.md)	 - Remove worktree directories no agent answers for, which delete_agents cannot reach: a directory under the worktrees directories whose agent row is gone, or whose row is in failed_to_cleanup because git can no longer read the registration.
+* [weave rpc remove-unowned-worktrees](weave_rpc_remove-unowned-worktrees.md)	 - Remove worktree directories no agent answers for, which delete_agents cannot reach: a directory under the worktrees directories whose agent row is gone, or whose row is in AGENT_STATE_FAILED_TO_CLEANUP because git can no longer read the registration.
 * [weave rpc rename-agent](weave_rpc_rename-agent.md)	 - Rename an agent, keyed by its id rather than its current name.
 * [weave rpc request-review](weave_rpc_request-review.md)	 - Get your own work read before you call it finished, which spawns the reviewer for you and hands you back the rest of the loop.
 * [weave rpc resolve-review-thread](weave_rpc_resolve-review-thread.md)	 - Settle a review thread you wrote, once the answer to it is good enough, or reopen one you settled too early.

@@ -7,10 +7,10 @@ import (
 
 	"weave/internal/git"
 	agentstore "weave/internal/store/agent"
-	reviewstore "weave/internal/store/review"
 	workflowstore "weave/internal/store/workflow"
 	"weave/internal/view"
 	"weave/lib/xptr"
+	agentv1 "weave/proto/gen/agent/v1"
 	pullrequestv1 "weave/proto/gen/pullrequest/v1"
 
 	"github.com/stretchr/testify/assert"
@@ -170,47 +170,47 @@ func TestSnapshotReview(t *testing.T) {
 	}{
 		{
 			name: "an approval on the tree as it stands is approved",
-			item: agentItem{localVerdict: string(reviewstore.VerdictApproved)},
+			item: agentItem{localVerdict: agentv1.ReviewVerdict_REVIEW_VERDICT_APPROVED},
 			want: view.ReviewApproved,
 		},
 		{
 			name: "an approval the tree has moved past is owed another pass",
-			item: agentItem{localVerdict: string(reviewstore.VerdictApproved), localTree: git.StandingMoved},
+			item: agentItem{localVerdict: agentv1.ReviewVerdict_REVIEW_VERDICT_APPROVED, localTree: git.StandingMoved},
 			want: view.ReviewApprovedMoved,
 		},
 		{
 			name: "changes requested on the tree as it stands are still owed by the agent",
-			item: agentItem{localVerdict: string(reviewstore.VerdictChangesRequested)},
+			item: agentItem{localVerdict: agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED},
 			want: view.ReviewChangesRequested,
 		},
 		{
 			name: "changes requested the tree has moved past are ready to read again",
-			item: agentItem{localVerdict: string(reviewstore.VerdictChangesRequested), localTree: git.StandingMoved},
+			item: agentItem{localVerdict: agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED, localTree: git.StandingMoved},
 			want: view.ReviewChangesPushed,
 		},
 		{
 			name: "an approval the base has taken, with nothing on top, is approved and landed",
-			item: agentItem{localVerdict: string(reviewstore.VerdictApproved), localTree: git.StandingLanded},
+			item: agentItem{localVerdict: agentv1.ReviewVerdict_REVIEW_VERDICT_APPROVED, localTree: git.StandingLanded},
 			want: view.ReviewApprovedLanded,
 		},
 		{
 			name: "an approval the base has taken, with new work on top, is never reviewed for that work",
-			item: agentItem{localVerdict: string(reviewstore.VerdictApproved), localTree: git.StandingLandedMoved},
+			item: agentItem{localVerdict: agentv1.ReviewVerdict_REVIEW_VERDICT_APPROVED, localTree: git.StandingLandedMoved},
 			want: view.ReviewApprovedLandedMoved,
 		},
 		{
 			name: "changes requested on a tree the base took as it was are finished business",
-			item: agentItem{localVerdict: string(reviewstore.VerdictChangesRequested), localTree: git.StandingLanded},
+			item: agentItem{localVerdict: agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED, localTree: git.StandingLanded},
 			want: view.ReviewChangesLanded,
 		},
 		{
 			name: "changes requested on a landed tree with new work on top are never reviewed for that work",
-			item: agentItem{localVerdict: string(reviewstore.VerdictChangesRequested), localTree: git.StandingLandedMoved},
+			item: agentItem{localVerdict: agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED, localTree: git.StandingLandedMoved},
 			want: view.ReviewChangesLandedMoved,
 		},
 		{
 			name: "notes without a conclusion are no review",
-			item: agentItem{localVerdict: string(reviewstore.VerdictCommented)},
+			item: agentItem{localVerdict: agentv1.ReviewVerdict_REVIEW_VERDICT_COMMENTED},
 			want: view.ReviewNone,
 		},
 		{
@@ -589,7 +589,7 @@ func TestSnapshotPlainWorkflowKeepsItsColumns(t *testing.T) {
 		workflow: workflowstore.Workflow{ID: "w1", Name: "weave"},
 		item: agentItem{
 			alive:        true,
-			localVerdict: string(reviewstore.VerdictApproved),
+			localVerdict: agentv1.ReviewVerdict_REVIEW_VERDICT_APPROVED,
 			agent: agentstore.Agent{
 				ID:              "a1",
 				Name:            "worker",

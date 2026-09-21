@@ -10,6 +10,7 @@ import (
 	agentstore "weave/internal/store/agent"
 	worktreestore "weave/internal/store/worktree"
 	"weave/internal/worktrees"
+	agentv1 "weave/proto/gen/agent/v1"
 	worktreev1 "weave/proto/gen/worktree/v1"
 	worktreev1weave "weave/proto/gen/worktree/v1/worktreev1weave"
 
@@ -132,7 +133,7 @@ func TestListWorktrees(t *testing.T) {
 	assert.Equal(t, "agent/aaaa", first.GetBranch())
 	assert.True(t, first.GetReadable())
 	assert.Equal(t, "first", first.GetAgent().GetName())
-	assert.Equal(t, "idle", first.GetAgent().GetState())
+	assert.Equal(t, agentv1.AgentState_AGENT_STATE_IDLE, first.GetAgent().GetState())
 	assert.Equal(t, "2026-09-19T12:00:00Z", first.GetAgent().GetArchivedAt())
 	assert.True(t, first.GetAgent().GetAdopted())
 	require.Len(t, first.GetOccupants(), 1)

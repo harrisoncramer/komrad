@@ -15,6 +15,38 @@ import "view/v1/view.proto";
 
 option go_package = "weave/proto/gen/agent/v1;agentv1";
 
+// AgentState is what the panel last decided an agent was doing, read off the tail of its pane.
+enum AgentState {
+  // No state was recorded, which no stored agent answers with.
+  AGENT_STATE_UNSPECIFIED = 0;
+  // The pane is at rest with nothing typed.
+  AGENT_STATE_IDLE = 1;
+  // The CLI is working on a turn.
+  AGENT_STATE_THINKING = 2;
+  // The CLI is blocked on a human answering a selection.
+  AGENT_STATE_WAITING = 3;
+  // The agent is being launched and has no pane to read yet.
+  AGENT_STATE_SETTING_UP = 4;
+  // The launch failed, which retry_agent is for.
+  AGENT_STATE_FAILED_TO_CREATE = 5;
+  // A delete failed to take the worktree down, and the reason is on the row.
+  AGENT_STATE_FAILED_TO_CLEANUP = 6;
+  // The pane could be read but its tail decided nothing.
+  AGENT_STATE_UNCERTAIN = 7;
+}
+
+// AgentRole is what an agent was launched to do.
+enum AgentRole {
+  // No role was recorded, which no stored agent answers with.
+  AGENT_ROLE_UNSPECIFIED = 0;
+  // An agent that lands work on a branch of its own.
+  AGENT_ROLE_IMPLEMENTER = 1;
+  // A child that reads another agent's work and gives a review.
+  AGENT_ROLE_REVIEWER = 2;
+  // The agent drawn on a workflow's own row that hands work out.
+  AGENT_ROLE_ORCHESTRATOR = 3;
+}
+
 message Agent {
   // The handle every other call names this agent by, and what mail is addressed to.
   string id = 1;
@@ -29,7 +61,7 @@ message Agent {
   // The tmux pane its CLI is running in, which is what capture-pane reads.
   string pane_id = 6;
   // What the panel last decided it was doing, read off the tail of its pane.
-  string state = 7;
+  AgentState state = 7;
   // The CLI's own conversation id, which is the handle a resume needs.
   string session_id = 8;
   // Which CLI it runs, such as claude or codex.
@@ -79,15 +111,15 @@ message Agent {
   // decided rather than replacing it.
   string reported_reason = 29;
   // What the agent was launched to do, which decides the half of the review briefing it is sent.
-  string role = 30;
+  AgentRole role = 30;
   // How many rounds of local review its own work has been through.
   int32 local_review_rounds = 31;
   // Whether prompt holds only its opening, which a summary listing returns so that a page of
   // agents does not carry every briefing they were launched with.
   bool prompt_truncated = 32;
-  // What the last released local review concluded about the agent's own work, empty when
-  // none has concluded anything.
-  string local_review_verdict = 33;
+  // What the last released local review concluded about the agent's own work, UNSPECIFIED
+  // when none has concluded anything.
+  ReviewVerdict local_review_verdict = 33;
   // Where the agent's worktree stands against the round that verdict was given on.
   ReviewTreeStanding local_review_tree = 34;
   // When a person stopped this agent and took its worktree, empty while nobody is holding it.
@@ -734,7 +766,7 @@ service AgentService {
       cli: true
       mcp: true
       name: "retry_agent"
-      description: "Retry launching an agent that failed to create, keyed by id, optionally with corrected flags, prompt, or harness. Only works on agents in the failed_to_create state. An archived agent is refused. Returns the agent as relaunched."
+      description: "Retry launching an agent that failed to create, keyed by id, optionally with corrected flags, prompt, or harness. Only works on an agent whose state is AGENT_STATE_FAILED_TO_CREATE. An archived agent is refused. Returns the agent as relaunched."
       destructive: false
     };
   }
@@ -744,7 +776,7 @@ service AgentService {
       cli: true
       mcp: true
       name: "delete_agents"
-      description: "Permanently remove a list of agents, keyed by id. This is a hard delete, not the panel's archive: the records and the transcripts go with them and search will never find the conversations again. The worktree of each one is removed with it, so a batch can tear down real directories. Returns not_found, and deletes nothing at all, if any id given holds no agent. It answers as soon as the teardown of each directory is under way rather than once it has finished, so success here means the removal was started. The agents leave list_agents at once and stay out while their teardowns run: one that fails afterwards comes back in failed_to_cleanup with the reason on it, rather than being removed, and the panel shows that row. Prefer archive_agents, and prefer leaving agents alone unless asked to remove them. The children of any agent named here are deleted with it, and a child named on its own is deleted alone, since it holds no directory of its own to tear down."
+      description: "Permanently remove a list of agents, keyed by id. This is a hard delete, not the panel's archive: the records and the transcripts go with them and search will never find the conversations again. The worktree of each one is removed with it, so a batch can tear down real directories. Returns not_found, and deletes nothing at all, if any id given holds no agent. It answers as soon as the teardown of each directory is under way rather than once it has finished, so success here means the removal was started. The agents leave list_agents at once and stay out while their teardowns run: one that fails afterwards comes back in AGENT_STATE_FAILED_TO_CLEANUP with the reason on it, rather than being removed, and the panel shows that row. Prefer archive_agents, and prefer leaving agents alone unless asked to remove them. The children of any agent named here are deleted with it, and a child named on its own is deleted alone, since it holds no directory of its own to tear down."
       destructive: true
     };
   }

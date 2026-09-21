@@ -6,6 +6,7 @@ import (
 
 	"weave/internal/fail"
 	"weave/internal/git"
+	"weave/internal/rpc/render"
 	"weave/internal/rpcerr"
 	"weave/internal/worktrees"
 	"weave/lib/dates"
@@ -194,7 +195,7 @@ func renderAgent(agent worktrees.Agent) *worktreev1.WorktreeAgent {
 	return &worktreev1.WorktreeAgent{
 		Id:         agent.ID,
 		Name:       agent.Name,
-		State:      string(agent.State),
+		State:      render.AgentStateOf(agent.State),
 		ArchivedAt: dates.StampPtr(agent.ArchivedAt),
 		Adopted:    agent.Adopted,
 	}

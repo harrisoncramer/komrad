@@ -4,6 +4,8 @@ import (
 	"testing"
 	"time"
 
+	"weave/internal/rpc/render"
+	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
 	agentv1 "weave/proto/gen/agent/v1"
 	workflowv1 "weave/proto/gen/workflow/v1"
@@ -86,4 +88,38 @@ func TestWorkflowsFromCarriesTheWholeWorkflow(t *testing.T) {
 			DiffExclude:  []string{"proto/gen"},
 		},
 	}, got[0])
+}
+
+// TestStateFromRoundTripsEveryStoredState pins the panel's reading of a state to the service's
+// rendering of it.
+func TestStateFromRoundTripsEveryStoredState(t *testing.T) {
+	t.Parallel()
+
+	states := []agentstore.State{
+		agentstore.StateIdle,
+		agentstore.StateThinking,
+		agentstore.StateWaiting,
+		agentstore.StateSettingUp,
+		agentstore.StateFailedToCreate,
+		agentstore.StateFailedToCleanup,
+		agentstore.StateUncertain,
+	}
+	for _, state := range states {
+		assert.Equal(t, state, stateFrom(render.AgentStateOf(state)), string(state))
+	}
+}
+
+// TestRoleFromRoundTripsEveryStoredRole pins the panel's reading of a role to the service's
+// rendering of it.
+func TestRoleFromRoundTripsEveryStoredRole(t *testing.T) {
+	t.Parallel()
+
+	roles := []agentstore.Role{
+		agentstore.RoleImplementer,
+		agentstore.RoleReviewer,
+		agentstore.RoleOrchestrator,
+	}
+	for _, role := range roles {
+		assert.Equal(t, role, roleFrom(render.AgentRoleOf(role)), string(role))
+	}
 }

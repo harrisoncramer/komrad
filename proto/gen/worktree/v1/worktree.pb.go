@@ -14,6 +14,7 @@ import (
 	reflect "reflect"
 	sync "sync"
 	unsafe "unsafe"
+	v1 "weave/proto/gen/agent/v1"
 	_ "weave/proto/gen/annotation/v1"
 )
 
@@ -87,8 +88,8 @@ type WorktreeAgent struct {
 	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	// What the panel lists it as.
 	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	// The agent's state, as the agents listing spells it.
-	State string `protobuf:"bytes,3,opt,name=state,proto3" json:"state,omitempty"`
+	// The agent's state, as the agents listing carries it.
+	State v1.AgentState `protobuf:"varint,3,opt,name=state,proto3,enum=agent.v1.AgentState" json:"state,omitempty"`
 	// When the agent was put away, in RFC 3339, unset while it is live.
 	ArchivedAt *string `protobuf:"bytes,4,opt,name=archived_at,json=archivedAt,proto3,oneof" json:"archived_at,omitempty"`
 	// Whether the branch was somebody's before the agent was put on it, which cleanup never
@@ -142,11 +143,11 @@ func (x *WorktreeAgent) GetName() string {
 	return ""
 }
 
-func (x *WorktreeAgent) GetState() string {
+func (x *WorktreeAgent) GetState() v1.AgentState {
 	if x != nil {
 		return x.State
 	}
-	return ""
+	return v1.AgentState(0)
 }
 
 func (x *WorktreeAgent) GetArchivedAt() string {
@@ -901,11 +902,11 @@ var File_worktree_v1_worktree_proto protoreflect.FileDescriptor
 
 const file_worktree_v1_worktree_proto_rawDesc = "" +
 	"\n" +
-	"\x1aworktree/v1/worktree.proto\x12\vworktree.v1\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1bgoogle/protobuf/empty.proto\"\x99\x01\n" +
+	"\x1aworktree/v1/worktree.proto\x12\vworktree.v1\x1a\x14agent/v1/agent.proto\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1bgoogle/protobuf/empty.proto\"\xaf\x01\n" +
 	"\rWorktreeAgent\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
-	"\x04name\x18\x02 \x01(\tR\x04name\x12\x14\n" +
-	"\x05state\x18\x03 \x01(\tR\x05state\x12$\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12*\n" +
+	"\x05state\x18\x03 \x01(\x0e2\x14.agent.v1.AgentStateR\x05state\x12$\n" +
 	"\varchived_at\x18\x04 \x01(\tH\x00R\n" +
 	"archivedAt\x88\x01\x01\x12\x18\n" +
 	"\aadopted\x18\x05 \x01(\bR\aadoptedB\x0e\n" +
@@ -974,11 +975,11 @@ const file_worktree_v1_worktree_proto_rawDesc = "" +
 	"\x19WORKTREE_FATE_UNSPECIFIED\x10\x00\x12\x19\n" +
 	"\x15WORKTREE_FATE_UNOWNED\x10\x01\x12\x1a\n" +
 	"\x16WORKTREE_FATE_ARCHIVED\x10\x02\x12\x16\n" +
-	"\x12WORKTREE_FATE_LIVE\x10\x032\xd7\x1d\n" +
+	"\x12WORKTREE_FATE_LIVE\x10\x032\xe3\x1d\n" +
 	"\x0fWorktreeService\x12\x81\b\n" +
 	"\rListWorktrees\x12\x16.google.protobuf.Empty\x1a\".worktree.v1.ListWorktreesResponse\"\xb3\a\x9a\xb5\x18\xab\a\b\x01\x10\x01\x1a\x0elist_worktrees\"\x94\aList every worktree directory weave holds, under the configured worktrees directory and each workflow's own, with the repository it was cut from, its branch, whether git can still read it, the agent it was made for, the other agents working in it, the disk it takes as it was last measured, and when it was last active. A directory with no agent is one whose row was deleted while cleanup did not run, or one a test left behind. A directory a delete has claimed and not yet taken, through delete_agents, delete_worktrees or the panel, is left out until that delete fails. Sizes are measured in the background a few directories at a time, so a directory the loop has not reached yet carries none. This reads the directories, the agent rows and the stored sizes and runs no git, so it is cheap to call often; read one directory's contents and standing against its base with get_worktree, which also measures it afresh.\x90\x02\x01\x12\xac\x05\n" +
-	"\vGetWorktree\x12\x1f.worktree.v1.GetWorktreeRequest\x1a .worktree.v1.GetWorktreeResponse\"\xd9\x04\x9a\xb5\x18\xd1\x04\b\x01\x10\x01\x1a\fget_worktree\"\xbc\x04Read one worktree directory: its size and its top-level entries with theirs, biggest first, walked for the call and recorded so list_worktrees carries the fresh number, what is uncommitted, the base it is measured against with how far ahead and behind it stands and how many of its commits the base already holds whole, whether deleting its agent would keep the branch, and the commits since the base. The base is read as the clone last fetched it unless fetch is set, which asks origin first. A directory whose registration git cannot read answers with the entries alone.\x90\x02\x01\x12\x8a\a\n" +
-	"\x16RemoveUnownedWorktrees\x12*.worktree.v1.RemoveUnownedWorktreesRequest\x1a+.worktree.v1.RemoveUnownedWorktreesResponse\"\x96\x06\x9a\xb5\x18\x8e\x06\b\x01\x10\x01\x1a\x18remove_unowned_worktrees\"\xeb\x05Remove worktree directories no agent answers for, which delete_agents cannot reach: a directory under the worktrees directories whose agent row is gone, or whose row is in failed_to_cleanup because git can no longer read the registration. Each directory goes and, where the repository can still be read, git worktree prune runs in it; no branch is ever touched, since without a row nothing says whether the branch was adopted. A directory outside the worktrees directories, one a live or archived agent still answers for, one an agent works in or under, or one holding another worktree is refused with the reason and the rest go; delete the agent instead for those. Read list_worktrees first and pass only the directories it reports with no agent.(\x01\x90\x02\x02\x12\x83\t\n" +
+	"\vGetWorktree\x12\x1f.worktree.v1.GetWorktreeRequest\x1a .worktree.v1.GetWorktreeResponse\"\xd9\x04\x9a\xb5\x18\xd1\x04\b\x01\x10\x01\x1a\fget_worktree\"\xbc\x04Read one worktree directory: its size and its top-level entries with theirs, biggest first, walked for the call and recorded so list_worktrees carries the fresh number, what is uncommitted, the base it is measured against with how far ahead and behind it stands and how many of its commits the base already holds whole, whether deleting its agent would keep the branch, and the commits since the base. The base is read as the clone last fetched it unless fetch is set, which asks origin first. A directory whose registration git cannot read answers with the entries alone.\x90\x02\x01\x12\x96\a\n" +
+	"\x16RemoveUnownedWorktrees\x12*.worktree.v1.RemoveUnownedWorktreesRequest\x1a+.worktree.v1.RemoveUnownedWorktreesResponse\"\xa2\x06\x9a\xb5\x18\x9a\x06\b\x01\x10\x01\x1a\x18remove_unowned_worktrees\"\xf7\x05Remove worktree directories no agent answers for, which delete_agents cannot reach: a directory under the worktrees directories whose agent row is gone, or whose row is in AGENT_STATE_FAILED_TO_CLEANUP because git can no longer read the registration. Each directory goes and, where the repository can still be read, git worktree prune runs in it; no branch is ever touched, since without a row nothing says whether the branch was adopted. A directory outside the worktrees directories, one a live or archived agent still answers for, one an agent works in or under, or one holding another worktree is refused with the reason and the rest go; delete the agent instead for those. Read list_worktrees first and pass only the directories it reports with no agent.(\x01\x90\x02\x02\x12\x83\t\n" +
 	"\x0fDeleteWorktrees\x12#.worktree.v1.DeleteWorktreesRequest\x1a\x16.google.protobuf.Empty\"\xb2\b\x9a\xb5\x18\xaa\b\b\x01\x1a\x10delete_worktrees\"\xfd\x05Queue one background job that deletes worktree directories, each by the path its row decides. A directory whose agent is archived goes through delete_agents, which runs the workflow's teardown hooks and the cleanup and takes the agent's children with it; one nothing answers for, or whose agent's own delete failed on a registration git cannot read, goes through remove_unowned_worktrees; one whose agent is live is left alone. It answers once the job is recorded, before anything has gone. The directories leave list_worktrees as soon as the job is recorded. A directory the listing no longer holds is skipped, so a retried job takes only what is left, and one that is refused comes back to list_worktrees once the job is finished with, with the reason in the log.(\x01:\x91\x02A model already has delete_agents and remove_unowned_worktrees, which answer with what went and what was refused. This one answers nothing, being the panel's queued form of the two, so offering it as well would only give a model a way to delete without reading the outcome.\x90\x02\x02B(Z&weave/proto/gen/worktree/v1;worktreev1b\x06proto3"
 
 var (
@@ -1008,30 +1009,32 @@ var file_worktree_v1_worktree_proto_goTypes = []any{
 	(*Refusal)(nil),                        // 9: worktree.v1.Refusal
 	(*RemoveUnownedWorktreesResponse)(nil), // 10: worktree.v1.RemoveUnownedWorktreesResponse
 	(*DeleteWorktreesRequest)(nil),         // 11: worktree.v1.DeleteWorktreesRequest
-	(*emptypb.Empty)(nil),                  // 12: google.protobuf.Empty
+	(v1.AgentState)(0),                     // 12: agent.v1.AgentState
+	(*emptypb.Empty)(nil),                  // 13: google.protobuf.Empty
 }
 var file_worktree_v1_worktree_proto_depIdxs = []int32{
-	1,  // 0: worktree.v1.Worktree.agent:type_name -> worktree.v1.WorktreeAgent
-	1,  // 1: worktree.v1.Worktree.occupants:type_name -> worktree.v1.WorktreeAgent
-	0,  // 2: worktree.v1.Worktree.fate:type_name -> worktree.v1.WorktreeFate
-	2,  // 3: worktree.v1.ListWorktreesResponse.worktrees:type_name -> worktree.v1.Worktree
-	2,  // 4: worktree.v1.GetWorktreeResponse.worktree:type_name -> worktree.v1.Worktree
-	5,  // 5: worktree.v1.GetWorktreeResponse.entries:type_name -> worktree.v1.Entry
-	6,  // 6: worktree.v1.GetWorktreeResponse.commits:type_name -> worktree.v1.Commit
-	9,  // 7: worktree.v1.RemoveUnownedWorktreesResponse.refused:type_name -> worktree.v1.Refusal
-	12, // 8: worktree.v1.WorktreeService.ListWorktrees:input_type -> google.protobuf.Empty
-	4,  // 9: worktree.v1.WorktreeService.GetWorktree:input_type -> worktree.v1.GetWorktreeRequest
-	8,  // 10: worktree.v1.WorktreeService.RemoveUnownedWorktrees:input_type -> worktree.v1.RemoveUnownedWorktreesRequest
-	11, // 11: worktree.v1.WorktreeService.DeleteWorktrees:input_type -> worktree.v1.DeleteWorktreesRequest
-	3,  // 12: worktree.v1.WorktreeService.ListWorktrees:output_type -> worktree.v1.ListWorktreesResponse
-	7,  // 13: worktree.v1.WorktreeService.GetWorktree:output_type -> worktree.v1.GetWorktreeResponse
-	10, // 14: worktree.v1.WorktreeService.RemoveUnownedWorktrees:output_type -> worktree.v1.RemoveUnownedWorktreesResponse
-	12, // 15: worktree.v1.WorktreeService.DeleteWorktrees:output_type -> google.protobuf.Empty
-	12, // [12:16] is the sub-list for method output_type
-	8,  // [8:12] is the sub-list for method input_type
-	8,  // [8:8] is the sub-list for extension type_name
-	8,  // [8:8] is the sub-list for extension extendee
-	0,  // [0:8] is the sub-list for field type_name
+	12, // 0: worktree.v1.WorktreeAgent.state:type_name -> agent.v1.AgentState
+	1,  // 1: worktree.v1.Worktree.agent:type_name -> worktree.v1.WorktreeAgent
+	1,  // 2: worktree.v1.Worktree.occupants:type_name -> worktree.v1.WorktreeAgent
+	0,  // 3: worktree.v1.Worktree.fate:type_name -> worktree.v1.WorktreeFate
+	2,  // 4: worktree.v1.ListWorktreesResponse.worktrees:type_name -> worktree.v1.Worktree
+	2,  // 5: worktree.v1.GetWorktreeResponse.worktree:type_name -> worktree.v1.Worktree
+	5,  // 6: worktree.v1.GetWorktreeResponse.entries:type_name -> worktree.v1.Entry
+	6,  // 7: worktree.v1.GetWorktreeResponse.commits:type_name -> worktree.v1.Commit
+	9,  // 8: worktree.v1.RemoveUnownedWorktreesResponse.refused:type_name -> worktree.v1.Refusal
+	13, // 9: worktree.v1.WorktreeService.ListWorktrees:input_type -> google.protobuf.Empty
+	4,  // 10: worktree.v1.WorktreeService.GetWorktree:input_type -> worktree.v1.GetWorktreeRequest
+	8,  // 11: worktree.v1.WorktreeService.RemoveUnownedWorktrees:input_type -> worktree.v1.RemoveUnownedWorktreesRequest
+	11, // 12: worktree.v1.WorktreeService.DeleteWorktrees:input_type -> worktree.v1.DeleteWorktreesRequest
+	3,  // 13: worktree.v1.WorktreeService.ListWorktrees:output_type -> worktree.v1.ListWorktreesResponse
+	7,  // 14: worktree.v1.WorktreeService.GetWorktree:output_type -> worktree.v1.GetWorktreeResponse
+	10, // 15: worktree.v1.WorktreeService.RemoveUnownedWorktrees:output_type -> worktree.v1.RemoveUnownedWorktreesResponse
+	13, // 16: worktree.v1.WorktreeService.DeleteWorktrees:output_type -> google.protobuf.Empty
+	13, // [13:17] is the sub-list for method output_type
+	9,  // [9:13] is the sub-list for method input_type
+	9,  // [9:9] is the sub-list for extension type_name
+	9,  // [9:9] is the sub-list for extension extendee
+	0,  // [0:9] is the sub-list for field type_name
 }
 
 func init() { file_worktree_v1_worktree_proto_init() }

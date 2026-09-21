@@ -4,7 +4,7 @@ Retry launching an agent that failed to create, keyed by id, optionally with cor
 
 ### Synopsis
 
-Retry launching an agent that failed to create, keyed by id, optionally with corrected flags, prompt, or harness. Only works on agents in the failed_to_create state. An archived agent is refused. Returns the agent as relaunched.
+Retry launching an agent that failed to create, keyed by id, optionally with corrected flags, prompt, or harness. Only works on an agent whose state is AGENT_STATE_FAILED_TO_CREATE. An archived agent is refused. Returns the agent as relaunched.
 
 ```
 weave rpc retry-agent [flags]
