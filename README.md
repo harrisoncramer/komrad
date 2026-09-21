@@ -38,7 +38,7 @@ Weave provides the primitives behind agentic workflows as resources that you man
 
 Weave is optimized for software development with [worktrees](https://git-scm.com/docs/git-worktree), but is equally capable of handling production support automations, or even Slack or email workflows. Let weave automate the parts of your job you dislike.
 
-### It terminal (tmux) based.
+### It is terminal (tmux) based.
 
 Weave is a terminal tool, intended for power users. It does not aspire to be a remote coding environment or a standalone application, and meets you in the terminal.
 

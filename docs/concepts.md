@@ -2,7 +2,7 @@
 
 Weave has two programs: the service (server) and the panel (client).
 
-The `weave serve` command starts the service. It owns the datbase connection, API, MCP, and runs the background loops that watch every agent. It is long-lived. Closing your terminal does not stop it, nor does stopping the panel.
+The `weave serve` command starts the service. It owns the database connection, API, MCP, and runs the background loops that watch every agent. It is long-lived. Closing your terminal does not stop it, nor does stopping the panel.
 
 The `weave panel` command starts the terminal interface. It is an ordinary client.
 
@@ -16,7 +16,7 @@ Your own server is where you work. Weave's server, named by `WEAVE_TMUX_SOCKET` 
 
 The panel reaches you through a popup. Pressing the weave keybinding runs a tmux popup on _your_ server whose command _attaches to the manager session_ on weave's server. Hiding the panel detaches that client. This leaves the session and every agent running in the background.
 
-On the agents list, focus moves between the sidebar and the agent's pane on the stage with `C-a`. Both arms of the binding name the pane they move to, so a split you opened yourself is never what the key lands on. That one is bound outside tmux's prefix table on weave's own server, because a pane running an agent hands every key it gets to that agent, so the panel's own bindings never see one. A binding like that is unconditional for as long as it stands, so weave only stands it up while the agents list is showing and gives the key back on every other screen, where there is no agent's pane to move to anyway. It is the only key weave takes that way, and the agent on the stage loses it while the list is up, so `[panel] focus_key` in your config renames it or, left empty, binds nothing. A press with nowhere to go back to does nothing. Your own tmux server never sees this binding, but it does see the key first: if `C-a` is your prefix, weave's binding is never reached and you want another key here.
+On the agents list, focus moves between the sidebar and the agent's pane on the stage with `C-a`. Both arms of the binding name the pane they move to, so a split you opened yourself is never what the key lands on. That one is bound outside tmux's prefix table on weave's own server, because a pane running an agent hands every key it gets to that agent, so the panel's own bindings never see one. A binding like that is unconditional for as long as it stands, so weave only stands it up while the agents list is showing and gives the key back on every other screen, where there is no agent's pane to move to anyway. It is the only key weave takes that way, and the agent on the stage loses it while the list is up. The key is fixed rather than configured. A press with nowhere to go back to does nothing. Your own tmux server never sees this binding, but it does see the key first: if `C-a` is your prefix, weave's binding is never reached and you want another key here.
 
 ## Weave's API
 
@@ -36,7 +36,7 @@ Weave's architecture is built in a series of layers.
 
 The first is the ConnectRPC handlers, the MCP server, and the CLI. These layers parse, validate, and translate. The interceptors in `internal/interceptors` are cross-cutting rules that do validation and payload manipulation logic.
 
-The next layer, services, are `internal/agents` and `internal/rpc/*`. These indicate which RPCs trigger which logic. The business logic lives here.
+The next layer is the services, one package per domain: `internal/agents` holds the agent lifecycle, and `internal/mail`, `internal/marks`, `internal/schedules`, `internal/transcripts`, `internal/pullrequests`, `internal/reviews`, `internal/checkouts`, `internal/scriptrun`, `internal/worktrees` and `internal/forge` hold the rest. The business logic lives here. The handlers in `internal/rpc/*` say which RPC calls which service.
 
 The stores, which hold data, are in `internal/store` and the packages beneath it, one per domain. This package also holds database transactions.
 
@@ -52,7 +52,7 @@ The reconcile loop runs every two seconds. This loop is responsible for reconcil
 
 The schedule reconciler loop runs every ten seconds. This makes the job queue's registrations of work match the schedules table. The queue is managed by River, a Go package.
 
-The mail delivery loop runs every two seconds. This finds mail (agent-to-agent messages) that the recipient hasn't read yet, and makes sure it's deliered. This handles instances where an agent has stopped and would otherwise miss messages, and ensures that all agent-to-agent communications are eventually delievered. This makes multi-agent orchestration patterns possible.
+The mail delivery loop runs every two seconds. This finds mail (agent-to-agent messages) that the recipient hasn't read yet, and makes sure it's delivered. This handles instances where an agent has stopped and would otherwise miss messages, and ensures that all agent-to-agent communications are eventually delivered. This makes multi-agent orchestration patterns possible.
 
 Finally, the transcript sync runs every fifteen seconds. It folds each agent's new conversation text into the search index, so that you and other agents can search previous conversations in Postgres more easily.
 

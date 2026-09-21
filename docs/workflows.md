@@ -1,12 +1,12 @@
 # Workflows
 
-Workflows are the blueprints used to create one first.
+Workflows are the blueprints agents are created from.
 
 Every agent belongs to exactly one workflow, which is why weave makes you create one first.
 
 ## What a workflow holds
 
-Since agents are just CLI sessions, workflows are buckets of defualt settings for those agents. For instance, a workflow might indicate which model to use (like opus or haiku), the working directory, or whether each agent gets a git worktree of its own, relevant for worktree developmemt.
+Since agents are just CLI sessions, workflows are buckets of default settings for those agents. For instance, a workflow might indicate which model to use (like opus or haiku), the working directory, or whether each agent gets a git worktree of its own, relevant for worktree development.
 
 Ultimately, each workflow setting for an agent can be overridden at the moment when an agent is spawned; this approach provides flexibility, for instance when you'd like to use a particular workflow, but with a different model or different directory.
 
@@ -14,7 +14,7 @@ Workflows also hold shared context. Represented as free text, this is appended t
 
 ## Where the worktrees go
 
-A worktree workflow makes its worktrees in the directory your [config](configuration.md) names under `[worktrees]`, which every workflow shares. Some repositories will not have that: their own tooling expects worktrees in a particular place, and finds nothing when an agent's checkout is somewhere else. A monorepo might assign each worktree under `.worktrees` its own ports and docker project, keyed on the directory it sits in.
+A worktree workflow makes its worktrees in the directory your [config](../config.toml) names under `[worktrees]`, which every workflow shares. Some repositories will not have that: their own tooling expects worktrees in a particular place, and finds nothing when an agent's checkout is somewhere else. A monorepo might assign each worktree under `.worktrees` its own ports and docker project, keyed on the directory it sits in.
 
 A workflow can name its own parent directory for that reason. Set it and this workflow's worktrees are made there instead, still one per agent and still named after the agent. Left blank it falls back to the configured directory.
 
@@ -30,7 +30,7 @@ The list is read every time a diff is drawn rather than snapshotted at launch, s
 
 ## The context
 
-Weave assembles the appended system prompt in three layers, general to specific: the standing briefing about weave itself (the MCP, how to send mail, etc), your global context file, shared across all agents, and then the workflow's context. The workflow comes last, so it reads as the final word on anything the layers above it also mention. The global file is configured under `[context]` in your [config](configuration.md).
+Weave assembles the appended system prompt in three layers, general to specific: the standing briefing about weave itself (the MCP, how to send mail, etc), your global context file, shared across all agents, and then the workflow's context. The workflow comes last, so it reads as the final word on anything the layers above it also mention. The global file is configured under `[context]` in your [config](../config.toml).
 
 This context could include general conventions, such as:
 

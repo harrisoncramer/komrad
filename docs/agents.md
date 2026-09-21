@@ -4,11 +4,11 @@ An agent is just a managed claude or codex chat that you can step away from, reb
 
 - A worktree agent. Every agent you start with weave can be configured to get an isolated checkout, and takes its worktree with it when you delete it.
 - A triage agent on a schedule. Try configuring a workflow with context explaining what your on-call rotation cares about, and a [schedule](schedules.md) that creates an agent every weekday morning with a prompt like "read the overnight alerts and write up anything that needs a human".
-- An orchestrator. An agent whose prompt is to fan work out: it calls weave's [MCP](mcp.md) to `create_agent`for each subagent, and then communicates through Weave's mail.
+- An orchestrator. An agent whose prompt is to fan work out: it calls weave's [MCP](mcp.md) to `create_agent` for each subagent, and then communicates through Weave's mail.
 
 ## Creating your first agent
 
-Press `c` in the sidebar. If you don't specify the agent, weave will use the default `default_harness` from your configuration. You can also create an agent via the CLI.
+Press `c` in the sidebar. If you don't specify a harness, weave will use the `default_harness` from your configuration. You can also create an agent via the CLI.
 
 Agents can be thinking (generating or running a tool); waiting (blocked on a human confirmation or other interactive prompt); idle (sitting with nothing to do); or uncertain, drawn as a grey `?`, which is a pane weave captured but could not read. An uncertain agent is not a finished one: weave leaves it out of the auto-archive sweep and holds a schedule back for it, because the screen it could not read may be a question waiting on you. Its mail waits as well, since weave only types at a pane it recognises, and goes as soon as the pane reads again.
 
