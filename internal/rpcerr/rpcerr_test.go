@@ -8,6 +8,7 @@ import (
 	"weave/internal/agents"
 	"weave/internal/git"
 	"weave/internal/rpcerr"
+	"weave/internal/schedules"
 	"weave/internal/scripts"
 	"weave/internal/store"
 
@@ -35,7 +36,7 @@ func TestWrapCodes(t *testing.T) {
 		{store.ErrNotFound, connect.CodeNotFound},
 		{agents.ErrAgentNotFound, connect.CodeNotFound},
 		{agents.ErrWorkflowNotFound, connect.CodeNotFound},
-		{agents.ErrScheduleNotFound, connect.CodeNotFound},
+		{schedules.ErrScheduleNotFound, connect.CodeNotFound},
 		{agents.ErrScriptNotFound, connect.CodeNotFound},
 		{agents.ErrMailNotFound, connect.CodeNotFound},
 		{agents.ErrRecipientNotFound, connect.CodeNotFound},
@@ -66,7 +67,7 @@ func TestWrapCodes(t *testing.T) {
 		{git.ErrBaseUnrelated, connect.CodeFailedPrecondition},
 		{agents.ErrReviewEmpty, connect.CodeFailedPrecondition},
 		{agents.ErrReviewAlreadyGiven, connect.CodeFailedPrecondition},
-		{agents.ErrBadCron, connect.CodeInvalidArgument},
+		{schedules.ErrBadCron, connect.CodeInvalidArgument},
 		{agents.ErrUnknownHookEvent, connect.CodeInvalidArgument},
 		{agents.ErrNoticeKindMissing, connect.CodeInvalidArgument},
 		{agents.ErrBadDirectory, connect.CodeInvalidArgument},

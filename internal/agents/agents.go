@@ -27,7 +27,6 @@ var (
 	ErrBadDirectory         = fail.InvalidArgument("unusable working directory")
 	ErrTooManyAgents        = fail.Exhausted("too many agents")
 	ErrAgentArchived        = fail.Precondition("agent is archived")
-	ErrWorkflowArchived     = fail.Precondition("workflow is archived")
 	ErrSpawnerUnknown       = fail.InvalidArgument("the spawning agent is not one this panel knows")
 	ErrOutsideWorkflow      = fail.Denied("an orchestrator spawns only into its own workflow")
 	ErrParentNotFound       = fail.NotFound("parent agent not found")

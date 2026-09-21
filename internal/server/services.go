@@ -13,6 +13,7 @@ import (
 	"weave/internal/git"
 	"weave/internal/harness/pane"
 	"weave/internal/marks"
+	"weave/internal/schedules"
 	"weave/internal/scripts"
 	"weave/internal/worktrees"
 )
@@ -22,7 +23,7 @@ type services struct {
 	script          *agents.ScriptService
 	mail            *agents.MailService
 	review          *agents.ReviewService
-	schedule        *agents.ScheduleService
+	schedule        *schedules.ScheduleService
 	liveness        *agents.PaneLiveness
 	launch          *agents.LaunchService
 	resume          *agents.ResumeService
@@ -60,7 +61,7 @@ func buildServices(params NewServerParams, st *stores) (*services, error) {
 		Config:         mailConfig(loadConfig),
 	})
 	stateDir := params.Env.StateDir
-	scheduleService := agents.NewScheduleService(agents.NewScheduleServiceParams{
+	scheduleService := schedules.NewScheduleService(schedules.NewScheduleServiceParams{
 		Schedules: st.schedules,
 		Workflows: st.workflows,
 	})

@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	"weave/internal/agents"
+	"weave/internal/schedules"
 
 	"github.com/riverqueue/river"
 )
@@ -54,7 +54,7 @@ func (s *Scheduler) Reconcile(ctx context.Context) error {
 
 		// Returning on a bad row would leave the schedules after it unregistered and skip
 		// the removal below that takes a paused schedule off.
-		cron, err := agents.ParseCron(schedule.Cron, schedule.Timezone)
+		cron, err := schedules.ParseCron(schedule.Cron, schedule.Timezone)
 		if err != nil {
 			continue
 		}

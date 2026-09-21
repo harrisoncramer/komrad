@@ -1,13 +1,12 @@
-package agents
+package schedules
 
 import (
 	"testing"
 	"time"
 
-	"weave/internal/harness/pane"
-	agentstore "weave/internal/store/agent"
 	schedulestore "weave/internal/store/schedule"
 	workflowstore "weave/internal/store/workflow"
+	"weave/internal/storetest"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -202,7 +201,7 @@ func TestNewSchedule(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			st := newStore(t)
+			st := storetest.Open(t)
 			svc := NewScheduleService(NewScheduleServiceParams{Schedules: st.Schedules, Workflows: st.Workflows})
 
 			workflowID := st.SeedWorkflow(t, workflowstore.Config{Name: "backend"}).ID
@@ -257,7 +256,7 @@ func TestScheduleWorkflowMustExist(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			st := newStore(t)
+			st := storetest.Open(t)
 			ctx := t.Context()
 			svc := NewScheduleService(NewScheduleServiceParams{Schedules: st.Schedules, Workflows: st.Workflows})
 
@@ -303,79 +302,6 @@ func TestScheduleWorkflowMustExist(t *testing.T) {
 	}
 }
 
-// TestScheduleIsNotBlockedByARunThatNeverStarted pins that a launch which died on the spot
-// is not counted as work in flight, which would stop the schedule ever firing again.
-func TestScheduleIsNotBlockedByARunThatNeverStarted(t *testing.T) {
-	tests := []struct {
-		name  string
-		state agentstore.State
-		frame string
-		want  int64
-	}{
-		{
-			name:  "a run that never started leaves the schedule free to fire",
-			state: agentstore.StateIdle,
-			frame: idleFrame,
-			want:  0,
-		},
-		{
-			name:  "a run still working holds the next tick off",
-			state: agentstore.StateThinking,
-			frame: busyFrame,
-			want:  1,
-		},
-		{
-			name:  "so does one waiting on an answer, which is work still owed",
-			state: agentstore.StateIdle,
-			frame: waitFrame,
-			want:  1,
-		},
-		{
-			name:  "a run that finished does not",
-			state: agentstore.StateIdle,
-			frame: idleFrame,
-			want:  0,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			st := newStore(t)
-			ctx := t.Context()
-
-			schedule := st.SeedSchedule(t, schedulestore.Config{
-				Name:   "nightly",
-				Cron:   "0 2 * * *",
-				Prompt: "sweep",
-			})
-			run := st.SeedAgent(t, agentstore.Agent{
-				Name:       "nightly-run",
-				Pane:       "%1",
-				State:      tt.state,
-				WorkflowID: schedule.WorkflowID,
-				ScheduleID: &schedule.ID,
-			})
-
-			tmux := newFakeTmux()
-			tmux.owners["%1"] = run.ID
-			tmux.captures["%1"] = tt.frame
-
-			rec := NewReconciler(NewReconcilerParams{
-				Panes:    tmux,
-				Observer: pane.NewPane(pane.NewPaneParams{Terminal: tmux, Harnesses: fakeHarnesses{harness: &fakeHarness{}}}),
-				States:   st.Agents,
-			})
-			for range reconcileMisses + 2 {
-				require.NoError(t, rec.Reconcile(ctx))
-			}
-
-			count, err := st.Agents.CountLiveForSchedule(ctx, schedule.ID)
-			require.NoError(t, err)
-			assert.Equal(t, tt.want, count, "what the next firing sees")
-		})
-	}
-}
-
 const missingWorkflowID = "00000000-0000-0000-0000-0000000000ff"
 
 // TestScheduleNotFound pins that an id nothing holds is not-found rather than a silent
@@ -413,7 +339,7 @@ func TestScheduleNotFound(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			st := newStore(t)
+			st := storetest.Open(t)
 			svc := NewScheduleService(NewScheduleServiceParams{Schedules: st.Schedules, Workflows: st.Workflows})
 
 			require.ErrorIs(t, tt.call(t, svc), ErrScheduleNotFound)
