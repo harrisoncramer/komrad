@@ -443,3 +443,16 @@ func scheduleNames(rows []scheduleItem) []string {
 
 	return names
 }
+
+// TestFilterAppliedLandsOnTheNearestMatch covers a filter applied from a row it takes off the
+// screen landing on the nearest match forward of that row, as a search does.
+func TestFilterAppliedLandsOnTheNearestMatch(t *testing.T) {
+	m := filterModeTree()
+	m.tree.cursor = rowIndexOfKey(m.agentRows(), agentRowKey("a3"))
+
+	opened, _ := m.updateAgents(keyMsg("/"))
+	narrowed := pressMark(t, opened.(model), "u", "tab", "enter")
+
+	assert.Equal(t, []string{"backend", "auth", "api", "frontend", "ui"}, rowNames(narrowed.agentRows()), "the child api stays under its matched parent")
+	assert.Equal(t, agentRowKey("a4"), rowKeyAt(narrowed.agentRows(), narrowed.tree.cursor))
+}

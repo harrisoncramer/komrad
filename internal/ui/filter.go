@@ -218,40 +218,37 @@ func (m model) updateFilterInput(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.closeSearchAndMoveKeys()
 	}
 
+	// Typing lights what it has found and moves nothing; enter is what applies the search.
 	filter := m.filterTarget().state
 	switch {
 	case key.String() == "tab":
 		filter.mode = filter.mode.flipped()
+	case key.String() == "enter":
+		return m.applyFilter()
 	case !filter.takeKey(key):
 		return m, nil
-	}
-
-	// Typing lights what it has found and moves nothing; enter is what applies the search.
-	if !filter.typing && filter.isStanding() {
-		m.applyFilter()
 	}
 
 	return m, nil
 }
 
-// applyFilter walks the cursor of the section that holds the keys onto the nearest match, the
-// rows of both sections having narrowed the moment the typing stopped.
-func (m *model) applyFilter() {
-	if m.filter.pattern == nil {
-		return
+// applyFilter closes the input and walks the cursor onto the nearest match from where the keys
+// are, read off the whole rows before the filter narrows them, moving the keys with it.
+func (m model) applyFilter() (model, tea.Cmd) {
+	target, ok := m.matchFromCursor(0)
+	m.filter.typing = false
+	if !ok {
+		// Nothing to walk onto, and a narrowed list may have lost the hovered row.
+		m.placeFilteredCursor("")
+
+		return m, nil
 	}
 
-	if found, ok := m.matchAt(m.hoveredFilterKey(), 0); ok {
-		m.placeFilteredCursor(found)
-
-		return
-	}
-
-	m.placeFilteredCursor(m.hoveredFilterKey())
+	return m.landOnMatch(target)
 }
 
-// closeSearchAndMoveKeys answers the focus key while the search is being typed: the input
-// closes with the pattern standing, the keys move, and the search is applied where they land.
+// closeSearchAndMoveKeys answers the focus key while the search is being typed: the input closes
+// with the pattern standing and the keys move to the other section, nothing walking.
 func (m model) closeSearchAndMoveKeys() (tea.Model, tea.Cmd) {
 	if !m.isDetailsDrawn(m.hoveredDetails()) {
 		return m, nil
@@ -259,10 +256,7 @@ func (m model) closeSearchAndMoveKeys() (tea.Model, tea.Cmd) {
 
 	m.filter.typing = false
 
-	next, cmd := m.toggleDetailsFocus()
-	next.applyFilter()
-
-	return next, cmd
+	return m.toggleDetailsFocus()
 }
 
 func (m model) hoveredFilterKey() string {
@@ -391,47 +385,6 @@ func (f filterState) line(palette paint.Palette) string {
 	return line
 }
 
-// matchAt is the row a search lands on, counted from the row given and wrapping at either end.
-func (m model) matchAt(from string, delta int) (string, bool) {
-	target := m.filterTarget()
-	filter := target.state
-	if target.rows == nil || filter.pattern == nil {
-		return "", false
-	}
-
-	rows := target.rows.filterRows(m)
-	if len(rows) == 0 {
-		return "", false
-	}
-
-	start := 0
-	for i, row := range rows {
-		if row.key == from {
-			start = i
-
-			break
-		}
-	}
-
-	// A step of nothing means the row the cursor is already on counts, which is what makes
-	// typing land on the nearest match rather than skipping past it.
-	step, walk := 0, delta
-	if delta == 0 {
-		walk = 1
-	} else {
-		step = 1
-	}
-
-	for ; step <= len(rows); step++ {
-		at := ((start+walk*step)%len(rows) + len(rows)) % len(rows)
-		if filter.doesMatch(rows[at].name) {
-			return rows[at].key, true
-		}
-	}
-
-	return "", false
-}
-
 func (m model) jumpFilterMatch(pressed string) (tea.Model, tea.Cmd) {
 	if isBound(pressed, m.keys.Filter.PrevMatch) {
 		return m.jumpMatch(-1)
@@ -446,14 +399,21 @@ type sidebarRow struct {
 	row     filterRow
 }
 
-// sidebarRows is every row a search can land on, the list's and then the hovered record's.
+// sidebarRows is every row a search can land on, in reading order: the list's rows, with the
+// hovered record's fields sitting under the row they belong to.
 func (m model) sidebarRows() []sidebarRow {
-	var rows []sidebarRow
-	if list, ok := m.active().(filtered); ok {
-		rows = sectionRows(sectionList, list.filterRows(m))
+	list, ok := m.active().(filtered)
+	if !ok {
+		return nil
 	}
-	if m.isDetailsDrawn(m.hoveredDetails()) {
-		rows = append(rows, sectionRows(sectionRecord, (detailsFilter{}).filterRows(m))...)
+
+	hovered := list.hoveredKey(m)
+	var rows []sidebarRow
+	for _, row := range list.filterRows(m) {
+		rows = append(rows, sidebarRow{section: sectionList, row: row})
+		if row.key == hovered && m.isDetailsDrawn(m.hoveredDetails()) {
+			rows = append(rows, sectionRows(sectionRecord, (detailsFilter{}).filterRows(m))...)
+		}
 	}
 
 	return rows
@@ -468,9 +428,20 @@ func sectionRows(section sidebarSection, rows []filterRow) []sidebarRow {
 // jumpMatch walks the cursor to the next row the search matches, on through the record and
 // round again, moving the keys with it.
 func (m model) jumpMatch(delta int) (tea.Model, tea.Cmd) {
+	target, ok := m.matchFromCursor(delta)
+	if !ok {
+		return m, nil
+	}
+
+	return m.landOnMatch(target)
+}
+
+// matchFromCursor is the row the search lands on from where the keys are, counted through both
+// sections and wrapping, the row under the cursor itself counting for a step of nothing.
+func (m model) matchFromCursor(delta int) (sidebarRow, bool) {
 	rows := m.sidebarRows()
 	if m.filter.pattern == nil || len(rows) == 0 {
-		return m, nil
+		return sidebarRow{}, false
 	}
 
 	from := sidebarRow{section: m.keyholder(), row: filterRow{key: m.hoveredFilterKey()}}
@@ -483,18 +454,25 @@ func (m model) jumpMatch(delta int) (tea.Model, tea.Cmd) {
 		}
 	}
 
-	for step := 1; step <= len(rows); step++ {
-		at := ((start+delta*step)%len(rows) + len(rows)) % len(rows)
+	step, walk := 0, delta
+	if delta == 0 {
+		walk = 1
+	} else {
+		step = 1
+	}
+
+	for ; step <= len(rows); step++ {
+		at := ((start+walk*step)%len(rows) + len(rows)) % len(rows)
 		if m.filter.doesMatch(rows[at].row.name) {
-			return m.landOnMatch(rows[at])
+			return rows[at], true
 		}
 	}
 
-	return m, nil
+	return sidebarRow{}, false
 }
 
 // landOnMatch puts the keys in the section a match is in and the cursor on it.
-func (m model) landOnMatch(target sidebarRow) (tea.Model, tea.Cmd) {
+func (m model) landOnMatch(target sidebarRow) (model, tea.Cmd) {
 	var cmd tea.Cmd
 	switch {
 	case target.section == sectionRecord && !m.isDetailsFocused():
