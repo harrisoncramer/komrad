@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"weave/internal/forge"
+	"weave/internal/forge/graphql"
 	"weave/internal/git"
 	"weave/lib/xptr"
 
@@ -82,7 +83,7 @@ func (g *fakeGitLab) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			Variables map[string]any `json:"variables"`
 		}
 		_ = json.NewDecoder(r.Body).Decode(&posted)
-		seen.Operation = operationOf(posted.Query)
+		seen.Operation = graphql.OperationOf(posted.Query)
 		seen.Query = posted.Query
 		seen.Variables = posted.Variables
 	}

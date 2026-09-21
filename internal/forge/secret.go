@@ -17,19 +17,29 @@ func NewSecret(value string) Secret {
 }
 
 // IsZero says whether there is no token at all.
-func (s Secret) IsZero() bool { return s.value == "" }
+func (s Secret) IsZero() bool {
+	return s.value == ""
+}
 
 // Expose is the token itself, for the header that sends it and the store that keeps it.
-func (s Secret) Expose() string { return s.value }
+func (s Secret) Expose() string {
+	return s.value
+}
 
 // String is the token masked to its last three characters.
-func (s Secret) String() string { return s.masked() }
+func (s Secret) String() string {
+	return s.masked()
+}
 
 // GoString is the token masked to its last three characters.
-func (s Secret) GoString() string { return s.masked() }
+func (s Secret) GoString() string {
+	return s.masked()
+}
 
 // LogValue is the token masked to its last three characters.
-func (s Secret) LogValue() slog.Value { return slog.StringValue(s.masked()) }
+func (s Secret) LogValue() slog.Value {
+	return slog.StringValue(s.masked())
+}
 
 func (s Secret) masked() string {
 	const mask = "*****"
