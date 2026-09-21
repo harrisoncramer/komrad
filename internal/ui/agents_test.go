@@ -57,7 +57,8 @@ func TestAgentsViewRowsOpenAtTheGutter(t *testing.T) {
 	m.tree.cursor = -1
 
 	rows := strings.Split(m.agentsView(), "\n")
-	opening := 2 + 2
+	// The focus and mark gutter cells, each a blank column and its separator.
+	opening := 4
 
 	agent, ok := rowNamed(rows, "worker")
 	require.True(t, ok)
