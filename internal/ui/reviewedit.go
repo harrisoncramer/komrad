@@ -130,7 +130,7 @@ func (r reviewScreen) isAgentUnreadable(s panelShared) (string, bool) {
 // sidebar.
 func (r *reviewScreen) editFile(h host, s panelShared) tea.Cmd {
 	if r.pass.atEditor {
-		return r.closeEdit(h)
+		return r.closeEdit(h, s)
 	}
 
 	path, line, ok := r.diff.view.GetEditTarget(r.diff.cursor)
@@ -215,16 +215,16 @@ func (r reviewScreen) agentItem(s panelShared) (agentItem, bool) {
 }
 
 // closeEdit gives the stage back to the diff and reads the worktree again, staying in the pass.
-func (r *reviewScreen) closeEdit(h host) tea.Cmd {
+func (r *reviewScreen) closeEdit(h host, s panelShared) tea.Cmd {
 	r.pass.closeEditor()
 	h.unstageEditor()
 
-	return r.reload(h)
+	return r.reload(s)
 }
 
 // reconcileEditor catches the editor pane going away on its own and takes the window back for the
 // diff it was covering.
-func (r *reviewScreen) reconcileEditor(h host, _ panelShared) tea.Cmd {
+func (r *reviewScreen) reconcileEditor(h host, s panelShared) tea.Cmd {
 	if !r.pass.atEditor {
 		return nil
 	}
@@ -235,7 +235,7 @@ func (r *reviewScreen) reconcileEditor(h host, _ panelShared) tea.Cmd {
 		return nil
 	}
 
-	return r.closeEdit(h)
+	return r.closeEdit(h, s)
 }
 
 // editorDesc says what the edit key would do.

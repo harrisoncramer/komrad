@@ -216,7 +216,7 @@ func (w *worktreesScreen) deleteChosen(h host, s panelShared, _ string) tea.Cmd 
 
 		switch row.item.fate {
 		case fateLive:
-			h.reportBrief("A live agent is in the selection", "Archive "+row.name()+" from the agents list first; nothing bulk stops a running agent.", nil)
+			h.reportBrief("A live agent is in the selection", "Archive "+row.name()+" from the agents list first; nothing bulk stops a running agent.")
 
 			return nil
 		case fateArchived:

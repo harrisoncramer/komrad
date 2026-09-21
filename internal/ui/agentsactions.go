@@ -124,7 +124,7 @@ func (a *agentsScreen) rowActions() []screenAction {
 			id:   actionWorkflowEdit,
 			keys: func(k config.Keybindings) []string { return k.Workflows.Edit },
 			when: a.isHoveringWorkflow,
-			run:  a.onHoveredWorkflow(editWorkflowForm),
+			run:  a.onHoveredWorkflowIn(editWorkflowForm),
 		},
 		{
 			id:   actionWorkflowArchive,
@@ -230,13 +230,18 @@ func (a *agentsScreen) isRetryableAgent(s panelShared) bool {
 
 // onHoveredWorkflow hands an arm the workflow under the cursor.
 func (a *agentsScreen) onHoveredWorkflow(fn func(host, panel.Workflow) tea.Cmd) func(host, panelShared, string) tea.Cmd {
+	return a.onHoveredWorkflowIn(func(h host, _ panelShared, workflow panel.Workflow) tea.Cmd { return fn(h, workflow) })
+}
+
+// onHoveredWorkflowIn hands an arm the workflow under the cursor and the listing it stands in.
+func (a *agentsScreen) onHoveredWorkflowIn(fn func(host, panelShared, panel.Workflow) tea.Cmd) func(host, panelShared, string) tea.Cmd {
 	return func(h host, s panelShared, _ string) tea.Cmd {
 		workflow, ok := a.hoveredWorkflow(s)
 		if !ok {
 			return nil
 		}
 
-		return fn(h, workflow)
+		return fn(h, s, workflow)
 	}
 }
 

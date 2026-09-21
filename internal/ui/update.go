@@ -360,7 +360,7 @@ func (m *model) refreshReviewCmd(now time.Time) tea.Cmd {
 		return nil
 	}
 
-	return m.review.refresh(m, m.shared(), now)
+	return m.review.refresh(m.shared(), now)
 }
 
 // reconcileEditor catches the info pane and the review's editor going away on their own.

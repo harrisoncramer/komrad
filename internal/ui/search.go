@@ -47,7 +47,7 @@ func (w *searchScreen) list() screenList[searchRow] {
 	}
 }
 
-func (w *searchScreen) landOnRow(h host, s panelShared) tea.Cmd {
+func (w *searchScreen) landOnRow(_ host, s panelShared) tea.Cmd {
 	row, ok := w.hovered(s)
 	if !ok {
 		return nil
@@ -57,12 +57,12 @@ func (w *searchScreen) landOnRow(h host, s panelShared) tea.Cmd {
 	if w.preview.agentID == row.agent.id && w.preview.conversation != "" {
 		w.openPreviewOn(s, row.open(w.preview.conversation))
 	} else {
-		cmds = append(cmds, w.previewCmd(h, row.agent))
+		cmds = append(cmds, w.previewCmd(s, row.agent))
 	}
 
 	if w.cursor == len(w.rows(s))-1 && w.next != nil && !w.paging {
 		w.paging = true
-		cmds = append(cmds, w.searchCmd(h, w.query, w.next))
+		cmds = append(cmds, w.searchCmd(s, w.query, w.next))
 	}
 
 	return tea.Batch(cmds...)
@@ -210,16 +210,16 @@ func debounceSearchCmd(query string) tea.Cmd {
 	})
 }
 
-func (w *searchScreen) runSettled(h host, msg searchSettledMsg) tea.Cmd {
+func (w *searchScreen) runSettled(s panelShared, msg searchSettledMsg) tea.Cmd {
 	if msg.query != w.query {
 		return nil
 	}
 
-	return w.searchCmd(h, msg.query, nil)
+	return w.searchCmd(s, msg.query, nil)
 }
 
-func (w *searchScreen) searchCmd(h host, query string, cursor *string) tea.Cmd {
-	client := h.client().agents
+func (w *searchScreen) searchCmd(s panelShared, query string, cursor *string) tea.Cmd {
+	client := s.api.agents
 
 	return func() tea.Msg {
 		if strings.TrimSpace(query) == "" {
@@ -271,7 +271,7 @@ func searchHitFrom(h *agentv1.SearchHit) searchHit {
 
 // place puts the cursor back on the row it was standing on, and fetches a preview where that
 // row has gone.
-func (w *searchScreen) place(h host, s panelShared, was string) tea.Cmd {
+func (w *searchScreen) place(s panelShared, was string) tea.Cmd {
 	rows := w.rows(s)
 	if len(rows) == 0 {
 		w.cursor = 0
@@ -286,7 +286,7 @@ func (w *searchScreen) place(h host, s panelShared, was string) tea.Cmd {
 		return nil
 	}
 
-	return w.previewCmd(h, rows[w.cursor].agent)
+	return w.previewCmd(s, rows[w.cursor].agent)
 }
 
 // rows is every agent the search found, once each, the named ones first, with the turns of its
@@ -405,11 +405,11 @@ func (w *searchScreen) apply(h host, s panelShared, result searchResult) tea.Cmd
 		return nil
 	}
 
-	return w.previewCmd(h, rows[w.cursor].agent)
+	return w.previewCmd(s, rows[w.cursor].agent)
 }
 
-func (w *searchScreen) previewCmd(h host, agent searchAgent) tea.Cmd {
-	agents := h.client().agents
+func (w *searchScreen) previewCmd(s panelShared, agent searchAgent) tea.Cmd {
+	agents := s.api.agents
 	query := w.query
 
 	return func() tea.Msg {
@@ -464,7 +464,7 @@ const (
 func (w *searchScreen) update(h host, s panelShared, msg tea.Msg) tea.Cmd {
 	switch msg := msg.(type) {
 	case searchSettledMsg:
-		return w.runSettled(h, msg)
+		return w.runSettled(s, msg)
 	case searchResult:
 		return w.apply(h, s, msg)
 	case previewResult:

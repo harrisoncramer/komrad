@@ -176,7 +176,7 @@ func (w *schedulesScreen) editForm(h host, s panelShared) tea.Cmd {
 	}
 
 	target := item.schedule
-	if fresh, err := h.client().getSchedule(target.ID); err == nil && fresh != nil {
+	if fresh, err := s.api.getSchedule(target.ID); err == nil && fresh != nil {
 		target = *fresh
 	}
 

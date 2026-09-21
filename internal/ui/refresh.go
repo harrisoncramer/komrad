@@ -131,7 +131,12 @@ func (m *model) reportUnreachable(err error) {
 		reason = m.settings.Addr + ": " + reason
 	}
 
-	m.reportBrief("Cannot reach the server", reason, err)
+	m.pushMessage(message{
+		kind:    messageError,
+		summary: "Cannot reach the server",
+		detail:  reason,
+		trace:   errui.GetTrace(err),
+	})
 	m.messages.setNewestHint(m.unreachableHint())
 }
 
@@ -183,7 +188,7 @@ func (m *model) applyRefresh(result refreshResult) tea.Cmd {
 		m.applyWorktrees(result.worktrees, worktreeRow)
 	}
 
-	preview := m.search.place(m, m.shared(), searchRow)
+	preview := m.search.place(m.shared(), searchRow)
 	inspect := tea.Batch(m.inspectHoveredWorktreeCmd(), m.inspectAgentWorktreeCmd(time.Now()))
 	pullRequests := m.listHoveredPullRequestsCmd()
 

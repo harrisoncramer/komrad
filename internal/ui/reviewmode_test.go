@@ -127,7 +127,7 @@ func TestReloadWithNoChaptersLetsTheReaderOut(t *testing.T) {
 	narrowed := m.review.diff.view
 
 	reloading := m
-	reload := reloading.review.reload(&reloading)
+	reload := reloading.review.reload(reloading.shared())
 	require.NotNil(t, reload)
 
 	loaded, ok := reload().(reviewLoadedMsg)
@@ -282,10 +282,10 @@ func TestASendThatFailsKeepsThePass(t *testing.T) {
 
 	m.review.diff.cursor = reviewRowWithAnEditTarget(t, m)
 	m = pressEdit(t, m)
-	m.review.closeEdit(&m)
+	m.review.closeEdit(&m, m.shared())
 	require.True(t, m.review.pass.paused)
 
-	cmd := m.review.send(&m, false)
+	cmd := m.review.send(m.shared(), false)
 	require.NotNil(t, cmd)
 
 	letGo := m.review.applyWrote(&m, m.shared(), reviewWroteMsg{
@@ -311,10 +311,10 @@ func TestASendThatLandedIsNotUndoneByAnUnreadableReview(t *testing.T) {
 
 	m.review.diff.cursor = reviewRowWithAnEditTarget(t, m)
 	m = pressEdit(t, m)
-	m.review.closeEdit(&m)
+	m.review.closeEdit(&m, m.shared())
 	require.True(t, m.review.pass.paused)
 
-	cmd := m.review.send(&m, false)
+	cmd := m.review.send(m.shared(), false)
 	require.NotNil(t, cmd)
 
 	letGo := m.review.applyWrote(&m, m.shared(), reviewWroteMsg{
@@ -344,10 +344,10 @@ func TestAnotherWriteLandingMidSendIsNotTheSend(t *testing.T) {
 
 	m.review.diff.cursor = reviewRowWithAnEditTarget(t, m)
 	m = pressEdit(t, m)
-	m.review.closeEdit(&m)
+	m.review.closeEdit(&m, m.shared())
 	require.True(t, m.review.pass.paused)
 
-	cmd := m.review.send(&m, false)
+	cmd := m.review.send(m.shared(), false)
 	require.NotNil(t, cmd, "the review is on its way")
 
 	letGo := m.review.applyWrote(&m, m.shared(), reviewWroteMsg{agentID: m.review.agentID, notice: "comment added"})
@@ -670,14 +670,14 @@ func TestWatchingHoldsTheDiffWhileTheAgentWrites(t *testing.T) {
 	setReviewAgentState(&m, panel.StateThinking)
 	assert.False(t, m.review.doesFollowLive(m.shared()), "a diff is not redrawn under a writer")
 
-	cmd := m.review.applyDiffPolled(&m, m.shared(), reviewDiffPolledMsg{agentID: m.review.agentID, moved: true})
+	cmd := m.review.applyDiffPolled(m.shared(), reviewDiffPolledMsg{agentID: m.review.agentID, moved: true})
 	assert.Nil(t, cmd, "so nothing is read again while it writes")
 	assert.Contains(t, m.review.staleSaid(m.shared()), "catches up when it stops")
 
 	setReviewAgentState(&m, panel.StateIdle)
 	require.True(t, m.review.doesFollowLive(m.shared()), "the end of a turn is where it catches up")
 
-	cmd = m.review.applyDiffPolled(&m, m.shared(), reviewDiffPolledMsg{agentID: m.review.agentID, moved: true})
+	cmd = m.review.applyDiffPolled(m.shared(), reviewDiffPolledMsg{agentID: m.review.agentID, moved: true})
 	assert.NotNil(t, cmd, "and that is one read rather than one every poll")
 }
 
@@ -830,7 +830,7 @@ func TestAComposerDoesNotOutliveTheDiffItWasWrittenOn(t *testing.T) {
 	m = typeReviewMessage(t, m, "this should say hello")
 
 	reloading := m
-	reload := reloading.review.reload(&reloading)
+	reload := reloading.review.reload(reloading.shared())
 	require.NotNil(t, reload)
 
 	loaded, ok := reload().(reviewLoadedMsg)
@@ -867,7 +867,7 @@ func TestACommentRecordsTheDiffItWasWrittenOn(t *testing.T) {
 
 	anchor := reviewAnchorInTheDiff(t, m)
 
-	cmd := m.review.createThreadCmd(&m, anchor, "this should say hello")
+	cmd := m.review.createThreadCmd(m.shared(), anchor, "this should say hello")
 	require.NotNil(t, cmd)
 
 	wrote, ok := cmd().(reviewWroteMsg)

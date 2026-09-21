@@ -137,7 +137,7 @@ func (r *reviewScreen) refuseHistory(h host, s panelShared, said string) {
 		"not in the work it has now and a comment on it could not be acted on. Press " +
 		keyLabel(s.keys.Review.BaseForward) + " until the whole change is on screen, then comment there."
 
-	h.reportBrief(summary, detail, nil)
+	h.reportBrief(summary, detail)
 	r.notice = summary + ", so nothing can be written on it"
 }
 
@@ -150,7 +150,7 @@ func (r *reviewScreen) refuseViewed(h host, s panelShared) {
 		"something else. Press " + keyLabel(s.keys.Review.BaseForward) + " until the whole change " +
 		"is on screen, then mark it there."
 
-	h.reportBrief(summary, detail, nil)
+	h.reportBrief(summary, detail)
 	r.notice = summary
 }
 
@@ -164,7 +164,7 @@ func (r *reviewScreen) refuseAwaiting(h host, s panelShared) {
 		keyLabel(s.keys.Review.Compose) + " or press " + keyLabel(s.keys.Review.Resolve) +
 		" to resolve it."
 
-	h.reportBrief(summary, detail, nil)
+	h.reportBrief(summary, detail)
 	r.notice = summary
 }
 
@@ -207,7 +207,7 @@ func (d *reviewDiff) search() {
 }
 
 // jumpMatch steps to the next or previous line the search found, wrapping at the ends.
-func (r *reviewScreen) jumpMatch(h host, s panelShared, direction int) tea.Cmd {
+func (r *reviewScreen) jumpMatch(s panelShared, direction int) tea.Cmd {
 	next, ok := r.diff.view.JumpMatch(r.diff.cursor, direction)
 	if !ok {
 		r.notice = "nothing to search for yet"
@@ -218,11 +218,11 @@ func (r *reviewScreen) jumpMatch(h host, s panelShared, direction int) tea.Cmd {
 		return nil
 	}
 
-	return r.moveCursor(h, s, next)
+	return r.moveCursor(s, next)
 }
 
 // jumpOpenThread moves to the next comment nobody has settled, stopping at the ends.
-func (r *reviewScreen) jumpOpenThread(h host, s panelShared, direction int) tea.Cmd {
+func (r *reviewScreen) jumpOpenThread(s panelShared, direction int) tea.Cmd {
 	next, ok := r.diff.view.JumpOpenThread(r.diff.cursor, direction)
 	if !ok || next == r.diff.cursor {
 		r.notice = r.diff.noOpenThreadSaid()
@@ -230,7 +230,7 @@ func (r *reviewScreen) jumpOpenThread(h host, s panelShared, direction int) tea.
 		return nil
 	}
 
-	return r.moveCursor(h, s, next)
+	return r.moveCursor(s, next)
 }
 
 // noOpenThreadSaid is why the key moved nowhere.
@@ -310,7 +310,7 @@ func (r *reviewScreen) toggleExpanded(s panelShared) {
 
 // jumpFile moves to the next or previous file and puts that file's header at the top of the
 // pane.
-func (r *reviewScreen) jumpFile(h host, s panelShared, direction int) tea.Cmd {
+func (r *reviewScreen) jumpFile(s panelShared, direction int) tea.Cmd {
 	next := r.diff.view.JumpFile(r.diff.cursor, direction)
 	if next == r.diff.cursor {
 		return nil
@@ -323,10 +323,10 @@ func (r *reviewScreen) jumpFile(h host, s panelShared, direction int) tea.Cmd {
 	r.diff.pinFloor = r.diff.top
 	r.scrollToCursor(s)
 
-	return r.markThreadReadCmd(h)
+	return r.markThreadReadCmd(s)
 }
 
-func (r *reviewScreen) moveCursor(h host, s panelShared, next int) tea.Cmd {
+func (r *reviewScreen) moveCursor(s panelShared, next int) tea.Cmd {
 	if next == r.diff.cursor {
 		return nil
 	}
@@ -339,11 +339,11 @@ func (r *reviewScreen) moveCursor(h host, s panelShared, next int) tea.Cmd {
 	r.threads.blur()
 	r.scrollToCursor(s)
 
-	return r.markThreadReadCmd(h)
+	return r.markThreadReadCmd(s)
 }
 
-func (r *reviewScreen) scroll(h host, s panelShared, direction int) tea.Cmd {
-	return r.step(h, s, direction, navPageStep)
+func (r *reviewScreen) scroll(s panelShared, direction int) tea.Cmd {
+	return r.step(s, direction, navPageStep)
 }
 
 // reviewWheelStep is how many rows one scroll key moves the diff.
@@ -351,19 +351,19 @@ const reviewWheelStep = 3
 
 func (r *reviewScreen) wheelPressed(h host, s panelShared, pressed string) tea.Cmd {
 	if isBound(pressed, s.keys.Column.ScrollUp) {
-		return r.step(h, s, -1, reviewWheelStep)
+		return r.step(s, -1, reviewWheelStep)
 	}
 
-	return r.step(h, s, 1, reviewWheelStep)
+	return r.step(s, 1, reviewWheelStep)
 }
 
-func (r *reviewScreen) step(h host, s panelShared, direction, rows int) tea.Cmd {
+func (r *reviewScreen) step(s panelShared, direction, rows int) tea.Cmd {
 	cursor := r.diff.cursor
 	for range rows {
 		cursor = r.diff.view.Move(cursor, direction)
 	}
 
-	return r.moveCursor(h, s, cursor)
+	return r.moveCursor(s, cursor)
 }
 
 // panStep is a third of the pane, or the smallest jump until the pane is measured.

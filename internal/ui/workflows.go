@@ -50,8 +50,8 @@ func openWorkflowRename(h host, workflow panel.Workflow, values *workflowFormVal
 	}))
 }
 
-func editWorkflowForm(h host, workflow panel.Workflow) tea.Cmd {
-	if fresh, err := h.client().getWorkflow(workflow.ID); err == nil && fresh != nil {
+func editWorkflowForm(h host, s panelShared, workflow panel.Workflow) tea.Cmd {
+	if fresh, err := s.api.getWorkflow(workflow.ID); err == nil && fresh != nil {
 		workflow = *fresh
 	}
 

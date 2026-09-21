@@ -155,37 +155,45 @@ func (m *model) screenOf(s screen) screenModel {
 	return nil
 }
 
-// host is what a screen asks of the root.
+// host is what a screen asks of the root in the same turn.
 type host interface {
+	// A write bumps the epoch and lands its result as a message every screen's writes share.
 	writeCmd(summary string, write func(api) error) tea.Cmd
 	rowWriteCmd(summary string, write func(api) (written, error)) tea.Cmd
 	openingWriteCmd(summary string, write func(api) (*agentv1.Agent, error)) tea.Cmd
 	queuedCmd(summary string, queued message, write func(api) error) tea.Cmd
+
+	// A failure lands in the messages region.
 	report(summary string, err error)
-	reportBrief(summary, detail string, err error)
+	reportBrief(summary, detail string)
+
+	// The form, the popup, the screen that is up and the refresh are the root's.
 	openForm(f formState) tea.Cmd
 	enter(next screen, target screenTarget) tea.Cmd
 	refreshCmd() tea.Cmd
+	hide() tea.Cmd
+
+	// The stage and the info pane are the root's, and the archive and worktrees screens put
+	// the info pane on the stage.
 	stageInfo()
 	waitToStage() tea.Cmd
-	hide() tea.Cmd
-	client() api
-	repo() ReviewGit
 
-	// An agent stopped for a pass is let go with the files the reader opened over it.
+	// The files a reader opened over a stopped agent are the root's, noted by the review and
+	// carried by a release from the review or the agents screen.
 	noteEdited(agentID string, touched []string)
 	releaseCmd(summary string, agent panel.Agent, said string) tea.Cmd
 
-	// The stage is the root's, and a screen may put an editor on it.
+	// The review puts an editor on the stage.
 	stageEditor(content layout.Content) string
 	unstageEditor()
 	isPaneAlive(pane string) bool
 
-	// The pane on the stage is the agents cursor's, wherever that cursor is asked for.
+	// The pane on the stage is the agents cursor's, and only the agents screen stages it and
+	// hands it the keyboard.
 	stageSelection()
 	selectGuest(pane string)
 
-	// A jump onto a row a filter took off the screen has the filter widened into a search.
+	// The filter is the root's, and the agents screen widens it on a jump to a row it hid.
 	widenFilter()
 
 	// The keys every list shares are the root's to answer.
@@ -198,16 +206,6 @@ type host interface {
 }
 
 var _ host = (*model)(nil)
-
-// client is the service as a screen reads it.
-func (m *model) client() api {
-	return m.api
-}
-
-// repo is the git a screen reads a worktree through.
-func (m *model) repo() ReviewGit {
-	return m.git
-}
 
 // stageEditor puts an editor on the stage with the keys in it, and answers the pane it was
 // given, empty where the split was refused.
@@ -268,6 +266,12 @@ type panelShared struct {
 	width   int
 	height  int
 
+	// api is the service a screen builds its own reads and writes on.
+	api api
+
+	// git is the git the review reads a worktree through.
+	git ReviewGit
+
 	// pane is the column the screen draws its own list, record and legend in.
 	pane   int
 	chrome chromeState
@@ -315,6 +319,8 @@ func (m *model) unmeasured() panelShared {
 		keys:    m.keys,
 		width:   m.width,
 		height:  m.height,
+		api:     m.api,
+		git:     m.git,
 		chrome: chromeState{
 			details:      m.details,
 			filter:       m.filter,

@@ -95,7 +95,7 @@ func (r *reviewScreen) update(h host, s panelShared, msg tea.Msg) tea.Cmd {
 
 		return nil
 	case reviewDiffPolledMsg:
-		return r.applyDiffPolled(h, s, msg)
+		return r.applyDiffPolled(s, msg)
 	case messageEditedMsg:
 		r.applyMessageEdited(h, s, msg)
 
@@ -121,7 +121,7 @@ func (m *model) enterReview(agent panel.Agent) tea.Cmd {
 
 	m.enterScreen(screenReview)
 
-	return m.review.open(m, m.shared(), agent)
+	return m.review.open(m.shared(), agent)
 }
 
 var (

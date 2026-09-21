@@ -32,7 +32,7 @@ func gatedReview(t *testing.T, m model, agents *fakeReviewAgents) model {
 func refreshReview(t *testing.T, m model) model {
 	t.Helper()
 
-	refreshed, ok := m.review.refreshThreadsCmd(&m)().(reviewRefreshedMsg)
+	refreshed, ok := m.review.refreshThreadsCmd(m.shared())().(reviewRefreshedMsg)
 	require.True(t, ok)
 	m.review.applyRefreshed(m.shared(), refreshed)
 

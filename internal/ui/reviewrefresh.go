@@ -92,7 +92,7 @@ type reviewDiffPolledMsg struct {
 
 // refresh is what the panel's own tick asks for while the review is up: the conversation every
 // time, and the worktree every few seconds.
-func (r *reviewScreen) refresh(h host, _ panelShared, now time.Time) tea.Cmd {
+func (r *reviewScreen) refresh(s panelShared, now time.Time) tea.Cmd {
 	if r.diff.view == nil {
 		return nil
 	}
@@ -107,20 +107,20 @@ func (r *reviewScreen) refresh(h host, _ panelShared, now time.Time) tea.Cmd {
 
 	if !r.threads.polling {
 		r.threads.polling = true
-		cmds = append(cmds, r.refreshThreadsCmd(h))
+		cmds = append(cmds, r.refreshThreadsCmd(s))
 	}
 
 	if !r.diff.diffPolling && now.Sub(r.diff.diffPolled) >= reviewDiffPollInterval {
 		r.diff.diffPolling = true
 		r.diff.diffPolled = now
-		cmds = append(cmds, r.pollDiffCmd(h))
+		cmds = append(cmds, r.pollDiffCmd(s))
 	}
 
 	return tea.Batch(cmds...)
 }
 
-func (r reviewScreen) refreshThreadsCmd(h host) tea.Cmd {
-	agents, agentID := h.client().agents, r.agentID
+func (r reviewScreen) refreshThreadsCmd(s panelShared) tea.Cmd {
+	agents, agentID := s.api.agents, r.agentID
 
 	return func() tea.Msg {
 		threads, err := call(reviewTimeout, func(ctx context.Context) ([]*agentv1.ReviewThread, error) {
@@ -148,10 +148,10 @@ func (r reviewScreen) refreshThreadsCmd(h host) tea.Cmd {
 
 // pollDiffCmd asks whether the agent has written anything since the round on screen was taken,
 // hashing the worktree rather than reading a second patch.
-func (r reviewScreen) pollDiffCmd(h host) tea.Cmd {
+func (r reviewScreen) pollDiffCmd(s panelShared) tea.Cmd {
 	agentID, dir := r.agentID, r.dir
 	snapshot := r.round.GetSnapshotSha()
-	repo := h.repo()
+	repo := s.git
 
 	return func() tea.Msg {
 		moved, err := call(reviewTimeout, func(ctx context.Context) (bool, error) {
@@ -204,7 +204,7 @@ func (r *reviewScreen) applyRefreshed(s panelShared, msg reviewRefreshedMsg) {
 	r.applyThreads(s, msg.threads)
 }
 
-func (r *reviewScreen) applyDiffPolled(h host, s panelShared, msg reviewDiffPolledMsg) tea.Cmd {
+func (r *reviewScreen) applyDiffPolled(s panelShared, msg reviewDiffPolledMsg) tea.Cmd {
 	if msg.agentID != r.agentID {
 		return nil
 	}
@@ -225,7 +225,7 @@ func (r *reviewScreen) applyDiffPolled(h host, s panelShared, msg reviewDiffPoll
 		return nil
 	}
 
-	return r.reload(h)
+	return r.reload(s)
 }
 
 // doesFollowLive reports whether the diff on screen is meant to keep up with the agent.
