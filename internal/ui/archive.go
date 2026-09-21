@@ -14,8 +14,8 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-// archiveScreen is the archive screen: the cursor in the archived agents, how they are ordered,
-// and the rows built once for the frame being drawn.
+// archiveScreen is the archive screen: the cursor in the archived agents and how they are
+// ordered.
 type archiveScreen struct {
 	rowCursor
 	sort tabsState
