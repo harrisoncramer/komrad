@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"weave/internal/ui/paint"
+	"weave/lib/xslice"
 	worktreev1 "weave/proto/gen/worktree/v1"
 	"weave/proto/gen/worktree/v1/worktreev1connect"
 
@@ -239,10 +240,9 @@ func TestFocusedRecordStopsAtTheRoom(t *testing.T) {
 }
 
 func fieldLabels(held details) []string {
-	labels := make([]string, 0, len(held.fields))
-	for _, field := range held.fields {
-		labels = append(labels, field.label)
-	}
+	labels := xslice.Map(held.fields, func(field recordField) string {
+		return field.label
+	})
 
 	return labels
 }

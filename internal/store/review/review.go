@@ -10,6 +10,7 @@ import (
 	"weave/db"
 	"weave/db/models"
 	"weave/internal/store"
+	"weave/lib/xslice"
 )
 
 // AuthorKind is who wrote a message.
@@ -498,10 +499,9 @@ func (s *Store) ListViewedFiles(ctx context.Context, agentID string) ([]ViewedFi
 		return nil, fmt.Errorf("failed to list the viewed files of agent %q: %w", agentID, err)
 	}
 
-	viewed := make([]ViewedFile, 0, len(rows))
-	for _, row := range rows {
-		viewed = append(viewed, viewedFileFromRow(*row))
-	}
+	viewed := xslice.Map(rows, func(row *models.ReviewViewedFile) ViewedFile {
+		return viewedFileFromRow(*row)
+	})
 
 	return viewed, nil
 }

@@ -14,6 +14,7 @@ import (
 	"weave/internal/caller"
 	"weave/internal/logging"
 	"weave/internal/logtest"
+	"weave/lib/xslice"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -22,10 +23,9 @@ import (
 func passes(t *testing.T, level slog.Level, results []error) string {
 	t.Helper()
 
-	each := make([]func(context.Context) error, 0, len(results))
-	for _, result := range results {
-		each = append(each, func(context.Context) error { return result })
-	}
+	each := xslice.Map(results, func(result error) func(context.Context) error {
+		return func(context.Context) error { return result }
+	})
 
 	return drive(t, level, each)
 }

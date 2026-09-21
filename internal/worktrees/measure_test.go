@@ -9,6 +9,7 @@ import (
 	"time"
 
 	worktreestore "weave/internal/store/worktree"
+	"weave/lib/xslice"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -19,10 +20,9 @@ import (
 // leaving a fresh measurement alone.
 func TestMeasureTakesTheUnmeasuredFirstThenTheStaleOldestFirst(t *testing.T) {
 	f := newFixture(t)
-	var dirs []string
-	for _, id := range []string{"aaaa", "bbbb", "cccc", "dddd", "eeee", "ffff", "gggg", "hhhh", "iiii", "jjjj"} {
-		dirs = append(dirs, f.cut(t, id))
-	}
+	dirs := xslice.Map([]string{"aaaa", "bbbb", "cccc", "dddd", "eeee", "ffff", "gggg", "hhhh", "iiii", "jjjj"}, func(id string) string {
+		return f.cut(t, id)
+	})
 	fresh, older, oldest := dirs[7], dirs[8], dirs[9]
 	f.sizes.stored[fresh] = worktreestore.Size{
 		Dir:        fresh,

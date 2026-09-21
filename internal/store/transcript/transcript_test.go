@@ -8,6 +8,7 @@ import (
 	"weave/internal/store"
 	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
+	"weave/lib/xslice"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -1002,10 +1003,9 @@ func allHits(results Results) []SearchHit {
 }
 
 func agentIDs(hits []SearchHit) []string {
-	ids := make([]string, 0, len(hits))
-	for _, hit := range hits {
-		ids = append(ids, hit.AgentID)
-	}
+	ids := xslice.Map(hits, func(hit SearchHit) string {
+		return hit.AgentID
+	})
 
 	return ids
 }

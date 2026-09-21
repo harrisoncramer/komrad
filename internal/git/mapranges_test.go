@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"weave/internal/position"
+	"weave/lib/xslice"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -326,13 +327,12 @@ func TestATracedLineHoldsItsContent(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		positions := make([]position.Position, 0, len(kept))
-		for _, line := range kept {
-			positions = append(positions, position.Position{
+		positions := xslice.Map(kept, func(line int) position.Position {
+			return position.Position{
 				Path:  "counted.go",
 				Lines: position.Range{Start: line, End: line + 1},
-			})
-		}
+			}
+		})
 
 		results := position.Transform(position.TransformParams{
 			Positions: positions,

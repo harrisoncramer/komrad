@@ -10,6 +10,7 @@ import (
 	agentstore "weave/internal/store/agent"
 	rowstore "weave/internal/store/row"
 	"weave/internal/weavetest"
+	"weave/lib/xslice"
 	agentv1 "weave/proto/gen/agent/v1"
 	workflowv1 "weave/proto/gen/workflow/v1"
 
@@ -47,10 +48,9 @@ func TestEmptyArchiveDestroysTheWholeArchive(t *testing.T) {
 	putAway := []*agentv1.Agent{create("login"), create("tokens"), create("cache")}
 	kept := create("running")
 
-	ids := make([]string, 0, len(putAway))
-	for _, agent := range putAway {
-		ids = append(ids, agent.GetId())
-	}
+	ids := xslice.Map(putAway, func(agent *agentv1.Agent) string {
+		return agent.GetId()
+	})
 
 	_, err = instance.Agents.ArchiveAgents(ctx, connect.NewRequest(&agentv1.ArchiveAgentsRequest{Ids: ids}))
 	require.NoError(t, err)

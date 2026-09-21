@@ -9,6 +9,7 @@ import (
 	"weave/internal/dbtest"
 	"weave/internal/store"
 	workflowstore "weave/internal/store/workflow"
+	"weave/lib/xslice"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -506,10 +507,9 @@ func TestList(t *testing.T) {
 			listed, err := st.List(ctx)
 			require.NoError(t, err)
 
-			names := make([]string, 0, len(listed))
-			for _, s := range listed {
-				names = append(names, s.Name)
-			}
+			names := xslice.Map(listed, func(s Schedule) string {
+				return s.Name
+			})
 			assert.ElementsMatch(t, tt.wantNames, names)
 		})
 	}
@@ -563,9 +563,9 @@ func TestListPage(t *testing.T) {
 				}
 
 				pages++
-				for _, s := range page {
-					seen = append(seen, s.ID)
-				}
+				seen = append(seen, xslice.Map(page, func(s Schedule) string {
+					return s.ID
+				})...)
 
 				last := page[len(page)-1]
 				cursor = &Cursor{ID: last.ID}

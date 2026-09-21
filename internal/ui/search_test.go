@@ -435,14 +435,13 @@ func TestAgentSpansCoverEveryTurn(t *testing.T) {
 }
 
 func hits(names ...string) []searchHit {
-	out := make([]searchHit, 0, len(names))
-	for _, name := range names {
-		out = append(out, searchHit{
+	out := xslice.Map(names, func(name string) searchHit {
+		return searchHit{
 			agentID: name,
 			name:    name,
 			snippet: name,
-		})
-	}
+		}
+	})
 
 	return out
 }
@@ -682,10 +681,9 @@ type fakeSearchAgents struct {
 func (f *fakeSearchAgents) RestoreAgents(_ context.Context, req *connect.Request[agentv1.RestoreAgentsRequest]) (*connect.Response[agentv1.RestoreAgentsResponse], error) {
 	f.restored = append(f.restored, req.Msg.GetIds()...)
 
-	response := &agentv1.RestoreAgentsResponse{}
-	for _, id := range req.Msg.GetIds() {
-		response.Agents = append(response.Agents, &agentv1.Agent{Id: id, Name: "api-refactor"})
-	}
+	response := &agentv1.RestoreAgentsResponse{Agents: xslice.Map(req.Msg.GetIds(), func(id string) *agentv1.Agent {
+		return &agentv1.Agent{Id: id, Name: "api-refactor"}
+	})}
 
 	return connect.NewResponse(response), nil
 }
@@ -891,10 +889,9 @@ func TestSearchTellsAHiddenHitFromAnArchivedOne(t *testing.T) {
 	})
 
 	built, _ := searchRows(m)
-	rows := make([]view.Row, 0, 3)
-	for _, name := range []string{"running", "dormant", "put-away"} {
-		rows = append(rows, searchRowNamed(t, built, name))
-	}
+	rows := xslice.Map([]string{"running", "dormant", "put-away"}, func(name string) view.Row {
+		return searchRowNamed(t, built, name)
+	})
 
 	list := view.Prepare(view.Snapshot{Rows: rows, Dropped: searchDropped})
 	require.Len(t, list.Lines, 3)

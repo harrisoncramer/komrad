@@ -13,6 +13,7 @@ import (
 	"weave/internal/harness/claude"
 	"weave/internal/mail"
 	"weave/internal/rpcapi"
+	"weave/lib/xslice"
 	"weave/proto/gen/agent/v1/agentv1connect"
 
 	"github.com/spf13/cobra"
@@ -357,10 +358,9 @@ func recordDelivery(ctx context.Context, state *app, mail []mailItem) error {
 		return err
 	}
 
-	ids := make([]string, 0, len(mail))
-	for _, item := range mail {
-		ids = append(ids, item.ID)
-	}
+	ids := xslice.Map(mail, func(item mailItem) string {
+		return item.ID
+	})
 
 	ctx, cancel := context.WithTimeout(ctx, hookTimeout)
 	defer cancel()

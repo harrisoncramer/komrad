@@ -16,6 +16,7 @@ import (
 	"weave/internal/git"
 	"weave/lib/xhttp"
 	"weave/lib/xptr"
+	"weave/lib/xslice"
 )
 
 // DefaultTimeout bounds one call to a forge.
@@ -301,10 +302,7 @@ type Connection[N any] struct {
 
 // PageOf is a connection as one page of pull requests, each node read by toPullRequest.
 func PageOf[N any](c *Connection[N], limit forge.RateLimit, toPullRequest func(N) forge.PullRequest) *forge.Page {
-	pullRequests := make([]forge.PullRequest, 0, len(c.Nodes))
-	for _, node := range c.Nodes {
-		pullRequests = append(pullRequests, toPullRequest(node))
-	}
+	pullRequests := xslice.Map(c.Nodes, toPullRequest)
 
 	return &forge.Page{
 		PullRequests: pullRequests,

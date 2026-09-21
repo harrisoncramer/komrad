@@ -13,6 +13,7 @@ import (
 	"weave/internal/store"
 	forgestore "weave/internal/store/forge"
 	pullrequeststore "weave/internal/store/pullrequest"
+	"weave/lib/xslice"
 )
 
 // pullRequestSyncBudget is how many requests one pass may make for one repository, its first
@@ -718,10 +719,9 @@ func (s *PullRequestSyncer) readDecisions(ctx context.Context, host *hostRead, r
 
 		batch := stale[:min(len(stale), forge.MaxReviewDecisions)]
 		stale = stale[len(batch):]
-		numbers := make([]int, 0, len(batch))
-		for _, pullRequest := range batch {
-			numbers = append(numbers, pullRequest.Number)
-		}
+		numbers := xslice.Map(batch, func(pullRequest pullrequeststore.PullRequest) int {
+			return pullRequest.Number
+		})
 
 		decisions, err := host.forge.ReviewDecisions(ctx, remote, numbers)
 		if recordErr := s.syncs.RecordSyncRequest(ctx, repositoryURL); recordErr != nil {

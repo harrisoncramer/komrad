@@ -1,5 +1,7 @@
 package view
 
+import "weave/lib/xslice"
+
 // Drawn is one glyph the list draws, with the width the layout counts it as.
 type Drawn struct {
 	Name    string
@@ -9,23 +11,23 @@ type Drawn struct {
 
 // Drawings is every glyph the list draws and the width its layout assumes of each.
 func Drawings() []Drawn {
-	drawings := make([]Drawn, 0, len(glyphNames))
-	for _, named := range glyphNames {
-		drawings = append(drawings, Drawn{
+	return xslice.Map(glyphNames, func(named namedGlyph) Drawn {
+		return Drawn{
 			Name:    named.name,
 			Text:    Spell(named.glyph),
 			Columns: plainColumns,
-		})
-	}
+		}
+	})
+}
 
-	return drawings
+// namedGlyph is a glyph and what a report calls it.
+type namedGlyph struct {
+	glyph Glyph
+	name  string
 }
 
 // glyphNames is what each glyph is called in a report.
-var glyphNames = []struct {
-	glyph Glyph
-	name  string
-}{
+var glyphNames = []namedGlyph{
 	{GlyphRepo, "repo"},
 	{GlyphUnverified, "unverified"},
 	{GlyphForge, "forge"},

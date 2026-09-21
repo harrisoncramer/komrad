@@ -24,6 +24,7 @@ import (
 	"weave/internal/store"
 	"weave/internal/storetest"
 	"weave/lib/xptr"
+	"weave/lib/xslice"
 	agentv1 "weave/proto/gen/agent/v1"
 	paginationv1 "weave/proto/gen/pagination/v1"
 	viewv1 "weave/proto/gen/view/v1"
@@ -482,10 +483,9 @@ func TestListAgentsArchived(t *testing.T) {
 			listed, err := svc.ListAgents(ctx, connect.NewRequest(&agentv1.ListAgentsRequest{Archived: tt.archived}))
 			require.NoError(t, err)
 
-			names := make([]string, 0, len(listed.Msg.GetAgents()))
-			for _, agent := range listed.Msg.GetAgents() {
-				names = append(names, agent.GetName())
-			}
+			names := xslice.Map(listed.Msg.GetAgents(), func(agent *agentv1.Agent) string {
+				return agent.GetName()
+			})
 			assert.Equal(t, tt.wantNames, names)
 
 			for _, agent := range listed.Msg.GetAgents() {
@@ -1755,10 +1755,9 @@ func TestSearchTranscriptsScope(t *testing.T) {
 
 			hits := allSearchHits(found.Msg)
 
-			names := make([]string, 0, len(hits))
-			for _, hit := range hits {
-				names = append(names, hit.GetName())
-			}
+			names := xslice.Map(hits, func(hit *agentv1.SearchHit) string {
+				return hit.GetName()
+			})
 			assert.ElementsMatch(t, tt.wantNames, names)
 		})
 	}
@@ -1839,9 +1838,9 @@ func TestSearchTranscriptsScopeSurvivesACursor(t *testing.T) {
 			break
 		}
 
-		for _, hit := range allSearchHits(found.Msg) {
-			names = append(names, hit.GetName())
-		}
+		names = append(names, xslice.Map(allSearchHits(found.Msg), func(hit *agentv1.SearchHit) string {
+			return hit.GetName()
+		})...)
 
 		token = found.Msg.NextPageToken
 		if token == nil {
@@ -2244,10 +2243,9 @@ func storedMetadata(agent *agentv1.Agent) []agentstore.Metadata {
 		return nil
 	}
 
-	stored := make([]agentstore.Metadata, 0, len(agent.GetMetadata()))
-	for _, entry := range agent.GetMetadata() {
-		stored = append(stored, agentstore.Metadata{Key: entry.GetKey(), Value: entry.GetValue()})
-	}
+	stored := xslice.Map(agent.GetMetadata(), func(entry *agentv1.AgentMetadata) agentstore.Metadata {
+		return agentstore.Metadata{Key: entry.GetKey(), Value: entry.GetValue()}
+	})
 
 	return stored
 }
@@ -2520,10 +2518,9 @@ func TestRestoreAgentsRendersEveryAgent(t *testing.T) {
 	}))
 	require.NoError(t, err)
 
-	names := make([]string, 0, len(restored.Msg.GetAgents()))
-	for _, agent := range restored.Msg.GetAgents() {
-		names = append(names, agent.GetName())
-	}
+	names := xslice.Map(restored.Msg.GetAgents(), func(agent *agentv1.Agent) string {
+		return agent.GetName()
+	})
 
 	assert.Equal(t, []string{"auth", "api"}, names)
 	assert.Equal(t, 1, launcher.runningCalls, "liveness is read once for the batch, not once per agent")

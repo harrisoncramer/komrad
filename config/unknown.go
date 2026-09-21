@@ -6,6 +6,8 @@ import (
 	"reflect"
 	"slices"
 	"strings"
+
+	"weave/lib/xslice"
 )
 
 // reportUnknownKeys is the error naming each key no setting answers to alongside the
@@ -20,10 +22,7 @@ func reportUnknownKeys(unused []string) error {
 	paths := slices.Clone(unused)
 	slices.Sort(paths)
 
-	lines := make([]string, 0, len(paths))
-	for _, path := range paths {
-		lines = append(lines, describeUnknownKey(path))
-	}
+	lines := xslice.Map(paths, describeUnknownKey)
 
 	return errors.New(strings.Join(lines, "\n"))
 }

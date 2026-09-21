@@ -12,6 +12,7 @@ import (
 	"weave/internal/ui/layout"
 	"weave/internal/ui/panel"
 	"weave/lib/xptr"
+	"weave/lib/xslice"
 	schedulev1 "weave/proto/gen/schedule/v1"
 	"weave/proto/gen/schedule/v1/schedulev1connect"
 
@@ -508,14 +509,13 @@ func scheduleModel(client schedulev1connect.ScheduleServiceClient, keys config.K
 }
 
 func scheduleItems(names ...string) []scheduleItem {
-	out := make([]scheduleItem, 0, len(names))
-	for _, name := range names {
-		out = append(out, scheduleItem{schedule: panel.Schedule{
+	out := xslice.Map(names, func(name string) scheduleItem {
+		return scheduleItem{schedule: panel.Schedule{
 			ID:      name,
 			Name:    name,
 			Enabled: true,
-		}})
-	}
+		}}
+	})
 
 	return out
 }

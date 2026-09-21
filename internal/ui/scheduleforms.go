@@ -7,16 +7,16 @@ import (
 	"weave/config"
 	"weave/internal/ui/paint/label"
 	"weave/internal/ui/panel"
+	"weave/lib/xslice"
 
 	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/lipgloss"
 )
 
 func scheduleForm(values *panel.ScheduleConfig, workflows []panel.Workflow, keys config.FormKeys) (*huh.Form, []string) {
-	options := make([]huh.Option[string], 0, len(workflows)+1)
-	for _, w := range workflows {
-		options = append(options, huh.NewOption(w.Name+"  "+label.OrDash(w.Cwd), w.ID))
-	}
+	options := xslice.Map(workflows, func(w panel.Workflow) huh.Option[string] {
+		return huh.NewOption(w.Name+"  "+label.OrDash(w.Cwd), w.ID)
+	})
 
 	// A select whose value names none of its options selects the first one and writes it back,
 	// which would move the schedule to a workflow nobody chose.

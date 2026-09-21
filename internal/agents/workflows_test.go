@@ -8,6 +8,7 @@ import (
 	agentstore "weave/internal/store/agent"
 	schedulestore "weave/internal/store/schedule"
 	workflowstore "weave/internal/store/workflow"
+	"weave/lib/xslice"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -673,10 +674,9 @@ func TestRestoreWorkflowCeiling(t *testing.T) {
 }
 
 func workflowNames(listed []workflowstore.Workflow) []string {
-	names := make([]string, 0, len(listed))
-	for _, w := range listed {
-		names = append(names, w.Name)
-	}
+	names := xslice.Map(listed, func(w workflowstore.Workflow) string {
+		return w.Name
+	})
 
 	return names
 }

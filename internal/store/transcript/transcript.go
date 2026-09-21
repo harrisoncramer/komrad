@@ -500,10 +500,7 @@ func splitTerms(query string) queryTerms {
 }
 
 func likePatterns(terms []string) []string {
-	patterns := make([]string, 0, len(terms))
-	for _, term := range terms {
-		patterns = append(patterns, likePattern(term))
-	}
+	patterns := xslice.Map(terms, likePattern)
 
 	return patterns
 }

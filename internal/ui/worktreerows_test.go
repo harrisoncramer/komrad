@@ -197,10 +197,9 @@ func TestWorktreeRowsLeaveTheOccupantOffTheList(t *testing.T) {
 func TestWorktreeRowNames(t *testing.T) {
 	rows := worktreeRows(worktreeFixture(), worktreesOrder(tabsState{}))
 
-	names := make([]string, 0, len(rows))
-	for _, row := range rows {
-		names = append(names, row.name())
-	}
+	names := xslice.Map(rows, func(row worktreeRow) string {
+		return row.name()
+	})
 
 	assert.Equal(t, []string{
 		"/home/h/chariot/admin",

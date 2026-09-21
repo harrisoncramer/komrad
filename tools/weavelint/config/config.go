@@ -12,6 +12,16 @@ type Config struct {
 	OnelineFunc    OnelineFuncConfig    `json:"oneline_func"`
 	ConversionName ConversionNameConfig `json:"conversion_name"`
 	CommentClause  CommentClauseConfig  `json:"comment_clause"`
+	SingleAppend   SingleAppendConfig   `json:"single_append"`
+}
+
+// SingleAppendConfig settles where the mapping loop rule applies.
+type SingleAppendConfig struct {
+	// Skip turns the rule off.
+	Skip bool `json:"skip"`
+	// Exclude is unanchored regexps over the file path, for the package that defines Map and
+	// the generated code nobody edits.
+	Exclude []string `json:"exclude"`
 }
 
 // CommentClauseConfig settles where the comment clause rule applies.

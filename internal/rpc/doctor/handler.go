@@ -6,6 +6,7 @@ import (
 
 	"weave/internal/doctor"
 	"weave/internal/fail"
+	"weave/lib/xslice"
 	doctorv1 "weave/proto/gen/doctor/v1"
 
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -31,9 +32,8 @@ func NewHandler(params NewHandlerParams) *Handler {
 func (s *Handler) RunDoctor(ctx context.Context, _ *emptypb.Empty) (*doctorv1.RunDoctorResponse, *fail.Error) {
 	report := doctor.Run(ctx, s.env, s.checks)
 
-	findings := make([]*doctorv1.Finding, 0, len(report.Findings))
-	for _, finding := range report.Findings {
-		findings = append(findings, &doctorv1.Finding{
+	findings := xslice.Map(report.Findings, func(finding doctor.Finding) *doctorv1.Finding {
+		return &doctorv1.Finding{
 			Name:        finding.Name,
 			Description: finding.Description,
 			Status:      string(finding.Status),
@@ -41,8 +41,8 @@ func (s *Handler) RunDoctor(ctx context.Context, _ *emptypb.Empty) (*doctorv1.Ru
 			Code:        finding.Code,
 			Error:       finding.Error,
 			Fix:         finding.Fix,
-		})
-	}
+		}
+	})
 
 	return &doctorv1.RunDoctorResponse{
 		Findings: findings,

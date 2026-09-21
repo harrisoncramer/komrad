@@ -1,18 +1,20 @@
 package view
 
-import "weave/internal/ui/paint"
+import (
+	"weave/internal/ui/paint"
+	"weave/lib/xslice"
+)
 
 // Prepare turns a snapshot of the agents list into the view model a renderer draws.
 func Prepare(snapshot Snapshot) List {
-	lines := make([]Line, 0, len(snapshot.Rows))
-	for _, row := range snapshot.Rows {
-		lines = append(lines, prepareLine(prepareLineParams{
+	lines := xslice.Map(snapshot.Rows, func(row Row) Line {
+		return prepareLine(prepareLineParams{
 			row:           row,
 			focused:       isFocused(row, snapshot.Focused),
 			caretHidden:   snapshot.CaretHidden,
 			barBlinkedOut: snapshot.BarBlinkedOut,
-		}))
-	}
+		})
+	})
 
 	columns := fitColumns(snapshot.Pane, snapshot.Dropped)
 	if snapshot.Pane > 0 {

@@ -8,6 +8,7 @@ import (
 
 	"weave/config"
 	"weave/internal/ui"
+	"weave/lib/xslice"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -26,10 +27,9 @@ func rootKeysEnvWithPrefix(cfg *config.Config, prefix string, rootKeys ...string
 	env.Output = func(_ context.Context, _ string, args ...string) (string, error) {
 		switch {
 		case slices.Contains(args, "list-keys"):
-			lines := make([]string, 0, len(rootKeys))
-			for _, key := range rootKeys {
-				lines = append(lines, "bind-key  -T root "+key+"    copy-mode -u")
-			}
+			lines := xslice.Map(rootKeys, func(key string) string {
+				return "bind-key  -T root " + key + "    copy-mode -u"
+			})
 
 			return strings.Join(lines, "\n"), nil
 		case slices.Contains(args, "prefix"):

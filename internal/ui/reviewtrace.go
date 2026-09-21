@@ -8,6 +8,7 @@ import (
 	"weave/internal/git"
 	"weave/internal/position"
 	"weave/internal/ui/diffview"
+	"weave/lib/xslice"
 	agentv1 "weave/proto/gen/agent/v1"
 )
 
@@ -134,13 +135,12 @@ type traceOneParams struct {
 // traceOne moves every thread of one snapshot pair, keeping the file when the lines are gone so
 // a thread whose code was rewritten still says which file it was about.
 func traceOne(params traceOneParams) map[string]diffview.Traced {
-	positions := make([]position.Position, 0, len(params.Threads))
-	for _, thread := range params.Threads {
-		positions = append(positions, position.Position{
+	positions := xslice.Map(params.Threads, func(thread *agentv1.ReviewThread) position.Position {
+		return position.Position{
 			Path:  thread.GetFilePath(),
 			Lines: threadRange(thread),
-		})
-	}
+		}
+	})
 
 	results := position.Transform(position.TransformParams{
 		Positions: positions,

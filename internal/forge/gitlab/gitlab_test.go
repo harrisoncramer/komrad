@@ -14,6 +14,7 @@ import (
 	"weave/internal/forge/graphql"
 	"weave/internal/git"
 	"weave/lib/xptr"
+	"weave/lib/xslice"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -374,10 +375,9 @@ func TestListChangedSplitsOnComplexity(t *testing.T) {
 	require.NoError(t, err)
 	assert.Len(t, listed.PullRequests, 3, "every project is read once the batch fits")
 
-	var batches []int
-	for _, seen := range fake.calls {
-		batches = append(batches, strings.Count(seen.Query, "project(fullPath:"))
-	}
+	batches := xslice.Map(fake.calls, func(seen call) int {
+		return strings.Count(seen.Query, "project(fullPath:")
+	})
 	assert.Equal(t, []int{2, 1, 1, 1}, batches, "two are refused, then one at a time since one filled the limit")
 }
 
@@ -627,10 +627,9 @@ func TestReviewDecisionsSplitsOnComplexity(t *testing.T) {
 	assert.Len(t, decisions, forge.MaxReviewDecisions)
 	assert.Equal(t, forge.ReviewDecisionApproved, decisions[50])
 
-	var batches []int
-	for _, seen := range fake.calls {
-		batches = append(batches, strings.Count(seen.Query, "mergeRequest(iid:"))
-	}
+	batches := xslice.Map(fake.calls, func(seen call) int {
+		return strings.Count(seen.Query, "mergeRequest(iid:")
+	})
 	assert.Equal(t, []int{13, 6, 12, 6, 11, 5, 10, 10, 10, 3}, batches, "each refusal lowers the ceiling the score may grow the batch back to")
 }
 

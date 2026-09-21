@@ -11,6 +11,7 @@ import (
 
 	"weave/internal/fail"
 	"weave/internal/logging"
+	"weave/lib/xslice"
 )
 
 // ErrNoSuchTrace says nothing in the log was written under the trace asked for.
@@ -107,10 +108,9 @@ func (r *Reader) RecentTraces(limit int) ([]Summary, error) {
 		order = order[len(order)-limit:]
 	}
 
-	summaries := make([]Summary, 0, len(order))
-	for _, trace := range order {
-		summaries = append(summaries, *seen[trace])
-	}
+	summaries := xslice.Map(order, func(trace string) Summary {
+		return *seen[trace]
+	})
 
 	return summaries, nil
 }

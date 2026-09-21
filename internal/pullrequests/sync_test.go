@@ -21,6 +21,7 @@ import (
 	pullrequeststore "weave/internal/store/pullrequest"
 	workflowstore "weave/internal/store/workflow"
 	"weave/lib/xptr"
+	"weave/lib/xslice"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -108,10 +109,7 @@ func (f *scriptedForge) ListChanged(_ context.Context, params forge.ListChangedP
 }
 
 func (f *scriptedForge) ReviewDecisions(_ context.Context, _ git.RemoteURL, numbers []int) (map[int]forge.ReviewDecision, error) {
-	spelled := make([]string, 0, len(numbers))
-	for _, number := range numbers {
-		spelled = append(spelled, strconv.Itoa(number))
-	}
+	spelled := xslice.Map(numbers, strconv.Itoa)
 	f.requests = append(f.requests, "decisions:"+strings.Join(spelled, ","))
 	if f.refuse != nil {
 		return nil, f.refuse

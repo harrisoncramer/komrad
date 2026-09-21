@@ -10,6 +10,7 @@ import (
 	"weave/db/models"
 	"weave/internal/fail"
 	"weave/internal/store"
+	"weave/lib/xslice"
 )
 
 // ErrHostTaken says a host already has a connection.
@@ -120,10 +121,7 @@ func (s *Store) List(ctx context.Context) ([]Connection, error) {
 		return nil, fmt.Errorf("failed to list connections: %w", err)
 	}
 
-	connections := make([]Connection, 0, len(rows))
-	for _, row := range rows {
-		connections = append(connections, fromRow(row))
-	}
+	connections := xslice.Map(rows, fromRow)
 
 	return connections, nil
 }

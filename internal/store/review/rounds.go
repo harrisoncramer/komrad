@@ -171,10 +171,9 @@ func (s *Store) ListRounds(ctx context.Context, agentID string) ([]Round, error)
 		return nil, fmt.Errorf("failed to list the review rounds of agent %q: %w", agentID, err)
 	}
 
-	rounds := make([]Round, 0, len(rows))
-	for _, row := range rows {
-		rounds = append(rounds, roundFromRow(*row))
-	}
+	rounds := xslice.Map(rows, func(row *models.ReviewRound) Round {
+		return roundFromRow(*row)
+	})
 
 	return rounds, nil
 }

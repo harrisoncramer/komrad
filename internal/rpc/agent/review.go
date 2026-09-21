@@ -9,6 +9,7 @@ import (
 	"weave/internal/rpcerr"
 	reviewstore "weave/internal/store/review"
 	"weave/lib/dates"
+	"weave/lib/xslice"
 	agentv1 "weave/proto/gen/agent/v1"
 )
 
@@ -54,10 +55,7 @@ func (s *Handler) ListReviewThreads(ctx context.Context, req *agentv1.ListReview
 		return nil, rpcerr.From(err, "failed to list the review threads")
 	}
 
-	answered := make([]*agentv1.ReviewThread, 0, len(threads))
-	for _, thread := range threads {
-		answered = append(answered, renderReviewThread(thread))
-	}
+	answered := xslice.Map(threads, renderReviewThread)
 
 	return &agentv1.ListReviewThreadsResponse{Threads: answered}, nil
 }
@@ -163,10 +161,7 @@ func (s *Handler) ListReviewRounds(ctx context.Context, req *agentv1.ListReviewR
 		return nil, rpcerr.From(err, "failed to list the review rounds")
 	}
 
-	answered := make([]*agentv1.ReviewRound, 0, len(rounds))
-	for _, round := range rounds {
-		answered = append(answered, renderReviewRound(round))
-	}
+	answered := xslice.Map(rounds, renderReviewRound)
 
 	return &agentv1.ListReviewRoundsResponse{Rounds: answered}, nil
 }
@@ -178,10 +173,7 @@ func (s *Handler) ListReviews(ctx context.Context, req *agentv1.ListReviewsReque
 		return nil, rpcerr.From(err, "failed to list the reviews")
 	}
 
-	answered := make([]*agentv1.Review, 0, len(reviews))
-	for _, review := range reviews {
-		answered = append(answered, renderReview(review))
-	}
+	answered := xslice.Map(reviews, renderReview)
 
 	return &agentv1.ListReviewsResponse{Reviews: answered}, nil
 }
@@ -237,10 +229,7 @@ func (s *Handler) ListReviewViewedFiles(ctx context.Context, req *agentv1.ListRe
 		return nil, rpcerr.From(err, "failed to list the viewed files")
 	}
 
-	answered := make([]*agentv1.ReviewViewedFile, 0, len(files))
-	for _, file := range files {
-		answered = append(answered, renderReviewViewedFile(file))
-	}
+	answered := xslice.Map(files, renderReviewViewedFile)
 
 	return &agentv1.ListReviewViewedFilesResponse{Viewed: answered}, nil
 }
@@ -275,14 +264,11 @@ func renderReviewThread(thread reviews.ReviewThreadWithMessages) *agentv1.Review
 		UnreadByHuman: thread.Thread.UnreadByHuman,
 		CreatedAt:     dates.Stamp(thread.Thread.CreatedAt),
 		UpdatedAt:     dates.Stamp(thread.Thread.UpdatedAt),
+		Messages:      xslice.Map(thread.Messages, renderReviewMessage),
 	}
 
 	if at := thread.Thread.ResolvedAt; at != nil {
 		answered.ResolvedAt = dates.Stamp(*at)
-	}
-
-	for _, message := range thread.Messages {
-		answered.Messages = append(answered.Messages, renderReviewMessage(message))
 	}
 
 	return answered

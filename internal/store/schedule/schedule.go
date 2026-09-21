@@ -11,6 +11,7 @@ import (
 	"weave/db"
 	"weave/db/models"
 	"weave/internal/store"
+	"weave/lib/xslice"
 )
 
 type Schedule struct {
@@ -74,10 +75,9 @@ func (s *Store) List(ctx context.Context) ([]Schedule, error) {
 		return nil, fmt.Errorf("failed to list schedules: %w", err)
 	}
 
-	schedules := make([]Schedule, 0, len(rows))
-	for _, row := range rows {
-		schedules = append(schedules, scheduleFromRow(row.Schedule))
-	}
+	schedules := xslice.Map(rows, func(row *models.ListSchedulesRow) Schedule {
+		return scheduleFromRow(row.Schedule)
+	})
 
 	return schedules, nil
 }
@@ -98,10 +98,9 @@ func (s *Store) ListPage(ctx context.Context, limit int64, cursor *Cursor) ([]Sc
 		return nil, fmt.Errorf("failed to list a page of schedules: %w", err)
 	}
 
-	schedules := make([]Schedule, 0, len(rows))
-	for _, row := range rows {
-		schedules = append(schedules, scheduleFromRow(row.Schedule))
-	}
+	schedules := xslice.Map(rows, func(row *models.ListSchedulesPageRow) Schedule {
+		return scheduleFromRow(row.Schedule)
+	})
 
 	return schedules, nil
 }
@@ -249,10 +248,9 @@ func (s *Store) ListInWorkflow(ctx context.Context, workflowID string) ([]Schedu
 		return nil, fmt.Errorf("failed to list the schedules of workflow %q: %w", workflowID, err)
 	}
 
-	schedules := make([]Schedule, 0, len(rows))
-	for _, row := range rows {
-		schedules = append(schedules, scheduleFromRow(row.Schedule))
-	}
+	schedules := xslice.Map(rows, func(row *models.ListWorkflowSchedulesRow) Schedule {
+		return scheduleFromRow(row.Schedule)
+	})
 
 	return schedules, nil
 }

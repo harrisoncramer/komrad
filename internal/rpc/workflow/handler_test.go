@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"weave/lib/xslice"
 	workflowv1weave "weave/proto/gen/workflow/v1/workflowv1weave"
 
 	"weave/internal/agents"
@@ -665,10 +666,9 @@ func TestListWorkflowsArchived(t *testing.T) {
 			}))
 			require.NoError(t, err)
 
-			names := make([]string, 0, len(listed.Msg.GetWorkflows()))
-			for _, workflow := range listed.Msg.GetWorkflows() {
-				names = append(names, workflow.GetName())
-			}
+			names := xslice.Map(listed.Msg.GetWorkflows(), func(workflow *workflowv1.Workflow) string {
+				return workflow.GetName()
+			})
 			require.Equal(t, tt.wantNames, names)
 
 			if !tt.archived {

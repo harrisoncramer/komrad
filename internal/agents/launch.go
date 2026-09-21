@@ -18,6 +18,7 @@ import (
 	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
 	"weave/lib/xptr"
+	"weave/lib/xslice"
 	"weave/lib/xstr"
 )
 
@@ -677,14 +678,13 @@ func claimRoomForRestoredChildren(ctx context.Context, agents restoredChildSlotL
 		return fmt.Errorf("failed to look up %d parents of the restoring children: %w", len(parentIDs), err)
 	}
 
-	wanted := make([]parentRoom, 0, len(parents))
-	for _, parent := range parents {
-		wanted = append(wanted, parentRoom{
+	wanted := xslice.Map(parents, func(parent agentstore.Agent) parentRoom {
+		return parentRoom{
 			id:   parent.ID,
 			name: parent.Name,
 			want: want[parent.ID],
-		})
-	}
+		}
+	})
 
 	return requireRoomForChildren(ctx, agents, maxChildren, wanted)
 }

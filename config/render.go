@@ -6,6 +6,8 @@ import (
 	"strconv"
 	"strings"
 
+	"weave/lib/xslice"
+
 	"github.com/invopop/jsonschema"
 )
 
@@ -120,12 +122,7 @@ func renderValue(value any) (string, error) {
 		// 'f' rather than the shortest form, which would write a fraction in exponent notation.
 		return strconv.FormatFloat(typed, 'f', -1, 64), nil
 	case []string:
-		quoted := make([]string, 0, len(typed))
-		for _, item := range typed {
-			quoted = append(quoted, strconv.Quote(item))
-		}
-
-		return "[" + strings.Join(quoted, ", ") + "]", nil
+		return "[" + strings.Join(xslice.Map(typed, strconv.Quote), ", ") + "]", nil
 	default:
 		return "", fmt.Errorf("unsupported default type %T", value)
 	}

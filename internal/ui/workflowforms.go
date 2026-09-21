@@ -7,6 +7,7 @@ import (
 
 	"weave/config"
 	"weave/internal/ui/panel"
+	"weave/lib/xslice"
 
 	"github.com/charmbracelet/huh"
 )
@@ -280,9 +281,9 @@ func hookOptions(available []hookChoice, chosen string) []huh.Option[string] {
 	options := make([]huh.Option[string], 0, len(available)+2)
 	options = append(options, huh.NewOption("None", ""))
 
-	for _, hook := range available {
-		options = append(options, huh.NewOption(hook.name, hook.name))
-	}
+	options = append(options, xslice.Map(available, func(hook hookChoice) huh.Option[string] {
+		return huh.NewOption(hook.name, hook.name)
+	})...)
 
 	offered := slices.ContainsFunc(available, func(a hookChoice) bool { return a.name == chosen })
 	if chosen != "" && !offered {

@@ -108,10 +108,9 @@ func TestList(t *testing.T) {
 			listed, err := st.List(ctx)
 			require.NoError(t, err)
 
-			names := make([]string, 0, len(listed))
-			for _, workflow := range listed {
-				names = append(names, workflow.Name)
-			}
+			names := xslice.Map(listed, func(workflow Workflow) string {
+				return workflow.Name
+			})
 			assert.ElementsMatch(t, tt.wantNames, names)
 		})
 	}
@@ -215,10 +214,9 @@ func TestListPageArchived(t *testing.T) {
 			page, err := st.ListPage(ctx, 10, nil, tt.archived)
 			require.NoError(t, err)
 
-			names := make([]string, 0, len(page))
-			for _, workflow := range page {
-				names = append(names, workflow.Name)
-			}
+			names := xslice.Map(page, func(workflow Workflow) string {
+				return workflow.Name
+			})
 			assert.Equal(t, tt.wantNames, names)
 
 			if !tt.archived {

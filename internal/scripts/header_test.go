@@ -8,6 +8,8 @@ import (
 	"testing"
 	"time"
 
+	"weave/lib/xslice"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -130,10 +132,9 @@ func TestReadHeader(t *testing.T) {
 	entries, err := os.ReadDir(fixtureDir)
 	require.NoError(t, err)
 
-	files := make([]string, 0, len(entries))
-	for _, entry := range entries {
-		files = append(files, entry.Name())
-	}
+	files := xslice.Map(entries, func(entry os.DirEntry) string {
+		return entry.Name()
+	})
 
 	assert.ElementsMatch(t, files, described, "every file in %s wants a row of its own", fixtureDir)
 }

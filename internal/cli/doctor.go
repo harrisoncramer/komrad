@@ -14,7 +14,9 @@ import (
 	"weave/internal/version"
 	"weave/lib/xhttp"
 	"weave/lib/xslice"
+	doctorv1 "weave/proto/gen/doctor/v1"
 	"weave/proto/gen/doctor/v1/doctorv1connect"
+	forgev1 "weave/proto/gen/forge/v1"
 
 	"connectrpc.com/connect"
 	"github.com/spf13/cobra"
@@ -151,9 +153,8 @@ func (a *app) askEngineDoctor(ctx context.Context) ([]doctor.Finding, error) {
 		return nil, err
 	}
 
-	findings := make([]doctor.Finding, 0, len(resp.Msg.GetFindings()))
-	for _, finding := range resp.Msg.GetFindings() {
-		findings = append(findings, doctor.Finding{
+	findings := xslice.Map(resp.Msg.GetFindings(), func(finding *doctorv1.Finding) doctor.Finding {
+		return doctor.Finding{
 			Name:        finding.GetName(),
 			Description: finding.GetDescription(),
 			Status:      doctor.Status(finding.GetStatus()),
@@ -161,8 +162,8 @@ func (a *app) askEngineDoctor(ctx context.Context) ([]doctor.Finding, error) {
 			Code:        finding.GetCode(),
 			Error:       finding.GetError(),
 			Fix:         finding.GetFix(),
-		})
-	}
+		}
+	})
 
 	return findings, nil
 }
@@ -209,15 +210,14 @@ func (a *app) buildDoctor() (doctor.Env, doctor.Settings, error) {
 			return nil, err
 		}
 
-		statuses := make([]doctor.ForgeStatus, 0, len(resp.Msg.GetChecks()))
-		for _, check := range resp.Msg.GetChecks() {
-			statuses = append(statuses, doctor.ForgeStatus{
+		statuses := xslice.Map(resp.Msg.GetChecks(), func(check *forgev1.ForgeCheck) doctor.ForgeStatus {
+			return doctor.ForgeStatus{
 				Host:        check.GetForge().GetHost(),
 				Login:       check.GetForge().GetLogin(),
 				Problem:     check.GetProblem(),
 				ProblemKind: check.GetProblemKind(),
-			})
-		}
+			}
+		})
 
 		return statuses, nil
 	}

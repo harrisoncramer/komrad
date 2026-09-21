@@ -9,6 +9,7 @@ import (
 	"weave/internal/store"
 	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
+	"weave/lib/xslice"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -435,10 +436,9 @@ func TestListStaleDecisionsAnswersOpenRowsOnLiveBranches(t *testing.T) {
 	stale, err := h.syncs.ListStaleDecisions(ctx, weave)
 	require.NoError(t, err)
 
-	numbers := make([]int, 0, len(stale))
-	for _, pullRequest := range stale {
-		numbers = append(numbers, pullRequest.Number)
-	}
+	numbers := xslice.Map(stale, func(pullRequest PullRequest) int {
+		return pullRequest.Number
+	})
 	assert.Equal(t, []int{3, 1}, numbers, "newest change first")
 }
 

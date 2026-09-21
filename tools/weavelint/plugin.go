@@ -8,9 +8,10 @@
 //
 // The sentinel, handler, one-line and comment rules read syntax alone, so for them a name is only a name: a package
 // aliased to errors reads as the standard library's, and one brought in by a dot import does not
-// read as anything at all. The secret rule needs to know a method's receiver and the conversion
-// rule where a result type is declared, so the plugin loads types for every package it runs
-// over, which the other linters in the pass already pay for.
+// read as anything at all. The secret rule needs to know a method's receiver, the conversion
+// rule where a result type is declared and the mapping rule what a loop ranges over, so the
+// plugin loads types for every package it runs over, which the other linters in the pass
+// already pay for.
 package weavelint
 
 import (
@@ -73,6 +74,11 @@ func (l *linter) BuildAnalyzers() ([]*analysis.Analyzer, error) {
 		return nil, err
 	}
 
+	mappings, err := newSingleAppend(l.config.SingleAppend)
+	if err != nil {
+		return nil, err
+	}
+
 	return []*analysis.Analyzer{
 		sentinels,
 		inline,
@@ -83,6 +89,7 @@ func (l *linter) BuildAnalyzers() ([]*analysis.Analyzer, error) {
 		newOnelineFunc(l.config.OnelineFunc),
 		conversions,
 		comments,
+		mappings,
 	}, nil
 }
 

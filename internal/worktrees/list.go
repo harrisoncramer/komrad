@@ -174,12 +174,8 @@ func (l *Lister) List(ctx context.Context) (*Listing, error) {
 	}
 
 	found := walk(dirs)
-	listing := &Listing{Dirs: dirs, UnreadableDirs: found.Unreadable}
-	for _, dir := range found.Paths {
-		listing.Worktrees = append(listing.Worktrees, answer(dir))
-	}
 
-	return listing, nil
+	return &Listing{Dirs: dirs, UnreadableDirs: found.Unreadable, Worktrees: xslice.Map(found.Paths, answer)}, nil
 }
 
 // Get is one directory under the worktree directories, with what answers for it.
