@@ -639,3 +639,38 @@ func (s *LifecycleService) removeRunLogs(ctx context.Context, ids []string) {
 		}
 	}
 }
+
+// failAs marks an agent as having failed create or cleanup and leaves the row where it was.
+func failAs(ctx context.Context, agents agentFailWriter, agent agentstore.Agent, state agentstore.State, verb string, cause error) { //nolint:revive // a params struct is the follow-up
+	agent.State = state
+	if err := agents.Update(ctx, agent); err != nil {
+		logging.From(ctx).LogAttrs(ctx, slog.LevelError, "failed to record why an agent's lifecycle action failed",
+			append([]slog.Attr{
+				slog.String(logging.AgentID, agent.ID),
+				slog.String(logging.LifecycleAction, verb),
+			}, logging.Err(err)...)...)
+
+		return
+	}
+
+	reason := store.FailureReason(cause)
+	if _, err := agents.SetMetadata(ctx, agentstore.SetMetadataParams{
+		ID:    agent.ID,
+		Key:   "error",
+		Value: &reason,
+	}); err != nil {
+		logging.From(ctx).LogAttrs(ctx, slog.LevelError, "failed to record why an agent's lifecycle action failed",
+			append([]slog.Attr{
+				slog.String(logging.AgentID, agent.ID),
+				slog.String(logging.LifecycleAction, verb),
+			}, logging.Err(err)...)...)
+	}
+}
+
+const namedMissing = 5
+
+func workflowIDs(agents []agentstore.Agent) []string {
+	unique := xslice.UniqueBy(agents, func(agent agentstore.Agent) string { return agent.WorkflowID })
+
+	return xslice.Map(unique, func(agent agentstore.Agent) string { return agent.WorkflowID })
+}
