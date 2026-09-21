@@ -3,6 +3,7 @@ package ui
 import (
 	"errors"
 	"fmt"
+	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
 )
@@ -167,20 +168,15 @@ func (m model) jumpToRow(key string) (model, tea.Cmd, bool) {
 	// A hidden row, one a filter took off the screen, or a workflow a flat list draws no row
 	// for, would make the jump quietly do nothing, so each is revealed on a copy the caller
 	// drops when the row is out of reach for some other reason.
+	if strings.HasPrefix(key, workflowRowPrefix) {
+		revealed.tree.sort.flat = false
+	}
 	if rowIndexOfKey(revealed.agentRows(), key) < 0 {
 		revealed.filter.mode = filterModeSearch
 	}
 	if rowIndexOfKey(revealed.agentRows(), key) < 0 {
 		revealed.filter.mode = m.filter.mode
 		revealed.tree.showHidden = true
-	}
-	if rowIndexOfKey(revealed.agentRows(), key) < 0 {
-		revealed.filter.mode = filterModeSearch
-	}
-	if rowIndexOfKey(revealed.agentRows(), key) < 0 {
-		revealed.filter.mode = m.filter.mode
-		revealed.tree.showHidden = m.tree.showHidden
-		revealed.tree.sort.flat = false
 	}
 	if rowIndexOfKey(revealed.agentRows(), key) < 0 {
 		revealed.filter.mode = filterModeSearch

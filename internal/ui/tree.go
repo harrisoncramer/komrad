@@ -335,8 +335,10 @@ func agentRowKey(id string) string {
 	return "agent:" + id
 }
 
+const workflowRowPrefix = "workflow:"
+
 func workflowRowKey(id string) string {
-	return "workflow:" + id
+	return workflowRowPrefix + id
 }
 
 func (r agentRow) key() string {

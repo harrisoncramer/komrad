@@ -186,7 +186,8 @@ func (m model) doesListFitTabs(title, tally string, help func(model) keyMap) boo
 
 func (m *model) blurTabs() {
 	if spec := m.tabsSpec(); spec != nil {
-		spec.state(m).focused = false
+		state := spec.state(m)
+		state.focused, state.onGroup = false, false
 	}
 }
 

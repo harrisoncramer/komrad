@@ -270,6 +270,21 @@ func TestTabsGroupStopFlipsFlat(t *testing.T) {
 	assert.Equal(t, tabsState{chosen: "last-accessed", focused: true, onGroup: true, flat: true}, back.worktrees.sort, "the focus comes back on the chosen column, a tab from the stop")
 }
 
+// TestBlurLeavesTheGroupStop covers the focus leaving the strip by any way but escape coming
+// back on the chosen column rather than on the stop, so the next direction key turns the arrow.
+func TestBlurLeavesTheGroupStop(t *testing.T) {
+	m := sortedWorktreesModel()
+
+	onStop := send(t, send(t, send(t, m, "f"), "tab"), "tab")
+	require.True(t, onStop.worktrees.sort.onGroup)
+
+	onStop.blurTabs()
+	assert.Equal(t, tabsState{chosen: "last-accessed"}, onStop.worktrees.sort)
+
+	turned := send(t, send(t, onStop, "f"), "k")
+	assert.Equal(t, tabsState{chosen: "last-accessed", direction: tabUp, focused: true}, turned.worktrees.sort)
+}
+
 // TestFlatWorktreesCursorLeavesAHeadingForARow covers a cursor on a heading landing on the
 // nearest row once the headings are gone.
 func TestFlatWorktreesCursorLeavesAHeadingForARow(t *testing.T) {
