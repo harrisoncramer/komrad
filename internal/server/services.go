@@ -47,7 +47,7 @@ type services struct {
 	transcriptSync  *transcripts.TranscriptSyncer
 	forge           *forge.Service
 	pullRequestSync *pullrequests.PullRequestSyncer
-	worktrees       *worktrees.Lister
+	worktreeLister  *worktrees.Lister
 	inspector       *worktrees.Inspector
 	remover         *worktrees.Remover
 	measurer        *worktrees.Measurer
@@ -61,6 +61,7 @@ func BuiltinScriptsDir(cacheDir string) string {
 
 func buildServices(params NewServerParams, st *stores) (*services, error) {
 	loadConfig := func() (*config.Config, error) { return config.LoadStack(params.ConfigStack) }
+	gitClient := git.NewClient()
 
 	mailService := mail.NewMailService(mail.NewMailServiceParams{
 		MailReadWriter: st.mail,
@@ -138,7 +139,7 @@ func buildServices(params NewServerParams, st *stores) (*services, error) {
 		Viewed:    st.review,
 		Rounds:    st.review,
 		Reviews:   st.review,
-		Snapshots: git.NewClient(),
+		Snapshots: gitClient,
 		Workflows: st.workflows,
 		Agents:    st.agents,
 		Mailer:    mailService,
@@ -159,13 +160,13 @@ func buildServices(params NewServerParams, st *stores) (*services, error) {
 		Workflows: st.workflows,
 		Settler:   settler,
 		Notifier:  mailService,
-		Rebaser:   git.NewClient(),
+		Rebaser:   gitClient,
 	})
 	adoptService := agents.NewAdoptService(agents.NewAdoptServiceParams{
 		Agents:    st.agents,
 		Workflows: st.workflows,
 		Launch:    launchService,
-		Worktrees: git.NewClient(),
+		Worktrees: gitClient,
 	})
 	emptyWorkflows := agents.NewEmptyWorkflowDeleter(agents.NewEmptyWorkflowDeleterParams{
 		Workflows: st.workflows,
@@ -180,7 +181,7 @@ func buildServices(params NewServerParams, st *stores) (*services, error) {
 		Tx:             st.pool,
 		Scripts:        scriptService,
 		Reviews:        st.review,
-		Snapshots:      git.NewClient(),
+		Snapshots:      gitClient,
 		LogsDir:        runLogsDir,
 		FramesDir:      params.Env.FramesDir(),
 		MaxAgents:      params.MaxAgents,
@@ -227,8 +228,8 @@ func buildServices(params NewServerParams, st *stores) (*services, error) {
 	})
 	cwdSyncer := checkouts.NewCwdSyncer(checkouts.NewCwdSyncerParams{
 		Agents:  st.agents,
-		Heads:   git.NewClient(),
-		Trees:   git.NewClient(),
+		Heads:   gitClient,
+		Trees:   gitClient,
 		Tallies: st.review,
 		Bases:   st.workflows,
 	})
@@ -277,17 +278,17 @@ func buildServices(params NewServerParams, st *stores) (*services, error) {
 		transcriptSync:  transcriptSyncer,
 		forge:           forgeService,
 		pullRequestSync: pullRequestSyncer,
-		worktrees:       worktreeLister,
+		worktreeLister:  worktreeLister,
 		inspector: worktrees.NewInspector(worktrees.NewInspectorParams{
 			Lister:    worktreeLister,
-			Git:       git.NewClient(),
+			Git:       gitClient,
 			Workflows: st.workflows,
 			Sizes:     st.sizes,
 		}),
 		remover: worktrees.NewRemover(worktrees.NewRemoverParams{
 			Lister: worktreeLister,
 			Agents: st.agents,
-			Git:    git.NewClient(),
+			Git:    gitClient,
 		}),
 		measurer: worktrees.NewMeasurer(worktrees.NewMeasurerParams{
 			Lister: worktreeLister,

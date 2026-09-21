@@ -98,11 +98,18 @@ func newMux(params newMuxParams) (*http.ServeMux, error) {
 		})}, options...))
 	mux.Handle(workflowv1connect.NewWorkflowServiceHandler(
 		workflowv1weave.WorkflowServiceAdapter{
-			Impl: rpcworkflow.NewHandler(params.Stores.workflows, params.Services.workflow, params.Services.marks),
+			Impl: rpcworkflow.NewHandler(rpcworkflow.NewHandlerParams{
+				Lister:    params.Stores.workflows,
+				Workflows: params.Services.workflow,
+				Marks:     params.Services.marks,
+			}),
 		}, options...))
 	mux.Handle(schedulev1connect.NewScheduleServiceHandler(
 		schedulev1weave.ScheduleServiceAdapter{
-			Impl: rpcschedule.NewHandler(params.Stores.schedules, params.Services.schedule),
+			Impl: rpcschedule.NewHandler(rpcschedule.NewHandlerParams{
+				Lister:    params.Stores.schedules,
+				Schedules: params.Services.schedule,
+			}),
 		}, options...))
 	mux.Handle(configv1connect.NewConfigServiceHandler(
 		configv1weave.ConfigServiceAdapter{Impl: rpcconfig.NewHandler(params.Services.loadConfig)}, options...))
@@ -126,7 +133,7 @@ func newMux(params newMuxParams) (*http.ServeMux, error) {
 	mux.Handle(worktreev1connect.NewWorktreeServiceHandler(
 		worktreev1weave.WorktreeServiceAdapter{
 			Impl: rpcworktree.NewHandler(rpcworktree.NewHandlerParams{
-				Lister:    params.Services.worktrees,
+				Lister:    params.Services.worktreeLister,
 				Inspector: params.Services.inspector,
 				Remover:   params.Services.remover,
 				Deleter:   worktreeDelete,

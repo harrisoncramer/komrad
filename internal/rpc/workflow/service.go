@@ -43,13 +43,19 @@ type Handler struct {
 	marks     markReader
 }
 
+type NewHandlerParams struct {
+	Lister    workflowLister
+	Workflows workflowReadWriter
+	Marks     markReader
+}
+
 // NewHandler constructs the handler from the store it lists through, the service that owns the
 // rules, and the marks a workflow header draws.
-func NewHandler(lister workflowLister, workflows workflowReadWriter, marks markReader) *Handler {
+func NewHandler(params NewHandlerParams) *Handler {
 	return &Handler{
-		lister:    lister,
-		workflows: workflows,
-		marks:     marks,
+		lister:    params.Lister,
+		workflows: params.Workflows,
+		marks:     params.Marks,
 	}
 }
 

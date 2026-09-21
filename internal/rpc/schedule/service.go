@@ -34,10 +34,15 @@ type Handler struct {
 	schedules scheduleReadWriter
 }
 
+type NewHandlerParams struct {
+	Lister    scheduleLister
+	Schedules scheduleReadWriter
+}
+
 // NewHandler constructs the handler from the store it lists through and the service that owns
 // the rules.
-func NewHandler(lister scheduleLister, schedules scheduleReadWriter) *Handler {
-	return &Handler{lister: lister, schedules: schedules}
+func NewHandler(params NewHandlerParams) *Handler {
+	return &Handler{lister: params.Lister, schedules: params.Schedules}
 }
 
 // ListSchedules returns one page of schedules, newest first.
