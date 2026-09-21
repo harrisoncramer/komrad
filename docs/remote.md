@@ -62,10 +62,6 @@ tmux source-file ~/.tmux.conf
 
 Open the panel with that key rather than by running `weave open`. The key opens it as a popup, which keeps its splits and copy-mode inside the popup.
 
-## What does not work yet
-
-The review screen reads an agent's diff off the disk the panel runs on, so against a remote engine it finds no worktree and draws nothing. [#765](https://github.com/harrisoncramer/weave/pull/765) moves that read through the engine's transport and is in flight; until it lands, review a remote agent's change from a shell on the box or from the pull request.
-
 ## Signing the harness in
 
 You have to grant permissions inside the remote for the agent harness. Get a shell on the box, go to the checkout agents will be cut from, and start the harness once:

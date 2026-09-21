@@ -34,7 +34,7 @@ Name it `weave`. Nothing enforces it, but the briefing every spawned agent gets 
 
 One half is read-only SQL over the panel's Postgres: `list_tables`, `describe_table`, and `query`. That exists so an orchestrator can ask its own questions without weave shipping an RPC for each one. `query` takes a single `SELECT` or `WITH`, rejects writes and DDL, caps at 1000 rows, truncates a cell at 2000 characters, and gives up after 15 seconds.
 
-The other half is the panel's own RPCs as tools. Each call goes back out over loopback to the Connect endpoint rather than into the handler, so a tool call takes the same path a real client does, validation included. Spawning, renaming, and removing an agent are only possible here, since the SQL half cannot write.
+The other half is the panel's own RPCs as tools. Each call goes back out over loopback to the API rather than straight into the service, so a tool call takes the same path a real client does, validation included. Spawning, renaming, and removing an agent are only possible here, since the SQL half cannot write.
 
 Agents use the tools to change things, as they allow writes, and the general SQL engine when the question is an aggregate or a join: how many agents in each workflow are still thinking, which of my children recorded a pull request URL, and so forth.
 

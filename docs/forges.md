@@ -49,13 +49,13 @@ The database holds non-sensitive information: the host, which forge it runs, the
 
 The token itself is kept on disk at `~/.local/state/weave/forge/<connection id>`, which is readable only by your user. Every request weave makes to the forge reads that file, puts the token in the request's header, and forgets it. Nothing keeps a copy in memory between calls; a restart changes nothing.
 
-Inside weave the token is a type that prints masked, so that log lines and errors obfuscate it. This is enforced via a linter.
+Log lines and errors print the token masked.
 
 ## Local Security Posture
 
 For a personal laptop, weave's default security model is identical to tools like the GitHub CLI, which also keeps the same token in `~/.config/gh/hosts.yml` for instance, or SSH keys that live in the `~/.ssh` directory.
 
-However, personal tokens do not expire by default with Weave. Weave will notice an expired token, with a 401, and both `weave forge list` and `weave doctor` say so.
+However, personal tokens do not expire by default with Weave. Weave will notice an expired token, and both `weave forge list` and `weave doctor` say so.
 
 ## Remote (Engine) Security Posture
 

@@ -229,7 +229,7 @@ Stopping does not stop everything on the bill. The two 100 GiB volumes, the data
 
 ### The nightly schedule
 
-`.github/workflows/engine-stop.yml` and `.github/workflows/engine-start.yml` run those same two commands from GitHub Actions, reaching AWS through the same OIDC role the deploy uses. They talk to the EC2 API rather than to the box, so unlike the deploy they need nothing on the instance and no way in past the security group.
+Two GitHub Actions workflows, `engine stop` and `engine start`, run those same two commands, reaching AWS through the same OIDC role the deploy uses. They talk to the EC2 API rather than to the box, so unlike the deploy they need nothing on the instance and no way in past the security group.
 
 They are live once merged, with nothing to turn on. Either one runs by hand from the Actions tab or with `gh workflow run "engine stop"`.
 
