@@ -350,7 +350,7 @@ func enterReview(t *testing.T, m model) model {
 	loaded, ok := cmd().(reviewLoadedMsg)
 	require.True(t, ok)
 
-	m.applyReviewLoaded(loaded)
+	m.review.applyLoaded(&m, m.shared(), loaded)
 
 	return m
 }
@@ -462,7 +462,7 @@ func reviewFrameText(t *testing.T, m model) string {
 // reviewProse is what the sidebar alone says with its wrapping taken back out, the diff beside
 // it left out.
 func reviewProse(m model) string {
-	return strings.Join(strings.Fields(ansi.Strip(m.reviewSidebarView())), " ")
+	return strings.Join(strings.Fields(ansi.Strip(m.review.sidebarView(m.shared()))), " ")
 }
 
 func reviewFrameRaw(t *testing.T, m model) string {
@@ -493,7 +493,7 @@ func TestReviewKeysFollowTheKeymap(t *testing.T) {
 	replaced, _ := m.updateReview(keyMsg("c"))
 	assert.False(t, asModel(t, replaced).review.threads.composing, "and the key it replaced does nothing")
 
-	assert.Contains(t, m.reviewHelp().short, binding([]string{"i"}, m.review.composeDesc()),
+	assert.Contains(t, m.review.help(m.shared()).short, binding([]string{"i"}, m.review.composeDesc()),
 		"the legend names the key that is bound rather than the one that shipped")
 }
 
@@ -550,9 +550,9 @@ func TestReviewSidebarShowsTheThread(t *testing.T) {
 		}},
 	}}
 
-	m.applyReviewWrote(reviewWroteMsg{agentID: "a1", threads: agents.threads})
+	m.review.applyWrote(&m, m.shared(), reviewWroteMsg{agentID: "a1", threads: agents.threads})
 
-	shown := ansi.Strip(m.reviewView())
+	shown := ansi.Strip(m.review.view(m.shared()))
 	assert.Contains(t, shown, "Review · auth")
 	assert.Contains(t, shown, "wrong greeting")
 	assert.Contains(t, shown, "you")
@@ -564,7 +564,7 @@ func TestReviewSidebarSizesTheDiff(t *testing.T) {
 	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
 	m = openReview(t, m)
 
-	shown := ansi.Strip(m.reviewView())
+	shown := ansi.Strip(m.review.view(m.shared()))
 	assert.Contains(t, shown, "1 file,")
 	assert.Contains(t, shown, "+1")
 	assert.Contains(t, shown, "-1")
@@ -629,7 +629,7 @@ func TestReviewJumpsToASingleThread(t *testing.T) {
 		NewStart:    int32(anchor.NewStart),
 		QuotedLines: anchor.QuotedLines,
 	}}
-	m.applyReviewWrote(reviewWroteMsg{agentID: "a1", threads: agents.threads})
+	m.review.applyWrote(&m, m.shared(), reviewWroteMsg{agentID: "a1", threads: agents.threads})
 
 	next, _ := m.updateReview(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("t")})
 	m = next.(model)
@@ -660,7 +660,7 @@ func TestReviewAdriftThreadIsReachable(t *testing.T) {
 			Body:       "still worth reading",
 		}},
 	}}
-	m.applyReviewWrote(reviewWroteMsg{agentID: "a1", threads: agents.threads})
+	m.review.applyWrote(&m, m.shared(), reviewWroteMsg{agentID: "a1", threads: agents.threads})
 
 	next, _ := m.updateReview(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("t")})
 	m = next.(model)
@@ -669,7 +669,7 @@ func TestReviewAdriftThreadIsReachable(t *testing.T) {
 	require.True(t, ok, "t should reach the thread that came adrift")
 	require.Equal(t, "t1", thread.GetId())
 
-	shown := ansi.Strip(m.reviewView())
+	shown := ansi.Strip(m.review.view(m.shared()))
 	assert.Contains(t, shown, "still worth reading", "the conversation is readable where it stands")
 	assert.Contains(t, shown, "gone.go:12", "and it says where it was written")
 	assert.Contains(t, shown, "+what this used to say", "carrying the line it was written against")
@@ -690,7 +690,7 @@ func TestReviewAdriftThreadTakesAReply(t *testing.T) {
 		QuotedLines: []string{"+what this used to say"},
 		Messages:    []*agentv1.ReviewMessage{{Id: "m1", Body: "why did this go?"}},
 	}}
-	m.applyReviewWrote(reviewWroteMsg{agentID: "a1", threads: agents.threads})
+	m.review.applyWrote(&m, m.shared(), reviewWroteMsg{agentID: "a1", threads: agents.threads})
 
 	next, _ := m.updateReview(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("t")})
 	m = next.(model)
@@ -742,14 +742,14 @@ func TestReviewViewNeverOutgrowsThePane(t *testing.T) {
 		})
 	}
 
-	m.applyReviewWrote(reviewWroteMsg{agentID: "a1", threads: threads})
+	m.review.applyWrote(&m, m.shared(), reviewWroteMsg{agentID: "a1", threads: threads})
 
 	for _, pane := range []int{10, 12, 24, 50} {
 		for _, composing := range []bool{false, true} {
 			m.height, m.review.threads.composing = pane, composing
 
 			// Measured the way bubbletea receives it: View trims the trailing newline off the screen.
-			height := strings.Count(strings.TrimRight(m.reviewView(), "\n"), "\n") + 1
+			height := strings.Count(strings.TrimRight(m.review.view(m.shared()), "\n"), "\n") + 1
 			assert.LessOrEqual(t, height, pane,
 				"the sidebar drew %d lines into a %d line pane, composing=%v", height, pane, composing)
 		}
@@ -790,14 +790,14 @@ func TestReviewThreadScrollsToItsStart(t *testing.T) {
 	m, _ := reviewModel(t, agents, dir)
 	m = openReview(t, m)
 
-	m.applyReviewWrote(reviewWroteMsg{agentID: "a1", threads: reviewLongThread(t, m)})
+	m.review.applyWrote(&m, m.shared(), reviewWroteMsg{agentID: "a1", threads: reviewLongThread(t, m)})
 	m.height = 14
 
-	require.NotContains(t, ansi.Strip(m.reviewView()), "note 0", "the start of the thread is off the sidebar")
+	require.NotContains(t, ansi.Strip(m.review.view(m.shared())), "note 0", "the start of the thread is off the sidebar")
 
 	next, _ := m.updateReview(tea.KeyMsg{Type: tea.KeyCtrlF})
 	m = next.(model)
-	require.True(t, m.isReviewThreadFocused())
+	require.True(t, m.review.isThreadFocused(m.shared()))
 
 	cursor := m.review.diff.cursor
 	for range 20 {
@@ -805,7 +805,7 @@ func TestReviewThreadScrollsToItsStart(t *testing.T) {
 		m = next.(model)
 	}
 
-	shown := ansi.Strip(m.reviewView())
+	shown := ansi.Strip(m.review.view(m.shared()))
 	assert.Contains(t, shown, "note 0", "scrolling up reaches the first message")
 	assert.NotContains(t, shown, "note 5", "the end of the thread has scrolled away")
 	assert.Equal(t, cursor, m.review.diff.cursor, "the diff cursor stays where it was")
@@ -813,9 +813,9 @@ func TestReviewThreadScrollsToItsStart(t *testing.T) {
 	next, _ = m.updateReview(tea.KeyMsg{Type: tea.KeyEsc})
 	m = next.(model)
 
-	assert.False(t, m.isReviewThreadFocused())
+	assert.False(t, m.review.isThreadFocused(m.shared()))
 	assert.Equal(t, screenReview, m.screen, "esc hands the keys back rather than leaving the review")
-	assert.NotContains(t, ansi.Strip(m.reviewView()), "note 0", "the thread is drawn from its end again")
+	assert.NotContains(t, ansi.Strip(m.review.view(m.shared())), "note 0", "the thread is drawn from its end again")
 }
 
 // TestReviewThreadFocusIsRefusedWithoutAThread pins that the key does nothing on a line with no
@@ -828,7 +828,7 @@ func TestReviewThreadFocusIsRefusedWithoutAThread(t *testing.T) {
 	next, _ := m.updateReview(tea.KeyMsg{Type: tea.KeyCtrlF})
 	m = next.(model)
 
-	assert.False(t, m.isReviewThreadFocused())
+	assert.False(t, m.review.isThreadFocused(m.shared()))
 	assert.NotEmpty(t, m.review.notice)
 }
 
@@ -840,7 +840,7 @@ func TestReviewThreadCursorMoveDropsTheScroll(t *testing.T) {
 	m, _ := reviewModel(t, agents, dir)
 	m = openReview(t, m)
 
-	m.applyReviewWrote(reviewWroteMsg{agentID: "a1", threads: reviewLongThread(t, m)})
+	m.review.applyWrote(&m, m.shared(), reviewWroteMsg{agentID: "a1", threads: reviewLongThread(t, m)})
 	m.height = 14
 
 	next, _ := m.updateReview(tea.KeyMsg{Type: tea.KeyCtrlF})
@@ -854,7 +854,7 @@ func TestReviewThreadCursorMoveDropsTheScroll(t *testing.T) {
 
 	assert.Zero(t, m.review.threads.scroll)
 	assert.False(t, m.review.threads.focus, "the keys go back to the diff with the thread they were on")
-	assert.Equal(t, "read the thread", m.reviewThreadDesc(),
+	assert.Equal(t, "read the thread", m.review.threadDesc(),
 		"the legend says where the keys are rather than where they were")
 }
 
@@ -866,7 +866,7 @@ func TestReviewThreadWindowNeverOutgrowsThePane(t *testing.T) {
 	m, _ := reviewModel(t, agents, dir)
 	m = openReview(t, m)
 
-	m.applyReviewWrote(reviewWroteMsg{agentID: "a1", threads: reviewLongThread(t, m)})
+	m.review.applyWrote(&m, m.shared(), reviewWroteMsg{agentID: "a1", threads: reviewLongThread(t, m)})
 	m.height = 14
 	m.review.threads.focus = true
 
@@ -874,7 +874,7 @@ func TestReviewThreadWindowNeverOutgrowsThePane(t *testing.T) {
 		for _, scroll := range []int{0, 1, 5, 40} {
 			m.height, m.review.threads.scroll = pane, scroll
 
-			height := strings.Count(strings.TrimRight(m.reviewView(), "\n"), "\n") + 1
+			height := strings.Count(strings.TrimRight(m.review.view(m.shared()), "\n"), "\n") + 1
 			assert.LessOrEqual(t, height, pane,
 				"the sidebar drew %d lines into a %d line pane, scroll=%d", height, pane, scroll)
 		}
@@ -897,7 +897,7 @@ func TestReviewRendersWhileLoading(t *testing.T) {
 	m.helpExpanded = true
 	m.height = 40
 
-	shown := ansi.Strip(m.reviewView())
+	shown := ansi.Strip(m.review.view(m.shared()))
 	assert.Contains(t, shown, "loading the diff")
 	assert.Contains(t, shown, "start a review here")
 }
@@ -929,7 +929,7 @@ func TestReviewKeepsDrawingAfterAWrite(t *testing.T) {
 	m = openReview(t, m)
 
 	// What saving a comment does to the screen: the threads come back and the rows are dropped.
-	m.applyReviewWrote(reviewWroteMsg{agentID: "a1", notice: "thread opened"})
+	m.review.applyWrote(&m, m.shared(), reviewWroteMsg{agentID: "a1", notice: "thread opened"})
 
 	respawns := len(tmux.respawns)
 	tmux.sentKeys = nil
@@ -982,10 +982,10 @@ func TestReviewRepliesInAThread(t *testing.T) {
 			Body:       "renamed it, is that what you meant?",
 		}},
 	}}
-	m.applyReviewWrote(reviewWroteMsg{agentID: "a1", threads: agents.threads})
+	m.review.applyWrote(&m, m.shared(), reviewWroteMsg{agentID: "a1", threads: agents.threads})
 
 	m.helpExpanded, m.height = true, 40
-	assert.Contains(t, ansi.Strip(m.reviewView()), "reply in this thread",
+	assert.Contains(t, ansi.Strip(m.review.view(m.shared())), "reply in this thread",
 		"the legend says what the key will do on a line that already has a thread")
 
 	next, _ := m.updateReview(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("c")})
@@ -1015,7 +1015,7 @@ func TestReviewPanStepScalesWithThePane(t *testing.T) {
 	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
 	m = openReview(t, m)
 
-	assert.Equal(t, 56, m.getReviewPanStep(), "a third of the 170 columns the diff is drawn in")
+	assert.Equal(t, 56, panStep(m.shared()), "a third of the 170 columns the diff is drawn in")
 
 	next, _ := m.updateReview(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("l")})
 	m = next.(model)
@@ -1023,7 +1023,7 @@ func TestReviewPanStepScalesWithThePane(t *testing.T) {
 
 	// Until the pane has been measured there is nothing to take a third of.
 	m.width = 0
-	assert.Equal(t, reviewPanStep, m.getReviewPanStep())
+	assert.Equal(t, reviewPanStep, panStep(m.shared()))
 }
 
 func unsentComment() *agentv1.ReviewMessage {
@@ -1095,7 +1095,7 @@ func TestReviewDeliveryViewCountsTheComments(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			m := model{review: reviewState{
+			m := model{review: reviewScreen{
 				agentID: "a1",
 				threads: reviewThreads{
 					list:     tt.threads,
@@ -1135,7 +1135,7 @@ func TestReviewVerdictKeepsItsColour(t *testing.T) {
 	m = next.(model)
 	require.True(t, m.review.threads.releasing)
 
-	shown := m.reviewReleaseView()
+	shown := m.review.releaseView(m.shared())
 	chosen := "  ▸ " + describeVerdict(reviewVerdicts[m.review.threads.verdict])
 	want := paint.Panel.Style(verdictTone(reviewVerdicts[m.review.threads.verdict])).Render(chosen)
 	assert.Contains(t, shown, want)
@@ -1185,7 +1185,7 @@ func TestSettlingAThreadIsWhatQuietsIt(t *testing.T) {
 		QuotedLines: anchor.QuotedLines,
 		Messages:    []*agentv1.ReviewMessage{{Id: "m1", Body: "why did this change?"}},
 	}}
-	m.applyReviewWrote(reviewWroteMsg{agentID: "a1", threads: agents.threads})
+	m.review.applyWrote(&m, m.shared(), reviewWroteMsg{agentID: "a1", threads: agents.threads})
 
 	next, cmd := m.updateReview(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("r")})
 	m = next.(model)
@@ -1194,7 +1194,7 @@ func TestSettlingAThreadIsWhatQuietsIt(t *testing.T) {
 	wrote, ok := cmd().(reviewWroteMsg)
 	require.True(t, ok)
 	require.NoError(t, wrote.err)
-	m.applyReviewWrote(wrote)
+	m.review.applyWrote(&m, m.shared(), wrote)
 
 	require.NotNil(t, agents.settled)
 	assert.Equal(t, "t1", agents.settled.GetId())
@@ -1210,7 +1210,7 @@ func TestSettlingAThreadIsWhatQuietsIt(t *testing.T) {
 
 	wrote, ok = cmd().(reviewWroteMsg)
 	require.True(t, ok)
-	m.applyReviewWrote(wrote)
+	m.review.applyWrote(&m, m.shared(), wrote)
 
 	assert.False(t, agents.settled.GetResolved())
 }
@@ -1231,7 +1231,7 @@ func TestSettlingSurvivesTheCodeMoving(t *testing.T) {
 		QuotedLines: []string{"+what this used to say"},
 		Messages:    []*agentv1.ReviewMessage{{Id: "m1", Body: "why did this go?"}},
 	}}
-	m.applyReviewWrote(reviewWroteMsg{agentID: "a1", threads: agents.threads})
+	m.review.applyWrote(&m, m.shared(), reviewWroteMsg{agentID: "a1", threads: agents.threads})
 
 	next, _ := m.updateReview(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("t")})
 	m = next.(model)
@@ -1242,7 +1242,7 @@ func TestSettlingSurvivesTheCodeMoving(t *testing.T) {
 
 	wrote, ok := cmd().(reviewWroteMsg)
 	require.True(t, ok)
-	m.applyReviewWrote(wrote)
+	m.review.applyWrote(&m, m.shared(), wrote)
 
 	require.NotNil(t, agents.settled, "a thread that came adrift settles like any other")
 	assert.Equal(t, "t1", agents.settled.GetId())
@@ -1280,16 +1280,16 @@ func TestDeletingAnAdriftThreadLeavesTheCursorInTheDiff(t *testing.T) {
 		QuotedLines: []string{"+what this used to say"},
 		Messages:    []*agentv1.ReviewMessage{{Id: "m1", Body: "why did this go?"}},
 	}}
-	m.applyReviewWrote(reviewWroteMsg{agentID: "a1", threads: agents.threads})
+	m.review.applyWrote(&m, m.shared(), reviewWroteMsg{agentID: "a1", threads: agents.threads})
 
 	next, _ := m.updateReview(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("t")})
 	m = next.(model)
 	require.Equal(t, m.review.diff.view.GetLastRow(), m.review.diff.cursor)
 
-	m.applyReviewWrote(reviewWroteMsg{agentID: "a1", threads: nil})
+	m.review.applyWrote(&m, m.shared(), reviewWroteMsg{agentID: "a1", threads: nil})
 
 	assert.LessOrEqual(t, m.review.diff.cursor, m.review.diff.view.GetLastRow(), "the cursor stays on a row that exists")
-	assert.NotPanics(t, func() { m.scrollReviewToCursor() })
+	assert.NotPanics(t, func() { m.review.scrollToCursor(m.shared()) })
 }
 
 // typeReview presses one key after another, through the panel's own routing.
@@ -1320,13 +1320,13 @@ func TestReviewSearchFollowsThePatternAsItIsTyped(t *testing.T) {
 
 	require.Equal(t, 1, m.review.diff.view.MatchCount())
 	assert.NotEqual(t, start, m.review.diff.cursor, "the diff moved to the match while it was typed")
-	assert.Contains(t, ansi.Strip(m.reviewView()), "1 of 1")
+	assert.Contains(t, ansi.Strip(m.review.view(m.shared())), "1 of 1")
 
 	next, _ := m.route(tea.KeyMsg{Type: tea.KeyEnter})
 	m = next.(model)
 
 	require.False(t, m.review.diff.filter.typing, "enter keeps the search and closes the prompt")
-	shown := ansi.Strip(m.reviewView())
+	shown := ansi.Strip(m.review.view(m.shared()))
 	assert.Contains(t, shown, "/ goodbye")
 	assert.Contains(t, shown, "1 of 1")
 }
@@ -1349,7 +1349,7 @@ func TestReviewSearchCancelsBackToWhereItStarted(t *testing.T) {
 
 	assert.False(t, m.review.diff.filter.typing)
 	assert.Zero(t, m.review.diff.view.MatchCount(), "esc puts the search away")
-	assert.NotContains(t, ansi.Strip(m.reviewView()), "/ goodbye", "and takes the pattern with it")
+	assert.NotContains(t, ansi.Strip(m.review.view(m.shared())), "/ goodbye", "and takes the pattern with it")
 }
 
 // TestReviewSearchStepsThroughMatches covers n and N, which are the search's now that threads
@@ -1460,7 +1460,7 @@ func TestReviewSearchWithNoMatchesSaysSo(t *testing.T) {
 	m = next.(model)
 
 	require.Zero(t, m.review.diff.view.MatchCount())
-	assert.Contains(t, ansi.Strip(m.reviewView()), "wallaby", "the pattern is still standing")
+	assert.Contains(t, ansi.Strip(m.review.view(m.shared())), "wallaby", "the pattern is still standing")
 
 	next, _ = m.updateReview(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("n")})
 	m = next.(model)
@@ -1495,7 +1495,7 @@ func TestReviewFileJumpSurvivesARepaint(t *testing.T) {
 	m = next.(model)
 	assert.Equal(t, pinned, m.review.diff.top, "panning redraws the same rows and must not move them")
 
-	m.applyReviewWrote(reviewWroteMsg{agentID: "a1", threads: nil})
+	m.review.applyWrote(&m, m.shared(), reviewWroteMsg{agentID: "a1", threads: nil})
 	assert.Equal(t, pinned, m.review.diff.top, "and neither does a write landing")
 
 	next, _ = m.updateReview(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("k")})
@@ -1673,14 +1673,14 @@ func TestReviewBaseNarrowsToTheLastReview(t *testing.T) {
 
 	loaded, ok := cmd().(reviewLoadedMsg)
 	require.True(t, ok)
-	m.applyReviewLoaded(loaded)
+	m.review.applyLoaded(&m, m.shared(), loaded)
 
 	assert.Equal(t, 1, m.review.diff.view.Stat().Files, "only the file written since that review")
-	assert.Contains(t, ansi.Strip(m.reviewView()), "round 2 of 2",
+	assert.Contains(t, ansi.Strip(m.review.view(m.shared())), "round 2 of 2",
 		"and the band names the round the reader is standing on")
-	assert.NotRegexp(t, `\d+/\d+ viewed`, ansi.Strip(m.reviewView()),
+	assert.NotRegexp(t, `\d+/\d+ viewed`, ansi.Strip(m.review.view(m.shared())),
 		"the viewed marks belong to the round rather than to the pair on screen")
-	assert.NotContains(t, ansi.Strip(m.reviewView()), "since you last reviewed",
+	assert.NotContains(t, ansi.Strip(m.review.view(m.shared())), "since you last reviewed",
 		"the courtesy sentence describes the pair the diff is already measured over")
 
 	// The walk stops at the oldest round rather than cycling, so the way back to the whole
@@ -1691,10 +1691,10 @@ func TestReviewBaseNarrowsToTheLastReview(t *testing.T) {
 
 	loaded, ok = cmd().(reviewLoadedMsg)
 	require.True(t, ok)
-	m.applyReviewLoaded(loaded)
+	m.review.applyLoaded(&m, m.shared(), loaded)
 
 	assert.Equal(t, 2, m.review.diff.view.Stat().Files, "the whole change again")
-	assert.Contains(t, ansi.Strip(m.reviewView()), "all changes")
+	assert.Contains(t, ansi.Strip(m.review.view(m.shared())), "all changes")
 }
 
 // reviewWithAnEarlierReview is the panel on a second round with the first one reviewed and
@@ -1759,9 +1759,9 @@ func pressReviewBase(t *testing.T, m model) model {
 	require.True(t, ok, "the reload answers with a load")
 
 	// A refused narrowing asks for the whole change again.
-	if again := m.applyReviewLoaded(loaded); again != nil {
+	if again := m.review.applyLoaded(&m, m.shared(), loaded); again != nil {
 		if answer, ok := again().(reviewLoadedMsg); ok {
-			m.applyReviewLoaded(answer)
+			m.review.applyLoaded(&m, m.shared(), answer)
 		}
 	}
 
@@ -1898,7 +1898,7 @@ func TestReviewBaseIsRefusedWhenTheBaseMoved(t *testing.T) {
 	m = next.(model)
 	require.NotNil(t, cmd, "the walk still moves")
 
-	shown := ansi.Strip(m.reviewView())
+	shown := ansi.Strip(m.review.view(m.shared()))
 	assert.Contains(t, shown, "not comparable, the base moved",
 		"and says the base moved rather than drawing somebody else's work")
 }
@@ -1918,4 +1918,14 @@ func typeReviewMessage(t *testing.T, m model, words string) model {
 	require.Equal(t, words, m.review.threads.editor.value())
 
 	return m
+}
+
+// reviewHelp is the review legend as the frame draws it.
+func (m model) reviewHelp() keyMap {
+	return m.review.help(m.shared())
+}
+
+// updateReview presses one key on the review through the panel's door.
+func (m model) updateReview(key tea.KeyMsg) (tea.Model, tea.Cmd) {
+	return reviewAdapter{}.update(m, key)
 }

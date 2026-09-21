@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"weave/config"
+	"weave/internal/ui/panel"
 	agentv1 "weave/proto/gen/agent/v1"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -11,8 +12,8 @@ import (
 
 const reviewTimeout = 30 * time.Second
 
-// reviewState is the review of one agent's diff, while that screen is up.
-type reviewState struct {
+// reviewScreen is the review of one agent's diff, while that screen is up.
+type reviewScreen struct {
 	agentID   string
 	agentName string
 	dir       string
@@ -34,18 +35,23 @@ type reviewState struct {
 
 // doesTakeEveryKey reports whether the review is mid-input, in which case a key bound elsewhere
 // in the panel belongs here instead.
-func (r reviewState) doesTakeEveryKey() bool {
+func (r reviewScreen) doesTakeEveryKey() bool {
 	return r.isWriting() || r.diff.filter.typing
 }
 
 // isWriting reports whether the reader is composing a message or asking what to send.
-func (r reviewState) isWriting() bool {
+func (r reviewScreen) isWriting() bool {
 	return r.threads.composing || r.threads.releasing
+}
+
+// isBusy reports whether the reader is part way through something a restart would lose.
+func (r reviewScreen) isBusy() bool {
+	return r.isWriting() || r.pass.mode != modeWatching || r.pass.atEditor
 }
 
 // isThreadTaken reports whether the reader has taken the keys onto a conversation the cursor is
 // standing on.
-func (r reviewState) isThreadTaken() bool {
+func (r reviewScreen) isThreadTaken() bool {
 	if !r.threads.focus {
 		return false
 	}
@@ -55,51 +61,119 @@ func (r reviewState) isThreadTaken() bool {
 	return ok
 }
 
-// reviewScreen is the review screen behind the panel's one door.
-type reviewScreen struct{}
+// isThreadFocused is whether the sidebar holds the keys, which it does mid-input and while the
+// conversation has been taken.
+func (r reviewScreen) isThreadFocused(s panelShared) bool {
+	if r.isWriting() {
+		return true
+	}
+
+	if s.draw.isDetailsFocused() {
+		return false
+	}
+
+	return r.isThreadTaken()
+}
+
+// isDiffFocused is whether the patch holds the keys, which it does whenever the record and the
+// conversation beside it do not.
+func (r reviewScreen) isDiffFocused(s panelShared) bool {
+	return s.draw.isListFocused() && !r.isThreadFocused(s)
+}
+
+// update takes the review's own answers and, once nothing in the sidebar has them, the keys.
+func (r *reviewScreen) update(h host, s panelShared, msg tea.Msg) tea.Cmd {
+	switch msg := msg.(type) {
+	case reviewLoadedMsg:
+		return r.applyLoaded(h, s, msg)
+	case reviewPausedMsg:
+		return r.applyPaused(h, s, msg)
+	case reviewWroteMsg:
+		return r.applyWrote(h, s, msg)
+	case reviewRefreshedMsg:
+		r.applyRefreshed(s, msg)
+
+		return nil
+	case reviewDiffPolledMsg:
+		return r.applyDiffPolled(h, s, msg)
+	case messageEditedMsg:
+		r.applyMessageEdited(h, s, msg)
+
+		return nil
+	case tea.KeyMsg:
+		return r.updateKey(h, s, msg)
+	}
+
+	return nil
+}
+
+// enter leaves the review as it stands.
+func (r *reviewScreen) enter(host, panelShared, screenTarget) tea.Cmd {
+	return nil
+}
+
+// enterReview is the agents screen's way onto the review of an agent's diff, with the threads
+// in the sidebar and the diff in the stage.
+func (m model) enterReview(agent panel.Agent) (tea.Model, tea.Cmd) {
+	if !isReviewable(agent) {
+		return m, nil
+	}
+
+	m.enterScreen(screenReview)
+	cmd := m.review.open(&m, m.shared(), agent)
+
+	return m, cmd
+}
+
+// reviewAdapter is the review screen behind the panel's one door.
+type reviewAdapter struct{}
 
 var (
-	_ detailed = reviewScreen{}
-	_ columned = reviewScreen{}
+	_ detailed = reviewAdapter{}
+	_ columned = reviewAdapter{}
 )
 
-func (reviewScreen) update(m model, msg tea.Msg) (tea.Model, tea.Cmd) {
-	return onKey(m, msg, model.updateReview)
+func (reviewAdapter) update(m model, msg tea.Msg) (tea.Model, tea.Cmd) {
+	cmd := m.review.update(&m, m.shared(), msg)
+
+	return m, cmd
 }
 
-func (reviewScreen) view(m model) string {
-	return m.reviewView()
+func (reviewAdapter) view(m model) string {
+	return m.review.view(m.shared())
 }
 
-func (reviewScreen) needs() screenNeeds {
+func (reviewAdapter) needs() screenNeeds {
 	return screenNeeds{}
 }
 
-// open is the screen as it stands, nothing being drawn over the review.
-func (reviewScreen) open(m model, _ screenTarget) (tea.Model, tea.Cmd) {
-	return m, nil
+func (reviewAdapter) open(m model, target screenTarget) (tea.Model, tea.Cmd) {
+	m.enterScreen(screenReview)
+	cmd := m.review.enter(&m, m.shared(), target)
+
+	return m, cmd
 }
 
-func (reviewScreen) takesEveryKey(m model) bool {
+func (reviewAdapter) takesEveryKey(m model) bool {
 	return m.review.doesTakeEveryKey()
 }
 
-func (reviewScreen) details(m model) details {
-	return m.reviewDetails()
+func (reviewAdapter) details(m model) details {
+	return m.review.details(m.shared())
 }
 
-func (reviewScreen) detailsQuit(keys config.Keybindings) []string {
+func (reviewAdapter) detailsQuit(keys config.Keybindings) []string {
 	return keys.Review.Quit
 }
 
-func (reviewScreen) detailsFit(m model) bool {
-	return m.doesReviewFitDetails()
+func (reviewAdapter) detailsFit(m model) bool {
+	return m.review.detailsFit(m.shared())
 }
 
-func (reviewScreen) detailsRoom(m model) int {
-	return m.reviewDetailsRoom()
+func (reviewAdapter) detailsRoom(m model) int {
+	return m.review.detailsRoom(m.shared())
 }
 
-func (reviewScreen) column() columnSpec {
+func (reviewAdapter) column() columnSpec {
 	return reviewColumn()
 }

@@ -38,7 +38,7 @@ type owedComment struct {
 
 // owedComments are the comments holding the reader's last review, in the order the diff draws
 // them.
-func (r reviewState) owedComments() []owedComment {
+func (r reviewScreen) owedComments() []owedComment {
 	if r.threads.owed == "" || r.diff.view == nil {
 		return nil
 	}
@@ -86,27 +86,27 @@ func reviewOwedSaid(owed []owedComment) string {
 	return fmt.Sprintf("%d comments of yours are still open", len(owed))
 }
 
-// isReviewOwedDrawn reports whether the list has anything to say on the screen as it stands.
-func (m model) isReviewOwedDrawn() bool {
+// isOwedDrawn reports whether the list has anything to say on the screen as it stands.
+func (r reviewScreen) isOwedDrawn(s panelShared) bool {
 	// The service lifts the gate for a dead agent, and an older round refuses every key offered.
-	if _, dead := m.isReviewReadOnly(); dead {
+	if _, dead := r.isReadOnly(s); dead {
 		return false
 	}
 
-	if _, history := m.review.isHistory(); history {
+	if _, history := r.isHistory(); history {
 		return false
 	}
 
-	return m.review.threads.isOwedAnAnswer()
+	return r.threads.isOwedAnAnswer()
 }
 
-// reviewOwedView is what the reader has not settled, drawn above the conversation.
-func (m model) reviewOwedView(room int) string {
-	if !m.isReviewOwedDrawn() {
+// owedView is what the reader has not settled, drawn above the conversation.
+func (r reviewScreen) owedView(s panelShared, room int) string {
+	if !r.isOwedDrawn(s) {
 		return ""
 	}
 
-	owed := m.review.owedComments()
+	owed := r.owedComments()
 	if len(owed) == 0 {
 		return ""
 	}
@@ -120,7 +120,7 @@ func (m model) reviewOwedView(room int) string {
 
 	shown := min(room, len(owed))
 	for _, comment := range owed[:shown] {
-		out += m.reviewOwedRow(comment)
+		out += r.owedRow(s, comment)
 	}
 
 	if left := len(owed) - shown; left > 0 {
@@ -136,16 +136,16 @@ func reviewOwedRoom(spare int) int {
 	return min(max(spare-2-owedThreadRows, 0), owedRows)
 }
 
-// reviewOwedRow is one comment, where it stands and what it is waiting for.
-func (m model) reviewOwedRow(comment owedComment) string {
+// owedRow is one comment, where it stands and what it is waiting for.
+func (r reviewScreen) owedRow(s panelShared, comment owedComment) string {
 	said := reviewOwedState(comment)
 	where := diffview.FormatThreadLocation(comment.thread)
 
-	room := max(m.lineWidth()-len(said)-5, 1)
+	room := max(lineWidthOf(s.pane)-len(said)-5, 1)
 	where = clipToTail(where, room)
 
 	style := dimStyle
-	if m.isReviewCommentNear(comment) {
+	if r.isCommentNear(s, comment) {
 		style = paint.Panel.Style(reviewOwedTone).Bold(true)
 	}
 
@@ -164,19 +164,19 @@ func clipToTail(said string, room int) string {
 	return ansi.TruncateLeft(said, lipgloss.Width(said)-room+1, "…")
 }
 
-// isReviewCommentNear reports whether a comment's row is one the reader can see from where they
-// are standing.
-func (m model) isReviewCommentNear(comment owedComment) bool {
+// isCommentNear reports whether a comment's row is one the reader can see from where they are
+// standing.
+func (r reviewScreen) isCommentNear(s panelShared, comment owedComment) bool {
 	if comment.row == noRow {
 		return false
 	}
 
-	split, ok := m.screenColumnSplit()
+	split, ok := s.draw.screenColumnSplit()
 	if !ok {
-		return comment.row == m.review.diff.cursor
+		return comment.row == r.diff.cursor
 	}
 
-	return comment.row >= m.review.diff.top && comment.row < m.review.diff.top+split.rows
+	return comment.row >= r.diff.top && comment.row < r.diff.top+split.rows
 }
 
 // reviewOwedState is the one word a row carries about what the comment is waiting for.

@@ -2,6 +2,8 @@ package ui
 
 import (
 	"weave/config"
+	"weave/internal/ui/layout"
+	"weave/internal/ui/panel"
 	agentv1 "weave/proto/gen/agent/v1"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -143,7 +145,7 @@ func (s screen) adapter() screenModel {
 	case screenSearch:
 		return searchAdapter{}
 	case screenReview:
-		return reviewScreen{}
+		return reviewAdapter{}
 	case screenWorktrees:
 		return worktreesAdapter{}
 	}
@@ -178,6 +180,16 @@ type host interface {
 	waitToStage() tea.Cmd
 	hide() tea.Cmd
 	client() api
+	repo() ReviewGit
+
+	// An agent stopped for a pass is let go with the files the reader opened over it.
+	noteEdited(agentID string, touched []string)
+	releaseCmd(summary string, agent panel.Agent, said string) tea.Cmd
+
+	// The stage is the root's, and a screen may put an editor on it.
+	stageEditor(content layout.Content) string
+	unstageEditor()
+	isPaneAlive(pane string) bool
 
 	// The keys every list shares are the root's to answer.
 	takeTopPress(pressed string) bool
@@ -193,6 +205,34 @@ var _ host = (*model)(nil)
 // client is the service as a screen reads it.
 func (m *model) client() api {
 	return m.api
+}
+
+// repo is the git a screen reads a worktree through.
+func (m *model) repo() ReviewGit {
+	return m.git
+}
+
+// stageEditor puts an editor on the stage with the keys in it, and answers the pane it was
+// given, empty where the split was refused.
+func (m *model) stageEditor(content layout.Content) string {
+	m.frame.Show(layout.RegionStage, content)
+
+	pane := m.frame.Pane(layout.RegionStage)
+	if pane != "" {
+		m.tmux.SelectPane(pane)
+	}
+
+	return pane
+}
+
+// unstageEditor takes the editor down and puts the keys back on the sidebar.
+func (m *model) unstageEditor() {
+	m.frame.Show(layout.RegionStage, newBlankContent())
+	m.tmux.SelectPane(m.frame.Pane(layout.RegionSidebar))
+}
+
+func (m *model) isPaneAlive(pane string) bool {
+	return m.tmux.IsPaneAlive(pane)
 }
 
 // enter leaves whichever screen is up for the next, landing it on the target.
@@ -224,6 +264,12 @@ type panelShared struct {
 
 	// runLogsDir is the directory the run logs are written under.
 	runLogsDir string
+
+	// editor is the command a file is opened in.
+	editor string
+
+	// isDark is the terminal's background.
+	isDark bool
 
 	// draw is the frame the root draws a screen's own list, record and legend in.
 	draw drawer
@@ -259,6 +305,8 @@ func (m *model) shared() panelShared {
 		inspections:  m.inspections,
 		pullRequests: m.pullRequests,
 		runLogsDir:   m.settings.RunLogsDir,
+		editor:       m.settings.Editor,
+		isDark:       m.isDark,
 		draw:         m,
 	}
 }

@@ -6,226 +6,241 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-// reviewActions is the review screen as one table, walked in precedence order by the dispatch
-// and named in reading order by a legend of the same ids.
-func reviewActions() actionSpec {
-	return actionSpec{
-		table:  reviewTable(),
-		legend: reviewLegend(),
+// actions is the review screen as one table, walked in precedence order by the dispatch and
+// named in reading order by a legend of the same ids.
+func (r *reviewScreen) actions() screenActionSpec {
+	return screenActionSpec{
+		table:  r.table(),
+		legend: r.legend(),
 	}
 }
 
-func reviewTable() []action {
-	return []action{
+func (r *reviewScreen) table() []screenAction {
+	return []screenAction{
 		{
 			id:   actionReviewBack,
 			keys: func(k config.Keybindings) []string { return k.Review.Back },
 			// Writing is a mode inside the screen, so the back key gives up the mode before it
 			// gives up the screen.
-			run: func(m model, _ string) (tea.Model, tea.Cmd) {
-				if m.review.pass.mode == modeReviewing {
-					return m.leaveReviewWriting()
+			run: func(h host, s panelShared, _ string) tea.Cmd {
+				if r.pass.mode == modeReviewing {
+					return r.leaveWriting(h, s)
 				}
 
-				return m.leaveReview()
+				return r.leave(h, s)
 			},
 		},
 		{
 			id:   actionQuit,
 			keys: func(k config.Keybindings) []string { return k.Review.Quit },
-			run:  func(m model, _ string) (tea.Model, tea.Cmd) { return m, m.hide() },
+			run:  func(h host, _ panelShared, _ string) tea.Cmd { return h.hide() },
 		},
 		{
 			id:   actionMove,
 			keys: func(k config.Keybindings) []string { return concatKeys(k.Nav.Up, k.Nav.Down) },
-			run:  model.moveReview,
+			run:  r.movePressed,
 		},
 		{
 			id:   actionJump,
 			keys: func(k config.Keybindings) []string { return concatKeys(k.Nav.Top, k.Nav.Bottom) },
-			run:  model.jumpReview,
+			run:  r.jumpPressed,
 		},
 		{
 			id:   actionNavPage,
 			keys: func(k config.Keybindings) []string { return concatKeys(k.Nav.PageUp, k.Nav.PageDown) },
-			run:  model.pageReview,
+			run:  r.pagePressed,
 		},
 		{
 			id:   actionReviewFile,
 			keys: func(k config.Keybindings) []string { return concatKeys(k.Review.NextFile, k.Review.PrevFile) },
-			run:  model.stepReviewFile,
+			run:  r.stepFile,
 		},
 		{
 			id:   actionReviewThread,
 			keys: func(k config.Keybindings) []string { return concatKeys(k.Review.NextThread, k.Review.PrevThread) },
-			run:  model.stepReviewThread,
+			run:  r.stepThread,
 		},
 		{
 			id: actionReviewOpenThread,
 			keys: func(k config.Keybindings) []string {
 				return concatKeys(k.Review.NextOpenThread, k.Review.PrevOpenThread)
 			},
-			run: model.stepOpenThread,
+			run: r.stepOpenThread,
 		},
 		{
 			id:   actionFilterOpen,
 			keys: func(config.Keybindings) []string { return []string{filterOpenKey} },
-			run:  model.openReviewFilter,
+			run:  r.openFilter,
 		},
 		{
 			id:   actionReviewMatch,
 			keys: func(k config.Keybindings) []string { return concatKeys(k.Review.NextMatch, k.Review.PrevMatch) },
-			run:  model.stepReviewMatch,
+			run:  r.stepMatch,
 		},
 		{
 			id:   actionReviewPan,
 			keys: func(k config.Keybindings) []string { return concatKeys(k.Review.PanLeft, k.Review.PanRight) },
-			run:  model.panReviewBy,
+			run:  r.panBy,
 		},
 		{
 			id:   actionReviewPanReset,
 			keys: func(k config.Keybindings) []string { return k.Review.PanReset },
-			run:  func(m model, _ string) (tea.Model, tea.Cmd) { return m.panReview(-m.review.diff.pan) },
+			run: func(host, panelShared, string) tea.Cmd {
+				r.diff.panBy(-r.diff.pan)
+
+				return nil
+			},
 		},
 		{
 			id:   actionReviewBase,
 			keys: func(k config.Keybindings) []string { return k.Review.Base },
-			when: func(m model) bool { return m.review.doesWalk() },
-			run:  func(m model, _ string) (tea.Model, tea.Cmd) { return m.stepReviewBase() },
+			when: func(panelShared) bool { return r.doesWalk() },
+			run:  func(h host, _ panelShared, _ string) tea.Cmd { return r.stepBase(h) },
 		},
 		{
 			id:   actionReviewBaseForward,
 			keys: func(k config.Keybindings) []string { return k.Review.BaseForward },
-			when: func(m model) bool { return m.review.doesWalk() },
-			run:  func(m model, _ string) (tea.Model, tea.Cmd) { return m.stepReviewBaseForward() },
+			when: func(panelShared) bool { return r.doesWalk() },
+			run:  func(h host, _ panelShared, _ string) tea.Cmd { return r.stepBaseForward(h) },
 		},
 		{
 			id:   actionReviewReload,
 			keys: func(k config.Keybindings) []string { return k.Review.Reload },
-			run:  func(m model, _ string) (tea.Model, tea.Cmd) { return m.reloadReview() },
+			run:  func(h host, _ panelShared, _ string) tea.Cmd { return r.reload(h) },
 		},
 		{
 			id:   actionReviewEdit,
 			keys: func(k config.Keybindings) []string { return k.Review.EditFile },
 			// Editing writes to the worktree rather than to the agent, so it is offered whether or
 			// not there is anybody there to read a comment.
-			run: func(m model, _ string) (tea.Model, tea.Cmd) { return m.pressReviewEdit() },
+			run: func(h host, s panelShared, _ string) tea.Cmd { return r.pressEdit(h, s) },
 		},
 		{
 			id:   actionReviewResolve,
 			keys: func(k config.Keybindings) []string { return k.Review.Resolve },
-			run:  func(m model, _ string) (tea.Model, tea.Cmd) { return m.resolveReviewThread() },
+			run:  func(h host, _ panelShared, _ string) tea.Cmd { return r.resolveThread(h) },
 		},
 		{
 			id:   actionReviewViewed,
 			keys: func(k config.Keybindings) []string { return k.Review.ToggleViewed },
-			run:  func(m model, _ string) (tea.Model, tea.Cmd) { return m.toggleReviewViewed() },
+			run:  func(h host, s panelShared, _ string) tea.Cmd { return r.toggleViewed(h, s) },
 		},
 		{
 			id:   actionReviewExpand,
 			keys: func(k config.Keybindings) []string { return k.Review.Expand },
-			run:  func(m model, _ string) (tea.Model, tea.Cmd) { return m.toggleReviewExpanded() },
+			run: func(_ host, s panelShared, _ string) tea.Cmd {
+				r.toggleExpanded(s)
+
+				return nil
+			},
 		},
 		{
 			id:   actionReviewFocusThread,
 			keys: func(k config.Keybindings) []string { return k.Review.FocusThread },
-			run: func(m model, _ string) (tea.Model, tea.Cmd) {
-				m.review.focusThread()
+			run: func(host, panelShared, string) tea.Cmd {
+				r.focusThread()
 
-				return m, nil
+				return nil
 			},
 		},
 		// The two keys that write are taken whether or not anybody is there to read.
 		{
 			id:   actionReviewCompose,
 			keys: func(k config.Keybindings) []string { return k.Review.Compose },
-			run:  orRefuseWrite(model.pressReviewCompose),
+			run:  r.orRefuseWrite(r.pressCompose),
 		},
 		{
 			id: actionReviewSend,
 			// A verdict with no comments is how a change is approved, so this is offered while
 			// reading as well as while writing.
 			keys: func(config.Keybindings) []string { return formKeys().Submit },
-			run:  orRefuseWrite(model.pressReviewSend),
+			run:  r.orRefuseWrite(r.pressSend),
 		},
 	}
 }
 
 // orRefuseWrite turns an arm that puts something in front of the agent into one that says why it
 // did not, when the agent it would reach is no longer there.
-func orRefuseWrite(fn func(model) (tea.Model, tea.Cmd)) func(model, string) (tea.Model, tea.Cmd) {
-	return func(m model, _ string) (tea.Model, tea.Cmd) {
-		if _, dead := m.isReviewReadOnly(); dead {
-			return m.refuseReviewWrite()
+func (r *reviewScreen) orRefuseWrite(fn func(host, panelShared) tea.Cmd) func(host, panelShared, string) tea.Cmd {
+	return func(h host, s panelShared, _ string) tea.Cmd {
+		if _, dead := r.isReadOnly(s); dead {
+			r.refuseWrite(s)
+
+			return nil
 		}
 
-		if said, history := m.review.isHistory(); history {
-			return m.refuseReviewHistory(said)
+		if said, history := r.isHistory(); history {
+			r.refuseHistory(h, s, said)
+
+			return nil
 		}
 
-		return fn(m)
+		return fn(h, s)
 	}
 }
 
-// pressReviewCompose is the comment key, which refuses a new thread while a review is owed an
-// answer.
-func (m model) pressReviewCompose() (tea.Model, tea.Cmd) {
-	if _, replying := m.review.diff.threadAtCursor(); m.review.threads.isOwedAnAnswer() && !replying {
-		return m.refuseReviewAwaiting()
+// pressCompose is the comment key, which refuses a new thread while a review is owed an answer.
+func (r *reviewScreen) pressCompose(h host, s panelShared) tea.Cmd {
+	if _, replying := r.diff.threadAtCursor(); r.threads.isOwedAnAnswer() && !replying {
+		r.refuseAwaiting(h, s)
+
+		return nil
 	}
 
-	return m.composeReview()
+	return r.compose(h, s)
 }
 
-// pressReviewSend is the send key, which while a review is owed an answer needs replies written
-// to send, a verdict on its own being the second review the wait holds off.
-func (m model) pressReviewSend() (tea.Model, tea.Cmd) {
-	if m.review.threads.isOwedAnAnswer() && !m.review.threads.holdsUnsent() {
-		return m.refuseReviewAwaiting()
+// pressSend is the send key, which while a review is owed an answer needs replies written to
+// send, a verdict on its own being the second review the wait holds off.
+func (r *reviewScreen) pressSend(h host, s panelShared) tea.Cmd {
+	if r.threads.isOwedAnAnswer() && !r.threads.holdsUnsent() {
+		r.refuseAwaiting(h, s)
+
+		return nil
 	}
 
-	return m.openReviewRelease()
+	return r.openRelease(s)
 }
 
-func reviewLegend() []legendRow {
+func (r *reviewScreen) legend() []screenLegendRow {
 	// A dead agent keeps every key that reads and loses every key that sends, so the ones that
 	// would only explain their own refusal are not offered.
-	reachable := func(m model) bool {
-		_, dead := m.isReviewReadOnly()
+	reachable := func(s panelShared) bool {
+		_, dead := r.isReadOnly(s)
 
 		return !dead
 	}
 
 	// An older round holds no line a comment could ask to be changed, so the keys that write are
 	// not offered on one.
-	offered := func(m model) bool {
-		_, history := m.review.isHistory()
+	offered := func(s panelShared) bool {
+		_, history := r.isHistory()
 
-		return reachable(m) && !history
+		return reachable(s) && !history
 	}
 
-	return []legendRow{
+	return []screenLegendRow{
 		{
 			of:    []actionID{actionMove},
-			desc:  func(model) string { return "move" },
+			desc:  func(panelShared) string { return "move" },
 			label: moveLabel,
 			strip: true,
 		},
 		{
 			of:    []actionID{actionNavPage},
-			desc:  func(model) string { return "page" },
+			desc:  func(panelShared) string { return "page" },
 			label: navPageLabel,
 		},
 		{
 			of:   []actionID{actionReviewFile},
-			desc: func(model) string { return "next/previous file" },
+			desc: func(panelShared) string { return "next/previous file" },
 			label: func(k config.Keybindings) string {
 				return headLabel(k.Review.NextFile) + "/" + headLabel(k.Review.PrevFile)
 			},
 		},
 		{
 			of:   []actionID{actionReviewThread, actionReviewOpenThread},
-			desc: func(m model) string { return m.review.diff.threadStepDesc() },
+			desc: func(panelShared) string { return r.diff.threadStepDesc() },
 			label: func(k config.Keybindings) string {
 				return headLabel(k.Review.NextThread) + "/" + headLabel(k.Review.PrevThread) +
 					"/" + headLabel(k.Review.NextOpenThread) + "/" + headLabel(k.Review.PrevOpenThread)
@@ -233,11 +248,11 @@ func reviewLegend() []legendRow {
 		},
 		{
 			of:   []actionID{actionFilterOpen},
-			desc: func(model) string { return "search" },
+			desc: func(panelShared) string { return "search" },
 		},
 		{
 			of:   []actionID{actionReviewMatch},
-			desc: func(model) string { return "next/previous match" },
+			desc: func(panelShared) string { return "next/previous match" },
 			label: func(k config.Keybindings) string {
 				return headLabel(k.Review.NextMatch) + "/" + headLabel(k.Review.PrevMatch)
 			},
@@ -245,23 +260,23 @@ func reviewLegend() []legendRow {
 		// Panning and its reset share a row.
 		{
 			of:   []actionID{actionReviewPan, actionReviewPanReset},
-			desc: func(model) string { return "pan sideways" },
+			desc: func(panelShared) string { return "pan sideways" },
 			label: func(k config.Keybindings) string {
 				return headLabel(k.Review.PanLeft) + "/" + headLabel(k.Review.PanRight) + "/" + keyLabel(k.Review.PanReset)
 			},
 		},
 		{
 			of:    []actionID{actionJump},
-			desc:  func(model) string { return "top/bottom" },
+			desc:  func(panelShared) string { return "top/bottom" },
 			label: jumpLabel,
 		},
 		{
 			of:   []actionID{actionReviewEdit},
-			desc: func(m model) string { return m.review.pass.editorDesc() },
+			desc: func(panelShared) string { return r.pass.editorDesc() },
 			// The one thing standing in the way of editing is an earlier round, whose line numbers
 			// name a file the worktree no longer holds.
-			show: func(m model) bool {
-				_, history := m.review.isHistory()
+			show: func(panelShared) bool {
+				_, history := r.isHistory()
 
 				return !history
 			},
@@ -269,118 +284,122 @@ func reviewLegend() []legendRow {
 		},
 		{
 			of:   []actionID{actionReviewBase},
-			desc: func(model) string { return "an earlier round" },
-			show: model.doesReviewFitBaseLegend,
+			desc: func(panelShared) string { return "an earlier round" },
+			show: r.doesFitBaseLegend,
 		},
 		{
 			of:   []actionID{actionReviewReload},
-			desc: func(m model) string { return m.review.diff.reloadDesc() },
+			desc: func(panelShared) string { return r.diff.reloadDesc() },
 		},
 		{
 			of:   []actionID{actionReviewResolve},
-			desc: func(m model) string { return m.review.diff.resolveDesc() },
+			desc: func(panelShared) string { return r.diff.resolveDesc() },
 		},
 		{
 			of:   []actionID{actionReviewViewed, actionReviewExpand},
-			desc: func(m model) string { return m.review.diff.fileDesc() },
+			desc: func(panelShared) string { return r.diff.fileDesc() },
 		},
 		{
 			of:   []actionID{actionReviewFocusThread},
-			desc: model.reviewThreadDesc,
+			desc: func(panelShared) string { return r.threadDesc() },
 		},
 		{
 			of:   []actionID{actionReviewBaseForward},
-			desc: func(model) string { return "a later round" },
-			show: model.doesReviewFitBaseLegend,
+			desc: func(panelShared) string { return "a later round" },
+			show: r.doesFitBaseLegend,
 		},
 		{
 			of:   []actionID{actionReviewCompose},
-			desc: func(m model) string { return m.review.composeDesc() },
+			desc: func(panelShared) string { return r.composeDesc() },
 			// The compose key is the way into the mode that writes, so reading offers it too.
 			show:  offered,
 			strip: true,
 		},
 		{
 			of:   []actionID{actionReviewSend},
-			desc: func(m model) string { return m.review.threads.sendDesc() },
+			desc: func(panelShared) string { return r.threads.sendDesc() },
 			show: offered,
 		},
 		{
 			of:   []actionID{actionReviewBack},
-			desc: func(m model) string { return m.review.pass.backDesc() },
+			desc: func(panelShared) string { return r.pass.backDesc() },
 		},
 	}
 }
 
-func (m model) moveReview(pressed string) (tea.Model, tea.Cmd) {
-	if isBound(pressed, m.keys.Nav.Down) {
-		return m.moveReviewCursor(m.review.diff.view.Move(m.review.diff.cursor, 1))
+func (r *reviewScreen) movePressed(h host, s panelShared, pressed string) tea.Cmd {
+	if isBound(pressed, s.keys.Nav.Down) {
+		return r.moveCursor(h, s, r.diff.view.Move(r.diff.cursor, 1))
 	}
 
-	return m.moveReviewCursor(m.review.diff.view.Move(m.review.diff.cursor, -1))
+	return r.moveCursor(h, s, r.diff.view.Move(r.diff.cursor, -1))
 }
 
-func (m model) jumpReview(pressed string) (tea.Model, tea.Cmd) {
-	if isBound(pressed, m.keys.Nav.Bottom) {
-		return m.moveReviewCursor(m.review.diff.view.GetLastRow())
+func (r *reviewScreen) jumpPressed(h host, s panelShared, pressed string) tea.Cmd {
+	if isBound(pressed, s.keys.Nav.Bottom) {
+		return r.moveCursor(h, s, r.diff.view.GetLastRow())
 	}
 
-	return m.moveReviewCursor(m.review.diff.view.GetFirstRow())
+	return r.moveCursor(h, s, r.diff.view.GetFirstRow())
 }
 
-func (m model) pageReview(pressed string) (tea.Model, tea.Cmd) {
-	if isBound(pressed, m.keys.Nav.PageUp) {
-		return m.scrollReview(-1)
+func (r *reviewScreen) pagePressed(h host, s panelShared, pressed string) tea.Cmd {
+	if isBound(pressed, s.keys.Nav.PageUp) {
+		return r.scroll(h, s, -1)
 	}
 
-	return m.scrollReview(1)
+	return r.scroll(h, s, 1)
 }
 
-func (m model) stepReviewFile(pressed string) (tea.Model, tea.Cmd) {
-	if isBound(pressed, m.keys.Review.PrevFile) {
-		return m.jumpReviewFile(-1)
+func (r *reviewScreen) stepFile(h host, s panelShared, pressed string) tea.Cmd {
+	if isBound(pressed, s.keys.Review.PrevFile) {
+		return r.jumpFile(h, s, -1)
 	}
 
-	return m.jumpReviewFile(1)
+	return r.jumpFile(h, s, 1)
 }
 
 // stepOpenThread walks the comments nobody has settled.
-func (m model) stepOpenThread(pressed string) (tea.Model, tea.Cmd) {
-	if isBound(pressed, m.keys.Review.PrevOpenThread) {
-		return m.jumpOpenThread(-1)
+func (r *reviewScreen) stepOpenThread(h host, s panelShared, pressed string) tea.Cmd {
+	if isBound(pressed, s.keys.Review.PrevOpenThread) {
+		return r.jumpOpenThread(h, s, -1)
 	}
 
-	return m.jumpOpenThread(1)
+	return r.jumpOpenThread(h, s, 1)
 }
 
-func (m model) stepReviewThread(pressed string) (tea.Model, tea.Cmd) {
-	if isBound(pressed, m.keys.Review.PrevThread) {
-		return m.moveReviewCursor(m.review.diff.view.JumpThread(m.review.diff.cursor, -1))
+func (r *reviewScreen) stepThread(h host, s panelShared, pressed string) tea.Cmd {
+	if isBound(pressed, s.keys.Review.PrevThread) {
+		return r.moveCursor(h, s, r.diff.view.JumpThread(r.diff.cursor, -1))
 	}
 
-	return m.moveReviewCursor(m.review.diff.view.JumpThread(m.review.diff.cursor, 1))
+	return r.moveCursor(h, s, r.diff.view.JumpThread(r.diff.cursor, 1))
 }
 
-func (m model) stepReviewMatch(pressed string) (tea.Model, tea.Cmd) {
-	if isBound(pressed, m.keys.Review.PrevMatch) {
-		return m.jumpReviewMatch(-1)
+func (r *reviewScreen) stepMatch(h host, s panelShared, pressed string) tea.Cmd {
+	if isBound(pressed, s.keys.Review.PrevMatch) {
+		return r.jumpMatch(h, s, -1)
 	}
 
-	return m.jumpReviewMatch(1)
+	return r.jumpMatch(h, s, 1)
 }
 
-func (m model) panReviewBy(pressed string) (tea.Model, tea.Cmd) {
-	if isBound(pressed, m.keys.Review.PanLeft) {
-		return m.panReview(-m.getReviewPanStep())
+func (r *reviewScreen) panBy(_ host, s panelShared, pressed string) tea.Cmd {
+	if isBound(pressed, s.keys.Review.PanLeft) {
+		r.diff.panBy(-panStep(s))
+
+		return nil
 	}
 
-	return m.panReview(m.getReviewPanStep())
+	r.diff.panBy(panStep(s))
+
+	return nil
 }
 
-func (m model) openReviewFilter(string) (tea.Model, tea.Cmd) {
-	m.review.diff.filter.typing = true
-	m.review.diff.filter.setQuery("")
-	m.searchReview()
+func (r *reviewScreen) openFilter(_ host, s panelShared, _ string) tea.Cmd {
+	r.diff.filter.typing = true
+	r.diff.filter.setQuery("")
+	r.search(s)
 
-	return m, nil
+	return nil
 }

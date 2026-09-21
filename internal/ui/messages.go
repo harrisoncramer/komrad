@@ -452,13 +452,9 @@ func (s messagesState) clampedCursor() int {
 // isMessagesRegion is whether the screen on top draws the region at all, which the review screen
 // does not.
 func (m model) isMessagesRegion() bool {
-	// A review mid-input owns every key, so the region gives up its own rather than taking a
+	// A screen mid-input owns every key, so the region gives up its own rather than taking a
 	// character out of a comment being typed.
-	if m.screen == screenReview && m.review.doesTakeEveryKey() {
-		return false
-	}
-
-	return m.isDetailsScreen()
+	return m.isDetailsScreen() && !m.active().takesEveryKey(m)
 }
 
 // isMessagesFocused is whether the region holds the keys, which it cannot on a screen that does

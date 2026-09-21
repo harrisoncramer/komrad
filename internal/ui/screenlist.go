@@ -481,8 +481,20 @@ type drawer interface {
 	joinColumns(split columnSplit, sidebar, column string) string
 	renderHelp(k keyMap, above ...string) string
 	globalHelp() []key.Binding
+	detailsBinding() key.Binding
 	listLines(chrome ...string) int
 	listPane(width int) listPane
+	detailsView() string
+	messagesRegion(record, help string, above ...string) string
+
+	// The record under a screen composing its own sidebar, measured against the legend and the
+	// head that screen draws.
+	sidebarFitsDetails(help func(panelShared) keyMap, head string) bool
+	sidebarDetailsRoom(help func(panelShared) keyMap, head string) int
+
+	// Where the keys are, as the screen's own block beside the list reads it.
+	isListFocused() bool
+	isDetailsFocused() bool
 }
 
 var _ drawer = (*model)(nil)
@@ -528,6 +540,19 @@ func (m model) listFitsDetails(params screenListParams) bool {
 
 func (m model) listRecordRoom(params screenListParams) int {
 	return m.listChromeOf(params).detailsRoom(m)
+}
+
+// sidebarFitsDetails is whether the record fits under the head, judged with the keys on the
+// screen.
+func (m model) sidebarFitsDetails(help func(panelShared) keyMap, head string) bool {
+	m.details.focused = false
+
+	return m.spareLines(m.renderHelp(help(m.shared())), head) > m.detailsLines()+detailsChromeLines
+}
+
+// sidebarDetailsRoom is the rows the sidebar has under the head and the legend it is drawing.
+func (m model) sidebarDetailsRoom(help func(panelShared) keyMap, head string) int {
+	return m.spareLines(m.renderHelp(help(m.shared())), head)
 }
 
 // listChromeOf is a moved screen's list as the root's own chrome reads it.

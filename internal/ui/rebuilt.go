@@ -27,7 +27,5 @@ func (m model) isBusy() bool {
 	return m.pending > 0 ||
 		m.held.active ||
 		m.form.isActive() ||
-		m.review.isWriting() ||
-		m.review.pass.mode != modeWatching ||
-		m.review.pass.atEditor
+		m.review.isBusy()
 }

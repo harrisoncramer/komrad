@@ -3,7 +3,6 @@ package ui
 import (
 	"context"
 	"errors"
-	"slices"
 
 	"weave/internal/diff"
 	"weave/internal/git"
@@ -26,25 +25,6 @@ func hasCheckout(agent panel.Agent) bool {
 // isReviewable reports whether an agent has work of its own to read.
 func isReviewable(agent panel.Agent) bool {
 	return hasCheckout(agent) && agent.ParentAgentID == nil
-}
-
-// isRebaseable reports whether an agent sits in a worktree weave cut for it alone.
-func (m model) isRebaseable(agent panel.Agent) bool {
-	if !hasCheckout(agent) {
-		return false
-	}
-
-	index := slices.IndexFunc(m.listing.workflows, func(w panel.Workflow) bool { return w.ID == agent.WorkflowID })
-	if index < 0 {
-		return false
-	}
-
-	// A child sits in its parent's checkout.
-	if agent.ParentAgentID != nil {
-		return false
-	}
-
-	return m.listing.workflows[index].Worktree.Enabled
 }
 
 type reviewLoadedMsg struct {
@@ -86,17 +66,11 @@ type reviewWroteMsg struct {
 	sent bool
 }
 
-// enterReview opens the review of an agent's diff, with the threads in the sidebar and the
-// diff in the stage.
-func (m model) enterReview(agent panel.Agent) (tea.Model, tea.Cmd) {
-	if !isReviewable(agent) {
-		return m, nil
-	}
+// open puts the review on an agent's diff and reads it.
+func (r *reviewScreen) open(h host, s panelShared, agent panel.Agent) tea.Cmd {
+	worktree := s.listing.worktreeFor(agent)
 
-	worktree := m.worktreeFor(agent)
-
-	m.enterScreen(screenReview)
-	m.review = reviewState{
+	*r = reviewScreen{
 		agentID:   agent.ID,
 		agentName: agent.Name,
 		dir:       agent.Cwd,
@@ -107,42 +81,35 @@ func (m model) enterReview(agent panel.Agent) (tea.Model, tea.Cmd) {
 		diff: reviewDiff{chapter: -1},
 	}
 
-	return m, m.loadWholeReviewCmd()
+	return r.loadWholeCmd(h)
 }
 
-// refuseReview backs out to the listing, for a worktree that turned out to hold nothing.
-func (m *model) refuseReview(err error) tea.Cmd {
-	name := m.review.agentName
-	letGo := m.dropReview()
-	m.reportBrief(describeRefusedReview(name, err), err.Error(), nil)
+// refuse backs out to the listing, for a worktree that turned out to hold nothing.
+func (r *reviewScreen) refuse(h host, s panelShared, err error) tea.Cmd {
+	name := r.agentName
+	letGo := r.drop(h, s)
+	h.reportBrief(describeRefusedReview(name, err), err.Error(), nil)
 
 	return letGo
 }
 
-// abandonReview backs out to the listing for a diff that could not be read at all.
-func (m *model) abandonReview(err error) tea.Cmd {
-	name := m.review.agentName
-	letGo := m.dropReview()
-	m.report("Could not read the diff of "+name, err)
+// abandon backs out to the listing for a diff that could not be read at all.
+func (r *reviewScreen) abandon(h host, s panelShared, err error) tea.Cmd {
+	name := r.agentName
+	letGo := r.drop(h, s)
+	h.report("Could not read the diff of "+name, err)
 
 	return letGo
 }
 
-// dropReview puts the reader back on the row they opened the review from, letting go of an agent
-// the pass stopped.
-func (m *model) dropReview() tea.Cmd {
-	next, letGo := m.endReviewPass(abandonedSaid)
-	if ended, ok := next.(model); ok {
-		*m = ended
-	}
+// drop puts the reader back on the row they opened the review from, letting go of an agent the
+// pass stopped.
+func (r *reviewScreen) drop(h host, s panelShared) tea.Cmd {
+	letGo := r.endPass(h, s, abandonedSaid)
 
-	m.review = reviewState{}
+	*r = reviewScreen{}
 
-	m.enterScreen(screenAgents)
-	m.tree.cursor = clampCursor(m.tree.cursor, len(m.agentRows()))
-	m.stageSelection()
-
-	return letGo
+	return tea.Batch(h.enter(screenAgents, screenTarget{}), letGo)
 }
 
 // describeRefusedReview says which of the two empty diffs this is: an agent that has written
@@ -155,12 +122,12 @@ func describeRefusedReview(name string, err error) string {
 	return "Nothing to review in " + name
 }
 
-// loadWholeReviewCmd reads the whole change of the agent on screen.
-func (m model) loadWholeReviewCmd() tea.Cmd {
-	return m.loadReviewCmd(loadReviewCmdParams{
-		AgentID: m.review.agentID,
-		Dir:     m.review.dir,
-		Exclude: m.review.exclude,
+// loadWholeCmd reads the whole change of the agent on screen.
+func (r reviewScreen) loadWholeCmd(h host) tea.Cmd {
+	return loadReviewCmd(h, loadReviewCmdParams{
+		AgentID: r.agentID,
+		Dir:     r.dir,
+		Exclude: r.exclude,
 	})
 }
 
@@ -179,10 +146,10 @@ type loadReviewCmdParams struct {
 
 // loadReviewCmd opens a round of the agent and reads that rather than the worktree, a tree that
 // has not moved giving back the round already taken of it.
-func (m model) loadReviewCmd(params loadReviewCmdParams) tea.Cmd {
-	agents := m.api.agents
+func loadReviewCmd(h host, params loadReviewCmdParams) tea.Cmd {
+	agents := h.client().agents
 	agentID, dir, exclude := params.AgentID, params.Dir, params.Exclude
-	repo := m.git
+	repo := h.repo()
 
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), reviewTimeout)
@@ -325,8 +292,8 @@ func changedSinceLastReview(ctx context.Context, params changedSinceLastReviewPa
 	return label.Counted(changed, "file") + " changed since you last reviewed"
 }
 
-func (m *model) applyReviewLoaded(msg reviewLoadedMsg) tea.Cmd {
-	if msg.agentID != m.review.agentID {
+func (r *reviewScreen) applyLoaded(h host, s panelShared, msg reviewLoadedMsg) tea.Cmd {
+	if msg.agentID != r.agentID {
 		return nil
 	}
 
@@ -334,45 +301,45 @@ func (m *model) applyReviewLoaded(msg reviewLoadedMsg) tea.Cmd {
 
 	// A narrowed diff drawing nothing is an answer about the agent rather than a reason to leave,
 	// so the whole change comes back with the answer said out loud.
-	if drewNothing && m.review.diff.base != "" {
-		said := m.review.diff.baseLabel
-		m.review.diff.widen()
-		m.review.notice = "nothing written " + said
+	if drewNothing && r.diff.base != "" {
+		said := r.diff.baseLabel
+		r.diff.widen()
+		r.notice = "nothing written " + said
 
-		return m.loadWholeReviewCmd()
+		return r.loadWholeCmd(h)
 	}
 
 	// Both draw nothing, so both back out rather than leaving the reader in an empty viewer.
 	if drewNothing {
-		return m.refuseReview(msg.err)
+		return r.refuse(h, s, msg.err)
 	}
 
 	if msg.patch == nil {
-		return m.abandonReview(msg.err)
+		return r.abandon(h, s, msg.err)
 	}
 
-	m.review.loading = false
+	r.loading = false
 	if msg.err != nil {
-		m.report("Could not read the whole review of "+m.review.agentName, msg.err)
+		h.report("Could not read the whole review of "+r.agentName, msg.err)
 	}
 
-	if m.review.diff.chapter >= len(msg.chapters) {
-		m.review.diff.chapters = msg.chapters
-		m.review.diff.widen()
-		m.review.threads.cancelMessage()
-		m.review.diff.drop()
-		m.review.loading = true
+	if r.diff.chapter >= len(msg.chapters) {
+		r.diff.chapters = msg.chapters
+		r.diff.widen()
+		r.threads.cancelMessage()
+		r.diff.drop()
+		r.loading = true
 
-		return m.loadWholeReviewCmd()
+		return r.loadWholeCmd(h)
 	}
 
-	m.review.root = msg.patch.Root
-	m.review.round = msg.round
-	m.review.diff.load(msg, m.isDark)
-	m.review.threads.owed = msg.owed
-	m.review.threads.set(msg.threads)
+	r.root = msg.patch.Root
+	r.round = msg.round
+	r.diff.load(msg, s.isDark)
+	r.threads.owed = msg.owed
+	r.threads.set(msg.threads)
 
-	m.scrollReviewToCursor()
+	r.scrollToCursor(s)
 
 	return nil
 }
@@ -448,25 +415,25 @@ func indexViewedFiles(viewed []*agentv1.ReviewViewedFile, patch *diff.Patch) map
 	return held
 }
 
-func (m *model) applyReviewWrote(msg reviewWroteMsg) tea.Cmd {
-	if msg.agentID != m.review.agentID || m.review.diff.view == nil {
+func (r *reviewScreen) applyWrote(h host, s panelShared, msg reviewWroteMsg) tea.Cmd {
+	if msg.agentID != r.agentID || r.diff.view == nil {
 		return nil
 	}
 
 	if msg.err != nil {
 		// A send that did not land leaves the pass standing, so the reader keeps their comments
 		// and keeps the agent stopped rather than being put back to watching with neither.
-		m.report("Could not write on "+m.review.agentName, msg.err)
+		h.report("Could not write on "+r.agentName, msg.err)
 
 		return nil
 	}
 
-	m.review.notice = msg.notice
+	r.notice = msg.notice
 
 	if msg.readErr != nil {
-		m.report("Could not read the review of "+m.review.agentName+" back", msg.readErr)
+		h.report("Could not read the review of "+r.agentName+" back", msg.readErr)
 	} else {
-		m.applyReviewThreads(msg.threads)
+		r.applyThreads(s, msg.threads)
 	}
 
 	if !msg.sent {
@@ -475,31 +442,26 @@ func (m *model) applyReviewWrote(msg reviewWroteMsg) tea.Cmd {
 
 	// The comments are in the agent's hands now, and answering them is the next thing it does, so
 	// this is what lets it go.
-	next, letGo := m.endReviewPass(sentSaid)
-	if ended, ok := next.(model); ok {
-		*m = ended
-	}
-
-	return letGo
+	return r.endPass(h, s, sentSaid)
 }
 
-// applyReviewThreads draws the review as it now stands, keeping the reader where they were.
-func (m *model) applyReviewThreads(threads []*agentv1.ReviewThread) {
-	m.review.threads.set(threads)
+// applyThreads draws the review as it now stands, keeping the reader where they were.
+func (r *reviewScreen) applyThreads(s panelShared, threads []*agentv1.ReviewThread) {
+	r.threads.set(threads)
 
 	drawn := threadsByChapter(threadsByChapterParams{
 		Threads:  threads,
-		Chapters: m.review.diff.chapters,
-		At:       m.review.diff.chapter,
+		Chapters: r.diff.chapters,
+		At:       r.diff.chapter,
 	})
 
 	// Where the cursor is standing is taken before the threads are pinned again, which rebuilds
 	// the rows a settled or deleted thread takes away from under it.
-	place, ok := m.review.diff.view.GetPlace(m.review.diff.cursor)
-	m.review.diff.view.PinThreads(drawn)
-	m.review.diff.keepCursor(place, ok)
+	place, ok := r.diff.view.GetPlace(r.diff.cursor)
+	r.diff.view.PinThreads(drawn)
+	r.diff.keepCursor(place, ok)
 
-	m.scrollReviewToCursor()
+	r.scrollToCursor(s)
 }
 
 // keepCursor puts the cursor back on what it was standing on, and failing that back inside the
@@ -519,39 +481,39 @@ func (d *reviewDiff) keepCursor(place diffview.Place, ok bool) {
 	}
 }
 
-// reloadReview reads the worktree again, holding the place the cursor is standing so the diff
-// comes back under it.
-func (m model) reloadReview() (model, tea.Cmd) {
-	if m.review.diff.view == nil {
-		return m, nil
+// reload reads the worktree again, holding the place the cursor is standing so the diff comes
+// back under it.
+func (r *reviewScreen) reload(h host) tea.Cmd {
+	if r.diff.view == nil {
+		return nil
 	}
 
-	if place, ok := m.review.diff.view.GetPlace(m.review.diff.cursor); ok {
-		m.review.diff.restore = &place
+	if place, ok := r.diff.view.GetPlace(r.diff.cursor); ok {
+		r.diff.restore = &place
 	}
 
-	return m, m.loadReviewCmd(loadReviewCmdParams{
-		AgentID: m.review.agentID,
-		Dir:     m.review.dir,
-		Exclude: m.review.exclude,
-		Base:    m.review.diff.base,
-		Head:    m.review.diff.head,
-		Fresh:   m.review.pass.mode == modeReviewing,
+	return loadReviewCmd(h, loadReviewCmdParams{
+		AgentID: r.agentID,
+		Dir:     r.dir,
+		Exclude: r.exclude,
+		Base:    r.diff.base,
+		Head:    r.diff.head,
+		Fresh:   r.pass.mode == modeReviewing,
 	})
 }
 
-func (m model) leaveReview() (tea.Model, tea.Cmd) {
-	if m.review.pass.atEditor {
-		return m.closeReviewEdit()
+func (r *reviewScreen) leave(h host, s panelShared) tea.Cmd {
+	if r.pass.atEditor {
+		return r.closeEdit(h)
 	}
 
-	// dropReview is the one way off this screen, and it puts the reader back on the row they
-	// came from.
-	return m, m.dropReview()
+	// The drop is the one way off this screen, and it puts the reader back on the row they came
+	// from.
+	return r.drop(h, s)
 }
 
-func (m model) worktreeFor(agent panel.Agent) panel.WorktreeConfig {
-	for _, workflow := range m.listing.workflows {
+func (l listing) worktreeFor(agent panel.Agent) panel.WorktreeConfig {
+	for _, workflow := range l.workflows {
 		if workflow.ID == agent.WorkflowID {
 			return workflow.Worktree
 		}

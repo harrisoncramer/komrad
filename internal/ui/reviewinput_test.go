@@ -25,7 +25,7 @@ func TestTheComposerIsDrawnAsAnOrdinaryField(t *testing.T) {
 	require.True(t, ok)
 	require.True(t, m.review.threads.composing)
 
-	shown := ansi.Strip(m.reviewSidebarView())
+	shown := ansi.Strip(m.review.sidebarView(m.shared()))
 
 	assert.Contains(t, shown, "Comment")
 	assert.Contains(t, shown, "opens $EDITOR")
@@ -99,7 +99,7 @@ func TestTheComposerKeepsEveryLineAtANarrowSidebar(t *testing.T) {
 		m = typeReviewLine(t, m, line)
 	}
 
-	shown := ansi.Strip(m.reviewSidebarView())
+	shown := ansi.Strip(m.review.sidebarView(m.shared()))
 	for _, word := range []string{"one", "two", "three", "four"} {
 		assert.Contains(t, shown, word, "every line typed into the field is drawn")
 	}
@@ -128,7 +128,7 @@ func widestFieldRow(t *testing.T, m model) int {
 	t.Helper()
 
 	widest := 0
-	for _, row := range splitReviewRows(ansi.Strip(m.reviewSidebarView())) {
+	for _, row := range splitReviewRows(ansi.Strip(m.review.sidebarView(m.shared()))) {
 		if !strings.HasPrefix(row, "┃") {
 			continue
 		}

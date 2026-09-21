@@ -12,6 +12,7 @@ import (
 	"weave/internal/ui/paint/label"
 	agentv1 "weave/proto/gen/agent/v1"
 
+	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/lipgloss"
 )
 
@@ -36,39 +37,88 @@ func reviewDeadStyle(palette paint.Palette) lipgloss.Style {
 	return lipgloss.NewStyle().Foreground(lipgloss.Color("0")).Background(palette.Color(paint.ToneMuted)).Bold(true)
 }
 
-// reviewView draws the diff and, beside it, the thread the cursor is standing on, as one frame.
-func (m model) reviewView() string {
-	split, ok := m.screenColumnSplit()
+// view draws the diff and, beside it, the thread the cursor is standing on, as one frame.
+func (r reviewScreen) view(s panelShared) string {
+	split, ok := s.draw.screenColumnSplit()
 	if !ok {
-		band := m.reviewBandView(m.paneWidth())
+		band := r.bandView(s, s.pane)
 
-		return band + strings.TrimRight(m.reviewSidebarView(band), "\n")
+		return band + strings.TrimRight(r.sidebarView(s, band), "\n")
 	}
 
 	// Trimmed so the two halves are the same height.
-	sidebar := strings.TrimRight(m.reviewSidebarView(), "\n")
+	sidebar := strings.TrimRight(r.sidebarView(s), "\n")
 
 	// The band stands over the diff rather than over the whole window, and what it carries acts on
 	// the patch.
-	diff := m.reviewBandView(split.column) + m.reviewDiffView(split)
+	diff := r.bandView(s, split.column) + r.diffView(s, split)
 
-	return m.joinColumns(split, sidebar, diff)
+	return s.draw.joinColumns(split, sidebar, diff)
 }
 
-// reviewSidebarView is the panel's own column: where the cursor is standing, and the thread
-// hanging off it.
-func (m model) reviewSidebarView(above ...string) string {
-	help := m.renderHelp(m.reviewHelp())
+// sidebarView is the panel's own column: where the cursor is standing, and the thread hanging
+// off it.
+func (r reviewScreen) sidebarView(s panelShared, above ...string) string {
+	help := s.draw.renderHelp(r.help(s))
 
 	// The head is pinned and the conversation gives up the room: where the cursor is standing is
 	// what makes the rest of the pane mean anything.
-	record := m.detailsView()
-	messages := m.messagesRegion(record, help, above...)
+	record := s.draw.detailsView()
+	messages := s.draw.messagesRegion(record, help, above...)
 	chrome := slices.Concat(above, []string{help, record, messages})
-	head := m.reviewHeadView(reviewOwedRoom(m.listLines(chrome...)))
-	rest := m.review.threads.window(m.reviewRestView(), m.listLines(slices.Concat(chrome, []string{head})...))
+	head := r.headView(s, reviewOwedRoom(s.draw.listLines(chrome...)))
+	rest := r.threads.window(r.restView(s), s.draw.listLines(slices.Concat(chrome, []string{head})...))
 
-	return paint.PadRows(head+rest, m.listLines(chrome...)) + record + messages + help
+	return paint.PadRows(head+rest, s.draw.listLines(chrome...)) + record + messages + help
+}
+
+// help keeps the strip to what the screen is for, and hands the legend to the conversation
+// while the reader has taken the keys onto it.
+func (r reviewScreen) help(s panelShared) keyMap {
+	if r.isThreadHolding() {
+		return r.threadHelp(s)
+	}
+
+	own := r.actions().help(s)
+
+	return keyMap{
+		short: slices.Concat(own.short, s.draw.globalHelp()),
+		full: slices.Concat(
+			own.full,
+			[]key.Binding{s.draw.detailsBinding()},
+			s.draw.globalHelp(),
+		),
+	}
+}
+
+// isThreadHolding reports whether the reader has taken the keys onto the conversation.
+func (r reviewScreen) isThreadHolding() bool {
+	return !r.isWriting() && r.isThreadTaken()
+}
+
+// threadHelp is the legend while the conversation holds the keys.
+func (r reviewScreen) threadHelp(s panelShared) keyMap {
+	scroll := binding(concatKeys(s.keys.Nav.Up, s.keys.Nav.Down), "scroll the thread")
+	ends := binding(concatKeys(s.keys.Nav.Top, s.keys.Nav.Bottom), "top/bottom")
+	back := binding(s.keys.Review.FocusThread, "back to the diff")
+	reply := binding(s.keys.Review.Compose, "reply")
+	settle := binding(s.keys.Review.Resolve, r.diff.resolveDesc())
+	send := binding(formKeys().Submit, "send the review")
+
+	return keyMap{
+		short: slices.Concat([]key.Binding{scroll, back, reply, settle}, s.draw.globalHelp()),
+		full:  slices.Concat([]key.Binding{scroll, ends, back, reply, settle, send}, s.draw.globalHelp()),
+	}
+}
+
+// threadDesc names the key that moves between the diff and the conversation beside it, read from
+// the flag and not from whether the thread holds the keys.
+func (r reviewScreen) threadDesc() string {
+	if r.isThreadTaken() {
+		return "back to the diff"
+	}
+
+	return "read the thread"
 }
 
 // window cuts the conversation down to the rows the sidebar has, keeping its end unless the
@@ -92,66 +142,61 @@ func (t reviewThreads) window(rendered string, lines int) string {
 	return paint.WindowRows(rows, lines, place, reviewMarkerStyle())
 }
 
-// doesReviewFitDetails reports whether the sidebar has a line left over once the record has taken
-// its share.
-func (m model) doesReviewFitDetails() bool {
-	// Measured with the keys on the diff, which keeps this out of its own answer.
-	m.details.focused = false
-
-	spare := m.spareLines(m.renderHelp(m.reviewHelp()), m.reviewHeadView(owedRows))
-
-	return spare > m.detailsLines()+detailsChromeLines
+// detailsFit reports whether the sidebar has a line left over once the record has taken its
+// share.
+func (r reviewScreen) detailsFit(s panelShared) bool {
+	return s.draw.sidebarFitsDetails(r.help, r.headView(s, owedRows))
 }
 
-// reviewDetailsRoom is the rows the sidebar has under the head and the legend it is drawing.
-func (m model) reviewDetailsRoom() int {
-	return m.spareLines(m.renderHelp(m.reviewHelp()), m.reviewHeadView(owedRows))
+// detailsRoom is the rows the sidebar has under the head and the legend it is drawing.
+func (r reviewScreen) detailsRoom(s panelShared) int {
+	return s.draw.sidebarDetailsRoom(r.help, r.headView(s, owedRows))
 }
 
-// reviewHeadView is the fixed top of the sidebar: whatever is standing in the way of a review, or
-// the place the cursor is standing when nothing is.
-func (m model) reviewHeadView(owedRoom int) string {
+// headView is the fixed top of the sidebar: whatever is standing in the way of a review, or the
+// place the cursor is standing when nothing is.
+func (r reviewScreen) headView(s panelShared, owedRoom int) string {
 	switch {
-	case m.review.loading:
+	case r.loading:
 		return dimStyle.Render(reviewLoadingWord) + "\n"
-	case m.review.diff.view == nil || m.review.diff.view.Len() == 0:
+	case r.diff.view == nil || r.diff.view.Len() == 0:
 		return dimStyle.Render(reviewEmptyWord) + "\n"
 	}
 
-	return m.reviewOwedView(owedRoom) + m.review.diff.anchorView()
+	return r.owedView(s, owedRoom) + r.diff.anchorView()
 }
 
 // reviewNote is a line of prose under the conversation, wrapped into the sidebar's own column.
-func (m model) reviewNote(style lipgloss.Style, text string) string {
+func reviewNote(s panelShared, style lipgloss.Style, text string) string {
 	var out strings.Builder
-	for _, row := range paint.WrapRows(text, m.lineWidth()-2) {
+	for _, row := range paint.WrapRows(text, lineWidthOf(s.pane)-2) {
 		out.WriteString(style.Render("  "+row) + "\n")
 	}
 
 	return out.String()
 }
 
-func (m model) reviewRestView() string {
-	if m.review.loading || m.review.diff.view == nil || m.review.diff.view.Len() == 0 {
+func (r reviewScreen) restView(s panelShared) string {
+	if r.loading || r.diff.view == nil || r.diff.view.Len() == 0 {
 		return ""
 	}
 
-	if m.review.threads.composing {
-		return "\n" + m.review.threads.editor.view() + "\n"
+	if r.threads.composing {
+		return "\n" + r.threads.editor.view() + "\n"
 	}
 
-	if m.review.threads.releasing {
-		return m.reviewReleaseView()
+	if r.threads.releasing {
+		return r.releaseView(s)
 	}
 
-	out := "\n" + m.reviewThreadView()
+	out := "\n" + r.threadView(s)
 
 	// A notice answers the last keypress and a keypress clears it, so what the reader is told
 	// about the diff itself stands underneath and comes back the moment the answer is gone.
-	if notice := m.review.notice; notice != "" {
-		out += "\n" + m.reviewNote(paint.Panel.Style(reviewNoticeTone), notice)
-	} else if since := m.review.diff.since; since != "" && m.review.diff.baseLabel == "" {
-		out += "\n" + m.reviewNote(dimStyle, since)
+	if notice := r.notice; notice != "" {
+		out += "\n" + reviewNote(s, paint.Panel.Style(reviewNoticeTone), notice)
+	} else if since := r.diff.since; since != "" && r.diff.baseLabel == "" {
+		out += "\n" + reviewNote(s, dimStyle, since)
 	}
 
 	return out
@@ -188,21 +233,21 @@ func (d reviewDiff) commentWhereView(thread *agentv1.ReviewThread) string {
 	return dimStyle.Render(fmt.Sprintf("  %d of %d", at, total))
 }
 
-// reviewReleaseView asks what to send: an optional word about the work as a whole, and the
-// verdict the agent acts on.
-func (m model) reviewReleaseView() string {
-	out := "\n" + m.review.threads.editor.view() + "\n\n"
+// releaseView asks what to send: an optional word about the work as a whole, and the verdict
+// the agent acts on.
+func (r reviewScreen) releaseView(s panelShared) string {
+	out := "\n" + r.threads.editor.view() + "\n\n"
 
 	for i, verdict := range reviewVerdicts {
 		mark, style := "  ", dimStyle
-		if i == m.review.threads.verdict {
+		if i == r.threads.verdict {
 			mark, style = "▸ ", paint.Panel.Style(verdictTone(verdict))
 		}
 
 		out += style.Render("  "+mark+describeVerdict(verdict)) + "\n"
 	}
 
-	return out + "\n" + m.reviewNote(dimStyle, "tab to change · "+
+	return out + "\n" + reviewNote(s, dimStyle, "tab to change · "+
 		keyLabel(formKeys().SendNow)+" send and interrupt · "+
 		keyLabel(formKeys().Back)+" cancel")
 }
@@ -234,30 +279,30 @@ func verdictTone(verdict agentv1.ReviewVerdict) paint.Tone {
 	return reviewUnsentTone
 }
 
-func (m model) reviewThreadView() string {
-	thread, ok := m.review.diff.threadAtCursor()
+func (r reviewScreen) threadView(s panelShared) string {
+	thread, ok := r.diff.threadAtCursor()
 	if !ok {
 		return dimStyle.Render("  no thread here yet") + "\n"
 	}
 
-	out := m.reviewOriginView(thread)
+	out := r.originView(s, thread)
 	for _, message := range thread.GetMessages() {
-		out += m.reviewMessageView(message)
+		out += r.messageView(s, message)
 	}
 
 	return out
 }
 
-// reviewOriginView is where a thread was written and the line it was written against, drawn only
-// once that code has moved.
-func (m model) reviewOriginView(thread *agentv1.ReviewThread) string {
-	if !m.review.diff.view.HasMoved(thread) {
+// originView is where a thread was written and the line it was written against, drawn only once
+// that code has moved.
+func (r reviewScreen) originView(s panelShared, thread *agentv1.ReviewThread) string {
+	if !r.diff.view.HasMoved(thread) {
 		return ""
 	}
 
-	out := dimStyle.Render("  "+m.review.diff.originSaid(thread)) + "\n"
+	out := dimStyle.Render("  "+r.diff.originSaid(thread)) + "\n"
 	for _, quoted := range thread.GetQuotedLines() {
-		out += paint.Panel.Style(reviewQuoteTone).Italic(true).Render(m.reviewWrap("  "+quoted)) + "\n"
+		out += paint.Panel.Style(reviewQuoteTone).Italic(true).Render(reviewWrap(s, "  "+quoted)) + "\n"
 	}
 
 	return out + "\n"
@@ -281,10 +326,10 @@ func (d reviewDiff) originSaid(thread *agentv1.ReviewThread) string {
 	return "moved since it was written · written against"
 }
 
-func (m model) reviewMessageView(message *agentv1.ReviewMessage) string {
+func (r reviewScreen) messageView(s panelShared, message *agentv1.ReviewMessage) string {
 	author, tone := "you", reviewHumanTone
 	if message.GetAuthorKind() == agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_AGENT {
-		author, tone = m.review.agentName, reviewAgentTone
+		author, tone = r.agentName, reviewAgentTone
 	}
 
 	head := paint.Panel.Style(tone).Bold(true).Render(author)
@@ -292,7 +337,7 @@ func (m model) reviewMessageView(message *agentv1.ReviewMessage) string {
 		head += " " + dimStyle.Render(when)
 	}
 
-	return head + "\n" + m.reviewWrap(message.GetBody()) + "\n" + reviewDeliveryBadge(paint.Panel, message) + "\n"
+	return head + "\n" + reviewWrap(s, message.GetBody()) + "\n" + reviewDeliveryBadge(paint.Panel, message) + "\n"
 }
 
 // sendDesc says what the send key opens.
@@ -304,34 +349,34 @@ func (t reviewThreads) sendDesc() string {
 	return "give a verdict"
 }
 
-// reviewDetails is the record drawn under the review sidebar.
-func (m model) reviewDetails() details {
-	index := slices.IndexFunc(m.listing.agents, func(item agentItem) bool { return item.agent.ID == m.review.agentID })
+// details is the record drawn under the review sidebar.
+func (r reviewScreen) details(s panelShared) details {
+	index := slices.IndexFunc(s.listing.agents, func(item agentItem) bool { return item.agent.ID == r.agentID })
 	if index < 0 {
 		return details{}
 	}
 
-	item := m.listing.agents[index]
+	item := s.listing.agents[index]
 	agent := item.agent
-	fields := agentDetailFields(m.shared(), item)
+	fields := agentDetailFields(s, item)
 
 	// The notices read the row the list would draw, and which columns that row fills depends on
 	// whether the agent owns its checkout, which only its workflow says.
 	row := agentRow{item: item}
-	if workflow := workflowByID(m.listing.workflows, agent.WorkflowID); workflow != nil {
+	if workflow := workflowByID(s.listing.workflows, agent.WorkflowID); workflow != nil {
 		row.workflow = *workflow
 	}
 
 	return details{
 		id:      agent.ID,
 		notices: agentNotices(row),
-		fields:  append(fields, m.review.fields()...),
+		fields:  append(fields, r.fields()...),
 	}
 }
 
 // fields are the facts the diff itself carries, which the agent's own record does not hold: what
 // it was measured against and what was kept out of it.
-func (r reviewState) fields() []recordField {
+func (r reviewScreen) fields() []recordField {
 	fields := []recordField{
 		{"base", label.OrDash(git.ShortSHA(r.round.GetBaseSha()))},
 		{"snapshot", label.OrDash(git.ShortSHA(r.round.GetSnapshotSha()))},
@@ -348,8 +393,8 @@ func reviewMarkerStyle() lipgloss.Style {
 	return paint.Panel.Header()
 }
 
-func (m model) reviewWrap(body string) string {
-	return lipgloss.NewStyle().Width(max(20, m.paneWidth()-2)).Render(body)
+func reviewWrap(s panelShared, body string) string {
+	return lipgloss.NewStyle().Width(max(20, s.pane-2)).Render(body)
 }
 
 func reviewTimeOf(stamp string) string {
@@ -362,7 +407,7 @@ func reviewTimeOf(stamp string) string {
 }
 
 // composeDesc says what the compose key would do where the cursor is standing.
-func (r reviewState) composeDesc() string {
+func (r reviewScreen) composeDesc() string {
 	if _, ok := r.diff.threadAtCursor(); ok {
 		return "reply in this thread"
 	}

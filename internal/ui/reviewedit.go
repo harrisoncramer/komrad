@@ -66,58 +66,58 @@ func editorContent(editor, dir, path string, line int) layout.Content {
 	}
 }
 
-// pressReviewEdit is the edit key, refused on a round the agent has written past, and the way
-// into a pass when the reader is still only watching.
-func (m model) pressReviewEdit() (tea.Model, tea.Cmd) {
-	if said, history := m.review.isHistory(); history && !m.review.pass.atEditor {
-		m.review.notice = said + " is finished, so the worktree no longer holds these lines · " +
-			keyLabel(m.keys.Review.BaseForward) + " for the current work"
+// pressEdit is the edit key, refused on a round the agent has written past, and the way into a
+// pass when the reader is still only watching.
+func (r *reviewScreen) pressEdit(h host, s panelShared) tea.Cmd {
+	if said, history := r.isHistory(); history && !r.pass.atEditor {
+		r.notice = said + " is finished, so the worktree no longer holds these lines · " +
+			keyLabel(s.keys.Review.BaseForward) + " for the current work"
 
-		return m, nil
+		return nil
 	}
 
 	// A press that arrives while the agent is still coming to a stop is the wait, not a second
 	// thing to do, and letting it through would open the editor the wait exists to hold shut.
-	if m.review.pass.pausing {
-		m.review.notice = "the agent is still stopping"
+	if r.pass.pausing {
+		r.notice = "the agent is still stopping"
 
-		return m, nil
+		return nil
 	}
 
-	if m.review.pass.mode != modeReviewing {
+	if r.pass.mode != modeReviewing {
 		// The refusals are read before the agent is stopped.
-		if reason, refused := m.isReviewEditRefused(); refused {
-			m.review.notice = reason
+		if reason, refused := r.isEditRefused(s); refused {
+			r.notice = reason
 
-			return m, nil
+			return nil
 		}
 
-		return m.startReviewPass(intentEdit)
+		return r.startPass(h, s, intentEdit)
 	}
 
-	return m.editReviewFile()
+	return r.editFile(h, s)
 }
 
-// isReviewEditRefused is why the edit key would open nothing, read before a pass is opened for it.
-func (m model) isReviewEditRefused() (string, bool) {
-	if _, _, ok := m.review.diff.view.GetEditTarget(m.review.diff.cursor); !ok {
+// isEditRefused is why the edit key would open nothing, read before a pass is opened for it.
+func (r reviewScreen) isEditRefused(s panelShared) (string, bool) {
+	if _, _, ok := r.diff.view.GetEditTarget(r.diff.cursor); !ok {
 		return "that file was deleted, so there is nothing to open", true
 	}
 
-	if reason, unreadable := m.isReviewAgentUnreadable(); unreadable {
+	if reason, unreadable := r.isAgentUnreadable(s); unreadable {
 		return reason, true
 	}
 
-	if reason, owed := m.isReviewOwedAnAnswer(); owed {
+	if reason, owed := r.isOwedAnAnswer(s); owed {
 		return reason, true
 	}
 
 	return "", false
 }
 
-// isReviewAgentUnreadable reports whether weave cannot say what the agent is doing.
-func (m model) isReviewAgentUnreadable() (string, bool) {
-	item, ok := m.getReviewAgentItem()
+// isAgentUnreadable reports whether weave cannot say what the agent is doing.
+func (r reviewScreen) isAgentUnreadable(s panelShared) (string, bool) {
+	item, ok := r.agentItem(s)
 	if !ok || !item.alive || item.agent.State != panel.StateUncertain {
 		return "", false
 	}
@@ -126,73 +126,70 @@ func (m model) isReviewAgentUnreadable() (string, bool) {
 		"look at the pane before you edit", true
 }
 
-// editReviewFile opens the file under the cursor in the agent's own worktree, in the stage beside
-// the sidebar.
-func (m model) editReviewFile() (tea.Model, tea.Cmd) {
-	if m.review.pass.atEditor {
-		return m.closeReviewEdit()
+// editFile opens the file under the cursor in the agent's own worktree, in the stage beside the
+// sidebar.
+func (r *reviewScreen) editFile(h host, s panelShared) tea.Cmd {
+	if r.pass.atEditor {
+		return r.closeEdit(h)
 	}
 
-	path, line, ok := m.review.diff.view.GetEditTarget(m.review.diff.cursor)
+	path, line, ok := r.diff.view.GetEditTarget(r.diff.cursor)
 	if !ok {
-		m.review.notice = "that file was deleted, so there is nothing to open"
+		r.notice = "that file was deleted, so there is nothing to open"
 
-		return m, nil
+		return nil
 	}
 
-	if reason, busy := m.isReviewAgentBusy(); busy {
-		m.review.notice = reason
+	if reason, busy := r.isAgentBusy(s); busy {
+		r.notice = reason
 
-		return m, nil
+		return nil
 	}
 
-	if reason, owed := m.isReviewOwedAnAnswer(); owed {
-		m.review.notice = reason
+	if reason, owed := r.isOwedAnAnswer(s); owed {
+		r.notice = reason
 
-		return m, nil
+		return nil
 	}
-
-	m.frame.Show(layout.RegionStage, editorContent(m.settings.Editor, m.review.root, path, line))
 
 	// The mode is taken only once there is a pane in it, a refused split otherwise leaving the
 	// band saying editing over a screen with no editor on it.
-	pane := m.frame.Pane(layout.RegionStage)
+	pane := h.stageEditor(editorContent(s.editor, r.root, path, line))
 	if pane == "" {
-		m.review.notice = "there is no room beside the sidebar for an editor"
+		r.notice = "there is no room beside the sidebar for an editor"
 
-		return m, nil
+		return nil
 	}
 
-	m.review.pass.openEditor(path, pane)
-	m.tmux.SelectPane(pane)
+	r.pass.openEditor(path, pane)
 
-	return m, nil
+	return nil
 }
 
-// isReviewOwedAnAnswer reports whether comments stand against this work, and what to say about it.
-func (m model) isReviewOwedAnAnswer() (string, bool) {
-	if !m.review.threads.isOwedAnAnswer() {
+// isOwedAnAnswer reports whether comments stand against this work, and what to say about it.
+func (r reviewScreen) isOwedAnAnswer(s panelShared) (string, bool) {
+	if !r.threads.isOwedAnAnswer() {
 		return "", false
 	}
 
-	if _, unreachable := m.isReviewReadOnly(); unreachable {
+	if _, unreachable := r.isReadOnly(s); unreachable {
 		return "", false
 	}
 
-	return reviewOwedSaid(m.review.owedComments()) + " · " +
-		keyLabel(m.keys.Review.Resolve) + " settles one, " +
-		keyLabel(m.keys.Review.NextOpenThread) + " walks them", true
+	return reviewOwedSaid(r.owedComments()) + " · " +
+		keyLabel(s.keys.Review.Resolve) + " settles one, " +
+		keyLabel(s.keys.Review.NextOpenThread) + " walks them", true
 }
 
-// isReviewAgentBusy reports whether the agent may be writing in the tree the editor would open.
-func (m model) isReviewAgentBusy() (string, bool) {
+// isAgentBusy reports whether the agent may be writing in the tree the editor would open.
+func (r reviewScreen) isAgentBusy(s panelShared) (string, bool) {
 	// A pass stops the agent before it opens anything, and an agent that has been seen to stop is
 	// not writing, whatever the state on its row was read as before that.
-	if m.review.pass.paused {
+	if r.pass.paused {
 		return "", false
 	}
 
-	item, ok := m.getReviewAgentItem()
+	item, ok := r.agentItem(s)
 	if !ok || !item.alive {
 		return "", false
 	}
@@ -204,7 +201,7 @@ func (m model) isReviewAgentBusy() (string, bool) {
 		return "the agent is writing in this worktree · " +
 			"two writers in one checkout cannot both win, so stop it before you edit", true
 	case panel.StateUncertain:
-		return m.isReviewAgentUnreadable()
+		return r.isAgentUnreadable(s)
 	case panel.StateWaiting, panel.StateIdle, panel.StateSettingUp,
 		panel.StateFailedToCreate, panel.StateFailedToCleanup:
 	}
@@ -212,51 +209,33 @@ func (m model) isReviewAgentBusy() (string, bool) {
 	return "", false
 }
 
-// getReviewAgentItem hands back the listing's row for the agent whose diff is on screen.
-func (m model) getReviewAgentItem() (agentItem, bool) {
-	for _, item := range m.listing.agents {
-		if item.agent.ID == m.review.agentID {
-			return item, true
-		}
-	}
-
-	return agentItem{}, false
+// agentItem hands back the listing's row for the agent whose diff is on screen.
+func (r reviewScreen) agentItem(s panelShared) (agentItem, bool) {
+	return s.listing.liveAgent(r.agentID)
 }
 
-// closeReviewEdit gives the stage back to the diff and reads the worktree again, staying in the
-// pass.
-func (m model) closeReviewEdit() (tea.Model, tea.Cmd) {
-	m.review.pass.closeEditor()
+// closeEdit gives the stage back to the diff and reads the worktree again, staying in the pass.
+func (r *reviewScreen) closeEdit(h host) tea.Cmd {
+	r.pass.closeEditor()
+	h.unstageEditor()
 
-	m.frame.Show(layout.RegionStage, newBlankContent())
-	m.tmux.SelectPane(m.frame.Pane(layout.RegionSidebar))
-
-	return m.reloadReview()
+	return r.reload(h)
 }
 
 // reconcileEditor catches the editor pane going away on its own and takes the window back for the
 // diff it was covering.
-func (m model) reconcileEditor() (model, tea.Cmd) {
-	m.reconcileInfo()
-
-	if !m.review.pass.atEditor || m.screen != screenReview {
-		return m, nil
+func (r *reviewScreen) reconcileEditor(h host, _ panelShared) tea.Cmd {
+	if !r.pass.atEditor {
+		return nil
 	}
 
 	// A pane the split refused is not one that can go away, so nothing here reports it as the
 	// editor closing.
-	if m.review.pass.editorPane == "" || m.tmux.IsPaneAlive(m.review.pass.editorPane) {
-		return m, nil
+	if r.pass.editorPane == "" || h.isPaneAlive(r.pass.editorPane) {
+		return nil
 	}
 
-	next, cmd := m.closeReviewEdit()
-
-	written, ok := next.(model)
-	if !ok {
-		return m, cmd
-	}
-
-	return written, cmd
+	return r.closeEdit(h)
 }
 
 // editorDesc says what the edit key would do.
