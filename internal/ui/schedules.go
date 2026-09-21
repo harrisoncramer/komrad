@@ -4,9 +4,8 @@ import (
 	"fmt"
 	"time"
 
-	schedulestore "weave/internal/store/schedule"
-	workflowstore "weave/internal/store/workflow"
 	"weave/internal/ui/paint"
+	"weave/internal/ui/panel"
 	"weave/internal/view"
 	"weave/lib/xslice"
 
@@ -20,7 +19,7 @@ type scheduleState struct {
 }
 
 type scheduleItem struct {
-	schedule schedulestore.Schedule
+	schedule panel.Schedule
 	nextRun  time.Time
 }
 
@@ -133,7 +132,7 @@ func (m model) scheduleDoc() string {
 	return scheduleMarkdown(item)
 }
 
-func (m model) workflowByID(id string) *workflowstore.Workflow {
+func (m model) workflowByID(id string) *panel.Workflow {
 	for _, w := range m.listing.workflows {
 		if w.ID == id {
 			return &w
@@ -166,7 +165,7 @@ func (m model) newScheduleForm() (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	values := schedulestore.Config{
+	values := panel.ScheduleConfig{
 		Enabled:    true,
 		WorkflowID: m.listing.workflows[0].ID,
 	}
@@ -176,7 +175,7 @@ func (m model) newScheduleForm() (tea.Model, tea.Cmd) {
 
 // openScheduleForm puts up the schedule form, creating a schedule when target is nil and saving
 // over the one it names otherwise.
-func (m model) openScheduleForm(values *schedulestore.Config, target *schedulestore.Schedule) (tea.Model, tea.Cmd) {
+func (m model) openScheduleForm(values *panel.ScheduleConfig, target *panel.Schedule) (tea.Model, tea.Cmd) {
 	return m.openRedrawnForm(openRedrawnFormParams{
 		Kind: formSchedule,
 		Build: func(m model) (*huh.Form, []string) {
@@ -216,8 +215,8 @@ func (m model) editScheduleForm() (tea.Model, tea.Cmd) {
 }
 
 // schedulePrefill is the schedule form as the stored schedule leaves it.
-func schedulePrefill(schedule schedulestore.Schedule) schedulestore.Config {
-	return schedulestore.Config{
+func schedulePrefill(schedule panel.Schedule) panel.ScheduleConfig {
+	return panel.ScheduleConfig{
 		Name:       schedule.Name,
 		Cron:       schedule.Cron,
 		Timezone:   schedule.Timezone,

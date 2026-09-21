@@ -4,7 +4,7 @@ import (
 	"regexp"
 
 	"weave/internal/git"
-	agentstore "weave/internal/store/agent"
+	"weave/internal/ui/panel"
 	"weave/internal/view"
 	agentv1 "weave/proto/gen/agent/v1"
 	pullrequestv1 "weave/proto/gen/pullrequest/v1"
@@ -140,13 +140,13 @@ func snapshotStatus(item agentItem) view.Status {
 	}
 
 	switch displayState(item) {
-	case agentstore.StateThinking, agentstore.StateSettingUp:
+	case panel.StateThinking, panel.StateSettingUp:
 		return view.StatusThinking
-	case agentstore.StateWaiting, agentstore.StateUncertain:
+	case panel.StateWaiting, panel.StateUncertain:
 		return view.StatusWaiting
-	case agentstore.StateFailedToCreate, agentstore.StateFailedToCleanup:
+	case panel.StateFailedToCreate, panel.StateFailedToCleanup:
 		return view.StatusBroken
-	case agentstore.StateIdle:
+	case panel.StateIdle:
 		return view.StatusIdle
 	}
 
@@ -179,10 +179,10 @@ func isHeldWorking(item agentItem) bool {
 	}
 
 	switch item.agent.State {
-	case agentstore.StateThinking, agentstore.StateWaiting:
+	case panel.StateThinking, panel.StateWaiting:
 		return true
-	case agentstore.StateIdle, agentstore.StateUncertain, agentstore.StateSettingUp,
-		agentstore.StateFailedToCreate, agentstore.StateFailedToCleanup:
+	case panel.StateIdle, panel.StateUncertain, panel.StateSettingUp,
+		panel.StateFailedToCreate, panel.StateFailedToCleanup:
 		return false
 	}
 
@@ -201,7 +201,7 @@ func snapshotProcess(item agentItem) view.Process {
 
 // snapshotRepo is where an agent's own checkout stands, a directory that has gone beating a
 // rebase left part way in one that has not.
-func snapshotRepo(agent agentstore.Agent) view.Repo {
+func snapshotRepo(agent panel.Agent) view.Repo {
 	switch {
 	case agent.WorktreeRemoved:
 		return view.RepoGone

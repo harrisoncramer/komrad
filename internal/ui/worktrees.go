@@ -4,14 +4,14 @@ import (
 	"time"
 
 	"weave/internal/errui"
-	agentstore "weave/internal/store/agent"
+	"weave/internal/ui/panel"
 )
 
 // worktreeAgent is what the listing says of an agent that holds a directory.
 type worktreeAgent struct {
 	id         string
 	name       string
-	state      agentstore.State
+	state      panel.State
 	archivedAt *time.Time
 }
 

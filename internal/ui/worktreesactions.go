@@ -4,8 +4,8 @@ import (
 	"slices"
 
 	"weave/config"
-	agentstore "weave/internal/store/agent"
 	"weave/internal/ui/paint/label"
+	"weave/internal/ui/panel"
 	"weave/lib/xslice"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -208,7 +208,7 @@ func (m model) deleteHoveredWorktree(string) (tea.Model, tea.Cmd) {
 	switch row.item.fate {
 	case fateLive:
 		if item, ok := m.liveAgent(row.item.agent.id); ok {
-			return m.archiveAgentsConfirm([]agentstore.Agent{item.agent})
+			return m.archiveAgentsConfirm([]panel.Agent{item.agent})
 		}
 	case fateArchived:
 		return m.deleteWorktreesConfirm(worktreeDeletion{agents: []worktreeItem{row.item}})

@@ -3,8 +3,8 @@ package ui
 import (
 	"fmt"
 
-	agentstore "weave/internal/store/agent"
 	"weave/internal/ui/paint"
+	"weave/internal/ui/panel"
 	"weave/internal/view"
 )
 
@@ -43,9 +43,9 @@ const (
 
 var (
 	// failureSaid is what the status column drawn broken says about how an agent got there.
-	failureSaid = map[agentstore.State]string{
-		agentstore.StateFailedToCreate:  failedToCreateNotice,
-		agentstore.StateFailedToCleanup: failedToCleanupNotice,
+	failureSaid = map[panel.State]string{
+		panel.StateFailedToCreate:  failedToCreateNotice,
+		panel.StateFailedToCleanup: failedToCleanupNotice,
 	}
 
 	// repoSaid is what the repo column says where it stands away from its baseline.
@@ -126,14 +126,14 @@ func heldNoticeText(item agentItem) string {
 
 	if item.alive {
 		switch item.agent.State {
-		case agentstore.StateThinking:
+		case panel.StateThinking:
 			return heldWorkingNotice
-		case agentstore.StateWaiting:
+		case panel.StateWaiting:
 			return heldPromptedNotice
-		case agentstore.StateUncertain:
+		case panel.StateUncertain:
 			return heldUnreadableNotice
-		case agentstore.StateIdle, agentstore.StateSettingUp,
-			agentstore.StateFailedToCreate, agentstore.StateFailedToCleanup:
+		case panel.StateIdle, panel.StateSettingUp,
+			panel.StateFailedToCreate, panel.StateFailedToCleanup:
 		}
 	}
 

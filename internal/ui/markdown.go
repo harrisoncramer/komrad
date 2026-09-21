@@ -6,10 +6,7 @@ import (
 	"time"
 
 	"weave/internal/ui/paint/label"
-
-	agentstore "weave/internal/store/agent"
-	schedulestore "weave/internal/store/schedule"
-	workflowstore "weave/internal/store/workflow"
+	"weave/internal/ui/panel"
 )
 
 type recordField struct {
@@ -33,7 +30,7 @@ func renderDocument(title, notice, prose, footer string) string {
 	return b.String()
 }
 
-func workflowFields(w workflowstore.Workflow, agentCount int) []recordField {
+func workflowFields(w panel.Workflow, agentCount int) []recordField {
 	fields := []recordField{
 		{"name", label.OrDash(w.Name)},
 		{"agents", fmt.Sprintf("%d", agentCount)},
@@ -43,7 +40,7 @@ func workflowFields(w workflowstore.Workflow, agentCount int) []recordField {
 	return append(fields, recordField{"workflow_id", label.OrDash(w.ID)})
 }
 
-func workflowConfigFields(w workflowstore.Workflow) []recordField {
+func workflowConfigFields(w panel.Workflow) []recordField {
 	fields := []recordField{
 		{"default agent", label.OrDash(w.Harness)},
 		{"directory", label.OrDash(w.Cwd)},
@@ -68,11 +65,11 @@ func workflowConfigFields(w workflowstore.Workflow) []recordField {
 	return fields
 }
 
-func workflowContextMarkdown(w workflowstore.Workflow) string {
+func workflowContextMarkdown(w panel.Workflow) string {
 	return renderDocument(w.Name, "", workflowProse(w), "")
 }
 
-func workflowProse(w workflowstore.Workflow) string {
+func workflowProse(w panel.Workflow) string {
 	if strings.TrimSpace(w.Context) == "" {
 		return "_no shared context set_"
 	}
@@ -83,7 +80,7 @@ func workflowProse(w workflowstore.Workflow) string {
 // agentFieldsParams is an agent and what the record says about it that is not on its row: the
 // names of what launched it and what it hangs off, and the pull requests from its branch.
 type agentFieldsParams struct {
-	agent    agentstore.Agent
+	agent    panel.Agent
 	schedule string
 	parent   string
 	standing pullRequestStanding
@@ -102,7 +99,7 @@ func agentFields(params agentFieldsParams) []recordField {
 	fields := []recordField{{"name", label.OrDash(agent.Name)}}
 	// What a child is attached to comes early, and for a reviewer that same row is whose work it
 	// is reading.
-	reviewingDrawn := agent.ParentAgentID != nil && agent.Role == agentstore.RoleReviewer
+	reviewingDrawn := agent.ParentAgentID != nil && agent.Role == panel.RoleReviewer
 	if agent.ParentAgentID != nil {
 		fields = append(fields, recordField{attachmentFieldKey(agent.Role), label.OrDash(parent)})
 	}
@@ -159,8 +156,8 @@ func agentFields(params agentFieldsParams) []recordField {
 
 // attachmentFieldKey labels the agent a child hangs off, which for a reviewer is the work it was
 // launched to read rather than only where it happens to be running.
-func attachmentFieldKey(role agentstore.Role) string {
-	if role == agentstore.RoleReviewer {
+func attachmentFieldKey(role panel.Role) string {
+	if role == panel.RoleReviewer {
 		return reviewingFieldKey
 	}
 
@@ -180,7 +177,7 @@ A schedule launches an agent on a cron expression.
 Press the new key to write one.
 `
 
-func scheduleFields(sched schedulestore.Schedule, workflow *workflowstore.Workflow) []recordField {
+func scheduleFields(sched panel.Schedule, workflow *panel.Workflow) []recordField {
 	fields := []recordField{
 		{"name", label.OrDash(sched.Name)},
 		{"cron", label.OrDash(sched.Cron)},
@@ -220,7 +217,7 @@ func scheduleMarkdown(item scheduleItem) string {
 	return renderDocument(sched.Name, notice, prose, footer)
 }
 
-func lastResultNotice(sched schedulestore.Schedule) string {
+func lastResultNotice(sched panel.Schedule) string {
 	if sched.LastResultStatus == "" || sched.LastResultAt == nil {
 		return ""
 	}
@@ -235,12 +232,12 @@ func lastResultNotice(sched schedulestore.Schedule) string {
 
 const emptyArchiveMarkdown = "# Archive\n\n_nothing archived_\n\nAgents archived from the panel are kept here until you delete them.\n"
 
-func archiveMarkdown(agent agentstore.Agent) string {
+func archiveMarkdown(agent panel.Agent) string {
 	return renderDocument(agent.Name, "_archived — kept until deleted_", "",
 		"Restore brings it back and picks the conversation up where it stopped.")
 }
 
-func archiveFields(agent agentstore.Agent, schedule string) []recordField {
+func archiveFields(agent panel.Agent, schedule string) []recordField {
 	fields := []recordField{
 		{"name", label.OrDash(agent.Name)},
 		{"agent", label.OrDash(agent.Harness)},

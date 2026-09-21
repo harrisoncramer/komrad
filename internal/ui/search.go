@@ -8,8 +8,8 @@ import (
 
 	"weave/config"
 	"weave/internal/client"
-	agentstore "weave/internal/store/agent"
 	"weave/internal/ui/paint"
+	"weave/internal/ui/panel"
 	"weave/internal/view"
 	"weave/lib/xslice"
 	agentv1 "weave/proto/gen/agent/v1"
@@ -473,7 +473,7 @@ var searchDropped = view.Columns{
 }
 
 // searchRow reads one agent the search found into the row the agents list draws.
-func (m model) searchRow(agent searchAgent, archived map[string]agentstore.Agent) view.Row {
+func (m model) searchRow(agent searchAgent, archived map[string]panel.Agent) view.Row {
 	row := view.Row{
 		Key:     agent.id,
 		Kind:    view.KindResult,
@@ -496,7 +496,7 @@ func (m model) searchRow(agent searchAgent, archived map[string]agentstore.Agent
 }
 
 // archivedSearchRow is a result on an archived agent.
-func archivedSearchRow(row view.Row, id string, archived map[string]agentstore.Agent) view.Row {
+func archivedSearchRow(row view.Row, id string, archived map[string]panel.Agent) view.Row {
 	row.Process = view.ProcessStopped
 
 	if agent, ok := archived[id]; ok {

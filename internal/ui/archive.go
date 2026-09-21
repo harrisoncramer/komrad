@@ -5,9 +5,8 @@ import (
 	"slices"
 
 	"weave/config"
-	agentstore "weave/internal/store/agent"
-	workflowstore "weave/internal/store/workflow"
 	"weave/internal/ui/paint/label"
+	"weave/internal/ui/panel"
 	"weave/internal/view"
 	"weave/lib/xslice"
 	agentv1 "weave/proto/gen/agent/v1"
@@ -93,7 +92,7 @@ func (m model) archiveRows() []agentRow {
 }
 
 func (m model) buildArchiveRows() []agentRow {
-	items := xslice.Map(m.listing.archivedAgents, func(agent agentstore.Agent) agentItem { return agentItem{agent: agent} })
+	items := xslice.Map(m.listing.archivedAgents, func(agent panel.Agent) agentItem { return agentItem{agent: agent} })
 
 	// The archive draws an archived orchestrator as a row of its own.
 	rows := treeRows(treeRowsParams{
@@ -105,9 +104,9 @@ func (m model) buildArchiveRows() []agentRow {
 	return narrowedAgentRows(m.filter, rows)
 }
 
-func (m model) archiveHeaders() []workflowstore.Workflow {
-	holding := xslice.KeyBy(m.listing.archivedAgents, func(agent agentstore.Agent) string { return agent.WorkflowID })
-	archived := xslice.KeyBy(m.listing.archivedWorkflows, func(w workflowstore.Workflow) string { return w.ID })
+func (m model) archiveHeaders() []panel.Workflow {
+	holding := xslice.KeyBy(m.listing.archivedAgents, func(agent panel.Agent) string { return agent.WorkflowID })
+	archived := xslice.KeyBy(m.listing.archivedWorkflows, func(w panel.Workflow) string { return w.ID })
 
 	headers := slices.Clone(m.listing.archivedWorkflows)
 	for _, w := range m.listing.workflows {
@@ -119,26 +118,26 @@ func (m model) archiveHeaders() []workflowstore.Workflow {
 	}
 
 	// The merge draws from two listings, so the result is sorted again the way the query sorts.
-	slices.SortStableFunc(headers, workflowstore.ByName)
+	slices.SortStableFunc(headers, panel.ByName)
 
 	return headers
 }
 
-func archivedByID(agents []agentstore.Agent) map[string]agentstore.Agent {
-	return xslice.KeyBy(agents, func(agent agentstore.Agent) string { return agent.ID })
+func archivedByID(agents []panel.Agent) map[string]panel.Agent {
+	return xslice.KeyBy(agents, func(agent panel.Agent) string { return agent.ID })
 }
 
-func (m model) archivedAgent(id string) (agentstore.Agent, bool) {
+func (m model) archivedAgent(id string) (panel.Agent, bool) {
 	for _, agent := range m.listing.archivedAgents {
 		if agent.ID == id {
 			return agent, true
 		}
 	}
 
-	return agentstore.Agent{}, false
+	return panel.Agent{}, false
 }
 
-func (m *model) applyArchive(agents []agentstore.Agent, workflows []workflowstore.Workflow, selected string) {
+func (m *model) applyArchive(agents []panel.Agent, workflows []panel.Workflow, selected string) {
 	m.listing.archivedAgents, m.listing.archivedWorkflows = agents, workflows
 
 	rows := m.archiveRows()
@@ -166,19 +165,19 @@ func (m model) updateArchive(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return archiveList().update(m, key, archiveActions())
 }
 
-func (m model) selectedArchived() (agentstore.Agent, bool) {
+func (m model) selectedArchived() (panel.Agent, bool) {
 	row, ok := rowAt(m.archiveRows(), m.archive.cursor)
 	if !ok || row.header {
-		return agentstore.Agent{}, false
+		return panel.Agent{}, false
 	}
 
 	return row.item.agent, true
 }
 
-func (m model) hoveredArchivedWorkflow() (workflowstore.Workflow, bool) {
+func (m model) hoveredArchivedWorkflow() (panel.Workflow, bool) {
 	workflow, ok := hoveredHeader(m.archiveRows(), m.archive.cursor)
 	if !ok || workflow.ArchivedAt == nil {
-		return workflowstore.Workflow{}, false
+		return panel.Workflow{}, false
 	}
 
 	return workflow, true
@@ -197,7 +196,7 @@ func (m model) restoreFromArchive() (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	return m.restoreAgents([]agentstore.Agent{agent})
+	return m.restoreAgents([]panel.Agent{agent})
 }
 
 // restoreAndOpen puts the hovered agent back and relaunches its conversation.
@@ -212,7 +211,7 @@ func (m model) restoreAndOpen() (tea.Model, tea.Cmd) {
 
 // restoreAndResumeCmd takes one agent out of the archive and puts its conversation back in a
 // pane.
-func (m *model) restoreAndResumeCmd(agent agentstore.Agent) tea.Cmd {
+func (m *model) restoreAndResumeCmd(agent panel.Agent) tea.Cmd {
 	return m.openingWriteCmd(fmt.Sprintf("Could not restore and open agent %q", agent.Name), func(a api) (*agentv1.Agent, error) {
 		if err := a.restoreAgents([]string{agent.ID}); err != nil {
 			return nil, err
@@ -222,18 +221,18 @@ func (m *model) restoreAndResumeCmd(agent agentstore.Agent) tea.Cmd {
 	})
 }
 
-func (m model) restoreAgents(agents []agentstore.Agent) (tea.Model, tea.Cmd) {
+func (m model) restoreAgents(agents []panel.Agent) (tea.Model, tea.Cmd) {
 	if len(agents) == 0 {
 		return m, nil
 	}
 
 	return m, m.writeCmd(
 		fmt.Sprintf("Could not restore %s", describeAgents(agents)),
-		func(a api) error { return a.restoreAgents(agentstore.IDs(agents)) },
+		func(a api) error { return a.restoreAgents(panel.IDs(agents)) },
 	)
 }
 
-func (m model) deleteFromArchiveConfirm(agents []agentstore.Agent) (tea.Model, tea.Cmd) {
+func (m model) deleteFromArchiveConfirm(agents []panel.Agent) (tea.Model, tea.Cmd) {
 	if len(agents) == 0 {
 		return m, nil
 	}
@@ -251,13 +250,13 @@ func (m model) deleteFromArchiveConfirm(agents []agentstore.Agent) (tea.Model, t
 
 			return m, m.writeCmd(
 				fmt.Sprintf("Could not delete %s", describeAgents(agents)),
-				func(a api) error { return a.deleteAgents(agentstore.IDs(agents)) },
+				func(a api) error { return a.deleteAgents(panel.IDs(agents)) },
 			)
 		}),
 	})
 }
 
-func (m model) deleteWorkflowConfirm(workflow workflowstore.Workflow) (tea.Model, tea.Cmd) {
+func (m model) deleteWorkflowConfirm(workflow panel.Workflow) (tea.Model, tea.Cmd) {
 	form, confirmed := deleteWorkflowForm(workflow, m.archivedCount(workflow.ID), formKeys())
 
 	return m, m.openForm(formState{
@@ -346,7 +345,7 @@ func (m model) archiveDoc() string {
 }
 
 // archiveDocument is what the panel draws beside an archived agent's row.
-func (m model) archiveDocument(agent agentstore.Agent) string {
+func (m model) archiveDocument(agent panel.Agent) string {
 	if agent.State.IsFailed() {
 		return m.failedPlaceholder(agent)
 	}
@@ -355,7 +354,7 @@ func (m model) archiveDocument(agent agentstore.Agent) string {
 }
 
 func (m model) archivedCount(workflowID string) int {
-	return xslice.Count(m.listing.archivedAgents, func(agent agentstore.Agent) bool { return agent.WorkflowID == workflowID })
+	return xslice.Count(m.listing.archivedAgents, func(agent panel.Agent) bool { return agent.WorkflowID == workflowID })
 }
 
 // archiveColumn is the archived agent's own notes drawn beside the list.

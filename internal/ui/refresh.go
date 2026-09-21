@@ -11,9 +11,7 @@ import (
 
 	"weave/internal/client"
 	"weave/internal/errui"
-
-	agentstore "weave/internal/store/agent"
-	workflowstore "weave/internal/store/workflow"
+	"weave/internal/ui/panel"
 	agentv1 "weave/proto/gen/agent/v1"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -45,13 +43,13 @@ type refreshResult struct {
 	epoch                int
 	agents               []agentItem
 	agentsErr            error
-	workflows            []workflowstore.Workflow
+	workflows            []panel.Workflow
 	workflowsErr         error
 	schedules            []scheduleItem
 	schedulesErr         error
-	archived             []agentstore.Agent
+	archived             []panel.Agent
 	archivedErr          error
-	archivedWorkflows    []workflowstore.Workflow
+	archivedWorkflows    []panel.Workflow
 	archivedWorkflowsErr error
 	archivedListed       bool
 	worktrees            []worktreeItem
@@ -287,9 +285,9 @@ func (m model) dwellRunsRead(now time.Time) (model, tea.Cmd) {
 
 // runLogTarget is the agent whose runs the info pane is showing, and none while that pane is
 // showing anything else.
-func (m model) runLogTarget() (agentstore.Agent, bool) {
+func (m model) runLogTarget() (panel.Agent, bool) {
 	if m.info.kind != infoRunLog {
-		return agentstore.Agent{}, false
+		return panel.Agent{}, false
 	}
 
 	return m.logTarget()
@@ -331,7 +329,7 @@ func (m *model) writeCmd(summary string, write func(api) error) tea.Cmd {
 }
 
 // releaseCmd lets an agent go, naming the files a reader had open over it.
-func (m *model) releaseCmd(summary string, agent agentstore.Agent, said string) tea.Cmd {
+func (m *model) releaseCmd(summary string, agent panel.Agent, said string) tea.Cmd {
 	let := released{
 		id:    agent.ID,
 		name:  agent.Name,
@@ -344,7 +342,7 @@ func (m *model) releaseCmd(summary string, agent agentstore.Agent, said string) 
 }
 
 // releaseInSilenceCmd lets an agent go without typing at it.
-func (m *model) releaseInSilenceCmd(summary string, agent agentstore.Agent) tea.Cmd {
+func (m *model) releaseInSilenceCmd(summary string, agent panel.Agent) tea.Cmd {
 	let := released{
 		id:     agent.ID,
 		name:   agent.Name,
@@ -454,7 +452,7 @@ func (m *model) resumeCmd(params resumeParams) tea.Cmd {
 	})
 }
 
-func (m *model) retryCmd(agent agentstore.Agent, values retryFormValues) tea.Cmd {
+func (m *model) retryCmd(agent panel.Agent, values retryFormValues) tea.Cmd {
 	return m.agentWriteCmd(fmt.Sprintf("Could not retry agent %q", agent.Name), func(clients api) (*agentv1.Agent, error) {
 		return clients.retryAgent(retryAgentParams{
 			ID:      agent.ID,
@@ -477,7 +475,7 @@ func (m *model) adoptCmd(params adoptParams) tea.Cmd {
 	})
 }
 
-func (m *model) createWorkflowCmd(cfg workflowstore.Config) tea.Cmd {
+func (m *model) createWorkflowCmd(cfg panel.WorkflowConfig) tea.Cmd {
 	return m.rowWriteCmd("Could not create the workflow", func(clients api) (written, error) {
 		workflow, err := clients.createWorkflow(cfg)
 		if err != nil {

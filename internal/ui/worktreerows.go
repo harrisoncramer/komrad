@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	agentstore "weave/internal/store/agent"
 	"weave/internal/ui/paint/label"
+	"weave/internal/ui/panel"
 	"weave/internal/view"
 	"weave/lib/xslice"
 )
@@ -252,7 +252,7 @@ func worktreesSnapshot(params worktreesSnapshotParams) view.Snapshot {
 func worktreeAgentFacts(row view.Row, agent worktreeAgent, live map[string]agentItem) view.Row {
 	item, ok := live[agent.id]
 	if !ok {
-		item = agentItem{agent: agentstore.Agent{
+		item = agentItem{agent: panel.Agent{
 			ID:         agent.id,
 			Name:       agent.name,
 			State:      agent.state,

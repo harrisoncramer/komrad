@@ -7,10 +7,9 @@ import (
 
 	"weave/internal/diff"
 	"weave/internal/git"
-	agentstore "weave/internal/store/agent"
-	workflowstore "weave/internal/store/workflow"
 	"weave/internal/ui/diffview"
 	"weave/internal/ui/paint/label"
+	"weave/internal/ui/panel"
 	agentv1 "weave/proto/gen/agent/v1"
 
 	"connectrpc.com/connect"
@@ -20,29 +19,28 @@ import (
 const reviewEditorHeight = 4
 
 // hasCheckout reports whether an agent's directory is still there to read.
-func hasCheckout(agent agentstore.Agent) bool {
+func hasCheckout(agent panel.Agent) bool {
 	return agent.Cwd != "" && !agent.WorktreeRemoved
 }
 
 // isReviewable reports whether an agent has work of its own to read.
-func isReviewable(agent agentstore.Agent) bool {
+func isReviewable(agent panel.Agent) bool {
 	return hasCheckout(agent) && agent.ParentAgentID == nil
 }
 
 // isRebaseable reports whether an agent sits in a worktree weave cut for it alone.
-func (m model) isRebaseable(agent agentstore.Agent) bool {
+func (m model) isRebaseable(agent panel.Agent) bool {
 	if !hasCheckout(agent) {
 		return false
 	}
 
-	index := slices.IndexFunc(m.listing.workflows, func(w workflowstore.Workflow) bool { return w.ID == agent.WorkflowID })
+	index := slices.IndexFunc(m.listing.workflows, func(w panel.Workflow) bool { return w.ID == agent.WorkflowID })
 	if index < 0 {
 		return false
 	}
 
-	// A child sits in its parent's checkout, and an agent told to keep the directory it was given
-	// sits in somebody's own.
-	if agent.ParentAgentID != nil || (agent.ProvisionEnabled != nil && !*agent.ProvisionEnabled) {
+	// A child sits in its parent's checkout.
+	if agent.ParentAgentID != nil {
 		return false
 	}
 
@@ -90,7 +88,7 @@ type reviewWroteMsg struct {
 
 // enterReview opens the review of an agent's diff, with the threads in the sidebar and the
 // diff in the stage.
-func (m model) enterReview(agent agentstore.Agent) (tea.Model, tea.Cmd) {
+func (m model) enterReview(agent panel.Agent) (tea.Model, tea.Cmd) {
 	if !isReviewable(agent) {
 		return m, nil
 	}
@@ -552,14 +550,14 @@ func (m model) leaveReview() (tea.Model, tea.Cmd) {
 	return m, m.dropReview()
 }
 
-func (m model) worktreeFor(agent agentstore.Agent) workflowstore.WorktreeConfig {
+func (m model) worktreeFor(agent panel.Agent) panel.WorktreeConfig {
 	for _, workflow := range m.listing.workflows {
 		if workflow.ID == agent.WorkflowID {
 			return workflow.Worktree
 		}
 	}
 
-	return workflowstore.WorktreeConfig{}
+	return panel.WorktreeConfig{}
 }
 
 // withRound adds a round just opened to the list read before it was.

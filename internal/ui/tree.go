@@ -6,8 +6,7 @@ import (
 	"strings"
 
 	"weave/internal/git"
-	agentstore "weave/internal/store/agent"
-	workflowstore "weave/internal/store/workflow"
+	"weave/internal/ui/panel"
 	"weave/lib/xslice"
 	agentv1 "weave/proto/gen/agent/v1"
 )
@@ -26,7 +25,7 @@ type agentRow struct {
 	// hiddenCount is the rows this one stands in for: a workflow header counts the hidden agents
 	// under it, and a parent counts its own hidden children.
 	hiddenCount int
-	workflow    workflowstore.Workflow
+	workflow    panel.Workflow
 	// child says the row is drawn under the one above it rather than under the workflow, which is
 	// an indent and nothing else.
 	child bool
@@ -49,7 +48,7 @@ func (r agentRow) paneItem() (agentItem, bool) {
 }
 
 type treeRowsParams struct {
-	workflows []workflowstore.Workflow
+	workflows []panel.Workflow
 	agents    []agentItem
 	// showHidden draws the agents a person has hidden alongside the rest.
 	showHidden bool
@@ -61,7 +60,7 @@ type treeRowsParams struct {
 // isFolded reports whether an agent is drawn on its workflow's own row rather than on one of its
 // own.
 func isFolded(params treeRowsParams, it agentItem) bool {
-	return params.foldOrchestrators && it.agent.Role == agentstore.RoleOrchestrator
+	return params.foldOrchestrators && it.agent.Role == panel.RoleOrchestrator
 }
 
 func treeRows(params treeRowsParams) []agentRow {
@@ -232,20 +231,20 @@ func (m model) selectedAgent() (agentItem, bool) {
 	return row.item, true
 }
 
-func (m model) hoveredWorkflow() (workflowstore.Workflow, bool) {
+func (m model) hoveredWorkflow() (panel.Workflow, bool) {
 	return hoveredHeader(m.agentRows(), m.tree.cursor)
 }
 
-func hoveredHeader(rows []agentRow, cursor int) (workflowstore.Workflow, bool) {
+func hoveredHeader(rows []agentRow, cursor int) (panel.Workflow, bool) {
 	row, ok := rowAt(rows, cursor)
 	if !ok || !row.header {
-		return workflowstore.Workflow{}, false
+		return panel.Workflow{}, false
 	}
 
 	return row.workflow, true
 }
 
-func (m model) enclosingWorkflow() *workflowstore.Workflow {
+func (m model) enclosingWorkflow() *panel.Workflow {
 	row, ok := rowAt(m.agentRows(), m.tree.cursor)
 	if !ok {
 		return nil
@@ -319,31 +318,31 @@ func (r agentRow) key() string {
 
 // unnamedChildren counts the children the named agents hold that are not among them, taking the
 // pool from the screen doing the asking.
-func unnamedChildren(pool, named []agentstore.Agent) int {
+func unnamedChildren(pool, named []panel.Agent) int {
 	held := make(map[string]bool, len(named))
 	for _, agent := range named {
 		held[agent.ID] = true
 	}
 
-	return xslice.Count(pool, func(agent agentstore.Agent) bool {
+	return xslice.Count(pool, func(agent panel.Agent) bool {
 		return agent.ParentAgentID != nil && held[*agent.ParentAgentID] && !held[agent.ID]
 	})
 }
 
 // liveAgents is the listing as bare rows, for what counts over the agents a screen is showing
 // rather than over the marks beside them.
-func (m model) liveAgents() []agentstore.Agent {
-	return xslice.Map(m.listing.agents, func(it agentItem) agentstore.Agent { return it.agent })
+func (m model) liveAgents() []panel.Agent {
+	return xslice.Map(m.listing.agents, func(it agentItem) panel.Agent { return it.agent })
 }
 
 func (m model) agentCount(workflowID string) int {
 	return xslice.Count(m.listing.agents, func(it agentItem) bool {
-		return it.agent.WorkflowID == workflowID && it.agent.Role != agentstore.RoleOrchestrator
+		return it.agent.WorkflowID == workflowID && it.agent.Role != panel.RoleOrchestrator
 	})
 }
 
 type agentItem struct {
-	agent      agentstore.Agent
+	agent      panel.Agent
 	alive      bool
 	unreadMail bool
 	failedRun  bool
@@ -362,10 +361,10 @@ type agentItem struct {
 
 // displayState is the state a row wears, idle once the pane has gone even though the store
 // still holds whatever the agent stopped in.
-func displayState(item agentItem) agentstore.State {
+func displayState(item agentItem) panel.State {
 	state := item.agent.State
 	if !item.alive && state.DoesPaneDecide() {
-		return agentstore.StateIdle
+		return panel.StateIdle
 	}
 
 	return state
@@ -381,7 +380,7 @@ func (m model) liveAgent(id string) (agentItem, bool) {
 	return agentItem{}, false
 }
 
-func (m *model) applyWorkflows(fresh []workflowstore.Workflow) {
+func (m *model) applyWorkflows(fresh []panel.Workflow) {
 	m.listing.workflows = fresh
 }
 
@@ -434,9 +433,9 @@ func (m *model) placeTreeCursor(selected string) {
 
 type listing struct {
 	agents            []agentItem
-	workflows         []workflowstore.Workflow
-	archivedAgents    []agentstore.Agent
-	archivedWorkflows []workflowstore.Workflow
+	workflows         []panel.Workflow
+	archivedAgents    []panel.Agent
+	archivedWorkflows []panel.Workflow
 	schedules         []scheduleItem
 	// marks are the letters a person types to jump to rows, keyed by the row key each names.
 	marks map[string]string

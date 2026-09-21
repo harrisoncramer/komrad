@@ -5,8 +5,7 @@ import (
 	"slices"
 	"strings"
 
-	agentstore "weave/internal/store/agent"
-	workflowstore "weave/internal/store/workflow"
+	"weave/internal/ui/panel"
 	"weave/lib/xslice"
 	hookv1 "weave/proto/gen/hook/v1"
 
@@ -28,13 +27,13 @@ func (m model) newWorkflowForm() (tea.Model, tea.Cmd) {
 	return m.openWorkflowConfigForm(&values, nil)
 }
 
-func (m model) renameWorkflowForm(workflow workflowstore.Workflow) (tea.Model, tea.Cmd) {
+func (m model) renameWorkflowForm(workflow panel.Workflow) (tea.Model, tea.Cmd) {
 	values := workflowFormValues{}
 
 	return m.openWorkflowRename(workflow, &values)
 }
 
-func (m model) openWorkflowRename(workflow workflowstore.Workflow, values *workflowFormValues) (tea.Model, tea.Cmd) {
+func (m model) openWorkflowRename(workflow panel.Workflow, values *workflowFormValues) (tea.Model, tea.Cmd) {
 	title := fmt.Sprintf("Rename %q to", workflow.Name)
 
 	return m.openRedrawnForm(openRedrawnFormParams{
@@ -59,7 +58,7 @@ func (m model) openWorkflowRename(workflow workflowstore.Workflow, values *workf
 	})
 }
 
-func (m model) editWorkflowForm(workflow workflowstore.Workflow) (tea.Model, tea.Cmd) {
+func (m model) editWorkflowForm(workflow panel.Workflow) (tea.Model, tea.Cmd) {
 	if fresh, err := m.api.getWorkflow(workflow.ID); err == nil && fresh != nil {
 		workflow = *fresh
 	}
@@ -71,7 +70,7 @@ func (m model) editWorkflowForm(workflow workflowstore.Workflow) (tea.Model, tea
 
 // openWorkflowConfigForm puts up the form for a workflow's whole configuration, creating one
 // when target is nil and saving over the workflow it names otherwise.
-func (m model) openWorkflowConfigForm(values *workflowFormValues, target *workflowstore.Workflow) (tea.Model, tea.Cmd) {
+func (m model) openWorkflowConfigForm(values *workflowFormValues, target *panel.Workflow) (tea.Model, tea.Cmd) {
 	title := "New workflow name"
 	if target != nil {
 		title = "Workflow name"
@@ -145,7 +144,7 @@ func (m model) getAvailableHooks() []hookChoice {
 	})
 }
 
-func (m model) archiveWorkflowConfirm(workflow workflowstore.Workflow) (tea.Model, tea.Cmd) {
+func (m model) archiveWorkflowConfirm(workflow panel.Workflow) (tea.Model, tea.Cmd) {
 	form, confirmed := archiveWorkflowForm(workflow.Name, formKeys())
 
 	return m, m.openForm(formState{
@@ -168,8 +167,8 @@ func (m model) archiveWorkflowConfirm(workflow workflowstore.Workflow) (tea.Mode
 }
 
 // agentsOf is the agents the last listing found inside a workflow.
-func (m model) agentsOf(workflowID string) []agentstore.Agent {
-	var held []agentstore.Agent
+func (m model) agentsOf(workflowID string) []panel.Agent {
+	var held []panel.Agent
 	for _, item := range m.listing.agents {
 		if item.agent.WorkflowID == workflowID {
 			held = append(held, item.agent)

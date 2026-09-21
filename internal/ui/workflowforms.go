@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"weave/config"
-	workflowstore "weave/internal/store/workflow"
+	"weave/internal/ui/panel"
 
 	"github.com/charmbracelet/huh"
 )
@@ -35,7 +35,7 @@ type workflowFormValues struct {
 	WorktreeDir          string
 }
 
-func workflowFormValuesFrom(cfg workflowstore.Config) workflowFormValues {
+func workflowFormValuesFrom(cfg panel.WorkflowConfig) workflowFormValues {
 	provisioner := provisionerNone
 	if cfg.Worktree.Enabled {
 		provisioner = provisionerWorktree
@@ -48,11 +48,11 @@ func workflowFormValuesFrom(cfg workflowstore.Config) workflowFormValues {
 		Cwd:                  cfg.Cwd,
 		Flags:                cfg.Flags,
 		Provisioner:          provisioner,
-		PreLaunchHook:        hookNamed(cfg.Hooks, workflowstore.HookPreLaunch),
-		PostLaunchHook:       hookNamed(cfg.Hooks, workflowstore.HookPostLaunch),
-		PostResumeHook:       hookNamed(cfg.Hooks, workflowstore.HookPostResume),
-		PostRestoreHook:      hookNamed(cfg.Hooks, workflowstore.HookPostRestore),
-		PreTeardownHook:      hookNamed(cfg.Hooks, workflowstore.HookPreTeardown),
+		PreLaunchHook:        hookNamed(cfg.Hooks, config.HookPreLaunch),
+		PostLaunchHook:       hookNamed(cfg.Hooks, config.HookPostLaunch),
+		PostResumeHook:       hookNamed(cfg.Hooks, config.HookPostResume),
+		PostRestoreHook:      hookNamed(cfg.Hooks, config.HookPostRestore),
+		PreTeardownHook:      hookNamed(cfg.Hooks, config.HookPreTeardown),
 		WorktreeBaseBranch:   cfg.Worktree.BaseBranch,
 		WorktreeCopyPaths:    strings.Join(cfg.Worktree.CopyPaths, "\n"),
 		WorktreeSymlinkPaths: strings.Join(cfg.Worktree.SymlinkPaths, "\n"),
@@ -61,14 +61,14 @@ func workflowFormValuesFrom(cfg workflowstore.Config) workflowFormValues {
 	}
 }
 
-func (v workflowFormValues) toConfig() workflowstore.Config {
-	cfg := workflowstore.Config{
+func (v workflowFormValues) toConfig() panel.WorkflowConfig {
+	cfg := panel.WorkflowConfig{
 		Name:    v.Name,
 		Context: v.Context,
 		Harness: v.Harness,
 		Cwd:     v.Cwd,
 		Flags:   v.Flags,
-		Worktree: workflowstore.WorktreeConfig{
+		Worktree: panel.WorktreeConfig{
 			Enabled:      v.Provisioner == provisionerWorktree,
 			BaseBranch:   v.WorktreeBaseBranch,
 			CopyPaths:    splitLines(v.WorktreeCopyPaths),
@@ -77,11 +77,11 @@ func (v workflowFormValues) toConfig() workflowstore.Config {
 			Dir:          strings.TrimSpace(v.WorktreeDir),
 		},
 		Hooks: slices.Concat(
-			hookOn(v.PreLaunchHook, workflowstore.HookPreLaunch),
-			hookOn(v.PostLaunchHook, workflowstore.HookPostLaunch),
-			hookOn(v.PostResumeHook, workflowstore.HookPostResume),
-			hookOn(v.PostRestoreHook, workflowstore.HookPostRestore),
-			hookOn(v.PreTeardownHook, workflowstore.HookPreTeardown),
+			hookOn(v.PreLaunchHook, config.HookPreLaunch),
+			hookOn(v.PostLaunchHook, config.HookPostLaunch),
+			hookOn(v.PostResumeHook, config.HookPostResume),
+			hookOn(v.PostRestoreHook, config.HookPostRestore),
+			hookOn(v.PreTeardownHook, config.HookPreTeardown),
 		),
 	}
 
@@ -90,7 +90,7 @@ func (v workflowFormValues) toConfig() workflowstore.Config {
 
 // hookNamed is the hook a workflow hangs on one moment, and the empty string for a moment
 // nothing hangs on.
-func hookNamed(hooks []workflowstore.Hook, event string) string {
+func hookNamed(hooks []panel.Hook, event string) string {
 	for _, hook := range hooks {
 		if hook.Event == event {
 			return hook.Script
@@ -100,13 +100,13 @@ func hookNamed(hooks []workflowstore.Hook, event string) string {
 	return ""
 }
 
-// hookOn is a moment's hook as the store takes it, which is one entry or none.
-func hookOn(name, event string) []workflowstore.Hook {
+// hookOn is a moment's hook as the wire takes it, which is one entry or none.
+func hookOn(name, event string) []panel.Hook {
 	if name == "" {
 		return nil
 	}
 
-	return []workflowstore.Hook{{Event: event, Script: name}}
+	return []panel.Hook{{Event: event, Script: name}}
 }
 
 func splitLines(text string) []string {
