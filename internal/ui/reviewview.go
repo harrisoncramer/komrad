@@ -96,13 +96,20 @@ func (m model) reviewThreadWindow(rendered string, lines int) string {
 	return paint.WindowRows(rows, lines, place, m.reviewMarkerStyle())
 }
 
-// reviewDetailsRoom is the lines the sidebar has for the record between its rules once the
-// legend and the head have taken theirs, with a row kept back for the conversation.
-func (m model) reviewDetailsRoom() int {
+// doesReviewFitDetails reports whether the sidebar has a line left over once the record has taken
+// its share.
+func (m model) doesReviewFitDetails() bool {
 	// Measured with the keys on the diff, which keeps this out of its own answer.
-	m.details.focused = false
+	m.details.focused, m.details.filter = false, filterState{}
 
-	return m.spareLines(m.reviewHeadView(owedRows)) - m.tallestLegend(m.reviewHelp()) - detailsChromeLines - 1
+	spare := m.spareLines(m.renderHelp(m.reviewHelp()), m.reviewHeadView(owedRows))
+
+	return spare > m.detailsLines()+detailsChromeLines
+}
+
+// reviewDetailsRoom is the rows the sidebar has under the head and the legend it is drawing.
+func (m model) reviewDetailsRoom() int {
+	return m.spareLines(m.renderHelp(m.reviewHelp()), m.reviewHeadView(owedRows))
 }
 
 // reviewHeadView is the fixed top of the sidebar: whatever is standing in the way of a review, or

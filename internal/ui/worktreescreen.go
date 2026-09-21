@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"weave/internal/errui"
 	"weave/internal/ui/paint"
 	"weave/internal/ui/paint/label"
 	"weave/internal/view"
@@ -204,6 +205,10 @@ func (m model) worktreesTally() string {
 	return fmt.Sprintf("%d · %s", len(m.worktrees.items), totalLabel(m.worktrees.items))
 }
 
+func (m model) doesWorktreesFitDetails() bool {
+	return m.doesListFitDetails(m.worktreesHeader(), model.worktreesHelp)
+}
+
 func (m model) worktreesDetailsRoom() int {
 	return m.listDetailsRoom(m.worktreesHeader(), model.worktreesHelp)
 }
@@ -288,7 +293,11 @@ func (m model) worktreeFields(item worktreeItem, now time.Time) []recordField {
 	if len(item.occupants) > 0 {
 		fields = append(fields, recordField{"also here", occupantsField(item)})
 	}
-	if read, ok := m.worktrees.inspected[item.dir]; ok && read.answered && read.err == nil {
+	read := m.worktrees.inspected[item.dir]
+	if read.answered && read.err != nil {
+		fields = append(fields, recordField{"worktree", "could not read: " + errui.GetReason(read.err)})
+	}
+	if read.isRead() {
 		fields = append(fields,
 			recordField{"base", baseField(read)},
 			recordField{"changes", changesField(read)},
@@ -419,8 +428,10 @@ func (m model) worktreeDoc() string {
 	switch {
 	case !ok || !read.answered:
 		return renderDocument(row.name(), "_"+row.item.dir+"_", "_reading the directory…_", "")
+	case read.err != nil && !read.isRead():
+		return renderDocument(row.name(), "_"+row.item.dir+"_", "could not read: "+errui.GetReason(read.err), "")
 	case read.err != nil:
-		return renderDocument(row.name(), "_"+row.item.dir+"_", read.err.Error(), "")
+		return renderDocument(row.name(), "_"+row.item.dir+"_", "_could not read: "+errui.GetReason(read.err)+"_\n\n"+worktreeProse(row.item, read), "")
 	}
 
 	return renderDocument(row.name(), "_"+row.item.dir+"_", worktreeProse(row.item, read), "")

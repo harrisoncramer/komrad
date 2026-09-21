@@ -439,6 +439,10 @@ func (m model) doesArchiveFitTabs() bool {
 	return m.doesListFitTabs(screenTitle(view.GlyphArchive, "Archive"), "", model.archiveHelp)
 }
 
+func (m model) doesArchiveFitDetails() bool {
+	return m.doesListFitDetails(m.archiveHeader(), model.archiveHelp)
+}
+
 func (m model) archiveDetailsRoom() int {
 	return m.listDetailsRoom(m.archiveHeader(), model.archiveHelp)
 }

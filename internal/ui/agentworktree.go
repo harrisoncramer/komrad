@@ -62,7 +62,7 @@ func worktreeStandingFields(read worktreeInspection, now time.Time) []recordFiel
 	if read.err != nil {
 		fields = append(fields, recordField{"worktree", "could not read: " + errui.GetReason(read.err)})
 	}
-	if read.item.dir == "" {
+	if !read.isRead() {
 		return fields
 	}
 
@@ -90,7 +90,7 @@ func worktreeStandingFields(read worktreeInspection, now time.Time) []recordFiel
 // worktreeHistoryFields are the record's rows for what the directory holds that the base does
 // not: the uncommitted paths, then the commits since the base, each list cut and counted.
 func worktreeHistoryFields(read worktreeInspection) []recordField {
-	if !read.item.readable {
+	if !read.isRead() || !read.item.readable {
 		return nil
 	}
 

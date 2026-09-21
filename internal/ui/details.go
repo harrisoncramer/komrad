@@ -23,18 +23,8 @@ type detailsState struct {
 	cursor  int
 	row     string
 	flashed int
-	// filter is the search over the record's own rows, standing apart from the list's.
+	// filter is the search over the record's own rows, held only while the record has the keys.
 	filter filterState
-	// room is the lines the record may take, measured once per update and once per frame.
-	room detailsRoom
-}
-
-// detailsRoom is one measurement of the room, keyed by the pane it was taken in.
-type detailsRoom struct {
-	height int
-	width  int
-	lines  int
-	taken  bool
 }
 
 type details struct {
@@ -97,96 +87,35 @@ func (m model) detailsCursor(held details) int {
 	return min(m.details.cursor, max(len(m.detailsRows(held))-1, 0))
 }
 
-// isDetailsDrawn is whether the record is on screen: its whole share fits while the list holds
-// the keys, and a row of it fits under its search line once the record has taken them or a
-// search stands over it.
 func (m model) isDetailsDrawn(held details) bool {
-	if len(held.fields) == 0 || m.detailsShare() == 0 {
+	if len(held.fields) == 0 || m.detailsLines() == 0 {
 		return false
 	}
 
-	room, ok := m.detailsRoom()
-	if !ok {
+	spec := m.screen.spec().details
+	if spec == nil || spec.fits == nil {
 		return true
 	}
 
-	if m.isDetailsSearchDrawn() {
-		return room-detailsSearchLine >= 1
-	}
-
-	return room >= m.detailsShare()
+	return spec.fits(m)
 }
 
-// canFocusDetails is whether the record may take the keys: it is drawn, and stays drawn under
-// its search line.
-func (m model) canFocusDetails(held details) bool {
-	if !m.isDetailsDrawn(held) {
-		return false
+// doesListFitDetails is whether the record's share fits under a list, judged with the keys on
+// the list and no search over the record so the answer does not move with either.
+func (m model) doesListFitDetails(header string, help func(model) keyMap) bool {
+	m.details.focused, m.details.filter = false, filterState{}
+
+	legend := m.renderHelp(help(m), header)
+	if focused := m.renderHelp(m.detailsHelp(), header); strings.Count(focused, "\n") > strings.Count(legend, "\n") {
+		legend = focused
 	}
 
-	room, ok := m.detailsRoom()
-
-	return !ok || room-detailsSearchLine >= 1
+	return m.spareLines(header, legend) > m.detailsLines()+detailsChromeLines
 }
 
-// detailsRoom is the lines the screen has for the record between its rules, measured with the
-// keys on the list, and false on a screen that draws no record.
-func (m model) detailsRoom() (int, bool) {
-	spec := m.screen.spec().details
-	if spec == nil || spec.room == nil {
-		return 0, false
-	}
-
-	if memo := m.details.room; memo.taken && memo.height == m.height && memo.width == m.paneWidth() {
-		return memo.lines, true
-	}
-
-	m.details.focused = false
-
-	return spec.room(m), true
-}
-
-// measureDetails takes the room once for the frame and the keys that follow.
-func (m model) measureDetails() model {
-	spec := m.screen.spec().details
-	if spec == nil || spec.room == nil {
-		m.details.room = detailsRoom{}
-
-		return m
-	}
-
-	measured := m
-	measured.details.focused = false
-
-	m.details.room = detailsRoom{
-		height: m.height,
-		width:  m.paneWidth(),
-		lines:  spec.room(measured),
-		taken:  true,
-	}
-
-	return m
-}
-
-// listDetailsRoom is the lines a list screen has for the record between its rules, with a row
-// kept back for the list.
+// listDetailsRoom is the lines a list screen has under its header and the legend it is drawing.
 func (m model) listDetailsRoom(header string, help func(model) keyMap) int {
-	m.details.focused = false
-
-	return m.spareLines(header) - m.tallestLegend(help(m), header) - detailsChromeLines - 1
-}
-
-// tallestLegend is the lines the tallest legend the record can stand over takes: the screen's
-// own, the record's, or the search's while one is typed at.
-func (m model) tallestLegend(own keyMap, above ...string) int {
-	m.details.focused = false
-
-	tallest := 0
-	for _, k := range []keyMap{own, m.detailsHelp(), filterHelp(m.details.filter.mode)} {
-		tallest = max(tallest, strings.Count(m.renderHelp(k, above...), "\n"))
-	}
-
-	return tallest
+	return m.spareLines(header, m.renderHelp(help(m), header))
 }
 
 func (m model) isDetailsFocused() bool {
@@ -201,7 +130,7 @@ func (m model) toggleDetailsFocus() (model, tea.Cmd) {
 	}
 
 	held := m.hoveredDetails()
-	if !m.canFocusDetails(held) {
+	if !m.isDetailsDrawn(held) {
 		return m, nil
 	}
 
@@ -215,12 +144,10 @@ func (m model) toggleDetailsFocus() (model, tea.Cmd) {
 	return m.refocused(), m.rereadAgentWorktreeCmd()
 }
 
-// blurDetails hands the keys back to the list, dropping a search that was still being typed.
+// blurDetails hands the keys back to the list, and the record's search goes with them.
 func (m model) blurDetails() model {
 	m.details.focused = false
-	if m.details.filter.typing {
-		m.details.filter.abandon()
-	}
+	m.details.filter.abandon()
 
 	return m.refocused()
 }
@@ -416,8 +343,7 @@ func (m model) copyDetailsField() (tea.Model, tea.Cmd) {
 	return m, tea.Batch(m.copyCmd(rows[cursor].field.value), flashRevertTick())
 }
 
-// detailsShare is the field lines the record is configured to draw.
-func (m model) detailsShare() int {
+func (m model) detailsLines() int {
 	if m.height <= 0 {
 		return 0
 	}
@@ -430,22 +356,17 @@ func (m model) detailsShare() int {
 	return min(lines, max(m.height/2-detailsChromeLines, 0))
 }
 
-// detailsLines is the field lines the record draws: its share, or every line it needs once it
-// holds the keys.
-func (m model) detailsLines() int {
-	share := m.detailsShare()
+// grownDetailsLines is every line the record needs once it holds the keys, as far as the rows
+// left under the header and the legend allow.
+func (m model) grownDetailsLines(held details) int {
+	lines := max(m.detailsLines(), m.detailsWanted(held))
 
-	room, ok := m.detailsRoom()
-	if !ok || !m.isDetailsSearchDrawn() {
-		return share
+	spec := m.screen.spec().details
+	if spec == nil || spec.room == nil {
+		return lines
 	}
 
-	lines := share
-	if m.details.focused {
-		lines = max(share, m.detailsWanted(m.hoveredDetails()))
-	}
-
-	return min(lines, max(room-detailsSearchLine, 1))
+	return max(min(lines, spec.room(m)-detailsChromeLines), 0)
 }
 
 // detailsWanted is the lines the whole record takes: its notices, a blank under them, and every
@@ -459,17 +380,7 @@ func (m model) detailsWanted(held details) int {
 	return wanted
 }
 
-// detailsChromeLines is the two rules the record is drawn between.
 const detailsChromeLines = 2
-
-// detailsSearchLine is the row the record's search takes when it is drawn.
-const detailsSearchLine = 1
-
-// isDetailsSearchDrawn reports whether the record draws its search line: while it holds the keys
-// or a search stands over it.
-func (m model) isDetailsSearchDrawn() bool {
-	return m.details.focused || m.details.filter.isStanding() || m.details.filter.typing
-}
 
 func (m model) detailsView() string {
 	held := m.hoveredDetails()
@@ -477,10 +388,15 @@ func (m model) detailsView() string {
 		return ""
 	}
 
+	lines := m.detailsLines()
+	if m.details.focused {
+		lines = m.grownDetailsLines(held)
+	}
+
 	// Two field lines are kept back rather than one, which is what renderList needs to say how
 	// many fields it left out.
-	notices := m.detailsNotices(held, m.detailsLines()-3)
-	block, lines := "", m.detailsLines()
+	notices := m.detailsNotices(held, lines-3)
+	block := ""
 	if len(notices) > 0 {
 		block = strings.Join(notices, "\n") + "\n\n"
 		lines -= len(notices) + 1
@@ -493,18 +409,9 @@ func (m model) detailsView() string {
 	}
 
 	return m.detailsRule() +
-		m.detailsSearchLine() +
 		block +
 		paint.PadRows(paint.RenderList(rows, cursor, lines, dimStyle), lines) +
 		m.detailsRule()
-}
-
-func (m model) detailsSearchLine() string {
-	if !m.isDetailsSearchDrawn() {
-		return ""
-	}
-
-	return " " + m.details.filter.line(paint.Panel) + "\n"
 }
 
 func (m model) detailsRule() string {

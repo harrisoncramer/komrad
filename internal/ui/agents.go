@@ -569,6 +569,10 @@ func (m model) doesAgentsFitTabs() bool {
 	return m.doesListFitTabs(screenTitle(view.GlyphWorkflow, "Agents & Workflows"), "", model.agentHelp)
 }
 
+func (m model) doesAgentsFitDetails() bool {
+	return m.doesListFitDetails(m.agentsHeader(), model.agentHelp)
+}
+
 func (m model) agentsDetailsRoom() int {
 	return m.listDetailsRoom(m.agentsHeader(), model.agentHelp)
 }

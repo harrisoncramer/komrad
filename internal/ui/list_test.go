@@ -329,15 +329,6 @@ func TestScreensFitATightPane(t *testing.T) {
 				m.details.filter.setQuery("a")
 			},
 		},
-		{
-			name:  "with a filter kept over the record while the list has the keys",
-			width: 30,
-			prepare: func(m *model) {
-				m.helpExpanded = true
-				m.details.filter.mode = filterModeFilter
-				m.details.filter.setQuery("a")
-			},
-		},
 	}
 
 	for _, tt := range tests {

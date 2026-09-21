@@ -86,8 +86,12 @@ type detailsSpec struct {
 	// that draws nothing saying where the keys are.
 	refocus func(*model)
 
-	// room is the lines the screen has for the record between its rules, with a row kept back for
-	// what stands above it, and nil on a screen that always has them.
+	// fits is whether the screen has the room to draw the record at all, nil on a screen that
+	// always has it, and what stops the keys being taken by a record the pane cannot show.
+	fits func(model) bool
+
+	// room is the rows the screen has under its header and the legend it is drawing, which is
+	// what the record grows into once it holds the keys.
 	room func(model) int
 }
 
@@ -125,6 +129,7 @@ func (s screen) spec() screenSpec {
 			details: &detailsSpec{
 				hovered: model.agentsDetails,
 				quit:    func(keys config.Keybindings) []string { return keys.Agents.Quit },
+				fits:    model.doesAgentsFitDetails,
 				room:    model.agentsDetailsRoom,
 			},
 			filter: &filterSpec{
@@ -148,6 +153,7 @@ func (s screen) spec() screenSpec {
 			details: &detailsSpec{
 				hovered: model.schedulesDetails,
 				quit:    func(keys config.Keybindings) []string { return keys.Schedules.Quit },
+				fits:    model.doesSchedulesFitDetails,
 				room:    model.schedulesDetailsRoom,
 			},
 			filter: &filterSpec{
@@ -168,6 +174,7 @@ func (s screen) spec() screenSpec {
 			details: &detailsSpec{
 				hovered: model.archiveDetails,
 				quit:    func(keys config.Keybindings) []string { return keys.Archive.Quit },
+				fits:    model.doesArchiveFitDetails,
 				room:    model.archiveDetailsRoom,
 			},
 			filter: &filterSpec{
@@ -202,6 +209,7 @@ func (s screen) spec() screenSpec {
 			details: &detailsSpec{
 				hovered: model.worktreesDetails,
 				quit:    func(keys config.Keybindings) []string { return keys.Worktrees.Quit },
+				fits:    model.doesWorktreesFitDetails,
 				room:    model.worktreesDetailsRoom,
 			},
 			filter: &filterSpec{
@@ -224,6 +232,7 @@ func (s screen) spec() screenSpec {
 			details: &detailsSpec{
 				hovered: model.reviewDetails,
 				quit:    func(keys config.Keybindings) []string { return keys.Review.Quit },
+				fits:    model.doesReviewFitDetails,
 				room:    model.reviewDetailsRoom,
 			},
 			column: reviewColumn,

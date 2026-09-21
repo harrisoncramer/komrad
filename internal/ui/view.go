@@ -26,7 +26,6 @@ func (m model) View() string {
 		return m.drawn.text
 	}
 
-	m = m.measureDetails()
 	drawn := m.fitFrame(strings.TrimRight(m.screenView(), "\n"))
 
 	if m.drawn != nil {

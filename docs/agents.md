@@ -58,7 +58,7 @@ The details carry a `pull request` row for the current one, "#740 merged 2h ago"
 
 The details under the list are the record of the hovered row. For an agent they hold what it was launched with, its branch and pull requests, its worktree's standing against the base, its metadata, and then the uncommitted paths and the commits since the base, ten of each at most. The worktree rows come from `get_worktree`, read when the cursor rests on the row and again once a minute, so they can be a minute behind.
 
-`ctrl+t` moves the keys onto the record, which grows to show every row the sidebar has room for. `/` then searches the rows as it does the list: `tab` turns the search into a filter, `enter` keeps it, `n` and `N` step between matches, and `esc` clears it before a second `esc` hands the keys back. A kept filter stays over the record as the list cursor moves.
+`ctrl+t` moves the keys onto the record, which grows to show every row the sidebar has room for. `/` then searches the rows as it does the list, on the same line: `tab` turns the search into a filter, `enter` keeps it, `n` and `N` step between matches, and `esc` clears it before a second `esc` hands the keys back, taking the search with them.
 
 ## The git menu
 

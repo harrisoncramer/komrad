@@ -85,6 +85,12 @@ func (read worktreeInspection) isStale(now time.Time) bool {
 	return !read.answered || (!read.isSettled() && now.Sub(read.readAt) > worktreeReadTTL)
 }
 
+// isRead reports whether git has answered for the directory, on this read or on one a failed
+// read kept.
+func (read worktreeInspection) isRead() bool {
+	return read.answered && (read.err == nil || read.item.dir != "")
+}
+
 // isSettled reports whether the answer is one that will never change, which the service saying
 // the directory is not a worktree it holds is.
 func (read worktreeInspection) isSettled() bool {

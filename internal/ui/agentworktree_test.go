@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -210,7 +211,7 @@ func TestFocusedRecordGrowsToShowEverything(t *testing.T) {
 	focused := send(t, m, "ctrl+t")
 	require.True(t, focused.isDetailsFocused())
 
-	assert.Equal(t, len(focused.hoveredDetails().fields), focused.detailsLines())
+	assert.Equal(t, len(focused.hoveredDetails().fields), focused.grownDetailsLines(focused.hoveredDetails()))
 	drawn := ansi.Strip(focused.detailsView())
 	assert.Contains(t, drawn, "commits")
 	assert.NotContains(t, drawn, "more", "nothing is left out")
@@ -219,7 +220,7 @@ func TestFocusedRecordGrowsToShowEverything(t *testing.T) {
 
 	back := send(t, focused, "ctrl+t")
 
-	assert.Equal(t, share, back.detailsLines())
+	assert.Equal(t, share+detailsChromeLines, strings.Count(back.detailsView(), "\n"))
 }
 
 // TestFocusedRecordStopsAtTheRoom covers a record taller than the pane, which grows only as far
@@ -232,9 +233,8 @@ func TestFocusedRecordStopsAtTheRoom(t *testing.T) {
 	focused := send(t, m, "ctrl+t")
 	require.True(t, focused.isDetailsFocused())
 
-	assert.Less(t, focused.detailsLines(), len(focused.hoveredDetails().fields))
+	assert.Less(t, focused.grownDetailsLines(focused.hoveredDetails()), len(focused.hoveredDetails().fields))
 	assert.Len(t, lines(focused.View()), focused.height)
-	assert.Contains(t, outsideTheRecord(focused), "auth", "the list keeps its hovered row")
 	assert.Contains(t, ansi.Strip(focused.detailsView()), "more")
 }
 
@@ -274,7 +274,7 @@ func TestRecordSearchWalksOntoTheMatch(t *testing.T) {
 	typed := pressMark(t, opened, "s", "i", "z")
 	held := typed.hoveredDetails()
 	assert.Equal(t, "size", held.fields[typed.detailsCursor(held)].label)
-	assert.Contains(t, ansi.Strip(typed.detailsView()), "/ siz", "the line is drawn in the record")
+	assert.Contains(t, ansi.Strip(typed.View()), "/ siz", "the header's search line is the record's")
 
 	kept := pressMark(t, typed, "enter")
 	assert.False(t, kept.details.filter.typing)
@@ -318,9 +318,8 @@ func TestRecordFilterNarrowsTheFields(t *testing.T) {
 	assert.Equal(t, "landed", rows[0].field.label)
 	assert.Equal(t, "M b.go", rows[2].field.value, "a path under the uncommitted label stays with it")
 	assert.Equal(t, "uncommitted ? notes.md", rows[3].text)
-	drawn := ansi.Strip(narrowed.detailsView())
-	assert.Contains(t, drawn, "▽ commit")
-	assert.NotContains(t, drawn, "directory")
+	assert.Contains(t, ansi.Strip(narrowed.View()), "▽ commit")
+	assert.NotContains(t, ansi.Strip(narrowed.detailsView()), "directory")
 
 	bottom := send(t, narrowed, "G")
 	copied, cmd := bottom.copyDetailsField()
@@ -382,25 +381,19 @@ func TestRecordSearchEscapes(t *testing.T) {
 	assert.False(t, back.isDetailsFocused(), "the second hands the keys back")
 }
 
-// TestRecordSearchStandsWhileTheListHasTheKeys covers the focus key leaving a standing search
-// where it is, so the narrowed record follows the list cursor, while an input still being typed
-// at is dropped.
-func TestRecordSearchStandsWhileTheListHasTheKeys(t *testing.T) {
+// TestRecordSearchGoesWithTheKeys covers the focus key handing the keys back, which takes the
+// record's standing search with it so the record is whole again.
+func TestRecordSearchGoesWithTheKeys(t *testing.T) {
 	m := recordSearchModel(t)
 
 	standing := pressMark(t, send(t, m, "/"), "s", "i", "z", "tab", "enter")
+	require.Len(t, standing.detailsRows(standing.hoveredDetails()), 1)
+
 	back := send(t, standing, "ctrl+t")
+
 	require.False(t, back.isDetailsFocused())
-
-	assert.True(t, back.details.filter.isNarrowing())
-	assert.Contains(t, ansi.Strip(back.detailsView()), "▽ siz")
-	assert.Len(t, back.detailsRows(back.hoveredDetails()), 1)
-
-	typing := pressMark(t, send(t, m, "/"), "s", "i", "z")
-	dropped := typing.blurDetails()
-
-	assert.False(t, dropped.details.filter.isStanding())
-	assert.False(t, dropped.details.filter.typing)
+	assert.False(t, back.details.filter.isStanding())
+	assert.Len(t, back.detailsRows(back.hoveredDetails()), len(back.hoveredDetails().fields))
 }
 
 // TestRecordSearchDroppedLeavingScreen covers the record's search going with the list's when
@@ -434,9 +427,9 @@ func TestRecordSearchLightsTheMatch(t *testing.T) {
 	assert.Contains(t, base, paint.Panel.Match().Render("origin"), "the match is lit")
 }
 
-// TestFocusedRecordStaysThroughItsSearch covers the two sizes where the record's own search
-// line and legend used to shrink the room under it: the record keeps the keys while a search is
-// typed, and the enter that keeps the search never reaches the list.
+// TestFocusedRecordStaysThroughItsSearch covers the record keeping the keys while a search is
+// typed over it at the sizes where its legend growing used to hide it, so the enter that keeps
+// the search never reaches the list.
 func TestFocusedRecordStaysThroughItsSearch(t *testing.T) {
 	tests := []struct {
 		name          string
@@ -472,57 +465,6 @@ func TestFocusedRecordStaysThroughItsSearch(t *testing.T) {
 			assert.False(t, back.isDetailsFocused(), "two escapes clear the search and hand the keys back")
 		})
 	}
-}
-
-// TestRecordRefusesTheKeysWithoutRoomForItsSearch covers a pane where the share fits but not
-// with a search line under it, so the focus key does nothing rather than hiding the record.
-func TestRecordRefusesTheKeysWithoutRoomForItsSearch(t *testing.T) {
-	m := detailsModel(&recordingTmux{})
-	m.detailsHeight = 1
-
-	for height := 5; height < 40; height++ {
-		m.height = height
-		held := m.hoveredDetails()
-		room, ok := m.detailsRoom()
-		require.True(t, ok)
-		if !m.isDetailsDrawn(held) || room-detailsSearchLine >= 1 {
-			continue
-		}
-
-		focused := send(t, m, "ctrl+t")
-
-		assert.False(t, focused.details.focused, "a pane %d lines tall has no row for the search line", height)
-		assert.NotEmpty(t, focused.detailsView(), "and the record stays drawn")
-
-		return
-	}
-
-	t.Skip("no height draws the share without a row left for the search line")
-}
-
-// TestDetailsRoomIsMeasuredOncePerFrame covers the memo an update and a frame take, which the
-// readers use while the pane is the size it was measured in and measure again once it is not.
-func TestDetailsRoomIsMeasuredOncePerFrame(t *testing.T) {
-	m := detailsModel(&recordingTmux{})
-	measured := m.measureDetails()
-	require.True(t, measured.details.room.taken)
-
-	fresh, ok := m.detailsRoom()
-	require.True(t, ok)
-	memo, ok := measured.detailsRoom()
-	require.True(t, ok)
-	assert.Equal(t, fresh, memo)
-
-	measured.details.room.lines = 99
-	planted, _ := measured.detailsRoom()
-	assert.Equal(t, 99, planted, "the memo answers while the pane is the size it was taken in")
-
-	measured.height++
-	remeasured, _ := measured.detailsRoom()
-	assert.NotEqual(t, 99, remeasured, "a pane of another size is measured again")
-
-	after := send(t, measured, "j")
-	assert.NotEqual(t, 99, after.details.room.lines, "an update takes the measure again")
 }
 
 // failingWorktreeReads answers get_worktree once and refuses every read after it.

@@ -46,7 +46,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	routed, blink := routed.updateRowCursor(msg)
 	routed, warming := routed.pollWarmup()
 	routed, pulse := routed.pulseMessages(m.messages.landed)
-	routed = routed.measureDetails()
 	routed.holdFocusKey()
 
 	return routed, tea.Batch(cmd, blink, warming, pulse)
