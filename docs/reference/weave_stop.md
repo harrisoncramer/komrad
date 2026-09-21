@@ -14,6 +14,9 @@ finished. Nothing serving at the address is not an error.
 Agents keep running: they are tmux panes, not children of this process. They are
 picked back up when the service returns.
 
+On a machine where the service is a systemd unit this refuses, since a service
+stopped this way stays down until systemctl starts it again.
+
 ```
 weave stop [flags]
 ```

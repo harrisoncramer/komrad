@@ -1,8 +1,15 @@
 package cli
 
 import (
+	"errors"
+	"os"
+
 	"github.com/spf13/cobra"
 )
+
+const engineUnitPath = "/etc/systemd/system/weave.service"
+
+var errUnitManaged = errors.New("the service here is run by systemd, and a stopped unit stays down until someone with root starts it again; use systemctl stop weave or systemctl restart weave instead")
 
 func stopCmd(state *app) *cobra.Command {
 	return &cobra.Command{
@@ -16,11 +23,18 @@ not when the address stops answering, which happens well before the shutdown is
 finished. Nothing serving at the address is not an error.
 
 Agents keep running: they are tmux panes, not children of this process. They are
-picked back up when the service returns.`,
+picked back up when the service returns.
+
+On a machine where the service is a systemd unit this refuses, since a service
+stopped this way stays down until systemctl starts it again.`,
 		Args:          cobra.NoArgs,
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			if err := requireNotUnitManaged(engineUnitPath); err != nil {
+				return err
+			}
+
 			addr := state.env.Addr
 
 			pid, err := stopServer(cmd.Context(), addr)
@@ -39,4 +53,12 @@ picked back up when the service returns.`,
 			return nil
 		},
 	}
+}
+
+func requireNotUnitManaged(unitPath string) error {
+	if _, err := os.Stat(unitPath); err != nil {
+		return nil
+	}
+
+	return errUnitManaged
 }
