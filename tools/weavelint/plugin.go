@@ -43,6 +43,16 @@ func (l *linter) BuildAnalyzers() ([]*analysis.Analyzer, error) {
 		return nil, err
 	}
 
+	inline, err := newSentinelInline(l.config.SentinelInline)
+	if err != nil {
+		return nil, err
+	}
+
+	phrases, err := newWrapPhrase(l.config.WrapPhrase)
+	if err != nil {
+		return nil, err
+	}
+
 	handlers, err := newHandlerShape(l.config.HandlerShape)
 	if err != nil {
 		return nil, err
@@ -53,7 +63,7 @@ func (l *linter) BuildAnalyzers() ([]*analysis.Analyzer, error) {
 		return nil, err
 	}
 
-	return []*analysis.Analyzer{sentinels, handlers, newSecretExpose(l.config.SecretExpose), bare}, nil
+	return []*analysis.Analyzer{sentinels, inline, phrases, handlers, newSecretExpose(l.config.SecretExpose), bare}, nil
 }
 
 // GetLoadMode tells golangci-lint the analyzers need types resolved.

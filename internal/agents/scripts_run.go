@@ -225,7 +225,7 @@ func (s *ScriptService) RunDeprovision(ctx context.Context, agent agentstore.Age
 
 			writeRunLog(ctx, run.logPath, combinedOutput(result.Stdout, result.Stderr))
 			if err != nil {
-				s.failRun(ctx, run, result, fmt.Errorf("%s: %w", script.Name, err))
+				s.failRun(ctx, run, result, fmt.Errorf("failed to run %s: %w", script.Name, err))
 				logger.LogAttrs(ctx, slog.LevelError, "script failed",
 					append(failedScript(result, err), slog.Int64(logging.DurationMS, elapsedMS(began)))...)
 			} else {

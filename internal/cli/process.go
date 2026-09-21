@@ -109,7 +109,7 @@ func ensureServer(ctx context.Context, params ensureServerParams) error {
 
 func replaceServer(ctx context.Context, addr, reported string) error {
 	if _, err := stopServer(ctx, addr); err != nil {
-		return fmt.Errorf("the server at %s is build %s and this is %s, so it has to be replaced: %w",
+		return fmt.Errorf("failed to replace the server at %s, which is build %s where this is %s: %w",
 			addr, reported, version.Describe(version.Version(), version.Commit()), err)
 	}
 
@@ -211,7 +211,7 @@ func requestStop(ctx context.Context, addr string) (int, error) {
 
 	pid, err := strconv.Atoi(strings.TrimSpace(string(body)))
 	if err != nil {
-		return 0, fmt.Errorf("the server at %s did not say which process it is: %w", addr, err)
+		return 0, fmt.Errorf("failed to read which process the server at %s is: %w", addr, err)
 	}
 
 	return pid, nil

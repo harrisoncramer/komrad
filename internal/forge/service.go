@@ -244,7 +244,7 @@ func (s *ForgeService) proveToken(ctx context.Context, build Builder, params Con
 	probe := build(params.APIURL, staticCredential{Header: HeaderFor(params.Kind, MethodToken), Token: params.Token})
 	login, err := probe.Verify(ctx)
 	if errors.Is(err, ErrUnauthorized) {
-		return "", fmt.Errorf("%s did not accept the token: %w", params.Host, err)
+		return "", fmt.Errorf("failed to verify the token with %s: %w", params.Host, err)
 	}
 	if err != nil {
 		return "", err
@@ -271,7 +271,7 @@ func (s *ForgeService) proveApp(ctx context.Context, build Builder, params Conne
 	probe := build(params.APIURL, NewAppCredential(NewAppCredentialParams{App: app, Connections: NoRecord{}}))
 	err = requireInstallationReach(ctx, probe)
 	if errors.Is(err, ErrUnauthorized) {
-		return "", fmt.Errorf("github did not accept the app's token: %w", err)
+		return "", fmt.Errorf("failed to verify the app's token with github: %w", err)
 	}
 	if err != nil {
 		return "", err

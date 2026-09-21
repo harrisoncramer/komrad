@@ -63,7 +63,7 @@ func TestTrustLaunchDirs(t *testing.T) {
 			enabled:  true,
 			existing: "this is not = = toml\n",
 			dir:      "/repo/worktree",
-			wantErr:  "does not parse",
+			wantErr:  "failed to parse the codex config",
 			wantKept: "this is not",
 		},
 		{
