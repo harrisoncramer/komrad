@@ -330,7 +330,7 @@ func (m *model) applyReviewLoaded(msg reviewLoadedMsg) tea.Cmd {
 		m.review.diff.chapters = msg.chapters
 		m.review.diff.widen()
 		m.review.threads.cancelMessage()
-		m.review.diff.view = nil
+		m.review.diff.drop()
 		m.review.loading = true
 
 		return m.loadWholeReviewCmd()
@@ -347,6 +347,15 @@ func (m *model) applyReviewLoaded(msg reviewLoadedMsg) tea.Cmd {
 	return nil
 }
 
+// drop puts the patch down until the next one arrives, keeping the files drawn whole for it.
+func (d *reviewDiff) drop() {
+	if d.view != nil {
+		d.expanded = d.view.GetExpanded()
+	}
+
+	d.view = nil
+}
+
 // load draws a patch just read, over the one on screen, and puts the cursor back where the
 // reader was standing.
 func (d *reviewDiff) load(msg reviewLoadedMsg, isDark bool) {
@@ -358,14 +367,17 @@ func (d *reviewDiff) load(msg reviewLoadedMsg, isDark bool) {
 	d.since = msg.since
 
 	// The files the reader opened out are the view's own, so a view built again over the patch
-	// takes them from the one it replaces.
+	// takes them from the one it replaces, or from what was kept when that one was dropped.
 	view := review.NewView(msg.patch, isDark)
 	view.SetNarrowed(d.base != "")
 	view.SetTraced(msg.traced)
 	view.SetViewed(indexViewedFiles(msg.viewed, msg.patch))
 	if d.view != nil {
-		view.SetExpanded(d.view.GetExpanded())
+		d.expanded = d.view.GetExpanded()
 	}
+
+	view.SetExpanded(d.expanded)
+	d.expanded = nil
 
 	view.PinThreads(threadsByChapter(threadsByChapterParams{
 		Threads:  msg.threads,

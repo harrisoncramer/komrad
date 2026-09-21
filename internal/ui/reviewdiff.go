@@ -29,6 +29,8 @@ type reviewDiff struct {
 
 	// restore is where the cursor was standing when the patch was read again.
 	restore *review.Place
+	// expanded is the files drawn whole when the patch was put down to be read again.
+	expanded map[string]bool
 
 	// since says how much of the diff is new to the reader.
 	since string

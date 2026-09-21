@@ -287,3 +287,33 @@ func patchFingerprint(t *testing.T, loaded reviewLoadedMsg, path string) string 
 
 	return ""
 }
+
+// TestExpansionSurvivesTheDiffBeingPutDown covers the reload that draws nothing until the whole
+// change arrives, which is the one reload with no view to take the opened files from.
+func TestExpansionSurvivesTheDiffBeingPutDown(t *testing.T) {
+	m, _ := tallReview(t)
+
+	expanded := pressExpand(t, m)
+	require.True(t, expanded.review.diff.view.IsExpanded(fakeTallFile))
+
+	// An index past the end of the recut list is what puts the diff down.
+	expanded.review.diff.chapter = len(expanded.review.diff.chapters)
+
+	next, reload := expanded.reloadReview()
+	require.NotNil(t, reload)
+
+	loaded, ok := reload().(reviewLoadedMsg)
+	require.True(t, ok)
+
+	again := next.applyReviewLoaded(loaded)
+	require.Nil(t, next.review.diff.view, "nothing is drawn until the whole change lands")
+	require.NotNil(t, again)
+
+	answer, ok := again().(reviewLoadedMsg)
+	require.True(t, ok)
+	next.applyReviewLoaded(answer)
+
+	require.NotNil(t, next.review.diff.view)
+	assert.True(t, next.review.diff.view.IsExpanded(fakeTallFile), "the file is still drawn whole")
+	assert.Contains(t, ansi.Strip(reviewFrameText(t, next)), "func Four()")
+}
