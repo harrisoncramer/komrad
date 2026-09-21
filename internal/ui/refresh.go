@@ -119,8 +119,7 @@ func (m model) refreshCmd() tea.Cmd {
 	}
 }
 
-// reportUnreachable says the server has stopped answering on the pass that finds it gone, rather
-// than on every refresh while it is down.
+// reportUnreachable says the server has stopped answering on the pass that finds it gone.
 func (m *model) reportUnreachable(err error) {
 	was := m.unreachable
 	m.unreachable = err

@@ -81,8 +81,7 @@ func TestGlyphCheckWarnsWhenTheTerminalWouldNotYield(t *testing.T) {
 	assert.Contains(t, result.Err.Error(), "inappropriate ioctl")
 }
 
-// TestGlyphCheckDoesNotBlameTheFont covers the fix text, since a cursor advance says nothing
-// about whether a glyph is in the font and telling a person to install one would be a guess.
+// TestGlyphCheckDoesNotBlameTheFont covers the fix text.
 func TestGlyphCheckDoesNotBlameTheFont(t *testing.T) {
 	result := newTerminalGlyphCheck().Run(t.Context(), measuring(t, 2))
 
@@ -111,7 +110,7 @@ func TestGlyphCheckReportsWidthsThatDisagree(t *testing.T) {
 }
 
 // TestGlyphCheckDistrustsATerminalThatMisreadsPlainText covers the reading being thrown away
-// rather than reported, since a terminal wrong about x is not worth quoting about an Octicon.
+// rather than reported.
 func TestGlyphCheckDistrustsATerminalThatMisreadsPlainText(t *testing.T) {
 	env := Env{
 		MeasureColumns: func(_ context.Context, samples []string) ([]int, error) {
@@ -131,8 +130,7 @@ func TestGlyphCheckDistrustsATerminalThatMisreadsPlainText(t *testing.T) {
 		"a calibration that failed stops the reading rather than colouring it with glyph widths")
 }
 
-// TestGlyphCheckSaysWhenItMeasuredTmux covers the caveat that decides what the number means,
-// since tmux answers the query off its own grid rather than the terminal's.
+// TestGlyphCheckSaysWhenItMeasuredTmux covers the caveat that decides what the number means.
 func TestGlyphCheckSaysWhenItMeasuredTmux(t *testing.T) {
 	env := agreeing()
 	env.InsideTmux = "/tmp/tmux-501/default,1,0"
@@ -248,8 +246,7 @@ func TestEmphasisCheckCatchesTmuxRefusingItalics(t *testing.T) {
 	assert.Contains(t, result.Fix, "default-terminal")
 }
 
-// TestEmphasisCheckSaysAChildIsReversedInTmux covers the shape of the loss, since tmux
-// substitutes standout rather than dropping the attribute and a reversed row reads as selected.
+// TestEmphasisCheckSaysAChildIsReversedInTmux covers the shape of the loss.
 func TestEmphasisCheckSaysAChildIsReversedInTmux(t *testing.T) {
 	inside := naming("vt100", "tmux-256color", map[string]string{"bold": "\x1b[1m"})
 
@@ -418,8 +415,7 @@ func TestColorCheck(t *testing.T) {
 	}
 }
 
-// TestColorCheckQuotesColorterm covers the one thing terminfo cannot say, since a 256-colour
-// entry on a terminal announcing truecolor is the ordinary case rather than a shortfall.
+// TestColorCheckQuotesColorterm covers the one thing terminfo cannot say.
 func TestColorCheckQuotesColorterm(t *testing.T) {
 	env := Env{
 		Settings:     Settings{Term: "tmux-256color", ColorTerm: "truecolor"},

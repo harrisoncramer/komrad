@@ -225,8 +225,7 @@ func TestASecondEditPressWaitsRatherThanOpening(t *testing.T) {
 	assert.True(t, m.review.pass.atEditor, "and the editor opens once, when the agent has stopped")
 }
 
-// TestADiffThatStopsBeingReadableLetsTheAgentGo covers the ways off this screen nobody chose,
-// since a pass that lost its diff still holds the agent it stopped.
+// TestADiffThatStopsBeingReadableLetsTheAgentGo covers the ways off this screen nobody chose.
 func TestADiffThatStopsBeingReadableLetsTheAgentGo(t *testing.T) {
 	dir := reviewRepo(t)
 	agents := &fakeReviewAgents{}

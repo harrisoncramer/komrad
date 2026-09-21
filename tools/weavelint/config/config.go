@@ -11,6 +11,16 @@ type Config struct {
 	BareHTTP       BareHTTPConfig       `json:"bare_http"`
 	OnelineFunc    OnelineFuncConfig    `json:"oneline_func"`
 	ConversionName ConversionNameConfig `json:"conversion_name"`
+	CommentClause  CommentClauseConfig  `json:"comment_clause"`
+}
+
+// CommentClauseConfig settles where the comment clause rule applies.
+type CommentClauseConfig struct {
+	// Skip turns the rule off.
+	Skip bool `json:"skip"`
+	// Exclude is unanchored regexps over the file path, for the one file whose doc comments
+	// are the prose of the generated config.
+	Exclude []string `json:"exclude"`
 }
 
 // OnelineFuncConfig settles whether the one-line declaration rule runs.

@@ -118,8 +118,7 @@ func TestRebaseRefusals(t *testing.T) {
 	}
 }
 
-// TestRebaseRefusesAnArchivedAgent keeps the archived case beside the others rather than in the
-// table, since it is the one refusal that is not about the worktree.
+// TestRebaseRefusesAnArchivedAgent covers the one refusal that is not about the worktree.
 func TestRebaseRefusesAnArchivedAgent(t *testing.T) {
 	t.Parallel()
 
@@ -168,8 +167,7 @@ func TestRebaseTakesTheTreeLock(t *testing.T) {
 	require.ErrorIs(t, err, ErrRebaseBusy)
 }
 
-// TestTreeLocksHoldOnePathAtATime covers the lock itself, since two agents in different trees
-// must not block each other.
+// TestTreeLocksHoldOnePathAtATime covers two agents in different trees not blocking each other.
 func TestTreeLocksHoldOnePathAtATime(t *testing.T) {
 	t.Parallel()
 
@@ -240,9 +238,8 @@ func (s fakeRebaseWorkflows) GetIncludingArchived(ctx context.Context, id string
 	return s.Get(ctx, id)
 }
 
-// TestRebaseRecordsAStoppedRebase runs the real service against a real worktree, because the
-// decision it pins is which path writes the stopped rebase onto the row and a helper mirroring
-// that decision in the test would assert nothing.
+// TestRebaseRecordsAStoppedRebase runs the real service against a real worktree and pins which
+// path writes the stopped rebase onto the row.
 func TestRebaseRecordsAStoppedRebase(t *testing.T) {
 	t.Parallel()
 
@@ -365,8 +362,7 @@ func (r *recordingRebaseAgents) SetSequenceInProgressByID(_ context.Context, _ s
 	return nil
 }
 
-// TestRebaseReplaysWhenTheTreesDiffer is the other side of that decision, since a fast-forward
-// taken whenever a rebase looked awkward would throw work away.
+// TestRebaseReplaysWhenTheTreesDiffer is the other side of that decision.
 func TestRebaseReplaysWhenTheTreesDiffer(t *testing.T) {
 	t.Parallel()
 
@@ -841,8 +837,7 @@ func (r rebaseRoster) SetSequenceInProgressByID(context.Context, string, bool) e
 }
 
 // TestRebaseRefusesAnAgentInTheCallersCheckout covers who is asking rather than who the row
-// belongs to, since a rebase rewrites the branch under everybody working in the directory and a
-// child shares its parent's.
+// belongs to, a child sharing its parent's checkout.
 func TestRebaseRefusesAnAgentInTheCallersCheckout(t *testing.T) {
 	t.Parallel()
 

@@ -343,8 +343,7 @@ func TestARebaseMovesTheTree(t *testing.T) {
 	assert.Equal(t, StandingLandedMoved, standing(t, root, snapshot.SHA))
 }
 
-// TestAnUnreadableBaseReadsAsMoved pins that a base git cannot find never demotes a moved tree,
-// since the round is not held by a base that is not there.
+// TestAnUnreadableBaseReadsAsMoved pins that a base git cannot find never demotes a moved tree.
 func TestAnUnreadableBaseReadsAsMoved(t *testing.T) {
 	root := repo(t)
 	snapshot := topicRound(t, root)
