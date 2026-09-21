@@ -246,7 +246,7 @@ func (m model) routeGlobalKey(key tea.KeyMsg) (tea.Model, tea.Cmd, bool) {
 			return next, cmd, true
 		}
 		if isBound(key.String(), m.keys.Details.Focus) {
-			next, cmd := m.toggleDetailsFocus()
+			next, cmd := m.jumpIntoDetails()
 
 			return next, cmd, true
 		}

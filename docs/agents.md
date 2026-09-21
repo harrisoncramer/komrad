@@ -80,13 +80,15 @@ Marks are yours. Nothing an agent can call sets one, and a row loses its mark wh
 
 ## Searching the list
 
-Press `/` and type to search the list. It highlights rather than narrows: every row stays where it was, and the matched text is drawn lit up in the list and in the record under it, so you keep the shape of the tree while you look. Nothing moves while you type.
+Press `/` and type to search. The matched text lights up in the list and in the record under it, so you can see where a word appears in both before you decide what to do. Nothing moves while you type.
 
-Enter applies the search to both sections at once, and the cursor walks onto the nearest match in reading order. The record's fields sit under the row they belong to in that order, so from an agent the walk reaches its own record before any later row, and the list only moves off the agent when neither it nor its record matches. The keys go with the cursor into whichever section it lands in. `ctrl+t` closes the input without walking and moves the keys to the other section. Escape gives up: the search goes and the cursor stays where it was.
+Enter applies the search to the pane holding the keys and to that pane only. On the list the cursor walks onto the nearest agent whose name matches, and stays put when none does. In the record it walks onto the nearest matching field. `n` and `N` then step forward and back through the matches in the same pane, wrapping at either end. They only answer while a search is up, since they are ordinary letters the rest of the time.
 
-In filter mode enter also narrows both sections to their matches. The list narrows on row names alone, so a pattern that matches a field of the hovered record and no row's name empties the list, and the record goes with it. Search mode is the mode for finding a field by name.
+`ctrl+t` is the way across. With a search typed or standing, `ctrl+t` from the list moves the keys into the record and lands on its first matching field, so `/directory`, `ctrl+t`, `y` copies the hovered agent's directory without the list moving. `ctrl+t` from the record moves the keys back to the list and nothing else.
 
-`n` and `N` step forward and back through the same order, wrapping at either end and moving the keys with them. They only answer while a search is up, since they are ordinary letters the rest of the time.
+`tab` while typing turns the search into a filter, which narrows instead of walking. A filter narrows only the pane it was typed in: on the list, the rows shrink to the agents that match and the record below stays whole with its matches lit; in the record, the fields shrink to the ones that match and the list is untouched. The cursor stays on its row as long as that row is still on screen, and goes to the nearest match when it is not. A pattern that matches a field of the record and no agent's name empties the list, and the record goes with it.
+
+Escape gives up: the search goes, and the cursor of the pane it was typed in goes back to where it was unless the keys have since moved to the other pane. There is one search at a time, so a new one typed in either pane replaces the last, and a filter standing on the list opens back up when you search the record.
 
 ## Archiving, restoring, deleting
 
