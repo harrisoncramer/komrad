@@ -1650,7 +1650,7 @@ func TestSearchTranscripts(t *testing.T) {
 		{
 			name:  "a query nothing said matches nothing",
 			turns: []string{"talking about postgres"},
-			query: "kubernetes",
+			query: "sailboats",
 		},
 		{
 			name:     "a hit names the turn that matched rather than the first one",
