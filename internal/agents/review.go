@@ -10,6 +10,7 @@ import (
 
 	"weave/internal/fail"
 	"weave/internal/logging"
+	"weave/internal/mail"
 	"weave/internal/store"
 	agentstore "weave/internal/store/agent"
 	mailstore "weave/internal/store/mail"
@@ -67,7 +68,7 @@ type reviewerResumer interface {
 }
 
 type reviewNoticeSender interface {
-	SendNotice(ctx context.Context, params SendNoticeParams) (*mailstore.Mail, error)
+	SendNotice(ctx context.Context, params mail.SendNoticeParams) (*mailstore.Mail, error)
 }
 
 type agentInterrupter interface {
@@ -508,7 +509,7 @@ func (s *ReviewService) sendReviewerNotice(ctx context.Context, author agentstor
 		return nil, err
 	}
 
-	if _, err := s.mailer.SendNotice(ctx, SendNoticeParams{
+	if _, err := s.mailer.SendNotice(ctx, mail.SendNoticeParams{
 		ToAgentID: reviewer.ID,
 		Body:      answerNotice(author.Name),
 		Kind:      mailstore.KindReviewActivity,

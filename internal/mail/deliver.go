@@ -1,4 +1,4 @@
-package agents
+package mail
 
 import (
 	"context"
@@ -66,6 +66,15 @@ func NewDeliveryService(params NewDeliveryServiceParams) *DeliveryService {
 	}
 }
 
+// buildTarget names an agent the way a channel reaches it.
+func buildTarget(agent agentstore.Agent) harness.Target {
+	return harness.Target{
+		AgentID:   agent.ID,
+		Pane:      agent.Pane,
+		HarnessID: agent.Harness,
+	}
+}
+
 // DeliverAll is one pass over every mailbox holding mail, working from the rows each time.
 func (s *DeliveryService) DeliverAll(ctx context.Context) error {
 	mailboxes, err := s.mailboxReader.ListPendingMailboxes(ctx)
@@ -117,7 +126,7 @@ func (s *DeliveryService) Deliver(ctx context.Context, agentID string) (Delivery
 	}
 
 	switch {
-	case agent.State == agentstore.StateThinking && !isStateUnconfirmed(*agent):
+	case agent.State == agentstore.StateThinking && !agent.IsStateUnconfirmed():
 		return DeliverySoon, nil
 	case agent.State == agentstore.StateWaiting:
 		return DeliveryLater, nil

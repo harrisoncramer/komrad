@@ -2,6 +2,7 @@
 package xstr
 
 import (
+	"fmt"
 	"strings"
 	"unicode/utf8"
 )
@@ -66,4 +67,13 @@ func Tail(s string, limit int) (string, bool) {
 	}
 
 	return cut, true
+}
+
+// JoinSome joins up to limit items with commas and counts the rest.
+func JoinSome(items []string, limit int) string {
+	if len(items) <= limit {
+		return strings.Join(items, ", ")
+	}
+
+	return fmt.Sprintf("%s, and %d more", strings.Join(items[:limit], ", "), len(items)-limit)
 }

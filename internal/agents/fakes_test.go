@@ -950,20 +950,6 @@ func disableProvisioner(t *testing.T, st *testStore, id string) {
 	require.NoError(t, err)
 }
 
-func backdateNudge(t *testing.T, st *testStore, id string, age time.Duration) {
-	t.Helper()
-	_, err := st.Pool.GetDB().Exec(t.Context(),
-		`UPDATE agents SET nudged_at = NOW() - $2::interval WHERE id = $1`, id, age.String())
-	require.NoError(t, err)
-}
-
-func backdateStateChanged(t *testing.T, st *testStore, id string, age time.Duration) {
-	t.Helper()
-	_, err := st.Pool.GetDB().Exec(t.Context(),
-		`UPDATE agents SET state_changed_at = NOW() - $2::interval WHERE id = $1`, id, age.String())
-	require.NoError(t, err)
-}
-
 // worktreeConfig is a workflow that provisions worktrees.
 func worktreeConfig(t *testing.T, name string) workflowstore.Config {
 	t.Helper()
@@ -984,3 +970,36 @@ func mustRegistry(t *testing.T, harnesses ...harness.Harness) *harness.Registry 
 
 	return registry
 }
+
+type fakeChannel struct {
+	refuseReady bool
+	refuseSend  bool
+	sendErr     error
+	sent        []string
+	forgotten   []string
+	interrupts  int
+}
+
+func (f *fakeChannel) Ready(context.Context, harness.Target) (bool, error) {
+	return !f.refuseReady, nil
+}
+
+func (f *fakeChannel) Send(_ context.Context, _ harness.Target, text string) (bool, error) {
+	if f.sendErr != nil {
+		return false, f.sendErr
+	}
+	if f.refuseSend {
+		return false, nil
+	}
+	f.sent = append(f.sent, text)
+
+	return true, nil
+}
+
+func (f *fakeChannel) Interrupt(context.Context, harness.Target) error {
+	f.interrupts++
+
+	return nil
+}
+
+func (f *fakeChannel) Forget(agentID string) { f.forgotten = append(f.forgotten, agentID) }

@@ -5,8 +5,8 @@ package e2e
 import (
 	"testing"
 
-	"weave/internal/agents"
 	"weave/internal/harness"
+	"weave/internal/mail"
 	agentstore "weave/internal/store/agent"
 	"weave/internal/weavetest"
 	agentv1 "weave/proto/gen/agent/v1"
@@ -51,7 +51,7 @@ func TestMailReachesAnAgentThatHadAlreadyStopped(t *testing.T) {
 	})
 
 	t.Run("delivery types one line at it", func(t *testing.T) {
-		assert.Equal(t, agents.DeliverySoon, instance.Deliver(migrations.GetId()))
+		assert.Equal(t, mail.DeliverySoon, instance.Deliver(migrations.GetId()))
 
 		typed := instance.WaitForTyped(migrations.GetId(), 1)
 		require.Len(t, typed, 1, "the agent received exactly one line")
@@ -61,7 +61,7 @@ func TestMailReachesAnAgentThatHadAlreadyStopped(t *testing.T) {
 	})
 
 	t.Run("it is not typed at twice for the same stretch of sitting idle", func(t *testing.T) {
-		assert.Equal(t, agents.DeliveryLater, instance.Deliver(migrations.GetId()))
+		assert.Equal(t, mail.DeliveryLater, instance.Deliver(migrations.GetId()))
 		assert.Len(t, instance.Typed(migrations.GetId()), 1)
 	})
 
@@ -71,7 +71,7 @@ func TestMailReachesAnAgentThatHadAlreadyStopped(t *testing.T) {
 		assert.Equal(t, sentID, read[0].GetId())
 		assert.Equal(t, "api", read[0].GetFromName())
 
-		assert.Equal(t, agents.DeliveryDone, instance.Deliver(migrations.GetId()))
+		assert.Equal(t, mail.DeliveryDone, instance.Deliver(migrations.GetId()))
 	})
 
 	t.Run("what it was told is searchable afterwards", func(t *testing.T) {
@@ -112,11 +112,11 @@ func TestDeliveryLeavesABusyAgentAlone(t *testing.T) {
 	_, err = instance.Agents.SendMail(ctx, req)
 	require.NoError(t, err)
 
-	assert.Equal(t, agents.DeliverySoon, instance.Deliver(migrations.GetId()))
+	assert.Equal(t, mail.DeliverySoon, instance.Deliver(migrations.GetId()))
 	assert.Empty(t, instance.Typed(migrations.GetId()), "an agent mid-turn is never typed at")
 
 	require.Len(t, instance.EndTurn(migrations.GetId()), 1)
-	assert.Equal(t, agents.DeliveryDone, instance.Deliver(migrations.GetId()))
+	assert.Equal(t, mail.DeliveryDone, instance.Deliver(migrations.GetId()))
 }
 
 // TestDeliveryNeverTypesAtAnAgentOnAPrompt covers the state that must never be typed at, a line
@@ -144,7 +144,7 @@ func TestDeliveryNeverTypesAtAnAgentOnAPrompt(t *testing.T) {
 	_, err = instance.Agents.SendMail(ctx, req)
 	require.NoError(t, err)
 
-	assert.Equal(t, agents.DeliveryLater, instance.Deliver(migrations.GetId()))
+	assert.Equal(t, mail.DeliveryLater, instance.Deliver(migrations.GetId()))
 	assert.Empty(t, instance.Typed(migrations.GetId()))
 }
 
@@ -173,7 +173,7 @@ func TestExpiredMailIsGivenUpOn(t *testing.T) {
 	_, err = instance.Agents.SendMail(ctx, req)
 	require.NoError(t, err)
 
-	assert.Equal(t, agents.DeliveryDone, instance.Deliver(migrations.GetId()))
+	assert.Equal(t, mail.DeliveryDone, instance.Deliver(migrations.GetId()))
 	assert.Empty(t, instance.Typed(migrations.GetId()))
 	assert.Empty(t, instance.EndTurn(migrations.GetId()), "expired mail is not readable either")
 }
@@ -206,13 +206,13 @@ func TestDeliveryWaitsForAPaneToDrawItsPrompt(t *testing.T) {
 	require.NoError(t, instance.Harness.Show(migrations.GetId(), "fake:coming-up"))
 	instance.WaitForActivity(migrations.GetId(), harness.ActivityUnknown)
 
-	assert.Equal(t, agents.DeliveryLater, instance.Deliver(migrations.GetId()))
+	assert.Equal(t, mail.DeliveryLater, instance.Deliver(migrations.GetId()))
 	assert.Empty(t, instance.Typed(migrations.GetId()),
 		"a pane yet to draw its prompt is never typed at, however idle the row still reads")
 
 	instance.Settle(migrations.GetId(), harness.ActivityIdle, agentstore.StateIdle)
 
-	assert.Equal(t, agents.DeliverySoon, instance.Deliver(migrations.GetId()))
+	assert.Equal(t, mail.DeliverySoon, instance.Deliver(migrations.GetId()))
 
 	typed := instance.WaitForTyped(migrations.GetId(), 1)
 	require.Len(t, typed, 1, "the agent is told once its prompt is there to take the line")

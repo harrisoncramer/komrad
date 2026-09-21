@@ -1,4 +1,4 @@
-package agents
+package pullrequests
 
 import (
 	"context"
@@ -51,6 +51,10 @@ const (
 // errRateLimitSpent says a host's budget ran out part way through a pass, after the reset was
 // already recorded on its connection.
 var errRateLimitSpent = fail.Exhausted("the forge's rate limit budget is spent")
+
+type txRunner interface {
+	InTx(ctx context.Context, fn func(store.DBTX) error) error
+}
 
 // pullRequestForgeFinder is what the sync asks of the forge service.
 type pullRequestForgeFinder interface {

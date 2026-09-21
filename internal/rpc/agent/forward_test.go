@@ -7,10 +7,10 @@ import (
 	"time"
 
 	"weave/config"
-	"weave/internal/agents"
 	"weave/internal/caller"
 	"weave/internal/logging"
 	"weave/internal/logtest"
+	"weave/internal/mail"
 	"weave/internal/storetest"
 	agentv1 "weave/proto/gen/agent/v1"
 	"weave/proto/gen/agent/v1/agentv1weave"
@@ -99,7 +99,7 @@ func TestForwardLastTurns(t *testing.T) {
 			name: "a body past what mail holds is refused rather than cut",
 			turns: []transcriptstore.Turn{{
 				Role:    "assistant",
-				Content: strings.Repeat("x", agents.MaxMailBody),
+				Content: strings.Repeat("x", mail.MaxMailBody),
 			}},
 			callerIs: "gamma",
 			req:      &agentv1.ForwardLastTurnsRequest{},
@@ -109,7 +109,7 @@ func TestForwardLastTurns(t *testing.T) {
 			name: "a smaller window brings the same body under the cap",
 			turns: []transcriptstore.Turn{{
 				Role:    "assistant",
-				Content: strings.Repeat("x", agents.MaxMailBody),
+				Content: strings.Repeat("x", mail.MaxMailBody),
 			}},
 			callerIs:  "gamma",
 			req:       &agentv1.ForwardLastTurnsRequest{MaxBytes: proto.Int32(20)},
@@ -332,7 +332,7 @@ func TestForwardLastTurnsCountsTowardTheExchange(t *testing.T) {
 		ToAgentId:   beta.ID,
 	}))
 	assert.Equal(t, connect.CodeResourceExhausted, connect.CodeOf(err))
-	require.ErrorIs(t, err, agents.ErrExchangeCapped)
+	require.ErrorIs(t, err, mail.ErrExchangeCapped)
 }
 
 // TestForwardLastTurnsWarnsOfADormantRecipient covers a forward to an agent nothing runs behind
@@ -419,7 +419,7 @@ func TestMaxMailBodyIsTheWireCap(t *testing.T) {
 	rules, ok := proto.GetExtension(field.Options(), validate.E_Field).(*validate.FieldRules)
 	require.True(t, ok)
 
-	assert.EqualValues(t, agents.MaxMailBody, rules.GetString().GetMaxLen())
+	assert.EqualValues(t, mail.MaxMailBody, rules.GetString().GetMaxLen())
 }
 
 func forwardService(t *testing.T) (agentv1weave.AgentServiceAdapter, *storetest.Stores) {
@@ -431,7 +431,7 @@ func forwardService(t *testing.T) (agentv1weave.AgentServiceAdapter, *storetest.
 }
 
 func forwardServiceOver(st *storetest.Stores, maxExchange int, liveness *fakeLauncher) agentv1weave.AgentServiceAdapter {
-	mail := agents.NewMailService(agents.NewMailServiceParams{
+	mailer := mail.NewMailService(mail.NewMailServiceParams{
 		MailReadWriter: st.Mail,
 		Agents:         st.Agents,
 		Config:         fakeMailConfig(maxExchange),
@@ -440,7 +440,7 @@ func forwardServiceOver(st *storetest.Stores, maxExchange int, liveness *fakeLau
 	return agentv1weave.AgentServiceAdapter{Impl: NewAgentService(NewAgentServiceParams{
 		Agents:           st.Agents,
 		Transcripts:      st.Transcripts,
-		Mail:             mail,
+		Mail:             mailer,
 		Liveness:         liveness,
 		Runs:             st.Runs,
 		Marks:            markService(st),

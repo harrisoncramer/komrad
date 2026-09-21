@@ -3,7 +3,6 @@ package agents
 import (
 	"context"
 	"errors"
-	"fmt"
 	"log/slog"
 	"slices"
 	"strings"
@@ -51,10 +50,6 @@ var (
 
 	// ErrNoLiveReviewer says the agent has no reviewer still owed an answer.
 	ErrNoLiveReviewer = fail.Precondition("this agent has no reviewer still reading its work")
-
-	// ErrOutsideFamily says a child tried to reach an agent other than its parent or one of that
-	// parent's other children.
-	ErrOutsideFamily = fail.Denied("a child agent may only mail its parent and its parent's other children")
 
 	// ErrAlreadyLaunched says an idempotency key was already spent on an agent that launched, and
 	// is returned alongside that agent rather than instead of it.
@@ -404,14 +399,6 @@ func failureReason(cause error) string {
 }
 
 const namedMissing = 5
-
-func describeMissing(missing []string) string {
-	if len(missing) <= namedMissing {
-		return strings.Join(missing, ", ")
-	}
-
-	return fmt.Sprintf("%s, and %d more", strings.Join(missing[:namedMissing], ", "), len(missing)-namedMissing)
-}
 
 func workflowIDs(agents []agentstore.Agent) []string {
 	unique := xslice.UniqueBy(agents, func(agent agentstore.Agent) string { return agent.WorkflowID })

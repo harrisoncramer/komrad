@@ -10,6 +10,7 @@ import (
 
 	"weave/internal/fail"
 	"weave/internal/git"
+	"weave/internal/mail"
 	"weave/internal/store"
 	agentstore "weave/internal/store/agent"
 	mailstore "weave/internal/store/mail"
@@ -517,7 +518,7 @@ func (s *ReviewService) ReleaseReview(
 		s.interrupt(ctx, params.AgentID)
 	}
 
-	doorbell, err := s.mailer.SendNotice(ctx, SendNoticeParams{
+	doorbell, err := s.mailer.SendNotice(ctx, mail.SendNoticeParams{
 		ToAgentID: params.AgentID,
 		Body:      reviewNotice(round.Ordinal, params.Verdict, comments, path),
 		Kind:      mailstore.KindReviewActivity,

@@ -8,10 +8,10 @@ import (
 	"strings"
 	"time"
 
-	"weave/internal/agents"
 	"weave/internal/caller"
 	"weave/internal/harness"
 	"weave/internal/harness/claude"
+	"weave/internal/mail"
 	"weave/internal/rpcapi"
 	"weave/proto/gen/agent/v1/agentv1connect"
 
@@ -437,14 +437,14 @@ const mailFromWeave = "Weave sent this itself, about something that happened to 
 	"It is not your user talking, and there is nobody to reply to: read it and decide what to " +
 	"do on your own."
 
-func mailPostamble(mail []mailItem) string {
+func mailPostamble(items []mailItem) string {
 	sawPerson := false
 
-	for _, item := range mail {
+	for _, item := range items {
 		switch {
 		case item.FromAgent != "":
 			return mailFromAgent
-		case item.FromName != agents.WeaveSenderName:
+		case item.FromName != mail.WeaveSenderName:
 			sawPerson = true
 		}
 	}

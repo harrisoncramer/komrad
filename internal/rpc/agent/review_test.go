@@ -7,6 +7,7 @@ import (
 	agentv1weave "weave/proto/gen/agent/v1/agentv1weave"
 
 	"weave/internal/git"
+	"weave/internal/mail"
 
 	"weave/config"
 	"weave/internal/agents"
@@ -112,7 +113,7 @@ func reviewServiceOver(t *testing.T, trees fakeTrees) (agentv1weave.AgentService
 
 	st := storetest.Open(t)
 	reviews := reviewstore.New(st.Pool.GetDB())
-	mail := agents.NewMailService(agents.NewMailServiceParams{
+	mailer := mail.NewMailService(mail.NewMailServiceParams{
 		MailReadWriter: st.Mail,
 		Agents:         st.Agents,
 		Config:         fakeMailConfig(config.DefaultMaxExchange),
@@ -127,12 +128,12 @@ func reviewServiceOver(t *testing.T, trees fakeTrees) (agentv1weave.AgentService
 		Workflows: st.Workflows,
 		StateDir:  t.TempDir(),
 		Agents:    st.Agents,
-		Mailer:    mail,
+		Mailer:    mailer,
 	})
 
 	return agentv1weave.AgentServiceAdapter{Impl: NewAgentService(NewAgentServiceParams{
 		Agents:           st.Agents,
-		Mail:             mail,
+		Mail:             mailer,
 		Review:           review,
 		Runs:             st.Runs,
 		Marks:            markService(st),

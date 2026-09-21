@@ -15,6 +15,9 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
+// StateSeenBound is how long a reading of an agent's state stands before it is unconfirmed.
+const StateSeenBound = 2 * time.Minute
+
 // State is what an agent is doing.
 type State string
 
@@ -146,6 +149,11 @@ type Agent struct {
 	HeldAt *time.Time
 	// HeldMidTurn says the hold cut a turn that was still running.
 	HeldMidTurn bool
+}
+
+// IsStateUnconfirmed reports whether the agent's state was last read longer ago than the bound.
+func (a Agent) IsStateUnconfirmed() bool {
+	return time.Since(a.StateSeenAt) > StateSeenBound
 }
 
 // SanitizeName maps a name to characters tmux accepts in session names.

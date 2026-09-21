@@ -212,3 +212,37 @@ func TestTail(t *testing.T) {
 		})
 	}
 }
+
+// TestJoinSome pins that a list past the limit names the first few and counts the rest.
+func TestJoinSome(t *testing.T) {
+	tests := []struct {
+		name  string
+		items []string
+		limit int
+		want  string
+	}{
+		{
+			name:  "nothing",
+			limit: 2,
+			want:  "",
+		},
+		{
+			name:  "within the limit",
+			items: []string{"a", "b"},
+			limit: 2,
+			want:  "a, b",
+		},
+		{
+			name:  "past the limit",
+			items: []string{"a", "b", "c", "d"},
+			limit: 2,
+			want:  "a, b, and 2 more",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, JoinSome(tt.items, tt.limit))
+		})
+	}
+}

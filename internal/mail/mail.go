@@ -1,4 +1,4 @@
-package agents
+package mail
 
 import (
 	"context"
@@ -13,7 +13,9 @@ import (
 	"weave/internal/store"
 	agentstore "weave/internal/store/agent"
 	mailstore "weave/internal/store/mail"
+	workflowstore "weave/internal/store/workflow"
 	"weave/lib/xslice"
+	"weave/lib/xstr"
 )
 
 const maxPendingMail = 100
@@ -43,7 +45,25 @@ var ErrMailNotFound = fail.NotFound("no mail holds that id, deleting nothing")
 
 var ErrNoticeKindMissing = fail.InvalidArgument("a notice must name a kind other than plain")
 
+var ErrAgentNotFound = fail.NotFound("agent not found")
+
+var ErrAgentArchived = fail.Precondition("agent is archived")
+
+// ErrOutsideFamily says a child tried to reach an agent other than its parent or one of that
+// parent's other children.
+var ErrOutsideFamily = fail.Denied("a child agent may only mail its parent and its parent's other children")
+
 const WeaveSenderName = "weave"
+
+const namedMissing = 5
+
+type agentGetter interface {
+	GetByID(ctx context.Context, id string) (*agentstore.Agent, error)
+}
+
+type workflowGetter interface {
+	Get(ctx context.Context, id string) (*workflowstore.Workflow, error)
+}
 
 type mailReadWriter interface {
 	Send(ctx context.Context, params mailstore.SendParams) (*mailstore.Mail, error)
@@ -441,7 +461,7 @@ func (s *MailService) DeleteMail(ctx context.Context, ids []string) error {
 			return !ok
 		})
 
-		return fmt.Errorf("%w: %s", ErrMailNotFound, describeMissing(missing))
+		return fmt.Errorf("%w: %s", ErrMailNotFound, xstr.JoinSome(missing, namedMissing))
 	}
 
 	if err := s.mailReadWriter.Delete(ctx, ids); err != nil {

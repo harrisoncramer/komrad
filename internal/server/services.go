@@ -12,7 +12,9 @@ import (
 	"weave/internal/frames"
 	"weave/internal/git"
 	"weave/internal/harness/pane"
+	"weave/internal/mail"
 	"weave/internal/marks"
+	"weave/internal/pullrequests"
 	"weave/internal/schedules"
 	"weave/internal/scripts"
 	"weave/internal/transcripts"
@@ -22,7 +24,7 @@ import (
 type services struct {
 	loadConfig      func() (*config.Config, error)
 	script          *agents.ScriptService
-	mail            *agents.MailService
+	mail            *mail.MailService
 	review          *agents.ReviewService
 	schedule        *schedules.ScheduleService
 	liveness        *agents.PaneLiveness
@@ -32,7 +34,7 @@ type services struct {
 	lifecycle       *agents.LifecycleService
 	orchestrator    *agents.OrchestratorService
 	workflow        *agents.WorkflowService
-	delivery        *agents.DeliveryService
+	delivery        *mail.DeliveryService
 	reconciler      *agents.Reconciler
 	marks           *marks.MarkService
 	holder          *agents.Holder
@@ -40,7 +42,7 @@ type services struct {
 	cwdSync         *agents.CwdSyncer
 	transcriptSync  *transcripts.TranscriptSyncer
 	forge           *forge.ForgeService
-	pullRequestSync *agents.PullRequestSyncer
+	pullRequestSync *pullrequests.PullRequestSyncer
 	worktrees       *worktrees.Lister
 	inspector       *worktrees.Inspector
 	remover         *worktrees.Remover
@@ -56,7 +58,7 @@ func BuiltinScriptsDir(cacheDir string) string {
 func buildServices(params NewServerParams, st *stores) (*services, error) {
 	loadConfig := func() (*config.Config, error) { return config.LoadStack(params.ConfigStack) }
 
-	mailService := agents.NewMailService(agents.NewMailServiceParams{
+	mailService := mail.NewMailService(mail.NewMailServiceParams{
 		MailReadWriter: st.mail,
 		Agents:         st.agents,
 		Workflows:      st.workflows,
@@ -213,7 +215,7 @@ func buildServices(params NewServerParams, st *stores) (*services, error) {
 			return forges.AppFrom(cfg.GitHubApp, tokenCachePath)
 		},
 	})
-	pullRequestSyncer := agents.NewPullRequestSyncer(agents.NewPullRequestSyncerParams{
+	pullRequestSyncer := pullrequests.NewPullRequestSyncer(pullrequests.NewPullRequestSyncerParams{
 		Forges:       forgeService,
 		PullRequests: st.pullRequests,
 		Syncs:        st.pullRequestSyncs,
@@ -296,7 +298,7 @@ func buildServices(params NewServerParams, st *stores) (*services, error) {
 			StateDir:    stateDir,
 		}),
 		workflow: workflowService,
-		delivery: agents.NewDeliveryService(agents.NewDeliveryServiceParams{
+		delivery: mail.NewDeliveryService(mail.NewDeliveryServiceParams{
 			MailboxReader: st.mail,
 			NudgeClaimer:  st.agents,
 			PaneReader:    paneLiveness,

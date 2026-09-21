@@ -5,10 +5,13 @@ package agents
 import (
 	"fmt"
 	"testing"
+	"time"
 
 	"weave/internal/harness/claude"
 	"weave/internal/harness/pane"
+	"weave/internal/mail"
 	agentstore "weave/internal/store/agent"
+	mailstore "weave/internal/store/mail"
 	"weave/internal/tmux"
 	"weave/internal/tmuxtest"
 
@@ -101,19 +104,26 @@ func TestExitedCLIStopsBeingANudgeTarget(t *testing.T) {
 	waitOutTheShellGrace(rec)
 	require.NoError(t, rec.Reconcile(ctx))
 
-	after := agentByID(t, st, agent.ID)
-	panes := &fakePanes{}
-	svc := NewDeliveryService(NewDeliveryServiceParams{
-		MailboxReader: &fakeMailboxReader{pending: 1},
-		NudgeClaimer:  &fakeAgents{agent: &after, claimed: true},
+	_, err := st.Mail.Send(ctx, mailstore.SendParams{
+		FromName:  "somebody",
+		ToAgentID: agent.ID,
+		Body:      "please read this",
+		Deadline:  time.Hour,
+	})
+	require.NoError(t, err)
+
+	panes := newFakeTmux()
+	svc := mail.NewDeliveryService(mail.NewDeliveryServiceParams{
+		MailboxReader: st.Mail,
+		NudgeClaimer:  st.Agents,
 		PaneReader:    NewPaneLiveness(cli),
 		Channel:       pane.NewPane(pane.NewPaneParams{Terminal: panes, Harnesses: fakeHarnesses{harness: &fakeHarness{}}}),
 	})
 
 	got, err := svc.Deliver(ctx, agent.ID)
 	require.NoError(t, err)
-	assert.Equal(t, DeliveryLater, got, "delivery to an agent whose CLI exited")
-	assert.Empty(t, panes.actions, "nothing is sent to an agent whose CLI exited")
+	assert.Equal(t, mail.DeliveryLater, got, "delivery to an agent whose CLI exited")
+	assert.Empty(t, panes.sent, "nothing is sent to an agent whose CLI exited")
 }
 
 // TestReconcileHoldsAPaneOneListingLeftOut pins that a pane missing from a single listing is not

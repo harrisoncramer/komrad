@@ -1,4 +1,4 @@
-package agents
+package mail
 
 import (
 	"context"
@@ -894,5 +894,129 @@ func TestResolveRecipient(t *testing.T) {
 			require.NotNil(t, got)
 			assert.Equal(t, tt.want.ID, got.ID)
 		})
+	}
+}
+
+// TestChildMailStaysInTheFamily pins who a child may reach: its parent and that parent's other
+// children, and nobody else.
+func TestChildMailStaysInTheFamily(t *testing.T) {
+	tests := []struct {
+		name      string
+		from      string
+		to        string
+		wantErrIs error
+	}{
+		{
+			name: "a child answers its parent",
+			from: "child-one",
+			to:   "parent",
+		},
+		{
+			name: "a parent reaches its child",
+			from: "parent",
+			to:   "child-one",
+		},
+		{
+			name: "one child reaches its sibling",
+			from: "child-one",
+			to:   "child-two",
+		},
+		{
+			name:      "a child reaching an unrelated agent",
+			from:      "child-one",
+			to:        "stranger",
+			wantErrIs: ErrOutsideFamily,
+		},
+		{
+			name:      "a child reaching another parent's child",
+			from:      "child-one",
+			to:        "cousin",
+			wantErrIs: ErrOutsideFamily,
+		},
+		{
+			name:      "an unrelated agent reaching a child",
+			from:      "stranger",
+			to:        "child-one",
+			wantErrIs: ErrOutsideFamily,
+		},
+		{
+			name: "two agents that are nobody's children",
+			from: "parent",
+			to:   "stranger",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mailbox := &fakeMailbox{}
+			svc := NewMailService(NewMailServiceParams{
+				MailReadWriter: mailbox,
+				Agents:         newFakeFamily(),
+				Config:         fakeMailConfig{maxExchange: config.DefaultMaxExchange},
+			})
+
+			sent, err := svc.SendMail(t.Context(), SendMailParams{
+				From:      tt.from,
+				ToAgentID: tt.to,
+				Body:      "hello",
+			})
+			if tt.wantErrIs != nil {
+				require.ErrorIs(t, err, tt.wantErrIs)
+				assert.Nil(t, sent)
+				assert.Empty(t, mailbox.sent)
+
+				return
+			}
+
+			require.NoError(t, err)
+			require.Len(t, mailbox.sent, 1)
+			assert.Equal(t, tt.to, mailbox.sent[0].ToAgentID)
+		})
+	}
+}
+
+// TestSystemMailReachesAChild pins that weave's own mail, and a person's, is not held to the
+// family: these rules bound what a child may do rather than what may be done to it.
+func TestSystemMailReachesAChild(t *testing.T) {
+	mailbox := &fakeMailbox{}
+	svc := NewMailService(NewMailServiceParams{
+		MailReadWriter: mailbox,
+		Agents:         newFakeFamily(),
+		Config:         fakeMailConfig{maxExchange: config.DefaultMaxExchange},
+	})
+
+	_, err := svc.SendSystemMail(t.Context(), "child-one", "your parent was archived")
+	require.NoError(t, err)
+	require.Len(t, mailbox.sent, 1)
+	assert.Equal(t, mailstore.KindPlain, mailbox.sent[0].Kind)
+	assert.Equal(t, WeaveSenderName, mailbox.sent[0].FromName)
+}
+
+// newFakeFamily is one parent with two children, an unrelated agent, and another parent's child.
+func newFakeFamily() *fakeDirectory {
+	parent := agentstore.Agent{ID: "parent", Name: "author"}
+	other := agentstore.Agent{ID: "other-parent", Name: "other-author"}
+
+	return &fakeDirectory{
+		byID: map[string]agentstore.Agent{
+			parent.ID: parent,
+			other.ID:  other,
+			"child-one": {
+				ID:            "child-one",
+				Name:          "reviewer",
+				ParentAgentID: xptr.Ptr(parent.ID),
+			},
+			"child-two": {
+				ID:            "child-two",
+				Name:          "test-runner",
+				ParentAgentID: xptr.Ptr(parent.ID),
+			},
+			"cousin": {
+				ID:            "cousin",
+				Name:          "their-reviewer",
+				ParentAgentID: xptr.Ptr(other.ID),
+			},
+			"stranger": {ID: "stranger", Name: "unrelated"},
+		},
 	}
 }

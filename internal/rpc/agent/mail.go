@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 
-	"weave/internal/agents"
 	"weave/internal/caller"
 	"weave/internal/fail"
+	"weave/internal/mail"
 	"weave/internal/rpcerr"
 	"weave/lib/pagination"
 	"weave/lib/xptr"
@@ -20,10 +20,10 @@ import (
 )
 
 type mailer interface {
-	ResolveRecipient(ctx context.Context, params agents.ResolveRecipientParams) (*agentstore.Agent, error)
-	SendMail(ctx context.Context, params agents.SendMailParams) (*mailstore.Mail, error)
+	ResolveRecipient(ctx context.Context, params mail.ResolveRecipientParams) (*agentstore.Agent, error)
+	SendMail(ctx context.Context, params mail.SendMailParams) (*mailstore.Mail, error)
 	ClaimMail(ctx context.Context, agentID string) ([]mailstore.Mail, error)
-	ListMail(ctx context.Context, params agents.ListMailParams) ([]mailstore.Mail, error)
+	ListMail(ctx context.Context, params mail.ListMailParams) ([]mailstore.Mail, error)
 	DeleteMail(ctx context.Context, ids []string) error
 	ListUnreadMailboxes(ctx context.Context) ([]string, error)
 }
@@ -32,7 +32,7 @@ type mailer interface {
 func (s *AgentService) SendMail(ctx context.Context, req *agentv1.SendMailRequest) (*agentv1.SendMailResponse, *fail.Error) {
 	from := caller.From(ctx).AgentID
 
-	recipient, err := s.mail.ResolveRecipient(ctx, agents.ResolveRecipientParams{
+	recipient, err := s.mail.ResolveRecipient(ctx, mail.ResolveRecipientParams{
 		From: from,
 		To:   req.GetTo(),
 	})
@@ -40,7 +40,7 @@ func (s *AgentService) SendMail(ctx context.Context, req *agentv1.SendMailReques
 		return nil, rpcerr.From(err, "failed to find the recipient")
 	}
 
-	sent, err := s.mail.SendMail(ctx, agents.SendMailParams{
+	sent, err := s.mail.SendMail(ctx, mail.SendMailParams{
 		From:      from,
 		ToAgentID: recipient.ID,
 		Body:      req.GetBody(),
@@ -92,12 +92,12 @@ func (s *AgentService) ListMail(ctx context.Context, req *agentv1.ListMailReques
 
 	logCrossAgentRead(ctx, id, "agent listed another agent's mail")
 
-	paginator, err := pagination.New[mailstore.Cursor, mail](req.GetPagination())
+	paginator, err := pagination.New[mailstore.Cursor, mailPage](req.GetPagination())
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to read the pagination")
 	}
 
-	listed, err := s.mail.ListMail(ctx, agents.ListMailParams{
+	listed, err := s.mail.ListMail(ctx, mail.ListMailParams{
 		AgentID: id,
 		Sent:    req.GetDirection() == agentv1.MailDirection_MAIL_DIRECTION_SENT,
 		Limit:   int32(paginator.Limit()),
@@ -115,7 +115,7 @@ func (s *AgentService) ListMail(ctx context.Context, req *agentv1.ListMailReques
 	}
 
 	response := &agentv1.ListMailResponse{NextPageToken: next}
-	response.Mail = xslice.Map(resources, func(resource mail) *agentv1.Mail { return resource.Mail })
+	response.Mail = xslice.Map(resources, func(resource mailPage) *agentv1.Mail { return resource.Mail })
 
 	return response, nil
 }

@@ -11,6 +11,7 @@ import (
 
 	"weave/config"
 	"weave/internal/git"
+	"weave/internal/mail"
 	"weave/internal/store"
 	agentstore "weave/internal/store/agent"
 	mailstore "weave/internal/store/mail"
@@ -449,7 +450,7 @@ func TestNothingIsReleasedWhenTheMailCannotBeSent(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	notices := &fakeNoticeSender{err: ErrMailboxFull}
+	notices := &fakeNoticeSender{err: mail.ErrMailboxFull}
 	service := reviewService(t, reviews, notices)
 
 	_, err = service.ReleaseReview(t.Context(), ReleaseReviewParams{
@@ -457,7 +458,7 @@ func TestNothingIsReleasedWhenTheMailCannotBeSent(t *testing.T) {
 		Verdict: reviewstore.VerdictChangesRequested,
 		Author:  humanAuthor(),
 	})
-	require.ErrorIs(t, err, ErrMailboxFull)
+	require.ErrorIs(t, err, mail.ErrMailboxFull)
 
 	assert.Nil(t, reviews.released, "a review that could not be rung is still the author's to send")
 	assert.NotEmpty(t, reviews.open)
@@ -1765,12 +1766,12 @@ func (f *fakeReviewStore) ListMessages(_ context.Context, threadIDs []string) ([
 
 type fakeNoticeSender struct {
 	mu     sync.Mutex
-	sent   []SendNoticeParams
+	sent   []mail.SendNoticeParams
 	answer *mailstore.Mail
 	err    error
 }
 
-func (f *fakeNoticeSender) SendNotice(_ context.Context, params SendNoticeParams) (*mailstore.Mail, error) {
+func (f *fakeNoticeSender) SendNotice(_ context.Context, params mail.SendNoticeParams) (*mailstore.Mail, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.sent = append(f.sent, params)
@@ -1783,7 +1784,7 @@ func (f *fakeNoticeSender) SendNotice(_ context.Context, params SendNoticeParams
 }
 
 // took is what a debounced notice, sent on its own goroutine, needs to be read back safely.
-func (f *fakeNoticeSender) took() []SendNoticeParams {
+func (f *fakeNoticeSender) took() []mail.SendNoticeParams {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
@@ -1906,15 +1907,15 @@ func TestAReleasedReviewLeavesRoomForPeerMail(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	mail := mailService(mailbox)
-	_, err = mail.SendMail(t.Context(), SendMailParams{
+	mailer := mailService(mailbox)
+	_, err = mailer.SendMail(t.Context(), mail.SendMailParams{
 		From:      otherAgentID,
 		ToAgentID: reviewedAgentID,
 		Body:      "here is the answer you asked for",
 	})
 	require.NoError(t, err, "a peer can still reach an agent whose review was just released")
 
-	claimed, err := mail.ClaimMail(t.Context(), reviewedAgentID)
+	claimed, err := mailer.ClaimMail(t.Context(), reviewedAgentID)
 	require.NoError(t, err)
 
 	bodies := make([]string, 0, len(claimed))
@@ -1942,12 +1943,24 @@ func reviewServiceWithRealMail(t *testing.T, reviews *fakeReviewStore, mailbox *
 	})
 }
 
-func mailService(mailbox *countingMailbox) *MailService {
-	return NewMailService(NewMailServiceParams{
+func mailService(mailbox *countingMailbox) *mail.MailService {
+	return mail.NewMailService(mail.NewMailServiceParams{
 		MailReadWriter: mailbox,
 		Agents:         fakeAgentReaderFunc(findLiveAgent),
 		Config:         fakeMailConfig{maxExchange: config.DefaultMaxExchange},
 	})
+}
+
+type fakeMailConfig struct {
+	maxExchange int
+}
+
+func (fakeMailConfig) GetDeliveryDeadline() (time.Duration, error) {
+	return time.Hour, nil
+}
+
+func (f fakeMailConfig) GetMaxExchange() (int, error) {
+	return f.maxExchange, nil
 }
 
 // countingMailbox counts what is waiting the way the real store does, off the mail it holds

@@ -7,6 +7,7 @@ import (
 
 	"weave/internal/agents"
 	"weave/internal/git"
+	"weave/internal/mail"
 	"weave/internal/rpcerr"
 	"weave/internal/schedules"
 	"weave/internal/scripts"
@@ -38,8 +39,8 @@ func TestWrapCodes(t *testing.T) {
 		{agents.ErrWorkflowNotFound, connect.CodeNotFound},
 		{schedules.ErrScheduleNotFound, connect.CodeNotFound},
 		{agents.ErrScriptNotFound, connect.CodeNotFound},
-		{agents.ErrMailNotFound, connect.CodeNotFound},
-		{agents.ErrRecipientNotFound, connect.CodeNotFound},
+		{mail.ErrMailNotFound, connect.CodeNotFound},
+		{mail.ErrRecipientNotFound, connect.CodeNotFound},
 		{agents.ErrReviewThreadNotFound, connect.CodeNotFound},
 		{agents.ErrReviewMessageNotFound, connect.CodeNotFound},
 		{agents.ErrParentNotFound, connect.CodeNotFound},
@@ -69,30 +70,30 @@ func TestWrapCodes(t *testing.T) {
 		{agents.ErrReviewAlreadyGiven, connect.CodeFailedPrecondition},
 		{schedules.ErrBadCron, connect.CodeInvalidArgument},
 		{agents.ErrUnknownHookEvent, connect.CodeInvalidArgument},
-		{agents.ErrNoticeKindMissing, connect.CodeInvalidArgument},
+		{mail.ErrNoticeKindMissing, connect.CodeInvalidArgument},
 		{agents.ErrBadDirectory, connect.CodeInvalidArgument},
 		{agents.ErrAdoptNotABranch, connect.CodeInvalidArgument},
 		{agents.ErrHarnessUnknown, connect.CodeInvalidArgument},
 		{agents.ErrSpawnerUnknown, connect.CodeInvalidArgument},
 		{agents.ErrParentIsChild, connect.CodeInvalidArgument},
 		{agents.ErrChildOwnsLaunch, connect.CodeInvalidArgument},
-		{agents.ErrSelfAddressed, connect.CodeInvalidArgument},
-		{agents.ErrRecipientAmbiguous, connect.CodeInvalidArgument},
-		{agents.ErrSenderUnknown, connect.CodeInvalidArgument},
-		{agents.ErrReplyToNotFound, connect.CodeInvalidArgument},
+		{mail.ErrSelfAddressed, connect.CodeInvalidArgument},
+		{mail.ErrRecipientAmbiguous, connect.CodeInvalidArgument},
+		{mail.ErrSenderUnknown, connect.CodeInvalidArgument},
+		{mail.ErrReplyToNotFound, connect.CodeInvalidArgument},
 		{agents.ErrWorktreeNeedsCwd, connect.CodeInvalidArgument},
 		{agents.ErrWorktreeCwdNotPrimaryCheckout, connect.CodeInvalidArgument},
 		{agents.ErrWorktreeUnsafePath, connect.CodeInvalidArgument},
 		{agents.ErrTooManyAgents, connect.CodeResourceExhausted},
-		{agents.ErrMailboxFull, connect.CodeResourceExhausted},
-		{agents.ErrExchangeCapped, connect.CodeResourceExhausted},
+		{mail.ErrMailboxFull, connect.CodeResourceExhausted},
+		{mail.ErrExchangeCapped, connect.CodeResourceExhausted},
 		{agents.ErrTooManyChildren, connect.CodeResourceExhausted},
 		{agentstore.ErrTooManyMetadataKeys, connect.CodeResourceExhausted},
 		{agents.ErrReviewNotYours, connect.CodePermissionDenied},
 		{agents.ErrReviewHumanOnly, connect.CodePermissionDenied},
 		{agents.ErrReviewNotEntitled, connect.CodePermissionDenied},
 		{agents.ErrReviewOwnWork, connect.CodePermissionDenied},
-		{agents.ErrOutsideFamily, connect.CodePermissionDenied},
+		{mail.ErrOutsideFamily, connect.CodePermissionDenied},
 		{agents.ErrOutsideWorkflow, connect.CodePermissionDenied},
 	}
 

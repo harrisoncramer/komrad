@@ -35,6 +35,7 @@ import (
 	"weave/internal/harness"
 	"weave/internal/harnesstest"
 	"weave/internal/logging"
+	"weave/internal/mail"
 	"weave/internal/server"
 	agentstore "weave/internal/store/agent"
 	"weave/internal/storetest"
@@ -366,7 +367,7 @@ func (i *Instance) WaitForActivity(agentID string, activity harness.Activity) {
 }
 
 // Deliver runs one pass of the work the delivery queue does for an agent.
-func (i *Instance) Deliver(agentID string) agents.Delivery {
+func (i *Instance) Deliver(agentID string) mail.Delivery {
 	i.t.Helper()
 
 	delivery, err := i.server.Delivery.Deliver(i.t.Context(), agentID)
