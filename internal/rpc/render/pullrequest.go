@@ -8,7 +8,7 @@ import (
 
 // PullRequestStateOf decides where a stored pull request stands: finished by its two stamps
 // first, then draft, then the forge's review decision, else open.
-func PullRequestStateOf(pullRequest pullrequeststore.PullRequest) pullrequestv1.PullRequestState {
+func PullRequestStateOf(pullRequest pullrequeststore.Summary) pullrequestv1.PullRequestState {
 	switch {
 	case pullRequest.MergedAt != nil:
 		return pullrequestv1.PullRequestState_PULL_REQUEST_STATE_MERGED

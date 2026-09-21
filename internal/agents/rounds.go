@@ -169,12 +169,6 @@ func (s *ReviewService) ListRounds(
 	return s.rounds.ListRounds(ctx, agentID)
 }
 
-// ListTallies is how many rounds of review each agent has taken part in, read once for the
-// whole listing.
-func (s *ReviewService) ListTallies(ctx context.Context) ([]reviewstore.Tally, error) {
-	return s.reviews.ListTallies(ctx)
-}
-
 // ListLiveReviewers is every reviewer still owed an answer, read once for the whole listing.
 func (s *ReviewService) ListLiveReviewers(ctx context.Context) ([]reviewstore.LiveReviewer, error) {
 	return s.reviews.ListLiveReviewers(ctx)

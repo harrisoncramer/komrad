@@ -4,8 +4,6 @@ import (
 	"context"
 	"testing"
 
-	"weave/lib/xslice"
-
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -137,15 +135,6 @@ func TestDeletingClaimHidesTheRow(t *testing.T) {
 			require.NoError(t, tt.claim(ctx, f, parent.ID))
 			if tt.release != nil {
 				require.NoError(t, tt.release(ctx, f, parent.ID))
-			}
-
-			page, err := f.ListPage(ctx, 10, nil, tt.archive)
-			require.NoError(t, err)
-			listed := xslice.Map(page, func(agent Agent) string { return agent.Name })
-			if tt.wantHidden {
-				assert.Empty(t, listed, "a claimed row is out of the page")
-			} else {
-				assert.ElementsMatch(t, []string{"author", "reviewer"}, listed)
 			}
 
 			dirs, err := f.ListDirs(ctx)

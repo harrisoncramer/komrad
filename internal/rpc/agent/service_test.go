@@ -913,7 +913,7 @@ func (f *fakeHolder) Release(_ context.Context, params agents.ReleaseParams) (*a
 // speaks for is turned away rather than stamping somebody.
 func TestRecordReportRefusesACallerWithNoIdentity(t *testing.T) {
 	reconciler := &fakeReconciler{}
-	svc := agentv1weave.AgentServiceAdapter{Impl: NewAgentService(NewAgentServiceParams{Reconciler: reconciler})}
+	svc := agentv1weave.AgentServiceAdapter{Impl: NewAgentService(NewAgentServiceParams{Writer: rowWriterOver(nil, reconciler)})}
 
 	_, err := svc.RecordReport(t.Context(), connect.NewRequest(&agentv1.RecordReportRequest{TurnEnded: true}))
 	assert.Equal(t, connect.CodeInvalidArgument, connect.CodeOf(err))
@@ -926,7 +926,7 @@ func TestRecordReportRefusesACallerWithNoIdentity(t *testing.T) {
 func TestRecordReportTellsTheReconcilerAboutTheTurn(t *testing.T) {
 	svc, st := service(t)
 	reconciler := &fakeReconciler{}
-	svc.Impl.(*AgentService).reconciler = reconciler
+	svc.Impl.(*AgentService).writer = rowWriterOver(st, reconciler)
 
 	id := st.SeedAgent(t, agentstore.Agent{Name: "alpha", State: agentstore.StateIdle}).ID
 
@@ -947,7 +947,7 @@ func TestRecordReportTellsTheReconcilerAboutTheTurn(t *testing.T) {
 func TestRecordReportKeepsTheReasonWithoutEndingTheTurn(t *testing.T) {
 	svc, st := service(t)
 	reconciler := &fakeReconciler{}
-	svc.Impl.(*AgentService).reconciler = reconciler
+	svc.Impl.(*AgentService).writer = rowWriterOver(st, reconciler)
 
 	id := st.SeedAgent(t, agentstore.Agent{Name: "alpha", State: agentstore.StateThinking}).ID
 	ctx := caller.With(t.Context(), caller.Caller{AgentID: id})
@@ -1209,15 +1209,14 @@ func TestSendMailPastTheExchangeLimitIsResourceExhausted(t *testing.T) {
 		Agents:         st.Agents,
 		Config:         fakeMailConfig(1),
 	})
+	liveness := &fakeLauncher{}
 	svc := agentv1weave.AgentServiceAdapter{Impl: NewAgentService(NewAgentServiceParams{
-		Agents:           st.Agents,
-		Transcripts:      st.Transcripts,
-		Mail:             mailer,
-		Liveness:         &fakeLauncher{},
-		Runs:             st.Runs,
-		Marks:            markService(st),
-		PullRequests:     st.PullRequests,
-		PullRequestSyncs: st.PullRequestSyncs,
+		Agents:      st.Agents,
+		Rows:        rowReaderOver(st, liveness, fakeTrees{}),
+		Transcripts: st.Transcripts,
+		Mail:        mailer,
+		Liveness:    liveness,
+		Marks:       markService(st),
 	})}
 
 	alpha := st.SeedAgent(t, agentstore.Agent{
@@ -2090,6 +2089,8 @@ func TestAgentLifecycleGoesThroughTheService(t *testing.T) {
 // fakeLauncher stands in for every service the handler talks to at once, so a test can wire one
 // fake into all five of its params rather than five.
 type fakeLauncher struct {
+	t              *testing.T
+	st             *storetest.Stores
 	got            agents.NewAgentParams
 	adopted        agents.AdoptParams
 	created        *agentstore.Agent
@@ -2109,13 +2110,27 @@ type fakeLauncher struct {
 	guidance       string
 }
 
+// spawned is the agent the fake stands up, written to the store the way a real launch writes
+// its row.
+func (f *fakeLauncher) spawned() *agentstore.Agent {
+	if f.created == nil {
+		f.created = f.st.SeedAgent(f.t, agentstore.Agent{
+			Name:  "spawned",
+			Cwd:   "/repo",
+			State: agentstore.StateIdle,
+		})
+	}
+
+	return f.created
+}
+
 func (f *fakeLauncher) NewAgent(_ context.Context, p agents.NewAgentParams) (*agentstore.Agent, error) {
 	f.got = p
 	if f.err != nil {
 		return nil, f.err
 	}
 
-	return f.created, nil
+	return f.spawned(), nil
 }
 
 func (f *fakeLauncher) RequestReview(_ context.Context, p agents.RequestReviewParams) (*agentstore.Agent, string, error) {
@@ -2124,7 +2139,7 @@ func (f *fakeLauncher) RequestReview(_ context.Context, p agents.RequestReviewPa
 		return nil, "", f.err
 	}
 
-	return f.created, f.guidance, nil
+	return f.spawned(), f.guidance, nil
 }
 
 func (f *fakeLauncher) Adopt(_ context.Context, p agents.AdoptParams) (*agentstore.Agent, error) {
@@ -2133,7 +2148,7 @@ func (f *fakeLauncher) Adopt(_ context.Context, p agents.AdoptParams) (*agentsto
 		return nil, f.err
 	}
 
-	return f.created, nil
+	return f.spawned(), nil
 }
 
 // IsAgentRunning answers for the fake's agents, which are live exactly when the test says so.
@@ -2173,7 +2188,7 @@ func (f *fakeLauncher) RestoreAgents(_ context.Context, ids []string) ([]agentst
 		return f.restoredAgents, nil
 	}
 
-	return []agentstore.Agent{*f.created}, nil
+	return []agentstore.Agent{*f.spawned()}, nil
 }
 
 func (f *fakeLauncher) ResumeAgent(_ context.Context, id string) (*agentstore.Agent, error) {
@@ -2182,11 +2197,11 @@ func (f *fakeLauncher) ResumeAgent(_ context.Context, id string) (*agentstore.Ag
 		return nil, f.resumeErr
 	}
 
-	return f.created, nil
+	return f.spawned(), nil
 }
 
 func (f *fakeLauncher) RetryCreate(_ context.Context, _ agents.RetryCreateParams) (*agentstore.Agent, error) {
-	return f.created, nil
+	return f.spawned(), nil
 }
 
 type fakeMailConfig int
@@ -2240,12 +2255,7 @@ func serviceWithLauncher(t *testing.T) (agentv1weave.AgentServiceAdapter, *store
 	t.Helper()
 
 	st := storetest.Open(t)
-	launcher := &fakeLauncher{created: &agentstore.Agent{
-		ID:    "id-1",
-		Name:  "spawned",
-		Cwd:   "/repo",
-		State: agentstore.StateIdle,
-	}}
+	launcher := &fakeLauncher{t: t, st: st}
 
 	mailer := mail.NewMailService(mail.NewMailServiceParams{
 		MailReadWriter: st.Mail,
@@ -2269,21 +2279,41 @@ func serviceWithLauncher(t *testing.T) (agentv1weave.AgentServiceAdapter, *store
 	})
 
 	return agentv1weave.AgentServiceAdapter{Impl: NewAgentService(NewAgentServiceParams{
-		Agents:           st.Agents,
-		Transcripts:      st.Transcripts,
-		Mail:             mailer,
-		Review:           review,
-		Runs:             st.Runs,
-		Marks:            markService(st),
-		PullRequests:     st.PullRequests,
-		PullRequestSyncs: st.PullRequestSyncs,
-		Creator:          launcher,
-		Adopter:          launcher,
-		Liveness:         launcher,
-		Trees:            fakeTrees{},
-		Lifecycle:        launcher,
-		Resumer:          launcher,
+		Agents:      st.Agents,
+		Rows:        rowReaderOver(st, launcher, fakeTrees{}),
+		Writer:      rowWriterOver(st, &fakeReconciler{}),
+		Transcripts: st.Transcripts,
+		Mail:        mailer,
+		Review:      review,
+		Marks:       markService(st),
+		Creator:     launcher,
+		Adopter:     launcher,
+		Liveness:    launcher,
+		Lifecycle:   launcher,
+		Resumer:     launcher,
 	})}, st, launcher
+}
+
+// rowWriterOver is the real thing over the test stores, with the fake standing in for the
+// reconciler.
+func rowWriterOver(st *storetest.Stores, reconciler *fakeReconciler) *agents.RowWriter {
+	params := agents.NewRowWriterParams{Reconciler: reconciler}
+	if st != nil {
+		params.Agents = st.Agents
+		params.Runs = st.Runs
+	}
+
+	return agents.NewRowWriter(params)
+}
+
+// rowReaderOver is the real thing over the test stores, with the fakes standing in for tmux and
+// the cwd sync.
+func rowReaderOver(st *storetest.Stores, liveness *fakeLauncher, trees fakeTrees) *agents.RowReader {
+	return agents.NewRowReader(agents.NewRowReaderParams{
+		Rows:     st.Rows,
+		Liveness: liveness,
+		Trees:    trees,
+	})
 }
 
 // fakeTrees is where each agent's worktree stands against the one round it was compared to,

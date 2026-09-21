@@ -81,15 +81,6 @@ WHERE
     AND m.claimed_at IS NULL
     AND m.expires_at > NOW();
 
--- name: ListMailboxesWithUnreadMail :many
-SELECT DISTINCT
-    m.to_agent_id
-FROM
-    mail m
-WHERE
-    m.claimed_at IS NULL
-    AND m.expires_at > NOW();
-
 -- name: ReportExpiredMail :many
 WITH unreported AS (
     SELECT

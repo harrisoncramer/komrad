@@ -6,6 +6,7 @@ import (
 	"weave/internal/dbtest"
 	"weave/internal/store"
 	agentstore "weave/internal/store/agent"
+	rowstore "weave/internal/store/row"
 	workflowstore "weave/internal/store/workflow"
 	"weave/lib/xptr"
 
@@ -18,6 +19,7 @@ type fixture struct {
 	*Store
 	db     store.DBTX
 	agents *agentstore.Store
+	rows   *rowstore.Store
 	// workflow is the one every seeded agent is filed under, a run hanging off an agent and an
 	// agent off a workflow.
 	workflow string
@@ -38,8 +40,25 @@ func open(t *testing.T) *fixture {
 		Store:    New(pool.GetDB()),
 		db:       pool.GetDB(),
 		agents:   agentstore.New(pool.GetDB()),
+		rows:     rowstore.New(pool.GetDB()),
 		workflow: created.ID,
 	}
+}
+
+// failedRun is the mark an agent's row carries for a failed run nobody has looked at, nil when
+// it carries none.
+func (f *fixture) failedRun(t *testing.T, agentID string) *int32 {
+	t.Helper()
+
+	rows, err := f.rows.ListByID(t.Context(), []string{agentID})
+	require.NoError(t, err)
+	require.Len(t, rows, 1)
+	if !rows[0].FailedRun {
+		return nil
+	}
+	require.NotNil(t, rows[0].FailedRunLog, "the mark carries the run to open on")
+
+	return rows[0].FailedRunLog
 }
 
 func (f *fixture) seedAgent(t *testing.T) string {
@@ -110,9 +129,7 @@ func TestFinishRecordsWhatTheRunDid(t *testing.T) {
 			})
 			require.NoError(t, err)
 
-			unread, err := f.ListUnreadFailures(t.Context())
-			require.NoError(t, err)
-			assert.Empty(t, unread, "a run still going is not a failure yet")
+			assert.Nil(t, f.failedRun(t, agentID), "a run still going is not a failure yet")
 
 			require.NoError(t, f.Finish(t.Context(), FinishParams{
 				ID:       id,
@@ -120,24 +137,17 @@ func TestFinishRecordsWhatTheRunDid(t *testing.T) {
 				Failure:  tt.failure,
 			}))
 
-			unread, err = f.ListUnreadFailures(t.Context())
-			require.NoError(t, err)
 			if !tt.wantUnread {
-				assert.Empty(t, unread)
+				assert.Nil(t, f.failedRun(t, agentID))
 
 				return
 			}
 
-			require.Len(t, unread, 1)
-			assert.Equal(t, agentID, unread[0].AgentID)
-			require.NotNil(t, unread[0].LogNumber, "the mark carries the run to open on")
-			assert.Equal(t, int32(7), *unread[0].LogNumber)
+			assert.Equal(t, xptr.Ptr(int32(7)), f.failedRun(t, agentID))
 
 			require.NoError(t, f.MarkRead(t.Context(), agentID))
 
-			unread, err = f.ListUnreadFailures(t.Context())
-			require.NoError(t, err)
-			assert.Empty(t, unread, "reading it clears the mark")
+			assert.Nil(t, f.failedRun(t, agentID), "reading it clears the mark")
 		})
 	}
 }
@@ -159,12 +169,7 @@ func TestUnreadFailuresNameTheNewestRun(t *testing.T) {
 		require.NoError(t, f.Finish(t.Context(), FinishParams{ID: id, Failure: "it failed"}))
 	}
 
-	unread, err := f.ListUnreadFailures(t.Context())
-	require.NoError(t, err)
-
-	require.Len(t, unread, 1, "one mark per agent however many of its runs failed")
-	require.NotNil(t, unread[0].LogNumber)
-	assert.Equal(t, int32(3), *unread[0].LogNumber)
+	assert.Equal(t, xptr.Ptr(int32(3)), f.failedRun(t, agentID))
 }
 
 // TestAbandonDropsTheRow covers the refusal that is not a run at all, where the log file is
@@ -183,9 +188,7 @@ func TestAbandonDropsTheRow(t *testing.T) {
 
 	require.NoError(t, f.Abandon(t.Context(), id))
 
-	unread, err := f.ListUnreadFailures(t.Context())
-	require.NoError(t, err)
-	assert.Empty(t, unread)
+	assert.Nil(t, f.failedRun(t, agentID))
 }
 
 // TestPruneKeepsTheNewest holds the rows to the same bound the log files are held to, so a row

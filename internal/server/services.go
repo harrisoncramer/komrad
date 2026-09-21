@@ -28,6 +28,8 @@ type services struct {
 	review          *agents.ReviewService
 	schedule        *schedules.ScheduleService
 	liveness        *agents.PaneLiveness
+	rows            *agents.RowReader
+	rowWriter       *agents.RowWriter
 	launch          *agents.LaunchService
 	resume          *agents.ResumeService
 	adopt           *agents.AdoptService
@@ -249,8 +251,24 @@ func buildServices(params NewServerParams, st *stores) (*services, error) {
 		Sizes:     st.sizes,
 	})
 
+	reconciler := agents.NewReconciler(agents.NewReconcilerParams{
+		Panes:    params.Tmux,
+		Observer: paneChannel,
+		States:   st.agents,
+	}).WithFrameRecorder(frames.NewRecorder(params.Env.FramesDir(), newFrameSettings(loadConfig).get))
+
 	return &services{
-		loadConfig:      loadConfig,
+		loadConfig: loadConfig,
+		rows: agents.NewRowReader(agents.NewRowReaderParams{
+			Rows:     st.rows,
+			Liveness: paneLiveness,
+			Trees:    cwdSyncer,
+		}),
+		rowWriter: agents.NewRowWriter(agents.NewRowWriterParams{
+			Agents:     st.agents,
+			Runs:       st.runs,
+			Reconciler: reconciler,
+		}),
 		marks:           markService,
 		rebase:          rebaseService,
 		cwdSync:         cwdSyncer,
@@ -304,11 +322,6 @@ func buildServices(params NewServerParams, st *stores) (*services, error) {
 			PaneReader:    paneLiveness,
 			Channel:       paneChannel,
 		}),
-		reconciler: agents.NewReconciler(agents.NewReconcilerParams{
-			Panes:    params.Tmux,
-			Observer: paneChannel,
-			States:   st.agents,
-		}).
-			WithFrameRecorder(frames.NewRecorder(params.Env.FramesDir(), newFrameSettings(loadConfig).get)),
+		reconciler: reconciler,
 	}, nil
 }

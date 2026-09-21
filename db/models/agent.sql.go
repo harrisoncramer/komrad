@@ -786,6 +786,228 @@ func (q *Queries) ListAgentMetadata(ctx context.Context, agentIds []string) ([]*
 	return items, nil
 }
 
+const listAgentRows = `-- name: ListAgentRows :many
+WITH failed AS (
+    SELECT DISTINCT ON (r.agent_id)
+        r.agent_id,
+        r.log_number
+    FROM
+        agent_runs r
+    WHERE
+        r.failure <> ''
+        AND r.viewed_at IS NULL
+    ORDER BY
+        r.agent_id,
+        r.started_at DESC,
+        r.id DESC
+),
+tallied AS (
+    SELECT
+        v.agent_id,
+        COUNT(DISTINCT v.round_id)::int AS rounds
+    FROM
+        reviews v
+    WHERE
+        v.released_at IS NOT NULL
+    GROUP BY
+        v.agent_id
+),
+concluded AS (
+    SELECT DISTINCT ON (v.agent_id)
+        v.agent_id,
+        v.verdict,
+        n.snapshot_sha
+    FROM
+        reviews v
+        JOIN review_rounds n ON n.id = v.round_id
+    WHERE
+        v.released_at IS NOT NULL
+        AND v.verdict IN ('approved', 'changes_requested')
+    ORDER BY
+        v.agent_id,
+        n.ordinal DESC,
+        v.released_at DESC
+),
+opened AS (
+    SELECT DISTINCT ON (a.id)
+        a.id AS agent_id,
+        p.number,
+        p.url,
+        p.title,
+        p.draft,
+        p.merged_at,
+        p.closed_at,
+        p.review_decision
+    FROM
+        agents a
+        JOIN pull_requests p ON p.repository_url = a.repository_url
+            AND p.head_repository_url = a.repository_url
+            AND p.head_branch = a.branch
+        JOIN workflows w ON w.id = a.workflow_id
+        LEFT JOIN workflow_provisioner_configs c ON c.id = w.provisioner_config_id
+    WHERE
+        a.archived_at IS NULL
+        AND (c.worktree_base_branch IS NULL
+            OR c.worktree_base_branch = ''
+            OR a.branch <> c.worktree_base_branch)
+    ORDER BY
+        a.id,
+        COALESCE(p.merged_at, p.closed_at) IS NOT NULL,
+        p.opened_at DESC
+)
+SELECT
+    s.id, s.name, s.cwd, s.flags, s.prompt, s.pane_id, s.state, s.state_changed_at, s.harness, s.session_id, s.workflow_id, s.schedule_id, s.idempotency_key, s.spawned_by_agent_id, s.archived_at, s.is_hidden, s.nudged_at, s.branch, s.worktree_removed, s.created_at, s.updated_at, s.state_seen_at, s.interrupted_at, s.adopted_branch, s.parent_agent_id, s.turn_ended_at, s.provision_enabled, s.reported_reason, s.role, s.held_at, s.held_mid_turn, s.nudge_sent_at, s.sequence_in_progress, s.repository_url, s.deleting_at,
+    EXISTS (
+        SELECT
+            1
+        FROM
+            mail m
+        WHERE
+            m.to_agent_id = s.id
+            AND m.claimed_at IS NULL
+            AND m.expires_at > NOW())::boolean AS unread_mail,
+(f.agent_id IS NOT NULL)::boolean AS failed_run,
+        f.log_number AS failed_run_log,
+        k.mark,
+        COALESCE(t.rounds, 0)::int AS local_rounds,
+        c.verdict AS local_verdict,
+        c.snapshot_sha AS local_snapshot_sha,
+        p.number AS pull_request_number,
+        p.url AS pull_request_url,
+        p.title AS pull_request_title,
+        p.draft AS pull_request_draft,
+        p.merged_at AS pull_request_merged_at,
+        p.closed_at AS pull_request_closed_at,
+        p.review_decision AS pull_request_review_decision,
+        EXISTS (
+            SELECT
+                1
+            FROM
+                pull_request_syncs y
+            WHERE
+                y.repository_url = s.repository_url
+                AND y.updated_through IS NOT NULL)::boolean AS repository_read
+        FROM
+            agents s
+        LEFT JOIN failed f ON f.agent_id = s.id
+        LEFT JOIN marks k ON k.agent_id = s.id
+        LEFT JOIN tallied t ON t.agent_id = s.id
+        LEFT JOIN concluded c ON c.agent_id = s.id
+        LEFT JOIN opened p ON p.agent_id = s.id
+    WHERE ($1::uuid[] IS NULL
+        OR s.id = ANY ($1::uuid[]))
+    AND ($1::uuid[] IS NOT NULL
+        OR (($2::boolean) =(s.archived_at IS NOT NULL)
+            AND s.deleting_at IS NULL
+            AND ($3::uuid IS NULL
+                OR s.id < $3)))
+ORDER BY
+    s.id DESC
+LIMIT $4
+`
+
+type ListAgentRowsParams struct {
+	Ids      []string
+	Archived bool
+	CursorID *string
+	Lim      int32
+}
+
+type ListAgentRowsRow struct {
+	Agent                     Agent
+	UnreadMail                bool
+	FailedRun                 bool
+	FailedRunLog              *int32
+	Mark                      *string
+	LocalRounds               int32
+	LocalVerdict              NullReviewVerdict
+	LocalSnapshotSha          *string
+	PullRequestNumber         *int32
+	PullRequestUrl            *string
+	PullRequestTitle          *string
+	PullRequestDraft          *bool
+	PullRequestMergedAt       *time.Time
+	PullRequestClosedAt       *time.Time
+	PullRequestReviewDecision *string
+	RepositoryRead            bool
+}
+
+func (q *Queries) ListAgentRows(ctx context.Context, arg ListAgentRowsParams) ([]*ListAgentRowsRow, error) {
+	rows, err := q.db.Query(ctx, listAgentRows,
+		arg.Ids,
+		arg.Archived,
+		arg.CursorID,
+		arg.Lim,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []*ListAgentRowsRow
+	for rows.Next() {
+		var i ListAgentRowsRow
+		if err := rows.Scan(
+			&i.Agent.ID,
+			&i.Agent.Name,
+			&i.Agent.Cwd,
+			&i.Agent.Flags,
+			&i.Agent.Prompt,
+			&i.Agent.PaneID,
+			&i.Agent.State,
+			&i.Agent.StateChangedAt,
+			&i.Agent.Harness,
+			&i.Agent.SessionID,
+			&i.Agent.WorkflowID,
+			&i.Agent.ScheduleID,
+			&i.Agent.IdempotencyKey,
+			&i.Agent.SpawnedByAgentID,
+			&i.Agent.ArchivedAt,
+			&i.Agent.IsHidden,
+			&i.Agent.NudgedAt,
+			&i.Agent.Branch,
+			&i.Agent.WorktreeRemoved,
+			&i.Agent.CreatedAt,
+			&i.Agent.UpdatedAt,
+			&i.Agent.StateSeenAt,
+			&i.Agent.InterruptedAt,
+			&i.Agent.AdoptedBranch,
+			&i.Agent.ParentAgentID,
+			&i.Agent.TurnEndedAt,
+			&i.Agent.ProvisionEnabled,
+			&i.Agent.ReportedReason,
+			&i.Agent.Role,
+			&i.Agent.HeldAt,
+			&i.Agent.HeldMidTurn,
+			&i.Agent.NudgeSentAt,
+			&i.Agent.SequenceInProgress,
+			&i.Agent.RepositoryUrl,
+			&i.Agent.DeletingAt,
+			&i.UnreadMail,
+			&i.FailedRun,
+			&i.FailedRunLog,
+			&i.Mark,
+			&i.LocalRounds,
+			&i.LocalVerdict,
+			&i.LocalSnapshotSha,
+			&i.PullRequestNumber,
+			&i.PullRequestUrl,
+			&i.PullRequestTitle,
+			&i.PullRequestDraft,
+			&i.PullRequestMergedAt,
+			&i.PullRequestClosedAt,
+			&i.PullRequestReviewDecision,
+			&i.RepositoryRead,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listAgents = `-- name: ListAgents :many
 SELECT
     id, name, cwd, flags, prompt, pane_id, state, state_changed_at, harness, session_id, workflow_id, schedule_id, idempotency_key, spawned_by_agent_id, archived_at, is_hidden, nudged_at, branch, worktree_removed, created_at, updated_at, state_seen_at, interrupted_at, adopted_branch, parent_agent_id, turn_ended_at, provision_enabled, reported_reason, role, held_at, held_mid_turn, nudge_sent_at, sequence_in_progress, repository_url, deleting_at
@@ -943,82 +1165,6 @@ ORDER BY
 
 func (q *Queries) ListAgentsForTranscriptSync(ctx context.Context) ([]*Agent, error) {
 	rows, err := q.db.Query(ctx, listAgentsForTranscriptSync)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []*Agent
-	for rows.Next() {
-		var i Agent
-		if err := rows.Scan(
-			&i.ID,
-			&i.Name,
-			&i.Cwd,
-			&i.Flags,
-			&i.Prompt,
-			&i.PaneID,
-			&i.State,
-			&i.StateChangedAt,
-			&i.Harness,
-			&i.SessionID,
-			&i.WorkflowID,
-			&i.ScheduleID,
-			&i.IdempotencyKey,
-			&i.SpawnedByAgentID,
-			&i.ArchivedAt,
-			&i.IsHidden,
-			&i.NudgedAt,
-			&i.Branch,
-			&i.WorktreeRemoved,
-			&i.CreatedAt,
-			&i.UpdatedAt,
-			&i.StateSeenAt,
-			&i.InterruptedAt,
-			&i.AdoptedBranch,
-			&i.ParentAgentID,
-			&i.TurnEndedAt,
-			&i.ProvisionEnabled,
-			&i.ReportedReason,
-			&i.Role,
-			&i.HeldAt,
-			&i.HeldMidTurn,
-			&i.NudgeSentAt,
-			&i.SequenceInProgress,
-			&i.RepositoryUrl,
-			&i.DeletingAt,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, &i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const listAgentsPage = `-- name: ListAgentsPage :many
-SELECT
-    id, name, cwd, flags, prompt, pane_id, state, state_changed_at, harness, session_id, workflow_id, schedule_id, idempotency_key, spawned_by_agent_id, archived_at, is_hidden, nudged_at, branch, worktree_removed, created_at, updated_at, state_seen_at, interrupted_at, adopted_branch, parent_agent_id, turn_ended_at, provision_enabled, reported_reason, role, held_at, held_mid_turn, nudge_sent_at, sequence_in_progress, repository_url, deleting_at
-FROM
-    agents s
-WHERE ($1::boolean) =(s.archived_at IS NOT NULL)
-    AND s.deleting_at IS NULL
-    AND ($2::uuid IS NULL
-        OR s.id < $2)
-ORDER BY
-    s.id DESC
-LIMIT $3
-`
-
-type ListAgentsPageParams struct {
-	Archived bool
-	CursorID *string
-	Lim      int32
-}
-
-func (q *Queries) ListAgentsPage(ctx context.Context, arg ListAgentsPageParams) ([]*Agent, error) {
-	rows, err := q.db.Query(ctx, listAgentsPage, arg.Archived, arg.CursorID, arg.Lim)
 	if err != nil {
 		return nil, err
 	}

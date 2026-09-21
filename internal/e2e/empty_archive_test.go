@@ -8,6 +8,7 @@ import (
 
 	"weave/internal/store"
 	agentstore "weave/internal/store/agent"
+	rowstore "weave/internal/store/row"
 	"weave/internal/weavetest"
 	agentv1 "weave/proto/gen/agent/v1"
 	workflowv1 "weave/proto/gen/workflow/v1"
@@ -59,7 +60,7 @@ func TestEmptyArchiveDestroysTheWholeArchive(t *testing.T) {
 
 	instance.WorkQueue()
 
-	archived, err := instance.Stores.Agents.ListPage(ctx, 100, nil, true)
+	archived, err := instance.Stores.Rows.ListPage(ctx, rowstore.Page{Limit: 100, Archived: true})
 	require.NoError(t, err)
 	assert.Empty(t, archived, "the sweep leaves nothing in the archive")
 
@@ -67,7 +68,7 @@ func TestEmptyArchiveDestroysTheWholeArchive(t *testing.T) {
 		assert.Empty(t, instance.GetOwnedPane(agent.GetId()), "a destroyed agent keeps no pane")
 	}
 
-	live, err := instance.Stores.Agents.ListPage(ctx, 100, nil, false)
+	live, err := instance.Stores.Rows.ListPage(ctx, rowstore.Page{Limit: 100})
 	require.NoError(t, err)
 	require.Len(t, live, 1, "the sweep is the archive's alone")
 	assert.Equal(t, kept.GetId(), live[0].ID)
@@ -113,7 +114,7 @@ func TestEmptyArchiveLeavesAFailedTeardownInTheArchive(t *testing.T) {
 		assert.NotNil(c, agent.ArchivedAt, "the row the sweep could not destroy is still in the archive")
 	}, 10*time.Second, 10*time.Millisecond)
 
-	live, err := instance.Stores.Agents.ListPage(ctx, 100, nil, false)
+	live, err := instance.Stores.Rows.ListPage(ctx, rowstore.Page{Limit: 100})
 	require.NoError(t, err)
 	assert.Empty(t, live, "a teardown that failed does not put the row back on the live list")
 

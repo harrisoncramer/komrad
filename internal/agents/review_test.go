@@ -2060,8 +2060,6 @@ func (f *countingMailbox) ListByID(context.Context, []string) ([]mailstore.Mail,
 
 func (f *countingMailbox) Delete(context.Context, []string) error { return nil }
 
-func (f *countingMailbox) ListUnreadMailboxes(context.Context) ([]string, error) { return nil, nil }
-
 func (f *countingMailbox) CountExchanged(_ context.Context, one, other string) (int64, error) {
 	var exchanged int64
 	for _, mail := range f.held {

@@ -75,46 +75,6 @@ func (q *Queries) InsertAgentRun(ctx context.Context, arg InsertAgentRunParams) 
 	return id, err
 }
 
-const listAgentsWithUnreadFailures = `-- name: ListAgentsWithUnreadFailures :many
-SELECT DISTINCT ON (agent_id)
-    agent_id,
-    log_number
-FROM
-    agent_runs
-WHERE
-    failure <> ''
-    AND viewed_at IS NULL
-ORDER BY
-    agent_id,
-    started_at DESC,
-    id DESC
-`
-
-type ListAgentsWithUnreadFailuresRow struct {
-	AgentID   string
-	LogNumber *int32
-}
-
-func (q *Queries) ListAgentsWithUnreadFailures(ctx context.Context) ([]*ListAgentsWithUnreadFailuresRow, error) {
-	rows, err := q.db.Query(ctx, listAgentsWithUnreadFailures)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []*ListAgentsWithUnreadFailuresRow
-	for rows.Next() {
-		var i ListAgentsWithUnreadFailuresRow
-		if err := rows.Scan(&i.AgentID, &i.LogNumber); err != nil {
-			return nil, err
-		}
-		items = append(items, &i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const markAgentRunsRead = `-- name: MarkAgentRunsRead :exec
 UPDATE
     agent_runs

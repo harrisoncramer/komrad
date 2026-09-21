@@ -16,6 +16,7 @@ import (
 	mailstore "weave/internal/store/mail"
 	markstore "weave/internal/store/mark"
 	pullrequeststore "weave/internal/store/pullrequest"
+	rowstore "weave/internal/store/row"
 	runstore "weave/internal/store/run"
 	schedulestore "weave/internal/store/schedule"
 	transcriptstore "weave/internal/store/transcript"
@@ -31,6 +32,7 @@ type Stores struct {
 	ReadOnlyURL      string
 	Pool             *store.Pool
 	Agents           *agentstore.Store
+	Rows             *rowstore.Store
 	Workflows        *workflowstore.Store
 	Schedules        *schedulestore.Store
 	Transcripts      *transcriptstore.Store
@@ -57,6 +59,7 @@ func Open(t *testing.T) *Stores {
 		ReadOnlyURL:      grantReadOnly(t, pool, dbURL),
 		Pool:             pool,
 		Agents:           agentstore.New(pool.GetDB()),
+		Rows:             rowstore.New(pool.GetDB()),
 		Workflows:        workflowstore.New(pool.GetDB()),
 		Schedules:        schedulestore.New(pool.GetDB()),
 		Transcripts:      transcriptstore.New(pool.GetDB()),

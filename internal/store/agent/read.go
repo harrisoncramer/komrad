@@ -60,21 +60,6 @@ func (s *Store) ListDirs(ctx context.Context) ([]AgentDir, error) {
 	}), nil
 }
 
-// ListPage returns one page of live or archived agents, newest first.
-func (s *Store) ListPage(ctx context.Context, limit int64, cursor *Cursor, archived bool) ([]Agent, error) {
-	params := models.ListAgentsPageParams{Lim: int32(limit), Archived: archived}
-	if cursor != nil {
-		params.CursorID = &cursor.ID
-	}
-
-	rows, err := s.queries.ListAgentsPage(ctx, params)
-	if err != nil {
-		return nil, fmt.Errorf("failed to list a page of agents: %w", err)
-	}
-
-	return s.hydrateMetadataForAgents(ctx, rows)
-}
-
 // ListArchiveSweepPage returns one page of archived agents, newest first, including the rows a
 // delete has already claimed.
 func (s *Store) ListArchiveSweepPage(ctx context.Context, limit int64, cursor *Cursor) ([]Agent, error) {

@@ -306,77 +306,6 @@ func (q *Queries) ListAgentPullRequests(ctx context.Context, agentID string) ([]
 	return items, nil
 }
 
-const listCurrentPullRequests = `-- name: ListCurrentPullRequests :many
-SELECT DISTINCT ON (a.id)
-    a.id AS agent_id,
-    p.id, p.host, p.forge, p.provider_id, p.url, p.repository_url, p.head_repository_url, p.number, p.title, p.head_branch, p.head_sha, p.base_branch, p.base_sha, p.draft, p.state, p.opened_at, p.changed_at, p.merged_at, p.closed_at, p.first_seen_at, p.review_decision, p.decision_changed_at
-FROM
-    agents a
-    JOIN pull_requests p ON p.repository_url = a.repository_url
-        AND p.head_repository_url = a.repository_url
-        AND p.head_branch = a.branch
-    JOIN workflows w ON w.id = a.workflow_id
-    LEFT JOIN workflow_provisioner_configs c ON c.id = w.provisioner_config_id
-WHERE
-    a.archived_at IS NULL
-    AND (c.worktree_base_branch IS NULL
-        OR c.worktree_base_branch = ''
-        OR a.branch <> c.worktree_base_branch)
-ORDER BY
-    a.id,
-    COALESCE(p.merged_at, p.closed_at) IS NOT NULL,
-    p.opened_at DESC
-`
-
-type ListCurrentPullRequestsRow struct {
-	AgentID     string
-	PullRequest PullRequest
-}
-
-func (q *Queries) ListCurrentPullRequests(ctx context.Context) ([]*ListCurrentPullRequestsRow, error) {
-	rows, err := q.db.Query(ctx, listCurrentPullRequests)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []*ListCurrentPullRequestsRow
-	for rows.Next() {
-		var i ListCurrentPullRequestsRow
-		if err := rows.Scan(
-			&i.AgentID,
-			&i.PullRequest.ID,
-			&i.PullRequest.Host,
-			&i.PullRequest.Forge,
-			&i.PullRequest.ProviderID,
-			&i.PullRequest.Url,
-			&i.PullRequest.RepositoryUrl,
-			&i.PullRequest.HeadRepositoryUrl,
-			&i.PullRequest.Number,
-			&i.PullRequest.Title,
-			&i.PullRequest.HeadBranch,
-			&i.PullRequest.HeadSha,
-			&i.PullRequest.BaseBranch,
-			&i.PullRequest.BaseSha,
-			&i.PullRequest.Draft,
-			&i.PullRequest.State,
-			&i.PullRequest.OpenedAt,
-			&i.PullRequest.ChangedAt,
-			&i.PullRequest.MergedAt,
-			&i.PullRequest.ClosedAt,
-			&i.PullRequest.FirstSeenAt,
-			&i.PullRequest.ReviewDecision,
-			&i.PullRequest.DecisionChangedAt,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, &i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const listLiveRepositories = `-- name: ListLiveRepositories :many
 SELECT DISTINCT
     repository_url
@@ -399,37 +328,6 @@ func (q *Queries) ListLiveRepositories(ctx context.Context) ([]*string, error) {
 	var items []*string
 	for rows.Next() {
 		var repository_url *string
-		if err := rows.Scan(&repository_url); err != nil {
-			return nil, err
-		}
-		items = append(items, repository_url)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const listReadRepositories = `-- name: ListReadRepositories :many
-SELECT
-    repository_url
-FROM
-    pull_request_syncs
-WHERE
-    updated_through IS NOT NULL
-ORDER BY
-    repository_url
-`
-
-func (q *Queries) ListReadRepositories(ctx context.Context) ([]string, error) {
-	rows, err := q.db.Query(ctx, listReadRepositories)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []string
-	for rows.Next() {
-		var repository_url string
 		if err := rows.Scan(&repository_url); err != nil {
 			return nil, err
 		}

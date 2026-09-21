@@ -54,16 +54,35 @@ type PullRequest struct {
 	DecisionChangedAt *time.Time
 }
 
+// Summary is what a row about a pull request shows: how to open it and where it stands.
+type Summary struct {
+	Number int
+	URL    string
+	Title  string
+	Draft  bool
+	// MergedAt and ClosedAt are the forge's stamps, which decide whether it is finished.
+	MergedAt *time.Time
+	ClosedAt *time.Time
+	// ReviewDecision is where the forge says the reviews stand, nil while it has said nothing.
+	ReviewDecision *forge.ReviewDecision
+}
+
+// GetSummary is the pull request as a row shows it.
+func (p PullRequest) GetSummary() Summary {
+	return Summary{
+		Number:         p.Number,
+		URL:            p.URL,
+		Title:          p.Title,
+		Draft:          p.Draft,
+		MergedAt:       p.MergedAt,
+		ClosedAt:       p.ClosedAt,
+		ReviewDecision: p.ReviewDecision,
+	}
+}
+
 // IsFinished says whether the pull request merged or closed.
 func (p PullRequest) IsFinished() bool {
 	return p.MergedAt != nil || p.ClosedAt != nil
-}
-
-// Current is the pull request an agent's row stands for: the newest opened from its branch that
-// is not finished, else the newest opened of the finished.
-type Current struct {
-	AgentID     string
-	PullRequest PullRequest
 }
 
 // UpsertParams is a pull request as the forge describes it, which is every column but the id
@@ -194,19 +213,6 @@ func (s *Store) SetReviewDecision(ctx context.Context, id string, decision forge
 	}
 
 	return nil
-}
-
-// ListCurrentPullRequests is the pull request each live agent's row stands for, leaving out the
-// agents whose branch has none.
-func (s *Store) ListCurrentPullRequests(ctx context.Context) ([]Current, error) {
-	rows, err := s.queries.ListCurrentPullRequests(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to list the current pull requests: %w", err)
-	}
-
-	return xslice.Map(rows, func(row *models.ListCurrentPullRequestsRow) Current {
-		return Current{AgentID: row.AgentID, PullRequest: fromRow(&row.PullRequest)}
-	}), nil
 }
 
 // Observe records every live agent beside every stored pull request opened from its branch in

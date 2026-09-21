@@ -25,7 +25,6 @@ type mailer interface {
 	ClaimMail(ctx context.Context, agentID string) ([]mailstore.Mail, error)
 	ListMail(ctx context.Context, params mail.ListMailParams) ([]mailstore.Mail, error)
 	DeleteMail(ctx context.Context, ids []string) error
-	ListUnreadMailboxes(ctx context.Context) ([]string, error)
 }
 
 // SendMail records mail from the calling agent to the recipient the request names.
