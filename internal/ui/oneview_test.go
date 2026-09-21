@@ -139,3 +139,46 @@ func TestRecordLabelTakesTheAccentWithTheKeys(t *testing.T) {
 	assert.Contains(t, lit, rowCursorStyle().Render(label))
 	assert.Equal(t, 1, strings.Count(ansi.Strip(lit), "›"))
 }
+
+// TestRecordPagesItsFields covers the page keys moving the field cursor ten rows at a time,
+// clamped to the record's ends.
+func TestRecordPagesItsFields(t *testing.T) {
+	m := recordSearchModel(t)
+	held := m.hoveredDetails()
+	require.Greater(t, len(held.fields), navPageStep+1)
+
+	down := send(t, m, "ctrl+d")
+	assert.Equal(t, navPageStep, down.detailsCursor(held))
+
+	up := send(t, down, "ctrl+u")
+	assert.Equal(t, 0, up.detailsCursor(held))
+
+	bottom := pressMark(t, m, "G", "ctrl+d")
+	assert.Equal(t, len(held.fields)-1, bottom.detailsCursor(held), "a page past the end stays on the last field")
+	assert.True(t, bottom.isDetailsFocused(), "and keeps the keys")
+}
+
+// TestMatchKeysWalkAcrossTheSections covers n and N running one sequence over the list's rows
+// and then the hovered record's: past the list's last match the keys go into the record, past
+// the record's last match they come round to the list's first, and N walks it backwards.
+func TestMatchKeysWalkAcrossTheSections(t *testing.T) {
+	m := detailsModel(&recordingTmux{})
+	m.tree.cursor = 0
+
+	standing := pressMark(t, m, "/", "b", "a", "c", "k", "enter")
+	require.Equal(t, 0, standing.tree.cursor, "the header backend is the list's only match")
+	require.False(t, standing.isDetailsFocused())
+
+	into := send(t, standing, "n")
+	require.True(t, into.isDetailsFocused(), "the next match is in the record")
+	held := into.hoveredDetails()
+	assert.Equal(t, "backend", held.fields[into.detailsCursor(held)].value)
+
+	round := send(t, into, "n")
+	assert.False(t, round.isDetailsFocused(), "past the record's last match the keys come round to the list")
+	assert.Equal(t, 0, round.tree.cursor)
+
+	back := send(t, round, "N")
+	assert.True(t, back.isDetailsFocused(), "N walks the same sequence the other way")
+	assert.Equal(t, "backend", held.fields[back.detailsCursor(held)].value)
+}

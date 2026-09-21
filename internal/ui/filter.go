@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"weave/internal/ui/paint"
+	"weave/lib/xslice"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -450,14 +451,73 @@ func (m model) jumpFilterMatch(pressed string) (tea.Model, tea.Cmd) {
 	return m.jumpMatch(1)
 }
 
-// jumpMatch walks the cursor to the next row the search matches.
+// sidebarRow is one row a search can land on, in the section that draws it.
+type sidebarRow struct {
+	section sidebarSection
+	row     filterRow
+}
+
+// sidebarRows is every row a search can land on, the list's and then the hovered record's.
+func (m model) sidebarRows() []sidebarRow {
+	var rows []sidebarRow
+	if list, ok := m.active().(filtered); ok {
+		rows = sectionRows(sectionList, list.filterRows(m))
+	}
+	if m.isDetailsDrawn(m.hoveredDetails()) {
+		rows = append(rows, sectionRows(sectionRecord, (detailsFilter{}).filterRows(m))...)
+	}
+
+	return rows
+}
+
+func sectionRows(section sidebarSection, rows []filterRow) []sidebarRow {
+	return xslice.Map(rows, func(row filterRow) sidebarRow {
+		return sidebarRow{section: section, row: row}
+	})
+}
+
+// jumpMatch walks the cursor to the next row the search matches, on through the record and
+// round again, moving the keys with it.
 func (m model) jumpMatch(delta int) (tea.Model, tea.Cmd) {
-	next, ok := m.matchAt(m.hoveredFilterKey(), delta)
-	if !ok {
+	rows := m.sidebarRows()
+	if m.filter.pattern == nil || len(rows) == 0 {
 		return m, nil
 	}
 
-	m.placeFilteredCursor(next)
+	from := sidebarRow{section: m.keyholder(), row: filterRow{key: m.hoveredFilterKey()}}
+	start := 0
+	for i, row := range rows {
+		if row.section == from.section && row.row.key == from.row.key {
+			start = i
+
+			break
+		}
+	}
+
+	for step := 1; step <= len(rows); step++ {
+		at := ((start+delta*step)%len(rows) + len(rows)) % len(rows)
+		if m.filter.doesMatch(rows[at].row.name) {
+			return m.landOnMatch(rows[at])
+		}
+	}
 
 	return m, nil
+}
+
+// landOnMatch puts the keys in the section a match is in and the cursor on it.
+func (m model) landOnMatch(target sidebarRow) (tea.Model, tea.Cmd) {
+	var cmd tea.Cmd
+	switch {
+	case target.section == sectionRecord && !m.isDetailsFocused():
+		m, cmd = m.focusDetails()
+		if !m.isDetailsFocused() {
+			return m, nil
+		}
+	case target.section == sectionList && m.isDetailsFocused():
+		m = m.blurDetails()
+	}
+
+	m.placeFilteredCursor(target.row.key)
+
+	return m, cmd
 }
