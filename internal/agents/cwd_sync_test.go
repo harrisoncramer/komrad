@@ -185,7 +185,7 @@ func TestCwdSyncerSyncRecordsTheRepository(t *testing.T) {
 			}))
 			created, err := st.Agents.GetInWorkflow(ctx, workflowID, "a")
 			require.NoError(t, err)
-			require.NoError(t, st.Agents.SetRepositoryURLByID(ctx, created.ID, tt.before))
+			require.NoError(t, st.Agents.SetCheckout(ctx, created.ID, agentstore.SetCheckoutParams{RepositoryURL: tt.before}))
 
 			require.NoError(t, newCwdSyncer(st.Agents, tt.heads(cwd)).Sync(ctx))
 

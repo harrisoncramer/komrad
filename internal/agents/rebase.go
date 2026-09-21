@@ -63,6 +63,7 @@ type worktreeRebaser interface {
 	RebaseOnto(ctx context.Context, dir, ref, cutoff string) error
 }
 
+// NewRebaseServiceParams is what a rebase service is built over.
 type NewRebaseServiceParams struct {
 	Agents    rebaseAgentReadWriter
 	Workflows workflowReader
@@ -141,22 +142,32 @@ func (s *RebaseService) PlanRebase(ctx context.Context, agentID string) (*Rebase
 	return s.plan(ctx, *agent)
 }
 
+// readTreeState reads the checkout and refuses one a rebase may not start on.
+func (s *RebaseService) readTreeState(ctx context.Context, agent agentstore.Agent) (git.TreeState, error) {
+	state, err := s.rebaser.ReadTreeState(ctx, agent.Cwd)
+	if err != nil {
+		return git.TreeState{}, err
+	}
+	if err := refuseTreeState(state); err != nil {
+		return git.TreeState{}, err
+	}
+
+	return state, nil
+}
+
 // plan reads the checkout and the base and says what a rebase would do to them.
 func (s *RebaseService) plan(ctx context.Context, agent agentstore.Agent) (*RebasePlan, error) {
-	state, err := s.rebaser.ReadTreeState(ctx, agent.Cwd)
+	state, err := s.readTreeState(ctx, agent)
 	if err != nil {
 		return nil, err
 	}
-	if err := refuseTreeState(state); err != nil {
-		return nil, err
+
+	flow, err := s.workflows.Get(ctx, agent.WorkflowID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read the workflow of agent %q: %w", agent.Name, err)
 	}
 
-	base := ""
-	if flow, err := s.workflows.Get(ctx, agent.WorkflowID); err == nil {
-		base = flow.Worktree.BaseBranch
-	}
-
-	ref, sha, err := s.rebaser.FetchBase(ctx, agent.Cwd, base)
+	ref, sha, err := s.rebaser.FetchBase(ctx, agent.Cwd, flow.Worktree.BaseBranch)
 	if err != nil {
 		return nil, err
 	}
@@ -191,18 +202,13 @@ func (s *RebaseService) Rebase(ctx context.Context, agentID string) (*RebaseResu
 		return nil, err
 	}
 
-	// Keyed on the directory, which is what two operations actually collide over.
 	unlock, taken := s.locks.TryLock(agent.Cwd)
 	if !taken {
 		return nil, fmt.Errorf("%w: something else is working in %s", ErrRebaseBusy, agent.Cwd)
 	}
 	defer unlock()
 
-	state, err := s.rebaser.ReadTreeState(ctx, agent.Cwd)
-	if err != nil {
-		return nil, err
-	}
-	if err := refuseTreeState(state); err != nil {
+	if _, err := s.readTreeState(ctx, *agent); err != nil {
 		return nil, err
 	}
 
@@ -236,11 +242,6 @@ func (s *RebaseService) settle(ctx context.Context, agent agentstore.Agent) (boo
 
 // rebase plans the move and makes it.
 func (s *RebaseService) rebase(ctx context.Context, agent agentstore.Agent) (*RebaseResult, error) {
-	// Explainer: the row is read again because a hold can land during the seconds the settle
-	// takes, but its state is not judged again. The reconciler stamps that state from a pane
-	// capture every couple of seconds, so a capture taken between the turn starting and the
-	// interrupt landing says thinking, and the pane the settle just read as at rest is the newer
-	// evidence.
 	if _, err := s.read(ctx, agent.ID); err != nil {
 		return nil, err
 	}
@@ -252,8 +253,6 @@ func (s *RebaseService) rebase(ctx context.Context, agent agentstore.Agent) (*Re
 
 	result := &RebaseResult{RebasePlan: *plan}
 
-	// Parked before anything moves, since a replay from a cutoff drops commits on purpose and
-	// the reflog holds refs rather than the files that were never committed.
 	result.ParkedRef = buildParkRef(agent.ID)
 	if _, err := s.rebaser.Park(ctx, agent.Cwd, result.ParkedRef); err != nil {
 		return nil, err
@@ -272,14 +271,12 @@ func (s *RebaseService) rebase(ctx context.Context, agent agentstore.Agent) (*Re
 	return result, nil
 }
 
-// buildParkRef names where a checkout is held before it is moved, so that one agent's parks sort
-// together and nothing collides with another's.
+// buildParkRef names where a checkout is held before it is moved.
 func buildParkRef(agentID string) string {
 	return fmt.Sprintf("refs/weave/prerefresh/%s/%d", agentID, time.Now().UnixNano())
 }
 
-// releaseOlderParks drops the parks this agent left behind before this one, since each pins a
-// whole worktree in the shared clone and nothing else ever collects them.
+// releaseOlderParks drops the parks this agent left behind before this one.
 func (s *RebaseService) releaseOlderParks(ctx context.Context, agent agentstore.Agent, keep string) {
 	prefix := fmt.Sprintf("refs/weave/prerefresh/%s/", agent.ID)
 	if err := s.rebaser.ReleaseRefsUnder(ctx, agent.Cwd, prefix, keep); err != nil {
@@ -288,11 +285,9 @@ func (s *RebaseService) releaseOlderParks(ctx context.Context, agent agentstore.
 	}
 }
 
-// move brings the branch onto the base, replaying its commits or, when the base already holds
-// their content, moving the branch outright rather than colliding with itself.
+// move brings the branch onto the base, replaying its commits from the cutoff when the base
+// already holds some of them.
 func (s *RebaseService) move(ctx context.Context, dir string, result *RebaseResult) error {
-	// Replayed from the cutoff when the base already holds part of this branch, which is what a
-	// squash merge leaves behind: replaying those commits would collide with their own content.
 	replay := func() error { return s.rebaser.Rebase(ctx, dir, result.BaseRef) }
 	if result.Cutoff != "" {
 		replay = func() error { return s.rebaser.RebaseOnto(ctx, dir, result.BaseRef, result.Cutoff) }
@@ -306,8 +301,6 @@ func (s *RebaseService) move(ctx context.Context, dir string, result *RebaseResu
 		return err
 	}
 
-	// Landed is what separates a branch whose work all reached the base from one that never had
-	// any, which is the commonest press of all and must not be told its commits are gone.
 	result.Moved = result.Landed > 0 && result.Replay == 0 && !result.Conflicted
 
 	return nil
@@ -492,8 +485,6 @@ func (s *RebaseService) read(ctx context.Context, agentID string) (*agentstore.A
 		return nil, fmt.Errorf("%w: %q", ErrAgentArchived, agent.Name)
 	}
 
-	// A rebase types at the agent and then rewrites the branch under its checkout, which is the
-	// collision somebody holding that tree stopped it to avoid.
 	if agent.HeldAt != nil {
 		return nil, ErrAgentHeld.Saying("%q is paused, unpause it first", agent.Name)
 	}
@@ -504,9 +495,6 @@ func (s *RebaseService) read(ctx context.Context, agentID string) (*agentstore.A
 // refuseTheCaller turns down an agent asking for the checkout it is itself working in, which a
 // child shares with its parent.
 func (s *RebaseService) refuseTheCaller(ctx context.Context, agent agentstore.Agent) error {
-	// Explainer: a rebase interrupts the agent it names and then rewrites the branch under the
-	// whole directory, so the harm lands on whoever is working there rather than on whoever the
-	// row belongs to. A person pressing the key carries no agent id and is unaffected.
 	from := caller.From(ctx).AgentID
 	if from == "" {
 		return nil

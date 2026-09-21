@@ -31,13 +31,13 @@ func TestListedAgentsCarryWhereTheirPullRequestStands(t *testing.T) {
 	opened := seedAgentOn(t, st, "opened", weaveRepository, "agent/x")
 	local := st.SeedAgent(t, agentstore.Agent{Name: "local"})
 
-	require.NoError(t, st.PullRequests.EnsureSync(ctx, weaveRepository))
-	require.NoError(t, st.PullRequests.StartSweep(ctx, pullrequeststore.StartSweepParams{
+	require.NoError(t, st.PullRequestSyncs.EnsureSync(ctx, weaveRepository))
+	require.NoError(t, st.PullRequestSyncs.StartSweep(ctx, pullrequeststore.StartSweepParams{
 		RepositoryURL: weaveRepository,
 		Newest:        time.Date(2026, 9, 18, 12, 0, 0, 0, time.UTC),
 		ListedAt:      time.Date(2026, 9, 18, 12, 0, 0, 0, time.UTC),
 	}))
-	require.NoError(t, st.PullRequests.CompleteSweep(ctx, weaveRepository))
+	require.NoError(t, st.PullRequestSyncs.CompleteSweep(ctx, weaveRepository))
 
 	openedAt := time.Date(2026, 9, 18, 12, 0, 0, 0, time.UTC)
 	written, err := st.PullRequests.Upsert(ctx, pullrequeststore.UpsertParams{
@@ -90,8 +90,7 @@ func seedAgentOn(t *testing.T, st *storetest.Stores, name, repositoryURL, branch
 	ctx := t.Context()
 
 	id := st.SeedAgent(t, agentstore.Agent{Name: name}).ID
-	require.NoError(t, st.Agents.SetRepositoryURLByID(ctx, id, &repositoryURL))
-	require.NoError(t, st.Agents.SetBranchByID(ctx, id, &branch))
+	require.NoError(t, st.Agents.SetCheckout(ctx, id, agentstore.SetCheckoutParams{RepositoryURL: &repositoryURL, Branch: &branch}))
 
 	return id
 }

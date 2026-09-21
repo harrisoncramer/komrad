@@ -79,24 +79,25 @@ func newMux(params newMuxParams) (*http.ServeMux, error) {
 	mux.Handle(StopPath, interceptors.NewLoggingHandler(params.Logger, newStopHandler(params.StopRequested)))
 	mux.Handle(agentv1connect.NewAgentServiceHandler(
 		agentv1weave.AgentServiceAdapter{Impl: rpcagent.NewAgentService(rpcagent.NewAgentServiceParams{
-			Agents:       params.Stores.agents,
-			Transcripts:  params.Stores.transcripts,
-			Mail:         params.Services.mail,
-			Creator:      params.Services.launch,
-			Adopter:      params.Services.adopt,
-			Liveness:     params.Services.liveness,
-			Trees:        params.Services.cwdSync,
-			Lifecycle:    params.Services.lifecycle,
-			Resumer:      params.Services.resume,
-			Holder:       params.Services.holder,
-			Reconciler:   params.Services.reconciler,
-			Archive:      jobs.NewArchiveSweep(queue),
-			Review:       params.Services.review,
-			Runs:         params.Stores.runs,
-			Marks:        params.Services.marks,
-			Refresher:    params.Services.rebase,
-			Orchestrator: params.Services.orchestrator,
-			PullRequests: params.Stores.pullRequests,
+			Agents:           params.Stores.agents,
+			Transcripts:      params.Stores.transcripts,
+			Mail:             params.Services.mail,
+			Creator:          params.Services.launch,
+			Adopter:          params.Services.adopt,
+			Liveness:         params.Services.liveness,
+			Trees:            params.Services.cwdSync,
+			Lifecycle:        params.Services.lifecycle,
+			Resumer:          params.Services.resume,
+			Holder:           params.Services.holder,
+			Reconciler:       params.Services.reconciler,
+			Archive:          jobs.NewArchiveSweep(queue),
+			Review:           params.Services.review,
+			Runs:             params.Stores.runs,
+			Marks:            params.Services.marks,
+			Refresher:        params.Services.rebase,
+			Orchestrator:     params.Services.orchestrator,
+			PullRequests:     params.Stores.pullRequests,
+			PullRequestSyncs: params.Stores.pullRequestSyncs,
 		})}, options...))
 	mux.Handle(workflowv1connect.NewWorkflowServiceHandler(
 		workflowv1weave.WorkflowServiceAdapter{
@@ -119,9 +120,10 @@ func newMux(params newMuxParams) (*http.ServeMux, error) {
 	mux.Handle(pullrequestv1connect.NewPullRequestServiceHandler(
 		pullrequestv1weave.PullRequestServiceAdapter{
 			Impl: rpcpullrequest.NewPullRequestService(rpcpullrequest.NewPullRequestServiceParams{
-				Forges:       params.Services.forge,
-				Agents:       params.Stores.agents,
-				PullRequests: params.Stores.pullRequests,
+				Forges:           params.Services.forge,
+				Agents:           params.Stores.agents,
+				PullRequests:     params.Stores.pullRequests,
+				PullRequestSyncs: params.Stores.pullRequestSyncs,
 			}),
 		}, options...))
 	mux.Handle(worktreev1connect.NewWorktreeServiceHandler(

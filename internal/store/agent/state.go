@@ -115,43 +115,33 @@ func (s *Store) MarkSettingUpIfFailedToCreate(ctx context.Context, id string) (b
 	return len(marked) > 0, nil
 }
 
-// SetBranchByID records the branch checked out at an agent's cwd, or clears it when branch
-// is nil, and is written only by the cwd syncer's periodic pass.
-func (s *Store) SetBranchByID(ctx context.Context, id string, branch *string) error {
-	if !store.IsID(id) {
-		return store.ErrNotFound.Saying("no agent with id %q", id)
-	}
-
-	if err := s.queries.SetAgentBranchByID(ctx, models.SetAgentBranchByIDParams{ID: id, Branch: branch}); err != nil {
-		return fmt.Errorf("failed to set the branch for id %q: %w", id, err)
-	}
-
-	return nil
+// SetCheckoutParams is what the cwd syncer read of an agent's checkout.
+type SetCheckoutParams struct {
+	// Branch is the branch checked out at the cwd, nil when git names none.
+	Branch *string
+	// RepositoryURL is the repository the cwd pushes to, nil when it names none.
+	RepositoryURL *string
+	// WorktreeRemoved says the cwd no longer exists on disk.
+	WorktreeRemoved bool
+	// SequenceInProgress says a merge, a rebase or a cherry-pick is part-way through the checkout.
+	SequenceInProgress bool
 }
 
-// SetRepositoryURLByID records the repository an agent's cwd pushes to, or clears it when url
-// is nil, and is written only by the cwd syncer's periodic pass.
-func (s *Store) SetRepositoryURLByID(ctx context.Context, id string, url *string) error {
+// SetCheckout records what the cwd syncer read of an agent's checkout.
+func (s *Store) SetCheckout(ctx context.Context, id string, params SetCheckoutParams) error {
 	if !store.IsID(id) {
 		return store.ErrNotFound.Saying("no agent with id %q", id)
 	}
 
-	if err := s.queries.SetAgentRepositoryURLByID(ctx, models.SetAgentRepositoryURLByIDParams{ID: id, RepositoryUrl: url}); err != nil {
-		return fmt.Errorf("failed to set the repository url for id %q: %w", id, err)
-	}
-
-	return nil
-}
-
-// SetWorktreeRemovedByID records whether an agent's cwd no longer exists on disk, written
-// only by the cwd syncer's periodic pass.
-func (s *Store) SetWorktreeRemovedByID(ctx context.Context, id string, removed bool) error {
-	if !store.IsID(id) {
-		return store.ErrNotFound.Saying("no agent with id %q", id)
-	}
-
-	if err := s.queries.SetAgentWorktreeRemovedByID(ctx, models.SetAgentWorktreeRemovedByIDParams{ID: id, WorktreeRemoved: removed}); err != nil {
-		return fmt.Errorf("failed to set worktree_removed for id %q: %w", id, err)
+	err := s.queries.SetAgentCheckoutByID(ctx, models.SetAgentCheckoutByIDParams{
+		ID:                 id,
+		Branch:             params.Branch,
+		RepositoryUrl:      params.RepositoryURL,
+		WorktreeRemoved:    params.WorktreeRemoved,
+		SequenceInProgress: params.SequenceInProgress,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to set the checkout for id %q: %w", id, err)
 	}
 
 	return nil

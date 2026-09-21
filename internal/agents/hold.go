@@ -33,6 +33,7 @@ type holdStore interface {
 	Release(ctx context.Context, id string) (bool, error)
 }
 
+// NewHolderParams is what a holder is built over.
 type NewHolderParams struct {
 	Agents  holdStore
 	Channel harness.Channel
@@ -66,23 +67,23 @@ func NewHolder(params NewHolderParams) *Holder {
 
 // Hold stops an agent and records that the person has it, refusing unless the agent is observed to
 // come to rest.
-func (h *Holder) Hold(ctx context.Context, agentID string) (agentstore.Agent, error) {
+func (h *Holder) Hold(ctx context.Context, agentID string) (*agentstore.Agent, error) {
 	agent, err := h.get(ctx, agentID)
 	if err != nil {
-		return agentstore.Agent{}, err
+		return nil, err
 	}
 
 	if agent.HeldAt != nil {
-		return agentstore.Agent{}, ErrAlreadyHeld.Saying("%q is already paused", agent.Name)
+		return nil, ErrAlreadyHeld.Saying("%q is already paused", agent.Name)
 	}
 
 	if agent.Pane == "" {
-		return agentstore.Agent{}, ErrUnsettled.Saying("%q is not in a pane", agent.Name)
+		return nil, ErrUnsettled.Saying("%q is not in a pane", agent.Name)
 	}
 
-	interrupted, err := h.settler.Settle(ctx, agent)
+	interrupted, err := h.settler.Settle(ctx, *agent)
 	if err != nil {
-		return agentstore.Agent{}, err
+		return nil, err
 	}
 
 	held, err := h.agents.Hold(ctx, agentstore.HoldParams{
@@ -91,55 +92,13 @@ func (h *Holder) Hold(ctx context.Context, agentID string) (agentstore.Agent, er
 		MidTurn: interrupted,
 	})
 	if err != nil {
-		return agentstore.Agent{}, err
+		return nil, err
 	}
 	if !held {
-		return agentstore.Agent{}, ErrAlreadyHeld.Saying("%q is already paused", agent.Name)
+		return nil, ErrAlreadyHeld.Saying("%q is already paused", agent.Name)
 	}
 
 	return h.get(ctx, agentID)
-}
-
-// Release lets go of an agent, typing it back into motion when the hold cut a turn short and
-// saying nothing at all when it had already finished.
-func (h *Holder) Release(ctx context.Context, params ReleaseParams) (agentstore.Agent, error) {
-	agent, err := h.get(ctx, params.AgentID)
-	if err != nil {
-		return agentstore.Agent{}, err
-	}
-
-	if agent.HeldAt == nil {
-		return agentstore.Agent{}, ErrNotHeld.Saying("nobody is holding %q", agent.Name)
-	}
-
-	// Explainer: an agent that finished its own turn before the hold landed has nothing to carry
-	// on with, so typing at it would start work nobody asked for. Only a turn this hold cut short
-	// is one the agent was in the middle of.
-	if agent.HeldMidTurn && params.Said != "" && agent.Pane != "" {
-		said, err := h.channel.Send(ctx, buildTarget(agent), params.Said)
-		if err != nil {
-			return agentstore.Agent{}, fmt.Errorf("failed to say what changed to %q: %w", agent.Name, err)
-		}
-
-		// Explainer: a box that would not take the words leaves an agent that was interrupted with
-		// nothing to carry on from, so letting go here would stop it for good and call that
-		// success. The hold is kept instead, and a box that will never take them, one drawing more
-		// than a single line, is left to a release that asks for silence.
-		if !said {
-			return agentstore.Agent{}, ErrReleaseRefused.Saying(
-				"%q could not be told to carry on, since its input box would not take the words, so unpause it in silence to let it go regardless", agent.Name)
-		}
-	}
-
-	released, err := h.agents.Release(ctx, agent.ID)
-	if err != nil {
-		return agentstore.Agent{}, err
-	}
-	if !released {
-		return agentstore.Agent{}, ErrNotHeld.Saying("nobody is holding %q", agent.Name)
-	}
-
-	return h.get(ctx, params.AgentID)
 }
 
 // ReleaseParams is the agent being let go and what to tell it happened while it was held.
@@ -149,14 +108,48 @@ type ReleaseParams struct {
 	Said string
 }
 
-func (h *Holder) get(ctx context.Context, agentID string) (agentstore.Agent, error) {
-	agent, err := h.agents.GetByID(ctx, agentID)
-	if errors.Is(err, store.ErrNotFound) {
-		return agentstore.Agent{}, fmt.Errorf("%w: %q", ErrAgentNotFound, agentID)
-	}
+// Release lets go of an agent, typing what happened into it only when the hold cut a turn short,
+// and keeping the hold when the agent's input box would not take the words.
+func (h *Holder) Release(ctx context.Context, params ReleaseParams) (*agentstore.Agent, error) {
+	agent, err := h.get(ctx, params.AgentID)
 	if err != nil {
-		return agentstore.Agent{}, err
+		return nil, err
 	}
 
-	return *agent, nil
+	if agent.HeldAt == nil {
+		return nil, ErrNotHeld.Saying("nobody is holding %q", agent.Name)
+	}
+
+	if agent.HeldMidTurn && params.Said != "" && agent.Pane != "" {
+		said, err := h.channel.Send(ctx, buildTarget(*agent), params.Said)
+		if err != nil {
+			return nil, fmt.Errorf("failed to say what changed to %q: %w", agent.Name, err)
+		}
+		if !said {
+			return nil, ErrReleaseRefused.Saying(
+				"%q could not be told to carry on, since its input box would not take the words, so unpause it in silence to let it go regardless", agent.Name)
+		}
+	}
+
+	released, err := h.agents.Release(ctx, agent.ID)
+	if err != nil {
+		return nil, err
+	}
+	if !released {
+		return nil, ErrNotHeld.Saying("nobody is holding %q", agent.Name)
+	}
+
+	return h.get(ctx, params.AgentID)
+}
+
+func (h *Holder) get(ctx context.Context, agentID string) (*agentstore.Agent, error) {
+	agent, err := h.agents.GetByID(ctx, agentID)
+	if errors.Is(err, store.ErrNotFound) {
+		return nil, fmt.Errorf("%w: %q", ErrAgentNotFound, agentID)
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	return agent, nil
 }

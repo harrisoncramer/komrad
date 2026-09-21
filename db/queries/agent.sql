@@ -622,27 +622,14 @@ WHERE
 RETURNING
     id;
 
--- name: SetAgentBranchByID :exec
+-- name: SetAgentCheckoutByID :exec
 UPDATE
     agents
 SET
-    branch = sqlc.narg('branch')
-WHERE
-    id = @id;
-
--- name: SetAgentRepositoryURLByID :exec
-UPDATE
-    agents
-SET
-    repository_url = sqlc.narg('repository_url')
-WHERE
-    id = @id;
-
--- name: SetAgentWorktreeRemovedByID :exec
-UPDATE
-    agents
-SET
-    worktree_removed = @worktree_removed
+    branch = sqlc.narg('branch'),
+    repository_url = sqlc.narg('repository_url'),
+    worktree_removed = @worktree_removed,
+    sequence_in_progress = @sequence_in_progress
 WHERE
     id = @id;
 

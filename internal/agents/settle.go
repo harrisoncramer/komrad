@@ -21,6 +21,7 @@ const settleInterval = 250 * time.Millisecond
 // worktree.
 var ErrUnsettled = fail.Precondition("the agent did not stop")
 
+// NewSettlerParams is what a settler is built over.
 type NewSettlerParams struct {
 	Channel  harness.Channel
 	Observer harness.Observer
@@ -63,10 +64,6 @@ func NewSettler(params NewSettlerParams) *Settler {
 func (s *Settler) Settle(ctx context.Context, agent agentstore.Agent) (bool, error) {
 	target := buildTarget(agent)
 
-	// Explainer: the stored state is a pane reading a few seconds old, so it says what the agent
-	// was doing rather than what it is doing. Both the decision to interrupt and the reading that
-	// confirms it have to come from the pane as it is now, or the agent is called stopped on the
-	// same frame the interrupt was meant to clear.
 	observed, err := s.observer.Observe(ctx, target)
 	read := err == nil && (isMidTurn(observed.Activity) || isAtRest(observed.Activity))
 	if !read {
@@ -81,9 +78,6 @@ func (s *Settler) Settle(ctx context.Context, agent agentstore.Agent) (bool, err
 		return false, fmt.Errorf("failed to stop %q: %w", agent.Name, err)
 	}
 
-	// Explainer: the interrupt is keys typed into a terminal, so nothing about sending it says
-	// the agent read it. What counts as stopped is an agent observed to have come to rest
-	// afterwards, which is why a prompt still on screen is not an answer.
 	if err := s.waitForRest(ctx, target, agent.Name); err != nil {
 		return false, err
 	}

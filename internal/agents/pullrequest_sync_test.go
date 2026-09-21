@@ -171,6 +171,7 @@ type syncFixture struct {
 	forge        *scriptedForge
 	connections  *forgestore.Store
 	pullRequests *pullrequeststore.Store
+	syncs        *pullrequeststore.SyncStore
 	agents       *agentstore.Store
 	workflow     string
 	now          time.Time
@@ -213,6 +214,7 @@ func newSyncFixture(t *testing.T) *syncFixture {
 		forge:        scripted,
 		connections:  connections,
 		pullRequests: pullrequeststore.New(pool.GetDB()),
+		syncs:        pullrequeststore.NewSyncStore(pool.GetDB()),
 		agents:       agentstore.New(pool.GetDB()),
 		workflow:     created.ID,
 		now:          syncNow,
@@ -220,6 +222,7 @@ func newSyncFixture(t *testing.T) *syncFixture {
 	f.syncer = NewPullRequestSyncer(NewPullRequestSyncerParams{
 		Forges:       &scriptedFinder{connections: connections, forge: scripted},
 		PullRequests: f.pullRequests,
+		Syncs:        f.syncs,
 		Tx:           pool,
 		Now:          func() time.Time { return f.now },
 	})
@@ -247,8 +250,7 @@ func (f *syncFixture) agentIn(t *testing.T, name, repository, branch string) str
 	}))
 	created, err := f.agents.GetInWorkflow(ctx, f.workflow, name)
 	require.NoError(t, err)
-	require.NoError(t, f.agents.SetRepositoryURLByID(ctx, created.ID, &repository))
-	require.NoError(t, f.agents.SetBranchByID(ctx, created.ID, &branch))
+	require.NoError(t, f.agents.SetCheckout(ctx, created.ID, agentstore.SetCheckoutParams{RepositoryURL: &repository, Branch: &branch}))
 
 	return created.ID
 }
@@ -274,7 +276,7 @@ func (f *syncFixture) getSync(t *testing.T) *pullrequeststore.Sync {
 
 func (f *syncFixture) getSyncOf(t *testing.T, repository string) *pullrequeststore.Sync {
 	t.Helper()
-	sync, err := f.pullRequests.GetSync(t.Context(), repository)
+	sync, err := f.syncs.GetSync(t.Context(), repository)
 	require.NoError(t, err)
 
 	return sync
@@ -749,7 +751,7 @@ func TestSyncScansANewBranchOnceAndAttributesLocally(t *testing.T) {
 	f.sync(t)
 
 	assert.Equal(t, []string{"updated:", search(syncNow), "branch:agent/old:", "branch:agent/old:b2", "decisions:6,8"}, f.forge.requests)
-	scan, err := f.pullRequests.GetBranchScan(t.Context(), syncRepository, "agent/old")
+	scan, err := f.syncs.GetBranchScan(t.Context(), syncRepository, "agent/old")
 	require.NoError(t, err)
 	assert.NotNil(t, scan.CompletedAt)
 	seen, err := f.pullRequests.ListObservations(t.Context(), first)
@@ -788,7 +790,7 @@ func TestSyncBranchScanPausesOnTheBudget(t *testing.T) {
 	f.sync(t)
 
 	assert.Len(t, f.forge.requests, 11, "the sweep, the search and nine pages of the scan")
-	scan, err := f.pullRequests.GetBranchScan(t.Context(), syncRepository, "agent/long")
+	scan, err := f.syncs.GetBranchScan(t.Context(), syncRepository, "agent/long")
 	require.NoError(t, err)
 	assert.Nil(t, scan.CompletedAt)
 	assert.Equal(t, "b10", scan.NextCursor)
@@ -796,7 +798,7 @@ func TestSyncBranchScanPausesOnTheBudget(t *testing.T) {
 	f.pass(t, syncNow.Add(time.Minute))
 
 	assert.Equal(t, []string{search(syncNow), "branch:agent/long:b10", "branch:agent/long:b11", "decisions:1,2,3,4,5,6,7,8,9,10,11"}, f.forge.requests)
-	scan, err = f.pullRequests.GetBranchScan(t.Context(), syncRepository, "agent/long")
+	scan, err = f.syncs.GetBranchScan(t.Context(), syncRepository, "agent/long")
 	require.NoError(t, err)
 	assert.NotNil(t, scan.CompletedAt)
 }
@@ -1019,7 +1021,7 @@ func TestSyncSkipsARepositoryWithNoConnection(t *testing.T) {
 	for _, params := range f.forge.searches {
 		assert.Len(t, params.Repos, 1)
 	}
-	_, err := f.pullRequests.GetSync(t.Context(), elsewhere)
+	_, err := f.syncs.GetSync(t.Context(), elsewhere)
 	require.ErrorIs(t, err, store.ErrNotFound)
 }
 

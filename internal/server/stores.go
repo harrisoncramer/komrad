@@ -18,18 +18,19 @@ import (
 )
 
 type stores struct {
-	pool         *store.Pool
-	agents       *agentstore.Store
-	workflows    *workflowstore.Store
-	schedules    *schedulestore.Store
-	transcripts  *transcriptstore.Store
-	mail         *mailstore.Store
-	review       *reviewstore.Store
-	runs         *runstore.Store
-	marks        *markstore.Store
-	forges       *forgestore.Store
-	pullRequests *pullrequeststore.Store
-	sizes        *worktreestore.WorktreeStore
+	pool             *store.Pool
+	agents           *agentstore.Store
+	workflows        *workflowstore.Store
+	schedules        *schedulestore.Store
+	transcripts      *transcriptstore.Store
+	mail             *mailstore.Store
+	review           *reviewstore.Store
+	runs             *runstore.Store
+	marks            *markstore.Store
+	forges           *forgestore.Store
+	pullRequests     *pullrequeststore.Store
+	pullRequestSyncs *pullrequeststore.SyncStore
+	sizes            *worktreestore.WorktreeStore
 }
 
 func openStores(ctx context.Context, databaseURL string) (*stores, error) {
@@ -41,17 +42,18 @@ func openStores(ctx context.Context, databaseURL string) (*stores, error) {
 	db := pool.GetDB()
 
 	return &stores{
-		pool:         pool,
-		agents:       agentstore.New(db),
-		workflows:    workflowstore.New(db),
-		schedules:    schedulestore.New(db),
-		transcripts:  transcriptstore.New(db),
-		mail:         mailstore.New(db),
-		review:       reviewstore.New(db),
-		runs:         runstore.New(db),
-		marks:        markstore.New(db),
-		forges:       forgestore.New(db),
-		pullRequests: pullrequeststore.New(db),
-		sizes:        worktreestore.NewWorktreeStore(db),
+		pool:             pool,
+		agents:           agentstore.New(db),
+		workflows:        workflowstore.New(db),
+		schedules:        schedulestore.New(db),
+		transcripts:      transcriptstore.New(db),
+		mail:             mailstore.New(db),
+		review:           reviewstore.New(db),
+		runs:             runstore.New(db),
+		marks:            markstore.New(db),
+		forges:           forgestore.New(db),
+		pullRequests:     pullrequeststore.New(db),
+		pullRequestSyncs: pullrequeststore.NewSyncStore(db),
+		sizes:            worktreestore.NewWorktreeStore(db),
 	}, nil
 }

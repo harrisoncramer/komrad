@@ -17,8 +17,7 @@ import (
 	"github.com/harrisoncramer/streamer"
 )
 
-// cwdLookTimeout bounds each look at a directory, since a dead network mount hangs rather than
-// failing.
+// cwdLookTimeout bounds each look at a directory.
 const cwdLookTimeout = 5 * time.Second
 
 // cwdLookWorkers is how many directories are looked at together.
@@ -26,10 +25,7 @@ const cwdLookWorkers = 8
 
 type cwdSetter interface {
 	List(ctx context.Context) ([]agentstore.Agent, error)
-	SetBranchByID(ctx context.Context, id string, branch *string) error
-	SetRepositoryURLByID(ctx context.Context, id string, url *string) error
-	SetWorktreeRemovedByID(ctx context.Context, id string, removed bool) error
-	SetSequenceInProgressByID(ctx context.Context, id string, inProgress bool) error
+	SetCheckout(ctx context.Context, id string, params agentstore.SetCheckoutParams) error
 }
 
 // headReader reads a checkout's HEAD.
@@ -67,6 +63,7 @@ type roundStanding struct {
 	standing    git.Standing
 }
 
+// NewCwdSyncerParams is what a cwd syncer is built over.
 type NewCwdSyncerParams struct {
 	Agents  cwdSetter
 	Heads   headReader
@@ -146,7 +143,9 @@ func (cs *CwdSyncer) Sync(ctx context.Context) error {
 		if look.err != nil {
 			failures = append(failures, look.err)
 		}
-		failures = append(failures, cs.write(ctx, look)...)
+		if err := cs.write(ctx, look); err != nil {
+			failures = append(failures, err)
+		}
 	}
 
 	cs.mu.Lock()
@@ -207,8 +206,6 @@ func (cs *CwdSyncer) lookAtAll(ctx context.Context, agents []agentstore.Agent, r
 func (cs *CwdSyncer) look(ctx context.Context, agent agentstore.Agent, round, base string) cwdLook {
 	look := cwdLook{agent: agent, removed: isCwdRemoved(ctx, agent.Cwd)}
 
-	// A directory that is gone has no head, so the git call is skipped rather than
-	// run against it and waited out.
 	if !look.removed {
 		look.head = cs.readHead(ctx, agent.Cwd)
 		look.standing, look.err = cs.readStanding(ctx, agent, round, base)
@@ -217,35 +214,28 @@ func (cs *CwdSyncer) look(ctx context.Context, agent agentstore.Agent, round, ba
 	return look
 }
 
-func (cs *CwdSyncer) write(ctx context.Context, look cwdLook) []error {
+// write records what the look found, when any of it differs from the row.
+func (cs *CwdSyncer) write(ctx context.Context, look cwdLook) error {
 	agent, head := look.agent, look.head
-
-	var failures []error
-	if look.removed != agent.WorktreeRemoved {
-		if err := cs.agents.SetWorktreeRemovedByID(ctx, agent.ID, look.removed); err != nil {
-			failures = append(failures, fmt.Errorf("failed to set worktree_removed for %q: %w", agent.Name, err))
-		}
+	checkout := agentstore.SetCheckoutParams{
+		Branch:             xptr.NonEmpty(head.Branch),
+		RepositoryURL:      xptr.NonEmpty(head.RepositoryURL),
+		WorktreeRemoved:    look.removed,
+		SequenceInProgress: head.SequenceInProgress,
+	}
+	unchanged := xptr.Equal(agent.Branch, checkout.Branch) &&
+		xptr.Equal(agent.RepositoryURL, checkout.RepositoryURL) &&
+		agent.WorktreeRemoved == checkout.WorktreeRemoved &&
+		agent.SequenceInProgress == checkout.SequenceInProgress
+	if unchanged {
+		return nil
 	}
 
-	if branch := xptr.NonEmpty(head.Branch); !xptr.Equal(agent.Branch, branch) {
-		if err := cs.agents.SetBranchByID(ctx, agent.ID, branch); err != nil {
-			failures = append(failures, fmt.Errorf("failed to set branch for %q: %w", agent.Name, err))
-		}
+	if err := cs.agents.SetCheckout(ctx, agent.ID, checkout); err != nil {
+		return fmt.Errorf("failed to set the checkout for %q: %w", agent.Name, err)
 	}
 
-	if url := xptr.NonEmpty(head.RepositoryURL); !xptr.Equal(agent.RepositoryURL, url) {
-		if err := cs.agents.SetRepositoryURLByID(ctx, agent.ID, url); err != nil {
-			failures = append(failures, fmt.Errorf("failed to set repository_url for %q: %w", agent.Name, err))
-		}
-	}
-
-	if head.SequenceInProgress != agent.SequenceInProgress {
-		if err := cs.agents.SetSequenceInProgressByID(ctx, agent.ID, head.SequenceInProgress); err != nil {
-			failures = append(failures, fmt.Errorf("failed to set sequence_in_progress for %q: %w", agent.Name, err))
-		}
-	}
-
-	return failures
+	return nil
 }
 
 func isCwdRemoved(ctx context.Context, dir string) bool {

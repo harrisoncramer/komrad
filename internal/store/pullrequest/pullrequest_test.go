@@ -22,6 +22,7 @@ const (
 type harness struct {
 	*Store
 	pool      *store.Pool
+	syncs     *SyncStore
 	agents    *agentstore.Store
 	workflows *workflowstore.Store
 }
@@ -35,6 +36,7 @@ func open(t *testing.T) *harness {
 
 	return &harness{
 		Store:     New(pool.GetDB()),
+		syncs:     NewSyncStore(pool.GetDB()),
 		pool:      pool,
 		agents:    agentstore.New(pool.GetDB()),
 		workflows: workflowstore.New(pool.GetDB()),
@@ -54,8 +56,7 @@ func (h *harness) createAgent(t *testing.T, workflowID, name, repositoryURL, bra
 	}))
 	created, err := h.agents.GetInWorkflow(ctx, workflowID, name)
 	require.NoError(t, err)
-	require.NoError(t, h.agents.SetRepositoryURLByID(ctx, created.ID, &repositoryURL))
-	require.NoError(t, h.agents.SetBranchByID(ctx, created.ID, &branch))
+	require.NoError(t, h.agents.SetCheckout(ctx, created.ID, agentstore.SetCheckoutParams{RepositoryURL: &repositoryURL, Branch: &branch}))
 
 	return created.ID
 }
@@ -252,26 +253,26 @@ func TestLiveRepositoriesAndUnscannedBranches(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, []string{weave, fixture}, repositories)
 
-	branches, err := h.ListUnscannedBranches(ctx, weave)
+	branches, err := h.syncs.ListUnscannedBranches(ctx, weave)
 	require.NoError(t, err)
 	assert.Equal(t, []string{"agent/x", "agent/y"}, branches)
 
-	require.NoError(t, h.SetBranchScanCursor(ctx, weave, "agent/x", "c2"))
-	scan, err := h.GetBranchScan(ctx, weave, "agent/x")
+	require.NoError(t, h.syncs.SetBranchScanCursor(ctx, weave, "agent/x", "c2"))
+	scan, err := h.syncs.GetBranchScan(ctx, weave, "agent/x")
 	require.NoError(t, err)
 	assert.Equal(t, "c2", scan.NextCursor)
 	assert.Nil(t, scan.CompletedAt)
 
-	branches, err = h.ListUnscannedBranches(ctx, weave)
+	branches, err = h.syncs.ListUnscannedBranches(ctx, weave)
 	require.NoError(t, err)
 	assert.Equal(t, []string{"agent/x", "agent/y"}, branches, "a scan in progress is still unscanned")
 
-	require.NoError(t, h.CompleteBranchScan(ctx, weave, "agent/x", "c3"))
-	branches, err = h.ListUnscannedBranches(ctx, weave)
+	require.NoError(t, h.syncs.CompleteBranchScan(ctx, weave, "agent/x", "c3"))
+	branches, err = h.syncs.ListUnscannedBranches(ctx, weave)
 	require.NoError(t, err)
 	assert.Equal(t, []string{"agent/y"}, branches)
 
-	_, err = h.GetBranchScan(ctx, weave, "agent/q")
+	_, err = h.syncs.GetBranchScan(ctx, weave, "agent/q")
 	require.ErrorIs(t, err, store.ErrNotFound)
 }
 
@@ -284,21 +285,21 @@ func TestSyncRowRoundTrip(t *testing.T) {
 	h := open(t)
 	ctx := t.Context()
 
-	_, err := h.GetSync(ctx, weave)
+	_, err := h.syncs.GetSync(ctx, weave)
 	require.ErrorIs(t, err, store.ErrNotFound)
 
-	require.NoError(t, h.EnsureSync(ctx, weave))
-	require.NoError(t, h.EnsureSync(ctx, weave))
-	sync, err := h.GetSync(ctx, weave)
+	require.NoError(t, h.syncs.EnsureSync(ctx, weave))
+	require.NoError(t, h.syncs.EnsureSync(ctx, weave))
+	sync, err := h.syncs.GetSync(ctx, weave)
 	require.NoError(t, err)
 	assert.Nil(t, sync.UpdatedThrough)
 	assert.False(t, sync.IsSweeping())
 	assert.False(t, sync.IsSwept())
 	assert.Zero(t, sync.Calls)
 
-	require.NoError(t, h.RecordSyncRequest(ctx, weave))
-	require.NoError(t, h.RecordSyncRequest(ctx, weave))
-	sync, err = h.GetSync(ctx, weave)
+	require.NoError(t, h.syncs.RecordSyncRequest(ctx, weave))
+	require.NoError(t, h.syncs.RecordSyncRequest(ctx, weave))
+	sync, err = h.syncs.GetSync(ctx, weave)
 	require.NoError(t, err)
 	assert.Equal(t, 2, sync.Calls)
 	assert.NotNil(t, sync.ReadAt)
@@ -306,18 +307,18 @@ func TestSyncRowRoundTrip(t *testing.T) {
 
 	newest := time.Date(2026, 9, 19, 10, 0, 0, 0, time.UTC)
 	listed := newest.Add(time.Minute)
-	require.NoError(t, h.StartSweep(ctx, StartSweepParams{
+	require.NoError(t, h.syncs.StartSweep(ctx, StartSweepParams{
 		RepositoryURL: weave,
 		Newest:        newest,
 		ListedAt:      listed,
 	}))
-	sync, err = h.GetSync(ctx, weave)
+	sync, err = h.syncs.GetSync(ctx, weave)
 	require.NoError(t, err)
 	require.True(t, sync.IsSweeping())
 	assert.Empty(t, *sync.SweepCursor, "page one has no cursor")
 
-	require.NoError(t, h.AdvanceSweep(ctx, weave, "c3"))
-	sync, err = h.GetSync(ctx, weave)
+	require.NoError(t, h.syncs.AdvanceSweep(ctx, weave, "c3"))
+	sync, err = h.syncs.GetSync(ctx, weave)
 	require.NoError(t, err)
 	require.True(t, sync.IsSweeping())
 	assert.Equal(t, "c3", *sync.SweepCursor)
@@ -326,8 +327,8 @@ func TestSyncRowRoundTrip(t *testing.T) {
 	assert.True(t, sync.ListedAt.Equal(listed), "listed when the caller says, not when the database does")
 	assert.Nil(t, sync.UpdatedThrough, "the mark does not move until the sweep completes")
 
-	require.NoError(t, h.CompleteSweep(ctx, weave))
-	sync, err = h.GetSync(ctx, weave)
+	require.NoError(t, h.syncs.CompleteSweep(ctx, weave))
+	sync, err = h.syncs.GetSync(ctx, weave)
 	require.NoError(t, err)
 	assert.False(t, sync.IsSweeping())
 	assert.True(t, sync.IsSwept())
@@ -335,44 +336,44 @@ func TestSyncRowRoundTrip(t *testing.T) {
 	assert.True(t, sync.UpdatedThrough.Equal(newest))
 
 	older := newest.Add(-time.Hour)
-	require.NoError(t, h.StartSweep(ctx, StartSweepParams{
+	require.NoError(t, h.syncs.StartSweep(ctx, StartSweepParams{
 		RepositoryURL: weave,
 		Newest:        older,
 		ListedAt:      listed,
 	}))
-	require.NoError(t, h.CompleteSweep(ctx, weave))
-	sync, err = h.GetSync(ctx, weave)
+	require.NoError(t, h.syncs.CompleteSweep(ctx, weave))
+	sync, err = h.syncs.GetSync(ctx, weave)
 	require.NoError(t, err)
 	assert.True(t, sync.UpdatedThrough.Equal(newest), "an older page one never regresses the mark")
 
-	require.NoError(t, h.AdvanceMark(ctx, weave, older))
-	sync, err = h.GetSync(ctx, weave)
+	require.NoError(t, h.syncs.AdvanceMark(ctx, weave, older))
+	sync, err = h.syncs.GetSync(ctx, weave)
 	require.NoError(t, err)
 	assert.True(t, sync.UpdatedThrough.Equal(newest), "an older search never regresses the mark")
 
 	later := newest.Add(time.Hour)
-	require.NoError(t, h.AdvanceMark(ctx, weave, later))
-	sync, err = h.GetSync(ctx, weave)
+	require.NoError(t, h.syncs.AdvanceMark(ctx, weave, later))
+	sync, err = h.syncs.GetSync(ctx, weave)
 	require.NoError(t, err)
 	assert.True(t, sync.UpdatedThrough.Equal(later))
 
 	relisted := later.Add(time.Hour)
-	require.NoError(t, h.MarkListed(ctx, weave, relisted))
-	sync, err = h.GetSync(ctx, weave)
+	require.NoError(t, h.syncs.MarkListed(ctx, weave, relisted))
+	sync, err = h.syncs.GetSync(ctx, weave)
 	require.NoError(t, err)
 	assert.True(t, sync.ListedAt.Equal(relisted))
 	assert.True(t, sync.UpdatedThrough.Equal(later), "a listing does not move the mark")
 
-	require.NoError(t, h.ResetSyncCalls(ctx, weave))
-	sync, err = h.GetSync(ctx, weave)
+	require.NoError(t, h.syncs.ResetSyncCalls(ctx, weave))
+	sync, err = h.syncs.GetSync(ctx, weave)
 	require.NoError(t, err)
 	assert.Zero(t, sync.Calls)
 
-	require.NoError(t, h.EnsureSync(ctx, fixture))
-	require.NoError(t, h.AdvanceSweep(ctx, fixture, "c9"))
-	require.NoError(t, h.ResetSweeps(ctx, []string{weave, fixture}))
+	require.NoError(t, h.syncs.EnsureSync(ctx, fixture))
+	require.NoError(t, h.syncs.AdvanceSweep(ctx, fixture, "c9"))
+	require.NoError(t, h.syncs.ResetSweeps(ctx, []string{weave, fixture}))
 	for _, repository := range []string{weave, fixture} {
-		sync, err = h.GetSync(ctx, repository)
+		sync, err = h.syncs.GetSync(ctx, repository)
 		require.NoError(t, err)
 		assert.False(t, sync.IsSwept(), "%s is back to a first sweep", repository)
 		assert.False(t, sync.IsSweeping())
@@ -453,23 +454,23 @@ func TestListReadRepositories(t *testing.T) {
 	h := open(t)
 	ctx := t.Context()
 
-	require.NoError(t, h.EnsureSync(ctx, weave))
-	require.NoError(t, h.EnsureSync(ctx, fixture))
-	require.NoError(t, h.RecordSyncRequest(ctx, weave))
-	require.NoError(t, h.RecordSyncRequest(ctx, fixture))
+	require.NoError(t, h.syncs.EnsureSync(ctx, weave))
+	require.NoError(t, h.syncs.EnsureSync(ctx, fixture))
+	require.NoError(t, h.syncs.RecordSyncRequest(ctx, weave))
+	require.NoError(t, h.syncs.RecordSyncRequest(ctx, fixture))
 	listed := time.Date(2026, 9, 19, 10, 0, 0, 0, time.UTC)
-	require.NoError(t, h.StartSweep(ctx, StartSweepParams{
+	require.NoError(t, h.syncs.StartSweep(ctx, StartSweepParams{
 		RepositoryURL: fixture,
 		Newest:        listed,
 		ListedAt:      listed,
 	}))
 
-	read, err := h.ListReadRepositories(ctx)
+	read, err := h.syncs.ListReadRepositories(ctx)
 	require.NoError(t, err)
 	assert.Empty(t, read, "a request alone, or a sweep in progress, is not a read")
 
-	require.NoError(t, h.CompleteSweep(ctx, fixture))
-	read, err = h.ListReadRepositories(ctx)
+	require.NoError(t, h.syncs.CompleteSweep(ctx, fixture))
+	read, err = h.syncs.ListReadRepositories(ctx)
 	require.NoError(t, err)
 	assert.Equal(t, []string{fixture}, read)
 }
@@ -513,7 +514,7 @@ func TestListStaleDecisionsAnswersOpenRowsOnLiveBranches(t *testing.T) {
 	_, err = h.Upsert(ctx, changedSince)
 	require.NoError(t, err)
 
-	stale, err := h.ListStaleDecisions(ctx, weave)
+	stale, err := h.syncs.ListStaleDecisions(ctx, weave)
 	require.NoError(t, err)
 
 	numbers := make([]int, 0, len(stale))

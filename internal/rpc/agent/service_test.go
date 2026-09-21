@@ -899,14 +899,14 @@ type fakeHolder struct {
 	held []string
 }
 
-func (f *fakeHolder) Hold(_ context.Context, agentID string) (agentstore.Agent, error) {
+func (f *fakeHolder) Hold(_ context.Context, agentID string) (*agentstore.Agent, error) {
 	f.held = append(f.held, agentID)
 
-	return agentstore.Agent{ID: agentID, Name: "held"}, nil
+	return &agentstore.Agent{ID: agentID, Name: "held"}, nil
 }
 
-func (f *fakeHolder) Release(_ context.Context, params agents.ReleaseParams) (agentstore.Agent, error) {
-	return agentstore.Agent{ID: params.AgentID}, nil
+func (f *fakeHolder) Release(_ context.Context, params agents.ReleaseParams) (*agentstore.Agent, error) {
+	return &agentstore.Agent{ID: params.AgentID}, nil
 }
 
 // TestRecordReportRefusesACallerWithNoIdentity pins that a hook that cannot say which agent it
@@ -1210,13 +1210,14 @@ func TestSendMailPastTheExchangeLimitIsResourceExhausted(t *testing.T) {
 		Config:         fakeMailConfig(1),
 	})
 	svc := agentv1weave.AgentServiceAdapter{Impl: NewAgentService(NewAgentServiceParams{
-		Agents:       st.Agents,
-		Transcripts:  st.Transcripts,
-		Mail:         mail,
-		Liveness:     &fakeLauncher{},
-		Runs:         st.Runs,
-		Marks:        markService(st),
-		PullRequests: st.PullRequests,
+		Agents:           st.Agents,
+		Transcripts:      st.Transcripts,
+		Mail:             mail,
+		Liveness:         &fakeLauncher{},
+		Runs:             st.Runs,
+		Marks:            markService(st),
+		PullRequests:     st.PullRequests,
+		PullRequestSyncs: st.PullRequestSyncs,
 	})}
 
 	alpha := st.SeedAgent(t, agentstore.Agent{
@@ -2270,19 +2271,20 @@ func serviceWithLauncher(t *testing.T) (agentv1weave.AgentServiceAdapter, *store
 	})
 
 	return agentv1weave.AgentServiceAdapter{Impl: NewAgentService(NewAgentServiceParams{
-		Agents:       st.Agents,
-		Transcripts:  st.Transcripts,
-		Mail:         mail,
-		Review:       review,
-		Runs:         st.Runs,
-		Marks:        markService(st),
-		PullRequests: st.PullRequests,
-		Creator:      launcher,
-		Adopter:      launcher,
-		Liveness:     launcher,
-		Trees:        fakeTrees{},
-		Lifecycle:    launcher,
-		Resumer:      launcher,
+		Agents:           st.Agents,
+		Transcripts:      st.Transcripts,
+		Mail:             mail,
+		Review:           review,
+		Runs:             st.Runs,
+		Marks:            markService(st),
+		PullRequests:     st.PullRequests,
+		PullRequestSyncs: st.PullRequestSyncs,
+		Creator:          launcher,
+		Adopter:          launcher,
+		Liveness:         launcher,
+		Trees:            fakeTrees{},
+		Lifecycle:        launcher,
+		Resumer:          launcher,
 	})}, st, launcher
 }
 

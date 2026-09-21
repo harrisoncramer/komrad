@@ -180,7 +180,7 @@ func TestAdoptTakesOverFromAnAgentWhoseWorktreeIsGone(t *testing.T) {
 
 	first, err := manager.adopt.Adopt(t.Context(), AdoptParams{Ref: "someones/work", WorkflowID: workflow})
 	require.NoError(t, err)
-	require.NoError(t, st.Agents.SetWorktreeRemovedByID(t.Context(), first.ID, true))
+	require.NoError(t, st.Agents.SetCheckout(t.Context(), first.ID, agentstore.SetCheckoutParams{WorktreeRemoved: true}))
 
 	second, err := manager.adopt.Adopt(t.Context(), AdoptParams{Ref: "someones/work", WorkflowID: workflow})
 	require.NoError(t, err)
