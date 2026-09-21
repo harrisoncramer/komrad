@@ -1,4 +1,4 @@
-package agents
+package reviews
 
 import (
 	"fmt"

@@ -16,9 +16,9 @@ import (
 // true of a reviewer and of any child.
 var ErrReviewNeedsOwnWork = fail.Precondition("this agent has no work of its own to have read")
 
-// liveReviewerLister reads which reviewers are still owed an answer.
-type liveReviewerLister interface {
-	ListLiveReviewers(ctx context.Context) ([]reviewstore.LiveReviewer, error)
+// liveReviewerFinder reads the reviewer still owed an answer about an agent's work.
+type liveReviewerFinder interface {
+	GetLiveReviewerOf(ctx context.Context, agentID string) (*reviewstore.LiveReviewer, error)
 }
 
 // reviewerNameSuffix is what a reviewer is called after the agent it reads, so the sidebar says
@@ -60,7 +60,7 @@ func (s *LaunchService) RequestReview(ctx context.Context, params RequestReviewP
 		return nil, "", fmt.Errorf("%w: %q is a child, writing in a checkout it does not own", ErrReviewNeedsOwnWork, author.Name)
 	}
 
-	running, err := liveReviewerFor(ctx, s.agents, s.reviews, *author)
+	running, err := s.liveReviewerFor(ctx, *author)
 	if err != nil && !errors.Is(err, ErrNoLiveReviewer) {
 		return nil, "", err
 	}
@@ -95,26 +95,16 @@ func (s *LaunchService) RequestReview(ctx context.Context, params RequestReviewP
 
 // liveReviewerFor is the reviewer an agent still has to answer to, skipping one that has
 // approved.
-func liveReviewerFor(
-	ctx context.Context,
-	agents agentGetter,
-	reviews liveReviewerLister,
-	author agentstore.Agent,
-) (*agentstore.Agent, error) {
-	live, err := reviews.ListLiveReviewers(ctx)
+func (s *LaunchService) liveReviewerFor(ctx context.Context, author agentstore.Agent) (*agentstore.Agent, error) {
+	reading, err := s.reviews.GetLiveReviewerOf(ctx, author.ID)
+	if errors.Is(err, store.ErrNotFound) {
+		return nil, fmt.Errorf("%w: %q", ErrNoLiveReviewer, author.Name)
+	}
 	if err != nil {
 		return nil, err
 	}
 
-	for _, reading := range live {
-		if reading.AgentID != author.ID {
-			continue
-		}
-
-		return agents.GetByID(ctx, reading.ReviewerID)
-	}
-
-	return nil, fmt.Errorf("%w: %q", ErrNoLiveReviewer, author.Name)
+	return s.agents.GetByID(ctx, reading.ReviewerID)
 }
 
 func reviewerTitle(title, authorName string) string {

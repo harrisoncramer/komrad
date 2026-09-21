@@ -150,7 +150,7 @@ func (s *ScriptService) env(ctx context.Context, params scriptEnvParams) ([]stri
 
 	// An agent that provisions nothing keeps the directory it was given, so its hooks must not
 	// be handed WEAVE_WORKTREE_REPO pointing at a worktree nobody made for it.
-	if workflow != nil && workflow.Worktree.Enabled && !isProvisionerDisabled(agent.ProvisionEnabled) {
+	if workflow != nil && workflow.Worktree.Enabled && !IsProvisionerDisabled(agent.ProvisionEnabled) {
 		worktreeEnv, err := s.worktreeEnv(*workflow, agent)
 		if err != nil {
 			return nil, err

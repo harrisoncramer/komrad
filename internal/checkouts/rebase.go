@@ -1,4 +1,4 @@
-package agents
+package checkouts
 
 import (
 	"context"
@@ -8,12 +8,16 @@ import (
 	"strings"
 	"time"
 
+	"weave/internal/agents"
 	"weave/internal/caller"
 	"weave/internal/fail"
 	"weave/internal/git"
 	"weave/internal/logging"
 	"weave/internal/store"
 	agentstore "weave/internal/store/agent"
+	mailstore "weave/internal/store/mail"
+	workflowstore "weave/internal/store/workflow"
+	"weave/lib/xpath"
 )
 
 var (
@@ -47,8 +51,23 @@ var (
 
 // rebaseAgentReadWriter is the slice of the agent store a rebase reads and writes.
 type rebaseAgentReadWriter interface {
-	agentGetter
+	GetByID(ctx context.Context, id string) (*agentstore.Agent, error)
 	SetSequenceInProgressByID(ctx context.Context, id string, inProgress bool) error
+}
+
+// workflowReader reads the workflow an agent belongs to.
+type workflowReader interface {
+	Get(ctx context.Context, id string) (*workflowstore.Workflow, error)
+}
+
+// agentSettler brings an agent to rest, reporting whether a turn was cut to do it.
+type agentSettler interface {
+	Settle(ctx context.Context, agent agentstore.Agent) (bool, error)
+}
+
+// systemMailSender leaves a note from weave itself in an agent's mailbox.
+type systemMailSender interface {
+	SendSystemMail(ctx context.Context, toAgentID, body string) (*mailstore.Mail, error)
 }
 
 // worktreeRebaser is the git a rebase reads the checkout through and moves the branch with.
@@ -67,7 +86,7 @@ type worktreeRebaser interface {
 type NewRebaseServiceParams struct {
 	Agents    rebaseAgentReadWriter
 	Workflows workflowReader
-	Settler   *Settler
+	Settler   agentSettler
 	Notifier  systemMailSender
 	Rebaser   worktreeRebaser
 	Locks     *TreeLocks
@@ -77,7 +96,7 @@ type NewRebaseServiceParams struct {
 type RebaseService struct {
 	agents    rebaseAgentReadWriter
 	workflows workflowReader
-	settler   *Settler
+	settler   agentSettler
 	notifier  systemMailSender
 	rebaser   worktreeRebaser
 	locks     *TreeLocks
@@ -453,7 +472,7 @@ func (s *RebaseService) eligible(ctx context.Context, agentID string) (*agentsto
 	if agent.ParentAgentID != nil {
 		return nil, fmt.Errorf("%w: it runs in its parent's checkout", ErrRebaseNoWorktree)
 	}
-	if isProvisionerDisabled(agent.ProvisionEnabled) {
+	if agents.IsProvisionerDisabled(agent.ProvisionEnabled) {
 		return nil, fmt.Errorf("%w: it was told to keep the directory it was given", ErrRebaseNoWorktree)
 	}
 	if agent.Cwd == "" || agent.WorktreeRemoved {
@@ -475,18 +494,18 @@ func (s *RebaseService) eligible(ctx context.Context, agentID string) (*agentsto
 func (s *RebaseService) read(ctx context.Context, agentID string) (*agentstore.Agent, error) {
 	agent, err := s.agents.GetByID(ctx, agentID)
 	if errors.Is(err, store.ErrNotFound) {
-		return nil, ErrAgentNotFound.Saying("no agent with id %q", agentID)
+		return nil, agents.ErrAgentNotFound.Saying("no agent with id %q", agentID)
 	}
 	if err != nil {
 		return nil, err
 	}
 
 	if agent.ArchivedAt != nil {
-		return nil, fmt.Errorf("%w: %q", ErrAgentArchived, agent.Name)
+		return nil, fmt.Errorf("%w: %q", agents.ErrAgentArchived, agent.Name)
 	}
 
 	if agent.HeldAt != nil {
-		return nil, ErrAgentHeld.Saying("%q is paused, unpause it first", agent.Name)
+		return nil, agents.ErrAgentHeld.Saying("%q is paused, unpause it first", agent.Name)
 	}
 
 	return agent, nil
@@ -510,7 +529,7 @@ func (s *RebaseService) refuseTheCaller(ctx context.Context, agent agentstore.Ag
 	if err != nil {
 		return fmt.Errorf("failed to read the agent asking to rebase %q: %w", agent.Name, err)
 	}
-	if asker.Cwd == "" || !isSameDir(asker.Cwd, agent.Cwd) {
+	if asker.Cwd == "" || !xpath.IsSameDir(asker.Cwd, agent.Cwd) {
 		return nil
 	}
 

@@ -10,8 +10,8 @@ import (
 	"weave/internal/mail"
 
 	"weave/config"
-	"weave/internal/agents"
 	"weave/internal/caller"
+	"weave/internal/reviews"
 	agentstore "weave/internal/store/agent"
 	reviewstore "weave/internal/store/review"
 	"weave/internal/storetest"
@@ -25,7 +25,7 @@ import (
 // TestListReviewThreadsAnswersTheCallerItHas covers the identity being read off the call rather
 // than assumed.
 func TestListReviewThreadsAnswersTheCallerItHas(t *testing.T) {
-	svc, st, reviews := reviewService(t)
+	svc, st, rounds := reviewService(t)
 	worker := st.SeedAgent(t, agentstore.Agent{
 		Name:  "worker",
 		Cwd:   "/repo",
@@ -61,7 +61,7 @@ func TestListReviewThreadsAnswersTheCallerItHas(t *testing.T) {
 	}))
 	require.NoError(t, err)
 
-	_, err = reviews.CreateRound(asHuman, reviewstore.CreateRoundParams{
+	_, err = rounds.CreateRound(asHuman, reviewstore.CreateRoundParams{
 		AgentID:     worker.ID,
 		BaseSHA:     "base-sha",
 		SnapshotSHA: "moved-on",
@@ -112,18 +112,18 @@ func reviewServiceOver(t *testing.T, trees fakeTrees) (agentv1weave.AgentService
 	t.Helper()
 
 	st := storetest.Open(t)
-	reviews := reviewstore.New(st.Pool.GetDB())
+	rounds := reviewstore.New(st.Pool.GetDB())
 	mailer := mail.NewMailService(mail.NewMailServiceParams{
 		MailReadWriter: st.Mail,
 		Agents:         st.Agents,
 		Config:         fakeMailConfig(config.DefaultMaxExchange),
 	})
-	review := agents.NewReviewService(agents.NewReviewServiceParams{
-		Threads:   reviews,
-		Messages:  reviews,
-		Viewed:    reviews,
-		Rounds:    reviews,
-		Reviews:   reviews,
+	review := reviews.NewReviewService(reviews.NewReviewServiceParams{
+		Threads:   rounds,
+		Messages:  rounds,
+		Viewed:    rounds,
+		Rounds:    rounds,
+		Reviews:   rounds,
 		Snapshots: fakeSnapshotter{},
 		Workflows: st.Workflows,
 		StateDir:  t.TempDir(),
@@ -140,7 +140,7 @@ func reviewServiceOver(t *testing.T, trees fakeTrees) (agentv1weave.AgentService
 		Review:   review,
 		Marks:    markService(st),
 		Liveness: liveness,
-	})}, st, reviews
+	})}, st, rounds
 }
 
 // fakeSnapshotter stands in for git, these tests being about who the handler thinks is calling

@@ -3,9 +3,9 @@ package agent
 import (
 	"context"
 
-	"weave/internal/agents"
 	"weave/internal/caller"
 	"weave/internal/fail"
+	"weave/internal/reviews"
 	"weave/internal/rpcerr"
 	reviewstore "weave/internal/store/review"
 	"weave/lib/dates"
@@ -15,19 +15,19 @@ import (
 type reviewConversation interface {
 	ListReviewThreads(
 		ctx context.Context,
-		params agents.ListReviewThreadsParams,
-	) ([]agents.ReviewThreadWithMessages, error)
-	CreateReviewThread(ctx context.Context, params agents.CreateReviewThreadParams) (*agents.ReviewThreadWithMessages, error)
-	AddReviewMessage(ctx context.Context, params agents.AddReviewMessageParams) (*reviewstore.Message, error)
-	EditReviewMessage(ctx context.Context, params agents.EditReviewMessageParams) (*reviewstore.Message, error)
-	MarkReviewThreadRead(ctx context.Context, params agents.MarkReviewThreadReadParams) (*reviewstore.Thread, error)
-	SetReviewThreadResolved(ctx context.Context, params agents.SetReviewThreadResolvedParams) (*reviewstore.Thread, error)
-	OpenRound(ctx context.Context, agentID string, author agents.ReviewAuthor) (*reviewstore.Round, error)
-	ListRounds(ctx context.Context, agentID string, author agents.ReviewAuthor) ([]reviewstore.Round, error)
-	ListReviews(ctx context.Context, agentID string, author agents.ReviewAuthor) ([]reviewstore.Review, error)
-	ReleaseReview(ctx context.Context, params agents.ReleaseReviewParams) (*agents.ReleaseReviewResult, error)
-	SetReviewFileViewed(ctx context.Context, params agents.SetReviewFileViewedParams) (*reviewstore.ViewedFile, error)
-	ListReviewViewedFiles(ctx context.Context, params agents.ListReviewViewedFilesParams) ([]reviewstore.ViewedFile, error)
+		params reviews.ListReviewThreadsParams,
+	) ([]reviews.ReviewThreadWithMessages, error)
+	CreateReviewThread(ctx context.Context, params reviews.CreateReviewThreadParams) (*reviews.ReviewThreadWithMessages, error)
+	AddReviewMessage(ctx context.Context, params reviews.AddReviewMessageParams) (*reviewstore.Message, error)
+	EditReviewMessage(ctx context.Context, params reviews.EditReviewMessageParams) (*reviewstore.Message, error)
+	MarkReviewThreadRead(ctx context.Context, params reviews.MarkReviewThreadReadParams) (*reviewstore.Thread, error)
+	SetReviewThreadResolved(ctx context.Context, params reviews.SetReviewThreadResolvedParams) (*reviewstore.Thread, error)
+	OpenRound(ctx context.Context, agentID string, author reviews.ReviewAuthor) (*reviewstore.Round, error)
+	ListRounds(ctx context.Context, agentID string, author reviews.ReviewAuthor) ([]reviewstore.Round, error)
+	ListReviews(ctx context.Context, agentID string, author reviews.ReviewAuthor) ([]reviewstore.Review, error)
+	ReleaseReview(ctx context.Context, params reviews.ReleaseReviewParams) (*reviews.ReleaseReviewResult, error)
+	SetReviewFileViewed(ctx context.Context, params reviews.SetReviewFileViewedParams) (*reviewstore.ViewedFile, error)
+	ListReviewViewedFiles(ctx context.Context, params reviews.ListReviewViewedFilesParams) ([]reviewstore.ViewedFile, error)
 }
 
 // errUnnamedReview is a request to read a review without saying whose, from something that is
@@ -46,7 +46,7 @@ func (s *AgentService) ListReviewThreads(ctx context.Context, req *agentv1.ListR
 		return nil, errUnnamedReview
 	}
 
-	threads, err := s.review.ListReviewThreads(ctx, agents.ListReviewThreadsParams{
+	threads, err := s.review.ListReviewThreads(ctx, reviews.ListReviewThreadsParams{
 		AgentID: agentID,
 		Author:  author,
 	})
@@ -64,7 +64,7 @@ func (s *AgentService) ListReviewThreads(ctx context.Context, req *agentv1.ListR
 
 // CreateReviewThread pins a conversation to a place in a diff and writes its first message.
 func (s *AgentService) CreateReviewThread(ctx context.Context, req *agentv1.CreateReviewThreadRequest) (*agentv1.CreateReviewThreadResponse, *fail.Error) {
-	thread, err := s.review.CreateReviewThread(ctx, agents.CreateReviewThreadParams{
+	thread, err := s.review.CreateReviewThread(ctx, reviews.CreateReviewThreadParams{
 		AgentID:     req.GetAgentId(),
 		BaseSHA:     req.GetBaseSha(),
 		SnapshotSHA: req.GetSnapshotSha(),
@@ -87,7 +87,7 @@ func (s *AgentService) CreateReviewThread(ctx context.Context, req *agentv1.Crea
 
 // AddReviewMessage says something in an existing thread, as whoever is calling.
 func (s *AgentService) AddReviewMessage(ctx context.Context, req *agentv1.AddReviewMessageRequest) (*agentv1.AddReviewMessageResponse, *fail.Error) {
-	message, err := s.review.AddReviewMessage(ctx, agents.AddReviewMessageParams{
+	message, err := s.review.AddReviewMessage(ctx, reviews.AddReviewMessageParams{
 		ThreadID:   req.GetThreadId(),
 		Body:       req.GetBody(),
 		Suggestion: req.GetSuggestion(),
@@ -102,7 +102,7 @@ func (s *AgentService) AddReviewMessage(ctx context.Context, req *agentv1.AddRev
 
 // EditReviewMessage rewrites what was said.
 func (s *AgentService) EditReviewMessage(ctx context.Context, req *agentv1.EditReviewMessageRequest) (*agentv1.EditReviewMessageResponse, *fail.Error) {
-	message, err := s.review.EditReviewMessage(ctx, agents.EditReviewMessageParams{
+	message, err := s.review.EditReviewMessage(ctx, reviews.EditReviewMessageParams{
 		ID:         req.GetId(),
 		Body:       req.GetBody(),
 		Suggestion: req.GetSuggestion(),
@@ -117,7 +117,7 @@ func (s *AgentService) EditReviewMessage(ctx context.Context, req *agentv1.EditR
 
 // MarkReviewThreadRead catches the calling side up on one conversation.
 func (s *AgentService) MarkReviewThreadRead(ctx context.Context, req *agentv1.MarkReviewThreadReadRequest) (*agentv1.MarkReviewThreadReadResponse, *fail.Error) {
-	thread, err := s.review.MarkReviewThreadRead(ctx, agents.MarkReviewThreadReadParams{
+	thread, err := s.review.MarkReviewThreadRead(ctx, reviews.MarkReviewThreadReadParams{
 		ID:     req.GetId(),
 		Author: reviewAuthorFrom(ctx),
 	})
@@ -126,13 +126,13 @@ func (s *AgentService) MarkReviewThreadRead(ctx context.Context, req *agentv1.Ma
 	}
 
 	return &agentv1.MarkReviewThreadReadResponse{
-		Thread: renderReviewThread(agents.ReviewThreadWithMessages{Thread: *thread}),
+		Thread: renderReviewThread(reviews.ReviewThreadWithMessages{Thread: *thread}),
 	}, nil
 }
 
 // SetReviewThreadResolved settles one conversation, or reopens it.
 func (s *AgentService) SetReviewThreadResolved(ctx context.Context, req *agentv1.SetReviewThreadResolvedRequest) (*agentv1.SetReviewThreadResolvedResponse, *fail.Error) {
-	thread, err := s.review.SetReviewThreadResolved(ctx, agents.SetReviewThreadResolvedParams{
+	thread, err := s.review.SetReviewThreadResolved(ctx, reviews.SetReviewThreadResolvedParams{
 		ID:       req.GetId(),
 		Resolved: req.GetResolved(),
 		Author:   reviewAuthorFrom(ctx),
@@ -142,7 +142,7 @@ func (s *AgentService) SetReviewThreadResolved(ctx context.Context, req *agentv1
 	}
 
 	return &agentv1.SetReviewThreadResolvedResponse{
-		Thread: renderReviewThread(agents.ReviewThreadWithMessages{Thread: *thread}),
+		Thread: renderReviewThread(reviews.ReviewThreadWithMessages{Thread: *thread}),
 	}, nil
 }
 
@@ -188,7 +188,7 @@ func (s *AgentService) ListReviews(ctx context.Context, req *agentv1.ListReviews
 
 // ReleaseReview releases the caller's open review, writing it out and mailing the path.
 func (s *AgentService) ReleaseReview(ctx context.Context, req *agentv1.ReleaseReviewRequest) (*agentv1.ReleaseReviewResponse, *fail.Error) {
-	result, err := s.review.ReleaseReview(ctx, agents.ReleaseReviewParams{
+	result, err := s.review.ReleaseReview(ctx, reviews.ReleaseReviewParams{
 		AgentID:   req.GetAgentId(),
 		Verdict:   fromReviewVerdict(req.GetVerdict()),
 		Body:      req.GetBody(),
@@ -208,7 +208,7 @@ func (s *AgentService) ReleaseReview(ctx context.Context, req *agentv1.ReleaseRe
 
 // SetReviewFileViewed marks one file of a diff read, or drops the mark.
 func (s *AgentService) SetReviewFileViewed(ctx context.Context, req *agentv1.SetReviewFileViewedRequest) (*agentv1.SetReviewFileViewedResponse, *fail.Error) {
-	viewed, err := s.review.SetReviewFileViewed(ctx, agents.SetReviewFileViewedParams{
+	viewed, err := s.review.SetReviewFileViewed(ctx, reviews.SetReviewFileViewedParams{
 		AgentID:     req.GetAgentId(),
 		FilePath:    req.GetFilePath(),
 		Fingerprint: req.GetFingerprint(),
@@ -229,7 +229,7 @@ func (s *AgentService) SetReviewFileViewed(ctx context.Context, req *agentv1.Set
 
 // ListReviewViewedFiles reads which files of an agent's diff have been marked read.
 func (s *AgentService) ListReviewViewedFiles(ctx context.Context, req *agentv1.ListReviewViewedFilesRequest) (*agentv1.ListReviewViewedFilesResponse, *fail.Error) {
-	files, err := s.review.ListReviewViewedFiles(ctx, agents.ListReviewViewedFilesParams{
+	files, err := s.review.ListReviewViewedFiles(ctx, reviews.ListReviewViewedFilesParams{
 		AgentID: req.GetAgentId(),
 		Author:  reviewAuthorFrom(ctx),
 	})
@@ -247,18 +247,18 @@ func (s *AgentService) ListReviewViewedFiles(ctx context.Context, req *agentv1.L
 
 // reviewAuthorFrom reads who a call belongs to from the identity on it, so an agent cannot post
 // as the reviewer by asking to.
-func reviewAuthorFrom(ctx context.Context) agents.ReviewAuthor {
+func reviewAuthorFrom(ctx context.Context) reviews.ReviewAuthor {
 	from := caller.From(ctx)
 	if from.AgentID == "" {
-		return agents.ReviewAuthor{Kind: reviewstore.AuthorHuman}
+		return reviews.ReviewAuthor{Kind: reviewstore.AuthorHuman}
 	}
 
 	agentID := from.AgentID
 
-	return agents.ReviewAuthor{Kind: reviewstore.AuthorAgent, AgentID: &agentID}
+	return reviews.ReviewAuthor{Kind: reviewstore.AuthorAgent, AgentID: &agentID}
 }
 
-func renderReviewThread(thread agents.ReviewThreadWithMessages) *agentv1.ReviewThread {
+func renderReviewThread(thread reviews.ReviewThreadWithMessages) *agentv1.ReviewThread {
 	answered := &agentv1.ReviewThread{
 		Id:            thread.Thread.ID,
 		AgentId:       thread.Thread.AgentID,

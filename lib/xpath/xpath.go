@@ -1,9 +1,10 @@
-package agents
+// Package xpath holds small filesystem path helpers.
+package xpath
 
 import "path/filepath"
 
-// isSameDir compares two paths as the filesystem sees them.
-func isSameDir(a, b string) bool {
+// IsSameDir compares two paths as the filesystem sees them.
+func IsSameDir(a, b string) bool {
 	if a == b {
 		return true
 	}

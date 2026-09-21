@@ -1,4 +1,4 @@
-package agents
+package reviews
 
 import (
 	"context"
@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"weave/internal/agents"
 	"weave/internal/fail"
 	"weave/internal/logging"
 	"weave/internal/mail"
@@ -15,6 +16,7 @@ import (
 	agentstore "weave/internal/store/agent"
 	mailstore "weave/internal/store/mail"
 	reviewstore "weave/internal/store/review"
+	workflowstore "weave/internal/store/workflow"
 )
 
 // interruptSettleFor is how long the agent is given to act on the interrupt keys before the
@@ -59,6 +61,16 @@ type reviewViewedFileReadWriter interface {
 	MarkFileViewed(ctx context.Context, params reviewstore.MarkFileViewedParams) (*reviewstore.ViewedFile, error)
 	UnmarkFileViewed(ctx context.Context, roundID, filePath string) error
 	ListViewedFiles(ctx context.Context, roundID string) ([]reviewstore.ViewedFile, error)
+}
+
+// agentGetter reads one agent by id.
+type agentGetter interface {
+	GetByID(ctx context.Context, id string) (*agentstore.Agent, error)
+}
+
+// workflowGetter reads the workflow an agent belongs to.
+type workflowGetter interface {
+	Get(ctx context.Context, id string) (*workflowstore.Workflow, error)
 }
 
 // reviewerResumer puts a reviewer back in a pane, so a dormant one is not left with mail
@@ -397,7 +409,7 @@ func (s *ReviewService) AddReviewMessage(
 
 // resumeWakeTimeout bounds a wake nobody is waiting on, so a post-resume hook that hangs cannot
 // leave one running for the life of the panel.
-const resumeWakeTimeout = hookTimeout + 5*time.Minute
+const resumeWakeTimeout = agents.HookTimeout + 5*time.Minute
 
 // wakeTheReviewer puts a reviewer back in a pane, on its own so the workflow's post-resume hook
 // does not hold up the agent writing the answer.
@@ -411,7 +423,7 @@ func (s *ReviewService) wakeTheReviewer(ctx context.Context, reviewer agentstore
 
 	// Answers written at once each ask for the same reviewer, and the claim inside the resume is
 	// what makes that one window rather than three.
-	if _, err := s.resumer.ResumeAgent(ctx, reviewer.ID); err != nil && !errors.Is(err, ErrResumeInFlight) {
+	if _, err := s.resumer.ResumeAgent(ctx, reviewer.ID); err != nil && !errors.Is(err, agents.ErrResumeInFlight) {
 		logging.From(ctx).LogAttrs(ctx, slog.LevelError, "failed to put a reviewer back in a pane to be told about an answer",
 			append([]slog.Attr{slog.String(logging.AgentID, reviewer.ID)}, logging.Err(err)...)...)
 	}
@@ -498,8 +510,8 @@ func (s *ReviewService) takeReviewerNotice(authorID string, generation uint64) b
 // logging and returning an error for anything other than the ordinary case of no reviewer left
 // to tell.
 func (s *ReviewService) sendReviewerNotice(ctx context.Context, author agentstore.Agent) (*agentstore.Agent, error) {
-	reviewer, err := liveReviewerFor(ctx, s.agents, s.reviews, author)
-	if errors.Is(err, ErrNoLiveReviewer) {
+	reviewer, err := s.liveReviewerFor(ctx, author)
+	if errors.Is(err, agents.ErrNoLiveReviewer) {
 		return nil, err
 	}
 	if err != nil {
@@ -522,6 +534,20 @@ func (s *ReviewService) sendReviewerNotice(ctx context.Context, author agentstor
 	}
 
 	return reviewer, nil
+}
+
+// liveReviewerFor is the reviewer an agent still has to answer to, skipping one that has
+// approved.
+func (s *ReviewService) liveReviewerFor(ctx context.Context, author agentstore.Agent) (*agentstore.Agent, error) {
+	reading, err := s.reviews.GetLiveReviewerOf(ctx, author.ID)
+	if errors.Is(err, store.ErrNotFound) {
+		return nil, fmt.Errorf("%w: %q", agents.ErrNoLiveReviewer, author.Name)
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	return s.agents.GetByID(ctx, reading.ReviewerID)
 }
 
 // answerNotice is the notice a reviewer gets, which says where to look rather than what was

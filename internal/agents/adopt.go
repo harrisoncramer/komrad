@@ -13,6 +13,7 @@ import (
 	"weave/internal/git"
 	"weave/internal/store"
 	agentstore "weave/internal/store/agent"
+	"weave/lib/xpath"
 	"weave/lib/xptr"
 	"weave/lib/xstr"
 )
@@ -144,7 +145,7 @@ func (s *AdoptService) Adopt(ctx context.Context, params AdoptParams) (*agentsto
 
 	switch {
 	case trees.holder == "":
-	case isSameDir(trees.holder, trees.main):
+	case xpath.IsSameDir(trees.holder, trees.main):
 		return nil, fmt.Errorf("%w: %s is checked out in %s, which is the workflow's own checkout", ErrAdoptBranchInUse, branch, trees.main)
 	case !doesDirExist(trees.holder):
 		// Git still has the registration but the directory is gone, so a worktree of this agent's
@@ -206,7 +207,7 @@ func (s *AdoptService) agentIn(ctx context.Context, dir string) (*agentstore.Age
 	}
 
 	for _, agent := range agents {
-		if agent.Cwd != "" && isSameDir(agent.Cwd, dir) {
+		if agent.Cwd != "" && xpath.IsSameDir(agent.Cwd, dir) {
 			return &agent, nil
 		}
 	}

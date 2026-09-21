@@ -826,6 +826,23 @@ func TestLiveReviewersReportWorkBeingRead(t *testing.T) {
 	assert.Empty(t, tallies, "nothing has been released of the work yet")
 }
 
+// TestGetLiveReviewerOfPicksOutOneAgent pins that the reviewer comes back for the agent it
+// reads and nobody else.
+func TestGetLiveReviewerOfPicksOutOneAgent(t *testing.T) {
+	st := open(t)
+	ctx := t.Context()
+	agentID := seedAgent(t, st)
+	reviewer := seedReviewerChild(t, st, agentID)
+	unread := seedAgentNamed(t, st, "unread")
+
+	got, err := st.GetLiveReviewerOf(ctx, agentID)
+	require.NoError(t, err)
+	assert.Equal(t, &LiveReviewer{AgentID: agentID, ReviewerID: reviewer}, got)
+
+	_, err = st.GetLiveReviewerOf(ctx, unread)
+	require.ErrorIs(t, err, store.ErrNotFound)
+}
+
 // TestLiveReviewersStopAtAnApproval pins the end of the loop: an approval is the last thing a
 // reviewer says, so the work is no longer owed an answer.
 func TestLiveReviewersStopAtAnApproval(t *testing.T) {

@@ -16,7 +16,6 @@ import (
 	"weave/internal/harness"
 	"weave/internal/scripts"
 	agentstore "weave/internal/store/agent"
-	mailstore "weave/internal/store/mail"
 	workflowstore "weave/internal/store/workflow"
 )
 
@@ -68,11 +67,6 @@ type (
 
 type agentGetter interface {
 	GetByID(ctx context.Context, id string) (*agentstore.Agent, error)
-}
-
-// workflowGetter reads the workflow an agent belongs to.
-type workflowGetter interface {
-	Get(ctx context.Context, id string) (*workflowstore.Workflow, error)
 }
 
 type nameChecker interface {
@@ -142,10 +136,6 @@ type agentScriptRunner interface {
 	RunResume(ctx context.Context, agent agentstore.Agent, name string) (string, error)
 	RunDeprovision(ctx context.Context, agent agentstore.Agent, name string, done func(error)) error
 	RunHook(ctx context.Context, agent agentstore.Agent, name, event string) error
-}
-
-type systemMailSender interface {
-	SendSystemMail(ctx context.Context, toAgentID, body string) (*mailstore.Mail, error)
 }
 
 func isPaneOwnedBy(owner, agentID string) bool {
@@ -264,7 +254,7 @@ func startRestoreHooks(ctx context.Context, scripts agentScriptRunner, workflows
 // agentHooks are the hooks a workflow lists for one of its agents, none for an agent working in
 // a directory somebody else prepared.
 func agentHooks(ctx context.Context, workflows workflowReader, agent agentstore.Agent) []workflowstore.Hook {
-	if agent.ParentAgentID != nil || isProvisionerDisabled(agent.ProvisionEnabled) {
+	if agent.ParentAgentID != nil || IsProvisionerDisabled(agent.ProvisionEnabled) {
 		return nil
 	}
 
@@ -301,15 +291,15 @@ func runDeprovision(ctx context.Context, deprovision agentScriptRunner, agent ag
 	}
 }
 
-// isProvisionerDisabled reports whether an agent has been told to keep the directory it was
+// IsProvisionerDisabled reports whether an agent has been told to keep the directory it was
 // given rather than be provisioned one.
-func isProvisionerDisabled(override *bool) bool {
+func IsProvisionerDisabled(override *bool) bool {
 	return override != nil && !*override
 }
 
 // doesProvisionWorktree reports whether an agent's directory is weave's to make.
 func doesProvisionWorktree(ctx context.Context, workflows workflowReader, agent agentstore.Agent) bool {
-	if isProvisionerDisabled(agent.ProvisionEnabled) {
+	if IsProvisionerDisabled(agent.ProvisionEnabled) {
 		return false
 	}
 

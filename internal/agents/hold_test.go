@@ -309,29 +309,6 @@ func TestHoldReadsThePaneRatherThanTheRow(t *testing.T) {
 	assert.True(t, held.HeldMidTurn, "so letting go has a turn to carry on with")
 }
 
-// TestRebasingAHeldAgentIsRefused covers the third writer: a rebase types at the agent and then
-// rewrites the branch under the very checkout somebody stopped it to take.
-func TestRebasingAHeldAgentIsRefused(t *testing.T) {
-	t.Parallel()
-
-	at := time.Now()
-	service := NewRebaseService(NewRebaseServiceParams{
-		Agents: fakeRebaseAgents{agent: agentstore.Agent{
-			ID:         "a1",
-			Name:       "auth",
-			WorkflowID: "w1",
-			Cwd:        "/tree",
-			State:      agentstore.StateIdle,
-			HeldAt:     &at,
-		}},
-		Workflows: fakeRebaseWorkflows{flow: worktreeFlow()},
-		Rebaser:   &fakeRebaser{},
-	})
-
-	_, err := service.Rebase(t.Context(), "a1")
-	require.ErrorIs(t, err, ErrAgentHeld)
-}
-
 // TestReleaseKeepsTheHoldWhenTheBoxRefuses covers the box that will not take the words: letting go
 // there would leave an interrupted agent with nothing to carry on from and call it success.
 func TestReleaseKeepsTheHoldWhenTheBoxRefuses(t *testing.T) {

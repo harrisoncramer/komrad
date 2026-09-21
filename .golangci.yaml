@@ -144,9 +144,11 @@ linters:
         domain:
           files:
             - "**/internal/agents/**"
+            - "**/internal/checkouts/**"
             - "**/internal/mail/**"
             - "**/internal/marks/**"
             - "**/internal/pullrequests/**"
+            - "**/internal/reviews/**"
             - "**/internal/schedules/**"
             - "**/internal/transcripts/**"
           deny:

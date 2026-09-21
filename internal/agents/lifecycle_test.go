@@ -751,7 +751,7 @@ func TestDeletingAnAgentLeavesAnotherAgentsRoundHeld(t *testing.T) {
 
 	require.NoError(t, manager.lifecycle.DeleteAgents(t.Context(), []string{going}))
 
-	assert.Equal(t, []string{roundRef(going, "same-sha")}, manager.snapshots.releasedRefs(),
+	assert.Equal(t, []string{reviewstore.RoundRef(going, "same-sha")}, manager.snapshots.releasedRefs(),
 		"only the going agent's round is let go of, since the other's ref names the other agent")
 }
 

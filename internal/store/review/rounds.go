@@ -23,6 +23,11 @@ const (
 	VerdictCommented Verdict = Verdict(models.ReviewVerdictCommented)
 )
 
+// RoundRef is the ref a round's snapshot is held by.
+func RoundRef(agentID, snapshotSHA string) string {
+	return "refs/weave/rounds/" + agentID + "/" + snapshotSHA
+}
+
 // Round is one frozen snapshot of what an agent has written, which every review and comment
 // is anchored to.
 type Round struct {
@@ -472,4 +477,21 @@ func (s *Store) ListLiveReviewers(ctx context.Context) ([]LiveReviewer, error) {
 	}
 
 	return live, nil
+}
+
+// GetLiveReviewerOf is the reviewer still owed an answer about one agent's work, ErrNotFound when
+// it has none.
+func (s *Store) GetLiveReviewerOf(ctx context.Context, agentID string) (*LiveReviewer, error) {
+	live, err := s.ListLiveReviewers(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, reading := range live {
+		if reading.AgentID == agentID {
+			return &reading, nil
+		}
+	}
+
+	return nil, fmt.Errorf("%w: no reviewer is reading %q", store.ErrNotFound, agentID)
 }

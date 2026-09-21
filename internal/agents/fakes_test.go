@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 	"sync"
@@ -959,6 +961,16 @@ func worktreeConfig(t *testing.T, name string) workflowstore.Config {
 		Cwd:      fakeCheckout(t),
 		Worktree: workflowstore.WorktreeConfig{Enabled: true},
 	}
+}
+
+// fakeCheckout is a directory that reads as a primary checkout.
+func fakeCheckout(t *testing.T) string {
+	t.Helper()
+
+	dir := t.TempDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, ".git"), 0o755))
+
+	return dir
 }
 
 // mustRegistry is a registry of the harnesses a test names, which every caller here

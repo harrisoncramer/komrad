@@ -7,6 +7,7 @@ import (
 
 	"weave/config"
 	"weave/internal/agents"
+	"weave/internal/checkouts"
 	"weave/internal/forge"
 	"weave/internal/forge/forges"
 	"weave/internal/frames"
@@ -15,6 +16,7 @@ import (
 	"weave/internal/mail"
 	"weave/internal/marks"
 	"weave/internal/pullrequests"
+	"weave/internal/reviews"
 	"weave/internal/schedules"
 	"weave/internal/scripts"
 	"weave/internal/transcripts"
@@ -25,7 +27,7 @@ type services struct {
 	loadConfig      func() (*config.Config, error)
 	script          *agents.ScriptService
 	mail            *mail.MailService
-	review          *agents.ReviewService
+	review          *reviews.ReviewService
 	schedule        *schedules.ScheduleService
 	liveness        *agents.PaneLiveness
 	rows            *agents.RowReader
@@ -40,8 +42,8 @@ type services struct {
 	reconciler      *agents.Reconciler
 	marks           *marks.MarkService
 	holder          *agents.Holder
-	rebase          *agents.RebaseService
-	cwdSync         *agents.CwdSyncer
+	rebase          *checkouts.RebaseService
+	cwdSync         *checkouts.CwdSyncer
 	transcriptSync  *transcripts.TranscriptSyncer
 	forge           *forge.ForgeService
 	pullRequestSync *pullrequests.PullRequestSyncer
@@ -130,7 +132,7 @@ func buildServices(params NewServerParams, st *stores) (*services, error) {
 		Scripts:            scriptService,
 		FallbackResumeRoot: params.FallbackResumeRoot,
 	})
-	reviewService := agents.NewReviewService(agents.NewReviewServiceParams{
+	reviewService := reviews.NewReviewService(reviews.NewReviewServiceParams{
 		Threads:   st.review,
 		Messages:  st.review,
 		Viewed:    st.review,
@@ -152,7 +154,7 @@ func buildServices(params NewServerParams, st *stores) (*services, error) {
 		Channel:  paneChannel,
 		Observer: paneChannel,
 	})
-	rebaseService := agents.NewRebaseService(agents.NewRebaseServiceParams{
+	rebaseService := checkouts.NewRebaseService(checkouts.NewRebaseServiceParams{
 		Agents:    st.agents,
 		Workflows: st.workflows,
 		Settler:   settler,
@@ -223,7 +225,7 @@ func buildServices(params NewServerParams, st *stores) (*services, error) {
 		Syncs:        st.pullRequestSyncs,
 		Tx:           st.pool,
 	})
-	cwdSyncer := agents.NewCwdSyncer(agents.NewCwdSyncerParams{
+	cwdSyncer := checkouts.NewCwdSyncer(checkouts.NewCwdSyncerParams{
 		Agents:  st.agents,
 		Heads:   git.NewClient(),
 		Trees:   git.NewClient(),

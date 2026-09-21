@@ -63,7 +63,7 @@ type launchAgentReadWriter interface {
 type LaunchService struct {
 	tmux               paneController
 	agents             launchAgentReadWriter
-	reviews            liveReviewerLister
+	reviews            liveReviewerFinder
 	workflows          workflowReader
 	tx                 txRunner
 	launcher           *Launcher
@@ -78,7 +78,7 @@ type LaunchService struct {
 type NewLaunchServiceParams struct {
 	Tmux               paneController
 	Agents             launchAgentReadWriter
-	Reviews            liveReviewerLister
+	Reviews            liveReviewerFinder
 	Workflows          workflowReader
 	Tx                 txRunner
 	Launcher           *Launcher
@@ -310,7 +310,7 @@ func (s *LaunchService) planLaunch(ctx context.Context, params NewAgentParams) (
 
 	// The worktree is weave's own, so an agent gets the built-in pair or nothing at all.
 	provisioner, deprovisioner := "", ""
-	provisions := wf.Worktree.Enabled && !isProvisionerDisabled(params.ProvisionEnabled)
+	provisions := wf.Worktree.Enabled && !IsProvisionerDisabled(params.ProvisionEnabled)
 	if provisions {
 		provisioner, deprovisioner = worktreeProvisioner, worktreeDeprovisioner
 	}
@@ -318,7 +318,7 @@ func (s *LaunchService) planLaunch(ctx context.Context, params NewAgentParams) (
 	// The hooks a workflow lists are read only for the agents that own their own directory, and a
 	// child or an agent told to keep the directory it was given was handed somebody else's.
 	hooks := wf.Hooks
-	if params.ParentAgentID != "" || isProvisionerDisabled(params.ProvisionEnabled) {
+	if params.ParentAgentID != "" || IsProvisionerDisabled(params.ProvisionEnabled) {
 		hooks = nil
 	}
 
