@@ -284,8 +284,7 @@ func (m model) detailsHelp() keyMap {
 	}
 }
 
-// detailsFilter is the record's own search, which keeps its cursor on the field it was on as
-// the pattern changes under it.
+// detailsFilter is the record's rows as the search drives them.
 type detailsFilter struct{}
 
 var _ filtered = detailsFilter{}
