@@ -81,7 +81,7 @@ func TestAgentRowsHidden(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			m := hiddenTree()
-			m.tree.showHidden = tt.showHidden
+			m.agents.showHidden = tt.showHidden
 
 			rows := m.agentRows()
 			assert.Equal(t, tt.wantRows, describeRows(rows))
@@ -95,12 +95,12 @@ func TestAgentRowsHidden(t *testing.T) {
 // TestToggleHiddenAgentsKeepsTheCursor pins that the cursor follows the agent it was on.
 func TestToggleHiddenAgentsKeepsTheCursor(t *testing.T) {
 	m := hiddenTree()
-	m.tree.cursor = 3
+	m.agents.cursor = 3
 
 	shown, _ := m.toggleHiddenAgents()
 	revealed, ok := shown.(model)
 	require.True(t, ok)
-	require.True(t, revealed.tree.showHidden)
+	require.True(t, revealed.agents.showHidden)
 
 	hovered, ok := revealed.selectedAgent()
 	require.True(t, ok)
@@ -139,8 +139,8 @@ func TestHiddenHelpIsOneLine(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			m := hiddenTree()
-			m.tree.showHidden = tt.showHidden
-			m.tree.cursor = tt.cursor
+			m.agents.showHidden = tt.showHidden
+			m.agents.cursor = tt.cursor
 			m.helpExpanded = true
 
 			got := ansi.Strip(m.renderHelp(m.agentHelp()))
@@ -163,7 +163,7 @@ func TestAgentsViewHidden(t *testing.T) {
 	assert.NotContains(t, away, "chore")
 	assert.Contains(t, away, "+2")
 
-	m.tree.showHidden = true
+	m.agents.showHidden = true
 	shown := m.agentsView()
 	assert.Contains(t, shown, "chore")
 	assert.NotContains(t, shown, "+2")

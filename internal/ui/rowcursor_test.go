@@ -101,7 +101,7 @@ func TestRowCursorStartsBlinkingOnItsOwn(t *testing.T) {
 func TestRowCursorTimerFlipsThePhase(t *testing.T) {
 	m := detailsModel(&recordingTmux{})
 	m.rowCursor = newRowCursor()
-	m.tree.cursor = 0
+	m.agents.cursor = 0
 
 	next, cmd := m.Update(keyMsg("j"))
 	shown, ok := next.(model)

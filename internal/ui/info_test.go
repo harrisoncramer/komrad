@@ -296,6 +296,6 @@ func infoModel(tmux *recordingTmux) model {
 				Cwd:        "/repo",
 				WorkflowID: "w1",
 			}, alive: true},
-		}}, tree: treeState{rowCursor: rowCursor{cursor: 1}},
+		}}, agents: agentsScreen{rowCursor: rowCursor{cursor: 1}},
 	}
 }

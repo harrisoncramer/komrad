@@ -26,7 +26,7 @@ func TestEditorKeyOpensTheFieldUnderTheCursor(t *testing.T) {
 		WorktreeDiffExclude:  "proto/gen",
 	}
 
-	opened, _ := m.openWorkflowConfigForm(&values, nil)
+	opened := m.openWorkflowConfigForm(&values, nil)
 	m = asModel(t, opened)
 	m.form.form.NextField()
 
@@ -64,7 +64,7 @@ func TestEditorKeyIsHandedOnByAFieldWithNoText(t *testing.T) {
 	m.settings.Editor = "true"
 
 	name := ""
-	opened, _ := m.openRenameForm(panel.Agent{ID: "a1", Name: "api"}, &name)
+	opened := m.openRenameForm(panel.Agent{ID: "a1", Name: "api"}, &name)
 	m = asModel(t, opened)
 
 	_, _, taken := m.openFormFieldEditor()
@@ -104,7 +104,7 @@ func TestEditorKeyOnEitherProvisioner(t *testing.T) {
 
 			values := workflowFormValues{Provisioner: tt.provisioner, Context: "the notes"}
 
-			opened, _ := m.openWorkflowConfigForm(&values, nil)
+			opened := m.openWorkflowConfigForm(&values, nil)
 			m = asModel(t, opened)
 
 			written, _ := m.Update(formFieldEditedMsg{

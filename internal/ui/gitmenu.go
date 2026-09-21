@@ -29,22 +29,17 @@ var (
 )
 
 // openGitMenu draws the git actions beside the list, for the agent the cursor is on.
-func (m model) openGitMenu() (tea.Model, tea.Cmd) {
-	item, ok := m.selectedAgent()
-	if !ok {
-		return m, nil
-	}
-
+func openGitMenu(h host, s panelShared, item agentItem) tea.Cmd {
 	agent := item.agent
 	form, choice := gitMenuForm(gitMenu{
 		name:           agent.Name,
-		rebaseable:     m.listing.isRebaseable(agent),
+		rebaseable:     s.listing.isRebaseable(agent),
 		hasPullRequest: item.pullRequest.url != "",
-	}, m.keys.Git, formKeys())
+	}, s.keys.Git, formKeys())
 
 	agentID := agent.ID
 
-	return m, m.openForm(formState{
+	return h.openForm(formState{
 		kind:   formGit,
 		form:   form,
 		update: func(m model, msg tea.Msg) (tea.Model, tea.Cmd) { return m.updateGitMenu(msg, choice) },
@@ -143,7 +138,7 @@ func (m model) updateGitMenu(msg tea.Msg, choice *gitChoice) (tea.Model, tea.Cmd
 // runGitChoice does what the entry asked for, or says why this agent is not one to ask it of.
 func (m model) runGitChoice(agentID string, choice gitChoice) (model, tea.Cmd) {
 	// The list may have moved under the open menu.
-	item, ok := m.liveAgent(agentID)
+	item, ok := m.listing.liveAgent(agentID)
 	if !ok {
 		m.report("Could not act on the agent", errAgentGone)
 

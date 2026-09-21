@@ -216,7 +216,7 @@ type model struct {
 	messages      messagesState
 	detailsHeight float64
 	listing       listing
-	tree          treeState
+	agents        agentsScreen
 	runHover      hoverState
 	schedules     schedulesScreen
 	archive       archiveScreen
@@ -229,7 +229,6 @@ type model struct {
 	filter       filterState
 	rowCursor    cursor.Model
 	column       columnState
-	marks        markState
 	form         formState
 	held         heldWrite
 	// detached holds the writes a person escaped out of, which land without taking the screen to

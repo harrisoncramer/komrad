@@ -266,7 +266,7 @@ func TestTerminalRefusesAMissingDirectory(t *testing.T) {
 func TestTerminalDoesNothingWithoutAnAgent(t *testing.T) {
 	tmux := &recordingTmux{}
 	m, _ := terminalModel(t, tmux)
-	m.tree = treeState{}
+	m.agents = agentsScreen{}
 
 	shown := pressTerminal(t, m)
 

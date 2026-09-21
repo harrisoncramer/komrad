@@ -93,7 +93,7 @@ func TestRunsReadNeedsTheRunLogUpAndReadForASecond(t *testing.T) {
 
 			m, tmux := failedRunTree()
 			m.info.kind = tt.kind
-			m.tree.cursor = tt.cursor
+			m.agents.cursor = tt.cursor
 			if tt.hidden {
 				tmux.sessionClient = ""
 			}
@@ -117,7 +117,7 @@ func TestOpeningTheRunLogLandsOnTheRunThatFailed(t *testing.T) {
 	m, _ := failedRunTree()
 	m.settings.RunLogsDir = logsDir
 	m.listing.agents[0].failedRunLog = xptr.Ptr(int32(1))
-	m.tree.cursor = 1
+	m.agents.cursor = 1
 
 	assert.Equal(t, 1, m.runAt("a1", xptr.Ptr(int32(1))), "the failed run is one back from the newest")
 	assert.Equal(t, 0, m.runAt("a1", xptr.Ptr(int32(2))))
@@ -144,12 +144,12 @@ func TestTheRunLogFollowsTheCursorOntoTheFailedRun(t *testing.T) {
 	m.info.kind = infoRunLog
 
 	// The pane was opened on the unmarked agent, so it sits on that agent's newest run.
-	m.tree.cursor = 2
+	m.agents.cursor = 2
 	m, _ = m.dwellRunsRead(at)
 	require.Equal(t, 0, m.info.run)
 
 	// The cursor reaches the agent that failed, whose newest run is the one that went fine.
-	m.tree.cursor = 1
+	m.agents.cursor = 1
 	m, cmd := m.dwellRunsRead(at.Add(time.Second))
 
 	assert.Nil(t, cmd, "the tick it arrived on claims nothing")
@@ -225,7 +225,7 @@ func TestRunPositionNamesWhichRunIsOnScreen(t *testing.T) {
 
 			m, _ := failedRunTree()
 			m.settings.RunLogsDir = logsDir
-			m.tree.cursor = 1
+			m.agents.cursor = 1
 			m.info.run = tt.back
 
 			assert.Equal(t, tt.want, m.runPosition())
@@ -240,14 +240,14 @@ func TestRunsReadRestartsWhenTheCursorMoves(t *testing.T) {
 
 	m, _ := failedRunTree()
 	m.info.kind = infoRunLog
-	m.tree.cursor = 1
+	m.agents.cursor = 1
 
 	m, _ = m.dwellRunsRead(at)
 
 	// The cursor lands on the unmarked row and comes back, which restarts the hold.
-	m.tree.cursor = 2
+	m.agents.cursor = 2
 	m, _ = m.dwellRunsRead(at.Add(viewedDwell / 2))
-	m.tree.cursor = 1
+	m.agents.cursor = 1
 
 	m, cmd := m.dwellRunsRead(at.Add(viewedDwell))
 	assert.Nil(t, cmd, "the pane only just came back to the row that failed")

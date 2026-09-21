@@ -132,7 +132,7 @@ func TestOlderLogIsInertWithoutARunToStepTo(t *testing.T) {
 func TestCycleLogsDoesNothingWithoutASelectedAgent(t *testing.T) {
 	tmux := &recordingTmux{}
 	m, _ := logsModel(t, tmux)
-	m.tree = treeState{}
+	m.agents = agentsScreen{}
 
 	shown := pressLogs(t, m)
 
@@ -203,7 +203,7 @@ func TestRunLogContentPagesTheDurableFile(t *testing.T) {
 func TestRunLogContentWithNoAgentSelected(t *testing.T) {
 	tmux := &recordingTmux{}
 	m, _ := logsModel(t, tmux)
-	m.tree = treeState{}
+	m.agents = agentsScreen{}
 
 	content := m.runLogContent()
 
@@ -433,7 +433,8 @@ func TestAgentLogRespawnsOnACursorMove(t *testing.T) {
 	require.Equal(t, []string{"%2"}, tmux.respawnPanes)
 	require.Contains(t, tmux.respawns[0], "WEAVE_AGENT_ID='a1'")
 
-	moved, _ := agentsList().move(m, 1)
+	moved := m
+	moved.agents.list().move(&moved, moved.shared(), 1)
 	agent, ok := moved.logTarget()
 	require.True(t, ok)
 	require.Equal(t, "a2", agent.ID, "the cursor has to have landed on the other agent for this to mean anything")

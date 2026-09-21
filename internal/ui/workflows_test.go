@@ -120,7 +120,7 @@ func TestHoveredWorkflow(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			m.tree.cursor = tt.cursor
+			m.agents.cursor = tt.cursor
 
 			workflow, ok := m.hoveredWorkflow()
 			require.Equal(t, tt.wantOK, ok)
@@ -403,9 +403,7 @@ func TestWorkflowRenameKeepsTheRestOfTheConfig(t *testing.T) {
 
 	values := workflowFormValues{Name: "backend"}
 
-	opened, _ := m.openWorkflowRename(m.listing.workflows[0], &values)
-	renaming, ok := opened.(model)
-	require.True(t, ok)
+	renaming := m.openWorkflowRename(m.listing.workflows[0], &values)
 
 	updated, cmd := renaming.answerForm()
 	submitted, ok := updated.(model)

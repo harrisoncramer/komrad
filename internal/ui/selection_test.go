@@ -123,10 +123,10 @@ func TestToggleSelection(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			m := selectionTree()
-			m.tree.cursor = tt.cursor
-			m.tree.selected = selectAgents(tt.start...)
+			m.agents.cursor = tt.cursor
+			m.agents.selected = selectAgents(tt.start...)
 
-			assert.Equal(t, tt.want, selectedIDs(press(t, m, keyMsg("v")).tree.selected))
+			assert.Equal(t, tt.want, selectedIDs(press(t, m, keyMsg("v")).agents.selected))
 		})
 	}
 }
@@ -136,11 +136,11 @@ func TestToggleSelection(t *testing.T) {
 func TestToggleSelectionEmptyFolder(t *testing.T) {
 	m := selectionTree()
 	m.listing.workflows = append(m.listing.workflows, panel.Workflow{ID: "w3", Name: "chores"})
-	m.tree.cursor = len(m.agentRows()) - 1
+	m.agents.cursor = len(m.agentRows()) - 1
 
 	after := press(t, m, keyMsg("v"))
-	assert.Empty(t, selectedIDs(after.tree.selected))
-	assert.False(t, after.tree.selected.isActive())
+	assert.Empty(t, selectedIDs(after.agents.selected))
+	assert.False(t, after.agents.selected.isActive())
 }
 
 // TestSelectRange covers the key that takes in everything between the cursor and the nearest
@@ -197,10 +197,10 @@ func TestSelectRange(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			m := selectionTree()
-			m.tree.cursor = tt.cursor
-			m.tree.selected = selectAgents(tt.start...)
+			m.agents.cursor = tt.cursor
+			m.agents.selected = selectAgents(tt.start...)
 
-			assert.Equal(t, tt.want, selectedIDs(press(t, m, keyMsg("V")).tree.selected))
+			assert.Equal(t, tt.want, selectedIDs(press(t, m, keyMsg("V")).agents.selected))
 		})
 	}
 }
@@ -209,19 +209,19 @@ func TestSelectRange(t *testing.T) {
 // about a set of agents do nothing and the clear key is the way out.
 func TestSelectionKeysStandDown(t *testing.T) {
 	m := selectionTree()
-	m.tree.cursor = 1
-	m.tree.selected = selectAgents([]string{"a1"}...)
+	m.agents.cursor = 1
+	m.agents.selected = selectAgents([]string{"a1"}...)
 
 	renamed := press(t, m, keyMsg("r"))
 	assert.Equal(t, screenAgents, renamed.screen, "rename does not open its form")
 	assert.False(t, renamed.form.isActive())
 
 	moved := press(t, m, keyMsg("j"))
-	assert.Equal(t, 2, moved.tree.cursor, "the cursor still moves")
+	assert.Equal(t, 2, moved.agents.cursor, "the cursor still moves")
 
 	cleared := press(t, m, keyMsg("esc"))
-	assert.Empty(t, selectedIDs(cleared.tree.selected))
-	assert.False(t, cleared.tree.selected.isActive())
+	assert.Empty(t, selectedIDs(cleared.agents.selected))
+	assert.False(t, cleared.agents.selected.isActive())
 }
 
 // TestPruneSelection covers a selected agent losing its row, which would otherwise hold the
@@ -229,8 +229,8 @@ func TestSelectionKeysStandDown(t *testing.T) {
 func TestPruneSelection(t *testing.T) {
 	t.Run("an agent gone from the listing drops", func(t *testing.T) {
 		m := selectionTree()
-		m.tree.placed = true
-		m.tree.selected = selectAgents([]string{"a1", "a4"}...)
+		m.agents.placed = true
+		m.agents.selected = selectAgents([]string{"a1", "a4"}...)
 
 		m.applyAgents([]agentItem{{agent: panel.Agent{
 			ID:         "a4",
@@ -239,16 +239,16 @@ func TestPruneSelection(t *testing.T) {
 		}}})
 		m.placeTreeCursor("")
 
-		assert.Equal(t, []string{"a4"}, selectedIDs(m.tree.selected))
+		assert.Equal(t, []string{"a4"}, selectedIDs(m.agents.selected))
 	})
 
 	t.Run("so does one the hidden toggle puts away", func(t *testing.T) {
 		m := selectionTree()
-		m.tree.showHidden = true
-		m.tree.selected = selectAgents([]string{"a1", "a5"}...)
+		m.agents.showHidden = true
+		m.agents.selected = selectAgents([]string{"a1", "a5"}...)
 
 		away := press(t, m, keyMsg("H"))
-		assert.Equal(t, []string{"a1"}, selectedIDs(away.tree.selected))
+		assert.Equal(t, []string{"a1"}, selectedIDs(away.agents.selected))
 	})
 }
 
@@ -299,7 +299,7 @@ func TestArchiveSelection(t *testing.T) {
 
 		after := pressArchive(t, m, keyMsg("v"))
 		assert.Equal(t, []string{"a2"}, selectedIDs(after.archive.selected))
-		assert.Empty(t, selectedIDs(after.tree.selected), "the agents tree is left alone")
+		assert.Empty(t, selectedIDs(after.agents.selected), "the agents tree is left alone")
 	})
 
 	t.Run("a header takes its whole folder", func(t *testing.T) {
@@ -477,8 +477,8 @@ func TestArchiveSelectionFromTheTree(t *testing.T) {
 			m := selectionTree()
 			m.frame = layout.New(stage, config.DefaultLayout())
 			m.api = api{agents: agents}
-			m.tree.cursor = tt.cursor
-			m.tree.selected = selectAgents(tt.selected...)
+			m.agents.cursor = tt.cursor
+			m.agents.selected = selectAgents(tt.selected...)
 
 			for i := range m.listing.agents {
 				m.listing.agents[i].agent.Pane = "%" + m.listing.agents[i].agent.ID
@@ -500,7 +500,7 @@ func TestArchiveSelectionFromTheTree(t *testing.T) {
 
 			after, ok := next.(model)
 			require.True(t, ok)
-			assert.Equal(t, tt.selected, selectedIDs(after.tree.selected),
+			assert.Equal(t, tt.selected, selectedIDs(after.agents.selected),
 				"the rows come off the selection on the next listing rather than on the keypress")
 		})
 	}
@@ -525,7 +525,7 @@ func TestSelectionKeepsItsBarWhileAFormHasTheKeys(t *testing.T) {
 
 	m := selectionTree()
 	m.width = rowPaneWidth
-	m.tree.selected = selectAgents([]string{"a2"}...)
+	m.agents.selected = selectAgents([]string{"a2"}...)
 
 	require.True(t, m.isListFocused(), "the list has the keys to begin with")
 	require.Contains(t, line(t, m.agentsView(), "api"), paint.BackgroundSequence(paint.SelectionBackground))

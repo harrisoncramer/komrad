@@ -7,46 +7,55 @@ import (
 	"weave/config"
 	"weave/internal/ui/panel"
 	"weave/internal/view"
+	agentv1 "weave/proto/gen/agent/v1"
 
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-func agentsList() listSpec[agentRow] {
-	return listSpec[agentRow]{
-		cursor: func(m *model) *rowCursor { return &m.tree.rowCursor },
-		rows:   model.agentRows,
+// enter lands on the agent the target names, showing it if it is hidden, or comes back to the
+// list as it stands.
+func (a *agentsScreen) enter(h host, s panelShared, target screenTarget) tea.Cmd { //nolint:unparam // the door's shape
+	if target.agentID != "" {
+		a.revealAgent(s, target.agentID)
+	} else {
+		a.cursor = clampCursor(a.cursor, len(a.rows(s)))
+	}
+
+	h.stageSelection()
+
+	return nil
+}
+
+func (a *agentsScreen) update(h host, s panelShared, msg tea.Msg) tea.Cmd {
+	key, ok := msg.(tea.KeyMsg)
+	if !ok {
+		return nil
+	}
+
+	return a.list().update(h, s, key, a.actions())
+}
+
+func (a *agentsScreen) list() screenList[agentRow] {
+	return screenList[agentRow]{
+		cursor: func() *rowCursor { return &a.rowCursor },
+		rows:   a.rows,
 		name:   agentRowName,
 		refs:   refsOf,
 		header: "folder",
-		placed: (*model).stageSelection,
-		moved:  model.deferStaging,
+		placed: a.stage,
+		moved:  func(h host, _ panelShared) tea.Cmd { return h.waitToStage() },
 		quit:   func(k config.Keybindings) []string { return k.Agents.Quit },
 		back:   func(k config.Keybindings) []string { return k.Agents.Back },
 	}
 }
 
-func agentsChrome() listChrome {
-	return listChrome{
-		title: screenTitle(view.GlyphWorkflow, "Agents & Workflows"),
-		help:  model.agentHelp,
-	}
+// stage puts the pane of whatever the cursor is standing on beside the list.
+func (a *agentsScreen) stage(h host, _ panelShared) {
+	h.stageSelection()
 }
 
-func (m model) updateAgents(key tea.KeyMsg) (tea.Model, tea.Cmd) {
-	return agentsList().update(m, key, agentsActions())
-}
-
-func (m model) withSelectedAgent(fn func(agentItem) (tea.Model, tea.Cmd)) (tea.Model, tea.Cmd) {
-	item, ok := m.selectedAgent()
-	if !ok {
-		return m, nil
-	}
-
-	return fn(item)
-}
-
-func (m model) archiveAgentsConfirm(agents []panel.Agent) (tea.Model, tea.Cmd) {
-	return m, confirmArchiveAgents(&m, m.liveAgents(), agents)
+func (a *agentsScreen) archiveChosen(h host, s panelShared, _ string) tea.Cmd {
+	return confirmArchiveAgents(h, s.listing.liveAgents(), chosenAgents(a.selected, a.rows(s)))
 }
 
 func (m model) archiveAgents(agents []panel.Agent) (model, tea.Cmd) {
@@ -85,63 +94,61 @@ func (m model) archiveAndDeleteAgents(agents []panel.Agent) (model, tea.Cmd) {
 
 // openHovered attaches to whatever the cursor is on, which for a workflow is the orchestrator
 // standing behind it.
-func (m model) openHovered() (tea.Model, tea.Cmd) {
-	if workflow, ok := m.hoveredWorkflow(); ok {
-		return m.startOrchestrator(workflow)
+func (a *agentsScreen) openHovered(h host, s panelShared) tea.Cmd {
+	if workflow, ok := a.hoveredWorkflow(s); ok {
+		return startOrchestrator(h, workflow)
 	}
 
-	return m.openAgent()
+	return a.openAgent(h, s)
 }
 
-func (m model) openAgent() (tea.Model, tea.Cmd) {
-	return m.withSelectedAgent(func(item agentItem) (tea.Model, tea.Cmd) {
-		if !item.alive && !item.agent.State.DoesPaneDecide() {
-			return m, nil
+func (a *agentsScreen) openAgent(h host, s panelShared) tea.Cmd {
+	item, ok := a.selectedAgent(s)
+	if !ok {
+		return nil
+	}
+
+	if !item.alive && !item.agent.State.DoesPaneDecide() {
+		return nil
+	}
+
+	if item.alive {
+		if item.agent.HeldAt == nil {
+			h.selectGuest(item.agent.Pane)
 		}
 
-		if item.alive {
-			if item.agent.HeldAt != nil {
-				return m, nil
-			}
+		return nil
+	}
 
-			if pane := m.frame.GuestPane(); pane != "" && pane == item.agent.Pane {
-				m.tmux.SelectPane(pane)
-			}
-
-			return m, nil
-		}
-
-		return m, m.resumeCmd(resumeParams{
-			summary: fmt.Sprintf("Could not resume agent %q", item.agent.Name),
-			id:      item.agent.ID,
-		})
+	return h.openingWriteCmd(fmt.Sprintf("Could not resume agent %q", item.agent.Name), func(c api) (*agentv1.Agent, error) {
+		return c.resumeAgent(item.agent.ID)
 	})
 }
 
-func (m model) toggleHiddenAgents() (tea.Model, tea.Cmd) {
-	selected := rowKeyAt(m.agentRows(), m.tree.cursor)
+func (a *agentsScreen) toggleHidden(h host, s panelShared, _ string) tea.Cmd {
+	selected := a.list().hovered(s)
 
-	m.tree.showHidden = !m.tree.showHidden
+	a.showHidden = !a.showHidden
 
-	rows := m.agentRows()
+	rows := a.rows(s)
 	if idx := rowIndexOfKey(rows, selected); idx >= 0 {
-		m.tree.cursor = idx
+		a.cursor = idx
 	} else {
-		m.tree.cursor = clampCursor(m.tree.cursor, len(rows))
+		a.cursor = clampCursor(a.cursor, len(rows))
 	}
-	m.tree.selected = m.tree.selected.pruned(refsOf(m.agentRows()))
-	m.stageSelection()
+	a.selected = a.selected.pruned(refsOf(a.rows(s)))
+	a.stage(h, s)
 
-	return m, nil
+	return nil
 }
 
-func (m model) hideAgent(agent panel.Agent) (tea.Model, tea.Cmd) {
+func hideAgent(h host, agent panel.Agent) tea.Cmd {
 	failure := fmt.Sprintf("Could not hide agent %q", agent.Name)
 	if agent.Hidden {
 		failure = fmt.Sprintf("Could not unhide agent %q", agent.Name)
 	}
 
-	return m, m.writeCmd(failure, func(a api) error { return a.setHidden(agent, !agent.Hidden) })
+	return h.writeCmd(failure, func(a api) error { return a.setHidden(agent, !agent.Hidden) })
 }
 
 // unpauseSaid is what an unpaused agent is told.
@@ -149,21 +156,21 @@ const unpauseSaid = "I paused you for a moment and have let you go now. " +
 	"Look at your worktree as it stands before carrying on. It may have changed while you were paused."
 
 // pauseAgent stops the agent where it stands, or starts one already paused.
-func (m model) pauseAgent(agent panel.Agent) (tea.Model, tea.Cmd) {
+func pauseAgent(h host, agent panel.Agent) tea.Cmd {
 	if agent.HeldAt != nil {
-		return m, m.releaseCmd(fmt.Sprintf("Could not unpause agent %q", agent.Name), agent, unpauseSaid)
+		return h.releaseCmd(fmt.Sprintf("Could not unpause agent %q", agent.Name), agent, unpauseSaid)
 	}
 
-	return m, m.writeCmd(fmt.Sprintf("Could not pause agent %q", agent.Name), func(a api) error {
+	return h.writeCmd(fmt.Sprintf("Could not pause agent %q", agent.Name), func(a api) error {
 		return a.hold(agent)
 	})
 }
 
 // releaseInSilenceConfirm lets an agent go without typing at it.
-func (m model) releaseInSilenceConfirm(agent panel.Agent) (tea.Model, tea.Cmd) {
+func releaseInSilenceConfirm(h host, agent panel.Agent) tea.Cmd {
 	form, confirmed := releaseInSilenceForm(agent.Name, formKeys())
 
-	return m, m.openForm(formState{
+	return h.openForm(formState{
 		kind:   formAgentRelease,
 		form:   form,
 		update: model.updateForm,
@@ -177,8 +184,8 @@ func (m model) releaseInSilenceConfirm(agent panel.Agent) (tea.Model, tea.Cmd) {
 	})
 }
 
-func (m model) agentsDetails() details {
-	r, ok := rowAt(m.agentRows(), m.tree.cursor)
+func (a *agentsScreen) details(s panelShared) details {
+	r, ok := a.hoveredRow(s)
 	if !ok {
 		return details{}
 	}
@@ -186,14 +193,14 @@ func (m model) agentsDetails() details {
 	if r.header {
 		return details{
 			id:     r.workflow.ID,
-			fields: workflowFields(r.workflow, m.agentCount(r.workflow.ID)),
+			fields: workflowFields(r.workflow, s.listing.agentCount(r.workflow.ID)),
 		}
 	}
 
 	return details{
 		id:      r.item.agent.ID,
 		notices: agentNotices(r),
-		fields:  agentDetailFields(m.shared(), r.item),
+		fields:  agentDetailFields(s, r.item),
 	}
 }
 
@@ -214,30 +221,6 @@ func agentDetailFields(s panelShared, item agentItem) []recordField {
 	})
 }
 
-// agentsColumn is what stands where a running agent's own pane would.
-func agentsColumn() columnSpec {
-	return columnSpec{
-		floor: columnFloor,
-		doc:   model.agentDoc,
-		holds: model.hasNoAgentPane,
-	}
-}
-
-// hasNoAgentPane reports whether the row the cursor is on has no pane of its own.
-func (m model) hasNoAgentPane() bool {
-	r, ok := rowAt(m.agentRows(), m.tree.cursor)
-	if !ok {
-		return true
-	}
-
-	item, held := r.paneItem()
-	if !held {
-		return true
-	}
-
-	return !hasPane(item)
-}
-
 // hasPane reports whether an agent has a pane of its own worth putting in the window.
 func hasPane(item agentItem) bool {
 	return item.alive &&
@@ -246,14 +229,14 @@ func hasPane(item agentItem) bool {
 		!item.agent.State.IsFailed()
 }
 
-// agentDoc is the markdown drawn beside the list for a row with no pane of its own.
-func (m model) agentDoc() string {
-	r, ok := rowAt(m.agentRows(), m.tree.cursor)
+// doc is the markdown drawn beside the list for a row with no pane of its own.
+func (a *agentsScreen) doc(s panelShared) string {
+	r, ok := a.hoveredRow(s)
 	item, held := r.paneItem()
 
 	switch {
 	case !ok:
-		return m.noAgentsMarkdown()
+		return noAgentsMarkdown(s.keys)
 	case r.header && !held:
 		return workflowContextMarkdown(r.workflow)
 	case item.agent.State == panel.StateSettingUp:
@@ -261,7 +244,7 @@ func (m model) agentDoc() string {
 	case item.agent.HeldAt != nil:
 		return heldPlaceholder
 	case item.agent.State.IsFailed():
-		return failedPlaceholder(m.shared(), item.agent)
+		return failedPlaceholder(s, item.agent)
 	default:
 		return dormantPlaceholder
 	}
@@ -301,10 +284,10 @@ const dormantPlaceholder = "_dormant — not running_\n\nPress open to resume."
 
 const heldPlaceholder = "_paused_\n\nPress unpause to let it carry on, or unpause in silence to let it go without typing at it."
 
-func (m model) noAgentsMarkdown() string {
+func noAgentsMarkdown(keys config.Keybindings) string {
 	key := "w"
-	if len(m.keys.Workflows.New) > 0 {
-		key = m.keys.Workflows.New[0]
+	if len(keys.Workflows.New) > 0 {
+		key = keys.Workflows.New[0]
 	}
 
 	return fmt.Sprintf("# Agents\n\n_nothing here yet_\n\nPress %q to make a workflow and an agent in it.\n", key)
@@ -342,10 +325,11 @@ func failedPlaceholder(s panelShared, agent panel.Agent) string {
 	return fmt.Sprintf("_%s failed_\n\n%s", label, reason)
 }
 
-func (m model) agentsView() string {
-	m.tree.rows = m.buildAgentRows()
+func (a *agentsScreen) view(s panelShared) string {
+	a.drawn = a.buildRows(s)
+	defer func() { a.drawn = nil }()
 
-	return m.columnView(model.agentsListView)
+	return s.draw.columnListView(a.listParams(s))
 }
 
 func agentsTabs() tabStrip {
@@ -358,29 +342,35 @@ func agentsTabs() tabStrip {
 	}
 }
 
-func (m model) agentsListView() string {
-	return m.listView(listViewParams{
-		chrome:   agentsChrome(),
-		rows:     len(m.agentRows()),
-		snapshot: model.agentsSnapshot,
-	})
+func (a *agentsScreen) listParams(s panelShared) screenListParams {
+	return screenListParams{
+		title:    screenTitle(view.GlyphWorkflow, "Agents & Workflows"),
+		help:     a.help,
+		column:   "the notes",
+		rows:     len(a.rows(s)),
+		snapshot: func(pane listPane) view.Snapshot { return a.snapshot(s, pane) },
+	}
 }
 
-func (m model) agentsSnapshot(pane int) view.Snapshot {
-	rows := m.agentRows()
+func (a *agentsScreen) help(s panelShared) keyMap {
+	return a.actions().help(s)
+}
+
+func (a *agentsScreen) snapshot(s panelShared, pane listPane) view.Snapshot {
+	rows := a.rows(s)
 
 	return agentsSnapshot(snapshotParams{
 		rows:          rows,
-		marks:         m.listing.marks,
-		selected:      m.tree.selected,
-		scheduled:     m.listing.scheduledWorkflows(),
-		focused:       rowKeyAt(rows, m.tree.cursor),
-		caret:         m.caretOf(sectionList),
-		barBlinkedOut: m.rowCursor.Blink,
-		matcher:       m.filter.pattern,
-		showHidden:    m.tree.showHidden,
-		flat:          m.tree.sort.flat,
-		pane:          pane,
+		marks:         s.listing.marks,
+		selected:      a.selected,
+		scheduled:     s.listing.scheduledWorkflows(),
+		focused:       rowKeyAt(rows, a.cursor),
+		caret:         pane.caret,
+		barBlinkedOut: pane.blinkedOut,
+		matcher:       s.chrome.filter.pattern,
+		showHidden:    a.showHidden,
+		flat:          a.sort.flat,
+		pane:          pane.width,
 	})
 }
 
@@ -395,8 +385,8 @@ func (l listing) scheduledWorkflows() map[string]bool {
 }
 
 // startOrchestrator brings the workflow's orchestrator back and puts the keyboard in its pane.
-func (m model) startOrchestrator(workflow panel.Workflow) (tea.Model, tea.Cmd) {
-	return m, m.rowWriteCmd(
+func startOrchestrator(h host, workflow panel.Workflow) tea.Cmd {
+	return h.rowWriteCmd(
 		fmt.Sprintf("Could not reach the orchestrator of workflow %q", workflow.Name),
 		func(a api) (written, error) {
 			agent, err := a.startOrchestrator(workflow.ID)
@@ -416,91 +406,97 @@ func (m model) startOrchestrator(workflow panel.Workflow) (tea.Model, tea.Cmd) {
 	)
 }
 
-// agentsScreen is the agents screen behind the panel's one door.
-type agentsScreen struct{}
+// agentsAdapter is the agents screen behind the panel's one door.
+type agentsAdapter struct{}
 
 var (
-	_ detailed = agentsScreen{}
-	_ filtered = agentsScreen{}
-	_ tabbed   = agentsScreen{}
-	_ columned = agentsScreen{}
-	_ staged   = agentsScreen{}
+	_ detailed = agentsAdapter{}
+	_ filtered = agentsAdapter{}
+	_ tabbed   = agentsAdapter{}
+	_ columned = agentsAdapter{}
+	_ staged   = agentsAdapter{}
 )
 
-func (agentsScreen) update(m model, msg tea.Msg) (tea.Model, tea.Cmd) {
-	return onKey(m, msg, model.updateAgents)
+func (agentsAdapter) update(m model, msg tea.Msg) (tea.Model, tea.Cmd) {
+	cmd := m.agents.update(&m, m.shared(), msg)
+
+	return m, cmd
 }
 
-func (agentsScreen) view(m model) string {
-	return m.agentsView()
+func (agentsAdapter) view(m model) string {
+	return m.agents.view(m.shared())
 }
 
-func (agentsScreen) needs() screenNeeds {
+func (agentsAdapter) needs() screenNeeds {
 	return screenNeeds{fromListing: true}
 }
 
-// open lands on the agent the target names, showing it if it is hidden, or comes back to the
-// list as it stands.
-func (agentsScreen) open(m model, target screenTarget) (tea.Model, tea.Cmd) {
-	if target.agentID == "" {
-		return m.returnToAgents()
-	}
-
+func (agentsAdapter) open(m model, target screenTarget) (tea.Model, tea.Cmd) {
 	m.enterScreen(screenAgents)
-	m.revealAgent(target.agentID)
-	m.stageSelection()
+	cmd := m.agents.enter(&m, m.shared(), target)
 
-	return m, nil
+	return m, cmd
 }
 
-func (agentsScreen) takesEveryKey(model) bool {
+func (agentsAdapter) takesEveryKey(model) bool {
 	return false
 }
 
-func (agentsScreen) details(m model) details {
-	return m.agentsDetails()
+func (agentsAdapter) details(m model) details {
+	return m.agents.details(m.shared())
 }
 
-func (agentsScreen) detailsQuit(keys config.Keybindings) []string {
+func (agentsAdapter) detailsQuit(keys config.Keybindings) []string {
 	return keys.Agents.Quit
 }
 
-func (agentsScreen) detailsFit(m model) bool {
-	return agentsChrome().doesFitDetails(m)
+func (agentsAdapter) detailsFit(m model) bool {
+	s := m.shared()
+
+	return s.draw.listFitsDetails(m.agents.listParams(s))
 }
 
-func (agentsScreen) detailsRoom(m model) int {
-	return agentsChrome().detailsRoom(m)
+func (agentsAdapter) detailsRoom(m model) int {
+	s := m.shared()
+
+	return s.draw.listRecordRoom(m.agents.listParams(s))
 }
 
-func (agentsScreen) hoveredKey(m model) string {
-	return agentsList().hovered(m)
+func (agentsAdapter) hoveredKey(m model) string {
+	return m.agents.list().hovered(m.shared())
 }
 
-func (agentsScreen) placeAt(m *model, key string) {
-	agentsList().place(m, key)
+func (agentsAdapter) placeAt(m *model, key string) {
+	m.agents.list().place(m, m.shared(), key)
 }
 
-func (agentsScreen) filterRows(m model) []filterRow {
-	return agentsList().filterRows(m)
+func (agentsAdapter) filterRows(m model) []filterRow {
+	return m.agents.list().filterRows(m.shared())
 }
 
-func (agentsScreen) tabs() tabStrip {
+func (agentsAdapter) tabs() tabStrip {
 	return agentsTabs()
 }
 
-func (agentsScreen) tabsState(m *model) *tabsState {
-	return &m.tree.sort
+func (agentsAdapter) tabsState(m *model) *tabsState {
+	return &m.agents.sort
 }
 
-func (agentsScreen) tabsFit(m model) bool {
-	return agentsChrome().doesFitTabs(m)
+func (agentsAdapter) tabsFit(m model) bool {
+	s := m.shared()
+
+	return s.draw.listFitsTabs(m.agents.listParams(s))
 }
 
-func (agentsScreen) column() columnSpec {
-	return agentsColumn()
+func (agentsAdapter) column() columnSpec {
+	return columnSpec{
+		floor: columnFloor,
+		doc:   func(m model) string { return m.agents.doc(m.shared()) },
+		// The block's width is what this decides, so it is asked before the column is measured.
+		holds: func(m model) bool { return m.agents.hasNoAgentPane(m.unmeasured()) },
+	}
 }
 
-func (agentsScreen) stage(m *model) {
-	m.stageSelection()
+func (agentsAdapter) stage(m *model) {
+	m.agents.stage(m, m.shared())
 }

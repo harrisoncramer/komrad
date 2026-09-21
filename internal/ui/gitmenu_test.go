@@ -45,7 +45,7 @@ func TestGitMenuOpensOnAnAgent(t *testing.T) {
 	assert.Equal(t, formGit, opened.form.kind)
 
 	onWorkflow := gitModel(t)
-	onWorkflow.tree.cursor = 0
+	onWorkflow.agents.cursor = 0
 	assert.Equal(t, formNone, routeKey(t, onWorkflow, "b").form.kind,
 		"a workflow header has no branch of its own")
 }

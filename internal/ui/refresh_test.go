@@ -156,7 +156,7 @@ func TestCreatedAgentReceivesFocus(t *testing.T) {
 		screen: screenAgents,
 		listing: listing{workflows: []panel.Workflow{{ID: "w1", Name: "api"}}, agents: []agentItem{{agent: panel.Agent{
 			ID: "old", Name: "api-refactor", WorkflowID: "w1",
-		}}}}, tree: treeState{rowCursor: rowCursor{cursor: 1}, placed: true},
+		}}}}, agents: agentsScreen{rowCursor: rowCursor{cursor: 1}, placed: true},
 	}
 
 	workflow := m.listing.workflows[0]
@@ -165,7 +165,7 @@ func TestCreatedAgentReceivesFocus(t *testing.T) {
 	values.Title = "api-tests"
 	values.Dir = "/work/api"
 
-	opened, _ := m.openAgentForm(workflow, &values)
+	opened := m.openAgentForm(workflow, &values)
 	m = asModel(t, opened)
 
 	submitted, cmd := m.answerForm()
@@ -231,12 +231,12 @@ func TestCreatedWorkflowReceivesFocus(t *testing.T) {
 		frame:   layout.New(&recordingTmux{}, config.DefaultLayout()),
 		keys:    config.DefaultKeybindings(),
 		screen:  screenAgents,
-		listing: listing{workflows: []panel.Workflow{{ID: "w1", Name: "api"}}}, tree: treeState{placed: true},
+		listing: listing{workflows: []panel.Workflow{{ID: "w1", Name: "api"}}}, agents: agentsScreen{placed: true},
 	}
 
 	values := workflowFormValues{Name: "web"}
 
-	opened, _ := m.openWorkflowConfigForm(&values, nil)
+	opened := m.openWorkflowConfigForm(&values, nil)
 	m = asModel(t, opened)
 
 	submitted, cmd := m.answerForm()
@@ -280,7 +280,7 @@ func TestCursorHoldsItsFolderAcrossARefresh(t *testing.T) {
 				Name:       "infra-audit",
 				WorkflowID: "w2",
 			}},
-		}}, tree: treeState{rowCursor: rowCursor{cursor: 2}, placed: true},
+		}}, agents: agentsScreen{rowCursor: rowCursor{cursor: 2}, placed: true},
 	}
 
 	m.applyRefresh(refreshResult{
@@ -315,7 +315,7 @@ func TestCursorHoldsItsAgentWhenAFolderArrives(t *testing.T) {
 				Name:       "infra-upgrade",
 				WorkflowID: "w2",
 			}},
-		}}, tree: treeState{rowCursor: rowCursor{cursor: 2}, placed: true},
+		}}, agents: agentsScreen{rowCursor: rowCursor{cursor: 2}, placed: true},
 	}
 
 	m.applyRefresh(refreshResult{

@@ -24,14 +24,21 @@ screenModel, which says what takes its keys and what draws it, plus whichever of
 draws: detailed for a record under its list, filtered for a search over it, tabbed for a strip
 over it, columned for a block beside it, and staged for a row it puts on the stage. m.active()
 is the switch from the screen enum to that type, and it carries no default, so the exhaustive
-check refuses a screen with no arm. A screen whose state has moved, which so far is every
-screen but the agents, holds it in a type of its own with methods that take host, the short
-interface of what a screen may ask the root to do, and panelShared, the read-only value of
-what the root holds; the adapter behind the door is then two lines per method, and the
-screen's own messages reach it through update, which every message the root does not claim is
-handed to. The agents screen's adapter is empty and its methods call the root's, which is the
-seam each screen's state moves behind one at a time. screenlist.go is the list machinery and
-the drawing bridge a moved screen uses, beside list.go's until the last list screen has moved.
+check refuses a screen with no arm. Every screen holds its state in a type of its own with
+methods that take host, the short interface of what a screen may ask the root to do, and
+panelShared, the read-only value of what the root holds; the adapter behind the door is two
+lines per method, and the screen's own messages reach it through update, which every message
+the root does not claim is handed to. screenlist.go is the list machinery and the drawing
+bridge a list screen uses.
+
+The agents screen is the root's twin, and the line between them is drawn by who owns the
+state. The stage, the warm-up and the write result's landing are the root's, since a pane on
+the stage is a panel concern and is shown on the schedules screen as well; each asks the
+agents screen for the row its cursor is on through a named method, hoveredPane, selectedAgent
+and focusOn, and the screen asks the root to stage that row through host.stageSelection. The
+marks are the screen's: the letters live on the listing, but the press waiting on a letter and
+the row a jump left only ever exist while the agents list is up, so update.go asks the screen
+whether it is reading a mark before anything else sees the key.
 
 Everything else in the package is one of those three for one screen.
 
@@ -45,8 +52,8 @@ the panel rather than to any one screen, because the schedule form and the archi
 the workflows the agents list happens to have fetched.
 
 Per-screen state is the rest of what a screen draws: its cursor, and whatever it has loaded
-that nothing else reads. treeState, schedulesScreen, archiveScreen, searchScreen, reviewScreen,
-worktreesScreen.
+that nothing else reads. agentsScreen, schedulesScreen, archiveScreen, searchScreen,
+reviewScreen, worktreesScreen.
 
 Shared concerns are the things that sit across screens on purpose. The column is the block
 drawn beside whichever list is up, and there is one of it rather than one per screen, because
@@ -126,16 +133,17 @@ holds the window and when it gives it up.
 ## The files
 
 Screens, each a type behind screens.go holding its own rows, keys, and view: agents.go, with
-tree.go for the rows and the cursor, stage.go for the pane it puts beside the list, workflows.go
-for the keys that act on a folder header, and selection.go for the multi-select. Then
+tree.go for the rows and the cursor, marks.go for the letters that jump between rows,
+workflows.go for the keys that act on a folder header, and selection.go for the multi-select;
+stage.go and warmup.go are the root's, the pane it puts beside the list for that screen. Then
 archive.go, schedules.go, search.go, and worktreescreen.go, with worktrees.go and
 worktreerows.go for its rows. The review screen is review.go and the review*.go files beside
 it, split into the diff on screen, the threads pinned to it, and the pass over the work; the
 rows it draws come from internal/ui/diffview. Each screen's forms sit beside it in a file of
 their own: agentforms.go, workflowforms.go, scheduleforms.go, worktreeforms.go and
 archiveforms.go, with forms.go holding only the machinery they share. Each screen's keys are
-an actionSpec in a file of their own, agentsactions.go and the rest, except search, whose keys
-sit in search.go; the four lists draw through one listSpec in list.go. The review composes its
+a screenActionSpec in a file of their own, agentsactions.go and the rest, except search, whose
+keys sit in search.go; the four lists share one screenList in screenlist.go. The review composes its
 own frame and reaches the root's drawing through the drawer bridge, and the editor it opens on
 the stage goes through host.
 

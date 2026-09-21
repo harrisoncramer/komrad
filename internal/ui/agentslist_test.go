@@ -35,7 +35,7 @@ func agentsListModel() model {
 			}},
 		},
 	}
-	m.tree.cursor = -1
+	m.agents.cursor = -1
 
 	return m
 }
@@ -49,7 +49,7 @@ func TestAgentsListOnAnEmptyPanel(t *testing.T) {
 		width:  120,
 		height: 40,
 	}
-	m.tree.cursor = -1
+	m.agents.cursor = -1
 
 	assert.NotPanics(t, func() { m.agentsView() })
 	assert.Contains(t, ansi.Strip(m.agentsView()), "Agents & Workflows")
@@ -71,7 +71,7 @@ func longListModel(cursor int) model {
 	m := agentsListModel()
 	m.height = 20
 	m.listing.agents = agents
-	m.tree.cursor = cursor
+	m.agents.cursor = cursor
 
 	return m
 }

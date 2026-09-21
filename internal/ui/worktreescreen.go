@@ -18,14 +18,6 @@ import (
 // entriesShown is how many of a directory's entries the document lists before counting the rest.
 const entriesShown = 10
 
-// openWorktrees is another screen's way onto the worktrees, landing on the hovered agent's
-// directory.
-func (m model) openWorktrees(agentID string) (tea.Model, tea.Cmd) {
-	cmd := m.enter(screenWorktrees, screenTarget{agentID: agentID})
-
-	return m, cmd
-}
-
 // enter lands on the directory of the agent the target names, remembering it as the focus for
 // the listing the refresh brings back.
 func (w *worktreesScreen) enter(h host, s panelShared, target screenTarget) tea.Cmd {

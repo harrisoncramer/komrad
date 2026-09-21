@@ -30,30 +30,35 @@ var (
 	errOriginGone  = errors.New("the row you jumped from is no longer on this screen")
 )
 
-func (m model) beginMark(pending markPending) (tea.Model, tea.Cmd) {
-	m.marks.pending = pending
+func (a *agentsScreen) beginMark(pending markPending) tea.Cmd {
+	a.marks.pending = pending
 
-	return m, nil
+	return nil
+}
+
+// isMarkPending reports whether a mark binding is waiting on the letter after it.
+func (a *agentsScreen) isMarkPending() bool {
+	return a.marks.pending != markPendingNone
 }
 
 // readMark takes the key pressed after a mark binding, being the letter the mark answers to.
-func (m model) readMark(key tea.KeyMsg) (tea.Model, tea.Cmd) {
-	pending := m.marks.pending
-	m.marks.pending = markPendingNone
+func (a *agentsScreen) readMark(h host, s panelShared, key tea.KeyMsg) tea.Cmd {
+	pending := a.marks.pending
+	a.marks.pending = markPendingNone
 
 	switch k := key.String(); {
 	case k == "esc":
-		return m, nil
-	case pending == markPendingJump && isBound(k, m.keys.Marks.Jump):
-		return m.jumpMarkBack()
+		return nil
+	case pending == markPendingJump && isBound(k, s.keys.Marks.Jump):
+		return a.jumpMarkBack(h, s)
 	case !isMarkLetter(k):
-		m.report("Could not read the mark", errMarkLetter)
+		h.report("Could not read the mark", errMarkLetter)
 
-		return m, nil
+		return nil
 	case pending == markPendingSet:
-		return m.setMark(k)
+		return a.setMark(h, s, k)
 	default:
-		return m.jumpMark(k)
+		return a.jumpMark(h, s, k)
 	}
 }
 
@@ -63,21 +68,21 @@ func isMarkLetter(key string) bool {
 
 // setMark puts a letter on the row under the cursor, or takes it off when that row already
 // answers to the letter.
-func (m model) setMark(letter string) (tea.Model, tea.Cmd) {
-	row, ok := m.hoveredRow()
+func (a *agentsScreen) setMark(h host, s panelShared, letter string) tea.Cmd {
+	row, ok := a.hoveredRow(s)
 	if !ok {
-		return m, nil
+		return nil
 	}
 
 	key := rowKey(row)
 	target := markTarget(row)
 	failure := fmt.Sprintf("Could not mark %s", describeRow(row))
 
-	if m.listing.marks[key] == letter {
-		return m, m.writeCmd(failure, func(a api) error { return a.clearMark(target) })
+	if s.listing.marks[key] == letter {
+		return h.writeCmd(failure, func(c api) error { return c.clearMark(target) })
 	}
 
-	return m, m.writeCmd(failure, func(a api) error { return a.setMark(target, letter) })
+	return h.writeCmd(failure, func(c api) error { return c.setMark(target, letter) })
 }
 
 // markTarget is the row a mark would go on, named by kind since a letter sits on an agent or on
@@ -103,55 +108,55 @@ func describeRow(row agentRow) string {
 	return fmt.Sprintf("agent %q", row.item.agent.Name)
 }
 
-func (m model) jumpMark(letter string) (tea.Model, tea.Cmd) {
-	target, ok := m.markedRow(letter)
+func (a *agentsScreen) jumpMark(h host, s panelShared, letter string) tea.Cmd {
+	target, ok := markedRow(s.listing, letter)
 	if !ok {
-		m.report("Could not jump to the mark", fmt.Errorf("nothing is marked %s", letter))
+		h.report("Could not jump to the mark", fmt.Errorf("nothing is marked %s", letter))
 
-		return m, nil
+		return nil
 	}
 
-	next, cmd, ok := m.jumpToRow(target)
+	cmd, ok := a.jumpToRow(h, s, target)
 	if !ok {
-		m.report("Could not jump to the mark", errNoMarkedRow)
+		h.report("Could not jump to the mark", errNoMarkedRow)
 
-		return m, nil
+		return nil
 	}
 
-	return next, cmd
+	return cmd
 }
 
 // jumpMarkBack returns to the row the last jump left, so a look at a marked agent and the way
 // back to what you were reading are the same gesture.
-func (m model) jumpMarkBack() (tea.Model, tea.Cmd) {
-	if m.marks.origin == "" {
-		return m, nil
+func (a *agentsScreen) jumpMarkBack(h host, s panelShared) tea.Cmd {
+	if a.marks.origin == "" {
+		return nil
 	}
 
-	next, cmd, ok := m.jumpToRow(m.marks.origin)
+	cmd, ok := a.jumpToRow(h, s, a.marks.origin)
 	if !ok {
 		// The row has been archived or deleted since the jump, and keeping the id would leave
 		// the key failing the same way for the rest of the session.
-		m.marks.origin = ""
-		m.report("Could not jump back", errOriginGone)
+		a.marks.origin = ""
+		h.report("Could not jump back", errOriginGone)
 
-		return m, nil
+		return nil
 	}
 
-	return next, cmd
+	return cmd
 }
 
 // markedRow is the row a letter names, read down the listing rather than out of the map, so a
 // letter briefly on two rows between passes picks the same one every time.
-func (m model) markedRow(letter string) (string, bool) {
-	for _, item := range m.listing.agents {
-		if key := agentRowKey(item.agent.ID); m.listing.marks[key] == letter {
+func markedRow(l listing, letter string) (string, bool) {
+	for _, item := range l.agents {
+		if key := agentRowKey(item.agent.ID); l.marks[key] == letter {
 			return key, true
 		}
 	}
 
-	for _, workflow := range m.listing.workflows {
-		if key := workflowRowKey(workflow.ID); m.listing.marks[key] == letter {
+	for _, workflow := range l.workflows {
+		if key := workflowRowKey(workflow.ID); l.marks[key] == letter {
 			return key, true
 		}
 	}
@@ -161,35 +166,37 @@ func (m model) markedRow(letter string) (string, bool) {
 
 // jumpToRow puts the cursor on a row named by its key, recording the row it left so the jump can
 // be undone, and reports whether the row was reachable at all.
-func (m model) jumpToRow(key string) (model, tea.Cmd, bool) {
-	origin := rowKeyAt(m.agentRows(), m.tree.cursor)
+func (a *agentsScreen) jumpToRow(h host, s panelShared, key string) (tea.Cmd, bool) {
+	origin := a.list().hovered(s)
 
-	revealed := m
+	revealed, shown := *a, s
 	// A hidden row, one a filter took off the screen, or a workflow a flat list draws no row
 	// for, would make the jump quietly do nothing, so each is revealed on a copy the caller
 	// drops when the row is out of reach for some other reason.
 	if strings.HasPrefix(key, workflowRowPrefix) {
-		revealed.tree.sort.flat = false
+		revealed.sort.flat = false
 	}
-	if rowIndexOfKey(revealed.agentRows(), key) < 0 {
-		revealed.filter.mode = filterModeSearch
+	if rowIndexOfKey(revealed.rows(shown), key) < 0 {
+		shown.chrome.filter.mode = filterModeSearch
 	}
-	if rowIndexOfKey(revealed.agentRows(), key) < 0 {
-		revealed.filter.mode = m.filter.mode
-		revealed.tree.showHidden = true
+	if rowIndexOfKey(revealed.rows(shown), key) < 0 {
+		shown.chrome.filter.mode = s.chrome.filter.mode
+		revealed.showHidden = true
 	}
-	if rowIndexOfKey(revealed.agentRows(), key) < 0 {
-		revealed.filter.mode = filterModeSearch
+	if rowIndexOfKey(revealed.rows(shown), key) < 0 {
+		shown.chrome.filter.mode = filterModeSearch
 	}
 
-	idx := rowIndexOfKey(revealed.agentRows(), key)
+	idx := rowIndexOfKey(revealed.rows(shown), key)
 	if idx < 0 {
-		return m, nil, false
+		return nil, false
 	}
 
-	revealed.marks.origin = origin
+	*a = revealed
+	a.marks.origin = origin
+	if shown.chrome.filter.mode != s.chrome.filter.mode {
+		h.widenFilter()
+	}
 
-	next, cmd := agentsList().jump(revealed, idx)
-
-	return next, cmd, true
+	return a.list().jump(h, shown, idx), true
 }

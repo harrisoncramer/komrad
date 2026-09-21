@@ -12,7 +12,7 @@ func TestPageKeysMoveTheCursorByTheStep(t *testing.T) {
 	m := screensModel()
 	m.height = 29
 	m.screen = screenAgents
-	m.tree.cursor = 0
+	m.agents.cursor = 0
 
 	press := func(pressed string) {
 		next, _ := m.route(keyMsgOf(t, pressed))
@@ -20,14 +20,14 @@ func TestPageKeysMoveTheCursorByTheStep(t *testing.T) {
 	}
 
 	press("ctrl+d")
-	assert.Equal(t, navPageStep, m.tree.cursor)
+	assert.Equal(t, navPageStep, m.agents.cursor)
 
 	press("ctrl+u")
 	press("ctrl+u")
-	assert.Equal(t, 0, m.tree.cursor, "a page past the top lands on the first row")
+	assert.Equal(t, 0, m.agents.cursor, "a page past the top lands on the first row")
 
 	last := len(m.agentRows()) - 1
-	m.tree.cursor = last - 1
+	m.agents.cursor = last - 1
 	press("ctrl+d")
-	assert.Equal(t, last, m.tree.cursor, "a page past the bottom lands on the last row")
+	assert.Equal(t, last, m.agents.cursor, "a page past the bottom lands on the last row")
 }

@@ -35,7 +35,7 @@ type dispatching interface {
 func actionsOf(s screen) (dispatching, bool) {
 	switch s {
 	case screenAgents:
-		return agentsActions(), true
+		return (&agentsScreen{}).actions(), true
 	case screenSchedules:
 		return (&schedulesScreen{}).actions(), true
 	case screenArchive:

@@ -53,13 +53,13 @@ func TestJumpKeys(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			m := selectionTree()
-			m.tree.cursor = tt.cursor
+			m.agents.cursor = tt.cursor
 
 			for _, k := range tt.keys {
 				m = press(t, m, keyMsg(k))
 			}
 
-			assert.Equal(t, tt.wantCursor, m.tree.cursor)
+			assert.Equal(t, tt.wantCursor, m.agents.cursor)
 		})
 	}
 }
@@ -72,7 +72,7 @@ func TestJumpKeysOnEmptyTree(t *testing.T) {
 		keys:  config.DefaultKeybindings(),
 	}
 
-	assert.Equal(t, 0, press(t, m, keyMsg("G")).tree.cursor)
+	assert.Equal(t, 0, press(t, m, keyMsg("G")).agents.cursor)
 }
 
 // TestArchiveJumpKeys covers the same two keys on the other tree, which keeps its own cursor.
@@ -98,10 +98,10 @@ func TestArchiveJumpKeys(t *testing.T) {
 	t.Run("jumping leaves the agents tree alone", func(t *testing.T) {
 		m := archiveSelectionTree()
 		m.listing.workflows = []panel.Workflow{{ID: "w1", Name: "backend"}}
-		m.tree.cursor = 0
+		m.agents.cursor = 0
 
 		after := pressArchive(t, m, keyMsg("G"))
-		assert.Equal(t, 0, after.tree.cursor)
+		assert.Equal(t, 0, after.agents.cursor)
 	})
 }
 

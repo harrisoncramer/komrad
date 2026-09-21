@@ -183,7 +183,7 @@ func TestALongNameIsCutWithAnEllipsis(t *testing.T) {
 		m := crowdedModel(t)
 		m.width, m.height = 80, 40
 		m.listing.workflows[0].Name = long
-		m.tree.showHidden = false
+		m.agents.showHidden = false
 		m.listing.agents[0].agent.Hidden = true
 
 		header := rowWith(t, m.agentsListView(), long[:10])

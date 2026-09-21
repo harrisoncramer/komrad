@@ -19,16 +19,16 @@ var errNoWorkflow = errors.New("every agent belongs to a workflow, so create one
 
 var errChildOfChild = errors.New("a child agent may not have children of its own")
 
-func (m model) openNewAgent(workflow *panel.Workflow) (tea.Model, tea.Cmd) {
+func openNewAgent(h host, workflow *panel.Workflow) tea.Cmd {
 	if workflow == nil {
-		m.report("Could not start an agent", errNoWorkflow)
+		h.report("Could not start an agent", errNoWorkflow)
 
-		return m, nil
+		return nil
 	}
 
 	values := agentPrefill(*workflow)
 
-	return m.openAgentForm(*workflow, &values)
+	return openAgentForm(h, *workflow, &values)
 }
 
 // agentPrefill is the new-agent form as the workflow leaves it, before anything is typed.
@@ -40,28 +40,28 @@ func agentPrefill(workflow panel.Workflow) agentFormValues {
 	}
 }
 
-func (m model) openAgentForm(workflow panel.Workflow, values *agentFormValues) (tea.Model, tea.Cmd) {
-	return m.openRedrawnForm(openRedrawnFormParams{
+func openAgentForm(h host, workflow panel.Workflow, values *agentFormValues) tea.Cmd {
+	return h.openForm(redrawnForm(redrawnFormParams{
 		Kind: formAgent,
 		Build: func(m model) (*huh.Form, []string) {
 			return newAgentForm(formKeys(), values, workflow.Worktree.Enabled)
 		},
 		Editable: []editableText{{key: "prompt", value: &values.Prompt}},
 		Submit:   func(m model) (tea.Model, tea.Cmd) { return m.submitAgent(workflow, *values) },
-	})
+	}))
 }
 
 // openNewChild opens the form that attaches a child to the hovered agent.
-func (m model) openNewChild(parent panel.Agent) (tea.Model, tea.Cmd) {
+func openNewChild(h host, parent panel.Agent) tea.Cmd {
 	if parent.ParentAgentID != nil {
-		m.report("Could not attach a child", errChildOfChild)
+		h.report("Could not attach a child", errChildOfChild)
 
-		return m, nil
+		return nil
 	}
 
 	values := childPrefill(parent)
 
-	return m.openChildForm(parent, &values)
+	return openChildForm(h, parent, &values)
 }
 
 // childPrefill is the child form as the parent leaves it.
@@ -69,13 +69,13 @@ func childPrefill(parent panel.Agent) agentFormValues {
 	return agentFormValues{Harness: parent.Harness}
 }
 
-func (m model) openChildForm(parent panel.Agent, values *agentFormValues) (tea.Model, tea.Cmd) {
-	return m.openRedrawnForm(openRedrawnFormParams{
+func openChildForm(h host, parent panel.Agent, values *agentFormValues) tea.Cmd {
+	return h.openForm(redrawnForm(redrawnFormParams{
 		Kind:     formChild,
 		Build:    func(m model) (*huh.Form, []string) { return childAgentForm(formKeys(), values, parent) },
 		Editable: []editableText{{key: "prompt", value: &values.Prompt}},
 		Submit:   func(m model) (tea.Model, tea.Cmd) { return m.submitChild(parent, *values) },
-	})
+	}))
 }
 
 // submitChild launches the child without a directory or a provisioner.
@@ -92,19 +92,19 @@ func (m model) submitChild(parent panel.Agent, values agentFormValues) (tea.Mode
 	return m, tea.Batch(cmd, m.holdForm())
 }
 
-func (m model) openRetryForm(agent panel.Agent) (tea.Model, tea.Cmd) {
+func openRetryForm(h host, agent panel.Agent) tea.Cmd {
 	values := retryFormValues{
 		Prompt:  agent.Prompt,
 		Harness: agent.Harness,
 		Flags:   agent.Flags,
 	}
 
-	return m.openRedrawnForm(openRedrawnFormParams{
+	return h.openForm(redrawnForm(redrawnFormParams{
 		Kind:     formAgentRetry,
 		Build:    func(m model) (*huh.Form, []string) { return retryAgentForm(formKeys(), &values) },
 		Editable: []editableText{{key: "prompt", value: &values.Prompt}},
 		Submit:   func(m model) (tea.Model, tea.Cmd) { return m.submitRetry(agent, values) },
-	})
+	}))
 }
 
 func (m model) submitRetry(agent panel.Agent, values retryFormValues) (tea.Model, tea.Cmd) {
@@ -113,28 +113,28 @@ func (m model) submitRetry(agent panel.Agent, values retryFormValues) (tea.Model
 	return m, tea.Batch(cmd, m.holdForm())
 }
 
-func (m model) openRename(agent panel.Agent) (tea.Model, tea.Cmd) {
-	return m.openRenameForm(agent, new(string))
+func openRename(h host, agent panel.Agent) tea.Cmd {
+	return openRenameForm(h, agent, new(string))
 }
 
-func (m model) openRenameForm(agent panel.Agent, name *string) (tea.Model, tea.Cmd) {
-	return m.openRedrawnForm(openRedrawnFormParams{
+func openRenameForm(h host, agent panel.Agent, name *string) tea.Cmd {
+	return h.openForm(redrawnForm(redrawnFormParams{
 		Kind:   formRename,
 		Build:  func(m model) (*huh.Form, []string) { return renameForm(agent.Name, name, formKeys()) },
 		Submit: func(m model) (tea.Model, tea.Cmd) { return m.submitRename(agent, *name) },
-	})
+	}))
 }
 
-func (m model) openAdopt(workflow *panel.Workflow) (tea.Model, tea.Cmd) {
+func openAdopt(h host, workflow *panel.Workflow) tea.Cmd {
 	if workflow == nil {
-		m.report("Could not adopt", errNoWorkflow)
+		h.report("Could not adopt", errNoWorkflow)
 
-		return m, nil
+		return nil
 	}
 
 	values := adoptPrefill(*workflow)
 
-	return m.openAdoptForm(*workflow, &values)
+	return openAdoptForm(h, *workflow, &values)
 }
 
 // adoptPrefill is the adopt form as the workflow leaves it, before anything is typed.
@@ -142,13 +142,13 @@ func adoptPrefill(workflow panel.Workflow) adoptFormValues {
 	return adoptFormValues{Harness: workflow.Harness}
 }
 
-func (m model) openAdoptForm(workflow panel.Workflow, values *adoptFormValues) (tea.Model, tea.Cmd) {
-	return m.openRedrawnForm(openRedrawnFormParams{
+func openAdoptForm(h host, workflow panel.Workflow, values *adoptFormValues) tea.Cmd {
+	return h.openForm(redrawnForm(redrawnFormParams{
 		Kind:     formAdopt,
 		Build:    func(m model) (*huh.Form, []string) { return adoptAgentForm(formKeys(), values) },
 		Editable: []editableText{{key: "prompt", value: &values.Prompt}},
 		Submit:   func(m model) (tea.Model, tea.Cmd) { return m.submitAdopt(workflow, *values) },
-	})
+	}))
 }
 
 func (m model) submitAdopt(workflow panel.Workflow, values adoptFormValues) (tea.Model, tea.Cmd) {

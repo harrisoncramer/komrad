@@ -96,11 +96,11 @@ func TestApplyAgents(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			m := model{
 				screen:  screenAgents,
-				listing: listing{workflows: []panel.Workflow{{ID: testWorkflowID, Name: "backend"}}, agents: tt.start}, tree: treeState{rowCursor: rowCursor{cursor: tt.cursor}, placed: true},
+				listing: listing{workflows: []panel.Workflow{{ID: testWorkflowID, Name: "backend"}}, agents: tt.start}, agents: agentsScreen{rowCursor: rowCursor{cursor: tt.cursor}, placed: true},
 				keys: config.DefaultKeybindings(),
 			}
 
-			was := rowKeyAt(m.agentRows(), m.tree.cursor)
+			was := rowKeyAt(m.agentRows(), m.agents.cursor)
 			m.applyAgents(tt.fresh)
 			m.placeTreeCursor(was)
 
@@ -154,11 +154,11 @@ func TestPlaceTreeCursorSkipsHeaderAfterAgentRemoved(t *testing.T) {
 				}},
 			},
 		},
-		tree: treeState{rowCursor: rowCursor{cursor: 1}, placed: true},
-		keys: config.DefaultKeybindings(),
+		agents: agentsScreen{rowCursor: rowCursor{cursor: 1}, placed: true},
+		keys:   config.DefaultKeybindings(),
 	}
 
-	was := rowKeyAt(m.agentRows(), m.tree.cursor)
+	was := rowKeyAt(m.agentRows(), m.agents.cursor)
 	require.Equal(t, "agent:a1", was)
 
 	m.applyAgents([]agentItem{

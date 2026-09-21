@@ -267,7 +267,7 @@ func TestAReadersOwnPauseKeepsTheFilesForWhoeverLetsItGo(t *testing.T) {
 	held, ok := m.review.agentItem(m.shared())
 	require.True(t, ok)
 
-	_, cmd := m.pauseAgent(held.agent)
+	cmd := pauseAgent(&m, held.agent)
 	runReviewCmd(t, cmd)
 
 	require.NotNil(t, agents.letGo, "the pause the reader took is theirs to let go")
@@ -301,7 +301,7 @@ func TestADroppedPassKeepsTheFilesForAReadersOwnPause(t *testing.T) {
 	letGo := m.review.abandon(&m, m.shared(), errors.New("the worktree could not be read"))
 	assert.Nil(t, letGo, "a pause the reader took is not the pass's to let go")
 
-	_, cmd := m.pauseAgent(held.agent)
+	cmd := pauseAgent(&m, held.agent)
 	runReviewCmd(t, cmd)
 
 	require.NotNil(t, agents.letGo)

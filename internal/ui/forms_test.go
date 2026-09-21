@@ -49,7 +49,7 @@ func TestFormsSubmitWhatIsOnScreen(t *testing.T) {
 				values.Title = "ci"
 				values.Harness = "codex"
 
-				opened, _ := m.openAgentForm(workflow, &values)
+				opened := m.openAgentForm(workflow, &values)
 
 				return asModel(t, opened)
 			},
@@ -98,7 +98,7 @@ func TestFormsSubmitWhatIsOnScreen(t *testing.T) {
 			open: func(t *testing.T, m model) model {
 				name := "api-v2"
 
-				opened, _ := m.openRenameForm(panel.Agent{ID: "a1", Name: "api-refactor"}, &name)
+				opened := m.openRenameForm(panel.Agent{ID: "a1", Name: "api-refactor"}, &name)
 
 				return asModel(t, opened)
 			},
@@ -120,7 +120,7 @@ func TestFormsSubmitWhatIsOnScreen(t *testing.T) {
 					Provisioner: provisionerNone,
 				}
 
-				opened, _ := m.openWorkflowConfigForm(&values, nil)
+				opened := m.openWorkflowConfigForm(&values, nil)
 
 				return asModel(t, opened)
 			},
@@ -146,7 +146,7 @@ func TestFormsSubmitWhatIsOnScreen(t *testing.T) {
 					WorktreeDiffExclude:  "proto/gen\n*.pb.go",
 				}
 
-				opened, _ := m.openWorkflowConfigForm(&values, nil)
+				opened := m.openWorkflowConfigForm(&values, nil)
 
 				return asModel(t, opened)
 			},
@@ -176,7 +176,7 @@ func TestFormsSubmitWhatIsOnScreen(t *testing.T) {
 				})
 				values.Cwd = "/work/api-v2"
 
-				opened, _ := m.openWorkflowConfigForm(&values, &target)
+				opened := m.openWorkflowConfigForm(&values, &target)
 
 				return asModel(t, opened)
 			},
@@ -196,7 +196,7 @@ func TestFormsSubmitWhatIsOnScreen(t *testing.T) {
 			open: func(t *testing.T, m model) model {
 				values := workflowFormValues{Name: "backend"}
 
-				opened, _ := m.openWorkflowRename(m.listing.workflows[0], &values)
+				opened := m.openWorkflowRename(m.listing.workflows[0], &values)
 
 				return asModel(t, opened)
 			},
@@ -264,7 +264,7 @@ func TestFormsSubmitWhatIsOnScreen(t *testing.T) {
 		{
 			name: "the workflow archive prompt",
 			open: func(t *testing.T, m model) model {
-				opened, _ := m.archiveWorkflowConfirm(m.listing.workflows[0])
+				opened := m.archiveWorkflowConfirm(m.listing.workflows[0])
 
 				return asModel(t, opened)
 			},
@@ -399,7 +399,7 @@ func TestNewAgentFormWorktreeOverride(t *testing.T) {
 
 			values := agentPrefill(workflow)
 
-			opened, _ := m.openAgentForm(workflow, &values)
+			opened := m.openAgentForm(workflow, &values)
 			m = asModel(t, opened)
 
 			values.Worktree = tt.chosen
@@ -444,7 +444,7 @@ func TestRefusedSubmitKeepsTheForm(t *testing.T) {
 				values := agentPrefill(workflow)
 				values.Prompt = "check CI"
 
-				opened, _ := m.openAgentForm(workflow, &values)
+				opened := m.openAgentForm(workflow, &values)
 
 				return asModel(t, opened), func() string { return values.Prompt }
 			},
@@ -457,7 +457,7 @@ func TestRefusedSubmitKeepsTheForm(t *testing.T) {
 			open: func(t *testing.T, m model) (model, func() string) {
 				name := "api-v2"
 
-				opened, _ := m.openRenameForm(panel.Agent{ID: "a1", Name: "api-refactor"}, &name)
+				opened := m.openRenameForm(panel.Agent{ID: "a1", Name: "api-refactor"}, &name)
 				m = asModel(t, opened)
 				m.form.form.State = huh.StateCompleted
 
@@ -472,7 +472,7 @@ func TestRefusedSubmitKeepsTheForm(t *testing.T) {
 			open: func(t *testing.T, m model) (model, func() string) {
 				values := workflowFormValues{Name: "web"}
 
-				opened, _ := m.openWorkflowConfigForm(&values, nil)
+				opened := m.openWorkflowConfigForm(&values, nil)
 				m = asModel(t, opened)
 				m.form.form.State = huh.StateCompleted
 
@@ -557,7 +557,7 @@ func TestNewAgentSubmitHoldsTheForm(t *testing.T) {
 			values := agentPrefill(workflow)
 			values.Prompt = "check CI"
 
-			opened, _ := m.openAgentForm(workflow, &values)
+			opened := m.openAgentForm(workflow, &values)
 			m = asModel(t, opened)
 
 			updated, cmd := m.answerForm()
@@ -597,7 +597,7 @@ func TestProvisionerRebuildsTheForm(t *testing.T) {
 
 	values := workflowFormValues{}
 
-	opened, _ := m.openWorkflowConfigForm(&values, nil)
+	opened := m.openWorkflowConfigForm(&values, nil)
 	m = asModel(t, opened)
 
 	_, order := workflowConfigForm(workflowConfigParams{
@@ -1050,7 +1050,7 @@ func TestFormTakesNoKeysWhileItsWriteIsInFlight(t *testing.T) {
 	values := agentPrefill(workflow)
 	values.Prompt = "check CI"
 
-	opened, _ := m.openAgentForm(workflow, &values)
+	opened := m.openAgentForm(workflow, &values)
 	m = asModel(t, opened)
 	m.held.active = true
 
@@ -1108,7 +1108,7 @@ func TestAdoptKeyOpensTheForm(t *testing.T) {
 	sent := &formRecorder{}
 	m := infoModel(&recordingTmux{})
 	m.api = api{agents: sent}
-	m.tree.cursor = 0
+	m.agents.cursor = 0
 
 	entered, _ := m.updateAgents(keyMsg("a"))
 	opened := asModel(t, entered)
@@ -1339,7 +1339,7 @@ func TestEscDetachesFromAHeldForm(t *testing.T) {
 	values := agentPrefill(workflow)
 	values.Prompt = "check CI"
 
-	opened, _ := m.openAgentForm(workflow, &values)
+	opened := m.openAgentForm(workflow, &values)
 	m = asModel(t, opened)
 
 	updated, cmd := m.answerForm()
@@ -1352,13 +1352,13 @@ func TestEscDetachesFromAHeldForm(t *testing.T) {
 	assert.False(t, m.held.active, "the panel takes keys again")
 	assert.False(t, m.form.isActive(), "and the form it was holding is gone")
 
-	m.tree.focus = agentRowKey("somewhere-else")
+	m.agents.focus = agentRowKey("somewhere-else")
 
 	got := settle(t, m, cmd)
 
 	assert.Empty(t, got.messages.items)
 	require.NotNil(t, sent.createdAgent, "the create the form was submitted for still ran")
-	assert.Equal(t, agentRowKey("somewhere-else"), got.tree.focus, "and it lands without taking the cursor back")
+	assert.Equal(t, agentRowKey("somewhere-else"), got.agents.focus, "and it lands without taking the cursor back")
 }
 
 // TestAnEarlierWriteLeavesALaterHoldAlone covers escaping a slow create and submitting another:
@@ -1372,7 +1372,7 @@ func TestAnEarlierWriteLeavesALaterHoldAlone(t *testing.T) {
 	first := agentPrefill(workflow)
 	first.Prompt = "the slow one"
 
-	opened, _ := m.openAgentForm(workflow, &first)
+	opened := m.openAgentForm(workflow, &first)
 	m = asModel(t, opened)
 
 	submitted, _ := m.answerForm()
@@ -1386,7 +1386,7 @@ func TestAnEarlierWriteLeavesALaterHoldAlone(t *testing.T) {
 	second := agentPrefill(workflow)
 	second.Prompt = "the second one"
 
-	opened, _ = m.openAgentForm(workflow, &second)
+	opened = m.openAgentForm(workflow, &second)
 	m = asModel(t, opened)
 
 	submitted, _ = m.answerForm()
@@ -1404,7 +1404,7 @@ func TestAnEarlierWriteLeavesALaterHoldAlone(t *testing.T) {
 
 	assert.True(t, got.held.active, "the escaped create landing leaves the second form held")
 	assert.True(t, got.form.isActive())
-	assert.Empty(t, got.tree.focus, "and an escaped create takes nobody to the agent it made")
+	assert.Empty(t, got.agents.focus, "and an escaped create takes nobody to the agent it made")
 }
 
 // TestSubmittingNoticeCountsUp pins that a held form's notice stands still while the write is

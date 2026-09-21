@@ -12,12 +12,16 @@ import (
 	agentv1 "weave/proto/gen/agent/v1"
 )
 
-type treeState struct {
+// agentsScreen is the agents screen: the cursor in the tree of workflows and agents, how they
+// are ordered, whether the hidden ones are drawn, and the mark press waiting on its letter.
+type agentsScreen struct {
 	rowCursor
 	placed     bool
 	showHidden bool
 	sort       tabsState
-	rows       []agentRow
+	marks      markState
+	// drawn is the rows built once for the frame being drawn, and nil between frames.
+	drawn []agentRow
 }
 
 type agentRow struct {
@@ -217,24 +221,25 @@ func sortedAgents(items []agentItem, columns []sortColumn[agentItem], order sort
 	return sorted
 }
 
-func (m model) agentRows() []agentRow {
-	if m.tree.rows != nil {
-		return m.tree.rows
+// rows is the tree as drawn, or as it would be drawn when nothing has cached it.
+func (a *agentsScreen) rows(s panelShared) []agentRow {
+	if a.drawn != nil {
+		return a.drawn
 	}
 
-	return m.buildAgentRows()
+	return a.buildRows(s)
 }
 
-func (m model) buildAgentRows() []agentRow {
+func (a *agentsScreen) buildRows(s panelShared) []agentRow {
 	rows := treeRows(treeRowsParams{
-		workflows:         m.listing.workflows,
-		agents:            sortedAgents(m.listing.agents, agentSorts, agentsTabs().order(m.tree.sort)),
-		showHidden:        m.tree.showHidden,
+		workflows:         s.listing.workflows,
+		agents:            sortedAgents(s.listing.agents, agentSorts, agentsTabs().order(a.sort)),
+		showHidden:        a.showHidden,
 		foldOrchestrators: true,
-		flat:              m.tree.sort.flat,
+		flat:              a.sort.flat,
 	})
 
-	return narrowedAgentRows(m.filter, rows)
+	return narrowedAgentRows(s.chrome.filter, rows)
 }
 
 func narrowedAgentRows(filter filterState, rows []agentRow) []agentRow {
@@ -245,12 +250,13 @@ func narrowedAgentRows(filter filterState, rows []agentRow) []agentRow {
 	})
 }
 
-func (m model) hoveredRow() (agentRow, bool) {
-	return rowAt(m.agentRows(), m.tree.cursor)
+func (a *agentsScreen) hoveredRow(s panelShared) (agentRow, bool) {
+	return rowAt(a.rows(s), a.cursor)
 }
 
-func (m model) selectedAgent() (agentItem, bool) {
-	row, ok := rowAt(m.agentRows(), m.tree.cursor)
+// selectedAgent is the agent the cursor is on, and none on a workflow.
+func (a *agentsScreen) selectedAgent(s panelShared) (agentItem, bool) {
+	row, ok := a.hoveredRow(s)
 	if !ok || row.header {
 		return agentItem{}, false
 	}
@@ -258,8 +264,46 @@ func (m model) selectedAgent() (agentItem, bool) {
 	return row.item, true
 }
 
-func (m model) hoveredWorkflow() (panel.Workflow, bool) {
-	return hoveredHeader(m.agentRows(), m.tree.cursor)
+func (a *agentsScreen) hoveredWorkflow(s panelShared) (panel.Workflow, bool) {
+	return hoveredHeader(a.rows(s), a.cursor)
+}
+
+// hoveredPane is the agent whose pane the row under the cursor shows, and none where that row
+// has no pane worth putting in the window.
+func (a *agentsScreen) hoveredPane(s panelShared) (agentItem, bool) {
+	r, ok := a.hoveredRow(s)
+	if !ok {
+		return agentItem{}, false
+	}
+
+	item, held := r.paneItem()
+	if !held || !hasPane(item) {
+		return agentItem{}, false
+	}
+
+	return item, true
+}
+
+// hasNoAgentPane reports whether the row the cursor is on has no pane of its own.
+func (a *agentsScreen) hasNoAgentPane(s panelShared) bool {
+	_, ok := a.hoveredPane(s)
+
+	return !ok
+}
+
+// hoveredAgentID is the agent under the cursor, or the orchestrator behind a hovered workflow.
+func (a *agentsScreen) hoveredAgentID(s panelShared) string {
+	row, ok := a.hoveredRow(s)
+	if !ok {
+		return ""
+	}
+
+	item, held := row.paneItem()
+	if !held {
+		return ""
+	}
+
+	return item.agent.ID
 }
 
 func hoveredHeader(rows []agentRow, cursor int) (panel.Workflow, bool) {
@@ -271,8 +315,8 @@ func hoveredHeader(rows []agentRow, cursor int) (panel.Workflow, bool) {
 	return row.workflow, true
 }
 
-func (m model) enclosingWorkflow() *panel.Workflow {
-	row, ok := rowAt(m.agentRows(), m.tree.cursor)
+func (a *agentsScreen) enclosingWorkflow(s panelShared) *panel.Workflow {
+	row, ok := a.hoveredRow(s)
 	if !ok {
 		return nil
 	}
@@ -360,16 +404,12 @@ func unnamedChildren(pool, named []panel.Agent) int {
 
 // liveAgents is the listing as bare rows, for what counts over the agents a screen is showing
 // rather than over the marks beside them.
-func (m model) liveAgents() []panel.Agent {
-	return m.listing.liveAgents()
-}
-
 func (l listing) liveAgents() []panel.Agent {
 	return xslice.Map(l.agents, func(it agentItem) panel.Agent { return it.agent })
 }
 
-func (m model) agentCount(workflowID string) int {
-	return xslice.Count(m.listing.agents, func(it agentItem) bool {
+func (l listing) agentCount(workflowID string) int {
+	return xslice.Count(l.agents, func(it agentItem) bool {
 		return it.agent.WorkflowID == workflowID && it.agent.Role != panel.RoleOrchestrator
 	})
 }
@@ -399,10 +439,6 @@ func displayState(item agentItem) panel.State {
 	}
 
 	return state
-}
-
-func (m model) liveAgent(id string) (agentItem, bool) {
-	return m.listing.liveAgent(id)
 }
 
 func (l listing) liveAgent(id string) (agentItem, bool) {
@@ -458,16 +494,18 @@ func (m *model) applyMarks(onAgents, onWorkflows map[string]string) {
 	m.listing.marks = marks
 }
 
-func (m *model) placeTreeCursor(selected string) {
-	focus := m.tree.focus
-	m.tree.focus = ""
+// apply takes a fresh listing, keeping the cursor on the row it was on, or on the row a write
+// asked it to land on.
+func (a *agentsScreen) apply(s panelShared, selected string) {
+	focus := a.focus
+	a.focus = ""
 
-	placed := m.tree.placed
+	placed := a.placed
 	if !placed {
 		selected = ""
 	}
 
-	rows := m.agentRows()
+	rows := a.rows(s)
 
 	idx := rowIndexOfKey(rows, selected)
 	if focus != "" {
@@ -476,20 +514,25 @@ func (m *model) placeTreeCursor(selected string) {
 
 	switch {
 	case idx >= 0:
-		m.tree.cursor = idx
+		a.cursor = idx
 	case !placed:
-		m.tree.cursor = firstAgentRowIndex(rows)
+		a.cursor = firstAgentRowIndex(rows)
 	default:
-		clamped := clampCursor(m.tree.cursor, len(rows))
+		clamped := clampCursor(a.cursor, len(rows))
 		if strings.HasPrefix(selected, "agent:") {
 			clamped = nearestAgentRowIndex(rows, clamped)
 		}
 
-		m.tree.cursor = clamped
+		a.cursor = clamped
 	}
 
-	m.tree.placed = true
-	m.tree.selected = m.tree.selected.pruned(refsOf(m.agentRows()))
+	a.placed = true
+	a.selected = a.selected.pruned(refsOf(a.rows(s)))
+}
+
+// focusOn remembers the row the next listing lands the cursor on.
+func (a *agentsScreen) focusOn(row string) {
+	a.focus = row
 }
 
 type listing struct {
@@ -502,14 +545,15 @@ type listing struct {
 	marks map[string]string
 }
 
-func (m *model) revealAgent(id string) {
-	for _, item := range m.listing.agents {
+// revealAgent puts the cursor on an agent, showing the hidden rows when it is one of them.
+func (a *agentsScreen) revealAgent(s panelShared, id string) {
+	for _, item := range s.listing.agents {
 		if item.agent.ID == id && item.agent.Hidden {
-			m.tree.showHidden = true
+			a.showHidden = true
 		}
 	}
 
-	if idx := rowIndexOfAgentID(m.agentRows(), id); idx >= 0 {
-		m.tree.cursor = idx
+	if idx := rowIndexOfAgentID(a.rows(s), id); idx >= 0 {
+		a.cursor = idx
 	}
 }

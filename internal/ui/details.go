@@ -152,12 +152,6 @@ func (m model) focusDetails() (model, tea.Cmd) {
 	return m, m.rereadAgentWorktreeCmd()
 }
 
-func (m model) walkIntoDetails() (model, tea.Cmd) {
-	cmd := m.stepIntoDetails()
-
-	return m, cmd
-}
-
 // stepIntoDetails answers a step the list refused at its bottom by moving the keys into the
 // record, on its first field.
 func (m *model) stepIntoDetails() tea.Cmd {

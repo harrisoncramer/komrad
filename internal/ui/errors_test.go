@@ -74,7 +74,7 @@ func TestRefusedWriteIsReported(t *testing.T) {
 			agents:    []agentItem{{agent: agent, alive: false}},
 		},
 	}
-	m.tree.cursor = firstAgentRowIndex(m.agentRows())
+	m.agents.cursor = firstAgentRowIndex(m.agentRows())
 
 	opened, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'z'}})
 	pressed, ok := opened.(model)
@@ -114,7 +114,7 @@ func TestRefusedResumeIsReported(t *testing.T) {
 			}, alive: false}},
 		},
 	}
-	m.tree.cursor = firstAgentRowIndex(m.agentRows())
+	m.agents.cursor = firstAgentRowIndex(m.agentRows())
 
 	updated, cmd := m.openAgent()
 	pressed, ok := updated.(model)
@@ -136,7 +136,7 @@ func TestMessageSurvivesTheFormItWasReportedFrom(t *testing.T) {
 		keys:     config.DefaultKeybindings(),
 		frame:    layout.New(&recordingTmux{}, config.DefaultLayout()),
 	}
-	opened, _ := m.openRename(panel.Agent{ID: "a1", Name: "api-refactor"})
+	opened := m.openRename(panel.Agent{ID: "a1", Name: "api-refactor"})
 	m = asModel(t, opened)
 
 	assert.Contains(t, m.View(), "Rename", "the form is on screen")
@@ -179,7 +179,7 @@ func TestSuccessfulWriteReportsNothing(t *testing.T) {
 		},
 		messages: oneMessage("Could not archive agent \"gone\"", "stale"),
 	}
-	m.tree.cursor = firstAgentRowIndex(m.agentRows())
+	m.agents.cursor = firstAgentRowIndex(m.agentRows())
 
 	opened, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'z'}})
 	pressed, ok := opened.(model)
@@ -442,7 +442,7 @@ func TestRefusedPauseIsReported(t *testing.T) {
 			}, alive: true}},
 		},
 	}
-	m.tree.cursor = firstAgentRowIndex(m.agentRows())
+	m.agents.cursor = firstAgentRowIndex(m.agentRows())
 
 	pressed, cmd := m.Update(keyMsg("p"))
 	written, ok := pressed.(model)

@@ -132,7 +132,7 @@ func TestMatchAt(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			m := selectionTree()
 			m.filter.setQuery(tt.query)
-			m.tree.cursor = rowIndexOfKey(m.agentRows(), tt.from)
+			m.agents.cursor = rowIndexOfKey(m.agentRows(), tt.from)
 
 			got, ok := m.matchAt(tt.delta)
 			require.True(t, ok)
@@ -146,7 +146,7 @@ func TestMatchAt(t *testing.T) {
 func TestMatchAtWrapsBackwardsPastTheTop(t *testing.T) {
 	m := selectionTree()
 	m.filter.setQuery("^(backend|ui)$")
-	m.tree.cursor = rowIndexOfKey(m.agentRows(), workflowRowKey("w1"))
+	m.agents.cursor = rowIndexOfKey(m.agentRows(), workflowRowKey("w1"))
 
 	got, ok := m.matchAt(-1)
 	require.True(t, ok)
@@ -158,7 +158,7 @@ func TestMatchAtWrapsBackwardsPastTheTop(t *testing.T) {
 func TestMatchAtFindsNothing(t *testing.T) {
 	m := selectionTree()
 	m.filter.setQuery("zzz")
-	m.tree.cursor = rowIndexOfKey(m.agentRows(), agentRowKey("a1"))
+	m.agents.cursor = rowIndexOfKey(m.agentRows(), agentRowKey("a1"))
 
 	_, ok := m.matchAt(0)
 	assert.False(t, ok)
@@ -178,7 +178,7 @@ func TestSearchDoesNotNarrow(t *testing.T) {
 // the search found, which is the point of typing it.
 func TestSearchEnterKeepsTheRow(t *testing.T) {
 	m := selectionTree()
-	m.tree.cursor = rowIndexOfKey(m.agentRows(), workflowRowKey("w1"))
+	m.agents.cursor = rowIndexOfKey(m.agentRows(), workflowRowKey("w1"))
 
 	opened, _ := m.updateAgents(keyMsg("/"))
 	typed := pressMark(t, opened.(model), "d", "b")
@@ -186,7 +186,7 @@ func TestSearchEnterKeepsTheRow(t *testing.T) {
 
 	assert.False(t, landed.filter.typing, "the input is put away")
 	assert.True(t, landed.filter.isStanding(), "and what it found still stands")
-	assert.Equal(t, agentRowKey("a3"), rowKeyAt(landed.agentRows(), landed.tree.cursor))
+	assert.Equal(t, agentRowKey("a3"), rowKeyAt(landed.agentRows(), landed.agents.cursor))
 }
 
 // TestSearchEscapeGoesBack pins escape giving up on the search and putting the cursor back
@@ -194,15 +194,15 @@ func TestSearchEnterKeepsTheRow(t *testing.T) {
 func TestSearchEscapeGoesBack(t *testing.T) {
 	m := selectionTree()
 	start := rowIndexOfKey(m.agentRows(), workflowRowKey("w1"))
-	m.tree.cursor = start
+	m.agents.cursor = start
 
 	opened, _ := m.updateAgents(keyMsg("/"))
 	typed := pressMark(t, opened.(model), "d", "b")
-	require.Equal(t, start, typed.tree.cursor, "typing moves nothing")
+	require.Equal(t, start, typed.agents.cursor, "typing moves nothing")
 
 	back := pressMark(t, typed, "esc")
 	assert.False(t, back.filter.isStanding(), "the search is gone")
-	assert.Equal(t, start, back.tree.cursor, "and the cursor is where it was")
+	assert.Equal(t, start, back.agents.cursor, "and the cursor is where it was")
 }
 
 // TestSearchEscapeGoesBackFromAStandingSearch pins the escape that clears a search which is no
@@ -210,16 +210,16 @@ func TestSearchEscapeGoesBack(t *testing.T) {
 func TestSearchEscapeGoesBackFromAStandingSearch(t *testing.T) {
 	m := selectionTree()
 	start := rowIndexOfKey(m.agentRows(), workflowRowKey("w1"))
-	m.tree.cursor = start
+	m.agents.cursor = start
 
 	opened, _ := m.updateAgents(keyMsg("/"))
 	standing := pressMark(t, opened.(model), "d", "b", "enter")
 	require.False(t, standing.filter.typing)
-	require.Equal(t, agentRowKey("a3"), rowKeyAt(standing.agentRows(), standing.tree.cursor))
+	require.Equal(t, agentRowKey("a3"), rowKeyAt(standing.agentRows(), standing.agents.cursor))
 
 	back := pressMark(t, standing, "esc")
 	assert.False(t, back.filter.isStanding(), "the search is gone")
-	assert.Equal(t, start, back.tree.cursor, "and the cursor is back where it started")
+	assert.Equal(t, start, back.agents.cursor, "and the cursor is back where it started")
 }
 
 // TestArchiveSearchWalksAndClears pins the archive getting the same search as the agents list.
@@ -260,19 +260,19 @@ func TestArchiveSearchWalksAndClears(t *testing.T) {
 // stands, and doing nothing of the sort before one does.
 func TestSearchWalksMatchesOnlyWhileOneStands(t *testing.T) {
 	m := selectionTree()
-	m.tree.cursor = rowIndexOfKey(m.agentRows(), agentRowKey("a1"))
+	m.agents.cursor = rowIndexOfKey(m.agentRows(), agentRowKey("a1"))
 
 	quiet := pressMark(t, m, "n")
-	assert.Equal(t, agentRowKey("a1"), rowKeyAt(quiet.agentRows(), quiet.tree.cursor), "n is not a jump with no search up")
+	assert.Equal(t, agentRowKey("a1"), rowKeyAt(quiet.agentRows(), quiet.agents.cursor), "n is not a jump with no search up")
 
 	opened, _ := m.updateAgents(keyMsg("/"))
 	standing := pressMark(t, opened.(model), "a", "enter")
 
 	forward := pressMark(t, standing, "n")
-	assert.Equal(t, agentRowKey("a2"), rowKeyAt(forward.agentRows(), forward.tree.cursor))
+	assert.Equal(t, agentRowKey("a2"), rowKeyAt(forward.agentRows(), forward.agents.cursor))
 
 	back := pressMark(t, forward, "N")
-	assert.Equal(t, agentRowKey("a1"), rowKeyAt(back.agentRows(), back.tree.cursor))
+	assert.Equal(t, agentRowKey("a1"), rowKeyAt(back.agentRows(), back.agents.cursor))
 }
 
 // TestFilterInput covers the input over the list, where the pattern outlives the input itself so
@@ -372,16 +372,16 @@ func TestFilterCursor(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			m := filterModel()
-			m.tree.cursor = tt.start
+			m.agents.cursor = tt.start
 
 			typed := typeIntoFilter(m, tt.query)
-			require.Equal(t, tt.start, typed.tree.cursor, "typing moves nothing")
+			require.Equal(t, tt.start, typed.agents.cursor, "typing moves nothing")
 
 			got := send(t, typed, "enter")
 
 			rows := got.agentRows()
-			require.Less(t, got.tree.cursor, len(rows))
-			assert.Equal(t, tt.want, rows[got.tree.cursor].item.agent.Name)
+			require.Less(t, got.agents.cursor, len(rows))
+			assert.Equal(t, tt.want, rows[got.agents.cursor].item.agent.Name)
 		})
 	}
 }
@@ -389,13 +389,13 @@ func TestFilterCursor(t *testing.T) {
 // TestFilterKeepsSelection covers a selection surviving a search.
 func TestFilterKeepsSelection(t *testing.T) {
 	m := filterModel()
-	m.tree.selected = selectAgents([]string{"a1", "a2"}...)
+	m.agents.selected = selectAgents([]string{"a1", "a2"}...)
 
 	whole := rowNames(m.agentRows())
 	got := typeIntoFilter(m, "payouts")
 
 	assert.Equal(t, whole, rowNames(got.agentRows()), "the tree is left whole")
-	assert.Equal(t, []string{"a1", "a2"}, panel.IDs(chosenAgents(got.tree.selected, got.agentRows())), "both chosen agents are still acted on")
+	assert.Equal(t, []string{"a1", "a2"}, panel.IDs(chosenAgents(got.agents.selected, got.agentRows())), "both chosen agents are still acted on")
 }
 
 // TestFilterDroppedLeavingScreen covers a pattern following the user off the list it was typed
@@ -547,7 +547,7 @@ func filterModel() model {
 				Name:       "payouts",
 				WorkflowID: "w1",
 			}},
-		}}, tree: treeState{rowCursor: rowCursor{cursor: 1}},
+		}}, agents: agentsScreen{rowCursor: rowCursor{cursor: 1}},
 	}
 }
 

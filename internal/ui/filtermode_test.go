@@ -93,7 +93,7 @@ func TestNarrowed(t *testing.T) {
 func TestFilterTabFlipsTheMode(t *testing.T) {
 	m := filterModeTree()
 	start := rowIndexOfKey(m.agentRows(), workflowRowKey("w1"))
-	m.tree.cursor = start
+	m.agents.cursor = start
 	whole := rowNames(m.agentRows())
 
 	opened, _ := m.updateAgents(keyMsg("/"))
@@ -104,33 +104,33 @@ func TestFilterTabFlipsTheMode(t *testing.T) {
 	flipped := pressMark(t, typed, "tab")
 	assert.Equal(t, filterModeFilter, flipped.filter.mode)
 	assert.Equal(t, whole, rowNames(flipped.agentRows()), "the tab narrows nothing yet")
-	assert.Equal(t, start, flipped.tree.cursor, "and moves nothing")
+	assert.Equal(t, start, flipped.agents.cursor, "and moves nothing")
 	assert.True(t, strings.HasPrefix(strings.TrimSpace(ansi.Strip(flipped.filter.line(paint.Panel))), "▽ db"), "the prompt opens with the funnel")
 
 	narrowed := pressMark(t, flipped, "enter")
 	assert.Equal(t, []string{"backend", "db"}, rowNames(narrowed.agentRows()), "enter narrows to the match and its header")
-	assert.Equal(t, workflowRowKey("w1"), rowKeyAt(narrowed.agentRows(), narrowed.tree.cursor), "and leaves the cursor on the header the filter kept")
+	assert.Equal(t, workflowRowKey("w1"), rowKeyAt(narrowed.agentRows(), narrowed.agents.cursor), "and leaves the cursor on the header the filter kept")
 
 	lit := pressMark(t, typed, "tab", "tab", "enter")
 	assert.Equal(t, filterModeSearch, lit.filter.mode)
 	assert.Equal(t, whole, rowNames(lit.agentRows()), "a second tab puts the search back")
-	assert.Equal(t, agentRowKey("a3"), rowKeyAt(lit.agentRows(), lit.tree.cursor), "which enter walks onto the match")
+	assert.Equal(t, agentRowKey("a3"), rowKeyAt(lit.agentRows(), lit.agents.cursor), "which enter walks onto the match")
 }
 
 // TestFilterAppliedPlacesTheCursor covers the cursor being put on a row the narrowed list still
 // holds when applying the filter takes the row it was on off the screen.
 func TestFilterAppliedPlacesTheCursor(t *testing.T) {
 	m := filterModeTree()
-	m.tree.cursor = rowIndexOfKey(m.agentRows(), agentRowKey("a4"))
+	m.agents.cursor = rowIndexOfKey(m.agentRows(), agentRowKey("a4"))
 
 	opened, _ := m.updateAgents(keyMsg("/"))
 	typed := pressMark(t, opened.(model), "^", "a", "u", "tab")
-	require.Equal(t, agentRowKey("a4"), rowKeyAt(typed.agentRows(), typed.tree.cursor), "nothing moves while typing")
+	require.Equal(t, agentRowKey("a4"), rowKeyAt(typed.agentRows(), typed.agents.cursor), "nothing moves while typing")
 
 	narrowed := pressMark(t, typed, "enter")
 	rows := narrowed.agentRows()
-	require.Less(t, narrowed.tree.cursor, len(rows))
-	assert.Equal(t, agentRowKey("a1"), rowKeyAt(rows, narrowed.tree.cursor))
+	require.Less(t, narrowed.agents.cursor, len(rows))
+	assert.Equal(t, agentRowKey("a1"), rowKeyAt(rows, narrowed.agents.cursor))
 }
 
 // TestFilterEnterKeepsNarrowing covers enter putting the input away with the list still
@@ -171,7 +171,7 @@ func TestFilterEscapeDropsTheMode(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			m := filterModeTree()
 			start := rowIndexOfKey(m.agentRows(), workflowRowKey("w2"))
-			m.tree.cursor = start
+			m.agents.cursor = start
 			whole := rowNames(m.agentRows())
 
 			opened, _ := m.updateAgents(keyMsg("/"))
@@ -180,7 +180,7 @@ func TestFilterEscapeDropsTheMode(t *testing.T) {
 			assert.Equal(t, filterModeSearch, back.filter.mode)
 			assert.False(t, back.filter.isStanding())
 			assert.Equal(t, whole, rowNames(back.agentRows()), "every row is back")
-			assert.Equal(t, start, back.tree.cursor, "and the cursor is where it opened")
+			assert.Equal(t, start, back.agents.cursor, "and the cursor is where it opened")
 		})
 	}
 }
@@ -264,8 +264,8 @@ func TestJumpMarkThroughAFilter(t *testing.T) {
 
 	assert.Equal(t, filterModeSearch, jumped.filter.mode, "the filter is put back to a search")
 	assert.Equal(t, "auth", jumped.filter.query, "and the pattern still stands")
-	assert.False(t, jumped.tree.showHidden, "the hidden rows stay hidden")
-	assert.Equal(t, agentRowKey("a4"), rowKeyAt(jumped.agentRows(), jumped.tree.cursor))
+	assert.False(t, jumped.agents.showHidden, "the hidden rows stay hidden")
+	assert.Equal(t, agentRowKey("a4"), rowKeyAt(jumped.agentRows(), jumped.agents.cursor))
 }
 
 // TestJumpMarkThroughAFilterToAHiddenRow covers a row both hidden and filtered out needing both
@@ -301,8 +301,8 @@ func TestJumpMarkThroughAFilterToAHiddenRow(t *testing.T) {
 			jumped := pressMark(t, m, m.keys.Marks.Jump[0], "c")
 
 			assert.Equal(t, tt.wantMode, jumped.filter.mode)
-			assert.Equal(t, tt.wantShowHidden, jumped.tree.showHidden)
-			assert.Equal(t, agentRowKey("a5"), rowKeyAt(jumped.agentRows(), jumped.tree.cursor))
+			assert.Equal(t, tt.wantShowHidden, jumped.agents.showHidden)
+			assert.Equal(t, agentRowKey("a5"), rowKeyAt(jumped.agentRows(), jumped.agents.cursor))
 		})
 	}
 }
@@ -337,9 +337,7 @@ func TestOpenWorktreesThroughAFilter(t *testing.T) {
 	m.filter.mode = filterModeFilter
 	m.filter.setQuery("zzz")
 
-	next, _ := m.openWorktrees("archived")
-	opened, ok := next.(model)
-	require.True(t, ok)
+	opened := m.openWorktrees("archived")
 
 	assert.Equal(t, screenWorktrees, opened.screen)
 	assert.False(t, opened.filter.isStanding(), "the filter stays on the screen it was typed on")
@@ -449,13 +447,13 @@ func scheduleNames(rows []scheduleItem) []string {
 // screen landing on the nearest match forward of that row, as a search does.
 func TestFilterAppliedLandsOnTheNearestMatch(t *testing.T) {
 	m := filterModeTree()
-	m.tree.cursor = rowIndexOfKey(m.agentRows(), agentRowKey("a3"))
+	m.agents.cursor = rowIndexOfKey(m.agentRows(), agentRowKey("a3"))
 
 	opened, _ := m.updateAgents(keyMsg("/"))
 	narrowed := pressMark(t, opened.(model), "u", "tab", "enter")
 
 	assert.Equal(t, []string{"backend", "auth", "api", "frontend", "ui"}, rowNames(narrowed.agentRows()), "the child api stays under its matched parent")
-	assert.Equal(t, agentRowKey("a4"), rowKeyAt(narrowed.agentRows(), narrowed.tree.cursor))
+	assert.Equal(t, agentRowKey("a4"), rowKeyAt(narrowed.agentRows(), narrowed.agents.cursor))
 }
 
 // TestFilterKeepsTheCursorOnARowItKept covers a filter that keeps the hovered agent under its
@@ -463,11 +461,11 @@ func TestFilterAppliedLandsOnTheNearestMatch(t *testing.T) {
 // row does.
 func TestFilterKeepsTheCursorOnARowItKept(t *testing.T) {
 	m := filterModeTree()
-	m.tree.cursor = rowIndexOfKey(m.agentRows(), agentRowKey("a1"))
+	m.agents.cursor = rowIndexOfKey(m.agentRows(), agentRowKey("a1"))
 
 	opened, _ := m.updateAgents(keyMsg("/"))
 	narrowed := pressMark(t, opened.(model), "b", "a", "c", "k", "e", "n", "d", "|", "a", "p", "i", "tab", "enter")
 
 	assert.Equal(t, []string{"backend", "auth", "api", "db"}, rowNames(narrowed.agentRows()))
-	assert.Equal(t, agentRowKey("a1"), rowKeyAt(narrowed.agentRows(), narrowed.tree.cursor))
+	assert.Equal(t, agentRowKey("a1"), rowKeyAt(narrowed.agentRows(), narrowed.agents.cursor))
 }
