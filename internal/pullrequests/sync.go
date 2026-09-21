@@ -24,7 +24,8 @@ const pullRequestSyncBudget = 10
 // checksPendingAfter is how long a read of a pending run is trusted before it is read again.
 const checksPendingAfter = time.Minute
 
-// checksSettleWithin is how long after a change a head with no checks is read again.
+// checksSettleWithin is how long after a change a head with no checks or no computed
+// mergeability is read again.
 const checksSettleWithin = 10 * time.Minute
 
 // checksSettledAfter is how long any read of the checks and mergeability is trusted before it

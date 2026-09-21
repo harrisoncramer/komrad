@@ -89,6 +89,16 @@ func TestPullRequestFields(t *testing.T) {
 			want: []recordField{{"pull request", "#741 approved, behind the base"}},
 		},
 		{
+			name: "an approval the forge has not computed yet says so",
+			standing: pullRequestStanding{
+				state:        pullrequestv1.PullRequestState_PULL_REQUEST_STATE_APPROVED_WAITING,
+				checks:       pullrequestv1.Checks_CHECKS_PASSING,
+				mergeability: pullrequestv1.Mergeability_MERGEABILITY_UNKNOWN,
+				number:       741,
+			},
+			want: []recordField{{"pull request", "#741 approved, forge still computing"}},
+		},
+		{
 			name: "an open row conflicting with its base says so before its checks",
 			standing: pullRequestStanding{
 				state:        pullrequestv1.PullRequestState_PULL_REQUEST_STATE_OPEN,

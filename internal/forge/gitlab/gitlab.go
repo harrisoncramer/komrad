@@ -581,7 +581,7 @@ func (n standingNode) mergeability() forge.Mergeability {
 		return forge.MergeabilityUnknown
 	case "MERGEABLE":
 		return forge.MergeabilityClean
-	case "CI_MUST_PASS", "CI_STILL_RUNNING", "COMMITS_STATUS":
+	case "CI_MUST_PASS", "CI_STILL_RUNNING":
 		return forge.MergeabilityUnstable
 	case "NEED_REBASE":
 		return forge.MergeabilityBehind

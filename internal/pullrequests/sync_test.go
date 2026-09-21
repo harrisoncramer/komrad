@@ -361,8 +361,7 @@ func decided(pullRequest forge.PullRequest, decision forge.ReviewDecision) forge
 // scriptedHeadSHA is the head every scripted pull request carries.
 const scriptedHeadSHA = "abc"
 
-// scriptedMergeabilityUnknown scripts a forge that has not computed the mergeability, which
-// the zero value cannot say since it stands for the default.
+// scriptedMergeabilityUnknown scripts a forge that has not computed the mergeability.
 const scriptedMergeabilityUnknown forge.Mergeability = "not computed"
 
 func (f *syncFixture) stored(t *testing.T, providerID string) *pullrequeststore.PullRequest {

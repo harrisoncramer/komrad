@@ -608,7 +608,7 @@ func TestMergeabilityFolds(t *testing.T) {
 		{status: "MERGEABLE", want: forge.MergeabilityClean},
 		{status: "CI_MUST_PASS", want: forge.MergeabilityUnstable},
 		{status: "CI_STILL_RUNNING", want: forge.MergeabilityUnstable},
-		{status: "COMMITS_STATUS", want: forge.MergeabilityUnstable},
+		{status: "COMMITS_STATUS", want: forge.MergeabilityBlocked},
 		{status: "NEED_REBASE", want: forge.MergeabilityBehind},
 		{status: "CONFLICT", want: forge.MergeabilityConflicting},
 		{status: "UNCHECKED", want: forge.MergeabilityUnknown},

@@ -231,6 +231,8 @@ func pullRequestWords(state pullrequestv1.PullRequestState, checks pullrequestv1
 		return word + ", checks running"
 	case state == pullrequestv1.PullRequestState_PULL_REQUEST_STATE_APPROVED_WAITING && mergeability == pullrequestv1.Mergeability_MERGEABILITY_BLOCKED:
 		return word + ", blocked by a rule"
+	case state == pullrequestv1.PullRequestState_PULL_REQUEST_STATE_APPROVED_WAITING && mergeability == pullrequestv1.Mergeability_MERGEABILITY_UNKNOWN:
+		return word + ", forge still computing"
 	}
 
 	return word
