@@ -6,8 +6,8 @@ import (
 	"testing"
 
 	"weave/internal/diff"
-	"weave/internal/review"
 	agentstore "weave/internal/store/agent"
+	"weave/internal/ui/diffview"
 	agentv1 "weave/proto/gen/agent/v1"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -156,7 +156,7 @@ func TestReloadWithNoChaptersLetsTheReaderOut(t *testing.T) {
 func TestIsReviewHistoryReadsTheSnapshotDrawn(t *testing.T) {
 	m := model{}
 	m.review.round = &agentv1.ReviewRound{Id: "r3", SnapshotSha: "s3"}
-	m.review.diff.view = review.NewView(&diff.Patch{BaseSHA: "s1", SnapshotSHA: "s2"}, false)
+	m.review.diff.view = diffview.NewView(&diff.Patch{BaseSHA: "s1", SnapshotSHA: "s2"}, false)
 
 	said, history := m.review.isHistory()
 	assert.True(t, history, "the diff on screen was drawn to an older snapshot")
@@ -818,7 +818,7 @@ func reviewRowWithAnAnchor(t *testing.T, m model) int {
 }
 
 // reviewAnchorInTheDiff is a line of the diff a comment can hang on.
-func reviewAnchorInTheDiff(t *testing.T, m model) review.Anchor {
+func reviewAnchorInTheDiff(t *testing.T, m model) diffview.Anchor {
 	t.Helper()
 
 	anchor, ok := m.review.diff.view.GetAnchor(reviewRowWithAnAnchor(t, m))

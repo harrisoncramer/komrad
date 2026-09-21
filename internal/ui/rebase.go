@@ -11,8 +11,8 @@ import (
 
 const rebaseTimeout = 30 * time.Second
 
-// refreshPlan is what a rebase would do, carried from the server to the picker.
-type refreshPlan struct {
+// rebasePlan is what a rebase would do, carried from the server to the picker.
+type rebasePlan struct {
 	agentID string
 	name    string
 	baseRef string
@@ -28,9 +28,9 @@ type refreshPlan struct {
 	conflictPaths []string
 }
 
-// refreshPlannedMsg is a plan come back, or the reason there is none.
-type refreshPlannedMsg struct {
-	plan refreshPlan
+// rebasePlannedMsg is a plan come back, or the reason there is none.
+type rebasePlannedMsg struct {
+	plan rebasePlan
 	err  error
 }
 
@@ -48,17 +48,17 @@ type rebasedMsg struct {
 	err   error
 }
 
-// planRefreshCmd asks what a rebase would do.
-func (m *model) planRefreshCmd(agentID, name string) tea.Cmd {
+// planRebaseCmd asks what a rebase would do.
+func (m *model) planRebaseCmd(agentID, name string) tea.Cmd {
 	clients := m.api
 
 	return func() tea.Msg {
-		plan, err := clients.planRefresh(agentID)
+		plan, err := clients.planRebase(agentID)
 		if err != nil {
-			return refreshPlannedMsg{err: err}
+			return rebasePlannedMsg{err: err}
 		}
 
-		return refreshPlannedMsg{plan: refreshPlan{
+		return rebasePlannedMsg{plan: rebasePlan{
 			agentID:       agentID,
 			name:          name,
 			baseRef:       plan.GetBaseRef(),
@@ -94,15 +94,15 @@ func (m *model) rebaseCmd(agentID, name string) tea.Cmd {
 	}
 }
 
-// applyRefreshPlanned opens the confirmation, or says why there is nothing to confirm.
-func (m *model) applyRefreshPlanned(msg refreshPlannedMsg) (tea.Model, tea.Cmd) {
+// applyRebasePlanned opens the confirmation, or says why there is nothing to confirm.
+func (m *model) applyRebasePlanned(msg rebasePlannedMsg) (tea.Model, tea.Cmd) {
 	if msg.err != nil {
 		m.report("Could not work out what a rebase would do", msg.err)
 
 		return m, nil
 	}
 
-	return m.openRefreshConfirm(msg.plan)
+	return m.openRebaseConfirm(msg.plan)
 }
 
 // applyRebased reports the outcome.

@@ -94,7 +94,7 @@ func newMux(params newMuxParams) (*http.ServeMux, error) {
 			Review:           params.Services.review,
 			Runs:             params.Stores.runs,
 			Marks:            params.Services.marks,
-			Refresher:        params.Services.rebase,
+			Rebaser:          params.Services.rebase,
 			Orchestrator:     params.Services.orchestrator,
 			PullRequests:     params.Stores.pullRequests,
 			PullRequestSyncs: params.Stores.pullRequestSyncs,

@@ -55,7 +55,7 @@ const (
 	formAdopt
 	formRename
 	formAgentArchive
-	formAgentRefresh
+	formAgentRebase
 	formAgentRetry
 	formAgentRelease
 	formGit
@@ -121,7 +121,7 @@ func formColumn(kind formKind) (columnSpec, bool) {
 	switch kind {
 	case formAgent, formChild, formAdopt, formRename, formAgentRetry, formWorkflow, formSchedule:
 		return columnSpec{floor: formColumnFloor}, true
-	case formGit, formAgentArchive, formAgentRefresh, formAgentRelease, formWorkflowArchive, formScheduleArchive,
+	case formGit, formAgentArchive, formAgentRebase, formAgentRelease, formWorkflowArchive, formScheduleArchive,
 		formArchiveDelete, formArchiveEmpty, formWorktreesDelete:
 		return columnSpec{floor: columnFloor}, true
 	case formNone:
@@ -699,20 +699,20 @@ func archiveAgentsForm(agents []agentstore.Agent, children int, keys config.Form
 	return form, &choice
 }
 
-// refreshForm asks before a worktree is brought up to date, saying what will happen to the
+// rebaseForm asks before a worktree is brought up to date, saying what will happen to the
 // branch and to the files.
-func refreshForm(plan refreshPlan, keys config.FormKeys) (*huh.Form, *bool) {
+func rebaseForm(plan rebasePlan, keys config.FormKeys) (*huh.Form, *bool) {
 	return confirmForm(
 		"Bring the worktree of "+plan.name+" up to date?",
-		refreshDescription(plan),
-		refreshAffirmative(plan),
+		rebaseDescription(plan),
+		rebaseAffirmative(plan),
 		keys,
 	)
 }
 
-// refreshDescription says what the operation will do, in the order somebody deciding needs it:
+// rebaseDescription says what the operation will do, in the order somebody deciding needs it:
 // what happens to the branch, then what happens to the files, then what might go wrong.
-func refreshDescription(plan refreshPlan) string {
+func rebaseDescription(plan rebasePlan) string {
 	lines := []string{}
 
 	// A dirty worktree never reaches here.
@@ -733,15 +733,15 @@ func refreshDescription(plan refreshPlan) string {
 	lines = append(lines, "Its files will change under it, and nothing untracked is removed. A copy of the "+
 		"worktree is kept first, so this can be read back.")
 
-	if warning := refreshWarning(plan); warning != "" {
+	if warning := rebaseWarning(plan); warning != "" {
 		lines = append(lines, warning)
 	}
 
 	return strings.Join(lines, " ")
 }
 
-// refreshAffirmative names the button for what will actually run.
-func refreshAffirmative(plan refreshPlan) string {
+// rebaseAffirmative names the button for what will actually run.
+func rebaseAffirmative(plan rebasePlan) string {
 	if plan.replay == 0 {
 		return "Move"
 	}
@@ -749,9 +749,9 @@ func refreshAffirmative(plan refreshPlan) string {
 	return "Rebase"
 }
 
-// refreshWarning is the trouble a rebase would run into that the description cannot say from
+// rebaseWarning is the trouble a rebase would run into that the description cannot say from
 // the commit counts alone.
-func refreshWarning(plan refreshPlan) string {
+func rebaseWarning(plan rebasePlan) string {
 	warnings := []string{}
 
 	// The landed commits are not warned about here.

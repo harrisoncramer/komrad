@@ -158,7 +158,7 @@ func (m model) runGitChoice(agentID string, choice gitChoice) (model, tea.Cmd) {
 			return m, nil
 		}
 
-		return m, m.planRefreshCmd(agent.ID, agent.Name)
+		return m, m.planRebaseCmd(agent.ID, agent.Name)
 	case gitChoiceOpenPullRequest:
 		return m.openPullRequest(item)
 	case gitChoiceCancel:

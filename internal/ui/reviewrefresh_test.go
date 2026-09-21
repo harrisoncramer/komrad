@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"weave/internal/diff"
-	"weave/internal/review"
+	"weave/internal/ui/diffview"
 	agentv1 "weave/proto/gen/agent/v1"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -456,7 +456,7 @@ func TestReviewReloadKeyOpensTheNextRound(t *testing.T) {
 
 	var drawn string
 	for y := range m.review.diff.view.Len() {
-		drawn += m.review.diff.view.RenderRow(y, review.NoCursor, 120, 0)
+		drawn += m.review.diff.view.RenderRow(y, diffview.NoCursor, 120, 0)
 	}
 	assert.Contains(t, drawn, "written by the agent")
 }

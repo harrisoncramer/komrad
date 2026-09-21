@@ -9,9 +9,9 @@ import (
 	"strconv"
 
 	"weave/internal/diff"
-	"weave/internal/review"
 	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
+	"weave/internal/ui/diffview"
 	"weave/internal/ui/paint"
 	agentv1 "weave/proto/gen/agent/v1"
 	"weave/proto/gen/agent/v1/agentv1connect"
@@ -1256,7 +1256,7 @@ func reviewGutterFor(t *testing.T, m model, id string) string {
 
 	for y := range m.review.diff.view.Len() {
 		if thread, ok := m.review.diff.view.GetThreadAt(y); ok && thread.GetId() == id {
-			return ansi.Strip(m.review.diff.view.RenderRow(y, review.NoCursor, 120, 0))
+			return ansi.Strip(m.review.diff.view.RenderRow(y, diffview.NoCursor, 120, 0))
 		}
 	}
 
@@ -1742,7 +1742,7 @@ func standOnAFinishedRound(m model) model {
 	}
 	m.review.diff.chapter = 0
 	m.review.diff.head = "an-older-snapshot"
-	m.review.diff.view = review.NewView(&diff.Patch{SnapshotSHA: m.review.diff.head}, false)
+	m.review.diff.view = diffview.NewView(&diff.Patch{SnapshotSHA: m.review.diff.head}, false)
 
 	return m
 }

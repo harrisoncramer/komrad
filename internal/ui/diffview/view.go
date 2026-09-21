@@ -1,6 +1,6 @@
-// Package review flattens an agent's diff into a list of drawable rows, pins review threads
+// Package diffview flattens an agent's diff into a list of drawable rows, pins review threads
 // to the lines they were written against, and draws one row at a time.
-package review
+package diffview
 
 import (
 	"maps"
