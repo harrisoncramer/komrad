@@ -59,7 +59,7 @@ func (w *EmptyArchiveWorker) Work(ctx context.Context, job *river.Job[EmptyArchi
 	)
 
 	for {
-		batch, err := w.archived.ListPage(ctx, emptyArchiveBatch, cursor, true)
+		batch, err := w.archived.ListArchiveSweepPage(ctx, emptyArchiveBatch, cursor)
 		if err != nil {
 			failures = append(failures, fmt.Errorf("failed to read the archive: %w", err))
 

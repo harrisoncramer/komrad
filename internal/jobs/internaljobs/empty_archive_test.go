@@ -114,11 +114,7 @@ func archivedRow(agent agentstore.Agent) agentstore.Agent {
 	return agent
 }
 
-func (f *fakeArchive) ListPage(_ context.Context, limit int64, cursor *agentstore.Cursor, archived bool) ([]agentstore.Agent, error) {
-	if !archived {
-		return nil, errors.New("the sweep reads the archive, not the live agents")
-	}
-
+func (f *fakeArchive) ListArchiveSweepPage(_ context.Context, limit int64, cursor *agentstore.Cursor) ([]agentstore.Agent, error) {
 	page := make([]agentstore.Agent, 0, limit)
 	for _, agent := range f.agents {
 		if cursor != nil && agent.ID >= cursor.ID {

@@ -8,6 +8,7 @@ FROM
     JOIN workflow_configs wc ON wc.id = w.workflow_config_id
     JOIN workflow_provisioner_configs pc ON pc.id = w.provisioner_config_id
 WHERE (@archived::boolean) =(w.archived_at IS NOT NULL)
+    AND w.deleting_at IS NULL
     AND (sqlc.narg('cursor_id')::uuid IS NULL
         OR (LOWER(w.name)
             COLLATE "C",
@@ -179,6 +180,14 @@ SET
     archived_at = NULL
 WHERE
     id = @id;
+
+-- name: ClearAllWorkflowsDeleting :exec
+UPDATE
+    workflows
+SET
+    deleting_at = NULL
+WHERE
+    deleting_at IS NOT NULL;
 
 -- name: DeleteWorkflow :one
 DELETE FROM workflows

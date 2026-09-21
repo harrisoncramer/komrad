@@ -9,6 +9,20 @@ import (
 	"context"
 )
 
+const clearAllWorkflowsDeleting = `-- name: ClearAllWorkflowsDeleting :exec
+UPDATE
+    workflows
+SET
+    deleting_at = NULL
+WHERE
+    deleting_at IS NOT NULL
+`
+
+func (q *Queries) ClearAllWorkflowsDeleting(ctx context.Context) error {
+	_, err := q.db.Exec(ctx, clearAllWorkflowsDeleting)
+	return err
+}
+
 const deleteWorkflow = `-- name: DeleteWorkflow :one
 DELETE FROM workflows
 WHERE id = $1
@@ -61,7 +75,7 @@ func (q *Queries) DeleteWorkflowProvisionerConfig(ctx context.Context, id string
 
 const getWorkflow = `-- name: GetWorkflow :one
 SELECT
-    w.id, w.name, w.context, w.workflow_config_id, w.provisioner_config_id, w.archived_at, w.created_at, w.updated_at,
+    w.id, w.name, w.context, w.workflow_config_id, w.provisioner_config_id, w.archived_at, w.created_at, w.updated_at, w.deleting_at,
     wc.id, wc.harness, wc.cwd, wc.flags, wc.created_at, wc.updated_at,
     pc.id, pc.worktree_enabled, pc.worktree_base_branch, pc.worktree_copy_paths, pc.worktree_symlink_paths, pc.created_at, pc.updated_at, pc.worktree_diff_exclude, pc.worktree_dir
 FROM
@@ -92,6 +106,7 @@ func (q *Queries) GetWorkflow(ctx context.Context, id string) (*GetWorkflowRow, 
 		&i.Workflow.ArchivedAt,
 		&i.Workflow.CreatedAt,
 		&i.Workflow.UpdatedAt,
+		&i.Workflow.DeletingAt,
 		&i.WorkflowConfig.ID,
 		&i.WorkflowConfig.Harness,
 		&i.WorkflowConfig.Cwd,
@@ -113,7 +128,7 @@ func (q *Queries) GetWorkflow(ctx context.Context, id string) (*GetWorkflowRow, 
 
 const getWorkflowIncludingArchived = `-- name: GetWorkflowIncludingArchived :one
 SELECT
-    w.id, w.name, w.context, w.workflow_config_id, w.provisioner_config_id, w.archived_at, w.created_at, w.updated_at,
+    w.id, w.name, w.context, w.workflow_config_id, w.provisioner_config_id, w.archived_at, w.created_at, w.updated_at, w.deleting_at,
     wc.id, wc.harness, wc.cwd, wc.flags, wc.created_at, wc.updated_at,
     pc.id, pc.worktree_enabled, pc.worktree_base_branch, pc.worktree_copy_paths, pc.worktree_symlink_paths, pc.created_at, pc.updated_at, pc.worktree_diff_exclude, pc.worktree_dir
 FROM
@@ -143,6 +158,7 @@ func (q *Queries) GetWorkflowIncludingArchived(ctx context.Context, id string) (
 		&i.Workflow.ArchivedAt,
 		&i.Workflow.CreatedAt,
 		&i.Workflow.UpdatedAt,
+		&i.Workflow.DeletingAt,
 		&i.WorkflowConfig.ID,
 		&i.WorkflowConfig.Harness,
 		&i.WorkflowConfig.Cwd,
@@ -174,7 +190,7 @@ VALUES (
     $3,
     $4)
 RETURNING
-    id, name, context, workflow_config_id, provisioner_config_id, archived_at, created_at, updated_at
+    id, name, context, workflow_config_id, provisioner_config_id, archived_at, created_at, updated_at, deleting_at
 `
 
 type InsertWorkflowParams struct {
@@ -201,6 +217,7 @@ func (q *Queries) InsertWorkflow(ctx context.Context, arg InsertWorkflowParams) 
 		&i.ArchivedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.DeletingAt,
 	)
 	return &i, err
 }
@@ -470,7 +487,7 @@ func (q *Queries) ListWorkflowWorktreeDirs(ctx context.Context) ([]string, error
 
 const listWorkflows = `-- name: ListWorkflows :many
 SELECT
-    w.id, w.name, w.context, w.workflow_config_id, w.provisioner_config_id, w.archived_at, w.created_at, w.updated_at,
+    w.id, w.name, w.context, w.workflow_config_id, w.provisioner_config_id, w.archived_at, w.created_at, w.updated_at, w.deleting_at,
     wc.id, wc.harness, wc.cwd, wc.flags, wc.created_at, wc.updated_at,
     pc.id, pc.worktree_enabled, pc.worktree_base_branch, pc.worktree_copy_paths, pc.worktree_symlink_paths, pc.created_at, pc.updated_at, pc.worktree_diff_exclude, pc.worktree_dir
 FROM
@@ -509,6 +526,7 @@ func (q *Queries) ListWorkflows(ctx context.Context) ([]*ListWorkflowsRow, error
 			&i.Workflow.ArchivedAt,
 			&i.Workflow.CreatedAt,
 			&i.Workflow.UpdatedAt,
+			&i.Workflow.DeletingAt,
 			&i.WorkflowConfig.ID,
 			&i.WorkflowConfig.Harness,
 			&i.WorkflowConfig.Cwd,
@@ -537,7 +555,7 @@ func (q *Queries) ListWorkflows(ctx context.Context) ([]*ListWorkflowsRow, error
 
 const listWorkflowsPage = `-- name: ListWorkflowsPage :many
 SELECT
-    w.id, w.name, w.context, w.workflow_config_id, w.provisioner_config_id, w.archived_at, w.created_at, w.updated_at,
+    w.id, w.name, w.context, w.workflow_config_id, w.provisioner_config_id, w.archived_at, w.created_at, w.updated_at, w.deleting_at,
     wc.id, wc.harness, wc.cwd, wc.flags, wc.created_at, wc.updated_at,
     pc.id, pc.worktree_enabled, pc.worktree_base_branch, pc.worktree_copy_paths, pc.worktree_symlink_paths, pc.created_at, pc.updated_at, pc.worktree_diff_exclude, pc.worktree_dir
 FROM
@@ -545,6 +563,7 @@ FROM
     JOIN workflow_configs wc ON wc.id = w.workflow_config_id
     JOIN workflow_provisioner_configs pc ON pc.id = w.provisioner_config_id
 WHERE ($1::boolean) =(w.archived_at IS NOT NULL)
+    AND w.deleting_at IS NULL
     AND ($2::uuid IS NULL
         OR (LOWER(w.name)
             COLLATE "C",
@@ -594,6 +613,7 @@ func (q *Queries) ListWorkflowsPage(ctx context.Context, arg ListWorkflowsPagePa
 			&i.Workflow.ArchivedAt,
 			&i.Workflow.CreatedAt,
 			&i.Workflow.UpdatedAt,
+			&i.Workflow.DeletingAt,
 			&i.WorkflowConfig.ID,
 			&i.WorkflowConfig.Harness,
 			&i.WorkflowConfig.Cwd,

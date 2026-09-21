@@ -33,6 +33,7 @@ type AgentDir struct {
 	State          State
 	StateChangedAt time.Time
 	ArchivedAt     *time.Time
+	DeletingAt     *time.Time
 	AdoptedBranch  string
 	WorkflowID     string
 }
@@ -52,6 +53,7 @@ func (s *Store) ListDirs(ctx context.Context) ([]AgentDir, error) {
 			State:          State(row.State),
 			StateChangedAt: row.StateChangedAt,
 			ArchivedAt:     row.ArchivedAt,
+			DeletingAt:     row.DeletingAt,
 			AdoptedBranch:  row.AdoptedBranch,
 			WorkflowID:     row.WorkflowID,
 		}
@@ -68,6 +70,22 @@ func (s *Store) ListPage(ctx context.Context, limit int64, cursor *Cursor, archi
 	rows, err := s.queries.ListAgentsPage(ctx, params)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list a page of agents: %w", err)
+	}
+
+	return s.hydrateMetadataForAgents(ctx, rows)
+}
+
+// ListArchiveSweepPage returns one page of archived agents, newest first, including the rows a
+// delete has already claimed.
+func (s *Store) ListArchiveSweepPage(ctx context.Context, limit int64, cursor *Cursor) ([]Agent, error) {
+	params := models.ListArchiveSweepPageParams{Lim: int32(limit)}
+	if cursor != nil {
+		params.CursorID = &cursor.ID
+	}
+
+	rows, err := s.queries.ListArchiveSweepPage(ctx, params)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list a page of the archive for the sweep: %w", err)
 	}
 
 	return s.hydrateMetadataForAgents(ctx, rows)

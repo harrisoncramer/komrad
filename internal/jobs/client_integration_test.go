@@ -8,8 +8,10 @@ import (
 	"weave/db"
 	"weave/internal/agents"
 	"weave/internal/jobs/internaljobs"
+	"weave/internal/store"
 	agentstore "weave/internal/store/agent"
 	schedulestore "weave/internal/store/schedule"
+	workflowstore "weave/internal/store/workflow"
 	"weave/internal/storetest"
 
 	"github.com/jackc/pgx/v5"
@@ -20,6 +22,14 @@ import (
 )
 
 func newRiverClient(t *testing.T) *river.Client[pgx.Tx] {
+	t.Helper()
+
+	client, _ := newRiverClientWithStores(t)
+
+	return client
+}
+
+func newRiverClientWithStores(t *testing.T) (*river.Client[pgx.Tx], *storetest.Stores) {
 	t.Helper()
 
 	stores := storetest.Open(t)
@@ -39,7 +49,7 @@ func newRiverClient(t *testing.T) *river.Client[pgx.Tx] {
 	})
 	require.NoError(t, err)
 
-	return client
+	return client, stores
 }
 
 // TestFiringIsQueuedOnce covers two inserts naming the same occurrence of the same
@@ -182,6 +192,98 @@ func TestDeleteWorktreesIsQueuedOncePerSet(t *testing.T) {
 	other, err := client.Insert(t.Context(), internaljobs.DeleteWorktreesArgs{Dirs: []string{"/trees/c"}}, nil)
 	require.NoError(t, err)
 	assert.False(t, other.UniqueSkippedAsDuplicate, "a different set is its own job")
+}
+
+// TestEnqueuerClaimsWhatItQueues covers each delete claiming its rows as it is queued: the
+// archive sweep every archived agent, the worktree delete only the archived agents among the
+// directories' owners, and the directories staying claimed until the job is finished with.
+func TestEnqueuerClaimsWhatItQueues(t *testing.T) {
+	tests := []struct {
+		name     string
+		queue    func(ctx context.Context, queue *Enqueuer, dirs []string) error
+		wantDirs bool
+	}{
+		{
+			name: "emptying the archive",
+			queue: func(ctx context.Context, queue *Enqueuer, _ []string) error {
+				return NewArchiveSweep(queue).EmptyArchive(ctx)
+			},
+		},
+		{
+			name: "deleting worktrees",
+			queue: func(ctx context.Context, queue *Enqueuer, dirs []string) error {
+				return NewWorktreeDelete(queue).DeleteWorktrees(ctx, dirs)
+			},
+			wantDirs: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			client, stores := newRiverClientWithStores(t)
+			ctx := t.Context()
+			queue := NewEnqueuer(client, stores.Pool.GetRawPool())
+			worktreeDelete := NewWorktreeDelete(queue)
+
+			workflow, err := stores.Workflows.Create(ctx, workflowstore.Config{Name: "backend"})
+			require.NoError(t, err)
+			putAway, err := stores.Workflows.Create(ctx, workflowstore.Config{Name: "put-away"})
+			require.NoError(t, err)
+			live := agentstore.Agent{ID: newID(t), Name: "live", WorkflowID: workflow.ID, State: agentstore.StateIdle}
+			archived := agentstore.Agent{ID: newID(t), Name: "archived", WorkflowID: workflow.ID, State: agentstore.StateIdle}
+			inside := agentstore.Agent{ID: newID(t), Name: "inside", WorkflowID: putAway.ID, State: agentstore.StateIdle}
+			require.NoError(t, stores.Agents.Create(ctx, live))
+			require.NoError(t, stores.Agents.Create(ctx, archived))
+			require.NoError(t, stores.Agents.Create(ctx, inside))
+			_, err = stores.Agents.Archive(ctx, []string{archived.ID, inside.ID})
+			require.NoError(t, err)
+			require.NoError(t, stores.Workflows.Archive(ctx, putAway.ID))
+			dirs := []string{"/trees/" + archived.ID, "/trees/" + live.ID, "/trees/orphan"}
+
+			require.NoError(t, tt.queue(ctx, queue, dirs))
+
+			claimed, err := stores.Agents.GetByID(ctx, archived.ID)
+			require.NoError(t, err)
+			assert.NotNil(t, claimed.DeletingAt, "the archived agent is claimed")
+			left, err := stores.Agents.GetByID(ctx, live.ID)
+			require.NoError(t, err)
+			assert.Nil(t, left.DeletingAt, "the live agent is not")
+			gone, err := stores.Workflows.GetIncludingArchived(ctx, putAway.ID)
+			require.NoError(t, err)
+			assert.Equal(t, !tt.wantDirs, gone.DeletingAt != nil, "the archive sweep claims the archived workflow, the worktree delete leaves it")
+			kept, err := stores.Workflows.GetIncludingArchived(ctx, workflow.ID)
+			require.NoError(t, err)
+			assert.Nil(t, kept.DeletingAt, "a live workflow is never claimed")
+
+			listed, err := worktreeDelete.ListClaimedDirs(ctx)
+			require.NoError(t, err)
+			if !tt.wantDirs {
+				assert.Empty(t, listed)
+
+				return
+			}
+			assert.Equal(t, dirs, listed, "the directories are claimed while the job is owed")
+
+			queued, err := client.JobList(ctx, river.NewJobListParams().Kinds(internaljobs.DeleteWorktreesArgs{}.Kind()))
+			require.NoError(t, err)
+			require.Len(t, queued.Jobs, 1)
+			_, err = client.JobCancel(ctx, queued.Jobs[0].ID)
+			require.NoError(t, err)
+
+			listed, err = worktreeDelete.ListClaimedDirs(ctx)
+			require.NoError(t, err)
+			assert.Empty(t, listed, "and not once it is finished with")
+		})
+	}
+}
+
+func newID(t *testing.T) string {
+	t.Helper()
+
+	id, err := store.NewID()
+	require.NoError(t, err)
+
+	return id
 }
 
 // TestPeriodicRegistrationIsKeyedByItsId covers the id River files a registration under, which
@@ -339,7 +441,7 @@ func (fakeAgents) DeleteAgents(context.Context, []string) error { return nil }
 
 type fakeArchive struct{}
 
-func (fakeArchive) ListPage(context.Context, int64, *agentstore.Cursor, bool) ([]agentstore.Agent, error) {
+func (fakeArchive) ListArchiveSweepPage(context.Context, int64, *agentstore.Cursor) ([]agentstore.Agent, error) {
 	return nil, nil
 }
 

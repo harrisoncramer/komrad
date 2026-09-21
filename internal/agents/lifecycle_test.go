@@ -116,6 +116,97 @@ func TestDeleteAgentMarksFailedToCleanupWhenTeardownFails(t *testing.T) {
 	assert.Contains(t, metadataValue(agents[0].Metadata), "worktree is dirty")
 }
 
+// TestDeleteClaimsTheRowWhileTheTeardownRuns covers the row leaving the page listing the
+// moment the delete is asked, and coming back only when the teardown fails.
+func TestDeleteClaimsTheRowWhileTheTeardownRuns(t *testing.T) {
+	tests := []struct {
+		name        string
+		teardownErr error
+		wantListed  int
+		wantState   agentstore.State
+	}{
+		{
+			name:        "a teardown that fails gives the row back marked so",
+			teardownErr: errors.New("worktree is dirty"),
+			wantListed:  1,
+			wantState:   agentstore.StateFailedToCleanup,
+		},
+		{
+			name:       "a teardown that works takes the row",
+			wantListed: 0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tmux := newFakeTmux()
+			st := newStore(t)
+			lifecycle := &fakeLifecycle{holdDeprovision: true}
+			manager := st.agentServiceWithLifecycle(tmux, fakeHarnesses{harness: &fakeHarness{}}, lifecycle)
+
+			created, err := workflowsFor(st, tmux).NewWorkflow(t.Context(), worktreeConfig(t, "backend"))
+			require.NoError(t, err)
+
+			agent, err := manager.launch.NewAgent(t.Context(), NewAgentParams{
+				Title:      "agent",
+				Dir:        t.TempDir(),
+				WorkflowID: created.ID,
+			})
+			require.NoError(t, err)
+			require.NoError(t, manager.lifecycle.ArchiveAgents(t.Context(), []string{agent.ID}))
+
+			require.NoError(t, manager.lifecycle.DeleteAgents(t.Context(), []string{agent.ID}))
+
+			page, err := st.Agents.ListPage(t.Context(), 10, nil, true)
+			require.NoError(t, err)
+			assert.Empty(t, page, "the row is out of the archive while the teardown runs")
+			all, err := st.ListAll(t.Context())
+			require.NoError(t, err)
+			require.Len(t, all, 1, "and still there")
+			assert.NotNil(t, all[0].DeletingAt)
+
+			require.Len(t, lifecycle.held, 1)
+			lifecycle.held[0](tt.teardownErr)
+
+			page, err = st.Agents.ListPage(t.Context(), 10, nil, true)
+			require.NoError(t, err)
+			require.Len(t, page, tt.wantListed)
+			if tt.wantListed > 0 {
+				assert.Equal(t, tt.wantState, page[0].State)
+				assert.Nil(t, page[0].DeletingAt)
+			}
+		})
+	}
+}
+
+// TestDeleteGivesBackWhatItCouldNotTake covers a delete refused whole, over a batch naming
+// an agent that has gone, releasing the claim a queued delete had already put on the rest.
+func TestDeleteGivesBackWhatItCouldNotTake(t *testing.T) {
+	tmux := newFakeTmux()
+	st := newStore(t)
+	manager := st.agentServiceWithLifecycle(tmux, fakeHarnesses{harness: &fakeHarness{}}, &fakeLifecycle{})
+	ctx := t.Context()
+
+	created, err := workflowsFor(st, tmux).NewWorkflow(ctx, worktreeConfig(t, "backend"))
+	require.NoError(t, err)
+	agent, err := manager.launch.NewAgent(ctx, NewAgentParams{
+		Title:      "agent",
+		Dir:        t.TempDir(),
+		WorkflowID: created.ID,
+	})
+	require.NoError(t, err)
+	require.NoError(t, manager.lifecycle.ArchiveAgents(ctx, []string{agent.ID}))
+	require.NoError(t, st.Agents.MarkDeleting(ctx, []string{agent.ID}))
+
+	err = manager.lifecycle.DeleteAgents(ctx, []string{agent.ID, "00000000-0000-0000-0000-000000000000"})
+	require.ErrorIs(t, err, ErrAgentNotFound)
+
+	page, err := st.Agents.ListPage(ctx, 10, nil, true)
+	require.NoError(t, err)
+	require.Len(t, page, 1, "the row the delete could not take is back in the archive")
+	assert.Nil(t, page[0].DeletingAt)
+}
+
 // TestDeleteStaysArchivedOnAFailedTeardown pins a failed cleanup leaving the row in the
 // archive, which is where the user was working and so where the failure shows.
 func TestDeleteStaysArchivedOnAFailedTeardown(t *testing.T) {

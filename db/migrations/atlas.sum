@@ -1,4 +1,4 @@
-h1:G2bJIMNQi7CZrRN//j7wN8gE/XlD5LsMmzvlawKhcAU=
+h1:J9k7krW8VNLCJYjUM2o/ULqZ3tVlBUdmnkmjnJ9x8Jw=
 20260727000000_initial.sql h1:ubkXyswrZOM0CuuAD9GtwEBRjcnCAl3KY6uamudWwuY=
 20260824163026_state_seen_at.sql h1:wPnZ5xyxQrLBegwX9PP0U6LRh91JcItKfcJz1cQKUU8=
 20260825032556_add_schedule_last_result.sql h1:CpH3A88qiOKXKKb1zefqQlqI/O8DxxNpZjrsQJZ8g5Q=
@@ -58,3 +58,5 @@ h1:G2bJIMNQi7CZrRN//j7wN8gE/XlD5LsMmzvlawKhcAU=
 20260920182903_pull_request_cursors.sql h1:SzDKOYB5U+MlNbFfyF8E6wWvyAnbvpnTp10UwyKjkmA=
 20260920183901_worktree_sizes.sql h1:9M4+5r/fYMEq8KHQ8MIQpvbGk+vUeDaD6o9GOXleOd8=
 20260920224638_drop_agent_viewed_at.sql h1:yoAqhIp6aHS7qU30eUXv59c5DLaVC4f9qfwz88EyCU4=
+20260920233803_agent_deleting_at.sql h1:Gv4PpUI77oW7K3G3zQ0lxjpOpIGOyoNG9pdut5g4sYY=
+20260921000122_workflow_deleting_at.sql h1:a3hM8R8Dm9tkq6EvdbS5JRP1kxmKORI3c6N0Rosd1Fg=

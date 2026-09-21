@@ -4,7 +4,7 @@ Queue one background job that deletes worktree directories, each by the path its
 
 ### Synopsis
 
-Queue one background job that deletes worktree directories, each by the path its row decides. A directory whose agent is archived goes through delete_agents, which runs the workflow's teardown hooks and the cleanup and takes the agent's children with it; one nothing answers for, or whose agent's own delete failed on a registration git cannot read, goes through remove_unowned_worktrees; one whose agent is live is left alone. It answers once the job is recorded, before anything has gone. A directory the listing no longer holds is skipped, so a retried job takes only what is left, and one that is refused stays listed by list_worktrees with the reason in the log.
+Queue one background job that deletes worktree directories, each by the path its row decides. A directory whose agent is archived goes through delete_agents, which runs the workflow's teardown hooks and the cleanup and takes the agent's children with it; one nothing answers for, or whose agent's own delete failed on a registration git cannot read, goes through remove_unowned_worktrees; one whose agent is live is left alone. It answers once the job is recorded, before anything has gone. The directories leave list_worktrees as soon as the job is recorded. A directory the listing no longer holds is skipped, so a retried job takes only what is left, and one that is refused comes back to list_worktrees once the job is finished with, with the reason in the log.
 
 ```
 weave rpc delete-worktrees [flags]

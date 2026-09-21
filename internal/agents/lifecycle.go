@@ -33,6 +33,8 @@ type lifecycleAgentReadWriter interface {
 	Archive(ctx context.Context, ids []string) ([]agentstore.AgentPane, error)
 	ArchiveIfUnchanged(ctx context.Context, params agentstore.ArchiveIfUnchangedParams) (bool, error)
 	RestampArchived(ctx context.Context, ids []string) error
+	MarkDeleting(ctx context.Context, ids []string) error
+	ClearDeleting(ctx context.Context, ids []string) error
 }
 
 // emptyWorkflowDeleter permanently removes a workflow left with nothing archived inside it.
@@ -98,12 +100,16 @@ func NewLifecycleService(params NewLifecycleServiceParams) *LifecycleService {
 func (s *LifecycleService) DeleteAgents(ctx context.Context, ids []string) error {
 	named, err := s.requireEveryAgent(ctx, ids)
 	if err != nil {
-		return err
+		return errors.Join(err, s.agents.ClearDeleting(ctx, ids))
 	}
 
 	agents, err := s.withChildren(ctx, named)
 	if err != nil {
-		return err
+		return errors.Join(err, s.agents.ClearDeleting(ctx, ids))
+	}
+
+	if err := s.agents.MarkDeleting(ctx, agentIDs(agents)); err != nil {
+		return errors.Join(err, s.agents.ClearDeleting(ctx, ids))
 	}
 
 	// A deprovisioner must not run against a directory a CLI is still working in, and since the
@@ -145,7 +151,7 @@ func (s *LifecycleService) DeleteAgents(ctx context.Context, ids []string) error
 	}
 
 	if err := s.removeAgents(ctx, agentIDs(immediate)); err != nil {
-		return err
+		return errors.Join(err, s.agents.ClearDeleting(ctx, agentIDs(immediate)))
 	}
 
 	s.cleanupEmptyWorkflows(ctx, immediate)
@@ -213,6 +219,7 @@ func (s *LifecycleService) finishDelete(ctx context.Context, agent agentstore.Ag
 		if err := s.removeAgents(ctx, []string{agent.ID}); err != nil {
 			logging.From(ctx).LogAttrs(ctx, slog.LevelError, "failed to remove an agent whose cleanup finished",
 				append([]slog.Attr{slog.String(logging.AgentID, agent.ID)}, logging.Err(err)...)...)
+			s.failCleanup(ctx, agent, err)
 
 			return
 		}
@@ -223,6 +230,11 @@ func (s *LifecycleService) finishDelete(ctx context.Context, agent agentstore.Ag
 
 func (s *LifecycleService) failCleanup(ctx context.Context, agent agentstore.Agent, cause error) {
 	failAs(ctx, s.agents, agent, agentstore.StateFailedToCleanup, "cleanup", cause)
+
+	if err := s.agents.ClearDeleting(ctx, []string{agent.ID}); err != nil {
+		logging.From(ctx).LogAttrs(ctx, slog.LevelError, "failed to release an agent whose cleanup failed",
+			append([]slog.Attr{slog.String(logging.AgentID, agent.ID)}, logging.Err(err)...)...)
+	}
 }
 
 // cleanupEmptyWorkflows deletes each workflow among removed's that now holds nothing archived

@@ -29,6 +29,7 @@ type fakeWorktrees struct {
 	fetched    bool
 	removed    []string
 	queued     []string
+	claimed    []string
 }
 
 func (f *fakeWorktrees) List(context.Context) (worktrees.Listing, error) {
@@ -56,12 +57,17 @@ func (f *fakeWorktrees) DeleteWorktrees(_ context.Context, dirs []string) error 
 	return nil
 }
 
+func (f *fakeWorktrees) ListClaimedDirs(context.Context) ([]string, error) {
+	return f.claimed, nil
+}
+
 func newService(fake *fakeWorktrees) worktreev1weave.WorktreeServiceAdapter {
 	return worktreev1weave.WorktreeServiceAdapter{Impl: NewWorktreeService(NewWorktreeServiceParams{
 		Lister:    fake,
 		Inspector: fake,
 		Remover:   fake,
 		Deleter:   fake,
+		Claimed:   fake,
 	})}
 }
 
@@ -152,6 +158,75 @@ func TestListWorktrees(t *testing.T) {
 
 	assert.Equal(t, []string{"/trees", "/own"}, resp.Msg.GetDirs())
 	assert.Equal(t, []string{"/own"}, resp.Msg.GetUnreadableDirs())
+}
+
+// TestListWorktreesLeavesOutTheClaimed covers the rows a delete has claimed staying out of the
+// listing: an agent being deleted, and a directory nothing answers for that an unfinished
+// delete names.
+func TestListWorktreesLeavesOutTheClaimed(t *testing.T) {
+	t.Parallel()
+
+	deleting := listed()
+	deleting.Agent.Deleting = true
+
+	stuck := listed()
+	stuck.Dir = "/trees/stuck"
+	stuck.Readable = false
+	stuck.Agent.ID = "stuck"
+	stuck.Agent.FailedToCleanup = true
+
+	tests := []struct {
+		name    string
+		listing []worktrees.Worktree
+		claimed []string
+		want    []string
+	}{
+		{
+			name:    "an agent a delete has claimed",
+			listing: []worktrees.Worktree{deleting, {Dir: "/trees/new", RepoDir: "/repo"}},
+			want:    []string{"/trees/new"},
+		},
+		{
+			name:    "a directory nothing answers for that a delete names",
+			listing: []worktrees.Worktree{listed(), {Dir: "/trees/new", RepoDir: "/repo"}},
+			claimed: []string{"/trees/new"},
+			want:    []string{"/trees/aaaa"},
+		},
+		{
+			name:    "a directory whose agent's delete failed that a delete names",
+			listing: []worktrees.Worktree{listed(), stuck},
+			claimed: []string{"/trees/stuck"},
+			want:    []string{"/trees/aaaa"},
+		},
+		{
+			name:    "an archived agent's directory that a delete names is still its agent's",
+			listing: []worktrees.Worktree{listed()},
+			claimed: []string{"/trees/aaaa"},
+			want:    []string{"/trees/aaaa"},
+		},
+		{
+			name:    "nothing claimed",
+			listing: []worktrees.Worktree{listed(), {Dir: "/trees/new", RepoDir: "/repo"}},
+			want:    []string{"/trees/aaaa", "/trees/new"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			fake := &fakeWorktrees{listing: worktrees.Listing{Worktrees: tt.listing}, claimed: tt.claimed}
+
+			resp, err := newService(fake).ListWorktrees(t.Context(), connect.NewRequest(&emptypb.Empty{}))
+			require.NoError(t, err)
+
+			var dirs []string
+			for _, worktree := range resp.Msg.GetWorktrees() {
+				dirs = append(dirs, worktree.GetDir())
+			}
+			assert.Equal(t, tt.want, dirs)
+		})
+	}
 }
 
 // TestGetWorktree covers the request reaching the inspector as asked and the standing

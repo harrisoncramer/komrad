@@ -14,11 +14,192 @@ SELECT
 FROM
     agents s
 WHERE (@archived::boolean) =(s.archived_at IS NOT NULL)
+    AND s.deleting_at IS NULL
     AND (sqlc.narg('cursor_id')::uuid IS NULL
         OR s.id < sqlc.narg('cursor_id'))
 ORDER BY
     s.id DESC
 LIMIT @lim;
+
+-- name: ListArchiveSweepPage :many
+SELECT
+    *
+FROM
+    agents s
+WHERE
+    s.archived_at IS NOT NULL
+    AND (sqlc.narg('cursor_id')::uuid IS NULL
+        OR s.id < sqlc.narg('cursor_id'))
+ORDER BY
+    s.id DESC
+LIMIT @lim;
+
+-- name: MarkAgentsDeleting :exec
+WITH claimed AS (
+    UPDATE
+        agents
+    SET
+        deleting_at = NOW()
+    WHERE (id = ANY (@ids::uuid[])
+        OR parent_agent_id = ANY (@ids::uuid[]))
+    AND deleting_at IS NULL
+RETURNING
+    id,
+    workflow_id)
+UPDATE
+    workflows w
+SET
+    deleting_at = NOW()
+WHERE
+    w.archived_at IS NOT NULL
+    AND w.deleting_at IS NULL
+    AND w.id IN (
+        SELECT
+            workflow_id
+        FROM
+            claimed)
+    AND NOT EXISTS (
+        SELECT
+            1
+        FROM
+            agents a
+        WHERE
+            a.workflow_id = w.id
+            AND a.archived_at IS NOT NULL
+            AND a.deleting_at IS NULL
+            AND a.id NOT IN (
+                SELECT
+                    id
+                FROM
+                    claimed));
+
+-- name: MarkArchivedAgentsDeleting :exec
+WITH claimed AS (
+    UPDATE
+        agents a
+    SET
+        deleting_at = NOW()
+    WHERE
+        a.archived_at IS NOT NULL
+        AND a.state <> 'failed_to_cleanup'
+        AND a.deleting_at IS NULL
+        AND NOT EXISTS (
+            SELECT
+                1
+            FROM
+                agents parent
+            WHERE
+                parent.id = a.parent_agent_id
+                AND parent.state = 'failed_to_cleanup')
+        RETURNING
+            a.id,
+            a.workflow_id)
+UPDATE
+    workflows w
+SET
+    deleting_at = NOW()
+WHERE
+    w.archived_at IS NOT NULL
+    AND w.deleting_at IS NULL
+    AND w.id IN (
+        SELECT
+            workflow_id
+        FROM
+            claimed)
+    AND NOT EXISTS (
+        SELECT
+            1
+        FROM
+            agents a
+        WHERE
+            a.workflow_id = w.id
+            AND a.archived_at IS NOT NULL
+            AND a.deleting_at IS NULL
+            AND a.id NOT IN (
+                SELECT
+                    id
+                FROM
+                    claimed));
+
+-- name: MarkArchivedAgentsDeletingByID :exec
+WITH claimed AS (
+    UPDATE
+        agents a
+    SET
+        deleting_at = NOW()
+    WHERE (a.id = ANY (@ids::uuid[])
+        OR a.parent_agent_id = ANY (@ids::uuid[]))
+    AND a.archived_at IS NOT NULL
+    AND a.state <> 'failed_to_cleanup'
+    AND a.deleting_at IS NULL
+    AND NOT EXISTS (
+        SELECT
+            1
+        FROM
+            agents parent
+        WHERE
+            parent.id = a.parent_agent_id
+            AND parent.state = 'failed_to_cleanup')
+    RETURNING
+        a.id,
+        a.workflow_id)
+UPDATE
+    workflows w
+SET
+    deleting_at = NOW()
+WHERE
+    w.archived_at IS NOT NULL
+    AND w.deleting_at IS NULL
+    AND w.id IN (
+        SELECT
+            workflow_id
+        FROM
+            claimed)
+    AND NOT EXISTS (
+        SELECT
+            1
+        FROM
+            agents a
+        WHERE
+            a.workflow_id = w.id
+            AND a.archived_at IS NOT NULL
+            AND a.deleting_at IS NULL
+            AND a.id NOT IN (
+                SELECT
+                    id
+                FROM
+                    claimed));
+
+-- name: ClearAgentsDeleting :exec
+WITH released AS (
+    UPDATE
+        agents
+    SET
+        deleting_at = NULL
+    WHERE (id = ANY (@ids::uuid[])
+        OR parent_agent_id = ANY (@ids::uuid[]))
+    AND deleting_at IS NOT NULL
+RETURNING
+    workflow_id)
+UPDATE
+    workflows
+SET
+    deleting_at = NULL
+WHERE
+    deleting_at IS NOT NULL
+    AND id IN (
+        SELECT
+            workflow_id
+        FROM
+            released);
+
+-- name: ClearAllAgentsDeleting :exec
+UPDATE
+    agents
+SET
+    deleting_at = NULL
+WHERE
+    deleting_at IS NOT NULL;
 
 -- name: ListAllAgents :many
 SELECT
@@ -1013,6 +1194,7 @@ SELECT
     state,
     state_changed_at,
     archived_at,
+    deleting_at,
     adopted_branch,
     workflow_id
 FROM

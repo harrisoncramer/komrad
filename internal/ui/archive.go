@@ -345,7 +345,7 @@ func (m model) emptyArchiveConfirm() (tea.Model, tea.Cmd) {
 				message{
 					kind:    messageInfo,
 					summary: "Emptying the archive",
-					detail:  fmt.Sprintf("A background job is deleting %s, each with its worktree. The rows leave the archive as it goes.", label.Count(len(m.archive.agents), "archived agent", "archived agents")),
+					detail:  fmt.Sprintf("A background job is deleting %s, each with its worktree. The rows are out of the archive now, and one whose delete fails comes back saying so.", label.Count(len(m.archive.agents), "archived agent", "archived agents")),
 				},
 				func(a api) error { return a.emptyArchive() },
 			)
