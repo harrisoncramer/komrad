@@ -230,7 +230,7 @@ func TestDialGoesBackToBorrowingWhenATakeoverCannotBind(t *testing.T) {
 	spawns := filepath.Join(t.TempDir(), "spawns")
 	remote := engine.Remote{
 		Destination: "weave@" + t.Name(),
-		Forward:     []string{"sh", "-c", "echo x >> " + spawns + "; exit 1"},
+		Forward:     []string{"sh", "-c", "echo x >> " + spawns + "; sleep 1.5; exit 1"},
 	}
 	local := net.JoinHostPort("127.0.0.1", strconv.Itoa(remote.TunnelPort("127.0.0.1:8787")))
 

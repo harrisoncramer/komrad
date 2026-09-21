@@ -173,8 +173,8 @@ func (t *Tunnel) waitForAnswer(ctx context.Context, running *forward) error {
 	}
 }
 
-// keep runs the forward again each time it exits, and falls back to watching the port when a run
-// does not answer.
+// keep runs the forward again each time it exits, and falls back to watching the port when the
+// port turns out to be somebody else's.
 func (t *Tunnel) keep(ctx context.Context) {
 	for {
 		t.mu.Lock()
@@ -198,6 +198,14 @@ func (t *Tunnel) keep(ctx context.Context) {
 			case <-ctx.Done():
 				return
 			case <-running.exited:
+			}
+
+			if isAnswering(ctx, t.Local) {
+				t.mu.Lock()
+				t.forward = nil
+				t.mu.Unlock()
+
+				continue
 			}
 
 			if !sleep(ctx, redialDelay) {
