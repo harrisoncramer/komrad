@@ -181,6 +181,7 @@ type Deps struct {
 	Keys            config.Keybindings
 	Layout          config.Layout
 	Engine          engine.Remote
+	Binary          BinaryWatcher
 	Settings        PanelSettings
 	ConfigErr       error
 	StartupErr      error
@@ -194,6 +195,7 @@ type model struct {
 	git             ReviewGit
 	browser         browser.Opener
 	harnessFrames   harnessFrameReader
+	binary          BinaryWatcher
 	frame           *layout.Frame
 	settings        PanelSettings
 	unreachable     error
@@ -308,6 +310,7 @@ func newModel(deps Deps, isDark bool, post *postbox) model {
 		git:             deps.Git,
 		browser:         deps.Browser,
 		harnessFrames:   deps.HarnessFrames,
+		binary:          deps.Binary,
 		frame:           layout.New(deps.Tmux, deps.Layout, layout.WithEngine(deps.Engine)),
 		detailsHeight:   deps.Layout.DetailsHeight,
 		settings:        deps.Settings,

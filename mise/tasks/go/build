@@ -4,3 +4,4 @@ source "$MISE_CONFIG_ROOT/mise/tasks/_build"
 set -euo pipefail
 cd "$MISE_CONFIG_ROOT"
 go_build_local bin/weave
+bind_panel_key bin/weave

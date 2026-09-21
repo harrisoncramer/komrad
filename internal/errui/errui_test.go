@@ -310,3 +310,15 @@ func TestStartupOnAnEngineRunningOtherCode(t *testing.T) {
 	assert.Contains(t, rendered, "8fe4a3b")
 	assert.NotContains(t, rendered, "The agent server could not be started")
 }
+
+// TestStartupOnARebuiltPanel covers the screen a running panel puts up once its binary has
+// been replaced, where the only thing to do is open a panel from the new build.
+func TestStartupOnARebuiltPanel(t *testing.T) {
+	rendered := strings.Join(strings.Fields(RenderStartupError(narrowPane, ErrRebuilt, nil)), " ")
+
+	assert.Contains(t, rendered, "weave was rebuilt")
+	assert.Contains(t, rendered, "The panel key opens a panel from the new build")
+	assert.Contains(t, rendered, "Press any key to close")
+	assert.NotContains(t, rendered, "The agent server could not be started")
+	assert.NotContains(t, rendered, "weave doctor")
+}

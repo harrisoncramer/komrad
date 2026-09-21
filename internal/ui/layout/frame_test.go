@@ -323,6 +323,25 @@ func TestFrameReleaseGuest(t *testing.T) {
 	assert.Empty(t, frame.GuestPane())
 }
 
+// TestFrameVacateLeavesOnlyTheSidebar covers the panel on its way out, where a staged agent goes
+// back to its own window and the frame's own panes die rather than outliving the panel.
+func TestFrameVacateLeavesOnlyTheSidebar(t *testing.T) {
+	tmux := &recordingTmux{}
+	frame := New(tmux, config.DefaultLayout())
+	frame.Attach("%0")
+	frame.ShowGuest("%9")
+	frame.Show(RegionInfo, newDocument("# auth"))
+	require.Equal(t, 1, tmux.swaps)
+
+	frame.Vacate()
+
+	assert.Equal(t, 2, tmux.swaps, "the guest is swapped back to where it came from")
+	assert.Empty(t, frame.GuestPane())
+	assert.ElementsMatch(t, []string{"%1", "%2"}, tmux.killed, "the stage and the info pane are killed")
+	assert.False(t, frame.IsOpen(RegionStage))
+	assert.False(t, frame.IsOpen(RegionInfo))
+}
+
 // TestFrameClaimedForgetsWhatWasDrawn covers a region another process has taken over, which
 // is how a script that fills the pane itself says the frame no longer knows what is in it.
 func TestFrameClaimedForgetsWhatWasDrawn(t *testing.T) {

@@ -78,7 +78,7 @@ weave stop && weave start
 tmux -L weave kill-server
 ```
 
-Then `prefix + g` for a fresh panel. That kills the agents in it; their records and transcripts survive in the database.
+Then `prefix + g` for a fresh panel. That kills the agents in it; their records and transcripts survive in the database. A panel that is open when the binary is replaced puts up a screen saying so; any key closes it, and the panel key opens one from the new build.
 
 ## From a checkout
 

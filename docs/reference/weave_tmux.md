@@ -15,7 +15,13 @@ A tmux server has to be running, since binding a key does not start one. The bin
 belongs to the server rather than to a session, so it outlives the session it was
 made from and dies with the server. Running this again binds the key as it now
 stands and unbinds the one it bound before, so run it by hand after changing
-@weave_key rather than restarting tmux.
+@weave_key rather than restarting tmux, and after building weave somewhere else.
+
+Run from a pane on weave's own server, it binds on the server the last open of the
+panel came from, so a rebuild from inside the panel reaches your key too.
+
+With --if-running it says nothing and does nothing when no tmux server is up, which
+is what a build script wants.
 
 ```
 weave tmux [flags]
@@ -24,7 +30,8 @@ weave tmux [flags]
 ### Options
 
 ```
-  -h, --help   help for tmux
+  -h, --help         help for tmux
+      --if-running   bind only when a tmux server is running, and say nothing when none is
 ```
 
 ### Options inherited from parent commands
