@@ -102,11 +102,14 @@ func (m model) isDetailsDrawn(held details) bool {
 }
 
 // doesListFitDetails is whether the record's share fits under a list, judged with the keys on
-// the list and no search standing so the answer does not move with either.
+// the list so the answer does not move with them.
 func (m model) doesListFitDetails(header string, help func(model) keyMap) bool {
-	m.details.focused, m.filter = false, filterState{}
-
+	m.details.focused = false
 	legend := m.renderHelp(help(m), header)
+
+	// A focused record shrinks to the room its own legend leaves, so its legend is measured without
+	// the search and only the list's is measured with it.
+	m.filter = filterState{}
 	if focused := m.renderHelp(m.detailsHelp(), header); strings.Count(focused, "\n") > strings.Count(legend, "\n") {
 		legend = focused
 	}
@@ -249,7 +252,7 @@ func detailsActions() actionSpec {
 			},
 			{
 				of:   []actionID{actionFilterOpen},
-				desc: model.detailsFilterDesc,
+				desc: model.filterDesc,
 			},
 			{
 				of:   []actionID{actionFilterMatch},
@@ -257,7 +260,7 @@ func detailsActions() actionSpec {
 			},
 			{
 				of:   []actionID{actionFilterClear},
-				desc: func(m model) string { return "clear " + m.filter.mode.String() },
+				desc: model.filterClearDesc,
 			},
 			{
 				of:    []actionID{actionMove},
@@ -271,14 +274,6 @@ func detailsActions() actionSpec {
 			},
 		},
 	}
-}
-
-func (m model) detailsFilterDesc() string {
-	if m.filter.isStanding() {
-		return m.filter.mode.String() + ": " + m.filter.query
-	}
-
-	return "search"
 }
 
 func (m model) detailsHelp() keyMap {

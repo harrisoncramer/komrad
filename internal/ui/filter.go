@@ -257,6 +257,10 @@ func (m model) updateFilterInput(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 // closes with the pattern standing, the keys move, and a record they land on opens on its
 // nearest match.
 func (m model) closeSearchAndMoveKeys() (tea.Model, tea.Cmd) {
+	if !m.isDetailsDrawn(m.hoveredDetails()) {
+		return m, nil
+	}
+
 	m.filter.typing = false
 
 	next, cmd := m.toggleDetailsFocus()

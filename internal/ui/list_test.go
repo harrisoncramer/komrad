@@ -318,6 +318,22 @@ func TestScreensFitATightPane(t *testing.T) {
 			},
 		},
 		{
+			name:  "with a search standing over the list under the expanded legend",
+			width: 30,
+			prepare: func(m *model) {
+				m.helpExpanded = true
+				m.filter.setQuery("a")
+			},
+		},
+		{
+			name:  "with a search standing over the list under the expanded legend at the width its legend folds",
+			width: 35,
+			prepare: func(m *model) {
+				m.helpExpanded = true
+				m.filter.setQuery("a")
+			},
+		},
+		{
 			name:  "with a search being typed over the focused record",
 			width: 30,
 			prepare: func(m *model) {
