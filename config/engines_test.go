@@ -93,3 +93,37 @@ func TestEngineOverANamedFile(t *testing.T) {
 	_, err = ResolveLayers(Stack{Engine: "   "})
 	require.Error(t, err, "a name made of spaces is a name, not a request for the local engine")
 }
+
+// TestEngineFileMayNotNameAPanelKey covers the one setting an engine file is refused for.
+func TestEngineFileMayNotNameAPanelKey(t *testing.T) {
+	clearConnectionEnvironment(t)
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	engines := filepath.Join(home, ".config", "weave", "engines")
+	require.NoError(t, os.MkdirAll(engines, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(engines, "remote.toml"),
+		[]byte("[connection]\naddr = \"127.0.0.1:8799\"\npanel_key = \"G\"\n"), 0o600))
+
+	_, err := LoadStack(Stack{Engine: "remote"})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "panel_key")
+	assert.Contains(t, err.Error(), "remote.toml")
+}
+
+// TestEngineNamesReadsTheEnginesDir covers the listing the picker is built from.
+func TestEngineNamesReadsTheEnginesDir(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	names, err := EngineNames()
+	require.NoError(t, err)
+	assert.Empty(t, names, "a machine with no engines dir knows no engines")
+
+	engines := filepath.Join(home, ".config", "weave", "engines")
+	require.NoError(t, os.MkdirAll(engines, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(engines, "remote.toml"), []byte(""), 0o600))
+
+	names, err = EngineNames()
+	require.NoError(t, err)
+	assert.Equal(t, []string{"remote"}, names)
+}

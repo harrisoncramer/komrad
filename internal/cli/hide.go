@@ -1,6 +1,8 @@
 package cli
 
 import (
+	"weave/internal/tmux"
+
 	"github.com/spf13/cobra"
 )
 
@@ -20,6 +22,14 @@ This is what the panel key runs while the popup is open, so it is rarely typed.`
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		RunE: func(_ *cobra.Command, _ []string) error {
+			if socket := tmux.SocketFromEnv(state.env.Tmux); socket != "" {
+				if popup, ok := findShownPanel(state, socket); ok {
+					popup.Hide()
+
+					return nil
+				}
+			}
+
 			state.popup.Hide()
 
 			return nil

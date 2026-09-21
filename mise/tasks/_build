@@ -51,18 +51,12 @@ go_build_local() {
 
 bind_panel_key() {
 	local weave="$1"
-	local engine
 
 	if [ -n "${WEAVE_TMUX_SOCKET:-}" ] || [ "$(git rev-parse --git-common-dir)" != ".git" ]; then
 		return 0
 	fi
 
 	"$weave" tmux --if-running
-
-	for engine in "$HOME"/.config/weave/engines/*.toml; do
-		[ -e "$engine" ] || continue
-		"$weave" tmux --if-running --engine "$(basename "$engine" .toml)"
-	done
 }
 
 custom_gcl_sum() {

@@ -43,16 +43,20 @@ func (a *app) selfPath() string {
 // engine says where the agents are running, which the panel needs so it can show a terminal it
 // cannot reach with a pane move.
 func (a *app) engine() engine.Remote {
-	socket := a.env.EngineTmuxSocket
+	return remoteOf(a.env)
+}
+
+func remoteOf(env *config.Environment) engine.Remote {
+	socket := env.EngineTmuxSocket
 	if socket == "" {
-		socket = a.env.TmuxSocket
+		socket = env.TmuxSocket
 	}
 
 	return engine.Remote{
-		Destination: a.env.SSH,
-		Exec:        a.env.Exec,
-		Forward:     a.env.Forward,
-		User:        a.env.EngineUser,
+		Destination: env.SSH,
+		Exec:        env.Exec,
+		Forward:     env.Forward,
+		User:        env.EngineUser,
 		Socket:      socket,
 		Session:     agents.ManagerSession,
 	}

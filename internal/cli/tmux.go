@@ -23,6 +23,10 @@ key that opens and hides the panel comes from. The path of this binary is resolv
 once and written into the binding, so weave only has to be findable when tmux parses
 its config rather than for the life of the server.
 
+There is one key however many engines this machine knows: pressed, it opens this
+machine's panel, or a picker when engine files are present. An engine has no key of
+its own, so --engine is refused here.
+
 A tmux server has to be running, since binding a key does not start one. The binding
 belongs to the server rather than to a session, so it outlives the session it was
 made from and dies with the server. Running this again binds the key as it now
@@ -38,6 +42,11 @@ is what a build script wants.`,
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		RunE: func(_ *cobra.Command, _ []string) error {
+			if state.configStack.Engine != "" {
+				return errors.New("an engine has no panel key of its own: bind the one key with `weave tmux` and " +
+					"choose the engine when you press it")
+			}
+
 			server, err := panelKeyServer(state)
 			if err != nil {
 				return err

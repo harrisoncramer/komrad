@@ -72,19 +72,7 @@ the machine, start or stop the service, or call an endpoint from a script.`,
 				report = &config.Report{Sources: map[string]config.Source{}}
 			}
 
-			env, err := config.LoadEnvironment(config.Environment{
-				DatabaseURL:         cfg.Connection.DatabaseURL,
-				ReadOnlyDatabaseURL: cfg.Connection.ReadOnlyDatabaseURL,
-				Addr:                cfg.Connection.Addr,
-				TmuxSocket:          cfg.Connection.TmuxSocket,
-				CacheDir:            cfg.Connection.CacheDir,
-				SSH:                 cfg.Connection.SSH,
-				EngineTmuxSocket:    cfg.Connection.EngineTmuxSocket,
-				PanelKey:            cfg.Connection.PanelKey,
-				Exec:                cfg.Connection.Exec,
-				Forward:             cfg.Connection.Forward,
-				EngineUser:          cfg.Connection.EngineUser,
-			})
+			env, err := loadEnvironment(cfg)
 			if err != nil {
 				return err
 			}
@@ -207,4 +195,20 @@ func configArgs(stack config.Stack) []string {
 
 func isConfigFatal(cmd *cobra.Command) bool {
 	return !commandsSurvivingBadConfig[cmd.Name()]
+}
+
+func loadEnvironment(cfg *config.Config) (*config.Environment, error) {
+	return config.LoadEnvironment(config.Environment{
+		DatabaseURL:         cfg.Connection.DatabaseURL,
+		ReadOnlyDatabaseURL: cfg.Connection.ReadOnlyDatabaseURL,
+		Addr:                cfg.Connection.Addr,
+		TmuxSocket:          cfg.Connection.TmuxSocket,
+		CacheDir:            cfg.Connection.CacheDir,
+		SSH:                 cfg.Connection.SSH,
+		EngineTmuxSocket:    cfg.Connection.EngineTmuxSocket,
+		PanelKey:            cfg.Connection.PanelKey,
+		Exec:                cfg.Connection.Exec,
+		Forward:             cfg.Connection.Forward,
+		EngineUser:          cfg.Connection.EngineUser,
+	})
 }

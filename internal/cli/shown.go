@@ -3,7 +3,10 @@ package cli
 import (
 	"errors"
 
+	"weave/config"
+	"weave/internal/agents"
 	"weave/internal/tmux"
+	"weave/internal/ui"
 
 	"github.com/spf13/cobra"
 )
@@ -47,11 +50,39 @@ func isPanelShownHere(state *app) bool {
 		return false
 	}
 
-	here := state.tmux.GetHostSocket() == socket && state.popup.IsShown()
+	_, here := findShownPanel(state, socket)
 
 	// This runs on the user's server on every press, the last moment before the panel is on
 	// screen.
 	state.tmux.RecordHostPath(hostPath(socket))
 
 	return here
+}
+
+// findShownPanel is the popup on screen from the named server, this machine's or an engine's.
+func findShownPanel(state *app, socket string) (*ui.PopupWindow, bool) {
+	if state.tmux.GetHostSocket() == socket && state.popup.IsShown() {
+		return state.popup, true
+	}
+
+	names, err := config.EngineNames()
+	if err != nil {
+		return nil, false
+	}
+
+	for _, name := range names {
+		setup, err := loadEngine(state.configStack, name)
+		if err != nil {
+			continue
+		}
+
+		manager := tmux.NewClient(setup.env.TmuxSocket)
+		popup := ui.NewPopupWindow(manager, agents.ManagerSession)
+
+		if manager.GetHostSocket() == socket && popup.IsShown() {
+			return popup, true
+		}
+	}
+
+	return nil, false
 }

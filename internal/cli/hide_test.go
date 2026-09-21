@@ -23,7 +23,7 @@ func TestHideDetachesThePanelsClient(t *testing.T) {
 	panelSession(t, managerSocket)
 	viewer := attachViewer(t, managerSocket)
 
-	state := hideState(managerSocket, "")
+	state := hideState(t, managerSocket, "")
 
 	require.NoError(t, hideCmd(state).RunE(nil, nil))
 	require.NoError(t, viewer.Wait())
@@ -34,7 +34,10 @@ func TestHideDetachesThePanelsClient(t *testing.T) {
 		"the session outlives the popup, so the next open lands on the view it left")
 }
 
-func hideState(socket, tmuxEnv string) *app {
+func hideState(t *testing.T, socket, tmuxEnv string) *app {
+	t.Helper()
+	t.Setenv("HOME", t.TempDir())
+
 	servers := tmux.NewClient(socket)
 
 	return &app{

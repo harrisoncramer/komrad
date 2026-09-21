@@ -7,7 +7,12 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+
+	"github.com/spf13/viper"
 )
+
+// enginePanelKey is the one connection setting an engine file may not carry.
+const enginePanelKey = "connection.panel_key"
 
 // EnginesDir holds one file per engine this machine knows how to reach.
 func EnginesDir() (string, error) {
@@ -41,6 +46,33 @@ func EnginePath(name string) (string, error) {
 	}
 
 	return path, nil
+}
+
+// EngineNames lists the engines this machine knows how to reach, sorted.
+func EngineNames() ([]string, error) {
+	dir, err := EnginesDir()
+	if err != nil {
+		return nil, err
+	}
+
+	return engineNames(dir), nil
+}
+
+// requireEngineLayer refuses an engine file that names a panel key.
+func requireEngineLayer(path string) error {
+	overlay := viper.New()
+	overlay.SetConfigFile(path)
+
+	if err := overlay.ReadInConfig(); err != nil {
+		return nil //nolint:nilerr // a file that cannot be read is reported by the load that follows
+	}
+
+	if overlay.IsSet(enginePanelKey) {
+		return fmt.Errorf("%s sets %s, which an engine cannot: one panel key opens every engine, and the "+
+			"picker chooses between them", path, enginePanelKey)
+	}
+
+	return nil
 }
 
 func engineNames(dir string) []string {
