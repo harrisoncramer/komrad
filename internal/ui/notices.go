@@ -30,15 +30,15 @@ const (
 
 const (
 	localApprovedNotice            = "approved as it stands"
-	localApprovedMovedNotice       = "approved, but the tree has changed since, so another pass is owed"
-	localChangesOwedNotice         = "changes were asked for and the tree has not moved, so the agent still owes them"
-	localChangesPushedNotice       = "changes were asked for and the agent has pushed since, so it is ready to read again"
+	localApprovedMovedNotice       = "approved, but the tree has changed since"
+	localChangesOwedNotice         = "changes were asked for that the agent still owes"
+	localChangesPushedNotice       = "ready for re-review, the agent has pushed the changes"
 	localApprovedLandedNotice      = "approved and landed"
-	localApprovedLandedMovedNotice = "approved and landed, but there is new work since that nobody has read"
-	localChangesLandedNotice       = "changes were asked for, but that tree has landed as it was"
-	localChangesLandedMovedNotice  = "changes were asked for on a tree that has since landed, and there is new work since that nobody has read"
-	archivedApprovedNotice         = "approved when it was archived"
-	archivedChangesOwedNotice      = "changes were asked for and still owed when it was archived"
+	localApprovedLandedMovedNotice = "approved and landed, with new work nobody has read"
+	localChangesLandedNotice       = "changes asked for, but the tree landed already"
+	localChangesLandedMovedNotice  = "changes asked for, the tree landed, plus there is unreviewed work"
+	archivedApprovedNotice         = "approved while archived"
+	archivedChangesOwedNotice      = "changes asked for + still owed when archived"
 )
 
 var (
