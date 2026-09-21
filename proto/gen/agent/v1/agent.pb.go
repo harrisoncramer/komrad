@@ -187,7 +187,7 @@ type Agent struct {
 	// The schedule that launched it, unset for an agent a person or another agent spawned.
 	ScheduleId *string `protobuf:"bytes,12,opt,name=schedule_id,json=scheduleId,proto3,oneof" json:"schedule_id,omitempty"`
 	// Whether its pane is still there, which a dormant agent's is not.
-	Alive bool `protobuf:"varint,11,opt,name=alive,proto3" json:"alive,omitempty"`
+	Alive *bool `protobuf:"varint,11,opt,name=alive,proto3,oneof" json:"alive,omitempty"`
 	// Whether mail is waiting that it has not taken.
 	UnreadMail bool `protobuf:"varint,21,opt,name=unread_mail,json=unreadMail,proto3" json:"unread_mail,omitempty"`
 	// The letter a person jumps to it by in the panel, if it holds one.
@@ -364,8 +364,8 @@ func (x *Agent) GetScheduleId() string {
 }
 
 func (x *Agent) GetAlive() bool {
-	if x != nil {
-		return x.Alive
+	if x != nil && x.Alive != nil {
+		return *x.Alive
 	}
 	return false
 }
@@ -2727,7 +2727,7 @@ var File_agent_v1_agent_proto protoreflect.FileDescriptor
 
 const file_agent_v1_agent_proto_rawDesc = "" +
 	"\n" +
-	"\x14agent/v1/agent.proto\x12\bagent.v1\x1a\x13agent/v1/mail.proto\x1a\x15agent/v1/review.proto\x1a\x19agent/v1/transcript.proto\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1epagination/v1/pagination.proto\x1a pullrequest/v1/pullrequest.proto\x1a\x14rules/v1/rules.proto\x1a\x12view/v1/view.proto\"\xf2\v\n" +
+	"\x14agent/v1/agent.proto\x12\bagent.v1\x1a\x13agent/v1/mail.proto\x1a\x15agent/v1/review.proto\x1a\x19agent/v1/transcript.proto\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1epagination/v1/pagination.proto\x1a pullrequest/v1/pullrequest.proto\x1a\x14rules/v1/rules.proto\x1a\x12view/v1/view.proto\"\x81\f\n" +
 	"\x05Agent\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x10\n" +
@@ -2747,23 +2747,23 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\varchived_at\x18\x13 \x01(\tH\x00R\n" +
 	"archivedAt\x88\x01\x01\x12$\n" +
 	"\vschedule_id\x18\f \x01(\tH\x01R\n" +
-	"scheduleId\x88\x01\x01\x12\x14\n" +
-	"\x05alive\x18\v \x01(\bR\x05alive\x12\x1f\n" +
+	"scheduleId\x88\x01\x01\x12\x19\n" +
+	"\x05alive\x18\v \x01(\bH\x02R\x05alive\x88\x01\x01\x12\x1f\n" +
 	"\vunread_mail\x18\x15 \x01(\bR\n" +
 	"unreadMail\x12\x17\n" +
-	"\x04mark\x18\x0e \x01(\tH\x02R\x04mark\x88\x01\x01\x12\x16\n" +
+	"\x04mark\x18\x0e \x01(\tH\x03R\x04mark\x88\x01\x01\x12\x16\n" +
 	"\x06hidden\x18\x0f \x01(\bR\x06hidden\x123\n" +
 	"\bmetadata\x18\x10 \x03(\v2\x17.agent.v1.AgentMetadataR\bmetadata\x12,\n" +
-	"\x0fidempotency_key\x18\x11 \x01(\tH\x03R\x0eidempotencyKey\x88\x01\x01\x122\n" +
-	"\x13spawned_by_agent_id\x18\x14 \x01(\tH\x04R\x10spawnedByAgentId\x88\x01\x01\x12+\n" +
-	"\x0fparent_agent_id\x18\x1a \x01(\tH\x05R\rparentAgentId\x88\x01\x01\x12\x1b\n" +
-	"\x06branch\x18\x16 \x01(\tH\x06R\x06branch\x88\x01\x01\x12*\n" +
-	"\x0erepository_url\x18% \x01(\tH\aR\rrepositoryUrl\x88\x01\x01\x12)\n" +
+	"\x0fidempotency_key\x18\x11 \x01(\tH\x04R\x0eidempotencyKey\x88\x01\x01\x122\n" +
+	"\x13spawned_by_agent_id\x18\x14 \x01(\tH\x05R\x10spawnedByAgentId\x88\x01\x01\x12+\n" +
+	"\x0fparent_agent_id\x18\x1a \x01(\tH\x06R\rparentAgentId\x88\x01\x01\x12\x1b\n" +
+	"\x06branch\x18\x16 \x01(\tH\aR\x06branch\x88\x01\x01\x12*\n" +
+	"\x0erepository_url\x18% \x01(\tH\bR\rrepositoryUrl\x88\x01\x01\x12)\n" +
 	"\x10worktree_removed\x18\x17 \x01(\bR\x0fworktreeRemoved\x120\n" +
 	"\x14sequence_in_progress\x18$ \x01(\bR\x12sequenceInProgress\x12\x1d\n" +
 	"\n" +
 	"failed_run\x18\x1b \x01(\bR\tfailedRun\x12)\n" +
-	"\x0efailed_run_log\x18\x1c \x01(\x05H\bR\ffailedRunLog\x88\x01\x01\x12(\n" +
+	"\x0efailed_run_log\x18\x1c \x01(\x05H\tR\ffailedRunLog\x88\x01\x01\x12(\n" +
 	"\x10state_changed_at\x18\x19 \x01(\tR\x0estateChangedAt\x12'\n" +
 	"\x0freported_reason\x18\x1d \x01(\tR\x0ereportedReason\x12'\n" +
 	"\x04role\x18\x1e \x01(\x0e2\x13.agent.v1.AgentRoleR\x04role\x12.\n" +
@@ -2774,7 +2774,8 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\aheld_at\x18# \x01(\tR\x06heldAt\x12@\n" +
 	"\fpull_request\x18& \x01(\v2\x1d.agent.v1.PullRequestStandingR\vpullRequestB\x0e\n" +
 	"\f_archived_atB\x0e\n" +
-	"\f_schedule_idB\a\n" +
+	"\f_schedule_idB\b\n" +
+	"\x06_aliveB\a\n" +
 	"\x05_markB\x12\n" +
 	"\x10_idempotency_keyB\x16\n" +
 	"\x14_spawned_by_agent_idB\x12\n" +

@@ -75,7 +75,7 @@ message Agent {
   // The schedule that launched it, unset for an agent a person or another agent spawned.
   optional string schedule_id = 12;
   // Whether its pane is still there, which a dormant agent's is not.
-  bool alive = 11;
+  optional bool alive = 11;
   // Whether mail is waiting that it has not taken.
   bool unread_mail = 21;
   // The letter a person jumps to it by in the panel, if it holds one.
