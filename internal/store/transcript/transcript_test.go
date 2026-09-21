@@ -334,6 +334,13 @@ func TestSearch(t *testing.T) {
 			wantHits: 1,
 		},
 		{
+			name:     "an excluded phrase excludes only the phrase",
+			content:  "pane is not done yet",
+			other:    "pane is not yet done",
+			query:    `pane -"not yet"`,
+			wantHits: 1,
+		},
+		{
 			name:     "a quoted phrase means those words and not their stems",
 			content:  "derive marker",
 			other:    "derives markers",
@@ -874,11 +881,12 @@ func TestMarkMatches(t *testing.T) {
 // matches text as it was typed and so has to be handed the terms rather than the operators.
 func TestSplitTerms(t *testing.T) {
 	tests := []struct {
-		name         string
-		query        string
-		wantPositive []string
-		wantPhrases  []string
-		wantNegative []string
+		name                string
+		query               string
+		wantPositive        []string
+		wantPhrases         []string
+		wantNegative        []string
+		wantNegativePhrases []string
 	}{
 		{
 			name:         "plain words are all positive",
@@ -910,10 +918,10 @@ func TestSplitTerms(t *testing.T) {
 			wantPhrases:  []string{"pgxpool"},
 		},
 		{
-			name:         "an excluded phrase keeps its words together",
-			query:        `pane -"derives markers"`,
-			wantPositive: []string{"pane"},
-			wantNegative: []string{"derives markers"},
+			name:                "an excluded phrase keeps its words together",
+			query:               `pane -"derives markers"`,
+			wantPositive:        []string{"pane"},
+			wantNegativePhrases: []string{"derives markers"},
 		},
 		{
 			name:         "or is an ordinary word, since every word typed has to appear",
@@ -960,10 +968,10 @@ func TestSplitTerms(t *testing.T) {
 			wantPositive: []string{"config"},
 		},
 		{
-			name:         "a quoted phrase behind a minus is still excluded",
-			query:        `pane -"derives markers"`,
-			wantPositive: []string{"pane"},
-			wantNegative: []string{"derives markers"},
+			name:                "a quoted phrase behind a minus is still excluded",
+			query:               `pane -"derives markers"`,
+			wantPositive:        []string{"pane"},
+			wantNegativePhrases: []string{"derives markers"},
 		},
 	}
 
@@ -973,6 +981,7 @@ func TestSplitTerms(t *testing.T) {
 			assert.Equal(t, tt.wantPositive, got.positive)
 			assert.Equal(t, tt.wantPhrases, got.phrases)
 			assert.Equal(t, tt.wantNegative, got.negative)
+			assert.Equal(t, tt.wantNegativePhrases, got.negativePhrases)
 			assert.Len(t, got.words, len(got.positive)-len(got.phrases), "every positive term is a word or a phrase")
 			for _, phrase := range got.phrases {
 				assert.NotContains(t, got.words, phrase)

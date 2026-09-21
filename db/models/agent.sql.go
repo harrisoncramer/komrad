@@ -2490,8 +2490,15 @@ WITH q AS (
                             UNNEST($8::text[]) e
                         WHERE
                             PHRASETO_TSQUERY('english', e) = ''
-                            AND PHRASETO_TSQUERY('simple', e) <> '') AS forbidden_simple,
-                        $9::text AS phrase
+                            AND PHRASETO_TSQUERY('simple', e) <> ''
+                        UNION ALL
+                        SELECT
+                            PHRASETO_TSQUERY('simple', p)
+                        FROM
+                            UNNEST($9::text[]) p
+                        WHERE
+                            PHRASETO_TSQUERY('simple', p) <> '') AS forbidden_simple,
+                        $10::text AS phrase
 ),
 ranked AS (
     SELECT
@@ -2503,9 +2510,9 @@ ranked AS (
         a.name,
         a.archived_at IS NOT NULL AS archived,
         CASE WHEN q.words <> '' THEN
-            TS_HEADLINE('english', c.content, q.words, $10)
+            TS_HEADLINE('english', c.content, q.words, $11)
         ELSE
-            TS_HEADLINE('simple', c.content, q.words_simple, $10)
+            TS_HEADLINE('simple', c.content, q.words_simple, $11)
         END AS snippet,
         CASE WHEN q.words <> '' THEN
             TS_RANK_CD(c.tsv, q.words, 2)
@@ -2522,8 +2529,8 @@ ranked AS (
         AND c.tsv_simple @@ ALL (q.required_simple)
         AND NOT (c.tsv @@ ANY (q.forbidden))
         AND NOT (c.tsv_simple @@ ANY (q.forbidden_simple))
-        AND ($11::uuid IS NULL
-            OR c.agent_id = $11))
+        AND ($12::uuid IS NULL
+            OR c.agent_id = $12))
 SELECT
     r.agent_id,
     r.seq,
@@ -2550,17 +2557,18 @@ LIMIT $4
 `
 
 type SearchTranscriptsParams struct {
-	CursorRank    *float64
-	CursorAgentID *string
-	CursorSeq     *int32
-	Lim           int32
-	Terms         []string
-	Words         []string
-	Phrases       []string
-	Excluded      []string
-	Phrase        *string
-	Headline      string
-	AgentID       *string
+	CursorRank      *float64
+	CursorAgentID   *string
+	CursorSeq       *int32
+	Lim             int32
+	Terms           []string
+	Words           []string
+	Phrases         []string
+	Excluded        []string
+	ExcludedPhrases []string
+	Phrase          *string
+	Headline        string
+	AgentID         *string
 }
 
 type SearchTranscriptsRow struct {
@@ -2585,6 +2593,7 @@ func (q *Queries) SearchTranscripts(ctx context.Context, arg SearchTranscriptsPa
 		arg.Words,
 		arg.Phrases,
 		arg.Excluded,
+		arg.ExcludedPhrases,
 		arg.Phrase,
 		arg.Headline,
 		arg.AgentID,
@@ -2658,7 +2667,14 @@ WITH q AS (
                 UNNEST($9::text[]) e
             WHERE
                 PHRASETO_TSQUERY('english', e) = ''
-                AND PHRASETO_TSQUERY('simple', e) <> '') AS forbidden_simple
+                AND PHRASETO_TSQUERY('simple', e) <> ''
+            UNION ALL
+            SELECT
+                PHRASETO_TSQUERY('simple', p)
+            FROM
+                UNNEST($10::text[]) p
+            WHERE
+                PHRASETO_TSQUERY('simple', p) <> '') AS forbidden_simple
 ),
 ranked AS (
     SELECT
@@ -2674,8 +2690,8 @@ ranked AS (
                         MIN(POSITION(LOWER(t) IN LOWER(c.content)))
                     FROM UNNEST(q.terms) t
                     WHERE
-                        POSITION(LOWER(t) IN LOWER(c.content)) > 0) - $10::int)
-                FOR $11::int) AS snippet,
+                        POSITION(LOWER(t) IN LOWER(c.content)) > 0) - $11::int)
+                FOR $12::int) AS snippet,
         WORD_SIMILARITY(ARRAY_TO_STRING(q.terms, ' '), c.content) AS rank
     FROM
         agent_transcript_chunks c
@@ -2689,8 +2705,8 @@ ranked AS (
             AND c.tsv_simple @@ ALL (q.required_simple))
         AND NOT (c.tsv @@ ANY (q.forbidden))
         AND NOT (c.tsv_simple @@ ANY (q.forbidden_simple))
-        AND ($12::uuid IS NULL
-            OR c.agent_id = $12))
+        AND ($13::uuid IS NULL
+            OR c.agent_id = $13))
 SELECT
     r.agent_id,
     r.seq,
@@ -2717,18 +2733,19 @@ LIMIT $4
 `
 
 type SearchTranscriptsNearParams struct {
-	CursorRank    *float64
-	CursorAgentID *string
-	CursorSeq     *int32
-	Lim           int32
-	Terms         []string
-	Patterns      []string
-	Words         []string
-	Phrases       []string
-	Excluded      []string
-	Lead          int32
-	Width         int32
-	AgentID       *string
+	CursorRank      *float64
+	CursorAgentID   *string
+	CursorSeq       *int32
+	Lim             int32
+	Terms           []string
+	Patterns        []string
+	Words           []string
+	Phrases         []string
+	Excluded        []string
+	ExcludedPhrases []string
+	Lead            int32
+	Width           int32
+	AgentID         *string
 }
 
 type SearchTranscriptsNearRow struct {
@@ -2754,6 +2771,7 @@ func (q *Queries) SearchTranscriptsNear(ctx context.Context, arg SearchTranscrip
 		arg.Words,
 		arg.Phrases,
 		arg.Excluded,
+		arg.ExcludedPhrases,
 		arg.Lead,
 		arg.Width,
 		arg.AgentID,

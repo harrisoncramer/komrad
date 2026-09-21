@@ -341,17 +341,18 @@ func (s *Store) Search(ctx context.Context, params SearchParams) (Results, error
 	matchesRan := first || matchesAt != nil
 	if matchesRan {
 		rows, err := s.queries.SearchTranscripts(ctx, models.SearchTranscriptsParams{
-			Terms:         terms.positive,
-			Words:         terms.words,
-			Phrases:       terms.phrases,
-			Excluded:      terms.negative,
-			Phrase:        phrasePattern(terms.positive),
-			Headline:      headlineOptions,
-			Lim:           int32(limit),
-			AgentID:       params.AgentID,
-			CursorRank:    rankOf(matchesAt),
-			CursorAgentID: agentOf(matchesAt),
-			CursorSeq:     seqOf(matchesAt),
+			Terms:           terms.positive,
+			Words:           terms.words,
+			Phrases:         terms.phrases,
+			Excluded:        terms.negative,
+			ExcludedPhrases: terms.negativePhrases,
+			Phrase:          phrasePattern(terms.positive),
+			Headline:        headlineOptions,
+			Lim:             int32(limit),
+			AgentID:         params.AgentID,
+			CursorRank:      rankOf(matchesAt),
+			CursorAgentID:   agentOf(matchesAt),
+			CursorSeq:       seqOf(matchesAt),
 		})
 		if err != nil {
 			return Results{}, fmt.Errorf("failed to search transcripts for %q: %w", query, err)
@@ -375,18 +376,19 @@ func (s *Store) Search(ctx context.Context, params SearchParams) (Results, error
 	nearStarts := matchesRan && int64(len(results.Matches)) < limit && hasNearTerms(terms.positive)
 	if nearAt != nil || nearStarts {
 		rows, err := s.queries.SearchTranscriptsNear(ctx, models.SearchTranscriptsNearParams{
-			Terms:         terms.positive,
-			Words:         terms.words,
-			Phrases:       terms.phrases,
-			Patterns:      likePatterns(terms.positive),
-			Excluded:      terms.negative,
-			Lead:          snippetLead,
-			Width:         snippetWidth,
-			Lim:           int32(limit),
-			AgentID:       params.AgentID,
-			CursorRank:    rankOf(nearAt),
-			CursorAgentID: agentOf(nearAt),
-			CursorSeq:     seqOf(nearAt),
+			Terms:           terms.positive,
+			Words:           terms.words,
+			Phrases:         terms.phrases,
+			Patterns:        likePatterns(terms.positive),
+			Excluded:        terms.negative,
+			ExcludedPhrases: terms.negativePhrases,
+			Lead:            snippetLead,
+			Width:           snippetWidth,
+			Lim:             int32(limit),
+			AgentID:         params.AgentID,
+			CursorRank:      rankOf(nearAt),
+			CursorAgentID:   agentOf(nearAt),
+			CursorSeq:       seqOf(nearAt),
 		})
 		if err != nil {
 			return Results{}, fmt.Errorf("failed to search transcripts near %q: %w", query, err)
@@ -464,10 +466,11 @@ func seqOf(p *Position) *int32 {
 }
 
 type queryTerms struct {
-	positive []string
-	words    []string
-	phrases  []string
-	negative []string
+	positive        []string
+	words           []string
+	phrases         []string
+	negative        []string
+	negativePhrases []string
 }
 
 // splitTerms reads a query as the words it is looking for, quoted or not, and the words it
@@ -488,6 +491,8 @@ func splitTerms(query string) queryTerms {
 
 		switch {
 		case term == "":
+		case leading == 1 && asPhrase:
+			terms.negativePhrases = append(terms.negativePhrases, term)
 		case leading == 1:
 			terms.negative = append(terms.negative, term)
 		case asPhrase:

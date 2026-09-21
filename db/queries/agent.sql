@@ -1168,7 +1168,14 @@ WITH q AS (
                             UNNEST(@excluded::text[]) e
                         WHERE
                             PHRASETO_TSQUERY('english', e) = ''
-                            AND PHRASETO_TSQUERY('simple', e) <> '') AS forbidden_simple,
+                            AND PHRASETO_TSQUERY('simple', e) <> ''
+                        UNION ALL
+                        SELECT
+                            PHRASETO_TSQUERY('simple', p)
+                        FROM
+                            UNNEST(@excluded_phrases::text[]) p
+                        WHERE
+                            PHRASETO_TSQUERY('simple', p) <> '') AS forbidden_simple,
                         sqlc.narg('phrase')::text AS phrase
 ),
 ranked AS (
@@ -1267,7 +1274,14 @@ WITH q AS (
                 UNNEST(@excluded::text[]) e
             WHERE
                 PHRASETO_TSQUERY('english', e) = ''
-                AND PHRASETO_TSQUERY('simple', e) <> '') AS forbidden_simple
+                AND PHRASETO_TSQUERY('simple', e) <> ''
+            UNION ALL
+            SELECT
+                PHRASETO_TSQUERY('simple', p)
+            FROM
+                UNNEST(@excluded_phrases::text[]) p
+            WHERE
+                PHRASETO_TSQUERY('simple', p) <> '') AS forbidden_simple
 ),
 ranked AS (
     SELECT
