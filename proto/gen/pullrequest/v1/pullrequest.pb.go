@@ -38,7 +38,8 @@ const (
 	PullRequestState_PULL_REQUEST_STATE_NONE PullRequestState = 2
 	// Open with no review decision that settles it.
 	PullRequestState_PULL_REQUEST_STATE_OPEN PullRequestState = 3
-	// Open and approved on the forge, and the forge would merge it now.
+	// Open and the forge would merge it now: its rules on reviews and checks are met and the
+	// branch is level with its base.
 	PullRequestState_PULL_REQUEST_STATE_APPROVED PullRequestState = 4
 	// Open with a reviewer asking for changes.
 	PullRequestState_PULL_REQUEST_STATE_CHANGES_REQUESTED PullRequestState = 5

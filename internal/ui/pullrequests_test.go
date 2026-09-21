@@ -109,14 +109,14 @@ func TestPullRequestFields(t *testing.T) {
 			want: []recordField{{"pull request", "#741 open, conflicts with the base"}},
 		},
 		{
-			name: "an approval the forge would merge says nothing more",
+			name: "a branch the forge would merge says nothing more",
 			standing: pullRequestStanding{
 				state:        pullrequestv1.PullRequestState_PULL_REQUEST_STATE_APPROVED,
 				checks:       pullrequestv1.Checks_CHECKS_PASSING,
 				mergeability: pullrequestv1.Mergeability_MERGEABILITY_CLEAN,
 				number:       741,
 			},
-			want: []recordField{{"pull request", "#741 approved"}},
+			want: []recordField{{"pull request", "#741 ready to merge"}},
 		},
 		{
 			name: "a failing run names itself once",
@@ -177,7 +177,7 @@ func TestPullRequestFields(t *testing.T) {
 				},
 			},
 			want: []recordField{
-				{"pull request", "#742 approved, opened 2h ago"},
+				{"pull request", "#742 ready to merge, opened 2h ago"},
 				{"pull requests", "#711 merged, #708 closed"},
 			},
 		},

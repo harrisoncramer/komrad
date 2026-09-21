@@ -253,7 +253,7 @@ func pullRequestStateWord(state pullrequestv1.PullRequestState) string {
 	case pullrequestv1.PullRequestState_PULL_REQUEST_STATE_APPROVED_WAITING:
 		return "approved"
 	case pullrequestv1.PullRequestState_PULL_REQUEST_STATE_APPROVED:
-		return "approved"
+		return "ready to merge"
 	case pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CHANGES_REQUESTED:
 		return "changes requested"
 	case pullrequestv1.PullRequestState_PULL_REQUEST_STATE_DRAFT:

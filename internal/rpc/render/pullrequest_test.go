@@ -144,6 +144,30 @@ func TestPullRequestStateOf(t *testing.T) {
 			want: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_FAILING,
 		},
 		{
+			name: "clean with no decision is ready, since the forge's rules asked for no review",
+			pullRequest: pullrequeststore.Summary{
+				Checks:       xptr.Ptr(forge.ChecksPassing),
+				Mergeability: xptr.Ptr(forge.MergeabilityClean),
+			},
+			want: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_APPROVED,
+		},
+		{
+			name: "clean under a pending review is ready",
+			pullRequest: pullrequeststore.Summary{
+				ReviewDecision: xptr.Ptr(forge.ReviewDecisionPending),
+				Mergeability:   xptr.Ptr(forge.MergeabilityClean),
+			},
+			want: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_APPROVED,
+		},
+		{
+			name: "a change request stands over a clean branch",
+			pullRequest: pullrequeststore.Summary{
+				ReviewDecision: xptr.Ptr(forge.ReviewDecisionChangesRequested),
+				Mergeability:   xptr.Ptr(forge.MergeabilityClean),
+			},
+			want: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CHANGES_REQUESTED,
+		},
+		{
 			name: "conflicting with no decision is open",
 			pullRequest: pullrequeststore.Summary{
 				Mergeability: xptr.Ptr(forge.MergeabilityConflicting),

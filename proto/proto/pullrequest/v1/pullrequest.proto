@@ -81,7 +81,8 @@ enum PullRequestState {
   PULL_REQUEST_STATE_NONE = 2;
   // Open with no review decision that settles it.
   PULL_REQUEST_STATE_OPEN = 3;
-  // Open and approved on the forge, and the forge would merge it now.
+  // Open and the forge would merge it now: its rules on reviews and checks are met and the
+  // branch is level with its base.
   PULL_REQUEST_STATE_APPROVED = 4;
   // Open with a reviewer asking for changes.
   PULL_REQUEST_STATE_CHANGES_REQUESTED = 5;
