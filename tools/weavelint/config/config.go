@@ -14,6 +14,7 @@ type Config struct {
 	CommentClause    CommentClauseConfig    `json:"comment_clause"`
 	SingleAppend     SingleAppendConfig     `json:"single_append"`
 	ConstructorShape ConstructorShapeConfig `json:"constructor_shape"`
+	StoreTouch       StoreTouchConfig       `json:"store_touch"`
 }
 
 // ConstructorShapeConfig settles where the constructor rule applies.
@@ -22,6 +23,18 @@ type ConstructorShapeConfig struct {
 	Skip bool `json:"skip"`
 	// Exclude is unanchored regexps over the file path.
 	Exclude []string `json:"exclude"`
+}
+
+// StoreTouchConfig settles which stores the touch rule reads and what it counts as a write.
+type StoreTouchConfig struct {
+	// Skip turns the rule off.
+	Skip bool `json:"skip"`
+	// Stores is unanchored regexps over the file path, for the packages that write rows.
+	Stores []string `json:"stores"`
+	// Queries is the directory holding the sqlc query files, relative to where lint runs.
+	Queries string `json:"queries"`
+	// Tables is every table a watched listing is drawn from.
+	Tables []string `json:"tables"`
 }
 
 // SingleAppendConfig settles where the mapping loop rule applies.

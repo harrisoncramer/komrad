@@ -262,7 +262,7 @@ linters:
     custom:
       weavelint:
         type: module
-        description: Checks for this repo; a sentinel error must declare the kind of failure it is and be declared at package scope, a message wrapping another error opens with "failed to " or with the error itself, a connect handler must hand its strict half to the adapter rather than answering for itself, a forge Secret gives up its token only where it is sent or kept, an HTTP client is built by lib/xhttp, a declared function spans more than one line, a proto converter is named for its direction, a comment carries no justification clause, a loop that only maps a slice is xslice.Map, and a constructor taking a params struct is New<T>(New<T>Params) declared as params, type, constructor.
+        description: Checks for this repo; a sentinel error must declare the kind of failure it is and be declared at package scope, a message wrapping another error opens with "failed to " or with the error itself, a connect handler must hand its strict half to the adapter rather than answering for itself, a forge Secret gives up its token only where it is sent or kept, an HTTP client is built by lib/xhttp, a declared function spans more than one line, a proto converter is named for its direction, a comment carries no justification clause, a loop that only maps a slice is xslice.Map, a constructor taking a params struct is New<T>(New<T>Params) declared as params, type, constructor, and a store write to a watched table is followed by a touch.
         settings:
           sentinel_inline:
             skip: false
@@ -285,6 +285,29 @@ linters:
           constructor_shape:
             skip: false
             exclude: []
+          store_touch:
+            skip: false
+            # Unanchored regexps over the path lint was run from. The packages that write rows.
+            stores:
+              - ^internal/store/
+            # The sqlc query files, read to learn which table each query writes.
+            queries: db/queries
+            # Every table one of the panel's three listings is drawn from.
+            tables:
+              - agents
+              - agent_metadata
+              - agent_runs
+              - marks
+              - mail
+              - reviews
+              - review_rounds
+              - pull_requests
+              - pull_request_syncs
+              - workflows
+              - workflow_configs
+              - workflow_provisioner_configs
+              - workflow_hooks
+              - schedules
           single_append:
             skip: false
             # Unanchored regexps over the path lint was run from. The package that defines Map,
