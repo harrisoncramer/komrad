@@ -109,6 +109,16 @@ func TestPullRequestFields(t *testing.T) {
 			want: []recordField{{"pull request", "#741 conflicts with the base"}},
 		},
 		{
+			name: "a draft conflicting with its base keeps the draft word and says so",
+			standing: pullRequestStanding{
+				state:        pullrequestv1.PullRequestState_PULL_REQUEST_STATE_DRAFT,
+				checks:       pullrequestv1.Checks_CHECKS_PENDING,
+				mergeability: pullrequestv1.Mergeability_MERGEABILITY_CONFLICTING,
+				number:       741,
+			},
+			want: []recordField{{"pull request", "#741 draft, conflicts with the base"}},
+		},
+		{
 			name: "a branch the forge would merge says nothing more",
 			standing: pullRequestStanding{
 				state:        pullrequestv1.PullRequestState_PULL_REQUEST_STATE_APPROVED,

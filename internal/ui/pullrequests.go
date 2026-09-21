@@ -210,7 +210,7 @@ func currentPullRequestField(pullRequest agentPullRequest) string {
 const pullRequestFieldKey = "pull request"
 
 // pullRequestWords is the state word with what is still in the way beside it: a run in
-// flight, a branch behind, or a rule an approval is waiting on.
+// flight, a branch behind or conflicting, or a rule an approval is waiting on.
 func pullRequestWords(state pullrequestv1.PullRequestState, checks pullrequestv1.Checks, mergeability pullrequestv1.Mergeability) string {
 	word := pullRequestStateWord(state)
 	switch state {
@@ -230,6 +230,8 @@ func pullRequestWords(state pullrequestv1.PullRequestState, checks pullrequestv1
 	}
 
 	switch {
+	case mergeability == pullrequestv1.Mergeability_MERGEABILITY_CONFLICTING:
+		return word + ", conflicts with the base"
 	case mergeability == pullrequestv1.Mergeability_MERGEABILITY_BEHIND:
 		return word + ", behind the base"
 	case checks == pullrequestv1.Checks_CHECKS_PENDING:
