@@ -108,7 +108,7 @@ func connect(t *testing.T) *admin {
 
 	conn, err := pgx.Connect(t.Context(), replaceDatabase(baseURL, "postgres"))
 	if err != nil {
-		t.Fatalf("failed to reach postgres; is it running? try 'mise run docker:up': %v", err)
+		t.Fatalf("failed to reach postgres; is the checkout's compose Postgres up? %v", err)
 	}
 
 	opened := &admin{conn: conn, baseURL: baseURL}

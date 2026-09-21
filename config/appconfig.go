@@ -82,7 +82,7 @@ const DefaultMaxChildren = 3
 // is derived from whichever database url wins and the other from the platform's cache
 // directory, both after the file and the environment have been resolved.
 const (
-	// The Postgres `mise run docker:up` starts, so a checkout works with nothing exported.
+	// The Postgres the checkout's compose file starts, so a checkout works with nothing exported.
 	DefaultDatabaseURL = "postgres://weave:weave@localhost:5460/weave?sslmode=disable"
 	// Loopback, because the endpoint has no auth and its writes can spawn agents.
 	DefaultAddr = "127.0.0.1:8787"

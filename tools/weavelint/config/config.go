@@ -13,6 +13,15 @@ type Config struct {
 	ConversionName ConversionNameConfig `json:"conversion_name"`
 	CommentClause  CommentClauseConfig  `json:"comment_clause"`
 	SingleAppend   SingleAppendConfig   `json:"single_append"`
+	NoMise         NoMiseConfig         `json:"no_mise"`
+}
+
+// NoMiseConfig settles where the rule against naming mise applies.
+type NoMiseConfig struct {
+	// Skip turns the rule off.
+	Skip bool `json:"skip"`
+	// Exclude is unanchored regexps over the file path.
+	Exclude []string `json:"exclude"`
 }
 
 // SingleAppendConfig settles where the mapping loop rule applies.

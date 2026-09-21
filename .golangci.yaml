@@ -262,7 +262,7 @@ linters:
     custom:
       weavelint:
         type: module
-        description: Checks for this repo; a sentinel error must declare the kind of failure it is and be declared at package scope, a message wrapping another error opens with "failed to " or with the error itself, a connect handler must hand its strict half to the adapter rather than answering for itself, a forge Secret gives up its token only where it is sent or kept, an HTTP client is built by lib/xhttp, a declared function spans more than one line, a proto converter is named for its direction, a comment carries no justification clause, and a loop that only maps a slice is xslice.Map.
+        description: Checks for this repo; a sentinel error must declare the kind of failure it is and be declared at package scope, a message wrapping another error opens with "failed to " or with the error itself, a connect handler must hand its strict half to the adapter rather than answering for itself, a forge Secret gives up its token only where it is sent or kept, an HTTP client is built by lib/xhttp, a declared function spans more than one line, a proto converter is named for its direction, a comment carries no justification clause, a loop that only maps a slice is xslice.Map, and no source names mise.
         settings:
           sentinel_inline:
             skip: false
@@ -319,6 +319,13 @@ linters:
             # the one this rule looks for.
             exclude:
               - ^internal/rpcerr/
+          no_mise:
+            skip: false
+            # Unanchored regexps over the path lint was run from. The rule's own source and
+            # the settings block that names it.
+            exclude:
+              - (^|/)nomise\.go$
+              - ^config/config\.go$
           sentinel_kind:
             skip: false
             # Unanchored regexps over the path lint was run from. Nothing a caller reaches

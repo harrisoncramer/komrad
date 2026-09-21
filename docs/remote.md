@@ -4,7 +4,7 @@ Weave can run remotely, where Postgres, tmux and the agents move to a box you re
 
 The panel still runs on your machine. What moves is the engine: the service, the database, and every agent's tmux window.
 
-Weave's own repository has an example of this; in fact, a remote agent will often open PRs against this repository. For how I stand that box up, and everything done to it afterwards, see weave's administration document in [engine-admin.md](engine-admin.md). This guide focuses purely on how to administer a deployed weave engine.
+Weave's own repository has an example of this; in fact, a remote agent will often open PRs against this repository. For how I stand that box up, and everything done to it afterwards, see weave's administration document in [engine-admin.md](internal/engine-admin.md). This guide focuses purely on how to administer a deployed weave engine.
 
 ## Pointing the panel at it
 
@@ -83,4 +83,4 @@ An engine can be stopped when it is not being used, since it bills for every hou
 
 Every agent on the box stops with it. Their conversations and worktrees are on the data volume, so resume the ones you want once it is back.
 
-If the panel cannot reach the engine at a time you did not expect, ask whoever administers it whether the box is down. Stopping and starting it is in [engine-admin.md](engine-admin.md).
+If the panel cannot reach the engine at a time you did not expect, ask whoever administers it whether the box is down. Stopping and starting it is in [engine-admin.md](internal/engine-admin.md).

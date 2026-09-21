@@ -1,6 +1,6 @@
 # Administering weave's engine
 
-Everything done to the remote box from this repository. Pointing a panel at an engine that already exists is in [remote.md](remote.md).
+Everything done to the remote box from this repository. Pointing a panel at an engine that already exists is in [remote.md](../remote.md).
 
 Every command here is a task in this checkout, so it needs the repo and `mise install`. AWS credentials come from the environment, as `AWS_PROFILE` or the access key variables.
 
@@ -148,7 +148,7 @@ Then connect the engine's forge through the App, which can be done from the lapt
 weave forge connect github.com --method github-app --engine remote
 ```
 
-No token of yours is stored. The service keeps the App's short-lived token in `github-token.json` under its cache directory, readable only by the weave user and worthless an hour after it was minted, and reuses it until then. `weave doctor --engine remote` shows the connection under forges, and [forges](forges.md) says the rest.
+No token of yours is stored. The service keeps the App's short-lived token in `github-token.json` under its cache directory, readable only by the weave user and worthless an hour after it was minted, and reuses it until then. `weave doctor --engine remote` shows the connection under forges, and [forges](../forges.md) says the rest.
 
 ### 7. Clone the repo
 
@@ -160,7 +160,7 @@ git clone https://github.com/OWNER/REPO /var/lib/weave/repos/REPO
 
 Git authenticates through weave's credential helper, so this needs no login.
 
-Then point your panel at it and sign the harness in, both of which are in [remote.md](remote.md).
+Then point your panel at it and sign the harness in, both of which are in [remote.md](../remote.md).
 
 ## Getting a shell
 
@@ -207,6 +207,8 @@ mise run remote:restart --hard
 ```
 
 The plain restart leaves the tmux server alone, so the agents keep running. `--hard` takes the tmux server too, which is what picks up a change to the manager session itself, and every agent on the box stops.
+
+This is the one way to stop and start the service. `weave stop` on the box refuses, since the unit only restarts the service after a failure and a clean stop would stay down until root ran `systemctl start weave`, which the `weave` user cannot. `weave doctor` from that shell cannot read the database url either, which is in a root-only file only the unit hands the service, so its database line says so instead of pinging the built-in default. `systemctl status weave` shows the service from the box, and `weave doctor --engine remote` from your laptop asks it for its own checks.
 
 ## Stopping and starting the box
 

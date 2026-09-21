@@ -59,4 +59,4 @@ However, personal tokens do not expire by default with Weave. Weave will notice 
 
 ## Remote (Engine) Security Posture
 
-When running weave remotely, I recommend using a GitHub App identity to mint a token which dies in an hour, described in [administering the engine](engine-admin.md). With the App configured, `weave forge connect github.com --method github-app` connects the engine's forge through it. No token is stored under `forge/`: the App mints one that dies an hour later, and the service keeps it in `github-token.json` under its cache directory, readable only by the weave user, until then. The login recorded is the App's own name.
+When running weave remotely, I recommend using a GitHub App identity to mint a token which dies in an hour, described in [administering the engine](internal/engine-admin.md). With the App configured, `weave forge connect github.com --method github-app` connects the engine's forge through it. No token is stored under `forge/`: the App mints one that dies an hour later, and the service keeps it in `github-token.json` under its cache directory, readable only by the weave user, until then. The login recorded is the App's own name.

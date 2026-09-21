@@ -82,12 +82,4 @@ Then `prefix + g` for a fresh panel. That kills the agents in it; their records 
 
 ## From a checkout
 
-The contributor path, which needs Go 1.25.1 or newer.
-
-```sh
-git clone git@github.com:harrisoncramer/weave.git ~/weave
-cd ~/weave
-mise install
-mise run go:build
-mise run docker:up
-```
+Building weave from its source is in [development.md](internal/development.md).

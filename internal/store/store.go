@@ -134,7 +134,7 @@ func refuseSuperuser(ctx context.Context, pool *pgxpool.Pool) error {
 
 	return fmt.Errorf(
 		"the read-only database role is a superuser, which would let a query tool read files on " +
-			"the database host; run 'mise run db:readonly-role' and point " +
+			"the database host; run 'weave readonly-role' and point " +
 			"WEAVE_READONLY_DATABASE_URL at the role it creates")
 }
 
