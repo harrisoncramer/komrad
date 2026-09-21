@@ -17,6 +17,7 @@ import (
 	"weave/internal/git"
 	"weave/internal/logging"
 	"weave/internal/logtest"
+	"weave/internal/marks"
 	"weave/internal/rpc/render"
 	"weave/internal/store"
 	"weave/internal/storetest"
@@ -2193,8 +2194,8 @@ func (s fakeMailConfig) GetMaxExchange() (int, error) { return int(s), nil }
 
 // markService is the real thing over the test stores, a mark spanning two tables a fake would
 // only agree with itself about.
-func markService(st *storetest.Stores) *agents.MarkService {
-	return agents.NewMarkService(agents.NewMarkServiceParams{Marks: st.Marks, Tx: st.Pool})
+func markService(st *storetest.Stores) *marks.MarkService {
+	return marks.NewMarkService(marks.NewMarkServiceParams{Marks: st.Marks, Tx: st.Pool})
 }
 
 func service(t *testing.T) (agentv1weave.AgentServiceAdapter, *storetest.Stores) {

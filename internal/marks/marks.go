@@ -1,4 +1,4 @@
-package agents
+package marks
 
 import (
 	"context"
@@ -8,6 +8,10 @@ import (
 	"weave/internal/store"
 	markstore "weave/internal/store/mark"
 )
+
+type txRunner interface {
+	InTx(ctx context.Context, fn func(store.DBTX) error) error
+}
 
 type NewMarkServiceParams struct {
 	Marks *markstore.Store

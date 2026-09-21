@@ -12,6 +12,7 @@ import (
 	"weave/internal/frames"
 	"weave/internal/git"
 	"weave/internal/harness/pane"
+	"weave/internal/marks"
 	"weave/internal/scripts"
 	"weave/internal/worktrees"
 )
@@ -31,7 +32,7 @@ type services struct {
 	workflow        *agents.WorkflowService
 	delivery        *agents.DeliveryService
 	reconciler      *agents.Reconciler
-	marks           *agents.MarkService
+	marks           *marks.MarkService
 	holder          *agents.Holder
 	rebase          *agents.RebaseService
 	cwdSync         *agents.CwdSyncer
@@ -189,7 +190,7 @@ func buildServices(params NewServerParams, st *stores) (*services, error) {
 		MaxChildren:  params.MaxChildren,
 	})
 
-	markService := agents.NewMarkService(agents.NewMarkServiceParams{Marks: st.marks, Tx: st.pool})
+	markService := marks.NewMarkService(marks.NewMarkServiceParams{Marks: st.marks, Tx: st.pool})
 
 	builders := params.ForgeBuilders
 	if builders == nil {

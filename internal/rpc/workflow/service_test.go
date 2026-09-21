@@ -12,6 +12,7 @@ import (
 	workflowv1weave "weave/proto/gen/workflow/v1/workflowv1weave"
 
 	"weave/internal/agents"
+	"weave/internal/marks"
 	"weave/internal/rpc/render"
 	"weave/internal/store"
 	"weave/internal/storetest"
@@ -607,9 +608,9 @@ func service(t *testing.T) (workflowv1weave.WorkflowServiceAdapter, *storetest.S
 		Tx:           st.Pool,
 	})
 
-	marks := agents.NewMarkService(agents.NewMarkServiceParams{Marks: st.Marks, Tx: st.Pool})
+	markService := marks.NewMarkService(marks.NewMarkServiceParams{Marks: st.Marks, Tx: st.Pool})
 
-	return workflowv1weave.WorkflowServiceAdapter{Impl: NewWorkflowService(st.Workflows, manager, marks)}, st
+	return workflowv1weave.WorkflowServiceAdapter{Impl: NewWorkflowService(st.Workflows, manager, markService)}, st
 }
 
 func createWorkflow(t *testing.T, svc workflowv1weave.WorkflowServiceAdapter, name string) string {
