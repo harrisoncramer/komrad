@@ -363,8 +363,8 @@ func TestWorktreeHeaderFiguresStayWhole(t *testing.T) {
 	assert.Equal(t, whole, m.worktrees.countUnder("/home/h/weave"))
 
 	snapshot := m.worktrees.snapshot(m.shared(), listPane{width: 80})
-	assert.Equal(t, groupTrail(m.worktrees.items, "/home/h/weave"), snapshot.Rows[0].Trail)
-	assert.Contains(t, snapshot.Rows[0].Trail, "2.0M")
+	assert.Equal(t, groupCells(m.worktrees.items, "/home/h/weave"), snapshot.Rows[0].Cells)
+	assert.Equal(t, "2.0M", snapshot.Rows[0].Cells[0].Text)
 }
 
 // TestReviewSearchIgnoresTab covers the review's own search, which shares the input's keys,

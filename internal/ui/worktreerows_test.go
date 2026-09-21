@@ -224,7 +224,7 @@ func TestWorktreeRowsFlatOrderTheWholeListing(t *testing.T) {
 }
 
 // TestWorktreesSnapshotDrawsFlatRowsAtTheHeadingIndent covers a flat row being a result rather
-// than an agent under a heading, with its trail as it was.
+// than an agent under a heading, with its cells as they were.
 func TestWorktreesSnapshotDrawsFlatRowsAtTheHeadingIndent(t *testing.T) {
 	now := time.Date(2026, 9, 20, 12, 0, 0, 0, time.UTC)
 	items := measuredFixture(now)
@@ -239,7 +239,7 @@ func TestWorktreesSnapshotDrawsFlatRowsAtTheHeadingIndent(t *testing.T) {
 	for _, row := range snapshot.Rows {
 		assert.Equal(t, view.KindResult, row.Kind)
 	}
-	assert.Equal(t, "1.5G 12h", snapshot.Rows[0].Trail)
+	assert.Equal(t, []view.Cell{mutedCell("1.5G"), mutedCell("12h")}, snapshot.Rows[0].Cells)
 }
 
 // TestWorktreeRowsLeaveTheOccupantOffTheList covers an agent working in another's directory
@@ -357,7 +357,6 @@ func TestWorktreesSnapshotReadsEveryRow(t *testing.T) {
 	assert.Equal(t, view.ProcessAlive, live.Process)
 	assert.Equal(t, view.StatusWaiting, live.Status, "the agents listing's state wins over the worktree listing's")
 	assert.True(t, live.UnreadMail, "the marks come off the agents listing")
-	assert.Equal(t, view.RepoClean, live.Repo)
 	assert.NotContains(t, byKey, "agent:occ", "an occupant is no row of its own")
 
 	archived := byKey["tree:/trees/archived"]
@@ -369,10 +368,7 @@ func TestWorktreesSnapshotReadsEveryRow(t *testing.T) {
 	assert.Equal(t, view.ProcessStopped, orphan.Process)
 	assert.True(t, orphan.Selected)
 
-	broken := byKey["tree:/trees/broken"]
-	assert.Equal(t, view.RepoGone, broken.Repo)
-
-	assert.Equal(t, worktreesDropped, snapshot.Dropped)
+	assert.Equal(t, worktreeColumns(), snapshot.Columns)
 	assert.Equal(t, "tree:/trees/live", snapshot.Focused)
 }
 
@@ -464,10 +460,10 @@ func measuredFixture(now time.Time) []worktreeItem {
 	return items
 }
 
-// TestWorktreesSnapshotTrailsSizeThenAge covers every row's trail: the size then the age on a
+// TestWorktreesSnapshotCellsAreSizeThenAge covers every row's cells: the size then the age on a
 // directory, a dash for the size until it is measured or while its walk fails, and the header
 // summing the measured directories under it over the size column.
-func TestWorktreesSnapshotTrailsSizeThenAge(t *testing.T) {
+func TestWorktreesSnapshotCellsAreSizeThenAge(t *testing.T) {
 	now := time.Date(2026, 9, 20, 12, 0, 0, 0, time.UTC)
 	items := measuredFixture(now)
 	snapshot := worktreesSnapshot(worktreesSnapshotParams{
@@ -476,19 +472,19 @@ func TestWorktreesSnapshotTrailsSizeThenAge(t *testing.T) {
 		now:   now,
 	})
 
-	trails := map[string]string{}
+	cells := map[string][]string{}
 	for _, row := range snapshot.Rows {
-		trails[row.Key] = row.Trail
+		cells[row.Key] = xslice.Map(row.Cells, func(cell view.Cell) string { return cell.Text })
 	}
 
-	assert.Equal(t, map[string]string{
-		"repo:/home/h/gadgets/admin": "1.5G    ",
-		"tree:/trees/admin":          "1.5G 12h",
-		"repo:/home/h/weave":         " 98M    ",
-		"tree:/trees/live":           " 49M 30s",
-		"tree:/trees/archived":       " 49M  4d",
-		"tree:/trees/orphan":         "   —  3h",
-		"repo:/var/folders/T/repo":   "   —    ",
-		"tree:/trees/broken":         "   —  2w",
-	}, trails)
+	assert.Equal(t, map[string][]string{
+		"repo:/home/h/gadgets/admin": {"1.5G"},
+		"tree:/trees/admin":          {"1.5G", "12h"},
+		"repo:/home/h/weave":         {"98M"},
+		"tree:/trees/live":           {"49M", "30s"},
+		"tree:/trees/archived":       {"49M", "4d"},
+		"tree:/trees/orphan":         {"—", "3h"},
+		"repo:/var/folders/T/repo":   {"—"},
+		"tree:/trees/broken":         {"—", "2w"},
+	}, cells)
 }

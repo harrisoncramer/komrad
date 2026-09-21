@@ -168,9 +168,9 @@ func TestNoticesWearTheGlyphTheRowDraws(t *testing.T) {
 	want := map[string]view.Cell{
 		failedRunNotice:          line.Alert,
 		unreadMailNotice:         line.Mail,
-		sequenceNotice:           line.Repo,
+		sequenceNotice:           line.Columns[0],
 		heldPromptedNotice:       line.Held,
-		localChangesPushedNotice: line.Review,
+		localChangesPushedNotice: line.Columns[1],
 	}
 
 	notices := agentNotices(noticeRow(item))

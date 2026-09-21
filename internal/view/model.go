@@ -73,9 +73,8 @@ type Line struct {
 	Focused bool
 	Focus   Cell
 	Mark    Cell
-	Repo    Cell
-	Review  Cell
-	Forge   Cell
+	// Columns are the cells of the list's own columns, one per column in the order they are drawn.
+	Columns []Cell
 	Status  Cell
 	// Rule draws the corner a child hangs off, inside the name cell rather than before it.
 	Rule bool
@@ -96,15 +95,40 @@ type Line struct {
 	Tally    int
 	Schedule Cell
 	Selected bool
-	// Trail is text drawn at the right edge, a space away from whatever precedes it.
-	Trail string
 }
 
-// Columns says which of the three columns a list is wide enough to draw.
-type Columns struct {
-	Repo   bool
-	Review bool
-	Forge  bool
+// ColumnKind is what a column of the gutter holds.
+type ColumnKind int
+
+const (
+	ColumnRepo ColumnKind = iota
+	ColumnReview
+	ColumnForge
+	// ColumnText is a column the row fills itself, right-aligned in the width the list declares.
+	ColumnText
+)
+
+// Column is one column of the gutter a list draws between the mark and the bar.
+type Column struct {
+	Kind  ColumnKind
+	Width int
+}
+
+// Columns is the gutter a list declares, in the order its columns are drawn.
+type Columns []Column
+
+// WorkColumns is the gutter of the agents list: repo, review and forge, one glyph each.
+func WorkColumns() Columns {
+	return Columns{
+		{Kind: ColumnRepo, Width: plainColumns},
+		{Kind: ColumnReview, Width: plainColumns},
+		{Kind: ColumnForge, Width: plainColumns},
+	}
+}
+
+// NoColumns is the gutter of a list with nothing to say before a name.
+func NoColumns() Columns {
+	return Columns{}
 }
 
 // List is the agents list resolved to glyphs and tones.

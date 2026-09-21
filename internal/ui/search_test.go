@@ -918,7 +918,7 @@ func TestSearchTellsAHiddenHitFromAnArchivedOne(t *testing.T) {
 		return searchRowNamed(t, built, name)
 	})
 
-	list := view.Prepare(view.Snapshot{Rows: rows, Dropped: searchDropped})
+	list := view.Prepare(view.Snapshot{Rows: rows, Columns: view.NoColumns()})
 	require.Len(t, list.Lines, 3)
 
 	running, dormant, archived := list.Lines[0], list.Lines[1], list.Lines[2]
@@ -1169,7 +1169,7 @@ func TestSearchRowWithoutTheAgent(t *testing.T) {
 	header := headerLine(t, ansi.Strip(searchAdapter{}.view(m)), "billing")
 	assert.True(t, strings.HasSuffix(header, view.Spell(view.GlyphQuiet)+" billing"),
 		"and still draws the quiet bar: %q", header)
-	assert.Equal(t, view.GutterColumns(view.Columns{}), textColumn(t, header, "billing"),
+	assert.Equal(t, view.GutterColumns(view.NoColumns()), textColumn(t, header, "billing"),
 		"and opens its name where every other row does")
 }
 

@@ -52,7 +52,7 @@ func resultRows() []Row {
 func drawResults(pane int) []string {
 	list := Prepare(Snapshot{
 		Rows:    resultRows(),
-		Dropped: everyColumn(),
+		Columns: NoColumns(),
 		Focused: "live",
 		Pane:    pane,
 	})
@@ -60,25 +60,25 @@ func drawResults(pane int) []string {
 	return strings.Split(ansiEscapes.ReplaceAllString(render(list, paint.Panel, 0), ""), "\n")
 }
 
-// TestPrepareResultsDropEveryColumn pins what a list of results asks for: the three columns are
-// gone whatever the pane.
-func TestPrepareResultsDropEveryColumn(t *testing.T) {
+// TestPrepareResultsDeclareNoColumn pins what a list of results asks for: no column at all,
+// whatever the pane.
+func TestPrepareResultsDeclareNoColumn(t *testing.T) {
 	wide := Prepare(Snapshot{
 		Rows:    resultRows(),
-		Dropped: everyColumn(),
+		Columns: NoColumns(),
 		Pane:    200,
 	})
 
-	assert.Equal(t, Columns{}, wide.Columns)
+	assert.Empty(t, wide.Columns)
 	assert.Equal(t, everyColumn(), Prepare(Snapshot{Rows: resultRows(), Pane: 200}).Columns,
-		"the same pane draws all three when none is dropped")
+		"the same pane draws all three when none is named")
 }
 
-// TestDroppedColumnsGiveTheirRoomToTheName pins what the columns are given up for: a name in a
-// result list has the room the three columns would have taken.
-func TestDroppedColumnsGiveTheirRoomToTheName(t *testing.T) {
-	assert.Equal(t, drawnResultNameColumn, GutterColumns(Columns{}))
-	assert.Greater(t, NameColumns(canonicalPane, Columns{}), NameColumns(canonicalPane, everyColumn()))
+// TestUndeclaredColumnsGiveTheirRoomToTheName pins what a column not declared is for: a name in
+// a result list has the room the three columns would have taken.
+func TestUndeclaredColumnsGiveTheirRoomToTheName(t *testing.T) {
+	assert.Equal(t, drawnResultNameColumn, GutterColumns(NoColumns()))
+	assert.Greater(t, NameColumns(canonicalPane, NoColumns()), NameColumns(canonicalPane, everyColumn()))
 }
 
 // TestResultRowOpensAtTheGutter pins that a result is not a tree node: nothing is above it to be
@@ -87,7 +87,7 @@ func TestDroppedColumnsGiveTheirRoomToTheName(t *testing.T) {
 func TestResultRowOpensAtTheGutter(t *testing.T) {
 	list := Prepare(Snapshot{
 		Rows:    resultRows(),
-		Dropped: everyColumn(),
+		Columns: NoColumns(),
 		Pane:    canonicalPane,
 	})
 	drawn := drawResults(canonicalPane)
@@ -105,11 +105,11 @@ func TestResultRowOpensAtTheGutter(t *testing.T) {
 }
 
 // TestHitRowHangsUnderItsResult pins that a turn is drawn one step in under the agent that
-// said it, its lead before the words and the three columns left blank.
+// said it, its lead before the words.
 func TestHitRowHangsUnderItsResult(t *testing.T) {
 	list := Prepare(Snapshot{
 		Rows:    resultRows(),
-		Dropped: everyColumn(),
+		Columns: NoColumns(),
 		Pane:    canonicalPane,
 	})
 	drawn := drawResults(canonicalPane)
@@ -129,9 +129,7 @@ func TestHitRowHangsUnderItsResult(t *testing.T) {
 		require.GreaterOrEqual(t, lead, 0, "row %q", drawn[i])
 		assert.Equal(t, wantNameColumn(KindHit), drawnColumns(drawn[i][:lead]), "row %q", drawn[i])
 		assert.Equal(t, wantNameColumn(KindHit)+len(line.Lead)+1, nameColumnOf(drawn[i], line), "row %q", drawn[i])
-		for _, cell := range []Cell{line.Repo, line.Review, line.Forge} {
-			assert.True(t, cell.IsBlank(), "row %q", drawn[i])
-		}
+		assert.Empty(t, line.Columns, "row %q", drawn[i])
 	}
 
 	assert.Equal(t, 2, hits)
@@ -154,7 +152,7 @@ func TestHitRowGivesItsLeadRoom(t *testing.T) {
 func TestRenderResultList(t *testing.T) {
 	list := Prepare(Snapshot{
 		Rows:    resultRows(),
-		Dropped: everyColumn(),
+		Columns: NoColumns(),
 		Focused: "live",
 		Pane:    canonicalPane,
 	})

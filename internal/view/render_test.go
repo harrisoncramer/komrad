@@ -21,9 +21,9 @@ const canonicalPane = 36
 // test measuring the gutter does not borrow the package's own idea of what fills it.
 func everyColumn() Columns {
 	return Columns{
-		Repo:   true,
-		Review: true,
-		Forge:  true,
+		{Kind: ColumnRepo, Width: 1},
+		{Kind: ColumnReview, Width: 1},
+		{Kind: ColumnForge, Width: 1},
 	}
 }
 
@@ -597,37 +597,22 @@ func TestRenderDrawsASearchMatchInTheMatchColour(t *testing.T) {
 	assert.Contains(t, ansiEscapes.ReplaceAllString(drawn, ""), "view-gather")
 }
 
-// TestNarrowSidebarsDropColumnsRatherThanNames pins what a sidebar gives up as it narrows: the
-// columns go from the right, and a name is only cut once there is no column left to spend.
-func TestNarrowSidebarsDropColumnsRatherThanNames(t *testing.T) {
+// TestNarrowSidebarsKeepTheirColumns pins that a narrow sidebar cuts names rather than columns:
+// the gutter a list declares is drawn at every pane.
+func TestNarrowSidebarsKeepTheirColumns(t *testing.T) {
 	tests := []struct {
 		name     string
 		pane     int
-		want     Columns
 		wantName int
 	}{
 		{
-			name:     "the width Harry's own config sets still draws the checkout, the column never given up",
+			name:     "a sidebar narrower than a name keeps the columns and cuts the name",
 			pane:     16,
-			want:     Columns{Repo: true},
-			wantName: 8,
-		},
-		{
-			name:     "a little wider buys the review back",
-			pane:     20,
-			want:     Columns{Repo: true, Review: true},
-			wantName: 10,
-		},
-		{
-			name:     "wider still buys the pull request, the last of the three to come",
-			pane:     22,
-			want:     everyColumn(),
-			wantName: 10,
+			wantName: 4,
 		},
 		{
 			name:     "the default sidebar draws all three with room to spare",
 			pane:     30,
-			want:     everyColumn(),
 			wantName: 18,
 		},
 	}
@@ -640,31 +625,13 @@ func TestNarrowSidebarsDropColumnsRatherThanNames(t *testing.T) {
 				Pane:    tt.pane,
 			})
 
-			assert.Equal(t, tt.want, list.Columns)
+			assert.Equal(t, everyColumn(), list.Columns)
 			assert.Equal(t, tt.wantName, NameColumns(tt.pane, list.Columns))
 
-			for i, drawn := range strings.Split(ansiEscapes.ReplaceAllString(render(list, paint.Panel, 0), ""), "\n") {
+			for _, drawn := range strings.Split(ansiEscapes.ReplaceAllString(render(list, paint.Panel, 0), ""), "\n") {
 				assert.LessOrEqual(t, drawnColumns(drawn), tt.pane, "row %q draws past the pane", drawn)
-				assert.NotEmpty(t, list.Lines[i].Name, "row %q lost its name while a column was still drawn", drawn)
 			}
 		})
-	}
-}
-
-// TestColumnsDoNotMoveWhenARowGainsAMark pins the column set being the pane's business alone: a
-// list must not change shape because one agent was sent mail.
-func TestColumnsDoNotMoveWhenARowGainsAMark(t *testing.T) {
-	for pane := 16; pane <= 40; pane++ {
-		quiet := livePanelRows()
-		busy := livePanelRows()
-		busy[2].UnreadMail = true
-		busy[2].FailedRun = true
-		busy[2].Held = true
-
-		assert.Equal(t,
-			Prepare(Snapshot{Rows: quiet, Pane: pane}).Columns,
-			Prepare(Snapshot{Rows: busy, Pane: pane}).Columns,
-			"the columns moved at pane %d because one row gained a mark", pane)
 	}
 }
 
@@ -957,11 +924,7 @@ func TestRenderArchiveList(t *testing.T) {
 		Rows:    archiveRows(),
 		Focused: "a:one",
 		Pane:    archivePane,
-		Dropped: Columns{
-			Repo:   true,
-			Review: true,
-			Forge:  true,
-		},
+		Columns: NoColumns(),
 	})
 
 	requireGolden(t, "list-archive", render(list, paint.Panel, archivePane))
@@ -971,15 +934,10 @@ func TestRenderArchiveList(t *testing.T) {
 // its columns up: the drawing, the gutter arithmetic a caller sizes a name by, and the indent the
 // tree is carried by.
 func TestArchiveNameOpensPastTheGutterItHas(t *testing.T) {
-	dropped := Columns{
-		Repo:   true,
-		Review: true,
-		Forge:  true,
-	}
 	list := Prepare(Snapshot{
 		Rows:    archiveRows(),
 		Pane:    archivePane,
-		Dropped: dropped,
+		Columns: NoColumns(),
 	})
 	require.Len(t, list.Lines, len(archiveRows()))
 

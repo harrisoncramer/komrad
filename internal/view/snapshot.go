@@ -108,12 +108,20 @@ type Snapshot struct {
 	// Focused is the key of the row the keyboard is standing on, naming it rather than counting
 	// to it so a list re-sorted after it was gathered still focuses the same row.
 	Focused string
-	// Pane is how many columns the list is drawn in, from which the view works out which columns
-	// fit and what is left for a name, leaving everything whole when it is unset.
+	// Pane is how many columns the list is drawn in, from which the view works out what is left
+	// for a name, leaving everything whole when it is unset.
 	Pane int
-	// Dropped are the columns this screen does not draw at all whatever the pane, naming them the
-	// other way round from Columns so a screen that drops none says nothing.
-	Dropped Columns
+	// Columns is the gutter this screen draws, and nil is the agents list's own.
+	Columns Columns
+}
+
+// columns is the gutter the snapshot draws, the agents list's own where none was named.
+func (s Snapshot) columns() Columns {
+	if s.Columns == nil {
+		return WorkColumns()
+	}
+
+	return s.Columns
 }
 
 // Row is one line of the agents list as the panel found it.
@@ -134,6 +142,9 @@ type Row struct {
 	Repo    Repo
 	Review  Review
 	Forge   Forge
+	// Cells fill the list's text columns, indexed by column position, and are ignored under a
+	// glyph column and past the last column.
+	Cells []Cell
 	// Selected says the row has been taken into a selection several rows wide.
 	Selected bool
 	// Archived says the row has been put away, which greys its name.
@@ -148,6 +159,4 @@ type Row struct {
 	Scheduled   bool
 	// HiddenCount is how many rows this one stands in for while they are out of sight.
 	HiddenCount int
-	// Trail is text drawn at the right edge of the row, empty on a row that draws none.
-	Trail string
 }

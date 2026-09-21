@@ -231,7 +231,8 @@ func TestPrepareColumnsFollowTheRowKind(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			line := prepareOne(t, tt.row)
 
-			for _, cell := range []Cell{line.Repo, line.Review, line.Forge} {
+			require.Len(t, line.Columns, 3)
+			for _, cell := range line.Columns {
 				assert.Equal(t, tt.blank, cell.IsBlank())
 			}
 		})
@@ -287,7 +288,7 @@ func TestPrepareRepoColumn(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, prepareOne(t, Row{Repo: tt.repo}).Repo)
+			assert.Equal(t, tt.want, prepareOne(t, Row{Repo: tt.repo}).Columns[0])
 		})
 	}
 }
@@ -349,7 +350,7 @@ func TestPrepareReviewColumn(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, prepareOne(t, Row{Review: tt.review}).Review)
+			assert.Equal(t, tt.want, prepareOne(t, Row{Review: tt.review}).Columns[1])
 		})
 	}
 }
@@ -421,7 +422,7 @@ func TestPrepareForgeColumn(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, prepareOne(t, Row{Forge: tt.forge}).Forge)
+			assert.Equal(t, tt.want, prepareOne(t, Row{Forge: tt.forge}).Columns[2])
 		})
 	}
 
@@ -556,9 +557,7 @@ func TestPrepareDimRowKeepsEveryCell(t *testing.T) {
 		require.Equal(t, EmphasisDim, greyed.Emphasis)
 
 		assert.Equal(t, lit.Mark, greyed.Mark)
-		assert.Equal(t, lit.Repo, greyed.Repo)
-		assert.Equal(t, lit.Review, greyed.Review)
-		assert.Equal(t, lit.Forge, greyed.Forge)
+		assert.Equal(t, lit.Columns, greyed.Columns)
 		assert.Equal(t, lit.Held, greyed.Held)
 		assert.Equal(t, lit.Hidden, greyed.Hidden)
 		assert.Equal(t, lit.Mail, greyed.Mail)
@@ -836,19 +835,19 @@ func TestPrepareClipsMatchesWithTheName(t *testing.T) {
 		{
 			name:    "a match wholly past the cut is dropped",
 			matches: []Span{{Start: 10, End: 14}},
-			pane:    17,
+			pane:    21,
 			want:    nil,
 		},
 		{
 			name:    "a match the cut runs through is shortened to what is left",
 			matches: []Span{{Start: 3, End: 14}},
-			pane:    17,
+			pane:    21,
 			want:    []Span{{Start: 3, End: 6}},
 		},
 		{
 			name:    "a match before the cut is left alone",
 			matches: []Span{{Start: 0, End: 4}},
-			pane:    17,
+			pane:    21,
 			want:    []Span{{Start: 0, End: 4}},
 		},
 		{
@@ -920,7 +919,7 @@ func TestPrepareGivesTheTallyUpBeforeTheMarks(t *testing.T) {
 	}{
 		{
 			name:      "a pane with nothing left for a name gives the tally up and spends what it frees",
-			pane:      13,
+			pane:      17,
 			wantName:  "an…",
 			wantTally: 0,
 		},
@@ -971,22 +970,22 @@ func TestPrepareShedsMarksOnlyWhereTheMarksAloneWillNotFit(t *testing.T) {
 	}{
 		{
 			name: "a pane with room for one mark keeps the failed run alone",
-			pane: 13,
+			pane: 17,
 			want: []Glyph{GlyphAlert},
 		},
 		{
 			name: "a pane two wider keeps the mail as well",
-			pane: 15,
+			pane: 19,
 			want: []Glyph{GlyphMail, GlyphAlert},
 		},
 		{
-			name: "the width Harry runs keeps the pause too",
-			pane: 16,
+			name: "a pane one wider keeps the pause too",
+			pane: 20,
 			want: []Glyph{GlyphPaused, GlyphMail, GlyphAlert},
 		},
 		{
 			name: "the next keeps the hiding, which goes before the pause",
-			pane: 18,
+			pane: 22,
 			want: []Glyph{GlyphPaused, GlyphHidden, GlyphMail, GlyphAlert},
 		},
 		{
@@ -1013,44 +1012,46 @@ func TestPrepareShedsMarksOnlyWhereTheMarksAloneWillNotFit(t *testing.T) {
 	}
 }
 
-// TestPrepareDropsColumnsAScreenDoesNotDraw pins the one thing a screen says about its columns
-// rather than its rows: a column given up here is gone whatever the pane.
-func TestPrepareDropsColumnsAScreenDoesNotDraw(t *testing.T) {
+// TestPrepareDrawsTheColumnsAScreenDeclares pins the one thing a screen says about its columns
+// rather than its rows: the gutter is what it named, and the agents list's where it named none.
+func TestPrepareDrawsTheColumnsAScreenDeclares(t *testing.T) {
 	tests := []struct {
 		name    string
-		dropped Columns
+		columns Columns
 		want    Columns
 	}{
 		{
-			name: "a screen dropping nothing draws all three",
+			name: "a screen naming nothing draws the agents list's three",
 			want: Columns{
-				Repo:   true,
-				Review: true,
-				Forge:  true,
+				{Kind: ColumnRepo, Width: 1},
+				{Kind: ColumnReview, Width: 1},
+				{Kind: ColumnForge, Width: 1},
 			},
 		},
 		{
-			name: "the archive gives up all three",
-			dropped: Columns{
-				Repo:   true,
-				Review: true,
-				Forge:  true,
-			},
+			name:    "the archive declares none",
+			columns: NoColumns(),
+			want:    Columns{},
 		},
 		{
-			name:    "a screen may give up one and keep the rest",
-			dropped: Columns{Review: true},
-			want:    Columns{Repo: true, Forge: true},
+			name: "a screen may declare a text column of its own",
+			columns: Columns{
+				{Kind: ColumnText, Width: 4},
+				{Kind: ColumnRepo, Width: 1},
+			},
+			want: Columns{
+				{Kind: ColumnText, Width: 4},
+				{Kind: ColumnRepo, Width: 1},
+			},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// A pane far wider than the three columns need, so nothing here is the narrowing.
 			list := Prepare(Snapshot{
 				Rows:    []Row{{Name: "iss-582"}},
 				Pane:    200,
-				Dropped: tt.dropped,
+				Columns: tt.columns,
 			})
 
 			assert.Equal(t, tt.want, list.Columns)
@@ -1058,20 +1059,68 @@ func TestPrepareDropsColumnsAScreenDoesNotDraw(t *testing.T) {
 	}
 }
 
-// TestDroppedColumnsBuyTheNameTheirRoom pins that a column given up is given up in the width
-// arithmetic too.
-func TestDroppedColumnsBuyTheNameTheirRoom(t *testing.T) {
+// TestPrepareFillsATextColumnFromTheRow pins where a text column's cell comes from: the row's
+// cell at the column's own position, blank where the row carries none, and nothing at all under
+// a glyph column.
+func TestPrepareFillsATextColumnFromTheRow(t *testing.T) {
+	columns := Columns{
+		{Kind: ColumnText, Width: 4},
+		{Kind: ColumnRepo, Width: 1},
+		{Kind: ColumnText, Width: 3},
+	}
+	size := Cell{Text: "49M", Tone: paint.ToneMuted}
+	tests := []struct {
+		name string
+		row  Row
+		want []Cell
+	}{
+		{
+			name: "a row with no cells is blank in every text column",
+			row:  Row{Name: "iss-582", Kind: KindWorkflow},
+			want: []Cell{{}, {}, {}},
+		},
+		{
+			name: "a row's cell under a glyph column is ignored",
+			row: Row{
+				Name:  "iss-582",
+				Kind:  KindWorkflow,
+				Cells: []Cell{size, size},
+			},
+			want: []Cell{size, {}, {}},
+		},
+		{
+			name: "cells past the last column are ignored",
+			row: Row{
+				Name:  "iss-582",
+				Kind:  KindWorkflow,
+				Cells: []Cell{size, {}, size, size},
+			},
+			want: []Cell{size, {}, size},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			list := Prepare(Snapshot{
+				Rows:    []Row{tt.row},
+				Columns: columns,
+			})
+
+			assert.Equal(t, tt.want, list.Lines[0].Columns)
+		})
+	}
+}
+
+// TestUndeclaredColumnsBuyTheNameTheirRoom pins that a column not declared is given up in the
+// width arithmetic too.
+func TestUndeclaredColumnsBuyTheNameTheirRoom(t *testing.T) {
 	const pane = 60
 
 	every := Prepare(Snapshot{Rows: []Row{{Name: "iss-582"}}, Pane: pane})
 	none := Prepare(Snapshot{
-		Rows: []Row{{Name: "iss-582"}},
-		Pane: pane,
-		Dropped: Columns{
-			Repo:   true,
-			Review: true,
-			Forge:  true,
-		},
+		Rows:    []Row{{Name: "iss-582"}},
+		Pane:    pane,
+		Columns: NoColumns(),
 	})
 
 	assert.Equal(t, 6, NameColumns(pane, none.Columns)-NameColumns(pane, every.Columns),

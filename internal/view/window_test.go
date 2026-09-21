@@ -149,32 +149,19 @@ func TestWindowNeverOverrunsThePane(t *testing.T) {
 }
 
 // TestWindowKeepsASelectedRowTheWidthOfThePane pins the bar under a selected row reaching the
-// edge at every width, counted in the columns the font draws and against the columns the pane
-// kept rather than the whole gutter.
+// edge at every width, counted in the columns the font draws.
 func TestWindowKeepsASelectedRowTheWidthOfThePane(t *testing.T) {
 	tests := []struct {
 		name string
 		pane int
-		want Columns
 	}{
 		{
-			name: "every column drawn",
+			name: "a wide pane",
 			pane: 40,
-			want: Columns{
-				Repo:   true,
-				Review: true,
-				Forge:  true,
-			},
 		},
 		{
-			name: "the forge given up",
+			name: "a pane narrower than the names",
 			pane: 21,
-			want: Columns{Repo: true, Review: true},
-		},
-		{
-			name: "the review given up too",
-			pane: 17,
-			want: Columns{Repo: true},
 		},
 	}
 
@@ -188,8 +175,6 @@ func TestWindowKeepsASelectedRowTheWidthOfThePane(t *testing.T) {
 				Focused: "beta-1",
 				Pane:    tt.pane,
 			})
-			require.Equal(t, tt.want, list.Columns, "the pane draws the columns the case is about")
-
 			block := Window(WindowParams{
 				List:    list,
 				Palette: paint.Panel,
