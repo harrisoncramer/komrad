@@ -426,7 +426,7 @@ type PullRequest struct {
 	Checks *string
 	// The head commit the checks were read for, stale once head_sha has moved past it.
 	ChecksSha *string
-	// When the checks and mergeability were last read, which is what paces the re-read of a pending or failing run.
+	// When the checks and mergeability were last read, which is what paces every re-read.
 	ChecksReadAt *time.Time
 	// Where the forge says the pull request stands against its base and its branch rules, in weave's own words: clean, unstable, blocked, behind or conflicting, null while the forge has not computed it. Read with the checks and kept fresh the same way.
 	Mergeability *string
