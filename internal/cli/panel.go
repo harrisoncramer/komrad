@@ -51,6 +51,11 @@ Use ` + "`weave open`" + ` to bring the panel up.`,
 			// whose panel has gone, and a second open would start a second panel in it.
 			state.tmux.RecordPanelPane(state.env.TmuxPane)
 
+			if err := state.tmux.TakePanelKeys(state.keys.GetBoundKeys()); err != nil {
+				logging.From(cmd.Context()).LogAttrs(cmd.Context(), slog.LevelWarn,
+					"a key the panel is bound to stays with tmux", logging.Err(err)...)
+			}
+
 			// Explainer: a remote engine is reached through an ssh forward weave owns, so the panel
 			// talks to a port on this machine that carries the engine's api. Nothing local is
 			// started: the service, the agents and their tmux server all belong to the other

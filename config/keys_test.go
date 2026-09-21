@@ -163,3 +163,29 @@ func TestIsPressableRefusesWhatNoPressProduces(t *testing.T) {
 		assert.False(t, newKeyChecker().isPressable(key), "no press produces %q, so a binding on it is unreachable", key)
 	}
 }
+
+// TestGetBoundKeysNamesEveryKeyOnce covers a key several settings share, which is listed once,
+// and the order the list settles into.
+func TestGetBoundKeysNamesEveryKeyOnce(t *testing.T) {
+	keys := DefaultKeybindings()
+	keys.Nav.PageDown = []string{"ctrl+d", "pgdown"}
+	keys.Column.ScrollDown = []string{"ctrl+d"}
+
+	bound := keys.GetBoundKeys()
+
+	assert.Equal(t, 1, countOf(bound, "ctrl+d"), "a key two settings share is named once")
+	assert.Contains(t, bound, "pgdown")
+	assert.IsIncreasing(t, bound)
+	assert.NotEmpty(t, bound)
+}
+
+func countOf(keys []string, key string) int {
+	count := 0
+	for _, bound := range keys {
+		if bound == key {
+			count++
+		}
+	}
+
+	return count
+}

@@ -3,11 +3,9 @@ package doctor
 import (
 	"context"
 	"fmt"
-	"reflect"
-	"slices"
 	"strings"
 
-	"weave/config"
+	"weave/internal/tmux"
 )
 
 var (
@@ -24,26 +22,6 @@ var (
 		Message: "the key that moves focus between the panel and an agent's pane cannot be bound",
 	}
 )
-
-// tmuxNames are the keys tmux and bubbletea call different things.
-var tmuxNames = map[string]string{
-	" ":         "Space",
-	"enter":     "Enter",
-	"esc":       "Escape",
-	"tab":       "Tab",
-	"shift+tab": "BTab",
-	"backspace": "BSpace",
-	"pgup":      "PageUp",
-	"pgdown":    "PageDown",
-	"up":        "Up",
-	"down":      "Down",
-	"left":      "Left",
-	"right":     "Right",
-	"home":      "Home",
-	"end":       "End",
-	"delete":    "Delete",
-	"insert":    "IC",
-}
 
 // newKeybindingsCheck asserts tmux is not holding a key the panel reads.
 func newKeybindingsCheck() Check {
@@ -88,16 +66,32 @@ func newKeybindingsCheck() Check {
 				)
 			}
 
-			for _, key := range boundKeys(cfg.Keybindings) {
-				spelled := tmuxSpelling(key)
-				if held, ok := heldByAnythingElse(rootKeys, spelled); ok {
-					return fail(
-						fmt.Errorf("%w: %q is %s to tmux, bound in the root table to %s",
-							ErrKeyHeldByTmux, key, spelled, held),
-						key,
-						"unbind -n "+spelled+" in your tmux config, or bind that action to another key",
-					)
+			var waiting []string
+
+			for _, key := range cfg.Keybindings.GetBoundKeys() {
+				spelled := tmux.SpellKey(key)
+
+				held, ok := heldByAnythingElse(rootKeys, spelled)
+				if !ok {
+					continue
 				}
+
+				if !env.IsPanelRunning(ctx) {
+					waiting = append(waiting, spelled)
+
+					continue
+				}
+
+				return fail(
+					fmt.Errorf("%w: %q is %s to tmux, bound in the root table to %s",
+						ErrKeyHeldByTmux, key, spelled, held),
+					key,
+					"reopen the panel, which takes "+spelled+" back; if it stays with tmux, read the panel log or unbind -n "+spelled+" in your tmux config",
+				)
+			}
+
+			if len(waiting) > 0 {
+				return pass("the panel takes " + strings.Join(waiting, ", ") + " for its own pane when it opens")
 			}
 
 			return pass("no panel key is held by tmux")
@@ -146,20 +140,20 @@ func parseRootBinding(line string) (key, command string, ok bool) {
 	return key, strings.TrimSpace(command), true
 }
 
-// heldByAnythingElse reports the command the root table runs for a key, ignoring the panel's own
-// focus binding.
+// heldByAnythingElse reports the command the root table runs for a key, ignoring the bindings
+// the panel holds itself.
 func heldByAnythingElse(rootKeys map[string]string, key string) (string, bool) {
 	command, held := rootKeys[key]
-	if !held || isPanelFocusBinding(command) {
+	if !held || isPanelFocusBinding(command) || tmux.IsPanelPassThrough(command) {
 		return "", false
 	}
 
 	return command, true
 }
 
-// isPanelFocusBinding reports whether a root binding is the one the panel holds.
+// isPanelFocusBinding reports whether a root binding is the one the panel moves focus with.
 func isPanelFocusBinding(command string) bool {
-	return strings.HasPrefix(command, "if-shell") && strings.Contains(command, "#{==:#{pane_id},")
+	return strings.HasPrefix(command, "if-shell") && strings.Contains(command, "#{==:#{pane_id},%")
 }
 
 func readTmuxPrefix(ctx context.Context, env Env) string {
@@ -173,47 +167,4 @@ func readTmuxPrefix(ctx context.Context, env Env) string {
 	}
 
 	return strings.TrimSpace(out)
-}
-
-// boundKeys is every key the panel's bindings name, in a settled order.
-func boundKeys(keys config.Keybindings) []string {
-	var bound []string
-
-	groups := reflect.ValueOf(keys)
-	for i := range groups.NumField() {
-		group := groups.Field(i)
-		for j := range group.NumField() {
-			field, ok := group.Field(j).Interface().([]string)
-			if !ok {
-				continue
-			}
-
-			for _, key := range field {
-				if !slices.Contains(bound, key) {
-					bound = append(bound, key)
-				}
-			}
-		}
-	}
-
-	slices.Sort(bound)
-
-	return bound
-}
-
-// tmuxSpelling is how tmux names the key a panel binding names.
-func tmuxSpelling(key string) string {
-	if named, ok := tmuxNames[key]; ok {
-		return named
-	}
-
-	if control, ok := strings.CutPrefix(key, "ctrl+"); ok {
-		return "C-" + control
-	}
-
-	if alt, ok := strings.CutPrefix(key, "alt+"); ok {
-		return "M-" + alt
-	}
-
-	return key
 }
