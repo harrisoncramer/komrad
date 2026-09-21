@@ -91,7 +91,6 @@ func agentItemsFrom(listed []*agentv1.Agent) []agentItem {
 			unreadMail:   agent.GetUnreadMail(),
 			failedRun:    agent.GetFailedRun(),
 			failedRunLog: agent.FailedRunLog,
-			localRounds:  agent.GetLocalReviewRounds(),
 			localVerdict: agent.GetLocalReviewVerdict(),
 			localTree:    standingFrom(agent.GetLocalReviewTree()),
 			pullRequest:  pullRequestStandingFrom(agent.GetPullRequest()),

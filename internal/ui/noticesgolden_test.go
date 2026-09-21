@@ -44,7 +44,6 @@ func TestNoticeBlockGolden(t *testing.T) {
 			item: func(item *agentItem) {
 				item.agent.SequenceInProgress = true
 				item.localVerdict = agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED
-				item.localRounds = 2
 			},
 		},
 		{

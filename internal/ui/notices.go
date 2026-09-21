@@ -1,8 +1,6 @@
 package ui
 
 import (
-	"fmt"
-
 	"weave/internal/ui/paint"
 	"weave/internal/ui/panel"
 	"weave/internal/view"
@@ -79,18 +77,7 @@ func agentNotices(r agentRow) []notice {
 	notices = appendCellNotice(notices, view.RepoCell(row), repoSaid[row.Repo])
 	notices = appendCellNotice(notices, view.HeldCell(row), heldNoticeText(item))
 	notices = appendCellNotice(notices, view.HiddenCell(row), hiddenNotice)
-	notices = appendCellNotice(notices, view.ReviewCell(row), reviewSaid[row.Review])
-
-	return appendNotice(notices, item.localRounds > 0, "", paint.ToneMuted, localReviewRoundsNotice(item.localRounds))
-}
-
-// localReviewRoundsNotice counts against the agent holding the diff.
-func localReviewRoundsNotice(rounds int32) string {
-	if rounds == 1 {
-		return "reviewed once"
-	}
-
-	return fmt.Sprintf("reviewed %d times", rounds)
+	return appendCellNotice(notices, view.ReviewCell(row), reviewSaid[row.Review])
 }
 
 // failureNotices is the whole of what an archived row has to say.

@@ -250,15 +250,14 @@ func TestNoticesAlignAndFitTheColumn(t *testing.T) {
 	m := detailsModel(&recordingTmux{})
 	m.height, m.width = 40, 60
 
-	// A bar notice, an Octicon notice and an iconless one, stacked.
+	// A bar notice and an Octicon notice, stacked.
 	m.listing.agents[0].agent.State = panel.StateFailedToCleanup
 	m.listing.agents[0].agent.WorktreeRemoved = true
-	m.listing.agents[0].localRounds = 2
 
 	drawn := m.detailsNotices(m.hoveredDetails(), m.detailsLines()-3)
-	require.Len(t, drawn, 3, "a bar, an octicon and a blank")
+	require.Len(t, drawn, 2, "a bar and an octicon")
 
-	wants := []string{failedToCleanupNotice, worktreeRemovedNotice, "reviewed 2 times"}
+	wants := []string{failedToCleanupNotice, worktreeRemovedNotice}
 	starts := make([]int, 0, len(drawn))
 
 	for i, line := range drawn {
@@ -268,7 +267,7 @@ func TestNoticesAlignAndFitTheColumn(t *testing.T) {
 		starts = append(starts, lipgloss.Width(bare[:at]))
 	}
 
-	assert.Equal(t, []int{starts[0], starts[0], starts[0]}, starts,
+	assert.Equal(t, []int{starts[0], starts[0]}, starts,
 		"every notice puts its sentence in the same column")
 
 	// A wrapped notice's continuation lines have to land in that same column.

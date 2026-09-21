@@ -376,8 +376,6 @@ type agentItem struct {
 	failedRun  bool
 	// failedRunLog is the run its unread failure was written to, so the pane opens on that one.
 	failedRunLog *int32
-	// localRounds is how many rounds of local review this agent's own work has been through.
-	localRounds int32
 	// localVerdict is what the last released local review concluded about this agent's work,
 	// UNSPECIFIED when none has concluded anything.
 	localVerdict agentv1.ReviewVerdict
