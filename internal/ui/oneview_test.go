@@ -139,3 +139,21 @@ func TestRecordLabelTakesTheAccentWithTheKeys(t *testing.T) {
 	assert.Contains(t, lit, rowCursorStyle().Render(label))
 	assert.Equal(t, 1, strings.Count(ansi.Strip(lit), "›"))
 }
+
+// TestRecordPagesItsFields covers the page keys moving the field cursor ten rows at a time,
+// clamped to the record's ends.
+func TestRecordPagesItsFields(t *testing.T) {
+	m := recordSearchModel(t)
+	held := m.hoveredDetails()
+	require.Greater(t, len(held.fields), navPageStep+1)
+
+	down := send(t, m, "ctrl+d")
+	assert.Equal(t, navPageStep, down.detailsCursor(held))
+
+	up := send(t, down, "ctrl+u")
+	assert.Equal(t, 0, up.detailsCursor(held))
+
+	bottom := pressMark(t, m, "G", "ctrl+d")
+	assert.Equal(t, len(held.fields)-1, bottom.detailsCursor(held), "a page past the end stays on the last field")
+	assert.True(t, bottom.isDetailsFocused(), "and keeps the keys")
+}

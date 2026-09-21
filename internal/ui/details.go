@@ -221,6 +221,11 @@ func detailsActions() actionSpec {
 				run:  model.jumpDetailsCursor,
 			},
 			{
+				id:   actionNavPage,
+				keys: func(k config.Keybindings) []string { return concatKeys(k.Nav.PageUp, k.Nav.PageDown) },
+				run:  model.pageDetailsCursor,
+			},
+			{
 				id:   actionFilterOpen,
 				keys: func(config.Keybindings) []string { return []string{filterOpenKey} },
 				run:  func(m model, _ string) (tea.Model, tea.Cmd) { return m.openFilter() },
@@ -270,6 +275,11 @@ func detailsActions() actionSpec {
 				of:    []actionID{actionJump},
 				desc:  func(model) string { return "top/bottom" },
 				label: func(k config.Keybindings) string { return keyLabel(k.Nav.Top) + "/" + keyLabel(k.Nav.Bottom) },
+			},
+			{
+				of:    []actionID{actionNavPage},
+				desc:  func(model) string { return "page" },
+				label: navPageLabel,
 			},
 		},
 	}
@@ -333,6 +343,12 @@ func (m model) jumpDetailsCursor(pressed string) (tea.Model, tea.Cmd) {
 	return m.setDetailsCursor(held, 0), nil
 }
 
+func (m model) pageDetailsCursor(pressed string) (tea.Model, tea.Cmd) {
+	held := m.hoveredDetails()
+
+	return m.setDetailsCursor(held, m.detailsCursor(held)+m.navPageDelta(pressed)), nil
+}
+
 func (m model) setDetailsCursor(held details, idx int) model {
 	m.details.cursor = clampCursor(idx, len(m.detailsRows(held)))
 	m.details.row = held.id
@@ -376,7 +392,7 @@ func (m model) detailsLines() int {
 }
 
 // grownDetailsLines is every line the record needs once it holds the keys, as far as the rows
-// left under the header and the legend allow.
+// left under the header and the legend allow with one kept back for the list.
 func (m model) grownDetailsLines(held details) int {
 	lines := max(m.detailsLines(), m.detailsWanted(held))
 
@@ -385,7 +401,7 @@ func (m model) grownDetailsLines(held details) int {
 		return lines
 	}
 
-	return max(min(lines, d.detailsRoom(m)-detailsChromeLines), 0)
+	return max(min(lines, d.detailsRoom(m)-detailsChromeLines-1), 0)
 }
 
 // detailsWanted is the lines the whole record takes: its notices, a blank under them, and every
