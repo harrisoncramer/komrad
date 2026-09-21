@@ -295,3 +295,20 @@ func TestTerminalOnARemoteEngineOpensTheShellOverTheTransport(t *testing.T) {
 	assert.Empty(t, tmux.respawnDirs[last], "the pane is not rooted at a directory this machine lacks")
 	assert.Equal(t, []string{"%2"}, tmux.selected)
 }
+
+// TestTerminalOnARemoteEngineRefusesAnAgentWithNoDirectory covers a cwd of ”, which the local
+// stat refuses and the remote side has to refuse itself rather than open a shell at home.
+func TestTerminalOnARemoteEngineRefusesAnAgentWithNoDirectory(t *testing.T) {
+	tmux := &recordingTmux{}
+	m, _ := terminalModel(t, tmux)
+	m.frame = layout.New(tmux, config.DefaultLayout(), layout.WithEngine(engine.Remote{Destination: "ubuntu@engine"}))
+	m.frame.Attach("%0")
+	m.listing.agents[0].agent.Cwd = ""
+
+	shown := pressTerminal(t, m)
+
+	assert.Equal(t, infoNothing, shown.info.kind)
+	assert.Empty(t, infoRespawns(tmux), "no shell is opened in the pane below")
+	require.Len(t, shown.messages.items, 1)
+	assert.Equal(t, "Could not open a terminal", shown.messages.items[0].summary)
+}

@@ -44,7 +44,7 @@ type Target struct {
 
 type Content struct {
 	Key string
-	// Dir is where the pane is rooted, and every content names one.
+	// Dir is where the pane is rooted.
 	Dir    string
 	Wraps  bool
 	Render func(Target) ([]string, bool)
