@@ -90,36 +90,26 @@ func (s *Store) ListPage(ctx context.Context, limit int64, cursor *Cursor, archi
 
 // Get returns a live workflow by id, or ErrNotFound when none has that id.
 func (s *Store) Get(ctx context.Context, id string) (*Workflow, error) {
-	if !store.IsID(id) {
-		return nil, store.ErrNotFound.Saying("no workflow with id %q", id)
-	}
-
-	row, err := s.queries.GetWorkflow(ctx, id)
-	if db.IsNoRows(err) {
-		return nil, store.ErrNotFound.Saying("no workflow with id %q", id)
-	}
-	if err != nil {
-		return nil, fmt.Errorf("failed to get workflow %q: %w", id, err)
-	}
-
-	hooks, err := s.hooksFor(ctx, id)
-	if err != nil {
-		return nil, err
-	}
-
-	workflow := workflowFromRow(row.Workflow, row.WorkflowConfig, row.WorkflowProvisionerConfig, hooks)
-
-	return &workflow, nil
+	return s.get(ctx, id, s.queries.GetWorkflow)
 }
 
 // GetIncludingArchived reads a workflow by id whether or not it is archived, returning
 // ErrNotFound when none has that id.
 func (s *Store) GetIncludingArchived(ctx context.Context, id string) (*Workflow, error) {
+	return s.get(ctx, id, func(ctx context.Context, id string) (*models.GetWorkflowRow, error) {
+		row, err := s.queries.GetWorkflowIncludingArchived(ctx, id)
+
+		return (*models.GetWorkflowRow)(row), err
+	})
+}
+
+// get reads one workflow through a query and finishes it with its hooks.
+func (s *Store) get(ctx context.Context, id string, query func(context.Context, string) (*models.GetWorkflowRow, error)) (*Workflow, error) {
 	if !store.IsID(id) {
 		return nil, store.ErrNotFound.Saying("no workflow with id %q", id)
 	}
 
-	row, err := s.queries.GetWorkflowIncludingArchived(ctx, id)
+	row, err := query(ctx, id)
 	if db.IsNoRows(err) {
 		return nil, store.ErrNotFound.Saying("no workflow with id %q", id)
 	}

@@ -120,7 +120,7 @@ func MarkedTerms(snippet string) []string {
 	return terms
 }
 
-// Span is a stretch of a transcript a hit matched on, in bytes.
+// Span is a stretch of text a search matched on, in bytes.
 type Span struct {
 	Start int
 	End   int

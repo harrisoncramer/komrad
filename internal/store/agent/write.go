@@ -91,7 +91,7 @@ func (s *Store) UpdateIfLive(ctx context.Context, agent Agent) (bool, error) {
 
 // Delete removes live or archived agents by ID.
 func (s *Store) Delete(ctx context.Context, ids []string) ([]AgentPane, error) {
-	storable := keepStorableIDs(ids)
+	storable := store.KeepIDs(ids)
 	if len(storable) == 0 {
 		return nil, nil
 	}

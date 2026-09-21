@@ -157,7 +157,7 @@ func (s *Store) GetByID(ctx context.Context, id string) (*Agent, error) {
 
 // ListByID returns live and archived agents matching the given IDs.
 func (s *Store) ListByID(ctx context.Context, ids []string) ([]Agent, error) {
-	storable := keepStorableIDs(ids)
+	storable := store.KeepIDs(ids)
 	if len(storable) == 0 {
 		return nil, nil
 	}
@@ -237,7 +237,7 @@ func (s *Store) ListArchivedInWorkflow(ctx context.Context, workflowID string) (
 
 // ListChildren returns the agents attached to the given parents, archived ones included.
 func (s *Store) ListChildren(ctx context.Context, parentIDs []string) ([]Agent, error) {
-	storable := keepStorableIDs(parentIDs)
+	storable := store.KeepIDs(parentIDs)
 	if len(storable) == 0 {
 		return nil, nil
 	}

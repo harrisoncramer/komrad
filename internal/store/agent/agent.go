@@ -180,8 +180,9 @@ type AgentPane struct {
 	Pane    string
 }
 
-func keepStorableIDs(ids []string) []string {
-	return xslice.Filter(ids, store.IsID)
+// IDs is the id of each agent, in the order they were given.
+func IDs(agents []Agent) []string {
+	return xslice.Map(agents, func(agent Agent) string { return agent.ID })
 }
 
 func agentFromRow(agent models.Agent) Agent {

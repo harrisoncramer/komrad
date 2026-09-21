@@ -365,17 +365,6 @@ func (a api) getWorkflow(id string) (*workflowstore.Workflow, error) {
 	})
 }
 
-func worktreeConfigFromProto(w *workflowv1.WorktreeConfig) workflowstore.WorktreeConfig {
-	return workflowstore.WorktreeConfig{
-		Enabled:      w.GetEnabled(),
-		BaseBranch:   w.GetBaseBranch(),
-		Dir:          w.GetDir(),
-		CopyPaths:    w.GetCopyPaths(),
-		SymlinkPaths: w.GetSymlinkPaths(),
-		DiffExclude:  w.GetDiffExclude(),
-	}
-}
-
 func worktreeConfigToProto(w workflowstore.WorktreeConfig) *workflowv1.WorktreeConfig {
 	return &workflowv1.WorktreeConfig{
 		Enabled:      w.Enabled,

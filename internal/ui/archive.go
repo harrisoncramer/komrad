@@ -231,7 +231,7 @@ func (m model) restoreAgents(agents []agentstore.Agent) (tea.Model, tea.Cmd) {
 
 	return m, m.writeCmd(
 		fmt.Sprintf("Could not restore %s", describeAgents(agents)),
-		func(a api) error { return a.restoreAgents(agentIDs(agents)) },
+		func(a api) error { return a.restoreAgents(agentstore.IDs(agents)) },
 	)
 }
 
@@ -253,7 +253,7 @@ func (m model) deleteFromArchiveConfirm(agents []agentstore.Agent) (tea.Model, t
 
 			return m, m.writeCmd(
 				fmt.Sprintf("Could not delete %s", describeAgents(agents)),
-				func(a api) error { return a.deleteAgents(agentIDs(agents)) },
+				func(a api) error { return a.deleteAgents(agentstore.IDs(agents)) },
 			)
 		}),
 	})

@@ -413,10 +413,6 @@ func describeMissing(missing []string) string {
 	return fmt.Sprintf("%s, and %d more", strings.Join(missing[:namedMissing], ", "), len(missing)-namedMissing)
 }
 
-func agentIDs(agents []agentstore.Agent) []string {
-	return xslice.Map(agents, func(agent agentstore.Agent) string { return agent.ID })
-}
-
 func workflowIDs(agents []agentstore.Agent) []string {
 	unique := xslice.UniqueBy(agents, func(agent agentstore.Agent) string { return agent.WorkflowID })
 

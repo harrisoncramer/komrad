@@ -56,8 +56,8 @@ func mapPatch(raw []byte) ([]position.Mapping, error) {
 	for _, file := range files {
 		mappings = append(mappings, position.Mapping{
 			File: position.FileMapping{
-				OldPath: filePath(file.OldName),
-				NewPath: filePath(file.NewName),
+				OldPath: FilePath(file.OldName),
+				NewPath: FilePath(file.NewName),
 			},
 			Ranges: rangesOf(file),
 		})
@@ -101,8 +101,8 @@ func rangesOf(file *gitdiff.File) []position.RangeMapping {
 	return ranges
 }
 
-// filePath reads /dev/null as no file at all.
-func filePath(path string) string {
+// FilePath reads /dev/null as no file at all.
+func FilePath(path string) string {
 	if path == "/dev/null" {
 		return ""
 	}

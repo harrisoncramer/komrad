@@ -6,6 +6,7 @@ import (
 	"context"
 
 	"weave/internal/fail"
+	"weave/internal/rpc/render"
 	"weave/internal/rpcerr"
 	"weave/lib/pagination"
 	"weave/lib/xslice"
@@ -106,7 +107,7 @@ func (s *WorkflowService) CreateWorkflow(ctx context.Context, req *workflowv1.Cr
 		Harness:  req.GetHarness(),
 		Cwd:      req.GetCwd(),
 		Flags:    req.GetFlags(),
-		Worktree: worktreeConfigFromProto(req.GetWorktree()),
+		Worktree: render.WorktreeConfigFromProto(req.GetWorktree()),
 		Hooks:    hooksFromProto(req.GetHooks()),
 	})
 	if err != nil {
@@ -124,7 +125,7 @@ func (s *WorkflowService) UpdateWorkflow(ctx context.Context, req *workflowv1.Up
 		Harness:  req.GetHarness(),
 		Cwd:      req.GetCwd(),
 		Flags:    req.GetFlags(),
-		Worktree: worktreeConfigFromProto(req.GetWorktree()),
+		Worktree: render.WorktreeConfigFromProto(req.GetWorktree()),
 		Hooks:    hooksFromProto(req.GetHooks()),
 	})
 	if err != nil {
@@ -138,17 +139,6 @@ func hooksFromProto(hooks []*workflowv1.WorkflowHook) []workflowstore.Hook {
 	return xslice.Map(hooks, func(hook *workflowv1.WorkflowHook) workflowstore.Hook {
 		return workflowstore.Hook{Event: hook.GetEvent(), Script: hook.GetScript()}
 	})
-}
-
-func worktreeConfigFromProto(w *workflowv1.WorktreeConfig) workflowstore.WorktreeConfig {
-	return workflowstore.WorktreeConfig{
-		Enabled:      w.GetEnabled(),
-		BaseBranch:   w.GetBaseBranch(),
-		Dir:          w.GetDir(),
-		CopyPaths:    w.GetCopyPaths(),
-		SymlinkPaths: w.GetSymlinkPaths(),
-		DiffExclude:  w.GetDiffExclude(),
-	}
 }
 
 // ArchiveWorkflow hides a workflow and archives the agents inside it.

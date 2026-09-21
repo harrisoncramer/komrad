@@ -108,7 +108,7 @@ func (s *LifecycleService) DeleteAgents(ctx context.Context, ids []string) error
 		return errors.Join(err, s.agents.ClearDeleting(ctx, ids))
 	}
 
-	if err := s.agents.MarkDeleting(ctx, agentIDs(agents)); err != nil {
+	if err := s.agents.MarkDeleting(ctx, agentstore.IDs(agents)); err != nil {
 		return errors.Join(err, s.agents.ClearDeleting(ctx, ids))
 	}
 
@@ -150,8 +150,8 @@ func (s *LifecycleService) DeleteAgents(ctx context.Context, ids []string) error
 		return nil
 	}
 
-	if err := s.removeAgents(ctx, agentIDs(immediate)); err != nil {
-		return errors.Join(err, s.agents.ClearDeleting(ctx, agentIDs(immediate)))
+	if err := s.removeAgents(ctx, agentstore.IDs(immediate)); err != nil {
+		return errors.Join(err, s.agents.ClearDeleting(ctx, agentstore.IDs(immediate)))
 	}
 
 	s.cleanupEmptyWorkflows(ctx, immediate)
@@ -265,7 +265,7 @@ func (s *LifecycleService) ArchiveAgents(ctx context.Context, ids []string) erro
 	// for the reconciler to tidy.
 	killOwnedPanes(ctx, s.tmux, agents)
 
-	taken, err := s.agents.Archive(ctx, agentIDs(agents))
+	taken, err := s.agents.Archive(ctx, agentstore.IDs(agents))
 	if err != nil {
 		return fmt.Errorf("failed to archive %d agents: %w", len(agents), err)
 	}
@@ -302,7 +302,7 @@ func (s *LifecycleService) ArchiveUnchangedAgents(ctx context.Context, observed 
 	killOwnedPanes(ctx, s.tmux, archived)
 
 	// The stamp stands for a CLI that is already dead.
-	if err := s.agents.RestampArchived(ctx, agentIDs(archived)); err != nil {
+	if err := s.agents.RestampArchived(ctx, agentstore.IDs(archived)); err != nil {
 		failures = append(failures, err)
 	}
 
@@ -316,7 +316,7 @@ func (s *LifecycleService) archiveChildrenOf(ctx context.Context, parents []agen
 		return nil, nil
 	}
 
-	children, err := s.agents.ListChildren(ctx, agentIDs(parents))
+	children, err := s.agents.ListChildren(ctx, agentstore.IDs(parents))
 	if err != nil {
 		return nil, err
 	}
@@ -326,7 +326,7 @@ func (s *LifecycleService) archiveChildrenOf(ctx context.Context, parents []agen
 		return nil, nil
 	}
 
-	taken, err := s.agents.Archive(ctx, agentIDs(live))
+	taken, err := s.agents.Archive(ctx, agentstore.IDs(live))
 	if err != nil {
 		return nil, fmt.Errorf("failed to archive the %d children of %d archived agents: %w", len(live), len(parents), err)
 	}
@@ -370,7 +370,7 @@ func (s *LifecycleService) RestoreAgents(ctx context.Context, ids []string) ([]a
 		if err := requireNamesFree(ctx, agentStore, archived); err != nil {
 			return err
 		}
-		if err := agentStore.Restore(ctx, agentIDs(archived)); err != nil {
+		if err := agentStore.Restore(ctx, agentstore.IDs(archived)); err != nil {
 			return err
 		}
 		for _, id := range workflowIDs(archived) {
@@ -385,7 +385,7 @@ func (s *LifecycleService) RestoreAgents(ctx context.Context, ids []string) ([]a
 		return nil, fmt.Errorf("failed to restore %d agents: %w", len(archived), err)
 	}
 
-	restored, err := s.agents.ListByID(ctx, agentIDs(agents))
+	restored, err := s.agents.ListByID(ctx, agentstore.IDs(agents))
 	if err != nil {
 		return nil, err
 	}

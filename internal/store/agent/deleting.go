@@ -3,12 +3,14 @@ package agent
 import (
 	"context"
 	"fmt"
+
+	"weave/internal/store"
 )
 
 // MarkDeleting claims agents and their children for a delete, and with them any archived
 // workflow whose last archived agent that claim takes.
 func (s *Store) MarkDeleting(ctx context.Context, ids []string) error {
-	storable := keepStorableIDs(ids)
+	storable := store.KeepIDs(ids)
 	if len(storable) == 0 {
 		return nil
 	}
@@ -33,7 +35,7 @@ func (s *Store) MarkArchivedDeleting(ctx context.Context) error {
 // MarkArchivedDeletingByID claims the archived agents among those named whose delete has not
 // already failed, their children, and any archived workflow left with nothing unclaimed.
 func (s *Store) MarkArchivedDeletingByID(ctx context.Context, ids []string) error {
-	storable := keepStorableIDs(ids)
+	storable := store.KeepIDs(ids)
 	if len(storable) == 0 {
 		return nil
 	}
@@ -47,7 +49,7 @@ func (s *Store) MarkArchivedDeletingByID(ctx context.Context, ids []string) erro
 
 // ClearDeleting takes the delete's claim off agents, their children and their workflows.
 func (s *Store) ClearDeleting(ctx context.Context, ids []string) error {
-	storable := keepStorableIDs(ids)
+	storable := store.KeepIDs(ids)
 	if len(storable) == 0 {
 		return nil
 	}

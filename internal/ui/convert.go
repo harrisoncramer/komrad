@@ -10,6 +10,7 @@ import (
 	worktreev1 "weave/proto/gen/worktree/v1"
 
 	"weave/internal/git"
+	"weave/internal/rpc/render"
 	agentstore "weave/internal/store/agent"
 	schedulestore "weave/internal/store/schedule"
 	workflowstore "weave/internal/store/workflow"
@@ -124,7 +125,7 @@ func workflowFrom(w *workflowv1.Workflow) workflowstore.Workflow {
 		Harness:  w.GetHarness(),
 		Cwd:      w.GetCwd(),
 		Flags:    w.GetFlags(),
-		Worktree: worktreeConfigFromProto(w.GetWorktree()),
+		Worktree: render.WorktreeConfigFromProto(w.GetWorktree()),
 		Hooks: xslice.Map(w.GetHooks(), func(hook *workflowv1.WorkflowHook) workflowstore.Hook {
 			return workflowstore.Hook{Event: hook.GetEvent(), Script: hook.GetScript()}
 		}),
