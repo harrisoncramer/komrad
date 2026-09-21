@@ -102,8 +102,7 @@ func (s *schedulesScreen) place(h host, p panelShared, hovered string) {
 	s.land(h, rows, placeCursor(found, s.cursor, len(rows)))
 }
 
-// land puts the cursor on a row, naming the row rather than only its place in the list so the
-// record's own offset is kept.
+// land puts the cursor on a row and names that row to the column.
 func (s *schedulesScreen) land(h host, rows []scheduleItem, idx int) {
 	s.cursor = idx
 
