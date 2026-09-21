@@ -45,11 +45,11 @@ func (DeleteWorktreesArgs) InsertOpts() river.InsertOpts {
 }
 
 type WorktreeLister interface {
-	List(ctx context.Context) (worktrees.Listing, error)
+	List(ctx context.Context) (*worktrees.Listing, error)
 }
 
 type WorktreeRemover interface {
-	Remove(ctx context.Context, dirs []string) (worktrees.Removal, error)
+	Remove(ctx context.Context, dirs []string) (*worktrees.Removal, error)
 }
 
 type DeleteWorktreesWorker struct {
@@ -96,12 +96,12 @@ func (w *DeleteWorktreesWorker) Work(ctx context.Context, job *river.Job[DeleteW
 		}
 
 		worktree := listing.Worktrees[at]
-		switch {
-		case worktree.Agent == nil || worktree.IsStuck():
+		switch worktree.Fate() {
+		case worktrees.FateUnowned:
 			dirs = append(dirs, dir)
-		case worktree.Agent.ArchivedAt != nil:
+		case worktrees.FateArchived:
 			owned = append(owned, worktree)
-		default:
+		case worktrees.FateLive:
 			refused = append(refused, worktrees.Refusal{Dir: dir, Reason: fmt.Sprintf("agent %s is live; archive it first", worktree.Agent.Name)})
 		}
 	}

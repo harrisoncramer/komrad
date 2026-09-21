@@ -35,6 +35,7 @@ type worktreeItem struct {
 	// size is the last measurement, nil until the loop has reached the directory.
 	size         *worktreeSize
 	lastActiveAt time.Time
+	fate         worktreeFate
 }
 
 // isMeasured reports whether the directory carries a size.

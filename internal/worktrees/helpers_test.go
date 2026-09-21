@@ -101,7 +101,7 @@ func (f *fixture) measurer() *Measurer {
 }
 
 func (f *fixture) remover() *Remover {
-	return NewRemover(NewRemoverParams{Lister: f.lister, Git: f.git})
+	return NewRemover(NewRemoverParams{Lister: f.lister, Agents: f.owners, Git: f.git})
 }
 
 type fakeOwners struct {

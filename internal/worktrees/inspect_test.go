@@ -36,7 +36,7 @@ func TestInspectReadsABranchAgainstItsWorkflowsBase(t *testing.T) {
 		CommittedAt: at,
 	}}
 
-	inspection, err := f.inspector().Inspect(t.Context(), dir, false)
+	inspection, err := f.inspector().Inspect(t.Context(), InspectParams{Dir: dir})
 	require.NoError(t, err)
 
 	assert.Equal(t, "develop", f.git.resolved)
@@ -76,7 +76,7 @@ func TestInspectReadsNothingAgainstABaseGitCannotName(t *testing.T) {
 	f.git.unresolved = true
 	f.git.commits = []git.Commit{{SHA: "never"}}
 
-	inspection, err := f.inspector().Inspect(t.Context(), dir, false)
+	inspection, err := f.inspector().Inspect(t.Context(), InspectParams{Dir: dir})
 	require.NoError(t, err)
 
 	assert.Empty(t, inspection.BaseRef)
@@ -90,7 +90,7 @@ func TestInspectFetchesWhenAsked(t *testing.T) {
 	f := newFixture(t)
 	dir := f.cut(t, "bbbb")
 
-	inspection, err := f.inspector().Inspect(t.Context(), dir, true)
+	inspection, err := f.inspector().Inspect(t.Context(), InspectParams{Dir: dir, Fetch: true})
 	require.NoError(t, err)
 
 	assert.Equal(t, 0, f.git.resolves)
@@ -106,7 +106,7 @@ func TestInspectReadsALandedBranchAsLeavingNothingBehind(t *testing.T) {
 	dir := f.cut(t, "cccc")
 	f.git.held = true
 
-	inspection, err := f.inspector().Inspect(t.Context(), dir, false)
+	inspection, err := f.inspector().Inspect(t.Context(), InspectParams{Dir: dir})
 	require.NoError(t, err)
 
 	assert.False(t, inspection.KeepsBranch)
@@ -120,7 +120,7 @@ func TestInspectKeepsAnAdoptedBranch(t *testing.T) {
 	f.owners.rows[0].AdoptedBranch = "agent/dddd"
 	f.git.held = true
 
-	inspection, err := f.inspector().Inspect(t.Context(), dir, false)
+	inspection, err := f.inspector().Inspect(t.Context(), InspectParams{Dir: dir})
 	require.NoError(t, err)
 
 	assert.True(t, inspection.KeepsBranch)
@@ -133,7 +133,7 @@ func TestInspectReadsAnUnrelatedBaseAsNothingLanded(t *testing.T) {
 	dir := f.cut(t, "eeee")
 	f.git.predictErr = git.ErrBaseUnrelated
 
-	inspection, err := f.inspector().Inspect(t.Context(), dir, false)
+	inspection, err := f.inspector().Inspect(t.Context(), InspectParams{Dir: dir})
 	require.NoError(t, err)
 
 	assert.Equal(t, 0, inspection.Landed)
@@ -148,7 +148,7 @@ func TestInspectReadsOnlyTheEntriesOfAGoneRegistration(t *testing.T) {
 	write(t, dir, "left", strings.Repeat("x", 20000))
 	f.git.commits = []git.Commit{{SHA: "never"}}
 
-	inspection, err := f.inspector().Inspect(t.Context(), dir, false)
+	inspection, err := f.inspector().Inspect(t.Context(), InspectParams{Dir: dir})
 	require.NoError(t, err)
 
 	assert.False(t, inspection.Worktree.Readable)
@@ -163,7 +163,7 @@ func TestInspectRefusesADirectoryTheListingDoesNotHold(t *testing.T) {
 	f := newFixture(t)
 	require.NoError(t, os.MkdirAll(filepath.Join(f.shared, "gggg"), 0o755))
 
-	_, err := f.inspector().Inspect(t.Context(), f.repo, false)
+	_, err := f.inspector().Inspect(t.Context(), InspectParams{Dir: f.repo})
 
 	require.ErrorIs(t, err, store.ErrNotFound)
 }
@@ -179,7 +179,7 @@ func TestInspectRecordsTheSizeItWalked(t *testing.T) {
 		Error:      "permission denied",
 	}
 
-	inspection, err := f.inspector().Inspect(t.Context(), dir, false)
+	inspection, err := f.inspector().Inspect(t.Context(), InspectParams{Dir: dir})
 	require.NoError(t, err)
 
 	assert.Positive(t, inspection.Bytes)

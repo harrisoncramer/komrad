@@ -34,6 +34,7 @@ func worktreeFixture() []worktreeItem {
 				name:  "review-607",
 				state: agentstore.StateIdle,
 			}},
+			fate: fateLive,
 		},
 		{
 			dir:      "/trees/archived",
@@ -46,6 +47,7 @@ func worktreeFixture() []worktreeItem {
 				state:      agentstore.StateThinking,
 				archivedAt: &archived,
 			},
+			fate: fateArchived,
 		},
 		{
 			dir:      "/trees/orphan",
@@ -68,6 +70,7 @@ func worktreeFixture() []worktreeItem {
 				state:      agentstore.StateIdle,
 				archivedAt: &archived,
 			},
+			fate: fateArchived,
 		},
 	}
 }

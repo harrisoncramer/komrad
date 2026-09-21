@@ -16,15 +16,15 @@ import (
 )
 
 type lister interface {
-	List(ctx context.Context) (worktrees.Listing, error)
+	List(ctx context.Context) (*worktrees.Listing, error)
 }
 
 type inspector interface {
-	Inspect(ctx context.Context, dir string, fetch bool) (worktrees.Inspection, error)
+	Inspect(ctx context.Context, params worktrees.InspectParams) (*worktrees.Inspection, error)
 }
 
 type remover interface {
-	Remove(ctx context.Context, dirs []string) (worktrees.Removal, error)
+	Remove(ctx context.Context, dirs []string) (*worktrees.Removal, error)
 }
 
 type deleter interface {
@@ -84,7 +84,7 @@ func (s *WorktreeService) ListWorktrees(ctx context.Context, _ *emptypb.Empty) (
 
 // GetWorktree reads one directory through git.
 func (s *WorktreeService) GetWorktree(ctx context.Context, req *worktreev1.GetWorktreeRequest) (*worktreev1.GetWorktreeResponse, *fail.Error) {
-	inspection, err := s.inspector.Inspect(ctx, req.GetDir(), req.GetFetch())
+	inspection, err := s.inspector.Inspect(ctx, worktrees.InspectParams{Dir: req.GetDir(), Fetch: req.GetFetch()})
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to read the worktree")
 	}
@@ -145,7 +145,7 @@ func unclaimed(listing []worktrees.Worktree, claimed []string) []worktrees.Workt
 		switch {
 		case worktree.Agent != nil && worktree.Agent.Deleting:
 			return false
-		case worktree.Agent == nil || worktree.IsStuck():
+		case worktree.Fate() == worktrees.FateUnowned:
 			return !named[worktree.Dir]
 		}
 
@@ -161,6 +161,7 @@ func renderWorktree(worktree worktrees.Worktree) *worktreev1.Worktree {
 		Readable:     worktree.Readable,
 		Occupants:    xslice.Map(worktree.Occupants, renderAgent),
 		LastActiveAt: dates.Stamp(worktree.LastActiveAt),
+		Fate:         renderFate(worktree.Fate()),
 	}
 	if worktree.Agent != nil {
 		rendered.Agent = renderAgent(*worktree.Agent)
@@ -174,6 +175,19 @@ func renderWorktree(worktree worktrees.Worktree) *worktreev1.Worktree {
 	}
 
 	return rendered
+}
+
+func renderFate(fate worktrees.Fate) worktreev1.WorktreeFate {
+	switch fate {
+	case worktrees.FateUnowned:
+		return worktreev1.WorktreeFate_WORKTREE_FATE_UNOWNED
+	case worktrees.FateArchived:
+		return worktreev1.WorktreeFate_WORKTREE_FATE_ARCHIVED
+	case worktrees.FateLive:
+		return worktreev1.WorktreeFate_WORKTREE_FATE_LIVE
+	}
+
+	return worktreev1.WorktreeFate_WORKTREE_FATE_UNSPECIFIED
 }
 
 func renderAgent(agent worktrees.Agent) *worktreev1.WorktreeAgent {

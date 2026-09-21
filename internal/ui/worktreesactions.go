@@ -174,16 +174,7 @@ const (
 )
 
 func (m model) worktreeFate(item worktreeItem) worktreeFate {
-	switch {
-	case item.agent == nil:
-		return fateUnowned
-	case item.agent.state == agentstore.StateFailedToCleanup && !item.readable:
-		return fateUnowned
-	case item.agent.archivedAt != nil:
-		return fateArchived
-	}
-
-	return fateLive
+	return item.fate
 }
 
 // jumpToWorktreeAgent lands the agents list or the archive on the hovered row's agent.

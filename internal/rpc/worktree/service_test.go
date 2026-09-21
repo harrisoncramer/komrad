@@ -32,23 +32,23 @@ type fakeWorktrees struct {
 	claimed    []string
 }
 
-func (f *fakeWorktrees) List(context.Context) (worktrees.Listing, error) {
-	return f.listing, nil
+func (f *fakeWorktrees) List(context.Context) (*worktrees.Listing, error) {
+	return &f.listing, nil
 }
 
-func (f *fakeWorktrees) Inspect(_ context.Context, dir string, fetch bool) (worktrees.Inspection, error) {
-	f.inspected, f.fetched = dir, fetch
-	if dir != f.inspection.Worktree.Dir {
-		return worktrees.Inspection{}, store.ErrNotFound.Saying("%s is not under the worktree directories", dir)
+func (f *fakeWorktrees) Inspect(_ context.Context, params worktrees.InspectParams) (*worktrees.Inspection, error) {
+	f.inspected, f.fetched = params.Dir, params.Fetch
+	if params.Dir != f.inspection.Worktree.Dir {
+		return nil, store.ErrNotFound.Saying("%s is not under the worktree directories", params.Dir)
 	}
 
-	return f.inspection, nil
+	return &f.inspection, nil
 }
 
-func (f *fakeWorktrees) Remove(_ context.Context, dirs []string) (worktrees.Removal, error) {
+func (f *fakeWorktrees) Remove(_ context.Context, dirs []string) (*worktrees.Removal, error) {
 	f.removed = dirs
 
-	return f.removal, nil
+	return &f.removal, nil
 }
 
 func (f *fakeWorktrees) DeleteWorktrees(_ context.Context, dirs []string) error {
@@ -97,7 +97,7 @@ func listed() worktrees.Worktree {
 }
 
 // TestListWorktrees covers the listing rendered whole: the agent with its stamp, the
-// occupants, the size and when it was measured, the last activity, a failed measurement
+// occupants, the size and when it was measured, the last activity, the fate, a failed measurement
 // carrying its error and no size, an unmeasured directory carrying neither, and the
 // directories walked.
 func TestListWorktrees(t *testing.T) {
@@ -142,9 +142,11 @@ func TestListWorktrees(t *testing.T) {
 	assert.Equal(t, "2026-09-19T13:00:00Z", first.GetMeasuredAt())
 	assert.Empty(t, first.GetSizeError())
 	assert.Equal(t, "2026-09-19T12:00:00Z", first.GetLastActiveAt())
+	assert.Equal(t, worktreev1.WorktreeFate_WORKTREE_FATE_ARCHIVED, first.GetFate())
 
 	gone := resp.Msg.GetWorktrees()[1]
 	assert.Nil(t, gone.Agent)
+	assert.Equal(t, worktreev1.WorktreeFate_WORKTREE_FATE_UNOWNED, gone.GetFate())
 	assert.False(t, gone.GetReadable())
 	assert.Nil(t, gone.SizeBytes, "a failed measurement carries no size")
 	assert.Equal(t, "2026-09-20T09:00:00Z", gone.GetMeasuredAt())

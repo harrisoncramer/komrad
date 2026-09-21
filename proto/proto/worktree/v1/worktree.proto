@@ -22,6 +22,18 @@ message WorktreeAgent {
   bool adopted = 5;
 }
 
+// WorktreeFate is which delete path a directory takes.
+enum WorktreeFate {
+  // Never sent.
+  WORKTREE_FATE_UNSPECIFIED = 0;
+  // Nothing answers for the directory, which the remover takes.
+  WORKTREE_FATE_UNOWNED = 1;
+  // The directory's agent is put away, which the agent delete takes.
+  WORKTREE_FATE_ARCHIVED = 2;
+  // The directory's agent is running, which nothing takes.
+  WORKTREE_FATE_LIVE = 3;
+}
+
 message Worktree {
   // The directory, absolute.
   string dir = 1;
@@ -51,6 +63,8 @@ message Worktree {
   // and its archiving when an agent answers for it, else when git last wrote the directory's
   // .git file, else the directory's own modification time.
   string last_active_at = 10;
+  // Which delete path the directory takes.
+  WorktreeFate fate = 11;
 }
 
 message ListWorktreesResponse {
