@@ -4,9 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io/fs"
 	"net"
 	"strconv"
 
+	"weave/config"
 	"weave/internal/dsn"
 
 	"github.com/jackc/pgx/v5/pgconn"
@@ -18,6 +20,8 @@ const (
 	pgDatabaseMissing = "3D000"
 )
 
+const engineDatabaseEnvPath = "/etc/weave/database.env"
+
 var (
 	errDatabaseURLInvalid = &ProblemError{
 		Code:    "database_url_invalid",
@@ -26,6 +30,11 @@ var (
 	errDatabaseUnreachable = &ProblemError{
 		Code:    "database_unreachable",
 		Message: "nothing answered",
+	}
+	errDatabaseURLHidden = &ProblemError{
+		Code: "database_url_hidden",
+		Message: "the service's database url is in " + engineDatabaseEnvPath +
+			", which this user cannot read, so the built-in default is all this shell holds",
 	}
 	errDatabaseAuthFailed = &ProblemError{
 		Code:    "database_auth_failed",
@@ -76,6 +85,14 @@ func newDatabaseCheck() Check {
 			}
 
 			target := dsn.Redact(env.DatabaseURL) + describeSource(env, "database_url")
+
+			if isServiceDatabaseURLHidden(env) {
+				return fail(
+					errDatabaseURLHidden,
+					target,
+					"the service reads that file itself, so ask systemctl status weave, or restart it with systemctl restart weave as root",
+				)
+			}
 
 			if err := env.PingDatabase(ctx, env.DatabaseURL); err != nil {
 				return classifyDatabaseFailure(err, env.DatabaseURL, target)
@@ -153,6 +170,18 @@ func newReadOnlyLoginCheck() Check {
 			return pass(dsn.Redact(env.ReadOnlyDatabaseURL) + describeSource(env, "readonly_database_url"))
 		},
 	}
+}
+
+// isServiceDatabaseURLHidden reports whether this is a shell on an engine, where the url the
+// service runs on sits in a root-only file and the one this run holds is the default.
+func isServiceDatabaseURLHidden(env Env) bool {
+	if env.Sources["database_url"] != config.SourceDefault {
+		return false
+	}
+
+	_, err := env.ReadFile(engineDatabaseEnvPath)
+
+	return errors.Is(err, fs.ErrPermission)
 }
 
 func classifyDatabaseFailure(err error, url, detail string) Result {

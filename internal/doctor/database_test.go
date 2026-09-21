@@ -3,8 +3,11 @@ package doctor
 import (
 	"context"
 	"errors"
+	"io/fs"
 	"net"
 	"testing"
+
+	"weave/config"
 
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/stretchr/testify/assert"
@@ -24,6 +27,7 @@ type fakeSchema struct {
 func dbEnv(schema fakeSchema, connectErr, readOnlyErr error) Env {
 	return Env{
 		Settings:     Settings{DatabaseURL: writableURL, ReadOnlyDatabaseURL: readOnlyURL},
+		ReadFile:     func(string) ([]byte, error) { return nil, fs.ErrNotExist },
 		PingDatabase: func(context.Context, string) error { return connectErr },
 		ReadPendingMigrations: func(context.Context, string) ([]string, error) {
 			if connectErr != nil {
@@ -150,6 +154,61 @@ func TestDatabaseFixAssumesNoCheckout(t *testing.T) {
 
 			assert.Equal(t, tt.want, newDatabaseCheck().Run(t.Context(), env).Fix)
 			assert.NotContains(t, newDatabaseCheck().Run(t.Context(), env).Fix, "mise",
+				"a fix never names a command that only exists inside a checkout")
+		})
+	}
+}
+
+// TestDatabaseCheckOnAnEngineNamesTheService covers a shell on the engine: the service's url
+// is in a root-only file, so a bare weave there holds the built-in default and the remedy is
+// the service, not a Postgres on localhost.
+func TestDatabaseCheckOnAnEngineNamesTheService(t *testing.T) {
+	tests := []struct {
+		name     string
+		source   config.Source
+		readErr  error
+		wantCode string
+		wantFix  string
+	}{
+		{
+			name:     "the url was set in this shell, so it is the one to check",
+			source:   config.SourceEnvironment,
+			readErr:  fs.ErrPermission,
+			wantCode: "database_unreachable",
+			wantFix:  "start Postgres at localhost:5460, or point the database url at one that is running",
+		},
+		{
+			name:     "no service file here, so this is a laptop",
+			source:   config.SourceDefault,
+			readErr:  fs.ErrNotExist,
+			wantCode: "database_unreachable",
+			wantFix:  "start Postgres at localhost:5460, or point the database url at one that is running",
+		},
+		{
+			name:     "the service's file is there and this user cannot read it",
+			source:   config.SourceDefault,
+			readErr:  fs.ErrPermission,
+			wantCode: "database_url_hidden",
+			wantFix:  "the service reads that file itself, so ask systemctl status weave, or restart it with systemctl restart weave as root",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			env := dbEnv(fakeSchema{}, refused(), nil)
+			env.Sources = map[string]config.Source{"database_url": tt.source}
+			env.ReadFile = func(path string) ([]byte, error) {
+				assert.Equal(t, "/etc/weave/database.env", path)
+
+				return nil, tt.readErr
+			}
+
+			result := newDatabaseCheck().Run(t.Context(), env)
+
+			assert.Equal(t, StatusFail, result.Status)
+			assert.Equal(t, tt.wantCode, codeOf(result.Err))
+			assert.Equal(t, tt.wantFix, result.Fix)
+			assert.NotContains(t, result.Fix, "mise",
 				"a fix never names a command that only exists inside a checkout")
 		})
 	}
