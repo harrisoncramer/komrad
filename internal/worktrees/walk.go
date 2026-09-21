@@ -139,7 +139,7 @@ func (w walker) count(entry fs.DirEntry) error {
 		return fmt.Errorf("stat %s: no stat_t behind %T", entry.Name(), info.Sys())
 	}
 	if stat.Nlink > 1 {
-		if _, dup := w.seen.LoadOrStore(inode{dev: stat.Dev, ino: stat.Ino}, struct{}{}); dup {
+		if _, dup := w.seen.LoadOrStore(inode{dev: uint64(stat.Dev), ino: stat.Ino}, struct{}{}); dup { //nolint:unconvert // Dev is int32 on darwin
 			return nil
 		}
 	}
