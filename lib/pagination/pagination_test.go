@@ -101,8 +101,8 @@ func TestNewCursorErrorCarriesTheReason(t *testing.T) {
 	assert.Contains(t, connectErr.Message(), `cursor id "not-an-id" is not an id`)
 }
 
-// TestNextTokenRoundTrips pins that the token a page ends with is one the next request is
-// served from, which is what makes refusing every other token safe.
+// TestNextTokenRoundTrips pins that the token a page ends with is one the next request is served
+// from.
 func TestNextTokenRoundTrips(t *testing.T) {
 	limit := int32(2)
 

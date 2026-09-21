@@ -303,9 +303,6 @@ func TestBuiltinWorktreeSetupOnProvisionUsesTheConfiguredDirectory(t *testing.T)
 	assert.NotContains(t, string(second.Stderr), "already exists", "the tree the cwd names is not taken for a create")
 }
 
-// Explainer: the agent is named after the repository's own directory, so the name the tree
-// carries is not what refuses it.
-
 // TestBuiltinWorktreeSetupOnResumeRefusesACwdThatIsTheRepo covers a create that failed before
 // setup replaced the directory, which leaves the agent's cwd naming the workflow's own
 // checkout: resuming into that would run the agent inside the repository.
@@ -1503,10 +1500,8 @@ func TestBuiltinWorktreeSetupAdoptsALocalBranch(t *testing.T) {
 	assert.FileExists(t, filepath.Join(tree, "theirs.txt"), "the commits already on the branch are what the agent is looking at")
 }
 
-// TestBuiltinWorktreeSetupAdoptsABranchOnlyOnOrigin covers adopting a pull request nobody
-// here has pulled yet, which is the ordinary case: the branch exists on the forge and not in
-// this checkout, so setup fetches it and git makes the local tracking branch as it adds the
-// worktree.
+// TestBuiltinWorktreeSetupAdoptsABranchOnlyOnOrigin covers adopting a pull request nobody here has
+// pulled yet.
 func TestBuiltinWorktreeSetupAdoptsABranchOnlyOnOrigin(t *testing.T) {
 	upstream := initBareRepo(t)
 	author := cloneRepo(t, upstream)

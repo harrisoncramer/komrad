@@ -278,7 +278,7 @@ func (t *tail) kept() []byte {
 	return t.buf.Bytes()
 }
 
-// noExitCode is what a process that never ran left behind, which is deliberately not zero.
+// noExitCode is what a process that never ran left behind, deliberately not zero.
 const noExitCode = -1
 
 func (Runner) exitCode(state *os.ProcessState) int {

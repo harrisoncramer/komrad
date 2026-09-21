@@ -8,8 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestDrawingsCoverEveryGlyph covers the one way this list rots, which is a glyph being added to
-// the enum and never measured because nobody thought of the doctor.
+// TestDrawingsCoverEveryGlyph covers the one way this list rots.
 func TestDrawingsCoverEveryGlyph(t *testing.T) {
 	named := map[Glyph]bool{}
 	for _, entry := range glyphNames {
@@ -21,8 +20,7 @@ func TestDrawingsCoverEveryGlyph(t *testing.T) {
 	}
 }
 
-// TestDrawingsCarryTextAndWidth covers that the inventory is worth measuring, since a drawing
-// with no text would measure zero and read as a terminal fault.
+// TestDrawingsCarryTextAndWidth covers that the inventory is worth measuring.
 func TestDrawingsCarryTextAndWidth(t *testing.T) {
 	drawings := Drawings()
 	require.Len(t, drawings, int(GlyphFocus))

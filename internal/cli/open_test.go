@@ -128,8 +128,8 @@ func TestUserPanelKeyReadsTheServerTheUserIsAt(t *testing.T) {
 		"attaching from outside tmux still reads the server the panel was opened from")
 }
 
-// TestBuildPanelWindowArgsOpensInTheSessionItAlreadyHas covers the repair path carrying
-// everything the session path does, since it opens the same process on the same settings.
+// TestBuildPanelWindowArgsOpensInTheSessionItAlreadyHas covers the repair path carrying everything
+// the session path does.
 func TestBuildPanelWindowArgsOpensInTheSessionItAlreadyHas(t *testing.T) {
 	state := &app{
 		env: &config.Environment{
@@ -150,10 +150,6 @@ func TestBuildPanelWindowArgsOpensInTheSessionItAlreadyHas(t *testing.T) {
 	assert.Equal(t, []string{"--", "/usr/local/bin/weave", "panel", "--config", "/tmp/somewhere/config.toml"},
 		args[len(args)-5:])
 }
-
-// Explainer: the manager session holds a window per agent as well as the panel's own, so it
-// answers has-session for as long as any agent is up. Reading that answer alone reports a panel
-// that has been gone for hours, and the key then attaches a session with no panel in it.
 
 // TestIsPanelRunningNeedsThePanelsOwnPane covers the question the panel key asks before it
 // decides there is a panel to attach.
@@ -177,9 +173,8 @@ func TestIsPanelRunningNeedsThePanelsOwnPane(t *testing.T) {
 	assert.False(t, isPanelRunning(t.Context(), state), "the panel's own pane has gone")
 }
 
-// TestBuildPanelWindowArgsDetachesWhenNobodyIsAttaching covers a repair under --detach leaving
-// the current window alone, since a script that only wants the session there would otherwise
-// move whoever is watching one off the agent they were reading.
+// TestBuildPanelWindowArgsDetachesWhenNobodyIsAttaching covers a repair under --detach leaving the
+// current window alone.
 func TestBuildPanelWindowArgsDetachesWhenNobodyIsAttaching(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -208,11 +203,6 @@ func TestBuildPanelWindowArgsDetachesWhenNobodyIsAttaching(t *testing.T) {
 		})
 	}
 }
-
-// Explainer: select-window moves the current window for every client attached to the session, so
-// only the path that is about to attach may touch it. ensureManagerSession runs under --detach
-// too, which is what mise/tasks/restart uses, and a script asking for a session is not asking to
-// be taken anywhere.
 
 // TestEnsureManagerSessionLeavesTheCurrentWindowAlone covers the repair not moving a watcher.
 func TestEnsureManagerSessionLeavesTheCurrentWindowAlone(t *testing.T) {

@@ -40,7 +40,7 @@ func reviewReply(t *testing.T, m model) []*agentv1.ReviewThread {
 }
 
 // TestReviewRefreshDrawsAnAnswer covers the whole path a reply takes onto the screen without a
-// keypress, which is what the refresh is for.
+// keypress.
 func TestReviewRefreshDrawsAnAnswer(t *testing.T) {
 	dir := reviewRepo(t)
 	agents := &fakeReviewAgents{}

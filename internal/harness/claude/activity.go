@@ -15,16 +15,6 @@ var (
 
 var waitingFooter = regexp.MustCompile(`(?i)esc to cancel|enter to select`)
 
-// Explainer: the picker ExitPlanMode puts up, read on Claude 2.1.278, offers three numbered
-// options, and 1 is not the plain approve. Launched without --dangerously-skip-permissions it reads
-// "Yes, and use auto mode" and leaves the session in auto mode; launched under that flag it
-// reads "Yes, and switch to BYPASS PERMISSIONS (no further prompts) for this session" and leaves
-// it in bypass. Option 2, "Yes, manually approve edits", is the plain approve, and it drops the
-// session to default mode even when it was launched under bypass, so the next Bash call puts up
-// a permission prompt. Option 3 is "Tell Claude what to change". Nothing in weave presses any of
-// them: an approve that presses 1 widens the agent's permissions, and one that presses 2 for a
-// bypassed agent takes them away.
-
 // optionCursor is the cursor Claude draws beside the chosen answer of a question, indented
 // when a bordered dialog draws it inside its own frame.
 var optionCursor = regexp.MustCompile(`^\s*│?\s*❯\s+\d+\.\s`)
@@ -182,15 +172,14 @@ func doesFrameShowWork(lines []string, box inputBox, boxed bool) bool {
 }
 
 // isPromptGreyed reports whether the box draws its prompt marker in a colour of Claude's own
-// rather than in the terminal's, which is Claude greying the box out for a turn.
+// rather than in the terminal's.
 func isPromptGreyed(colours []string, box inputBox, boxed bool) bool {
 	// Shell mode draws the whole box in one colour, marker included.
 	if !boxed || box.Marker != chatPrompt {
 		return false
 	}
 
-	// A box with no colour on it at all says nothing either way, which is what a capture taken
-	// without the colours looks like, so the rule has to carry a colour for the marker to count.
+	// The rule has to carry a colour for the marker to count.
 	return colours[box.Rule] != "" && colours[box.Rule+1] != ""
 }
 
@@ -248,8 +237,7 @@ func doesFrameShowWaiting(lines []string, boxed bool) bool {
 		return true
 	}
 
-	// A panel is read off its own rule rather than off a footer, which is the first thing the pane
-	// cuts off.
+	// A panel is read off its own rule rather than off a footer.
 	for _, line := range lines {
 		if panelRule.MatchString(line) {
 			return true

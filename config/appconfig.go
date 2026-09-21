@@ -928,14 +928,6 @@ func validateMail(mail Mail) error {
 	return nil
 }
 
-// Explainer: these three are read long after the file is, which is what makes them worth
-// refusing here. A mail setting is parsed on the next send, so a deadline nobody can read stops
-// every send rather than the load. A database url is parsed on the next connection, and the
-// read-only login is derived from it, so a url Postgres would not answer fails a check that
-// names the login rather than the url. The address is the one with a consequence outside the
-// machine: the API has no auth and its writes spawn agents, so anything but a loopback host
-// hands that to whoever can reach the port.
-
 // validateConnection rejects an address the service could not listen on or should not, and a
 // database url that is not one Postgres would answer.
 func validateConnection(connection Connection) error {

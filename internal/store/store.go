@@ -3,8 +3,8 @@
 //
 // A write that touches more than one domain is handed a transaction through InTx and the domain
 // stores take it as their DBTX, so archiving an agent and settling the mail addressed to it
-// either both happen or neither does. Opening a pool also migrates the schema, which is why a
-// checkout carrying a migration of its own must not be pointed at the panel's database.
+// either both happen or neither does. Opening a pool also migrates the schema, so a checkout
+// carrying a migration of its own must not be pointed at the panel's database.
 package store
 
 import (

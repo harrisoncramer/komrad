@@ -17,13 +17,8 @@ import (
 // measurement is given up on, short because a terminal that answers at all answers at once.
 const cursorReplyTimeout = 500 * time.Millisecond
 
-// Explainer: the probe writes to the real stdout rather than to whatever writer a command was
-// given, because a cursor query only means anything if it reaches the terminal itself. It
-// refuses unless both real descriptors are one, so a redirected command measures nothing rather
-// than writing escapes into a file.
-
 // MeasureColumnsOnTTY writes each sample to the controlling terminal and asks where the cursor
-// landed, which is the width that terminal drew it in with the font it is using.
+// landed.
 func MeasureColumnsOnTTY(ctx context.Context, samples []string) ([]int, error) {
 	if !term.IsTerminal(int(os.Stdin.Fd())) || !term.IsTerminal(int(os.Stdout.Fd())) {
 		return nil, ErrNoTerminal
@@ -64,18 +59,6 @@ func measureColumns(ctx context.Context, in io.Reader, out io.Writer, samples []
 
 	return columns, nil
 }
-
-// Explainer: the reply is read on a goroutine of its own because a terminal is one of the files
-// macOS will not take a read deadline on, answering SetReadDeadline with "file type does not
-// support deadline". A terminal that never answers can therefore only be given up on from
-// outside the read, which is what the channels below are for.
-//
-// Explainer: that goroutine outlives close on a real terminal. Closing done releases a pump
-// parked on a channel send, which is where it sits when it has read ahead, but a pump parked
-// inside Read is selecting on nothing and stays there until a byte arrives. On the happy path
-// that is exactly where it is left, holding the next keystroke it will hand to a channel nobody
-// reads. A one-shot command is reaped by its own exit, so this is only safe for a caller that
-// exits, and nothing in the package enforces that.
 
 // replyReader reads cursor position reports off a terminal.
 type replyReader struct {

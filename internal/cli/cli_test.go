@@ -72,8 +72,8 @@ func TestIsConfigFatal(t *testing.T) {
 	}
 }
 
-// TestResolveConfigStack covers each way of naming a layer list replacing the one below
-// rather than adding to it, which is what isolates a checkout from the shell.
+// TestResolveConfigStack covers each way of naming a layer list replacing the one below rather than
+// adding to it.
 func TestResolveConfigStack(t *testing.T) {
 	tests := []struct {
 		name     string

@@ -84,10 +84,6 @@ func (m model) route(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 		}
 
-		// Explainer: When there's a fatal error, if we close the application, we also quit it.
-		// This way, the next time it opens, we retry. This works well because the fatal
-		// error might be for instance a transient database connection issue, which should re-connect
-		// automatically.
 		if _, hidden := msg.(tea.BlurMsg); hidden {
 			return m, tea.Quit
 		}
@@ -104,8 +100,7 @@ func (m model) route(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return next, cmd
 	}
 
-	// Reached before the form and before a held write, which is the refusal whose whole reason a
-	// person most needs.
+	// Reached before the form and before a held write.
 	if isKey && m.isMessagesRegion() {
 		switch {
 		case m.isMessagesFocused():
@@ -158,8 +153,7 @@ func (m model) route(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m.routeScreenKey(key)
 }
 
-// resizeTo takes the panel to the size a window message reports, which is also how a divider
-// being dragged arrives.
+// resizeTo takes the panel to the size a window message reports.
 func (m model) resizeTo(size tea.WindowSizeMsg) model {
 	//nolint:sloglint // temporary trace, no context here to carry a logger on
 	slog.Default().Info("panel trace: a resize arrived", "width", size.Width, "height", size.Height, "was", m.width, "solo", m.frame.IsSolo())
@@ -209,9 +203,8 @@ func (m model) routeGlobalKey(key tea.KeyMsg) (tea.Model, tea.Cmd, bool) {
 		return m, nil, true
 	}
 
-	// Whether these keys act is a policy about the keys rather than the geometry holdsWindow
-	// answers, and the two do not line up: the archive and the review draw the whole window and
-	// refuse them.
+	// Whether these keys act is a policy about the keys rather than the geometry, and the two do
+	// not line up: the archive and the review draw the whole window and refuse them.
 	if m.screen.opensInfoPane() {
 		switch {
 		case isBound(key.String(), m.keys.Logs.Open):

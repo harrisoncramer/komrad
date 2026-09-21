@@ -74,8 +74,7 @@ func TestMeasureColumnsIgnoresWhatWasTypedFirst(t *testing.T) {
 	assert.Equal(t, []int{2}, columns)
 }
 
-// TestMeasureColumnsGivesUpOnSilence covers the terminal that answers nothing, which is the
-// failure that would otherwise hang a command forever.
+// TestMeasureColumnsGivesUpOnSilence covers the terminal that answers nothing.
 func TestMeasureColumnsGivesUpOnSilence(t *testing.T) {
 	reader, writer := io.Pipe()
 	defer func() { _ = writer.Close() }() //nolint:errcheck // the pipe goes with the test
@@ -116,8 +115,7 @@ func TestMeasureColumnsRefusesAnAnswerItCannotRead(t *testing.T) {
 	assert.ErrorIs(t, err, ErrCursorQueryUnanswered)
 }
 
-// TestParseCursorReply covers the shapes a reply arrives in, since one arriving in pieces is
-// the ordinary case rather than the exception.
+// TestParseCursorReply covers the shapes a reply arrives in.
 func TestParseCursorReply(t *testing.T) {
 	for _, tt := range []struct {
 		name   string

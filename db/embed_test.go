@@ -85,9 +85,8 @@ func TestMigrateConcurrently(t *testing.T) {
 	assert.Equal(t, allVersions(t), appliedVersions(t, pools[0]))
 }
 
-// TestMigrateSharedDatabase is the guard against a checkout migrating the database a
-// running weave is serving from, which is what an agent's worktree does unless it was
-// pointed somewhere else.
+// TestMigrateSharedDatabase is the guard against a checkout migrating the database a running weave
+// is serving from.
 func TestMigrateSharedDatabase(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -366,8 +365,7 @@ func connect(t *testing.T, url string) *pgx.Conn {
 	return conn
 }
 
-// embeddedFiles is the migration set the binary ships with, which is what every
-// test that is not about the pass itself runs against.
+// embeddedFiles is the migration set the binary ships with.
 func embeddedFiles(t *testing.T) fs.FS {
 	t.Helper()
 

@@ -26,9 +26,6 @@ var reviewVerdicts = []agentv1.ReviewVerdict{
 // composeReview opens the editor on the line under the cursor, replying in the thread already
 // there or opening a new one, writing prose alone rather than editing the round.
 func (m model) composeReview() (tea.Model, tea.Cmd) {
-	// Explainer: reading walks the rounds and writes nothing, so the compose key is also the way
-	// into the mode that can. The switch reloads the whole change and puts the cursor back on the
-	// line it was pressed on, which is why one press still means one thing.
 	if m.review.mode != modeReviewing {
 		return m.enterReviewWriting(intentComment)
 	}
@@ -88,9 +85,6 @@ func (m model) openReviewInput(params newReviewInputParams) (tea.Model, tea.Cmd)
 // enterReviewWriting moves from reading to writing, keeping the reader on the line they pressed
 // the key on, and refuses when that line is in a round the whole change does not draw.
 func (m model) enterReviewWriting(intent passIntent) (tea.Model, tea.Cmd) {
-	// Explainer: an older round draws code the agent has since rewritten, so the line under the
-	// cursor has no counterpart in the work a comment could ask it to change. Carrying the reader
-	// across would land them on whatever the anchor now matches, which is not the line they chose.
 	if said, history := m.isReviewHistory(); history {
 		return m.refuseReviewHistory(said)
 	}
@@ -115,7 +109,7 @@ func (m model) refuseReviewLine() (tea.Model, tea.Cmd) {
 // go.
 func (m model) leaveReviewWriting() (tea.Model, tea.Cmd) {
 	// Comments already written are held by the panel rather than by the pass, so leaving keeps
-	// them and says so, which is the difference between putting a review down and losing it.
+	// them and says so.
 	if m.doesReviewHoldUnsent() {
 		m.review.notice = label.Counted(m.reviewUnsentCount(), "comment") + " kept, still unsent"
 	}
@@ -225,8 +219,7 @@ func (m model) saveReviewMessage() (tea.Model, tea.Cmd) {
 
 	agents, threadID := m.api.agents, m.review.editing
 	if threadID != "" {
-		// Nothing is said back: the reply is drawn in the thread it went into, which is already on
-		// the screen the moment it lands.
+		// Nothing is said back: the reply is drawn in the thread it went into.
 		return m, m.reviewWriteCmd("", func(ctx context.Context) error {
 			_, err := agents.AddReviewMessage(ctx, connect.NewRequest(&agentv1.AddReviewMessageRequest{
 				ThreadId: threadID,
@@ -423,10 +416,6 @@ func (m model) sendReview(interrupt bool) (tea.Model, tea.Cmd) {
 
 	m = m.closeReviewRelease()
 
-	// Explainer: the pass ends when the comments have landed rather than when they were sent for,
-	// since a send that failed leaves the reader holding a review nobody has and an agent that
-	// would be let go believing it had one. Keeping the pass until the answer comes back leaves
-	// them where they were, holding both.
 	agents, agentID := m.api.agents, m.review.agentID
 
 	return m, m.reviewSendCmd(func(ctx context.Context) (string, error) {
@@ -492,7 +481,7 @@ func (m model) reviewWriteNoticeCmd(write func(context.Context) (string, error))
 	return m.reviewWriteMsgCmd(false, write)
 }
 
-// reviewSendCmd is the write that releases a review, which is the one whose answer ends the pass.
+// reviewSendCmd is the write that releases a review.
 func (m model) reviewSendCmd(write func(context.Context) (string, error)) tea.Cmd {
 	return m.reviewWriteMsgCmd(true, write)
 }

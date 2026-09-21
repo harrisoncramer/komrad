@@ -167,8 +167,7 @@ func TestEditTargetStopsAtTheFileItIsIn(t *testing.T) {
 	assert.Equal(t, 1, line, "an emptied file opens at its top rather than at another file's line")
 }
 
-// twoFilePatch is two files with one changed line apiece, which is the smallest patch that can
-// show a file folded away while the diff around it stays whole.
+// twoFilePatch is two files with one changed line apiece.
 func twoFilePatch() *diff.Patch {
 	file := func(path, text string) diff.File {
 		return diff.File{
@@ -305,8 +304,7 @@ func TestHeaderFoundByASearchSurvivesTheFold(t *testing.T) {
 	assert.Equal(t, 0, back)
 }
 
-// TestHeaderOfAFileWithNoLinesIsHeld covers a rename or a mode change, which is drawn as a
-// header with nothing under it, so there is no line for the place to fall back to.
+// TestHeaderOfAFileWithNoLinesIsHeld covers a rename or a mode change.
 func TestHeaderOfAFileWithNoLinesIsHeld(t *testing.T) {
 	view := NewView(patchWith(
 		diff.File{

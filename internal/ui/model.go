@@ -63,7 +63,7 @@ func Run(deps Deps) error {
 type postbox struct {
 	program *tea.Program
 	mu      sync.Mutex
-	// pending is the size waiting to be handed over, which is only ever the newest one.
+	// pending is the size waiting to be handed over.
 	pending *tea.WindowSizeMsg
 	wake    chan struct{}
 }
@@ -274,8 +274,8 @@ type lastFrame struct {
 	text string
 }
 
-// at is the only writer of paneMeasure, handing back a model that measures its own chrome in a
-// column named outright rather than asking which column it has.
+// at hands back a model that measures its own chrome in a column named outright rather than
+// asking which column it has.
 func (m model) at(width int) model {
 	m.paneMeasure = width
 

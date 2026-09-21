@@ -24,8 +24,7 @@ type reviewLoadedMsg struct {
 	patch   *diff.Patch
 	threads []*agentv1.ReviewThread
 	viewed  []*agentv1.ReviewViewedFile
-	// since says how much of this round is new to the reader, which is a courtesy rather than
-	// something the screen depends on.
+	// since says how much of this round is new to the reader.
 	since string
 	// earlier is the round the person last released a review against, nil when there is none.
 	earlier *agentv1.ReviewRound
@@ -51,8 +50,7 @@ type reviewWroteMsg struct {
 	notice  string
 	threads []*agentv1.ReviewThread
 	err     error
-	// readErr is the review coming back unreadable after a write that landed, which is a stale
-	// screen rather than a write to try again.
+	// readErr is the review coming back unreadable after a write that landed.
 	readErr error
 	// sent says this is the answer to a released review rather than to any of the other writes
 	// this screen makes, which all come back the same way.
@@ -103,10 +101,6 @@ func (m *model) abandonReview(err error) tea.Cmd {
 
 	return letGo
 }
-
-// Explainer: the pass lives in this state and nowhere else, so an agent stopped for one is let go
-// by the panel or not at all. Every way off this screen comes through here, including the ones
-// nobody chose, such as a diff that stopped being readable part way through a pass.
 
 // dropReview puts the reader back on the row they opened the review from, letting go of an agent
 // the pass stopped.
@@ -164,9 +158,6 @@ func (m model) loadReviewCmd(params loadReviewCmdParams) tea.Cmd {
 			return reviewLoadedMsg{agentID: agentID, err: err}
 		}
 
-		// Explainer: the reviews and the rounds answer six of the questions below between them,
-		// and each question used to ask for them again. They are read once here and handed down,
-		// which also keeps the six answers describing one moment rather than six.
 		reviews, err := listReviews(ctx, agents, agentID)
 		if err != nil {
 			return reviewLoadedMsg{agentID: agentID, err: err}
@@ -421,20 +412,12 @@ func (m *model) applyReviewWrote(msg reviewWroteMsg) tea.Cmd {
 
 	m.review.notice = msg.notice
 
-	// Explainer: the write landing and the review being readable afterwards are two facts, and
-	// only the first says what became of what the reader sent. Reading them as one turns a send
-	// that landed into a send the screen believes never went, which then offers to send it again
-	// and tells the agent nothing was sent on the way out.
 	if msg.readErr != nil {
 		m.report("Could not read the review of "+m.review.agentName+" back", msg.readErr)
 	} else {
 		m.applyReviewThreads(msg.threads)
 	}
 
-	// Explainer: every write on this screen comes back as one of these, so what says the pass is
-	// over has to ride on the message rather than on the screen. A flag on the model says a send
-	// is out and not which answer is its own, so a comment written just before it would end the
-	// pass and let the agent go while the review was still in flight.
 	if !msg.sent {
 		return nil
 	}
@@ -453,10 +436,6 @@ func (m *model) applyReviewWrote(msg reviewWroteMsg) tea.Cmd {
 func (m *model) applyReviewThreads(threads []*agentv1.ReviewThread) {
 	m.setReviewThreads(threads)
 
-	// Explainer: a round is a moment, so a comment written after it is not something the reader
-	// could have said about that code. The whole conversation stays in the counts above, since
-	// that is the reader's own standing state, and only what is drawn against the diff is cut
-	// back to the comments that existed by the end of the round on screen.
 	drawn := threadsByChapter(threadsByChapterParams{
 		Threads:  threads,
 		Chapters: m.review.chapters,
@@ -515,8 +494,8 @@ func (m model) leaveReview() (tea.Model, tea.Cmd) {
 		return m.closeReviewEdit()
 	}
 
-	// dropReview is the one way off this screen, since it is what lets go of an agent the pass
-	// stopped, and it puts the reader back on the row they came from.
+	// dropReview is the one way off this screen, and it puts the reader back on the row they
+	// came from.
 	return m, m.dropReview()
 }
 

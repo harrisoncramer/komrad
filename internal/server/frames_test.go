@@ -56,7 +56,7 @@ func TestFrameSettingsAreHeldBetweenReads(t *testing.T) {
 }
 
 // TestFrameSettingsReReadOnceTheyAreOld is what lets a recording be turned on under a service
-// already running, which is the whole reason the config is read rather than taken at startup.
+// already running.
 func TestFrameSettingsReReadOnceTheyAreOld(t *testing.T) {
 	var loads int
 	settings := newFrameSettings(func() (*config.Config, error) {

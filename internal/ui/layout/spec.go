@@ -9,8 +9,7 @@ import (
 
 type spec struct {
 	sidebarOnRight bool
-	// sidebarCols is the width the sidebar is first laid out at, in columns, which is where its
-	// own drawing starts from until the split has been measured.
+	// sidebarCols is the width the sidebar is first laid out at, in columns.
 	sidebarCols int
 	sidebarSize string
 	infoAbove   bool
@@ -53,8 +52,7 @@ func percent(share float64) int {
 	return int(math.Round(share * 100))
 }
 
-// SidebarWidth is how many of a window's columns the sidebar starts at, which is what a screen
-// splitting the window itself lays itself out against until the divider has been measured.
+// SidebarWidth is how many of a window's columns the sidebar starts at.
 func (s spec) SidebarWidth(total int) int {
 	if total <= 0 {
 		return 0

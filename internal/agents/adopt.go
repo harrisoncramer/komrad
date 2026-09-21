@@ -184,11 +184,6 @@ func (s *AdoptService) agentOnBranch(ctx context.Context, workflowID, branch str
 	return nil, fmt.Errorf("%w: no agent in workflow %q is adopted onto %q", store.ErrNotFound, workflowID, branch)
 }
 
-// Explainer: a create that fails during setup leaves its row behind in failed_to_create, still
-// stamped with the branch it was going to work on. Counting that corpse as the agent on the branch
-// would refuse the branch for good, since the retry that is the whole point of a refusal is the
-// call being refused. releaseFailedLaunch guards the idempotency key the same way.
-
 // isKeyedReplay reports whether an agent is the one a given idempotency key already launched.
 func isKeyedReplay(key string, agent agentstore.Agent) bool {
 	return key != "" && agent.IdempotencyKey != nil && *agent.IdempotencyKey == key

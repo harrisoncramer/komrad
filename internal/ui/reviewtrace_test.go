@@ -150,7 +150,7 @@ func TestTraceThreadsMarksTheRoundOnScreenAsExact(t *testing.T) {
 }
 
 // TestTraceThreadsKeepsTheFileWhenTheLinesAreGone covers code the agent wrote over: the file is
-// still there and the lines are not, which is a file-level answer rather than no answer.
+// still there and the lines are not.
 func TestTraceThreadsKeepsTheFileWhenTheLinesAreGone(t *testing.T) {
 	repo := newMappingGit(map[string][]position.Mapping{pairOf(firstSHA, thirdSHA): rewroteTheLine})
 
@@ -207,7 +207,7 @@ func TestTraceThreadsSkipsRoundsTheScreenWillNotDraw(t *testing.T) {
 		},
 	}
 
-	// The reader has stepped back to the first round, so that snapshot is what is drawn.
+	// The reader has stepped back to the first round.
 	traced := traceThreads(t.Context(), traceThreadsParams{
 		Git:     repo,
 		Dir:     traceDir,

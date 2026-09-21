@@ -54,7 +54,7 @@ type agentFlags struct {
 	repositoryRead bool
 }
 
-// agentOptions is how much of an agent renderAgent draws.
+// agentOptions is how much of an agent is drawn.
 type agentOptions struct {
 	promptHead int
 }
@@ -66,8 +66,7 @@ func withPromptHead(limit int) agentOption {
 	return func(o *agentOptions) { o.promptHead = limit }
 }
 
-// agentViewOptions turns the view a request asked for into the options renderAgent takes, so the
-// enum stops at the handler rather than reaching the renderer.
+// agentViewOptions turns the view a request asked for into rendering options.
 func agentViewOptions(view viewv1.View) []agentOption {
 	if view == viewv1.View_VIEW_FULL {
 		return nil

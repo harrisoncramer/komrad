@@ -513,8 +513,7 @@ func (c *Client) RecordHostPath(path string) {
 	c.SetGlobal(hostPathOption, path)
 }
 
-// GetHostPath returns the working directory of the pane the panel was opened over, which is where
-// an agent given no directory of its own goes.
+// GetHostPath returns the working directory of the pane the panel was opened over.
 func (c *Client) GetHostPath() string {
 	return c.ShowGlobal(hostPathOption)
 }
@@ -605,7 +604,7 @@ func (c *Client) paneID(target string) (string, error) {
 }
 
 // IsPaneRunningCLI reports whether a pane's foreground program is something other than a plain
-// shell, which is what says the harness weave typed into that pane has started.
+// shell.
 func (c *Client) IsPaneRunningCLI(pane string) bool {
 	if pane == "" {
 		return false

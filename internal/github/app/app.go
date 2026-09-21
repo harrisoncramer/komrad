@@ -67,8 +67,7 @@ func (t Token) Fresh(now time.Time) bool {
 type Identity struct {
 	// ID is the App's own id, which identifies the key the assertion is signed with.
 	ID string
-	// InstallationID is the installation the token is minted for, which is what scopes it to
-	// repositories rather than to everything the App could ever reach.
+	// InstallationID is the installation the token is minted for.
 	InstallationID string
 	// PrivateKeyPath is the PEM the App was created with.
 	PrivateKeyPath string
@@ -418,7 +417,7 @@ func CredentialQuery(input string) map[string]string {
 }
 
 // InstallationIDFromString is the installation an App was told to act as, refused when it is not
-// a number, since GitHub names installations numerically and a name here is a copied placeholder.
+// a number.
 func InstallationIDFromString(value string) (string, error) {
 	trimmed := strings.TrimSpace(value)
 	if trimmed == "" {

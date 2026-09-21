@@ -85,11 +85,6 @@ func WrapRows(text string, width int) []string {
 	return rows
 }
 
-// Explainer: the fill is measured across the whole string PaintRow is handed, so it holds only
-// for a row of a single line. The bar is one colour rather than one per palette: a confirm form
-// takes the keys off the list it stands beside, and what has been picked has to stay legible on
-// the screen that asks whether to act on it.
-
 // SelectionBackground is the bar a row taken into a selection is drawn under, dark enough that
 // the colours the row is already carrying still read through it.
 var SelectionBackground = lipgloss.AdaptiveColor{Light: "#dbeafe", Dark: "#1e3a5f"}

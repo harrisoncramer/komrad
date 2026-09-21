@@ -19,8 +19,7 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-// answered is what a caller is served when a handler returns this failure, which is the whole
-// path from the domain's error to the response connect writes.
+// answered is what a caller is served when a handler returns this failure.
 func answered(err error, failure string) error {
 	_, served := rpcerr.Answer[emptypb.Empty](nil, rpcerr.From(err, failure))
 
@@ -126,8 +125,7 @@ func TestWrapCarriesTwoSentinels(t *testing.T) {
 		"the provisioner refusing is what the caller can act on")
 }
 
-// TestWrapUnknown covers the error a caller cannot fix, which is internal and says only what
-// the handler was doing.
+// TestWrapUnknown covers the error a caller cannot fix.
 func TestWrapUnknown(t *testing.T) {
 	err := answered(errors.New("connection refused"), "failed to archive agents")
 

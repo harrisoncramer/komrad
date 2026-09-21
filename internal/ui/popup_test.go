@@ -188,8 +188,7 @@ func TestBindPanelKeyReportsRefusal(t *testing.T) {
 	require.Error(t, BindPanelKey(tmux, BindPanelKeyParams{Self: "/usr/local/bin/weave"}))
 }
 
-// TestIsShown covers the panel asking whether anybody is looking at it, which is a client on
-// its own session rather than anything a popup wrote down as it opened.
+// TestIsShown covers the panel asking whether anybody is looking at it.
 func TestIsShown(t *testing.T) {
 	tests := []struct {
 		name   string
@@ -418,7 +417,7 @@ func TestFocusKeyReachesTmuxOnce(t *testing.T) {
 }
 
 // TestFocusKeyFollowsTheStagedPane checks the key is rebound when another agent's pane takes the
-// stage, rather than being left pointed at the one before it.
+// stage.
 func TestFocusKeyFollowsTheStagedPane(t *testing.T) {
 	binds := &bindingTmux{}
 	m := FocusKeyModel(binds)

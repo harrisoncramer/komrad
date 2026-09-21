@@ -112,8 +112,7 @@ func TestLoopLogsTheRepeatsAtDebug(t *testing.T) {
 	assert.EqualValues(t, 3, records[2][logging.Repeats])
 }
 
-// TestLoopLogsRecovery covers the first pass to work after a run of failures, which is the only
-// thing that says the loop came back.
+// TestLoopLogsRecovery covers the first pass to work after a run of failures.
 func TestLoopLogsRecovery(t *testing.T) {
 	down := errors.New("failed to list agents")
 
@@ -220,8 +219,8 @@ func TestBackgroundOutlivesTheSignal(t *testing.T) {
 	work.stop(t.Context())
 }
 
-// TestBackgroundStopWaitsForTheLoops covers the loops being waited on rather than left to
-// die with the process, which is what makes the teardown ordered rather than a race.
+// TestBackgroundStopWaitsForTheLoops covers the loops being waited on rather than left to die with
+// the process.
 func TestBackgroundStopWaitsForTheLoops(t *testing.T) {
 	var passes atomic.Int64
 	runner := &fakeRunner{}
@@ -247,8 +246,7 @@ func TestBackgroundStopWaitsForTheLoops(t *testing.T) {
 	assert.True(t, runner.stopped, "and the job runner is stopped after it")
 }
 
-// TestStartBackgroundReportsAFailedRunner covers River refusing to come up, which is a
-// server that can never fire a schedule and has to say so rather than serve anyway.
+// TestStartBackgroundReportsAFailedRunner covers River refusing to come up.
 func TestStartBackgroundReportsAFailedRunner(t *testing.T) {
 	_, err := startBackground(t.Context(), &fakeRunner{startErr: errors.New("river is unreachable")},
 		nil, logging.New(io.Discard, slog.LevelError))
@@ -296,8 +294,7 @@ func TestEachPassIsTracedOnItsOwn(t *testing.T) {
 	assert.NotEqual(t, traces[0], traces[1], "two passes are two traces")
 }
 
-// TestAFailedPassIsLoggedOnItsOwnTrace pins the failure onto the pass's own id, which is what a
-// trace lists it by.
+// TestAFailedPassIsLoggedOnItsOwnTrace pins the failure onto the pass's own id.
 func TestAFailedPassIsLoggedOnItsOwnTrace(t *testing.T) {
 	written := drive(t, slog.LevelInfo, []func(context.Context) error{
 		func(ctx context.Context) error {

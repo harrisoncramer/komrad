@@ -39,8 +39,8 @@ func (s *MarkService) SetMark(ctx context.Context, mark string, target markstore
 	}
 
 	// Two callers claiming a letter nobody holds each find nothing to free and so neither blocks
-	// the other, which is why the loser meets the primary key and retries, its clear now seeing
-	// the winner's row.
+	// the other, so the loser meets the primary key and retries, its clear now seeing the
+	// winner's row.
 	marked, err := s.setMarkOnce(ctx, mark, target)
 	if db.IsUniqueViolation(err) {
 		return s.setMarkOnce(ctx, mark, target)

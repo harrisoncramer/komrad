@@ -60,8 +60,7 @@ func TestAPassThatCannotStopTheAgentTakesTheComposerWithIt(t *testing.T) {
 	assert.False(t, m.review.paused)
 }
 
-// TestLeavingAPassLetsTheAgentGo pins the other end of it, since an agent stopped by a pass that
-// nobody ended would sit there until somebody noticed.
+// TestLeavingAPassLetsTheAgentGo pins the other end of it.
 func TestLeavingAPassLetsTheAgentGo(t *testing.T) {
 	dir := reviewRepo(t)
 	agents := &fakeReviewAgents{}
@@ -143,8 +142,7 @@ func TestAnEditOnADormantAgentPausesNothing(t *testing.T) {
 	assert.Nil(t, agents.held)
 }
 
-// TestAnUnreadablePaneIsNotStopped pins the state a pass may not stop its way out of, since the
-// pane a pause is granted on is the one weave cannot read.
+// TestAnUnreadablePaneIsNotStopped pins the state a pass may not stop its way out of.
 func TestAnUnreadablePaneIsNotStopped(t *testing.T) {
 	dir := reviewRepo(t)
 	agents := &fakeReviewAgents{}
@@ -253,8 +251,8 @@ func TestADiffThatStopsBeingReadableLetsTheAgentGo(t *testing.T) {
 	assert.Contains(t, agents.letGo.GetSaid(), "greet.go", "and told where to look")
 }
 
-// TestAReadersOwnPauseKeepsTheFilesForWhoeverLetsItGo covers the files under an editor reaching
-// an agent whose pause the pass never took, since the release for it comes from another screen.
+// TestAReadersOwnPauseKeepsTheFilesForWhoeverLetsItGo covers the files under an editor reaching an
+// agent whose pause the pass never took.
 func TestAReadersOwnPauseKeepsTheFilesForWhoeverLetsItGo(t *testing.T) {
 	dir := reviewRepo(t)
 	agents := &fakeReviewAgents{}
@@ -387,8 +385,7 @@ func settlePauseBatch(t *testing.T, m model, cmd tea.Cmd) model {
 	return m
 }
 
-// flatten is the messages a command produced, one deep, since a batch answers with a message
-// holding the commands it was given.
+// flatten is the messages a command produced, one deep.
 func flatten(msg tea.Msg) []tea.Msg {
 	batch, ok := msg.(tea.BatchMsg)
 	if !ok {
@@ -405,7 +402,7 @@ func flatten(msg tea.Msg) []tea.Msg {
 	return msgs
 }
 
-// runReviewCmd runs a command for its write, which is what reaches the fake.
+// runReviewCmd runs a command for its write.
 func runReviewCmd(t *testing.T, cmd tea.Cmd) {
 	t.Helper()
 

@@ -14,7 +14,7 @@ import (
 )
 
 // readlineShell is a shell whose line editing is the same emacs binding family both harnesses
-// implement, which is the closest a test gets to a real input box.
+// implement.
 const readlineShell = "/bin/bash"
 
 // TestPasteAndSubmitSendsTheText covers the text reaching a pane wrapped in paste markers.
@@ -180,9 +180,8 @@ func rawPane(t *testing.T, client *Client, session string) (pane, received strin
 	return pane, received
 }
 
-// TestCutAndYankRoundTripsThroughReadline covers what the byte tests cannot, a line editor
-// clearing its own box whole and handing the text back, which is the whole reason the pair
-// exists.
+// TestCutAndYankRoundTripsThroughReadline covers what the byte tests cannot, a line editor clearing
+// its own box whole and handing the text back.
 func TestCutAndYankRoundTripsThroughReadline(t *testing.T) {
 	_, err := exec.LookPath(readlineShell)
 	require.NoError(t, err)
@@ -199,7 +198,7 @@ func TestCutAndYankRoundTripsThroughReadline(t *testing.T) {
 	require.NoError(t, client.SendText(pane, "echo hello world"))
 	waitForFrame(t, client, pane, "echo hello world")
 
-	// The cursor is left mid-line, which is where a kill on its own leaves the tail behind.
+	// The cursor is left mid-line.
 	require.NoError(t, client.SendKeys(pane, "Left", "Left", "Left"))
 
 	require.NoError(t, client.CutLine(pane))

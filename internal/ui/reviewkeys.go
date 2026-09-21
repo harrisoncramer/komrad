@@ -43,8 +43,7 @@ func (m model) updateReview(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	m.review.notice = ""
 
-	// The conversation takes the keys ahead of the diff, which is otherwise moving under it on the
-	// same keys.
+	// The conversation takes the keys ahead of the diff.
 	if next, handled := m.updateReviewThread(k); handled {
 		return next, nil
 	}
@@ -192,8 +191,7 @@ func (m model) refuseReviewAwaiting() (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// updateReviewFilter is the search prompt taking keys, which is the panel's filter input drawn
-// in the review's own sidebar.
+// updateReviewFilter is the search prompt taking keys.
 func (m model) updateReviewFilter(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if key.String() == "ctrl+c" {
 		return m, m.hide()
@@ -252,16 +250,12 @@ func (m model) jumpOpenThread(direction int) (tea.Model, tea.Cmd) {
 	return m.moveReviewCursor(next)
 }
 
-// noOpenThreadSaid is why the key moved nowhere, which is three different facts and never the
-// same sentence.
+// noOpenThreadSaid is why the key moved nowhere.
 func (m model) noOpenThreadSaid(standingOnIt bool) string {
 	if standingOnIt && m.review.view.CountOpenThreads() == 1 {
 		return "this is the only comment left open"
 	}
 
-	// Explainer: a thread in a file the reader has folded away is never pinned to a row, so the
-	// walk cannot reach it while the count still holds it. Saying everything is settled there
-	// would contradict the legend, which is counting the same thread.
 	if m.review.view.CountOpenThreads() > 0 {
 		return "the comments left open are in files you have folded away"
 	}

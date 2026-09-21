@@ -30,11 +30,6 @@ const (
 	reviewDeliveredTone = paint.ToneSuccess
 )
 
-// Explainer: the dead bar is reversed rather than merely coloured, since a reader who keeps
-// writing against a patch that has already moved has those comments pinned as ghosted or adrift
-// when they finally reload, which is worth a bar across the sidebar rather than a dim line they
-// read past.
-
 // reviewDeadStyle says there is nobody left to send a review to.
 func reviewDeadStyle(palette paint.Palette) lipgloss.Style {
 	return lipgloss.NewStyle().Foreground(lipgloss.Color("0")).Background(palette.Color(paint.ToneMuted)).Bold(true)
@@ -299,8 +294,7 @@ func (m model) reviewMessageView(message *agentv1.ReviewMessage) string {
 	return head + "\n" + m.reviewWrap(message.GetBody()) + "\n" + reviewDeliveryBadge(paint.Panel, message) + "\n"
 }
 
-// reviewSendDesc says what the send key opens, since a verdict with nothing written is an
-// approval rather than a delivery.
+// reviewSendDesc says what the send key opens.
 func (m model) reviewSendDesc() string {
 	if m.doesReviewHoldUnsent() {
 		return "send to the agent"
@@ -309,8 +303,7 @@ func (m model) reviewSendDesc() string {
 	return "give a verdict"
 }
 
-// reviewDetails is the record drawn under the review sidebar, which is the agent whose diff is
-// up together with what the diff itself was measured against.
+// reviewDetails is the record drawn under the review sidebar.
 func (m model) reviewDetails() details {
 	index := slices.IndexFunc(m.listing.agents, func(item agentItem) bool { return item.agent.ID == m.review.agentID })
 	if index < 0 {
@@ -384,8 +377,7 @@ func (m model) reviewComposeDesc() string {
 	return "comment on this line"
 }
 
-// reviewBackDesc says which of the two things the back key leaves, since a mode inside the screen
-// is given up first.
+// reviewBackDesc says which of the two things the back key leaves.
 func (m model) reviewBackDesc() string {
 	if m.review.mode == modeReviewing {
 		return "stop reviewing"

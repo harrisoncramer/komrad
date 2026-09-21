@@ -36,8 +36,7 @@ func Expand(file File) (File, bool) {
 		return file, false
 	}
 
-	// One hunk covering the file, with no header, since a header saying where a run starts says
-	// nothing about a run that is the whole file.
+	// One hunk covering the file, with no header.
 	file.Hunks = []Hunk{{Lines: filled, NewStart: 1}}
 
 	return file, true

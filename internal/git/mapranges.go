@@ -32,9 +32,6 @@ func (c *Client) MapRanges(ctx context.Context, params MapRangesParams) ([]posit
 		return nil, err
 	}
 
-	// Explainer: the diff is read with no context lines. With git's usual three, a hunk claims
-	// the untouched lines around a change as part of it, and a position on one of those lines
-	// comes back reported as written over when nothing touched it.
 	raw, err := RunBytes(ctx, root, mapRangesArgs(params)...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to diff %s against %s: %w", params.FromSHA, params.ToSHA, err)
@@ -71,11 +68,6 @@ func mapPatch(raw []byte) ([]position.Mapping, error) {
 
 // mapRangesArgs is the diff the mappings are read from.
 func mapRangesArgs(params MapRangesParams) []string {
-	// Explainer: the prefixes git writes on the header lines are pinned here. The parser drops
-	// the first segment of every path whatever it is, so a repository configured to write bare
-	// paths would have a real directory eaten off the front of each one. The whole tree is read
-	// rather than one path, because git applies a pathspec before it looks for renames, so
-	// filtering by a file's old path reports it deleted rather than renamed.
 	args := []string{
 		"-c", "core.quotepath=false",
 		"-c", "diff.external=",

@@ -512,8 +512,7 @@ func (s *LifecycleService) requireEveryAgent(ctx context.Context, ids []string) 
 func (s *LifecycleService) removeAgents(ctx context.Context, ids []string) error {
 	// The refs holding these agents' snapshots and the drafts they were writing about other
 	// agents both go before the rows naming them do, and both outside the delete's own
-	// transaction, so a delete that fails after them leaks a ref and loses a draft nobody has
-	// read, which is the cheapest thing on this branch to lose.
+	// transaction.
 	s.releaseRounds(ctx, ids)
 	s.dropOpenReviews(ctx, ids)
 

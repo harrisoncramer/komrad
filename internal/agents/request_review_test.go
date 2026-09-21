@@ -14,8 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestRequestReviewSpawnsTheReviewer pins what asking for a review makes, which is the child
-// weave would otherwise be relying on an agent to describe correctly for itself.
+// TestRequestReviewSpawnsTheReviewer pins what asking for a review makes.
 func TestRequestReviewSpawnsTheReviewer(t *testing.T) {
 	tmux := newFakeTmux()
 	st := newStore(t)
@@ -329,8 +328,8 @@ func TestWorktreeAgentIsToldToGetItsWorkRead(t *testing.T) {
 	assert.NotContains(t, briefing, "### When you are the one reviewing")
 }
 
-// TestRequestReviewIsNotCaughtByTheOrchestratorRefusal pins that the ordinary use of a child
-// still stands, since a reviewer is attached to an implementer rather than to an orchestrator.
+// TestRequestReviewIsNotCaughtByTheOrchestratorRefusal pins that the ordinary use of a child still
+// stands.
 func TestRequestReviewIsNotCaughtByTheOrchestratorRefusal(t *testing.T) {
 	tmux := newFakeTmux()
 	st := newStore(t)

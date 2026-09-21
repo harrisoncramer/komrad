@@ -82,9 +82,7 @@ func TestFlattenTranscript(t *testing.T) {
 	}
 }
 
-// TestReadLog covers what one pass over a log reports, which is what the syncer's
-// offset bookkeeping is built on: how far it may advance, and whether what is
-// already stored still describes the file.
+// TestReadLog covers what one pass over a log reports.
 func TestReadLog(t *testing.T) {
 	const firstTurn = `{"type":"user","message":{"content":"first turn"}}` + "\n"
 

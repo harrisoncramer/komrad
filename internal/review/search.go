@@ -148,7 +148,7 @@ func (v *View) matchText(y int) (string, bool) {
 	return v.quoteAt(y)
 }
 
-// quoteAt is a line as the diff draws it, which is what a thread quotes when it is opened.
+// quoteAt is a line as the diff draws it.
 func (v *View) quoteAt(y int) (string, bool) {
 	current, ok := v.getRow(y)
 	if !ok || current.kind != lineRow {

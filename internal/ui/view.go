@@ -83,7 +83,7 @@ func (m model) screenView() string {
 	}
 
 	// Asked for before either half is drawn, so the halves are laid out already knowing their
-	// column rather than sending every line of chrome back through paneWidth into the geometry.
+	// column.
 	held := m.at(split.sidebar)
 
 	// The list is drawn beside the form as the context the form was opened from, and takes none of

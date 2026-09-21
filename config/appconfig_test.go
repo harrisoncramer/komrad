@@ -316,9 +316,8 @@ func TestLoadDanglingSymlink(t *testing.T) {
 	assert.Contains(t, err.Error(), target, "what it points at is named, since that is the part that is missing")
 }
 
-// TestLoadAbsentFileDefaults covers the case the dangling link is separated from, nothing
-// at the default location, which is every install that never wrote a config and has to
-// come up on the built-in bindings.
+// TestLoadAbsentFileDefaults covers the case the dangling link is separated from, nothing at the
+// default location.
 func TestLoadAbsentFileDefaults(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 
@@ -685,8 +684,7 @@ func TestLoadRefusesAnEmptyBinding(t *testing.T) {
 	assert.Contains(t, err.Error(), "nav.up")
 }
 
-// TestResolveLayers covers naming a config file replacing the default rather than adding to
-// it, which is what lets a second instance be isolated from the first one's config.
+// TestResolveLayers covers naming a config file replacing the default rather than adding to it.
 func TestResolveLayers(t *testing.T) {
 	t.Run("no paths is the one default file", func(t *testing.T) {
 		home := t.TempDir()

@@ -14,8 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// newestMessage is the message a write's refusal was reported as, which is the one the region
-// draws and the one a test asking what the panel said is asking about.
+// newestMessage is the message a write's refusal was reported as.
 func newestMessage(m model) message {
 	if len(m.messages.items) == 0 {
 		return message{}
@@ -32,8 +31,8 @@ func oneMessage(summary, detail string) messagesState {
 	}}}
 }
 
-// TestMessagesRegionFitsTheMessage covers the rows the region takes: never more than the pane
-// keeps back for it, and one fewer while there is nothing to say, which is a row the list gets.
+// TestMessagesRegionFitsTheMessage covers the rows the region takes: never more than the pane keeps
+// back for it, and one fewer while there is nothing to say.
 func TestMessagesRegionFitsTheMessage(t *testing.T) {
 	m := detailsModel(&recordingTmux{})
 	m.height, m.width = 40, 60
@@ -79,8 +78,7 @@ func TestMessagesStackKeepsWhatCameBefore(t *testing.T) {
 	assert.Contains(t, ansi.Strip(m.messagesRegion(m.detailsView(), m.renderHelp(m.agentHelp()))), "+1")
 }
 
-// TestMessagesFocusTakesTheBlock covers focus moving the keys off the list, which is what draws
-// the whole message beside it rather than the three rows the region keeps.
+// TestMessagesFocusTakesTheBlock covers focus moving the keys off the list.
 func TestMessagesFocusTakesTheBlock(t *testing.T) {
 	m := detailsModel(&recordingTmux{})
 	m.height, m.width = 40, 120
@@ -141,8 +139,7 @@ func TestMessagesFocusGoesDormantOffItsScreen(t *testing.T) {
 	focused := m.toggleMessagesFocus()
 	require.True(t, focused.isMessagesFocused())
 
-	// The search screen draws no record and so no message region either, which is what makes the
-	// focus dormant rather than followed.
+	// The search screen draws no record and so no message region either.
 	focused.screen = screenSearch
 
 	assert.False(t, focused.isMessagesFocused())
@@ -256,7 +253,7 @@ func TestMessagesRegionExpandsWhenFocused(t *testing.T) {
 }
 
 // TestMessagesRegionLeavesTheReasonPlain covers the reason being the one part of an expanded
-// message drawn in the plain foreground, which is what makes it the part read first.
+// message drawn in the plain foreground.
 func TestMessagesRegionLeavesTheReasonPlain(t *testing.T) {
 	restore := lipgloss.ColorProfile()
 	t.Cleanup(func() { lipgloss.SetColorProfile(restore) })

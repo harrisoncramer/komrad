@@ -390,8 +390,8 @@ func TestSyncStartsOverOnALogEmptiedBetweenPasses(t *testing.T) {
 	assert.Empty(t, found.Matches, "and search no longer answers with the conversation that went")
 }
 
-// TestSyncKeepsEarlierConversations pins that a second conversation is copied alongside the
-// first rather than replacing it, which is what a log read from its start used to do.
+// TestSyncKeepsEarlierConversations pins that a second conversation is copied alongside the first
+// rather than replacing it.
 func TestSyncKeepsEarlierConversations(t *testing.T) {
 	st := newStore(t)
 	ctx := t.Context()

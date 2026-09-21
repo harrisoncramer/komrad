@@ -323,8 +323,8 @@ func TestSchedulesSearchWalksAndNarrows(t *testing.T) {
 	assert.Equal(t, []string{"nightly", "weekly"}, scheduleNames(narrowed.scheduleRows()))
 }
 
-// TestOpenWorktreesThroughAFilter covers the key from a narrowed agents list landing on the
-// hovered agent's directory, which is on a row the leaving screen's filter would have hidden.
+// TestOpenWorktreesThroughAFilter covers the key from a narrowed agents list landing on the hovered
+// agent's directory.
 func TestOpenWorktreesThroughAFilter(t *testing.T) {
 	m := worktreesModel()
 	m.screen = screenAgents

@@ -27,8 +27,7 @@ type reviewChapter struct {
 	// At is when the review closing the chapter was released, in clock terms, empty for the
 	// chapter nobody has reviewed yet.
 	At string
-	// Ordinal is the round the chapter ends at, which is the newest round whose comments existed
-	// while it was the work in hand.
+	// Ordinal is the round the chapter ends at.
 	Ordinal int32
 	// Until is when the agent moved past this chapter, in RFC 3339, empty for the chapter nothing
 	// follows.
@@ -75,8 +74,7 @@ func (m model) showReviewChapter(at int) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	// The whole change sits after the newest round rather than before the oldest, since it is
-	// the view that carries every round at once.
+	// The whole change sits after the newest round rather than before the oldest.
 	switch {
 	case at < 0:
 		at = 0
@@ -164,9 +162,6 @@ func (m *model) widenReviewBase() {
 
 // doesReviewFitBaseLegend reports whether the base key is worth a legend row.
 func (m model) doesReviewFitBaseLegend() bool {
-	// Explainer: the expanded legend is drawn whole rather than windowed, so a row past the pane
-	// overruns it. The record gives way first at these heights and the newest legend row goes
-	// next, while the key itself keeps working for a reader who knows it.
 	if m.helpExpanded && m.height > 0 && m.height < reviewLegendFloor {
 		return false
 	}

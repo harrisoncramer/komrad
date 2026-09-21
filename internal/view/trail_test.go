@@ -66,8 +66,8 @@ func TestTrailLaysItsCellsOutInColumns(t *testing.T) {
 	}
 }
 
-// TestPrepareKeepsTheTrailOnlyWhereTheListHasRoom covers the whole trail being given up
-// list-wide, on the pane alone, rather than row by row or one part at a time.
+// TestPrepareKeepsTheTrailOnlyWhereTheListHasRoom covers the whole trail being given up list-wide,
+// on the pane alone.
 func TestPrepareKeepsTheTrailOnlyWhereTheListHasRoom(t *testing.T) {
 	tests := []struct {
 		name string

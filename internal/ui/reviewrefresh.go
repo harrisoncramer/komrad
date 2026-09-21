@@ -195,18 +195,10 @@ func (m model) doesReviewFollowLive() bool {
 		return false
 	}
 
-	// Explainer: catching up reads a round of the tree, so following every save would leave a
-	// round behind every few seconds and watching would cost history again, which is the thing
-	// this screen is being rebuilt to stop. The end of a turn is the moment the agent has handed
-	// the work back, so it is both the cheapest place to catch up and the one worth drawing.
 	if m.isReviewAgentWriting() {
 		return false
 	}
 
-	// Explainer: the three below are each a reason the reader is holding a particular snapshot.
-	// Comments are pinned to the round they were written against, an earlier chapter is a
-	// photograph the reader chose, and a pinned diff is the one an unsent batch belongs to. Any of
-	// them makes redrawing underneath them a way to lose the reader's place or their words.
 	return !m.doesReviewHoldUnsent() && m.review.chapter < 0 && !m.review.pinned
 }
 

@@ -64,8 +64,7 @@ const (
 	// anything weave typed there would be fused with.
 	ActivityComposing
 
-	// ActivityUnrecognized is a frame that matched none of a harness's patterns, which is not the
-	// same claim as ActivityIdle.
+	// ActivityUnrecognized is a frame that matched none of a harness's patterns.
 	ActivityUnrecognized
 )
 

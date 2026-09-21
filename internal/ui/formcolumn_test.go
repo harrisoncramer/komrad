@@ -132,8 +132,7 @@ func TestFormIsSizedToItsColumn(t *testing.T) {
 }
 
 // TestFormStaysInsideTheFrame covers the form being drawn inside the window rather than past the
-// bottom of it, which is the whole reason the panel tells it how much room it has: the workflow
-// form asks for four moments of hooks under everything else and is taller than most terminals.
+// bottom of it.
 func TestFormStaysInsideTheFrame(t *testing.T) {
 	for _, height := range []int{16, 24, 32, 60} {
 		m := resizedTo(t, formColumnModel(t), 160, height)

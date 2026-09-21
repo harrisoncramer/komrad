@@ -13,12 +13,6 @@ import (
 	"weave/internal/fail"
 )
 
-// Explainer: a park is a commit parented on the head it was taken at, holding the whole
-// worktree as its tree. The parent keeps the commits an operation drops reachable and the tree
-// keeps the files it never committed, neither of which the reflog covers: that holds refs
-// rather than content, and expires. It is built through writeTree, so the agent's own index,
-// worktree and branch are left as they were and nothing is rehashed.
-
 // snapshotMessage is what the round's commit says.
 const snapshotMessage = "weave review round"
 
@@ -56,8 +50,7 @@ type Snapshot struct {
 	SHA     string
 }
 
-// ProbeTree writes an agent's worktree out as a tree and nothing else, which is the cheap way
-// to ask whether it has moved since a round was taken.
+// ProbeTree writes an agent's worktree out as a tree and nothing else.
 func (c *Client) ProbeTree(ctx context.Context, dir string) (string, error) {
 	root, err := c.GetRoot(ctx, dir)
 	if err != nil {
@@ -176,8 +169,7 @@ func (c *Client) ReleaseRef(ctx context.Context, dir, ref string) error {
 	return nil
 }
 
-// tempIndexPath names a file git may write an index to, leaving nothing there, since git reads
-// an existing empty file as a corrupt index.
+// tempIndexPath names a file git may write an index to, leaving nothing there.
 func tempIndexPath() (string, error) {
 	file, err := os.CreateTemp("", "weave-round-*.index")
 	if err != nil {
@@ -195,12 +187,6 @@ func tempIndexPath() (string, error) {
 
 	return path, nil
 }
-
-// Explainer: an index seeded from a commit carries no file times, sizes or inodes, so staging the
-// worktree into it makes git hash every tracked file again. Seeding it from the agent's own index
-// carries those times over, and git then hashes only the files whose times or sizes have moved,
-// which measured 0.12s against 2.2s on a repository of fourteen thousand files. The agent's index
-// is not always the better answer, so the two ways of filling one both stay.
 
 // seedIndexFromHead fills the temporary index from the last commit, and does nothing in a
 // repository with no HEAD.
@@ -255,13 +241,6 @@ func copyIndex(ctx context.Context, root, index string, _ []string) error {
 
 	return nil
 }
-
-// Explainer: assume-unchanged and skip-worktree both tell git to read the index instead of the
-// file. A round must not do that for a file the worktree has, or the agent's edit is left out of
-// the diff it is reviewed by and the tree does not move, so no new round opens. A flagged path the
-// worktree does not have is the other case, a sparse checkout, where nobody deleted anything and
-// the index is all there is. So the flags are cleared for the paths that are on disk and left for
-// the paths that are not.
 
 // errIndexUnreadable is the one failure the fallback stands for, so a snapshot seeded from the
 // last commit means the agent's index could not be read rather than that anything at all failed.
@@ -332,8 +311,7 @@ func presentPaths(root string, paths []string) []string {
 	return present
 }
 
-// revealPaths clears both flags in the temporary index, one command each, since git keeps only
-// the last of them named in a single one.
+// revealPaths clears both flags in the temporary index, one command each.
 func revealPaths(ctx context.Context, root, index string, env []string, paths []string) error {
 	if len(paths) == 0 {
 		return nil

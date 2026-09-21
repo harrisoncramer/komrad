@@ -373,8 +373,8 @@ func TestEnterReviewRefusesAnEmptyWorktree(t *testing.T) {
 	assert.Contains(t, newestMessage(m).detail, "no change")
 }
 
-// TestEnterReviewOpensAnUntrackedFile covers the worktree whose only work is a file git has
-// never seen, which is a diff to read even though git will draw none of it.
+// TestEnterReviewOpensAnUntrackedFile covers the worktree whose only work is a file git has never
+// seen.
 func TestEnterReviewOpensAnUntrackedFile(t *testing.T) {
 	repo := newFakeRepo(t.TempDir())
 	repo.wrote(wroteParams{
@@ -559,8 +559,7 @@ func TestReviewSidebarShowsTheThread(t *testing.T) {
 	assert.Contains(t, shown, "you")
 }
 
-// TestReviewSidebarSizesTheDiff pins the summary beside the diff, which is how many files
-// moved and by how many lines.
+// TestReviewSidebarSizesTheDiff pins the summary beside the diff.
 func TestReviewSidebarSizesTheDiff(t *testing.T) {
 	dir := reviewRepo(t)
 	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
@@ -1250,8 +1249,7 @@ func TestSettlingSurvivesTheCodeMoving(t *testing.T) {
 	assert.Contains(t, reviewGutterFor(t, m, "t1"), "✓")
 }
 
-// reviewGutterFor is the row a thread is drawn on, which is where the marks that say how a
-// thread stands are.
+// reviewGutterFor is the row a thread is drawn on.
 func reviewGutterFor(t *testing.T, m model, id string) string {
 	t.Helper()
 
@@ -1524,8 +1522,7 @@ func TestReviewSearchLeavesTheAgentsListAlone(t *testing.T) {
 	m.placeTreeCursor(rowKeyAt(m.agentRows(), m.tree.cursor))
 	assert.Equal(t, 1, m.tree.cursor, "and a refresh leaves the cursor where it was")
 
-	// Enter puts the prompt away and keeps the pattern, which is the state the bug needed: a
-	// search standing while the reader walks the diff and then leaves.
+	// Enter puts the prompt away and keeps the pattern.
 	next, _ := m.route(tea.KeyMsg{Type: tea.KeyEnter})
 	m = next.(model)
 	require.False(t, m.review.filter.typing)
@@ -1609,7 +1606,7 @@ func TestAViewedFileComesBackInTheNextRound(t *testing.T) {
 }
 
 // TestReviewMatchCountSpellsMatchesOffAMatch covers the branch the count falls back to when the
-// cursor is not standing on a hit, which is the only place it says the word rather than a number.
+// cursor is not standing on a hit.
 func TestReviewMatchCountSpellsMatchesOffAMatch(t *testing.T) {
 	dir := reviewRepo(t)
 	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
@@ -1701,7 +1698,7 @@ func TestReviewBaseNarrowsToTheLastReview(t *testing.T) {
 }
 
 // reviewWithAnEarlierReview is the panel on a second round with the first one reviewed and
-// released, which is the state every base key case starts from.
+// released.
 func reviewWithAnEarlierReview(t *testing.T, repo *fakeRepo, agents *fakeReviewAgents) model {
 	t.Helper()
 
@@ -1749,8 +1746,7 @@ func standOnAFinishedRound(m model) model {
 	return m
 }
 
-// pressReviewBase walks the base key the way the panel does, since narrowing answers off the UI
-// thread and the reply has to be applied for the screen to change.
+// pressReviewBase walks the base key the way the panel does.
 func pressReviewBase(t *testing.T, m model) model {
 	t.Helper()
 
@@ -1762,8 +1758,7 @@ func pressReviewBase(t *testing.T, m model) model {
 	loaded, ok := msg.(reviewLoadedMsg)
 	require.True(t, ok, "the reload answers with a load")
 
-	// A refused narrowing asks for the whole change again, which is the one thing a load can
-	// answer with.
+	// A refused narrowing asks for the whole change again.
 	if again := m.applyReviewLoaded(loaded); again != nil {
 		if answer, ok := again().(reviewLoadedMsg); ok {
 			m.applyReviewLoaded(answer)
@@ -1898,8 +1893,7 @@ func TestReviewBaseIsRefusedWhenTheBaseMoved(t *testing.T) {
 
 	assert.Nil(t, m.review.baseRound, "a round measured from somewhere else is not offered")
 
-	// The round is still a stop on the walk, since skipping it would make the key jump an
-	// unpredictable distance, and the band says why it cannot be compared.
+	// The round is still a stop on the walk.
 	next, cmd := m.updateReview(keyMsg("<"))
 	m = next.(model)
 	require.NotNil(t, cmd, "the walk still moves")

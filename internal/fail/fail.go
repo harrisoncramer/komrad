@@ -60,8 +60,7 @@ func (s *Error) Saying(format string, args ...any) *Error {
 	}
 }
 
-// Worded says whether a raise site chose this failure's message for one request, which is what
-// a caller is told in place of whatever the domain wrapped it in.
+// Worded says whether a raise site chose this failure's message for one request.
 func (s *Error) Worded() bool { return s.worded }
 
 // Unwrap returns the sentinel this one was worded from, or the failure it was built around.

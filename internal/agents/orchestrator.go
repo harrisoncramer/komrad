@@ -100,8 +100,7 @@ func (s *OrchestratorService) Start(ctx context.Context, workflowID string) (*ag
 	return s.resume.ResumeAgent(ctx, found.ID)
 }
 
-// hasSpoken reports whether an orchestrator ever held a conversation, which is what a resume
-// hands back to its CLI and what a person would lose if the row went.
+// hasSpoken reports whether an orchestrator ever held a conversation.
 func (s *OrchestratorService) hasSpoken(ctx context.Context, agent agentstore.Agent) (bool, error) {
 	stored, err := s.transcripts.Get(ctx, agent.ID)
 	if err != nil {
@@ -158,8 +157,7 @@ func (s *OrchestratorService) launchOrchestrator(ctx context.Context, workflowID
 	return started, err
 }
 
-// orchestratorDir is the scratch directory an orchestrator runs in, which is deliberately not
-// a checkout.
+// orchestratorDir is the scratch directory an orchestrator runs in, deliberately not a checkout.
 func (s *OrchestratorService) orchestratorDir(workflowID string) (string, error) {
 	dir := filepath.Join(s.stateDir, orchestratorDirName, workflowID)
 	if err := os.MkdirAll(dir, 0o755); err != nil {

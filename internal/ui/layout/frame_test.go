@@ -129,8 +129,7 @@ func TestFrameSizesTheNavPaneInColumnsAgainAfterARebuild(t *testing.T) {
 	assert.Equal(t, []string{"%0 40", "%0 40"}, tmux.resizes)
 }
 
-// TestFrameShowMeasuresThePane covers the width content is laid out to, which is the pane it
-// lands in as tmux reports it and not the share of the window the spec asked for.
+// TestFrameShowMeasuresThePane covers the width content is laid out to.
 func TestFrameShowMeasuresThePane(t *testing.T) {
 	tmux := &recordingTmux{width: 216}
 	frame := New(tmux, config.DefaultLayout())
@@ -192,9 +191,8 @@ func TestFrameShowLeavesThePagerAlone(t *testing.T) {
 	assert.Equal(t, []string{"%2"}, tmux.respawnPanes, "the record goes below, never into the stage")
 }
 
-// TestFrameShowKeylessContentAlwaysDraws covers content that names nothing it could be
-// compared against, which is how a flash asks to be drawn over what it is flashing and
-// leaves the region holding nothing the plain document after it matches.
+// TestFrameShowKeylessContentAlwaysDraws covers content that names nothing it could be compared
+// against.
 func TestFrameShowKeylessContentAlwaysDraws(t *testing.T) {
 	tmux := &recordingTmux{}
 	frame := New(tmux, config.DefaultLayout())

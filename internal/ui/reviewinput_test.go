@@ -53,8 +53,8 @@ func TestTheComposerKeepsReturnForItself(t *testing.T) {
 	assert.Equal(t, "one\n", m.review.editor.value(), "it opened a second line")
 }
 
-// TestTheComposerTakesAWidthItWasNotBuiltAt covers the field being sized from a resize rather
-// than at build time, which is what makes it follow a divider being dragged.
+// TestTheComposerTakesAWidthItWasNotBuiltAt covers the field being sized from a resize rather than
+// at build time.
 func TestTheComposerTakesAWidthItWasNotBuiltAt(t *testing.T) {
 	dir := reviewRepo(t)
 	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
@@ -123,8 +123,7 @@ func typeReviewLine(t *testing.T, m model, words string) model {
 	return m
 }
 
-// widestFieldRow is the longest row of the field itself, which is every row drawn with the bar
-// huh puts down its left.
+// widestFieldRow is the longest row of the field itself.
 func widestFieldRow(t *testing.T, m model) int {
 	t.Helper()
 

@@ -13,8 +13,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestPaneInAModeTakesNoKeys proves that nothing sent to a pane in a mode arrives, literally
-// or not, which is why delivery asks about the mode before it types.
+// TestPaneInAModeTakesNoKeys proves that nothing sent to a pane in a mode arrives, literally or
+// not.
 func TestPaneInAModeTakesNoKeys(t *testing.T) {
 	client := testServer(t, "weave")
 

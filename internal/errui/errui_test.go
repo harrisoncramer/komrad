@@ -223,8 +223,7 @@ func TestReason(t *testing.T) {
 	}
 }
 
-// TestTraceOf covers the id the service returns on a failure, which is what turns a banner
-// from a complaint into something a person can follow.
+// TestTraceOf covers the id the service returns on a failure.
 func TestTraceOf(t *testing.T) {
 	tests := []struct {
 		name string

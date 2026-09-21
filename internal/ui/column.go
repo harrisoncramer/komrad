@@ -248,7 +248,7 @@ func (m model) columnView(list func(model) string) string {
 	}
 
 	// Asked for before either half is drawn, so the halves are laid out already knowing their
-	// column rather than sending every line of chrome back through paneWidth into the geometry.
+	// column.
 	held := m.at(split.sidebar)
 
 	return m.joinColumns(split, list(held), held.docColumnView(split))

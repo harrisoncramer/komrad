@@ -21,7 +21,7 @@ func Drawings() []Drawn {
 	return drawings
 }
 
-// glyphNames is what each glyph is called in a report, since a Glyph is a number everywhere else.
+// glyphNames is what each glyph is called in a report.
 var glyphNames = []struct {
 	glyph Glyph
 	name  string

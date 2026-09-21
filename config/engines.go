@@ -19,8 +19,8 @@ func EnginesDir() (string, error) {
 	return filepath.Join(dir, "engines"), nil
 }
 
-// EnginePath is the file named engine, which is layered over the config rather than replacing
-// it, so it carries only what differs from running the engine on this machine.
+// EnginePath is the file named engine, layered over the config and carrying only what differs
+// from running the engine on this machine.
 func EnginePath(name string) (string, error) {
 	if strings.TrimSpace(name) == "" {
 		return "", errors.New("--engine was given an empty name")

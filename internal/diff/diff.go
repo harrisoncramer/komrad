@@ -32,8 +32,7 @@ type Line struct {
 type Hunk struct {
 	Header string
 	Lines  []Line
-	// NewStart is the first line of the new side the hunk covers, which is where the run of
-	// lines above it ends.
+	// NewStart is the first line of the new side the hunk covers.
 	NewStart int
 }
 
@@ -50,7 +49,7 @@ type File struct {
 	Content string
 }
 
-// Path is the name to show the file under, which is where it ended up unless it was deleted.
+// Path is the name to show the file under: where it ended up unless it was deleted.
 func (f File) Path() string {
 	if f.NewPath != "" {
 		return f.NewPath

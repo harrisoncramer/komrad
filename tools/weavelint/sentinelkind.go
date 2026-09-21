@@ -104,7 +104,7 @@ func isExcluded(pass *analysis.Pass, file *ast.File, excluded []*regexp.Regexp) 
 	return false
 }
 
-// repoRelative is the path the patterns are written against, which is where lint was run from.
+// repoRelative is the path the patterns are written against.
 func repoRelative(path string) string {
 	root, err := os.Getwd()
 	if err != nil {

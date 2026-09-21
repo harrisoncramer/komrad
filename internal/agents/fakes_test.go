@@ -38,8 +38,7 @@ type fakeTmux struct {
 	detached       []string
 	sessionOptions map[string]string
 	newWindowErr   error
-	// beforeNewWindow runs before a window is opened, which is where a test holds one resume
-	// open while another arrives.
+	// beforeNewWindow runs before a window is opened.
 	beforeNewWindow func()
 	newWindowCalls  int
 	setOwnerErr     error
@@ -353,8 +352,7 @@ func (f *fakeHarness) ReadInput(frame string) harness.Input {
 	}
 }
 
-// composingLines is the box's lines out of the frame a test wrote, which is one line of its own
-// unless the test spelled some.
+// composingLines is the box's lines out of the frame a test wrote.
 func composingLines(held string) []string {
 	if held == "" {
 		return []string{"half a question about"}
@@ -431,8 +429,7 @@ func (s *testStore) Update(ctx context.Context, agent agentstore.Agent) error {
 	return s.Agents.Update(ctx, agent)
 }
 
-// ForgetPane drops an agent's recorded pane, which is what the reconciler does to a row
-// whose pane is no longer its own.
+// ForgetPane drops an agent's recorded pane.
 func (s *testStore) ForgetPane(ctx context.Context, params agentstore.ForgetPaneParams) (bool, error) {
 	return s.Agents.ForgetPane(ctx, params)
 }
@@ -445,8 +442,7 @@ func (s *testStore) ListAll(ctx context.Context) ([]agentstore.Agent, error) {
 	return s.Agents.ListAll(ctx)
 }
 
-// SoftDelete archives the live agent with this name, which is how these tests reach the
-// archive without holding an id.
+// SoftDelete archives the live agent with this name.
 func (s *testStore) SoftDelete(ctx context.Context, name string) error {
 	agent, err := s.LiveAgentByName(ctx, name)
 	if err != nil {
@@ -957,8 +953,7 @@ func seedWorkflow(t *testing.T, st *testStore) string {
 	return created.ID
 }
 
-// disableProvisioner writes the one override an agent can carry, which is set when the agent is
-// created and never through an update.
+// disableProvisioner writes the one override an agent can carry.
 func disableProvisioner(t *testing.T, st *testStore, id string) {
 	t.Helper()
 
@@ -981,8 +976,7 @@ func backdateStateChanged(t *testing.T, st *testStore, id string, age time.Durat
 	require.NoError(t, err)
 }
 
-// worktreeConfig is a workflow that provisions worktrees, which is the only way a workflow has
-// anything to tear down now that it cannot name a script of its own.
+// worktreeConfig is a workflow that provisions worktrees.
 func worktreeConfig(t *testing.T, name string) workflowstore.Config {
 	t.Helper()
 

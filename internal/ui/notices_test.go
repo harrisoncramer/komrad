@@ -217,8 +217,7 @@ func TestNoticesCutTheFirstOneShort(t *testing.T) {
 	assert.NotContains(t, drawn, "log unread")
 }
 
-// TestNoticesStayInsideTheColumn covers the cut line, which is the one place the record draws
-// prose it does not clip: the ellipsis has to sit inside the column rather than a cell past it.
+// TestNoticesStayInsideTheColumn covers the cut line.
 func TestNoticesStayInsideTheColumn(t *testing.T) {
 	for width := 16; width <= 120; width++ {
 		m := detailsModel(&recordingTmux{})
@@ -299,16 +298,6 @@ func TestNoticesAlignAndFitTheColumn(t *testing.T) {
 		}
 	}
 }
-
-// Explainer: the notice tables gave up the compile-time answer-for-it that an exhaustive switch
-// buys, so these keep it where it is actually wanted. A new column state draws a glyph on every
-// row that has it, and a table that has never heard of it stays silent, which is the record
-// disagreeing with the row about a mark: the defect this whole branch exists to close, arriving
-// with the suite green. Requiring every state to be either spoken for or named as deliberately
-// silent fails on the day somebody adds one. The bar is the exception: its sentences key on the
-// agent state behind it rather than on the bar, and agentstore.State is a string enum mirroring a
-// Postgres one, so there is no sentinel to walk. What forces an answer for an eighth state there
-// is snapshotStatus, whose switch over State carries no default.
 
 // TestEveryRepoStateIsSpokenForOrSilent walks the repo column.
 func TestEveryRepoStateIsSpokenForOrSilent(t *testing.T) {

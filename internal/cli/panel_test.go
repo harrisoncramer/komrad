@@ -13,11 +13,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// Explainer: the panel's stderr is the tmux pane it draws in, so a record written there is
-// painted over by the alt screen and lost when the window closes, which is why a panel that
-// died left nothing behind at all. These cover the records reaching the file instead, and
-// saying which of the two processes appending to it wrote them.
-
 // TestInstallPanelLoggerWritesToTheLogFile covers where a panel-side record ends up.
 func TestInstallPanelLoggerWritesToTheLogFile(t *testing.T) {
 	restore := slog.Default()

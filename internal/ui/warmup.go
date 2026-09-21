@@ -27,8 +27,7 @@ type warmupState struct {
 	since   map[string]time.Time
 	polling bool
 	pending string
-	// pendingHarness is read off the write rather than a listing, since the new row is not in one
-	// yet.
+	// pendingHarness is read off the write rather than a listing.
 	pendingHarness string
 	// closesForm says the create's own form is still up behind the wait, so the reveal takes it
 	// down in the same change.

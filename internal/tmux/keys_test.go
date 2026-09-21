@@ -25,8 +25,7 @@ func TestBindRootKeyTakesTheKeyFromThePanes(t *testing.T) {
 	assert.NotContains(t, keyTable(t, client, "root"), "F1", "unbinding gives the key back")
 }
 
-// TestBindKeyStaysBehindThePrefix pins that an ordinary binding is only reachable after the
-// prefix, which is what keeps it out of the way of whatever is running in the panes.
+// TestBindKeyStaysBehindThePrefix pins that an ordinary binding is only reachable after the prefix.
 func TestBindKeyStaysBehindThePrefix(t *testing.T) {
 	client := testServer(t, "keys")
 

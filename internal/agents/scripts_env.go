@@ -48,8 +48,8 @@ type scriptEnvParams struct {
 	script  string
 }
 
-// ListHooks returns the available hooks in name order, which is the order they run in on a
-// moment that holds several.
+// ListHooks returns the available hooks in name order, the order they run in on a moment that
+// holds several.
 func (s *ScriptService) ListHooks() ([]scripts.Script, error) {
 	dirs, err := s.hookDirs()
 	if err != nil {
@@ -86,8 +86,7 @@ func (s *ScriptService) hookDirs() ([]string, error) {
 	return []string{dir}, nil
 }
 
-// builtinDirs is where the scripts weave ships live, which is the only place a script that is
-// not a hook comes from.
+// builtinDirs is where the scripts weave ships live.
 func (s *ScriptService) builtinDirs() []string {
 	return []string{s.builtinDir}
 }

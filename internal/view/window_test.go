@@ -57,7 +57,7 @@ func windowed(t *testing.T, focused string, lines int) []string {
 }
 
 // TestWindowFitsThePane pins where the list is scrolled to and what it says about the rows it is
-// not showing, which is the whole of what windowing decides.
+// not showing.
 func TestWindowFitsThePane(t *testing.T) {
 	tests := []struct {
 		name    string

@@ -49,8 +49,7 @@ func TestEveryMethodsFlagsBuildARequestItsSchemaAccepts(t *testing.T) {
 	}
 }
 
-// flagsGivenUp is every flag but the first of each oneof, since filling two members of one sets
-// it twice and the schema reads that as malformed.
+// flagsGivenUp is every flag but the first of each oneof.
 func flagsGivenUp(fields *requestFields) map[string]bool {
 	given := map[string]bool{}
 	for _, group := range fields.exclusive {
@@ -62,8 +61,7 @@ func flagsGivenUp(fields *requestFields) map[string]bool {
 	return given
 }
 
-// TestAOneofsFlagsRefuseEachOther pins that the command turns two members of one oneof away
-// itself, rather than building a request the schema then reads as malformed.
+// TestAOneofsFlagsRefuseEachOther pins that the command turns two members of one oneof away itself.
 func TestAOneofsFlagsRefuseEachOther(t *testing.T) {
 	var found bool
 

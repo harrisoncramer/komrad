@@ -105,8 +105,7 @@ func New(root string) (*Harness, error) {
 // ID is the name an agent running this harness is recorded under.
 func (h *Harness) ID() string { return ID }
 
-// Binary is the script this harness runs, which is a path rather than a name on PATH
-// since the whole point of the fake is that it is written into a test's own directory.
+// Binary is the script this harness runs, as a path rather than a name on PATH.
 func (h *Harness) Binary() string { return h.script }
 
 // MintSessionID names the conversation before it exists, the way a CLI that takes an id on
@@ -202,8 +201,7 @@ func (h *Harness) SetActivity(agentID string, activity harness.Activity) error {
 	return h.Show(agentID, line)
 }
 
-// Show is the line an agent prints on its next tick, which is how a test leaves a pane showing
-// something nothing recognises.
+// Show is the line an agent prints on its next tick.
 func (h *Harness) Show(agentID, line string) error {
 	path := filepath.Join(h.root, "state", agentID)
 	if err := os.WriteFile(path, []byte(line), 0o600); err != nil {
@@ -234,8 +232,7 @@ func (h *Harness) Typed(agentID string) ([]string, error) {
 	return typed, nil
 }
 
-// Say appends a turn to a conversation, which is how a test gives the syncer text to index
-// without waiting on an agent.
+// Say appends a turn to a conversation.
 func (h *Harness) Say(sessionID, role, content string) error {
 	path := filepath.Join(h.root, "logs", sessionID+".jsonl")
 

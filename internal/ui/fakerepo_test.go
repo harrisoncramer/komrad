@@ -109,7 +109,7 @@ index 0000000000000000000000000000000000000000..a3c7f6e558464c8b1b0eab6d0a6c5368
 `
 
 // fakePatchOfATallFile changes one line in the middle of a file long enough that three lines of
-// context leave most of it off the screen, which is the file expanding exists for.
+// context leave most of it off the screen.
 const fakePatchOfATallFile = `diff --git a/tall.go b/tall.go
 index 0a90f17972dec66c378df67739faaf48b6235df9..23cef252a97433f151c14725c88e0c2dafce63ef 100644
 --- a/tall.go
@@ -326,8 +326,7 @@ type patchBetweenParams struct {
 // patchBetween is what git reports between two snapshots, refusing a pair the test never stated
 // rather than answering as a pair nothing changed between.
 func (f *fakeRepo) patchBetween(params patchBetweenParams) (string, error) {
-	// A snapshot against itself is nothing changed, which is git's own answer rather than
-	// something a test has to state.
+	// A snapshot against itself is nothing changed.
 	if params.FromSHA == params.ToSHA {
 		return "", nil
 	}

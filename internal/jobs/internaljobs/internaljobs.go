@@ -10,14 +10,12 @@ import (
 	schedulestore "weave/internal/store/schedule"
 )
 
-// ScheduleGetter reads the one schedule a firing names, which is all the launch job knows
-// about the table.
+// ScheduleGetter reads the one schedule a firing names.
 type ScheduleGetter interface {
 	Get(ctx context.Context, id string) (*schedulestore.Schedule, error)
 }
 
-// ScheduleLister reads every schedule, which is what the reconciler compares River's
-// registrations against.
+// ScheduleLister reads every schedule.
 type ScheduleLister interface {
 	List(ctx context.Context) ([]schedulestore.Schedule, error)
 }

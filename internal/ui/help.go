@@ -54,9 +54,8 @@ func (m model) renderHelp(k keyMap, above ...string) string {
 	}
 
 	// bubbles truncates a column wider than it was given to a single ellipsis rather than wrapping
-	// it, and helpColumns has already dropped to one column by then, so a legend the sidebar
-	// cannot hold gives way to its short form, a width of zero being a panel that has not been
-	// told how wide it is and which bubbles reads as no limit.
+	// it, so a legend the sidebar cannot hold gives way to its short form, a width of zero being a
+	// panel that has not been told how wide it is and which bubbles reads as no limit.
 	columns := helpColumns(byLabel(k.full), width)
 	full := fitLegend(view.FullHelpView(columns), width) + "\n"
 	if (width > 0 && helpWidth(columns) > width) || !m.doesLegendLeaveARow(full, above) {
@@ -125,8 +124,7 @@ func splitColumns(bindings []key.Binding, columns int) [][]key.Binding {
 	return split
 }
 
-// fitLegend cuts each row of the legend to the column it is drawn in, since bubbles keeps adding
-// items once the ellipsis it would put in their place no longer fits.
+// fitLegend cuts each row of the legend to the column it is drawn in.
 func fitLegend(rendered string, width int) string {
 	lines := strings.Split(rendered, "\n")
 	for i, line := range lines {

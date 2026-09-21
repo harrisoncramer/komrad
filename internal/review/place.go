@@ -76,10 +76,6 @@ func (v *View) PinThreads(threads []*agentv1.ReviewThread) {
 
 	pending = append(pending, moved...)
 
-	// Explainer: the arms are walked outside the threads rather than inside them. A row goes to
-	// the first thread that reaches it, so walking thread by thread hands the row to whichever
-	// thread the query happened to return first, and a guess from a low arm can take a row a
-	// higher one wanted.
 	for _, arm := range placeArms() {
 		pending = v.placeByArm(index, arm, pending)
 	}
@@ -159,9 +155,6 @@ func (v *View) rowByQuote(index lineIndex, thread *agentv1.ReviewThread) (int, p
 		return 0, adrift, false
 	}
 
-	// Explainer: only the bare reading is weighed by side. A drawn match is the spelling the row
-	// is actually written in, so nothing about it is a guess, and charging it for the ambiguity
-	// the bare reading carries gives up rows the diff agrees with.
 	drawn, bare := index.quoted(v.pathOf(thread), quote)
 
 	found := slices.Clone(drawn)
@@ -248,8 +241,7 @@ func (v *View) appendAdrift(threads []*agentv1.ReviewThread) {
 }
 
 // doesExpandingDraw reports whether a thread stands on a line the reader would see again by
-// opening its file out, which is a comment off screen by their own choice rather than one the
-// agent has written over.
+// opening its file out.
 func (v *View) doesExpandingDraw(thread *agentv1.ReviewThread) bool {
 	path := v.pathOf(thread)
 	if v.expanded[path] || thread.GetNewStart() == 0 {

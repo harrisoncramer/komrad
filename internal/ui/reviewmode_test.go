@@ -438,8 +438,7 @@ func TestSendingIsRefusedWhileAReviewIsOutWithNothingWritten(t *testing.T) {
 	assert.Nil(t, agents.released)
 }
 
-// TestSendingAReplyIsAllowedWhileAReviewIsOut is the other half, since a reply nobody can send
-// never reaches the agent the wait is waiting on.
+// TestSendingAReplyIsAllowedWhileAReviewIsOut is the other half.
 func TestSendingAReplyIsAllowedWhileAReviewIsOut(t *testing.T) {
 	dir := reviewRepo(t)
 	agents := &fakeReviewAgents{}
@@ -456,8 +455,7 @@ func TestSendingAReplyIsAllowedWhileAReviewIsOut(t *testing.T) {
 	assert.Empty(t, m.review.notice)
 }
 
-// reviewRepoWithADeletion is a worktree whose round both changes a file and removes one, since a
-// removed file is the row the editor key has nothing to open.
+// reviewRepoWithADeletion is a worktree whose round both changes a file and removes one.
 func reviewRepoWithADeletion(t *testing.T) *fakeRepo {
 	t.Helper()
 
@@ -514,8 +512,7 @@ func pressEdit(t *testing.T, m model) model {
 	return written
 }
 
-// settlePause runs the stop the pass asked for and hands the panel what came back, which is what
-// opens the editor or the composer.
+// settlePause runs the stop the pass asked for and hands the panel what came back.
 func settlePause(t *testing.T, m model, cmd tea.Cmd) model {
 	t.Helper()
 
@@ -579,8 +576,8 @@ func TestAnEditThatTakesOpensTheEditingMode(t *testing.T) {
 	assert.NotEmpty(t, m.review.editingPath, "and the band can name what it opened")
 }
 
-// TestAnEditPausesAnAgentMidTurn pins what a pass does about two writers in one checkout: it
-// stops the one that is not you, rather than refusing you the key.
+// TestAnEditPausesAnAgentMidTurn pins what a pass does about two writers in one checkout: it stops
+// the one that is not you.
 func TestAnEditPausesAnAgentMidTurn(t *testing.T) {
 	dir := reviewRepo(t)
 	agents := &fakeReviewAgents{}
@@ -1132,9 +1129,6 @@ func TestTheOpenCommentKeyDoesNotClaimAFoldedReviewIsSettled(t *testing.T) {
 	assert.NotContains(t, written.review.notice, "settled")
 }
 
-// Explainer: the cursor can be on the last comment the walk can reach while another sits in a
-// file folded away. Saying only the first contradicts the legend, which is counting both.
-
 // TestTheOpenCommentKeySaysBothWhenOneIsFoldedAway pins which of the two the key says.
 func TestTheOpenCommentKeySaysBothWhenOneIsFoldedAway(t *testing.T) {
 	repo := newFakeRepo(t.TempDir())
@@ -1239,8 +1233,8 @@ func TestEditingIsRefusedWhileYourReviewIsOwedAnAnswer(t *testing.T) {
 	assert.Contains(t, written.review.notice, keyLabel(m.keys.Review.Resolve), "and it names the key that settles one")
 }
 
-// TestEditingADormantAgentIsAllowedWhileOwedAnAnswer pins the escape the service has and this
-// gate needs more, since editing is the one key this screen keeps for an agent nobody can reach.
+// TestEditingADormantAgentIsAllowedWhileOwedAnAnswer pins the escape the service has and this gate
+// needs more.
 func TestEditingADormantAgentIsAllowedWhileOwedAnAnswer(t *testing.T) {
 	dir := reviewRepo(t)
 	agents := &fakeReviewAgents{}
@@ -1261,8 +1255,7 @@ func TestEditingADormantAgentIsAllowedWhileOwedAnAnswer(t *testing.T) {
 	assert.Equal(t, modeReviewing, m.review.mode, "an agent that will never answer is not a wait")
 }
 
-// TestEditingIsAllowedOnceNothingIsOwed is the other half, since a gate that never lifts is a
-// gate nobody can get past.
+// TestEditingIsAllowedOnceNothingIsOwed is the other half.
 func TestEditingIsAllowedOnceNothingIsOwed(t *testing.T) {
 	dir := reviewRepo(t)
 	agents := &fakeReviewAgents{}

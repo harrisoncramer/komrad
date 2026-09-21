@@ -178,8 +178,8 @@ func TestRoundsEitherSideOfARebaseReplayToTheAgentsOwnChange(t *testing.T) {
 	assert.Equal(t, []string{"", "func Again() {}"}, added, "the agent's own edit, with the base's line on neither side")
 }
 
-// TestRoundsEitherSideOfAConflictedRebaseNameThePath covers the agent resolving a real clash
-// during the rebase, which is the one case the screen keeps refusing, with the path named.
+// TestRoundsEitherSideOfAConflictedRebaseNameThePath covers the agent resolving a real clash during
+// the rebase.
 func TestRoundsEitherSideOfAConflictedRebaseNameThePath(t *testing.T) {
 	rounds := reviewAcrossARebase(t, "package greet\n\nfunc Hello() {}\n\nfunc Main() {}\n", true)
 

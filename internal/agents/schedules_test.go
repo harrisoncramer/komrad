@@ -13,8 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestParseCron covers what the scheduler accepts, which is whether the five fields the
-// proto counted mean anything.
+// TestParseCron covers what the scheduler accepts.
 func TestParseCron(t *testing.T) {
 	tests := []struct {
 		name       string

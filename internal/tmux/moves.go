@@ -40,8 +40,7 @@ func (c *Client) MovePanes(moves []panes.Move) {
 	}
 }
 
-// argsForMove is the commands one move stands for, which is two for a respawn since the pane's
-// scrollback outlives the process that wrote it.
+// argsForMove is the commands one move stands for, two for a respawn.
 func argsForMove(move panes.Move) [][]string {
 	if move.Pane == "" {
 		return nil

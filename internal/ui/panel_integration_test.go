@@ -105,8 +105,7 @@ func TestStagedAgentExitsOnItsOwn(t *testing.T) {
 		"the panel is a nav pane and a stage pane again, the now-dormant agent's record in the stage")
 }
 
-// TestArchivingAWorkflowSendsItsPanesBack covers the panel's own stage pane, which is parked in
-// the staged agent's window and would be killed with it.
+// TestArchivingAWorkflowSendsItsPanesBack covers the panel's own stage pane.
 func TestArchivingAWorkflowSendsItsPanesBack(t *testing.T) {
 	staged := newStagedPanel(t)
 	panel := staged.panel
@@ -280,7 +279,7 @@ func TestPanelKeepsTheWindowLeavingARunningAgent(t *testing.T) {
 }
 
 // TestPanelIsTheSizeOfThePaneItWasGiven covers the panel drawing at the size of the pane it has
-// just been given rather than the one it had before the zoom, which is what the flicker was.
+// just been given rather than the one it had before the zoom.
 func TestPanelIsTheSizeOfThePaneItWasGiven(t *testing.T) {
 	instance := weavetest.Start(t, weavetest.Params{})
 	ctx := t.Context()
@@ -323,7 +322,7 @@ func TestPanelIsTheSizeOfThePaneItWasGiven(t *testing.T) {
 	panel = settle(t, panel, panel.refreshCmd())
 	require.Equal(t, []string{"header:backend", "agent:login"}, describeRows(panel.agentRows()))
 
-	// The one report the panel gets for free, which is the terminal's own on the way in.
+	// The one report the panel gets for free.
 	panel.width, panel.height = client.GetPaneWidth(sidebar), client.GetPaneHeight(sidebar)
 	share := panel.width
 	require.Less(t, share, 341, "the panel starts on its share of the frame")

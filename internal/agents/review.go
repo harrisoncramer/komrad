@@ -103,10 +103,10 @@ type NewReviewServiceParams struct {
 	Mailer      reviewNoticeSender
 	Resumer     reviewerResumer
 	Interrupter agentInterrupter
-	// StateDir is where weave keeps its own files, which is where a released review is written.
+	// StateDir is where weave keeps its own files.
 	StateDir string
-	// NoticeDebounce overrides how long armReviewerNotice waits before telling a reviewer, which
-	// defaults to reviewerWakeDebounce when left at zero.
+	// NoticeDebounce overrides how long a reviewer's notice waits for another answer from the
+	// same author, zero meaning the default.
 	NoticeDebounce time.Duration
 }
 
@@ -297,10 +297,6 @@ func (s *ReviewService) CreateReviewThread(
 		return nil, err
 	}
 
-	// Explainer: a review is written against one snapshot. Letting a second snapshot into the
-	// batch already open would send the agent comments about two versions of its work in one
-	// message, with nothing in the batch saying which comment meant which. So the reader sends
-	// what they have before starting on another snapshot.
 	if open.RoundID != round.ID {
 		held, err := s.rounds.GetRound(ctx, open.RoundID)
 		if err != nil {
@@ -418,9 +414,8 @@ func (s *ReviewService) wakeTheReviewer(ctx context.Context, reviewer agentstore
 	}
 }
 
-// reviewerWakeDebounce is how long armReviewerNotice waits for another answer from the same
-// author before it tells the reviewer, so a run of replies made one thread at a time collapses
-// into the one notice and wake the last of them leaves behind.
+// reviewerWakeDebounce is how long a reviewer's notice waits for another answer from the same
+// author before it is sent.
 const reviewerWakeDebounce = 5 * time.Second
 
 // pendingReviewerNotice is the debounce armed for one author's pending answer, tracked by a
@@ -622,11 +617,6 @@ func (s *ReviewService) SetReviewThreadResolved(
 		return nil, err
 	}
 
-	// Explainer: whether a thread is settled is what says whether a review is finished, so an
-	// agent that could settle a comment about its own work would be marking its own homework. What
-	// it may settle is a comment it wrote itself, which is how a reviewer says the answer was good
-	// enough. A person may settle anything, including somebody else's, since somebody has to be
-	// able to clear a thread whose author is gone.
 	if !params.Author.IsHuman() && !doesOwnReview(params.Author, *thread) {
 		return nil, ErrReviewNotYours.Saying(
 			"%q is a comment about your own work, so it is not yours to settle", params.ID)

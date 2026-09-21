@@ -21,9 +21,6 @@ const reviewScopeOnTone = paint.ToneAccent
 // reviewBandView is what stands over the diff: what is being read, how big it is, what the
 // reader has sent, and the pattern they are searching it for.
 func (m model) reviewBandView(width int) string {
-	// Explainer: the band is built as rows rather than one string so a short pane can drop the
-	// ones it has no room for. What the reader is doing and what they are looking at are worth
-	// more than the counts, so the counts go first and the mode line never goes at all.
 	kept := m.reviewBandRows()
 
 	out := strings.Join(kept, "") + "\n\n" + m.review.filter.view(paint.Panel) + m.reviewMatchCount()

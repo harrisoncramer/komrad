@@ -103,8 +103,8 @@ func isPending(ctx context.Context, pool *pgxpool.Pool, versions []string) (bool
 	return len(pending) > 0, nil
 }
 
-// queryer is what pendingVersions reads through, so the same walk of the ledger serves both the
-// pool and the locked connection.
+// queryer is the connection a walk of the ledger reads through, the pool or the locked
+// connection.
 type queryer interface {
 	Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
 }
@@ -214,15 +214,6 @@ func apply(ctx context.Context, pool *pgxpool.Pool, set migrationSet) error {
 // ErrDatabaseInUse is returned rather than migrating a database another weave is on.
 var ErrDatabaseInUse = errors.New("another weave is using this database")
 
-// Explainer: every pool connects under AppName, so a connection named after another process
-// is another weave, and that one is serving queries written against the schema it started
-// with. Applying migrations it has never seen breaks it until it restarts. The case this is
-// written for is a worktree whose WEAVE_DATABASE_URL still points at the panel's database
-// because nothing told it otherwise, where any command opens the store, the store migrates,
-// and the panel stops being able to read its own tables. A pass with nothing pending never
-// reaches here, so such a checkout is only refused once it holds a migration the panel does
-// not have.
-
 // refuseSharedDatabase stops a pass that would change the schema under a weave already
 // running against the same database.
 func refuseSharedDatabase(ctx context.Context, conn *pgxpool.Conn, pending []string) error {
@@ -254,8 +245,7 @@ func refuseSharedDatabase(ctx context.Context, conn *pgxpool.Conn, pending []str
 // unlockTimeout bounds the unlock so it cannot hang on a connection whose peer is gone.
 const unlockTimeout = 5 * time.Second
 
-// releaseMigrateLock unlocks on a context of its own, since a cancelled caller context would
-// fail before reaching the server and leave the pooled connection holding the lock.
+// releaseMigrateLock unlocks on a context of its own.
 func releaseMigrateLock(ctx context.Context, conn *pgxpool.Conn) {
 	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), unlockTimeout)
 	defer cancel()

@@ -59,8 +59,7 @@ an agent's pane into a panel nobody is looking at.`,
 				return nil
 			}
 
-			// Only the attaching path says which window is current, since select-window moves every
-			// client attached to the session and nobody asked a detached open to move them.
+			// Only the attaching path says which window is current.
 			state.tmux.SelectWindow(state.tmux.GetPanelPane())
 
 			socket := tmux.SocketFromEnv(state.env.Tmux)
@@ -95,11 +94,6 @@ func attachManagerSession(ctx context.Context, state *app) error {
 func isManagerSessionRunning(ctx context.Context, state *app) bool {
 	return state.tmuxCommand(ctx, "has-session", "-t", agents.ManagerSession).Run() == nil
 }
-
-// Explainer: the manager session holds a window per agent as well as the panel's own, so it
-// answers has-session long after the panel process has gone. Asking about the session alone
-// therefore reports a panel that is not there, and an open on that answer attaches a session
-// with no panel in it.
 
 // isPanelRunning reports whether a panel is drawing in the manager session.
 func isPanelRunning(ctx context.Context, state *app) bool {
@@ -144,8 +138,7 @@ func ensureManagerSession(ctx context.Context, state *app, detached, headless bo
 		buildPanelWindowArgs(state, state.selfPath(), detached))
 }
 
-// silenceManagerPrefix leaves the engine's own server answering to no prefix, since a headless
-// session is a transport for a panel elsewhere rather than something anybody drives from here.
+// silenceManagerPrefix leaves the engine's own server answering to no prefix.
 func silenceManagerPrefix(state *app) {
 	state.tmux.SetGlobal("prefix", "None")
 	state.tmux.SetGlobal("prefix2", "None")

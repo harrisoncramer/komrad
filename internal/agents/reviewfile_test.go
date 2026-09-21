@@ -9,8 +9,8 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// TestAReviewSaysWhereARemovedLineWasCounted pins that a comment on a deleted line names the
-// commit its numbers were read against, which is not always the round's base.
+// TestAReviewSaysWhereARemovedLineWasCounted pins that a comment on a deleted line names the commit
+// its numbers were read against.
 func TestAReviewSaysWhereARemovedLineWasCounted(t *testing.T) {
 	tests := []struct {
 		name        string

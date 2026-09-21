@@ -164,9 +164,8 @@ func TestNewChildAgentRunsNoHooks(t *testing.T) {
 	assert.Len(t, lifecycle.ranHooks(), before, "no moment fires for a child")
 }
 
-// TestARetiredProvisionerRunsNoHooks pins the other half of the ownership rule: an agent
-// handed somebody else's checkout, which is what adopting a branch a human has open does,
-// must not have install-deps run inside it.
+// TestARetiredProvisionerRunsNoHooks pins the other half of the ownership rule: an agent handed
+// somebody else's checkout.
 func TestARetiredProvisionerRunsNoHooks(t *testing.T) {
 	tmux := newFakeTmux()
 	st := newStore(t)
@@ -249,8 +248,7 @@ func TestWorkflowHooksRoundTripInOrder(t *testing.T) {
 		"an update writes the whole list rather than adding to it")
 }
 
-// TestResumeFiresPostResumeHooks pins the moment a dormant agent comes back in, which is the
-// one hook a resume runs: the provisioner reruns before it, as it always has.
+// TestResumeFiresPostResumeHooks pins the moment a dormant agent comes back in.
 func TestResumeFiresPostResumeHooks(t *testing.T) {
 	st := newStore(t)
 	tmux := newFakeTmux()
@@ -284,8 +282,7 @@ func TestResumeFiresPostResumeHooks(t *testing.T) {
 	assert.Equal(t, "announce-back", ran[0].Script, "and pre-launch does not rerun")
 }
 
-// TestRestoreFiresPostRestoreHooks pins the moment the row comes back, which is not the moment
-// the pane does: a restored agent is dormant until somebody opens it.
+// TestRestoreFiresPostRestoreHooks pins the moment the row comes back.
 func TestRestoreFiresPostRestoreHooks(t *testing.T) {
 	st := newStore(t)
 	tmux := newFakeTmux()

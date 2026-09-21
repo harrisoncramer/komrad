@@ -105,7 +105,7 @@ func TestSetMarksAnAgent(t *testing.T) {
 	assert.Equal(t, map[string]string{alpha: "a"}, st.marks(t))
 }
 
-// TestSetMarksAWorkflow covers a header taking a letter, which is the same gesture as an agent.
+// TestSetMarksAWorkflow covers a header taking a letter.
 func TestSetMarksAWorkflow(t *testing.T) {
 	st := open(t)
 	backend := st.seedWorkflow(t, "backend")

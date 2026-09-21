@@ -40,8 +40,7 @@ const (
 	// templateLockClass is the advisory lock class the template build is serialised under.
 	templateLockClass = 7240116
 
-	// versionLength is how much of a hashed version a template's name carries, which is what
-	// keeps that name inside the 63 bytes Postgres truncates one at.
+	// versionLength is how much of a hashed version a template's name carries.
 	versionLength = 12
 )
 

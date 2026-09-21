@@ -219,8 +219,7 @@ func TestGetWorkflow(t *testing.T) {
 	}
 }
 
-// TestUpdateWorkflow covers that an update writes every field, which is what the
-// request says it does.
+// TestUpdateWorkflow covers that an update writes every field.
 func TestUpdateWorkflow(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -558,8 +557,8 @@ func TestListWorkflows(t *testing.T) {
 	}
 }
 
-// TestListWorkflowsRefusesAMangledToken covers a token that decodes but holds an id no row
-// can have, which is the caller's mistake rather than a database failure.
+// TestListWorkflowsRefusesAMangledToken covers a token that decodes but holds an id no row can
+// have.
 func TestListWorkflowsRefusesAMangledToken(t *testing.T) {
 	svc, _ := service(t)
 
@@ -631,9 +630,8 @@ func primaryCheckout(t *testing.T) string {
 	return dir
 }
 
-// TestListWorkflowsArchived covers the flag that picks which set is listed, and the
-// archive time riding out with it, which is how a caller tells an archived workflow from
-// a live one.
+// TestListWorkflowsArchived covers the flag that picks which set is listed, and the archive time
+// riding out with it.
 func TestListWorkflowsArchived(t *testing.T) {
 	tests := []struct {
 		name      string

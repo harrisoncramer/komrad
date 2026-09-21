@@ -115,8 +115,7 @@ func TestRebaseMovesTheBranchOnto(t *testing.T) {
 	assert.Equal(t, "untracked", string(body), "the untracked file rode through the rebase")
 }
 
-// TestRebaseLeavesAConflictStopped pins that a conflicted rebase is reported and left where it
-// is, rather than aborted on the agent's behalf.
+// TestRebaseLeavesAConflictStopped pins that a conflicted rebase is reported and left where it is.
 func TestRebaseLeavesAConflictStopped(t *testing.T) {
 	t.Parallel()
 
@@ -177,8 +176,7 @@ func TestFetchBaseRepairsAMissingOriginHead(t *testing.T) {
 	assert.Equal(t, "origin/main", ref, "the unqualified fetch put origin/HEAD back")
 }
 
-// TestFetchBaseFetchesWhenNoBaseIsNamed pins the default configuration working, since the
-// workflow form leaves the base branch blank for most workflows.
+// TestFetchBaseFetchesWhenNoBaseIsNamed pins the default configuration working.
 func TestFetchBaseFetchesWhenNoBaseIsNamed(t *testing.T) {
 	t.Parallel()
 
@@ -254,7 +252,7 @@ func conflict(t *testing.T, dir string) {
 	run(t, dir, "commit", "--quiet", "-m", "theirs")
 	run(t, dir, "checkout", "--quiet", "-")
 
-	// Expected to fail, which is the point.
+	// Expected to fail.
 	_, _ = git.Run(t.Context(), dir, "merge", "theirs")
 
 	state, err := client.ReadTreeState(t.Context(), dir)
@@ -284,8 +282,7 @@ func out(t *testing.T, dir string, args ...string) string {
 	return text
 }
 
-// squashLanded lands everything the branch has on main as one squashed commit, which is what a
-// pull request merge does here and what leaves no trace on the branch that it happened.
+// squashLanded lands everything the branch has on main as one squashed commit.
 func squashLanded(t *testing.T, repo, message string) {
 	t.Helper()
 
@@ -309,7 +306,7 @@ func moveMain(t *testing.T, repo, name, body string) {
 	run(t, repo, "checkout", "--quiet", branch)
 }
 
-// commitFile is one commit touching one path, since every fixture here is built out of them.
+// commitFile is one commit touching one path.
 func commitFile(t *testing.T, repo, name, body, message string) string {
 	t.Helper()
 
@@ -590,8 +587,7 @@ func TestParkRecoversWhatAMoveDrops(t *testing.T) {
 		"and so is a file that was never committed")
 }
 
-// TestParkLeavesTheCheckoutAlone pins the park being free of the agent's own state, since it
-// runs while the agent may still be writing.
+// TestParkLeavesTheCheckoutAlone pins the park being free of the agent's own state.
 func TestParkLeavesTheCheckoutAlone(t *testing.T) {
 	t.Parallel()
 
@@ -608,8 +604,7 @@ func TestParkLeavesTheCheckoutAlone(t *testing.T) {
 	assert.Equal(t, head, out(t, repo, "rev-parse", "HEAD"), "and the branch has not moved")
 }
 
-// TestReleaseRefsUnderKeepsOnlyTheCurrent covers the parks being collected, since each one pins
-// a whole worktree in the shared clone and nothing else ever drops them.
+// TestReleaseRefsUnderKeepsOnlyTheCurrent covers the parks being collected.
 func TestReleaseRefsUnderKeepsOnlyTheCurrent(t *testing.T) {
 	t.Parallel()
 
@@ -679,8 +674,8 @@ func TestPredictRebaseCountsLandedOffTheGraph(t *testing.T) {
 	assert.Equal(t, 1, prediction.Replay, "the side commit is still the agent's own work")
 }
 
-// TestPredictRebaseCountsMergesAsLanded pins the landed count including merge commits, unlike
-// the replay count, since these are commits leaving the branch rather than commits to replay.
+// TestPredictRebaseCountsMergesAsLanded pins the landed count including merge commits, unlike the
+// replay count.
 func TestPredictRebaseCountsMergesAsLanded(t *testing.T) {
 	t.Parallel()
 

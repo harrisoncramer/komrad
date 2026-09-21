@@ -6,8 +6,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// TestStatCountsFilesAndLines pins the summary a patch reduces to, which is the files touched
-// and the lines added and removed.
+// TestStatCountsFilesAndLines pins the summary a patch reduces to.
 func TestStatCountsFilesAndLines(t *testing.T) {
 	patch := Patch{Files: []File{
 		{

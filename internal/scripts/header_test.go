@@ -144,8 +144,7 @@ func TestReadHeaderUnreadable(t *testing.T) {
 	assert.Equal(t, Header{}, readHeader(filepath.Join(t.TempDir(), "not-there")))
 }
 
-// TestHeaderTimeoutOr pins the timeout a script runs under, which is the one its own header
-// declares or the fallback when it declares none.
+// TestHeaderTimeoutOr pins the timeout a script runs under.
 func TestHeaderTimeoutOr(t *testing.T) {
 	tests := []struct {
 		name     string

@@ -88,8 +88,7 @@ func TestGetConfig(t *testing.T) {
 	}
 }
 
-// TestGetConfigReportsTheBuild covers the build in the response, which is the only way an
-// agent reaching this server over MCP can say which one it was talking to.
+// TestGetConfigReportsTheBuild covers the build in the response.
 func TestGetConfigReportsTheBuild(t *testing.T) {
 	svc := configv1weave.ConfigServiceAdapter{Impl: NewConfigService(func() (*weaveconfig.Config, error) { return weaveconfig.Defaults(), nil })}
 

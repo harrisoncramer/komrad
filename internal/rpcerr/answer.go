@@ -11,8 +11,7 @@ import (
 	"connectrpc.com/connect"
 )
 
-// Answer turns what a handler returned into what connect serves, which is where a handler
-// written against the strict signature meets the one the generated interface fixes.
+// Answer turns what a handler returned into what connect serves.
 func Answer[T any](message *T, err *fail.Error) (*connect.Response[T], error) {
 	if err != nil {
 		return nil, connect.NewError(codeOf(err.Kind()), err)

@@ -143,8 +143,7 @@ func TestWindowRowsNeverOutgrowsThePane(t *testing.T) {
 
 	for lines := 1; lines <= len(rows)-1; lines++ {
 		for scroll := range len(rows) + 2 {
-			// Anchored to the end the way the review's own thread is, which is the placement that
-			// puts a start in the middle and so asks for both counts at once.
+			// Anchored to the end the way the review's own thread is.
 			place := func(visible int) int {
 				return len(rows) - visible - min(scroll, len(rows)-visible)
 			}

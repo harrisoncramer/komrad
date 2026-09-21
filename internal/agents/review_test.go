@@ -357,9 +357,7 @@ func TestAThreadWithNothingReleasedIsHiddenFromTheAgent(t *testing.T) {
 	assert.Empty(t, forAgent)
 }
 
-// TestReleasingAReviewWritesItOutAndRingsOnce pins the shape of a release, which is the whole
-// batch written where the agent can read it and one piece of ordinary mail saying where that is,
-// carrying no feedback of its own.
+// TestReleasingAReviewWritesItOutAndRingsOnce pins the shape of a release.
 func TestReleasingAReviewWritesItOutAndRingsOnce(t *testing.T) {
 	reviews := newFakeReviewStore()
 	reviews.comments = 3
@@ -465,9 +463,8 @@ func TestNothingIsReleasedWhenTheMailCannotBeSent(t *testing.T) {
 	assert.NotEmpty(t, reviews.open)
 }
 
-// TestAChildMayReviewItsParentAndNothingElse pins the entitlement: reviewing is open to an
-// agent, but only of the agent it is attached to, which is the rule that already decides who
-// it may write to.
+// TestAChildMayReviewItsParentAndNothingElse pins the entitlement: reviewing is open to an agent,
+// but only of the agent it is attached to.
 func TestAChildMayReviewItsParentAndNothingElse(t *testing.T) {
 	reviews := newFakeReviewStore()
 	service := reviewService(t, reviews, &fakeNoticeSender{})
@@ -718,9 +715,7 @@ func TestAnUnreleasedCommentIsHiddenFromTheAgentWhoeverWroteIt(t *testing.T) {
 	}
 }
 
-// TestApprovingARoundNobodyCommentedOnGoes is the clean approval, which is the case the verdict
-// matters most for since it is what gates opening a pull request, and it needs no batch to have
-// been started first.
+// TestApprovingARoundNobodyCommentedOnGoes is the clean approval.
 func TestApprovingARoundNobodyCommentedOnGoes(t *testing.T) {
 	reviews := newFakeReviewStore()
 	notices := &fakeNoticeSender{answer: &mailstore.Mail{ID: "mail-1"}}
@@ -920,8 +915,7 @@ func reviewService(t *testing.T, reviews *fakeReviewStore, notices *fakeNoticeSe
 	return reviewServiceForAgent(t, reviews, notices, findLiveAgent)
 }
 
-// reviewServiceHolding is a service whose round holds the given files, which is what lets a
-// released review quote the code around each comment.
+// reviewServiceHolding is a service whose round holds the given files.
 func reviewServiceHolding(
 	t *testing.T,
 	reviews *fakeReviewStore,
@@ -1111,8 +1105,7 @@ func TestAnsweringAReviewSeveralTimesRingsOnce(t *testing.T) {
 }
 
 // TestCloseFlushesAPendingReviewerNotice pins that a shutdown mid-debounce still tells the
-// reviewer, without waking it, rather than losing the notice to the window it never got to
-// finish waiting out.
+// reviewer, without waking it.
 func TestCloseFlushesAPendingReviewerNotice(t *testing.T) {
 	reviews := newFakeReviewStore()
 	notices := &fakeNoticeSender{answer: &mailstore.Mail{ID: "mail-1"}}
@@ -1289,8 +1282,7 @@ func newFakeReviewStore() *fakeReviewStore {
 	}
 }
 
-// draftMessage is a comment the person has written down and not let go of, which is the state
-// every comment passes through while a review is being composed.
+// draftMessage is a comment the person has written down and not let go of.
 func draftMessage() reviewstore.Message {
 	return reviewstore.Message{
 		ID:         draftMessageID,
@@ -1487,8 +1479,7 @@ func (f *fakeReviewStore) OpenReview(
 	return &review, nil
 }
 
-// authorSlot is which batch belongs to one author, since the store allows the person and each
-// reviewing agent one open review of the same agent at a time.
+// authorSlot is which batch belongs to one author.
 func authorSlot(params reviewstore.AuthorParams) string {
 	if params.AuthorAgentID == nil {
 		return string(params.AuthorKind)
@@ -1615,7 +1606,7 @@ type fakeSnapshotter struct {
 	sha  string
 	base string
 	held []string
-	// files is each path as the round holds it, which is what a review quotes around a comment.
+	// files is each path as the round holds it.
 	files map[string][]string
 }
 
@@ -1700,8 +1691,7 @@ func (f *fakeReviewStore) CreateMessage(
 	return &message, nil
 }
 
-// reopenIfSettler takes a settling back when its own author writes again, which is what the
-// store's query does on the thread the message lands in.
+// reopenIfSettler takes a settling back when its own author writes again.
 func (f *fakeReviewStore) reopenIfSettler(message reviewstore.Message) {
 	if f.thread.ID != message.ThreadID || f.thread.ResolvedAt == nil {
 		return
@@ -2312,8 +2302,7 @@ func TestAnotherReviewersNoteIsNotTheAgentsAnswer(t *testing.T) {
 	require.ErrorIs(t, err, ErrReviewNotAnswered, "the agent under review has still said nothing")
 }
 
-// TestTheInFlightRefusalNamesTheRoundHeld pins the number in that refusal, which is the one
-// thing the reader has to go on when told to send what they are holding.
+// TestTheInFlightRefusalNamesTheRoundHeld pins the number in that refusal.
 func TestTheInFlightRefusalNamesTheRoundHeld(t *testing.T) {
 	reviews := newFakeReviewStore()
 	service := reviewService(t, reviews, &fakeNoticeSender{answer: &mailstore.Mail{ID: "mail-1"}})
@@ -2411,11 +2400,6 @@ func TestACommentReadFromAnOlderSnapshotIsRefused(t *testing.T) {
 	assert.Equal(t, round.ID, opened.Thread.RoundID, "the snapshot it named is the round it went under")
 }
 
-// Explainer: whether a thread is settled is what says whether a review is finished, so who may
-// settle one decides whether that fact means anything. A reviewer settling its own comment is a
-// reviewer saying the answer was good enough, which is the whole loop; the agent under review
-// settling it would be marking its own homework.
-
 // TestAReviewerSettlesItsOwnComment pins the half of the rule that was refused before.
 func TestAReviewerSettlesItsOwnComment(t *testing.T) {
 	reviews := newFakeReviewStore()
@@ -2461,8 +2445,8 @@ func TestOneAgentCannotSettleAnothersComment(t *testing.T) {
 	require.ErrorIs(t, err, ErrReviewNotYours)
 }
 
-// TestSettlingRecordsWhoDidIt is what tells a reviewer clearing its own finding apart from a
-// person overruling it, which is the same row otherwise.
+// TestSettlingRecordsWhoDidIt is what tells a reviewer clearing its own finding apart from a person
+// overruling it.
 func TestSettlingRecordsWhoDidIt(t *testing.T) {
 	reviews := newFakeReviewStore()
 	reviews.comments = 1
@@ -2546,10 +2530,6 @@ func TestTheAgentCannotReopenWhatThePersonSettled(t *testing.T) {
 	})
 	require.NoError(t, err, "the agent writing does not take the person's settling back")
 }
-
-// Explainer: the rule this replaces asked whether the agent had written since the last review,
-// which an agent can do without answering a word. What says a review is done with is its comments
-// having been settled by whoever wrote them.
 
 // TestASecondReviewWaitsForTheFirstToBeSettled pins both halves of the new rule.
 func TestASecondReviewWaitsForTheFirstToBeSettled(t *testing.T) {

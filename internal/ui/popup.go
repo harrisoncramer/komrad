@@ -55,17 +55,6 @@ func (p *PopupWindow) BindHide(key string) {
 	p.tmux.SetGlobal(hideKeyOption, key)
 }
 
-// Explainer: the focus key is bound outside the prefix table on weave's own tmux server, which
-// is the only place that sees every press: a pane running an agent hands its keys to that agent,
-// so the panel's own bubbletea bindings can never reach past the sidebar. Which way the press
-// goes is settled by tmux comparing the active pane against the sidebar's, with no shell and no
-// call back into weave, and both arms name the pane they move to, so a split the user opened by
-// hand is never what the key lands on. A press with no pane to go back to is refused by tmux and
-// does nothing, which is the same outcome as returning to a pane that has since died. A root
-// binding is unconditional for as long as it stands, so the panel binds it only while an agent's
-// pane is on the stage, and gives it back when the stage holds none and on the screens that
-// stage no agent.
-
 // HoldFocusKey takes the focus key while an agent's pane is on the stage beside sidebar, or gives
 // it back to the panes when that pane is empty.
 func (p *PopupWindow) HoldFocusKey(sidebar, agent string) {
@@ -124,23 +113,10 @@ type BindPanelKeyParams struct {
 	Key string
 }
 
-// Explainer: the panel runs in a tmux session of its own that stays alive between presses, so
-// hiding it detaches the popup's client and opening it attaches again, which is why reopening
-// lands on the exact view it left. That session lives on a tmux server of its own, invisible to
-// this one, so both branches go through the weave binary, which knows the socket. Open finds
-// this server from the TMUX variable rather than being told, because tmux expands no #{format}
-// inside a popup command and the shell reads the unexpanded text as a comment. The popup opens
-// with -EE rather than -E so it closes on success but stays up with the error on screen when
-// startup fails, and Escape or C-c dismisses one held open that way. Which branch runs is
-// settled by asking weave on every press whether the panel is on screen here, rather than by a
-// flag this server keeps, so a press can never read back a stale answer and refuse to open: an
-// answer weave cannot give reads as hidden, and hidden opens the popup.
-
 // BindPanelKey binds the panel key on the user's own tmux server, where it is pressed, and
 // takes back any other key it bound there before.
 func BindPanelKey(t panelKeyTmux, params BindPanelKeyParams) error {
-	// A weave that names its own key can be bound beside another one, which is how a panel for a
-	// remote engine and a panel for a local one both answer from the same tmux.
+	// A weave that names its own key can be bound beside another one.
 	key := PanelKey(t, params.Key)
 
 	shown := panelCommand(params, "shown")

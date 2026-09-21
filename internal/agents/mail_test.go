@@ -113,8 +113,7 @@ func TestSendMailRefusals(t *testing.T) {
 	}
 }
 
-// TestSendMailStampsTheSender pins that mail records who sent it, which is what lets the
-// recipient reply.
+// TestSendMailStampsTheSender pins that mail records who sent it.
 func TestSendMailStampsTheSender(t *testing.T) {
 	mailbox := &fakeMailbox{}
 	svc := NewMailService(NewMailServiceParams{
@@ -384,8 +383,8 @@ func TestSendMailSystemNoticeIsNeverRefusedByTheCap(t *testing.T) {
 	}
 }
 
-// TestSendSystemMailStampsWeaveAsTheSender proves a lifecycle notice lands with weave's name and
-// no agent id, which is what tells the stop hook this was not the panel operator talking.
+// TestSendSystemMailStampsWeaveAsTheSender proves a lifecycle notice lands with weave's name and no
+// agent id.
 func TestSendSystemMailStampsWeaveAsTheSender(t *testing.T) {
 	mailbox := &fakeMailbox{}
 	svc := NewMailService(NewMailServiceParams{
@@ -503,8 +502,7 @@ func (f *fakeMailbox) Claim(_ context.Context, _ string, limit int32) ([]mailsto
 	return f.claimed, nil
 }
 
-// claimHeld stamps everything the fake holds as read, which is what an agent reading its mailbox
-// does to a notice and what stops that notice standing in for the next one.
+// claimHeld stamps everything the fake holds as read.
 func (f *fakeMailbox) claimHeld() {
 	claimedAt := time.Now()
 	for id, held := range f.byID {
@@ -539,8 +537,7 @@ func (f *fakeMailbox) ListPage(_ context.Context, toAgentID string, _ int32, _ *
 	return page, nil
 }
 
-// ListSentPage answers by sender rather than recipient, which is all this fake owes: the paging
-// it ignores is pinned against a real database in internal/store/mail.
+// ListSentPage answers by sender rather than recipient.
 func (f *fakeMailbox) ListSentPage(_ context.Context, fromAgentID string, _ int32, _ *mailstore.Cursor) ([]mailstore.Mail, error) {
 	var page []mailstore.Mail
 	for _, m := range f.byID {

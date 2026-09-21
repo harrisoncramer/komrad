@@ -1,5 +1,5 @@
-// Package git runs git and holds the operations weave needs from it, so that one convention for
-// timeouts, context and error wrapping covers every caller rather than each hand-rolling its own.
+// Package git runs git and holds the operations weave needs from it, with one convention for
+// timeouts, context and error wrapping covering every caller.
 package git
 
 import (
@@ -51,7 +51,7 @@ func runInput(ctx context.Context, dir string, env []string, input []byte, args 
 	return out, nil
 }
 
-// runEnv is runWithEnv trimmed, for the snapshot commands that read back a single object name.
+// runEnv runs a git command under env and trims what it printed.
 func runEnv(ctx context.Context, dir string, env []string, args ...string) (string, error) {
 	out, err := runWithEnv(ctx, dir, env, args...)
 

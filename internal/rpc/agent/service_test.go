@@ -230,8 +230,7 @@ func TestGetAgent(t *testing.T) {
 	}
 }
 
-// TestListAgents covers the listing and its liveness flag, which is read at request time so
-// a client needs no tmux of its own.
+// TestListAgents covers the listing and its liveness flag.
 func TestListAgents(t *testing.T) {
 	tests := []struct {
 		name  string
@@ -279,8 +278,7 @@ func TestListAgents(t *testing.T) {
 	}
 }
 
-// TestListAgentsReportsUnreadMail covers the unread flag, which is read from the mailbox at
-// request time rather than stored on the row.
+// TestListAgentsReportsUnreadMail covers the unread flag.
 func TestListAgentsReportsUnreadMail(t *testing.T) {
 	svc, st := service(t)
 	alpha := st.SeedAgent(t, agentstore.Agent{
@@ -402,8 +400,7 @@ func TestGetAgentReportsUnreadMail(t *testing.T) {
 	assert.False(t, got.Msg.GetAgent().GetUnreadMail())
 }
 
-// TestListAgentsIdempotencyKey covers the creator's key reaching the listing, which is all a
-// caller has to match an agent back to its work once the name can be renamed.
+// TestListAgentsIdempotencyKey covers the creator's key reaching the listing.
 func TestListAgentsIdempotencyKey(t *testing.T) {
 	tests := []struct {
 		name string
@@ -698,8 +695,8 @@ func TestSetMark(t *testing.T) {
 	})
 }
 
-// TestSetMetadata covers an agent recording a fact about its own work and reading it back off
-// the resource, which is where the panel gets it, the writing itself being the store's own.
+// TestSetMetadata covers an agent recording a fact about its own work and reading it back off the
+// resource.
 func TestSetMetadata(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -872,7 +869,7 @@ func (f *fakeReconciler) RecordReportedReason(_, reason string) {
 }
 
 // TestHoldAgentRefusesHoldingYourself pins that an agent asking to hold itself is turned away
-// before the interrupt, since the turn it would cut short is the one making the call.
+// before the interrupt.
 func TestHoldAgentRefusesHoldingYourself(t *testing.T) {
 	svc, st := service(t)
 	holder := &fakeHolder{}
@@ -1590,9 +1587,7 @@ func TestDeleteMailUnknownIDIsNotFound(t *testing.T) {
 	assert.Equal(t, connect.CodeNotFound, connect.CodeOf(err))
 }
 
-// TestLogTagsTheScript covers the script field, which is unset for anything that is not a
-// running script and, when given, is worth its own field rather than folded into the
-// message.
+// TestLogTagsTheScript covers the script field.
 func TestLogTagsTheScript(t *testing.T) {
 	svc, st := service(t)
 	id := st.SeedAgent(t, agentstore.Agent{
@@ -1766,8 +1761,7 @@ func TestSearchTranscriptsScope(t *testing.T) {
 	}
 }
 
-// TestPagedReadsRefuseAMangledToken covers a token that decodes but holds an id no row can
-// have, which is refused plainly rather than as the database's complaint.
+// TestPagedReadsRefuseAMangledToken covers a token that decodes but holds an id no row can have.
 func TestPagedReadsRefuseAMangledToken(t *testing.T) {
 	const (
 		listToken   = "eyJpIjoibm90LWFuLWlkIn0="

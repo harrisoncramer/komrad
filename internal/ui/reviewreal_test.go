@@ -8,9 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestReviewAgainstARealWorktree drives the screen over a real agent worktree, which is the
-// only way to hit the shapes a synthetic patch does not have: renames, binaries, deletions,
-// files with no trailing newline.
+// TestReviewAgainstARealWorktree drives the screen over a real agent worktree.
 func TestReviewAgainstARealWorktree(t *testing.T) {
 	dir := os.Getenv("WEAVE_REVIEW_DIR")
 	if dir == "" {

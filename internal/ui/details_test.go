@@ -169,8 +169,8 @@ func TestDetailsFocusNeedsFieldsToPointAt(t *testing.T) {
 	assert.Empty(t, focused.detailsView())
 }
 
-// TestDetailsCursorHeldInsideTheRecord covers a record that shortens under a cursor sitting
-// past its new end, which is what an agent dropping a metadata key does to the section.
+// TestDetailsCursorHeldInsideTheRecord covers a record that shortens under a cursor sitting past
+// its new end.
 func TestDetailsCursorHeldInsideTheRecord(t *testing.T) {
 	m := detailsModel(&recordingTmux{})
 	held := m.hoveredDetails()

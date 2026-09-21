@@ -774,8 +774,8 @@ func TestPrepareHiddenCaretKeepsTheRowFocused(t *testing.T) {
 	assert.Equal(t, EmphasisFocused, list.Lines[0].Emphasis)
 }
 
-// TestPrepareClipsMatchesWithTheName pins a search match surviving the cut that shortens the
-// name it sits in, since a match hanging off the end would be drawn over whatever follows.
+// TestPrepareClipsMatchesWithTheName pins a search match surviving the cut that shortens the name
+// it sits in.
 func TestPrepareClipsMatchesWithTheName(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -819,8 +819,7 @@ func TestPrepareClipsMatchesWithTheName(t *testing.T) {
 	}
 }
 
-// TestPrepareHeldCell pins the pause a person took, which is alarming where the agent is
-// working through it.
+// TestPrepareHeldCell pins the pause a person took.
 func TestPrepareHeldCell(t *testing.T) {
 	tests := []struct {
 		name string
@@ -1010,7 +1009,7 @@ func TestPrepareDropsColumnsAScreenDoesNotDraw(t *testing.T) {
 }
 
 // TestDroppedColumnsBuyTheNameTheirRoom pins that a column given up is given up in the width
-// arithmetic too, rather than only in the drawing.
+// arithmetic too.
 func TestDroppedColumnsBuyTheNameTheirRoom(t *testing.T) {
 	const pane = 60
 

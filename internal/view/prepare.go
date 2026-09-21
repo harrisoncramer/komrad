@@ -96,8 +96,7 @@ func prepareLine(params prepareLineParams) Line {
 	}
 }
 
-// isDim reports whether the process behind a row is gone, which is the one thing that greys its
-// name.
+// isDim reports whether the process behind a row is gone.
 func isDim(row Row) bool {
 	return row.Process == ProcessStopped || row.Archived
 }
@@ -268,8 +267,7 @@ func indentFor(kind RowKind) int {
 // fitRow gives a row's width up in order: the tally, then the name, and last the marks, which
 // only a pane too narrow for the marks alone ever reaches.
 func fitRow(line Line, width int) Line {
-	// A tally counts rows already out of sight, which is worth less than the marks saying
-	// somebody has to do something, so it is what gives way first.
+	// A tally counts rows already out of sight, so it is what gives way first.
 	if roomForName(line, width) <= 0 {
 		line.Tally = 0
 	}

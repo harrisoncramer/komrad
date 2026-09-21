@@ -8,8 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// TestSameBuild covers the two stampings of one commit, since the engine's binary is stamped by
-// the deploy and the panel's by the toolchain.
+// TestSameBuild covers the two stampings of one commit.
 func TestSameBuild(t *testing.T) {
 	const commit = "6da018be0403648b090dfa7695d160efea180b49"
 

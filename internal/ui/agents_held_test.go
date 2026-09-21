@@ -150,10 +150,6 @@ func TestHeldAgentShowsDocNotPane(t *testing.T) {
 	assert.Equal(t, heldPlaceholder, m.agentDoc(), "held agent shows paused placeholder")
 }
 
-// Explainer: a hold is taken on one reading, so an agent that was about to start a turn reads
-// like one that has stopped, and a pane that goes unreadable afterwards says nothing about
-// whether it stopped at all. The row admits both rather than letting go on the person's behalf.
-
 // TestAPausedRowSaysWhichThingIsTrue pins what a paused row draws in each case.
 func TestAPausedRowSaysWhichThingIsTrue(t *testing.T) {
 	at := time.Now()
@@ -203,7 +199,7 @@ func TestAPausedRowSaysWhichThingIsTrue(t *testing.T) {
 	}
 }
 
-// heldSaid is the notices about the pause itself, which is what a row may only say once.
+// heldSaid is the notices about the pause itself.
 func heldSaid(said []string) []string {
 	kept := make([]string, 0, len(said))
 
@@ -284,8 +280,8 @@ func TestUnpausingInSilenceIsOnlyForAHeldAgent(t *testing.T) {
 	assert.Empty(t, agents.released)
 }
 
-// TestAPausedRowNamesTheWayOutOfThePause covers the legend a person holding only the panel reads
-// to find the release that says nothing, which is the whole recovery from a box that refuses.
+// TestAPausedRowNamesTheWayOutOfThePause covers the legend a person holding only the panel reads to
+// find the release that says nothing.
 func TestAPausedRowNamesTheWayOutOfThePause(t *testing.T) {
 	at := time.Now()
 

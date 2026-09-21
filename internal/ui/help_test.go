@@ -18,8 +18,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestHelpToggle covers the help key, which is the one binding that changes nothing but
-// how much of the help is drawn.
+// TestHelpToggle covers the help key.
 func TestHelpToggle(t *testing.T) {
 	m := helpModel()
 
@@ -117,9 +116,7 @@ func TestNoLegendIsDrawnAsAnEllipsis(t *testing.T) {
 }
 
 // TestARefusedExpansionSaysItShowedNothing covers the key on a screen whose expanded legend will
-// not fit: it draws the short form, which is the right answer, but helpExpanded is true underneath
-// and the row would otherwise claim to be hiding help it never showed, so the key reads as broken
-// rather than as refused.
+// not fit: it draws the short form.
 func TestARefusedExpansionSaysItShowedNothing(t *testing.T) {
 	m := helpModel()
 	m.helpExpanded = true
@@ -162,8 +159,7 @@ func helpModel() model {
 	}
 }
 
-// TestLegendOrderIsPinned holds the search screen's legend, whose keys are fixed rather than
-// configured.
+// TestLegendOrderIsPinned holds the search screen's legend.
 func TestLegendOrderIsPinned(t *testing.T) {
 	tests := []struct {
 		name  string
@@ -275,8 +271,7 @@ func TestNoScreenBindsOneKeyTwice(t *testing.T) {
 }
 
 // TestNoLegendIsWiderThanThePane sweeps every pane width a window or a configured sidebar could
-// leave, because bubbles adds an item that does not fit whenever the ellipsis it would put there
-// does not fit either, and the widths that lands on are a band per item rather than one number.
+// leave.
 func TestNoLegendIsWiderThanThePane(t *testing.T) {
 	legends := map[string]func(model) keyMap{
 		"the agents tree": model.agentHelp,
@@ -308,8 +303,7 @@ func TestNoLegendIsWiderThanThePane(t *testing.T) {
 	}
 }
 
-// TestAPausedRowsLegendStillDraws sweeps the widths with the row a paused agent adds, since a
-// legend one description too long for the pane blanks whole rather than wrapping.
+// TestAPausedRowsLegendStillDraws sweeps the widths with the row a paused agent adds.
 func TestAPausedRowsLegendStillDraws(t *testing.T) {
 	at := time.Now()
 
@@ -335,8 +329,7 @@ func TestAPausedRowsLegendStillDraws(t *testing.T) {
 }
 
 // TestTheLegendRowFitsTheWholePanel asserts the width rather than the height a wrapped row costs
-// the frame, since the wrap happens in the terminal and fitFrame counts newlines, so the frame
-// measures its pane's height either way.
+// the frame.
 func TestTheLegendRowFitsTheWholePanel(t *testing.T) {
 	m := detailsModel(&recordingTmux{})
 	m.height, m.width = 30, 40

@@ -14,8 +14,7 @@ func TestStamp(t *testing.T) {
 	assert.Equal(t, "2026-09-05T14:30:00Z", Stamp(time.Date(2026, 9, 5, 14, 30, 0, 0, time.UTC)))
 }
 
-// TestStampPtr pins that an absent time stays absent, which is what a field the caller may
-// leave unset needs.
+// TestStampPtr pins that an absent time stays absent.
 func TestStampPtr(t *testing.T) {
 	assert.Nil(t, StampPtr(nil))
 
@@ -34,8 +33,7 @@ func TestParse(t *testing.T) {
 	assert.Equal(t, time.Date(2026, 9, 5, 14, 30, 0, 0, time.UTC), Parse("2026-09-05T14:30:00Z").UTC())
 }
 
-// TestParsePtr pins that an absent or unreadable stamp comes back as nothing, which is how an
-// optional timestamp stays optional across the wire.
+// TestParsePtr pins that an absent or unreadable stamp comes back as nothing.
 func TestParsePtr(t *testing.T) {
 	assert.Nil(t, ParsePtr(""))
 	assert.Nil(t, ParsePtr("not a time"))

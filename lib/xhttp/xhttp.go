@@ -138,7 +138,7 @@ func NewTransport() *http.Transport {
 }
 
 // NewClient is a client over NewTransport whose whole call is bounded by timeout, or only by
-// the transport's own waits when timeout is zero, which is what a call that streams wants.
+// the transport's own waits when timeout is zero.
 func NewClient(timeout time.Duration) *http.Client {
 	return NewClientOver(NewTransport(), timeout)
 }

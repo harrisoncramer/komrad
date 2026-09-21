@@ -14,8 +14,7 @@ func Render(list List, palette paint.Palette, width int) string {
 	return strings.Join(Rows(list, palette, width), "\n")
 }
 
-// Rows draws every row of the agents list as its own string, which is what a caller that pads
-// or scrolls the list one row at a time takes.
+// Rows draws every row of the agents list as its own string.
 func Rows(list List, palette paint.Palette, width int) []string {
 	rows := make([]string, 0, len(list.Lines))
 	for _, line := range list.Lines {

@@ -20,8 +20,7 @@ import (
 
 const mcpBodyPeek = 64 << 10
 
-// NewLoggingHandler records every request to the MCP endpoint, which is served as plain HTTP and
-// so leaves no trace through the connect interceptor beside this.
+// NewLoggingHandler records every request to the MCP endpoint.
 func NewLoggingHandler(logger *slog.Logger, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		trace := r.Header.Get(TraceHeader)

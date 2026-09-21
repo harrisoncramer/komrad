@@ -114,7 +114,7 @@ const (
 	HookPreTeardown    = "pre-teardown"
 )
 
-// runMoments is every moment by name, which is the set a run's file name is read back against.
+// runMoments is every moment by name.
 func runMoments() []string {
 	return []string{
 		TriggerProvision,

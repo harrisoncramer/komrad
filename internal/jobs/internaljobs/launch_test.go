@@ -253,8 +253,8 @@ func TestLaunchAgentParams(t *testing.T) {
 	}
 }
 
-// TestLaunchKey covers a retry of one occurrence producing the same key and a different
-// occurrence a different one, which is the whole of what stops a duplicate agent.
+// TestLaunchKey covers a retry of one occurrence producing the same key and a different occurrence
+// a different one.
 func TestLaunchKey(t *testing.T) {
 	nine := time.Date(2026, time.July, 28, 9, 0, 0, 0, time.UTC)
 

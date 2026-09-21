@@ -31,8 +31,7 @@ func Records(t *testing.T, written string) []map[string]any {
 	return records
 }
 
-// Record parses what a logger wrote and insists on exactly one record, which is what most
-// of the callers here write.
+// Record parses what a logger wrote and insists on exactly one record.
 func Record(t *testing.T, written string) map[string]any {
 	t.Helper()
 

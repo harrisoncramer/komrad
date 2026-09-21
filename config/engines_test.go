@@ -33,8 +33,8 @@ func TestEngineNamesListsWhatIsThere(t *testing.T) {
 	assert.Contains(t, knownEngines(t.TempDir()), "no engines yet")
 }
 
-// TestEngineLaidOverAnAbsentDefault covers naming an engine on a machine that never wrote a
-// config file, which is every machine following the remote docs.
+// TestEngineLaidOverAnAbsentDefault covers naming an engine on a machine that never wrote a config
+// file.
 func TestEngineLaidOverAnAbsentDefault(t *testing.T) {
 	clearConnectionEnvironment(t)
 	home := t.TempDir()

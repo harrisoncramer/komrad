@@ -124,7 +124,7 @@ func shiftRange(mappings []RangeMapping, lines Range) (Range, bool) {
 
 	start, end := lines.Start, lines.End
 	for _, mapping := range ordered {
-		// An empty position is never overlapped, since it covers no line, so a region holding it
+		// An empty position covers no line and so is never overlapped, so a region holding it
 		// strictly inside is refused here instead.
 		if lines.doesOverlap(mapping.Old) || mapping.Old.Start < lines.Start && lines.End < mapping.Old.End {
 			return Range{}, false

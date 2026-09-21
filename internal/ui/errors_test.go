@@ -129,8 +129,7 @@ func TestRefusedResumeIsReported(t *testing.T) {
 		"the wrapper the panel put around the call is not what the reader is shown")
 }
 
-// TestMessageSurvivesTheFormItWasReportedFrom covers a failure reported by a form, which is held
-// in the stack rather than drawn over the form, so it is still there when the form comes down.
+// TestMessageSurvivesTheFormItWasReportedFrom covers a failure reported by a form.
 func TestMessageSurvivesTheFormItWasReportedFrom(t *testing.T) {
 	m := model{
 		messages: oneMessage(`Could not rename agent "api-refactor"`, "name is taken"),
@@ -395,8 +394,7 @@ func TestStartupErrorScreenIsTerminal(t *testing.T) {
 	assert.Equal(t, tea.Quit(), cmd(), "and dismissing quits")
 }
 
-// TestUnreachableView covers the service no longer answering, which is reported like any other
-// failure and leaves the last good list on screen rather than taking it away.
+// TestUnreachableView covers the service no longer answering.
 func TestUnreachableView(t *testing.T) {
 	m := detailsModel(&recordingTmux{})
 	m.height, m.width = 40, 80

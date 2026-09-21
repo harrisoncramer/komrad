@@ -164,8 +164,7 @@ func TestIsPressableRefusesWhatNoPressProduces(t *testing.T) {
 	}
 }
 
-// TestGetBoundKeysNamesEveryKeyOnce covers a key several settings share, which is listed once,
-// and the order the list settles into.
+// TestGetBoundKeysNamesEveryKeyOnce covers a key several settings share.
 func TestGetBoundKeysNamesEveryKeyOnce(t *testing.T) {
 	keys := DefaultKeybindings()
 	keys.Nav.PageDown = []string{"ctrl+d", "pgdown"}

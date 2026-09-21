@@ -130,9 +130,8 @@ func TestOpeningTheRunLogLandsOnTheRunThatFailed(t *testing.T) {
 	assert.Nil(t, m.failedRunLog("a2"), "a row carrying no mark names no run")
 }
 
-// TestTheRunLogFollowsTheCursorOntoTheFailedRun covers the pane's target changing under a
-// position worked out for the agent before it, which is how a mark got cleared while a run that
-// went fine was on screen.
+// TestTheRunLogFollowsTheCursorOntoTheFailedRun covers the pane's target changing under a position
+// worked out for the agent before it.
 func TestTheRunLogFollowsTheCursorOntoTheFailedRun(t *testing.T) {
 	at := time.Now()
 

@@ -72,7 +72,7 @@ type View struct {
 	// expanded is the files the person reviewing has opened out, by path.
 	expanded map[string]bool
 	// whole is each file with every line of it drawn, built the first time it is asked for and
-	// kept, since it is the same answer every time and rebuilding it is the length of the file.
+	// kept.
 	whole map[string]*diff.File
 	// threads is what was last pinned, kept so collapsing a file can pin them again over the rows
 	// that rebuilding left.
@@ -261,7 +261,7 @@ func (v *View) wholeFile(path string) (*diff.File, bool) {
 }
 
 // redraw builds the files as they are drawn, flattens them into rows, and puts the threads back
-// on the rows they now belong to, which is also what runs a standing search again.
+// on the rows they now belong to.
 func (v *View) redraw() {
 	for index := range v.patch.Files {
 		path := v.patch.Files[index].Path()
@@ -364,9 +364,7 @@ func (v *View) IsGhosted(thread *agentv1.ReviewThread) bool {
 }
 
 // isPinnable reports whether stepping the cursor may leave it on a row: a real line of a file, a
-// thread that has no line left to be read on, or the header of a collapsed file, which is the
-// only row that file has left to be opened again from, though a search jump lands on an expanded
-// file header too.
+// thread that has no line left to be read on, or the header of a collapsed file.
 func (v *View) isPinnable(y int) bool {
 	if y < 0 || y >= len(v.rows) {
 		return false
@@ -447,8 +445,7 @@ func (v *View) Locate(place Place) (int, bool) {
 		return v.fileHeader(place.FilePath)
 	}
 
-	// A file read since the cursor was last in it is drawn as its header alone, which is the
-	// only row left of it to come back to.
+	// A file read since the cursor was last in it is drawn as its header alone.
 	if y, ok := v.collapsedHeader(place.FilePath); ok {
 		return y, true
 	}
@@ -548,8 +545,8 @@ func (v *View) JumpFile(y, direction int) int {
 		return y
 	}
 
-	// The first row of the file the cursor can rest on, which is its first line, or its header
-	// alone when the file has been read and folded away.
+	// The first row of the file the cursor can rest on: its first line, or its header alone
+	// when the file has been read and folded away.
 	for index, candidate := range v.rows {
 		if candidate.file == target && v.isPinnable(index) {
 			return index
@@ -628,7 +625,7 @@ func (v *View) getRow(y int) (row, bool) {
 	return v.rows[y], true
 }
 
-// getKey is where the line under a row sits, which is what a thread is pinned to.
+// getKey is where the line under a row sits.
 func (v *View) getKey(y int) (anchorKey, bool) {
 	current, ok := v.getRow(y)
 	if !ok || current.kind != lineRow {
@@ -675,7 +672,7 @@ func (v *View) getLine(y int) (diff.Line, bool) {
 	return v.files[current.file].Hunks[current.hunk].Lines[current.line], true
 }
 
-// GetAnchor lifts the cursor's row into an anchor, which is what a new thread is pinned to.
+// GetAnchor lifts the cursor's row into an anchor.
 func (v *View) GetAnchor(y int) (*Anchor, bool) {
 	file, fileOK := v.GetDrawnFileAt(y)
 	line, lineOK := v.getLine(y)

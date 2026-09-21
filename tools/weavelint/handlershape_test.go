@@ -9,7 +9,7 @@ import (
 )
 
 // TestHandlerShape covers a handler that hands its strict half to the adapter beside one that
-// answers for itself, which is the shape that loses a failure's kind.
+// answers for itself.
 func TestHandlerShape(t *testing.T) {
 	analyzer, err := newHandlerShape(config.HandlerShapeConfig{})
 	if err != nil {
