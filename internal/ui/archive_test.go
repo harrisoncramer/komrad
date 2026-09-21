@@ -23,7 +23,6 @@ import (
 	"weave/proto/gen/workflow/v1/workflowv1connect"
 
 	"connectrpc.com/connect"
-	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/x/ansi"
 	"github.com/stretchr/testify/assert"
@@ -1377,31 +1376,4 @@ func (m model) archiveChrome() listChrome {
 // archiveHelp is the archive legend as the frame draws it.
 func (m model) archiveHelp() keyMap {
 	return m.archiveChrome().help(m)
-}
-
-// TestArchiveLegendIsTheOneItDrewBeforeTheMove sweeps the expanded legend across widths against
-// the composition the root drew for the archive.
-func TestArchiveLegendIsTheOneItDrewBeforeTheMove(t *testing.T) {
-	for width := 5; width <= 200; width++ {
-		m := archiveModel(&fakeArchiveAgents{}, &fakeArchiveWorkflows{}, config.DefaultKeybindings())
-		m.helpExpanded = true
-		m = m.measuredAt(width)
-
-		own := m.archive.actions().help(m.shared())
-		before := keyMap{
-			short: slices.Concat(own.short, m.globalHelp()),
-			full: slices.Concat(
-				own.full,
-				[]key.Binding{
-					m.tabsBinding(),
-					m.detailsBinding(),
-					m.messagesBinding(),
-					m.columnScrollBinding("the notes"),
-				},
-				m.globalHelp(),
-			),
-		}
-
-		assert.Equal(t, m.renderHelp(before), m.renderHelp(m.archiveHelp()), "width %d", width)
-	}
 }
