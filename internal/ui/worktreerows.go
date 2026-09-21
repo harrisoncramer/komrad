@@ -87,7 +87,7 @@ var worktreeSorts = []sortColumn[worktreeItem]{
 type worktreeRowsParams struct {
 	items []worktreeItem
 	order sortOrder
-	// flat orders the whole listing as one list rather than under its repositories.
+	// flat orders the whole listing as one list.
 	flat bool
 }
 

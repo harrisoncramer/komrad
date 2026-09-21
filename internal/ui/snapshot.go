@@ -31,7 +31,7 @@ type snapshotParams struct {
 	scheduled map[string]bool
 	// showHidden says the hidden rows are drawn alongside the rest, so none is stood in for.
 	showHidden bool
-	// flat says the rows are drawn with no workflow header over them.
+	// flat says no workflow header is drawn over the rows.
 	flat bool
 	// pane is how many columns the list is drawn in.
 	pane int

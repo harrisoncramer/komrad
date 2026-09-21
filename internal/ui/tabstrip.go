@@ -43,20 +43,19 @@ type tabStrip struct {
 	legend   string
 	options  []tabOption
 	fallback string
-	// grouped is the label of the stop after the columns while the rows sit under their headings.
+	// grouped is the stop's label while the rows sit under their headings.
 	grouped string
 }
 
-// flatLabel is what the stop after the columns reads while the headings are off.
 const flatLabel = "flat"
 
 type tabsState struct {
 	chosen    string
 	direction tabDirection
 	focused   bool
-	// onGroup says the focus is on the stop after the columns rather than on a column.
+	// onGroup says the focus is on the stop after the columns.
 	onGroup bool
-	// flat says the rows are one list rather than grouped under their headings.
+	// flat says the headings are off.
 	flat bool
 }
 

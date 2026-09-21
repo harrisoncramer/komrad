@@ -55,7 +55,7 @@ type treeRowsParams struct {
 	// foldOrchestrators draws a workflow's orchestrator on the workflow's own row rather than
 	// as a row of its own.
 	foldOrchestrators bool
-	// flat draws the families in the order given with no workflow header over them.
+	// flat draws the families in the order given, with no header over them.
 	flat bool
 }
 
