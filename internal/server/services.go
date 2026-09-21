@@ -13,6 +13,7 @@ import (
 	"weave/internal/git"
 	"weave/internal/harness/pane"
 	"weave/internal/marks"
+	"weave/internal/pullrequests"
 	"weave/internal/schedules"
 	"weave/internal/scripts"
 	"weave/internal/transcripts"
@@ -40,7 +41,7 @@ type services struct {
 	cwdSync         *agents.CwdSyncer
 	transcriptSync  *transcripts.TranscriptSyncer
 	forge           *forge.ForgeService
-	pullRequestSync *agents.PullRequestSyncer
+	pullRequestSync *pullrequests.PullRequestSyncer
 	worktrees       *worktrees.Lister
 	inspector       *worktrees.Inspector
 	remover         *worktrees.Remover
@@ -213,7 +214,7 @@ func buildServices(params NewServerParams, st *stores) (*services, error) {
 			return forges.AppFrom(cfg.GitHubApp, tokenCachePath)
 		},
 	})
-	pullRequestSyncer := agents.NewPullRequestSyncer(agents.NewPullRequestSyncerParams{
+	pullRequestSyncer := pullrequests.NewPullRequestSyncer(pullrequests.NewPullRequestSyncerParams{
 		Forges:       forgeService,
 		PullRequests: st.pullRequests,
 		Syncs:        st.pullRequestSyncs,
