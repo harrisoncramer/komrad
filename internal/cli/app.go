@@ -28,6 +28,16 @@ type app struct {
 	configStack    config.Stack
 	configSources  map[string]config.Source
 	tmux           *tmux.Client
+	self           string
+}
+
+// selfPath is the binary a panel window runs, this one unless a test names another.
+func (a *app) selfPath() string {
+	if a.self != "" {
+		return a.self
+	}
+
+	return getSelfPath()
 }
 
 // engine says where the agents are running, which the panel needs so it can show a terminal it

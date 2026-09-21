@@ -3,7 +3,9 @@
 package cli
 
 import (
+	"os"
 	"os/exec"
+	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
@@ -280,6 +282,16 @@ func TestUserPanelKeyPrefersTheConfiguredKey(t *testing.T) {
 		"with no key configured the tmux option is still what both sides read")
 }
 
+// sleepingPanel is a stand-in for the weave binary whose panel subcommand only sleeps.
+func sleepingPanel(t *testing.T) string {
+	t.Helper()
+
+	path := filepath.Join(t.TempDir(), "weave")
+	require.NoError(t, os.WriteFile(path, []byte("#!/bin/sh\nsleep 60\n"), 0o755))
+
+	return path
+}
+
 // TestEnsureManagerSessionReplacesAPanelFromAnotherBuild covers an open finding a panel built
 // from other code, or one so old it never said which, and putting a fresh one up instead.
 func TestEnsureManagerSessionReplacesAPanelFromAnotherBuild(t *testing.T) {
@@ -317,6 +329,7 @@ func TestEnsureManagerSessionReplacesAPanelFromAnotherBuild(t *testing.T) {
 			panelSession(t, socket)
 
 			state := hideState(socket, "")
+			state.self = sleepingPanel(t)
 
 			panelPane := hostQuery(t, socket, "display-message", "-p", "-t", agents.ManagerSession, "#{pane_id}")
 			state.tmux.RecordPanelPane(panelPane)
@@ -333,6 +346,7 @@ func TestEnsureManagerSessionReplacesAPanelFromAnotherBuild(t *testing.T) {
 
 			assert.Equal(t, !tt.replaced, slices.Contains(after, before),
 				"the process the panel key found is the one it re-shows")
+			assert.Len(t, after, 1, "one panel is up either way")
 		})
 	}
 }

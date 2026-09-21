@@ -125,7 +125,7 @@ func ensureManagerSession(ctx context.Context, state *app, detached, headless bo
 
 	if !isManagerSessionRunning(ctx, state) {
 		if err := runTmux(ctx, state, "failed to create the manager session",
-			buildManagerSessionArgs(state, getSelfPath(), headless)); err != nil {
+			buildManagerSessionArgs(state, state.selfPath(), headless)); err != nil {
 			return err
 		}
 
@@ -141,7 +141,7 @@ func ensureManagerSession(ctx context.Context, state *app, detached, headless bo
 	}
 
 	return runTmux(ctx, state, "failed to open a panel window in the manager session",
-		buildPanelWindowArgs(state, getSelfPath(), detached))
+		buildPanelWindowArgs(state, state.selfPath(), detached))
 }
 
 // silenceManagerPrefix leaves the engine's own server answering to no prefix, since a headless
