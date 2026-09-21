@@ -11,6 +11,7 @@ import (
 	"weave/internal/agents"
 	"weave/internal/tmux"
 	"weave/internal/ui"
+	"weave/internal/ui/enginepick"
 	"weave/internal/version"
 	"weave/lib/xslice"
 
@@ -35,7 +36,9 @@ lives on weave's own tmux server, so it does not show up in ` + "`tmux ls`" + `.
 
 With engine files under the config's engines directory and no --engine given, it
 first asks which weave to open, this machine or one of them, and runs itself again
-on the one chosen. An engine running other code than this weave cannot be chosen.
+on the one chosen. Closing that panel comes back to the question, and closing the
+question closes the popup. An engine running other code than this weave cannot be
+chosen.
 
 The tmux plugin runs this as the popup's command, so it blocks until the client
 detaches, which is what closes the popup. Pressing the panel key again runs
@@ -58,37 +61,17 @@ an agent's pane into a panel nobody is looking at.`,
 			}
 
 			if !detach && !headless && state.configStack.Engine == "" && term.IsTerminal(int(os.Stdin.Fd())) {
-				name, err := pickEngine(cmd.Context(), state)
-				if errors.Is(err, errPickerClosed) {
-					return nil
-				}
+				rows, err := engineRows(state.configStack)
 				if err != nil {
 					return err
 				}
 
-				if name != "" {
-					return execOpenEngine(state.selfPath(), state.configStack, name)
+				if len(rows) > 1 {
+					return openFromPicker(cmd.Context(), state, rows)
 				}
 			}
 
-			if err := ensureManagerSession(cmd.Context(), state, detach, headless); err != nil {
-				return err
-			}
-
-			if detach || headless {
-				return nil
-			}
-
-			// Only the attaching path says which window is current.
-			state.tmux.SelectWindow(state.tmux.GetPanelPane())
-
-			socket := tmux.SocketFromEnv(state.env.Tmux)
-			state.tmux.RecordHostSocket(socket)
-			state.tmux.RecordHostPath(hostPath(socket))
-
-			state.popup.BindHide(userPanelKey(state, socket))
-
-			return attachManagerSession(cmd.Context(), state)
+			return openHere(cmd.Context(), state, detach, headless)
 		},
 	}
 
@@ -96,6 +79,52 @@ an agent's pane into a panel nobody is looking at.`,
 	cmd.Flags().BoolVar(&headless, "headless", false, "create the manager session with no panel in it, for an engine driven from another machine")
 
 	return cmd
+}
+
+// openFromPicker asks which engine to open and opens it, coming back to the picker each time
+// that panel is closed until the picker itself is closed.
+func openFromPicker(ctx context.Context, state *app, rows []enginepick.Row) error {
+	for {
+		name, err := pickEngine(ctx, state, rows)
+		if errors.Is(err, errPickerClosed) {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+
+		if name == "" {
+			err = openHere(ctx, state, false, false)
+		} else {
+			err = runOpenEngine(ctx, state.selfPath(), state.configStack, name)
+		}
+
+		if err != nil {
+			return err
+		}
+	}
+}
+
+// openHere puts this machine's panel up and attaches it, returning once the client detaches.
+func openHere(ctx context.Context, state *app, detach, headless bool) error {
+	if err := ensureManagerSession(ctx, state, detach, headless); err != nil {
+		return err
+	}
+
+	if detach || headless {
+		return nil
+	}
+
+	// Only the attaching path says which window is current.
+	state.tmux.SelectWindow(state.tmux.GetPanelPane())
+
+	socket := tmux.SocketFromEnv(state.env.Tmux)
+	state.tmux.RecordHostSocket(socket)
+	state.tmux.RecordHostPath(hostPath(socket))
+
+	state.popup.BindHide(userPanelKey(state, socket))
+
+	return attachManagerSession(ctx, state)
 }
 
 func attachManagerSession(ctx context.Context, state *app) error {

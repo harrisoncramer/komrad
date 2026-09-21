@@ -5,8 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"strings"
-	"syscall"
 
 	"weave/config"
 	"weave/internal/doctor"
@@ -133,18 +133,9 @@ func (p engineProber) probe(ctx context.Context, row enginepick.Row) enginepick.
 	}
 }
 
-// pickEngine puts the picker up when there is more than this machine to choose from, and hands
-// back the engine chosen, empty for this machine.
-func pickEngine(ctx context.Context, state *app) (string, error) {
-	rows, err := engineRows(state.configStack)
-	if err != nil {
-		return "", err
-	}
-
-	if len(rows) == 1 {
-		return "", nil
-	}
-
+// pickEngine puts the picker up over the rows and hands back the engine chosen, empty for this
+// machine.
+func pickEngine(ctx context.Context, state *app, rows []enginepick.Row) (string, error) {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
@@ -179,11 +170,16 @@ func openEngineArgs(self string, stack config.Stack, name string) []string {
 	return args
 }
 
-// execOpenEngine replaces this process with an open on the chosen engine.
-func execOpenEngine(self string, stack config.Stack, name string) error {
+// runOpenEngine runs an open on the chosen engine in this terminal and returns once it closes.
+func runOpenEngine(ctx context.Context, self string, stack config.Stack, name string) error {
 	args := openEngineArgs(self, stack, name)
 
-	if err := syscall.Exec(self, args, os.Environ()); err != nil {
+	cmd := exec.CommandContext(ctx, self, args[1:]...)
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("failed to open the %s engine with %s: %w", name, strings.Join(args, " "), err)
 	}
 
