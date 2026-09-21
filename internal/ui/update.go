@@ -322,6 +322,12 @@ func (m model) routeAsyncMessage(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
 		next, cmd := m.applyWrite(msg)
 
 		return next, cmd, true
+	case reviewPausedMsg:
+		if m.isPassing(msg.agentID) {
+			return m, nil, false
+		}
+
+		return m, m.releaseAbandonedPause(msg), true
 	case rebasePlannedMsg:
 		next, cmd := m.applyRebasePlanned(msg)
 

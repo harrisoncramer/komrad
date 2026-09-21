@@ -181,7 +181,9 @@ func TestAPassGivenUpBeforeTheAgentStopsLetsItGo(t *testing.T) {
 	paused, ok := cmd().(reviewPausedMsg)
 	require.True(t, ok)
 
-	letGo := m.review.applyPaused(&m, m.shared(), paused)
+	next, letGo := m.Update(paused)
+	m, ok = next.(model)
+	require.True(t, ok)
 
 	assert.False(t, m.review.pass.atEditor, "nothing opens onto a screen that went back to watching")
 	assert.Equal(t, modeWatching, m.review.pass.mode)
@@ -388,4 +390,52 @@ func runReviewCmd(t *testing.T, cmd tea.Cmd) {
 
 	require.NotNil(t, cmd)
 	cmd()
+}
+
+// TestDroppingTheReviewWhileTheAgentIsStillStoppingLetsItGo covers the hold landing after the
+// reader has left the review screen altogether.
+func TestDroppingTheReviewWhileTheAgentIsStillStoppingLetsItGo(t *testing.T) {
+	for _, key := range []tea.KeyMsg{editorKey(), keyMsg("c")} {
+		dir := reviewRepo(t)
+		agents := &fakeReviewAgents{}
+		m, _ := reviewModel(t, agents, dir)
+		m = openReview(t, m)
+
+		setReviewAgentState(&m, panel.StateThinking)
+		if key.String() == editorKey().String() {
+			m.review.diff.cursor = reviewRowWithAnEditTarget(t, m)
+		}
+
+		next, cmd := m.updateReview(key)
+		m, ok := next.(model)
+		require.True(t, ok)
+		require.True(t, m.review.pass.pausing)
+
+		agentID := m.review.agentID
+
+		for m.screen == screenReview {
+			next, _ = m.Update(tea.KeyMsg{Type: tea.KeyEsc})
+			m, ok = next.(model)
+			require.True(t, ok)
+		}
+
+		var paused tea.Msg
+		for _, msg := range flatten(cmd()) {
+			if _, ok := msg.(reviewPausedMsg); ok {
+				paused = msg
+			}
+		}
+
+		require.NotNil(t, paused)
+		require.NotNil(t, agents.held, "the hold landed after the drop")
+
+		next, letGo := m.Update(paused)
+		m, ok = next.(model)
+		require.True(t, ok)
+
+		runReviewCmd(t, letGo)
+
+		require.NotNil(t, agents.letGo, "the agent the pass stopped is let go")
+		assert.Equal(t, agentID, agents.letGo.GetId())
+	}
 }
