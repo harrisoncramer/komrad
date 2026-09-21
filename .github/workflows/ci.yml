@@ -43,6 +43,7 @@ jobs:
               - '.custom-gcl.yml'
               - 'tools/weavelint/**'
               - 'tools/weavepkg/**'
+              - 'tools/weaverec/**'
               - '.github/workflows/ci.yml'
             shell:
               - 'mise/**'

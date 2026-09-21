@@ -1,0 +1,62 @@
+#!/usr/bin/env bash
+source "$MISE_CONFIG_ROOT/mise/tasks/_"
+#MISE description="Record the throwaway instance from a script of keypresses, one frame per step, to a gif."
+set -euo pipefail
+
+usage() {
+	echo "Usage: MISE_ENV=test mise run record <script> [--width 140] [--height 40] [--pause 1.5s] [--theme name] [--out dir]"
+	echo
+	echo "Drives the panel on tmux socket weave-test by the keys in the script and takes"
+	echo "one frame after every step: the panel's window, splits included, drawn by a"
+	echo "client of the recorder's own at the width and height given. The frames, an"
+	echo "asciicast with a marker per step, and the gif agg renders from it land under"
+	echo "local/recordings/<script name>/ unless --out says otherwise. Each frame shows"
+	echo "for --pause. The gif takes its colours from ~/.alacritty.toml when that file"
+	echo "is there, else from --theme, an agg theme name such as kanagawa, else agg's"
+	echo "default."
+	echo
+	echo "A script is one step per line: 'key j' sends tmux key names, 'type hello'"
+	echo "sends text, 'sleep 500ms' waits, and 'wait Claude' polls until some window"
+	echo "shows the text. Scripts live under recordings/."
+	echo
+	echo "It needs the instance up, which 'MISE_ENV=test mise run restart' does, and it"
+	echo "refuses to run against any tmux socket but weave-test."
+}
+
+for arg in "$@"; do
+	case "$arg" in
+	-h | --help)
+		usage
+		exit 0
+		;;
+	esac
+done
+
+if [ "${WEAVE_TMUX_SOCKET:-}" != "weave-test" ]; then
+	echo "record: WEAVE_TMUX_SOCKET is '${WEAVE_TMUX_SOCKET:-}', not weave-test; run it as MISE_ENV=test mise run record" >&2
+	exit 1
+fi
+
+if [ $# -eq 0 ]; then
+	usage >&2
+	exit 1
+fi
+
+script="$1"
+shift
+
+case "$script" in
+/*) ;;
+*) script="$MISE_ORIGINAL_CWD/$script" ;;
+esac
+
+cd "$MISE_CONFIG_ROOT"
+
+(cd tools/weaverec && go build -o "$MISE_CONFIG_ROOT/bin/weaverec" .)
+
+alacritty=()
+if [ -f "$HOME/.alacritty.toml" ]; then
+	alacritty=(--alacritty "$HOME/.alacritty.toml")
+fi
+
+exec "$MISE_CONFIG_ROOT/bin/weaverec" --socket "$WEAVE_TMUX_SOCKET" "${alacritty[@]}" "$@" "$script"
