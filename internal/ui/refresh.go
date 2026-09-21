@@ -152,7 +152,7 @@ func (m *model) applyRefresh(result refreshResult) tea.Cmd {
 	m.reportUnreachable(result.err())
 
 	treeRow := rowKeyAt(m.agentRows(), m.tree.cursor)
-	archiveRow := rowKeyAt(m.archiveRows(), m.archive.cursor)
+	archiveRow := m.archive.list().hovered(m.shared())
 	worktreeRow := m.worktrees.list().hovered(m.shared())
 	searchRow := m.hoveredSearchID()
 

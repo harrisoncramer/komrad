@@ -196,7 +196,7 @@ func TestALongNameIsCutWithAnEllipsis(t *testing.T) {
 		m.width, m.height = 80, 40
 		m.listing.archivedWorkflows = []panel.Workflow{{ID: "w1", Name: long}}
 
-		assert.Contains(t, rowWith(t, m.archiveListView(), long[:10]), "…", "the name says it was cut")
+		assert.Contains(t, rowWith(t, m.screenListView(m.archive.listParams(m.shared())), long[:10]), "…", "the name says it was cut")
 	})
 
 	t.Run("a schedule", func(t *testing.T) {

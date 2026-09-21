@@ -187,8 +187,8 @@ func (m model) failedRunLog(agentID string) *int32 {
 }
 
 // latestRunLog is the most recent run at one of the given moments that has anything to read.
-func (m model) latestRunLog(agentID string, moments []string) (config.RunLog, bool) {
-	for _, run := range config.ListRunLogs(m.settings.RunLogsDir, agentID) {
+func latestRunLog(dir, agentID string, moments []string) (config.RunLog, bool) {
+	for _, run := range config.ListRunLogs(dir, agentID) {
 		if !slices.Contains(moments, run.Trigger) {
 			continue
 		}

@@ -621,7 +621,7 @@ func TestScheduleName(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			m := scheduleModel(&fakeSchedules{}, config.DefaultKeybindings())
 
-			assert.Equal(t, tt.want, m.scheduleName(tt.agent))
+			assert.Equal(t, tt.want, m.listing.scheduleName(tt.agent))
 		})
 	}
 }

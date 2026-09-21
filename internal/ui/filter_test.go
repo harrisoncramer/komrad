@@ -238,22 +238,22 @@ func TestArchiveSearchWalksAndClears(t *testing.T) {
 		},
 	})
 	m.archive.cursor = 0
-	require.Equal(t, workflowRowKey("w1"), rowKeyAt(m.archiveRows(), m.archive.cursor))
+	require.Equal(t, workflowRowKey("w1"), rowKeyAt(m.archive.listRows(m.shared()), m.archive.cursor))
 
-	opened, _ := m.updateArchive(keyMsg("/"))
+	opened, _ := archiveAdapter{}.update(m, keyMsg("/"))
 	standing := pressMark(t, opened.(model), "^", "a", "enter")
 	require.True(t, standing.filter.isStanding())
-	require.Equal(t, agentRowKey("a1"), rowKeyAt(standing.archiveRows(), standing.archive.cursor))
+	require.Equal(t, agentRowKey("a1"), rowKeyAt(standing.archive.listRows(standing.shared()), standing.archive.cursor))
 
 	walked := pressMark(t, standing, "n")
-	assert.Equal(t, agentRowKey("a2"), rowKeyAt(walked.archiveRows(), walked.archive.cursor), "n walks to the next match")
+	assert.Equal(t, agentRowKey("a2"), rowKeyAt(walked.archive.listRows(walked.shared()), walked.archive.cursor), "n walks to the next match")
 
 	back := pressMark(t, walked, "N")
-	assert.Equal(t, agentRowKey("a1"), rowKeyAt(back.archiveRows(), back.archive.cursor), "and N walks back")
+	assert.Equal(t, agentRowKey("a1"), rowKeyAt(back.archive.listRows(back.shared()), back.archive.cursor), "and N walks back")
 
 	cleared := pressMark(t, back, "esc")
 	assert.False(t, cleared.filter.isStanding(), "escape clears the search")
-	assert.Equal(t, workflowRowKey("w1"), rowKeyAt(cleared.archiveRows(), cleared.archive.cursor), "and puts the cursor back where it opened")
+	assert.Equal(t, workflowRowKey("w1"), rowKeyAt(cleared.archive.listRows(cleared.shared()), cleared.archive.cursor), "and puts the cursor back where it opened")
 }
 
 // TestSearchWalksMatchesOnlyWhileOneStands pins n and N moving between matches once a search

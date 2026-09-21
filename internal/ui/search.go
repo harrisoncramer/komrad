@@ -548,14 +548,9 @@ func (m model) jumpToSearchAgent() (tea.Model, tea.Cmd) {
 	m.search = searchState{}
 
 	if agent.archived {
-		m.archive.focus = agent.id
-		// The stage is drawn before the listing the focus is spent on comes back, so the cursor
-		// is placed here too when the archive is already held.
-		if idx := rowIndexOfAgentID(m.archiveRows(), agent.id); idx >= 0 {
-			m.archive.cursor = idx
-		}
+		cmd := m.enter(screenArchive, screenTarget{agentID: agent.id})
 
-		return m.enterArchive()
+		return m, cmd
 	}
 
 	m.enterScreen(screenAgents)

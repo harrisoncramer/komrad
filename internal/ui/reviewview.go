@@ -313,7 +313,7 @@ func (m model) reviewDetails() details {
 
 	item := m.listing.agents[index]
 	agent := item.agent
-	fields := m.agentDetailFields(item)
+	fields := agentDetailFields(m.shared(), item)
 
 	// The notices read the row the list would draw, and which columns that row fills depends on
 	// whether the agent owns its checkout, which only its workflow says.

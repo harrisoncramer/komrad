@@ -193,21 +193,21 @@ func (m model) agentsDetails() details {
 	return details{
 		id:      r.item.agent.ID,
 		notices: agentNotices(r),
-		fields:  m.agentDetailFields(r.item),
+		fields:  agentDetailFields(m.shared(), r.item),
 	}
 }
 
 // agentDetailFields is the record for an agent as the listing holds it.
-func (m model) agentDetailFields(item agentItem) []recordField {
-	worktree, read := m.agentWorktree(item.agent.Cwd)
+func agentDetailFields(s panelShared, item agentItem) []recordField {
+	worktree, read := agentWorktree(s.inspections, item.agent.Cwd)
 
 	return agentFields(agentFieldsParams{
 		agent:    item.agent,
-		schedule: m.scheduleName(item.agent),
-		parent:   m.parentName(item.agent),
-		workflow: m.listing.workflowName(item.agent.WorkflowID),
+		schedule: s.listing.scheduleName(item.agent),
+		parent:   s.listing.parentName(item.agent),
+		workflow: s.listing.workflowName(item.agent.WorkflowID),
 		standing: item.pullRequest,
-		listed:   m.pullRequests.listed[item.agent.ID],
+		listed:   s.pullRequests.listed[item.agent.ID],
 		worktree: worktree,
 		read:     read,
 		now:      time.Now(),
@@ -261,34 +261,34 @@ func (m model) agentDoc() string {
 	case item.agent.HeldAt != nil:
 		return heldPlaceholder
 	case item.agent.State.IsFailed():
-		return m.failedPlaceholder(item.agent)
+		return failedPlaceholder(m.shared(), item.agent)
 	default:
 		return dormantPlaceholder
 	}
 }
 
 // parentName is what the agent a child is attached to is called.
-func (m model) parentName(agent panel.Agent) string {
+func (l listing) parentName(agent panel.Agent) string {
 	if agent.ParentAgentID == nil {
 		return ""
 	}
 
-	if item, ok := m.liveAgent(*agent.ParentAgentID); ok {
+	if item, ok := l.liveAgent(*agent.ParentAgentID); ok {
 		return item.agent.Name
 	}
-	if parent, ok := m.archivedAgent(*agent.ParentAgentID); ok {
+	if parent, ok := l.archivedAgent(*agent.ParentAgentID); ok {
 		return parent.Name
 	}
 
 	return *agent.ParentAgentID
 }
 
-func (m model) scheduleName(agent panel.Agent) string {
+func (l listing) scheduleName(agent panel.Agent) string {
 	if agent.ScheduleID == nil {
 		return ""
 	}
 
-	for _, item := range m.listing.schedules {
+	for _, item := range l.schedules {
 		if item.schedule.ID == *agent.ScheduleID {
 			return item.schedule.Name
 		}
@@ -315,7 +315,7 @@ const settingUpPlaceholder = "_setting up…_\n\nMaking this agent's worktree. I
 // failureReasonKey is the metadata key a failed create or cleanup records its reason under.
 const failureReasonKey = "error"
 
-func (m model) failedPlaceholder(agent panel.Agent) string {
+func failedPlaceholder(s panelShared, agent panel.Agent) string {
 	// A create dies at the provisioner or at one of the pre-launch hooks after it, so the run
 	// that failed is the newest of either rather than the newest provision run.
 	label, moments := "setup", []string{config.TriggerProvision, config.HookPreLaunch}
@@ -325,7 +325,7 @@ func (m model) failedPlaceholder(agent panel.Agent) string {
 		label, moments = "teardown", []string{config.HookPreTeardown, config.TriggerDeprovision}
 	}
 
-	if run, ok := m.latestRunLog(agent.ID, moments); ok {
+	if run, ok := latestRunLog(s.runLogsDir, agent.ID, moments); ok {
 		return fmt.Sprintf("_%s failed_\n\nPress \"l\" to see run %03d, which is the one that failed.", label, run.Number)
 	}
 
@@ -373,7 +373,7 @@ func (m model) agentsSnapshot(pane int) view.Snapshot {
 		rows:          rows,
 		marks:         m.listing.marks,
 		selected:      m.tree.selected,
-		scheduled:     m.scheduledWorkflows(),
+		scheduled:     m.listing.scheduledWorkflows(),
 		focused:       rowKeyAt(rows, m.tree.cursor),
 		caret:         m.caretOf(sectionList),
 		barBlinkedOut: m.rowCursor.Blink,
@@ -385,9 +385,9 @@ func (m model) agentsSnapshot(pane int) view.Snapshot {
 }
 
 // scheduledWorkflows is the workflows at least one schedule launches into.
-func (m model) scheduledWorkflows() map[string]bool {
-	scheduled := make(map[string]bool, len(m.listing.schedules))
-	for _, item := range m.listing.schedules {
+func (l listing) scheduledWorkflows() map[string]bool {
+	scheduled := make(map[string]bool, len(l.schedules))
+	for _, item := range l.schedules {
 		scheduled[item.schedule.WorkflowID] = true
 	}
 

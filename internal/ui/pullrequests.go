@@ -118,7 +118,7 @@ func (m model) hoveredRecordAgent() (agentItem, bool) {
 	case screenAgents:
 		row, ok = m.hoveredRow()
 	case screenArchive:
-		row, ok = rowAt(m.archiveRows(), m.archive.cursor)
+		row, ok = rowAt(m.archive.listRows(m.shared()), m.archive.cursor)
 	case screenSchedules, screenSearch, screenReview, screenWorktrees:
 		return agentItem{}, false
 	}

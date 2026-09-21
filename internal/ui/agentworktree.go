@@ -45,8 +45,8 @@ func (m *model) rereadAgentWorktreeCmd() tea.Cmd {
 
 // agentWorktree is what has been read of an agent's directory, and nothing for one that is not
 // a worktree weave holds.
-func (m model) agentWorktree(cwd string) (worktreeInspection, bool) {
-	read, ok := m.inspections[cwd]
+func agentWorktree(inspections map[string]worktreeInspection, cwd string) (worktreeInspection, bool) {
+	read, ok := inspections[cwd]
 	if !ok || !read.answered || read.isSettled() {
 		return worktreeInspection{}, false
 	}
