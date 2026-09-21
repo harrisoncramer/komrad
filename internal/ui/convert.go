@@ -49,7 +49,7 @@ func protoToAgent(s *agentv1.Agent) agentstore.Agent {
 	}
 }
 
-// stateFrom is a state as the wire carries it.
+// stateFrom is a wire state as the panel stores it.
 func stateFrom(state agentv1.AgentState) agentstore.State {
 	switch state {
 	case agentv1.AgentState_AGENT_STATE_IDLE:
@@ -70,7 +70,7 @@ func stateFrom(state agentv1.AgentState) agentstore.State {
 	return agentstore.StateUncertain
 }
 
-// roleFrom is a role as the wire carries it.
+// roleFrom is a wire role as the panel stores it.
 func roleFrom(role agentv1.AgentRole) agentstore.Role {
 	switch role {
 	case agentv1.AgentRole_AGENT_ROLE_IMPLEMENTER:
