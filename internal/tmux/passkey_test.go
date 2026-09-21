@@ -23,6 +23,8 @@ bind -n C-d run-shell "if $is_vim; then tmux send-keys C-d; else tmux copy-mode 
 bind -n C-u run-shell "if $is_vim; then tmux send-keys C-u; else tmux copy-mode -u; tmux send-keys M; fi"
 bind -n C-t set -g @first one \; set -g @second two
 bind -n C-y display-message unused
+bind -n \; display-message semicolon
+bind -n "'" display-message quote
 `
 
 // TestTakePanelKeysHandsThePressToThePanelPaneOnly pins both arms of the rebinding against a
@@ -40,12 +42,12 @@ func TestTakePanelKeysHandsThePressToThePanelPaneOnly(t *testing.T) {
 		"sh", "-c", "stty raw -echo; cat -v")
 	require.NoError(t, err)
 
-	require.NoError(t, client.TakePanelKeys([]string{"ctrl+d", "ctrl+u", "ctrl+t", "ctrl+n", "j"}))
+	require.NoError(t, client.TakePanelKeys([]string{"ctrl+d", "ctrl+u", "ctrl+t", "ctrl+n", "j", ";", "'"}))
 
 	rebound, err := client.GetRootKeys()
 	require.NoError(t, err)
 
-	for _, key := range []string{"C-d", "C-u", "C-t"} {
+	for _, key := range []string{"C-d", "C-u", "C-t", ";", "'"} {
 		assert.True(t, IsPanelPassThrough(rebound[key]), "%s is now the panel's: %s", key, rebound[key])
 	}
 
@@ -73,10 +75,12 @@ func TestTakePanelKeysHandsThePressToThePanelPaneOnly(t *testing.T) {
 	client.RecordPanelPane(pane)
 	press("C-d")
 	press("C-u")
+	press(`\;`)
+	press("'")
 
 	require.Eventually(t, func() bool {
-		return strings.Contains(client.CapturePane(pane), "^D^U")
-	}, 5*time.Second, 20*time.Millisecond, "the program on the panel's pane reads both presses")
+		return strings.Contains(client.CapturePane(pane), "^D^U;'")
+	}, 5*time.Second, 20*time.Millisecond, "the program on the panel's pane reads every press")
 	assert.Equal(t, "0", paneOption(t, client, pane, "pane_in_mode"), "and tmux did not open copy-mode over it")
 
 	client.RecordPanelPane("%999")

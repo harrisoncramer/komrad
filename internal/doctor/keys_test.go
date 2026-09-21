@@ -22,6 +22,7 @@ func rootKeysEnvWithPrefix(cfg *config.Config, prefix string, rootKeys ...string
 	env.TmuxSocket = "weave"
 	env.FocusKey = ui.FocusKey
 	env.ValidateKeybindings = ui.ValidateKeybindings
+	env.IsPanelRunning = func(context.Context) bool { return true }
 	env.Output = func(_ context.Context, _ string, args ...string) (string, error) {
 		switch {
 		case slices.Contains(args, "list-keys"):
@@ -69,6 +70,7 @@ func TestKeybindingsCheckIgnoresThePanelsOwnFocusBinding(t *testing.T) {
 	env.TmuxSocket = "weave"
 	env.FocusKey = ui.FocusKey
 	env.ValidateKeybindings = ui.ValidateKeybindings
+	env.IsPanelRunning = func(context.Context) bool { return true }
 	env.Output = func(_ context.Context, _ string, args ...string) (string, error) {
 		if slices.Contains(args, "list-keys") {
 			return `bind-key  -T root C-a    if-shell -F #{==:#{pane_id},%3} "select-pane -t %9" "select-pane -t %3"`, nil
@@ -89,6 +91,7 @@ func TestKeybindingsCheckIgnoresAKeyThePanelHasTaken(t *testing.T) {
 	env.TmuxSocket = "weave"
 	env.FocusKey = ui.FocusKey
 	env.ValidateKeybindings = ui.ValidateKeybindings
+	env.IsPanelRunning = func(context.Context) bool { return true }
 	env.Output = func(_ context.Context, _ string, args ...string) (string, error) {
 		if slices.Contains(args, "list-keys") {
 			return `bind-key  -T root C-d    if-shell -F "#{==:#{pane_id},#{@weave_panel_pane}}" send-keys "copy-mode -u"`, nil
@@ -118,13 +121,11 @@ func TestKeybindingsCheckWaitsForThePanelToTakeAKey(t *testing.T) {
 // TestKeybindingsCheckFindsAKeyThePanelCouldNotTake covers the user's binding still standing on
 // a panel key with the panel up, which is the rebinding having been refused or undone.
 func TestKeybindingsCheckFindsAKeyThePanelCouldNotTake(t *testing.T) {
-	env := rootKeysEnv(config.Defaults(), "C-d")
-	env.IsPanelRunning = func(context.Context) bool { return true }
-
-	result := newKeybindingsCheck().Run(t.Context(), env)
+	result := newKeybindingsCheck().Run(t.Context(), rootKeysEnv(config.Defaults(), "C-d"))
 
 	assert.Equal(t, StatusFail, result.Status)
 	assert.Equal(t, "ctrl+d", result.Detail)
+	assert.Contains(t, result.Fix, "reopen the panel")
 	assert.Contains(t, result.Fix, "unbind -n C-d")
 }
 

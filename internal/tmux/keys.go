@@ -49,13 +49,13 @@ func (c *Client) GetPrefixKeys() (map[string]string, error) {
 	return c.getKeys("prefix")
 }
 
-// GetRootKeys returns every key bound outside the prefix table with its command as tmux prints it.
+// GetRootKeys returns every key bound in the root table with its command as tmux prints it.
 func (c *Client) GetRootKeys() (map[string]string, error) {
 	return c.getKeys("root")
 }
 
-// TakePanelKeys rebinds every key the panel binds that the root table holds, so a press on the
-// panel's own pane reaches the panel while a press anywhere else runs the command the key held.
+// TakePanelKeys rebinds every panel key the root table holds to reach the panel on its own pane
+// and keep the user's command everywhere else.
 func (c *Client) TakePanelKeys(keys []string) error {
 	held, err := c.GetRootKeys()
 	if err != nil {
@@ -86,13 +86,27 @@ func IsPanelPassThrough(command string) bool {
 }
 
 func (c *Client) passKeyToPanel(key, command string) error {
+	bound := key
+	if key == ";" {
+		bound = `\;`
+	}
+
+	through := "send-keys " + quoteKey(key)
 	otherwise := strings.ReplaceAll(command, ` \; `, " ; ")
 
-	if _, err := c.query("bind-key", "-n", key, "if-shell", "-F", panelPaneFormat, "send-keys", otherwise); err != nil {
+	if _, err := c.query("bind-key", "-n", bound, "if-shell", "-F", panelPaneFormat, through, otherwise); err != nil {
 		return fmt.Errorf("failed to pass %q to the panel: %w", key, err)
 	}
 
 	return nil
+}
+
+func quoteKey(key string) string {
+	if !strings.Contains(key, "'") {
+		return "'" + key + "'"
+	}
+
+	return `"` + strings.NewReplacer(`\`, `\\`, `"`, `\"`).Replace(key) + `"`
 }
 
 func (c *Client) getKeys(table string) (map[string]string, error) {

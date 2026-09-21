@@ -76,7 +76,7 @@ func newKeybindingsCheck() Check {
 					continue
 				}
 
-				if !isPanelRunning(ctx, env) {
+				if !env.IsPanelRunning(ctx) {
 					waiting = append(waiting, spelled)
 
 					continue
@@ -86,7 +86,7 @@ func newKeybindingsCheck() Check {
 					fmt.Errorf("%w: %q is %s to tmux, bound in the root table to %s",
 						ErrKeyHeldByTmux, key, spelled, held),
 					key,
-					"unbind -n "+spelled+" in your tmux config, or bind that action to another key",
+					"reopen the panel, which takes "+spelled+" back; if it stays with tmux, read the panel log or unbind -n "+spelled+" in your tmux config",
 				)
 			}
 
@@ -154,10 +154,6 @@ func heldByAnythingElse(rootKeys map[string]string, key string) (string, bool) {
 // isPanelFocusBinding reports whether a root binding is the one the panel moves focus with.
 func isPanelFocusBinding(command string) bool {
 	return strings.HasPrefix(command, "if-shell") && strings.Contains(command, "#{==:#{pane_id},%")
-}
-
-func isPanelRunning(ctx context.Context, env Env) bool {
-	return env.IsPanelRunning == nil || env.IsPanelRunning(ctx)
 }
 
 func readTmuxPrefix(ctx context.Context, env Env) string {
