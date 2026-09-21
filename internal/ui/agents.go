@@ -368,6 +368,10 @@ func (m model) agentDoc() string {
 
 // sizeAgentWindows keeps every agent's own window at the size of the pane it is shown in.
 func (m *model) sizeAgentWindows() {
+	if m.frame.IsRemote() {
+		return
+	}
+
 	width, height := m.frame.StageCols(), m.height
 	if width <= 0 || height <= 0 {
 		return

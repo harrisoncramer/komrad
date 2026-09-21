@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"weave/config"
+	"weave/internal/engine"
 	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
 	"weave/internal/ui/layout"
@@ -404,6 +405,19 @@ func TestAgentWindowsAreTheSizeOfTheStage(t *testing.T) {
 
 	assert.Equal(t, "200x40", tmux.windowSizes["%9"], "the running agent's own window is put at the stage's size")
 	assert.NotContains(t, tmux.windowSizes, "", "and a dormant agent has no window to size")
+}
+
+// TestRemoteAgentWindowsAreLeftAlone covers a remote engine, whose agents' windows live on another
+// tmux server where a pane id names something else, so nothing on this one is resized.
+func TestRemoteAgentWindowsAreLeftAlone(t *testing.T) {
+	tmux := &recordingTmux{}
+	m := sizedTo(infoModel(tmux), tmux)
+	m.frame = layout.New(tmux, config.DefaultLayout(), layout.WithEngine(engine.Remote{Exec: []string{"ssh", "engine"}}))
+	m.frame.Attach("%0")
+
+	m = resizedTo(t, m, 200, 40)
+
+	assert.Empty(t, tmux.windowSizes, "no window on the panel's own server is touched")
 }
 
 // TestAWidenedWindowDropsADraggedDivider covers a terminal made wider after the divider was

@@ -119,6 +119,10 @@ func (m *model) markWarm(pane string) {
 // ahead of the periodic sizing pass, which does not reach it until the agent turns up in a
 // listing.
 func (m *model) sizeWarmingWindow(pane string) {
+	if m.frame.IsRemote() {
+		return
+	}
+
 	// A guest is standing in the panel's own window, so resizing its window would resize the
 	// terminal weave is drawn in and take the whole layout down with it.
 	if pane == m.frame.GuestPane() {
