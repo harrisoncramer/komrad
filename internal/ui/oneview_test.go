@@ -6,6 +6,8 @@ import (
 
 	"weave/config"
 	"weave/internal/ui/paint"
+	"weave/internal/ui/panel"
+	"weave/lib/xslice"
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
@@ -243,4 +245,83 @@ func TestFieldOnlyFilterEmptiesTheList(t *testing.T) {
 	assert.Empty(t, narrowed.agentRows())
 	assert.False(t, narrowed.isDetailsFocused())
 	assert.Contains(t, ansi.Strip(narrowed.View()), "nothing matches")
+}
+
+// siblingsModel is the details model with more agents under the one workflow, put before auth
+// in the tree.
+func siblingsModel(t *testing.T, names ...string) model {
+	t.Helper()
+
+	m := detailsModel(&recordingTmux{})
+	siblings := xslice.Map(names, func(name string) agentItem {
+		return agentItem{agent: panel.Agent{
+			ID:         "a-" + name,
+			Name:       name,
+			Pane:       "%9",
+			Cwd:        "/repo",
+			WorkflowID: "w1",
+		}, alive: true}
+	})
+	m.listing.agents = append(siblings, m.listing.agents...)
+	m.tree.cursor = len(names) + 1
+
+	return m
+}
+
+// TestClearingAFilterFromTheOtherSectionKeepsTheRow covers a filter cleared from the section
+// that did not open it: both sections grow back, and each cursor stays on the row it was on
+// rather than on the index it held.
+func TestClearingAFilterFromTheOtherSectionKeepsTheRow(t *testing.T) {
+	m := siblingsModel(t, "alpha", "beta")
+	require.Equal(t, "a1", m.hoveredDetails().id)
+
+	narrowed := pressMark(t, m, "/", "a", "u", "t", "tab", "enter")
+	require.Equal(t, []string{"backend", "auth"}, agentRowNames(narrowed))
+	require.Equal(t, "a1", narrowed.hoveredDetails().id)
+
+	cleared := pressMark(t, narrowed, "ctrl+t", "esc")
+	require.True(t, cleared.isDetailsFocused())
+	assert.False(t, cleared.filter.isStanding())
+	assert.Equal(t, []string{"backend", "alpha", "beta", "auth"}, agentRowNames(cleared))
+	assert.Equal(t, "a1", cleared.hoveredDetails().id, "the record under the keys is the one the reader had")
+}
+
+func agentRowNames(m model) []string {
+	return xslice.Map(agentsList().rows(m), agentRowName)
+}
+
+// TestClearingAFilterFromTheListKeepsTheRecordsRow covers the same clear the other way: a
+// filter over the record's fields cleared from the list leaves the record's cursor on the field
+// it was on.
+func TestClearingAFilterFromTheListKeepsTheRecordsRow(t *testing.T) {
+	m := recordSearchModel(t)
+	held := m.hoveredDetails()
+	m = m.setDetailsCursor(held, 12)
+	require.Equal(t, "session_id abc", m.detailsRows(held)[12].text)
+
+	narrowed := pressMark(t, m, "/", "a", "u", "t", "h", "|", "a", "b", "c", "tab", "enter")
+	require.True(t, narrowed.filter.isNarrowing())
+	require.True(t, narrowed.isDetailsFocused())
+	require.Len(t, narrowed.detailsRows(held), 2)
+	field := narrowed.detailsRows(held)[narrowed.detailsCursor(held)].text
+	require.Equal(t, "session_id abc", field)
+
+	cleared := pressMark(t, narrowed, "ctrl+t", "esc")
+	require.False(t, cleared.isDetailsFocused())
+	assert.False(t, cleared.filter.isStanding())
+	assert.Equal(t, field, cleared.detailsRows(held)[cleared.detailsCursor(held)].text)
+}
+
+// TestSearchingTheRecordUnderAListFilterKeepsTheRow covers a search opened from the record while
+// a filter stands on the list: the list grows back with its cursor on the same agent.
+func TestSearchingTheRecordUnderAListFilterKeepsTheRow(t *testing.T) {
+	m := siblingsModel(t, "alpha", "beta")
+
+	narrowed := pressMark(t, m, "/", "a", "u", "t", "tab", "enter")
+	require.Equal(t, []string{"backend", "auth"}, agentRowNames(narrowed))
+
+	reopened := pressMark(t, narrowed, "ctrl+t", "/")
+	require.True(t, reopened.filter.typing)
+	assert.Equal(t, []string{"backend", "alpha", "beta", "auth"}, agentRowNames(reopened))
+	assert.Equal(t, "a1", reopened.hoveredDetails().id)
 }

@@ -125,13 +125,7 @@ func (m *model) filterTarget() filterTarget {
 
 // filteredRows is the cursor the search drives, the record's while the record holds the keys.
 func (m model) filteredRows() filtered {
-	if m.isDetailsFocused() {
-		return detailsFilter{}
-	}
-
-	rows, _ := m.active().(filtered)
-
-	return rows
+	return m.sectionRows(m.keyholder())
 }
 
 func (m model) openFilter() (tea.Model, tea.Cmd) {
@@ -142,13 +136,13 @@ func (m model) openFilter() (tea.Model, tea.Cmd) {
 
 // beginFilter starts a search from nothing, keeping the cursor on the row it was on.
 func (m *model) beginFilter() {
+	m.dropPattern()
 	origin := m.hoveredFilterKey()
 
 	filter := m.filterTarget().state
 	filter.typing = true
 	filter.mode = filterModeSearch
 	filter.openedIn = m.keyholder()
-	filter.setQuery("")
 	filter.origin = origin
 	m.placeFilteredCursor(origin)
 }
@@ -211,6 +205,7 @@ func (m model) clearSearch() (tea.Model, tea.Cmd) {
 func (m *model) clearFilter() {
 	filter := m.filterTarget().state
 	origin, openedIn := filter.origin, filter.openedIn
+	m.dropPattern()
 	filter.abandon()
 	filter.origin = ""
 	if openedIn == m.keyholder() {
@@ -314,6 +309,32 @@ func (m *model) placeFilteredCursor(hovered string) {
 	if rows := m.filterTarget().rows; rows != nil {
 		rows.placeAt(m, hovered)
 	}
+}
+
+// sectionRows is the rows of one pane as the search drives them.
+func (m model) sectionRows(section sidebarSection) filtered {
+	if section == sectionRecord {
+		return detailsFilter{}
+	}
+
+	rows, _ := m.active().(filtered)
+
+	return rows
+}
+
+// dropPattern takes the pattern off, and the pane it narrowed grows back with its cursor on
+// the row it was on.
+func (m *model) dropPattern() {
+	narrowed := m.sectionRows(m.filter.openedIn)
+	if !m.filter.isNarrowing() || narrowed == nil {
+		m.filter.setQuery("")
+
+		return
+	}
+
+	hovered := narrowed.hoveredKey(*m)
+	m.filter.setQuery("")
+	narrowed.placeAt(m, hovered)
 }
 
 // agentRowName is the text a search reads a row of the tree by: the workflow's own name on a
