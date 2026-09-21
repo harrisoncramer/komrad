@@ -722,7 +722,7 @@ func (f fakeWorkflowNames) Get(_ context.Context, id string) (*workflowstore.Wor
 func TestResolveRecipient(t *testing.T) {
 	workflowA, workflowB, workflowC := uuid.NewString(), uuid.NewString(), uuid.NewString()
 	workflows := fakeWorkflowNames{
-		workflowA: "chariot",
+		workflowA: "gadgets",
 		workflowB: "weave",
 		workflowC: "docs",
 	}
@@ -849,7 +849,7 @@ func TestResolveRecipient(t *testing.T) {
 			from:     "",
 			to:       "reviewer",
 			wantErr:  ErrRecipientAmbiguous,
-			wantSaid: []string{reviewerA.ID + " in workflow \"chariot\"", reviewerB.ID + " in workflow \"weave\""},
+			wantSaid: []string{reviewerA.ID + " in workflow \"gadgets\"", reviewerB.ID + " in workflow \"weave\""},
 		},
 		{
 			name:    "a name from a sender the panel does not know",

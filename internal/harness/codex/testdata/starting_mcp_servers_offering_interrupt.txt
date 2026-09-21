@@ -16,7 +16,7 @@
   weave-probe-approval.txt`.
 
 
-[1m[38;2;128;128;128m•[0m [1m[38;2;128;128;128mStarting MCP servers (1/3): chariot, codex_apps[0m [2m(0s • esc to interrupt)[0m
+[1m[38;2;128;128;128m•[0m [1m[38;2;128;128;128mStarting MCP servers (1/3): gadgets, codex_apps[0m [2m(0s • esc to interrupt)[0m
 
 
 [1m›[0m [2mUse /skills to list available skills[0m

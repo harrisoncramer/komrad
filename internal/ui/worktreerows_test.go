@@ -61,7 +61,7 @@ func worktreeFixture() []worktreeItem {
 		},
 		{
 			dir:      "/trees/admin",
-			repoDir:  "/home/h/chariot/admin",
+			repoDir:  "/home/h/gadgets/admin",
 			branch:   "agent/admin",
 			readable: true,
 			agent: &worktreeAgent{
@@ -99,7 +99,7 @@ func TestWorktreeRowsOrderEachGroupByTheColumn(t *testing.T) {
 			items: worktreeFixture(),
 			state: tabsState{chosen: "size", direction: tabUp},
 			want: []string{
-				"repo:/home/h/chariot/admin",
+				"repo:/home/h/gadgets/admin",
 				"tree:/trees/admin",
 				"repo:/home/h/weave",
 				"tree:/trees/archived",
@@ -114,7 +114,7 @@ func TestWorktreeRowsOrderEachGroupByTheColumn(t *testing.T) {
 			items: items,
 			state: tabsState{},
 			want: []string{
-				"repo:/home/h/chariot/admin",
+				"repo:/home/h/gadgets/admin",
 				"tree:/trees/admin",
 				"repo:/home/h/weave",
 				"tree:/trees/live",
@@ -129,7 +129,7 @@ func TestWorktreeRowsOrderEachGroupByTheColumn(t *testing.T) {
 			items: items,
 			state: tabsState{chosen: "size", direction: tabUp},
 			want: []string{
-				"repo:/home/h/chariot/admin",
+				"repo:/home/h/gadgets/admin",
 				"tree:/trees/admin",
 				"repo:/home/h/weave",
 				"tree:/trees/archived",
@@ -144,7 +144,7 @@ func TestWorktreeRowsOrderEachGroupByTheColumn(t *testing.T) {
 			items: items,
 			state: tabsState{chosen: "last-accessed", direction: tabDown},
 			want: []string{
-				"repo:/home/h/chariot/admin",
+				"repo:/home/h/gadgets/admin",
 				"tree:/trees/admin",
 				"repo:/home/h/weave",
 				"tree:/trees/live",
@@ -159,7 +159,7 @@ func TestWorktreeRowsOrderEachGroupByTheColumn(t *testing.T) {
 			items: items,
 			state: tabsState{chosen: "last-accessed", direction: tabUp},
 			want: []string{
-				"repo:/home/h/chariot/admin",
+				"repo:/home/h/gadgets/admin",
 				"tree:/trees/admin",
 				"repo:/home/h/weave",
 				"tree:/trees/archived",
@@ -264,7 +264,7 @@ func TestWorktreeRowNames(t *testing.T) {
 	})
 
 	assert.Equal(t, []string{
-		"/home/h/chariot/admin",
+		"/home/h/gadgets/admin",
 		"custom-cargo-fixes",
 		"/home/h/weave",
 		"review-column",
@@ -482,7 +482,7 @@ func TestWorktreesSnapshotTrailsSizeThenAge(t *testing.T) {
 	}
 
 	assert.Equal(t, map[string]string{
-		"repo:/home/h/chariot/admin": "1.5G    ",
+		"repo:/home/h/gadgets/admin": "1.5G    ",
 		"tree:/trees/admin":          "1.5G 12h",
 		"repo:/home/h/weave":         " 98M    ",
 		"tree:/trees/live":           " 49M 30s",
