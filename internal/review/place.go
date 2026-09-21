@@ -241,8 +241,7 @@ func (v *View) appendAdrift(threads []*agentv1.ReviewThread) {
 }
 
 // doesExpandingDraw reports whether a thread stands on a line the reader would see again by
-// opening its file out, which is a comment off screen by their own choice rather than one the
-// agent has written over.
+// opening its file out.
 func (v *View) doesExpandingDraw(thread *agentv1.ReviewThread) bool {
 	path := v.pathOf(thread)
 	if v.expanded[path] || thread.GetNewStart() == 0 {

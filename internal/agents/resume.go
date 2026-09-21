@@ -17,8 +17,7 @@ import (
 	workflowstore "weave/internal/store/workflow"
 )
 
-// interruptedPrompt is what a resumed agent is asked on the way back in, since no CLI carries
-// an unfinished turn across a relaunch.
+// interruptedPrompt is what a resumed agent is asked on the way back in.
 const interruptedPrompt = "Your last turn was cut off part-way through when your pane was stopped, " +
 	"so nothing you had in flight was carried over. Read back over the conversation, work out what you " +
 	"had actually finished and what you had not, and carry on from there. If the work was already done, " +
@@ -42,8 +41,7 @@ type ResumeService struct {
 	harnesses          harnessGetter
 	scripts            agentScriptRunner
 	fallbackResumeRoot string
-	// inFlight holds the agents this panel is part-way through resuming, which is what stops two
-	// callers each opening a window for one agent, and is kept here rather than on the row.
+	// inFlight holds the agents this panel is part-way through resuming.
 	inFlight   map[string]struct{}
 	inFlightMu sync.Mutex
 }
@@ -147,8 +145,7 @@ func (s *ResumeService) resume(ctx context.Context, agent agentstore.Agent) erro
 		return err
 	}
 
-	// Until this write the row reads as a dormant agent nobody is touching, which is exactly what
-	// a background pass archives.
+	// Until this write the row reads as a dormant agent nobody is touching.
 	live, err := s.agents.MarkSettingUpIfLive(ctx, agent.ID)
 	if err != nil {
 		return fmt.Errorf("failed to mark %q as resuming: %w", agent.Name, err)

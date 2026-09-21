@@ -267,8 +267,8 @@ func startRestoreHooks(ctx context.Context, scripts agentScriptRunner, workflows
 	}
 }
 
-// agentHooks are the hooks a workflow lists for one of its agents, which is none for an agent
-// working in a directory somebody else prepared.
+// agentHooks are the hooks a workflow lists for one of its agents, none for an agent working in
+// a directory somebody else prepared.
 func agentHooks(ctx context.Context, workflows workflowReader, agent agentstore.Agent) []workflowstore.Hook {
 	if agent.ParentAgentID != nil || isProvisionerDisabled(agent.ProvisionEnabled) {
 		return nil
@@ -313,8 +313,7 @@ func isProvisionerDisabled(override *bool) bool {
 	return override != nil && !*override
 }
 
-// doesProvisionWorktree reports whether an agent's directory is weave's to make, which is its
-// workflow's worktree toggle unless the agent itself has been told to keep what it was given.
+// doesProvisionWorktree reports whether an agent's directory is weave's to make.
 func doesProvisionWorktree(ctx context.Context, workflows workflowReader, agent agentstore.Agent) bool {
 	if isProvisionerDisabled(agent.ProvisionEnabled) {
 		return false

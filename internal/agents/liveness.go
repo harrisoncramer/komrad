@@ -6,8 +6,8 @@ import (
 	agentstore "weave/internal/store/agent"
 )
 
-// PaneLiveness answers whether an agent is still running, which is true exactly while the pane
-// its row names is still stamped as its own.
+// PaneLiveness answers whether an agent is still running: true exactly while the pane its row
+// names is still stamped as its own.
 type PaneLiveness struct {
 	tmux paneOwnerReader
 }

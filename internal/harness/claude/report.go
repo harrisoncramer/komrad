@@ -22,8 +22,7 @@ const (
 	EventPermissionRequest harness.Event = "PermissionRequest"
 )
 
-// toolPayload is a tool event, of which only the name of the tool is read, since an input can
-// carry a secret such as a token on a Bash command line.
+// toolPayload is a tool event, of which only the name of the tool is read.
 type toolPayload struct {
 	ToolName string `json:"tool_name"`
 }

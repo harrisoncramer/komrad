@@ -172,15 +172,15 @@ func doesFrameShowWork(lines []string, box inputBox, boxed bool) bool {
 }
 
 // isPromptGreyed reports whether the box draws its prompt marker in a colour of Claude's own
-// rather than in the terminal's, which is Claude greying the box out for a turn.
+// rather than in the terminal's.
 func isPromptGreyed(colours []string, box inputBox, boxed bool) bool {
 	// Shell mode draws the whole box in one colour, marker included.
 	if !boxed || box.Marker != chatPrompt {
 		return false
 	}
 
-	// A box with no colour on it at all says nothing either way, which is what a capture taken
-	// without the colours looks like, so the rule has to carry a colour for the marker to count.
+	// A box with no colour on it at all says nothing either way, so the rule has to carry a
+	// colour for the marker to count.
 	return colours[box.Rule] != "" && colours[box.Rule+1] != ""
 }
 
@@ -238,8 +238,7 @@ func doesFrameShowWaiting(lines []string, boxed bool) bool {
 		return true
 	}
 
-	// A panel is read off its own rule rather than off a footer, which is the first thing the pane
-	// cuts off.
+	// A panel is read off its own rule rather than off a footer.
 	for _, line := range lines {
 		if panelRule.MatchString(line) {
 			return true

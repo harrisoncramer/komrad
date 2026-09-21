@@ -19,8 +19,7 @@ const (
 	// planPaste is an empty box, which takes the text on its own.
 	planPaste
 
-	// planCutAndRestore is a box holding a draft nobody is moving, which is cut, written to,
-	// then handed back what it held.
+	// planCutAndRestore is a box holding a draft nobody is moving.
 	planCutAndRestore
 )
 
@@ -113,8 +112,7 @@ func (p *Pane) planFor(ctx context.Context, target harness.Target) plan {
 	return planRefuse
 }
 
-// planForDraft is what weave may do to a box already holding text, which is nothing at all
-// until the text has stopped moving and nobody is at the pane.
+// planForDraft is what weave may do to a box already holding text.
 func (p *Pane) planForDraft(ctx context.Context, target harness.Target, input harness.Input) plan {
 	since := p.drafts.since(target.AgentID, input.Text(), p.now())
 
@@ -143,9 +141,8 @@ func (p *Pane) warnAboutDraft(ctx context.Context, target harness.Target) {
 		slog.String(logging.TargetAgentID, target.AgentID))
 }
 
-// restoreDraft hands an agent back the line weave cut out of its input box, which is only ever
-// reported rather than failed over, since the line is by then in the CLI's own kill ring where
-// nobody but the person at the pane can reach it.
+// restoreDraft hands an agent back the line weave cut out of its input box, reporting rather
+// than failing over.
 func (p *Pane) restoreDraft(ctx context.Context, target harness.Target) {
 	if err := p.terminal.YankLine(target.Pane); err != nil {
 		logging.From(ctx).LogAttrs(ctx, slog.LevelError, "failed to hand back the draft weave cut out of an agent's input box, which is now only in its CLI's kill ring",
@@ -154,7 +151,7 @@ func (p *Pane) restoreDraft(ctx context.Context, target harness.Target) {
 }
 
 // cutDraft takes the draft out of an agent's input box, reporting whether the box came back
-// empty, which is what hands the line on to the caller.
+// empty.
 func (p *Pane) cutDraft(ctx context.Context, target harness.Target) (cut bool, err error) {
 	if err := p.terminal.CutLine(target.Pane); err != nil {
 		return false, fmt.Errorf("failed to cut the draft of agent %q: %w", target.AgentID, err)

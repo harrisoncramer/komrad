@@ -187,7 +187,7 @@ func (s *MailService) SendSystemMail(ctx context.Context, toAgentID, body string
 type SendNoticeParams struct {
 	ToAgentID string
 	Body      string
-	// Kind is what the notice is about, which is how the panel tells it from mail an agent wrote.
+	// Kind is what the notice is about.
 	Kind mailstore.Kind
 	// About is the other agent the notice concerns.
 	About *string
@@ -252,8 +252,7 @@ type sendParams struct {
 	ReplyTo   *string
 	Kind      mailstore.Kind
 	About     *string
-	// System marks mail weave raises itself rather than on a caller's behalf, which is what
-	// puts weave's own name on it instead of a sender's.
+	// System marks mail weave raises itself rather than on a caller's behalf.
 	System bool
 }
 

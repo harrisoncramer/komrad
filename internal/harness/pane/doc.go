@@ -7,9 +7,9 @@
 // holds, paste, and hand back what was taken. The timings in it were arrived at by measuring a
 // real terminal rather than by reasoning about one, so they are moved rather than edited.
 //
-// It sits behind harness.Channel and harness.Observer so that a CLI offering something better
-// is a second implementation rather than a rewrite of the delivery service. That seam is about
+// It sits behind harness.Channel and harness.Observer so a CLI offering something better is a
+// second implementation rather than a rewrite of the delivery service. That seam is about
 // messaging and state and nothing else. An agent reached over a socket would still run in a
-// pane, because a person has to be able to attach to it and take it over, so launching,
-// liveness and attaching stay where they are.
+// pane, so a person can attach to it and take it over, and launching, liveness and attaching
+// stay where they are.
 package pane

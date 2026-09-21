@@ -50,8 +50,7 @@ type Snapshot struct {
 	SHA     string
 }
 
-// ProbeTree writes an agent's worktree out as a tree and nothing else, which is the cheap way
-// to ask whether it has moved since a round was taken.
+// ProbeTree writes an agent's worktree out as a tree and nothing else.
 func (c *Client) ProbeTree(ctx context.Context, dir string) (string, error) {
 	root, err := c.GetRoot(ctx, dir)
 	if err != nil {
@@ -170,8 +169,7 @@ func (c *Client) ReleaseRef(ctx context.Context, dir, ref string) error {
 	return nil
 }
 
-// tempIndexPath names a file git may write an index to, leaving nothing there, since git reads
-// an existing empty file as a corrupt index.
+// tempIndexPath names a file git may write an index to, leaving nothing there.
 func tempIndexPath() (string, error) {
 	file, err := os.CreateTemp("", "weave-round-*.index")
 	if err != nil {
@@ -313,8 +311,7 @@ func presentPaths(root string, paths []string) []string {
 	return present
 }
 
-// revealPaths clears both flags in the temporary index, one command each, since git keeps only
-// the last of them named in a single one.
+// revealPaths clears both flags in the temporary index, one command each.
 func revealPaths(ctx context.Context, root, index string, env []string, paths []string) error {
 	if len(paths) == 0 {
 		return nil

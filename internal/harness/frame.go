@@ -134,8 +134,8 @@ func (p *pen) segments(line string) []segment {
 	return run
 }
 
-// StripDim removes from a captured region the runs a CLI draws dim, which is text the frame
-// holds but nobody typed.
+// StripDim removes from a captured region the runs a CLI draws dim, text the frame holds but
+// nobody typed.
 func StripDim(lines []string) []string {
 	// The region keeps its line count, which a caller reads it alongside the whole region by.
 	stripped := make([]string, len(lines))

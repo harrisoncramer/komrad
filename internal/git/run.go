@@ -1,5 +1,5 @@
-// Package git runs git and holds the operations weave needs from it, so that one convention for
-// timeouts, context and error wrapping covers every caller rather than each hand-rolling its own.
+// Package git runs git and holds the operations weave needs from it, with one convention for
+// timeouts, context and error wrapping covering every caller.
 package git
 
 import (

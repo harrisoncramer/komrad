@@ -231,8 +231,7 @@ type openReviewForParams struct {
 	// Round is the round the author read their line numbers from, nil for a caller with nothing
 	// to say about which round that was.
 	Round *reviewstore.Round
-	// Reply says the words are going into a thread that already exists, which is answering what
-	// was said there rather than starting a review.
+	// Reply says the words are going into a thread that already exists.
 	Reply bool
 }
 

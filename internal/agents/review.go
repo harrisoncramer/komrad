@@ -103,7 +103,7 @@ type NewReviewServiceParams struct {
 	Mailer      reviewNoticeSender
 	Resumer     reviewerResumer
 	Interrupter agentInterrupter
-	// StateDir is where weave keeps its own files, which is where a released review is written.
+	// StateDir is where weave keeps its own files.
 	StateDir string
 	// NoticeDebounce overrides how long armReviewerNotice waits before telling a reviewer, which
 	// defaults to reviewerWakeDebounce when left at zero.

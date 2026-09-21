@@ -41,13 +41,13 @@ type TreeState struct {
 // Prediction is what a rebase onto a base would run into, read without touching the checkout.
 type Prediction struct {
 	// Cutoff is the newest of the branch's own commits whose content the base already holds
-	// whole, which is where a replay of the rest starts, empty when the base holds none of it.
+	// whole, empty when the base holds none of it.
 	Cutoff string
 	// Landed is how many of the branch's own commits the cutoff covers, and Replay how many
 	// would actually be moved.
 	Landed int
 	Replay int
-	// Merges is how many merge commits a rebase would discard, since it flattens history.
+	// Merges is how many merge commits a rebase would discard.
 	Merges int
 	// ConflictPaths are the paths a three-way merge of the base into the branch cannot settle.
 	ConflictPaths []string
@@ -178,8 +178,7 @@ func (c *Client) PredictRebase(ctx context.Context, dir, ref string) (Prediction
 
 	prediction.Cutoff = own[at]
 
-	// Counted off the graph rather than off a list position, since a side branch merged in sits
-	// before the cutoff in topological order while not being reachable from it.
+	// Counted off the graph rather than off a list position.
 	prediction.Landed, err = countRevList(ctx, dir, ref, "--count", ref+".."+prediction.Cutoff)
 	if err != nil {
 		return Prediction{}, err
@@ -198,8 +197,7 @@ func (c *Client) RebaseOnto(ctx context.Context, dir, ref, cutoff string) error 
 	return runRebase(ctx, dir, ref, "rebase", "--onto", ref, cutoff)
 }
 
-// ReleaseRefsUnder deletes every ref beneath prefix except keep, which is how a park that has
-// been superseded stops pinning a whole worktree in the shared clone.
+// ReleaseRefsUnder deletes every ref beneath prefix except keep.
 func (c *Client) ReleaseRefsUnder(ctx context.Context, dir, prefix, keep string) error {
 	out, err := Run(ctx, dir, "for-each-ref", "--format=%(refname)", prefix)
 	if err != nil {
@@ -249,8 +247,7 @@ func findLandedCutoff(ctx context.Context, dir, ref string, own []string) (int, 
 		return -1, fmt.Errorf("failed to read the tree of %q: %w", ref, err)
 	}
 
-	// Walked newest first rather than halved, since a squash leaves the intermediate states
-	// holding content the base never took and so reading as unlanded inside a landed run.
+	// Walked newest first rather than halved.
 	for i := len(own) - 1; i >= 0; i-- {
 		merged, _, err := readMergedTree(ctx, readMergedTreeParams{
 			Dir:   dir,
@@ -299,7 +296,7 @@ func readMergedTree(ctx context.Context, params readMergedTreeParams) (tree stri
 	}
 	args = append(args, left, right)
 
-	// A conflict is reported by exiting 1 with the paths on stdout, so that code is an answer.
+	// A conflict is reported by exiting 1 with the paths on stdout.
 	out, err := runAllowing(ctx, dir, 1, args...)
 	if err != nil {
 		return "", nil, fmt.Errorf("failed to test-merge %s into %s in %q: %w", left, right, dir, err)
@@ -330,7 +327,7 @@ func doesShareHistory(ctx context.Context, dir, left, right string) (bool, error
 		return true, nil
 	}
 
-	// No common commit is reported by exiting 1, which is an answer rather than a failure.
+	// No common commit is reported by exiting 1.
 	var exit *exec.ExitError
 	if errors.As(err, &exit) && exit.ExitCode() == 1 {
 		return false, nil
@@ -346,7 +343,7 @@ func isAncestor(ctx context.Context, dir, maybeAncestor, of string) (bool, error
 		return true, nil
 	}
 
-	// Unreachable is reported by exiting 1, which is an answer rather than a failure.
+	// Unreachable is reported by exiting 1.
 	var exit *exec.ExitError
 	if errors.As(err, &exit) && exit.ExitCode() == 1 {
 		return false, nil
@@ -359,7 +356,7 @@ func isAncestor(ctx context.Context, dir, maybeAncestor, of string) (bool, error
 // those whose patch the base does not already hold.
 func countUnlanded(ctx context.Context, dir, ref, cutoff string) (int, error) {
 	// git cherry marks a commit + when its patch is not upstream and - when it is, and skips
-	// merge commits, which is exactly what a rebase replays.
+	// merge commits.
 	args := []string{"cherry", ref, "HEAD"}
 	if cutoff != "" {
 		args = append(args, cutoff)

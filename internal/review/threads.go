@@ -15,15 +15,14 @@ type lineIndex struct {
 	byBareQuote map[quoteKey][]int
 }
 
-// anchorKey is one row's file and both sides' line numbers, which is what the cursor's place is
-// remembered as.
+// anchorKey is one row's file and both sides' line numbers.
 type anchorKey struct {
 	filePath string
 	newLine  int32
 	oldLine  int32
 }
 
-// newKey is a line of the snapshot on screen, which is what a traced position names.
+// newKey is a line of the snapshot on screen.
 type newKey struct {
 	filePath string
 	newLine  int32
@@ -78,7 +77,7 @@ func (v *View) indexLines() lineIndex {
 	return index
 }
 
-// quoteOf is the first line a thread quoted, which is the one its row is judged against.
+// quoteOf is the first line a thread quoted.
 func quoteOf(thread *agentv1.ReviewThread) string {
 	lines := thread.GetQuotedLines()
 	if len(lines) == 0 {

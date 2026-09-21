@@ -141,9 +141,7 @@ func (s *DeliveryService) Deliver(ctx context.Context, agentID string) (Delivery
 		return DeliveryLater, nil
 	}
 
-	// The claim is spent whether or not the nudge landed, since every way it can fail has
-	// already touched the channel, and a minute of quiet is what keeps a refused send from
-	// becoming a two-second loop against a box a person owns.
+	// The claim is spent whether or not the nudge landed.
 	delivered, err := s.nudge(ctx, *agent, pending)
 	if err != nil {
 		return DeliveryLater, err

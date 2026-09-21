@@ -2,8 +2,7 @@
 // conversation, reading its rollout log, and telling from a captured frame whether it is
 // working, waiting on a person, or idle.
 //
-// It also owns the trust file, since Codex refuses to run in a directory it has not been told
-// about and every worktree weave makes is a directory it has never seen.
+// It also owns the trust file.
 package codex
 
 import (
@@ -59,8 +58,7 @@ func (h *Harness) ID() string { return binary }
 // Binary is the CLI a pane's shell has to resolve to start an agent.
 func (h *Harness) Binary() string { return binary }
 
-// InterruptKeys stops Codex where it stands, which is one Escape since it puts up no second
-// prompt to dismiss.
+// InterruptKeys stops Codex where it stands.
 func (h *Harness) InterruptKeys() []string { return []string{"Escape"} }
 
 // MintSessionID returns empty, Codex taking no session id on the command line and naming the
