@@ -20,7 +20,7 @@ On the agents list, focus moves between the sidebar and the agent's pane on the 
 
 ## Weave's API
 
-Every call into weave goes through an API. The panel calls them as a ConnectRPC client.
+Every call into weave goes through an API. The panel is one client of it.
 
 For instance, telling weave to archive an agent is a keypress in the manager panel, which hits Weave's server, which archives the agent.
 

@@ -38,20 +38,6 @@ directions and over every thread, so a send with no reply_to is refused exactly 
 opening a new subject is not a way around it. Forty is the default, which is twenty rounds each
 way.
 
-That number is chosen for the cost of being wrong in each direction rather than for tidiness. The
-longest exchange the panel has recorded is fifteen messages, and it was a review that finished, so
-a limit of twenty would sever a review one round longer than the worst real one at the moment it
-was trying to conclude, and the verdict is the thing that would be lost. A limit set too high
-costs one long loop that somebody notices anyway. A limit set too low costs a conclusion.
-
-It counts the pair rather than a thread on purpose. Weave used to cap the hops down a reply
-chain, and that never bounded anything, because a send without a reply_to opens a fresh thread
-and the count started again at one. None of the ways that happens is misbehaviour: an agent that
-forgets to set reply_to, a person re-prompting one side mid-cycle, a reviewer opening a new
-subject after a rebase. Most mail carries no reply_to at all, so the thread cap was counting a
-structure that most mail does not have, and in the panel's whole history it never once refused
-anything.
-
 A refusal is told rather than silent, which is what keeps it from stranding the work. The sender
 learns from the error it gets back. The agent that was written to is sent a notice saying mail
 meant for it was stopped, so it is not left waiting on a reply that a limit has quietly
