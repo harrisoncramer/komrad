@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"net"
 	"os/exec"
@@ -84,8 +85,8 @@ func (r Remote) TunnelArgv(local, engineAddr string) []string {
 	}
 }
 
-// Dial forwards a port on this machine to the address the engine serves its api on, so the panel
-// can talk to it as though it were local, and keeps the forward running until Close.
+// Dial forwards a port on this machine to the address the engine serves its api on and keeps the
+// forward running until Close.
 func (r Remote) Dial(ctx context.Context, engineAddr string, wait time.Duration) (*Tunnel, error) {
 	if !r.IsRemote() {
 		return nil, fmt.Errorf("the engine is this machine, so there is nothing to tunnel to")
@@ -128,6 +129,13 @@ func (t *Tunnel) start(ctx context.Context) error {
 	}()
 
 	t.mu.Lock()
+	if t.closed {
+		t.mu.Unlock()
+		running.kill()
+
+		return errors.New("the tunnel is closed")
+	}
+
 	t.forward = running
 	t.mu.Unlock()
 
@@ -165,8 +173,8 @@ func (t *Tunnel) waitForAnswer(ctx context.Context, running *forward) error {
 	}
 }
 
-// keep runs the forward again each time it exits on its own, and runs one of its own once a
-// borrowed forward stops answering, until the tunnel is closed.
+// keep runs the forward again each time it exits, and falls back to watching the port when a run
+// does not answer.
 func (t *Tunnel) keep(ctx context.Context) {
 	for {
 		t.mu.Lock()
@@ -201,7 +209,11 @@ func (t *Tunnel) keep(ctx context.Context) {
 			return
 		}
 
-		_ = t.start(ctx) //nolint:errcheck // a forward that would not start is waited on and run again
+		if err := t.start(ctx); err != nil {
+			t.mu.Lock()
+			t.forward = nil
+			t.mu.Unlock()
+		}
 	}
 }
 
@@ -222,8 +234,7 @@ func (t *Tunnel) isClosed() bool {
 	return t.closed
 }
 
-// Close takes the tunnel down, which the panel does on its way out so no ssh is left behind, and
-// leaves a borrowed forward to whoever runs it.
+// Close takes the tunnel down, leaving a borrowed forward to whoever runs it.
 func (t *Tunnel) Close() error {
 	if t == nil {
 		return nil
@@ -256,8 +267,7 @@ func (f *forward) kill() {
 	<-f.exited
 }
 
-// isAnswering reports whether something behind the port answers a request, which a forward whose
-// far side has gone does not even though it still accepts the connection.
+// isAnswering reports whether something behind the port answers a request.
 func isAnswering(ctx context.Context, address string) bool {
 	dialer := net.Dialer{Timeout: dialTimeout}
 

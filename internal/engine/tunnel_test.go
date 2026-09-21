@@ -6,7 +6,10 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"path/filepath"
 	"strconv"
+	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -70,9 +73,10 @@ func isReachable(address string) bool {
 	return true
 }
 
-// TestDialRunsTheForwardAgainWhenItDrops covers an ssh that exits under the panel, which before
-// left the panel dialling a closed port for the rest of its life.
+// TestDialRunsTheForwardAgainWhenItDrops covers an ssh that exits under the panel.
 func TestDialRunsTheForwardAgainWhenItDrops(t *testing.T) {
+	t.Parallel()
+
 	remote, local := droppingEngine(t)
 
 	ctx, cancel := context.WithCancel(t.Context())
@@ -97,6 +101,8 @@ func TestDialRunsTheForwardAgainWhenItDrops(t *testing.T) {
 // TestDialStopsRedialingWhenThePanelGoes covers the context the panel dialled with ending the
 // keeper the way Close does.
 func TestDialStopsRedialingWhenThePanelGoes(t *testing.T) {
+	t.Parallel()
+
 	remote, local := droppingEngine(t)
 
 	ctx, cancel := context.WithCancel(t.Context())
@@ -111,9 +117,11 @@ func TestDialStopsRedialingWhenThePanelGoes(t *testing.T) {
 	assert.Never(t, func() bool { return isReachable(local) }, 1500*time.Millisecond, 100*time.Millisecond)
 }
 
-// TestDialBorrowsOnlyAForwardThatAnswers covers a port held by a forward whose far side has gone:
-// it accepts the connection and says nothing, and before it was taken for a working tunnel.
+// TestDialBorrowsOnlyAForwardThatAnswers covers a port held by a forward whose far side has gone,
+// which accepts the connection and says nothing.
 func TestDialBorrowsOnlyAForwardThatAnswers(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name     string
 		serve    func(net.Listener)
@@ -160,6 +168,8 @@ func TestDialBorrowsOnlyAForwardThatAnswers(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			remote, local := droppingEngine(t)
 
 			listener, err := net.Listen("tcp", local)
@@ -186,9 +196,10 @@ func TestDialBorrowsOnlyAForwardThatAnswers(t *testing.T) {
 }
 
 // TestDialTakesOverABorrowedForwardThatStopsAnswering covers the panel key replacing a panel
-// whose ssh is still dying when the next panel dials, which before left the next panel on a
-// port nothing would ever carry again.
+// whose ssh is still dying when the next panel dials.
 func TestDialTakesOverABorrowedForwardThatStopsAnswering(t *testing.T) {
+	t.Parallel()
+
 	remote, local := droppingEngine(t)
 
 	listener, err := net.Listen("tcp", local)
@@ -204,8 +215,65 @@ func TestDialTakesOverABorrowedForwardThatStopsAnswering(t *testing.T) {
 	t.Cleanup(func() { _ = tunnel.Close() })
 
 	server.Close()
-	require.False(t, isReachable(local), "the borrowed forward has gone")
+	require.Eventually(t, func() bool { return !isReachable(local) }, 2*time.Second, 50*time.Millisecond,
+		"the borrowed forward has gone")
 
 	assert.Eventually(t, func() bool { return isReachable(local) }, 15*time.Second, 100*time.Millisecond,
 		"the tunnel runs a forward of its own once the borrowed one stops answering")
+}
+
+// TestDialGoesBackToBorrowingWhenATakeoverCannotBind covers a borrowed forward that keeps the
+// port but stops answering for a while, where a forward of the panel's own cannot bind either.
+func TestDialGoesBackToBorrowingWhenATakeoverCannotBind(t *testing.T) {
+	t.Parallel()
+
+	spawns := filepath.Join(t.TempDir(), "spawns")
+	remote := engine.Remote{
+		Destination: "weave@" + t.Name(),
+		Forward:     []string{"sh", "-c", "echo x >> " + spawns + "; exit 1"},
+	}
+	local := net.JoinHostPort("127.0.0.1", strconv.Itoa(remote.TunnelPort("127.0.0.1:8787")))
+
+	var silent atomic.Bool
+
+	listener, err := net.Listen("tcp", local)
+	require.NoError(t, err)
+
+	server := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		if silent.Load() {
+			time.Sleep(2 * time.Second)
+		}
+
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	server.Listener = listener
+	server.Start()
+	t.Cleanup(server.Close)
+
+	tunnel, err := remote.Dial(t.Context(), "127.0.0.1:8787", 5*time.Second)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = tunnel.Close() })
+
+	silent.Store(true)
+
+	require.Eventually(t, func() bool { return countLines(spawns) >= 1 }, 15*time.Second, 100*time.Millisecond,
+		"the tunnel tries a forward of its own once the port stops answering")
+
+	silent.Store(false)
+	time.Sleep(7 * time.Second)
+
+	settled := countLines(spawns)
+	time.Sleep(3 * time.Second)
+
+	assert.Equal(t, settled, countLines(spawns), "the port answers again, so nothing more is run")
+	assert.LessOrEqual(t, settled, 3, "a forward that cannot bind is not run every second")
+}
+
+func countLines(path string) int {
+	content, err := os.ReadFile(path)
+	if err != nil {
+		return 0
+	}
+
+	return strings.Count(string(content), "\n")
 }
