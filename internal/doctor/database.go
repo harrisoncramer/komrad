@@ -34,7 +34,7 @@ var (
 	errDatabaseURLHidden = &ProblemError{
 		Code: "database_url_hidden",
 		Message: "the service's database url is in " + engineDatabaseEnvPath +
-			", which this user cannot read, so the built-in default is all this shell holds",
+			", which this shell has not loaded, so the built-in default is all it holds",
 	}
 	errDatabaseAuthFailed = &ProblemError{
 		Code:    "database_auth_failed",
@@ -173,7 +173,7 @@ func newReadOnlyLoginCheck() Check {
 }
 
 // isServiceDatabaseURLHidden reports whether this is a shell on an engine, where the url the
-// service runs on sits in a root-only file and the one this run holds is the default.
+// service runs on sits in a file the units read for it and the one this run holds is the default.
 func isServiceDatabaseURLHidden(env Env) bool {
 	if env.Sources["database_url"] != config.SourceDefault {
 		return false
@@ -181,7 +181,7 @@ func isServiceDatabaseURLHidden(env Env) bool {
 
 	_, err := env.ReadFile(engineDatabaseEnvPath)
 
-	return errors.Is(err, fs.ErrPermission)
+	return !errors.Is(err, fs.ErrNotExist)
 }
 
 func classifyDatabaseFailure(err error, url, detail string) Result {

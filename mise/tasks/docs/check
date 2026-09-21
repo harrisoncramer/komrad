@@ -30,7 +30,7 @@ done < <(find README.md docs -name '*.md' -not -path 'docs/internal/*' | sort)
 
 found=0
 for page in "${pages[@]}"; do
-	if grep -niwH mise "$page"; then
+	if grep -nHE '(^|[^A-Za-z])(mise|Mise|MISE)([^a-z]|$)' "$page"; then
 		found=1
 	fi
 done

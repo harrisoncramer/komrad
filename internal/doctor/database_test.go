@@ -159,9 +159,8 @@ func TestDatabaseFixAssumesNoCheckout(t *testing.T) {
 	}
 }
 
-// TestDatabaseCheckOnAnEngineNamesTheService covers a shell on the engine: the service's url
-// is in a root-only file, so a bare weave there holds the built-in default and the remedy is
-// the service, not a Postgres on localhost.
+// TestDatabaseCheckOnAnEngineNamesTheService covers a shell on the engine, beside the shell
+// the url was set in and a laptop with no such file.
 func TestDatabaseCheckOnAnEngineNamesTheService(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -188,6 +187,13 @@ func TestDatabaseCheckOnAnEngineNamesTheService(t *testing.T) {
 			name:     "the service's file is there and this user cannot read it",
 			source:   config.SourceDefault,
 			readErr:  fs.ErrPermission,
+			wantCode: "database_url_hidden",
+			wantFix:  "the service reads that file itself, so ask systemctl status weave, or restart it with systemctl restart weave as root",
+		},
+		{
+			name:     "the service's file is there and root can read it",
+			source:   config.SourceDefault,
+			readErr:  nil,
 			wantCode: "database_url_hidden",
 			wantFix:  "the service reads that file itself, so ask systemctl status weave, or restart it with systemctl restart weave as root",
 		},

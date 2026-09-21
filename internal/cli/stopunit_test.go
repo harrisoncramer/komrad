@@ -9,9 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestRequireNotUnitManaged covers a stop typed on the engine: the unit has Restart=on-failure,
-// so a clean exit stays down until somebody with root starts it, and the command says so
-// rather than doing it.
+// TestRequireNotUnitManaged covers a stop typed on a host where systemd runs the service.
 func TestRequireNotUnitManaged(t *testing.T) {
 	t.Run("a host with the unit installed refuses", func(t *testing.T) {
 		unit := filepath.Join(t.TempDir(), "weave.service")

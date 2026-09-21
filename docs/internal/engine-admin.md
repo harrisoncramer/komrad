@@ -208,7 +208,7 @@ mise run remote:restart --hard
 
 The plain restart leaves the tmux server alone, so the agents keep running. `--hard` takes the tmux server too, which is what picks up a change to the manager session itself, and every agent on the box stops.
 
-This is the one way to stop and start the service. `weave stop` on the box refuses, since the unit only restarts the service after a failure and a clean stop would stay down until root ran `systemctl start weave`, which the `weave` user cannot. `weave doctor` from that shell cannot read the database url either, which is in a root-only file only the unit hands the service, so its database line says so instead of pinging the built-in default. `systemctl status weave` shows the service from the box, and `weave doctor --engine remote` from your laptop asks it for its own checks.
+The service is only stopped and started through systemd. `weave stop` on the box refuses, since the unit only restarts the service after a failure and a clean stop would stay down until root ran `systemctl start weave`, which the `weave` user cannot. `weave doctor` from that shell cannot read the database url either, which is in a root-only file the units read for it, so its database line says so instead of pinging the built-in default. `systemctl status weave` shows the service from the box, and `weave doctor --engine remote` from your laptop asks it for its own checks.
 
 ## Stopping and starting the box
 
