@@ -578,7 +578,7 @@ func (n standingNode) checks() forge.Checks {
 		return forge.ChecksPassing
 	case "FAILED", "CANCELED", "CANCELING":
 		return forge.ChecksFailing
-	case "CREATED", "WAITING_FOR_RESOURCE", "PREPARING", "WAITING_FOR_CALLBACK", "PENDING", "RUNNING", "SCHEDULED":
+	case "CREATED", "WAITING_FOR_RESOURCE", "PREPARING", "WAITING_FOR_CALLBACK", "PENDING", "RUNNING", "SCHEDULED", "MANUAL":
 		return forge.ChecksPending
 	}
 

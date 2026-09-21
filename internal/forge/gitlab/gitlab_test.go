@@ -596,7 +596,7 @@ func TestStandings(t *testing.T) {
 }
 
 // TestChecksFolds covers every pipeline status GitLab documents: a cancelled pipeline is a
-// failure, and a skipped or manual one says nothing about the branch.
+// failure, a manual one is still waiting, and a skipped one says nothing about the branch.
 func TestChecksFolds(t *testing.T) {
 	t.Parallel()
 
@@ -616,7 +616,7 @@ func TestChecksFolds(t *testing.T) {
 		{status: "CANCELED", want: forge.ChecksFailing},
 		{status: "CANCELING", want: forge.ChecksFailing},
 		{status: "SKIPPED", want: forge.ChecksNone},
-		{status: "MANUAL", want: forge.ChecksNone},
+		{status: "MANUAL", want: forge.ChecksPending},
 	}
 	for _, tt := range tests {
 		t.Run(tt.status, func(t *testing.T) {
