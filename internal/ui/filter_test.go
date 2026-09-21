@@ -195,11 +195,11 @@ func TestSearchEscapeGoesBack(t *testing.T) {
 
 	opened, _ := m.updateAgents(keyMsg("/"))
 	typed := pressMark(t, opened.(model), "d", "b")
-	require.Equal(t, agentRowKey("a3"), rowKeyAt(typed.agentRows(), typed.tree.cursor), "typing walks onto the match")
+	require.Equal(t, start, typed.tree.cursor, "typing moves nothing")
 
 	back := pressMark(t, typed, "esc")
 	assert.False(t, back.filter.isStanding(), "the search is gone")
-	assert.Equal(t, start, back.tree.cursor, "and the cursor is back where it started")
+	assert.Equal(t, start, back.tree.cursor, "and the cursor is where it was")
 }
 
 // TestSearchEscapeGoesBackFromAStandingSearch pins the escape that clears a search which is no
@@ -371,7 +371,10 @@ func TestFilterCursor(t *testing.T) {
 			m := filterModel()
 			m.tree.cursor = tt.start
 
-			got := typeIntoFilter(m, tt.query)
+			typed := typeIntoFilter(m, tt.query)
+			require.Equal(t, tt.start, typed.tree.cursor, "typing moves nothing")
+
+			got := send(t, typed, "enter")
 
 			rows := got.agentRows()
 			require.Less(t, got.tree.cursor, len(rows))

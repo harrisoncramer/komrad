@@ -182,3 +182,29 @@ func TestMatchKeysWalkAcrossTheSections(t *testing.T) {
 	assert.True(t, back.isDetailsFocused(), "N walks the same sequence the other way")
 	assert.Equal(t, "backend", held.fields[back.detailsCursor(held)].value)
 }
+
+// TestTypingMovesNothingUntilApplied covers the search lighting both sections while it is typed
+// and acting only where it is applied: enter walks the list, and ctrl+t leaves the list where it
+// was and walks the record instead, in either mode.
+func TestTypingMovesNothingUntilApplied(t *testing.T) {
+	m := detailsModel(&recordingTmux{})
+	require.Equal(t, 1, m.tree.cursor)
+
+	typed := pressMark(t, m, "/", "b", "a", "c", "k")
+	assert.Equal(t, 1, typed.tree.cursor, "the header matches and the cursor stays put")
+
+	entered := send(t, typed, "enter")
+	assert.Equal(t, 0, entered.tree.cursor, "enter walks onto the header")
+
+	jumped := send(t, typed, "ctrl+t")
+	require.True(t, jumped.isDetailsFocused())
+	assert.Equal(t, 1, jumped.tree.cursor, "ctrl+t leaves the list alone")
+	held := jumped.hoveredDetails()
+	assert.Equal(t, "workflow", held.fields[jumped.detailsCursor(held)].label, "and lands on the record's match")
+
+	filtered := pressMark(t, typed, "tab", "ctrl+t")
+	require.True(t, filtered.isDetailsFocused())
+	assert.Equal(t, sectionRecord, filtered.filter.over)
+	assert.Len(t, filtered.agentRows(), len(m.agentRows()), "a filter typed on the list and applied in the record narrows only the record")
+	assert.Len(t, filtered.detailsRows(filtered.hoveredDetails()), 1)
+}

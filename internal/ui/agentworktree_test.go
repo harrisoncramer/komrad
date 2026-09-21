@@ -262,23 +262,24 @@ func recordSearchModel(t *testing.T) model {
 }
 
 // TestRecordSearchWalksOntoTheMatch covers the slash over a focused record: it opens the one
-// search over the record, typing moves the field cursor onto the nearest match, and enter keeps
-// the search while putting the input away.
+// search over the record, typing lights the match without moving the field cursor, and enter
+// walks the cursor onto it with the search kept.
 func TestRecordSearchWalksOntoTheMatch(t *testing.T) {
 	m := recordSearchModel(t)
 
 	opened := send(t, m, "/")
 	require.True(t, opened.filter.typing)
-	assert.Equal(t, sectionRecord, opened.filter.over)
 
 	typed := pressMark(t, opened, "s", "i", "z")
 	held := typed.hoveredDetails()
-	assert.Equal(t, "size", held.fields[typed.detailsCursor(held)].label)
+	assert.Equal(t, 0, typed.detailsCursor(held), "typing moves nothing")
 	assert.Contains(t, ansi.Strip(typed.View()), "/ siz", "the header's search line is the record's")
 
 	kept := pressMark(t, typed, "enter")
 	assert.False(t, kept.filter.typing)
 	assert.True(t, kept.filter.isStanding())
+	assert.Equal(t, sectionRecord, kept.filter.over)
+	assert.Equal(t, "size", held.fields[kept.detailsCursor(held)].label, "enter walks onto the match")
 }
 
 // TestRecordSearchStepsBetweenMatches covers n and N walking the field cursor between the rows
@@ -353,7 +354,7 @@ func TestRecordFilterKeepsTheCountedRest(t *testing.T) {
 func TestRecordFilterLeavingNothingSaysSo(t *testing.T) {
 	m := recordSearchModel(t)
 
-	narrowed := pressMark(t, send(t, m, "/"), "z", "z", "z", "tab")
+	narrowed := pressMark(t, send(t, m, "/"), "z", "z", "z", "tab", "enter")
 
 	assert.Contains(t, ansi.Strip(narrowed.detailsView()), "nothing matches")
 	assert.True(t, narrowed.isDetailsFocused(), "the record keeps the keys")
