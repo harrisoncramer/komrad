@@ -10,15 +10,15 @@ import (
 )
 
 var (
-	ErrConfigUnreadable = &ProblemError{
+	errConfigUnreadable = &ProblemError{
 		Code:    "config_unreadable",
 		Message: "the config file could not be read",
 	}
-	ErrHarnessUnknown = &ProblemError{
+	errHarnessUnknown = &ProblemError{
 		Code:    "harness_unknown",
 		Message: "default_harness names an agent CLI this build does not have",
 	}
-	ErrHarnessMissing = &ProblemError{
+	errHarnessMissing = &ProblemError{
 		Code:    "harness_missing",
 		Message: "the agent CLI is not on PATH",
 	}
@@ -32,7 +32,7 @@ func newConfigCheck() Check {
 		Run: func(_ context.Context, env Env) Result {
 			if _, err := env.LoadConfig(); err != nil {
 				return fail(
-					fmt.Errorf("%w: %w", ErrConfigUnreadable, err),
+					fmt.Errorf("%w: %w", errConfigUnreadable, err),
 					describeLayers(env),
 					describeConfigFix(env),
 				)
@@ -94,7 +94,7 @@ func newDefaultHarnessCheck() Check {
 		Run: func(_ context.Context, env Env) Result {
 			cfg, err := env.LoadConfig()
 			if err != nil {
-				return fail(fmt.Errorf("%w: %w", ErrConfigUnreadable, err), "", "")
+				return fail(fmt.Errorf("%w: %w", errConfigUnreadable, err), "", "")
 			}
 
 			for _, candidate := range env.Harnesses {
@@ -105,7 +105,7 @@ func newDefaultHarnessCheck() Check {
 
 			return fail(
 				fmt.Errorf("%w: %q, and this build has %s",
-					ErrHarnessUnknown, cfg.DefaultHarness, listNames(env.Harnesses)),
+					errHarnessUnknown, cfg.DefaultHarness, listNames(env.Harnesses)),
 				cfg.DefaultHarness,
 				"set default_harness to "+listNames(env.Harnesses),
 			)
@@ -128,13 +128,13 @@ func newHarnessBinaryCheck(agent HarnessInfo) Check {
 			if effectiveDefaultHarness(env) != agent.ID {
 				return warn(
 					fmt.Errorf("%w: %s, so only agents set to this harness are affected",
-						ErrHarnessMissing, agent.Binary),
+						errHarnessMissing, agent.Binary),
 					"not on PATH",
 				)
 			}
 
 			return fail(
-				fmt.Errorf("%w: %s, which is what new agents run", ErrHarnessMissing, agent.Binary),
+				fmt.Errorf("%w: %s, which is what new agents run", errHarnessMissing, agent.Binary),
 				"not on PATH",
 				"install "+agent.Binary+", or point default_harness at a CLI you have",
 			)

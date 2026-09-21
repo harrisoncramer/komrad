@@ -17,51 +17,51 @@ import (
 const paletteColors = 256
 
 var (
-	ErrNoTerminal = &ProblemError{
+	errNoTerminal = &ProblemError{
 		Code:    "no_terminal",
 		Message: "this is not running on a terminal, so nothing could be asked of one",
 	}
-	ErrTerminalWouldNotYield = &ProblemError{
+	errTerminalWouldNotYield = &ProblemError{
 		Code:    "terminal_would_not_yield",
 		Message: "the terminal would not be put into raw mode, so its answer could not be read back",
 	}
-	ErrCursorQueryUnanswered = &ProblemError{
+	errCursorQueryUnanswered = &ProblemError{
 		Code:    "cursor_query_unanswered",
 		Message: "the terminal did not answer a cursor position query, so no width was measured",
 	}
-	ErrCursorQueryUntrusted = &ProblemError{
+	errCursorQueryUntrusted = &ProblemError{
 		Code:    "cursor_query_untrusted",
 		Message: "the terminal misreported the width of a character whose width is not in doubt",
 	}
-	ErrGlyphWidthUnexpected = &ProblemError{
+	errGlyphWidthUnexpected = &ProblemError{
 		Code:    "glyph_width_unexpected",
 		Message: "the terminal advances the cursor a different number of columns for a glyph than the list's layout counts on",
 	}
-	ErrTermUnset = &ProblemError{
+	errTermUnset = &ProblemError{
 		Code:    "term_unset",
 		Message: "TERM names no terminal, so terminfo has nothing to answer about",
 	}
-	ErrPaintingTermUnknown = &ProblemError{
+	errPaintingTermUnknown = &ProblemError{
 		Code:    "painting_term_unknown",
 		Message: "tmux would not name the terminal it paints to",
 	}
-	ErrTerminfoUnreadable = &ProblemError{
+	errTerminfoUnreadable = &ProblemError{
 		Code:    "terminfo_unreadable",
 		Message: "terminfo could not be read, so what this terminal can draw is unknown",
 	}
-	ErrEmphasisMissing = &ProblemError{
+	errEmphasisMissing = &ProblemError{
 		Code:    "emphasis_missing",
 		Message: "terminfo names no escape for the lettering that says what a row is",
 	}
-	ErrItalicSubstituted = &ProblemError{
+	errItalicSubstituted = &ProblemError{
 		Code:    "italic_substituted",
 		Message: "tmux will not send italics on and draws them reversed instead",
 	}
-	ErrDefaultTerminalUnknown = &ProblemError{
+	errDefaultTerminalUnknown = &ProblemError{
 		Code:    "default_terminal_unknown",
 		Message: "tmux would not say which entry it advertises, so whether it sends italics is unknown",
 	}
-	ErrColorTooShallow = &ProblemError{
+	errColorTooShallow = &ProblemError{
 		Code:    "color_too_shallow",
 		Message: "terminfo reports fewer colours than the palette is written for",
 	}
@@ -113,7 +113,7 @@ func newTerminalGlyphCheck() Check {
 
 			measured, err := env.MeasureColumns(ctx, xslice.Map(drawings, textOf))
 			if err != nil {
-				if codeOf(err) == ErrNoTerminal.Code {
+				if codeOf(err) == errNoTerminal.Code {
 					return skip(err.Error())
 				}
 
@@ -122,13 +122,13 @@ func newTerminalGlyphCheck() Check {
 
 			if len(measured) != len(drawings) {
 				return warn(fmt.Errorf("%w: asked about %d, heard back about %d",
-					ErrCursorQueryUnanswered, len(drawings), len(measured)), "")
+					errCursorQueryUnanswered, len(drawings), len(measured)), "")
 			}
 
 			for index, drawn := range calibration {
 				if measured[index] != drawn.Columns {
 					return warn(fmt.Errorf("%w: %s drew in %d columns rather than %d, so the rest of the reading is not worth quoting",
-						ErrCursorQueryUntrusted, drawn.Name, measured[index], drawn.Columns), "")
+						errCursorQueryUntrusted, drawn.Name, measured[index], drawn.Columns), "")
 				}
 			}
 
@@ -161,9 +161,9 @@ func newTerminalEmphasisCheck() Check {
 
 			faults, fixes := describeEmphasisFaults(painting, missing, substituted)
 			if len(faults) > 0 {
-				problem := ErrItalicSubstituted
+				problem := errItalicSubstituted
 				if len(missing) > 0 {
-					problem = ErrEmphasisMissing
+					problem = errEmphasisMissing
 				}
 
 				return Result{
@@ -186,17 +186,17 @@ func newTerminalColorCheck() Check {
 		Description: "the palette's tones need " + strconv.Itoa(paletteColors) + " colours",
 		Run: func(ctx context.Context, env Env) Result {
 			if env.Term == "" {
-				return warn(ErrTermUnset, "")
+				return warn(errTermUnset, "")
 			}
 
 			reported, err := env.ReadTerminfo(ctx, env.Term, "colors")
 			if err != nil {
-				return warn(fmt.Errorf("%w: %w", ErrTerminfoUnreadable, err), env.Term)
+				return warn(fmt.Errorf("%w: %w", errTerminfoUnreadable, err), env.Term)
 			}
 
 			colors, err := strconv.Atoi(strings.TrimSpace(reported))
 			if err != nil {
-				return warn(fmt.Errorf("%w: %s reported %q colours", ErrTerminfoUnreadable, env.Term, reported), env.Term)
+				return warn(fmt.Errorf("%w: %s reported %q colours", errTerminfoUnreadable, env.Term, reported), env.Term)
 			}
 
 			detail := fmt.Sprintf("%s reports %d colours", env.Term, colors)
@@ -209,7 +209,7 @@ func newTerminalColorCheck() Check {
 					Status: StatusWarn,
 					Detail: detail,
 					Err: fmt.Errorf("%w: %d, where the palette is mixed for %d, so tones collapse into each other",
-						ErrColorTooShallow, colors, paletteColors),
+						errColorTooShallow, colors, paletteColors),
 					Fix: "set TERM to a 256-colour entry, such as xterm-256color, or tmux-256color inside tmux",
 				}
 			}
@@ -238,7 +238,7 @@ func reportGlyphWidths(drawings []view.Drawn, measured []int, insideTmux bool) R
 	return Result{
 		Status: StatusWarn,
 		Detail: describeWidths(drawings, measured) + caveat,
-		Err:    fmt.Errorf("%w: %s%s", ErrGlyphWidthUnexpected, mismatch, caveat),
+		Err:    fmt.Errorf("%w: %s%s", errGlyphWidthUnexpected, mismatch, caveat),
 		Fix:    "report these widths, since what has to move is the layout's own count rather than anything on this machine",
 	}
 }
@@ -284,7 +284,7 @@ func describeWidths(drawings []view.Drawn, measured []int) string {
 func findPaintingTerm(ctx context.Context, env Env) (string, error) {
 	if env.InsideTmux == "" {
 		if env.Term == "" {
-			return "", ErrTermUnset
+			return "", errTermUnset
 		}
 
 		return env.Term, nil
@@ -292,11 +292,11 @@ func findPaintingTerm(ctx context.Context, env Env) (string, error) {
 
 	client, err := env.Output(ctx, "tmux", "display-message", "-p", "#{client_termname}")
 	if err != nil {
-		return "", fmt.Errorf("%w: %w", ErrPaintingTermUnknown, err)
+		return "", fmt.Errorf("%w: %w", errPaintingTermUnknown, err)
 	}
 
 	if strings.TrimSpace(client) == "" {
-		return "", fmt.Errorf("%w: nothing is attached to this session", ErrPaintingTermUnknown)
+		return "", fmt.Errorf("%w: nothing is attached to this session", errPaintingTermUnknown)
 	}
 
 	return strings.TrimSpace(client), nil
@@ -329,7 +329,7 @@ func findMissingEmphasis(ctx context.Context, env Env, term string) ([]emphasisF
 	for _, wanted := range emphasis {
 		escape, err := env.ReadTerminfo(ctx, term, wanted.capability)
 		if err != nil {
-			return nil, fmt.Errorf("%w: %w", ErrTerminfoUnreadable, err)
+			return nil, fmt.Errorf("%w: %w", errTerminfoUnreadable, err)
 		}
 
 		if escape != "" {
@@ -366,7 +366,7 @@ func doesTmuxSubstituteItalics(ctx context.Context, env Env) (bool, error) {
 
 	entry, err := env.Output(ctx, "tmux", "show-option", "-gqv", "default-terminal")
 	if err != nil {
-		return false, fmt.Errorf("%w: %w", ErrDefaultTerminalUnknown, err)
+		return false, fmt.Errorf("%w: %w", errDefaultTerminalUnknown, err)
 	}
 
 	entry = strings.TrimSpace(entry)

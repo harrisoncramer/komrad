@@ -49,7 +49,7 @@ func TestGlyphCheckSkipsWithNoTerminal(t *testing.T) {
 // TestGlyphCheckSkipsWhenTheTerminalWalkedAway covers the probe finding no tty of its own,
 // which is the same nothing-to-ask-about as having none wired.
 func TestGlyphCheckSkipsWhenTheTerminalWalkedAway(t *testing.T) {
-	env := Env{MeasureColumns: func(context.Context, []string) ([]int, error) { return nil, ErrNoTerminal }}
+	env := Env{MeasureColumns: func(context.Context, []string) ([]int, error) { return nil, errNoTerminal }}
 
 	result := newTerminalGlyphCheck().Run(t.Context(), env)
 	assert.Equal(t, StatusSkip, result.Status)
@@ -73,7 +73,7 @@ func agreeing() Env {
 // which is a person's problem and must not be buried in the same skip as having no terminal.
 func TestGlyphCheckWarnsWhenTheTerminalWouldNotYield(t *testing.T) {
 	env := Env{MeasureColumns: func(context.Context, []string) ([]int, error) {
-		return nil, fmt.Errorf("%w: %w", ErrTerminalWouldNotYield, errors.New("inappropriate ioctl"))
+		return nil, fmt.Errorf("%w: %w", errTerminalWouldNotYield, errors.New("inappropriate ioctl"))
 	}}
 
 	result := newTerminalGlyphCheck().Run(t.Context(), env)
@@ -104,7 +104,7 @@ func TestGlyphCheckReportsWidthsThatDisagree(t *testing.T) {
 
 	require.Equal(t, StatusWarn, result.Status,
 		"a font the terminal lacks is a degraded panel rather than a broken weave")
-	require.ErrorIs(t, result.Err, ErrGlyphWidthUnexpected)
+	require.ErrorIs(t, result.Err, errGlyphWidthUnexpected)
 	assert.Contains(t, result.Err.Error(), fmt.Sprintf("%d glyphs drew in 2 columns where the layout counts them as 1", len(view.Drawings())))
 	assert.NotEmpty(t, result.Fix)
 }
@@ -125,7 +125,7 @@ func TestGlyphCheckDistrustsATerminalThatMisreadsPlainText(t *testing.T) {
 
 	result := newTerminalGlyphCheck().Run(t.Context(), env)
 	require.Equal(t, StatusWarn, result.Status)
-	require.ErrorIs(t, result.Err, ErrCursorQueryUntrusted)
+	require.ErrorIs(t, result.Err, errCursorQueryUntrusted)
 	assert.NotContains(t, result.Err.Error(), "unverified",
 		"a calibration that failed stops the reading rather than colouring it with glyph widths")
 }
@@ -157,7 +157,7 @@ func TestGlyphCheckRefusesAShortAnswer(t *testing.T) {
 
 	result := newTerminalGlyphCheck().Run(t.Context(), env)
 	assert.Equal(t, StatusWarn, result.Status)
-	assert.ErrorIs(t, result.Err, ErrCursorQueryUnanswered)
+	assert.ErrorIs(t, result.Err, errCursorQueryUnanswered)
 }
 
 func terminfo(answers map[string]string) func(context.Context, string, string) (string, error) {
@@ -197,7 +197,7 @@ func TestEmphasisCheckNamesWhatIsLost(t *testing.T) {
 
 	result := newTerminalEmphasisCheck().Run(t.Context(), env)
 	require.Equal(t, StatusWarn, result.Status)
-	require.ErrorIs(t, result.Err, ErrEmphasisMissing)
+	require.ErrorIs(t, result.Err, errEmphasisMissing)
 	assert.Contains(t, result.Err.Error(), "a child reads as an ordinary agent")
 	assert.NotContains(t, result.Err.Error(), "a workflow row reads")
 }
@@ -241,7 +241,7 @@ func TestEmphasisCheckCatchesTmuxRefusingItalics(t *testing.T) {
 
 	result := newTerminalEmphasisCheck().Run(t.Context(), env)
 	require.Equal(t, StatusWarn, result.Status, result.Detail)
-	require.ErrorIs(t, result.Err, ErrItalicSubstituted)
+	require.ErrorIs(t, result.Err, errItalicSubstituted)
 	assert.Contains(t, result.Err.Error(), "drawn reversed rather than italic")
 	assert.Contains(t, result.Fix, "default-terminal")
 }
@@ -292,7 +292,7 @@ func TestEmphasisCheckSkipsWhenTmuxWillNotSayWhatItAdvertises(t *testing.T) {
 
 	result := newTerminalEmphasisCheck().Run(t.Context(), env)
 	require.Equal(t, StatusSkip, result.Status)
-	assert.Contains(t, result.Detail, ErrDefaultTerminalUnknown.Message)
+	assert.Contains(t, result.Detail, errDefaultTerminalUnknown.Message)
 }
 
 // TestDoesTmuxSubstituteItalics covers which entries tmux refuses italics on, every row of it
@@ -351,7 +351,7 @@ func TestEmphasisCheckWithoutTerm(t *testing.T) {
 	result := newTerminalEmphasisCheck().Run(t.Context(), Env{})
 
 	assert.Equal(t, StatusSkip, result.Status)
-	assert.Contains(t, result.Detail, ErrTermUnset.Message)
+	assert.Contains(t, result.Detail, errTermUnset.Message)
 }
 
 // TestEmphasisCheckWhenTerminfoWillNotAnswer covers a machine with no terminfo reader on it,
@@ -366,7 +366,7 @@ func TestEmphasisCheckWhenTerminfoWillNotAnswer(t *testing.T) {
 
 	result := newTerminalEmphasisCheck().Run(t.Context(), env)
 	assert.Equal(t, StatusWarn, result.Status)
-	assert.ErrorIs(t, result.Err, ErrTerminfoUnreadable)
+	assert.ErrorIs(t, result.Err, errTerminfoUnreadable)
 }
 
 // TestColorCheck covers the depth terminfo claims against the depth the palette is mixed for.
@@ -381,13 +381,13 @@ func TestColorCheck(t *testing.T) {
 			name:    "too shallow",
 			colors:  "8",
 			status:  StatusWarn,
-			problem: ErrColorTooShallow,
+			problem: errColorTooShallow,
 		},
 		{
 			name:    "not a number",
 			colors:  "lots",
 			status:  StatusWarn,
-			problem: ErrTerminfoUnreadable,
+			problem: errTerminfoUnreadable,
 		},
 		{
 			name:   "deep enough",
