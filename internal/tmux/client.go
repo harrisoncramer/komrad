@@ -224,22 +224,6 @@ func (c *Client) SendKeys(target string, keys ...string) error {
 	return nil
 }
 
-// SendText types a string into a pane as text, which a pane in a mode still reads through the
-// mode's key table rather than as input.
-func (c *Client) SendText(target, text string) error {
-	if target == "" {
-		return errors.New("refusing to send text to an empty target")
-	}
-
-	// -l turns off the key-name lookup send-keys does first, which would otherwise turn a word
-	// naming a key into that key.
-	if _, err := c.query("send-keys", "-t", target, "-l", "--", text); err != nil {
-		return fmt.Errorf("failed to send text to %q: %w", target, err)
-	}
-
-	return nil
-}
-
 // SplitRight splits a pane right of the anchor, rooted at dir and sized in cells or as a
 // percentage like "40%", leaving focus where it was.
 func (c *Client) SplitRight(anchorPane, dir, size string) string {
@@ -426,15 +410,6 @@ func (c *Client) BindKeyChecked(key string, command ...string) error {
 // SetGlobal sets a global tmux option.
 func (c *Client) SetGlobal(name, value string) {
 	c.run("set-option", "-g", name, value)
-}
-
-// SetGlobalChecked sets a global tmux option and says why tmux refused.
-func (c *Client) SetGlobalChecked(name, value string) error {
-	if _, err := c.query("set-option", "-g", name, value); err != nil {
-		return fmt.Errorf("failed to set %s: %w", name, err)
-	}
-
-	return nil
 }
 
 // GetSocketPath returns the path of the socket this client's server listens on.

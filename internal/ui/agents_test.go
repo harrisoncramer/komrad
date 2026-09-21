@@ -9,7 +9,6 @@ import (
 	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
 	"weave/internal/ui/layout"
-	"weave/internal/ui/paint"
 	"weave/lib/xslice"
 
 	"github.com/charmbracelet/x/ansi"
@@ -58,7 +57,8 @@ func TestAgentsViewRowsOpenAtTheGutter(t *testing.T) {
 	m.tree.cursor = -1
 
 	rows := strings.Split(m.agentsView(), "\n")
-	opening := len(paint.Panel.MarkGutter("")) + 2
+	// The focus and mark gutter cells, each a blank column and its separator.
+	opening := 4
 
 	agent, ok := rowNamed(rows, "worker")
 	require.True(t, ok)

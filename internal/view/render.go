@@ -9,11 +9,6 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-// Render draws every row of the agents list, one to a line.
-func Render(list List, palette paint.Palette, width int) string {
-	return strings.Join(Rows(list, palette, width), "\n")
-}
-
 // Rows draws every row of the agents list as its own string.
 func Rows(list List, palette paint.Palette, width int) []string {
 	rows := make([]string, 0, len(list.Lines))

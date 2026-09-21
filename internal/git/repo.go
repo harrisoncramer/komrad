@@ -46,16 +46,6 @@ func (c *Client) GetCurrentBranch(ctx context.Context, dir string) *string {
 	return &branch
 }
 
-// GetOriginURL is where a checkout pushes to.
-func (c *Client) GetOriginURL(ctx context.Context, dir string) (string, error) {
-	url, err := Run(ctx, dir, "remote", "get-url", "origin")
-	if err != nil {
-		return "", fmt.Errorf("failed to read the origin of %q: %w", dir, err)
-	}
-
-	return url, nil
-}
-
 // ReadFile is one file as a commit holds it.
 func (c *Client) ReadFile(ctx context.Context, dir, sha, path string) ([]byte, error) {
 	out, err := RunBytes(ctx, dir, "show", sha+":"+path)

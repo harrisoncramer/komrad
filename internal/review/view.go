@@ -728,55 +728,6 @@ func (v *View) GetEditTarget(y int) (string, int, bool) {
 	return file.NewPath, v.nearestNewLine(y), true
 }
 
-// GetSource is the round's own copy of a file, and nothing for one the patch draws no text of.
-func (v *View) GetSource(filePath string) (string, bool) {
-	file, ok := v.findFile(filePath)
-	if !ok || file.Content != "" || file.NewPath == "" {
-		return "", false
-	}
-
-	return file.NewSource, true
-}
-
-// GetRangeAnchor is the anchor covering a run of new-side lines, and nothing for a run the diff
-// does not draw whole.
-func (v *View) GetRangeAnchor(filePath string, newStart, newEnd int) (*Anchor, bool) {
-	file, ok := v.findFile(filePath)
-	if !ok {
-		return nil, false
-	}
-
-	anchor := &Anchor{FilePath: file.Path()}
-	for hunkIndex := range file.Hunks {
-		for _, line := range file.Hunks[hunkIndex].Lines {
-			if line.NewNumber < newStart || line.NewNumber > newEnd {
-				continue
-			}
-
-			if anchor.NewStart == 0 {
-				anchor.NewStart = line.NewNumber
-			}
-
-			anchor.NewEnd = line.NewNumber
-			if line.OldNumber > 0 {
-				if anchor.OldStart == 0 {
-					anchor.OldStart = line.OldNumber
-				}
-
-				anchor.OldEnd = line.OldNumber
-			}
-
-			anchor.QuotedLines = append(anchor.QuotedLines, markerFor(line.Kind)+line.Text)
-		}
-	}
-
-	if len(anchor.QuotedLines) != newEnd-newStart+1 {
-		return nil, false
-	}
-
-	return anchor, true
-}
-
 func (v *View) findFile(filePath string) (*diff.File, bool) {
 	for fileIndex := range v.files {
 		if v.files[fileIndex].Path() == filePath {

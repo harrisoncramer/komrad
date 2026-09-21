@@ -212,7 +212,6 @@ func TestList(t *testing.T) {
 		CreatedAt:  time.Date(2026, 9, 20, 8, 58, 11, 0, time.UTC),
 		UpdatedAt:  time.Date(2026, 9, 20, 17, 54, 15, 0, time.UTC),
 	}, pullRequests[0])
-	assert.False(t, pullRequests[0].IsCrossRepository())
 	assert.Nil(t, pullRequests[0].Decision, "a listing does not ask for the decision")
 
 	stamp := time.Date(2026, 9, 20, 6, 24, 5, 0, time.UTC)
@@ -224,7 +223,6 @@ func TestList(t *testing.T) {
 
 	assert.Equal(t, "CLOSED", pullRequests[2].State)
 	assert.Equal(t, "gitlab-community/gitlab-org/gitlab", pullRequests[2].Head.Path)
-	assert.True(t, pullRequests[2].IsCrossRepository())
 	assert.True(t, pullRequests[2].IsFinished())
 
 	assert.True(t, pullRequests[3].Draft)

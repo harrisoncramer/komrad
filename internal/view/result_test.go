@@ -41,7 +41,7 @@ func drawResults(pane int) []string {
 		Pane:    pane,
 	})
 
-	return strings.Split(ansiEscapes.ReplaceAllString(Render(list, paint.Panel, 0), ""), "\n")
+	return strings.Split(ansiEscapes.ReplaceAllString(render(list, paint.Panel, 0), ""), "\n")
 }
 
 // TestPrepareResultsDropEveryColumn pins what a list of results asks for: the three columns are
@@ -93,5 +93,5 @@ func TestRenderResultList(t *testing.T) {
 		Pane:    canonicalPane,
 	})
 
-	requireGolden(t, "list-results", Render(list, paint.Panel, canonicalPane))
+	requireGolden(t, "list-results", render(list, paint.Panel, canonicalPane))
 }

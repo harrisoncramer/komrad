@@ -173,7 +173,7 @@ func TestRenderTrailSitsAtTheRightEdge(t *testing.T) {
 		Dropped: trailedColumns(),
 	})
 
-	drawn := Render(list, paint.Panel, 30)
+	drawn := render(list, paint.Panel, 30)
 	requireGolden(t, "list-trailed", drawn)
 
 	for i, row := range strings.Split(drawn, "\n") {
@@ -191,5 +191,5 @@ func TestRenderTrailSitsAtTheRightEdge(t *testing.T) {
 func TestRenderRowWithoutATrailIsUnchanged(t *testing.T) {
 	list := Prepare(Snapshot{Rows: []Row{{Kind: KindAgent, Name: "iss-582"}}, Pane: canonicalPane})
 
-	assert.Equal(t, Render(list, paint.Panel, 0), Render(list, paint.Panel, 40))
+	assert.Equal(t, render(list, paint.Panel, 0), render(list, paint.Panel, 40))
 }

@@ -31,6 +31,11 @@ func everyColumn() Columns {
 // off and read the columns alone.
 var ansiEscapes = regexp.MustCompile(`\x1b\[[0-9;]*m`)
 
+// render draws every row of a list, one to a line.
+func render(list List, palette paint.Palette, width int) string {
+	return strings.Join(Rows(list, palette, width), "\n")
+}
+
 // renderOne draws a single row and hands back the line it made.
 func renderOne(t *testing.T, row Row) string {
 	t.Helper()
@@ -38,7 +43,7 @@ func renderOne(t *testing.T, row Row) string {
 	list := Prepare(Snapshot{Rows: []Row{row}, Pane: canonicalPane})
 	require.Len(t, list.Lines, 1)
 
-	return Render(list, paint.Panel, 0)
+	return render(list, paint.Panel, 0)
 }
 
 // TestRenderStatusBar draws the four bars an agent's state is carried by.
@@ -235,7 +240,7 @@ func TestRenderSelectedRowFillsThePane(t *testing.T) {
 		Pane: canonicalPane,
 	})
 
-	requireGolden(t, "row-selected-filled", Render(list, paint.Panel, 40))
+	requireGolden(t, "row-selected-filled", render(list, paint.Panel, 40))
 }
 
 // TestRenderSelectedRowUnderTheCursorKeepsBoth pins the row the two meet on: the bar spans it
@@ -252,14 +257,14 @@ func TestRenderSelectedRowUnderTheCursorKeepsBoth(t *testing.T) {
 		Pane:    canonicalPane,
 	})
 
-	drawn := Render(list, paint.Panel, 40)
+	drawn := render(list, paint.Panel, 40)
 	requireGolden(t, "row-selected-focused", drawn)
 
 	// The golden alone would be satisfied by regenerating it, so the fact it is here for is
 	// asserted against the escape the name itself opens in.
 	assert.Contains(t, drawn, paint.BackgroundSequence(paint.SelectionBackground))
 
-	unfocused := Render(Prepare(Snapshot{
+	unfocused := render(Prepare(Snapshot{
 		Rows: []Row{{
 			Key:      "iss-582",
 			Kind:     KindAgent,
@@ -288,7 +293,7 @@ func TestRenderFocusedRow(t *testing.T) {
 		Pane:    canonicalPane,
 	})
 
-	requireGolden(t, "row-focused", Render(list, paint.Panel, 0))
+	requireGolden(t, "row-focused", render(list, paint.Panel, 0))
 }
 
 // emphasisRows is a list built to put the emphases beside each other.
@@ -305,7 +310,7 @@ func emphasisRows() []Row {
 
 // TestRenderEmphasis draws the emphases together.
 func TestRenderEmphasis(t *testing.T) {
-	requireGolden(t, "list-emphasis", Render(Prepare(Snapshot{Rows: emphasisRows()}), paint.Panel, 0))
+	requireGolden(t, "list-emphasis", render(Prepare(Snapshot{Rows: emphasisRows()}), paint.Panel, 0))
 }
 
 // styleOfName is the escape a drawn row opens its name with, empty when the name is drawn in
@@ -332,7 +337,7 @@ func TestRenderCanonicalList(t *testing.T) {
 		Pane:    canonicalPane,
 	})
 
-	requireGolden(t, "list-canonical", Render(list, paint.Panel, 0))
+	requireGolden(t, "list-canonical", render(list, paint.Panel, 0))
 }
 
 // livePanelRows is the panel as it actually stands, taken off Harry's own listing rather than
@@ -474,7 +479,7 @@ func TestRenderLivePanelShape(t *testing.T) {
 		Pane:    canonicalPane,
 	})
 
-	requireGolden(t, "list-live-panel", Render(list, paint.Panel, 0))
+	requireGolden(t, "list-live-panel", render(list, paint.Panel, 0))
 }
 
 // TestRenderDrawsTheSpecifiedGlyphSequence pins the glyphs of the settled design and the order
@@ -542,7 +547,7 @@ func TestRenderIndentsEveryKindBesideItsTwin(t *testing.T) {
 	}
 
 	list := Prepare(Snapshot{Rows: rows, Focused: "plain-agent"})
-	drawn := strings.Split(ansiEscapes.ReplaceAllString(Render(list, paint.Panel, 0), ""), "\n")
+	drawn := strings.Split(ansiEscapes.ReplaceAllString(render(list, paint.Panel, 0), ""), "\n")
 	require.Len(t, drawn, len(rows))
 
 	for i, line := range list.Lines {
@@ -568,7 +573,7 @@ func TestRenderBlankBarKeepsTheNameColumn(t *testing.T) {
 	}
 
 	list := Prepare(Snapshot{Rows: rows})
-	drawn := strings.Split(ansiEscapes.ReplaceAllString(Render(list, paint.Panel, 0), ""), "\n")
+	drawn := strings.Split(ansiEscapes.ReplaceAllString(render(list, paint.Panel, 0), ""), "\n")
 	require.Len(t, drawn, len(rows))
 
 	for i, line := range list.Lines {
@@ -638,7 +643,7 @@ func TestNarrowSidebarsDropColumnsRatherThanNames(t *testing.T) {
 			assert.Equal(t, tt.want, list.Columns)
 			assert.Equal(t, tt.wantName, NameColumns(tt.pane, list.Columns))
 
-			for i, drawn := range strings.Split(ansiEscapes.ReplaceAllString(Render(list, paint.Panel, 0), ""), "\n") {
+			for i, drawn := range strings.Split(ansiEscapes.ReplaceAllString(render(list, paint.Panel, 0), ""), "\n") {
 				assert.LessOrEqual(t, drawnColumns(drawn), tt.pane, "row %q draws past the pane", drawn)
 				assert.NotEmpty(t, list.Lines[i].Name, "row %q lost its name while a column was still drawn", drawn)
 			}
@@ -669,7 +674,7 @@ func TestRenderKeepsEveryReachableRowInsideThePane(t *testing.T) {
 	for _, row := range reachableRows() {
 		for pane := 16; pane <= 120; pane++ {
 			list := Prepare(Snapshot{Rows: []Row{row}, Pane: pane})
-			drawn := ansiEscapes.ReplaceAllString(Render(list, paint.Panel, 0), "")
+			drawn := ansiEscapes.ReplaceAllString(render(list, paint.Panel, 0), "")
 
 			assert.LessOrEqual(t, drawnColumns(drawn), pane, "row %q draws past a pane of %d", drawn, pane)
 		}
@@ -774,7 +779,7 @@ func drawCanonical() string {
 		Pane:    canonicalPane,
 	})
 
-	return ansiEscapes.ReplaceAllString(Render(list, paint.Panel, 0), "")
+	return ansiEscapes.ReplaceAllString(render(list, paint.Panel, 0), "")
 }
 
 // drawnColumns is how wide a stretch of a row is on screen, counting an Octicon as what the font
@@ -957,7 +962,7 @@ func TestRenderArchiveList(t *testing.T) {
 		},
 	})
 
-	requireGolden(t, "list-archive", Render(list, paint.Panel, archivePane))
+	requireGolden(t, "list-archive", render(list, paint.Panel, archivePane))
 }
 
 // TestArchiveNameOpensPastTheGutterItHas pins the three sites that must agree once a screen gives

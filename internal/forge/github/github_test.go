@@ -228,7 +228,6 @@ func TestList(t *testing.T) {
 		UpdatedAt:  time.Date(2026, 9, 18, 19, 14, 17, 0, time.UTC),
 	}, pullRequests[0])
 	assert.False(t, pullRequests[0].IsFinished())
-	assert.False(t, pullRequests[0].IsCrossRepository())
 	assert.Nil(t, pullRequests[0].Decision, "a listing does not ask for the decision")
 
 	stamp := time.Date(2026, 9, 20, 18, 0, 7, 0, time.UTC)
@@ -239,10 +238,8 @@ func TestList(t *testing.T) {
 	assert.True(t, pullRequests[1].IsFinished())
 
 	assert.Equal(t, "jkassemi/kubernetes", pullRequests[2].Head.Path)
-	assert.True(t, pullRequests[2].IsCrossRepository())
 
 	assert.True(t, pullRequests[3].Head.IsZero())
-	assert.True(t, pullRequests[3].IsCrossRepository())
 	assert.True(t, pullRequests[3].IsFinished())
 
 	assert.True(t, pullRequests[4].Draft)

@@ -121,11 +121,6 @@ func (pr PullRequest) IsFinished() bool {
 	return pr.MergedAt != nil || pr.ClosedAt != nil
 }
 
-// IsCrossRepository says whether the branch lives somewhere other than the repository it targets.
-func (pr PullRequest) IsCrossRepository() bool {
-	return pr.Head.IsZero() || pr.Head.Canonical() != pr.Repository.Canonical()
-}
-
 // Forge is one service pull requests live on, spoken to as one connection.
 type Forge interface {
 	Kind() string

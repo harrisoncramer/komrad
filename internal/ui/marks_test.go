@@ -4,14 +4,12 @@ import (
 	"context"
 	"testing"
 
-	"weave/internal/ui/paint"
 	"weave/lib/xptr"
 	agentv1 "weave/proto/gen/agent/v1"
 	"weave/proto/gen/agent/v1/agentv1connect"
 
 	"connectrpc.com/connect"
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -26,18 +24,6 @@ func TestIsMarkLetter(t *testing.T) {
 	for _, key := range []string{"A", "Z", "1", "esc", "ctrl+a", "'", "", "ab", "●"} {
 		assert.False(t, isMarkLetter(key), "key %q", key)
 	}
-}
-
-// TestMarkGutter pins the gutter keeping one width whether or not the agent is marked.
-func TestMarkGutter(t *testing.T) {
-	withColor(t)
-
-	bare := paint.Panel.MarkGutter("")
-	assert.Equal(t, "  ", bare)
-
-	marked := paint.Panel.MarkGutter("a")
-	assert.Contains(t, marked, "a")
-	assert.Equal(t, lipgloss.Width(bare), lipgloss.Width(marked), "a marked row is drawn no wider than an unmarked one")
 }
 
 // TestSetMark covers the two keys that put a letter on the hovered agent, including the second
