@@ -86,9 +86,9 @@ Enter applies the search to the pane holding the keys and to that pane only. On 
 
 `ctrl+t` is the way across. With a search typed or standing, `ctrl+t` from the list moves the keys into the record and lands on its first matching field, so `/directory`, `ctrl+t`, `y` copies the hovered agent's directory without the list moving. `ctrl+t` from the record moves the keys back to the list and nothing else.
 
-`tab` while typing turns the search into a filter, which narrows instead of walking. A filter narrows only the pane it was typed in: on the list, the rows shrink to the agents that match and the record below stays whole with its matches lit; in the record, the fields shrink to the ones that match and the list is untouched. A filter never moves you onto a different agent.
+`tab` while typing turns the search into a filter, which narrows instead of walking. A filter narrows only the pane it was typed in: on the list, the rows shrink to the agents that match and the record below stays whole with its matches lit; in the record, the fields shrink to the ones that match and the list is untouched. The cursor stays on its row as long as that row is still on screen, and goes to the nearest match when it is not. A pattern that matches a field of the record and no agent's name empties the list, and the record goes with it.
 
-Escape gives up: the search goes and the cursor of the pane it was typed in goes back to where it was. There is one search at a time, so a new one typed in either pane replaces the last, and a filter standing on the list opens back up when you search the record.
+Escape gives up: the search goes, and the cursor of the pane it was typed in goes back to where it was unless the keys have since moved to the other pane. There is one search at a time, so a new one typed in either pane replaces the last, and a filter standing on the list opens back up when you search the record.
 
 ## Archiving, restoring, deleting
 

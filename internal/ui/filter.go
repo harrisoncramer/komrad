@@ -241,17 +241,37 @@ func (m model) updateFilterInput(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// applyFilter closes the input and walks the cursor of the pane holding the keys onto its nearest
-// match, read off the whole rows before the filter narrows them.
+// applyFilter closes the input and settles the cursor of the pane holding the keys: a search
+// walks it onto the nearest match, and a filter leaves it on its row unless narrowing took that
+// row off the screen.
 func (m *model) applyFilter() {
+	hovered := m.hoveredFilterKey()
 	found, ok := m.matchAt(0)
 	m.filter.typing = false
 	if !ok {
-		// Nothing to walk onto, and a narrowed list may have lost the hovered row.
 		found = ""
+	}
+	if m.filter.isNarrowing() && m.isFilterRowShown(hovered) {
+		found = hovered
 	}
 
 	m.placeFilteredCursor(found)
+}
+
+// isFilterRowShown reports whether the pane holding the keys still draws a row.
+func (m model) isFilterRowShown(key string) bool {
+	rows := m.filterTarget().rows
+	if rows == nil {
+		return false
+	}
+
+	for _, row := range rows.filterRows(m) {
+		if row.key == key {
+			return true
+		}
+	}
+
+	return false
 }
 
 // closeSearchAndMoveKeys answers the focus key while the search is being typed: the input closes

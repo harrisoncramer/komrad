@@ -88,7 +88,8 @@ func TestNarrowed(t *testing.T) {
 }
 
 // TestFilterTabFlipsTheMode covers tab while typing switching the prompt between a search and a
-// filter, with the tree left whole and the cursor still until enter applies whichever stands.
+// filter, with the tree left whole and the cursor still until enter applies whichever stands, a
+// filter leaving the cursor on a row it kept and a search walking it onto the match.
 func TestFilterTabFlipsTheMode(t *testing.T) {
 	m := filterModeTree()
 	start := rowIndexOfKey(m.agentRows(), workflowRowKey("w1"))
@@ -108,7 +109,7 @@ func TestFilterTabFlipsTheMode(t *testing.T) {
 
 	narrowed := pressMark(t, flipped, "enter")
 	assert.Equal(t, []string{"backend", "db"}, rowNames(narrowed.agentRows()), "enter narrows to the match and its header")
-	assert.Equal(t, agentRowKey("a3"), rowKeyAt(narrowed.agentRows(), narrowed.tree.cursor), "and puts the cursor on the match")
+	assert.Equal(t, workflowRowKey("w1"), rowKeyAt(narrowed.agentRows(), narrowed.tree.cursor), "and leaves the cursor on the header the filter kept")
 
 	lit := pressMark(t, typed, "tab", "tab", "enter")
 	assert.Equal(t, filterModeSearch, lit.filter.mode)
@@ -455,4 +456,17 @@ func TestFilterAppliedLandsOnTheNearestMatch(t *testing.T) {
 
 	assert.Equal(t, []string{"backend", "auth", "api", "frontend", "ui"}, rowNames(narrowed.agentRows()), "the child api stays under its matched parent")
 	assert.Equal(t, agentRowKey("a4"), rowKeyAt(narrowed.agentRows(), narrowed.tree.cursor))
+}
+
+// TestFilterKeepsTheCursorOnARowItKept covers a filter that keeps the hovered agent leaving the
+// cursor on it even when another row matches too.
+func TestFilterKeepsTheCursorOnARowItKept(t *testing.T) {
+	m := filterModeTree()
+	m.tree.cursor = rowIndexOfKey(m.agentRows(), agentRowKey("a1"))
+
+	opened, _ := m.updateAgents(keyMsg("/"))
+	narrowed := pressMark(t, opened.(model), "a", "u", "|", "a", "p", "i", "tab", "enter")
+
+	assert.Equal(t, []string{"backend", "auth", "api"}, rowNames(narrowed.agentRows()))
+	assert.Equal(t, agentRowKey("a1"), rowKeyAt(narrowed.agentRows(), narrowed.tree.cursor))
 }
