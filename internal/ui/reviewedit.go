@@ -70,7 +70,7 @@ func editorContent(editor, dir, path string, line int) layout.Content {
 // pressReviewEdit is the edit key, refused on a round the agent has written past, and the way
 // into a pass when the reader is still only watching.
 func (m model) pressReviewEdit() (tea.Model, tea.Cmd) {
-	if said, history := m.isReviewHistory(); history && !m.review.atEditor {
+	if said, history := m.review.isHistory(); history && !m.review.atEditor {
 		m.review.notice = said + " is finished, so the worktree no longer holds these lines · " +
 			keyLabel(m.keys.Review.BaseForward) + " for the current work"
 
@@ -101,7 +101,7 @@ func (m model) pressReviewEdit() (tea.Model, tea.Cmd) {
 
 // isReviewEditRefused is why the edit key would open nothing, read before a pass is opened for it.
 func (m model) isReviewEditRefused() (string, bool) {
-	if _, _, ok := m.review.view.GetEditTarget(m.review.cursor); !ok {
+	if _, _, ok := m.review.diff.view.GetEditTarget(m.review.diff.cursor); !ok {
 		return "that file was deleted, so there is nothing to open", true
 	}
 
@@ -134,7 +134,7 @@ func (m model) editReviewFile() (tea.Model, tea.Cmd) {
 		return m.closeReviewEdit()
 	}
 
-	path, line, ok := m.review.view.GetEditTarget(m.review.cursor)
+	path, line, ok := m.review.diff.view.GetEditTarget(m.review.diff.cursor)
 	if !ok {
 		m.review.notice = "that file was deleted, so there is nothing to open"
 

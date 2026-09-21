@@ -83,7 +83,7 @@ func (m model) reviewWritingSaid() string {
 		return m.reviewPausedSaid() + keyLabel(m.keys.Review.Back) + " to let it go"
 	}
 
-	if m.review.pinned {
+	if m.review.diff.pinned {
 		return m.reviewPausedSaid() + "the code as it was when you started · " +
 			keyLabel(formKeys().Submit) + " sends it"
 	}
@@ -127,33 +127,27 @@ func (m model) doesReviewHoldUnsent() bool {
 	return m.reviewUnsentCount() > 0
 }
 
-// isReviewHistory reports whether the round on screen ends before the agent's current work.
-func (m model) isReviewHistory() (string, bool) {
-	drawn := m.review.head
-	if m.review.view != nil {
-		drawn = m.review.view.GetSnapshotSHA()
+// isHistory reports whether the round on screen ends before the agent's current work.
+func (r reviewState) isHistory() (string, bool) {
+	drawn := r.diff.head
+	if r.diff.view != nil {
+		drawn = r.diff.view.GetSnapshotSHA()
 	}
 
-	if drawn == "" || drawn == m.review.round.GetSnapshotSha() {
+	if drawn == "" || drawn == r.round.GetSnapshotSha() {
 		return "", false
 	}
 
-	at := m.review.chapter
-	if at < 0 || at >= len(m.review.chapters) {
+	at := r.diff.chapter
+	if at < 0 || at >= len(r.diff.chapters) {
 		return "an earlier round", true
 	}
 
-	return fmt.Sprintf("round %d of %d", at+1, len(m.review.chapters)), true
-}
-
-// isReviewNarrowed reports whether the diff on screen is one chapter of the change rather than
-// the whole of it.
-func (m model) isReviewNarrowed() bool {
-	return m.review.base != "" || m.review.head != ""
+	return fmt.Sprintf("round %d of %d", at+1, len(r.diff.chapters)), true
 }
 
 // doesReviewWalk says whether the round keys have anywhere to go, which watching has and the two
 // modes that hold the tree do not.
 func (m model) doesReviewWalk() bool {
-	return m.review.mode == modeWatching && len(m.review.chapters) > 0
+	return m.review.mode == modeWatching && len(m.review.diff.chapters) > 0
 }

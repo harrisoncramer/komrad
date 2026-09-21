@@ -22,8 +22,8 @@ func TestReviewAgainstARealWorktree(t *testing.T) {
 	tmux.width = 304
 
 	m = openReview(t, m)
-	require.NotNil(t, m.review.view)
-	t.Logf("rows=%d", m.review.view.Len())
+	require.NotNil(t, m.review.diff.view)
+	t.Logf("rows=%d", m.review.diff.view.Len())
 
 	_ = m.reviewView()
 

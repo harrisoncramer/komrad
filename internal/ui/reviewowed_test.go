@@ -167,7 +167,7 @@ func TestTheOwedListBrightensWhatIsOnScreen(t *testing.T) {
 	assert.Contains(t, m.reviewSidebarView(), bright)
 
 	// The reader scrolls past it.
-	m.review.top = m.review.view.Len() + 100
+	m.review.diff.top = m.review.diff.view.Len() + 100
 
 	require.False(t, m.isReviewCommentNear(m.reviewOwedComments()[0]), "and now it is not")
 	assert.NotContains(t, m.reviewSidebarView(), bright)
@@ -182,7 +182,7 @@ func walkOpen(t *testing.T, m model, key string) (model, int) {
 	m, ok := next.(model)
 	require.True(t, ok)
 
-	return m, m.review.cursor
+	return m, m.review.diff.cursor
 }
 
 // TestWalkingTheOpenCommentsGoesBothWays covers the backward walk reaching the comment above the

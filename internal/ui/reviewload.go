@@ -75,7 +75,7 @@ func (m model) enterReview(agent agentstore.Agent) (tea.Model, tea.Cmd) {
 		loading:   true,
 		// The whole change is what a review opens on, and it sits before the first round rather
 		// than on it, so the first press of the step key lands on the newest round.
-		chapter: -1,
+		diff: reviewDiff{chapter: -1},
 	}
 	return m, m.loadReviewCmd(loadReviewCmdParams{
 		AgentID: m.review.agentID,
@@ -299,9 +299,9 @@ func (m *model) applyReviewLoaded(msg reviewLoadedMsg) tea.Cmd {
 
 	// A narrowed diff drawing nothing is an answer about the agent rather than a reason to leave,
 	// so the whole change comes back with the answer said out loud.
-	if drewNothing && m.review.base != "" {
-		said := m.review.baseLabel
-		m.widenReviewBase()
+	if drewNothing && m.review.diff.base != "" {
+		said := m.review.diff.baseLabel
+		m.review.diff.widen()
 		m.review.notice = "nothing written " + said
 
 		return m.loadReviewCmd(loadReviewCmdParams{
@@ -325,11 +325,11 @@ func (m *model) applyReviewLoaded(msg reviewLoadedMsg) tea.Cmd {
 		m.report("Could not read the whole review of "+m.review.agentName, msg.err)
 	}
 
-	if m.review.chapter >= len(msg.chapters) {
-		m.review.chapters = msg.chapters
-		m.widenReviewBase()
+	if m.review.diff.chapter >= len(msg.chapters) {
+		m.review.diff.chapters = msg.chapters
+		m.review.diff.widen()
 		*m = m.cancelReviewMessage()
-		m.review.view = nil
+		m.review.diff.view = nil
 		m.review.loading = true
 
 		return m.loadReviewCmd(loadReviewCmdParams{
@@ -339,39 +339,46 @@ func (m *model) applyReviewLoaded(msg reviewLoadedMsg) tea.Cmd {
 		})
 	}
 
-	m.review.baseRound = msg.earlier
-	m.review.baseAt = msg.earlierAt
-	m.review.pinned = msg.pinned
+	m.review.diff.baseRound = msg.earlier
+	m.review.diff.baseAt = msg.earlierAt
+	m.review.diff.pinned = msg.pinned
 	m.review.owed = msg.owed
-	m.review.chapters = msg.chapters
+	m.review.diff.chapters = msg.chapters
 	m.review.root = msg.patch.Root
-	m.review.view = review.NewView(msg.patch, m.isDark)
-	m.review.view.SetNarrowed(m.review.base != "")
-	m.review.view.SetTraced(msg.traced)
-	m.review.view.SetViewed(indexViewedFiles(msg.viewed, msg.patch))
-	m.review.view.SetExpanded(m.review.expanded)
-	m.review.view.PinThreads(threadsByChapter(threadsByChapterParams{
+
+	// The files the reader opened out are the view's own, so a view built again over the patch
+	// takes them from the one it replaces.
+	view := review.NewView(msg.patch, m.isDark)
+	view.SetNarrowed(m.review.diff.base != "")
+	view.SetTraced(msg.traced)
+	view.SetViewed(indexViewedFiles(msg.viewed, msg.patch))
+	if held := m.review.diff.view; held != nil {
+		view.SetExpanded(held.GetExpanded())
+	}
+
+	view.PinThreads(threadsByChapter(threadsByChapterParams{
 		Threads:  msg.threads,
-		Chapters: m.review.chapters,
-		At:       m.review.chapter,
+		Chapters: m.review.diff.chapters,
+		At:       m.review.diff.chapter,
 	}))
+	m.review.diff.view = view
 
 	// The pattern lives on the ui model rather than the view, so a view built from nothing has
 	// to be given it back, once the marks and the threads have settled the rows it walks.
-	m.review.view.SetPattern(m.review.filter.pattern)
+	m.review.diff.view.SetPattern(m.review.diff.filter.pattern)
 
 	m.setReviewThreads(msg.threads)
 
 	m.review.round = msg.round
-	m.review.moved = false
-	m.review.since = msg.since
-	m.review.cursor = m.review.view.GetFirstRow()
-	if place := m.review.restore; place != nil {
-		if found, ok := m.review.view.Locate(*place); ok {
-			m.review.cursor = found
+	m.review.diff.moved = false
+	m.review.diff.since = msg.since
+	m.review.diff.cursor = m.review.diff.view.GetFirstRow()
+	if place := m.review.diff.restore; place != nil {
+		if found, ok := m.review.diff.view.Locate(*place); ok {
+			m.review.diff.cursor = found
 		}
 
-		m.review.restore = nil
+		m.review.diff.restore = nil
 	}
 
 	m.scrollReviewToCursor()
@@ -398,7 +405,7 @@ func indexViewedFiles(viewed []*agentv1.ReviewViewedFile, patch *diff.Patch) map
 }
 
 func (m *model) applyReviewWrote(msg reviewWroteMsg) tea.Cmd {
-	if msg.agentID != m.review.agentID || m.review.view == nil {
+	if msg.agentID != m.review.agentID || m.review.diff.view == nil {
 		return nil
 	}
 
@@ -438,53 +445,53 @@ func (m *model) applyReviewThreads(threads []*agentv1.ReviewThread) {
 
 	drawn := threadsByChapter(threadsByChapterParams{
 		Threads:  threads,
-		Chapters: m.review.chapters,
-		At:       m.review.chapter,
+		Chapters: m.review.diff.chapters,
+		At:       m.review.diff.chapter,
 	})
 
 	// Where the cursor is standing is taken before the threads are pinned again, which rebuilds
 	// the rows a settled or deleted thread takes away from under it.
-	place, ok := m.review.view.GetPlace(m.review.cursor)
-	m.review.view.PinThreads(drawn)
-	m.keepReviewCursor(place, ok)
+	place, ok := m.review.diff.view.GetPlace(m.review.diff.cursor)
+	m.review.diff.view.PinThreads(drawn)
+	m.review.diff.keepCursor(place, ok)
 
 	m.scrollReviewToCursor()
 }
 
-// keepReviewCursor puts the cursor back on what it was standing on, and failing that back inside
-// the diff.
-func (m *model) keepReviewCursor(place review.Place, ok bool) {
-	was := m.review.cursor
+// keepCursor puts the cursor back on what it was standing on, and failing that back inside the
+// diff.
+func (d *reviewDiff) keepCursor(place review.Place, ok bool) {
+	was := d.cursor
 
-	m.review.cursor = min(m.review.cursor, m.review.view.GetLastRow())
+	d.cursor = min(d.cursor, d.view.GetLastRow())
 	if ok {
-		if found, located := m.review.view.Locate(place); located {
-			m.review.cursor = found
+		if found, located := d.view.Locate(place); located {
+			d.cursor = found
 		}
 	}
 
-	if m.review.cursor != was {
-		m.review.pinTop = false
+	if d.cursor != was {
+		d.pinTop = false
 	}
 }
 
 // reloadReview reads the worktree again, holding the place the cursor is standing so the diff
 // comes back under it.
 func (m model) reloadReview() (model, tea.Cmd) {
-	if m.review.view == nil {
+	if m.review.diff.view == nil {
 		return m, nil
 	}
 
-	if place, ok := m.review.view.GetPlace(m.review.cursor); ok {
-		m.review.restore = &place
+	if place, ok := m.review.diff.view.GetPlace(m.review.diff.cursor); ok {
+		m.review.diff.restore = &place
 	}
 
 	return m, m.loadReviewCmd(loadReviewCmdParams{
 		AgentID: m.review.agentID,
 		Dir:     m.review.dir,
 		Exclude: m.review.exclude,
-		Base:    m.review.base,
-		Head:    m.review.head,
+		Base:    m.review.diff.base,
+		Head:    m.review.diff.head,
 		Fresh:   m.review.mode == modeReviewing,
 	})
 }

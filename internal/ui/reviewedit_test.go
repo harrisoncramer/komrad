@@ -81,7 +81,7 @@ func TestEditorOpensAtTheRepositoryRoot(t *testing.T) {
 	m.listing.agents[0].agent.Cwd = filepath.Join(dir, "cmd", "greet")
 
 	m = openReview(t, m)
-	require.NotNil(t, m.review.view)
+	require.NotNil(t, m.review.diff.view)
 	require.Equal(t, dir, m.review.root)
 
 	written := pressEdit(t, m)

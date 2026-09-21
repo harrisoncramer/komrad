@@ -25,7 +25,7 @@ func (m model) updateReview(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.updateReviewRelease(key)
 	}
 
-	if m.review.filter.typing {
+	if m.review.diff.filter.typing {
 		return m.updateReviewFilter(key)
 	}
 
@@ -33,7 +33,7 @@ func (m model) updateReview(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	// The diff opens for an agent that is not there, and only the back key answers until it has
 	// something to draw.
-	if m.review.view == nil {
+	if m.review.diff.view == nil {
 		if isBound(k, m.keys.Review.Back) {
 			return m.leaveReview()
 		}
@@ -89,7 +89,7 @@ func (m model) isReviewThreadFocused() bool {
 		return false
 	}
 
-	_, ok := m.reviewThreadAtCursor()
+	_, ok := m.review.diff.threadAtCursor()
 
 	return ok
 }
@@ -102,7 +102,7 @@ func (m model) isReviewDiffFocused() bool {
 
 // focusReviewThread moves the keys onto the conversation, refused while there is none to read.
 func (m model) focusReviewThread() model {
-	if _, ok := m.reviewThreadAtCursor(); !ok {
+	if _, ok := m.review.diff.threadAtCursor(); !ok {
 		m.review.notice = "no thread here to read"
 
 		return m
@@ -197,7 +197,7 @@ func (m model) updateReviewFilter(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, m.hide()
 	}
 
-	if !m.review.filter.takeKey(key) {
+	if !m.review.diff.filter.takeKey(key) {
 		return m, nil
 	}
 
@@ -208,27 +208,33 @@ func (m model) updateReviewFilter(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 // searchReview runs the pattern over the diff and moves to the first thing it finds.
 func (m *model) searchReview() {
-	if m.review.view == nil {
+	if m.review.diff.view == nil {
 		return
 	}
 
-	found := m.review.view.SetPattern(m.review.filter.pattern)
-	if found > 0 {
-		if next, ok := m.review.view.JumpMatch(m.review.cursor-1, 1); ok {
-			m.review.cursor = next
-			m.review.pinTop = false
-		}
+	m.review.diff.search()
+	m.scrollReviewToCursor()
+}
+
+// search runs the pattern over the diff and puts the cursor on the first match at or after it.
+func (d *reviewDiff) search() {
+	found := d.view.SetPattern(d.filter.pattern)
+	if found == 0 {
+		return
 	}
 
-	m.scrollReviewToCursor()
+	if next, ok := d.view.JumpMatch(d.cursor-1, 1); ok {
+		d.cursor = next
+		d.pinTop = false
+	}
 }
 
 // jumpReviewMatch steps to the next or previous line the search found, wrapping at the ends.
 func (m model) jumpReviewMatch(direction int) (tea.Model, tea.Cmd) {
-	next, ok := m.review.view.JumpMatch(m.review.cursor, direction)
+	next, ok := m.review.diff.view.JumpMatch(m.review.diff.cursor, direction)
 	if !ok {
 		m.review.notice = "nothing to search for yet"
-		if m.review.filter.isStanding() {
+		if m.review.diff.filter.isStanding() {
 			m.review.notice = "no matches"
 		}
 
@@ -240,9 +246,9 @@ func (m model) jumpReviewMatch(direction int) (tea.Model, tea.Cmd) {
 
 // jumpOpenThread moves to the next comment nobody has settled, stopping at the ends.
 func (m model) jumpOpenThread(direction int) (tea.Model, tea.Cmd) {
-	next, ok := m.review.view.JumpOpenThread(m.review.cursor, direction)
-	if !ok || next == m.review.cursor {
-		m.review.notice = m.noOpenThreadSaid(m.review.view.IsOpenThreadAt(m.review.cursor))
+	next, ok := m.review.diff.view.JumpOpenThread(m.review.diff.cursor, direction)
+	if !ok || next == m.review.diff.cursor {
+		m.review.notice = m.review.diff.noOpenThreadSaid()
 
 		return m, nil
 	}
@@ -251,12 +257,12 @@ func (m model) jumpOpenThread(direction int) (tea.Model, tea.Cmd) {
 }
 
 // noOpenThreadSaid is why the key moved nowhere.
-func (m model) noOpenThreadSaid(standingOnIt bool) string {
-	if standingOnIt && m.review.view.CountOpenThreads() == 1 {
+func (d reviewDiff) noOpenThreadSaid() string {
+	if d.view.IsOpenThreadAt(d.cursor) && d.view.CountOpenThreads() == 1 {
 		return "this is the only comment left open"
 	}
 
-	if m.review.view.CountOpenThreads() > 0 {
+	if d.view.CountOpenThreads() > 0 {
 		return "the comments left open are in files you have folded away"
 	}
 
@@ -264,12 +270,12 @@ func (m model) noOpenThreadSaid(standingOnIt bool) string {
 }
 
 // threadStepDesc names the three keys that walk the conversations, by what is left to settle.
-func (m model) threadStepDesc() string {
-	if m.review.view == nil {
+func (d reviewDiff) threadStepDesc() string {
+	if d.view == nil {
 		return "thread, next open"
 	}
 
-	open := m.review.view.CountOpenThreads()
+	open := d.view.CountOpenThreads()
 	if open == 0 {
 		return "thread, next open"
 	}
@@ -277,28 +283,28 @@ func (m model) threadStepDesc() string {
 	return fmt.Sprintf("thread, %d open", open)
 }
 
-// reviewThreadAtCursor is the thread the cursor is standing on, and false while the diff is
-// still loading.
-func (m model) reviewThreadAtCursor() (*agentv1.ReviewThread, bool) {
-	if m.review.view == nil {
+// threadAtCursor is the thread the cursor is standing on, and false while the diff is still
+// loading.
+func (d reviewDiff) threadAtCursor() (*agentv1.ReviewThread, bool) {
+	if d.view == nil {
 		return nil, false
 	}
 
-	return m.review.view.GetThreadAt(m.review.cursor)
+	return d.view.GetThreadAt(d.cursor)
 }
 
 // toggleReviewExpanded draws the whole of the file the cursor is in, or gives back the changed
 // lines and the few around them.
 func (m model) toggleReviewExpanded() (tea.Model, tea.Cmd) {
-	file, ok := m.review.view.GetDrawnFileAt(m.review.cursor)
+	file, ok := m.review.diff.view.GetDrawnFileAt(m.review.diff.cursor)
 	if !ok {
 		return m, nil
 	}
 
 	path := file.Path()
-	expanding := !m.review.view.IsExpanded(path)
+	expanding := !m.review.diff.view.IsExpanded(path)
 
-	if expanding && m.review.view.IsViewed(path) {
+	if expanding && m.review.diff.view.IsViewed(path) {
 		m.review.notice = "that file is folded away · " +
 			keyLabel(m.keys.Review.ToggleViewed) + " to open it"
 
@@ -306,18 +312,16 @@ func (m model) toggleReviewExpanded() (tea.Model, tea.Cmd) {
 	}
 
 	// Where the cursor is standing is taken before the rows are built again.
-	place, located := m.review.view.GetPlace(m.review.cursor)
+	place, located := m.review.diff.view.GetPlace(m.review.diff.cursor)
 
-	if m.review.view.SetFileExpanded(path, expanding) != expanding {
+	if m.review.diff.view.SetFileExpanded(path, expanding) != expanding {
 		m.review.notice = "there is no more of that file to show"
 
 		return m, nil
 	}
 
-	m.review.expanded = withExpanded(m.review.expanded, path, expanding)
-
 	m = m.blurReviewThread()
-	m.keepReviewCursor(place, located)
+	m.review.diff.keepCursor(place, located)
 	m.scrollReviewToCursor()
 
 	m.review.notice = "showing the changed lines"
@@ -328,47 +332,31 @@ func (m model) toggleReviewExpanded() (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// withExpanded records that a file is drawn whole, or that it is not, on the set the screen
-// keeps across a reload.
-func withExpanded(expanded map[string]bool, path string, on bool) map[string]bool {
-	if expanded == nil {
-		expanded = map[string]bool{}
-	}
-
-	if on {
-		expanded[path] = true
-	} else {
-		delete(expanded, path)
-	}
-
-	return expanded
-}
-
 // jumpReviewFile moves to the next or previous file and puts that file's header at the top of
 // the pane.
 func (m model) jumpReviewFile(direction int) (tea.Model, tea.Cmd) {
-	next := m.review.view.JumpFile(m.review.cursor, direction)
-	if next == m.review.cursor {
+	next := m.review.diff.view.JumpFile(m.review.diff.cursor, direction)
+	if next == m.review.diff.cursor {
 		return m, nil
 	}
 
-	m.review.cursor = next
+	m.review.diff.cursor = next
 	m = m.blurReviewThread()
-	m.review.top = max(min(m.review.view.GetFileTopRow(next), m.review.view.Len()-1), 0)
-	m.review.pinTop = true
-	m.review.pinFloor = m.review.top
+	m.review.diff.top = max(min(m.review.diff.view.GetFileTopRow(next), m.review.diff.view.Len()-1), 0)
+	m.review.diff.pinTop = true
+	m.review.diff.pinFloor = m.review.diff.top
 	m.scrollReviewToCursor()
 
 	return m, m.markReviewThreadReadCmd()
 }
 
 func (m model) moveReviewCursor(next int) (tea.Model, tea.Cmd) {
-	if next == m.review.cursor {
+	if next == m.review.diff.cursor {
 		return m, nil
 	}
 
-	m.review.cursor = next
-	m.review.pinTop = false
+	m.review.diff.cursor = next
+	m.review.diff.pinTop = false
 
 	// The keys and the window both belong to the conversation the cursor was standing on, so
 	// neither means anything against the next one it lands on.
@@ -379,9 +367,9 @@ func (m model) moveReviewCursor(next int) (tea.Model, tea.Cmd) {
 }
 
 func (m model) scrollReview(direction int) (tea.Model, tea.Cmd) {
-	cursor := m.review.cursor
+	cursor := m.review.diff.cursor
 	for range navPageStep {
-		cursor = m.review.view.Move(cursor, direction)
+		cursor = m.review.diff.view.Move(cursor, direction)
 	}
 
 	return m.moveReviewCursor(cursor)
@@ -398,14 +386,14 @@ func (m model) getReviewPanStep() int {
 }
 
 func (m model) panReview(delta int) (tea.Model, tea.Cmd) {
-	next := max(0, m.review.pan+delta)
-	if next == m.review.pan {
-		return m, nil
-	}
-
-	m.review.pan = next
+	m.review.diff.panBy(delta)
 
 	return m, nil
+}
+
+// panBy moves the diff sideways, stopping at its left edge.
+func (d *reviewDiff) panBy(delta int) {
+	d.pan = max(0, d.pan+delta)
 }
 
 // scrollReviewToCursor moves the window only when the cursor is about to leave it.
@@ -415,11 +403,14 @@ func (m *model) scrollReviewToCursor() {
 		return
 	}
 
-	height := split.rows
+	m.review.diff.scrollToCursor(split.rows)
+}
 
+// scrollToCursor moves a window of the given height only when the cursor is about to leave it.
+func (d *reviewDiff) scrollToCursor(height int) {
 	// A file jump has already said where the window goes, and the margin below would drag it
 	// straight back off what it was asked to show.
-	if m.review.pinTop {
+	if d.pinTop {
 		return
 	}
 
@@ -428,15 +419,15 @@ func (m *model) scrollReviewToCursor() {
 	// A file jump is only worth anything if the file stays at the top, so the margin gives up its
 	// gap until the cursor walks back above the row the jump landed on.
 	floor := 0
-	if m.review.cursor >= m.review.pinFloor {
-		floor = m.review.pinFloor
+	if d.cursor >= d.pinFloor {
+		floor = d.pinFloor
 	}
 
-	if low := m.review.cursor - margin; low < m.review.top {
-		m.review.top = max(low, floor)
+	if low := d.cursor - margin; low < d.top {
+		d.top = max(low, floor)
 	}
 
-	if high := m.review.cursor - height + 1 + margin; high > m.review.top {
-		m.review.top = high
+	if high := d.cursor - height + 1 + margin; high > d.top {
+		d.top = high
 	}
 }

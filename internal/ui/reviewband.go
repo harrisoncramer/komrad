@@ -23,9 +23,9 @@ const reviewScopeOnTone = paint.ToneAccent
 func (m model) reviewBandView(width int) string {
 	kept := m.reviewBandRows()
 
-	out := strings.Join(kept, "") + "\n\n" + m.review.filter.view(paint.Panel) + m.reviewMatchCount()
+	out := strings.Join(kept, "") + "\n\n" + m.review.diff.filter.view(paint.Panel) + m.review.diff.matchCount()
 
-	if m.review.view != nil && m.review.view.Len() > 0 {
+	if m.review.diff.view != nil && m.review.diff.view.Len() > 0 {
 		out += m.reviewDeadView(width)
 	}
 
@@ -38,7 +38,7 @@ func (m model) reviewBandRows() []string {
 		paint.Panel.Title("Review · "+m.review.agentName) + "\n",
 		m.reviewModeView(),
 		m.reviewScopeView(),
-		m.reviewStatView(),
+		m.review.diff.statView(),
 		m.reviewStaleView(),
 		m.reviewDeliveryCountView(),
 	}
@@ -73,7 +73,7 @@ func (m model) reviewDeadView(width int) string {
 func (m model) reviewStaleView() string {
 	// The editor holds the stage rather than the diff, and the move it reports is usually the
 	// reader's own writing, so there is nothing here worth a row.
-	if !m.review.moved || m.review.pinned || m.review.atEditor {
+	if !m.review.diff.moved || m.review.diff.pinned || m.review.atEditor {
 		return "\n"
 	}
 
@@ -109,14 +109,13 @@ func reviewFill(line string, pane int) string {
 	return line
 }
 
-// reviewStatView is how big the change is, with the counts coloured the way the lines themselves
-// are.
-func (m model) reviewStatView() string {
-	if m.review.view == nil {
+// statView is how big the change is, with the counts coloured the way the lines themselves are.
+func (d reviewDiff) statView() string {
+	if d.view == nil {
 		return ""
 	}
 
-	stat := m.review.view.Stat()
+	stat := d.view.Stat()
 	if stat.Files == 0 {
 		return ""
 	}
@@ -125,7 +124,7 @@ func (m model) reviewStatView() string {
 		paint.Panel.Style(reviewAddedTone).Render(fmt.Sprintf("+%d", stat.Added)) + " " +
 		paint.Panel.Style(reviewRemovedTone).Render(fmt.Sprintf("-%d", stat.Removed))
 
-	if read, total := m.review.view.CountViewedFiles(); read > 0 {
+	if read, total := d.view.CountViewedFiles(); read > 0 {
 		out += dimStyle.Render(fmt.Sprintf("  %d/%d viewed", read, total))
 	}
 
@@ -135,13 +134,13 @@ func (m model) reviewStatView() string {
 // reviewScopeView says what the diff on screen is measured between, in the reader's own terms
 // rather than as rounds, and draws the other thing the base key could show beside it.
 func (m model) reviewScopeView() string {
-	if m.review.view == nil {
+	if m.review.diff.view == nil {
 		return ""
 	}
 
 	from := "all changes"
-	if m.review.baseLabel != "" {
-		from = m.review.baseLabel
+	if m.review.diff.baseLabel != "" {
+		from = m.review.diff.baseLabel
 	}
 
 	out := paint.Panel.Style(reviewScopeOnTone).Bold(true).Render(from)
@@ -160,30 +159,30 @@ func (m model) reviewStepSaid() string {
 	forward := keyLabel(m.keys.Review.BaseForward)
 
 	switch {
-	case m.review.chapter < 0:
+	case m.review.diff.chapter < 0:
 		return back + " for the latest round"
-	case m.review.chapter == 0:
+	case m.review.diff.chapter == 0:
 		return forward + " for a later round"
 	default:
 		return back + " back · " + forward + " forward"
 	}
 }
 
-// reviewMatchCount is where in the search the cursor is standing, drawn under the pattern the
-// panel's own filter is already showing.
-func (m model) reviewMatchCount() string {
-	if m.review.view == nil || !m.review.filter.isStanding() {
+// matchCount is where in the search the cursor is standing, drawn under the pattern the panel's
+// own filter is already showing.
+func (d reviewDiff) matchCount() string {
+	if d.view == nil || !d.filter.isStanding() {
 		return ""
 	}
 
-	where := label.Counted(m.review.view.MatchCount(), "match")
-	if at, ok := m.review.view.MatchNumber(m.review.cursor); ok {
-		where = label.OfCount(at, m.review.view.MatchCount())
+	where := label.Counted(d.view.MatchCount(), "match")
+	if at, ok := d.view.MatchNumber(d.cursor); ok {
+		where = label.OfCount(at, d.view.MatchCount())
 	}
 
 	// A match inside a file folded away is on no row, so stepping through the matches never
 	// reaches it, and it is counted apart rather than left to look like nothing was found.
-	if hidden := m.review.view.HiddenMatches(); hidden > 0 {
+	if hidden := d.view.HiddenMatches(); hidden > 0 {
 		where += fmt.Sprintf(" · %d in viewed files", hidden)
 	}
 
@@ -204,6 +203,6 @@ func (m model) reviewBandRow(tone paint.Tone, state, hint string) string {
 }
 
 // reviewColumnStyle is the markdown a notice standing in for the patch is drawn in.
-func (m model) reviewColumnStyle() ansi.StyleConfig {
+func reviewColumnStyle() ansi.StyleConfig {
 	return paint.Panel.Stage()
 }

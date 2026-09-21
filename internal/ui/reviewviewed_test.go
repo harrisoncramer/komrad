@@ -52,7 +52,7 @@ func reviewOnASecondRoundOfOneFile(t *testing.T, repo *fakeRepo, agents *fakeRev
 
 	m = openReview(t, m)
 	require.Len(t, agents.rounds, 2)
-	require.NotNil(t, m.review.baseRound)
+	require.NotNil(t, m.review.diff.baseRound)
 
 	return m
 }
@@ -91,8 +91,8 @@ func TestAViewedMarkTakenInAChapterDoesNotEatTheWholeChangeMark(t *testing.T) {
 	require.NotEmpty(t, whole)
 
 	m = pressReviewBase(t, m)
-	require.NotEmpty(t, m.review.base, "the diff narrowed to a round")
-	require.False(t, m.review.view.IsViewed(fakeFile), "a chapter is a different diff, so it starts unread")
+	require.NotEmpty(t, m.review.diff.base, "the diff narrowed to a round")
+	require.False(t, m.review.diff.view.IsViewed(fakeFile), "a chapter is a different diff, so it starts unread")
 
 	next, cmd = m.updateReview(keyMsg("v"))
 	m = next.(model)
@@ -100,11 +100,11 @@ func TestAViewedMarkTakenInAChapterDoesNotEatTheWholeChangeMark(t *testing.T) {
 
 	assert.Equal(t, whole, agents.marked.GetFingerprint(),
 		"the mark taken in a chapter does not overwrite the one taken on the whole change")
-	assert.False(t, m.review.view.IsViewed(fakeFile), "and the chapter folds nothing away")
+	assert.False(t, m.review.diff.view.IsViewed(fakeFile), "and the chapter folds nothing away")
 	assert.Contains(t, m.review.notice, "whole change", "the refusal says why")
 
 	m = pressReviewBaseForward(t, m)
 
-	require.Empty(t, m.review.base, "the whole change is back on screen")
-	assert.True(t, m.review.view.IsViewed(fakeFile), "and the file is still read")
+	require.Empty(t, m.review.diff.base, "the whole change is back on screen")
+	assert.True(t, m.review.diff.view.IsViewed(fakeFile), "and the file is still read")
 }

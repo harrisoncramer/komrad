@@ -20,7 +20,7 @@ import (
 func reviewReply(t *testing.T, m model) []*agentv1.ReviewThread {
 	t.Helper()
 
-	anchor, ok := m.review.view.GetAnchor(m.review.cursor)
+	anchor, ok := m.review.diff.view.GetAnchor(m.review.diff.cursor)
 	require.True(t, ok)
 
 	return []*agentv1.ReviewThread{{
@@ -163,7 +163,7 @@ func TestReviewRefreshStandsDownMidInput(t *testing.T) {
 		},
 		{
 			name:  "a search pattern is being typed",
-			start: func(m *model) { m.review.filter.typing = true },
+			start: func(m *model) { m.review.diff.filter.typing = true },
 		},
 	}
 
@@ -177,7 +177,7 @@ func TestReviewRefreshStandsDownMidInput(t *testing.T) {
 
 			assert.Nil(t, m.refreshReviewCmd(time.Now()))
 			assert.False(t, m.review.polling)
-			assert.False(t, m.review.diffPolling)
+			assert.False(t, m.review.diff.diffPolling)
 		})
 	}
 }
@@ -197,15 +197,15 @@ func TestReviewRefreshLeavesTheComposerAlone(t *testing.T) {
 	require.True(t, m.review.composing)
 
 	m = typeReviewMessage(t, m, "half a thought")
-	cursor, top := m.review.cursor, m.review.top
+	cursor, top := m.review.diff.cursor, m.review.diff.top
 	tmux.sentKeys = nil
 
 	m.applyReviewRefreshed(reviewRefreshedMsg{agentID: "a1", threads: threads})
 
 	assert.True(t, m.review.composing, "the editor is still up")
 	assert.Equal(t, "half a thought", m.review.editor.value(), "with what was typed into it")
-	assert.Equal(t, cursor, m.review.cursor)
-	assert.Equal(t, top, m.review.top)
+	assert.Equal(t, cursor, m.review.diff.cursor)
+	assert.Equal(t, top, m.review.diff.top)
 	assert.Empty(t, tmux.sentKeys, "and the diff was not repainted under it")
 
 	// The probe is left where it was, so the tick after the composer closes finds this again.
@@ -223,7 +223,7 @@ func TestReviewRefreshKeepsThePlace(t *testing.T) {
 	m, _ := reviewModel(t, agents, dir)
 	m = openReview(t, m)
 
-	m.review.filter.setQuery("hello")
+	m.review.diff.filter.setQuery("hello")
 	m.searchReview()
 
 	next, _ := m.panReview(12)
@@ -232,19 +232,19 @@ func TestReviewRefreshKeepsThePlace(t *testing.T) {
 	moved, _ := m.updateReview(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("]")})
 	m = moved.(model)
 
-	cursor, top, pan := m.review.cursor, m.review.top, m.review.pan
-	pattern, matches := m.review.filter.query, m.review.view.MatchCount()
+	cursor, top, pan := m.review.diff.cursor, m.review.diff.top, m.review.diff.pan
+	pattern, matches := m.review.diff.filter.query, m.review.diff.view.MatchCount()
 
 	m.applyReviewRefreshed(reviewRefreshedMsg{
 		agentID: "a1",
 		threads: reviewReply(t, m),
 	})
 
-	assert.Equal(t, cursor, m.review.cursor)
-	assert.Equal(t, top, m.review.top)
-	assert.Equal(t, pan, m.review.pan)
-	assert.Equal(t, pattern, m.review.filter.query)
-	assert.Equal(t, matches, m.review.view.MatchCount(), "the search still holds the rows it found")
+	assert.Equal(t, cursor, m.review.diff.cursor)
+	assert.Equal(t, top, m.review.diff.top)
+	assert.Equal(t, pan, m.review.diff.pan)
+	assert.Equal(t, pattern, m.review.diff.filter.query)
+	assert.Equal(t, matches, m.review.diff.view.MatchCount(), "the search still holds the rows it found")
 }
 
 // TestReviewRefreshKeepsAFileNameSearch covers the place a search by file name leaves the
@@ -256,21 +256,21 @@ func TestReviewRefreshKeepsAFileNameSearch(t *testing.T) {
 	m, _ := reviewModel(t, agents, dir)
 	m = openReview(t, m)
 
-	m.review.filter.setQuery("greet.go")
+	m.review.diff.filter.setQuery("greet.go")
 	m.searchReview()
-	require.Equal(t, 1, m.review.view.MatchCount())
+	require.Equal(t, 1, m.review.diff.view.MatchCount())
 
-	header := m.review.cursor
+	header := m.review.diff.cursor
 
 	// A thread has to be pinned to a line, so the reply is anchored where the search is not.
-	m.review.cursor = m.review.view.GetFirstRow()
+	m.review.diff.cursor = m.review.diff.view.GetFirstRow()
 	threads := reviewReply(t, m)
-	m.review.cursor = header
+	m.review.diff.cursor = header
 
 	m.applyReviewRefreshed(reviewRefreshedMsg{agentID: "a1", threads: threads})
 
-	assert.Equal(t, header, m.review.cursor)
-	assert.Contains(t, ansi.Strip(m.reviewMatchCount()), "1 of 1",
+	assert.Equal(t, header, m.review.diff.cursor)
+	assert.Contains(t, ansi.Strip(m.review.diff.matchCount()), "1 of 1",
 		"the sidebar still says where in the search the reader is")
 }
 
@@ -281,9 +281,9 @@ func TestReviewReloadKeepsAFileNameSearch(t *testing.T) {
 	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
 	m = openReview(t, m)
 
-	m.review.filter.setQuery("greet.go")
+	m.review.diff.filter.setQuery("greet.go")
 	m.searchReview()
-	header := m.review.cursor
+	header := m.review.diff.cursor
 
 	next, cmd := m.reloadReview()
 	require.NotNil(t, cmd)
@@ -291,8 +291,8 @@ func TestReviewReloadKeepsAFileNameSearch(t *testing.T) {
 	require.True(t, ok)
 	next.applyReviewLoaded(loaded)
 
-	assert.Equal(t, header, next.review.cursor)
-	assert.Contains(t, ansi.Strip(next.reviewMatchCount()), "1 of 1",
+	assert.Equal(t, header, next.review.diff.cursor)
+	assert.Contains(t, ansi.Strip(next.review.diff.matchCount()), "1 of 1",
 		"the sidebar still says where in the search the reader is")
 }
 
@@ -302,9 +302,9 @@ func TestReviewReloadKeepsTheSearch(t *testing.T) {
 	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
 	m = openReview(t, m)
 
-	m.review.filter.setQuery("hello")
+	m.review.diff.filter.setQuery("hello")
 	m.searchReview()
-	matches := m.review.view.MatchCount()
+	matches := m.review.diff.view.MatchCount()
 	require.Positive(t, matches)
 
 	next, cmd := m.reloadReview()
@@ -313,10 +313,10 @@ func TestReviewReloadKeepsTheSearch(t *testing.T) {
 	require.True(t, ok)
 	next.applyReviewLoaded(loaded)
 
-	assert.Equal(t, matches, next.review.view.MatchCount())
-	assert.Contains(t, ansi.Strip(next.reviewMatchCount()), fmt.Sprintf("1 of %d", matches))
+	assert.Equal(t, matches, next.review.diff.view.MatchCount())
+	assert.Contains(t, ansi.Strip(next.review.diff.matchCount()), fmt.Sprintf("1 of %d", matches))
 
-	_, jumped := next.review.view.JumpMatch(next.review.cursor, 1)
+	_, jumped := next.review.diff.view.JumpMatch(next.review.diff.cursor, 1)
 	assert.True(t, jumped, "the search still has rows to step through")
 }
 
@@ -355,7 +355,7 @@ func TestReviewDiffPollCatchesUpOnceTheTurnIsOver(t *testing.T) {
 	tmux.sentKeys = nil
 	caught := m.applyReviewDiffPolled(polled)
 
-	require.True(t, m.review.moved)
+	require.True(t, m.review.diff.moved)
 	require.NotNil(t, caught, "an idle agent's move is read again rather than offered")
 	assert.Empty(t, tmux.sentKeys, "and nothing is typed at anybody to do it")
 
@@ -385,7 +385,7 @@ func TestReviewDiffPollIgnoresAWorktreeThatHasNotMoved(t *testing.T) {
 
 	m.applyReviewDiffPolled(polled)
 
-	assert.False(t, m.review.moved)
+	assert.False(t, m.review.diff.moved)
 	assert.NotContains(t, ansi.Strip(m.reviewView()), "the agent has written since")
 }
 
@@ -409,7 +409,7 @@ func TestReviewBacksOutWhenTheWorktreeWasEmptied(t *testing.T) {
 	next.applyReviewLoaded(loaded)
 
 	assert.Equal(t, screenAgents, next.screen, "the reader is put back on the listing")
-	assert.Nil(t, next.review.view, "and the review is let go of")
+	assert.Nil(t, next.review.diff.view, "and the review is let go of")
 }
 
 // TestReviewReloadKeyOpensTheNextRound pins the opt-in: the reader asks for the next round, and
@@ -432,10 +432,10 @@ func TestReviewReloadKeyOpensTheNextRound(t *testing.T) {
 	polled, ok := m.pollReviewDiffCmd()().(reviewDiffPolledMsg)
 	require.True(t, ok)
 	m.applyReviewDiffPolled(polled)
-	require.True(t, m.review.moved)
+	require.True(t, m.review.diff.moved)
 
-	m.review.cursor = m.review.view.Move(m.review.cursor, 1)
-	place, located := m.review.view.GetPlace(m.review.cursor)
+	m.review.diff.cursor = m.review.diff.view.Move(m.review.diff.cursor, 1)
+	place, located := m.review.diff.view.GetPlace(m.review.diff.cursor)
 	require.True(t, located)
 
 	next, cmd := m.updateReview(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("R")})
@@ -448,15 +448,15 @@ func TestReviewReloadKeyOpensTheNextRound(t *testing.T) {
 	m.applyReviewLoaded(loaded)
 
 	assert.Greater(t, m.review.round.GetOrdinal(), first, "the round moved on")
-	assert.False(t, m.review.moved, "the notice goes with the round it was about")
+	assert.False(t, m.review.diff.moved, "the notice goes with the round it was about")
 
-	found, ok := m.review.view.Locate(place)
+	found, ok := m.review.diff.view.Locate(place)
 	require.True(t, ok)
-	assert.Equal(t, found, m.review.cursor, "the reader is back where they were standing")
+	assert.Equal(t, found, m.review.diff.cursor, "the reader is back where they were standing")
 
 	var drawn string
-	for y := range m.review.view.Len() {
-		drawn += m.review.view.RenderRow(y, review.NoCursor, 120, 0)
+	for y := range m.review.diff.view.Len() {
+		drawn += m.review.diff.view.RenderRow(y, review.NoCursor, 120, 0)
 	}
 	assert.Contains(t, drawn, "written by the agent")
 }
@@ -468,7 +468,7 @@ func TestReviewReloadKeyReadsAgainWithNothingMoved(t *testing.T) {
 	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
 	m = openReview(t, m)
 
-	require.False(t, m.review.moved)
+	require.False(t, m.review.diff.moved)
 
 	_, cmd := m.updateReview(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("R")})
 	require.NotNil(t, cmd)
@@ -487,18 +487,18 @@ func TestReviewDiffPollWaitsBetweenReads(t *testing.T) {
 
 	at := time.Now()
 	require.NotNil(t, m.refreshReviewCmd(at))
-	require.True(t, m.review.diffPolling)
+	require.True(t, m.review.diff.diffPolling)
 
 	m.applyReviewRefreshed(reviewRefreshedMsg{agentID: "a1"})
 	m.applyReviewDiffPolled(reviewDiffPolledMsg{agentID: "a1"})
 
 	require.NotNil(t, m.refreshReviewCmd(at.Add(time.Second)))
-	assert.False(t, m.review.diffPolling, "a tick a second later reads the conversation and not the worktree")
+	assert.False(t, m.review.diff.diffPolling, "a tick a second later reads the conversation and not the worktree")
 
 	m.applyReviewRefreshed(reviewRefreshedMsg{agentID: "a1"})
 
 	require.NotNil(t, m.refreshReviewCmd(at.Add(reviewDiffPollInterval)))
-	assert.True(t, m.review.diffPolling)
+	assert.True(t, m.review.diff.diffPolling)
 }
 
 // TestReviewRefreshIsOnlyForTheScreenThatIsUp pins the tick doing nothing anywhere else.
@@ -520,13 +520,13 @@ func TestWhatChangedSinceYourLastReviewSurvivesAKeypress(t *testing.T) {
 	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
 	m = openReview(t, m)
 
-	m.review.since = "4 files changed since you last reviewed"
+	m.review.diff.since = "4 files changed since you last reviewed"
 	require.Contains(t, reviewProse(m), "4 files changed since you last reviewed")
 
 	next, _ := m.Update(keyMsg("j"))
 	scrolled := next.(model)
 
-	assert.Equal(t, "4 files changed since you last reviewed", scrolled.review.since,
+	assert.Equal(t, "4 files changed since you last reviewed", scrolled.review.diff.since,
 		"scrolling is not an answer to it")
 	assert.Contains(t, reviewProse(scrolled), "4 files changed since you last reviewed",
 		"and it is still on screen")
@@ -539,7 +539,7 @@ func TestANoticeCoversWhatChangedAndGivesItBack(t *testing.T) {
 	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
 	m = openReview(t, m)
 
-	m.review.since = "4 files changed since you last reviewed"
+	m.review.diff.since = "4 files changed since you last reviewed"
 	m.review.notice = "no matches"
 
 	shown := ansi.Strip(m.reviewView())

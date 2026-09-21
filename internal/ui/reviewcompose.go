@@ -30,11 +30,11 @@ func (m model) composeReview() (tea.Model, tea.Cmd) {
 		return m.enterReviewWriting(intentComment)
 	}
 
-	thread, replying := m.reviewThreadAtCursor()
+	thread, replying := m.review.diff.threadAtCursor()
 
 	// A thread whose code is gone has no line to anchor a new thread to, but replying to it is
 	// what it is still on screen for.
-	if _, ok := m.review.view.GetAnchor(m.review.cursor); !ok && !replying {
+	if _, ok := m.review.diff.view.GetAnchor(m.review.diff.cursor); !ok && !replying {
 		return m.refuseReviewLine()
 	}
 
@@ -85,12 +85,12 @@ func (m model) openReviewInput(params newReviewInputParams) (tea.Model, tea.Cmd)
 // enterReviewWriting moves from reading to writing, keeping the reader on the line they pressed
 // the key on, and refuses when that line is in a round the whole change does not draw.
 func (m model) enterReviewWriting(intent passIntent) (tea.Model, tea.Cmd) {
-	if said, history := m.isReviewHistory(); history {
+	if said, history := m.review.isHistory(); history {
 		return m.refuseReviewHistory(said)
 	}
 
-	if _, ok := m.review.view.GetAnchor(m.review.cursor); !ok {
-		if _, replying := m.reviewThreadAtCursor(); !replying {
+	if _, ok := m.review.diff.view.GetAnchor(m.review.diff.cursor); !ok {
+		if _, replying := m.review.diff.threadAtCursor(); !replying {
 			return m.refuseReviewLine()
 		}
 	}
@@ -230,7 +230,7 @@ func (m model) saveReviewMessage() (tea.Model, tea.Cmd) {
 		})
 	}
 
-	anchor, ok := m.review.view.GetAnchor(m.review.cursor)
+	anchor, ok := m.review.diff.view.GetAnchor(m.review.diff.cursor)
 	if !ok {
 		return m, nil
 	}
@@ -251,11 +251,11 @@ func (m model) createReviewThreadCmd(anchor review.Anchor, body string) tea.Cmd 
 
 	// The old side of these numbers came from whatever the diff was measured from, so the thread
 	// records that rather than leaving a later reader to assume the round's own base.
-	base := m.review.view.GetBaseSHA()
+	base := m.review.diff.view.GetBaseSHA()
 
 	// The new side names the snapshot it was read from, which the service compares against the
 	// round it would file the thread under rather than trusting the numbers.
-	snapshot := m.review.view.GetSnapshotSHA()
+	snapshot := m.review.diff.view.GetSnapshotSHA()
 	if snapshot == "" {
 		snapshot = m.review.round.GetSnapshotSha()
 	}
@@ -281,7 +281,7 @@ func (m model) createReviewThreadCmd(anchor review.Anchor, body string) tea.Cmd 
 // resolveReviewThread settles the thread the cursor is standing on, or reopens one already
 // settled.
 func (m model) resolveReviewThread() (tea.Model, tea.Cmd) {
-	thread, ok := m.reviewThreadAtCursor()
+	thread, ok := m.review.diff.threadAtCursor()
 	if !ok {
 		return m, nil
 	}
@@ -306,28 +306,28 @@ func (m model) resolveReviewThread() (tea.Model, tea.Cmd) {
 // toggleReviewViewed folds the file the cursor is in away once it has been read, or opens it
 // again, stepping on to the next file when it has just been folded.
 func (m model) toggleReviewViewed() (tea.Model, tea.Cmd) {
-	if m.isReviewNarrowed() {
+	if m.review.diff.isNarrowed() {
 		return m.refuseReviewViewed()
 	}
 
-	file, ok := m.review.view.GetPatchFileAt(m.review.cursor)
+	file, ok := m.review.diff.view.GetPatchFileAt(m.review.diff.cursor)
 	if !ok {
 		return m, nil
 	}
 
 	path := file.Path()
-	viewed := !m.review.view.IsViewed(path)
+	viewed := !m.review.diff.view.IsViewed(path)
 
 	// Where the cursor is standing is taken before the rows are built again.
-	place, located := m.review.view.GetPlace(m.review.cursor)
-	m.review.view.SetFileViewed(path, viewed)
-	m.keepReviewCursor(place, located)
+	place, located := m.review.diff.view.GetPlace(m.review.diff.cursor)
+	m.review.diff.view.SetFileViewed(path, viewed)
+	m.review.diff.keepCursor(place, located)
 
 	notice := "file opened again"
 	if viewed {
 		notice = "file viewed"
-		m.review.cursor = m.review.view.JumpFile(m.review.cursor, 1)
-		m.review.pinTop = false
+		m.review.diff.cursor = m.review.diff.view.JumpFile(m.review.diff.cursor, 1)
+		m.review.diff.pinTop = false
 	}
 
 	m.scrollReviewToCursor()
@@ -349,7 +349,7 @@ func (m model) toggleReviewViewed() (tea.Model, tea.Cmd) {
 
 // markReviewThreadReadCmd claims the thread the cursor has just landed on and only that one.
 func (m model) markReviewThreadReadCmd() tea.Cmd {
-	thread, ok := m.reviewThreadAtCursor()
+	thread, ok := m.review.diff.threadAtCursor()
 	if !ok || !thread.GetUnreadByHuman() {
 		return nil
 	}

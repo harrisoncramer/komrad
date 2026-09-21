@@ -51,7 +51,7 @@ type reviewDiffPolledMsg struct {
 // refreshReviewCmd is what the panel's own tick asks for while the review is up: the
 // conversation every time, and the worktree every few seconds.
 func (m *model) refreshReviewCmd(now time.Time) tea.Cmd {
-	if m.screen != screenReview || m.review.view == nil {
+	if m.screen != screenReview || m.review.diff.view == nil {
 		return nil
 	}
 
@@ -68,9 +68,9 @@ func (m *model) refreshReviewCmd(now time.Time) tea.Cmd {
 		cmds = append(cmds, m.refreshReviewThreadsCmd())
 	}
 
-	if !m.review.diffPolling && now.Sub(m.review.diffPolled) >= reviewDiffPollInterval {
-		m.review.diffPolling = true
-		m.review.diffPolled = now
+	if !m.review.diff.diffPolling && now.Sub(m.review.diff.diffPolled) >= reviewDiffPollInterval {
+		m.review.diff.diffPolling = true
+		m.review.diff.diffPolled = now
 		cmds = append(cmds, m.pollReviewDiffCmd())
 	}
 
@@ -141,7 +141,7 @@ func (m *model) applyReviewRefreshed(msg reviewRefreshedMsg) {
 	m.review.polling = false
 
 	// A read that failed says nothing, and the next tick asks again.
-	if msg.err != nil || m.review.view == nil {
+	if msg.err != nil || m.review.diff.view == nil {
 		return
 	}
 
@@ -167,7 +167,7 @@ func (m *model) applyReviewDiffPolled(msg reviewDiffPolledMsg) tea.Cmd {
 		return nil
 	}
 
-	m.review.diffPolling = false
+	m.review.diff.diffPolling = false
 
 	// A worktree emptied under an open review is a move like any other, so the bar offers to catch
 	// up and the reload is what finds nothing to show and backs out to the listing.
@@ -177,7 +177,7 @@ func (m *model) applyReviewDiffPolled(msg reviewDiffPolledMsg) tea.Cmd {
 
 	// A worktree edited back to the round it was cut from is not a move, so the notice goes
 	// away rather than standing until the reader opens a round for nothing.
-	m.review.moved = msg.moved
+	m.review.diff.moved = msg.moved
 
 	if !msg.moved || !m.doesReviewFollowLive() {
 		return nil
@@ -191,7 +191,7 @@ func (m *model) applyReviewDiffPolled(msg reviewDiffPolledMsg) tea.Cmd {
 
 // doesReviewFollowLive reports whether the diff on screen is meant to keep up with the agent.
 func (m model) doesReviewFollowLive() bool {
-	if m.review.mode != modeWatching || m.review.view == nil || m.review.loading {
+	if m.review.mode != modeWatching || m.review.diff.view == nil || m.review.loading {
 		return false
 	}
 
@@ -199,7 +199,7 @@ func (m model) doesReviewFollowLive() bool {
 		return false
 	}
 
-	return !m.doesReviewHoldUnsent() && m.review.chapter < 0 && !m.review.pinned
+	return !m.doesReviewHoldUnsent() && m.review.diff.chapter < 0 && !m.review.diff.pinned
 }
 
 // setReviewThreads holds the conversation and the probe a refresh compares it against together.

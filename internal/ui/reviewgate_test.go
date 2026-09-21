@@ -123,7 +123,7 @@ func TestTheFlagAndTheThreadsDisagreeUntilTheNextTick(t *testing.T) {
 
 	m = pressReview(t, m, keyMsg("r"))
 
-	assert.Zero(t, m.review.view.CountOpenThreads(), "the conversation came back settled")
+	assert.Zero(t, m.review.diff.view.CountOpenThreads(), "the conversation came back settled")
 	assert.True(t, m.review.isOwedAnAnswer(), "and the flag has not been asked again yet")
 
 	m = refreshReview(t, m)

@@ -41,7 +41,7 @@ func TestReviewRecordNamesWhatTheDiffIsAgainst(t *testing.T) {
 	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
 	m = openReview(t, m)
 
-	require.NotNil(t, m.review.view)
+	require.NotNil(t, m.review.diff.view)
 	require.NotNil(t, m.review.round)
 
 	assert.Equal(t, label.ShortSHA(m.review.round.GetBaseSha()), fieldValue(t, m.reviewDetails(), "base"))
@@ -66,11 +66,11 @@ func TestReviewRecordTakesTheKeys(t *testing.T) {
 	require.True(t, focused.isDetailsFocused())
 
 	// The keys are on the record, so a move walks its fields rather than the diff.
-	cursor := focused.review.cursor
+	cursor := focused.review.diff.cursor
 	next, _ = focused.Update(keyMsg("j"))
 	moved := next.(model)
 
-	assert.Equal(t, cursor, moved.review.cursor, "the diff stayed where it was")
+	assert.Equal(t, cursor, moved.review.diff.cursor, "the diff stayed where it was")
 	assert.Equal(t, 1, moved.details.cursor)
 
 	next, _ = moved.Update(keyMsg("ctrl+t"))
@@ -130,7 +130,7 @@ func TestReviewRecordGivesWayInASmallPane(t *testing.T) {
 	agents := &fakeReviewAgents{}
 	m := reviewWithAnEarlierReview(t, newFakeRepo(t.TempDir()), agents)
 
-	require.NotNil(t, m.review.baseRound, "the base key has somewhere to go")
+	require.NotNil(t, m.review.diff.baseRound, "the base key has somewhere to go")
 	require.Contains(t, ansi.Strip(m.reviewView()), "agent_id", "the record draws at full height")
 
 	m.helpExpanded = true
@@ -159,9 +159,9 @@ func TestReviewRecordCannotTakeTheKeysWhileItIsDropped(t *testing.T) {
 	assert.False(t, refused.isDetailsFocused(), "so the record cannot take the keys")
 
 	// The diff still has them.
-	cursor := refused.review.cursor
+	cursor := refused.review.diff.cursor
 	next, _ = refused.Update(keyMsg("j"))
-	assert.Greater(t, next.(model).review.cursor, cursor)
+	assert.Greater(t, next.(model).review.diff.cursor, cursor)
 }
 
 // TestReviewRecordGivesTheKeysBackWhenThePaneShrinks covers a pane resized under a focused
@@ -180,9 +180,9 @@ func TestReviewRecordGivesTheKeysBackWhenThePaneShrinks(t *testing.T) {
 	require.NotContains(t, ansi.Strip(focused.reviewView()), "› name")
 	assert.False(t, focused.isDetailsFocused(), "the record went, so the keys came back")
 
-	cursor := focused.review.cursor
+	cursor := focused.review.diff.cursor
 	next, _ = focused.Update(keyMsg("j"))
-	assert.Greater(t, next.(model).review.cursor, cursor)
+	assert.Greater(t, next.(model).review.diff.cursor, cursor)
 }
 
 // TestReviewRecordKeysFollowWhatIsDrawn sweeps the heights either side of both thresholds.
@@ -199,7 +199,7 @@ func TestReviewRecordKeysFollowWhatIsDrawn(t *testing.T) {
 		for _, expanded := range []bool{false, true} {
 			for height := range 60 {
 				m.height, m.helpExpanded = height, expanded
-				m.review.filter.setQuery(query)
+				m.review.diff.filter.setQuery(query)
 
 				next, _ := m.Update(keyMsg("ctrl+t"))
 				focused := next.(model)

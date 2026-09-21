@@ -16,7 +16,7 @@ import (
 func pinnedThread(t *testing.T, m model, messages ...*agentv1.ReviewMessage) []*agentv1.ReviewThread {
 	t.Helper()
 
-	anchor, ok := m.review.view.GetAnchor(m.review.cursor)
+	anchor, ok := m.review.diff.view.GetAnchor(m.review.diff.cursor)
 	require.True(t, ok)
 
 	return []*agentv1.ReviewThread{{

@@ -39,7 +39,7 @@ type owedComment struct {
 // reviewOwedComments are the comments holding the reader's last review, in the order the diff
 // draws them.
 func (m model) reviewOwedComments() []owedComment {
-	if m.review.owed == "" || m.review.view == nil {
+	if m.review.owed == "" || m.review.diff.view == nil {
 		return nil
 	}
 
@@ -52,7 +52,7 @@ func (m model) reviewOwedComments() []owedComment {
 			continue
 		}
 
-		row, drawn := m.review.view.GetThreadRow(thread.GetId())
+		row, drawn := m.review.diff.view.GetThreadRow(thread.GetId())
 		if !drawn {
 			row = noRow
 		}
@@ -60,7 +60,7 @@ func (m model) reviewOwedComments() []owedComment {
 		owed = append(owed, owedComment{
 			thread: thread,
 			row:    row,
-			folded: m.review.view.IsFoldedAway(thread),
+			folded: m.review.diff.view.IsFoldedAway(thread),
 		})
 	}
 
@@ -93,7 +93,7 @@ func (m model) isReviewOwedDrawn() bool {
 		return false
 	}
 
-	if _, history := m.isReviewHistory(); history {
+	if _, history := m.review.isHistory(); history {
 		return false
 	}
 
@@ -173,10 +173,10 @@ func (m model) isReviewCommentNear(comment owedComment) bool {
 
 	split, ok := m.screenColumnSplit()
 	if !ok {
-		return comment.row == m.review.cursor
+		return comment.row == m.review.diff.cursor
 	}
 
-	return comment.row >= m.review.top && comment.row < m.review.top+split.rows
+	return comment.row >= m.review.diff.top && comment.row < m.review.diff.top+split.rows
 }
 
 // reviewOwedState is the one word a row carries about what the comment is waiting for.

@@ -88,7 +88,7 @@ func (m model) reviewThreadWindow(rendered string, lines int) string {
 		return len(rows) - visible - min(m.review.threadScroll, len(rows)-visible)
 	}
 
-	return paint.WindowRows(rows, lines, place, m.reviewMarkerStyle())
+	return paint.WindowRows(rows, lines, place, reviewMarkerStyle())
 }
 
 // doesReviewFitDetails reports whether the sidebar has a line left over once the record has taken
@@ -113,11 +113,11 @@ func (m model) reviewHeadView(owedRoom int) string {
 	switch {
 	case m.review.loading:
 		return dimStyle.Render(reviewLoadingWord) + "\n"
-	case m.review.view == nil || m.review.view.Len() == 0:
+	case m.review.diff.view == nil || m.review.diff.view.Len() == 0:
 		return dimStyle.Render(reviewEmptyWord) + "\n"
 	}
 
-	return m.reviewOwedView(owedRoom) + m.reviewAnchorView()
+	return m.reviewOwedView(owedRoom) + m.review.diff.anchorView()
 }
 
 // reviewNote is a line of prose under the conversation, wrapped into the sidebar's own column.
@@ -131,7 +131,7 @@ func (m model) reviewNote(style lipgloss.Style, text string) string {
 }
 
 func (m model) reviewRestView() string {
-	if m.review.loading || m.review.view == nil || m.review.view.Len() == 0 {
+	if m.review.loading || m.review.diff.view == nil || m.review.diff.view.Len() == 0 {
 		return ""
 	}
 
@@ -149,37 +149,37 @@ func (m model) reviewRestView() string {
 	// about the diff itself stands underneath and comes back the moment the answer is gone.
 	if notice := m.review.notice; notice != "" {
 		out += "\n" + m.reviewNote(paint.Panel.Style(reviewNoticeTone), notice)
-	} else if since := m.review.since; since != "" && m.review.baseLabel == "" {
+	} else if since := m.review.diff.since; since != "" && m.review.diff.baseLabel == "" {
 		out += "\n" + m.reviewNote(dimStyle, since)
 	}
 
 	return out
 }
 
-// reviewAnchorView names the place the cursor is standing, so the sidebar says what a new thread
+// anchorView names the place the cursor is standing, so the sidebar says what a new thread
 // would be pinned to without repeating the line the diff already draws beside it.
-func (m model) reviewAnchorView() string {
-	anchor, ok := m.review.view.GetAnchor(m.review.cursor)
+func (d reviewDiff) anchorView() string {
+	anchor, ok := d.view.GetAnchor(d.cursor)
 	if !ok {
-		if thread, ok := m.reviewThreadAtCursor(); ok {
+		if thread, ok := d.threadAtCursor(); ok {
 			return paint.Panel.Title(clipName(review.FormatThreadLocation(thread))) +
-				m.reviewCommentWhereView(thread) + "\n"
+				d.commentWhereView(thread) + "\n"
 		}
 
 		return dimStyle.Render("  move onto a line to start a thread on it") + "\n"
 	}
 
 	head := paint.Panel.Title(clipName(review.FormatLocation(anchor.FilePath, anchor.OldStart, anchor.NewStart)))
-	if thread, ok := m.reviewThreadAtCursor(); ok {
-		head += m.reviewCommentWhereView(thread)
+	if thread, ok := d.threadAtCursor(); ok {
+		head += d.commentWhereView(thread)
 	}
 
 	return head + "\n"
 }
 
-// reviewCommentWhereView is which comment of how many the cursor is standing on.
-func (m model) reviewCommentWhereView(thread *agentv1.ReviewThread) string {
-	at, total := m.review.view.CommentPosition(thread)
+// commentWhereView is which comment of how many the cursor is standing on.
+func (d reviewDiff) commentWhereView(thread *agentv1.ReviewThread) string {
+	at, total := d.view.CommentPosition(thread)
 	if at == 0 || total < 2 {
 		return ""
 	}
@@ -234,7 +234,7 @@ func verdictTone(verdict agentv1.ReviewVerdict) paint.Tone {
 }
 
 func (m model) reviewThreadView() string {
-	thread, ok := m.reviewThreadAtCursor()
+	thread, ok := m.review.diff.threadAtCursor()
 	if !ok {
 		return dimStyle.Render("  no thread here yet") + "\n"
 	}
@@ -250,11 +250,11 @@ func (m model) reviewThreadView() string {
 // reviewOriginView is where a thread was written and the line it was written against, drawn only
 // once that code has moved.
 func (m model) reviewOriginView(thread *agentv1.ReviewThread) string {
-	if !m.review.view.HasMoved(thread) {
+	if !m.review.diff.view.HasMoved(thread) {
 		return ""
 	}
 
-	out := dimStyle.Render("  "+m.reviewOriginSaid(thread)) + "\n"
+	out := dimStyle.Render("  "+m.review.diff.originSaid(thread)) + "\n"
 	for _, quoted := range thread.GetQuotedLines() {
 		out += paint.Panel.Style(reviewQuoteTone).Italic(true).Render(m.reviewWrap("  "+quoted)) + "\n"
 	}
@@ -262,18 +262,18 @@ func (m model) reviewOriginView(thread *agentv1.ReviewThread) string {
 	return out + "\n"
 }
 
-// reviewOriginSaid says why a comment is not on the line it was written against, in terms of what
+// originSaid says why a comment is not on the line it was written against, in terms of what
 // happened rather than of the placement weave settled on.
-func (m model) reviewOriginSaid(thread *agentv1.ReviewThread) string {
-	if _, drawn := m.review.view.GetFile(thread.GetFilePath()); !drawn {
-		if m.review.base != "" {
+func (d reviewDiff) originSaid(thread *agentv1.ReviewThread) string {
+	if _, drawn := d.view.GetFile(thread.GetFilePath()); !drawn {
+		if d.base != "" {
 			return "still in the change, outside what is on screen · written against"
 		}
 
 		return "the file this was about has gone · written against"
 	}
 
-	if m.review.view.IsGhosted(thread) {
+	if d.view.IsGhosted(thread) {
 		return "the code under this has changed · written against"
 	}
 
@@ -324,26 +324,26 @@ func (m model) reviewDetails() details {
 	return details{
 		id:      agent.ID,
 		notices: agentNotices(row),
-		fields:  append(fields, m.reviewFields()...),
+		fields:  append(fields, m.review.fields()...),
 	}
 }
 
-// reviewFields are the facts the diff itself carries, which the agent's own record does not
-// hold: what it was measured against and what was kept out of it.
-func (m model) reviewFields() []recordField {
+// fields are the facts the diff itself carries, which the agent's own record does not hold: what
+// it was measured against and what was kept out of it.
+func (r reviewState) fields() []recordField {
 	fields := []recordField{
-		{"base", label.OrDash(label.ShortSHA(m.review.round.GetBaseSha()))},
-		{"snapshot", label.OrDash(label.ShortSHA(m.review.round.GetSnapshotSha()))},
+		{"base", label.OrDash(label.ShortSHA(r.round.GetBaseSha()))},
+		{"snapshot", label.OrDash(label.ShortSHA(r.round.GetSnapshotSha()))},
 	}
-	if len(m.review.exclude) > 0 {
-		fields = append(fields, recordField{"excludes", strings.Join(m.review.exclude, ", ")})
+	if len(r.exclude) > 0 {
+		fields = append(fields, recordField{"excludes", strings.Join(r.exclude, ", ")})
 	}
 
 	return fields
 }
 
 // reviewMarkerStyle is what the counts above and below the conversation are drawn in.
-func (m model) reviewMarkerStyle() lipgloss.Style {
+func reviewMarkerStyle() lipgloss.Style {
 	return paint.Panel.Header()
 }
 
@@ -362,7 +362,7 @@ func reviewTimeOf(stamp string) string {
 
 // reviewComposeDesc says what the compose key would do where the cursor is standing.
 func (m model) reviewComposeDesc() string {
-	if _, ok := m.reviewThreadAtCursor(); ok {
+	if _, ok := m.review.diff.threadAtCursor(); ok {
 		return "reply in this thread"
 	}
 
@@ -386,49 +386,49 @@ func (m model) reviewBackDesc() string {
 	return "back to the agents"
 }
 
-// reviewReloadDesc says what the reload key would do.
-func (m model) reviewReloadDesc() string {
-	if m.review.moved {
+// reloadDesc says what the reload key would do.
+func (d reviewDiff) reloadDesc() string {
+	if d.moved {
 		return "catch up"
 	}
 
 	return "read the diff again"
 }
 
-// reviewResolveDesc says which way the settle key would go where the cursor is standing.
-func (m model) reviewResolveDesc() string {
-	if thread, ok := m.reviewThreadAtCursor(); ok && thread.GetResolvedAt() != "" {
+// resolveDesc says which way the settle key would go where the cursor is standing.
+func (d reviewDiff) resolveDesc() string {
+	if thread, ok := d.threadAtCursor(); ok && thread.GetResolvedAt() != "" {
 		return "reopen the thread"
 	}
 
 	return "settle the thread"
 }
 
-// reviewFileDesc names the two keys that act on the whole file the cursor is in, which share a
-// legend row so that the taller of them costs the pane nothing.
-func (m model) reviewFileDesc() string {
-	if m.review.view == nil {
+// fileDesc names the two keys that act on the whole file the cursor is in, which share a legend
+// row so that the taller of them costs the pane nothing.
+func (d reviewDiff) fileDesc() string {
+	if d.view == nil {
 		return "fold / whole file"
 	}
 
 	// A folded file has nothing on screen to open out, so the expand key is refused there and
 	// the legend names the fold key alone.
-	file, ok := m.review.view.GetDrawnFileAt(m.review.cursor)
+	file, ok := d.view.GetDrawnFileAt(d.cursor)
 
 	// Marking a file read is refused in a round, so the row names the key that still works.
-	if m.isReviewNarrowed() {
-		if ok && m.review.view.IsExpanded(file.Path()) {
+	if d.isNarrowed() {
+		if ok && d.view.IsExpanded(file.Path()) {
 			return "show the changes"
 		}
 
 		return "show the whole file"
 	}
 
-	if ok && m.review.view.IsViewed(file.Path()) {
+	if ok && d.view.IsViewed(file.Path()) {
 		return "open the file"
 	}
 
-	if ok && m.review.view.IsExpanded(file.Path()) {
+	if ok && d.view.IsExpanded(file.Path()) {
 		return "fold / the changes"
 	}
 
