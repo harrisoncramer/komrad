@@ -4,8 +4,6 @@ import (
 	"cmp"
 	"strings"
 	"time"
-
-	"weave/config"
 )
 
 // Workflow is one workflow as the service listed it.
@@ -73,17 +71,6 @@ type WorktreeConfig struct {
 type Hook struct {
 	Event  string
 	Script string
-}
-
-// HookEvents are the moments a workflow can hang a script on, in the order they fire.
-func HookEvents() []string {
-	return []string{
-		config.HookPreLaunch,
-		config.HookPostLaunch,
-		config.HookPostResume,
-		config.HookPostRestore,
-		config.HookPreTeardown,
-	}
 }
 
 // ByName orders workflows by name, ignoring case, and by id between two of one name.

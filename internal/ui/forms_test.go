@@ -1193,16 +1193,14 @@ func TestHookFieldsOfferTheHooksDirectory(t *testing.T) {
 // TestHookFieldsDrawEveryOptionThatFits pins a moment already naming a hook still offering the
 // options above it.
 func TestHookFieldsDrawEveryOptionThatFits(t *testing.T) {
-	values := workflowFormValuesFrom(panel.WorkflowConfig{
-		Name: "backend",
-		Hooks: []panel.Hook{
-			{Event: config.HookPreLaunch, Script: "copy-env"},
-			{Event: config.HookPostLaunch, Script: "copy-env"},
-			{Event: config.HookPostResume, Script: "copy-env"},
-			{Event: config.HookPostRestore, Script: "copy-env"},
-			{Event: config.HookPreTeardown, Script: "copy-env"},
-		},
-	})
+	hooks := []panel.Hook{
+		{Event: config.HookPreLaunch, Script: "copy-env"},
+		{Event: config.HookPostLaunch, Script: "copy-env"},
+		{Event: config.HookPostResume, Script: "copy-env"},
+		{Event: config.HookPostRestore, Script: "copy-env"},
+		{Event: config.HookPreTeardown, Script: "copy-env"},
+	}
+	values := workflowFormValuesFrom(panel.WorkflowConfig{Name: "backend", Hooks: hooks})
 
 	form, _ := workflowConfigForm(workflowConfigParams{
 		NameTitle: "Workflow name",
@@ -1213,7 +1211,7 @@ func TestHookFieldsDrawEveryOptionThatFits(t *testing.T) {
 	sizeForm(form, 60)
 
 	view := form.View()
-	assert.Equal(t, len(panel.HookEvents()), strings.Count(view, "install-deps"),
+	assert.Equal(t, len(hooks), strings.Count(view, "install-deps"),
 		"every moment offers the hook above the one it names")
 	assert.NotContains(t, view, "↑/↓ for more", "and says nothing about scrolling for a list it draws whole")
 }
