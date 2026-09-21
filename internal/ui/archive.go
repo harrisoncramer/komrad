@@ -145,12 +145,12 @@ func (m *model) applyArchive(agents []agentItem, workflows []panel.Workflow, hov
 	m.listing.archivedAgents, m.listing.archivedWorkflows = agents, workflows
 	m.forgetUnlistedPullRequests()
 
-	m.archive.apply(m, m.shared(), hovered)
+	m.archive.apply(m.shared(), hovered)
 }
 
 // apply takes a fresh listing, keeping the cursor on the row it was on, or on the agent the
 // screen was opened for.
-func (a *archiveScreen) apply(h host, s panelShared, hovered string) {
+func (a *archiveScreen) apply(s panelShared, hovered string) {
 	rows := a.listRows(s)
 	a.selected = a.selected.pruned(refsOf(rows))
 
@@ -169,7 +169,6 @@ func (a *archiveScreen) apply(h host, s panelShared, hovered string) {
 	}
 
 	a.cursor = idx
-	h.placeColumn(screenArchive, rowKeyAt(rows, idx))
 }
 
 // hoveredAgent is the archived agent the cursor is on, and none on a folder.
@@ -339,9 +338,8 @@ func (a *archiveScreen) details(s panelShared) details {
 	}
 }
 
-// stage keeps the notes and the info pane on the row the cursor is standing on.
-func (a *archiveScreen) stage(h host, s panelShared) {
-	h.placeColumn(screenArchive, a.list().hovered(s))
+// stage keeps the info pane on the row the cursor is standing on.
+func (a *archiveScreen) stage(h host, _ panelShared) {
 	h.stageInfo()
 }
 
@@ -378,7 +376,6 @@ func (a *archiveScreen) listParams(s panelShared) screenListParams {
 	return screenListParams{
 		title:    screenTitle(view.GlyphArchive, "Archive"),
 		help:     a.help,
-		column:   "the notes",
 		empty:    "nothing archived",
 		rows:     len(a.listRows(s)),
 		snapshot: func(pane listPane) view.Snapshot { return a.snapshot(s, pane) },

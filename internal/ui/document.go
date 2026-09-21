@@ -9,10 +9,6 @@ import (
 	"github.com/charmbracelet/glamour/ansi"
 )
 
-// docScrollStep is how far a scroll key moves a document, kept short of a screenful so the
-// reader keeps a few lines of what they were already on.
-const docScrollStep = 10
-
 // docWindow is where in a document the reader is: the rows it was rendered to, the first of them
 // on screen, and whether it counts off what is past either end.
 type docWindow struct {
@@ -37,11 +33,6 @@ func (d docWindow) clamp(top, rows int) int {
 	}
 
 	return max(min(top, end), 0)
-}
-
-// scroll moves the document under the list.
-func (d *docWindow) scroll(delta, rows int) {
-	d.top = d.clamp(d.top+delta, rows)
 }
 
 // view is the screenful of the document from the row the reader has scrolled to, padded out

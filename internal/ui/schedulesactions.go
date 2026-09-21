@@ -60,6 +60,11 @@ func (w *schedulesScreen) actions() screenActionSpec {
 				run:  list.pagePressed,
 			},
 			{
+				id:   actionColumnScroll,
+				keys: func(k config.Keybindings) []string { return concatKeys(k.Column.ScrollDown, k.Column.ScrollUp) },
+				run:  list.scrollPressed,
+			},
+			{
 				id:   actionScheduleNew,
 				keys: func(k config.Keybindings) []string { return k.Schedules.New },
 				run:  func(h host, s panelShared, _ string) tea.Cmd { return w.newForm(h, s) },
@@ -117,6 +122,11 @@ func (w *schedulesScreen) actions() screenActionSpec {
 				label: navPageLabel,
 			},
 			{
+				of:    []actionID{actionColumnScroll},
+				desc:  func(panelShared) string { return "scroll" },
+				label: columnScrollLabel,
+			},
+			{
 				of:   []actionID{actionScheduleBack},
 				desc: func(panelShared) string { return "back" },
 			},
@@ -147,4 +157,8 @@ func moveLabel(k config.Keybindings) string {
 
 func navPageLabel(k config.Keybindings) string {
 	return keyLabel(k.Nav.PageUp) + "/" + keyLabel(k.Nav.PageDown)
+}
+
+func columnScrollLabel(k config.Keybindings) string {
+	return keyLabel(k.Column.ScrollDown) + "/" + keyLabel(k.Column.ScrollUp)
 }

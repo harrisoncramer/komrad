@@ -237,11 +237,9 @@ func (r *reviewScreen) legend() []screenLegendRow {
 			label: navPageLabel,
 		},
 		{
-			of:   []actionID{actionColumnScroll},
-			desc: func(panelShared) string { return "scroll" },
-			label: func(k config.Keybindings) string {
-				return keyLabel(k.Column.ScrollDown) + "/" + keyLabel(k.Column.ScrollUp)
-			},
+			of:    []actionID{actionColumnScroll},
+			desc:  func(panelShared) string { return "scroll" },
+			label: columnScrollLabel,
 		},
 		{
 			of:   []actionID{actionReviewFile},

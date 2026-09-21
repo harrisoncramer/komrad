@@ -170,20 +170,6 @@ func globalArms(s screen, keys config.Keybindings) []dispatchArm {
 		)
 	}
 
-	// The column answers only while the block beside the list is holding one.
-	arms = append(arms,
-		dispatchArm{
-			describe: "the column scroll",
-			keys:     keys.Column.ScrollDown,
-			guarded:  true,
-		},
-		dispatchArm{
-			describe: "the column scroll",
-			keys:     keys.Column.ScrollUp,
-			guarded:  true,
-		},
-	)
-
 	if _, ok := s.adapter().(tabbed); ok {
 		arms = append(arms, dispatchArm{describe: "the tabs focus", keys: keys.Tabs.Focus})
 	}

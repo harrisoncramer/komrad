@@ -1071,58 +1071,6 @@ func TestArchiveDrawsNothingArchivedBesideTheList(t *testing.T) {
 	assert.Contains(t, view, "until you delete them", "and the notice beside it says what the archive is for")
 }
 
-// TestArchiveScrollsTheDocument covers the scrolling less was doing before the document was drawn
-// in the panel's own frame: it moves, it says what is past each end, and it stops at both.
-func TestArchiveScrollsTheDocument(t *testing.T) {
-	m := splitArchiveModel(t)
-	m.archive.list().jump(&m, m.shared(), 0)
-	m.listing.workflows = []panel.Workflow{{
-		ID:      "w1",
-		Name:    "backend",
-		Context: strings.Repeat("a sentence long enough to wrap the column it is drawn into. ", 60),
-	}}
-
-	split, ok := m.screenColumnSplit()
-	require.True(t, ok, "the archive holds the window")
-	require.Greater(t, len(paint.Panel.DocRows(m.archive.doc(m.shared()), split.column)), split.rows, "the document runs past the window")
-
-	top := ansi.Strip(m.View())
-	assert.NotRegexp(t, `↑ \d+ more`, top, "nothing is above the first screenful")
-	assert.Regexp(t, `↓ \d+ more`, top, "and the reader is told the document goes on")
-
-	m = m.scrollColumn(1)
-	assert.Equal(t, docScrollStep, m.column.top)
-	assert.Regexp(t, `↑ \d+ more`, ansi.Strip(m.View()), "the reader is told what they scrolled past")
-
-	for range 100 {
-		m = m.scrollColumn(1)
-	}
-
-	bottom := ansi.Strip(m.View())
-	assert.NotRegexp(t, `↓ \d+ more`, bottom, "the last row of the document is reachable")
-	assert.Regexp(t, `↑ \d+ more`, bottom)
-
-	for range 100 {
-		m = m.scrollColumn(-1)
-	}
-
-	assert.Zero(t, m.column.top, "and scrolling back stops at the top rather than going negative")
-}
-
-// TestArchiveCursorTakesTheDocumentBackToItsTop covers the offset belonging to the row it was
-// scrolled on.
-func TestArchiveCursorTakesTheDocumentBackToItsTop(t *testing.T) {
-	m := splitArchiveModel(t)
-	m.column.top = 12
-
-	m.archive.list().move(&m, m.shared(), -1)
-	assert.Zero(t, m.column.top, "the cursor landed on another row")
-
-	m.column.top = 12
-	m.archive.list().move(&m, m.shared(), -1)
-	assert.Equal(t, 12, m.column.top, "a cursor that could not move leaves the offset where it was")
-}
-
 // TestArchiveHandsTheWindowBack covers the zoom going when the reader leaves for another
 // screen.
 func TestArchiveHandsTheWindowBack(t *testing.T) {
@@ -1168,37 +1116,6 @@ func TestArchiveHandsTheWindowBackWhenAWriteLands(t *testing.T) {
 	assert.False(t, got.frame.IsSolo(), "and the pane it made is not left under the archive's own zoom")
 }
 
-// TestArchiveKeepsTheOffsetWhenARowSlides covers a refresh landing while the reader is scrolled
-// down a document: an agent archived above the one they are on moves its index without moving
-// them, and the offset belongs to the row rather than to the place it sits in the list.
-func TestArchiveKeepsTheOffsetWhenARowSlides(t *testing.T) {
-	m := splitArchiveModel(t)
-	held := []panel.Agent{{
-		ID:         "a2",
-		Name:       "middle",
-		WorkflowID: "w1",
-	}}
-	m.applyArchive(archivedItems(held), nil, "")
-
-	rows := m.archive.listRows(m.shared())
-	m.archive.list().jump(&m, m.shared(), rowIndexOfKey(rows, agentRowKey("a2")))
-	m.column.top = 20
-
-	was := m.archive.cursor
-	grown := append([]panel.Agent{{
-		ID:         "a0",
-		Name:       "alpha",
-		WorkflowID: "w1",
-	}}, held...)
-	m.applyArchive(archivedItems(grown), nil, agentRowKey("a2"))
-
-	assert.Greater(t, m.archive.cursor, was, "the row the reader is on has slid down the list")
-	assert.Equal(t, 20, m.column.top, "but the reader has not moved, so neither has the document")
-
-	m.applyArchive(archivedItems(grown), nil, agentRowKey("a0"))
-	assert.Zero(t, m.column.top, "landing on another row does start that one at its top")
-}
-
 // TestArchiveKeepsTheSplitInAShortPane pins the legend giving up its expansion in a short window
 // so the list stays in its column beside the document.
 func TestArchiveKeepsTheSplitInAShortPane(t *testing.T) {
@@ -1217,7 +1134,7 @@ func TestArchiveKeepsTheSplitInAShortPane(t *testing.T) {
 }
 
 // TestArchiveDocViewFillsItsColumn covers the document's own column standing exactly as tall as
-// its half of the window at every offset.
+// its half of the window.
 func TestArchiveDocViewFillsItsColumn(t *testing.T) {
 	m := splitArchiveModel(t)
 	m.archive.list().jump(&m, m.shared(), 0)
@@ -1231,16 +1148,13 @@ func TestArchiveDocViewFillsItsColumn(t *testing.T) {
 	require.Greater(t, total, 5, "the document runs past every window this walks")
 
 	for rows := 1; rows <= 5; rows++ {
-		for _, top := range []int{0, 1, 2, total - 1, total, total + 5} {
-			m.column.top = top
-			drawn := m.docColumnView(columnSplit{
-				column:  60,
-				sidebar: 30,
-				rows:    rows,
-			})
+		drawn := m.docColumnView(columnSplit{
+			column:  60,
+			sidebar: 30,
+			rows:    rows,
+		})
 
-			assert.Equal(t, rows, paint.CountLines(drawn), "rows=%d top=%d", rows, top)
-		}
+		assert.Equal(t, rows, paint.CountLines(drawn), "rows=%d", rows)
 	}
 }
 

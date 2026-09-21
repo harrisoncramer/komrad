@@ -105,40 +105,10 @@ func TestSearchPreviewOpensOnTheMatch(t *testing.T) {
 		"the rows leading up to the match are")
 }
 
-// TestSearchPreviewScrolls covers the scroll keys, which are what the panel took on when the
-// pager that was doing the scrolling went away.
-func TestSearchPreviewScrolls(t *testing.T) {
-	m, _ := searchPreviewModel(t)
-	opened := m.search.preview.doc.top
-
-	m = pressSearch(t, m, "ctrl+n")
-	assert.Equal(t, opened+docScrollStep, m.search.preview.doc.top, "a press moves a few lines")
-
-	m = pressSearch(t, m, "ctrl+p")
-	assert.Equal(t, opened, m.search.preview.doc.top, "and back again")
-
-	for range 100 {
-		m = pressSearch(t, m, "ctrl+p")
-	}
-	assert.Zero(t, m.search.preview.doc.top, "the top of the transcript is as far up as it goes")
-
-	for range 200 {
-		m = pressSearch(t, m, "ctrl+n")
-	}
-	split := previewSplit(t, m)
-	assert.Equal(t, len(m.search.preview.doc.rows)-split.rows, m.search.preview.doc.top,
-		"the last screenful is as far down as it goes")
-	assert.Contains(t, ansi.Strip(m.search.previewView(m.shared(), split)), "line 199 of the conversation after",
-		"the end of the transcript is drawn rather than empty rows past it")
-}
-
 // TestSearchPreviewFollowsTheCursor covers stepping to another hit, which fetches its own
-// transcript and has to open on its own match rather than where the last one was left.
+// transcript and opens on its own match.
 func TestSearchPreviewFollowsTheCursor(t *testing.T) {
 	m, _ := searchPreviewModel(t)
-
-	m = pressSearch(t, m, "ctrl+n")
-	moved := m.search.preview.doc.top
 
 	content, offset, length := searchTranscript()
 	m.search.turns = append(m.search.turns, searchHit{
@@ -155,7 +125,6 @@ func TestSearchPreviewFollowsTheCursor(t *testing.T) {
 		content: content,
 	})
 
-	assert.NotEqual(t, moved, m.search.preview.doc.top, "the preview is put back on the new match")
 	assert.Contains(t, ansi.Strip(m.search.previewView(m.shared(), previewSplit(t, m))), "the reconcile loop")
 }
 

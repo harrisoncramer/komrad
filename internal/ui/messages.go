@@ -73,8 +73,6 @@ type messagesState struct {
 	// landed counts the messages pushed, and pulse blinks the newest of them as it arrives.
 	landed int
 	pulse  pulse
-	// savedColumnTop is where the screen's column doc was scrolled to before the region lost focus
-	savedColumnTop int
 }
 
 // pulseMessages blinks the summary when the stack has grown since the count it is given.
@@ -432,7 +430,6 @@ func (m model) messagesDoc() string {
 func (m model) messagesBlock(split columnSplit) docWindow {
 	return docWindow{
 		rows:    paint.DocStyledRows(m.messagesDoc(), split.column, m.messagesStyleConfig()),
-		top:     m.column.top,
 		markers: true,
 	}
 }
@@ -475,11 +472,7 @@ func (m model) toggleMessagesFocus() model {
 	m.blurTabs()
 
 	if entering {
-		m.messages.savedColumnTop = m.column.top
 		m.messages.field = 0
-		m.column.top = 0
-	} else {
-		m.column.top = m.messages.savedColumnTop
 	}
 
 	m.reconcileSolo()
@@ -490,12 +483,6 @@ func (m model) toggleMessagesFocus() model {
 
 func (m model) updateMessages(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	k := key.String()
-
-	// The block beside a form is the one message this region does not draw itself, so it keeps
-	// the scroll keys it is read with.
-	if direction, ok := m.isColumnScroll(k); ok && m.form.isOpening() {
-		return m.scrollColumn(direction), nil
-	}
 
 	switch {
 	case k == messagesFocusKey:
@@ -529,7 +516,6 @@ func (m model) updateMessages(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 // landedOnMessage puts the cursor back on the top of a message the reader has just walked to.
 func (m model) landedOnMessage() model {
 	m.messages.field = 0
-	m.column.top = 0
 
 	return m
 }

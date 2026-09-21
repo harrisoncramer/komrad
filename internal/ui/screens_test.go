@@ -77,7 +77,6 @@ func TestSharedIsTheRootAsAScreenSeesIt(t *testing.T) {
 	m.helpExpanded = true
 	m.filter.typing = true
 	m.details.focused = true
-	m.column.top = 3
 	m.messages.focused = true
 	m.form.kind = formScheduleArchive
 
@@ -91,7 +90,6 @@ func TestSharedIsTheRootAsAScreenSeesIt(t *testing.T) {
 	assert.Equal(t, chromeState{
 		details:      m.details,
 		filter:       m.filter,
-		column:       m.column,
 		messages:     m.messages,
 		form:         m.form,
 		helpExpanded: m.helpExpanded,

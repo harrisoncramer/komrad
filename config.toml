@@ -239,12 +239,11 @@ expand           = ["E"]
 # the agent writes to afterwards comes back on its own.
 toggle_viewed    = ["v"]
 
-# Scrolling the block the panel draws beside its own list, shared by every screen
-# that draws one.
+# The keys the mouse wheel presses over the panel, shared by every screen.
 [keybindings.column]
-# Scroll the block down a few lines.
+# Scroll down.
 scroll_down = ["ctrl+n"]
-# Scroll the block up a few lines.
+# Scroll up.
 scroll_up   = ["ctrl+p"]
 
 # The schedules screen, and the key that opens it from the agents list.

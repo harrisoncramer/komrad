@@ -444,7 +444,7 @@ func TestFocusedRecordStaysThroughItsSearch(t *testing.T) {
 	}{
 		{name: "a pane the share only just fits", width: 80, height: 13},
 		{name: "one row taller", width: 80, height: 14},
-		{name: "a narrow pane with the legend expanded", width: 30, height: 24, expanded: true},
+		{name: "a narrow pane with the legend expanded", width: 30, height: 25, expanded: true},
 	}
 
 	for _, tt := range tests {
@@ -556,7 +556,7 @@ func TestBlindTypingAfterAShrink(t *testing.T) {
 // alone would overrun the pane, where the record draws nothing rather than two bare rules.
 func TestGrownRecordWithNoRowDrawsNothing(t *testing.T) {
 	m := screensModel()
-	m.width, m.height, m.detailsHeight, m.helpExpanded = 40, 17, 2, true
+	m.width, m.height, m.detailsHeight, m.helpExpanded = 40, 18, 2, true
 
 	focused := pressMark(t, send(t, m, "ctrl+t"), "/", "a", "tab", "enter")
 	require.True(t, focused.details.focused)

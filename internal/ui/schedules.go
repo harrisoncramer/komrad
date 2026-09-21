@@ -29,9 +29,8 @@ func (i scheduleItem) key() string {
 }
 
 // enter lands the cursor once the root has put the screen up.
-func (w *schedulesScreen) enter(h host, s panelShared) {
+func (w *schedulesScreen) enter(_ host, s panelShared) {
 	w.cursor = clampCursor(w.cursor, len(w.listRows(s)))
-	w.place(h, s)
 }
 
 func (w *schedulesScreen) update(h host, s panelShared, msg tea.Msg) tea.Cmd {
@@ -48,7 +47,6 @@ func (w *schedulesScreen) list() screenList[scheduleItem] {
 		cursor: func() *rowCursor { return &w.rowCursor },
 		rows:   w.listRows,
 		name:   func(item scheduleItem) string { return item.schedule.Name },
-		placed: w.place,
 		quit:   func(k config.Keybindings) []string { return k.Schedules.Quit },
 		back:   func(k config.Keybindings) []string { return k.Schedules.Back },
 	}
@@ -73,11 +71,6 @@ func (w *schedulesScreen) buildRows(s panelShared) []scheduleItem {
 
 func (w *schedulesScreen) selected(s panelShared) (scheduleItem, bool) {
 	return rowAt(w.listRows(s), w.cursor)
-}
-
-// place names the row the cursor is on to the column.
-func (w *schedulesScreen) place(h host, s panelShared) {
-	h.placeColumn(screenSchedules, w.list().hovered(s))
 }
 
 // apply takes a fresh listing, keeping the cursor on the schedule it was on.
@@ -246,11 +239,10 @@ func (w *schedulesScreen) view(s panelShared) string {
 
 func (w *schedulesScreen) listParams(s panelShared) screenListParams {
 	return screenListParams{
-		title:  screenTitle(view.GlyphSchedule, "Schedules"),
-		help:   w.help,
-		column: "the record",
-		rows:   len(w.listRows(s)),
-		lines:  func(pane listPane) ([]string, int) { return w.lines(s, pane), w.cursor },
+		title: screenTitle(view.GlyphSchedule, "Schedules"),
+		help:  w.help,
+		rows:  len(w.listRows(s)),
+		lines: func(pane listPane) ([]string, int) { return w.lines(s, pane), w.cursor },
 	}
 }
 

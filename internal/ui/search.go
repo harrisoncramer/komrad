@@ -84,11 +84,6 @@ func (w *searchScreen) actions() screenActionSpec {
 				},
 			},
 			screenAction{
-				id:   actionColumnScroll,
-				keys: func(k config.Keybindings) []string { return concatKeys(k.Column.ScrollDown, k.Column.ScrollUp) },
-				run:  w.scrollPreviewPressed,
-			},
-			screenAction{
 				id:   actionSearchOpen,
 				keys: func(config.Keybindings) []string { return []string{"enter"} },
 				run:  func(h host, s panelShared, _ string) tea.Cmd { return w.jumpToAgent(h, s) },
@@ -105,28 +100,8 @@ func (w *searchScreen) actions() screenActionSpec {
 				desc:  func(panelShared) string { return "edit the query" },
 				strip: true,
 			},
-		}, screenNavLegend(), []screenLegendRow{
-			{
-				of:   []actionID{actionColumnScroll},
-				desc: func(panelShared) string { return "scroll the transcript" },
-				label: func(k config.Keybindings) string {
-					return keyLabel(k.Column.ScrollDown) + "/" + keyLabel(k.Column.ScrollUp)
-				},
-			},
-		}),
+		}, screenNavLegend()),
 	}
-}
-
-func (w *searchScreen) scrollPreviewPressed(_ host, s panelShared, pressed string) tea.Cmd {
-	if isBound(pressed, s.keys.Column.ScrollUp) {
-		w.scrollPreview(s, -docScrollStep)
-
-		return nil
-	}
-
-	w.scrollPreview(s, docScrollStep)
-
-	return nil
 }
 
 const searchLimit = 10

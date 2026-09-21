@@ -223,12 +223,6 @@ func (m model) routeGlobalKey(key tea.KeyMsg) (tea.Model, tea.Cmd, bool) {
 		}
 	}
 
-	// The block beside the list is the panel's own to scroll, so the keys that move it are routed
-	// here rather than repeated on every screen that draws one.
-	if direction, ok := m.isColumnScroll(key.String()); ok {
-		return m.scrollColumn(direction), nil, true
-	}
-
 	if m.isMessagesRegion() && key.String() == messagesMockKey {
 		return m.pushMockMessage(), nil, true
 	}

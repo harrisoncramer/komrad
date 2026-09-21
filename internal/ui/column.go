@@ -36,36 +36,6 @@ func splitOf(width, rows, sidebar, floor int) (columnSplit, bool) {
 // columnFloor is the narrowest a document is worth drawing beside a list at.
 const columnFloor = 40
 
-// columnState is where in the block beside the list the reader has scrolled to, held by the
-// panel rather than by each screen.
-type columnState struct {
-	// top is the first row of the block on screen.
-	top int
-
-	// row is the row that offset was scrolled on, kept against the cursor's own index sliding
-	// under a reader who has not moved.
-	row string
-}
-
-// place takes the block back to its top when the cursor lands on a different row.
-func (c *columnState) place(row string) {
-	if row != c.row {
-		c.top = 0
-	}
-
-	c.row = row
-}
-
-// placeColumn takes the block back to its top for the screen that holds it, ignoring a screen
-// that is not on top.
-func (m *model) placeColumn(owner screen, row string) {
-	if m.screen != owner {
-		return
-	}
-
-	m.column.place(row)
-}
-
 // columnSpec is the block a screen draws beside its own list, left nil by a screen that draws
 // none.
 type columnSpec struct {
@@ -254,8 +224,8 @@ func (m model) columnView(list func(model) string) string {
 	return m.joinColumns(split, list(held), held.docColumnView(split))
 }
 
-// docColumnView is the screenful of the block beside the list, from the row the reader has
-// scrolled to, with a marker on each end counting what is past it.
+// docColumnView is the first screenful of the block beside the list, with a marker under it
+// counting what is past it.
 func (m model) docColumnView(split columnSplit) string {
 	return m.columnDoc(split).view(split.rows)
 }
@@ -275,46 +245,7 @@ func (m model) columnDoc(split columnSplit) docWindow {
 
 	return docWindow{
 		rows:    paint.DocStyledRows(spec.doc(m), split.column, columnStyle()),
-		top:     m.column.top,
 		markers: true,
-	}
-}
-
-// scrollColumn moves the block beside the list, clamped so the reader cannot scroll a short
-// document off the top of its own column.
-func (m model) scrollColumn(direction int) model {
-	split, ok := m.screenColumnSplit()
-
-	// A form refuses the screen's own split, and the region borrows the column it has to draw the
-	// message being scrolled.
-	if !ok && m.isMessagesFocused() {
-		split, ok = m.columnSplit()
-	}
-	if !ok {
-		return m
-	}
-
-	doc := m.columnDoc(split)
-	doc.scroll(direction*docScrollStep, split.rows)
-	m.column.top = doc.top
-
-	return m
-}
-
-// isColumnScroll reports whether a key moves the block beside the list, which holds only on a
-// screen whose block the panel scrolls rather than the screen itself.
-func (m model) isColumnScroll(k string) (int, bool) {
-	if spec, ok := m.columnOf(); !m.isMessagesFocused() && (!ok || spec.doc == nil) {
-		return 0, false
-	}
-
-	switch {
-	case isBound(k, m.keys.Column.ScrollDown):
-		return 1, true
-	case isBound(k, m.keys.Column.ScrollUp):
-		return -1, true
-	default:
-		return 0, false
 	}
 }
 
