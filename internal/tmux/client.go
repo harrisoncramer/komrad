@@ -380,6 +380,19 @@ func (c *Client) KillPane(pane string) {
 	}
 }
 
+// KillWindow tears down the whole window a pane sits in, treating one already gone as the outcome
+// asked for.
+func (c *Client) KillWindow(pane string) {
+	if pane == "" {
+		return
+	}
+
+	if _, err := c.query("kill-window", "-t", pane); err != nil && !strings.Contains(err.Error(), "can't find") {
+		//nolint:sloglint // as in MovePanes, there is no context here to carry a logger on
+		slog.Default().Warn("a tmux command failed", logging.Attrs(logging.Err(err))...)
+	}
+}
+
 // BindKey binds a key in the prefix table to a tmux command, replacing whatever it was bound to.
 func (c *Client) BindKey(key string, command ...string) {
 	c.run(append([]string{"bind-key", key}, command...)...)

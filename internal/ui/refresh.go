@@ -132,7 +132,16 @@ func (m *model) reportUnreachable(err error) {
 	}
 
 	m.reportBrief("Cannot reach the server", reason, err)
-	m.messages.setNewestHint("Start it with: weave serve")
+	m.messages.setNewestHint(m.unreachableHint())
+}
+
+// unreachableHint is what the user can do about a server that has stopped answering.
+func (m *model) unreachableHint() string {
+	if m.frame.IsRemote() {
+		return "The tunnel to the engine is dialled again until it answers"
+	}
+
+	return "Start it with: weave serve"
 }
 
 func (m *model) applyRefresh(result refreshResult) tea.Cmd {

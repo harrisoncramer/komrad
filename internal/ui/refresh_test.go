@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"weave/config"
+	"weave/internal/engine"
 	"weave/internal/ui/layout"
 	"weave/internal/ui/panel"
 	agentv1 "weave/proto/gen/agent/v1"
@@ -462,4 +463,38 @@ func (emptyLists) ListWorktrees(context.Context, *connect.Request[emptypb.Empty]
 
 func (emptyLists) GetWorktree(_ context.Context, req *connect.Request[worktreev1.GetWorktreeRequest]) (*connect.Response[worktreev1.GetWorktreeResponse], error) {
 	return nil, connect.NewError(connect.CodeNotFound, errors.New(req.Msg.GetDir()+" is not under the worktree directories"))
+}
+
+// TestUnreachableHintNamesWhatCanBeDone covers the hint under a server that stopped answering
+// telling a user with a remote engine about the tunnel rather than about starting a server here.
+func TestUnreachableHintNamesWhatCanBeDone(t *testing.T) {
+	tests := []struct {
+		name   string
+		remote engine.Remote
+		want   string
+	}{
+		{
+			name:   "the engine is this machine",
+			remote: engine.Remote{},
+			want:   "Start it with: weave serve",
+		},
+		{
+			name:   "the engine is elsewhere",
+			remote: engine.Remote{Destination: "weave@host"},
+			want:   "The tunnel to the engine is dialled again until it answers",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tmux := &recordingTmux{}
+			m := infoModel(tmux)
+			m.frame = layout.New(tmux, config.DefaultLayout(), layout.WithEngine(tt.remote))
+
+			m.reportUnreachable(errors.New("dial tcp 127.0.0.1:19042: connect: connection refused"))
+
+			require.NotEmpty(t, m.messages.items)
+			assert.Equal(t, tt.want, m.messages.items[0].hint)
+		})
+	}
 }
