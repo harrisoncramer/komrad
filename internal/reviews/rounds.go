@@ -436,7 +436,7 @@ type ReleaseReviewResult struct {
 }
 
 // ReleaseReview releases the author's open review, writing it out as one file and sending one
-// piece of ordinary mail saying where that file is.
+// piece of ordinary mail naming the review.
 func (s *ReviewService) ReleaseReview(
 	ctx context.Context,
 	params ReleaseReviewParams,
@@ -507,8 +507,14 @@ func (s *ReviewService) ReleaseReview(
 
 	doorbell, err := s.mailer.SendNotice(ctx, mail.SendNoticeParams{
 		ToAgentID: params.AgentID,
-		Body:      reviewNotice(round.Ordinal, params.Verdict, comments, path),
-		Kind:      mailstore.KindReviewActivity,
+		Body: reviewNotice(reviewNoticeParams{
+			Ordinal:  round.Ordinal,
+			Verdict:  params.Verdict,
+			Comments: comments,
+			ReviewID: open.ID,
+			Path:     path,
+		}),
+		Kind: mailstore.KindReviewActivity,
 	})
 	if err != nil {
 		return nil, err
@@ -533,11 +539,21 @@ func (s *ReviewService) ReleaseReview(
 	}, nil
 }
 
+// reviewNoticeParams is what the mail announcing a release has to say.
+type reviewNoticeParams struct {
+	Ordinal  int32
+	Verdict  reviewstore.Verdict
+	Comments int
+	ReviewID string
+	Path     string
+}
+
 // reviewNotice is the whole of what the mail carries: the round, the verdict, how much there is
-// and where to read it.
-func reviewNotice(ordinal int32, verdict reviewstore.Verdict, comments int, path string) string {
-	return fmt.Sprintf("weave: review of round %d, %s, %d comment(s), read %s",
-		ordinal, strings.ReplaceAll(string(verdict), "_", " "), comments, path)
+// and how to read it.
+func reviewNotice(params reviewNoticeParams) string {
+	return fmt.Sprintf("weave: review of round %d released: %s, %d comment(s). "+
+		"Call get_review with review id %s to read it, then answer each thread with add_review_message, or read %s.",
+		params.Ordinal, strings.ReplaceAll(string(params.Verdict), "_", " "), params.Comments, params.ReviewID, params.Path)
 }
 
 // listBatchThreads is what one review actually says, gathered by the messages written under it

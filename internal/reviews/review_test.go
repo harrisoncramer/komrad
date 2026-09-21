@@ -389,7 +389,8 @@ func TestReleasingAReviewWritesItOutAndRingsOnce(t *testing.T) {
 	assert.Equal(t, mailstore.KindReviewActivity, sent.Kind)
 	assert.NotContains(t, sent.Body, "needs a nil check", "the mail carries no feedback")
 	assert.Contains(t, sent.Body, "changes requested")
-	assert.Contains(t, sent.Body, result.Path, "the mail says where to read it")
+	assert.Contains(t, sent.Body, "get_review with review id "+result.Review.ID, "the mail says how to read it")
+	assert.Contains(t, sent.Body, "or read "+result.Path, "and still names the file, for an agent briefed before the mail changed")
 
 	written, err := os.ReadFile(result.Path)
 	require.NoError(t, err)

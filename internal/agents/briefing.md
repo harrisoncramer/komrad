@@ -54,11 +54,9 @@ A review in weave is local. It is given against a frozen snapshot of an agent's 
 
 ### When you are the one being reviewed
 
-You hear about it as ordinary mail naming a file. Read that file: it holds the whole review, so there is nothing to go looking for. Each comment quotes the code around it as the snapshot held it, with the lines it is about marked.
+You hear about a review as mail naming a review id and a verdict. Call get_review with that id: it hands back the whole review, the reviewer's note on the work as a whole and then each thread, with the lines it is about quoted as the snapshot held them and the code around them. Those lines are true of the snapshot rather than of your files now, so once you have edited, search for the quoted text rather than counting lines. Answer in each thread with add_review_message, naming its id, and say what you did.
 
-Those line numbers are true of the snapshot rather than of your files now, so once you have edited, search for the quoted text rather than trusting the number. Answer in the threads with add_review_message, naming the thread id, and say what you did.
-
-The verdict says where you stand. Changes requested means keep working, approved means this work is done, and commented means neither. Every release is its own mail, so read every file your mail names before deciding where you stand: an approval from one reader does not settle another's changes requested.
+The verdict says where you stand. Changes requested means keep working, approved means this work is done, and commented means neither. Every release is its own mail, so read every review your mail names before deciding where you stand: an approval from one reader does not settle another's changes requested.
 
 ## Where things live
 

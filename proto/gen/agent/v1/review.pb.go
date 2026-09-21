@@ -1978,9 +1978,9 @@ func (x *ListReviewsResponse) GetReviews() []*Review {
 	return nil
 }
 
-// ReleaseReviewRequest lets go of the author's open batch. Weave writes the whole review out as
-// one file beside the agent's work and sends one piece of ordinary mail saying where it is, so
-// nothing here decides when the agent is interrupted or typed at: that is mail's own affair.
+// ReleaseReviewRequest lets go of the author's open batch. Weave sends the agent one piece of
+// ordinary mail naming the review, which it reads whole with get_review, so nothing here decides
+// when the agent is interrupted or typed at: that is mail's own affair.
 type ReleaseReviewRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Whose work the batch was written against.
@@ -1990,8 +1990,8 @@ type ReleaseReviewRequest struct {
 	// Stop the agent where it stands before telling it, so it reads now rather than at the end
 	// of whatever it is doing.
 	Interrupt bool `protobuf:"varint,3,opt,name=interrupt,proto3" json:"interrupt,omitempty"`
-	// What to say about the work as a whole rather than about any one line, which goes at the
-	// head of the file the agent reads. Optional: a review of pinned comments alone is complete.
+	// What to say about the work as a whole rather than about any one line, which the agent reads
+	// before the first thread. Optional: a review of pinned comments alone is complete.
 	Body          string `protobuf:"bytes,4,opt,name=body,proto3" json:"body,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
