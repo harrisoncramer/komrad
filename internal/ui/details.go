@@ -70,7 +70,7 @@ func (m model) detailsRows(held details) []detailsRow {
 		}
 
 		text := strings.TrimSpace(group + " " + field.value)
-		if m.filter.isNarrowing() && !m.filter.doesMatch(text) {
+		if m.filter.doesNarrow(sectionRecord) && !m.filter.doesMatch(text) {
 			continue
 		}
 
@@ -447,7 +447,7 @@ func (m model) detailsView() string {
 
 	cursor := m.detailsCursor(held)
 	rows := m.detailFieldRows(m.detailsRows(held), cursor)
-	if len(rows) == 0 && m.filter.isNarrowing() {
+	if len(rows) == 0 && m.filter.doesNarrow(sectionRecord) {
 		rows = []string{dimStyle.Render("  nothing matches")}
 	}
 

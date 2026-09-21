@@ -77,9 +77,9 @@ func TestFilterQuery(t *testing.T) {
 	}
 }
 
-// TestMatchFromCursor covers where a search lands: the nearest match from where it opened, and the walk
+// TestMatchAt covers where a search lands: the nearest match from where it opened, and the walk
 // through the rest of them in either direction, wrapping at both ends.
-func TestMatchFromCursor(t *testing.T) {
+func TestMatchAt(t *testing.T) {
 	tests := []struct {
 		name  string
 		query string
@@ -134,33 +134,33 @@ func TestMatchFromCursor(t *testing.T) {
 			m.filter.setQuery(tt.query)
 			m.tree.cursor = rowIndexOfKey(m.agentRows(), tt.from)
 
-			got, ok := m.matchFromCursor(tt.delta)
+			got, ok := m.matchAt(tt.delta)
 			require.True(t, ok)
-			assert.Equal(t, tt.want, got.row.key)
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }
 
-// TestMatchFromCursorWrapsBackwardsPastTheTop pins a step back from the first row reaching the last
+// TestMatchAtWrapsBackwardsPastTheTop pins a step back from the first row reaching the last
 // match rather than running off the front of the list.
-func TestMatchFromCursorWrapsBackwardsPastTheTop(t *testing.T) {
+func TestMatchAtWrapsBackwardsPastTheTop(t *testing.T) {
 	m := selectionTree()
 	m.filter.setQuery("^(backend|ui)$")
 	m.tree.cursor = rowIndexOfKey(m.agentRows(), workflowRowKey("w1"))
 
-	got, ok := m.matchFromCursor(-1)
+	got, ok := m.matchAt(-1)
 	require.True(t, ok)
-	assert.Equal(t, agentRowKey("a4"), got.row.key, "the walk back from the first row lands on the last match")
+	assert.Equal(t, agentRowKey("a4"), got, "the walk back from the first row lands on the last match")
 }
 
-// TestMatchFromCursorFindsNothing pins a pattern nothing matches leaving the cursor alone rather than
+// TestMatchAtFindsNothing pins a pattern nothing matches leaving the cursor alone rather than
 // moving it somewhere arbitrary.
-func TestMatchFromCursorFindsNothing(t *testing.T) {
+func TestMatchAtFindsNothing(t *testing.T) {
 	m := selectionTree()
 	m.filter.setQuery("zzz")
 	m.tree.cursor = rowIndexOfKey(m.agentRows(), agentRowKey("a1"))
 
-	_, ok := m.matchFromCursor(0)
+	_, ok := m.matchAt(0)
 	assert.False(t, ok)
 }
 

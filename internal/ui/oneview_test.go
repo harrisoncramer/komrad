@@ -22,8 +22,8 @@ func withColour(t *testing.T) {
 	t.Cleanup(func() { lipgloss.SetColorProfile(restore) })
 }
 
-// TestListSearchLightsTheRecord covers the one search reaching both sections: typed on the list,
-// it lights its matches in the record too, and a filter narrows both once applied.
+// TestListSearchLightsTheRecord covers the one search lighting both panes while acting in one:
+// typed on the list, its matches light in the record too, and a filter narrows the list alone.
 func TestListSearchLightsTheRecord(t *testing.T) {
 	withColour(t)
 
@@ -38,14 +38,15 @@ func TestListSearchLightsTheRecord(t *testing.T) {
 	assert.Contains(t, name, paint.Panel.Match().Render("auth"), "the record's match is lit")
 
 	narrowed := pressMark(t, typed, "tab", "enter")
-	require.True(t, narrowed.filter.isNarrowing())
+	require.True(t, narrowed.filter.doesNarrow(sectionList))
+	assert.False(t, narrowed.filter.doesNarrow(sectionRecord))
 	assert.Equal(t, []string{"backend", "auth"}, rowNames(narrowed.agentRows()))
-	assert.Len(t, narrowed.detailsRows(narrowed.hoveredDetails()), 1, "the record narrows to its matching field")
+	assert.Len(t, narrowed.detailsRows(narrowed.hoveredDetails()), len(held.fields), "the record keeps every field")
 }
 
-// TestFocusKeyWhileTypingJumpsIntoTheRecord covers the focus key answering while the search input
-// is open: the input closes with the pattern standing and the record takes the keys, nothing
-// moving, so n is what walks onto the match.
+// TestFocusKeyWhileTypingJumpsIntoTheRecord covers the focus key as the one jump across panes:
+// with a search typed on the list it moves the keys into the record and lands on the record's
+// first match, and on the way back out it only moves the keys.
 func TestFocusKeyWhileTypingJumpsIntoTheRecord(t *testing.T) {
 	m := detailsModel(&recordingTmux{})
 
@@ -54,18 +55,20 @@ func TestFocusKeyWhileTypingJumpsIntoTheRecord(t *testing.T) {
 	require.False(t, jumped.filter.typing, "the input is closed")
 	assert.True(t, jumped.filter.isStanding(), "and the pattern stands")
 	require.True(t, jumped.isDetailsFocused())
+	assert.Equal(t, 1, jumped.tree.cursor, "the list never moved")
 
 	held := jumped.hoveredDetails()
-	assert.Equal(t, 0, jumped.detailsCursor(held), "the record's cursor is where it was")
-	stepped := send(t, jumped, "n")
-	assert.Equal(t, "session_id", held.fields[stepped.detailsCursor(held)].label)
+	assert.Equal(t, "session_id", held.fields[jumped.detailsCursor(held)].label, "the record's cursor is on the match")
 
-	back := pressMark(t, stepped, "/", "p", "r", "ctrl+t")
+	back := send(t, jumped, "ctrl+t")
+	assert.False(t, back.isDetailsFocused())
+	assert.Equal(t, 1, back.tree.cursor, "the way out moves nothing")
 
-	assert.False(t, back.isDetailsFocused(), "the key moves the keys the other way too")
-	assert.False(t, back.filter.typing)
-	assert.Equal(t, "pr", back.filter.query)
-	assert.Equal(t, 1, back.tree.cursor, "without moving the list's cursor")
+	standing := pressMark(t, back, "/", "b", "a", "c", "k", "enter", "ctrl+t")
+	require.True(t, standing.isDetailsFocused(), "a standing search jumps the same way")
+	assert.Equal(t, 0, standing.tree.cursor, "enter walked the list onto the header first")
+	header := standing.hoveredDetails()
+	assert.Equal(t, "name", header.fields[standing.detailsCursor(header)].label, "and the jump lands on the header's own match")
 }
 
 // TestTheEdgesScrollThrough covers the down key on the last row of the list walking into the
@@ -162,35 +165,33 @@ func TestRecordPagesItsFields(t *testing.T) {
 	assert.True(t, bottom.isDetailsFocused(), "and keeps the keys")
 }
 
-// TestMatchKeysWalkAcrossTheSections covers n and N running one sequence over the list's rows
-// and then the hovered record's: past the list's last match the keys go into the record, past
-// the record's last match they come round to the list's first, and N walks it backwards.
-func TestMatchKeysWalkAcrossTheSections(t *testing.T) {
+// TestMatchKeysStayInTheirPane covers n and N walking the pane holding the keys and no further:
+// on the list they wrap through the list's matches, and in the record, with the same search
+// standing, they wrap through the record's.
+func TestMatchKeysStayInTheirPane(t *testing.T) {
 	m := detailsModel(&recordingTmux{})
 	m.tree.cursor = 0
 
 	standing := pressMark(t, m, "/", "b", "a", "c", "k", "enter")
 	require.Equal(t, 0, standing.tree.cursor, "the header backend is the list's only match")
-	require.False(t, standing.isDetailsFocused())
 
-	into := send(t, standing, "n")
-	require.True(t, into.isDetailsFocused(), "the next match is in the record")
+	same := send(t, standing, "n")
+	assert.False(t, same.isDetailsFocused(), "n stays on the list")
+	assert.Equal(t, 0, same.tree.cursor, "and wraps to the only match")
+
+	into := send(t, standing, "ctrl+t")
+	require.True(t, into.isDetailsFocused())
 	held := into.hoveredDetails()
-	assert.Equal(t, "backend", held.fields[into.detailsCursor(held)].value)
+	assert.Equal(t, "name", held.fields[into.detailsCursor(held)].label)
 
 	round := send(t, into, "n")
-	assert.False(t, round.isDetailsFocused(), "past the record's last match the keys come round to the list")
-	assert.Equal(t, 0, round.tree.cursor)
-
-	back := send(t, round, "N")
-	assert.True(t, back.isDetailsFocused(), "N walks the same sequence the other way")
-	assert.Equal(t, "backend", held.fields[back.detailsCursor(held)].value)
+	assert.True(t, round.isDetailsFocused(), "n in the record stays in the record")
+	assert.Equal(t, "name", held.fields[round.detailsCursor(held)].label, "wrapping to its only match")
 }
 
-// TestTypingMovesNothingUntilApplied covers the search lighting both sections while it is typed
-// and moving nothing, and enter walking to the nearest match in reading order, which from an
-// agent is its own record before any later row, so the list stays on the agent whose field was
-// wanted even when another row matches too.
+// TestTypingMovesNothingUntilApplied covers the search lighting both panes while it is typed
+// and moving nothing, and enter walking only the pane holding the keys: on the list the cursor
+// goes to the nearest agent that matches, whatever the record below has lit.
 func TestTypingMovesNothingUntilApplied(t *testing.T) {
 	m := detailsModel(&recordingTmux{})
 	require.Equal(t, 1, m.tree.cursor)
@@ -200,34 +201,31 @@ func TestTypingMovesNothingUntilApplied(t *testing.T) {
 	assert.False(t, typed.isDetailsFocused())
 
 	entered := send(t, typed, "enter")
-	require.True(t, entered.isDetailsFocused(), "enter walks into the agent's own record")
-	assert.Equal(t, 1, entered.tree.cursor, "and leaves the list on the agent")
-	held := entered.hoveredDetails()
-	assert.Equal(t, "workflow", held.fields[entered.detailsCursor(held)].label)
+	assert.False(t, entered.isDetailsFocused(), "enter never leaves the list")
+	assert.Equal(t, 0, entered.tree.cursor, "it walks onto the header")
 
-	round := send(t, entered, "n")
-	assert.False(t, round.isDetailsFocused(), "the next match after the record is the header")
-	assert.Equal(t, 0, round.tree.cursor)
+	missed := pressMark(t, m, "/", "a", "b", "c", "enter")
+	assert.False(t, missed.isDetailsFocused())
+	assert.Equal(t, 1, missed.tree.cursor, "a pattern only the record matches leaves the list where it is")
 
 	filtered := pressMark(t, typed, "tab", "enter")
-	require.True(t, filtered.isDetailsFocused())
-	assert.Equal(t, 1, filtered.tree.cursor)
+	assert.False(t, filtered.isDetailsFocused())
 	assert.Len(t, filtered.agentRows(), len(m.agentRows()), "a header match keeps the rows under it")
-	assert.Len(t, filtered.detailsRows(filtered.hoveredDetails()), 1, "and the record narrows with the list")
+	assert.Len(t, filtered.detailsRows(filtered.hoveredDetails()), len(m.hoveredDetails().fields), "and the record is not narrowed")
 }
 
-// TestEscapeAfterAWalkIntoTheRecord covers escape over a search that enter carried into the
-// record: the search goes, the keys stay on the record where the walk left them, and the list's
+// TestEscapeAfterTheJumpIntoTheRecord covers escape over a search that ctrl+t carried into the
+// record: the search goes, the keys stay on the record where the jump left them, and the list's
 // cursor, which never moved, stays.
-func TestEscapeAfterAWalkIntoTheRecord(t *testing.T) {
+func TestEscapeAfterTheJumpIntoTheRecord(t *testing.T) {
 	m := detailsModel(&recordingTmux{})
 
-	walked := pressMark(t, m, "/", "a", "b", "c", "enter")
-	require.True(t, walked.isDetailsFocused())
-	held := walked.hoveredDetails()
-	require.Equal(t, "session_id", held.fields[walked.detailsCursor(held)].label)
+	jumped := pressMark(t, m, "/", "a", "b", "c", "ctrl+t")
+	require.True(t, jumped.isDetailsFocused())
+	held := jumped.hoveredDetails()
+	require.Equal(t, "session_id", held.fields[jumped.detailsCursor(held)].label)
 
-	back := send(t, walked, "esc")
+	back := send(t, jumped, "esc")
 	assert.False(t, back.filter.isStanding())
 	assert.True(t, back.isDetailsFocused())
 	assert.Equal(t, "session_id", held.fields[back.detailsCursor(held)].label)

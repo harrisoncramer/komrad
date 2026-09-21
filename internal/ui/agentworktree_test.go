@@ -351,16 +351,16 @@ func TestRecordFilterKeepsTheCountedRest(t *testing.T) {
 	assert.Equal(t, "+ 5 more", rows[worktreeRowsShown+1].field.value)
 }
 
-// TestRecordFilterLeavingNothingSaysSo covers a filter nothing matches, applied from the record:
-// the list under it is narrowed to nothing too and says so, and the keys come back to it.
+// TestRecordFilterLeavingNothingSaysSo covers a filter typed in the record that no field
+// matches: the record says so, keeps the keys, and the list above is not narrowed.
 func TestRecordFilterLeavingNothingSaysSo(t *testing.T) {
 	m := recordSearchModel(t)
 
 	narrowed := pressMark(t, send(t, m, "/"), "z", "z", "z", "tab", "enter")
 
-	assert.Empty(t, narrowed.agentRows())
-	assert.Contains(t, ansi.Strip(narrowed.View()), "nothing matches")
-	assert.False(t, narrowed.isDetailsFocused(), "there is no record left to hold the keys")
+	assert.Contains(t, ansi.Strip(narrowed.detailsView()), "nothing matches")
+	assert.True(t, narrowed.isDetailsFocused(), "the record keeps the keys")
+	assert.Len(t, narrowed.agentRows(), len(m.agentRows()), "the list is untouched")
 }
 
 // TestRecordSearchEscapes covers escape over the record: it abandons an input being typed at,

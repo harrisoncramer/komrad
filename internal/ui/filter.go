@@ -5,7 +5,6 @@ import (
 	"strings"
 
 	"weave/internal/ui/paint"
-	"weave/lib/xslice"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -66,6 +65,12 @@ func (f filterState) isStanding() bool {
 // isNarrowing reports whether the pattern is taking rows off the screen.
 func (f filterState) isNarrowing() bool {
 	return f.mode == filterModeFilter && f.pattern != nil && !f.typing
+}
+
+// doesNarrow reports whether the pattern is taking rows off one pane, which it does only in the
+// pane it was typed in.
+func (f filterState) doesNarrow(section sidebarSection) bool {
+	return f.isNarrowing() && f.openedIn == section
 }
 
 func (f *filterState) setQuery(query string) {
@@ -228,7 +233,7 @@ func (m model) updateFilterInput(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case key.String() == "tab":
 		filter.mode = filter.mode.flipped()
 	case key.String() == "enter":
-		return m.applyFilter()
+		m.applyFilter()
 	case !filter.takeKey(key):
 		return m, nil
 	}
@@ -236,23 +241,21 @@ func (m model) updateFilterInput(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// applyFilter closes the input and walks the cursor onto the nearest match from where the keys
-// are, read off the whole rows before the filter narrows them, moving the keys with it.
-func (m model) applyFilter() (model, tea.Cmd) {
-	target, ok := m.matchFromCursor(0)
+// applyFilter closes the input and walks the cursor of the pane holding the keys onto its nearest
+// match, read off the whole rows before the filter narrows them.
+func (m *model) applyFilter() {
+	found, ok := m.matchAt(0)
 	m.filter.typing = false
 	if !ok {
 		// Nothing to walk onto, and a narrowed list may have lost the hovered row.
-		m.placeFilteredCursor("")
-
-		return m, nil
+		found = ""
 	}
 
-	return m.landOnMatch(target)
+	m.placeFilteredCursor(found)
 }
 
 // closeSearchAndMoveKeys answers the focus key while the search is being typed: the input closes
-// with the pattern standing and the keys move to the other section, nothing walking.
+// with the pattern standing and the keys move to the other pane.
 func (m model) closeSearchAndMoveKeys() (tea.Model, tea.Cmd) {
 	if !m.isDetailsDrawn(m.hoveredDetails()) {
 		return m, nil
@@ -260,7 +263,22 @@ func (m model) closeSearchAndMoveKeys() (tea.Model, tea.Cmd) {
 
 	m.filter.typing = false
 
-	return m.toggleDetailsFocus()
+	return m.jumpIntoDetails()
+}
+
+// jumpIntoDetails is the focus key: the keys go into the record and land on its nearest match
+// when a search is up, while the way back out only moves the keys.
+func (m model) jumpIntoDetails() (tea.Model, tea.Cmd) {
+	next, cmd := m.toggleDetailsFocus()
+	if !next.isDetailsFocused() {
+		return next, cmd
+	}
+
+	if found, ok := next.matchAt(0); ok {
+		next.placeFilteredCursor(found)
+	}
+
+	return next, cmd
 }
 
 func (m model) hoveredFilterKey() string {
@@ -311,7 +329,7 @@ type narrowedParams[T any] struct {
 // narrowed is the rows a filter leaves on screen: each match, the rows above it and the rows
 // under it.
 func narrowed[T any](filter filterState, params narrowedParams[T]) []T {
-	if !filter.isNarrowing() {
+	if !filter.doesNarrow(sectionList) {
 		return params.rows
 	}
 
@@ -400,69 +418,30 @@ func (m *model) jumpToFilterMatch(pressed string) tea.Cmd {
 		delta = -1
 	}
 
-	next, cmd := m.jumpMatch(delta)
-	if landed, ok := next.(model); ok {
-		*m = landed
+	if found, ok := m.matchAt(delta); ok {
+		m.placeFilteredCursor(found)
 	}
 
-	return cmd
+	return nil
 }
 
-// sidebarRow is one row a search can land on, in the section that draws it.
-type sidebarRow struct {
-	section sidebarSection
-	row     filterRow
-}
-
-// sidebarRows is every row a search can land on, in reading order: the list's rows, with the
-// hovered record's fields sitting under the row they belong to.
-func (m model) sidebarRows() []sidebarRow {
-	list, ok := m.active().(filtered)
-	if !ok {
-		return nil
+// matchAt is the row the search lands on in the pane holding the keys, counted from the hovered
+// row and wrapping at either end, the hovered row itself counting for a step of nothing.
+func (m model) matchAt(delta int) (string, bool) {
+	target := m.filterTarget()
+	if target.rows == nil || target.state.pattern == nil {
+		return "", false
 	}
 
-	hovered := list.hoveredKey(m)
-	var rows []sidebarRow
-	for _, row := range list.filterRows(m) {
-		rows = append(rows, sidebarRow{section: sectionList, row: row})
-		if row.key == hovered && m.isDetailsDrawn(m.hoveredDetails()) {
-			rows = append(rows, sectionRows(sectionRecord, (detailsFilter{}).filterRows(m))...)
-		}
+	rows := target.rows.filterRows(m)
+	if len(rows) == 0 {
+		return "", false
 	}
 
-	return rows
-}
-
-func sectionRows(section sidebarSection, rows []filterRow) []sidebarRow {
-	return xslice.Map(rows, func(row filterRow) sidebarRow {
-		return sidebarRow{section: section, row: row}
-	})
-}
-
-// jumpMatch walks the cursor to the next row the search matches, on through the record and
-// round again, moving the keys with it.
-func (m model) jumpMatch(delta int) (tea.Model, tea.Cmd) {
-	target, ok := m.matchFromCursor(delta)
-	if !ok {
-		return m, nil
-	}
-
-	return m.landOnMatch(target)
-}
-
-// matchFromCursor is the row the search lands on from where the keys are, counted through both
-// sections and wrapping, the row under the cursor itself counting for a step of nothing.
-func (m model) matchFromCursor(delta int) (sidebarRow, bool) {
-	rows := m.sidebarRows()
-	if m.filter.pattern == nil || len(rows) == 0 {
-		return sidebarRow{}, false
-	}
-
-	from := sidebarRow{section: m.keyholder(), row: filterRow{key: m.hoveredFilterKey()}}
 	start := 0
+	hovered := m.hoveredFilterKey()
 	for i, row := range rows {
-		if row.section == from.section && row.row.key == from.row.key {
+		if row.key == hovered {
 			start = i
 
 			break
@@ -478,28 +457,10 @@ func (m model) matchFromCursor(delta int) (sidebarRow, bool) {
 
 	for ; step <= len(rows); step++ {
 		at := ((start+walk*step)%len(rows) + len(rows)) % len(rows)
-		if m.filter.doesMatch(rows[at].row.name) {
-			return rows[at], true
+		if target.state.doesMatch(rows[at].name) {
+			return rows[at].key, true
 		}
 	}
 
-	return sidebarRow{}, false
-}
-
-// landOnMatch puts the keys in the section a match is in and the cursor on it.
-func (m model) landOnMatch(target sidebarRow) (model, tea.Cmd) {
-	var cmd tea.Cmd
-	switch {
-	case target.section == sectionRecord && !m.isDetailsFocused():
-		m, cmd = m.focusDetails()
-		if !m.isDetailsFocused() {
-			return m, nil
-		}
-	case target.section == sectionList && m.isDetailsFocused():
-		m = m.blurDetails()
-	}
-
-	m.placeFilteredCursor(target.row.key)
-
-	return m, cmd
+	return "", false
 }
