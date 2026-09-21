@@ -83,6 +83,7 @@ func prepareLine(params prepareLineParams) Line {
 		Status:   blinkBar(StatusCell(row), row, params.barBlinkedOut),
 		Rule:     row.Kind == KindChild,
 		Indent:   indentFor(row.Kind),
+		Lead:     row.Lead,
 		Name:     row.Name,
 		Matches:  row.Matches,
 		Weight:   weightFor(row.Kind),
@@ -257,6 +258,8 @@ func weightFor(kind RowKind) Weight {
 	case KindChild:
 		return WeightItalic
 	case KindResult:
+		return WeightRegular
+	case KindHit:
 		return WeightRegular
 	}
 

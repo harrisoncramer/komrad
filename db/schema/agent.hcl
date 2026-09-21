@@ -294,6 +294,14 @@ table "agent_transcript_chunks" {
       type = STORED
     }
   }
+  column "tsv_simple" {
+    null = false
+    type = sql("tsvector")
+    as {
+      expr = "to_tsvector('simple', content)"
+      type = STORED
+    }
+  }
   primary_key {
     columns = [column.agent_id, column.seq]
   }
@@ -315,6 +323,10 @@ table "agent_transcript_chunks" {
   index "agent_transcript_chunks_tsv" {
     type    = GIN
     columns = [column.tsv]
+  }
+  index "agent_transcript_chunks_tsv_simple" {
+    type    = GIN
+    columns = [column.tsv_simple]
   }
   index "agent_transcript_chunks_content_trgm" {
     type = GIN

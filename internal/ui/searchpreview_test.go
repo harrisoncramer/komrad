@@ -148,7 +148,7 @@ func TestSearchPreviewFollowsTheCursor(t *testing.T) {
 		length:  length,
 		snippet: marked("reconcile"),
 	})
-	m.search.cursor = 1
+	m.search.cursor = 2
 	m.applyPreview(previewResult{
 		agentID: "a2",
 		query:   "reconcile",
@@ -347,4 +347,122 @@ func pressSearch(t *testing.T, m model, k string) model {
 	require.True(t, ok)
 
 	return got
+}
+
+// TestSearchPreviewMovesToTheHoveredTurn covers stepping between two turns of one conversation,
+// which moves the transcript already held rather than fetching it again.
+func TestSearchPreviewMovesToTheHoveredTurn(t *testing.T) {
+	m, _ := searchPreviewModel(t)
+
+	content, _, length := searchTranscript()
+	early := strings.Index(content, "line 3 of the conversation before")
+	m.search.turns = append(m.search.turns, searchHit{
+		agentID: "a1",
+		name:    "billing",
+		seq:     0,
+		offset:  int64(early),
+		length:  length,
+		snippet: marked("conversation"),
+	})
+	m.search.turns[0].seq = 7
+	m.search.cursor = 1
+	m.applyPreview(previewResult{
+		agentID: "a1",
+		query:   "reconcile",
+		content: content,
+	})
+	onLater := m.search.preview.doc.top
+	require.Positive(t, onLater)
+
+	m = pressSearch(t, m, "j")
+	assert.Equal(t, 2, m.search.cursor)
+	assert.Less(t, m.search.preview.doc.top, onLater, "the preview moves up to the earlier turn")
+	assert.Equal(t, "a1", m.search.preview.agentID, "without dropping the transcript it held")
+
+	m = pressSearch(t, m, "k")
+	assert.Equal(t, onLater, m.search.preview.doc.top, "and back")
+}
+
+// TestSearchPagesWhenTheCursorReachesTheEnd covers the page after the hits held being asked for
+// once the cursor stands on the last row, and its hits following the ones already drawn.
+func TestSearchPagesWhenTheCursorReachesTheEnd(t *testing.T) {
+	m, _ := searchPreviewModel(t)
+	token := "page-2"
+	m.search.next = &token
+	content, offset, length := searchTranscript()
+	m.search.turns = append(m.search.turns, searchHit{
+		agentID: "a2",
+		name:    "payouts",
+		seq:     9,
+		offset:  offset,
+		length:  length,
+		snippet: marked("reconcile"),
+	})
+
+	m = pressSearch(t, m, "G")
+	require.Equal(t, 3, m.search.cursor, "the last row is the second agent's turn")
+	assert.True(t, m.search.paging, "the next page is on its way")
+	m.applyPreview(previewResult{
+		agentID: "a2",
+		query:   "reconcile",
+		content: content,
+	})
+	require.Equal(t, "a2", m.search.preview.agentID)
+
+	m.applySearch(searchResult{
+		query: "stale",
+		hits:  hits("z"),
+		paged: true,
+	})
+	assert.Len(t, m.search.turns, 2, "a page for a query the input has moved past is dropped")
+
+	early := strings.Index(content, "line 3 of the conversation before")
+	m.applySearch(searchResult{
+		query: "reconcile",
+		hits: []searchHit{
+			{
+				agentID: "a1",
+				name:    "billing",
+				seq:     3,
+				offset:  int64(early),
+				length:  length,
+				snippet: marked("conversation"),
+			},
+			{
+				agentID: "a2",
+				name:    "payouts",
+				seq:     2,
+				offset:  int64(early),
+				length:  length,
+				snippet: marked("conversation"),
+			},
+		},
+		paged: true,
+	})
+	assert.Len(t, m.search.turns, 4, "the page's hits follow the ones held")
+	assert.False(t, m.search.paging)
+	assert.Nil(t, m.search.next, "and there is no page after it")
+	require.Len(t, m.searchRows(), 6)
+	assert.Equal(t, "a2/9", m.hoveredSearchID(), "the cursor stays on the turn it was on while a page-two turn is grouped above it")
+	assert.Equal(t, 4, m.search.cursor)
+	assert.Equal(t, 1, m.search.preview.open, "and the preview still opens on that turn rather than the earlier one grouped under the agent")
+
+	m = pressSearch(t, m, "G")
+	assert.False(t, m.search.paging, "the end of the last page asks for nothing more")
+}
+
+// TestSearchForgetsAPageInFlight covers a query typed while a page is on its way, which drops
+// that page and has to leave the new query free to page itself.
+func TestSearchForgetsAPageInFlight(t *testing.T) {
+	m, _ := searchPreviewModel(t)
+	token := "page-2"
+	m.search.next = &token
+
+	m = pressSearch(t, m, "G")
+	require.True(t, m.search.paging)
+
+	m.search.query = "reconciler"
+	m.applySearch(searchResult{query: "reconciler", hits: hits("b")})
+
+	assert.False(t, m.search.paging, "a fresh search forgets the page it was waiting on")
 }

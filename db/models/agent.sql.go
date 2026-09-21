@@ -2453,18 +2453,52 @@ const searchTranscripts = `-- name: SearchTranscripts :many
 WITH q AS (
     SELECT
         PLAINTO_TSQUERY('english', ARRAY_TO_STRING($5::text[], ' ')) AS words,
+        PLAINTO_TSQUERY('simple', ARRAY_TO_STRING($5::text[], ' ')) AS words_simple,
         ARRAY (
             SELECT
-                PHRASETO_TSQUERY('english', t)
+                PHRASETO_TSQUERY('english', w)
             FROM
-                UNNEST($5::text[]) t
+                UNNEST($6::text[]) w
             WHERE
-                PHRASETO_TSQUERY('english', t) <> '') AS required,
+                PHRASETO_TSQUERY('english', w) <> '') AS required,
             ARRAY (
                 SELECT
-                    PHRASETO_TSQUERY('english', e)
+                    PHRASETO_TSQUERY('simple', w)
                 FROM
-                    UNNEST($6::text[]) e) AS forbidden
+                    UNNEST($6::text[]) w
+                WHERE
+                    PHRASETO_TSQUERY('english', w) = ''
+                    AND PHRASETO_TSQUERY('simple', w) <> ''
+                UNION ALL
+                SELECT
+                    PHRASETO_TSQUERY('simple', p)
+                FROM
+                    UNNEST($7::text[]) p
+                WHERE
+                    PHRASETO_TSQUERY('simple', p) <> '') AS required_simple,
+                ARRAY (
+                    SELECT
+                        PHRASETO_TSQUERY('english', e)
+                    FROM
+                        UNNEST($8::text[]) e
+                    WHERE
+                        PHRASETO_TSQUERY('english', e) <> '') AS forbidden,
+                    ARRAY (
+                        SELECT
+                            PHRASETO_TSQUERY('simple', e)
+                        FROM
+                            UNNEST($8::text[]) e
+                        WHERE
+                            PHRASETO_TSQUERY('english', e) = ''
+                            AND PHRASETO_TSQUERY('simple', e) <> ''
+                        UNION ALL
+                        SELECT
+                            PHRASETO_TSQUERY('simple', p)
+                        FROM
+                            UNNEST($9::text[]) p
+                        WHERE
+                            PHRASETO_TSQUERY('simple', p) <> '') AS forbidden_simple,
+                        $10::text AS phrase
 ),
 ranked AS (
     SELECT
@@ -2475,18 +2509,28 @@ ranked AS (
         OCTET_LENGTH(c.content) AS content_length,
         a.name,
         a.archived_at IS NOT NULL AS archived,
-        TS_HEADLINE('english', c.content, q.words, $7) AS snippet,
-        TS_RANK_CD(c.tsv, q.words, 32) AS rank
+        CASE WHEN q.words <> '' THEN
+            TS_HEADLINE('english', c.content, q.words, $11)
+        ELSE
+            TS_HEADLINE('simple', c.content, q.words_simple, $11)
+        END AS snippet,
+        CASE WHEN q.words <> '' THEN
+            TS_RANK_CD(c.tsv, q.words, 2)
+        ELSE
+            TS_RANK_CD(c.tsv_simple, q.words_simple, 2)
+        END + COALESCE((c.content ~* q.phrase)::int, 0) AS rank
     FROM
         agent_transcript_chunks c
         CROSS JOIN q
         JOIN agents a ON a.id = c.agent_id
     WHERE
-        CARDINALITY(q.required) > 0
+        CARDINALITY(q.required) + CARDINALITY(q.required_simple) > 0
         AND c.tsv @@ ALL (q.required)
+        AND c.tsv_simple @@ ALL (q.required_simple)
         AND NOT (c.tsv @@ ANY (q.forbidden))
-        AND ($8::uuid IS NULL
-            OR c.agent_id = $8))
+        AND NOT (c.tsv_simple @@ ANY (q.forbidden_simple))
+        AND ($12::uuid IS NULL
+            OR c.agent_id = $12))
 SELECT
     r.agent_id,
     r.seq,
@@ -2513,14 +2557,18 @@ LIMIT $4
 `
 
 type SearchTranscriptsParams struct {
-	CursorRank    *float64
-	CursorAgentID *string
-	CursorSeq     *int32
-	Lim           int32
-	Terms         []string
-	Excluded      []string
-	Headline      string
-	AgentID       *string
+	CursorRank      *float64
+	CursorAgentID   *string
+	CursorSeq       *int32
+	Lim             int32
+	Terms           []string
+	Words           []string
+	Phrases         []string
+	Excluded        []string
+	ExcludedPhrases []string
+	Phrase          *string
+	Headline        string
+	AgentID         *string
 }
 
 type SearchTranscriptsRow struct {
@@ -2542,7 +2590,11 @@ func (q *Queries) SearchTranscripts(ctx context.Context, arg SearchTranscriptsPa
 		arg.CursorSeq,
 		arg.Lim,
 		arg.Terms,
+		arg.Words,
+		arg.Phrases,
 		arg.Excluded,
+		arg.ExcludedPhrases,
+		arg.Phrase,
 		arg.Headline,
 		arg.AgentID,
 	)
@@ -2581,16 +2633,48 @@ WITH q AS (
         $6::text[] AS patterns,
         ARRAY (
             SELECT
-                PHRASETO_TSQUERY('english', t)
+                PHRASETO_TSQUERY('english', w)
             FROM
-                UNNEST($5::text[]) t
+                UNNEST($7::text[]) w
             WHERE
-                PHRASETO_TSQUERY('english', t) <> '') AS required,
+                PHRASETO_TSQUERY('english', w) <> '') AS required,
+        ARRAY (
+            SELECT
+                PHRASETO_TSQUERY('simple', w)
+            FROM
+                UNNEST($7::text[]) w
+            WHERE
+                PHRASETO_TSQUERY('english', w) = ''
+                AND PHRASETO_TSQUERY('simple', w) <> ''
+            UNION ALL
+            SELECT
+                PHRASETO_TSQUERY('simple', p)
+            FROM
+                UNNEST($8::text[]) p
+            WHERE
+                PHRASETO_TSQUERY('simple', p) <> '') AS required_simple,
         ARRAY (
             SELECT
                 PHRASETO_TSQUERY('english', e)
             FROM
-                UNNEST($7::text[]) e) AS forbidden
+                UNNEST($9::text[]) e
+            WHERE
+                PHRASETO_TSQUERY('english', e) <> '') AS forbidden,
+        ARRAY (
+            SELECT
+                PHRASETO_TSQUERY('simple', e)
+            FROM
+                UNNEST($9::text[]) e
+            WHERE
+                PHRASETO_TSQUERY('english', e) = ''
+                AND PHRASETO_TSQUERY('simple', e) <> ''
+            UNION ALL
+            SELECT
+                PHRASETO_TSQUERY('simple', p)
+            FROM
+                UNNEST($10::text[]) p
+            WHERE
+                PHRASETO_TSQUERY('simple', p) <> '') AS forbidden_simple
 ),
 ranked AS (
     SELECT
@@ -2606,8 +2690,8 @@ ranked AS (
                         MIN(POSITION(LOWER(t) IN LOWER(c.content)))
                     FROM UNNEST(q.terms) t
                     WHERE
-                        POSITION(LOWER(t) IN LOWER(c.content)) > 0) - $8::int)
-                FOR $9::int) AS snippet,
+                        POSITION(LOWER(t) IN LOWER(c.content)) > 0) - $11::int)
+                FOR $12::int) AS snippet,
         WORD_SIMILARITY(ARRAY_TO_STRING(q.terms, ' '), c.content) AS rank
     FROM
         agent_transcript_chunks c
@@ -2616,11 +2700,13 @@ ranked AS (
     WHERE
         CARDINALITY(q.terms) > 0
         AND c.content ILIKE ALL (q.patterns)
-        AND NOT (CARDINALITY(q.required) > 0
-            AND c.tsv @@ ALL (q.required))
+        AND NOT (CARDINALITY(q.required) + CARDINALITY(q.required_simple) > 0
+            AND c.tsv @@ ALL (q.required)
+            AND c.tsv_simple @@ ALL (q.required_simple))
         AND NOT (c.tsv @@ ANY (q.forbidden))
-        AND ($10::uuid IS NULL
-            OR c.agent_id = $10))
+        AND NOT (c.tsv_simple @@ ANY (q.forbidden_simple))
+        AND ($13::uuid IS NULL
+            OR c.agent_id = $13))
 SELECT
     r.agent_id,
     r.seq,
@@ -2647,16 +2733,19 @@ LIMIT $4
 `
 
 type SearchTranscriptsNearParams struct {
-	CursorRank    *float64
-	CursorAgentID *string
-	CursorSeq     *int32
-	Lim           int32
-	Terms         []string
-	Patterns      []string
-	Excluded      []string
-	Lead          int32
-	Width         int32
-	AgentID       *string
+	CursorRank      *float64
+	CursorAgentID   *string
+	CursorSeq       *int32
+	Lim             int32
+	Terms           []string
+	Patterns        []string
+	Words           []string
+	Phrases         []string
+	Excluded        []string
+	ExcludedPhrases []string
+	Lead            int32
+	Width           int32
+	AgentID         *string
 }
 
 type SearchTranscriptsNearRow struct {
@@ -2679,7 +2768,10 @@ func (q *Queries) SearchTranscriptsNear(ctx context.Context, arg SearchTranscrip
 		arg.Lim,
 		arg.Terms,
 		arg.Patterns,
+		arg.Words,
+		arg.Phrases,
 		arg.Excluded,
+		arg.ExcludedPhrases,
 		arg.Lead,
 		arg.Width,
 		arg.AgentID,

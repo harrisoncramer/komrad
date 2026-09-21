@@ -183,7 +183,7 @@ func (m *model) applyRefresh(result refreshResult) tea.Cmd {
 		m.applyWorktrees(result.worktrees, worktreeRow)
 	}
 
-	preview := m.placeSearchAgent(searchRow)
+	preview := m.placeSearchRow(searchRow)
 	inspect := tea.Batch(m.inspectHoveredWorktreeCmd(), m.inspectAgentWorktreeCmd(time.Now()))
 	pullRequests := m.listHoveredPullRequestsCmd()
 

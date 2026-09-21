@@ -96,6 +96,9 @@ func roomForName(line Line, width int) int {
 	if line.Rule {
 		spent += ruleColumns
 	}
+	if line.Lead != "" {
+		spent += len([]rune(line.Lead)) + spaceColumns
+	}
 
 	return width - spent
 }

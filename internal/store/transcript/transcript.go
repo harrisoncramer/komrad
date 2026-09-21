@@ -47,6 +47,8 @@ const (
 
 const defaultSearchLimit = 50
 
+const minNearTermRunes = 3
+
 type Store struct {
 	queries *models.Queries
 }
@@ -336,16 +338,21 @@ func (s *Store) Search(ctx context.Context, params SearchParams) (Results, error
 
 	var results Results
 
-	if first || matchesAt != nil {
+	matchesRan := first || matchesAt != nil
+	if matchesRan {
 		rows, err := s.queries.SearchTranscripts(ctx, models.SearchTranscriptsParams{
-			Terms:         terms.positive,
-			Excluded:      terms.negative,
-			Headline:      headlineOptions,
-			Lim:           int32(limit),
-			AgentID:       params.AgentID,
-			CursorRank:    rankOf(matchesAt),
-			CursorAgentID: agentOf(matchesAt),
-			CursorSeq:     seqOf(matchesAt),
+			Terms:           terms.positive,
+			Words:           terms.words,
+			Phrases:         terms.phrases,
+			Excluded:        terms.negative,
+			ExcludedPhrases: terms.negativePhrases,
+			Phrase:          phrasePattern(terms.positive),
+			Headline:        headlineOptions,
+			Lim:             int32(limit),
+			AgentID:         params.AgentID,
+			CursorRank:      rankOf(matchesAt),
+			CursorAgentID:   agentOf(matchesAt),
+			CursorSeq:       seqOf(matchesAt),
 		})
 		if err != nil {
 			return Results{}, fmt.Errorf("failed to search transcripts for %q: %w", query, err)
@@ -366,18 +373,22 @@ func (s *Store) Search(ctx context.Context, params SearchParams) (Results, error
 		})
 	}
 
-	if first || nearAt != nil {
+	nearStarts := matchesRan && int64(len(results.Matches)) < limit && hasNearTerms(terms.positive)
+	if nearAt != nil || nearStarts {
 		rows, err := s.queries.SearchTranscriptsNear(ctx, models.SearchTranscriptsNearParams{
-			Terms:         terms.positive,
-			Patterns:      likePatterns(terms.positive),
-			Excluded:      terms.negative,
-			Lead:          snippetLead,
-			Width:         snippetWidth,
-			Lim:           int32(limit),
-			AgentID:       params.AgentID,
-			CursorRank:    rankOf(nearAt),
-			CursorAgentID: agentOf(nearAt),
-			CursorSeq:     seqOf(nearAt),
+			Terms:           terms.positive,
+			Words:           terms.words,
+			Phrases:         terms.phrases,
+			Patterns:        likePatterns(terms.positive),
+			Excluded:        terms.negative,
+			ExcludedPhrases: terms.negativePhrases,
+			Lead:            snippetLead,
+			Width:           snippetWidth,
+			Lim:             int32(limit),
+			AgentID:         params.AgentID,
+			CursorRank:      rankOf(nearAt),
+			CursorAgentID:   agentOf(nearAt),
+			CursorSeq:       seqOf(nearAt),
 		})
 		if err != nil {
 			return Results{}, fmt.Errorf("failed to search transcripts near %q: %w", query, err)
@@ -455,37 +466,49 @@ func seqOf(p *Position) *int32 {
 }
 
 type queryTerms struct {
-	positive []string
-	negative []string
+	positive        []string
+	words           []string
+	phrases         []string
+	negative        []string
+	negativePhrases []string
 }
 
-// splitTerms reads a query as the words it is looking for and the words it wants left out.
+// splitTerms reads a query as the words it is looking for, quoted or not, and the words it
+// wants left out.
 func splitTerms(query string) queryTerms {
 	var (
 		terms   queryTerms
 		text    strings.Builder
 		quoted  bool
+		phrase  bool
 		minuses int
 	)
 
 	flush := func() {
-		term, leading := text.String(), minuses
+		term, leading, asPhrase := text.String(), minuses, phrase
 		text.Reset()
-		quoted, minuses = false, 0
+		quoted, phrase, minuses = false, false, 0
 
 		switch {
 		case term == "":
+		case leading == 1 && asPhrase:
+			terms.negativePhrases = append(terms.negativePhrases, term)
 		case leading == 1:
 			terms.negative = append(terms.negative, term)
+		case asPhrase:
+			terms.positive = append(terms.positive, term)
+			terms.phrases = append(terms.phrases, term)
 		default:
 			// Only a single minus excludes, so a flag name stays the word it looks like.
-			terms.positive = append(terms.positive, strings.Repeat("-", leading)+term)
+			term = strings.Repeat("-", leading) + term
+			terms.positive = append(terms.positive, term)
+			terms.words = append(terms.words, term)
 		}
 	}
 	for _, r := range query {
 		switch {
 		case r == '"':
-			quoted = !quoted
+			quoted, phrase = !quoted, true
 		case unicode.IsSpace(r) && !quoted:
 			flush()
 		case r == '-' && !quoted && text.Len() == 0:
@@ -497,6 +520,32 @@ func splitTerms(query string) queryTerms {
 	flush()
 
 	return terms
+}
+
+func hasNearTerms(terms []string) bool {
+	for _, term := range terms {
+		if utf8.RuneCountInString(term) < minNearTermRunes {
+			return false
+		}
+	}
+
+	return true
+}
+
+func phrasePattern(terms []string) *string {
+	var words []string
+	for _, term := range terms {
+		words = append(words, strings.FieldsFunc(term, func(r rune) bool {
+			return !unicode.IsLetter(r) && !unicode.IsDigit(r)
+		})...)
+	}
+	if len(words) == 0 {
+		return nil
+	}
+
+	pattern := `\m` + strings.Join(words, `[^[:alnum:]]+`) + `\M`
+
+	return &pattern
 }
 
 func likePatterns(terms []string) []string {

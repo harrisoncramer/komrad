@@ -8,6 +8,7 @@ import (
 	"weave/internal/store"
 	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
+	"weave/lib/xptr"
 	"weave/lib/xslice"
 
 	"github.com/stretchr/testify/assert"
@@ -312,12 +313,11 @@ func TestSearch(t *testing.T) {
 			wantHits: 0,
 		},
 		{
-			name:     "a query of nothing but a stopword does not match every turn",
+			name:     "a query of nothing but a stopword is a word like any other",
 			content:  "the reconciler notes",
 			other:    "zeta alone",
 			query:    "the",
 			wantHits: 1,
-			wantNear: 1,
 		},
 		{
 			name:     "an exclusion beside a stopword still excludes",
@@ -325,7 +325,27 @@ func TestSearch(t *testing.T) {
 			other:    "the zeta notes",
 			query:    "the -zeta",
 			wantHits: 1,
-			wantNear: 1,
+		},
+		{
+			name:     "an excluded stopword still excludes",
+			content:  "reconciler notes",
+			other:    "the reconciler notes",
+			query:    "reconciler -the",
+			wantHits: 1,
+		},
+		{
+			name:     "an excluded phrase excludes only the phrase",
+			content:  "pane is not done yet",
+			other:    "pane is not yet done",
+			query:    `pane -"not yet"`,
+			wantHits: 1,
+		},
+		{
+			name:     "a quoted phrase means those words and not their stems",
+			content:  "derive marker",
+			other:    "derives markers",
+			query:    `"derive marker"`,
+			wantHits: 1,
 		},
 		{
 			name:     "an exclusion does not leak into the substring fallback",
@@ -390,11 +410,17 @@ func TestSearch(t *testing.T) {
 			wantHits: 1,
 		},
 		{
-			name:     "a query that lowercases to fewer bytes than it was typed",
-			content:  "ok",
-			query:    "K",
+			name:     "a query under three characters runs no substring fallback",
+			content:  "print the prefix",
+			query:    "pr",
+			wantHits: 0,
+		},
+		{
+			name:     "a phrase of stop words is found",
+			content:  "do it",
+			other:    "it is done",
+			query:    "do it",
 			wantHits: 1,
-			wantNear: 1,
 		},
 	}
 
@@ -557,6 +583,39 @@ func TestSearchPages(t *testing.T) {
 			wantCount: 2,
 		},
 		{
+			name: "a short turn saying the word outranks a long one saying it many times",
+			seeds: []seed{
+				{name: "summary", content: strings.Repeat("this session needs the summary, which needs the context, ", 40)},
+				{name: "short", content: "Hey. Ready. What need?"},
+			},
+			query:     "need",
+			limit:     10,
+			wantNames: []string{"short", "summary"},
+			wantCount: 2,
+		},
+		{
+			name: "a turn saying the words as typed outranks a shorter one saying one of them",
+			seeds: []seed{
+				{name: "bare", content: "not done, yet here"},
+				{name: "phrase", content: "the fixture is not yet done, and the goldens are not yet either"},
+			},
+			query:     "not yet",
+			limit:     10,
+			wantNames: []string{"phrase", "bare"},
+			wantCount: 2,
+		},
+		{
+			name: "punctuation in the query does not stop the phrase being found",
+			seeds: []seed{
+				{name: "apart", content: "what do we need"},
+				{name: "phrase", content: "Hey. Ready. What need?"},
+			},
+			query:     "What need?",
+			limit:     10,
+			wantNames: []string{"phrase", "apart"},
+			wantCount: 2,
+		},
+		{
 			name: "a word match is listed before a near one, since the sections are in that order",
 			seeds: []seed{
 				{name: "word", content: "we use pgx here"},
@@ -686,10 +745,9 @@ func TestCursorValidate(t *testing.T) {
 	}
 }
 
-// TestSearchKeepsNearMatchesOnTheirOwnPage pins the point of holding the two apart: a near
-// match comes back however many word matches there are, where one shared ranking left it
-// behind all of them and off the page the panel asks for.
-func TestSearchKeepsNearMatchesOnTheirOwnPage(t *testing.T) {
+// TestSearchNearWaitsForTheWordMatches pins that the substring fallback stays out of the way
+// while there is a page of turns saying the word, and comes back once those have run out.
+func TestSearchNearWaitsForTheWordMatches(t *testing.T) {
 	st := open(t)
 	ctx := t.Context()
 
@@ -700,13 +758,27 @@ func TestSearchKeepsNearMatchesOnTheirOwnPage(t *testing.T) {
 		seedTranscript(t, st, seedAgent(t, st, name), "the worktree is checked out for "+name)
 	}
 
-	got, err := st.Search(ctx, SearchParams{Query: "worktree", Limit: 2})
+	first, err := st.Search(ctx, SearchParams{Query: "worktree", Limit: 2})
 	require.NoError(t, err)
+	assert.Len(t, first.Matches, 2, "one page of the turns that say the word")
+	assert.Empty(t, first.Near, "and nothing from the substring fallback while that page is full")
+	require.NotNil(t, first.Next)
 
-	assert.Len(t, got.Matches, 2, "one page of the turns that say the word")
-	require.Len(t, got.Near, 1, "and the turn that only carries the letters, not buried behind them")
-	assert.Equal(t, glued, got.Near[0].AgentID)
-	assert.NotContains(t, agentIDs(got.Matches), glued, "a turn is in one section or the other")
+	var near []SearchHit
+	cursor := first.Next
+	for range 4 {
+		page, err := st.Search(ctx, SearchParams{Query: "worktree", Limit: 2, Cursor: cursor})
+		require.NoError(t, err)
+
+		near = append(near, page.Near...)
+		cursor = page.Next
+		if cursor == nil {
+			break
+		}
+	}
+
+	require.Len(t, near, 1, "the turn that only carries the letters comes once the word matches have run out")
+	assert.Equal(t, glued, near[0].AgentID)
 }
 
 // TestSearchScoresNearMatches pins that a near match is scored on its own terms rather than against
@@ -809,10 +881,12 @@ func TestMarkMatches(t *testing.T) {
 // matches text as it was typed and so has to be handed the terms rather than the operators.
 func TestSplitTerms(t *testing.T) {
 	tests := []struct {
-		name         string
-		query        string
-		wantPositive []string
-		wantNegative []string
+		name                string
+		query               string
+		wantPositive        []string
+		wantPhrases         []string
+		wantNegative        []string
+		wantNegativePhrases []string
 	}{
 		{
 			name:         "plain words are all positive",
@@ -829,12 +903,25 @@ func TestSplitTerms(t *testing.T) {
 			name:         "quotes are stripped, and a phrase stays one term",
 			query:        `"derives markers" pane`,
 			wantPositive: []string{"derives markers", "pane"},
+			wantPhrases:  []string{"derives markers"},
 		},
 		{
-			name:         "an excluded phrase keeps its words together",
-			query:        `pane -"derives markers"`,
-			wantPositive: []string{"pane"},
-			wantNegative: []string{"derives markers"},
+			name:         "a quoted word is a phrase of one",
+			query:        `"flags" field`,
+			wantPositive: []string{"flags", "field"},
+			wantPhrases:  []string{"flags"},
+		},
+		{
+			name:         "a quote closed mid-word keeps the whole word a phrase",
+			query:        `"pgx"pool`,
+			wantPositive: []string{"pgxpool"},
+			wantPhrases:  []string{"pgxpool"},
+		},
+		{
+			name:                "an excluded phrase keeps its words together",
+			query:               `pane -"derives markers"`,
+			wantPositive:        []string{"pane"},
+			wantNegativePhrases: []string{"derives markers"},
 		},
 		{
 			name:         "or is an ordinary word, since every word typed has to appear",
@@ -868,6 +955,7 @@ func TestSplitTerms(t *testing.T) {
 			name:         "a quoted minus is part of the word rather than an exclusion",
 			query:        `"-config"`,
 			wantPositive: []string{"-config"},
+			wantPhrases:  []string{"-config"},
 		},
 		{
 			name:         "a minus on its own is not an exclusion of the next word",
@@ -880,10 +968,10 @@ func TestSplitTerms(t *testing.T) {
 			wantPositive: []string{"config"},
 		},
 		{
-			name:         "a quoted phrase behind a minus is still excluded",
-			query:        `pane -"derives markers"`,
-			wantPositive: []string{"pane"},
-			wantNegative: []string{"derives markers"},
+			name:                "a quoted phrase behind a minus is still excluded",
+			query:               `pane -"derives markers"`,
+			wantPositive:        []string{"pane"},
+			wantNegativePhrases: []string{"derives markers"},
 		},
 	}
 
@@ -891,7 +979,100 @@ func TestSplitTerms(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			got := splitTerms(tt.query)
 			assert.Equal(t, tt.wantPositive, got.positive)
+			assert.Equal(t, tt.wantPhrases, got.phrases)
 			assert.Equal(t, tt.wantNegative, got.negative)
+			assert.Equal(t, tt.wantNegativePhrases, got.negativePhrases)
+			assert.Len(t, got.words, len(got.positive)-len(got.phrases), "every positive term is a word or a phrase")
+			for _, phrase := range got.phrases {
+				assert.NotContains(t, got.words, phrase)
+			}
+		})
+	}
+}
+
+// TestPhrasePattern covers the words a query is tested whole for.
+func TestPhrasePattern(t *testing.T) {
+	tests := []struct {
+		name  string
+		terms []string
+		want  *string
+	}{
+		{
+			name:  "no term at all",
+			terms: nil,
+			want:  nil,
+		},
+		{
+			name:  "a term holding no word",
+			terms: []string{"--", "?"},
+			want:  nil,
+		},
+		{
+			name:  "one word",
+			terms: []string{"need"},
+			want:  xptr.Ptr(`\mneed\M`),
+		},
+		{
+			name:  "punctuation around the words is not part of them",
+			terms: []string{"What", "need?"},
+			want:  xptr.Ptr(`\mWhat[^[:alnum:]]+need\M`),
+		},
+		{
+			name:  "a quoted phrase and a word run together in order",
+			terms: []string{"not yet", "done"},
+			want:  xptr.Ptr(`\mnot[^[:alnum:]]+yet[^[:alnum:]]+done\M`),
+		},
+		{
+			name:  "a flag name is the word it looks like",
+			terms: []string{"--config"},
+			want:  xptr.Ptr(`\mconfig\M`),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, phrasePattern(tt.terms))
+		})
+	}
+}
+
+// TestHasNearTerms covers which queries the substring fallback is run for.
+func TestHasNearTerms(t *testing.T) {
+	tests := []struct {
+		name  string
+		terms []string
+		want  bool
+	}{
+		{
+			name:  "a two-letter term",
+			terms: []string{"pr"},
+			want:  false,
+		},
+		{
+			name:  "a short term beside a long one",
+			terms: []string{"pgxpool", "it"},
+			want:  false,
+		},
+		{
+			name:  "three characters of any kind",
+			terms: []string{"the"},
+			want:  true,
+		},
+		{
+			name:  "runes rather than bytes",
+			terms: []string{"héé"},
+			want:  true,
+		},
+		{
+			name:  "no term at all",
+			terms: nil,
+			want:  true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, hasNearTerms(tt.terms))
 		})
 	}
 }
