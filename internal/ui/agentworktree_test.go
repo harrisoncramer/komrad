@@ -526,3 +526,36 @@ func landWorktreeRead(t *testing.T, m model, cmd tea.Cmd) model {
 
 	return m
 }
+
+// TestBlindTypingAfterAShrink covers the record losing its room to a resize while it held the
+// keys, after which a slash opens the list's search on the header line rather than a search
+// nobody can see.
+func TestBlindTypingAfterAShrink(t *testing.T) {
+	m := screensModel()
+	m.width, m.height = 80, 30
+
+	focused := send(t, m, "ctrl+t")
+	require.True(t, focused.isDetailsFocused())
+
+	shrunk := asModel(t, resize(focused, 80, 11))
+	require.False(t, shrunk.isDetailsFocused())
+
+	typed := pressMark(t, shrunk, "/", "a", "g", "e", "n", "t", "3")
+
+	assert.True(t, typed.filter.typing, "the list's search took the keys")
+	assert.Contains(t, ansi.Strip(typed.View()), "/ agent3", "and the header shows it")
+}
+
+// TestGrownRecordWithNoRowDrawsNothing covers a share so small that a focused record's rules
+// alone would overrun the pane, where the record draws nothing rather than two bare rules.
+func TestGrownRecordWithNoRowDrawsNothing(t *testing.T) {
+	m := screensModel()
+	m.width, m.height, m.detailsHeight, m.helpExpanded = 40, 14, 2, true
+
+	focused := pressMark(t, send(t, m, "ctrl+t"), "/", "a", "tab", "enter")
+	require.True(t, focused.details.focused)
+	require.Equal(t, 0, focused.grownDetailsLines(focused.hoveredDetails()), "the corner this pins")
+
+	assert.Empty(t, focused.detailsView())
+	assert.Len(t, lines(focused.View()), focused.height)
+}

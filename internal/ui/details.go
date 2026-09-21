@@ -144,6 +144,15 @@ func (m model) toggleDetailsFocus() (model, tea.Cmd) {
 	return m.refocused(), m.rereadAgentWorktreeCmd()
 }
 
+// releaseHiddenDetails hands the keys back from a record the pane no longer draws.
+func (m model) releaseHiddenDetails() model {
+	if !m.details.focused || m.isDetailsDrawn(m.hoveredDetails()) {
+		return m
+	}
+
+	return m.blurDetails()
+}
+
 // blurDetails hands the keys back to the list, and the record's search goes with them.
 func (m model) blurDetails() model {
 	m.details.focused = false
@@ -391,6 +400,9 @@ func (m model) detailsView() string {
 	lines := m.detailsLines()
 	if m.details.focused {
 		lines = m.grownDetailsLines(held)
+	}
+	if lines == 0 {
+		return ""
 	}
 
 	// Two field lines are kept back rather than one, which is what renderList needs to say how
