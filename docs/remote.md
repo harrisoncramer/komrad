@@ -4,11 +4,11 @@ Weave can run remotely, where Postgres, tmux and the agents move to a box you re
 
 The panel still runs on your machine. What moves is the engine: the service, the database, and every agent's tmux window.
 
-Standing that box up, and everything done to it afterwards, is weave's own administration and lives in [engine-admin.md](engine-admin.md). This page is what you need once one exists.
+Weave's own repository has an example of this; in fact, a remote agent will often open PRs against this repository. For how I stand that box up, and everything done to it afterwards, see weave's administration document in [engine-admin.md](engine-admin.md). This guide focuses purely on how to administer a deployed weave engine.
 
 ## Pointing the panel at it
 
-An engine is a file in `~/.config/weave/engines/` on your own machine, layered over your config rather than replacing it. Write `~/.config/weave/engines/remote.toml`:
+An engine is a file in `~/.config/weave/engines/` on your own machine, layered over your config. Write `~/.config/weave/engines/remote.toml`:
 
 ```toml
 [connection]
