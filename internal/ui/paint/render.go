@@ -10,8 +10,8 @@ import (
 
 const tabWidth = 4
 
-// expandTabs replaces tabs with the spaces that reach the next stop.
-func expandTabs(text string) string {
+// ExpandTabs replaces tabs with the spaces that reach the next stop.
+func ExpandTabs(text string) string {
 	if !strings.Contains(text, "\t") {
 		return text
 	}
@@ -44,7 +44,7 @@ func (p Palette) Render(markdown string, wrap int) string {
 // renderWith draws markdown in the style it is handed, hard-wrapped to the column so nothing a
 // word wrap will not break runs past it.
 func renderWith(markdown string, wrap int, style glamouransi.StyleConfig) string {
-	markdown = expandTabs(markdown)
+	markdown = ExpandTabs(markdown)
 
 	options := []glamour.TermRendererOption{glamour.WithStyles(style)}
 	if wrap > 0 {

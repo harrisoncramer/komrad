@@ -287,12 +287,12 @@ func fromRow(row *models.PullRequest) PullRequest {
 		MergedAt:          row.MergedAt,
 		ClosedAt:          row.ClosedAt,
 		FirstSeenAt:       row.FirstSeenAt,
-		ReviewDecision:    reviewDecisionOf(row.ReviewDecision),
+		ReviewDecision:    storedReviewDecision(row.ReviewDecision),
 		DecisionChangedAt: row.DecisionChangedAt,
 	}
 }
 
-func reviewDecisionOf(stored *string) *forge.ReviewDecision {
+func storedReviewDecision(stored *string) *forge.ReviewDecision {
 	if stored == nil {
 		return nil
 	}

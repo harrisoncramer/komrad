@@ -375,7 +375,7 @@ func conflictedMail(result RebaseResult) string {
 	var body strings.Builder
 
 	fmt.Fprintf(&body, "Your worktree was being rebased onto %s (%s). The rebase hit conflicts and stopped part way, so it is still in progress.\n\n",
-		result.BaseRef, short(result.BaseSHA))
+		result.BaseRef, git.ShortSHA(result.BaseSHA))
 	body.WriteString("All your commits are still there. Your branch has not moved. " +
 		"Do not resolve the conflicts and do not abort the rebase on your own. " +
 		"Say what state you are in and wait to be told what to do. " +
@@ -394,7 +394,7 @@ func conflictedMail(result RebaseResult) string {
 func movedMail(result RebaseResult) string {
 	var body strings.Builder
 
-	fmt.Fprintf(&body, "Your branch is now on %s (%s).\n\n", result.BaseRef, short(result.BaseSHA))
+	fmt.Fprintf(&body, "Your branch is now on %s (%s).\n\n", result.BaseRef, git.ShortSHA(result.BaseSHA))
 	body.WriteString("Your work had already been merged into the base. " +
 		"There was nothing left to replay, so your branch was moved straight onto it.\n\n")
 	body.WriteString("Nothing was lost. Your own commits are no longer on the branch and the base's history " +
@@ -411,10 +411,10 @@ func replayedMail(result RebaseResult) string {
 
 	if result.Replay == 0 {
 		fmt.Fprintf(&body, "Your worktree is up to date with %s (%s). You had no commits of your own to replay.\n\n",
-			result.BaseRef, short(result.BaseSHA))
+			result.BaseRef, git.ShortSHA(result.BaseSHA))
 	} else {
 		fmt.Fprintf(&body, "Your worktree was rebased onto %s (%s), replaying %d of your own commits.\n\n",
-			result.BaseRef, short(result.BaseSHA), result.Replay)
+			result.BaseRef, git.ShortSHA(result.BaseSHA), result.Replay)
 	}
 	body.WriteString("Your files may have changed under you. Read them again rather than trusting what you remember. ")
 	if result.Landed > 0 {

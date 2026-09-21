@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"weave/internal/git"
 	"weave/internal/ui/diffview"
 	"weave/internal/ui/paint"
 	"weave/internal/ui/paint/label"
@@ -332,8 +333,8 @@ func (m model) reviewDetails() details {
 // it was measured against and what was kept out of it.
 func (r reviewState) fields() []recordField {
 	fields := []recordField{
-		{"base", label.OrDash(label.ShortSHA(r.round.GetBaseSha()))},
-		{"snapshot", label.OrDash(label.ShortSHA(r.round.GetSnapshotSha()))},
+		{"base", label.OrDash(git.ShortSHA(r.round.GetBaseSha()))},
+		{"snapshot", label.OrDash(git.ShortSHA(r.round.GetSnapshotSha()))},
 	}
 	if len(r.exclude) > 0 {
 		fields = append(fields, recordField{"excludes", strings.Join(r.exclude, ", ")})

@@ -17,8 +17,6 @@ import (
 // GutterWidth is the two line numbers, the marker, the thread mark, and the spaces between.
 const GutterWidth = 13
 
-const tabWidth = 4
-
 // Cursor is how the row the reader is standing on is drawn, dim while the keys are somewhere
 // else.
 type Cursor int
@@ -276,7 +274,7 @@ func renderTokens(line styledLine, fallback string, background lipgloss.Terminal
 				pieceStyle = style.Background(matchBackground)
 			}
 
-			out.WriteString(pieceStyle.Render(expandTabs(piece.text)))
+			out.WriteString(pieceStyle.Render(paint.ExpandTabs(piece.text)))
 		}
 
 		at += len(current.text)
@@ -341,8 +339,4 @@ func fitWindow(value string, offset, width int, background lipgloss.TerminalColo
 	}
 
 	return value
-}
-
-func expandTabs(value string) string {
-	return strings.ReplaceAll(value, "\t", strings.Repeat(" ", tabWidth))
 }

@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"strings"
 
+	"weave/internal/git"
 	agentstore "weave/internal/store/agent"
 	reviewstore "weave/internal/store/review"
 )
@@ -42,7 +43,7 @@ func renderReview(params renderReviewParams) string {
 		params.Agent.Name, params.Agent.ID, reviewerName(params.Author))
 	fmt.Fprintf(&out, "This review was written against the snapshot `%s`, taken from `%s`. "+
 		"To see exactly what was reviewed, run `git diff %s %s`.\n",
-		short(round.SnapshotSHA), short(round.BaseSHA), round.BaseSHA, round.SnapshotSHA)
+		git.ShortSHA(round.SnapshotSHA), git.ShortSHA(round.BaseSHA), round.BaseSHA, round.SnapshotSHA)
 
 	if said := strings.TrimSpace(params.Said); said != "" {
 		fmt.Fprintf(&out, "\n## What the reviewer said\n\n%s\n", said)
@@ -174,7 +175,7 @@ func oldSideSentence(thread reviewstore.Thread, round reviewstore.Round) string 
 
 	return fmt.Sprintf("This thread's line numbers are on the old side, counted in `%s` rather than "+
 		"in the snapshot. To see those lines, run `git diff %s %s`.",
-		short(base), base, round.SnapshotSHA)
+		git.ShortSHA(base), base, round.SnapshotSHA)
 }
 
 // reviewerName is who gave the review, spelled for somebody reading the file long afterwards,
@@ -197,12 +198,4 @@ func verdictSentence(verdict reviewstore.Verdict) string {
 	}
 
 	return "Comments only, with no conclusion either way."
-}
-
-func short(sha string) string {
-	if len(sha) <= 12 {
-		return sha
-	}
-
-	return sha[:12]
 }

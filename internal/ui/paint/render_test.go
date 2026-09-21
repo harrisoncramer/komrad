@@ -157,9 +157,9 @@ func TestDocRowsFitTheColumn(t *testing.T) {
 
 // TestExpandTabs covers the stops the tabs are taken to, counted from the start of each line.
 func TestExpandTabs(t *testing.T) {
-	assert.Equal(t, "    ", expandTabs("\t"))
-	assert.Equal(t, "ab  cd", expandTabs("ab\tcd"))
-	assert.Equal(t, "abc d", expandTabs("abc\td"))
-	assert.Equal(t, "a   \nbc  d", expandTabs("a\t\nbc\td"))
-	assert.Equal(t, "no tabs here", expandTabs("no tabs here"))
+	assert.Equal(t, "    ", ExpandTabs("\t"))
+	assert.Equal(t, "ab  cd", ExpandTabs("ab\tcd"))
+	assert.Equal(t, "abc d", ExpandTabs("abc\td"))
+	assert.Equal(t, "a   \nbc  d", ExpandTabs("a\t\nbc\td"))
+	assert.Equal(t, "no tabs here", ExpandTabs("no tabs here"))
 }

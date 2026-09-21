@@ -10,9 +10,6 @@ import (
 // Dash is what a record shows where it has nothing to say.
 const Dash = "—"
 
-// shortSHALength is how much of a commit hash a record shows.
-const shortSHALength = 12
-
 // Bytes spells a byte count the way du does, at most four characters wide.
 func Bytes(bytes int64) string {
 	const unit = 1024
@@ -75,15 +72,6 @@ func OrDash(text string) string {
 	}
 
 	return text
-}
-
-// ShortSHA is a commit hash cut to the length a record names one by.
-func ShortSHA(sha string) string {
-	if len(sha) <= shortSHALength {
-		return sha
-	}
-
-	return sha[:shortSHALength]
 }
 
 // Tally is how many more sit behind the one shown, "+4".
