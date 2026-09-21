@@ -327,9 +327,9 @@ func TestFormsSubmitWhatIsOnScreen(t *testing.T) {
 			open: func(t *testing.T, m model) model {
 				m.listing.archivedAgents = archivedItems([]panel.Agent{{ID: "a1", Name: "api-refactor"}})
 
-				opened, _ := m.deleteFromArchiveConfirm(m.archivedAgents())
+				confirmDeleteArchived(&m, m.shared(), archivedAgentsOf(m.listing))
 
-				return asModel(t, opened)
+				return m
 			},
 			submit: model.answerForm,
 			check: func(t *testing.T, sent *formRecorder) {
@@ -340,9 +340,9 @@ func TestFormsSubmitWhatIsOnScreen(t *testing.T) {
 		{
 			name: "the workflow delete prompt",
 			open: func(t *testing.T, m model) model {
-				opened, _ := m.deleteWorkflowConfirm(archivedWorkflow("w1", "backend"))
+				confirmDeleteWorkflow(&m, m.shared(), archivedWorkflow("w1", "backend"))
 
-				return asModel(t, opened)
+				return m
 			},
 			submit: model.answerForm,
 			check: func(t *testing.T, sent *formRecorder) {

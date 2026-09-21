@@ -221,7 +221,7 @@ func TestFilterNothingMatchesLine(t *testing.T) {
 		},
 		{
 			name: "archive",
-			view: model.archiveView,
+			view: archiveAdapter{}.view,
 			idle: "nothing archived",
 		},
 		{

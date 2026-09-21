@@ -283,7 +283,7 @@ func archiveSelectionTree() model {
 func pressArchive(t *testing.T, m model, key tea.KeyMsg) model {
 	t.Helper()
 
-	next, _ := m.updateArchive(key)
+	next, _ := archiveAdapter{}.update(m, key)
 	updated, ok := next.(model)
 	require.True(t, ok)
 
@@ -325,7 +325,7 @@ func TestArchiveSelection(t *testing.T) {
 		m.archive.cursor = 3
 		m.archive.selected = selectAgents([]string{"a1", "a2"}...)
 
-		next, cmd := m.updateArchive(keyMsg("r"))
+		next, cmd := archiveAdapter{}.update(m, keyMsg("r"))
 		require.NotNil(t, cmd)
 		cmd()
 
@@ -363,7 +363,7 @@ func TestArchiveSelection(t *testing.T) {
 		m.archive.cursor = 0
 		m.archive.selected = selectAgents([]string{"a1"}...)
 
-		_, cmd := m.updateArchive(keyMsg("r"))
+		_, cmd := archiveAdapter{}.update(m, keyMsg("r"))
 		require.NotNil(t, cmd)
 		cmd()
 
@@ -405,11 +405,11 @@ func TestArchiveSelection(t *testing.T) {
 		m := archiveSelectionTree()
 		m.width = rowPaneWidth
 
-		rest := m.archiveView()
+		rest := archiveAdapter{}.view(m)
 		assert.NotContains(t, line(t, rest, "api"), paint.BackgroundSequence(paint.SelectionBackground))
 
 		m.archive.selected = selectAgents([]string{"a2"}...)
-		view := m.archiveView()
+		view := archiveAdapter{}.view(m)
 		assert.Contains(t, line(t, view, "api"), paint.BackgroundSequence(paint.SelectionBackground))
 		assert.NotContains(t, line(t, view, "db"), paint.BackgroundSequence(paint.SelectionBackground), "and only that row")
 		assert.Equal(t, rowPaneWidth, lineWidth(t, view, "api"), "the bar spans the pane")

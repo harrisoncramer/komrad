@@ -162,7 +162,7 @@ func TestEnterOnAWorktreeLandsOnItsAgent(t *testing.T) {
 		after, _ := pressWorktrees(t, m, keyMsg("J"))
 
 		assert.Equal(t, screenArchive, after.screen)
-		assert.Equal(t, "agent:archived", archiveList().hovered(after))
+		assert.Equal(t, "agent:archived", after.archive.list().hovered(after.shared()))
 	})
 
 	t.Run("nobody's", func(t *testing.T) {

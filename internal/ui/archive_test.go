@@ -164,7 +164,7 @@ func TestArchiveKeys(t *testing.T) {
 				m.listing.workflows, m.listing.archivedAgents = nil, nil
 			}
 
-			updated, cmd := m.updateArchive(keyMsg(tt.key))
+			updated, cmd := archiveAdapter{}.update(m, keyMsg(tt.key))
 			pressed, ok := updated.(model)
 			require.True(t, ok)
 
@@ -260,10 +260,10 @@ func TestArchiveRows(t *testing.T) {
 				listing: listing{workflows: tt.live, archivedAgents: archivedItems(tt.agents), archivedWorkflows: tt.archived},
 			}
 
-			assert.Equal(t, tt.wantRows, describeRows(m.archiveRows()))
+			assert.Equal(t, tt.wantRows, describeRows(m.archive.listRows(m.shared())))
 
 			if tt.wantEmpty {
-				assert.Contains(t, m.archiveView(), "nothing archived")
+				assert.Contains(t, archiveAdapter{}.view(m), "nothing archived")
 			}
 		})
 	}
@@ -353,9 +353,7 @@ func TestArchiveDeleteConfirm(t *testing.T) {
 			client := &fakeArchiveAgents{}
 			m := archiveModel(client, &fakeArchiveWorkflows{}, config.DefaultKeybindings())
 
-			opened, _ := m.deleteFromArchiveConfirm(m.archivedAgents())
-			m, ok := opened.(model)
-			require.True(t, ok)
+			confirmDeleteArchived(&m, m.shared(), archivedAgentsOf(m.listing))
 			require.Equal(t, formArchiveDelete, m.form.kind)
 
 			answer := "n"
@@ -397,9 +395,7 @@ func TestArchiveDeleteWorkflowConfirm(t *testing.T) {
 			workflows := &fakeArchiveWorkflows{}
 			m := archiveModel(&fakeArchiveAgents{}, workflows, config.DefaultKeybindings())
 
-			opened, _ := m.deleteWorkflowConfirm(archivedWorkflow("w1", "backend"))
-			m, ok := opened.(model)
-			require.True(t, ok)
+			confirmDeleteWorkflow(&m, m.shared(), archivedWorkflow("w1", "backend"))
 			require.Equal(t, formArchiveDelete, m.form.kind)
 
 			answer := "n"
@@ -440,9 +436,7 @@ func TestArchiveEmptyConfirm(t *testing.T) {
 			client := &fakeArchiveAgents{}
 			m := archiveModel(client, &fakeArchiveWorkflows{}, config.DefaultKeybindings())
 
-			opened, _ := m.emptyArchiveConfirm()
-			m, ok := opened.(model)
-			require.True(t, ok)
+			confirmEmptyArchive(&m, m.shared())
 			require.Equal(t, formArchiveEmpty, m.form.kind)
 
 			answer := "n"
@@ -473,9 +467,7 @@ func TestEmptyArchivePromptStartsOnCancel(t *testing.T) {
 	keys := config.DefaultKeybindings()
 	m := archiveModel(client, &fakeArchiveWorkflows{}, keys)
 
-	opened, _ := m.emptyArchiveConfirm()
-	m, ok := opened.(model)
-	require.True(t, ok)
+	confirmEmptyArchive(&m, m.shared())
 
 	got := answerEmptyPrompt(t, m, formKeys().Submit[0])
 
@@ -564,11 +556,9 @@ func TestRefusedArchiveWritesAreReported(t *testing.T) {
 			name: "a refused delete",
 			act: func(t *testing.T, m model) model {
 				t.Helper()
-				opened, _ := m.deleteFromArchiveConfirm(m.archivedAgents())
-				got, ok := opened.(model)
-				require.True(t, ok)
+				confirmDeleteArchived(&m, m.shared(), archivedAgentsOf(m.listing))
 
-				return answerPrompt(t, got, "y")
+				return answerPrompt(t, m, "y")
 			},
 			wantSummary: `Could not delete agent "api-refactor"`,
 		},
@@ -600,21 +590,17 @@ func TestRefusedArchiveWritesAreReported(t *testing.T) {
 func pressRestore(t *testing.T, m model) model {
 	t.Helper()
 
-	updated, cmd := m.restoreFromArchive()
-	pressed, ok := updated.(model)
-	require.True(t, ok)
+	cmd := m.archive.restore(&m, m.shared())
 
-	return settle(t, pressed, cmd)
+	return settle(t, m, cmd)
 }
 
 func pressRestoreOpen(t *testing.T, m model) model {
 	t.Helper()
 
-	updated, cmd := m.restoreAndOpen()
-	pressed, ok := updated.(model)
-	require.True(t, ok)
+	cmd := m.archive.restoreAndOpen(&m, m.shared())
 
-	return settle(t, pressed, cmd)
+	return settle(t, m, cmd)
 }
 
 // TestArchiveView covers what the list renders, where an empty archive says so rather than
@@ -656,7 +642,7 @@ func TestArchiveView(t *testing.T) {
 			m.listing.archivedAgents = archivedItems(tt.agents)
 			m.listing.archivedWorkflows = tt.archived
 
-			view := ansi.Strip(m.archiveView())
+			view := ansi.Strip(archiveAdapter{}.view(m))
 			for _, want := range tt.wants {
 				assert.Contains(t, view, want)
 			}
@@ -691,7 +677,7 @@ func TestArchiveDrawsWhyADeleteLeftARowBehind(t *testing.T) {
 		Metadata:   []panel.Metadata{{Key: failureReasonKey, Value: "the worktree is dirty"}},
 	}})
 
-	drawn := m.archiveDocument(m.listing.archivedAgents[0].agent)
+	drawn := archiveDocument(m.shared(), m.listing.archivedAgents[0].agent)
 
 	assert.Contains(t, drawn, "teardown failed")
 	assert.Contains(t, drawn, "the worktree is dirty")
@@ -723,13 +709,13 @@ func TestArchiveDrawsTheAgentsRecord(t *testing.T) {
 		},
 	}}
 
-	rows := m.archiveSnapshot(m.width).Rows
+	rows := m.archive.snapshot(m.shared(), listPane{width: m.width}).Rows
 	require.Len(t, rows, 2)
 	row := rows[1]
 	assert.False(t, view.ForgeCell(row).IsBlank(), "the forge cell draws the merged pull request")
 	assert.False(t, view.ReviewCell(row).IsBlank(), "the review cell draws the approval")
 
-	got := m.archiveDetails()
+	got := m.archive.details(m.shared())
 	assert.Contains(t, got.fields, recordField{branchFieldKey, "agent/a1"})
 	assert.Contains(t, got.fields, recordField{pullRequestFieldKey, "#42 merged"})
 	labels := xslice.Map(got.fields, func(field recordField) string { return field.label })
@@ -750,7 +736,8 @@ func TestArchiveAsksForTheRecordAfterTheRest(t *testing.T) {
 	m.listing.archivedAgents[0].pullRequest = pullRequestStanding{state: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_MERGED, number: 740}
 	m.archive.cursor = 0
 
-	moved, cmd := archiveList().move(m, 1)
+	cmd := m.archive.list().move(&m, m.shared(), 1)
+	moved := m
 	require.NotNil(t, cmd, "a move schedules a rest")
 	assert.Equal(t, 1, moved.archive.cursor)
 	assert.False(t, moved.pullRequests.listed["a1"].pending, "nothing is asked for while the cursor is moving")
@@ -828,7 +815,7 @@ func TestArchiveRowsOrderByTheColumn(t *testing.T) {
 			m := archiveSortModel()
 			m.archive.sort = tt.state
 
-			assert.Equal(t, tt.want, xslice.Map(m.archiveRows(), agentRow.key))
+			assert.Equal(t, tt.want, xslice.Map(m.archive.listRows(m.shared()), agentRow.key))
 		})
 	}
 }
@@ -838,20 +825,20 @@ func TestArchiveRowsOrderByTheColumn(t *testing.T) {
 func TestArchiveTabsKeepTheCursorOnItsRow(t *testing.T) {
 	m := archiveSortModel()
 	m.archive.cursor = 2
-	require.Equal(t, "agent:alpha", archiveList().hovered(m))
+	require.Equal(t, "agent:alpha", m.archive.list().hovered(m.shared()))
 
 	tabbed := send(t, send(t, send(t, m, "f"), "tab"), "k")
 	assert.Equal(t, tabsState{chosen: "name", direction: tabUp, focused: true}, tabbed.archive.sort)
-	assert.Equal(t, "agent:alpha", archiveList().hovered(tabbed))
+	assert.Equal(t, "agent:alpha", tabbed.archive.list().hovered(tabbed.shared()))
 	assert.Equal(t, 1, tabbed.archive.cursor)
 
 	turned := send(t, tabbed, "j")
-	assert.Equal(t, "agent:alpha", archiveList().hovered(turned))
+	assert.Equal(t, "agent:alpha", turned.archive.list().hovered(turned.shared()))
 	assert.Equal(t, 3, turned.archive.cursor)
 
 	left := send(t, turned, "esc")
 	assert.Equal(t, tabsState{chosen: "name", direction: tabDown}, left.archive.sort)
-	assert.Equal(t, "agent:alpha", archiveList().hovered(left))
+	assert.Equal(t, "agent:alpha", left.archive.list().hovered(left.shared()))
 	assert.Equal(t, 3, left.archive.cursor)
 }
 
@@ -912,7 +899,7 @@ func archiveModel(agents agentv1connect.AgentServiceClient, workflows workflowv1
 				State:      panel.StateIdle,
 			}}),
 		},
-		archive: archiveState{rowCursor: rowCursor{cursor: 1}},
+		archive: archiveScreen{rowCursor: rowCursor{cursor: 1}},
 	}
 }
 
@@ -1065,7 +1052,7 @@ func TestArchiveDrawsTheDocumentBesideTheList(t *testing.T) {
 		assert.LessOrEqual(t, ansi.StringWidth(row), m.width, "neither column runs past the window")
 	}
 
-	m, _ = archiveList().jump(m, 0)
+	m.archive.list().jump(&m, m.shared(), 0)
 	assert.Contains(t, ansi.Strip(m.View()), "the shared notes", "the document follows the cursor onto the folder")
 }
 
@@ -1073,7 +1060,7 @@ func TestArchiveDrawsTheDocumentBesideTheList(t *testing.T) {
 // describe and so used to be the one document nothing hovered.
 func TestArchiveDrawsNothingArchivedBesideTheList(t *testing.T) {
 	m := splitArchiveModel(t)
-	m.archive = archiveState{}
+	m.archive = archiveScreen{}
 	m.listing.workflows = nil
 	m.listing.archivedAgents = nil
 	m.listing.archivedWorkflows = nil
@@ -1088,7 +1075,7 @@ func TestArchiveDrawsNothingArchivedBesideTheList(t *testing.T) {
 // in the panel's own frame: it moves, it says what is past each end, and it stops at both.
 func TestArchiveScrollsTheDocument(t *testing.T) {
 	m := splitArchiveModel(t)
-	m, _ = archiveList().jump(m, 0)
+	m.archive.list().jump(&m, m.shared(), 0)
 	m.listing.workflows = []panel.Workflow{{
 		ID:      "w1",
 		Name:    "backend",
@@ -1097,7 +1084,7 @@ func TestArchiveScrollsTheDocument(t *testing.T) {
 
 	split, ok := m.screenColumnSplit()
 	require.True(t, ok, "the archive holds the window")
-	require.Greater(t, len(paint.Panel.DocRows(m.archiveDoc(), split.column)), split.rows, "the document runs past the window")
+	require.Greater(t, len(paint.Panel.DocRows(m.archive.doc(m.shared()), split.column)), split.rows, "the document runs past the window")
 
 	top := ansi.Strip(m.View())
 	assert.NotRegexp(t, `↑ \d+ more`, top, "nothing is above the first screenful")
@@ -1128,11 +1115,11 @@ func TestArchiveCursorTakesTheDocumentBackToItsTop(t *testing.T) {
 	m := splitArchiveModel(t)
 	m.column.top = 12
 
-	m, _ = archiveList().move(m, -1)
+	m.archive.list().move(&m, m.shared(), -1)
 	assert.Zero(t, m.column.top, "the cursor landed on another row")
 
 	m.column.top = 12
-	m, _ = archiveList().move(m, -1)
+	m.archive.list().move(&m, m.shared(), -1)
 	assert.Equal(t, 12, m.column.top, "a cursor that could not move leaves the offset where it was")
 }
 
@@ -1160,7 +1147,7 @@ func TestArchiveHandsTheWindowBack(t *testing.T) {
 	}, alive: true}}
 	m.tree.cursor = 1
 
-	left, _ := m.updateArchive(keyMsg("esc"))
+	left, _ := archiveAdapter{}.update(m, keyMsg("esc"))
 	m, ok = left.(model)
 	require.True(t, ok)
 	assert.False(t, m.frame.IsSolo(), "leaving the archive for a running agent gives the other panes their share back")
@@ -1193,8 +1180,8 @@ func TestArchiveKeepsTheOffsetWhenARowSlides(t *testing.T) {
 	}}
 	m.applyArchive(archivedItems(held), nil, "")
 
-	rows := m.archiveRows()
-	m, _ = archiveList().jump(m, rowIndexOfKey(rows, agentRowKey("a2")))
+	rows := m.archive.listRows(m.shared())
+	m.archive.list().jump(&m, m.shared(), rowIndexOfKey(rows, agentRowKey("a2")))
 	m.column.top = 20
 
 	was := m.archive.cursor
@@ -1233,14 +1220,14 @@ func TestArchiveKeepsTheSplitInAShortPane(t *testing.T) {
 // its half of the window at every offset.
 func TestArchiveDocViewFillsItsColumn(t *testing.T) {
 	m := splitArchiveModel(t)
-	m, _ = archiveList().jump(m, 0)
+	m.archive.list().jump(&m, m.shared(), 0)
 	m.listing.workflows = []panel.Workflow{{
 		ID:      "w1",
 		Name:    "backend",
 		Context: strings.Repeat("a line of the document. ", 30),
 	}}
 
-	total := len(paint.Panel.DocRows(m.archiveDoc(), 60))
+	total := len(paint.Panel.DocRows(m.archive.doc(m.shared()), 60))
 	require.Greater(t, total, 5, "the document runs past every window this walks")
 
 	for rows := 1; rows <= 5; rows++ {
@@ -1313,8 +1300,8 @@ func archivedAgent(id, name, workflowID string) panel.Agent {
 func archiveLines(t *testing.T, m model) []view.Line {
 	t.Helper()
 
-	rows := m.archiveRows()
-	list := view.Prepare(m.archiveSnapshot(80))
+	rows := m.archive.listRows(m.shared())
+	list := view.Prepare(m.archive.snapshot(m.shared(), listPane{width: 80}))
 	require.Len(t, list.Lines, len(rows))
 
 	return list.Lines
@@ -1353,11 +1340,11 @@ func TestArchiveGreysWhatIsPutAway(t *testing.T) {
 func TestArchiveDrawsTheSameColumns(t *testing.T) {
 	m := archiveModel(&fakeArchiveAgents{}, &fakeArchiveWorkflows{}, config.DefaultKeybindings())
 
-	rows := m.archiveRows()
+	rows := m.archive.listRows(m.shared())
 	require.NotEmpty(t, rows)
 
 	live := view.Prepare(agentsSnapshot(snapshotParams{rows: m.agentRows(), pane: 200}))
-	assert.Equal(t, live.Columns, view.Prepare(m.archiveSnapshot(200)).Columns)
+	assert.Equal(t, live.Columns, view.Prepare(m.archive.snapshot(m.shared(), listPane{width: 200})).Columns)
 }
 
 // TestArchiveDrawsTheQuietBarExceptWhereADeleteFailed pins the archive's one state cell: an
@@ -1379,4 +1366,14 @@ func TestArchiveDrawsTheQuietBarExceptWhereADeleteFailed(t *testing.T) {
 // archivedItems is the archive listing built over bare agents.
 func archivedItems(agents []panel.Agent) []agentItem {
 	return xslice.Map(agents, func(agent panel.Agent) agentItem { return agentItem{agent: agent} })
+}
+
+// archiveChrome is the archive list as the root's own chrome reads it.
+func (m model) archiveChrome() listChrome {
+	return m.listChromeOf(m.archive.listParams(m.shared()))
+}
+
+// archiveHelp is the archive legend as the frame draws it.
+func (m model) archiveHelp() keyMap {
+	return m.archiveChrome().help(m)
 }

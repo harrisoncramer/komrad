@@ -516,7 +516,7 @@ func TestJumpToSearchHit(t *testing.T) {
 			rows, cursor := got.agentRows(), got.tree.cursor
 			if got.screen == screenArchive {
 				got.applyArchive(got.listing.archivedAgents, nil, "")
-				rows, cursor = got.archiveRows(), got.archive.cursor
+				rows, cursor = got.archive.listRows(got.shared()), got.archive.cursor
 			}
 
 			require.Less(t, cursor, len(rows))

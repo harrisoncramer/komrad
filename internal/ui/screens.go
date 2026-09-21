@@ -2,6 +2,7 @@ package ui
 
 import (
 	"weave/config"
+	agentv1 "weave/proto/gen/agent/v1"
 
 	tea "github.com/charmbracelet/bubbletea"
 )
@@ -138,7 +139,7 @@ func (s screen) adapter() screenModel {
 	case screenSchedules:
 		return schedulesAdapter{}
 	case screenArchive:
-		return archiveScreen{}
+		return archiveAdapter{}
 	case screenSearch:
 		return searchScreen{}
 	case screenReview:
@@ -165,6 +166,7 @@ func onKey(m model, msg tea.Msg, handle func(model, tea.KeyMsg) (tea.Model, tea.
 // host is what a screen asks of the root.
 type host interface {
 	writeCmd(summary string, write func(api) error) tea.Cmd
+	openingWriteCmd(summary string, write func(api) (*agentv1.Agent, error)) tea.Cmd
 	queuedCmd(summary string, queued message, write func(api) error) tea.Cmd
 	report(summary string, err error)
 	reportBrief(summary, detail string, err error)
@@ -217,6 +219,12 @@ type panelShared struct {
 	// inspections is what the service has answered for each worktree directory.
 	inspections map[string]worktreeInspection
 
+	// pullRequests is what the service has answered for each agent's branch.
+	pullRequests pullRequestsState
+
+	// runLogsDir is the directory the run logs are written under.
+	runLogsDir string
+
 	// draw is the frame the root draws a screen's own list, record and legend in.
 	draw drawer
 }
@@ -248,7 +256,9 @@ func (m *model) shared() panelShared {
 			form:         m.form,
 			helpExpanded: m.helpExpanded,
 		},
-		inspections: m.inspections,
-		draw:        m,
+		inspections:  m.inspections,
+		pullRequests: m.pullRequests,
+		runLogsDir:   m.settings.RunLogsDir,
+		draw:         m,
 	}
 }

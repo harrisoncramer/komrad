@@ -307,13 +307,13 @@ func TestFailedPlaceholderPointsAtTheLogWhenThereIsOne(t *testing.T) {
 
 	path := writeRun(t, m.settings.RunLogsDir, agent.ID, 1, config.TriggerProvision, "make-worktree")
 
-	withLog := m.failedPlaceholder(agent)
+	withLog := failedPlaceholder(m.shared(), agent)
 	assert.Contains(t, withLog, `Press "l"`)
 	assert.NotContains(t, withLog, "tmux refused", "the log already says why, so the reason is not repeated here")
 
 	require.NoError(t, os.Remove(path))
 
-	withoutLog := m.failedPlaceholder(agent)
+	withoutLog := failedPlaceholder(m.shared(), agent)
 	assert.Contains(t, withoutLog, "tmux refused", "nothing else is left to say why, so the reason falls back to here")
 }
 
@@ -332,7 +332,7 @@ func TestFailedPlaceholderPointsAtTheHookThatFailedTheCreate(t *testing.T) {
 	writeRun(t, m.settings.RunLogsDir, agent.ID, 1, config.TriggerProvision, "make-worktree")
 	writeRun(t, m.settings.RunLogsDir, agent.ID, 2, config.HookPreLaunch, "install-deps")
 
-	assert.Contains(t, m.failedPlaceholder(agent), "run 002", "the hook's run is the one that failed")
+	assert.Contains(t, failedPlaceholder(m.shared(), agent), "run 002", "the hook's run is the one that failed")
 }
 
 // TestFailedPlaceholderPointsAtTheHookThatFailedTheDelete pins the same thing on the way out,
@@ -350,7 +350,7 @@ func TestFailedPlaceholderPointsAtTheHookThatFailedTheDelete(t *testing.T) {
 	writeRun(t, m.settings.RunLogsDir, agent.ID, 1, config.TriggerProvision, "make-worktree")
 	writeRun(t, m.settings.RunLogsDir, agent.ID, 2, config.HookPreTeardown, "take-the-stack-down")
 
-	drawn := m.failedPlaceholder(agent)
+	drawn := failedPlaceholder(m.shared(), agent)
 	assert.Contains(t, drawn, "run 002", "the hook's run is the one that failed")
 	assert.NotContains(t, drawn, "docker refused", "the log says why, so the reason is not repeated here")
 }
@@ -370,7 +370,7 @@ func TestFailedPlaceholderSkipsARunWithNothingInIt(t *testing.T) {
 	empty := writeRun(t, m.settings.RunLogsDir, agent.ID, 1, config.TriggerProvision, "make-worktree")
 	require.NoError(t, os.Truncate(empty, 0))
 
-	assert.Contains(t, m.failedPlaceholder(agent), "tmux refused", "with nothing to read, the reason is what is left")
+	assert.Contains(t, failedPlaceholder(m.shared(), agent), "tmux refused", "with nothing to read, the reason is what is left")
 }
 
 // TestLogKeysAreInertInTheArchive pins that the archive draws its own two columns and none of

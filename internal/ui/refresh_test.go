@@ -366,7 +366,7 @@ func TestArchiveCursorHoldsItsAgentWhenAFolderGoes(t *testing.T) {
 				},
 			}),
 		},
-		archive: archiveState{rowCursor: rowCursor{cursor: 3}},
+		archive: archiveScreen{rowCursor: rowCursor{cursor: 3}},
 	}
 
 	m.applyRefresh(refreshResult{
@@ -386,7 +386,7 @@ func TestArchiveCursorHoldsItsAgentWhenAFolderGoes(t *testing.T) {
 		}),
 	})
 
-	selected, ok := m.selectedArchived()
+	selected, ok := m.archive.hoveredAgent(m.shared())
 	require.True(t, ok, "the cursor is on an archived agent")
 	assert.Equal(t, "infra-audit", selected.Name)
 }

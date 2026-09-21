@@ -188,7 +188,7 @@ func TestWorkflowRowShowsItsOrchestrator(t *testing.T) {
 
 			wantDoc := tt.wantDoc
 			if wantDoc == failedOrchestratorDoc {
-				wantDoc = m.failedPlaceholder(failedOrchestrator().agent)
+				wantDoc = failedPlaceholder(m.shared(), failedOrchestrator().agent)
 			}
 
 			rows := m.agentRows()

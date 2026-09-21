@@ -9,197 +9,199 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-// archiveActions is the archive screen as one table and the legend that names it.
-func archiveActions() actionSpec {
-	return actionSpec{
-		table:  archiveTable(),
-		legend: archiveLegend(),
+// actions is the archive screen as one table and the legend that names it.
+func (a *archiveScreen) actions() screenActionSpec {
+	return screenActionSpec{
+		table:  a.table(),
+		legend: a.legend(),
 	}
 }
 
-func archiveTable() []action {
-	list := archiveList()
+func (a *archiveScreen) table() []screenAction {
+	list := a.list()
 
 	return append(list.actions(),
-		action{
+		screenAction{
 			id:   actionRestoreSelected,
 			keys: func(k config.Keybindings) []string { return k.Archive.Restore },
 			when: list.isSelecting,
-			run:  model.restoreChosen,
+			run:  a.restoreChosen,
 		},
-		action{
+		screenAction{
 			id:   actionDeleteSelected,
 			keys: func(k config.Keybindings) []string { return k.Archive.Delete },
 			when: list.isSelecting,
-			run:  model.deleteChosen,
+			run:  a.deleteChosen,
 		},
-		action{
+		screenAction{
 			id:   actionArchiveBack,
 			keys: func(k config.Keybindings) []string { return k.Archive.Back },
 			when: list.isBrowsing,
-			run:  func(m model, _ string) (tea.Model, tea.Cmd) { return m.returnToAgents() },
+			run:  func(h host, _ panelShared, _ string) tea.Cmd { return h.enter(screenAgents, screenTarget{}) },
 		},
-		action{
+		screenAction{
 			id:   actionArchiveRestore,
 			keys: func(k config.Keybindings) []string { return k.Archive.Restore },
 			when: list.isBrowsing,
-			run:  func(m model, _ string) (tea.Model, tea.Cmd) { return m.restoreFromArchive() },
+			run:  func(h host, s panelShared, _ string) tea.Cmd { return a.restore(h, s) },
 		},
-		action{
+		screenAction{
 			id:   actionArchiveRestoreOpen,
 			keys: func(k config.Keybindings) []string { return k.Archive.RestoreOpen },
-			when: model.canArchiveRowOpen,
-			run:  func(m model, _ string) (tea.Model, tea.Cmd) { return m.restoreAndOpen() },
+			when: a.canRowOpen,
+			run:  func(h host, s panelShared, _ string) tea.Cmd { return a.restoreAndOpen(h, s) },
 		},
-		action{
+		screenAction{
 			id:   actionArchiveDelete,
 			keys: func(k config.Keybindings) []string { return k.Archive.Delete },
 			when: list.isBrowsing,
-			run:  model.deleteHovered,
+			run:  a.deleteHovered,
 		},
-		action{
+		screenAction{
 			id:   actionArchiveEmpty,
 			keys: func(k config.Keybindings) []string { return k.Archive.Empty },
 			when: list.isBrowsing,
-			run:  func(m model, _ string) (tea.Model, tea.Cmd) { return m.emptyArchiveConfirm() },
+			run:  func(h host, s panelShared, _ string) tea.Cmd { return confirmEmptyArchive(h, s) },
 		},
-		action{
+		screenAction{
 			id:   actionWorktreesOpen,
 			keys: func(k config.Keybindings) []string { return k.Worktrees.Open },
 			when: list.isBrowsing,
-			run:  func(m model, _ string) (tea.Model, tea.Cmd) { return m.openWorktrees(m.hoveredArchivedAgentID()) },
+			run: func(h host, s panelShared, _ string) tea.Cmd {
+				return h.enter(screenWorktrees, screenTarget{agentID: a.hoveredAgentID(s)})
+			},
 		},
 	)
 }
 
-func archiveLegend() []legendRow {
-	list := archiveList()
+func (a *archiveScreen) legend() []screenLegendRow {
+	list := a.list()
 
-	return slices.Concat(list.selectionLegend(), []legendRow{
+	return slices.Concat(list.selectionLegend(), []screenLegendRow{
 		{
 			of:   []actionID{actionRestoreSelected},
-			desc: func(model) string { return "restore all" },
+			desc: func(panelShared) string { return "restore all" },
 			show: list.isSelecting,
 		},
 		{
 			of:   []actionID{actionDeleteSelected},
-			desc: func(model) string { return "delete all for good" },
+			desc: func(panelShared) string { return "delete all for good" },
 			show: list.isSelecting,
 		},
 		{
 			of:    []actionID{actionArchiveRestore},
-			desc:  model.archiveRestoreDesc,
-			show:  model.doesArchiveHoldARow,
+			desc:  a.restoreDesc,
+			show:  a.holdsARow,
 			strip: true,
 		},
 		{
 			of:   []actionID{actionArchiveRestoreOpen},
-			desc: func(model) string { return "restore and open" },
-			show: model.canArchiveRowOpen,
+			desc: func(panelShared) string { return "restore and open" },
+			show: a.canRowOpen,
 		},
 		{
 			of:   []actionID{actionSelectToggle},
 			desc: list.toggleDesc,
-			show: model.doesArchiveHoldARow,
+			show: a.holdsARow,
 		},
 		{
 			of:   []actionID{actionArchiveDelete},
-			desc: func(model) string { return "delete for good" },
-			show: model.doesArchiveHoldAnAgent,
+			desc: func(panelShared) string { return "delete for good" },
+			show: a.holdsAnAgent,
 		},
 		{
 			of:   []actionID{actionArchiveEmpty},
-			desc: func(model) string { return "empty the archive" },
-			show: model.doesArchiveHoldAnAgent,
+			desc: func(panelShared) string { return "empty the archive" },
+			show: a.holdsAnAgent,
 		},
 		{
 			of:   []actionID{actionWorktreesOpen},
-			desc: func(model) string { return "worktrees" },
+			desc: func(panelShared) string { return "worktrees" },
 			show: list.isBrowsing,
 		},
 		{
 			of:   []actionID{actionFilterOpen},
-			desc: model.filterDesc,
+			desc: filterDescOf,
 		},
-	}, navLegend(), []legendRow{
+	}, screenNavLegend(), []screenLegendRow{
 		{
 			of:   []actionID{actionArchiveBack},
-			desc: func(model) string { return "back" },
+			desc: func(panelShared) string { return "back" },
 		},
 		{
 			of:    []actionID{actionFilterClear},
-			desc:  model.filterClearDesc,
+			desc:  filterClearDescOf,
 			strip: true,
 		},
 		{
 			of:    []actionID{actionFilterMatch},
-			desc:  func(model) string { return "next/prev match" },
+			desc:  func(panelShared) string { return "next/prev match" },
 			strip: true,
 		},
 	})
 }
 
-// doesArchiveHoldARow reports whether the cursor is on something the row keys can act on.
-func (m model) doesArchiveHoldARow() bool {
-	if _, ok := m.hoveredArchivedWorkflow(); ok {
-		return !m.archive.selected.isActive()
+// holdsARow reports whether the cursor is on something the row keys can act on.
+func (a *archiveScreen) holdsARow(s panelShared) bool {
+	if _, ok := a.hoveredWorkflow(s); ok {
+		return !a.selected.isActive()
 	}
 
-	return m.doesArchiveHoldAnAgent()
+	return a.holdsAnAgent(s)
 }
 
-// doesArchiveHoldAnAgent reports whether the cursor is on an archived agent rather than on the
-// folder holding one.
-func (m model) doesArchiveHoldAnAgent() bool {
-	if m.archive.selected.isActive() {
+// holdsAnAgent reports whether the cursor is on an archived agent rather than on the folder
+// holding one.
+func (a *archiveScreen) holdsAnAgent(s panelShared) bool {
+	if a.selected.isActive() {
 		return false
 	}
 
-	_, ok := m.selectedArchived()
+	_, ok := a.hoveredAgent(s)
 
 	return ok
 }
 
-func (m model) restoreChosen(string) (tea.Model, tea.Cmd) {
-	return m.restoreAgents(chosenAgents(m.archive.selected, m.archiveRows()))
+func (a *archiveScreen) restoreChosen(h host, s panelShared, _ string) tea.Cmd {
+	return restoreAgentsCmd(h, chosenAgents(a.selected, a.listRows(s)))
 }
 
-func (m model) deleteChosen(string) (tea.Model, tea.Cmd) {
-	return m.deleteFromArchiveConfirm(chosenAgents(m.archive.selected, m.archiveRows()))
+func (a *archiveScreen) deleteChosen(h host, s panelShared, _ string) tea.Cmd {
+	return confirmDeleteArchived(h, s, chosenAgents(a.selected, a.listRows(s)))
 }
 
-func (m model) deleteHovered(string) (tea.Model, tea.Cmd) {
-	if workflow, ok := m.hoveredArchivedWorkflow(); ok {
-		return m.deleteWorkflowConfirm(workflow)
+func (a *archiveScreen) deleteHovered(h host, s panelShared, _ string) tea.Cmd {
+	if workflow, ok := a.hoveredWorkflow(s); ok {
+		return confirmDeleteWorkflow(h, s, workflow)
 	}
 
-	agent, ok := m.selectedArchived()
+	agent, ok := a.hoveredAgent(s)
 	if !ok {
-		return m, nil
+		return nil
 	}
 
-	return m.deleteFromArchiveConfirm([]panel.Agent{agent})
+	return confirmDeleteArchived(h, s, []panel.Agent{agent})
 }
 
-func (m model) archiveRestoreDesc() string {
-	if _, ok := m.hoveredArchivedWorkflow(); ok {
+func (a *archiveScreen) restoreDesc(s panelShared) string {
+	if _, ok := a.hoveredWorkflow(s); ok {
 		return "restore workflow"
 	}
 
 	return "restore"
 }
 
-// canArchiveRowOpen reports whether the row under the cursor holds a conversation the panel can
-// put back in a pane.
-func (m model) canArchiveRowOpen() bool {
-	agent, ok := m.selectedArchived()
+// canRowOpen reports whether the row under the cursor holds a conversation the panel can put
+// back in a pane.
+func (a *archiveScreen) canRowOpen(s panelShared) bool {
+	agent, ok := a.hoveredAgent(s)
 
 	return ok && agent.State.DoesPaneDecide()
 }
 
-// hoveredArchivedAgentID is the archived agent under the cursor, empty on a folder.
-func (m model) hoveredArchivedAgentID() string {
-	agent, ok := m.selectedArchived()
+// hoveredAgentID is the archived agent under the cursor, empty on a folder.
+func (a *archiveScreen) hoveredAgentID(s panelShared) string {
+	agent, ok := a.hoveredAgent(s)
 	if !ok {
 		return ""
 	}

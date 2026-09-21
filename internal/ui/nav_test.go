@@ -92,7 +92,7 @@ func TestArchiveJumpKeys(t *testing.T) {
 		m := archiveSelectionTree()
 
 		after := pressArchive(t, m, keyMsg("G"))
-		assert.Equal(t, len(m.archiveRows())-1, after.archive.cursor)
+		assert.Equal(t, len(m.archive.listRows(m.shared()))-1, after.archive.cursor)
 	})
 
 	t.Run("jumping leaves the agents tree alone", func(t *testing.T) {

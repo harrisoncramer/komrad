@@ -219,7 +219,7 @@ type model struct {
 	tree          treeState
 	runHover      hoverState
 	schedules     schedulesScreen
-	archive       archiveState
+	archive       archiveScreen
 	worktrees     worktreesScreen
 	// inspections is what the service answered for each worktree directory.
 	inspections  map[string]worktreeInspection
