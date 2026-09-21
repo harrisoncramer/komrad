@@ -168,7 +168,7 @@ func NewServer(ctx context.Context, params NewServerParams) (*Server, error) {
 	return srv, nil
 }
 
-// CloseWatch ends every watch stream, which an HTTP drain would otherwise wait on.
+// CloseWatch ends every watch stream.
 func (s *Server) CloseWatch() {
 	s.Watch.Close()
 }

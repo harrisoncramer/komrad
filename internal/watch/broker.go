@@ -21,6 +21,12 @@ const DefaultCoalesce = 50 * time.Millisecond
 // subscriberBuffer is how many live events a watcher may fall behind before it is dropped.
 const subscriberBuffer = 1024
 
+// readTimeout is how long one read-back or snapshot may take.
+const readTimeout = 10 * time.Second
+
+// retryAfter is how long a render that failed to read waits before the next one tries again.
+const retryAfter = time.Second
+
 // ErrClosed says the broker has stopped and takes no more watchers.
 var ErrClosed = fail.Precondition("the watch broker is closed")
 
@@ -240,7 +246,9 @@ func (b *Broker) run() {
 			}
 		case <-window:
 			window = nil
-			b.render(ctx)
+			if !b.render(ctx) {
+				window = time.After(retryAfter)
+			}
 		case req := <-b.subscribes:
 			req.reply <- b.subscribe(ctx)
 		case subscription := <-b.unsubscribes:
@@ -255,18 +263,23 @@ func (b *Broker) run() {
 	}
 }
 
-// render reads back everything touched since the last one and sends it to every subscriber.
-func (b *Broker) render(ctx context.Context) {
+// render reads back everything touched since the last one and sends it to every subscriber,
+// reporting false when the read failed and the ids are back in the pending set.
+func (b *Broker) render(ctx context.Context) bool {
 	touched := b.takePending()
 	if len(b.subscribers) == 0 {
-		return
+		return true
 	}
 
-	events, err := b.reader.Read(ctx, touched)
+	readCtx, cancel := context.WithTimeout(ctx, readTimeout)
+	defer cancel()
+
+	events, err := b.reader.Read(readCtx, touched)
 	if err != nil {
 		b.logger.LogAttrs(ctx, slog.LevelError, "failed to read the rows a change touched", logging.Err(err)...)
+		b.restore(touched)
 
-		return
+		return false
 	}
 
 	for _, event := range events {
@@ -276,12 +289,34 @@ func (b *Broker) render(ctx context.Context) {
 			b.send(ctx, subscription, event)
 		}
 	}
+
+	return true
+}
+
+// restore puts the ids a failed render took back into the pending set for the next one.
+func (b *Broker) restore(touched Touched) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
+	for kind, ids := range map[Kind][]string{KindAgent: touched.Agents, KindWorkflow: touched.Workflows, KindSchedule: touched.Schedules} {
+		for _, id := range ids {
+			pending := b.pending[kind]
+			if pending == nil {
+				pending = map[string]struct{}{}
+				b.pending[kind] = pending
+			}
+			pending[id] = struct{}{}
+		}
+	}
 }
 
 // subscribe registers a watcher and hands it the snapshot, stamped with the seq of the last
-// render, so no render lands between the read and the registration.
+// render.
 func (b *Broker) subscribe(ctx context.Context) subscribeReply {
-	rows, err := b.reader.Snapshot(ctx)
+	readCtx, cancel := context.WithTimeout(ctx, readTimeout)
+	defer cancel()
+
+	rows, err := b.reader.Snapshot(readCtx)
 	if err != nil {
 		return subscribeReply{err: err}
 	}
