@@ -199,7 +199,7 @@ func TestAPausedRowSaysWhichThingIsTrue(t *testing.T) {
 	}
 }
 
-// heldSaid is the notices about the pause itself, which is what a row may only say once.
+// heldSaid is the notices about the pause itself.
 func heldSaid(said []string) []string {
 	kept := make([]string, 0, len(said))
 
@@ -280,8 +280,8 @@ func TestUnpausingInSilenceIsOnlyForAHeldAgent(t *testing.T) {
 	assert.Empty(t, agents.released)
 }
 
-// TestAPausedRowNamesTheWayOutOfThePause covers the legend a person holding only the panel reads
-// to find the release that says nothing, which is the whole recovery from a box that refuses.
+// TestAPausedRowNamesTheWayOutOfThePause covers the legend a person holding only the panel reads to
+// find the release that says nothing.
 func TestAPausedRowNamesTheWayOutOfThePause(t *testing.T) {
 	at := time.Now()
 

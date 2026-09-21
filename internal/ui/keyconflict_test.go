@@ -145,7 +145,7 @@ func TestGlobalArmsAnswerForEveryKeyTheRouterTakes(t *testing.T) {
 			}
 
 			for _, pressed := range pressable {
-				// A fresh model every press, since an arm that answered will have moved the panel on.
+				// A fresh model every press.
 				_, _, taken := driftModel(t, s).routeGlobalKey(keyMsgOf(t, pressed))
 				if !taken {
 					continue

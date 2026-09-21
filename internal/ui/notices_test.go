@@ -217,8 +217,7 @@ func TestNoticesCutTheFirstOneShort(t *testing.T) {
 	assert.NotContains(t, drawn, "log unread")
 }
 
-// TestNoticesStayInsideTheColumn covers the cut line, which is the one place the record draws
-// prose it does not clip: the ellipsis has to sit inside the column rather than a cell past it.
+// TestNoticesStayInsideTheColumn covers the cut line.
 func TestNoticesStayInsideTheColumn(t *testing.T) {
 	for width := 16; width <= 120; width++ {
 		m := detailsModel(&recordingTmux{})

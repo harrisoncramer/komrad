@@ -209,9 +209,8 @@ func plain(rendered string) string {
 
 var colourEscape = regexp.MustCompile("\x1b\\[[0-9;]*m")
 
-// TestScheduleMarkdown covers the document the stage pages beside the list: when the schedule
-// next fires, and the prompt each run is launched with, which is the part of a schedule long
-// enough to want a pane of its own.
+// TestScheduleMarkdown covers the document the stage pages beside the list: when the schedule next
+// fires, and the prompt each run is launched with.
 func TestScheduleMarkdown(t *testing.T) {
 	next := time.Date(2026, time.July, 28, 9, 0, 0, 0, time.Local)
 
@@ -307,9 +306,8 @@ func TestScheduleMarkdown(t *testing.T) {
 	}
 }
 
-// TestScheduleFields covers what the details under the list draw for a schedule: its own
-// settings first, then the defaults of the workflow it fires into, which is what each run is
-// launched with.
+// TestScheduleFields covers what the details under the list draw for a schedule: its own settings
+// first, then the defaults of the workflow it fires into.
 func TestScheduleFields(t *testing.T) {
 	sched := schedulestore.Schedule{
 		Name:     "morning-ci",
@@ -599,8 +597,8 @@ var namedKeys = map[string]tea.KeyType{
 	"shift+tab": tea.KeyShiftTab,
 }
 
-// TestScheduleName covers matching the schedule an agent came from against the list
-// the panel polls, which is what the record in the stage names.
+// TestScheduleName covers matching the schedule an agent came from against the list the panel
+// polls.
 func TestScheduleName(t *testing.T) {
 	tests := []struct {
 		name  string

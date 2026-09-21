@@ -34,8 +34,7 @@ func tallReview(t *testing.T) (model, *fakeReviewAgents) {
 }
 
 // TestExpandDrawsTheLinesThePatchLeftOut covers the whole point of the key: the file's own text
-// above and below the hunk, which is where the reader has to go to judge whether the change is
-// right.
+// above and below the hunk.
 func TestExpandDrawsTheLinesThePatchLeftOut(t *testing.T) {
 	m, _ := tallReview(t)
 
@@ -48,8 +47,7 @@ func TestExpandDrawsTheLinesThePatchLeftOut(t *testing.T) {
 	assert.Contains(t, after, "import \"fmt\"", "and the lines above it")
 }
 
-// TestExpandGivesTheChangesBackAgain covers the key being a toggle, since a reader who opened a
-// long file out needs the tight view back without leaving the screen.
+// TestExpandGivesTheChangesBackAgain covers the key being a toggle.
 func TestExpandGivesTheChangesBackAgain(t *testing.T) {
 	m, _ := tallReview(t)
 
@@ -77,9 +75,7 @@ func TestExpandKeepsTheCursorOnItsLine(t *testing.T) {
 	assert.Equal(t, before, after, "the cursor is standing on the line it was standing on")
 }
 
-// TestExpansionSurvivesCatchingUp covers a reload, which is what happens when the reader catches
-// up with the agent: losing the file they had opened out on every catch-up would make the key not
-// worth pressing on a change they had to think about.
+// TestExpansionSurvivesCatchingUp covers a reload.
 func TestExpansionSurvivesCatchingUp(t *testing.T) {
 	m, _ := tallReview(t)
 
@@ -155,8 +151,7 @@ func rowOfNewLine(t *testing.T, m model, line int) int {
 	return 0
 }
 
-// reloadReview runs the load the catch-up key asks for and applies what it answered, which is the
-// path a reader takes when the agent has written since they opened the diff.
+// reloadReview runs the load the catch-up key asks for and applies what it answered.
 func reloadReview(t *testing.T, m model) model {
 	t.Helper()
 
@@ -278,8 +273,7 @@ func TestFoldingAnExpandedFileStaysFolded(t *testing.T) {
 	assert.True(t, reloaded.review.view.IsViewed(fakeTallFile), "and it is still read after a reload")
 }
 
-// patchFingerprint is the fingerprint a load computed for a file, which is the one a mark has to
-// match to survive.
+// patchFingerprint is the fingerprint a load computed for a file.
 func patchFingerprint(t *testing.T, loaded reviewLoadedMsg, path string) string {
 	t.Helper()
 

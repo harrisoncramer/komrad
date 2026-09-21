@@ -17,8 +17,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// checkoutWorkflow is a workflow weave cuts a worktree from, which is what gives the agents
-// under it a checkout of their own.
+// checkoutWorkflow is a workflow weave cuts a worktree from.
 func checkoutWorkflow() workflowstore.Workflow {
 	return workflowstore.Workflow{
 		ID:       "w1",
@@ -34,8 +33,7 @@ func snapshotOne(t *testing.T, item agentItem) view.Row {
 	return snapshotRowOf(t, snapshotParams{rows: []agentRow{{item: item, workflow: checkoutWorkflow()}}})
 }
 
-// snapshotRunning reads one row whose agent is running and doing nothing, which is the row every
-// mark below is hung on.
+// snapshotRunning reads one row whose agent is running and doing nothing.
 func snapshotRunning(t *testing.T, item agentItem) view.Row {
 	t.Helper()
 
@@ -402,8 +400,8 @@ func TestSnapshotMarksOnARow(t *testing.T) {
 	}
 }
 
-// TestSnapshotProcess pins the difference between an agent sitting quiet and one whose process
-// has stopped, which is the one thing the state it wears cannot say.
+// TestSnapshotProcess pins the difference between an agent sitting quiet and one whose process has
+// stopped.
 func TestSnapshotProcess(t *testing.T) {
 	tests := []struct {
 		name string
@@ -609,8 +607,7 @@ func TestSnapshotPlainWorkflowKeepsItsColumns(t *testing.T) {
 	assert.False(t, view.ReviewCell(row).IsBlank())
 }
 
-// TestSnapshotHiddenTally pins the count a row stands in for, which is nothing at all once the
-// rows it stands for are drawn themselves.
+// TestSnapshotHiddenTally pins the count a row stands in for.
 func TestSnapshotHiddenTally(t *testing.T) {
 	tests := []struct {
 		name       string

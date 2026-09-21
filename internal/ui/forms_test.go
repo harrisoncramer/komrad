@@ -1288,18 +1288,16 @@ func TestWorkflowFormScrollsToFitTheTerminal(t *testing.T) {
 	})
 	sizeForm(form, terminal)
 
-	// huh draws its help line outside the height it is told about, which is the one row a form
-	// drawn in the whole of a short pane runs over by.
+	// huh draws its help line outside the height it is told about.
 	lines := strings.Count(form.View(), "\n") + 1
 	assert.LessOrEqual(t, lines, terminal+1, "the form is drawn inside the terminal it was sized against")
 	assert.Contains(t, form.View(), "Workflow name", "and opens at the top of itself")
 }
 
-// formColumnWidth is what these forms are measured in, which is about what the panel's own
-// column comes to on a wide terminal.
+// formColumnWidth is what these forms are measured in.
 const formColumnWidth = 80
 
-// sizeForm starts a form and tells it how much room it has, which is how the panel sizes one.
+// sizeForm starts a form and tells it how much room it has.
 func sizeForm(form *huh.Form, height int) {
 	form.Init()
 	form.Update(tea.WindowSizeMsg{Width: formColumnWidth, Height: height})
@@ -1512,7 +1510,7 @@ func TestRefreshAffirmativeNamesWhatRuns(t *testing.T) {
 }
 
 // TestRefreshWarning covers each thing the confirmation is there to say, and the ordinary case
-// saying nothing, since a warning shown every time is one nobody reads.
+// saying nothing.
 func TestRefreshWarning(t *testing.T) {
 	t.Parallel()
 

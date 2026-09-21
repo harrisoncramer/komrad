@@ -21,8 +21,7 @@ import (
 // updateGoldens rewrites the golden files.
 var updateGoldens = flag.Bool("update", false, "rewrite the golden files")
 
-// TestNoticeBlockGolden draws the record's notice block whole, which is where a glyph gone wrong
-// shows up as itself rather than as a name in an assertion.
+// TestNoticeBlockGolden draws the record's notice block whole.
 func TestNoticeBlockGolden(t *testing.T) {
 	restore := lipgloss.ColorProfile()
 	t.Cleanup(func() { lipgloss.SetColorProfile(restore) })

@@ -90,8 +90,8 @@ func TestSearchTakesTheWindow(t *testing.T) {
 	assert.False(t, left.frame.IsSolo(), "the panes have their share back")
 }
 
-// TestSearchPreviewOpensOnTheMatch covers the window opening where the hit was found rather than
-// at the top of the transcript, which is what the pager it replaced was positioned for.
+// TestSearchPreviewOpensOnTheMatch covers the window opening where the hit was found rather than at
+// the top of the transcript.
 func TestSearchPreviewOpensOnTheMatch(t *testing.T) {
 	m, _ := searchPreviewModel(t)
 
@@ -159,8 +159,7 @@ func TestSearchPreviewFollowsTheCursor(t *testing.T) {
 	assert.Contains(t, ansi.Strip(m.searchPreviewView(previewSplit(t, m))), "the reconcile loop")
 }
 
-// TestSearchDrawsBothHalves covers the two columns being joined into one frame, which is what
-// used to be the panel beside a pane running less.
+// TestSearchDrawsBothHalves covers the two columns being joined into one frame.
 func TestSearchDrawsBothHalves(t *testing.T) {
 	m, _ := searchPreviewModel(t)
 
@@ -232,7 +231,7 @@ func TestSearchWithoutTheRoomDrawsTheHitsAlone(t *testing.T) {
 }
 
 // TestSearchPreviewWithoutATranscript covers a hit on an agent whose conversation has not been
-// written yet, which is drawn in the column rather than left as an empty half.
+// written yet.
 func TestSearchPreviewWithoutATranscript(t *testing.T) {
 	m, _ := searchPreviewModel(t)
 
@@ -312,9 +311,8 @@ func TestSearchPreviewDrawsOnceThereIsRoom(t *testing.T) {
 	assert.NotEmpty(t, grown.search.preview.doc.rows, "the rows it was owed are drawn")
 }
 
-// TestSearchHandsTheWindowBackToALandingWrite covers a create that comes back while the search
-// is up: the write puts the new agent's own pane on screen, which is the one thing a zoom the
-// search never let go of would cover.
+// TestSearchHandsTheWindowBackToALandingWrite covers a create that comes back while the search is
+// up: the write puts the new agent's own pane on screen.
 func TestSearchHandsTheWindowBackToALandingWrite(t *testing.T) {
 	m, tmux := searchPreviewModel(t)
 	require.True(t, m.frame.IsSolo())

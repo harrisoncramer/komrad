@@ -48,8 +48,7 @@ func pressOlderLog(t *testing.T, m model) model {
 	return panel
 }
 
-// writeRun leaves one run of a script on disk for an agent, which is what the panel reads
-// instead of a file per kind.
+// writeRun leaves one run of a script on disk for an agent.
 func writeRun(t *testing.T, dir, agentID string, number int, trigger, script string) string {
 	t.Helper()
 
@@ -211,8 +210,8 @@ func TestRunLogContentWithNoAgentSelected(t *testing.T) {
 	assert.Contains(t, content.Key, "select an agent")
 }
 
-// TestAgentLogContentExportsTheAgentID pins that the agent log viewer is handed both the log
-// path and the agent's id, which is what a filtering viewer needs.
+// TestAgentLogContentExportsTheAgentID pins that the agent log viewer is handed both the log path
+// and the agent's id.
 func TestAgentLogContentExportsTheAgentID(t *testing.T) {
 	tmux := &recordingTmux{}
 	m, path := logsModel(t, tmux)

@@ -14,8 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// realFrame is the frame laid out on a tmux server of its own, which is the only place the zoom
-// these tests are about is real: a fake answers for the zoom from the field weave set.
+// realFrame is the frame laid out on a tmux server of its own.
 func realFrame(t *testing.T) (*Frame, *tmuxtest.Server, string) {
 	t.Helper()
 

@@ -127,7 +127,7 @@ func TestTheFrameCoversThePane(t *testing.T) {
 	tmux := &recordingTmux{}
 	m := sizedTo(infoModel(tmux), tmux)
 
-	// The running agent, whose own pane takes the window back, which is the short frame.
+	// The running agent, whose own pane takes the window back.
 	m.tree.cursor = 1
 	m.stageSelection()
 
@@ -152,7 +152,7 @@ func TestSchedulesDrawTheHoveredRecord(t *testing.T) {
 	assert.Empty(t, tmux.respawns, "nothing is pushed into a pane to put it there")
 }
 
-// paneless is the panel on a row with no pane of its own, which is where it holds the window.
+// paneless is the panel on a row with no pane of its own.
 func paneless(t *testing.T) (model, *recordingTmux) {
 	t.Helper()
 
@@ -185,8 +185,7 @@ func TestAHandMovedPaneCorrectsTheFrame(t *testing.T) {
 	assert.False(t, m.frame.IsSolo(), "the frame is told what tmux did rather than assuming")
 	assert.Equal(t, m.width, m.paneWidth(), "so the list is drawn in the share of the frame it has")
 
-	// The panel wants the window on this row, so it takes it back on the next pass, which is the
-	// behaviour before this branch and what #385 accepts by removing the key that fought it.
+	// The panel wants the window on this row, so it takes it back on the next pass.
 	tmux.keysElsewhere = false
 	m.applyRefresh(refreshResult{})
 
@@ -199,7 +198,7 @@ func TestAnUnfocusedTerminalKeepsTheWindow(t *testing.T) {
 	m, _ := paneless(t)
 	before := m.View()
 
-	// The keys have not moved, which is what separates this from the case above.
+	// The keys have not moved.
 	left, _ := m.route(tea.BlurMsg{})
 	m = asModel(t, left)
 
@@ -500,9 +499,7 @@ func draggedTo(t *testing.T, m model, tmux *recordingTmux, sidebar, stage int) m
 }
 
 // TestASplitAgentsListIsLaidOutAgainstItsOwnColumn covers the list the panel draws beside a
-// document being fitted to the column it is drawn in rather than to the whole window, since a row
-// laid out against the window is squared off by the frame afterwards and loses its marks before
-// its name.
+// document being fitted to the column it is drawn in rather than to the whole window.
 func TestASplitAgentsListIsLaidOutAgainstItsOwnColumn(t *testing.T) {
 	withColor(t)
 

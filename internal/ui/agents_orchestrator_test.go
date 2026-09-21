@@ -251,8 +251,7 @@ func TestFocusAloneStartsNothing(t *testing.T) {
 	assert.Empty(t, agents.started)
 }
 
-// TestASearchHitLandsOnTheWorkflowRow pins where a hit on a folded orchestrator goes, since it
-// has no row of its own to jump to.
+// TestASearchHitLandsOnTheWorkflowRow pins where a hit on a folded orchestrator goes.
 func TestASearchHitLandsOnTheWorkflowRow(t *testing.T) {
 	worker := agentItem{agent: agentstore.Agent{
 		ID: "a1", Name: "telescope", State: agentstore.StateIdle, WorkflowID: "w1",
@@ -268,8 +267,7 @@ func TestASearchHitLandsOnTheWorkflowRow(t *testing.T) {
 	assert.Equal(t, "w1", rows[m.tree.cursor].workflow.ID)
 }
 
-// TestArchiveDrawsAnOrchestratorOfItsOwn pins the one screen that must show one, since an
-// archived orchestrator is otherwise invisible everywhere.
+// TestArchiveDrawsAnOrchestratorOfItsOwn pins the one screen that must show one.
 func TestArchiveDrawsAnOrchestratorOfItsOwn(t *testing.T) {
 	rows := treeRows(treeRowsParams{
 		workflows:  []workflowstore.Workflow{{ID: "w1", Name: "backend"}},
@@ -294,8 +292,8 @@ func TestTheWorkflowRowNamesItsOrchestratorsPane(t *testing.T) {
 	assert.Equal(t, "claude", harness)
 }
 
-// TestCreatingAWorkflowStartsItsOrchestrator pins that a workflow made in the panel comes with
-// the agent that stands behind it, rather than waiting for a key on its row.
+// TestCreatingAWorkflowStartsItsOrchestrator pins that a workflow made in the panel comes with the
+// agent that stands behind it.
 func TestCreatingAWorkflowStartsItsOrchestrator(t *testing.T) {
 	agents := &recordingOrchestrators{}
 
@@ -307,8 +305,8 @@ func TestCreatingAWorkflowStartsItsOrchestrator(t *testing.T) {
 	assert.Equal(t, []string{"w2"}, agents.started)
 }
 
-// TestCreatingAWorkflowStandsWhenItsOrchestratorWillNot pins that a refused orchestrator leaves
-// the workflow, since the workflow is what the person asked for.
+// TestCreatingAWorkflowStandsWhenItsOrchestratorWillNot pins that a refused orchestrator leaves the
+// workflow.
 func TestCreatingAWorkflowStandsWhenItsOrchestratorWillNot(t *testing.T) {
 	agents := &recordingOrchestrators{err: errors.New("the person refused the directory")}
 

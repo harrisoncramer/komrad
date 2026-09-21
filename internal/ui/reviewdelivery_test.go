@@ -12,8 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// pinnedThread is a thread standing on the line the cursor is on, carrying whatever was said in
-// it, which is what the sidebar draws under the cursor.
+// pinnedThread is a thread standing on the line the cursor is on, carrying whatever was said in it.
 func pinnedThread(t *testing.T, m model, messages ...*agentv1.ReviewMessage) []*agentv1.ReviewThread {
 	t.Helper()
 
@@ -253,7 +252,7 @@ func TestReviewVerdictIsChosenInThePanel(t *testing.T) {
 }
 
 // TestAReviewCarriesAWordAboutTheWholeThing covers the panel's other half: a comment that belongs
-// to no line goes with the review, which is the thing pinning every note to a line cannot say.
+// to no line goes with the review.
 func TestAReviewCarriesAWordAboutTheWholeThing(t *testing.T) {
 	dir := reviewRepo(t)
 	agents := &fakeReviewAgents{}

@@ -34,8 +34,8 @@ func TestReviewDrawsTheAgentRecord(t *testing.T) {
 	assert.Contains(t, bottom, "snapshot", "the commit the diff on screen was frozen as")
 }
 
-// TestReviewRecordNamesWhatTheDiffIsAgainst covers the record naming the two commits the diff
-// was taken between, which is what the agent can run for itself.
+// TestReviewRecordNamesWhatTheDiffIsAgainst covers the record naming the two commits the diff was
+// taken between.
 func TestReviewRecordNamesWhatTheDiffIsAgainst(t *testing.T) {
 	dir := reviewRepo(t)
 	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
@@ -125,8 +125,7 @@ func TestReviewDimsTheCursorWhileTheRecordHasTheKeys(t *testing.T) {
 }
 
 // TestReviewRecordGivesWayInASmallPane covers the record being the first thing dropped, with an
-// earlier review to measure from, since the legend is a row longer in that case and it is the case
-// the pane is least likely to hold.
+// earlier review to measure from.
 func TestReviewRecordGivesWayInASmallPane(t *testing.T) {
 	agents := &fakeReviewAgents{}
 	m := reviewWithAnEarlierReview(t, newFakeRepo(t.TempDir()), agents)
@@ -159,7 +158,7 @@ func TestReviewRecordCannotTakeTheKeysWhileItIsDropped(t *testing.T) {
 	refused := next.(model)
 	assert.False(t, refused.isDetailsFocused(), "so the record cannot take the keys")
 
-	// The diff still has them, which is the whole point of refusing.
+	// The diff still has them.
 	cursor := refused.review.cursor
 	next, _ = refused.Update(keyMsg("j"))
 	assert.Greater(t, next.(model).review.cursor, cursor)

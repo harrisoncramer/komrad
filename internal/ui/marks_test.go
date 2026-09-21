@@ -182,7 +182,7 @@ func TestSetMarkEscapes(t *testing.T) {
 }
 
 // TestSetMarkOwnsTheKeyAfterIt pins the letter being read as a mark even when it is a key the
-// screen otherwise acts on, which is what makes every letter reachable.
+// screen otherwise acts on.
 func TestSetMarkOwnsTheKeyAfterIt(t *testing.T) {
 	agents := &fakeMarkAgents{}
 	m := markTree()

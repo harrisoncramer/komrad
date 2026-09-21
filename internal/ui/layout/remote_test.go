@@ -59,8 +59,8 @@ func TestRemoteGuestIsNotTrackedAsAGuest(t *testing.T) {
 	assert.Empty(t, frame.GuestPane())
 }
 
-// TestFocusPaneIsEmptyOnceTheStageShowsSomethingElse covers the key being given back when the
-// stage stops holding an agent, which is what stops it stealing the key from the panes.
+// TestFocusPaneIsEmptyOnceTheStageShowsSomethingElse covers the key being given back when the stage
+// stops holding an agent.
 func TestFocusPaneIsEmptyOnceTheStageShowsSomethingElse(t *testing.T) {
 	tmux := &recordingTmux{width: 80, height: 40}
 	frame := New(tmux, config.DefaultLayout(), WithEngine(remoteEngine()))
