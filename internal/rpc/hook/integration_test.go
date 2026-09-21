@@ -12,8 +12,8 @@ import (
 	hookv1weave "weave/proto/gen/hook/v1/hookv1weave"
 
 	"weave/config"
-	"weave/internal/agents"
 	"weave/internal/interceptors"
+	"weave/internal/scriptrun"
 	"weave/internal/scripts"
 	"weave/internal/store"
 	hookv1 "weave/proto/gen/hook/v1"
@@ -78,7 +78,7 @@ func hookClient(t *testing.T, p hookClientParams) hookv1connect.HookServiceClien
 	validation, err := interceptors.NewValidation()
 	require.NoError(t, err)
 
-	service := agents.NewScriptService(agents.NewScriptServiceParams{
+	service := scriptrun.NewScriptService(scriptrun.NewScriptServiceParams{
 		Agents:    fakeAgents{cwd: p.work},
 		Workflows: fakeWorkflows{},
 		Tmux:      fakePanes{},

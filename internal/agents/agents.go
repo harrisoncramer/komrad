@@ -5,7 +5,6 @@ import (
 	"errors"
 	"log/slog"
 	"slices"
-	"strings"
 
 	"weave/internal/fail"
 	"weave/internal/logging"
@@ -14,6 +13,7 @@ import (
 	"weave/lib/xslice"
 
 	"weave/internal/harness"
+	"weave/internal/scriptrun"
 	"weave/internal/scripts"
 	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
@@ -22,7 +22,7 @@ import (
 var (
 	ErrAgentNotFound        = fail.NotFound("agent not found")
 	ErrWorkflowNotFound     = fail.NotFound("workflow not found")
-	ErrBadDirectory         = fail.InvalidArgument("unusable working directory")
+	ErrBadDirectory         = scripts.ErrBadDirectory
 	ErrTooManyAgents        = fail.Exhausted("too many agents")
 	ErrAgentArchived        = fail.Precondition("agent is archived")
 	ErrSpawnerUnknown       = fail.InvalidArgument("the spawning agent is not one this panel knows")
@@ -52,12 +52,15 @@ var (
 
 	// ErrAlreadyLaunched says an idempotency key was already spent on an agent that launched, and
 	// is returned alongside that agent rather than instead of it.
-	ErrAlreadyLaunched     = fail.AlreadyExists("this idempotency key already launched an agent")
-	ErrHarnessUnknown      = harness.ErrNotRegistered
-	ErrScriptNotFound      = scripts.ErrScriptNotFound
-	ErrScriptNotExecutable = scripts.ErrNotExecutable
-	ErrScriptNotStartable  = scripts.ErrNotStartable
-	ErrScriptDirMissing    = scripts.ErrDirMissing
+	ErrAlreadyLaunched      = fail.AlreadyExists("this idempotency key already launched an agent")
+	ErrHarnessUnknown       = harness.ErrNotRegistered
+	ErrScriptNotFound       = scripts.ErrScriptNotFound
+	ErrScriptNotExecutable  = scripts.ErrNotExecutable
+	ErrScriptNotStartable   = scripts.ErrNotStartable
+	ErrScriptDirMissing     = scripts.ErrDirMissing
+	ErrProvisionFailed      = scriptrun.ErrProvisionFailed
+	ErrHookFailed           = scriptrun.ErrHookFailed
+	ErrScriptAlreadyRunning = scriptrun.ErrScriptAlreadyRunning
 )
 
 type (
@@ -343,8 +346,6 @@ func workflowFor(ctx context.Context, workflows workflowReader, agent agentstore
 	return wf
 }
 
-const maxFailureReasonLen = 480
-
 // failAs marks an agent as having failed create or cleanup and leaves the row where it was.
 func failAs(ctx context.Context, agents agentFailWriter, agent agentstore.Agent, state agentstore.State, verb string, cause error) { //nolint:revive // a params struct is the follow-up
 	agent.State = state
@@ -358,7 +359,7 @@ func failAs(ctx context.Context, agents agentFailWriter, agent agentstore.Agent,
 		return
 	}
 
-	reason := failureReason(cause)
+	reason := store.FailureReason(cause)
 	if _, err := agents.SetMetadata(ctx, agentstore.SetMetadataParams{
 		ID:    agent.ID,
 		Key:   "error",
@@ -370,22 +371,6 @@ func failAs(ctx context.Context, agents agentFailWriter, agent agentstore.Agent,
 				slog.String(logging.LifecycleAction, verb),
 			}, logging.Err(err)...)...)
 	}
-}
-
-// failureReason is a cause as a row can hold it, cut and scrubbed of what Postgres refuses in a
-// text column.
-func failureReason(cause error) string {
-	if cause == nil {
-		return ""
-	}
-
-	text := strings.ToValidUTF8(strings.ReplaceAll(cause.Error(), "\x00", ""), "")
-	text = strings.Join(strings.Fields(text), " ")
-	if len(text) > maxFailureReasonLen {
-		text = strings.ToValidUTF8(text[:maxFailureReasonLen], "")
-	}
-
-	return text
 }
 
 const namedMissing = 5

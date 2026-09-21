@@ -10,6 +10,7 @@ package store
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"weave/db"
 	"weave/db/models"
@@ -192,4 +193,22 @@ func NewID() (string, error) {
 	}
 
 	return id.String(), nil
+}
+
+const maxFailureReasonLen = 480
+
+// FailureReason is a cause as a text column can hold it, cut and scrubbed of what Postgres
+// refuses.
+func FailureReason(cause error) string {
+	if cause == nil {
+		return ""
+	}
+
+	text := strings.ToValidUTF8(strings.ReplaceAll(cause.Error(), "\x00", ""), "")
+	text = strings.Join(strings.Fields(text), " ")
+	if len(text) > maxFailureReasonLen {
+		text = strings.ToValidUTF8(text[:maxFailureReasonLen], "")
+	}
+
+	return text
 }

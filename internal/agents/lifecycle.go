@@ -11,6 +11,7 @@ import (
 	"weave/config"
 	"weave/internal/frames"
 	"weave/internal/logging"
+	"weave/internal/scripts"
 	"weave/internal/store"
 	"weave/lib/xslice"
 	"weave/lib/xstr"
@@ -177,7 +178,7 @@ func (s *LifecycleService) DeleteAgents(ctx context.Context, ids []string) error
 // lets the deprovisioner take it away.
 func (s *LifecycleService) tearDown(ctx context.Context, agent agentstore.Agent, hooks []workflowstore.Hook, deprovisioner string, done func(error)) { //nolint:revive // a params struct is the follow-up
 	// A hook has nothing to run against once the directory has gone.
-	if requireUsableDir(agent.Cwd) == nil {
+	if scripts.RequireUsableDir(agent.Cwd) == nil {
 		// The deprovisioner waits until the teardown has worked.
 		if err := runHooks(ctx, hookRunParams{
 			scripts: s.scripts,

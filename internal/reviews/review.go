@@ -12,6 +12,7 @@ import (
 	"weave/internal/fail"
 	"weave/internal/logging"
 	"weave/internal/mail"
+	"weave/internal/scriptrun"
 	"weave/internal/store"
 	agentstore "weave/internal/store/agent"
 	mailstore "weave/internal/store/mail"
@@ -409,7 +410,7 @@ func (s *ReviewService) AddReviewMessage(
 
 // resumeWakeTimeout bounds a wake nobody is waiting on, so a post-resume hook that hangs cannot
 // leave one running for the life of the panel.
-const resumeWakeTimeout = agents.HookTimeout + 5*time.Minute
+const resumeWakeTimeout = scriptrun.HookTimeout + 5*time.Minute
 
 // wakeTheReviewer puts a reviewer back in a pane, on its own so the workflow's post-resume hook
 // does not hold up the agent writing the answer.

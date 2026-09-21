@@ -18,6 +18,7 @@ import (
 	"weave/internal/pullrequests"
 	"weave/internal/reviews"
 	"weave/internal/schedules"
+	"weave/internal/scriptrun"
 	"weave/internal/scripts"
 	"weave/internal/transcripts"
 	"weave/internal/worktrees"
@@ -25,7 +26,7 @@ import (
 
 type services struct {
 	loadConfig      func() (*config.Config, error)
-	script          *agents.ScriptService
+	script          *scriptrun.ScriptService
 	mail            *mail.MailService
 	review          *reviews.ReviewService
 	schedule        *schedules.ScheduleService
@@ -85,7 +86,7 @@ func buildServices(params NewServerParams, st *stores) (*services, error) {
 		return nil, fmt.Errorf("failed to create %s: %w", runLogsDir, err)
 	}
 
-	scriptService := agents.NewScriptService(agents.NewScriptServiceParams{
+	scriptService := scriptrun.NewScriptService(scriptrun.NewScriptServiceParams{
 		Agents:     st.agents,
 		Workflows:  st.workflows,
 		Tmux:       params.Tmux,

@@ -13,6 +13,7 @@ import (
 	"weave/internal/caller"
 	"weave/internal/harness"
 	"weave/internal/logging"
+	"weave/internal/scripts"
 	"weave/internal/store"
 	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
@@ -304,7 +305,7 @@ func (s *LaunchService) planLaunch(ctx context.Context, params NewAgentParams) (
 		dir, _ = os.UserHomeDir()
 	}
 
-	if err := requireUsableDir(dir); err != nil {
+	if err := scripts.RequireUsableDir(dir); err != nil {
 		return nil, err
 	}
 
@@ -589,7 +590,7 @@ func namedDir(named string) (string, error) {
 	}
 
 	dir := config.ExpandHome(named)
-	if err := requireUsableDir(dir); err != nil {
+	if err := scripts.RequireUsableDir(dir); err != nil {
 		return "", fmt.Errorf("%w: a provisioner named %q: %w", ErrProvisionFailed, dir, err)
 	}
 
@@ -613,24 +614,6 @@ func (s *LaunchService) createUnderCeiling(ctx context.Context, agent agentstore
 
 		return nil
 	})
-}
-
-func requireUsableDir(dir string) error {
-	info, err := os.Stat(dir)
-	if err != nil {
-		return fmt.Errorf("%w %q: %w", ErrBadDirectory, dir, err)
-	}
-	if !info.IsDir() {
-		return fmt.Errorf("%w: %q is not a directory", ErrBadDirectory, dir)
-	}
-
-	handle, err := os.Open(dir)
-	if err != nil {
-		return fmt.Errorf("%w %q: %w", ErrBadDirectory, dir, err)
-	}
-	_ = handle.Close()
-
-	return nil
 }
 
 func claimRoomForAgents(ctx context.Context, agents agentSlotLocker, maxAgents, want int) error {

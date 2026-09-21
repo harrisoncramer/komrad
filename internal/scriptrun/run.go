@@ -1,4 +1,4 @@
-package agents
+package scriptrun
 
 import (
 	"bytes"
@@ -80,7 +80,7 @@ func (s *ScriptService) RunHook(ctx context.Context, agent agentstore.Agent, nam
 
 	// A hook is there to work on the agent's own directory, so one that has gone is a refusal
 	// rather than a reason to run the script somewhere else.
-	if err := requireUsableDir(agent.Cwd); err != nil {
+	if err := scripts.RequireUsableDir(agent.Cwd); err != nil {
 		return s.refuseHook(ctx, record, name, err)
 	}
 
