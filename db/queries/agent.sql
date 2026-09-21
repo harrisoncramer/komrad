@@ -1143,7 +1143,8 @@ WITH q AS (
                 SELECT
                     PHRASETO_TSQUERY('english', e)
                 FROM
-                    UNNEST(@excluded::text[]) e) AS forbidden
+                    UNNEST(@excluded::text[]) e) AS forbidden,
+                sqlc.narg('phrase')::text AS phrase
 ),
 ranked AS (
     SELECT
@@ -1155,7 +1156,7 @@ ranked AS (
         a.name,
         a.archived_at IS NOT NULL AS archived,
         TS_HEADLINE('english', c.content, q.words, @headline) AS snippet,
-        TS_RANK_CD(c.tsv, q.words, 32) AS rank
+        TS_RANK_CD(c.tsv, q.words, 2) + COALESCE((c.content ~* q.phrase)::int, 0) AS rank
     FROM
         agent_transcript_chunks c
         CROSS JOIN q

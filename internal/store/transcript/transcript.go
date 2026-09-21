@@ -47,6 +47,8 @@ const (
 
 const defaultSearchLimit = 50
 
+const minNearTermRunes = 3
+
 type Store struct {
 	queries *models.Queries
 }
@@ -336,10 +338,12 @@ func (s *Store) Search(ctx context.Context, params SearchParams) (Results, error
 
 	var results Results
 
-	if first || matchesAt != nil {
+	matchesRan := first || matchesAt != nil
+	if matchesRan {
 		rows, err := s.queries.SearchTranscripts(ctx, models.SearchTranscriptsParams{
 			Terms:         terms.positive,
 			Excluded:      terms.negative,
+			Phrase:        phrasePattern(terms.positive),
 			Headline:      headlineOptions,
 			Lim:           int32(limit),
 			AgentID:       params.AgentID,
@@ -366,7 +370,8 @@ func (s *Store) Search(ctx context.Context, params SearchParams) (Results, error
 		})
 	}
 
-	if first || nearAt != nil {
+	nearStarts := matchesRan && int64(len(results.Matches)) < limit && hasNearTerms(terms.positive)
+	if nearAt != nil || nearStarts {
 		rows, err := s.queries.SearchTranscriptsNear(ctx, models.SearchTranscriptsNearParams{
 			Terms:         terms.positive,
 			Patterns:      likePatterns(terms.positive),
@@ -497,6 +502,32 @@ func splitTerms(query string) queryTerms {
 	flush()
 
 	return terms
+}
+
+func hasNearTerms(terms []string) bool {
+	for _, term := range terms {
+		if utf8.RuneCountInString(term) < minNearTermRunes {
+			return false
+		}
+	}
+
+	return true
+}
+
+func phrasePattern(terms []string) *string {
+	var words []string
+	for _, term := range terms {
+		words = append(words, strings.FieldsFunc(term, func(r rune) bool {
+			return !unicode.IsLetter(r) && !unicode.IsDigit(r)
+		})...)
+	}
+	if len(words) == 0 {
+		return nil
+	}
+
+	pattern := `\m` + strings.Join(words, `[^[:alnum:]]+`) + `\M`
+
+	return &pattern
 }
 
 func likePatterns(terms []string) []string {
