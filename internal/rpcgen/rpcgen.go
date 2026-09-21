@@ -1,8 +1,13 @@
 // Package rpcgen writes the strict handler interface and the adapter for each service, which is
 // what keeps a failure's code decided by its type rather than by whoever wrote the handler.
+//
+// A unary method answers with a message and a failure. A server-streaming method is handed the
+// stream to write to and answers with a failure alone. A method that streams from the client
+// is refused.
 package rpcgen
 
 import (
+	"fmt"
 	"path"
 
 	"google.golang.org/protobuf/compiler/protogen"
@@ -33,14 +38,24 @@ func Generate(plugin *protogen.Plugin) error {
 			continue
 		}
 
-		generateFile(plugin, file)
+		if err := generateFile(plugin, file); err != nil {
+			return err
+		}
 	}
 
 	return nil
 }
 
 // generateFile writes the strict interface and adapter for every service in one proto file.
-func generateFile(plugin *protogen.Plugin, file *protogen.File) {
+func generateFile(plugin *protogen.Plugin, file *protogen.File) error {
+	for _, service := range file.Services {
+		for _, method := range service.Methods {
+			if method.Desc.IsStreamingClient() {
+				return fmt.Errorf("%s.%s streams from the client, which nothing in weave serves", service.GoName, method.GoName)
+			}
+		}
+	}
+
 	pkg := string(file.GoPackageName) + packageSuffix
 	name := path.Join(path.Dir(file.GeneratedFilenamePrefix), pkg, path.Base(file.GeneratedFilenamePrefix)+".weave.go")
 	importPath := protogen.GoImportPath(path.Join(string(file.GoImportPath), pkg))
@@ -56,6 +71,8 @@ func generateFile(plugin *protogen.Plugin, file *protogen.File) {
 	for _, service := range file.Services {
 		generateService(out, service)
 	}
+
+	return nil
 }
 
 // generateService writes one service's strict interface and the adapter that answers for it.
@@ -64,12 +81,21 @@ func generateService(out *protogen.GeneratedFile, service *protogen.Service) {
 	context := out.QualifiedGoIdent(contextPackage.Ident("Context"))
 	failure := out.QualifiedGoIdent(failPackage.Ident("Error"))
 
+	serverStream := out.QualifiedGoIdent(connectPackage.Ident("ServerStream"))
+
 	out.P("// ", name, "Impl is the half of ", name, " a person writes, whose failures carry the kind")
 	out.P("// of failure they are rather than leaving it to be decided later.")
 	out.P("type ", name, "Impl interface {")
 	for _, method := range service.Methods {
-		out.P(method.GoName, "(", context, ", *", out.QualifiedGoIdent(method.Input.GoIdent),
-			") (*", out.QualifiedGoIdent(method.Output.GoIdent), ", *", failure, ")")
+		input := out.QualifiedGoIdent(method.Input.GoIdent)
+		output := out.QualifiedGoIdent(method.Output.GoIdent)
+		if method.Desc.IsStreamingServer() {
+			out.P(method.GoName, "(", context, ", *", input, ", *", serverStream, "[", output, "]) *", failure)
+
+			continue
+		}
+
+		out.P(method.GoName, "(", context, ", *", input, ") (*", output, ", *", failure, ")")
 	}
 	out.P("}")
 	out.P()
@@ -82,12 +108,24 @@ func generateService(out *protogen.GeneratedFile, service *protogen.Service) {
 	out.P()
 
 	answer := out.QualifiedGoIdent(rpcerrPackage.Ident("Answer"))
+	answerStream := out.QualifiedGoIdent(rpcerrPackage.Ident("AnswerStream"))
 	request := out.QualifiedGoIdent(connectPackage.Ident("Request"))
 	response := out.QualifiedGoIdent(connectPackage.Ident("Response"))
 
 	for _, method := range service.Methods {
 		input := out.QualifiedGoIdent(method.Input.GoIdent)
 		output := out.QualifiedGoIdent(method.Output.GoIdent)
+
+		if method.Desc.IsStreamingServer() {
+			out.P("// ", method.GoName, " serves the stream as connect opens it.")
+			out.P("func (a ", name, "Adapter) ", method.GoName, "(ctx ", context, ", req *", request, "[", input,
+				"], stream *", serverStream, "[", output, "]) error {")
+			out.P("return ", answerStream, "(a.Impl.", method.GoName, "(ctx, req.Msg, stream))")
+			out.P("}")
+			out.P()
+
+			continue
+		}
 
 		out.P("// ", method.GoName, " answers the request as connect serves it.")
 		out.P("func (a ", name, "Adapter) ", method.GoName, "(ctx ", context, ", req *", request, "[", input,

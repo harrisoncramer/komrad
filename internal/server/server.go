@@ -169,6 +169,7 @@ func NewServer(ctx context.Context, params NewServerParams) (*Server, error) {
 		StopRequested: srv.stopRequested,
 		LogPath:       params.Env.LogPath(),
 		Doctor:        params.Doctor,
+		Watch:         srv.Watch,
 	})
 	if err != nil {
 		return nil, err
@@ -187,6 +188,11 @@ func NewServer(ctx context.Context, params NewServerParams) (*Server, error) {
 	built = true
 
 	return srv, nil
+}
+
+// CloseWatch ends every watch stream, which an HTTP drain would otherwise wait on.
+func (s *Server) CloseWatch() {
+	s.Watch.Close()
 }
 
 // Handler is the mux behind the guard that refuses anything not from this machine.

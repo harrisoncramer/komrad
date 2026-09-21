@@ -20,6 +20,16 @@ func Answer[T any](message *T, err *fail.Error) (*connect.Response[T], error) {
 	return connect.NewResponse(message), nil
 }
 
+// AnswerStream turns what a streaming handler returned into what connect serves once the
+// stream ends.
+func AnswerStream(err *fail.Error) error {
+	if err != nil {
+		return connect.NewError(codeOf(err.Kind()), err)
+	}
+
+	return nil
+}
+
 // From is how an error the domain returned becomes one a handler may answer with, a sentinel
 // keeping its kind and anything else becoming internal.
 func From(err error, failure string) *fail.Error {
