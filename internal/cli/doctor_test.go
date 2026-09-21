@@ -108,7 +108,7 @@ func TestDoctorAdviceReadsThePanelsOwnPane(t *testing.T) {
 	registry, err := harness.NewRegistry(claude.NewHarness(claude.NewHarnessParams{ConfigDir: t.TempDir()}))
 	require.NoError(t, err)
 
-	state := hideState(socket, "")
+	state := hideState(t, socket, "")
 	state.env.Addr = "127.0.0.1:8787"
 	state.harnesses = registry
 

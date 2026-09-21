@@ -116,7 +116,7 @@ func TestUserPanelKeyReadsTheServerTheUserIsAt(t *testing.T) {
 	require.NoError(t, exec.Command("tmux", "-L", hostSocket, "set-option", "-g", "@weave_key", "w").Run())
 
 	hostPath := hostQuery(t, hostSocket, "display-message", "-p", "#{socket_path}")
-	state := hideState(managerSocket, "")
+	state := hideState(t, managerSocket, "")
 
 	assert.Empty(t, userPanelKey(state, ""), "with no server to ask, the popup falls back to the built-in key")
 
@@ -157,7 +157,7 @@ func TestIsPanelRunningNeedsThePanelsOwnPane(t *testing.T) {
 	socket := throwawaySocket(t)
 	panelSession(t, socket)
 
-	state := hideState(socket, "")
+	state := hideState(t, socket, "")
 
 	assert.False(t, isPanelRunning(t.Context(), state), "no panel has recorded a pane yet")
 
@@ -209,7 +209,7 @@ func TestEnsureManagerSessionLeavesTheCurrentWindowAlone(t *testing.T) {
 	socket := throwawaySocket(t)
 	panelSession(t, socket)
 
-	state := hideState(socket, "")
+	state := hideState(t, socket, "")
 
 	panelPane := hostQuery(t, socket, "display-message", "-p", "-t", agents.ManagerSession, "#{pane_id}")
 	state.tmux.RecordPanelPane(panelPane)
@@ -255,7 +255,7 @@ func TestUserPanelKeyPrefersTheConfiguredKey(t *testing.T) {
 
 	hostPath := hostQuery(t, hostSocket, "display-message", "-p", "#{socket_path}")
 
-	state := hideState(managerSocket, "")
+	state := hideState(t, managerSocket, "")
 	state.env.PanelKey = "w"
 
 	assert.Equal(t, "w", userPanelKey(state, hostPath),
@@ -318,7 +318,7 @@ func TestEnsureManagerSessionReplacesAPanelFromAnotherBuild(t *testing.T) {
 			socket := throwawaySocket(t)
 			panelSession(t, socket)
 
-			state := hideState(socket, "")
+			state := hideState(t, socket, "")
 			state.self = sleepingPanel(t)
 
 			panelPane := hostQuery(t, socket, "display-message", "-p", "-t", agents.ManagerSession, "#{pane_id}")
@@ -367,7 +367,7 @@ func TestEnsureManagerSessionReplacesAPanelHoldingAGuest(t *testing.T) {
 			socket := throwawaySocket(t)
 			panelSession(t, socket)
 
-			state := hideState(socket, "")
+			state := hideState(t, socket, "")
 			state.self = sleepingPanel(t)
 
 			panelPane := hostQuery(t, socket, "display-message", "-p", "-t", agents.ManagerSession, "#{pane_id}")
@@ -406,7 +406,7 @@ func TestEnsureManagerSessionRepairsBesideAWindowNamedAfterTheSession(t *testing
 	socket := throwawaySocket(t)
 	panelSession(t, socket)
 
-	state := hideState(socket, "")
+	state := hideState(t, socket, "")
 	state.self = sleepingPanel(t)
 
 	panelPane := hostQuery(t, socket, "display-message", "-p", "-t", agents.ManagerSession, "#{pane_id}")

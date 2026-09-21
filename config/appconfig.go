@@ -696,8 +696,9 @@ type Connection struct {
 	// a destination. Left empty it is tmux_socket, which is right when both machines run a
 	// default weave and wrong when this machine is also running an engine of its own.
 	EngineTmuxSocket string `mapstructure:"engine_tmux_socket"`
-	// The key, after your tmux prefix, that opens and hides this weave's panel. Left empty it
-	// is whatever @weave_key says, and failing that g.
+	// The key, after your tmux prefix, that opens and hides the panel, and the picker between
+	// this machine and its engines once engine files exist. Left empty it is whatever
+	// @weave_key says, and failing that g. An engine file may not set it.
 	PanelKey string `mapstructure:"panel_key"`
 	// How to run a command on the engine, as an argv, when ssh is not how you reach it.
 	// "{{command}}" is replaced with what weave wants run there, and "{{command_json}}" with the
@@ -1136,6 +1137,10 @@ func ResolveLayers(stack Stack) ([]Layer, error) {
 
 	overlay, err := EnginePath(stack.Engine)
 	if err != nil {
+		return nil, err
+	}
+
+	if err := requireEngineLayer(overlay); err != nil {
 		return nil, err
 	}
 

@@ -3,12 +3,16 @@
 package cli
 
 import (
+	"os"
 	"os/exec"
+	"path/filepath"
 	"testing"
 	"time"
 
 	"weave/internal/agents"
+	"weave/internal/tmux"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -27,7 +31,7 @@ func TestShownAnswersFromWhatIsOnScreen(t *testing.T) {
 	require.NoError(t, exec.Command("tmux", "-L", hostSocket, "-f", "/dev/null",
 		"new-session", "-d", "-s", "userland").Run())
 
-	state := hideState(managerSocket, hostPaneEnv(t, hostSocket))
+	state := hideState(t, managerSocket, hostPaneEnv(t, hostSocket))
 	state.tmux.RecordHostSocket(hostQuery(t, hostSocket, "display-message", "-p", "#{socket_path}"))
 	shown := shownCmd(state)
 
@@ -52,7 +56,7 @@ func TestShownWithoutATmuxServer(t *testing.T) {
 	panelSession(t, managerSocket)
 	attachViewer(t, managerSocket)
 
-	state := hideState(managerSocket, "")
+	state := hideState(t, managerSocket, "")
 
 	require.ErrorIs(t, shownCmd(state).RunE(nil, nil), ErrPanelHidden)
 }
@@ -88,4 +92,43 @@ func attachViewer(t *testing.T, socket string) *exec.Cmd {
 	}, waitForClient, pollForClient, "no client attached to the panel's session")
 
 	return viewer
+}
+
+// TestShownAndHideReachAnEnginesPanel covers the one key finding the engine's panel on screen
+// rather than only this machine's, and hiding that one.
+func TestShownAndHideReachAnEnginesPanel(t *testing.T) {
+	localSocket := throwawaySocket(t)
+	panelSession(t, localSocket)
+
+	engineSocket := throwawaySocket(t)
+	panelSession(t, engineSocket)
+
+	hostSocket := throwawaySocket(t)
+	require.NoError(t, exec.Command("tmux", "-L", hostSocket, "-f", "/dev/null",
+		"new-session", "-d", "-s", "userland").Run())
+	hostPath := hostQuery(t, hostSocket, "display-message", "-p", "#{socket_path}")
+
+	state := hideState(t, localSocket, hostPaneEnv(t, hostSocket))
+	for _, name := range []string{"WEAVE_CONFIG", "WEAVE_ADDR", "WEAVE_TMUX_SOCKET", "WEAVE_CACHE_DIR", "WEAVE_DATABASE_URL", "WEAVE_READONLY_DATABASE_URL"} {
+		t.Setenv(name, "")
+	}
+
+	engines := filepath.Join(os.Getenv("HOME"), ".config", "weave", "engines")
+	require.NoError(t, os.MkdirAll(engines, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(engines, "remote.toml"),
+		[]byte("[connection]\ntmux_socket = \""+engineSocket+"\"\n"), 0o600))
+
+	engineManager := tmux.NewClient(engineSocket)
+	engineManager.RecordHostSocket(hostPath)
+
+	require.ErrorIs(t, shownCmd(state).RunE(nil, nil), ErrPanelHidden, "nothing is on screen yet")
+
+	viewer := attachViewer(t, engineSocket)
+	require.NoError(t, shownCmd(state).RunE(nil, nil), "the engine's panel is on screen from this server")
+
+	require.NoError(t, hideCmd(state).RunE(nil, nil))
+	require.NoError(t, viewer.Wait())
+	assert.Empty(t, hostQuery(t, engineSocket, "list-clients", "-t", agents.ManagerSession, "-F", "#{client_name}"),
+		"hide took the engine panel's client away")
+	require.NoError(t, exec.Command("tmux", "-L", localSocket, "has-session", "-t", agents.ManagerSession).Run())
 }

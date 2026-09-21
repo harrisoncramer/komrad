@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -14,6 +15,7 @@ import (
 	"weave/lib/xslice"
 
 	"github.com/spf13/cobra"
+	"golang.org/x/term"
 )
 
 func openCmd(state *app) *cobra.Command {
@@ -30,6 +32,10 @@ func openCmd(state *app) *cobra.Command {
 It creates the manager session if it is not there and attaches either way, so the
 panel keeps its place between opens rather than starting over. The manager session
 lives on weave's own tmux server, so it does not show up in ` + "`tmux ls`" + `.
+
+With engine files under the config's engines directory and no --engine given, it
+first asks which weave to open, this machine or one of them, and runs itself again
+on the one chosen. An engine running other code than this weave cannot be chosen.
 
 The tmux plugin runs this as the popup's command, so it blocks until the client
 detaches, which is what closes the popup. Pressing the panel key again runs
@@ -49,6 +55,20 @@ an agent's pane into a panel nobody is looking at.`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if err := refuseNesting(state); err != nil {
 				return err
+			}
+
+			if !detach && !headless && state.configStack.Engine == "" && term.IsTerminal(int(os.Stdin.Fd())) {
+				name, err := pickEngine(cmd.Context(), state)
+				if errors.Is(err, errPickerClosed) {
+					return nil
+				}
+				if err != nil {
+					return err
+				}
+
+				if name != "" {
+					return execOpenEngine(state.selfPath(), state.configStack, name)
+				}
 			}
 
 			if err := ensureManagerSession(cmd.Context(), state, detach, headless); err != nil {

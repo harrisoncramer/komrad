@@ -16,7 +16,6 @@ addr               = "127.0.0.1:8787"
 tmux_socket        = "weave-remote"
 engine_tmux_socket = "weave"
 cache_dir          = "~/.cache/weave-remote"
-panel_key          = "G"
 
 exec = [
   "ssh", "-t",
@@ -45,22 +44,9 @@ forward = [
 
 The engine keeps its host keys in a file of its own. The address outlives the instance, so a rebuilt engine answers on it with a key nothing has seen before, and a shared `known_hosts` would refuse the connection until you edited it by hand.
 
-Add a second line to `~/.tmux.conf` for the remote engine, beside the one you already have for the local panel.
+Nothing changes in `~/.tmux.conf`: the one line you already have binds the one panel key. Once an engine file exists, pressing the key opens a picker instead of the panel, listing this machine and every engine. Move with the arrow keys or j and k, enter opens the one under the cursor, escape closes the picker. Each row says what build is answering there as soon as the picker has reached it, and an engine running other code than your weave is greyed out and cannot be opened until the two match. An engine file may not set `panel_key`; the key belongs to the machine it is pressed on.
 
-```
-run-shell 'weave tmux'                  # local panel, key from your config.toml
-run-shell 'weave tmux --engine remote'  # remote panel, key from remote.toml
-```
-
-With `panel_key = "G"` above, G now opens the remote panel and your existing key still opens the local one. Give the two engines different keys.
-
-Source the configuration:
-
-```
-tmux source-file ~/.tmux.conf
-```
-
-Open the panel with that key rather than by running `weave open`. The key opens it as a popup, which keeps its splits and copy-mode inside the popup.
+The picker only appears when there is a choice to make. With no engine files the key opens this machine's panel directly, as before.
 
 ## Signing the harness in
 
@@ -89,7 +75,7 @@ The panel refuses to talk to an engine running other code, and it decides that o
 
 The engine is deployed when a release is published, so it sits at the last release until somebody cuts another, and it is usually the weave on your own machine that has moved.
 
-The refusal happens as the panel opens, once the forward to the engine is up. Instead of drawing, it names both builds and closes on any key. The engine is untouched by this and every agent on it keeps running, so the fix is on your own machine: rebuild your weave from the commit the engine is serving, which is what `weave doctor` says too.
+The picker shows the refusal before anything opens: the engine's row is greyed with both builds named and what to do about it. Opening the engine by hand with `weave open --engine remote` puts the same refusal up as a screen that closes on any key. The engine is untouched by this and every agent on it keeps running, so the fix is on your own machine: rebuild your weave from the commit the engine is serving, which is what `weave doctor` says too.
 
 ## The box may not be up
 
