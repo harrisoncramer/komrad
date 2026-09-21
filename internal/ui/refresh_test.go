@@ -348,7 +348,7 @@ func TestArchiveCursorHoldsItsAgentWhenAFolderGoes(t *testing.T) {
 		screen: screenArchive,
 		listing: listing{
 			workflows: []panel.Workflow{{ID: "w1", Name: "api"}, {ID: "w2", Name: "infra"}},
-			archivedAgents: []panel.Agent{
+			archivedAgents: archivedItems([]panel.Agent{
 				{
 					ID:         "x1",
 					Name:       "api-spike",
@@ -364,7 +364,7 @@ func TestArchiveCursorHoldsItsAgentWhenAFolderGoes(t *testing.T) {
 					Name:       "infra-upgrade",
 					WorkflowID: "w2",
 				},
-			},
+			}),
 		},
 		archive: archiveState{rowCursor: rowCursor{cursor: 3}},
 	}
@@ -372,7 +372,7 @@ func TestArchiveCursorHoldsItsAgentWhenAFolderGoes(t *testing.T) {
 	m.applyRefresh(refreshResult{
 		workflows:      []panel.Workflow{{ID: "w2", Name: "infra"}},
 		archivedListed: true,
-		archived: []panel.Agent{
+		archived: archivedItems([]panel.Agent{
 			{
 				ID:         "x2",
 				Name:       "infra-audit",
@@ -383,7 +383,7 @@ func TestArchiveCursorHoldsItsAgentWhenAFolderGoes(t *testing.T) {
 				Name:       "infra-upgrade",
 				WorkflowID: "w2",
 			},
-		},
+		}),
 	})
 
 	selected, ok := m.selectedArchived()

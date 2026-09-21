@@ -150,23 +150,6 @@ func TestNoticesWearTheGlyphTheRowDraws(t *testing.T) {
 	}
 }
 
-// TestArchivedNoticesAreOnlyTheFailures covers the archive, whose rows draw one mark of their
-// own.
-func TestArchivedNoticesAreOnlyTheFailures(t *testing.T) {
-	agent := panel.Agent{
-		State:      panel.StateFailedToCleanup,
-		ScheduleID: xptr.Ptr("s1"),
-		Hidden:     true,
-	}
-
-	failed := failureNotices(noticeRow(agentItem{agent: agent}))
-	require.Len(t, failed, 1)
-	assert.Equal(t, failedToCleanupNotice, failed[0].text)
-	assert.Equal(t, view.Spell(view.GlyphBusy), failed[0].icon, "and wears the bar the row draws for it")
-
-	assert.Empty(t, failureNotices(noticeRow(agentItem{agent: panel.Agent{}})))
-}
-
 // TestNoticesKeepTheRecordsHeight covers the share the record is allowed: the notices take their
 // lines from the fields rather than from the list above, so the block is the height it always was.
 func TestNoticesKeepTheRecordsHeight(t *testing.T) {

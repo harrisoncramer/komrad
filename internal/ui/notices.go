@@ -80,13 +80,6 @@ func agentNotices(r agentRow) []notice {
 	return appendCellNotice(notices, view.ReviewCell(row), reviewSaid[row.Review])
 }
 
-// failureNotices is the whole of what an archived row has to say.
-func failureNotices(r agentRow) []notice {
-	row := snapshotRow(r, snapshotParams{})
-
-	return appendCellNotice(nil, view.StatusCell(row), failureSaid[displayState(r.item)])
-}
-
 // appendCellNotice says in words what a cell of the row stands for, taking the glyph and the tone
 // from that cell, and saying nothing where the row draws nothing.
 func appendCellNotice(notices []notice, cell view.Cell, text string) []notice {

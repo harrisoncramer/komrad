@@ -848,10 +848,9 @@ opened AS (
         JOIN workflows w ON w.id = a.workflow_id
         LEFT JOIN workflow_provisioner_configs c ON c.id = w.provisioner_config_id
     WHERE
-        a.archived_at IS NULL
-        AND (c.worktree_base_branch IS NULL
-            OR c.worktree_base_branch = ''
-            OR a.branch <> c.worktree_base_branch)
+        c.worktree_base_branch IS NULL
+        OR c.worktree_base_branch = ''
+        OR a.branch <> c.worktree_base_branch
     ORDER BY
         a.id,
         COALESCE(p.merged_at, p.closed_at) IS NOT NULL,

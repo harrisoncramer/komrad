@@ -259,7 +259,7 @@ func archiveSelectionTree() model {
 		screen: screenArchive,
 		listing: listing{
 			workflows: []panel.Workflow{{ID: "w1", Name: "backend"}},
-			archivedAgents: []panel.Agent{
+			archivedAgents: archivedItems([]panel.Agent{
 				{
 					ID:         "a1",
 					Name:       "auth",
@@ -275,7 +275,7 @@ func archiveSelectionTree() model {
 					Name:       "db",
 					WorkflowID: "w1",
 				},
-			},
+			}),
 		},
 	}
 }
@@ -387,11 +387,11 @@ func TestArchiveSelection(t *testing.T) {
 		m.archive.selected = selectAgents([]string{"a1", "a3"}...)
 
 		m.applyArchive(
-			[]panel.Agent{{
+			archivedItems([]panel.Agent{{
 				ID:         "a3",
 				Name:       "db",
 				WorkflowID: "w1",
-			}},
+			}}),
 			nil,
 			"",
 		)

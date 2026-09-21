@@ -177,10 +177,6 @@ func worktreeConfigFrom(w *workflowv1.WorktreeConfig) panel.WorktreeConfig {
 	}
 }
 
-func archivedAgentsFrom(listed []*agentv1.Agent) []panel.Agent {
-	return xslice.Map(listed, agentFrom)
-}
-
 func scheduleItemsFrom(listed []*schedulev1.Schedule) []scheduleItem {
 	return xslice.Map(listed, func(s *schedulev1.Schedule) scheduleItem {
 		item := scheduleItem{schedule: scheduleFrom(s)}

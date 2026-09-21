@@ -412,7 +412,12 @@ func (m *model) applyWorkflows(fresh []panel.Workflow) {
 
 func (m *model) applyAgents(fresh []agentItem) {
 	m.listing.agents = fresh
-	m.pullRequests.forgetUnlisted(fresh)
+	m.forgetUnlistedPullRequests()
+}
+
+// forgetUnlistedPullRequests drops the pull requests answered for agents neither listing holds.
+func (m *model) forgetUnlistedPullRequests() {
+	m.pullRequests.forgetUnlisted(slices.Concat(m.listing.agents, m.listing.archivedAgents))
 }
 
 // applyMarks takes the letters off both listings at once.
@@ -460,7 +465,7 @@ func (m *model) placeTreeCursor(selected string) {
 type listing struct {
 	agents            []agentItem
 	workflows         []panel.Workflow
-	archivedAgents    []panel.Agent
+	archivedAgents    []agentItem
 	archivedWorkflows []panel.Workflow
 	schedules         []scheduleItem
 	// marks are the letters a person types to jump to rows, keyed by the row key each names.

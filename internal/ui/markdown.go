@@ -136,6 +136,11 @@ func agentFields(params agentFieldsParams) []recordField {
 	if created := label.Friendly(agent.CreatedAt); created != "" {
 		fields = append(fields, recordField{"created", created})
 	}
+	if agent.ArchivedAt != nil {
+		if archived := label.Friendly(*agent.ArchivedAt); archived != "" {
+			fields = append(fields, recordField{"archived", archived})
+		}
+	}
 	for _, entry := range agent.Metadata {
 		if entry.Key == failureReasonKey {
 			continue
@@ -237,29 +242,4 @@ const emptyArchiveMarkdown = "# Archive\n\n_nothing archived_\n\nAgents archived
 func archiveMarkdown(agent panel.Agent) string {
 	return renderDocument(agent.Name, "_archived — kept until deleted_", "",
 		"Restore brings it back and picks the conversation up where it stopped.")
-}
-
-func archiveFields(agent panel.Agent, workflow, schedule string) []recordField {
-	fields := []recordField{
-		{"name", label.OrDash(agent.Name)},
-		{"agent", label.OrDash(agent.Harness)},
-		{"workflow", label.OrDash(workflow)},
-		{"directory", label.OrDash(agent.Cwd)},
-		{"flags", label.OrDash(agent.Flags)},
-		{"agent_id", label.OrDash(agent.ID)},
-		{"session_id", label.OrDash(agent.SessionID)},
-	}
-	if schedule != "" {
-		fields = append(fields, recordField{"launched by", schedule})
-	}
-	if created := label.Friendly(agent.CreatedAt); created != "" {
-		fields = append(fields, recordField{"created", created})
-	}
-	if agent.ArchivedAt != nil {
-		if archived := label.Friendly(*agent.ArchivedAt); archived != "" {
-			fields = append(fields, recordField{"archived", archived})
-		}
-	}
-
-	return fields
 }
