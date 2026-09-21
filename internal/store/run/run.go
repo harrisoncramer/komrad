@@ -11,13 +11,13 @@ import (
 	"weave/internal/store"
 )
 
-type Store struct {
+type RunStore struct {
 	queries *models.Queries
 }
 
-// New builds a run store over db, either the pool or a transaction.
-func New(db store.DBTX) *Store {
-	return &Store{queries: models.New(db)}
+// NewRunStore builds a run store over db, either the pool or a transaction.
+func NewRunStore(db store.DBTX) *RunStore {
+	return &RunStore{queries: models.New(db)}
 }
 
 type BeginParams struct {
@@ -28,7 +28,7 @@ type BeginParams struct {
 }
 
 // Begin opens a row for a run about to start and returns its id.
-func (s *Store) Begin(ctx context.Context, params BeginParams) (string, error) {
+func (s *RunStore) Begin(ctx context.Context, params BeginParams) (string, error) {
 	if !store.IsID(params.AgentID) {
 		return "", fmt.Errorf("failed to record a run of %q: %q is not an agent id", params.Script, params.AgentID)
 	}
@@ -53,7 +53,7 @@ type FinishParams struct {
 }
 
 // Finish closes a run's row with what it exited on and why it failed, if it did.
-func (s *Store) Finish(ctx context.Context, params FinishParams) error {
+func (s *RunStore) Finish(ctx context.Context, params FinishParams) error {
 	if !store.IsID(params.ID) {
 		return nil
 	}
@@ -70,7 +70,7 @@ func (s *Store) Finish(ctx context.Context, params FinishParams) error {
 }
 
 // Abandon drops the row of a run that never started.
-func (s *Store) Abandon(ctx context.Context, id string) error {
+func (s *RunStore) Abandon(ctx context.Context, id string) error {
 	if !store.IsID(id) {
 		return nil
 	}
@@ -83,7 +83,7 @@ func (s *Store) Abandon(ctx context.Context, id string) error {
 }
 
 // Prune drops an agent's runs past the newest keep, held to the same bound as the log files.
-func (s *Store) Prune(ctx context.Context, agentID string, keep int) error {
+func (s *RunStore) Prune(ctx context.Context, agentID string, keep int) error {
 	if !store.IsID(agentID) || keep <= 0 {
 		return nil
 	}
@@ -99,7 +99,7 @@ func (s *Store) Prune(ctx context.Context, agentID string, keep int) error {
 }
 
 // MarkRead claims every failed run an agent is holding.
-func (s *Store) MarkRead(ctx context.Context, agentID string) error {
+func (s *RunStore) MarkRead(ctx context.Context, agentID string) error {
 	if !store.IsID(agentID) {
 		return nil
 	}

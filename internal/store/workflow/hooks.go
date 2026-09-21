@@ -32,7 +32,7 @@ type Hook struct {
 
 // setHooks rewrites a workflow's hooks from the whole list, keeping the order they were sent
 // in.
-func (s *Store) setHooks(ctx context.Context, workflowID string, hooks []Hook) error {
+func (s *WorkflowStore) setHooks(ctx context.Context, workflowID string, hooks []Hook) error {
 	if err := s.queries.DeleteWorkflowHooks(ctx, workflowID); err != nil {
 		return fmt.Errorf("failed to clear hooks for workflow %q: %w", workflowID, err)
 	}
@@ -51,7 +51,7 @@ func (s *Store) setHooks(ctx context.Context, workflowID string, hooks []Hook) e
 	return nil
 }
 
-func (s *Store) hooksFor(ctx context.Context, workflowID string) ([]Hook, error) {
+func (s *WorkflowStore) hooksFor(ctx context.Context, workflowID string) ([]Hook, error) {
 	rows, err := s.queries.ListHooksForWorkflow(ctx, workflowID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read the hooks of workflow %q: %w", workflowID, err)
@@ -63,7 +63,7 @@ func (s *Store) hooksFor(ctx context.Context, workflowID string) ([]Hook, error)
 }
 
 // hooksByWorkflow reads every workflow's hooks in one query.
-func (s *Store) hooksByWorkflow(ctx context.Context) (map[string][]Hook, error) {
+func (s *WorkflowStore) hooksByWorkflow(ctx context.Context) (map[string][]Hook, error) {
 	rows, err := s.queries.ListWorkflowHooks(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read workflow hooks: %w", err)
@@ -78,7 +78,7 @@ func (s *Store) hooksByWorkflow(ctx context.Context) (map[string][]Hook, error) 
 }
 
 // hooksForWorkflows reads the hooks of the workflows named.
-func (s *Store) hooksForWorkflows(ctx context.Context, ids []string) (map[string][]Hook, error) {
+func (s *WorkflowStore) hooksForWorkflows(ctx context.Context, ids []string) (map[string][]Hook, error) {
 	if len(ids) == 0 {
 		return nil, nil
 	}

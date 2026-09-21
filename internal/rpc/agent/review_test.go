@@ -186,18 +186,18 @@ func TestGetReviewHandsTheAgentOneReleaseWhole(t *testing.T) {
 	assert.Nil(t, threads.Msg.GetThreads()[0].GetMessages()[1].ReviewId, "an answer belongs to no batch")
 }
 
-func reviewService(t *testing.T) (agentv1weave.AgentServiceAdapter, *storetest.Stores, *reviewstore.Store) {
+func reviewService(t *testing.T) (agentv1weave.AgentServiceAdapter, *storetest.Stores, *reviewstore.ReviewStore) {
 	t.Helper()
 
 	return reviewServiceOver(t, fakeTrees{})
 }
 
 // reviewServiceOver is the service over a git that answers the given standings.
-func reviewServiceOver(t *testing.T, trees fakeTrees) (agentv1weave.AgentServiceAdapter, *storetest.Stores, *reviewstore.Store) {
+func reviewServiceOver(t *testing.T, trees fakeTrees) (agentv1weave.AgentServiceAdapter, *storetest.Stores, *reviewstore.ReviewStore) {
 	t.Helper()
 
 	st := storetest.Open(t)
-	rounds := reviewstore.New(st.Pool.GetDB())
+	rounds := reviewstore.NewReviewStore(st.Pool.GetDB())
 	mailer := mail.NewMailService(mail.NewMailServiceParams{
 		MailReadWriter: st.Mail,
 		Agents:         st.Agents,

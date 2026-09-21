@@ -600,7 +600,7 @@ func namedDir(named string) (string, error) {
 
 func (s *LaunchService) createUnderCeiling(ctx context.Context, agent agentstore.Agent, parent *agentstore.Agent) error {
 	return s.tx.InTx(ctx, func(db store.DBTX) error {
-		agentStore := agentstore.New(db)
+		agentStore := agentstore.NewAgentStore(db)
 
 		if err := claimRoomForAgents(ctx, agentStore, s.maxAgents, 1); err != nil {
 			return err

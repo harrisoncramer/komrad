@@ -78,8 +78,8 @@ type pullRequestForgeFinder interface {
 // PullRequestSyncer keeps the pull requests table in step with the forges, one pass at a time.
 type PullRequestSyncer struct {
 	forges       pullRequestForgeFinder
-	pullRequests *pullrequeststore.Store
-	syncs        *pullrequeststore.SyncStore
+	pullRequests *pullrequeststore.PullRequestStore
+	syncs        *pullrequeststore.PullRequestSyncStore
 	tx           txRunner
 	now          func() time.Time
 	// refusals counts rate limit refusals in a row per host that named no time to wait.
@@ -118,8 +118,8 @@ const (
 // NewPullRequestSyncerParams is what a pull request syncer is built over.
 type NewPullRequestSyncerParams struct {
 	Forges       pullRequestForgeFinder
-	PullRequests *pullrequeststore.Store
-	Syncs        *pullrequeststore.SyncStore
+	PullRequests *pullrequeststore.PullRequestStore
+	Syncs        *pullrequeststore.PullRequestSyncStore
 	Tx           txRunner
 	// Now is the clock, time.Now when unset.
 	Now func() time.Time
@@ -439,7 +439,7 @@ func (s *PullRequestSyncer) sweep(ctx context.Context, host *hostRead, read *rep
 			return listed, nil
 		},
 		last: func(listed *forge.Page) bool { return s.reachesHorizon(listed.PullRequests) },
-		advance: func(listed *forge.Page, done bool, st *pullrequeststore.SyncStore) error {
+		advance: func(listed *forge.Page, done bool, st *pullrequeststore.PullRequestSyncStore) error {
 			if !started {
 				newest := listedAt
 				if len(listed.PullRequests) > 0 && listed.PullRequests[0].UpdatedAt.After(listedAt) {
@@ -546,7 +546,7 @@ func (s *PullRequestSyncer) searchPages(ctx context.Context, host *hostRead, pas
 			})
 		},
 		last: func(*forge.Page) bool { return pass.counts.budget == 0 },
-		advance: func(listed *forge.Page, done bool, st *pullrequeststore.SyncStore) error {
+		advance: func(listed *forge.Page, done bool, st *pullrequeststore.PullRequestSyncStore) error {
 			pass.rows += len(listed.PullRequests)
 			for _, pullRequest := range listed.PullRequests {
 				repositoryURL := pullRequest.Repository.Canonical()
@@ -568,7 +568,7 @@ func (s *PullRequestSyncer) searchPages(ctx context.Context, host *hostRead, pas
 // settle moves each repository's mark to the moment of the search, or to the newest change it
 // answered when the forge's clock is ahead, or hands them all back to a first sweep when the
 // search was capped.
-func (p *searchPass) settle(ctx context.Context, st *pullrequeststore.SyncStore) error {
+func (p *searchPass) settle(ctx context.Context, st *pullrequeststore.PullRequestSyncStore) error {
 	if p.capped {
 		return st.ResetSweeps(ctx, p.urls)
 	}
@@ -643,7 +643,7 @@ func (s *PullRequestSyncer) list(ctx context.Context, host *hostRead, read *repo
 			return listed, nil
 		},
 		last: func(*forge.Page) bool { return true },
-		advance: func(_ *forge.Page, _ bool, st *pullrequeststore.SyncStore) error {
+		advance: func(_ *forge.Page, _ bool, st *pullrequeststore.PullRequestSyncStore) error {
 			return st.MarkListed(ctx, repositoryURL, listedAt)
 		},
 	})
@@ -698,7 +698,7 @@ func (s *PullRequestSyncer) scanBranches(ctx context.Context, host *hostRead, re
 					PerPage: pullRequestScanPageSize,
 				})
 			},
-			advance: func(listed *forge.Page, done bool, st *pullrequeststore.SyncStore) error {
+			advance: func(listed *forge.Page, done bool, st *pullrequeststore.PullRequestSyncStore) error {
 				if done {
 					return st.CompleteBranchScan(ctx, repositoryURL, branch, listed.Cursor)
 				}
@@ -782,7 +782,7 @@ type pagesParams struct {
 	last func(*forge.Page) bool
 	// advance records where the listing stands after a page, in the page's transaction, told
 	// whether the page was the last.
-	advance func(listed *forge.Page, done bool, st *pullrequeststore.SyncStore) error
+	advance func(listed *forge.Page, done bool, st *pullrequeststore.PullRequestSyncStore) error
 }
 
 // pages reads a listing page by page against the budget, counting each request and writing
@@ -805,7 +805,7 @@ func (s *PullRequestSyncer) pages(ctx context.Context, host *hostRead, params pa
 		spent := s.noteRateLimit(ctx, host, listed.RateLimit)
 
 		done := !listed.HasMore || (params.last != nil && params.last(listed))
-		if err := s.writePage(ctx, listed.PullRequests, params.counts, func(st *pullrequeststore.SyncStore) error {
+		if err := s.writePage(ctx, listed.PullRequests, params.counts, func(st *pullrequeststore.PullRequestSyncStore) error {
 			return params.advance(listed, done, st)
 		}); err != nil {
 			return err
@@ -825,10 +825,10 @@ func (s *PullRequestSyncer) pages(ctx context.Context, host *hostRead, params pa
 
 // writePage upserts a page's pull requests, the standing of each that carries one, and the
 // position after it in one transaction.
-func (s *PullRequestSyncer) writePage(ctx context.Context, pullRequests []forge.PullRequest, counts *passCount, advance func(*pullrequeststore.SyncStore) error) error {
+func (s *PullRequestSyncer) writePage(ctx context.Context, pullRequests []forge.PullRequest, counts *passCount, advance func(*pullrequeststore.PullRequestSyncStore) error) error {
 	inserted, updated := 0, 0
 	err := s.tx.InTx(ctx, func(db store.DBTX) error {
-		st := pullrequeststore.New(db)
+		st := pullrequeststore.NewPullRequestStore(db)
 		for _, pullRequest := range pullRequests {
 			outcome, err := st.Upsert(ctx, toUpsert(pullRequest))
 			if err != nil {
@@ -855,7 +855,7 @@ func (s *PullRequestSyncer) writePage(ctx context.Context, pullRequests []forge.
 			}
 		}
 
-		return advance(pullrequeststore.NewSyncStore(db))
+		return advance(pullrequeststore.NewPullRequestSyncStore(db))
 	})
 	if err != nil {
 		return err

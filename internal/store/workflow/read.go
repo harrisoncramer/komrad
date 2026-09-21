@@ -13,7 +13,7 @@ import (
 )
 
 // ListWorktreeDirs returns the directories the workflows cut their worktrees in.
-func (s *Store) ListWorktreeDirs(ctx context.Context) ([]string, error) {
+func (s *WorkflowStore) ListWorktreeDirs(ctx context.Context) ([]string, error) {
 	dirs, err := s.queries.ListWorkflowWorktreeDirs(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list the directories workflows cut worktrees in: %w", err)
@@ -23,7 +23,7 @@ func (s *Store) ListWorktreeDirs(ctx context.Context) ([]string, error) {
 }
 
 // List returns every live workflow, by name.
-func (s *Store) List(ctx context.Context) ([]Workflow, error) {
+func (s *WorkflowStore) List(ctx context.Context) ([]Workflow, error) {
 	rows, err := s.queries.ListWorkflows(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list workflows: %w", err)
@@ -65,7 +65,7 @@ func (c Cursor) Validate() error {
 
 // ListPage returns one page of workflows by name, resuming after cursor when one is given,
 // over the archived workflows or the live ones and never both.
-func (s *Store) ListPage(ctx context.Context, limit int64, cursor *Cursor, archived bool) ([]Workflow, error) {
+func (s *WorkflowStore) ListPage(ctx context.Context, limit int64, cursor *Cursor, archived bool) ([]Workflow, error) {
 	params := models.ListWorkflowsPageParams{Lim: int32(limit), Archived: archived}
 	if cursor != nil {
 		params.CursorName = &cursor.Name
@@ -89,17 +89,17 @@ func (s *Store) ListPage(ctx context.Context, limit int64, cursor *Cursor, archi
 }
 
 // Get returns a live workflow by id, or ErrNotFound when none has that id.
-func (s *Store) Get(ctx context.Context, id string) (*Workflow, error) {
+func (s *WorkflowStore) Get(ctx context.Context, id string) (*Workflow, error) {
 	return s.get(ctx, id, false)
 }
 
 // GetIncludingArchived reads a workflow by id whether or not it is archived, returning
 // ErrNotFound when none has that id.
-func (s *Store) GetIncludingArchived(ctx context.Context, id string) (*Workflow, error) {
+func (s *WorkflowStore) GetIncludingArchived(ctx context.Context, id string) (*Workflow, error) {
 	return s.get(ctx, id, true)
 }
 
-func (s *Store) get(ctx context.Context, id string, includeArchived bool) (*Workflow, error) {
+func (s *WorkflowStore) get(ctx context.Context, id string, includeArchived bool) (*Workflow, error) {
 	if !store.IsID(id) {
 		return nil, store.ErrNotFound.Saying("no workflow with id %q", id)
 	}

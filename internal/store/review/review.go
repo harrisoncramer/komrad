@@ -99,13 +99,13 @@ type Message struct {
 	UpdatedAt   time.Time
 }
 
-type Store struct {
+type ReviewStore struct {
 	queries *models.Queries
 }
 
-// New builds a review store over db, which is either the pool or a transaction.
-func New(db store.DBTX) *Store {
-	return &Store{queries: models.New(db)}
+// NewReviewStore builds a review store over db, which is either the pool or a transaction.
+func NewReviewStore(db store.DBTX) *ReviewStore {
+	return &ReviewStore{queries: models.New(db)}
 }
 
 type CreateThreadParams struct {
@@ -127,7 +127,7 @@ type CreateThreadParams struct {
 
 // CreateThread pins a conversation to a place in a diff and writes its first message in one
 // statement.
-func (s *Store) CreateThread(ctx context.Context, params CreateThreadParams) (*Thread, error) {
+func (s *ReviewStore) CreateThread(ctx context.Context, params CreateThreadParams) (*Thread, error) {
 	row, err := s.queries.InsertReviewThreadWithMessage(ctx, models.InsertReviewThreadWithMessageParams{
 		AgentID:       params.AgentID,
 		ReviewID:      params.ReviewID,
@@ -171,7 +171,7 @@ func (s *Store) CreateThread(ctx context.Context, params CreateThreadParams) (*T
 }
 
 // ListThreads is every thread on an agent, in the order they run down the diff.
-func (s *Store) ListThreads(ctx context.Context, agentID string) ([]Thread, error) {
+func (s *ReviewStore) ListThreads(ctx context.Context, agentID string) ([]Thread, error) {
 	if !store.IsID(agentID) {
 		return nil, nil
 	}
@@ -218,7 +218,7 @@ func (s *Store) ListThreads(ctx context.Context, agentID string) ([]Thread, erro
 
 // GetThread is one thread without the read stamps resolved into unread flags, ErrNotFound
 // for an id that names nothing.
-func (s *Store) GetThread(ctx context.Context, id string) (*Thread, error) {
+func (s *ReviewStore) GetThread(ctx context.Context, id string) (*Thread, error) {
 	if !store.IsID(id) {
 		return nil, threadNotFound(id)
 	}
@@ -258,7 +258,7 @@ func (s *Store) GetThread(ctx context.Context, id string) (*Thread, error) {
 }
 
 // MarkThreadRead stamps the person's read column from the agent's activity column.
-func (s *Store) MarkThreadRead(ctx context.Context, id string) (*Thread, error) {
+func (s *ReviewStore) MarkThreadRead(ctx context.Context, id string) (*Thread, error) {
 	if !store.IsID(id) {
 		return nil, threadNotFound(id)
 	}
@@ -288,7 +288,7 @@ type SetThreadResolvedParams struct {
 }
 
 // SetThreadResolved settles a thread or reopens it, recording who did.
-func (s *Store) SetThreadResolved(ctx context.Context, params SetThreadResolvedParams) (*Thread, error) {
+func (s *ReviewStore) SetThreadResolved(ctx context.Context, params SetThreadResolvedParams) (*Thread, error) {
 	if !store.IsID(params.ID) {
 		return nil, threadNotFound(params.ID)
 	}
@@ -324,7 +324,7 @@ type CreateMessageParams struct {
 
 // CreateMessage writes a message into a thread and moves the writer's activity stamp in one
 // statement.
-func (s *Store) CreateMessage(ctx context.Context, params CreateMessageParams) (*Message, error) {
+func (s *ReviewStore) CreateMessage(ctx context.Context, params CreateMessageParams) (*Message, error) {
 	row, err := s.queries.InsertReviewMessage(ctx, models.InsertReviewMessageParams{
 		ThreadID:      params.ThreadID,
 		ReviewID:      params.ReviewID,
@@ -354,7 +354,7 @@ func (s *Store) CreateMessage(ctx context.Context, params CreateMessageParams) (
 }
 
 // UpdateMessage rewrites a message and moves its author's activity stamp with it.
-func (s *Store) UpdateMessage(ctx context.Context, id, body string, suggestion []string) (*Message, error) {
+func (s *ReviewStore) UpdateMessage(ctx context.Context, id, body string, suggestion []string) (*Message, error) {
 	if !store.IsID(id) {
 		return nil, messageNotFound(id)
 	}
@@ -388,7 +388,7 @@ func (s *Store) UpdateMessage(ctx context.Context, id, body string, suggestion [
 }
 
 // GetMessage is one message, ErrNotFound for an id that names nothing.
-func (s *Store) GetMessage(ctx context.Context, id string) (*Message, error) {
+func (s *ReviewStore) GetMessage(ctx context.Context, id string) (*Message, error) {
 	if !store.IsID(id) {
 		return nil, messageNotFound(id)
 	}
@@ -407,7 +407,7 @@ func (s *Store) GetMessage(ctx context.Context, id string) (*Message, error) {
 }
 
 // ListMessages is every message in the given threads, oldest first within each.
-func (s *Store) ListMessages(ctx context.Context, threadIDs []string) ([]Message, error) {
+func (s *ReviewStore) ListMessages(ctx context.Context, threadIDs []string) ([]Message, error) {
 	if len(threadIDs) == 0 {
 		return nil, nil
 	}
@@ -456,7 +456,7 @@ type MarkFileViewedParams struct {
 
 // MarkFileViewed records that a file has been read, storing the fingerprint of its diff content
 // so the mark can be checked against a later patch.
-func (s *Store) MarkFileViewed(ctx context.Context, params MarkFileViewedParams) (*ViewedFile, error) {
+func (s *ReviewStore) MarkFileViewed(ctx context.Context, params MarkFileViewedParams) (*ViewedFile, error) {
 	row, err := s.queries.MarkReviewFileViewed(ctx, models.MarkReviewFileViewedParams{
 		AgentID:     params.AgentID,
 		FilePath:    params.FilePath,
@@ -472,7 +472,7 @@ func (s *Store) MarkFileViewed(ctx context.Context, params MarkFileViewedParams)
 }
 
 // UnmarkFileViewed drops the mark on one file.
-func (s *Store) UnmarkFileViewed(ctx context.Context, agentID, filePath string) error {
+func (s *ReviewStore) UnmarkFileViewed(ctx context.Context, agentID, filePath string) error {
 	if !store.IsID(agentID) {
 		return nil
 	}
@@ -489,7 +489,7 @@ func (s *Store) UnmarkFileViewed(ctx context.Context, agentID, filePath string) 
 }
 
 // ListViewedFiles is every file of an agent marked read.
-func (s *Store) ListViewedFiles(ctx context.Context, agentID string) ([]ViewedFile, error) {
+func (s *ReviewStore) ListViewedFiles(ctx context.Context, agentID string) ([]ViewedFile, error) {
 	if !store.IsID(agentID) {
 		return nil, nil
 	}

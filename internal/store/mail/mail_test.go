@@ -587,8 +587,8 @@ func TestDelete(t *testing.T) {
 const answerNotice = "weave: worker answered your review, read the threads with list_review_threads"
 
 type fixture struct {
-	*Store
-	agents   *agentstore.Store
+	*MailStore
+	agents   *agentstore.AgentStore
 	workflow string
 }
 
@@ -598,14 +598,14 @@ func open(t *testing.T) *fixture {
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = p.Close() })
 
-	workflows := workflowstore.New(p.GetDB())
+	workflows := workflowstore.NewWorkflowStore(p.GetDB())
 	created, err := workflows.Create(t.Context(), workflowstore.Config{Name: "default", Worktree: workflowstore.WorktreeConfig{BaseBranch: "main"}})
 	require.NoError(t, err)
 
 	return &fixture{
-		Store:    New(p.GetDB()),
-		agents:   agentstore.New(p.GetDB()),
-		workflow: created.ID,
+		MailStore: NewMailStore(p.GetDB()),
+		agents:    agentstore.NewAgentStore(p.GetDB()),
+		workflow:  created.ID,
 	}
 }
 

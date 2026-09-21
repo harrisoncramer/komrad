@@ -59,17 +59,17 @@ type Config struct {
 	WorkflowID string
 }
 
-type Store struct {
+type ScheduleStore struct {
 	queries *models.Queries
 }
 
-// New builds a schedule store over db, which is either the pool or a transaction.
-func New(db store.DBTX) *Store {
-	return &Store{queries: models.New(db)}
+// NewScheduleStore builds a schedule store over db, which is either the pool or a transaction.
+func NewScheduleStore(db store.DBTX) *ScheduleStore {
+	return &ScheduleStore{queries: models.New(db)}
 }
 
 // List returns every live schedule, newest first.
-func (s *Store) List(ctx context.Context) ([]Schedule, error) {
+func (s *ScheduleStore) List(ctx context.Context) ([]Schedule, error) {
 	rows, err := s.queries.ListSchedules(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list schedules: %w", err)
@@ -87,7 +87,7 @@ type Cursor = store.IDCursor
 
 // ListPage returns one page of live schedules, newest first, resuming after cursor when one
 // is given.
-func (s *Store) ListPage(ctx context.Context, limit int64, cursor *Cursor) ([]Schedule, error) {
+func (s *ScheduleStore) ListPage(ctx context.Context, limit int64, cursor *Cursor) ([]Schedule, error) {
 	params := models.ListSchedulesPageParams{Lim: int32(limit)}
 	if cursor != nil {
 		params.CursorID = &cursor.ID
@@ -106,7 +106,7 @@ func (s *Store) ListPage(ctx context.Context, limit int64, cursor *Cursor) ([]Sc
 }
 
 // Get returns a schedule by id, or ErrNotFound when none has that id.
-func (s *Store) Get(ctx context.Context, id string) (*Schedule, error) {
+func (s *ScheduleStore) Get(ctx context.Context, id string) (*Schedule, error) {
 	if !store.IsID(id) {
 		return nil, store.ErrNotFound.Saying("no schedule with id %q", id)
 	}
@@ -125,7 +125,7 @@ func (s *Store) Get(ctx context.Context, id string) (*Schedule, error) {
 }
 
 // Create inserts a schedule and returns it.
-func (s *Store) Create(ctx context.Context, cfg Config) (*Schedule, error) {
+func (s *ScheduleStore) Create(ctx context.Context, cfg Config) (*Schedule, error) {
 	row, err := s.queries.InsertSchedule(ctx, models.InsertScheduleParams{
 		Name:       cfg.Name,
 		Cron:       cfg.Cron,
@@ -148,7 +148,7 @@ func (s *Store) Create(ctx context.Context, cfg Config) (*Schedule, error) {
 }
 
 // Update replaces a schedule's editable fields, keyed by id.
-func (s *Store) Update(ctx context.Context, id string, cfg Config) error {
+func (s *ScheduleStore) Update(ctx context.Context, id string, cfg Config) error {
 	if !store.IsID(id) {
 		return nil
 	}
@@ -174,7 +174,7 @@ func (s *Store) Update(ctx context.Context, id string, cfg Config) error {
 }
 
 // SetEnabled pauses or resumes a schedule without touching anything else.
-func (s *Store) SetEnabled(ctx context.Context, id string, enabled bool) error {
+func (s *ScheduleStore) SetEnabled(ctx context.Context, id string, enabled bool) error {
 	if !store.IsID(id) {
 		return nil
 	}
@@ -191,7 +191,7 @@ const maxLaunchResultMessage = 500
 
 // RecordLaunchResult writes what happened the last time this schedule fired, overwriting
 // whatever the firing before it recorded.
-func (s *Store) RecordLaunchResult(ctx context.Context, id string, status LaunchResultStatus, message string) error {
+func (s *ScheduleStore) RecordLaunchResult(ctx context.Context, id string, status LaunchResultStatus, message string) error {
 	if !store.IsID(id) {
 		return nil
 	}
@@ -225,7 +225,7 @@ func truncateResultMessage(message string) string {
 
 // Archive hides a schedule from the panel without dropping the row, so the agents it launched
 // still point at the schedule that made them.
-func (s *Store) Archive(ctx context.Context, id string) error {
+func (s *ScheduleStore) Archive(ctx context.Context, id string) error {
 	if !store.IsID(id) {
 		return nil
 	}
@@ -238,7 +238,7 @@ func (s *Store) Archive(ctx context.Context, id string) error {
 }
 
 // ListInWorkflow returns every schedule pointing at a workflow, archived ones included.
-func (s *Store) ListInWorkflow(ctx context.Context, workflowID string) ([]Schedule, error) {
+func (s *ScheduleStore) ListInWorkflow(ctx context.Context, workflowID string) ([]Schedule, error) {
 	if !store.IsID(workflowID) {
 		return nil, nil
 	}
@@ -257,7 +257,7 @@ func (s *Store) ListInWorkflow(ctx context.Context, workflowID string) ([]Schedu
 
 // Delete permanently removes a schedule, which the caller clears off its launched agents
 // first.
-func (s *Store) Delete(ctx context.Context, id string) error {
+func (s *ScheduleStore) Delete(ctx context.Context, id string) error {
 	if !store.IsID(id) {
 		return nil
 	}
@@ -270,7 +270,7 @@ func (s *Store) Delete(ctx context.Context, id string) error {
 }
 
 // CountLive reports how many live schedules launch into a workflow.
-func (s *Store) CountLive(ctx context.Context, workflowID string) (int64, error) {
+func (s *ScheduleStore) CountLive(ctx context.Context, workflowID string) (int64, error) {
 	if !store.IsID(workflowID) {
 		return 0, nil
 	}

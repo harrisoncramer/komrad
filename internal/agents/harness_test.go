@@ -187,7 +187,7 @@ func TestNewAgentFlagsFollowTheHarness(t *testing.T) {
 	service := NewLaunchService(NewLaunchServiceParams{
 		Tmux:               tmux,
 		Agents:             st.Agents,
-		Reviews:            reviewstore.New(st.Pool.GetDB()),
+		Reviews:            reviewstore.NewReviewStore(st.Pool.GetDB()),
 		Workflows:          st.Workflows,
 		Tx:                 st.Pool,
 		Launcher:           NewLauncher(NewLauncherParams{Tmux: tmux}),

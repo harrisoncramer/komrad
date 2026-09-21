@@ -49,17 +49,17 @@ const defaultSearchLimit = 50
 
 const minNearTermRunes = 3
 
-type Store struct {
+type TranscriptStore struct {
 	queries *models.Queries
 }
 
-// New builds a transcript store over db, either the pool or a transaction.
-func New(db store.DBTX) *Store {
-	return &Store{queries: models.New(db)}
+// NewTranscriptStore builds a transcript store over db, either the pool or a transaction.
+func NewTranscriptStore(db store.DBTX) *TranscriptStore {
+	return &TranscriptStore{queries: models.New(db)}
 }
 
 // Get assembles an agent's whole conversation from its indexed turns.
-func (s *Store) Get(ctx context.Context, agentID string) (string, error) {
+func (s *TranscriptStore) Get(ctx context.Context, agentID string) (string, error) {
 	if !store.IsID(agentID) {
 		return "", nil
 	}
@@ -89,7 +89,7 @@ type ListLastTurnsParams struct {
 
 // ListLastTurns returns the newest turns spoken in one role and every turn between them, oldest
 // first.
-func (s *Store) ListLastTurns(ctx context.Context, params ListLastTurnsParams) ([]StoredTurn, error) {
+func (s *TranscriptStore) ListLastTurns(ctx context.Context, params ListLastTurnsParams) ([]StoredTurn, error) {
 	if !store.IsID(params.AgentID) {
 		return nil, nil
 	}
@@ -118,7 +118,7 @@ type OpenSessionParams struct {
 }
 
 // OpenSession returns the session an agent's current conversation is copied under.
-func (s *Store) OpenSession(ctx context.Context, params OpenSessionParams) (Session, error) {
+func (s *TranscriptStore) OpenSession(ctx context.Context, params OpenSessionParams) (Session, error) {
 	id, err := store.NewID()
 	if err != nil {
 		return Session{}, err
@@ -137,7 +137,7 @@ func (s *Store) OpenSession(ctx context.Context, params OpenSessionParams) (Sess
 }
 
 // Advance records how far a session's log has been read.
-func (s *Store) Advance(ctx context.Context, sessionID string, offset int64) error {
+func (s *TranscriptStore) Advance(ctx context.Context, sessionID string, offset int64) error {
 	if err := s.queries.AdvanceTranscriptSession(ctx, models.AdvanceTranscriptSessionParams{
 		ID:           sessionID,
 		SyncedOffset: offset,
@@ -165,7 +165,7 @@ const turnSeparator = "\n\n"
 
 // AppendTurns indexes newly-synced turns for an agent, numbering them after those already
 // stored.
-func (s *Store) AppendTurns(ctx context.Context, params AppendTurnsParams) error {
+func (s *TranscriptStore) AppendTurns(ctx context.Context, params AppendTurnsParams) error {
 	if len(params.Turns) == 0 {
 		return nil
 	}
@@ -211,7 +211,7 @@ func placeTurns(length int64, first bool, turns []Turn) []Turn {
 }
 
 // DeleteSessionTurns drops the turns indexed under one session.
-func (s *Store) DeleteSessionTurns(ctx context.Context, sessionID string) error {
+func (s *TranscriptStore) DeleteSessionTurns(ctx context.Context, sessionID string) error {
 	if err := s.queries.DeleteTranscriptSessionChunks(ctx, sessionID); err != nil {
 		return fmt.Errorf("failed to delete transcript chunks for session %q: %w", sessionID, err)
 	}
@@ -220,7 +220,7 @@ func (s *Store) DeleteSessionTurns(ctx context.Context, sessionID string) error 
 }
 
 // Delete removes the conversations belonging to agents.
-func (s *Store) Delete(ctx context.Context, agentIDs []string) error {
+func (s *TranscriptStore) Delete(ctx context.Context, agentIDs []string) error {
 	if len(agentIDs) == 0 {
 		return nil
 	}
@@ -311,7 +311,7 @@ type Results struct {
 
 // Search returns one page of each section, most relevant first within each, answering a query
 // with no word to look for with nothing.
-func (s *Store) Search(ctx context.Context, params SearchParams) (Results, error) {
+func (s *TranscriptStore) Search(ctx context.Context, params SearchParams) (Results, error) {
 	query := strings.ReplaceAll(params.Query, "\x00", "")
 
 	terms := splitTerms(query)

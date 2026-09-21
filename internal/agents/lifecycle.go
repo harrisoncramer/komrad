@@ -374,7 +374,7 @@ func (s *LifecycleService) RestoreAgents(ctx context.Context, ids []string) ([]a
 	}
 
 	err = s.tx.InTx(ctx, func(db store.DBTX) error {
-		agentStore, workflowStore := agentstore.New(db), workflowstore.New(db)
+		agentStore, workflowStore := agentstore.NewAgentStore(db), workflowstore.NewWorkflowStore(db)
 
 		if err := claimRoomForAgents(ctx, agentStore, s.maxAgents, len(archived)); err != nil {
 			return err
@@ -535,13 +535,13 @@ func (s *LifecycleService) removeAgents(ctx context.Context, ids []string) error
 	// caller read the rows is reached here and nowhere else.
 	var taken []agentstore.AgentPane
 	if err := s.tx.InTx(ctx, func(db store.DBTX) error {
-		deleted, err := agentstore.New(db).Delete(ctx, ids)
+		deleted, err := agentstore.NewAgentStore(db).Delete(ctx, ids)
 		if err != nil {
 			return err
 		}
 		taken = deleted
 
-		return transcriptstore.New(db).Delete(ctx, ids)
+		return transcriptstore.NewTranscriptStore(db).Delete(ctx, ids)
 	}); err != nil {
 		return err
 	}

@@ -52,14 +52,14 @@ type BranchScan struct {
 	CompletedAt *time.Time
 }
 
-// SyncStore is where the sync is for every repository and branch it has listed.
-type SyncStore struct {
+// PullRequestSyncStore is where the sync is for every repository and branch it has listed.
+type PullRequestSyncStore struct {
 	queries *models.Queries
 }
 
-// NewSyncStore builds a sync store over a pool or transaction.
-func NewSyncStore(db store.DBTX) *SyncStore {
-	return &SyncStore{queries: models.New(db)}
+// NewPullRequestSyncStore builds a sync store over a pool or transaction.
+func NewPullRequestSyncStore(db store.DBTX) *PullRequestSyncStore {
+	return &PullRequestSyncStore{queries: models.New(db)}
 }
 
 // ListStaleStandingsParams says how long a read of the checks and mergeability is trusted: a
@@ -76,7 +76,7 @@ type ListStaleStandingsParams struct {
 // ListStaleStandings is every open pull request on a branch a live agent sits on in a
 // repository whose review decision has not been read since it last changed, or whose checks
 // were read for another head or have aged past what the params trust, newest change first.
-func (s *SyncStore) ListStaleStandings(ctx context.Context, params ListStaleStandingsParams) ([]PullRequest, error) {
+func (s *PullRequestSyncStore) ListStaleStandings(ctx context.Context, params ListStaleStandingsParams) ([]PullRequest, error) {
 	rows, err := s.queries.ListStaleStandings(ctx, models.ListStaleStandingsParams{
 		RepositoryUrl: params.RepositoryURL,
 		PendingBefore: params.Now.Add(-params.PendingAfter),
@@ -92,7 +92,7 @@ func (s *SyncStore) ListStaleStandings(ctx context.Context, params ListStaleStan
 
 // ListUnscannedBranches is every branch a live agent sits on in a repository whose one-time
 // listing has not completed.
-func (s *SyncStore) ListUnscannedBranches(ctx context.Context, repositoryURL string) ([]string, error) {
+func (s *PullRequestSyncStore) ListUnscannedBranches(ctx context.Context, repositoryURL string) ([]string, error) {
 	rows, err := s.queries.ListUnscannedBranches(ctx, &repositoryURL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list the unscanned branches of %s: %w", repositoryURL, err)
@@ -109,7 +109,7 @@ func (s *SyncStore) ListUnscannedBranches(ctx context.Context, repositoryURL str
 }
 
 // GetBranchScan is where the listing of a branch is, or ErrNotFound when it has not started.
-func (s *SyncStore) GetBranchScan(ctx context.Context, repositoryURL, branch string) (*BranchScan, error) {
+func (s *PullRequestSyncStore) GetBranchScan(ctx context.Context, repositoryURL, branch string) (*BranchScan, error) {
 	row, err := s.queries.GetBranchScan(ctx, models.GetBranchScanParams{RepositoryUrl: repositoryURL, Branch: branch})
 	if db.IsNoRows(err) {
 		return nil, store.ErrNotFound.Saying("%s of %s has not been scanned", branch, repositoryURL)
@@ -128,7 +128,7 @@ func (s *SyncStore) GetBranchScan(ctx context.Context, repositoryURL, branch str
 
 // SetBranchScanCursor records where a branch's listing reads its next page from, starting the
 // scan when it has not.
-func (s *SyncStore) SetBranchScanCursor(ctx context.Context, repositoryURL, branch, cursor string) error {
+func (s *PullRequestSyncStore) SetBranchScanCursor(ctx context.Context, repositoryURL, branch, cursor string) error {
 	err := s.queries.SetBranchScanCursor(ctx, models.SetBranchScanCursorParams{
 		RepositoryUrl: repositoryURL,
 		Branch:        branch,
@@ -142,7 +142,7 @@ func (s *SyncStore) SetBranchScanCursor(ctx context.Context, repositoryURL, bran
 }
 
 // CompleteBranchScan records that a branch's listing answered its last page.
-func (s *SyncStore) CompleteBranchScan(ctx context.Context, repositoryURL, branch, cursor string) error {
+func (s *PullRequestSyncStore) CompleteBranchScan(ctx context.Context, repositoryURL, branch, cursor string) error {
 	err := s.queries.CompleteBranchScan(ctx, models.CompleteBranchScanParams{
 		RepositoryUrl: repositoryURL,
 		Branch:        branch,
@@ -156,7 +156,7 @@ func (s *SyncStore) CompleteBranchScan(ctx context.Context, repositoryURL, branc
 }
 
 // EnsureSync makes sure a repository has a sync row, leaving one it has alone.
-func (s *SyncStore) EnsureSync(ctx context.Context, repositoryURL string) error {
+func (s *PullRequestSyncStore) EnsureSync(ctx context.Context, repositoryURL string) error {
 	if err := s.queries.EnsurePullRequestSync(ctx, repositoryURL); err != nil {
 		return fmt.Errorf("failed to ensure the sync row for %s: %w", repositoryURL, err)
 	}
@@ -165,7 +165,7 @@ func (s *SyncStore) EnsureSync(ctx context.Context, repositoryURL string) error 
 }
 
 // GetSync is where the sync is for a repository, or ErrNotFound.
-func (s *SyncStore) GetSync(ctx context.Context, repositoryURL string) (*Sync, error) {
+func (s *PullRequestSyncStore) GetSync(ctx context.Context, repositoryURL string) (*Sync, error) {
 	row, err := s.queries.GetPullRequestSync(ctx, repositoryURL)
 	if db.IsNoRows(err) {
 		return nil, store.ErrNotFound.Saying("%s has no sync row", repositoryURL)
@@ -186,7 +186,7 @@ func (s *SyncStore) GetSync(ctx context.Context, repositoryURL string) (*Sync, e
 }
 
 // ResetSyncCalls starts a pass's count of requests for a repository at zero.
-func (s *SyncStore) ResetSyncCalls(ctx context.Context, repositoryURL string) error {
+func (s *PullRequestSyncStore) ResetSyncCalls(ctx context.Context, repositoryURL string) error {
 	if err := s.queries.ResetPullRequestSyncCalls(ctx, repositoryURL); err != nil {
 		return fmt.Errorf("failed to reset the call count for %s: %w", repositoryURL, err)
 	}
@@ -195,7 +195,7 @@ func (s *SyncStore) ResetSyncCalls(ctx context.Context, repositoryURL string) er
 }
 
 // RecordSyncRequest counts one request made for a repository and stamps when.
-func (s *SyncStore) RecordSyncRequest(ctx context.Context, repositoryURL string) error {
+func (s *PullRequestSyncStore) RecordSyncRequest(ctx context.Context, repositoryURL string) error {
 	if err := s.queries.RecordPullRequestSyncRequest(ctx, repositoryURL); err != nil {
 		return fmt.Errorf("failed to count a request for %s: %w", repositoryURL, err)
 	}
@@ -214,7 +214,7 @@ type StartSweepParams struct {
 }
 
 // StartSweep records a first sweep beginning at page one.
-func (s *SyncStore) StartSweep(ctx context.Context, params StartSweepParams) error {
+func (s *PullRequestSyncStore) StartSweep(ctx context.Context, params StartSweepParams) error {
 	err := s.queries.StartPullRequestSweep(ctx, models.StartPullRequestSweepParams{
 		RepositoryUrl: params.RepositoryURL,
 		SweepNewest:   xptr.Ptr(params.Newest),
@@ -228,7 +228,7 @@ func (s *SyncStore) StartSweep(ctx context.Context, params StartSweepParams) err
 }
 
 // AdvanceSweep records where the sweep in progress reads its next page from.
-func (s *SyncStore) AdvanceSweep(ctx context.Context, repositoryURL, cursor string) error {
+func (s *PullRequestSyncStore) AdvanceSweep(ctx context.Context, repositoryURL, cursor string) error {
 	err := s.queries.AdvancePullRequestSweep(ctx, models.AdvancePullRequestSweepParams{
 		RepositoryUrl: repositoryURL,
 		SweepCursor:   xptr.Ptr(cursor),
@@ -242,7 +242,7 @@ func (s *SyncStore) AdvanceSweep(ctx context.Context, repositoryURL, cursor stri
 
 // CompleteSweep promotes the sweep in progress: the high-water mark moves to its newest stamp
 // unless the mark is already newer, and the sweep columns clear.
-func (s *SyncStore) CompleteSweep(ctx context.Context, repositoryURL string) error {
+func (s *PullRequestSyncStore) CompleteSweep(ctx context.Context, repositoryURL string) error {
 	if err := s.queries.CompletePullRequestSweep(ctx, repositoryURL); err != nil {
 		return fmt.Errorf("failed to complete the sweep of %s: %w", repositoryURL, err)
 	}
@@ -252,7 +252,7 @@ func (s *SyncStore) CompleteSweep(ctx context.Context, repositoryURL string) err
 
 // ResetSweeps hands repositories back to a first sweep, clearing their high-water marks and
 // any sweep in progress.
-func (s *SyncStore) ResetSweeps(ctx context.Context, repositoryURLs []string) error {
+func (s *PullRequestSyncStore) ResetSweeps(ctx context.Context, repositoryURLs []string) error {
 	if err := s.queries.ResetPullRequestSweep(ctx, repositoryURLs); err != nil {
 		return fmt.Errorf("failed to reset the sweeps of %v: %w", repositoryURLs, err)
 	}
@@ -262,7 +262,7 @@ func (s *SyncStore) ResetSweeps(ctx context.Context, repositoryURLs []string) er
 
 // AdvanceMark moves a repository's high-water mark to a moment the changes have been read
 // through, unless the mark is already newer.
-func (s *SyncStore) AdvanceMark(ctx context.Context, repositoryURL string, through time.Time) error {
+func (s *PullRequestSyncStore) AdvanceMark(ctx context.Context, repositoryURL string, through time.Time) error {
 	err := s.queries.AdvancePullRequestSyncMark(ctx, models.AdvancePullRequestSyncMarkParams{
 		RepositoryUrl:  repositoryURL,
 		UpdatedThrough: through,
@@ -275,7 +275,7 @@ func (s *SyncStore) AdvanceMark(ctx context.Context, repositoryURL string, throu
 }
 
 // MarkListed records when page one of a repository's own listing was last read and written.
-func (s *SyncStore) MarkListed(ctx context.Context, repositoryURL string, at time.Time) error {
+func (s *PullRequestSyncStore) MarkListed(ctx context.Context, repositoryURL string, at time.Time) error {
 	err := s.queries.MarkPullRequestSyncListed(ctx, models.MarkPullRequestSyncListedParams{
 		RepositoryUrl: repositoryURL,
 		ListedAt:      xptr.Ptr(at),

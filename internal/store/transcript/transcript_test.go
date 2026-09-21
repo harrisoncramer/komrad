@@ -1150,8 +1150,8 @@ func TestLikePattern(t *testing.T) {
 }
 
 type fixture struct {
-	*Store
-	agents   *agentstore.Store
+	*TranscriptStore
+	agents   *agentstore.AgentStore
 	workflow string
 }
 
@@ -1161,14 +1161,14 @@ func open(t *testing.T) *fixture {
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = p.Close() })
 
-	workflows := workflowstore.New(p.GetDB())
+	workflows := workflowstore.NewWorkflowStore(p.GetDB())
 	created, err := workflows.Create(t.Context(), workflowstore.Config{Name: "default", Worktree: workflowstore.WorktreeConfig{BaseBranch: "main"}})
 	require.NoError(t, err)
 
 	return &fixture{
-		Store:    New(p.GetDB()),
-		agents:   agentstore.New(p.GetDB()),
-		workflow: created.ID,
+		TranscriptStore: NewTranscriptStore(p.GetDB()),
+		agents:          agentstore.NewAgentStore(p.GetDB()),
+		workflow:        created.ID,
 	}
 }
 

@@ -138,7 +138,7 @@ func (w *WorkflowService) NewWorkflow(ctx context.Context, cfg workflowstore.Con
 	var created *workflowstore.Workflow
 	err = w.tx.InTx(ctx, func(db store.DBTX) error {
 		var txErr error
-		created, txErr = workflowstore.New(db).Create(ctx, cfg)
+		created, txErr = workflowstore.NewWorkflowStore(db).Create(ctx, cfg)
 
 		return txErr
 	})
@@ -189,7 +189,7 @@ func (w *WorkflowService) UpdateWorkflow(ctx context.Context, id string, cfg wor
 	}
 
 	err = w.tx.InTx(ctx, func(db store.DBTX) error {
-		return workflowstore.New(db).Update(ctx, id, cfg)
+		return workflowstore.NewWorkflowStore(db).Update(ctx, id, cfg)
 	})
 	if err != nil {
 		return fmt.Errorf("failed to update workflow %q: %w", id, err)
@@ -330,11 +330,11 @@ func (w *WorkflowService) ArchiveWorkflow(ctx context.Context, id string) error 
 
 	var taken []agentstore.AgentPane
 	err = w.tx.InTx(ctx, func(db store.DBTX) error {
-		if err := workflowstore.New(db).Archive(ctx, id); err != nil {
+		if err := workflowstore.NewWorkflowStore(db).Archive(ctx, id); err != nil {
 			return err
 		}
 
-		archived, err := agentstore.New(db).ArchiveWorkflowAgents(ctx, id)
+		archived, err := agentstore.NewAgentStore(db).ArchiveWorkflowAgents(ctx, id)
 		taken = archived
 
 		return err
@@ -365,7 +365,7 @@ func (w *WorkflowService) RestoreWorkflow(ctx context.Context, id string) (*work
 
 	var restoring []agentstore.Agent
 	err = w.tx.InTx(ctx, func(db store.DBTX) error {
-		agents := agentstore.New(db)
+		agents := agentstore.NewAgentStore(db)
 
 		archived, err := agents.ListArchivedInWorkflow(ctx, id)
 		if err != nil {
@@ -383,7 +383,7 @@ func (w *WorkflowService) RestoreWorkflow(ctx context.Context, id string) (*work
 			return err
 		}
 
-		if err := workflowstore.New(db).Restore(ctx, id); err != nil {
+		if err := workflowstore.NewWorkflowStore(db).Restore(ctx, id); err != nil {
 			return err
 		}
 

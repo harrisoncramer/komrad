@@ -65,7 +65,7 @@ type ConnectParams struct {
 
 // NewServiceParams says what the service writes to and which forges it can build.
 type NewServiceParams struct {
-	Connections *forgestore.Store
+	Connections *forgestore.ForgeStore
 	Credentials CredentialStore
 	Builders    map[string]Builder
 	// Verified is what a refusal is recorded on, the connections themselves when unset and
@@ -80,7 +80,7 @@ type NewServiceParams struct {
 
 // Service connects and disconnects forges, and builds one to speak to for a connection.
 type Service struct {
-	connections *forgestore.Store
+	connections *forgestore.ForgeStore
 	credentials CredentialStore
 	builders    map[string]Builder
 	verified    verifiedSetter

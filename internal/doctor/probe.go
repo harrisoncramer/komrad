@@ -94,7 +94,7 @@ func readWorkflowBases(ctx context.Context, url string) ([]WorkflowBase, error) 
 	ctx, cancel := context.WithTimeout(ctx, connectTimeout)
 	defer cancel()
 
-	workflows, err := workflowstore.New(pool).List(ctx)
+	workflows, err := workflowstore.NewWorkflowStore(pool).List(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -170,7 +170,7 @@ func readWorktreeOwners(ctx context.Context, url string) (WorktreeOwners, error)
 	ctx, cancel := context.WithTimeout(ctx, connectTimeout)
 	defer cancel()
 
-	agents, err := agentstore.New(pool).ListDirs(ctx)
+	agents, err := agentstore.NewAgentStore(pool).ListDirs(ctx)
 	if err != nil {
 		return WorktreeOwners{}, err
 	}
@@ -183,7 +183,7 @@ func readWorktreeOwners(ctx context.Context, url string) (WorktreeOwners, error)
 		}
 	}
 
-	owners.WorkflowDirs, err = workflowstore.New(pool).ListWorktreeDirs(ctx)
+	owners.WorkflowDirs, err = workflowstore.NewWorkflowStore(pool).ListWorktreeDirs(ctx)
 	if err != nil {
 		return WorktreeOwners{}, err
 	}

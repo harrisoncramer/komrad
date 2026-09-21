@@ -147,7 +147,7 @@ func TestRetryCreateOntoAnotherHarness(t *testing.T) {
 	launch := NewLaunchService(NewLaunchServiceParams{
 		Tmux:               tmux,
 		Agents:             st.Agents,
-		Reviews:            reviewstore.New(st.Pool.GetDB()),
+		Reviews:            reviewstore.NewReviewStore(st.Pool.GetDB()),
 		Workflows:          st.Workflows,
 		Tx:                 st.Pool,
 		Launcher:           NewLauncher(NewLauncherParams{Tmux: tmux}),
@@ -197,7 +197,7 @@ func TestRetryCreateOntoAnotherHarnessDropsWorkflowFlags(t *testing.T) {
 	launch := NewLaunchService(NewLaunchServiceParams{
 		Tmux:               tmux,
 		Agents:             st.Agents,
-		Reviews:            reviewstore.New(st.Pool.GetDB()),
+		Reviews:            reviewstore.NewReviewStore(st.Pool.GetDB()),
 		Workflows:          st.Workflows,
 		Tx:                 st.Pool,
 		Launcher:           NewLauncher(NewLauncherParams{Tmux: tmux}),
@@ -247,7 +247,7 @@ func TestRetryCreateOntoAnotherHarnessRemintsTheSession(t *testing.T) {
 	launch := NewLaunchService(NewLaunchServiceParams{
 		Tmux:               tmux,
 		Agents:             st.Agents,
-		Reviews:            reviewstore.New(st.Pool.GetDB()),
+		Reviews:            reviewstore.NewReviewStore(st.Pool.GetDB()),
 		Workflows:          st.Workflows,
 		Tx:                 st.Pool,
 		Launcher:           NewLauncher(NewLauncherParams{Tmux: tmux}),
@@ -344,7 +344,7 @@ func TestRetryCreateFromThePanelOntoAnotherHarness(t *testing.T) {
 			launch := NewLaunchService(NewLaunchServiceParams{
 				Tmux:               tmux,
 				Agents:             st.Agents,
-				Reviews:            reviewstore.New(st.Pool.GetDB()),
+				Reviews:            reviewstore.NewReviewStore(st.Pool.GetDB()),
 				Workflows:          st.Workflows,
 				Tx:                 st.Pool,
 				Launcher:           NewLauncher(NewLauncherParams{Tmux: tmux}),

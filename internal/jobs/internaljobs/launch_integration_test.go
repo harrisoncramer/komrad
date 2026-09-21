@@ -106,7 +106,7 @@ func newAgentService(t *testing.T, stores *storetest.Stores) *agents.LaunchServi
 	return agents.NewLaunchService(agents.NewLaunchServiceParams{
 		Tmux:               &fakeTmux{},
 		Agents:             stores.Agents,
-		Reviews:            reviewstore.New(stores.Pool.GetDB()),
+		Reviews:            reviewstore.NewReviewStore(stores.Pool.GetDB()),
 		Workflows:          stores.Workflows,
 		Tx:                 stores.Pool,
 		Launcher:           agents.NewLauncher(agents.NewLauncherParams{Tmux: &fakeTmux{}, Addr: "127.0.0.1:8787"}),

@@ -231,7 +231,7 @@ func TestRequestReviewAfterAnApprovalSpawnsAnother(t *testing.T) {
 	tmux := newFakeTmux()
 	st := newStore(t)
 	manager := newManager(tmux, st, "")
-	reviews := reviewstore.New(st.Pool.GetDB())
+	reviews := reviewstore.NewReviewStore(st.Pool.GetDB())
 	ctx := t.Context()
 
 	author, err := manager.launch.NewAgent(ctx, NewAgentParams{

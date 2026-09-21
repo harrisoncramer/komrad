@@ -16,10 +16,10 @@ import (
 )
 
 type fixture struct {
-	*Store
+	*RunStore
 	db     store.DBTX
-	agents *agentstore.Store
-	rows   *rowstore.Store
+	agents *agentstore.AgentStore
+	rows   *rowstore.RowStore
 	// workflow is the one every seeded agent is filed under, a run hanging off an agent and an
 	// agent off a workflow.
 	workflow string
@@ -32,15 +32,15 @@ func open(t *testing.T) *fixture {
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = pool.Close() })
 
-	workflows := workflowstore.New(pool.GetDB())
+	workflows := workflowstore.NewWorkflowStore(pool.GetDB())
 	created, err := workflows.Create(t.Context(), workflowstore.Config{Name: "default", Worktree: workflowstore.WorktreeConfig{BaseBranch: "main"}})
 	require.NoError(t, err)
 
 	return &fixture{
-		Store:    New(pool.GetDB()),
+		RunStore: NewRunStore(pool.GetDB()),
 		db:       pool.GetDB(),
-		agents:   agentstore.New(pool.GetDB()),
-		rows:     rowstore.New(pool.GetDB()),
+		agents:   agentstore.NewAgentStore(pool.GetDB()),
+		rows:     rowstore.NewRowStore(pool.GetDB()),
 		workflow: created.ID,
 	}
 }

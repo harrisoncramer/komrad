@@ -11,14 +11,14 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func newStore(t *testing.T) *Store {
+func newStore(t *testing.T) *ForgeStore {
 	t.Helper()
 
 	pool, err := store.Open(t.Context(), dbtest.URL(t))
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = pool.Close() })
 
-	return New(pool.GetDB())
+	return NewForgeStore(pool.GetDB())
 }
 
 func github(verifiedAt time.Time) CreateParams {

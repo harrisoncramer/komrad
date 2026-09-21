@@ -9,7 +9,7 @@ import (
 )
 
 // GetByIdempotencyKey returns the live or archived agent recorded under a key.
-func (s *Store) GetByIdempotencyKey(ctx context.Context, key string) (*Agent, error) {
+func (s *AgentStore) GetByIdempotencyKey(ctx context.Context, key string) (*Agent, error) {
 	if key == "" {
 		return nil, fmt.Errorf("%w: agent for idempotency key %q", store.ErrNotFound, key)
 	}
@@ -27,7 +27,7 @@ func (s *Store) GetByIdempotencyKey(ctx context.Context, key string) (*Agent, er
 
 // ReleaseIdempotencyKey takes a key back off the failed create holding it and reports whether
 // it did, checking the agent's state in the same statement.
-func (s *Store) ReleaseIdempotencyKey(ctx context.Context, key string) (bool, error) {
+func (s *AgentStore) ReleaseIdempotencyKey(ctx context.Context, key string) (bool, error) {
 	if key == "" {
 		return false, nil
 	}

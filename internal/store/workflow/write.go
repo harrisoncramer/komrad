@@ -12,7 +12,7 @@ import (
 // Create inserts a workflow together with the config rows holding what new agents inherit and
 // the provisioning of their directories, taking a transaction through InTx when the caller is
 // outside one.
-func (s *Store) Create(ctx context.Context, cfg Config) (*Workflow, error) {
+func (s *WorkflowStore) Create(ctx context.Context, cfg Config) (*Workflow, error) {
 	config, err := s.queries.InsertWorkflowConfig(ctx, models.InsertWorkflowConfigParams{
 		Harness: cfg.Harness,
 		Cwd:     cfg.Cwd,
@@ -54,7 +54,7 @@ func (s *Store) Create(ctx context.Context, cfg Config) (*Workflow, error) {
 }
 
 // Rename changes a workflow's display name, keyed by id.
-func (s *Store) Rename(ctx context.Context, id, name string) error {
+func (s *WorkflowStore) Rename(ctx context.Context, id, name string) error {
 	if !store.IsID(id) {
 		return nil
 	}
@@ -68,7 +68,7 @@ func (s *Store) Rename(ctx context.Context, id, name string) error {
 
 // Update rewrites a workflow's name, context, hooks and linked config, keyed by id, taking a
 // transaction through InTx when the caller is outside one.
-func (s *Store) Update(ctx context.Context, id string, cfg Config) error {
+func (s *WorkflowStore) Update(ctx context.Context, id string, cfg Config) error {
 	if !store.IsID(id) {
 		return nil
 	}
@@ -107,7 +107,7 @@ func (s *Store) Update(ctx context.Context, id string, cfg Config) error {
 
 // Delete permanently removes a workflow row along with the config rows it alone owns, and is
 // refused by the database while an agent or a schedule still points at it.
-func (s *Store) Delete(ctx context.Context, id string) error {
+func (s *WorkflowStore) Delete(ctx context.Context, id string) error {
 	if !store.IsID(id) {
 		return nil
 	}

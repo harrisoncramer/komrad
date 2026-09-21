@@ -168,14 +168,14 @@ func SanitizeName(name string) string {
 	}, name)
 }
 
-type Store struct {
+type AgentStore struct {
 	queries *models.Queries
 	db      store.DBTX
 }
 
-// New builds an agent store over a pool or transaction.
-func New(db store.DBTX) *Store {
-	return &Store{queries: models.New(db), db: db}
+// NewAgentStore builds an agent store over a pool or transaction.
+func NewAgentStore(db store.DBTX) *AgentStore {
+	return &AgentStore{queries: models.New(db), db: db}
 }
 
 type txBeginner interface {

@@ -46,18 +46,18 @@ type Page struct {
 	Archived bool
 }
 
-type Store struct {
+type RowStore struct {
 	queries *models.Queries
-	agents  *agentstore.Store
+	agents  *agentstore.AgentStore
 }
 
-// New builds a row store over a pool or transaction.
-func New(db store.DBTX) *Store {
-	return &Store{queries: models.New(db), agents: agentstore.New(db)}
+// NewRowStore builds a row store over a pool or transaction.
+func NewRowStore(db store.DBTX) *RowStore {
+	return &RowStore{queries: models.New(db), agents: agentstore.NewAgentStore(db)}
 }
 
 // ListPage returns one page of live or archived rows, newest first.
-func (s *Store) ListPage(ctx context.Context, page Page) ([]Row, error) {
+func (s *RowStore) ListPage(ctx context.Context, page Page) ([]Row, error) {
 	params := models.ListAgentRowsParams{Lim: int32(page.Limit), Archived: page.Archived}
 	if page.Cursor != nil {
 		params.CursorID = &page.Cursor.ID
@@ -72,7 +72,7 @@ func (s *Store) ListPage(ctx context.Context, page Page) ([]Row, error) {
 }
 
 // ListByID returns the live and archived rows of the given agents, newest first.
-func (s *Store) ListByID(ctx context.Context, ids []string) ([]Row, error) {
+func (s *RowStore) ListByID(ctx context.Context, ids []string) ([]Row, error) {
 	storable := store.KeepIDs(ids)
 	if len(storable) == 0 {
 		return nil, nil
@@ -86,7 +86,7 @@ func (s *Store) ListByID(ctx context.Context, ids []string) ([]Row, error) {
 	return s.hydrateMetadata(ctx, rows)
 }
 
-func (s *Store) hydrateMetadata(ctx context.Context, rows []*models.ListAgentRowsRow) ([]Row, error) {
+func (s *RowStore) hydrateMetadata(ctx context.Context, rows []*models.ListAgentRowsRow) ([]Row, error) {
 	listed := xslice.Map(rows, fromRow)
 
 	metadata, err := s.agents.ListMetadata(ctx, xslice.Map(listed, func(row Row) string { return row.ID }))

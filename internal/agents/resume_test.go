@@ -625,7 +625,7 @@ func TestADeleteAfterTheMarkStopsTheResume(t *testing.T) {
 
 // refusingUpdate is the store with its last write to the row taken away.
 type refusingUpdate struct {
-	*agentstore.Store
+	*agentstore.AgentStore
 }
 
 func (refusingUpdate) UpdateIfLive(context.Context, agentstore.Agent) (bool, error) {
@@ -647,7 +647,7 @@ func TestAResumeThatFailsOnItsLastWritePutsBackWhatItFound(t *testing.T) {
 		harnesses: fakeHarnesses{harness: &fakeHarness{}},
 		addr:      "127.0.0.1:9999",
 		lifecycle: &fakeLifecycle{},
-		agents:    refusingUpdate{Store: st.Agents},
+		agents:    refusingUpdate{AgentStore: st.Agents},
 	})
 
 	_, err := manager.resume.ResumeAgent(ctx, agent.ID)

@@ -11,7 +11,7 @@ import (
 )
 
 // Create inserts an agent and assigns an ID when needed.
-func (s *Store) Create(ctx context.Context, agent Agent) error {
+func (s *AgentStore) Create(ctx context.Context, agent Agent) error {
 	if agent.ID == "" {
 		id, err := store.NewID()
 		if err != nil {
@@ -48,7 +48,7 @@ func (s *Store) Create(ctx context.Context, agent Agent) error {
 }
 
 // Update writes an agent's editable and runtime fields.
-func (s *Store) Update(ctx context.Context, agent Agent) error {
+func (s *AgentStore) Update(ctx context.Context, agent Agent) error {
 	if err := s.queries.UpdateAgent(ctx, models.UpdateAgentParams{
 		ID:         agent.ID,
 		Cwd:        agent.Cwd,
@@ -67,7 +67,7 @@ func (s *Store) Update(ctx context.Context, agent Agent) error {
 
 // UpdateIfLive rewrites an agent's row and reports whether it did, refusing an archived or
 // deleted one.
-func (s *Store) UpdateIfLive(ctx context.Context, agent Agent) (bool, error) {
+func (s *AgentStore) UpdateIfLive(ctx context.Context, agent Agent) (bool, error) {
 	if !store.IsID(agent.ID) {
 		return false, nil
 	}
@@ -90,7 +90,7 @@ func (s *Store) UpdateIfLive(ctx context.Context, agent Agent) (bool, error) {
 }
 
 // Delete removes live or archived agents by ID.
-func (s *Store) Delete(ctx context.Context, ids []string) ([]AgentPane, error) {
+func (s *AgentStore) Delete(ctx context.Context, ids []string) ([]AgentPane, error) {
 	storable := store.KeepIDs(ids)
 	if len(storable) == 0 {
 		return nil, nil
@@ -107,7 +107,7 @@ func (s *Store) Delete(ctx context.Context, ids []string) ([]AgentPane, error) {
 }
 
 // Rename changes an agent's display name and reports whether a row changed.
-func (s *Store) Rename(ctx context.Context, id, name string) (bool, error) {
+func (s *AgentStore) Rename(ctx context.Context, id, name string) (bool, error) {
 	if !store.IsID(id) {
 		return false, nil
 	}
