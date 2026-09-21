@@ -622,9 +622,9 @@ func TestSearchHitsTakeTheKeys(t *testing.T) {
 			wantQuery:  "ledger",
 		},
 		{
-			name:       "the bottom key lands on the last hit",
+			name:       "the bottom key lands on the last turn",
 			keys:       []string{"enter", "G"},
-			wantCursor: 2,
+			wantCursor: 5,
 			wantQuery:  "ledger",
 		},
 		{
@@ -702,7 +702,7 @@ func (f *fakeSearchAgents) ResumeAgent(_ context.Context, req *connect.Request[a
 
 // TestSearchNamesEachAgentOnce covers two agents sharing a name, which archived rows make
 // ordinary, and the rank ordering scattering one agent's hits: an agent is one row however many
-// of its turns said the query, and every one of those turns is kept on it.
+// of its turns said the query, and every one of those turns is drawn under it.
 func TestSearchNamesEachAgentOnce(t *testing.T) {
 	m := filterModel()
 	m.screen = screenSearch
@@ -730,7 +730,7 @@ func TestSearchNamesEachAgentOnce(t *testing.T) {
 		},
 	})
 
-	agents := m.searchAgents()
+	agents := m.buildSearchAgents()
 	require.Len(t, agents, 2, "one row per agent rather than per turn")
 	assert.Equal(t, "a1", agents[0].id, "the agent the best turn belongs to stands first")
 	assert.Equal(t, []string{"first", "third"}, xslice.Map(agents[0].turns, func(hit searchHit) string {
@@ -739,13 +739,14 @@ func TestSearchNamesEachAgentOnce(t *testing.T) {
 
 	view := ansi.Strip(m.searchView())
 	assert.Equal(t, 2, strings.Count(view, "dispatcher"), "one row per agent rather than per name")
-	assert.NotContains(t, view, "first", "what the turn said is not drawn in the list")
+	assert.Less(t, strings.Index(view, "first"), strings.Index(view, "third"), "what each turn said is drawn under its agent")
+	assert.Less(t, strings.Index(view, "third"), strings.Index(view, "second"), "in the order the turns came back")
 }
 
 // searchRows is the rows the screen built for the agents it found, and the same rows drawn.
 func searchRows(m model) ([]view.Row, []string) {
 	pane := m.paneWidth()
-	snapshot := m.searchSnapshot(m.searchAgents(), pane)
+	snapshot := m.searchSnapshot(m.searchRows(), pane)
 
 	return snapshot.Rows, view.Rows(view.Prepare(snapshot), paint.Panel, pane)
 }
@@ -942,7 +943,7 @@ func TestSearchRowSaysWhatTheAgentsListSays(t *testing.T) {
 	m.search = searchState{query: "ledger"}
 	m.listing.agents = []agentItem{item}
 
-	hit := m.searchRow(searchAgent{id: "a1", name: "ledger"}, nil)
+	hit := m.searchAgentRow(searchAgent{id: "a1", name: "ledger"}, nil)
 	tree := snapshotRow(agentRow{item: item}, snapshotParams{})
 
 	assert.Equal(t, treeOwned(tree), treeOwned(hit))
@@ -973,7 +974,7 @@ func TestArchivedAgentsSayTheSameOnBothScreens(t *testing.T) {
 			m.listing.archivedAgents = archivedItems([]panel.Agent{agent})
 
 			archive := view.StatusCell(snapshotRow(agentRow{item: agentItem{agent: agent}}, snapshotParams{}))
-			search := view.StatusCell(m.searchRow(searchAgent{
+			search := view.StatusCell(m.searchAgentRow(searchAgent{
 				id:       "a2",
 				name:     "payouts",
 				archived: true,
@@ -1015,7 +1016,7 @@ func TestArchivedHitGreysOnWhatTheServerSaid(t *testing.T) {
 			m.search = searchState{query: "payouts"}
 			m.listing.archivedAgents = archivedItems(tt.listed)
 
-			row := m.searchRow(searchAgent{
+			row := m.searchAgentRow(searchAgent{
 				id:       "a2",
 				name:     "payouts",
 				archived: true,
@@ -1044,7 +1045,7 @@ func TestArchivedSearchRowKeepsTheDeleteThatFailed(t *testing.T) {
 	m.search = searchState{query: "stuck"}
 	m.listing.archivedAgents = archivedItems([]panel.Agent{agent})
 
-	cell := view.StatusCell(m.searchRow(searchAgent{
+	cell := view.StatusCell(m.searchAgentRow(searchAgent{
 		id:       "a2",
 		name:     "stuck",
 		archived: true,
@@ -1079,15 +1080,17 @@ func TestSearchNamesAnAgentMatchedTwiceOnce(t *testing.T) {
 		}},
 	})
 
-	agents := m.searchAgents()
+	agents := m.buildSearchAgents()
 	require.Len(t, agents, 1, "one agent, matched by its name and by a turn, is one row")
 	assert.Len(t, agents[0].turns, 1, "and the turn is kept on it")
 
 	rows, drawn := searchRows(m)
-	require.Len(t, rows, 1)
+	require.Len(t, rows, 2)
 	assert.Equal(t, "a1", rows[0].Key, "the row answers to the agent")
 	assert.NotEmpty(t, rows[0].Matches, "and lights the name the query said")
 	assert.Equal(t, 0, caretColumn(drawn[0]), "the row wears the caret in its focus cell")
+	assert.Equal(t, "a1/0", rows[1].Key, "the turn hangs under it")
+	assert.Equal(t, view.KindHit, rows[1].Kind)
 }
 
 // ansiStripped is the drawn rows with their styling taken off.
@@ -1301,7 +1304,7 @@ func TestSearchViewFitsThePane(t *testing.T) {
 	assert.LessOrEqual(t, len(view), m.height, "the view is no taller than the pane")
 	assert.Contains(t, strings.Join(view, "\n"), "more", "the rows it could not draw are counted")
 
-	m.search.cursor = len(m.search.turns) - 1
+	m.search.cursor = len(m.searchRows()) - 1
 	bottom := drawnLines(m.searchView())
 	assert.LessOrEqual(t, len(bottom), m.height, "the view stays inside the pane at the end of the list")
 	assert.Contains(t, strings.Join(bottom, "\n"), "agent-19", "the agent under the cursor is drawn")
@@ -1335,7 +1338,7 @@ func TestSearchNamesStandFirst(t *testing.T) {
 		}},
 	})
 
-	agents := m.searchAgents()
+	agents := m.buildSearchAgents()
 	require.Len(t, agents, 3)
 	assert.Equal(t, []string{"a1", "a3", "a2"}, xslice.Map(agents, func(agent searchAgent) string { return agent.id }),
 		"the live name, then the archived one, then the conversation")
@@ -1343,9 +1346,10 @@ func TestSearchNamesStandFirst(t *testing.T) {
 	assert.Empty(t, agents[0].turns, "an agent found by its name alone has no turn to open on")
 
 	rows, drawn := searchRows(m)
-	require.Len(t, rows, 3)
+	require.Len(t, rows, 4)
 	assert.NotEmpty(t, rows[0].Matches, "the name that said the query is lit")
 	assert.Empty(t, rows[2].Matches, "a name that did not is not")
+	assert.Equal(t, view.KindHit, rows[3].Kind, "and its turn hangs under it")
 	assert.Contains(t, ansi.Strip(drawn[m.search.cursor]), "billing", "the cursor opens on the first name")
 }
 
@@ -1466,4 +1470,110 @@ func TestSearchCursorSurvivesARefresh(t *testing.T) {
 		assert.Equal(t, "a2", agent.id, "the cursor lands on what is left")
 		assert.NotNil(t, cmd, "the preview is fetched for the agent it landed on")
 	})
+}
+
+// TestFlattenSnippet covers a snippet read into one line of text with the matched stretches
+// located in it.
+func TestFlattenSnippet(t *testing.T) {
+	tests := []struct {
+		name        string
+		snippet     string
+		wantText    string
+		wantMatches []view.Span
+	}{
+		{
+			name:     "nothing marked",
+			snippet:  "plain words",
+			wantText: "plain words",
+		},
+		{
+			name:     "a close with no open is ignored",
+			snippet:  "odd" + paint.MarkClose + " words",
+			wantText: "odd words",
+		},
+		{
+			name:        "newlines and runs of spaces are one space",
+			snippet:     "the\n\n  " + marked("ledger") + "\tis   here",
+			wantText:    "the ledger is here",
+			wantMatches: []view.Span{{Start: 4, End: 10}},
+		},
+		{
+			name:        "two matches",
+			snippet:     marked("pgx") + " and " + marked("pool"),
+			wantText:    "pgx and pool",
+			wantMatches: []view.Span{{Start: 0, End: 3}, {Start: 8, End: 12}},
+		},
+		{
+			name:        "a match in bytes rather than runes",
+			snippet:     "café " + marked("ledger"),
+			wantText:    "café ledger",
+			wantMatches: []view.Span{{Start: 6, End: 12}},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			text, matches := flattenSnippet(tt.snippet)
+
+			assert.Equal(t, tt.wantText, text)
+			assert.Equal(t, tt.wantMatches, matches)
+		})
+	}
+}
+
+// TestSearchHitLead covers who a turn is said by and where it sits, as the row leads with.
+func TestSearchHitLead(t *testing.T) {
+	tests := []struct {
+		name string
+		hit  searchHit
+		want string
+	}{
+		{
+			name: "no role at all",
+			hit:  searchHit{seq: 4},
+			want: "#4",
+		},
+		{
+			name: "a role the panel has no word for",
+			hit:  searchHit{role: "system", seq: 0},
+			want: "system #0",
+		},
+		{
+			name: "the person prompting",
+			hit:  searchHit{role: "user", seq: 518},
+			want: "you #518",
+		},
+		{
+			name: "the agent",
+			hit:  searchHit{role: "assistant", seq: 1},
+			want: "agent #1",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, tt.hit.lead())
+		})
+	}
+}
+
+// TestSearchHitRowFollowsItsAgent covers the row a turn is drawn as: it hangs under its agent
+// and greys with it, and never carries a process of its own.
+func TestSearchHitRowFollowsItsAgent(t *testing.T) {
+	hit := searchHit{
+		agentID: "a1",
+		role:    "assistant",
+		seq:     1,
+		snippet: "Hey. Ready. What " + marked("need") + "?",
+	}
+
+	row := searchHitRow(searchRow{agent: searchAgent{id: "a1", archived: true}, hit: &hit})
+
+	assert.Equal(t, "a1/1", row.Key)
+	assert.Equal(t, view.KindHit, row.Kind)
+	assert.Equal(t, "agent #1", row.Lead)
+	assert.Equal(t, "Hey. Ready. What need?", row.Name)
+	assert.Equal(t, []view.Span{{Start: 17, End: 21}}, row.Matches)
+	assert.True(t, row.Archived)
+	assert.Equal(t, view.ProcessNone, row.Process)
 }

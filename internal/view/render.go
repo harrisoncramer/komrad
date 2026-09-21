@@ -33,7 +33,7 @@ func renderLine(line Line, columns Columns, palette paint.Palette, width int) st
 	gutter := strings.Join(append(cells, drawGutterCell(palette, line.Status)), " ")
 
 	row := gutter + " " + strings.Repeat(" ", line.Indent) + drawRule(palette, line.Rule) +
-		drawName(palette, line) + drawTrailing(palette, line)
+		drawLead(palette, line.Lead) + drawName(palette, line) + drawTrailing(palette, line)
 	row += drawTrail(palette, line, width-lipgloss.Width(row))
 
 	if line.Selected {
@@ -88,6 +88,14 @@ func drawGutterCell(palette paint.Palette, cell Cell) string {
 	}
 
 	return drawCell(palette, cell)
+}
+
+func drawLead(palette paint.Palette, lead string) string {
+	if lead == "" {
+		return ""
+	}
+
+	return palette.Style(paint.ToneMuted).Render(lead) + " "
 }
 
 // drawRule is the corner a child hangs off its parent by.

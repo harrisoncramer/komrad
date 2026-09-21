@@ -15,9 +15,11 @@ const transcriptPreviewBefore = 12
 // searchPreview is the transcript standing beside the list: what it was drawn from, the rows it
 // drew to, and where in them the words the hit matched on landed.
 type searchPreview struct {
+	agentID string
 	// conversation is the markdown the rows are drawn from, held for the next wrap of the column.
 	conversation string
 	spans        []paint.Span
+	open         int
 	doc          docWindow
 }
 
@@ -27,14 +29,32 @@ func searchColumn() columnSpec {
 	return columnSpec{floor: columnFloor}
 }
 
+type holdPreviewParams struct {
+	agentID      string
+	conversation string
+	spans        []paint.Span
+	open         int
+}
+
 // holdPreview takes the transcript an agent was fetched for and draws it at the width it will be
-// read in, opening it on the first match.
-func (m *model) holdPreview(conversation string, spans []paint.Span) {
+// read in, opening it on the match asked for.
+func (m *model) holdPreview(params holdPreviewParams) {
+	conversation, spans := params.conversation, params.spans
 	if strings.TrimSpace(conversation) == "" {
 		conversation, spans = noTranscriptMarkdown, nil
 	}
 
-	m.search.preview = searchPreview{conversation: conversation, spans: spans}
+	m.search.preview = searchPreview{
+		agentID:      params.agentID,
+		conversation: conversation,
+		spans:        spans,
+		open:         params.open,
+	}
+	m.drawPreview()
+}
+
+func (m *model) openPreviewOn(open int) {
+	m.search.preview.open = open
 	m.drawPreview()
 }
 
@@ -53,7 +73,12 @@ func (m *model) drawPreview() {
 		return
 	}
 
-	text, line := paint.Panel.RenderTranscript(preview.conversation, preview.spans, split.column)
+	text, line := paint.Panel.RenderTranscript(paint.RenderTranscriptParams{
+		Conversation: preview.conversation,
+		Spans:        preview.spans,
+		Open:         preview.open,
+		Width:        split.column,
+	})
 	preview.doc.rows = strings.Split(strings.TrimRight(text, "\n"), "\n")
 
 	preview.doc.top = 0
@@ -80,7 +105,7 @@ func (m model) searchPreviewNotice() string {
 	switch {
 	case strings.TrimSpace(m.search.query) == "":
 		return searchWaitingMarkdown
-	case len(m.searchAgents()) == 0:
+	case len(m.searchRows()) == 0:
 		return noSearchHitsMarkdown
 	default:
 		return searchLoadingMarkdown

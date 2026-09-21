@@ -100,29 +100,40 @@ func markSpans(content string, spans []Span) string {
 // space to keep the byte offsets the search reports pointing where they did.
 var ScrubMarks = strings.NewReplacer(MarkOpen, " ", MarkClose, " ").Replace
 
-// RenderTranscript draws a transcript as the markdown it is written in, with the matched words
-// styled, and reports the line the first of them ended up on.
-func (p Palette) RenderTranscript(conversation string, spans []Span, width int) (string, int) {
-	rendered := p.Render(markSpans(conversation, spans), width)
+type RenderTranscriptParams struct {
+	Conversation string
+	Spans        []Span
+	Open         int
+	Width        int
+}
 
-	line := markedLine(rendered)
+// RenderTranscript draws a transcript as the markdown it is written in, with the matched words
+// styled, and reports the line the opened one of them ended up on.
+func (p Palette) RenderTranscript(params RenderTranscriptParams) (string, int) {
+	conversation, spans := params.Conversation, params.Spans
+	rendered := p.Render(markSpans(conversation, spans), params.Width)
+
+	open := min(max(params.Open, 0), max(len(spans)-1, 0))
+	line := markedLine(rendered, open)
 	if line == 0 && len(spans) > 0 {
 		// The rendering drops some constructs whole, a link's destination and an HTML tag among
 		// them, so a marker inside one goes with it and a guess says more about where the match
 		// sat than the top of a transcript thousands of lines long.
-		line = estimatedLine(rendered, spans[0].Start, len(conversation))
+		line = estimatedLine(rendered, spans[open].Start, len(conversation))
 	}
 
 	return styleMarks(rendered, p.stageMatch()), line
 }
 
-// markedLine is the line the first marked stretch fell on, counting from one, or zero when none
-// survived the rendering.
-func markedLine(rendered string) int {
+// markedLine is the line the nth marked stretch fell on, counting from one, or zero when it did
+// not survive the rendering.
+func markedLine(rendered string, nth int) int {
 	for i, row := range strings.Split(rendered, "\n") {
-		if strings.Contains(row, MarkOpen) {
+		marks := strings.Count(row, MarkOpen)
+		if nth < marks {
 			return i + 1
 		}
+		nth -= marks
 	}
 
 	return 0
