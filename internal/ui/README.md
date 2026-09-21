@@ -24,8 +24,12 @@ screenModel, which says what takes its keys and what draws it, plus whichever of
 draws: detailed for a record under its list, filtered for a search over it, tabbed for a strip
 over it, columned for a block beside it, and staged for a row it puts on the stage. m.active()
 is the switch from the screen enum to that type, and it carries no default, so the exhaustive
-check refuses a screen with no arm. For now each screen type is empty and its methods call the
-root's, which is the seam each screen's state moves behind one at a time.
+check refuses a screen with no arm. A screen that has moved, which the schedules screen has,
+holds its own state and m.active() hands back a pointer to it; its handlers take a host, which
+is what a screen may ask of the root, and a panelShared, which is what it may read of it, and
+write nothing else. A screen that has not moved is an empty type whose methods call the
+root's, which is the seam each screen's state moves behind one at a time. Drawing still goes
+through the root's chrome on every screen, moved or not.
 
 Everything else in the package is one of those three for one screen.
 
@@ -39,7 +43,7 @@ the panel rather than to any one screen, because the schedule form and the archi
 the workflows the agents list happens to have fetched.
 
 Per-screen state is the rest of what a screen draws: its cursor, and whatever it has loaded
-that nothing else reads. treeState, scheduleState, archiveState, searchState, reviewState,
+that nothing else reads. treeState, schedulesScreen, archiveState, searchState, reviewState,
 worktreesState.
 
 Shared concerns are the things that sit across screens on purpose. The column is the block

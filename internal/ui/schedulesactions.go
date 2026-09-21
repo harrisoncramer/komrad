@@ -41,32 +41,52 @@ func schedulesActions() actionSpec {
 			{
 				id:   actionMove,
 				keys: func(k config.Keybindings) []string { return concatKeys(k.Nav.Up, k.Nav.Down) },
-				run:  model.moveSchedules,
+				run:  moveSchedules,
 			},
 			{
 				id:   actionNavPage,
 				keys: func(k config.Keybindings) []string { return concatKeys(k.Nav.PageUp, k.Nav.PageDown) },
-				run:  model.pageSchedules,
+				run: func(m model, pressed string) (tea.Model, tea.Cmd) {
+					m.schedules.jump(&m, m.shared(), m.schedules.cursor+m.navPageDelta(pressed))
+
+					return m, nil
+				},
 			},
 			{
 				id:   actionScheduleNew,
 				keys: func(k config.Keybindings) []string { return k.Schedules.New },
-				run:  func(m model, _ string) (tea.Model, tea.Cmd) { return m.newScheduleForm() },
+				run: func(m model, _ string) (tea.Model, tea.Cmd) {
+					cmd := m.schedules.newForm(&m, m.shared())
+
+					return m, cmd
+				},
 			},
 			{
 				id:   actionScheduleEdit,
 				keys: func(k config.Keybindings) []string { return k.Schedules.Edit },
-				run:  func(m model, _ string) (tea.Model, tea.Cmd) { return m.editScheduleForm() },
+				run: func(m model, _ string) (tea.Model, tea.Cmd) {
+					cmd := m.schedules.editForm(&m, m.shared())
+
+					return m, cmd
+				},
 			},
 			{
 				id:   actionScheduleToggle,
 				keys: func(k config.Keybindings) []string { return k.Schedules.Toggle },
-				run:  func(m model, _ string) (tea.Model, tea.Cmd) { return m.toggleSchedule() },
+				run: func(m model, _ string) (tea.Model, tea.Cmd) {
+					cmd := m.schedules.toggle(&m, m.shared())
+
+					return m, cmd
+				},
 			},
 			{
 				id:   actionScheduleArchive,
 				keys: func(k config.Keybindings) []string { return k.Schedules.Archive },
-				run:  func(m model, _ string) (tea.Model, tea.Cmd) { return m.archiveScheduleConfirm() },
+				run: func(m model, _ string) (tea.Model, tea.Cmd) {
+					cmd := m.schedules.archiveConfirm(&m, m.shared())
+
+					return m, cmd
+				},
 			},
 		},
 		legend: []legendRow{
@@ -81,7 +101,7 @@ func schedulesActions() actionSpec {
 			},
 			{
 				of:   []actionID{actionScheduleToggle},
-				desc: model.scheduleToggleDesc,
+				desc: scheduleToggleDesc,
 			},
 			{
 				of:   []actionID{actionScheduleArchive},
@@ -118,27 +138,22 @@ func schedulesActions() actionSpec {
 	}
 }
 
-func (m model) pageSchedules(pressed string) (tea.Model, tea.Cmd) {
-	return m.jumpScheduleCursor(m.schedules.cursor + m.navPageDelta(pressed)), nil
-}
-
 // moveSchedules steps the cursor, and a step refused at the bottom walks on into the record.
-func (m model) moveSchedules(pressed string) (tea.Model, tea.Cmd) {
+func moveSchedules(m model, pressed string) (tea.Model, tea.Cmd) {
 	delta := -1
 	if isBound(pressed, m.keys.Nav.Down) {
 		delta = 1
 	}
 
-	next, ok := m.moveScheduleCursor(delta)
-	if !ok && delta > 0 {
+	if !m.schedules.move(&m, m.shared(), delta) && delta > 0 {
 		return m.walkIntoDetails()
 	}
 
-	return next, nil
+	return m, nil
 }
 
-func (m model) scheduleToggleDesc() string {
-	if item, ok := m.selectedSchedule(); ok && !item.schedule.Enabled {
+func scheduleToggleDesc(m model) string {
+	if item, ok := m.schedules.selected(m.shared()); ok && !item.schedule.Enabled {
 		return "resume"
 	}
 

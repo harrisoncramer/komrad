@@ -318,7 +318,7 @@ func (m model) reviewDetails() details {
 	// The notices read the row the list would draw, and which columns that row fills depends on
 	// whether the agent owns its checkout, which only its workflow says.
 	row := agentRow{item: item}
-	if workflow := m.workflowByID(agent.WorkflowID); workflow != nil {
+	if workflow := workflowByID(m.listing.workflows, agent.WorkflowID); workflow != nil {
 		row.workflow = *workflow
 	}
 

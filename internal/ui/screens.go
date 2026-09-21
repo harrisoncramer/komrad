@@ -118,18 +118,14 @@ type staged interface {
 	stage(m *model)
 }
 
-// active is the screen that is up.
-func (m model) active() screenModel {
-	return m.screen.adapter()
-}
-
-// adapter is the screen behind the enum, every one of them still a set of methods on the root.
-func (s screen) adapter() screenModel {
-	switch s {
+// active is the screen that is up, pointing into this root for a screen that holds its own
+// state.
+func (m *model) active() screenModel {
+	switch m.screen {
 	case screenAgents:
 		return agentsScreen{}
 	case screenSchedules:
-		return schedulesScreen{}
+		return &m.schedules
 	case screenArchive:
 		return archiveScreen{}
 	case screenSearch:
@@ -143,6 +139,13 @@ func (s screen) adapter() screenModel {
 	// The switch carries every screen and no default, so this is what a screen added without an
 	// arm compiles to until the exhaustive check refuses it.
 	return nil
+}
+
+// adapter is a screen's door with no root behind it.
+func (s screen) adapter() screenModel {
+	m := model{screen: s}
+
+	return m.active()
 }
 
 // onKey hands a keypress to a handler still on the root and leaves every other message alone.
@@ -167,9 +170,15 @@ type host interface {
 	placeColumn(owner screen, row string)
 	stageInfo()
 	hide() tea.Cmd
+	client() api
 }
 
 var _ host = (*model)(nil)
+
+// client is the service as a screen reads it.
+func (m *model) client() api {
+	return m.api
+}
 
 // panelShared is what the root hands a screen on every call, and nothing the screen may write.
 type panelShared struct {

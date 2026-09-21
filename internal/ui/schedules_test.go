@@ -105,7 +105,7 @@ func TestScheduleKeys(t *testing.T) {
 				m.listing.workflows = nil
 			}
 
-			updated, cmd := m.updateSchedules(keyMsg(tt.key))
+			updated, cmd := m.schedules.update(m, keyMsg(tt.key))
 			pressed, ok := updated.(model)
 			require.True(t, ok)
 
@@ -158,7 +158,7 @@ func TestSchedulesView(t *testing.T) {
 			m.listing.schedules = tt.schedules
 			m.schedules.cursor = 0
 
-			view := m.schedulesView()
+			view := m.schedules.view(m)
 			for _, want := range tt.wants {
 				assert.Contains(t, view, want)
 			}
@@ -406,11 +406,9 @@ func TestScheduleWriteFailure(t *testing.T) {
 			name: "a refused pause",
 			act: func(t *testing.T, m model) model {
 				t.Helper()
-				updated, cmd := m.toggleSchedule()
-				pressed, ok := updated.(model)
-				require.True(t, ok)
+				cmd := m.schedules.toggle(&m, m.shared())
 
-				return settle(t, pressed, cmd)
+				return settle(t, m, cmd)
 			},
 			wantErr: "Could not pause schedule",
 		},
@@ -420,8 +418,7 @@ func TestScheduleWriteFailure(t *testing.T) {
 				t.Helper()
 				values := panel.ScheduleConfig{Name: "x", Cron: "0 9 * * *"}
 
-				opened, _ := m.openScheduleForm(&values, nil)
-				m = asModel(t, opened)
+				m.schedules.openForm(&m, &values, nil)
 
 				updated, cmd := m.answerForm()
 				submitted, ok := updated.(model)
@@ -640,9 +637,8 @@ func TestScheduleFormTakesNewWorkflows(t *testing.T) {
 	}}}
 	m.width, m.height = 120, 40
 
-	opened, _ := m.editScheduleForm()
-	edit, ok := opened.(model)
-	require.True(t, ok)
+	m.schedules.editForm(&m, m.shared())
+	edit := m
 	require.True(t, edit.form.isActive())
 	edit.form.form.Update(tea.WindowSizeMsg{Width: 80, Height: 40})
 	require.NotContains(t, plain(edit.form.form.View()), "brandnew")
@@ -682,9 +678,8 @@ func TestScheduleFormKeepsAWorkflowThatIsGone(t *testing.T) {
 		WorkflowID: "w1",
 	}
 
-	opened, _ := m.openScheduleForm(&values, &panel.Schedule{ID: "s1", Name: "morning-ci"})
-	edit, ok := opened.(model)
-	require.True(t, ok)
+	m.schedules.openForm(&m, &values, &panel.Schedule{ID: "s1", Name: "morning-ci"})
+	edit := m
 	edit.form.form.Update(tea.WindowSizeMsg{Width: 80, Height: 40})
 
 	cmd := edit.applyRefresh(refreshResult{workflows: []panel.Workflow{

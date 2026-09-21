@@ -140,7 +140,7 @@ func TestSchedulesDrawTheHoveredRecord(t *testing.T) {
 	require.True(t, ok)
 	m = sizedTo(m, tmux)
 
-	entered, _ := m.enterSchedules()
+	entered, _ := m.schedules.reenter(m)
 	m = asModel(t, entered)
 
 	require.True(t, m.frame.IsSolo(), "the schedules screen draws both halves itself")
