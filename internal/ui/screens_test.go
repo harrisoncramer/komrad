@@ -32,8 +32,7 @@ func TestEveryScreenAnswersForItself(t *testing.T) {
 	}
 }
 
-// TestEveryScreenDrawsTheChromeItDid pins which pieces of chrome each screen implements, which
-// the compiler cannot check on an optional facet.
+// TestEveryScreenDrawsTheChromeItDid pins which pieces of chrome each screen implements.
 func TestEveryScreenDrawsTheChromeItDid(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -72,11 +71,15 @@ func TestEveryScreenDrawsTheChromeItDid(t *testing.T) {
 }
 
 // TestSharedIsTheRootAsAScreenSeesIt covers the value a screen is handed carrying what the root
-// holds rather than a copy taken earlier.
+// holds.
 func TestSharedIsTheRootAsAScreenSeesIt(t *testing.T) {
 	m := crowdedModel(t)
 	m.helpExpanded = true
 	m.filter.typing = true
+	m.details.focused = true
+	m.column.top = 3
+	m.messages.focused = true
+	m.form.kind = formScheduleArchive
 
 	shared := m.shared()
 
@@ -85,8 +88,14 @@ func TestSharedIsTheRootAsAScreenSeesIt(t *testing.T) {
 	assert.Equal(t, m.width, shared.width)
 	assert.Equal(t, m.height, shared.height)
 	assert.Equal(t, m.paneWidth(), shared.pane)
-	assert.True(t, shared.chrome.helpExpanded)
-	assert.True(t, shared.chrome.filter.typing)
+	assert.Equal(t, chromeState{
+		details:      m.details,
+		filter:       m.filter,
+		column:       m.column,
+		messages:     m.messages,
+		form:         m.form,
+		helpExpanded: m.helpExpanded,
+	}, shared.chrome)
 }
 
 // TestEveryListingScreenSurvivesARefresh drives the pass applyRefresh runs once a second against
