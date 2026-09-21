@@ -40,9 +40,7 @@ That file is a third channel carrying what the other two already hold, and it co
 
 Three of those sentences exist only to bridge the file back to the threads: read the file, then find the thread id in it, then answer somewhere else. The `list_review_threads` tool description says the same thing from the other side: "The review you were sent is already in the file the mail named, so read that first; this is for looking a thread up again."
 
-**It only works on a shared filesystem.** `writeReview` calls `os.WriteFile` on the service's disk and the mail hands the agent an absolute path. An agent on a remote engine shares that disk with the service, so the path resolves. The panel does not, and nothing does that is not on the engine. This is the same shape as the bug #765 had to work around: the review screen read a round through git on the laptop with a worktree path that only existed on the engine, and the fix was to carry every git command over the engine's transport. The file has the same flaw and no fix, only luck about where the reader runs.
-
-**It duplicates a render nobody else uses.** `list_reviews` drops the path "for anyone but the agent that wrote that review", so an agent cannot find another agent's review file, and a person is never told where one is. The panel's review screen never reads it: `internal/ui/reviewrpc.go` calls `ListReviews` and `ListReviewThreads` and draws the diff from git. The file has exactly one reader, and that reader has MCP.
+**It has one reader, and only that reader can reach it.** `writeReview` calls `os.WriteFile` on the service's disk and the mail hands the agent an absolute path. The reviewed agent can open it because the service spawned it into a pane on the same machine, so today the disk is shared by construction. Nobody else is on that disk. `list_reviews` drops the path "for anyone but the agent that wrote that review", so an agent cannot find another agent's review file, and a person is never told where one is. The panel's review screen never reads it: `internal/ui/reviewrpc.go` calls `ListReviews` and `ListReviewThreads` and draws the diff from git, and #765 had to carry that git over the engine's transport because the panel runs on a laptop the engine's paths mean nothing on. A harness weave did not launch, or a person wanting the page on their own machine, has the same problem and no transport to fix it with. The file's only reader has MCP, and every reader it might one day have does not have the disk.
 
 **It says less than the threads do.** The file is a snapshot of the release. A thread keeps moving after that: the agent answers, the reviewer answers back, a thread is resolved. The file never learns any of it, and it has no way to say a thread is settled, so the briefing has to warn the agent to "read every file your mail names" and then go to the threads anyway.
 
@@ -56,7 +54,7 @@ The release mail becomes:
 weave: review of round 2 released: changes requested, 3 comments. Call get_review with review id 01a0… to read it, then answer each thread with add_review_message.
 ```
 
-`get_review` is new. It hands back one released review whole, in reading order: the verdict, what the reviewer said about the work as a whole, then each thread with its anchor, the lines it quotes, the snapshot context around them, and the messages that belong to this release. `list_review_threads` stays as it is, for looking one thread up again.
+`get_review` is new. It hands back one released review whole: the verdict, what the reviewer said about the work as a whole, then each thread with its anchor, the lines it quotes, the snapshot context around them, and the messages that belong to this release. `list_review_threads` stays as it is, for looking one thread up again.
 
 The briefing paragraph is replaced. `ReleaseReviewResponse.path`, `Review.path` and the `reviews.path` column go. `renderReview` survives as the renderer behind an optional `weave review export`, which writes the same markdown wherever a person asks for it and is never the delivery channel.
 
@@ -78,7 +76,7 @@ The mail stays `KindReviewActivity`, and the release still points at it as the d
 
 This replaces the three paragraphs of "When you are the one being reviewed" in `internal/agents/briefing.md`:
 
-> You hear about a review as mail naming a review id and a verdict. Call get_review with that id: it hands back the whole review in reading order, the reviewer's note on the work as a whole and then each thread, with the lines it is about quoted as the snapshot held them and the code around them. Those lines are true of the snapshot rather than of your files now, so once you have edited, search for the quoted text rather than counting lines. Answer in each thread with add_review_message, naming its id, and say what you did.
+> You hear about a review as mail naming a review id and a verdict. Call get_review with that id: it hands back the whole review, the reviewer's note on the work as a whole and then each thread, with the lines it is about quoted as the snapshot held them and the code around them. Those lines are true of the snapshot rather than of your files now, so once you have edited, search for the quoted text rather than counting lines. Answer in each thread with add_review_message, naming its id, and say what you did.
 >
 > The verdict says where you stand. Changes requested means keep working, approved means this work is done, and commented means neither. Every release is its own mail, so read every review your mail names before deciding where you stand: an approval from one reader does not settle another's changes requested.
 
@@ -101,19 +99,19 @@ What it lacks:
    }
    ```
 
-   An agent reading the threads over RPC cannot make that cut, so on round three it cannot tell which comments are new without diffing against what it remembers. `get_review` makes the cut on the server, the way the file-writer already does.
+   It looks as though `ReviewMessage.sent_at` against `Review.released_at` would make the same cut, since the store stamps `SentAt` from the release. It does not: `releasedMessages` in `internal/reviews/review.go` clears `SentAt`, `DeliveredAt` and `Delivery` on every message before an agent sees it. So an agent reading the threads over RPC cannot make that cut, and on round three it cannot tell which comments are new without diffing against what it remembers. `get_review` makes the cut on the server, the way the file-writer already does.
 
 2. **The verdict and the body.** Those are on `Review`, which `list_reviews` returns, not on the threads. Two calls where one would do.
 
 3. **The context around the quoted lines.** `quoted_lines` are the diff lines the reviewer passed. The file adds six lines of the snapshot either side, read with `ReadFileLines(ctx, agent.Cwd, round.SnapshotSHA, path)`. The agent could run `git show <snapshot>:<path>` itself, since the snapshot commit is in its repository. But the service already reads it, always shares a disk with the worktree, and a client that does not (the panel, `weave review export` on a laptop) cannot. So `get_review` carries the context, and the render moves from disk to the wire.
 
-4. **Reading order.** Threads come back in store order. The file orders them by the render and puts the body first. That is a small thing, but it is the whole point of "one thing to read".
+4. **The body first.** `ListReviewThreads` in `db/queries/review.sql` already orders by round, file, line and id, which is reading order, and `get_review` keeps that order. What the file adds is the verdict and the body at the head of it, before the first thread. That is a small thing, but it is the whole point of "one thing to read".
 
 So `get_review(review_id)` returns:
 
 ```
 Review          the verdict, the body, round ordinal, author, released_at
-repeated Thread  in reading order, each with:
+repeated Thread  in the order list_review_threads gives them, each with:
   the ReviewThread as list_review_threads renders it
   repeated string context   the snapshot lines around the range, with the range marked
   messages narrowed to this review
@@ -143,9 +141,9 @@ A file a person can open in an editor, with the code around each comment and not
 
 **Keep the file and also send the RPC.** Two sources of truth for one release, and the briefing has to say which one wins. The file would still be stale after the first answer and still unreadable off the engine. This is the fallback step in the migration, for one release, and not a place to stop.
 
-**Put the whole review in the mail body.** Mail holds 10,000 characters and a review with a dozen threads and six lines of context each runs past that. A truncated review is worse than a pointer to a whole one. Mail is also read once and gone (`read_mail` empties the mailbox), so an agent that lost its context mid-turn would have no way back to it. A review id in the mail and the review in the store survives that.
+**Put the whole review in the mail body.** Mail holds 10,000 characters and a review with a dozen threads and six lines of context each runs past that. A truncated review is worse than a pointer to a whole one, and a review id in the mail is never too long.
 
-**Change the briefing only and lean on `list_review_threads`.** The cheapest change and the one that does not work. Without a `review_id` on messages the agent cannot tell round three's comments from round two's, and it has to make two calls and order the result itself. The briefing would grow rather than shrink.
+**Change the briefing only and lean on `list_review_threads`.** The cheapest change and the one that does not work. Without a `review_id` on messages the agent cannot tell round three's comments from round two's, and it has to make two calls to see the verdict beside them. The briefing would grow rather than shrink.
 
 **Have the agent render the file itself from the RPC.** Moves the render into every harness rather than out of the service. The point is that a harness needs one tool call, not a script.
 
@@ -171,7 +169,7 @@ Steps 1 and 2 can land as one pull request if the briefing and the mail move tog
 
 **Context in the response makes `get_review` heavy.** Six lines either side per thread, per file, is what the file already carries, and a review with fifty threads was already a fifty-thread file. If it becomes a problem, `context_lines` on the request is the knob. The store is not touched by it.
 
-**Who may call `get_review`.** Same rule as `list_reviews`: the agent whose work it is, the agent that wrote it, the parent of either, and a person at a terminal; anyone else is `permission_denied`. A review not yet released is `not_found` for anyone but its author. Worth stating in the proto comment rather than being derived by the reader.
+**Who may call `get_review`.** Same rule as `list_reviews`, which is `requireMayRead` in `internal/reviews/rounds.go`: a person, the agent whose work it is, and a child of that agent, which is how the reviewer gets in; a parent may not read its child's reviews, and anyone else is `permission_denied`. A review not yet released is `not_found` for anyone but its author. Worth stating in the proto comment rather than being derived by the reader.
 
 **Does the human reviewer's release change?** No. The panel's `reviewcompose.go` calls the same `ReleaseReview` handler, so a person's release and an agent's release send the same mail and stop writing the same file.
 
