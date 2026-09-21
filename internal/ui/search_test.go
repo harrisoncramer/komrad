@@ -537,7 +537,7 @@ func TestJumpToSearchHit(t *testing.T) {
 			assert.Nil(t, client.restored, "nothing is taken out of the archive")
 			assert.Nil(t, client.resumed, "nothing is put back in a pane")
 
-			rows, cursor := got.agentRows(), got.agents.cursor
+			rows, cursor := got.agents.rows(got.shared()), got.agents.cursor
 			if got.screen == screenArchive {
 				got.applyArchive(got.listing.archivedAgents, nil, "")
 				rows, cursor = got.archive.listRows(got.shared()), got.archive.cursor
@@ -761,7 +761,7 @@ func TestSearchNamesEachAgentOnce(t *testing.T) {
 		return hit.snippet
 	}), "an agent's turns sit together on its row")
 
-	view := ansi.Strip(searchAdapter{}.view(m))
+	view := ansi.Strip(m.search.view(m.shared()))
 	assert.Equal(t, 2, strings.Count(view, "dispatcher"), "one row per agent rather than per name")
 	assert.Less(t, strings.Index(view, "first"), strings.Index(view, "third"), "what each turn said is drawn under its agent")
 	assert.Less(t, strings.Index(view, "third"), strings.Index(view, "second"), "in the order the turns came back")
@@ -1166,7 +1166,7 @@ func TestSearchRowWithoutTheAgent(t *testing.T) {
 
 	assert.Equal(t, view.ProcessNone, row.Process, "a hit nothing is known about has nothing behind it")
 
-	header := headerLine(t, ansi.Strip(searchAdapter{}.view(m)), "billing")
+	header := headerLine(t, ansi.Strip(m.search.view(m.shared())), "billing")
 	assert.True(t, strings.HasSuffix(header, view.Spell(view.GlyphQuiet)+" billing"),
 		"and still draws the quiet bar: %q", header)
 	assert.Equal(t, view.GutterColumns(view.NoColumns()), textColumn(t, header, "billing"),
@@ -1324,12 +1324,12 @@ func TestSearchViewFitsThePane(t *testing.T) {
 
 	m.search.apply(&m, m.shared(), searchResult{query: "agent", hits: found})
 
-	view := drawnLines(searchAdapter{}.view(m))
+	view := drawnLines(m.search.view(m.shared()))
 	assert.LessOrEqual(t, len(view), m.height, "the view is no taller than the pane")
 	assert.Contains(t, strings.Join(view, "\n"), "more", "the rows it could not draw are counted")
 
 	m.search.cursor = len(m.search.rows(m.shared())) - 1
-	bottom := drawnLines(searchAdapter{}.view(m))
+	bottom := drawnLines(m.search.view(m.shared()))
 	assert.LessOrEqual(t, len(bottom), m.height, "the view stays inside the pane at the end of the list")
 	assert.Contains(t, strings.Join(bottom, "\n"), "agent-19", "the agent under the cursor is drawn")
 }
@@ -1426,8 +1426,8 @@ func TestSearchNameHitJumps(t *testing.T) {
 	landed := m
 
 	assert.Equal(t, screenAgents, landed.screen)
-	require.Less(t, landed.agents.cursor, len(rowNames(landed.agentRows())))
-	assert.Equal(t, "payouts", rowNames(landed.agentRows())[landed.agents.cursor])
+	require.Less(t, landed.agents.cursor, len(rowNames(landed.agents.rows(landed.shared()))))
+	assert.Equal(t, "payouts", rowNames(landed.agents.rows(landed.shared()))[landed.agents.cursor])
 }
 
 // TestNameMatches covers where a name is marked, which is the query as the name spells it rather

@@ -152,7 +152,7 @@ func (s tabStrip) view(state tabsState, palette paint.Palette, width int) string
 }
 
 // activeTabs is the tabbed facet of the screen that is up, and false on a screen that draws no strip.
-func (m model) activeTabs() (tabbed, bool) {
+func (m *model) activeTabs() (tabbed, bool) {
 	t, ok := m.active().(tabbed)
 
 	return t, ok
@@ -161,13 +161,13 @@ func (m model) activeTabs() (tabbed, bool) {
 func (m model) isTabsDrawn() bool {
 	t, ok := m.activeTabs()
 
-	return ok && t.tabsFit(m)
+	return ok && t.tabsFit(m.shared())
 }
 
 func (m model) isTabsFocused() bool {
 	t, ok := m.activeTabs()
 
-	return ok && t.tabsState(&m).focused && t.tabsFit(m)
+	return ok && t.tabsState().focused && t.tabsFit(m.shared())
 }
 
 func (m model) tabbedHeader(title, tally string) string {
@@ -181,10 +181,12 @@ func (m model) tabbedHeader(title, tally string) string {
 func (m model) tabsLine() string {
 	t, _ := m.activeTabs()
 
-	return t.tabs().view(*t.tabsState(&m), paint.Panel, m.paneWidth()) + "\n"
+	return t.tabs().view(*t.tabsState(), paint.Panel, m.paneWidth()) + "\n"
 }
 
-func (m model) doesListFitTabs(title, tally string, help func(model) keyMap) bool {
+// listFitsTabs is whether a list has the room to draw its strip, judged with the keys on the
+// list.
+func (m model) listFitsTabs(params screenListParams) bool {
 	t, ok := m.activeTabs()
 	if !ok {
 		return false
@@ -195,24 +197,24 @@ func (m model) doesListFitTabs(title, tally string, help func(model) keyMap) boo
 	}
 
 	m.details.focused, m.helpExpanded = false, false
-	t.tabsState(&m).focused = false
+	t.tabsState().focused = false
 
-	return m.spareLines(m.headerLines(title, tally, m.tabsLine()), m.renderHelp(help(m))) >= 1
+	return m.spareLines(m.headerLines(params.title, params.tally, m.tabsLine()), m.renderHelp(m.listHelpOf(params))) >= 1
 }
 
 func (m *model) blurTabs() {
 	if t, ok := m.activeTabs(); ok {
-		t.tabsState(m).leave()
+		t.tabsState().leave()
 	}
 }
 
 func (m model) focusTabs() model {
 	t, ok := m.activeTabs()
-	if !ok || !t.tabsFit(m) {
+	if !ok || !t.tabsFit(m.shared()) {
 		return m
 	}
 
-	t.tabsState(&m).focused = true
+	t.tabsState().focused = true
 	m.details.focused = false
 
 	return m
@@ -220,7 +222,7 @@ func (m model) focusTabs() model {
 
 func (m model) updateTabs(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	t, _ := m.activeTabs()
-	strip, state := t.tabs(), t.tabsState(&m)
+	strip, state := t.tabs(), t.tabsState()
 	k := key.String()
 	hovered := m.hoveredFilterKey()
 

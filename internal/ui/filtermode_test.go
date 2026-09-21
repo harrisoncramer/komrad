@@ -92,43 +92,43 @@ func TestNarrowed(t *testing.T) {
 // filter leaving the cursor on a row it kept and a search walking it onto the match.
 func TestFilterTabFlipsTheMode(t *testing.T) {
 	m := filterModeTree()
-	start := rowIndexOfKey(m.agentRows(), workflowRowKey("w1"))
+	start := rowIndexOfKey(m.agents.rows(m.shared()), workflowRowKey("w1"))
 	m.agents.cursor = start
-	whole := rowNames(m.agentRows())
+	whole := rowNames(m.agents.rows(m.shared()))
 
-	opened, _ := m.updateAgents(keyMsg("/"))
+	opened, _ := m.routeScreenMessage(keyMsg("/"))
 	typed := pressMark(t, opened.(model), "d", "b")
-	require.Equal(t, whole, rowNames(typed.agentRows()), "a search leaves the tree whole")
+	require.Equal(t, whole, rowNames(typed.agents.rows(typed.shared())), "a search leaves the tree whole")
 	assert.True(t, strings.HasPrefix(strings.TrimSpace(ansi.Strip(typed.filter.line(paint.Panel))), "/ db"), "the prompt opens with a slash")
 
 	flipped := pressMark(t, typed, "tab")
 	assert.Equal(t, filterModeFilter, flipped.filter.mode)
-	assert.Equal(t, whole, rowNames(flipped.agentRows()), "the tab narrows nothing yet")
+	assert.Equal(t, whole, rowNames(flipped.agents.rows(flipped.shared())), "the tab narrows nothing yet")
 	assert.Equal(t, start, flipped.agents.cursor, "and moves nothing")
 	assert.True(t, strings.HasPrefix(strings.TrimSpace(ansi.Strip(flipped.filter.line(paint.Panel))), "▽ db"), "the prompt opens with the funnel")
 
 	narrowed := pressMark(t, flipped, "enter")
-	assert.Equal(t, []string{"backend", "db"}, rowNames(narrowed.agentRows()), "enter narrows to the match and its header")
-	assert.Equal(t, workflowRowKey("w1"), rowKeyAt(narrowed.agentRows(), narrowed.agents.cursor), "and leaves the cursor on the header the filter kept")
+	assert.Equal(t, []string{"backend", "db"}, rowNames(narrowed.agents.rows(narrowed.shared())), "enter narrows to the match and its header")
+	assert.Equal(t, workflowRowKey("w1"), rowKeyAt(narrowed.agents.rows(narrowed.shared()), narrowed.agents.cursor), "and leaves the cursor on the header the filter kept")
 
 	lit := pressMark(t, typed, "tab", "tab", "enter")
 	assert.Equal(t, filterModeSearch, lit.filter.mode)
-	assert.Equal(t, whole, rowNames(lit.agentRows()), "a second tab puts the search back")
-	assert.Equal(t, agentRowKey("a3"), rowKeyAt(lit.agentRows(), lit.agents.cursor), "which enter walks onto the match")
+	assert.Equal(t, whole, rowNames(lit.agents.rows(lit.shared())), "a second tab puts the search back")
+	assert.Equal(t, agentRowKey("a3"), rowKeyAt(lit.agents.rows(lit.shared()), lit.agents.cursor), "which enter walks onto the match")
 }
 
 // TestFilterAppliedPlacesTheCursor covers the cursor being put on a row the narrowed list still
 // holds when applying the filter takes the row it was on off the screen.
 func TestFilterAppliedPlacesTheCursor(t *testing.T) {
 	m := filterModeTree()
-	m.agents.cursor = rowIndexOfKey(m.agentRows(), agentRowKey("a4"))
+	m.agents.cursor = rowIndexOfKey(m.agents.rows(m.shared()), agentRowKey("a4"))
 
-	opened, _ := m.updateAgents(keyMsg("/"))
+	opened, _ := m.routeScreenMessage(keyMsg("/"))
 	typed := pressMark(t, opened.(model), "^", "a", "u", "tab")
-	require.Equal(t, agentRowKey("a4"), rowKeyAt(typed.agentRows(), typed.agents.cursor), "nothing moves while typing")
+	require.Equal(t, agentRowKey("a4"), rowKeyAt(typed.agents.rows(typed.shared()), typed.agents.cursor), "nothing moves while typing")
 
 	narrowed := pressMark(t, typed, "enter")
-	rows := narrowed.agentRows()
+	rows := narrowed.agents.rows(narrowed.shared())
 	require.Less(t, narrowed.agents.cursor, len(rows))
 	assert.Equal(t, agentRowKey("a1"), rowKeyAt(rows, narrowed.agents.cursor))
 }
@@ -138,15 +138,15 @@ func TestFilterAppliedPlacesTheCursor(t *testing.T) {
 func TestFilterEnterKeepsNarrowing(t *testing.T) {
 	m := filterModeTree()
 
-	opened, _ := m.updateAgents(keyMsg("/"))
+	opened, _ := m.routeScreenMessage(keyMsg("/"))
 	standing := pressMark(t, opened.(model), "tab", "d", "b", "enter")
 
 	assert.False(t, standing.filter.typing)
 	assert.True(t, standing.filter.isNarrowing(), "the filter stands after enter")
-	assert.Equal(t, []string{"backend", "db"}, rowNames(standing.agentRows()))
+	assert.Equal(t, []string{"backend", "db"}, rowNames(standing.agents.rows(standing.shared())))
 	assert.Equal(t, "filter: db", standing.filterDesc())
 
-	reopened, _ := standing.updateAgents(keyMsg("/"))
+	reopened, _ := standing.routeScreenMessage(keyMsg("/"))
 	assert.Equal(t, filterModeSearch, reopened.(model).filter.mode, "opening the input again starts a search")
 }
 
@@ -170,16 +170,16 @@ func TestFilterEscapeDropsTheMode(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			m := filterModeTree()
-			start := rowIndexOfKey(m.agentRows(), workflowRowKey("w2"))
+			start := rowIndexOfKey(m.agents.rows(m.shared()), workflowRowKey("w2"))
 			m.agents.cursor = start
-			whole := rowNames(m.agentRows())
+			whole := rowNames(m.agents.rows(m.shared()))
 
-			opened, _ := m.updateAgents(keyMsg("/"))
+			opened, _ := m.routeScreenMessage(keyMsg("/"))
 			back := pressMark(t, opened.(model), tt.keys...)
 
 			assert.Equal(t, filterModeSearch, back.filter.mode)
 			assert.False(t, back.filter.isStanding())
-			assert.Equal(t, whole, rowNames(back.agentRows()), "every row is back")
+			assert.Equal(t, whole, rowNames(back.agents.rows(back.shared())), "every row is back")
 			assert.Equal(t, start, back.agents.cursor, "and the cursor is where it opened")
 		})
 	}
@@ -217,16 +217,16 @@ func TestFilterNothingMatchesLine(t *testing.T) {
 	}{
 		{
 			name: "agents",
-			view: model.agentsView,
+			view: func(m model) string { return m.agents.view(m.shared()) },
 		},
 		{
 			name: "archive",
-			view: archiveAdapter{}.view,
+			view: func(m model) string { return m.archive.view(m.shared()) },
 			idle: "nothing archived",
 		},
 		{
 			name: "worktrees",
-			view: worktreesAdapter{}.view,
+			view: func(m model) string { return m.worktrees.view(m.shared()) },
 			idle: "no worktrees",
 		},
 		{
@@ -258,14 +258,14 @@ func TestJumpMarkThroughAFilter(t *testing.T) {
 	markRow(&m, agentRowKey("a4"))
 	m.filter.mode = filterModeFilter
 	m.filter.setQuery("auth")
-	require.Equal(t, -1, rowIndexOfKey(m.agentRows(), agentRowKey("a4")), "the filter hides the marked row")
+	require.Equal(t, -1, rowIndexOfKey(m.agents.rows(m.shared()), agentRowKey("a4")), "the filter hides the marked row")
 
 	jumped := pressMark(t, m, m.keys.Marks.Jump[0], "c")
 
 	assert.Equal(t, filterModeSearch, jumped.filter.mode, "the filter is put back to a search")
 	assert.Equal(t, "auth", jumped.filter.query, "and the pattern still stands")
 	assert.False(t, jumped.agents.showHidden, "the hidden rows stay hidden")
-	assert.Equal(t, agentRowKey("a4"), rowKeyAt(jumped.agentRows(), jumped.agents.cursor))
+	assert.Equal(t, agentRowKey("a4"), rowKeyAt(jumped.agents.rows(jumped.shared()), jumped.agents.cursor))
 }
 
 // TestJumpMarkThroughAFilterToAHiddenRow covers a row both hidden and filtered out needing both
@@ -302,7 +302,7 @@ func TestJumpMarkThroughAFilterToAHiddenRow(t *testing.T) {
 
 			assert.Equal(t, tt.wantMode, jumped.filter.mode)
 			assert.Equal(t, tt.wantShowHidden, jumped.agents.showHidden)
-			assert.Equal(t, agentRowKey("a5"), rowKeyAt(jumped.agentRows(), jumped.agents.cursor))
+			assert.Equal(t, agentRowKey("a5"), rowKeyAt(jumped.agents.rows(jumped.shared()), jumped.agents.cursor))
 		})
 	}
 }
@@ -313,7 +313,7 @@ func TestSchedulesSearchWalksAndNarrows(t *testing.T) {
 	m := scheduleModel(&fakeSchedules{}, config.DefaultKeybindings())
 	m.listing.schedules = scheduleItems("nightly", "morning", "weekly")
 
-	opened, _ := schedulesAdapter{}.update(m, keyMsg("/"))
+	opened, _ := m.routeScreenMessage(keyMsg("/"))
 	standing := pressMark(t, opened.(model), "ly", "enter")
 	require.Len(t, standing.schedules.listRows(standing.shared()), 3, "a search leaves the list whole")
 	assert.Equal(t, "nightly", standing.schedules.list().hovered(standing.shared()))
@@ -324,7 +324,7 @@ func TestSchedulesSearchWalksAndNarrows(t *testing.T) {
 	back := pressMark(t, walked, "N")
 	assert.Equal(t, "nightly", back.schedules.list().hovered(back.shared()), "and N walks back")
 
-	reopened, _ := schedulesAdapter{}.update(back, keyMsg("/"))
+	reopened, _ := back.routeScreenMessage(keyMsg("/"))
 	narrowed := pressMark(t, reopened.(model), "tab", "ly", "enter")
 	assert.Equal(t, []string{"nightly", "weekly"}, scheduleNames(narrowed.schedules.listRows(narrowed.shared())))
 }
@@ -337,11 +337,11 @@ func TestOpenWorktreesThroughAFilter(t *testing.T) {
 	m.filter.mode = filterModeFilter
 	m.filter.setQuery("zzz")
 
-	opened := m.openWorktrees("archived")
+	m.enter(screenWorktrees, screenTarget{agentID: "archived"})
 
-	assert.Equal(t, screenWorktrees, opened.screen)
-	assert.False(t, opened.filter.isStanding(), "the filter stays on the screen it was typed on")
-	assert.Equal(t, "tree:/trees/archived", opened.worktrees.list().hovered(opened.shared()))
+	assert.Equal(t, screenWorktrees, m.screen)
+	assert.False(t, m.filter.isStanding(), "the filter stays on the screen it was typed on")
+	assert.Equal(t, "tree:/trees/archived", m.worktrees.list().hovered(m.shared()))
 }
 
 // TestWorktreeHeaderFiguresStayWhole covers a repository's count and size reading the whole
@@ -447,13 +447,13 @@ func scheduleNames(rows []scheduleItem) []string {
 // screen landing on the nearest match forward of that row, as a search does.
 func TestFilterAppliedLandsOnTheNearestMatch(t *testing.T) {
 	m := filterModeTree()
-	m.agents.cursor = rowIndexOfKey(m.agentRows(), agentRowKey("a3"))
+	m.agents.cursor = rowIndexOfKey(m.agents.rows(m.shared()), agentRowKey("a3"))
 
-	opened, _ := m.updateAgents(keyMsg("/"))
+	opened, _ := m.routeScreenMessage(keyMsg("/"))
 	narrowed := pressMark(t, opened.(model), "u", "tab", "enter")
 
-	assert.Equal(t, []string{"backend", "auth", "api", "frontend", "ui"}, rowNames(narrowed.agentRows()), "the child api stays under its matched parent")
-	assert.Equal(t, agentRowKey("a4"), rowKeyAt(narrowed.agentRows(), narrowed.agents.cursor))
+	assert.Equal(t, []string{"backend", "auth", "api", "frontend", "ui"}, rowNames(narrowed.agents.rows(narrowed.shared())), "the child api stays under its matched parent")
+	assert.Equal(t, agentRowKey("a4"), rowKeyAt(narrowed.agents.rows(narrowed.shared()), narrowed.agents.cursor))
 }
 
 // TestFilterKeepsTheCursorOnARowItKept covers a filter that keeps the hovered agent under its
@@ -461,11 +461,11 @@ func TestFilterAppliedLandsOnTheNearestMatch(t *testing.T) {
 // row does.
 func TestFilterKeepsTheCursorOnARowItKept(t *testing.T) {
 	m := filterModeTree()
-	m.agents.cursor = rowIndexOfKey(m.agentRows(), agentRowKey("a1"))
+	m.agents.cursor = rowIndexOfKey(m.agents.rows(m.shared()), agentRowKey("a1"))
 
-	opened, _ := m.updateAgents(keyMsg("/"))
+	opened, _ := m.routeScreenMessage(keyMsg("/"))
 	narrowed := pressMark(t, opened.(model), "b", "a", "c", "k", "e", "n", "d", "|", "a", "p", "i", "tab", "enter")
 
-	assert.Equal(t, []string{"backend", "auth", "api", "db"}, rowNames(narrowed.agentRows()))
-	assert.Equal(t, agentRowKey("a1"), rowKeyAt(narrowed.agentRows(), narrowed.agents.cursor))
+	assert.Equal(t, []string{"backend", "auth", "api", "db"}, rowNames(narrowed.agents.rows(narrowed.shared())))
+	assert.Equal(t, agentRowKey("a1"), rowKeyAt(narrowed.agents.rows(narrowed.shared()), narrowed.agents.cursor))
 }

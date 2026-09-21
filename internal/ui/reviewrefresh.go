@@ -99,7 +99,7 @@ func (r *reviewScreen) refresh(h host, _ panelShared, now time.Time) tea.Cmd {
 
 	// A reader mid-input is left alone, and the tick after the key that closes them picks the work
 	// up.
-	if r.doesTakeEveryKey() {
+	if r.takesEveryKey() {
 		return nil
 	}
 
@@ -189,7 +189,7 @@ func (r *reviewScreen) applyRefreshed(s panelShared, msg reviewRefreshedMsg) {
 
 	// Input can have started while the read was in flight, and the probe is left where it was
 	// so the tick after the reader is done finds this again.
-	if r.doesTakeEveryKey() {
+	if r.takesEveryKey() {
 		return
 	}
 

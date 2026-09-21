@@ -133,7 +133,7 @@ func TestOrchestratorIsNotARowOfItsOwn(t *testing.T) {
 			m := orchestratorModel(&recordingOrchestrators{}, orchestratorItem(), worker)
 			m.agents.showHidden = tt.showHidden
 
-			rows := m.agentRows()
+			rows := m.agents.rows(m.shared())
 			require.Len(t, rows, 2, "the workflow header and the one agent under it")
 
 			assert.True(t, rows[0].header)
@@ -191,14 +191,14 @@ func TestWorkflowRowShowsItsOrchestrator(t *testing.T) {
 				wantDoc = failedPlaceholder(m.shared(), failedOrchestrator().agent)
 			}
 
-			rows := m.agentRows()
+			rows := m.agents.rows(m.shared())
 			require.True(t, rows[0].header)
 
-			assert.Equal(t, !tt.wantPane, m.hasNoAgentPane(),
+			assert.Equal(t, !tt.wantPane, m.agents.hasNoAgentPane(m.shared()),
 				"the window is left to the panel only when there is no pane to show")
 
 			if len(tt.items) == 0 {
-				assert.Equal(t, workflowContextMarkdown(rows[0].workflow), m.agentDoc(),
+				assert.Equal(t, workflowContextMarkdown(rows[0].workflow), m.agents.doc(m.shared()),
 					"a workflow with no orchestrator still draws its shared context")
 
 				return
@@ -208,7 +208,7 @@ func TestWorkflowRowShowsItsOrchestrator(t *testing.T) {
 				return
 			}
 
-			assert.Equal(t, wantDoc, m.agentDoc(),
+			assert.Equal(t, wantDoc, m.agents.doc(m.shared()),
 				"the stage says why there is no conversation to show")
 		})
 	}
@@ -262,7 +262,7 @@ func TestASearchHitLandsOnTheWorkflowRow(t *testing.T) {
 
 	m.agents.revealAgent(m.shared(), "o1")
 
-	rows := m.agentRows()
+	rows := m.agents.rows(m.shared())
 	require.True(t, rows[m.agents.cursor].header, "the cursor lands on the workflow it stands behind")
 	assert.Equal(t, "w1", rows[m.agents.cursor].workflow.ID)
 }
@@ -358,7 +358,7 @@ func TestAnOrchestratorsChildStandsOnItsOwn(t *testing.T) {
 
 	m := orchestratorModel(&recordingOrchestrators{}, orchestratorItem(), child)
 
-	rows := m.agentRows()
+	rows := m.agents.rows(m.shared())
 	require.Len(t, rows, 2, "the workflow header and the child standing under it")
 	assert.Equal(t, "a1", rows[1].item.agent.ID)
 	assert.False(t, rows[1].child, "it hangs off no row above it, since its parent draws none")

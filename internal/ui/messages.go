@@ -451,7 +451,7 @@ func (s messagesState) clampedCursor() int {
 func (m model) isMessagesRegion() bool {
 	// A screen mid-input owns every key, so the region gives up its own rather than taking a
 	// character out of a comment being typed.
-	return m.isDetailsScreen() && !m.active().takesEveryKey(m)
+	return m.isDetailsScreen() && !m.active().takesEveryKey()
 }
 
 // isMessagesFocused is whether the region holds the keys, which it cannot on a screen that does

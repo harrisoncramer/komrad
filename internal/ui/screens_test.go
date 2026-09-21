@@ -18,15 +18,17 @@ import (
 // added with an arm that answers for nothing fails here the way one added with no arm at all
 // fails the exhaustive check.
 func TestEveryScreenAnswersForItself(t *testing.T) {
-	for s := screenAgents; s <= screenWorktrees; s++ {
-		adapter := s.adapter()
-		require.NotNil(t, adapter, "screen %d is behind no door", s)
+	var m model
 
-		if c, ok := adapter.(columned); ok {
+	for s := screenAgents; s <= screenWorktrees; s++ {
+		screen := m.screenOf(s)
+		require.NotNil(t, screen, "screen %d is behind no door", s)
+
+		if c, ok := screen.(columned); ok {
 			assert.Positive(t, c.column().floor, "screen %d draws a block at no width", s)
 		}
 
-		if tb, ok := adapter.(tabbed); ok {
+		if tb, ok := screen.(tabbed); ok {
 			assert.NotEmpty(t, tb.tabs().options, "screen %d draws a strip with no tabs", s)
 		}
 	}
@@ -53,13 +55,15 @@ func TestEveryScreenDrawsTheChromeItDid(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			adapter := tt.screen.adapter()
+			var m model
 
-			_, details := adapter.(detailed)
-			_, filter := adapter.(filtered)
-			_, tabs := adapter.(tabbed)
-			_, column := adapter.(columned)
-			_, stage := adapter.(staged)
+			screen := m.screenOf(tt.screen)
+
+			_, details := screen.(detailed)
+			_, filter := screen.(filtered)
+			_, tabs := screen.(tabbed)
+			_, column := screen.(columned)
+			_, stage := screen.(staged)
 
 			assert.Equal(t, tt.details, details, "details")
 			assert.Equal(t, tt.filter, filter, "filter")
@@ -100,12 +104,12 @@ func TestSharedIsTheRootAsAScreenSeesIt(t *testing.T) {
 // each screen the listing feeds.
 func TestEveryListingScreenSurvivesARefresh(t *testing.T) {
 	for s := screenAgents; s <= screenWorktrees; s++ {
-		if !s.adapter().needs().fromListing {
+		tmux := &recordingTmux{width: 200, height: 40}
+		m := infoModel(tmux)
+		if !m.screenOf(s).needs().fromListing {
 			continue
 		}
 
-		tmux := &recordingTmux{width: 200, height: 40}
-		m := infoModel(tmux)
 		m.width, m.height = 200, 40
 		m.frame.Attach("%0")
 		m.enterScreen(s)

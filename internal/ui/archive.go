@@ -415,95 +415,61 @@ func archiveTabs() tabStrip {
 	}
 }
 
-// archiveAdapter is the archive screen behind the panel's one door.
-type archiveAdapter struct{}
-
 var (
-	_ detailed = archiveAdapter{}
-	_ filtered = archiveAdapter{}
-	_ tabbed   = archiveAdapter{}
-	_ columned = archiveAdapter{}
-	_ staged   = archiveAdapter{}
+	_ detailed = (*archiveScreen)(nil)
+	_ filtered = (*archiveScreen)(nil)
+	_ tabbed   = (*archiveScreen)(nil)
+	_ columned = (*archiveScreen)(nil)
+	_ staged   = (*archiveScreen)(nil)
 )
 
-func (archiveAdapter) update(m model, msg tea.Msg) (tea.Model, tea.Cmd) {
-	cmd := m.archive.update(&m, m.shared(), msg)
-
-	return m, cmd
-}
-
-func (archiveAdapter) view(m model) string {
-	return m.archive.view(m.shared())
-}
-
-func (archiveAdapter) needs() screenNeeds {
+func (a *archiveScreen) needs() screenNeeds {
 	return screenNeeds{fromListing: true, archive: true}
 }
 
-func (archiveAdapter) open(m model, target screenTarget) (tea.Model, tea.Cmd) {
-	m.enterScreen(screenArchive)
-	cmd := m.archive.enter(&m, m.shared(), target)
-
-	return m, cmd
-}
-
-func (archiveAdapter) takesEveryKey(model) bool {
+func (a *archiveScreen) takesEveryKey() bool {
 	return false
 }
 
-func (archiveAdapter) details(m model) details {
-	return m.archive.details(m.shared())
-}
-
-func (archiveAdapter) detailsQuit(keys config.Keybindings) []string {
+func (a *archiveScreen) detailsQuit(keys config.Keybindings) []string {
 	return keys.Archive.Quit
 }
 
-func (archiveAdapter) detailsFit(m model) bool {
-	s := m.shared()
-
-	return s.draw.listFitsDetails(m.archive.listParams(s))
+func (a *archiveScreen) detailsFit(s panelShared) bool {
+	return s.draw.listFitsDetails(a.listParams(s))
 }
 
-func (archiveAdapter) detailsRoom(m model) int {
-	s := m.shared()
-
-	return s.draw.listRecordRoom(m.archive.listParams(s))
+func (a *archiveScreen) detailsRoom(s panelShared) int {
+	return s.draw.listRecordRoom(a.listParams(s))
 }
 
-func (archiveAdapter) hoveredKey(m model) string {
-	return m.archive.list().hovered(m.shared())
+func (a *archiveScreen) hoveredKey(s panelShared) string {
+	return a.list().hovered(s)
 }
 
-func (archiveAdapter) placeAt(m *model, key string) {
-	m.archive.list().place(m, m.shared(), key)
+func (a *archiveScreen) placeAt(h host, s panelShared, key string) {
+	a.list().place(h, s, key)
 }
 
-func (archiveAdapter) filterRows(m model) []filterRow {
-	return m.archive.list().filterRows(m.shared())
+func (a *archiveScreen) filterRows(s panelShared) []filterRow {
+	return a.list().filterRows(s)
 }
 
-func (archiveAdapter) tabs() tabStrip {
+func (a *archiveScreen) tabs() tabStrip {
 	return archiveTabs()
 }
 
-func (archiveAdapter) tabsState(m *model) *tabsState {
-	return &m.archive.sort
+func (a *archiveScreen) tabsState() *tabsState {
+	return &a.sort
 }
 
-func (archiveAdapter) tabsFit(m model) bool {
-	s := m.shared()
-
-	return s.draw.listFitsTabs(m.archive.listParams(s))
+func (a *archiveScreen) tabsFit(s panelShared) bool {
+	return s.draw.listFitsTabs(a.listParams(s))
 }
 
-func (archiveAdapter) column() columnSpec {
+func (a *archiveScreen) column() columnSpec {
 	return columnSpec{
 		floor: columnFloor,
 		doc:   func(m model) string { return m.archive.doc(m.shared()) },
 	}
-}
-
-func (archiveAdapter) stage(m *model) {
-	m.archive.stage(m, m.shared())
 }

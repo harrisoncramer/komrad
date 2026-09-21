@@ -61,7 +61,7 @@ func TestPanelArchivesThroughTheService(t *testing.T) {
 	}
 
 	shown = settle(t, shown, shown.refreshCmd())
-	require.Equal(t, []string{"header:backend", "agent:login"}, describeRows(shown.agentRows()))
+	require.Equal(t, []string{"header:backend", "agent:login"}, describeRows(shown.agents.rows(shown.shared())))
 
 	shown.agents.cursor = 1
 
@@ -85,7 +85,7 @@ func TestPanelArchivesThroughTheService(t *testing.T) {
 	assert.Empty(t, instance.GetOwnedPane(agent.GetId()), "archiving from the shown stops what was running")
 
 	shown = settle(t, shown, shown.refreshCmd())
-	assert.Equal(t, []string{"header:backend"}, describeRows(shown.agentRows()),
+	assert.Equal(t, []string{"header:backend"}, describeRows(shown.agents.rows(shown.shared())),
 		"and the row goes off the shown's own list, leaving the folder it was in")
 }
 
@@ -192,7 +192,7 @@ func newStagedPanel(t *testing.T) *stagedPanel {
 	}
 
 	shown = settle(t, shown, shown.refreshCmd())
-	require.Equal(t, []string{"header:backend", "agent:login"}, describeRows(shown.agentRows()))
+	require.Equal(t, []string{"header:backend", "agent:login"}, describeRows(shown.agents.rows(shown.shared())))
 
 	shown.agents.cursor = 1
 	shown.stageSelection()
@@ -261,7 +261,7 @@ func TestPanelKeepsTheWindowLeavingARunningAgent(t *testing.T) {
 	shown.frame.Attach(sidebar)
 
 	shown = settle(t, shown, shown.refreshCmd())
-	require.Equal(t, []string{"header:backend", "agent:login"}, describeRows(shown.agentRows()))
+	require.Equal(t, []string{"header:backend", "agent:login"}, describeRows(shown.agents.rows(shown.shared())))
 
 	zoomed := func() string {
 		return instance.Tmux.Run("display-message", "-p", "-t", sidebar, "#{window_zoomed_flag}")
@@ -320,7 +320,7 @@ func TestPanelIsTheSizeOfThePaneItWasGiven(t *testing.T) {
 	}
 	shown.frame.Attach(sidebar)
 	shown = settle(t, shown, shown.refreshCmd())
-	require.Equal(t, []string{"header:backend", "agent:login"}, describeRows(shown.agentRows()))
+	require.Equal(t, []string{"header:backend", "agent:login"}, describeRows(shown.agents.rows(shown.shared())))
 
 	// The one report the panel gets for free.
 	shown.width, shown.height = client.GetPaneWidth(sidebar), client.GetPaneHeight(sidebar)

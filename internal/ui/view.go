@@ -72,7 +72,7 @@ func (m model) fitFrame(view string) string {
 
 func (m model) screenView() string {
 	if !m.form.isActive() {
-		return m.active().view(m)
+		return m.active().view(m.shared())
 	}
 
 	form := m.heldFormView()
@@ -95,7 +95,7 @@ func (m model) screenView() string {
 		block = m.docColumnView(split)
 	}
 
-	return m.joinColumns(split, held.active().view(held), block)
+	return m.joinColumns(split, held.active().view(held.shared()), block)
 }
 
 // heldFormView is the form with the submitting notice under it, a row the form gives up rather

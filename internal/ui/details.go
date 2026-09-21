@@ -51,7 +51,7 @@ func (m model) hoveredDetails() details {
 		return details{}
 	}
 
-	return d.details(m)
+	return d.details(m.shared())
 }
 
 func (m model) isDetailsScreen() bool {
@@ -98,14 +98,15 @@ func (m model) isDetailsDrawn(held details) bool {
 		return true
 	}
 
-	return d.detailsFit(m)
+	return d.detailsFit(m.shared())
 }
 
-// doesListFitDetails is whether the record's share fits under a list, judged with the keys on
-// the list.
-func (m model) doesListFitDetails(header string, help func(model) keyMap) bool {
+// listFitsDetails is whether the record's share fits under a list, judged with the keys on the
+// list.
+func (m model) listFitsDetails(params screenListParams) bool {
 	m.details.focused = false
-	legend := m.renderHelp(help(m), header)
+	header := m.tabbedHeader(params.title, params.tally)
+	legend := m.renderHelp(m.listHelpOf(params), header)
 
 	// Only the list's legend is measured with the search; a focused record shrinks to the room
 	// its own legend leaves.
@@ -117,9 +118,11 @@ func (m model) doesListFitDetails(header string, help func(model) keyMap) bool {
 	return m.spareLines(header, legend) > m.detailsLines()+detailsChromeLines
 }
 
-// listDetailsRoom is the lines a list screen has under its header and the legend it is drawing.
-func (m model) listDetailsRoom(header string, help func(model) keyMap) int {
-	return m.spareLines(header, m.renderHelp(help(m), header))
+// listRecordRoom is the lines a list screen has under its header and the legend it is drawing.
+func (m model) listRecordRoom(params screenListParams) int {
+	header := m.tabbedHeader(params.title, params.tally)
+
+	return m.spareLines(header, m.renderHelp(m.listHelpOf(params), header))
 }
 
 func (m model) isDetailsFocused() bool {
@@ -304,25 +307,25 @@ func (m model) detailsHelp() keyMap {
 	}
 }
 
-// detailsFilter is the record's rows as the search drives them.
-type detailsFilter struct{}
-
-var _ filtered = detailsFilter{}
-
-func (detailsFilter) hoveredKey(m model) string {
+// hoveredDetailsKey is the field the record's cursor is on, read before the search's pattern
+// changes.
+func (m model) hoveredDetailsKey() string {
 	held := m.hoveredDetails()
 
 	return rowKeyAt(m.detailsRows(held), m.detailsCursor(held))
 }
 
-func (detailsFilter) placeAt(m *model, key string) {
+// placeDetailsAt puts the record's cursor back on a field, or as near to where it was as the
+// narrowed record allows.
+func (m *model) placeDetailsAt(key string) {
 	held := m.hoveredDetails()
 	rows := m.detailsRows(held)
 	m.details.cursor = placeCursor(rowIndexOfKey(rows, key), m.detailsCursor(held), len(rows))
 	m.details.row = held.id
 }
 
-func (detailsFilter) filterRows(m model) []filterRow {
+// detailsFilterRows is the record's fields as the search drives them.
+func (m model) detailsFilterRows() []filterRow {
 	return xslice.Map(m.detailsRows(m.hoveredDetails()), func(row detailsRow) filterRow {
 		return filterRow{key: row.id, name: row.text}
 	})
@@ -411,7 +414,7 @@ func (m model) grownDetailsLines(held details) int {
 		return lines
 	}
 
-	return max(min(lines, d.detailsRoom(m)-detailsChromeLines-1), 0)
+	return max(min(lines, d.detailsRoom(m.shared())-detailsChromeLines-1), 0)
 }
 
 // detailsWanted is the lines the whole record takes: its notices, a blank under them, and every

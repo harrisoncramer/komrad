@@ -241,22 +241,22 @@ func TestSendingAReviewLeavesWritingBehind(t *testing.T) {
 	m, _ := reviewModel(t, agents, dir)
 	m = openReview(t, m)
 
-	next, _ := m.updateReview(keyMsg("c"))
+	next, _ := m.routeScreenMessage(keyMsg("c"))
 	m = next.(model)
 	require.Equal(t, modeReviewing, m.review.pass.mode, "the compose key opens the mode")
 
 	// The composer holds the keyboard while it is open, so it is put away before the verdict key
 	// is pressed.
-	next, _ = m.updateReview(keyMsg("esc"))
+	next, _ = m.routeScreenMessage(keyMsg("esc"))
 	m = next.(model)
 	require.False(t, m.review.threads.composing)
 	require.Equal(t, modeReviewing, m.review.pass.mode, "and the mode outlives one abandoned comment")
 
-	next, _ = m.updateReview(tea.KeyMsg{Type: tea.KeyCtrlS})
+	next, _ = m.routeScreenMessage(tea.KeyMsg{Type: tea.KeyCtrlS})
 	m = next.(model)
 	require.True(t, m.review.threads.releasing, "the verdict panel is open")
 
-	next, cmd := m.updateReview(tea.KeyMsg{Type: tea.KeyCtrlS})
+	next, cmd := m.routeScreenMessage(tea.KeyMsg{Type: tea.KeyCtrlS})
 	m = next.(model)
 	require.NotNil(t, cmd, "and the same key sends it")
 
@@ -369,7 +369,7 @@ func TestTheVerdictIsRefusedOnAFinishedRound(t *testing.T) {
 
 	m = standOnAFinishedRound(m)
 
-	next, _ := m.updateReview(tea.KeyMsg{Type: tea.KeyCtrlS})
+	next, _ := m.routeScreenMessage(tea.KeyMsg{Type: tea.KeyCtrlS})
 	m = next.(model)
 
 	assert.False(t, m.review.threads.releasing, "the verdict panel stays shut")
@@ -387,7 +387,7 @@ func TestWritingIsRefusedWhileAReviewIsOut(t *testing.T) {
 
 	m.review.threads.owed = "r1"
 
-	next, _ := m.updateReview(keyMsg("c"))
+	next, _ := m.routeScreenMessage(keyMsg("c"))
 	m = next.(model)
 
 	assert.Equal(t, modeWatching, m.review.pass.mode, "the mode did not open")
@@ -407,7 +407,7 @@ func TestReplyingIsAllowedWhileAReviewIsOut(t *testing.T) {
 	m.review.applyThreads(m.shared(), pinnedThread(t, m, deliveredComment()))
 	m.review.threads.owed = "r1"
 
-	next, _ := m.updateReview(keyMsg("c"))
+	next, _ := m.routeScreenMessage(keyMsg("c"))
 	m = next.(model)
 
 	assert.True(t, m.review.threads.composing, "the editor opened on the thread")
@@ -425,7 +425,7 @@ func TestSendingIsRefusedWhileAReviewIsOutWithNothingWritten(t *testing.T) {
 
 	m.review.threads.owed = "r1"
 
-	next, _ := m.updateReview(tea.KeyMsg{Type: tea.KeyCtrlS})
+	next, _ := m.routeScreenMessage(tea.KeyMsg{Type: tea.KeyCtrlS})
 	m = next.(model)
 
 	assert.False(t, m.review.threads.releasing, "the verdict panel stays shut")
@@ -443,7 +443,7 @@ func TestSendingAReplyIsAllowedWhileAReviewIsOut(t *testing.T) {
 	m.review.threads.owed = "r1"
 	m.review.threads.activity.delivery[deliverySlot(agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_UNSENT)] = 1
 
-	next, _ := m.updateReview(tea.KeyMsg{Type: tea.KeyCtrlS})
+	next, _ := m.routeScreenMessage(tea.KeyMsg{Type: tea.KeyCtrlS})
 	m = next.(model)
 
 	assert.True(t, m.review.threads.releasing, "what has been written can go")
@@ -493,7 +493,7 @@ func editorKey() tea.KeyMsg {
 func pressEdit(t *testing.T, m model) model {
 	t.Helper()
 
-	next, cmd := m.updateReview(editorKey())
+	next, cmd := m.routeScreenMessage(editorKey())
 	written, ok := next.(model)
 	require.True(t, ok)
 	require.Empty(t, written.review.notice, "the press opened the editor")
@@ -545,7 +545,7 @@ func TestAnEditRefusedOnADeletedFileOpensNoMode(t *testing.T) {
 
 	m.review.diff.cursor = reviewRowInDeletedFile(t, m)
 
-	next, _ := m.updateReview(editorKey())
+	next, _ := m.routeScreenMessage(editorKey())
 	m = next.(model)
 
 	assert.Equal(t, modeWatching, m.review.pass.mode, "a press that opened nothing does not open a mode")
@@ -580,7 +580,7 @@ func TestAnEditPausesAnAgentMidTurn(t *testing.T) {
 	setReviewAgentState(&m, panel.StateThinking)
 	m.review.diff.cursor = reviewRowWithAnEditTarget(t, m)
 
-	next, cmd := m.updateReview(editorKey())
+	next, cmd := m.routeScreenMessage(editorKey())
 	m = next.(model)
 
 	require.True(t, m.review.pass.pausing, "the editor waits on the agent stopping")
@@ -607,7 +607,7 @@ func TestAPassThatCannotStopTheAgentOpensNothing(t *testing.T) {
 	setReviewAgentState(&m, panel.StateIdle)
 	m.review.diff.cursor = reviewRowWithAnEditTarget(t, m)
 
-	next, cmd := m.updateReview(editorKey())
+	next, cmd := m.routeScreenMessage(editorKey())
 	m = next.(model)
 	require.False(t, m.review.pass.atEditor, "nothing opens while the agent may still be writing")
 
@@ -708,7 +708,7 @@ func TestAnUnreadablePaneRefusesTheEditKey(t *testing.T) {
 	setReviewAgentState(&m, panel.StateUncertain)
 	m.review.diff.cursor = reviewRowWithAnEditTarget(t, m)
 
-	next, _ := m.updateReview(editorKey())
+	next, _ := m.routeScreenMessage(editorKey())
 	m = next.(model)
 
 	assert.Equal(t, modeWatching, m.review.pass.mode, "nothing opened")
@@ -738,7 +738,7 @@ func TestTheGateReadsTheReviewedAgentRatherThanTheFirstRow(t *testing.T) {
 
 	m.review.diff.cursor = reviewRowWithAnEditTarget(t, m)
 
-	next, cmd := m.updateReview(editorKey())
+	next, cmd := m.routeScreenMessage(editorKey())
 	m = next.(model)
 	m = settlePause(t, m, cmd)
 
@@ -823,7 +823,7 @@ func TestAComposerDoesNotOutliveTheDiffItWasWrittenOn(t *testing.T) {
 
 	m.review.diff.cursor = reviewRowWithAnAnchor(t, m)
 
-	next, _ := m.updateReview(keyMsg("c"))
+	next, _ := m.routeScreenMessage(keyMsg("c"))
 	m = next.(model)
 	require.True(t, m.review.threads.composing, "the composer is open on a line of the round")
 
@@ -842,7 +842,7 @@ func TestAComposerDoesNotOutliveTheDiffItWasWrittenOn(t *testing.T) {
 
 	assert.False(t, m.review.threads.composing, "the composer goes with the diff it was anchored to")
 
-	next, _ = m.updateReview(tea.KeyMsg{Type: tea.KeyCtrlS})
+	next, _ = m.routeScreenMessage(tea.KeyMsg{Type: tea.KeyCtrlS})
 	m = next.(model)
 
 	assert.Nil(t, agents.created, "and nothing is filed against a diff that is gone")
@@ -945,7 +945,7 @@ func TestComposingOnARowWithNoLineSaysSo(t *testing.T) {
 	require.GreaterOrEqual(t, blank, 0, "the diff draws a row with no line of its own")
 	m.review.diff.cursor = blank
 
-	next, _ := m.updateReview(keyMsg("c"))
+	next, _ := m.routeScreenMessage(keyMsg("c"))
 	m = next.(model)
 
 	assert.False(t, m.review.threads.composing, "no editor opened")
@@ -970,7 +970,7 @@ func TestACommentOnTheNewestRoundRecordsItsBase(t *testing.T) {
 		}
 	}
 
-	next, _ := m.updateReview(keyMsg("c"))
+	next, _ := m.routeScreenMessage(keyMsg("c"))
 	m = next.(model)
 	require.True(t, m.review.threads.composing, "writing is allowed on the newest round")
 
@@ -998,7 +998,7 @@ func TestTheOpenCommentKeyWalksOnlyWhatIsUnsettled(t *testing.T) {
 
 	m.review.applyWrote(&m, m.shared(), reviewWroteMsg{agentID: "a1", threads: threadsOnEveryLine(t)})
 
-	next, _ := m.updateReview(keyMsg("u"))
+	next, _ := m.routeScreenMessage(keyMsg("u"))
 	written, ok := next.(model)
 	require.True(t, ok)
 
@@ -1023,7 +1023,7 @@ func TestTheOpenCommentKeySaysWhenThereIsNothingLeft(t *testing.T) {
 
 	m.review.applyWrote(&m, m.shared(), reviewWroteMsg{agentID: "a1", threads: settled})
 
-	next, _ := m.updateReview(keyMsg("u"))
+	next, _ := m.routeScreenMessage(keyMsg("u"))
 	written, ok := next.(model)
 	require.True(t, ok)
 
@@ -1073,12 +1073,12 @@ func TestTheOpenCommentKeySaysWhenYouAreOnTheLastOne(t *testing.T) {
 
 	m.review.applyWrote(&m, m.shared(), reviewWroteMsg{agentID: "a1", threads: threadsOnEveryLine(t)})
 
-	next, _ := m.updateReview(keyMsg("u"))
+	next, _ := m.routeScreenMessage(keyMsg("u"))
 	written, ok := next.(model)
 	require.True(t, ok)
 	require.Empty(t, written.review.notice, "the first press lands on the only open comment")
 
-	next, _ = written.updateReview(keyMsg("u"))
+	next, _ = written.routeScreenMessage(keyMsg("u"))
 	written, ok = next.(model)
 	require.True(t, ok)
 
@@ -1096,12 +1096,12 @@ func TestTheOpenCommentKeyDoesNotClaimAFoldedReviewIsSettled(t *testing.T) {
 
 	m.review.applyWrote(&m, m.shared(), reviewWroteMsg{agentID: "a1", threads: threadsOnEveryLine(t)})
 
-	next, _ := m.updateReview(keyMsg("v"))
+	next, _ := m.routeScreenMessage(keyMsg("v"))
 	written, ok := next.(model)
 	require.True(t, ok)
 	require.Positive(t, written.review.diff.view.CountOpenThreads(), "the folded file's comment is still open")
 
-	next, _ = written.updateReview(keyMsg("u"))
+	next, _ = written.routeScreenMessage(keyMsg("u"))
 	written, ok = next.(model)
 	require.True(t, ok)
 
@@ -1134,15 +1134,15 @@ func TestTheOpenCommentKeySaysBothWhenOneIsFoldedAway(t *testing.T) {
 	// Fold the file the cursor is standing in, which leaves one open comment drawn and one not.
 	m.review.diff.cursor = firstRowInFile(t, m, "second.go")
 
-	next, _ := m.updateReview(keyMsg("v"))
+	next, _ := m.routeScreenMessage(keyMsg("v"))
 	written, ok := next.(model)
 	require.True(t, ok)
 
-	next, _ = written.updateReview(keyMsg("u"))
+	next, _ = written.routeScreenMessage(keyMsg("u"))
 	written, ok = next.(model)
 	require.True(t, ok)
 
-	next, _ = written.updateReview(keyMsg("u"))
+	next, _ = written.routeScreenMessage(keyMsg("u"))
 	written, ok = next.(model)
 	require.True(t, ok)
 
@@ -1203,7 +1203,7 @@ func TestEditingIsRefusedWhileYourReviewIsOwedAnAnswer(t *testing.T) {
 	m.review.diff.cursor = reviewRowWithAnEditTarget(t, m)
 	m.review.threads.owed = "r1"
 
-	next, _ := m.updateReview(editorKey())
+	next, _ := m.routeScreenMessage(editorKey())
 	written, ok := next.(model)
 	require.True(t, ok)
 

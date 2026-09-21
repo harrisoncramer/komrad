@@ -19,17 +19,21 @@ is recorded and then falls through, since an open form lays itself out from the 
 view.go writes strings out. It draws the takeover screens first, then any chrome, then the
 active screen.
 
-screens.go is what the three of them dispatch through. A screen is a type implementing
-screenModel, which says what takes its keys and what draws it, plus whichever of the facets it
-draws: detailed for a record under its list, filtered for a search over it, tabbed for a strip
-over it, columned for a block beside it, and staged for a row it puts on the stage. m.active()
-is the switch from the screen enum to that type, and it carries no default, so the exhaustive
-check refuses a screen with no arm. Every screen holds its state in a type of its own with
-methods that take host, the short interface of what a screen may ask the root to do, and
-panelShared, the read-only value of what the root holds; the adapter behind the door is two
-lines per method, and the screen's own messages reach it through update, which every message
-the root does not claim is handed to. screenlist.go is the list machinery and the drawing
-bridge a list screen uses.
+screens.go is what the three of them dispatch through. Each screen is a type of its own,
+agentsScreen and the rest, holding its state and implementing screenModel: update takes every
+message the root did not claim, view draws the screen, enter lands it on a target, needs says
+what the refresh fetches for it, and takesEveryKey says whether the screen is being typed at.
+A screen also implements whichever of the facets it draws: detailed for a record under its
+list, filtered for a search over it, tabbed for a strip over it, columned for a block beside it,
+and staged for a row it puts on the stage. The root holds the six screens by value and
+m.active() is the switch from the screen enum to a pointer into the one that is up; it carries
+no default, so the exhaustive check refuses a screen with no arm, and screens_test.go pins
+which facets each implements. Every method on a screen takes host, the short interface of what
+a screen may ask the root to do, and panelShared, the read-only value of what the root holds;
+a screen changes screens through host.enter and never by writing into another screen, and a
+value of panelShared is dead after any host call. The root's own state is what routeAsyncMessage
+still switches on: the refresh, the write result, the ticks, focus and blur, the inspections and
+the pull requests two screens read.
 
 The agents screen is the root's twin, and the line between them is drawn by who owns the
 state. The stage, the warm-up and the write result's landing are the root's, since a pane on
@@ -143,16 +147,18 @@ rows it draws come from internal/ui/diffview. Each screen's forms sit beside it 
 their own: agentforms.go, workflowforms.go, scheduleforms.go, worktreeforms.go and
 archiveforms.go, with forms.go holding only the machinery they share. Each screen's keys are
 a screenActionSpec in a file of their own, agentsactions.go and the rest, except search, whose
-keys sit in search.go; the four lists share one screenList in screenlist.go. The review composes its
-own frame and reaches the root's drawing through the drawer bridge, and the editor it opens on
-the stage goes through host.
+keys sit in search.go. list.go is the list the four list screens share: screenList, the cursor
+and the keys every list answers, screenListParams, what a list screen hands the root to draw,
+and drawer, the bridge through which a screen reaches the root's drawing of the header, the
+record, the messages and the legend. The review composes its own frame through the same bridge,
+and the editor it opens on the stage goes through host.
 
 Shared concerns: api.go, actions.go, column.go, details.go, document.go, filter.go, forms.go,
 help.go, info.go, logs.go, refresh.go, keys.go, clipboard.go, report.go, convert.go.
 
-Presentation that still knows what it is drawing: content.go, list.go, markdown.go, style.go.
-style.go is the marks a row wears for an agent's state, and what is left in list.go and
-document.go is the model methods that measure a pane before handing the drawing on.
+Presentation that still knows what it is drawing: content.go, markdown.go, style.go,
+document.go. style.go is the marks a row wears for an agent's state, and document.go is the
+model methods that measure a pane before handing the drawing on.
 
 The frame is its own package, internal/ui/layout, which owns the panes the panel lays out
 around itself and is the only thing here that talks to tmux.

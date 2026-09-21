@@ -26,7 +26,7 @@ func TestPageKeysMoveTheCursorByTheStep(t *testing.T) {
 	press("ctrl+u")
 	assert.Equal(t, 0, m.agents.cursor, "a page past the top lands on the first row")
 
-	last := len(m.agentRows()) - 1
+	last := len(m.agents.rows(m.shared())) - 1
 	m.agents.cursor = last - 1
 	press("ctrl+d")
 	assert.Equal(t, last, m.agents.cursor, "a page past the bottom lands on the last row")

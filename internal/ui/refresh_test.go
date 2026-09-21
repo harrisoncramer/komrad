@@ -138,7 +138,7 @@ func TestFirstListingLandsOnTheFirstAgent(t *testing.T) {
 		agents:    []agentItem{{agent: panel.Agent{Name: "api-refactor", WorkflowID: "w1"}}},
 	})
 
-	selected, ok := m.selectedAgent()
+	selected, ok := m.agents.selectedAgent(m.shared())
 	require.True(t, ok, "the cursor is on an agent rather than on the folder above it")
 	assert.Equal(t, "api-refactor", selected.agent.Name)
 }
@@ -195,7 +195,7 @@ func TestCreatedAgentReceivesFocus(t *testing.T) {
 		},
 	})
 
-	selected, ok := m.selectedAgent()
+	selected, ok := m.agents.selectedAgent(m.shared())
 	require.True(t, ok)
 	assert.Equal(t, "new", selected.agent.ID)
 }
@@ -257,7 +257,7 @@ func TestCreatedWorkflowReceivesFocus(t *testing.T) {
 		},
 	})
 
-	hovered, ok := m.hoveredWorkflow()
+	hovered, ok := m.agents.hoveredWorkflow(m.shared())
 	require.True(t, ok, "the cursor is on a folder header")
 	assert.Equal(t, "new", hovered.ID)
 }
@@ -292,7 +292,7 @@ func TestCursorHoldsItsFolderAcrossARefresh(t *testing.T) {
 		}}},
 	})
 
-	hovered, ok := m.hoveredWorkflow()
+	hovered, ok := m.agents.hoveredWorkflow(m.shared())
 	require.True(t, ok, "the cursor is still on a folder rather than on the agent under it")
 	assert.Equal(t, "infra", hovered.Name)
 }
@@ -334,7 +334,7 @@ func TestCursorHoldsItsAgentWhenAFolderArrives(t *testing.T) {
 		},
 	})
 
-	selected, ok := m.selectedAgent()
+	selected, ok := m.agents.selectedAgent(m.shared())
 	require.True(t, ok, "the cursor is on an agent")
 	assert.Equal(t, "infra-upgrade", selected.agent.Name)
 }

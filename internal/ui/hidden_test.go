@@ -83,7 +83,7 @@ func TestAgentRowsHidden(t *testing.T) {
 			m := hiddenTree()
 			m.agents.showHidden = tt.showHidden
 
-			rows := m.agentRows()
+			rows := m.agents.rows(m.shared())
 			assert.Equal(t, tt.wantRows, describeRows(rows))
 
 			require.True(t, rows[0].header)
@@ -97,12 +97,11 @@ func TestToggleHiddenAgentsKeepsTheCursor(t *testing.T) {
 	m := hiddenTree()
 	m.agents.cursor = 3
 
-	shown, _ := m.toggleHiddenAgents()
-	revealed, ok := shown.(model)
-	require.True(t, ok)
+	m.agents.toggleHidden(&m, m.shared(), "")
+	revealed := m
 	require.True(t, revealed.agents.showHidden)
 
-	hovered, ok := revealed.selectedAgent()
+	hovered, ok := revealed.agents.selectedAgent(revealed.shared())
 	require.True(t, ok)
 	assert.Equal(t, "ui", hovered.agent.Name)
 }
@@ -159,12 +158,12 @@ func TestHiddenHelpIsOneLine(t *testing.T) {
 func TestAgentsViewHidden(t *testing.T) {
 	m := hiddenTree()
 
-	away := m.agentsView()
+	away := m.agents.view(m.shared())
 	assert.NotContains(t, away, "chore")
 	assert.Contains(t, away, "+2")
 
 	m.agents.showHidden = true
-	shown := m.agentsView()
+	shown := m.agents.view(m.shared())
 	assert.Contains(t, shown, "chore")
 	assert.NotContains(t, shown, "+2")
 }

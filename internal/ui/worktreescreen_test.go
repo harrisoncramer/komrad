@@ -87,7 +87,7 @@ func worktreesModel() model {
 func pressWorktrees(t *testing.T, m model, key tea.KeyMsg) (model, tea.Cmd) {
 	t.Helper()
 
-	next, cmd := worktreesAdapter{}.update(m, key)
+	next, cmd := m.routeScreenMessage(key)
 	updated, ok := next.(model)
 	require.True(t, ok)
 
@@ -132,10 +132,10 @@ func TestOpenWorktreesLandsOnTheHoveredAgent(t *testing.T) {
 	m := worktreesModel()
 	m.screen = screenAgents
 
-	opened := m.openWorktrees("archived")
+	m.enter(screenWorktrees, screenTarget{agentID: "archived"})
 
-	assert.Equal(t, screenWorktrees, opened.screen)
-	assert.Equal(t, "tree:/trees/archived", opened.worktrees.list().hovered(opened.shared()))
+	assert.Equal(t, screenWorktrees, m.screen)
+	assert.Equal(t, "tree:/trees/archived", m.worktrees.list().hovered(m.shared()))
 }
 
 // TestEnterOnAWorktreeLandsOnItsAgent covers the jump both ways: a live agent to the agents
@@ -678,7 +678,7 @@ func TestWorktreesScreenHoldsTheWindow(t *testing.T) {
 	m = sizedTo(m, tmux)
 	m.listing.agents[0].agent.Pane = "%7"
 
-	m = m.openWorktrees("live")
+	m.enter(screenWorktrees, screenTarget{agentID: "live"})
 
 	assert.Equal(t, 4, m.worktrees.cursor, "the cursor lands on the live agent's row")
 	assert.True(t, m.frame.IsSolo(), "the panel draws both halves itself")
@@ -686,14 +686,16 @@ func TestWorktreesScreenHoldsTheWindow(t *testing.T) {
 	assert.False(t, screenWorktrees.opensInfoPane(), "and the log and terminal keys do not act here")
 }
 
-// worktreesChrome is the worktrees list as the root's own chrome reads it.
-func (m model) worktreesChrome() listChrome {
-	return m.listChromeOf(m.worktrees.listParams(m.shared()))
+// worktreesHeader is the worktrees header as the frame draws it.
+func (m model) worktreesHeader() string {
+	params := m.worktrees.listParams(m.shared())
+
+	return m.tabbedHeader(params.title, params.tally)
 }
 
 // worktreesHelp is the worktrees legend as the frame draws it.
 func (m model) worktreesHelp() keyMap {
-	return m.worktreesChrome().help(m)
+	return m.listHelpOf(m.worktrees.listParams(m.shared()))
 }
 
 // TestWorktreesLegendIsTheOneItDrewBeforeTheMove sweeps the expanded legend across widths

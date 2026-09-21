@@ -37,20 +37,20 @@ func (s screen) opensInfoPane() bool {
 // screenModel is what the panel asks of whichever screen is up.
 type screenModel interface {
 	// update takes a message the panel's own bindings did not claim.
-	update(m model, msg tea.Msg) (tea.Model, tea.Cmd)
+	update(h host, s panelShared, msg tea.Msg) tea.Cmd
 
 	// view draws the screen into the panel's own pane.
-	view(m model) string
+	view(s panelShared) string
 
 	// needs is what the refresh has to fetch for the screen.
 	needs() screenNeeds
 
-	// open lands on the screen with its cursor on the target where the target is on screen,
-	// and its stage put right.
-	open(m model, target screenTarget) (tea.Model, tea.Cmd)
+	// enter lands the cursor on the target where the target is on screen, and puts the stage
+	// right, once the root has put the screen up.
+	enter(h host, s panelShared, target screenTarget) tea.Cmd
 
 	// takesEveryKey reports whether something on the screen is taking every key.
-	takesEveryKey(m model) bool
+	takesEveryKey() bool
 }
 
 // screenTarget is the row a screen is asked to land on, read by each screen for the fields it
@@ -74,31 +74,31 @@ type screenNeeds struct {
 // detailed is a screen that draws a record under its list.
 type detailed interface {
 	// details is the record the cursor is standing on.
-	details(m model) details
+	details(s panelShared) details
 
 	// detailsQuit is the screen's own quit binding, kept working while the record holds the keys.
 	detailsQuit(keys config.Keybindings) []string
 
 	// detailsFit is whether the screen has the room to draw the record at all.
-	detailsFit(m model) bool
+	detailsFit(s panelShared) bool
 
 	// detailsRoom is the rows the screen has under its header and the legend it is drawing.
-	detailsRoom(m model) int
+	detailsRoom(s panelShared) int
 }
 
 // filtered is a screen that draws a search under its list and keeps its cursor on the row it
 // was on as the pattern changes.
 type filtered interface {
 	// hoveredKey is the key of the row the cursor is on, read before the pattern changes.
-	hoveredKey(m model) string
+	hoveredKey(s panelShared) string
 
 	// placeAt puts the cursor back on that row, or as near to where it was as the narrowed list
 	// allows.
-	placeAt(m *model, key string)
+	placeAt(h host, s panelShared, key string)
 
 	// filterRows is every row on screen with the text a search reads, in the order they are
 	// drawn.
-	filterRows(m model) []filterRow
+	filterRows(s panelShared) []filterRow
 }
 
 // filterRow is one row a search can land on: the key that names it and the text it matches by.
@@ -112,10 +112,10 @@ type tabbed interface {
 	tabs() tabStrip
 
 	// tabsState is where the screen keeps the tab chosen and whether the strip holds the keys.
-	tabsState(m *model) *tabsState
+	tabsState() *tabsState
 
 	// tabsFit is whether the screen has the room to draw the strip.
-	tabsFit(m model) bool
+	tabsFit(s panelShared) bool
 }
 
 // columned is a screen that draws a block beside its own list.
@@ -125,29 +125,29 @@ type columned interface {
 
 // staged is a screen that puts the row the cursor is on into the stage pane.
 type staged interface {
-	stage(m *model)
+	stage(h host, s panelShared)
 }
 
 // active is the screen that is up.
-func (m model) active() screenModel {
-	return m.screen.adapter()
+func (m *model) active() screenModel {
+	return m.screenOf(m.screen)
 }
 
-// adapter is the screen behind the enum, every one of them still a set of methods on the root.
-func (s screen) adapter() screenModel {
+// screenOf is the screen behind the enum, held by value on the root.
+func (m *model) screenOf(s screen) screenModel {
 	switch s {
 	case screenAgents:
-		return agentsAdapter{}
+		return &m.agents
 	case screenSchedules:
-		return schedulesAdapter{}
+		return &m.schedules
 	case screenArchive:
-		return archiveAdapter{}
+		return &m.archive
 	case screenSearch:
-		return searchAdapter{}
+		return &m.search
 	case screenReview:
-		return reviewAdapter{}
+		return &m.review
 	case screenWorktrees:
-		return worktreesAdapter{}
+		return &m.worktrees
 	}
 
 	// The switch carries every screen and no default, so this is what a screen added without an
@@ -246,12 +246,19 @@ func (m *model) widenFilter() {
 
 // enter leaves whichever screen is up for the next, landing it on the target.
 func (m *model) enter(next screen, target screenTarget) tea.Cmd {
-	entered, cmd := next.adapter().open(*m, target)
-	if landed, ok := entered.(model); ok {
-		*m = landed
+	// The review is the one screen that refuses a target, and it refuses before the screen goes up.
+	if next == screenReview && target.agentID != "" {
+		item, ok := m.listing.liveAgent(target.agentID)
+		if !ok {
+			return nil
+		}
+
+		return m.enterReview(item.agent)
 	}
 
-	return cmd
+	m.enterScreen(next)
+
+	return m.screenOf(next).enter(m, m.shared(), target)
 }
 
 // panelShared is what the root hands a screen on every call, and nothing the screen may write.

@@ -100,21 +100,21 @@ func TestApplyAgents(t *testing.T) {
 				keys: config.DefaultKeybindings(),
 			}
 
-			was := rowKeyAt(m.agentRows(), m.agents.cursor)
+			was := rowKeyAt(m.agents.rows(m.shared()), m.agents.cursor)
 			m.applyAgents(tt.fresh)
-			m.placeTreeCursor(was)
+			m.agents.apply(m.shared(), was)
 
 			assert.Equal(t, screenAgents, m.screen, "the panel stays where it was")
 			assert.Len(t, m.listing.agents, tt.wantLen)
 
 			if tt.wantLen == 0 {
-				_, _ = m.updateAgents(tea.KeyMsg{Type: tea.KeyEnter})
+				_, _ = m.routeScreenMessage(tea.KeyMsg{Type: tea.KeyEnter})
 				assert.Equal(t, screenAgents, m.screen)
 
 				return
 			}
 
-			selected, ok := m.selectedAgent()
+			selected, ok := m.agents.selectedAgent(m.shared())
 			require.True(t, ok, "the cursor is on an agent")
 			assert.Equal(t, tt.wantCursor, selected.agent.Name)
 
@@ -158,7 +158,7 @@ func TestPlaceTreeCursorSkipsHeaderAfterAgentRemoved(t *testing.T) {
 		keys:   config.DefaultKeybindings(),
 	}
 
-	was := rowKeyAt(m.agentRows(), m.agents.cursor)
+	was := rowKeyAt(m.agents.rows(m.shared()), m.agents.cursor)
 	require.Equal(t, "agent:a1", was)
 
 	m.applyAgents([]agentItem{
@@ -173,9 +173,9 @@ func TestPlaceTreeCursorSkipsHeaderAfterAgentRemoved(t *testing.T) {
 			WorkflowID: "w2",
 		}},
 	})
-	m.placeTreeCursor(was)
+	m.agents.apply(m.shared(), was)
 
-	selected, ok := m.selectedAgent()
+	selected, ok := m.agents.selectedAgent(m.shared())
 	require.True(t, ok, "the cursor lands on an agent, not the next workflow's header")
 	assert.Equal(t, "a2", selected.agent.Name)
 }

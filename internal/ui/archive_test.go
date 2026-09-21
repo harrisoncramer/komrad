@@ -164,7 +164,7 @@ func TestArchiveKeys(t *testing.T) {
 				m.listing.workflows, m.listing.archivedAgents = nil, nil
 			}
 
-			updated, cmd := archiveAdapter{}.update(m, keyMsg(tt.key))
+			updated, cmd := m.routeScreenMessage(keyMsg(tt.key))
 			pressed, ok := updated.(model)
 			require.True(t, ok)
 
@@ -263,7 +263,7 @@ func TestArchiveRows(t *testing.T) {
 			assert.Equal(t, tt.wantRows, describeRows(m.archive.listRows(m.shared())))
 
 			if tt.wantEmpty {
-				assert.Contains(t, archiveAdapter{}.view(m), "nothing archived")
+				assert.Contains(t, m.archive.view(m.shared()), "nothing archived")
 			}
 		})
 	}
@@ -642,7 +642,7 @@ func TestArchiveView(t *testing.T) {
 			m.listing.archivedAgents = archivedItems(tt.agents)
 			m.listing.archivedWorkflows = tt.archived
 
-			view := ansi.Strip(archiveAdapter{}.view(m))
+			view := ansi.Strip(m.archive.view(m.shared()))
 			for _, want := range tt.wants {
 				assert.Contains(t, view, want)
 			}
@@ -860,11 +860,9 @@ func TestArchiveIsListedSeparatelyFromTheAgents(t *testing.T) {
 	m := archiveModel(agents, workflows, config.DefaultKeybindings())
 	m.listing.archivedAgents = nil
 
-	entered, cmd := m.enterArchive()
-	opened, ok := entered.(model)
-	require.True(t, ok)
+	cmd := m.enter(screenArchive, screenTarget{})
 
-	got := settle(t, opened, cmd)
+	got := settle(t, m, cmd)
 
 	assert.Contains(t, agents.listedArchived, true, "the archive is asked for by the pass the screen starts")
 	assert.Contains(t, workflows.listed, true, "and so are the folders it draws over them")
@@ -1080,9 +1078,7 @@ func TestArchiveHandsTheWindowBack(t *testing.T) {
 	m.frame = layout.New(tmux, config.DefaultLayout())
 	m.frame.Attach("%0")
 
-	entered, _ := m.enterArchive()
-	m, ok := entered.(model)
-	require.True(t, ok)
+	m.enter(screenArchive, screenTarget{})
 	assert.True(t, m.frame.IsSolo(), "the archive draws both columns itself, so it takes the window")
 
 	// A live agent's own pane is what stands beside the list there, so the panel gives the window
@@ -1095,9 +1091,8 @@ func TestArchiveHandsTheWindowBack(t *testing.T) {
 	}, alive: true}}
 	m.agents.cursor = 1
 
-	left, _ := archiveAdapter{}.update(m, keyMsg("esc"))
-	m, ok = left.(model)
-	require.True(t, ok)
+	left, _ := m.routeScreenMessage(keyMsg("esc"))
+	m = asModel(t, left)
 	assert.False(t, m.frame.IsSolo(), "leaving the archive for a running agent gives the other panes their share back")
 }
 
@@ -1165,7 +1160,7 @@ func TestArchiveOpensOnTheList(t *testing.T) {
 	m := archiveModel(&fakeArchiveAgents{}, &fakeArchiveWorkflows{}, keys)
 	m.screen = screenAgents
 
-	entered, _ := m.updateAgents(keyMsg(keys.Archive.Open[0]))
+	entered, _ := m.routeScreenMessage(keyMsg(keys.Archive.Open[0]))
 	opened, ok := entered.(model)
 	require.True(t, ok)
 	assert.Equal(t, screenArchive, opened.screen)
@@ -1256,7 +1251,7 @@ func TestArchiveDrawsTheSameColumns(t *testing.T) {
 	rows := m.archive.listRows(m.shared())
 	require.NotEmpty(t, rows)
 
-	live := view.Prepare(agentsSnapshot(snapshotParams{rows: m.agentRows(), pane: 200}))
+	live := view.Prepare(agentsSnapshot(snapshotParams{rows: m.agents.rows(m.shared()), pane: 200}))
 	assert.Equal(t, live.Columns, view.Prepare(m.archive.snapshot(m.shared(), listPane{width: 200})).Columns)
 }
 
@@ -1281,12 +1276,7 @@ func archivedItems(agents []panel.Agent) []agentItem {
 	return xslice.Map(agents, func(agent panel.Agent) agentItem { return agentItem{agent: agent} })
 }
 
-// archiveChrome is the archive list as the root's own chrome reads it.
-func (m model) archiveChrome() listChrome {
-	return m.listChromeOf(m.archive.listParams(m.shared()))
-}
-
 // archiveHelp is the archive legend as the frame draws it.
 func (m model) archiveHelp() keyMap {
-	return m.archiveChrome().help(m)
+	return m.listHelpOf(m.archive.listParams(m.shared()))
 }

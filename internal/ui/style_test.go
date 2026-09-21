@@ -34,11 +34,11 @@ func TestAgentsViewRowWidthIsStableRegardlessOfBranch(t *testing.T) {
 		WorkflowID: "w1",
 	}}}
 
-	rowWithBranch, ok := rowNamed(strings.Split(withBranch.agentsView(), "\n"), "worker")
+	rowWithBranch, ok := rowNamed(strings.Split(withBranch.agents.view(withBranch.shared()), "\n"), "worker")
 	require.True(t, ok)
 	assert.NotContains(t, rowWithBranch, "agent/a1", "the branch name itself is never drawn")
 
-	rowWithoutBranch, ok := rowNamed(strings.Split(withoutBranch.agentsView(), "\n"), "worker")
+	rowWithoutBranch, ok := rowNamed(strings.Split(withoutBranch.agents.view(withoutBranch.shared()), "\n"), "worker")
 	require.True(t, ok)
 
 	assert.Len(t, rowWithoutBranch, len(rowWithBranch))
@@ -60,10 +60,10 @@ func TestFocusMovesTheMarkers(t *testing.T) {
 	m := detailsModel(&recordingTmux{})
 
 	assert.NotContains(t, m.detailsView(), "›", "the record draws no cursor while the list has the keys")
-	assert.Equal(t, 1, strings.Count(m.agentsView(), "›"), "the list's is the one on screen")
+	assert.Equal(t, 1, strings.Count(m.agents.view(m.shared()), "›"), "the list's is the one on screen")
 
 	m.details.focused = true
 
 	assert.Contains(t, m.detailsView(), "›", "the field cursor arrives with the keys")
-	assert.Equal(t, 1, strings.Count(m.agentsView(), "›"), "and the row cursor goes")
+	assert.Equal(t, 1, strings.Count(m.agents.view(m.shared()), "›"), "and the row cursor goes")
 }

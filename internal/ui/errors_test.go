@@ -74,7 +74,7 @@ func TestRefusedWriteIsReported(t *testing.T) {
 			agents:    []agentItem{{agent: agent, alive: false}},
 		},
 	}
-	m.agents.cursor = firstAgentRowIndex(m.agentRows())
+	m.agents.cursor = firstAgentRowIndex(m.agents.rows(m.shared()))
 
 	opened, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'z'}})
 	pressed, ok := opened.(model)
@@ -114,13 +114,11 @@ func TestRefusedResumeIsReported(t *testing.T) {
 			}, alive: false}},
 		},
 	}
-	m.agents.cursor = firstAgentRowIndex(m.agentRows())
+	m.agents.cursor = firstAgentRowIndex(m.agents.rows(m.shared()))
 
-	updated, cmd := m.openAgent()
-	pressed, ok := updated.(model)
-	require.True(t, ok)
+	cmd := m.agents.openAgent(&m, m.shared())
 
-	got := settle(t, pressed, cmd)
+	got := settle(t, m, cmd)
 
 	require.NotEmpty(t, got.messages.items)
 	assert.Equal(t, `Could not resume agent "api-refactor"`, newestMessage(got).summary)
@@ -179,7 +177,7 @@ func TestSuccessfulWriteReportsNothing(t *testing.T) {
 		},
 		messages: oneMessage("Could not archive agent \"gone\"", "stale"),
 	}
-	m.agents.cursor = firstAgentRowIndex(m.agentRows())
+	m.agents.cursor = firstAgentRowIndex(m.agents.rows(m.shared()))
 
 	opened, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'z'}})
 	pressed, ok := opened.(model)
@@ -442,7 +440,7 @@ func TestRefusedPauseIsReported(t *testing.T) {
 			}, alive: true}},
 		},
 	}
-	m.agents.cursor = firstAgentRowIndex(m.agentRows())
+	m.agents.cursor = firstAgentRowIndex(m.agents.rows(m.shared()))
 
 	pressed, cmd := m.Update(keyMsg("p"))
 	written, ok := pressed.(model)

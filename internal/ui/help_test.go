@@ -21,7 +21,7 @@ import (
 func TestHelpToggle(t *testing.T) {
 	m := helpModel()
 
-	view := m.agentsView()
+	view := m.agents.view(m.shared())
 	assert.NotContains(t, view, "archive", "the help opens on its one line, dropping what the row also does")
 	assert.Contains(t, view, "open", "it keeps what the row does first")
 	assert.Contains(t, view, "show help", "and says the key that brings the rest out")
@@ -31,7 +31,7 @@ func TestHelpToggle(t *testing.T) {
 	require.True(t, ok)
 	require.True(t, expanded.helpExpanded)
 
-	view = expanded.agentsView()
+	view = expanded.agents.view(expanded.shared())
 	assert.Contains(t, view, "archive", "the expanded help names every binding")
 	assert.Contains(t, view, "hide help", "and says the key that puts it away")
 

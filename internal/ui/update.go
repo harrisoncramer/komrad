@@ -138,24 +138,24 @@ func (m model) route(msg tea.Msg) (tea.Model, tea.Cmd) {
 	// What is left of the messages is a screen's own results, which the screen that is up reads
 	// and every other leaves alone.
 	if !isKey {
-		return m.active().update(m, msg)
+		return m.routeScreenMessage(msg)
 	}
 
-	if m.filterTarget().state.typing {
+	if m.filter.typing {
 		return m.updateFilterInput(key)
 	}
 
 	// The filter has gone by here, so what is left is the screen's own input, which owns the
 	// keyboard since every global key is also a character somebody means to type.
 	if m.isTyping() {
-		return m.routeScreenKey(key)
+		return m.routeScreenMessage(key)
 	}
 
 	if next, cmd, handled := m.routeGlobalKey(key); handled {
 		return next, cmd
 	}
 
-	return m.routeScreenKey(key)
+	return m.routeScreenMessage(key)
 }
 
 // resizeTo takes the panel to the size a window message reports.
@@ -254,8 +254,11 @@ func (m model) routeGlobalKey(key tea.KeyMsg) (tea.Model, tea.Cmd, bool) {
 	return m, nil, false
 }
 
-func (m model) routeScreenKey(key tea.KeyMsg) (tea.Model, tea.Cmd) {
-	return m.active().update(m, key)
+// routeScreenMessage hands a message to the screen that is up.
+func (m model) routeScreenMessage(msg tea.Msg) (tea.Model, tea.Cmd) {
+	cmd := m.active().update(&m, m.shared(), msg)
+
+	return m, cmd
 }
 
 func (m model) routeAsyncMessage(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
@@ -374,9 +377,9 @@ func (m *model) reconcileEditor() tea.Cmd {
 // isTyping reports whether the panel's own bindings are off: the list's filter, a text input the
 // screen put up, or a key prefix waiting on the key that completes it.
 func (m model) isTyping() bool {
-	if m.filterTarget().state.typing {
+	if m.filter.typing {
 		return true
 	}
 
-	return m.active().takesEveryKey(m)
+	return m.active().takesEveryKey()
 }

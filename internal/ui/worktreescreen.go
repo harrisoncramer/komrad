@@ -489,95 +489,61 @@ func commitLines(commits []worktreeCommit) []string {
 	return lines
 }
 
-// worktreesAdapter is the worktrees screen behind the panel's one door.
-type worktreesAdapter struct{}
-
 var (
-	_ detailed = worktreesAdapter{}
-	_ filtered = worktreesAdapter{}
-	_ tabbed   = worktreesAdapter{}
-	_ columned = worktreesAdapter{}
-	_ staged   = worktreesAdapter{}
+	_ detailed = (*worktreesScreen)(nil)
+	_ filtered = (*worktreesScreen)(nil)
+	_ tabbed   = (*worktreesScreen)(nil)
+	_ columned = (*worktreesScreen)(nil)
+	_ staged   = (*worktreesScreen)(nil)
 )
 
-func (worktreesAdapter) update(m model, msg tea.Msg) (tea.Model, tea.Cmd) {
-	cmd := m.worktrees.update(&m, m.shared(), msg)
-
-	return m, cmd
-}
-
-func (worktreesAdapter) view(m model) string {
-	return m.worktrees.view(m.shared())
-}
-
-func (worktreesAdapter) needs() screenNeeds {
+func (w *worktreesScreen) needs() screenNeeds {
 	return screenNeeds{fromListing: true, archive: true, worktrees: true}
 }
 
-func (worktreesAdapter) open(m model, target screenTarget) (tea.Model, tea.Cmd) {
-	m.enterScreen(screenWorktrees)
-	cmd := m.worktrees.enter(&m, m.shared(), target)
-
-	return m, cmd
-}
-
-func (worktreesAdapter) takesEveryKey(model) bool {
+func (w *worktreesScreen) takesEveryKey() bool {
 	return false
 }
 
-func (worktreesAdapter) details(m model) details {
-	return m.worktrees.details(m.shared())
-}
-
-func (worktreesAdapter) detailsQuit(keys config.Keybindings) []string {
+func (w *worktreesScreen) detailsQuit(keys config.Keybindings) []string {
 	return keys.Worktrees.Quit
 }
 
-func (worktreesAdapter) detailsFit(m model) bool {
-	s := m.shared()
-
-	return s.draw.listFitsDetails(m.worktrees.listParams(s))
+func (w *worktreesScreen) detailsFit(s panelShared) bool {
+	return s.draw.listFitsDetails(w.listParams(s))
 }
 
-func (worktreesAdapter) detailsRoom(m model) int {
-	s := m.shared()
-
-	return s.draw.listRecordRoom(m.worktrees.listParams(s))
+func (w *worktreesScreen) detailsRoom(s panelShared) int {
+	return s.draw.listRecordRoom(w.listParams(s))
 }
 
-func (worktreesAdapter) hoveredKey(m model) string {
-	return m.worktrees.list().hovered(m.shared())
+func (w *worktreesScreen) hoveredKey(s panelShared) string {
+	return w.list().hovered(s)
 }
 
-func (worktreesAdapter) placeAt(m *model, key string) {
-	m.worktrees.list().place(m, m.shared(), key)
+func (w *worktreesScreen) placeAt(h host, s panelShared, key string) {
+	w.list().place(h, s, key)
 }
 
-func (worktreesAdapter) filterRows(m model) []filterRow {
-	return m.worktrees.list().filterRows(m.shared())
+func (w *worktreesScreen) filterRows(s panelShared) []filterRow {
+	return w.list().filterRows(s)
 }
 
-func (worktreesAdapter) tabs() tabStrip {
+func (w *worktreesScreen) tabs() tabStrip {
 	return worktreesTabs()
 }
 
-func (worktreesAdapter) tabsState(m *model) *tabsState {
-	return &m.worktrees.sort
+func (w *worktreesScreen) tabsState() *tabsState {
+	return &w.sort
 }
 
-func (worktreesAdapter) tabsFit(m model) bool {
-	s := m.shared()
-
-	return s.draw.listFitsTabs(m.worktrees.listParams(s))
+func (w *worktreesScreen) tabsFit(s panelShared) bool {
+	return s.draw.listFitsTabs(w.listParams(s))
 }
 
-func (worktreesAdapter) column() columnSpec {
+func (w *worktreesScreen) column() columnSpec {
 	return columnSpec{
 		floor: columnFloor,
 		doc:   func(m model) string { return m.worktrees.doc(m.shared()) },
 	}
-}
-
-func (worktreesAdapter) stage(m *model) {
-	m.worktrees.stage(m, m.shared())
 }

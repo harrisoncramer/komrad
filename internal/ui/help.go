@@ -39,8 +39,8 @@ func (m model) renderHelp(k keyMap, above ...string) string {
 	if m.isMessagesFocused() {
 		k = m.messagesHelp()
 	}
-	if typing := m.filterTarget().state; typing.typing {
-		k = filterHelp(typing.mode)
+	if m.filter.typing {
+		k = filterHelp(m.filter.mode)
 	}
 
 	width := m.paneWidth()

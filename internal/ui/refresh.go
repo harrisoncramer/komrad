@@ -197,7 +197,7 @@ func (m *model) applyRefresh(result refreshResult) tea.Cmd {
 	// A screen that draws what it holds beside its own list stages nothing at all.
 	active := m.active()
 	if s, ok := active.(staged); ok && active.needs().fromListing && !m.form.isActive() {
-		s.stage(m)
+		s.stage(m, m.shared())
 	}
 
 	return tea.Batch(preview, redrawn, inspect, pullRequests)

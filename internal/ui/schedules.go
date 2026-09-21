@@ -29,8 +29,10 @@ func (i scheduleItem) key() string {
 }
 
 // enter lands the cursor once the root has put the screen up.
-func (w *schedulesScreen) enter(_ host, s panelShared) {
+func (w *schedulesScreen) enter(_ host, s panelShared, _ screenTarget) tea.Cmd {
 	w.cursor = clampCursor(w.cursor, len(w.listRows(s)))
+
+	return nil
 }
 
 func (w *schedulesScreen) update(h host, s panelShared, msg tea.Msg) tea.Cmd {
@@ -273,74 +275,46 @@ func (w *schedulesScreen) lines(s panelShared, pane listPane) []string {
 	return rows
 }
 
-// schedulesAdapter is the schedules screen behind the panel's one door.
-type schedulesAdapter struct{}
-
 var (
-	_ detailed = schedulesAdapter{}
-	_ filtered = schedulesAdapter{}
-	_ columned = schedulesAdapter{}
+	_ detailed = (*schedulesScreen)(nil)
+	_ filtered = (*schedulesScreen)(nil)
+	_ columned = (*schedulesScreen)(nil)
 )
 
-func (schedulesAdapter) update(m model, msg tea.Msg) (tea.Model, tea.Cmd) {
-	cmd := m.schedules.update(&m, m.shared(), msg)
-
-	return m, cmd
-}
-
-func (schedulesAdapter) view(m model) string {
-	return m.schedules.view(m.shared())
-}
-
-func (schedulesAdapter) needs() screenNeeds {
+func (w *schedulesScreen) needs() screenNeeds {
 	return screenNeeds{fromListing: true}
 }
 
-func (schedulesAdapter) open(m model, _ screenTarget) (tea.Model, tea.Cmd) {
-	m.enterScreen(screenSchedules)
-	m.schedules.enter(&m, m.shared())
-
-	return m, nil
-}
-
-func (schedulesAdapter) takesEveryKey(model) bool {
+func (w *schedulesScreen) takesEveryKey() bool {
 	return false
 }
 
-func (schedulesAdapter) details(m model) details {
-	return m.schedules.details(m.shared())
-}
-
-func (schedulesAdapter) detailsQuit(keys config.Keybindings) []string {
+func (w *schedulesScreen) detailsQuit(keys config.Keybindings) []string {
 	return keys.Schedules.Quit
 }
 
-func (schedulesAdapter) detailsFit(m model) bool {
-	s := m.shared()
-
-	return s.draw.listFitsDetails(m.schedules.listParams(s))
+func (w *schedulesScreen) detailsFit(s panelShared) bool {
+	return s.draw.listFitsDetails(w.listParams(s))
 }
 
-func (schedulesAdapter) detailsRoom(m model) int {
-	s := m.shared()
-
-	return s.draw.listRecordRoom(m.schedules.listParams(s))
+func (w *schedulesScreen) detailsRoom(s panelShared) int {
+	return s.draw.listRecordRoom(w.listParams(s))
 }
 
-func (schedulesAdapter) hoveredKey(m model) string {
-	return m.schedules.list().hovered(m.shared())
+func (w *schedulesScreen) hoveredKey(s panelShared) string {
+	return w.list().hovered(s)
 }
 
-func (schedulesAdapter) placeAt(m *model, key string) {
-	m.schedules.list().place(m, m.shared(), key)
+func (w *schedulesScreen) placeAt(h host, s panelShared, key string) {
+	w.list().place(h, s, key)
 }
 
-func (schedulesAdapter) filterRows(m model) []filterRow {
-	return m.schedules.list().filterRows(m.shared())
+func (w *schedulesScreen) filterRows(s panelShared) []filterRow {
+	return w.list().filterRows(s)
 }
 
 // column is the hovered schedule's own record drawn beside the list.
-func (schedulesAdapter) column() columnSpec {
+func (w *schedulesScreen) column() columnSpec {
 	return columnSpec{
 		floor: columnFloor,
 		doc:   func(m model) string { return m.schedules.doc(m.shared()) },

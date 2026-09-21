@@ -61,7 +61,7 @@ func reviewOnASecondRoundOfOneFile(t *testing.T, repo *fakeRepo, agents *fakeRev
 func pressReviewBaseForward(t *testing.T, m model) model {
 	t.Helper()
 
-	next, cmd := m.updateReview(keyMsg(">"))
+	next, cmd := m.routeScreenMessage(keyMsg(">"))
 	m = next.(model)
 	require.NotNil(t, cmd, "widening reloads the diff")
 
@@ -80,7 +80,7 @@ func TestAViewedMarkTakenInAChapterDoesNotEatTheWholeChangeMark(t *testing.T) {
 
 	m := reviewOnASecondRoundOfOneFile(t, repo, agents)
 
-	next, cmd := m.updateReview(keyMsg("v"))
+	next, cmd := m.routeScreenMessage(keyMsg("v"))
 	m = next.(model)
 	require.NotNil(t, cmd)
 	cmd()
@@ -94,7 +94,7 @@ func TestAViewedMarkTakenInAChapterDoesNotEatTheWholeChangeMark(t *testing.T) {
 	require.NotEmpty(t, m.review.diff.base, "the diff narrowed to a round")
 	require.False(t, m.review.diff.view.IsViewed(fakeFile), "a chapter is a different diff, so it starts unread")
 
-	next, cmd = m.updateReview(keyMsg("v"))
+	next, cmd = m.routeScreenMessage(keyMsg("v"))
 	m = next.(model)
 	require.Nil(t, cmd, "the refusal sends no write")
 

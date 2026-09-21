@@ -143,7 +143,7 @@ func TestTheOwedListSaysWhenACommentIsFoldedAway(t *testing.T) {
 
 	require.Contains(t, ansi.Strip(m.review.sidebarView(m.shared())), "no reply")
 
-	next, _ := m.updateReview(keyMsg("v"))
+	next, _ := m.routeScreenMessage(keyMsg("v"))
 	m, ok := next.(model)
 	require.True(t, ok)
 
@@ -178,7 +178,7 @@ func TestTheOwedListBrightensWhatIsOnScreen(t *testing.T) {
 func walkOpen(t *testing.T, m model, key string) (model, int) {
 	t.Helper()
 
-	next, _ := m.updateReview(keyMsg(key))
+	next, _ := m.routeScreenMessage(keyMsg(key))
 	m, ok := next.(model)
 	require.True(t, ok)
 
@@ -238,7 +238,7 @@ func TestTheLegendFollowsTheKeysOntoTheThread(t *testing.T) {
 	diff := ansi.Strip(m.renderHelp(m.review.help(m.shared())))
 	assert.NotContains(t, diff, "scroll the thread")
 
-	next, _ := m.updateReview(keyMsg("ctrl+f"))
+	next, _ := m.routeScreenMessage(keyMsg("ctrl+f"))
 	m, ok := next.(model)
 	require.True(t, ok)
 	require.True(t, m.review.threads.focus, "and now the conversation does")
@@ -248,7 +248,7 @@ func TestTheLegendFollowsTheKeysOntoTheThread(t *testing.T) {
 	assert.Contains(t, thread, "back to the diff")
 	assert.NotEqual(t, diff, thread, "which is a different legend")
 
-	next, _ = m.updateReview(keyMsg("ctrl+f"))
+	next, _ = m.routeScreenMessage(keyMsg("ctrl+f"))
 	m, ok = next.(model)
 	require.True(t, ok)
 

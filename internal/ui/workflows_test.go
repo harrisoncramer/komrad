@@ -77,7 +77,7 @@ func TestAgentRows(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			m := model{listing: listing{workflows: tt.workflows, agents: tt.agents}}
 
-			assert.Equal(t, tt.wantRows, describeRows(m.agentRows()))
+			assert.Equal(t, tt.wantRows, describeRows(m.agents.rows(m.shared())))
 		})
 	}
 }
@@ -122,7 +122,7 @@ func TestHoveredWorkflow(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			m.agents.cursor = tt.cursor
 
-			workflow, ok := m.hoveredWorkflow()
+			workflow, ok := m.agents.hoveredWorkflow(m.shared())
 			require.Equal(t, tt.wantOK, ok)
 			if ok {
 				assert.Equal(t, tt.wantName, workflow.Name)

@@ -170,11 +170,13 @@ func globalArms(s screen, keys config.Keybindings) []dispatchArm {
 		)
 	}
 
-	if _, ok := s.adapter().(tabbed); ok {
+	var zero model
+
+	if _, ok := zero.screenOf(s).(tabbed); ok {
 		arms = append(arms, dispatchArm{describe: "the tabs focus", keys: keys.Tabs.Focus})
 	}
 
-	if _, ok := s.adapter().(detailed); ok {
+	if _, ok := zero.screenOf(s).(detailed); ok {
 		arms = append(arms,
 			// Neither of these is configurable, and both are read ahead of the screen's own keys.
 			dispatchArm{describe: "the key that reads the messages", keys: []string{messagesFocusKey}},

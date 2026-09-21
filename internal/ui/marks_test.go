@@ -66,7 +66,7 @@ func TestSetMark(t *testing.T) {
 			if tt.holding != nil {
 				m.listing.marks = map[string]string{agentRowKey("a1"): *tt.holding}
 			}
-			m.agents.cursor = rowIndexOfKey(m.agentRows(), agentRowKey("a1"))
+			m.agents.cursor = rowIndexOfKey(m.agents.rows(m.shared()), agentRowKey("a1"))
 
 			next, cmd := m.Update(keyMsg(m.keys.Marks.Set[0]))
 			pending, ok := next.(model)
@@ -89,7 +89,7 @@ func TestSetMarkOnAWorkflow(t *testing.T) {
 	agents := &fakeMarkAgents{}
 	m := markTree()
 	m.api = api{agents: agents}
-	m.agents.cursor = rowIndexOfKey(m.agentRows(), workflowRowKey("w1"))
+	m.agents.cursor = rowIndexOfKey(m.agents.rows(m.shared()), workflowRowKey("w1"))
 	require.GreaterOrEqual(t, m.agents.cursor, 0)
 
 	pending, _ := m.Update(keyMsg(m.keys.Marks.Set[0]))
@@ -108,7 +108,7 @@ func TestSetMarkClearsAWorkflowsOwnLetter(t *testing.T) {
 	m := markTree()
 	m.api = api{agents: agents}
 	m.listing.marks = map[string]string{workflowRowKey("w1"): "a"}
-	m.agents.cursor = rowIndexOfKey(m.agentRows(), workflowRowKey("w1"))
+	m.agents.cursor = rowIndexOfKey(m.agents.rows(m.shared()), workflowRowKey("w1"))
 
 	pending, _ := m.Update(keyMsg(m.keys.Marks.Set[0]))
 	_, cmd := pending.(model).Update(keyMsg("a"))
@@ -123,11 +123,11 @@ func TestSetMarkClearsAWorkflowsOwnLetter(t *testing.T) {
 func TestJumpMarkReachesAWorkflow(t *testing.T) {
 	m := markTree()
 	markRow(&m, workflowRowKey("w2"))
-	m.agents.cursor = rowIndexOfKey(m.agentRows(), agentRowKey("a1"))
+	m.agents.cursor = rowIndexOfKey(m.agents.rows(m.shared()), agentRowKey("a1"))
 
 	jumped := pressMark(t, m, m.keys.Marks.Jump[0], "c")
 	assert.Empty(t, jumped.messages.items)
-	assert.Equal(t, workflowRowKey("w2"), rowKeyAt(jumped.agentRows(), jumped.agents.cursor))
+	assert.Equal(t, workflowRowKey("w2"), rowKeyAt(jumped.agents.rows(jumped.shared()), jumped.agents.cursor))
 }
 
 // TestJumpMarkReachesAWorkflowThroughAFlatList covers a flat list, which draws no workflow row,
@@ -137,13 +137,13 @@ func TestJumpMarkReachesAWorkflowThroughAFlatList(t *testing.T) {
 	m := markTree()
 	m.agents.sort.flat = true
 	markRow(&m, workflowRowKey("w2"))
-	m.agents.cursor = rowIndexOfKey(m.agentRows(), agentRowKey("a1"))
-	require.Negative(t, rowIndexOfKey(m.agentRows(), workflowRowKey("w2")), "the flat list draws no workflow")
+	m.agents.cursor = rowIndexOfKey(m.agents.rows(m.shared()), agentRowKey("a1"))
+	require.Negative(t, rowIndexOfKey(m.agents.rows(m.shared()), workflowRowKey("w2")), "the flat list draws no workflow")
 
 	jumped := pressMark(t, m, m.keys.Marks.Jump[0], "c")
 	assert.Empty(t, jumped.messages.items)
 	assert.False(t, jumped.agents.sort.flat)
-	assert.Equal(t, workflowRowKey("w2"), rowKeyAt(jumped.agentRows(), jumped.agents.cursor))
+	assert.Equal(t, workflowRowKey("w2"), rowKeyAt(jumped.agents.rows(jumped.shared()), jumped.agents.cursor))
 
 	onAgent := markTree()
 	onAgent.agents.sort.flat = true
@@ -152,7 +152,7 @@ func TestJumpMarkReachesAWorkflowThroughAFlatList(t *testing.T) {
 
 	landed := pressMark(t, onAgent, onAgent.keys.Marks.Jump[0], "c")
 	assert.True(t, landed.agents.sort.flat, "an agent is on the flat list, so nothing is put back")
-	assert.Equal(t, agentRowKey("a1"), rowKeyAt(landed.agentRows(), landed.agents.cursor))
+	assert.Equal(t, agentRowKey("a1"), rowKeyAt(landed.agents.rows(landed.shared()), landed.agents.cursor))
 }
 
 // TestSetMarkRefusesWhatIsNotALetter pins a stray key aborting the mark rather than being
@@ -161,14 +161,13 @@ func TestSetMarkRefusesWhatIsNotALetter(t *testing.T) {
 	agents := &fakeMarkAgents{}
 	m := markTree()
 	m.api = api{agents: agents}
-	m.agents.cursor = rowIndexOfKey(m.agentRows(), agentRowKey("a1"))
+	m.agents.cursor = rowIndexOfKey(m.agents.rows(m.shared()), agentRowKey("a1"))
 
 	pending, _ := m.Update(keyMsg(m.keys.Marks.Set[0]))
-	next, cmd := pending.(model).readMark(keyMsg("1"))
+	after := asModel(t, pending)
+	cmd := after.agents.readMark(&after, after.shared(), keyMsg("1"))
 	assert.Nil(t, cmd, "nothing is written")
 
-	after, ok := next.(model)
-	require.True(t, ok)
 	assert.Equal(t, markPendingNone, after.agents.marks.pending, "the press is spent either way")
 	require.NotEmpty(t, after.messages.items)
 	assert.Empty(t, agents.id)
@@ -179,14 +178,13 @@ func TestSetMarkEscapes(t *testing.T) {
 	agents := &fakeMarkAgents{}
 	m := markTree()
 	m.api = api{agents: agents}
-	m.agents.cursor = rowIndexOfKey(m.agentRows(), agentRowKey("a1"))
+	m.agents.cursor = rowIndexOfKey(m.agents.rows(m.shared()), agentRowKey("a1"))
 
 	pending, _ := m.Update(keyMsg(m.keys.Marks.Set[0]))
-	next, cmd := pending.(model).readMark(keyMsg("esc"))
+	after := asModel(t, pending)
+	cmd := after.agents.readMark(&after, after.shared(), keyMsg("esc"))
 	assert.Nil(t, cmd)
 
-	after, ok := next.(model)
-	require.True(t, ok)
 	assert.Equal(t, markPendingNone, after.agents.marks.pending)
 	assert.Empty(t, after.messages.items)
 	assert.Empty(t, agents.id)
@@ -198,7 +196,7 @@ func TestSetMarkOwnsTheKeyAfterIt(t *testing.T) {
 	agents := &fakeMarkAgents{}
 	m := markTree()
 	m.api = api{agents: agents}
-	m.agents.cursor = rowIndexOfKey(m.agentRows(), agentRowKey("a1"))
+	m.agents.cursor = rowIndexOfKey(m.agents.rows(m.shared()), agentRowKey("a1"))
 
 	pending, _ := m.Update(keyMsg(m.keys.Marks.Set[0]))
 	_, cmd := pending.(model).Update(keyMsg(m.keys.Agents.Hide[0]))
@@ -214,7 +212,7 @@ func TestSetMarkEscapesPastABanner(t *testing.T) {
 	agents := &fakeMarkAgents{}
 	m := markTree()
 	m.api = api{agents: agents}
-	m.agents.cursor = rowIndexOfKey(m.agentRows(), agentRowKey("a1"))
+	m.agents.cursor = rowIndexOfKey(m.agents.rows(m.shared()), agentRowKey("a1"))
 	m.report("something went wrong earlier", errMarkLetter)
 
 	pending, _ := m.Update(keyMsg(m.keys.Marks.Set[0]))
@@ -273,7 +271,7 @@ func TestJumpMark(t *testing.T) {
 			after, ok := next.(model)
 			require.True(t, ok)
 			assert.Empty(t, after.messages.items)
-			assert.Equal(t, agentRowKey(tt.marked), rowKeyAt(after.agentRows(), after.agents.cursor))
+			assert.Equal(t, agentRowKey(tt.marked), rowKeyAt(after.agents.rows(after.shared()), after.agents.cursor))
 		})
 	}
 }
@@ -303,33 +301,33 @@ func TestJumpMarkThatCannotLandKeepsTheScreen(t *testing.T) {
 func TestJumpMarkFromAHeaderComesBack(t *testing.T) {
 	m := markTree()
 	markAgent(&m, "a3")
-	m.agents.cursor = rowIndexOfKey(m.agentRows(), workflowRowKey("w1"))
+	m.agents.cursor = rowIndexOfKey(m.agents.rows(m.shared()), workflowRowKey("w1"))
 	require.GreaterOrEqual(t, m.agents.cursor, 0)
 
 	jumped := pressMark(t, m, m.keys.Marks.Jump[0], "c")
-	require.Equal(t, agentRowKey("a3"), rowKeyAt(jumped.agentRows(), jumped.agents.cursor))
+	require.Equal(t, agentRowKey("a3"), rowKeyAt(jumped.agents.rows(jumped.shared()), jumped.agents.cursor))
 
 	back := pressMark(t, jumped, m.keys.Marks.Jump[0], m.keys.Marks.Jump[0])
-	assert.Equal(t, workflowRowKey("w1"), rowKeyAt(back.agentRows(), back.agents.cursor))
+	assert.Equal(t, workflowRowKey("w1"), rowKeyAt(back.agents.rows(back.shared()), back.agents.cursor))
 }
 
 // TestJumpMarkBackToARowThatHasGone pins the key saying so and forgetting the row.
 func TestJumpMarkBackToARowThatHasGone(t *testing.T) {
 	m := markTree()
 	markAgent(&m, "a3")
-	m.agents.cursor = rowIndexOfKey(m.agentRows(), agentRowKey("a1"))
+	m.agents.cursor = rowIndexOfKey(m.agents.rows(m.shared()), agentRowKey("a1"))
 
 	jumped := pressMark(t, m, m.keys.Marks.Jump[0], "c")
 	require.Equal(t, agentRowKey("a1"), jumped.agents.marks.origin)
 
 	jumped.listing.agents = jumped.listing.agents[1:]
-	at := rowKeyAt(jumped.agentRows(), jumped.agents.cursor)
+	at := rowKeyAt(jumped.agents.rows(jumped.shared()), jumped.agents.cursor)
 
 	after := pressMark(t, jumped, m.keys.Marks.Jump[0], m.keys.Marks.Jump[0])
 	require.NotEmpty(t, after.messages.items)
 	assert.Equal(t, "Could not jump back", newestMessage(after).summary, "the key says what it failed at")
 	assert.Empty(t, after.agents.marks.origin, "the row that has gone is forgotten")
-	assert.Equal(t, at, rowKeyAt(after.agentRows(), after.agents.cursor), "and the cursor stays where it was")
+	assert.Equal(t, at, rowKeyAt(after.agents.rows(after.shared()), after.agents.cursor), "and the cursor stays where it was")
 }
 
 // TestJumpMarkKeepsAStandingSearch pins a jump that reveals a hidden row leaving the search
@@ -344,14 +342,14 @@ func TestJumpMarkKeepsAStandingSearch(t *testing.T) {
 	assert.True(t, jumped.filter.isStanding(), "the search survives the jump")
 	assert.Equal(t, "auth", jumped.filter.query)
 	assert.True(t, jumped.agents.showHidden, "and the hidden row it landed on is revealed")
-	assert.Equal(t, agentRowKey("a5"), rowKeyAt(jumped.agentRows(), jumped.agents.cursor))
+	assert.Equal(t, agentRowKey("a5"), rowKeyAt(jumped.agents.rows(jumped.shared()), jumped.agents.cursor))
 }
 
 // TestJumpMarkUnknownLetter pins a letter nobody holds leaving the cursor where it was and
 // saying so.
 func TestJumpMarkUnknownLetter(t *testing.T) {
 	m := markTree()
-	m.agents.cursor = rowIndexOfKey(m.agentRows(), agentRowKey("a1"))
+	m.agents.cursor = rowIndexOfKey(m.agents.rows(m.shared()), agentRowKey("a1"))
 
 	pending, _ := m.Update(keyMsg(m.keys.Marks.Jump[0]))
 	next, _ := pending.(model).Update(keyMsg("q"))
@@ -359,7 +357,7 @@ func TestJumpMarkUnknownLetter(t *testing.T) {
 	after, ok := next.(model)
 	require.True(t, ok)
 	require.NotEmpty(t, after.messages.items)
-	assert.Equal(t, agentRowKey("a1"), rowKeyAt(after.agentRows(), after.agents.cursor))
+	assert.Equal(t, agentRowKey("a1"), rowKeyAt(after.agents.rows(after.shared()), after.agents.cursor))
 }
 
 // TestJumpMarkBack pins the jump key pressed twice returning to the row the last jump left, so
@@ -367,27 +365,27 @@ func TestJumpMarkUnknownLetter(t *testing.T) {
 func TestJumpMarkBack(t *testing.T) {
 	m := markTree()
 	markAgent(&m, "a3")
-	m.agents.cursor = rowIndexOfKey(m.agentRows(), agentRowKey("a1"))
+	m.agents.cursor = rowIndexOfKey(m.agents.rows(m.shared()), agentRowKey("a1"))
 
 	jumped := pressMark(t, m, m.keys.Marks.Jump[0], "c")
-	require.Equal(t, agentRowKey("a3"), rowKeyAt(jumped.agentRows(), jumped.agents.cursor))
+	require.Equal(t, agentRowKey("a3"), rowKeyAt(jumped.agents.rows(jumped.shared()), jumped.agents.cursor))
 
 	back := pressMark(t, jumped, m.keys.Marks.Jump[0], m.keys.Marks.Jump[0])
-	assert.Equal(t, agentRowKey("a1"), rowKeyAt(back.agentRows(), back.agents.cursor))
+	assert.Equal(t, agentRowKey("a1"), rowKeyAt(back.agents.rows(back.shared()), back.agents.cursor))
 
 	again := pressMark(t, back, m.keys.Marks.Jump[0], m.keys.Marks.Jump[0])
-	assert.Equal(t, agentRowKey("a3"), rowKeyAt(again.agentRows(), again.agents.cursor), "and back again")
+	assert.Equal(t, agentRowKey("a3"), rowKeyAt(again.agents.rows(again.shared()), again.agents.cursor), "and back again")
 }
 
 // TestJumpMarkBackWithNowhereToGo pins the jump key pressed twice before any jump doing
 // nothing rather than moving the cursor somewhere it has never been.
 func TestJumpMarkBackWithNowhereToGo(t *testing.T) {
 	m := markTree()
-	m.agents.cursor = rowIndexOfKey(m.agentRows(), agentRowKey("a1"))
+	m.agents.cursor = rowIndexOfKey(m.agents.rows(m.shared()), agentRowKey("a1"))
 
 	after := pressMark(t, m, m.keys.Marks.Jump[0], m.keys.Marks.Jump[0])
 	assert.Empty(t, after.messages.items)
-	assert.Equal(t, agentRowKey("a1"), rowKeyAt(after.agentRows(), after.agents.cursor))
+	assert.Equal(t, agentRowKey("a1"), rowKeyAt(after.agents.rows(after.shared()), after.agents.cursor))
 }
 
 func markTree() model {

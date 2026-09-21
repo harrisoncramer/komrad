@@ -74,7 +74,7 @@ func withColor(t *testing.T) {
 func press(t *testing.T, m model, key tea.KeyMsg) model {
 	t.Helper()
 
-	next, _ := m.updateAgents(key)
+	next, _ := m.routeScreenMessage(key)
 	updated, ok := next.(model)
 	require.True(t, ok)
 
@@ -136,7 +136,7 @@ func TestToggleSelection(t *testing.T) {
 func TestToggleSelectionEmptyFolder(t *testing.T) {
 	m := selectionTree()
 	m.listing.workflows = append(m.listing.workflows, panel.Workflow{ID: "w3", Name: "chores"})
-	m.agents.cursor = len(m.agentRows()) - 1
+	m.agents.cursor = len(m.agents.rows(m.shared())) - 1
 
 	after := press(t, m, keyMsg("v"))
 	assert.Empty(t, selectedIDs(after.agents.selected))
@@ -237,7 +237,7 @@ func TestPruneSelection(t *testing.T) {
 			Name:       "ui",
 			WorkflowID: "w2",
 		}}})
-		m.placeTreeCursor("")
+		m.agents.apply(m.shared(), "")
 
 		assert.Equal(t, []string{"a4"}, selectedIDs(m.agents.selected))
 	})
@@ -283,7 +283,7 @@ func archiveSelectionTree() model {
 func pressArchive(t *testing.T, m model, key tea.KeyMsg) model {
 	t.Helper()
 
-	next, _ := archiveAdapter{}.update(m, key)
+	next, _ := m.routeScreenMessage(key)
 	updated, ok := next.(model)
 	require.True(t, ok)
 
@@ -325,7 +325,7 @@ func TestArchiveSelection(t *testing.T) {
 		m.archive.cursor = 3
 		m.archive.selected = selectAgents([]string{"a1", "a2"}...)
 
-		next, cmd := archiveAdapter{}.update(m, keyMsg("r"))
+		next, cmd := m.routeScreenMessage(keyMsg("r"))
 		require.NotNil(t, cmd)
 		cmd()
 
@@ -363,7 +363,7 @@ func TestArchiveSelection(t *testing.T) {
 		m.archive.cursor = 0
 		m.archive.selected = selectAgents([]string{"a1"}...)
 
-		_, cmd := archiveAdapter{}.update(m, keyMsg("r"))
+		_, cmd := m.routeScreenMessage(keyMsg("r"))
 		require.NotNil(t, cmd)
 		cmd()
 
@@ -405,11 +405,11 @@ func TestArchiveSelection(t *testing.T) {
 		m := archiveSelectionTree()
 		m.width = rowPaneWidth
 
-		rest := archiveAdapter{}.view(m)
+		rest := m.archive.view(m.shared())
 		assert.NotContains(t, line(t, rest, "api"), paint.BackgroundSequence(paint.SelectionBackground))
 
 		m.archive.selected = selectAgents([]string{"a2"}...)
-		view := archiveAdapter{}.view(m)
+		view := m.archive.view(m.shared())
 		assert.Contains(t, line(t, view, "api"), paint.BackgroundSequence(paint.SelectionBackground))
 		assert.NotContains(t, line(t, view, "db"), paint.BackgroundSequence(paint.SelectionBackground), "and only that row")
 		assert.Equal(t, rowPaneWidth, lineWidth(t, view, "api"), "the bar spans the pane")
@@ -484,7 +484,7 @@ func TestArchiveSelectionFromTheTree(t *testing.T) {
 				m.listing.agents[i].agent.Pane = "%" + m.listing.agents[i].agent.ID
 			}
 
-			opened, _ := m.updateAgents(keyMsg("z"))
+			opened, _ := m.routeScreenMessage(keyMsg("z"))
 			pressed, ok := opened.(model)
 			require.True(t, ok)
 			assert.Equal(t, formAgentArchive, pressed.form.kind, "the key opens the prompt rather than archiving outright")
@@ -528,13 +528,13 @@ func TestSelectionKeepsItsBarWhileAFormHasTheKeys(t *testing.T) {
 	m.agents.selected = selectAgents([]string{"a2"}...)
 
 	require.True(t, m.isListFocused(), "the list has the keys to begin with")
-	require.Contains(t, line(t, m.agentsView(), "api"), paint.BackgroundSequence(paint.SelectionBackground))
+	require.Contains(t, line(t, m.agents.view(m.shared()), "api"), paint.BackgroundSequence(paint.SelectionBackground))
 
 	form, _ := confirmForm("Archive 1 agent?", "", "Archive", config.FormKeys{})
 	m.form.form = form
 
 	require.False(t, m.isListFocused(), "and gives them up to the confirm")
-	assert.Contains(t, line(t, m.agentsView(), "api"), paint.BackgroundSequence(paint.SelectionBackground),
+	assert.Contains(t, line(t, m.agents.view(m.shared()), "api"), paint.BackgroundSequence(paint.SelectionBackground),
 		"but the bar under it does not follow the keys")
 }
 
