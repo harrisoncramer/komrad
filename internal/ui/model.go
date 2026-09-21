@@ -181,6 +181,7 @@ type Deps struct {
 	Keys            config.Keybindings
 	Layout          config.Layout
 	Engine          engine.Remote
+	Binary          BinaryWatcher
 	Settings        PanelSettings
 	ConfigErr       error
 	StartupErr      error
@@ -188,12 +189,15 @@ type Deps struct {
 }
 
 type model struct {
-	popup           *PopupWindow
-	api             api
-	tmux            uiTmux
-	git             ReviewGit
-	browser         browser.Opener
-	harnessFrames   harnessFrameReader
+	popup         *PopupWindow
+	api           api
+	tmux          uiTmux
+	git           ReviewGit
+	browser       browser.Opener
+	harnessFrames harnessFrameReader
+	binary        BinaryWatcher
+	// rebuilt says the binary has been seen to change, and the panel is on its way out.
+	rebuilt         bool
 	frame           *layout.Frame
 	settings        PanelSettings
 	unreachable     error
@@ -308,6 +312,7 @@ func newModel(deps Deps, isDark bool, post *postbox) model {
 		git:             deps.Git,
 		browser:         deps.Browser,
 		harnessFrames:   deps.HarnessFrames,
+		binary:          deps.Binary,
 		frame:           layout.New(deps.Tmux, deps.Layout, layout.WithEngine(deps.Engine)),
 		detailsHeight:   deps.Layout.DetailsHeight,
 		settings:        deps.Settings,

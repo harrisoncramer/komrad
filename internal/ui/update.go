@@ -268,6 +268,11 @@ func (m model) routeAsyncMessage(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
 		reviewing := next.refreshReviewCmd(msg.at)
 		next, edited := next.reconcileEditor()
 
+		next, leaving := next.noticeRebuild()
+		if leaving != nil {
+			return next, leaving, true
+		}
+
 		return next, tea.Batch(next.refreshCmd(), refreshTick(), reviewing, readRuns, edited), true
 	case tea.BlurMsg:
 		m.blurred = true

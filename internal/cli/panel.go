@@ -103,6 +103,11 @@ Use ` + "`weave open`" + ` to bring the panel up.`,
 			state.popup.SilenceStatus(agents.ManagerSession)
 			state.tmux.EnableFocusEvents()
 
+			var binary ui.BinaryWatcher
+			if watch := watchExecutable(); watch != nil {
+				binary = watch
+			}
+
 			return ui.Run(ui.Deps{
 				PopupWindow:   state.popup,
 				Tmux:          state.tmux,
@@ -118,6 +123,7 @@ Use ` + "`weave open`" + ` to bring the panel up.`,
 				PullRequests:  pullRequestClient,
 				Layout:        state.layout,
 				Engine:        remote,
+				Binary:        binary,
 				Settings: ui.PanelSettings{
 					Addr:          addr,
 					LogPath:       logPath,

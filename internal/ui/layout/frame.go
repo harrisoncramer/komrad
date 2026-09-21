@@ -438,6 +438,13 @@ func (f *Frame) ReleaseGuest(pane string) {
 	}
 }
 
+// Vacate gives back the panes the frame took, returning a guest to its own window and killing
+// the frame's own, so the window holds nothing but the sidebar.
+func (f *Frame) Vacate() {
+	f.restoreGuest()
+	f.abandonStage()
+}
+
 // holdSolo says again where the sidebar's zoom belongs, which split-window, swap-pane,
 // resize-pane, kill-pane and break-pane all drop silently.
 func (f *Frame) holdSolo() {
