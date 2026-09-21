@@ -386,3 +386,28 @@ WHERE
         OR a.branch <> c.worktree_base_branch)
 ORDER BY
     p.opened_at DESC;
+
+-- name: ListLiveAgentsOnRepositories :many
+SELECT
+    id
+FROM
+    agents
+WHERE
+    archived_at IS NULL
+    AND repository_url = ANY (@urls::text[])
+ORDER BY
+    id;
+
+-- name: ListLiveAgentsOfPullRequest :many
+SELECT
+    a.id
+FROM
+    agents a
+    JOIN pull_requests p ON p.repository_url = a.repository_url
+        AND p.head_repository_url = a.repository_url
+        AND p.head_branch = a.branch
+WHERE
+    p.id = @id
+    AND a.archived_at IS NULL
+ORDER BY
+    a.id;

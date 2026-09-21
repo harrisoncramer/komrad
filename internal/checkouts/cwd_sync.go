@@ -1,6 +1,7 @@
 package checkouts
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -9,6 +10,7 @@ import (
 	"time"
 
 	"weave/internal/git"
+	"weave/internal/store"
 	agentstore "weave/internal/store/agent"
 	reviewstore "weave/internal/store/review"
 	workflowstore "weave/internal/store/workflow"
@@ -58,6 +60,9 @@ type NewCwdSyncerParams struct {
 	Trees   standingReader
 	Tallies tallyLister
 	Bases   workflowLister
+	// Watch is told whose worktree standing moved, which no write records, store.Discard when
+	// unset.
+	Watch store.Publisher
 }
 
 // CwdSyncer keeps what the panel shows of an agent's working directory in step with the
@@ -68,6 +73,7 @@ type CwdSyncer struct {
 	trees     standingReader
 	tallies   tallyLister
 	bases     workflowLister
+	watch     store.Publisher
 	mu        sync.Mutex
 	standings map[string]roundStanding
 }
@@ -80,6 +86,7 @@ func NewCwdSyncer(params NewCwdSyncerParams) *CwdSyncer {
 		trees:     params.Trees,
 		tallies:   params.Tallies,
 		bases:     params.Bases,
+		watch:     cmp.Or(params.Watch, store.Discard),
 		standings: map[string]roundStanding{},
 	}
 }
@@ -149,10 +156,31 @@ func (cs *CwdSyncer) Sync(ctx context.Context) error {
 	}
 
 	cs.mu.Lock()
+	moved := movedStandings(cs.standings, standings)
 	cs.standings = standings
 	cs.mu.Unlock()
 
+	cs.watch.TouchAgents(moved...)
+
 	return errors.Join(failures...)
+}
+
+// movedStandings is every agent whose worktree the pass found somewhere other than where the
+// last one left it.
+func movedStandings(before, after map[string]roundStanding) []string {
+	var moved []string
+	for id, found := range after {
+		if before[id] != found {
+			moved = append(moved, id)
+		}
+	}
+	for id := range before {
+		if _, still := after[id]; !still {
+			moved = append(moved, id)
+		}
+	}
+
+	return moved
 }
 
 // listBases is the branch each workflow cuts its worktrees from, by workflow id.

@@ -223,7 +223,7 @@ func TestEnqueuerClaimsWhatItQueues(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			client, stores := newRiverClientWithStores(t)
 			ctx := t.Context()
-			queue := NewEnqueuer(client, stores.Pool.GetRawPool())
+			queue := NewEnqueuer(client, stores.Pool)
 			worktreeDelete := NewWorktreeDelete(queue)
 
 			workflow, err := stores.Workflows.Create(ctx, workflowstore.Config{Name: "backend", Worktree: workflowstore.WorktreeConfig{BaseBranch: "main"}})

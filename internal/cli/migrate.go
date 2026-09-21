@@ -25,7 +25,7 @@ zero.`,
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			pool, err := store.Open(cmd.Context(), state.env.DatabaseURL)
+			pool, err := store.Open(cmd.Context(), store.OpenParams{URL: state.env.DatabaseURL})
 			if err != nil {
 				return err
 			}

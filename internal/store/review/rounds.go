@@ -95,6 +95,7 @@ func (s *ReviewStore) CreateRound(ctx context.Context, params CreateRoundParams)
 	}
 
 	round := roundFromRow(*row)
+	s.db.TouchAgents(round.AgentID)
 
 	return &round, nil
 }
@@ -199,6 +200,7 @@ func (s *ReviewStore) OpenReview(ctx context.Context, params OpenReviewParams) (
 	}
 
 	review := reviewFromRow(*row)
+	s.db.TouchAgents(review.AgentID)
 
 	return &review, nil
 }
@@ -346,6 +348,7 @@ func (s *ReviewStore) ReleaseReview(ctx context.Context, params ReleaseReviewPar
 	}
 
 	review := reviewFromRow(*row)
+	s.db.TouchAgents(review.AgentID)
 
 	return &review, nil
 }
@@ -357,9 +360,12 @@ func (s *ReviewStore) DeleteOpenReviewsBy(ctx context.Context, authorAgentIDs []
 		return nil
 	}
 
-	if err := s.queries.DeleteOpenReviewsByAuthor(ctx, storable); err != nil {
+	reviewed, err := s.queries.DeleteOpenReviewsByAuthor(ctx, storable)
+	if err != nil {
 		return fmt.Errorf("failed to delete the open reviews of %d agent(s): %w", len(storable), err)
 	}
+
+	s.db.TouchAgents(reviewed...)
 
 	return nil
 }
@@ -370,9 +376,12 @@ func (s *ReviewStore) DeleteReview(ctx context.Context, id string) error {
 		return nil
 	}
 
-	if err := s.queries.DeleteReview(ctx, id); err != nil {
+	reviewed, err := s.queries.DeleteReview(ctx, id)
+	if err != nil {
 		return fmt.Errorf("failed to delete the review %q: %w", id, err)
 	}
+
+	s.db.TouchAgents(reviewed...)
 
 	return nil
 }

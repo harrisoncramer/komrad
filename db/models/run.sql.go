@@ -9,17 +9,34 @@ import (
 	"context"
 )
 
-const deleteAgentRun = `-- name: DeleteAgentRun :exec
+const deleteAgentRun = `-- name: DeleteAgentRun :many
 DELETE FROM agent_runs
 WHERE id = $1
+RETURNING
+    agent_id
 `
 
-func (q *Queries) DeleteAgentRun(ctx context.Context, id string) error {
-	_, err := q.db.Exec(ctx, deleteAgentRun, id)
-	return err
+func (q *Queries) DeleteAgentRun(ctx context.Context, id string) ([]string, error) {
+	rows, err := q.db.Query(ctx, deleteAgentRun, id)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var agent_id string
+		if err := rows.Scan(&agent_id); err != nil {
+			return nil, err
+		}
+		items = append(items, agent_id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
-const finishAgentRun = `-- name: FinishAgentRun :exec
+const finishAgentRun = `-- name: FinishAgentRun :many
 UPDATE
     agent_runs
 SET
@@ -28,6 +45,8 @@ SET
     failure = $2
 WHERE
     id = $3
+RETURNING
+    agent_id
 `
 
 type FinishAgentRunParams struct {
@@ -36,9 +55,24 @@ type FinishAgentRunParams struct {
 	ID       string
 }
 
-func (q *Queries) FinishAgentRun(ctx context.Context, arg FinishAgentRunParams) error {
-	_, err := q.db.Exec(ctx, finishAgentRun, arg.ExitCode, arg.Failure, arg.ID)
-	return err
+func (q *Queries) FinishAgentRun(ctx context.Context, arg FinishAgentRunParams) ([]string, error) {
+	rows, err := q.db.Query(ctx, finishAgentRun, arg.ExitCode, arg.Failure, arg.ID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var agent_id string
+		if err := rows.Scan(&agent_id); err != nil {
+			return nil, err
+		}
+		items = append(items, agent_id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const insertAgentRun = `-- name: InsertAgentRun :one

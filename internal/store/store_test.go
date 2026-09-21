@@ -99,7 +99,7 @@ func TestUpdatedAtStamped(t *testing.T) {
 func open(ctx context.Context, t *testing.T) *Pool {
 	t.Helper()
 
-	pool, err := Open(ctx, dbtest.URL(t))
+	pool, err := Open(ctx, OpenParams{URL: dbtest.URL(t)})
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = pool.Close() })
 

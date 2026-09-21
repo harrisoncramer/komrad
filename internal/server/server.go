@@ -23,6 +23,7 @@ import (
 	"weave/internal/mail"
 	"weave/internal/store"
 	"weave/internal/tmux"
+	"weave/internal/watch"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/riverqueue/river"
@@ -50,12 +51,14 @@ type NewServerParams struct {
 }
 
 type Server struct {
-	Mux           *http.ServeMux
-	Jobs          *river.Client[pgx.Tx]
-	Periodic      *jobs.RiverPeriodic
-	Pool          *store.Pool
-	Delivery      *mail.DeliveryService
-	Loops         []Loop
+	Mux      *http.ServeMux
+	Jobs     *river.Client[pgx.Tx]
+	Periodic *jobs.RiverPeriodic
+	Pool     *store.Pool
+	Delivery *mail.DeliveryService
+	Loops    []Loop
+	// Watch is told which rows every store changed, and streams them to the panels.
+	Watch         *watch.Broker
 	logger        *slog.Logger
 	stopRequested chan struct{}
 	background    *backgroundWork
@@ -69,13 +72,15 @@ func NewServer(ctx context.Context, params NewServerParams) (*Server, error) {
 		return nil, err
 	}
 
-	st, err := openStores(ctx, params.Env.DatabaseURL)
+	broker := watch.NewBroker(watch.NewBrokerParams{Logger: params.Logger})
+	st, err := openStores(ctx, params.Env.DatabaseURL, broker)
 	if err != nil {
 		return nil, err
 	}
 
 	srv := &Server{
 		Pool:          st.pool,
+		Watch:         broker,
 		logger:        params.Logger,
 		stopRequested: make(chan struct{}, 1),
 	}
@@ -90,7 +95,7 @@ func NewServer(ctx context.Context, params NewServerParams) (*Server, error) {
 		}
 	}()
 
-	svc, err := buildServices(params, st)
+	svc, err := buildServices(params, st, broker)
 	if err != nil {
 		return nil, err
 	}
@@ -142,6 +147,7 @@ func NewServer(ctx context.Context, params NewServerParams) (*Server, error) {
 		StopRequested: srv.stopRequested,
 		LogPath:       params.Env.LogPath(),
 		Doctor:        params.Doctor,
+		Watch:         broker,
 	})
 	if err != nil {
 		return nil, err
@@ -154,9 +160,17 @@ func NewServer(ctx context.Context, params NewServerParams) (*Server, error) {
 		Periodic: srv.Periodic,
 	})
 
+	broker.Start(svc.watchRows)
+	srv.closers = append(srv.closers, broker.Close)
+
 	built = true
 
 	return srv, nil
+}
+
+// CloseWatch ends every watch stream, which an HTTP drain would otherwise wait on.
+func (s *Server) CloseWatch() {
+	s.Watch.Close()
 }
 
 // mailConfig reads the mail settings fresh on every send, and fails rather than falling back to

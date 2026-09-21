@@ -97,15 +97,6 @@ type Broker struct {
 	subscribers map[*Subscription]struct{}
 }
 
-type subscribeRequest struct {
-	reply chan subscribeReply
-}
-
-type subscribeReply struct {
-	subscription *Subscription
-	err          error
-}
-
 // NewBroker builds the broker, which takes touches at once and renders none of them until
 // Start names what reads the rows back.
 func NewBroker(params NewBrokerParams) *Broker {
@@ -130,6 +121,15 @@ func NewBroker(params NewBrokerParams) *Broker {
 		stopped:      make(chan struct{}),
 		subscribers:  map[*Subscription]struct{}{},
 	}
+}
+
+type subscribeRequest struct {
+	reply chan subscribeReply
+}
+
+type subscribeReply struct {
+	subscription *Subscription
+	err          error
 }
 
 // Start begins rendering through the reader, which Close ends.

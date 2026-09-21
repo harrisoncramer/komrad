@@ -9,6 +9,7 @@ import (
 	"weave/internal/dbtest"
 	"weave/internal/store"
 	workflowstore "weave/internal/store/workflow"
+	"weave/internal/watchtest"
 	"weave/lib/xslice"
 
 	"github.com/stretchr/testify/assert"
@@ -581,16 +582,22 @@ func TestListPage(t *testing.T) {
 type fixture struct {
 	*ScheduleStore
 	workflows *workflowstore.WorkflowStore
+	touched   *watchtest.Recorder
 }
 
 func open(t *testing.T) *fixture {
 	t.Helper()
 
-	pool, err := store.Open(t.Context(), dbtest.URL(t))
+	touched := watchtest.NewRecorder()
+	pool, err := store.Open(t.Context(), store.OpenParams{URL: dbtest.URL(t), Publisher: touched})
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = pool.Close() })
 
-	return &fixture{ScheduleStore: NewScheduleStore(pool.GetDB()), workflows: workflowstore.NewWorkflowStore(pool.GetDB())}
+	return &fixture{
+		ScheduleStore: NewScheduleStore(pool.GetDB()),
+		workflows:     workflowstore.NewWorkflowStore(pool.GetDB()),
+		touched:       touched,
+	}
 }
 
 func seed(t *testing.T, st *fixture, cfg Config) *Schedule {

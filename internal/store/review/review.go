@@ -101,11 +101,12 @@ type Message struct {
 
 type ReviewStore struct {
 	queries *models.Queries
+	db      store.DBTX
 }
 
 // NewReviewStore builds a review store over db, which is either the pool or a transaction.
 func NewReviewStore(db store.DBTX) *ReviewStore {
-	return &ReviewStore{queries: models.New(db)}
+	return &ReviewStore{queries: models.New(db), db: db}
 }
 
 type CreateThreadParams struct {

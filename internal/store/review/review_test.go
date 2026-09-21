@@ -9,6 +9,7 @@ import (
 	agentstore "weave/internal/store/agent"
 	mailstore "weave/internal/store/mail"
 	workflowstore "weave/internal/store/workflow"
+	"weave/internal/watchtest"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -464,11 +465,13 @@ type fixture struct {
 	mail     *mailstore.MailStore
 	pool     store.DBTX
 	workflow string
+	touched  *watchtest.Recorder
 }
 
 func open(t *testing.T) *fixture {
 	t.Helper()
-	p, err := store.Open(t.Context(), dbtest.URL(t))
+	touched := watchtest.NewRecorder()
+	p, err := store.Open(t.Context(), store.OpenParams{URL: dbtest.URL(t), Publisher: touched})
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = p.Close() })
 
@@ -482,6 +485,7 @@ func open(t *testing.T) *fixture {
 		mail:        mailstore.NewMailStore(p.GetDB()),
 		pool:        p.GetDB(),
 		workflow:    created.ID,
+		touched:     touched,
 	}
 }
 

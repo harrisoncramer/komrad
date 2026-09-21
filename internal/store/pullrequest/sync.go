@@ -55,11 +55,12 @@ type BranchScan struct {
 // PullRequestSyncStore is where the sync is for every repository and branch it has listed.
 type PullRequestSyncStore struct {
 	queries *models.Queries
+	db      store.DBTX
 }
 
 // NewPullRequestSyncStore builds a sync store over a pool or transaction.
 func NewPullRequestSyncStore(db store.DBTX) *PullRequestSyncStore {
-	return &PullRequestSyncStore{queries: models.New(db)}
+	return &PullRequestSyncStore{queries: models.New(db), db: db}
 }
 
 // ListStaleStandingsParams says how long a read of the checks and mergeability is trusted: a
@@ -161,7 +162,7 @@ func (s *PullRequestSyncStore) EnsureSync(ctx context.Context, repositoryURL str
 		return fmt.Errorf("failed to ensure the sync row for %s: %w", repositoryURL, err)
 	}
 
-	return nil
+	return s.touchRepositories(ctx, repositoryURL)
 }
 
 // GetSync is where the sync is for a repository, or ErrNotFound.
@@ -191,7 +192,7 @@ func (s *PullRequestSyncStore) ResetSyncCalls(ctx context.Context, repositoryURL
 		return fmt.Errorf("failed to reset the call count for %s: %w", repositoryURL, err)
 	}
 
-	return nil
+	return s.touchRepositories(ctx, repositoryURL)
 }
 
 // RecordSyncRequest counts one request made for a repository and stamps when.
@@ -200,7 +201,7 @@ func (s *PullRequestSyncStore) RecordSyncRequest(ctx context.Context, repository
 		return fmt.Errorf("failed to count a request for %s: %w", repositoryURL, err)
 	}
 
-	return nil
+	return s.touchRepositories(ctx, repositoryURL)
 }
 
 // StartSweepParams is what page one of a first sweep answered with, and when.
@@ -224,7 +225,7 @@ func (s *PullRequestSyncStore) StartSweep(ctx context.Context, params StartSweep
 		return fmt.Errorf("failed to start a sweep of %s: %w", params.RepositoryURL, err)
 	}
 
-	return nil
+	return s.touchRepositories(ctx, params.RepositoryURL)
 }
 
 // AdvanceSweep records where the sweep in progress reads its next page from.
@@ -237,7 +238,7 @@ func (s *PullRequestSyncStore) AdvanceSweep(ctx context.Context, repositoryURL, 
 		return fmt.Errorf("failed to advance the sweep of %s: %w", repositoryURL, err)
 	}
 
-	return nil
+	return s.touchRepositories(ctx, repositoryURL)
 }
 
 // CompleteSweep promotes the sweep in progress: the high-water mark moves to its newest stamp
@@ -247,7 +248,7 @@ func (s *PullRequestSyncStore) CompleteSweep(ctx context.Context, repositoryURL 
 		return fmt.Errorf("failed to complete the sweep of %s: %w", repositoryURL, err)
 	}
 
-	return nil
+	return s.touchRepositories(ctx, repositoryURL)
 }
 
 // ResetSweeps hands repositories back to a first sweep, clearing their high-water marks and
@@ -257,7 +258,7 @@ func (s *PullRequestSyncStore) ResetSweeps(ctx context.Context, repositoryURLs [
 		return fmt.Errorf("failed to reset the sweeps of %v: %w", repositoryURLs, err)
 	}
 
-	return nil
+	return s.touchRepositories(ctx, repositoryURLs...)
 }
 
 // AdvanceMark moves a repository's high-water mark to a moment the changes have been read
@@ -271,7 +272,7 @@ func (s *PullRequestSyncStore) AdvanceMark(ctx context.Context, repositoryURL st
 		return fmt.Errorf("failed to advance the mark of %s: %w", repositoryURL, err)
 	}
 
-	return nil
+	return s.touchRepositories(ctx, repositoryURL)
 }
 
 // MarkListed records when page one of a repository's own listing was last read and written.
@@ -283,6 +284,19 @@ func (s *PullRequestSyncStore) MarkListed(ctx context.Context, repositoryURL str
 	if err != nil {
 		return fmt.Errorf("failed to record the listing of %s: %w", repositoryURL, err)
 	}
+
+	return s.touchRepositories(ctx, repositoryURL)
+}
+
+// touchRepositories says every live agent whose checkout pushes to one of the repositories may
+// look different now.
+func (s *PullRequestSyncStore) touchRepositories(ctx context.Context, urls ...string) error {
+	ids, err := s.queries.ListLiveAgentsOnRepositories(ctx, urls)
+	if err != nil {
+		return fmt.Errorf("failed to list the agents on %d repositories: %w", len(urls), err)
+	}
+
+	s.db.TouchAgents(ids...)
 
 	return nil
 }

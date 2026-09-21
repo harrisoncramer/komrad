@@ -1,6 +1,7 @@
 package agents
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 	"log/slog"
@@ -9,6 +10,7 @@ import (
 	"weave/internal/frames"
 	"weave/internal/harness"
 	"weave/internal/logging"
+	"weave/internal/store"
 	agentstore "weave/internal/store/agent"
 	"weave/internal/tmux"
 )
@@ -37,6 +39,8 @@ type NewReconcilerParams struct {
 	Panes    paneKiller
 	Observer harness.Observer
 	States   agentStateReadWriter
+	// Watch is told whose pane came or went, which no write records, store.Discard when unset.
+	Watch store.Publisher
 }
 
 // Reconciler treats the pane as the only authority on an agent's state, letting any other
@@ -46,10 +50,12 @@ type Reconciler struct {
 	observer harness.Observer
 	store    agentStateReadWriter
 	frames   frameRecorder
+	watch    store.Publisher
 
-	// unrecognizedTotal is only ever touched by the reconcile pass, so it needs none of the
-	// locking the tally below does.
+	// unrecognizedTotal and alive are only ever touched by the reconcile pass, so they need
+	// none of the locking the tally below does.
 	unrecognizedTotal int
+	alive             map[string]bool
 	tally             *tally
 }
 
@@ -59,6 +65,8 @@ func NewReconciler(params NewReconcilerParams) *Reconciler {
 		tmux:     params.Panes,
 		observer: params.Observer,
 		store:    params.States,
+		watch:    cmp.Or(params.Watch, store.Discard),
+		alive:    map[string]bool{},
 		tally:    newTally(),
 	}
 }
@@ -96,18 +104,34 @@ func (r *Reconciler) Reconcile(ctx context.Context) error {
 	}
 
 	known := make(map[string]struct{}, len(agents))
+	alive := make(map[string]bool, len(agents))
 	for _, agent := range agents {
 		known[agent.ID] = struct{}{}
 		pane, inListing := panes[agent.Pane]
+		alive[agent.ID] = isPaneOwnedBy(pane.Owner, agent.ID)
 		r.reconcileAgent(ctx, agent, pane, inListing)
 	}
 
+	r.touchLivenessFlips(alive)
 	r.tally.prune(known)
 	if r.frames != nil {
 		r.frames.Forget(known)
 	}
 
 	return nil
+}
+
+// touchLivenessFlips says which agents' panes came or went since the last pass.
+func (r *Reconciler) touchLivenessFlips(alive map[string]bool) {
+	var flipped []string
+	for id, running := range alive {
+		if was, seen := r.alive[id]; seen && was != running {
+			flipped = append(flipped, id)
+		}
+	}
+	r.alive = alive
+
+	r.watch.TouchAgents(flipped...)
 }
 
 func (r *Reconciler) reconcileAgent(ctx context.Context, agent agentstore.Agent, pane tmux.PaneStatus, inListing bool) {

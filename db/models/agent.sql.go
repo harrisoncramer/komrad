@@ -113,7 +113,7 @@ func (q *Queries) ClaimAgentNudge(ctx context.Context, arg ClaimAgentNudgeParams
 	return items, nil
 }
 
-const clearAgentsDeleting = `-- name: ClearAgentsDeleting :exec
+const clearAgentsDeleting = `-- name: ClearAgentsDeleting :many
 WITH released AS (
     UPDATE
         agents
@@ -123,37 +123,91 @@ WITH released AS (
         OR parent_agent_id = ANY ($1::uuid[]))
     AND deleting_at IS NOT NULL
 RETURNING
-    workflow_id)
-UPDATE
-    workflows
-SET
-    deleting_at = NULL
-WHERE
-    deleting_at IS NOT NULL
-    AND id IN (
-        SELECT
-            workflow_id
-        FROM
-            released)
+    id,
+    workflow_id
+),
+released_workflows AS (
+    UPDATE
+        workflows
+    SET
+        deleting_at = NULL
+    WHERE
+        deleting_at IS NOT NULL
+        AND id IN (
+            SELECT
+                workflow_id
+            FROM
+                released)
+        RETURNING
+            id
+)
+SELECT
+    released.id::uuid AS id,
+    'agent'::text AS kind
+FROM
+    released
+UNION ALL
+SELECT
+    released_workflows.id::uuid AS id,
+    'workflow'::text AS kind
+FROM
+    released_workflows
 `
 
-func (q *Queries) ClearAgentsDeleting(ctx context.Context, ids []string) error {
-	_, err := q.db.Exec(ctx, clearAgentsDeleting, ids)
-	return err
+type ClearAgentsDeletingRow struct {
+	ID   string
+	Kind string
 }
 
-const clearAllAgentsDeleting = `-- name: ClearAllAgentsDeleting :exec
+func (q *Queries) ClearAgentsDeleting(ctx context.Context, ids []string) ([]*ClearAgentsDeletingRow, error) {
+	rows, err := q.db.Query(ctx, clearAgentsDeleting, ids)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []*ClearAgentsDeletingRow
+	for rows.Next() {
+		var i ClearAgentsDeletingRow
+		if err := rows.Scan(&i.ID, &i.Kind); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const clearAllAgentsDeleting = `-- name: ClearAllAgentsDeleting :many
 UPDATE
     agents
 SET
     deleting_at = NULL
 WHERE
     deleting_at IS NOT NULL
+RETURNING
+    id
 `
 
-func (q *Queries) ClearAllAgentsDeleting(ctx context.Context) error {
-	_, err := q.db.Exec(ctx, clearAllAgentsDeleting)
-	return err
+func (q *Queries) ClearAllAgentsDeleting(ctx context.Context) ([]string, error) {
+	rows, err := q.db.Query(ctx, clearAllAgentsDeleting)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const countLiveAgents = `-- name: CountLiveAgents :one
@@ -2009,7 +2063,7 @@ func (q *Queries) MarkAgentsArchived(ctx context.Context, ids []string) ([]*Mark
 	return items, nil
 }
 
-const markAgentsDeleting = `-- name: MarkAgentsDeleting :exec
+const markAgentsDeleting = `-- name: MarkAgentsDeleting :many
 WITH claimed AS (
     UPDATE
         agents
@@ -2020,41 +2074,77 @@ WITH claimed AS (
     AND deleting_at IS NULL
 RETURNING
     id,
-    workflow_id)
-UPDATE
-    workflows w
-SET
-    deleting_at = NOW()
-WHERE
-    w.archived_at IS NOT NULL
-    AND w.deleting_at IS NULL
-    AND w.id IN (
-        SELECT
-            workflow_id
-        FROM
-            claimed)
-    AND NOT EXISTS (
-        SELECT
-            1
-        FROM
-            agents a
-        WHERE
-            a.workflow_id = w.id
-            AND a.archived_at IS NOT NULL
-            AND a.deleting_at IS NULL
-            AND a.id NOT IN (
+    workflow_id
+),
+claimed_workflows AS (
+    UPDATE
+        workflows w
+    SET
+        deleting_at = NOW()
+    WHERE
+        w.archived_at IS NOT NULL
+        AND w.deleting_at IS NULL
+        AND w.id IN (
+            SELECT
+                workflow_id
+            FROM
+                claimed)
+            AND NOT EXISTS (
                 SELECT
-                    id
+                    1
                 FROM
-                    claimed))
+                    agents a
+                WHERE
+                    a.workflow_id = w.id
+                    AND a.archived_at IS NOT NULL
+                    AND a.deleting_at IS NULL
+                    AND a.id NOT IN (
+                        SELECT
+                            id
+                        FROM
+                            claimed))
+                RETURNING
+                    w.id
+)
+        SELECT
+            claimed.id::uuid AS id,
+            'agent'::text AS kind
+        FROM
+            claimed
+        UNION ALL
+        SELECT
+            claimed_workflows.id::uuid AS id,
+            'workflow'::text AS kind
+        FROM
+            claimed_workflows
 `
 
-func (q *Queries) MarkAgentsDeleting(ctx context.Context, ids []string) error {
-	_, err := q.db.Exec(ctx, markAgentsDeleting, ids)
-	return err
+type MarkAgentsDeletingRow struct {
+	ID   string
+	Kind string
 }
 
-const markArchivedAgentsDeleting = `-- name: MarkArchivedAgentsDeleting :exec
+func (q *Queries) MarkAgentsDeleting(ctx context.Context, ids []string) ([]*MarkAgentsDeletingRow, error) {
+	rows, err := q.db.Query(ctx, markAgentsDeleting, ids)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []*MarkAgentsDeletingRow
+	for rows.Next() {
+		var i MarkAgentsDeletingRow
+		if err := rows.Scan(&i.ID, &i.Kind); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const markArchivedAgentsDeleting = `-- name: MarkArchivedAgentsDeleting :many
 WITH claimed AS (
     UPDATE
         agents a
@@ -2074,41 +2164,77 @@ WITH claimed AS (
                 AND parent.state = 'failed_to_cleanup')
         RETURNING
             a.id,
-            a.workflow_id)
-UPDATE
-    workflows w
-SET
-    deleting_at = NOW()
-WHERE
-    w.archived_at IS NOT NULL
-    AND w.deleting_at IS NULL
-    AND w.id IN (
-        SELECT
-            workflow_id
-        FROM
-            claimed)
-    AND NOT EXISTS (
-        SELECT
-            1
-        FROM
-            agents a
-        WHERE
-            a.workflow_id = w.id
-            AND a.archived_at IS NOT NULL
-            AND a.deleting_at IS NULL
-            AND a.id NOT IN (
+            a.workflow_id
+),
+claimed_workflows AS (
+    UPDATE
+        workflows w
+    SET
+        deleting_at = NOW()
+    WHERE
+        w.archived_at IS NOT NULL
+        AND w.deleting_at IS NULL
+        AND w.id IN (
+            SELECT
+                workflow_id
+            FROM
+                claimed)
+            AND NOT EXISTS (
                 SELECT
-                    id
+                    1
                 FROM
-                    claimed))
+                    agents a
+                WHERE
+                    a.workflow_id = w.id
+                    AND a.archived_at IS NOT NULL
+                    AND a.deleting_at IS NULL
+                    AND a.id NOT IN (
+                        SELECT
+                            id
+                        FROM
+                            claimed))
+                RETURNING
+                    w.id
+)
+        SELECT
+            claimed.id::uuid AS id,
+            'agent'::text AS kind
+        FROM
+            claimed
+        UNION ALL
+        SELECT
+            claimed_workflows.id::uuid AS id,
+            'workflow'::text AS kind
+        FROM
+            claimed_workflows
 `
 
-func (q *Queries) MarkArchivedAgentsDeleting(ctx context.Context) error {
-	_, err := q.db.Exec(ctx, markArchivedAgentsDeleting)
-	return err
+type MarkArchivedAgentsDeletingRow struct {
+	ID   string
+	Kind string
 }
 
-const markArchivedAgentsDeletingByID = `-- name: MarkArchivedAgentsDeletingByID :exec
+func (q *Queries) MarkArchivedAgentsDeleting(ctx context.Context) ([]*MarkArchivedAgentsDeletingRow, error) {
+	rows, err := q.db.Query(ctx, markArchivedAgentsDeleting)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []*MarkArchivedAgentsDeletingRow
+	for rows.Next() {
+		var i MarkArchivedAgentsDeletingRow
+		if err := rows.Scan(&i.ID, &i.Kind); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const markArchivedAgentsDeletingByID = `-- name: MarkArchivedAgentsDeletingByID :many
 WITH claimed AS (
     UPDATE
         agents a
@@ -2129,38 +2255,74 @@ WITH claimed AS (
             AND parent.state = 'failed_to_cleanup')
     RETURNING
         a.id,
-        a.workflow_id)
-UPDATE
-    workflows w
-SET
-    deleting_at = NOW()
-WHERE
-    w.archived_at IS NOT NULL
-    AND w.deleting_at IS NULL
-    AND w.id IN (
-        SELECT
-            workflow_id
-        FROM
-            claimed)
-    AND NOT EXISTS (
-        SELECT
-            1
-        FROM
-            agents a
-        WHERE
-            a.workflow_id = w.id
-            AND a.archived_at IS NOT NULL
-            AND a.deleting_at IS NULL
-            AND a.id NOT IN (
+        a.workflow_id
+),
+claimed_workflows AS (
+    UPDATE
+        workflows w
+    SET
+        deleting_at = NOW()
+    WHERE
+        w.archived_at IS NOT NULL
+        AND w.deleting_at IS NULL
+        AND w.id IN (
+            SELECT
+                workflow_id
+            FROM
+                claimed)
+            AND NOT EXISTS (
                 SELECT
-                    id
+                    1
                 FROM
-                    claimed))
+                    agents a
+                WHERE
+                    a.workflow_id = w.id
+                    AND a.archived_at IS NOT NULL
+                    AND a.deleting_at IS NULL
+                    AND a.id NOT IN (
+                        SELECT
+                            id
+                        FROM
+                            claimed))
+                RETURNING
+                    w.id
+)
+        SELECT
+            claimed.id::uuid AS id,
+            'agent'::text AS kind
+        FROM
+            claimed
+        UNION ALL
+        SELECT
+            claimed_workflows.id::uuid AS id,
+            'workflow'::text AS kind
+        FROM
+            claimed_workflows
 `
 
-func (q *Queries) MarkArchivedAgentsDeletingByID(ctx context.Context, ids []string) error {
-	_, err := q.db.Exec(ctx, markArchivedAgentsDeletingByID, ids)
-	return err
+type MarkArchivedAgentsDeletingByIDRow struct {
+	ID   string
+	Kind string
+}
+
+func (q *Queries) MarkArchivedAgentsDeletingByID(ctx context.Context, ids []string) ([]*MarkArchivedAgentsDeletingByIDRow, error) {
+	rows, err := q.db.Query(ctx, markArchivedAgentsDeletingByID, ids)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []*MarkArchivedAgentsDeletingByIDRow
+	for rows.Next() {
+		var i MarkArchivedAgentsDeletingByIDRow
+		if err := rows.Scan(&i.ID, &i.Kind); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const markWorkflowAgentsArchived = `-- name: MarkWorkflowAgentsArchived :many
@@ -2248,7 +2410,7 @@ func (q *Queries) MarkWorkflowAgentsArchived(ctx context.Context, workflowID str
 	return items, nil
 }
 
-const markWorkflowAgentsRestored = `-- name: MarkWorkflowAgentsRestored :exec
+const markWorkflowAgentsRestored = `-- name: MarkWorkflowAgentsRestored :many
 UPDATE
     agents
 SET
@@ -2257,11 +2419,28 @@ SET
 WHERE
     workflow_id = $1
     AND archived_at IS NOT NULL
+RETURNING
+    id
 `
 
-func (q *Queries) MarkWorkflowAgentsRestored(ctx context.Context, workflowID string) error {
-	_, err := q.db.Exec(ctx, markWorkflowAgentsRestored, workflowID)
-	return err
+func (q *Queries) MarkWorkflowAgentsRestored(ctx context.Context, workflowID string) ([]string, error) {
+	rows, err := q.db.Query(ctx, markWorkflowAgentsRestored, workflowID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const nextTranscriptChunk = `-- name: NextTranscriptChunk :one

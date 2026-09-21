@@ -38,7 +38,7 @@ The outermost layer is the API handlers, the MCP server, and the CLI. These pars
 
 The next layer is the services, one per domain: agents, mail, marks, schedules, transcripts, pull requests, reviews, checkouts, scripts, worktrees, and forges. The business logic lives here. A handler does nothing but translate a request into a call on the service for its domain.
 
-The stores hold the data, again one per domain, and own the database transactions.
+The stores hold the data, again one per domain, and own the database transactions. A store that writes a row one of the panel's listings is drawn from tells the watch broker which rows it changed, once the change can be read: at once outside a transaction, and after the commit inside one. A lint rule holds every such write to that.
 
 Separately, adapters stand in front of the things weave does not own: tmux, the agent CLIs, and the scripts it runs. Each one is a seam. The harness adapter, for instance, is where the difference between Claude and Codex is kept, so nothing above it knows which CLI an agent runs.
 
@@ -68,6 +68,6 @@ The handler then translates that request into a call on the agents service, whic
 
 The store then writes the rows, inside one transaction if more than one domain is involved. The service also kills the panes through the tmux adapter.
 
-The panel learns about it on its next refresh, up to a second later, because it re-lists rather than being told. If the call failed, the error is reported on the panel's screen and nothing was written.
+The store tells the watch broker which rows moved, and the broker streams each one, rendered as the listing would render it, to every panel holding the watch open. A panel that is not yet on the watch learns about it on its next refresh, up to a second later. If the call failed, the error is reported on the panel's screen and nothing was written.
 
 The process is similar for an agent doing the same thing: the call may come over MCP, but eventually it still reaches the same validators, services logic, and database transaction code.

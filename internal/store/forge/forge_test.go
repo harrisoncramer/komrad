@@ -14,7 +14,7 @@ import (
 func newStore(t *testing.T) *ForgeStore {
 	t.Helper()
 
-	pool, err := store.Open(t.Context(), dbtest.URL(t))
+	pool, err := store.Open(t.Context(), store.OpenParams{URL: dbtest.URL(t)})
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = pool.Close() })
 

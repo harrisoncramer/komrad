@@ -71,11 +71,12 @@ type WorktreeConfig struct {
 
 type WorkflowStore struct {
 	queries *models.Queries
+	db      store.DBTX
 }
 
 // NewWorkflowStore builds a workflow store over db, which is either the pool or a transaction.
 func NewWorkflowStore(db store.DBTX) *WorkflowStore {
-	return &WorkflowStore{queries: models.New(db)}
+	return &WorkflowStore{queries: models.New(db), db: db}
 }
 
 func orEmpty(paths []string) []string {

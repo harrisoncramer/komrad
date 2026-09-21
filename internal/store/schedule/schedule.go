@@ -61,11 +61,12 @@ type Config struct {
 
 type ScheduleStore struct {
 	queries *models.Queries
+	db      store.DBTX
 }
 
 // NewScheduleStore builds a schedule store over db, which is either the pool or a transaction.
 func NewScheduleStore(db store.DBTX) *ScheduleStore {
-	return &ScheduleStore{queries: models.New(db)}
+	return &ScheduleStore{queries: models.New(db), db: db}
 }
 
 // List returns every live schedule, newest first.
@@ -103,6 +104,23 @@ func (s *ScheduleStore) ListPage(ctx context.Context, limit int64, cursor *Curso
 	})
 
 	return schedules, nil
+}
+
+// ListLiveByID returns the schedules among the given ids that the live listing holds.
+func (s *ScheduleStore) ListLiveByID(ctx context.Context, ids []string) ([]Schedule, error) {
+	storable := store.KeepIDs(ids)
+	if len(storable) == 0 {
+		return nil, nil
+	}
+
+	rows, err := s.queries.ListLiveSchedulesByID(ctx, storable)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get %d schedules: %w", len(storable), err)
+	}
+
+	return xslice.Map(rows, func(row *models.ListLiveSchedulesByIDRow) Schedule {
+		return scheduleFromRow(row.Schedule)
+	}), nil
 }
 
 // Get returns a schedule by id, or ErrNotFound when none has that id.
@@ -143,6 +161,7 @@ func (s *ScheduleStore) Create(ctx context.Context, cfg Config) (*Schedule, erro
 	}
 
 	schedule := scheduleFromRow(*row)
+	s.db.TouchSchedules(schedule.ID)
 
 	return &schedule, nil
 }
@@ -170,6 +189,8 @@ func (s *ScheduleStore) Update(ctx context.Context, id string, cfg Config) error
 		return fmt.Errorf("failed to update schedule %q: %w", id, err)
 	}
 
+	s.db.TouchSchedules(id)
+
 	return nil
 }
 
@@ -182,6 +203,8 @@ func (s *ScheduleStore) SetEnabled(ctx context.Context, id string, enabled bool)
 	if err := s.queries.SetScheduleEnabled(ctx, models.SetScheduleEnabledParams{ID: id, Enabled: enabled}); err != nil {
 		return fmt.Errorf("failed to set schedule %q enabled to %t: %w", id, enabled, err)
 	}
+
+	s.db.TouchSchedules(id)
 
 	return nil
 }
@@ -206,6 +229,8 @@ func (s *ScheduleStore) RecordLaunchResult(ctx context.Context, id string, statu
 	}); err != nil {
 		return fmt.Errorf("failed to record the launch result for schedule %q: %w", id, err)
 	}
+
+	s.db.TouchSchedules(id)
 
 	return nil
 }
@@ -233,6 +258,8 @@ func (s *ScheduleStore) Archive(ctx context.Context, id string) error {
 	if err := s.queries.MarkScheduleArchived(ctx, id); err != nil {
 		return fmt.Errorf("failed to archive schedule %q: %w", id, err)
 	}
+
+	s.db.TouchSchedules(id)
 
 	return nil
 }
@@ -265,6 +292,8 @@ func (s *ScheduleStore) Delete(ctx context.Context, id string) error {
 	if err := s.queries.DeleteSchedule(ctx, id); err != nil {
 		return fmt.Errorf("failed to delete schedule %q: %w", id, err)
 	}
+
+	s.db.TouchSchedules(id)
 
 	return nil
 }

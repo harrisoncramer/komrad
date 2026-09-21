@@ -71,6 +71,7 @@ linters:
         # Cleanup that runs in a defer, where the caller has already returned and there is
         # nothing left to report the failure to.
         - (github.com/jackc/pgx/v5.Tx).Rollback
+        - (*weave/internal/store.Tx).Rollback
         - (*github.com/jackc/pgx/v5.Conn).Close
         - (*weave/internal/store.Pool).Close
         - (*os.File).Close
@@ -440,15 +441,23 @@ linters:
               - Send
               - Set
               - Start
+              - Touch
               - Unmark
               - Update
               - Upsert
               - Validate
             allow:
               - Close
+              - Commit
               - Config
+              - CopyFrom
               - Error
+              - Exec
               - InTx
+              - Query
+              - QueryRow
+              - Rollback
+              - Unwrap
               - MarshalJSON
               - MarshalText
               - Scan

@@ -48,11 +48,12 @@ type Mail struct {
 
 type MailStore struct {
 	queries *models.Queries
+	db      store.DBTX
 }
 
 // NewMailStore builds the mail store over a database handle or a transaction.
 func NewMailStore(db store.DBTX) *MailStore {
-	return &MailStore{queries: models.New(db)}
+	return &MailStore{queries: models.New(db), db: db}
 }
 
 type SendParams struct {
@@ -90,6 +91,7 @@ func (s *MailStore) Send(ctx context.Context, params SendParams) (*Mail, error) 
 	}
 
 	sent := mailFromRow(*row)
+	s.db.TouchAgents(sent.ToAgentID)
 
 	return &sent, nil
 }
@@ -154,6 +156,8 @@ func (s *MailStore) Claim(ctx context.Context, toAgentID string, limit int32) ([
 	if err != nil {
 		return nil, fmt.Errorf("failed to claim the mail for agent %q: %w", toAgentID, err)
 	}
+
+	s.db.TouchAgents(toAgentID)
 
 	claimed := xslice.Map(rows, func(row *models.Mail) Mail {
 		return mailFromRow(*row)
@@ -233,9 +237,12 @@ func (s *MailStore) Delete(ctx context.Context, ids []string) error {
 		return nil
 	}
 
-	if err := s.queries.DeleteMailByID(ctx, storable); err != nil {
+	recipients, err := s.queries.DeleteMailByID(ctx, storable)
+	if err != nil {
 		return fmt.Errorf("failed to delete %d mail: %w", len(storable), err)
 	}
+
+	s.db.TouchAgents(recipients...)
 
 	return nil
 }
@@ -294,6 +301,8 @@ func (s *MailStore) ListExpired(ctx context.Context, toAgentID string) ([]Mail, 
 	if err != nil {
 		return nil, fmt.Errorf("failed to report the expired mail for agent %q: %w", toAgentID, err)
 	}
+
+	s.db.TouchAgents(toAgentID)
 
 	return xslice.Map(rows, func(row *models.Mail) Mail {
 		return mailFromRow(*row)

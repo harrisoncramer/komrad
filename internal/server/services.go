@@ -17,10 +17,12 @@ import (
 	"weave/internal/marks"
 	"weave/internal/pullrequests"
 	"weave/internal/reviews"
+	rpcwatch "weave/internal/rpc/watch"
 	"weave/internal/schedules"
 	"weave/internal/scriptrun"
 	"weave/internal/scripts"
 	"weave/internal/transcripts"
+	"weave/internal/watch"
 	"weave/internal/worktrees"
 )
 
@@ -52,6 +54,7 @@ type services struct {
 	inspector       *worktrees.Inspector
 	remover         *worktrees.Remover
 	measurer        *worktrees.Measurer
+	watchRows       *rpcwatch.Rows
 }
 
 // BuiltinScriptsDir is where the scripts weave ships are installed under a cache directory,
@@ -60,7 +63,7 @@ func BuiltinScriptsDir(cacheDir string) string {
 	return filepath.Join(cacheDir, "weave-builtin-scripts")
 }
 
-func buildServices(params NewServerParams, st *stores) (*services, error) {
+func buildServices(params NewServerParams, st *stores, broker *watch.Broker) (*services, error) {
 	loadConfig := func() (*config.Config, error) { return config.LoadStack(params.ConfigStack) }
 	gitClient := git.NewClient()
 
@@ -233,6 +236,7 @@ func buildServices(params NewServerParams, st *stores) (*services, error) {
 		Trees:   gitClient,
 		Tallies: st.review,
 		Bases:   st.workflows,
+		Watch:   broker,
 	})
 
 	transcriptSyncer := transcripts.NewTranscriptSyncer(transcripts.NewTranscriptSyncerParams{
@@ -259,14 +263,23 @@ func buildServices(params NewServerParams, st *stores) (*services, error) {
 		Panes:    params.Tmux,
 		Observer: paneChannel,
 		States:   st.agents,
+		Watch:    broker,
 	}).WithFrameRecorder(frames.NewRecorder(params.Env.FramesDir(), newFrameSettings(loadConfig).get))
+
+	rowReader := agents.NewRowReader(agents.NewRowReaderParams{
+		Rows:     st.rows,
+		Liveness: paneLiveness,
+		Trees:    cwdSyncer,
+	})
 
 	return &services{
 		loadConfig: loadConfig,
-		rows: agents.NewRowReader(agents.NewRowReaderParams{
-			Rows:     st.rows,
-			Liveness: paneLiveness,
-			Trees:    cwdSyncer,
+		rows:       rowReader,
+		watchRows: rpcwatch.NewRows(rpcwatch.NewRowsParams{
+			Agents:    rowReader,
+			Workflows: st.workflows,
+			Schedules: st.schedules,
+			Marks:     markService,
 		}),
 		rowWriter: agents.NewRowWriter(agents.NewRowWriterParams{
 			Agents:     st.agents,

@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	"weave/internal/store"
+
 	"github.com/jackc/pgx/v5"
 	"github.com/riverqueue/river"
 	"github.com/riverqueue/river/rivertype"
@@ -22,7 +24,7 @@ var unfinishedStates = []rivertype.JobState{
 }
 
 type txBeginner interface {
-	Begin(ctx context.Context) (pgx.Tx, error)
+	Begin(ctx context.Context) (*store.Tx, error)
 }
 
 type Enqueuer struct {
@@ -37,10 +39,10 @@ func NewEnqueuer(client *river.Client[pgx.Tx], db txBeginner) *Enqueuer {
 
 // InsertTx records a job in one transaction with whatever before writes, so the two land or
 // fail together, and returns once the job is recorded.
-func (e *Enqueuer) InsertTx(ctx context.Context, args river.JobArgs, before func(tx pgx.Tx) error) error {
+func (e *Enqueuer) InsertTx(ctx context.Context, args river.JobArgs, before func(tx store.DBTX) error) error {
 	tx, err := e.db.Begin(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to begin transaction: %w", err)
+		return err
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
@@ -50,15 +52,11 @@ func (e *Enqueuer) InsertTx(ctx context.Context, args river.JobArgs, before func
 		}
 	}
 
-	if _, err := e.client.InsertTx(ctx, tx, args, nil); err != nil {
+	if _, err := e.client.InsertTx(ctx, tx.Unwrap(), args, nil); err != nil {
 		return fmt.Errorf("failed to queue %s: %w", args.Kind(), err)
 	}
 
-	if err := tx.Commit(ctx); err != nil {
-		return fmt.Errorf("failed to commit transaction: %w", err)
-	}
-
-	return nil
+	return tx.Commit(ctx)
 }
 
 // ListUnfinished is every job of one kind whose work is still owed.

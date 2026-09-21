@@ -8,6 +8,7 @@ import (
 	"weave/internal/store"
 	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
+	"weave/internal/watchtest"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -19,12 +20,14 @@ type fixture struct {
 	agents    *agentstore.AgentStore
 	workflows *workflowstore.WorkflowStore
 	workflow  string
+	touched   *watchtest.Recorder
 }
 
 func open(t *testing.T) *fixture {
 	t.Helper()
 
-	pool, err := store.Open(t.Context(), dbtest.URL(t))
+	touched := watchtest.NewRecorder()
+	pool, err := store.Open(t.Context(), store.OpenParams{URL: dbtest.URL(t), Publisher: touched})
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = pool.Close() })
 
@@ -37,6 +40,7 @@ func open(t *testing.T) *fixture {
 		agents:    agentstore.NewAgentStore(pool.GetDB()),
 		workflows: workflows,
 		workflow:  created.ID,
+		touched:   touched,
 	}
 }
 

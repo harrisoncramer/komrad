@@ -21,6 +21,7 @@ import (
 	schedulestore "weave/internal/store/schedule"
 	transcriptstore "weave/internal/store/transcript"
 	workflowstore "weave/internal/store/workflow"
+	"weave/internal/watchtest"
 	"weave/lib/xslice"
 
 	"github.com/jackc/pgx/v5/pgconn"
@@ -41,6 +42,8 @@ type Stores struct {
 	Marks            *markstore.MarkStore
 	PullRequests     *pullrequeststore.PullRequestStore
 	PullRequestSyncs *pullrequeststore.PullRequestSyncStore
+	// Touched records which rows the stores told the watch about.
+	Touched *watchtest.Recorder
 }
 
 // Open builds the stores over a database of this test's own, closed when the
@@ -50,11 +53,13 @@ func Open(t *testing.T) *Stores {
 
 	dbURL := dbtest.URL(t)
 
-	pool, err := store.Open(t.Context(), dbURL)
+	touched := watchtest.NewRecorder()
+	pool, err := store.Open(t.Context(), store.OpenParams{URL: dbURL, Publisher: touched})
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = pool.Close() })
 
 	return &Stores{
+		Touched:          touched,
 		URL:              dbURL,
 		ReadOnlyURL:      grantReadOnly(t, pool, dbURL),
 		Pool:             pool,

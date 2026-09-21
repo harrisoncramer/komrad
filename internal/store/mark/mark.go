@@ -20,11 +20,12 @@ type Mark struct {
 
 type MarkStore struct {
 	queries *models.Queries
+	db      store.DBTX
 }
 
 // NewMarkStore builds a mark store over a pool or transaction.
 func NewMarkStore(db store.DBTX) *MarkStore {
-	return &MarkStore{queries: models.New(db)}
+	return &MarkStore{queries: models.New(db), db: db}
 }
 
 // List reads every mark.
@@ -47,7 +48,7 @@ func (s *MarkStore) List(ctx context.Context) ([]Mark, error) {
 
 // ClearConflicts frees the letter and whatever the row already answered to.
 func (s *MarkStore) ClearConflicts(ctx context.Context, mark string, target Target) error {
-	err := s.queries.ClearMarkConflicts(ctx, models.ClearMarkConflictsParams{
+	freed, err := s.queries.ClearMarkConflicts(ctx, models.ClearMarkConflictsParams{
 		Mark:       mark,
 		AgentID:    target.AgentID,
 		WorkflowID: target.WorkflowID,
@@ -56,7 +57,21 @@ func (s *MarkStore) ClearConflicts(ctx context.Context, mark string, target Targ
 		return fmt.Errorf("failed to clear mark %q: %w", mark, err)
 	}
 
+	for _, row := range freed {
+		s.touch(Target{AgentID: row.AgentID, WorkflowID: row.WorkflowID})
+	}
+
 	return nil
+}
+
+// touch says the row a target names moved.
+func (s *MarkStore) touch(target Target) {
+	switch {
+	case target.AgentID != nil:
+		s.db.TouchAgents(*target.AgentID)
+	case target.WorkflowID != nil:
+		s.db.TouchWorkflows(*target.WorkflowID)
+	}
 }
 
 // Clear takes whatever letter a row answers to off it, and reports whether it held one.
@@ -68,6 +83,8 @@ func (s *MarkStore) Clear(ctx context.Context, target Target) (bool, error) {
 	if err != nil {
 		return false, fmt.Errorf("failed to clear the mark on %s: %w", target, err)
 	}
+
+	s.touch(target)
 
 	return cleared > 0, nil
 }
@@ -86,6 +103,8 @@ func (s *MarkStore) Set(ctx context.Context, mark string, target Target) (bool, 
 	if err != nil {
 		return false, fmt.Errorf("failed to put mark %q on %s: %w", mark, target, err)
 	}
+
+	s.touch(target)
 
 	return marked > 0, nil
 }

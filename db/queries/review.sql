@@ -157,14 +157,18 @@ WHERE
 RETURNING
     *;
 
--- name: DeleteOpenReviewsByAuthor :exec
+-- name: DeleteOpenReviewsByAuthor :many
 DELETE FROM reviews
 WHERE author_agent_id = ANY (@author_agent_ids::uuid[])
-    AND released_at IS NULL;
+    AND released_at IS NULL
+RETURNING
+    agent_id;
 
--- name: DeleteReview :exec
+-- name: DeleteReview :many
 DELETE FROM reviews
-WHERE id = @id;
+WHERE id = @id
+RETURNING
+    agent_id;
 
 -- name: InsertReviewThreadWithMessage :one
 WITH opened AS (

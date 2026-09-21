@@ -23,12 +23,6 @@ type subscriber interface {
 	Subscribe(ctx context.Context) (*watch.Subscription, error)
 }
 
-// Handler serves the watch stream off the broker.
-type Handler struct {
-	broker         subscriber
-	heartbeatAfter time.Duration
-}
-
 // NewHandlerParams is what the handler is built over.
 type NewHandlerParams struct {
 	Broker subscriber
@@ -37,7 +31,13 @@ type NewHandlerParams struct {
 	HeartbeatAfter time.Duration
 }
 
-// NewHandler builds the handler over the broker every writer publishes into.
+// Handler serves the watch stream off the broker.
+type Handler struct {
+	broker         subscriber
+	heartbeatAfter time.Duration
+}
+
+// NewHandler builds the handler over the broker every store publishes into.
 func NewHandler(params NewHandlerParams) *Handler {
 	after := params.HeartbeatAfter
 	if after == 0 {

@@ -48,6 +48,8 @@ func (s *WorkflowStore) setHooks(ctx context.Context, workflowID string, hooks [
 		}
 	}
 
+	s.db.TouchWorkflows(workflowID)
+
 	return nil
 }
 
