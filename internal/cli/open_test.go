@@ -151,10 +151,6 @@ func TestBuildPanelWindowArgsOpensInTheSessionItAlreadyHas(t *testing.T) {
 		args[len(args)-5:])
 }
 
-// Explainer: the manager session holds a window per agent as well as the panel's own, so it
-// answers has-session for as long as any agent is up. Reading that answer alone reports a panel
-// that has been gone for hours, and the key then attaches a session with no panel in it.
-
 // TestIsPanelRunningNeedsThePanelsOwnPane covers the question the panel key asks before it
 // decides there is a panel to attach.
 func TestIsPanelRunningNeedsThePanelsOwnPane(t *testing.T) {
@@ -208,11 +204,6 @@ func TestBuildPanelWindowArgsDetachesWhenNobodyIsAttaching(t *testing.T) {
 		})
 	}
 }
-
-// Explainer: select-window moves the current window for every client attached to the session, so
-// only the path that is about to attach may touch it. ensureManagerSession runs under --detach
-// too, which is what mise/tasks/restart uses, and a script asking for a session is not asking to
-// be taken anywhere.
 
 // TestEnsureManagerSessionLeavesTheCurrentWindowAlone covers the repair not moving a watcher.
 func TestEnsureManagerSessionLeavesTheCurrentWindowAlone(t *testing.T) {

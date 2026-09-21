@@ -58,10 +58,6 @@ Use ` + "`weave open`" + ` to bring the panel up.`,
 					"a key the panel is bound to stays with tmux", logging.Err(err)...)
 			}
 
-			// Explainer: a remote engine is reached through an ssh forward weave owns, so the panel
-			// talks to a port on this machine that carries the engine's api. Nothing local is
-			// started: the service, the agents and their tmux server all belong to the other
-			// machine.
 			remote := state.engine()
 			addr := state.env.Addr
 
@@ -135,11 +131,6 @@ Use ` + "`weave open`" + ` to bring the panel up.`,
 		},
 	}
 }
-
-// Explainer: the panel's stderr is the tmux pane it draws in, which the alt screen owns and
-// which goes when the window closes, so a record written there is never seen and a panic leaves
-// no trace at all. The default logger is pointed at the same file the service appends to, which
-// is also what main's panic handler writes through.
 
 // installPanelLogger points the default logger at the log file for the life of the process.
 func installPanelLogger(logPath, level string) error {

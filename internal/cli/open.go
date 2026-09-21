@@ -96,11 +96,6 @@ func isManagerSessionRunning(ctx context.Context, state *app) bool {
 	return state.tmuxCommand(ctx, "has-session", "-t", agents.ManagerSession).Run() == nil
 }
 
-// Explainer: the manager session holds a window per agent as well as the panel's own, so it
-// answers has-session long after the panel process has gone. Asking about the session alone
-// therefore reports a panel that is not there, and an open on that answer attaches a session
-// with no panel in it.
-
 // isPanelRunning reports whether a panel is drawing in the manager session.
 func isPanelRunning(ctx context.Context, state *app) bool {
 	if !isManagerSessionRunning(ctx, state) {
