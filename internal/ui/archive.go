@@ -54,15 +54,6 @@ func (m model) enterArchive() (tea.Model, tea.Cmd) {
 	return m, m.refreshCmd()
 }
 
-// openArchive is the key's own way onto the screen, landing with the search up.
-func (m model) openArchive() (tea.Model, tea.Cmd) {
-	m.enterScreen(screenArchive)
-	m.beginFilter()
-	m.stageArchive()
-
-	return m, m.refreshCmd()
-}
-
 // archiveSorts is every column the archive can be ordered by.
 var archiveSorts = []sortColumn[agentItem]{
 	{

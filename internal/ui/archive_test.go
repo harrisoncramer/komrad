@@ -1216,9 +1216,9 @@ func TestArchiveDocViewFillsItsColumn(t *testing.T) {
 	}
 }
 
-// TestArchiveOpensOnTheSearch covers the key that opens the archive landing in the search, and
-// the two other ways onto the screen leaving the search alone.
-func TestArchiveOpensOnTheSearch(t *testing.T) {
+// TestArchiveOpensOnTheList covers every way onto the archive landing on the list with the
+// search left alone, the way the agents screen opens.
+func TestArchiveOpensOnTheList(t *testing.T) {
 	keys := config.DefaultKeybindings()
 	m := archiveModel(&fakeArchiveAgents{}, &fakeArchiveWorkflows{}, keys)
 	m.screen = screenAgents
@@ -1227,10 +1227,9 @@ func TestArchiveOpensOnTheSearch(t *testing.T) {
 	opened, ok := entered.(model)
 	require.True(t, ok)
 	assert.Equal(t, screenArchive, opened.screen)
-	assert.True(t, opened.filter.typing, "the search takes the keyboard as the archive opens")
+	assert.False(t, opened.filter.typing, "the list holds the keyboard as the archive opens")
 	assert.Empty(t, opened.filter.query)
 
-	opened.filter.typing = false
 	opened.filter.setQuery("api")
 
 	closed, _ := opened.closeForm()

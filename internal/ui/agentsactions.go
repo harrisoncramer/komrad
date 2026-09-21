@@ -63,7 +63,7 @@ func agentsModeActions() []action {
 			id:   actionArchiveOpen,
 			keys: func(k config.Keybindings) []string { return k.Archive.Open },
 			when: isBrowsing,
-			run:  func(m model, _ string) (tea.Model, tea.Cmd) { return m.openArchive() },
+			run:  func(m model, _ string) (tea.Model, tea.Cmd) { return m.enterArchive() },
 		},
 		action{
 			id:   actionWorktreesOpen,
