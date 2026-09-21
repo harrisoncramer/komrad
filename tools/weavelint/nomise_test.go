@@ -22,6 +22,17 @@ func TestNoMise(t *testing.T) {
 	analysistest.Run(t, analysistest.TestData(), analyzer, "nomise")
 }
 
+// TestNoMisePages covers the README and a docs page read off the root package, with the page
+// under the excluded prefix left alone.
+func TestNoMisePages(t *testing.T) {
+	analyzer, err := newNoMise(config.NoMiseConfig{Exclude: []string{`^docs/internal/`}})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	analysistest.Run(t, analysistest.TestData(), analyzer, "weave")
+}
+
 // TestNoMiseExclude covers a file the settings leave alone.
 func TestNoMiseExclude(t *testing.T) {
 	analyzer, err := newNoMise(config.NoMiseConfig{Exclude: []string{`nomiseskip/`}})

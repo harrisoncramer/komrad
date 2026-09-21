@@ -69,3 +69,15 @@ build_custom_gcl() {
 	golangci-lint custom
 	echo "$sum" >local/custom-gcl.sum
 }
+
+# The linter caches a package's findings on its Go files alone, so the rule that reads the
+# README and docs pages off the root package never sees a page edit through a warm cache. The
+# pages are read on a cache of their own, which for one package and one linter is under a second.
+lint_pages() {
+	local cache status=0
+	cache="$(mktemp -d)"
+	GOLANGCI_LINT_CACHE="$cache" "$1" run --config "$MISE_CONFIG_ROOT/.golangci.yaml" --enable-only weavelint "$MISE_CONFIG_ROOT" || status=$?
+	rm -rf "$cache"
+
+	return "$status"
+}

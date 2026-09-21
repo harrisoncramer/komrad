@@ -57,6 +57,11 @@ for MODULE in "${MODULES[@]}"; do
 	fi
 done
 
+echo "==> reading the user pages"
+if ! lint_pages "$BIN_PATH"; then
+	failed+=("pages")
+fi
+
 if ((${#failed[@]} > 0)); then
 	echo "lint failed for: ${failed[*]}" >&2
 	exit 1

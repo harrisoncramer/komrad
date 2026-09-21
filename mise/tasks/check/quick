@@ -141,6 +141,10 @@ for dir in ${MODULES[@]+"${MODULES[@]}"}; do
 	fi
 done
 
+if [ "$LINTED" = true ]; then
+	run_step "user pages" lint_pages "$BIN_PATH"
+fi
+
 if ((${#failed[@]} > 0)); then
 	gum log --level error "check:quick failed: ${failed[*]}"
 	exit 1
@@ -180,6 +184,7 @@ else
 		else
 			echo "  linted    those and $TAG_ONLY more that only build under a build tag"
 		fi
+		echo "  read      the README and docs pages for the word mise"
 	else
 		echo "  linted    nothing: local/custom-gcl is missing, run 'mise run go:build-linter'"
 	fi

@@ -39,6 +39,8 @@ jobs:
               - '**/*.go'
               - 'go.mod'
               - 'go.sum'
+              - 'README.md'
+              - 'docs/**'
               - '.golangci.yaml'
               - '.custom-gcl.yml'
               - 'tools/weavelint/**'
