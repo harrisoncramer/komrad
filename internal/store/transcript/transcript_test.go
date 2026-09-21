@@ -313,12 +313,11 @@ func TestSearch(t *testing.T) {
 			wantHits: 0,
 		},
 		{
-			name:     "a query of nothing but a stopword does not match every turn",
+			name:     "a query of nothing but a stopword is a word like any other",
 			content:  "the reconciler notes",
 			other:    "zeta alone",
 			query:    "the",
 			wantHits: 1,
-			wantNear: 1,
 		},
 		{
 			name:     "an exclusion beside a stopword still excludes",
@@ -326,7 +325,20 @@ func TestSearch(t *testing.T) {
 			other:    "the zeta notes",
 			query:    "the -zeta",
 			wantHits: 1,
-			wantNear: 1,
+		},
+		{
+			name:     "an excluded stopword still excludes",
+			content:  "reconciler notes",
+			other:    "the reconciler notes",
+			query:    "reconciler -the",
+			wantHits: 1,
+		},
+		{
+			name:     "a quoted phrase means those words and not their stems",
+			content:  "derive marker",
+			other:    "derives markers",
+			query:    `"derive marker"`,
+			wantHits: 1,
 		},
 		{
 			name:     "an exclusion does not leak into the substring fallback",
@@ -397,10 +409,11 @@ func TestSearch(t *testing.T) {
 			wantHits: 0,
 		},
 		{
-			name:     "a phrase of stop words is not a search until the words are indexed",
+			name:     "a phrase of stop words is found",
 			content:  "do it",
+			other:    "it is done",
 			query:    "do it",
-			wantHits: 0,
+			wantHits: 1,
 		},
 	}
 
@@ -576,7 +589,7 @@ func TestSearchPages(t *testing.T) {
 		{
 			name: "a turn saying the words as typed outranks a shorter one saying one of them",
 			seeds: []seed{
-				{name: "bare", content: "yet"},
+				{name: "bare", content: "not done, yet here"},
 				{name: "phrase", content: "the fixture is not yet done, and the goldens are not yet either"},
 			},
 			query:     "not yet",
@@ -587,7 +600,7 @@ func TestSearchPages(t *testing.T) {
 		{
 			name: "punctuation in the query does not stop the phrase being found",
 			seeds: []seed{
-				{name: "apart", content: "need"},
+				{name: "apart", content: "what do we need"},
 				{name: "phrase", content: "Hey. Ready. What need?"},
 			},
 			query:     "What need?",
@@ -864,6 +877,7 @@ func TestSplitTerms(t *testing.T) {
 		name         string
 		query        string
 		wantPositive []string
+		wantPhrases  []string
 		wantNegative []string
 	}{
 		{
@@ -881,6 +895,19 @@ func TestSplitTerms(t *testing.T) {
 			name:         "quotes are stripped, and a phrase stays one term",
 			query:        `"derives markers" pane`,
 			wantPositive: []string{"derives markers", "pane"},
+			wantPhrases:  []string{"derives markers"},
+		},
+		{
+			name:         "a quoted word is a phrase of one",
+			query:        `"flags" field`,
+			wantPositive: []string{"flags", "field"},
+			wantPhrases:  []string{"flags"},
+		},
+		{
+			name:         "a quote closed mid-word keeps the whole word a phrase",
+			query:        `"pgx"pool`,
+			wantPositive: []string{"pgxpool"},
+			wantPhrases:  []string{"pgxpool"},
 		},
 		{
 			name:         "an excluded phrase keeps its words together",
@@ -920,6 +947,7 @@ func TestSplitTerms(t *testing.T) {
 			name:         "a quoted minus is part of the word rather than an exclusion",
 			query:        `"-config"`,
 			wantPositive: []string{"-config"},
+			wantPhrases:  []string{"-config"},
 		},
 		{
 			name:         "a minus on its own is not an exclusion of the next word",
@@ -943,7 +971,12 @@ func TestSplitTerms(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			got := splitTerms(tt.query)
 			assert.Equal(t, tt.wantPositive, got.positive)
+			assert.Equal(t, tt.wantPhrases, got.phrases)
 			assert.Equal(t, tt.wantNegative, got.negative)
+			assert.Len(t, got.words, len(got.positive)-len(got.phrases), "every positive term is a word or a phrase")
+			for _, phrase := range got.phrases {
+				assert.NotContains(t, got.words, phrase)
+			}
 		})
 	}
 }

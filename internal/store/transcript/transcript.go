@@ -342,6 +342,8 @@ func (s *Store) Search(ctx context.Context, params SearchParams) (Results, error
 	if matchesRan {
 		rows, err := s.queries.SearchTranscripts(ctx, models.SearchTranscriptsParams{
 			Terms:         terms.positive,
+			Words:         terms.words,
+			Phrases:       terms.phrases,
 			Excluded:      terms.negative,
 			Phrase:        phrasePattern(terms.positive),
 			Headline:      headlineOptions,
@@ -374,6 +376,8 @@ func (s *Store) Search(ctx context.Context, params SearchParams) (Results, error
 	if nearAt != nil || nearStarts {
 		rows, err := s.queries.SearchTranscriptsNear(ctx, models.SearchTranscriptsNearParams{
 			Terms:         terms.positive,
+			Words:         terms.words,
+			Phrases:       terms.phrases,
 			Patterns:      likePatterns(terms.positive),
 			Excluded:      terms.negative,
 			Lead:          snippetLead,
@@ -461,36 +465,45 @@ func seqOf(p *Position) *int32 {
 
 type queryTerms struct {
 	positive []string
+	words    []string
+	phrases  []string
 	negative []string
 }
 
-// splitTerms reads a query as the words it is looking for and the words it wants left out.
+// splitTerms reads a query as the words it is looking for, quoted or not, and the words it
+// wants left out.
 func splitTerms(query string) queryTerms {
 	var (
 		terms   queryTerms
 		text    strings.Builder
 		quoted  bool
+		phrase  bool
 		minuses int
 	)
 
 	flush := func() {
-		term, leading := text.String(), minuses
+		term, leading, asPhrase := text.String(), minuses, phrase
 		text.Reset()
-		quoted, minuses = false, 0
+		quoted, phrase, minuses = false, false, 0
 
 		switch {
 		case term == "":
 		case leading == 1:
 			terms.negative = append(terms.negative, term)
+		case asPhrase:
+			terms.positive = append(terms.positive, term)
+			terms.phrases = append(terms.phrases, term)
 		default:
 			// Only a single minus excludes, so a flag name stays the word it looks like.
-			terms.positive = append(terms.positive, strings.Repeat("-", leading)+term)
+			term = strings.Repeat("-", leading) + term
+			terms.positive = append(terms.positive, term)
+			terms.words = append(terms.words, term)
 		}
 	}
 	for _, r := range query {
 		switch {
 		case r == '"':
-			quoted = !quoted
+			quoted, phrase = !quoted, true
 		case unicode.IsSpace(r) && !quoted:
 			flush()
 		case r == '-' && !quoted && text.Len() == 0:
