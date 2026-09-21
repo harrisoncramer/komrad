@@ -49,13 +49,16 @@ func (m *model) applyStageTick(msg stageTickMsg) tea.Cmd {
 		return nil
 	}
 
-	if m.screen == screenWorktrees {
+	switch m.screen {
+	case screenWorktrees:
 		m.stageWorktrees()
 
 		return m.inspectWorktreeCmd()
+	case screenArchive:
+		m.stageArchive()
+	case screenAgents, screenSchedules, screenSearch, screenReview:
+		m.stageSelection()
 	}
-
-	m.stageSelection()
 
 	return tea.Batch(m.listPullRequestsCmd(), m.inspectAgentWorktreeCmd(time.Now()))
 }

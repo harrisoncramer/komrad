@@ -46,6 +46,40 @@ func TestNoticesSpellOutTheMarksOnTheRow(t *testing.T) {
 	assert.NotContains(t, m.detailsView(), worktreeRemovedNotice, "a mark the row is not carrying says nothing")
 }
 
+// TestArchivedNoticesClaimOnlyTheVerdict covers an archived row, whose tree is read no more:
+// the review notice names the verdict as of the archiving rather than the tree as it stands.
+func TestArchivedNoticesClaimOnlyTheVerdict(t *testing.T) {
+	tests := []struct {
+		name    string
+		verdict agentv1.ReviewVerdict
+		want    string
+	}{
+		{
+			name:    "changes requested were still owed",
+			verdict: agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED,
+			want:    archivedChangesOwedNotice,
+		},
+		{
+			name:    "an approval stood",
+			verdict: agentv1.ReviewVerdict_REVIEW_VERDICT_APPROVED,
+			want:    archivedApprovedNotice,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			item := agentItem{
+				agent:        panel.Agent{ArchivedAt: xptr.Ptr(time.Now())},
+				localVerdict: tt.verdict,
+				localTree:    git.StandingMoved,
+			}
+
+			texts := xslice.Map(agentNotices(noticeRow(item)), func(n notice) string { return n.text })
+			assert.Equal(t, []string{tt.want}, texts)
+		})
+	}
+}
+
 // TestNoticesCoverEveryOptionalMark walks the marks one at a time.
 func TestNoticesCoverEveryOptionalMark(t *testing.T) {
 	tests := []struct {

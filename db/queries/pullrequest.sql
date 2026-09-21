@@ -353,8 +353,7 @@ WHERE
         FROM
             agents a
         WHERE
-            a.archived_at IS NULL
-            AND a.repository_url = p.repository_url
+            a.repository_url = p.repository_url
             AND a.branch = p.head_branch)
 ORDER BY
     p.changed_at DESC;

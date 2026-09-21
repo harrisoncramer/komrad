@@ -219,9 +219,14 @@ func snapshotRepo(agent panel.Agent) view.Repo {
 // snapshotReview is where the tree on disk stands with the local review of an agent's work, the
 // last conclusion released and whether the worktree still matches the round it was given on.
 func snapshotReview(item agentItem) view.Review {
+	tree := item.localTree
+	if item.agent.ArchivedAt != nil {
+		tree = git.StandingSame
+	}
+
 	switch item.localVerdict {
 	case agentv1.ReviewVerdict_REVIEW_VERDICT_APPROVED:
-		switch item.localTree {
+		switch tree {
 		case git.StandingMoved:
 			return view.ReviewApprovedMoved
 		case git.StandingLanded:
@@ -233,7 +238,7 @@ func snapshotReview(item agentItem) view.Review {
 
 		return view.ReviewApproved
 	case agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED:
-		switch item.localTree {
+		switch tree {
 		case git.StandingMoved:
 			return view.ReviewChangesPushed
 		case git.StandingLanded:

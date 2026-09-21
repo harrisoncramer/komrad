@@ -736,7 +736,28 @@ func TestArchiveDrawsTheAgentsRecord(t *testing.T) {
 	assert.Contains(t, labels, "archived", "the record says when it was put away")
 	assert.Less(t, slices.Index(labels, "created"), slices.Index(labels, "archived"))
 	texts := xslice.Map(got.notices, func(n notice) string { return n.text })
-	assert.Contains(t, texts, localApprovedNotice)
+	assert.Contains(t, texts, archivedApprovedNotice)
+}
+
+// TestArchiveAsksForTheRecordAfterTheRest covers a move in the archive staging the row at once
+// and asking for its pull requests only once the cursor has rested.
+func TestArchiveAsksForTheRecordAfterTheRest(t *testing.T) {
+	client := &recordingPullRequests{}
+	m := archiveModel(&fakeArchiveAgents{}, &fakeArchiveWorkflows{}, config.DefaultKeybindings())
+	m.api.pullRequests = client
+	m.width, m.height = 200, 40
+	m.listing.archivedAgents[0].agent.Branch = xptr.Ptr("agent/x")
+	m.listing.archivedAgents[0].pullRequest = pullRequestStanding{state: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_MERGED, number: 740}
+	m.archive.cursor = 0
+
+	moved, cmd := archiveList().move(m, 1)
+	require.NotNil(t, cmd, "a move schedules a rest")
+	assert.Equal(t, 1, moved.archive.cursor)
+	assert.False(t, moved.pullRequests.listed["a1"].pending, "nothing is asked for while the cursor is moving")
+
+	ask := moved.applyStageTick(stageTickMsg{move: moved.staging})
+	require.NotNil(t, ask, "the rest asks for the hovered agent")
+	assert.True(t, moved.pullRequests.listed["a1"].pending)
 }
 
 // archiveSortModel is the archive over one workflow holding an agent archived at nine, one at

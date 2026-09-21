@@ -394,11 +394,11 @@ func finishedPullRequest(providerID string, number int, branch string) UpsertPar
 	return params
 }
 
-// TestListStaleStandingsAnswersOpenRowsOnLiveBranches covers which pull requests cost a
-// standing read: open and not draft, on a branch a live agent sits on, and never read, read
-// before the last change, read for another head, or read as pending, as none right after a
-// change, or as settled longer ago than the params trust.
-func TestListStaleStandingsAnswersOpenRowsOnLiveBranches(t *testing.T) {
+// TestListStaleStandingsAnswersOpenRowsOnAgentBranches covers which pull requests cost a
+// standing read: open and not draft, on a branch an agent sits on whether or not it is archived,
+// and never read, read before the last change, read for another head, or read as pending, as
+// none right after a change, or as settled longer ago than the params trust.
+func TestListStaleStandingsAnswersOpenRowsOnAgentBranches(t *testing.T) {
 	h := open(t)
 	ctx := t.Context()
 
@@ -463,9 +463,9 @@ func TestListStaleStandingsAnswersOpenRowsOnLiveBranches(t *testing.T) {
 		})
 	}
 
-	assert.ElementsMatch(t, []int{1, 3, 9}, list(now), "never read, changed since, and pushed since are stale the moment they are written")
-	assert.ElementsMatch(t, []int{1, 3, 9, 10, 12}, list(now.Add(2*time.Minute)), "a pending run and a fresh change with no checks are read again after a minute")
-	assert.ElementsMatch(t, []int{1, 2, 3, 9, 10, 11, 12, 13}, list(now.Add(11*time.Minute)), "every row is read again after ten minutes")
+	assert.ElementsMatch(t, []int{1, 3, 7, 9}, list(now), "never read, changed since, and pushed since are stale the moment they are written, an archived agent's branch included")
+	assert.ElementsMatch(t, []int{1, 3, 7, 9, 10, 12}, list(now.Add(2*time.Minute)), "a pending run and a fresh change with no checks are read again after a minute")
+	assert.ElementsMatch(t, []int{1, 2, 3, 7, 9, 10, 11, 12, 13}, list(now.Add(11*time.Minute)), "every row is read again after ten minutes")
 	assert.Equal(t, 3, list(now)[0], "newest change first")
 }
 

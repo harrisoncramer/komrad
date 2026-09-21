@@ -3,7 +3,6 @@ package ui
 import (
 	"fmt"
 	"slices"
-	"time"
 
 	"weave/config"
 	"weave/internal/ui/paint/label"
@@ -29,7 +28,7 @@ func archiveList() listSpec[agentRow] {
 		refs:   refsOf,
 		header: "folder",
 		placed: (*model).stageArchive,
-		moved:  model.stageArchiveAndRead,
+		moved:  model.stageArchiveThenRead,
 		quit:   func(k config.Keybindings) []string { return k.Archive.Quit },
 		back:   func(k config.Keybindings) []string { return k.Archive.Back },
 	}
@@ -321,11 +320,12 @@ func (m *model) stageArchive() {
 	m.stageInfo()
 }
 
-// stageArchiveAndRead stages the row and asks for what the record reads of its agent.
-func (m model) stageArchiveAndRead() (model, tea.Cmd) {
+// stageArchiveThenRead stages the row at once and asks for what its record reads after the
+// cursor has come to rest.
+func (m model) stageArchiveThenRead() (model, tea.Cmd) {
 	m.stageArchive()
 
-	return m, tea.Batch(m.listPullRequestsCmd(), m.inspectAgentWorktreeCmd(time.Now()))
+	return m.deferStaging()
 }
 
 // archiveDoc is the markdown drawn beside the list for the row the cursor is on.

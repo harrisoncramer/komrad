@@ -213,6 +213,15 @@ func TestSnapshotReview(t *testing.T) {
 			want: view.ReviewNone,
 		},
 		{
+			name: "an archived agent's approval carries the verdict alone, whatever its tree last read",
+			item: agentItem{
+				agent:        panel.Agent{ArchivedAt: xptr.Ptr(time.Now())},
+				localVerdict: agentv1.ReviewVerdict_REVIEW_VERDICT_APPROVED,
+				localTree:    git.StandingMoved,
+			},
+			want: view.ReviewApproved,
+		},
+		{
 			name: "work nobody has concluded on has no review",
 			item: agentItem{},
 			want: view.ReviewNone,
