@@ -19,6 +19,7 @@ import (
 	worktreev1 "weave/proto/gen/worktree/v1"
 	"weave/proto/gen/worktree/v1/worktreev1connect"
 
+	"weave/internal/rpc/render"
 	agentstore "weave/internal/store/agent"
 	schedulestore "weave/internal/store/schedule"
 	workflowstore "weave/internal/store/workflow"
@@ -365,17 +366,6 @@ func (a api) getWorkflow(id string) (*workflowstore.Workflow, error) {
 	})
 }
 
-func worktreeConfigToProto(w workflowstore.WorktreeConfig) *workflowv1.WorktreeConfig {
-	return &workflowv1.WorktreeConfig{
-		Enabled:      w.Enabled,
-		BaseBranch:   w.BaseBranch,
-		Dir:          w.Dir,
-		CopyPaths:    w.CopyPaths,
-		SymlinkPaths: w.SymlinkPaths,
-		DiffExclude:  w.DiffExclude,
-	}
-}
-
 func hooksToProto(hooks []workflowstore.Hook) []*workflowv1.WorkflowHook {
 	return xslice.Map(hooks, func(hook workflowstore.Hook) *workflowv1.WorkflowHook {
 		return &workflowv1.WorkflowHook{Event: hook.Event, Script: hook.Script}
@@ -395,7 +385,7 @@ func (a api) createWorkflow(cfg workflowstore.Config) (*workflowv1.Workflow, err
 			Harness:  cfg.Harness,
 			Cwd:      cfg.Cwd,
 			Flags:    cfg.Flags,
-			Worktree: worktreeConfigToProto(cfg.Worktree),
+			Worktree: render.WorktreeConfigToProto(cfg.Worktree),
 			Hooks:    hooksToProto(cfg.Hooks),
 		}))
 		if err != nil {
@@ -420,7 +410,7 @@ func (a api) updateWorkflow(w workflowstore.Workflow) error {
 			Harness:  w.Harness,
 			Cwd:      w.Cwd,
 			Flags:    w.Flags,
-			Worktree: worktreeConfigToProto(w.Worktree),
+			Worktree: render.WorktreeConfigToProto(w.Worktree),
 			Hooks:    hooksToProto(w.Hooks),
 		}))
 	})

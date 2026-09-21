@@ -16,3 +16,15 @@ func WorktreeConfigFromProto(w *workflowv1.WorktreeConfig) workflowstore.Worktre
 		DiffExclude:  w.GetDiffExclude(),
 	}
 }
+
+// WorktreeConfigToProto writes a worktree config in the shape it crosses the wire in.
+func WorktreeConfigToProto(w workflowstore.WorktreeConfig) *workflowv1.WorktreeConfig {
+	return &workflowv1.WorktreeConfig{
+		Enabled:      w.Enabled,
+		BaseBranch:   w.BaseBranch,
+		Dir:          w.Dir,
+		CopyPaths:    w.CopyPaths,
+		SymlinkPaths: w.SymlinkPaths,
+		DiffExclude:  w.DiffExclude,
+	}
+}
