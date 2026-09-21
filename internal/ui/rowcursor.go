@@ -75,8 +75,7 @@ func (m model) keyholder() sidebarSection {
 	return sectionList
 }
 
-// doKeysMoveCursors reports whether the keyboard reaches a sidebar cursor at all, which it does
-// not from another pane, a form, or the messages region.
+// doKeysMoveCursors reports whether the keyboard is on a sidebar cursor at all.
 func (m model) doKeysMoveCursors() bool {
 	return !m.keysElsewhere && !m.form.isActive() && !m.isMessagesFocused()
 }
@@ -90,8 +89,7 @@ func (m model) caretOf(section sidebarSection) view.Caret {
 	return m.blinkingCaret(m.doKeysMoveCursors())
 }
 
-// blinkingCaret is the arrow as the blink leaves it, which only a cursor the keyboard is on
-// blinks.
+// blinkingCaret is the arrow as the blink leaves it on a cursor the keyboard is or is not on.
 func (m model) blinkingCaret(held bool) view.Caret {
 	if m.isCursorBlinkedOut(held) {
 		return view.CaretBlinkedOut
