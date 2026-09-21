@@ -38,6 +38,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
@@ -280,6 +281,23 @@ func TestListAgents(t *testing.T) {
 			assert.Equal(t, 1, launcher.runningCalls, "liveness is read once for the page, not once per agent")
 		})
 	}
+}
+
+// TestGetAgentWritesAliveFalse covers a dormant agent's liveness on the wire.
+func TestGetAgentWritesAliveFalse(t *testing.T) {
+	svc, st, launcher := serviceWithLauncher(t)
+	launcher.alive = false
+	dormant := st.SeedAgent(t, agentstore.Agent{
+		Name:  "alpha",
+		State: agentstore.StateIdle,
+	})
+
+	got, err := svc.GetAgent(t.Context(), connect.NewRequest(&agentv1.GetAgentRequest{Id: dormant.ID}))
+	require.NoError(t, err)
+
+	wire, err := protojson.Marshal(got.Msg)
+	require.NoError(t, err)
+	assert.Contains(t, string(wire), `"alive":false`)
 }
 
 // TestListAgentsReportsUnreadMail covers the unread flag.

@@ -86,7 +86,7 @@ func renderAgent(row agents.Row, opts ...agentOption) agent {
 			StateChangedAt:     dates.Stamp(stored.StateChangedAt),
 			ReportedReason:     stored.ReportedReason,
 			ArchivedAt:         dates.StampPtr(stored.ArchivedAt),
-			Alive:              row.Alive,
+			Alive:              xptr.Ptr(row.Alive),
 			UnreadMail:         row.UnreadMail,
 			Mark:               row.Mark,
 			Hidden:             stored.Hidden,
