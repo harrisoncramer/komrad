@@ -77,11 +77,7 @@ func (m model) enterReview(agent agentstore.Agent) (tea.Model, tea.Cmd) {
 		// than on it, so the first press of the step key lands on the newest round.
 		diff: reviewDiff{chapter: -1},
 	}
-	return m, m.loadReviewCmd(loadReviewCmdParams{
-		AgentID: m.review.agentID,
-		Dir:     m.review.dir,
-		Exclude: m.review.exclude,
-	})
+	return m, m.loadWholeReviewCmd()
 }
 
 // refuseReview backs out to the listing, for a worktree that turned out to hold nothing.
@@ -127,6 +123,15 @@ func describeRefusedReview(name string, err error) string {
 	}
 
 	return "Nothing to review in " + name
+}
+
+// loadWholeReviewCmd reads the whole change of the agent on screen.
+func (m model) loadWholeReviewCmd() tea.Cmd {
+	return m.loadReviewCmd(loadReviewCmdParams{
+		AgentID: m.review.agentID,
+		Dir:     m.review.dir,
+		Exclude: m.review.exclude,
+	})
 }
 
 // loadReviewCmdParams says which agent's round to open, where to read it, and what to measure it
@@ -304,11 +309,7 @@ func (m *model) applyReviewLoaded(msg reviewLoadedMsg) tea.Cmd {
 		m.review.diff.widen()
 		m.review.notice = "nothing written " + said
 
-		return m.loadReviewCmd(loadReviewCmdParams{
-			AgentID: m.review.agentID,
-			Dir:     m.review.dir,
-			Exclude: m.review.exclude,
-		})
+		return m.loadWholeReviewCmd()
 	}
 
 	// Both draw nothing, so both back out rather than leaving the reader in an empty viewer.
@@ -332,58 +333,59 @@ func (m *model) applyReviewLoaded(msg reviewLoadedMsg) tea.Cmd {
 		m.review.diff.view = nil
 		m.review.loading = true
 
-		return m.loadReviewCmd(loadReviewCmdParams{
-			AgentID: m.review.agentID,
-			Dir:     m.review.dir,
-			Exclude: m.review.exclude,
-		})
+		return m.loadWholeReviewCmd()
 	}
 
-	m.review.diff.baseRound = msg.earlier
-	m.review.diff.baseAt = msg.earlierAt
-	m.review.diff.pinned = msg.pinned
-	m.review.threads.owed = msg.owed
-	m.review.diff.chapters = msg.chapters
 	m.review.root = msg.patch.Root
-
-	// The files the reader opened out are the view's own, so a view built again over the patch
-	// takes them from the one it replaces.
-	view := review.NewView(msg.patch, m.isDark)
-	view.SetNarrowed(m.review.diff.base != "")
-	view.SetTraced(msg.traced)
-	view.SetViewed(indexViewedFiles(msg.viewed, msg.patch))
-	if held := m.review.diff.view; held != nil {
-		view.SetExpanded(held.GetExpanded())
-	}
-
-	view.PinThreads(threadsByChapter(threadsByChapterParams{
-		Threads:  msg.threads,
-		Chapters: m.review.diff.chapters,
-		At:       m.review.diff.chapter,
-	}))
-	m.review.diff.view = view
-
-	// The pattern lives on the ui model rather than the view, so a view built from nothing has
-	// to be given it back, once the marks and the threads have settled the rows it walks.
-	m.review.diff.view.SetPattern(m.review.diff.filter.pattern)
-
-	m.review.threads.set(msg.threads)
-
 	m.review.round = msg.round
-	m.review.diff.moved = false
-	m.review.diff.since = msg.since
-	m.review.diff.cursor = m.review.diff.view.GetFirstRow()
-	if place := m.review.diff.restore; place != nil {
-		if found, ok := m.review.diff.view.Locate(*place); ok {
-			m.review.diff.cursor = found
-		}
-
-		m.review.diff.restore = nil
-	}
+	m.review.diff.load(msg, m.isDark)
+	m.review.threads.owed = msg.owed
+	m.review.threads.set(msg.threads)
 
 	m.scrollReviewToCursor()
 
 	return nil
+}
+
+// load draws a patch just read, over the one on screen, and puts the cursor back where the
+// reader was standing.
+func (d *reviewDiff) load(msg reviewLoadedMsg, isDark bool) {
+	d.baseRound = msg.earlier
+	d.baseAt = msg.earlierAt
+	d.pinned = msg.pinned
+	d.chapters = msg.chapters
+	d.moved = false
+	d.since = msg.since
+
+	// The files the reader opened out are the view's own, so a view built again over the patch
+	// takes them from the one it replaces.
+	view := review.NewView(msg.patch, isDark)
+	view.SetNarrowed(d.base != "")
+	view.SetTraced(msg.traced)
+	view.SetViewed(indexViewedFiles(msg.viewed, msg.patch))
+	if d.view != nil {
+		view.SetExpanded(d.view.GetExpanded())
+	}
+
+	view.PinThreads(threadsByChapter(threadsByChapterParams{
+		Threads:  msg.threads,
+		Chapters: d.chapters,
+		At:       d.chapter,
+	}))
+
+	// The pattern is the screen's rather than the view's, so a view built from nothing is given
+	// it back once the marks and the threads have settled the rows it walks.
+	view.SetPattern(d.filter.pattern)
+	d.view = view
+
+	d.cursor = view.GetFirstRow()
+	if place := d.restore; place != nil {
+		if found, ok := view.Locate(*place); ok {
+			d.cursor = found
+		}
+
+		d.restore = nil
+	}
 }
 
 // indexViewedFiles indexes the files whose stored fingerprint still matches the current patch,
