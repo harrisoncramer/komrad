@@ -12,7 +12,10 @@ import (
 	"weave/internal/frames"
 	"weave/internal/git"
 	"weave/internal/harness/pane"
+	"weave/internal/marks"
+	"weave/internal/schedules"
 	"weave/internal/scripts"
+	"weave/internal/transcripts"
 	"weave/internal/worktrees"
 )
 
@@ -21,7 +24,7 @@ type services struct {
 	script          *agents.ScriptService
 	mail            *agents.MailService
 	review          *agents.ReviewService
-	schedule        *agents.ScheduleService
+	schedule        *schedules.ScheduleService
 	liveness        *agents.PaneLiveness
 	launch          *agents.LaunchService
 	resume          *agents.ResumeService
@@ -31,10 +34,11 @@ type services struct {
 	workflow        *agents.WorkflowService
 	delivery        *agents.DeliveryService
 	reconciler      *agents.Reconciler
-	marks           *agents.MarkService
+	marks           *marks.MarkService
 	holder          *agents.Holder
 	rebase          *agents.RebaseService
 	cwdSync         *agents.CwdSyncer
+	transcriptSync  *transcripts.TranscriptSyncer
 	forge           *forge.ForgeService
 	pullRequestSync *agents.PullRequestSyncer
 	worktrees       *worktrees.Lister
@@ -59,7 +63,7 @@ func buildServices(params NewServerParams, st *stores) (*services, error) {
 		Config:         mailConfig(loadConfig),
 	})
 	stateDir := params.Env.StateDir
-	scheduleService := agents.NewScheduleService(agents.NewScheduleServiceParams{
+	scheduleService := schedules.NewScheduleService(schedules.NewScheduleServiceParams{
 		Schedules: st.schedules,
 		Workflows: st.workflows,
 	})
@@ -189,7 +193,7 @@ func buildServices(params NewServerParams, st *stores) (*services, error) {
 		MaxChildren:  params.MaxChildren,
 	})
 
-	markService := agents.NewMarkService(agents.NewMarkServiceParams{Marks: st.marks, Tx: st.pool})
+	markService := marks.NewMarkService(marks.NewMarkServiceParams{Marks: st.marks, Tx: st.pool})
 
 	builders := params.ForgeBuilders
 	if builders == nil {
@@ -223,6 +227,12 @@ func buildServices(params NewServerParams, st *stores) (*services, error) {
 		Bases:   st.workflows,
 	})
 
+	transcriptSyncer := transcripts.NewTranscriptSyncer(transcripts.NewTranscriptSyncerParams{
+		Agents:      st.agents,
+		Transcripts: st.transcripts,
+		Harnesses:   params.Harnesses,
+	})
+
 	worktreeLister := worktrees.NewLister(worktrees.NewListerParams{
 		SharedDir: func() (string, error) {
 			cfg, err := loadConfig()
@@ -242,6 +252,7 @@ func buildServices(params NewServerParams, st *stores) (*services, error) {
 		marks:           markService,
 		rebase:          rebaseService,
 		cwdSync:         cwdSyncer,
+		transcriptSync:  transcriptSyncer,
 		forge:           forgeService,
 		pullRequestSync: pullRequestSyncer,
 		worktrees:       worktreeLister,

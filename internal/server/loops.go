@@ -3,8 +3,6 @@ package server
 import (
 	"time"
 
-	"weave/internal/agents"
-	"weave/internal/harness"
 	"weave/internal/jobs"
 	"weave/internal/jobs/internaljobs"
 )
@@ -39,10 +37,9 @@ const (
 )
 
 type buildLoopsParams struct {
-	Harnesses *harness.Registry
-	Stores    *stores
-	Services  *services
-	Periodic  *jobs.RiverPeriodic
+	Stores   *stores
+	Services *services
+	Periodic *jobs.RiverPeriodic
 }
 
 func buildLoops(params buildLoopsParams) []Loop {
@@ -65,11 +62,7 @@ func buildLoops(params buildLoopsParams) []Loop {
 		{
 			Name:     TranscriptSyncLoop,
 			Interval: TranscriptSyncInterval,
-			Pass: agents.NewTranscriptSyncer(agents.NewTranscriptSyncerParams{
-				Agents:      params.Stores.agents,
-				Transcripts: params.Stores.transcripts,
-				Harnesses:   params.Harnesses,
-			}).Sync,
+			Pass:     params.Services.transcriptSync.Sync,
 		},
 		{
 			Name:     CwdSyncLoop,

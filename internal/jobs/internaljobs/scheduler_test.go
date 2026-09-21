@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"weave/internal/agents"
+	"weave/internal/schedules"
 	"weave/internal/store"
 	schedulestore "weave/internal/store/schedule"
 
@@ -320,7 +320,7 @@ func TestOccurrenceFor(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cron, err := agents.ParseCron(tt.cron, "UTC")
+			cron, err := schedules.ParseCron(tt.cron, "UTC")
 			require.NoError(t, err)
 
 			assert.Equal(t, tt.want, occurrenceFor(cron, tt.at).UTC())
@@ -368,7 +368,7 @@ func TestLaunchArgsForNeverOccurs(t *testing.T) {
 func TestLaunchArgsForOccurrence(t *testing.T) {
 	nine := time.Date(2026, time.July, 28, 9, 0, 0, 0, time.UTC)
 
-	cron, err := agents.ParseCron("0 9 * * *", "UTC")
+	cron, err := schedules.ParseCron("0 9 * * *", "UTC")
 	require.NoError(t, err)
 
 	args, _ := LaunchArgsFor("s1", cron, nine.Add(30*time.Minute))

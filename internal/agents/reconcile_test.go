@@ -10,6 +10,7 @@ import (
 	"weave/internal/harness"
 	"weave/internal/harness/pane"
 	agentstore "weave/internal/store/agent"
+	schedulestore "weave/internal/store/schedule"
 	"weave/internal/tmux"
 	"weave/lib/xptr"
 
@@ -1213,6 +1214,79 @@ func TestReconcileMissesOnlyCountTowardsTheStateTheyWereEarnedFor(t *testing.T) 
 			}
 			assert.Equal(t, tt.want, stateOf(t, st, "agent"),
 				"a stretch that does agree still settles it")
+		})
+	}
+}
+
+// TestScheduleIsNotBlockedByARunThatNeverStarted pins that a launch which died on the spot
+// is not counted as work in flight, which would stop the schedule ever firing again.
+func TestScheduleIsNotBlockedByARunThatNeverStarted(t *testing.T) {
+	tests := []struct {
+		name  string
+		state agentstore.State
+		frame string
+		want  int64
+	}{
+		{
+			name:  "a run that never started leaves the schedule free to fire",
+			state: agentstore.StateIdle,
+			frame: idleFrame,
+			want:  0,
+		},
+		{
+			name:  "a run still working holds the next tick off",
+			state: agentstore.StateThinking,
+			frame: busyFrame,
+			want:  1,
+		},
+		{
+			name:  "so does one waiting on an answer, which is work still owed",
+			state: agentstore.StateIdle,
+			frame: waitFrame,
+			want:  1,
+		},
+		{
+			name:  "a run that finished does not",
+			state: agentstore.StateIdle,
+			frame: idleFrame,
+			want:  0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			st := newStore(t)
+			ctx := t.Context()
+
+			schedule := st.SeedSchedule(t, schedulestore.Config{
+				Name:   "nightly",
+				Cron:   "0 2 * * *",
+				Prompt: "sweep",
+			})
+			run := st.SeedAgent(t, agentstore.Agent{
+				Name:       "nightly-run",
+				Pane:       "%1",
+				State:      tt.state,
+				WorkflowID: schedule.WorkflowID,
+				ScheduleID: &schedule.ID,
+			})
+
+			tmux := newFakeTmux()
+			tmux.owners["%1"] = run.ID
+			tmux.captures["%1"] = tt.frame
+
+			rec := NewReconciler(NewReconcilerParams{
+				Panes:    tmux,
+				Observer: pane.NewPane(pane.NewPaneParams{Terminal: tmux, Harnesses: fakeHarnesses{harness: &fakeHarness{}}}),
+				States:   st.Agents,
+			})
+			for range reconcileMisses + 2 {
+				require.NoError(t, rec.Reconcile(ctx))
+			}
+
+			count, err := st.Agents.CountLiveForSchedule(ctx, schedule.ID)
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, count, "what the next firing sees")
 		})
 	}
 }

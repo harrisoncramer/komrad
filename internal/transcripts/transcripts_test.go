@@ -1,16 +1,19 @@
-package agents
+package transcripts
 
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
 
+	"weave/internal/harness"
 	"weave/internal/harness/claude"
 	"weave/internal/harness/codex"
 	agentstore "weave/internal/store/agent"
 	transcriptstore "weave/internal/store/transcript"
+	"weave/internal/storetest"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -70,7 +73,7 @@ func TestTranscriptSyncer(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			st := newStore(t)
+			st := storetest.Open(t)
 			ctx := t.Context()
 			configDir := t.TempDir()
 
@@ -88,7 +91,7 @@ func TestTranscriptSyncer(t *testing.T) {
 			})
 			require.NoError(t, syncer.Sync(ctx))
 
-			first, err := st.GetTranscript(ctx, agent.ID)
+			first, err := st.Transcripts.Get(ctx, agent.ID)
 			require.NoError(t, err)
 			if tt.wantFirst != "" {
 				assert.Equal(t, tt.wantFirst, first)
@@ -105,7 +108,7 @@ func TestTranscriptSyncer(t *testing.T) {
 				require.NoError(t, syncer.Sync(ctx))
 			}
 
-			tr, err := st.GetTranscript(ctx, agent.ID)
+			tr, err := st.Transcripts.Get(ctx, agent.ID)
 			require.NoError(t, err)
 			assert.Equal(t, tt.want, tr)
 
@@ -133,7 +136,7 @@ func TestTranscriptSyncer(t *testing.T) {
 // TestSyncSurvivesOneUnsyncableAgent pins that one agent's bad log does not strand every older
 // agent behind it.
 func TestSyncSurvivesOneUnsyncableAgent(t *testing.T) {
-	st := newStore(t)
+	st := storetest.Open(t)
 	ctx := t.Context()
 	configDir := t.TempDir()
 
@@ -154,11 +157,11 @@ func TestSyncSurvivesOneUnsyncableAgent(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "unsyncable", "the pass names the agent it could not fold in")
 
-	stranded, err := st.GetTranscript(ctx, readable.ID)
+	stranded, err := st.Transcripts.Get(ctx, readable.ID)
 	require.NoError(t, err)
 	assert.Equal(t, "a turn worth keeping", stranded, "the rest of the pass is synced anyway")
 
-	empty, err := st.GetTranscript(ctx, unsyncable.ID)
+	empty, err := st.Transcripts.Get(ctx, unsyncable.ID)
 	require.NoError(t, err)
 	assert.Empty(t, empty, "the agent that failed has nothing stored")
 }
@@ -177,7 +180,7 @@ func (f failingTranscripts) AppendTurns(ctx context.Context, params transcriptst
 }
 
 // syncedOffset reads how far a session's log has been copied.
-func syncedOffset(t *testing.T, st *testStore, agentID, sessionID string) int64 {
+func syncedOffset(t *testing.T, st *storetest.Stores, agentID, sessionID string) int64 {
 	t.Helper()
 	session, err := st.Transcripts.OpenSession(t.Context(), transcriptstore.OpenSessionParams{
 		AgentID:   agentID,
@@ -190,19 +193,15 @@ func syncedOffset(t *testing.T, st *testStore, agentID, sessionID string) int64 
 
 const testSessionID = "claude-abc"
 
-func seedWithSessionID(t *testing.T, st *testStore, sessionID, name string) agentstore.Agent {
+func seedWithSessionID(t *testing.T, st *storetest.Stores, sessionID, name string) agentstore.Agent {
 	t.Helper()
-	ctx := t.Context()
-	require.NoError(t, st.Create(ctx, agentstore.Agent{
+
+	return *st.SeedAgent(t, agentstore.Agent{
 		Name:      name,
 		State:     agentstore.StateIdle,
+		Harness:   "claude",
 		SessionID: sessionID,
-	}))
-	got, err := st.Get(ctx, name)
-	require.NoError(t, err)
-	require.NotNil(t, got)
-
-	return *got
+	})
 }
 
 func writeLog(t *testing.T, configDir, body string) string {
@@ -233,15 +232,15 @@ func appendToLog(t *testing.T, path, body string) {
 // TestSyncReportsAnUnknownHarness pins that an agent nothing can index is reported rather than
 // skipped.
 func TestSyncReportsAnUnknownHarness(t *testing.T) {
-	st := newStore(t)
+	st := storetest.Open(t)
 	ctx := t.Context()
 
-	require.NoError(t, st.Create(ctx, agentstore.Agent{
+	st.SeedAgent(t, agentstore.Agent{
 		Name:      "orphan",
 		State:     agentstore.StateIdle,
 		Harness:   "gemini",
 		SessionID: testSessionID,
-	}))
+	})
 
 	syncer := NewTranscriptSyncer(NewTranscriptSyncerParams{
 		Agents:      st.Agents,
@@ -282,21 +281,21 @@ func TestSyncAdoptsSessions(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			st := newStore(t)
+			st := storetest.Open(t)
 			ctx := t.Context()
 
-			require.NoError(t, st.Create(ctx, agentstore.Agent{
-				Name: "adopter", State: agentstore.StateIdle, SessionID: tt.held,
-			}))
+			st.SeedAgent(t, agentstore.Agent{
+				Name: "adopter", State: agentstore.StateIdle, Harness: "claude", SessionID: tt.held,
+			})
 
 			syncer := NewTranscriptSyncer(NewTranscriptSyncerParams{
 				Agents:      st.Agents,
 				Transcripts: st.Transcripts,
-				Harnesses:   fakeHarnesses{harness: &fakeHarness{found: tt.found}},
+				Harnesses:   fakeHarnesses{found: tt.found},
 			})
 			require.NoError(t, syncer.Sync(ctx))
 
-			adopter, err := st.Get(ctx, "adopter")
+			adopter, err := st.LiveAgentByName(ctx, "adopter")
 			require.NoError(t, err)
 			require.NotNil(t, adopter)
 			assert.Equal(t, tt.want, adopter.SessionID)
@@ -307,19 +306,16 @@ func TestSyncAdoptsSessions(t *testing.T) {
 // TestSyncAdoptedSessionIsIndexed pins that the transcript turning up under an adopted id is
 // then read, driving the real codex harness over a real rollout.
 func TestSyncAdoptedSessionIsIndexed(t *testing.T) {
-	st := newStore(t)
+	st := storetest.Open(t)
 	ctx := t.Context()
 	codexHome := t.TempDir()
 	cwd := t.TempDir()
 
 	const sessionID = "019fb3e7-2cb6-7ab3-86a0-51a670a33140"
 
-	require.NoError(t, st.Create(ctx, agentstore.Agent{
+	created := st.SeedAgent(t, agentstore.Agent{
 		Name: "adopter", State: agentstore.StateIdle, Harness: "codex", Cwd: cwd,
-	}))
-	created, err := st.Get(ctx, "adopter")
-	require.NoError(t, err)
-	require.NotNil(t, created)
+	})
 
 	dir := filepath.Join(codexHome, "sessions", "2026", "07", "30")
 	require.NoError(t, os.MkdirAll(dir, 0o755))
@@ -337,12 +333,12 @@ func TestSyncAdoptedSessionIsIndexed(t *testing.T) {
 
 	require.NoError(t, syncer.Sync(ctx))
 
-	adopted, err := st.Get(ctx, "adopter")
+	adopted, err := st.LiveAgentByName(ctx, "adopter")
 	require.NoError(t, err)
 	require.NotNil(t, adopted)
 	assert.Equal(t, sessionID, adopted.SessionID, "the id codex chose is recorded")
 
-	tr, err := st.GetTranscript(ctx, adopted.ID)
+	tr, err := st.Transcripts.Get(ctx, adopted.ID)
 	require.NoError(t, err)
 	assert.Equal(t, "how do I use trigram search", tr)
 }
@@ -350,7 +346,7 @@ func TestSyncAdoptedSessionIsIndexed(t *testing.T) {
 // TestSyncStartsOverOnALogEmptiedBetweenPasses pins the pass that sees nothing but a restart,
 // which is what a CLI that truncates its log before rewriting it leaves behind.
 func TestSyncStartsOverOnALogEmptiedBetweenPasses(t *testing.T) {
-	st := newStore(t)
+	st := storetest.Open(t)
 	ctx := t.Context()
 	configDir := t.TempDir()
 
@@ -364,14 +360,14 @@ func TestSyncStartsOverOnALogEmptiedBetweenPasses(t *testing.T) {
 	})
 	require.NoError(t, syncer.Sync(ctx))
 
-	before, err := st.GetTranscript(ctx, agent.ID)
+	before, err := st.Transcripts.Get(ctx, agent.ID)
 	require.NoError(t, err)
 	require.Equal(t, "the conversation that was", before)
 
 	require.NoError(t, os.WriteFile(path, nil, 0o644))
 	require.NoError(t, syncer.Sync(ctx))
 
-	emptied, err := st.GetTranscript(ctx, agent.ID)
+	emptied, err := st.Transcripts.Get(ctx, agent.ID)
 	require.NoError(t, err)
 	assert.Empty(t, emptied, "the transcript of a log that is gone is gone with it")
 	assert.Zero(t, syncedOffset(t, st, agent.ID, testSessionID), "and the next pass reads the new log from its start")
@@ -381,7 +377,7 @@ func TestSyncStartsOverOnALogEmptiedBetweenPasses(t *testing.T) {
 	), 0o644))
 	require.NoError(t, syncer.Sync(ctx))
 
-	after, err := st.GetTranscript(ctx, agent.ID)
+	after, err := st.Transcripts.Get(ctx, agent.ID)
 	require.NoError(t, err)
 	assert.Equal(t, "a longer conversation that replaced the first one", after)
 
@@ -393,7 +389,7 @@ func TestSyncStartsOverOnALogEmptiedBetweenPasses(t *testing.T) {
 // TestSyncKeepsEarlierConversations pins that a second conversation is copied alongside the first
 // rather than replacing it.
 func TestSyncKeepsEarlierConversations(t *testing.T) {
-	st := newStore(t)
+	st := storetest.Open(t)
 	ctx := t.Context()
 	configDir := t.TempDir()
 
@@ -411,7 +407,7 @@ func TestSyncKeepsEarlierConversations(t *testing.T) {
 	writeLogFor(t, configDir, "claude-second", `{"type":"user","message":{"content":"what the second conversation said"}}`+"\n")
 	require.NoError(t, syncer.Sync(ctx))
 
-	stored, err := st.GetTranscript(ctx, agent.ID)
+	stored, err := st.Transcripts.Get(ctx, agent.ID)
 	require.NoError(t, err)
 	assert.Equal(t, "what the first conversation said\n\nwhat the second conversation said", stored,
 		"the second conversation follows the first rather than replacing it")
@@ -425,7 +421,7 @@ func TestSyncKeepsEarlierConversations(t *testing.T) {
 // TestSyncStartsOverOnlyWithinOneConversation pins that a log read again from its start clears
 // what that conversation held and nothing of the conversations before it.
 func TestSyncStartsOverOnlyWithinOneConversation(t *testing.T) {
-	st := newStore(t)
+	st := storetest.Open(t)
 	ctx := t.Context()
 	configDir := t.TempDir()
 
@@ -446,14 +442,14 @@ func TestSyncStartsOverOnlyWithinOneConversation(t *testing.T) {
 	require.NoError(t, os.WriteFile(second, []byte(`{"type":"user","message":{"content":"rewritten"}}`+"\n"), 0o644))
 	require.NoError(t, syncer.Sync(ctx))
 
-	stored, err := st.GetTranscript(ctx, agent.ID)
+	stored, err := st.Transcripts.Get(ctx, agent.ID)
 	require.NoError(t, err)
 	assert.Equal(t, "what the first conversation said\n\nrewritten", stored)
 }
 
 // moveToSession puts an agent on a second conversation, which the store's own setter refuses
 // once one is recorded.
-func moveToSession(t *testing.T, st *testStore, agentID, sessionID string) {
+func moveToSession(t *testing.T, st *storetest.Stores, agentID, sessionID string) {
 	t.Helper()
 	_, err := st.Pool.GetRawPool().Exec(t.Context(), "UPDATE agents SET session_id = $1 WHERE id = $2", sessionID, agentID)
 	require.NoError(t, err)
@@ -462,7 +458,7 @@ func moveToSession(t *testing.T, st *testStore, agentID, sessionID string) {
 // TestArchivedAgentSyncsOnceThenFallsOut pins both halves of what archiving does to a sync: the
 // turns written before the archive are still folded in, and the agent is not read again after.
 func TestArchivedAgentSyncsOnceThenFallsOut(t *testing.T) {
-	st := newStore(t)
+	st := storetest.Open(t)
 	ctx := t.Context()
 	configDir := t.TempDir()
 
@@ -480,14 +476,14 @@ func TestArchivedAgentSyncsOnceThenFallsOut(t *testing.T) {
 
 	require.NoError(t, syncer.Sync(ctx))
 
-	tail, err := st.GetTranscript(ctx, agent.ID)
+	tail, err := st.Transcripts.Get(ctx, agent.ID)
 	require.NoError(t, err)
 	assert.Equal(t, "said before the archive", tail, "what the agent said before it was archived is kept")
 
 	appendToLog(t, path, `{"type":"user","message":{"content":"written after the archive"}}`+"\n")
 	require.NoError(t, syncer.Sync(ctx))
 
-	after, err := st.GetTranscript(ctx, agent.ID)
+	after, err := st.Transcripts.Get(ctx, agent.ID)
 	require.NoError(t, err)
 	assert.Equal(t, "said before the archive", after, "an archived agent is not read again")
 }
@@ -495,7 +491,7 @@ func TestArchivedAgentSyncsOnceThenFallsOut(t *testing.T) {
 // TestArchivedAgentWithNothingNewFallsOut pins that an agent archived with its log already read
 // leaves the listing rather than being globbed and opened on every pass forever.
 func TestArchivedAgentWithNothingNewFallsOut(t *testing.T) {
-	st := newStore(t)
+	st := storetest.Open(t)
 	ctx := t.Context()
 	configDir := t.TempDir()
 
@@ -518,7 +514,54 @@ func TestArchivedAgentWithNothingNewFallsOut(t *testing.T) {
 	appendToLog(t, path, `{"type":"user","message":{"content":"written after the archive"}}`+"\n")
 	require.NoError(t, syncer.Sync(ctx))
 
-	after, err := st.GetTranscript(ctx, agent.ID)
+	after, err := st.Transcripts.Get(ctx, agent.ID)
 	require.NoError(t, err)
 	assert.Equal(t, "the whole conversation", after, "an archived agent is not read again")
+}
+
+// mustRegistry is a registry of the harnesses a test names.
+func mustRegistry(t *testing.T, harnesses ...harness.Harness) *harness.Registry {
+	t.Helper()
+	registry, err := harness.NewRegistry(harnesses...)
+	require.NoError(t, err)
+
+	return registry
+}
+
+// fakeHarnesses answers every id with a harness that finds one session and holds no log.
+type fakeHarnesses struct {
+	found string
+}
+
+func (f fakeHarnesses) GetByID(string) (harness.Harness, error) {
+	return &fakeHarness{found: f.found}, nil
+}
+
+type fakeHarness struct {
+	found string
+}
+
+func (f *fakeHarness) ID() string     { return "claude" }
+func (f *fakeHarness) Binary() string { return "claude" }
+
+func (f *fakeHarness) BuildCommand(harness.Launch) (string, error) {
+	return "", fmt.Errorf("not launched here")
+}
+
+func (f *fakeHarness) MintSessionID() string { return "" }
+
+func (f *fakeHarness) FindSession(string) (string, error) { return f.found, nil }
+
+func (f *fakeHarness) ReadInput(string) harness.Input { return harness.Input{} }
+
+func (f *fakeHarness) ReadReport(harness.Event, []byte) (harness.Report, error) {
+	return harness.Report{}, nil
+}
+
+func (f *fakeHarness) InterruptKeys() []string { return nil }
+
+func (f *fakeHarness) LogPath(string) string { return "" }
+
+func (f *fakeHarness) ReadLog(string, int64) (harness.LogRead, error) {
+	return harness.LogRead{}, nil
 }

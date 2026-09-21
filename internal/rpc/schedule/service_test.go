@@ -7,8 +7,8 @@ import (
 
 	schedulev1weave "weave/proto/gen/schedule/v1/schedulev1weave"
 
-	"weave/internal/agents"
 	"weave/internal/rpc/render"
+	"weave/internal/schedules"
 	"weave/internal/storetest"
 	paginationv1 "weave/proto/gen/pagination/v1"
 	schedulev1 "weave/proto/gen/schedule/v1"
@@ -228,7 +228,7 @@ func TestGetSchedule(t *testing.T) {
 // TestGetScheduleLastResult covers that a schedule's last firing outcome reaches the RPC layer.
 func TestGetScheduleLastResult(t *testing.T) {
 	st := storetest.Open(t)
-	manager := agents.NewScheduleService(agents.NewScheduleServiceParams{Schedules: st.Schedules, Workflows: st.Workflows})
+	manager := schedules.NewScheduleService(schedules.NewScheduleServiceParams{Schedules: st.Schedules, Workflows: st.Workflows})
 	svc := schedulev1weave.ScheduleServiceAdapter{Impl: NewScheduleService(st.Schedules, manager)}
 	workflow := st.SeedWorkflow(t, workflowstore.Config{Name: "schedules"}).ID
 
@@ -511,7 +511,7 @@ func service(t *testing.T) (schedulev1weave.ScheduleServiceAdapter, string) {
 	t.Helper()
 
 	st := storetest.Open(t)
-	manager := agents.NewScheduleService(agents.NewScheduleServiceParams{Schedules: st.Schedules, Workflows: st.Workflows})
+	manager := schedules.NewScheduleService(schedules.NewScheduleServiceParams{Schedules: st.Schedules, Workflows: st.Workflows})
 
 	return schedulev1weave.ScheduleServiceAdapter{Impl: NewScheduleService(st.Schedules, manager)}, st.SeedWorkflow(t, workflowstore.Config{Name: "schedules"}).ID
 }

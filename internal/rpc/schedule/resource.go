@@ -3,8 +3,8 @@ package schedule
 import (
 	"time"
 
-	"weave/internal/agents"
 	"weave/internal/rpc/render"
+	"weave/internal/schedules"
 	schedulestore "weave/internal/store/schedule"
 	"weave/lib/xstr"
 	schedulev1 "weave/proto/gen/schedule/v1"
@@ -69,7 +69,7 @@ func renderSchedule(s schedulestore.Schedule, now time.Time, opts ...scheduleOpt
 		LastResultMessage: s.LastResultMessage,
 	}
 
-	if next := agents.CalculateNextRun(s, now); !next.IsZero() {
+	if next := schedules.CalculateNextRun(s, now); !next.IsZero() {
 		rendered.NextRunAt = timestamppb.New(next)
 	}
 

@@ -8,6 +8,7 @@ import (
 	"weave/db"
 	"weave/internal/agents"
 	"weave/internal/jobs/internaljobs"
+	"weave/internal/schedules"
 	"weave/internal/store"
 	agentstore "weave/internal/store/agent"
 	schedulestore "weave/internal/store/schedule"
@@ -289,7 +290,7 @@ func newID(t *testing.T) string {
 // TestPeriodicRegistrationIsKeyedByItsId covers the id River files a registration under, which
 // the scheduler takes one off by.
 func TestPeriodicRegistrationIsKeyedByItsId(t *testing.T) {
-	cron, err := agents.ParseCron("0 9 * * *", "")
+	cron, err := schedules.ParseCron("0 9 * * *", "")
 	require.NoError(t, err)
 
 	tests := []struct {

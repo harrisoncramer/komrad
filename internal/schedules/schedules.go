@@ -1,4 +1,4 @@
-package agents
+package schedules
 
 import (
 	"context"
@@ -10,6 +10,7 @@ import (
 	"weave/internal/fail"
 	"weave/internal/store"
 	schedulestore "weave/internal/store/schedule"
+	workflowstore "weave/internal/store/workflow"
 
 	"github.com/robfig/cron/v3"
 )
@@ -22,9 +23,17 @@ type scheduleReadWriter interface {
 	Archive(ctx context.Context, id string) error
 }
 
-var ErrScheduleNotFound = fail.NotFound("schedule not found")
+type workflowReader interface {
+	Get(ctx context.Context, id string) (*workflowstore.Workflow, error)
+	GetIncludingArchived(ctx context.Context, id string) (*workflowstore.Workflow, error)
+}
 
-var ErrBadCron = fail.InvalidArgument("unreadable cron expression")
+var (
+	ErrScheduleNotFound = fail.NotFound("schedule not found")
+	ErrBadCron          = fail.InvalidArgument("unreadable cron expression")
+	ErrWorkflowNotFound = fail.NotFound("workflow not found")
+	ErrWorkflowArchived = fail.Precondition("workflow is archived")
+)
 
 type ScheduleService struct {
 	store     scheduleReadWriter
