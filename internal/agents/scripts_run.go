@@ -22,7 +22,8 @@ const provisionTimeout = 10 * time.Minute
 
 const deprovisionTimeout = 2 * time.Minute
 
-const hookTimeout = 10 * time.Minute
+// HookTimeout is how long a hook is given when its header declares no timeout.
+const HookTimeout = 10 * time.Minute
 
 const maxProvisionedDir = 4096
 
@@ -91,7 +92,7 @@ func (s *ScriptService) RunHook(ctx context.Context, agent agentstore.Agent, nam
 		Script:  script,
 		Dir:     agent.Cwd,
 		Env:     env,
-		Timeout: script.Header.TimeoutOr(hookTimeout),
+		Timeout: script.Header.TimeoutOr(HookTimeout),
 	})
 	writeRunLog(ctx, record.logPath, combinedOutput(result.Stdout, result.Stderr))
 

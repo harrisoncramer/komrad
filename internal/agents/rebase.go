@@ -534,3 +534,11 @@ func refuseTreeState(state git.TreeState) error {
 
 	return nil
 }
+
+func short(sha string) string {
+	if len(sha) <= 12 {
+		return sha
+	}
+
+	return sha[:12]
+}

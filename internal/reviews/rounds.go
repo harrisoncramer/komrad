@@ -1,4 +1,4 @@
-package agents
+package reviews
 
 import (
 	"context"
@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"weave/internal/agents"
 	"weave/internal/fail"
 	"weave/internal/git"
 	"weave/internal/mail"
@@ -48,13 +49,6 @@ var ErrReviewNotCurrent = fail.Precondition("those lines were read from a snapsh
 // ErrReviewEmpty is answered when a review is released with nothing written in it.
 var ErrReviewEmpty = fail.Precondition("that review has nothing in it")
 
-// reviewReaper is the half of the review store the lifecycle needs, being the refs an agent's
-// snapshots are held by and the drafts it was writing about others.
-type reviewReaper interface {
-	ListRounds(ctx context.Context, agentID string) ([]reviewstore.Round, error)
-	DeleteOpenReviewsBy(ctx context.Context, authorAgentIDs []string) error
-}
-
 type reviewRoundReadWriter interface {
 	CreateRound(ctx context.Context, params reviewstore.CreateRoundParams) (*reviewstore.Round, error)
 	GetRound(ctx context.Context, id string) (*reviewstore.Round, error)
@@ -73,25 +67,15 @@ type reviewBatchReadWriter interface {
 	ReleaseReview(ctx context.Context, params reviewstore.ReleaseReviewParams) (*reviewstore.Review, error)
 	DeleteReview(ctx context.Context, id string) error
 	ListTallies(ctx context.Context) ([]reviewstore.Tally, error)
-	liveReviewerLister
+	ListLiveReviewers(ctx context.Context) ([]reviewstore.LiveReviewer, error)
+	GetLiveReviewerOf(ctx context.Context, agentID string) (*reviewstore.LiveReviewer, error)
 }
 
 type reviewSnapshotter interface {
 	TakeSnapshot(ctx context.Context, params git.TakeSnapshotParams) (*git.Snapshot, error)
 	HoldRef(ctx context.Context, dir, ref, sha string) error
 	ReadFileLines(ctx context.Context, dir, sha, path string) ([]string, error)
-	snapshotReleaser
-}
-
-// snapshotReleaser drops the ref holding a round's snapshot.
-type snapshotReleaser interface {
 	ReleaseRef(ctx context.Context, dir, ref string) error
-}
-
-// roundRef is the ref a snapshot is held by so nothing collects it, named after the agent and
-// the commit.
-func roundRef(agentID, snapshotSHA string) string {
-	return "refs/weave/rounds/" + agentID + "/" + snapshotSHA
 }
 
 // OpenRound freezes what an agent has written now and records it as its next round.
@@ -105,7 +89,7 @@ func (s *ReviewService) OpenRound(ctx context.Context, agentID string, author Re
 		return nil, err
 	}
 	if agent.ParentAgentID != nil {
-		return nil, fmt.Errorf("%w: %q is a child, writing in a checkout it does not own", ErrReviewNeedsOwnWork, agent.Name)
+		return nil, fmt.Errorf("%w: %q is a child, writing in a checkout it does not own", agents.ErrReviewNeedsOwnWork, agent.Name)
 	}
 	if agent.Cwd == "" {
 		return nil, fmt.Errorf("%w: %q has no directory to take a round of", ErrReviewNoRound, agent.Name)
@@ -131,7 +115,7 @@ func (s *ReviewService) OpenRound(ctx context.Context, agentID string, author Re
 		return latest, nil
 	}
 
-	if err := s.snapshots.HoldRef(ctx, agent.Cwd, roundRef(agentID, snapshot.SHA), snapshot.SHA); err != nil {
+	if err := s.snapshots.HoldRef(ctx, agent.Cwd, reviewstore.RoundRef(agentID, snapshot.SHA), snapshot.SHA); err != nil {
 		return nil, err
 	}
 
@@ -414,7 +398,7 @@ func (s *ReviewService) requireMayRead(
 
 	reviewer, err := s.agents.GetByID(ctx, *author.AgentID)
 	if errors.Is(err, store.ErrNotFound) {
-		return ErrAgentNotFound.Saying("no agent with id %q", *author.AgentID)
+		return agents.ErrAgentNotFound.Saying("no agent with id %q", *author.AgentID)
 	}
 	if err != nil {
 		return err
@@ -674,13 +658,13 @@ func (s *ReviewService) getSnapshotLines(ctx context.Context, params getSnapshot
 func (s *ReviewService) getLiveAgent(ctx context.Context, agentID string) (*agentstore.Agent, error) {
 	agent, err := s.agents.GetByID(ctx, agentID)
 	if errors.Is(err, store.ErrNotFound) {
-		return nil, ErrAgentNotFound.Saying("no agent with id %q", agentID)
+		return nil, agents.ErrAgentNotFound.Saying("no agent with id %q", agentID)
 	}
 	if err != nil {
 		return nil, err
 	}
 	if agent.ArchivedAt != nil {
-		return nil, fmt.Errorf("%w: %q is archived, so there is nobody to hand a review to; restore it first", ErrAgentArchived, agent.Name)
+		return nil, fmt.Errorf("%w: %q is archived, so there is nobody to hand a review to; restore it first", agents.ErrAgentArchived, agent.Name)
 	}
 
 	return agent, nil

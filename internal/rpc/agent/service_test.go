@@ -19,6 +19,7 @@ import (
 	"weave/internal/logtest"
 	"weave/internal/mail"
 	"weave/internal/marks"
+	"weave/internal/reviews"
 	"weave/internal/rpc/render"
 	"weave/internal/store"
 	"weave/internal/storetest"
@@ -2264,13 +2265,13 @@ func serviceWithLauncher(t *testing.T) (agentv1weave.AgentServiceAdapter, *store
 		Config:         fakeMailConfig(config.DefaultMaxExchange),
 	})
 
-	reviews := reviewstore.New(st.Pool.GetDB())
-	review := agents.NewReviewService(agents.NewReviewServiceParams{
-		Threads:   reviews,
-		Messages:  reviews,
-		Viewed:    reviews,
-		Rounds:    reviews,
-		Reviews:   reviews,
+	rounds := reviewstore.New(st.Pool.GetDB())
+	review := reviews.NewReviewService(reviews.NewReviewServiceParams{
+		Threads:   rounds,
+		Messages:  rounds,
+		Viewed:    rounds,
+		Rounds:    rounds,
+		Reviews:   rounds,
 		Snapshots: fakeSnapshotter{},
 		Workflows: st.Workflows,
 		StateDir:  t.TempDir(),

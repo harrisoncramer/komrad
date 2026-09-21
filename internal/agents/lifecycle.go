@@ -16,6 +16,7 @@ import (
 	"weave/lib/xstr"
 
 	agentstore "weave/internal/store/agent"
+	reviewstore "weave/internal/store/review"
 	transcriptstore "weave/internal/store/transcript"
 	workflowstore "weave/internal/store/workflow"
 )
@@ -41,6 +42,18 @@ type lifecycleAgentReadWriter interface {
 // emptyWorkflowDeleter permanently removes a workflow left with nothing archived inside it.
 type emptyWorkflowDeleter interface {
 	DeleteIfEmpty(ctx context.Context, workflowID string) error
+}
+
+// reviewReaper is the half of the review store the lifecycle needs, being the refs an agent's
+// snapshots are held by and the drafts it was writing about others.
+type reviewReaper interface {
+	ListRounds(ctx context.Context, agentID string) ([]reviewstore.Round, error)
+	DeleteOpenReviewsBy(ctx context.Context, authorAgentIDs []string) error
+}
+
+// snapshotReleaser drops the ref holding a round's snapshot.
+type snapshotReleaser interface {
+	ReleaseRef(ctx context.Context, dir, ref string) error
 }
 
 // LifecycleService moves agents between the live listing, the archive and gone, running the
@@ -568,7 +581,7 @@ func (s *LifecycleService) releaseRounds(ctx context.Context, ids []string) {
 		}
 
 		for _, round := range rounds {
-			if err := s.snapshots.ReleaseRef(ctx, agent.Cwd, roundRef(agent.ID, round.SnapshotSHA)); err != nil {
+			if err := s.snapshots.ReleaseRef(ctx, agent.Cwd, reviewstore.RoundRef(agent.ID, round.SnapshotSHA)); err != nil {
 				logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to release the snapshot of a round",
 					append([]slog.Attr{slog.String(logging.AgentID, agent.ID)}, logging.Err(err)...)...)
 			}

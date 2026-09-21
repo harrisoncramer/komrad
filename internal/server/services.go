@@ -15,6 +15,7 @@ import (
 	"weave/internal/mail"
 	"weave/internal/marks"
 	"weave/internal/pullrequests"
+	"weave/internal/reviews"
 	"weave/internal/schedules"
 	"weave/internal/scripts"
 	"weave/internal/transcripts"
@@ -25,7 +26,7 @@ type services struct {
 	loadConfig      func() (*config.Config, error)
 	script          *agents.ScriptService
 	mail            *mail.MailService
-	review          *agents.ReviewService
+	review          *reviews.ReviewService
 	schedule        *schedules.ScheduleService
 	liveness        *agents.PaneLiveness
 	rows            *agents.RowReader
@@ -130,7 +131,7 @@ func buildServices(params NewServerParams, st *stores) (*services, error) {
 		Scripts:            scriptService,
 		FallbackResumeRoot: params.FallbackResumeRoot,
 	})
-	reviewService := agents.NewReviewService(agents.NewReviewServiceParams{
+	reviewService := reviews.NewReviewService(reviews.NewReviewServiceParams{
 		Threads:   st.review,
 		Messages:  st.review,
 		Viewed:    st.review,

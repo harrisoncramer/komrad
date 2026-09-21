@@ -1,4 +1,4 @@
-package agents
+package reviews
 
 import (
 	"context"
@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"weave/config"
+	"weave/internal/agents"
 	"weave/internal/git"
 	"weave/internal/mail"
 	"weave/internal/store"
@@ -896,7 +897,7 @@ func TestReleasingToAnArchivedAgentIsRefused(t *testing.T) {
 		Verdict: reviewstore.VerdictChangesRequested,
 		Author:  humanAuthor(),
 	})
-	require.ErrorIs(t, err, ErrAgentArchived)
+	require.ErrorIs(t, err, agents.ErrAgentArchived)
 
 	assert.Empty(t, notices.sent, "nothing is rung")
 	assert.Empty(t, reviews.released, "and nothing is stamped as sent")
@@ -963,6 +964,20 @@ func reviewServiceForAgent(
 		Mailer:    notices,
 		StateDir:  t.TempDir(),
 	})
+}
+
+type fakeAgentReaderFunc func(ctx context.Context, id string) (*agentstore.Agent, error)
+
+func (f fakeAgentReaderFunc) GetByID(ctx context.Context, id string) (*agentstore.Agent, error) {
+	return f(ctx, id)
+}
+
+func (fakeAgentReaderFunc) ListLiveNamed(context.Context, string) ([]agentstore.Agent, error) {
+	return nil, nil
+}
+
+func (fakeAgentReaderFunc) ListChildren(context.Context, []string) ([]agentstore.Agent, error) {
+	return nil, nil
 }
 
 // fakeResumer records the agents put back in a pane, which the review writes ask for on their
@@ -1556,6 +1571,14 @@ func (f *fakeReviewStore) ListTallies(context.Context) ([]reviewstore.Tally, err
 
 func (f *fakeReviewStore) ListLiveReviewers(context.Context) ([]reviewstore.LiveReviewer, error) {
 	return []reviewstore.LiveReviewer{{AgentID: reviewedAgentID, ReviewerID: reviewerAgentID}}, nil
+}
+
+func (f *fakeReviewStore) GetLiveReviewerOf(_ context.Context, agentID string) (*reviewstore.LiveReviewer, error) {
+	if agentID != reviewedAgentID {
+		return nil, store.ErrNotFound
+	}
+
+	return &reviewstore.LiveReviewer{AgentID: reviewedAgentID, ReviewerID: reviewerAgentID}, nil
 }
 
 func (f *fakeReviewStore) ListReviews(context.Context, string) ([]reviewstore.Review, error) {
@@ -2603,10 +2626,10 @@ func TestARoundIsNotTakenOfAChild(t *testing.T) {
 	service := reviewService(t, reviews, &fakeNoticeSender{})
 
 	_, err := service.OpenRound(t.Context(), reviewerAgentID, humanAuthor())
-	require.ErrorIs(t, err, ErrReviewNeedsOwnWork)
+	require.ErrorIs(t, err, agents.ErrReviewNeedsOwnWork)
 
 	_, err = service.OpenRound(t.Context(), reviewerAgentID, agentAuthor(reviewerAgentID))
-	require.ErrorIs(t, err, ErrReviewNeedsOwnWork, "not even by the child itself")
+	require.ErrorIs(t, err, agents.ErrReviewNeedsOwnWork, "not even by the child itself")
 
 	for _, round := range reviews.rounds {
 		assert.NotEqual(t, reviewerAgentID, round.AgentID, "and nothing was recorded under the child's id")

@@ -8,6 +8,7 @@ import (
 	"weave/internal/agents"
 	"weave/internal/git"
 	"weave/internal/mail"
+	"weave/internal/reviews"
 	"weave/internal/rpcerr"
 	"weave/internal/schedules"
 	"weave/internal/scripts"
@@ -41,8 +42,8 @@ func TestWrapCodes(t *testing.T) {
 		{agents.ErrScriptNotFound, connect.CodeNotFound},
 		{mail.ErrMailNotFound, connect.CodeNotFound},
 		{mail.ErrRecipientNotFound, connect.CodeNotFound},
-		{agents.ErrReviewThreadNotFound, connect.CodeNotFound},
-		{agents.ErrReviewMessageNotFound, connect.CodeNotFound},
+		{reviews.ErrReviewThreadNotFound, connect.CodeNotFound},
+		{reviews.ErrReviewMessageNotFound, connect.CodeNotFound},
 		{agents.ErrParentNotFound, connect.CodeNotFound},
 		{store.ErrNameTaken, connect.CodeAlreadyExists},
 		{agents.ErrAdoptAlreadyAdopted, connect.CodeAlreadyExists},
@@ -59,15 +60,15 @@ func TestWrapCodes(t *testing.T) {
 		{agents.ErrAdoptBranchInUse, connect.CodeFailedPrecondition},
 		{agents.ErrParentStillArchived, connect.CodeFailedPrecondition},
 		{agents.ErrChildNeedsParentDirectory, connect.CodeFailedPrecondition},
-		{agents.ErrReviewNoRound, connect.CodeFailedPrecondition},
+		{reviews.ErrReviewNoRound, connect.CodeFailedPrecondition},
 		{agents.ErrRebaseShallow, connect.CodeFailedPrecondition},
 		{agents.ErrRebaseHiddenPaths, connect.CodeFailedPrecondition},
 		{agents.ErrHookFailed, connect.CodeFailedPrecondition},
 		{agents.ErrNoLiveReviewer, connect.CodeFailedPrecondition},
 		{git.ErrBaseUnresolved, connect.CodeFailedPrecondition},
 		{git.ErrBaseUnrelated, connect.CodeFailedPrecondition},
-		{agents.ErrReviewEmpty, connect.CodeFailedPrecondition},
-		{agents.ErrReviewAlreadyGiven, connect.CodeFailedPrecondition},
+		{reviews.ErrReviewEmpty, connect.CodeFailedPrecondition},
+		{reviews.ErrReviewAlreadyGiven, connect.CodeFailedPrecondition},
 		{schedules.ErrBadCron, connect.CodeInvalidArgument},
 		{agents.ErrUnknownHookEvent, connect.CodeInvalidArgument},
 		{mail.ErrNoticeKindMissing, connect.CodeInvalidArgument},
@@ -89,10 +90,10 @@ func TestWrapCodes(t *testing.T) {
 		{mail.ErrExchangeCapped, connect.CodeResourceExhausted},
 		{agents.ErrTooManyChildren, connect.CodeResourceExhausted},
 		{agentstore.ErrTooManyMetadataKeys, connect.CodeResourceExhausted},
-		{agents.ErrReviewNotYours, connect.CodePermissionDenied},
-		{agents.ErrReviewHumanOnly, connect.CodePermissionDenied},
-		{agents.ErrReviewNotEntitled, connect.CodePermissionDenied},
-		{agents.ErrReviewOwnWork, connect.CodePermissionDenied},
+		{reviews.ErrReviewNotYours, connect.CodePermissionDenied},
+		{reviews.ErrReviewHumanOnly, connect.CodePermissionDenied},
+		{reviews.ErrReviewNotEntitled, connect.CodePermissionDenied},
+		{reviews.ErrReviewOwnWork, connect.CodePermissionDenied},
 		{mail.ErrOutsideFamily, connect.CodePermissionDenied},
 		{agents.ErrOutsideWorkflow, connect.CodePermissionDenied},
 	}

@@ -147,6 +147,7 @@ linters:
             - "**/internal/mail/**"
             - "**/internal/marks/**"
             - "**/internal/pullrequests/**"
+            - "**/internal/reviews/**"
             - "**/internal/schedules/**"
             - "**/internal/transcripts/**"
           deny:
