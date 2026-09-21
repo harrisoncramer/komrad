@@ -56,7 +56,7 @@ func (m *model) isPaneWarm(pane, harnessID string) bool {
 	// The foreground program starts most of a second before the harness paints, so what settles
 	// the wait is a frame the harness reads as its own.
 	if m.hasHarnessDrawn(pane, harnessID) {
-		m.markWarm(pane)
+		m.warm.markWarm(pane)
 
 		return true
 	}
@@ -73,7 +73,7 @@ func (m *model) isPaneWarm(pane, harnessID string) bool {
 		return false
 	}
 
-	m.markWarm(pane)
+	m.warm.markWarm(pane)
 
 	return true
 }
@@ -109,9 +109,9 @@ func (m *model) isPaneStageable(pane, harnessID string) bool {
 	return m.isPaneWarm(pane, harnessID)
 }
 
-func (m *model) markWarm(pane string) {
-	m.warm.ready[pane] = true
-	delete(m.warm.since, pane)
+func (w *warmupState) markWarm(pane string) {
+	w.ready[pane] = true
+	delete(w.since, pane)
 }
 
 // sizeWarmingWindow puts a pane's own window at the size of the slot it is about to be shown in,
@@ -134,11 +134,11 @@ func (m *model) sizeWarmingWindow(pane string) {
 	}
 }
 
-// holdForWarmup remembers the pane a write wants shown once its harness is up.
-func (m *model) holdForWarmup(pane, harnessID string, focus bool) {
-	m.warm.pending = pane
-	m.warm.pendingHarness = harnessID
-	m.warm.pendingFocus = focus
+// hold remembers the pane a write wants shown once its harness is up.
+func (w *warmupState) hold(pane, harnessID string, focus bool) {
+	w.pending = pane
+	w.pendingHarness = harnessID
+	w.pendingFocus = focus
 }
 
 // applyWarmupTick shows the pane a write is holding the stage for once it is warm, and otherwise
@@ -220,14 +220,13 @@ func (m model) revealCreated(pane string, focus bool) (model, tea.Cmd) {
 	return m, cmd
 }
 
-// pollWarmup keeps a tick going while a pane is still being waited on, so a settled panel asks
-// tmux nothing.
-func (m model) pollWarmup() (model, tea.Cmd) {
-	if m.warm.polling || (len(m.warm.since) == 0 && m.warm.pending == "") {
-		return m, nil
+// poll keeps a tick going while a pane is still being waited on.
+func (w *warmupState) poll() tea.Cmd {
+	if w.polling || (len(w.since) == 0 && w.pending == "") {
+		return nil
 	}
 
-	m.warm.polling = true
+	w.polling = true
 
-	return m, warmupTick()
+	return warmupTick()
 }

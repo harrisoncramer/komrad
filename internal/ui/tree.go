@@ -387,7 +387,7 @@ func (m *model) applyWorkflows(fresh []workflowstore.Workflow) {
 
 func (m *model) applyAgents(fresh []agentItem) {
 	m.listing.agents = fresh
-	m.forgetUnlistedPullRequests(fresh)
+	m.pullRequests.forgetUnlisted(fresh)
 }
 
 // applyMarks takes the letters off both listings at once.

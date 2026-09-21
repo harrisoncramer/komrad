@@ -274,7 +274,7 @@ func (m model) columnDoc(split columnSplit) docWindow {
 	}
 
 	return docWindow{
-		rows:    paint.DocStyledRows(spec.doc(m), split.column, m.columnStyle()),
+		rows:    paint.DocStyledRows(spec.doc(m), split.column, columnStyle()),
 		top:     m.column.top,
 		markers: true,
 	}

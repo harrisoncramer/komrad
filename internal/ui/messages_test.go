@@ -204,19 +204,19 @@ func TestMessagesTallyCountsFromTheOldest(t *testing.T) {
 
 	focused := m.toggleMessagesFocus()
 
-	assert.Equal(t, "Newest", focused.messages.items[focused.messagesCursor()].summary, "the newest message is the one on screen")
+	assert.Equal(t, "Newest", focused.messages.items[focused.messages.clampedCursor()].summary, "the newest message is the one on screen")
 	assert.Contains(t, ansi.Strip(focused.messagesTally(0)), "3 of 3", "and it is the last of them")
 
 	back := send(t, focused, "<")
-	assert.Equal(t, "Second", back.messages.items[back.messagesCursor()].summary, "< walks back through time")
+	assert.Equal(t, "Second", back.messages.items[back.messages.clampedCursor()].summary, "< walks back through time")
 	assert.Contains(t, ansi.Strip(back.messagesTally(0)), "2 of 3")
 
 	oldest := send(t, back, "<")
-	assert.Equal(t, "First", oldest.messages.items[oldest.messagesCursor()].summary)
+	assert.Equal(t, "First", oldest.messages.items[oldest.messages.clampedCursor()].summary)
 	assert.Contains(t, ansi.Strip(oldest.messagesTally(0)), "1 of 3")
 
 	forward := send(t, oldest, ">")
-	assert.Equal(t, "Second", forward.messages.items[forward.messagesCursor()].summary, "and > comes back towards the newest")
+	assert.Equal(t, "Second", forward.messages.items[forward.messages.clampedCursor()].summary, "and > comes back towards the newest")
 }
 
 // TestMessagesRegionExpandsWhenFocused covers the region growing to hold the whole message

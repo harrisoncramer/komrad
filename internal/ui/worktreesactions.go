@@ -149,7 +149,7 @@ func (m model) worktreeDeleteDesc() string {
 		return "delete"
 	}
 
-	switch m.worktreeFate(row.item) {
+	switch row.item.fate {
 	case fateLive:
 		return "archive the agent"
 	case fateArchived:
@@ -172,10 +172,6 @@ const (
 	// fateLive is a directory whose agent is running, which is offered the archive.
 	fateLive
 )
-
-func (m model) worktreeFate(item worktreeItem) worktreeFate {
-	return item.fate
-}
 
 // jumpToWorktreeAgent lands the agents list or the archive on the hovered row's agent.
 func (m model) jumpToWorktreeAgent() (tea.Model, tea.Cmd) {
@@ -209,7 +205,7 @@ func (m model) deleteHoveredWorktree(string) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	switch m.worktreeFate(row.item) {
+	switch row.item.fate {
 	case fateLive:
 		if item, ok := m.liveAgent(row.item.agent.id); ok {
 			return m.archiveAgentsConfirm([]agentstore.Agent{item.agent})
@@ -230,7 +226,7 @@ func (m model) deleteChosenWorktrees(string) (tea.Model, tea.Cmd) {
 			continue
 		}
 
-		switch m.worktreeFate(row.item) {
+		switch row.item.fate {
 		case fateLive:
 			m.reportBrief("A live agent is in the selection", "Archive "+row.name()+" from the agents list first; nothing bulk stops a running agent.", nil)
 
@@ -253,7 +249,7 @@ func (m model) clearWorktreesConfirm() (tea.Model, tea.Cmd) {
 			continue
 		}
 
-		switch m.worktreeFate(row.item) {
+		switch row.item.fate {
 		case fateArchived:
 			deletion.agents = append(deletion.agents, row.item)
 		case fateUnowned:

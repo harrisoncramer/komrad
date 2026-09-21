@@ -231,7 +231,7 @@ func TestRefreshAsksForTheHoveredAgentsPullRequestsWhenTheyMove(t *testing.T) {
 	assert.Nil(t, m.listHoveredPullRequestsCmd(), "an answer on its way is not asked for again")
 	assert.Nil(t, m.listPullRequestsCmd(), "not even by a rest of the cursor")
 
-	m.applyAgentPullRequests(agentPullRequestsListedMsg{agentID: "a1", listed: agentPullRequests{
+	m.pullRequests.apply(agentPullRequestsListedMsg{agentID: "a1", listed: agentPullRequests{
 		answered: true,
 		standing: m.listing.agents[0].pullRequest,
 		err:      errors.New("refused"),
@@ -239,7 +239,7 @@ func TestRefreshAsksForTheHoveredAgentsPullRequestsWhenTheyMove(t *testing.T) {
 	assert.Nil(t, m.listHoveredPullRequestsCmd(), "an answer, even a refusal, is not asked for again")
 	assert.NotNil(t, m.listPullRequestsCmd(), "a rest of the cursor reads it afresh")
 
-	m.applyAgentPullRequests(agentPullRequestsListedMsg{agentID: "a1", listed: agentPullRequests{
+	m.pullRequests.apply(agentPullRequestsListedMsg{agentID: "a1", listed: agentPullRequests{
 		answered: true,
 		standing: m.listing.agents[0].pullRequest,
 	}})
@@ -254,8 +254,8 @@ func TestRefreshAsksForTheHoveredAgentsPullRequestsWhenTheyMove(t *testing.T) {
 // listing still holds.
 func TestAgentsLeavingTheListingDropTheirPullRequests(t *testing.T) {
 	m := gitModel(t)
-	m.applyAgentPullRequests(agentPullRequestsListedMsg{agentID: "gone", listed: agentPullRequests{answered: true}})
-	m.applyAgentPullRequests(agentPullRequestsListedMsg{agentID: "kept", listed: agentPullRequests{answered: true}})
+	m.pullRequests.apply(agentPullRequestsListedMsg{agentID: "gone", listed: agentPullRequests{answered: true}})
+	m.pullRequests.apply(agentPullRequestsListedMsg{agentID: "kept", listed: agentPullRequests{answered: true}})
 
 	m.applyAgents([]agentItem{{agent: agentstore.Agent{ID: "kept"}}})
 

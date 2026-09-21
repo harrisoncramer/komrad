@@ -154,7 +154,7 @@ func (m model) openSearchInput() (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-func (m model) debounceSearchCmd(query string) tea.Cmd {
+func debounceSearchCmd(query string) tea.Cmd {
 	if strings.TrimSpace(query) == "" {
 		return func() tea.Msg { return searchResult{query: query} }
 	}
@@ -400,15 +400,15 @@ func (m model) updateSearchInput(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.search.query = paint.TrimLastRune(m.search.query)
 		}
 
-		return m, m.debounceSearchCmd(m.search.query)
+		return m, debounceSearchCmd(m.search.query)
 	case key.Type == tea.KeySpace:
 		m.search.query += " "
 
-		return m, m.debounceSearchCmd(m.search.query)
+		return m, debounceSearchCmd(m.search.query)
 	case key.Type == tea.KeyRunes:
 		m.search.query += string(key.Runes)
 
-		return m, m.debounceSearchCmd(m.search.query)
+		return m, debounceSearchCmd(m.search.query)
 	}
 
 	return m, nil

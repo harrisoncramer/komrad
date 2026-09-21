@@ -179,8 +179,6 @@ func TestEnterOnAWorktreeLandsOnItsAgent(t *testing.T) {
 // TestWorktreeFateIsReadOffTheWire covers each fate the server names landing on the item, and
 // one it does not name reading as unowned.
 func TestWorktreeFateIsReadOffTheWire(t *testing.T) {
-	m := worktreesModel()
-
 	for wire, want := range map[worktreev1.WorktreeFate]worktreeFate{
 		worktreev1.WorktreeFate_WORKTREE_FATE_LIVE:        fateLive,
 		worktreev1.WorktreeFate_WORKTREE_FATE_ARCHIVED:    fateArchived,
@@ -188,7 +186,7 @@ func TestWorktreeFateIsReadOffTheWire(t *testing.T) {
 		worktreev1.WorktreeFate_WORKTREE_FATE_UNSPECIFIED: fateUnowned,
 	} {
 		item := worktreeItemFrom(&worktreev1.Worktree{Dir: "/trees/a", Fate: wire})
-		assert.Equal(t, want, m.worktreeFate(item), wire.String())
+		assert.Equal(t, want, item.fate, wire.String())
 	}
 }
 

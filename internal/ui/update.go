@@ -44,7 +44,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	routed, blink := routed.updateRowCursor(msg)
-	routed, warming := routed.pollWarmup()
+	warming := routed.warm.poll()
 	routed, pulse := routed.pulseMessages(m.messages.landed)
 	routed = routed.releaseHiddenDetails()
 	routed.holdFocusKey()
@@ -297,7 +297,7 @@ func (m model) routeAsyncMessage(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
 
 		return m, nil, true
 	case agentPullRequestsListedMsg:
-		m.applyAgentPullRequests(msg)
+		m.pullRequests.apply(msg)
 
 		return m, nil, true
 	case urlOpenedMsg:
