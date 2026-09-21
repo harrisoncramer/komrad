@@ -129,8 +129,8 @@ func (m *model) reportUnreachable(err error) {
 	}
 
 	reason := errui.GetReason(err)
-	if m.addr != "" && !strings.Contains(reason, m.addr) {
-		reason = m.addr + ": " + reason
+	if m.settings.Addr != "" && !strings.Contains(reason, m.settings.Addr) {
+		reason = m.settings.Addr + ": " + reason
 	}
 
 	m.reportBrief("Cannot reach the server", reason, err)

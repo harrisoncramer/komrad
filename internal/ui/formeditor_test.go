@@ -17,7 +17,7 @@ import (
 // and no other field.
 func TestEditorKeyOpensTheFieldUnderTheCursor(t *testing.T) {
 	m := formModel(&formRecorder{})
-	m.editor = "true"
+	m.settings.Editor = "true"
 
 	values := workflowFormValues{
 		Context:              "the notes as they stand",
@@ -61,7 +61,7 @@ func TestEditorKeyOpensTheFieldUnderTheCursor(t *testing.T) {
 // key to huh.
 func TestEditorKeyIsHandedOnByAFieldWithNoText(t *testing.T) {
 	m := formModel(&formRecorder{})
-	m.editor = "true"
+	m.settings.Editor = "true"
 
 	name := ""
 	opened, _ := m.openRenameForm(agentstore.Agent{ID: "a1", Name: "api"}, &name)
@@ -100,7 +100,7 @@ func TestEditorKeyOnEitherProvisioner(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			m := formModel(&formRecorder{})
-			m.editor = "true"
+			m.settings.Editor = "true"
 
 			values := workflowFormValues{Provisioner: tt.provisioner, Context: "the notes"}
 

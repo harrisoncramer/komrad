@@ -105,12 +105,12 @@ func TestOpenKeyDoesNothingForHeldAgent(t *testing.T) {
 	tmux := &recordingTmux{}
 
 	m := model{
-		api:    api{agents: &recordingHolds{}, workflows: emptyLists{}},
-		tmux:   tmux,
-		pane:   "%3",
-		frame:  layout.New(tmux, config.DefaultLayout()),
-		keys:   config.DefaultKeybindings(),
-		screen: screenAgents,
+		api:      api{agents: &recordingHolds{}, workflows: emptyLists{}},
+		tmux:     tmux,
+		settings: PanelSettings{Pane: "%3"},
+		frame:    layout.New(tmux, config.DefaultLayout()),
+		keys:     config.DefaultKeybindings(),
+		screen:   screenAgents,
 		listing: listing{
 			workflows: []workflowstore.Workflow{{
 				ID:   "w1",

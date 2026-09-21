@@ -116,7 +116,7 @@ func TestOpeningTheRunLogLandsOnTheRunThatFailed(t *testing.T) {
 	seedRunLogs(t, logsDir, "a1", 2)
 
 	m, _ := failedRunTree()
-	m.runLogsDir = logsDir
+	m.settings.RunLogsDir = logsDir
 	m.listing.agents[0].failedRunLog = xptr.Ptr(int32(1))
 	m.tree.cursor = 1
 
@@ -140,7 +140,7 @@ func TestTheRunLogFollowsTheCursorOntoTheFailedRun(t *testing.T) {
 	seedRunLogs(t, logsDir, "a2", 2)
 
 	m, _ := failedRunTree()
-	m.runLogsDir = logsDir
+	m.settings.RunLogsDir = logsDir
 	m.listing.agents[0].failedRunLog = xptr.Ptr(int32(1))
 	m.info.kind = infoRunLog
 
@@ -225,7 +225,7 @@ func TestRunPositionNamesWhichRunIsOnScreen(t *testing.T) {
 			}
 
 			m, _ := failedRunTree()
-			m.runLogsDir = logsDir
+			m.settings.RunLogsDir = logsDir
 			m.tree.cursor = 1
 			m.info.run = tt.back
 

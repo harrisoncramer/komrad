@@ -226,7 +226,7 @@ func TestNewModelWiresTmux(t *testing.T) {
 				Workflows:   emptyLists{},
 				Schedules:   &fakeSchedules{},
 				Keys:        config.DefaultKeybindings(),
-				Addr:        "127.0.0.1:8787",
+				Settings:    PanelSettings{Addr: "127.0.0.1:8787"},
 			}, true, nil)
 
 			require.NotNil(t, m.tmux, "the panel cannot answer a blank directory without tmux")

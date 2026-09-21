@@ -244,7 +244,7 @@ func TestMessagesYieldToTakeoverScreens(t *testing.T) {
 func TestUnreachableReportsOnce(t *testing.T) {
 	m := detailsModel(&recordingTmux{})
 	m.height, m.width = 40, 60
-	m.addr = "127.0.0.1:8787"
+	m.settings.Addr = "127.0.0.1:8787"
 
 	m.applyRefresh(refreshResult{agentsErr: errors.New("connection refused")})
 	require.Len(t, m.messages.items, 1)
@@ -302,7 +302,7 @@ func TestConfigErrorView(t *testing.T) {
 			m := model{
 				configErr:   errors.New("failed to parse config /home/u/.config/weave/config.toml: keybindings.list is not a setting; [keybindings] takes agents, archive, filter, form, help, nav, schedules, selection, workflows"),
 				unreachable: tt.unreachable,
-				addr:        "127.0.0.1:8787",
+				settings:    PanelSettings{Addr: "127.0.0.1:8787"},
 				listing:     listing{agents: []agentItem{{agent: agentstore.Agent{Name: "should-not-render", State: agentstore.StateIdle}}}},
 			}
 
@@ -367,7 +367,7 @@ func TestStartupErrorView(t *testing.T) {
 				configErr:   tt.configErr,
 				startupErr:  errors.New("the agent server stopped during startup: failed to reach db: connection refused"),
 				unreachable: tt.unreachable,
-				addr:        "127.0.0.1:8787",
+				settings:    PanelSettings{Addr: "127.0.0.1:8787"},
 				listing:     listing{agents: []agentItem{{agent: agentstore.Agent{Name: "should-not-render", State: agentstore.StateIdle}}}},
 			}
 
@@ -398,7 +398,7 @@ func TestStartupErrorScreenIsTerminal(t *testing.T) {
 func TestUnreachableView(t *testing.T) {
 	m := detailsModel(&recordingTmux{})
 	m.height, m.width = 40, 80
-	m.addr = "127.0.0.1:8787"
+	m.settings.Addr = "127.0.0.1:8787"
 
 	down, _ := m.Update(refreshResult{agentsErr: errors.New("dial tcp 127.0.0.1:8787: connect: connection refused")})
 	m, ok := down.(model)

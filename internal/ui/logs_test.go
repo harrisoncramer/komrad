@@ -21,8 +21,8 @@ func logsModel(t *testing.T, tmux *recordingTmux) (model, string) {
 	require.NoError(t, os.WriteFile(path, []byte("listening on 127.0.0.1:8787\n"), 0o644))
 
 	m := infoModel(tmux)
-	m.logPath = path
-	m.runLogsDir = t.TempDir()
+	m.settings.LogPath = path
+	m.settings.RunLogsDir = t.TempDir()
 	m.listing.agents[0].agent.ID = "a1"
 
 	return m, path
@@ -94,8 +94,8 @@ func TestOlderLogStepsBackThroughTheRuns(t *testing.T) {
 	tmux := &recordingTmux{}
 	m, _ := logsModel(t, tmux)
 
-	first := writeRun(t, m.runLogsDir, "a1", 1, config.TriggerProvision, "make-worktree")
-	second := writeRun(t, m.runLogsDir, "a1", 2, config.TriggerResume, "make-worktree")
+	first := writeRun(t, m.settings.RunLogsDir, "a1", 1, config.TriggerProvision, "make-worktree")
+	second := writeRun(t, m.settings.RunLogsDir, "a1", 2, config.TriggerResume, "make-worktree")
 
 	shown := pressLogs(t, m)
 	require.Equal(t, infoRunLog, shown.info.kind)
@@ -116,7 +116,7 @@ func TestOlderLogIsInertWithoutARunToStepTo(t *testing.T) {
 	tmux := &recordingTmux{}
 	m, _ := logsModel(t, tmux)
 
-	writeRun(t, m.runLogsDir, "a1", 1, config.TriggerProvision, "make-worktree")
+	writeRun(t, m.settings.RunLogsDir, "a1", 1, config.TriggerProvision, "make-worktree")
 
 	shown := pressLogs(t, m)
 	stepped := pressOlderLog(t, shown)
@@ -188,7 +188,7 @@ func TestRunLogContentPagesTheDurableFile(t *testing.T) {
 	tmux := &recordingTmux{}
 	m, _ := logsModel(t, tmux)
 
-	path := writeRun(t, m.runLogsDir, "a1", 1, config.TriggerProvision, "make-worktree")
+	path := writeRun(t, m.settings.RunLogsDir, "a1", 1, config.TriggerProvision, "make-worktree")
 
 	content := m.runLogContent()
 	argv, ok := content.Render(layout.Target{})
@@ -305,7 +305,7 @@ func TestFailedPlaceholderPointsAtTheLogWhenThereIsOne(t *testing.T) {
 		},
 	}
 
-	path := writeRun(t, m.runLogsDir, agent.ID, 1, config.TriggerProvision, "make-worktree")
+	path := writeRun(t, m.settings.RunLogsDir, agent.ID, 1, config.TriggerProvision, "make-worktree")
 
 	withLog := m.failedPlaceholder(agent)
 	assert.Contains(t, withLog, `Press "l"`)
@@ -329,8 +329,8 @@ func TestFailedPlaceholderPointsAtTheHookThatFailedTheCreate(t *testing.T) {
 		Metadata: []agentstore.Metadata{{Key: "error", Value: "install-deps: mise refused"}},
 	}
 
-	writeRun(t, m.runLogsDir, agent.ID, 1, config.TriggerProvision, "make-worktree")
-	writeRun(t, m.runLogsDir, agent.ID, 2, config.HookPreLaunch, "install-deps")
+	writeRun(t, m.settings.RunLogsDir, agent.ID, 1, config.TriggerProvision, "make-worktree")
+	writeRun(t, m.settings.RunLogsDir, agent.ID, 2, config.HookPreLaunch, "install-deps")
 
 	assert.Contains(t, m.failedPlaceholder(agent), "run 002", "the hook's run is the one that failed")
 }
@@ -347,8 +347,8 @@ func TestFailedPlaceholderPointsAtTheHookThatFailedTheDelete(t *testing.T) {
 		Metadata: []agentstore.Metadata{{Key: "error", Value: "take-the-stack-down: docker refused"}},
 	}
 
-	writeRun(t, m.runLogsDir, agent.ID, 1, config.TriggerProvision, "make-worktree")
-	writeRun(t, m.runLogsDir, agent.ID, 2, config.HookPreTeardown, "take-the-stack-down")
+	writeRun(t, m.settings.RunLogsDir, agent.ID, 1, config.TriggerProvision, "make-worktree")
+	writeRun(t, m.settings.RunLogsDir, agent.ID, 2, config.HookPreTeardown, "take-the-stack-down")
 
 	drawn := m.failedPlaceholder(agent)
 	assert.Contains(t, drawn, "run 002", "the hook's run is the one that failed")
@@ -367,7 +367,7 @@ func TestFailedPlaceholderSkipsARunWithNothingInIt(t *testing.T) {
 		Metadata: []agentstore.Metadata{{Key: "error", Value: "tmux refused the window"}},
 	}
 
-	empty := writeRun(t, m.runLogsDir, agent.ID, 1, config.TriggerProvision, "make-worktree")
+	empty := writeRun(t, m.settings.RunLogsDir, agent.ID, 1, config.TriggerProvision, "make-worktree")
 	require.NoError(t, os.Truncate(empty, 0))
 
 	assert.Contains(t, m.failedPlaceholder(agent), "tmux refused", "with nothing to read, the reason is what is left")
@@ -378,7 +378,7 @@ func TestFailedPlaceholderSkipsARunWithNothingInIt(t *testing.T) {
 func TestLogKeysAreInertInTheArchive(t *testing.T) {
 	tmux := &recordingTmux{}
 	m, _ := logsModel(t, tmux)
-	writeRun(t, m.runLogsDir, "a1", 1, config.TriggerDeprovision, "drop-worktree")
+	writeRun(t, m.settings.RunLogsDir, "a1", 1, config.TriggerDeprovision, "drop-worktree")
 	m.screen = screenArchive
 
 	pressed := pressLogs(t, m)

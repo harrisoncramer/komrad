@@ -51,7 +51,7 @@ func (m model) openFormFieldEditor() (tea.Model, tea.Cmd, bool) {
 
 	// The field is a file with nothing above it, so the editor opens on line one.
 	//nolint:noctx // the editor runs until the field is closed, so it takes no deadline
-	open := exec.Command("sh", "-c", editorShell(m.editor, path, 1))
+	open := exec.Command("sh", "-c", editorShell(m.settings.Editor, path, 1))
 
 	return m, tea.ExecProcess(open, func(err error) tea.Msg {
 		if err != nil {

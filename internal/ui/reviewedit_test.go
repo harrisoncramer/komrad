@@ -77,7 +77,7 @@ func TestEditorShellNamesTheLineTheEditorUnderstands(t *testing.T) {
 func TestEditorOpensAtTheRepositoryRoot(t *testing.T) {
 	dir := reviewRepo(t)
 	m, tmux := reviewModel(t, &fakeReviewAgents{}, dir)
-	m.editor = "vi"
+	m.settings.Editor = "vi"
 	m.listing.agents[0].agent.Cwd = filepath.Join(dir, "cmd", "greet")
 
 	m = openReview(t, m)

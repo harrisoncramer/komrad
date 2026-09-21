@@ -59,7 +59,7 @@ func (m model) holdFocusKey() {
 		return
 	}
 
-	m.popup.HoldFocusKey(m.pane, m.focusPane())
+	m.popup.HoldFocusKey(m.settings.Pane, m.focusPane())
 }
 
 // focusPane is the agent's pane the focus key jumps to, empty where the stage holds none or the
