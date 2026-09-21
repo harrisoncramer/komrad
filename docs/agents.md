@@ -18,7 +18,7 @@ Separately from state, an agent is either running or dormant. Dormant agents' pa
 
 Adoption puts an agent on a branch somebody else made. Hover a worktree-enabled workflow's header, press `a`, and give it a branch name. It is the workflow's key rather than an agent's, since what you are adopting into is the workflow.
 
-A branch is git's own idea rather than a forge's, so adoption works the same on GitHub, on GitLab, on a self-hosted remote, and on a repository with no forge behind it at all. A pull request URL or number is refused, naming what to do instead, since weave no longer reads one.
+A branch is git's own idea rather than a forge's, so adoption works the same on GitHub, on GitLab, on a self-hosted remote, and on a repository with no forge behind it at all. A pull request URL or number is refused, naming what to do instead.
 
 Where the agent runs depends on what is already there. When nothing has the branch checked out, the agent gets a worktree of its own on it, fetched from origin first. When some other checkout already holds it, made by hand or by another tool, the agent is launched into that directory as it stands and provisions nothing. When the branch is checked out in the workflow's own directory, adoption refuses, since that is the checkout you are working in.
 
@@ -52,7 +52,7 @@ The panel shows those in the details under the list, after what the agent was la
 
 The third glyph on an agent's row is the pull request opened from its branch, read from the forge by the [pull request sync](forges.md#reading-pull-requests). The row shows one, the current one: the newest opened that is not finished, else the newest opened of the finished. Open is the pull request glyph greyed, approved is a green check, changes requested is the pull request glyph in yellow, a draft has its own glyph greyed, merged is purple, and closed without merging is red. Nothing is drawn while the repository has not been read yet, or once it has and nothing was opened from the branch; the details under the list say which.
 
-The details carry a `pull request` row for the current one, "#740 merged 2h ago", and a `pull requests` row listing the rest when the branch holds more than one. `list_agent_pull_requests` over [MCP](mcp.md) answers the same listing.
+The details carry a `pull request` row for the current one, such as "#740 merged 2h ago", and a `pull requests` row listing the rest when the branch holds more than one. `list_agent_pull_requests` over [MCP](mcp.md) answers the same listing.
 
 ## The details
 

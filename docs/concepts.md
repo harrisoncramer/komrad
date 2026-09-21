@@ -20,13 +20,13 @@ On the agents list, focus moves between the sidebar and the agent's pane on the 
 
 ## Weave's API
 
-Every call into weave goes through an API. The panel calls them as a ConnectRPC client.
+Every call into weave goes through an API. The panel is one client of it.
 
 For instance, telling weave to archive an agent is a keypress in the manager panel, which hits Weave's server, which archives the agent.
 
 The `weave rpc` subcommand is a wrapper around those APIs, with one subcommand per RPC method. The MCP tools are generated from the same list.
 
-Every method says who reaches it, in a `surfaces` annotation on the proto: whether `weave rpc` gets a command for it, and whether the MCP server offers it as a tool. Most methods are on both. A few are on neither and belong to the panel alone, such as emptying the archive, and a few are a command but not a tool, such as connecting a forge with a token a model should never hold. A surface that is off carries the reason, and a lint check refuses a method that says nothing.
+Every method in the API says who reaches it: whether `weave rpc` gets a command for it, and whether the MCP server offers it as a tool. Most methods are on both. A few are on neither and belong to the panel alone, such as emptying the archive, and a few are a command but not a tool, such as connecting a forge with a token a model should never hold. A surface that is off carries the reason, and a method that says nothing is refused at build time.
 
 The practical consequence of this, is that adding an endpoint gives you a CLI command and an MCP tool for free, every time, and taking one away is a deliberate line rather than an omission.
 
@@ -34,13 +34,13 @@ The practical consequence of this, is that adding an endpoint gives you a CLI co
 
 Weave's architecture is built in a series of layers.
 
-The first is the ConnectRPC handlers, the MCP server, and the CLI. These layers parse, validate, and translate. The interceptors in `internal/interceptors` are cross-cutting rules that do validation and payload manipulation logic.
+The outermost layer is the API handlers, the MCP server, and the CLI. These parse, validate, and translate. Interceptors sit in front of the handlers as cross-cutting rules: they log the call, attach who made it, and validate the request.
 
-The next layer is the services, one package per domain: `internal/agents` holds the agent lifecycle, and `internal/mail`, `internal/marks`, `internal/schedules`, `internal/transcripts`, `internal/pullrequests`, `internal/reviews`, `internal/checkouts`, `internal/scriptrun`, `internal/worktrees` and `internal/forge` hold the rest. The business logic lives here. The handlers in `internal/rpc/*` say which RPC calls which service.
+The next layer is the services, one per domain: agents, mail, marks, schedules, transcripts, pull requests, reviews, checkouts, scripts, worktrees, and forges. The business logic lives here. A handler does nothing but translate a request into a call on the service for its domain.
 
-The stores, which hold data, are in `internal/store` and the packages beneath it, one per domain. This package also holds database transactions.
+The stores hold the data, again one per domain, and own the database transactions.
 
-Separately, adapters are in `internal/tmux`, `internal/harness`, and `internal/scripts`. Each one is a seam in front of something weave does not own. For instance, the `harness` package is where the boundary between different CLI agents (Claude vs. Codex) is kept.
+Separately, adapters stand in front of the things weave does not own: tmux, the agent CLIs, and the scripts it runs. Each one is a seam. The harness adapter, for instance, is where the difference between Claude and Codex is kept, so nothing above it knows which CLI an agent runs.
 
 ## Postgres
 
@@ -50,7 +50,7 @@ In order to reconcile state into tmux from the database, the server runs refresh
 
 The reconcile loop runs every two seconds. This loop is responsible for reconciling the state of the agent with the view in the manager panel. For instance, the agent's "thinking" state is determined based on the presence of text in the render window that looks like thinking text, not based on stop, start or other hooks, which are unreliable.
 
-The schedule reconciler loop runs every ten seconds. This makes the job queue's registrations of work match the schedules table. The queue is managed by River, a Go package.
+The schedule reconciler loop runs every ten seconds. This makes the job queue's registrations of work match the schedules table.
 
 The mail delivery loop runs every two seconds. This finds mail (agent-to-agent messages) that the recipient hasn't read yet, and makes sure it's delivered. This handles instances where an agent has stopped and would otherwise miss messages, and ensures that all agent-to-agent communications are eventually delivered. This makes multi-agent orchestration patterns possible.
 
@@ -60,11 +60,11 @@ Finally, the transcript sync runs every fifteen seconds. It folds each agent's n
 
 Let's walk through one behavior, end-to-end.
 
-Imagine you press the archive key. The panel's model turns that keypress into a command, which calls the `ArchiveAgents` method on the client. Nothing about the panel's own state changes yet.
+Imagine you press the archive key. The panel turns that keypress into an archive request and sends it to the service. Nothing about the panel's own state changes yet.
 
-The request arrives at the service and passes the interceptors, which log it, attach caller info, and validate it against the constraints declared in the protocol buffer file.
+The request arrives at the service and passes the interceptors, which log it, attach caller info, and validate it against the constraints the API declares.
 
-The handler in `internal/rpc/agent` then translates that request into a call on the service in `internal/agents`, which applies business logic rules: the agents must exist, and archiving them means stopping their panes as well as marking the rows.
+The handler then translates that request into a call on the agents service, which applies the rules: the agents must exist, and archiving them means stopping their panes as well as marking the rows.
 
 The store then writes the rows, inside one transaction if more than one domain is involved. The service also kills the panes through the tmux adapter.
 

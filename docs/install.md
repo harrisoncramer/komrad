@@ -56,7 +56,7 @@ To verify a download, fetch `checksums.txt` from the same release and check agai
 shasum -a 256 -c checksums.txt --ignore-missing
 ```
 
-If you drive a remote engine, the two halves have to be the same build: the panel refuses an engine running other code. Install your weave from the release the engine is running, and move both together. `docs/remote.md` covers it.
+If you drive a remote engine, the two halves have to be the same build: the panel refuses an engine running other code. Install your weave from the release the engine is running, and move both together. [Running it remotely](remote.md) covers it.
 
 ## The database
 
