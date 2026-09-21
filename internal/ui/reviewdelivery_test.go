@@ -224,7 +224,7 @@ func TestReviewVerdictIsChosenInThePanel(t *testing.T) {
 
 			next, _ := m.updateReview(tea.KeyMsg{Type: tea.KeyCtrlS})
 			m = next.(model)
-			require.True(t, m.review.releasing, "the submit key asks rather than sends")
+			require.True(t, m.review.threads.releasing, "the submit key asks rather than sends")
 			require.Nil(t, agents.released, "and nothing has gone yet")
 
 			for range tt.tabs {
@@ -235,7 +235,7 @@ func TestReviewVerdictIsChosenInThePanel(t *testing.T) {
 			sent, cmd := m.updateReview(tea.KeyMsg{Type: tea.KeyCtrlS})
 			m = sent.(model)
 			require.NotNil(t, cmd)
-			require.False(t, m.review.releasing, "and the panel is put away")
+			require.False(t, m.review.threads.releasing, "and the panel is put away")
 
 			wrote, ok := cmd().(reviewWroteMsg)
 			require.True(t, ok)
@@ -284,12 +284,12 @@ func TestAbandoningTheReleasePanelSendsNothing(t *testing.T) {
 
 	next, _ := m.updateReview(tea.KeyMsg{Type: tea.KeyCtrlS})
 	m = next.(model)
-	require.True(t, m.review.releasing)
+	require.True(t, m.review.threads.releasing)
 
 	next, _ = m.updateReview(tea.KeyMsg{Type: tea.KeyEsc})
 	m = next.(model)
 
-	assert.False(t, m.review.releasing, "the panel is put away")
+	assert.False(t, m.review.threads.releasing, "the panel is put away")
 	assert.Nil(t, agents.released, "and nothing was sent")
 }
 
@@ -346,8 +346,8 @@ func TestReviewOfADeadAgentIsReadOnly(t *testing.T) {
 				refused := next.(model)
 
 				assert.Nil(t, cmd, "%v sends nothing", key)
-				assert.False(t, refused.review.composing, "%v does not open the editor", key)
-				assert.False(t, refused.review.releasing, "%v does not open the release panel", key)
+				assert.False(t, refused.review.threads.composing, "%v does not open the editor", key)
+				assert.False(t, refused.review.threads.releasing, "%v does not open the release panel", key)
 				assert.Contains(t, refused.review.notice, tt.want, "%v says why", key)
 			}
 

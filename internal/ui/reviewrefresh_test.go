@@ -75,7 +75,7 @@ func TestReviewRefreshDoesNothingWhenNothingWasSaid(t *testing.T) {
 	require.True(t, ok)
 	m.applyReviewRefreshed(refreshed)
 
-	assert.Same(t, held[0], m.review.threads[0], "the same conversation is not pinned again")
+	assert.Same(t, held[0], m.review.threads.list[0], "the same conversation is not pinned again")
 }
 
 // TestReviewRefreshSeesDeliveryMoveWithoutAStamp is the probe's hard case: the agent claiming
@@ -108,7 +108,7 @@ func TestReviewRefreshSeesDeliveryMoveWithoutAStamp(t *testing.T) {
 
 			m.applyReviewRefreshed(reviewRefreshedMsg{agentID: "a1", threads: moved})
 
-			assert.Same(t, moved[0], m.review.threads[0], "the move is taken")
+			assert.Same(t, moved[0], m.review.threads.list[0], "the move is taken")
 			assert.Contains(t, ansi.Strip(m.reviewView()), reviewDeliveryOf(tt.then).word)
 		})
 	}
@@ -141,12 +141,12 @@ func TestReviewRefreshHoldsOneReadAtATime(t *testing.T) {
 
 	at := time.Now()
 	require.NotNil(t, m.refreshReviewCmd(at))
-	require.True(t, m.review.polling)
+	require.True(t, m.review.threads.polling)
 
 	assert.Nil(t, m.refreshReviewCmd(at.Add(time.Second)), "nothing is asked for while a read is in flight")
 
 	m.applyReviewRefreshed(reviewRefreshedMsg{agentID: "a1"})
-	assert.False(t, m.review.polling)
+	assert.False(t, m.review.threads.polling)
 	assert.NotNil(t, m.refreshReviewCmd(at.Add(2*time.Second)), "and the tick after it lands asks again")
 }
 
@@ -159,7 +159,7 @@ func TestReviewRefreshStandsDownMidInput(t *testing.T) {
 	}{
 		{
 			name:  "a message is being composed",
-			start: func(m *model) { m.review.composing = true },
+			start: func(m *model) { m.review.threads.composing = true },
 		},
 		{
 			name:  "a search pattern is being typed",
@@ -176,7 +176,7 @@ func TestReviewRefreshStandsDownMidInput(t *testing.T) {
 			tt.start(&m)
 
 			assert.Nil(t, m.refreshReviewCmd(time.Now()))
-			assert.False(t, m.review.polling)
+			assert.False(t, m.review.threads.polling)
 			assert.False(t, m.review.diff.diffPolling)
 		})
 	}
@@ -194,7 +194,7 @@ func TestReviewRefreshLeavesTheComposerAlone(t *testing.T) {
 
 	next, _ := m.composeReview()
 	m = next.(model)
-	require.True(t, m.review.composing)
+	require.True(t, m.review.threads.composing)
 
 	m = typeReviewMessage(t, m, "half a thought")
 	cursor, top := m.review.diff.cursor, m.review.diff.top
@@ -202,15 +202,15 @@ func TestReviewRefreshLeavesTheComposerAlone(t *testing.T) {
 
 	m.applyReviewRefreshed(reviewRefreshedMsg{agentID: "a1", threads: threads})
 
-	assert.True(t, m.review.composing, "the editor is still up")
-	assert.Equal(t, "half a thought", m.review.editor.value(), "with what was typed into it")
+	assert.True(t, m.review.threads.composing, "the editor is still up")
+	assert.Equal(t, "half a thought", m.review.threads.editor.value(), "with what was typed into it")
 	assert.Equal(t, cursor, m.review.diff.cursor)
 	assert.Equal(t, top, m.review.diff.top)
 	assert.Empty(t, tmux.sentKeys, "and the diff was not repainted under it")
 
 	// The probe is left where it was, so the tick after the composer closes finds this again.
-	m.review.composing = false
-	m.review.editor = reviewInput{}
+	m.review.threads.composing = false
+	m.review.threads.editor = reviewInput{}
 	m.applyReviewRefreshed(reviewRefreshedMsg{agentID: "a1", threads: threads})
 	assert.Contains(t, ansi.Strip(m.reviewView()), "fixed it")
 }
@@ -329,7 +329,7 @@ func TestReviewRefreshSaysNothingWhenTheReadFails(t *testing.T) {
 	m.applyReviewRefreshed(reviewRefreshedMsg{agentID: "a1", err: assert.AnError})
 
 	assert.Empty(t, m.messages.items)
-	assert.False(t, m.review.polling)
+	assert.False(t, m.review.threads.polling)
 }
 
 // TestReviewDiffPollCatchesUpOnceTheTurnIsOver covers what watching is for: the worktree is

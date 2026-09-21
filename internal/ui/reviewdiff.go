@@ -88,9 +88,9 @@ const (
 	reviewEmptyWord   = "nothing changed in this worktree"
 )
 
-// reviewDiffNotice is what stands in the diff's own column before a patch does.
-func (m model) reviewDiffNotice() string {
-	if m.review.loading {
+// diffNotice is what stands in the diff's own column before a patch does.
+func (r reviewState) diffNotice() string {
+	if r.loading {
 		return "_" + reviewLoadingWord + "_"
 	}
 
@@ -105,7 +105,7 @@ func (m model) reviewDiffView(split columnSplit) string {
 		// This is the larger half of the window, so it says what is being waited on rather than
 		// standing empty under a band, and stands rather than collapsing so the frame does not
 		// shift under the reader when the patch lands.
-		return docWindow{rows: paint.DocStyledRows(m.reviewDiffNotice(), split.column, reviewColumnStyle())}.view(split.rows)
+		return docWindow{rows: paint.DocStyledRows(m.review.diffNotice(), split.column, reviewColumnStyle())}.view(split.rows)
 	}
 
 	start := max(min(m.review.diff.top, view.Len()-split.rows), 0)

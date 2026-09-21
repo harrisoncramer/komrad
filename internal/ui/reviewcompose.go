@@ -38,21 +38,21 @@ func (m model) composeReview() (tea.Model, tea.Cmd) {
 		return m.refuseReviewLine()
 	}
 
-	m.review.editing = ""
+	m.review.threads.editing = ""
 	if replying {
-		m.review.editing = thread.GetId()
+		m.review.threads.editing = thread.GetId()
 	}
 
-	m.review.composing = true
+	m.review.threads.composing = true
 
 	return m.openReviewInput(newReviewInputParams{
-		Title:       m.reviewInputTitle(replying),
+		Title:       reviewInputTitle(replying),
 		Description: reviewInputHint(formKeys().Editor, formKeys().Submit, "save"),
 		Placeholder: "what should the agent change here?",
 	})
 }
 
-func (m model) reviewInputTitle(replying bool) string {
+func reviewInputTitle(replying bool) string {
 	if replying {
 		return "Reply"
 	}
@@ -77,7 +77,7 @@ func (m model) openReviewInput(params newReviewInputParams) (tea.Model, tea.Cmd)
 	params.Keys = formKeys()
 
 	input, cmd := newReviewInput(params)
-	m.review.editor = input
+	m.review.threads.editor = input
 
 	return m, cmd
 }
@@ -110,8 +110,8 @@ func (m model) refuseReviewLine() (tea.Model, tea.Cmd) {
 func (m model) leaveReviewWriting() (tea.Model, tea.Cmd) {
 	// Comments already written are held by the panel rather than by the pass, so leaving keeps
 	// them and says so.
-	if m.doesReviewHoldUnsent() {
-		m.review.notice = label.Counted(m.reviewUnsentCount(), "comment") + " kept, still unsent"
+	if m.review.threads.holdsUnsent() {
+		m.review.notice = label.Counted(m.review.threads.unsentCount(), "comment") + " kept, still unsent"
 	}
 
 	return m.endReviewPass(abandonedSaid)
@@ -124,7 +124,9 @@ func (m model) updateReviewComposer(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	// the one that opens it in an editor, come from the form keymap.
 	switch {
 	case isBound(k, formKeys().Back):
-		return m.cancelReviewMessage(), nil
+		m.review.threads.cancelMessage()
+
+		return m, nil
 	case isBound(k, formKeys().Quit):
 		return m, m.hide()
 	case isBound(k, formKeys().Editor):
@@ -133,8 +135,8 @@ func (m model) updateReviewComposer(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.saveReviewMessage()
 	}
 
-	editor, cmd := m.review.editor.update(key)
-	m.review.editor = editor
+	editor, cmd := m.review.threads.editor.update(key)
+	m.review.threads.editor = editor
 
 	return m, cmd
 }
@@ -151,7 +153,7 @@ func (m model) openMessageEditor() (tea.Model, tea.Cmd) {
 	agentID := m.review.agentID
 	path := messageDraftPath(agentID)
 
-	if err := os.WriteFile(path, []byte(m.review.editor.value()), 0o600); err != nil {
+	if err := os.WriteFile(path, []byte(m.review.threads.editor.value()), 0o600); err != nil {
 		m.report("Your editor could not be opened on that message", err)
 
 		return m, nil
@@ -183,7 +185,7 @@ func messageDraftPath(agentID string) string {
 
 // applyMessageEdited puts what the editor wrote back into the composer.
 func (m *model) applyMessageEdited(msg messageEditedMsg) {
-	if msg.agentID != m.review.agentID || (!m.review.composing && !m.review.releasing) {
+	if msg.agentID != m.review.agentID || (!m.review.threads.composing && !m.review.threads.releasing) {
 		return
 	}
 
@@ -194,30 +196,32 @@ func (m *model) applyMessageEdited(msg messageEditedMsg) {
 	}
 
 	said, key := "save", formKeys().Submit
-	if m.review.releasing {
+	if m.review.threads.releasing {
 		said = "send"
 	}
 
 	input, _ := newReviewInput(newReviewInputParams{
-		Title:       m.reviewInputTitle(m.review.editing != ""),
+		Title:       reviewInputTitle(m.review.threads.editing != ""),
 		Description: reviewInputHint(formKeys().Editor, key, said),
 		Body:        strings.TrimRight(msg.body, "\n"),
 		Width:       m.reviewInputWidth(),
 		Keys:        formKeys(),
 	})
-	m.review.editor = input
+	m.review.threads.editor = input
 }
 
 func (m model) saveReviewMessage() (tea.Model, tea.Cmd) {
-	body := strings.TrimSpace(m.review.editor.value())
+	body := strings.TrimSpace(m.review.threads.editor.value())
 	if body == "" {
-		return m.cancelReviewMessage(), nil
+		m.review.threads.cancelMessage()
+
+		return m, nil
 	}
 
-	m.review.editor = reviewInput{}
-	m.review.composing = false
+	m.review.threads.editor = reviewInput{}
+	m.review.threads.composing = false
 
-	agents, threadID := m.api.agents, m.review.editing
+	agents, threadID := m.api.agents, m.review.threads.editing
 	if threadID != "" {
 		// Nothing is said back: the reply is drawn in the thread it went into.
 		return m, m.reviewWriteCmd("", func(ctx context.Context) error {
@@ -238,12 +242,10 @@ func (m model) saveReviewMessage() (tea.Model, tea.Cmd) {
 	return m, m.createReviewThreadCmd(*anchor, body)
 }
 
-// cancelReviewMessage puts the composer away, abandoning nothing but the words typed into it.
-func (m model) cancelReviewMessage() model {
-	m.review.editor = reviewInput{}
-	m.review.composing = false
-
-	return m
+// cancelMessage puts the composer away, abandoning nothing but the words typed into it.
+func (t *reviewThreads) cancelMessage() {
+	t.editor = reviewInput{}
+	t.composing = false
 }
 
 func (m model) createReviewThreadCmd(anchor review.Anchor, body string) tea.Cmd {
@@ -365,8 +367,8 @@ func (m model) markReviewThreadReadCmd() tea.Cmd {
 
 // openReviewRelease asks what to send rather than sending.
 func (m model) openReviewRelease() (tea.Model, tea.Cmd) {
-	m.review.releasing = true
-	m.review.verdict = 0
+	m.review.threads.releasing = true
+	m.review.threads.verdict = 0
 	m.review.notice = ""
 
 	return m.openReviewInput(newReviewInputParams{
@@ -383,15 +385,17 @@ func (m model) updateReviewRelease(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	switch {
 	case isBound(k, formKeys().Back):
-		return m.closeReviewRelease(), nil
+		m.review.threads.closeRelease()
+
+		return m, nil
 	case isBound(k, formKeys().Quit):
 		return m, m.hide()
 	case k == "tab":
-		m.review.verdict = (m.review.verdict + 1) % len(reviewVerdicts)
+		m.review.threads.cycleVerdict(1)
 
 		return m, nil
 	case k == "shift+tab":
-		m.review.verdict = (m.review.verdict + len(reviewVerdicts) - 1) % len(reviewVerdicts)
+		m.review.threads.cycleVerdict(-1)
 
 		return m, nil
 	case isBound(k, formKeys().Editor):
@@ -402,8 +406,8 @@ func (m model) updateReviewRelease(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.sendReview(true)
 	}
 
-	editor, cmd := m.review.editor.update(key)
-	m.review.editor = editor
+	editor, cmd := m.review.threads.editor.update(key)
+	m.review.threads.editor = editor
 
 	return m, cmd
 }
@@ -411,10 +415,10 @@ func (m model) updateReviewRelease(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 // sendReview releases the batch with the verdict chosen and whatever was written about the work
 // as a whole, reaching the agent as one file and one piece of mail.
 func (m model) sendReview(interrupt bool) (tea.Model, tea.Cmd) {
-	verdict := reviewVerdicts[m.review.verdict]
-	body := strings.TrimSpace(m.review.editor.value())
+	verdict := reviewVerdicts[m.review.threads.verdict]
+	body := strings.TrimSpace(m.review.threads.editor.value())
 
-	m = m.closeReviewRelease()
+	m.review.threads.closeRelease()
 
 	agents, agentID := m.api.agents, m.review.agentID
 
@@ -442,11 +446,15 @@ const sentSaid = "I paused you while I reviewed your work and have let you go no
 	"My comments are pinned to your work as it stood when I started, so read them against " +
 	"the worktree as it is rather than assuming the lines still match."
 
-func (m model) closeReviewRelease() model {
-	m.review.editor = reviewInput{}
-	m.review.releasing = false
+// cycleVerdict moves the choice of verdict one step round the list.
+func (t *reviewThreads) cycleVerdict(delta int) {
+	t.verdict = (t.verdict + delta + len(reviewVerdicts)) % len(reviewVerdicts)
+}
 
-	return m
+// closeRelease puts the release panel away, sent or not.
+func (t *reviewThreads) closeRelease() {
+	t.editor = reviewInput{}
+	t.releasing = false
 }
 
 // releasedNotice says what went.

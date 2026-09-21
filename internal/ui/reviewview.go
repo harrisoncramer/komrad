@@ -65,14 +65,14 @@ func (m model) reviewSidebarView(above ...string) string {
 	messages := m.messagesRegion(record, help, above...)
 	chrome := slices.Concat(above, []string{help, record, messages})
 	head := m.reviewHeadView(reviewOwedRoom(m.listLines(chrome...)))
-	rest := m.reviewThreadWindow(m.reviewRestView(), m.listLines(slices.Concat(chrome, []string{head})...))
+	rest := m.review.threads.window(m.reviewRestView(), m.listLines(slices.Concat(chrome, []string{head})...))
 
 	return paint.PadRows(head+rest, m.listLines(chrome...)) + record + messages + help
 }
 
-// reviewThreadWindow cuts the conversation down to the rows the sidebar has, keeping its end
-// unless the reader has taken the keys and scrolled up into it.
-func (m model) reviewThreadWindow(rendered string, lines int) string {
+// window cuts the conversation down to the rows the sidebar has, keeping its end unless the
+// reader has taken the keys and scrolled up into it.
+func (t reviewThreads) window(rendered string, lines int) string {
 	if lines <= 0 {
 		return ""
 	}
@@ -85,7 +85,7 @@ func (m model) reviewThreadWindow(rendered string, lines int) string {
 	// Placed from the end of the conversation rather than around a cursor, so the newest message
 	// holds its row as the thread grows and the reader walks back from there.
 	place := func(visible int) int {
-		return len(rows) - visible - min(m.review.threadScroll, len(rows)-visible)
+		return len(rows) - visible - min(t.scroll, len(rows)-visible)
 	}
 
 	return paint.WindowRows(rows, lines, place, reviewMarkerStyle())
@@ -135,11 +135,11 @@ func (m model) reviewRestView() string {
 		return ""
 	}
 
-	if m.review.composing {
-		return "\n" + m.review.editor.view() + "\n"
+	if m.review.threads.composing {
+		return "\n" + m.review.threads.editor.view() + "\n"
 	}
 
-	if m.review.releasing {
+	if m.review.threads.releasing {
 		return m.reviewReleaseView()
 	}
 
@@ -190,11 +190,11 @@ func (d reviewDiff) commentWhereView(thread *agentv1.ReviewThread) string {
 // reviewReleaseView asks what to send: an optional word about the work as a whole, and the
 // verdict the agent acts on.
 func (m model) reviewReleaseView() string {
-	out := "\n" + m.review.editor.view() + "\n\n"
+	out := "\n" + m.review.threads.editor.view() + "\n\n"
 
 	for i, verdict := range reviewVerdicts {
 		mark, style := "  ", dimStyle
-		if i == m.review.verdict {
+		if i == m.review.threads.verdict {
 			mark, style = "▸ ", paint.Panel.Style(verdictTone(verdict))
 		}
 
@@ -294,9 +294,9 @@ func (m model) reviewMessageView(message *agentv1.ReviewMessage) string {
 	return head + "\n" + m.reviewWrap(message.GetBody()) + "\n" + reviewDeliveryBadge(paint.Panel, message) + "\n"
 }
 
-// reviewSendDesc says what the send key opens.
-func (m model) reviewSendDesc() string {
-	if m.doesReviewHoldUnsent() {
+// sendDesc says what the send key opens.
+func (t reviewThreads) sendDesc() string {
+	if t.holdsUnsent() {
 		return "send to the agent"
 	}
 
@@ -360,17 +360,17 @@ func reviewTimeOf(stamp string) string {
 	return at.Local().Format("3:04PM")
 }
 
-// reviewComposeDesc says what the compose key would do where the cursor is standing.
-func (m model) reviewComposeDesc() string {
-	if _, ok := m.review.diff.threadAtCursor(); ok {
+// composeDesc says what the compose key would do where the cursor is standing.
+func (r reviewState) composeDesc() string {
+	if _, ok := r.diff.threadAtCursor(); ok {
 		return "reply in this thread"
 	}
 
-	if m.review.isOwedAnAnswer() {
+	if r.threads.isOwedAnAnswer() {
 		return "reply in a comment left open"
 	}
 
-	if m.review.activity.delivery[deliverySlot(agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_UNSENT)] == 0 {
+	if !r.threads.holdsUnsent() {
 		return "start a review here"
 	}
 

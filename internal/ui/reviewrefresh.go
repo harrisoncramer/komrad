@@ -18,6 +18,46 @@ const reviewDeliveryStates = 8
 // screen is up, slower than the tick that draws it.
 const reviewDiffPollInterval = 5 * time.Second
 
+// reviewThreads is the conversation in the sidebar and what the reader is writing into it.
+type reviewThreads struct {
+	list []*agentv1.ReviewThread
+
+	// activity is the conversation as it stood when the sidebar was last drawn, which a tick
+	// compares against so a refresh finding nothing new rebuilds nothing.
+	activity reviewActivity
+	// polling is set while a conversation read is in flight, so a slow one is not asked for again
+	// by every tick that passes underneath it.
+	polling bool
+
+	// owed is the id of the last released review while it still holds comments nobody has
+	// settled, empty once a second review would be allowed.
+	owed string
+
+	// focus is set while the keys are on the conversation in the sidebar rather than on the
+	// diff.
+	focus bool
+	// scroll is how far up from the end of the conversation the sidebar is showing.
+	scroll int
+
+	composing bool
+	// releasing is set while the panel is asking what to send.
+	releasing bool
+	verdict   int
+	editor    reviewInput
+	// editing is the thread a composed message is going into, empty when it will open a new
+	// thread on the line under the cursor.
+	editing string
+}
+
+// isOwedAnAnswer reports whether a comment the reader released is still open.
+func (t reviewThreads) isOwedAnAnswer() bool { return t.owed != "" }
+
+// set holds the conversation and the probe a refresh compares it against together.
+func (t *reviewThreads) set(threads []*agentv1.ReviewThread) {
+	t.list = threads
+	t.activity = reviewActivityOf(threads)
+}
+
 // reviewActivity is the cheap probe a conversation refresh is decided on.
 type reviewActivity struct {
 	threads  int
@@ -63,8 +103,8 @@ func (m *model) refreshReviewCmd(now time.Time) tea.Cmd {
 
 	var cmds []tea.Cmd
 
-	if !m.review.polling {
-		m.review.polling = true
+	if !m.review.threads.polling {
+		m.review.threads.polling = true
 		cmds = append(cmds, m.refreshReviewThreadsCmd())
 	}
 
@@ -138,7 +178,7 @@ func (m *model) applyReviewRefreshed(msg reviewRefreshedMsg) {
 		return
 	}
 
-	m.review.polling = false
+	m.review.threads.polling = false
 
 	// A read that failed says nothing, and the next tick asks again.
 	if msg.err != nil || m.review.diff.view == nil {
@@ -152,10 +192,10 @@ func (m *model) applyReviewRefreshed(msg reviewRefreshedMsg) {
 	}
 
 	if msg.owed != nil {
-		m.review.owed = *msg.owed
+		m.review.threads.owed = *msg.owed
 	}
 
-	if reviewActivityOf(msg.threads) == m.review.activity {
+	if reviewActivityOf(msg.threads) == m.review.threads.activity {
 		return
 	}
 
@@ -199,13 +239,7 @@ func (m model) doesReviewFollowLive() bool {
 		return false
 	}
 
-	return !m.doesReviewHoldUnsent() && m.review.diff.chapter < 0 && !m.review.diff.pinned
-}
-
-// setReviewThreads holds the conversation and the probe a refresh compares it against together.
-func (m *model) setReviewThreads(threads []*agentv1.ReviewThread) {
-	m.review.threads = threads
-	m.review.activity = reviewActivityOf(threads)
+	return !m.review.threads.holdsUnsent() && m.review.diff.chapter < 0 && !m.review.diff.pinned
 }
 
 func reviewActivityOf(threads []*agentv1.ReviewThread) reviewActivity {

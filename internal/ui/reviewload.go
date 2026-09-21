@@ -328,7 +328,7 @@ func (m *model) applyReviewLoaded(msg reviewLoadedMsg) tea.Cmd {
 	if m.review.diff.chapter >= len(msg.chapters) {
 		m.review.diff.chapters = msg.chapters
 		m.review.diff.widen()
-		*m = m.cancelReviewMessage()
+		m.review.threads.cancelMessage()
 		m.review.diff.view = nil
 		m.review.loading = true
 
@@ -342,7 +342,7 @@ func (m *model) applyReviewLoaded(msg reviewLoadedMsg) tea.Cmd {
 	m.review.diff.baseRound = msg.earlier
 	m.review.diff.baseAt = msg.earlierAt
 	m.review.diff.pinned = msg.pinned
-	m.review.owed = msg.owed
+	m.review.threads.owed = msg.owed
 	m.review.diff.chapters = msg.chapters
 	m.review.root = msg.patch.Root
 
@@ -367,7 +367,7 @@ func (m *model) applyReviewLoaded(msg reviewLoadedMsg) tea.Cmd {
 	// to be given it back, once the marks and the threads have settled the rows it walks.
 	m.review.diff.view.SetPattern(m.review.diff.filter.pattern)
 
-	m.setReviewThreads(msg.threads)
+	m.review.threads.set(msg.threads)
 
 	m.review.round = msg.round
 	m.review.diff.moved = false
@@ -441,7 +441,7 @@ func (m *model) applyReviewWrote(msg reviewWroteMsg) tea.Cmd {
 
 // applyReviewThreads draws the review as it now stands, keeping the reader where they were.
 func (m *model) applyReviewThreads(threads []*agentv1.ReviewThread) {
-	m.setReviewThreads(threads)
+	m.review.threads.set(threads)
 
 	drawn := threadsByChapter(threadsByChapterParams{
 		Threads:  threads,

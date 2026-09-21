@@ -85,12 +85,12 @@ func TestTheOwedListCountsItsOwnRows(t *testing.T) {
 
 	require.Contains(t, ansi.Strip(m.reviewSidebarView()), "Open in your review  2")
 
-	m.review.threads[0].ResolvedAt = "2026-09-13T11:00:00Z"
-	m.applyReviewThreads(m.review.threads)
+	m.review.threads.list[0].ResolvedAt = "2026-09-13T11:00:00Z"
+	m.applyReviewThreads(m.review.threads.list)
 
 	shown := ansi.Strip(m.reviewSidebarView())
 
-	require.True(t, m.review.isOwedAnAnswer(), "the flag has not been asked again yet")
+	require.True(t, m.review.threads.isOwedAnAnswer(), "the flag has not been asked again yet")
 	assert.Contains(t, shown, "Open in your review  1")
 	assert.NotContains(t, shown, "a.txt:2")
 }
@@ -102,10 +102,10 @@ func TestTheOwedListGoesWhenTheLastCommentIsSettled(t *testing.T) {
 
 	require.Contains(t, ansi.Strip(m.reviewSidebarView()), "Open in your review")
 
-	m.review.threads[0].ResolvedAt = "2026-09-13T11:00:00Z"
-	m.applyReviewThreads(m.review.threads)
+	m.review.threads.list[0].ResolvedAt = "2026-09-13T11:00:00Z"
+	m.applyReviewThreads(m.review.threads.list)
 
-	require.True(t, m.review.isOwedAnAnswer(), "the flag has not been asked again yet")
+	require.True(t, m.review.threads.isOwedAnAnswer(), "the flag has not been asked again yet")
 	assert.NotContains(t, ansi.Strip(m.reviewSidebarView()), "Open in your review")
 }
 
@@ -159,7 +159,7 @@ func TestTheOwedListBrightensWhatIsOnScreen(t *testing.T) {
 
 	m := owedModel(t, []*agentv1.ReviewThread{owedThread("t1", fakeFile, 2)})
 
-	rows := m.reviewOwedComments()
+	rows := m.review.owedComments()
 	require.Len(t, rows, 1)
 	require.True(t, m.isReviewCommentNear(rows[0]), "its line is drawn beside the list")
 
@@ -169,7 +169,7 @@ func TestTheOwedListBrightensWhatIsOnScreen(t *testing.T) {
 	// The reader scrolls past it.
 	m.review.diff.top = m.review.diff.view.Len() + 100
 
-	require.False(t, m.isReviewCommentNear(m.reviewOwedComments()[0]), "and now it is not")
+	require.False(t, m.isReviewCommentNear(m.review.owedComments()[0]), "and now it is not")
 	assert.NotContains(t, m.reviewSidebarView(), bright)
 	assert.Contains(t, m.reviewSidebarView(), dimStyle.Render(fakeFile+":2"), "the row is still named, dim")
 }
@@ -241,7 +241,7 @@ func TestTheLegendFollowsTheKeysOntoTheThread(t *testing.T) {
 	next, _ := m.updateReview(keyMsg("ctrl+f"))
 	m, ok := next.(model)
 	require.True(t, ok)
-	require.True(t, m.review.threadFocus, "and now the conversation does")
+	require.True(t, m.review.threads.focus, "and now the conversation does")
 
 	thread := ansi.Strip(m.renderHelp(m.reviewHelp()))
 	assert.Contains(t, thread, "scroll the thread")

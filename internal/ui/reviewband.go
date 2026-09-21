@@ -40,7 +40,7 @@ func (m model) reviewBandRows() []string {
 		m.reviewScopeView(),
 		m.review.diff.statView(),
 		m.reviewStaleView(),
-		m.reviewDeliveryCountView(),
+		m.review.threads.deliveryCountView(),
 	}
 
 	// The title and the mode line are what the screen is, so they are never dropped however
@@ -90,7 +90,7 @@ func (m model) reviewStaleSaid() string {
 		return "the worktree has moved · catching up"
 	}
 
-	if m.doesReviewHoldUnsent() {
+	if m.review.threads.holdsUnsent() {
 		return "the worktree has moved · your comments are pinned to this round · " +
 			keyLabel(m.keys.Review.Reload) + " to catch up"
 	}

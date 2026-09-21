@@ -52,15 +52,15 @@ func (m model) reviewWatchingView() string {
 		return m.reviewBandRow(reviewHeldTone, "watching", "this agent is gone, nothing can be sent")
 	}
 
-	if m.doesReviewHoldUnsent() {
+	if m.review.threads.holdsUnsent() {
 		return m.reviewBandRow(reviewHeldTone, "watching",
-			label.Counted(m.reviewUnsentCount(), "comment")+" not sent · "+
+			label.Counted(m.review.threads.unsentCount(), "comment")+" not sent · "+
 				keyLabel(m.keys.Review.Compose)+" to carry on")
 	}
 
-	if m.review.isOwedAnAnswer() {
+	if m.review.threads.isOwedAnAnswer() {
 		return m.reviewBandRow(reviewHeldTone, "watching",
-			reviewOwedSaid(m.reviewOwedComments())+" · "+keyLabel(m.keys.Review.NextOpenThread)+
+			reviewOwedSaid(m.review.owedComments())+" · "+keyLabel(m.keys.Review.NextOpenThread)+
 				" walks them, "+keyLabel(m.keys.Review.Resolve)+" settles one, "+
 				keyLabel(m.keys.Review.Compose)+" replies")
 	}
@@ -79,7 +79,7 @@ func (m model) reviewWritingSaid() string {
 		return "stopping the agent · the pass starts once it has"
 	}
 
-	if !m.doesReviewHoldUnsent() {
+	if !m.review.threads.holdsUnsent() {
 		return m.reviewPausedSaid() + keyLabel(m.keys.Review.Back) + " to let it go"
 	}
 
@@ -100,9 +100,9 @@ func (m model) reviewPausedSaid() string {
 	return "agent paused · "
 }
 
-// reviewUnsentCount is how many comments the reader is holding.
-func (m model) reviewUnsentCount() int {
-	return m.review.activity.delivery[deliverySlot(agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_UNSENT)]
+// unsentCount is how many comments the reader is holding.
+func (t reviewThreads) unsentCount() int {
+	return t.activity.delivery[deliverySlot(agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_UNSENT)]
 }
 
 // isReviewReadOnly reports whether there is nobody there to receive a comment.
@@ -122,9 +122,9 @@ func (m model) isReviewReadOnly() (string, bool) {
 	return "this agent is archived · restore it before writing to it", true
 }
 
-// doesReviewHoldUnsent says whether the reader has comments nobody has seen.
-func (m model) doesReviewHoldUnsent() bool {
-	return m.reviewUnsentCount() > 0
+// holdsUnsent says whether the reader has comments nobody has seen.
+func (t reviewThreads) holdsUnsent() bool {
+	return t.unsentCount() > 0
 }
 
 // isHistory reports whether the round on screen ends before the agent's current work.

@@ -489,12 +489,12 @@ func TestReviewKeysFollowTheKeymap(t *testing.T) {
 	m = openReview(t, m)
 
 	rebound, _ := m.updateReview(keyMsg("i"))
-	assert.True(t, asModel(t, rebound).review.composing, "the rebound key opens the editor")
+	assert.True(t, asModel(t, rebound).review.threads.composing, "the rebound key opens the editor")
 
 	replaced, _ := m.updateReview(keyMsg("c"))
-	assert.False(t, asModel(t, replaced).review.composing, "and the key it replaced does nothing")
+	assert.False(t, asModel(t, replaced).review.threads.composing, "and the key it replaced does nothing")
 
-	assert.Contains(t, m.reviewHelp().short, binding([]string{"i"}, m.reviewComposeDesc()),
+	assert.Contains(t, m.reviewHelp().short, binding([]string{"i"}, m.review.composeDesc()),
 		"the legend names the key that is bound rather than the one that shipped")
 }
 
@@ -508,13 +508,13 @@ func TestReviewComposeOpensAThread(t *testing.T) {
 
 	next, _ := m.updateReview(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("c")})
 	m = next.(model)
-	require.True(t, m.review.composing)
+	require.True(t, m.review.threads.composing)
 
 	m = typeReviewMessage(t, m, "this should say hello")
 
 	next, cmd := m.updateReview(tea.KeyMsg{Type: tea.KeyCtrlS})
 	m = next.(model)
-	require.False(t, m.review.composing)
+	require.False(t, m.review.threads.composing)
 	require.NotNil(t, cmd)
 
 	wrote, ok := cmd().(reviewWroteMsg)
@@ -698,8 +698,8 @@ func TestReviewAdriftThreadTakesAReply(t *testing.T) {
 
 	next, _ = m.updateReview(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("c")})
 	m = next.(model)
-	require.True(t, m.review.composing)
-	assert.Equal(t, "t1", m.review.editing, "composing answers the thread rather than opening a new one")
+	require.True(t, m.review.threads.composing)
+	assert.Equal(t, "t1", m.review.threads.editing, "composing answers the thread rather than opening a new one")
 }
 
 // TestReviewViewNeverOutgrowsThePane covers the sidebar staying inside the pane.
@@ -747,7 +747,7 @@ func TestReviewViewNeverOutgrowsThePane(t *testing.T) {
 
 	for _, pane := range []int{10, 12, 24, 50} {
 		for _, composing := range []bool{false, true} {
-			m.height, m.review.composing = pane, composing
+			m.height, m.review.threads.composing = pane, composing
 
 			// Measured the way bubbletea receives it: View trims the trailing newline off the screen.
 			height := strings.Count(strings.TrimRight(m.reviewView(), "\n"), "\n") + 1
@@ -848,13 +848,13 @@ func TestReviewThreadCursorMoveDropsTheScroll(t *testing.T) {
 	m = next.(model)
 	next, _ = m.updateReview(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("k")})
 	m = next.(model)
-	require.Positive(t, m.review.threadScroll)
+	require.Positive(t, m.review.threads.scroll)
 
 	next, _ = m.updateReview(tea.KeyMsg{Type: tea.KeyCtrlD})
 	m = next.(model)
 
-	assert.Zero(t, m.review.threadScroll)
-	assert.False(t, m.review.threadFocus, "the keys go back to the diff with the thread they were on")
+	assert.Zero(t, m.review.threads.scroll)
+	assert.False(t, m.review.threads.focus, "the keys go back to the diff with the thread they were on")
 	assert.Equal(t, "read the thread", m.reviewThreadDesc(),
 		"the legend says where the keys are rather than where they were")
 }
@@ -869,11 +869,11 @@ func TestReviewThreadWindowNeverOutgrowsThePane(t *testing.T) {
 
 	m.applyReviewWrote(reviewWroteMsg{agentID: "a1", threads: reviewLongThread(t, m)})
 	m.height = 14
-	m.review.threadFocus = true
+	m.review.threads.focus = true
 
 	for _, pane := range []int{8, 10, 14, 30} {
 		for _, scroll := range []int{0, 1, 5, 40} {
-			m.height, m.review.threadScroll = pane, scroll
+			m.height, m.review.threads.scroll = pane, scroll
 
 			height := strings.Count(strings.TrimRight(m.reviewView(), "\n"), "\n") + 1
 			assert.LessOrEqual(t, height, pane,
@@ -991,8 +991,8 @@ func TestReviewRepliesInAThread(t *testing.T) {
 
 	next, _ := m.updateReview(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("c")})
 	m = next.(model)
-	require.True(t, m.review.composing)
-	require.Equal(t, "t1", m.review.editing, "the reply goes into the thread under the cursor")
+	require.True(t, m.review.threads.composing)
+	require.Equal(t, "t1", m.review.threads.editing, "the reply goes into the thread under the cursor")
 
 	m = typeReviewMessage(t, m, "yes, that is it")
 
@@ -1097,12 +1097,14 @@ func TestReviewDeliveryViewCountsTheComments(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			m := model{review: reviewState{
-				agentID:  "a1",
-				threads:  tt.threads,
-				activity: reviewActivityOf(tt.threads),
+				agentID: "a1",
+				threads: reviewThreads{
+					list:     tt.threads,
+					activity: reviewActivityOf(tt.threads),
+				},
 			}}
 
-			shown := ansi.Strip(m.reviewDeliveryCountView())
+			shown := ansi.Strip(m.review.threads.deliveryCountView())
 			assert.Equal(t, tt.want, shown)
 			assert.NotContains(t, shown, tt.absent)
 		})
@@ -1132,11 +1134,11 @@ func TestReviewVerdictKeepsItsColour(t *testing.T) {
 
 	next, _ := m.updateReview(tea.KeyMsg{Type: tea.KeyCtrlS})
 	m = next.(model)
-	require.True(t, m.review.releasing)
+	require.True(t, m.review.threads.releasing)
 
 	shown := m.reviewReleaseView()
-	chosen := "  ▸ " + describeVerdict(reviewVerdicts[m.review.verdict])
-	want := paint.Panel.Style(verdictTone(reviewVerdicts[m.review.verdict])).Render(chosen)
+	chosen := "  ▸ " + describeVerdict(reviewVerdicts[m.review.threads.verdict])
+	want := paint.Panel.Style(verdictTone(reviewVerdicts[m.review.threads.verdict])).Render(chosen)
 	assert.Contains(t, shown, want)
 	assert.NotContains(t, shown, paint.Panel.Style(paint.ToneMuted).Render(chosen))
 }
@@ -1151,8 +1153,8 @@ func TestReviewReleaseIsTheSubmitKey(t *testing.T) {
 
 	next, _ := m.updateReview(tea.KeyMsg{Type: tea.KeyCtrlS})
 	m = next.(model)
-	require.True(t, m.review.releasing, "the key opens the panel")
-	require.False(t, m.review.composing, "and not the line composer")
+	require.True(t, m.review.threads.releasing, "the key opens the panel")
+	require.False(t, m.review.threads.composing, "and not the line composer")
 	require.Nil(t, agents.released, "and sends nothing on its own")
 
 	next, cmd := m.updateReview(tea.KeyMsg{Type: tea.KeyCtrlS})
@@ -1412,7 +1414,7 @@ func TestReviewComposerOwnsTheKeyboard(t *testing.T) {
 
 	next, _ := m.updateReview(keyMsg("c"))
 	m = next.(model)
-	require.True(t, m.review.composing)
+	require.True(t, m.review.threads.composing)
 
 	for _, pressed := range []string{"?", "l", "n"} {
 		next, _ = m.route(keyMsg(pressed))
@@ -1420,12 +1422,12 @@ func TestReviewComposerOwnsTheKeyboard(t *testing.T) {
 	}
 
 	assert.False(t, m.helpExpanded, "the help key is a character while typing")
-	assert.Equal(t, "?ln", m.review.editor.value(), "and so is every other bound key")
+	assert.Equal(t, "?ln", m.review.threads.editor.value(), "and so is every other bound key")
 
 	next, _ = m.route(keyMsg("esc"))
 	m = next.(model)
 
-	assert.False(t, m.review.composing, "escape is the one key the editor gives up")
+	assert.False(t, m.review.threads.composing, "escape is the one key the editor gives up")
 }
 
 // TestReviewSearchPromptOwnsTheKeyboard covers a key bound elsewhere being a character in the
@@ -1840,10 +1842,10 @@ func TestWritingIsRefusedOnAFinishedRound(t *testing.T) {
 	next, _ := m.updateReview(keyMsg("c"))
 	m = next.(model)
 	assert.Equal(t, modeReviewing, m.review.mode, "so the key opens the mode that writes")
-	assert.True(t, m.review.composing, "on the line it was pressed on")
+	assert.True(t, m.review.threads.composing, "on the line it was pressed on")
 
 	// An older round is a different matter, and the same key refuses rather than moving anybody.
-	m.review.composing = false
+	m.review.threads.composing = false
 	m.review.mode = modeWatching
 	m = standOnAFinishedRound(m)
 
@@ -1855,7 +1857,7 @@ func TestWritingIsRefusedOnAFinishedRound(t *testing.T) {
 	m = next.(model)
 
 	assert.Equal(t, modeWatching, m.review.mode, "the mode did not open")
-	assert.False(t, m.review.composing, "and no editor did either")
+	assert.False(t, m.review.threads.composing, "and no editor did either")
 	assert.Contains(t, m.review.notice, "round 1 of 2 is finished")
 	assert.Nil(t, agents.created, "and nothing was written")
 }
@@ -1915,7 +1917,7 @@ func typeReviewMessage(t *testing.T, m model, words string) model {
 		m = written
 	}
 
-	require.Equal(t, words, m.review.editor.value())
+	require.Equal(t, words, m.review.threads.editor.value())
 
 	return m
 }

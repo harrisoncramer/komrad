@@ -28,7 +28,7 @@ func TestACommentOpensWhileTheAgentIsStillStopping(t *testing.T) {
 	require.True(t, ok)
 
 	assert.Equal(t, modeReviewing, m.review.mode)
-	assert.True(t, m.review.composing, "the composer is up before the agent has stopped")
+	assert.True(t, m.review.threads.composing, "the composer is up before the agent has stopped")
 	assert.True(t, m.review.pausing)
 	assert.False(t, m.review.paused)
 
@@ -37,7 +37,7 @@ func TestACommentOpensWhileTheAgentIsStillStopping(t *testing.T) {
 
 	require.NotNil(t, agents.held, "and the agent is stopped all the same")
 	assert.True(t, m.review.paused)
-	assert.True(t, m.review.composing, "with what was being typed left alone")
+	assert.True(t, m.review.threads.composing, "with what was being typed left alone")
 }
 
 // TestAPassThatCannotStopTheAgentTakesTheComposerWithIt covers a comment left standing over an
@@ -51,12 +51,12 @@ func TestAPassThatCannotStopTheAgentTakesTheComposerWithIt(t *testing.T) {
 	next, cmd := m.updateReview(keyMsg("c"))
 	m, ok := next.(model)
 	require.True(t, ok)
-	require.True(t, m.review.composing)
+	require.True(t, m.review.threads.composing)
 
 	m = settlePauseBatch(t, m, cmd)
 
 	assert.Equal(t, modeWatching, m.review.mode)
-	assert.False(t, m.review.composing, "the composer goes with the pass")
+	assert.False(t, m.review.threads.composing, "the composer goes with the pass")
 	assert.False(t, m.review.paused)
 }
 

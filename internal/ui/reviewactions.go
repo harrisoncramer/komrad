@@ -129,7 +129,11 @@ func reviewTable() []action {
 		{
 			id:   actionReviewFocusThread,
 			keys: func(k config.Keybindings) []string { return k.Review.FocusThread },
-			run:  func(m model, _ string) (tea.Model, tea.Cmd) { return m.focusReviewThread(), nil },
+			run: func(m model, _ string) (tea.Model, tea.Cmd) {
+				m.review.focusThread()
+
+				return m, nil
+			},
 		},
 		// The two keys that write are taken whether or not anybody is there to read.
 		{
@@ -166,7 +170,7 @@ func orRefuseWrite(fn func(model) (tea.Model, tea.Cmd)) func(model, string) (tea
 // pressReviewCompose is the comment key, which refuses a new thread while a review is owed an
 // answer.
 func (m model) pressReviewCompose() (tea.Model, tea.Cmd) {
-	if _, replying := m.review.diff.threadAtCursor(); m.review.isOwedAnAnswer() && !replying {
+	if _, replying := m.review.diff.threadAtCursor(); m.review.threads.isOwedAnAnswer() && !replying {
 		return m.refuseReviewAwaiting()
 	}
 
@@ -176,7 +180,7 @@ func (m model) pressReviewCompose() (tea.Model, tea.Cmd) {
 // pressReviewSend is the send key, which while a review is owed an answer needs replies written
 // to send, a verdict on its own being the second review the wait holds off.
 func (m model) pressReviewSend() (tea.Model, tea.Cmd) {
-	if m.review.isOwedAnAnswer() && !m.doesReviewHoldUnsent() {
+	if m.review.threads.isOwedAnAnswer() && !m.review.threads.holdsUnsent() {
 		return m.refuseReviewAwaiting()
 	}
 
@@ -291,14 +295,14 @@ func reviewLegend() []legendRow {
 		},
 		{
 			of:   []actionID{actionReviewCompose},
-			desc: model.reviewComposeDesc,
+			desc: func(m model) string { return m.review.composeDesc() },
 			// The compose key is the way into the mode that writes, so reading offers it too.
 			show:  offered,
 			strip: true,
 		},
 		{
 			of:   []actionID{actionReviewSend},
-			desc: model.reviewSendDesc,
+			desc: func(m model) string { return m.review.threads.sendDesc() },
 			show: offered,
 		},
 		{

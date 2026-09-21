@@ -70,7 +70,7 @@ func TestSettlingTheLastCommentLetsTheNextReviewGo(t *testing.T) {
 	m = openReview(t, m)
 	m = gatedReview(t, m, agents)
 
-	require.True(t, m.review.isOwedAnAnswer(), "the review starts owed an answer")
+	require.True(t, m.review.threads.isOwedAnAnswer(), "the review starts owed an answer")
 
 	m = pressReview(t, m, keyMsg("r"))
 	require.Equal(t, "t1", agents.settled.GetId())
@@ -78,11 +78,11 @@ func TestSettlingTheLastCommentLetsTheNextReviewGo(t *testing.T) {
 
 	m = refreshReview(t, m)
 
-	assert.False(t, m.review.isOwedAnAnswer(), "settling the last comment ends the wait")
+	assert.False(t, m.review.threads.isOwedAnAnswer(), "settling the last comment ends the wait")
 
 	m = pressReview(t, m, tea.KeyMsg{Type: tea.KeyCtrlS})
 
-	assert.True(t, m.review.releasing, "and the verdict panel opens again")
+	assert.True(t, m.review.threads.releasing, "and the verdict panel opens again")
 }
 
 // TestReplyingLetsTheNextReviewGo is the other way out: an answer in a comment the review already
@@ -94,22 +94,22 @@ func TestReplyingLetsTheNextReviewGo(t *testing.T) {
 	m = openReview(t, m)
 	m = gatedReview(t, m, agents)
 
-	require.Zero(t, m.reviewUnsentCount(), "nothing is being held yet")
+	require.Zero(t, m.review.threads.unsentCount(), "nothing is being held yet")
 
 	m = pressReview(t, m, keyMsg("c"))
-	require.True(t, m.review.composing, "the composer opened on the thread")
-	require.Equal(t, "t1", m.review.editing)
+	require.True(t, m.review.threads.composing, "the composer opened on the thread")
+	require.Equal(t, "t1", m.review.threads.editing)
 
 	m = typeReviewMessage(t, m, "still reads like a changelog")
 	m = pressReview(t, m, tea.KeyMsg{Type: tea.KeyCtrlS})
 
 	require.Equal(t, "still reads like a changelog", agents.replied.GetBody())
-	assert.Equal(t, 1, m.reviewUnsentCount(), "which the panel is now holding")
-	assert.True(t, m.review.isOwedAnAnswer(), "the comment is still open, so the wait stands")
+	assert.Equal(t, 1, m.review.threads.unsentCount(), "which the panel is now holding")
+	assert.True(t, m.review.threads.isOwedAnAnswer(), "the comment is still open, so the wait stands")
 
 	m = pressReview(t, m, tea.KeyMsg{Type: tea.KeyCtrlS})
 
-	assert.True(t, m.review.releasing, "and what has been written can go")
+	assert.True(t, m.review.threads.releasing, "and what has been written can go")
 }
 
 // TestTheFlagAndTheThreadsDisagreeUntilTheNextTick pins the window where the conversation is
@@ -124,9 +124,9 @@ func TestTheFlagAndTheThreadsDisagreeUntilTheNextTick(t *testing.T) {
 	m = pressReview(t, m, keyMsg("r"))
 
 	assert.Zero(t, m.review.diff.view.CountOpenThreads(), "the conversation came back settled")
-	assert.True(t, m.review.isOwedAnAnswer(), "and the flag has not been asked again yet")
+	assert.True(t, m.review.threads.isOwedAnAnswer(), "and the flag has not been asked again yet")
 
 	m = refreshReview(t, m)
 
-	assert.False(t, m.review.isOwedAnAnswer(), "the tick is what agrees them")
+	assert.False(t, m.review.threads.isOwedAnAnswer(), "the tick is what agrees them")
 }

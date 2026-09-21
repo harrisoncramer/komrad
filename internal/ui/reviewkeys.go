@@ -17,11 +17,11 @@ const reviewPanStep = 8
 const reviewScrollMargin = 4
 
 func (m model) updateReview(key tea.KeyMsg) (tea.Model, tea.Cmd) {
-	if m.review.composing {
+	if m.review.threads.composing {
 		return m.updateReviewComposer(key)
 	}
 
-	if m.review.releasing {
+	if m.review.threads.releasing {
 		return m.updateReviewRelease(key)
 	}
 
@@ -60,7 +60,9 @@ func (m model) updateReviewThread(k string) (model, bool) {
 
 	switch {
 	case isBound(k, m.keys.Review.FocusThread), k == "esc":
-		return m.blurReviewThread(), true
+		m.review.threads.blur()
+
+		return m, true
 	case isBound(k, m.keys.Nav.Up):
 		return m.scrollReviewThread(1), true
 	case isBound(k, m.keys.Nav.Down):
@@ -68,7 +70,7 @@ func (m model) updateReviewThread(k string) (model, bool) {
 	case isBound(k, m.keys.Nav.Top):
 		return m.scrollReviewThread(m.reviewThreadMax()), true
 	case isBound(k, m.keys.Nav.Bottom):
-		return m.scrollReviewThread(-m.review.threadScroll), true
+		return m.scrollReviewThread(-m.review.threads.scroll), true
 	}
 
 	return m, false
@@ -81,17 +83,15 @@ func (m model) isReviewThreadFocused() bool {
 		return false
 	}
 
-	if m.review.composing || m.review.releasing {
+	if m.review.threads.composing || m.review.threads.releasing {
 		return true
 	}
 
-	if !m.review.threadFocus || m.isDetailsFocused() {
+	if m.isDetailsFocused() {
 		return false
 	}
 
-	_, ok := m.review.diff.threadAtCursor()
-
-	return ok
+	return m.review.isThreadTaken()
 }
 
 // isReviewDiffFocused is whether the patch holds the keys, which it does whenever the record and
@@ -100,32 +100,27 @@ func (m model) isReviewDiffFocused() bool {
 	return m.isColumnFocused()
 }
 
-// focusReviewThread moves the keys onto the conversation, refused while there is none to read.
-func (m model) focusReviewThread() model {
-	if _, ok := m.review.diff.threadAtCursor(); !ok {
-		m.review.notice = "no thread here to read"
+// focusThread moves the keys onto the conversation, refused while there is none to read.
+func (r *reviewState) focusThread() {
+	if _, ok := r.diff.threadAtCursor(); !ok {
+		r.notice = "no thread here to read"
 
-		return m
+		return
 	}
 
-	m.review.threadFocus = true
-
-	return m
+	r.threads.focus = true
 }
 
-// blurReviewThread hands the keys back to the diff and drops the reader back to the end of the
-// conversation.
-func (m model) blurReviewThread() model {
-	m.review.threadFocus = false
-	m.review.threadScroll = 0
-
-	return m
+// blur hands the keys back to the diff and drops the reader back to the end of the conversation.
+func (t *reviewThreads) blur() {
+	t.focus = false
+	t.scroll = 0
 }
 
 // scrollReviewThread moves the sidebar's window up the conversation, counted from its end so the
 // newest message stays where it is as the thread grows.
 func (m model) scrollReviewThread(delta int) model {
-	m.review.threadScroll = max(min(m.review.threadScroll+delta, m.reviewThreadMax()), 0)
+	m.review.threads.scroll = max(min(m.review.threads.scroll+delta, m.reviewThreadMax()), 0)
 
 	return m
 }
@@ -178,7 +173,7 @@ func (m model) refuseReviewViewed() (tea.Model, tea.Cmd) {
 // refuseReviewAwaiting says why a write did not happen while the review already sent is still
 // unanswered, and names both ways out of it.
 func (m model) refuseReviewAwaiting() (tea.Model, tea.Cmd) {
-	summary := reviewOwedSaid(m.reviewOwedComments())
+	summary := reviewOwedSaid(m.review.owedComments())
 	detail := "You may not leave more comments until this review is settled. Reviews are settled " +
 		"when all comments are addressed. Press " + keyLabel(m.keys.Review.NextOpenThread) +
 		" to walk to the next unresolved comment, and reply with " +
@@ -320,7 +315,7 @@ func (m model) toggleReviewExpanded() (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	m = m.blurReviewThread()
+	m.review.threads.blur()
 	m.review.diff.keepCursor(place, located)
 	m.scrollReviewToCursor()
 
@@ -341,7 +336,7 @@ func (m model) jumpReviewFile(direction int) (tea.Model, tea.Cmd) {
 	}
 
 	m.review.diff.cursor = next
-	m = m.blurReviewThread()
+	m.review.threads.blur()
 	m.review.diff.top = max(min(m.review.diff.view.GetFileTopRow(next), m.review.diff.view.Len()-1), 0)
 	m.review.diff.pinTop = true
 	m.review.diff.pinFloor = m.review.diff.top
@@ -360,7 +355,7 @@ func (m model) moveReviewCursor(next int) (tea.Model, tea.Cmd) {
 
 	// The keys and the window both belong to the conversation the cursor was standing on, so
 	// neither means anything against the next one it lands on.
-	m = m.blurReviewThread()
+	m.review.threads.blur()
 	m.scrollReviewToCursor()
 
 	return m, m.markReviewThreadReadCmd()

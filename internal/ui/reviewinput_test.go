@@ -23,7 +23,7 @@ func TestTheComposerIsDrawnAsAnOrdinaryField(t *testing.T) {
 	next, _ := m.updateReview(keyMsg("c"))
 	m, ok := next.(model)
 	require.True(t, ok)
-	require.True(t, m.review.composing)
+	require.True(t, m.review.threads.composing)
 
 	shown := ansi.Strip(m.reviewSidebarView())
 
@@ -49,8 +49,8 @@ func TestTheComposerKeepsReturnForItself(t *testing.T) {
 	m, ok = next.(model)
 	require.True(t, ok)
 
-	require.True(t, m.review.composing, "the return did not send it")
-	assert.Equal(t, "one\n", m.review.editor.value(), "it opened a second line")
+	require.True(t, m.review.threads.composing, "the return did not send it")
+	assert.Equal(t, "one\n", m.review.threads.editor.value(), "it opened a second line")
 }
 
 // TestTheComposerTakesAWidthItWasNotBuiltAt covers the field being sized from a resize rather than
@@ -87,7 +87,7 @@ func TestTheComposerKeepsEveryLineAtANarrowSidebar(t *testing.T) {
 	next, _ := m.updateReview(keyMsg("ctrl+s"))
 	m, ok := next.(model)
 	require.True(t, ok)
-	require.True(t, m.review.releasing)
+	require.True(t, m.review.threads.releasing)
 
 	for i, line := range []string{"one", "two", "three", "four"} {
 		if i > 0 {

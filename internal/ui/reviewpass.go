@@ -104,7 +104,7 @@ func (m model) applyReviewPaused(msg reviewPausedMsg) (tea.Model, tea.Cmd) {
 		// A comment written against a snapshot the agent is free to write past is the collision
 		// the pass exists to prevent, so the composer goes with the pass rather than standing on
 		// without one.
-		m = m.cancelReviewMessage()
+		m.review.threads.cancelMessage()
 		m.review.mode = modeWatching
 		m.report("Could not pause "+m.review.agentName, msg.err)
 

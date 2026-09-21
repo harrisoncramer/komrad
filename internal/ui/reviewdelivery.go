@@ -79,11 +79,11 @@ func reviewDeliveryStamp(message *agentv1.ReviewMessage) string {
 	return message.GetSentAt()
 }
 
-// reviewDeliveryCountView is how the person's own comments stand, counted rather than summarised.
-func (m model) reviewDeliveryCountView() string {
+// deliveryCountView is how the person's own comments stand, counted rather than summarised.
+func (t reviewThreads) deliveryCountView() string {
 	parts := make([]string, 0, len(reviewDeliveryOrder))
 	for _, state := range reviewDeliveryOrder {
-		count := m.review.activity.delivery[deliverySlot(state)]
+		count := t.activity.delivery[deliverySlot(state)]
 		if count == 0 {
 			continue
 		}

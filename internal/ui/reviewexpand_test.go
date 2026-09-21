@@ -189,7 +189,7 @@ func TestACommentCanBeWrittenOnAnExpandedLine(t *testing.T) {
 	next, _ := m.updateReview(keyMsg("c"))
 	m, ok := next.(model)
 	require.True(t, ok)
-	require.True(t, m.review.composing, "the line the expansion drew takes a comment")
+	require.True(t, m.review.threads.composing, "the line the expansion drew takes a comment")
 
 	m = typeReviewMessage(t, m, "this one is unchanged and wrong")
 

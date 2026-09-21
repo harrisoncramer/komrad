@@ -248,12 +248,12 @@ func TestSendingAReviewLeavesWritingBehind(t *testing.T) {
 	// is pressed.
 	next, _ = m.updateReview(keyMsg("esc"))
 	m = next.(model)
-	require.False(t, m.review.composing)
+	require.False(t, m.review.threads.composing)
 	require.Equal(t, modeReviewing, m.review.mode, "and the mode outlives one abandoned comment")
 
 	next, _ = m.updateReview(tea.KeyMsg{Type: tea.KeyCtrlS})
 	m = next.(model)
-	require.True(t, m.review.releasing, "the verdict panel is open")
+	require.True(t, m.review.threads.releasing, "the verdict panel is open")
 
 	next, cmd := m.updateReview(tea.KeyMsg{Type: tea.KeyCtrlS})
 	m = next.(model)
@@ -377,7 +377,7 @@ func TestTheVerdictIsRefusedOnAFinishedRound(t *testing.T) {
 	next, _ := m.updateReview(tea.KeyMsg{Type: tea.KeyCtrlS})
 	m = next.(model)
 
-	assert.False(t, m.review.releasing, "the verdict panel stays shut")
+	assert.False(t, m.review.threads.releasing, "the verdict panel stays shut")
 	assert.Contains(t, m.review.notice, "round 1 of 2 is finished")
 	assert.Nil(t, agents.released, "and nothing went to the agent")
 }
@@ -390,13 +390,13 @@ func TestWritingIsRefusedWhileAReviewIsOut(t *testing.T) {
 	m, _ := reviewModel(t, agents, dir)
 	m = openReview(t, m)
 
-	m.review.owed = "r1"
+	m.review.threads.owed = "r1"
 
 	next, _ := m.updateReview(keyMsg("c"))
 	m = next.(model)
 
 	assert.Equal(t, modeWatching, m.review.mode, "the mode did not open")
-	assert.False(t, m.review.composing, "and no editor did either")
+	assert.False(t, m.review.threads.composing, "and no editor did either")
 	assert.Contains(t, m.review.notice, "still owed an answer")
 	assert.Nil(t, agents.created, "and nothing was written")
 }
@@ -410,13 +410,13 @@ func TestReplyingIsAllowedWhileAReviewIsOut(t *testing.T) {
 	m = openReview(t, m)
 
 	m.applyReviewThreads(pinnedThread(t, m, deliveredComment()))
-	m.review.owed = "r1"
+	m.review.threads.owed = "r1"
 
 	next, _ := m.updateReview(keyMsg("c"))
 	m = next.(model)
 
-	assert.True(t, m.review.composing, "the editor opened on the thread")
-	assert.Equal(t, "t1", m.review.editing, "and what it writes goes into that thread")
+	assert.True(t, m.review.threads.composing, "the editor opened on the thread")
+	assert.Equal(t, "t1", m.review.threads.editing, "and what it writes goes into that thread")
 	assert.Empty(t, m.review.notice)
 }
 
@@ -428,12 +428,12 @@ func TestSendingIsRefusedWhileAReviewIsOutWithNothingWritten(t *testing.T) {
 	m, _ := reviewModel(t, agents, dir)
 	m = openReview(t, m)
 
-	m.review.owed = "r1"
+	m.review.threads.owed = "r1"
 
 	next, _ := m.updateReview(tea.KeyMsg{Type: tea.KeyCtrlS})
 	m = next.(model)
 
-	assert.False(t, m.review.releasing, "the verdict panel stays shut")
+	assert.False(t, m.review.threads.releasing, "the verdict panel stays shut")
 	assert.Contains(t, m.review.notice, "still owed an answer")
 	assert.Nil(t, agents.released)
 }
@@ -445,13 +445,13 @@ func TestSendingAReplyIsAllowedWhileAReviewIsOut(t *testing.T) {
 	m, _ := reviewModel(t, agents, dir)
 	m = openReview(t, m)
 
-	m.review.owed = "r1"
-	m.review.activity.delivery[deliverySlot(agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_UNSENT)] = 1
+	m.review.threads.owed = "r1"
+	m.review.threads.activity.delivery[deliverySlot(agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_UNSENT)] = 1
 
 	next, _ := m.updateReview(tea.KeyMsg{Type: tea.KeyCtrlS})
 	m = next.(model)
 
-	assert.True(t, m.review.releasing, "what has been written can go")
+	assert.True(t, m.review.threads.releasing, "what has been written can go")
 	assert.Empty(t, m.review.notice)
 }
 
@@ -840,7 +840,7 @@ func TestAComposerDoesNotOutliveTheDiffItWasWrittenOn(t *testing.T) {
 
 	next, _ := m.updateReview(keyMsg("c"))
 	m = next.(model)
-	require.True(t, m.review.composing, "the composer is open on a line of the round")
+	require.True(t, m.review.threads.composing, "the composer is open on a line of the round")
 
 	m = typeReviewMessage(t, m, "this should say hello")
 
@@ -854,7 +854,7 @@ func TestAComposerDoesNotOutliveTheDiffItWasWrittenOn(t *testing.T) {
 	m.applyReviewLoaded(loaded)
 	require.Nil(t, m.review.diff.view)
 
-	assert.False(t, m.review.composing, "the composer goes with the diff it was anchored to")
+	assert.False(t, m.review.threads.composing, "the composer goes with the diff it was anchored to")
 
 	next, _ = m.updateReview(tea.KeyMsg{Type: tea.KeyCtrlS})
 	m = next.(model)
@@ -905,7 +905,7 @@ func TestTheSendKeyIsOfferedOnlyWhereItAnswers(t *testing.T) {
 	assert.True(t, row.show(m), "reading the current work is where a verdict answers")
 
 	out := m
-	out.review.owed = "r1"
+	out.review.threads.owed = "r1"
 	assert.True(t, row.show(out), "a review already out is still answered in its own threads")
 
 	assert.False(t, row.show(standOnAFinishedRound(m)), "and a finished round holds nothing to send")
@@ -967,7 +967,7 @@ func TestComposingOnARowWithNoLineSaysSo(t *testing.T) {
 	next, _ := m.updateReview(keyMsg("c"))
 	m = next.(model)
 
-	assert.False(t, m.review.composing, "no editor opened")
+	assert.False(t, m.review.threads.composing, "no editor opened")
 	assert.NotEmpty(t, m.review.notice, "and the key said why")
 }
 
@@ -991,7 +991,7 @@ func TestACommentOnTheNewestRoundRecordsItsBase(t *testing.T) {
 
 	next, _ := m.updateReview(keyMsg("c"))
 	m = next.(model)
-	require.True(t, m.review.composing, "writing is allowed on the newest round")
+	require.True(t, m.review.threads.composing, "writing is allowed on the newest round")
 
 	m = typeReviewMessage(t, m, "this line, in the work since I last looked")
 
@@ -1221,7 +1221,7 @@ func TestEditingIsRefusedWhileYourReviewIsOwedAnAnswer(t *testing.T) {
 	m = openReview(t, m)
 
 	m.review.diff.cursor = reviewRowWithAnEditTarget(t, m)
-	m.review.owed = "r1"
+	m.review.threads.owed = "r1"
 
 	next, _ := m.updateReview(editorKey())
 	written, ok := next.(model)
@@ -1248,7 +1248,7 @@ func TestEditingADormantAgentIsAllowedWhileOwedAnAnswer(t *testing.T) {
 	}
 
 	m.review.diff.cursor = reviewRowWithAnEditTarget(t, m)
-	m.review.owed = "r1"
+	m.review.threads.owed = "r1"
 
 	m = pressEdit(t, m)
 
@@ -1263,7 +1263,7 @@ func TestEditingIsAllowedOnceNothingIsOwed(t *testing.T) {
 	m = openReview(t, m)
 
 	m.review.diff.cursor = reviewRowWithAnEditTarget(t, m)
-	m.review.owed = ""
+	m.review.threads.owed = ""
 
 	m = pressEdit(t, m)
 

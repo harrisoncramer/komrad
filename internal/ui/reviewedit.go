@@ -177,7 +177,7 @@ func (m model) editReviewFile() (tea.Model, tea.Cmd) {
 
 // isReviewOwedAnAnswer reports whether comments stand against this work, and what to say about it.
 func (m model) isReviewOwedAnAnswer() (string, bool) {
-	if !m.review.isOwedAnAnswer() {
+	if !m.review.threads.isOwedAnAnswer() {
 		return "", false
 	}
 
@@ -185,7 +185,7 @@ func (m model) isReviewOwedAnAnswer() (string, bool) {
 		return "", false
 	}
 
-	return reviewOwedSaid(m.reviewOwedComments()) + " · " +
+	return reviewOwedSaid(m.review.owedComments()) + " · " +
 		keyLabel(m.keys.Review.Resolve) + " settles one, " +
 		keyLabel(m.keys.Review.NextOpenThread) + " walks them", true
 }
