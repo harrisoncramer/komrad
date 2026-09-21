@@ -167,7 +167,7 @@ func StaleEngineFix(engineVersion, engineCommit string) string {
 	case engineCommit == "":
 		return "use the dist/weave-panel that deploy built, since it has no commit to build from"
 	case version.IsEngineStamp(engineVersion):
-		return "build weave from " + version.Short(engineCommit) + ", or put this build on the engine with mise run remote:deploy"
+		return "build weave from " + version.Short(engineCommit) + ", or put this local build on the engine"
 	default:
 		return "install weave " + engineVersion + ", which the engine runs"
 	}
