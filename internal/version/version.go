@@ -4,6 +4,8 @@ package version
 
 import (
 	"bytes"
+	"debug/elf"
+	"encoding/binary"
 	"errors"
 	"io"
 	"os"
@@ -27,6 +29,10 @@ const engineStampPrefix = "v0.0.0-engine."
 const buildIDMarker = "\xff Go build ID: \""
 
 const buildIDWithin = 32 * 1024
+
+const buildIDNoteSection = ".note.go.buildid"
+
+const noteHeaderLen = 12
 
 const shortBuildID = 8
 
@@ -121,6 +127,52 @@ func readSelfBuildID() string {
 		return ""
 	}
 
+	if id := readNotedBuildID(path); id != "" {
+		return id
+	}
+
+	return readMarkedBuildID(path)
+}
+
+// readNotedBuildID reads the build ID off an ELF binary, where the linker keeps it in a note
+// rather than in the text.
+func readNotedBuildID(path string) string {
+	file, err := elf.Open(path)
+	if err != nil {
+		return ""
+	}
+	defer func() { _ = file.Close() }()
+
+	section := file.Section(buildIDNoteSection)
+	if section == nil {
+		return ""
+	}
+
+	data, err := section.Data()
+	if err != nil {
+		return ""
+	}
+
+	return shortenBuildID(findNotedBuildID(data, file.ByteOrder))
+}
+
+func findNotedBuildID(note []byte, order binary.ByteOrder) string {
+	if len(note) < noteHeaderLen {
+		return ""
+	}
+
+	nameLen := int(order.Uint32(note[0:4]))
+	descLen := int(order.Uint32(note[4:8]))
+	start := noteHeaderLen + (nameLen+3)/4*4
+
+	if start+descLen > len(note) {
+		return ""
+	}
+
+	return string(note[start : start+descLen])
+}
+
+func readMarkedBuildID(path string) string {
 	file, err := os.Open(path)
 	if err != nil {
 		return ""
@@ -134,10 +186,10 @@ func readSelfBuildID() string {
 		return ""
 	}
 
-	return findBuildID(head[:read])
+	return shortenBuildID(findMarkedBuildID(head[:read]))
 }
 
-func findBuildID(head []byte) string {
+func findMarkedBuildID(head []byte) string {
 	start := bytes.Index(head, []byte(buildIDMarker))
 	if start < 0 {
 		return ""
@@ -150,7 +202,11 @@ func findBuildID(head []byte) string {
 		return ""
 	}
 
-	id := string(rest[:end])
+	return string(rest[:end])
+}
+
+// shortenBuildID is the head of the content hash a build ID closes with.
+func shortenBuildID(id string) string {
 	content := id[strings.LastIndex(id, "/")+1:]
 
 	if len(content) > shortBuildID {

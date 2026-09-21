@@ -1,6 +1,7 @@
 package version
 
 import (
+	"encoding/binary"
 	"runtime/debug"
 	"testing"
 
@@ -92,8 +93,9 @@ func TestGet(t *testing.T) {
 	}
 }
 
-// TestFindBuildID covers reading the linker's build ID off the head of a binary.
-func TestFindBuildID(t *testing.T) {
+// TestFindMarkedBuildID covers reading the linker's build ID off the head of a binary that
+// carries it in the text.
+func TestFindMarkedBuildID(t *testing.T) {
 	tests := []struct {
 		name string
 		head string
@@ -110,17 +112,71 @@ func TestFindBuildID(t *testing.T) {
 			want: "",
 		},
 		{
-			name: "a linked binary, shortened to its content hash",
+			name: "a linked binary",
 			head: "\x00\x00\xff Go build ID: \"Dg7XN2bd6cklxz4Lz8Q_/zVN9yjIwSr8KpmxcG6QG/3j2z3IK9mDgx9R_yP3FH/zGcGo0vHRRzr0braXzqy\"\x00\xcc",
-			want: "zGcGo0vH",
+			want: "Dg7XN2bd6cklxz4Lz8Q_/zVN9yjIwSr8KpmxcG6QG/3j2z3IK9mDgx9R_yP3FH/zGcGo0vHRRzr0braXzqy",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, findBuildID([]byte(tt.head)))
+			assert.Equal(t, tt.want, findMarkedBuildID([]byte(tt.head)))
 		})
 	}
+}
+
+// TestFindNotedBuildID covers reading the build ID out of the note an ELF binary carries it in.
+func TestFindNotedBuildID(t *testing.T) {
+	const id = "Dg7XN2bd6cklxz4Lz8Q_/zVN9yjIwSr8KpmxcG6QG/3j2z3IK9mDgx9R_yP3FH/zGcGo0vHRRzr0braXzqy"
+
+	note := func(nameLen, descLen uint32, body string) []byte {
+		header := make([]byte, noteHeaderLen)
+		binary.LittleEndian.PutUint32(header[0:4], nameLen)
+		binary.LittleEndian.PutUint32(header[4:8], descLen)
+		binary.LittleEndian.PutUint32(header[8:12], 4)
+
+		return append(header, body...)
+	}
+
+	tests := []struct {
+		name string
+		note []byte
+		want string
+	}{
+		{
+			name: "a section too short to hold a header",
+			note: []byte{0, 0, 0},
+			want: "",
+		},
+		{
+			name: "a note whose descriptor runs past the section",
+			note: note(4, 200, "Go\x00\x00"+id),
+			want: "",
+		},
+		{
+			name: "the note the linker writes",
+			note: note(4, uint32(len(id)), "Go\x00\x00"+id),
+			want: id,
+		},
+		{
+			name: "a name padded out to four bytes",
+			note: note(3, uint32(len(id)), "Go\x00\x00"+id),
+			want: id,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, findNotedBuildID(tt.note, binary.LittleEndian))
+		})
+	}
+}
+
+// TestShortenBuildID covers the part of a build ID a version carries.
+func TestShortenBuildID(t *testing.T) {
+	assert.Equal(t, "zGcGo0vH", shortenBuildID("Dg7XN2bd6cklxz4Lz8Q_/zVN9yjIwSr8KpmxcG6QG/3j2z3IK9mDgx9R_yP3FH/zGcGo0vHRRzr0braXzqy"))
+	assert.Equal(t, "abc", shortenBuildID("abc"))
+	assert.Empty(t, shortenBuildID(""))
 }
 
 // TestSelfBuildIDIsRead covers the binary these tests were built as.
