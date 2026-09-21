@@ -205,7 +205,7 @@ func TestALongNameIsCutWithAnEllipsis(t *testing.T) {
 		m.listing.schedules[0].schedule.Name = long
 		m.listing.schedules[0].schedule.Cron = "0 9 * * 1"
 
-		row := rowWith(t, m.schedules.listView(m), long[:10])
+		row := rowWith(t, m.schedules.view(m.shared()), long[:10])
 		assert.Contains(t, row, "…", "the name says it was cut")
 		assert.Contains(t, row, "0 9 * * 1", "the cron beside it is still drawn")
 	})

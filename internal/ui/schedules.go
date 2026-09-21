@@ -8,7 +8,6 @@ import (
 	"weave/internal/ui/paint"
 	"weave/internal/ui/panel"
 	"weave/internal/view"
-	"weave/lib/xslice"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/huh"
@@ -16,121 +15,92 @@ import (
 
 // schedulesScreen is the schedules screen, holding its own cursor behind the panel's one door.
 type schedulesScreen struct {
-	cursor int
-	rows   []scheduleItem
+	rowCursor
+	rows []scheduleItem
 }
-
-var (
-	_ detailed = (*schedulesScreen)(nil)
-	_ filtered = (*schedulesScreen)(nil)
-	_ columned = (*schedulesScreen)(nil)
-)
 
 type scheduleItem struct {
 	schedule panel.Schedule
 	nextRun  time.Time
 }
 
-// enter lands the cursor once the root has put the screen up.
-func (s *schedulesScreen) enter(h host, p panelShared) {
-	rows := s.listRows(p)
-	s.land(h, rows, clampCursor(s.cursor, len(rows)))
+func (i scheduleItem) key() string {
+	return i.schedule.ID
 }
 
-// move steps the cursor, reporting a step it refused at either end.
-func (s *schedulesScreen) move(h host, p panelShared, delta int) bool {
-	rows := s.listRows(p)
-	next, ok := stepCursor(s.cursor, delta, len(rows))
+// enter lands the cursor once the root has put the screen up.
+func (w *schedulesScreen) enter(h host, s panelShared) {
+	w.cursor = clampCursor(w.cursor, len(w.listRows(s)))
+	w.place(h, s)
+}
+
+func (w *schedulesScreen) update(h host, s panelShared, msg tea.Msg) tea.Cmd {
+	key, ok := msg.(tea.KeyMsg)
 	if !ok {
-		return false
+		return nil
 	}
 
-	s.land(h, rows, next)
-
-	return true
+	return w.actions().dispatch(h, s, key.String())
 }
 
-func (s *schedulesScreen) jump(h host, p panelShared, idx int) {
-	rows := s.listRows(p)
-	if next, ok := landCursor(idx, len(rows)); ok {
-		s.land(h, rows, next)
+func (w *schedulesScreen) list() screenList[scheduleItem] {
+	return screenList[scheduleItem]{
+		cursor: func() *rowCursor { return &w.rowCursor },
+		rows:   w.listRows,
+		name:   func(item scheduleItem) string { return item.schedule.Name },
+		placed: w.place,
+		quit:   func(k config.Keybindings) []string { return k.Schedules.Quit },
+		back:   func(k config.Keybindings) []string { return k.Schedules.Back },
 	}
 }
 
 // listRows is the list as drawn, or as it would be drawn when nothing has cached it.
-func (s *schedulesScreen) listRows(p panelShared) []scheduleItem {
-	if s.rows != nil {
-		return s.rows
+func (w *schedulesScreen) listRows(s panelShared) []scheduleItem {
+	if w.rows != nil {
+		return w.rows
 	}
 
-	return s.buildRows(p)
+	return w.buildRows(s)
 }
 
-func (s *schedulesScreen) buildRows(p panelShared) []scheduleItem {
-	return narrowed(p.chrome.filter, narrowedParams[scheduleItem]{
-		rows:  p.listing.schedules,
+func (w *schedulesScreen) buildRows(s panelShared) []scheduleItem {
+	return narrowed(s.chrome.filter, narrowedParams[scheduleItem]{
+		rows:  s.listing.schedules,
 		depth: func(scheduleItem) int { return 0 },
 		name:  func(item scheduleItem) string { return item.schedule.Name },
 	})
 }
 
-func (s *schedulesScreen) selected(p panelShared) (scheduleItem, bool) {
-	return rowAt(s.listRows(p), s.cursor)
+func (w *schedulesScreen) selected(s panelShared) (scheduleItem, bool) {
+	return rowAt(w.listRows(s), w.cursor)
 }
 
-// hovered is the row the cursor is on, read before a filter narrows the list under it.
-func (s *schedulesScreen) hovered(p panelShared) string {
-	item, ok := s.selected(p)
-	if !ok {
-		return ""
-	}
-
-	return item.schedule.ID
+// place names the row the cursor is on to the column.
+func (w *schedulesScreen) place(h host, s panelShared) {
+	h.placeColumn(screenSchedules, w.list().hovered(s))
 }
 
-// place puts the cursor back on a row by key, or as near to where it was as the list allows.
-func (s *schedulesScreen) place(h host, p panelShared, hovered string) {
-	rows := s.listRows(p)
-
-	found := -1
-	for i, item := range rows {
-		if item.schedule.ID == hovered {
-			found = i
-		}
-	}
-
-	s.land(h, rows, placeCursor(found, s.cursor, len(rows)))
+// apply takes a fresh listing, keeping the cursor on the schedule it was on.
+func (w *schedulesScreen) apply(h host, s panelShared, hovered string) {
+	w.list().place(h, s, hovered)
 }
 
-// land puts the cursor on a row and names that row to the column.
-func (s *schedulesScreen) land(h host, rows []scheduleItem, idx int) {
-	s.cursor = idx
-
-	key := ""
-	if item, ok := rowAt(rows, idx); ok {
-		key = item.schedule.ID
-	}
-
-	h.placeColumn(screenSchedules, key)
-}
-
-// record is the hovered schedule as the details under the list draw it.
-func (s *schedulesScreen) record(p panelShared) details {
-	item, ok := s.selected(p)
+func (w *schedulesScreen) details(s panelShared) details {
+	item, ok := w.selected(s)
 	if !ok {
 		return details{}
 	}
 
 	return details{
 		id:     item.schedule.ID,
-		fields: scheduleFields(item.schedule, workflowByID(p.listing.workflows, item.schedule.WorkflowID)),
+		fields: scheduleFields(item.schedule, workflowByID(s.listing.workflows, item.schedule.WorkflowID)),
 	}
 }
 
 // doc is the markdown drawn beside the list: the notice for an empty list, or the schedule the
 // cursor is on.
-func (s *schedulesScreen) doc(p panelShared) string {
-	item, ok := s.selected(p)
+func (w *schedulesScreen) doc(s panelShared) string {
+	item, ok := w.selected(s)
 	if !ok {
 		return noSchedulesMarkdown
 	}
@@ -148,8 +118,8 @@ func workflowByID(workflows []panel.Workflow, id string) *panel.Workflow {
 	return nil
 }
 
-func (s *schedulesScreen) toggle(h host, p panelShared) tea.Cmd {
-	item, ok := s.selected(p)
+func (w *schedulesScreen) toggle(h host, s panelShared) tea.Cmd {
+	item, ok := w.selected(s)
 	if !ok {
 		return nil
 	}
@@ -164,8 +134,8 @@ func (s *schedulesScreen) toggle(h host, p panelShared) tea.Cmd {
 	})
 }
 
-func (s *schedulesScreen) newForm(h host, p panelShared) tea.Cmd {
-	if len(p.listing.workflows) == 0 {
+func (w *schedulesScreen) newForm(h host, s panelShared) tea.Cmd {
+	if len(s.listing.workflows) == 0 {
 		h.report("Could not create a schedule", errNoWorkflow)
 
 		return nil
@@ -173,15 +143,15 @@ func (s *schedulesScreen) newForm(h host, p panelShared) tea.Cmd {
 
 	values := panel.ScheduleConfig{
 		Enabled:    true,
-		WorkflowID: p.listing.workflows[0].ID,
+		WorkflowID: s.listing.workflows[0].ID,
 	}
 
-	return s.openForm(h, &values, nil)
+	return w.openForm(h, &values, nil)
 }
 
 // openForm puts up the schedule form, creating a schedule when target is nil and saving over the
 // one it names otherwise.
-func (s *schedulesScreen) openForm(h host, values *panel.ScheduleConfig, target *panel.Schedule) tea.Cmd {
+func (w *schedulesScreen) openForm(h host, values *panel.ScheduleConfig, target *panel.Schedule) tea.Cmd {
 	return h.openForm(redrawnForm(openRedrawnFormParams{
 		Kind: formSchedule,
 		Build: func(m model) (*huh.Form, []string) {
@@ -204,8 +174,8 @@ func (s *schedulesScreen) openForm(h host, values *panel.ScheduleConfig, target 
 	}))
 }
 
-func (s *schedulesScreen) editForm(h host, p panelShared) tea.Cmd {
-	item, ok := s.selected(p)
+func (w *schedulesScreen) editForm(h host, s panelShared) tea.Cmd {
+	item, ok := w.selected(s)
 	if !ok {
 		return nil
 	}
@@ -217,7 +187,7 @@ func (s *schedulesScreen) editForm(h host, p panelShared) tea.Cmd {
 
 	values := schedulePrefill(target)
 
-	return s.openForm(h, &values, &target)
+	return w.openForm(h, &values, &target)
 }
 
 // schedulePrefill is the schedule form as the stored schedule leaves it.
@@ -233,8 +203,8 @@ func schedulePrefill(schedule panel.Schedule) panel.ScheduleConfig {
 	}
 }
 
-func (s *schedulesScreen) archiveConfirm(h host, p panelShared) tea.Cmd {
-	item, ok := s.selected(p)
+func (w *schedulesScreen) archiveConfirm(h host, s panelShared) tea.Cmd {
+	item, ok := w.selected(s)
 	if !ok {
 		return nil
 	}
@@ -260,104 +230,125 @@ func (s *schedulesScreen) archiveConfirm(h host, p panelShared) tea.Cmd {
 	})
 }
 
-// applySchedules takes a fresh listing, keeping the cursor on the schedule it was on.
+// applySchedules hands the screen a fresh listing.
 func (m *model) applySchedules(fresh []scheduleItem) {
-	selected := m.schedules.hovered(m.shared())
+	hovered := m.schedules.list().hovered(m.shared())
 	m.listing.schedules = fresh
-	m.schedules.place(m, m.shared(), selected)
+	m.schedules.apply(m, m.shared(), hovered)
 }
 
-func (s *schedulesScreen) update(m model, msg tea.Msg) (tea.Model, tea.Cmd) {
-	return onKey(m, msg, func(m model, key tea.KeyMsg) (tea.Model, tea.Cmd) {
-		return schedulesActions().dispatch(m, key.String())
-	})
+func (w *schedulesScreen) view(s panelShared) string {
+	w.rows = w.buildRows(s)
+	defer func() { w.rows = nil }()
+
+	return s.draw.columnListView(w.listParams(s))
 }
 
-// view draws the list beside its record.
-func (s *schedulesScreen) view(m model) string {
-	m.schedules.rows = s.buildRows(m.shared())
-
-	return m.columnView(func(held model) string { return held.schedules.listView(held) })
+func (w *schedulesScreen) listParams(s panelShared) screenListParams {
+	return screenListParams{
+		title:  screenTitle(view.GlyphSchedule, "Schedules"),
+		help:   w.help,
+		column: "the record",
+		rows:   len(w.listRows(s)),
+		lines:  func(pane listPane) ([]string, int) { return w.lines(s, pane), w.cursor },
+	}
 }
 
-func (s *schedulesScreen) header(m model) string {
-	return m.listHeader(screenTitle(view.GlyphSchedule, "Schedules"))
+func (w *schedulesScreen) help(s panelShared) keyMap {
+	return w.actions().help(s)
 }
 
-func (s *schedulesScreen) listView(m model) string {
-	header := s.header(m)
-	record, help := m.detailsView(), m.renderHelp(m.scheduleHelp(), header)
-	below := record + m.messagesRegion(record, help, header) + help
-
-	all := s.listRows(m.shared())
+// lines is the list as drawn: each row's cursor, icon, name and cron, or one line over no rows.
+func (w *schedulesScreen) lines(s panelShared, pane listPane) []string {
+	all := w.listRows(s)
 	if len(all) == 0 {
-		return m.headedListView(header, []string{dimStyle.Render("  " + m.emptyListLine("no schedules yet"))}, 0, below)
+		return []string{dimStyle.Render("  " + emptyLineOf(s.chrome.filter, "no schedules yet"))}
 	}
 
 	rows := make([]string, 0, len(all))
 	for i, item := range all {
-		selected := i == s.cursor
+		selected := i == w.cursor
 		prefix := "  "
 		if selected {
-			prefix = m.rowCursorPrefix()
+			prefix = caretGlyph(pane.caret)
 		}
 
-		name := m.filter.highlight(paint.Panel, clipName(item.schedule.Name), m.nameStyle(selected && m.caretOf(sectionList) != view.CaretAbsent, !item.schedule.Enabled))
+		name := s.chrome.filter.highlight(paint.Panel, clipName(item.schedule.Name), nameStyle(selected && pane.caret != view.CaretAbsent, !item.schedule.Enabled))
 		icon := paint.Panel.Style(scheduleTone(item.schedule.Enabled)).Render(scheduleIcon(item.schedule.Enabled))
 		rows = append(rows, prefix+"  "+icon+" "+name+"  "+dimStyle.Render(item.schedule.Cron))
 	}
 
-	return m.headedListView(header, rows, s.cursor, below)
+	return rows
 }
 
-func (s *schedulesScreen) needs() screenNeeds {
+// schedulesAdapter is the schedules screen behind the panel's one door.
+type schedulesAdapter struct{}
+
+var (
+	_ detailed = schedulesAdapter{}
+	_ filtered = schedulesAdapter{}
+	_ columned = schedulesAdapter{}
+)
+
+func (schedulesAdapter) update(m model, msg tea.Msg) (tea.Model, tea.Cmd) {
+	cmd := m.schedules.update(&m, m.shared(), msg)
+
+	return m, cmd
+}
+
+func (schedulesAdapter) view(m model) string {
+	return m.schedules.view(m.shared())
+}
+
+func (schedulesAdapter) needs() screenNeeds {
 	return screenNeeds{fromListing: true}
 }
 
-// open puts the screen up and lands its cursor.
-func (s *schedulesScreen) open(m model, _ screenTarget) (tea.Model, tea.Cmd) {
+func (schedulesAdapter) open(m model, _ screenTarget) (tea.Model, tea.Cmd) {
 	m.enterScreen(screenSchedules)
 	m.schedules.enter(&m, m.shared())
 
 	return m, nil
 }
 
-func (s *schedulesScreen) takesEveryKey(model) bool {
+func (schedulesAdapter) takesEveryKey(model) bool {
 	return false
 }
 
-func (s *schedulesScreen) details(m model) details {
-	return s.record(m.shared())
+func (schedulesAdapter) details(m model) details {
+	return m.schedules.details(m.shared())
 }
 
-func (s *schedulesScreen) detailsQuit(keys config.Keybindings) []string {
+func (schedulesAdapter) detailsQuit(keys config.Keybindings) []string {
 	return keys.Schedules.Quit
 }
 
-func (s *schedulesScreen) detailsFit(m model) bool {
-	return m.doesListFitDetails(s.header(m), model.scheduleHelp)
+func (schedulesAdapter) detailsFit(m model) bool {
+	s := m.shared()
+
+	return s.draw.listFitsDetails(m.schedules.listParams(s))
 }
 
-func (s *schedulesScreen) detailsRoom(m model) int {
-	return m.listDetailsRoom(s.header(m), model.scheduleHelp)
+func (schedulesAdapter) detailsRoom(m model) int {
+	s := m.shared()
+
+	return s.draw.listRecordRoom(m.schedules.listParams(s))
 }
 
-func (s *schedulesScreen) hoveredKey(m model) string {
-	return s.hovered(m.shared())
+func (schedulesAdapter) hoveredKey(m model) string {
+	return m.schedules.list().hovered(m.shared())
 }
 
-func (s *schedulesScreen) placeAt(m *model, key string) {
-	m.schedules.place(m, m.shared(), key)
+func (schedulesAdapter) placeAt(m *model, key string) {
+	m.schedules.list().place(m, m.shared(), key)
 }
 
-func (s *schedulesScreen) filterRows(m model) []filterRow {
-	return xslice.Map(s.listRows(m.shared()), func(item scheduleItem) filterRow {
-		return filterRow{key: item.schedule.ID, name: item.schedule.Name}
-	})
+func (schedulesAdapter) filterRows(m model) []filterRow {
+	return m.schedules.list().filterRows(m.shared())
 }
 
 // column is the hovered schedule's own record drawn beside the list.
-func (s *schedulesScreen) column() columnSpec {
+func (schedulesAdapter) column() columnSpec {
 	return columnSpec{
 		floor: columnFloor,
 		doc:   func(m model) string { return m.schedules.doc(m.shared()) },

@@ -37,7 +37,7 @@ func actionsOf(s screen) (dispatching, bool) {
 	case screenAgents:
 		return agentsActions(), true
 	case screenSchedules:
-		return schedulesActions(), true
+		return (&schedulesScreen{}).actions(), true
 	case screenArchive:
 		return archiveActions(), true
 	case screenReview:

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"regexp"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -17,6 +18,7 @@ import (
 	"weave/proto/gen/schedule/v1/schedulev1connect"
 
 	"connectrpc.com/connect"
+	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -105,7 +107,7 @@ func TestScheduleKeys(t *testing.T) {
 				m.listing.workflows = nil
 			}
 
-			updated, cmd := m.schedules.update(m, keyMsg(tt.key))
+			updated, cmd := schedulesAdapter{}.update(m, keyMsg(tt.key))
 			pressed, ok := updated.(model)
 			require.True(t, ok)
 
@@ -158,7 +160,7 @@ func TestSchedulesView(t *testing.T) {
 			m.listing.schedules = tt.schedules
 			m.schedules.cursor = 0
 
-			view := m.schedules.view(m)
+			view := m.schedules.view(m.shared())
 			for _, want := range tt.wants {
 				assert.Contains(t, view, want)
 			}
@@ -726,4 +728,33 @@ func TestScheduleFormOffersEveryWorkflow(t *testing.T) {
 	assert.Contains(t, view, "bughunt  /repos/weave")
 	assert.Contains(t, view, "weave  /repos/weave")
 	assert.Equal(t, "w2", values.WorkflowID, "the schedule stays on the workflow it named")
+}
+
+// scheduleHelp is the schedules legend as the frame draws it.
+func (m model) scheduleHelp() keyMap {
+	return m.listChromeOf(m.schedules.listParams(m.shared())).help(m)
+}
+
+// TestSchedulesLegendIsTheOneItDrewBeforeTheMove sweeps the expanded legend across widths against
+// the composition the root drew for the schedules.
+func TestSchedulesLegendIsTheOneItDrewBeforeTheMove(t *testing.T) {
+	for width := 5; width <= 200; width++ {
+		m := scheduleModel(&fakeSchedules{}, config.DefaultKeybindings())
+		m.helpExpanded = true
+		m = m.measuredAt(width)
+
+		own := m.schedules.actions().help(m.shared())
+		before := keyMap{
+			short: slices.Concat(own.short, m.globalHelp()),
+			full: slices.Concat(
+				own.full,
+				[]key.Binding{m.detailsBinding(), m.messagesBinding()},
+				m.infoPaneHelp(),
+				[]key.Binding{m.columnScrollBinding("the record")},
+				m.globalHelp(),
+			),
+		}
+
+		assert.Equal(t, m.renderHelp(before), m.renderHelp(m.scheduleHelp()), "width %d", width)
+	}
 }

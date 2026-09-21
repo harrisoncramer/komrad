@@ -24,14 +24,13 @@ screenModel, which says what takes its keys and what draws it, plus whichever of
 draws: detailed for a record under its list, filtered for a search over it, tabbed for a strip
 over it, columned for a block beside it, and staged for a row it puts on the stage. m.active()
 is the switch from the screen enum to that type, and it carries no default, so the exhaustive
-check refuses a screen with no arm. A screen that has moved, which the schedules and the
-worktrees have, holds its own state in a type of its own; its handlers take a host, which is
-what a screen may ask of the root, and a panelShared, which is what it may read of it, and
-write nothing else. A screen that has not moved is an empty type whose methods call the
-root's, which is the seam each screen's state moves behind one at a time. Drawing still goes
-through the root's chrome on every screen, moved or not; screenlist.go is the list machinery
-and the drawing bridge a moved list screen uses, beside list.go's until the last list screen
-has moved.
+check refuses a screen with no arm. A screen whose state has moved, which so far is the
+worktrees and the schedules, holds it in a type of its own with methods that take host, the
+short interface of what a screen may ask the root to do, and panelShared, the read-only value
+of what the root holds; the adapter behind the door is then two lines per method. The other
+screens' adapters are empty and their methods call the root's, which is the seam each screen's
+state moves behind one at a time. screenlist.go is the list machinery and the drawing bridge a
+moved list screen uses, beside list.go's until the last list screen has moved.
 
 Everything else in the package is one of those three for one screen.
 

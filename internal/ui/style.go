@@ -31,7 +31,7 @@ func scheduleTone(enabled bool) paint.Tone {
 	return paint.ToneMuted
 }
 
-func (m model) nameStyle(hovered, inactive bool) lipgloss.Style {
+func nameStyle(hovered, inactive bool) lipgloss.Style {
 	switch {
 	case hovered:
 		return rowCursorStyle()
