@@ -32,6 +32,21 @@ type tmuxReadWriter interface {
 	GetDefaultShell() string
 }
 
+type NewScriptServiceParams struct {
+	Agents     agentGetter
+	Workflows  workflowReader
+	Tmux       tmuxReadWriter
+	Runner     scriptRunner
+	Runs       runRecorder
+	Load       configLoader
+	Addr       string
+	Socket     string
+	BuiltinDir string
+	LogsDir    string
+	Editor     string
+	BinPath    string
+}
+
 type ScriptService struct {
 	agents     agentGetter
 	workflows  workflowReader
@@ -48,31 +63,6 @@ type ScriptService struct {
 	inFlightMu sync.Mutex
 	inFlight   map[scriptKey]struct{}
 	logRunMu   sync.Mutex
-}
-
-type NewScriptServiceParams struct {
-	Agents     agentGetter
-	Workflows  workflowReader
-	Tmux       tmuxReadWriter
-	Runner     scriptRunner
-	Runs       runRecorder
-	Load       configLoader
-	Addr       string
-	Socket     string
-	BuiltinDir string
-	LogsDir    string
-	Editor     string
-	BinPath    string
-}
-
-func isPaneOwnedBy(owner, agentID string) bool {
-	return agentID != "" && owner == agentID
-}
-
-// isProvisionerDisabled reports whether an agent has been told to keep the directory it was
-// given rather than be provisioned one.
-func isProvisionerDisabled(override *bool) bool {
-	return override != nil && !*override
 }
 
 // NewScriptService builds the service from its dependencies.
@@ -92,4 +82,14 @@ func NewScriptService(params NewScriptServiceParams) *ScriptService {
 		binPath:    params.BinPath,
 		inFlight:   make(map[scriptKey]struct{}),
 	}
+}
+
+func isPaneOwnedBy(owner, agentID string) bool {
+	return agentID != "" && owner == agentID
+}
+
+// isProvisionerDisabled reports whether an agent has been told to keep the directory it was
+// given rather than be provisioned one.
+func isProvisionerDisabled(override *bool) bool {
+	return override != nil && !*override
 }

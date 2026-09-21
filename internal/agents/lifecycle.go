@@ -57,6 +57,21 @@ type snapshotReleaser interface {
 	ReleaseRef(ctx context.Context, dir, ref string) error
 }
 
+type NewLifecycleServiceParams struct {
+	Tmux           paneKiller
+	Agents         lifecycleAgentReadWriter
+	Workflows      workflowReader
+	EmptyWorkflows emptyWorkflowDeleter
+	Tx             txRunner
+	Scripts        agentScriptRunner
+	Reviews        reviewReaper
+	Snapshots      snapshotReleaser
+	LogsDir        string
+	FramesDir      string
+	MaxAgents      int
+	MaxChildren    int
+}
+
 // LifecycleService moves agents between the live listing, the archive and gone, running the
 // deprovisioner on the way out.
 type LifecycleService struct {
@@ -74,21 +89,6 @@ type LifecycleService struct {
 	maxChildren    int
 	tearingDownMu  sync.Mutex
 	tearingDown    map[string]struct{}
-}
-
-type NewLifecycleServiceParams struct {
-	Tmux           paneKiller
-	Agents         lifecycleAgentReadWriter
-	Workflows      workflowReader
-	EmptyWorkflows emptyWorkflowDeleter
-	Tx             txRunner
-	Scripts        agentScriptRunner
-	Reviews        reviewReaper
-	Snapshots      snapshotReleaser
-	LogsDir        string
-	FramesDir      string
-	MaxAgents      int
-	MaxChildren    int
 }
 
 // NewLifecycleService builds the service from its dependencies.

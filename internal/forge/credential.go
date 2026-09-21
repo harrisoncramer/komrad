@@ -130,20 +130,20 @@ func (NoRecord) SetVerifiedAt(context.Context, string, *time.Time) error {
 	return nil
 }
 
-// StoredCredential is a token a person supplied, read from the store on each use.
-type StoredCredential struct {
-	store        CredentialStore
-	connectionID string
-	header       string
-	connections  verifiedSetter
-}
-
 // NewStoredCredentialParams says whose token to read and how to send it.
 type NewStoredCredentialParams struct {
 	Store        CredentialStore
 	ConnectionID string
 	Header       string
 	Connections  verifiedSetter
+}
+
+// StoredCredential is a token a person supplied, read from the store on each use.
+type StoredCredential struct {
+	store        CredentialStore
+	connectionID string
+	header       string
+	connections  verifiedSetter
 }
 
 // NewStoredCredential builds an Authenticator over the store.

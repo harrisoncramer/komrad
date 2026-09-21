@@ -50,19 +50,6 @@ type workflowAgentDeleter interface {
 	DeleteAgents(ctx context.Context, ids []string) error
 }
 
-type WorkflowService struct {
-	store        workflowReader
-	agents       workflowAgentLister
-	agentDeleter workflowAgentDeleter
-	emptied      *EmptyWorkflowDeleter
-	schedules    workflowScheduleCounter
-	tmux         paneKiller
-	tx           txRunner
-	scripts      agentScriptRunner
-	maxAgents    int
-	maxChildren  int
-}
-
 type NewWorkflowServiceParams struct {
 	Workflows    workflowReader
 	Agents       workflowAgentLister
@@ -74,6 +61,19 @@ type NewWorkflowServiceParams struct {
 	Scripts      agentScriptRunner
 	MaxAgents    int
 	MaxChildren  int
+}
+
+type WorkflowService struct {
+	store        workflowReader
+	agents       workflowAgentLister
+	agentDeleter workflowAgentDeleter
+	emptied      *EmptyWorkflowDeleter
+	schedules    workflowScheduleCounter
+	tmux         paneKiller
+	tx           txRunner
+	scripts      agentScriptRunner
+	maxAgents    int
+	maxChildren  int
 }
 
 // NewWorkflowService builds the service from its dependencies.

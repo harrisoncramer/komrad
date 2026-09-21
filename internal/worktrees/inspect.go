@@ -55,15 +55,6 @@ type sizeUpserter interface {
 	Upsert(ctx context.Context, size worktreestore.Size) error
 }
 
-// Inspector reads one directory through git.
-type Inspector struct {
-	lister    *Lister
-	git       gitReader
-	workflows workflowReader
-	sizes     sizeUpserter
-	now       func() time.Time
-}
-
 type NewInspectorParams struct {
 	Lister    *Lister
 	Git       gitReader
@@ -71,6 +62,15 @@ type NewInspectorParams struct {
 	Sizes     sizeUpserter
 	// Now is the clock, time.Now when unset.
 	Now func() time.Time
+}
+
+// Inspector reads one directory through git.
+type Inspector struct {
+	lister    *Lister
+	git       gitReader
+	workflows workflowReader
+	sizes     sizeUpserter
+	now       func() time.Time
 }
 
 // NewInspector builds an inspector over the lister, git and the size store.

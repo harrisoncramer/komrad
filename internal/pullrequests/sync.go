@@ -75,18 +75,6 @@ type pullRequestForgeFinder interface {
 	SetThrottledUntil(ctx context.Context, id string, until *time.Time) error
 }
 
-// PullRequestSyncer keeps the pull requests table in step with the forges, one pass at a time.
-type PullRequestSyncer struct {
-	forges       pullRequestForgeFinder
-	pullRequests *pullrequeststore.PullRequestStore
-	syncs        *pullrequeststore.PullRequestSyncStore
-	tx           txRunner
-	now          func() time.Time
-	// refusals counts rate limit refusals in a row per host that named no time to wait.
-	refusals map[string]int
-	said     onceLog
-}
-
 // onceLog remembers what has been said once already, by what kind of thing it was about and
 // which one.
 type onceLog map[string]bool
@@ -123,6 +111,18 @@ type NewPullRequestSyncerParams struct {
 	Tx           txRunner
 	// Now is the clock, time.Now when unset.
 	Now func() time.Time
+}
+
+// PullRequestSyncer keeps the pull requests table in step with the forges, one pass at a time.
+type PullRequestSyncer struct {
+	forges       pullRequestForgeFinder
+	pullRequests *pullrequeststore.PullRequestStore
+	syncs        *pullrequeststore.PullRequestSyncStore
+	tx           txRunner
+	now          func() time.Time
+	// refusals counts rate limit refusals in a row per host that named no time to wait.
+	refusals map[string]int
+	said     onceLog
 }
 
 // NewPullRequestSyncer builds a syncer over the forge service and the stores.

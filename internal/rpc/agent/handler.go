@@ -87,26 +87,6 @@ type archiveEmptier interface {
 	EmptyArchive(ctx context.Context) error
 }
 
-type Handler struct {
-	agents       agentReader
-	rows         rowReader
-	writer       rowWriter
-	transcripts  transcriptReader
-	mail         mailer
-	creator      agentCreator
-	adopter      agentAdopter
-	liveness     agentLiveness
-	lifecycle    agentLifecycle
-	resumer      agentResumer
-	holder       agentHolder
-	archive      archiveEmptier
-	review       reviewConversation
-	marks        markReadWriter
-	rebaser      worktreeRebaser
-	orchestrator orchestratorStarter
-	now          func() time.Time
-}
-
 type NewHandlerParams struct {
 	Agents       agentReader
 	Rows         rowReader
@@ -125,6 +105,26 @@ type NewHandlerParams struct {
 	Rebaser      worktreeRebaser
 	Orchestrator orchestratorStarter
 	Clock        func() time.Time
+}
+
+type Handler struct {
+	agents       agentReader
+	rows         rowReader
+	writer       rowWriter
+	transcripts  transcriptReader
+	mail         mailer
+	creator      agentCreator
+	adopter      agentAdopter
+	liveness     agentLiveness
+	lifecycle    agentLifecycle
+	resumer      agentResumer
+	holder       agentHolder
+	archive      archiveEmptier
+	review       reviewConversation
+	marks        markReadWriter
+	rebaser      worktreeRebaser
+	orchestrator orchestratorStarter
+	now          func() time.Time
 }
 
 // NewHandler constructs the handler from the stores it reads and the services that move agents

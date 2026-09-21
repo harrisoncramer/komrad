@@ -29,14 +29,14 @@ type scheduleLister interface {
 	ListPage(ctx context.Context, limit int64, cursor *schedulestore.Cursor) ([]schedulestore.Schedule, error)
 }
 
-type Handler struct {
-	lister    scheduleLister
-	schedules scheduleReadWriter
-}
-
 type NewHandlerParams struct {
 	Lister    scheduleLister
 	Schedules scheduleReadWriter
+}
+
+type Handler struct {
+	lister    scheduleLister
+	schedules scheduleReadWriter
 }
 
 // NewHandler constructs the handler from the store it lists through and the service that owns

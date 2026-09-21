@@ -34,8 +34,8 @@ type Dialect struct {
 	Version string
 }
 
-// NewParams says how the client reaches the API and as whom.
-type NewParams struct {
+// NewClientParams says how the client reaches the API and as whom.
+type NewClientParams struct {
 	Dialect Dialect
 	Auth    forge.Authenticator
 	// API is the REST base, beside which GraphQL is answered.
@@ -56,8 +56,8 @@ type Client struct {
 	now     func() time.Time
 }
 
-// New builds the client.
-func New(params NewParams) *Client {
+// NewClient builds the client.
+func NewClient(params NewClientParams) *Client {
 	timeout := params.Timeout
 	if timeout == 0 {
 		timeout = DefaultTimeout

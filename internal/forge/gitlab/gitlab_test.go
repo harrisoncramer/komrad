@@ -130,7 +130,7 @@ func serve(t *testing.T, answers map[string]answer) (*Forge, *fakeAuth, *fakeGit
 
 	auth := &fakeAuth{token: "secret"}
 
-	return New(NewParams{
+	return NewForge(NewForgeParams{
 		Auth: auth,
 		API:  server.URL,
 		Next: server.Client().Transport,

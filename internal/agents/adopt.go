@@ -40,6 +40,13 @@ type adoptAgentReadWriter interface {
 	SetMetadata(ctx context.Context, params agentstore.SetMetadataParams) (bool, error)
 }
 
+type NewAdoptServiceParams struct {
+	Agents    adoptAgentReadWriter
+	Workflows workflowReader
+	Launch    *LaunchService
+	Worktrees worktreeLister
+}
+
 // AdoptService puts an agent on a branch somebody else made, working out which checkout is to
 // hold that branch before handing the launch over.
 type AdoptService struct {
@@ -47,13 +54,6 @@ type AdoptService struct {
 	workflows workflowReader
 	launch    *LaunchService
 	worktrees worktreeLister
-}
-
-type NewAdoptServiceParams struct {
-	Agents    adoptAgentReadWriter
-	Workflows workflowReader
-	Launch    *LaunchService
-	Worktrees worktreeLister
 }
 
 // NewAdoptService builds the service from its dependencies.

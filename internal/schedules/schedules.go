@@ -35,14 +35,14 @@ var (
 	ErrWorkflowArchived = fail.Precondition("workflow is archived")
 )
 
-type ScheduleService struct {
-	store     scheduleReadWriter
-	workflows workflowReader
-}
-
 type NewScheduleServiceParams struct {
 	Schedules scheduleReadWriter
 	Workflows workflowReader
+}
+
+type ScheduleService struct {
+	store     scheduleReadWriter
+	workflows workflowReader
 }
 
 // NewScheduleService builds the service from its dependencies.

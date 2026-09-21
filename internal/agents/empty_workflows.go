@@ -28,18 +28,18 @@ type workflowScheduleListDeleter interface {
 	Delete(ctx context.Context, id string) error
 }
 
+type NewEmptyWorkflowDeleterParams struct {
+	Workflows emptyWorkflowGetDeleter
+	Agents    workflowResidentLister
+	Schedules workflowScheduleListDeleter
+}
+
 // EmptyWorkflowDeleter removes an archived workflow once nothing is left inside it, taking the
 // archived schedules pointing at it with the row and deleting no agents itself.
 type EmptyWorkflowDeleter struct {
 	workflows emptyWorkflowGetDeleter
 	agents    workflowResidentLister
 	schedules workflowScheduleListDeleter
-}
-
-type NewEmptyWorkflowDeleterParams struct {
-	Workflows emptyWorkflowGetDeleter
-	Agents    workflowResidentLister
-	Schedules workflowScheduleListDeleter
 }
 
 // NewEmptyWorkflowDeleter builds the deleter over the three stores a workflow's removal touches.

@@ -19,16 +19,14 @@ const HarnessID = "claude"
 
 const configDirEnv = "CLAUDE_CONFIG_DIR"
 
-type Harness struct {
-	configDir string
-}
-
-var _ harness.Harness = (*Harness)(nil)
-
 type NewHarnessParams struct {
 	// ConfigDir is the directory named in place of ~/.claude, empty when the CLI is left to
 	// its default.
 	ConfigDir string
+}
+
+type Harness struct {
+	configDir string
 }
 
 // NewHarness builds a harness rooted at configDir.
@@ -37,6 +35,8 @@ func NewHarness(params NewHarnessParams) *Harness {
 		configDir: params.ConfigDir,
 	}
 }
+
+var _ harness.Harness = (*Harness)(nil)
 
 // ID is the name an agent running Claude Code is recorded under.
 func (h *Harness) ID() string {

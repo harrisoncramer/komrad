@@ -36,20 +36,20 @@ type claimedDirLister interface {
 	ListClaimedDirs(ctx context.Context) ([]string, error)
 }
 
-type Handler struct {
-	lister    lister
-	inspector inspector
-	remover   remover
-	deleter   deleter
-	claimed   claimedDirLister
-}
-
 type NewHandlerParams struct {
 	Lister    lister
 	Inspector inspector
 	Remover   remover
 	Deleter   deleter
 	Claimed   claimedDirLister
+}
+
+type Handler struct {
+	lister    lister
+	inspector inspector
+	remover   remover
+	deleter   deleter
+	claimed   claimedDirLister
 }
 
 // NewHandler constructs the handler over the worktree readers, the remover, the queue
