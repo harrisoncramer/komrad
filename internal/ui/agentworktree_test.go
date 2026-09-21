@@ -261,15 +261,15 @@ func recordSearchModel(t *testing.T) model {
 	return focused
 }
 
-// TestRecordSearchWalksOntoTheMatch covers the slash over a focused record: typing moves the
-// field cursor onto the nearest match, the list's own search stands untouched, and enter keeps
+// TestRecordSearchWalksOntoTheMatch covers the slash over a focused record: it opens the one
+// search over the record, typing moves the field cursor onto the nearest match, and enter keeps
 // the search while putting the input away.
 func TestRecordSearchWalksOntoTheMatch(t *testing.T) {
 	m := recordSearchModel(t)
 
 	opened := send(t, m, "/")
-	require.True(t, opened.details.filter.typing)
-	assert.False(t, opened.filter.typing, "the list's search is not the one opened")
+	require.True(t, opened.filter.typing)
+	assert.Equal(t, sectionRecord, opened.filter.over)
 
 	typed := pressMark(t, opened, "s", "i", "z")
 	held := typed.hoveredDetails()
@@ -277,9 +277,8 @@ func TestRecordSearchWalksOntoTheMatch(t *testing.T) {
 	assert.Contains(t, ansi.Strip(typed.View()), "/ siz", "the header's search line is the record's")
 
 	kept := pressMark(t, typed, "enter")
-	assert.False(t, kept.details.filter.typing)
-	assert.True(t, kept.details.filter.isStanding())
-	assert.False(t, kept.filter.isStanding(), "the list's search stands untouched")
+	assert.False(t, kept.filter.typing)
+	assert.True(t, kept.filter.isStanding())
 }
 
 // TestRecordSearchStepsBetweenMatches covers n and N walking the field cursor between the rows
@@ -311,7 +310,7 @@ func TestRecordFilterNarrowsTheFields(t *testing.T) {
 	m.clip = clip
 
 	narrowed := pressMark(t, send(t, m, "/"), "c", "o", "m", "m", "i", "t", "tab", "enter")
-	require.True(t, narrowed.details.filter.isNarrowing())
+	require.True(t, narrowed.filter.doesNarrow(sectionRecord))
 
 	rows := narrowed.detailsRows(narrowed.hoveredDetails())
 	require.Len(t, rows, 6)
@@ -368,22 +367,23 @@ func TestRecordSearchEscapes(t *testing.T) {
 
 	typing := pressMark(t, send(t, m, "/"), "s", "i", "z")
 	abandoned := pressMark(t, typing, "esc")
-	assert.False(t, abandoned.details.filter.isStanding())
+	assert.False(t, abandoned.filter.isStanding())
 	assert.True(t, abandoned.isDetailsFocused(), "abandoning the input keeps the keys on the record")
 	assert.Equal(t, 0, abandoned.detailsCursor(abandoned.hoveredDetails()), "and the cursor is back where it started")
 
 	standing := pressMark(t, send(t, m, "/"), "s", "i", "z", "enter")
 	cleared := send(t, standing, "esc")
-	assert.False(t, cleared.details.filter.isStanding(), "the first escape clears the search")
+	assert.False(t, cleared.filter.isStanding(), "the first escape clears the search")
 	assert.True(t, cleared.isDetailsFocused())
 
 	back := send(t, cleared, "esc")
 	assert.False(t, back.isDetailsFocused(), "the second hands the keys back")
 }
 
-// TestRecordSearchGoesWithTheKeys covers the focus key handing the keys back, which takes the
-// record's standing search with it so the record is whole again.
-func TestRecordSearchGoesWithTheKeys(t *testing.T) {
+// TestRecordSearchStaysWhenTheKeysGo covers the focus key handing the keys back with the search
+// still standing: a filter opened over the record eases to a search, so the record is whole
+// again, its match still lit, and the prompt says nothing is being narrowed.
+func TestRecordSearchStaysWhenTheKeysGo(t *testing.T) {
 	m := recordSearchModel(t)
 
 	standing := pressMark(t, send(t, m, "/"), "s", "i", "z", "tab", "enter")
@@ -392,8 +392,11 @@ func TestRecordSearchGoesWithTheKeys(t *testing.T) {
 	back := send(t, standing, "ctrl+t")
 
 	require.False(t, back.isDetailsFocused())
-	assert.False(t, back.details.filter.isStanding())
+	assert.True(t, back.filter.isStanding())
+	assert.Equal(t, filterModeSearch, back.filter.mode)
 	assert.Len(t, back.detailsRows(back.hoveredDetails()), len(back.hoveredDetails().fields))
+	assert.Len(t, back.agentRows(), len(m.agentRows()), "the list was never narrowed")
+	assert.Contains(t, ansi.Strip(back.View()), "/ siz")
 }
 
 // TestRecordSearchDroppedLeavingScreen covers the record's search going with the list's when
@@ -402,11 +405,11 @@ func TestRecordSearchDroppedLeavingScreen(t *testing.T) {
 	m := recordSearchModel(t)
 
 	standing := pressMark(t, send(t, m, "/"), "s", "i", "z", "enter")
-	require.True(t, standing.details.filter.isStanding())
+	require.True(t, standing.filter.isStanding())
 
 	standing.enterScreen(screenSchedules)
 
-	assert.False(t, standing.details.filter.isStanding())
+	assert.False(t, standing.filter.isStanding())
 }
 
 // TestRecordSearchLightsTheMatch covers the matched run of a value taking the match colour,
@@ -451,13 +454,13 @@ func TestFocusedRecordStaysThroughItsSearch(t *testing.T) {
 			require.True(t, focused.isDetailsFocused(), "the share fits, so the record takes the keys")
 
 			typing := pressMark(t, focused, "/", "a")
-			assert.True(t, typing.details.filter.typing)
+			assert.True(t, typing.filter.typing)
 			assert.True(t, typing.isDetailsFocused(), "the record is still drawn with its search line")
 			assert.NotEmpty(t, typing.detailsView())
 			assert.Len(t, lines(typing.View()), tt.height)
 
 			kept := pressMark(t, typing, "enter")
-			assert.True(t, kept.details.filter.isStanding())
+			assert.True(t, kept.filter.isStanding())
 			assert.True(t, kept.isDetailsFocused(), "enter kept the search rather than reaching the list")
 			assert.Equal(t, screenAgents, kept.screen)
 

@@ -54,9 +54,57 @@ func (m model) isCursorBlinkedOut(focused bool) bool {
 	return focused && !m.isTyping() && m.rowCursor.Blink
 }
 
-// cursorPrefix is the arrow a list draws on its hovered row.
-func (m model) cursorPrefix(focused bool) string {
-	if m.isCursorBlinkedOut(focused) {
+// sidebarSection is one of the sections of the panel's own pane that has a cursor of its own.
+type sidebarSection int
+
+const (
+	sectionList sidebarSection = iota
+	sectionRecord
+	sectionTabs
+)
+
+// keyholder is the section whose cursor the arrow keys would move.
+func (m model) keyholder() sidebarSection {
+	switch {
+	case m.isTabsFocused():
+		return sectionTabs
+	case m.isDetailsFocused():
+		return sectionRecord
+	}
+
+	return sectionList
+}
+
+// doKeysMoveCursors reports whether the keyboard is on a sidebar cursor at all.
+func (m model) doKeysMoveCursors() bool {
+	return !m.keysElsewhere && !m.form.isActive() && !m.isMessagesFocused()
+}
+
+// caretOf is how a section's arrow stands this frame.
+func (m model) caretOf(section sidebarSection) view.Caret {
+	if m.keyholder() != section {
+		return view.CaretAbsent
+	}
+
+	return m.blinkingCaret(m.doKeysMoveCursors())
+}
+
+// blinkingCaret is the arrow as the blink leaves it on a cursor the keyboard is or is not on.
+func (m model) blinkingCaret(held bool) view.Caret {
+	if m.isCursorBlinkedOut(held) {
+		return view.CaretBlinkedOut
+	}
+
+	return view.CaretDrawn
+}
+
+// cursorPrefix is the arrow a section draws on its hovered row.
+func (m model) cursorPrefix(section sidebarSection) string {
+	return caretGlyph(m.caretOf(section))
+}
+
+func caretGlyph(caret view.Caret) string {
+	if caret != view.CaretDrawn {
 		return blankCursor
 	}
 
@@ -64,12 +112,12 @@ func (m model) cursorPrefix(focused bool) string {
 }
 
 func (m model) rowCursorPrefix() string {
-	return m.cursorPrefix(m.isListFocused())
+	return m.cursorPrefix(sectionList)
 }
 
 // isListFocused reports whether the keys are the list's.
 func (m model) isListFocused() bool {
-	return !m.keysElsewhere && !m.isDetailsFocused() && !m.isTabsFocused() && !m.isMessagesFocused() && !m.form.isActive()
+	return m.doKeysMoveCursors() && m.keyholder() == sectionList
 }
 
 // isColumnFocused reports whether the block beside the list holds the keys.

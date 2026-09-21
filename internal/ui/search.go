@@ -516,7 +516,7 @@ func (m model) searchSnapshot(agents []searchAgent, pane int) view.Snapshot {
 			return m.searchRow(agent, archived)
 		}),
 		Dropped:       searchDropped,
-		CaretHidden:   m.isCursorBlinkedOut(m.isListFocused()),
+		Caret:         m.caretOf(sectionList),
 		BarBlinkedOut: m.rowCursor.Blink,
 		Focused:       rowKeyAt(agents, m.search.cursor),
 		Pane:          pane,

@@ -7,6 +7,7 @@ import (
 
 	"weave/config"
 	"weave/internal/ui/paint"
+	"weave/internal/view"
 	"weave/lib/xslice"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -23,8 +24,6 @@ type detailsState struct {
 	cursor  int
 	row     string
 	flashed int
-	// filter is the search over the record's own rows, held only while the record has the keys.
-	filter filterState
 }
 
 type details struct {
@@ -71,7 +70,7 @@ func (m model) detailsRows(held details) []detailsRow {
 		}
 
 		text := strings.TrimSpace(group + " " + field.value)
-		if m.details.filter.isNarrowing() && !m.details.filter.doesMatch(text) {
+		if m.filter.doesNarrow(sectionRecord) && !m.filter.doesMatch(text) {
 			continue
 		}
 
@@ -103,11 +102,14 @@ func (m model) isDetailsDrawn(held details) bool {
 }
 
 // doesListFitDetails is whether the record's share fits under a list, judged with the keys on
-// the list and no search over the record so the answer does not move with either.
+// the list.
 func (m model) doesListFitDetails(header string, help func(model) keyMap) bool {
-	m.details.focused, m.details.filter = false, filterState{}
-
+	m.details.focused = false
 	legend := m.renderHelp(help(m), header)
+
+	// Only the list's legend is measured with the search; a focused record shrinks to the room
+	// its own legend leaves.
+	m.filter = filterState{}
 	if focused := m.renderHelp(m.detailsHelp(), header); strings.Count(focused, "\n") > strings.Count(legend, "\n") {
 		legend = focused
 	}
@@ -124,13 +126,17 @@ func (m model) isDetailsFocused() bool {
 	return m.details.focused && m.isDetailsDrawn(m.hoveredDetails())
 }
 
-// toggleDetailsFocus moves the keys between the list and the record, reading its directory again
-// on the way in.
+// toggleDetailsFocus moves the keys between the list and the record.
 func (m model) toggleDetailsFocus() (model, tea.Cmd) {
 	if m.isDetailsFocused() {
 		return m.blurDetails(), nil
 	}
 
+	return m.focusDetails()
+}
+
+// focusDetails gives the record the keys, reading its directory again on the way in.
+func (m model) focusDetails() (model, tea.Cmd) {
 	held := m.hoveredDetails()
 	if !m.isDetailsDrawn(held) {
 		return m, nil
@@ -146,6 +152,19 @@ func (m model) toggleDetailsFocus() (model, tea.Cmd) {
 	return m, m.rereadAgentWorktreeCmd()
 }
 
+// walkIntoDetails answers a step the list refused at its bottom by moving the keys into the
+// record, on its first field.
+func (m model) walkIntoDetails() (model, tea.Cmd) {
+	held := m.hoveredDetails()
+	if !m.isDetailsDrawn(held) {
+		return m, nil
+	}
+
+	m.details.row, m.details.cursor = held.id, 0
+
+	return m.focusDetails()
+}
+
 // releaseHiddenDetails hands the keys back from a record the pane no longer draws.
 func (m model) releaseHiddenDetails() model {
 	if !m.details.focused || m.isDetailsDrawn(m.hoveredDetails()) {
@@ -155,10 +174,12 @@ func (m model) releaseHiddenDetails() model {
 	return m.blurDetails()
 }
 
-// blurDetails hands the keys back to the list, and the record's search goes with them.
+// blurDetails hands the keys back to the list, easing a filter over the record to a search.
 func (m model) blurDetails() model {
 	m.details.focused = false
-	m.details.filter.abandon()
+	if m.filter.over == sectionRecord {
+		m.filter.mode = filterModeSearch
+	}
 
 	return m
 }
@@ -174,7 +195,7 @@ func (m model) updateDetails(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 }
 
 func detailsActions() actionSpec {
-	standing := func(m model) bool { return m.details.filter.isStanding() }
+	standing := func(m model) bool { return m.filter.isStanding() }
 
 	return actionSpec{
 		table: []action{
@@ -230,7 +251,7 @@ func detailsActions() actionSpec {
 			},
 			{
 				of:   []actionID{actionFilterOpen},
-				desc: model.detailsFilterDesc,
+				desc: model.filterDesc,
 			},
 			{
 				of:   []actionID{actionFilterMatch},
@@ -238,7 +259,7 @@ func detailsActions() actionSpec {
 			},
 			{
 				of:   []actionID{actionFilterClear},
-				desc: func(m model) string { return "clear " + m.details.filter.mode.String() },
+				desc: model.filterClearDesc,
 			},
 			{
 				of:    []actionID{actionMove},
@@ -254,14 +275,6 @@ func detailsActions() actionSpec {
 	}
 }
 
-func (m model) detailsFilterDesc() string {
-	if m.details.filter.isStanding() {
-		return m.details.filter.mode.String() + ": " + m.details.filter.query
-	}
-
-	return "search"
-}
-
 func (m model) detailsHelp() keyMap {
 	own := detailsActions().help(m)
 
@@ -271,8 +284,7 @@ func (m model) detailsHelp() keyMap {
 	}
 }
 
-// detailsFilter is the record's own search, which keeps its cursor on the field it was on as
-// the pattern changes under it.
+// detailsFilter is the record's rows as the search drives them.
 type detailsFilter struct{}
 
 var _ filtered = detailsFilter{}
@@ -296,11 +308,17 @@ func (detailsFilter) filterRows(m model) []filterRow {
 	})
 }
 
+// moveDetailsCursor steps the field cursor, and an up press on the first field walks back out
+// into the list.
 func (m model) moveDetailsCursor(pressed string) (tea.Model, tea.Cmd) {
 	held := m.hoveredDetails()
 	cursor := m.detailsCursor(held)
 	if isBound(pressed, m.keys.Nav.Down) {
 		return m.setDetailsCursor(held, cursor+1), nil
+	}
+
+	if cursor == 0 {
+		return m.blurDetails(), nil
 	}
 
 	return m.setDetailsCursor(held, cursor-1), nil
@@ -407,7 +425,7 @@ func (m model) detailsView() string {
 
 	cursor := m.detailsCursor(held)
 	rows := m.detailFieldRows(m.detailsRows(held), cursor)
-	if len(rows) == 0 && m.details.filter.isNarrowing() {
+	if len(rows) == 0 && m.filter.doesNarrow(sectionRecord) {
 		rows = []string{dimStyle.Render("  nothing matches")}
 	}
 
@@ -488,18 +506,21 @@ func (m model) detailFieldRows(fields []detailsRow, cursor int) []string {
 	const gutter = 2
 
 	for i, row := range fields {
-		prefix := "  "
+		prefix, labelStyle := "  ", dimStyle
 		if i == cursor {
-			prefix = m.cursorPrefix(m.details.focused)
+			prefix = m.cursorPrefix(sectionRecord)
+			if m.caretOf(sectionRecord) != view.CaretAbsent {
+				labelStyle = rowCursorStyle()
+			}
 		}
 
-		label := m.details.filter.highlight(paint.Panel, padRight(row.field.label, labels), dimStyle)
+		label := m.filter.highlight(paint.Panel, padRight(row.field.label, labels), labelStyle)
 		value := paint.Clip(row.field.value, max(m.lineWidth()-labels-gutter-1, 1))
 		switch {
 		case m.details.flashed == i+1:
 			value = flashFieldStyle(paint.Panel).Render(value)
-		case m.details.filter.pattern != nil:
-			value = m.details.filter.highlight(paint.Panel, value, lipgloss.NewStyle())
+		case m.filter.pattern != nil:
+			value = m.filter.highlight(paint.Panel, value, lipgloss.NewStyle())
 		}
 
 		rows = append(rows, prefix+label+" "+value)

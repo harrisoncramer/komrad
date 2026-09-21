@@ -265,7 +265,7 @@ func (m model) messagesCursorPrefix(hovered bool) string {
 		return strings.Repeat(" ", messagesIndent)
 	}
 
-	return m.cursorPrefix(true)
+	return caretGlyph(m.blinkingCaret(true))
 }
 
 // messagesPiece is the piece the cursor stands on, kept inside the pieces this message has.
