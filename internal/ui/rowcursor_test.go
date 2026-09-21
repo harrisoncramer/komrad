@@ -48,10 +48,10 @@ func TestRowCursorSolidUnderAKeypress(t *testing.T) {
 	m.rowCursor.Blink = true
 
 	next, cmd := m.Update(keyMsg("j"))
-	panel, ok := next.(model)
+	shown, ok := next.(model)
 	require.True(t, ok)
 
-	assert.False(t, panel.rowCursor.Blink)
+	assert.False(t, shown.rowCursor.Blink)
 	assert.NotNil(t, cmd, "and a timer carries the blink on from there")
 }
 
@@ -89,9 +89,9 @@ func TestRowCursorTimerFlipsThePhase(t *testing.T) {
 	m.rowCursor = newRowCursor()
 
 	next, cmd := m.Update(keyMsg("j"))
-	panel, ok := next.(model)
+	shown, ok := next.(model)
 	require.True(t, ok)
-	require.False(t, panel.rowCursor.Blink)
+	require.False(t, shown.rowCursor.Blink)
 
 	blinked := false
 	for _, msg := range drain(cmd) {
@@ -99,7 +99,7 @@ func TestRowCursorTimerFlipsThePhase(t *testing.T) {
 			continue
 		}
 
-		after, _ := panel.Update(msg)
+		after, _ := shown.Update(msg)
 		flipped, ok := after.(model)
 		require.True(t, ok)
 		blinked = flipped.rowCursor.Blink

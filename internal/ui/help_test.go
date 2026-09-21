@@ -6,9 +6,8 @@ import (
 	"time"
 
 	"weave/config"
-	agentstore "weave/internal/store/agent"
-	workflowstore "weave/internal/store/workflow"
 	"weave/internal/ui/layout"
+	"weave/internal/ui/panel"
 
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
@@ -155,7 +154,7 @@ func helpModel() model {
 		frame:   layout.New(&recordingTmux{}, config.DefaultLayout()),
 		height:  40,
 		width:   46,
-		listing: listing{workflows: []workflowstore.Workflow{{ID: "w1", Name: "everything"}}, agents: []agentItem{{agent: agentstore.Agent{Name: "api-refactor", WorkflowID: "w1"}}}}, tree: treeState{rowCursor: rowCursor{cursor: 1}},
+		listing: listing{workflows: []panel.Workflow{{ID: "w1", Name: "everything"}}, agents: []agentItem{{agent: panel.Agent{Name: "api-refactor", WorkflowID: "w1"}}}}, tree: treeState{rowCursor: rowCursor{cursor: 1}},
 	}
 }
 

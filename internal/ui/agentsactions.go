@@ -2,9 +2,7 @@ package ui
 
 import (
 	"weave/config"
-
-	agentstore "weave/internal/store/agent"
-	workflowstore "weave/internal/store/workflow"
+	"weave/internal/ui/panel"
 
 	tea "github.com/charmbracelet/bubbletea"
 )
@@ -189,7 +187,7 @@ func agentsRowActions() []action {
 			keys: func(k config.Keybindings) []string { return k.Agents.Archive },
 			when: isHoveringAgent,
 			run: onHoveredAgent(func(m model, item agentItem) (tea.Model, tea.Cmd) {
-				return m.archiveAgentsConfirm([]agentstore.Agent{item.agent})
+				return m.archiveAgentsConfirm([]panel.Agent{item.agent})
 			}),
 		},
 	}
@@ -221,11 +219,11 @@ func isHeldAgent(m model) bool {
 func isRetryableAgent(m model) bool {
 	item, ok := m.selectedAgent()
 
-	return isHoveringAgent(m) && ok && item.agent.State == agentstore.StateFailedToCreate
+	return isHoveringAgent(m) && ok && item.agent.State == panel.StateFailedToCreate
 }
 
 // onHoveredWorkflow hands an arm the workflow under the cursor.
-func onHoveredWorkflow(fn func(model, workflowstore.Workflow) (tea.Model, tea.Cmd)) func(model, string) (tea.Model, tea.Cmd) {
+func onHoveredWorkflow(fn func(model, panel.Workflow) (tea.Model, tea.Cmd)) func(model, string) (tea.Model, tea.Cmd) {
 	return func(m model, _ string) (tea.Model, tea.Cmd) {
 		workflow, ok := m.hoveredWorkflow()
 		if !ok {
@@ -247,7 +245,7 @@ func (m model) archiveChosenAgents(string) (tea.Model, tea.Cmd) {
 	return m.archiveAgentsConfirm(chosenAgents(m.tree.selected, m.agentRows()))
 }
 
-func (m model) openAdoptOf(workflow workflowstore.Workflow) (tea.Model, tea.Cmd) {
+func (m model) openAdoptOf(workflow panel.Workflow) (tea.Model, tea.Cmd) {
 	return m.openAdopt(&workflow)
 }
 

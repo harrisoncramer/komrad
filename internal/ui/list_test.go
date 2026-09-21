@@ -6,11 +6,9 @@ import (
 	"testing"
 
 	"weave/config"
-	agentstore "weave/internal/store/agent"
-	schedulestore "weave/internal/store/schedule"
-	workflowstore "weave/internal/store/workflow"
 	"weave/internal/ui/layout"
 	"weave/internal/ui/paint"
+	"weave/internal/ui/panel"
 	"weave/internal/view"
 
 	"github.com/charmbracelet/x/ansi"
@@ -28,23 +26,23 @@ func screensModel() model {
 		width:         80,
 		detailsHeight: config.DefaultDetailsHeight,
 		frame:         layout.New(&recordingTmux{}, config.DefaultLayout()),
-		listing:       listing{workflows: []workflowstore.Workflow{{ID: "w1", Name: "everything"}}},
+		listing:       listing{workflows: []panel.Workflow{{ID: "w1", Name: "everything"}}},
 		search:        searchState{query: "agent39", turns: hits("agent39")},
 	}
 
 	for i := range total {
 		name := fmt.Sprintf("agent%d", i)
-		m.listing.agents = append(m.listing.agents, agentItem{agent: agentstore.Agent{
+		m.listing.agents = append(m.listing.agents, agentItem{agent: panel.Agent{
 			ID:         name,
 			Name:       name,
 			WorkflowID: "w1",
 		}})
-		m.listing.archivedAgents = append(m.listing.archivedAgents, agentstore.Agent{
+		m.listing.archivedAgents = append(m.listing.archivedAgents, panel.Agent{
 			ID:         name,
 			Name:       name,
 			WorkflowID: "w1",
 		})
-		m.listing.schedules = append(m.listing.schedules, scheduleItem{schedule: schedulestore.Schedule{Name: name}})
+		m.listing.schedules = append(m.listing.schedules, scheduleItem{schedule: panel.Schedule{Name: name}})
 	}
 
 	m.tree.cursor = total

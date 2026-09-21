@@ -7,8 +7,8 @@ import (
 	"strings"
 
 	"weave/config"
-	agentstore "weave/internal/store/agent"
 	"weave/internal/ui/layout"
+	"weave/internal/ui/panel"
 )
 
 const logEnvPath = "WEAVE_LOG"
@@ -56,10 +56,10 @@ func (m model) logsDesc() string {
 }
 
 // logTarget is the agent the log keys read.
-func (m model) logTarget() (agentstore.Agent, bool) {
+func (m model) logTarget() (panel.Agent, bool) {
 	item, ok := m.selectedAgent()
 	if !ok {
-		return agentstore.Agent{}, false
+		return panel.Agent{}, false
 	}
 
 	return item.agent, true

@@ -4,8 +4,8 @@ import (
 	"testing"
 
 	"weave/config"
-	workflowstore "weave/internal/store/workflow"
 	"weave/internal/ui/layout"
+	"weave/internal/ui/panel"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -97,7 +97,7 @@ func TestArchiveJumpKeys(t *testing.T) {
 
 	t.Run("jumping leaves the agents tree alone", func(t *testing.T) {
 		m := archiveSelectionTree()
-		m.listing.workflows = []workflowstore.Workflow{{ID: "w1", Name: "backend"}}
+		m.listing.workflows = []panel.Workflow{{ID: "w1", Name: "backend"}}
 		m.tree.cursor = 0
 
 		after := pressArchive(t, m, keyMsg("G"))

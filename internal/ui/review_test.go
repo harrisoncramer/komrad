@@ -9,10 +9,9 @@ import (
 	"strconv"
 
 	"weave/internal/diff"
-	agentstore "weave/internal/store/agent"
-	workflowstore "weave/internal/store/workflow"
 	"weave/internal/ui/diffview"
 	"weave/internal/ui/paint"
+	"weave/internal/ui/panel"
 	agentv1 "weave/proto/gen/agent/v1"
 	"weave/proto/gen/agent/v1/agentv1connect"
 
@@ -291,11 +290,11 @@ func reviewModelOver(t *testing.T, agents agentv1connect.AgentServiceClient, rep
 	// measured at.
 	m.width, m.height = 200, 30
 	m.listing = listing{
-		workflows: []workflowstore.Workflow{
+		workflows: []panel.Workflow{
 			{
 				ID:       "w1",
 				Name:     "backend",
-				Worktree: workflowstore.WorktreeConfig{Enabled: true, BaseBranch: "main"},
+				Worktree: panel.WorktreeConfig{Enabled: true, BaseBranch: "main"},
 			},
 		},
 		agents: []agentItem{{agent: reviewAgent(dir), alive: true}},
@@ -304,8 +303,8 @@ func reviewModelOver(t *testing.T, agents agentv1connect.AgentServiceClient, rep
 	return m, tmux
 }
 
-func reviewAgent(dir string) agentstore.Agent {
-	return agentstore.Agent{
+func reviewAgent(dir string) panel.Agent {
+	return panel.Agent{
 		ID:         "a1",
 		Name:       "auth",
 		Cwd:        dir,
@@ -396,7 +395,7 @@ func TestEnterReviewOpensAnUntrackedFile(t *testing.T) {
 func TestEnterReviewOpensInAPlainWorkflow(t *testing.T) {
 	dir := reviewRepo(t)
 	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
-	m.listing.workflows[0].Worktree = workflowstore.WorktreeConfig{}
+	m.listing.workflows[0].Worktree = panel.WorktreeConfig{}
 
 	m = openReview(t, m)
 

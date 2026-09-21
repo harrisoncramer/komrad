@@ -5,10 +5,8 @@ import (
 	"testing"
 
 	"weave/config"
-
-	agentstore "weave/internal/store/agent"
-	workflowstore "weave/internal/store/workflow"
 	"weave/internal/ui/layout"
+	"weave/internal/ui/panel"
 	"weave/lib/xptr"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -25,26 +23,26 @@ func familyTree() model {
 		keys:  config.DefaultKeybindings(),
 		width: 60,
 		listing: listing{
-			workflows: []workflowstore.Workflow{{ID: "w1", Name: "weave"}},
+			workflows: []panel.Workflow{{ID: "w1", Name: "weave"}},
 			agents: []agentItem{
-				{agent: agentstore.Agent{
+				{agent: panel.Agent{
 					ID:         "a1",
 					Name:       "author",
 					WorkflowID: "w1",
 					Cwd:        "/tmp/tree",
 				}},
-				{agent: agentstore.Agent{
+				{agent: panel.Agent{
 					ID:         "a2",
 					Name:       "fix-gutter",
 					WorkflowID: "w1",
 				}},
-				{agent: agentstore.Agent{
+				{agent: panel.Agent{
 					ID:            "a3",
 					Name:          "reviewer",
 					WorkflowID:    "w1",
 					ParentAgentID: xptr.Ptr("a1"),
 				}},
-				{agent: agentstore.Agent{
+				{agent: panel.Agent{
 					ID:            "a4",
 					Name:          "test-runner",
 					WorkflowID:    "w1",
@@ -112,7 +110,7 @@ func TestOrphanedChildStandsOnItsOwn(t *testing.T) {
 // TestChildIsNotRebaseable pins that the rebase entry answers on the parent's row only.
 func TestChildIsNotRebaseable(t *testing.T) {
 	m := familyTree()
-	m.listing.workflows[0].Worktree = workflowstore.WorktreeConfig{Enabled: true}
+	m.listing.workflows[0].Worktree = panel.WorktreeConfig{Enabled: true}
 
 	assert.True(t, m.isRebaseable(m.listing.agents[0].agent), "the parent's own worktree is weave's to move")
 	assert.False(t, m.isRebaseable(m.listing.agents[2].agent))
@@ -134,30 +132,30 @@ func TestChildDetailsLeadWithTheParent(t *testing.T) {
 func TestPromptSubjectCountsTheChildren(t *testing.T) {
 	tests := []struct {
 		name     string
-		agents   []agentstore.Agent
+		agents   []panel.Agent
 		children int
 		want     string
 	}{
 		{
 			name:   "one agent with nothing attached",
-			agents: []agentstore.Agent{{Name: "author"}},
+			agents: []panel.Agent{{Name: "author"}},
 			want:   `agent "author"`,
 		},
 		{
 			name:     "one agent with one child",
-			agents:   []agentstore.Agent{{Name: "author"}},
+			agents:   []panel.Agent{{Name: "author"}},
 			children: 1,
 			want:     `agent "author" and its child`,
 		},
 		{
 			name:     "one agent with several",
-			agents:   []agentstore.Agent{{Name: "author"}},
+			agents:   []panel.Agent{{Name: "author"}},
 			children: 2,
 			want:     `agent "author" and its 2 children`,
 		},
 		{
 			name:     "a selection of agents",
-			agents:   []agentstore.Agent{{Name: "author"}, {Name: "fix-gutter"}},
+			agents:   []panel.Agent{{Name: "author"}, {Name: "fix-gutter"}},
 			children: 2,
 			want:     "2 agents and 2 children",
 		},
@@ -172,7 +170,7 @@ func TestPromptSubjectCountsTheChildren(t *testing.T) {
 
 // TestDeletePromptSaysWhatGoesWithIt pins the hard delete asking about the children too.
 func TestDeletePromptSaysWhatGoesWithIt(t *testing.T) {
-	form, _ := deleteAgentsForm([]agentstore.Agent{{ID: "a1", Name: "author"}}, 2, config.FixedFormKeys())
+	form, _ := deleteAgentsForm([]panel.Agent{{ID: "a1", Name: "author"}}, 2, config.FixedFormKeys())
 	form.Init()
 	form.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
 
@@ -186,15 +184,15 @@ func TestDeletePromptSaysWhatGoesWithIt(t *testing.T) {
 func TestUnnamedChildren(t *testing.T) {
 	pool := familyTree().liveAgents()
 
-	assert.Equal(t, 2, unnamedChildren(pool, []agentstore.Agent{{ID: "a1"}}))
-	assert.Equal(t, 1, unnamedChildren(pool, []agentstore.Agent{{ID: "a1"}, {ID: "a3", ParentAgentID: xptr.Ptr("a1")}}))
-	assert.Equal(t, 0, unnamedChildren(pool, []agentstore.Agent{{ID: "a2"}}))
+	assert.Equal(t, 2, unnamedChildren(pool, []panel.Agent{{ID: "a1"}}))
+	assert.Equal(t, 1, unnamedChildren(pool, []panel.Agent{{ID: "a1"}, {ID: "a3", ParentAgentID: xptr.Ptr("a1")}}))
+	assert.Equal(t, 0, unnamedChildren(pool, []panel.Agent{{ID: "a2"}}))
 }
 
 // TestUnnamedChildrenReadsTheArchivesOwnRows pins the count coming from the screen doing the
 // asking.
 func TestUnnamedChildrenReadsTheArchivesOwnRows(t *testing.T) {
-	archived := []agentstore.Agent{
+	archived := []panel.Agent{
 		{ID: "b1", Name: "old-author"},
 		{
 			ID:            "b2",
@@ -203,8 +201,8 @@ func TestUnnamedChildrenReadsTheArchivesOwnRows(t *testing.T) {
 		},
 	}
 
-	assert.Equal(t, 1, unnamedChildren(archived, []agentstore.Agent{{ID: "b1"}}))
-	assert.Equal(t, 0, unnamedChildren(familyTree().liveAgents(), []agentstore.Agent{{ID: "b1"}}),
+	assert.Equal(t, 1, unnamedChildren(archived, []panel.Agent{{ID: "b1"}}))
+	assert.Equal(t, 0, unnamedChildren(familyTree().liveAgents(), []panel.Agent{{ID: "b1"}}),
 		"the live listing knows nothing about them")
 }
 
@@ -255,13 +253,13 @@ func TestChildIsNotReviewable(t *testing.T) {
 	dir := reviewRepo(t)
 	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
 
-	child := agentstore.Agent{
+	child := panel.Agent{
 		ID:            "a3",
 		Name:          "auth-reviewer",
 		Cwd:           dir,
 		WorkflowID:    "w1",
 		ParentAgentID: xptr.Ptr("a1"),
-		Role:          agentstore.RoleReviewer,
+		Role:          panel.RoleReviewer,
 	}
 	assert.False(t, isReviewable(child))
 
@@ -276,12 +274,11 @@ func TestUnprovisionedAgentIsReviewable(t *testing.T) {
 	dir := reviewRepo(t)
 	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
 
-	adopted := agentstore.Agent{
-		ID:               "a5",
-		Name:             "adopted",
-		Cwd:              dir,
-		WorkflowID:       "w1",
-		ProvisionEnabled: xptr.Ptr(false),
+	adopted := panel.Agent{
+		ID:         "a5",
+		Name:       "adopted",
+		Cwd:        dir,
+		WorkflowID: "w1",
 	}
 	assert.True(t, isReviewable(adopted))
 

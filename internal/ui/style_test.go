@@ -5,9 +5,8 @@ import (
 	"testing"
 
 	"weave/config"
-	agentstore "weave/internal/store/agent"
-	workflowstore "weave/internal/store/workflow"
 	"weave/internal/ui/layout"
+	"weave/internal/ui/panel"
 	"weave/lib/xptr"
 
 	"github.com/stretchr/testify/assert"
@@ -21,7 +20,7 @@ func TestAgentsViewRowWidthIsStableRegardlessOfBranch(t *testing.T) {
 	withBranch := model{
 		frame: layout.New(&recordingTmux{}, config.DefaultLayout()),
 		keys:  config.DefaultKeybindings(),
-		listing: listing{workflows: []workflowstore.Workflow{{ID: "w1", Name: "acmecorp"}}, agents: []agentItem{{agent: agentstore.Agent{
+		listing: listing{workflows: []panel.Workflow{{ID: "w1", Name: "acmecorp"}}, agents: []agentItem{{agent: panel.Agent{
 			ID:         "a1",
 			Name:       "worker",
 			WorkflowID: "w1",
@@ -29,7 +28,7 @@ func TestAgentsViewRowWidthIsStableRegardlessOfBranch(t *testing.T) {
 		}}}},
 	}
 	withoutBranch := withBranch
-	withoutBranch.listing.agents = []agentItem{{agent: agentstore.Agent{
+	withoutBranch.listing.agents = []agentItem{{agent: panel.Agent{
 		ID:         "a1",
 		Name:       "worker",
 		WorkflowID: "w1",

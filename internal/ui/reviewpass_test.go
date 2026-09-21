@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	agentstore "weave/internal/store/agent"
+	"weave/internal/ui/panel"
 	agentv1 "weave/proto/gen/agent/v1"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -148,7 +148,7 @@ func TestAnUnreadablePaneIsNotStopped(t *testing.T) {
 	m, _ := reviewModel(t, agents, dir)
 	m = openReview(t, m)
 
-	setReviewAgentState(&m, agentstore.StateUncertain)
+	setReviewAgentState(&m, panel.StateUncertain)
 	m.review.diff.cursor = reviewRowWithAnEditTarget(t, m)
 
 	next, _ := m.updateReview(editorKey())
@@ -168,7 +168,7 @@ func TestAPassGivenUpBeforeTheAgentStopsLetsItGo(t *testing.T) {
 	m, _ := reviewModel(t, agents, dir)
 	m = openReview(t, m)
 
-	setReviewAgentState(&m, agentstore.StateThinking)
+	setReviewAgentState(&m, panel.StateThinking)
 	m.review.diff.cursor = reviewRowWithAnEditTarget(t, m)
 
 	next, cmd := m.updateReview(editorKey())
@@ -206,7 +206,7 @@ func TestASecondEditPressWaitsRatherThanOpening(t *testing.T) {
 	m, _ := reviewModel(t, agents, dir)
 	m = openReview(t, m)
 
-	setReviewAgentState(&m, agentstore.StateIdle)
+	setReviewAgentState(&m, panel.StateIdle)
 	m.review.diff.cursor = reviewRowWithAnEditTarget(t, m)
 
 	next, cmd := m.updateReview(editorKey())

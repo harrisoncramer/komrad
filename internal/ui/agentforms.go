@@ -6,10 +6,9 @@ import (
 	"strings"
 
 	"weave/config"
-	agentstore "weave/internal/store/agent"
-	workflowstore "weave/internal/store/workflow"
 	"weave/internal/ui/paint"
 	"weave/internal/ui/paint/label"
+	"weave/internal/ui/panel"
 	"weave/lib/xptr"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -20,7 +19,7 @@ var errNoWorkflow = errors.New("every agent belongs to a workflow, so create one
 
 var errChildOfChild = errors.New("a child agent may not have children of its own")
 
-func (m model) openNewAgent(workflow *workflowstore.Workflow) (tea.Model, tea.Cmd) {
+func (m model) openNewAgent(workflow *panel.Workflow) (tea.Model, tea.Cmd) {
 	if workflow == nil {
 		m.report("Could not start an agent", errNoWorkflow)
 
@@ -33,7 +32,7 @@ func (m model) openNewAgent(workflow *workflowstore.Workflow) (tea.Model, tea.Cm
 }
 
 // agentPrefill is the new-agent form as the workflow leaves it, before anything is typed.
-func agentPrefill(workflow workflowstore.Workflow) agentFormValues {
+func agentPrefill(workflow panel.Workflow) agentFormValues {
 	return agentFormValues{
 		Harness:  workflow.Harness,
 		Dir:      workflow.Cwd,
@@ -41,7 +40,7 @@ func agentPrefill(workflow workflowstore.Workflow) agentFormValues {
 	}
 }
 
-func (m model) openAgentForm(workflow workflowstore.Workflow, values *agentFormValues) (tea.Model, tea.Cmd) {
+func (m model) openAgentForm(workflow panel.Workflow, values *agentFormValues) (tea.Model, tea.Cmd) {
 	return m.openRedrawnForm(openRedrawnFormParams{
 		Kind: formAgent,
 		Build: func(m model) (*huh.Form, []string) {
@@ -53,7 +52,7 @@ func (m model) openAgentForm(workflow workflowstore.Workflow, values *agentFormV
 }
 
 // openNewChild opens the form that attaches a child to the hovered agent.
-func (m model) openNewChild(parent agentstore.Agent) (tea.Model, tea.Cmd) {
+func (m model) openNewChild(parent panel.Agent) (tea.Model, tea.Cmd) {
 	if parent.ParentAgentID != nil {
 		m.report("Could not attach a child", errChildOfChild)
 
@@ -66,11 +65,11 @@ func (m model) openNewChild(parent agentstore.Agent) (tea.Model, tea.Cmd) {
 }
 
 // childPrefill is the child form as the parent leaves it.
-func childPrefill(parent agentstore.Agent) agentFormValues {
+func childPrefill(parent panel.Agent) agentFormValues {
 	return agentFormValues{Harness: parent.Harness}
 }
 
-func (m model) openChildForm(parent agentstore.Agent, values *agentFormValues) (tea.Model, tea.Cmd) {
+func (m model) openChildForm(parent panel.Agent, values *agentFormValues) (tea.Model, tea.Cmd) {
 	return m.openRedrawnForm(openRedrawnFormParams{
 		Kind:     formChild,
 		Build:    func(m model) (*huh.Form, []string) { return childAgentForm(formKeys(), values, parent) },
@@ -80,7 +79,7 @@ func (m model) openChildForm(parent agentstore.Agent, values *agentFormValues) (
 }
 
 // submitChild launches the child without a directory or a provisioner.
-func (m model) submitChild(parent agentstore.Agent, values agentFormValues) (tea.Model, tea.Cmd) {
+func (m model) submitChild(parent panel.Agent, values agentFormValues) (tea.Model, tea.Cmd) {
 	cmd := m.createCmd(createAgentParams{
 		Prompt:        values.Prompt,
 		Title:         values.Title,
@@ -93,7 +92,7 @@ func (m model) submitChild(parent agentstore.Agent, values agentFormValues) (tea
 	return m, tea.Batch(cmd, m.holdForm())
 }
 
-func (m model) openRetryForm(agent agentstore.Agent) (tea.Model, tea.Cmd) {
+func (m model) openRetryForm(agent panel.Agent) (tea.Model, tea.Cmd) {
 	values := retryFormValues{
 		Prompt:  agent.Prompt,
 		Harness: agent.Harness,
@@ -108,17 +107,17 @@ func (m model) openRetryForm(agent agentstore.Agent) (tea.Model, tea.Cmd) {
 	})
 }
 
-func (m model) submitRetry(agent agentstore.Agent, values retryFormValues) (tea.Model, tea.Cmd) {
+func (m model) submitRetry(agent panel.Agent, values retryFormValues) (tea.Model, tea.Cmd) {
 	cmd := m.retryCmd(agent, values)
 
 	return m, tea.Batch(cmd, m.holdForm())
 }
 
-func (m model) openRename(agent agentstore.Agent) (tea.Model, tea.Cmd) {
+func (m model) openRename(agent panel.Agent) (tea.Model, tea.Cmd) {
 	return m.openRenameForm(agent, new(string))
 }
 
-func (m model) openRenameForm(agent agentstore.Agent, name *string) (tea.Model, tea.Cmd) {
+func (m model) openRenameForm(agent panel.Agent, name *string) (tea.Model, tea.Cmd) {
 	return m.openRedrawnForm(openRedrawnFormParams{
 		Kind:   formRename,
 		Build:  func(m model) (*huh.Form, []string) { return renameForm(agent.Name, name, formKeys()) },
@@ -126,7 +125,7 @@ func (m model) openRenameForm(agent agentstore.Agent, name *string) (tea.Model, 
 	})
 }
 
-func (m model) openAdopt(workflow *workflowstore.Workflow) (tea.Model, tea.Cmd) {
+func (m model) openAdopt(workflow *panel.Workflow) (tea.Model, tea.Cmd) {
 	if workflow == nil {
 		m.report("Could not adopt", errNoWorkflow)
 
@@ -139,11 +138,11 @@ func (m model) openAdopt(workflow *workflowstore.Workflow) (tea.Model, tea.Cmd) 
 }
 
 // adoptPrefill is the adopt form as the workflow leaves it, before anything is typed.
-func adoptPrefill(workflow workflowstore.Workflow) adoptFormValues {
+func adoptPrefill(workflow panel.Workflow) adoptFormValues {
 	return adoptFormValues{Harness: workflow.Harness}
 }
 
-func (m model) openAdoptForm(workflow workflowstore.Workflow, values *adoptFormValues) (tea.Model, tea.Cmd) {
+func (m model) openAdoptForm(workflow panel.Workflow, values *adoptFormValues) (tea.Model, tea.Cmd) {
 	return m.openRedrawnForm(openRedrawnFormParams{
 		Kind:     formAdopt,
 		Build:    func(m model) (*huh.Form, []string) { return adoptAgentForm(formKeys(), values) },
@@ -152,7 +151,7 @@ func (m model) openAdoptForm(workflow workflowstore.Workflow, values *adoptFormV
 	})
 }
 
-func (m model) submitAdopt(workflow workflowstore.Workflow, values adoptFormValues) (tea.Model, tea.Cmd) {
+func (m model) submitAdopt(workflow panel.Workflow, values adoptFormValues) (tea.Model, tea.Cmd) {
 	cmd := m.adoptCmd(adoptParams{
 		Ref:        values.Ref,
 		Prompt:     values.Prompt,
@@ -165,7 +164,7 @@ func (m model) submitAdopt(workflow workflowstore.Workflow, values adoptFormValu
 	return m, tea.Batch(cmd, m.holdForm())
 }
 
-func (m model) submitRename(agent agentstore.Agent, typed string) (tea.Model, tea.Cmd) {
+func (m model) submitRename(agent panel.Agent, typed string) (tea.Model, tea.Cmd) {
 	name := strings.TrimSpace(typed)
 	cmd := m.writeCmd(
 		fmt.Sprintf("Could not rename agent %q", agent.Name),
@@ -175,7 +174,7 @@ func (m model) submitRename(agent agentstore.Agent, typed string) (tea.Model, te
 	return m, tea.Batch(cmd, m.holdForm())
 }
 
-func (m model) submitAgent(workflow workflowstore.Workflow, values agentFormValues) (tea.Model, tea.Cmd) {
+func (m model) submitAgent(workflow panel.Workflow, values agentFormValues) (tea.Model, tea.Cmd) {
 	cmd := m.createCmd(createAgentParams{
 		Prompt:           values.Prompt,
 		Title:            values.Title,
@@ -261,7 +260,7 @@ func newAgentForm(keys config.FormKeys, values *agentFormValues, worktree bool) 
 }
 
 // childAgentForm asks for the work and little else.
-func childAgentForm(keys config.FormKeys, values *agentFormValues, parent agentstore.Agent) (*huh.Form, []string) {
+func childAgentForm(keys config.FormKeys, values *agentFormValues, parent panel.Agent) (*huh.Form, []string) {
 	fields := []huh.Field{
 		textField("prompt").Title(fmt.Sprintf("Child of %q", parent.Name)).
 			Description(fmt.Sprintf("%s opens $EDITOR; %s submits", keyLabel(keys.Editor), keyLabel(keys.Submit))).Value(&values.Prompt),
@@ -320,7 +319,7 @@ type archiveChoice string
 
 // promptSubject names what a prompt is about, counting in the children that were not asked
 // about.
-func promptSubject(agents []agentstore.Agent, children int) string {
+func promptSubject(agents []panel.Agent, children int) string {
 	subject := fmt.Sprintf("%d agents", len(agents))
 	if len(agents) == 1 {
 		subject = fmt.Sprintf("agent %q", agents[0].Name)
@@ -339,7 +338,7 @@ func promptSubject(agents []agentstore.Agent, children int) string {
 	return subject
 }
 
-func archiveAgentsForm(agents []agentstore.Agent, children int, keys config.FormKeys) (*huh.Form, *archiveChoice) {
+func archiveAgentsForm(agents []panel.Agent, children int, keys config.FormKeys) (*huh.Form, *archiveChoice) {
 	title := "Archive " + promptSubject(agents, children) + "?"
 
 	choice := archiveChoiceArchive

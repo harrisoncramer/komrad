@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"slices"
 
-	agentstore "weave/internal/store/agent"
+	"weave/internal/ui/panel"
 	"weave/lib/xslice"
 )
 
@@ -153,15 +153,15 @@ func refsOf(rows []agentRow) []rowRef {
 	})
 }
 
-func chosenAgents(sel selection, rows []agentRow) []agentstore.Agent {
+func chosenAgents(sel selection, rows []agentRow) []panel.Agent {
 	chosen := xslice.Filter(rows, func(row agentRow) bool {
 		return !row.header && sel.has(rowKey(row))
 	})
 
-	return xslice.Map(chosen, func(row agentRow) agentstore.Agent { return row.item.agent })
+	return xslice.Map(chosen, func(row agentRow) panel.Agent { return row.item.agent })
 }
 
-func describeAgents(agents []agentstore.Agent) string {
+func describeAgents(agents []panel.Agent) string {
 	if len(agents) == 1 {
 		return fmt.Sprintf("agent %q", agents[0].Name)
 	}

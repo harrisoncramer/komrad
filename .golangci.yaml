@@ -127,6 +127,10 @@ linters:
               desc: the panel is a client of the service, not a caller of it in process
             - pkg: weave/db
               desc: the panel holds no database connection
+            - pkg: weave/internal/store
+              desc: the panel knows nothing the service has not told it, so a record reaches it as a proto and is kept in its own shape
+            - pkg: weave/internal/rpc/
+              desc: a handler's helpers convert between the store and the wire, and the panel has no store to convert from
         transport:
           files:
             - "!$test"

@@ -6,8 +6,7 @@ import (
 	"time"
 
 	"weave/internal/git"
-	agentstore "weave/internal/store/agent"
-	workflowstore "weave/internal/store/workflow"
+	"weave/internal/ui/panel"
 	"weave/internal/view"
 	"weave/lib/xptr"
 	agentv1 "weave/proto/gen/agent/v1"
@@ -18,11 +17,11 @@ import (
 )
 
 // checkoutWorkflow is a workflow weave cuts a worktree from.
-func checkoutWorkflow() workflowstore.Workflow {
-	return workflowstore.Workflow{
+func checkoutWorkflow() panel.Workflow {
+	return panel.Workflow{
 		ID:       "w1",
 		Name:     "weave",
-		Worktree: workflowstore.WorktreeConfig{Enabled: true},
+		Worktree: panel.WorktreeConfig{Enabled: true},
 	}
 }
 
@@ -38,7 +37,7 @@ func snapshotRunning(t *testing.T, item agentItem) view.Row {
 	t.Helper()
 
 	item.alive = true
-	item.agent.State = agentstore.StateIdle
+	item.agent.State = panel.StateIdle
 
 	return snapshotOne(t, item)
 }
@@ -63,50 +62,50 @@ func TestSnapshotStatus(t *testing.T) {
 	}{
 		{
 			name: "a create that failed is broken",
-			item: agentItem{agent: agentstore.Agent{State: agentstore.StateFailedToCreate}},
+			item: agentItem{agent: panel.Agent{State: panel.StateFailedToCreate}},
 			want: view.StatusBroken,
 		},
 		{
 			name: "a teardown that failed is broken",
-			item: agentItem{agent: agentstore.Agent{State: agentstore.StateFailedToCleanup}},
+			item: agentItem{agent: panel.Agent{State: panel.StateFailedToCleanup}},
 			want: view.StatusBroken,
 		},
 		{
 			name: "an agent stopped at a prompt wants you",
-			item: agentItem{agent: agentstore.Agent{State: agentstore.StateWaiting}, alive: true},
+			item: agentItem{agent: panel.Agent{State: panel.StateWaiting}, alive: true},
 			want: view.StatusWaiting,
 		},
 		{
 			name: "a pane nobody can read wants you, since nobody else will look",
-			item: agentItem{agent: agentstore.Agent{State: agentstore.StateUncertain}, alive: true},
+			item: agentItem{agent: panel.Agent{State: panel.StateUncertain}, alive: true},
 			want: view.StatusWaiting,
 		},
 		{
 			name: "an agent somebody paused wants that person back, whatever it was doing",
 			item: agentItem{
-				agent: agentstore.Agent{State: agentstore.StateThinking, HeldAt: xptr.Ptr(time.Now())},
+				agent: panel.Agent{State: panel.StateThinking, HeldAt: xptr.Ptr(time.Now())},
 				alive: true,
 			},
 			want: view.StatusWaiting,
 		},
 		{
 			name: "an agent whose pane has gone is idle whatever it stopped in",
-			item: agentItem{agent: agentstore.Agent{State: agentstore.StateThinking}},
+			item: agentItem{agent: panel.Agent{State: panel.StateThinking}},
 			want: view.StatusIdle,
 		},
 		{
 			name: "an agent still being set up is under way, with nobody blocked",
-			item: agentItem{agent: agentstore.Agent{State: agentstore.StateSettingUp}},
+			item: agentItem{agent: panel.Agent{State: panel.StateSettingUp}},
 			want: view.StatusThinking,
 		},
 		{
 			name: "a running agent is thinking",
-			item: agentItem{agent: agentstore.Agent{State: agentstore.StateThinking}, alive: true},
+			item: agentItem{agent: panel.Agent{State: panel.StateThinking}, alive: true},
 			want: view.StatusThinking,
 		},
 		{
 			name: "an agent doing nothing is idle",
-			item: agentItem{agent: agentstore.Agent{State: agentstore.StateIdle}, alive: true},
+			item: agentItem{agent: panel.Agent{State: panel.StateIdle}, alive: true},
 			want: view.StatusIdle,
 		},
 	}
@@ -123,32 +122,32 @@ func TestSnapshotStatus(t *testing.T) {
 func TestSnapshotRepo(t *testing.T) {
 	tests := []struct {
 		name  string
-		agent agentstore.Agent
+		agent panel.Agent
 		want  view.Repo
 	}{
 		{
 			name:  "a directory that has gone beats a rebase left in it",
-			agent: agentstore.Agent{WorktreeRemoved: true, SequenceInProgress: true},
+			agent: panel.Agent{WorktreeRemoved: true, SequenceInProgress: true},
 			want:  view.RepoGone,
 		},
 		{
 			name:  "a create that failed with a directory that has gone still says so",
-			agent: agentstore.Agent{State: agentstore.StateFailedToCreate, WorktreeRemoved: true},
+			agent: panel.Agent{State: panel.StateFailedToCreate, WorktreeRemoved: true},
 			want:  view.RepoGone,
 		},
 		{
 			name:  "a create that failed before there was a directory reads as clean",
-			agent: agentstore.Agent{State: agentstore.StateFailedToCreate},
+			agent: panel.Agent{State: panel.StateFailedToCreate},
 			want:  view.RepoClean,
 		},
 		{
 			name:  "a rebase left part way through says so",
-			agent: agentstore.Agent{SequenceInProgress: true},
+			agent: panel.Agent{SequenceInProgress: true},
 			want:  view.RepoRebasing,
 		},
 		{
 			name:  "an untouched checkout is clean",
-			agent: agentstore.Agent{},
+			agent: panel.Agent{},
 			want:  view.RepoClean,
 		},
 	}
@@ -285,9 +284,9 @@ func TestSnapshotForge(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			item := agentItem{
-				agent: agentstore.Agent{
+				agent: panel.Agent{
 					ID:       "a1",
-					Metadata: []agentstore.Metadata{{Key: "pr", Value: "https://example.test/1"}},
+					Metadata: []panel.Metadata{{Key: "pr", Value: "https://example.test/1"}},
 				},
 				pullRequest: pullRequestStanding{state: tt.state},
 			}
@@ -308,7 +307,7 @@ func TestSnapshotMarksOnARow(t *testing.T) {
 	}{
 		{
 			name: "an agent somebody is holding says it is paused",
-			item: agentItem{agent: agentstore.Agent{
+			item: agentItem{agent: panel.Agent{
 				ID:     "a1",
 				Name:   "held",
 				HeldAt: xptr.Ptr(time.Now()),
@@ -323,7 +322,7 @@ func TestSnapshotMarksOnARow(t *testing.T) {
 		{
 			name: "a failed run nobody has read is an alert",
 			item: agentItem{
-				agent:     agentstore.Agent{ID: "a1", Name: "alert"},
+				agent:     panel.Agent{ID: "a1", Name: "alert"},
 				failedRun: true,
 			},
 			want: view.Row{
@@ -335,7 +334,7 @@ func TestSnapshotMarksOnARow(t *testing.T) {
 		{
 			name: "mail it has not read says so",
 			item: agentItem{
-				agent:      agentstore.Agent{ID: "a1", Name: "mail"},
+				agent:      panel.Agent{ID: "a1", Name: "mail"},
 				unreadMail: true,
 			},
 			want: view.Row{
@@ -346,7 +345,7 @@ func TestSnapshotMarksOnARow(t *testing.T) {
 		},
 		{
 			name: "an agent a schedule launched says so",
-			item: agentItem{agent: agentstore.Agent{
+			item: agentItem{agent: panel.Agent{
 				ID:         "a1",
 				Name:       "nightly",
 				ScheduleID: xptr.Ptr("s1"),
@@ -359,7 +358,7 @@ func TestSnapshotMarksOnARow(t *testing.T) {
 		},
 		{
 			name: "a hidden agent carries the fact as a mark of its own",
-			item: agentItem{agent: agentstore.Agent{
+			item: agentItem{agent: panel.Agent{
 				ID:     "a1",
 				Name:   "hidden",
 				Hidden: true,
@@ -372,7 +371,7 @@ func TestSnapshotMarksOnARow(t *testing.T) {
 		},
 		{
 			name: "an archived agent says so rather than being greyed by hand",
-			item: agentItem{agent: agentstore.Agent{
+			item: agentItem{agent: panel.Agent{
 				ID:         "a1",
 				Name:       "put-away",
 				ArchivedAt: xptr.Ptr(time.Now()),
@@ -385,7 +384,7 @@ func TestSnapshotMarksOnARow(t *testing.T) {
 		},
 		{
 			name: "an ordinary agent carries nothing at all",
-			item: agentItem{agent: agentstore.Agent{ID: "a1", Name: "ordinary"}},
+			item: agentItem{agent: panel.Agent{ID: "a1", Name: "ordinary"}},
 			want: view.Row{
 				Key:  "agent:a1",
 				Name: "ordinary",
@@ -410,27 +409,27 @@ func TestSnapshotProcess(t *testing.T) {
 	}{
 		{
 			name: "an agent whose pane has gone has nothing behind it",
-			item: agentItem{agent: agentstore.Agent{State: agentstore.StateIdle}},
+			item: agentItem{agent: panel.Agent{State: panel.StateIdle}},
 			want: view.ProcessStopped,
 		},
 		{
 			name: "an agent that stopped mid-thought has nothing behind it either",
-			item: agentItem{agent: agentstore.Agent{State: agentstore.StateThinking}},
+			item: agentItem{agent: panel.Agent{State: panel.StateThinking}},
 			want: view.ProcessStopped,
 		},
 		{
 			name: "a create that failed is not dormant, since the row still has a failure to report",
-			item: agentItem{agent: agentstore.Agent{State: agentstore.StateFailedToCreate}},
+			item: agentItem{agent: panel.Agent{State: panel.StateFailedToCreate}},
 			want: view.ProcessAlive,
 		},
 		{
 			name: "an agent still being set up is not dormant, since it is on its way",
-			item: agentItem{agent: agentstore.Agent{State: agentstore.StateSettingUp}},
+			item: agentItem{agent: panel.Agent{State: panel.StateSettingUp}},
 			want: view.ProcessAlive,
 		},
 		{
 			name: "an agent sitting quiet with a pane of its own is not dormant",
-			item: agentItem{agent: agentstore.Agent{State: agentstore.StateIdle}, alive: true},
+			item: agentItem{agent: panel.Agent{State: panel.StateIdle}, alive: true},
 			want: view.ProcessAlive,
 		},
 	}
@@ -454,9 +453,9 @@ func TestSnapshotKinds(t *testing.T) {
 			name: "a workflow whose orchestrator is working says so on its own bar",
 			row: agentRow{
 				header:   true,
-				workflow: workflowstore.Workflow{ID: "w1", Name: "weave"},
+				workflow: panel.Workflow{ID: "w1", Name: "weave"},
 				orchestrator: &agentItem{
-					agent: agentstore.Agent{ID: "o1", State: agentstore.StateThinking},
+					agent: panel.Agent{ID: "o1", State: panel.StateThinking},
 					alive: true,
 				},
 			},
@@ -471,7 +470,7 @@ func TestSnapshotKinds(t *testing.T) {
 			name: "a workflow standing behind no orchestrator has no bar at all",
 			row: agentRow{
 				header:   true,
-				workflow: workflowstore.Workflow{ID: "w1", Name: "weave"},
+				workflow: panel.Workflow{ID: "w1", Name: "weave"},
 			},
 			want: view.Row{
 				Key:     "workflow:w1",
@@ -484,8 +483,8 @@ func TestSnapshotKinds(t *testing.T) {
 			name: "a workflow whose orchestrator has stopped has nothing running behind it",
 			row: agentRow{
 				header:       true,
-				workflow:     workflowstore.Workflow{ID: "w1", Name: "weave"},
-				orchestrator: &agentItem{agent: agentstore.Agent{ID: "o1", State: agentstore.StateIdle}},
+				workflow:     panel.Workflow{ID: "w1", Name: "weave"},
+				orchestrator: &agentItem{agent: panel.Agent{ID: "o1", State: panel.StateIdle}},
 			},
 			want: view.Row{
 				Key:     "workflow:w1",
@@ -498,8 +497,8 @@ func TestSnapshotKinds(t *testing.T) {
 			name: "a workflow whose orchestrator failed to start still wears the failure",
 			row: agentRow{
 				header:       true,
-				workflow:     workflowstore.Workflow{ID: "w1", Name: "weave"},
-				orchestrator: &agentItem{agent: agentstore.Agent{ID: "o1", State: agentstore.StateFailedToCreate}},
+				workflow:     panel.Workflow{ID: "w1", Name: "weave"},
+				orchestrator: &agentItem{agent: panel.Agent{ID: "o1", State: panel.StateFailedToCreate}},
 			},
 			want: view.Row{
 				Key:    "workflow:w1",
@@ -512,7 +511,7 @@ func TestSnapshotKinds(t *testing.T) {
 			name: "a workflow a schedule launches into says so",
 			row: agentRow{
 				header:   true,
-				workflow: workflowstore.Workflow{ID: "w1", Name: "weave"},
+				workflow: panel.Workflow{ID: "w1", Name: "weave"},
 			},
 			scheduled: map[string]bool{"w1": true},
 			want: view.Row{
@@ -528,11 +527,11 @@ func TestSnapshotKinds(t *testing.T) {
 			row: agentRow{
 				workflow: checkoutWorkflow(),
 				item: agentItem{
-					agent: agentstore.Agent{
+					agent: panel.Agent{
 						ID:         "a1",
 						Name:       "worker",
 						WorkflowID: "w1",
-						State:      agentstore.StateIdle,
+						State:      panel.StateIdle,
 					},
 				},
 			},
@@ -548,7 +547,7 @@ func TestSnapshotKinds(t *testing.T) {
 			name: "a child hangs off the row above it",
 			row: agentRow{
 				workflow: checkoutWorkflow(),
-				item: agentItem{agent: agentstore.Agent{
+				item: agentItem{agent: panel.Agent{
 					ID:            "a1",
 					Name:          "reviewer",
 					ParentAgentID: xptr.Ptr("a0"),
@@ -563,7 +562,7 @@ func TestSnapshotKinds(t *testing.T) {
 		},
 		{
 			name: "an agent of its own is the ordinary row",
-			row:  agentRow{workflow: checkoutWorkflow(), item: agentItem{agent: agentstore.Agent{ID: "a1", Name: "worker"}}},
+			row:  agentRow{workflow: checkoutWorkflow(), item: agentItem{agent: panel.Agent{ID: "a1", Name: "worker"}}},
 			want: view.Row{
 				Key:  "agent:a1",
 				Kind: view.KindAgent,
@@ -586,16 +585,16 @@ func TestSnapshotKinds(t *testing.T) {
 // still reports the directory it was handed and the review of its work.
 func TestSnapshotPlainWorkflowKeepsItsColumns(t *testing.T) {
 	row := snapshotRowOf(t, snapshotParams{rows: []agentRow{{
-		workflow: workflowstore.Workflow{ID: "w1", Name: "weave"},
+		workflow: panel.Workflow{ID: "w1", Name: "weave"},
 		item: agentItem{
 			alive:        true,
 			localVerdict: agentv1.ReviewVerdict_REVIEW_VERDICT_APPROVED,
-			agent: agentstore.Agent{
+			agent: panel.Agent{
 				ID:              "a1",
 				Name:            "worker",
 				WorkflowID:      "w1",
 				Cwd:             "/tmp/somewhere",
-				State:           agentstore.StateIdle,
+				State:           panel.StateIdle,
 				WorktreeRemoved: true,
 			},
 		},
@@ -635,7 +634,7 @@ func TestSnapshotHiddenTally(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			row := snapshotRowOf(t, snapshotParams{
-				rows:       []agentRow{{item: agentItem{agent: agentstore.Agent{ID: "a1"}}, hiddenCount: tt.count}},
+				rows:       []agentRow{{item: agentItem{agent: panel.Agent{ID: "a1"}}, hiddenCount: tt.count}},
 				showHidden: tt.showHidden,
 			})
 
@@ -649,9 +648,9 @@ func TestSnapshotHiddenTally(t *testing.T) {
 func TestSnapshotListing(t *testing.T) {
 	params := snapshotParams{
 		rows: []agentRow{
-			{header: true, workflow: workflowstore.Workflow{ID: "w1", Name: "weave"}},
-			{item: agentItem{agent: agentstore.Agent{ID: "a1", Name: "picked"}}},
-			{item: agentItem{agent: agentstore.Agent{ID: "a2", Name: "passed over"}}},
+			{header: true, workflow: panel.Workflow{ID: "w1", Name: "weave"}},
+			{item: agentItem{agent: panel.Agent{ID: "a1", Name: "picked"}}},
+			{item: agentItem{agent: panel.Agent{ID: "a2", Name: "passed over"}}},
 		},
 		marks:    map[string]string{"workflow:w1": "w", "agent:a2": "p"},
 		selected: selectAgents([]string{"a1"}...),
@@ -683,19 +682,19 @@ func TestSnapshotSearchMatches(t *testing.T) {
 		{
 			name: "a search matching nothing in the name leaves it unmarked",
 			expr: "nothing",
-			row:  agentRow{item: agentItem{agent: agentstore.Agent{ID: "a1", Name: "view-gather"}}},
+			row:  agentRow{item: agentItem{agent: panel.Agent{ID: "a1", Name: "view-gather"}}},
 			want: nil,
 		},
 		{
 			name: "a search matching twice marks both",
 			expr: "view",
-			row:  agentRow{item: agentItem{agent: agentstore.Agent{ID: "a1", Name: "view-of-a-view"}}},
+			row:  agentRow{item: agentItem{agent: panel.Agent{ID: "a1", Name: "view-of-a-view"}}},
 			want: []view.Span{{Start: 0, End: 4}, {Start: 10, End: 14}},
 		},
 		{
 			name: "a workflow name is searched the same way",
 			expr: "eave",
-			row:  agentRow{header: true, workflow: workflowstore.Workflow{ID: "w1", Name: "weave"}},
+			row:  agentRow{header: true, workflow: panel.Workflow{ID: "w1", Name: "weave"}},
 			want: []view.Span{{Start: 1, End: 5}},
 		},
 	}
@@ -714,7 +713,7 @@ func TestSnapshotSearchMatches(t *testing.T) {
 
 // TestSnapshotSearchOffMarksNothing pins a list nobody is searching carrying no matches at all.
 func TestSnapshotSearchOffMarksNothing(t *testing.T) {
-	row := snapshotOne(t, agentItem{agent: agentstore.Agent{ID: "a1", Name: "view-gather"}})
+	row := snapshotOne(t, agentItem{agent: panel.Agent{ID: "a1", Name: "view-gather"}})
 
 	assert.Nil(t, row.Matches)
 }
@@ -730,7 +729,7 @@ func TestSnapshotHeldWorking(t *testing.T) {
 		{
 			name: "a paused agent that started a turn is working anyway",
 			item: agentItem{
-				agent: agentstore.Agent{State: agentstore.StateThinking, HeldAt: xptr.Ptr(time.Now())},
+				agent: panel.Agent{State: panel.StateThinking, HeldAt: xptr.Ptr(time.Now())},
 				alive: true,
 			},
 			want: true,
@@ -738,7 +737,7 @@ func TestSnapshotHeldWorking(t *testing.T) {
 		{
 			name: "so is one stopped at a prompt, where an answer would land a write",
 			item: agentItem{
-				agent: agentstore.Agent{State: agentstore.StateWaiting, HeldAt: xptr.Ptr(time.Now())},
+				agent: panel.Agent{State: panel.StateWaiting, HeldAt: xptr.Ptr(time.Now())},
 				alive: true,
 			},
 			want: true,
@@ -746,7 +745,7 @@ func TestSnapshotHeldWorking(t *testing.T) {
 		{
 			name: "a pane nobody can read says nothing either way, so the hold stands",
 			item: agentItem{
-				agent: agentstore.Agent{State: agentstore.StateUncertain, HeldAt: xptr.Ptr(time.Now())},
+				agent: panel.Agent{State: panel.StateUncertain, HeldAt: xptr.Ptr(time.Now())},
 				alive: true,
 			},
 			want: false,
@@ -754,14 +753,14 @@ func TestSnapshotHeldWorking(t *testing.T) {
 		{
 			name: "a paused agent sitting quiet is held and nothing more",
 			item: agentItem{
-				agent: agentstore.Agent{State: agentstore.StateIdle, HeldAt: xptr.Ptr(time.Now())},
+				agent: panel.Agent{State: panel.StateIdle, HeldAt: xptr.Ptr(time.Now())},
 				alive: true,
 			},
 			want: false,
 		},
 		{
 			name: "an agent nobody paused is never working through a hold",
-			item: agentItem{agent: agentstore.Agent{State: agentstore.StateThinking}, alive: true},
+			item: agentItem{agent: panel.Agent{State: panel.StateThinking}, alive: true},
 			want: false,
 		},
 	}
@@ -776,7 +775,7 @@ func TestSnapshotHeldWorking(t *testing.T) {
 // TestSnapshotCarriesTheBlink pins the caret's blink reaching the view as a fact rather than the
 // view inventing one, the focused row being named either way.
 func TestSnapshotCarriesTheBlink(t *testing.T) {
-	rows := []agentRow{{item: agentItem{agent: agentstore.Agent{ID: "a1", Name: "worker"}}}}
+	rows := []agentRow{{item: agentItem{agent: panel.Agent{ID: "a1", Name: "worker"}}}}
 
 	hidden := agentsSnapshot(snapshotParams{
 		rows:        rows,
@@ -800,7 +799,7 @@ func TestSnapshotOfAnEmptyPanelIsEmpty(t *testing.T) {
 // TestReportedReasonSurvivesInTheRecord pins the one thing the new row drops that nothing else
 // was showing: what the agent's own CLI last said it was doing.
 func TestReportedReasonSurvivesInTheRecord(t *testing.T) {
-	agent := agentstore.Agent{
+	agent := panel.Agent{
 		ID:             "a1",
 		Name:           "worker",
 		ReportedReason: "reading internal/view",
@@ -809,30 +808,30 @@ func TestReportedReasonSurvivesInTheRecord(t *testing.T) {
 	fields := agentFields(agentFieldsParams{agent: agent})
 
 	assert.Contains(t, fields, recordField{"doing", "reading internal/view"})
-	assert.NotContains(t, agentFields(agentFieldsParams{agent: agentstore.Agent{ID: "a1"}}), recordField{"doing", ""})
+	assert.NotContains(t, agentFields(agentFieldsParams{agent: panel.Agent{ID: "a1"}}), recordField{"doing", ""})
 }
 
 // TestSnapshotChildRowCarriesNoTally pins half of why the busiest row a panel can draw is
 // narrower than the busiest row the model can express: a hidden child is counted on the parent
 // drawn above it, so a child row never stands in for anything.
 func TestSnapshotChildRowCarriesNoTally(t *testing.T) {
-	parent := agentstore.Agent{
+	parent := panel.Agent{
 		ID:         "a1",
 		Name:       "parent",
 		WorkflowID: "w1",
-		State:      agentstore.StateIdle,
+		State:      panel.StateIdle,
 	}
-	child := agentstore.Agent{
+	child := panel.Agent{
 		ID:            "a2",
 		Name:          "child",
 		WorkflowID:    "w1",
-		State:         agentstore.StateIdle,
+		State:         panel.StateIdle,
 		Hidden:        true,
 		ParentAgentID: xptr.Ptr("a1"),
 	}
 
 	rows := treeRows(treeRowsParams{
-		workflows: []workflowstore.Workflow{{ID: "w1", Name: "weave"}},
+		workflows: []panel.Workflow{{ID: "w1", Name: "weave"}},
 		agents:    []agentItem{{agent: parent}, {agent: child}},
 	})
 

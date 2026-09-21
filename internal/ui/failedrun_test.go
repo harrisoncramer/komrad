@@ -7,9 +7,8 @@ import (
 	"time"
 
 	"weave/config"
-	agentstore "weave/internal/store/agent"
-	workflowstore "weave/internal/store/workflow"
 	"weave/internal/ui/layout"
+	"weave/internal/ui/panel"
 	"weave/lib/xptr"
 
 	"github.com/stretchr/testify/assert"
@@ -26,10 +25,10 @@ func failedRunTree() (model, *recordingTmux) {
 		width:  80,
 		screen: screenAgents,
 		listing: listing{
-			workflows: []workflowstore.Workflow{{ID: "w1", Name: "backend"}},
+			workflows: []panel.Workflow{{ID: "w1", Name: "backend"}},
 			agents: []agentItem{
 				{
-					agent: agentstore.Agent{
+					agent: panel.Agent{
 						ID:         "a1",
 						Name:       "auth",
 						WorkflowID: "w1",
@@ -38,7 +37,7 @@ func failedRunTree() (model, *recordingTmux) {
 					failedRun: true,
 				},
 				{
-					agent: agentstore.Agent{
+					agent: panel.Agent{
 						ID:         "a2",
 						Name:       "api",
 						WorkflowID: "w1",

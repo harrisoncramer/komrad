@@ -7,10 +7,9 @@ import (
 	"testing"
 
 	"weave/config"
-	agentstore "weave/internal/store/agent"
-	workflowstore "weave/internal/store/workflow"
 	"weave/internal/ui/layout"
 	"weave/internal/ui/paint"
+	"weave/internal/ui/panel"
 
 	"github.com/charmbracelet/x/ansi"
 	"github.com/stretchr/testify/assert"
@@ -25,13 +24,13 @@ func agentsListModel() model {
 		width:  120,
 		height: 40,
 		listing: listing{
-			workflows: []workflowstore.Workflow{{ID: "w1", Name: "weave"}},
+			workflows: []panel.Workflow{{ID: "w1", Name: "weave"}},
 			agents: []agentItem{{
-				agent: agentstore.Agent{
+				agent: panel.Agent{
 					ID:         "a1",
 					Name:       "worker",
 					WorkflowID: "w1",
-					State:      agentstore.StateFailedToCreate,
+					State:      panel.StateFailedToCreate,
 				},
 			}},
 		},
@@ -62,7 +61,7 @@ func TestAgentsListOnAnEmptyPanel(t *testing.T) {
 func longListModel(cursor int) model {
 	agents := make([]agentItem, 0, 40)
 	for i := range 40 {
-		agents = append(agents, agentItem{agent: agentstore.Agent{
+		agents = append(agents, agentItem{agent: panel.Agent{
 			ID:         fmt.Sprintf("a%02d", i),
 			Name:       fmt.Sprintf("agent-%02d", i),
 			WorkflowID: "w1",

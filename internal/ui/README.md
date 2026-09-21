@@ -133,6 +133,11 @@ document.go is the model methods that measure a pane before handing the drawing 
 The frame is its own package, internal/ui/layout, which owns the panes the panel lays out
 around itself and is the only thing here that talks to tmux.
 
+The records are another, internal/ui/panel: an agent, a workflow and a schedule as the panel
+keeps them, which is the fields the wire carries and nothing more. convert.go reads each proto
+into one of them once, and nothing here imports the store's rows. depguard denies the panel the
+store and the handlers' helpers so the panel binary links neither pgx nor river.
+
 ## The drawing primitives
 
 internal/ui/paint is the colours, the styles, the markdown rendering, the arithmetic that fits
@@ -158,8 +163,8 @@ An agent's own terminal is another process drawing in its own colours, so no pal
 it.
 
 The one contract paint cannot import is the pair of markers the transcript store wraps a
-search hit in. It declares them itself and marker_test.go in the panel pins the two together,
-so a change to either is a failing test rather than a silent mismatch.
+search hit in. It declares them itself and a test in the transcript handler pins the two
+together, so a change to either is a failing test rather than a silent mismatch.
 
 ## Why the errors live in another package
 

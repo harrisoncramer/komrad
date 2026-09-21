@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	agentstore "weave/internal/store/agent"
 	"weave/internal/ui/paint/label"
+	"weave/internal/ui/panel"
 	"weave/lib/xptr"
 	pullrequestv1 "weave/proto/gen/pullrequest/v1"
 	"weave/proto/gen/pullrequest/v1/pullrequestv1connect"
@@ -124,7 +124,7 @@ func TestPullRequestFields(t *testing.T) {
 // TestAgentFieldsPlaceThePullRequestAfterTheBranch covers the rows landing under the branch
 // they are about, and not at all on an agent whose checkout is on no branch.
 func TestAgentFieldsPlaceThePullRequestAfterTheBranch(t *testing.T) {
-	agent := agentstore.Agent{
+	agent := panel.Agent{
 		Name:   "worker",
 		Branch: xptr.Ptr("agent/x"),
 	}
@@ -257,7 +257,7 @@ func TestAgentsLeavingTheListingDropTheirPullRequests(t *testing.T) {
 	m.pullRequests.apply(agentPullRequestsListedMsg{agentID: "gone", listed: agentPullRequests{answered: true}})
 	m.pullRequests.apply(agentPullRequestsListedMsg{agentID: "kept", listed: agentPullRequests{answered: true}})
 
-	m.applyAgents([]agentItem{{agent: agentstore.Agent{ID: "kept"}}})
+	m.applyAgents([]agentItem{{agent: panel.Agent{ID: "kept"}}})
 
 	_, gone := m.pullRequests.listed["gone"]
 	_, kept := m.pullRequests.listed["kept"]

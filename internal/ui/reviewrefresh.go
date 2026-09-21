@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	agentstore "weave/internal/store/agent"
+	"weave/internal/ui/panel"
 	agentv1 "weave/proto/gen/agent/v1"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -274,5 +274,5 @@ func deliverySlot(state agentv1.ReviewDeliveryState) int {
 func (m model) isReviewAgentWriting() bool {
 	item, ok := m.getReviewAgentItem()
 
-	return ok && item.alive && item.agent.State == agentstore.StateThinking
+	return ok && item.alive && item.agent.State == panel.StateThinking
 }

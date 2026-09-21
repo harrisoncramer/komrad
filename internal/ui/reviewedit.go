@@ -5,8 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	agentstore "weave/internal/store/agent"
 	"weave/internal/ui/layout"
+	"weave/internal/ui/panel"
 
 	tea "github.com/charmbracelet/bubbletea"
 )
@@ -118,7 +118,7 @@ func (m model) isReviewEditRefused() (string, bool) {
 // isReviewAgentUnreadable reports whether weave cannot say what the agent is doing.
 func (m model) isReviewAgentUnreadable() (string, bool) {
 	item, ok := m.getReviewAgentItem()
-	if !ok || !item.alive || item.agent.State != agentstore.StateUncertain {
+	if !ok || !item.alive || item.agent.State != panel.StateUncertain {
 		return "", false
 	}
 
@@ -200,13 +200,13 @@ func (m model) isReviewAgentBusy() (string, bool) {
 	// No default, so a state added later fails the exhaustive check here rather than quietly
 	// letting an editor in over a writer.
 	switch item.agent.State {
-	case agentstore.StateThinking:
+	case panel.StateThinking:
 		return "the agent is writing in this worktree · " +
 			"two writers in one checkout cannot both win, so stop it before you edit", true
-	case agentstore.StateUncertain:
+	case panel.StateUncertain:
 		return m.isReviewAgentUnreadable()
-	case agentstore.StateWaiting, agentstore.StateIdle, agentstore.StateSettingUp,
-		agentstore.StateFailedToCreate, agentstore.StateFailedToCleanup:
+	case panel.StateWaiting, panel.StateIdle, panel.StateSettingUp,
+		panel.StateFailedToCreate, panel.StateFailedToCleanup:
 	}
 
 	return "", false

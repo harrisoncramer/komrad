@@ -348,13 +348,13 @@ func TestMessagesPiecesAreCopied(t *testing.T) {
 
 	for i, value := range want {
 		copied, cmd := focused.updateMessages(keyMsg("y"))
-		panel, ok := copied.(model)
+		shown, ok := copied.(model)
 		require.True(t, ok)
 		require.NotNil(t, cmd)
 		require.NoError(t, copyResultFrom(t, cmd).err)
 
 		assert.Equal(t, value, clip.written[len(clip.written)-1], "the piece under the cursor is what y copies")
-		assert.Equal(t, i+1, panel.messages.flashed, "and it flashes while the copy lands")
+		assert.Equal(t, i+1, shown.messages.flashed, "and it flashes while the copy lands")
 
 		focused = send(t, focused, "j")
 	}

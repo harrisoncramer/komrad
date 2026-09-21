@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"weave/internal/ui/panel"
 	agentv1 "weave/proto/gen/agent/v1"
 	"weave/proto/gen/agent/v1/agentv1connect"
 	hookv1 "weave/proto/gen/hook/v1"
@@ -19,10 +20,6 @@ import (
 	worktreev1 "weave/proto/gen/worktree/v1"
 	"weave/proto/gen/worktree/v1/worktreev1connect"
 
-	"weave/internal/rpc/render"
-	agentstore "weave/internal/store/agent"
-	schedulestore "weave/internal/store/schedule"
-	workflowstore "weave/internal/store/workflow"
 	"weave/lib/xslice"
 
 	"connectrpc.com/connect"
@@ -58,7 +55,7 @@ func mutate(fn func(context.Context) (any, error)) error {
 	return err
 }
 
-func (a api) renameAgent(agent agentstore.Agent, name string) error {
+func (a api) renameAgent(agent panel.Agent, name string) error {
 	name = strings.TrimSpace(name)
 	if name == "" || name == agent.Name {
 		return nil
@@ -153,14 +150,14 @@ func (a api) archiveAgents(ids []string) error {
 	})
 }
 
-func (a api) setHidden(agent agentstore.Agent, hidden bool) error {
+func (a api) setHidden(agent panel.Agent, hidden bool) error {
 	return mutate(func(ctx context.Context) (any, error) {
 		return a.agents.SetHidden(ctx, connect.NewRequest(&agentv1.SetHiddenRequest{Id: agent.ID, Hidden: hidden}))
 	})
 }
 
 // hold stops an agent so the person may take its worktree.
-func (a api) hold(agent agentstore.Agent) error {
+func (a api) hold(agent panel.Agent) error {
 	return mutate(func(ctx context.Context) (any, error) {
 		return a.agents.HoldAgent(ctx, connect.NewRequest(&agentv1.HoldAgentRequest{Id: agent.ID}))
 	})
@@ -181,7 +178,7 @@ func (a api) startOrchestrator(workflowID string) (*agentv1.Agent, error) {
 }
 
 // release lets go of a held agent, saying what changed while it was held.
-func (a api) release(agent agentstore.Agent, said string) error {
+func (a api) release(agent panel.Agent, said string) error {
 	return mutate(func(ctx context.Context) (any, error) {
 		return a.agents.ReleaseAgent(ctx, connect.NewRequest(&agentv1.ReleaseAgentRequest{
 			Id:   agent.ID,
@@ -296,20 +293,20 @@ func (a api) emptyArchive() error {
 	})
 }
 
-func (a api) getSchedule(id string) (*schedulestore.Schedule, error) {
-	return call(agentsTimeout, func(ctx context.Context) (*schedulestore.Schedule, error) {
+func (a api) getSchedule(id string) (*panel.Schedule, error) {
+	return call(agentsTimeout, func(ctx context.Context) (*panel.Schedule, error) {
 		resp, err := a.schedules.GetSchedule(ctx, connect.NewRequest(&schedulev1.GetScheduleRequest{Id: id}))
 		if err != nil {
 			return nil, fmt.Errorf("failed to get schedule %q: %w", id, err)
 		}
 
-		stored := scheduleFrom(resp.Msg.GetSchedule())
+		schedule := scheduleFrom(resp.Msg.GetSchedule())
 
-		return &stored, nil
+		return &schedule, nil
 	})
 }
 
-func (a api) createSchedule(cfg schedulestore.Config) error {
+func (a api) createSchedule(cfg panel.ScheduleConfig) error {
 	return mutate(func(ctx context.Context) (any, error) {
 		return a.schedules.CreateSchedule(ctx, connect.NewRequest(&schedulev1.CreateScheduleRequest{
 			Name:       strings.TrimSpace(cfg.Name),
@@ -323,7 +320,7 @@ func (a api) createSchedule(cfg schedulestore.Config) error {
 	})
 }
 
-func (a api) updateSchedule(id string, cfg schedulestore.Config) error {
+func (a api) updateSchedule(id string, cfg panel.ScheduleConfig) error {
 	return mutate(func(ctx context.Context) (any, error) {
 		return a.schedules.UpdateSchedule(ctx, connect.NewRequest(&schedulev1.UpdateScheduleRequest{
 			Id:         id,
@@ -353,8 +350,8 @@ func (a api) archiveSchedule(id string) error {
 	})
 }
 
-func (a api) getWorkflow(id string) (*workflowstore.Workflow, error) {
-	return call(agentsTimeout, func(ctx context.Context) (*workflowstore.Workflow, error) {
+func (a api) getWorkflow(id string) (*panel.Workflow, error) {
+	return call(agentsTimeout, func(ctx context.Context) (*panel.Workflow, error) {
 		resp, err := a.workflows.GetWorkflow(ctx, connect.NewRequest(&workflowv1.GetWorkflowRequest{Id: id}))
 		if err != nil {
 			return nil, fmt.Errorf("failed to get workflow %q: %w", id, err)
@@ -366,13 +363,24 @@ func (a api) getWorkflow(id string) (*workflowstore.Workflow, error) {
 	})
 }
 
-func hooksToProto(hooks []workflowstore.Hook) []*workflowv1.WorkflowHook {
-	return xslice.Map(hooks, func(hook workflowstore.Hook) *workflowv1.WorkflowHook {
+func worktreeConfigToProto(w panel.WorktreeConfig) *workflowv1.WorktreeConfig {
+	return &workflowv1.WorktreeConfig{
+		Enabled:      w.Enabled,
+		BaseBranch:   w.BaseBranch,
+		Dir:          w.Dir,
+		CopyPaths:    w.CopyPaths,
+		SymlinkPaths: w.SymlinkPaths,
+		DiffExclude:  w.DiffExclude,
+	}
+}
+
+func hooksToProto(hooks []panel.Hook) []*workflowv1.WorkflowHook {
+	return xslice.Map(hooks, func(hook panel.Hook) *workflowv1.WorkflowHook {
 		return &workflowv1.WorkflowHook{Event: hook.Event, Script: hook.Script}
 	})
 }
 
-func (a api) createWorkflow(cfg workflowstore.Config) (*workflowv1.Workflow, error) {
+func (a api) createWorkflow(cfg panel.WorkflowConfig) (*workflowv1.Workflow, error) {
 	name := strings.TrimSpace(cfg.Name)
 	if name == "" {
 		name = "workflow"
@@ -385,7 +393,7 @@ func (a api) createWorkflow(cfg workflowstore.Config) (*workflowv1.Workflow, err
 			Harness:  cfg.Harness,
 			Cwd:      cfg.Cwd,
 			Flags:    cfg.Flags,
-			Worktree: render.WorktreeConfigToProto(cfg.Worktree),
+			Worktree: worktreeConfigToProto(cfg.Worktree),
 			Hooks:    hooksToProto(cfg.Hooks),
 		}))
 		if err != nil {
@@ -396,7 +404,7 @@ func (a api) createWorkflow(cfg workflowstore.Config) (*workflowv1.Workflow, err
 	})
 }
 
-func (a api) updateWorkflow(w workflowstore.Workflow) error {
+func (a api) updateWorkflow(w panel.Workflow) error {
 	name := strings.TrimSpace(w.Name)
 	if name == "" {
 		return nil
@@ -410,7 +418,7 @@ func (a api) updateWorkflow(w workflowstore.Workflow) error {
 			Harness:  w.Harness,
 			Cwd:      w.Cwd,
 			Flags:    w.Flags,
-			Worktree: render.WorktreeConfigToProto(w.Worktree),
+			Worktree: worktreeConfigToProto(w.Worktree),
 			Hooks:    hooksToProto(w.Hooks),
 		}))
 	})

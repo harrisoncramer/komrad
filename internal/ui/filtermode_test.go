@@ -5,10 +5,9 @@ import (
 	"testing"
 
 	"weave/config"
-	agentstore "weave/internal/store/agent"
-	workflowstore "weave/internal/store/workflow"
 	"weave/internal/ui/layout"
 	"weave/internal/ui/paint"
+	"weave/internal/ui/panel"
 	"weave/lib/xptr"
 
 	"github.com/charmbracelet/lipgloss"
@@ -372,8 +371,8 @@ func TestReviewSearchIgnoresTab(t *testing.T) {
 	assert.Equal(t, "/", filter.mode.glyph())
 }
 
-func filterModeWorkflows() []workflowstore.Workflow {
-	return []workflowstore.Workflow{
+func filterModeWorkflows() []panel.Workflow {
+	return []panel.Workflow{
 		{ID: "w1", Name: "backend"},
 		{ID: "w2", Name: "frontend"},
 	}
@@ -383,23 +382,23 @@ func filterModeWorkflows() []workflowstore.Workflow {
 // and a row above one both have something to keep.
 func filterModeAgents() []agentItem {
 	return []agentItem{
-		{agent: agentstore.Agent{
+		{agent: panel.Agent{
 			ID:         "a1",
 			Name:       "auth",
 			WorkflowID: "w1",
 		}},
-		{agent: agentstore.Agent{
+		{agent: panel.Agent{
 			ID:            "a2",
 			Name:          "api",
 			WorkflowID:    "w1",
 			ParentAgentID: xptr.Ptr("a1"),
 		}},
-		{agent: agentstore.Agent{
+		{agent: panel.Agent{
 			ID:         "a3",
 			Name:       "db",
 			WorkflowID: "w1",
 		}},
-		{agent: agentstore.Agent{
+		{agent: panel.Agent{
 			ID:         "a4",
 			Name:       "ui",
 			WorkflowID: "w2",

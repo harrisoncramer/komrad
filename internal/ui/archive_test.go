@@ -9,10 +9,9 @@ import (
 	"time"
 
 	"weave/config"
-	agentstore "weave/internal/store/agent"
-	workflowstore "weave/internal/store/workflow"
 	"weave/internal/ui/layout"
 	"weave/internal/ui/paint"
+	"weave/internal/ui/panel"
 	"weave/internal/view"
 	"weave/lib/xslice"
 	agentv1 "weave/proto/gen/agent/v1"
@@ -37,7 +36,7 @@ func TestArchiveKeys(t *testing.T) {
 		name                 string
 		empty                bool
 		archivedFolder       bool
-		state                agentstore.State
+		state                panel.State
 		cursor               int
 		key                  string
 		wantScreen           screen
@@ -70,7 +69,7 @@ func TestArchiveKeys(t *testing.T) {
 		},
 		{
 			name:       "restore and open passes over an agent that never started",
-			state:      agentstore.StateFailedToCreate,
+			state:      panel.StateFailedToCreate,
 			key:        "R",
 			cursor:     1,
 			wantScreen: screenArchive,
@@ -156,7 +155,7 @@ func TestArchiveKeys(t *testing.T) {
 			}
 			if tt.archivedFolder {
 				m.listing.workflows = nil
-				m.listing.archivedWorkflows = []workflowstore.Workflow{archivedWorkflow("w1", "backend")}
+				m.listing.archivedWorkflows = []panel.Workflow{archivedWorkflow("w1", "backend")}
 			}
 			if tt.empty {
 				m.listing.workflows, m.listing.archivedAgents = nil, nil
@@ -183,27 +182,27 @@ func TestArchiveKeys(t *testing.T) {
 func TestArchiveRows(t *testing.T) {
 	tests := []struct {
 		name      string
-		live      []workflowstore.Workflow
-		archived  []workflowstore.Workflow
-		agents    []agentstore.Agent
+		live      []panel.Workflow
+		archived  []panel.Workflow
+		agents    []panel.Agent
 		wantRows  []string
 		wantEmpty bool
 	}{
 		{
 			name:      "nothing archived draws nothing",
-			live:      []workflowstore.Workflow{{ID: "w1", Name: "backend"}},
+			live:      []panel.Workflow{{ID: "w1", Name: "backend"}},
 			wantRows:  []string{},
 			wantEmpty: true,
 		},
 		{
 			name:     "an archived folder emptied of its agents keeps its header",
-			archived: []workflowstore.Workflow{archivedWorkflow("w1", "backend")},
+			archived: []panel.Workflow{archivedWorkflow("w1", "backend")},
 			wantRows: []string{"header:backend"},
 		},
 		{
 			name: "an agent archived out of a live folder nests under it",
-			live: []workflowstore.Workflow{{ID: "w1", Name: "backend"}},
-			agents: []agentstore.Agent{{
+			live: []panel.Workflow{{ID: "w1", Name: "backend"}},
+			agents: []panel.Agent{{
 				ID:         "a1",
 				Name:       "auth",
 				WorkflowID: "w1",
@@ -212,8 +211,8 @@ func TestArchiveRows(t *testing.T) {
 		},
 		{
 			name: "a live folder with nothing put away out of it gets no header",
-			live: []workflowstore.Workflow{{ID: "w1", Name: "backend"}, {ID: "w2", Name: "frontend"}},
-			agents: []agentstore.Agent{{
+			live: []panel.Workflow{{ID: "w1", Name: "backend"}, {ID: "w2", Name: "frontend"}},
+			agents: []panel.Agent{{
 				ID:         "a1",
 				Name:       "auth",
 				WorkflowID: "w1",
@@ -222,9 +221,9 @@ func TestArchiveRows(t *testing.T) {
 		},
 		{
 			name:     "the two kinds of folder interleave by id, the order the agents screen uses",
-			live:     []workflowstore.Workflow{{ID: "w2", Name: "frontend"}},
-			archived: []workflowstore.Workflow{archivedWorkflow("w1", "backend"), archivedWorkflow("w3", "infra")},
-			agents: []agentstore.Agent{
+			live:     []panel.Workflow{{ID: "w2", Name: "frontend"}},
+			archived: []panel.Workflow{archivedWorkflow("w1", "backend"), archivedWorkflow("w3", "infra")},
+			agents: []panel.Agent{
 				{
 					ID:         "a1",
 					Name:       "auth",
@@ -240,9 +239,9 @@ func TestArchiveRows(t *testing.T) {
 		},
 		{
 			name:     "a folder in both listings is drawn once",
-			live:     []workflowstore.Workflow{{ID: "w1", Name: "backend"}},
-			archived: []workflowstore.Workflow{archivedWorkflow("w1", "backend")},
-			agents: []agentstore.Agent{{
+			live:     []panel.Workflow{{ID: "w1", Name: "backend"}},
+			archived: []panel.Workflow{archivedWorkflow("w1", "backend")},
+			agents: []panel.Agent{{
 				ID:         "a1",
 				Name:       "auth",
 				WorkflowID: "w1",
@@ -308,11 +307,11 @@ func TestArchiveHelpSplitsOnTheRow(t *testing.T) {
 			m.archive.cursor = tt.cursor
 			m.helpExpanded = true
 			if tt.neverViable {
-				m.listing.archivedAgents[0].State = agentstore.StateFailedToCreate
+				m.listing.archivedAgents[0].State = panel.StateFailedToCreate
 			}
 			if tt.archived {
 				m.listing.workflows = nil
-				m.listing.archivedWorkflows = []workflowstore.Workflow{archivedWorkflow("w1", "backend")}
+				m.listing.archivedWorkflows = []panel.Workflow{archivedWorkflow("w1", "backend")}
 			}
 
 			got := ansi.Strip(m.renderHelp(m.archiveHelp()))
@@ -582,7 +581,7 @@ func TestRefusedArchiveWritesAreReported(t *testing.T) {
 			)
 			if tt.onFolder {
 				m.listing.workflows = nil
-				m.listing.archivedWorkflows = []workflowstore.Workflow{archivedWorkflow("w1", "backend")}
+				m.listing.archivedWorkflows = []panel.Workflow{archivedWorkflow("w1", "backend")}
 				m.archive.cursor = 0
 			}
 
@@ -620,9 +619,9 @@ func pressRestoreOpen(t *testing.T, m model) model {
 func TestArchiveView(t *testing.T) {
 	tests := []struct {
 		name        string
-		live        []workflowstore.Workflow
-		archived    []workflowstore.Workflow
-		agents      []agentstore.Agent
+		live        []panel.Workflow
+		archived    []panel.Workflow
+		agents      []panel.Agent
 		wants       []string
 		wantsAbsent []string
 	}{
@@ -632,8 +631,8 @@ func TestArchiveView(t *testing.T) {
 		},
 		{
 			name: "an archived agent shows its name under its folder",
-			live: []workflowstore.Workflow{{ID: "w1", Name: "backend"}},
-			agents: []agentstore.Agent{{
+			live: []panel.Workflow{{ID: "w1", Name: "backend"}},
+			agents: []panel.Agent{{
 				ID:         "a1",
 				Name:       "api-refactor",
 				WorkflowID: "w1",
@@ -642,7 +641,7 @@ func TestArchiveView(t *testing.T) {
 		},
 		{
 			name:     "an archived folder is drawn under its own name",
-			archived: []workflowstore.Workflow{archivedWorkflow("w1", "backend")},
+			archived: []panel.Workflow{archivedWorkflow("w1", "backend")},
 			wants:    []string{"backend"},
 		},
 	}
@@ -668,7 +667,7 @@ func TestArchiveView(t *testing.T) {
 // TestArchiveMarkdown covers the document drawn beside the list for an archived agent, which
 // must not read as one merely dormant and waiting to be opened.
 func TestArchiveMarkdown(t *testing.T) {
-	got := archiveMarkdown(agentstore.Agent{Name: "api-refactor"})
+	got := archiveMarkdown(panel.Agent{Name: "api-refactor"})
 
 	assert.Contains(t, got, "api-refactor")
 	assert.Contains(t, got, "archived")
@@ -680,13 +679,13 @@ func TestArchiveMarkdown(t *testing.T) {
 // failed.
 func TestArchiveDrawsWhyADeleteLeftARowBehind(t *testing.T) {
 	m := archiveModel(&fakeArchiveAgents{}, &fakeArchiveWorkflows{}, config.DefaultKeybindings())
-	m.listing.workflows = []workflowstore.Workflow{{ID: "w1", Name: "backend"}}
-	m.listing.archivedAgents = []agentstore.Agent{{
+	m.listing.workflows = []panel.Workflow{{ID: "w1", Name: "backend"}}
+	m.listing.archivedAgents = []panel.Agent{{
 		ID:         "a1",
 		Name:       "api-refactor",
 		WorkflowID: "w1",
-		State:      agentstore.StateFailedToCleanup,
-		Metadata:   []agentstore.Metadata{{Key: failureReasonKey, Value: "the worktree is dirty"}},
+		State:      panel.StateFailedToCleanup,
+		Metadata:   []panel.Metadata{{Key: failureReasonKey, Value: "the worktree is dirty"}},
 	}}
 
 	drawn := m.archiveDocument(m.listing.archivedAgents[0])
@@ -700,7 +699,7 @@ func TestArchiveDrawsWhyADeleteLeftARowBehind(t *testing.T) {
 // the agents list shows for a live one, plus when it was put away.
 func TestArchiveFields(t *testing.T) {
 	archivedAt := time.Date(2026, time.July, 30, 9, 0, 0, 0, time.UTC)
-	fields := archiveFields(agentstore.Agent{
+	fields := archiveFields(panel.Agent{
 		Name:       "api-refactor",
 		Cwd:        "/work/api",
 		Flags:      "--model opus",
@@ -729,7 +728,7 @@ func archiveSortModel() model {
 	m := worktreesModel()
 	m.screen = screenArchive
 	m.width, m.height = 200, 40
-	m.listing.archivedAgents = []agentstore.Agent{
+	m.listing.archivedAgents = []panel.Agent{
 		{
 			ID:         "zeta",
 			Name:       "zeta",
@@ -864,22 +863,22 @@ func archiveModel(agents agentv1connect.AgentServiceClient, workflows workflowv1
 		keys:   keys,
 		screen: screenArchive,
 		listing: listing{
-			workflows: []workflowstore.Workflow{{ID: "w1", Name: "backend"}},
-			archivedAgents: []agentstore.Agent{{
+			workflows: []panel.Workflow{{ID: "w1", Name: "backend"}},
+			archivedAgents: []panel.Agent{{
 				ID:         "a1",
 				Name:       "api-refactor",
 				WorkflowID: "w1",
-				State:      agentstore.StateIdle,
+				State:      panel.StateIdle,
 			}},
 		},
 		archive: archiveState{rowCursor: rowCursor{cursor: 1}},
 	}
 }
 
-func archivedWorkflow(id, name string) workflowstore.Workflow {
+func archivedWorkflow(id, name string) panel.Workflow {
 	at := time.Date(2026, time.July, 30, 9, 0, 0, 0, time.UTC)
 
-	return workflowstore.Workflow{
+	return panel.Workflow{
 		ID:         id,
 		Name:       name,
 		ArchivedAt: &at,
@@ -1011,7 +1010,7 @@ func splitArchiveModel(t *testing.T) model {
 // drawn in the panel's own frame rather than pushed into a pager in a pane of its own.
 func TestArchiveDrawsTheDocumentBesideTheList(t *testing.T) {
 	m := splitArchiveModel(t)
-	m.listing.workflows = []workflowstore.Workflow{{
+	m.listing.workflows = []panel.Workflow{{
 		ID:      "w1",
 		Name:    "backend",
 		Context: "the shared notes",
@@ -1050,7 +1049,7 @@ func TestArchiveDrawsNothingArchivedBesideTheList(t *testing.T) {
 func TestArchiveScrollsTheDocument(t *testing.T) {
 	m := splitArchiveModel(t)
 	m, _ = archiveList().jump(m, 0)
-	m.listing.workflows = []workflowstore.Workflow{{
+	m.listing.workflows = []panel.Workflow{{
 		ID:      "w1",
 		Name:    "backend",
 		Context: strings.Repeat("a sentence long enough to wrap the column it is drawn into. ", 60),
@@ -1113,7 +1112,7 @@ func TestArchiveHandsTheWindowBack(t *testing.T) {
 
 	// A live agent's own pane is what stands beside the list there, so the panel gives the window
 	// back on the way to a row that has one.
-	m.listing.agents = []agentItem{{agent: agentstore.Agent{
+	m.listing.agents = []agentItem{{agent: panel.Agent{
 		ID:         "a1",
 		Name:       "auth",
 		Pane:       "%9",
@@ -1147,7 +1146,7 @@ func TestArchiveHandsTheWindowBackWhenAWriteLands(t *testing.T) {
 // them, and the offset belongs to the row rather than to the place it sits in the list.
 func TestArchiveKeepsTheOffsetWhenARowSlides(t *testing.T) {
 	m := splitArchiveModel(t)
-	held := []agentstore.Agent{{
+	held := []panel.Agent{{
 		ID:         "a2",
 		Name:       "middle",
 		WorkflowID: "w1",
@@ -1159,7 +1158,7 @@ func TestArchiveKeepsTheOffsetWhenARowSlides(t *testing.T) {
 	m.column.top = 20
 
 	was := m.archive.cursor
-	grown := append([]agentstore.Agent{{
+	grown := append([]panel.Agent{{
 		ID:         "a0",
 		Name:       "alpha",
 		WorkflowID: "w1",
@@ -1195,7 +1194,7 @@ func TestArchiveKeepsTheSplitInAShortPane(t *testing.T) {
 func TestArchiveDocViewFillsItsColumn(t *testing.T) {
 	m := splitArchiveModel(t)
 	m, _ = archiveList().jump(m, 0)
-	m.listing.workflows = []workflowstore.Workflow{{
+	m.listing.workflows = []panel.Workflow{{
 		ID:      "w1",
 		Name:    "backend",
 		Context: strings.Repeat("a line of the document. ", 30),
@@ -1258,14 +1257,14 @@ func TestArchiveOpensOnTheSearch(t *testing.T) {
 
 // archivedAgent is an agent as the archive listing hands it over, stamped with when it was put
 // away since that stamp is what greys its row.
-func archivedAgent(id, name, workflowID string) agentstore.Agent {
+func archivedAgent(id, name, workflowID string) panel.Agent {
 	at := time.Date(2026, time.July, 30, 9, 0, 0, 0, time.UTC)
 
-	return agentstore.Agent{
+	return panel.Agent{
 		ID:         id,
 		Name:       name,
 		WorkflowID: workflowID,
-		State:      agentstore.StateIdle,
+		State:      panel.StateIdle,
 		ArchivedAt: &at,
 	}
 }
@@ -1287,9 +1286,9 @@ func archiveLines(t *testing.T, m model) []view.Line {
 // agents is not put away.
 func TestArchiveGreysWhatIsPutAway(t *testing.T) {
 	m := archiveModel(&fakeArchiveAgents{}, &fakeArchiveWorkflows{}, config.DefaultKeybindings())
-	m.listing.workflows = []workflowstore.Workflow{{ID: "w1", Name: "backend"}}
-	m.listing.archivedAgents = []agentstore.Agent{archivedAgent("a1", "auth", "w1"), archivedAgent("a2", "ui", "w2")}
-	m.listing.archivedWorkflows = []workflowstore.Workflow{archivedWorkflow("w2", "frontend")}
+	m.listing.workflows = []panel.Workflow{{ID: "w1", Name: "backend"}}
+	m.listing.archivedAgents = []panel.Agent{archivedAgent("a1", "auth", "w1"), archivedAgent("a2", "ui", "w2")}
+	m.listing.archivedWorkflows = []panel.Workflow{archivedWorkflow("w2", "frontend")}
 	// Parked on the last row, where the cursor's own colour beats greying.
 	m.archive.cursor = 3
 
@@ -1336,8 +1335,8 @@ func TestArchiveGivesUpTheThreeColumns(t *testing.T) {
 func TestArchiveDrawsTheQuietBarExceptWhereADeleteFailed(t *testing.T) {
 	m := archiveModel(&fakeArchiveAgents{}, &fakeArchiveWorkflows{}, config.DefaultKeybindings())
 	broken := archivedAgent("a2", "stuck", "w1")
-	broken.State = agentstore.StateFailedToCleanup
-	m.listing.archivedAgents = []agentstore.Agent{archivedAgent("a1", "auth", "w1"), broken}
+	broken.State = panel.StateFailedToCleanup
+	m.listing.archivedAgents = []panel.Agent{archivedAgent("a1", "auth", "w1"), broken}
 
 	lines := archiveLines(t, m)
 	require.Len(t, lines, 3)

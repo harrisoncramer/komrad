@@ -6,10 +6,8 @@ import (
 	"testing"
 
 	"weave/config"
-	agentstore "weave/internal/store/agent"
-	schedulestore "weave/internal/store/schedule"
-	workflowstore "weave/internal/store/workflow"
 	"weave/internal/ui/layout"
+	"weave/internal/ui/panel"
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/stretchr/testify/assert"
@@ -146,7 +144,7 @@ func TestALongNameIsCutWithAnEllipsis(t *testing.T) {
 	t.Run("a workflow in the archive", func(t *testing.T) {
 		m := crowdedModel(t)
 		m.width, m.height = 80, 40
-		m.listing.archivedWorkflows = []workflowstore.Workflow{{ID: "w1", Name: long}}
+		m.listing.archivedWorkflows = []panel.Workflow{{ID: "w1", Name: long}}
 
 		assert.Contains(t, rowWith(t, m.archiveListView(), long[:10]), "…", "the name says it was cut")
 	})
@@ -189,7 +187,7 @@ func longNamedModel(t *testing.T) model {
 	m.listing.archivedWorkflows = m.listing.workflows
 	m.listing.schedules[0].schedule.Name = long
 	m.listing.agents = append([]agentItem{{
-		agent: agentstore.Agent{
+		agent: panel.Agent{
 			ID:         "zz",
 			Name:       long,
 			WorkflowID: "w1",
@@ -210,26 +208,26 @@ func crowdedModel(t *testing.T) model {
 		width:  80,
 		height: 24,
 		listing: listing{
-			workflows: []workflowstore.Workflow{{ID: "w1", Name: "a workflow with a long enough name"}},
+			workflows: []panel.Workflow{{ID: "w1", Name: "a workflow with a long enough name"}},
 		},
 	}
 
 	for i := range 40 {
 		name := fmt.Sprintf("an-agent-with-a-long-name-%d", i)
 		m.listing.agents = append(m.listing.agents, agentItem{
-			agent: agentstore.Agent{
+			agent: panel.Agent{
 				ID:         fmt.Sprintf("a%d", i),
 				Name:       name,
 				WorkflowID: "w1",
 			},
 		})
-		m.listing.archivedAgents = append(m.listing.archivedAgents, agentstore.Agent{
+		m.listing.archivedAgents = append(m.listing.archivedAgents, panel.Agent{
 			ID:         fmt.Sprintf("r%d", i),
 			Name:       name,
 			WorkflowID: "w1",
 		})
 		m.listing.schedules = append(m.listing.schedules, scheduleItem{
-			schedule: schedulestore.Schedule{ID: fmt.Sprintf("s%d", i), Name: name},
+			schedule: panel.Schedule{ID: fmt.Sprintf("s%d", i), Name: name},
 		})
 		m.search.turns = append(m.search.turns, searchHit{
 			agentID: fmt.Sprintf("a%d", i),

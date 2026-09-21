@@ -3,7 +3,7 @@ package ui
 import (
 	"testing"
 
-	agentstore "weave/internal/store/agent"
+	"weave/internal/ui/panel"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -24,7 +24,7 @@ func TestReviewRoundsNoticeSaysWhatTheGlyphMeans(t *testing.T) {
 // drops the notices at the tail, and a count of rounds already gone by is the one worth losing.
 func TestReviewRoundsNoticeIsGivenUpFirst(t *testing.T) {
 	notices := agentNotices(noticeRow(agentItem{
-		agent:       agentstore.Agent{Hidden: true},
+		agent:       panel.Agent{Hidden: true},
 		unreadMail:  true,
 		localRounds: 2,
 	}))

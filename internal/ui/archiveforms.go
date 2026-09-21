@@ -4,13 +4,12 @@ import (
 	"fmt"
 
 	"weave/config"
-	agentstore "weave/internal/store/agent"
-	workflowstore "weave/internal/store/workflow"
+	"weave/internal/ui/panel"
 
 	"github.com/charmbracelet/huh"
 )
 
-func deleteAgentsForm(agents []agentstore.Agent, children int, keys config.FormKeys) (*huh.Form, *bool) {
+func deleteAgentsForm(agents []panel.Agent, children int, keys config.FormKeys) (*huh.Form, *bool) {
 	title := "Permanently delete " + promptSubject(agents, children) + "?"
 
 	warning := "Their transcripts go with them and search will not find the conversations again."
@@ -32,7 +31,7 @@ func emptyArchiveForm(count int, keys config.FormKeys) (*huh.Form, *bool) {
 	return confirmFormStartingOn(false, title, warning, "Empty", keys)
 }
 
-func deleteWorkflowForm(workflow workflowstore.Workflow, agentCount int, keys config.FormKeys) (*huh.Form, *bool) {
+func deleteWorkflowForm(workflow panel.Workflow, agentCount int, keys config.FormKeys) (*huh.Form, *bool) {
 	title := fmt.Sprintf("Permanently delete workflow %q?", workflow.Name)
 
 	warning := "It holds no agents."

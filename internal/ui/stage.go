@@ -4,15 +4,15 @@ import (
 	"fmt"
 	"time"
 
-	agentstore "weave/internal/store/agent"
 	"weave/internal/ui/layout"
+	"weave/internal/ui/panel"
 
 	tea "github.com/charmbracelet/bubbletea"
 )
 
 // releasePanes swaps the given agents' panes out of the stage and marks them locally as no
 // longer alive.
-func (m *model) releasePanes(agents []agentstore.Agent) {
+func (m *model) releasePanes(agents []panel.Agent) {
 	released := make(map[string]bool, len(agents))
 	for _, agent := range agents {
 		m.frame.ReleaseGuest(agent.Pane)

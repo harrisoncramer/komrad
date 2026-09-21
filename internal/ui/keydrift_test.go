@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"weave/config"
-	agentstore "weave/internal/store/agent"
+	"weave/internal/ui/panel"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/stretchr/testify/assert"
@@ -189,11 +189,11 @@ func driftModel(t *testing.T, s screen) model {
 	// The archive draws the keys that act on a row only while it is holding one, so an empty
 	// archive would report every one of them as undrawn.
 	if s == screenArchive {
-		m.listing.archivedAgents = []agentstore.Agent{{
+		m.listing.archivedAgents = []panel.Agent{{
 			ID:         "a2",
 			Name:       "old",
 			WorkflowID: "w1",
-			State:      agentstore.StateIdle,
+			State:      panel.StateIdle,
 		}}
 		m.archive.cursor = 1
 	}

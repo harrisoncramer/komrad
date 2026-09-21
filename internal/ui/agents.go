@@ -5,10 +5,8 @@ import (
 	"time"
 
 	"weave/config"
+	"weave/internal/ui/panel"
 	"weave/internal/view"
-
-	agentstore "weave/internal/store/agent"
-	workflowstore "weave/internal/store/workflow"
 
 	tea "github.com/charmbracelet/bubbletea"
 )
@@ -47,7 +45,7 @@ func (m model) withSelectedAgent(fn func(agentItem) (tea.Model, tea.Cmd)) (tea.M
 	return fn(item)
 }
 
-func (m model) archiveAgentsConfirm(agents []agentstore.Agent) (tea.Model, tea.Cmd) {
+func (m model) archiveAgentsConfirm(agents []panel.Agent) (tea.Model, tea.Cmd) {
 	if len(agents) == 0 {
 		return m, nil
 	}
@@ -73,7 +71,7 @@ func (m model) archiveAgentsConfirm(agents []agentstore.Agent) (tea.Model, tea.C
 	})
 }
 
-func (m model) archiveAgents(agents []agentstore.Agent) (model, tea.Cmd) {
+func (m model) archiveAgents(agents []panel.Agent) (model, tea.Cmd) {
 	if len(agents) == 0 {
 		return m, nil
 	}
@@ -82,18 +80,18 @@ func (m model) archiveAgents(agents []agentstore.Agent) (model, tea.Cmd) {
 
 	return m, m.writeCmd(
 		fmt.Sprintf("Could not archive %s", describeAgents(agents)),
-		func(a api) error { return a.archiveAgents(agentstore.IDs(agents)) },
+		func(a api) error { return a.archiveAgents(panel.IDs(agents)) },
 	)
 }
 
-func (m model) archiveAndDeleteAgents(agents []agentstore.Agent) (model, tea.Cmd) {
+func (m model) archiveAndDeleteAgents(agents []panel.Agent) (model, tea.Cmd) {
 	if len(agents) == 0 {
 		return m, nil
 	}
 
 	m.releasePanes(agents)
 
-	ids := agentstore.IDs(agents)
+	ids := panel.IDs(agents)
 
 	return m, m.writeCmd(
 		fmt.Sprintf("Could not archive and delete %s", describeAgents(agents)),
@@ -159,7 +157,7 @@ func (m model) toggleHiddenAgents() (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-func (m model) hideAgent(agent agentstore.Agent) (tea.Model, tea.Cmd) {
+func (m model) hideAgent(agent panel.Agent) (tea.Model, tea.Cmd) {
 	failure := fmt.Sprintf("Could not hide agent %q", agent.Name)
 	if agent.Hidden {
 		failure = fmt.Sprintf("Could not unhide agent %q", agent.Name)
@@ -173,7 +171,7 @@ const unpauseSaid = "I paused you for a moment and have let you go now. " +
 	"Look at your worktree as it stands before carrying on. It may have changed while you were paused."
 
 // pauseAgent stops the agent where it stands, or starts one already paused.
-func (m model) pauseAgent(agent agentstore.Agent) (tea.Model, tea.Cmd) {
+func (m model) pauseAgent(agent panel.Agent) (tea.Model, tea.Cmd) {
 	if agent.HeldAt != nil {
 		return m, m.releaseCmd(fmt.Sprintf("Could not unpause agent %q", agent.Name), agent, unpauseSaid)
 	}
@@ -184,7 +182,7 @@ func (m model) pauseAgent(agent agentstore.Agent) (tea.Model, tea.Cmd) {
 }
 
 // releaseInSilenceConfirm lets an agent go without typing at it.
-func (m model) releaseInSilenceConfirm(agent agentstore.Agent) (tea.Model, tea.Cmd) {
+func (m model) releaseInSilenceConfirm(agent panel.Agent) (tea.Model, tea.Cmd) {
 	form, confirmed := releaseInSilenceForm(agent.Name, formKeys())
 
 	return m, m.openForm(formState{
@@ -265,7 +263,7 @@ func (m model) hasNoAgentPane() bool {
 func hasPane(item agentItem) bool {
 	return item.alive &&
 		item.agent.HeldAt == nil &&
-		item.agent.State != agentstore.StateSettingUp &&
+		item.agent.State != panel.StateSettingUp &&
 		!item.agent.State.IsFailed()
 }
 
@@ -279,7 +277,7 @@ func (m model) agentDoc() string {
 		return m.noAgentsMarkdown()
 	case r.header && !held:
 		return workflowContextMarkdown(r.workflow)
-	case item.agent.State == agentstore.StateSettingUp:
+	case item.agent.State == panel.StateSettingUp:
 		return settingUpPlaceholder
 	case item.agent.HeldAt != nil:
 		return heldPlaceholder
@@ -291,7 +289,7 @@ func (m model) agentDoc() string {
 }
 
 // parentName is what the agent a child is attached to is called.
-func (m model) parentName(agent agentstore.Agent) string {
+func (m model) parentName(agent panel.Agent) string {
 	if agent.ParentAgentID == nil {
 		return ""
 	}
@@ -303,7 +301,7 @@ func (m model) parentName(agent agentstore.Agent) string {
 	return *agent.ParentAgentID
 }
 
-func (m model) scheduleName(agent agentstore.Agent) string {
+func (m model) scheduleName(agent panel.Agent) string {
 	if agent.ScheduleID == nil {
 		return ""
 	}
@@ -335,13 +333,13 @@ const settingUpPlaceholder = "_setting up…_\n\nMaking this agent's worktree. I
 // failureReasonKey is the metadata key a failed create or cleanup records its reason under.
 const failureReasonKey = "error"
 
-func (m model) failedPlaceholder(agent agentstore.Agent) string {
+func (m model) failedPlaceholder(agent panel.Agent) string {
 	// A create dies at the provisioner or at one of the pre-launch hooks after it, so the run
 	// that failed is the newest of either rather than the newest provision run.
 	label, moments := "setup", []string{config.TriggerProvision, config.HookPreLaunch}
 	// A delete dies either at a pre-teardown hook or at the deprovisioner after it, so the run
 	// that failed is the newest of the two.
-	if agent.State == agentstore.StateFailedToCleanup {
+	if agent.State == panel.StateFailedToCleanup {
 		label, moments = "teardown", []string{config.HookPreTeardown, config.TriggerDeprovision}
 	}
 
@@ -413,7 +411,7 @@ func (m model) scheduledWorkflows() map[string]bool {
 }
 
 // startOrchestrator brings the workflow's orchestrator back and puts the keyboard in its pane.
-func (m model) startOrchestrator(workflow workflowstore.Workflow) (tea.Model, tea.Cmd) {
+func (m model) startOrchestrator(workflow panel.Workflow) (tea.Model, tea.Cmd) {
 	return m, m.rowWriteCmd(
 		fmt.Sprintf("Could not reach the orchestrator of workflow %q", workflow.Name),
 		func(a api) (written, error) {

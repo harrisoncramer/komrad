@@ -9,9 +9,7 @@ import (
 	"unicode/utf8"
 
 	"weave/config"
-
-	agentstore "weave/internal/store/agent"
-	transcriptstore "weave/internal/store/transcript"
+	"weave/internal/ui/panel"
 
 	"weave/internal/ui/layout"
 	"weave/internal/ui/paint"
@@ -185,7 +183,7 @@ func TestTrimLastRune(t *testing.T) {
 }
 
 func marked(s string) string {
-	return transcriptstore.SnippetOpen + s + transcriptstore.SnippetClose
+	return paint.MarkOpen + s + paint.MarkClose
 }
 
 // TestMarkedTerms covers the words a highlight is looked for by, which are read back off the
@@ -212,7 +210,7 @@ func TestMarkedTerms(t *testing.T) {
 		},
 		{
 			name: "an unclosed mark is dropped",
-			in:   "the " + transcriptstore.SnippetOpen + "sandbox",
+			in:   "the " + paint.MarkOpen + "sandbox",
 		},
 	}
 
@@ -502,7 +500,7 @@ func TestJumpToSearchHit(t *testing.T) {
 			m.screen = screenSearch
 			m.search = searchState{query: "ledger", turns: []searchHit{tt.hit}}
 			m.listing.agents[1].agent.Hidden = tt.hidden
-			m.listing.archivedAgents = []agentstore.Agent{{
+			m.listing.archivedAgents = []panel.Agent{{
 				ID:         "a3",
 				Name:       "old-work",
 				WorkflowID: "w1",
@@ -781,22 +779,22 @@ func TestSearchRowCarriesTheAgent(t *testing.T) {
 	m.listing.marks = map[string]string{agentRowKey("a1"): marked}
 	m.listing.agents = []agentItem{
 		{
-			agent: agentstore.Agent{
+			agent: panel.Agent{
 				ID:         "a1",
 				Name:       "billing",
 				WorkflowID: "w1",
-				State:      agentstore.StateThinking,
+				State:      panel.StateThinking,
 			},
 			alive:      true,
 			unreadMail: true,
 		},
 	}
-	m.listing.archivedAgents = []agentstore.Agent{
+	m.listing.archivedAgents = []panel.Agent{
 		{
 			ID:         "a2",
 			Name:       "payouts",
 			WorkflowID: "w1",
-			State:      agentstore.StateIdle,
+			State:      panel.StateIdle,
 			ArchivedAt: xptr.Ptr(time.Now()),
 		},
 	}
@@ -847,21 +845,21 @@ func TestSearchTellsAHiddenHitFromAnArchivedOne(t *testing.T) {
 	m.width = 80
 	m.search = searchState{query: "ledger"}
 	m.listing.agents = []agentItem{
-		{agent: agentstore.Agent{
+		{agent: panel.Agent{
 			ID:         "a1",
 			Name:       "running",
 			WorkflowID: "w1",
 			Hidden:     true,
 		}, alive: true},
-		{agent: agentstore.Agent{
+		{agent: panel.Agent{
 			ID:         "a2",
 			Name:       "dormant",
 			WorkflowID: "w1",
 			Hidden:     true,
-			State:      agentstore.StateIdle,
+			State:      panel.StateIdle,
 		}},
 	}
-	m.listing.archivedAgents = []agentstore.Agent{
+	m.listing.archivedAgents = []panel.Agent{
 		{
 			ID:         "a3",
 			Name:       "put-away",
@@ -928,11 +926,11 @@ func treeOwned(row view.Row) view.Row {
 // thing, every field the helper above does not blank being compared.
 func TestSearchRowSaysWhatTheAgentsListSays(t *testing.T) {
 	item := agentItem{
-		agent: agentstore.Agent{
+		agent: panel.Agent{
 			ID:         "a1",
 			Name:       "ledger",
 			WorkflowID: "w1",
-			State:      agentstore.StateWaiting,
+			State:      panel.StateWaiting,
 			Hidden:     true,
 			HeldAt:     xptr.Ptr(time.Now()),
 			ScheduleID: xptr.Ptr("s1"),
@@ -956,15 +954,15 @@ func TestSearchRowSaysWhatTheAgentsListSays(t *testing.T) {
 // TestArchivedAgentsSayTheSameOnBothScreens pins one archived agent drawing alike on the two
 // screens that can both name it, the rule living where the archive already kept it.
 func TestArchivedAgentsSayTheSameOnBothScreens(t *testing.T) {
-	states := []agentstore.State{
-		agentstore.StateIdle,
-		agentstore.StateFailedToCreate,
-		agentstore.StateFailedToCleanup,
+	states := []panel.State{
+		panel.StateIdle,
+		panel.StateFailedToCreate,
+		panel.StateFailedToCleanup,
 	}
 
 	for _, state := range states {
 		t.Run(string(state), func(t *testing.T) {
-			agent := agentstore.Agent{
+			agent := panel.Agent{
 				ID:         "a2",
 				Name:       "payouts",
 				WorkflowID: "w1",
@@ -975,7 +973,7 @@ func TestArchivedAgentsSayTheSameOnBothScreens(t *testing.T) {
 			m := filterModel()
 			m.screen = screenSearch
 			m.search = searchState{query: "payouts"}
-			m.listing.archivedAgents = []agentstore.Agent{agent}
+			m.listing.archivedAgents = []panel.Agent{agent}
 
 			archive := view.StatusCell(snapshotRow(agentRow{item: agentItem{agent: agent}}, snapshotParams{}))
 			search := view.StatusCell(m.searchRow(searchAgent{
@@ -994,7 +992,7 @@ func TestArchivedAgentsSayTheSameOnBothScreens(t *testing.T) {
 func TestArchivedHitGreysOnWhatTheServerSaid(t *testing.T) {
 	tests := []struct {
 		name   string
-		listed []agentstore.Agent
+		listed []panel.Agent
 	}{
 		{
 			name:   "the archive listing has not arrived",
@@ -1004,11 +1002,11 @@ func TestArchivedHitGreysOnWhatTheServerSaid(t *testing.T) {
 			// A row archived before the stamp existed carries no ArchivedAt, so the facts read off
 			// it say nothing about being archived.
 			name: "the listing arrived carrying no stamp",
-			listed: []agentstore.Agent{{
+			listed: []panel.Agent{{
 				ID:         "a2",
 				Name:       "payouts",
 				WorkflowID: "w1",
-				State:      agentstore.StateIdle,
+				State:      panel.StateIdle,
 			}},
 		},
 	}
@@ -1036,18 +1034,18 @@ func TestArchivedHitGreysOnWhatTheServerSaid(t *testing.T) {
 // the search screen now inherits, an agent a delete could not destroy still having a worktree
 // somebody has to deal with.
 func TestArchivedSearchRowKeepsTheDeleteThatFailed(t *testing.T) {
-	agent := agentstore.Agent{
+	agent := panel.Agent{
 		ID:         "a2",
 		Name:       "stuck",
 		WorkflowID: "w1",
-		State:      agentstore.StateFailedToCleanup,
+		State:      panel.StateFailedToCleanup,
 		ArchivedAt: xptr.Ptr(time.Now()),
 	}
 
 	m := filterModel()
 	m.screen = screenSearch
 	m.search = searchState{query: "stuck"}
-	m.listing.archivedAgents = []agentstore.Agent{agent}
+	m.listing.archivedAgents = []panel.Agent{agent}
 
 	cell := view.StatusCell(m.searchRow(searchAgent{
 		id:       "a2",
@@ -1067,7 +1065,7 @@ func TestSearchNamesAnAgentMatchedTwiceOnce(t *testing.T) {
 	m.width = 80
 	m.search = searchState{query: "billing"}
 	m.listing.agents = []agentItem{{
-		agent: agentstore.Agent{
+		agent: panel.Agent{
 			ID:         "a1",
 			Name:       "billing",
 			WorkflowID: "w1",
@@ -1218,7 +1216,7 @@ func TestJumpLeavesTheSearchBehind(t *testing.T) {
 			m.screen = screenSearch
 			m.listing.agents[1].alive = true
 			m.listing.agents[1].agent.Pane = "%9"
-			m.listing.archivedAgents = []agentstore.Agent{{
+			m.listing.archivedAgents = []panel.Agent{{
 				ID:         "a3",
 				Name:       "old-work",
 				WorkflowID: "w1",
@@ -1324,7 +1322,7 @@ func TestSearchNamesStandFirst(t *testing.T) {
 	m := filterModel()
 	m.screen = screenSearch
 	m.width = 80
-	m.listing.archivedAgents = []agentstore.Agent{{
+	m.listing.archivedAgents = []panel.Agent{{
 		ID:         "a3",
 		Name:       "billing-old",
 		WorkflowID: "w1",
@@ -1447,7 +1445,7 @@ func TestSearchCursorSurvivesARefresh(t *testing.T) {
 		m := sectioned()
 
 		cmd := m.applyRefresh(refreshResult{agents: append([]agentItem{
-			{agent: agentstore.Agent{
+			{agent: panel.Agent{
 				ID:         "a4",
 				Name:       "billing-two",
 				WorkflowID: "w1",

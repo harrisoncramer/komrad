@@ -8,10 +8,9 @@ import (
 	"time"
 
 	"weave/config"
+	"weave/internal/ui/panel"
 	"weave/lib/xptr"
 	"weave/lib/xslice"
-
-	agentstore "weave/internal/store/agent"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/stretchr/testify/assert"
@@ -24,7 +23,7 @@ func detailsModel(tmux *recordingTmux) model {
 	m.clip = &fakeClipboard{}
 	m.listing.agents[0].agent.ID = "a1"
 	m.listing.agents[0].agent.SessionID = "abc"
-	m.listing.agents[0].agent.Metadata = []agentstore.Metadata{
+	m.listing.agents[0].agent.Metadata = []panel.Metadata{
 		{Key: "pr", Value: "https://github.com/o/r/pull/312"},
 	}
 
@@ -35,10 +34,10 @@ func send(t *testing.T, m model, key string) model {
 	t.Helper()
 
 	next, _ := m.Update(keyMsg(key))
-	panel, ok := next.(model)
+	shown, ok := next.(model)
 	require.True(t, ok)
 
-	return panel
+	return shown
 }
 
 // TestDetailsDrawTheHoveredRow covers the section under the list, which follows the cursor:
@@ -47,7 +46,7 @@ func send(t *testing.T, m model, key string) model {
 func TestDetailsDrawTheHoveredRow(t *testing.T) {
 	m := detailsModel(&recordingTmux{})
 
-	m.listing.agents[0].agent.Metadata = append([]agentstore.Metadata{
+	m.listing.agents[0].agent.Metadata = append([]panel.Metadata{
 		{Key: "branch", Value: "harry/details-height"},
 		{Key: "issue", Value: "WEAVE-1"},
 		{Key: "summary", Value: "gave the record two more lines"},
@@ -131,7 +130,7 @@ func TestDetailsCopyTheFieldUnderTheCursor(t *testing.T) {
 
 	bottom := send(t, focused, "G")
 	copied, cmd := bottom.updateDetails(keyMsg("y"))
-	panel, ok := copied.(model)
+	shown, ok := copied.(model)
 	require.True(t, ok)
 	require.NotNil(t, cmd)
 
@@ -139,7 +138,7 @@ func TestDetailsCopyTheFieldUnderTheCursor(t *testing.T) {
 
 	require.NoError(t, msg.err)
 	assert.Equal(t, []string{"https://github.com/o/r/pull/312"}, clip.written)
-	assert.Positive(t, panel.details.flashed, "the copied field flashes while the write runs")
+	assert.Positive(t, shown.details.flashed, "the copied field flashes while the write runs")
 }
 
 // TestDetailsKeysStandDownForTheRow covers a key that would archive or rename an agent while
@@ -211,12 +210,12 @@ func TestDetailsKeysActOnTheFieldOnScreen(t *testing.T) {
 	assert.Equal(t, 1, moved.detailsCursor(moved.hoveredDetails()))
 
 	copied, cmd := down.updateDetails(keyMsg("y"))
-	panel := asModel(t, copied)
+	shown := asModel(t, copied)
 	require.NotNil(t, cmd)
 	require.NoError(t, copyResultFrom(t, cmd).err)
 
 	assert.Equal(t, []string{held.fields[0].value}, clip.written, "the copy key takes the field on screen")
-	assert.Equal(t, 1, panel.details.flashed, "and flashes the line it took it from")
+	assert.Equal(t, 1, shown.details.flashed, "and flashes the line it took it from")
 }
 
 // TestDetailsCopyReportsAFailure covers the clipboard itself refusing the write, such as no
@@ -346,7 +345,7 @@ func TestDetailsOnTheOtherLists(t *testing.T) {
 // TestAgentFields covers what an agent shows in the section: what it was launched with,
 // the schedule that started it when one did, and whatever it has recorded about its own work.
 func TestAgentFields(t *testing.T) {
-	agent := agentstore.Agent{
+	agent := panel.Agent{
 		ID:        "a1",
 		Name:      "auth",
 		Cwd:       "/repo",
@@ -358,7 +357,7 @@ func TestAgentFields(t *testing.T) {
 		name       string
 		schedule   string
 		branch     *string
-		metadata   []agentstore.Metadata
+		metadata   []panel.Metadata
 		wantLabels []string
 		wantValues []string
 		wantAbsent []string
@@ -385,7 +384,7 @@ func TestAgentFields(t *testing.T) {
 		},
 		{
 			name: "what the agent recorded comes after what it was launched with",
-			metadata: []agentstore.Metadata{
+			metadata: []panel.Metadata{
 				{Key: "branch", Value: "harry/rate-limits"},
 				{Key: "pr", Value: "https://github.com/o/r/pull/312"},
 			},
@@ -401,14 +400,14 @@ func TestAgentFields(t *testing.T) {
 		{
 			name:       "the branch read from the checkout wins over one the agent recorded itself",
 			branch:     xptr.Ptr("harry/rate-limits"),
-			metadata:   []agentstore.Metadata{{Key: "branch", Value: "harry/stale"}},
+			metadata:   []panel.Metadata{{Key: "branch", Value: "harry/stale"}},
 			wantValues: []string{"harry/rate-limits"},
 			wantAbsent: []string{"harry/stale"},
 			wantOnce:   []string{"branch"},
 		},
 		{
 			name: "why a create or cleanup failed is left to the failed placeholder, not repeated here",
-			metadata: []agentstore.Metadata{
+			metadata: []panel.Metadata{
 				{Key: "error", Value: "the provisioner failed: exited 1"},
 				{Key: "branch", Value: "harry/rate-limits"},
 			},
@@ -450,7 +449,7 @@ func TestAgentFields(t *testing.T) {
 func strandedModel() model {
 	m := detailsModel(&recordingTmux{})
 	m.listing.agents = append(m.listing.agents, agentItem{
-		agent: agentstore.Agent{
+		agent: panel.Agent{
 			ID:         "a2",
 			Name:       "billing",
 			Pane:       "%10",
@@ -536,30 +535,30 @@ func resize(m model, width, height int) tea.Model {
 func TestAgentFieldsReviewingRow(t *testing.T) {
 	tests := []struct {
 		name       string
-		role       agentstore.Role
-		metadata   []agentstore.Metadata
+		role       panel.Role
+		metadata   []panel.Metadata
 		wantLabels []string
 		wantOnce   []string
 		wantAbsent []string
 	}{
 		{
 			name:       "a reviewer that recorded the key too draws one row, not two",
-			role:       agentstore.RoleReviewer,
-			metadata:   []agentstore.Metadata{{Key: "reviewing", Value: "01a0-stale"}},
+			role:       panel.RoleReviewer,
+			metadata:   []panel.Metadata{{Key: "reviewing", Value: "01a0-stale"}},
 			wantLabels: []string{"reviewing"},
 			wantOnce:   []string{"reviewing"},
 			wantAbsent: []string{"01a0-stale", "attached to"},
 		},
 		{
 			name:       "an ordinary child is drawn as attached rather than reviewing",
-			role:       agentstore.RoleImplementer,
+			role:       panel.RoleImplementer,
 			wantLabels: []string{"attached to"},
 			wantAbsent: []string{"reviewing"},
 		},
 		{
 			name:       "a child that recorded the key without the role keeps what it recorded",
-			role:       agentstore.RoleImplementer,
-			metadata:   []agentstore.Metadata{{Key: "reviewing", Value: "01a0-someone"}},
+			role:       panel.RoleImplementer,
+			metadata:   []panel.Metadata{{Key: "reviewing", Value: "01a0-someone"}},
 			wantLabels: []string{"attached to", "reviewing"},
 			wantOnce:   []string{"reviewing"},
 		},
@@ -567,7 +566,7 @@ func TestAgentFieldsReviewingRow(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			agent := agentstore.Agent{
+			agent := panel.Agent{
 				Name:          "reader",
 				Role:          tt.role,
 				ParentAgentID: xptr.Ptr("01a0-parent"),
@@ -622,7 +621,7 @@ func TestDetailsScrollPastTheLinesItHas(t *testing.T) {
 	m := detailsModel(&recordingTmux{})
 	m.height, m.detailsHeight = 60, config.DefaultDetailsHeight
 	for i := range 12 {
-		m.listing.agents[0].agent.Metadata = append(m.listing.agents[0].agent.Metadata, agentstore.Metadata{
+		m.listing.agents[0].agent.Metadata = append(m.listing.agents[0].agent.Metadata, panel.Metadata{
 			Key:   fmt.Sprintf("key%d", i),
 			Value: fmt.Sprintf("value%d", i),
 		})

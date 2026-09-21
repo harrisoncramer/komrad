@@ -6,9 +6,8 @@ import (
 	"time"
 
 	"weave/config"
-	agentstore "weave/internal/store/agent"
-	workflowstore "weave/internal/store/workflow"
 	"weave/internal/ui/layout"
+	"weave/internal/ui/panel"
 	"weave/lib/xslice"
 
 	"github.com/charmbracelet/x/ansi"
@@ -26,28 +25,28 @@ func TestAgentsViewRowsOpenAtTheGutter(t *testing.T) {
 		width:  120,
 		height: 40,
 		listing: listing{
-			workflows: []workflowstore.Workflow{{
+			workflows: []panel.Workflow{{
 				ID:       "w1",
 				Name:     "weave",
-				Worktree: workflowstore.WorktreeConfig{Enabled: true},
+				Worktree: panel.WorktreeConfig{Enabled: true},
 			}},
 			agents: []agentItem{
 				{
-					agent: agentstore.Agent{
+					agent: panel.Agent{
 						ID:         "a1",
 						Name:       "worker",
 						WorkflowID: "w1",
-						State:      agentstore.StateIdle,
+						State:      panel.StateIdle,
 					},
 					alive: true,
 				},
 				{
-					agent: agentstore.Agent{
+					agent: panel.Agent{
 						ID:         "o1",
 						Name:       "orchestrator",
 						WorkflowID: "w1",
-						Role:       agentstore.RoleOrchestrator,
-						State:      agentstore.StateIdle,
+						Role:       panel.RoleOrchestrator,
+						State:      panel.StateIdle,
 					},
 					alive: true,
 				},
@@ -98,16 +97,16 @@ func agentsSortModel() model {
 	m := worktreesModel()
 	m.screen = screenAgents
 	m.width, m.height = 200, 40
-	m.listing.workflows = []workflowstore.Workflow{{ID: "w1", Name: "weave"}, {ID: "w2", Name: "chariot"}}
+	m.listing.workflows = []panel.Workflow{{ID: "w1", Name: "weave"}, {ID: "w2", Name: "chariot"}}
 	m.listing.agents = []agentItem{
-		{agent: agentstore.Agent{
+		{agent: panel.Agent{
 			ID:             "delta",
 			Name:           "delta",
 			WorkflowID:     "w1",
 			CreatedAt:      at(30),
 			StateChangedAt: at(10),
 		}},
-		{agent: agentstore.Agent{
+		{agent: panel.Agent{
 			ID:             "charlie",
 			Name:           "charlie",
 			WorkflowID:     "w1",
@@ -115,21 +114,21 @@ func agentsSortModel() model {
 			CreatedAt:      at(25),
 			StateChangedAt: at(5),
 		}},
-		{agent: agentstore.Agent{
+		{agent: panel.Agent{
 			ID:             "zulu",
 			Name:           "Zulu",
 			WorkflowID:     "w1",
 			CreatedAt:      at(20),
 			StateChangedAt: at(30),
 		}},
-		{agent: agentstore.Agent{
+		{agent: panel.Agent{
 			ID:             "alpha",
 			Name:           "alpha",
 			WorkflowID:     "w1",
 			CreatedAt:      at(10),
 			StateChangedAt: at(20),
 		}},
-		{agent: agentstore.Agent{
+		{agent: panel.Agent{
 			ID:             "bob",
 			Name:           "bob",
 			WorkflowID:     "w1",
@@ -137,7 +136,7 @@ func agentsSortModel() model {
 			CreatedAt:      at(5),
 			StateChangedAt: at(40),
 		}},
-		{agent: agentstore.Agent{
+		{agent: panel.Agent{
 			ID:             "echo",
 			Name:           "echo",
 			WorkflowID:     "w2",

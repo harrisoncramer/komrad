@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"weave/config"
-	workflowstore "weave/internal/store/workflow"
+	"weave/internal/ui/panel"
 	pullrequestv1 "weave/proto/gen/pullrequest/v1"
 
 	"github.com/stretchr/testify/assert"
@@ -20,10 +20,10 @@ func gitModel(t *testing.T) model {
 	m := infoModel(&recordingTmux{width: 200, height: 40})
 	m.width, m.height = 200, 40
 	m.api = driftAPI()
-	m.listing.workflows = []workflowstore.Workflow{{
+	m.listing.workflows = []panel.Workflow{{
 		ID:       "w1",
 		Name:     "backend",
-		Worktree: workflowstore.WorktreeConfig{Enabled: true},
+		Worktree: panel.WorktreeConfig{Enabled: true},
 	}}
 
 	return m

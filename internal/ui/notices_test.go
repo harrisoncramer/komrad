@@ -5,11 +5,10 @@ import (
 	"testing"
 	"time"
 
+	"weave/internal/ui/panel"
 	"weave/lib/xptr"
 
 	"weave/internal/git"
-	agentstore "weave/internal/store/agent"
-	workflowstore "weave/internal/store/workflow"
 	"weave/internal/view"
 	agentv1 "weave/proto/gen/agent/v1"
 
@@ -24,7 +23,7 @@ import (
 func noticeRow(item agentItem) agentRow {
 	return agentRow{
 		item:     item,
-		workflow: workflowstore.Workflow{Worktree: workflowstore.WorktreeConfig{Enabled: true}},
+		workflow: panel.Workflow{Worktree: panel.WorktreeConfig{Enabled: true}},
 	}
 }
 
@@ -53,11 +52,11 @@ func TestNoticesCoverEveryOptionalMark(t *testing.T) {
 		item agentItem
 		want string
 	}{
-		{"a failed create", agentItem{agent: agentstore.Agent{State: agentstore.StateFailedToCreate}}, failedToCreateNotice},
-		{"a failed cleanup", agentItem{agent: agentstore.Agent{State: agentstore.StateFailedToCleanup}}, failedToCleanupNotice},
-		{"a removed worktree", agentItem{agent: agentstore.Agent{WorktreeRemoved: true}}, worktreeRemovedNotice},
-		{"a stopped rebase", agentItem{agent: agentstore.Agent{SequenceInProgress: true}}, sequenceNotice},
-		{"a hidden row", agentItem{agent: agentstore.Agent{Hidden: true}}, hiddenNotice},
+		{"a failed create", agentItem{agent: panel.Agent{State: panel.StateFailedToCreate}}, failedToCreateNotice},
+		{"a failed cleanup", agentItem{agent: panel.Agent{State: panel.StateFailedToCleanup}}, failedToCleanupNotice},
+		{"a removed worktree", agentItem{agent: panel.Agent{WorktreeRemoved: true}}, worktreeRemovedNotice},
+		{"a stopped rebase", agentItem{agent: panel.Agent{SequenceInProgress: true}}, sequenceNotice},
+		{"a hidden row", agentItem{agent: panel.Agent{Hidden: true}}, hiddenNotice},
 		{"mail waiting", agentItem{unreadMail: true}, unreadMailNotice},
 		{"a failed script", agentItem{failedRun: true}, failedRunNotice},
 	}
@@ -78,8 +77,8 @@ func TestNoticesCoverEveryOptionalMark(t *testing.T) {
 // act on are drawn first, so the ones dropped from the tail are the ones nobody needed spelled out.
 func TestNoticesAreOrderedByUrgency(t *testing.T) {
 	item := agentItem{
-		agent: agentstore.Agent{
-			State:           agentstore.StateFailedToCleanup,
+		agent: panel.Agent{
+			State:           panel.StateFailedToCleanup,
 			WorktreeRemoved: true,
 			Hidden:          true,
 		},
@@ -104,7 +103,7 @@ func TestNoticesAreOrderedByUrgency(t *testing.T) {
 // TestAFailedCreateSaysWhereItsWorktreeWent covers the pair a failed setup draws: the failure
 // itself, and the directory that was made for it and taken away again on the way out.
 func TestAFailedCreateSaysWhereItsWorktreeWent(t *testing.T) {
-	item := agentItem{agent: agentstore.Agent{State: agentstore.StateFailedToCreate, WorktreeRemoved: true}}
+	item := agentItem{agent: panel.Agent{State: panel.StateFailedToCreate, WorktreeRemoved: true}}
 
 	notices := agentNotices(noticeRow(item))
 
@@ -118,8 +117,8 @@ func TestAFailedCreateSaysWhereItsWorktreeWent(t *testing.T) {
 // different things about one fact.
 func TestNoticesWearTheGlyphTheRowDraws(t *testing.T) {
 	item := agentItem{
-		agent: agentstore.Agent{
-			State:              agentstore.StateWaiting,
+		agent: panel.Agent{
+			State:              panel.StateWaiting,
 			SequenceInProgress: true,
 			HeldAt:             xptr.Ptr(time.Now()),
 		},
@@ -154,8 +153,8 @@ func TestNoticesWearTheGlyphTheRowDraws(t *testing.T) {
 // TestArchivedNoticesAreOnlyTheFailures covers the archive, whose rows draw one mark of their
 // own.
 func TestArchivedNoticesAreOnlyTheFailures(t *testing.T) {
-	agent := agentstore.Agent{
-		State:      agentstore.StateFailedToCleanup,
+	agent := panel.Agent{
+		State:      panel.StateFailedToCleanup,
 		ScheduleID: xptr.Ptr("s1"),
 		Hidden:     true,
 	}
@@ -165,7 +164,7 @@ func TestArchivedNoticesAreOnlyTheFailures(t *testing.T) {
 	assert.Equal(t, failedToCleanupNotice, failed[0].text)
 	assert.Equal(t, view.Spell(view.GlyphBusy), failed[0].icon, "and wears the bar the row draws for it")
 
-	assert.Empty(t, failureNotices(noticeRow(agentItem{agent: agentstore.Agent{}})))
+	assert.Empty(t, failureNotices(noticeRow(agentItem{agent: panel.Agent{}})))
 }
 
 // TestNoticesKeepTheRecordsHeight covers the share the record is allowed: the notices take their
@@ -252,7 +251,7 @@ func TestNoticesAlignAndFitTheColumn(t *testing.T) {
 	m.height, m.width = 40, 60
 
 	// A bar notice, an Octicon notice and an iconless one, stacked.
-	m.listing.agents[0].agent.State = agentstore.StateFailedToCleanup
+	m.listing.agents[0].agent.State = panel.StateFailedToCleanup
 	m.listing.agents[0].agent.WorktreeRemoved = true
 	m.listing.agents[0].localRounds = 2
 
@@ -329,8 +328,8 @@ func TestEveryReviewStateIsSpokenForOrSilent(t *testing.T) {
 
 // TestEveryStateTheBarDrawsBrokenHasASentence covers the one status the record speaks for.
 func TestEveryStateTheBarDrawsBrokenHasASentence(t *testing.T) {
-	for _, state := range []agentstore.State{agentstore.StateFailedToCreate, agentstore.StateFailedToCleanup} {
-		item := agentItem{agent: agentstore.Agent{State: state}}
+	for _, state := range []panel.State{panel.StateFailedToCreate, panel.StateFailedToCleanup} {
+		item := agentItem{agent: panel.Agent{State: state}}
 
 		require.Equal(t, view.StatusBroken, snapshotStatus(item), "state %q no longer draws a broken bar", state)
 		assert.NotEmpty(t, failureSaid[state], "state %q draws a broken bar with no sentence", state)
@@ -340,7 +339,7 @@ func TestEveryStateTheBarDrawsBrokenHasASentence(t *testing.T) {
 // TestAStoppedRowKeepsItsBarAndSaysNothing covers a row whose process has gone: its bar is the
 // quiet one, its name greys, and the record has nothing to add.
 func TestAStoppedRowKeepsItsBarAndSaysNothing(t *testing.T) {
-	stopped := agentItem{agent: agentstore.Agent{State: agentstore.StateIdle}}
+	stopped := agentItem{agent: panel.Agent{State: panel.StateIdle}}
 	row := snapshotRow(noticeRow(stopped), snapshotParams{})
 
 	require.Equal(t, view.ProcessStopped, row.Process, "an agent whose pane has gone reads as stopped")
@@ -349,7 +348,7 @@ func TestAStoppedRowKeepsItsBarAndSaysNothing(t *testing.T) {
 		"its name is what says the process has gone")
 	assert.Empty(t, noticeTexts(agentNotices(noticeRow(stopped))), "the record says nothing about it")
 
-	failed := agentItem{agent: agentstore.Agent{State: agentstore.StateFailedToCreate}}
+	failed := agentItem{agent: panel.Agent{State: panel.StateFailedToCreate}}
 
 	require.Equal(t, view.ProcessAlive, snapshotRow(noticeRow(failed), snapshotParams{}).Process,
 		"a failed create is not a stopped process")
@@ -360,27 +359,27 @@ func TestAStoppedRowKeepsItsBarAndSaysNothing(t *testing.T) {
 // else in the panel reports the directory it was handed or the review of its work, so its own
 // record has to.
 func TestNoticesReportAPlainWorkflowsDirectory(t *testing.T) {
-	plain := func(agent agentstore.Agent) agentRow {
+	plain := func(agent panel.Agent) agentRow {
 		return agentRow{
-			workflow: workflowstore.Workflow{ID: "w1", Name: "weave"},
+			workflow: panel.Workflow{ID: "w1", Name: "weave"},
 			item:     agentItem{alive: true, agent: agent},
 		}
 	}
 
-	gone := plain(agentstore.Agent{
+	gone := plain(panel.Agent{
 		ID:              "a1",
 		Name:            "worker",
 		Cwd:             "/tmp/somewhere",
 		WorktreeRemoved: true,
 	})
-	rebasing := plain(agentstore.Agent{
+	rebasing := plain(panel.Agent{
 		ID:                 "a1",
 		Name:               "worker",
 		Cwd:                "/tmp/somewhere",
 		SequenceInProgress: true,
 	})
 
-	reviewed := plain(agentstore.Agent{
+	reviewed := plain(panel.Agent{
 		ID:   "a1",
 		Name: "worker",
 		Cwd:  "/tmp/somewhere",
@@ -391,7 +390,7 @@ func TestNoticesReportAPlainWorkflowsDirectory(t *testing.T) {
 	assert.Equal(t, []string{sequenceNotice}, noticeTexts(agentNotices(rebasing)))
 	assert.Equal(t, []string{localApprovedNotice}, noticeTexts(agentNotices(reviewed)))
 
-	child := plain(agentstore.Agent{
+	child := plain(panel.Agent{
 		ID:              "a2",
 		Name:            "reviewer",
 		Cwd:             "/tmp/somewhere",

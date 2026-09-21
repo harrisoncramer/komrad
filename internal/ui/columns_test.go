@@ -6,9 +6,8 @@ import (
 
 	"weave/config"
 	"weave/internal/engine"
-	agentstore "weave/internal/store/agent"
-	workflowstore "weave/internal/store/workflow"
 	"weave/internal/ui/layout"
+	"weave/internal/ui/panel"
 	"weave/lib/xptr"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -47,7 +46,7 @@ func resizedTo(t *testing.T, m model, width, height int) model {
 func TestAgentsDrawTheHoveredRowsNotes(t *testing.T) {
 	tmux := &recordingTmux{}
 	m := sizedTo(infoModel(tmux), tmux)
-	m.listing.workflows = []workflowstore.Workflow{{
+	m.listing.workflows = []panel.Workflow{{
 		ID:      "w1",
 		Name:    "backend",
 		Context: "always run the linter",
@@ -91,7 +90,7 @@ func TestAgentsGiveTheWindowToARunningAgent(t *testing.T) {
 func TestAgentsSayWhyADormantAgentHasNoPane(t *testing.T) {
 	tmux := &recordingTmux{}
 	m := sizedTo(infoModel(tmux), tmux)
-	m.listing.agents = []agentItem{{agent: agentstore.Agent{
+	m.listing.agents = []agentItem{{agent: panel.Agent{
 		ID:         "a1",
 		Name:       "auth",
 		WorkflowID: "w1",
@@ -158,7 +157,7 @@ func paneless(t *testing.T) (model, *recordingTmux) {
 
 	tmux := &recordingTmux{}
 	m := sizedTo(infoModel(tmux), tmux)
-	m.listing.workflows = []workflowstore.Workflow{{
+	m.listing.workflows = []panel.Workflow{{
 		ID:      "w1",
 		Name:    "backend",
 		Context: "notes",
@@ -394,7 +393,7 @@ func TestADraggedDividerIsDrawnWhereItIs(t *testing.T) {
 func TestAgentWindowsAreTheSizeOfTheStage(t *testing.T) {
 	tmux := &recordingTmux{}
 	m := sizedTo(infoModel(tmux), tmux)
-	m.listing.agents = append(m.listing.agents, agentItem{agent: agentstore.Agent{
+	m.listing.agents = append(m.listing.agents, agentItem{agent: panel.Agent{
 		ID:         "a2",
 		Name:       "dormant",
 		WorkflowID: "w1",
@@ -504,11 +503,11 @@ func TestASplitAgentsListIsLaidOutAgainstItsOwnColumn(t *testing.T) {
 	withColor(t)
 
 	m, _ := paneless(t)
-	m.listing.agents = []agentItem{{agent: agentstore.Agent{
+	m.listing.agents = []agentItem{{agent: panel.Agent{
 		ID:         "a1",
 		Name:       strings.Repeat("long-agent-name-", 6),
 		WorkflowID: "w1",
-		State:      agentstore.StateIdle,
+		State:      panel.StateIdle,
 		ScheduleID: xptr.Ptr("s1"),
 	}}}
 	m.tree.selected = selectAgents([]string{"a1"}...)

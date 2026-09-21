@@ -4,8 +4,7 @@ import (
 	"slices"
 
 	"weave/config"
-
-	agentstore "weave/internal/store/agent"
+	"weave/internal/ui/panel"
 
 	tea "github.com/charmbracelet/bubbletea"
 )
@@ -179,7 +178,7 @@ func (m model) deleteHovered(string) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	return m.deleteFromArchiveConfirm([]agentstore.Agent{agent})
+	return m.deleteFromArchiveConfirm([]panel.Agent{agent})
 }
 
 func (m model) archiveRestoreDesc() string {

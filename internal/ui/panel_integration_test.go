@@ -21,7 +21,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const panelSession = "panel"
+const panelSession = "shown"
 
 // TestPanelArchivesThroughTheService takes the archive key all the way to the database.
 func TestPanelArchivesThroughTheService(t *testing.T) {
@@ -46,7 +46,7 @@ func TestPanelArchivesThroughTheService(t *testing.T) {
 
 	keys := config.DefaultKeybindings()
 	tmux := &recordingTmux{}
-	panel := model{
+	shown := model{
 		api: api{
 			agents:    instance.Agents,
 			workflows: instance.Workflows,
@@ -60,12 +60,12 @@ func TestPanelArchivesThroughTheService(t *testing.T) {
 		screen: screenAgents,
 	}
 
-	panel = settle(t, panel, panel.refreshCmd())
-	require.Equal(t, []string{"header:backend", "agent:login"}, describeRows(panel.agentRows()))
+	shown = settle(t, shown, shown.refreshCmd())
+	require.Equal(t, []string{"header:backend", "agent:login"}, describeRows(shown.agentRows()))
 
-	panel.tree.cursor = 1
+	shown.tree.cursor = 1
 
-	updated, _ := panel.Update(keyMsg(keys.Agents.Archive[0]))
+	updated, _ := shown.Update(keyMsg(keys.Agents.Archive[0]))
 	pressed, ok := updated.(model)
 	require.True(t, ok)
 	require.Equal(t, formAgentArchive, pressed.form.kind, "the key opens the confirm prompt rather than archiving outright")
@@ -73,43 +73,43 @@ func TestPanelArchivesThroughTheService(t *testing.T) {
 
 	pressed.form.form.State = huh.StateCompleted
 	confirmed, cmd := pressed.form.update(pressed, keyMsg("enter"))
-	panel, ok = confirmed.(model)
+	shown, ok = confirmed.(model)
 	require.True(t, ok)
-	panel = settle(t, panel, cmd)
+	shown = settle(t, shown, cmd)
 
 	listed, err := instance.Agents.ListAgents(ctx, connect.NewRequest(&agentv1.ListAgentsRequest{Archived: true}))
 	require.NoError(t, err)
 	require.Len(t, listed.Msg.GetAgents(), 1)
 	assert.Equal(t, agent.GetId(), listed.Msg.GetAgents()[0].GetId())
 
-	assert.Empty(t, instance.GetOwnedPane(agent.GetId()), "archiving from the panel stops what was running")
+	assert.Empty(t, instance.GetOwnedPane(agent.GetId()), "archiving from the shown stops what was running")
 
-	panel = settle(t, panel, panel.refreshCmd())
-	assert.Equal(t, []string{"header:backend"}, describeRows(panel.agentRows()),
-		"and the row goes off the panel's own list, leaving the folder it was in")
+	shown = settle(t, shown, shown.refreshCmd())
+	assert.Equal(t, []string{"header:backend"}, describeRows(shown.agentRows()),
+		"and the row goes off the shown's own list, leaving the folder it was in")
 }
 
 // TestStagedAgentExitsOnItsOwn covers a staged agent's pane dying while staging holds it in the
 // panel's own window.
 func TestStagedAgentExitsOnItsOwn(t *testing.T) {
 	staged := newStagedPanel(t)
-	stagePane := staged.panel.frame.Pane(layout.RegionStage)
+	stagePane := staged.shown.frame.Pane(layout.RegionStage)
 
-	staged.panel.tmux.KillPane(staged.agentPane)
-	staged.panel = settle(t, staged.panel, staged.panel.refreshCmd())
+	staged.shown.tmux.KillPane(staged.agentPane)
+	staged.shown = settle(t, staged.shown, staged.shown.refreshCmd())
 
-	assert.False(t, staged.panel.tmux.IsPaneAlive(stagePane), "the pane left in the agent's window is not left running")
+	assert.False(t, staged.shown.tmux.IsPaneAlive(stagePane), "the pane left in the agent's window is not left running")
 	assert.Equal(t,
-		[]string{staged.navPane, staged.panel.frame.Pane(layout.RegionStage)},
+		[]string{staged.navPane, staged.shown.frame.Pane(layout.RegionStage)},
 		panesInPanel(t, staged.instance),
-		"the panel is a nav pane and a stage pane again, the now-dormant agent's record in the stage")
+		"the shown is a nav pane and a stage pane again, the now-dormant agent's record in the stage")
 }
 
 // TestArchivingAWorkflowSendsItsPanesBack covers the panel's own stage pane.
 func TestArchivingAWorkflowSendsItsPanesBack(t *testing.T) {
 	staged := newStagedPanel(t)
-	panel := staged.panel
-	stagePane := panel.frame.Pane(layout.RegionStage)
+	shown := staged.shown
+	stagePane := shown.frame.Pane(layout.RegionStage)
 
 	width := func(pane string) string {
 		return staged.instance.Tmux.Run("display-message", "-p", "-t", pane, "#{pane_width}")
@@ -120,30 +120,30 @@ func TestArchivingAWorkflowSendsItsPanesBack(t *testing.T) {
 	dragged := width(staged.agentPane)
 	require.NotEqual(t, configured, dragged, "the drag moved the divider off the configured width")
 
-	panel.tree.cursor = 0
-	require.True(t, isHoveringWorkflow(panel), "the cursor is on the folder the agent is in")
+	shown.tree.cursor = 0
+	require.True(t, isHoveringWorkflow(shown), "the cursor is on the folder the agent is in")
 
-	updated, _ := panel.Update(keyMsg(panel.keys.Workflows.Archive[0]))
+	updated, _ := shown.Update(keyMsg(shown.keys.Workflows.Archive[0]))
 	pressed, ok := updated.(model)
 	require.True(t, ok)
 	require.Equal(t, formWorkflowArchive, pressed.form.kind)
 
 	pressed.form.form.State = huh.StateCompleted
 	confirmed, cmd := pressed.form.update(pressed, keyMsg("enter"))
-	panel, ok = confirmed.(model)
+	shown, ok = confirmed.(model)
 	require.True(t, ok)
-	panel = settle(t, panel, cmd)
-	panel = settle(t, panel, panel.refreshCmd())
+	shown = settle(t, shown, cmd)
+	shown = settle(t, shown, shown.refreshCmd())
 
-	assert.Empty(t, panel.frame.GuestPane(), "the archived agent's pane is not left standing in the panel")
-	require.True(t, panel.tmux.IsPaneAlive(stagePane), "the panel's own stage pane outlives the archive")
-	assert.Equal(t, stagePane, panel.frame.Pane(layout.RegionStage), "so the panel is not left splitting another")
+	assert.Empty(t, shown.frame.GuestPane(), "the archived agent's pane is not left standing in the shown")
+	require.True(t, shown.tmux.IsPaneAlive(stagePane), "the shown's own stage pane outlives the archive")
+	assert.Equal(t, stagePane, shown.frame.Pane(layout.RegionStage), "so the shown is not left splitting another")
 	assert.Equal(t, dragged, width(stagePane), "and the divider stays where it was dragged")
 }
 
 type stagedPanel struct {
 	instance  *weavetest.Instance
-	panel     model
+	shown     model
 	navPane   string
 	agentPane string
 }
@@ -178,7 +178,7 @@ func newStagedPanel(t *testing.T) *stagedPanel {
 	frame := layout.New(client, config.DefaultLayout())
 	frame.Attach(navPane)
 
-	panel := model{
+	shown := model{
 		api: api{
 			agents:    instance.Agents,
 			workflows: instance.Workflows,
@@ -191,17 +191,17 @@ func newStagedPanel(t *testing.T) *stagedPanel {
 		screen: screenAgents,
 	}
 
-	panel = settle(t, panel, panel.refreshCmd())
-	require.Equal(t, []string{"header:backend", "agent:login"}, describeRows(panel.agentRows()))
+	shown = settle(t, shown, shown.refreshCmd())
+	require.Equal(t, []string{"header:backend", "agent:login"}, describeRows(shown.agentRows()))
 
-	panel.tree.cursor = 1
-	panel.stageSelection()
+	shown.tree.cursor = 1
+	shown.stageSelection()
 	require.Equal(t, agentPane, frame.GuestPane(), "the agent's own pane is swapped into the slot")
 	require.Contains(t, panesInPanel(t, instance), agentPane)
 
 	return &stagedPanel{
 		instance:  instance,
-		panel:     panel,
+		shown:     shown,
 		navPane:   navPane,
 		agentPane: agentPane,
 	}
@@ -244,7 +244,7 @@ func TestPanelKeepsTheWindowLeavingARunningAgent(t *testing.T) {
 	sidebar := instance.Tmux.Run("display-message", "-p", "-t", panelSession, "#{pane_id}")
 
 	client := instance.Tmux.Client()
-	panel := model{
+	shown := model{
 		api: api{
 			agents:    instance.Agents,
 			workflows: instance.Workflows,
@@ -257,24 +257,24 @@ func TestPanelKeepsTheWindowLeavingARunningAgent(t *testing.T) {
 		keys:   config.DefaultKeybindings(),
 		screen: screenAgents,
 	}
-	panel.width, panel.height = 200, 40
-	panel.frame.Attach(sidebar)
+	shown.width, shown.height = 200, 40
+	shown.frame.Attach(sidebar)
 
-	panel = settle(t, panel, panel.refreshCmd())
-	require.Equal(t, []string{"header:backend", "agent:login"}, describeRows(panel.agentRows()))
+	shown = settle(t, shown, shown.refreshCmd())
+	require.Equal(t, []string{"header:backend", "agent:login"}, describeRows(shown.agentRows()))
 
 	zoomed := func() string {
 		return instance.Tmux.Run("display-message", "-p", "-t", sidebar, "#{window_zoomed_flag}")
 	}
 
-	panel.tree.cursor = 1
-	panel.stageSelection()
+	shown.tree.cursor = 1
+	shown.stageSelection()
 	require.Equal(t, "0", zoomed(), "the agent's own pane has the stage to itself")
 
-	panel.tree.cursor = 0
-	panel.stageSelection()
+	shown.tree.cursor = 0
+	shown.stageSelection()
 
-	assert.True(t, panel.frame.IsSolo(), "the panel means to hold the window on its folder row")
+	assert.True(t, shown.frame.IsSolo(), "the shown means to hold the window on its folder row")
 	assert.Equal(t, "1", zoomed(), "and tmux is holding it, rather than the frame only believing so")
 }
 
@@ -304,7 +304,7 @@ func TestPanelIsTheSizeOfThePaneItWasGiven(t *testing.T) {
 	instance.Tmux.Run("resize-window", "-t", panelSession, "-x", "341", "-y", "50")
 
 	client := instance.Tmux.Client()
-	panel := model{
+	shown := model{
 		api: api{
 			agents:    instance.Agents,
 			workflows: instance.Workflows,
@@ -318,51 +318,51 @@ func TestPanelIsTheSizeOfThePaneItWasGiven(t *testing.T) {
 		screen: screenAgents,
 		drawn:  &lastFrame{},
 	}
-	panel.frame.Attach(sidebar)
-	panel = settle(t, panel, panel.refreshCmd())
-	require.Equal(t, []string{"header:backend", "agent:login"}, describeRows(panel.agentRows()))
+	shown.frame.Attach(sidebar)
+	shown = settle(t, shown, shown.refreshCmd())
+	require.Equal(t, []string{"header:backend", "agent:login"}, describeRows(shown.agentRows()))
 
 	// The one report the panel gets for free.
-	panel.width, panel.height = client.GetPaneWidth(sidebar), client.GetPaneHeight(sidebar)
-	share := panel.width
-	require.Less(t, share, 341, "the panel starts on its share of the frame")
+	shown.width, shown.height = client.GetPaneWidth(sidebar), client.GetPaneHeight(sidebar)
+	share := shown.width
+	require.Less(t, share, 341, "the shown starts on its share of the frame")
 
 	// The panel moves its own pane, so the size that leaves it comes back as the resize it is,
 	// which is what the renderer is told and so what the frame may be drawn at.
 	sizes := make(chan tea.WindowSizeMsg, 4)
-	panel.frame.OnResize(func(width, height int) {
+	shown.frame.OnResize(func(width, height int) {
 		sizes <- tea.WindowSizeMsg{Width: width, Height: height}
 	})
 
 	paneWidth := func() int {
-		width, _ := panel.frame.SidebarSize()
+		width, _ := shown.frame.SidebarSize()
 
 		return width
 	}
 
-	held := panel.View()
+	held := shown.View()
 
-	panel.tree.cursor = 0
-	panel.stageSelection()
+	shown.tree.cursor = 0
+	shown.stageSelection()
 
 	require.Equal(t, 341, paneWidth(), "the folder row takes the window")
-	assert.True(t, panel.awaitingSize, "which the panel has not been told the size of yet")
-	assert.Equal(t, held, panel.View(), "so it draws the frame it has rather than one at a width nobody has been given")
+	assert.True(t, shown.awaitingSize, "which the shown has not been told the size of yet")
+	assert.Equal(t, held, shown.View(), "so it draws the frame it has rather than one at a width nobody has been given")
 
-	panel = panel.resizeTo(reportedSize(t, sizes))
+	shown = shown.resizeTo(reportedSize(t, sizes))
 
-	assert.Equal(t, paneWidth(), panel.width, "and once the report lands it is the size of the pane it now has")
-	assert.Equal(t, 341, lipgloss.Width(panel.View()), "so the frame covers it")
+	assert.Equal(t, paneWidth(), shown.width, "and once the report lands it is the size of the pane it now has")
+	assert.Equal(t, 341, lipgloss.Width(shown.View()), "so the frame covers it")
 
-	panel.tree.cursor = 1
-	panel.stageSelection()
+	shown.tree.cursor = 1
+	shown.stageSelection()
 
 	require.Equal(t, share, paneWidth(), "the agent's own pane takes it back")
 
-	panel = panel.resizeTo(reportedSize(t, sizes))
+	shown = shown.resizeTo(reportedSize(t, sizes))
 
-	assert.Equal(t, paneWidth(), panel.width, "and the panel is the size of the pane it is left with")
-	assert.LessOrEqual(t, lipgloss.Width(panel.View()), share, "so nothing it draws runs past the pane and wraps")
+	assert.Equal(t, paneWidth(), shown.width, "and the shown is the size of the pane it is left with")
+	assert.LessOrEqual(t, lipgloss.Width(shown.View()), share, "so nothing it draws runs past the pane and wraps")
 }
 
 // reportedSize is the size the frame read back off its own pane, which the panel is handed as a

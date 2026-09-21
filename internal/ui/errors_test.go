@@ -9,9 +9,8 @@ import (
 	"github.com/charmbracelet/x/ansi"
 
 	"weave/config"
-	agentstore "weave/internal/store/agent"
-	workflowstore "weave/internal/store/workflow"
 	"weave/internal/ui/layout"
+	"weave/internal/ui/panel"
 	agentv1 "weave/proto/gen/agent/v1"
 	"weave/proto/gen/agent/v1/agentv1connect"
 
@@ -55,9 +54,9 @@ func (r refusingAgents) ListAgents(context.Context, *connect.Request[agentv1.Lis
 // TestRefusedWriteIsReported covers a refused write, which the reloading list would otherwise
 // make look exactly like a keypress that never registered.
 func TestRefusedWriteIsReported(t *testing.T) {
-	agent := agentstore.Agent{
+	agent := panel.Agent{
 		Name:       "api-refactor",
-		State:      agentstore.StateIdle,
+		State:      panel.StateIdle,
 		WorkflowID: "w1",
 	}
 
@@ -71,7 +70,7 @@ func TestRefusedWriteIsReported(t *testing.T) {
 		keys:   config.DefaultKeybindings(),
 		screen: screenAgents,
 		listing: listing{
-			workflows: []workflowstore.Workflow{{ID: "w1", Name: "backend"}},
+			workflows: []panel.Workflow{{ID: "w1", Name: "backend"}},
 			agents:    []agentItem{{agent: agent, alive: false}},
 		},
 	}
@@ -107,10 +106,10 @@ func TestRefusedResumeIsReported(t *testing.T) {
 		keys:   config.DefaultKeybindings(),
 		screen: screenAgents,
 		listing: listing{
-			workflows: []workflowstore.Workflow{{ID: "w1", Name: "backend"}},
-			agents: []agentItem{{agent: agentstore.Agent{
+			workflows: []panel.Workflow{{ID: "w1", Name: "backend"}},
+			agents: []agentItem{{agent: panel.Agent{
 				Name:       "api-refactor",
-				State:      agentstore.StateIdle,
+				State:      panel.StateIdle,
 				WorkflowID: "w1",
 			}, alive: false}},
 		},
@@ -137,7 +136,7 @@ func TestMessageSurvivesTheFormItWasReportedFrom(t *testing.T) {
 		keys:     config.DefaultKeybindings(),
 		frame:    layout.New(&recordingTmux{}, config.DefaultLayout()),
 	}
-	opened, _ := m.openRename(agentstore.Agent{ID: "a1", Name: "api-refactor"})
+	opened, _ := m.openRename(panel.Agent{ID: "a1", Name: "api-refactor"})
 	m = asModel(t, opened)
 
 	assert.Contains(t, m.View(), "Rename", "the form is on screen")
@@ -167,12 +166,12 @@ func TestSuccessfulWriteReportsNothing(t *testing.T) {
 		keys:   config.DefaultKeybindings(),
 		screen: screenAgents,
 		listing: listing{
-			workflows: []workflowstore.Workflow{{ID: "w1", Name: "backend"}},
+			workflows: []panel.Workflow{{ID: "w1", Name: "backend"}},
 			agents: []agentItem{
 				{
-					agent: agentstore.Agent{
+					agent: panel.Agent{
 						Name:       "api-refactor",
-						State:      agentstore.StateIdle,
+						State:      panel.StateIdle,
 						WorkflowID: "w1",
 					},
 				},
@@ -303,7 +302,7 @@ func TestConfigErrorView(t *testing.T) {
 				configErr:   errors.New("failed to parse config /home/u/.config/weave/config.toml: keybindings.list is not a setting; [keybindings] takes agents, archive, filter, form, help, nav, schedules, selection, workflows"),
 				unreachable: tt.unreachable,
 				settings:    PanelSettings{Addr: "127.0.0.1:8787"},
-				listing:     listing{agents: []agentItem{{agent: agentstore.Agent{Name: "should-not-render", State: agentstore.StateIdle}}}},
+				listing:     listing{agents: []agentItem{{agent: panel.Agent{Name: "should-not-render", State: panel.StateIdle}}}},
 			}
 
 			view := strings.Join(strings.Fields(m.View()), " ")
@@ -368,7 +367,7 @@ func TestStartupErrorView(t *testing.T) {
 				startupErr:  errors.New("the agent server stopped during startup: failed to reach db: connection refused"),
 				unreachable: tt.unreachable,
 				settings:    PanelSettings{Addr: "127.0.0.1:8787"},
-				listing:     listing{agents: []agentItem{{agent: agentstore.Agent{Name: "should-not-render", State: agentstore.StateIdle}}}},
+				listing:     listing{agents: []agentItem{{agent: panel.Agent{Name: "should-not-render", State: panel.StateIdle}}}},
 			}
 
 			view := strings.Join(strings.Fields(m.View()), " ")
@@ -407,7 +406,7 @@ func TestUnreachableView(t *testing.T) {
 	assert.Contains(t, ansi.Strip(m.View()), "Cannot reach", "the failure is reported in the region")
 	assert.NotContains(t, ansi.Strip(m.View()), "The panel could not list your agents", "and no screen is taken over")
 
-	back, _ := m.Update(refreshResult{agents: []agentItem{{agent: agentstore.Agent{Name: "back", State: agentstore.StateIdle}}}})
+	back, _ := m.Update(refreshResult{agents: []agentItem{{agent: panel.Agent{Name: "back", State: panel.StateIdle}}}})
 	m, ok = back.(model)
 	require.True(t, ok)
 
@@ -435,10 +434,10 @@ func TestRefusedPauseIsReported(t *testing.T) {
 		keys:   config.DefaultKeybindings(),
 		screen: screenAgents,
 		listing: listing{
-			workflows: []workflowstore.Workflow{{ID: "w1", Name: "backend"}},
-			agents: []agentItem{{agent: agentstore.Agent{
+			workflows: []panel.Workflow{{ID: "w1", Name: "backend"}},
+			agents: []agentItem{{agent: panel.Agent{
 				Name:       "telescope",
-				State:      agentstore.StateThinking,
+				State:      panel.StateThinking,
 				WorkflowID: "w1",
 			}, alive: true}},
 		},

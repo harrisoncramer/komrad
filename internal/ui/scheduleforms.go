@@ -5,15 +5,14 @@ import (
 	"slices"
 
 	"weave/config"
-	schedulestore "weave/internal/store/schedule"
-	workflowstore "weave/internal/store/workflow"
 	"weave/internal/ui/paint/label"
+	"weave/internal/ui/panel"
 
 	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/lipgloss"
 )
 
-func scheduleForm(values *schedulestore.Config, workflows []workflowstore.Workflow, keys config.FormKeys) (*huh.Form, []string) {
+func scheduleForm(values *panel.ScheduleConfig, workflows []panel.Workflow, keys config.FormKeys) (*huh.Form, []string) {
 	options := make([]huh.Option[string], 0, len(workflows)+1)
 	for _, w := range workflows {
 		options = append(options, huh.NewOption(w.Name+"  "+label.OrDash(w.Cwd), w.ID))

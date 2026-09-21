@@ -4,9 +4,7 @@ import (
 	"testing"
 
 	"weave/config"
-
-	agentstore "weave/internal/store/agent"
-	workflowstore "weave/internal/store/workflow"
+	"weave/internal/ui/panel"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/stretchr/testify/assert"
@@ -97,7 +95,7 @@ func TestApplyAgents(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			m := model{
 				screen:  screenAgents,
-				listing: listing{workflows: []workflowstore.Workflow{{ID: testWorkflowID, Name: "backend"}}, agents: tt.start}, tree: treeState{rowCursor: rowCursor{cursor: tt.cursor}, placed: true},
+				listing: listing{workflows: []panel.Workflow{{ID: testWorkflowID, Name: "backend"}}, agents: tt.start}, tree: treeState{rowCursor: rowCursor{cursor: tt.cursor}, placed: true},
 				keys: config.DefaultKeybindings(),
 			}
 
@@ -134,22 +132,22 @@ func TestPlaceTreeCursorSkipsHeaderAfterAgentRemoved(t *testing.T) {
 	m := model{
 		screen: screenAgents,
 		listing: listing{
-			workflows: []workflowstore.Workflow{
+			workflows: []panel.Workflow{
 				{ID: "w1", Name: "backend"},
 				{ID: "w2", Name: "frontend"},
 			},
 			agents: []agentItem{
-				{agent: agentstore.Agent{
+				{agent: panel.Agent{
 					ID:         "a1",
 					Name:       "a1",
 					WorkflowID: "w1",
 				}},
-				{agent: agentstore.Agent{
+				{agent: panel.Agent{
 					ID:         "a2",
 					Name:       "a2",
 					WorkflowID: "w2",
 				}},
-				{agent: agentstore.Agent{
+				{agent: panel.Agent{
 					ID:         "a3",
 					Name:       "a3",
 					WorkflowID: "w2",
@@ -164,12 +162,12 @@ func TestPlaceTreeCursorSkipsHeaderAfterAgentRemoved(t *testing.T) {
 	require.Equal(t, "agent:a1", was)
 
 	m.applyAgents([]agentItem{
-		{agent: agentstore.Agent{
+		{agent: panel.Agent{
 			ID:         "a2",
 			Name:       "a2",
 			WorkflowID: "w2",
 		}},
-		{agent: agentstore.Agent{
+		{agent: panel.Agent{
 			ID:         "a3",
 			Name:       "a3",
 			WorkflowID: "w2",
@@ -187,7 +185,7 @@ const testWorkflowID = "w1"
 func items(names ...string) []agentItem {
 	out := make([]agentItem, 0, len(names))
 	for _, name := range names {
-		out = append(out, agentItem{agent: agentstore.Agent{
+		out = append(out, agentItem{agent: panel.Agent{
 			ID:         name,
 			Name:       name,
 			WorkflowID: testWorkflowID,
