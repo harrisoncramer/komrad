@@ -126,7 +126,7 @@ type AgentService struct {
 	review           reviewConversation
 	runs             runReadWriter
 	marks            markReadWriter
-	refresher        worktreeRefresher
+	rebaser          worktreeRebaser
 	orchestrator     orchestratorStarter
 	pullRequests     currentPullRequestReader
 	pullRequestSyncs readRepositoryLister
@@ -149,7 +149,7 @@ type NewAgentServiceParams struct {
 	Review           reviewConversation
 	Runs             runReadWriter
 	Marks            markReadWriter
-	Refresher        worktreeRefresher
+	Rebaser          worktreeRebaser
 	Orchestrator     orchestratorStarter
 	PullRequests     currentPullRequestReader
 	PullRequestSyncs readRepositoryLister
@@ -180,7 +180,7 @@ func NewAgentService(params NewAgentServiceParams) *AgentService {
 		review:           params.Review,
 		runs:             params.Runs,
 		marks:            params.Marks,
-		refresher:        params.Refresher,
+		rebaser:          params.Rebaser,
 		orchestrator:     params.Orchestrator,
 		pullRequests:     params.PullRequests,
 		pullRequestSyncs: params.PullRequestSyncs,

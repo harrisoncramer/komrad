@@ -311,14 +311,14 @@ message GetAgentResponse {
   Agent agent = 1;
 }
 
-// PlanRefreshRequest asks what a rebase would do without doing it, which is what the
+// PlanRebaseRequest asks what a rebase would do without doing it, which is what the
 // confirmation names.
-message PlanRefreshRequest {
+message PlanRebaseRequest {
   // Whose branch the rebase would move.
   string agent_id = 1 [(buf.validate.field).string.min_len = 1];
 }
 
-message PlanRefreshResponse {
+message PlanRebaseResponse {
   // The ref the branch would move onto, and the commit that ref named when it was read, so a
   // person is told which commit was used rather than only which branch.
   string base_ref = 1;
@@ -880,7 +880,7 @@ service AgentService {
       reason: "What was said in a review is a record of what the two sides knew at the time, so an agent corrects itself with another message through add_review_message rather than rewriting one somebody has already read."
     };
   }
-  rpc PlanRefresh(PlanRefreshRequest) returns (PlanRefreshResponse) {
+  rpc PlanRebase(PlanRebaseRequest) returns (PlanRebaseResponse) {
     option (annotation.v1.surfaces) = {
       cli: true
       mcp: true

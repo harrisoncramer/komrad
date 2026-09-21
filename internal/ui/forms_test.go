@@ -1430,13 +1430,13 @@ func TestRefreshDescriptionSaysWhatWillHappen(t *testing.T) {
 
 	for _, tt := range []struct {
 		name     string
-		plan     refreshPlan
+		plan     rebasePlan
 		want     []string
 		wantNone []string
 	}{
 		{
 			name: "a branch with nothing of its own is just moved",
-			plan: refreshPlan{
+			plan: rebasePlan{
 				baseRef: "origin/main",
 			},
 			want:     []string{"no commits of its own", "moved to origin/main"},
@@ -1444,7 +1444,7 @@ func TestRefreshDescriptionSaysWhatWillHappen(t *testing.T) {
 		},
 		{
 			name: "a branch the base already holds loses those commits",
-			plan: refreshPlan{
+			plan: rebasePlan{
 				baseRef: "origin/main",
 				landed:  3,
 			},
@@ -1452,7 +1452,7 @@ func TestRefreshDescriptionSaysWhatWillHappen(t *testing.T) {
 		},
 		{
 			name: "an ordinary rebase says what it replays",
-			plan: refreshPlan{
+			plan: rebasePlan{
 				baseRef: "origin/main",
 				replay:  2,
 			},
@@ -1461,7 +1461,7 @@ func TestRefreshDescriptionSaysWhatWillHappen(t *testing.T) {
 		},
 		{
 			name: "a partly landed branch says both halves",
-			plan: refreshPlan{
+			plan: rebasePlan{
 				baseRef: "origin/main",
 				landed:  2,
 				replay:  1,
@@ -1472,7 +1472,7 @@ func TestRefreshDescriptionSaysWhatWillHappen(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			description := refreshDescription(tt.plan)
+			description := rebaseDescription(tt.plan)
 			for _, want := range tt.want {
 				assert.Contains(t, description, want)
 			}
@@ -1488,12 +1488,12 @@ func TestRefreshDescriptionSaysWhatWillHappen(t *testing.T) {
 func TestRefreshDescriptionAlwaysSaysWhatItDoesToTheFiles(t *testing.T) {
 	t.Parallel()
 
-	for _, plan := range []refreshPlan{
+	for _, plan := range []rebasePlan{
 		{baseRef: "origin/main"},
 		{baseRef: "origin/main", landed: 3},
 		{baseRef: "origin/main", replay: 2},
 	} {
-		description := refreshDescription(plan)
+		description := rebaseDescription(plan)
 		assert.Contains(t, description, "files will change under it")
 		assert.Contains(t, description, "nothing untracked is removed")
 		assert.Contains(t, description, "copy of the worktree is kept")
@@ -1504,9 +1504,9 @@ func TestRefreshDescriptionAlwaysSaysWhatItDoesToTheFiles(t *testing.T) {
 func TestRefreshAffirmativeNamesWhatRuns(t *testing.T) {
 	t.Parallel()
 
-	assert.Equal(t, "Rebase", refreshAffirmative(refreshPlan{replay: 2}))
-	assert.Equal(t, "Move", refreshAffirmative(refreshPlan{landed: 3}))
-	assert.Equal(t, "Move", refreshAffirmative(refreshPlan{}))
+	assert.Equal(t, "Rebase", rebaseAffirmative(rebasePlan{replay: 2}))
+	assert.Equal(t, "Move", rebaseAffirmative(rebasePlan{landed: 3}))
+	assert.Equal(t, "Move", rebaseAffirmative(rebasePlan{}))
 }
 
 // TestRefreshWarning covers each thing the confirmation is there to say, and the ordinary case
@@ -1516,40 +1516,40 @@ func TestRefreshWarning(t *testing.T) {
 
 	for _, tt := range []struct {
 		name     string
-		plan     refreshPlan
+		plan     rebasePlan
 		want     []string
 		wantNone bool
 	}{
 		{
 			name:     "a rebase that would run cleanly warns about nothing",
-			plan:     refreshPlan{replay: 2},
+			plan:     rebasePlan{replay: 2},
 			wantNone: true,
 		},
 		{
 			name:     "the landed commits are left to the description, which says what becomes of them",
-			plan:     refreshPlan{landed: 2},
+			plan:     rebasePlan{landed: 2},
 			wantNone: true,
 		},
 		{
 			name: "merge commits, which a rebase throws away before replaying what they settled",
-			plan: refreshPlan{merges: 2},
+			plan: rebasePlan{merges: 2},
 			want: []string{"throws away 2 merge commits"},
 		},
 		{
 			name: "the paths the two sides both changed",
-			plan: refreshPlan{conflictPaths: []string{"a.go", "b.go"}},
+			plan: rebasePlan{conflictPaths: []string{"a.go", "b.go"}},
 			want: []string{"Both sides changed a.go, b.go"},
 		},
 		{
 			name: "more paths than are worth reading out",
-			plan: refreshPlan{conflictPaths: []string{"a.go", "b.go", "c.go", "d.go", "e.go"}},
+			plan: rebasePlan{conflictPaths: []string{"a.go", "b.go", "c.go", "d.go", "e.go"}},
 			want: []string{"a.go, b.go, c.go and 2 more"},
 		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			warning := refreshWarning(tt.plan)
+			warning := rebaseWarning(tt.plan)
 			if tt.wantNone {
 				assert.Empty(t, warning)
 

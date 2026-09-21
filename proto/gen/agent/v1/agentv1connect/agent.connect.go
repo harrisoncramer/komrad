@@ -118,9 +118,8 @@ const (
 	// AgentServiceEditReviewMessageProcedure is the fully-qualified name of the AgentService's
 	// EditReviewMessage RPC.
 	AgentServiceEditReviewMessageProcedure = "/agent.v1.AgentService/EditReviewMessage"
-	// AgentServicePlanRefreshProcedure is the fully-qualified name of the AgentService's PlanRefresh
-	// RPC.
-	AgentServicePlanRefreshProcedure = "/agent.v1.AgentService/PlanRefresh"
+	// AgentServicePlanRebaseProcedure is the fully-qualified name of the AgentService's PlanRebase RPC.
+	AgentServicePlanRebaseProcedure = "/agent.v1.AgentService/PlanRebase"
 	// AgentServiceRebaseWorktreeProcedure is the fully-qualified name of the AgentService's
 	// RebaseWorktree RPC.
 	AgentServiceRebaseWorktreeProcedure = "/agent.v1.AgentService/RebaseWorktree"
@@ -187,7 +186,7 @@ type AgentServiceClient interface {
 	CreateReviewThread(context.Context, *connect.Request[v1.CreateReviewThreadRequest]) (*connect.Response[v1.CreateReviewThreadResponse], error)
 	AddReviewMessage(context.Context, *connect.Request[v1.AddReviewMessageRequest]) (*connect.Response[v1.AddReviewMessageResponse], error)
 	EditReviewMessage(context.Context, *connect.Request[v1.EditReviewMessageRequest]) (*connect.Response[v1.EditReviewMessageResponse], error)
-	PlanRefresh(context.Context, *connect.Request[v1.PlanRefreshRequest]) (*connect.Response[v1.PlanRefreshResponse], error)
+	PlanRebase(context.Context, *connect.Request[v1.PlanRebaseRequest]) (*connect.Response[v1.PlanRebaseResponse], error)
 	RebaseWorktree(context.Context, *connect.Request[v1.RebaseWorktreeRequest]) (*connect.Response[v1.RebaseWorktreeResponse], error)
 	StartOrchestrator(context.Context, *connect.Request[v1.StartOrchestratorRequest]) (*connect.Response[v1.StartOrchestratorResponse], error)
 	MarkReviewThreadRead(context.Context, *connect.Request[v1.MarkReviewThreadReadRequest]) (*connect.Response[v1.MarkReviewThreadReadResponse], error)
@@ -423,10 +422,10 @@ func NewAgentServiceClient(httpClient connect.HTTPClient, baseURL string, opts .
 			connect.WithIdempotency(connect.IdempotencyIdempotent),
 			connect.WithClientOptions(opts...),
 		),
-		planRefresh: connect.NewClient[v1.PlanRefreshRequest, v1.PlanRefreshResponse](
+		planRebase: connect.NewClient[v1.PlanRebaseRequest, v1.PlanRebaseResponse](
 			httpClient,
-			baseURL+AgentServicePlanRefreshProcedure,
-			connect.WithSchema(agentServiceMethods.ByName("PlanRefresh")),
+			baseURL+AgentServicePlanRebaseProcedure,
+			connect.WithSchema(agentServiceMethods.ByName("PlanRebase")),
 			connect.WithClientOptions(opts...),
 		),
 		rebaseWorktree: connect.NewClient[v1.RebaseWorktreeRequest, v1.RebaseWorktreeResponse](
@@ -533,7 +532,7 @@ type agentServiceClient struct {
 	createReviewThread      *connect.Client[v1.CreateReviewThreadRequest, v1.CreateReviewThreadResponse]
 	addReviewMessage        *connect.Client[v1.AddReviewMessageRequest, v1.AddReviewMessageResponse]
 	editReviewMessage       *connect.Client[v1.EditReviewMessageRequest, v1.EditReviewMessageResponse]
-	planRefresh             *connect.Client[v1.PlanRefreshRequest, v1.PlanRefreshResponse]
+	planRebase              *connect.Client[v1.PlanRebaseRequest, v1.PlanRebaseResponse]
 	rebaseWorktree          *connect.Client[v1.RebaseWorktreeRequest, v1.RebaseWorktreeResponse]
 	startOrchestrator       *connect.Client[v1.StartOrchestratorRequest, v1.StartOrchestratorResponse]
 	markReviewThreadRead    *connect.Client[v1.MarkReviewThreadReadRequest, v1.MarkReviewThreadReadResponse]
@@ -706,9 +705,9 @@ func (c *agentServiceClient) EditReviewMessage(ctx context.Context, req *connect
 	return c.editReviewMessage.CallUnary(ctx, req)
 }
 
-// PlanRefresh calls agent.v1.AgentService.PlanRefresh.
-func (c *agentServiceClient) PlanRefresh(ctx context.Context, req *connect.Request[v1.PlanRefreshRequest]) (*connect.Response[v1.PlanRefreshResponse], error) {
-	return c.planRefresh.CallUnary(ctx, req)
+// PlanRebase calls agent.v1.AgentService.PlanRebase.
+func (c *agentServiceClient) PlanRebase(ctx context.Context, req *connect.Request[v1.PlanRebaseRequest]) (*connect.Response[v1.PlanRebaseResponse], error) {
+	return c.planRebase.CallUnary(ctx, req)
 }
 
 // RebaseWorktree calls agent.v1.AgentService.RebaseWorktree.
@@ -795,7 +794,7 @@ type AgentServiceHandler interface {
 	CreateReviewThread(context.Context, *connect.Request[v1.CreateReviewThreadRequest]) (*connect.Response[v1.CreateReviewThreadResponse], error)
 	AddReviewMessage(context.Context, *connect.Request[v1.AddReviewMessageRequest]) (*connect.Response[v1.AddReviewMessageResponse], error)
 	EditReviewMessage(context.Context, *connect.Request[v1.EditReviewMessageRequest]) (*connect.Response[v1.EditReviewMessageResponse], error)
-	PlanRefresh(context.Context, *connect.Request[v1.PlanRefreshRequest]) (*connect.Response[v1.PlanRefreshResponse], error)
+	PlanRebase(context.Context, *connect.Request[v1.PlanRebaseRequest]) (*connect.Response[v1.PlanRebaseResponse], error)
 	RebaseWorktree(context.Context, *connect.Request[v1.RebaseWorktreeRequest]) (*connect.Response[v1.RebaseWorktreeResponse], error)
 	StartOrchestrator(context.Context, *connect.Request[v1.StartOrchestratorRequest]) (*connect.Response[v1.StartOrchestratorResponse], error)
 	MarkReviewThreadRead(context.Context, *connect.Request[v1.MarkReviewThreadReadRequest]) (*connect.Response[v1.MarkReviewThreadReadResponse], error)
@@ -1027,10 +1026,10 @@ func NewAgentServiceHandler(svc AgentServiceHandler, opts ...connect.HandlerOpti
 		connect.WithIdempotency(connect.IdempotencyIdempotent),
 		connect.WithHandlerOptions(opts...),
 	)
-	agentServicePlanRefreshHandler := connect.NewUnaryHandler(
-		AgentServicePlanRefreshProcedure,
-		svc.PlanRefresh,
-		connect.WithSchema(agentServiceMethods.ByName("PlanRefresh")),
+	agentServicePlanRebaseHandler := connect.NewUnaryHandler(
+		AgentServicePlanRebaseProcedure,
+		svc.PlanRebase,
+		connect.WithSchema(agentServiceMethods.ByName("PlanRebase")),
 		connect.WithHandlerOptions(opts...),
 	)
 	agentServiceRebaseWorktreeHandler := connect.NewUnaryHandler(
@@ -1166,8 +1165,8 @@ func NewAgentServiceHandler(svc AgentServiceHandler, opts ...connect.HandlerOpti
 			agentServiceAddReviewMessageHandler.ServeHTTP(w, r)
 		case AgentServiceEditReviewMessageProcedure:
 			agentServiceEditReviewMessageHandler.ServeHTTP(w, r)
-		case AgentServicePlanRefreshProcedure:
-			agentServicePlanRefreshHandler.ServeHTTP(w, r)
+		case AgentServicePlanRebaseProcedure:
+			agentServicePlanRebaseHandler.ServeHTTP(w, r)
 		case AgentServiceRebaseWorktreeProcedure:
 			agentServiceRebaseWorktreeHandler.ServeHTTP(w, r)
 		case AgentServiceStartOrchestratorProcedure:
@@ -1325,8 +1324,8 @@ func (UnimplementedAgentServiceHandler) EditReviewMessage(context.Context, *conn
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("agent.v1.AgentService.EditReviewMessage is not implemented"))
 }
 
-func (UnimplementedAgentServiceHandler) PlanRefresh(context.Context, *connect.Request[v1.PlanRefreshRequest]) (*connect.Response[v1.PlanRefreshResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("agent.v1.AgentService.PlanRefresh is not implemented"))
+func (UnimplementedAgentServiceHandler) PlanRebase(context.Context, *connect.Request[v1.PlanRebaseRequest]) (*connect.Response[v1.PlanRebaseResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("agent.v1.AgentService.PlanRebase is not implemented"))
 }
 
 func (UnimplementedAgentServiceHandler) RebaseWorktree(context.Context, *connect.Request[v1.RebaseWorktreeRequest]) (*connect.Response[v1.RebaseWorktreeResponse], error) {

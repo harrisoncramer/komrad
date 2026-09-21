@@ -1314,9 +1314,9 @@ func (x *GetAgentResponse) GetAgent() *Agent {
 	return nil
 }
 
-// PlanRefreshRequest asks what a rebase would do without doing it, which is what the
+// PlanRebaseRequest asks what a rebase would do without doing it, which is what the
 // confirmation names.
-type PlanRefreshRequest struct {
+type PlanRebaseRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Whose branch the rebase would move.
 	AgentId       string `protobuf:"bytes,1,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`
@@ -1324,20 +1324,20 @@ type PlanRefreshRequest struct {
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *PlanRefreshRequest) Reset() {
-	*x = PlanRefreshRequest{}
+func (x *PlanRebaseRequest) Reset() {
+	*x = PlanRebaseRequest{}
 	mi := &file_agent_v1_agent_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *PlanRefreshRequest) String() string {
+func (x *PlanRebaseRequest) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*PlanRefreshRequest) ProtoMessage() {}
+func (*PlanRebaseRequest) ProtoMessage() {}
 
-func (x *PlanRefreshRequest) ProtoReflect() protoreflect.Message {
+func (x *PlanRebaseRequest) ProtoReflect() protoreflect.Message {
 	mi := &file_agent_v1_agent_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -1349,19 +1349,19 @@ func (x *PlanRefreshRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use PlanRefreshRequest.ProtoReflect.Descriptor instead.
-func (*PlanRefreshRequest) Descriptor() ([]byte, []int) {
+// Deprecated: Use PlanRebaseRequest.ProtoReflect.Descriptor instead.
+func (*PlanRebaseRequest) Descriptor() ([]byte, []int) {
 	return file_agent_v1_agent_proto_rawDescGZIP(), []int{13}
 }
 
-func (x *PlanRefreshRequest) GetAgentId() string {
+func (x *PlanRebaseRequest) GetAgentId() string {
 	if x != nil {
 		return x.AgentId
 	}
 	return ""
 }
 
-type PlanRefreshResponse struct {
+type PlanRebaseResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The ref the branch would move onto, and the commit that ref named when it was read, so a
 	// person is told which commit was used rather than only which branch.
@@ -1386,20 +1386,20 @@ type PlanRefreshResponse struct {
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *PlanRefreshResponse) Reset() {
-	*x = PlanRefreshResponse{}
+func (x *PlanRebaseResponse) Reset() {
+	*x = PlanRebaseResponse{}
 	mi := &file_agent_v1_agent_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *PlanRefreshResponse) String() string {
+func (x *PlanRebaseResponse) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*PlanRefreshResponse) ProtoMessage() {}
+func (*PlanRebaseResponse) ProtoMessage() {}
 
-func (x *PlanRefreshResponse) ProtoReflect() protoreflect.Message {
+func (x *PlanRebaseResponse) ProtoReflect() protoreflect.Message {
 	mi := &file_agent_v1_agent_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -1411,61 +1411,61 @@ func (x *PlanRefreshResponse) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use PlanRefreshResponse.ProtoReflect.Descriptor instead.
-func (*PlanRefreshResponse) Descriptor() ([]byte, []int) {
+// Deprecated: Use PlanRebaseResponse.ProtoReflect.Descriptor instead.
+func (*PlanRebaseResponse) Descriptor() ([]byte, []int) {
 	return file_agent_v1_agent_proto_rawDescGZIP(), []int{14}
 }
 
-func (x *PlanRefreshResponse) GetBaseRef() string {
+func (x *PlanRebaseResponse) GetBaseRef() string {
 	if x != nil {
 		return x.BaseRef
 	}
 	return ""
 }
 
-func (x *PlanRefreshResponse) GetBaseSha() string {
+func (x *PlanRebaseResponse) GetBaseSha() string {
 	if x != nil {
 		return x.BaseSha
 	}
 	return ""
 }
 
-func (x *PlanRefreshResponse) GetCommits() int32 {
+func (x *PlanRebaseResponse) GetCommits() int32 {
 	if x != nil {
 		return x.Commits
 	}
 	return 0
 }
 
-func (x *PlanRefreshResponse) GetBranch() string {
+func (x *PlanRebaseResponse) GetBranch() string {
 	if x != nil {
 		return x.Branch
 	}
 	return ""
 }
 
-func (x *PlanRefreshResponse) GetLandedCommits() int32 {
+func (x *PlanRebaseResponse) GetLandedCommits() int32 {
 	if x != nil {
 		return x.LandedCommits
 	}
 	return 0
 }
 
-func (x *PlanRefreshResponse) GetReplayCommits() int32 {
+func (x *PlanRebaseResponse) GetReplayCommits() int32 {
 	if x != nil {
 		return x.ReplayCommits
 	}
 	return 0
 }
 
-func (x *PlanRefreshResponse) GetMerges() int32 {
+func (x *PlanRebaseResponse) GetMerges() int32 {
 	if x != nil {
 		return x.Merges
 	}
 	return 0
 }
 
-func (x *PlanRefreshResponse) GetConflictPaths() []string {
+func (x *PlanRebaseResponse) GetConflictPaths() []string {
 	if x != nil {
 		return x.ConflictPaths
 	}
@@ -2854,10 +2854,10 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\x0fGetAgentRequest\x12\x17\n" +
 	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\"9\n" +
 	"\x10GetAgentResponse\x12%\n" +
-	"\x05agent\x18\x01 \x01(\v2\x0f.agent.v1.AgentR\x05agent\"8\n" +
-	"\x12PlanRefreshRequest\x12\"\n" +
-	"\bagent_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\aagentId\"\x8a\x02\n" +
-	"\x13PlanRefreshResponse\x12\x19\n" +
+	"\x05agent\x18\x01 \x01(\v2\x0f.agent.v1.AgentR\x05agent\"7\n" +
+	"\x11PlanRebaseRequest\x12\"\n" +
+	"\bagent_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\aagentId\"\x89\x02\n" +
+	"\x12PlanRebaseResponse\x12\x19\n" +
 	"\bbase_ref\x18\x01 \x01(\tR\abaseRef\x12\x19\n" +
 	"\bbase_sha\x18\x02 \x01(\tR\abaseSha\x12\x18\n" +
 	"\acommits\x18\x03 \x01(\x05R\acommits\x12\x16\n" +
@@ -2963,7 +2963,7 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\x16AGENT_ROLE_UNSPECIFIED\x10\x00\x12\x1a\n" +
 	"\x16AGENT_ROLE_IMPLEMENTER\x10\x01\x12\x17\n" +
 	"\x13AGENT_ROLE_REVIEWER\x10\x02\x12\x1b\n" +
-	"\x17AGENT_ROLE_ORCHESTRATOR\x10\x032\x88\x99\x02\n" +
+	"\x17AGENT_ROLE_ORCHESTRATOR\x10\x032\x85\x99\x02\n" +
 	"\fAgentService\x12\xca\x05\n" +
 	"\n" +
 	"ListAgents\x12\x1b.agent.v1.ListAgentsRequest\x1a\x1c.agent.v1.ListAgentsResponse\"\x80\x05\x9a\xb5\x18\xf8\x04\b\x01\x10\x01\x1a\vlist_agents\"\xe4\x04List the agents the panel tracks, live and dormant, with each one's name, state, working directory, flags, and workflow. Archived agents are excluded unless archived is set, which lists those and only those. Returns one page, most recently updated first; pass the response's nextPageToken back as pagination.cursor for the next one. The summary this returns by default holds only the opening of each agent's prompt, marked by promptTruncated; get_agent returns one whole, and view VIEW_FULL returns every prompt on the page at the cost of a very large reply. Start here to find the id or name another tool needs.\x90\x02\x01\x12\xb3\x02\n" +
@@ -3001,8 +3001,9 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\n" +
 	"\x12CreateReviewThread\x12#.agent.v1.CreateReviewThreadRequest\x1a$.agent.v1.CreateReviewThreadResponse\"\xf1\t\x9a\xb5\x18\xec\t\b\x01\x10\x01\x1a\x14create_review_thread\"\xcb\tPin a comment to a place in another agent's diff, which is how you give it a review rather than mailing it prose. You may only review the agent you are a child of. The comment is filed under a batch of your own that nobody sees until you release it with release_review, so write every comment you have and then release once. Anchor it with the file and the line range from the round you are reviewing, and pass the diff lines you are writing about as quotedLines so the anchor still says something after the code moves. Pass snapshotSha, which is the snapshot of the round you are reading, so the comment is filed against the code you counted the lines off rather than against whatever round is newest. Pass suggestion to propose exact replacement lines the agent should apply. Write it the way you would say it out loud. One or two sentences is the normal size and a hundred words is the ceiling. Name the line, the value or the case you mean, and quote code where the code is the point. No preamble, no summary at the end, no hedging, and no invented names for things the repository does not call that. Say what is wrong and what to do about it. Each call opens another thread, so do not retry a call that may have succeeded.(\x000\x00\x12\xd9\a\n" +
 	"\x10AddReviewMessage\x12!.agent.v1.AddReviewMessageRequest\x1a\".agent.v1.AddReviewMessageResponse\"\xfd\x06\x9a\xb5\x18\xf8\x06\b\x01\x10\x01\x1a\x12add_review_message\"\xd9\x06Say something in a review thread, which is how you answer feedback on your own diff. Use it to report what you changed and why, or to ask what was meant when the note is not clear enough to act on. Your answer belongs to no batch and reaches the reviewer as soon as it is written, unlike a review, which is released whole. The message is attributed to you rather than to the person reviewing. Write it the way you would say it out loud. One or two sentences is the normal size and a hundred words is the ceiling. Name the line, the value or the case you mean, and quote code where the code is the point. No preamble, no summary at the end, no hedging, and no invented names for things the repository does not call that. Say what you changed, or what you did not change and why. Each call adds another message, so do not retry a call that may have succeeded.(\x000\x00\x12\xb8\x02\n" +
-	"\x11EditReviewMessage\x12\".agent.v1.EditReviewMessageRequest\x1a#.agent.v1.EditReviewMessageResponse\"\xd9\x01\x9a\xb5\x18\xd1\x01:\xce\x01What was said in a review is a record of what the two sides knew at the time, so an agent corrects itself with another message through add_review_message rather than rewriting one somebody has already read.\x90\x02\x02\x12\x9d\x06\n" +
-	"\vPlanRefresh\x12\x1c.agent.v1.PlanRefreshRequest\x1a\x1d.agent.v1.PlanRefreshResponse\"\xd0\x05\x9a\xb5\x18\xcb\x05\b\x01\x10\x01\x1a\vplan_rebase\"\xb3\x05Read what rebasing an agent's worktree onto its base would do, without moving anything. Call this before rebase_worktree, every time: it names the ref and the commit the branch would land on, how many of the agent's own commits would be replayed, how many the base already holds whole and so would be dropped, how many merge commits a rebase would flatten away, and the paths a merge of the base could not settle. Those paths are a warning rather than a verdict, since a rebase replays commit by commit and can conflict where a merge would not. This refuses for the same reasons rebase_worktree does, so it is also how you find out whether a rebase is possible at all without attempting one.(\x000\x01\x12\xa8\f\n" +
+	"\x11EditReviewMessage\x12\".agent.v1.EditReviewMessageRequest\x1a#.agent.v1.EditReviewMessageResponse\"\xd9\x01\x9a\xb5\x18\xd1\x01:\xce\x01What was said in a review is a record of what the two sides knew at the time, so an agent corrects itself with another message through add_review_message rather than rewriting one somebody has already read.\x90\x02\x02\x12\x9a\x06\n" +
+	"\n" +
+	"PlanRebase\x12\x1b.agent.v1.PlanRebaseRequest\x1a\x1c.agent.v1.PlanRebaseResponse\"\xd0\x05\x9a\xb5\x18\xcb\x05\b\x01\x10\x01\x1a\vplan_rebase\"\xb3\x05Read what rebasing an agent's worktree onto its base would do, without moving anything. Call this before rebase_worktree, every time: it names the ref and the commit the branch would land on, how many of the agent's own commits would be replayed, how many the base already holds whole and so would be dropped, how many merge commits a rebase would flatten away, and the paths a merge of the base could not settle. Those paths are a warning rather than a verdict, since a rebase replays commit by commit and can conflict where a merge would not. This refuses for the same reasons rebase_worktree does, so it is also how you find out whether a rebase is possible at all without attempting one.(\x000\x01\x12\xa8\f\n" +
 	"\x0eRebaseWorktree\x12\x1f.agent.v1.RebaseWorktreeRequest\x1a .agent.v1.RebaseWorktreeResponse\"\xd2\v\x9a\xb5\x18\xcd\v\b\x01\x10\x01\x1a\x0frebase_worktree\"\xb1\vMove an agent's branch onto the latest commit of its base, rewriting the branch in the checkout it sits in. Reach for this when an agent's worktree has fallen behind the base and its work has to sit on top of what has landed since, rather than driving git by hand: weave knows which base the agent's workflow cuts from, fetches it, parks the whole checkout at a ref of its own first so nothing is lost, replays from a cutoff when the base already holds part of the branch, and mails the agent to say its files moved under it. Read plan_rebase first, since this rewrites history and no pull request opened from the branch tracks the work afterwards. You cannot rebase the checkout you are working in, which is refused as invalid_argument and covers your own worktree and, if you are a child, your parent's. An agent weave cannot see to be at rest is refused as failed_precondition, which covers one part-way through a turn, one still being set up, and one whose pane could not be read at all. A turn that began since its pane was last read is cut, and nothing moves until the pane says the agent has stopped, so one that will not stop is refused too. It is refused the same way for an agent that is held, archived, on a branch weave did not cut, holding uncommitted tracked changes, or already part-way through a merge or a rebase. A rebase that hits conflicts stops part-way and is left for that agent to settle, which the response says rather than failing.(\x010\x00\x12\xb7\x06\n" +
 	"\x11StartOrchestrator\x12\".agent.v1.StartOrchestratorRequest\x1a#.agent.v1.StartOrchestratorResponse\"\xd8\x05\x9a\xb5\x18\xd0\x05\b\x01\x10\x01\x1a\x12start_orchestrator\"\xb3\x05Bring a workflow's orchestrator back with a pane to talk to, starting the one that workflow has never had. An orchestrator is the agent drawn on the workflow's own row rather than a row of its own, and it hands work out across that workflow rather than writing any itself. This returns whichever orchestrator the workflow already has, taking it out of the archive and resuming its conversation as far as either is needed, and launches a fresh one only when the workflow has never had one hold a conversation at all. An orchestrator already running comes back as it stands rather than being started twice, so this is safe to call again. A workflow that does not exist is refused as not_found.(\x00\x90\x02\x02\x12\xe0\x01\n" +
 	"\x14MarkReviewThreadRead\x12%.agent.v1.MarkReviewThreadReadRequest\x1a&.agent.v1.MarkReviewThreadReadResponse\"y\x9a\xb5\x18r:pCatching up on a review thread is a person's own reading, and the handler refuses a caller that is not a person.\x90\x02\x02\x12\xbd\x05\n" +
@@ -3044,8 +3045,8 @@ var file_agent_v1_agent_proto_goTypes = []any{
 	(*AdoptResponse)(nil),                   // 12: agent.v1.AdoptResponse
 	(*GetAgentRequest)(nil),                 // 13: agent.v1.GetAgentRequest
 	(*GetAgentResponse)(nil),                // 14: agent.v1.GetAgentResponse
-	(*PlanRefreshRequest)(nil),              // 15: agent.v1.PlanRefreshRequest
-	(*PlanRefreshResponse)(nil),             // 16: agent.v1.PlanRefreshResponse
+	(*PlanRebaseRequest)(nil),               // 15: agent.v1.PlanRebaseRequest
+	(*PlanRebaseResponse)(nil),              // 16: agent.v1.PlanRebaseResponse
 	(*StartOrchestratorRequest)(nil),        // 17: agent.v1.StartOrchestratorRequest
 	(*StartOrchestratorResponse)(nil),       // 18: agent.v1.StartOrchestratorResponse
 	(*RebaseWorktreeRequest)(nil),           // 19: agent.v1.RebaseWorktreeRequest
@@ -3168,7 +3169,7 @@ var file_agent_v1_agent_proto_depIdxs = []int32{
 	55, // 49: agent.v1.AgentService.CreateReviewThread:input_type -> agent.v1.CreateReviewThreadRequest
 	56, // 50: agent.v1.AgentService.AddReviewMessage:input_type -> agent.v1.AddReviewMessageRequest
 	57, // 51: agent.v1.AgentService.EditReviewMessage:input_type -> agent.v1.EditReviewMessageRequest
-	15, // 52: agent.v1.AgentService.PlanRefresh:input_type -> agent.v1.PlanRefreshRequest
+	15, // 52: agent.v1.AgentService.PlanRebase:input_type -> agent.v1.PlanRebaseRequest
 	19, // 53: agent.v1.AgentService.RebaseWorktree:input_type -> agent.v1.RebaseWorktreeRequest
 	17, // 54: agent.v1.AgentService.StartOrchestrator:input_type -> agent.v1.StartOrchestratorRequest
 	58, // 55: agent.v1.AgentService.MarkReviewThreadRead:input_type -> agent.v1.MarkReviewThreadReadRequest
@@ -3211,7 +3212,7 @@ var file_agent_v1_agent_proto_depIdxs = []int32{
 	74, // 92: agent.v1.AgentService.CreateReviewThread:output_type -> agent.v1.CreateReviewThreadResponse
 	75, // 93: agent.v1.AgentService.AddReviewMessage:output_type -> agent.v1.AddReviewMessageResponse
 	76, // 94: agent.v1.AgentService.EditReviewMessage:output_type -> agent.v1.EditReviewMessageResponse
-	16, // 95: agent.v1.AgentService.PlanRefresh:output_type -> agent.v1.PlanRefreshResponse
+	16, // 95: agent.v1.AgentService.PlanRebase:output_type -> agent.v1.PlanRebaseResponse
 	20, // 96: agent.v1.AgentService.RebaseWorktree:output_type -> agent.v1.RebaseWorktreeResponse
 	18, // 97: agent.v1.AgentService.StartOrchestrator:output_type -> agent.v1.StartOrchestratorResponse
 	77, // 98: agent.v1.AgentService.MarkReviewThreadRead:output_type -> agent.v1.MarkReviewThreadReadResponse

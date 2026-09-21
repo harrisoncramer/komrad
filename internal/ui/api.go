@@ -262,9 +262,9 @@ func (a api) resumeAgent(id string) (*agentv1.Agent, error) {
 	})
 }
 
-func (a api) planRefresh(id string) (*agentv1.PlanRefreshResponse, error) {
-	return call(requestTimeout, func(ctx context.Context) (*agentv1.PlanRefreshResponse, error) {
-		resp, err := a.agents.PlanRefresh(ctx, connect.NewRequest(&agentv1.PlanRefreshRequest{AgentId: id}))
+func (a api) planRebase(id string) (*agentv1.PlanRebaseResponse, error) {
+	return call(requestTimeout, func(ctx context.Context) (*agentv1.PlanRebaseResponse, error) {
+		resp, err := a.agents.PlanRebase(ctx, connect.NewRequest(&agentv1.PlanRebaseRequest{AgentId: id}))
 		if err != nil {
 			return nil, fmt.Errorf("failed to work out what a rebase of agent %q would do: %w", id, err)
 		}

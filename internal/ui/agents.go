@@ -754,12 +754,12 @@ func worktreeOverride(selected string) *bool {
 	return nil
 }
 
-// openRefreshConfirm asks before bringing a worktree up to date.
-func (m model) openRefreshConfirm(plan refreshPlan) (tea.Model, tea.Cmd) {
-	form, confirmed := refreshForm(plan, formKeys())
+// openRebaseConfirm asks before bringing a worktree up to date.
+func (m model) openRebaseConfirm(plan rebasePlan) (tea.Model, tea.Cmd) {
+	form, confirmed := rebaseForm(plan, formKeys())
 
 	return m, m.openForm(formState{
-		kind:   formAgentRefresh,
+		kind:   formAgentRebase,
 		form:   form,
 		update: model.updateForm,
 		submit: confirmSubmit(func(m model) (model, tea.Cmd) {
