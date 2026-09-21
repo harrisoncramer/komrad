@@ -405,3 +405,82 @@ func archiveTabs() tabStrip {
 		grouped:  "workflow",
 	}
 }
+
+// archiveScreen is the archive screen behind the panel's one door.
+type archiveScreen struct{}
+
+var (
+	_ detailed = archiveScreen{}
+	_ filtered = archiveScreen{}
+	_ tabbed   = archiveScreen{}
+	_ columned = archiveScreen{}
+	_ staged   = archiveScreen{}
+)
+
+func (archiveScreen) update(m model, msg tea.Msg) (tea.Model, tea.Cmd) {
+	return onKey(m, msg, model.updateArchive)
+}
+
+func (archiveScreen) view(m model) string {
+	return m.archiveView()
+}
+
+func (archiveScreen) needs() screenNeeds {
+	return screenNeeds{fromListing: true, archive: true}
+}
+
+func (archiveScreen) reenter(m model) (tea.Model, tea.Cmd) {
+	return m.enterArchive()
+}
+
+func (archiveScreen) takesEveryKey(model) bool {
+	return false
+}
+
+func (archiveScreen) details(m model) details {
+	return m.archiveDetails()
+}
+
+func (archiveScreen) detailsQuit(keys config.Keybindings) []string {
+	return keys.Archive.Quit
+}
+
+func (archiveScreen) detailsFit(m model) bool {
+	return archiveChrome().doesFitDetails(m)
+}
+
+func (archiveScreen) detailsRoom(m model) int {
+	return archiveChrome().detailsRoom(m)
+}
+
+func (archiveScreen) hoveredKey(m model) string {
+	return archiveList().hovered(m)
+}
+
+func (archiveScreen) placeAt(m *model, key string) {
+	archiveList().place(m, key)
+}
+
+func (archiveScreen) filterRows(m model) []filterRow {
+	return archiveList().filterRows(m)
+}
+
+func (archiveScreen) tabs() tabStrip {
+	return archiveTabs()
+}
+
+func (archiveScreen) tabsState(m *model) *tabsState {
+	return &m.archive.sort
+}
+
+func (archiveScreen) tabsFit(m model) bool {
+	return archiveChrome().doesFitTabs(m)
+}
+
+func (archiveScreen) column() columnSpec {
+	return archiveColumn()
+}
+
+func (archiveScreen) stage(m *model) {
+	m.stageArchive()
+}

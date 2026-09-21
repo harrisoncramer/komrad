@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"time"
 
+	"weave/config"
 	"weave/internal/ui/paint"
 	"weave/internal/ui/panel"
 	"weave/internal/view"
@@ -329,4 +330,65 @@ func (m *model) applySchedules(fresh []scheduleItem) {
 	}
 
 	m.landScheduleCursor(rows, clampCursor(m.schedules.cursor, len(rows)))
+}
+
+// schedulesScreen is the schedules screen behind the panel's one door.
+type schedulesScreen struct{}
+
+var (
+	_ detailed = schedulesScreen{}
+	_ filtered = schedulesScreen{}
+	_ columned = schedulesScreen{}
+)
+
+func (schedulesScreen) update(m model, msg tea.Msg) (tea.Model, tea.Cmd) {
+	return onKey(m, msg, model.updateSchedules)
+}
+
+func (schedulesScreen) view(m model) string {
+	return m.schedulesView()
+}
+
+func (schedulesScreen) needs() screenNeeds {
+	return screenNeeds{fromListing: true}
+}
+
+func (schedulesScreen) reenter(m model) (tea.Model, tea.Cmd) {
+	return m.enterSchedules()
+}
+
+func (schedulesScreen) takesEveryKey(model) bool {
+	return false
+}
+
+func (schedulesScreen) details(m model) details {
+	return m.schedulesDetails()
+}
+
+func (schedulesScreen) detailsQuit(keys config.Keybindings) []string {
+	return keys.Schedules.Quit
+}
+
+func (schedulesScreen) detailsFit(m model) bool {
+	return m.doesSchedulesFitDetails()
+}
+
+func (schedulesScreen) detailsRoom(m model) int {
+	return m.schedulesDetailsRoom()
+}
+
+func (schedulesScreen) hoveredKey(m model) string {
+	return m.hoveredScheduleKey()
+}
+
+func (schedulesScreen) placeAt(m *model, key string) {
+	m.placeScheduleCursor(key)
+}
+
+func (schedulesScreen) filterRows(m model) []filterRow {
+	return m.scheduleFilterRows()
+}
+
+func (schedulesScreen) column() columnSpec {
+	return schedulesColumn()
 }

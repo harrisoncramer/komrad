@@ -19,11 +19,13 @@ is recorded and then falls through, since an open form lays itself out from the 
 view.go writes strings out. It draws the takeover screens first, then any chrome, then the
 active screen.
 
-screens.go is what the three of them dispatch through. A screen is one entry in one switch
-there, saying what takes its keys, what draws it, what it puts on the stage, and whether it
-draws a details pane, a filter under it, or a block of its own beside it. Adding a screen is
-that entry: the switch carries no default, so the exhaustive check refuses a screen that
-answers for nothing.
+screens.go is what the three of them dispatch through. A screen is a type implementing
+screenModel, which says what takes its keys and what draws it, plus whichever of the facets it
+draws: detailed for a record under its list, filtered for a search over it, tabbed for a strip
+over it, columned for a block beside it, and staged for a row it puts on the stage. m.active()
+is the switch from the screen enum to that type, and it carries no default, so the exhaustive
+check refuses a screen with no arm. For now each screen type is empty and its methods call the
+root's, which is the seam each screen's state moves behind one at a time.
 
 Everything else in the package is one of those three for one screen.
 
@@ -97,12 +99,12 @@ reviewed, the transcript of a search hit, an archived agent's notes, a schedule'
 worktree directory's entries, the folder context or the reason a row has no pane, or a form
 somebody is filling in.
 
-column.go owns all of it. A screen names a columnSpec in screens.go and the machinery does the
-rest: columnGeometry divides the window and refuses one too narrow to hold both halves,
-columnSplit takes off whatever stands over the block, and joinColumns squares each half off and
-puts the sidebar on the side the frame wants it. Whether the panel is drawing a block is the
-same question as whether it takes the whole window from the panes beside it, so reconcileSolo
-answers both at once and every way onto a screen and into a form runs through it.
+column.go owns all of it. A screen names a columnSpec through the columned facet and the
+machinery does the rest: columnGeometry divides the window and refuses one too narrow to hold
+both halves, columnSplit takes off whatever stands over the block, and joinColumns squares each
+half off and puts the sidebar on the side the frame wants it. Whether the panel is drawing a
+block is the same question as whether it takes the whole window from the panes beside it, so
+reconcileSolo answers both at once and every way onto a screen and into a form runs through it.
 
 Two things are worth knowing before changing any of it. Anything the block renders that asks
 paneWidth reaches back into the geometry that is still deciding the width, which is why the
@@ -117,7 +119,7 @@ holds the window and when it gives it up.
 
 ## The files
 
-Screens, listed in screens.go and each holding its own rows, keys, and view: agents.go, with
+Screens, each a type behind screens.go holding its own rows, keys, and view: agents.go, with
 tree.go for the rows and the cursor, stage.go for the pane it puts beside the list, workflows.go
 for the keys that act on a folder header, and selection.go for the multi-select. Then
 archive.go, schedules.go, search.go, and worktreescreen.go, with worktrees.go and

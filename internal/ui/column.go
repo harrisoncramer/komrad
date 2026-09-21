@@ -167,12 +167,12 @@ func (m model) columnOf() (columnSpec, bool) {
 		return formColumn(m.form.kind)
 	}
 
-	column := m.screen.spec().column
-	if column == nil {
+	c, ok := m.active().(columned)
+	if !ok {
 		return columnSpec{}, false
 	}
 
-	return column(), true
+	return c.column(), true
 }
 
 // holdsWindow reports whether the panel is drawing a block beside its own list, and so takes the

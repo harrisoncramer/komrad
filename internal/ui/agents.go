@@ -437,3 +437,82 @@ func (m model) startOrchestrator(workflow panel.Workflow) (tea.Model, tea.Cmd) {
 		},
 	)
 }
+
+// agentsScreen is the agents screen behind the panel's one door.
+type agentsScreen struct{}
+
+var (
+	_ detailed = agentsScreen{}
+	_ filtered = agentsScreen{}
+	_ tabbed   = agentsScreen{}
+	_ columned = agentsScreen{}
+	_ staged   = agentsScreen{}
+)
+
+func (agentsScreen) update(m model, msg tea.Msg) (tea.Model, tea.Cmd) {
+	return onKey(m, msg, model.updateAgents)
+}
+
+func (agentsScreen) view(m model) string {
+	return m.agentsView()
+}
+
+func (agentsScreen) needs() screenNeeds {
+	return screenNeeds{fromListing: true}
+}
+
+func (agentsScreen) reenter(m model) (tea.Model, tea.Cmd) {
+	return m.returnToAgents()
+}
+
+func (agentsScreen) takesEveryKey(model) bool {
+	return false
+}
+
+func (agentsScreen) details(m model) details {
+	return m.agentsDetails()
+}
+
+func (agentsScreen) detailsQuit(keys config.Keybindings) []string {
+	return keys.Agents.Quit
+}
+
+func (agentsScreen) detailsFit(m model) bool {
+	return agentsChrome().doesFitDetails(m)
+}
+
+func (agentsScreen) detailsRoom(m model) int {
+	return agentsChrome().detailsRoom(m)
+}
+
+func (agentsScreen) hoveredKey(m model) string {
+	return agentsList().hovered(m)
+}
+
+func (agentsScreen) placeAt(m *model, key string) {
+	agentsList().place(m, key)
+}
+
+func (agentsScreen) filterRows(m model) []filterRow {
+	return agentsList().filterRows(m)
+}
+
+func (agentsScreen) tabs() tabStrip {
+	return agentsTabs()
+}
+
+func (agentsScreen) tabsState(m *model) *tabsState {
+	return &m.tree.sort
+}
+
+func (agentsScreen) tabsFit(m model) bool {
+	return agentsChrome().doesFitTabs(m)
+}
+
+func (agentsScreen) column() columnSpec {
+	return agentsColumn()
+}
+
+func (agentsScreen) stage(m *model) {
+	m.stageSelection()
+}

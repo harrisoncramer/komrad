@@ -72,12 +72,6 @@ func (s tabStrip) groupLabel(state tabsState) string {
 	return s.grouped
 }
 
-type tabsSpec struct {
-	strip tabStrip
-	state func(*model) *tabsState
-	fits  func(model) bool
-}
-
 func (s tabStrip) indexOf(state tabsState) int {
 	at := slices.IndexFunc(s.options, func(option tabOption) bool { return option.id == state.chosen })
 	if at < 0 {
@@ -157,20 +151,23 @@ func (s tabStrip) view(state tabsState, palette paint.Palette, width int) string
 	return line
 }
 
-func (m model) tabsSpec() *tabsSpec {
-	return m.screen.spec().tabs
+// activeTabs is the strip the screen that is up draws, and false on a screen that draws none.
+func (m model) activeTabs() (tabbed, bool) {
+	t, ok := m.active().(tabbed)
+
+	return t, ok
 }
 
 func (m model) isTabsDrawn() bool {
-	spec := m.tabsSpec()
+	t, ok := m.activeTabs()
 
-	return spec != nil && spec.fits(m)
+	return ok && t.tabsFit(m)
 }
 
 func (m model) isTabsFocused() bool {
-	spec := m.tabsSpec()
+	t, ok := m.activeTabs()
 
-	return spec != nil && spec.state(&m).focused && spec.fits(m)
+	return ok && t.tabsState(&m).focused && t.tabsFit(m)
 }
 
 func (m model) tabbedHeader(title, tally string) string {
@@ -182,14 +179,14 @@ func (m model) tabbedHeader(title, tally string) string {
 }
 
 func (m model) tabsLine() string {
-	spec := m.tabsSpec()
+	t, _ := m.activeTabs()
 
-	return spec.strip.view(*spec.state(&m), paint.Panel, m.paneWidth()) + "\n"
+	return t.tabs().view(*t.tabsState(&m), paint.Panel, m.paneWidth()) + "\n"
 }
 
 func (m model) doesListFitTabs(title, tally string, help func(model) keyMap) bool {
-	spec := m.tabsSpec()
-	if spec == nil {
+	t, ok := m.activeTabs()
+	if !ok {
 		return false
 	}
 
@@ -198,46 +195,46 @@ func (m model) doesListFitTabs(title, tally string, help func(model) keyMap) boo
 	}
 
 	m.details.focused, m.helpExpanded = false, false
-	spec.state(&m).focused = false
+	t.tabsState(&m).focused = false
 
 	return m.spareLines(m.headerLines(title, tally, m.tabsLine()), m.renderHelp(help(m))) >= 1
 }
 
 func (m *model) blurTabs() {
-	if spec := m.tabsSpec(); spec != nil {
-		spec.state(m).leave()
+	if t, ok := m.activeTabs(); ok {
+		t.tabsState(m).leave()
 	}
 }
 
 func (m model) focusTabs() model {
-	spec := m.tabsSpec()
-	if spec == nil || !spec.fits(m) {
+	t, ok := m.activeTabs()
+	if !ok || !t.tabsFit(m) {
 		return m
 	}
 
-	spec.state(&m).focused = true
+	t.tabsState(&m).focused = true
 	m.details.focused = false
 
 	return m
 }
 
 func (m model) updateTabs(key tea.KeyMsg) (tea.Model, tea.Cmd) {
-	spec := m.tabsSpec()
-	state := spec.state(&m)
+	t, _ := m.activeTabs()
+	strip, state := t.tabs(), t.tabsState(&m)
 	k := key.String()
 	hovered := m.hoveredFilterKey()
 
 	switch {
 	case k == tabNextKey:
-		spec.strip.step(state, 1)
+		strip.step(state, 1)
 	case k == tabPrevKey:
-		spec.strip.step(state, -1)
+		strip.step(state, -1)
 	case state.onGroup && isBound(k, concatKeys(m.keys.Nav.Down, m.keys.Nav.Up)):
 		state.flat = !state.flat
 	case isBound(k, m.keys.Nav.Down):
-		spec.strip.choose(state, tabDown)
+		strip.choose(state, tabDown)
 	case isBound(k, m.keys.Nav.Up):
-		spec.strip.choose(state, tabUp)
+		strip.choose(state, tabUp)
 	case k == "esc":
 		state.leave()
 	case isBound(k, m.quitKeys()):
@@ -250,12 +247,12 @@ func (m model) updateTabs(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 }
 
 func (m model) tabsBinding() key.Binding {
-	spec := m.tabsSpec()
-	if spec == nil {
+	t, ok := m.activeTabs()
+	if !ok {
 		return key.Binding{}
 	}
 
-	return binding(m.keys.Tabs.Focus, spec.strip.legend)
+	return binding(m.keys.Tabs.Focus, t.tabs().legend)
 }
 
 func (m model) tabsHelp() keyMap {

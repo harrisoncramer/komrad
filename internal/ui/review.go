@@ -3,7 +3,10 @@ package ui
 import (
 	"time"
 
+	"weave/config"
 	agentv1 "weave/proto/gen/agent/v1"
+
+	tea "github.com/charmbracelet/bubbletea"
 )
 
 const reviewTimeout = 30 * time.Second
@@ -50,4 +53,53 @@ func (r reviewState) isThreadTaken() bool {
 	_, ok := r.diff.threadAtCursor()
 
 	return ok
+}
+
+// reviewScreen is the review screen behind the panel's one door.
+type reviewScreen struct{}
+
+var (
+	_ detailed = reviewScreen{}
+	_ columned = reviewScreen{}
+)
+
+func (reviewScreen) update(m model, msg tea.Msg) (tea.Model, tea.Cmd) {
+	return onKey(m, msg, model.updateReview)
+}
+
+func (reviewScreen) view(m model) string {
+	return m.reviewView()
+}
+
+func (reviewScreen) needs() screenNeeds {
+	return screenNeeds{}
+}
+
+// reenter is the screen as it stands, nothing being drawn over the review.
+func (reviewScreen) reenter(m model) (tea.Model, tea.Cmd) {
+	return m, nil
+}
+
+func (reviewScreen) takesEveryKey(m model) bool {
+	return m.review.doesTakeEveryKey()
+}
+
+func (reviewScreen) details(m model) details {
+	return m.reviewDetails()
+}
+
+func (reviewScreen) detailsQuit(keys config.Keybindings) []string {
+	return keys.Review.Quit
+}
+
+func (reviewScreen) detailsFit(m model) bool {
+	return m.doesReviewFitDetails()
+}
+
+func (reviewScreen) detailsRoom(m model) int {
+	return m.reviewDetailsRoom()
+}
+
+func (reviewScreen) column() columnSpec {
+	return reviewColumn()
 }

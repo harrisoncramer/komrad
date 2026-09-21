@@ -19,39 +19,81 @@ import (
 // fails the exhaustive check.
 func TestEveryScreenAnswersForItself(t *testing.T) {
 	for s := screenAgents; s <= screenWorktrees; s++ {
-		spec := s.spec()
+		adapter := s.adapter()
+		require.NotNil(t, adapter, "screen %d is behind no door", s)
 
-		require.NotNil(t, spec.key, "screen %d takes no keys", s)
-		require.NotNil(t, spec.view, "screen %d draws nothing", s)
-
-		if spec.column != nil {
-			column := spec.column()
-			assert.Positive(t, column.floor, "screen %d draws a block at no width", s)
+		if c, ok := adapter.(columned); ok {
+			assert.Positive(t, c.column().floor, "screen %d draws a block at no width", s)
 		}
 
-		if spec.details != nil {
-			assert.NotNil(t, spec.details.hovered, "screen %d draws details of nothing", s)
-			assert.NotNil(t, spec.details.quit, "screen %d draws details with no way out", s)
-		}
-
-		if spec.filter != nil {
-			assert.NotNil(t, spec.filter.hovered, "screen %d filters with no cursor to keep", s)
-			assert.NotNil(t, spec.filter.place, "screen %d filters without placing its cursor again", s)
-		}
-
-		if spec.tabs != nil {
-			assert.NotEmpty(t, spec.tabs.strip.options, "screen %d draws a strip with no tabs", s)
-			assert.NotNil(t, spec.tabs.state, "screen %d draws a strip with nowhere to keep its choice", s)
-			assert.NotNil(t, spec.tabs.fits, "screen %d draws a strip with no room rule", s)
+		if tb, ok := adapter.(tabbed); ok {
+			assert.NotEmpty(t, tb.tabs().options, "screen %d draws a strip with no tabs", s)
 		}
 	}
+}
+
+// TestEveryScreenDrawsTheChromeItDid pins which pieces of chrome each screen implements, which
+// the compiler cannot check on an optional facet.
+func TestEveryScreenDrawsTheChromeItDid(t *testing.T) {
+	tests := []struct {
+		name    string
+		screen  screen
+		details bool
+		filter  bool
+		tabs    bool
+		column  bool
+		stage   bool
+	}{
+		{name: "agents", screen: screenAgents, details: true, filter: true, tabs: true, column: true, stage: true},
+		{name: "schedules", screen: screenSchedules, details: true, filter: true, column: true},
+		{name: "archive", screen: screenArchive, details: true, filter: true, tabs: true, column: true, stage: true},
+		{name: "search", screen: screenSearch, column: true},
+		{name: "review", screen: screenReview, details: true, column: true},
+		{name: "worktrees", screen: screenWorktrees, details: true, filter: true, tabs: true, column: true, stage: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			adapter := tt.screen.adapter()
+
+			_, details := adapter.(detailed)
+			_, filter := adapter.(filtered)
+			_, tabs := adapter.(tabbed)
+			_, column := adapter.(columned)
+			_, stage := adapter.(staged)
+
+			assert.Equal(t, tt.details, details, "details")
+			assert.Equal(t, tt.filter, filter, "filter")
+			assert.Equal(t, tt.tabs, tabs, "tabs")
+			assert.Equal(t, tt.column, column, "column")
+			assert.Equal(t, tt.stage, stage, "stage")
+		})
+	}
+}
+
+// TestSharedIsTheRootAsAScreenSeesIt covers the value a screen is handed carrying what the root
+// holds rather than a copy taken earlier.
+func TestSharedIsTheRootAsAScreenSeesIt(t *testing.T) {
+	m := crowdedModel(t)
+	m.helpExpanded = true
+	m.filter.typing = true
+
+	shared := m.shared()
+
+	assert.Equal(t, m.listing, shared.listing)
+	assert.Equal(t, m.keys, shared.keys)
+	assert.Equal(t, m.width, shared.width)
+	assert.Equal(t, m.height, shared.height)
+	assert.Equal(t, m.paneWidth(), shared.pane)
+	assert.True(t, shared.chrome.helpExpanded)
+	assert.True(t, shared.chrome.filter.typing)
 }
 
 // TestEveryListingScreenSurvivesARefresh drives the pass applyRefresh runs once a second against
 // each screen the listing feeds.
 func TestEveryListingScreenSurvivesARefresh(t *testing.T) {
 	for s := screenAgents; s <= screenWorktrees; s++ {
-		if !s.spec().fromListing {
+		if !s.adapter().needs().fromListing {
 			continue
 		}
 

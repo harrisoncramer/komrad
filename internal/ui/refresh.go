@@ -64,8 +64,8 @@ func (m model) refreshCmd() tea.Cmd {
 		return nil
 	}
 
-	spec := m.screen.spec()
-	clients, epoch, withArchive, withWorktrees := m.api, m.epoch, spec.needsArchive, spec.needsWorktrees
+	needs := m.active().needs()
+	clients, epoch, withArchive, withWorktrees := m.api, m.epoch, needs.archive, needs.worktrees
 
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), agentsTimeout)
@@ -195,8 +195,9 @@ func (m *model) applyRefresh(result refreshResult) tea.Cmd {
 	}
 
 	// A screen that draws what it holds beside its own list stages nothing at all.
-	if spec := m.screen.spec(); spec.fromListing && spec.stage != nil && !m.form.isActive() {
-		spec.stage(m)
+	active := m.active()
+	if s, ok := active.(staged); ok && active.needs().fromListing && !m.form.isActive() {
+		s.stage(m)
 	}
 
 	return tea.Batch(preview, redrawn, inspect, pullRequests)

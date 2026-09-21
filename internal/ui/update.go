@@ -228,7 +228,7 @@ func (m model) routeGlobalKey(key tea.KeyMsg) (tea.Model, tea.Cmd, bool) {
 		return m.pushMockMessage(), nil, true
 	}
 
-	if m.tabsSpec() != nil {
+	if _, ok := m.activeTabs(); ok {
 		if m.isTabsFocused() {
 			next, cmd := m.updateTabs(key)
 
@@ -256,7 +256,7 @@ func (m model) routeGlobalKey(key tea.KeyMsg) (tea.Model, tea.Cmd, bool) {
 }
 
 func (m model) routeScreenKey(key tea.KeyMsg) (tea.Model, tea.Cmd) {
-	return m.screen.spec().key(m, key)
+	return m.active().update(m, key)
 }
 
 func (m model) routeAsyncMessage(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
@@ -379,7 +379,5 @@ func (m model) isTyping() bool {
 		return true
 	}
 
-	typing := m.screen.spec().typing
-
-	return typing != nil && typing(m)
+	return m.active().takesEveryKey(m)
 }
