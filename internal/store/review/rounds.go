@@ -23,7 +23,7 @@ const (
 	VerdictCommented Verdict = Verdict(models.ReviewVerdictCommented)
 )
 
-// RoundRef is the ref a round's snapshot is held by so nothing collects it.
+// RoundRef is the ref a round's snapshot is held by.
 func RoundRef(agentID, snapshotSHA string) string {
 	return "refs/weave/rounds/" + agentID + "/" + snapshotSHA
 }

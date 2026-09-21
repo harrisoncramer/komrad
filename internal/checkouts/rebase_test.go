@@ -981,8 +981,8 @@ func TestRebaseRefusesTheCallerWhateverThePathSpelling(t *testing.T) {
 	}
 }
 
-// TestRebasingAHeldAgentIsRefused covers the third writer: a rebase types at the agent and then
-// rewrites the branch under the very checkout somebody stopped it to take.
+// TestRebasingAHeldAgentIsRefused pins that a held agent is refused before anything types at it
+// or moves the branch under the checkout somebody stopped it to take.
 func TestRebasingAHeldAgentIsRefused(t *testing.T) {
 	t.Parallel()
 
