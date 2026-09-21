@@ -64,8 +64,7 @@ func TestAdoptPlacesTheAgent(t *testing.T) {
 				require.NoError(t, os.MkdirAll(elsewhere, 0o755))
 				reported = append(reported, git.Worktree{Dir: elsewhere, Branch: "someones/work"})
 			case "a worktree that is gone":
-				// Registered with git, and no longer on disk, which is what deleting one by hand
-				// leaves behind.
+				// Registered with git, and no longer on disk.
 				stale := filepath.Join(t.TempDir(), "stale")
 				reported = append(reported, git.Worktree{Dir: stale, Branch: "someones/work"})
 			case "the repo":
@@ -235,8 +234,7 @@ func TestAdoptRefusesWithoutAWorktreeWorkflow(t *testing.T) {
 	require.ErrorIs(t, err, ErrAdoptNeedsWorktree)
 }
 
-// TestAdoptTwiceIsRefused pins asking again being a refusal naming the agent that has the
-// branch, since a success that started nothing reads as the call having done nothing at all.
+// TestAdoptTwiceIsRefused pins asking again being a refusal naming the agent that has the branch.
 func TestAdoptTwiceIsRefused(t *testing.T) {
 	tmux := newFakeTmux()
 	st := newStore(t)
@@ -286,8 +284,8 @@ func TestAdoptWithTheSameIdempotencyKeyIsAnsweredNotRefused(t *testing.T) {
 	require.ErrorIs(t, err, ErrAdoptAlreadyAdopted, "another key is another caller, so the branch is taken")
 }
 
-// TestAdoptAfterASetupFailureIsNotRefusedByTheCorpse pins a create that never launched leaving
-// the branch adoptable, since a refusal is only useful if the retry it invites can succeed.
+// TestAdoptAfterASetupFailureIsNotRefusedByTheCorpse pins a create that never launched leaving the
+// branch adoptable.
 func TestAdoptAfterASetupFailureIsNotRefusedByTheCorpse(t *testing.T) {
 	tmux := newFakeTmux()
 	st := newStore(t)

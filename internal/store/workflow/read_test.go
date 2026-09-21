@@ -117,8 +117,8 @@ func TestList(t *testing.T) {
 	}
 }
 
-// TestGetIncludingArchived pins that the read carries whether the workflow is archived rather
-// than filtering on it, which is what a restore is refused by.
+// TestGetIncludingArchived pins that the read carries whether the workflow is archived rather than
+// filtering on it.
 func TestGetIncludingArchived(t *testing.T) {
 	tests := []struct {
 		name    string

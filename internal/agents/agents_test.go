@@ -57,8 +57,8 @@ func TestFailureReasonIsSomethingARowCanHold(t *testing.T) {
 	}
 }
 
-// TestRunDeprovisionLogsOneThatWouldNotStart covers the deprovision that never becomes a
-// process at all, which is what a renamed script leaves behind.
+// TestRunDeprovisionLogsOneThatWouldNotStart covers the deprovision that never becomes a process at
+// all.
 func TestRunDeprovisionLogsOneThatWouldNotStart(t *testing.T) {
 	lifecycle := &fakeLifecycle{deprovisionStartErr: scripts.ErrScriptNotFound}
 	ctx, records := loggedContext(t)

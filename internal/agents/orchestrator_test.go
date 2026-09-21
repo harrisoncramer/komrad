@@ -274,7 +274,7 @@ func TestStartOrchestratorKeepsOneStillRunning(t *testing.T) {
 }
 
 // TestStartOrchestratorKeepsOneThatHasSpoken is the other half: a row holding a conversation is
-// resumed, never replaced, since replacing it would throw the conversation away.
+// resumed, never replaced.
 func TestStartOrchestratorKeepsOneThatHasSpoken(t *testing.T) {
 	st := newStore(t)
 	tmux := newFakeTmux()

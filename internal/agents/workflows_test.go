@@ -317,8 +317,8 @@ func TestWorkflowWorktreePathsAreStoredCleaned(t *testing.T) {
 	assert.Equal(t, []string{"db/models"}, updated.Worktree.DiffExclude)
 }
 
-// TestUpdateWorkflowWorktree covers turning worktree support on through an update and turning
-// it back off, which is the whole of what a workflow can say about its agents' directories.
+// TestUpdateWorkflowWorktree covers turning worktree support on through an update and turning it
+// back off.
 func TestUpdateWorkflowWorktree(t *testing.T) {
 	st := newStore(t)
 	workflows := workflowsFor(st, newFakeTmux())

@@ -207,8 +207,7 @@ func TestDeleteGivesBackWhatItCouldNotTake(t *testing.T) {
 	assert.Nil(t, page[0].DeletingAt)
 }
 
-// TestDeleteStaysArchivedOnAFailedTeardown pins a failed cleanup leaving the row in the
-// archive, which is where the user was working and so where the failure shows.
+// TestDeleteStaysArchivedOnAFailedTeardown pins a failed cleanup leaving the row in the archive.
 func TestDeleteStaysArchivedOnAFailedTeardown(t *testing.T) {
 	tmux := newFakeTmux()
 	st := newStore(t)
@@ -773,7 +772,7 @@ func TestDeletingAnAgentTakesItsDraftsAndKeepsItsReviews(t *testing.T) {
 	require.NoError(t, err)
 
 	// The first reviewer has had its say and started another; the second is still writing its
-	// first, which is the pair that used to make the second delete fail.
+	// first.
 	released := openBatch(t, reviews, worker, round.ID, first)
 	_, err = reviews.ReleaseReview(t.Context(), reviewstore.ReleaseReviewParams{
 		ID:      released.ID,
@@ -795,8 +794,7 @@ func TestDeletingAnAgentTakesItsDraftsAndKeepsItsReviews(t *testing.T) {
 	assert.NotNil(t, left[0].ReleasedAt)
 }
 
-// openBatch starts a review by one agent on another, which is the row a delete has to decide
-// about.
+// openBatch starts a review by one agent on another.
 func openBatch(t *testing.T, reviews *reviewstore.Store, agentID, roundID, author string) *reviewstore.Review {
 	t.Helper()
 

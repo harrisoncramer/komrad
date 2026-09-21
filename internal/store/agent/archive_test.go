@@ -400,8 +400,7 @@ func TestArchiveReturnsThePaneAWriteItWaitedOnLeftBehind(t *testing.T) {
 	assert.Equal(t, []AgentPane{{AgentID: created.ID, Pane: "%9"}}, got.taken)
 }
 
-// waitForBlockedArchive blocks until an archive is waiting on a row lock, which is how the test
-// knows the archive has reached its write rather than not having started yet.
+// waitForBlockedArchive blocks until an archive is waiting on a row lock.
 func waitForBlockedArchive(t *testing.T, st *fixture) {
 	t.Helper()
 

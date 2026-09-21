@@ -71,8 +71,8 @@ func TestBeginRefusesAnIdNoAgentHolds(t *testing.T) {
 	require.Error(t, err)
 }
 
-// TestFinishRecordsWhatTheRunDid covers the two halves of a run: the row opened before it
-// starts, and the failure written onto it after, which is what the panel's mark reads.
+// TestFinishRecordsWhatTheRunDid covers the two halves of a run: the row opened before it starts,
+// and the failure written onto it after.
 func TestFinishRecordsWhatTheRunDid(t *testing.T) {
 	tests := []struct {
 		name       string

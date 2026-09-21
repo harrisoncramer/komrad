@@ -625,8 +625,7 @@ func TestNewAgentRunsWorkflowSetup(t *testing.T) {
 }
 
 // TestNewAgentProvisionOverrideToNone pins the one thing an agent can say for itself about its
-// directory: that it keeps the one it was given, which is what adopt, a child and a reviewer
-// all mean and the only override there is now that a workflow cannot name a script.
+// directory: that it keeps the one it was given.
 func TestNewAgentProvisionOverrideToNone(t *testing.T) {
 	tmux := newFakeTmux()
 	st := newStore(t)
@@ -911,8 +910,8 @@ func TestNewAgentClosesOutACreateTheCallerAbandoned(t *testing.T) {
 	assert.Equal(t, []error{nil}, lifecycle.deprovisionCtxErr, "cleanup gets a context it can still read the workflow on")
 }
 
-// slowCleanupLifecycle finishes its cleanup only once the call that started it has had a
-// chance to return, which is what tells an awaited teardown apart from a fired one.
+// slowCleanupLifecycle finishes its cleanup only once the call that started it has had a chance to
+// return.
 type slowCleanupLifecycle struct {
 	*fakeLifecycle
 	finished atomic.Bool

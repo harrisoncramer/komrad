@@ -186,9 +186,7 @@ func TestNameTaken(t *testing.T) {
 	}
 }
 
-// TestUpdate covers replacing a schedule's fields, including moving it to
-// another workflow, which is how a schedule is retargeted at a different
-// directory now that it holds none of its own.
+// TestUpdate covers replacing a schedule's fields, including moving it to another workflow.
 func TestUpdate(t *testing.T) {
 	tests := []struct {
 		name         string
@@ -462,7 +460,7 @@ func TestRecordLaunchResultOverwrites(t *testing.T) {
 	assert.Empty(t, got.LastResultMessage)
 }
 
-// TestList covers what the listing shows, which is live schedules only.
+// TestList covers what the listing shows.
 func TestList(t *testing.T) {
 	tests := []struct {
 		name      string

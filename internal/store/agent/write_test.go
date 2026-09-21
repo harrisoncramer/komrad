@@ -101,7 +101,7 @@ func TestCreateAndUpdate(t *testing.T) {
 }
 
 // TestCreateWithProvisionOverride pins that an override of none reads back as an empty string
-// rather than as nil, which is what tells the two apart.
+// rather than as nil.
 func TestCreateWithProvisionOverride(t *testing.T) {
 	tests := []struct {
 		name  string
@@ -248,8 +248,7 @@ func TestParentAgentID(t *testing.T) {
 	assert.Nil(t, stored.SpawnedByAgentID, "who called create is a separate fact")
 }
 
-// TestDeleteTakesTheChildren pins the cascade, which is the backstop under the service: a child
-// has nothing of its own to keep, so a row outliving its parent would only be a dangling one.
+// TestDeleteTakesTheChildren pins the cascade.
 func TestDeleteTakesTheChildren(t *testing.T) {
 	f := open(t)
 	ctx := t.Context()
@@ -488,8 +487,7 @@ func TestDeleteByIDPicksTheArchivedRow(t *testing.T) {
 	assert.Equal(t, "%2", all[0].Pane)
 }
 
-// TestDeleteInBatches covers the hard delete over a list, which is what emptying a
-// selection out of the archive does.
+// TestDeleteInBatches covers the hard delete over a list.
 func TestDeleteInBatches(t *testing.T) {
 	st := open(t)
 	ctx := t.Context()
@@ -552,8 +550,7 @@ func TestCreateWithRole(t *testing.T) {
 	}
 }
 
-// TestOneOrchestratorPerWorkflow pins the index that makes the rule true, rather than a check
-// before an insert that two callers can both pass.
+// TestOneOrchestratorPerWorkflow pins the index that makes the rule true.
 func TestOneOrchestratorPerWorkflow(t *testing.T) {
 	tests := []struct {
 		name    string

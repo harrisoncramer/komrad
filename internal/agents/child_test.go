@@ -142,7 +142,7 @@ func TestNewChildAgentRefusesAnArchivedParent(t *testing.T) {
 }
 
 // TestNewChildAgentRefusesAParentWithNoDirectory pins that a child is never launched into the
-// workflow's own checkout, which is what the dir fallback would hand it.
+// workflow's own checkout.
 func TestNewChildAgentRefusesAParentWithNoDirectory(t *testing.T) {
 	tmux := newFakeTmux()
 	st := newStore(t)
@@ -160,8 +160,7 @@ func TestNewChildAgentRefusesAParentWithNoDirectory(t *testing.T) {
 	require.ErrorIs(t, err, ErrChildNeedsParentDirectory)
 }
 
-// TestNewChildAgentRefusesAChildOfAChild pins the one level, which is what keeps the ride-along
-// rules a single hop and the sidebar two deep under a workflow.
+// TestNewChildAgentRefusesAChildOfAChild pins the one level.
 func TestNewChildAgentRefusesAChildOfAChild(t *testing.T) {
 	tmux := newFakeTmux()
 	st := newStore(t)
@@ -179,8 +178,7 @@ func TestNewChildAgentRefusesAChildOfAChild(t *testing.T) {
 	require.ErrorIs(t, err, ErrParentIsChild)
 }
 
-// TestNewChildAgentUnderTheChildCeiling pins the per-parent cap, which is lower than the panel's
-// own.
+// TestNewChildAgentUnderTheChildCeiling pins the per-parent cap.
 func TestNewChildAgentUnderTheChildCeiling(t *testing.T) {
 	tmux := newFakeTmux()
 	st := newStore(t)
@@ -552,8 +550,7 @@ func TestSystemMailReachesAChild(t *testing.T) {
 	assert.Equal(t, WeaveSenderName, mailbox.sent[0].FromName)
 }
 
-// newFakeFamily is one parent with two children, an unrelated agent, and another parent's
-// child, which is every side of the family rule.
+// newFakeFamily is one parent with two children, an unrelated agent, and another parent's child.
 func newFakeFamily() *fakeDirectory {
 	parent := agentstore.Agent{ID: "parent", Name: "author"}
 	other := agentstore.Agent{ID: "other-parent", Name: "other-author"}
@@ -604,8 +601,8 @@ func TestChildBriefingReplacesTheDelegateOne(t *testing.T) {
 		"the spawner paragraph would understate what a child runs under")
 }
 
-// TestNewChildAgentRefusesAnOrchestratorParent pins that the agent folded onto a workflow's own
-// row holds no children, since one would be drawn nowhere at all.
+// TestNewChildAgentRefusesAnOrchestratorParent pins that the agent folded onto a workflow's own row
+// holds no children.
 func TestNewChildAgentRefusesAnOrchestratorParent(t *testing.T) {
 	tmux := newFakeTmux()
 	st := newStore(t)
@@ -625,8 +622,7 @@ func TestNewChildAgentRefusesAnOrchestratorParent(t *testing.T) {
 	assert.Len(t, live, 1, "the refusal records nothing beside the orchestrator")
 }
 
-// seedOrchestrator records the agent folded onto a workflow's own row, which is a role the store
-// takes only at create.
+// seedOrchestrator records the agent folded onto a workflow's own row.
 func seedOrchestrator(t *testing.T, st *testStore, tmux paneStamper) agentstore.Agent {
 	t.Helper()
 	ctx := t.Context()

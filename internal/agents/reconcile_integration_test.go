@@ -245,8 +245,8 @@ func TestReconcileReturnsAHoldWhenTheListingComesBack(t *testing.T) {
 	}
 }
 
-// listingDroppingPanes is a tmux that answers about panes that are all still running while
-// leaving every one of them out of the listing, which is the shape of a degraded read.
+// listingDroppingPanes is a tmux that answers about panes that are all still running while leaving
+// every one of them out of the listing.
 type listingDroppingPanes struct {
 	*tmux.Client
 	drop bool
@@ -261,8 +261,7 @@ func (l *listingDroppingPanes) GetPanes() (map[string]tmux.PaneStatus, error) {
 	return map[string]tmux.PaneStatus{}, nil
 }
 
-// seedBoard spawns count agents that are all working, which is the board a listing that came
-// back short has the most to take from.
+// seedBoard spawns count agents that are all working.
 func seedBoard(t *testing.T, it *tmuxtest.Server, st *testStore, count int) []agentstore.Agent {
 	t.Helper()
 

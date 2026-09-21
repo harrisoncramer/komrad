@@ -19,8 +19,7 @@ type fixture struct {
 	defaultWorkflow string
 }
 
-// Get reads an agent back by name out of the default workflow, which is the scope a
-// name is unique in.
+// Get reads an agent back by name out of the default workflow.
 func (f *fixture) Get(ctx context.Context, name string) (*Agent, error) {
 	return f.GetInWorkflow(ctx, f.defaultWorkflow, name)
 }

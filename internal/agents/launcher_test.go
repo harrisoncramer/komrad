@@ -13,8 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestLaunchStartsTheHarnessCommand covers the launcher's whole job, which is putting the
-// command the harness built in a file and running that file as the pane's own process.
+// TestLaunchStartsTheHarnessCommand covers the launcher's whole job.
 func TestLaunchStartsTheHarnessCommand(t *testing.T) {
 	tests := []struct {
 		name       string
@@ -323,7 +322,7 @@ func TestGlobalContextIsReadPerLaunch(t *testing.T) {
 func TestBriefingCarriesTheReviewRules(t *testing.T) {
 	launcher := NewLauncher(NewLauncherParams{Addr: "127.0.0.1:8787"})
 
-	// No context file and no workflow, which is the least an install can give an agent.
+	// No context file and no workflow.
 	base := launcher.appendedSystemPrompt(launchParams{})
 	reviewer := launcher.appendedSystemPrompt(launchParams{Role: agentstore.RoleReviewer})
 
@@ -426,8 +425,7 @@ func TestBriefingKeepsWhatEveryAgentNeeds(t *testing.T) {
 	}
 }
 
-// TestRoleBriefing pins which document an agent is given, since the three roles are told
-// different jobs and one of them writes no code at all.
+// TestRoleBriefing pins which document an agent is given.
 func TestRoleBriefing(t *testing.T) {
 	tests := []struct {
 		name   string

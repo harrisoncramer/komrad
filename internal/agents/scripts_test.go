@@ -447,8 +447,7 @@ func TestRunProvisionDoesNotHoldTheWholeDirFile(t *testing.T) {
 		"the refusal read the whole dir file to arrive at it")
 }
 
-// TestRunProvisionTellsTheScriptWhatSetItOff covers WEAVE_TRIGGER, which is how a script that
-// only makes sense at one moment can refuse the others itself.
+// TestRunProvisionTellsTheScriptWhatSetItOff covers WEAVE_TRIGGER.
 func TestRunProvisionTellsTheScriptWhatSetItOff(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -678,8 +677,7 @@ func TestRunDeprovisionLogsUnderItsOwnTrigger(t *testing.T) {
 	require.ErrorIs(t, doneErr, scripts.ErrFailed)
 }
 
-// TestRunDeprovisionLogsWhatAZeroExitSaid pins stderr being kept from a zero exit, which is how
-// the worktree cleanup declines.
+// TestRunDeprovisionLogsWhatAZeroExitSaid pins stderr being kept from a zero exit.
 func TestRunDeprovisionLogsWhatAZeroExitSaid(t *testing.T) {
 	dir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "cleanup"), []byte("#!/bin/sh\n"), 0o755))
@@ -1059,8 +1057,7 @@ func scriptServiceRecording(t *testing.T, dir string, runner scriptRunner, logsD
 	return svc, recorder
 }
 
-// TestRunHookRecordsTheRun covers the row a hook leaves behind, which is what puts a failure on
-// the agent's own line instead of only in the service log.
+// TestRunHookRecordsTheRun covers the row a hook leaves behind.
 func TestRunHookRecordsTheRun(t *testing.T) {
 	tests := []struct {
 		name         string
@@ -1268,8 +1265,7 @@ const fixtureAgentID = "a1"
 // through rather than anything the script itself does.
 const firedScript = "_worktree_cleanup"
 
-// fireScript starts a script the way weave starts one it will not wait for, which is the
-// deprovisioner, reading the agent back out of the service's own registry.
+// fireScript starts a script the way weave starts one it will not wait for.
 func fireScript(ctx context.Context, t *testing.T, svc *ScriptService) error {
 	t.Helper()
 
@@ -1440,9 +1436,8 @@ func TestFiredScriptRefusesASecondConcurrentRun(t *testing.T) {
 	time.Sleep(500 * time.Millisecond)
 }
 
-// TestFiredScriptReleasesTheClaimWhenItNeverStarts covers the path where Run refuses
-// synchronously and its Done callback never fires at all, which is the one place a claim
-// could be stranded forever with nothing left to release it.
+// TestFiredScriptReleasesTheClaimWhenItNeverStarts covers the path where Run refuses synchronously
+// and its Done callback never fires at all.
 func TestFiredScriptReleasesTheClaimWhenItNeverStarts(t *testing.T) {
 	dir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(dir, firedScript), []byte("#!/bin/sh\n"), 0o644))

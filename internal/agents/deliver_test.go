@@ -525,8 +525,7 @@ type fakePanes struct {
 	// a CLI that has yet to repaint.
 	staleReads int
 
-	// pasteErr and yankErr are what tmux refuses with, which is a query timing out under load
-	// or a pane that has just gone.
+	// pasteErr and yankErr are what tmux refuses with.
 	pasteErr error
 	yankErr  error
 

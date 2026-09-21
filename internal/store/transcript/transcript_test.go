@@ -55,8 +55,7 @@ func TestAppendAndGet(t *testing.T) {
 	}
 }
 
-// TestListLastTurns covers reading the newest turns of one role back with the turns between
-// them, which is what answers what an agent last said without assembling its conversation.
+// TestListLastTurns covers reading the newest turns of one role back with the turns between them.
 func TestListLastTurns(t *testing.T) {
 	stored := []Turn{
 		{
@@ -709,8 +708,8 @@ func TestSearchKeepsNearMatchesOnTheirOwnPage(t *testing.T) {
 	assert.NotContains(t, agentIDs(got.Matches), glued, "a turn is in one section or the other")
 }
 
-// TestSearchScoresNearMatches pins that a near match is scored on its own terms rather than
-// against the word matches, which is what lets the two be ranked apart.
+// TestSearchScoresNearMatches pins that a near match is scored on its own terms rather than against
+// the word matches.
 func TestSearchScoresNearMatches(t *testing.T) {
 	st := open(t)
 	ctx := t.Context()
@@ -1025,8 +1024,7 @@ func uniqueStrings(in []string) []string {
 	return out
 }
 
-// TestAppendTurnsPlacesEachTurn covers the offset stored against a turn, which is what locates
-// it in the conversation the store assembles.
+// TestAppendTurnsPlacesEachTurn covers the offset stored against a turn.
 func TestAppendTurnsPlacesEachTurn(t *testing.T) {
 	tests := []struct {
 		name   string

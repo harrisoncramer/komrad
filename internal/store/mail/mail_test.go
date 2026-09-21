@@ -142,8 +142,7 @@ func TestClaimToleratesAnIDNoColumnCouldHold(t *testing.T) {
 	assert.Zero(t, left)
 }
 
-// TestReplyToThreadsMail pins that a reply records the mail it answers, which is what makes
-// the two read as one thread.
+// TestReplyToThreadsMail pins that a reply records the mail it answers.
 func TestReplyToThreadsMail(t *testing.T) {
 	st := open(t)
 	ctx := t.Context()
@@ -527,8 +526,7 @@ func TestListPageIgnoresOtherMailboxes(t *testing.T) {
 	assert.Empty(t, page)
 }
 
-// TestListSentPage pins the other half of an agent's correspondence, which is read by sender
-// rather than by recipient and is what the panel draws a thread's outgoing side from.
+// TestListSentPage pins the other half of an agent's correspondence.
 func TestListSentPage(t *testing.T) {
 	st := open(t)
 	ctx := t.Context()

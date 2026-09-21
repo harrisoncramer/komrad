@@ -51,10 +51,9 @@ WHERE
     AND a.attname = 'updated_at'
     AND NOT a.attisdropped`
 
-// TestUpdatedAtTriggers is the guarantee the migration makes, checked against the
-// schema rather than against a list written here: a table added later that carries
-// the column and is not covered fails this, which is what stands in for the event
-// trigger Postgres will not let a non-superuser install.
+// TestUpdatedAtTriggers is the guarantee the migration makes, checked against the schema rather
+// than against a list written here: a table added later that carries the column and is not covered
+// fails this.
 func TestUpdatedAtTriggers(t *testing.T) {
 	t.Parallel()
 

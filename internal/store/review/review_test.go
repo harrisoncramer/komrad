@@ -121,7 +121,7 @@ func TestDeliveryFollowsTheOneMail(t *testing.T) {
 }
 
 // TestAThreadCarriesTheRoundItWasWrittenAgainst pins the list handing back which round a thread
-// belongs to, which is what says whether the lines it names are still true.
+// belongs to.
 func TestAThreadCarriesTheRoundItWasWrittenAgainst(t *testing.T) {
 	st := open(t)
 	agentID := seedAgent(t, st)
@@ -393,7 +393,7 @@ func TestThePersonCanTakeTheirOwnSettlingBack(t *testing.T) {
 }
 
 // TestWritingInSomebodyElsesThreadLeavesItSettled covers the agent under review writing into a
-// finding the person has settled, which is the shape that would otherwise be a lock it holds.
+// finding the person has settled.
 func TestWritingInSomebodyElsesThreadLeavesItSettled(t *testing.T) {
 	st := open(t)
 	ctx := t.Context()
@@ -511,8 +511,7 @@ func release(t *testing.T, st *fixture, agentID, reviewID string, verdict Verdic
 	return sent.ID
 }
 
-// delivery is the state the list reports for a thread's first comment, which is the only place
-// the panel reads it from.
+// delivery is the state the list reports for a thread's first comment.
 func delivery(t *testing.T, st *fixture, threadID string) DeliveryState {
 	t.Helper()
 
@@ -720,8 +719,7 @@ func TestTheLastReleasedReviewIsTheNewestOne(t *testing.T) {
 	assert.Equal(t, secondReview.ID, latest.ID)
 }
 
-// TestTheOpenReviewIsTheOneStillBeingWritten pins that releasing a batch closes it, which is what
-// lets the same author open another against the next round.
+// TestTheOpenReviewIsTheOneStillBeingWritten pins that releasing a batch closes it.
 func TestTheOpenReviewIsTheOneStillBeingWritten(t *testing.T) {
 	st := open(t)
 	ctx := t.Context()
@@ -789,8 +787,7 @@ func TestDeletingAnAuthorsOpenReviewsLeavesWhatTheyReleased(t *testing.T) {
 	require.NoError(t, err)
 }
 
-// seedReviewerChild is a reviewer attached to the agent whose work it reads, which is the shape
-// the live-reviewer query reads to decide that work is being read right now.
+// seedReviewerChild is a reviewer attached to the agent whose work it reads.
 func seedReviewerChild(t *testing.T, st *fixture, parentID string) string {
 	t.Helper()
 	ctx := t.Context()
@@ -1007,7 +1004,7 @@ func TestAnOpenReviewIsNeverSettled(t *testing.T) {
 	assert.False(t, listed.IsSettled(), "but an unsent review is not a finished one")
 }
 
-// reviewByID is one review read back off the listing, which is where the count is computed.
+// reviewByID is one review read back off the listing.
 func reviewByID(t *testing.T, st *fixture, agentID, reviewID string) Review {
 	t.Helper()
 

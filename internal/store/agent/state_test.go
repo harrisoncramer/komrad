@@ -245,8 +245,8 @@ func backdateNudge(t *testing.T, st *fixture, id string, age time.Duration) {
 	require.NoError(t, err)
 }
 
-// TestSetReportedReasonRoundTrips pins that what an agent's CLI reported lands on the row and
-// that an empty reason clears it, which is what a turn ending reports.
+// TestSetReportedReasonRoundTrips pins that what an agent's CLI reported lands on the row and that
+// an empty reason clears it.
 func TestSetReportedReasonRoundTrips(t *testing.T) {
 	st := open(t)
 	ctx := t.Context()

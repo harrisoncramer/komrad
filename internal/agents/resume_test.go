@@ -421,8 +421,7 @@ func TestASecondResumeOpensNoSecondWindow(t *testing.T) {
 	workflowID := seedWorkflow(t, st)
 	agent := seedInWorkflow(t, st, workflowID, "dormant", "", agentstore.StateIdle)
 
-	// The second resume arrives while the first is part-way through, which is the window both of
-	// them would otherwise go on to open a window in.
+	// The second resume arrives while the first is part-way through.
 	arrived := make(chan struct{})
 	release := make(chan struct{})
 	tmux.beforeNewWindow = func() {
@@ -623,8 +622,7 @@ func TestADeleteAfterTheMarkStopsTheResume(t *testing.T) {
 	assert.Empty(t, rows, "the delete really did take the row")
 }
 
-// refusingUpdate is the store with its last write to the row taken away, which is the one step
-// a resume can fail at after it has started overwriting the copy of the agent it was handed.
+// refusingUpdate is the store with its last write to the row taken away.
 type refusingUpdate struct {
 	*agentstore.Store
 }
@@ -660,8 +658,7 @@ func TestAResumeThatFailsOnItsLastWritePutsBackWhatItFound(t *testing.T) {
 	assert.Len(t, tmux.killedPanes, 1, "the window it opened goes with it")
 }
 
-// TestResumeRunsTheProvisioner pins the provisioner firing again on resume, which is the
-// moment a workspace has to exist since nothing before it rebuilds one.
+// TestResumeRunsTheProvisioner pins the provisioner firing again on resume.
 func TestResumeRunsTheProvisioner(t *testing.T) {
 	tests := []struct {
 		name       string

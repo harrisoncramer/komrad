@@ -155,8 +155,8 @@ func TestReconcileRecordsTheFrameItRead(t *testing.T) {
 	assert.Equal(t, 1, recorder.forgotten)
 }
 
-// TestReconcileRecordsAnUnrecognizedFrameDisputingAnIdleAgent covers a row the panel calls
-// finished whose pane weave cannot read, which is the reading the recording exists for.
+// TestReconcileRecordsAnUnrecognizedFrameDisputingAnIdleAgent covers a row the panel calls finished
+// whose pane weave cannot read.
 func TestReconcileRecordsAnUnrecognizedFrameDisputingAnIdleAgent(t *testing.T) {
 	st := newStore(t)
 	agent := seed(t, st, "agent", "%1", agentstore.StateIdle)
@@ -200,8 +200,8 @@ func TestReconcileRecordsAnUnrecognizedFrameAgreeingWithAnUncertainAgent(t *test
 	assert.False(t, recorder.recorded[0].Disputes)
 }
 
-// TestReconcileRecordsAnUnrecognizedFrameDisputingAThinkingAgent is the same frame on an agent
-// the panel still shows as working, which is a reading worth keeping every time.
+// TestReconcileRecordsAnUnrecognizedFrameDisputingAThinkingAgent is the same frame on an agent the
+// panel still shows as working.
 func TestReconcileRecordsAnUnrecognizedFrameDisputingAThinkingAgent(t *testing.T) {
 	st := newStore(t)
 	agent := seed(t, st, "agent", "%1", agentstore.StateThinking)
