@@ -53,12 +53,23 @@ func (r Remote) AttachArgv(pane string) []string {
 		return nil
 	}
 
-	command := r.attachScript(pane)
+	return r.argv(r.attachScript(pane), true)
+}
 
+// CommandArgv is what runs one shell command on the engine with no terminal attached.
+func (r Remote) CommandArgv(command string) []string {
+	if !r.IsRemote() || strings.TrimSpace(command) == "" {
+		return nil
+	}
+
+	return r.argv(command, false)
+}
+
+func (r Remote) argv(command string, tty bool) []string {
 	// A transport that does not arrive as the account owning the engine's tmux steps into it
 	// here.
 	if r.User != "" {
-		command = "sudo -u " + quote(r.User) + " sh -c " + quote(command)
+		command = "sudo -u " + Quote(r.User) + " sh -c " + Quote(command)
 	}
 
 	if len(r.Exec) > 0 {
@@ -68,7 +79,11 @@ func (r Remote) AttachArgv(pane string) []string {
 		})
 	}
 
-	return []string{"ssh", "-t", r.Destination, command}
+	if tty {
+		return []string{"ssh", "-t", r.Destination, command}
+	}
+
+	return []string{"ssh", r.Destination, command}
 }
 
 // fill replaces the placeholders in a transport's argv, leaving anything else as written.
@@ -96,25 +111,25 @@ func escapeJSON(value string) string {
 // attachScript is the shell the far side runs, written to be safe to run again because the
 // stage re-runs it whenever the cursor comes back to the same agent.
 func (r Remote) attachScript(pane string) string {
-	tmux := "tmux -L " + quote(r.Socket)
-	view := quote(ViewSession(pane))
+	tmux := "tmux -L " + Quote(r.Socket)
+	view := Quote(ViewSession(pane))
 
 	// The window is looked up rather than passed in.
-	window := "$(" + tmux + " display-message -p -t " + quote(pane) + " '#{window_id}')"
+	window := "$(" + tmux + " display-message -p -t " + Quote(pane) + " '#{window_id}')"
 
 	return strings.Join([]string{
 		"set -e",
 		"w=" + window,
-		tmux + " new-session -d -s " + view + " -t " + quote(r.Session) + " 2>/dev/null || true",
+		tmux + " new-session -d -s " + view + " -t " + Quote(r.Session) + " 2>/dev/null || true",
 		tmux + " set-option -t " + view + " status off",
 		tmux + " select-window -t " + view + ":$w",
 		"exec " + tmux + " attach -d -t " + view,
 	}, "; ")
 }
 
-// quote wraps a value for the shell on the far side, which is given one string rather than an
+// Quote wraps a value for the shell on the far side, which is given one string rather than an
 // argv.
-func quote(value string) string {
+func Quote(value string) string {
 	return "'" + strings.ReplaceAll(value, "'", `'\''`) + "'"
 }
 

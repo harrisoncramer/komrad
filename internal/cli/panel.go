@@ -6,6 +6,7 @@ import (
 
 	"weave/internal/agents"
 	"weave/internal/browser"
+	"weave/internal/engine"
 	"weave/internal/errui"
 	"weave/internal/git"
 	"weave/internal/logging"
@@ -105,7 +106,7 @@ Use ` + "`weave open`" + ` to bring the panel up.`,
 			return ui.Run(ui.Deps{
 				PopupWindow:   state.popup,
 				Tmux:          state.tmux,
-				Git:           git.NewClient(),
+				Git:           reviewGit(remote),
 				Browser:       browser.NewDesktop(),
 				HarnessFrames: paneFrameReader{panes: state.tmux, harnesses: state.harnesses},
 				Agents:        agentClient,
@@ -151,4 +152,14 @@ func installPanelLogger(logPath, level string) error {
 	slog.SetDefault(logging.New(file, parsed).With(slog.String(logging.ProcessName, logging.ProcessPanel)))
 
 	return nil
+}
+
+// reviewGit is the git the review screen reads a round through, on the engine when the agents
+// and their worktrees are there.
+func reviewGit(remote engine.Remote) ui.ReviewGit {
+	if remote.IsRemote() {
+		return git.NewEngineClient(remote)
+	}
+
+	return git.NewClient()
 }

@@ -130,8 +130,8 @@ type uiTmux interface {
 	SendKeys(target string, keys ...string) error
 }
 
-// uiGit is the git the review screen reads a round through.
-type uiGit interface {
+// ReviewGit is the git the review screen reads a round through.
+type ReviewGit interface {
 	ReadFileLines(ctx context.Context, dir, sha, path string) ([]string, error)
 	CountChangedFiles(ctx context.Context, params git.CountChangedFilesParams) (int, error)
 	MapRanges(ctx context.Context, params git.MapRangesParams) ([]position.Mapping, error)
@@ -170,7 +170,7 @@ type PanelSettings struct {
 type Deps struct {
 	PopupWindow     *PopupWindow
 	Tmux            uiTmux
-	Git             uiGit
+	Git             ReviewGit
 	Browser         browser.Opener
 	HarnessFrames   harnessFrameReader
 	Agents          agentv1connect.AgentServiceClient
@@ -192,7 +192,7 @@ type model struct {
 	popup           *PopupWindow
 	api             api
 	tmux            uiTmux
-	git             uiGit
+	git             ReviewGit
 	browser         browser.Opener
 	harnessFrames   harnessFrameReader
 	frame           *layout.Frame

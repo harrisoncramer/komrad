@@ -8,7 +8,11 @@ import (
 
 // GetRoot is the top of the working tree any path inside it belongs to.
 func (c *Client) GetRoot(ctx context.Context, dir string) (string, error) {
-	root, err := Run(ctx, dir, "rev-parse", "--show-toplevel")
+	return getRoot(ctx, local, dir)
+}
+
+func getRoot(ctx context.Context, on runner, dir string) (string, error) {
+	root, err := runOn(ctx, on, dir, "rev-parse", "--show-toplevel")
 	if err != nil {
 		return "", fmt.Errorf("failed to find the repository at %q: %w", dir, err)
 	}
@@ -48,7 +52,11 @@ func (c *Client) GetCurrentBranch(ctx context.Context, dir string) *string {
 
 // ReadFile is one file as a commit holds it.
 func (c *Client) ReadFile(ctx context.Context, dir, sha, path string) ([]byte, error) {
-	out, err := RunBytes(ctx, dir, "show", sha+":"+path)
+	return readFile(ctx, local, dir, sha, path)
+}
+
+func readFile(ctx context.Context, on runner, dir, sha, path string) ([]byte, error) {
+	out, err := runBytesOn(ctx, on, dir, "show", sha+":"+path)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read %q at %q: %w", path, sha, err)
 	}
@@ -58,7 +66,11 @@ func (c *Client) ReadFile(ctx context.Context, dir, sha, path string) ([]byte, e
 
 // ReadFileLines is one file as a commit holds it, split into lines.
 func (c *Client) ReadFileLines(ctx context.Context, dir, sha, path string) ([]string, error) {
-	out, err := c.ReadFile(ctx, dir, sha, path)
+	return readFileLines(ctx, local, dir, sha, path)
+}
+
+func readFileLines(ctx context.Context, on runner, dir, sha, path string) ([]string, error) {
+	out, err := readFile(ctx, on, dir, sha, path)
 	if err != nil {
 		return nil, err
 	}
@@ -93,6 +105,10 @@ type CountChangedFilesParams struct {
 
 // CountChangedFiles is how many files differ between two commits.
 func (c *Client) CountChangedFiles(ctx context.Context, params CountChangedFilesParams) (int, error) {
+	return countChangedFiles(ctx, local, params)
+}
+
+func countChangedFiles(ctx context.Context, on runner, params CountChangedFilesParams) (int, error) {
 	if params.FromSHA == "" || params.ToSHA == "" || params.FromSHA == params.ToSHA {
 		return 0, nil
 	}
@@ -103,7 +119,7 @@ func (c *Client) CountChangedFiles(ctx context.Context, params CountChangedFiles
 		params.FromSHA, params.ToSHA, "--", ".",
 	}, excludePathspecs(params.Exclude)...)
 
-	out, err := Run(ctx, params.Dir, args...)
+	out, err := runOn(ctx, on, params.Dir, args...)
 	if err != nil {
 		return 0, fmt.Errorf("failed to compare %q against %q: %w", params.FromSHA, params.ToSHA, err)
 	}
@@ -127,6 +143,10 @@ type DiffParams struct {
 
 // Diff is the patch between two commits, written with the prefixes a parser of it expects.
 func (c *Client) Diff(ctx context.Context, params DiffParams) ([]byte, error) {
+	return diff(ctx, local, params)
+}
+
+func diff(ctx context.Context, on runner, params DiffParams) ([]byte, error) {
 	args := append([]string{
 		"-c", "core.quotepath=false",
 		"-c", "diff.external=",
@@ -139,7 +159,7 @@ func (c *Client) Diff(ctx context.Context, params DiffParams) ([]byte, error) {
 		params.FromSHA, params.ToSHA, "--", ".",
 	}, excludePathspecs(params.Exclude)...)
 
-	raw, err := RunBytes(ctx, params.Dir, args...)
+	raw, err := runBytesOn(ctx, on, params.Dir, args...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to diff %s against %s: %w", params.FromSHA, params.ToSHA, err)
 	}

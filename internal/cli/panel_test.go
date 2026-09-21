@@ -7,7 +7,10 @@ import (
 	"path/filepath"
 	"testing"
 
+	"weave/internal/engine"
+	"weave/internal/git"
 	"weave/internal/logging"
+	"weave/internal/ui"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -68,4 +71,34 @@ func TestInstallPanelLoggerRefusesABadLevel(t *testing.T) {
 
 	require.Error(t, installPanelLogger(logPath, "chatty"))
 	assert.NoFileExists(t, logPath)
+}
+
+// TestReviewGitRunsOnTheEngineWhenTheAgentsAreThere covers the review screen reading the worktree where it is.
+func TestReviewGitRunsOnTheEngineWhenTheAgentsAreThere(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name   string
+		remote engine.Remote
+		want   ui.ReviewGit
+	}{
+		{
+			name:   "a remote engine reads through its transport",
+			remote: engine.Remote{Destination: "weave@host"},
+			want:   &git.EngineClient{},
+		},
+		{
+			name:   "a local engine reads here",
+			remote: engine.Remote{},
+			want:   &git.Client{},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			assert.IsType(t, tt.want, reviewGit(tt.remote))
+		})
+	}
 }

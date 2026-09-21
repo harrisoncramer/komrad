@@ -337,3 +337,37 @@ func TestStringNamesTheTransport(t *testing.T) {
 
 	assert.Contains(t, ssmEngine().String(), "aws ssm start-session")
 }
+
+// TestCommandArgvIsEmptyForALocalEngine covers a command that has nowhere to go.
+func TestCommandArgvIsEmptyForALocalEngine(t *testing.T) {
+	t.Parallel()
+
+	assert.Nil(t, engine.Remote{}.CommandArgv("git status"))
+	assert.Nil(t, engine.Remote{Destination: "ubuntu@host"}.CommandArgv(" "))
+}
+
+// TestCommandArgvRunsSshWithoutATerminal covers the shorthand, which asks for no tty since the output is read.
+func TestCommandArgvRunsSshWithoutATerminal(t *testing.T) {
+	t.Parallel()
+
+	remote := engine.Remote{Destination: "ubuntu@host"}
+
+	assert.Equal(t, []string{"ssh", "ubuntu@host", "git status"}, remote.CommandArgv("git status"))
+}
+
+// TestCommandArgvUsesTheConfiguredTransportAsTheEnginesAccount covers the same transport and account a pane attach goes through.
+func TestCommandArgvUsesTheConfiguredTransportAsTheEnginesAccount(t *testing.T) {
+	t.Parallel()
+
+	argv := ssmEngine().CommandArgv("git status")
+
+	assert.Equal(t, []string{"aws", "ssm", "start-session"}, argv[:3])
+	assert.Contains(t, argv[len(argv)-1], "sudo -u 'weave' sh -c 'git status'")
+}
+
+// TestQuoteSurvivesAnApostrophe covers the one character single quotes cannot hold.
+func TestQuoteSurvivesAnApostrophe(t *testing.T) {
+	t.Parallel()
+
+	assert.Equal(t, `'it'\''s'`, engine.Quote("it's"))
+}

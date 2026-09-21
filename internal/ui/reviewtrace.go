@@ -19,7 +19,7 @@ const traceTimeout = 10 * time.Second
 // traceThreadsParams says which conversation to trace, where to read the repository, and which
 // snapshot the diff on screen was drawn to.
 type traceThreadsParams struct {
-	Git     uiGit
+	Git     ReviewGit
 	Dir     string
 	ToSHA   string
 	Threads []*agentv1.ReviewThread

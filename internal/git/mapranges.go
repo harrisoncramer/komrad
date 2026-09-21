@@ -24,16 +24,20 @@ type MapRangesParams struct {
 // MapRanges is what the later commit did to each file, in the form the position package moves a
 // place through.
 func (c *Client) MapRanges(ctx context.Context, params MapRangesParams) ([]position.Mapping, error) {
+	return mapRanges(ctx, local, params)
+}
+
+func mapRanges(ctx context.Context, on runner, params MapRangesParams) ([]position.Mapping, error) {
 	if params.FromSHA == "" || params.ToSHA == "" {
 		return nil, fmt.Errorf("failed to map %q: two commits are needed", params.Dir)
 	}
 
-	root, err := c.GetRoot(ctx, params.Dir)
+	root, err := getRoot(ctx, on, params.Dir)
 	if err != nil {
 		return nil, err
 	}
 
-	raw, err := RunBytes(ctx, root, mapRangesArgs(params)...)
+	raw, err := runBytesOn(ctx, on, root, mapRangesArgs(params)...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to diff %s against %s: %w", params.FromSHA, params.ToSHA, err)
 	}

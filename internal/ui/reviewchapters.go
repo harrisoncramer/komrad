@@ -252,7 +252,7 @@ func cutChapters(params cutChaptersParams) []reviewChapter {
 
 // replayChaptersParams is the chapters as cut and where to read the repository.
 type replayChaptersParams struct {
-	Git      uiGit
+	Git      ReviewGit
 	Dir      string
 	Chapters []reviewChapter
 }
