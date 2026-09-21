@@ -21,15 +21,15 @@ func TestDeletingClaimHidesTheWorkflow(t *testing.T) {
 		archive    bool
 		agents     int
 		failed     bool
-		claim      func(ctx context.Context, agents *agentstore.Store, ids []string) error
-		release    func(ctx context.Context, f *Store, agents *agentstore.Store, ids []string) error
+		claim      func(ctx context.Context, agents *agentstore.AgentStore, ids []string) error
+		release    func(ctx context.Context, f *WorkflowStore, agents *agentstore.AgentStore, ids []string) error
 		wantHidden bool
 	}{
 		{
 			name:    "a live workflow is left alone",
 			archive: false,
 			agents:  1,
-			claim: func(ctx context.Context, agents *agentstore.Store, _ []string) error {
+			claim: func(ctx context.Context, agents *agentstore.AgentStore, _ []string) error {
 				return agents.MarkArchivedDeleting(ctx)
 			},
 		},
@@ -37,7 +37,7 @@ func TestDeletingClaimHidesTheWorkflow(t *testing.T) {
 			name:    "an archived workflow holding nothing is left alone",
 			archive: true,
 			agents:  0,
-			claim: func(ctx context.Context, agents *agentstore.Store, _ []string) error {
+			claim: func(ctx context.Context, agents *agentstore.AgentStore, _ []string) error {
 				return agents.MarkArchivedDeleting(ctx)
 			},
 		},
@@ -46,7 +46,7 @@ func TestDeletingClaimHidesTheWorkflow(t *testing.T) {
 			archive: true,
 			agents:  1,
 			failed:  true,
-			claim: func(ctx context.Context, agents *agentstore.Store, _ []string) error {
+			claim: func(ctx context.Context, agents *agentstore.AgentStore, _ []string) error {
 				return agents.MarkArchivedDeleting(ctx)
 			},
 		},
@@ -54,7 +54,7 @@ func TestDeletingClaimHidesTheWorkflow(t *testing.T) {
 			name:    "a claim on one of two agents leaves the workflow",
 			archive: true,
 			agents:  2,
-			claim: func(ctx context.Context, agents *agentstore.Store, ids []string) error {
+			claim: func(ctx context.Context, agents *agentstore.AgentStore, ids []string) error {
 				return agents.MarkDeleting(ctx, ids[:1])
 			},
 		},
@@ -62,7 +62,7 @@ func TestDeletingClaimHidesTheWorkflow(t *testing.T) {
 			name:    "the archive claim takes the workflow with its agents",
 			archive: true,
 			agents:  2,
-			claim: func(ctx context.Context, agents *agentstore.Store, _ []string) error {
+			claim: func(ctx context.Context, agents *agentstore.AgentStore, _ []string) error {
 				return agents.MarkArchivedDeleting(ctx)
 			},
 			wantHidden: true,
@@ -71,7 +71,7 @@ func TestDeletingClaimHidesTheWorkflow(t *testing.T) {
 			name:    "a claim by id on the last agent takes the workflow",
 			archive: true,
 			agents:  2,
-			claim: func(ctx context.Context, agents *agentstore.Store, ids []string) error {
+			claim: func(ctx context.Context, agents *agentstore.AgentStore, ids []string) error {
 				if err := agents.MarkDeleting(ctx, ids[:1]); err != nil {
 					return err
 				}
@@ -84,7 +84,7 @@ func TestDeletingClaimHidesTheWorkflow(t *testing.T) {
 			name:    "an archived claim by id on the last agent takes the workflow",
 			archive: true,
 			agents:  1,
-			claim: func(ctx context.Context, agents *agentstore.Store, ids []string) error {
+			claim: func(ctx context.Context, agents *agentstore.AgentStore, ids []string) error {
 				return agents.MarkArchivedDeletingByID(ctx, ids)
 			},
 			wantHidden: true,
@@ -93,10 +93,10 @@ func TestDeletingClaimHidesTheWorkflow(t *testing.T) {
 			name:    "an agent's release gives the workflow back",
 			archive: true,
 			agents:  2,
-			claim: func(ctx context.Context, agents *agentstore.Store, _ []string) error {
+			claim: func(ctx context.Context, agents *agentstore.AgentStore, _ []string) error {
 				return agents.MarkArchivedDeleting(ctx)
 			},
-			release: func(ctx context.Context, _ *Store, agents *agentstore.Store, ids []string) error {
+			release: func(ctx context.Context, _ *WorkflowStore, agents *agentstore.AgentStore, ids []string) error {
 				return agents.ClearDeleting(ctx, ids[:1])
 			},
 		},
@@ -104,10 +104,10 @@ func TestDeletingClaimHidesTheWorkflow(t *testing.T) {
 			name:    "a release of everything gives the workflow back",
 			archive: true,
 			agents:  1,
-			claim: func(ctx context.Context, agents *agentstore.Store, _ []string) error {
+			claim: func(ctx context.Context, agents *agentstore.AgentStore, _ []string) error {
 				return agents.MarkArchivedDeleting(ctx)
 			},
-			release: func(ctx context.Context, f *Store, _ *agentstore.Store, _ []string) error {
+			release: func(ctx context.Context, f *WorkflowStore, _ *agentstore.AgentStore, _ []string) error {
 				return f.ClearAllDeleting(ctx)
 			},
 		},
@@ -118,7 +118,7 @@ func TestDeletingClaimHidesTheWorkflow(t *testing.T) {
 			pool, err := store.Open(t.Context(), dbtest.URL(t))
 			require.NoError(t, err)
 			t.Cleanup(func() { _ = pool.Close() })
-			f, agents := New(pool.GetDB()), agentstore.New(pool.GetDB())
+			f, agents := NewWorkflowStore(pool.GetDB()), agentstore.NewAgentStore(pool.GetDB())
 			ctx := t.Context()
 
 			created, err := f.Create(ctx, Config{Name: "backend", Worktree: WorktreeConfig{BaseBranch: "main"}})

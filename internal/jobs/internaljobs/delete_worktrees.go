@@ -54,19 +54,19 @@ type WorktreeRemover interface {
 	Remove(ctx context.Context, dirs []string) (*worktrees.Removal, error)
 }
 
+type NewDeleteWorktreesWorkerParams struct {
+	Worktrees WorktreeLister
+	Deleter   AgentDeleter
+	Remover   WorktreeRemover
+	Logger    *slog.Logger
+}
+
 type DeleteWorktreesWorker struct {
 	river.WorkerDefaults[DeleteWorktreesArgs]
 	worktrees WorktreeLister
 	deleter   AgentDeleter
 	remover   WorktreeRemover
 	logger    *slog.Logger
-}
-
-type NewDeleteWorktreesWorkerParams struct {
-	Worktrees WorktreeLister
-	Deleter   AgentDeleter
-	Remover   WorktreeRemover
-	Logger    *slog.Logger
 }
 
 // NewDeleteWorktreesWorker builds the worker over the listing that says how each directory

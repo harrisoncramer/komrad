@@ -33,17 +33,17 @@ type registrar interface {
 	PruneWorktrees(ctx context.Context, repo string) error
 }
 
+type NewRemoverParams struct {
+	Lister *Lister
+	Agents agentDirLister
+	Git    registrar
+}
+
 // Remover takes away the directories no agent answers for.
 type Remover struct {
 	lister *Lister
 	agents agentDirLister
 	git    registrar
-}
-
-type NewRemoverParams struct {
-	Lister *Lister
-	Agents agentDirLister
-	Git    registrar
 }
 
 // NewRemover builds a remover over the lister, the agent rows and git.

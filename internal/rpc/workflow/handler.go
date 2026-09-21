@@ -37,16 +37,16 @@ type workflowLister interface {
 	ListPage(ctx context.Context, limit int64, cursor *workflowstore.Cursor, archived bool) ([]workflowstore.Workflow, error)
 }
 
-type Handler struct {
-	lister    workflowLister
-	workflows workflowReadWriter
-	marks     markReader
-}
-
 type NewHandlerParams struct {
 	Lister    workflowLister
 	Workflows workflowReadWriter
 	Marks     markReader
+}
+
+type Handler struct {
+	lister    workflowLister
+	workflows workflowReadWriter
+	marks     markReader
 }
 
 // NewHandler constructs the handler from the store it lists through, the service that owns the

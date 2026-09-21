@@ -42,18 +42,18 @@ type mailboxReader interface {
 	ListExpired(ctx context.Context, toAgentID string) ([]mailstore.Mail, error)
 }
 
-type DeliveryService struct {
-	mailboxReader mailboxReader
-	nudgeClaimer  nudgeClaimer
-	paneReader    paneReader
-	channel       harness.Channel
-}
-
 type NewDeliveryServiceParams struct {
 	MailboxReader mailboxReader
 	NudgeClaimer  nudgeClaimer
 	PaneReader    paneReader
 	Channel       harness.Channel
+}
+
+type DeliveryService struct {
+	mailboxReader mailboxReader
+	nudgeClaimer  nudgeClaimer
+	paneReader    paneReader
+	channel       harness.Channel
 }
 
 // NewDeliveryService builds the service from its dependencies.

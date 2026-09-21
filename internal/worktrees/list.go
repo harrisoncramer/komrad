@@ -102,20 +102,20 @@ type sizeLister interface {
 	ListSizes(ctx context.Context) ([]worktreestore.Size, error)
 }
 
-// Lister reads the worktree directories and the rows that answer for them.
-type Lister struct {
-	shared    func() (string, error)
-	agents    agentDirLister
-	workflows worktreeDirLister
-	sizes     sizeLister
-}
-
 type NewListerParams struct {
 	// SharedDir reads the configured worktrees directory, resolved.
 	SharedDir func() (string, error)
 	Agents    agentDirLister
 	Workflows worktreeDirLister
 	Sizes     sizeLister
+}
+
+// Lister reads the worktree directories and the rows that answer for them.
+type Lister struct {
+	shared    func() (string, error)
+	agents    agentDirLister
+	workflows worktreeDirLister
+	sizes     sizeLister
 }
 
 // NewLister builds a lister over the stores.

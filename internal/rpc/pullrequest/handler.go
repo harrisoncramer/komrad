@@ -42,18 +42,18 @@ type syncReader interface {
 	GetSync(ctx context.Context, repositoryURL string) (*pullrequeststore.Sync, error)
 }
 
-type Handler struct {
-	forges       forgeFinder
-	agents       agentGetter
-	pullRequests storedPullRequestReader
-	syncs        syncReader
-}
-
 type NewHandlerParams struct {
 	Forges           forgeFinder
 	Agents           agentGetter
 	PullRequests     storedPullRequestReader
 	PullRequestSyncs syncReader
+}
+
+type Handler struct {
+	forges       forgeFinder
+	agents       agentGetter
+	pullRequests storedPullRequestReader
+	syncs        syncReader
 }
 
 // NewHandler constructs the handler over the forge service and the stores.

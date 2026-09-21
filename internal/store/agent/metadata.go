@@ -19,7 +19,7 @@ type Metadata struct {
 	Value string
 }
 
-func (s *Store) hydrateMetadataForAgents(ctx context.Context, rows []*models.Agent) ([]Agent, error) {
+func (s *AgentStore) hydrateMetadataForAgents(ctx context.Context, rows []*models.Agent) ([]Agent, error) {
 	agents := make([]Agent, 0, len(rows))
 	ids := make([]string, 0, len(rows))
 	for _, row := range rows {
@@ -39,7 +39,7 @@ func (s *Store) hydrateMetadataForAgents(ctx context.Context, rows []*models.Age
 	return agents, nil
 }
 
-func (s *Store) hydrateMetadataForAgent(ctx context.Context, row *models.Agent) (*Agent, error) {
+func (s *AgentStore) hydrateMetadataForAgent(ctx context.Context, row *models.Agent) (*Agent, error) {
 	agents, err := s.hydrateMetadataForAgents(ctx, []*models.Agent{row})
 	if err != nil {
 		return nil, err
@@ -49,7 +49,7 @@ func (s *Store) hydrateMetadataForAgent(ctx context.Context, row *models.Agent) 
 }
 
 // ListMetadata is the metadata each of the given agents holds, keyed by agent id.
-func (s *Store) ListMetadata(ctx context.Context, ids []string) (map[string][]Metadata, error) {
+func (s *AgentStore) ListMetadata(ctx context.Context, ids []string) (map[string][]Metadata, error) {
 	if len(ids) == 0 {
 		return nil, nil
 	}
@@ -75,7 +75,7 @@ type SetMetadataParams struct {
 
 // SetMetadata sets or clears one metadata value and reports whether a row changed, taking an
 // archived agent the same as a live one.
-func (s *Store) SetMetadata(ctx context.Context, params SetMetadataParams) (bool, error) {
+func (s *AgentStore) SetMetadata(ctx context.Context, params SetMetadataParams) (bool, error) {
 	if !store.IsID(params.ID) {
 		return false, nil
 	}

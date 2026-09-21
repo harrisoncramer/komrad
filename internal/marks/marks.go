@@ -14,14 +14,14 @@ type txRunner interface {
 }
 
 type NewMarkServiceParams struct {
-	Marks *markstore.Store
+	Marks *markstore.MarkStore
 	Tx    txRunner
 }
 
 // MarkService owns the letters a person types to jump to a row, which span agents and workflows
 // and so are written through a transaction rather than a single store.
 type MarkService struct {
-	marks *markstore.Store
+	marks *markstore.MarkStore
 	tx    txRunner
 }
 
@@ -56,7 +56,7 @@ func (s *MarkService) SetMark(ctx context.Context, mark string, target markstore
 func (s *MarkService) setMarkOnce(ctx context.Context, mark string, target markstore.Target) (bool, error) {
 	var marked bool
 	err := s.tx.InTx(ctx, func(tx store.DBTX) error {
-		marks := markstore.New(tx)
+		marks := markstore.NewMarkStore(tx)
 		// Freeing both before claiming is what keeps one letter on one row and one row on one
 		// letter, with the transaction keeping a half-done pair off the screen rather than
 		// keeping a second caller out, which the retry above is for.

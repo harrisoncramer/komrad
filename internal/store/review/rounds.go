@@ -84,7 +84,7 @@ type CreateRoundParams struct {
 
 // CreateRound records a snapshot as the next round of an agent, numbered after the rounds
 // already taken.
-func (s *Store) CreateRound(ctx context.Context, params CreateRoundParams) (*Round, error) {
+func (s *ReviewStore) CreateRound(ctx context.Context, params CreateRoundParams) (*Round, error) {
 	row, err := s.queries.InsertReviewRound(ctx, models.InsertReviewRoundParams{
 		AgentID:     params.AgentID,
 		BaseSha:     params.BaseSHA,
@@ -100,7 +100,7 @@ func (s *Store) CreateRound(ctx context.Context, params CreateRoundParams) (*Rou
 }
 
 // GetRound is one round, ErrNotFound for an id that names nothing.
-func (s *Store) GetRound(ctx context.Context, id string) (*Round, error) {
+func (s *ReviewStore) GetRound(ctx context.Context, id string) (*Round, error) {
 	if !store.IsID(id) {
 		return nil, roundNotFound(id)
 	}
@@ -119,7 +119,7 @@ func (s *Store) GetRound(ctx context.Context, id string) (*Round, error) {
 }
 
 // GetLatestRound is the newest round taken of an agent, ErrNotFound when none has been.
-func (s *Store) GetLatestRound(ctx context.Context, agentID string) (*Round, error) {
+func (s *ReviewStore) GetLatestRound(ctx context.Context, agentID string) (*Round, error) {
 	if !store.IsID(agentID) {
 		return nil, roundNotFound(agentID)
 	}
@@ -139,7 +139,7 @@ func (s *Store) GetLatestRound(ctx context.Context, agentID string) (*Round, err
 
 // GetRoundBySnapshot is the round an agent's snapshot was frozen as, ErrNotFound when no round
 // holds that snapshot.
-func (s *Store) GetRoundBySnapshot(ctx context.Context, agentID, snapshotSHA string) (*Round, error) {
+func (s *ReviewStore) GetRoundBySnapshot(ctx context.Context, agentID, snapshotSHA string) (*Round, error) {
 	if !store.IsID(agentID) || snapshotSHA == "" {
 		return nil, roundNotFound(agentID)
 	}
@@ -161,7 +161,7 @@ func (s *Store) GetRoundBySnapshot(ctx context.Context, agentID, snapshotSHA str
 }
 
 // ListRounds is every round of an agent, oldest first.
-func (s *Store) ListRounds(ctx context.Context, agentID string) ([]Round, error) {
+func (s *ReviewStore) ListRounds(ctx context.Context, agentID string) ([]Round, error) {
 	if !store.IsID(agentID) {
 		return nil, nil
 	}
@@ -187,7 +187,7 @@ type OpenReviewParams struct {
 
 // OpenReview starts a reviewer's batch against a round, which a unique index allows only one
 // of at a time.
-func (s *Store) OpenReview(ctx context.Context, params OpenReviewParams) (*Review, error) {
+func (s *ReviewStore) OpenReview(ctx context.Context, params OpenReviewParams) (*Review, error) {
 	row, err := s.queries.InsertReview(ctx, models.InsertReviewParams{
 		AgentID:       params.AgentID,
 		RoundID:       params.RoundID,
@@ -204,7 +204,7 @@ func (s *Store) OpenReview(ctx context.Context, params OpenReviewParams) (*Revie
 }
 
 // GetReview is one review, ErrNotFound for an id that names nothing.
-func (s *Store) GetReview(ctx context.Context, id string) (*Review, error) {
+func (s *ReviewStore) GetReview(ctx context.Context, id string) (*Review, error) {
 	if !store.IsID(id) {
 		return nil, reviewNotFound(id)
 	}
@@ -230,7 +230,7 @@ type AuthorParams struct {
 
 // OpenReviewOf is the review a reviewer is still writing against an agent, ErrNotFound when
 // they have none open.
-func (s *Store) OpenReviewOf(ctx context.Context, params AuthorParams) (*Review, error) {
+func (s *ReviewStore) OpenReviewOf(ctx context.Context, params AuthorParams) (*Review, error) {
 	if !store.IsID(params.AgentID) {
 		return nil, reviewNotFound(params.AgentID)
 	}
@@ -254,7 +254,7 @@ func (s *Store) OpenReviewOf(ctx context.Context, params AuthorParams) (*Review,
 
 // GetLastReleasedReview is the newest review a reviewer has released against an agent,
 // ErrNotFound when they have released none.
-func (s *Store) GetLastReleasedReview(ctx context.Context, params AuthorParams) (*Review, error) {
+func (s *ReviewStore) GetLastReleasedReview(ctx context.Context, params AuthorParams) (*Review, error) {
 	if !store.IsID(params.AgentID) {
 		return nil, reviewNotFound(params.AgentID)
 	}
@@ -278,7 +278,7 @@ func (s *Store) GetLastReleasedReview(ctx context.Context, params AuthorParams) 
 }
 
 // ListReviews is every review of an agent, in the order their rounds were taken.
-func (s *Store) ListReviews(ctx context.Context, agentID string) ([]Review, error) {
+func (s *ReviewStore) ListReviews(ctx context.Context, agentID string) ([]Review, error) {
 	if !store.IsID(agentID) {
 		return nil, nil
 	}
@@ -302,7 +302,7 @@ func (s *Store) ListReviews(ctx context.Context, agentID string) ([]Review, erro
 }
 
 // CountOpenComments is how many comments an open review is holding.
-func (s *Store) CountOpenComments(ctx context.Context, reviewID string) (int, error) {
+func (s *ReviewStore) CountOpenComments(ctx context.Context, reviewID string) (int, error) {
 	if !store.IsID(reviewID) {
 		return 0, nil
 	}
@@ -326,7 +326,7 @@ type ReleaseReviewParams struct {
 
 // ReleaseReview releases a review, stamping its verdict, the file it was written to and the
 // mail that told the agent it was there.
-func (s *Store) ReleaseReview(ctx context.Context, params ReleaseReviewParams) (*Review, error) {
+func (s *ReviewStore) ReleaseReview(ctx context.Context, params ReleaseReviewParams) (*Review, error) {
 	if !store.IsID(params.ID) {
 		return nil, reviewNotFound(params.ID)
 	}
@@ -351,7 +351,7 @@ func (s *Store) ReleaseReview(ctx context.Context, params ReleaseReviewParams) (
 }
 
 // DeleteOpenReviewsBy removes the unreleased reviews these reviewers were still writing.
-func (s *Store) DeleteOpenReviewsBy(ctx context.Context, authorAgentIDs []string) error {
+func (s *ReviewStore) DeleteOpenReviewsBy(ctx context.Context, authorAgentIDs []string) error {
 	storable := xslice.Filter(authorAgentIDs, store.IsID)
 	if len(storable) == 0 {
 		return nil
@@ -365,7 +365,7 @@ func (s *Store) DeleteOpenReviewsBy(ctx context.Context, authorAgentIDs []string
 }
 
 // DeleteReview removes a review and everything pinned under it.
-func (s *Store) DeleteReview(ctx context.Context, id string) error {
+func (s *ReviewStore) DeleteReview(ctx context.Context, id string) error {
 	if !store.IsID(id) {
 		return nil
 	}
@@ -433,7 +433,7 @@ type Tally struct {
 
 // ListTallies is where every agent's work stands, leaving out the agents no review has been
 // released of.
-func (s *Store) ListTallies(ctx context.Context) ([]Tally, error) {
+func (s *ReviewStore) ListTallies(ctx context.Context) ([]Tally, error) {
 	rows, err := s.queries.ListReviewTallies(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to count the rounds of review: %w", err)
@@ -461,7 +461,7 @@ type LiveReviewer struct {
 
 // ListLiveReviewers is every unarchived reviewer child whose last released verdict on its
 // parent's work was not an approval.
-func (s *Store) ListLiveReviewers(ctx context.Context) ([]LiveReviewer, error) {
+func (s *ReviewStore) ListLiveReviewers(ctx context.Context) ([]LiveReviewer, error) {
 	rows, err := s.queries.ListLiveReviewers(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list the reviewers still reading: %w", err)
@@ -480,7 +480,7 @@ func (s *Store) ListLiveReviewers(ctx context.Context) ([]LiveReviewer, error) {
 
 // GetLiveReviewerOf is the reviewer still owed an answer about one agent's work, ErrNotFound when
 // it has none.
-func (s *Store) GetLiveReviewerOf(ctx context.Context, agentID string) (*LiveReviewer, error) {
+func (s *ReviewStore) GetLiveReviewerOf(ctx context.Context, agentID string) (*LiveReviewer, error) {
 	live, err := s.ListLiveReviewers(ctx)
 	if err != nil {
 		return nil, err

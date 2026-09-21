@@ -38,19 +38,6 @@ type harnessGetter interface {
 	GetByID(id string) (harness.Harness, error)
 }
 
-// Pane reaches an agent through the terminal it is running in.
-type Pane struct {
-	terminal  terminal
-	harnesses harnessGetter
-	now       func() time.Time
-	drafts    drafts
-}
-
-var (
-	_ harness.Channel  = (*Pane)(nil)
-	_ harness.Observer = (*Pane)(nil)
-)
-
 // NewPaneParams is what a pane channel and observer are built over.
 type NewPaneParams struct {
 	Terminal  terminal
@@ -58,6 +45,14 @@ type NewPaneParams struct {
 
 	// Now is the clock a draft's stillness is measured on, defaulting to time.Now.
 	Now func() time.Time
+}
+
+// Pane reaches an agent through the terminal it is running in.
+type Pane struct {
+	terminal  terminal
+	harnesses harnessGetter
+	now       func() time.Time
+	drafts    drafts
 }
 
 // NewPane builds the channel and observer over the tmux server and the harness registry.
@@ -73,6 +68,11 @@ func NewPane(params NewPaneParams) *Pane {
 		now:       now,
 	}
 }
+
+var (
+	_ harness.Channel  = (*Pane)(nil)
+	_ harness.Observer = (*Pane)(nil)
+)
 
 // Forget drops what was remembered of an agent's input box.
 func (p *Pane) Forget(agentID string) {

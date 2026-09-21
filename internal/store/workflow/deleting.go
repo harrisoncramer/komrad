@@ -6,7 +6,7 @@ import (
 )
 
 // ClearAllDeleting takes the delete's claim off every workflow.
-func (s *Store) ClearAllDeleting(ctx context.Context) error {
+func (s *WorkflowStore) ClearAllDeleting(ctx context.Context) error {
 	if err := s.queries.ClearAllWorkflowsDeleting(ctx); err != nil {
 		return fmt.Errorf("failed to release every workflow from a delete: %w", err)
 	}

@@ -31,6 +31,14 @@ type agentStateReadWriter interface {
 	SetMetadata(ctx context.Context, params agentstore.SetMetadataParams) (bool, error)
 }
 
+// NewReconcilerParams is what a Reconciler is built over: a tmux probe for who owns a pane,
+// an observer for what each agent is doing, and the state store.
+type NewReconcilerParams struct {
+	Panes    paneKiller
+	Observer harness.Observer
+	States   agentStateReadWriter
+}
+
 // Reconciler treats the pane as the only authority on an agent's state, letting any other
 // signal only hurry along a transition the pane would reach anyway.
 type Reconciler struct {
@@ -43,14 +51,6 @@ type Reconciler struct {
 	// locking the tally below does.
 	unrecognizedTotal int
 	tally             *tally
-}
-
-// NewReconcilerParams is what a Reconciler is built over: a tmux probe for who owns a pane,
-// an observer for what each agent is doing, and the state store.
-type NewReconcilerParams struct {
-	Panes    paneKiller
-	Observer harness.Observer
-	States   agentStateReadWriter
 }
 
 // NewReconciler builds a Reconciler over the probe, observer and store it is given.

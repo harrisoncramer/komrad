@@ -89,8 +89,8 @@ var dialect = graphql.Dialect{
 	Version:         "/v4",
 }
 
-// NewParams says how the forge reaches the API and as whom.
-type NewParams struct {
+// NewForgeParams says how the forge reaches the API and as whom.
+type NewForgeParams struct {
 	Auth forge.Authenticator
 	// API is the REST base, DefaultAPI when unset, beside which GraphQL is answered.
 	API string
@@ -107,14 +107,14 @@ type Forge struct {
 	client *graphql.Client
 }
 
-// New builds the forge.
-func New(params NewParams) *Forge {
+// NewForge builds the forge.
+func NewForge(params NewForgeParams) *Forge {
 	api := params.API
 	if api == "" {
 		api = DefaultAPI
 	}
 
-	return &Forge{client: graphql.New(graphql.NewParams{
+	return &Forge{client: graphql.NewClient(graphql.NewClientParams{
 		Dialect: dialect,
 		Auth:    params.Auth,
 		API:     api,
@@ -698,5 +698,5 @@ func stateOf(state string) string {
 
 // Build is the Builder for GitLab.
 func Build(api string, auth forge.Authenticator) forge.Forge {
-	return New(NewParams{Auth: auth, API: api})
+	return NewForge(NewForgeParams{Auth: auth, API: api})
 }

@@ -34,14 +34,14 @@ func originatorPrefix(agentID string) string {
 	return fmt.Sprintf("%s=%s ", originatorEnv, harness.QuoteArg(originator(agentID)))
 }
 
-type Harness struct {
-	home            string
-	trustLaunchDirs bool
-}
-
 type NewHarnessParams struct {
 	Home            string
 	TrustLaunchDirs bool
+}
+
+type Harness struct {
+	home            string
+	trustLaunchDirs bool
 }
 
 // NewHarness builds a harness from opts.

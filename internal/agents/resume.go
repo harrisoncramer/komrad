@@ -34,6 +34,16 @@ type resumeAgentReadWriter interface {
 	UpdateIfLive(ctx context.Context, agent agentstore.Agent) (bool, error)
 }
 
+type NewResumeServiceParams struct {
+	Tmux               paneController
+	Agents             resumeAgentReadWriter
+	Workflows          workflowReader
+	Launcher           *Launcher
+	Harnesses          harnessGetter
+	Scripts            agentScriptRunner
+	FallbackResumeRoot string
+}
+
 type ResumeService struct {
 	tmux               paneController
 	agents             resumeAgentReadWriter
@@ -45,16 +55,6 @@ type ResumeService struct {
 	// inFlight holds the agents this panel is part-way through resuming.
 	inFlight   map[string]struct{}
 	inFlightMu sync.Mutex
-}
-
-type NewResumeServiceParams struct {
-	Tmux               paneController
-	Agents             resumeAgentReadWriter
-	Workflows          workflowReader
-	Launcher           *Launcher
-	Harnesses          harnessGetter
-	Scripts            agentScriptRunner
-	FallbackResumeRoot string
 }
 
 // NewResumeService builds the service from its dependencies.

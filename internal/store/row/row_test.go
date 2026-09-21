@@ -150,7 +150,7 @@ func TestMark(t *testing.T) {
 func TestLocalReview(t *testing.T) {
 	st := storetest.Open(t)
 	ctx := t.Context()
-	reviews := reviewstore.New(st.Pool.GetDB())
+	reviews := reviewstore.NewReviewStore(st.Pool.GetDB())
 	agent := st.SeedAgent(t, agentstore.Agent{Name: "worker"})
 	reviewer := st.SeedAgent(t, agentstore.Agent{Name: "reader", WorkflowID: agent.WorkflowID})
 

@@ -62,21 +62,6 @@ type launchAgentReadWriter interface {
 	SetHarness(ctx context.Context, params agentstore.SetHarnessParams) error
 }
 
-type LaunchService struct {
-	tmux               paneController
-	agents             launchAgentReadWriter
-	reviews            liveReviewerFinder
-	workflows          workflowReader
-	tx                 txRunner
-	launcher           *Launcher
-	harnesses          harnessGetter
-	scripts            agentScriptRunner
-	userDefaultHarness string
-	userDefaultFlags   map[string]string
-	maxAgents          int
-	maxChildren        int
-}
-
 type NewLaunchServiceParams struct {
 	Tmux               paneController
 	Agents             launchAgentReadWriter
@@ -90,6 +75,21 @@ type NewLaunchServiceParams struct {
 	UserDefaultFlags   map[string]string
 	MaxAgents          int
 	MaxChildren        int
+}
+
+type LaunchService struct {
+	tmux               paneController
+	agents             launchAgentReadWriter
+	reviews            liveReviewerFinder
+	workflows          workflowReader
+	tx                 txRunner
+	launcher           *Launcher
+	harnesses          harnessGetter
+	scripts            agentScriptRunner
+	userDefaultHarness string
+	userDefaultFlags   map[string]string
+	maxAgents          int
+	maxChildren        int
 }
 
 // NewLaunchService builds the service from its dependencies.
@@ -600,7 +600,7 @@ func namedDir(named string) (string, error) {
 
 func (s *LaunchService) createUnderCeiling(ctx context.Context, agent agentstore.Agent, parent *agentstore.Agent) error {
 	return s.tx.InTx(ctx, func(db store.DBTX) error {
-		agentStore := agentstore.New(db)
+		agentStore := agentstore.NewAgentStore(db)
 
 		if err := claimRoomForAgents(ctx, agentStore, s.maxAgents, 1); err != nil {
 			return err

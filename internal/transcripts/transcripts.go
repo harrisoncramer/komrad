@@ -27,16 +27,16 @@ type harnessGetter interface {
 	GetByID(id string) (harness.Harness, error)
 }
 
-type TranscriptSyncer struct {
-	agents    agentSessionReadWriter
-	store     transcriptReadWriter
-	harnesses harnessGetter
-}
-
 type NewTranscriptSyncerParams struct {
 	Agents      agentSessionReadWriter
 	Transcripts transcriptReadWriter
 	Harnesses   harnessGetter
+}
+
+type TranscriptSyncer struct {
+	agents    agentSessionReadWriter
+	store     transcriptReadWriter
+	harnesses harnessGetter
 }
 
 // NewTranscriptSyncer builds a syncer over the store, reading each agent's log through the

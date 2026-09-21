@@ -49,28 +49,6 @@ type NewServerParams struct {
 	ForgeBuilders map[string]forge.Builder
 }
 
-// mailConfig reads the mail settings fresh on every send, and fails rather than falling back to
-// defaults.
-type mailConfig func() (*config.Config, error)
-
-func (c mailConfig) GetDeliveryDeadline() (time.Duration, error) {
-	cfg, err := c()
-	if err != nil {
-		return 0, fmt.Errorf("failed to read the config: %w", err)
-	}
-
-	return cfg.Mail.GetDeliveryDeadline()
-}
-
-func (c mailConfig) GetMaxExchange() (int, error) {
-	cfg, err := c()
-	if err != nil {
-		return 0, fmt.Errorf("failed to read the config: %w", err)
-	}
-
-	return cfg.Mail.GetMaxExchange()
-}
-
 type Server struct {
 	Mux           *http.ServeMux
 	Jobs          *river.Client[pgx.Tx]
@@ -179,6 +157,28 @@ func NewServer(ctx context.Context, params NewServerParams) (*Server, error) {
 	built = true
 
 	return srv, nil
+}
+
+// mailConfig reads the mail settings fresh on every send, and fails rather than falling back to
+// defaults.
+type mailConfig func() (*config.Config, error)
+
+func (c mailConfig) GetDeliveryDeadline() (time.Duration, error) {
+	cfg, err := c()
+	if err != nil {
+		return 0, fmt.Errorf("failed to read the config: %w", err)
+	}
+
+	return cfg.Mail.GetDeliveryDeadline()
+}
+
+func (c mailConfig) GetMaxExchange() (int, error) {
+	cfg, err := c()
+	if err != nil {
+		return 0, fmt.Errorf("failed to read the config: %w", err)
+	}
+
+	return cfg.Mail.GetMaxExchange()
 }
 
 // Handler is the mux behind the guard that refuses anything not from this machine.

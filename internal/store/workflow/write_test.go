@@ -79,7 +79,7 @@ func TestDelete(t *testing.T) {
 			require.NoError(t, err)
 			t.Cleanup(func() { _ = pool.Close() })
 
-			st := New(pool.GetDB())
+			st := NewWorkflowStore(pool.GetDB())
 			ctx := t.Context()
 
 			id := missingID

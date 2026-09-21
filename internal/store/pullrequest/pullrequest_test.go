@@ -21,11 +21,11 @@ const (
 )
 
 type harness struct {
-	*Store
+	*PullRequestStore
 	pool      *store.Pool
-	syncs     *SyncStore
-	agents    *agentstore.Store
-	workflows *workflowstore.Store
+	syncs     *PullRequestSyncStore
+	agents    *agentstore.AgentStore
+	workflows *workflowstore.WorkflowStore
 }
 
 func open(t *testing.T) *harness {
@@ -36,11 +36,11 @@ func open(t *testing.T) *harness {
 	t.Cleanup(func() { _ = pool.Close() })
 
 	return &harness{
-		Store:     New(pool.GetDB()),
-		syncs:     NewSyncStore(pool.GetDB()),
-		pool:      pool,
-		agents:    agentstore.New(pool.GetDB()),
-		workflows: workflowstore.New(pool.GetDB()),
+		PullRequestStore: NewPullRequestStore(pool.GetDB()),
+		syncs:            NewPullRequestSyncStore(pool.GetDB()),
+		pool:             pool,
+		agents:           agentstore.NewAgentStore(pool.GetDB()),
+		workflows:        workflowstore.NewWorkflowStore(pool.GetDB()),
 	}
 }
 

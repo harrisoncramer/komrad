@@ -22,6 +22,6 @@ func NewArchiveSweep(queue *Enqueuer) *ArchiveSweep {
 // unclaimed in, and queues the sweep that deletes them in the same transaction.
 func (s *ArchiveSweep) EmptyArchive(ctx context.Context) error {
 	return s.queue.InsertTx(ctx, internaljobs.EmptyArchiveArgs{}, func(tx pgx.Tx) error {
-		return agentstore.New(tx).MarkArchivedDeleting(ctx)
+		return agentstore.NewAgentStore(tx).MarkArchivedDeleting(ctx)
 	})
 }

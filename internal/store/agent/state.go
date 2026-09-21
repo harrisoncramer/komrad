@@ -11,7 +11,7 @@ import (
 
 // ClaimNudge takes the right to tell an agent about waiting mail, checking and stamping in
 // one statement.
-func (s *Store) ClaimNudge(ctx context.Context, id string, retryAfter time.Duration) (bool, error) {
+func (s *AgentStore) ClaimNudge(ctx context.Context, id string, retryAfter time.Duration) (bool, error) {
 	if !store.IsID(id) {
 		return false, nil
 	}
@@ -29,7 +29,7 @@ func (s *Store) ClaimNudge(ctx context.Context, id string, retryAfter time.Durat
 
 // SetNudgeSent records that an agent was actually told about its mail, an advisory stamp the
 // claim alone does not make.
-func (s *Store) SetNudgeSent(ctx context.Context, id string) error {
+func (s *AgentStore) SetNudgeSent(ctx context.Context, id string) error {
 	if !store.IsID(id) {
 		return fmt.Errorf("%w: agent %q", store.ErrNotFound, id)
 	}
@@ -43,7 +43,7 @@ func (s *Store) SetNudgeSent(ctx context.Context, id string) error {
 
 // SetStateByID records the state a reconcile pass observed, stamping when it was seen whether
 // or not the value moved, and clearing the reported reason when it did.
-func (s *Store) SetStateByID(ctx context.Context, id string, state State) error {
+func (s *AgentStore) SetStateByID(ctx context.Context, id string, state State) error {
 	if !store.IsID(id) {
 		return store.ErrNotFound.Saying("no agent with id %q", id)
 	}
@@ -58,7 +58,7 @@ func (s *Store) SetStateByID(ctx context.Context, id string, state State) error 
 
 // SetTurnEnded records that a turn of an agent's ended, written either from the agent's own CLI
 // reporting it or, when nothing did, from the reconciler watching the pane stop working.
-func (s *Store) SetTurnEnded(ctx context.Context, id string) error {
+func (s *AgentStore) SetTurnEnded(ctx context.Context, id string) error {
 	if !store.IsID(id) {
 		return store.ErrNotFound.Saying("no agent with id %q", id)
 	}
@@ -72,7 +72,7 @@ func (s *Store) SetTurnEnded(ctx context.Context, id string) error {
 
 // SetReportedReason records what an agent's own CLI last reported it was doing, an empty reason
 // clearing whatever was reported before it.
-func (s *Store) SetReportedReason(ctx context.Context, id, reason string) error {
+func (s *AgentStore) SetReportedReason(ctx context.Context, id, reason string) error {
 	if !store.IsID(id) {
 		return store.ErrNotFound.Saying("no agent with id %q", id)
 	}
@@ -87,7 +87,7 @@ func (s *Store) SetReportedReason(ctx context.Context, id, reason string) error 
 
 // MarkSettingUpIfLive says a resume is in flight on one agent and reports whether it did,
 // refusing an archived row.
-func (s *Store) MarkSettingUpIfLive(ctx context.Context, id string) (bool, error) {
+func (s *AgentStore) MarkSettingUpIfLive(ctx context.Context, id string) (bool, error) {
 	if !store.IsID(id) {
 		return false, nil
 	}
@@ -102,7 +102,7 @@ func (s *Store) MarkSettingUpIfLive(ctx context.Context, id string) (bool, error
 
 // MarkSettingUpIfFailedToCreate moves a failed-to-create agent into setting_up, reporting
 // whether it did.
-func (s *Store) MarkSettingUpIfFailedToCreate(ctx context.Context, id string) (bool, error) {
+func (s *AgentStore) MarkSettingUpIfFailedToCreate(ctx context.Context, id string) (bool, error) {
 	if !store.IsID(id) {
 		return false, nil
 	}
@@ -128,7 +128,7 @@ type SetCheckoutParams struct {
 }
 
 // SetCheckout records what the cwd syncer read of an agent's checkout.
-func (s *Store) SetCheckout(ctx context.Context, id string, params SetCheckoutParams) error {
+func (s *AgentStore) SetCheckout(ctx context.Context, id string, params SetCheckoutParams) error {
 	if !store.IsID(id) {
 		return store.ErrNotFound.Saying("no agent with id %q", id)
 	}
@@ -149,7 +149,7 @@ func (s *Store) SetCheckout(ctx context.Context, id string, params SetCheckoutPa
 
 // SetSequenceInProgressByID records whether a merge, a rebase or a cherry-pick is part-way
 // through an agent's checkout.
-func (s *Store) SetSequenceInProgressByID(ctx context.Context, id string, inProgress bool) error {
+func (s *AgentStore) SetSequenceInProgressByID(ctx context.Context, id string, inProgress bool) error {
 	if !store.IsID(id) {
 		return fmt.Errorf("%w: agent %q", store.ErrNotFound, id)
 	}
@@ -163,7 +163,7 @@ func (s *Store) SetSequenceInProgressByID(ctx context.Context, id string, inProg
 
 // SetInterruptedAtByID records when an agent's conversation was cut off part-way through a
 // turn.
-func (s *Store) SetInterruptedAtByID(ctx context.Context, id string, at *time.Time) error {
+func (s *AgentStore) SetInterruptedAtByID(ctx context.Context, id string, at *time.Time) error {
 	if !store.IsID(id) {
 		return store.ErrNotFound.Saying("no agent with id %q", id)
 	}
@@ -176,7 +176,7 @@ func (s *Store) SetInterruptedAtByID(ctx context.Context, id string, at *time.Ti
 }
 
 // Hold records that a person has stopped an agent, and reports false when somebody already had it.
-func (s *Store) Hold(ctx context.Context, params HoldParams) (bool, error) {
+func (s *AgentStore) Hold(ctx context.Context, params HoldParams) (bool, error) {
 	if !store.IsID(params.ID) {
 		return false, fmt.Errorf("%w: agent %q", store.ErrNotFound, params.ID)
 	}
@@ -202,7 +202,7 @@ type HoldParams struct {
 }
 
 // Release lets go of an agent, and reports false when nobody was holding it.
-func (s *Store) Release(ctx context.Context, id string) (bool, error) {
+func (s *AgentStore) Release(ctx context.Context, id string) (bool, error) {
 	if !store.IsID(id) {
 		return false, fmt.Errorf("%w: agent %q", store.ErrNotFound, id)
 	}
@@ -224,7 +224,7 @@ type SetHarnessParams struct {
 
 // SetHarness moves an agent onto another CLI, with the flags and the conversation that belong
 // to it.
-func (s *Store) SetHarness(ctx context.Context, params SetHarnessParams) error {
+func (s *AgentStore) SetHarness(ctx context.Context, params SetHarnessParams) error {
 	if !store.IsID(params.ID) {
 		return store.ErrNotFound.Saying("no agent with id %q", params.ID)
 	}
@@ -242,7 +242,7 @@ func (s *Store) SetHarness(ctx context.Context, params SetHarnessParams) error {
 }
 
 // SetSessionID records an agent's conversation when none is already stored.
-func (s *Store) SetSessionID(ctx context.Context, id, sessionID string) error {
+func (s *AgentStore) SetSessionID(ctx context.Context, id, sessionID string) error {
 	if !store.IsID(id) {
 		return store.ErrNotFound.Saying("no agent with id %q", id)
 	}
@@ -263,7 +263,7 @@ type ForgetPaneParams struct {
 
 // ForgetPane drops an agent's pane, recording an interrupted turn in the same write when
 // InterruptedAt is set, and reports whether it did.
-func (s *Store) ForgetPane(ctx context.Context, params ForgetPaneParams) (bool, error) {
+func (s *AgentStore) ForgetPane(ctx context.Context, params ForgetPaneParams) (bool, error) {
 	if !store.IsID(params.ID) {
 		return false, nil
 	}

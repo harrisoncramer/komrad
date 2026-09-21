@@ -473,7 +473,7 @@ func TestArchiveKillsAPaneWrittenBeforeItsOwnWrite(t *testing.T) {
 		tmux:      tmux,
 		harnesses: fakeHarnesses{harness: &fakeHarness{}},
 		addr:      "127.0.0.1:9999",
-		agents:    writingPaneFirst{Store: st.Agents, inTheGap: resumeInto(t, st, tmux, agent, "%9")},
+		agents:    writingPaneFirst{AgentStore: st.Agents, inTheGap: resumeInto(t, st, tmux, agent, "%9")},
 	})
 
 	require.NoError(t, manager.lifecycle.ArchiveAgents(ctx, []string{agent.ID}))
@@ -743,7 +743,7 @@ func TestDeletingAnAgentLeavesAnotherAgentsRoundHeld(t *testing.T) {
 	tmux := newFakeTmux()
 	st := newStore(t)
 	manager := st.agentServiceWithLifecycle(tmux, fakeHarnesses{harness: &fakeHarness{}}, &fakeLifecycle{})
-	reviews := reviewstore.New(st.Pool.GetDB())
+	reviews := reviewstore.NewReviewStore(st.Pool.GetDB())
 
 	root := t.TempDir()
 	going := seedRoundedAgent(t, st, reviews, "going", root, "same-sha")
@@ -762,7 +762,7 @@ func TestDeletingAnAgentTakesItsDraftsAndKeepsItsReviews(t *testing.T) {
 	tmux := newFakeTmux()
 	st := newStore(t)
 	manager := st.agentServiceWithLifecycle(tmux, fakeHarnesses{harness: &fakeHarness{}}, &fakeLifecycle{})
-	reviews := reviewstore.New(st.Pool.GetDB())
+	reviews := reviewstore.NewReviewStore(st.Pool.GetDB())
 
 	root := t.TempDir()
 	worker := seedRoundedAgent(t, st, reviews, "worker", root, "worker-sha")
@@ -796,7 +796,7 @@ func TestDeletingAnAgentTakesItsDraftsAndKeepsItsReviews(t *testing.T) {
 }
 
 // openBatch starts a review by one agent on another.
-func openBatch(t *testing.T, reviews *reviewstore.Store, agentID, roundID, author string) *reviewstore.Review {
+func openBatch(t *testing.T, reviews *reviewstore.ReviewStore, agentID, roundID, author string) *reviewstore.Review {
 	t.Helper()
 
 	review, err := reviews.OpenReview(t.Context(), reviewstore.OpenReviewParams{
@@ -811,7 +811,7 @@ func openBatch(t *testing.T, reviews *reviewstore.Store, agentID, roundID, autho
 }
 
 // seedRoundedAgent records an agent in a shared checkout with one round taken of it.
-func seedRoundedAgent(t *testing.T, st *testStore, reviews *reviewstore.Store, name, root, sha string) string {
+func seedRoundedAgent(t *testing.T, st *testStore, reviews *reviewstore.ReviewStore, name, root, sha string) string {
 	t.Helper()
 
 	require.NoError(t, st.Create(t.Context(), agentstore.Agent{

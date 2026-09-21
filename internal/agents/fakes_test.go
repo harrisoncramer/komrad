@@ -517,7 +517,7 @@ func (s *testStore) agentService(options agentServiceOptions) *testAgents {
 	launch := NewLaunchService(NewLaunchServiceParams{
 		Tmux:               options.tmux,
 		Agents:             agents,
-		Reviews:            reviewstore.New(s.Pool.GetDB()),
+		Reviews:            reviewstore.NewReviewStore(s.Pool.GetDB()),
 		Workflows:          s.Workflows,
 		Tx:                 tx,
 		Launcher:           launcher,
@@ -555,7 +555,7 @@ func (s *testStore) agentService(options agentServiceOptions) *testAgents {
 			EmptyWorkflows: emptied,
 			Tx:             tx,
 			Scripts:        options.lifecycle,
-			Reviews:        reviewstore.New(s.Pool.GetDB()),
+			Reviews:        reviewstore.NewReviewStore(s.Pool.GetDB()),
 			Snapshots:      snapshots,
 			LogsDir:        options.logsDir,
 			FramesDir:      options.framesDir,
@@ -802,14 +802,14 @@ func seedInWorkflow(t *testing.T, st *testStore, workflowID, name, pane string, 
 // writingPaneFirst is the store with a pane landing on the row in the one gap an archive or a
 // delete has, after it has read and killed the agents and before its own write commits.
 type writingPaneFirst struct {
-	*agentstore.Store
+	*agentstore.AgentStore
 	inTheGap func()
 }
 
 func (s writingPaneFirst) Archive(ctx context.Context, ids []string) ([]agentstore.AgentPane, error) {
 	s.inTheGap()
 
-	return s.Store.Archive(ctx, ids)
+	return s.AgentStore.Archive(ctx, ids)
 }
 
 // txWritingPaneFirst is the same gap for the writes that go through a transaction, which is

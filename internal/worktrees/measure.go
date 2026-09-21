@@ -31,18 +31,18 @@ type sizeReadWriter interface {
 	Delete(ctx context.Context, dirs []string) error
 }
 
-// Measurer walks the worktree directories a few at a time and records what each takes.
-type Measurer struct {
-	lister pathLister
-	sizes  sizeReadWriter
-	now    func() time.Time
-}
-
 type NewMeasurerParams struct {
 	Lister pathLister
 	Sizes  sizeReadWriter
 	// Now is the clock, time.Now when unset.
 	Now func() time.Time
+}
+
+// Measurer walks the worktree directories a few at a time and records what each takes.
+type Measurer struct {
+	lister pathLister
+	sizes  sizeReadWriter
+	now    func() time.Time
 }
 
 // NewMeasurer builds a measurer over the lister and the size store.

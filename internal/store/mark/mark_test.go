@@ -15,9 +15,9 @@ import (
 )
 
 type fixture struct {
-	*Store
-	agents    *agentstore.Store
-	workflows *workflowstore.Store
+	*MarkStore
+	agents    *agentstore.AgentStore
+	workflows *workflowstore.WorkflowStore
 	workflow  string
 }
 
@@ -28,13 +28,13 @@ func open(t *testing.T) *fixture {
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = pool.Close() })
 
-	workflows := workflowstore.New(pool.GetDB())
+	workflows := workflowstore.NewWorkflowStore(pool.GetDB())
 	created, err := workflows.Create(t.Context(), workflowstore.Config{Name: "default", Worktree: workflowstore.WorktreeConfig{BaseBranch: "main"}})
 	require.NoError(t, err)
 
 	return &fixture{
-		Store:     New(pool.GetDB()),
-		agents:    agentstore.New(pool.GetDB()),
+		MarkStore: NewMarkStore(pool.GetDB()),
+		agents:    agentstore.NewAgentStore(pool.GetDB()),
 		workflows: workflows,
 		workflow:  created.ID,
 	}

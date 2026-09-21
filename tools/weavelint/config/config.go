@@ -3,16 +3,25 @@ package config
 
 // Config is every rule's settings.
 type Config struct {
-	SentinelKind   SentinelKindConfig   `json:"sentinel_kind"`
-	SentinelInline SentinelInlineConfig `json:"sentinel_inline"`
-	WrapPhrase     WrapPhraseConfig     `json:"wrap_phrase"`
-	HandlerShape   HandlerShapeConfig   `json:"handler_shape"`
-	SecretExpose   SecretExposeConfig   `json:"secret_expose"`
-	BareHTTP       BareHTTPConfig       `json:"bare_http"`
-	OnelineFunc    OnelineFuncConfig    `json:"oneline_func"`
-	ConversionName ConversionNameConfig `json:"conversion_name"`
-	CommentClause  CommentClauseConfig  `json:"comment_clause"`
-	SingleAppend   SingleAppendConfig   `json:"single_append"`
+	SentinelKind     SentinelKindConfig     `json:"sentinel_kind"`
+	SentinelInline   SentinelInlineConfig   `json:"sentinel_inline"`
+	WrapPhrase       WrapPhraseConfig       `json:"wrap_phrase"`
+	HandlerShape     HandlerShapeConfig     `json:"handler_shape"`
+	SecretExpose     SecretExposeConfig     `json:"secret_expose"`
+	BareHTTP         BareHTTPConfig         `json:"bare_http"`
+	OnelineFunc      OnelineFuncConfig      `json:"oneline_func"`
+	ConversionName   ConversionNameConfig   `json:"conversion_name"`
+	CommentClause    CommentClauseConfig    `json:"comment_clause"`
+	SingleAppend     SingleAppendConfig     `json:"single_append"`
+	ConstructorShape ConstructorShapeConfig `json:"constructor_shape"`
+}
+
+// ConstructorShapeConfig settles where the constructor rule applies.
+type ConstructorShapeConfig struct {
+	// Skip turns the rule off.
+	Skip bool `json:"skip"`
+	// Exclude is unanchored regexps over the file path.
+	Exclude []string `json:"exclude"`
 }
 
 // SingleAppendConfig settles where the mapping loop rule applies.

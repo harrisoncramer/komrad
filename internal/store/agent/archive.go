@@ -16,7 +16,7 @@ type ArchiveIfUnchangedParams struct {
 }
 
 // ArchiveIfUnchanged archives one agent only while its row still reads as it was observed.
-func (s *Store) ArchiveIfUnchanged(ctx context.Context, params ArchiveIfUnchangedParams) (bool, error) {
+func (s *AgentStore) ArchiveIfUnchanged(ctx context.Context, params ArchiveIfUnchangedParams) (bool, error) {
 	if !store.IsID(params.ID) {
 		return false, nil
 	}
@@ -34,7 +34,7 @@ func (s *Store) ArchiveIfUnchanged(ctx context.Context, params ArchiveIfUnchange
 
 // Archive moves agents out of live listings, returning the pane each row held as it was
 // archived rather than the one the caller last read.
-func (s *Store) Archive(ctx context.Context, ids []string) ([]AgentPane, error) {
+func (s *AgentStore) Archive(ctx context.Context, ids []string) ([]AgentPane, error) {
 	storable := store.KeepIDs(ids)
 	if len(storable) == 0 {
 		return nil, nil
@@ -53,7 +53,7 @@ func (s *Store) Archive(ctx context.Context, ids []string) ([]AgentPane, error) 
 }
 
 // RestampArchived moves the stamp of agents that are already archived to now.
-func (s *Store) RestampArchived(ctx context.Context, ids []string) error {
+func (s *AgentStore) RestampArchived(ctx context.Context, ids []string) error {
 	storable := store.KeepIDs(ids)
 	if len(storable) == 0 {
 		return nil
@@ -67,7 +67,7 @@ func (s *Store) RestampArchived(ctx context.Context, ids []string) error {
 }
 
 // Restore returns archived agents to live listings.
-func (s *Store) Restore(ctx context.Context, ids []string) error {
+func (s *AgentStore) Restore(ctx context.Context, ids []string) error {
 	storable := store.KeepIDs(ids)
 	if len(storable) == 0 {
 		return nil
@@ -82,7 +82,7 @@ func (s *Store) Restore(ctx context.Context, ids []string) error {
 
 // ArchiveWorkflowAgents archives every live agent in a workflow, returning the pane each row
 // held as it was archived.
-func (s *Store) ArchiveWorkflowAgents(ctx context.Context, workflowID string) ([]AgentPane, error) {
+func (s *AgentStore) ArchiveWorkflowAgents(ctx context.Context, workflowID string) ([]AgentPane, error) {
 	archived, err := s.queries.MarkWorkflowAgentsArchived(ctx, workflowID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to archive agents of workflow %q: %w", workflowID, err)
@@ -94,7 +94,7 @@ func (s *Store) ArchiveWorkflowAgents(ctx context.Context, workflowID string) ([
 }
 
 // RestoreWorkflowAgents restores every archived agent in a workflow.
-func (s *Store) RestoreWorkflowAgents(ctx context.Context, workflowID string) error {
+func (s *AgentStore) RestoreWorkflowAgents(ctx context.Context, workflowID string) error {
 	if err := s.queries.MarkWorkflowAgentsRestored(ctx, workflowID); err != nil {
 		return fmt.Errorf("failed to restore agents of workflow %q: %w", workflowID, err)
 	}

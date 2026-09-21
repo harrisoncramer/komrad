@@ -60,18 +60,18 @@ func (a App) Slug(ctx context.Context) (string, error) {
 	return a.Cache.Identity.Slug(ctx, a.client(), a.now())
 }
 
-// AppCredential is an installation token minted on demand and held until it nears expiry.
-type AppCredential struct {
-	app          App
-	connectionID string
-	connections  verifiedSetter
-}
-
 // NewAppCredentialParams says which App to mint from and which row a refusal is recorded on.
 type NewAppCredentialParams struct {
 	App          App
 	ConnectionID string
 	Connections  verifiedSetter
+}
+
+// AppCredential is an installation token minted on demand and held until it nears expiry.
+type AppCredential struct {
+	app          App
+	connectionID string
+	connections  verifiedSetter
 }
 
 // NewAppCredential builds an Authenticator over the App.

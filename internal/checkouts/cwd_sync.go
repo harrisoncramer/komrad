@@ -45,18 +45,6 @@ type tallyLister interface {
 	ListTallies(ctx context.Context) ([]reviewstore.Tally, error)
 }
 
-// CwdSyncer keeps what the panel shows of an agent's working directory in step with the
-// directory itself.
-type CwdSyncer struct {
-	agents    cwdSetter
-	heads     headReader
-	trees     standingReader
-	tallies   tallyLister
-	bases     workflowLister
-	mu        sync.Mutex
-	standings map[string]roundStanding
-}
-
 // roundStanding is where one pass found an agent's worktree against the round it compared it to.
 type roundStanding struct {
 	snapshotSHA string
@@ -70,6 +58,18 @@ type NewCwdSyncerParams struct {
 	Trees   standingReader
 	Tallies tallyLister
 	Bases   workflowLister
+}
+
+// CwdSyncer keeps what the panel shows of an agent's working directory in step with the
+// directory itself.
+type CwdSyncer struct {
+	agents    cwdSetter
+	heads     headReader
+	trees     standingReader
+	tallies   tallyLister
+	bases     workflowLister
+	mu        sync.Mutex
+	standings map[string]roundStanding
 }
 
 // NewCwdSyncer builds a syncer over the agent store.

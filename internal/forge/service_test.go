@@ -79,7 +79,7 @@ func (f *fakeForge) Standings(context.Context, git.RemoteURL, []int) (map[int]St
 
 type fixture struct {
 	service     *Service
-	store       *forgestore.Store
+	store       *forgestore.ForgeStore
 	credentials *FileStore
 	seen        []Credential
 	apis        []string
@@ -95,7 +95,7 @@ func newFixture(t *testing.T, login string, verifyErr error) *fixture {
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = pool.Close() })
 
-	f := &fixture{store: forgestore.New(pool.GetDB()), credentials: NewFileStore(t.TempDir())}
+	f := &fixture{store: forgestore.NewForgeStore(pool.GetDB()), credentials: NewFileStore(t.TempDir())}
 	f.service = NewService(NewServiceParams{
 		Connections: f.store,
 		Credentials: f.credentials,

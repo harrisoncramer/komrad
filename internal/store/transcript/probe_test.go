@@ -30,7 +30,7 @@ func TestProbeRanking(t *testing.T) {
 	require.NoError(t, err)
 	t.Cleanup(pool.Close)
 
-	st := New(pool)
+	st := NewTranscriptStore(pool)
 
 	var (
 		cursor *Cursor

@@ -88,18 +88,18 @@ type mailConfigReader interface {
 	GetMaxExchange() (int, error)
 }
 
-type MailService struct {
-	mailReadWriter mailReadWriter
-	agents         mailAgentReadWriter
-	workflows      workflowGetter
-	config         mailConfigReader
-}
-
 type NewMailServiceParams struct {
 	MailReadWriter mailReadWriter
 	Agents         mailAgentReadWriter
 	Workflows      workflowGetter
 	Config         mailConfigReader
+}
+
+type MailService struct {
+	mailReadWriter mailReadWriter
+	agents         mailAgentReadWriter
+	workflows      workflowGetter
+	config         mailConfigReader
 }
 
 // NewMailService builds the service that sends, claims and lists the mail agents leave for

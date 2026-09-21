@@ -141,19 +141,19 @@ type Observation struct {
 	LastSeenAt    time.Time
 }
 
-// Store reads and writes pull requests and their observations.
-type Store struct {
+// PullRequestStore reads and writes pull requests and their observations.
+type PullRequestStore struct {
 	queries *models.Queries
 }
 
-// New builds a pull request store over a pool or transaction.
-func New(db store.DBTX) *Store {
-	return &Store{queries: models.New(db)}
+// NewPullRequestStore builds a pull request store over a pool or transaction.
+func NewPullRequestStore(db store.DBTX) *PullRequestStore {
+	return &PullRequestStore{queries: models.New(db)}
 }
 
 // Upsert writes a pull request on its identity, leaving a row whose forge-owned columns already
 // match untouched, and says what it did.
-func (s *Store) Upsert(ctx context.Context, params UpsertParams) (*Outcome, error) {
+func (s *PullRequestStore) Upsert(ctx context.Context, params UpsertParams) (*Outcome, error) {
 	row, err := s.queries.UpsertPullRequest(ctx, models.UpsertPullRequestParams{
 		Host:              params.Host,
 		Forge:             params.Forge,
@@ -186,7 +186,7 @@ func (s *Store) Upsert(ctx context.Context, params UpsertParams) (*Outcome, erro
 }
 
 // GetByIdentity is the pull request a forge host knows by an identifier, or ErrNotFound.
-func (s *Store) GetByIdentity(ctx context.Context, host, providerID string) (*PullRequest, error) {
+func (s *PullRequestStore) GetByIdentity(ctx context.Context, host, providerID string) (*PullRequest, error) {
 	row, err := s.queries.GetPullRequestByIdentity(ctx, models.GetPullRequestByIdentityParams{Host: host, ProviderID: providerID})
 	if db.IsNoRows(err) {
 		return nil, store.ErrNotFound.Saying("no pull request %s on %s", providerID, host)
@@ -202,7 +202,7 @@ func (s *Store) GetByIdentity(ctx context.Context, host, providerID string) (*Pu
 
 // ListForAgent is every pull request opened from an agent's branch in its repository, newest
 // opened first, on the same terms the agent's row is attributed by.
-func (s *Store) ListForAgent(ctx context.Context, agentID string) ([]PullRequest, error) {
+func (s *PullRequestStore) ListForAgent(ctx context.Context, agentID string) ([]PullRequest, error) {
 	if !store.IsID(agentID) {
 		return nil, store.ErrNotFound.Saying("no agent with id %q", agentID)
 	}
@@ -218,7 +218,7 @@ func (s *Store) ListForAgent(ctx context.Context, agentID string) ([]PullRequest
 // SetStanding records where the forge said a pull request's reviews, checks and mergeability
 // stand, the reviews read for the change the row holds now and the rest for the head the
 // standing names, and stamps the read at readAt whether or not anything moved.
-func (s *Store) SetStanding(ctx context.Context, id string, standing forge.Standing, readAt time.Time) error {
+func (s *PullRequestStore) SetStanding(ctx context.Context, id string, standing forge.Standing, readAt time.Time) error {
 	var decision *string
 	if standing.Decision != forge.ReviewDecisionNone {
 		decision = xptr.Ptr(string(standing.Decision))
@@ -250,7 +250,7 @@ func (s *Store) SetStanding(ctx context.Context, id string, standing forge.Stand
 // Observe records every live agent beside every stored pull request opened from its branch in
 // its repository, inserting a pair not seen before and moving last_seen_at on one seen more than
 // an hour ago, and answers how many rows it wrote.
-func (s *Store) Observe(ctx context.Context) (int64, error) {
+func (s *PullRequestStore) Observe(ctx context.Context) (int64, error) {
 	written, err := s.queries.ObserveAgentPullRequests(ctx)
 	if err != nil {
 		return 0, fmt.Errorf("failed to observe agents beside their pull requests: %w", err)
@@ -260,7 +260,7 @@ func (s *Store) Observe(ctx context.Context) (int64, error) {
 }
 
 // ListObservations is every pull request an agent has been seen with, oldest first.
-func (s *Store) ListObservations(ctx context.Context, agentID string) ([]Observation, error) {
+func (s *PullRequestStore) ListObservations(ctx context.Context, agentID string) ([]Observation, error) {
 	if !store.IsID(agentID) {
 		return nil, store.ErrNotFound.Saying("no agent with id %q", agentID)
 	}
@@ -281,7 +281,7 @@ func (s *Store) ListObservations(ctx context.Context, agentID string) ([]Observa
 }
 
 // ListLiveRepositories is every repository a live agent sits on.
-func (s *Store) ListLiveRepositories(ctx context.Context) ([]string, error) {
+func (s *PullRequestStore) ListLiveRepositories(ctx context.Context) ([]string, error) {
 	rows, err := s.queries.ListLiveRepositories(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list the repositories live agents sit on: %w", err)

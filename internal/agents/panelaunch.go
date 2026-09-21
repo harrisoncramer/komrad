@@ -35,15 +35,6 @@ const logPathPlaceholder = "{{LOG_PATH}}"
 // fallbackShell is what an agent is started under when tmux names no default shell.
 const fallbackShell = "/bin/sh"
 
-type Launcher struct {
-	tmux        paneStarter
-	serverAddr  string
-	cacheDir    string
-	logPath     string
-	contextPath string
-	hookCommand string
-}
-
 type NewLauncherParams struct {
 	Tmux        paneStarter
 	Addr        string
@@ -51,6 +42,15 @@ type NewLauncherParams struct {
 	LogPath     string
 	ContextPath string
 	HookCommand string
+}
+
+type Launcher struct {
+	tmux        paneStarter
+	serverAddr  string
+	cacheDir    string
+	logPath     string
+	contextPath string
+	hookCommand string
 }
 
 // NewLauncher builds a launcher that points spawned agents at the given address.

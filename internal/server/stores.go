@@ -20,18 +20,18 @@ import (
 
 type stores struct {
 	pool             *store.Pool
-	agents           *agentstore.Store
-	rows             *rowstore.Store
-	workflows        *workflowstore.Store
-	schedules        *schedulestore.Store
-	transcripts      *transcriptstore.Store
-	mail             *mailstore.Store
-	review           *reviewstore.Store
-	runs             *runstore.Store
-	marks            *markstore.Store
-	forges           *forgestore.Store
-	pullRequests     *pullrequeststore.Store
-	pullRequestSyncs *pullrequeststore.SyncStore
+	agents           *agentstore.AgentStore
+	rows             *rowstore.RowStore
+	workflows        *workflowstore.WorkflowStore
+	schedules        *schedulestore.ScheduleStore
+	transcripts      *transcriptstore.TranscriptStore
+	mail             *mailstore.MailStore
+	review           *reviewstore.ReviewStore
+	runs             *runstore.RunStore
+	marks            *markstore.MarkStore
+	forges           *forgestore.ForgeStore
+	pullRequests     *pullrequeststore.PullRequestStore
+	pullRequestSyncs *pullrequeststore.PullRequestSyncStore
 	sizes            *worktreestore.WorktreeStore
 }
 
@@ -45,18 +45,18 @@ func openStores(ctx context.Context, databaseURL string) (*stores, error) {
 
 	return &stores{
 		pool:             pool,
-		agents:           agentstore.New(db),
-		rows:             rowstore.New(db),
-		workflows:        workflowstore.New(db),
-		schedules:        schedulestore.New(db),
-		transcripts:      transcriptstore.New(db),
-		mail:             mailstore.New(db),
-		review:           reviewstore.New(db),
-		runs:             runstore.New(db),
-		marks:            markstore.New(db),
-		forges:           forgestore.New(db),
-		pullRequests:     pullrequeststore.New(db),
-		pullRequestSyncs: pullrequeststore.NewSyncStore(db),
+		agents:           agentstore.NewAgentStore(db),
+		rows:             rowstore.NewRowStore(db),
+		workflows:        workflowstore.NewWorkflowStore(db),
+		schedules:        schedulestore.NewScheduleStore(db),
+		transcripts:      transcriptstore.NewTranscriptStore(db),
+		mail:             mailstore.NewMailStore(db),
+		review:           reviewstore.NewReviewStore(db),
+		runs:             runstore.NewRunStore(db),
+		marks:            markstore.NewMarkStore(db),
+		forges:           forgestore.NewForgeStore(db),
+		pullRequests:     pullrequeststore.NewPullRequestStore(db),
+		pullRequestSyncs: pullrequeststore.NewPullRequestSyncStore(db),
 		sizes:            worktreestore.NewWorktreeStore(db),
 	}, nil
 }

@@ -9,7 +9,7 @@ import (
 )
 
 // SetHidden updates a live agent's hidden state.
-func (s *Store) SetHidden(ctx context.Context, id string, hidden bool) (bool, error) {
+func (s *AgentStore) SetHidden(ctx context.Context, id string, hidden bool) (bool, error) {
 	if !store.IsID(id) {
 		return false, nil
 	}

@@ -47,18 +47,18 @@ type CreateParams struct {
 	VerifiedAt time.Time
 }
 
-// Store reads and writes forge connections.
-type Store struct {
+// ForgeStore reads and writes forge connections.
+type ForgeStore struct {
 	queries *models.Queries
 }
 
-// New builds a connection store over a pool or transaction.
-func New(db store.DBTX) *Store {
-	return &Store{queries: models.New(db)}
+// NewForgeStore builds a connection store over a pool or transaction.
+func NewForgeStore(db store.DBTX) *ForgeStore {
+	return &ForgeStore{queries: models.New(db)}
 }
 
 // Create records a connection, refusing a host that already has one.
-func (s *Store) Create(ctx context.Context, params CreateParams) (*Connection, error) {
+func (s *ForgeStore) Create(ctx context.Context, params CreateParams) (*Connection, error) {
 	verified := params.VerifiedAt
 	row, err := s.queries.CreateForgeConnection(ctx, models.CreateForgeConnectionParams{
 		Kind:       params.Kind,
@@ -81,7 +81,7 @@ func (s *Store) Create(ctx context.Context, params CreateParams) (*Connection, e
 }
 
 // Get is a connection by id, or ErrNotFound.
-func (s *Store) Get(ctx context.Context, id string) (*Connection, error) {
+func (s *ForgeStore) Get(ctx context.Context, id string) (*Connection, error) {
 	if !store.IsID(id) {
 		return nil, store.ErrNotFound.Saying("no connection with id %q", id)
 	}
@@ -100,7 +100,7 @@ func (s *Store) Get(ctx context.Context, id string) (*Connection, error) {
 }
 
 // GetByHost is the connection for a host, or ErrNotFound.
-func (s *Store) GetByHost(ctx context.Context, host string) (*Connection, error) {
+func (s *ForgeStore) GetByHost(ctx context.Context, host string) (*Connection, error) {
 	row, err := s.queries.GetForgeConnectionByHost(ctx, host)
 	if db.IsNoRows(err) {
 		return nil, store.ErrNotFound.Saying("%s is not connected", host)
@@ -115,7 +115,7 @@ func (s *Store) GetByHost(ctx context.Context, host string) (*Connection, error)
 }
 
 // List is every connection, by host.
-func (s *Store) List(ctx context.Context) ([]Connection, error) {
+func (s *ForgeStore) List(ctx context.Context) ([]Connection, error) {
 	rows, err := s.queries.ListForgeConnections(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list connections: %w", err)
@@ -127,7 +127,7 @@ func (s *Store) List(ctx context.Context) ([]Connection, error) {
 }
 
 // SetVerifiedAt records when the forge last confirmed the credential, or clears it.
-func (s *Store) SetVerifiedAt(ctx context.Context, id string, at *time.Time) error {
+func (s *ForgeStore) SetVerifiedAt(ctx context.Context, id string, at *time.Time) error {
 	if !store.IsID(id) {
 		return store.ErrNotFound.Saying("no connection with id %q", id)
 	}
@@ -144,7 +144,7 @@ func (s *Store) SetVerifiedAt(ctx context.Context, id string, at *time.Time) err
 }
 
 // SetThrottledUntil records when the forge said the credential's rate limit resets, or clears it.
-func (s *Store) SetThrottledUntil(ctx context.Context, id string, until *time.Time) error {
+func (s *ForgeStore) SetThrottledUntil(ctx context.Context, id string, until *time.Time) error {
 	if !store.IsID(id) {
 		return store.ErrNotFound.Saying("no connection with id %q", id)
 	}
@@ -161,7 +161,7 @@ func (s *Store) SetThrottledUntil(ctx context.Context, id string, until *time.Ti
 }
 
 // Delete removes a connection, or ErrNotFound.
-func (s *Store) Delete(ctx context.Context, id string) error {
+func (s *ForgeStore) Delete(ctx context.Context, id string) error {
 	if !store.IsID(id) {
 		return store.ErrNotFound.Saying("no connection with id %q", id)
 	}

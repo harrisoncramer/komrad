@@ -112,25 +112,27 @@ func TestSetStateByIDStampsOnlyOnAChange(t *testing.T) {
 func TestSettersRefuseAnIDThatIsNotOne(t *testing.T) {
 	tests := []struct {
 		name  string
-		write func(*Store, string) error
+		write func(*AgentStore, string) error
 	}{
 		{
 			name: "the checkout",
-			write: func(s *Store, id string) error {
+			write: func(s *AgentStore, id string) error {
 				return s.SetCheckout(t.Context(), id, SetCheckoutParams{Branch: xptr.Ptr("main")})
 			},
 		},
 		{
-			name:  "the cut-off turn",
-			write: func(s *Store, id string) error { return s.SetInterruptedAtByID(t.Context(), id, xptr.Ptr(time.Now())) },
+			name: "the cut-off turn",
+			write: func(s *AgentStore, id string) error {
+				return s.SetInterruptedAtByID(t.Context(), id, xptr.Ptr(time.Now()))
+			},
 		},
 		{
 			name:  "the session",
-			write: func(s *Store, id string) error { return s.SetSessionID(t.Context(), id, "session") },
+			write: func(s *AgentStore, id string) error { return s.SetSessionID(t.Context(), id, "session") },
 		},
 		{
 			name:  "the reported reason",
-			write: func(s *Store, id string) error { return s.SetReportedReason(t.Context(), id, "Bash") },
+			write: func(s *AgentStore, id string) error { return s.SetReportedReason(t.Context(), id, "Bash") },
 		},
 	}
 
@@ -138,8 +140,8 @@ func TestSettersRefuseAnIDThatIsNotOne(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			st := open(t)
 
-			require.ErrorIs(t, tt.write(st.Store, "not-a-uuid"), store.ErrNotFound)
-			require.NoError(t, tt.write(st.Store, "00000000-0000-0000-0000-0000000000ff"),
+			require.ErrorIs(t, tt.write(st.AgentStore, "not-a-uuid"), store.ErrNotFound)
+			require.NoError(t, tt.write(st.AgentStore, "00000000-0000-0000-0000-0000000000ff"),
 				"an id no agent holds is not the same question")
 		})
 	}
@@ -195,7 +197,7 @@ func TestANudgeIsReclaimedOnTheDatabaseClock(t *testing.T) {
 	require.NoError(t, st.pool.InTx(ctx, func(db store.DBTX) error {
 		time.Sleep(300 * time.Millisecond)
 
-		again, err := New(db).ClaimNudge(ctx, agent.ID, 200*time.Millisecond)
+		again, err := NewAgentStore(db).ClaimNudge(ctx, agent.ID, 200*time.Millisecond)
 		require.NoError(t, err)
 		assert.False(t, again, "no database time has passed, so the nudge still stands")
 

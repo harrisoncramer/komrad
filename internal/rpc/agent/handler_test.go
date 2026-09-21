@@ -2281,7 +2281,7 @@ func serviceWithLauncher(t *testing.T) (agentv1weave.AgentServiceAdapter, *store
 		Config:         fakeMailConfig(config.DefaultMaxExchange),
 	})
 
-	rounds := reviewstore.New(st.Pool.GetDB())
+	rounds := reviewstore.NewReviewStore(st.Pool.GetDB())
 	review := reviews.NewReviewService(reviews.NewReviewServiceParams{
 		Threads:   rounds,
 		Messages:  rounds,

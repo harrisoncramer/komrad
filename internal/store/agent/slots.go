@@ -10,7 +10,7 @@ import (
 const slotsLock int64 = 7_240_116
 
 // CountLive returns the number of unarchived agents.
-func (s *Store) CountLive(ctx context.Context) (int64, error) {
+func (s *AgentStore) CountLive(ctx context.Context) (int64, error) {
 	count, err := s.queries.CountLiveAgents(ctx)
 	if err != nil {
 		return 0, fmt.Errorf("failed to count the live agents: %w", err)
@@ -20,7 +20,7 @@ func (s *Store) CountLive(ctx context.Context) (int64, error) {
 }
 
 // LockSlots serializes agent slot claims for the current transaction.
-func (s *Store) LockSlots(ctx context.Context) error {
+func (s *AgentStore) LockSlots(ctx context.Context) error {
 	if err := s.queries.LockAgentSlots(ctx, slotsLock); err != nil {
 		return fmt.Errorf("failed to lock the agent slots: %w", err)
 	}
@@ -29,7 +29,7 @@ func (s *Store) LockSlots(ctx context.Context) error {
 }
 
 // CountLiveForSchedule returns the number of non-idle agents launched by a schedule.
-func (s *Store) CountLiveForSchedule(ctx context.Context, scheduleID string) (int64, error) {
+func (s *AgentStore) CountLiveForSchedule(ctx context.Context, scheduleID string) (int64, error) {
 	if !store.IsID(scheduleID) {
 		return 0, nil
 	}

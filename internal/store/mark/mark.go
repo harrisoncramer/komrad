@@ -18,17 +18,17 @@ type Mark struct {
 	WorkflowID *string
 }
 
-type Store struct {
+type MarkStore struct {
 	queries *models.Queries
 }
 
-// New builds a mark store over a pool or transaction.
-func New(db store.DBTX) *Store {
-	return &Store{queries: models.New(db)}
+// NewMarkStore builds a mark store over a pool or transaction.
+func NewMarkStore(db store.DBTX) *MarkStore {
+	return &MarkStore{queries: models.New(db)}
 }
 
 // List reads every mark.
-func (s *Store) List(ctx context.Context) ([]Mark, error) {
+func (s *MarkStore) List(ctx context.Context) ([]Mark, error) {
 	rows, err := s.queries.ListMarks(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list marks: %w", err)
@@ -46,7 +46,7 @@ func (s *Store) List(ctx context.Context) ([]Mark, error) {
 }
 
 // ClearConflicts frees the letter and whatever the row already answered to.
-func (s *Store) ClearConflicts(ctx context.Context, mark string, target Target) error {
+func (s *MarkStore) ClearConflicts(ctx context.Context, mark string, target Target) error {
 	err := s.queries.ClearMarkConflicts(ctx, models.ClearMarkConflictsParams{
 		Mark:       mark,
 		AgentID:    target.AgentID,
@@ -60,7 +60,7 @@ func (s *Store) ClearConflicts(ctx context.Context, mark string, target Target) 
 }
 
 // Clear takes whatever letter a row answers to off it, and reports whether it held one.
-func (s *Store) Clear(ctx context.Context, target Target) (bool, error) {
+func (s *MarkStore) Clear(ctx context.Context, target Target) (bool, error) {
 	cleared, err := s.queries.DeleteMarkForTarget(ctx, models.DeleteMarkForTargetParams{
 		AgentID:    target.AgentID,
 		WorkflowID: target.WorkflowID,
@@ -73,7 +73,7 @@ func (s *Store) Clear(ctx context.Context, target Target) (bool, error) {
 }
 
 // Set puts a letter on a live row and reports whether the row was there to take it.
-func (s *Store) Set(ctx context.Context, mark string, target Target) (bool, error) {
+func (s *MarkStore) Set(ctx context.Context, mark string, target Target) (bool, error) {
 	var marked int64
 	var err error
 

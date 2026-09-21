@@ -133,7 +133,7 @@ func serve(t *testing.T, answers map[string]answer) (*Forge, *fakeAuth, *fakeGit
 
 	auth := &fakeAuth{token: "secret"}
 
-	return New(NewParams{
+	return NewForge(NewForgeParams{
 		Auth: auth,
 		API:  server.URL,
 		Next: server.Client().Transport,
@@ -539,7 +539,7 @@ func TestCredentialFailureIsNotAReachFailure(t *testing.T) {
 	t.Parallel()
 
 	refused := forge.ErrUnauthorized.Saying("github refused to mint an installation token: 401 Unauthorized")
-	f := New(NewParams{Auth: refusingAuth{err: refused}, API: "http://127.0.0.1:1"})
+	f := NewForge(NewForgeParams{Auth: refusingAuth{err: refused}, API: "http://127.0.0.1:1"})
 
 	_, err := f.VerifyInstallation(t.Context())
 	require.ErrorIs(t, err, forge.ErrUnauthorized)
@@ -759,7 +759,7 @@ func TestGraphQLURLSitsBesideTheRESTBase(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			f := New(NewParams{Auth: &fakeAuth{}, API: tt.api})
+			f := NewForge(NewForgeParams{Auth: &fakeAuth{}, API: tt.api})
 			assert.Equal(t, tt.want, f.client.URL())
 		})
 	}

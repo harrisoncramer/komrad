@@ -46,13 +46,13 @@ type Mail struct {
 	CreatedAt    time.Time
 }
 
-type Store struct {
+type MailStore struct {
 	queries *models.Queries
 }
 
-// New builds the mail store over a database handle or a transaction.
-func New(db store.DBTX) *Store {
-	return &Store{queries: models.New(db)}
+// NewMailStore builds the mail store over a database handle or a transaction.
+func NewMailStore(db store.DBTX) *MailStore {
+	return &MailStore{queries: models.New(db)}
 }
 
 type SendParams struct {
@@ -69,7 +69,7 @@ type SendParams struct {
 }
 
 // Send writes one piece of mail.
-func (s *Store) Send(ctx context.Context, params SendParams) (*Mail, error) {
+func (s *MailStore) Send(ctx context.Context, params SendParams) (*Mail, error) {
 	kind := params.Kind
 	if kind == "" {
 		kind = KindPlain
@@ -96,7 +96,7 @@ func (s *Store) Send(ctx context.Context, params SendParams) (*Mail, error) {
 
 // GetPendingOfKind is the notice of a kind, about the same agent, that its recipient is already
 // holding unread, ErrNotFound when it holds none.
-func (s *Store) GetPendingOfKind(ctx context.Context, toAgentID string, kind Kind, about string) (*Mail, error) {
+func (s *MailStore) GetPendingOfKind(ctx context.Context, toAgentID string, kind Kind, about string) (*Mail, error) {
 	if !store.IsID(toAgentID) || !store.IsID(about) {
 		return nil, noPendingOfKind(toAgentID, kind)
 	}
@@ -123,7 +123,7 @@ func noPendingOfKind(toAgentID string, kind Kind) error {
 }
 
 // GetByID returns one piece of mail, claimed or not.
-func (s *Store) GetByID(ctx context.Context, id string) (*Mail, error) {
+func (s *MailStore) GetByID(ctx context.Context, id string) (*Mail, error) {
 	if !store.IsID(id) {
 		return nil, fmt.Errorf("%w: mail %q", store.ErrNotFound, id)
 	}
@@ -142,7 +142,7 @@ func (s *Store) GetByID(ctx context.Context, id string) (*Mail, error) {
 }
 
 // Claim marks up to limit of an agent's waiting mail as read and returns it, oldest first.
-func (s *Store) Claim(ctx context.Context, toAgentID string, limit int32) ([]Mail, error) {
+func (s *MailStore) Claim(ctx context.Context, toAgentID string, limit int32) ([]Mail, error) {
 	if !store.IsID(toAgentID) {
 		return nil, nil
 	}
@@ -168,7 +168,7 @@ func (s *Store) Claim(ctx context.Context, toAgentID string, limit int32) ([]Mai
 
 // ListPage returns one page of the mail addressed to an agent, newest first, and never marks
 // anything as read.
-func (s *Store) ListPage(ctx context.Context, toAgentID string, limit int32, cursor *Cursor) ([]Mail, error) {
+func (s *MailStore) ListPage(ctx context.Context, toAgentID string, limit int32, cursor *Cursor) ([]Mail, error) {
 	if !store.IsID(toAgentID) {
 		return nil, nil
 	}
@@ -189,7 +189,7 @@ func (s *Store) ListPage(ctx context.Context, toAgentID string, limit int32, cur
 }
 
 // ListSentPage returns one page of the mail an agent sent, newest first.
-func (s *Store) ListSentPage(ctx context.Context, fromAgentID string, limit int32, cursor *Cursor) ([]Mail, error) {
+func (s *MailStore) ListSentPage(ctx context.Context, fromAgentID string, limit int32, cursor *Cursor) ([]Mail, error) {
 	if !store.IsID(fromAgentID) {
 		return nil, nil
 	}
@@ -210,7 +210,7 @@ func (s *Store) ListSentPage(ctx context.Context, fromAgentID string, limit int3
 }
 
 // ListByID returns whichever of the given ids hold mail.
-func (s *Store) ListByID(ctx context.Context, ids []string) ([]Mail, error) {
+func (s *MailStore) ListByID(ctx context.Context, ids []string) ([]Mail, error) {
 	storable := store.KeepIDs(ids)
 	if len(storable) == 0 {
 		return nil, nil
@@ -227,7 +227,7 @@ func (s *Store) ListByID(ctx context.Context, ids []string) ([]Mail, error) {
 }
 
 // Delete permanently removes mail by id without checking that every id holds any.
-func (s *Store) Delete(ctx context.Context, ids []string) error {
+func (s *MailStore) Delete(ctx context.Context, ids []string) error {
 	storable := store.KeepIDs(ids)
 	if len(storable) == 0 {
 		return nil
@@ -242,7 +242,7 @@ func (s *Store) Delete(ctx context.Context, ids []string) error {
 
 // CountExchanged is how much plain mail two agents have written to each other, in either
 // direction, leaving out the notices weave raised itself.
-func (s *Store) CountExchanged(ctx context.Context, one, other string) (int64, error) {
+func (s *MailStore) CountExchanged(ctx context.Context, one, other string) (int64, error) {
 	if !store.IsID(one) || !store.IsID(other) {
 		return 0, nil
 	}
@@ -259,7 +259,7 @@ func (s *Store) CountExchanged(ctx context.Context, one, other string) (int64, e
 }
 
 // CountPending returns how much unclaimed mail is waiting for an agent.
-func (s *Store) CountPending(ctx context.Context, toAgentID string) (int64, error) {
+func (s *MailStore) CountPending(ctx context.Context, toAgentID string) (int64, error) {
 	if !store.IsID(toAgentID) {
 		return 0, nil
 	}
@@ -274,7 +274,7 @@ func (s *Store) CountPending(ctx context.Context, toAgentID string) (int64, erro
 
 // ListPendingMailboxes is every agent holding unclaimed mail, whether that mail is still live
 // or has expired without being reported.
-func (s *Store) ListPendingMailboxes(ctx context.Context) ([]string, error) {
+func (s *MailStore) ListPendingMailboxes(ctx context.Context) ([]string, error) {
 	rows, err := s.queries.ListMailboxesWithPendingMail(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list the mailboxes holding mail: %w", err)
@@ -285,7 +285,7 @@ func (s *Store) ListPendingMailboxes(ctx context.Context) ([]string, error) {
 
 // ListExpired reports the mail that ran out of time before the recipient claimed it, and marks
 // it reported so the next call does not hand back the same mail.
-func (s *Store) ListExpired(ctx context.Context, toAgentID string) ([]Mail, error) {
+func (s *MailStore) ListExpired(ctx context.Context, toAgentID string) ([]Mail, error) {
 	if !store.IsID(toAgentID) {
 		return nil, nil
 	}

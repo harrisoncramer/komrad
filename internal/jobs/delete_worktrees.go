@@ -26,7 +26,7 @@ func NewWorktreeDelete(queue *Enqueuer) *WorktreeDelete {
 // delete of the directories in the same transaction.
 func (d *WorktreeDelete) DeleteWorktrees(ctx context.Context, dirs []string) error {
 	return d.queue.InsertTx(ctx, internaljobs.DeleteWorktreesArgs{Dirs: dirs}, func(tx pgx.Tx) error {
-		return agentstore.New(tx).MarkArchivedDeletingByID(ctx, xslice.Map(dirs, filepath.Base))
+		return agentstore.NewAgentStore(tx).MarkArchivedDeletingByID(ctx, xslice.Map(dirs, filepath.Base))
 	})
 }
 

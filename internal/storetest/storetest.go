@@ -31,16 +31,16 @@ type Stores struct {
 	URL              string
 	ReadOnlyURL      string
 	Pool             *store.Pool
-	Agents           *agentstore.Store
-	Rows             *rowstore.Store
-	Workflows        *workflowstore.Store
-	Schedules        *schedulestore.Store
-	Transcripts      *transcriptstore.Store
-	Mail             *mailstore.Store
-	Runs             *runstore.Store
-	Marks            *markstore.Store
-	PullRequests     *pullrequeststore.Store
-	PullRequestSyncs *pullrequeststore.SyncStore
+	Agents           *agentstore.AgentStore
+	Rows             *rowstore.RowStore
+	Workflows        *workflowstore.WorkflowStore
+	Schedules        *schedulestore.ScheduleStore
+	Transcripts      *transcriptstore.TranscriptStore
+	Mail             *mailstore.MailStore
+	Runs             *runstore.RunStore
+	Marks            *markstore.MarkStore
+	PullRequests     *pullrequeststore.PullRequestStore
+	PullRequestSyncs *pullrequeststore.PullRequestSyncStore
 }
 
 // Open builds the stores over a database of this test's own, closed when the
@@ -58,16 +58,16 @@ func Open(t *testing.T) *Stores {
 		URL:              dbURL,
 		ReadOnlyURL:      grantReadOnly(t, pool, dbURL),
 		Pool:             pool,
-		Agents:           agentstore.New(pool.GetDB()),
-		Rows:             rowstore.New(pool.GetDB()),
-		Workflows:        workflowstore.New(pool.GetDB()),
-		Schedules:        schedulestore.New(pool.GetDB()),
-		Transcripts:      transcriptstore.New(pool.GetDB()),
-		Mail:             mailstore.New(pool.GetDB()),
-		Runs:             runstore.New(pool.GetDB()),
-		Marks:            markstore.New(pool.GetDB()),
-		PullRequests:     pullrequeststore.New(pool.GetDB()),
-		PullRequestSyncs: pullrequeststore.NewSyncStore(pool.GetDB()),
+		Agents:           agentstore.NewAgentStore(pool.GetDB()),
+		Rows:             rowstore.NewRowStore(pool.GetDB()),
+		Workflows:        workflowstore.NewWorkflowStore(pool.GetDB()),
+		Schedules:        schedulestore.NewScheduleStore(pool.GetDB()),
+		Transcripts:      transcriptstore.NewTranscriptStore(pool.GetDB()),
+		Mail:             mailstore.NewMailStore(pool.GetDB()),
+		Runs:             runstore.NewRunStore(pool.GetDB()),
+		Marks:            markstore.NewMarkStore(pool.GetDB()),
+		PullRequests:     pullrequeststore.NewPullRequestStore(pool.GetDB()),
+		PullRequestSyncs: pullrequeststore.NewPullRequestSyncStore(pool.GetDB()),
 	}
 }
 

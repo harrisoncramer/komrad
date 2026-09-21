@@ -12,7 +12,7 @@ import (
 )
 
 // List returns every persisted agent, newest first.
-func (s *Store) List(ctx context.Context) ([]Agent, error) {
+func (s *AgentStore) List(ctx context.Context) ([]Agent, error) {
 	rows, err := s.queries.ListAgents(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list agents: %w", err)
@@ -39,7 +39,7 @@ type AgentDir struct {
 }
 
 // ListDirs returns the directory every agent holds, archived ones included.
-func (s *Store) ListDirs(ctx context.Context) ([]AgentDir, error) {
+func (s *AgentStore) ListDirs(ctx context.Context) ([]AgentDir, error) {
 	rows, err := s.queries.ListAgentDirs(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list the directories agents hold: %w", err)
@@ -62,7 +62,7 @@ func (s *Store) ListDirs(ctx context.Context) ([]AgentDir, error) {
 
 // ListArchiveSweepPage returns one page of archived agents, newest first, including the rows a
 // delete has already claimed.
-func (s *Store) ListArchiveSweepPage(ctx context.Context, limit int64, cursor *Cursor) ([]Agent, error) {
+func (s *AgentStore) ListArchiveSweepPage(ctx context.Context, limit int64, cursor *Cursor) ([]Agent, error) {
 	params := models.ListArchiveSweepPageParams{Lim: int32(limit)}
 	if cursor != nil {
 		params.CursorID = &cursor.ID
@@ -77,7 +77,7 @@ func (s *Store) ListArchiveSweepPage(ctx context.Context, limit int64, cursor *C
 }
 
 // ListAll returns every agent including archived ones, newest first, for search.
-func (s *Store) ListAll(ctx context.Context) ([]Agent, error) {
+func (s *AgentStore) ListAll(ctx context.Context) ([]Agent, error) {
 	rows, err := s.queries.ListAllAgents(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list all agents: %w", err)
@@ -88,7 +88,7 @@ func (s *Store) ListAll(ctx context.Context) ([]Agent, error) {
 
 // ListForTranscriptSync returns every agent whose log can still hold turns nobody has read: the
 // live ones, and the archived ones holding a conversation last synced before they were archived.
-func (s *Store) ListForTranscriptSync(ctx context.Context) ([]Agent, error) {
+func (s *AgentStore) ListForTranscriptSync(ctx context.Context) ([]Agent, error) {
 	rows, err := s.queries.ListAgentsForTranscriptSync(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list agents for transcript sync: %w", err)
@@ -98,7 +98,7 @@ func (s *Store) ListForTranscriptSync(ctx context.Context) ([]Agent, error) {
 }
 
 // GetInWorkflow returns a live agent by workflow and name.
-func (s *Store) GetInWorkflow(ctx context.Context, workflowID, name string) (*Agent, error) {
+func (s *AgentStore) GetInWorkflow(ctx context.Context, workflowID, name string) (*Agent, error) {
 	row, err := s.queries.GetAgentInWorkflow(ctx, models.GetAgentInWorkflowParams{
 		WorkflowID: workflowID,
 		Name:       name,
@@ -114,7 +114,7 @@ func (s *Store) GetInWorkflow(ctx context.Context, workflowID, name string) (*Ag
 }
 
 // ListLiveNamed returns the live agents holding a name, across every workflow.
-func (s *Store) ListLiveNamed(ctx context.Context, name string) ([]Agent, error) {
+func (s *AgentStore) ListLiveNamed(ctx context.Context, name string) ([]Agent, error) {
 	rows, err := s.queries.ListLiveAgentsNamed(ctx, name)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list the live agents named %q: %w", name, err)
@@ -124,7 +124,7 @@ func (s *Store) ListLiveNamed(ctx context.Context, name string) ([]Agent, error)
 }
 
 // GetByID returns a live or archived agent by ID.
-func (s *Store) GetByID(ctx context.Context, id string) (*Agent, error) {
+func (s *AgentStore) GetByID(ctx context.Context, id string) (*Agent, error) {
 	if !store.IsID(id) {
 		return nil, store.ErrNotFound.Saying("no agent with id %q", id)
 	}
@@ -141,7 +141,7 @@ func (s *Store) GetByID(ctx context.Context, id string) (*Agent, error) {
 }
 
 // ListByID returns live and archived agents matching the given IDs.
-func (s *Store) ListByID(ctx context.Context, ids []string) ([]Agent, error) {
+func (s *AgentStore) ListByID(ctx context.Context, ids []string) ([]Agent, error) {
 	storable := store.KeepIDs(ids)
 	if len(storable) == 0 {
 		return nil, nil
@@ -156,7 +156,7 @@ func (s *Store) ListByID(ctx context.Context, ids []string) ([]Agent, error) {
 }
 
 // Exists reports whether any agent holds the given id, including archived ones.
-func (s *Store) Exists(ctx context.Context, id string) (bool, error) {
+func (s *AgentStore) Exists(ctx context.Context, id string) (bool, error) {
 	if !store.IsID(id) {
 		return false, nil
 	}
@@ -170,7 +170,7 @@ func (s *Store) Exists(ctx context.Context, id string) (bool, error) {
 }
 
 // ExistsActiveName reports whether a live agent holds the name in a workflow.
-func (s *Store) ExistsActiveName(ctx context.Context, workflowID, name string) (bool, error) {
+func (s *AgentStore) ExistsActiveName(ctx context.Context, workflowID, name string) (bool, error) {
 	exists, err := s.queries.ActiveNameExists(ctx, models.ActiveNameExistsParams{
 		WorkflowID: workflowID,
 		Name:       name,
@@ -184,7 +184,7 @@ func (s *Store) ExistsActiveName(ctx context.Context, workflowID, name string) (
 
 // ListNamesHoldingSchedule returns the names of the agents outside a workflow that still point
 // at a schedule.
-func (s *Store) ListNamesHoldingSchedule(ctx context.Context, scheduleID, workflowID string) ([]string, error) {
+func (s *AgentStore) ListNamesHoldingSchedule(ctx context.Context, scheduleID, workflowID string) ([]string, error) {
 	if !store.IsID(scheduleID) || !store.IsID(workflowID) {
 		return nil, nil
 	}
@@ -201,7 +201,7 @@ func (s *Store) ListNamesHoldingSchedule(ctx context.Context, scheduleID, workfl
 }
 
 // ListLiveInWorkflow returns the live agents in a workflow.
-func (s *Store) ListLiveInWorkflow(ctx context.Context, workflowID string) ([]Agent, error) {
+func (s *AgentStore) ListLiveInWorkflow(ctx context.Context, workflowID string) ([]Agent, error) {
 	rows, err := s.queries.ListLiveWorkflowAgents(ctx, workflowID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list live agents of workflow %q: %w", workflowID, err)
@@ -211,7 +211,7 @@ func (s *Store) ListLiveInWorkflow(ctx context.Context, workflowID string) ([]Ag
 }
 
 // ListArchivedInWorkflow returns the archived agents in a workflow.
-func (s *Store) ListArchivedInWorkflow(ctx context.Context, workflowID string) ([]Agent, error) {
+func (s *AgentStore) ListArchivedInWorkflow(ctx context.Context, workflowID string) ([]Agent, error) {
 	rows, err := s.queries.ListArchivedWorkflowAgents(ctx, workflowID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list archived agents of workflow %q: %w", workflowID, err)
@@ -221,7 +221,7 @@ func (s *Store) ListArchivedInWorkflow(ctx context.Context, workflowID string) (
 }
 
 // ListChildren returns the agents attached to the given parents, archived ones included.
-func (s *Store) ListChildren(ctx context.Context, parentIDs []string) ([]Agent, error) {
+func (s *AgentStore) ListChildren(ctx context.Context, parentIDs []string) ([]Agent, error) {
 	storable := store.KeepIDs(parentIDs)
 	if len(storable) == 0 {
 		return nil, nil
@@ -236,7 +236,7 @@ func (s *Store) ListChildren(ctx context.Context, parentIDs []string) ([]Agent, 
 }
 
 // CountLiveChildren returns how many live agents are attached to one parent.
-func (s *Store) CountLiveChildren(ctx context.Context, parentID string) (int, error) {
+func (s *AgentStore) CountLiveChildren(ctx context.Context, parentID string) (int, error) {
 	if !store.IsID(parentID) {
 		return 0, nil
 	}
@@ -251,7 +251,7 @@ func (s *Store) CountLiveChildren(ctx context.Context, parentID string) (int, er
 
 // GetWorkflowOrchestrator returns the orchestrator a workflow holds, live or archived, and
 // ErrNotFound when it has none.
-func (s *Store) GetWorkflowOrchestrator(ctx context.Context, workflowID string) (*Agent, error) {
+func (s *AgentStore) GetWorkflowOrchestrator(ctx context.Context, workflowID string) (*Agent, error) {
 	if !store.IsID(workflowID) {
 		return nil, fmt.Errorf("%w: workflow %q", store.ErrNotFound, workflowID)
 	}

@@ -160,7 +160,7 @@ func (f *scriptedForge) List(_ context.Context, params forge.ListParams) (*forge
 
 // scriptedFinder answers the connection from the real store and always the one scripted forge.
 type scriptedFinder struct {
-	connections *forgestore.Store
+	connections *forgestore.ForgeStore
 	forge       *scriptedForge
 }
 
@@ -179,10 +179,10 @@ func (f *scriptedFinder) SetThrottledUntil(ctx context.Context, id string, until
 type syncFixture struct {
 	syncer       *PullRequestSyncer
 	forge        *scriptedForge
-	connections  *forgestore.Store
-	pullRequests *pullrequeststore.Store
-	syncs        *pullrequeststore.SyncStore
-	agents       *agentstore.Store
+	connections  *forgestore.ForgeStore
+	pullRequests *pullrequeststore.PullRequestStore
+	syncs        *pullrequeststore.PullRequestSyncStore
+	agents       *agentstore.AgentStore
 	workflow     string
 	now          time.Time
 }
@@ -195,14 +195,14 @@ func newSyncFixture(t *testing.T) *syncFixture {
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = pool.Close() })
 
-	workflows := workflowstore.New(pool.GetDB())
+	workflows := workflowstore.NewWorkflowStore(pool.GetDB())
 	created, err := workflows.Create(ctx, workflowstore.Config{
 		Name:     "weave",
 		Worktree: workflowstore.WorktreeConfig{Enabled: true, BaseBranch: "main"},
 	})
 	require.NoError(t, err)
 
-	connections := forgestore.New(pool.GetDB())
+	connections := forgestore.NewForgeStore(pool.GetDB())
 	_, err = connections.Create(ctx, forgestore.CreateParams{
 		Kind:       forge.KindGitHub,
 		Host:       "github.com",
@@ -223,9 +223,9 @@ func newSyncFixture(t *testing.T) *syncFixture {
 	f := &syncFixture{
 		forge:        scripted,
 		connections:  connections,
-		pullRequests: pullrequeststore.New(pool.GetDB()),
-		syncs:        pullrequeststore.NewSyncStore(pool.GetDB()),
-		agents:       agentstore.New(pool.GetDB()),
+		pullRequests: pullrequeststore.NewPullRequestStore(pool.GetDB()),
+		syncs:        pullrequeststore.NewPullRequestSyncStore(pool.GetDB()),
+		agents:       agentstore.NewAgentStore(pool.GetDB()),
 		workflow:     created.ID,
 		now:          syncNow,
 	}

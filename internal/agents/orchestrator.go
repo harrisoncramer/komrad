@@ -28,6 +28,17 @@ type orchestratorTranscriptReader interface {
 	Get(ctx context.Context, agentID string) (string, error)
 }
 
+type NewOrchestratorServiceParams struct {
+	Agents      orchestratorAgentReader
+	Workflows   workflowReader
+	Transcripts orchestratorTranscriptReader
+	Harnesses   harnessGetter
+	Launch      *LaunchService
+	Lifecycle   *LifecycleService
+	Resume      *ResumeService
+	StateDir    string
+}
+
 // OrchestratorService brings a workflow's orchestrator back, or starts the one it has never
 // had.
 type OrchestratorService struct {
@@ -39,17 +50,6 @@ type OrchestratorService struct {
 	lifecycle   *LifecycleService
 	resume      *ResumeService
 	stateDir    string
-}
-
-type NewOrchestratorServiceParams struct {
-	Agents      orchestratorAgentReader
-	Workflows   workflowReader
-	Transcripts orchestratorTranscriptReader
-	Harnesses   harnessGetter
-	Launch      *LaunchService
-	Lifecycle   *LifecycleService
-	Resume      *ResumeService
-	StateDir    string
 }
 
 // NewOrchestratorService builds the service over the stores and the services it drives.

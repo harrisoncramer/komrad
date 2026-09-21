@@ -9,7 +9,7 @@ import (
 
 // Archive hides a workflow from the panel without dropping the row, leaving the agents inside
 // it to the caller.
-func (s *Store) Archive(ctx context.Context, id string) error {
+func (s *WorkflowStore) Archive(ctx context.Context, id string) error {
 	if !store.IsID(id) {
 		return nil
 	}
@@ -22,7 +22,7 @@ func (s *Store) Archive(ctx context.Context, id string) error {
 }
 
 // Restore puts an archived workflow back in the panel, leaving its agents to the caller.
-func (s *Store) Restore(ctx context.Context, id string) error {
+func (s *WorkflowStore) Restore(ctx context.Context, id string) error {
 	if !store.IsID(id) {
 		return nil
 	}

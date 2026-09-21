@@ -579,8 +579,8 @@ func TestListPage(t *testing.T) {
 }
 
 type fixture struct {
-	*Store
-	workflows *workflowstore.Store
+	*ScheduleStore
+	workflows *workflowstore.WorkflowStore
 }
 
 func open(t *testing.T) *fixture {
@@ -590,7 +590,7 @@ func open(t *testing.T) *fixture {
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = pool.Close() })
 
-	return &fixture{Store: New(pool.GetDB()), workflows: workflowstore.New(pool.GetDB())}
+	return &fixture{ScheduleStore: NewScheduleStore(pool.GetDB()), workflows: workflowstore.NewWorkflowStore(pool.GetDB())}
 }
 
 func seed(t *testing.T, st *fixture, cfg Config) *Schedule {
