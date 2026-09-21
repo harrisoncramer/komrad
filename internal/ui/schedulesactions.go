@@ -123,11 +123,15 @@ func (m model) pageSchedules(pressed string) (tea.Model, tea.Cmd) {
 }
 
 func (m model) moveSchedules(pressed string) (tea.Model, tea.Cmd) {
-	if isBound(pressed, m.keys.Nav.Down) {
-		return m.moveScheduleCursor(1), nil
+	if !isBound(pressed, m.keys.Nav.Down) {
+		return m.moveScheduleCursor(-1), nil
 	}
 
-	return m.moveScheduleCursor(-1), nil
+	if _, ok := stepCursor(m.schedules.cursor, 1, len(m.scheduleRows())); !ok {
+		return m.walkIntoDetails()
+	}
+
+	return m.moveScheduleCursor(1), nil
 }
 
 func (m model) scheduleToggleDesc() string {

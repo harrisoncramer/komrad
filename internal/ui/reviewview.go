@@ -96,7 +96,7 @@ func (t reviewThreads) window(rendered string, lines int) string {
 // its share.
 func (m model) doesReviewFitDetails() bool {
 	// Measured with the keys on the diff, which keeps this out of its own answer.
-	m.details.focused, m.details.filter = false, filterState{}
+	m.details.focused = false
 
 	spare := m.spareLines(m.renderHelp(m.reviewHelp()), m.reviewHeadView(owedRows))
 

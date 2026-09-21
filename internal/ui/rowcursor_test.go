@@ -18,25 +18,39 @@ import (
 func TestRowCursorBlinksWhileFocused(t *testing.T) {
 	m := model{rowCursor: newRowCursor()}
 
-	assert.Equal(t, paint.Panel.Cursor().Render(rowCursorGlyph), m.cursorPrefix(true), "a shown cursor draws the arrow")
+	assert.Equal(t, paint.Panel.Cursor().Render(rowCursorGlyph), m.cursorPrefix(sectionList), "a shown cursor draws the arrow")
 
 	m.rowCursor.Blink = true
 
-	assert.Equal(t, blankCursor, m.cursorPrefix(true))
+	assert.Equal(t, blankCursor, m.cursorPrefix(sectionList))
 	assert.Equal(t, lipgloss.Width(rowCursorGlyph), lipgloss.Width(blankCursor), "and leaves the room the arrow took")
 }
 
-// TestRowCursorStandsStillUnfocused covers the record beside the list holding the keys, which
-// is not a cursor to blink, while another pane holding them leaves the blink running.
-func TestRowCursorStandsStillUnfocused(t *testing.T) {
-	m := model{rowCursor: newRowCursor()}
+// TestRowCursorFollowsTheKeys covers the arrow going with the keys: the section holding them
+// blinks it, one the keyboard has left for another pane draws it solid, and a section of the
+// panel that does not hold them draws nothing where it would stand.
+func TestRowCursorFollowsTheKeys(t *testing.T) {
+	m := detailsModel(&recordingTmux{})
+	m.rowCursor = newRowCursor()
 	m.rowCursor.Blink = true
 
-	assert.Equal(t, paint.Panel.Cursor().Render(rowCursorGlyph), m.cursorPrefix(false), "the details hold the keys")
+	assert.Equal(t, blankCursor, m.cursorPrefix(sectionList), "the list holds the keys and is in the hidden half")
+	assert.Equal(t, blankCursor, m.cursorPrefix(sectionRecord), "the record draws no arrow while the list has them")
 
-	m.blurred = true
+	m.keysElsewhere = true
 
-	assert.Equal(t, blankCursor, m.cursorPrefix(true), "another pane holding them does not stop the blink")
+	assert.Equal(t, paint.Panel.Cursor().Render(rowCursorGlyph), m.cursorPrefix(sectionList), "another pane holding them stops the blink")
+
+	m.keysElsewhere = false
+	m.details.focused = true
+	require.True(t, m.isDetailsFocused())
+
+	assert.Equal(t, blankCursor, m.cursorPrefix(sectionList), "the list draws no arrow while the record has them")
+	assert.Equal(t, blankCursor, m.cursorPrefix(sectionRecord), "and the record's is in the hidden half")
+
+	m.rowCursor.Blink = false
+
+	assert.Equal(t, paint.Panel.Cursor().Render(rowCursorGlyph), m.cursorPrefix(sectionRecord))
 }
 
 // TestRowCursorSolidUnderAKeypress covers moving about: the phase is restarted rather than
@@ -87,6 +101,7 @@ func TestRowCursorStartsBlinkingOnItsOwn(t *testing.T) {
 func TestRowCursorTimerFlipsThePhase(t *testing.T) {
 	m := detailsModel(&recordingTmux{})
 	m.rowCursor = newRowCursor()
+	m.tree.cursor = 0
 
 	next, cmd := m.Update(keyMsg("j"))
 	shown, ok := next.(model)
@@ -136,11 +151,11 @@ func TestRowCursorStandsStillWhileTyping(t *testing.T) {
 	m.rowCursor.Blink = true
 	m.filter.typing = true
 
-	assert.Equal(t, paint.Panel.Cursor().Render(rowCursorGlyph), m.cursorPrefix(true), "the filter has the arrows")
+	assert.Equal(t, paint.Panel.Cursor().Render(rowCursorGlyph), m.cursorPrefix(sectionList), "the filter has the arrows")
 
 	m.filter.typing = false
 	m.screen = screenSearch
 	m.search.typing = true
 
-	assert.Equal(t, paint.Panel.Cursor().Render(rowCursorGlyph), m.cursorPrefix(true), "the query has them")
+	assert.Equal(t, paint.Panel.Cursor().Render(rowCursorGlyph), m.cursorPrefix(sectionList), "the query has them")
 }

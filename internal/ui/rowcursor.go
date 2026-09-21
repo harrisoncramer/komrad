@@ -54,9 +54,47 @@ func (m model) isCursorBlinkedOut(focused bool) bool {
 	return focused && !m.isTyping() && m.rowCursor.Blink
 }
 
-// cursorPrefix is the arrow a list draws on its hovered row.
-func (m model) cursorPrefix(focused bool) string {
-	if m.isCursorBlinkedOut(focused) {
+// sidebarSection is one part of the panel's own pane that can hold the keys.
+type sidebarSection int
+
+const (
+	sectionList sidebarSection = iota
+	sectionRecord
+	sectionTabs
+	sectionMessages
+	sectionForm
+)
+
+// keyholder is the section that holds the keys, or would if the keyboard were on the panel.
+func (m model) keyholder() sidebarSection {
+	switch {
+	case m.form.isActive():
+		return sectionForm
+	case m.isMessagesFocused():
+		return sectionMessages
+	case m.isTabsFocused():
+		return sectionTabs
+	case m.isDetailsFocused():
+		return sectionRecord
+	}
+
+	return sectionList
+}
+
+// isSectionLit reports whether a section draws its caret and its accent.
+func (m model) isSectionLit(section sidebarSection) bool {
+	return m.keyholder() == section
+}
+
+// isSectionHeld reports whether a section has the keyboard itself.
+func (m model) isSectionHeld(section sidebarSection) bool {
+	return !m.keysElsewhere && m.isSectionLit(section)
+}
+
+// cursorPrefix is the arrow a section draws on its hovered row, blank while the keys are in
+// another section of the panel.
+func (m model) cursorPrefix(section sidebarSection) string {
+	if !m.isSectionLit(section) || m.isCursorBlinkedOut(m.isSectionHeld(section)) {
 		return blankCursor
 	}
 
@@ -64,12 +102,12 @@ func (m model) cursorPrefix(focused bool) string {
 }
 
 func (m model) rowCursorPrefix() string {
-	return m.cursorPrefix(m.isListFocused())
+	return m.cursorPrefix(sectionList)
 }
 
 // isListFocused reports whether the keys are the list's.
 func (m model) isListFocused() bool {
-	return !m.keysElsewhere && !m.isDetailsFocused() && !m.isTabsFocused() && !m.isMessagesFocused() && !m.form.isActive()
+	return m.isSectionHeld(sectionList)
 }
 
 // isColumnFocused reports whether the block beside the list holds the keys.

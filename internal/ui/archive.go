@@ -387,6 +387,7 @@ func (m model) archiveSnapshot(pane int) view.Snapshot {
 		selected:      m.archive.selected,
 		scheduled:     m.scheduledWorkflows(),
 		focused:       rowKeyAt(rows, m.archive.cursor),
+		blurred:       !m.isSectionLit(sectionList),
 		caretHidden:   m.isCursorBlinkedOut(m.isListFocused()),
 		barBlinkedOut: m.rowCursor.Blink,
 		matcher:       m.filter.pattern,

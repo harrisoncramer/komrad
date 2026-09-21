@@ -304,7 +304,7 @@ func (m model) schedulesListView() string {
 			prefix = m.rowCursorPrefix()
 		}
 
-		name := m.filter.highlight(paint.Panel, clipName(item.schedule.Name), m.nameStyle(selected, !item.schedule.Enabled))
+		name := m.filter.highlight(paint.Panel, clipName(item.schedule.Name), m.nameStyle(selected && m.isSectionLit(sectionList), !item.schedule.Enabled))
 		icon := paint.Panel.Style(scheduleTone(item.schedule.Enabled)).Render(scheduleIcon(item.schedule.Enabled))
 		rows = append(rows, prefix+"  "+icon+" "+name+"  "+dimStyle.Render(item.schedule.Cron))
 	}

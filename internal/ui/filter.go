@@ -46,12 +46,22 @@ func (m filterMode) String() string {
 	return "search"
 }
 
+// filterSection is the half of the sidebar a search was opened over.
+type filterSection int
+
+const (
+	filterOverList filterSection = iota
+	filterOverRecord
+)
+
 type filterState struct {
 	typing  bool
 	query   string
 	pattern *regexp.Regexp
 	broken  bool
 	mode    filterMode
+	// over is the section the search was opened over, which is the one a filter narrows.
+	over filterSection
 	// origin is the row the cursor sat on when the search opened, which abandoning it returns to.
 	origin string
 }
@@ -63,6 +73,11 @@ func (f filterState) isStanding() bool {
 // isNarrowing reports whether the pattern is taking rows off the screen.
 func (f filterState) isNarrowing() bool {
 	return f.mode == filterModeFilter && f.pattern != nil
+}
+
+// doesNarrow reports whether the pattern is taking rows off one section of the sidebar.
+func (f filterState) doesNarrow(section filterSection) bool {
+	return f.isNarrowing() && f.over == section
 }
 
 func (f *filterState) setQuery(query string) {
@@ -104,20 +119,35 @@ func (f filterState) highlight(palette paint.Palette, name string, base lipgloss
 	return palette.Highlight(name, matchesIn(f.pattern, name), base)
 }
 
-// filterTarget is the search a key reaches, and rows is nil on a screen that draws no filter.
+// filterTarget is the search and the cursor a key drives, and rows is nil on a screen that
+// draws no filter.
 type filterTarget struct {
 	state *filterState
 	rows  filtered
 }
 
 func (m *model) filterTarget() filterTarget {
+	return filterTarget{state: &m.filter, rows: m.filteredRows()}
+}
+
+// filteredRows is the cursor the search drives, the record's while the record holds the keys.
+func (m model) filteredRows() filtered {
 	if m.isDetailsFocused() {
-		return filterTarget{state: &m.details.filter, rows: detailsFilter{}}
+		return detailsFilter{}
 	}
 
 	rows, _ := m.active().(filtered)
 
-	return filterTarget{state: &m.filter, rows: rows}
+	return rows
+}
+
+// searchSection is the section of the sidebar a search opened now would be over.
+func (m model) searchSection() filterSection {
+	if m.isDetailsFocused() {
+		return filterOverRecord
+	}
+
+	return filterOverList
 }
 
 func (m model) openFilter() (tea.Model, tea.Cmd) {
@@ -133,6 +163,7 @@ func (m *model) beginFilter() {
 	filter := m.filterTarget().state
 	filter.typing = true
 	filter.mode = filterModeSearch
+	filter.over = m.searchSection()
 	filter.setQuery("")
 	filter.origin = origin
 	m.placeFilteredCursor(origin)
@@ -147,7 +178,6 @@ func (m *model) enterScreen(next screen) {
 
 	if m.screen != next {
 		m.filter = filterState{}
-		m.details.filter = filterState{}
 	}
 
 	m.screen = next
@@ -186,10 +216,14 @@ func (f *filterState) abandon() {
 	f.setQuery("")
 }
 
-// clearSearch drops a search that is standing and puts the cursor back where it opened.
+// clearSearch drops a search that is standing and puts the cursor back where it opened, as long
+// as the keys are still in the section it opened over.
 func (m model) clearSearch() (tea.Model, tea.Cmd) {
 	filter := m.filterTarget().state
 	origin := filter.origin
+	if filter.over != m.searchSection() {
+		origin = m.hoveredFilterKey()
+	}
 	filter.abandon()
 	m.placeFilteredCursor(origin)
 	filter.origin = ""
@@ -200,6 +234,10 @@ func (m model) clearSearch() (tea.Model, tea.Cmd) {
 func (m model) updateFilterInput(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if key.String() == "ctrl+c" {
 		return m, m.hide()
+	}
+
+	if isBound(key.String(), m.keys.Details.Focus) && m.isDetailsScreen() {
+		return m.jumpSearchFocus()
 	}
 
 	abandoning := key.String() == "esc"
@@ -231,6 +269,23 @@ func (m model) updateFilterInput(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	m.placeFilteredCursor(hovered)
 
 	return m, nil
+}
+
+// jumpSearchFocus answers the focus key while the search is being typed: the input closes with
+// the pattern standing, the keys move, and a record they land on opens on its nearest match.
+func (m model) jumpSearchFocus() (tea.Model, tea.Cmd) {
+	m.filter.typing = false
+
+	next, cmd := m.toggleDetailsFocus()
+	if !next.isDetailsFocused() {
+		return next, cmd
+	}
+
+	if found, ok := next.matchAt(next.hoveredFilterKey(), 0); ok {
+		next.placeFilteredCursor(found)
+	}
+
+	return next, cmd
 }
 
 func (m model) hoveredFilterKey() string {
@@ -281,7 +336,7 @@ type narrowedParams[T any] struct {
 // narrowed is the rows a filter leaves on screen: each match, the rows above it and the rows
 // under it.
 func narrowed[T any](filter filterState, params narrowedParams[T]) []T {
-	if !filter.isNarrowing() {
+	if !filter.doesNarrow(filterOverList) {
 		return params.rows
 	}
 

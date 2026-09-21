@@ -4,7 +4,7 @@
  [90m↑↓[0m   [90mcreated[0m  [1;34m↓ activity[0m  [90mname[0m  [90m·[0m  [90mworkflow[0m
 
           [90m│[0m [1mweave[0m
-[34m›[0m   [90m[0m     [97m┃[0m   [34mworktree-view[0m
+    [90m[0m     [97m┃[0m   worktree-view
     [90m[0m     [90m│[0m   review-607
 
 
@@ -12,7 +12,7 @@
 
 
 [90m────────────────────────────────────────────[0m
-[1;34m› [0m[90mname      [0m worktree-view
+  [90mname      [0m worktree-view
   [90magent     [0m claude
   [90mworkflow  [0m weave
   [90mdirectory [0m /trees/live

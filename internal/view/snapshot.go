@@ -95,6 +95,9 @@ type Snapshot struct {
 	// Focused is the key of the row the keyboard is standing on, naming it rather than counting
 	// to it so a list re-sorted after it was gathered still focuses the same row.
 	Focused string
+	// Blurred says another section of the panel holds the keys, so the focused row is kept on
+	// screen but drawn without its caret or its accent.
+	Blurred bool
 	// Pane is how many columns the list is drawn in, from which the view works out which columns
 	// fit and what is left for a name, leaving everything whole when it is unset.
 	Pane int

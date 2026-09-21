@@ -199,6 +199,7 @@ func (m model) worktreesSnapshot(pane int) view.Snapshot {
 		items:         m.worktrees.items,
 		selected:      m.worktrees.selected,
 		focused:       rowKeyAt(rows, m.worktrees.cursor),
+		blurred:       !m.isSectionLit(sectionList),
 		live:          m.listing.agents,
 		flat:          m.worktrees.sort.flat,
 		caretHidden:   m.isCursorBlinkedOut(m.isListFocused()),

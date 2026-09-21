@@ -215,19 +215,18 @@ func TestFormKeepsTheWholePaneOnANarrowWindow(t *testing.T) {
 	assert.Equal(t, m.width, width)
 }
 
-// TestFormStillsTheCursorOnTheListBesideIt covers the list a form is opened over, whose row
-// cursor stops blinking once the form has the keys.
-func TestFormStillsTheCursorOnTheListBesideIt(t *testing.T) {
+// TestFormTakesTheCursorOffTheListBesideIt covers the list a form is opened over, whose row
+// cursor goes with the keys once the form has them.
+func TestFormTakesTheCursorOffTheListBesideIt(t *testing.T) {
 	m := formColumnModel(t)
 	m.rowCursor = newRowCursor()
-	m.rowCursor.Blink = true
 	require.True(t, m.isListFocused(), "the list holds the keys to start with")
-	require.Equal(t, blankCursor, m.rowCursorPrefix(), "so its cursor is mid-blink")
+	require.Equal(t, paint.Panel.Cursor().Render(rowCursorGlyph), m.rowCursorPrefix(), "so its cursor is drawn")
 
 	m = openWorkflowForm(t, m)
 
 	assert.False(t, m.isListFocused(), "the form holds them once it is up")
-	assert.Equal(t, paint.Panel.Cursor().Render(rowCursorGlyph), m.rowCursorPrefix(), "and its cursor stands still")
+	assert.Equal(t, blankCursor, m.rowCursorPrefix(), "and the arrow goes with them")
 }
 
 // TestFormRefusalIsReadableFromInsideTheForm covers reaching the whole reason without leaving

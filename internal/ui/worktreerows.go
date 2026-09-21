@@ -228,6 +228,7 @@ type worktreesSnapshotParams struct {
 	live []agentItem
 	// flat draws every directory at the heading indent.
 	flat          bool
+	blurred       bool
 	caretHidden   bool
 	barBlinkedOut bool
 	matcher       *regexp.Regexp
@@ -275,6 +276,7 @@ func worktreesSnapshot(params worktreesSnapshotParams) view.Snapshot {
 		CaretHidden:   params.caretHidden,
 		BarBlinkedOut: params.barBlinkedOut,
 		Focused:       params.focused,
+		Blurred:       params.blurred,
 		Pane:          params.pane,
 		Dropped:       worktreesDropped,
 	}

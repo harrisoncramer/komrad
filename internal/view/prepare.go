@@ -11,6 +11,7 @@ func Prepare(snapshot Snapshot) List {
 		return prepareLine(prepareLineParams{
 			row:           row,
 			focused:       isFocused(row, snapshot.Focused),
+			blurred:       snapshot.Blurred,
 			caretHidden:   snapshot.CaretHidden,
 			barBlinkedOut: snapshot.BarBlinkedOut,
 		})
@@ -65,6 +66,7 @@ func fitColumns(pane int, dropped Columns) Columns {
 type prepareLineParams struct {
 	row           Row
 	focused       bool
+	blurred       bool
 	caretHidden   bool
 	barBlinkedOut bool
 }
@@ -72,10 +74,11 @@ type prepareLineParams struct {
 // prepareLine resolves one row to the glyphs, tones and weight it is drawn in.
 func prepareLine(params prepareLineParams) Line {
 	row, focused := params.row, params.focused
+	lit := focused && !params.blurred
 
 	return Line{
 		Focused:  focused,
-		Focus:    markCell(focused && !params.caretHidden, GlyphFocus, paint.ToneAccent),
+		Focus:    markCell(lit && !params.caretHidden, GlyphFocus, paint.ToneAccent),
 		Mark:     textCell(row.Mark, paint.ToneMuted),
 		Repo:     RepoCell(row),
 		Review:   ReviewCell(row),
@@ -86,7 +89,7 @@ func prepareLine(params prepareLineParams) Line {
 		Name:     row.Name,
 		Matches:  row.Matches,
 		Weight:   weightFor(row.Kind),
-		Emphasis: emphasisFor(row, focused),
+		Emphasis: emphasisFor(row, lit),
 		Held:     HeldCell(row),
 		Hidden:   HiddenCell(row),
 		Mail:     MailCell(row),

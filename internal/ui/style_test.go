@@ -54,14 +54,16 @@ func rowNamed(rows []string, name string) (string, bool) {
 	return "", false
 }
 
-// TestFocusKeepsTheMarkers covers both cursors staying drawn, so which row a record is about,
-// and which field the keys would copy, are on screen whichever half is being typed at.
-func TestFocusKeepsTheMarkers(t *testing.T) {
+// TestFocusMovesTheMarkers covers one cursor drawn at a time: the record draws none while the
+// list has the keys, and the list gives its own up once the record has them.
+func TestFocusMovesTheMarkers(t *testing.T) {
 	m := detailsModel(&recordingTmux{})
 
-	assert.Contains(t, m.detailsView(), "›", "the field cursor is drawn while the list has the keys")
+	assert.NotContains(t, m.detailsView(), "›", "the record draws no cursor while the list has the keys")
+	assert.Equal(t, 1, strings.Count(m.agentsView(), "›"), "the list's is the one on screen")
 
 	m.details.focused = true
 
-	assert.Contains(t, m.agentsView(), "›", "and the row cursor while the details have them")
+	assert.Contains(t, m.detailsView(), "›", "the field cursor arrives with the keys")
+	assert.Equal(t, 1, strings.Count(m.agentsView(), "›"), "and the row cursor goes")
 }

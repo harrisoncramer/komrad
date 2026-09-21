@@ -24,8 +24,13 @@ func TestReviewDrawsTheAgentRecord(t *testing.T) {
 
 	view := ansi.Strip(m.reviewView())
 
-	assert.Contains(t, view, "› name")
+	assert.Contains(t, view, "  name")
 	assert.Contains(t, view, "agent_id")
+
+	m.details.focused = true
+	require.True(t, m.isDetailsFocused())
+	assert.Contains(t, ansi.Strip(m.reviewView()), "› name", "the arrow arrives with the keys")
+	m.details.focused = false
 
 	held := m.hoveredDetails()
 	bottom := ansi.Strip(m.setDetailsCursor(held, len(held.fields)-1).reviewView())

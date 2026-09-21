@@ -88,17 +88,7 @@ func (m model) headerLines(title, tally, tabs string) string {
 		header = ansi.Truncate(header, width, "…")
 	}
 
-	return header + "\n\n " + m.searchLine().line(paint.Panel) + "\n" + tabs + "\n"
-}
-
-// searchLine is the search the header draws: the record's while the record has the keys, the
-// list's otherwise.
-func (m model) searchLine() filterState {
-	if m.details.focused {
-		return m.details.filter
-	}
-
-	return m.filter
+	return header + "\n\n " + m.filter.line(paint.Panel) + "\n" + tabs + "\n"
 }
 
 // headedListView draws a list under its header, padded out to the record and the legend under it.
@@ -110,7 +100,7 @@ func (m model) headedListView(header string, rows []string, cursor int, help str
 
 // emptyListLine is what a screen says over no rows.
 func (m model) emptyListLine(idle string) string {
-	if m.filter.isNarrowing() {
+	if m.filter.doesNarrow(filterOverList) {
 		return "nothing matches"
 	}
 
@@ -246,9 +236,14 @@ func (s listSpec[T]) landed(m model) (model, tea.Cmd) {
 	return m, nil
 }
 
+// move steps the cursor, and a step refused at the bottom walks on into the record.
 func (s listSpec[T]) move(m model, delta int) (model, tea.Cmd) {
 	next, ok := s.cursor(&m).move(delta, len(s.rows(m)))
 	if !ok {
+		if delta > 0 {
+			return m.walkIntoDetails()
+		}
+
 		return m, nil
 	}
 
@@ -517,7 +512,7 @@ func (m model) listView(params listViewParams) string {
 	record, help := m.detailsView(), m.renderHelp(params.chrome.help(m), header)
 	below := record + m.messagesRegion(record, help, header) + help
 
-	if params.rows == 0 && (params.empty != "" || m.filter.isNarrowing()) {
+	if params.rows == 0 && (params.empty != "" || m.filter.doesNarrow(filterOverList)) {
 		return m.headedListView(header, []string{dimStyle.Render(m.emptyListLine(params.empty))}, 0, below)
 	}
 
