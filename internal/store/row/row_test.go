@@ -225,6 +225,7 @@ func TestPullRequest(t *testing.T) {
 		URL:            "https://github.com/harrisoncramer/weave/pull/PR_1",
 		Title:          "one",
 		ReviewDecision: xptr.Ptr(forge.ReviewDecisionApproved),
+		Mergeability:   xptr.Ptr(forge.MergeabilityClean),
 	}, rowOf(t, st, unfinished.ID).PullRequest)
 
 	current := rowOf(t, st, finished.ID).PullRequest
