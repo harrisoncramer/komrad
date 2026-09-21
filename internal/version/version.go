@@ -134,8 +134,7 @@ func readSelfBuildID() string {
 	return readMarkedBuildID(path)
 }
 
-// readNotedBuildID reads the build ID off an ELF binary, where the linker keeps it in a note
-// rather than in the text.
+// readNotedBuildID reads the build ID out of an ELF binary's note section.
 func readNotedBuildID(path string) string {
 	file, err := os.Open(path)
 	if err != nil {

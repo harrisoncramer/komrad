@@ -10,7 +10,7 @@ type BinaryWatcher interface {
 }
 
 func (m model) noticeRebuild() model {
-	if m.binary == nil || !m.binary.IsReplaced() {
+	if m.binary == nil || m.isBusy() || !m.binary.IsReplaced() {
 		return m
 	}
 
@@ -21,4 +21,13 @@ func (m model) noticeRebuild() model {
 	m.startupErr = errui.ErrRebuilt
 
 	return m
+}
+
+func (m model) isBusy() bool {
+	return m.pending > 0 ||
+		m.held.active ||
+		m.form.isActive() ||
+		m.review.isWriting() ||
+		m.review.pass.mode != modeWatching ||
+		m.review.pass.atEditor
 }
