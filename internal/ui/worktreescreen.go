@@ -50,9 +50,7 @@ func (w *worktreesScreen) list() screenList[worktreeRow] {
 		refs:   worktreeRefs,
 		header: "repository",
 		placed: w.stage,
-		moved: func(h host, s panelShared) tea.Cmd {
-			h.placeColumn(screenWorktrees, w.list().hovered(s))
-
+		moved: func(h host, _ panelShared) tea.Cmd {
 			return h.waitToStage()
 		},
 		quit: func(k config.Keybindings) []string { return k.Worktrees.Quit },
@@ -69,8 +67,7 @@ func (w *worktreesScreen) hovered(s panelShared) (worktreeRow, bool) {
 	return row, true
 }
 
-func (w *worktreesScreen) stage(h host, s panelShared) {
-	h.placeColumn(screenWorktrees, w.list().hovered(s))
+func (w *worktreesScreen) stage(h host, _ panelShared) {
 	h.stageInfo()
 }
 
@@ -153,7 +150,7 @@ func (m *model) applyWorktrees(items []worktreeItem, hovered string) {
 		}
 	}
 
-	m.worktrees.apply(m, m.shared(), items, hovered)
+	m.worktrees.apply(m.shared(), items, hovered)
 }
 
 func (w *worktreesScreen) view(s panelShared) string {
@@ -189,7 +186,6 @@ func (w *worktreesScreen) listParams(s panelShared) screenListParams {
 		title:    screenTitle(view.GlyphRepo, "Worktrees"),
 		tally:    w.tally(),
 		help:     w.help,
-		column:   "the directory",
 		empty:    "no worktrees",
 		rows:     len(w.rows(s)),
 		snapshot: func(pane listPane) view.Snapshot { return w.snapshot(s, pane) },

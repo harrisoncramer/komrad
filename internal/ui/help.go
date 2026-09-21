@@ -220,18 +220,6 @@ func (m model) detailsBinding() key.Binding {
 	return binding(m.keys.Details.Focus, desc)
 }
 
-// columnScrollBinding is the pair that moves the block beside the list, drawn as one row since
-// they are the same key going either way.
-func (m model) columnScrollBinding(what string) key.Binding {
-	return key.NewBinding(
-		key.WithKeys(slices.Concat(m.keys.Column.ScrollDown, m.keys.Column.ScrollUp)...),
-		key.WithHelp(
-			keyLabel(m.keys.Column.ScrollDown)+"/"+keyLabel(m.keys.Column.ScrollUp),
-			"scroll "+what,
-		),
-	)
-}
-
 func keyLabel(keys []string) string {
 	out := make([]string, len(keys))
 	for i, k := range keys {

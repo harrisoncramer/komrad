@@ -178,7 +178,7 @@ func TestLegendOrderIsPinned(t *testing.T) {
 				"k/j move",
 				"gg/G top/bottom",
 				"C-u/C-d page",
-				"C-n/C-p scroll the transcript",
+				"C-n/C-p scroll",
 				"? show help",
 			},
 		},

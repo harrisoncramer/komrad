@@ -142,8 +142,7 @@ type Keybindings struct {
 	// The review screen, which draws an agent's diff in the stage and its review
 	// threads in the sidebar.
 	Review ReviewKeys `mapstructure:"review"`
-	// Scrolling the block the panel draws beside its own list, shared by every screen
-	// that draws one.
+	// The keys the mouse wheel presses over the panel, shared by every screen.
 	Column ColumnKeys `mapstructure:"column"`
 	// The schedules screen, and the key that opens it from the agents list.
 	Schedules SchedulesKeys `mapstructure:"schedules"`
@@ -444,14 +443,12 @@ type ReviewKeys struct {
 	ToggleViewed []string `mapstructure:"toggle_viewed" default:"v"`
 }
 
-// ColumnKeys move the block the panel draws beside its own list, the archived agent's
-// notes and the transcript of a search hit among them. There is one set rather than one
-// per screen because only one block is ever on screen, and the keys that move the list
-// beside it are the shared navigation ones.
+// ColumnKeys are what the mouse wheel presses over the panel. On a list they move the
+// cursor a row, and on the review they move the diff or the thread a few lines.
 type ColumnKeys struct {
-	// Scroll the block down a few lines.
+	// Scroll down.
 	ScrollDown []string `mapstructure:"scroll_down" default:"ctrl+n"`
-	// Scroll the block up a few lines.
+	// Scroll up.
 	ScrollUp []string `mapstructure:"scroll_up" default:"ctrl+p"`
 }
 

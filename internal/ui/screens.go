@@ -166,7 +166,6 @@ type host interface {
 	openForm(f formState) tea.Cmd
 	enter(next screen, target screenTarget) tea.Cmd
 	refreshCmd() tea.Cmd
-	placeColumn(owner screen, row string)
 	stageInfo()
 	waitToStage() tea.Cmd
 	hide() tea.Cmd
@@ -285,12 +284,10 @@ type panelShared struct {
 	draw drawer
 }
 
-// chromeState is the details, filter, column, messages, help and form the root draws over any
-// screen.
+// chromeState is the details, filter, messages, help and form the root draws over any screen.
 type chromeState struct {
 	details      detailsState
 	filter       filterState
-	column       columnState
 	messages     messagesState
 	form         formState
 	helpExpanded bool
@@ -314,7 +311,6 @@ func (m *model) unmeasured() panelShared {
 		chrome: chromeState{
 			details:      m.details,
 			filter:       m.filter,
-			column:       m.column,
 			messages:     m.messages,
 			form:         m.form,
 			helpExpanded: m.helpExpanded,

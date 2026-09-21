@@ -228,7 +228,6 @@ type model struct {
 	review       reviewScreen
 	filter       filterState
 	rowCursor    cursor.Model
-	column       columnState
 	form         formState
 	held         heldWrite
 	// detached holds the writes a person escaped out of, which land without taking the screen to

@@ -145,7 +145,7 @@ type screenList[T keyed] struct {
 	refs func([]T) []rowRef
 	// header is what the toggle key names a header row as.
 	header string
-	// placed follows the cursor onto a row at once.
+	// placed follows the cursor onto a row at once, when set.
 	placed func(host, panelShared)
 	// moved follows the cursor onto a row a key put it on, and is placed when nil.
 	moved func(host, panelShared) tea.Cmd
@@ -171,7 +171,9 @@ func (l screenList[T]) place(h host, s panelShared, hovered string) {
 	rows := l.rows(s)
 	c := l.cursor()
 	c.cursor = placeCursor(rowIndexOfKey(rows, hovered), c.cursor, len(rows))
-	l.placed(h, s)
+	if l.placed != nil {
+		l.placed(h, s)
+	}
 }
 
 func (l screenList[T]) filterRows(s panelShared) []filterRow {
@@ -185,7 +187,9 @@ func (l screenList[T]) landed(h host, s panelShared) tea.Cmd {
 		return l.moved(h, s)
 	}
 
-	l.placed(h, s)
+	if l.placed != nil {
+		l.placed(h, s)
+	}
 
 	return nil
 }
@@ -258,6 +262,11 @@ func (l screenList[T]) actions() []screenAction {
 			id:   actionNavPage,
 			keys: func(k config.Keybindings) []string { return concatKeys(k.Nav.PageUp, k.Nav.PageDown) },
 			run:  l.pagePressed,
+		},
+		screenAction{
+			id:   actionColumnScroll,
+			keys: func(k config.Keybindings) []string { return concatKeys(k.Column.ScrollDown, k.Column.ScrollUp) },
+			run:  l.scrollPressed,
 		},
 	)
 	if l.name != nil {
@@ -342,6 +351,14 @@ func (l screenList[T]) movePressed(h host, s panelShared, pressed string) tea.Cm
 	return l.move(h, s, -1)
 }
 
+func (l screenList[T]) scrollPressed(h host, s panelShared, pressed string) tea.Cmd {
+	if isBound(pressed, s.keys.Column.ScrollDown) {
+		return l.move(h, s, 1)
+	}
+
+	return l.move(h, s, -1)
+}
+
 func (l screenList[T]) clearSelection(host, panelShared, string) tea.Cmd {
 	l.cursor().selected = selection{}
 
@@ -407,7 +424,7 @@ func (l screenList[T]) clearDesc(panelShared) string {
 	return fmt.Sprintf("clear %d selected", len(l.cursor().selected.keys))
 }
 
-// screenNavLegend is the three rows the cursor keys are named by.
+// screenNavLegend is the four rows the cursor keys are named by.
 func screenNavLegend() []screenLegendRow {
 	return []screenLegendRow{
 		{
@@ -424,6 +441,11 @@ func screenNavLegend() []screenLegendRow {
 			of:    []actionID{actionNavPage},
 			desc:  func(panelShared) string { return "page" },
 			label: navPageLabel,
+		},
+		{
+			of:    []actionID{actionColumnScroll},
+			desc:  func(panelShared) string { return "scroll" },
+			label: columnScrollLabel,
 		},
 	}
 }
@@ -448,8 +470,6 @@ type screenListParams struct {
 	tally string
 	// help is the screen's own legend, drawn ahead of the bindings every list shares.
 	help func(panelShared) keyMap
-	// column names what the scroll keys move, for the legend.
-	column string
 	// empty is what the list says over no rows, and blank on a list that draws its window anyway.
 	empty string
 	// rows is how many rows the list holds.
@@ -560,12 +580,12 @@ func (m model) listChromeOf(params screenListParams) listChrome {
 	return listChrome{
 		title: params.title,
 		tally: func(model) string { return params.tally },
-		help:  func(m model) keyMap { return m.listHelp(params.help(m.shared()), params.column) },
+		help:  func(m model) keyMap { return m.listHelp(params.help(m.shared())) },
 	}
 }
 
 // listHelp is a list screen's legend: its own rows, then the bindings every list shares.
-func (m model) listHelp(own keyMap, column string) keyMap {
+func (m model) listHelp(own keyMap) keyMap {
 	// A disabled binding draws nothing but still takes a cell of the expanded legend.
 	var tabs []key.Binding
 	if b := m.tabsBinding(); b.Enabled() {
@@ -582,7 +602,6 @@ func (m model) listHelp(own keyMap, column string) keyMap {
 				m.messagesBinding(),
 			},
 			m.infoPaneHelp(),
-			[]key.Binding{m.columnScrollBinding(column)},
 			m.globalHelp(),
 		),
 	}

@@ -226,6 +226,11 @@ func detailsActions() actionSpec {
 				run:  model.pageDetailsCursor,
 			},
 			{
+				id:   actionColumnScroll,
+				keys: func(k config.Keybindings) []string { return concatKeys(k.Column.ScrollDown, k.Column.ScrollUp) },
+				run:  model.scrollDetailsCursor,
+			},
+			{
 				id:   actionFilterOpen,
 				keys: func(config.Keybindings) []string { return []string{filterOpenKey} },
 				run:  func(m model, _ string) (tea.Model, tea.Cmd) { return m.openFilter() },
@@ -281,6 +286,11 @@ func detailsActions() actionSpec {
 				desc:  func(model) string { return "page" },
 				label: navPageLabel,
 			},
+			{
+				of:    []actionID{actionColumnScroll},
+				desc:  func(model) string { return "scroll" },
+				label: columnScrollLabel,
+			},
 		},
 	}
 }
@@ -320,6 +330,16 @@ func (detailsFilter) filterRows(m model) []filterRow {
 
 // moveDetailsCursor steps the field cursor, and an up press on the first field walks back out
 // into the list.
+func (m model) scrollDetailsCursor(pressed string) (tea.Model, tea.Cmd) {
+	held := m.hoveredDetails()
+	cursor := m.detailsCursor(held)
+	if isBound(pressed, m.keys.Column.ScrollDown) {
+		return m.setDetailsCursor(held, cursor+1), nil
+	}
+
+	return m.setDetailsCursor(held, cursor-1), nil
+}
+
 func (m model) moveDetailsCursor(pressed string) (tea.Model, tea.Cmd) {
 	held := m.hoveredDetails()
 	cursor := m.detailsCursor(held)

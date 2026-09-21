@@ -346,7 +346,6 @@ func (a *agentsScreen) listParams(s panelShared) screenListParams {
 	return screenListParams{
 		title:    screenTitle(view.GlyphWorkflow, "Agents & Workflows"),
 		help:     a.help,
-		column:   "the notes",
 		rows:     len(a.rows(s)),
 		snapshot: func(pane listPane) view.Snapshot { return a.snapshot(s, pane) },
 	}

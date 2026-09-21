@@ -248,20 +248,6 @@ func TestTheDiffColumnSaysWhatItIsWaitingFor(t *testing.T) {
 		"a worktree that turned out to hold nothing says that instead")
 }
 
-// TestColumnOffsetResetsOnANewRow covers the scroll offset belonging to the row it was scrolled
-// on.
-func TestColumnOffsetResetsOnANewRow(t *testing.T) {
-	var state columnState
-
-	state.place("agent:a1")
-	state.top = 24
-	state.place("agent:a1")
-	assert.Equal(t, 24, state.top, "staying on the row keeps the reader where they were")
-
-	state.place("agent:a2")
-	assert.Equal(t, 0, state.top, "a different row opens at its own top")
-}
-
 // TestSplitOfDrawsTheWidthItIsHanded covers the boundary being where the divider is: a measured
 // width is the pane under the panel, so it is drawn there even where it leaves the sidebar or the
 // block less than either would have asked for.

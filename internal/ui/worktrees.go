@@ -110,7 +110,7 @@ type worktreesScreen struct {
 
 // apply takes a fresh listing, keeping the cursor on the row it was on, or on the agent the
 // screen was opened for.
-func (w *worktreesScreen) apply(h host, s panelShared, items []worktreeItem, hovered string) {
+func (w *worktreesScreen) apply(s panelShared, items []worktreeItem, hovered string) {
 	w.items = items
 
 	rows := w.rows(s)
@@ -128,5 +128,4 @@ func (w *worktreesScreen) apply(h host, s panelShared, items []worktreeItem, hov
 	}
 
 	w.cursor = idx
-	h.placeColumn(screenWorktrees, rowKeyAt(rows, idx))
 }

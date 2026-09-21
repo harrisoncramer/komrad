@@ -101,7 +101,6 @@ func (m *model) stageSelection() {
 	defer m.afterStaging()
 
 	s := m.shared()
-	m.placeColumn(screenAgents, m.agents.list().hovered(s))
 	m.reconcileSolo()
 
 	staged, ok := m.agents.hoveredPane(s)

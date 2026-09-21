@@ -109,13 +109,3 @@ func (w *searchScreen) previewNotice(s panelShared) string {
 		return searchLoadingMarkdown
 	}
 }
-
-// scrollPreview moves the transcript beside the list.
-func (w *searchScreen) scrollPreview(s panelShared, delta int) {
-	split, ok := s.draw.screenColumnSplit()
-	if !ok {
-		return
-	}
-
-	w.preview.doc.scroll(delta, split.rows)
-}
