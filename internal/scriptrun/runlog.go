@@ -1,4 +1,4 @@
-package agents
+package scriptrun
 
 import (
 	"context"
@@ -11,6 +11,7 @@ import (
 	"weave/config"
 	"weave/internal/logging"
 	"weave/internal/scripts"
+	"weave/internal/store"
 
 	runstore "weave/internal/store/run"
 )
@@ -143,7 +144,7 @@ func (s *ScriptService) finishRun(ctx context.Context, record runRecord, result 
 	if err := s.runs.Finish(ctx, runstore.FinishParams{
 		ID:       record.id,
 		ExitCode: runExitCode(result),
-		Failure:  failureReason(cause),
+		Failure:  store.FailureReason(cause),
 	}); err != nil {
 		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to close the record of a run",
 			append([]slog.Attr{slog.String(logging.RunID, record.id)}, logging.Err(err)...)...)

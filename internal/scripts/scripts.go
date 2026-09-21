@@ -30,6 +30,8 @@ var ErrNotStartable = fail.Precondition("the file could not be started")
 
 var ErrDirMissing = fail.Precondition("the directory to run in does not exist")
 
+var ErrBadDirectory = fail.InvalidArgument("unusable working directory")
+
 var ErrFailed = fail.Internal("the script exited non-zero")
 
 const killDelay = 2 * time.Second
@@ -46,6 +48,25 @@ type Script struct {
 // GetDir is the directory a script runs in.
 func (a Script) GetDir() string {
 	return filepath.Dir(a.Path)
+}
+
+// RequireUsableDir refuses a directory that cannot be worked in.
+func RequireUsableDir(dir string) error {
+	info, err := os.Stat(dir)
+	if err != nil {
+		return fmt.Errorf("%w %q: %w", ErrBadDirectory, dir, err)
+	}
+	if !info.IsDir() {
+		return fmt.Errorf("%w: %q is not a directory", ErrBadDirectory, dir)
+	}
+
+	handle, err := os.Open(dir)
+	if err != nil {
+		return fmt.Errorf("%w %q: %w", ErrBadDirectory, dir, err)
+	}
+	_ = handle.Close()
+
+	return nil
 }
 
 type Runner struct{}

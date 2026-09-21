@@ -150,6 +150,7 @@ linters:
             - "**/internal/pullrequests/**"
             - "**/internal/reviews/**"
             - "**/internal/schedules/**"
+            - "**/internal/scriptrun/**"
             - "**/internal/transcripts/**"
           deny:
             - pkg: weave/proto/gen

@@ -1,4 +1,4 @@
-package agents
+package scriptrun
 
 import (
 	"bytes"

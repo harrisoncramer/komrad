@@ -12,6 +12,7 @@ import (
 
 	"weave/config"
 	"weave/internal/logging"
+	"weave/internal/scripts"
 	"weave/internal/store"
 	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
@@ -281,16 +282,16 @@ func (s *ResumeService) getResumeDir(agent agentstore.Agent) string {
 	if dir == "" {
 		dir, _ = os.UserHomeDir()
 	}
-	if requireUsableDir(dir) == nil {
+	if scripts.RequireUsableDir(dir) == nil {
 		return dir
 	}
 
-	if err := os.MkdirAll(dir, 0o755); err == nil && requireUsableDir(dir) == nil {
+	if err := os.MkdirAll(dir, 0o755); err == nil && scripts.RequireUsableDir(dir) == nil {
 		return dir
 	}
 
 	standIn := filepath.Join(s.fallbackResumeRoot, agent.ID)
-	if err := os.MkdirAll(standIn, 0o755); err != nil || requireUsableDir(standIn) != nil {
+	if err := os.MkdirAll(standIn, 0o755); err != nil || scripts.RequireUsableDir(standIn) != nil {
 		home, _ := os.UserHomeDir()
 
 		return home

@@ -1,9 +1,12 @@
 package agents
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"slices"
@@ -15,6 +18,7 @@ import (
 	"weave/internal/frames"
 	"weave/internal/git"
 	"weave/internal/harness"
+	"weave/internal/logging"
 	"weave/internal/store"
 	agentstore "weave/internal/store/agent"
 	reviewstore "weave/internal/store/review"
@@ -1015,3 +1019,61 @@ func (f *fakeChannel) Interrupt(context.Context, harness.Target) error {
 }
 
 func (f *fakeChannel) Forget(agentID string) { f.forgotten = append(f.forgotten, agentID) }
+
+type fakeWorkflowReader struct {
+	workflow *workflowstore.Workflow
+	archived bool
+}
+
+func (f fakeWorkflowReader) Get(ctx context.Context, id string) (*workflowstore.Workflow, error) {
+	if f.archived {
+		return nil, fmt.Errorf("%w: workflow %q", store.ErrNotFound, id)
+	}
+
+	return f.GetIncludingArchived(ctx, id)
+}
+
+func (f fakeWorkflowReader) GetIncludingArchived(_ context.Context, id string) (*workflowstore.Workflow, error) {
+	if f.workflow != nil && f.workflow.ID == id {
+		return f.workflow, nil
+	}
+
+	return nil, fmt.Errorf("%w: workflow %q", store.ErrNotFound, id)
+}
+
+func loggedContext(t *testing.T) (context.Context, func() []map[string]any) {
+	t.Helper()
+
+	var written bytes.Buffer
+
+	ctx := logging.WithLogger(t.Context(), logging.New(&written, slog.LevelDebug))
+
+	return ctx, func() []map[string]any {
+		records := make([]map[string]any, 0, 2)
+		for _, line := range strings.Split(strings.TrimSpace(written.String()), "\n") {
+			if line == "" {
+				continue
+			}
+
+			var record map[string]any
+			require.NoError(t, json.Unmarshal([]byte(line), &record))
+			records = append(records, record)
+		}
+
+		return records
+	}
+}
+
+func recordFor(t *testing.T, records []map[string]any, body string) map[string]any {
+	t.Helper()
+
+	for _, record := range records {
+		if record["body"] == body {
+			return record
+		}
+	}
+
+	require.FailNowf(t, "no record was written", "wanted %q, got %v", body, records)
+
+	return nil
+}

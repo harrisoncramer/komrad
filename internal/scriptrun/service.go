@@ -1,9 +1,13 @@
-package agents
+package scriptrun
 
 import (
+	"context"
 	"sync"
 
 	"weave/config"
+
+	agentstore "weave/internal/store/agent"
+	workflowstore "weave/internal/store/workflow"
 )
 
 const (
@@ -11,6 +15,15 @@ const (
 	TriggerResume      = config.TriggerResume
 	TriggerDeprovision = config.TriggerDeprovision
 )
+
+type agentGetter interface {
+	GetByID(ctx context.Context, id string) (*agentstore.Agent, error)
+}
+
+type workflowReader interface {
+	Get(ctx context.Context, id string) (*workflowstore.Workflow, error)
+	GetIncludingArchived(ctx context.Context, id string) (*workflowstore.Workflow, error)
+}
 
 type tmuxReadWriter interface {
 	GetPaneOwner(pane string) string
@@ -50,6 +63,16 @@ type NewScriptServiceParams struct {
 	LogsDir    string
 	Editor     string
 	BinPath    string
+}
+
+func isPaneOwnedBy(owner, agentID string) bool {
+	return agentID != "" && owner == agentID
+}
+
+// isProvisionerDisabled reports whether an agent has been told to keep the directory it was
+// given rather than be provisioned one.
+func isProvisionerDisabled(override *bool) bool {
+	return override != nil && !*override
 }
 
 // NewScriptService builds the service from its dependencies.

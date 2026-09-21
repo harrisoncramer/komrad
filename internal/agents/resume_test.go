@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"weave/internal/harness/pane"
+	"weave/internal/scripts"
 	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
 
@@ -73,7 +74,7 @@ func TestResumeDir(t *testing.T) {
 			})
 
 			assert.Equal(t, tt.wantDir(root, fallbackResumeRoot), got)
-			require.NoError(t, requireUsableDir(got), "a restore always gets a directory it can start in")
+			require.NoError(t, scripts.RequireUsableDir(got), "a restore always gets a directory it can start in")
 		})
 	}
 }

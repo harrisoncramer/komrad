@@ -11,6 +11,7 @@ import (
 	"weave/config"
 	"weave/internal/frames"
 	"weave/internal/logging"
+	"weave/internal/scripts"
 	"weave/internal/store"
 	"weave/lib/xslice"
 	"weave/lib/xstr"
@@ -177,7 +178,7 @@ func (s *LifecycleService) DeleteAgents(ctx context.Context, ids []string) error
 // lets the deprovisioner take it away.
 func (s *LifecycleService) tearDown(ctx context.Context, agent agentstore.Agent, hooks []workflowstore.Hook, deprovisioner string, done func(error)) { //nolint:revive // a params struct is the follow-up
 	// A hook has nothing to run against once the directory has gone.
-	if requireUsableDir(agent.Cwd) == nil {
+	if scripts.RequireUsableDir(agent.Cwd) == nil {
 		// The deprovisioner waits until the teardown has worked.
 		if err := runHooks(ctx, hookRunParams{
 			scripts: s.scripts,
@@ -637,4 +638,39 @@ func (s *LifecycleService) removeRunLogs(ctx context.Context, ids []string) {
 				}, logging.Err(err)...)...)
 		}
 	}
+}
+
+// failAs marks an agent as having failed create or cleanup and leaves the row where it was.
+func failAs(ctx context.Context, agents agentFailWriter, agent agentstore.Agent, state agentstore.State, verb string, cause error) { //nolint:revive // a params struct is the follow-up
+	agent.State = state
+	if err := agents.Update(ctx, agent); err != nil {
+		logging.From(ctx).LogAttrs(ctx, slog.LevelError, "failed to record why an agent's lifecycle action failed",
+			append([]slog.Attr{
+				slog.String(logging.AgentID, agent.ID),
+				slog.String(logging.LifecycleAction, verb),
+			}, logging.Err(err)...)...)
+
+		return
+	}
+
+	reason := store.FailureReason(cause)
+	if _, err := agents.SetMetadata(ctx, agentstore.SetMetadataParams{
+		ID:    agent.ID,
+		Key:   "error",
+		Value: &reason,
+	}); err != nil {
+		logging.From(ctx).LogAttrs(ctx, slog.LevelError, "failed to record why an agent's lifecycle action failed",
+			append([]slog.Attr{
+				slog.String(logging.AgentID, agent.ID),
+				slog.String(logging.LifecycleAction, verb),
+			}, logging.Err(err)...)...)
+	}
+}
+
+const namedMissing = 5
+
+func workflowIDs(agents []agentstore.Agent) []string {
+	unique := xslice.UniqueBy(agents, func(agent agentstore.Agent) string { return agent.WorkflowID })
+
+	return xslice.Map(unique, func(agent agentstore.Agent) string { return agent.WorkflowID })
 }
