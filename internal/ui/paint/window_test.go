@@ -133,7 +133,6 @@ func TestRenderListKeepsCursorVisible(t *testing.T) {
 	}
 }
 
-// TestWindowAround pins which rows of a block a pane shows.
 func TestWindowAround(t *testing.T) {
 	tests := []struct {
 		name   string
@@ -208,8 +207,6 @@ func TestWindowAround(t *testing.T) {
 	}
 }
 
-// TestDrawWindowIsHandedOnlyTheRowsItShows pins that the counts either side of a window are
-// read off the window rather than off the rows.
 func TestDrawWindowIsHandedOnlyTheRowsItShows(t *testing.T) {
 	window := Window{
 		Start:  9,
