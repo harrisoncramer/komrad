@@ -45,7 +45,7 @@ func actionsOf(s screen) (dispatching, bool) {
 	case screenWorktrees:
 		return (&worktreesScreen{}).actions(), true
 	case screenSearch:
-		return searchActions(), true
+		return (&searchScreen{}).actions(), true
 	}
 
 	return nil, false

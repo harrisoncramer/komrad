@@ -1268,15 +1268,14 @@ func TestArchiveOpensOnTheList(t *testing.T) {
 
 	jumping := archiveModel(&fakeArchiveAgents{}, &fakeArchiveWorkflows{}, keys)
 	jumping.screen = screenSearch
-	jumping.search = searchState{query: "api", turns: []searchHit{{
+	jumping.search = searchScreen{query: "api", turns: []searchHit{{
 		agentID:  "a1",
 		name:     "api-refactor",
 		archived: true,
 	}}}
 
-	jumped, _ := jumping.jumpToSearchAgent()
-	landed, ok := jumped.(model)
-	require.True(t, ok)
+	jumping.search.jumpToAgent(&jumping, jumping.shared())
+	landed := jumping
 	assert.Equal(t, screenArchive, landed.screen)
 	assert.False(t, landed.filter.typing, "a jump to a hit lands on the row it named, not in the search")
 }

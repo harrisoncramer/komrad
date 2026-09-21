@@ -4,8 +4,6 @@ import (
 	"strings"
 
 	"weave/internal/ui/paint"
-
-	tea "github.com/charmbracelet/bubbletea"
 )
 
 // transcriptPreviewBefore is how many rows of lead-in the preview opens with, so the match the
@@ -38,35 +36,35 @@ type holdPreviewParams struct {
 
 // holdPreview takes the transcript an agent was fetched for and draws it at the width it will be
 // read in, opening it on the match asked for.
-func (m *model) holdPreview(params holdPreviewParams) {
+func (w *searchScreen) holdPreview(s panelShared, params holdPreviewParams) {
 	conversation, spans := params.conversation, params.spans
 	if strings.TrimSpace(conversation) == "" {
 		conversation, spans = noTranscriptMarkdown, nil
 	}
 
-	m.search.preview = searchPreview{
+	w.preview = searchPreview{
 		agentID:      params.agentID,
 		conversation: conversation,
 		spans:        spans,
 		open:         params.open,
 	}
-	m.drawPreview()
+	w.drawPreview(s)
 }
 
-func (m *model) openPreviewOn(open int) {
-	m.search.preview.open = open
-	m.drawPreview()
+func (w *searchScreen) openPreviewOn(s panelShared, open int) {
+	w.preview.open = open
+	w.drawPreview(s)
 }
 
 // drawPreview wraps the transcript into the column it is drawn in and puts the window back on
 // the match, where a rewrap has moved it.
-func (m *model) drawPreview() {
-	preview := &m.search.preview
+func (w *searchScreen) drawPreview(s panelShared) {
+	preview := &w.preview
 	if preview.conversation == "" {
 		return
 	}
 
-	split, ok := m.screenColumnSplit()
+	split, ok := s.draw.screenColumnSplit()
 	if !ok {
 		preview.doc = docWindow{}
 
@@ -89,23 +87,23 @@ func (m *model) drawPreview() {
 	preview.doc.top = preview.doc.clamp(preview.doc.top, split.rows)
 }
 
-// searchPreviewView is the screenful of the transcript beside the list, drawn without the
-// markers the archive's document carries.
-func (m model) searchPreviewView(split columnSplit) string {
-	doc := m.search.preview.doc
+// previewView is the screenful of the transcript beside the list, drawn without the markers the
+// archive's document carries.
+func (w *searchScreen) previewView(s panelShared, split columnSplit) string {
+	doc := w.preview.doc
 	if len(doc.rows) == 0 {
-		doc = docWindow{rows: paint.Panel.DocRows(m.searchPreviewNotice(), split.column)}
+		doc = docWindow{rows: paint.Panel.DocRows(w.previewNotice(s), split.column)}
 	}
 
 	return doc.view(split.rows)
 }
 
-// searchPreviewNotice is what stands in the column before a transcript does.
-func (m model) searchPreviewNotice() string {
+// previewNotice is what stands in the column before a transcript does.
+func (w *searchScreen) previewNotice(s panelShared) string {
 	switch {
-	case strings.TrimSpace(m.search.query) == "":
+	case strings.TrimSpace(w.query) == "":
 		return searchWaitingMarkdown
-	case len(m.searchRows()) == 0:
+	case len(w.rows(s)) == 0:
 		return noSearchHitsMarkdown
 	default:
 		return searchLoadingMarkdown
@@ -113,13 +111,11 @@ func (m model) searchPreviewNotice() string {
 }
 
 // scrollPreview moves the transcript beside the list.
-func (m model) scrollPreview(delta int) (tea.Model, tea.Cmd) {
-	split, ok := m.screenColumnSplit()
+func (w *searchScreen) scrollPreview(s panelShared, delta int) {
+	split, ok := s.draw.screenColumnSplit()
 	if !ok {
-		return m, nil
+		return
 	}
 
-	m.search.preview.doc.scroll(delta, split.rows)
-
-	return m, nil
+	w.preview.doc.scroll(delta, split.rows)
 }

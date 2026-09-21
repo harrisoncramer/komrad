@@ -262,22 +262,6 @@ func (m model) columnScrollBinding(what string) key.Binding {
 	)
 }
 
-func (m model) searchHelp() keyMap {
-	if m.search.typing {
-		done := binding([]string{"enter"}, "keep it, then move through the hits")
-		leave := binding([]string{"esc"}, "back")
-
-		return keyMap{short: []key.Binding{done, leave}, full: []key.Binding{done, leave}}
-	}
-
-	own := searchActions().help(m)
-
-	return keyMap{
-		short: slices.Concat(own.short, m.globalHelp()),
-		full:  slices.Concat(own.full, m.globalHelp()),
-	}
-}
-
 // reviewHelp keeps the strip to what the screen is for.
 func (m model) reviewHelp() keyMap {
 	own := reviewActions().help(m)

@@ -69,13 +69,40 @@ func TestApplySearchResults(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			m := model{
 				screen: screenSearch,
-				search: searchState{query: tt.query},
+				search: searchScreen{query: tt.query},
 				frame:  layout.New(&recordingTmux{}, config.DefaultLayout()),
 			}
 
-			m.applySearch(tt.msg)
+			m.search.apply(&m, m.shared(), tt.msg)
 
 			assert.Len(t, m.search.turns, tt.wantHits)
+		})
+	}
+}
+
+// TestSearchResultsReachTheScreenThatIsUp pins that the search's own messages arrive through
+// the root's routing when the search is up, and go nowhere when another screen is.
+func TestSearchResultsReachTheScreenThatIsUp(t *testing.T) {
+	tests := []struct {
+		name     string
+		screen   screen
+		wantHits int
+	}{
+		{name: "on the search", screen: screenSearch, wantHits: 2},
+		{name: "on the agents", screen: screenAgents, wantHits: 0},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m := filterModel()
+			m.screen = tt.screen
+			m.search = searchScreen{query: "current"}
+
+			next, _ := m.route(searchResult{query: "current", hits: hits("a", "b")})
+			routed, ok := next.(model)
+			require.True(t, ok)
+
+			assert.Len(t, routed.search.turns, tt.wantHits)
 		})
 	}
 }
@@ -135,14 +162,11 @@ func TestUpdateSearchEditsQuery(t *testing.T) {
 			m := model{
 				screen: screenSearch,
 				keys:   config.DefaultKeybindings(),
-				search: searchState{typing: true},
+				search: searchScreen{typing: true},
 			}
 
 			for _, key := range tt.keys {
-				next, _ := m.updateSearch(key)
-				updated, ok := next.(model)
-				require.True(t, ok)
-				m = updated
+				m.search.update(&m, m.shared(), key)
 			}
 
 			assert.Equal(t, tt.want, m.search.query)
@@ -497,7 +521,7 @@ func TestJumpToSearchHit(t *testing.T) {
 				schedules: emptyLists{},
 			}
 			m.screen = screenSearch
-			m.search = searchState{query: "ledger", turns: []searchHit{tt.hit}}
+			m.search = searchScreen{query: "ledger", turns: []searchHit{tt.hit}}
 			m.listing.agents[1].agent.Hidden = tt.hidden
 			m.listing.archivedAgents = archivedItems([]panel.Agent{{
 				ID:         "a3",
@@ -563,7 +587,7 @@ func TestSearchEscape(t *testing.T) {
 				schedules: emptyLists{},
 			}
 			m.screen = screenSearch
-			m.search = searchState{
+			m.search = searchScreen{
 				typing: tt.typing,
 				query:  "ledger",
 				turns:  tt.hits,
@@ -584,7 +608,7 @@ func TestSearchEscape(t *testing.T) {
 func TestSearchQueryOwnsTheKeys(t *testing.T) {
 	m := filterModel()
 	m.screen = screenSearch
-	m.search = searchState{
+	m.search = searchScreen{
 		typing: true,
 		query:  "ledger",
 		turns:  hits("a"),
@@ -651,7 +675,7 @@ func TestSearchHitsTakeTheKeys(t *testing.T) {
 				schedules: emptyLists{},
 			}
 			m.screen = screenSearch
-			m.search = searchState{
+			m.search = searchScreen{
 				typing: true,
 				query:  "ledger",
 				turns:  hits("a", "b", "c"),
@@ -707,9 +731,9 @@ func TestSearchNamesEachAgentOnce(t *testing.T) {
 	m := filterModel()
 	m.screen = screenSearch
 	m.width = 80
-	m.search = searchState{query: "ledger"}
+	m.search = searchScreen{query: "ledger"}
 
-	m.applySearch(searchResult{
+	m.search.apply(&m, m.shared(), searchResult{
 		query: "ledger",
 		hits: []searchHit{
 			{
@@ -730,14 +754,14 @@ func TestSearchNamesEachAgentOnce(t *testing.T) {
 		},
 	})
 
-	agents := m.buildSearchAgents()
+	agents := m.search.buildAgents(m.shared())
 	require.Len(t, agents, 2, "one row per agent rather than per turn")
 	assert.Equal(t, "a1", agents[0].id, "the agent the best turn belongs to stands first")
 	assert.Equal(t, []string{"first", "third"}, xslice.Map(agents[0].turns, func(hit searchHit) string {
 		return hit.snippet
 	}), "an agent's turns sit together on its row")
 
-	view := ansi.Strip(m.searchView())
+	view := ansi.Strip(searchAdapter{}.view(m))
 	assert.Equal(t, 2, strings.Count(view, "dispatcher"), "one row per agent rather than per name")
 	assert.Less(t, strings.Index(view, "first"), strings.Index(view, "third"), "what each turn said is drawn under its agent")
 	assert.Less(t, strings.Index(view, "third"), strings.Index(view, "second"), "in the order the turns came back")
@@ -746,7 +770,7 @@ func TestSearchNamesEachAgentOnce(t *testing.T) {
 // searchRows is the rows the screen built for the agents it found, and the same rows drawn.
 func searchRows(m model) ([]view.Row, []string) {
 	pane := m.paneWidth()
-	snapshot := m.searchSnapshot(m.searchRows(), pane)
+	snapshot := m.search.snapshot(m.shared(), m.search.rows(m.shared()), m.listPane(pane))
 
 	return snapshot.Rows, view.Rows(view.Prepare(snapshot), paint.Panel, pane)
 }
@@ -774,7 +798,7 @@ func TestSearchRowCarriesTheAgent(t *testing.T) {
 	m := filterModel()
 	m.screen = screenSearch
 	m.width = 80
-	m.search = searchState{query: "ledger"}
+	m.search = searchScreen{query: "ledger"}
 	m.listing.marks = map[string]string{agentRowKey("a1"): marked}
 	m.listing.agents = []agentItem{
 		{
@@ -798,7 +822,7 @@ func TestSearchRowCarriesTheAgent(t *testing.T) {
 		},
 	})
 
-	m.applySearch(searchResult{
+	m.search.apply(&m, m.shared(), searchResult{
 		query: "ledger",
 		hits: []searchHit{
 			{
@@ -842,7 +866,7 @@ func TestSearchTellsAHiddenHitFromAnArchivedOne(t *testing.T) {
 	m := filterModel()
 	m.screen = screenSearch
 	m.width = 80
-	m.search = searchState{query: "ledger"}
+	m.search = searchScreen{query: "ledger"}
 	m.listing.agents = []agentItem{
 		{agent: panel.Agent{
 			ID:         "a1",
@@ -867,7 +891,7 @@ func TestSearchTellsAHiddenHitFromAnArchivedOne(t *testing.T) {
 			ArchivedAt: xptr.Ptr(time.Now()),
 		},
 	})
-	m.applySearch(searchResult{
+	m.search.apply(&m, m.shared(), searchResult{
 		query: "ledger",
 		hits: []searchHit{
 			{
@@ -940,10 +964,10 @@ func TestSearchRowSaysWhatTheAgentsListSays(t *testing.T) {
 
 	m := filterModel()
 	m.screen = screenSearch
-	m.search = searchState{query: "ledger"}
+	m.search = searchScreen{query: "ledger"}
 	m.listing.agents = []agentItem{item}
 
-	hit := m.searchAgentRow(searchAgent{id: "a1", name: "ledger"}, nil)
+	hit := m.search.agentRow(m.shared(), searchAgent{id: "a1", name: "ledger"}, nil)
 	tree := snapshotRow(agentRow{item: item}, snapshotParams{})
 
 	assert.Equal(t, treeOwned(tree), treeOwned(hit))
@@ -970,11 +994,11 @@ func TestArchivedAgentsSayTheSameOnBothScreens(t *testing.T) {
 
 			m := filterModel()
 			m.screen = screenSearch
-			m.search = searchState{query: "payouts"}
+			m.search = searchScreen{query: "payouts"}
 			m.listing.archivedAgents = archivedItems([]panel.Agent{agent})
 
 			archive := view.StatusCell(snapshotRow(agentRow{item: agentItem{agent: agent}}, snapshotParams{}))
-			search := view.StatusCell(m.searchAgentRow(searchAgent{
+			search := view.StatusCell(m.search.agentRow(m.shared(), searchAgent{
 				id:       "a2",
 				name:     "payouts",
 				archived: true,
@@ -1013,10 +1037,10 @@ func TestArchivedHitGreysOnWhatTheServerSaid(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			m := filterModel()
 			m.screen = screenSearch
-			m.search = searchState{query: "payouts"}
+			m.search = searchScreen{query: "payouts"}
 			m.listing.archivedAgents = archivedItems(tt.listed)
 
-			row := m.searchAgentRow(searchAgent{
+			row := m.search.agentRow(m.shared(), searchAgent{
 				id:       "a2",
 				name:     "payouts",
 				archived: true,
@@ -1042,10 +1066,10 @@ func TestArchivedSearchRowKeepsTheDeleteThatFailed(t *testing.T) {
 
 	m := filterModel()
 	m.screen = screenSearch
-	m.search = searchState{query: "stuck"}
+	m.search = searchScreen{query: "stuck"}
 	m.listing.archivedAgents = archivedItems([]panel.Agent{agent})
 
-	cell := view.StatusCell(m.searchAgentRow(searchAgent{
+	cell := view.StatusCell(m.search.agentRow(m.shared(), searchAgent{
 		id:       "a2",
 		name:     "stuck",
 		archived: true,
@@ -1061,7 +1085,7 @@ func TestSearchNamesAnAgentMatchedTwiceOnce(t *testing.T) {
 	m := filterModel()
 	m.screen = screenSearch
 	m.width = 80
-	m.search = searchState{query: "billing"}
+	m.search = searchScreen{query: "billing"}
 	m.listing.agents = []agentItem{{
 		agent: panel.Agent{
 			ID:         "a1",
@@ -1071,7 +1095,7 @@ func TestSearchNamesAnAgentMatchedTwiceOnce(t *testing.T) {
 		alive: true,
 	}}
 
-	m.applySearch(searchResult{
+	m.search.apply(&m, m.shared(), searchResult{
 		query: "billing",
 		hits: []searchHit{{
 			agentID: "a1",
@@ -1080,7 +1104,7 @@ func TestSearchNamesAnAgentMatchedTwiceOnce(t *testing.T) {
 		}},
 	})
 
-	agents := m.buildSearchAgents()
+	agents := m.search.buildAgents(m.shared())
 	require.Len(t, agents, 1, "one agent, matched by its name and by a turn, is one row")
 	assert.Len(t, agents[0].turns, 1, "and the turn is kept on it")
 
@@ -1125,10 +1149,10 @@ func TestSearchRowWithoutTheAgent(t *testing.T) {
 	m := filterModel()
 	m.screen = screenSearch
 	m.width = 80
-	m.search = searchState{query: "ledger"}
+	m.search = searchScreen{query: "ledger"}
 	m.listing.agents = nil
 
-	m.applySearch(searchResult{
+	m.search.apply(&m, m.shared(), searchResult{
 		query: "ledger",
 		hits: []searchHit{{
 			agentID: "gone",
@@ -1142,7 +1166,7 @@ func TestSearchRowWithoutTheAgent(t *testing.T) {
 
 	assert.Equal(t, view.ProcessNone, row.Process, "a hit nothing is known about has nothing behind it")
 
-	header := headerLine(t, ansi.Strip(m.searchView()), "billing")
+	header := headerLine(t, ansi.Strip(searchAdapter{}.view(m)), "billing")
 	assert.True(t, strings.HasSuffix(header, view.Spell(view.GlyphQuiet)+" billing"),
 		"and still draws the quiet bar: %q", header)
 	assert.Equal(t, view.GutterColumns(view.Columns{}), textColumn(t, header, "billing"),
@@ -1221,7 +1245,7 @@ func TestJumpLeavesTheSearchBehind(t *testing.T) {
 				Name:       "old-work",
 				WorkflowID: "w1",
 			}})
-			m.search = searchState{query: "ledger", turns: []searchHit{tt.hit}}
+			m.search = searchScreen{query: "ledger", turns: []searchHit{tt.hit}}
 
 			updated, _ := m.route(keyMsg("enter"))
 			landed, ok := updated.(model)
@@ -1255,7 +1279,7 @@ func TestJumpDropsALatePreview(t *testing.T) {
 	m.screen = screenSearch
 	m.listing.agents[1].alive = true
 	m.listing.agents[1].agent.Pane = "%9"
-	m.search = searchState{
+	m.search = searchScreen{
 		query: "ledger",
 		turns: []searchHit{{
 			agentID: "a2",
@@ -1275,7 +1299,7 @@ func TestJumpDropsALatePreview(t *testing.T) {
 		query:   "ledger",
 		content: "one\ntwo\nthree\n",
 	}
-	landed.applyPreview(late)
+	landed.search.applyPreview(landed.shared(), late)
 
 	assert.Empty(t, landed.search.preview.conversation, "the late preview is dropped")
 }
@@ -1287,7 +1311,7 @@ func TestSearchViewFitsThePane(t *testing.T) {
 	m.screen = screenSearch
 	m.width = 80
 	m.height = 14
-	m.search = searchState{query: "agent"}
+	m.search = searchScreen{query: "agent"}
 
 	var found []searchHit
 	for i := range 20 {
@@ -1298,14 +1322,14 @@ func TestSearchViewFitsThePane(t *testing.T) {
 		})
 	}
 
-	m.applySearch(searchResult{query: "agent", hits: found})
+	m.search.apply(&m, m.shared(), searchResult{query: "agent", hits: found})
 
-	view := drawnLines(m.searchView())
+	view := drawnLines(searchAdapter{}.view(m))
 	assert.LessOrEqual(t, len(view), m.height, "the view is no taller than the pane")
 	assert.Contains(t, strings.Join(view, "\n"), "more", "the rows it could not draw are counted")
 
-	m.search.cursor = len(m.searchRows()) - 1
-	bottom := drawnLines(m.searchView())
+	m.search.cursor = len(m.search.rows(m.shared())) - 1
+	bottom := drawnLines(searchAdapter{}.view(m))
 	assert.LessOrEqual(t, len(bottom), m.height, "the view stays inside the pane at the end of the list")
 	assert.Contains(t, strings.Join(bottom, "\n"), "agent-19", "the agent under the cursor is drawn")
 }
@@ -1327,9 +1351,9 @@ func TestSearchNamesStandFirst(t *testing.T) {
 		Name:       "billing-old",
 		WorkflowID: "w1",
 	}})
-	m.search = searchState{query: "BILL"}
+	m.search = searchScreen{query: "BILL"}
 
-	m.applySearch(searchResult{
+	m.search.apply(&m, m.shared(), searchResult{
 		query: "BILL",
 		hits: []searchHit{{
 			agentID: "a2",
@@ -1338,7 +1362,7 @@ func TestSearchNamesStandFirst(t *testing.T) {
 		}},
 	})
 
-	agents := m.buildSearchAgents()
+	agents := m.search.buildAgents(m.shared())
 	require.Len(t, agents, 3)
 	assert.Equal(t, []string{"a1", "a3", "a2"}, xslice.Map(agents, func(agent searchAgent) string { return agent.id }),
 		"the live name, then the archived one, then the conversation")
@@ -1364,9 +1388,9 @@ func TestSearchNameHitsTakeTheCursor(t *testing.T) {
 	}
 	m.screen = screenSearch
 	m.width = 80
-	m.search = searchState{query: "bill"}
+	m.search = searchScreen{query: "bill"}
 
-	m.applySearch(searchResult{
+	m.search.apply(&m, m.shared(), searchResult{
 		query: "bill",
 		hits: []searchHit{{
 			agentID: "a2",
@@ -1375,13 +1399,13 @@ func TestSearchNameHitsTakeTheCursor(t *testing.T) {
 		}},
 	})
 
-	opened, ok := m.hoveredSearchAgent()
+	opened, ok := m.search.hoveredAgent(m.shared())
 	require.True(t, ok)
 	assert.Equal(t, "a1", opened.id, "the cursor opens on the name")
 
-	next, _ := searchList().move(m, 1)
+	m.search.list().move(&m, m.shared(), 1)
 
-	agent, ok := next.hoveredSearchAgent()
+	agent, ok := m.search.hoveredAgent(m.shared())
 	require.True(t, ok)
 	assert.Equal(t, "a2", agent.id, "the step off the name lands on the conversation")
 }
@@ -1396,11 +1420,10 @@ func TestSearchNameHitJumps(t *testing.T) {
 		schedules: emptyLists{},
 	}
 	m.screen = screenSearch
-	m.search = searchState{query: "payout"}
+	m.search = searchScreen{query: "payout"}
 
-	updated, _ := m.jumpToSearchAgent()
-	landed, ok := updated.(model)
-	require.True(t, ok)
+	m.search.jumpToAgent(&m, m.shared())
+	landed := m
 
 	assert.Equal(t, screenAgents, landed.screen)
 	require.Less(t, landed.tree.cursor, len(rowNames(landed.agentRows())))
@@ -1428,8 +1451,8 @@ func TestSearchCursorSurvivesARefresh(t *testing.T) {
 		}
 		m.screen = screenSearch
 		m.width = 80
-		m.search = searchState{query: "bill"}
-		m.applySearch(searchResult{
+		m.search = searchScreen{query: "bill"}
+		m.search.apply(&m, m.shared(), searchResult{
 			query: "bill",
 			hits: []searchHit{{
 				agentID: "a2",
@@ -1453,7 +1476,7 @@ func TestSearchCursorSurvivesARefresh(t *testing.T) {
 			}},
 		}, m.listing.agents...)})
 
-		agent, ok := m.hoveredSearchAgent()
+		agent, ok := m.search.hoveredAgent(m.shared())
 		require.True(t, ok)
 		assert.Equal(t, "a2", agent.id, "the cursor stays on the agent it was standing on")
 		assert.Nil(t, cmd, "the preview beside it is the one already fetched")
@@ -1465,7 +1488,7 @@ func TestSearchCursorSurvivesARefresh(t *testing.T) {
 
 		cmd := m.applyRefresh(refreshResult{})
 
-		agent, ok := m.hoveredSearchAgent()
+		agent, ok := m.search.hoveredAgent(m.shared())
 		require.True(t, ok, "a row still wears the cursor")
 		assert.Equal(t, "a2", agent.id, "the cursor lands on what is left")
 		assert.NotNil(t, cmd, "the preview is fetched for the agent it landed on")
@@ -1576,4 +1599,9 @@ func TestSearchHitRowFollowsItsAgent(t *testing.T) {
 	assert.Equal(t, []view.Span{{Start: 17, End: 21}}, row.Matches)
 	assert.True(t, row.Archived)
 	assert.Equal(t, view.ProcessNone, row.Process)
+}
+
+// searchHelp is the search legend as the frame draws it.
+func (m model) searchHelp() keyMap {
+	return m.search.help(m.shared())
 }

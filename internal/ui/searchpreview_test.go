@@ -66,7 +66,7 @@ func searchPreviewModel(t *testing.T) (model, *recordingTmux) {
 		snippet: marked("reconcile"),
 	}}
 
-	m.applyPreview(previewResult{
+	m.search.applyPreview(m.shared(), previewResult{
 		agentID: "a1",
 		query:   "reconcile",
 		content: content,
@@ -98,7 +98,7 @@ func TestSearchPreviewOpensOnTheMatch(t *testing.T) {
 	require.NotEmpty(t, m.search.preview.doc.rows)
 	assert.Positive(t, m.search.preview.doc.top, "the preview is scrolled to the match")
 
-	shown := ansi.Strip(m.searchPreviewView(previewSplit(t, m)))
+	shown := ansi.Strip(m.search.previewView(m.shared(), previewSplit(t, m)))
 	assert.Contains(t, shown, "the reconcile loop", "the matched turn is on screen")
 	assert.NotContains(t, shown, "line 0 of the conversation before", "the top of the transcript is not")
 	assert.Contains(t, shown, "line 199 of the conversation before",
@@ -128,7 +128,7 @@ func TestSearchPreviewScrolls(t *testing.T) {
 	split := previewSplit(t, m)
 	assert.Equal(t, len(m.search.preview.doc.rows)-split.rows, m.search.preview.doc.top,
 		"the last screenful is as far down as it goes")
-	assert.Contains(t, ansi.Strip(m.searchPreviewView(split)), "line 199 of the conversation after",
+	assert.Contains(t, ansi.Strip(m.search.previewView(m.shared(), split)), "line 199 of the conversation after",
 		"the end of the transcript is drawn rather than empty rows past it")
 }
 
@@ -149,14 +149,14 @@ func TestSearchPreviewFollowsTheCursor(t *testing.T) {
 		snippet: marked("reconcile"),
 	})
 	m.search.cursor = 2
-	m.applyPreview(previewResult{
+	m.search.applyPreview(m.shared(), previewResult{
 		agentID: "a2",
 		query:   "reconcile",
 		content: content,
 	})
 
 	assert.NotEqual(t, moved, m.search.preview.doc.top, "the preview is put back on the new match")
-	assert.Contains(t, ansi.Strip(m.searchPreviewView(previewSplit(t, m))), "the reconcile loop")
+	assert.Contains(t, ansi.Strip(m.search.previewView(m.shared(), previewSplit(t, m))), "the reconcile loop")
 }
 
 // TestSearchDrawsBothHalves covers the two columns being joined into one frame.
@@ -164,7 +164,7 @@ func TestSearchDrawsBothHalves(t *testing.T) {
 	m, _ := searchPreviewModel(t)
 
 	split := previewSplit(t, m)
-	rows := drawnLines(m.searchView())
+	rows := drawnLines(searchAdapter{}.view(m))
 
 	assert.LessOrEqual(t, len(rows), m.height, "the frame is no taller than the window")
 	for _, row := range rows {
@@ -206,9 +206,9 @@ func TestSearchPutsTheHitsWhereTheLayoutAsks(t *testing.T) {
 			m.frame = layout.New(tmux, config.Layout{SidebarSide: tt.side, SidebarWidth: 40})
 			m.frame.Attach("%0")
 			m.frame.Solo(true)
-			m.drawPreview()
+			m.search.drawPreview(m.shared())
 
-			first, _, _ := strings.Cut(ansi.Strip(m.searchView()), "\n")
+			first, _, _ := strings.Cut(ansi.Strip(searchAdapter{}.view(m)), "\n")
 			assert.True(t, strings.HasPrefix(strings.TrimLeft(first, " "), tt.want),
 				"the top row opens with %q: %q", tt.want, first)
 		})
@@ -220,12 +220,12 @@ func TestSearchPutsTheHitsWhereTheLayoutAsks(t *testing.T) {
 func TestSearchWithoutTheRoomDrawsTheHitsAlone(t *testing.T) {
 	m, _ := searchPreviewModel(t)
 	m.width = nameWidth + columnFloor - 1
-	m.drawPreview()
+	m.search.drawPreview(m.shared())
 
 	_, ok := m.screenColumnSplit()
 	assert.False(t, ok, "there is no room for a split")
 
-	view := ansi.Strip(m.searchView())
+	view := ansi.Strip(searchAdapter{}.view(m))
 	assert.Contains(t, view, "billing", "the hits are still drawn")
 	assert.NotContains(t, view, "the reconcile loop", "the transcript is not")
 }
@@ -235,11 +235,11 @@ func TestSearchWithoutTheRoomDrawsTheHitsAlone(t *testing.T) {
 func TestSearchPreviewWithoutATranscript(t *testing.T) {
 	m, _ := searchPreviewModel(t)
 
-	m.applyPreview(previewResult{agentID: "a1", query: "reconcile"})
+	m.search.applyPreview(m.shared(), previewResult{agentID: "a1", query: "reconcile"})
 
 	assert.Equal(t, noTranscriptMarkdown, m.search.preview.conversation)
 
-	rows := drawnLines(m.searchView())
+	rows := drawnLines(searchAdapter{}.view(m))
 	assert.Contains(t, strings.Join(rows, "\n"), "no transcript yet")
 	for _, row := range rows {
 		assert.LessOrEqual(t, lipgloss.Width(row), m.width,
@@ -257,7 +257,7 @@ func TestSearchPreviewRewrapsOnResize(t *testing.T) {
 	require.True(t, ok)
 
 	assert.NotEqual(t, before, len(resized.search.preview.doc.rows), "the transcript is wrapped again")
-	for _, row := range strings.Split(resized.searchView(), "\n") {
+	for _, row := range strings.Split(searchAdapter{}.view(resized), "\n") {
 		assert.Equal(t, resized.width, lipgloss.Width(row),
 			"and every row of the frame is squared off, so neither half slides under the other")
 	}
@@ -301,7 +301,7 @@ func TestSearchPreviewDrawsOnceThereIsRoom(t *testing.T) {
 	m, _ := searchPreviewModel(t)
 
 	m.height = 0
-	m.drawPreview()
+	m.search.drawPreview(m.shared())
 	require.Empty(t, m.search.preview.doc.rows, "an unmeasured window has no rows to draw into")
 
 	next, _ := m.route(tea.WindowSizeMsg{Width: m.width, Height: 30})
@@ -366,7 +366,7 @@ func TestSearchPreviewMovesToTheHoveredTurn(t *testing.T) {
 	})
 	m.search.turns[0].seq = 7
 	m.search.cursor = 1
-	m.applyPreview(previewResult{
+	m.search.applyPreview(m.shared(), previewResult{
 		agentID: "a1",
 		query:   "reconcile",
 		content: content,
@@ -402,14 +402,14 @@ func TestSearchPagesWhenTheCursorReachesTheEnd(t *testing.T) {
 	m = pressSearch(t, m, "G")
 	require.Equal(t, 3, m.search.cursor, "the last row is the second agent's turn")
 	assert.True(t, m.search.paging, "the next page is on its way")
-	m.applyPreview(previewResult{
+	m.search.applyPreview(m.shared(), previewResult{
 		agentID: "a2",
 		query:   "reconcile",
 		content: content,
 	})
 	require.Equal(t, "a2", m.search.preview.agentID)
 
-	m.applySearch(searchResult{
+	m.search.apply(&m, m.shared(), searchResult{
 		query: "stale",
 		hits:  hits("z"),
 		paged: true,
@@ -417,7 +417,7 @@ func TestSearchPagesWhenTheCursorReachesTheEnd(t *testing.T) {
 	assert.Len(t, m.search.turns, 2, "a page for a query the input has moved past is dropped")
 
 	early := strings.Index(content, "line 3 of the conversation before")
-	m.applySearch(searchResult{
+	m.search.apply(&m, m.shared(), searchResult{
 		query: "reconcile",
 		hits: []searchHit{
 			{
@@ -442,8 +442,8 @@ func TestSearchPagesWhenTheCursorReachesTheEnd(t *testing.T) {
 	assert.Len(t, m.search.turns, 4, "the page's hits follow the ones held")
 	assert.False(t, m.search.paging)
 	assert.Nil(t, m.search.next, "and there is no page after it")
-	require.Len(t, m.searchRows(), 6)
-	assert.Equal(t, "a2/9", m.hoveredSearchID(), "the cursor stays on the turn it was on while a page-two turn is grouped above it")
+	require.Len(t, m.search.rows(m.shared()), 6)
+	assert.Equal(t, "a2/9", m.search.list().hovered(m.shared()), "the cursor stays on the turn it was on while a page-two turn is grouped above it")
 	assert.Equal(t, 4, m.search.cursor)
 	assert.Equal(t, 1, m.search.preview.open, "and the preview still opens on that turn rather than the earlier one grouped under the agent")
 
@@ -462,7 +462,7 @@ func TestSearchForgetsAPageInFlight(t *testing.T) {
 	require.True(t, m.search.paging)
 
 	m.search.query = "reconciler"
-	m.applySearch(searchResult{query: "reconciler", hits: hits("b")})
+	m.search.apply(&m, m.shared(), searchResult{query: "reconciler", hits: hits("b")})
 
 	assert.False(t, m.search.paging, "a fresh search forgets the page it was waiting on")
 }
