@@ -4,11 +4,13 @@ package cli
 
 import (
 	"os/exec"
+	"slices"
 	"strings"
 	"testing"
 
 	"weave/config"
 	"weave/internal/agents"
+	"weave/internal/version"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -276,4 +278,61 @@ func TestUserPanelKeyPrefersTheConfiguredKey(t *testing.T) {
 
 	assert.Equal(t, "j", userPanelKey(state, hostPath),
 		"with no key configured the tmux option is still what both sides read")
+}
+
+// TestEnsureManagerSessionReplacesAPanelFromAnotherBuild covers an open finding a panel built
+// from other code, or one so old it never said which, and putting a fresh one up instead.
+func TestEnsureManagerSessionReplacesAPanelFromAnotherBuild(t *testing.T) {
+	self := version.Describe(version.Version(), version.Commit())
+
+	tests := []struct {
+		name     string
+		build    string
+		recorded bool
+		replaced bool
+	}{
+		{
+			name:     "a panel that never recorded its build",
+			build:    "",
+			recorded: false,
+			replaced: true,
+		},
+		{
+			name:     "a panel from another build",
+			build:    "devel (0000000)",
+			recorded: true,
+			replaced: true,
+		},
+		{
+			name:     "a panel from this build",
+			build:    self,
+			recorded: true,
+			replaced: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			socket := throwawaySocket(t)
+			panelSession(t, socket)
+
+			state := hideState(socket, "")
+
+			panelPane := hostQuery(t, socket, "display-message", "-p", "-t", agents.ManagerSession, "#{pane_id}")
+			state.tmux.RecordPanelPane(panelPane)
+
+			if tt.recorded {
+				state.tmux.RecordPanelBuild(tt.build)
+			}
+
+			before := hostQuery(t, socket, "display-message", "-p", "-t", panelPane, "#{pane_pid}")
+
+			require.NoError(t, ensureManagerSession(t.Context(), state, true, false))
+
+			after := strings.Fields(hostQuery(t, socket, "list-panes", "-a", "-F", "#{pane_pid}"))
+
+			assert.Equal(t, !tt.replaced, slices.Contains(after, before),
+				"the process the panel key found is the one it re-shows")
+		})
+	}
 }

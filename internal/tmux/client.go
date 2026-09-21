@@ -32,6 +32,8 @@ const InfoPaneOption = "@weave_info_pane"
 
 const panelPaneOption = "@weave_panel_pane"
 
+const panelBuildOption = "@weave_panel_build"
+
 const queryTimeout = 5 * time.Second
 
 const killDelay = 100 * time.Millisecond
@@ -474,6 +476,20 @@ func (c *Client) RecordPanelPane(pane string) {
 // GetPanelPane reads that pane back, empty when no panel has recorded one.
 func (c *Client) GetPanelPane() string {
 	return c.ShowGlobal(panelPaneOption)
+}
+
+// RecordPanelBuild stores the build the panel drawing in that pane was made from.
+func (c *Client) RecordPanelBuild(build string) {
+	if build == "" {
+		return
+	}
+
+	c.SetGlobal(panelBuildOption, build)
+}
+
+// GetPanelBuild reads that build back, empty when the panel never recorded one.
+func (c *Client) GetPanelBuild() string {
+	return c.ShowGlobal(panelBuildOption)
 }
 
 // RecordHostSocket stores the socket path of the user's server, so the panel and everything
