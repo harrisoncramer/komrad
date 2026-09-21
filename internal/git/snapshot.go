@@ -365,28 +365,28 @@ func (c *Client) GetTree(ctx context.Context, dir, sha string) (string, error) {
 	return tree, nil
 }
 
-// Standing is where a worktree stands against the round a verdict was given on.
+// Standing is where a worktree stands against a ref.
 type Standing int
 
 const (
-	// StandingSame is a worktree that still hashes to the round.
+	// StandingSame is a worktree that still hashes to the ref.
 	StandingSame Standing = iota
-	// StandingMoved is a worktree that differs from a round the base does not hold.
+	// StandingMoved is a worktree that differs from a ref the base does not hold.
 	StandingMoved
-	// StandingLanded is a worktree carrying nothing beyond a base that holds the round whole.
+	// StandingLanded is a worktree carrying nothing beyond a base that holds the ref whole.
 	StandingLanded
-	// StandingLandedMoved is a worktree carrying new work over a base that holds the round whole.
+	// StandingLandedMoved is a worktree carrying new work over a base that holds the ref whole.
 	StandingLandedMoved
 )
 
-// ReadStandingParams names the worktree, the base it is measured against, and the round.
+// ReadStandingParams names the worktree, the base it is measured against, and the ref.
 type ReadStandingParams struct {
 	Dir         string
 	Base        string
 	SnapshotSHA string
 }
 
-// ReadStanding is where a worktree stands against the round a verdict was given on.
+// ReadStanding is where a worktree stands against a ref.
 func (c *Client) ReadStanding(ctx context.Context, params ReadStandingParams) (Standing, error) {
 	root, err := c.GetRoot(ctx, params.Dir)
 	if err != nil {
