@@ -32,10 +32,11 @@ func (m *model) inspectAgentWorktreeCmd(now time.Time) tea.Cmd {
 	return m.readWorktreeCmd(item.agent.Cwd)
 }
 
-// rereadAgentWorktreeCmd asks for the hovered agent's directory again whatever stands for it.
+// rereadAgentWorktreeCmd asks for the hovered agent's directory again however fresh what stands
+// for it is, short of an answer that will never change.
 func (m *model) rereadAgentWorktreeCmd() tea.Cmd {
 	item, ok := m.hoveredRecordAgent()
-	if !ok || item.agent.Cwd == "" {
+	if !ok || item.agent.Cwd == "" || m.worktrees.inspected[item.agent.Cwd].isSettled() {
 		return nil
 	}
 
@@ -46,7 +47,7 @@ func (m *model) rereadAgentWorktreeCmd() tea.Cmd {
 // a worktree weave holds.
 func (m model) agentWorktree(cwd string) (worktreeInspection, bool) {
 	read, ok := m.worktrees.inspected[cwd]
-	if !ok || !read.answered || errui.IsNotFound(read.err) {
+	if !ok || !read.answered || read.isSettled() {
 		return worktreeInspection{}, false
 	}
 
@@ -54,13 +55,17 @@ func (m model) agentWorktree(cwd string) (worktreeInspection, bool) {
 }
 
 // worktreeStandingFields are the record's rows for where the directory stands: against its base,
-// what is uncommitted in it, and what it takes on disk.
+// what is uncommitted in it, and what it takes on disk, with the refusal above them when the
+// last read failed.
 func worktreeStandingFields(read worktreeInspection, now time.Time) []recordField {
+	fields := []recordField{}
 	if read.err != nil {
-		return []recordField{{"worktree", "could not read: " + errui.GetReason(read.err)}}
+		fields = append(fields, recordField{"worktree", "could not read: " + errui.GetReason(read.err)})
+	}
+	if read.item.dir == "" {
+		return fields
 	}
 
-	fields := []recordField{}
 	if read.item.readable {
 		fields = append(fields,
 			recordField{"base", baseField(read)},
@@ -85,7 +90,7 @@ func worktreeStandingFields(read worktreeInspection, now time.Time) []recordFiel
 // worktreeHistoryFields are the record's rows for what the directory holds that the base does
 // not: the uncommitted paths, then the commits since the base, each list cut and counted.
 func worktreeHistoryFields(read worktreeInspection) []recordField {
-	if read.err != nil || !read.item.readable {
+	if !read.item.readable {
 		return nil
 	}
 

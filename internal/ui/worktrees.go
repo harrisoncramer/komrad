@@ -3,6 +3,7 @@ package ui
 import (
 	"time"
 
+	"weave/internal/errui"
 	agentstore "weave/internal/store/agent"
 )
 
@@ -81,7 +82,13 @@ type worktreeInspection struct {
 
 // isStale reports whether the answer is old enough to ask for again.
 func (read worktreeInspection) isStale(now time.Time) bool {
-	return !read.answered || now.Sub(read.readAt) > worktreeReadTTL
+	return !read.answered || (!read.isSettled() && now.Sub(read.readAt) > worktreeReadTTL)
+}
+
+// isSettled reports whether the answer is one that will never change, which the service saying
+// the directory is not a worktree it holds is.
+func (read worktreeInspection) isSettled() bool {
+	return read.answered && errui.IsNotFound(read.err)
 }
 
 type worktreesState struct {

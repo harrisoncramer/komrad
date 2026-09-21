@@ -12,6 +12,7 @@ import (
 	"weave/proto/gen/worktree/v1/worktreev1connect"
 
 	"connectrpc.com/connect"
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
 	"github.com/muesli/termenv"
@@ -302,8 +303,8 @@ func TestRecordSearchStepsBetweenMatches(t *testing.T) {
 }
 
 // TestRecordFilterNarrowsTheFields covers tab flipping the search into a filter, which takes the
-// fields it does not match off the record, and the cursor and the copy key following the rows
-// that are left.
+// fields it does not match off the record while a row under a matched label stays with its
+// group, and the cursor and the copy key following the rows that are left.
 func TestRecordFilterNarrowsTheFields(t *testing.T) {
 	m := recordSearchModel(t)
 	clip := &fakeClipboard{}
@@ -313,7 +314,10 @@ func TestRecordFilterNarrowsTheFields(t *testing.T) {
 	require.True(t, narrowed.details.filter.isNarrowing())
 
 	rows := narrowed.detailsRows(narrowed.hoveredDetails())
-	assert.Len(t, rows, 3)
+	require.Len(t, rows, 6)
+	assert.Equal(t, "landed", rows[0].field.label)
+	assert.Equal(t, "M b.go", rows[2].field.value, "a path under the uncommitted label stays with it")
+	assert.Equal(t, "uncommitted ? notes.md", rows[3].text)
 	drawn := ansi.Strip(narrowed.detailsView())
 	assert.Contains(t, drawn, "▽ commit")
 	assert.NotContains(t, drawn, "directory")
@@ -325,7 +329,25 @@ func TestRecordFilterNarrowsTheFields(t *testing.T) {
 	require.True(t, ok)
 	produced(cmd)
 
-	assert.Equal(t, []string{"87a3bcc98c47  2h   fix(view): drop the column"}, clip.written)
+	assert.Equal(t, []string{"1234567890ab  3h   feat(ui): a thing"}, clip.written)
+}
+
+// TestRecordFilterKeepsTheCountedRest covers the "+ N more" row of a cut list staying with its
+// group under a filter, so a narrowed record still says what it left out.
+func TestRecordFilterKeepsTheCountedRest(t *testing.T) {
+	m := detailsModel(&recordingTmux{})
+	m.height, m.width = 40, 60
+	read := readWorktree(time.Now())
+	for i := range 12 {
+		read.untracked = append(read.untracked, fmt.Sprintf("file%d", i))
+	}
+	m.applyWorktreeInspection(worktreeInspectedMsg{dir: "/repo", inspection: read})
+
+	narrowed := pressMark(t, send(t, m, "ctrl+t"), "/", "u", "n", "c", "o", "m", "tab", "enter")
+
+	rows := narrowed.detailsRows(narrowed.hoveredDetails())
+	require.Len(t, rows, worktreeRowsShown+1)
+	assert.Equal(t, "+ 5 more", rows[worktreeRowsShown].field.value)
 }
 
 // TestRecordFilterLeavingNothingSaysSo covers a filter no field matches, where the record says
@@ -410,4 +432,155 @@ func TestRecordSearchLightsTheMatch(t *testing.T) {
 
 	assert.Contains(t, ansi.Strip(base), "origin/main  ↑3 ↓12")
 	assert.Contains(t, base, paint.Panel.Match().Render("origin"), "the match is lit")
+}
+
+// TestFocusedRecordStaysThroughItsSearch covers the two sizes where the record's own search
+// line and legend used to shrink the room under it: the record keeps the keys while a search is
+// typed, and the enter that keeps the search never reaches the list.
+func TestFocusedRecordStaysThroughItsSearch(t *testing.T) {
+	tests := []struct {
+		name          string
+		width, height int
+		expanded      bool
+	}{
+		{name: "a pane the share only just fits", width: 80, height: 13},
+		{name: "one row taller", width: 80, height: 14},
+		{name: "a narrow pane with the legend expanded", width: 30, height: 24, expanded: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m := screensModel()
+			m.width, m.height, m.helpExpanded = tt.width, tt.height, tt.expanded
+			m.applyWorktreeInspection(worktreeInspectedMsg{dir: "", inspection: readWorktree(time.Now())})
+
+			focused := send(t, m, "ctrl+t")
+			require.True(t, focused.isDetailsFocused(), "the share fits, so the record takes the keys")
+
+			typing := pressMark(t, focused, "/", "a")
+			assert.True(t, typing.details.filter.typing)
+			assert.True(t, typing.isDetailsFocused(), "the record is still drawn with its search line")
+			assert.NotEmpty(t, typing.detailsView())
+			assert.Len(t, lines(typing.View()), tt.height)
+
+			kept := pressMark(t, typing, "enter")
+			assert.True(t, kept.details.filter.isStanding())
+			assert.True(t, kept.isDetailsFocused(), "enter kept the search rather than reaching the list")
+			assert.Equal(t, screenAgents, kept.screen)
+
+			back := pressMark(t, kept, "esc", "esc")
+			assert.False(t, back.isDetailsFocused(), "two escapes clear the search and hand the keys back")
+		})
+	}
+}
+
+// TestRecordRefusesTheKeysWithoutRoomForItsSearch covers a pane where the share fits but not
+// with a search line under it, so the focus key does nothing rather than hiding the record.
+func TestRecordRefusesTheKeysWithoutRoomForItsSearch(t *testing.T) {
+	m := detailsModel(&recordingTmux{})
+	m.detailsHeight = 1
+
+	for height := 5; height < 40; height++ {
+		m.height = height
+		held := m.hoveredDetails()
+		room, ok := m.detailsRoom()
+		require.True(t, ok)
+		if !m.isDetailsDrawn(held) || room-detailsSearchLine >= 1 {
+			continue
+		}
+
+		focused := send(t, m, "ctrl+t")
+
+		assert.False(t, focused.details.focused, "a pane %d lines tall has no row for the search line", height)
+		assert.NotEmpty(t, focused.detailsView(), "and the record stays drawn")
+
+		return
+	}
+
+	t.Skip("no height draws the share without a row left for the search line")
+}
+
+// TestDetailsRoomIsMeasuredOncePerFrame covers the memo an update and a frame take, which the
+// readers use while the pane is the size it was measured in and measure again once it is not.
+func TestDetailsRoomIsMeasuredOncePerFrame(t *testing.T) {
+	m := detailsModel(&recordingTmux{})
+	measured := m.measureDetails()
+	require.True(t, measured.details.room.taken)
+
+	fresh, ok := m.detailsRoom()
+	require.True(t, ok)
+	memo, ok := measured.detailsRoom()
+	require.True(t, ok)
+	assert.Equal(t, fresh, memo)
+
+	measured.details.room.lines = 99
+	planted, _ := measured.detailsRoom()
+	assert.Equal(t, 99, planted, "the memo answers while the pane is the size it was taken in")
+
+	measured.height++
+	remeasured, _ := measured.detailsRoom()
+	assert.NotEqual(t, 99, remeasured, "a pane of another size is measured again")
+
+	after := send(t, measured, "j")
+	assert.NotEqual(t, 99, after.details.room.lines, "an update takes the measure again")
+}
+
+// failingWorktreeReads answers get_worktree once and refuses every read after it.
+type failingWorktreeReads struct {
+	recordingWorktreeReads
+}
+
+func (r *failingWorktreeReads) GetWorktree(ctx context.Context, req *connect.Request[worktreev1.GetWorktreeRequest]) (*connect.Response[worktreev1.GetWorktreeResponse], error) {
+	if len(r.asked) > 0 {
+		r.asked = append(r.asked, req.Msg.GetDir())
+
+		return nil, connect.NewError(connect.CodeInternal, errors.New("context deadline exceeded"))
+	}
+
+	return r.recordingWorktreeReads.GetWorktree(ctx, req)
+}
+
+// TestFailedRereadKeepsTheLastAnswer covers a read that fails after one that answered, where
+// the row keeps what it had and says the read was refused beside it.
+func TestFailedRereadKeepsTheLastAnswer(t *testing.T) {
+	client := &failingWorktreeReads{}
+	m := gitModel(t)
+	m.api.worktrees = client
+	m.api.pullRequests = &recordingPullRequests{}
+
+	m = landWorktreeRead(t, m, m.rereadAgentWorktreeCmd())
+	require.Equal(t, "origin/main  ↑1", fieldValue(t, m.hoveredDetails(), "base"))
+
+	m = landWorktreeRead(t, m, m.rereadAgentWorktreeCmd())
+	require.Len(t, client.asked, 2)
+
+	held := m.hoveredDetails()
+	assert.Equal(t, "could not read: context deadline exceeded", fieldValue(t, held, "worktree"))
+	assert.Equal(t, "origin/main  ↑1", fieldValue(t, held, "base"), "the last answer stays on the row")
+	assert.Equal(t, "M a.go", fieldValue(t, held, "uncommitted"))
+}
+
+// TestNotFoundAnswerStandsForGood covers the service saying the directory is not a worktree it
+// holds, which neither the cursor resting again nor the focus key asks about twice.
+func TestNotFoundAnswerStandsForGood(t *testing.T) {
+	m := gitModel(t)
+	refused := connect.NewError(connect.CodeNotFound, errors.New("/repo is not under the worktree directories"))
+	m.applyWorktreeInspection(worktreeInspectedMsg{dir: "/repo", inspection: worktreeInspection{answered: true, err: refused}})
+
+	assert.Nil(t, m.inspectAgentWorktreeCmd(time.Now().Add(worktreeReadTTL+time.Hour)))
+	assert.Nil(t, m.rereadAgentWorktreeCmd())
+}
+
+func landWorktreeRead(t *testing.T, m model, cmd tea.Cmd) model {
+	t.Helper()
+	require.NotNil(t, cmd)
+
+	for _, msg := range produced(cmd) {
+		updated, _ := m.Update(msg)
+		next, ok := updated.(model)
+		require.True(t, ok)
+		m = next
+	}
+
+	return m
 }

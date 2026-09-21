@@ -102,7 +102,7 @@ func (m model) reviewDetailsRoom() int {
 	// Measured with the keys on the diff, which keeps this out of its own answer.
 	m.details.focused = false
 
-	return m.spareLines(m.renderHelp(m.reviewHelp()), m.reviewHeadView(owedRows)) - detailsChromeLines - 1
+	return m.spareLines(m.reviewHeadView(owedRows)) - m.tallestLegend(m.reviewHelp()) - detailsChromeLines - 1
 }
 
 // reviewHeadView is the fixed top of the sidebar: whatever is standing in the way of a review, or
