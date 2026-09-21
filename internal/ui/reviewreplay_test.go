@@ -213,3 +213,29 @@ func reviewRowOfThread(t *testing.T, m model, id string) int {
 
 	return -1
 }
+
+// TestTheFirstChapterIsMeasuredFromItsOwnBase covers the oldest round after a rebase: it was
+// measured from the base the branch left main at then, and is drawn from that base rather
+// than from the one the round on screen stands on.
+func TestTheFirstChapterIsMeasuredFromItsOwnBase(t *testing.T) {
+	agents := &fakeReviewAgents{}
+	repo := newFakeRepo(t.TempDir())
+	m := reviewAcrossAMovedBase(t, repo, agents, &git.Replayed{Tree: replayedTree})
+
+	// What git reports between the moved base and round one carries main's own commits
+	// reversed, so it is two files where the agent wrote one.
+	repo.patches[pairOf(olderBase, fakeSnapshotSHA)] = fakePatch
+	repo.patches[pairOf(fakeBaseSHA, fakeSnapshotSHA)] = fakePatchOfBothFiles
+
+	m = pressReviewBase(t, m)
+	m = pressReviewBase(t, m)
+
+	require.Equal(t, 0, m.review.chapter, "two presses reach the oldest round")
+	require.NotNil(t, m.review.view)
+	assert.Equal(t, olderBase, m.review.view.GetBaseSHA(), "the diff is measured from round one's own base")
+	assert.Equal(t, fakeSnapshotSHA, m.review.view.GetSnapshotSHA())
+	assert.Equal(t, 1, m.review.view.Stat().Files)
+
+	shown := ansi.Strip(m.reviewView())
+	assert.Contains(t, shown, "round 1 of 2, reviewed at "+releasedClock("2026-09-08T10:00:00Z")+", on an earlier base")
+}
