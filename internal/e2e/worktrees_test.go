@@ -111,16 +111,17 @@ func TestDeletingAnAgentTakesItsWorktreeOutOfTheListing(t *testing.T) {
 	_, err = instance.Agents.DeleteAgents(ctx, connect.NewRequest(&agentv1.DeleteAgentsRequest{Ids: []string{agent.Msg.GetAgent().GetId()}}))
 	require.NoError(t, err)
 
+	listed, err := instance.Worktrees.ListWorktrees(ctx, connect.NewRequest(&emptypb.Empty{}))
+	require.NoError(t, err)
+	dirs := make([]string, 0, len(listed.Msg.GetWorktrees()))
+	for _, found := range listed.Msg.GetWorktrees() {
+		dirs = append(dirs, found.GetDir())
+	}
+	assert.Equal(t, []string{orphan}, dirs, "the directory leaves the listing as soon as the delete claims it")
+
 	require.EventuallyWithT(t, func(c *assert.CollectT) {
-		listed, err := instance.Worktrees.ListWorktrees(ctx, connect.NewRequest(&emptypb.Empty{}))
-		require.NoError(c, err)
-		dirs := make([]string, 0, len(listed.Msg.GetWorktrees()))
-		for _, found := range listed.Msg.GetWorktrees() {
-			dirs = append(dirs, found.GetDir())
-		}
-		assert.Equal(c, []string{orphan}, dirs)
+		assert.NoDirExists(c, tree)
 	}, 10*time.Second, 100*time.Millisecond)
-	assert.NoDirExists(t, tree)
 
 	removed, err := instance.Worktrees.RemoveUnownedWorktrees(ctx, connect.NewRequest(&worktreev1.RemoveUnownedWorktreesRequest{Dirs: []string{orphan}}))
 	require.NoError(t, err)
