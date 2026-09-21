@@ -103,8 +103,8 @@ func isPending(ctx context.Context, pool *pgxpool.Pool, versions []string) (bool
 	return len(pending) > 0, nil
 }
 
-// queryer is what pendingVersions reads through, so the same walk of the ledger serves both the
-// pool and the locked connection.
+// queryer is the connection a walk of the ledger reads through, the pool or the locked
+// connection.
 type queryer interface {
 	Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
 }

@@ -203,9 +203,8 @@ func (m model) routeGlobalKey(key tea.KeyMsg) (tea.Model, tea.Cmd, bool) {
 		return m, nil, true
 	}
 
-	// Whether these keys act is a policy about the keys rather than the geometry holdsWindow
-	// answers, and the two do not line up: the archive and the review draw the whole window and
-	// refuse them.
+	// Whether these keys act is a policy about the keys rather than the geometry, and the two do
+	// not line up: the archive and the review draw the whole window and refuse them.
 	if m.screen.opensInfoPane() {
 		switch {
 		case isBound(key.String(), m.keys.Logs.Open):

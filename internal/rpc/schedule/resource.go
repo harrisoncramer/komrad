@@ -23,7 +23,7 @@ func (s schedule) Cursor() (schedulestore.Cursor, error) {
 	return s.cursor, nil
 }
 
-// scheduleOptions is how much of a schedule renderSchedule draws.
+// scheduleOptions is how much of a schedule is drawn.
 type scheduleOptions struct {
 	promptHead int
 }
@@ -35,8 +35,8 @@ func withPromptHead(limit int) scheduleOption {
 	return func(o *scheduleOptions) { o.promptHead = limit }
 }
 
-// scheduleViewOptions turns the view a request asked for into the options renderSchedule takes,
-// so the enum stops at the handler.
+// scheduleViewOptions turns the view a request asked for into rendering options, so the enum
+// stops at the handler.
 func scheduleViewOptions(view viewv1.View) []scheduleOption {
 	if view == viewv1.View_VIEW_FULL {
 		return nil

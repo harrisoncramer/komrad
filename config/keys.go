@@ -11,7 +11,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-// The span of tea.KeyType values pressableNames reads.
+// The span of tea.KeyType values a key name can be read from.
 const (
 	firstKeyType = -100
 	lastKeyType  = 127

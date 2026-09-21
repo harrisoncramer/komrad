@@ -21,7 +21,7 @@ func (w workflow) Cursor() (workflowstore.Cursor, error) {
 	return w.cursor, nil
 }
 
-// workflowOptions is how much of a workflow renderWorkflow draws.
+// workflowOptions is how much of a workflow is drawn.
 type workflowOptions struct {
 	contextHead int
 }
@@ -33,8 +33,8 @@ func withContextHead(limit int) workflowOption {
 	return func(o *workflowOptions) { o.contextHead = limit }
 }
 
-// workflowViewOptions turns the view a request asked for into the options renderWorkflow takes,
-// so the enum stops at the handler rather than reaching the renderer.
+// workflowViewOptions turns the view a request asked for into rendering options, so the enum
+// stops at the handler.
 func workflowViewOptions(view viewv1.View) []workflowOption {
 	if view == viewv1.View_VIEW_FULL {
 		return nil

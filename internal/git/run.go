@@ -51,7 +51,7 @@ func runInput(ctx context.Context, dir string, env []string, input []byte, args 
 	return out, nil
 }
 
-// runEnv is runWithEnv trimmed, for the snapshot commands that read back a single object name.
+// runEnv is the environment for the snapshot commands that read back a single object name.
 func runEnv(ctx context.Context, dir string, env []string, args ...string) (string, error) {
 	out, err := runWithEnv(ctx, dir, env, args...)
 

@@ -26,8 +26,7 @@ type dispatchArm struct {
 	guarded  bool
 }
 
-// screenActions is the table each screen dispatches through, which validateScreenKeys walks ahead
-// of nothing and the panel walks behind routeGlobalKey.
+// screenActions is the table each screen dispatches through, walked behind the global keys.
 func screenActions(s screen) (actionSpec, bool) {
 	switch s {
 	case screenAgents:
@@ -161,8 +160,8 @@ func dispatchOrder(s screen, keys config.Keybindings) []dispatchArm {
 	return arms
 }
 
-// globalArms are the keys routeGlobalKey answers on one screen, in the order it reads them, all of
-// them ahead of that screen's own table.
+// globalArms are the keys the panel answers on one screen ahead of that screen's own table, in
+// the order it reads them.
 func globalArms(s screen, keys config.Keybindings) []dispatchArm {
 	arms := []dispatchArm{{describe: "the help toggle", keys: keys.Help.Toggle}}
 

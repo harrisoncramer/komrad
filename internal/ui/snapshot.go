@@ -97,8 +97,7 @@ func snapshotRow(r agentRow, params snapshotParams) view.Row {
 	return row
 }
 
-// agentFacts is everything a row says about the agent standing behind it, read in one place so a
-// field added to view.Row cannot reach one screen's drawing and miss another's.
+// agentFacts is everything a row says about the agent standing behind it.
 func agentFacts(row view.Row, item agentItem) view.Row {
 	row.Status = snapshotStatus(item)
 	row.Process = snapshotProcess(item)

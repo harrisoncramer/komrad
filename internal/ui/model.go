@@ -274,8 +274,8 @@ type lastFrame struct {
 	text string
 }
 
-// at is the only writer of paneMeasure, handing back a model that measures its own chrome in a
-// column named outright rather than asking which column it has.
+// at hands back a model that measures its own chrome in a column named outright rather than
+// asking which column it has.
 func (m model) at(width int) model {
 	m.paneMeasure = width
 

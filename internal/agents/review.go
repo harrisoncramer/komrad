@@ -105,8 +105,8 @@ type NewReviewServiceParams struct {
 	Interrupter agentInterrupter
 	// StateDir is where weave keeps its own files.
 	StateDir string
-	// NoticeDebounce overrides how long armReviewerNotice waits before telling a reviewer, which
-	// defaults to reviewerWakeDebounce when left at zero.
+	// NoticeDebounce overrides how long a reviewer's notice waits for another answer from the
+	// same author, zero meaning the default.
 	NoticeDebounce time.Duration
 }
 
@@ -414,9 +414,8 @@ func (s *ReviewService) wakeTheReviewer(ctx context.Context, reviewer agentstore
 	}
 }
 
-// reviewerWakeDebounce is how long armReviewerNotice waits for another answer from the same
-// author before it tells the reviewer, so a run of replies made one thread at a time collapses
-// into the one notice and wake the last of them leaves behind.
+// reviewerWakeDebounce is how long a reviewer's notice waits for another answer from the same
+// author before it is sent.
 const reviewerWakeDebounce = 5 * time.Second
 
 // pendingReviewerNotice is the debounce armed for one author's pending answer, tracked by a
