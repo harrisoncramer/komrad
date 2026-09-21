@@ -6,7 +6,6 @@ import (
 	"io"
 	"os"
 	"strings"
-	"text/tabwriter"
 
 	"weave/internal/forge"
 	"weave/lib/dates"
@@ -198,10 +197,7 @@ func printForges(out io.Writer, forges []*forgev1.Forge, problems map[string]str
 		return err
 	}
 
-	w := tabwriter.NewWriter(out, 0, 0, 2, ' ', 0)
-	if _, err := fmt.Fprintln(w, "HOST\tKIND\tLOGIN\tMETHOD\tVERIFIED"); err != nil {
-		return err
-	}
+	rows := make([][]string, 0, len(forges))
 	for _, f := range forges {
 		verified := "refused"
 		switch {
@@ -212,16 +208,14 @@ func printForges(out io.Writer, forges []*forgev1.Forge, problems map[string]str
 		case f.VerifiedAt != nil:
 			verified = describeVerifiedAt(f.GetVerifiedAt())
 		}
-		if _, err := fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n", f.GetHost(), f.GetKind(), f.GetLogin(), f.GetMethod(), verified); err != nil {
-			return err
-		}
+
+		rows = append(rows, []string{f.GetHost(), f.GetKind(), f.GetLogin(), f.GetMethod(), verified})
 	}
 
-	return w.Flush()
+	return printTable(out, []string{"HOST", "KIND", "LOGIN", "METHOD", "VERIFIED"}, rows)
 }
 
-// describeVerifiedAt is the stamp as a person reads it, in local time, or the wire's own
-// spelling when it will not parse.
+// describeVerifiedAt is the stamp as a person reads it, in local time.
 func describeVerifiedAt(stamp string) string {
 	parsed := dates.Parse(stamp)
 	if parsed.IsZero() {
@@ -231,8 +225,7 @@ func describeVerifiedAt(stamp string) string {
 	return parsed.Local().Format("2006-01-02 15:04")
 }
 
-// tokenForTheWire is the token as the connect request carries it to the service, which is the
-// one place in the CLI the token leaves the Secret.
+// tokenForTheWire is the one place in the CLI a token leaves its Secret.
 func tokenForTheWire(token forge.Secret) string {
 	return token.Expose()
 }

@@ -87,8 +87,8 @@ func fail(err error, detail, fix string) Result {
 	}
 }
 
-func skip(blocker string) Result {
-	return Result{Status: StatusSkip, Detail: "not checked, " + blocker + " has to pass first"}
+func skip(reason string) Result {
+	return Result{Status: StatusSkip, Detail: "not checked, " + reason}
 }
 
 type Finding struct {
@@ -212,7 +212,7 @@ func (c conclusions) run(ctx context.Context, env Env, check Check) (result Resu
 	for _, needed := range check.Needs {
 		switch c[needed] {
 		case StatusFail, StatusSkip:
-			return skip(needed)
+			return skip(needed + " has to pass first")
 		case StatusOK, StatusWarn:
 		}
 	}

@@ -2,22 +2,16 @@ package cli
 
 import (
 	"context"
-	"fmt"
-	"text/tabwriter"
+	"strconv"
 
+	"weave/internal/client"
 	"weave/lib/xhttp"
-	"weave/lib/xptr"
-	paginationv1 "weave/proto/gen/pagination/v1"
+	"weave/lib/xslice"
 	pullrequestv1 "weave/proto/gen/pullrequest/v1"
 	"weave/proto/gen/pullrequest/v1/pullrequestv1connect"
 
-	"connectrpc.com/connect"
 	"github.com/spf13/cobra"
 )
-
-// pullRequestPageSize is the most the endpoint hands over in one call, which is also what a
-// forge will.
-const pullRequestPageSize = 100
 
 func prCmd(state *app) *cobra.Command {
 	cmd := &cobra.Command{
@@ -57,13 +51,12 @@ without access to a private repository shows up.`,
 		SilenceErrors: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return state.withAPI(cmd.Context(), func(ctx context.Context, base string) error {
-				client := pullrequestv1connect.NewPullRequestServiceClient(xhttp.NewClient(apiCallTimeout), base)
 				branch := ""
 				if len(args) == 2 {
 					branch = args[1]
 				}
 
-				pullRequests, err := listEveryPullRequest(ctx, client, args[0], branch)
+				pullRequests, err := client.ListAllPullRequests(ctx, pullrequestv1connect.NewPullRequestServiceClient(xhttp.NewClient(apiCallTimeout), base), args[0], branch)
 				if err != nil {
 					return err
 				}
@@ -74,49 +67,17 @@ without access to a private repository shows up.`,
 					return nil
 				}
 
-				w := tabwriter.NewWriter(cmd.OutOrStdout(), 0, 0, 2, ' ', 0)
-				if _, err := fmt.Fprintln(w, "NUMBER\tSTATE\tTITLE\tURL"); err != nil {
-					return err
-				}
-				for _, pullRequest := range pullRequests {
-					if _, err := fmt.Fprintf(w, "%d\t%s\t%s\t%s\n", pullRequest.GetNumber(), stateOf(pullRequest), pullRequest.GetTitle(), pullRequest.GetUrl()); err != nil {
-						return err
-					}
-				}
-
-				return w.Flush()
+				return printTable(cmd.OutOrStdout(), []string{"NUMBER", "STATE", "TITLE", "URL"}, xslice.Map(pullRequests, pullRequestRow))
 			})
 		},
 	}
 }
 
-// listEveryPullRequest follows the endpoint's pages at the largest size it takes until it
-// answers no next page token.
-func listEveryPullRequest(ctx context.Context, client pullrequestv1connect.PullRequestServiceClient, remoteURL, branch string) ([]*pullrequestv1.PullRequest, error) {
-	var (
-		pullRequests []*pullrequestv1.PullRequest
-		cursor       *string
-	)
-	for {
-		resp, err := client.ListPullRequests(ctx, connect.NewRequest(&pullrequestv1.ListPullRequestsRequest{
-			RemoteUrl:  remoteURL,
-			Branch:     branch,
-			Pagination: &paginationv1.Pagination{Limit: xptr.Ptr(int32(pullRequestPageSize)), Cursor: cursor},
-		}))
-		if err != nil {
-			return nil, err
-		}
-
-		pullRequests = append(pullRequests, resp.Msg.GetPullRequests()...)
-		if resp.Msg.NextPageToken == nil {
-			return pullRequests, nil
-		}
-
-		cursor = resp.Msg.NextPageToken
-	}
+func pullRequestRow(pullRequest *pullrequestv1.PullRequest) []string {
+	return []string{strconv.FormatInt(int64(pullRequest.GetNumber()), 10), stateOf(pullRequest), pullRequest.GetTitle(), pullRequest.GetUrl()}
 }
 
-// stateOf is the one word for where a pull request stands, derived from its stamps.
+// stateOf is the one word for where a pull request stands.
 func stateOf(pullRequest *pullrequestv1.PullRequest) string {
 	switch {
 	case pullRequest.MergedAt != nil:
