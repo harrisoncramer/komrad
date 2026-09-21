@@ -82,7 +82,7 @@ Marks are yours. Nothing an agent can call sets one, and a row loses its mark wh
 
 Press `/` and type to search the list. It highlights rather than narrows: every row stays where it was, and the matched text is drawn lit up in the list and in the record under it, so you keep the shape of the tree while you look. Nothing moves while you type.
 
-Enter applies the search where the keys are: the cursor walks onto the nearest match, or in filter mode the rows narrow to the matches. `ctrl+t` applies it in the other section instead, so a search typed on the list can be jumped into the record without the list's cursor moving off the agent you were on. Escape gives up: the search goes and the cursor stays where it was.
+Enter applies the search to both sections at once: in filter mode the list and the record narrow to their matches, and the cursor of the section holding the keys walks onto its nearest match. `ctrl+t` applies it the same way but moves the keys to the other section first, so a search typed on the list lands on the record's match with the list's cursor still on the agent you were on. Escape gives up: the search goes and the cursor stays where it was.
 
 `n` and `N` step forward and back through the matches, the list's rows and then the record's fields, wrapping at either end and moving the keys into whichever section the next match is in. They only answer while a search is up, since they are ordinary letters the rest of the time.
 

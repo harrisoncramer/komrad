@@ -23,7 +23,7 @@ func withColour(t *testing.T) {
 }
 
 // TestListSearchLightsTheRecord covers the one search reaching both sections: typed on the list,
-// it lights its matches in the record too, and a filter narrows the list alone.
+// it lights its matches in the record too, and a filter narrows both once applied.
 func TestListSearchLightsTheRecord(t *testing.T) {
 	withColour(t)
 
@@ -31,7 +31,6 @@ func TestListSearchLightsTheRecord(t *testing.T) {
 
 	typed := pressMark(t, m, "/", "a", "u", "t", "h")
 	require.True(t, typed.filter.typing)
-	assert.Equal(t, sectionList, typed.filter.over)
 
 	held := typed.hoveredDetails()
 	rows := typed.detailFieldRows(typed.detailsRows(held), typed.detailsCursor(held))
@@ -39,9 +38,9 @@ func TestListSearchLightsTheRecord(t *testing.T) {
 	assert.Contains(t, name, paint.Panel.Match().Render("auth"), "the record's match is lit")
 
 	narrowed := pressMark(t, typed, "tab", "enter")
-	require.True(t, narrowed.filter.doesNarrow(sectionList))
-	assert.False(t, narrowed.filter.doesNarrow(sectionRecord))
-	assert.Len(t, narrowed.detailsRows(narrowed.hoveredDetails()), len(held.fields), "the record keeps every field")
+	require.True(t, narrowed.filter.isNarrowing())
+	assert.Equal(t, []string{"backend", "auth"}, rowNames(narrowed.agentRows()))
+	assert.Len(t, narrowed.detailsRows(narrowed.hoveredDetails()), 1, "the record narrows to its matching field")
 }
 
 // TestFocusKeyWhileTypingJumpsIntoTheRecord covers the focus key answering while the search input
@@ -204,7 +203,7 @@ func TestTypingMovesNothingUntilApplied(t *testing.T) {
 
 	filtered := pressMark(t, typed, "tab", "ctrl+t")
 	require.True(t, filtered.isDetailsFocused())
-	assert.Equal(t, sectionRecord, filtered.filter.over)
-	assert.Len(t, filtered.agentRows(), len(m.agentRows()), "a filter typed on the list and applied in the record narrows only the record")
-	assert.Len(t, filtered.detailsRows(filtered.hoveredDetails()), 1)
+	assert.Equal(t, 1, filtered.tree.cursor, "the list narrows around the row the cursor is on")
+	assert.Len(t, filtered.agentRows(), len(m.agentRows()), "a header match keeps the rows under it")
+	assert.Len(t, filtered.detailsRows(filtered.hoveredDetails()), 1, "and the record narrows with it")
 }

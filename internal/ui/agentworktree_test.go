@@ -278,7 +278,6 @@ func TestRecordSearchWalksOntoTheMatch(t *testing.T) {
 	kept := pressMark(t, typed, "enter")
 	assert.False(t, kept.filter.typing)
 	assert.True(t, kept.filter.isStanding())
-	assert.Equal(t, sectionRecord, kept.filter.over)
 	assert.Equal(t, "size", held.fields[kept.detailsCursor(held)].label, "enter walks onto the match")
 }
 
@@ -309,15 +308,17 @@ func TestRecordFilterNarrowsTheFields(t *testing.T) {
 	m := recordSearchModel(t)
 	clip := &fakeClipboard{}
 	m.clip = clip
+	m.listing.workflows[0].Name = "commits"
 
 	narrowed := pressMark(t, send(t, m, "/"), "c", "o", "m", "m", "i", "t", "tab", "enter")
-	require.True(t, narrowed.filter.doesNarrow(sectionRecord))
+	require.True(t, narrowed.filter.isNarrowing())
 
 	rows := narrowed.detailsRows(narrowed.hoveredDetails())
-	require.Len(t, rows, 6)
-	assert.Equal(t, "landed", rows[0].field.label)
-	assert.Equal(t, "M b.go", rows[2].field.value, "a path under the uncommitted label stays with it")
-	assert.Equal(t, "uncommitted ? notes.md", rows[3].text)
+	require.Len(t, rows, 7)
+	assert.Equal(t, "workflow", rows[0].field.label)
+	assert.Equal(t, "landed", rows[1].field.label)
+	assert.Equal(t, "M b.go", rows[3].field.value, "a path under the uncommitted label stays with it")
+	assert.Equal(t, "uncommitted ? notes.md", rows[4].text)
 	assert.Contains(t, ansi.Strip(narrowed.View()), "▽ commit")
 	assert.NotContains(t, ansi.Strip(narrowed.detailsView()), "directory")
 
@@ -341,23 +342,25 @@ func TestRecordFilterKeepsTheCountedRest(t *testing.T) {
 		read.untracked = append(read.untracked, fmt.Sprintf("file%d", i))
 	}
 	m.applyWorktreeInspection(worktreeInspectedMsg{dir: "/repo", inspection: read})
+	m.listing.workflows[0].Name = "uncommon"
 
 	narrowed := pressMark(t, send(t, m, "ctrl+t"), "/", "u", "n", "c", "o", "m", "tab", "enter")
 
 	rows := narrowed.detailsRows(narrowed.hoveredDetails())
-	require.Len(t, rows, worktreeRowsShown+1)
-	assert.Equal(t, "+ 5 more", rows[worktreeRowsShown].field.value)
+	require.Len(t, rows, worktreeRowsShown+2)
+	assert.Equal(t, "+ 5 more", rows[worktreeRowsShown+1].field.value)
 }
 
-// TestRecordFilterLeavingNothingSaysSo covers a filter no field matches, where the record says
-// so rather than drawing an empty block.
+// TestRecordFilterLeavingNothingSaysSo covers a filter nothing matches, applied from the record:
+// the list under it is narrowed to nothing too and says so, and the keys come back to it.
 func TestRecordFilterLeavingNothingSaysSo(t *testing.T) {
 	m := recordSearchModel(t)
 
 	narrowed := pressMark(t, send(t, m, "/"), "z", "z", "z", "tab", "enter")
 
-	assert.Contains(t, ansi.Strip(narrowed.detailsView()), "nothing matches")
-	assert.True(t, narrowed.isDetailsFocused(), "the record keeps the keys")
+	assert.Empty(t, narrowed.agentRows())
+	assert.Contains(t, ansi.Strip(narrowed.View()), "nothing matches")
+	assert.False(t, narrowed.isDetailsFocused(), "there is no record left to hold the keys")
 }
 
 // TestRecordSearchEscapes covers escape over the record: it abandons an input being typed at,
@@ -382,22 +385,21 @@ func TestRecordSearchEscapes(t *testing.T) {
 }
 
 // TestRecordSearchStaysWhenTheKeysGo covers the focus key handing the keys back with the search
-// still standing: a filter opened over the record eases to a search, so the record is whole
-// again, its match still lit, and the prompt says nothing is being narrowed.
+// still standing over both sections: the record stays narrowed and lit, and so does the list.
 func TestRecordSearchStaysWhenTheKeysGo(t *testing.T) {
 	m := recordSearchModel(t)
 
-	standing := pressMark(t, send(t, m, "/"), "s", "i", "z", "tab", "enter")
+	standing := pressMark(t, send(t, m, "/"), "a", "u", "t", "tab", "enter")
 	require.Len(t, standing.detailsRows(standing.hoveredDetails()), 1)
 
 	back := send(t, standing, "ctrl+t")
 
 	require.False(t, back.isDetailsFocused())
 	assert.True(t, back.filter.isStanding())
-	assert.Equal(t, filterModeSearch, back.filter.mode)
-	assert.Len(t, back.detailsRows(back.hoveredDetails()), len(back.hoveredDetails().fields))
-	assert.Len(t, back.agentRows(), len(m.agentRows()), "the list was never narrowed")
-	assert.Contains(t, ansi.Strip(back.View()), "/ siz")
+	assert.Equal(t, filterModeFilter, back.filter.mode)
+	assert.Len(t, back.detailsRows(back.hoveredDetails()), 1, "the record is still narrowed")
+	assert.Equal(t, []string{"backend", "auth"}, rowNames(back.agentRows()), "and so is the list")
+	assert.Contains(t, ansi.Strip(back.View()), "▽ aut")
 }
 
 // TestRecordSearchDroppedLeavingScreen covers the record's search going with the list's when
