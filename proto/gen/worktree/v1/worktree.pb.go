@@ -30,13 +30,11 @@ type WorktreeFate int32
 const (
 	// Never sent.
 	WorktreeFate_WORKTREE_FATE_UNSPECIFIED WorktreeFate = 0
-	// Nothing answers for the directory, or its agent's own delete failed on a registration git
-	// cannot read, so remove_unowned_worktrees takes it.
+	// Nothing answers for the directory, which the remover takes.
 	WorktreeFate_WORKTREE_FATE_UNOWNED WorktreeFate = 1
-	// The agent the directory was made for is archived, so delete_agents takes it.
+	// The directory's agent is put away, which the agent delete takes.
 	WorktreeFate_WORKTREE_FATE_ARCHIVED WorktreeFate = 2
-	// The agent the directory was made for is live, so nothing takes it until that agent is
-	// archived.
+	// The directory's agent is running, which nothing takes.
 	WorktreeFate_WORKTREE_FATE_LIVE WorktreeFate = 3
 )
 

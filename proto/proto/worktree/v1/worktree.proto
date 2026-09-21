@@ -26,13 +26,11 @@ message WorktreeAgent {
 enum WorktreeFate {
   // Never sent.
   WORKTREE_FATE_UNSPECIFIED = 0;
-  // Nothing answers for the directory, or its agent's own delete failed on a registration git
-  // cannot read, so remove_unowned_worktrees takes it.
+  // Nothing answers for the directory, which the remover takes.
   WORKTREE_FATE_UNOWNED = 1;
-  // The agent the directory was made for is archived, so delete_agents takes it.
+  // The directory's agent is put away, which the agent delete takes.
   WORKTREE_FATE_ARCHIVED = 2;
-  // The agent the directory was made for is live, so nothing takes it until that agent is
-  // archived.
+  // The directory's agent is running, which nothing takes.
   WORKTREE_FATE_LIVE = 3;
 }
 

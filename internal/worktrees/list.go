@@ -140,10 +140,10 @@ func (l *Lister) ListDirs(ctx context.Context) ([]string, error) {
 		return nil, err
 	}
 
-	dirs := []string{shared}
+	dirs := []string{filepath.Clean(shared)}
 	for _, dir := range own {
 		if trimmed := strings.TrimSpace(dir); trimmed != "" {
-			dirs = append(dirs, config.ExpandHome(trimmed))
+			dirs = append(dirs, filepath.Clean(config.ExpandHome(trimmed)))
 		}
 	}
 

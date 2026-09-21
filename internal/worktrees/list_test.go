@@ -259,14 +259,21 @@ func TestListReadsWhenADirectoryWasLastActive(t *testing.T) {
 	}
 }
 
-// TestGetReadsOneDirectory covers one directory answered with its row and its size without
-// the rest being walked, and a path outside the worktree directories refused.
+// TestGetReadsOneDirectory covers one directory answered with its row and its size under a
+// worktree directory configured with a trailing slash, and a path outside them refused.
 func TestGetReadsOneDirectory(t *testing.T) {
 	f := newFixture(t)
 	dir := f.cut(t, "aaaa")
 	f.cut(t, "bbbb")
 	f.own("aaaa", "first", nil)
 	f.sizes.stored[dir] = worktreestore.Size{Dir: dir, Bytes: 4096, MeasuredAt: f.now}
+
+	f.lister = NewLister(NewListerParams{
+		SharedDir: func() (string, error) { return f.shared + string(filepath.Separator), nil },
+		Agents:    f.owners,
+		Workflows: f.flows,
+		Sizes:     f.sizes,
+	})
 
 	tree, err := f.lister.Get(t.Context(), dir+string(filepath.Separator))
 	require.NoError(t, err)
