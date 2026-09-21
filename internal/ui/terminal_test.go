@@ -3,6 +3,9 @@ package ui
 import (
 	"testing"
 
+	"weave/config"
+	"weave/internal/engine"
+	"weave/internal/ui/layout"
 	"weave/internal/ui/panel"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -269,4 +272,26 @@ func TestTerminalDoesNothingWithoutAnAgent(t *testing.T) {
 
 	assert.Equal(t, infoNothing, shown.info.kind)
 	assert.Empty(t, tmux.respawns)
+}
+
+// TestTerminalOnARemoteEngineOpensTheShellOverTheTransport covers an agent whose directory is
+// on another machine, where checking it here fails and the pane has to be rooted at home.
+func TestTerminalOnARemoteEngineOpensTheShellOverTheTransport(t *testing.T) {
+	tmux := &recordingTmux{}
+	m, _ := terminalModel(t, tmux)
+	m.frame = layout.New(tmux, config.DefaultLayout(), layout.WithEngine(engine.Remote{Destination: "ubuntu@engine"}))
+	m.frame.Attach("%0")
+	m.listing.agents[0].agent.Cwd = "/var/lib/weave/worktrees/01a0c466"
+
+	shown := pressTerminal(t, m)
+
+	assert.Equal(t, infoTerminal, shown.info.kind)
+	assert.Equal(t, "/var/lib/weave/worktrees/01a0c466", shown.info.subject)
+	assert.Empty(t, shown.messages.items, "nothing is stat'd on this machine")
+	require.NotEmpty(t, tmux.respawns)
+	last := len(tmux.respawns) - 1
+	assert.Equal(t, "%2", tmux.respawnPanes[last])
+	assert.Equal(t, `ssh -t ubuntu@engine cd '/var/lib/weave/worktrees/01a0c466' && exec "${SHELL:-sh}"`, tmux.respawns[last])
+	assert.Empty(t, tmux.respawnDirs[last], "the pane is not rooted at a directory this machine lacks")
+	assert.Equal(t, []string{"%2"}, tmux.selected)
 }

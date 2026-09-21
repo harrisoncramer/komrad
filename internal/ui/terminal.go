@@ -26,6 +26,14 @@ func terminalContent(shell, dir string) layout.Content {
 	}
 }
 
+// remoteTerminalContent is a shell on the engine, so the pane running it is rooted nowhere here.
+func remoteTerminalContent(argv []string) layout.Content {
+	return layout.Content{
+		Key:    "terminal",
+		Render: func(layout.Target) ([]string, bool) { return argv, true },
+	}
+}
+
 // openTerminal puts a shell in the pane below the stage, rooted at the hovered agent's directory,
 // and moves the shell there when the key is pressed over an agent it is not already rooted in.
 func (m model) openTerminal() (tea.Model, tea.Cmd) {
@@ -52,15 +60,18 @@ func (m model) openTerminal() (tea.Model, tea.Cmd) {
 		return focus()
 	}
 
-	if _, err := os.Stat(agent.Cwd); err != nil {
-		m.report("Could not open a terminal", err)
+	// A directory on the engine cannot be checked from here, so the shell says if it is gone.
+	if !m.frame.IsRemote() {
+		if _, err := os.Stat(agent.Cwd); err != nil {
+			m.report("Could not open a terminal", err)
 
-		// The shell up is still worth the keyboard, and the message says why it did not move.
-		if up {
-			return focus()
+			// The shell up is still worth the keyboard, and the message says why it did not move.
+			if up {
+				return focus()
+			}
+
+			return m, nil
 		}
-
-		return m, nil
 	}
 
 	if !m.claimInfo(infoTerminal, agent.Cwd) {

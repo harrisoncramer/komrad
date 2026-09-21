@@ -64,6 +64,12 @@ func (m *model) stageInfo() {
 	case infoAgentLog:
 		m.frame.Show(layout.RegionInfo, m.agentLogContent())
 	case infoTerminal:
+		if argv := m.frame.ShellArgv(m.info.subject); len(argv) > 0 {
+			m.frame.Show(layout.RegionInfo, remoteTerminalContent(argv))
+
+			return
+		}
+
 		m.frame.Show(layout.RegionInfo, terminalContent(m.shell, m.info.subject))
 	case infoNothing:
 	}
