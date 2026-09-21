@@ -57,7 +57,7 @@ func agentsModeActions() []action {
 			id:   actionSchedulesOpen,
 			keys: func(k config.Keybindings) []string { return k.Schedules.Open },
 			when: isBrowsing,
-			run:  func(m model, _ string) (tea.Model, tea.Cmd) { return m.enterSchedules() },
+			run:  func(m model, _ string) (tea.Model, tea.Cmd) { return m.schedules.reenter(m) },
 		},
 		action{
 			id:   actionArchiveOpen,

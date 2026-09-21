@@ -218,7 +218,7 @@ type model struct {
 	listing       listing
 	tree          treeState
 	runHover      hoverState
-	schedules     scheduleState
+	schedules     schedulesScreen
 	archive       archiveState
 	worktrees     worktreesState
 	// inspections is what the service answered for each worktree directory.

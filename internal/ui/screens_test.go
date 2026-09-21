@@ -124,9 +124,8 @@ func TestEveryListingScreenSurvivesARefresh(t *testing.T) {
 func TestFormIsDrawnOverTheScreenItWasOpenedFrom(t *testing.T) {
 	m := scheduleModel(&fakeSchedules{}, config.DefaultKeybindings())
 
-	opened, _ := m.archiveScheduleConfirm()
-	prompt, ok := opened.(model)
-	require.True(t, ok)
+	m.schedules.archiveConfirm(&m, m.shared())
+	prompt := m
 
 	require.Equal(t, formScheduleArchive, prompt.form.kind)
 	assert.Equal(t, screenSchedules, prompt.screen, "the schedules are still the screen underneath")
@@ -206,7 +205,7 @@ func TestALongNameIsCutWithAnEllipsis(t *testing.T) {
 		m.listing.schedules[0].schedule.Name = long
 		m.listing.schedules[0].schedule.Cron = "0 9 * * 1"
 
-		row := rowWith(t, m.schedulesListView(), long[:10])
+		row := rowWith(t, m.schedules.listView(m), long[:10])
 		assert.Contains(t, row, "…", "the name says it was cut")
 		assert.Contains(t, row, "0 9 * * 1", "the cron beside it is still drawn")
 	})

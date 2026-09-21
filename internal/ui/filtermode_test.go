@@ -225,7 +225,7 @@ func TestFilterNothingMatchesLine(t *testing.T) {
 		},
 		{
 			name: "schedules",
-			view: model.schedulesView,
+			view: func(m model) string { return m.schedules.view(m) },
 			idle: "no schedules yet",
 		},
 	}
@@ -307,20 +307,20 @@ func TestSchedulesSearchWalksAndNarrows(t *testing.T) {
 	m := scheduleModel(&fakeSchedules{}, config.DefaultKeybindings())
 	m.listing.schedules = scheduleItems("nightly", "morning", "weekly")
 
-	opened, _ := m.updateSchedules(keyMsg("/"))
+	opened, _ := m.schedules.update(m, keyMsg("/"))
 	standing := pressMark(t, opened.(model), "ly", "enter")
-	require.Len(t, standing.scheduleRows(), 3, "a search leaves the list whole")
-	assert.Equal(t, "nightly", standing.hoveredScheduleKey())
+	require.Len(t, standing.schedules.listRows(standing.shared()), 3, "a search leaves the list whole")
+	assert.Equal(t, "nightly", standing.schedules.hovered(standing.shared()))
 
 	walked := pressMark(t, standing, "n")
-	assert.Equal(t, "weekly", walked.hoveredScheduleKey(), "n walks to the next match")
+	assert.Equal(t, "weekly", walked.schedules.hovered(walked.shared()), "n walks to the next match")
 
 	back := pressMark(t, walked, "N")
-	assert.Equal(t, "nightly", back.hoveredScheduleKey(), "and N walks back")
+	assert.Equal(t, "nightly", back.schedules.hovered(back.shared()), "and N walks back")
 
-	reopened, _ := back.updateSchedules(keyMsg("/"))
+	reopened, _ := back.schedules.update(back, keyMsg("/"))
 	narrowed := pressMark(t, reopened.(model), "tab", "ly", "enter")
-	assert.Equal(t, []string{"nightly", "weekly"}, scheduleNames(narrowed.scheduleRows()))
+	assert.Equal(t, []string{"nightly", "weekly"}, scheduleNames(narrowed.schedules.listRows(narrowed.shared())))
 }
 
 // TestOpenWorktreesThroughAFilter covers the key from a narrowed agents list landing on the hovered

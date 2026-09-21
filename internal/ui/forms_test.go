@@ -219,9 +219,9 @@ func TestFormsSubmitWhatIsOnScreen(t *testing.T) {
 					HideAgents: true,
 				}
 
-				opened, _ := m.openScheduleForm(&values, nil)
+				m.schedules.openForm(&m, &values, nil)
 
-				return asModel(t, opened)
+				return m
 			},
 			submit: model.answerForm,
 			check: func(t *testing.T, sent *formRecorder) {
@@ -249,9 +249,9 @@ func TestFormsSubmitWhatIsOnScreen(t *testing.T) {
 				values := schedulePrefill(target)
 				values.Prompt = "sweep harder"
 
-				opened, _ := m.openScheduleForm(&values, &target)
+				m.schedules.openForm(&m, &values, &target)
 
-				return asModel(t, opened)
+				return m
 			},
 			submit: model.answerForm,
 			check: func(t *testing.T, sent *formRecorder) {
@@ -312,9 +312,9 @@ func TestFormsSubmitWhatIsOnScreen(t *testing.T) {
 			open: func(t *testing.T, m model) model {
 				m.listing.schedules = []scheduleItem{{schedule: panel.Schedule{ID: "s1", Name: "sweeper"}}}
 
-				opened, _ := m.archiveScheduleConfirm()
+				m.schedules.archiveConfirm(&m, m.shared())
 
-				return asModel(t, opened)
+				return m
 			},
 			submit: model.answerForm,
 			check: func(t *testing.T, sent *formRecorder) {
@@ -491,9 +491,9 @@ func TestRefusedSubmitKeepsTheForm(t *testing.T) {
 					Cron:       "*/5 * * * *",
 				}
 
-				opened, _ := m.openScheduleForm(&values, nil)
+				m.schedules.openForm(&m, &values, nil)
 
-				return asModel(t, opened), func() string { return values.Cron }
+				return m, func() string { return values.Cron }
 			},
 			submit: model.answerForm,
 			form:   formSchedule,
