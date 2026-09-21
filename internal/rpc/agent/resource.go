@@ -208,18 +208,18 @@ func renderMailKind(kind mailstore.Kind) agentv1.MailKind {
 	return agentv1.MailKind_MAIL_KIND_UNSPECIFIED
 }
 
-type mail struct {
+type mailPage struct {
 	*agentv1.Mail
 	cursor mailstore.Cursor
 }
 
 // Cursor returns the keyset cursor locating this mail.
-func (m mail) Cursor() (mailstore.Cursor, error) {
+func (m mailPage) Cursor() (mailstore.Cursor, error) {
 	return m.cursor, nil
 }
 
-func renderMailPage(stored mailstore.Mail) mail {
-	return mail{Mail: renderMail(stored), cursor: mailstore.Cursor{ID: stored.ID}}
+func renderMailPage(stored mailstore.Mail) mailPage {
+	return mailPage{Mail: renderMail(stored), cursor: mailstore.Cursor{ID: stored.ID}}
 }
 
 // searchPage lets the paginator decode a search cursor, which locates a page of both

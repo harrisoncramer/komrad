@@ -13,6 +13,7 @@ import (
 	"weave/internal/logging"
 	"weave/internal/store"
 	"weave/lib/xslice"
+	"weave/lib/xstr"
 
 	agentstore "weave/internal/store/agent"
 	transcriptstore "weave/internal/store/transcript"
@@ -506,7 +507,7 @@ func (s *LifecycleService) requireEveryAgent(ctx context.Context, ids []string) 
 		return !ok
 	})
 
-	return nil, ErrAgentNotFound.Saying("no agent with id %s", describeMissing(missing))
+	return nil, ErrAgentNotFound.Saying("no agent with id %s", xstr.JoinSome(missing, namedMissing))
 }
 
 func (s *LifecycleService) removeAgents(ctx context.Context, ids []string) error {

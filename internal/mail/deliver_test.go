@@ -1,4 +1,4 @@
-package agents
+package mail
 
 import (
 	"context"
@@ -14,6 +14,7 @@ import (
 	"weave/internal/store"
 	agentstore "weave/internal/store/agent"
 	mailstore "weave/internal/store/mail"
+	"weave/internal/storetest"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -28,7 +29,7 @@ func TestDeliver(t *testing.T) {
 	archivedAt := idleSince
 
 	seenNow := time.Now()
-	seenLongAgo := seenNow.Add(-stateSeenBound - time.Minute)
+	seenLongAgo := seenNow.Add(-agentstore.StateSeenBound - time.Minute)
 
 	tests := []struct {
 		name      string
@@ -628,88 +629,13 @@ func TestDeliverAllDoesNothingWhenNoMailIsWaiting(t *testing.T) {
 	assert.False(t, agents.taken)
 }
 
-// TestDeliverToAnAgentNoPassCanRead pins that an agent whose harness this binary cannot run is
-// told once rather than deferred every pass.
-func TestDeliverToAnAgentNoPassCanRead(t *testing.T) {
-	st := newStore(t)
-	ctx := t.Context()
-
-	require.NoError(t, st.Create(ctx, agentstore.Agent{
-		Name:    "orphan",
-		Pane:    "%1",
-		State:   agentstore.StateThinking,
-		Harness: "gemini",
-	}))
-	agent, err := st.Get(ctx, "orphan")
-	require.NoError(t, err)
-
-	tmux := newFakeTmux()
-	tmux.owners["%1"] = agent.ID
-	tmux.captures["%1"] = idleFrame
-
-	rec := NewReconciler(NewReconcilerParams{
-		Panes:    tmux,
-		Observer: pane.NewPane(pane.NewPaneParams{Terminal: tmux, Harnesses: fakeHarnesses{harness: &fakeHarness{}, only: []string{testHarnessID}}}),
-		States:   st.Agents,
-	})
-	for range 30 {
-		require.NoError(t, rec.Reconcile(ctx))
-	}
-
-	pinned := agentByID(t, st, agent.ID)
-	assert.Equal(t, agentstore.StateThinking, pinned.State, "thirty passes read nothing, so the state stands")
-	assert.Equal(t, agent.StateSeenAt, pinned.StateSeenAt, "and none of them confirmed it")
-
-	_, err = st.Mail.Send(ctx, mailstore.SendParams{
-		FromName:  "somebody",
-		ToAgentID: agent.ID,
-		Body:      "please read this",
-		Deadline:  time.Hour,
-	})
-	require.NoError(t, err)
-
-	panes := &fakePanes{alive: true, frame: idleFrame}
-	svc := NewDeliveryService(NewDeliveryServiceParams{
-		MailboxReader: st.Mail,
-		NudgeClaimer:  st.Agents,
-		PaneReader:    panes,
-		Channel:       pane.NewPane(pane.NewPaneParams{Terminal: panes, Harnesses: fakeHarnesses{harness: &fakeHarness{}, only: []string{testHarnessID}}}),
-	})
-
-	got, err := svc.Deliver(ctx, agent.ID)
-	require.NoError(t, err)
-	assert.Equal(t, DeliverySoon, got, "a state confirmed a moment ago is still worth waiting on")
-	assert.Empty(t, panes.pasted)
-
-	backdateStateSeen(t, st, agent.ID, stateSeenBound+time.Minute)
-
-	got, err = svc.Deliver(ctx, agent.ID)
-	require.NoError(t, err)
-	assert.Equal(t, DeliverySoon, got)
-	require.Len(t, panes.pasted, 1, "an unconfirmed state is not live work, so the agent is told")
-	assert.Contains(t, panes.pasted[0], "read_mail")
-
-	got, err = svc.Deliver(ctx, agent.ID)
-	require.NoError(t, err)
-	assert.Equal(t, DeliveryLater, got)
-	assert.Len(t, panes.pasted, 1, "and told once, not once a pass")
-}
-
 // TestDeliverRetriesANudgeTheAgentNeverActedOn pins that unread mail puts the nudge back.
 func TestDeliverRetriesANudgeTheAgentNeverActedOn(t *testing.T) {
-	st := newStore(t)
+	st := storetest.Open(t)
 	ctx := t.Context()
+	agent := seedIdler(t, st, "idler")
 
-	require.NoError(t, st.Create(ctx, agentstore.Agent{
-		Name:  "idler",
-		Pane:  "%1",
-		State: agentstore.StateIdle,
-	}))
-	agent, err := st.Get(ctx, "idler")
-	require.NoError(t, err)
-	backdateStateChanged(t, st, agent.ID, time.Hour)
-
-	_, err = st.Mail.Send(ctx, mailstore.SendParams{
+	_, err := st.Mail.Send(ctx, mailstore.SendParams{
 		FromName:  "somebody",
 		ToAgentID: agent.ID,
 		Body:      "please read this",
@@ -758,19 +684,11 @@ func TestDeliverRetriesANudgeTheAgentNeverActedOn(t *testing.T) {
 // TestDeliverRetriesANudgeAcrossAnArchive pins the same retry across an archive, which leaves
 // the agent's state and its spent nudge exactly as they were.
 func TestDeliverRetriesANudgeAcrossAnArchive(t *testing.T) {
-	st := newStore(t)
+	st := storetest.Open(t)
 	ctx := t.Context()
+	agent := seedIdler(t, st, "sleeper")
 
-	require.NoError(t, st.Create(ctx, agentstore.Agent{
-		Name:  "sleeper",
-		Pane:  "%1",
-		State: agentstore.StateIdle,
-	}))
-	agent, err := st.Get(ctx, "sleeper")
-	require.NoError(t, err)
-	backdateStateChanged(t, st, agent.ID, time.Hour)
-
-	_, err = st.Mail.Send(ctx, mailstore.SendParams{
+	_, err := st.Mail.Send(ctx, mailstore.SendParams{
 		FromName:  "somebody",
 		ToAgentID: agent.ID,
 		Body:      "please read this",

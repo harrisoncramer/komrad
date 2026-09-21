@@ -18,8 +18,6 @@ const reconcileMisses = 3
 
 const stateSeenCoalesce = 30 * time.Second
 
-const stateSeenBound = 2 * time.Minute
-
 // frameRecorder keeps the pane capture behind a reading.
 type frameRecorder interface {
 	Record(params frames.RecordParams) error
@@ -321,8 +319,4 @@ func (r *Reconciler) apply(ctx context.Context, agent agentstore.Agent, state ag
 	}
 
 	return true
-}
-
-func isStateUnconfirmed(agent agentstore.Agent) bool {
-	return time.Since(agent.StateSeenAt) > stateSeenBound
 }

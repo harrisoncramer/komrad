@@ -11,6 +11,7 @@ import (
 	"weave/internal/agents"
 	"weave/internal/caller"
 	"weave/internal/fail"
+	"weave/internal/mail"
 	"weave/internal/rpcerr"
 	"weave/internal/store"
 	"weave/lib/dates"
@@ -55,19 +56,19 @@ func (s *AgentService) ForwardLastTurns(ctx context.Context, req *agentv1.Forwar
 	})
 
 	length := utf8.RuneCountInString(body)
-	if length > agents.MaxMailBody {
-		return nil, errForwardTooLong.Saying("the forward would run to %d characters and mail holds at most %d; pass a smaller maxBytes or fewer turns", length, agents.MaxMailBody)
+	if length > mail.MaxMailBody {
+		return nil, errForwardTooLong.Saying("the forward would run to %d characters and mail holds at most %d; pass a smaller maxBytes or fewer turns", length, mail.MaxMailBody)
 	}
 
 	recipient, err := s.agents.GetByID(ctx, req.GetToAgentId())
 	if errors.Is(err, store.ErrNotFound) {
-		return nil, agents.ErrRecipientNotFound.Saying("no agent with id %q", req.GetToAgentId())
+		return nil, mail.ErrRecipientNotFound.Saying("no agent with id %q", req.GetToAgentId())
 	}
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to look up the recipient")
 	}
 
-	sent, err := s.mail.SendMail(ctx, agents.SendMailParams{
+	sent, err := s.mail.SendMail(ctx, mail.SendMailParams{
 		From:      caller.From(ctx).AgentID,
 		ToAgentID: recipient.ID,
 		Body:      body,

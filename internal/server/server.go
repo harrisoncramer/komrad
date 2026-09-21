@@ -15,12 +15,12 @@ import (
 
 	"weave/config"
 	"weave/db"
-	"weave/internal/agents"
 	"weave/internal/doctor"
 	"weave/internal/forge"
 	"weave/internal/harness"
 	"weave/internal/interceptors"
 	"weave/internal/jobs"
+	"weave/internal/mail"
 	"weave/internal/store"
 	"weave/internal/tmux"
 
@@ -76,7 +76,7 @@ type Server struct {
 	Jobs          *river.Client[pgx.Tx]
 	Periodic      *jobs.RiverPeriodic
 	Pool          *store.Pool
-	Delivery      *agents.DeliveryService
+	Delivery      *mail.DeliveryService
 	Loops         []Loop
 	logger        *slog.Logger
 	stopRequested chan struct{}

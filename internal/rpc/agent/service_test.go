@@ -17,6 +17,7 @@ import (
 	"weave/internal/git"
 	"weave/internal/logging"
 	"weave/internal/logtest"
+	"weave/internal/mail"
 	"weave/internal/marks"
 	"weave/internal/rpc/render"
 	"weave/internal/store"
@@ -1203,7 +1204,7 @@ func TestSendMailWarnsOfADormantRecipient(t *testing.T) {
 // other as much as the configured limit allows is refused rather than allowed to keep going.
 func TestSendMailPastTheExchangeLimitIsResourceExhausted(t *testing.T) {
 	st := storetest.Open(t)
-	mail := agents.NewMailService(agents.NewMailServiceParams{
+	mailer := mail.NewMailService(mail.NewMailServiceParams{
 		MailReadWriter: st.Mail,
 		Agents:         st.Agents,
 		Config:         fakeMailConfig(1),
@@ -1211,7 +1212,7 @@ func TestSendMailPastTheExchangeLimitIsResourceExhausted(t *testing.T) {
 	svc := agentv1weave.AgentServiceAdapter{Impl: NewAgentService(NewAgentServiceParams{
 		Agents:           st.Agents,
 		Transcripts:      st.Transcripts,
-		Mail:             mail,
+		Mail:             mailer,
 		Liveness:         &fakeLauncher{},
 		Runs:             st.Runs,
 		Marks:            markService(st),
@@ -1246,7 +1247,7 @@ func TestSendMailPastTheExchangeLimitIsResourceExhausted(t *testing.T) {
 	}))
 	require.Error(t, err)
 	assert.Equal(t, connect.CodeResourceExhausted, connect.CodeOf(err))
-	require.ErrorIs(t, err, agents.ErrExchangeCapped)
+	require.ErrorIs(t, err, mail.ErrExchangeCapped)
 }
 
 // TestReadMail pins that an agent reading its own mailbox is handed what is waiting there.
@@ -2246,7 +2247,7 @@ func serviceWithLauncher(t *testing.T) (agentv1weave.AgentServiceAdapter, *store
 		State: agentstore.StateIdle,
 	}}
 
-	mail := agents.NewMailService(agents.NewMailServiceParams{
+	mailer := mail.NewMailService(mail.NewMailServiceParams{
 		MailReadWriter: st.Mail,
 		Agents:         st.Agents,
 		Workflows:      st.Workflows,
@@ -2264,13 +2265,13 @@ func serviceWithLauncher(t *testing.T) (agentv1weave.AgentServiceAdapter, *store
 		Workflows: st.Workflows,
 		StateDir:  t.TempDir(),
 		Agents:    st.Agents,
-		Mailer:    mail,
+		Mailer:    mailer,
 	})
 
 	return agentv1weave.AgentServiceAdapter{Impl: NewAgentService(NewAgentServiceParams{
 		Agents:           st.Agents,
 		Transcripts:      st.Transcripts,
-		Mail:             mail,
+		Mail:             mailer,
 		Review:           review,
 		Runs:             st.Runs,
 		Marks:            markService(st),
