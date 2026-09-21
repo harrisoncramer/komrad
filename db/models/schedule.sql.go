@@ -134,6 +134,57 @@ func (q *Queries) InsertSchedule(ctx context.Context, arg InsertScheduleParams) 
 	return &i, err
 }
 
+const listLiveSchedulesByID = `-- name: ListLiveSchedulesByID :many
+SELECT
+    s.id, s.name, s.cron, s.timezone, s.enabled, s.hide_agents, s.prompt, s.workflow_id, s.archived_at, s.created_at, s.updated_at, s.last_result_status, s.last_result_message, s.last_result_at
+FROM
+    schedules s
+WHERE
+    s.id = ANY ($1::uuid[])
+    AND s.archived_at IS NULL
+ORDER BY
+    s.id DESC
+`
+
+type ListLiveSchedulesByIDRow struct {
+	Schedule Schedule
+}
+
+func (q *Queries) ListLiveSchedulesByID(ctx context.Context, ids []string) ([]*ListLiveSchedulesByIDRow, error) {
+	rows, err := q.db.Query(ctx, listLiveSchedulesByID, ids)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []*ListLiveSchedulesByIDRow
+	for rows.Next() {
+		var i ListLiveSchedulesByIDRow
+		if err := rows.Scan(
+			&i.Schedule.ID,
+			&i.Schedule.Name,
+			&i.Schedule.Cron,
+			&i.Schedule.Timezone,
+			&i.Schedule.Enabled,
+			&i.Schedule.HideAgents,
+			&i.Schedule.Prompt,
+			&i.Schedule.WorkflowID,
+			&i.Schedule.ArchivedAt,
+			&i.Schedule.CreatedAt,
+			&i.Schedule.UpdatedAt,
+			&i.Schedule.LastResultStatus,
+			&i.Schedule.LastResultMessage,
+			&i.Schedule.LastResultAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listSchedules = `-- name: ListSchedules :many
 SELECT
     s.id, s.name, s.cron, s.timezone, s.enabled, s.hide_agents, s.prompt, s.workflow_id, s.archived_at, s.created_at, s.updated_at, s.last_result_status, s.last_result_message, s.last_result_at
