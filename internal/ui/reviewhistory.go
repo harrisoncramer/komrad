@@ -67,7 +67,7 @@ func findPreviousReviewedRound(
 }
 
 // findLastHumanReview is the newest review the person released against a round earlier than this
-// one, which is where they last looked.
+// one.
 func findLastHumanReview(reviews []*agentv1.Review, ordinal int32) *agentv1.Review {
 	var last *agentv1.Review
 	for _, review := range reviews {

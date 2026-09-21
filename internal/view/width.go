@@ -49,8 +49,7 @@ func (c Columns) drawn() int {
 	return count
 }
 
-// GutterColumns is how wide everything left of a name is, which is what a caller takes off the
-// pane to reach the column a name has.
+// GutterColumns is how wide everything left of a name is.
 func GutterColumns(columns Columns) int {
 	// Every cell holds one glyph and the space after it, a cell with nothing to draw included.
 	cells := plainCells + columns.drawn()

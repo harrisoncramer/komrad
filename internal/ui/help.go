@@ -125,8 +125,7 @@ func splitColumns(bindings []key.Binding, columns int) [][]key.Binding {
 	return split
 }
 
-// fitLegend cuts each row of the legend to the column it is drawn in, since bubbles keeps adding
-// items once the ellipsis it would put in their place no longer fits.
+// fitLegend cuts each row of the legend to the column it is drawn in.
 func fitLegend(rendered string, width int) string {
 	lines := strings.Split(rendered, "\n")
 	for i, line := range lines {

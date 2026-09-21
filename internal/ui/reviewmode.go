@@ -91,8 +91,7 @@ func (m model) reviewWritingSaid() string {
 	return m.reviewPausedSaid() + keyLabel(formKeys().Submit) + " sends it to the agent"
 }
 
-// reviewPausedSaid opens what the band says with the state of the agent, since stopping it is a
-// real thing happening to it that nobody asked for in so many words.
+// reviewPausedSaid opens what the band says with the state of the agent.
 func (m model) reviewPausedSaid() string {
 	if !m.review.paused {
 		return ""

@@ -11,7 +11,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-// passIntent is what the reader pressed, which is what happens once the agent has stopped.
+// passIntent is what the reader pressed.
 type passIntent uint8
 
 const (
@@ -81,7 +81,7 @@ func (m model) holdReviewAgentCmd(intent passIntent) tea.Cmd {
 }
 
 // applyReviewPaused opens the pass the reader asked for, or gives it up when the agent would not
-// stop, which is the one case nobody may be let into the editor in.
+// stop.
 func (m model) applyReviewPaused(msg reviewPausedMsg) (tea.Model, tea.Cmd) {
 	if msg.agentID != m.review.agentID {
 		return m, nil
@@ -194,8 +194,7 @@ func (m *model) forgetSpoken(agentID string, carried []string) {
 	m.edited[agentID] = kept
 }
 
-// touchedSaid names the files the reader opened an editor on, since the agent is coming back to a
-// worktree that moved under it and the panel knows where to look.
+// touchedSaid names the files the reader opened an editor on.
 func touchedSaid(touched []string) string {
 	if len(touched) == 0 {
 		return ""

@@ -189,8 +189,7 @@ func (m *model) applyRefresh(result refreshResult) tea.Cmd {
 		redrawn = m.redrawOpenForm()
 	}
 
-	// A screen that draws what it holds beside its own list stages nothing at all, since the pass
-	// that changed the rows has already changed what is drawn from them.
+	// A screen that draws what it holds beside its own list stages nothing at all.
 	if spec := m.screen.spec(); spec.fromListing && spec.stage != nil && !m.form.isActive() {
 		spec.stage(m)
 	}
@@ -219,8 +218,7 @@ type writeResult struct {
 	summary string
 	err     error
 	written *written
-	// epoch is the write this result belongs to, which is how a held form tells its own landing
-	// from one an earlier submit is still waiting on.
+	// epoch is the write this result belongs to.
 	epoch int
 	// released is the agent a landed release let go.
 	released *released

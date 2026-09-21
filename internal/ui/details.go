@@ -405,8 +405,7 @@ func (m model) detailsView() string {
 		return ""
 	}
 
-	// Two field lines are kept back rather than one, which is what renderList needs to say how
-	// many fields it left out.
+	// Two field lines are kept back rather than one.
 	notices := m.detailsNotices(held, lines-3)
 	block := ""
 	if len(notices) > 0 {

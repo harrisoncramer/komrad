@@ -105,7 +105,7 @@ type Snapshot struct {
 
 // Row is one line of the agents list as the panel found it.
 type Row struct {
-	// Key is what the row answers to, which is how the snapshot names the focused one.
+	// Key is what the row answers to.
 	Key  string
 	Kind RowKind
 	Name string

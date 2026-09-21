@@ -26,8 +26,7 @@ type reviewState struct {
 	// top is the first row the pane is showing, held rather than derived from the cursor.
 	top       int
 	composing bool
-	// releasing is set while the panel is asking what to send, which is one editor for a word
-	// about the work as a whole and one choice of verdict.
+	// releasing is set while the panel is asking what to send.
 	releasing bool
 	verdict   int
 	editor    reviewInput
@@ -37,7 +36,7 @@ type reviewState struct {
 	filter filterState
 
 	// threadFocus is set while the keys are on the conversation in the sidebar rather than on the
-	// diff, which is the only way a thread taller than the pane can be read to its start.
+	// diff.
 	threadFocus bool
 	// threadScroll is how far up from the end of the conversation the sidebar is showing.
 	threadScroll int
@@ -63,8 +62,7 @@ type reviewState struct {
 	editorPane string
 	loading    bool
 	notice     string
-	// since says how much of the diff is new to the reader, which is a standing fact about what is
-	// on screen rather than an answer to a keypress.
+	// since says how much of the diff is new to the reader.
 	since string
 
 	// base is the commit the diff on screen is measured from, empty for the point the branch
@@ -90,11 +88,9 @@ type reviewState struct {
 	mode reviewMode
 	// paused says the agent is stopped for the pass, whoever stopped it.
 	paused bool
-	// pausing is set while the panel is asking for the agent to stop, which is a wait for the
-	// agent to reach a resting place rather than for a message to be sent.
+	// pausing is set while the panel is asking for the agent to stop.
 	pausing bool
-	// ourPause says this pass is what stopped the agent, so ending the pass is what lets it go,
-	// rather than a pause the person took themselves and means to keep.
+	// ourPause says this pass is what stopped the agent, so ending the pass is what lets it go.
 	ourPause bool
 	// touched are the files the reader opened an editor on during the pass, oldest first, which
 	// is what the agent is told about when it is let go.

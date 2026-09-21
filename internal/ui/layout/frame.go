@@ -33,8 +33,7 @@ type Frame struct {
 	collecting bool
 	shown      map[Region]shown
 
-	// zoomed says the change being collected moves the sidebar's zoom, which is what changes the
-	// size of the pane the panel is drawn in.
+	// zoomed says the change being collected moves the sidebar's zoom.
 	zoomed bool
 
 	// onSize is told the size the sidebar landed at, once the moves that changed it have been
@@ -44,8 +43,8 @@ type Frame struct {
 	// remote is the engine the agents are running in, the zero value meaning this machine.
 	remote engine.Remote
 
-	// remoteGuest is the agent whose terminal the stage is attached to, which is not a pane this
-	// server holds and so cannot be tracked as guest is.
+	// remoteGuest is the agent whose terminal the stage is attached to, on a server this one does
+	// not hold.
 	remoteGuest string
 }
 
@@ -58,8 +57,7 @@ type shown struct {
 // Option is a setting New takes beyond the geometry, so the common case names none of them.
 type Option func(*Frame)
 
-// WithEngine says the agents are running somewhere this tmux server cannot reach, which is what
-// makes the stage attach to them rather than move their panes.
+// WithEngine says the agents are running somewhere this tmux server cannot reach.
 func WithEngine(remote engine.Remote) Option {
 	return func(f *Frame) { f.remote = remote }
 }
@@ -113,8 +111,8 @@ func (f *Frame) Pane(region Region) string {
 // GuestPane is the pane somebody else owns currently swapped into the stage.
 func (f *Frame) GuestPane() string { return f.guest }
 
-// FocusPane is the pane the focus key jumps to, which is the agent's own pane when it was moved
-// into the stage and the stage itself when the stage is attached to an agent elsewhere.
+// FocusPane is the pane the focus key jumps to: the agent's own pane when it was moved into the
+// stage and the stage itself when the stage is attached to an agent elsewhere.
 func (f *Frame) FocusPane() string {
 	if f.remote.IsRemote() {
 		if f.remoteGuest == "" {
@@ -166,8 +164,7 @@ func (f *Frame) reportSize() {
 	f.onSize(width, height)
 }
 
-// IsCollecting reports whether a change is still being collected, which is what says the panes
-// have not moved yet, so reading anything back off them would answer for the layout as it stood.
+// IsCollecting reports whether a change is still being collected.
 func (f *Frame) IsCollecting() bool { return f.collecting }
 
 // move records a pane move, sending it at once unless a change is being collected around it.
@@ -204,15 +201,14 @@ func (f *Frame) open(region Region) string {
 	return f.Pane(region)
 }
 
-// IsOpen reports whether a region's pane is still running, which is how a pane the user closed
-// themselves is noticed.
+// IsOpen reports whether a region's pane is still running.
 func (f *Frame) IsOpen(region Region) bool {
 	pane := f.Pane(region)
 
 	return pane != "" && f.tmux.IsPaneAlive(pane)
 }
 
-// Close takes a region away, which is only ever the info pane.
+// Close takes a region away.
 func (f *Frame) Close(region Region) {
 	if region == RegionInfo {
 		f.closeInfo()
@@ -329,8 +325,7 @@ func (f *Frame) SidebarWidth(total int) (int, bool) {
 	return f.spec.SidebarWidth(total), false
 }
 
-// StageCols is how wide the pane beside the sidebar was last measured at, which is the width
-// anything shown there is given.
+// StageCols is how wide the pane beside the sidebar was last measured at.
 func (f *Frame) StageCols() int { return f.stageCols }
 
 // WindowCols is how many columns the frame has to lay itself out in.
@@ -403,8 +398,7 @@ func (f *Frame) ShowGuest(pane string) {
 	f.forget(RegionStage)
 }
 
-// showRemoteGuest respawns the stage on an ssh attach, which is the only way to reach a pane on
-// a tmux server this one cannot address.
+// showRemoteGuest respawns the stage on an ssh attach.
 func (f *Frame) showRemoteGuest(pane string) {
 	argv := f.remote.AttachArgv(pane)
 	if len(argv) == 0 {
@@ -455,8 +449,8 @@ func (f *Frame) isShowing(region Region, content Content, target Target) bool {
 	return !content.Wraps || (was.width == target.Width && was.height == target.Height)
 }
 
-// visibleStagePane is the pane the user is actually looking at in the stage slot, which is the
-// guest while one is swapped in and the frame's own pane otherwise.
+// visibleStagePane is the pane the user is actually looking at in the stage slot: the guest
+// while one is swapped in and the frame's own pane otherwise.
 func (f *Frame) visibleStagePane() string {
 	if f.guest != "" {
 		return f.guest

@@ -20,8 +20,7 @@ const (
 	muted        = lipgloss.Color("8")
 	speakerSelf  = lipgloss.Color("12")
 	speakerOther = lipgloss.Color("13")
-	// bright is a foreground above the terminal's own default, which is what a thinking agent's
-	// bar is drawn in.
+	// bright is a foreground above the terminal's own default.
 	bright = lipgloss.Color("15")
 	// merged is the plain magenta, kept off the bright one the other voice in a conversation
 	// wears so retuning the speakers leaves a landed change alone.
@@ -61,8 +60,7 @@ type Palette struct {
 	bright  lipgloss.Color
 	merged  lipgloss.Color
 
-	// stage is held behind a pointer, since a palette is copied on every lookup and the config
-	// alone is six kilobytes.
+	// stage is held behind a pointer.
 	stage *ansi.StyleConfig
 }
 

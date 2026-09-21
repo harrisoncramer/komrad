@@ -100,8 +100,7 @@ func (m model) route(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return next, cmd
 	}
 
-	// Reached before the form and before a held write, which is the refusal whose whole reason a
-	// person most needs.
+	// Reached before the form and before a held write.
 	if isKey && m.isMessagesRegion() {
 		switch {
 		case m.isMessagesFocused():
@@ -154,8 +153,7 @@ func (m model) route(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m.routeScreenKey(key)
 }
 
-// resizeTo takes the panel to the size a window message reports, which is also how a divider
-// being dragged arrives.
+// resizeTo takes the panel to the size a window message reports.
 func (m model) resizeTo(size tea.WindowSizeMsg) model {
 	//nolint:sloglint // temporary trace, no context here to carry a logger on
 	slog.Default().Info("panel trace: a resize arrived", "width", size.Width, "height", size.Height, "was", m.width, "solo", m.frame.IsSolo())

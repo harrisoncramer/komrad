@@ -24,8 +24,7 @@ type reviewLoadedMsg struct {
 	patch   *diff.Patch
 	threads []*agentv1.ReviewThread
 	viewed  []*agentv1.ReviewViewedFile
-	// since says how much of this round is new to the reader, which is a courtesy rather than
-	// something the screen depends on.
+	// since says how much of this round is new to the reader.
 	since string
 	// earlier is the round the person last released a review against, nil when there is none.
 	earlier *agentv1.ReviewRound
@@ -51,8 +50,7 @@ type reviewWroteMsg struct {
 	notice  string
 	threads []*agentv1.ReviewThread
 	err     error
-	// readErr is the review coming back unreadable after a write that landed, which is a stale
-	// screen rather than a write to try again.
+	// readErr is the review coming back unreadable after a write that landed.
 	readErr error
 	// sent says this is the answer to a released review rather than to any of the other writes
 	// this screen makes, which all come back the same way.
@@ -496,8 +494,8 @@ func (m model) leaveReview() (tea.Model, tea.Cmd) {
 		return m.closeReviewEdit()
 	}
 
-	// dropReview is the one way off this screen, since it is what lets go of an agent the pass
-	// stopped, and it puts the reader back on the row they came from.
+	// dropReview is the one way off this screen, and it puts the reader back on the row they
+	// came from.
 	return m, m.dropReview()
 }
 

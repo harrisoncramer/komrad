@@ -198,8 +198,7 @@ func globalArms(s screen, keys config.Keybindings) []dispatchArm {
 			dispatchArm{describe: "the key that reads the messages", keys: []string{messagesFocusKey}},
 			dispatchArm{describe: "the key that pushes a fixture into the messages", keys: []string{messagesMockKey}},
 			dispatchArm{describe: "the details focus", keys: keys.Details.Focus},
-			// The copy key answers only while the details hold the cursor, which is a mode the two
-			// message keys above are read ahead of.
+			// The copy key answers only while the details hold the cursor.
 			dispatchArm{
 				describe: "the details copy",
 				keys:     keys.Details.Copy,

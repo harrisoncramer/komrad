@@ -31,7 +31,7 @@ type newReviewInputParams struct {
 	Title       string
 	Description string
 	Placeholder string
-	// Body is what the field opens holding, which is what came back from an editor.
+	// Body is what the field opens holding.
 	Body  string
 	Width int
 	Keys  config.FormKeys
@@ -116,8 +116,7 @@ func (i reviewInput) value() string {
 	return *i.body
 }
 
-// reviewInputKeyMap keeps the return key inside the field, since the panel's own keys are what
-// say the words are finished.
+// reviewInputKeyMap keeps the return key inside the field.
 func reviewInputKeyMap(keys config.FormKeys) *huh.KeyMap {
 	km := formKeyMap(keys)
 	km.Text.NewLine = key.NewBinding(key.WithKeys("enter", "ctrl+j", "alt+enter"))

@@ -9,7 +9,7 @@ import (
 )
 
 // notice is one of the marks a row draws said in words, carrying the part it plays rather than a
-// colour, since the region it is drawn in decides that.
+// colour.
 type notice struct {
 	icon string
 	tone paint.Tone

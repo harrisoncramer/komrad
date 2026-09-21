@@ -86,8 +86,7 @@ func (m model) pressReviewEdit() (tea.Model, tea.Cmd) {
 	}
 
 	if m.review.mode != modeReviewing {
-		// The refusals are read before the agent is stopped, since stopping one to then say the
-		// key was never going to open anything is a real thing done for nothing.
+		// The refusals are read before the agent is stopped.
 		if reason, refused := m.isReviewEditRefused(); refused {
 			m.review.notice = reason
 
@@ -117,8 +116,7 @@ func (m model) isReviewEditRefused() (string, bool) {
 	return "", false
 }
 
-// isReviewAgentUnreadable reports whether weave cannot say what the agent is doing, which is the
-// one state a pass may not stop its way out of.
+// isReviewAgentUnreadable reports whether weave cannot say what the agent is doing.
 func (m model) isReviewAgentUnreadable() (string, bool) {
 	item, ok := m.getReviewAgentItem()
 	if !ok || !item.alive || item.agent.State != agentstore.StateUncertain {
@@ -232,7 +230,7 @@ func (m model) getReviewAgentItem() (agentItem, bool) {
 }
 
 // closeReviewEdit gives the stage back to the diff and reads the worktree again, staying in the
-// pass, since closing an editor is not the end of reading somebody's work.
+// pass.
 func (m model) closeReviewEdit() (tea.Model, tea.Cmd) {
 	m.review.atEditor = false
 	m.review.editingPath = ""

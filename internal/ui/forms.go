@@ -79,8 +79,8 @@ func (f formState) isOpening() bool {
 	return f.kind != formNone
 }
 
-// openForm puts a form on screen over the screen the panel is already on, which is where closing
-// it lands, taking the window first.
+// openForm puts a form on screen over the screen the panel is already on, taking the window
+// first.
 func (m *model) openForm(f formState) tea.Cmd {
 	m.form = f
 	m.reconcileSolo()
@@ -92,8 +92,7 @@ func (m *model) openForm(f formState) tea.Cmd {
 	return tea.Batch(m.form.form.Init(), formResized())
 }
 
-// openRedrawnForm puts up a form the panel can draw again from one builder, which is every form
-// whose values outlive the form itself.
+// openRedrawnForm puts up a form the panel can draw again from one builder.
 func (m model) openRedrawnForm(params openRedrawnFormParams) (tea.Model, tea.Cmd) {
 	return m, m.openForm(formState{
 		kind:     params.Kind,
@@ -134,8 +133,7 @@ func formColumn(kind formKind) (columnSpec, bool) {
 	return columnSpec{}, false
 }
 
-// formResizedMsg tells the form on screen how much room it has, which is the column it is drawn
-// in rather than the terminal huh would otherwise size itself from.
+// formResizedMsg tells the form on screen how much room it has.
 type formResizedMsg struct{}
 
 func formResized() tea.Cmd {
@@ -145,8 +143,7 @@ func formResized() tea.Cmd {
 // formHelpLines is the row the panel keeps back rather than tells the form about.
 const formHelpLines = 1
 
-// submittingLines is the notice drawn under a held form, which is a row the form is not told
-// about.
+// submittingLines is the notice drawn under a held form.
 const submittingLines = 1
 
 // heldWrite is the write a form is being kept up for: when it was sent, and which write it is.
@@ -161,8 +158,7 @@ func (h heldWrite) owns(epoch int) bool {
 	return h.active && h.epoch == epoch
 }
 
-// formBox is the room a form has on screen, which is its own column while it has one and the
-// panel's own pane while it does not.
+// formBox is the room a form has on screen.
 func (m model) formBox() (width, height int) {
 	held := 0
 	if m.held.active {
@@ -718,7 +714,7 @@ func refreshForm(plan refreshPlan, keys config.FormKeys) (*huh.Form, *bool) {
 func refreshDescription(plan refreshPlan) string {
 	lines := []string{}
 
-	// A dirty worktree never reaches here, since the plan refuses one before the form is built.
+	// A dirty worktree never reaches here.
 	switch {
 	case plan.replay == 0 && plan.landed == 0:
 		lines = append(lines, fmt.Sprintf("This branch has no commits of its own. It will be moved to %s.", plan.baseRef))
@@ -743,8 +739,7 @@ func refreshDescription(plan refreshPlan) string {
 	return strings.Join(lines, " ")
 }
 
-// refreshAffirmative names the button for what will actually run, since a branch the base
-// already holds is moved rather than replayed.
+// refreshAffirmative names the button for what will actually run.
 func refreshAffirmative(plan refreshPlan) string {
 	if plan.replay == 0 {
 		return "Move"
@@ -758,8 +753,7 @@ func refreshAffirmative(plan refreshPlan) string {
 func refreshWarning(plan refreshPlan) string {
 	warnings := []string{}
 
-	// The landed commits are not warned about here, since the description above already says
-	// what becomes of them, which is more use than saying they would collide.
+	// The landed commits are not warned about here.
 	if plan.merges > 0 {
 		warnings = append(warnings, fmt.Sprintf("A rebase throws away %s and replays what they settled.",
 			label.Count(plan.merges, "merge commit", "merge commits")))
@@ -771,8 +765,7 @@ func refreshWarning(plan refreshPlan) string {
 	return strings.Join(warnings, " ")
 }
 
-// namedPaths is a few paths read out, since a person wants the shape of the collision rather
-// than every path in it.
+// namedPaths is a few paths read out.
 func namedPaths(paths []string, most int) string {
 	if len(paths) <= most {
 		return strings.Join(paths, ", ")

@@ -116,8 +116,7 @@ type BindPanelKeyParams struct {
 // BindPanelKey binds the panel key on the user's own tmux server, where it is pressed, and
 // takes back any other key it bound there before.
 func BindPanelKey(t panelKeyTmux, params BindPanelKeyParams) error {
-	// A weave that names its own key can be bound beside another one, which is how a panel for a
-	// remote engine and a panel for a local one both answer from the same tmux.
+	// A weave that names its own key can be bound beside another one.
 	key := PanelKey(t, params.Key)
 
 	shown := panelCommand(params, "shown")

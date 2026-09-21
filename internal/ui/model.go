@@ -63,7 +63,7 @@ func Run(deps Deps) error {
 type postbox struct {
 	program *tea.Program
 	mu      sync.Mutex
-	// pending is the size waiting to be handed over, which is only ever the newest one.
+	// pending is the size waiting to be handed over.
 	pending *tea.WindowSizeMsg
 	wake    chan struct{}
 }

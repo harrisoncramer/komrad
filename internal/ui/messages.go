@@ -35,8 +35,7 @@ const messagesTallyWidth = 8
 // key moving between a form's fields.
 const messagesFocusKey = "ctrl+g"
 
-// messagesMockKey pushes a fixture into the stack, which is how the region is looked at without
-// making the panel refuse something first.
+// messagesMockKey pushes a fixture into the stack.
 const messagesMockKey = "M"
 
 // messagesCap is how far back the stack goes.
@@ -99,7 +98,7 @@ type messagePiece struct {
 	text  string
 	value string
 	style lipgloss.Style
-	// head marks the summary, which is the one piece drawn as a row of its own.
+	// head marks the summary.
 	head bool
 }
 
@@ -159,8 +158,7 @@ type messagesRender struct {
 	cursorRow int
 }
 
-// messagesRender draws the whole message at the width of the pane, which is what the region
-// holds once it has the keys.
+// messagesRender draws the whole message at the width of the pane.
 func (m model) messagesRender() messagesRender {
 	pieces := m.messagePieces()
 	if len(pieces) == 0 {
@@ -469,8 +467,7 @@ func (m model) isMessagesFocused() bool {
 	return m.messages.focused && m.isMessagesRegion()
 }
 
-// toggleMessagesFocus moves the keys between the list and the region, which is also what puts
-// the message in the block beside the list.
+// toggleMessagesFocus moves the keys between the list and the region.
 func (m model) toggleMessagesFocus() model {
 	if !m.messages.focused && len(m.messages.items) == 0 {
 		return m

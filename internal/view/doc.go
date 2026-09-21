@@ -21,15 +21,14 @@
 // One rule covers every cell of the row: blank is nothing to say, anything drawn is applicable,
 // and the shape says which state it is in. The three columns are blank on a row that can never
 // own a checkout, and the review column is blank as well on a branch no review has been released
-// on, since a mark on every unread row would say nothing. The bar is the exception: it is drawn
-// on every row, a thin pipe where nothing
-// is happening and a heavy one where an agent is thinking, waiting or broken, so it runs as one
-// rail down the list. A thinking agent's bar pulses between the two on the cursor's blink.
-// Whether a process is still there is the weight's to say, not the bar's.
+// on. The bar is the exception: it is drawn on every row, a thin pipe where nothing is happening
+// and a heavy one where an agent is thinking, waiting or broken, so it runs as one rail down the
+// list. A thinking agent's bar pulses between the two on the cursor's blink. Whether a process is
+// still there is the weight's to say, not the bar's.
 //
 // # Dim means the process is gone
 //
-// A name is drawn dim for exactly one reason: nothing runs behind the row any more, because the
+// A name is drawn dim for exactly one reason: nothing runs behind the row any more, whether the
 // agent's process has stopped or the row has been archived. Nothing a person did to a row dims
 // it, and an idle agent with a pane of its own is alive and stays bright. Dim reaches the name
 // alone, so a dormant agent still says in colour where its review and its pull request stand.
@@ -52,37 +51,33 @@
 //
 // The columns drop from the right as the pane narrows, forge first and then review, decided by
 // the pane alone so a list never changes shape because a row gained a mark. The repo column is
-// never given up, since a sidebar too narrow for the rest still says whether the checkout under
-// an agent is one you can work in. Nothing else is given up for width: not the focus caret, the
-// mark gutter or the status bar. A row too full for what is left gives up its tally and then its
-// name, a row at a time rather than the whole list, and gives up its marks only where the marks
-// alone would not fit the pane: the schedule first, then the hiding, then the pause, then the
-// mail, and the failed run last.
+// never given up. Nothing else is given up for width: not the focus caret, the mark gutter or the
+// status bar. A row too full for what is left gives up its tally and then its name, a row at a
+// time rather than the whole list, and gives up its marks only where the marks alone would not
+// fit the pane: the schedule first, then the hiding, then the pause, then the mail, and the
+// failed run last.
 //
 // # A screen may give up a column its rows could never fill
 //
 // The narrowing above is about room. Dropped is about meaning: a column a screen gives up there
-// is gone at every pane, because its rows will never reach that stage of the work. The archive is
-// the case that asked for it, where an agent has been put away and its checkout, its review and
-// its pull request are none of them looked at again, so a greyed glyph on each would be promising
-// something that will never happen rather than saying not yet.
+// is gone at every pane. The archive is the case that asked for it, where an agent has been put
+// away and its checkout, its review and its pull request are none of them looked at again, so a
+// greyed glyph on each would be promising something that will never happen rather than saying
+// not yet.
 //
-// A dropped column buys the name its room, since the gutter arithmetic reads the columns a list
-// ended up with rather than the three it might have had.
+// A dropped column buys the name its room.
 //
 // # A list of results is not a tree
 //
 // A search draws the agents it found rather than a tree, so its rows are KindResult: nothing
 // sits under anything, every name opens at the gutter and no row is lettered for structure. It
-// drops all three columns, because a result is a pointer into a conversation rather than a piece
-// of work to triage, and the life of a change is answered on the screen the row leads to.
+// drops all three columns, and the life of a change is answered on the screen the row leads to.
 //
 // # Scrolling belongs to the caller
 //
 // Rows hands back one drawn string per row and stops there. Which of them fit the pane, and
-// which the list is scrolled to, is the caller's, since only the caller knows what else it has
-// put above and below them. A caller measuring those rows measures what lipgloss measures, an
-// Octicon drawing the single column the font gives it.
+// which the list is scrolled to, is the caller's. A caller measuring those rows measures what
+// lipgloss measures, an Octicon drawing the single column the font gives it.
 //
 // Window is that work already done, for a caller that has only to say how many lines it has
 // left. It scrolls to the row the snapshot named, and a key naming no row at all leaves the
@@ -92,6 +87,5 @@
 //
 // Every enum in a Snapshot starts at what an unremarkable row would say: an agent, a clean
 // checkout, no review, no pull request, idle. A test writing Row{} therefore gets the row it
-// meant rather than a workflow, which is a mistake that stays invisible until somebody reorders
-// the constants.
+// meant rather than a workflow.
 package view

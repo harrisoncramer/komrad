@@ -359,8 +359,8 @@ type agentItem struct {
 	pullRequest pullRequestStanding
 }
 
-// displayState is the state a row wears, which is idle once the pane has gone even though the
-// store still holds whatever the agent stopped in.
+// displayState is the state a row wears, idle once the pane has gone even though the store
+// still holds whatever the agent stopped in.
 func displayState(item agentItem) agentstore.State {
 	state := item.agent.State
 	if !item.alive && state.DoesPaneDecide() {

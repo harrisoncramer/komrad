@@ -109,7 +109,7 @@ func (m model) refuseReviewLine() (tea.Model, tea.Cmd) {
 // go.
 func (m model) leaveReviewWriting() (tea.Model, tea.Cmd) {
 	// Comments already written are held by the panel rather than by the pass, so leaving keeps
-	// them and says so, which is the difference between putting a review down and losing it.
+	// them and says so.
 	if m.doesReviewHoldUnsent() {
 		m.review.notice = label.Counted(m.reviewUnsentCount(), "comment") + " kept, still unsent"
 	}
@@ -219,8 +219,7 @@ func (m model) saveReviewMessage() (tea.Model, tea.Cmd) {
 
 	agents, threadID := m.api.agents, m.review.editing
 	if threadID != "" {
-		// Nothing is said back: the reply is drawn in the thread it went into, which is already on
-		// the screen the moment it lands.
+		// Nothing is said back: the reply is drawn in the thread it went into.
 		return m, m.reviewWriteCmd("", func(ctx context.Context) error {
 			_, err := agents.AddReviewMessage(ctx, connect.NewRequest(&agentv1.AddReviewMessageRequest{
 				ThreadId: threadID,
@@ -482,7 +481,7 @@ func (m model) reviewWriteNoticeCmd(write func(context.Context) (string, error))
 	return m.reviewWriteMsgCmd(false, write)
 }
 
-// reviewSendCmd is the write that releases a review, which is the one whose answer ends the pass.
+// reviewSendCmd is the write that releases a review.
 func (m model) reviewSendCmd(write func(context.Context) (string, error)) tea.Cmd {
 	return m.reviewWriteMsgCmd(true, write)
 }
