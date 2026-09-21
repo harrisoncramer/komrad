@@ -10,6 +10,7 @@ import (
 	"weave/internal/agents"
 	"weave/internal/tmux"
 	"weave/internal/ui"
+	"weave/internal/version"
 	"weave/lib/xslice"
 
 	"github.com/spf13/cobra"
@@ -109,12 +110,22 @@ func isPanelRunning(ctx context.Context, state *app) bool {
 	return state.tmux.IsPaneAlive(state.tmux.GetPanelPane())
 }
 
+// isPanelStale reports whether the panel drawing in the manager session was built from other
+// code than this binary, a panel that recorded no build counting as one.
+func isPanelStale(ctx context.Context, state *app, build string) bool {
+	return isPanelRunning(ctx, state) && state.tmux.GetPanelBuild() != build
+}
+
 // ensureManagerSession puts a panel up, making the session when there is none and a window in
 // the session it already has when only the panel has gone.
 func ensureManagerSession(ctx context.Context, state *app, detached, headless bool) error {
+	if !headless && isPanelStale(ctx, state, version.Describe(version.Version(), version.Commit())) {
+		state.tmux.KillPane(state.tmux.GetPanelPane())
+	}
+
 	if !isManagerSessionRunning(ctx, state) {
 		if err := runTmux(ctx, state, "failed to create the manager session",
-			buildManagerSessionArgs(state, getSelfPath(), headless)); err != nil {
+			buildManagerSessionArgs(state, state.selfPath(), headless)); err != nil {
 			return err
 		}
 
@@ -130,7 +141,7 @@ func ensureManagerSession(ctx context.Context, state *app, detached, headless bo
 	}
 
 	return runTmux(ctx, state, "failed to open a panel window in the manager session",
-		buildPanelWindowArgs(state, getSelfPath(), detached))
+		buildPanelWindowArgs(state, state.selfPath(), detached))
 }
 
 // silenceManagerPrefix leaves the engine's own server answering to no prefix, since a headless

@@ -10,6 +10,7 @@ import (
 	"weave/internal/git"
 	"weave/internal/logging"
 	"weave/internal/ui"
+	"weave/internal/version"
 	"weave/lib/xhttp"
 	"weave/proto/gen/agent/v1/agentv1connect"
 	"weave/proto/gen/hook/v1/hookv1connect"
@@ -50,6 +51,7 @@ Use ` + "`weave open`" + ` to bring the panel up.`,
 			// Recorded before anything slow: while no pane is on record the session looks like one
 			// whose panel has gone, and a second open would start a second panel in it.
 			state.tmux.RecordPanelPane(state.env.TmuxPane)
+			state.tmux.RecordPanelBuild(version.Describe(version.Version(), version.Commit()))
 
 			if err := state.tmux.TakePanelKeys(state.keys.GetBoundKeys()); err != nil {
 				logging.From(cmd.Context()).LogAttrs(cmd.Context(), slog.LevelWarn,
