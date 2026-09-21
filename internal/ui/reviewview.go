@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"weave/internal/review"
+	"weave/internal/ui/diffview"
 	"weave/internal/ui/paint"
 	"weave/internal/ui/paint/label"
 	agentv1 "weave/proto/gen/agent/v1"
@@ -162,14 +162,14 @@ func (d reviewDiff) anchorView() string {
 	anchor, ok := d.view.GetAnchor(d.cursor)
 	if !ok {
 		if thread, ok := d.threadAtCursor(); ok {
-			return paint.Panel.Title(clipName(review.FormatThreadLocation(thread))) +
+			return paint.Panel.Title(clipName(diffview.FormatThreadLocation(thread))) +
 				d.commentWhereView(thread) + "\n"
 		}
 
 		return dimStyle.Render("  move onto a line to start a thread on it") + "\n"
 	}
 
-	head := paint.Panel.Title(clipName(review.FormatLocation(anchor.FilePath, anchor.OldStart, anchor.NewStart)))
+	head := paint.Panel.Title(clipName(diffview.FormatLocation(anchor.FilePath, anchor.OldStart, anchor.NewStart)))
 	if thread, ok := d.threadAtCursor(); ok {
 		head += d.commentWhereView(thread)
 	}

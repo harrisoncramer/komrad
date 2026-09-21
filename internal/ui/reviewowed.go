@@ -7,7 +7,7 @@ import (
 	"slices"
 	"strings"
 
-	"weave/internal/review"
+	"weave/internal/ui/diffview"
 	"weave/internal/ui/paint"
 	agentv1 "weave/proto/gen/agent/v1"
 
@@ -139,7 +139,7 @@ func reviewOwedRoom(spare int) int {
 // reviewOwedRow is one comment, where it stands and what it is waiting for.
 func (m model) reviewOwedRow(comment owedComment) string {
 	said := reviewOwedState(comment)
-	where := review.FormatThreadLocation(comment.thread)
+	where := diffview.FormatThreadLocation(comment.thread)
 
 	room := max(m.lineWidth()-len(said)-5, 1)
 	where = clipToTail(where, room)
@@ -151,7 +151,7 @@ func (m model) reviewOwedRow(comment owedComment) string {
 
 	pad := strings.Repeat(" ", max(room-lipgloss.Width(where), 0))
 
-	return paint.Panel.Style(reviewHumanTone).Render(" "+review.OpenMark+" ") +
+	return paint.Panel.Style(reviewHumanTone).Render(" "+diffview.OpenMark+" ") +
 		style.Render(where) + dimStyle.Render(pad+"  "+said) + "\n"
 }
 

@@ -6,9 +6,9 @@ import (
 
 	"weave/internal/diff"
 	"weave/internal/git"
-	"weave/internal/review"
 	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
+	"weave/internal/ui/diffview"
 	"weave/internal/ui/paint/label"
 	agentv1 "weave/proto/gen/agent/v1"
 
@@ -40,7 +40,7 @@ type reviewLoadedMsg struct {
 	chapters []reviewChapter
 	// traced is where git says each thread's lines went, keyed by thread id, and empty for a
 	// repository that could not answer.
-	traced map[string]review.Traced
+	traced map[string]diffview.Traced
 	err    error
 }
 
@@ -369,7 +369,7 @@ func (d *reviewDiff) load(msg reviewLoadedMsg, isDark bool) {
 
 	// The files the reader opened out are the view's own, so a view built again over the patch
 	// takes them from the one it replaces, or from what was kept when that one was dropped.
-	view := review.NewView(msg.patch, isDark)
+	view := diffview.NewView(msg.patch, isDark)
 	view.SetNarrowed(d.base != "")
 	view.SetTraced(msg.traced)
 	view.SetViewed(indexViewedFiles(msg.viewed, msg.patch))
@@ -475,7 +475,7 @@ func (m *model) applyReviewThreads(threads []*agentv1.ReviewThread) {
 
 // keepCursor puts the cursor back on what it was standing on, and failing that back inside the
 // diff.
-func (d *reviewDiff) keepCursor(place review.Place, ok bool) {
+func (d *reviewDiff) keepCursor(place diffview.Place, ok bool) {
 	was := d.cursor
 
 	d.cursor = min(d.cursor, d.view.GetLastRow())

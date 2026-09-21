@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"weave/internal/review"
+	"weave/internal/ui/diffview"
 	"weave/internal/ui/paint/label"
 	agentv1 "weave/proto/gen/agent/v1"
 
@@ -248,7 +248,7 @@ func (t *reviewThreads) cancelMessage() {
 	t.composing = false
 }
 
-func (m model) createReviewThreadCmd(anchor review.Anchor, body string) tea.Cmd {
+func (m model) createReviewThreadCmd(anchor diffview.Anchor, body string) tea.Cmd {
 	agents, agentID := m.api.agents, m.review.agentID
 
 	// The old side of these numbers came from whatever the diff was measured from, so the thread

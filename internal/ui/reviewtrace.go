@@ -7,7 +7,7 @@ import (
 
 	"weave/internal/git"
 	"weave/internal/position"
-	"weave/internal/review"
+	"weave/internal/ui/diffview"
 	agentv1 "weave/proto/gen/agent/v1"
 )
 
@@ -27,7 +27,7 @@ type traceThreadsParams struct {
 
 // traceThreads asks git where each thread's lines went between the snapshot it was written
 // against and the one on screen, so placement reads two commits rather than guessing from text.
-func traceThreads(ctx context.Context, params traceThreadsParams) map[string]review.Traced {
+func traceThreads(ctx context.Context, params traceThreadsParams) map[string]diffview.Traced {
 	if params.ToSHA == "" {
 		return nil
 	}
@@ -62,7 +62,7 @@ func traceThreads(ctx context.Context, params traceThreadsParams) map[string]rev
 }
 
 // traceOnScreen places the threads whose numbers were counted in the snapshot on screen.
-func traceOnScreen(params traceThreadsParams) map[string]review.Traced {
+func traceOnScreen(params traceThreadsParams) map[string]diffview.Traced {
 	onScreen := map[string]bool{}
 
 	for _, round := range params.Rounds {
@@ -71,13 +71,13 @@ func traceOnScreen(params traceThreadsParams) map[string]review.Traced {
 		}
 	}
 
-	traced := map[string]review.Traced{}
+	traced := map[string]diffview.Traced{}
 	for _, thread := range params.Threads {
 		if !onScreen[thread.GetRoundId()] || thread.GetNewStart() <= 0 {
 			continue
 		}
 
-		traced[thread.GetId()] = review.Traced{
+		traced[thread.GetId()] = diffview.Traced{
 			FilePath: thread.GetFilePath(),
 			NewStart: thread.GetNewStart(),
 			Exact:    true,
@@ -133,7 +133,7 @@ type traceOneParams struct {
 
 // traceOne moves every thread of one snapshot pair, keeping the file when the lines are gone so
 // a thread whose code was rewritten still says which file it was about.
-func traceOne(params traceOneParams) map[string]review.Traced {
+func traceOne(params traceOneParams) map[string]diffview.Traced {
 	positions := make([]position.Position, 0, len(params.Threads))
 	for _, thread := range params.Threads {
 		positions = append(positions, position.Position{
@@ -148,7 +148,7 @@ func traceOne(params traceOneParams) map[string]review.Traced {
 		Policy:    position.FileOnConflict,
 	})
 
-	traced := map[string]review.Traced{}
+	traced := map[string]diffview.Traced{}
 	for _, result := range results {
 		if result.Index < 0 || result.Index >= len(params.Threads) {
 			continue
@@ -169,15 +169,15 @@ func traceOne(params traceOneParams) map[string]review.Traced {
 }
 
 // tracedOf reads one result the way the view needs it.
-func tracedOf(result position.Result) review.Traced {
+func tracedOf(result position.Result) diffview.Traced {
 	if result.Outcome != position.Placed || result.Position.IsFileLevel() {
-		return review.Traced{
+		return diffview.Traced{
 			FilePath: result.Position.Path,
 			FileOnly: true,
 		}
 	}
 
-	return review.Traced{
+	return diffview.Traced{
 		FilePath: result.Position.Path,
 		NewStart: int32(result.Position.Lines.Start),
 	}

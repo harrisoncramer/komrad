@@ -4,14 +4,14 @@ import (
 	"strings"
 	"time"
 
-	"weave/internal/review"
+	"weave/internal/ui/diffview"
 	"weave/internal/ui/paint"
 	agentv1 "weave/proto/gen/agent/v1"
 )
 
 // reviewDiff is the patch on screen and where the reader is standing in it.
 type reviewDiff struct {
-	view *review.View
+	view *diffview.View
 
 	cursor int
 	pan    int
@@ -28,7 +28,7 @@ type reviewDiff struct {
 	filter filterState
 
 	// restore is where the cursor was standing when the patch was read again.
-	restore *review.Place
+	restore *diffview.Place
 	// expanded is the files drawn whole when the patch was put down to be read again.
 	expanded map[string]bool
 
@@ -66,7 +66,7 @@ type reviewDiff struct {
 
 // reviewDiffFloor is the narrowest the diff is worth drawing at: the gutter and enough of a line
 // beside it to read.
-const reviewDiffFloor = review.GutterWidth + 20
+const reviewDiffFloor = diffview.GutterWidth + 20
 
 // reviewColumn is the diff drawn beside the review's own threads, whose row budget is what the
 // band over it leaves.
@@ -112,16 +112,16 @@ func (m model) reviewDiffView(split columnSplit) string {
 
 	start := max(min(m.review.diff.top, view.Len()-split.rows), 0)
 
-	held := review.LiveCursor
+	held := diffview.LiveCursor
 	if !m.isReviewDiffFocused() {
-		held = review.DimCursor
+		held = diffview.DimCursor
 	}
 
 	// Only the rows the pane can show are drawn, a nine thousand row diff taking a tenth of a
 	// second to draw whole.
 	rows := make([]string, 0, split.rows)
 	for y := start; y < min(start+split.rows, view.Len()); y++ {
-		mark := review.NoCursor
+		mark := diffview.NoCursor
 		if y == m.review.diff.cursor {
 			mark = held
 		}

@@ -1,4 +1,4 @@
-package review
+package diffview
 
 import agentv1 "weave/proto/gen/agent/v1"
 
