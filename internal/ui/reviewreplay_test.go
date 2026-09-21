@@ -230,11 +230,11 @@ func TestTheFirstChapterIsMeasuredFromItsOwnBase(t *testing.T) {
 	m = pressReviewBase(t, m)
 	m = pressReviewBase(t, m)
 
-	require.Equal(t, 0, m.review.chapter, "two presses reach the oldest round")
-	require.NotNil(t, m.review.view)
-	assert.Equal(t, olderBase, m.review.view.GetBaseSHA(), "the diff is measured from round one's own base")
-	assert.Equal(t, fakeSnapshotSHA, m.review.view.GetSnapshotSHA())
-	assert.Equal(t, 1, m.review.view.Stat().Files)
+	require.Equal(t, 0, m.review.diff.chapter, "two presses reach the oldest round")
+	require.NotNil(t, m.review.diff.view)
+	assert.Equal(t, olderBase, m.review.diff.view.GetBaseSHA(), "the diff is measured from round one's own base")
+	assert.Equal(t, fakeSnapshotSHA, m.review.diff.view.GetSnapshotSHA())
+	assert.Equal(t, 1, m.review.diff.view.Stat().Files)
 
 	shown := ansi.Strip(m.reviewView())
 	assert.Contains(t, shown, "round 1 of 2, reviewed at "+releasedClock("2026-09-08T10:00:00Z")+", on an earlier base")
