@@ -135,7 +135,7 @@ func TestLeakedTakesOnlyTheDatabasesPastMaxAge(t *testing.T) {
 func nameOnce(t *testing.T, name string) {
 	t.Helper()
 
-	real := lookupTemplate
+	lookup := lookupTemplate
 	var served atomic.Bool
 
 	lookupTemplate = func(a *admin, ctx context.Context, version string) (string, error) {
@@ -143,10 +143,10 @@ func nameOnce(t *testing.T, name string) {
 			return name, nil
 		}
 
-		return real(a, ctx, version)
+		return lookup(a, ctx, version)
 	}
 
-	t.Cleanup(func() { lookupTemplate = real })
+	t.Cleanup(func() { lookupTemplate = lookup })
 }
 
 // markerSchema is a schema of its own, holding one table a copy of it can be recognised by.

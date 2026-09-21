@@ -28,6 +28,7 @@ func writeKey(t *testing.T) string {
 	require.NoError(t, os.WriteFile(path, pem.EncodeToMemory(&pem.Block{
 		Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(key),
 	}), 0o600))
+
 	return path
 }
 

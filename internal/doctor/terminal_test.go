@@ -43,7 +43,7 @@ func TestGlyphCheckSkipsWithNoTerminal(t *testing.T) {
 
 	assert.Equal(t, StatusSkip, result.Status)
 	assert.Contains(t, result.Detail, "terminal")
-	assert.NoError(t, result.Err, "a skip says why it was skipped rather than reporting a fault") //nolint:testifylint // the run carries on either way, so this is not the assertion the test turns on
+	assert.NoError(t, result.Err, "a skip says why it was skipped rather than reporting a fault")
 }
 
 // TestGlyphCheckSkipsWhenTheTerminalWalkedAway covers the probe finding no tty of its own,

@@ -21,8 +21,8 @@ const (
 	filterModeFilter
 )
 
-func (mode filterMode) flipped() filterMode {
-	if mode == filterModeFilter {
+func (m filterMode) flipped() filterMode {
+	if m == filterModeFilter {
 		return filterModeSearch
 	}
 
@@ -30,16 +30,16 @@ func (mode filterMode) flipped() filterMode {
 }
 
 // glyph is the character the prompt opens with.
-func (mode filterMode) glyph() string {
-	if mode == filterModeFilter {
+func (m filterMode) glyph() string {
+	if m == filterModeFilter {
 		return "▽"
 	}
 
 	return "/"
 }
 
-func (mode filterMode) String() string {
-	if mode == filterModeFilter {
+func (m filterMode) String() string {
+	if m == filterModeFilter {
 		return "filter"
 	}
 

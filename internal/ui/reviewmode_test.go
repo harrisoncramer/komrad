@@ -953,7 +953,7 @@ func TestComposingOnARowWithNoLineSaysSo(t *testing.T) {
 	m = openReview(t, m)
 
 	blank := -1
-	for row := 0; row < m.review.diff.view.Len(); row++ {
+	for row := range m.review.diff.view.Len() {
 		if _, ok := m.review.diff.view.GetAnchor(row); !ok {
 			blank = row
 
@@ -981,7 +981,7 @@ func TestACommentOnTheNewestRoundRecordsItsBase(t *testing.T) {
 	m = pressReviewBase(t, m)
 	require.NotEmpty(t, m.review.diff.base, "the diff is measured from the round reviewed before")
 
-	for row := 0; row < m.review.diff.view.Len(); row++ {
+	for row := range m.review.diff.view.Len() {
 		if found, ok := m.review.diff.view.GetAnchor(row); ok && found.NewStart > 0 {
 			m.review.diff.cursor = row
 

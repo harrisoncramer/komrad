@@ -28,8 +28,39 @@ linters:
     - sloglint
     - usetesting
     - errname
-    - errname
     - forbidigo
+    - godot
+    - predeclared
+    - misspell
+    - dupword
+    - whitespace
+    - wastedassign
+    - unconvert
+    - mirror
+    - makezero
+    - tparallel
+    - intrange
+    - nlreturn
+    - revive
+    - thelper
+    - nolintlint
+    - usestdlibvars
+    - gocheckcompilerdirectives
+    - dogsled
+    - godox
+    - asasalint
+    - asciicheck
+    - bidichk
+    - durationcheck
+    - spancheck
+    - errchkjson
+    - musttag
+    - reassign
+    - nakedret
+    - exptostd
+    - nilnesserr
+    - containedctx
+    - decorder
   settings:
     errcheck:
       # A discarded error is the same bug whether it went to _ or nowhere, so the blank
@@ -194,6 +225,24 @@ linters:
       context-background: true
       context-todo: true
       os-temp-dir: true
+    nlreturn:
+      block-size: 2
+    revive:
+      rules:
+        - name: receiver-naming
+          arguments:
+            - maxLength: 2
+        - name: argument-limit
+          arguments:
+            - 4
+    thelper:
+      # A table row's check closure takes t too, and it is the helper's parameter position
+      # and name that are held rather than its first statement.
+      test:
+        begin: false
+    nolintlint:
+      require-explanation: true
+      require-specific: true
     exhaustive:
       check:
         - switch
@@ -290,6 +339,65 @@ linters:
               - resumeParams
           table_test:
             skip: false
+          store_verb:
+            skip: false
+            include:
+              - internal/store/
+            verbs:
+              - Abandon
+              - Advance
+              - Append
+              - Archive
+              - Begin
+              - Claim
+              - Clear
+              - Complete
+              - Count
+              - Create
+              - Delete
+              - Does
+              - Ensure
+              - Exists
+              - Finish
+              - Forget
+              - Get
+              - Hold
+              - Is
+              - List
+              - Lock
+              - Mark
+              - Move
+              - Observe
+              - Open
+              - Prune
+              - Record
+              - Release
+              - Rename
+              - Reset
+              - Restamp
+              - Restore
+              - Search
+              - Send
+              - Set
+              - Start
+              - Unmark
+              - Update
+              - Upsert
+              - Validate
+            allow:
+              - Close
+              - Config
+              - Error
+              - InTx
+              - MarshalJSON
+              - MarshalText
+              - Scan
+              - ServeHTTP
+              - String
+              - UnmarshalJSON
+              - UnmarshalText
+              - Value
+              - Workflow
   exclusions:
     rules:
       # The rule is about tests. Everything else constructs the real client on purpose, which
@@ -348,6 +456,12 @@ linters:
       - path: (_test\.go|internal/(pgtest|tmuxtest|storetest|harnesstest|logtest|weavetest)/)
         linters:
           - errcheck
+      # A test helper takes t and the fixture before its own arguments, so the limit that
+      # holds a function to four does not fit one.
+      - path: _test\.go$
+        linters:
+          - revive
+        text: argument-limit
 formatters:
   enable:
     - gofmt

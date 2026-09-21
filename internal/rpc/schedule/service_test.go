@@ -470,6 +470,7 @@ func TestListSchedules(t *testing.T) {
 			if !tt.wantMore {
 				assert.Len(t, first.Msg.GetSchedules(), len(tt.seed))
 				assert.Empty(t, first.Msg.GetNextPageToken())
+
 				return
 			}
 

@@ -240,7 +240,7 @@ func buildHunks(fragments []*gitdiff.TextFragment) []Hunk {
 	return hunks
 }
 
-func readRevision(ctx context.Context, repo patchReader, root, revision, path string) string {
+func readRevision(ctx context.Context, repo patchReader, root, revision, path string) string { //nolint:revive // a params struct is the follow-up
 	if path == "" {
 		return ""
 	}

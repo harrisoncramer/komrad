@@ -45,7 +45,7 @@ func (a *answering) Write(payload []byte) (int, error) {
 	}
 	a.sent++
 
-	go func() { _, _ = a.pending.Write([]byte(reply)) }() //nolint:errcheck // the pipe is closed by the test when it stops reading
+	go func() { _, _ = a.pending.Write([]byte(reply)) }()
 
 	return len(payload), nil
 }
@@ -77,7 +77,7 @@ func TestMeasureColumnsIgnoresWhatWasTypedFirst(t *testing.T) {
 // TestMeasureColumnsGivesUpOnSilence covers the terminal that answers nothing.
 func TestMeasureColumnsGivesUpOnSilence(t *testing.T) {
 	reader, writer := io.Pipe()
-	defer func() { _ = writer.Close() }() //nolint:errcheck // the pipe goes with the test
+	defer func() { _ = writer.Close() }()
 
 	failed := make(chan error, 1)
 	go func() {
@@ -97,7 +97,7 @@ func TestMeasureColumnsGivesUpOnSilence(t *testing.T) {
 // held open by a read of a terminal.
 func TestMeasureColumnsStopsWhenTheContextDoes(t *testing.T) {
 	reader, writer := io.Pipe()
-	defer func() { _ = writer.Close() }() //nolint:errcheck // the pipe goes with the test
+	defer func() { _ = writer.Close() }()
 
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()

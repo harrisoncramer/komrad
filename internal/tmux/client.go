@@ -61,6 +61,7 @@ func (c *Client) IsPaneAlive(pane string) bool {
 	}
 
 	id, err := c.paneID(pane)
+
 	return err == nil && id == pane
 }
 

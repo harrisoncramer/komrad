@@ -108,6 +108,7 @@ func (s *LaunchService) RetryCreate(ctx context.Context, params RetryCreateParam
 	}
 
 	agent.State = agentstore.StateSettingUp
+
 	return s.startInPane(ctx, *agent, resolvedLaunch{
 		harness:         hn,
 		provisioner:     provisioner,
@@ -122,7 +123,7 @@ func (s *LaunchService) RetryCreate(ctx context.Context, params RetryCreateParam
 
 // moveOntoHarness records the CLI a retry corrected an agent onto, with the flags and the
 // conversation that belong to it.
-func (s *LaunchService) moveOntoHarness(ctx context.Context, agent *agentstore.Agent, wf *workflowstore.Workflow, flags string, hn harness.Harness) error {
+func (s *LaunchService) moveOntoHarness(ctx context.Context, agent *agentstore.Agent, wf *workflowstore.Workflow, flags string, hn harness.Harness) error { //nolint:revive // a params struct is the follow-up
 	workflowFlags := ""
 	if wf != nil {
 		workflowFlags = wf.Flags

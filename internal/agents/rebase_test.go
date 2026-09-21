@@ -919,9 +919,9 @@ func TestRebaseRefusesAnAgentInTheCallersCheckout(t *testing.T) {
 func TestRebaseRefusesTheCallerWhateverThePathSpelling(t *testing.T) {
 	t.Parallel()
 
-	real := t.TempDir()
+	target := t.TempDir()
 	linked := filepath.Join(t.TempDir(), "link")
-	require.NoError(t, os.Symlink(real, linked))
+	require.NoError(t, os.Symlink(target, linked))
 
 	for _, tt := range []struct {
 		name      string
@@ -943,7 +943,7 @@ func TestRebaseRefusesTheCallerWhateverThePathSpelling(t *testing.T) {
 		},
 		{
 			name:      "a symlinked prefix",
-			targetCwd: real,
+			targetCwd: target,
 			askerCwd:  linked,
 			wantErr:   ErrRebaseSelf,
 		},

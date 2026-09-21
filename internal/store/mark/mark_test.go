@@ -119,27 +119,27 @@ func TestSetMarksAWorkflow(t *testing.T) {
 func TestALetterMovesRatherThanDoubling(t *testing.T) {
 	tests := []struct {
 		name  string
-		first func(st *fixture, t *testing.T) (string, Target)
-		then  func(st *fixture, t *testing.T) (string, Target)
+		first func(t *testing.T, st *fixture) (string, Target)
+		then  func(t *testing.T, st *fixture) (string, Target)
 	}{
 		{
 			name: "from one agent to another",
-			first: func(st *fixture, t *testing.T) (string, Target) {
+			first: func(t *testing.T, st *fixture) (string, Target) {
 				id := st.seedAgent(t, "alpha")
 				return id, OnAgent(id)
 			},
-			then: func(st *fixture, t *testing.T) (string, Target) {
+			then: func(t *testing.T, st *fixture) (string, Target) {
 				id := st.seedAgent(t, "beta")
 				return id, OnAgent(id)
 			},
 		},
 		{
 			name: "from an agent to a workflow",
-			first: func(st *fixture, t *testing.T) (string, Target) {
+			first: func(t *testing.T, st *fixture) (string, Target) {
 				id := st.seedAgent(t, "alpha")
 				return id, OnAgent(id)
 			},
-			then: func(st *fixture, t *testing.T) (string, Target) {
+			then: func(t *testing.T, st *fixture) (string, Target) {
 				id := st.seedWorkflow(t, "backend")
 
 				return id, OnWorkflow(id)
@@ -147,12 +147,12 @@ func TestALetterMovesRatherThanDoubling(t *testing.T) {
 		},
 		{
 			name: "from a workflow to an agent",
-			first: func(st *fixture, t *testing.T) (string, Target) {
+			first: func(t *testing.T, st *fixture) (string, Target) {
 				id := st.seedWorkflow(t, "backend")
 
 				return id, OnWorkflow(id)
 			},
-			then: func(st *fixture, t *testing.T) (string, Target) {
+			then: func(t *testing.T, st *fixture) (string, Target) {
 				id := st.seedAgent(t, "alpha")
 				return id, OnAgent(id)
 			},
@@ -162,8 +162,8 @@ func TestALetterMovesRatherThanDoubling(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			st := open(t)
-			held, first := tt.first(st, t)
-			taking, second := tt.then(st, t)
+			held, first := tt.first(t, st)
+			taking, second := tt.then(t, st)
 
 			require.True(t, st.set(t, "a", first))
 			require.True(t, st.set(t, "a", second))

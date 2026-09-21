@@ -90,6 +90,7 @@ func stripQuoted(statement string) (string, error) {
 			if end < 0 {
 				b.WriteByte(' ')
 				i = len(statement)
+
 				break
 			}
 			b.WriteByte(' ')

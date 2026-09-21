@@ -25,6 +25,7 @@ func gitModel(t *testing.T) model {
 		Name:     "backend",
 		Worktree: workflowstore.WorktreeConfig{Enabled: true},
 	}}
+
 	return m
 }
 

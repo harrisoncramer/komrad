@@ -132,7 +132,7 @@ func (a Identity) Mint(ctx context.Context, client *http.Client, now time.Time) 
 		return Token{}, fmt.Errorf("failed to reach github for an installation token: %w", err)
 	}
 
-	defer func() { _ = response.Body.Close() }() //nolint:errcheck // the body is read out already
+	defer func() { _ = response.Body.Close() }()
 
 	body, err := io.ReadAll(io.LimitReader(response.Body, 1<<20))
 	if err != nil {
@@ -336,13 +336,13 @@ func (c Cache) Write(token Token) error {
 	defer func() { _ = os.Remove(temporary.Name()) }() //nolint:errcheck // gone already on success
 
 	if err := temporary.Chmod(0o600); err != nil {
-		_ = temporary.Close() //nolint:errcheck // the chmod is the failure worth reporting
+		_ = temporary.Close()
 
 		return fmt.Errorf("failed to record the github token at %s: %w", c.Path, err)
 	}
 
 	if _, err := temporary.Write(append(encoded, '\n')); err != nil {
-		_ = temporary.Close() //nolint:errcheck // the write is the failure worth reporting
+		_ = temporary.Close()
 
 		return fmt.Errorf("failed to record the github token at %s: %w", c.Path, err)
 	}

@@ -86,6 +86,7 @@ func TestListAll(t *testing.T) {
 			if tt.wantErr {
 				require.Error(t, err)
 				assert.Nil(t, got, "a listing that did not finish returns nothing")
+
 				return
 			}
 

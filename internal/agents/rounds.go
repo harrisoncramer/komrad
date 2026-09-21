@@ -589,7 +589,7 @@ func (s *ReviewService) listBatchThreads(ctx context.Context, reviewID string) (
 
 // writeReview puts the whole review under weave's own state directory rather than in the
 // agent's worktree, and leaves it there for good.
-func (s *ReviewService) writeReview(
+func (s *ReviewService) writeReview( //nolint:revive // a params struct is the follow-up
 	ctx context.Context,
 	agent agentstore.Agent,
 	round reviewstore.Round,

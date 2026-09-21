@@ -312,7 +312,7 @@ func presentPaths(root string, paths []string) []string {
 }
 
 // revealPaths clears both flags in the temporary index, one command each.
-func revealPaths(ctx context.Context, root, index string, env []string, paths []string) error {
+func revealPaths(ctx context.Context, root, index string, env []string, paths []string) error { //nolint:revive // a params struct is the follow-up
 	if len(paths) == 0 {
 		return nil
 	}
@@ -442,7 +442,7 @@ func isOwnHead(ctx context.Context, root, base string) bool {
 }
 
 // doesHoldWhole reports whether merging a commit into the base would change nothing of it.
-func doesHoldWhole(ctx context.Context, root, base, baseTree, sha string) (bool, error) {
+func doesHoldWhole(ctx context.Context, root, base, baseTree, sha string) (bool, error) { //nolint:revive // a params struct is the follow-up
 	merged, _, err := readMergedTree(ctx, readMergedTreeParams{Dir: root, Left: base, Right: sha})
 	if err != nil {
 		return false, err
@@ -453,7 +453,7 @@ func doesHoldWhole(ctx context.Context, root, base, baseTree, sha string) (bool,
 
 // isCleanOnto reports whether a worktree's tree brings nothing to the base beyond what the base
 // already holds, measured from where the worktree's branch left it.
-func isCleanOnto(ctx context.Context, root, base, baseTree, probe string) (bool, error) {
+func isCleanOnto(ctx context.Context, root, base, baseTree, probe string) (bool, error) { //nolint:revive // a params struct is the follow-up
 	mergeBase, err := Run(ctx, root, "merge-base", base, "HEAD")
 	if err != nil {
 		return false, fmt.Errorf("failed to find where %q left %q: %w", root, base, err)

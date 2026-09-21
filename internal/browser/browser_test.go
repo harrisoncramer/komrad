@@ -1,6 +1,7 @@
 package browser
 
 import (
+	"bytes"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -48,10 +49,7 @@ func TestOpenURLRefusesWhatIsNotAWebAddress(t *testing.T) {
 // TestDetailKeepsTheEndOfWhatTheOpenerSaid pins the tail being what a refusal carries, an
 // opener's reason landing on the last line.
 func TestDetailKeepsTheEndOfWhatTheOpenerSaid(t *testing.T) {
-	said := make([]byte, detailCap+64)
-	for i := range said {
-		said[i] = 'x'
-	}
+	said := bytes.Repeat([]byte{'x'}, detailCap+64)
 	said = append(said, []byte("  no application knows how to open it\n")...)
 
 	got := detail(said)

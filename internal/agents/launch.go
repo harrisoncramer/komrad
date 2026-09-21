@@ -372,7 +372,7 @@ func (s *LaunchService) workflowHarness(wf *workflowstore.Workflow) string {
 	return s.userDefaultHarness
 }
 
-func (plan *launchPlan) agent(params NewAgentParams, id, sessionID, dir, pane string, spawner *agentstore.Agent) agentstore.Agent {
+func (p *launchPlan) agent(params NewAgentParams, id, sessionID, dir, pane string, spawner *agentstore.Agent) agentstore.Agent { //nolint:revive // a params struct is the follow-up
 	var spawnedBy *string
 	if spawner != nil {
 		spawnedBy = &spawner.ID
@@ -380,14 +380,14 @@ func (plan *launchPlan) agent(params NewAgentParams, id, sessionID, dir, pane st
 
 	return agentstore.Agent{
 		ID:               id,
-		Name:             plan.name,
+		Name:             p.name,
 		Pane:             pane,
 		Cwd:              dir,
-		Flags:            plan.flags,
+		Flags:            p.flags,
 		ProvisionEnabled: params.ProvisionEnabled,
 		Prompt:           params.Prompt,
 		State:            agentstore.StateIdle,
-		Harness:          plan.harnessID,
+		Harness:          p.harnessID,
 		SessionID:        sessionID,
 		WorkflowID:       params.WorkflowID,
 		ScheduleID:       params.ScheduleID,
@@ -762,7 +762,7 @@ func (s *LaunchService) uniqueAgentName(ctx context.Context, workflowID, title, 
 }
 
 func (s *LaunchService) isNameTaken(ctx context.Context, workflowID, name string) bool {
-	taken, err := s.agents.ActiveNameExists(ctx, workflowID, name)
+	taken, err := s.agents.ExistsActiveName(ctx, workflowID, name)
 	if err != nil {
 		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to check whether an agent name is taken",
 			append([]slog.Attr{slog.String(logging.WorkflowID, workflowID)}, logging.Err(err)...)...)

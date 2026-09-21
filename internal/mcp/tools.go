@@ -55,6 +55,7 @@ func (d *dbTools) handleListTables(ctx context.Context, _ *mcpsdk.CallToolReques
 		return errorResult(err), nil, nil
 	}
 	result := listTablesResult{Tables: tables}
+
 	return textResult(mustJSON(result)), result, nil
 }
 
@@ -63,6 +64,7 @@ func (d *dbTools) handleDescribeTable(ctx context.Context, _ *mcpsdk.CallToolReq
 	if err != nil {
 		return errorResult(err), nil, nil
 	}
+
 	return textResult(mustJSON(desc)), desc, nil
 }
 
@@ -71,6 +73,7 @@ func (d *dbTools) handleQuery(ctx context.Context, _ *mcpsdk.CallToolRequest, in
 	if err != nil {
 		return errorResult(err), nil, nil
 	}
+
 	return textResult(mustJSON(res)), res, nil
 }
 

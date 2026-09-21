@@ -10,14 +10,14 @@ import (
 )
 
 type listed struct {
-	ImportPath   string
-	Dir          string
-	Deps         []string
-	TestImports  []string
-	XTestImports []string
-	GoFiles      []string
-	TestGoFiles  []string
-	XTestGoFiles []string
+	ImportPath   string   `json:"ImportPath"`
+	Dir          string   `json:"Dir"`
+	Deps         []string `json:"Deps"`
+	TestImports  []string `json:"TestImports"`
+	XTestImports []string `json:"XTestImports"`
+	GoFiles      []string `json:"GoFiles"`
+	TestGoFiles  []string `json:"TestGoFiles"`
+	XTestGoFiles []string `json:"XTestGoFiles"`
 }
 
 type pkgRef struct {

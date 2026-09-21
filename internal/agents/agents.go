@@ -81,7 +81,7 @@ type workflowGetter interface {
 }
 
 type nameChecker interface {
-	ActiveNameExists(ctx context.Context, workflowID, name string) (bool, error)
+	ExistsActiveName(ctx context.Context, workflowID, name string) (bool, error)
 }
 
 // agentFailWriter records that an agent's create or cleanup gave up.
@@ -283,7 +283,7 @@ func agentHooks(ctx context.Context, workflows workflowReader, agent agentstore.
 
 // runDeprovision starts a deprovisioner, calling done exactly once with the outcome,
 // including a refusal to start.
-func runDeprovision(ctx context.Context, deprovision agentScriptRunner, agent agentstore.Agent, name string, done func(error)) {
+func runDeprovision(ctx context.Context, deprovision agentScriptRunner, agent agentstore.Agent, name string, done func(error)) { //nolint:revive // a params struct is the follow-up
 	if deprovision == nil || name == "" {
 		if done != nil {
 			done(nil)
@@ -361,7 +361,7 @@ func workflowFor(ctx context.Context, workflows workflowReader, agent agentstore
 const maxFailureReasonLen = 480
 
 // failAs marks an agent as having failed create or cleanup and leaves the row where it was.
-func failAs(ctx context.Context, agents agentFailWriter, agent agentstore.Agent, state agentstore.State, verb string, cause error) {
+func failAs(ctx context.Context, agents agentFailWriter, agent agentstore.Agent, state agentstore.State, verb string, cause error) { //nolint:revive // a params struct is the follow-up
 	agent.State = state
 	if err := agents.Update(ctx, agent); err != nil {
 		logging.From(ctx).LogAttrs(ctx, slog.LevelError, "failed to record why an agent's lifecycle action failed",

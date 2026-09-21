@@ -77,6 +77,7 @@ func (m model) enterReview(agent agentstore.Agent) (tea.Model, tea.Cmd) {
 		// than on it, so the first press of the step key lands on the newest round.
 		diff: reviewDiff{chapter: -1},
 	}
+
 	return m, m.loadWholeReviewCmd()
 }
 

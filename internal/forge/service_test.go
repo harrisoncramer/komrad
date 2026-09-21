@@ -558,7 +558,6 @@ func TestConnectWithTheAppRefusals(t *testing.T) {
 		_, err := f.service.Connect(t.Context(), ConnectParams{Host: "github.com", Method: "oauth"})
 		require.Error(t, err)
 	})
-
 }
 
 // TestCheck covers what the doctor reads per row: a token row is asked who it is, an App row

@@ -79,6 +79,7 @@ func TestNewCursor(t *testing.T) {
 			if tt.wantErr {
 				require.Error(t, err)
 				assert.Equal(t, connect.CodeInvalidArgument, connect.CodeOf(err))
+
 				return
 			}
 

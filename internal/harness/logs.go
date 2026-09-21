@@ -1,6 +1,7 @@
 package harness
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"os"
@@ -51,7 +52,7 @@ func readCompleteLines(path string, offset int64) ([]byte, int64, error) {
 		return nil, 0, fmt.Errorf("failed to read log %q: %w", path, err)
 	}
 
-	lastNL := strings.LastIndexByte(string(tail), '\n')
+	lastNL := bytes.LastIndexByte(tail, '\n')
 	if lastNL < 0 {
 		return nil, 0, nil
 	}

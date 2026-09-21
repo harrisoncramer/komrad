@@ -49,7 +49,7 @@ func TestReadHeader(t *testing.T) {
 			file: "unknown-directive",
 			want: Header{
 				Problems: []string{
-					"line 2: descriptoin is not a directive weave knows",
+					"line 2: summary is not a directive weave knows",
 					"line 3: tools is not a directive weave knows",
 				},
 			},

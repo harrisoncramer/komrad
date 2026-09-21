@@ -400,7 +400,7 @@ func TestAgentWindowsAreTheSizeOfTheStage(t *testing.T) {
 		WorkflowID: "w1",
 	}})
 
-	m = resizedTo(t, m, 200, 40)
+	resizedTo(t, m, 200, 40)
 
 	assert.Equal(t, "200x40", tmux.windowSizes["%9"], "the running agent's own window is put at the stage's size")
 	assert.NotContains(t, tmux.windowSizes, "", "and a dormant agent has no window to size")
@@ -414,7 +414,7 @@ func TestRemoteAgentWindowsAreLeftAlone(t *testing.T) {
 	m.frame = layout.New(tmux, config.DefaultLayout(), layout.WithEngine(engine.Remote{Exec: []string{"ssh", "engine"}}))
 	m.frame.Attach("%0")
 
-	m = resizedTo(t, m, 200, 40)
+	resizedTo(t, m, 200, 40)
 
 	assert.Empty(t, tmux.windowSizes, "no window on the panel's own server is touched")
 }

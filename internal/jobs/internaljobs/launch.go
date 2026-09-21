@@ -52,7 +52,7 @@ type LaunchAgentWorker struct {
 
 // NewLaunchAgentWorker builds the worker over the schedules it reads and the service that
 // launches an agent.
-func NewLaunchAgentWorker(schedules ScheduleGetter, launcher AgentLauncher, running RunningAgentCounter, results LaunchResultRecorder, logger *slog.Logger) *LaunchAgentWorker {
+func NewLaunchAgentWorker(schedules ScheduleGetter, launcher AgentLauncher, running RunningAgentCounter, results LaunchResultRecorder, logger *slog.Logger) *LaunchAgentWorker { //nolint:revive // a params struct is the follow-up
 	return &LaunchAgentWorker{
 		schedules: schedules,
 		agents:    launcher,

@@ -1157,8 +1157,7 @@ func TestReviewReleaseIsTheSubmitKey(t *testing.T) {
 	require.False(t, m.review.threads.composing, "and not the line composer")
 	require.Nil(t, agents.released, "and sends nothing on its own")
 
-	next, cmd := m.updateReview(tea.KeyMsg{Type: tea.KeyCtrlS})
-	m = next.(model)
+	_, cmd := m.updateReview(tea.KeyMsg{Type: tea.KeyCtrlS})
 	require.NotNil(t, cmd, "the same key sends from inside it")
 
 	wrote, ok := cmd().(reviewWroteMsg)
@@ -1826,7 +1825,7 @@ func TestWritingIsRefusedOnAFinishedRound(t *testing.T) {
 	m = pressReviewBase(t, m)
 	require.NotEmpty(t, m.review.diff.base, "the diff narrowed to a round")
 
-	for row := 0; row < m.review.diff.view.Len(); row++ {
+	for row := range m.review.diff.view.Len() {
 		if found, ok := m.review.diff.view.GetAnchor(row); ok && found.NewStart > 0 {
 			m.review.diff.cursor = row
 

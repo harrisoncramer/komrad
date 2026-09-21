@@ -310,7 +310,7 @@ func TestATracedLineHoldsItsContent(t *testing.T) {
 
 	const fileLines = 40
 
-	for round := 0; round < 40; round++ {
+	for round := range 40 {
 		root := repo(t)
 		write(t, root, "counted.go", numbered(fileLines))
 		from := commitAll(t, root, "counted")

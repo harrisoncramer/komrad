@@ -108,10 +108,10 @@ func strippedQuote(quote string) string {
 }
 
 // quoted is the rows answering a thread's quote, kept apart by the spelling each answered under.
-func (index lineIndex) quoted(filePath, quote string) (drawn, bare []int) {
+func (i lineIndex) quoted(filePath, quote string) (drawn, bare []int) {
 	key := quoteKey{filePath: filePath, quote: quote}
 
-	return index.byQuote[key], index.byBareQuote[key]
+	return i.byQuote[key], i.byBareQuote[key]
 }
 
 // FormatLocation names a place in the diff, on whichever side the line actually lives.

@@ -112,8 +112,7 @@ func TestAPauseTheReaderTookThemselvesIsNotThePassToLetGo(t *testing.T) {
 	require.True(t, m.review.pass.paused)
 	require.False(t, m.review.pass.ourPause)
 
-	next, cmd := m.leaveReviewWriting()
-	m, _ = next.(model)
+	_, cmd := m.leaveReviewWriting()
 
 	assert.Nil(t, cmd, "so the end of the pass asks for nothing")
 	assert.Nil(t, agents.letGo, "and the pause the reader took stands")

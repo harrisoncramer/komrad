@@ -47,6 +47,7 @@ func LayerPaths() []string {
 
 	// Only include valid paths.
 	trimmed := xslice.Map(filepath.SplitList(value), strings.TrimSpace)
+
 	return xslice.Filter(trimmed, func(path string) bool {
 		return path != ""
 	})
