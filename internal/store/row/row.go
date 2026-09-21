@@ -131,6 +131,7 @@ func fromRow(row *models.ListAgentRowsRow) Row {
 			listed.PullRequest.ReviewDecision = xptr.Ptr(forge.ReviewDecision(*row.PullRequestReviewDecision))
 		}
 		listed.PullRequest.Checks = pullrequeststore.StoredChecks(row.PullRequestChecks)
+		listed.PullRequest.Mergeability = pullrequeststore.StoredMergeability(row.PullRequestMergeability)
 	}
 
 	return listed

@@ -102,11 +102,12 @@ func agentItemsFrom(listed []*agentv1.Agent) []agentItem {
 // pullRequestStandingFrom is the standing as the wire carries it.
 func pullRequestStandingFrom(standing *agentv1.PullRequestStanding) pullRequestStanding {
 	return pullRequestStanding{
-		state:  standing.GetState(),
-		checks: standing.GetChecks(),
-		number: standing.GetNumber(),
-		url:    standing.GetUrl(),
-		title:  standing.GetTitle(),
+		state:        standing.GetState(),
+		checks:       standing.GetChecks(),
+		mergeability: standing.GetMergeability(),
+		number:       standing.GetNumber(),
+		url:          standing.GetUrl(),
+		title:        standing.GetTitle(),
 	}
 }
 
@@ -116,15 +117,16 @@ func agentPullRequestsFrom(listed *pullrequestv1.ListAgentPullRequestsResponse) 
 		readAt:   dates.ParsePtr(listed.GetRepositoryReadAt()),
 		items: xslice.Map(listed.GetPullRequests(), func(pullRequest *pullrequestv1.AgentPullRequest) agentPullRequest {
 			return agentPullRequest{
-				number:   pullRequest.GetNumber(),
-				url:      pullRequest.GetUrl(),
-				title:    pullRequest.GetTitle(),
-				state:    pullRequest.GetState(),
-				checks:   pullRequest.GetChecks(),
-				current:  pullRequest.GetCurrent(),
-				openedAt: dates.Parse(pullRequest.GetOpenedAt()),
-				mergedAt: dates.ParsePtr(pullRequest.GetMergedAt()),
-				closedAt: dates.ParsePtr(pullRequest.GetClosedAt()),
+				number:       pullRequest.GetNumber(),
+				url:          pullRequest.GetUrl(),
+				title:        pullRequest.GetTitle(),
+				state:        pullRequest.GetState(),
+				checks:       pullRequest.GetChecks(),
+				mergeability: pullRequest.GetMergeability(),
+				current:      pullRequest.GetCurrent(),
+				openedAt:     dates.Parse(pullRequest.GetOpenedAt()),
+				mergedAt:     dates.ParsePtr(pullRequest.GetMergedAt()),
+				closedAt:     dates.ParsePtr(pullRequest.GetClosedAt()),
 			}
 		}),
 	}

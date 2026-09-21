@@ -284,6 +284,11 @@ func TestSnapshotForge(t *testing.T) {
 			state: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_FAILING,
 			want:  view.ForgeFailing,
 		},
+		{
+			name:  "approved waiting",
+			state: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_APPROVED_WAITING,
+			want:  view.ForgeApprovedWaiting,
+		},
 	}
 
 	for _, tt := range tests {

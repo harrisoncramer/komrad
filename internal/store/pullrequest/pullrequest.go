@@ -54,6 +54,9 @@ type PullRequest struct {
 	DecisionChangedAt *time.Time
 	// Checks is where the forge says the checks on the head stand, nil while it reports none.
 	Checks *forge.Checks
+	// Mergeability is where the forge says it stands against its base and rules, nil while the
+	// forge has not computed it.
+	Mergeability *forge.Mergeability
 	// ChecksSHA is the head the checks were read for, empty while they never have been.
 	ChecksSHA string
 	// ChecksReadAt is when the checks were last read, nil while they never have been.
@@ -73,6 +76,9 @@ type Summary struct {
 	ReviewDecision *forge.ReviewDecision
 	// Checks is where the forge says the checks on the head stand, nil while it reports none.
 	Checks *forge.Checks
+	// Mergeability is where the forge says it stands against its base and rules, nil while the
+	// forge has not computed it.
+	Mergeability *forge.Mergeability
 }
 
 // GetSummary is the pull request as a row shows it.
@@ -86,6 +92,7 @@ func (p PullRequest) GetSummary() Summary {
 		ClosedAt:       p.ClosedAt,
 		ReviewDecision: p.ReviewDecision,
 		Checks:         p.Checks,
+		Mergeability:   p.Mergeability,
 	}
 }
 
@@ -208,9 +215,9 @@ func (s *Store) ListForAgent(ctx context.Context, agentID string) ([]PullRequest
 	return xslice.Map(rows, fromRow), nil
 }
 
-// SetStanding records where the forge said a pull request's reviews and checks stand, the
-// reviews read for the change the row holds now and the checks for the head the standing
-// names, and stamps the read at readAt whether or not anything moved.
+// SetStanding records where the forge said a pull request's reviews, checks and mergeability
+// stand, the reviews read for the change the row holds now and the rest for the head the
+// standing names, and stamps the read at readAt whether or not anything moved.
 func (s *Store) SetStanding(ctx context.Context, id string, standing forge.Standing, readAt time.Time) error {
 	var decision *string
 	if standing.Decision != forge.ReviewDecisionNone {
@@ -220,11 +227,16 @@ func (s *Store) SetStanding(ctx context.Context, id string, standing forge.Stand
 	if standing.Checks != forge.ChecksNone {
 		checks = xptr.Ptr(string(standing.Checks))
 	}
+	var mergeability *string
+	if standing.Mergeability != forge.MergeabilityUnknown {
+		mergeability = xptr.Ptr(string(standing.Mergeability))
+	}
 
 	err := s.queries.SetStanding(ctx, models.SetStandingParams{
 		ID:             id,
 		ReviewDecision: decision,
 		Checks:         checks,
+		Mergeability:   mergeability,
 		ChecksSha:      standing.HeadSHA,
 		ChecksReadAt:   readAt,
 	})
@@ -310,9 +322,19 @@ func fromRow(row *models.PullRequest) PullRequest {
 		ReviewDecision:    storedReviewDecision(row.ReviewDecision),
 		DecisionChangedAt: row.DecisionChangedAt,
 		Checks:            StoredChecks(row.Checks),
+		Mergeability:      StoredMergeability(row.Mergeability),
 		ChecksSHA:         xptr.Deref(row.ChecksSha),
 		ChecksReadAt:      row.ChecksReadAt,
 	}
+}
+
+// StoredMergeability is the mergeability column as the forge's word, nil for a null.
+func StoredMergeability(stored *string) *forge.Mergeability {
+	if stored == nil {
+		return nil
+	}
+
+	return xptr.Ptr(forge.Mergeability(*stored))
 }
 
 // StoredChecks is the checks column as the forge's word, nil for a null.

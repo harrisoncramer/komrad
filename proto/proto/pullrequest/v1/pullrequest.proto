@@ -70,7 +70,8 @@ message ListPullRequestsResponse {
 }
 
 // PullRequestState is where a stored pull request stands, decided on the server from its stamps,
-// its draft flag, the checks on its head and the forge's review decision, finished first.
+// its draft flag, the checks on its head, its mergeability and the forge's review decision,
+// finished first.
 enum PullRequestState {
   // No state was decided.
   PULL_REQUEST_STATE_UNSPECIFIED = 0;
@@ -78,10 +79,9 @@ enum PullRequestState {
   PULL_REQUEST_STATE_UNREAD = 1;
   // The repository has been swept and nothing was opened from the branch.
   PULL_REQUEST_STATE_NONE = 2;
-  // Open with no review decision that settles it, or approved while its checks are still
-  // running.
+  // Open with no review decision that settles it.
   PULL_REQUEST_STATE_OPEN = 3;
-  // Open and approved on the forge, with its checks passing or none to run.
+  // Open and approved on the forge, and the forge would merge it now.
   PULL_REQUEST_STATE_APPROVED = 4;
   // Open with a reviewer asking for changes.
   PULL_REQUEST_STATE_CHANGES_REQUESTED = 5;
@@ -93,6 +93,28 @@ enum PullRequestState {
   PULL_REQUEST_STATE_CLOSED = 8;
   // Open with a failing check on its head, whatever its reviews say.
   PULL_REQUEST_STATE_FAILING = 9;
+  // Approved on the forge but not yet mergeable: its checks are still running, its branch is
+  // behind or conflicting, or a branch rule is unmet.
+  PULL_REQUEST_STATE_APPROVED_WAITING = 10;
+}
+
+// Mergeability is where the forge says a pull request stands against its base and its branch
+// rules, as it last computed it.
+enum Mergeability {
+  // The mergeability has not been read.
+  MERGEABILITY_UNSPECIFIED = 0;
+  // The forge has not computed it yet.
+  MERGEABILITY_UNKNOWN = 1;
+  // The forge would merge it now.
+  MERGEABILITY_CLEAN = 2;
+  // Its checks are not all passing.
+  MERGEABILITY_UNSTABLE = 3;
+  // A branch rule is unmet, such as a required review.
+  MERGEABILITY_BLOCKED = 4;
+  // The base has moved past the branch.
+  MERGEABILITY_BEHIND = 5;
+  // The branch no longer merges cleanly into its base.
+  MERGEABILITY_CONFLICTING = 6;
 }
 
 // Checks is where the checks on a pull request's head commit stand, as the forge last reported
@@ -126,6 +148,8 @@ message AgentPullRequest {
   PullRequestState state = 4;
   // Where the checks on its head stand.
   Checks checks = 9;
+  // Where the forge says it stands against its base and rules.
+  Mergeability mergeability = 10;
   // Whether this is the one the agent's row stands for: the newest opened that is not finished,
   // else the newest opened of the finished.
   bool current = 5;

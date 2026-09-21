@@ -102,12 +102,32 @@ const (
 	ChecksFailing Checks = "failing"
 )
 
-// Standing is what a forge says about one pull request's reviews and checks, and the head
-// commit the checks were read for.
+// Mergeability is where a forge says a pull request stands against its base and its branch
+// rules, in weave's own words.
+type Mergeability string
+
+const (
+	// MergeabilityUnknown is a forge that has not computed the answer yet.
+	MergeabilityUnknown Mergeability = ""
+	// MergeabilityClean is a pull request the forge would merge now.
+	MergeabilityClean Mergeability = "clean"
+	// MergeabilityUnstable is a pull request whose checks are not all passing.
+	MergeabilityUnstable Mergeability = "unstable"
+	// MergeabilityBlocked is a branch rule the pull request does not yet satisfy.
+	MergeabilityBlocked Mergeability = "blocked"
+	// MergeabilityBehind is a branch the base has moved past.
+	MergeabilityBehind Mergeability = "behind"
+	// MergeabilityConflicting is a branch that no longer merges cleanly into its base.
+	MergeabilityConflicting Mergeability = "conflicting"
+)
+
+// Standing is what a forge says about one pull request's reviews, checks and mergeability,
+// and the head commit they were read for.
 type Standing struct {
-	Decision ReviewDecision
-	Checks   Checks
-	HeadSHA  string
+	Decision     ReviewDecision
+	Checks       Checks
+	Mergeability Mergeability
+	HeadSHA      string
 }
 
 // PullRequest is one pull request as every forge describes it.
@@ -139,6 +159,9 @@ type PullRequest struct {
 	Decision *ReviewDecision
 	// Checks is where the checks on the head commit stand, nil when the call did not ask.
 	Checks *Checks
+	// Mergeability is where the forge says it stands against its base and rules, nil when the
+	// call did not ask.
+	Mergeability *Mergeability
 }
 
 // IsFinished says whether the pull request has merged or closed.
@@ -162,8 +185,8 @@ type Forge interface {
 	ListChanged(ctx context.Context, params ListChangedParams) (*Page, error)
 	// Get is one pull request by its web address.
 	Get(ctx context.Context, url string) (PullRequest, error)
-	// Standings is where the forge says the reviews and checks of up to fifty pull requests
-	// stand, by number, leaving out any the forge does not have.
+	// Standings is where the forge says the reviews, checks and mergeability of up to fifty
+	// pull requests stand, by number, leaving out any the forge does not have.
 	Standings(ctx context.Context, repo git.RemoteURL, numbers []int) (map[int]Standing, error)
 }
 

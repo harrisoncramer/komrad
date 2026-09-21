@@ -342,11 +342,11 @@ WHERE
         OR p.checks_sha IS DISTINCT FROM p.head_sha
         OR (p.checks = 'pending'
             AND p.checks_read_at < @pending_before::timestamptz)
-        OR (p.checks IS NULL
+        OR ((p.checks IS NULL
+                OR p.mergeability IS NULL)
             AND p.changed_at > @changed_since::timestamptz
             AND p.checks_read_at < @pending_before::timestamptz)
-        OR (p.checks IN ('passing', 'failing')
-            AND p.checks_read_at < @settled_before::timestamptz))
+        OR (p.checks_read_at < @settled_before::timestamptz))
     AND EXISTS (
         SELECT
             1
@@ -366,6 +366,7 @@ SET
     review_decision = sqlc.narg('review_decision'),
     decision_changed_at = changed_at,
     checks = sqlc.narg('checks'),
+    mergeability = sqlc.narg('mergeability'),
     checks_sha = @checks_sha::text,
     checks_read_at = @checks_read_at::timestamptz
 WHERE

@@ -27,8 +27,8 @@ const checksPendingAfter = time.Minute
 // checksSettleWithin is how long after a change a head with no checks is read again.
 const checksSettleWithin = 10 * time.Minute
 
-// checksSettledAfter is how long a read of a run that passed or failed is trusted before it is
-// read again for a re-run.
+// checksSettledAfter is how long any read of the checks and mergeability is trusted before it
+// is read again.
 const checksSettledAfter = 10 * time.Minute
 
 // pullRequestSyncOverlap is how far below the high-water mark a search reads.
@@ -713,9 +713,9 @@ func (s *PullRequestSyncer) scanBranches(ctx context.Context, host *hostRead, re
 	return nil
 }
 
-// readStandings reads the review decision and checks of every open pull request on a live
-// branch whose decision is stale or whose checks were read for another head or too long ago,
-// newest change first and fifty to a request, until the budget runs out.
+// readStandings reads the review decision, checks and mergeability of every open pull request
+// on a live branch whose decision is stale or whose checks were read for another head or too
+// long ago, newest change first and fifty to a request, until the budget runs out.
 func (s *PullRequestSyncer) readStandings(ctx context.Context, host *hostRead, read *repositoryRead) error {
 	remote, counts := read.remote, read.tally
 	repositoryURL := remote.Canonical()
@@ -844,6 +844,9 @@ func (s *PullRequestSyncer) writePage(ctx context.Context, pullRequests []forge.
 				standing := forge.Standing{Decision: *pullRequest.Decision, HeadSHA: pullRequest.HeadSHA}
 				if pullRequest.Checks != nil {
 					standing.Checks = *pullRequest.Checks
+				}
+				if pullRequest.Mergeability != nil {
+					standing.Mergeability = *pullRequest.Mergeability
 				}
 				if err := st.SetStanding(ctx, outcome.ID, standing, s.now()); err != nil {
 					return err

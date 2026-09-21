@@ -465,7 +465,7 @@ func TestListStaleStandingsAnswersOpenRowsOnLiveBranches(t *testing.T) {
 
 	assert.ElementsMatch(t, []int{1, 3, 9}, list(now), "never read, changed since, and pushed since are stale the moment they are written")
 	assert.ElementsMatch(t, []int{1, 3, 9, 10, 12}, list(now.Add(2*time.Minute)), "a pending run and a fresh change with no checks are read again after a minute")
-	assert.ElementsMatch(t, []int{1, 2, 3, 9, 10, 11}, list(now.Add(11*time.Minute)), "a run that passed or failed is read again after ten minutes, and a change that old with no checks is settled")
+	assert.ElementsMatch(t, []int{1, 2, 3, 9, 10, 11, 12, 13}, list(now.Add(11*time.Minute)), "every row is read again after ten minutes")
 	assert.Equal(t, 3, list(now)[0], "newest change first")
 }
 
@@ -480,7 +480,7 @@ func TestSetStandingStampsTheRead(t *testing.T) {
 	written, err := h.Upsert(ctx, openPullRequest("PR_1", 1, "agent/x"))
 	require.NoError(t, err)
 
-	require.NoError(t, h.SetStanding(ctx, written.ID, forge.Standing{Decision: forge.ReviewDecisionChangesRequested, Checks: forge.ChecksFailing, HeadSHA: "abc"}, readAt))
+	require.NoError(t, h.SetStanding(ctx, written.ID, forge.Standing{Decision: forge.ReviewDecisionChangesRequested, Checks: forge.ChecksFailing, Mergeability: forge.MergeabilityUnstable, HeadSHA: "abc"}, readAt))
 	stored, err := h.GetByIdentity(ctx, "github.com", "PR_1")
 	require.NoError(t, err)
 	require.NotNil(t, stored.ReviewDecision)
@@ -489,6 +489,8 @@ func TestSetStandingStampsTheRead(t *testing.T) {
 	assert.True(t, stored.DecisionChangedAt.Equal(stored.ChangedAt), "the read is stamped with the change it was for")
 	require.NotNil(t, stored.Checks)
 	assert.Equal(t, forge.ChecksFailing, *stored.Checks)
+	require.NotNil(t, stored.Mergeability)
+	assert.Equal(t, forge.MergeabilityUnstable, *stored.Mergeability)
 	assert.Equal(t, "abc", stored.ChecksSHA)
 	require.NotNil(t, stored.ChecksReadAt)
 	assert.True(t, stored.ChecksReadAt.Equal(readAt))
@@ -500,6 +502,7 @@ func TestSetStandingStampsTheRead(t *testing.T) {
 	assert.Nil(t, stored.ReviewDecision)
 	assert.NotNil(t, stored.DecisionChangedAt)
 	assert.Nil(t, stored.Checks)
+	assert.Nil(t, stored.Mergeability)
 	assert.Equal(t, "abc", stored.ChecksSHA)
 	assert.True(t, stored.ChecksReadAt.Equal(readAt), "the read stamp moves on a write that says nothing new")
 

@@ -44,9 +44,10 @@ const mergeRequestFragment = `fragment mergeRequestFields on MergeRequest {
   sourceBranch targetBranch diffHeadSha sourceProject { webUrl } targetProject { webUrl } diffRefs { baseSha }
 }`
 
-// standingFields is what the decision and checks of a merge request are folded from: its
-// approvals, its reviewers' states and the status of the pipeline on its head.
-const standingFields = `approvalsRequired approvalsLeft approvedBy { count } reviewers { nodes { mergeRequestInteraction { reviewState } } } headPipeline { status }`
+// standingFields is what the decision, checks and mergeability of a merge request are folded
+// from: its approvals, its reviewers' states, the status of the pipeline on its head and its
+// detailed merge status.
+const standingFields = `approvalsRequired approvalsLeft approvedBy { count } reviewers { nodes { mergeRequestInteraction { reviewState } } } headPipeline { status } detailedMergeStatus`
 
 const verifyQuery = `query Verify { currentUser { username } }`
 
@@ -560,11 +561,37 @@ type standingNode struct {
 	HeadPipeline *struct {
 		Status string `json:"status"`
 	} `json:"headPipeline"`
+	DetailedMergeStatus string `json:"detailedMergeStatus"`
 }
 
-// standing is the node's decision and checks with the head they were read for.
+// standing is the node's decision, checks and mergeability with the head they were read for.
 func (n standingNode) standing() forge.Standing {
-	return forge.Standing{Decision: n.decision(), Checks: n.checks(), HeadSHA: n.DiffHeadSha}
+	return forge.Standing{
+		Decision:     n.decision(),
+		Checks:       n.checks(),
+		Mergeability: n.mergeability(),
+		HeadSHA:      n.DiffHeadSha,
+	}
+}
+
+// mergeability is the detailed merge status in weave's words.
+func (n standingNode) mergeability() forge.Mergeability {
+	switch n.DetailedMergeStatus {
+	case "":
+		return forge.MergeabilityUnknown
+	case "MERGEABLE":
+		return forge.MergeabilityClean
+	case "CI_MUST_PASS", "CI_STILL_RUNNING", "COMMITS_STATUS":
+		return forge.MergeabilityUnstable
+	case "NEED_REBASE":
+		return forge.MergeabilityBehind
+	case "CONFLICT":
+		return forge.MergeabilityConflicting
+	case "UNCHECKED", "CHECKING", "PREPARING", "APPROVALS_SYNCING":
+		return forge.MergeabilityUnknown
+	}
+
+	return forge.MergeabilityBlocked
 }
 
 // checks is the head pipeline's status in weave's words.
@@ -634,6 +661,7 @@ func (n mergeRequestNode) toPullRequest(withStanding bool) forge.PullRequest {
 	if withStanding {
 		pullRequest.Decision = xptr.Ptr(n.decision())
 		pullRequest.Checks = xptr.Ptr(n.checks())
+		pullRequest.Mergeability = xptr.Ptr(n.mergeability())
 	}
 
 	return pullRequest

@@ -37,14 +37,14 @@ const searchPage = `{"data":{"search":{"issueCount":159,"pageInfo":{"hasNextPage
 
 // searchFailing is one search row as GitHub answers the standings fields on it, the recorded
 // shape with the row made up.
-const searchFailing = `{"data":{"search":{"issueCount":7,"pageInfo":{"hasNextPage":true,"endCursor":"Y3Vyc29yOjE="},"nodes":[{"id":"PR_kwDOTgPfPc8AAAABEU9Z9Z","number":804,"title":"feat(panel): a row for the checks","url":"https://github.com/harrisoncramer/weave/pull/804","state":"OPEN","isDraft":false,"createdAt":"2026-09-17T22:22:25Z","updatedAt":"2026-09-18T21:44:51Z","mergedAt":null,"closedAt":null,"headRefName":"agent/01a0c3e6-8a93-7441-a4c4-32e36761bb27","headRefOid":"4444444444444444444444444444444444444444","baseRefName":"main","baseRefOid":"06cdb987a45779a11be2fc920da62a489c0c1b71","headRepository":{"url":"https://github.com/harrisoncramer/weave"},"baseRepository":{"url":"https://github.com/harrisoncramer/weave"},"reviewDecision":"REVIEW_REQUIRED","commits":{"nodes":[{"commit":{"statusCheckRollup":{"state":"FAILURE"}}}]}}]}}}`
+const searchFailing = `{"data":{"search":{"issueCount":7,"pageInfo":{"hasNextPage":true,"endCursor":"Y3Vyc29yOjE="},"nodes":[{"id":"PR_kwDOTgPfPc8AAAABEU9Z9Z","number":804,"title":"feat(panel): a row for the checks","url":"https://github.com/harrisoncramer/weave/pull/804","state":"OPEN","isDraft":false,"createdAt":"2026-09-17T22:22:25Z","updatedAt":"2026-09-18T21:44:51Z","mergedAt":null,"closedAt":null,"headRefName":"agent/01a0c3e6-8a93-7441-a4c4-32e36761bb27","headRefOid":"4444444444444444444444444444444444444444","baseRefName":"main","baseRefOid":"06cdb987a45779a11be2fc920da62a489c0c1b71","headRepository":{"url":"https://github.com/harrisoncramer/weave"},"baseRepository":{"url":"https://github.com/harrisoncramer/weave"},"reviewDecision":"REVIEW_REQUIRED","mergeStateStatus":"UNSTABLE","commits":{"nodes":[{"commit":{"statusCheckRollup":{"state":"FAILURE"}}}]}}]}}}`
 
 const searchApproved = `{"data":{"search":{"issueCount":2,"pageInfo":{"hasNextPage":false,"endCursor":"Y3Vyc29yOjI="},"nodes":[{"id":"PR_kwDOIGmk9s8AAAABESZ58w","number":11158,"title":"Metrics production image update","url":"https://github.com/acme/deploy/pull/11158","state":"MERGED","isDraft":false,"reviewDecision":"APPROVED","createdAt":"2026-09-20T06:24:15Z","updatedAt":"2026-09-20T06:24:26Z","mergedAt":"2026-09-20T06:24:26Z","closedAt":"2026-09-20T06:24:26Z","headRefName":"update-metrics-images","headRefOid":"41fdd966bfbce0757b89b100efa46f8e28d02218","baseRefName":"main","baseRefOid":"94475aebe2d459bf41137bf67d767023dde7baa3","headRepository":{"url":"https://github.com/acme/deploy"},"baseRepository":{"url":"https://github.com/acme/deploy"}},{"id":"PR_kwDOIGmk9s8AAAABEQX0JA","number":11157,"title":"Admin production image update","url":"https://github.com/acme/deploy/pull/11157","state":"MERGED","isDraft":false,"reviewDecision":"APPROVED","createdAt":"2026-09-19T21:14:05Z","updatedAt":"2026-09-19T21:14:18Z","mergedAt":"2026-09-19T21:14:17Z","closedAt":"2026-09-19T21:14:17Z","headRefName":"update-admin-images","headRefOid":"583d259df0d2f141345f659491de89462a0de6cc","baseRefName":"main","baseRefOid":"24235336d21888966f294aea6434aa64a16cb004","headRepository":{"url":"https://github.com/acme/deploy"},"baseRepository":{"url":"https://github.com/acme/deploy"}}]}}}`
 
 // standingsBatch is the shape GitHub answers the aliased standings query with, the recorded
 // shape with the rows made up: a failing head, a pending one, an approved one whose checks
 // passed, one with no rollup, and a number GitHub does not have.
-const standingsBatch = `{"data":{"repository":{"p801":{"headRefOid":"1111111111111111111111111111111111111111","reviewDecision":"CHANGES_REQUESTED","commits":{"nodes":[{"commit":{"statusCheckRollup":{"state":"FAILURE"}}}]}},"p802":{"headRefOid":"2222222222222222222222222222222222222222","reviewDecision":"REVIEW_REQUIRED","commits":{"nodes":[{"commit":{"statusCheckRollup":{"state":"PENDING"}}}]}},"p803":{"headRefOid":"3333333333333333333333333333333333333333","reviewDecision":"APPROVED","commits":{"nodes":[{"commit":{"statusCheckRollup":{"state":"SUCCESS"}}}]}},"p1":{"headRefOid":"c744e226f1248223edd7aa77a7874aba2eec3b16","reviewDecision":null,"commits":{"nodes":[{"commit":{"statusCheckRollup":null}}]}},"p9999999":null}},"errors":[{"type":"NOT_FOUND","path":["repository","p9999999"],"locations":[{"line":7,"column":5}],"message":"Could not resolve to a PullRequest with the number of 9999999."}]}`
+const standingsBatch = `{"data":{"repository":{"p801":{"headRefOid":"1111111111111111111111111111111111111111","reviewDecision":"CHANGES_REQUESTED","mergeStateStatus":"UNSTABLE","commits":{"nodes":[{"commit":{"statusCheckRollup":{"state":"FAILURE"}}}]}},"p802":{"headRefOid":"2222222222222222222222222222222222222222","reviewDecision":"REVIEW_REQUIRED","mergeStateStatus":"BLOCKED","commits":{"nodes":[{"commit":{"statusCheckRollup":{"state":"PENDING"}}}]}},"p803":{"headRefOid":"3333333333333333333333333333333333333333","reviewDecision":"APPROVED","mergeStateStatus":"CLEAN","commits":{"nodes":[{"commit":{"statusCheckRollup":{"state":"SUCCESS"}}}]}},"p1":{"headRefOid":"c744e226f1248223edd7aa77a7874aba2eec3b16","reviewDecision":null,"mergeStateStatus":"UNKNOWN","commits":{"nodes":[{"commit":{"statusCheckRollup":null}}]}},"p9999999":null}},"errors":[{"type":"NOT_FOUND","path":["repository","p9999999"],"locations":[{"line":7,"column":5}],"message":"Could not resolve to a PullRequest with the number of 9999999."}]}`
 
 type fakeAuth struct {
 	token       string
@@ -347,6 +347,7 @@ func TestListChanged(t *testing.T) {
 	require.Len(t, listed.PullRequests, 1)
 	assert.Equal(t, xptr.Ptr(forge.ReviewDecisionPending), listed.PullRequests[0].Decision)
 	assert.Equal(t, xptr.Ptr(forge.ChecksFailing), listed.PullRequests[0].Checks)
+	assert.Equal(t, xptr.Ptr(forge.MergeabilityUnstable), listed.PullRequests[0].Mergeability)
 
 	f, _, fake = serve(t, map[string]answer{"ListChanged": {body: searchApproved}})
 	listed, err = f.ListChanged(t.Context(), forge.ListChangedParams{
@@ -643,16 +644,16 @@ func TestStandings(t *testing.T) {
 	standings, err := f.Standings(t.Context(), weave, []int{801, 802, 803, 1, 9999999})
 	require.NoError(t, err)
 	assert.Equal(t, map[int]forge.Standing{
-		801: {Decision: forge.ReviewDecisionChangesRequested, Checks: forge.ChecksFailing, HeadSHA: "1111111111111111111111111111111111111111"},
-		802: {Decision: forge.ReviewDecisionPending, Checks: forge.ChecksPending, HeadSHA: "2222222222222222222222222222222222222222"},
-		803: {Decision: forge.ReviewDecisionApproved, Checks: forge.ChecksPassing, HeadSHA: "3333333333333333333333333333333333333333"},
-		1:   {Decision: forge.ReviewDecisionNone, Checks: forge.ChecksNone, HeadSHA: "c744e226f1248223edd7aa77a7874aba2eec3b16"},
+		801: {Decision: forge.ReviewDecisionChangesRequested, Checks: forge.ChecksFailing, Mergeability: forge.MergeabilityUnstable, HeadSHA: "1111111111111111111111111111111111111111"},
+		802: {Decision: forge.ReviewDecisionPending, Checks: forge.ChecksPending, Mergeability: forge.MergeabilityBlocked, HeadSHA: "2222222222222222222222222222222222222222"},
+		803: {Decision: forge.ReviewDecisionApproved, Checks: forge.ChecksPassing, Mergeability: forge.MergeabilityClean, HeadSHA: "3333333333333333333333333333333333333333"},
+		1:   {Decision: forge.ReviewDecisionNone, Checks: forge.ChecksNone, Mergeability: forge.MergeabilityUnknown, HeadSHA: "c744e226f1248223edd7aa77a7874aba2eec3b16"},
 	}, standings)
 
 	seen := fake.last(t)
 	assert.Equal(t, "Standings", seen.Operation)
 	assert.Equal(t, map[string]any{"owner": "harrisoncramer", "name": "weave"}, seen.Variables)
-	assert.Contains(t, seen.Query, `p801: pullRequest(number: 801) { headRefOid reviewDecision commits(last: 1) { nodes { commit { statusCheckRollup { state } } } } }`)
+	assert.Contains(t, seen.Query, `p801: pullRequest(number: 801) { headRefOid reviewDecision mergeStateStatus commits(last: 1) { nodes { commit { statusCheckRollup { state } } } } }`)
 	assert.Contains(t, seen.Query, `p9999999: pullRequest(number: 9999999) { headRefOid `)
 	assert.Equal(t, 5, strings.Count(seen.Query, "pullRequest(number:"))
 }
@@ -679,6 +680,33 @@ func TestChecksOf(t *testing.T) {
 			t.Parallel()
 
 			assert.Equal(t, tt.want, checksOf(tt.rollup))
+		})
+	}
+}
+
+// TestMergeabilityOf covers every merge state GitHub documents.
+func TestMergeabilityOf(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		status string
+		want   forge.Mergeability
+	}{
+		{status: "CLEAN", want: forge.MergeabilityClean},
+		{status: "HAS_HOOKS", want: forge.MergeabilityClean},
+		{status: "UNSTABLE", want: forge.MergeabilityUnstable},
+		{status: "BLOCKED", want: forge.MergeabilityBlocked},
+		{status: "DRAFT", want: forge.MergeabilityBlocked},
+		{status: "BEHIND", want: forge.MergeabilityBehind},
+		{status: "DIRTY", want: forge.MergeabilityConflicting},
+		{status: "UNKNOWN", want: forge.MergeabilityUnknown},
+		{status: "", want: forge.MergeabilityUnknown},
+	}
+	for _, tt := range tests {
+		t.Run(tt.status, func(t *testing.T) {
+			t.Parallel()
+
+			assert.Equal(t, tt.want, mergeabilityOf(tt.status))
 		})
 	}
 }

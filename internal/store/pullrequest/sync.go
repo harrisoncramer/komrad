@@ -62,9 +62,9 @@ func NewSyncStore(db store.DBTX) *SyncStore {
 	return &SyncStore{queries: models.New(db)}
 }
 
-// ListStaleStandingsParams says how long a read of the checks is trusted: a pending run is read again
-// after PendingAfter, so is a head with no checks while the row changed within SettleWithin,
-// and a run that passed or failed after SettledAfter.
+// ListStaleStandingsParams says how long a read of the checks and mergeability is trusted: a
+// pending run is read again after PendingAfter, so is a head with no checks or no computed
+// mergeability while the row changed within SettleWithin, and any row after SettledAfter.
 type ListStaleStandingsParams struct {
 	RepositoryURL string
 	Now           time.Time

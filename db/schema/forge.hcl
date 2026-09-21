@@ -174,7 +174,12 @@ table "pull_requests" {
   column "checks_read_at" {
     null    = true
     type    = timestamptz
-    comment = "When the checks were last read, which is what paces the re-read of a pending or failing run."
+    comment = "When the checks and mergeability were last read, which is what paces the re-read of a pending or failing run."
+  }
+  column "mergeability" {
+    null    = true
+    type    = text
+    comment = "Where the forge says the pull request stands against its base and its branch rules, in weave's own words: clean, unstable, blocked, behind or conflicting, null while the forge has not computed it. Read with the checks and kept fresh the same way."
   }
   primary_key {
     columns = [column.id]

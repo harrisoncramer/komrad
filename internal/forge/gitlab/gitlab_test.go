@@ -37,7 +37,7 @@ const forkMergeRequest = `{"id":"gid://gitlab/MergeRequest/535500829","iid":"256
 // September against acme/widgets: a running pipeline, an approved merge request whose
 // pipeline passed, one asked for changes whose pipeline failed, a skipped pipeline, one with
 // no pipeline, and an iid GitLab does not have.
-const standingsBatch = `{"data":{"project":{"m256666":{"diffHeadSha":"834a90786a4b4f6e35100f1f588c56df17a02887","approvalsRequired":0,"approvalsLeft":0,"approvedBy":{"count":0},"reviewers":{"nodes":[{"mergeRequestInteraction":{"reviewState":"REVIEW_STARTED"}}]},"headPipeline":{"status":"RUNNING"}},"m255110":{"diffHeadSha":"b90fb22355180c048573dec4dbdc0c82ef92e31b","approvalsRequired":2,"approvalsLeft":0,"approvedBy":{"count":3},"reviewers":{"nodes":[{"mergeRequestInteraction":{"reviewState":"APPROVED"}},{"mergeRequestInteraction":{"reviewState":"REVIEWED"}},{"mergeRequestInteraction":{"reviewState":"APPROVED"}}]},"headPipeline":{"status":"SUCCESS"}},"m252724":{"diffHeadSha":"2586500f614ad3dc5c9ee538eaaa0303aa8f076a","approvalsRequired":0,"approvalsLeft":0,"approvedBy":{"count":0},"reviewers":{"nodes":[{"mergeRequestInteraction":{"reviewState":"REVIEWED"}},{"mergeRequestInteraction":{"reviewState":"UNAPPROVED"}},{"mergeRequestInteraction":{"reviewState":"REQUESTED_CHANGES"}},{"mergeRequestInteraction":{"reviewState":"UNAPPROVED"}}]},"headPipeline":{"status":"FAILED"}},"m256649":{"diffHeadSha":"66fb1f0ba5fe77bb0932daa6c0f3f3f185cac41c","approvalsRequired":0,"approvalsLeft":0,"approvedBy":{"count":0},"reviewers":{"nodes":[]},"headPipeline":{"status":"SKIPPED"}},"m254626":{"diffHeadSha":"0abc488fc8123613c802cac85f1f7d5c4f9d0725","approvalsRequired":4,"approvalsLeft":4,"approvedBy":{"count":1},"reviewers":{"nodes":[{"mergeRequestInteraction":{"reviewState":"REVIEWED"}},{"mergeRequestInteraction":{"reviewState":"APPROVED"}},{"mergeRequestInteraction":{"reviewState":"UNAPPROVED"}},{"mergeRequestInteraction":{"reviewState":"UNAPPROVED"}}]},"headPipeline":null},"m999999999":null},"queryComplexity":{"score":118,"limit":200}}}`
+const standingsBatch = `{"data":{"project":{"m256666":{"detailedMergeStatus":"NOT_APPROVED","diffHeadSha":"834a90786a4b4f6e35100f1f588c56df17a02887","approvalsRequired":0,"approvalsLeft":0,"approvedBy":{"count":0},"reviewers":{"nodes":[{"mergeRequestInteraction":{"reviewState":"REVIEW_STARTED"}}]},"headPipeline":{"status":"RUNNING"}},"m255110":{"detailedMergeStatus":"MERGEABLE","diffHeadSha":"b90fb22355180c048573dec4dbdc0c82ef92e31b","approvalsRequired":2,"approvalsLeft":0,"approvedBy":{"count":3},"reviewers":{"nodes":[{"mergeRequestInteraction":{"reviewState":"APPROVED"}},{"mergeRequestInteraction":{"reviewState":"REVIEWED"}},{"mergeRequestInteraction":{"reviewState":"APPROVED"}}]},"headPipeline":{"status":"SUCCESS"}},"m252724":{"detailedMergeStatus":"CONFLICT","diffHeadSha":"2586500f614ad3dc5c9ee538eaaa0303aa8f076a","approvalsRequired":0,"approvalsLeft":0,"approvedBy":{"count":0},"reviewers":{"nodes":[{"mergeRequestInteraction":{"reviewState":"REVIEWED"}},{"mergeRequestInteraction":{"reviewState":"UNAPPROVED"}},{"mergeRequestInteraction":{"reviewState":"REQUESTED_CHANGES"}},{"mergeRequestInteraction":{"reviewState":"UNAPPROVED"}}]},"headPipeline":{"status":"FAILED"}},"m256649":{"detailedMergeStatus":"DRAFT_STATUS","diffHeadSha":"66fb1f0ba5fe77bb0932daa6c0f3f3f185cac41c","approvalsRequired":0,"approvalsLeft":0,"approvedBy":{"count":0},"reviewers":{"nodes":[]},"headPipeline":{"status":"SKIPPED"}},"m254626":{"detailedMergeStatus":"UNCHECKED","diffHeadSha":"0abc488fc8123613c802cac85f1f7d5c4f9d0725","approvalsRequired":4,"approvalsLeft":4,"approvedBy":{"count":1},"reviewers":{"nodes":[{"mergeRequestInteraction":{"reviewState":"REVIEWED"}},{"mergeRequestInteraction":{"reviewState":"APPROVED"}},{"mergeRequestInteraction":{"reviewState":"UNAPPROVED"}},{"mergeRequestInteraction":{"reviewState":"UNAPPROVED"}}]},"headPipeline":null},"m999999999":null},"queryComplexity":{"score":118,"limit":200}}}`
 
 const tooComplex = `{"errors":[{"message":"Query has complexity of 294, which exceeds max complexity of 200"}]}`
 
@@ -580,11 +580,11 @@ func TestStandings(t *testing.T) {
 	standings, err := f.Standings(t.Context(), gitlabOrg, numbers)
 	require.NoError(t, err)
 	assert.Equal(t, map[int]forge.Standing{
-		256666: {Decision: forge.ReviewDecisionNone, Checks: forge.ChecksPending, HeadSHA: "834a90786a4b4f6e35100f1f588c56df17a02887"},
-		255110: {Decision: forge.ReviewDecisionApproved, Checks: forge.ChecksPassing, HeadSHA: "b90fb22355180c048573dec4dbdc0c82ef92e31b"},
-		252724: {Decision: forge.ReviewDecisionChangesRequested, Checks: forge.ChecksFailing, HeadSHA: "2586500f614ad3dc5c9ee538eaaa0303aa8f076a"},
-		256649: {Decision: forge.ReviewDecisionNone, Checks: forge.ChecksNone, HeadSHA: "66fb1f0ba5fe77bb0932daa6c0f3f3f185cac41c"},
-		254626: {Decision: forge.ReviewDecisionPending, Checks: forge.ChecksNone, HeadSHA: "0abc488fc8123613c802cac85f1f7d5c4f9d0725"},
+		256666: {Decision: forge.ReviewDecisionNone, Checks: forge.ChecksPending, Mergeability: forge.MergeabilityBlocked, HeadSHA: "834a90786a4b4f6e35100f1f588c56df17a02887"},
+		255110: {Decision: forge.ReviewDecisionApproved, Checks: forge.ChecksPassing, Mergeability: forge.MergeabilityClean, HeadSHA: "b90fb22355180c048573dec4dbdc0c82ef92e31b"},
+		252724: {Decision: forge.ReviewDecisionChangesRequested, Checks: forge.ChecksFailing, Mergeability: forge.MergeabilityConflicting, HeadSHA: "2586500f614ad3dc5c9ee538eaaa0303aa8f076a"},
+		256649: {Decision: forge.ReviewDecisionNone, Checks: forge.ChecksNone, Mergeability: forge.MergeabilityBlocked, HeadSHA: "66fb1f0ba5fe77bb0932daa6c0f3f3f185cac41c"},
+		254626: {Decision: forge.ReviewDecisionPending, Checks: forge.ChecksNone, Mergeability: forge.MergeabilityUnknown, HeadSHA: "0abc488fc8123613c802cac85f1f7d5c4f9d0725"},
 	}, standings)
 
 	seen := fake.last(t)
@@ -593,6 +593,44 @@ func TestStandings(t *testing.T) {
 	assert.Contains(t, seen.Query, `m256666: mergeRequest(iid: "256666") { diffHeadSha `+standingFields+` }`)
 	assert.Contains(t, seen.Query, "queryComplexity { score limit }")
 	assert.Equal(t, 6, strings.Count(seen.Query, "mergeRequest(iid:"))
+}
+
+// TestMergeabilityFolds covers the detailed merge statuses GitLab documents: one word each for
+// mergeable, checks in the way, behind and conflicting, unknown while GitLab is still working
+// it out, and blocked for every other rule.
+func TestMergeabilityFolds(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		status string
+		want   forge.Mergeability
+	}{
+		{status: "MERGEABLE", want: forge.MergeabilityClean},
+		{status: "CI_MUST_PASS", want: forge.MergeabilityUnstable},
+		{status: "CI_STILL_RUNNING", want: forge.MergeabilityUnstable},
+		{status: "COMMITS_STATUS", want: forge.MergeabilityUnstable},
+		{status: "NEED_REBASE", want: forge.MergeabilityBehind},
+		{status: "CONFLICT", want: forge.MergeabilityConflicting},
+		{status: "UNCHECKED", want: forge.MergeabilityUnknown},
+		{status: "CHECKING", want: forge.MergeabilityUnknown},
+		{status: "PREPARING", want: forge.MergeabilityUnknown},
+		{status: "APPROVALS_SYNCING", want: forge.MergeabilityUnknown},
+		{status: "", want: forge.MergeabilityUnknown},
+		{status: "NOT_APPROVED", want: forge.MergeabilityBlocked},
+		{status: "DISCUSSIONS_NOT_RESOLVED", want: forge.MergeabilityBlocked},
+		{status: "DRAFT_STATUS", want: forge.MergeabilityBlocked},
+		{status: "BLOCKED_STATUS", want: forge.MergeabilityBlocked},
+		{status: "POLICIES_DENIED", want: forge.MergeabilityBlocked},
+		{status: "REQUESTED_CHANGES", want: forge.MergeabilityBlocked},
+	}
+	for _, tt := range tests {
+		t.Run("status "+tt.status, func(t *testing.T) {
+			t.Parallel()
+
+			node := standingNode{DetailedMergeStatus: tt.status}
+			assert.Equal(t, tt.want, node.mergeability())
+		})
+	}
 }
 
 // TestChecksFolds covers every pipeline status GitLab documents: a cancelled pipeline is a

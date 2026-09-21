@@ -45,8 +45,8 @@ type scriptedForge struct {
 	// changed is the search by cursor.
 	changed map[string]*forge.Page
 	// standings is what the forge says about each pull request's reviews and checks, by
-	// number, none for the head every scripted pull request carries when a number is not here,
-	// and unknown the numbers the forge has no pull request for.
+	// number, none and clean for the head every scripted pull request carries when a number is
+	// not here, and unknown the numbers the forge has no pull request for.
 	standings map[int]forge.Standing
 	unknown   map[int]bool
 	// refuse is answered instead of any listing while set, refuseUpdated instead of the
@@ -128,6 +128,13 @@ func (f *scriptedForge) Standings(_ context.Context, _ git.RemoteURL, numbers []
 		standing := f.standings[number]
 		if standing.HeadSHA == "" {
 			standing.HeadSHA = scriptedHeadSHA
+		}
+		switch standing.Mergeability {
+		case forge.MergeabilityUnknown:
+			standing.Mergeability = forge.MergeabilityClean
+		case scriptedMergeabilityUnknown:
+			standing.Mergeability = forge.MergeabilityUnknown
+		case forge.MergeabilityClean, forge.MergeabilityUnstable, forge.MergeabilityBlocked, forge.MergeabilityBehind, forge.MergeabilityConflicting:
 		}
 		answered[number] = standing
 	}
@@ -346,12 +353,17 @@ func pullRequestIn(repository git.RemoteURL, providerID, branch string, updatedA
 func decided(pullRequest forge.PullRequest, decision forge.ReviewDecision) forge.PullRequest {
 	pullRequest.Decision = xptr.Ptr(decision)
 	pullRequest.Checks = xptr.Ptr(forge.ChecksNone)
+	pullRequest.Mergeability = xptr.Ptr(forge.MergeabilityClean)
 
 	return pullRequest
 }
 
 // scriptedHeadSHA is the head every scripted pull request carries.
 const scriptedHeadSHA = "abc"
+
+// scriptedMergeabilityUnknown scripts a forge that has not computed the mergeability, which
+// the zero value cannot say since it stands for the default.
+const scriptedMergeabilityUnknown forge.Mergeability = "not computed"
 
 func (f *syncFixture) stored(t *testing.T, providerID string) *pullrequeststore.PullRequest {
 	t.Helper()
@@ -657,12 +669,12 @@ func TestSyncListsPageOneHourly(t *testing.T) {
 	}}
 
 	f.pass(t, syncNow.Add(30*time.Minute))
-	assert.Equal(t, []string{search(mark)}, f.forge.requests, "half an hour in, the listing is not due")
+	assert.Equal(t, []string{search(mark), "standings:1"}, f.forge.requests, "half an hour in, the listing is not due and the settled row is read again")
 
 	relisted := syncNow.Add(61 * time.Minute)
 	f.pass(t, relisted)
 
-	assert.Equal(t, []string{search(syncNow.Add(30 * time.Minute)), "updated:", "standings:2"}, f.forge.requests, "the listing is due, and the row it wrote costs a decision")
+	assert.Equal(t, []string{search(syncNow.Add(30 * time.Minute)), "updated:", "standings:2,1"}, f.forge.requests, "the listing is due, and the row it wrote costs a standing read")
 	f.stored(t, "PR_2")
 	sync := f.getSync(t)
 	assert.True(t, sync.ListedAt.Equal(relisted))
@@ -1258,6 +1270,35 @@ func TestSyncReadsAHeadWithNoChecksAgainWhileItSettles(t *testing.T) {
 
 	f.pass(t, syncNow.Add(11*time.Minute))
 	assert.Empty(t, f.standings(), "a change eleven minutes old with no checks is believed")
+}
+
+// TestSyncReadsMergeabilityAgainWhileTheForgeComputesIt covers a forge that has not computed
+// the mergeability yet, which is asked again each pass for ten minutes after a change and then
+// on the slow tier, and a base that moves under a settled row, which the slow tier catches.
+func TestSyncReadsMergeabilityAgainWhileTheForgeComputesIt(t *testing.T) {
+	f := newSyncFixture(t)
+	f.agentOn(t, "a", "agent/x")
+	f.forge.updated[""] = &forge.Page{PullRequests: []forge.PullRequest{pullRequestAt("PR_1", "agent/x", syncNow.Add(-time.Minute))}}
+	f.forge.standings[1] = forge.Standing{Decision: forge.ReviewDecisionApproved, Checks: forge.ChecksPassing, Mergeability: scriptedMergeabilityUnknown}
+
+	f.sync(t)
+
+	assert.Nil(t, f.stored(t, "PR_1").Mergeability)
+
+	f.forge.standings[1] = forge.Standing{Decision: forge.ReviewDecisionApproved, Checks: forge.ChecksPassing, Mergeability: forge.MergeabilityClean}
+	f.pass(t, syncNow.Add(2*time.Minute))
+	assert.Equal(t, []string{"standings:1"}, f.standings(), "an uncomputed mergeability is asked about again")
+	stored := f.stored(t, "PR_1")
+	require.NotNil(t, stored.Mergeability)
+	assert.Equal(t, forge.MergeabilityClean, *stored.Mergeability)
+
+	f.pass(t, syncNow.Add(4*time.Minute))
+	assert.Empty(t, f.standings(), "a computed answer is trusted")
+
+	f.forge.standings[1] = forge.Standing{Decision: forge.ReviewDecisionApproved, Checks: forge.ChecksPassing, Mergeability: forge.MergeabilityBehind}
+	f.pass(t, syncNow.Add(13*time.Minute))
+	assert.Equal(t, []string{"standings:1"}, f.standings(), "the slow tier reads a settled row again")
+	assert.Equal(t, forge.MergeabilityBehind, *f.stored(t, "PR_1").Mergeability, "a base that moved under the branch is seen without the branch changing")
 }
 
 // TestSyncWritesTheChecksTheSearchCarries covers a search row carrying its checks, which lands

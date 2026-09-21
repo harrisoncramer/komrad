@@ -188,15 +188,16 @@ func indexOfCurrent(pullRequests []pullrequeststore.PullRequest) int {
 
 func renderAgentPullRequest(pullRequest pullrequeststore.PullRequest, current bool) *pullrequestv1.AgentPullRequest {
 	return &pullrequestv1.AgentPullRequest{
-		Number:   int32(pullRequest.Number),
-		Url:      pullRequest.URL,
-		Title:    pullRequest.Title,
-		State:    render.PullRequestStateOf(pullRequest.GetSummary()),
-		Checks:   render.ChecksOf(pullRequest.Checks),
-		Current:  current,
-		OpenedAt: dates.Stamp(pullRequest.OpenedAt),
-		MergedAt: dates.StampPtr(pullRequest.MergedAt),
-		ClosedAt: dates.StampPtr(pullRequest.ClosedAt),
+		Number:       int32(pullRequest.Number),
+		Url:          pullRequest.URL,
+		Title:        pullRequest.Title,
+		State:        render.PullRequestStateOf(pullRequest.GetSummary()),
+		Checks:       render.ChecksOf(pullRequest.Checks),
+		Mergeability: render.MergeabilityOf(pullRequest.Mergeability),
+		Current:      current,
+		OpenedAt:     dates.Stamp(pullRequest.OpenedAt),
+		MergedAt:     dates.StampPtr(pullRequest.MergedAt),
+		ClosedAt:     dates.StampPtr(pullRequest.ClosedAt),
 	}
 }
 

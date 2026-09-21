@@ -12,9 +12,9 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// TestPullRequestStateOf covers every combination of the stamps, the draft flag, the checks
-// and the decision: finished beats draft beats failing checks beats the decision, and an
-// approval waits on a pending run.
+// TestPullRequestStateOf covers every combination of the stamps, the draft flag, the checks,
+// the mergeability and the decision: finished beats draft beats failing checks beats the
+// decision, and an approval waits until the forge would merge it.
 func TestPullRequestStateOf(t *testing.T) {
 	stamp := time.Date(2026, 9, 20, 12, 0, 0, 0, time.UTC)
 
@@ -93,10 +93,60 @@ func TestPullRequestStateOf(t *testing.T) {
 			want: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_APPROVED,
 		},
 		{
-			name: "approved with checks still running is open",
+			name: "approved with checks still running and no mergeability is waiting",
 			pullRequest: pullrequeststore.Summary{
 				ReviewDecision: xptr.Ptr(forge.ReviewDecisionApproved),
 				Checks:         xptr.Ptr(forge.ChecksPending),
+			},
+			want: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_APPROVED_WAITING,
+		},
+		{
+			name: "approved and clean is approved",
+			pullRequest: pullrequeststore.Summary{
+				ReviewDecision: xptr.Ptr(forge.ReviewDecisionApproved),
+				Checks:         xptr.Ptr(forge.ChecksPassing),
+				Mergeability:   xptr.Ptr(forge.MergeabilityClean),
+			},
+			want: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_APPROVED,
+		},
+		{
+			name: "approved and behind is waiting though its checks pass",
+			pullRequest: pullrequeststore.Summary{
+				ReviewDecision: xptr.Ptr(forge.ReviewDecisionApproved),
+				Checks:         xptr.Ptr(forge.ChecksPassing),
+				Mergeability:   xptr.Ptr(forge.MergeabilityBehind),
+			},
+			want: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_APPROVED_WAITING,
+		},
+		{
+			name: "approved and blocked is waiting",
+			pullRequest: pullrequeststore.Summary{
+				ReviewDecision: xptr.Ptr(forge.ReviewDecisionApproved),
+				Mergeability:   xptr.Ptr(forge.MergeabilityBlocked),
+			},
+			want: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_APPROVED_WAITING,
+		},
+		{
+			name: "approved and conflicting is waiting",
+			pullRequest: pullrequeststore.Summary{
+				ReviewDecision: xptr.Ptr(forge.ReviewDecisionApproved),
+				Mergeability:   xptr.Ptr(forge.MergeabilityConflicting),
+			},
+			want: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_APPROVED_WAITING,
+		},
+		{
+			name: "failing checks beat a clean mergeability",
+			pullRequest: pullrequeststore.Summary{
+				ReviewDecision: xptr.Ptr(forge.ReviewDecisionApproved),
+				Checks:         xptr.Ptr(forge.ChecksFailing),
+				Mergeability:   xptr.Ptr(forge.MergeabilityClean),
+			},
+			want: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_FAILING,
+		},
+		{
+			name: "conflicting with no decision is open",
+			pullRequest: pullrequeststore.Summary{
+				Mergeability: xptr.Ptr(forge.MergeabilityConflicting),
 			},
 			want: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_OPEN,
 		},
@@ -130,6 +180,16 @@ func TestPullRequestStateOf(t *testing.T) {
 			assert.Equal(t, tt.want, PullRequestStateOf(tt.pullRequest))
 		})
 	}
+}
+
+// TestMergeabilityOf covers each stored word and a row the forge has not computed.
+func TestMergeabilityOf(t *testing.T) {
+	assert.Equal(t, pullrequestv1.Mergeability_MERGEABILITY_UNKNOWN, MergeabilityOf(nil))
+	assert.Equal(t, pullrequestv1.Mergeability_MERGEABILITY_CLEAN, MergeabilityOf(xptr.Ptr(forge.MergeabilityClean)))
+	assert.Equal(t, pullrequestv1.Mergeability_MERGEABILITY_UNSTABLE, MergeabilityOf(xptr.Ptr(forge.MergeabilityUnstable)))
+	assert.Equal(t, pullrequestv1.Mergeability_MERGEABILITY_BLOCKED, MergeabilityOf(xptr.Ptr(forge.MergeabilityBlocked)))
+	assert.Equal(t, pullrequestv1.Mergeability_MERGEABILITY_BEHIND, MergeabilityOf(xptr.Ptr(forge.MergeabilityBehind)))
+	assert.Equal(t, pullrequestv1.Mergeability_MERGEABILITY_CONFLICTING, MergeabilityOf(xptr.Ptr(forge.MergeabilityConflicting)))
 }
 
 // TestChecksOf covers each stored word and a row the forge reports no checks on.

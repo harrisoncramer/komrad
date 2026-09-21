@@ -8,7 +8,7 @@ import (
 
 // PullRequestStateOf decides where a stored pull request stands: finished by its two stamps
 // first, then draft, then a failing check, then the forge's review decision, with an approval
-// held back while its checks are still running, else open.
+// held at waiting until the forge would merge it.
 func PullRequestStateOf(pullRequest pullrequeststore.Summary) pullrequestv1.PullRequestState {
 	checks := forge.ChecksNone
 	if pullRequest.Checks != nil {
@@ -32,17 +32,27 @@ func PullRequestStateOf(pullRequest pullrequeststore.Summary) pullrequestv1.Pull
 
 	switch *pullRequest.ReviewDecision {
 	case forge.ReviewDecisionApproved:
-		if checks == forge.ChecksPending {
-			return pullrequestv1.PullRequestState_PULL_REQUEST_STATE_OPEN
+		if approvedIsReady(checks, pullRequest.Mergeability) {
+			return pullrequestv1.PullRequestState_PULL_REQUEST_STATE_APPROVED
 		}
 
-		return pullrequestv1.PullRequestState_PULL_REQUEST_STATE_APPROVED
+		return pullrequestv1.PullRequestState_PULL_REQUEST_STATE_APPROVED_WAITING
 	case forge.ReviewDecisionChangesRequested:
 		return pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CHANGES_REQUESTED
 	case forge.ReviewDecisionNone, forge.ReviewDecisionPending:
 	}
 
 	return pullrequestv1.PullRequestState_PULL_REQUEST_STATE_OPEN
+}
+
+// approvedIsReady says whether an approved pull request is ready to merge: the forge says so
+// when it has computed the answer, else the checks are not still running.
+func approvedIsReady(checks forge.Checks, mergeability *forge.Mergeability) bool {
+	if mergeability != nil {
+		return *mergeability == forge.MergeabilityClean
+	}
+
+	return checks != forge.ChecksPending
 }
 
 // ChecksOf is the stored checks as the wire carries them, NONE for a row the forge reports no
@@ -63,4 +73,28 @@ func ChecksOf(checks *forge.Checks) pullrequestv1.Checks {
 	}
 
 	return pullrequestv1.Checks_CHECKS_NONE
+}
+
+// MergeabilityOf is the stored mergeability as the wire carries it, UNKNOWN for a row the forge
+// has not computed.
+func MergeabilityOf(mergeability *forge.Mergeability) pullrequestv1.Mergeability {
+	if mergeability == nil {
+		return pullrequestv1.Mergeability_MERGEABILITY_UNKNOWN
+	}
+
+	switch *mergeability {
+	case forge.MergeabilityClean:
+		return pullrequestv1.Mergeability_MERGEABILITY_CLEAN
+	case forge.MergeabilityUnstable:
+		return pullrequestv1.Mergeability_MERGEABILITY_UNSTABLE
+	case forge.MergeabilityBlocked:
+		return pullrequestv1.Mergeability_MERGEABILITY_BLOCKED
+	case forge.MergeabilityBehind:
+		return pullrequestv1.Mergeability_MERGEABILITY_BEHIND
+	case forge.MergeabilityConflicting:
+		return pullrequestv1.Mergeability_MERGEABILITY_CONFLICTING
+	case forge.MergeabilityUnknown:
+	}
+
+	return pullrequestv1.Mergeability_MERGEABILITY_UNKNOWN
 }

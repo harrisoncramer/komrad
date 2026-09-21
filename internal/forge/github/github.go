@@ -64,9 +64,10 @@ const listChangedQuery = `query ListChanged($query: String!, $first: Int!, $afte
 }
 ` + pullRequestFragment
 
-// standingFields is what the reviews and checks of a pull request are read from: GitHub's
-// computed review decision and the rollup of every check on the head commit.
-const standingFields = `reviewDecision commits(last: 1) { nodes { commit { statusCheckRollup { state } } } }`
+// standingFields is what the reviews, checks and mergeability of a pull request are read
+// from: GitHub's computed review decision, the rollup of every check on the head commit and
+// its computed merge state.
+const standingFields = `reviewDecision mergeStateStatus commits(last: 1) { nodes { commit { statusCheckRollup { state } } } }`
 
 // dialect is what GitHub does differently on the wire.
 var dialect = graphql.Dialect{
@@ -302,11 +303,7 @@ func (f *Forge) Standings(ctx context.Context, repo git.RemoteURL, numbers []int
 			continue
 		}
 
-		standings[number] = forge.Standing{
-			Decision: reviewDecisionOf(node.ReviewDecision),
-			Checks:   node.checks(),
-			HeadSHA:  node.HeadRefOid,
-		}
+		standings[number] = node.standing()
 	}
 
 	return standings, nil
@@ -453,11 +450,13 @@ type repositoryNode struct {
 	URL string `json:"url"`
 }
 
-// standingNode is what GitHub says about a pull request's reviews and the checks on its head.
+// standingNode is what GitHub says about a pull request's reviews, the checks on its head and
+// its merge state.
 type standingNode struct {
-	HeadRefOid     string  `json:"headRefOid"`
-	ReviewDecision *string `json:"reviewDecision"`
-	Commits        struct {
+	HeadRefOid       string  `json:"headRefOid"`
+	ReviewDecision   *string `json:"reviewDecision"`
+	MergeStateStatus string  `json:"mergeStateStatus"`
+	Commits          struct {
 		Nodes []struct {
 			Commit struct {
 				StatusCheckRollup *rollupNode `json:"statusCheckRollup"`
@@ -468,6 +467,34 @@ type standingNode struct {
 
 type rollupNode struct {
 	State string `json:"state"`
+}
+
+// standing is the node's decision, checks and mergeability with the head they were read for.
+func (n standingNode) standing() forge.Standing {
+	return forge.Standing{
+		Decision:     reviewDecisionOf(n.ReviewDecision),
+		Checks:       n.checks(),
+		Mergeability: mergeabilityOf(n.MergeStateStatus),
+		HeadSHA:      n.HeadRefOid,
+	}
+}
+
+// mergeabilityOf is GitHub's mergeStateStatus in weave's words.
+func mergeabilityOf(status string) forge.Mergeability {
+	switch status {
+	case "CLEAN", "HAS_HOOKS":
+		return forge.MergeabilityClean
+	case "UNSTABLE":
+		return forge.MergeabilityUnstable
+	case "BLOCKED", "DRAFT":
+		return forge.MergeabilityBlocked
+	case "BEHIND":
+		return forge.MergeabilityBehind
+	case "DIRTY":
+		return forge.MergeabilityConflicting
+	}
+
+	return forge.MergeabilityUnknown
 }
 
 // checks is the rollup of the head commit in weave's words, none when the query carried no
@@ -514,6 +541,7 @@ func (n pullRequestNode) toPullRequest(withStanding bool) forge.PullRequest {
 	if withStanding {
 		pullRequest.Decision = xptr.Ptr(reviewDecisionOf(n.ReviewDecision))
 		pullRequest.Checks = xptr.Ptr(n.checks())
+		pullRequest.Mergeability = xptr.Ptr(mergeabilityOf(n.MergeStateStatus))
 	}
 
 	return pullRequest
