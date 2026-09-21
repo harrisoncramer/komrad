@@ -24,11 +24,6 @@ var (
 	}
 )
 
-// Explainer: this reads the file rather than asking whether it is there, because the launcher
-// reads it too and drops the error, so a file weave cannot read leaves every agent without its
-// standing text. Presence would pass a file at mode 000, which is the same silence this row was
-// added to break.
-
 // newContextCheck asserts the standing text every agent is started with is there to read.
 func newContextCheck() Check {
 	return Check{

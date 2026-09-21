@@ -74,9 +74,6 @@ func (r Remote) Dial(ctx context.Context, engineAddr string, wait time.Duration)
 
 	local := net.JoinHostPort("127.0.0.1", strconv.Itoa(r.TunnelPort(engineAddr)))
 
-	// Explainer: a tunnel outlives a panel that was killed rather than asked to stop, since ssh is
-	// orphaned rather than signalled. The port is therefore the same every time for a given
-	// engine, so a surviving tunnel is found and used again instead of leaking one per panel.
 	if err := waitForPort(ctx, local, 0); err == nil {
 		return &Tunnel{Local: local, borrowed: true}, nil
 	}

@@ -10,25 +10,6 @@ import (
 	"weave/internal/fail"
 )
 
-// Explainer: a rebase that stops on conflicts is reported and left in place rather than
-// aborted. The agent sitting in that directory is the one that can settle it, and aborting on
-// its behalf would throw away the only part of the operation that needed judgement. The same
-// reasoning is why an untracked file does not block a rebase here: git completes one with
-// untracked files in place, and an agent's worktree nearly always holds some.
-//
-// Explainer: the two counts a plan carries are read from different places on purpose. Landed is
-// counted off the graph, because it says how many commits leave the branch, and that has to
-// include merges or a branch whose landed run is all merges reads as having landed nothing.
-// Replay is read from git cherry, because it says how many commits a rebase would actually
-// move, and git skips both merges and commits whose patch the base already holds.
-
-// Explainer: two orderings in here are load-bearing rather than incidental. The index is
-// refreshed before it is compared against HEAD, because diff-index reads cached stat data and a
-// file rewritten with identical content otherwise reads as changed. And the base is fetched
-// before it is resolved, because resolving first reads whatever the clone last cached, which is
-// how a stale base gets reported as the latest one; the unqualified fetch also puts a missing
-// origin/HEAD back, which is what would otherwise make the base fall through to literal HEAD.
-
 // ErrRebaseConflicted says a rebase stopped part-way on paths it could not settle.
 var ErrRebaseConflicted = fail.Precondition("the rebase stopped on conflicts")
 
