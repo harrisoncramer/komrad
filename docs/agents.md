@@ -82,7 +82,9 @@ Marks are yours. Nothing an agent can call sets one, and a row loses its mark wh
 
 Press `/` and type to search the list. It highlights rather than narrows: every row stays where it was, and the matched text is drawn lit up in the list and in the record under it, so you keep the shape of the tree while you look. Nothing moves while you type.
 
-Enter applies the search to both sections at once: in filter mode the list and the record narrow to their matches, and the cursor walks onto the nearest match in reading order. The record's fields sit under the row they belong to in that order, so from an agent the walk reaches its own record before any later row, and the list only moves off the agent when neither it nor its record matches. The keys go with the cursor into whichever section it lands in. `ctrl+t` closes the input without walking and moves the keys to the other section. Escape gives up: the search goes and the cursor stays where it was.
+Enter applies the search to both sections at once, and the cursor walks onto the nearest match in reading order. The record's fields sit under the row they belong to in that order, so from an agent the walk reaches its own record before any later row, and the list only moves off the agent when neither it nor its record matches. The keys go with the cursor into whichever section it lands in. `ctrl+t` closes the input without walking and moves the keys to the other section. Escape gives up: the search goes and the cursor stays where it was.
+
+In filter mode enter also narrows both sections to their matches. The list narrows on row names alone, so a pattern that matches a field of the hovered record and no row's name empties the list, and the record goes with it. Search mode is the mode for finding a field by name.
 
 `n` and `N` step forward and back through the same order, wrapping at either end and moving the keys with them. They only answer while a search is up, since they are ordinary letters the rest of the time.
 

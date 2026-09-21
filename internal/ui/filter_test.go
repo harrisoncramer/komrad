@@ -77,9 +77,9 @@ func TestFilterQuery(t *testing.T) {
 	}
 }
 
-// TestMatchAt covers where a search lands: the nearest match from where it opened, and the walk
+// TestMatchFromCursor covers where a search lands: the nearest match from where it opened, and the walk
 // through the rest of them in either direction, wrapping at both ends.
-func TestMatchAt(t *testing.T) {
+func TestMatchFromCursor(t *testing.T) {
 	tests := []struct {
 		name  string
 		query string
@@ -132,32 +132,35 @@ func TestMatchAt(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			m := selectionTree()
 			m.filter.setQuery(tt.query)
+			m.tree.cursor = rowIndexOfKey(m.agentRows(), tt.from)
 
-			got, ok := m.matchAt(tt.from, tt.delta)
+			got, ok := m.matchFromCursor(tt.delta)
 			require.True(t, ok)
-			assert.Equal(t, tt.want, got)
+			assert.Equal(t, tt.want, got.row.key)
 		})
 	}
 }
 
-// TestMatchAtWrapsBackwardsPastTheTop pins a step back from the first row reaching the last
+// TestMatchFromCursorWrapsBackwardsPastTheTop pins a step back from the first row reaching the last
 // match rather than running off the front of the list.
-func TestMatchAtWrapsBackwardsPastTheTop(t *testing.T) {
+func TestMatchFromCursorWrapsBackwardsPastTheTop(t *testing.T) {
 	m := selectionTree()
 	m.filter.setQuery("^(backend|ui)$")
+	m.tree.cursor = rowIndexOfKey(m.agentRows(), workflowRowKey("w1"))
 
-	got, ok := m.matchAt(workflowRowKey("w1"), -1)
+	got, ok := m.matchFromCursor(-1)
 	require.True(t, ok)
-	assert.Equal(t, agentRowKey("a4"), got, "the walk back from the first row lands on the last match")
+	assert.Equal(t, agentRowKey("a4"), got.row.key, "the walk back from the first row lands on the last match")
 }
 
-// TestMatchAtFindsNothing pins a pattern nothing matches leaving the cursor alone rather than
+// TestMatchFromCursorFindsNothing pins a pattern nothing matches leaving the cursor alone rather than
 // moving it somewhere arbitrary.
-func TestMatchAtFindsNothing(t *testing.T) {
+func TestMatchFromCursorFindsNothing(t *testing.T) {
 	m := selectionTree()
 	m.filter.setQuery("zzz")
+	m.tree.cursor = rowIndexOfKey(m.agentRows(), agentRowKey("a1"))
 
-	_, ok := m.matchAt(agentRowKey("a1"), 0)
+	_, ok := m.matchFromCursor(0)
 	assert.False(t, ok)
 }
 

@@ -244,10 +244,7 @@ func (m model) applyFilter() (model, tea.Cmd) {
 		return m, nil
 	}
 
-	next, cmd := m.landOnMatch(target)
-	landed, _ := next.(model)
-
-	return landed, cmd
+	return m.landOnMatch(target)
 }
 
 // closeSearchAndMoveKeys answers the focus key while the search is being typed: the input closes
@@ -388,47 +385,6 @@ func (f filterState) line(palette paint.Palette) string {
 	return line
 }
 
-// matchAt is the row a search lands on, counted from the row given and wrapping at either end.
-func (m model) matchAt(from string, delta int) (string, bool) {
-	target := m.filterTarget()
-	filter := target.state
-	if target.rows == nil || filter.pattern == nil {
-		return "", false
-	}
-
-	rows := target.rows.filterRows(m)
-	if len(rows) == 0 {
-		return "", false
-	}
-
-	start := 0
-	for i, row := range rows {
-		if row.key == from {
-			start = i
-
-			break
-		}
-	}
-
-	// A step of nothing means the row the cursor is already on counts, which is what makes
-	// typing land on the nearest match rather than skipping past it.
-	step, walk := 0, delta
-	if delta == 0 {
-		walk = 1
-	} else {
-		step = 1
-	}
-
-	for ; step <= len(rows); step++ {
-		at := ((start+walk*step)%len(rows) + len(rows)) % len(rows)
-		if filter.doesMatch(rows[at].name) {
-			return rows[at].key, true
-		}
-	}
-
-	return "", false
-}
-
 func (m model) jumpFilterMatch(pressed string) (tea.Model, tea.Cmd) {
 	if isBound(pressed, m.keys.Filter.PrevMatch) {
 		return m.jumpMatch(-1)
@@ -516,7 +472,7 @@ func (m model) matchFromCursor(delta int) (sidebarRow, bool) {
 }
 
 // landOnMatch puts the keys in the section a match is in and the cursor on it.
-func (m model) landOnMatch(target sidebarRow) (tea.Model, tea.Cmd) {
+func (m model) landOnMatch(target sidebarRow) (model, tea.Cmd) {
 	var cmd tea.Cmd
 	switch {
 	case target.section == sectionRecord && !m.isDetailsFocused():

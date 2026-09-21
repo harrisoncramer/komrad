@@ -233,3 +233,16 @@ func TestEscapeAfterAWalkIntoTheRecord(t *testing.T) {
 	assert.Equal(t, "session_id", held.fields[back.detailsCursor(held)].label)
 	assert.Equal(t, 1, back.tree.cursor)
 }
+
+// TestFieldOnlyFilterEmptiesTheList pins the filter narrowing the list on row names alone: a
+// pattern that matches a field of the hovered record and no row's name empties the list on
+// enter, and the record goes with it.
+func TestFieldOnlyFilterEmptiesTheList(t *testing.T) {
+	m := detailsModel(&recordingTmux{})
+
+	narrowed := pressMark(t, m, "/", "a", "b", "c", "tab", "enter")
+
+	assert.Empty(t, narrowed.agentRows())
+	assert.False(t, narrowed.isDetailsFocused())
+	assert.Contains(t, ansi.Strip(narrowed.View()), "nothing matches")
+}
