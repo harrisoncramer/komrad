@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"weave/internal/client"
+	agentstore "weave/internal/store/agent"
 	"weave/internal/ui/paint"
 	"weave/internal/view"
 	"weave/lib/xslice"
@@ -24,6 +25,7 @@ type searchState struct {
 	// turns are the hits the server found in the conversations, one per turn that said the query.
 	turns  []searchHit
 	cursor int
+	rows   []searchAgent
 	// preview is the transcript of the agent the cursor is standing on, drawn beside the list.
 	preview searchPreview
 }
@@ -172,6 +174,14 @@ func (m *model) placeSearchAgent(was string) tea.Cmd {
 // searchAgents is every agent the search found, once each: those whose own name says the query
 // first, read off the listings, then those whose conversation said it, best first.
 func (m model) searchAgents() []searchAgent {
+	if m.search.rows != nil {
+		return m.search.rows
+	}
+
+	return m.buildSearchAgents()
+}
+
+func (m model) buildSearchAgents() []searchAgent {
 	query := strings.TrimSpace(m.search.query)
 	if query == "" {
 		return nil
@@ -454,7 +464,7 @@ var searchDropped = view.Columns{
 }
 
 // searchRow reads one agent the search found into the row the agents list draws.
-func (m model) searchRow(agent searchAgent) view.Row {
+func (m model) searchRow(agent searchAgent, archived map[string]agentstore.Agent) view.Row {
 	row := view.Row{
 		Key:     agent.id,
 		Kind:    view.KindResult,
@@ -465,7 +475,7 @@ func (m model) searchRow(agent searchAgent) view.Row {
 	}
 
 	if agent.archived {
-		return m.archivedSearchRow(row, agent.id)
+		return archivedSearchRow(row, agent.id, archived)
 	}
 
 	item, ok := m.liveAgent(agent.id)
@@ -478,12 +488,12 @@ func (m model) searchRow(agent searchAgent) view.Row {
 
 // archivedSearchRow is a result on an agent nobody can reach any more, read the way the archive
 // screen reads it.
-func (m model) archivedSearchRow(row view.Row, id string) view.Row {
+func archivedSearchRow(row view.Row, id string, archived map[string]agentstore.Agent) view.Row {
 	// Nothing is known about a result the archive listing has not landed yet, beyond its being
 	// over.
 	row.Process = view.ProcessStopped
 
-	if agent, ok := m.archivedAgent(id); ok {
+	if agent, ok := archived[id]; ok {
 		row = agentFacts(row, agentItem{agent: agent})
 	}
 
@@ -496,8 +506,12 @@ func (m model) archivedSearchRow(row view.Row, id string) view.Row {
 
 // searchSnapshot is the agents the search found, as the list draws them.
 func (m model) searchSnapshot(agents []searchAgent, pane int) view.Snapshot {
+	archived := archivedByID(m.archive.agents)
+
 	return view.Snapshot{
-		Rows:          xslice.Map(agents, m.searchRow),
+		Rows: xslice.Map(agents, func(agent searchAgent) view.Row {
+			return m.searchRow(agent, archived)
+		}),
 		Dropped:       searchDropped,
 		CaretHidden:   m.cursorBlinkedOut(m.isListFocused()),
 		BarBlinkedOut: m.rowCursor.Blink,
@@ -509,6 +523,8 @@ func (m model) searchSnapshot(agents []searchAgent, pane int) view.Snapshot {
 // searchView draws the agents the search found and, beside them, the transcript of the one the
 // cursor is standing on, as one frame.
 func (m model) searchView() string {
+	m.search.rows = m.buildSearchAgents()
+
 	sidebar := m.searchSidebarView()
 
 	split, ok := m.screenColumnSplit()

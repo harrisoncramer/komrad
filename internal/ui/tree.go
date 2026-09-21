@@ -16,6 +16,7 @@ type treeState struct {
 	placed     bool
 	showHidden bool
 	sort       tabsState
+	rows       []agentRow
 }
 
 type agentRow struct {
@@ -191,6 +192,14 @@ func sortedAgents(items []agentItem, columns []sortColumn[agentItem], order sort
 }
 
 func (m model) agentRows() []agentRow {
+	if m.tree.rows != nil {
+		return m.tree.rows
+	}
+
+	return m.buildAgentRows()
+}
+
+func (m model) buildAgentRows() []agentRow {
 	rows := treeRows(treeRowsParams{
 		workflows:         m.listing.workflows,
 		agents:            sortedAgents(m.listing.agents, agentSorts, agentsTabs().order(m.tree.sort)),

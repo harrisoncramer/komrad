@@ -169,6 +169,8 @@ func worktreesColumn() columnSpec {
 }
 
 func (m model) worktreesView() string {
+	m.worktrees.rows = m.buildWorktreeRows()
+
 	return m.columnView(model.worktreesListView)
 }
 

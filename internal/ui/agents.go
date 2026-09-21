@@ -544,6 +544,8 @@ func (m model) failedPlaceholder(agent agentstore.Agent) string {
 }
 
 func (m model) agentsView() string {
+	m.tree.rows = m.buildAgentRows()
+
 	return m.columnView(model.agentsListView)
 }
 

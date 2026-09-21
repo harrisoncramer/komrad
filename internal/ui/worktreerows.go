@@ -123,6 +123,14 @@ func worktreeRows(items []worktreeItem, order sortOrder) []worktreeRow {
 }
 
 func (m model) worktreeRows() []worktreeRow {
+	if m.worktrees.rows != nil {
+		return m.worktrees.rows
+	}
+
+	return m.buildWorktreeRows()
+}
+
+func (m model) buildWorktreeRows() []worktreeRow {
 	return narrowed(m.filter, narrowedParams[worktreeRow]{
 		rows:  worktreeRows(m.worktrees.items, worktreesTabs().order(m.worktrees.sort)),
 		depth: worktreeRowDepth,
