@@ -458,15 +458,16 @@ func TestFilterAppliedLandsOnTheNearestMatch(t *testing.T) {
 	assert.Equal(t, agentRowKey("a4"), rowKeyAt(narrowed.agentRows(), narrowed.tree.cursor))
 }
 
-// TestFilterKeepsTheCursorOnARowItKept covers a filter that keeps the hovered agent leaving the
-// cursor on it even when another row matches too.
+// TestFilterKeepsTheCursorOnARowItKept covers a filter that keeps the hovered agent under its
+// matched header leaving the cursor on it, though the agent itself matches nothing and another
+// row does.
 func TestFilterKeepsTheCursorOnARowItKept(t *testing.T) {
 	m := filterModeTree()
 	m.tree.cursor = rowIndexOfKey(m.agentRows(), agentRowKey("a1"))
 
 	opened, _ := m.updateAgents(keyMsg("/"))
-	narrowed := pressMark(t, opened.(model), "a", "u", "|", "a", "p", "i", "tab", "enter")
+	narrowed := pressMark(t, opened.(model), "b", "a", "c", "k", "e", "n", "d", "|", "a", "p", "i", "tab", "enter")
 
-	assert.Equal(t, []string{"backend", "auth", "api"}, rowNames(narrowed.agentRows()))
+	assert.Equal(t, []string{"backend", "auth", "api", "db"}, rowNames(narrowed.agentRows()))
 	assert.Equal(t, agentRowKey("a1"), rowKeyAt(narrowed.agentRows(), narrowed.tree.cursor))
 }
