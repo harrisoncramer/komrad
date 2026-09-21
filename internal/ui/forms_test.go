@@ -325,9 +325,9 @@ func TestFormsSubmitWhatIsOnScreen(t *testing.T) {
 		{
 			name: "the archive delete prompt",
 			open: func(t *testing.T, m model) model {
-				m.listing.archivedAgents = []panel.Agent{{ID: "a1", Name: "api-refactor"}}
+				m.listing.archivedAgents = archivedItems([]panel.Agent{{ID: "a1", Name: "api-refactor"}})
 
-				opened, _ := m.deleteFromArchiveConfirm(m.listing.archivedAgents)
+				opened, _ := m.deleteFromArchiveConfirm(m.archivedAgents())
 
 				return asModel(t, opened)
 			},

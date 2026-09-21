@@ -37,11 +37,11 @@ func screensModel() model {
 			Name:       name,
 			WorkflowID: "w1",
 		}})
-		m.listing.archivedAgents = append(m.listing.archivedAgents, panel.Agent{
+		m.listing.archivedAgents = append(m.listing.archivedAgents, agentItem{agent: panel.Agent{
 			ID:         name,
 			Name:       name,
 			WorkflowID: "w1",
-		})
+		}})
 		m.listing.schedules = append(m.listing.schedules, scheduleItem{schedule: panel.Schedule{Name: name}})
 	}
 

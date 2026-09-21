@@ -109,14 +109,19 @@ func (m *model) listHoveredPullRequestsCmd() tea.Cmd {
 	return m.listPullRequestsCmd()
 }
 
-// hoveredRecordAgent is the agent the record under the agents list is about, and none on any
-// other screen or row.
+// hoveredRecordAgent is the agent the record under the agents list or the archive is about, and
+// none on any other screen or row.
 func (m model) hoveredRecordAgent() (agentItem, bool) {
-	if m.screen != screenAgents {
+	var row agentRow
+	var ok bool
+	switch m.screen {
+	case screenAgents:
+		row, ok = m.hoveredRow()
+	case screenArchive:
+		row, ok = rowAt(m.archiveRows(), m.archive.cursor)
+	case screenSchedules, screenSearch, screenReview, screenWorktrees:
 		return agentItem{}, false
 	}
-
-	row, ok := m.hoveredRow()
 	if !ok || row.header {
 		return agentItem{}, false
 	}

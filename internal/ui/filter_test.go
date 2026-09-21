@@ -222,7 +222,7 @@ func TestSearchEscapeGoesBackFromAStandingSearch(t *testing.T) {
 // TestArchiveSearchWalksAndClears pins the archive getting the same search as the agents list.
 func TestArchiveSearchWalksAndClears(t *testing.T) {
 	m := archiveModel(&fakeArchiveAgents{}, &fakeArchiveWorkflows{}, config.DefaultKeybindings())
-	m.listing.archivedAgents = []panel.Agent{
+	m.listing.archivedAgents = archivedItems([]panel.Agent{
 		{
 			ID:         "a1",
 			Name:       "api-refactor",
@@ -233,7 +233,7 @@ func TestArchiveSearchWalksAndClears(t *testing.T) {
 			Name:       "auth-fix",
 			WorkflowID: "w1",
 		},
-	}
+	})
 	m.archive.cursor = 0
 	require.Equal(t, workflowRowKey("w1"), rowKeyAt(m.archiveRows(), m.archive.cursor))
 

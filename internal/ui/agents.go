@@ -298,6 +298,9 @@ func (m model) parentName(agent panel.Agent) string {
 	if item, ok := m.liveAgent(*agent.ParentAgentID); ok {
 		return item.agent.Name
 	}
+	if parent, ok := m.archivedAgent(*agent.ParentAgentID); ok {
+		return parent.Name
+	}
 
 	return *agent.ParentAgentID
 }

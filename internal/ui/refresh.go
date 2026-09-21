@@ -47,7 +47,7 @@ type refreshResult struct {
 	workflowsErr         error
 	schedules            []scheduleItem
 	schedulesErr         error
-	archived             []panel.Agent
+	archived             []agentItem
 	archivedErr          error
 	archivedWorkflows    []panel.Workflow
 	archivedWorkflowsErr error
@@ -95,7 +95,7 @@ func (m model) refreshCmd() tea.Cmd {
 		if withArchive {
 			wg.Go(func() {
 				listed, err := client.ListAllArchivedAgents(ctx, clients.agents)
-				result.archived, result.archivedErr = archivedAgentsFrom(listed), err
+				result.archived, result.archivedErr = agentItemsFrom(listed), err
 			})
 			wg.Go(func() {
 				listed, err := client.ListAllArchivedWorkflows(ctx, clients.workflows)

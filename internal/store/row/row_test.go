@@ -182,7 +182,7 @@ func TestLocalReview(t *testing.T) {
 
 // TestPullRequest pins which pull request a row stands for: the newest unfinished one on the
 // agent's branch beats a newer finished one, a branch holding only finished ones gets the newest
-// of those, a fork's and the base branch's are left out, and an archived agent stands for none.
+// of those, a fork's and the base branch's are left out, and an archived agent keeps its own.
 func TestPullRequest(t *testing.T) {
 	st := storetest.Open(t)
 	ctx := t.Context()
@@ -235,7 +235,9 @@ func TestPullRequest(t *testing.T) {
 
 	assert.Nil(t, rowOf(t, st, none.ID).PullRequest, "a fork's pull request is not the agent's")
 	assert.Nil(t, rowOf(t, st, onMain.ID).PullRequest, "the base branch's pull requests are nobody's")
-	assert.Nil(t, rowOf(t, st, archived.ID).PullRequest)
+	kept := rowOf(t, st, archived.ID).PullRequest
+	require.NotNil(t, kept)
+	assert.Equal(t, 7, kept.Number)
 }
 
 // TestRepositoryRead pins the flag that tells an unread repository from one whose first sweep

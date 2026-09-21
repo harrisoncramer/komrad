@@ -189,12 +189,12 @@ func driftModel(t *testing.T, s screen) model {
 	// The archive draws the keys that act on a row only while it is holding one, so an empty
 	// archive would report every one of them as undrawn.
 	if s == screenArchive {
-		m.listing.archivedAgents = []panel.Agent{{
+		m.listing.archivedAgents = archivedItems([]panel.Agent{{
 			ID:         "a2",
 			Name:       "old",
 			WorkflowID: "w1",
 			State:      panel.StateIdle,
-		}}
+		}})
 		m.archive.cursor = 1
 	}
 

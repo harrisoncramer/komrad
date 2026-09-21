@@ -221,11 +221,11 @@ func crowdedModel(t *testing.T) model {
 				WorkflowID: "w1",
 			},
 		})
-		m.listing.archivedAgents = append(m.listing.archivedAgents, panel.Agent{
+		m.listing.archivedAgents = append(m.listing.archivedAgents, agentItem{agent: panel.Agent{
 			ID:         fmt.Sprintf("r%d", i),
 			Name:       name,
 			WorkflowID: "w1",
-		})
+		}})
 		m.listing.schedules = append(m.listing.schedules, scheduleItem{
 			schedule: panel.Schedule{ID: fmt.Sprintf("s%d", i), Name: name},
 		})

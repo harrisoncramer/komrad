@@ -46,6 +46,40 @@ func TestNoticesSpellOutTheMarksOnTheRow(t *testing.T) {
 	assert.NotContains(t, m.detailsView(), worktreeRemovedNotice, "a mark the row is not carrying says nothing")
 }
 
+// TestArchivedNoticesClaimOnlyTheVerdict covers an archived row, whose tree is read no more:
+// the review notice names the verdict as of the archiving rather than the tree as it stands.
+func TestArchivedNoticesClaimOnlyTheVerdict(t *testing.T) {
+	tests := []struct {
+		name    string
+		verdict agentv1.ReviewVerdict
+		want    string
+	}{
+		{
+			name:    "changes requested were still owed",
+			verdict: agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED,
+			want:    archivedChangesOwedNotice,
+		},
+		{
+			name:    "an approval stood",
+			verdict: agentv1.ReviewVerdict_REVIEW_VERDICT_APPROVED,
+			want:    archivedApprovedNotice,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			item := agentItem{
+				agent:        panel.Agent{ArchivedAt: xptr.Ptr(time.Now())},
+				localVerdict: tt.verdict,
+				localTree:    git.StandingMoved,
+			}
+
+			texts := xslice.Map(agentNotices(noticeRow(item)), func(n notice) string { return n.text })
+			assert.Equal(t, []string{tt.want}, texts)
+		})
+	}
+}
+
 // TestNoticesCoverEveryOptionalMark walks the marks one at a time.
 func TestNoticesCoverEveryOptionalMark(t *testing.T) {
 	tests := []struct {
@@ -148,23 +182,6 @@ func TestNoticesWearTheGlyphTheRowDraws(t *testing.T) {
 		assert.Equal(t, view.Spell(cell.Glyph), n.icon, "the glyph beside %q", n.text)
 		assert.Equal(t, cell.Tone, n.tone, "the tone beside %q", n.text)
 	}
-}
-
-// TestArchivedNoticesAreOnlyTheFailures covers the archive, whose rows draw one mark of their
-// own.
-func TestArchivedNoticesAreOnlyTheFailures(t *testing.T) {
-	agent := panel.Agent{
-		State:      panel.StateFailedToCleanup,
-		ScheduleID: xptr.Ptr("s1"),
-		Hidden:     true,
-	}
-
-	failed := failureNotices(noticeRow(agentItem{agent: agent}))
-	require.Len(t, failed, 1)
-	assert.Equal(t, failedToCleanupNotice, failed[0].text)
-	assert.Equal(t, view.Spell(view.GlyphBusy), failed[0].icon, "and wears the bar the row draws for it")
-
-	assert.Empty(t, failureNotices(noticeRow(agentItem{agent: panel.Agent{}})))
 }
 
 // TestNoticesKeepTheRecordsHeight covers the share the record is allowed: the notices take their

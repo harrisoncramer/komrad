@@ -59,7 +59,7 @@ func worktreesModel() model {
 					alive: true,
 				},
 			},
-			archivedAgents: []panel.Agent{
+			archivedAgents: archivedItems([]panel.Agent{
 				{
 					ID:         "archived",
 					Name:       "review-column",
@@ -76,7 +76,7 @@ func worktreesModel() model {
 					ArchivedAt: &archived,
 					Cwd:        "/trees/admin",
 				},
-			},
+			}),
 		},
 		worktrees: worktreesState{items: worktreeFixture()},
 	}

@@ -14,13 +14,6 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-// archiveDropped are the three columns the archive gives up.
-var archiveDropped = view.Columns{
-	Repo:   true,
-	Review: true,
-	Forge:  true,
-}
-
 type archiveState struct {
 	sort tabsState
 	rows []agentRow
@@ -35,6 +28,7 @@ func archiveList() listSpec[agentRow] {
 		refs:   refsOf,
 		header: "folder",
 		placed: (*model).stageArchive,
+		moved:  model.stageArchiveThenRead,
 		quit:   func(k config.Keybindings) []string { return k.Archive.Quit },
 		back:   func(k config.Keybindings) []string { return k.Archive.Back },
 	}
@@ -82,12 +76,10 @@ func (m model) archiveRows() []agentRow {
 }
 
 func (m model) buildArchiveRows() []agentRow {
-	items := xslice.Map(m.listing.archivedAgents, func(agent panel.Agent) agentItem { return agentItem{agent: agent} })
-
 	// The archive draws an archived orchestrator as a row of its own.
 	rows := treeRows(treeRowsParams{
 		workflows:  m.archiveHeaders(),
-		agents:     sortedAgents(items, archiveSorts, archiveTabs().order(m.archive.sort)),
+		agents:     sortedAgents(m.listing.archivedAgents, archiveSorts, archiveTabs().order(m.archive.sort)),
 		showHidden: true,
 		flat:       m.archive.sort.flat,
 	})
@@ -96,7 +88,7 @@ func (m model) buildArchiveRows() []agentRow {
 }
 
 func (m model) archiveHeaders() []panel.Workflow {
-	holding := xslice.KeyBy(m.listing.archivedAgents, func(agent panel.Agent) string { return agent.WorkflowID })
+	holding := xslice.KeyBy(m.listing.archivedAgents, func(item agentItem) string { return item.agent.WorkflowID })
 	archived := xslice.KeyBy(m.listing.archivedWorkflows, func(w panel.Workflow) string { return w.ID })
 
 	headers := slices.Clone(m.listing.archivedWorkflows)
@@ -114,22 +106,28 @@ func (m model) archiveHeaders() []panel.Workflow {
 	return headers
 }
 
-func archivedByID(agents []panel.Agent) map[string]panel.Agent {
-	return xslice.KeyBy(agents, func(agent panel.Agent) string { return agent.ID })
+func archivedByID(items []agentItem) map[string]agentItem {
+	return xslice.KeyBy(items, func(item agentItem) string { return item.agent.ID })
 }
 
 func (m model) archivedAgent(id string) (panel.Agent, bool) {
-	for _, agent := range m.listing.archivedAgents {
-		if agent.ID == id {
-			return agent, true
+	for _, item := range m.listing.archivedAgents {
+		if item.agent.ID == id {
+			return item.agent, true
 		}
 	}
 
 	return panel.Agent{}, false
 }
 
-func (m *model) applyArchive(agents []panel.Agent, workflows []panel.Workflow, selected string) {
+// archivedAgents is the archive listing as bare rows.
+func (m model) archivedAgents() []panel.Agent {
+	return xslice.Map(m.listing.archivedAgents, func(item agentItem) panel.Agent { return item.agent })
+}
+
+func (m *model) applyArchive(agents []agentItem, workflows []panel.Workflow, selected string) {
 	m.listing.archivedAgents, m.listing.archivedWorkflows = agents, workflows
+	m.forgetUnlistedPullRequests()
 
 	rows := m.archiveRows()
 	m.archive.selected = m.archive.selected.pruned(refsOf(rows))
@@ -228,7 +226,7 @@ func (m model) deleteFromArchiveConfirm(agents []panel.Agent) (tea.Model, tea.Cm
 		return m, nil
 	}
 
-	form, confirmed := deleteAgentsForm(agents, unnamedChildren(m.listing.archivedAgents, agents), formKeys())
+	form, confirmed := deleteAgentsForm(agents, unnamedChildren(m.archivedAgents(), agents), formKeys())
 
 	return m, m.openForm(formState{
 		kind:   formArchiveDelete,
@@ -311,8 +309,8 @@ func (m model) archiveDetails() details {
 
 	return details{
 		id:      r.item.agent.ID,
-		notices: failureNotices(r),
-		fields:  archiveFields(r.item.agent, m.workflowName(r.item.agent.WorkflowID), m.scheduleName(r.item.agent)),
+		notices: agentNotices(r),
+		fields:  m.agentDetailFields(r.item),
 	}
 }
 
@@ -320,6 +318,14 @@ func (m model) archiveDetails() details {
 func (m *model) stageArchive() {
 	m.placeColumn(screenArchive, archiveList().hovered(*m))
 	m.stageInfo()
+}
+
+// stageArchiveThenRead stages the row at once and asks for what its record reads after the
+// cursor has come to rest.
+func (m model) stageArchiveThenRead() (model, tea.Cmd) {
+	m.stageArchive()
+
+	return m.deferStaging()
 }
 
 // archiveDoc is the markdown drawn beside the list for the row the cursor is on.
@@ -345,7 +351,7 @@ func (m model) archiveDocument(agent panel.Agent) string {
 }
 
 func (m model) archivedCount(workflowID string) int {
-	return xslice.Count(m.listing.archivedAgents, func(agent panel.Agent) bool { return agent.WorkflowID == workflowID })
+	return xslice.Count(m.listing.archivedAgents, func(item agentItem) bool { return item.agent.WorkflowID == workflowID })
 }
 
 // archiveColumn is the archived agent's own notes drawn beside the list.
@@ -387,7 +393,6 @@ func (m model) archiveSnapshot(pane int) view.Snapshot {
 		showHidden:    true,
 		flat:          m.archive.sort.flat,
 		pane:          pane,
-		dropped:       archiveDropped,
 	})
 }
 

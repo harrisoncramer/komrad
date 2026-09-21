@@ -499,11 +499,11 @@ func TestJumpToSearchHit(t *testing.T) {
 			m.screen = screenSearch
 			m.search = searchState{query: "ledger", turns: []searchHit{tt.hit}}
 			m.listing.agents[1].agent.Hidden = tt.hidden
-			m.listing.archivedAgents = []panel.Agent{{
+			m.listing.archivedAgents = archivedItems([]panel.Agent{{
 				ID:         "a3",
 				Name:       "old-work",
 				WorkflowID: "w1",
-			}}
+			}})
 
 			updated, _ := m.route(keyMsg("enter"))
 			got, ok := updated.(model)
@@ -787,7 +787,7 @@ func TestSearchRowCarriesTheAgent(t *testing.T) {
 			unreadMail: true,
 		},
 	}
-	m.listing.archivedAgents = []panel.Agent{
+	m.listing.archivedAgents = archivedItems([]panel.Agent{
 		{
 			ID:         "a2",
 			Name:       "payouts",
@@ -795,7 +795,7 @@ func TestSearchRowCarriesTheAgent(t *testing.T) {
 			State:      panel.StateIdle,
 			ArchivedAt: xptr.Ptr(time.Now()),
 		},
-	}
+	})
 
 	m.applySearch(searchResult{
 		query: "ledger",
@@ -857,7 +857,7 @@ func TestSearchTellsAHiddenHitFromAnArchivedOne(t *testing.T) {
 			State:      panel.StateIdle,
 		}},
 	}
-	m.listing.archivedAgents = []panel.Agent{
+	m.listing.archivedAgents = archivedItems([]panel.Agent{
 		{
 			ID:         "a3",
 			Name:       "put-away",
@@ -865,7 +865,7 @@ func TestSearchTellsAHiddenHitFromAnArchivedOne(t *testing.T) {
 			Hidden:     true,
 			ArchivedAt: xptr.Ptr(time.Now()),
 		},
-	}
+	})
 	m.applySearch(searchResult{
 		query: "ledger",
 		hits: []searchHit{
@@ -970,7 +970,7 @@ func TestArchivedAgentsSayTheSameOnBothScreens(t *testing.T) {
 			m := filterModel()
 			m.screen = screenSearch
 			m.search = searchState{query: "payouts"}
-			m.listing.archivedAgents = []panel.Agent{agent}
+			m.listing.archivedAgents = archivedItems([]panel.Agent{agent})
 
 			archive := view.StatusCell(snapshotRow(agentRow{item: agentItem{agent: agent}}, snapshotParams{}))
 			search := view.StatusCell(m.searchRow(searchAgent{
@@ -1013,7 +1013,7 @@ func TestArchivedHitGreysOnWhatTheServerSaid(t *testing.T) {
 			m := filterModel()
 			m.screen = screenSearch
 			m.search = searchState{query: "payouts"}
-			m.listing.archivedAgents = tt.listed
+			m.listing.archivedAgents = archivedItems(tt.listed)
 
 			row := m.searchRow(searchAgent{
 				id:       "a2",
@@ -1042,7 +1042,7 @@ func TestArchivedSearchRowKeepsTheDeleteThatFailed(t *testing.T) {
 	m := filterModel()
 	m.screen = screenSearch
 	m.search = searchState{query: "stuck"}
-	m.listing.archivedAgents = []panel.Agent{agent}
+	m.listing.archivedAgents = archivedItems([]panel.Agent{agent})
 
 	cell := view.StatusCell(m.searchRow(searchAgent{
 		id:       "a2",
@@ -1213,11 +1213,11 @@ func TestJumpLeavesTheSearchBehind(t *testing.T) {
 			m.screen = screenSearch
 			m.listing.agents[1].alive = true
 			m.listing.agents[1].agent.Pane = "%9"
-			m.listing.archivedAgents = []panel.Agent{{
+			m.listing.archivedAgents = archivedItems([]panel.Agent{{
 				ID:         "a3",
 				Name:       "old-work",
 				WorkflowID: "w1",
-			}}
+			}})
 			m.search = searchState{query: "ledger", turns: []searchHit{tt.hit}}
 
 			updated, _ := m.route(keyMsg("enter"))
@@ -1319,11 +1319,11 @@ func TestSearchNamesStandFirst(t *testing.T) {
 	m := filterModel()
 	m.screen = screenSearch
 	m.width = 80
-	m.listing.archivedAgents = []panel.Agent{{
+	m.listing.archivedAgents = archivedItems([]panel.Agent{{
 		ID:         "a3",
 		Name:       "billing-old",
 		WorkflowID: "w1",
-	}}
+	}})
 	m.search = searchState{query: "BILL"}
 
 	m.applySearch(searchResult{

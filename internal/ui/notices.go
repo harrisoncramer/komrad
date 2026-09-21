@@ -37,6 +37,8 @@ const (
 	localApprovedLandedMovedNotice = "approved and landed, but there is new work since that nobody has read"
 	localChangesLandedNotice       = "changes were asked for, but that tree has landed as it was"
 	localChangesLandedMovedNotice  = "changes were asked for on a tree that has since landed, and there is new work since that nobody has read"
+	archivedApprovedNotice         = "approved when it was archived"
+	archivedChangesOwedNotice      = "changes were asked for and still owed when it was archived"
 )
 
 var (
@@ -64,6 +66,12 @@ var (
 		view.ReviewChangesLanded:       localChangesLandedNotice,
 		view.ReviewChangesLandedMoved:  localChangesLandedMovedNotice,
 	}
+
+	// archivedReviewSaid is what the review column says on an archived row.
+	archivedReviewSaid = map[view.Review]string{
+		view.ReviewApproved:         archivedApprovedNotice,
+		view.ReviewChangesRequested: archivedChangesOwedNotice,
+	}
 )
 
 // agentNotices orders the marks by how much each wants a person's attention, reading the row the
@@ -77,14 +85,12 @@ func agentNotices(r agentRow) []notice {
 	notices = appendCellNotice(notices, view.RepoCell(row), repoSaid[row.Repo])
 	notices = appendCellNotice(notices, view.HeldCell(row), heldNoticeText(item))
 	notices = appendCellNotice(notices, view.HiddenCell(row), hiddenNotice)
+
+	if row.Archived {
+		return appendCellNotice(notices, view.ReviewCell(row), archivedReviewSaid[row.Review])
+	}
+
 	return appendCellNotice(notices, view.ReviewCell(row), reviewSaid[row.Review])
-}
-
-// failureNotices is the whole of what an archived row has to say.
-func failureNotices(r agentRow) []notice {
-	row := snapshotRow(r, snapshotParams{})
-
-	return appendCellNotice(nil, view.StatusCell(row), failureSaid[displayState(r.item)])
 }
 
 // appendCellNotice says in words what a cell of the row stands for, taking the glyph and the tone

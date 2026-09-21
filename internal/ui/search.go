@@ -9,7 +9,6 @@ import (
 	"weave/config"
 	"weave/internal/client"
 	"weave/internal/ui/paint"
-	"weave/internal/ui/panel"
 	"weave/internal/view"
 	"weave/lib/xslice"
 	agentv1 "weave/proto/gen/agent/v1"
@@ -270,11 +269,11 @@ func (m model) buildSearchAgents() []searchAgent {
 			add(searchAgent{id: item.agent.ID, name: item.agent.Name})
 		}
 	}
-	for _, agent := range m.listing.archivedAgents {
-		if doesNameSay(agent.Name, query) {
+	for _, item := range m.listing.archivedAgents {
+		if doesNameSay(item.agent.Name, query) {
 			add(searchAgent{
-				id:       agent.ID,
-				name:     agent.Name,
+				id:       item.agent.ID,
+				name:     item.agent.Name,
 				archived: true,
 			})
 		}
@@ -473,7 +472,7 @@ var searchDropped = view.Columns{
 }
 
 // searchRow reads one agent the search found into the row the agents list draws.
-func (m model) searchRow(agent searchAgent, archived map[string]panel.Agent) view.Row {
+func (m model) searchRow(agent searchAgent, archived map[string]agentItem) view.Row {
 	row := view.Row{
 		Key:     agent.id,
 		Kind:    view.KindResult,
@@ -496,11 +495,11 @@ func (m model) searchRow(agent searchAgent, archived map[string]panel.Agent) vie
 }
 
 // archivedSearchRow is a result on an archived agent.
-func archivedSearchRow(row view.Row, id string, archived map[string]panel.Agent) view.Row {
+func archivedSearchRow(row view.Row, id string, archived map[string]agentItem) view.Row {
 	row.Process = view.ProcessStopped
 
-	if agent, ok := archived[id]; ok {
-		row = agentFacts(row, agentItem{agent: agent})
+	if item, ok := archived[id]; ok {
+		row = agentFacts(row, item)
 	}
 
 	row.Archived = true
