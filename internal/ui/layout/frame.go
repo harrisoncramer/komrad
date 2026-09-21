@@ -438,8 +438,7 @@ func (f *Frame) ReleaseGuest(pane string) {
 	}
 }
 
-// Vacate gives back the panes the frame took, returning a guest to its own window and killing
-// the frame's own, so the window holds nothing but the sidebar.
+// Vacate returns the guest to its own window and kills the frame's own panes.
 func (f *Frame) Vacate() {
 	f.restoreGuest()
 	f.abandonStage()

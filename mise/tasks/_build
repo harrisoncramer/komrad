@@ -53,6 +53,10 @@ bind_panel_key() {
 	local weave="$1"
 	local engine
 
+	if [ -n "${WEAVE_TMUX_SOCKET:-}" ] || [ "$(git rev-parse --git-common-dir)" != ".git" ]; then
+		return 0
+	fi
+
 	"$weave" tmux --if-running
 
 	for engine in "$HOME"/.config/weave/engines/*.toml; do

@@ -268,9 +268,9 @@ func (m model) routeAsyncMessage(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
 		reviewing := next.refreshReviewCmd(msg.at)
 		next, edited := next.reconcileEditor()
 
-		next, leaving := next.noticeRebuild()
-		if leaving != nil {
-			return next, leaving, true
+		next = next.noticeRebuild()
+		if next.fatal() != nil {
+			return next, nil, true
 		}
 
 		return next, tea.Batch(next.refreshCmd(), refreshTick(), reviewing, readRuns, edited), true

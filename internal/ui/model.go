@@ -196,7 +196,6 @@ type model struct {
 	browser         browser.Opener
 	harnessFrames   harnessFrameReader
 	binary          BinaryWatcher
-	rebuilt         bool
 	frame           *layout.Frame
 	settings        PanelSettings
 	unreachable     error

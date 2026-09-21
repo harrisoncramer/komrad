@@ -33,8 +33,7 @@ func watchFile(path string) *executableWatch {
 	}
 }
 
-// IsReplaced reports whether the file no longer matches what was recorded, a file that has gone
-// counting as replaced.
+// IsReplaced reports whether the file no longer matches what was recorded.
 func (w *executableWatch) IsReplaced() bool {
 	info, err := os.Stat(w.path)
 	if err != nil {

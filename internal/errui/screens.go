@@ -5,6 +5,9 @@ import "errors"
 // ErrEngineBuild marks a startup failure that is this binary rather than the engine it dialled.
 var ErrEngineBuild = errors.New("engine build mismatch")
 
+// ErrRebuilt marks a panel whose binary was replaced while it was running.
+var ErrRebuilt = errors.New("weave was rebuilt")
+
 type Finding struct {
 	Name   string
 	Reason string
@@ -44,6 +47,13 @@ func RenderStartupError(width int, err error, findings []Finding) string {
 		}
 	}
 
+	if errors.Is(err, ErrRebuilt) {
+		screen.Title = "weave was rebuilt"
+		screen.Body = []string{
+			"The binary this panel was started from has changed, so this panel has stopped drawing. Nothing about your agents has changed, and none of them were stopped. The panel key opens a panel from the new build.",
+		}
+	}
+
 	for _, finding := range findings {
 		screen.Details = append(screen.Details, Detail{Label: finding.Name, Value: finding.Reason})
 		if finding.Fix != "" {
@@ -53,7 +63,7 @@ func RenderStartupError(width int, err error, findings []Finding) string {
 
 	screen.Details = append(screen.Details, Detail{Label: "error", Value: err.Error()})
 
-	if len(findings) == 0 {
+	if len(findings) == 0 && !errors.Is(err, ErrRebuilt) {
 		screen.Hints = append(screen.Hints, "Run weave doctor for what this machine is missing.")
 	}
 
