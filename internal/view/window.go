@@ -15,9 +15,14 @@ type WindowParams struct {
 // Window is the screenful of a list a pane holds, scrolled so the focused row is inside it and
 // carrying the counts of the rows that fall either side.
 func Window(params WindowParams) string {
-	rows := Rows(params.List, params.Palette, params.Width)
+	total := len(params.List.Lines)
+	window := paint.WindowAround(total, focusIndex(params.List), params.Lines)
+	shown := List{
+		Lines:   params.List.Lines[window.Start:window.End],
+		Columns: params.List.Columns,
+	}
 
-	return paint.RenderList(rows, focusIndex(params.List), params.Lines, params.Palette.Style(paint.ToneMuted))
+	return paint.DrawWindow(Rows(shown, params.Palette, params.Width), window, total, params.Palette.Style(paint.ToneMuted))
 }
 
 // focusIndex is the row the keyboard stands on, counted off the list as it is about to be

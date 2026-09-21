@@ -133,6 +133,96 @@ func TestRenderListKeepsCursorVisible(t *testing.T) {
 	}
 }
 
+// TestWindowAround pins which rows a pane shows of a block, which is what a caller that paints
+// only those rows rests on.
+func TestWindowAround(t *testing.T) {
+	tests := []struct {
+		name   string
+		total  int
+		cursor int
+		lines  int
+		want   Window
+	}{
+		{
+			name:   "an empty block shows nothing",
+			total:  0,
+			cursor: 0,
+			lines:  5,
+			want:   Window{},
+		},
+		{
+			name:   "a pane with no room shows nothing",
+			total:  20,
+			cursor: 3,
+			lines:  0,
+			want:   Window{},
+		},
+		{
+			name:   "a pane with room for one row spends it on the hovered row and counts nothing",
+			total:  20,
+			cursor: 7,
+			lines:  1,
+			want:   Window{Start: 7, End: 8},
+		},
+		{
+			name:   "a block that fits is shown whole",
+			total:  4,
+			cursor: 2,
+			lines:  5,
+			want:   Window{End: 4},
+		},
+		{
+			name:   "an unbounded pane shows the whole block",
+			total:  20,
+			cursor: 2,
+			lines:  Unbounded,
+			want:   Window{End: 20},
+		},
+		{
+			name:   "in the middle the cursor sits centred with a row given up to each count",
+			total:  20,
+			cursor: 10,
+			lines:  5,
+			want: Window{
+				Start:  9,
+				End:    12,
+				Marked: true,
+			},
+		},
+		{
+			name:   "at the bottom the window is pinned there",
+			total:  20,
+			cursor: 19,
+			lines:  5,
+			want: Window{
+				Start:  16,
+				End:    20,
+				Marked: true,
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, WindowAround(tt.total, tt.cursor, tt.lines))
+		})
+	}
+}
+
+// TestDrawWindowIsHandedOnlyTheRowsItShows pins that the counts either side of a window are
+// read off the window rather than off the rows, so a caller can paint the shown rows alone.
+func TestDrawWindowIsHandedOnlyTheRowsItShows(t *testing.T) {
+	window := Window{
+		Start:  9,
+		End:    12,
+		Marked: true,
+	}
+
+	got := lines(DrawWindow(numbered(20)[window.Start:window.End], window, 20, dim))
+
+	assert.Equal(t, []string{"  ↑ 9 more", "row9", "row10", "row11", "  ↓ 8 more"}, got)
+}
+
 // TestWindowRowsNeverOutgrowsThePane pins the one bound every caller of the marker arithmetic
 // rests on.
 func TestWindowRowsNeverOutgrowsThePane(t *testing.T) {

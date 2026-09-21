@@ -27,6 +27,7 @@ type archiveState struct {
 	agents    []agentstore.Agent
 	workflows []workflowstore.Workflow
 	sort      tabsState
+	rows      []agentRow
 	// top is how far the document beside the list has been scrolled, held here rather than
 	rowCursor
 }
@@ -73,6 +74,14 @@ var archiveSorts = []sortColumn[agentItem]{
 }
 
 func (m model) archiveRows() []agentRow {
+	if m.archive.rows != nil {
+		return m.archive.rows
+	}
+
+	return m.buildArchiveRows()
+}
+
+func (m model) buildArchiveRows() []agentRow {
 	items := xslice.Map(m.archive.agents, func(agent agentstore.Agent) agentItem { return agentItem{agent: agent} })
 
 	// The archive draws an archived orchestrator as a row of its own.
@@ -103,6 +112,10 @@ func (m model) archiveHeaders() []workflowstore.Workflow {
 	slices.SortStableFunc(headers, workflowstore.ByName)
 
 	return headers
+}
+
+func archivedByID(agents []agentstore.Agent) map[string]agentstore.Agent {
+	return xslice.KeyBy(agents, func(agent agentstore.Agent) string { return agent.ID })
 }
 
 func (m model) archivedAgent(id string) (agentstore.Agent, bool) {
@@ -402,6 +415,8 @@ func archiveColumn() columnSpec {
 }
 
 func (m model) archiveView() string {
+	m.archive.rows = m.buildArchiveRows()
+
 	return m.columnView(model.archiveListView)
 }
 

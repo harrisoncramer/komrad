@@ -17,6 +17,7 @@ import (
 type scheduleState struct {
 	items  []scheduleItem
 	cursor int
+	rows   []scheduleItem
 }
 
 type scheduleItem struct {
@@ -51,6 +52,14 @@ func (m model) jumpScheduleCursor(idx int) model {
 }
 
 func (m model) scheduleRows() []scheduleItem {
+	if m.schedules.rows != nil {
+		return m.schedules.rows
+	}
+
+	return m.buildScheduleRows()
+}
+
+func (m model) buildScheduleRows() []scheduleItem {
 	return narrowed(m.filter, narrowedParams[scheduleItem]{
 		rows:  m.schedules.items,
 		depth: func(scheduleItem) int { return 0 },
@@ -261,6 +270,8 @@ func (m *model) landScheduleCursor(rows []scheduleItem, idx int) {
 }
 
 func (m model) schedulesView() string {
+	m.schedules.rows = m.buildScheduleRows()
+
 	return m.columnView(model.schedulesListView)
 }
 

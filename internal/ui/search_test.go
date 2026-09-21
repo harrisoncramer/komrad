@@ -947,7 +947,7 @@ func TestSearchRowSaysWhatTheAgentsListSays(t *testing.T) {
 	m.search = searchState{query: "ledger"}
 	m.listing.agents = []agentItem{item}
 
-	hit := m.searchRow(searchAgent{id: "a1", name: "ledger"})
+	hit := m.searchRow(searchAgent{id: "a1", name: "ledger"}, nil)
 	tree := snapshotRow(agentRow{item: item}, snapshotParams{})
 
 	assert.Equal(t, treeOwned(tree), treeOwned(hit))
@@ -982,7 +982,7 @@ func TestArchivedAgentsSayTheSameOnBothScreens(t *testing.T) {
 				id:       "a2",
 				name:     "payouts",
 				archived: true,
-			}))
+			}, archivedByID(m.archive.agents)))
 
 			assert.Equal(t, archive, search, "the two screens draw one agent the same")
 		})
@@ -1024,7 +1024,7 @@ func TestArchivedHitGreysOnWhatTheServerSaid(t *testing.T) {
 				id:       "a2",
 				name:     "payouts",
 				archived: true,
-			})
+			}, archivedByID(m.archive.agents))
 
 			assert.True(t, row.Archived, "the server said it is archived, so it greys")
 			assert.Equal(t, view.ProcessStopped, row.Process, "and it is over, whatever else is unknown")
@@ -1053,7 +1053,7 @@ func TestArchivedSearchRowKeepsTheDeleteThatFailed(t *testing.T) {
 		id:       "a2",
 		name:     "stuck",
 		archived: true,
-	}))
+	}, archivedByID(m.archive.agents)))
 
 	assert.Equal(t, view.GlyphBusy, cell.Glyph, "a failed delete is not quietened by being archived")
 	assert.Equal(t, paint.ToneDanger, cell.Tone)
